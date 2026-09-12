@@ -16,7 +16,6 @@ import {
   Mesh,
 } from 'three';
 import { AssetManagerService } from './asset-manager.service';
-import type { ModelTint } from '../../configs/tower-types.config';
 import { FramePacer } from '../../utils/frame-pacer';
 
 export interface PreviewConfig {
@@ -31,7 +30,6 @@ export interface PreviewConfig {
   lightIntensity?: number;
   groundModel?: boolean; // If true, model stands on ground (y=0) instead of centered
   offsetY?: number; // Vertical offset for camera target (shifts view up/down)
-  tint?: ModelTint; // Recolours the model, e.g. a tower standing in with another tower's model
   /**
    * Whether the host currently hides the canvas (e.g. its panel is under
    * `display: none`). Read every frame; while true the preview keeps
@@ -187,7 +185,6 @@ export class ModelPreviewService {
       // Clone the model - use preserveSkeleton for animated models
       const model = this.assetManager.cloneModel(modelUrl, {
         preserveSkeleton: needsAnimation,
-        tint: preview.config.tint,
       });
       if (!model) {
         console.error(`[ModelPreview] Failed to clone model: ${modelUrl}`);

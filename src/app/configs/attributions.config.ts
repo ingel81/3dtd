@@ -93,6 +93,12 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
         sourceUrl: 'https://sketchfab.com/3d-models/demon-dragon-full-texture-19035a72cdcb4abfa2c161de32823e6b',
       },
+      {
+        name: 'Tower Round Crystals (Chaos Tower)',
+        author: 'Kenney',
+        license: 'CC0',
+        sourceUrl: 'https://kenney.nl/assets/tower-defense-kit',
+      },
     ],
   },
   {

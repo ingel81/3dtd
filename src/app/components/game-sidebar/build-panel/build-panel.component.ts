@@ -234,7 +234,6 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
         cameraDistance: 20,
         cameraAngle: Math.PI / 5,
         lightIntensity: 1.2,
-        tint: towerConfig.modelTint,
         isHidden: this.isBuildPanelHidden,
       }
     );

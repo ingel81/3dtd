@@ -40,7 +40,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Tentacle | **melee** | physical | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering (`meleeStrikeDuration: 250`) |
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
-| Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. **Platzhalter-Modell:** Poison-Modell mit `modelTint` |
+| Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
 | Research Center | **passive** | — | 0 | 0 | 0 | 75 | Kein Combat — siehe Research-System |
 
 ---
@@ -114,7 +114,7 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `shootHeight` | number | - | Schussursprung-Höhe (LOS) |
 | `rotationY` | number | 0 | Y-Rotation in Radians (visuell) |
 | `turretBarrelOffset` | number | 0 | Barrel-Orientierung im Model Space |
-| `modelTint` | ModelTint | - | Platzhalter-Look für einen Tower, der das Modell eines anderen benutzt: multipliziert alle Materialfarben mit `color` und setzt `emissive`/`emissiveIntensity` (Welt und Baumenü-Vorschau, Chaos) |
+| `turretNode` | string | - | Name des Nodes, der sich zum Ziel dreht, wenn das Modell weder `turret_top` noch `tower_top`/`top` hat (Chaos: `crystal`) |
 | `damage` | number | - | Schaden pro Schuss (0 bei beam) |
 | `range` | number | - | Erkennungsreichweite in Metern, bei Beam-Towern zugleich die Kegellänge |
 | `fireRate` | number | - | Schüsse pro Sekunde (0 bei beam) |
@@ -181,14 +181,16 @@ case 'new-visual':
 
 ### Voraussetzungen
 
-Das 3D-Modell muss ein benanntes Mesh enthalten:
-- **Name:** `turret_top`
+Das 3D-Modell braucht einen benannten Node, der sich dreht:
+- **Name:** `turret_top` (erkannt werden auch `tower_top` und `top`)
+- Heißt der Teil anders, benennt ihn die Tower-Config über `turretNode`, die GLB bleibt
+  unverändert (Chaos: `turretNode: 'crystal'`). Ein Test prüft, dass der Node im Modell existiert.
 - Dieses Teil rotiert automatisch in Richtung der Feinde
 
 ### Wie es funktioniert
 
 1. **Model-Struktur:** Das Modell besteht aus statischer Basis und rotierendem Teil
-2. **Mesh-Erkennung:** Der Renderer findet `turret_top` automatisch beim Laden
+2. **Mesh-Erkennung:** Der Renderer findet `turret_top` (oder den `turretNode` der Config) beim Laden
 3. **Rotation:** `updateRotation()` dreht nur den Turret-Teil
 
 ### Koordinatensystem-Konvertierung
@@ -585,7 +587,7 @@ fire: {
 - [ ] Bei `chain`: `maxJumps`, `chainFalloff`, `jumpRange` gesetzt
 - [ ] Sound-Datei in `/public/assets/sounds/` (optional)
 - [ ] Sound in `PROJECTILE_SOUNDS` registriert (optional)
-- [ ] Bei rotierendem Turret: `turret_top` Mesh im Model benannt
+- [ ] Bei rotierendem Turret: `turret_top` Mesh im Model benannt, oder `turretNode` in der Config gesetzt
 - [ ] Bei rotierendem Turret: `turretBarrelOffset` für Barrel-Orientierung gesetzt
 - [ ] Bei Animationen: `hasAnimations` und ggf. `animationPingPong` gesetzt
 - [ ] Reihenfolge in `TOWER_TYPES` nach Wunsch angepasst

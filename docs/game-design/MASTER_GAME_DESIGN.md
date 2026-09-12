@@ -230,7 +230,7 @@ unverändert. Der Test prüft beides (`damage-calculator.spec.ts`).
 
   Die Stärke ist, dass eine gemischte Welle (`chaos_wave`, `armor_gauntlet`) keine Lücke findet, nicht die Menge. Der Test `tower-types.config.spec.ts` hält Preis und DPS pro Gold fest.
 - **Upgrades:** Damage 1,05, Fire Rate 1,04, L25 ×5,35 wie Archer und Lightning (§3.2).
-- **Platzhalter-Modell:** Es gibt noch kein Chaos-Modell. Bis eines kommt, steht das Poison-Modell schwarz-violett getönt (`modelTint`) im Spiel, Werte für Maße und Schusshöhe von dort. Der Sound ist der Magic-Cast.
+- **Modell:** Kenney „tower-round-crystals“ (CC0, Tower Defense Kit). Der mittlere Kristall dreht sich zum Ziel (`turretNode`), aus ihm kommt der Orb. Der Sound ist vorerst der Magic-Cast.
 - **Wave-Director:** zählt als Anti-Air und als Anti-Ethereal (Ethereal-Multiplikator 1,0 erreicht die Schwelle von `isAntiEtherealTower`).
 
 ---
