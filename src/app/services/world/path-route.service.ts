@@ -8,10 +8,9 @@ import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import { StreetEdgeIndex } from '../../utils/route-ways';
 import {
-  CLEARANCE_RAY_HEIGHT_M,
-  CLEARANCE_STATION_SPACING_M,
   CorridorPiece,
   clearancePieces,
+  corridorConfig,
   estimateStreetWidth,
   routeHalfWidths,
   segmentHalfWidth,
@@ -654,7 +653,7 @@ export class PathAndRouteService {
         const length = Math.hypot(dx, dz);
         if (length < 0.01) continue;
 
-        const count = Math.max(1, Math.round(length / CLEARANCE_STATION_SPACING_M));
+        const count = Math.max(1, Math.round(length / corridorConfig.stationSpacing));
         const clearances = known ? [...known.clearances] : new Array<number>(count).fill(NaN);
         let tried = 0;
         let measured = 0;
@@ -663,7 +662,7 @@ export class PathAndRouteService {
           tried++;
           const t = (k + 0.5) / count;
           const clearance = engine.measureStreetClearance(
-            start.x + dx * t, start.z + dz * t, -dz, dx, CLEARANCE_RAY_HEIGHT_M, halfWidths[i], onBridge[i],
+            start.x + dx * t, start.z + dz * t, -dz, dx, corridorConfig.rayHeight, halfWidths[i], onBridge[i],
           );
           if (clearance === null) continue;
           clearances[k] = clearance;

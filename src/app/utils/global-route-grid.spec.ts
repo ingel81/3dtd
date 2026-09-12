@@ -3,7 +3,7 @@ import { GlobalRouteGrid } from './global-route-grid';
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
-import { CORRIDOR_MIN_HALF_WIDTH_M, lateralLimit } from './route-corridor';
+import { corridorConfig, lateralLimit } from './route-corridor';
 
 // Stand-in for the cubemap: a wall at 10 m, so a cell's visibility follows
 // its height. Targets below it are visible, targets above it are not.
@@ -297,10 +297,10 @@ describe('GlobalRouteGrid corridor width', () => {
 
   it('keeps two cells across the narrowest corridor', () => {
     // Centre line on a cell border, then through cell centres.
-    grid.generateFromRoutes([[at(0, 0, CORRIDOR_MIN_HALF_WIDTH_M), at(40, 0)]]);
+    grid.generateFromRoutes([[at(0, 0, corridorConfig.minHalfWidth), at(40, 0)]]);
     expect(cellsAcross(10)).toBe(2);
 
-    grid.generateFromRoutes([[at(0, 1, CORRIDOR_MIN_HALF_WIDTH_M), at(40, 1)]]);
+    grid.generateFromRoutes([[at(0, 1, corridorConfig.minHalfWidth), at(40, 1)]]);
     expect(cellsAcross(10)).toBe(3);
   });
 
@@ -359,7 +359,7 @@ describe('GlobalRouteGrid corridor width', () => {
   });
 
   it('puts every point an enemy may reach into a cell, at any heading', () => {
-    for (const halfWidth of [CORRIDOR_MIN_HALF_WIDTH_M, 2.75, 4, 7]) {
+    for (const halfWidth of [corridorConfig.minHalfWidth, 2.75, 4, 7]) {
       for (let angle = 0; angle < Math.PI; angle += Math.PI / 13) {
         const ux = Math.cos(angle);
         const uz = Math.sin(angle);
