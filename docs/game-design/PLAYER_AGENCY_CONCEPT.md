@@ -1,7 +1,8 @@
 # Konzept: Spieler aktiver ins Geschehen einbinden
 
-**Status:** Entwurf zur Entscheidung, kein Code.
-**Stand:** 2026-09-11, Code-Stand `3338f4b`.
+**Status:** Entschieden am 2026-09-12 (Abschnitt 7), MVP noch nicht gebaut.
+**Stand:** 2026-09-11 (Abschnitte 0 bis 6, Code-Stand `3338f4b`), 2026-09-12
+(Abschnitt 7).
 **Bezug:** TODO.md, Backlog „Gameplay-Konzepte: Spieler aktiver ins Geschehen
 einbinden“.
 
@@ -310,3 +311,26 @@ Aktivität hoch, aber sie zieht den Blick vom Überblick weg.
 6. **Name und Setting.** Zombies, Mechs und Drachen in echten Städten:
    „Nuklearschlag“, „Orbitalschlag“ oder „Artillerieschlag“. Offen für den
    Menschen.
+
+---
+
+## 7. Entscheidungen (2026-09-12)
+
+Vom Nutzer über den Entscheidungsbogen getroffen (Kurzform
+`1a · 2b · 3a · 4a · 5a · 6b · 7a · 8a · 9b · 10a`):
+
+| Frage | Entscheidung |
+|---|---|
+| Name | **Nuklearschlag** |
+| Regelkreis | Fähigkeits-Kills zählen für den Leck-Regler **als Leck**: der Einsatz rettet HP und Gold, die Wellengröße bleibt unberührt (6.1 b) |
+| Nachladen | **1 Ladung, eine neue nach je 3 abgeschlossenen Wellen** (6.2) |
+| Höchstens | **1 Ladung**, kein Horten |
+| Wirkung | **60 % der Max-HP, Bosse 20 %**, matrixfrei (6.3) |
+| Radius | **25 m** |
+| Zielen | Klick, **1,5 s Vorwarnung** mit Zielmarker, Einschlag auf die **nächste Route-Zelle im Umkreis von 30 m**, sonst abgelehnt |
+| Freischaltung | Forschung: 1.000 Gold, 40 s, Voraussetzung `advanced-weaponry`, damit voraussichtlich nach dem ersten Boss (W10); keine eigene Wellensperre. Die Forschungs-ID aus Abschnitt 5 (`orbital-strike`) folgt beim Bau dem Namen |
+| Bots | **Sofort eine Bot-Strategie** (abweichend von der Empfehlung in 6.5): einsetzen, wenn viele Gegner im letzten Fünftel der Route stehen, mit neuer Bot-Aktion `use-ability`. Folge: sofern die Strategie in den bisherigen Bot-Konfigurationen aktiv ist, sind die bisherigen Baselines nicht mehr direkt vergleichbar |
+| Danach | **Held** (Stufe 1, nur auf den Gegnerrouten, unverwundbar) |
+
+Damit entspricht der MVP Abschnitt 5, ergänzt um die Bot-Strategie und die
+Leck-Buchung der Fähigkeits-Kills im `GateController`.
