@@ -136,10 +136,11 @@ export class ThreeEffectsRenderer {
    * @param lat - Latitude
    * @param lon - Longitude
    * @param height - Height (terrain height)
-   * @param size - Size of the decal (0.5-3.0 meters, default 1.0)
+   * @param size - Diameter of the round decal in meters, ±20 %
+   *   (ParticleEffectsRenderer default 2.0)
    * @returns Decal ID
    */
-  spawnBloodDecal(lat: number, lon: number, height: number, size = 1.0): string {
+  spawnBloodDecal(lat: number, lon: number, height: number, size?: number): string {
     return this.particleEffects.spawnBloodDecal(lat, lon, height, size);
   }
 
@@ -453,10 +454,11 @@ export class ThreeEffectsRenderer {
    * @param lat - Latitude
    * @param lon - Longitude
    * @param height - Terrain height
-   * @param size - Size of the decal (1.0-4.0 meters, default 2.0)
+   * @param size - Diameter of the round decal in meters, ±20 %
+   *   (ParticleEffectsRenderer default 2.8)
    * @returns Decal ID
    */
-  spawnIceDecal(lat: number, lon: number, height: number, size = 2.0): string {
+  spawnIceDecal(lat: number, lon: number, height: number, size?: number): string {
     return this.particleEffects.spawnIceDecal(lat, lon, height, size);
   }
 
