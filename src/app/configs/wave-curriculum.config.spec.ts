@@ -319,6 +319,19 @@ describe('wave-curriculum.config', () => {
       }
     });
 
+    it('W19 keeps the rat wave it replaced, the minions of its skeletons included', () => {
+      // 500 rats × 5 HP × 2.0 = 5000 HP over 25 s
+      const p = STATIC_WAVE_PROFILES[18];
+      const [g] = p.groups;
+      const skeleton = ENEMY_TYPES[g.enemyType];
+      const split = skeleton.splitOnDeath!;
+      const lineage = skeleton.baseHp + split.count * ENEMY_TYPES[split.type].baseHp;
+      const hp = g.count * lineage * g.hpMult;
+      expect(hp).toBeGreaterThan(4900);
+      expect(hp).toBeLessThanOrEqual(5000);
+      expect(g.count * p.spawnDelayMs).toBeCloseTo(25_000, -3);
+    });
+
     it('boss waves (W10/W20/W30) carry herbert + support groups', () => {
       for (const waveNum of [10, 20, 30]) {
         const p = STATIC_WAVE_PROFILES[waveNum - 1];

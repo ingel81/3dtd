@@ -347,11 +347,15 @@ export const TEMPLATES: readonly Template[] = [
     // Skeletons: unarmored like the zombie, a quarter of its HP and faster,
     // a swarm between rat_tide (5 HP) and zombie_horde. Curriculum slot W19,
     // the mega-swarm checkpoint that used to run rat_tide a second time.
+    // A kill splits each into two minions: 20 + 2 × 6 = 32 HP and three
+    // bodies per skeleton. The range is the pre-split [40, 1500] divided by
+    // that 1.6, so a wave brings the HP it did before; its top is 2820
+    // bodies, 3.3 Mio. VAT vertices against the swarm budget of 5 Mio.
     id: 'skeleton_swarm',
     name: 'Skeleton Swarm',
     description: 'A rattling swarm of skeletons.',
     enemies: [['skeleton', 1.0]],
-    countRange: [40, 1500],
+    countRange: [25, 940],
     spawnDelayRange: [15, 300],
     hpMultRange: [0.5, 5.0],
     variationRange: [0.05, 0.35],

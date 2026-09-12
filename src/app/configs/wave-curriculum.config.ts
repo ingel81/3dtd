@@ -274,8 +274,10 @@ export const STATIC_WAVE_PROFILES: readonly StaticWaveProfile[] = [
     { enemyType: 'ghost',   count: 12, hpMult: 1.5 },
   ], spawnDelayMs: 400, pattern: 'interleaved' },
   // W19 mirrors template `skeleton_swarm`: the rat wave it replaced (500 rats
-  // × 5 HP × 2.0), same count, HP per enemy and pacing; skeletons walk 6 m/s, rats 10
-  { wave: 19, groups: [{ enemyType: 'skeleton', count: 500, hpMult: 0.5 }], spawnDelayMs:   50 },     // mega-swarm
+  // × 5 HP × 2.0 = 5000 HP over 25 s). A skeleton splits into two minions,
+  // 20 + 2 × 6 HP at hpMult 1: 310 at 0.5 are 4960 HP in 930 bodies over
+  // 24.8 s. Skeletons walk 6 m/s, minions 7, rats 10
+  { wave: 19, groups: [{ enemyType: 'skeleton', count: 310, hpMult: 0.5 }], spawnDelayMs:   80 },     // mega-swarm
   // ── Late game (W20-W30): pressure phase, boss spikes ─────────────────
   // W20 BOSS 2 — Herbert with bigger support
   { wave: 20, groups: [
