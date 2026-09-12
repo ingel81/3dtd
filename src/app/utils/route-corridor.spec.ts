@@ -1,16 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
+  CorridorStations,
   corridorConfig,
   corridorHalfWidth,
   estimateStreetWidth,
+  fitCorridorPieces,
   getRouteProfile,
-  clearancePieces,
   closeShortDips,
+  cutShortBulges,
   lateralLimit,
+  resetCorridorConfig,
   routeHalfWidths,
 } from './route-corridor';
 import { METERS_PER_DEGREE_LAT } from './geo-utils';
 import type { RouteWaypoint } from '../models/game.types';
+
+afterEach(() => resetCorridorConfig());
 
 describe('estimateStreetWidth', () => {
   it('takes the width tag first', () => {
@@ -30,6 +35,11 @@ describe('estimateStreetWidth', () => {
   it('has a value for highway classes it does not list', () => {
     expect(estimateStreetWidth({ type: 'raceway' }).widthM).toBeGreaterThan(0);
   });
+
+  it('reads the table in use', () => {
+    corridorConfig.highwayWidths['residential'] = 7;
+    expect(estimateStreetWidth({ type: 'residential' }).widthM).toBe(7);
+  });
 });
 
 describe('corridorHalfWidth', () => {
@@ -37,7 +47,7 @@ describe('corridorHalfWidth', () => {
     expect(corridorHalfWidth(8)).toBe(4);
   });
 
-  it('never goes below two cells or above the old radius', () => {
+  it('never goes below two cells or above the maximum', () => {
     expect(corridorHalfWidth(2)).toBe(corridorConfig.minHalfWidth);
     expect(corridorHalfWidth(40)).toBe(corridorConfig.maxHalfWidth);
   });
@@ -72,29 +82,77 @@ describe('closeShortDips', () => {
     expect(closed[1]).toBeNaN();
     expect(closed.slice(2)).toEqual([3, 3, 3, 7]);
   });
+
+  it('bridges longer dips when the dip length is raised', () => {
+    // A 6 m van on 2 m stations covers three of them.
+    expect(closeShortDips([7, 7, 3, 3, 3, 7, 7])).toEqual([7, 7, 3, 3, 3, 7, 7]);
+    corridorConfig.dipLength = 6;
+    expect(closeShortDips([7, 7, 3, 3, 3, 7, 7])).toEqual([7, 7, 7, 7, 7, 7, 7]);
+  });
 });
 
-describe('clearancePieces', () => {
-  it('keeps the street width where the tiles leave more room', () => {
-    expect(clearancePieces(4, [7, 7, 7])).toEqual([{ t: 0, halfWidth: 4 }]);
-    // A ray without a hit reports the street half width; it must not round down.
-    expect(clearancePieces(2.75, [2.75, 2.75])).toEqual([{ t: 0, halfWidth: 2.75 }]);
+describe('cutShortBulges', () => {
+  it('cuts a bulge of up to 8 m, a driveway or a gap between houses', () => {
+    expect(cutShortBulges([3, 3, 3, 7, 7, 3, 3, 3])).toEqual([3, 3, 3, 3, 3, 3, 3, 3]);
+    expect(cutShortBulges([3, 3, 7, 7, 7, 7, 3, 3])).toEqual([3, 3, 3, 3, 3, 3, 3, 3]);
   });
 
-  it('narrows to the free space where it is less, rounded down to 0.5 m', () => {
-    expect(clearancePieces(4, [7, 7, 2.9, 2.9, 2.9, 2.9, 7, 7])).toEqual([
-      { t: 0, halfWidth: 4 },
-      { t: 2 / 8, halfWidth: 2.5 },
-      { t: 6 / 8, halfWidth: 4 },
-    ]);
+  it('keeps a longer widening at its full length', () => {
+    expect(cutShortBulges([3, 3, 7, 7, 7, 7, 7, 3, 3])).toEqual([3, 3, 7, 7, 7, 7, 7, 3, 3]);
   });
 
-  it('never goes below two cells', () => {
-    expect(clearancePieces(4, [0.4, 0.4, 0.4])).toEqual([{ t: 0, halfWidth: corridorConfig.minHalfWidth }]);
+  it('leaves unmeasured stations unknown', () => {
+    expect(cutShortBulges([3, NaN, 3, 3])[1]).toBeNaN();
+  });
+});
+
+describe('fitCorridorPieces', () => {
+  /** A segment on a street with the same free space at every station on each side. */
+  const measured = (left: number[], right: number[], fallback = 2.75, onStreet = true): CorridorStations =>
+    ({ left, right, fallback, onStreet });
+
+  it('widens each side to the free space the tiles show, up to the maximum', () => {
+    // A 5.5 m residential street: 2.75 m from OSM, but the tiles show a
+    // parking lane and a pavement on the right and front gardens on the left.
+    expect(fitCorridorPieces([measured([7, 7, 7], [5.2, 5.2, 5.2])])).toEqual([[{ t: 0, left: 7, right: 5 }]]);
+  });
+
+  it('narrows a side to the free space, rounded down, never below two cells', () => {
+    expect(fitCorridorPieces([measured([2.9, 2.9, 2.9], [0.4, 0.4, 0.4], 4)])).toEqual([[{ t: 0, left: 2.5, right: 2 }]]);
   });
 
   it('keeps the street width at stations it could not measure', () => {
-    expect(clearancePieces(4, [NaN, NaN])).toEqual([{ t: 0, halfWidth: 4 }]);
+    expect(fitCorridorPieces([measured([NaN, NaN], [NaN, NaN], 4)])).toEqual([[{ t: 0, left: 4, right: 4 }]]);
+    expect(fitCorridorPieces([{ left: [], right: [], fallback: 4, onStreet: true }])).toEqual([[{ t: 0, left: 4, right: 4 }]]);
+  });
+
+  it('lets the tiles only narrow the leg off the network', () => {
+    const offStreet = (free: number) => measured([free, free, free], [free, free, free], 2.75, false);
+    expect(fitCorridorPieces([offStreet(7)])).toEqual([[{ t: 0, left: 2.75, right: 2.75 }]]);
+    expect(fitCorridorPieces([offStreet(2.2)])).toEqual([[{ t: 0, left: 2, right: 2 }]]);
+  });
+
+  it('splits a segment where the width changes and merges equal runs', () => {
+    const left = [3, 3, 3, 3, 3, 6, 6, 6, 6, 6];
+    expect(fitCorridorPieces([measured(left, left.map(() => 4))])).toEqual([[
+      { t: 0, left: 3, right: 4 },
+      { t: 0.5, left: 6, right: 4 },
+    ]]);
+  });
+
+  it('smooths along the route, across its waypoints', () => {
+    // A van right at a waypoint: two short dips that are one.
+    const vanAtNode = fitCorridorPieces([measured([7, 7, 7, 3], [7, 7, 7, 7]), measured([3, 7, 7, 7], [7, 7, 7, 7])]);
+    expect(vanAtNode).toEqual([[{ t: 0, left: 7, right: 7 }], [{ t: 0, left: 7, right: 7 }]]);
+    // A driveway right at a waypoint.
+    const gapAtNode = fitCorridorPieces([measured([3, 3, 3, 7], [3, 3, 3, 3]), measured([7, 3, 3, 3], [3, 3, 3, 3])]);
+    expect(gapAtNode).toEqual([[{ t: 0, left: 3, right: 3 }], [{ t: 0, left: 3, right: 3 }]]);
+  });
+
+  it('follows the configured limits', () => {
+    corridorConfig.maxHalfWidth = 5;
+    corridorConfig.widthStep = 1;
+    expect(fitCorridorPieces([measured([7, 7, 7], [4.8, 4.8, 4.8])])).toEqual([[{ t: 0, left: 5, right: 4 }]]);
   });
 });
 
@@ -110,13 +168,13 @@ describe('lateralLimit', () => {
 });
 
 describe('getRouteProfile', () => {
-  /** Waypoints `metres` apart going north, with the given half widths per segment. */
-  function northbound(lengths: number[], halfWidths: (number | undefined)[]): RouteWaypoint[] {
-    const path: RouteWaypoint[] = [{ lat: 0, lon: 0, corridorHalfWidth: halfWidths[0] }];
+  /** Waypoints `metres` apart going north, half widths per segment on the right and, unless given, the same on the left. */
+  function northbound(lengths: number[], right: (number | undefined)[], left = right): RouteWaypoint[] {
+    const path: RouteWaypoint[] = [{ lat: 0, lon: 0, corridorLeft: left[0], corridorRight: right[0] }];
     let lat = 0;
     for (let i = 0; i < lengths.length; i++) {
       lat += lengths[i] / METERS_PER_DEGREE_LAT;
-      path.push({ lat, lon: 0, corridorHalfWidth: halfWidths[i + 1] });
+      path.push({ lat, lon: 0, corridorLeft: left[i + 1], corridorRight: right[i + 1] });
     }
     return path;
   }
@@ -128,7 +186,18 @@ describe('getRouteProfile', () => {
 
   it('uses the default width where the route carries none', () => {
     const profile = getRouteProfile(northbound([10], [undefined]));
-    expect(profile.segmentLimit[0]).toBe(lateralLimit(corridorConfig.defaultHalfWidth));
+    expect(profile.right.segment[0]).toBe(lateralLimit(corridorConfig.defaultHalfWidth));
+    expect(profile.left.segment[0]).toBe(lateralLimit(corridorConfig.defaultHalfWidth));
+  });
+
+  it('keeps the two sides apart', () => {
+    const profile = getRouteProfile(northbound([50, 50], [6, 6], [2, 5]));
+    expect(profile.right.segment[0]).toBe(lateralLimit(6));
+    expect(profile.left.segment[0]).toBe(lateralLimit(2));
+    expect(profile.left.segment[1]).toBe(lateralLimit(5));
+    // The narrow left start holds the left side back at the waypoint, not the right.
+    expect(profile.left.node[1]).toBe(lateralLimit(2));
+    expect(profile.right.node[1]).toBe(lateralLimit(6));
   });
 
   it('sums the segment lengths', () => {
@@ -140,17 +209,17 @@ describe('getRouteProfile', () => {
 
   it('lets a waypoint allow no more than its tighter segment', () => {
     const profile = getRouteProfile(northbound([50, 50], [6, 2]));
-    expect(profile.nodeLimit[1]).toBe(lateralLimit(2));
+    expect(profile.right.node[1]).toBe(lateralLimit(2));
   });
 
   it('tapers the wide side towards a narrowing', () => {
     // 50 m wide, then 50 m narrow: the start of the wide segment is far
     // enough away to keep its full room, the end has to meet the narrow one.
     const profile = getRouteProfile(northbound([50, 50], [6, 2]));
+    const { segment, node } = profile.right;
     const taper = profile.taper;
-    expect(profile.nodeLimit[0]).toBe(lateralLimit(6));
-    const wideAt = (s: number) =>
-      Math.min(profile.segmentLimit[0], profile.nodeLimit[0] + taper * s, profile.nodeLimit[1] + taper * (50 - s));
+    expect(node[0]).toBe(lateralLimit(6));
+    const wideAt = (s: number) => Math.min(segment[0], node[0] + taper * s, node[1] + taper * (50 - s));
     // The envelope never rises faster than the taper allows.
     for (let s = 0; s < 50; s += 0.5) {
       expect(Math.abs(wideAt(s + 0.5) - wideAt(s))).toBeLessThanOrEqual(taper * 0.5 + 1e-9);
@@ -161,7 +230,12 @@ describe('getRouteProfile', () => {
   it('carries a narrow spot across short segments', () => {
     // A 2 m segment next to a narrow one cannot recover its full width.
     const profile = getRouteProfile(northbound([50, 2, 50], [2, 6, 6]));
-    expect(profile.nodeLimit[2]).toBeCloseTo(lateralLimit(2) + profile.taper * profile.segmentLengths[1], 6);
+    expect(profile.right.node[2]).toBeCloseTo(lateralLimit(2) + profile.taper * profile.segmentLengths[1], 6);
+  });
+
+  it('builds with the taper in use', () => {
+    corridorConfig.taper = 0.25;
+    expect(getRouteProfile(northbound([10], [4])).taper).toBe(0.25);
   });
 
   it('handles paths too short to have a segment', () => {

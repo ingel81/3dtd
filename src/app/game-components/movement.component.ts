@@ -403,18 +403,21 @@ export class MovementComponent extends Component {
           this.cachedPerpValid = true;
         }
 
-        // Lateral limit here: the segment's own, or less on the taper
-        // towards a narrower stretch before or after it (route-corridor.ts).
+        // Lateral limit here, on the side the enemy walks: the segment's
+        // own, or less on the taper towards a narrower stretch before or
+        // after it (route-corridor.ts). The offset below points right of
+        // the direction of travel, a negative factor to the left.
         const profile = this.profile;
+        const side = this.lateralFactor < 0 ? profile.left : profile.right;
         const segLen = profile.segmentLengths[i];
         const s = this.progress * segLen;
-        let limit = profile.segmentLimit[i];
-        const entry = profile.nodeLimit[i] + profile.taper * s;
+        let limit = side.segment[i];
+        const entry = side.node[i] + profile.taper * s;
         if (entry < limit) {
           limit = entry;
           piece = 1;
         }
-        const exit = profile.nodeLimit[i + 1] + profile.taper * (segLen - s);
+        const exit = side.node[i + 1] + profile.taper * (segLen - s);
         if (exit < limit) {
           limit = exit;
           piece = 2;

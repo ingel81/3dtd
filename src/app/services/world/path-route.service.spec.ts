@@ -68,10 +68,12 @@ function liesOnWayEdge(network: StreetNetwork, a: { lat: number; lon: number }, 
 }
 
 /**
- * Freiraum quer zur Route, den der Engine-Ersatz meldet, pro Test steuerbar:
- * lokale x/z der Messstation, `max` = Suchweite. `null` = kein feines Tile.
+ * Freiraum links und rechts der Fahrtrichtung, den der Engine-Ersatz meldet,
+ * pro Test steuerbar: lokale x/z der Messstation, `max` = Suchweite. Eine
+ * Zahl gilt für beide Seiten, `null` = kein feines Tile.
  */
-let clearanceAt: (x: number, z: number, max: number) => number | null = (_x, _z, max) => max;
+type Clearance = number | { left: number; right: number } | null;
+let clearanceAt: (x: number, z: number, max: number) => Clearance = (_x, _z, max) => max;
 
 /** Minimaler Engine-Ersatz: flaches Gelände, Geo→Lokal als Plattkarte um ORIGIN. */
 function makeEngine(): ThreeTilesEngine {
@@ -81,8 +83,10 @@ function makeEngine(): ThreeTilesEngine {
     getTerrainHeightAtGeo: () => 0,
     // Höhe des gelben Overlays: flaches Gelände.
     getGroundHeightEstimate: () => 0,
-    measureStreetClearance: (x: number, z: number, _ax: number, _az: number, _h: number, max: number) =>
-      clearanceAt(x, z, max),
+    measureStreetClearance: (x: number, z: number, _ax: number, _az: number, _h: number, max: number) => {
+      const free = clearanceAt(x, z, max);
+      return typeof free === 'number' ? { left: free, right: free } : free;
+    },
     sync: {
       getOrigin: () => ({ ...ORIGIN, height: 0 }),
       geoToLocalSimple: (lat: number, lon: number, h: number) => {
@@ -219,8 +223,10 @@ describe('PathAndRouteService route geometry', () => {
 
       // n10, n1, n2, n3, turn-off on way 300, HQ. Residential 5.5 m, the
       // 12 m width tag, a 2 m footway clamped to two cells, the leg to the
-      // HQ keeps the footway's, the HQ ends the route.
-      expect(route.map((p) => p.corridorHalfWidth)).toEqual([2.75, 6, 6, 2, 2, undefined]);
+      // HQ keeps the footway's, the HQ ends the route. Nothing is measured
+      // yet, so both sides have the street's half width.
+      expect(route.map((p) => p.corridorLeft)).toEqual([2.75, 6, 6, 2, 2, undefined]);
+      expect(route.map((p) => p.corridorRight)).toEqual([2.75, 6, 6, 2, 2, undefined]);
     });
 
     it('marks the segments that run over a bridge', () => {
@@ -246,29 +252,53 @@ describe('PathAndRouteService route geometry', () => {
         ]);
       });
 
-      it('narrows the corridor where facades stand closer than the street width', () => {
-        // 2.6 m free space from 40 to 80 m north of n1, on way 200.
-        clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 40 && northOfN1(z) < 80 ? 2.6 : max);
+      it('widens or narrows the corridor to the free space the tiles show', () => {
+        // Facades 5.2 m off everywhere: more room than the 5.5 m residential
+        // ways get from OSM, less than the 12 m of way 200.
+        clearanceAt = () => 5.2;
         const service = buildRouteService(network, spawn, hq);
 
         expect(service.measureStreetClearance()).toBe(true);
         service.showPathFromSpawn(spawnPointAt(spawn));
         const route = service.getCachedPath('s1')!;
 
-        const narrow = route.filter((p) => p.corridorHalfWidth === 2.5);
+        // The leg to the HQ runs off the network and keeps the width it inherited.
+        expect(route.map((p) => p.corridorLeft)).toEqual([5, 5, 5, 5, 2.75, undefined]);
+        expect(route.map((p) => p.corridorRight)).toEqual([5, 5, 5, 5, 2.75, undefined]);
+        expect(service.describeRoutes()[1]).toMatchObject({ way: 200, corridorM: '10.0', leftM: '5.0', rightM: '5.0' });
+      });
+
+      it('gives each side the free space on that side', () => {
+        // From 40 to 80 m north of n1 a wall stands 2.6 m to the right; on
+        // the left the rays run past front gardens without a hit.
+        clearanceAt = (x, z, max) =>
+          Math.abs(x) < 1 && northOfN1(z) > 40 && northOfN1(z) < 80 ? { left: max, right: 2.6 } : max;
+        const service = buildRouteService(network, spawn, hq);
+
+        expect(service.measureStreetClearance()).toBe(true);
+        service.showPathFromSpawn(spawnPointAt(spawn));
+        const route = service.getCachedPath('s1')!;
+
+        const narrow = route.filter((p) => p.corridorRight === 2.5);
         expect(narrow).toHaveLength(1);
+        expect(narrow[0].corridorLeft).toBe(7);
         const start = northOfN1(-toMeters(narrow[0]).z);
         expect(start).toBeGreaterThan(38);
         expect(start).toBeLessThan(42);
-        // The rest of way 200 keeps its 12 m, and the diagnostics show the range.
-        expect(route.filter((p) => p.corridorHalfWidth === 6).length).toBeGreaterThanOrEqual(2);
-        expect(service.describeRoutes()[1]).toMatchObject({ way: 200, corridorM: '5.0-12.0' });
+        expect(service.describeRoutes()[1]).toMatchObject({
+          way: 200,
+          corridorM: '9.5-14.0',
+          leftM: '7.0',
+          rightM: '2.5-7.0',
+        });
       });
 
       it('ignores something narrow that stands in the way for a single station', () => {
         clearanceAt = (x, z, max) => (Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 1 ? 1 : max);
         const service = buildRouteService(network, spawn, hq);
-        expect(service.measureStreetClearance()).toBe(false);
+        service.measureStreetClearance();
+        service.showPathFromSpawn(spawnPointAt(spawn));
+        expect(service.getCachedPath('s1')!.map((p) => p.corridorLeft)).toEqual([7, 7, 7, 7, 2.75, undefined]);
       });
 
       it('keeps the street width where no fine tile is loaded, and tries again later', () => {
@@ -301,7 +331,7 @@ describe('PathAndRouteService route geometry', () => {
         // The narrow stretch now runs to 80 m instead of ending at 60.
         service.showPathFromSpawn(spawnPointAt(spawn));
         const route = service.getCachedPath('s1')!;
-        const k = route.findIndex((p) => p.corridorHalfWidth === 2.5);
+        const k = route.findIndex((p) => p.corridorLeft === 2.5);
         expect(northOfN1(-toMeters(route[k]).z)).toBeGreaterThan(38);
         expect(northOfN1(-toMeters(route[k]).z)).toBeLessThan(42);
         expect(northOfN1(-toMeters(route[k + 1]).z)).toBeGreaterThan(78);

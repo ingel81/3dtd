@@ -9,11 +9,13 @@ import { Street, StreetNetwork, StreetNode } from '../location/osm-street.servic
 import { StreetEdgeIndex } from '../../utils/route-ways';
 import {
   CorridorPiece,
-  clearancePieces,
+  CorridorStations,
   corridorConfig,
   estimateStreetWidth,
+  fitCorridorPieces,
   routeHalfWidths,
-  segmentHalfWidth,
+  segmentLeft,
+  segmentRight,
 } from '../../utils/route-corridor';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -35,11 +37,30 @@ interface LatLon {
   lon: number;
 }
 
+/** A spawn's route as the street network gives it, see PathAndRouteService.streetRoutes. */
+interface StreetRoute {
+  points: LatLon[];
+  /** Street half width per segment, for stations the tiles cannot measure. */
+  halfWidths: number[];
+  onBridge: boolean[];
+  /** The segment runs over a street; the leg to the HQ does not. */
+  onStreet: boolean[];
+}
+
 /** Key of a directed route segment, for the clearance cache. */
 const segmentKey = (a: LatLon, b: LatLon) => `${a.lat},${a.lon}|${b.lat},${b.lon}`;
 
-const samePieces = (a: readonly CorridorPiece[], b: readonly CorridorPiece[]) =>
-  a.length === b.length && a.every((piece, k) => piece.t === b[k].t && piece.halfWidth === b[k].halfWidth);
+/** Smallest and largest value seen so far, as `5.0` or `5.0-12.0`, for the diagnostics table. */
+class Span {
+  private min = Infinity;
+  private max = -Infinity;
+
+  add(value: number): string {
+    this.min = Math.min(this.min, value);
+    this.max = Math.max(this.max, value);
+    return this.min === this.max ? this.min.toFixed(1) : `${this.min.toFixed(1)}-${this.max.toFixed(1)}`;
+  }
+}
 
 /** `width=5 tunnel=building_passage` etc., for the diagnostics table. */
 function describeStreetTags(street: Street): string {
@@ -72,8 +93,11 @@ export interface RouteWayRun {
    * HQ keeps the width of the street it leaves).
    */
   widthSource: string;
-  /** Corridor width in use (twice the half width), a range where it varies */
+  /** Corridor width in use (left plus right half width), a range where it varies */
   corridorM: string;
+  /** Half width left and right of the direction of travel, ranges likewise */
+  leftM: string;
+  rightM: string;
   lengthM: number;
   /**
    * Largest gap between the cell height (red line, enemy feet) and the
@@ -110,19 +134,19 @@ export class PathAndRouteService {
   private edgeIndex: StreetEdgeIndex | null = null;
 
   /**
-   * Each spawn's route as the street network gives it, before measured
-   * narrowings split its segments, with the street half width per segment.
-   * measureStreetClearance walks these.
+   * Each spawn's route as the street network gives it, before the measured
+   * widths split its segments. measureStreetClearance walks these.
    */
-  private streetRoutes = new Map<string, { points: LatLon[]; halfWidths: number[]; onBridge: boolean[] }>();
+  private streetRoutes = new Map<string, StreetRoute>();
 
   /**
-   * What the tiles showed per street segment (segmentKey): the free space at
-   * each station, NaN where no fine tile was loaded, and the corridor pieces
-   * that allows. Measured once per location and applied on every route
-   * build; measureStreetClearance measures the NaN stations again.
+   * What the tiles showed per street segment (segmentKey): the free space
+   * left and right of the direction of travel at each station, NaN where no
+   * fine tile was loaded. Measured once per location, measureStreetClearance
+   * measures the NaN stations again. Every route build fits its corridor
+   * from these (fitRoute), so the corridor settings apply without new rays.
    */
-  private clearanceBySegment = new Map<string, { clearances: number[]; pieces: CorridorPiece[] }>();
+  private clearanceBySegment = new Map<string, { left: number[]; right: number[] }>();
 
 
   /** 3D route lines for visualization (using Line2 for proper line width) */
@@ -479,17 +503,21 @@ export class PathAndRouteService {
       geoPath = this.subdivideGeoPath(geoPath, 2);
     }
 
-    // Corridor half width per segment, from the street each one runs over,
-    // then narrowed where the tiles showed less room (measureStreetClearance).
-    // Cells and enemy spread read it off the cached waypoints, the cells
-    // also whether the segment is on a bridge.
+    // Corridor half width per segment and side, from the free space the
+    // tiles showed (measureStreetClearance), the street's width where they
+    // could not tell. Cells and enemy spread read it off the cached
+    // waypoints, the cells also whether the segment is on a bridge.
     const ways = this.getEdgeIndex(this.streetNetwork).match(geoPath);
-    const streetHalfWidths = routeHalfWidths(ways);
-    const streetBridges = ways.map((way) => way?.bridge !== undefined);
-    this.streetRoutes.set(spawn.id, { points: geoPath, halfWidths: streetHalfWidths, onBridge: streetBridges });
-    const fitted = this.applyClearance(geoPath, streetHalfWidths, streetBridges);
+    const streetRoute: StreetRoute = {
+      points: geoPath,
+      halfWidths: routeHalfWidths(ways),
+      onBridge: ways.map((way) => way?.bridge !== undefined),
+      onStreet: ways.map((way) => way !== null),
+    };
+    this.streetRoutes.set(spawn.id, streetRoute);
+    const fitted = this.applyClearance(streetRoute);
     geoPath = fitted.points;
-    const { halfWidths, onBridge } = fitted;
+    const { left: leftWidths, right: rightWidths, onBridge } = fitted;
 
     // Create route line in Three.js - on terrain with RELATIVE heights
     // DevWorld needs higher offset due to steep procedural terrain
@@ -534,8 +562,9 @@ export class PathAndRouteService {
       // Enemy movement/spawn no longer use this field — they read cells
       // directly — but route-animation and external consumers may rely on it.
       const waypoint: RouteWaypoint = { ...pos, height: terrainY + origin.height };
-      if (i < halfWidths.length) {
-        waypoint.corridorHalfWidth = halfWidths[i];
+      if (i < leftWidths.length) {
+        waypoint.corridorLeft = leftWidths[i];
+        waypoint.corridorRight = rightWidths[i];
         if (onBridge[i]) waypoint.onBridge = true;
       }
       pathWithHeights[i] = waypoint;
@@ -574,69 +603,87 @@ export class PathAndRouteService {
   }
 
   /**
-   * Split the segments the tiles narrowed into their pieces (see
-   * clearancePieces). Each piece keeps its segment's bridge flag.
+   * Split each segment into the pieces the tiles gave it
+   * (fitCorridorPieces), with the half width left and right of the
+   * direction of travel per piece. Each piece keeps its segment's bridge
+   * flag. Before anything was measured, every segment runs at its street's
+   * half width on both sides.
    */
-  private applyClearance(
-    points: LatLon[],
-    halfWidths: number[],
-    onBridge: boolean[],
-  ): { points: LatLon[]; halfWidths: number[]; onBridge: boolean[] } {
-    if (this.clearanceBySegment.size === 0) return { points, halfWidths, onBridge };
+  private applyClearance(route: StreetRoute): { points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[] } {
+    const { points, halfWidths, onBridge } = route;
+    if (this.clearanceBySegment.size === 0) return { points, left: halfWidths, right: halfWidths, onBridge };
 
+    const fitted = this.fitRoute(route);
     const fittedPoints: LatLon[] = [];
-    const fittedWidths: number[] = [];
+    const left: number[] = [];
+    const right: number[] = [];
     const fittedBridges: boolean[] = [];
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i];
       const b = points[i + 1];
-      const pieces = this.clearanceBySegment.get(segmentKey(a, b))?.pieces;
-      if (!pieces || pieces.length === 0) {
-        fittedPoints.push(a);
-        fittedWidths.push(halfWidths[i]);
-        fittedBridges.push(onBridge[i]);
-        continue;
-      }
-      for (const piece of pieces) {
+      for (const piece of fitted[i]) {
         fittedPoints.push(piece.t === 0 ? a : { lat: a.lat + (b.lat - a.lat) * piece.t, lon: a.lon + (b.lon - a.lon) * piece.t });
-        fittedWidths.push(piece.halfWidth);
+        left.push(piece.left);
+        right.push(piece.right);
         fittedBridges.push(onBridge[i]);
       }
     }
     fittedPoints.push(points[points.length - 1]);
-    return { points: fittedPoints, halfWidths: fittedWidths, onBridge: fittedBridges };
+    return { points: fittedPoints, left, right, onBridge: fittedBridges };
+  }
+
+  /** The corridor pieces of each segment of `route`, from what the tiles showed. */
+  private fitRoute(route: StreetRoute): CorridorPiece[][] {
+    const segments: CorridorStations[] = [];
+    for (let i = 0; i < route.points.length - 1; i++) {
+      const measured = this.clearanceBySegment.get(segmentKey(route.points[i], route.points[i + 1]));
+      segments.push({
+        left: measured?.left ?? [],
+        right: measured?.right ?? [],
+        fallback: route.halfWidths[i],
+        onStreet: route.onStreet[i],
+      });
+    }
+    return fitCorridorPieces(segments);
+  }
+
+  /** The pieces every route gets from what is measured now, to tell whether a measurement changed any. */
+  private fittedCorridors(): string {
+    return JSON.stringify([...this.streetRoutes.values()].map((route) => this.fitRoute(route)));
   }
 
   /**
-   * Measure how much room the tiles leave either side of every route
-   * segment and remember where it is less than the street width, so the next
-   * route build fits the corridor to it. A station every 2 m with two
-   * horizontal rays (ThreeTilesEngine.measureStreetClearance); a station
-   * without fine tiles keeps the street width. Stations measured before are
-   * kept and only the ones without fine tiles are measured again, so a
-   * segment whose tiles had only partly loaded gets the rest on a later run
-   * instead of keeping the street width there for the whole location.
+   * Measure how much room the tiles leave left and right of every route
+   * segment, so the next route build fits the corridor to it: the free space
+   * on each side sets the half width there, up to
+   * `corridorConfig.maxHalfWidth` (fitCorridorPieces). A station every
+   * `stationSpacing` metres with one horizontal ray to each side
+   * (ThreeTilesEngine.measureStreetClearance); a station without fine tiles
+   * keeps the street width. Stations measured before are kept and only the
+   * ones without fine tiles are measured again, so a segment whose tiles had
+   * only partly loaded gets the rest on a later run instead of keeping the
+   * street width there for the whole location.
    *
    * Meant to run once per location, when the corridor tiles have loaded:
    * the grid is rebuilt from the result, so it must not run under placed
    * towers.
    *
-   * @returns true when a segment's corridor changed, i.e. routes and grid
-   *   need a rebuild
+   * @returns true when a corridor changed, i.e. routes and grid need a
+   *   rebuild
    */
   measureStreetClearance(): boolean {
     const engine = this.engine;
     if (!engine) return false;
 
     const t0 = performance.now();
+    const before = this.fittedCorridors();
     let segments = 0;
     let stations = 0;
     let unmeasured = 0;
-    let changed = 0;
     // Routes from several spawns share segments; one pass over each is enough.
     const seen = new Set<string>();
 
-    for (const { points, halfWidths, onBridge } of this.streetRoutes.values()) {
+    for (const { points, onBridge } of this.streetRoutes.values()) {
       for (let i = 0; i < points.length - 1; i++) {
         const a = points[i];
         const b = points[i + 1];
@@ -644,7 +691,7 @@ export class PathAndRouteService {
         if (seen.has(key)) continue;
         seen.add(key);
         const known = this.clearanceBySegment.get(key);
-        if (known && !known.clearances.some(Number.isNaN)) continue;
+        if (known && !known.left.some(Number.isNaN)) continue;
 
         const start = engine.sync.geoToLocalSimple(a.lat, a.lon, 0);
         const end = engine.sync.geoToLocalSimple(b.lat, b.lon, 0);
@@ -654,40 +701,41 @@ export class PathAndRouteService {
         if (length < 0.01) continue;
 
         const count = Math.max(1, Math.round(length / corridorConfig.stationSpacing));
-        const clearances = known ? [...known.clearances] : new Array<number>(count).fill(NaN);
+        const left = known ? [...known.left] : new Array<number>(count).fill(NaN);
+        const right = known ? [...known.right] : new Array<number>(count).fill(NaN);
         let tried = 0;
         let measured = 0;
         for (let k = 0; k < count; k++) {
-          if (!Number.isNaN(clearances[k])) continue;
+          if (!Number.isNaN(left[k])) continue;
           tried++;
           const t = (k + 0.5) / count;
+          // (-dz, dx) points right of the direction of travel.
           const clearance = engine.measureStreetClearance(
-            start.x + dx * t, start.z + dz * t, -dz, dx, corridorConfig.rayHeight, halfWidths[i], onBridge[i],
+            start.x + dx * t, start.z + dz * t, -dz, dx, corridorConfig.rayHeight, corridorConfig.maxHalfWidth, onBridge[i],
           );
           if (clearance === null) continue;
-          clearances[k] = clearance;
+          left[k] = clearance.left;
+          right[k] = clearance.right;
           measured++;
         }
         segments++;
         stations += tried;
         unmeasured += tried - measured;
-        if (measured === 0) continue;
-
-        // Without an entry the segment runs at the street width, one piece.
-        const pieces = clearancePieces(halfWidths[i], clearances);
-        const before = known?.pieces ?? [{ t: 0, halfWidth: halfWidths[i] }];
-        this.clearanceBySegment.set(key, { clearances, pieces });
-        if (!samePieces(pieces, before)) changed++;
+        // Stored with its unmeasured stations as well: they keep their
+        // place, so the smoothing along the route does not join what lies
+        // either side of them.
+        this.clearanceBySegment.set(key, { left, right });
       }
     }
 
+    const changed = this.fittedCorridors() !== before;
     if (segments > 0) {
       console.warn(
         `[Corridor] clearance: segments=${segments} stations=${stations} unmeasured=${unmeasured} ` +
         `rays=${2 * (stations - unmeasured)} changed=${changed} in ${(performance.now() - t0).toFixed(1)}ms`,
       );
     }
-    return changed > 0;
+    return changed;
   }
 
   /**
@@ -1116,8 +1164,7 @@ export class PathAndRouteService {
     for (const [routeId, path] of this.cachedPaths) {
       const ways = index.match(path);
       let run: RouteWayRun | null = null;
-      let corridorMin = Infinity;
-      let corridorMax = -Infinity;
+      let spans = { corridor: new Span(), left: new Span(), right: new Span() };
 
       for (let i = 0; i < path.length - 1; i++) {
         const a = path[i];
@@ -1138,22 +1185,22 @@ export class PathAndRouteService {
             widthM: estimate?.widthM ?? null,
             widthSource: estimate?.source ?? 'inherited',
             corridorM: '',
+            leftM: '',
+            rightM: '',
             lengthM: 0,
             maxCellAboveStreetM: null,
             at: '',
           };
           rows.push(run);
-          corridorMin = Infinity;
-          corridorMax = -Infinity;
+          spans = { corridor: new Span(), left: new Span(), right: new Span() };
         }
         run.toIndex = i + 1;
 
-        const corridor = 2 * segmentHalfWidth(a);
-        corridorMin = Math.min(corridorMin, corridor);
-        corridorMax = Math.max(corridorMax, corridor);
-        run.corridorM = corridorMin === corridorMax
-          ? corridorMin.toFixed(1)
-          : `${corridorMin.toFixed(1)}-${corridorMax.toFixed(1)}`;
+        const left = segmentLeft(a);
+        const right = segmentRight(a);
+        run.corridorM = spans.corridor.add(left + right);
+        run.leftM = spans.left.add(left);
+        run.rightM = spans.right.add(right);
 
         const length = service.haversineDistance(a.lat, a.lon, b.lat, b.lon);
         run.lengthM += length;

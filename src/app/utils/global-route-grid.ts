@@ -1,7 +1,7 @@
 import { InstancedMesh, Vector3 } from 'three';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
-import { segmentHalfWidth } from './route-corridor';
+import { segmentLeft, segmentRight } from './route-corridor';
 import { CoordinateSync } from '../three-engine/renderers';
 import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
@@ -217,13 +217,13 @@ export class GlobalRouteGrid {
    * Generate grid cells from enemy routes and sample their terrain height.
    *
    * A cell belongs to the corridor if its centre lies within the half width
-   * of a route segment (`corridorHalfWidth` of the segment's start waypoint,
-   * see route-corridor.ts). Cell centres therefore stay on the street, at
-   * least two cells lie across it, and every point within
-   * `lateralLimit(halfWidth)` of the centre line lies in a cell: the cell
-   * containing it has its centre at most half a cell diagonal further out.
-   * That is how far MovementComponent lets enemies spread, so no enemy walks
-   * outside the cells towers look at.
+   * of a route segment on its side (`corridorLeft` / `corridorRight` of the
+   * segment's start waypoint, see route-corridor.ts). Cell centres therefore
+   * stay on the free street, at least two cells lie across it, and every
+   * point within `lateralLimit(halfWidth)` of the centre line on that side
+   * lies in a cell: the cell containing it has its centre at most half a
+   * cell diagonal further out. That is how far MovementComponent lets
+   * enemies spread, so no enemy walks outside the cells towers look at.
    *
    * Cells of a segment on a bridge (`onBridge`) sample the deck, the top of
    * the column, instead of the ground under the bridge. A cell that a
@@ -250,7 +250,7 @@ export class GlobalRouteGrid {
       for (let i = 0; i < route.length - 1; i++) {
         const endGeo = route[i + 1];
         const end = sync.geoToLocalSimple(endGeo.lat, endGeo.lon, endGeo.height ?? 0);
-        this.generateSegmentCells(start, end, segmentHalfWidth(route[i]), route[i].onBridge === true);
+        this.generateSegmentCells(start, end, segmentLeft(route[i]), segmentRight(route[i]), route[i].onBridge === true);
         start = end;
       }
     }
@@ -261,25 +261,29 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Claim the cells whose centre lies within `halfWidth` of the segment
-   * `start`-`end`, creating the missing ones (local coordinates; y is the
+   * Claim the cells whose centre lies within the half width of the segment
+   * `start`-`end`, `left` or `right` of its direction by the side the
+   * centre is on, creating the missing ones (local coordinates; y is the
    * smoothed route height, stored on each new cell as its `routeAnchorY`
    * and as fallback `terrainHeight` until the first sample succeeds).
    */
   private generateSegmentCells(
     start: { x: number; y: number; z: number },
     end: { x: number; y: number; z: number },
-    halfWidth: number,
+    left: number,
+    right: number,
     onBridge: boolean,
   ): void {
     const dx = end.x - start.x;
     const dz = end.z - start.z;
     const lenSq = dx * dx + dz * dz;
-    const halfWidthSq = halfWidth * halfWidth;
-    const gx0 = this.cellIndex(Math.min(start.x, end.x) - halfWidth);
-    const gx1 = this.cellIndex(Math.max(start.x, end.x) + halfWidth);
-    const gz0 = this.cellIndex(Math.min(start.z, end.z) - halfWidth);
-    const gz1 = this.cellIndex(Math.max(start.z, end.z) + halfWidth);
+    const leftSq = left * left;
+    const rightSq = right * right;
+    const reach = Math.max(left, right);
+    const gx0 = this.cellIndex(Math.min(start.x, end.x) - reach);
+    const gx1 = this.cellIndex(Math.max(start.x, end.x) + reach);
+    const gz0 = this.cellIndex(Math.min(start.z, end.z) - reach);
+    const gz1 = this.cellIndex(Math.max(start.z, end.z) + reach);
 
     for (let gx = gx0; gx <= gx1; gx++) {
       const cx = (gx + 0.5) * this.CELL_SIZE;
@@ -289,7 +293,9 @@ export class GlobalRouteGrid {
         const t = lenSq > 0 ? Math.max(0, Math.min(1, ((cx - start.x) * dx + (cz - start.z) * dz) / lenSq)) : 0;
         const ox = start.x + dx * t - cx;
         const oz = start.z + dz * t - cz;
-        if (ox * ox + oz * oz > halfWidthSq) continue;
+        // (-dz, dx) points right of the direction of travel (x east, z south).
+        const rightOfLine = (cz - start.z) * dx - (cx - start.x) * dz >= 0;
+        if (ox * ox + oz * oz > (rightOfLine ? rightSq : leftSq)) continue;
 
         const key = this.intCellKey(gx, gz);
         const existing = this.cells.get(key);

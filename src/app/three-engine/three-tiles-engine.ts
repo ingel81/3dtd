@@ -1071,14 +1071,15 @@ export class ThreeTilesEngine {
 
   /**
    * Free space either side of a point on a street, for fitting the route
-   * corridor to the street the tiles show. Casts one horizontal ray each way
-   * along `acrossX, acrossZ`, `heightAboveGround` over the column's ground
-   * (over its top `onDeck`, for a bridge), and returns the nearer distance
-   * to a fine tile surface (facade, tree), capped at `maxDistance`.
+   * corridor to the street the tiles show. Casts one horizontal ray to each
+   * side, `heightAboveGround` over the column's ground (over its top
+   * `onDeck`, for a bridge), and returns the distance to the first fine tile
+   * surface (facade, wall, tree) on each, capped at `maxDistance`.
+   * `acrossX, acrossZ` points to the right of the direction of travel.
    *
    * Only tiles up to `corridorConfig.maxTileError` count, for the column
    * and for the hits, so a coarse hull still waiting for its children
-   * neither places the ray nor blocks it.
+   * neither places the rays nor blocks them.
    *
    * @returns null where it cannot tell: in DevWorld (its roads are drawn at
    *   the width the corridor already uses) or where no fine tile is loaded.
@@ -1091,7 +1092,7 @@ export class ThreeTilesEngine {
     heightAboveGround: number,
     maxDistance: number,
     onDeck = false,
-  ): number | null {
+  ): { left: number; right: number } | null {
     const tiles = this.tilesRenderer;
     if (this.devTerrainProvider || !tiles) return null;
     // The column under the station and both side rays count as the corridor's.
@@ -1104,26 +1105,34 @@ export class ThreeTilesEngine {
 
       const surfaceY = onDeck ? column.topY : column.groundY;
       this._clearanceOrigin.set(localX, surfaceY + heightAboveGround, localZ);
-      let nearest = maxDistance;
-      for (const side of [1, -1]) {
-        this._clearanceDirection.set((side * acrossX) / len, 0, (side * acrossZ) / len);
-        this.clearanceRaycaster.set(this._clearanceOrigin, this._clearanceDirection);
-        this.clearanceRaycaster.far = nearest;
-        this._clearanceResults.length = 0;
-        this.clearanceRaycaster.intersectObject(tiles.group, true, this._clearanceResults);
-        // Sorted by distance: the first fine hit is the nearest one.
-        for (const r of this._clearanceResults) {
-          const tile = r.object.userData['tile'] as ActiveTile | undefined;
-          if ((tile?.internal?.depth ?? 0) === 0) continue;
-          if ((tile?.geometricError ?? Infinity) > corridorConfig.maxTileError) continue;
-          nearest = Math.min(nearest, r.distance);
-          break;
-        }
-      }
-      return nearest;
+      return {
+        left: this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance),
+        right: this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance),
+      };
     } finally {
       raycastStats.exit(scope);
     }
+  }
+
+  /**
+   * Distance from `_clearanceOrigin` along the horizontal unit direction
+   * (dirX, dirZ) to the first fine tile surface, `maxDistance` if there is
+   * none that close.
+   */
+  private clearanceRay(group: Object3D, dirX: number, dirZ: number, maxDistance: number): number {
+    this._clearanceDirection.set(dirX, 0, dirZ);
+    this.clearanceRaycaster.set(this._clearanceOrigin, this._clearanceDirection);
+    this.clearanceRaycaster.far = maxDistance;
+    this._clearanceResults.length = 0;
+    this.clearanceRaycaster.intersectObject(group, true, this._clearanceResults);
+    // Sorted by distance: the first fine hit is the nearest one.
+    for (const r of this._clearanceResults) {
+      const tile = r.object.userData['tile'] as ActiveTile | undefined;
+      if ((tile?.internal?.depth ?? 0) === 0) continue;
+      if ((tile?.geometricError ?? Infinity) > corridorConfig.maxTileError) continue;
+      return Math.min(maxDistance, r.distance);
+    }
+    return maxDistance;
   }
 
   /** Quantised column key, 0.5 m grid, Szudzik pairing (negatives safe). */

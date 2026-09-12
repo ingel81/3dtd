@@ -455,7 +455,13 @@ export class EnemyDebugService {
     // Create sub-path: click position + rest of path. The first segment
     // keeps the corridor width of the route segment it replaces.
     return [
-      { lat, lon, height: clickHeight, corridorHalfWidth: fullPath[closestIdx].corridorHalfWidth },
+      {
+        lat,
+        lon,
+        height: clickHeight,
+        corridorLeft: fullPath[closestIdx].corridorLeft,
+        corridorRight: fullPath[closestIdx].corridorRight,
+      },
       ...fullPath.slice(closestIdx + 1)
     ];
   }
