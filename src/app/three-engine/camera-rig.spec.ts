@@ -67,10 +67,6 @@ function expectLookingAlong(camera: PerspectiveCamera, x: number, y: number, z: 
 }
 
 describe('CameraRig', () => {
-  beforeEach(() => {
-    vi.spyOn(console, 'log').mockImplementation(() => undefined);
-  });
-
   afterEach(() => {
     vi.restoreAllMocks();
   });

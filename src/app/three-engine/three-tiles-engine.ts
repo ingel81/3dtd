@@ -185,9 +185,6 @@ export class ThreeTilesEngine {
   private tileProvider: 'cesium' | 'google';
   private googleMapsApiKey: string;
 
-  // Origin coordinates (stored for DevWorld transformation)
-  private originLat: number;
-  private originLon: number;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -207,10 +204,6 @@ export class ThreeTilesEngine {
     this.cesiumAssetId = cesiumAssetId;
     this.tileProvider = tileProvider;
     this.googleMapsApiKey = googleMapsApiKey;
-
-    // Store origin for DevWorld transformation
-    this.originLat = originLat;
-    this.originLon = originLon;
 
     // Initialize coordinate sync
     this.sync = new EllipsoidSync(originLat, originLon, originHeight);
@@ -460,11 +453,6 @@ export class ThreeTilesEngine {
   private async initializeDevWorld(): Promise<void> {
     if (!this.devWorld) return;
 
-    const LOG = '[DevWorld]';
-    console.log(`${LOG} ========== INITIALIZATION ==========`);
-    console.log(`${LOG} Mode: Flat terrain with EnvironmentControls`);
-    console.log(`${LOG} Origin: lat=${this.originLat}, lon=${this.originLon} (fake)`);
-
     // Create devWorldGroup - simple group at local origin (no ECEF transformation)
     // This is different from real game where tilesRenderer.group has inverse ENU
     this.devWorldGroup = new Group();
@@ -477,8 +465,6 @@ export class ThreeTilesEngine {
     // Initialize terrain directly into devWorldGroup (no nested transforms)
     // Terrain is at local coordinates: Y-up, centered at origin
     await this.devTerrainProvider.initialize(this.devWorldGroup as unknown as Scene);
-
-    console.log(`${LOG} Terrain added to devWorldGroup at local origin`);
 
     // Setup EnvironmentControls - works with flat local terrain
     this.cameraRig.setupEnvironmentControls(this.scene, this.devWorldGroup);
@@ -496,8 +482,6 @@ export class ThreeTilesEngine {
 
     // Mark as loaded immediately (no async tile loading in DevWorld)
     this.tileLoading.markFirstTilesLoaded();
-
-    console.log(`${LOG} DevWorld initialized with EnvironmentControls`);
   }
 
   /**
@@ -962,12 +946,10 @@ export class ThreeTilesEngine {
     if (visible) {
       if (!this.tilesRenderer.group.parent) {
         this.scene.add(this.tilesRenderer.group);
-        console.log('[ThreeTilesEngine] 3D Tiles visible');
       }
     } else {
       if (this.tilesRenderer.group.parent) {
         this.scene.remove(this.tilesRenderer.group);
-        console.log('[ThreeTilesEngine] 3D Tiles hidden');
       }
     }
   }
