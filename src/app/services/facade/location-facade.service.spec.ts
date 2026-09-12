@@ -11,6 +11,7 @@ vi.mock('../../components/location-dialog/location-dialog.component', () => ({
 }));
 
 import { LocationFacadeService, VizCallbacks } from './location-facade.service';
+import { MapRelocationService } from './map-relocation.service';
 import { OsmStreetService } from '../location/osm-street.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
@@ -232,6 +233,9 @@ describe('LocationFacadeService', () => {
         { provide: TowerPlacementService, useValue: {} },
         { provide: MatDialog, useValue: dialog },
         { provide: TowerDefenseStore, useValue: store },
+        // The real relocation flows, on the mocks above; a factory, since a
+        // class provider would need the JIT compiler.
+        { provide: MapRelocationService, useFactory: () => new MapRelocationService() },
       ],
     });
     facade = runInInjectionContext(injector, () => new LocationFacadeService());

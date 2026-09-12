@@ -423,6 +423,7 @@ Sub-Facade fuer Location-Management. Verbindet Coordinator mit Component-State.
 - **Spawn-Management**: `addPredefinedSpawns()`, `addSpawnPoint()`
 - **Map Cleanup**: `clearMapEntities()` (Marker, Routes, Streets)
 - **DevWorld**: Regeneration, Visual Cleanup
+- **Map-Platzierung**: `handleMapPlacementClick()` gibt an `MapRelocationService` weiter (siehe HQ-Relocation)
 
 ### Spawn-Point-Logik (`addPredefinedSpawns`)
 
@@ -491,7 +492,7 @@ Bei `isRandom: true` (`id: 'spawn_random'`, `lat`/`lon` = 0) lädt der Coordinat
 
 ## HQ-Relocation (interaktives Versetzen)
 
-Wenn der Spieler das HQ ueber die Map-Platzierung versetzt, waehlt `LocationFacadeService.applyNewHqPosition()` zwischen zwei Pfaden:
+Wenn der Spieler das HQ ueber die Map-Platzierung versetzt, waehlt `MapRelocationService.applyNewHqPosition()` (`services/facade/map-relocation.service.ts`) zwischen zwei Pfaden:
 
 ### Fast Path (innerhalb Street-Bounds)
 
