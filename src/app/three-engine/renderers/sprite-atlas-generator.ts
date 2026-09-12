@@ -178,7 +178,9 @@ export function generateExplosionAtlas(config: SpriteAtlasConfig = { cols: 4, ro
 
 /**
  * Generate a simple smoke puff atlas (4×4, 16 frames).
- * Lighter, greyer particles suitable for normal blending.
+ * Lighter, greyer particles suitable for normal blending; the explosion
+ * smoke stage tints them darker. The alpha runs out to 0 on the last frame,
+ * so a puff fades away instead of vanishing at a fifth of its opacity.
  */
 export function generateSmokeAtlas(config: SpriteAtlasConfig = { cols: 4, rows: 4, cellSize: 64 }): CanvasTexture {
   const { cols, rows, cellSize } = config;
@@ -205,7 +207,7 @@ export function generateSmokeAtlas(config: SpriteAtlasConfig = { cols: 4, rows: 
 
     // Smoke: starts small and dense, expands and fades
     const radius = maxR * (0.3 + progress * 0.7);
-    const alpha = 0.6 * (1 - progress * 0.8);
+    const alpha = 0.6 * (1 - progress);
 
     if (alpha > 0.01) {
       const grey = 160 + Math.floor(progress * 60); // Gets lighter as it fades

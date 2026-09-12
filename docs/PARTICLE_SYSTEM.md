@@ -384,8 +384,8 @@ typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
 | `spawnIceDecal(lat, lon, h, size)` | Eis-Decal (GPU-instanced) |
 | `spawnFire(...)` / `spawnFireOnTerrain(...)` / `spawnFireAtLocalY(...)` | Anhaltende Feuerquelle (Intensity-Preset) |
 | `spawnFireFlash(lat, lon, localY)` | Kurzer Feuerblitz (z.B. Flame-Beam-Hit) |
-| `spawnExplosion(localX, localY, localZ, count, radius)` | Explosion am lokalen Punkt |
-| `spawnExplosionAtGeo(lat, lon, h, count)` | Explosion an Geo-Position |
+| `spawnExplosion(localX, localY, localZ, count, radius, smokePuffs)` | Zweistufige Feuer-Atlas-Explosion am lokalen Punkt, siehe unten |
+| `spawnExplosionAtGeo(lat, lon, h, count, radius, smokePuffs)` | Dasselbe an Geo-Position |
 | `spawnIceExplosionAtGeo(lat, lon, h, count)` | Runder Funken-Burst, Palette `BURST_PALETTES.ice` |
 | `spawnArcaneBurstAtGeo(lat, lon, h, count)` | Gleicher Burst in Violett/Cyan (`BURST_PALETTES.arcane`), Einschlag des Arcane Orb |
 | `spawnPoisonBurstAtGeo(lat, lon, h, count)` | Gleicher Burst in Grün (`BURST_PALETTES.poison`), Einschlag des Poison Glob |
@@ -395,6 +395,30 @@ typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
 
 Decals nutzen Konfigurationen aus `BLOOD_DECAL_CONFIG` / `ICE_DECAL_CONFIG`
 (Fade-Delay, Fade-Duration, Base-Color, Color-Variation, Height-Offset).
+
+---
+
+## Explosionen (Feuer-Atlas, zweistufig)
+
+`spawnExplosion(x, y, z, count, radius, smokePuffs)`, Werte in `EXPLOSION_LOOK`
+(`visual-effects.config.ts`), Stand 2026-09-12:
+
+1. **Feuerball**: `count` additive Sprites aus dem Explosions-Atlas. Die 16 Frames
+   laufen über die Lebensdauer (0,3 bis 0,7 s): Flash (erstes Viertel), Feuerball,
+   Auflösen, Rauchfetzen. Die Sprite-Größe läuft von `sizeStart` 1 auf `sizeEnd` 0,4
+   (`atlasSpriteSize`). Bis 2026-09-12 schrumpfte sie wie bei runden Partikeln auf 0
+   und halbierte den Feuerball, bevor seine Frames an der Reihe waren.
+2. **Rauch**: `smokePuffs` Sprites aus dem Rauch-Atlas im Normal-Pool, dunkel getönt.
+   Sie warten 0,2 bis 0,35 s (die Lebenszeit startet über 1, `atlasSpriteSize` zeichnet
+   sie bis dahin mit Größe 0), steigen dann auf und wachsen von halber auf volle
+   Größe, während der Atlas sie bis auf Alpha 0 ausblendet. Vorher gab es keinen
+   sichtbaren Rauch: die Rauch-Frames des Explosions-Atlas sind dunkel und gehen im
+   additiven Pool unter, der Rauch-Atlas war erzeugt, aber ungenutzt.
+
+Geschwindigkeit und Sprite-Größe skalieren mit `radius / referenceRadius` (6 m). Die
+Kanone übergibt ihren Splash-Radius (6 m, Werte wie vorher), die Rakete ihren
+Preset-Radius 8 m (ein Drittel größer), der Bullet-Impact keinen Radius. Zurück zum
+alten Bild: `fire.sizeEnd = 0` und `smokePuffs = 0` in `EXPLOSION_PRESETS`.
 
 ---
 

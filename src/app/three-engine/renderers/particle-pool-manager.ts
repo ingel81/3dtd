@@ -39,6 +39,30 @@ export interface Particle {
   frameIndex: number;
   /** Total frames for this particle's animation (0 = not animated) */
   totalFrames: number;
+  /**
+   * Sprite scale at birth and at death, sprite-sheet particles only (see
+   * atlasSpriteSize). Round particles always shrink with their life.
+   */
+  sizeStart: number;
+  sizeEnd: number;
+}
+
+/**
+ * Rendered size of a sprite-sheet particle: `size` scaled from `sizeStart`
+ * at birth to `sizeEnd` at death. A `life` above 1 is a spawn delay still
+ * running (life counts down from 1 + delay / maxLife); the particle is
+ * drawn at size 0 until it reaches 1.
+ */
+export function atlasSpriteSize(p: Particle): number {
+  const progress = 1 - p.life;
+  if (progress < 0) return 0;
+  return p.size * (p.sizeStart + (p.sizeEnd - p.sizeStart) * progress);
+}
+
+/** Atlas frame of a sprite-sheet particle, running through all frames over its life. */
+export function atlasSpriteFrame(p: Particle): number {
+  const progress = Math.max(0, 1 - p.life);
+  return Math.min(Math.floor(progress * p.totalFrames), p.totalFrames - 1);
 }
 
 /** Identifies one of the three GPU particle pools. */
@@ -197,6 +221,8 @@ export class ParticlePoolManager {
         color: new Color(0xff6600),
         frameIndex: -1,
         totalFrames: 0,
+        sizeStart: 1,
+        sizeEnd: 0,
       });
     }
 
@@ -256,6 +282,8 @@ export class ParticlePoolManager {
         color: new Color(0xff8800),
         frameIndex: -1,
         totalFrames: 0,
+        sizeStart: 1,
+        sizeEnd: 0,
       });
     }
 
@@ -300,6 +328,8 @@ export class ParticlePoolManager {
         color: new Color(0x888888),
         frameIndex: -1,
         totalFrames: 0,
+        sizeStart: 1,
+        sizeEnd: 0,
       });
     }
 
@@ -426,6 +456,8 @@ export class ParticlePoolManager {
         // Reset sprite-sheet fields so reused particles default to circular
         poolArr[idx].frameIndex = -1;
         poolArr[idx].totalFrames = 0;
+        poolArr[idx].sizeStart = 1;
+        poolArr[idx].sizeEnd = 0;
         this.markPoolDirty(pool);
         return poolArr[idx];
       }
@@ -441,6 +473,8 @@ export class ParticlePoolManager {
         this.poolCursors[pool] = (idx + 1) % len;
         poolArr[idx].frameIndex = -1;
         poolArr[idx].totalFrames = 0;
+        poolArr[idx].sizeStart = 1;
+        poolArr[idx].sizeEnd = 0;
         this.markPoolDirty(pool);
         return poolArr[idx];
       }
@@ -506,17 +540,14 @@ export class ParticlePoolManager {
           posArray[idx3] = p.position.x;
           posArray[idx3 + 1] = p.position.y;
           posArray[idx3 + 2] = p.position.z;
-          sizeArray[activeCount] = p.size * p.life;
           colorArray[idx3] = p.color.r;
           colorArray[idx3 + 1] = p.color.g;
           colorArray[idx3 + 2] = p.color.b;
           if (p.totalFrames > 0) {
-            const progress = 1.0 - p.life;
-            frameArray[activeCount] = Math.min(
-              Math.floor(progress * p.totalFrames),
-              p.totalFrames - 1
-            );
+            sizeArray[activeCount] = atlasSpriteSize(p);
+            frameArray[activeCount] = atlasSpriteFrame(p);
           } else {
+            sizeArray[activeCount] = p.size * p.life;
             frameArray[activeCount] = -1;
           }
           activeCount++;
@@ -554,17 +585,14 @@ export class ParticlePoolManager {
           posArray[idx3] = p.position.x;
           posArray[idx3 + 1] = p.position.y;
           posArray[idx3 + 2] = p.position.z;
-          sizeArray[activeCount] = p.size * p.life;
           colorArray[idx3] = p.color.r;
           colorArray[idx3 + 1] = p.color.g;
           colorArray[idx3 + 2] = p.color.b;
           if (p.totalFrames > 0) {
-            const progress = 1.0 - p.life;
-            frameArray[activeCount] = Math.min(
-              Math.floor(progress * p.totalFrames),
-              p.totalFrames - 1
-            );
+            sizeArray[activeCount] = atlasSpriteSize(p);
+            frameArray[activeCount] = atlasSpriteFrame(p);
           } else {
+            sizeArray[activeCount] = p.size * p.life;
             frameArray[activeCount] = -1;
           }
           activeCount++;

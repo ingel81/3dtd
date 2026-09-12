@@ -46,19 +46,83 @@ export const FIRE_INTENSITY = {
   inferno: { count: 200, radius: 8, duration: -1 },  // -1 = infinite
 } as const;
 
-/** Explosion presets for different projectile types */
+/**
+ * Explosion presets for different projectile types. `radius` sizes the
+ * fire-atlas explosion (EXPLOSION_LOOK), `smokePuffs` is its smoke stage.
+ */
 export const EXPLOSION_PRESETS = {
-  rocket:   { particles: 50,  radius: 8 },
+  // No splash: the radius is purely visual
+  rocket:   { particles: 50,  radius: 8, smokePuffs: 6 },
   // Until 2026-09-12 a cannon hit spawned two explosions, 35 particles from
   // the impact event and 30 more from a second splash event one metre lower.
   // One explosion now, with most of the second one's particles folded in.
-  cannon:   { particles: 50,  radius: 6 },
+  // VFXService takes the radius from the cannonball's splashRadius.
+  cannon:   { particles: 50,  radius: 6, smokePuffs: 5 },
   hq:       { particles: 150, radius: 15 },
   bullet:   { particles: 2,   radius: 1 },
   // Green spark burst (BURST_PALETTES.poison). Until 2026-09-12 the glob hit
   // with 6 + 30 orange fire-atlas particles, which read as a fireball.
   poison:   { particles: 14,  radius: 2 },
   arcane:   { particles: 14,  radius: 3 },
+} as const;
+
+/**
+ * Look of the fire-atlas explosion (cannon, rocket and bullet impacts), in
+ * two stages: a fireball of additive explosion-atlas sprites, then smoke
+ * puffs from the smoke atlas in the normal pool that only show up once the
+ * fireball's bright half is over.
+ *
+ * Speeds and sprite sizes are given for `referenceRadius` and scale with
+ * the blast radius of the impact. The cannon (6 m splash) therefore keeps
+ * the ranges every explosion used before 2026-09-12 and the rocket (8 m) is
+ * a third larger; the bullet passes no radius and keeps them as well.
+ *
+ * Back to the old look: fire.sizeEnd 0 (sprites shrink to nothing again)
+ * and smokePuffs 0 in EXPLOSION_PRESETS.
+ */
+export const EXPLOSION_LOOK = {
+  referenceRadius: 6,
+  fire: {
+    /** Outward speed, m/s at the reference radius */
+    speedMin: 5,
+    speedMax: 20,
+    /** Lifetime, s. The flash is the first quarter of the 16 atlas frames. */
+    lifeMin: 0.3,
+    lifeMax: 0.7,
+    /** Sprite size at the reference radius */
+    sizeMin: 2.5,
+    sizeMax: 5.5,
+    /**
+     * Sprite scale at birth and at death. The atlas frames already grow the
+     * fireball; shrinking the sprite to 0 (the old curve) halved it by the
+     * time the fireball frames came up and collapsed it while it dissipated.
+     */
+    sizeStart: 1,
+    sizeEnd: 0.4,
+  },
+  smoke: {
+    /** Seconds before a puff shows: the fire sprites' bright half ends after 0.15-0.35 s */
+    delayMin: 0.2,
+    delayMax: 0.35,
+    /** Lifetime after the delay, s */
+    lifeMin: 1.2,
+    lifeMax: 2.0,
+    /** Sprite size at the reference radius */
+    sizeMin: 2.5,
+    sizeMax: 4.0,
+    /** Puffs start at half size and billow out */
+    sizeStart: 0.5,
+    sizeEnd: 1,
+    /** Horizontal scatter around the impact, share of the radius */
+    spread: 0.3,
+    /** Rise and sideways drift, m/s */
+    riseMin: 1.0,
+    riseMax: 2.5,
+    drift: 0.5,
+    /** Grey tint over the light smoke atlas: soot, not steam */
+    greyMin: 0.3,
+    greyMax: 0.45,
+  },
 } as const;
 
 /** RGB colour, channels 0-1 (linear, as the particle pools store it). */

@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 import { EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../configs/visual-effects.config';
+import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 
 /**
@@ -106,36 +107,30 @@ export class VFXService {
     projectileType: string;
     targetLost: boolean;
   }): void {
-    const { lat, lon, height, projectileType, targetLost: _targetLost } = event;
-
-    // Select explosion preset based on projectile type
-    let preset: number;
+    const { lat, lon, height, projectileType } = event;
+    const effects = this.tilesEngine.effects;
 
     if (projectileType === 'rocket' || projectileType.includes('homing')) {
-      // Rocket explosion - large fire effect
-      preset = EXPLOSION_PRESETS.rocket.particles;
+      // Rocket explosion - large fire effect, the radius is visual only
+      const { particles, radius, smokePuffs } = EXPLOSION_PRESETS.rocket;
+      effects.spawnExplosionAtGeo(lat, lon, height, particles, radius, smokePuffs);
     } else if (projectileType === 'cannonball') {
-      // Cannonball explosion - medium fire effect
-      preset = EXPLOSION_PRESETS.cannon.particles;
+      // Cannonball explosion - as wide as the splash that deals its damage
+      const { particles, smokePuffs } = EXPLOSION_PRESETS.cannon;
+      const radius = PROJECTILE_TYPES.cannonball.splashRadius ?? EXPLOSION_PRESETS.cannon.radius;
+      effects.spawnExplosionAtGeo(lat, lon, height, particles, radius, smokePuffs);
     } else if (projectileType === 'bullet') {
       // Minimal impact effect for bullets
-      preset = EXPLOSION_PRESETS.bullet.particles;
+      effects.spawnExplosionAtGeo(lat, lon, height, EXPLOSION_PRESETS.bullet.particles);
     } else if (projectileType === 'poison-glob') {
       // Green spark burst instead of the fire-atlas explosion
-      this.tilesEngine.effects.spawnPoisonBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.poison.particles);
-      return;
+      effects.spawnPoisonBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.poison.particles);
     } else if (projectileType === 'arcane-orb') {
       // Violet/cyan spark burst instead of the fire-atlas explosion
-      this.tilesEngine.effects.spawnArcaneBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.arcane.particles);
-      return;
-    } else {
-      // Nothing for arrows. The ice shard's burst and frost decals come from
-      // the hit itself (CombatVfxService.emitIceExplosion).
-      return;
+      effects.spawnArcaneBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.arcane.particles);
     }
-
-    // Spawn explosion effect
-    this.tilesEngine.effects.spawnExplosionAtGeo(lat, lon, height, preset);
+    // Nothing for arrows. The ice shard's burst and frost decals come from
+    // the hit itself (CombatVfxService.emitIceExplosion).
   }
 
   /**
