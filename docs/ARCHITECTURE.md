@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-05-12 (Abschnitt „Laufzeit-Abhaengigkeiten" + `ai/`-Baum: 2026-09-07)
+**Stand:** 2026-09-13 (Dateistruktur, Services, Manager, Renderer, Game Loop gegen den Code geprüft; `ai/`-Baum: 2026-09-07)
 
 ## Übersicht
 
@@ -86,7 +86,8 @@ const spawnMarker = this.createDiamondMarker({ color: 0xef4444, size: 0.5, showR
 ## Services
 
 Die Haupt-Komponente wurde durch Extraktion spezialisierter Services modularisiert.
-Die Komponente selbst ist seit dem 2026-01 Refactoring auf ~655 Zeilen reduziert.
+`tower-defense.component.ts` hat ~810 Zeilen, Template und Styles liegen daneben in
+`tower-defense.component.html` und `.scss`.
 
 **Hinweis:** Services liegen in `/src/app/services/`. Seit dem **services/-Subfolder-Split
 am 2026-05-10** sind sie thematisch in 6 Subfolder gruppiert; Root-Files
@@ -112,8 +113,10 @@ src/app/services/
 │   └── tower-combat.service.ts
 ├── debug/
 │   ├── debug-facade.service.ts
+│   ├── debug-state-dump.service.ts
 │   ├── debug-window.service.ts
 │   ├── enemy-debug.service.ts
+│   ├── los-debug.service.ts
 │   ├── performance-profiler.service.ts
 │   ├── sound-debug.service.ts
 │   ├── tower-debug.service.ts
@@ -140,8 +143,10 @@ src/app/services/
 │   └── world-dice.service.ts
 └── world/
     ├── building-rendering.service.ts
+    ├── corridor-refit.ts             ← CorridorRefit, siehe ROUTE_CORRIDOR.md
     ├── global-route-grid.service.ts
     ├── height-update.service.ts
+    ├── intro-camera-flight.service.ts
     ├── map-placement.service.ts
     ├── marker-visualization.service.ts
     ├── path-route.service.ts
@@ -166,7 +171,7 @@ src/app/services/
 
 | Service | Verantwortung |
 |---------|---------------|
-| **CameraControlService** | Kamera Position, Reset, Fly-To Animationen |
+| **CameraControlService** | Start- und Übersichtsansicht merken, Kamera-Reset, Heading und Debug-Info für Kompass und Engine-Store |
 | **CameraFramingService** | Viewport-basierte Kamera-Positionierung |
 | **InputHandlerService** | Click/Pan Detection, Terrain Raycasting |
 | **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
@@ -181,7 +186,7 @@ src/app/services/
 | **CombatEffectService** | Projectile Hits, Damage, Blood/Death/Slow Effects |
 | **CombatVfxService** | VFX-Trigger fuer Combat-Events (Hit-Sparks, Splash-Visuals) |
 | **DamageApplicationService** | Damage-Pipeline: Schadensmatrix, Resistances, DOT-Application |
-| **StatusEffectService** | Status-Effekte (Slow, Freeze, Burn, Poison) inkl. DOT-Ticks |
+| **StatusEffectService** | Status-Effekte (Slow, Burn, Poison; Freeze reserviert) inkl. DOT-Ticks |
 | **HQDamageService** | HQ Fire Effects, Damage Sounds, Game Over Visuals |
 
 #### world/
@@ -191,7 +196,9 @@ src/app/services/
 | **MarkerVisualizationService** | 3D Marker (HQ, Spawn, Debug), Animation |
 | **PathAndRouteService** (`path-route.service.ts`) | Pfad-Caching, Route-Visualisierung, Height Smoothing |
 | **RouteAnimationService** | Knight Rider Routen-Animation |
-| **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup, owns Per-Tower-Viz-Mesh (showTowerViz/clearTowerViz, 2026-05-11) |
+| **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup, Tower-Registrierung. Die Per-Tower-Viz (`TowerLosViz`, `utils/tower-los-viz.ts`) halten TowerManager (Auswahl) und TowerPlacementService (Build-Preview) |
+| **IntroCameraFlightService** | Intro-Kamerafahrt entlang der Route, lädt dabei die Tiles des Korridors vor |
+| **CorridorRefit** (`corridor-refit.ts`) | Korridor-Messung nach Tile-Loads nachziehen, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | **SpatialGridService** | Generischer Spatial Hash fuer Tower/Enemy Range-Queries |
 | **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
 | **StreetRenderingService** | Street Network Visualisierung mit Terrain-Following |
@@ -217,13 +224,15 @@ src/app/services/
 
 | Service | Verantwortung |
 |---------|---------------|
-| **DebugFacadeService** | Debug Log, Height Debug, Display Options, Enemy Debug |
+| **DebugFacadeService** | Debug Log, Height Debug, Display Options (ein Objekt unter `td_display_options`, `utils/display-options.storage.ts`), Enemy Debug |
 | **WaveDebugService** | Wave-Debugging Utilities — delegiert State an `DebugStore` |
 | **SoundDebugService** | Sound-Debug Stats & Events von SpatialAudioManager |
 | **TowerDebugService** | Tower-Parameter Overrides (Scale, Height, Rotation) — delegiert State an `DebugStore` |
 | **EnemyDebugService** | Enemy-Debug (Spawn, Type-Config, Live-Visualisierung) — delegiert State an `DebugStore` |
-| **DebugWindowService** | Debug-Window Verwaltung |
+| **DebugWindowService** | Offen/zu-Zustand der elf Debug-Fenster. Die Fenster-Komponenten laden als ein Lazy-Chunk (`components/debug-window/debug-windows.ts`, ein `@defer`-Block im Template), sobald das Dev-Menü oder ein Fenster offen ist; die Debug-Services bleiben im Spiel-Chunk |
 | **PerformanceProfilerService** | Frame-Time Sampling, Hot-Path-Profile (`.profiles/`) |
+| **LosDebugService** | Zustand des LOS-Debug-Fensters: aktiver Tower, Cubemap-Faces, Pixel-zu-Cell-Lookup |
+| **DebugStateDumpService** | JSON-Snapshot des Engine-Zustands als Download für Bug-Hunts |
 
 ### Facade Services
 
@@ -295,9 +304,6 @@ tower-defense.component.ts
     │   ├── EconomyService ────────────── Wave-Completion-Bonus + Streak (extrahiert aus GSM)
     │   ├── EnemyManager / TowerManager / ProjectileManager / WaveManager / ResearchManager
     │   └── EntityManager ─────────────── Generischer Entity-Container
-    │
-    └── Shared
-        └── EntityPoolService ─────────── Object Pooling
 ```
 
 ---
@@ -318,7 +324,7 @@ tower-defense.component.ts
 │  │   ├─ HQ Marker                                           │
 │  │   └─ Spawn Markers                                       │
 │  │                                                           │
-│  ├─ Enemies (GLTFLoader + AnimationMixer)                   │
+│  ├─ Enemies (InstancedMesh + VAT, InstancedEnemyRenderer)   │
 │  ├─ Towers (GLTFLoader)                                     │
 │  ├─ Projectiles (InstancedMesh)                             │
 │  └─ Effects (Particles)                                     │
@@ -437,24 +443,25 @@ useHeight() {
 
 ### Terrain-Höhenermittlung
 
-Raycast gegen geladene 3D Tiles in lokalen Koordinaten:
+Senkrechte Säulen-Probe gegen die geladenen 3D Tiles in lokalen Koordinaten, in
+`TerrainQueries` (`three-engine/terrain-queries.ts`); `engine.getTerrainHeightAtGeo()`
+reicht nur durch:
 
 ```typescript
 getTerrainHeightAtGeo(lat: number, lon: number): number | null {
-  // 1. Lokale Position berechnen (X/Z)
+  // DevWorld: Höhe kommt vom Provider
+  const devTerrain = this.sources.devTerrain();
+  if (devTerrain) return devTerrain.getHeightAtGeo(lat, lon);
+
+  // Lokale X/Z, dann Säulen-Probe (Cache pro Säule, Key = lokales x/z),
+  // gebucht unter 'heightAtGeo' in __raycastStats()
   const localPos = this.sync.geoToLocalSimple(lat, lon, 0);
-
-  // 2. Raycast von 10km Höhe nach unten
-  const rayOrigin = new THREE.Vector3(localPos.x, 10000, localPos.z);
-  const direction = new THREE.Vector3(0, -1, 0);
-
-  this.raycaster.set(rayOrigin, direction);
-  const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
-
-  // 3. Hit-Point Y-Koordinate zurückgeben
-  return results.length > 0 ? results[0].point.y : null;
+  return this.sampleColumn(localPos.x, localPos.z)?.groundY ?? null;
 }
 ```
+
+Welcher Treffer der Probe als Boden zählt, entscheidet `three-engine/column-sample.ts`
+(ohne Three.js, einzeln testbar). `clearHeightCache()` leert den Säulen-Cache.
 
 ### Pfad-Höhen und Route-Grid-Cells
 
@@ -496,14 +503,20 @@ Tower-LOS und Air-Routing bedienen.
 ```
 
 **onTilesLoaded sequence:**
-1. `engine.terrain.clearHeightCache()` (signalled before callback)
-2. `globalRouteGrid.updateTerrainHeights()` — re-sample all cells against
-   freshly streamed tile geometry; quality-versioned idempotency skips
-   stable cells unless LOD improved
-3. `pathRoute.refreshRouteLines()` — line + cachedPaths rebuilt from
-   the now-fresh cells
-4. `scheduleRouteGridConvergence()` — rAF self-heal loop for cells
-   still `unsampled` (async tile-mesh decode)
+1. Engine (`onTileSetSettled`): `terrain.markTileSetChanged()` erhöht `lodVersion`,
+   das entwertet einzelne Säulen-Samples (kein globaler Cache-Clear); danach
+   invalidiert der Engine die LOS-Cubemap und ruft den Callback
+2. `VisualizationFacadeService.onTilesLoaded()`: Straßen, Gebäude, Marker-Höhen, dann
+   `globalRouteGrid.beginTerrainHeightRefresh()`, ein Sweep über alle Cells mit
+   Frame-Budget statt eines blockierenden Voll-Durchlaufs; stabile Cells werden nur bei
+   besserem LOD neu gesampelt
+3. `scheduleBakedHeightRefresh()` merkt den Neuaufbau von Route-Linien, Markern und
+   Animation vor; er läuft einmal, wenn der Sweep fertig ist
+4. `scheduleRouteGridConvergence()`: rAF-Schleife, erst `stepTerrainHeightRefresh()` mit
+   5 ms pro Frame, danach `retryUnsampledCells()` für Cells, deren Tile-Mesh später
+   dekodiert wurde, bis zwei Frames nacheinander nichts mehr befördern (Sicherheitsgrenze
+   120 Frames). Am Ende laufen der Baked-Refresh und `CorridorRefit.remeasure()`
+   ([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md))
 
 **Sanity & sampling rules (in `sampleCellY`, `route-cell-sampler.ts`):**
 - Rejects raycast hits with `tileDepth=0` / `tileGeomErr=Infinity` (mesh
@@ -523,10 +536,16 @@ Tower-Platzierung und Kamera-Bewegung loesten frueher schwere Frame-Drops aus
 (95-600ms synchrone Raycasts). Beide nutzen jetzt progressive Batching:
 
 **Tower LOS Registration:**
-- `registerTowerProgressive()` berechnet LOS in Batches von 50 Zellen/Frame
-- Tower bleibt inaktiv (`tower.losReady = false`) bis LOS komplett (~130ms / ~8 Frames)
-- Combat-System ueberspringt Towers mit `!losReady`
-- Gleiche Logik wie die existierende Preview (`continuePreviewBuild()`)
+- `TowerPlacementService.registerTowerOnGrid()` läuft beim Platzieren (aus
+  `GameStateManager`, nicht für passive Gebäude): erst `refineCellsInRadius()` im
+  Tower-Radius, dann `registerTower()` am Grid mit GPU-Cubemap-LOS
+  ([HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md)), danach
+  `tower.losReady = true`
+- Combat-System überspringt Towers mit `!losReady`
+- Ändern sich Cell-Höhen (cells-changed-Listener), kommen die betroffenen Tower in eine
+  Queue; `drainLosRefresh()` rechnet höchstens einen Tower pro Frame neu
+  (`LOS_RECOMPUTES_PER_FRAME`) und wartet dabei auf einen laufenden Terrain-Sweep, maximal
+  3 s (`MAX_LOS_WAIT_MS`)
 
 **Street Rendering:**
 - `renderStreets()` sammelt alle Nodes und gibt sofort zurueck
@@ -559,7 +578,7 @@ abstract class GameObject {
   readonly id: string;
   readonly type: GameObjectType; // 'enemy' | 'tower' | 'projectile'
 
-  protected components = new Map<string, Component>();
+  protected components = new Map<ComponentType, Component>();
   private _active = true;
 
   // Component Management
@@ -657,36 +676,41 @@ class Projectile extends GameObject {
 @Injectable()  // Nur dieser Manager hat noch Angular DI
 class GameStateManager {
   // Sub-Managers (manuell erstellt, nicht injected)
-  readonly enemyManager: EnemyManager;
   readonly towerManager: TowerManager;
+  readonly enemyManager: EnemyManager;
   readonly projectileManager: ProjectileManager;
   readonly waveManager: WaveManager;
+  readonly researchManager: ResearchManager;
 
   // Event Bus
-  private eventBus: GameEventBus;
+  private readonly eventBus = new GameEventBus();
 
   // Game State (Angular Signals fuer UI-Bindings)
-  readonly baseHealth = signal(100);
-  readonly credits = signal(100);
+  readonly baseHealth = signal(GAME_BALANCE.player.startHealth);
+  readonly credits = signal(GAME_BALANCE.player.startCredits);
 
-  initialize(engine: ThreeTilesEngine, streetNetwork, basePosition, spawnPoints, cachedPaths): void;
-  update(currentTime: number): void;
+  initialize(engine: ThreeTilesEngine, basePosition, spawnPoints, cachedPaths): void;
+  update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void): void;  // Sub-Step-Loop, siehe Abschnitt 9
   reset(): void;
+  dispose(): void;
   getEventBus(): GameEventBus;  // Fuer externe Subscriptions
 }
 ```
+
+Die `command:*`- und einige `debug:*`-Subscriptions liegen in `GameCommandsHandler`
+(`managers/game-commands.handler.ts`, 11 Subscriptions).
 
 ### 4.2 EnemyManager (Framework-agnostic)
 
 ```typescript
 // Kein @Injectable - Constructor Injection
 class EnemyManager extends EntityManager<Enemy> {
-  constructor(eventBus: GameEventBus, entityPool: EntityPoolService, routeGrid: GlobalRouteGridService, spatialGrid: SpatialGridService);
+  constructor(eventBus: GameEventBus, routeGrid: GlobalRouteGridService, spatialGrid: SpatialGridService);
 
-  spawn(path, typeId, speedOverride?, paused?): Enemy;
-  kill(enemy: Enemy): void;  // Emittiert 'enemy:died'
-  update(deltaTime: number): void;  // Emittiert 'enemy:reached-base'
-  startAll(delayBetween?: number): void;
+  spawn(path, typeId, speedOverride?, paused?, healthOverride?): Enemy;
+  kill(enemy: Enemy, awardCredits?: boolean): boolean;  // Emittiert 'enemy:died'
+  update(deltaTime: number, gameTimeMs: number): void;  // Emittiert 'enemy:reached-base'
+  startAll(defaultDelayBetween?: number): void;
   getAlive(): Enemy[];
 }
 ```
@@ -696,25 +720,27 @@ class EnemyManager extends EntityManager<Enemy> {
 ```typescript
 // Kein @Injectable - Constructor Injection
 class TowerManager extends EntityManager<Tower> {
-  constructor(eventBus: GameEventBus, osmService: OsmStreetService);
+  constructor(eventBus: GameEventBus, osmService: OsmStreetService, researchStore: ResearchStore);
 
-  initializeWithContext(engine, streetNetwork, basePosition, spawnPoints): void;
-  placeTower(position: GeoPosition, typeId: TowerTypeId): Tower | null;  // Emittiert 'tower:placed'
+  initialize(tilesEngine: ThreeTilesEngine): void;  // aus EntityManager
+  placeTower(position: GeoPosition, typeId: TowerTypeId, customRotation?: number): Tower | null;  // Emittiert 'tower:placed'
   sell(tower: Tower): number;  // Emittiert 'tower:sold'
-  validatePosition(position: GeoPosition): { valid: boolean; reason?: string };
   selectTower(id: string | null): void;
   getSelected(): Tower | null;
 }
 ```
+
+Die Platzierungsregeln liegen nicht im TowerManager, sondern in `TowerPlacementService`
+und `utils/tower-placement-rules.ts`.
 
 ### 4.4 ProjectileManager (Framework-agnostic)
 
 ```typescript
 // Kein @Injectable - Constructor Injection
 class ProjectileManager extends EntityManager<Projectile> {
-  constructor(eventBus: GameEventBus, entityPool: EntityPoolService);
+  constructor(eventBus: GameEventBus);
 
-  spawn(tower: Tower, targetEnemy: Enemy): Projectile;
+  spawn(tower: Tower, targetEnemy: Enemy, heading?: number): Projectile;  // Emittiert 'vfx:muzzle-flash'
   update(deltaTime: number): void;  // Emittiert 'projectile:hit', 'vfx:projectile-impact', 'audio:play'
 }
 ```
@@ -731,8 +757,10 @@ class WaveManager implements IGameManager {
 
   initialize(spawnPoints, cachedPaths): void;
   startWave(config: WaveConfig): void;  // Emittiert 'wave:started'
+  beginWave(): void;                    // Wave-Phase ohne Auto-Spawn, emittiert 'wave:started'
+  tickSpawn(gameTimeDeltaMs: number): void;  // pro Sub-Step in der Wave-Phase
   checkWaveComplete(): boolean;
-  endWave(): void;  // Emittiert 'wave:completed' (perfect, closeCall, hpLost)
+  endWave(): { wave; perfect; closeCall; hpLost };  // emitDeferred 'wave:completed'
   reset(): void;
 }
 ```
@@ -741,14 +769,17 @@ class WaveManager implements IGameManager {
 
 ```typescript
 // Kein @Injectable - Constructor Injection
-class ResearchManager {
-  constructor(eventBus: GameEventBus, researchStore: ResearchStore);
+class ResearchManager implements IGameManager {
+  constructor(eventBus: GameEventBus);
 
-  start(researchId: string): void;   // Emittiert 'research:started'
-  cancel(researchId: string): void;  // Emittiert 'research:cancelled'
-  update(deltaTime: number): void;   // Tick fuer aktive Forschungen, emittiert 'research:completed'
+  startResearch(id: ResearchId): boolean;  // Emittiert 'research:started'
+  cancelResearch(id: ResearchId): number;  // Emittiert 'research:cancelled'
+  update(stepMs: number): void;            // Tick für aktive Forschungen, emittiert 'research:progress' / 'research:completed'
 }
 ```
+
+Den Store-Zustand meldet der Manager als `research:state-changed`, `GameStateSyncService`
+schreibt ihn in den `ResearchStore`.
 
 ResearchEffects sind in `configs/research/research.types.ts` definiert und werden bei Completion an Tower- und Game-Systeme verteilt (z.B. unlockTowerType, multiplyDamage).
 
@@ -780,41 +811,47 @@ Das Projekt verwendet einen **type-safe Event Bus** fuer lose Kopplung zwischen 
 class GameEventBus {
   // Type-safe event emission
   emit(event: GameEvent): void;           // Immediate (blocking)
-  emitDeferred(event: GameEvent): void;   // Queued for frame-end
-  processQueue(): void;                    // Process deferred events
+  emitDeferred(event: GameEvent): void;   // Queued bis processQueue()
+  processQueue(): void;                    // Process deferred events (pro Sub-Step)
 
   // Subscriptions
-  on<T extends GameEvent['type']>(type: T, handler: (event) => void): () => void;
-  onAny(handler: (event: GameEvent) => void): () => void;  // Debug
+  on<T extends GameEvent['type']>(type: T, handler: (event) => void): EventSubscription;
+  off<T extends GameEvent['type']>(type: T, handler): void;
+  onAny(handler: (event: GameEvent) => void): EventSubscription;  // Debug
+  clear(): void;
 }
 ```
+
+Services und Manager sammeln ihre Subscriptions in einer `SubscriptionBag`
+(`game-event-bus.ts`) und lösen sie in `dispose()`/`destroy()`.
 
 ### Event-Typen
 
 | Kategorie | Events |
 |-----------|--------|
 | Enemy | `enemy:died`, `enemy:reached-base`, `enemy:spawned` |
-| Tower | `tower:placed`, `tower:sold`, `tower:upgraded`, `tower:selected`, `tower:deselected` |
+| Tower | `tower:placed`, `tower:sold`, `tower:upgraded`, `tower:selected`, `tower:deselected`, `tower:kill` |
 | Combat | `projectile:hit`, `dot:damage` |
 | Wave | `wave:started`, `wave:completed` (mit `perfect`, `closeCall`, `hpLost`) |
 | Game | `game:started`, `game:over`, `game:reset`, `health:changed`, `credits:changed` |
-| Research | `research:started`, `research:completed`, `research:cancelled` |
-| Effects | `vfx:blood`, `vfx:projectile-impact`, `vfx:muzzle-flash`, `audio:play` |
-| Debug | `debug:sound`, `debug:spawn-enemy`, `debug:kill-all`, `debug:start-custom-wave`, `debug:complete-all-research`, `debug:max-upgrade-all-towers` |
+| Research | `research:started`, `research:progress`, `research:completed`, `research:cancelled`, `research:state-changed` |
+| Effects | `vfx:blood`, `vfx:projectile-impact`, `vfx:muzzle-flash`, `vfx:chain-lightning`, `audio:play` |
+| Debug | `debug:sound`, `debug:spawn-enemy`, `debug:kill-all`, `debug:start-custom-wave`, `debug:complete-all-research`, `debug:max-upgrade-all-towers`, `debug:add-credits`, `debug:add-health`, `debug:remove-enemy`, `debug:clear-enemies`, `debug:toggle-movement` |
 | Commands | `command:place-tower`, `command:sell-tower`, `command:upgrade-tower`, `command:start-wave`, `command:restart-game`, `command:start-research`, `command:cancel-research` |
 
 ### Immediate vs Deferred
 
 - **Immediate Events:** Game-kritisch, sofort verarbeitet (z.B. `enemy:died`, `projectile:hit`)
-- **Deferred Events:** Nicht-kritisch, am Frame-Ende verarbeitet (z.B. `vfx:*`, `audio:play`)
+- **Deferred Events:** Nicht-kritisch, beim nächsten `processQueue()` verarbeitet (z.B. `vfx:*`, `audio:play`, `debug:sound`; außerdem `wave:completed`)
 
 ```typescript
-// Game Loop
-function update(deltaTime: number) {
-  enemyManager.update(deltaTime);      // Emits immediate events
-  projectileManager.update(deltaTime); // Emits immediate + deferred
-  eventBus.processQueue();             // Process deferred at stable point
-}
+// GameStateManager.runSubStep(stepMs), einmal pro Sub-Step
+projectileManager.update(stepMs);          // Emits immediate + deferred
+researchManager.update(stepMs);
+eventBus.processQueue();                   // Process deferred at stable point
+waveManager.tickSpawn(stepMs);             // nur in der Wave-Phase
+enemyManager.update(stepMs, gameTimeMs);   // Emits immediate events
+towerCombat.updateTowerShooting(...);      // + Beam/Melee/Chain, nur in der Wave-Phase oder mit Debug-Gegnern
 ```
 
 ---
@@ -832,18 +869,19 @@ interface CoordinateSync {
 }
 ```
 
-### 6.1 ThreeEnemyRenderer
+### 6.1 InstancedEnemyRenderer
 
 ```typescript
-class ThreeEnemyRenderer {
-  constructor(scene: THREE.Scene, sync: CoordinateSync);
+class InstancedEnemyRenderer {
+  constructor(scene: THREE.Scene, sync: CoordinateSync, assetManager: AssetManagerService);
 
   preloadModel(typeId: EnemyTypeId): Promise<void>;
   create(id, typeId, lat, lon, height): Promise<EnemyRenderData | null>;
-  update(id, lat, lon, height, rotation, healthPercent, currentSpeed?): void;
+  updateSlot(slot, localPos, heading, healthPercent, currentSpeed): void;
   startWalkAnimation(id: string): void;
   startRunAnimation(id: string): void;     // nur Clip, die Geschwindigkeit ist Simulation (Enemy.rush)
   playDeathAnimation(id: string): void;
+  updateAnimations(deltaTime: number, camera: Camera): void;  // pro Frame, in Spielzeit
   remove(id: string): void;
 }
 ```
@@ -853,9 +891,13 @@ class ThreeEnemyRenderer {
 Gegner-Animationen sind automatisch an ihre Bewegungsgeschwindigkeit gekoppelt:
 
 ```typescript
-// In ThreeEnemyRenderer.update()
-const speedRatio = currentSpeed / effectiveBaseSpeed;
-animationAction.timeScale = baseAnimSpeed * speedRatio;
+// EnemyInstanceManager.updateEnemyState() (instanced-enemy/enemy-instance.manager.ts)
+let effectiveBaseSpeed = config.baseSpeed;
+if (!state.isWalking && config.runSpeedMultiplier) effectiveBaseSpeed *= config.runSpeedMultiplier;
+state.speedMultiplier = currentSpeed / effectiveBaseSpeed;
+
+// beim Animations-Update
+state.animTime += deltaTime * state.animSpeed * state.speedMultiplier;
 ```
 
 **Effekt:** Schnellere Bewegung → Schnellere Animation (natürliche Laufbewegung)
@@ -879,10 +921,12 @@ runSpeedMultiplier: 2.5,      // 2.5× Speed bei Run-Animation
 
 ```typescript
 class ThreeTowerRenderer {
-  constructor(scene: THREE.Scene, sync: CoordinateSync);
+  constructor(scene: THREE.Scene, sync: CoordinateSync, assetManager: AssetManagerService);
 
   preloadModel(typeId: TowerTypeId): Promise<void>;
-  create(id, typeId, lat, lon, height): Promise<TowerRenderData>;
+  create(id, typeId, lat, lon, height, customRotation?, initialHeading?): Promise<TowerRenderData | null>;
+  advanceTurretAim(gameTimeStepMs: number): void;  // pro Sub-Step, aus GameLoopFacadeService
+  setIdleHeading(id: string, heading: number): void;  // Guard-Richtung nach der Wave
   select(id: string): void;
   deselect(id: string): void;
   remove(id: string): void;
@@ -895,26 +939,32 @@ class ThreeTowerRenderer {
 class ThreeProjectileRenderer {
   constructor(scene: THREE.Scene, sync: CoordinateSync);
 
-  create(id, typeId, lat, lon, height, heading): void;
-  update(id, lat, lon, height, heading): void;
+  create(id, typeId, startLat, startLon, startHeight, direction: { dx; dy; dz }): void;
+  update(id, lat, lon, height): void;
+  updateWithRotation(id, lat, lon, height, direction: { dx; dy; dz }): void;
+  commitToGPU(): void;  // einmal pro Frame aus ThreeTilesEngine.update()
   remove(id: string): void;
 }
 ```
 
 ### 6.4 Spezialisierte Renderer
 
-Zusaetzlich zum klassischen `ThreeEnemyRenderer` existieren mehrere spezialisierte Renderer:
+Neben Tower-, Projektil- und Effects-Renderer gibt es mehrere spezialisierte Renderer:
 
 | Renderer | Datei | Zweck |
 |----------|-------|-------|
 | **InstancedEnemyRenderer** | `renderers/instanced-enemy/` | GPU-instancing fuer Enemies via VAT (Vertex Animation Textures) — siehe [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
-| **DecalInstanceManager** | `renderers/decal-instance.manager.ts` | Blut/Eis-Decals als InstancedMesh mit Free-List-Pool |
+| **DecalInstanceManager** | `renderers/decal-instance.manager.ts` | Blut-, Eis- und Scorch-Decals (`scorch-marks.ts`) als InstancedMesh mit Free-List-Pool |
 | **ThreeFlameBeamRenderer** | `renderers/three-flame-beam.renderer.ts` | Fire-Tower-Beam (animierter Flammen-Kegel) |
 | **ThreeTentacleRenderer** | `renderers/three-tentacle.renderer.ts` | Bezier-basierte Tentakel fuer Tentacle-Tower |
+| **LightningBoltRenderer** | `renderers/lightning-bolt.renderer.ts` | Chain-Bolts, Idle-Crackle, Impact-Halos (Lightning Tower) |
 | **TrailStreakRenderer** | `renderers/trail-streak.renderer.ts` | Projektil-Trails als gestreckte Quads |
-| **FloatingTextManager** | `renderers/floating-text/` | GPU-instanzierte Schadenszahlen ueber Enemies |
-| **MarkerRenderers** | `renderers/marker/` | HQ-/Spawn-Marker, Range-Discs |
-| **SpriteAtlasGenerator** | `renderers/sprite-atlas-generator.ts` | Generiert Atlas-Texturen fuer GPU-instanzierte Floating-Texts |
+| **FloatingTextInstanceManager** | `renderers/floating-text/` | GPU-instanzierte Schadenszahlen über Enemies, Atlas in `floating-text-atlas.ts` |
+| **MarkerInstanceManager** / **MarkerLabelManager** | `renderers/marker/` | HQ-/Spawn-Marker, Range-Discs, Labels |
+| **SpriteAtlasGenerator** | `renderers/sprite-atlas-generator.ts` | Canvas2D-Atlas mit Animations-Frames (z. B. Explosion) für die Partikel-Pools (`ParticlePoolManager`) |
+
+Der klassische `ThreeEnemyRenderer` (GLTF + AnimationMixer pro Enemy) wurde entfernt
+(2bbf91f), Enemies laufen nur noch über den InstancedEnemyRenderer.
 
 ### 6.5 ThreeEffectsRenderer
 
@@ -941,9 +991,10 @@ class ThreeEffectsRenderer {
 Delegations-Facade — die Konsumenten-API (`tilesEngine.effects.*`) bleibt stabil,
 die Implementierung liegt in fokussierten Modulen: `ParticlePoolManager`
 (GPU-Pools, Free-Lists, Buffer-Caches, Atlas), `ParticleEffectsRenderer`
-(Blood/Fire/Explosion/Smoke/Trails/Decals + `activeEffects`-Lifecycle),
-`EnvironmentEffectsRenderer` (HQ-Explosion, Fire-Flash, Tower-Inner-Fire),
-`AuraRenderer` (Frost-/Poison-Auren) und `particle-shaders.ts` (GLSL).
+(Blood/Fire/Explosion/Smoke/Trails + `activeEffects`-Lifecycle, dazu die Decal-Pools für
+Blut, Eis und Scorch Marks), `EnvironmentEffectsRenderer` (HQ-Explosion, Fire-Flash,
+Tower-Inner-Fire), `AuraRenderer` (Frost-/Poison-Auren), `FloatingTextInstanceManager`
+(Schadenszahlen) und `particle-shaders.ts` (GLSL).
 
 ---
 
@@ -956,17 +1007,18 @@ const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
     id: 'archer',
     name: 'Archer Tower',
-    modelUrl: '/assets/games/tower-defense/models/tower_archer.glb',
-    scale: 1.8,
+    modelUrl: 'assets/models/towers/archer.glb',
+    scale: 10.1,
     damage: 25,
-    range: 60,
+    range: 30,
     fireRate: 1,
     projectileType: 'arrow',
     cost: 45,
+    // ... (Auszug)
   },
   cannon: { /* ... */ },
   magic: { /* ... */ },
-  // ... weitere: dual-gatling, rocket, ice, fire, tentacle
+  // ... weitere: dual-gatling, rocket, ice, fire, tentacle, poison, lightning, chaos, research-center
 };
 ```
 
@@ -977,7 +1029,7 @@ const ENEMY_TYPES: Record<EnemyTypeId, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
     name: 'Zombie',
-    modelUrl: '/assets/models/enemies/zombie.glb',
+    modelUrl: 'assets/models/enemies/zombie.glb',
     baseHp: 80,
     baseSpeed: 5,
     scale: 0.984,
@@ -1114,16 +1166,15 @@ const dist = geoDistance(enemy.position, tower.position);
 - `fastDistance`: 1000 × 25ns = **25 µs**
 - `haversineDistance`: 1000 × 180ns = **180 µs** (7x langsamer!)
 
-#### TODO: Migration zu fastDistance
+Außerdem: `geoDistanceFast()` (Objekt-Wrapper um `fastDistance`) sowie
+`fastDistanceSq()`/`geoDistanceFastSq()` für Vergleiche ohne `sqrt`.
 
-**Status:** Viele Stellen verwenden noch Haversine in Hot-Paths
+#### Stand der Migration zu fastDistance
 
-**Betroffene Dateien:**
-- `enemy.manager.ts:284-294` - getEnemiesInRadius (Range-Checks)
-- `tower.manager.ts` - Tower-Placement-Validierung
-- `game-state.manager.ts` - Combat Update Loop
-
-**Siehe:** [TODO.md - Fast-Distance statt Haversine](../TODO.md)
+Erledigt (DONE.md, „Fast-Distance statt Haversine"). EnemyManager, TowerManager und
+GameStateManager rufen keine Distanzfunktion aus `geo-utils` mehr direkt auf, Umkreis-Abfragen
+laufen über `GlobalRouteGrid.getEnemiesInRadius()`. `haversineDistance`/`geoDistance`
+nutzen noch Location-, OSM-, Pfad- und Platzierungscode sowie der Pathfinding-Worker.
 
 ---
 
@@ -1132,24 +1183,44 @@ const dist = geoDistance(enemy.position, tower.position);
 **Design-Prinzip:** Der Game Loop läuft IMMER. Die Phase kontrolliert WAS passiert, nicht OB der Loop läuft.
 
 ```typescript
-// Engine Render Loop (render-loop.ts) - läuft IMMER
-function engineLoop(currentTime: number) {
-  engine.update(deltaTime);    // Animationen, Effekte, Shader
-  engine.render();             // Three.js Rendering
+// RenderLoop.start() (render-loop.ts, engine.renderLoop) - rAF-Loop
+const animate = (currentTime: number) => {
+  if (heartbeatWorker) return requestAnimationFrame(animate);                    // Worker-Takt hat die Uhr
+  if (!framePacer.shouldRun(currentTime)) return requestAnimationFrame(animate); // Frame-Cap
+  hooks.update(currentTime - lastLoopTime);  // engine.update(): zuerst onUpdateCallback, dann Visuals
+  hooks.render();                            // engine.render()
+  requestAnimationFrame(animate);
+};
 
-  // Callback für Game-Logik
-  onUpdateCallback(deltaTime);
-
-  requestAnimationFrame(engineLoop);
-}
-
-// onEngineUpdate (tower-defense.component.ts) - Game-Logik
+// GameLoopFacadeService.onEngineUpdate(deltaTime) - der onUpdateCallback
 function onEngineUpdate(deltaTime: number) {
-  // IMMER: Projektile, Tower-Idle-Rotation, Grid-Animation
-  // NUR WAVE: Enemy-Bewegung, Tower-Schießen, Wave-Check
-  gameState.update(performance.now());
+  // pro Frame: Build-Preview-Rotation, Street-Batches, Keyboard-Pan, Marker, Route-Animation, Intro-Flug
+  gameState.update(performance.now(), (stepMs) => {
+    tilesEngine.towers.advanceTurretAim(stepMs);             // pro Sub-Step, Spielzeit
+    if (botEnabled) trainingClient.updateBot(snapshot, stepMs);
+  });
+  // danach: Profiler, Route-Grid-Viz, LOS-Viz-Puls, UI-Stats (~10 Hz)
 }
 ```
+
+`ThreeTilesEngine.update()` ruft `onUpdateCallback` auch bei abgeschaltetem Rendering
+(Headless-Training); Enemy-Animation, Tower-Visuals, Projektil-Upload und Effekte laufen
+danach nur mit Rendering.
+
+**Sub-Steps:** `GameStateManager.update()` begrenzt das Wanduhr-Delta auf `MAX_CATCHUP_MS`
+(50), multipliziert es mit dem Training-Timescale und arbeitet die Spielzeit in festen
+Sub-Steps von `FIXED_STEP_MS` (16,667 ms) ab, höchstens `MAX_SUBSTEPS_PER_FRAME` (600) pro
+Frame. Der Rest bleibt in `subStepRemainderMs` für den nächsten Frame, gedeckelt auf 600
+Sub-Steps plus `MAX_REMAINDER_MS` (2000). Jeder Sub-Step läuft durch `runSubStep()`
+(Reihenfolge in Abschnitt 5), danach prüft die Schleife Wave-Ende und Game Over. Nach der
+Schleife gibt `presentFrame()` den Enemy- und Projektil-Zustand einmal an den Renderer, wenn
+mindestens ein Sub-Step lief und Rendering an ist. Oberhalb von 60 fps läuft deshalb nicht
+in jedem Frame ein Sub-Step.
+
+**Hintergrund-Tab (nur Training):** Mit `setBackgroundLoopEnabled(true)` ruft bei
+verstecktem Tab ein Worker-Takt (`workers/heartbeat.worker.ts`, 16 ms) `update()` ohne
+`render()` auf, mit höchstens 50 ms pro Tick (`MAX_BACKGROUND_STEP_MS`). Solange der Worker
+läuft, steppt der rAF-Loop die Simulation nicht.
 
 **Frame-Cap (60 / 30 / unbegrenzt):** Spieler-Einstellung im Display-Menü der
 Quick-Actions, persistiert von `DebugFacadeService` als `fpsLimit` in
@@ -1170,13 +1241,18 @@ Simulation rechnet mit dem Wanduhr-Delta zwischen den gelaufenen Frames: bei
 also volle Spielgeschwindigkeit, auch bei Training-Timescales. Standard ist
 unbegrenzt, der Loop verhält sich dann wie ohne Cap.
 
-**Update-Matrix nach Phase:**
+**Update-Matrix nach Phase** (pro Sub-Step, `runSubStep`):
 | System | setup | wave | gameover |
 |--------|-------|------|----------|
-| Projektile | ✓ | ✓ | ✓ |
-| Tower Idle-Rotation | ✓ | - | ✓ |
-| Enemy-Bewegung | - | ✓ | - |
-| Tower-Schießen | - | ✓ | - |
+| Projektile, Forschung, Event-Queue | ✓ | ✓ | ✓ |
+| Enemy-Update (Bewegung, laufende Tode) | ✓ | ✓ | ✓ |
+| Spawns (`tickSpawn`) | - | ✓ | - |
+| Tower-Schießen (Projektil, Beam, Melee, Chain) | nur mit Debug-Gegnern | ✓ | nur mit Debug-Gegnern |
+
+`triggerGameOver()` leert die Enemies. Nach `wave:completed` drehen die Tower auf ihre
+Guard-Richtung (`TowerCombatService.turnTowersToGuard`), in der Wave behalten sie die
+Richtung des letzten Ziels. Der Idle-Spin des Magic-Towers ohne Ziel ist rein visuell
+(`ThreeTowerRenderer.updateAnimations`).
 
 ---
 
@@ -1184,7 +1260,10 @@ unbegrenzt, der Loop verhält sich dann wie ohne Cap.
 
 ```
 src/app/
-├── tower-defense.component.ts    # Haupt-Component (~655 Zeilen)
+├── app.ts, app.config.ts, app.routes.ts  # Root-Component, Provider, Routing
+├── tower-defense.component.ts    # Haupt-Component (~810 Zeilen)
+├── tower-defense.component.html  # Template, Debug-Fenster in einem @defer-Block
+├── tower-defense.component.scss
 │
 ├── ai/                           # Wave Director, Bot System, Training Hooks
 │   ├── core/
@@ -1201,11 +1280,11 @@ src/app/
 ├── services/                     # Angular Services — vollstaendige Liste oben unter "Verzeichnisstruktur"
 │   ├── (Root)                    # economy, tower-placement, camera-*, keyboard-pan, input-handler
 │   ├── combat/                   # Tower-Combat, Damage-Application, Status-Effect, Combat-Effect/Vfx, HQ-Damage
-│   ├── debug/                    # Debug-Facade + Wave/Tower/Enemy/Sound-Debug, Performance-Profiler, Debug-Window
+│   ├── debug/                    # Debug-Facade + Wave/Tower/Enemy/Sound/LOS-Debug, Performance-Profiler, Debug-Window, State-Dump
 │   ├── facade/                   # TowerDefense/GameLoop/Visualization/Location-Facades
 │   ├── infrastructure/           # Asset-Manager, EngineInit, GameStateSync, ModelPreview
 │   ├── location/                 # Geocoding, Geolocation, OsmStreet, PathfindingWorker, etc.
-│   └── world/                    # Marker, Path/Route, Grid (Global/Spatial), Height, Streets, Buildings
+│   └── world/                    # Marker, Path/Route, Grid (Global/Spatial), Height, Streets, Buildings, Intro-Kamerafahrt, CorridorRefit
 │
 ├── managers/                     # Manager-Dateien (event-driven, Angular-frei)
 │   ├── index.ts                  # Manager Exports
@@ -1224,11 +1303,12 @@ src/app/
 │       └── audio-pool.manager.ts       # Audio Pool
 │
 ├── game-engine/                  # Framework-agnostic Engine-Services
-│   ├── game-event-bus.ts         # Event Bus + GameEvent Union
+│   ├── index.ts
+│   ├── game-event-bus.ts         # Event Bus + GameEvent Union + SubscriptionBag
 │   ├── vfx.service.ts            # VFX Event Handler
 │   ├── audio.service.ts          # Audio Event Handler
 │   ├── background-music.service.ts
-│   ├── screen-shake.service.ts
+│   ├── screen-shake.service.ts   # Event Handler, Hüllkurve in three-engine/screen-shake.ts
 │   └── game-manager.interface.ts # IGameManager
 │
 ├── three-engine/                 # Three.js Engine
@@ -1238,6 +1318,14 @@ src/app/
 │   ├── render-loop.ts            # rAF-Loop, FPS-Cap, Heartbeat für versteckte Tabs (seit 2026-09-13)
 │   ├── terrain-queries.ts        # Boden-, Freiraum- und LOS-Raycasts mit Säulen-Cache (seit 2026-09-13)
 │   ├── scene-environment.ts      # Statische Lichter + Himmel (seit 2026-09-13)
+│   ├── column-sample.ts          # Was eine senkrechte Terrain-Probe getroffen hat (ohne Three.js)
+│   ├── route-corridor-region.ts  # Load-Region, hält den Routen-Korridor auf feinem LOD
+│   ├── tower-shadow-mapper.ts    # Tiefen-Cubemap vom Tower-Tip (GPU-LOS)
+│   ├── screen-shake.ts           # Shake-Hüllkurve in Wanduhr-Zeit
+│   ├── screen-shake-benchmark.ts
+│   ├── scene-warmup.ts           # Warm-up beim Laden (Shader, leere Pools)
+│   ├── vfx-settings.ts           # Abschaltbare Effekte (Display-Menü)
+│   ├── tile-material-log.ts      # Diagnose: welche Materialien Szenenlichter rechnen
 │   ├── ellipsoid-sync.ts         # Koordinaten
 │   ├── index.ts                  # Exports
 │   ├── post-processing/          # Bloom + Color Grading (eigene Pipeline-Klasse seit 2026-05-10)
@@ -1247,7 +1335,13 @@ src/app/
 │       ├── index.ts              # CoordinateSync Interface
 │       ├── three-tower.renderer.ts
 │       ├── three-projectile.renderer.ts
-│       ├── three-effects.renderer.ts        # ParticlePools + Auras + Environment FX
+│       ├── three-effects.renderer.ts        # Fassade über die Effekt-Module (Abschnitt 6.5)
+│       ├── particle-pool-manager.ts
+│       ├── particle-effects-renderer.ts
+│       ├── particle-shaders.ts
+│       ├── environment-effects-renderer.ts
+│       ├── aura-renderer.ts
+│       ├── scorch-marks.ts
 │       ├── three-flame-beam.renderer.ts
 │       ├── three-tentacle.renderer.ts
 │       ├── lightning-bolt.renderer.ts       # Chain-Bolts + Idle-Crackle + Impact-Halos (Lightning Tower)
@@ -1258,6 +1352,8 @@ src/app/
 │       ├── magic-orb-shaders.ts
 │       ├── tentacle-shaders.ts
 │       ├── sprite-atlas-generator.ts
+│       ├── draw-gate.ts          # Leere Pools aus der Render-Liste nehmen
+│       ├── instance-slot-allocator.ts # Update-Ranges pro Instanz-Slot
 │       ├── instanced-enemy/      # VAT-instanced enemy renderer
 │       ├── floating-text/        # GPU-instanzierte Schadenszahlen
 │       └── marker/               # HQ-/Spawn-Marker, Range-Discs
@@ -1266,7 +1362,9 @@ src/app/
 │
 ├── entities/
 │   ├── enemy.entity.ts
+│   ├── enemy-rush.ts             # Gehen/Rennen-Wechsel als Simulationszustand
 │   ├── tower.entity.ts
+│   ├── tower-targeting.util.ts
 │   └── projectile.entity.ts
 │
 ├── game-components/
@@ -1279,7 +1377,9 @@ src/app/
 │
 ├── core/
 │   ├── game-object.ts
-│   └── component.ts
+│   ├── component.ts
+│   ├── index.ts
+│   └── services/config.service.ts
 │
 ├── store/                        # Signal Stores (Single Source of Truth)
 │   ├── tower-defense.store.ts    # Root-Store (Aggregat-Fassade)
@@ -1288,9 +1388,11 @@ src/app/
 │   ├── ui.store.ts               # UI State (toggles, build mode, persistence)
 │   ├── engine.store.ts           # Engine Stats (fps, tiles, camera, loading)
 │   ├── location.store.ts         # Location (coords, spawns, favorites)
-│   └── research.store.ts         # Research-State (active, completed, locks)
+│   ├── research.store.ts         # Research-State (active, completed, locks)
+│   └── debug.store.ts            # Wave/Tower/Enemy-Debug-State
 │
 ├── configs/
+│   ├── index.ts
 │   ├── tower-types.config.ts
 │   ├── enemy-types.config.ts     # (2026-05-10 aus models/ migriert)
 │   ├── projectile-types.config.ts
@@ -1298,13 +1400,16 @@ src/app/
 │   ├── audio.config.ts
 │   ├── background-music.config.ts
 │   ├── attributions.config.ts
+│   ├── combat-tuning.config.ts
 │   ├── game-balance.config.ts
+│   ├── los-viz.config.ts         # LOS_VIZ_CONFIG (Farben der LOS- und Grid-Visualisierung)
 │   ├── map-constants.config.ts
+│   ├── marker-geometry.config.ts
 │   ├── placement.config.ts
 │   ├── timing.config.ts
 │   ├── wave-curriculum.config.ts # (2026-05-10 aus ai/core/ migriert)
-│   ├── combat/                   # Damage-Matrix, ArmorTypes, DamageTypes, combat-tuning
-│   └── research/                 # Research-Tree, Effects, Types
+│   ├── combat/                   # damage-matrix.config, combat.types, combat-ui.config
+│   └── research/                 # research-tree.config, research-center.config, research.types
 │
 ├── models/
 │   ├── game.types.ts
@@ -1315,28 +1420,46 @@ src/app/
 ├── styles/
 │   └── td-theme.ts               # Theme-Konstanten + CSS-Vars
 │
-├── utils/
-│   └── geo-utils.ts              # Haversine, Fast Distance
+├── utils/                        # Reine Hilfsmodule (Auswahl)
+│   ├── geo-utils.ts              # Haversine, Fast Distance
+│   ├── global-route-grid.ts      # GlobalRouteGrid, dazu route-cell*.ts, route-grid-*.ts (Abschnitt 11)
+│   ├── route-corridor.ts         # Korridorbreite pro Seite, siehe ROUTE_CORRIDOR.md
+│   ├── tower-los-viz.ts          # TowerLosViz, mit tower-los-layer-builder.ts und gpu-cube-resolve.ts (GPU-LOS)
+│   ├── tower-placement-rules.ts
+│   ├── display-options.storage.ts # td_display_options
+│   ├── frame-pacer.ts            # Frame-Cap
+│   ├── damage-calculator.ts
+│   ├── flight-*.ts, camera-*.ts  # Intro-Kamerafahrt, Kamera-Framing, Kamera-Timeline
+│   └── ...                       # raycast-stats, los-perf, route-ways, route-path.util, enemy-aim.util, ...
 │
-├── workers/                      # Web Workers (Pathfinding)
+├── workers/
+│   ├── pathfinding.worker.ts     # A*-Pathfinding
+│   └── heartbeat.worker.ts       # Takt für den Game Loop im versteckten Tab (Training)
 │
-├── interfaces/                   # Public Interfaces (IGameManager, etc.)
+├── interfaces/                   # Provider-Interfaces für Straßennetz und Terrain (IGameManager liegt in game-engine/)
 │
 ├── integration/                  # Cross-Manager Integration Tests
 │
 └── components/
-    ├── location-dialog/          # Location-Auswahl Dialog
     ├── address-autocomplete.component.ts
     ├── attributions-dialog/
     ├── compass/
     ├── context-hint/
-    ├── debug-window/
+    ├── damage-matrix-dialog/
+    ├── debug-window/             # Debug-Fenster; debug-windows.ts bündelt sie zu einem Lazy-Chunk
     ├── engine-test/
     ├── game-header/
-    ├── game-sidebar/             # Rahmen + Footer; wave-, build-, tower-, research-panel/
+    ├── game-sidebar/             # Rahmen + Footer; wave-, build-, tower-, research-panel/, sidebar-tooltips.ts
     ├── game-speed/
+    ├── icon/                     # Inline-SVG-Icons
     ├── info-overlay/
-    └── quick-actions/
+    ├── intro-skip/               # Überspringen der Intro-Kamerafahrt
+    ├── loading-screen/
+    ├── location-dialog/          # Location-Auswahl Dialog
+    ├── los-legend/               # Legende der LOS-Coverage
+    ├── quick-actions/
+    ├── token-setup/              # Erststart: eigene Tile-Credentials
+    └── tooltip/                  # Rich-Tooltip-Direktive
 
 docs/                              # siehe INDEX.md
 ```
@@ -1347,33 +1470,38 @@ docs/                              # siehe INDEX.md
 
 ### Blood Decal System
 
-**Datei:** `three-engine/renderers/three-effects.renderer.ts`
+**Dateien:** `three-engine/renderers/particle-effects-renderer.ts` (Spawning),
+`decal-instance.manager.ts` (InstancedMesh-Pool), `decal-shaders.ts`; öffentliche API über
+`ThreeEffectsRenderer`
 
-Persistente Blutflecken auf dem Boden nach Enemy-Deaths. Verwendet **Instanced Rendering** für Performance.
+Blutflecken auf dem Boden nach Enemy-Deaths. Verwendet **Instanced Rendering** für Performance.
 
 #### Technische Implementierung
 
 ```typescript
-// InstancedMesh mit Custom Shader
-private bloodDecalMesh: THREE.InstancedMesh;
-private iceDecalMesh: THREE.InstancedMesh;
+// ParticleEffectsRenderer: je ein DecalInstanceManager (InstancedMesh + Custom Shader)
+private bloodDecalManager: DecalInstanceManager;
+private iceDecalManager: DecalInstanceManager;
+// dazu ScorchMarks (scorch-marks.ts), höchstens eine Marke pro Route-Cell
 
 spawnBloodDecal(lat: number, lon: number, height: number, size?: number): string;
 spawnIceDecal(lat: number, lon: number, height: number, size?: number): string;
 ```
 
 **Rendering:**
-- **InstancedMesh** statt einzelne Meshes → 250 Draw Calls → **2 Draw Calls**
-- Ein Pool für Blood (rot), ein Pool für Ice (blau)
-- Custom Shader für Fade-Out und Color Tinting
-- Decals bleiben bestehen bis zum Game Reset
+- **InstancedMesh** statt einzelner Meshes: ein Draw Call pro Pool
+- Je ein Pool für Blood (rot), Ice (hell-cyan) und Scorch Marks
+- Decals verblassen nach `fadeDelay` über `fadeDuration`; ist ein Pool voll, wird der
+  älteste Decal entfernt
+- Sind die Bodenmarken in den VFX-Settings aus (`groundMarks`), entsteht kein Blut-Decal
 
-**Shader-Features:**
-```typescript
-// Vertex Shader: USE_INSTANCING für Matrix-Transformation
-// Fragment Shader: Color Tint + Alpha Fade
-uniform vec3 uColor;      // Decal-Farbe (rot/blau)
-uniform float uAlpha;     // Transparenz
+**Shader-Features** (`decal-shaders.ts`):
+```glsl
+// Per-Instance-Attribute statt Uniforms
+attribute vec3 instanceColor;      // Decal-Farbe
+attribute float instanceOpacity;   // Transparenz, der Fade läuft von hier auf 0
+attribute float instanceVariation; // Zufallsvariation für das Muster
+// + logdepthbuf-Chunks für korrekte Verdeckung mit den 3D Tiles
 ```
 
 **Konfiguration:** `configs/visual-effects.config.ts`
@@ -1410,9 +1538,9 @@ export const ICE_DECAL_CONFIG = {
 
 ### Fire Effects
 
-**Datei:** `three-engine/renderers/three-effects.renderer.ts`
+**Dateien:** `three-engine/renderers/three-effects.renderer.ts` (Fassade), `particle-effects-renderer.ts`
 
-Feuer-Effekte bei HQ-Damage und Game Over. Kombiniert **Partikel + Geometrie + Sound**.
+Feuer-Effekte bei HQ-Damage und Game Over, als Partikel.
 
 #### Technische Implementierung
 
@@ -1424,15 +1552,15 @@ spawnFireAtLocalY(lat: number, lon: number, localY: number, intensity: FireInten
 type FireIntensityLevel = 'tiny' | 'small' | 'medium' | 'large' | 'inferno';
 ```
 
-**Intensitätsstufen:**
+**Intensitätsstufen** (Werte in `ParticleEffectsRenderer.spawnFire`, jedes Feuer brennt bis `stopFire()`):
 
-| Intensity | Count | Radius | Use Case |
-|-----------|-------|--------|----------|
-| `tiny` | 10 | 1m | Kleinster Effekt |
-| `small` | 30 | 2m | Einzelner Treffer |
-| `medium` | 60 | 3m | HQ Schaden (pro Hit) |
-| `large` | 100 | 5m | Game Over Explosion |
-| `inferno` | 200 | 8m | Dauerhaftes Inferno |
+| Intensity | Partikel | Radius |
+|-----------|----------|--------|
+| `tiny` | 15 | 1,5 m |
+| `small` | 40 | 2,5 m |
+| `medium` | 80 | 4 m |
+| `large` | 120 | 6 m |
+| `inferno` | 200 | 10 m |
 
 **Komponenten:**
 
@@ -1441,14 +1569,7 @@ type FireIntensityLevel = 'tiny' | 'small' | 'medium' | 'large' | 'inferno';
    - Rauch-Partikel (grau)
    - Aufwärtsbewegung mit Turbulenz
 
-2. **Licht-Effekt** (optional)
-   - Point Light mit flackernder Intensität
-   - Orange Farbe
-
-3. **Sound-Effekt**
-   - Loop-Sound (`fire_loop.mp3`)
-   - Spatial Audio (3D Position)
-   - Automatisch gestoppt wenn Feuer erlischt
+Ein Licht oder einen eigenen Loop-Sound erzeugt `spawnFire()` nicht.
 
 **Lifecycle:**
 
@@ -1466,9 +1587,10 @@ engine.effects.stopFire(fireId);     // Einzelnes Feuer
 engine.effects.stopAllFires();       // Alle Feuer
 ```
 
-**Automatisches Spawning:**
-- Medium Fire: Jedes Mal wenn Enemy HQ erreicht (1 Fire pro Hit)
-- Large Fire: Bei Game Over (3-5 Fires um HQ herum)
+**Automatisches Spawning** (`HQDamageService`):
+- HP über `GAME_BALANCE.fire.permanentThreshold` (50): kurzer `spawnFireFlash()` pro Treffer
+- HP darunter: ein dauerhaftes `spawnScaledFire()` mit Skala `1 - HP/50`, bei jedem Treffer neu gesetzt
+- Game Over: `spawnHQExplosion()` plus `spawnScaledFire(…, 1.0)`
 
 **Convenience-Methoden:**
 
@@ -1482,17 +1604,8 @@ spawnFireAtLocalY(lat, lon, localY, 'medium');
 
 **WICHTIG:** `spawnFireOnTerrain` nutzt die übergebene `getTerrainHeight` Funktion. Grund: ThreeEffectsRenderer hat keinen direkten Zugriff auf TilesRenderer.
 
-**Konfiguration:** `configs/visual-effects.config.ts`
-
-```typescript
-export const FIRE_INTENSITY = {
-  tiny:    { count: 10,  radius: 1, duration: 3000 },
-  small:   { count: 30,  radius: 2, duration: 5000 },
-  medium:  { count: 60,  radius: 3, duration: 8000 },
-  large:   { count: 100, radius: 5, duration: 10000 },
-  inferno: { count: 200, radius: 8, duration: -1 },  // -1 = infinite
-};
-```
+**Konfiguration:** `FIRE_INTENSITY` in `configs/visual-effects.config.ts` liefert nur noch
+den Typ `FireIntensityLevel`; `spawnFire()` liest seine Werte nicht (Tabelle oben).
 
 ### Route Animation (Knight Rider Effekt)
 
@@ -1590,9 +1703,9 @@ per-Tower-Viz, siehe "Farbsemantik der Cell-Plates" in
 - Neue Components ohne bestehenden Code zu ändern
 
 ### Performance
-- Three.js InstancedMesh für Projektile
-- Raycast-Cache für Terrain-Höhen
-- AnimationMixer für Skelett-Animationen
+- Three.js InstancedMesh für Projektile, Enemies, Decals und Floating Texts
+- Säulen-Cache für Terrain-Höhen
+- VAT-Texturen für Enemy-Animationen, AnimationMixer nur für Tower-Modelle
 
 ### Cesium-frei
 - Keine Abhängigkeit von Cesium.js
