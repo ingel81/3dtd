@@ -22,11 +22,15 @@ one interesting consequence: the tiles are not scenery, they are the world the g
 rules run against.
 
 - **Routes follow real streets.** The street graph comes from OpenStreetMap via
-  Overpass. Each waypoint is raycast straight down onto the tile surface to get its
-  height, so paths follow the actual terrain.
+  Overpass. The route runs through a grid of 2 m cells, and each cell is raycast
+  straight down onto the tile surface to get its height, so paths follow the actual
+  terrain.
+- **The street is as wide as the tiles say.** Horizontal rays either side of the
+  route find the facades, and the corridor enemies spread across ends there. Where
+  the tiles can't tell, the OSM width or a typical width for the road class fills in.
 - **Buildings block line of sight.** A tower only fires at what it can actually see.
-  For each tower the surrounding tiles get rendered into a cubemap once, the depth is
-  read back, and the result is kept as a visibility mask over the tower's range.
+  For each tower the surrounding tiles get rendered into a cubemap, the depth is
+  read back, and every route cell in range remembers whether the tower can see it.
   Standing behind a building works.
 - **Tower placement probes the ground** with a raycast against the tiles.
 
@@ -91,10 +95,12 @@ runs on it. See [docs/DEVWORLD.md](docs/DEVWORLD.md).
 ```
 src/app/
 ├── three-engine/      3D rendering, tiles, post processing, GPU line of sight
+├── game-engine/       event bus, effects, audio
 ├── managers/          game logic, event driven
 ├── entities/          enemies, towers, projectiles
+├── configs/           towers, enemies, projectiles, damage matrix, wave curriculum
 ├── store/             signal stores, single source of truth
-├── services/          Angular side: location, combat, world, debug
+├── services/          Angular side: facades, location, combat, world, debug
 ├── ai/                the wave director and the training bots
 └── devworld/          offline dev environment
 
