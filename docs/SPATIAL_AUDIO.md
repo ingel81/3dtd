@@ -217,7 +217,9 @@ Hintergrundmusik laeuft separat zu Spatial Audio und ist **nicht-positional**
 (globale Lautstaerke), siehe `game-engine/background-music.service.ts`. Details:
 
 - **Two-Channel A/B Crossfade-System** (zwei `THREE.Audio` Kanaele) fuer
-  Build- und Wave-Musik.
+  Build- und Wave-Musik, in `MusicMixer` (`game-engine/music-mixer.ts`);
+  Laden und Cache der Tracks in `MusicBufferLoader` (`music-buffer-loader.ts`).
+  Der Service selbst entscheidet nur, was wann läuft.
 - **Phasen-Logik**: `wave:started` crossfadet auf einen Wave-Track, `wave:completed`
   zurück auf einen Build-Track (je 1,5 s, `phaseFadeDuration`), `game:over` fadet aus,
   `game:reset` stoppt sofort.

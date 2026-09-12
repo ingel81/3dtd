@@ -47,7 +47,9 @@ src/app/game-engine/
 ├── game-event-bus.ts          # Event Bus Core (~671 LOC)
 ├── vfx.service.ts             # VFX Event Handler (~153 LOC)
 ├── audio.service.ts           # Audio Event Handler (~61 LOC)
-├── background-music.service.ts # Phasen-basierte Musik (Two-Channel A/B Crossfade)
+├── background-music.service.ts # Phasen-basierte Musik: Main Theme, Track-Wahl, Loop
+├── music-mixer.ts             # Two-Channel A/B Crossfade (Fades, Loop vor Track-Ende)
+├── music-buffer-loader.ts     # Laden + Cache der Musik-Buffer
 ├── screen-shake.service.ts    # Screen-Shake-Effekte
 ├── index.ts                   # Barrel exports
 └── README.md                  # Diese Datei
