@@ -23,6 +23,7 @@ export class GameCommandsHandler {
   ) {
     this.attachTowerCommands();
     this.attachResearchCommands();
+    this.attachAbilityCommands();
     this.attachWaveCommands();
     this.attachDebugCommands();
   }
@@ -116,6 +117,18 @@ export class GameCommandsHandler {
 
     this.subs.add(this.eventBus.on('command:unqueue-research', (event) => {
       this.gsm.researchManager.unqueueResearch(event.researchId);
+    }));
+  }
+
+  private attachAbilityCommands(): void {
+    // The manager validates (research, charge, wave, route in reach) and
+    // answers with ability:used or ability:rejected.
+    this.subs.add(this.eventBus.on('command:use-ability', (event) => {
+      this.gsm.abilityManager.use(event.abilityId, {
+        lat: event.target.lat,
+        lon: event.target.lon,
+        height: event.target.height,
+      });
     }));
   }
 

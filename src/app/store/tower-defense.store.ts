@@ -77,6 +77,9 @@ export class TowerDefenseStore {
   /** Enemies of the running wave not yet killed or through */
   readonly waveEnemiesLeft = this.gameStore.waveEnemiesLeft;
 
+  /** Player abilities by id (charges, recharge, strike on its way) */
+  readonly abilities = this.gameStore.abilities;
+
   /** Currently selected tower (for info panel / upgrades) */
   readonly selectedTower = this.gameStore.selectedTower;
 

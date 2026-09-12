@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AbilityManager, type AbilityWorld } from './ability.manager';
-import { GameEventBus } from '../game-engine/game-event-bus';
+import { GameEventBus, type GameEvent } from '../game-engine/game-event-bus';
 import { ABILITIES } from '../configs/abilities.config';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import type { Enemy } from '../entities/enemy.entity';
@@ -22,6 +22,7 @@ describe('AbilityManager', () => {
   let routeInReach: boolean;
   let inRadius: Enemy[];
   let strikes: { ids: string[]; fractions: number[] }[];
+  let strikeKills: number;
   let world: AbilityWorld;
 
   const unlock = (perkId: string = NUKE.perkId) =>
@@ -42,6 +43,7 @@ describe('AbilityManager', () => {
     routeInReach = true;
     inRadius = [];
     strikes = [];
+    strikeKills = 0;
     world = {
       snapToRoute: vi.fn((target: GeoPosition) => (routeInReach ? { ...target, height: 5 } : null)),
       enemiesInRadius: vi.fn((_center: GeoPosition, _radius: number, out: Enemy[]) => {
@@ -51,7 +53,7 @@ describe('AbilityManager', () => {
       }),
       strike: vi.fn((targets: readonly Enemy[], fractionOf: (enemy: Enemy) => number) => {
         strikes.push({ ids: targets.map((t) => t.id), fractions: targets.map(fractionOf) });
-        return 0;
+        return strikeKills;
       }),
     };
     manager = new AbilityManager(bus, world);
@@ -159,6 +161,77 @@ describe('AbilityManager', () => {
       completeWave();
       completeWave();
       expect(manager.getStatus('nuclear-strike').charges).toBe(0);
+    });
+  });
+
+  describe('announcements', () => {
+    let events: GameEvent[];
+    const ofType = <T extends GameEvent['type']>(type: T) =>
+      events.filter((e): e is Extract<GameEvent, { type: T }> => e.type === type);
+
+    beforeEach(() => {
+      events = [];
+      bus.onAny((e) => events.push(e));
+    });
+
+    it('announces a use with the snapped target, radius and warning', () => {
+      unlock();
+      manager.use('nuclear-strike', TARGET);
+      expect(ofType('ability:used')).toEqual([{
+        type: 'ability:used',
+        abilityId: 'nuclear-strike',
+        strikeId: 1,
+        target: { ...TARGET, height: 5 },
+        radiusM: 25,
+        warningMs: 1500,
+      }]);
+    });
+
+    it('announces a refusal with its reason', () => {
+      unlock();
+      phase = 'setup';
+      manager.use('nuclear-strike', TARGET);
+      expect(ofType('ability:rejected')).toEqual([
+        { type: 'ability:rejected', abilityId: 'nuclear-strike', reason: 'no-wave' },
+      ]);
+      expect(ofType('ability:used')).toEqual([]);
+    });
+
+    it('reports hits and kills when the strike lands', () => {
+      unlock();
+      inRadius = [enemyOf('a', 'zombie'), enemyOf('b', 'zombie'), enemyOf('c', 'herbert')];
+      strikeKills = 2;
+      manager.use('nuclear-strike', TARGET);
+      tick(90);
+      expect(ofType('ability:impact')).toEqual([{
+        type: 'ability:impact',
+        abilityId: 'nuclear-strike',
+        strikeId: 1,
+        target: { ...TARGET, height: 5 },
+        radiusM: 25,
+        hits: 3,
+        kills: 2,
+      }]);
+    });
+
+    it('sends a snapshot after unlock, use, impact and every wave toward a charge', () => {
+      const charges = () =>
+        ofType('ability:state-changed').map((e) => e.abilities[0]).map((s) => [s.charges, s.wavesUntilCharge, s.pending]);
+      unlock();
+      manager.use('nuclear-strike', TARGET);
+      tick(90);
+      completeWave();
+      completeWave();
+      completeWave();
+      completeWave(); // full again: nothing to report
+      expect(charges()).toEqual([
+        [1, 0, false], // unlocked
+        [0, 3, true],  // used
+        [0, 3, false], // landed
+        [0, 2, false],
+        [0, 1, false],
+        [1, 0, false], // recharged
+      ]);
     });
   });
 

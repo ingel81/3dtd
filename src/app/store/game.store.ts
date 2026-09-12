@@ -3,6 +3,19 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
 import { GamePhase } from './tower-defense.store.types';
 import type { DecisionExplanation } from '../ai/core/decision-explainer';
+import {
+  ABILITY_IDS,
+  AbilityId,
+  AbilityStatus,
+  lockedAbilityStatus,
+} from '../configs/abilities.config';
+
+/** Every ability locked, as at the start of a run. */
+function lockedAbilities(): Record<AbilityId, AbilityStatus> {
+  return Object.fromEntries(
+    ABILITY_IDS.map((id) => [id, lockedAbilityStatus(id)]),
+  ) as Record<AbilityId, AbilityStatus>;
+}
 
 @Injectable({ providedIn: 'root' })
 export class GameStore {
@@ -33,6 +46,12 @@ export class GameStore {
    * wave button.
    */
   readonly waveEnemiesLeft = signal<number>(0);
+
+  /**
+   * Player abilities by id: unlocked, charges, recharge progress, strike on
+   * its way. Written from the AbilityManager's `ability:state-changed`.
+   */
+  readonly abilities = signal<Record<AbilityId, AbilityStatus>>(lockedAbilities());
 
   /** Currently selected tower (for info panel / upgrades) */
   readonly selectedTower = signal<Tower | null>(null);
@@ -143,6 +162,7 @@ export class GameStore {
     this.enemiesAlive.set(0);
     this.waveEnemyTotal.set(0);
     this.waveEnemiesLeft.set(0);
+    this.abilities.set(lockedAbilities());
     this.selectedTower.set(null);
     this.towerCount.set(0);
     this.showGameOverScreen.set(false);
