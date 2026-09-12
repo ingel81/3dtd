@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
-import { EnemyTypeId } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath } from '../configs/enemy-types.config';
 import { GeoPosition } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
@@ -30,6 +30,31 @@ const ENEMY_GROUND_ADJUST_MPS = 8;
  * spawn pattern with period N cannot bias the estimate.
  */
 const PROFILE_STRIDE = 32;
+
+/**
+ * Why an enemy dies. A 'combat' kill (towers, damage over time) pays from
+ * the wave's kill budget and splits a type with splitOnDeath. A 'debug' kill
+ * (kill-all) does neither: the dev shortcut farms no gold and leaves nothing
+ * of the wave.
+ */
+export type KillCause = 'combat' | 'debug';
+
+/**
+ * Where a spawn joins its path when it does not start on path[0]: a split
+ * child where its parent died. All of it comes from the parent, nothing is
+ * rolled.
+ */
+export interface SpawnStart {
+  /** Segment, and progress (0-1) on it, see MovementComponent.setPath() */
+  segmentIndex: number;
+  segmentProgress: number;
+  /** Place across the corridor, see MovementComponent.setLateralFactor() */
+  lateralFactor: number;
+  /** Air units' altitude offset, see MovementComponent.setHeightVariation() */
+  heightVariation: number;
+  /** Ground height (geo) at the start, the route grid's value under the parent */
+  groundHeight: number;
+}
 
 /**
  * Manages all enemy entities - spawning, updating, and lifecycle
@@ -146,7 +171,8 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
-   * Spawn a new enemy at the start of a path
+   * Spawn a new enemy at the start of a path, or part-way along it at
+   * `start` (split children, see splitOnDeath()).
    */
   spawn(
     path: GeoPosition[],
@@ -154,12 +180,13 @@ export class EnemyManager extends EntityManager<Enemy> {
     speedOverride?: number,
     paused = false,
     healthOverride?: number,
+    start?: SpawnStart,
   ): Enemy {
     if (!this.tilesEngine) {
       throw new Error('EnemyManager not initialized');
     }
 
-    const enemy = new Enemy(typeId, path, speedOverride);
+    const enemy = new Enemy(typeId, path, speedOverride, start?.segmentIndex, start?.segmentProgress);
 
     // Override health if specified
     if (healthOverride !== undefined) {
@@ -171,26 +198,35 @@ export class EnemyManager extends EntityManager<Enemy> {
       enemy.audio.initialize(this.tilesEngine.spatialAudio);
     }
 
-    // Random place across the corridor for movement variety: a share of the
-    // room the street leaves, up to how far this type strays.
-    const spread = enemy.typeConfig.lateralSpread ?? 0;
-    if (spread > 0) {
-      enemy.movement.setLateralFactor((Math.random() * 2 - 1) * spread);
+    if (start) {
+      // Split child: lane and altitude come from the parent, nothing is rolled
+      enemy.movement.setLateralFactor(start.lateralFactor);
+      enemy.movement.setHeightVariation(start.heightVariation);
+    } else {
+      // Random place across the corridor for movement variety: a share of the
+      // room the street leaves, up to how far this type strays.
+      const spread = enemy.typeConfig.lateralSpread ?? 0;
+      if (spread > 0) {
+        enemy.movement.setLateralFactor((Math.random() * 2 - 1) * spread);
+      }
+
+      // Apply random height variation for air units
+      if (enemy.typeConfig.heightVariation && enemy.typeConfig.heightVariation > 0) {
+        const maxVar = enemy.typeConfig.heightVariation;
+        const randomVar = (Math.random() * 2 - 1) * maxVar;
+        enemy.movement.setHeightVariation(randomVar);
+      }
     }
 
-    // Apply random height variation for air units
-    if (enemy.typeConfig.heightVariation && enemy.typeConfig.heightVariation > 0) {
-      const maxVar = enemy.typeConfig.heightVariation;
-      const randomVar = (Math.random() * 2 - 1) * maxVar;
-      enemy.movement.setHeightVariation(randomVar);
-    }
-
-    // Get height at spawn position - prefer path height (smoothed) over live sampling
+    // Get height at spawn position - the parent's ground for a split child,
+    // else prefer path height (smoothed) over live sampling
     const startPos = path[0];
     const origin = this.tilesEngine.sync.getOrigin();
     let geoHeight: number;
 
-    if (startPos.height !== undefined && startPos.height !== 0) {
+    if (start) {
+      geoHeight = start.groundHeight;
+    } else if (startPos.height !== undefined && startPos.height !== 0) {
       // Path has pre-computed smoothed height - use it
       geoHeight = startPos.height;
     } else {
@@ -211,9 +247,10 @@ export class EnemyManager extends EntityManager<Enemy> {
       enemy.transform.terrainHeight = geoHeight;
     }
 
-    // Create 3D model and start animation
+    // Create 3D model and start animation. `position` is path[0], or the
+    // split start on the centre line; the first step adds the lane offset.
     this.tilesEngine.enemies
-      .create(enemy.id, typeId, startPos.lat, startPos.lon, geoHeight)
+      .create(enemy.id, typeId, enemy.position.lat, enemy.position.lon, geoHeight)
       .then((renderData) => {
         if (renderData && !paused) {
           this.tilesEngine!.enemies.startWalkAnimation(enemy.id);
@@ -299,28 +336,35 @@ export class EnemyManager extends EntityManager<Enemy> {
   /**
    * Kill an enemy — plays death animation then removes after a game-time
    * delay (no wall-clock setTimeout — sub-stepping ticks the delay each frame).
-   */
-  /**
-   * Kill an enemy. If `awardCredits` is false, no gold is awarded — used by
-   * debug kill-all so the player can't farm gold via the dev shortcut.
+   *
+   * A 'combat' kill pays from the wave's kill budget and splits a type with
+   * splitOnDeath. A 'debug' kill (kill-all) does neither, so the player can't
+   * farm gold via the dev shortcut and nothing of the wave is left.
    *
    * Returns false if the enemy is already dying; nothing happens then, so
    * callers that credit the kill must check the result.
    */
-  kill(enemy: Enemy, awardCredits = true): boolean {
+  kill(enemy: Enemy, cause: KillCause = 'combat'): boolean {
     if (this.killingEnemies.has(enemy.id)) return false;
     this.killingEnemies.add(enemy.id);
 
     this.aliveCount.update(c => Math.max(0, c - 1));
     this.cachedAliveEnemies = null;
 
+    // Read before stopMoving() pauses it: an idle (debug) parent's children stay idle
+    const wasPaused = enemy.movement.paused;
     if (!enemy.health.isDead) {
       enemy.health.takeDamage(enemy.health.hp);
     }
     enemy.stopMoving();
 
-    const credits = awardCredits ? this.calculateDynamicReward(enemy) : 0;
+    const combat = cause === 'combat';
+    const credits = combat ? this.calculateDynamicReward(enemy) : 0;
     this.eventBus.emit({ type: 'enemy:died', enemy, credits });
+
+    // Before the removal below: the children start from the parent's place
+    const split = enemy.typeConfig.splitOnDeath;
+    if (combat && split) this.splitOnDeath(enemy, split, wasPaused);
 
     const hasDeathAnim =
       !!enemy.typeConfig.deathAnimation ||
@@ -336,6 +380,60 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.remove(enemy);
     }
     return true;
+  }
+
+  /** Start of the split child being spawned, refilled per child (spawn() reads it, keeps nothing). */
+  private readonly splitStart: SpawnStart = {
+    segmentIndex: 0,
+    segmentProgress: 0,
+    lateralFactor: 0,
+    heightVariation: 0,
+    groundHeight: 0,
+  };
+
+  /**
+   * Spawn what a killed enemy splits into, on its path where it died.
+   *
+   * Runs inside kill(), in the sub-step that dealt the killing damage, so in
+   * game time. Nothing is rolled: the children take the parent's segment and
+   * progress, lanes spread by index around the parent's lane (inside the room
+   * their own lateralSpread allows), its ground and altitude, and its HP and
+   * speed multipliers, so a wave's hpMult reaches them too. A kill inside the
+   * movement pass (damage over time) adds them to the entity list after the
+   * pass took its snapshot, so they first move in the next sub-step.
+   */
+  private splitOnDeath(parent: Enemy, split: SplitOnDeath, paused: boolean): void {
+    const childType = ENEMY_TYPES[split.type];
+    if (!childType || split.count <= 0) return;
+
+    const pm = parent.movement;
+    const hpScale = parent.health.maxHp / parent.typeConfig.baseHp;
+    const speedScale = pm.speedMps / parent.typeConfig.baseSpeed;
+    const room = childType.lateralSpread ?? 0;
+    const spread = Math.min(split.spread, room);
+    const centre = Math.max(spread - room, Math.min(room - spread, pm.getLateralFactor()));
+
+    const start = this.splitStart;
+    start.segmentIndex = pm.currentIndex;
+    start.segmentProgress = pm.progress;
+    start.heightVariation = pm.getHeightVariation();
+    start.groundHeight = parent.transform.terrainHeight - start.heightVariation;
+
+    const children: Enemy[] = [];
+    for (let i = 0; i < split.count; i++) {
+      // -1 .. 1 across the children, 0 for a single one
+      const side = split.count > 1 ? (2 * i) / (split.count - 1) - 1 : 0;
+      start.lateralFactor = centre + side * spread;
+      children.push(this.spawn(
+        pm.path,
+        split.type,
+        childType.baseSpeed * speedScale,
+        paused,
+        childType.baseHp * hpScale,
+        start,
+      ));
+    }
+    this.eventBus.emit({ type: 'enemy:split', enemy: parent, children });
   }
 
   // Performance profiling callback (set by PerformanceProfilerService).

@@ -214,13 +214,13 @@ describe('EnemyManager', () => {
       expect(wave2Sum).toBe(goldBudgetForWave(2).kill);
     });
 
-    it('awardCredits=false does not consume slots from the budget', () => {
+    it('a debug kill does not consume slots from the budget', () => {
       manager.setWaveNumberProvider(() => 1);
       manager.setWaveSizeProvider(() => 3);
       const credits = collectCredits();
 
       // Debug-kill first — must not eat into the budget
-      manager.kill(manager.spawn(straightPath, 'zombie'), false);
+      manager.kill(manager.spawn(straightPath, 'zombie'), 'debug');
 
       // Three paid kills then drain the full wave-1 budget
       for (let i = 0; i < 3; i++) {
@@ -530,6 +530,132 @@ describe('EnemyManager', () => {
       expect(dots).toEqual([
         expect.objectContaining({ effectType: 'poison', damageType: 'poison', damage: 6, sourceId: 'p-2' }),
       ]);
+    });
+  });
+
+  describe('split on death', () => {
+    // Three ~22 m segments going north
+    const route: GeoPosition[] = [0, 1, 2, 3].map((i) => ({ lat: i * 0.0002, lon: 0, height: 0 }));
+
+    /** A skeleton on segment 1 at 40 %, on the given lane. */
+    const skeletonAt = (lateral = 0, hp?: number, speed?: number) => {
+      const skeleton = manager.spawn(route, 'skeleton', speed, false, hp);
+      skeleton.movement.setPath(route, 1, 0.4);
+      skeleton.movement.setLateralFactor(lateral);
+      return skeleton;
+    };
+    const minions = () => manager.getAll().filter((e) => e.typeConfig.id === 'skeleton-minion');
+
+    it('spawns two minions on its path where a killed skeleton died', () => {
+      const parent = skeletonAt();
+      const progress = parent.movement.getPathProgress();
+      manager.kill(parent);
+
+      const children = minions();
+      expect(children).toHaveLength(2);
+      for (const child of children) {
+        expect(child.movement.path).toBe(route);
+        expect(child.movement.currentIndex).toBe(1);
+        expect(child.movement.progress).toBe(0.4);
+        expect(child.movement.getPathProgress()).toBe(progress);
+        expect(child.movement.paused).toBe(false);
+      }
+      expect(manager.getAliveCount()).toBe(2);
+    });
+
+    it("spreads the minions across the corridor around the parent's lane", () => {
+      manager.kill(skeletonAt(0.2));
+      const lanes = minions().map((c) => c.movement.getLateralFactor());
+      expect(lanes[0]).toBeCloseTo(-0.1, 12); // 0.2 ∓ spread 0.3
+      expect(lanes[1]).toBeCloseTo(0.5, 12);
+    });
+
+    it('keeps the minions inside the corridor next to its edge', () => {
+      manager.kill(skeletonAt(0.95));
+      const lanes = minions().map((c) => c.movement.getLateralFactor());
+      expect(lanes[0]).toBeCloseTo(0.4, 12); // lane centred on 1 - 0.3
+      expect(lanes[1]).toBeCloseTo(1, 12);
+    });
+
+    it("scales the minions by the parent's HP and speed multipliers", () => {
+      manager.kill(skeletonAt(0, 10, 9)); // hpMult 0.5, speed ×1.5
+      for (const child of minions()) {
+        expect(child.health.maxHp).toBeCloseTo(3, 12); // 6 × 10/20
+        expect(child.movement.speedMps).toBeCloseTo(10.5, 12); // 7 × 9/6
+      }
+    });
+
+    it('rolls nothing', () => {
+      const parent = skeletonAt(0.3);
+      const random = vi.spyOn(Math, 'random');
+      manager.kill(parent);
+      expect(random).not.toHaveBeenCalled();
+      random.mockRestore();
+    });
+
+    it('emits enemy:split after enemy:died, with the children', () => {
+      const parent = skeletonAt();
+      const order: string[] = [];
+      const splits: { enemy: unknown; children: readonly unknown[] }[] = [];
+      eventBus.on('enemy:died', () => order.push('died'));
+      eventBus.on('enemy:spawned', () => order.push('spawned'));
+      eventBus.on('enemy:split', (e) => {
+        order.push('split');
+        splits.push(e);
+      });
+
+      manager.kill(parent);
+
+      expect(order).toEqual(['died', 'spawned', 'spawned', 'split']);
+      const children = minions();
+      expect(splits).toHaveLength(1);
+      expect(splits[0].enemy).toBe(parent);
+      expect(splits[0].children).toHaveLength(2);
+      expect(splits[0].children[0]).toBe(children[0]);
+      expect(splits[0].children[1]).toBe(children[1]);
+    });
+
+    it('does not split on a leak', () => {
+      const parent = skeletonAt();
+      vi.spyOn(parent.movement, 'move').mockReturnValue('reached_end');
+      manager.update(16, 16);
+      expect(manager.getById(parent.id)).toBeNull();
+      expect(minions()).toHaveLength(0);
+    });
+
+    it('does not split on a debug kill', () => {
+      manager.kill(skeletonAt(), 'debug');
+      expect(minions()).toHaveLength(0);
+    });
+
+    it('does not split a minion again', () => {
+      manager.kill(skeletonAt());
+      for (const child of minions()) manager.kill(child);
+      expect(manager.getAliveCount()).toBe(0);
+      expect(minions()).toHaveLength(2); // the two, dying
+    });
+
+    it('keeps the minions of an idle parent idle', () => {
+      manager.kill(manager.spawn(route, 'skeleton', undefined, true));
+      expect(minions()).toHaveLength(2);
+      expect(minions().every((c) => c.movement.paused)).toBe(true);
+    });
+
+    it('moves the minions from the next sub-step when damage over time kills in the movement pass', () => {
+      const parent = skeletonAt();
+      let diedAt = -1;
+      eventBus.on('dot:damage', (e) => manager.kill(e.enemy));
+      eventBus.on('enemy:died', (e) => {
+        if (e.enemy === parent) diedAt = parent.movement.getPathProgress();
+      });
+      parent.movement.applyStatusEffect({ type: 'poison', value: 1, duration: 5000, startTime: 0, sourceId: 'p-1' });
+
+      manager.update(1000, 1000); // past one poison tick
+      expect(diedAt).toBeGreaterThan(0);
+      expect(minions().map((c) => c.movement.getPathProgress())).toEqual([diedAt, diedAt]);
+
+      manager.update(16, 1016);
+      expect(minions().every((c) => c.movement.getPathProgress() > diedAt)).toBe(true);
     });
   });
 

@@ -138,7 +138,7 @@ describe('Enemy Movement Path Integration', () => {
     m.eventBus.on('enemy:died', diedHandler);
 
     m.enemyManager.setWaveNumberProvider(() => 1);
-    m.enemyManager.kill(enemy, true);
+    m.enemyManager.kill(enemy);
 
     expect(diedHandler).toHaveBeenCalledOnce();
     expect(diedHandler).toHaveBeenCalledWith(
