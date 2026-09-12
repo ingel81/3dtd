@@ -409,8 +409,9 @@ export class ThreeTowerRenderer {
     // (Diagnostic removed — fires on every tower placement for types without
     // a named turret part, which was flooding the console during training.)
 
-    // With a guard heading the turret faces it from the start, and the
-    // placement scan swings around it. Without one it keeps the model's pose.
+    // A new turret first makes its reference sweep around the pose it was
+    // placed in (what the placement preview showed), then turns to the guard
+    // heading at aiming speed. Without one it keeps the model's pose.
     const initialLocalRotation = initialHeading === null
       ? turretOriginalRotationY
       : this.headingToLocalRotation(config, mesh.rotation.y, initialHeading);
@@ -544,14 +545,14 @@ export class ThreeTowerRenderer {
       height,
       tipY,
       customRotation,
-      currentLocalRotation: initialLocalRotation,
+      currentLocalRotation: turretOriginalRotationY,
       targetLocalRotation: initialLocalRotation,
       turretBaseY, // Store original Y for hover animation
       hoverPhaseOffset: Math.random() * Math.PI * 2, // Random start phase
       hasTarget: false, // Start without target
       // Start scan animation if tower has a turret (with short delay)
       scanPhase: turretPart ? 1 : 0, // 1 = start scanning left
-      scanStartRotation: initialLocalRotation,
+      scanStartRotation: turretOriginalRotationY,
       scanDelayRemaining: turretPart ? 800 : 0, // 800ms delay before scan starts
       mixer,
       animations,
