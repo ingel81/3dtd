@@ -292,9 +292,9 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
 | Mech (`mech`) | Normal | 100 | 42.455 | 28.850 | 4,2 | Objekt-Anim. | 40 | 8192×240 | RGBA16F | 1,45 | 15,0 | 1024² |
 | Herbert (`herbert`) | Elite/Boss | 3 | 30.831 | 31.949 | 0,1 | Skinning | 32 | 8192×128 | RGBA16F | 0,56 | 8,0 | 512² |
-| Wraith (`wraith`) | Normal | 300 | 30.228 | 39.986 | 9,1 | Skinning | 15 | 8192×60 | RGBA16F | 0,48 | 3,8 | 1024² |
 | Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 86 | 8192×172 | RGBA32F | 2,64 | 21,5 | 1024² |
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.272 | 19.541 | 0,7 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
+| Wraith (`wraith`) | Normal | 300 | 8.126 | 6.790 | 2,4 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
 | Mammoth (`mammoth`) | Normal | 150 | 5.541 | 8.685 | 0,8 | Skinning | 321 | 5541×321 | RGBA16F | 1,51 | 13,6 | 1024² |
 | Ghost (`ghost`) | Normal | 280 | 5.245 | 7.773 | 1,5 | Skinning | 200 | 5245×200 | RGBA16F | 0,46 | 8,0 | 1024² |
 | Tank (`tank`) | Normal | 150 | 5.094 | 2.796 | 0,8 | statisch | 1 | 5094×1 | RGBA16F | 1,12 | 0,0 | – |
@@ -311,7 +311,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 | Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 
-VAT-Speicher aller Typen zusammen: **110,9 MB** (30 fps), alles in RGBA32F wären **200,2 MB**.
+VAT-Speicher aller Typen zusammen: **108,0 MB** (30 fps), alles in RGBA32F wären **194,6 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **8,7 MB** dazu.
 
 ### Alpha
@@ -329,7 +329,7 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 | Hornet | Blend | 0 |
 | Bear | Blend | 33.852 (3,2 %) |
 
-Opak ohne Texel unter 0,05 (16): Mech, Herbert, Wraith, Stone Golem, Mammoth, Tank, Zombie v2, Zombie, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Skeleton, Skeleton Minion, Rat.
+Opak ohne Texel unter 0,05 (16): Mech, Herbert, Stone Golem, Wraith, Mammoth, Tank, Zombie v2, Zombie, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Skeleton, Skeleton Minion, Rat.
 Texel unter 0,05, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis 0,05): **keine**.
 
 ### Modellinhalt
@@ -342,9 +342,9 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
 | Mech | `mech.glb` | 6,3 | 34 (0) | 62 | 0 | 2 | 8× 1024² | 6 | 42.455 / 28.395 / 15.041 |
 | Herbert | `herbert_optimized.glb` | 2,1 | 1 (1) | 24 | 0 | 1 | 512² | 1 | 30.831 / 30.208 / 26.048 |
-| Wraith | `wraith.glb` | 3,4 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 30.228 / 30.226 / 19.863 |
 | Stone Golem | `stone_golem.glb` | 3,1 | 1 (1) | 24 | 0 | 1 | 1024² | 2 | 13.612 / 13.415 / 5.205 |
 | Dragon | `dragon.glb` | 5,9 | 1 (1) | 220 | 0 | 1 | 4× 1024² | 1 | 12.082 / 11.868 / 10.208 |
+| Wraith | `wraith.glb` | 1,8 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
 | Mammoth | `mammoth.glb` | 4,9 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 12 | 5.541 / 5.541 / 5.121 |
 | Ghost | `ghost.glb` | 2,7 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 5.245 / 3.894 / 3.467 |
 | Tank | `tank.glb` | 0,2 | 7 (0) | 0 | 0 | 7 | – | 0 | 5.094 / 2.269 / 1.676 |
@@ -371,10 +371,10 @@ die weggelassenen Frames.
 | --- | --- | --- | ---: | ---: | ---: |
 | Mech | `Armature\|Walk` | walk | 1,33 | 40 | – |
 | Herbert | `Armature\|walking_man\|baselayer` | walk | 1,04 | 32 | – |
-| Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
 | Stone Golem | `Casual_Walk` | walk | 1,33 | 40 | – |
 | Stone Golem | `dying_backwards` | death | 2,21 | 46 | 21 |
 | Dragon | `flying` | walk | 3,30 | 99 | – |
+| Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
 | Mammoth | `Walk` | walk | 4,97 | 149 | – |
 | Mammoth | `Die` | death | 6,00 | 172 | 9 |
 | Ghost | `Take 001` | walk | 6,67 | 200 | – |
@@ -409,14 +409,14 @@ mit allem, was ein Kill abspaltet.
 | Template | Kurrikulum | max. Anzahl | Mischung | Mio. Vertices |
 | --- | --- | ---: | --- | ---: |
 | `zombie_horde` | W1 | 2.000 | zombie 90 %, zombie-v2 10 % | 9,1 |
-| `wraith_storm` | W17, W27 | 300 | wraith 100 % | 9,1 |
 | `rat_tide` | W2 | 5.000 | rat 100 % | 5,0 |
 | `mech_army` | W28 | 100 | mech 100 % | 4,2 |
-| `ghost_surge` | W13, W23 | 350 | ghost 80 %, wraith 20 % | 3,6 |
 | `skeleton_swarm` | W19 | 940 | skeleton 100 % (je Kill +2 skeleton-minion) | 3,3 |
 | `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,5 |
+| `wraith_storm` | W17, W27 | 300 | wraith 100 % | 2,4 |
 | `chaos_wave` | W16, W29 | 500 | zombie 30 %, tank 30 %, hornet 20 %, bear 20 % | 2,3 |
 | `bat_swarm` | W7, W21 | 600 | bat 100 % | 2,1 |
+| `ghost_surge` | W13, W23 | 350 | ghost 80 %, wraith 20 % | 2,0 |
 | `spider_swarm` | W6 | 800 | spider 100 % | 1,7 |
 | `hornet_strike` | W8, W26 | 300 | hornet 70 %, bat 30 % | 1,4 |
 | `light_mix` | W4 | 400 | wallsmasher 50 %, spider 50 % | 1,1 |
