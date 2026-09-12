@@ -19,6 +19,9 @@ import {
   Mesh,
   BufferAttribute,
   LoopOnce,
+  FrontSide,
+  DoubleSide,
+  type Side,
 } from 'three';
 import type { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { TIMING } from '../../../configs/timing.config';
@@ -60,6 +63,8 @@ export interface VATData {
   rowsPerFrame: number;
   /** Material base color (fallback when no diffuse map) */
   baseColor: { r: number; g: number; b: number };
+  /** Faces the material draws, from the materials of the baked meshes (vatSide) */
+  side: Side;
   /** Lowest baked vertex Y across all frames (unscaled bake/root space). */
   modelMinY: number;
   /** Highest baked vertex Y across all frames (unscaled bake/root space). */
@@ -68,6 +73,18 @@ export interface VATData {
 
 export const DEFAULT_BAKE_FPS = 30;
 export const MAX_VAT_WIDTH = 8192;
+
+/**
+ * Faces the VAT material draws, from the materials of the baked meshes
+ * (glTF doubleSided is DoubleSide). A type has one material, so when its
+ * meshes disagree it draws both sides: a missing face shows, an extra back
+ * face mostly stays behind the front one.
+ */
+export function vatSide(materials: (Material | Material[])[]): Side {
+  const sides = new Set(materials.flat().map((material) => material.side));
+  if (sides.size > 1) return DoubleSide;
+  return sides.values().next().value ?? FrontSide;
+}
 
 /** One clip to bake. */
 export interface VATClip {
@@ -553,6 +570,7 @@ export function bakeVAT(
     geometry: mergedGeometry,
     diffuseMap,
     baseColor,
+    side: vatSide(skins.map((s) => s.mesh.material)),
     isUnlit,
     fps,
     ...modelHeightRange(bounds),
@@ -854,6 +872,7 @@ export function bakeObjectAnimVAT(
     geometry: mergedGeometry,
     diffuseMap,
     baseColor,
+    side: vatSide(meshInfos.map((m) => m.mesh.material)),
     isUnlit,
     fps,
     ...modelHeightRange(bounds),
@@ -1092,6 +1111,7 @@ export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData 
     geometry: mergedGeometry,
     diffuseMap,
     baseColor,
+    side: vatSide(meshInfos.map((m) => m.mesh.material)),
     isUnlit,
     fps: DEFAULT_BAKE_FPS,
     ...modelHeightRange(bounds),

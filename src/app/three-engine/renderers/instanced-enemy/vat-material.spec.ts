@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BufferGeometry, DataTexture, FloatType, RGBAFormat } from 'three';
+import { BufferGeometry, DataTexture, FloatType, FrontSide, RGBAFormat } from 'three';
 import { createVATMaterial } from './vat-material';
 import type { VATAlpha, VATData } from './vat-baker';
 
@@ -19,6 +19,7 @@ function vatWith(alpha: VATAlpha): VATData {
     texWidth: 1,
     rowsPerFrame: 1,
     baseColor: { r: 1, g: 1, b: 1 },
+    side: FrontSide,
     modelMinY: 0,
     modelMaxY: 0,
   };

@@ -1,6 +1,5 @@
 import {
   ShaderMaterial,
-  FrontSide,
   Color,
   Vector3,
 } from 'three';
@@ -28,6 +27,7 @@ export interface VATMaterialOptions {
  * the opaque pass, masked ones discard below the cutoff, only blending types
  * are transparent.
  * Includes logarithmic depth buffer support for correct 3D tiles occlusion.
+ * Draws the faces the baked materials draw (vatData.side).
  *
  * Per-instance attributes:
  *   aAnimFrame (float) - current animation frame in the VAT
@@ -177,7 +177,8 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
           litColor = baseColor;
         } else {
           // Scene lighting: sun + fill + hemi + ambient (cooler, brighter)
-          vec3 N = normalize(vNormal);
+          // A back face of a double-sided type faces away from its normal.
+          vec3 N = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
 
           // Sun (key light): slightly warm, from SW high.
           // Pre-normalized literal of vec3(-0.44, 0.89, -0.27) — avoids a
@@ -232,7 +233,10 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     `,
     defines: { ...ALPHA_DEFINES[vatData.alpha.mode] },
     transparent: vatData.alpha.mode === 'blend',
-    side: FrontSide,
+    side: vatData.side,
+    // Double-sided blending in one pass too: three would otherwise draw back
+    // and front faces in two passes, which doubles the VAT reads.
+    forceSinglePass: true,
     depthWrite: true,
   });
 }
