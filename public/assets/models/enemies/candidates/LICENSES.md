@@ -30,7 +30,11 @@ Gemessen: 9 Meshes, alle geskinnt, 4.858 Vertices, 5.288 Dreiecke, 41 Knochen, e
 `Death_A` (0,80 s), `Death_B` (2,63 s), `Death_C_Skeletons` (2,00 s). Die 4,8 MB kommen fast
 nur von den Clips; das Spiel backt nur die konfigurierten.
 
-## kenney-graveyard-kit/character-skeleton.glb
+## kenney-graveyard-kit/character-skeleton.glb (übernommen)
+
+Seit 2026-09-12 das Modell des Skeleton-Gegners: liegt als `enemies/skeleton.glb`, die Textur
+als `enemies/Textures/colormap.png` (das GLB verweist relativ darauf), Nennung in
+`src/app/configs/attributions.config.ts`. Der KayKit-Skeleton oben bleibt Kandidat.
 
 | | |
 |---|---|

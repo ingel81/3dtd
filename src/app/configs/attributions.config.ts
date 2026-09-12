@@ -99,6 +99,12 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         license: 'CC0',
         sourceUrl: 'https://kenney.nl/assets/tower-defense-kit',
       },
+      {
+        name: 'Skeleton (Graveyard Kit)',
+        author: 'Kenney',
+        license: 'CC0',
+        sourceUrl: 'https://kenney.nl/assets/graveyard-kit',
+      },
     ],
   },
   {

@@ -24,7 +24,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 
 ---
 
-## Aktuelle Enemy-Typen (17)
+## Aktuelle Enemy-Typen (18)
 
 | Enemy | armorType | baseHp | Speed | Air? | Besonderheit |
 |-------|-----------|--------|-------|------|--------------|
@@ -33,6 +33,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | rat | unarmored | 5 | 10 | – | Schwächster Swarm-Gegner |
 | spider | light | 60 | 9 | – | Schneller, wenig HP |
 | penguin | unarmored | 30 | 9 | – | Unlit Cartoon-Style |
+| skeleton | unarmored | 20 | 6 | – | Swarm (2026-09-12), Kenney-Modell aus starren Teilen mit Node-Animation (`bakeObjectAnimVAT`), `canBleed: false`, Template `skeleton_swarm` |
 | wallsmasher | light | 200 | 4 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5` (rennt 10 m/s, im Mittel 7 m/s), **silent-spawn** (kein `spawnSound`) |
 | bat | light | 25 | 8 | ✓ | Air-Unit, `heightOffset: 15` |
 | hornet | light | 80 | 9 | ✓ | Air-Unit, `heightOffset: 18` |

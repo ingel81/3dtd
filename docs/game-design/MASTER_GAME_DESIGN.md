@@ -258,7 +258,7 @@ unverändert. Der Test prüft beides (`damage-calculator.spec.ts`).
 | **Mech** | Heavy | Shielded, immuneToBurn | Shield-Check |
 | **Bear** | Heavy | Tanky | Ground-Tank |
 | **Hornet** | Light | Air, Swarm | Air-Swarm |
-| **Skeleton** | Unarmored | Split | Swarm-Check |
+| **Skeleton** | Unarmored | Swarm (Split noch offen) | Swarm-Check, seit 2026-09-12 im Spiel (Template `skeleton_swarm`) |
 | **Slime** | Unarmored | Regen, Split | Regen-Check |
 | **Banshee** | Ethereal | Phasing | Slow-Check |
 
