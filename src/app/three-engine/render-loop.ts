@@ -221,6 +221,16 @@ export class RenderLoop {
   }
 
   /**
+   * Stop for good, from the engine's dispose(). Also drops the visibility
+   * listener of the background loop, which stop() keeps so that a restarted
+   * loop picks the heartbeat up again.
+   */
+  dispose(): void {
+    this.setBackgroundLoopEnabled(false);
+    this.stop();
+  }
+
+  /**
    * Called by the engine's render() after every drawn frame: releases
    * waitForRenderedFrame() and counts the frame for getFPS().
    */

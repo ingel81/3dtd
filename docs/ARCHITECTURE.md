@@ -366,7 +366,7 @@ gezeichneten Frame mit `renderLoop.frameRendered()` zurück.
 `load-error`). Nach jedem beruhigten `tiles-load-end` meldet der Tracker
 `onTileSetSettled()` zurück, dort invalidiert der Engine LOD-Version (`terrain.markTileSetChanged()`) und LOS-Cubemap und
 ruft `onTilesLoadCallback`. `setOrigin()` ruft `tileLoading.reset()`. `dispose()` stoppt
-zuerst den Loop (`renderLoop.stop()`), löst dann die Listener (`tileLoading.dispose()`, `cameraRig.dispose()`) und gibt danach
+zuerst den Loop (`renderLoop.dispose()`, samt Sichtbarkeits-Listener des Hintergrund-Loops), löst dann die Listener (`tileLoading.dispose()`, `cameraRig.dispose()`) und gibt danach
 Entity-Renderer, TilesRenderer, Pipeline und WebGLRenderer frei.
 
 ### Koordinatensystem (WICHTIG!)
