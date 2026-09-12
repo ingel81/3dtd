@@ -10,7 +10,9 @@ import { UIStore } from '../store/ui.store';
 import { canPickTowerCard, firstAffordableUpgrade } from '../utils/player-actions';
 import { isTypingTarget } from '../utils/keyboard-target';
 import { openHotkeyHelpDialog } from '../components/hotkey-help-dialog/hotkey-help-dialog.component';
+import { CameraControlService } from './camera-control.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
+import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { HotkeyAction, resolveHotkey } from './hotkey-map';
 import { SellConfirmService } from './sell-confirm.service';
 import { TowerPlacementService } from './tower-placement.service';
@@ -36,9 +38,14 @@ export class HotkeyService {
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly sellConfirm = inject(SellConfirmService);
   private readonly dialog = inject(MatDialog);
+  private readonly cameraControl = inject(CameraControlService);
+  private readonly introFlight = inject(IntroCameraFlightService);
 
   /** BUILD panel order, the number keys follow it */
   private readonly towerTypes = getAllTowerTypes();
+
+  /** Spawn point N flew to last, -1 before the first press */
+  private spawnIndex = -1;
 
   handleKeyDown(event: KeyboardEvent): void {
     if (!this.acceptsKey(event)) return;
@@ -80,7 +87,24 @@ export class HotkeyService {
         openHotkeyHelpDialog(this.dialog);
         return true;
       case 'cancel': return this.cancel();
+      case 'camera-hq': return this.focusHq();
+      case 'camera-spawn': return this.focusNextSpawn();
     }
+  }
+
+  /** The intro flight owns the camera while it plays. */
+  private focusHq(): boolean {
+    if (this.introFlight.active()) return false;
+    const hq = this.store.baseCoords();
+    return this.cameraControl.focusGeo(hq.lat, hq.lon);
+  }
+
+  private focusNextSpawn(): boolean {
+    const spawns = this.store.spawnPoints();
+    if (this.introFlight.active() || spawns.length === 0) return false;
+    this.spawnIndex = (this.spawnIndex + 1) % spawns.length;
+    const spawn = spawns[this.spawnIndex];
+    return this.cameraControl.focusGeo(spawn.lat, spawn.lon);
   }
 
   private selectTower(slot: number): boolean {

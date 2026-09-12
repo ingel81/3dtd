@@ -432,6 +432,8 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | P | Pause | Pause-Button |
 | + / = / - | Geschwindigkeit hoch, runter (1x, 2x, 4x, ohne Umlauf) | `stepGameSpeed` |
 | H / ? | Übersicht als Dialog | |
+| Pos1 (Home) | Kamera gleitet zum HQ | nicht während des Intro-Flugs |
+| N | Kamera gleitet zum nächsten Spawnpunkt, reihum | nicht während des Intro-Flugs |
 | Esc | Quick-Menü schließen, sonst Verkauf abbrechen, sonst Tower abwählen | |
 
 S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, `aria-keyshortcuts` an Wave-, Pause-, Sell- und Kartenbuttons, "H: Shortcuts" im Controls Hint.

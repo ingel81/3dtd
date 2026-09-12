@@ -446,6 +446,8 @@ export class GameLoopFacadeService {
     this.towerPlacement.updateRotation(dtSec);
     this.streetRendering.continueStreetRender();
     this.keyboardPan.update(dtSec);
+    // Quick jumps (Home, N) add to what keyboard pan did this frame
+    this.cameraControl.update(deltaTime);
     this.markerViz.animateMarkers(deltaTime);
     this.routeAnimation.update(deltaTime);
     // After keyboardPan so a scripted flight wins the frame if both run.

@@ -16,7 +16,10 @@ export type HotkeyAction =
   | { kind: 'pause' }
   | { kind: 'speed'; step: 1 | -1 }
   | { kind: 'help' }
-  | { kind: 'cancel' };
+  | { kind: 'cancel' }
+  | { kind: 'camera-hq' }
+  /** Fly to the next spawn point, round the list */
+  | { kind: 'camera-spawn' };
 
 /** The parts of a KeyboardEvent the mapping reads. */
 export type HotkeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey' | 'repeat'>;
@@ -54,6 +57,8 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
       return { kind: 'help' };
     case 'Escape':
       return { kind: 'cancel' };
+    case 'Home':
+      return { kind: 'camera-hq' };
   }
   switch (key.toLowerCase()) {
     case 'u':
@@ -63,6 +68,8 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
       return e.shiftKey ? null : { kind: 'pause' };
     case 'h':
       return { kind: 'help' };
+    case 'n':
+      return { kind: 'camera-spawn' };
   }
   return null;
 }
@@ -103,6 +110,8 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
     title: 'Camera',
     rows: [
       { keys: ['W', 'A', 'S', 'D'], label: 'Move, arrow keys too, hold Shift for faster' },
+      { keys: ['Home'], label: 'Fly to the HQ' },
+      { keys: ['N'], label: 'Fly to the next spawn point' },
     ],
   },
   {

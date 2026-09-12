@@ -444,3 +444,87 @@ describe('CameraControlService', () => {
     });
   });
 });
+
+describe('CameraControlService.focusGeo', () => {
+  let service: CameraControlService;
+
+  /** Camera 200 m up at the origin, looking 45° down to the north (-Z). */
+  function jumpEngine(groundY: number | null) {
+    const camera = {
+      position: { x: 0, y: 200, z: 0 },
+      getWorldDirection(target: { x: number; y: number; z: number }) {
+        target.x = 0;
+        target.y = -Math.SQRT1_2;
+        target.z = -Math.SQRT1_2;
+        return target;
+      },
+    };
+    const engine = {
+      getCamera: () => camera,
+      getTerrainHeightAtGeo: () => groundY,
+      sync: { geoToLocalSimple: () => ({ x: 500, y: 0, z: 300 }) },
+      setLocalCameraPosition: vi.fn(),
+    };
+    return { engine, camera };
+  }
+
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    service = new CameraControlService();
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('glides to the target over the jump and keeps the view offset', () => {
+    const { engine, camera } = jumpEngine(0);
+    service.initialize(engine as unknown as ThreeTilesEngine, { lat: 0, lon: 0, height: 0 });
+
+    expect(service.focusGeo(48.7, 9.1)).toBe(true);
+    service.update(300);
+    // Half way in time, half way in space (eased, symmetric)
+    expect(camera.position.x).toBeCloseTo(250);
+
+    service.update(300);
+    expect(camera.position.x).toBeCloseTo(500);
+    expect(camera.position.y).toBeCloseTo(200);
+    expect(camera.position.z).toBeCloseTo(500);
+
+    // Done: further frames leave the camera alone
+    service.update(100);
+    expect(camera.position.x).toBeCloseTo(500);
+  });
+
+  it('adds to other camera moves in the same frames instead of overriding them', () => {
+    const { engine, camera } = jumpEngine(0);
+    service.initialize(engine as unknown as ThreeTilesEngine, { lat: 0, lon: 0, height: 0 });
+    service.focusGeo(48.7, 9.1);
+
+    service.update(300);
+    camera.position.x += 40; // keyboard pan during the jump
+    service.update(300);
+
+    expect(camera.position.x).toBeCloseTo(540);
+  });
+
+  it('cuts to a 45° view when the camera looks at the horizon', () => {
+    const { engine, camera } = jumpEngine(10);
+    camera.getWorldDirection = (target) => {
+      target.x = 0;
+      target.y = 0;
+      target.z = -1;
+      return target;
+    };
+    service.initialize(engine as unknown as ThreeTilesEngine, { lat: 0, lon: 0, height: 0 });
+
+    service.focusGeo(48.7, 9.1);
+    const [x, y, z, tx, ty, tz] = engine.setLocalCameraPosition.mock.calls[0];
+    expect([tx, ty, tz]).toEqual([500, 10, 300]);
+    expect(x).toBeCloseTo(500);
+    expect(y - ty).toBeCloseTo(z - tz); // 45°
+  });
+
+  it('does nothing without an engine', () => {
+    expect(service.focusGeo(48.7, 9.1)).toBe(false);
+    expect(() => service.update(16)).not.toThrow();
+  });
+});

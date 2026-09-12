@@ -33,6 +33,12 @@ describe('resolveHotkey', () => {
     expect(resolveHotkey(key('-'))).toEqual({ kind: 'speed', step: -1 });
   });
 
+  it('flies the camera on Home and N', () => {
+    expect(resolveHotkey(key('Home'))).toEqual({ kind: 'camera-hq' });
+    expect(resolveHotkey(key('n'))).toEqual({ kind: 'camera-spawn' });
+    expect(resolveHotkey(key('N', { shiftKey: true }))).toEqual({ kind: 'camera-spawn' });
+  });
+
   it('opens the help on H and ?', () => {
     expect(resolveHotkey(key('h'))).toEqual({ kind: 'help' });
     expect(resolveHotkey(key('?', { shiftKey: true }))).toEqual({ kind: 'help' });
