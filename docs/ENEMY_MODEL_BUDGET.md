@@ -14,14 +14,14 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
 
 - **zombie_v2** hat 31.342 VAT-Vertices pro Instanz, das alte Zombie 4.525 (knapp 7×).
   2.000 Instanzen sind 62,7 Mio. Vertex-Shader-Aufrufe pro Frame statt 9,1 Mio. Seine VAT
-  belegt 217,5 MB, weil vier Clips mit zusammen 435 Frames gebacken werden.
+  belegt 136,0 MB (vier Clips, zusammen 272 Frames).
 - Die teuerste Welle nach Vertex-Last ist `hornet_strike`, nicht die Zombie-Horde: Hornet hat
   69.297 VAT-Vertices (122.736 Dreiecke in 16 starren Meshes), 210 Hornets sind 14,6 Mio.
   Danach folgen `zombie_horde` (14,4), `rat_tide` (10,8), `spider_swarm` (10,5) und
   `wraith_storm` (9,1).
 - Alle 18 Typen werden beim Start gebacken (`preloadAllModels`). Zusammen belegen die VATs
-  664,6 MB GPU-Speicher, davon 150,4 MB mit Frames, die im Spiel nie zu sehen sind
-  (Idle-Clips, Todes-Clips nach dem Entfernen).
+  516,1 MB GPU-Speicher. Gebacken wird nur, was das Spiel zeigt: Todes-Clips bis zum
+  Entfernen des Gegners, Idle gar nicht (bis 2026-09-12 waren es 664,6 MB).
 - Der Wallsmasher lädt als FBX nicht indiziert: 17.010 Vertices für 5.670 Dreiecke. Als GLB
   wären es 3.444, ohne sichtbare Änderung.
 - Knochen und Dreiecke sind mit VAT zweitrangig. Die Knochen sind weggebacken, die Last ist
@@ -68,15 +68,15 @@ Das ist gut die Hälfte dessen, was 2.000 alte Zombies heute kosten (9,1 Mio.), 
 für Tiles, Türme und Effekte. Der Wert ist nicht gemessen. Vor dem Festschreiben im Browser
 prüfen, etwa mit der GPU-Zeit bei 2.000 Gegnern je Budgetstufe.
 
-| Klasse | VAT-Vertices | Diffuse | Walk-Loop | Tod | Idle |
-|---|---:|---:|---|---|---|
-| Swarm | ≤ 1.500 (Ratte ≤ 1.000, bis 5.000 pro Welle) | ≤ 512² | ≤ 45 Frames (1,5 s) | nur sichtbare Frames | nicht backen |
-| Normal | ≤ 5.000 | ≤ 1024² | ≤ 60 Frames | nur sichtbare Frames | nicht backen |
-| Elite/Boss | ≤ 15.000 | ≤ 2048² | ≤ 90 Frames | nur sichtbare Frames | nach Bedarf |
+| Klasse | VAT-Vertices | Diffuse | Walk-Loop |
+|---|---:|---:|---|
+| Swarm | ≤ 1.500 (Ratte ≤ 1.000, bis 5.000 pro Welle) | ≤ 512² | ≤ 45 Frames (1,5 s) |
+| Normal | ≤ 5.000 | ≤ 1024² | ≤ 60 Frames |
+| Elite/Boss | ≤ 15.000 | ≤ 2048² | ≤ 90 Frames |
 
-„Nur sichtbare Frames“: Todes-Clips laufen mit `animationSpeed`, der Gegner verschwindet nach
-`TIMING.deathAnimationDuration` (2 s). Was danach im Clip kommt, belegt VAT-Speicher, ohne
-je gezeigt zu werden.
+Todes-Clips brauchen kein eigenes Budget: Sie laufen mit `animationSpeed`, der Gegner
+verschwindet nach `TIMING.deathAnimationDuration` (2 s), und `vatClips` in `vat-baker.ts`
+backt nur bis dahin. Idle backt der Baker nicht.
 
 Mit diesem Budget läge die teuerste Welle (`rat_tide`, 5.000 Ratten) bei 5,0 Mio. und
 `zombie_horde` bei 3,7 Mio. (zombie-v2 als Normal-Gegner); alle anderen Templates lägen
@@ -102,12 +102,12 @@ Blender; das Ergebnis mit `npm run model-budget` nachmessen.
   16 %, besser Retopologie mit neuer Abwicklung und gebackener Textur.
 - Soll zombie-v2 in `zombie_horde` mehr als die heutigen 10 % stellen, gilt das
   Swarm-Budget (≤ 1.500).
-- Todes-Clips auf die sichtbaren 2 s kürzen: von `Electrocuted_Fall` (6,33 s) sind bei
-  `animationSpeed: 1` nur 2 s zu sehen, 130 von 190 Frames nie. Bei `Dead` sind es 29, bei
-  `dying_backwards` 7 Frames. Nicht im Browser geprüft: Der Electrocuted-Zombie verschwindet
-  vermutlich mitten im Fallen.
-- Wirkung: VAT 217,5 → rund 21 MB (5.000 Vertices, Todes-Clips auf 2 s), `zombie_horde`
-  14,4 → 9,1 Mio. (das alte Zombie bleibt der größere Posten, siehe Nr. 6).
+- Die drei Todes-Clips sind auf die sichtbaren 2 s gekürzt (je 61 Frames). `Electrocuted_Fall`
+  (6,33 s) passt nicht dazu: Die Hüfte des Clips bleibt bis 3,0 s auf Standhöhe, der Sturz
+  beginnt bei etwa 3,25 s und endet bei etwa 5 s. Der Gegner verschwindet also zuckend im
+  Stehen (aus den Keyframes gelesen, nicht im Browser gesehen).
+- Wirkung: VAT 136,0 → rund 21 MB (5.000 Vertices), `zombie_horde` 14,4 → 9,1 Mio. (das
+  alte Zombie bleibt der größere Posten, siehe Nr. 6).
 - Das Backup `zombie_v2.original.glb.bak`, auf das die TODO verweist, liegt nicht im
   Hauptcheckout.
 
@@ -135,7 +135,6 @@ Blender; das Ergebnis mit `npm run model-budget` nachmessen.
 - Nur 2.157 Dreiecke, aber facettiert: Jeder Vertex ist an den Normalen gespalten. Mit
   geglätteten Normalen bleiben 1.453 Vertices (−68 %), ganz ohne Decimate. Der Look ändert
   sich dabei von facettiert zu glatt, das ist eine Designentscheidung.
-- Der Idle-Clip (183 Frames, 12,6 MB VAT) wird nur im Debug-Fenster abgespielt.
 - Wirkung: `zombie_horde` (1.800 Zombies) 8,1 → 2,6 Mio. für den Zombie-Anteil.
 
 ### 7. Mech: 42.455 VAT-Vertices, Ziel ≤ 5.000
@@ -143,7 +142,6 @@ Blender; das Ergebnis mit `npm run model-budget` nachmessen.
 - 28.850 Dreiecke in 34 starren Meshes (Objekt-Anim.-Pfad; die 62 Knochen im GLB skinnen
   nichts). Harte Kanten spalten viel (Position + UV = 28.395), der Haupthebel ist aber
   Decimate auf etwa 12 %.
-- Idle belegt 60 von 101 Frames, also 45 MB der 75,8 MB VAT, und läuft nur im Debug-Fenster.
 - Wirkung: `mech_army` 4,2 → 0,5 Mio.
 
 ### 8. Wallsmasher: 17.010 VAT-Vertices, Ziel ≤ 5.000 (ohne Decimate erreichbar)
@@ -161,12 +159,14 @@ Blender; das Ergebnis mit `npm run model-budget` nachmessen.
 - 12.267 Vertices liegen im Elite-Budget. Teuer ist der Clip `flying` mit 13,13 s
   (394 Frames). Einen Flügelschlag-Zyklus als Loop herausschneiden; bei 1,5 s wären es rund
   11 MB. Die 220 Knochen kosten nur Bake-Zeit.
+- Über die Clip-Wahl geht es nicht: Das Modell hat nur `idle` (12,43 s), `running`
+  (9,97 s) und `flying`. Der Loop muss in Blender geschnitten werden.
 
-### 10. Stone Golem: VAT 48,3 MB
+### 10. Stone Golem: VAT 43,0 MB
 
 - 13.614 Vertices, im Elite-Budget. Diffuse 2048² auf 1024² senken, `Casual_Walk` (4,17 s,
-  126 Frames) auf einen kürzeren Loop kürzen; bei `dying_backwards` sind 22 Frames nie zu
-  sehen. Unter 8.192 Vertices entfiele die zweite VAT-Zeile pro Frame.
+  126 Frames) auf einen kürzeren Loop kürzen. Unter 8.192 Vertices entfiele die zweite
+  VAT-Zeile pro Frame.
 
 ### 11. Bat: 3.559 VAT-Vertices, Ziel ≤ 1.500
 
@@ -183,23 +183,27 @@ höchstens dreimal pro Welle. Bear und Zombie Soldier liegen im Budget.
 ## Stellschrauben ohne Modelländerung
 
 Die Config hat keine VAT-Stellschraube pro Typ; Bake-fps und VAT-Breite sind Konstanten in
-`vat-baker.ts`. In der Config lassen sich nur Clips weglassen, zum Beispiel `idleAnimation`
-beim Zombie (−183 Frames, −12,6 MB, das Debug-Fenster verliert Idle) oder
-`Electrocuted_Fall` bei zombie-v2 (−190 Frames, −95 MB, eine von drei Todesvarianten fällt
-weg). Beides spart Speicher und Bake-Zeit, keine Frame-Zeit. Die Swarm-Gegner mit der
-größten Vertex-Last (Ratte, Spinne) backen je nur einen Clip mit 11 bzw. 25 Frames, da gibt
-es nichts wegzulassen. Deshalb ist in der Config nichts geändert.
+`vat-baker.ts`. In der Config lassen sich nur Clips weglassen, zum Beispiel
+`Electrocuted_Fall` bei zombie-v2 (−61 Frames, −30,5 MB, eine von drei Todesvarianten fällt
+weg). Das spart Speicher und Bake-Zeit, keine Frame-Zeit. Die Swarm-Gegner mit der größten
+Vertex-Last (Ratte, Spinne) backen je nur einen Clip mit 11 bzw. 25 Frames, da gibt es nichts
+wegzulassen.
+
+Code-seitig umgesetzt (2026-09-12):
+
+- **Nur zeigbare Frames backen**: `vatClips` kappt Todes-Clips bei
+  `deathAnimationDuration × animationSpeed`. Idle wird nicht mehr gebacken; das Config-Feld
+  `idleAnimation` und der Idle-Knopf im Debug-Fenster sind entfernt, denn Idle lief nur dort.
+  VAT 664,6 → 516,1 MB.
 
 Code-seitig, nicht umgesetzt:
 
-- **Nur zeigbare Frames backen**: Todes-Clips auf `deathAnimationDuration × animationSpeed`
-  kappen, Idle nur backen, wenn das Debug-Fenster es braucht. Spart die 150,4 MB aus der
-  Kurzfassung, ohne sichtbare Änderung im Spiel.
-- **VAT als RGBA16F** (`HalfFloatType`): halbiert den VAT-Speicher (664,6 → rund 332 MB) und
+- **VAT als RGBA16F** (`HalfFloatType`): halbiert den VAT-Speicher (516,1 → rund 258 MB) und
   die Bytes pro VAT-Zugriff. Half-Float hat 11 Bit Mantisse; vorher prüfen, welche Modelle
   große lokale Koordinaten haben.
-- **Offene Frage**: Alle VAT-Materialien sind `transparent: true`, gebraucht für das
-  Ausblenden beim Tod. Ob lebende Gegner opak gerendert messbar schneller wären, ist nicht
+- **Offene Frage**: Alle VAT-Materialien sind `transparent: true`. Ein Ausblenden beim Tod
+  gibt es nicht, `aOpacity` bleibt immer 1. Ob lebende Gegner opak gerendert messbar schneller
+  wären und welche Modelle Alpha-Blending brauchen (Alpha in Textur oder Material), ist nicht
   geprüft.
 
 ## Neue Gegner: Skeleton (Swarm)
@@ -224,7 +228,7 @@ Budget: ≤ 1.500 VAT-Vertices, Diffuse ≤ 512². Kandidaten mit Lizenz und Que
   FBXLoader sie erzeugen; die Clip-Dauer ist die letzte Keyframe-Zeit.
 - `tools/model-budget/generate.spec.ts` wählt den Bake-Pfad wie
   `InstancedEnemyRenderer.bakeAndCreatePool` und rechnet Clips und VAT-Maße mit
-  `vatClipNames`, `vatFrameCount` und `vatLayout` aus `vat-baker.ts`. Der Test schlägt fehl,
+  `vatClips`, `vatFrameCount` und `vatLayout` aus `vat-baker.ts`. Der Test schlägt fehl,
   wenn ein Typ nicht backbar ist oder ein konfigurierter Clip im Modell fehlt.
 - Ein Modell ohne Config-Eintrag prüfen (Node 24):
   `node -e "import('./tools/model-budget/model-inspect.ts').then((m) => console.dir(m.inspectModel('pfad/zum/modell.glb'), { depth: 3 }))"`
@@ -245,27 +249,26 @@ Gegner der größten Welle gleichzeitig leben.
 | Gegner | Klasse | max./Welle | VAT-Vertices | Dreiecke | Mio. Vertices | Bake-Pfad | VAT-Frames | VAT-Textur | VAT-MB | Diffuse |
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
 | Hornet (`hornet`) | Normal | 210 | 69.297 | 122.736 | 14,6 | Objekt-Anim. | 59 | 8192×531 | 66,4 | 1024² |
-| Mech (`mech`) | Normal | 100 | 42.455 | 28.850 | 4,2 | Objekt-Anim. | 101 | 8192×606 | 75,8 | 1024² |
-| Zombie v2 (`zombie-v2`) | Normal | 200 | 31.342 | 30.887 | 6,3 | Skinning | 435 | 8192×1740 | 217,5 | 1024² |
+| Mech (`mech`) | Normal | 100 | 42.455 | 28.850 | 4,2 | Objekt-Anim. | 41 | 8192×246 | 30,8 | 1024² |
+| Zombie v2 (`zombie-v2`) | Normal | 200 | 31.342 | 30.887 | 6,3 | Skinning | 272 | 8192×1088 | 136,0 | 1024² |
 | Herbert (`herbert`) | Elite/Boss | 3 | 30.831 | 31.949 | 0,1 | Skinning | 32 | 8192×128 | 16,0 | 512² |
 | Wraith (`wraith`) | Normal | 300 | 30.228 | 39.986 | 9,1 | Skinning | 15 | 8192×60 | 7,5 | 1024² |
 | Wallsmasher (`wallsmasher`) | Normal | 200 | 17.010 | 5.670 | 3,4 | Skinning | 103 | 8192×309 | 38,6 | – |
-| Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 193 | 8192×386 | 48,3 | 2048² |
+| Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 172 | 8192×344 | 43,0 | 2048² |
 | Spider (`spider`) | Swarm | 800 | 13.173 | 21.128 | 10,5 | Skinning | 25 | 8192×50 | 6,3 | 512² |
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.267 | 19.542 | 0,7 | Skinning | 394 | 8192×788 | 98,5 | 1024² |
-| Mammoth (`mammoth`) | Normal | 150 | 5.541 | 8.685 | 0,8 | Skinning | 331 | 5541×331 | 28,0 | 1024² |
+| Mammoth (`mammoth`) | Normal | 150 | 5.541 | 8.685 | 0,8 | Skinning | 322 | 5541×322 | 27,2 | 1024² |
 | Ghost (`ghost`) | Normal | 280 | 5.245 | 7.773 | 1,5 | Skinning | 200 | 5245×200 | 16,0 | 1024² |
 | Tank (`tank`) | Normal | 150 | 5.094 | 2.796 | 0,8 | statisch | 1 | 5094×1 | 0,1 | – |
-| Zombie (`zombie`) | Swarm | 1.800 | 4.525 | 2.157 | 8,1 | Skinning | 392 | 4525×392 | 27,1 | 1024² |
-| Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 160 | 4266×160 | 10,4 | 1024² |
+| Zombie (`zombie`) | Swarm | 1.800 | 4.525 | 2.157 | 8,1 | Skinning | 209 | 4525×209 | 14,4 | 1024² |
+| Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 108 | 4266×108 | 7,0 | 1024² |
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 42 | 4083×42 | 2,6 | 1024² |
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | 2,7 | 2048² |
 | Rat (`rat`) | Swarm | 5.000 | 2.150 | 3.642 | 10,8 | Skinning | 11 | 2150×11 | 0,4 | 1024² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | 2,6 | 1024² |
 
-VAT-Speicher aller Typen zusammen: **664,6 MB** (RGBA32F, 30 fps).
-Davon Frames, die das Spiel nie zeigt (Idle nur im Debug-Fenster, Todes-Clips nach dem
-Entfernen): **150,4 MB**.
+VAT-Speicher aller Typen zusammen: **516,1 MB** (RGBA32F, 30 fps).
+Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **90,9 MB** dazu.
 
 ### Modellinhalt
 
@@ -297,35 +300,33 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 ### Gebackene Clips
 
 Todes-Clips laufen mit `animationSpeed`, bis der Gegner nach 2.000 ms
-entfernt wird; was danach kommt, ist gebacken, aber nie zu sehen. Idle spielt nur das
-Debug-Fenster ab.
+entfernt wird. Gebacken wird nur dieser Teil (`vatClips` in `vat-baker.ts`), „gekürzt“ zählt
+die weggelassenen Frames.
 
-| Gegner | Clip | Rolle | Dauer s | Frames | nie sichtbar |
+| Gegner | Clip | Rolle | Dauer s | Frames | gekürzt |
 | --- | --- | --- | ---: | ---: | ---: |
 | Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Mech | `Armature\|Walk` | walk | 1,33 | 41 | – |
-| Mech | `Armature\|Idle` | idle | 1,97 | 60 | 60 |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
-| Zombie v2 | `Dead` | death | 2,96 | 89 | 29 |
-| Zombie v2 | `dying_backwards` | death | 2,21 | 67 | 7 |
-| Zombie v2 | `Electrocuted_Fall` | death | 6,33 | 190 | 130 |
+| Zombie v2 | `Dead` | death | 2,96 | 61 | 28 |
+| Zombie v2 | `dying_backwards` | death | 2,21 | 61 | 6 |
+| Zombie v2 | `Electrocuted_Fall` | death | 6,33 | 61 | 129 |
 | Herbert | `Armature\|walking_man\|baselayer` | walk | 1,04 | 32 | – |
 | Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
 | Wallsmasher | `CharacterArmature\|Walk` | walk | 1,33 | 40 | – |
 | Wallsmasher | `CharacterArmature\|Run` | run | 0,80 | 24 | – |
 | Wallsmasher | `CharacterArmature\|Death` | death | 1,30 | 39 | – |
 | Stone Golem | `Casual_Walk` | walk | 4,17 | 126 | – |
-| Stone Golem | `dying_backwards` | death | 2,21 | 67 | 22 |
+| Stone Golem | `dying_backwards` | death | 2,21 | 46 | 21 |
 | Spider | `Armature\|Walk-Cycle-Basic` | walk | 0,83 | 25 | – |
 | Dragon | `flying` | walk | 13,13 | 394 | – |
 | Mammoth | `Walk` | walk | 4,97 | 150 | – |
-| Mammoth | `Die` | death | 6,00 | 181 | 10 |
+| Mammoth | `Die` | death | 6,00 | 172 | 9 |
 | Ghost | `Take 001` | walk | 6,67 | 200 | – |
 | Zombie | `Armature\|Walk` | walk | 4,00 | 120 | – |
 | Zombie | `Armature\|Die` | death | 2,96 | 89 | – |
-| Zombie | `Armature\|Idle` | idle | 6,08 | 183 | 183 |
 | Zombie Soldier | `zombie_02_Run` | walk | 0,80 | 25 | – |
-| Zombie Soldier | `zombie_02_Death` | death | 4,50 | 135 | 52 |
+| Zombie Soldier | `zombie_02_Death` | death | 4,50 | 83 | 52 |
 | Bear | `GltfAnimation 0` | walk | 1,37 | 42 | – |
 | Bat | `fly.001` | walk | 1,67 | 50 | – |
 | Rat | `Run` | walk | 0,34 | 11 | – |

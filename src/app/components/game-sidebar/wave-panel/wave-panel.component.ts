@@ -150,7 +150,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
         cameraDistance: overrides?.previewCameraDistance ?? enemyConfig.previewCameraDistance ?? 7,
         cameraAngle: overrides?.previewCameraAngle ?? enemyConfig.previewCameraAngle ?? Math.PI / 12,
         offsetY: overrides?.previewOffsetY ?? enemyConfig.previewOffsetY ?? 0,
-        animationName: enemyConfig.walkAnimation || enemyConfig.idleAnimation || undefined,
+        animationName: enemyConfig.walkAnimation || undefined,
         animationTimeScale: 0.7,
         lightIntensity: 1.3,
         groundModel: true,

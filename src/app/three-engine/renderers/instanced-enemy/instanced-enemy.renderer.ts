@@ -9,7 +9,7 @@ import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../configs/enem
 import { AssetManagerService } from '../../../services/infrastructure/asset-manager.service';
 import { EnemyInstanceManager, EnemyInstanceState } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
-import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT, vatClipNames } from './vat-baker';
+import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT, vatClips } from './vat-baker';
 import { registerEnemyModelCenterY } from '../../../utils/enemy-aim.util';
 
 // Dummy Object3D shared across all instanced enemy stubs
@@ -116,12 +116,12 @@ export class InstancedEnemyRenderer {
           return;
         }
 
-        const clipNames = vatClipNames(config);
-        let vatData = bakeVAT(clone, cached.animations, clipNames);
+        const clips = vatClips(config);
+        let vatData = bakeVAT(clone, cached.animations, clips);
 
         // Fallback: try object/rigid-body animation bake (e.g., mech, hornet)
         if (!vatData) {
-          vatData = bakeObjectAnimVAT(clone, cached.animations, clipNames);
+          vatData = bakeObjectAnimVAT(clone, cached.animations, clips);
         }
 
         if (vatData) {
@@ -295,10 +295,6 @@ export class InstancedEnemyRenderer {
 
   startRunAnimation(id: string): void {
     this.instanceManager.startRunAnimation(id);
-  }
-
-  playIdleAnimation(id: string): void {
-    this.instanceManager.playIdleAnimation(id);
   }
 
   playDeathAnimation(id: string): void {

@@ -203,9 +203,6 @@ import { TdIconComponent } from '../icon/icon.component';
               <div class="control-group">
                 <div class="control-label">Animation</div>
                 <div class="btn-row">
-                  <button class="control-btn" (click)="playIdle.emit(selected.id)" title="Idle">
-                    <td-icon name="user" [size]="14"></td-icon>
-                  </button>
                   <button class="control-btn" (click)="playWalk.emit(selected.id)" title="Walk">
                     <td-icon name="walk" [size]="14"></td-icon>
                   </button>
@@ -654,7 +651,6 @@ export class EnemyDebuggerComponent {
   readonly clearAllEnemies = output<void>();
 
   // Outputs for animation/movement control
-  readonly playIdle = output<string>();
   readonly playWalk = output<string>();
   readonly playRun = output<string>();
   readonly startMovement = output<string>();

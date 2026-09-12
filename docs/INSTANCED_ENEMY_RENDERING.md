@@ -65,6 +65,21 @@ Ausgabe: DataTexture (width=texWidth, height=totalFrames × rowsPerFrame)
 
 **Wichtig:** `mixer.setTime(t)` intern resettet auf 0 und addiert t. Daher **frischer Mixer pro Clip**, sonst State-Leaking.
 
+### Nur sichtbare Frames
+
+`vatClips(config)` legt fest, welche Clips wie weit gebacken werden:
+
+- Walk und Run loopen und kommen ganz in die VAT.
+- Todes-Clips laufen mit `animationSpeed`, bis `EnemyManager` den Gegner nach
+  `TIMING.deathAnimationDuration` entfernt. Gebacken wird nur diese Clip-Zeit
+  (`vatDeathSeconds`), bis einschließlich des Frames `floor(t × fps)`, der beim Entfernen zu
+  sehen ist (`vatFrameCount`). Kürzere Todes-Clips kommen ganz in die VAT.
+- Idle wird nicht gebacken, kein Spielzustand zeigt es.
+
+Ein toter Gegner hält den letzten gebackenen Frame (Clamp in `updateAnimations`), er springt
+nicht auf Frame 0 zurück. Opazität und Position ändern sich nach dem Tod nicht mehr, es gibt
+kein Ausblenden und kein Einsinken.
+
 ### Statische Modelle (`bakeStaticVAT`)
 
 Fuer Modelle ohne Skelettanimation (z.B. Tank):
@@ -249,7 +264,7 @@ interface EnemyInstanceState {
 
 1. `animTime += deltaTime × animSpeed × speedMultiplier`
 2. Frame berechnen: `localFrame = floor((animTime / totalTime) % 1.0 × frameCount)`
-3. Looping fuer Walk/Run, Clamping fuer Death
+3. Looping fuer Walk/Run, Clamping fuer Death (hält den letzten gebackenen Frame)
 4. `aAnimFrame` Attribut setzen → Shader liest naechsten Frame
 
 `InstancedEnemyRenderer.updateAnimations(deltaTime, camera)` ruft danach
@@ -348,8 +363,8 @@ await renderer.preloadAllModels();      // Alle Typen parallel
 | `hasAnimations` | true → `bakeVAT`, false → `bakeStaticVAT` |
 | `walkAnimation` | Clip-Name fuer Walk |
 | `runAnimation` | Clip-Name fuer Run |
-| `deathAnimation` | Clip-Name fuer Death |
-| `idleAnimation` | Clip-Name fuer Idle |
+| `deathAnimation` | Clip-Name fuer Death (gebacken bis zum Entfernen) |
+| `deathAnimations` | Pool von Todes-Clips, einer pro Kill (gebacken wie `deathAnimation`) |
 | `animationSpeed` | Playback Speed Multiplier |
 | `randomAnimationStart` | Zufaelliger Start-Offset (verhindert Sync) |
 | `unlit` | true → kein Lighting (Cartoon-Modelle) |

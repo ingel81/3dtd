@@ -1,6 +1,6 @@
 # Enemy Creation Guide
 
-**Stand:** 2026-05-12
+**Stand:** 2026-09-12
 
 Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen Effekten.
 
@@ -39,7 +39,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | dragon | heavy | 450 | 6 | ✓ | Air-Boss-Tier, `heightOffset: 20` |
 | tank | heavy | 250 | 3 | – | Mechanisch, `canBleed: false` |
 | bear | heavy | 300 | 8 | – | Random Growl Sound |
-| mech | heavy | 500 | 3 | – | Mechanisch, idle/walk |
+| mech | heavy | 500 | 3 | – | Mechanisch |
 | mammoth | fortified | 400 | 3 | – | Random Mammoth Call |
 | herbert | fortified | 500 | 4 | – | Boss, `immunityPercent: 100` |
 | **stone-golem** | fortified | 480 | 2.5 | – | Neuer Fortified-Gegner (2026-05-12), `canBleed: false`, `randomAnimationStart: true`, `lateralSpread: 0.65`, `spawnStartDelay: 1200` |
@@ -144,8 +144,10 @@ const NEW_ENEMY_MODEL_URL = '/assets/models/enemies/new_enemy.glb';
 |-----------|--------------|--------------|
 | `walkAnimation` | Empfohlen | Standard-Bewegung |
 | `runAnimation` | Optional | Schnellere Bewegung (Alternative zu Walk) |
-| `deathAnimation` | Optional | Spielt beim Tod (2s Delay vor Remove) |
-| `idleAnimation` | Optional | Aktuell nicht verwendet |
+| `deathAnimation` | Optional | Spielt beim Tod, 2 s bis zum Entfernen. Gebacken wird nur dieser Teil (`animationSpeed` × 2 s Clip-Zeit), der Rest des Clips ist nie zu sehen |
+| `deathAnimations` | Optional | Pool von Todes-Clips, einer zufällig pro Kill; gekürzt wie `deathAnimation` |
+
+Idle-Clips werden nicht gebacken, das Spiel zeigt keine stehenden Gegner.
 
 ### Animation Speed Coupling
 
@@ -425,7 +427,6 @@ zombie: {
   baseSpeed: 5,
   reward: 3,
   hasAnimations: true,
-  idleAnimation: 'Armature|Idle',
   walkAnimation: 'Armature|Walk',
   deathAnimation: 'Armature|Die',
   animationSpeed: 4.11,

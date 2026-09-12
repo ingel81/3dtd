@@ -484,13 +484,6 @@ export class EnemyDebugService {
   }
 
   /**
-   * Play idle animation for debug enemy.
-   */
-  onPlayIdleAnimation(enemyId: string): void {
-    this.engine?.enemies.playIdleAnimation(enemyId);
-  }
-
-  /**
    * Walk for debug enemy: speed in the simulation, clip in the renderer.
    */
   onPlayWalkAnimation(enemyId: string): void {
@@ -524,7 +517,6 @@ export class EnemyDebugService {
     const de = this.getDebugEnemy(enemyId);
     if (de?.enemy) {
       de.enemy.stopMoving();
-      this.engine?.enemies.playIdleAnimation(enemyId);
     }
   }
 

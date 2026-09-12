@@ -328,23 +328,6 @@ export class EnemyInstanceManager {
   }
 
   /**
-   * Set animation to idle
-   */
-  playIdleAnimation(id: string): void {
-    const state = this.getState(id);
-    if (!state || state.isDead) return;
-
-    const idleAnim = state.config.idleAnimation;
-    if (!idleAnim) return;
-
-    const pool = this.pools.get(state.typeId);
-    if (!pool || !pool.vatData.animations.has(idleAnim)) return;
-
-    state.currentAnim = idleAnim;
-    state.animTime = 0;
-  }
-
-  /**
    * Play death animation (non-looping, clamp at last frame)
    */
   playDeathAnimation(id: string): void {
@@ -468,7 +451,9 @@ export class EnemyInstanceManager {
         const totalTime = entry.totalTime;
 
         if (state.isDead) {
-          // Clamp at last frame
+          // Clamp at last frame. The bake cuts death clips where the enemy
+          // is removed (vatClips), so a clip that runs longer holds its
+          // last baked frame rather than looping back to frame 0.
           const maxFrame = entry.frameCount - 1;
           localFrame = Math.min(
             Math.floor((state.animTime / totalTime) * entry.frameCount),
