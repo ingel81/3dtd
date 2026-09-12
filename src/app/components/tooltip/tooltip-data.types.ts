@@ -44,6 +44,8 @@ export interface TdTooltipData {
   title: string;
   /** Sub-label rendered to the right of the title (e.g. "DMG TYPE"). */
   category?: string;
+  /** Key cap at the right of the header: the key that does what the hovered control does. */
+  hotkey?: string;
   /** Accent color used for header + title. */
   accent?: TdTooltipAccent;
   /** Stat row — flexible column count (1–4). */

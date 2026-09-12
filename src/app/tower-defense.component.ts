@@ -49,6 +49,7 @@ import { LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { CameraControlService } from './services/camera-control.service';
 import { InputHandlerService } from './services/input-handler.service';
+import { HotkeyService } from './services/hotkey.service';
 import { TowerPlacementService } from './services/tower-placement.service';
 import { MapPlacementService } from './services/world/map-placement.service';
 import { LocationManagementService } from './services/location/location-management.service';
@@ -129,6 +130,8 @@ import { ResearchStore } from './store/research.store';
     TowerDefenseFacadeService,
     GameLoopFacadeService,
     VisualizationFacadeService,
+    // Game hotkeys drive the facade, so they live in the same scope
+    HotkeyService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',
@@ -157,6 +160,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Refactoring services
   private readonly cameraControl = inject(CameraControlService);
   private readonly inputHandler = inject(InputHandlerService);
+  private readonly hotkeys = inject(HotkeyService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly locationMgmt = inject(LocationManagementService);
@@ -382,11 +386,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
     this.inputHandler.handleKeyDown(event);
+    // Game hotkeys take what the input handler left alone (not defaultPrevented)
+    this.hotkeys.handleKeyDown(event);
   }
 
   @HostListener('window:keyup', ['$event'])
   onKeyUp(event: KeyboardEvent): void {
     this.inputHandler.handleKeyUp(event);
+    this.hotkeys.handleKeyUp(event);
   }
 
   @HostListener('window:blur')

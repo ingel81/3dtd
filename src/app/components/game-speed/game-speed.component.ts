@@ -1,6 +1,7 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { GameStore } from '../../store/game.store';
+import { GAME_SPEEDS } from '../../configs/game-speed.config';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
@@ -15,9 +16,10 @@ import { TdIconComponent } from '../icon/icon.component';
         class="hud-btn pause-btn"
         [class.paused]="paused()"
         (click)="togglePause()"
-        [matTooltip]="paused() ? 'Resume' : 'Pause'"
+        [matTooltip]="paused() ? 'Resume (P)' : 'Pause (P)'"
         [attr.aria-label]="paused() ? 'Resume game' : 'Pause game'"
         [attr.aria-pressed]="paused()"
+        aria-keyshortcuts="P"
         matTooltipPosition="below">
         <td-icon [name]="paused() ? 'play' : 'pause'" [size]="16"></td-icon>
       </button>
@@ -25,7 +27,7 @@ import { TdIconComponent } from '../icon/icon.component';
         class="hud-btn speed-btn"
         [class.fast]="currentSpeed() > 1"
         (click)="cycleSpeed()"
-        [matTooltip]="'Game Speed: ' + currentSpeed() + 'x'"
+        [matTooltip]="'Game Speed: ' + currentSpeed() + 'x (+/-)'"
         [attr.aria-label]="'Game speed ' + currentSpeed() + 'x'"
         matTooltipPosition="below">
         <td-icon [name]="currentSpeed() === 1 ? 'play' : 'fastForward'" [size]="18"></td-icon>
@@ -107,12 +109,10 @@ export class GameSpeedComponent {
   readonly currentSpeed = this.gameStore.trainingTimescale;
   readonly paused = this.gameStore.paused;
 
-  private speeds = [1, 2, 4];
-
   cycleSpeed(): void {
     const current = this.currentSpeed();
-    const idx = this.speeds.indexOf(current);
-    const next = this.speeds[(idx + 1) % this.speeds.length];
+    const idx = GAME_SPEEDS.indexOf(current);
+    const next = GAME_SPEEDS[(idx + 1) % GAME_SPEEDS.length];
     this.gameStore.trainingTimescale.set(next);
   }
 

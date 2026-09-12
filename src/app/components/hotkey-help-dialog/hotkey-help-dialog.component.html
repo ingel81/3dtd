@@ -1,0 +1,31 @@
+<div class="help-dialog">
+  <div class="dialog-header">
+    <td-icon class="header-icon" name="gamepad" [size]="18"></td-icon>
+    <h2 [id]="titleId">Keyboard shortcuts</h2>
+  </div>
+
+  <div class="dialog-content">
+    @for (group of groups; track group.title) {
+      <section class="group">
+        <h3>{{ group.title }}</h3>
+        <dl>
+          @for (row of group.rows; track row.label) {
+            <div class="row">
+              <dt [class.range]="row.range">
+                @for (key of row.keys; track $index) {
+                  <kbd>{{ key }}</kbd>
+                }
+              </dt>
+              <dd>{{ row.label }}</dd>
+            </div>
+          }
+        </dl>
+      </section>
+    }
+  </div>
+
+  <div class="dialog-actions">
+    <span class="note">Shortcuts are off while you type or a dialog is open.</span>
+    <button class="close-btn" (click)="close()">Close</button>
+  </div>
+</div>

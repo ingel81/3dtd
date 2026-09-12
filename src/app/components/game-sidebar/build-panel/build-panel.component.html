@@ -16,14 +16,15 @@
       </button>
     } @else {
       <div class="td-tower-grid">
-        @for (tower of towerTypes(); track tower.id) {
+        @for (tower of towerTypes(); track tower.id; let i = $index) {
           @if (isTowerUnlocked(tower.id)) {
             <!-- Unlocked tower, normal card -->
             <button class="td-tower-card"
                     [class.disabled]="store.credits() < tower.cost || (tower.id === 'research-center' && isResearchCenterPlaced())"
-                    [disabled]="isGameOver() || store.credits() < tower.cost || (tower.id === 'research-center' && isResearchCenterPlaced())"
+                    [disabled]="!canPick(tower)"
+                    [attr.aria-keyshortcuts]="slotKey(i)"
                     (click)="selectTower.emit(tower.id)"
-                    [tdRichTooltip]="getTowerCardTooltipData(tower)"
+                    [tdRichTooltip]="getTowerCardTooltipData(tower, i)"
                     tdRichTooltipPosition="left">
               <canvas #towerPreviewCanvas
                       class="td-tower-preview-canvas"

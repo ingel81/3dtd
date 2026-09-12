@@ -17,6 +17,8 @@ import { TdTooltipData } from '../tooltip/tooltip-data.types';
 export interface TowerCardTooltipContext {
   researchCenterPlaced: boolean;
   airTargetingUnlocked: boolean;
+  /** Number key that picks the card, null or absent past the ninth card */
+  hotkey?: string | null;
 }
 
 // Armor identity colors per mockup (tmp/td-components.jsx ArmorChip).
@@ -63,6 +65,7 @@ export function towerCardTooltip(
     return {
       title: 'Research Center',
       category: 'STRUCTURE',
+      hotkey: ctx.hotkey ?? undefined,
       accent: 'gold',
       flavor: ctx.researchCenterPlaced
         ? 'Already placed.'
@@ -106,6 +109,7 @@ export function towerCardTooltip(
   return {
     title: tower.name,
     category: dmgUi.label.toUpperCase(),
+    hotkey: ctx.hotkey ?? undefined,
     accent: DAMAGE_ACCENT[tower.damageType],
     stats,
     targeting,

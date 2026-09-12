@@ -44,6 +44,20 @@
   flex-shrink: 0;
 }
 
+/* Key cap, same look as the keys in the shortcut overview */
+.td-tooltip__key {
+  flex-shrink: 0;
+  min-width: 10px;
+  padding: 2px 5px;
+  font: 700 10px/1 var(--td-font-mono);
+  text-align: center;
+  color: var(--td-gold-light);
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  border-bottom-color: #050705;
+  border-radius: 3px;
+}
+
 .td-tooltip__stats {
   display: grid;
   gap: 6px;
