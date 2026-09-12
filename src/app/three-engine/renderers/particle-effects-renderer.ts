@@ -31,6 +31,24 @@ interface EffectInstance {
 // See decal-instance.manager.ts for DecalInstance interface
 
 /**
+ * Gravity on blood splatter particles, m/s².
+ *
+ * Until 2026-09-12 update() moved and aged the particles an effect tracks
+ * (blood splatter, fires) twice per frame. The splatter therefore flew at
+ * twice its velocity for half its maxLife, under gravity applied once per
+ * frame to a doubled step. Twice the speed, half the life and twice the
+ * gravity with a single update draw the same arc, so the numbers now say
+ * what the splatter always looked like.
+ *
+ * FIRE_TEMPO: the fire particles' speeds are doubled and their lifetimes
+ * halved for the same reason, so flames rise and flicker at the old pace.
+ * What does change is that a burning fire keeps all its particles: the
+ * double aging let about half of them die for good every cycle, and a fire
+ * was down to nothing within seconds.
+ */
+const BLOOD_GRAVITY = -19.6;
+
+/**
  * ParticleEffectsRenderer — combat & environment particle effects plus the
  * central activeEffects lifecycle map.
  *
@@ -138,13 +156,15 @@ export class ParticleEffectsRenderer {
       if (!particle) break;
 
       particle.position.copy(localPos);
+      // Twice the speed and half the life of the numbers this used to read,
+      // see BLOOD_GRAVITY
       particle.velocity.set(
-        (Math.random() - 0.5) * 5,
-        Math.random() * 5,
-        (Math.random() - 0.5) * 5
+        (Math.random() - 0.5) * 10,
+        Math.random() * 10,
+        (Math.random() - 0.5) * 10
       );
       particle.life = 1.0;
-      particle.maxLife = 1.0 + Math.random() * 0.5;
+      particle.maxLife = 0.5 + Math.random() * 0.25;
       particle.size = 0.2 + Math.random() * 0.3;
 
       // Vary blood color slightly
@@ -268,12 +288,12 @@ export class ParticleEffectsRenderer {
       particle.position.z += Math.sin(angle) * radius;
 
       particle.velocity.set(
-        (Math.random() - 0.5) * 2,
-        3 + Math.random() * 5, // Upward
-        (Math.random() - 0.5) * 2
+        (Math.random() - 0.5) * 4,
+        6 + Math.random() * 10, // Upward (FIRE_TEMPO note at the top)
+        (Math.random() - 0.5) * 4
       );
       particle.life = 1.0;
-      particle.maxLife = 0.4 + Math.random() * 0.8;
+      particle.maxLife = 0.2 + Math.random() * 0.4;
       particle.size = 1.5 + Math.random() * 2.5; // Bigger particles
 
       // Fire colors - yellow core, orange mid, red edges
@@ -371,12 +391,12 @@ export class ParticleEffectsRenderer {
       particle.position.z += Math.sin(angle) * radius;
 
       particle.velocity.set(
-        (Math.random() - 0.5) * 2,
-        3 + Math.random() * 5, // Upward
-        (Math.random() - 0.5) * 2
+        (Math.random() - 0.5) * 4,
+        6 + Math.random() * 10, // Upward (FIRE_TEMPO note at the top)
+        (Math.random() - 0.5) * 4
       );
       particle.life = 1.0;
-      particle.maxLife = 0.4 + Math.random() * 0.8;
+      particle.maxLife = 0.2 + Math.random() * 0.4;
       particle.size = 1.5 + Math.random() * 2.5; // Bigger particles
 
       // Fire colors - yellow core, orange mid, red edges
@@ -539,12 +559,12 @@ export class ParticleEffectsRenderer {
       particle.position.z += Math.sin(angle) * radius;
 
       particle.velocity.set(
-        (Math.random() - 0.5) * 2,
-        3 + Math.random() * 5,
-        (Math.random() - 0.5) * 2
+        (Math.random() - 0.5) * 4,
+        6 + Math.random() * 10, // FIRE_TEMPO note at the top
+        (Math.random() - 0.5) * 4
       );
       particle.life = 1.0;
-      particle.maxLife = 0.4 + Math.random() * 0.8;
+      particle.maxLife = 0.2 + Math.random() * 0.4;
       particle.size = 1.5 + Math.random() * 2.5 + clampedScale * 1.5; // Bigger at higher scale
 
       // Fire colors
@@ -599,12 +619,12 @@ export class ParticleEffectsRenderer {
       particle.position.z += Math.sin(angle) * radius;
 
       particle.velocity.set(
-        (Math.random() - 0.5) * 3,
-        4 + Math.random() * 8,
-        (Math.random() - 0.5) * 3
+        (Math.random() - 0.5) * 6,
+        8 + Math.random() * 16, // FIRE_TEMPO note at the top
+        (Math.random() - 0.5) * 6
       );
       particle.life = 1.0;
-      particle.maxLife = 0.5 + Math.random() * 1.0;
+      particle.maxLife = 0.25 + Math.random() * 0.5;
       particle.size = 2.5 + Math.random() * 4.0;
 
       const t = Math.random();
@@ -1106,86 +1126,18 @@ export class ParticleEffectsRenderer {
   }
 
   /**
-   * Update all active effects, decals, and trail particle pools.
+   * Update trail particle pools, active effects and decals.
    *
-   * Covers steps 1-5 of the original update() pipeline: activeEffects loop,
-   * blood decal fading, ice decal fading, and both trail-pool update loops.
+   * The pool pass moves and ages every live particle once, the ones an
+   * effect tracks included. The effect pass after it only adds what an
+   * effect needs on top: gravity for blood, respawn for burning fires,
+   * expiry. Until 2026-09-12 the effect pass moved and aged its particles a
+   * second time (see BLOOD_GRAVITY).
    *
    * @param dt - Delta time in seconds
    * @param now - Current timestamp from performance.now()
    */
   update(dt: number, now: number): void {
-    const gravity = -9.8;
-
-    // Update effects and remove expired ones
-    for (const [id, effect] of this.activeEffects) {
-      const elapsed = now - effect.startTime;
-
-      // Check if effect expired
-      if (effect.duration > 0 && elapsed > effect.duration) {
-        // Return particles to pool
-        for (const p of effect.particles) {
-          p.life = 0;
-        }
-        this.activeEffects.delete(id);
-        continue;
-      }
-
-      // Update particles
-      for (const particle of effect.particles) {
-        if (particle.life <= 0) continue;
-
-        // Update position (reuse temp vector to avoid GC)
-        particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
-
-        // Apply gravity (blood falls, fire rises)
-        if (effect.type === 'blood') {
-          particle.velocity.y += gravity * dt;
-        }
-
-        // Decay life
-        particle.life -= dt / particle.maxLife;
-
-        // Respawn fire particles (all fires are now persistent with duration: -1)
-        if (effect.type === 'fire' && particle.life <= 0 && effect.duration < 0) {
-          // Use stored radius or default to 5
-          const fireRadius = (effect as EffectInstance & { radius?: number }).radius ?? 5;
-          const angle = Math.random() * Math.PI * 2;
-          const radius = Math.random() * fireRadius;
-
-          particle.position.copy(effect.localPosition);
-          particle.position.x += Math.cos(angle) * radius;
-          particle.position.z += Math.sin(angle) * radius;
-
-          particle.velocity.set(
-            (Math.random() - 0.5) * 2,
-            3 + Math.random() * 5,
-            (Math.random() - 0.5) * 2
-          );
-          particle.life = 1.0;
-          particle.maxLife = 0.4 + Math.random() * 0.8;
-          particle.size = 1.5 + Math.random() * 2.5;
-          particle.frameIndex = -1; // Fire uses circular particles
-          particle.totalFrames = 0;
-
-          // Fire colors on respawn
-          const t = Math.random();
-          if (t < 0.3) {
-            particle.color.setRGB(1, 0.9, 0.3);
-          } else if (t < 0.7) {
-            particle.color.setRGB(1, 0.5, 0.1);
-          } else {
-            particle.color.setRGB(1, 0.2, 0.05);
-          }
-        }
-      }
-    }
-
-    // Fade out blood, ice and scorch decals (idle until the first fade is due)
-    this.bloodDecalManager?.updateFades(now);
-    this.iceDecalManager?.updateFades(now);
-    this.scorchMarks?.updateFades(now);
-
     // Update trail particles - ADDITIVE pool (skip when idle)
     if (this.pools.isPoolActive('trailAdditive')) {
       for (const particle of this.pools.getPool('trailAdditive')) {
@@ -1202,6 +1154,75 @@ export class ParticleEffectsRenderer {
         particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
         particle.life -= dt / particle.maxLife;
       }
+    }
+
+    // Effect rules and expiry. After the pool pass, so a fire particle that
+    // just burnt out is lit again before updateBuffers() frees it: it used to
+    // die in the second aging, go back to the pool, and the fire thinned out.
+    for (const [id, effect] of this.activeEffects) {
+      const elapsed = now - effect.startTime;
+
+      // Check if effect expired
+      if (effect.duration > 0 && elapsed > effect.duration) {
+        // Return particles to pool
+        for (const p of effect.particles) {
+          p.life = 0;
+        }
+        this.activeEffects.delete(id);
+        continue;
+      }
+
+      // Fires burn (duration -1) until stopFire() gives them a duration
+      const burning = effect.type === 'fire' && effect.duration < 0;
+      for (const particle of effect.particles) {
+        if (particle.life <= 0) {
+          if (burning) this.respawnFireParticle(particle, effect);
+          continue;
+        }
+        // Blood falls, fire rises on its own velocity
+        if (effect.type === 'blood') {
+          particle.velocity.y += BLOOD_GRAVITY * dt;
+        }
+      }
+    }
+
+    // Fade out blood, ice and scorch decals (idle until the first fade is due)
+    this.bloodDecalManager?.updateFades(now);
+    this.iceDecalManager?.updateFades(now);
+    this.scorchMarks?.updateFades(now);
+  }
+
+  /** Light a burnt-out particle of a burning fire again, somewhere in its radius. */
+  private respawnFireParticle(particle: Particle, effect: EffectInstance): void {
+    // Use stored radius or default to 5
+    const fireRadius = (effect as EffectInstance & { radius?: number }).radius ?? 5;
+    const angle = Math.random() * Math.PI * 2;
+    const radius = Math.random() * fireRadius;
+
+    particle.position.copy(effect.localPosition);
+    particle.position.x += Math.cos(angle) * radius;
+    particle.position.z += Math.sin(angle) * radius;
+
+    // Speeds and life as in the spawn methods (FIRE_TEMPO note at the top)
+    particle.velocity.set(
+      (Math.random() - 0.5) * 4,
+      6 + Math.random() * 10,
+      (Math.random() - 0.5) * 4
+    );
+    particle.life = 1.0;
+    particle.maxLife = 0.2 + Math.random() * 0.4;
+    particle.size = 1.5 + Math.random() * 2.5;
+    particle.frameIndex = -1; // Fire uses circular particles
+    particle.totalFrames = 0;
+
+    // Fire colors on respawn
+    const t = Math.random();
+    if (t < 0.3) {
+      particle.color.setRGB(1, 0.9, 0.3);
+    } else if (t < 0.7) {
+      particle.color.setRGB(1, 0.5, 0.1);
+    } else {
+      particle.color.setRGB(1, 0.2, 0.05);
     }
   }
 

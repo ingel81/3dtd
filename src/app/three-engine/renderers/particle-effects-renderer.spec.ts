@@ -102,3 +102,67 @@ describe('ParticleEffectsRenderer explosion', () => {
     expect(alive('trailNormal')).toHaveLength(0); // no smoke unless asked for
   });
 });
+
+describe('ParticleEffectsRenderer effect particles', () => {
+  const setup = () => {
+    const pools = new ParticlePoolManager(new Scene());
+    const sync = { geoToLocal: () => new Vector3() } as unknown as CoordinateSync;
+    const effects = new ParticleEffectsRenderer(new Scene(), sync, pools);
+    const alive = (pool: 'trailAdditive' | 'trailNormal') => pools.getPool(pool).filter((p) => p.life > 0);
+    // One engine frame: effects, then the buffer pass that frees dead particles
+    const frame = (dt: number, now = 0) => {
+      effects.update(dt, now);
+      pools.updateBuffers();
+    };
+    return { pools, effects, alive, frame };
+  };
+
+  it('moves and ages a blood splatter particle once per frame', () => {
+    const { effects, alive, frame } = setup();
+    effects.spawnBloodSplatter(0, 0, 0, 1);
+    const [p] = alive('trailNormal');
+    const { maxLife } = p;
+    const vx = p.velocity.x;
+
+    const dt = 0.016;
+    const frames = 10;
+    for (let i = 0; i < frames; i++) frame(dt);
+    expect(p.life).toBeCloseTo(1 - (frames * dt) / maxLife, 6);
+    expect(p.position.x).toBeCloseTo(vx * frames * dt, 6); // gravity only acts on y
+  });
+
+  it('draws the blood splatter arc the double update used to draw', () => {
+    const { effects, alive, frame } = setup();
+    effects.spawnBloodSplatter(0, 0, 0, 1);
+    const [p] = alive('trailNormal');
+
+    // The old code: half this velocity, twice this life, real gravity, and
+    // every frame two moves and two agings around one gravity step
+    const old = { pos: new Vector3(), vel: p.velocity.clone().multiplyScalar(0.5), life: 1 };
+    const oldMaxLife = p.maxLife * 2;
+    const dt = 0.016;
+    while (p.life > 0) {
+      frame(dt);
+      old.pos.addScaledVector(old.vel, dt);
+      old.vel.y += -9.8 * dt;
+      old.pos.addScaledVector(old.vel, dt);
+      old.life -= (2 * dt) / oldMaxLife;
+      if (p.life > 0) {
+        expect(p.life).toBeCloseTo(old.life, 6);
+        // One gravity step per frame lands in a different sub-step: g * dt² per frame
+        expect(p.position.distanceTo(old.pos)).toBeLessThan(0.15);
+      }
+    }
+    expect(old.life).toBeLessThanOrEqual(1e-9); // both gone in the same frame
+  });
+
+  it('keeps every particle of a burning fire alive', () => {
+    const { effects, alive, frame } = setup();
+    effects.spawnFire(0, 0, 0, 'small');
+    const count = alive('trailAdditive').length;
+    expect(count).toBeGreaterThan(0);
+
+    for (let t = 0; t < 5; t += 0.016) frame(0.016);
+    expect(alive('trailAdditive')).toHaveLength(count);
+  });
+});
