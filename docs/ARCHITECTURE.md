@@ -162,7 +162,7 @@ src/app/services/
 | Service | Verantwortung |
 |---------|---------------|
 | **AssetManagerService** | Zentraler GLTF/FBX Loader mit Reference Counting |
-| **EngineInitializationService** | 6-Step Loading Sequence, Progress Tracking |
+| **EngineInitializationService** | Loading Sequence mit 10 Boot-Steps (`location` bis `flight`; `location`, `grid` und `flight` setzen andere Services), Progress Tracking |
 | **ModelPreviewService** | 3D Model Previews für Sidebar (Max-Renderer + setViewport pro Preview, kein Re-`setSize()` pro Frame) |
 | **GameStateSyncService** | EventBus → Store Bridge — wave/game/credits/health/tower/enemy/research:state-changed |
 
