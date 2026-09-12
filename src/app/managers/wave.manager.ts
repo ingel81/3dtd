@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
-import { EnemyTypeId } from '../configs/enemy-types.config';
+import { EnemyTypeId, splitBodyCount } from '../configs/enemy-types.config';
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
@@ -84,6 +84,8 @@ export class WaveManager implements IGameManager {
   // Track spawning state to prevent premature wave completion
   private expectedEnemyCount = 0;
   private spawnedEnemyCount = 0;
+  // Bodies the wave can field, split children included (kill-gold slots)
+  private expectedBodyCount = 0;
 
   /**
    * Maximum number of enemies that may be spawned in a single tickSpawn() call
@@ -135,11 +137,20 @@ export class WaveManager implements IGameManager {
   }
 
   /**
-   * Expected number of enemies in the current wave.
-   * Used by EnemyManager for swarm-discount in kill-rewards.
+   * Expected number of enemies the current wave's schedule spawns. Wave
+   * completion waits for them; split children are not in it.
    */
   getExpectedEnemyCount(): number {
     return this.expectedEnemyCount;
+  }
+
+  /**
+   * Bodies the current wave can field: every scheduled enemy plus everything
+   * a kill splits it into (splitBodyCount). EnemyManager spreads the kill
+   * budget over them, so a split never raises the wave's gold.
+   */
+  getExpectedBodyCount(): number {
+    return this.expectedBodyCount;
   }
 
   private registerDebugHandlers(): void {
@@ -171,6 +182,7 @@ export class WaveManager implements IGameManager {
     // Reset spawn tracking (manual mode - unlimited spawning)
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
+    this.expectedBodyCount = 0;
     this.damageTakenThisWave = 0;
     this._waveCheckDirty = true;
     this._cachedWaveComplete = false;
@@ -202,6 +214,9 @@ export class WaveManager implements IGameManager {
     this.phase.set('wave');
 
     this.expectedEnemyCount = entries.length;
+    let bodies = 0;
+    for (const entry of entries) bodies += splitBodyCount(entry.enemyType);
+    this.expectedBodyCount = bodies;
     this.spawnedEnemyCount = 0;
     this.damageTakenThisWave = 0;
     this._waveCheckDirty = true;
@@ -447,6 +462,7 @@ export class WaveManager implements IGameManager {
     // Reset spawn tracking counters (prevents stale state after game over mid-wave)
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
+    this.expectedBodyCount = 0;
     this._waveCheckDirty = true;
     this._cachedWaveComplete = false;
     this._resetStuckDetector();

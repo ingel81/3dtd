@@ -123,6 +123,20 @@ describe('GameStateSyncService (real service)', () => {
       expect(store.waveEnemiesLeft()).toBe(0);
     });
 
+    it('enemy:split → its children join total and left', () => {
+      eventBus.emit({ type: 'wave:started', wave: 19, enemyCount: 3 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 1 });
+      eventBus.emit({ type: 'enemy:split', enemy: {} as never, children: [{}, {}] as never });
+      expect(store.waveEnemyTotal()).toBe(5);
+      expect(store.waveEnemiesLeft()).toBe(4);
+    });
+
+    it('enemy:split outside a wave (debug enemies) leaves the counters alone', () => {
+      eventBus.emit({ type: 'enemy:split', enemy: {} as never, children: [{}, {}] as never });
+      expect(store.waveEnemyTotal()).toBe(0);
+      expect(store.waveEnemiesLeft()).toBe(0);
+    });
+
     it('wave:completed → total and left back to 0', () => {
       eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 8 });
       eventBus.emit({
