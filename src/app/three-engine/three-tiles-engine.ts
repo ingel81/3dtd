@@ -162,10 +162,6 @@ export class ThreeTilesEngine {
   // Callback when tiles finish loading (for terrain height refresh)
   private onTilesLoadCallback: (() => void) | null = null;
 
-  // Tiles update throttling - only update when camera moves significantly
-  private lastTilesUpdateCameraPos = new Vector3();
-  private readonly TILES_UPDATE_THRESHOLD = 5; // meters
-
   // Screen shake: a screen-space offset of the projection matrix, applied
   // only while a frame is drawn (drawFrame), never seen by the tiles update
   // or by raycasts between frames
@@ -197,7 +193,6 @@ export class ThreeTilesEngine {
   // Origin coordinates (stored for DevWorld transformation)
   private originLat: number;
   private originLon: number;
-  private originHeight: number;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -221,7 +216,6 @@ export class ThreeTilesEngine {
     // Store origin for DevWorld transformation
     this.originLat = originLat;
     this.originLon = originLon;
-    this.originHeight = originHeight;
 
     // Initialize coordinate sync
     this.sync = new EllipsoidSync(originLat, originLon, originHeight);
