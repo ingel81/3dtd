@@ -36,10 +36,36 @@
 import { MAX_TEMPLATE_SLOTS } from './templates';
 
 /** Wave by which the difficulty ramp reaches full strength. */
-const RAMP_FULL_WAVE = 60;
+export const RAMP_FULL_WAVE = 60;
 
 /** Spread applied to each factor so successive waves are not identical. */
 const JITTER = 0.12;
+
+/**
+ * How the template was picked among the ones the mask allowed, for the
+ * decision explainer. The mask reason says what was allowed; this says how
+ * the choice among it was made.
+ */
+export type DirectorReason =
+  | {
+      by: 'rules';
+      /** Templates the mask allowed. 0 means the defensive slot-0 fallback. */
+      candidates: number;
+      /** Waves since the pick last ran (1 = the previous wave), null if not in the history. */
+      lastRanWavesAgo: number | null;
+      /** Length of the template history staleness was read from. */
+      history: number;
+      /** Candidates that shared the pick's staleness; the tie was broken at random. */
+      tied: number;
+      /** Position on the difficulty ramp, 0..1. */
+      ramp: number;
+    }
+  | {
+      by: 'model';
+      candidates: number;
+      /** Probability of the pick under the masked softmax. */
+      probability: number;
+    };
 
 export interface DirectorDecision {
   templateIdx: number;
@@ -47,6 +73,7 @@ export interface DirectorDecision {
   spawnFactor: number;
   hpFactor: number;
   variationFactor: number;
+  why: DirectorReason;
 }
 
 /**
@@ -106,6 +133,7 @@ export class RuleDirector {
         spawnFactor: 0.4,
         hpFactor: 0.5,
         variationFactor: 0.5,
+        why: { by: 'rules', candidates: 0, lastRanWavesAgo: null, history: recent.length, tied: 0, ramp },
       };
     }
 
@@ -124,7 +152,19 @@ export class RuleDirector {
     }
     const best = tied[Math.floor(random() * tied.length) % tied.length];
 
-    return { templateIdx: best, ...decision };
+    return {
+      templateIdx: best,
+      ...decision,
+      why: {
+        by: 'rules',
+        candidates: allowed.length,
+        // staleness() puts anything outside the history one past its end.
+        lastRanWavesAgo: bestAge < recent.length ? bestAge + 1 : null,
+        history: recent.length,
+        tied: tied.length,
+        ramp,
+      },
+    };
   }
 }
 

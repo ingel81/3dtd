@@ -2,6 +2,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
 import { GamePhase } from './tower-defense.store.types';
+import type { DecisionExplanation } from '../ai/core/decision-explainer';
 
 @Injectable({ providedIn: 'root' })
 export class GameStore {
@@ -73,8 +74,11 @@ export class GameStore {
    */
   readonly useStaticCurriculum = signal<boolean>(false);
 
-  /** AI explanation text for current wave */
-  readonly aiExplanation = signal<string | null>(null);
+  /**
+   * Why the director planned the current wave, shown as "Why this wave" in the
+   * wave debug window. Null when the wave did not come from the director.
+   */
+  readonly aiExplanation = signal<DecisionExplanation | null>(null);
 
   /** Fatal AI error message (shown as blocking banner, typically ONNX load fail) */
   readonly aiError = signal<string | null>(null);

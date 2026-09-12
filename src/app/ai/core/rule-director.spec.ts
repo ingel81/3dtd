@@ -100,4 +100,32 @@ describe('RuleDirector', () => {
     for (let i = 0; i < 50; i++) seen.add(director.decide(mask(6), 20, []).countFactor);
     expect(seen.size).toBeGreaterThan(1);
   });
+
+  describe('reports how it picked, for the decision explainer', () => {
+    it('counts the candidates and the tie among templates outside the history', () => {
+      const { why } = director.decide(mask(6), 40, [0, 1], () => 0);
+      expect(why).toMatchObject({ by: 'rules', candidates: 6, lastRanWavesAgo: null, history: 2, tied: 4 });
+    });
+
+    it('says how long ago the pick last ran when every candidate is recent', () => {
+      // Slot 0 ran two waves ago, slot 1 last wave: 0 is the stalest.
+      const d = director.decide(mask(2), 40, [0, 1]);
+      expect(d.templateIdx).toBe(0);
+      expect(d.why).toMatchObject({ candidates: 2, lastRanWavesAgo: 2, tied: 1 });
+    });
+
+    it('reports the ramp position it used', () => {
+      const ramp = (wave: number) => {
+        const { why } = director.decide(mask(6), wave, []);
+        return why.by === 'rules' ? why.ramp : NaN;
+      };
+      expect(ramp(30)).toBeCloseTo(0.5, 6);
+      expect(ramp(200)).toBe(1);
+    });
+
+    it('marks the empty-mask fallback', () => {
+      const d = director.decide(new Array(MAX_TEMPLATE_SLOTS).fill(false), 5, []);
+      expect(d.why).toMatchObject({ by: 'rules', candidates: 0 });
+    });
+  });
 });
