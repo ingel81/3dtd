@@ -17,13 +17,7 @@ import {
   TextureLoader,
   WebGLCubeRenderTarget,
   Color,
-  BoxGeometry,
   Box3,
-  MeshBasicMaterial,
-  DoubleSide,
-  ShaderMaterial,
-  AxesHelper,
-  Material,
   MathUtils,
   Matrix4,
 } from 'three';
@@ -224,10 +218,6 @@ export class ThreeTilesEngine {
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
-
-  // Test entities (for debugging)
-  private testCube: Mesh | null = null;
-  private debugHelpers: Object3D[] = [];
 
   // GPU-LOS-Pipeline: lazy-initialised auf erste Anforderung. Shared
   // zwischen Build-Preview und Tower-Selection-Viz (Lesson 9, beide
@@ -1635,11 +1625,6 @@ export class ThreeTilesEngine {
     // Tick lightning bolt shader clocks and spawn idle-crackle micro-bolts
     this.lightningBolts.update(performance.now() / 1000);
 
-    // Rotate test cube if exists
-    if (this.testCube) {
-      this.testCube.rotation.y += deltaTime * 0.001;
-    }
-
     // Screen shake is applied in render() (drawFrame), not to the camera
   }
 
@@ -1797,115 +1782,6 @@ export class ThreeTilesEngine {
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
-    }
-  }
-
-  /**
-   * Add a test cube at the origin (0, height, 0) inside tilesRenderer.group
-   * This cube should stay fixed relative to the tiles when using GlobeControls
-   *
-   * @param height - Height above ground in meters (in group's local Y-up coordinates)
-   * @returns The created mesh or null if no tiles renderer
-   */
-  addTestCubeAtOrigin(height = 50): Mesh | null {
-    if (!this.tilesRenderer) {
-      console.error('[ThreeTilesEngine] Cannot add test cube: tilesRenderer not initialized');
-      return null;
-    }
-
-    // Create cube with overlay-friendly material
-    const geometry = new BoxGeometry(20, 20, 20);
-    const material = new MeshBasicMaterial({
-      color: 0xff0000,
-      depthTest: false, // Ignore depth - always draw
-      depthWrite: false, // Don't affect depth buffer
-      transparent: true,
-      opacity: 0.9,
-      side: DoubleSide, // Visible from all angles
-    });
-
-    const cube = new Mesh(geometry, material);
-
-    // Add to overlayGroup (which is synced with tiles movement)
-    cube.position.set(0, height, 0);
-    cube.renderOrder = 9999;
-
-    this.overlayGroup.add(cube);
-    this.testCube = cube;
-
-    return cube;
-  }
-
-  /**
-   * Add axis helper at origin
-   */
-  addAxisHelper(): void {
-    const axisHelper = new AxesHelper(50);
-    this.scene.add(axisHelper);
-    this.debugHelpers.push(axisHelper);
-  }
-
-  /**
-   * DEBUG: Test ShaderMaterial with a simple cube
-   * Call this to verify if ShaderMaterial renders at all
-   */
-  addShaderTestCube(x: number, y: number, z: number): void {
-    const geometry = new BoxGeometry(5, 5, 5);
-
-    const vertexShader = `
-      void main() {
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `;
-
-    const fragmentShader = `
-      precision highp float;
-      void main() {
-        gl_FragColor = vec4(1.0, 0.0, 1.0, 0.8);
-      }
-    `;
-
-    const material = new ShaderMaterial({
-      vertexShader,
-      fragmentShader,
-      transparent: true,
-      side: DoubleSide,
-    });
-
-    const cube = new Mesh(geometry, material);
-    cube.position.set(x, y, z);
-    cube.frustumCulled = false;
-    this.scene.add(cube);
-    this.debugHelpers.push(cube);
-
-    console.log('[ThreeTilesEngine] Shader test cube added at', x, y, z);
-  }
-
-  /**
-   * Clear debug helpers
-   */
-  clearDebugHelpers(): void {
-    for (const helper of this.debugHelpers) {
-      this.scene.remove(helper);
-      if ((helper as Mesh).geometry) {
-        (helper as Mesh).geometry.dispose();
-      }
-      if ((helper as Mesh).material) {
-        const mat = (helper as Mesh).material;
-        if (Array.isArray(mat)) {
-          mat.forEach((m) => m.dispose());
-        } else {
-          mat.dispose();
-        }
-      }
-    }
-    this.debugHelpers = [];
-
-    if (this.testCube) {
-      this.scene.remove(this.testCube);
-      this.testCube.geometry.dispose();
-      (this.testCube.material as Material).dispose();
-      this.testCube = null;
     }
   }
 
@@ -2164,7 +2040,6 @@ export class ThreeTilesEngine {
   dispose(): void {
     this.disposed = true;
     this.stopRenderLoop();
-    this.clearDebugHelpers();
 
     // DevWorld owns a generation Web Worker and a set of raycast-only building
     // meshes that live outside the scene graph. Nothing else disposes them, so
