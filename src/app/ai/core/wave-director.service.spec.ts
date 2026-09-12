@@ -98,14 +98,17 @@ function waveResult(outcome: Partial<WaveResult['outcome']>): WaveResult {
 describe('WaveDirectorService', () => {
   let collector: StubCollector;
   let director: WaveDirectorService;
-  let session: { run: ReturnType<typeof vi.fn> };
+  let session: { run: ReturnType<typeof vi.fn>; release: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     collector = new StubCollector();
     const injector = Injector.create({ providers: [{ provide: AIDataCollectorService, useValue: collector }] });
     director = runInInjectionContext(injector, () => new WaveDirectorService());
 
-    session = { run: vi.fn(async () => ({ action: { data: modelOutput({}) } })) };
+    session = {
+      run: vi.fn(async () => ({ action: { data: modelOutput({}) } })),
+      release: vi.fn(async () => undefined),
+    };
     onnx.env = { wasm: {}, logLevel: '' };
     onnx.envThrows = false;
     onnx.tensors = [];
@@ -282,6 +285,7 @@ describe('WaveDirectorService', () => {
       expect(director.modelState()).toBe('rules');
       expect(director.aiMode()).toBe('rules');
       // The session is dropped, so enabling the director cannot bring it back.
+      expect(session.release).toHaveBeenCalledTimes(1);
       director.setEnabled(true);
       expect(director.aiMode()).toBe('rules');
       await director.getNextWave();
@@ -394,15 +398,24 @@ describe('WaveDirectorService', () => {
       expect(session.run).not.toHaveBeenCalled();
     });
 
-    it('keeps the session after forceRuleMode, so setEnabled(true) brings inference back', async () => {
-      // Current behaviour, not necessarily intended: forceRuleMode only flips
-      // the signals, and setEnabled keys off the retained session. The status
-      // text then still reads "Rule director active".
+    it('drops the session on forceRuleMode, so setEnabled(true) stays on the rules', async () => {
       director.forceRuleMode();
       director.setEnabled(true);
 
-      expect(director.aiMode()).toBe('inference');
+      expect(session.release).toHaveBeenCalledTimes(1);
+      expect(director.aiMode()).toBe('rules');
       expect(director.statusText()).toBe('Rule director active');
+      await director.getNextWave();
+      expect(session.run).not.toHaveBeenCalled();
+    });
+
+    it('opts in again through loadModel after forceRuleMode', async () => {
+      director.forceRuleMode();
+
+      await expect(director.loadModel()).resolves.toBe(true);
+
+      expect(onnx.create).toHaveBeenCalledTimes(2);
+      expect(director.aiMode()).toBe('inference');
       await director.getNextWave();
       expect(session.run).toHaveBeenCalledTimes(1);
     });

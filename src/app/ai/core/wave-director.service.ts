@@ -179,7 +179,7 @@ export class WaveDirectorService {
             + `${ENCODED_STATE_SIZE}. It was exported against an older schema; `
             + 're-export it with `npm run export-ai`. Staying on the rule director.'
           );
-          this.session = null;
+          this.dropSession();
           this.modelState.set('rules');
           this.aiMode.set('rules');
           return false;
@@ -612,9 +612,22 @@ export class WaveDirectorService {
 
   /**
    * Switch back to the rule director, dropping the ONNX policy if one is live.
+   *
+   * The session goes too: setEnabled() brings inference back whenever a
+   * session exists, so keeping it here let a later setEnabled(true) run the
+   * model while the status still read "Rule director active". Opting in
+   * again goes through loadModel().
    */
   forceRuleMode(): void {
+    this.dropSession();
     this.aiMode.set('rules');
     this.modelState.set('rules');
+  }
+
+  /** Forget the ONNX session and free its WASM memory. */
+  private dropSession(): void {
+    const session = this.session;
+    this.session = null;
+    session?.release().catch(() => { /* already gone, nothing to free */ });
   }
 }
