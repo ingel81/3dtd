@@ -232,6 +232,9 @@
           <div class="td-gameover-content">
             <h1>GAME OVER</h1>
             <p>The HQ was destroyed!</p>
+            @if (store.runSummary(); as summary) {
+              <app-run-summary [summary]="summary" />
+            }
             <button class="td-btn td-btn-green" (click)="restartGame()">
               <td-icon name="refresh" [size]="18"></td-icon>
               RESTART

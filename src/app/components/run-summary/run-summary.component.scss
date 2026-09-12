@@ -1,0 +1,148 @@
+.run-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(420px, 80vw);
+  margin: 0 auto 24px;
+  text-align: left;
+  font-family: var(--td-font-body);
+  color: var(--td-text-secondary);
+}
+
+/* Key figures: one row, split by hairlines, no tiles */
+.run-figures {
+  display: flex;
+  margin: 0;
+  border-top: 1px solid var(--td-frame-dark);
+  border-bottom: 1px solid var(--td-frame-dark);
+}
+
+.run-figure {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.run-figure + .run-figure {
+  border-left: 1px solid var(--td-frame-dark);
+}
+
+.run-figure dt,
+.run-caption {
+  font-family: var(--td-font-mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.run-figure dd {
+  margin: 2px 0 0;
+  font-family: var(--td-font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-primary);
+}
+
+.run-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.run-caption {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+}
+
+.run-caption-total {
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+/* Leaks per wave: one bar per wave, height relative to the worst wave */
+.run-leaks {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 36px;
+  border-bottom: 1px solid var(--td-frame-mid);
+}
+
+.run-leak-bar {
+  flex: 1 1 0;
+  max-width: 14px;
+  min-height: 2px;
+  background: var(--td-health-red);
+}
+
+.run-leak-bar.run-leak-none {
+  height: 2px;
+  background: var(--td-frame-dark);
+}
+
+.run-axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--td-font-mono);
+  font-size: 9px;
+  color: var(--td-text-muted);
+}
+
+/* Top towers */
+.run-towers {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.run-towers td {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--td-frame-dark);
+}
+
+.run-towers tr:last-child td {
+  border-bottom: none;
+}
+
+.run-rank {
+  width: 18px;
+  font-family: var(--td-font-mono);
+  color: var(--td-text-muted);
+}
+
+.run-tower-name {
+  color: var(--td-text-primary);
+}
+
+.run-sold {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--td-text-muted);
+}
+
+.run-num {
+  padding-left: 12px !important;
+  text-align: right;
+  white-space: nowrap;
+  font-family: var(--td-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-primary);
+}
+
+.run-unit {
+  font-size: 9px;
+  color: var(--td-text-muted);
+}
+
+.run-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

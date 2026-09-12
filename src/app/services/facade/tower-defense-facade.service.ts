@@ -359,7 +359,7 @@ export class TowerDefenseFacadeService {
     const result = this.vizFacade.initializeGameState();
 
     // Initialize GSM→Store sync (EventBus events → Store signals)
-    this.gameStateSync.initialize(this.gameState.getEventBus());
+    this.gameStateSync.initialize(this.gameState.getEventBus(), () => this.gameState.gameTimeMs);
 
     // Let sub-facades subscribe to their own EventBus events
     this.vizFacade.subscribeToEventBus();

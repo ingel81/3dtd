@@ -3,6 +3,7 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
 import { GamePhase } from './tower-defense.store.types';
 import type { DecisionExplanation } from '../ai/core/decision-explainer';
+import type { RunSummary } from '../services/infrastructure/run-stats';
 import {
   ABILITY_IDS,
   AbilityId,
@@ -71,6 +72,9 @@ export class GameStore {
 
   /** Show game over overlay screen */
   readonly showGameOverScreen = signal<boolean>(false);
+
+  /** Numbers of the run that just ended, set on game:over, null otherwise */
+  readonly runSummary = signal<RunSummary | null>(null);
 
   /** Training mode timescale (1.0 = normal, up to 75x) */
   readonly trainingTimescale = signal<number>(1.0);
@@ -166,6 +170,7 @@ export class GameStore {
     this.selectedTower.set(null);
     this.towerCount.set(0);
     this.showGameOverScreen.set(false);
+    this.runSummary.set(null);
     this.aiExplanation.set(null);
     this.paused.set(false);
     this.autoWaveSecondsLeft.set(null);
