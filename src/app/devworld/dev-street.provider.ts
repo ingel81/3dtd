@@ -7,7 +7,7 @@ import {
   SpawnCandidate,
 } from '../interfaces/street-network-provider.interface';
 import { DevWorldService, DEV_WORLD_SIZE } from './devworld.service';
-import { StreetSegment, SpawnPoint } from './generators/street-generator';
+import { StreetSegment, SpawnPoint, DEV_STREET_WIDTHS } from './generators/street-generator';
 
 /**
  * Street type weights for A* pathfinding
@@ -103,6 +103,8 @@ export class DevStreetProvider implements StreetNetworkProvider {
         name: segment.id,
         type: segment.type,
         nodes: streetNodes,
+        // The drawn road width, read by the route corridor like an OSM tag.
+        width: DEV_STREET_WIDTHS[segment.type],
       });
     }
 

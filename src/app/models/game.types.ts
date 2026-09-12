@@ -8,6 +8,19 @@ export interface GeoPosition {
 }
 
 /**
+ * Waypoint of an enemy route, with what the route knows about the segment
+ * that starts here (from this waypoint to the next).
+ */
+export interface RouteWaypoint extends GeoPosition {
+  /**
+   * Half width of the route corridor on that segment, metres. Bounds the
+   * route cells and how far enemies spread. Unset: the default width, see
+   * `utils/route-corridor.ts`.
+   */
+  corridorHalfWidth?: number;
+}
+
+/**
  * Game phase type - single source of truth for all game phase references
  */
 export type GamePhase = 'setup' | 'wave' | 'gameover';
