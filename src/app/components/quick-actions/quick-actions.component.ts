@@ -6,7 +6,7 @@ import { DebugFacadeService, FPS_LIMITS } from '../../services/debug/debug-facad
 import { DebugStateDumpService } from '../../services/debug/debug-state-dump.service';
 import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
-import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
+import { TD_BEVEL_GLASS, TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { matchingVfxPreset, type VfxPreset, type VfxSettings } from '../../three-engine/vfx-settings';
 import { COLOR_GRADING_PRESETS, type ColorGradingPreset } from '../../three-engine/post-processing/color-grading';
@@ -235,198 +235,210 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
               aria-label="Reset camera">
         <td-icon name="target" [size]="18"></td-icon>
       </button>
-      <!-- Dev Menu (two columns, opens above its toggle) -->
+      <!-- Dev Menu: tile grid in four groups, opens above the quick-actions bar -->
       <div class="td-dev-menu-wrapper">
         <div class="td-dev-menu" [class.expanded]="uiStore.devMenuExpanded()">
-          <!-- Left column: world, rendering, tools -->
-          <div class="td-dev-column">
-            <!-- Terrain & Map -->
-            <button class="td-dev-btn"
-                    [class.active]="uiStore.heightDebugVisible()"
-                    (click)="heightDebugToggled.emit()"
-                    matTooltip="Height markers"
+          <div class="td-dev-group">Map</div>
+          <button class="td-dev-tile"
+                  [class.active]="uiStore.heightDebugVisible()"
+                  (click)="heightDebugToggled.emit()"
+                  matTooltip="Height markers"
+                  matTooltipPosition="left"
+                  aria-label="Height markers">
+            <td-icon name="terrain" [size]="18"></td-icon>
+            <span>Height</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="uiStore.specialPointsDebugVisible()"
+                  (click)="specialPointsDebugToggled.emit()"
+                  matTooltip="Special points"
+                  matTooltipPosition="left"
+                  aria-label="Special points">
+            <td-icon name="pin" [size]="18"></td-icon>
+            <span>Points</span>
+          </button>
+          <button class="td-dev-tile"
+                  (click)="refreshHeights.emit()"
+                  matTooltip="Re-raycast heights"
+                  matTooltipPosition="left"
+                  aria-label="Re-raycast heights">
+            <td-icon name="refresh" [size]="18"></td-icon>
+            <span>Recast</span>
+          </button>
+          <!-- State dump: JSON download for bug reports -->
+          <button class="td-dev-tile"
+                  (click)="debugStateDump.dumpAndDownload()"
+                  matTooltip="Download state dump (JSON)"
+                  matTooltipPosition="left"
+                  aria-label="Download state dump">
+            <td-icon name="copy" [size]="18"></td-icon>
+            <span>Dump</span>
+          </button>
+
+          <div class="td-dev-group">View &amp; Panels</div>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.cameraWindow().isOpen"
+                  (click)="debugWindows.toggle('camera')"
+                  matTooltip="Camera info"
+                  matTooltipPosition="left"
+                  aria-label="Camera info">
+            <td-icon name="eye" [size]="18"></td-icon>
+            <span>Camera</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="cameraFramingDebug()"
+                  (click)="cameraFramingDebugToggled.emit()"
+                  matTooltip="Framing guides"
+                  matTooltipPosition="left"
+                  aria-label="Framing guides">
+            <td-icon name="fullscreen" [size]="18"></td-icon>
+            <span>Frame</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.displayWindow().isOpen"
+                  (click)="debugWindows.toggle('display')"
+                  matTooltip="Display options"
+                  matTooltipPosition="left"
+                  aria-label="Display options">
+            <td-icon name="sliders" [size]="18"></td-icon>
+            <span>Display</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.performanceWindow().isOpen"
+                  (click)="debugWindows.toggle('performance')"
+                  matTooltip="Performance"
+                  matTooltipPosition="left"
+                  aria-label="Performance">
+            <td-icon name="speed" [size]="18"></td-icon>
+            <span>Perf</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.losWindow().isOpen"
+                  (click)="debugWindows.toggle('los')"
+                  matTooltip="LOS Cubemap"
+                  matTooltipPosition="left"
+                  aria-label="LOS Cubemap">
+            <td-icon name="layers" [size]="18"></td-icon>
+            <span>LOS</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.soundWindow().isOpen"
+                  (click)="debugWindows.toggle('sound')"
+                  matTooltip="Spatial audio"
+                  matTooltipPosition="left"
+                  aria-label="Spatial audio">
+            <td-icon name="audio" [size]="18"></td-icon>
+            <span>Audio</span>
+          </button>
+          @if (devWorld.isActive) {
+            <button class="td-dev-tile"
+                    [class.active]="debugWindows.devworldWindow().isOpen"
+                    (click)="debugWindows.toggle('devworld')"
+                    matTooltip="DevWorld"
                     matTooltipPosition="left"
-                    aria-label="Height markers">
-              <td-icon name="terrain" [size]="18"></td-icon>
+                    aria-label="DevWorld">
+              <td-icon name="target" [size]="18"></td-icon>
+              <span>DevWorld</span>
             </button>
-            <button class="td-dev-btn"
-                    [class.active]="uiStore.specialPointsDebugVisible()"
-                    (click)="specialPointsDebugToggled.emit()"
-                    matTooltip="Special points"
-                    matTooltipPosition="left"
-                    aria-label="Special points">
-              <td-icon name="pin" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn"
-                    (click)="refreshHeights.emit()"
-                    matTooltip="Re-raycast heights"
-                    matTooltipPosition="left"
-                    aria-label="Re-raycast heights">
-              <td-icon name="refresh" [size]="18"></td-icon>
-            </button>
-            <div class="td-dev-separator"></div>
-            <!-- Camera -->
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.cameraWindow().isOpen"
-                    (click)="debugWindows.toggle('camera')"
-                    matTooltip="Camera info"
-                    matTooltipPosition="left"
-                    aria-label="Camera info">
-              <td-icon name="eye" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn"
-                    [class.active]="cameraFramingDebug()"
-                    (click)="cameraFramingDebugToggled.emit()"
-                    matTooltip="Framing guides"
-                    matTooltipPosition="left"
-                    aria-label="Framing guides">
-              <td-icon name="fullscreen" [size]="18"></td-icon>
-            </button>
-            <div class="td-dev-separator"></div>
-            <!-- Rendering & audio panels -->
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.displayWindow().isOpen"
-                    (click)="debugWindows.toggle('display')"
-                    matTooltip="Display options"
-                    matTooltipPosition="left"
-                    aria-label="Display options">
-              <td-icon name="sliders" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.performanceWindow().isOpen"
-                    (click)="debugWindows.toggle('performance')"
-                    matTooltip="Performance"
-                    matTooltipPosition="left"
-                    aria-label="Performance">
-              <td-icon name="speed" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.losWindow().isOpen"
-                    (click)="debugWindows.toggle('los')"
-                    matTooltip="LOS Cubemap"
-                    matTooltipPosition="left"
-                    aria-label="LOS Cubemap">
-              <td-icon name="layers" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.soundWindow().isOpen"
-                    (click)="debugWindows.toggle('sound')"
-                    matTooltip="Spatial audio"
-                    matTooltipPosition="left"
-                    aria-label="Spatial audio">
-              <td-icon name="audio" [size]="18"></td-icon>
-            </button>
-            <div class="td-dev-separator"></div>
-            <!-- Tools: state dump (JSON download for bug reports), DevWorld -->
-            <button class="td-dev-btn"
-                    (click)="debugStateDump.dumpAndDownload()"
-                    matTooltip="Download state dump (JSON)"
-                    matTooltipPosition="left"
-                    aria-label="Download state dump">
-              <td-icon name="copy" [size]="18"></td-icon>
-            </button>
-            @if (devWorld.isActive) {
-              <button class="td-dev-btn"
-                      [class.active]="debugWindows.devworldWindow().isOpen"
-                      (click)="debugWindows.toggle('devworld')"
-                      matTooltip="DevWorld"
-                      matTooltipPosition="left"
-                      aria-label="DevWorld">
-                <td-icon name="target" [size]="18"></td-icon>
-              </button>
-            }
-          </div>
-          <!-- Right column: gameplay and simulation -->
-          <div class="td-dev-column">
-            <!-- Cheats -->
-            <button class="td-dev-btn td-dev-btn-danger"
-                    (click)="killAllEnemies.emit()"
-                    matTooltip="Kill all enemies"
-                    matTooltipPosition="left"
-                    aria-label="Kill all enemies">
-              <td-icon name="skull" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn td-dev-btn-credits"
-                    (click)="addCredits.emit($event)"
-                    matTooltip="+1000 Credits (Shift+Click: +100k)"
-                    matTooltipPosition="left"
-                    aria-label="Add 1000 credits">
-              <td-icon name="coin" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn td-dev-btn-health"
-                    (click)="addHealth.emit($event)"
-                    matTooltip="+1000 HP (Shift+Click: +100k)"
-                    matTooltipPosition="left"
-                    aria-label="Add 1000 HP">
-              <td-icon name="heart" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn td-dev-btn-research"
-                    (click)="completeAllResearch.emit()"
-                    matTooltip="Complete all research"
-                    matTooltipPosition="left"
-                    aria-label="Complete all research">
-              <td-icon name="flask" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn td-dev-btn-research"
-                    (click)="maxUpgradeAllTowers.emit()"
-                    matTooltip="Max-upgrade all towers"
-                    matTooltipPosition="left"
-                    aria-label="Max-upgrade all towers">
-              <td-icon name="arrowUp" [size]="18"></td-icon>
-            </button>
-            <div class="td-dev-separator"></div>
-            <!-- Waves & AI -->
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.waveWindow().isOpen"
-                    (click)="debugWindows.toggle('wave')"
-                    matTooltip="Wave spawner"
-                    matTooltipPosition="left"
-                    aria-label="Wave spawner">
-              <td-icon name="wave" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn"
-                    [class.active]="useStaticCurriculum()"
-                    (click)="staticCurriculumToggled.emit()"
-                    matTooltip="Static curriculum waves (AI-off fallback)"
-                    matTooltipPosition="left"
-                    aria-label="Static curriculum waves">
-              <td-icon name="filing" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.trainingWindow().isOpen"
-                    (click)="debugWindows.toggle('training')"
-                    matTooltip="AI Training"
-                    matTooltipPosition="left"
-                    aria-label="AI Training">
-              <td-icon name="bulb" [size]="18"></td-icon>
-            </button>
-            <div class="td-dev-separator"></div>
-            <!-- Inspectors -->
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.towerWindow().isOpen"
-                    (click)="debugWindows.toggle('tower')"
-                    matTooltip="Tower inspector"
-                    matTooltipPosition="left"
-                    aria-label="Tower inspector">
-              <td-icon name="tower" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.enemyWindow().isOpen"
-                    (click)="debugWindows.toggle('enemy')"
-                    matTooltip="Enemy inspector"
-                    matTooltipPosition="left"
-                    aria-label="Enemy inspector">
-              <td-icon name="bug" [size]="18"></td-icon>
-            </button>
-            <button class="td-dev-btn"
-                    [class.active]="debugWindows.eventsWindow().isOpen"
-                    (click)="debugWindows.toggle('events')"
-                    matTooltip="Event bus"
-                    matTooltipPosition="left"
-                    aria-label="Event bus">
-              <td-icon name="share" [size]="18"></td-icon>
-            </button>
-          </div>
+          }
+
+          <div class="td-dev-group">Cheats</div>
+          <button class="td-dev-tile td-dev-cheat td-dev-cheat-danger"
+                  (click)="killAllEnemies.emit()"
+                  matTooltip="Kill all enemies"
+                  matTooltipPosition="left"
+                  aria-label="Kill all enemies">
+            <td-icon name="skull" [size]="18"></td-icon>
+            <span>Kill</span>
+          </button>
+          <button class="td-dev-tile td-dev-cheat td-dev-cheat-credits"
+                  (click)="addCredits.emit($event)"
+                  matTooltip="+1000 Credits (Shift+Click: +100k)"
+                  matTooltipPosition="left"
+                  aria-label="Add 1000 credits">
+            <td-icon name="coin" [size]="18"></td-icon>
+            <span>Credits</span>
+          </button>
+          <button class="td-dev-tile td-dev-cheat td-dev-cheat-health"
+                  (click)="addHealth.emit($event)"
+                  matTooltip="+1000 HP (Shift+Click: +100k)"
+                  matTooltipPosition="left"
+                  aria-label="Add 1000 HP">
+            <td-icon name="heart" [size]="18"></td-icon>
+            <span>+HP</span>
+          </button>
+          <button class="td-dev-tile td-dev-cheat td-dev-cheat-research"
+                  (click)="completeAllResearch.emit()"
+                  matTooltip="Complete all research"
+                  matTooltipPosition="left"
+                  aria-label="Complete all research">
+            <td-icon name="flask" [size]="18"></td-icon>
+            <span>Research</span>
+          </button>
+          <button class="td-dev-tile td-dev-cheat td-dev-cheat-research"
+                  (click)="maxUpgradeAllTowers.emit()"
+                  matTooltip="Max-upgrade all towers"
+                  matTooltipPosition="left"
+                  aria-label="Max-upgrade all towers">
+            <td-icon name="arrowUp" [size]="18"></td-icon>
+            <span>Max Up</span>
+          </button>
+
+          <div class="td-dev-group">Waves &amp; Inspect</div>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.waveWindow().isOpen"
+                  (click)="debugWindows.toggle('wave')"
+                  matTooltip="Wave spawner"
+                  matTooltipPosition="left"
+                  aria-label="Wave spawner">
+            <td-icon name="wave" [size]="18"></td-icon>
+            <span>Waves</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="useStaticCurriculum()"
+                  (click)="staticCurriculumToggled.emit()"
+                  matTooltip="Static curriculum waves (AI-off fallback)"
+                  matTooltipPosition="left"
+                  aria-label="Static curriculum waves">
+            <td-icon name="filing" [size]="18"></td-icon>
+            <span>Static</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.trainingWindow().isOpen"
+                  (click)="debugWindows.toggle('training')"
+                  matTooltip="AI Training"
+                  matTooltipPosition="left"
+                  aria-label="AI Training">
+            <td-icon name="bulb" [size]="18"></td-icon>
+            <span>AI</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.towerWindow().isOpen"
+                  (click)="debugWindows.toggle('tower')"
+                  matTooltip="Tower inspector"
+                  matTooltipPosition="left"
+                  aria-label="Tower inspector">
+            <td-icon name="tower" [size]="18"></td-icon>
+            <span>Towers</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.enemyWindow().isOpen"
+                  (click)="debugWindows.toggle('enemy')"
+                  matTooltip="Enemy inspector"
+                  matTooltipPosition="left"
+                  aria-label="Enemy inspector">
+            <td-icon name="bug" [size]="18"></td-icon>
+            <span>Enemies</span>
+          </button>
+          <button class="td-dev-tile"
+                  [class.active]="debugWindows.eventsWindow().isOpen"
+                  (click)="debugWindows.toggle('events')"
+                  matTooltip="Event bus"
+                  matTooltipPosition="left"
+                  aria-label="Event bus">
+            <td-icon name="share" [size]="18"></td-icon>
+            <span>Events</span>
+          </button>
         </div>
         <button class="td-quick-btn td-dev-toggle-btn"
                 [class.active]="uiStore.devMenuExpanded()"
@@ -493,8 +505,7 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
 
     /* === Shared: Icon button base — refined glass + bevel === */
     .td-quick-btn,
-    .td-layer-btn,
-    .td-dev-btn {
+    .td-layer-btn {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -518,8 +529,7 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
 
 
     .td-quick-btn:hover,
-    .td-layer-btn:hover,
-    .td-dev-btn:hover {
+    .td-layer-btn:hover {
       color: var(--td-text-primary);
       box-shadow:
         inset 0 1px 0 rgba(122, 133, 128, 0.2),
@@ -528,7 +538,8 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
         0 1px 0 rgba(0, 0, 0, 0.6);
     }
 
-    /* === Active states (teal for display/layer/audio, gold for dev) === */
+    /* === Active states (teal for display/layer/audio, gold for the layers
+       and dev toggles) === */
     .td-quick-btn.active,
     .td-layer-btn.active,
     .td-segment.active,
@@ -543,7 +554,8 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
         var(--td-teal-glow);
     }
 
-    .td-layer-toggle-btn.active {
+    .td-layer-toggle-btn.active,
+    .td-dev-toggle-btn.active {
       background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 55%, var(--td-gold-dark) 100%);
       color: #1A140A;
       border-color: #11140F;
@@ -809,12 +821,6 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
       color: var(--td-health-red);
     }
 
-    .td-dev-btn.active,
-    .td-dev-toggle-btn.active {
-      background: var(--td-gold-dark);
-      color: var(--td-text-primary);
-    }
-
     .route-anim-btn {
       border-color: var(--td-warn-orange);
       color: var(--td-warn-orange);
@@ -825,22 +831,28 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
       color: var(--td-bg-dark);
     }
 
-    /* === Dev menu: two columns above the toggle ===
-       Out of flow like the audio panel, so the second column does not push
-       the other quick buttons aside. Capped at the free height between
-       toggle and compass; on short windows it scrolls instead of overlapping. */
+    /* === Dev menu: tile grid above the quick-actions bar ===
+       Glass panel as wide as the bar (6 x 32px + 5 x 4px), right-aligned
+       over it, bottom edge 4px above the buttons. Its containing block is
+       .td-quick-actions (the wrapper is not positioned). Out of flow like the
+       display panel, so it does not push the other buttons aside. Capped at
+       the free height between bar and compass; on short windows it scrolls
+       instead of overlapping. Four columns, group titles span the row. */
     .td-dev-menu {
       position: absolute;
-      right: -2px;
-      bottom: 34px;
-      max-height: calc(100% - 34px);
-      display: flex;
-      gap: 4px;
-      /* Room for the button shadows and hover ring inside the scroll box */
-      padding: 2px;
+      right: 0;
+      bottom: 36px;
+      max-height: calc(100% - 36px);
+      width: 212px;
       box-sizing: border-box;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+      padding: 6px;
       overflow-x: hidden;
       overflow-y: auto;
+      ${TD_BEVEL_GLASS}
+      font-family: var(--td-font-mono);
       opacity: 0;
       visibility: hidden;
       transform: translateY(8px);
@@ -870,61 +882,86 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
       ${TD_SCROLLBAR_WEBKIT.thumb}
     }
 
-    .td-dev-column {
+    .td-dev-group {
+      grid-column: 1 / -1;
+      margin: 4px 2px 0;
+      font-size: 8px;
+      font-weight: 600;
+      line-height: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--td-text-muted);
+    }
+
+    .td-dev-group:first-child {
+      margin-top: 2px;
+    }
+
+    /* Tile: icon over a short caption. The longest captions (DEVWORLD,
+       RESEARCH) measure about 39px in the monospace fallback, the tile is
+       44.5px wide inside. */
+    .td-dev-tile {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      /* Bottom-aligns the shorter column next to the toggle. An auto margin
-         collapses to 0 on overflow, so the top stays reachable by scrolling
-         (align-items: flex-end would push it out of reach). */
-      margin-top: auto;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      height: 44px;
+      min-width: 0;
+      padding: 0;
+      box-sizing: border-box;
+      background: rgba(11, 15, 12, 0.6);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.14);
+      color: var(--td-text-secondary);
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
 
-    .td-dev-separator {
-      height: 1px;
-      flex-shrink: 0;
-      background: var(--td-frame-mid);
-      margin: 4px 0;
+    .td-dev-tile span {
+      font-size: 8px;
+      line-height: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
     }
 
-    .td-dev-btn-danger {
-      border-color: var(--td-health-red);
-      color: var(--td-health-red);
-    }
-
-    .td-dev-btn-danger:hover {
-      background: var(--td-health-red);
+    .td-dev-tile:hover {
+      border-color: var(--td-frame-mid);
       color: var(--td-text-primary);
     }
 
-    .td-dev-btn-credits {
-      border-color: var(--td-gold);
-      color: var(--td-gold);
+    /* Window open or switch on */
+    .td-dev-tile.active {
+      background: rgba(194, 160, 85, 0.16);
+      border-color: var(--td-gold-dark);
+      box-shadow: inset 0 1px 0 rgba(217, 188, 104, 0.18);
+      color: var(--td-gold-light);
     }
 
-    .td-dev-btn-credits:hover {
-      background: var(--td-gold);
-      color: var(--td-bg-dark);
+    /* Cheats: one-shot actions without an active state, coloured by what
+       they touch. Hover keeps the colour and draws the border in it. */
+    .td-dev-cheat,
+    .td-dev-cheat:hover {
+      color: var(--cheat-color);
     }
 
-    .td-dev-btn-health {
-      border-color: var(--td-health-red);
-      color: var(--td-health-red);
+    .td-dev-cheat:hover {
+      border-color: var(--cheat-color);
     }
 
-    .td-dev-btn-health:hover {
-      background: var(--td-health-red);
-      color: var(--td-text-primary);
+    .td-dev-cheat-danger,
+    .td-dev-cheat-health {
+      --cheat-color: var(--td-health-red);
     }
 
-    .td-dev-btn-research {
-      border-color: var(--td-teal);
-      color: var(--td-teal);
+    .td-dev-cheat-credits {
+      --cheat-color: var(--td-gold);
     }
 
-    .td-dev-btn-research:hover {
-      background: var(--td-teal);
-      color: var(--td-bg-dark);
+    .td-dev-cheat-research {
+      --cheat-color: var(--td-teal);
     }
   `,
 })
