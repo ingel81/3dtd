@@ -305,7 +305,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
 | Wallsmasher (`wallsmasher`) | Normal | 200 | 3.444 | 5.670 | 0,7 | Skinning | 104 | 3444×104 | RGBA16F | 1,28 | 2,7 | 512² |
 | Spider (`spider`) | Swarm | 800 | 2.140 | 2.417 | 1,7 | Skinning | 25 | 2140×25 | RGBA16F | 0,56 | 0,4 | 512² |
-| Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 1024² |
+| Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 512² |
 | Zombie (`zombie`) | Swarm | 1.800 | 1.453 | 2.157 | 2,6 | Skinning | 209 | 1453×209 | RGBA16F | 0,83 | 2,3 | 1024² |
 | Skeleton (`skeleton`) | Swarm | 940 | 1.156 | 658 | 1,1 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
@@ -355,7 +355,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Bat | `bat.glb` | 0,3 | 1 (1) | 28 | 0 | 1 | 512² | 1 | 3.559 / 3.559 / 2.520 |
 | Wallsmasher | `wallsmasher.glb` | 0,4 | 1 (1) | 61 | 0 | 1 | 512² | 3 | 3.444 / 3.025 / 2.956 |
 | Spider | `spider.glb` | 0,6 | 2 (2) | 113 | 0 | 2 | 512² | 1 | 2.140 / 2.133 / 1.716 |
-| Penguin | `penguin.glb` | 1,3 | 1 (1) | 21 | 0 | 1 | 3× 1024² | 5 | 1.993 / 1.993 / 1.723 |
+| Penguin | `penguin.glb` | 0,3 | 1 (1) | 21 | 0 | 1 | 512² | 2 | 1.993 / 1.993 / 1.723 |
 | Zombie | `zombie.glb` | 1,8 | 1 (1) | 49 | 0 | 1 | 1024² | 13 | 1.453 / 1.453 / 1.086 |
 | Skeleton | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
 | Skeleton Minion | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
