@@ -1,7 +1,7 @@
 import { Injectable, Signal, signal, computed, inject } from '@angular/core';
 import { ENEMY_TYPES, EnemyTypeId, getEnemyTypeIds } from '../../configs/enemy-types.config';
 import { Enemy } from '../../entities/enemy.entity';
-import { GeoPosition } from '../../models/game.types';
+import { RouteWaypoint } from '../../models/game.types';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { EventSubscription } from '../../game-engine';
 import { ThreeTilesEngine } from '../../three-engine';
@@ -428,7 +428,7 @@ export class EnemyDebugService {
    * Create path from a position to the base.
    * Finds nearest point on existing path and creates sub-path.
    */
-  private createPathFromPosition(lat: number, lon: number): GeoPosition[] | null {
+  private createPathFromPosition(lat: number, lon: number): RouteWaypoint[] | null {
     const spawns = this.spawnPoints();
     if (spawns.length === 0) return null;
 
@@ -452,9 +452,10 @@ export class EnemyDebugService {
     // Get height at click position (from path if available, else fallback)
     const clickHeight = fullPath[closestIdx].height ?? 0;
 
-    // Create sub-path: click position + rest of path
+    // Create sub-path: click position + rest of path. The first segment
+    // keeps the corridor width of the route segment it replaces.
     return [
-      { lat, lon, height: clickHeight },
+      { lat, lon, height: clickHeight, corridorHalfWidth: fullPath[closestIdx].corridorHalfWidth },
       ...fullPath.slice(closestIdx + 1)
     ];
   }

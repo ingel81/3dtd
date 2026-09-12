@@ -85,11 +85,13 @@ function makeEngine(): ThreeTilesEngine {
   } as unknown as ThreeTilesEngine;
 }
 
-function makeNetwork(streets: { id: number; type?: string; nodes: StreetNode[] }[]): StreetNetwork {
+function makeNetwork(
+  streets: { id: number; type?: string; width?: number; lanes?: number; nodes: StreetNode[] }[],
+): StreetNetwork {
   const nodes = new Map<number, StreetNode>();
   for (const s of streets) for (const n of s.nodes) nodes.set(n.id, n);
   return {
-    streets: streets.map((s) => ({ id: s.id, name: `Way ${s.id}`, type: s.type ?? 'residential', nodes: s.nodes })),
+    streets: streets.map((s) => ({ ...s, name: `Way ${s.id}`, type: s.type ?? 'residential' })),
     nodes,
     bounds: { minLat: 47.99, maxLat: 48.01, minLon: 8.99, maxLon: 9.01 },
   };
@@ -181,6 +183,32 @@ describe('PathAndRouteService route geometry', () => {
       network.streets[1] = { ...network.streets[1], type: 'footway', tunnel: 'building_passage', width: 2 };
       const rows = buildRouteService(network, { lat: 47.9995, lon: 9.0 }, hq).describeRoutes();
       expect(rows[1]).toMatchObject({ type: 'footway', tags: 'width=2 tunnel=building_passage' });
+    });
+
+    it('shows the street width, where it came from and the corridor it gave', () => {
+      network.streets[1] = { ...network.streets[1], type: 'primary', lanes: 3 };
+      const rows = buildRouteService(network, { lat: 47.9995, lon: 9.0 }, hq).describeRoutes();
+      expect(rows[0]).toMatchObject({ way: 100, widthM: 5.5, widthSource: 'highway', corridorM: '5.5' });
+      expect(rows[1]).toMatchObject({ way: 200, widthM: 10, widthSource: 'lanes', corridorM: '10.0' });
+      expect(rows[3]).toMatchObject({ way: null, widthM: null, widthSource: 'inherited', corridorM: '5.5' });
+    });
+  });
+
+  describe('corridor width', () => {
+    const hq = { lat: 48.0011, lon: 9.0025 };
+
+    it('gives each segment the half width of the street it runs over', () => {
+      network = makeNetwork([
+        { id: 100, nodes: [n10, n1] },
+        { id: 200, type: 'primary', width: 12, nodes: [n1, n2, n3] },
+        { id: 300, type: 'footway', nodes: [n3, n30] },
+      ]);
+      const route = buildRoute(network, { lat: 47.9995, lon: 9.0 }, hq);
+
+      // n10, n1, n2, n3, turn-off on way 300, HQ. Residential 5.5 m, the
+      // 12 m width tag, a 2 m footway clamped to two cells, the leg to the
+      // HQ keeps the footway's, the HQ ends the route.
+      expect(route.map((p) => p.corridorHalfWidth)).toEqual([2.75, 6, 6, 2, 2, undefined]);
     });
   });
 

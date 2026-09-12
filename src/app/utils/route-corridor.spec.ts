@@ -9,6 +9,7 @@ import {
   estimateStreetWidth,
   getRouteProfile,
   lateralLimit,
+  routeHalfWidths,
 } from './route-corridor';
 import { METERS_PER_DEGREE_LAT } from './geo-utils';
 import type { RouteWaypoint } from '../models/game.types';
@@ -41,6 +42,20 @@ describe('corridorHalfWidth', () => {
   it('never goes below two cells or above the old radius', () => {
     expect(corridorHalfWidth(2)).toBe(CORRIDOR_MIN_HALF_WIDTH_M);
     expect(corridorHalfWidth(40)).toBe(CORRIDOR_MAX_HALF_WIDTH_M);
+  });
+});
+
+describe('routeHalfWidths', () => {
+  it('gives each segment the half width of its street', () => {
+    expect(routeHalfWidths([{ type: 'primary' }, { type: 'residential', width: 12 }])).toEqual([4, 6]);
+  });
+
+  it('keeps the width of the street before a stretch off the network', () => {
+    expect(routeHalfWidths([{ type: 'primary' }, null, null])).toEqual([4, 4, 4]);
+  });
+
+  it('uses the default before any street', () => {
+    expect(routeHalfWidths([null, { type: 'footway' }])).toEqual([CORRIDOR_DEFAULT_HALF_WIDTH_M, 2]);
   });
 });
 
