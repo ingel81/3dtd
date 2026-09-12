@@ -39,6 +39,9 @@ interface LatLon {
 /** Key of a directed route segment, for the clearance cache. */
 const segmentKey = (a: LatLon, b: LatLon) => `${a.lat},${a.lon}|${b.lat},${b.lon}`;
 
+const samePieces = (a: readonly CorridorPiece[], b: readonly CorridorPiece[]) =>
+  a.length === b.length && a.every((piece, k) => piece.t === b[k].t && piece.halfWidth === b[k].halfWidth);
+
 /** `width=5 tunnel=building_passage` etc., for the diagnostics table. */
 function describeStreetTags(street: Street): string {
   const parts: string[] = [];
@@ -115,10 +118,12 @@ export class PathAndRouteService {
   private streetRoutes = new Map<string, { points: LatLon[]; halfWidths: number[]; onBridge: boolean[] }>();
 
   /**
-   * Corridor pieces the tiles allowed per street segment (segmentKey),
-   * measured once per location and applied on every route build.
+   * What the tiles showed per street segment (segmentKey): the free space at
+   * each station, NaN where no fine tile was loaded, and the corridor pieces
+   * that allows. Measured once per location and applied on every route
+   * build; measureStreetClearance measures the NaN stations again.
    */
-  private clearanceBySegment = new Map<string, CorridorPiece[]>();
+  private clearanceBySegment = new Map<string, { clearances: number[]; pieces: CorridorPiece[] }>();
 
 
   /** 3D route lines for visualization (using Line2 for proper line width) */
@@ -586,7 +591,7 @@ export class PathAndRouteService {
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i];
       const b = points[i + 1];
-      const pieces = this.clearanceBySegment.get(segmentKey(a, b));
+      const pieces = this.clearanceBySegment.get(segmentKey(a, b))?.pieces;
       if (!pieces || pieces.length === 0) {
         fittedPoints.push(a);
         fittedWidths.push(halfWidths[i]);
@@ -608,15 +613,17 @@ export class PathAndRouteService {
    * segment and remember where it is less than the street width, so the next
    * route build fits the corridor to it. A station every 2 m with two
    * horizontal rays (ThreeTilesEngine.measureStreetClearance); a station
-   * without fine tiles keeps the street width. Segments measured before are
-   * skipped, segments nothing could be measured on are tried again next time.
+   * without fine tiles keeps the street width. Stations measured before are
+   * kept and only the ones without fine tiles are measured again, so a
+   * segment whose tiles had only partly loaded gets the rest on a later run
+   * instead of keeping the street width there for the whole location.
    *
    * Meant to run once per location, when the corridor tiles have loaded:
    * the grid is rebuilt from the result, so it must not run under placed
    * towers.
    *
-   * @returns true when a segment came out narrower than its street, i.e.
-   *   routes and grid need a rebuild
+   * @returns true when a segment's corridor changed, i.e. routes and grid
+   *   need a rebuild
    */
   measureStreetClearance(): boolean {
     const engine = this.engine;
@@ -626,14 +633,19 @@ export class PathAndRouteService {
     let segments = 0;
     let stations = 0;
     let unmeasured = 0;
-    let narrowed = 0;
+    let changed = 0;
+    // Routes from several spawns share segments; one pass over each is enough.
+    const seen = new Set<string>();
 
     for (const { points, halfWidths, onBridge } of this.streetRoutes.values()) {
       for (let i = 0; i < points.length - 1; i++) {
         const a = points[i];
         const b = points[i + 1];
         const key = segmentKey(a, b);
-        if (this.clearanceBySegment.has(key)) continue;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const known = this.clearanceBySegment.get(key);
+        if (known && !known.clearances.some(Number.isNaN)) continue;
 
         const start = engine.sync.geoToLocalSimple(a.lat, a.lon, 0);
         const end = engine.sync.geoToLocalSimple(b.lat, b.lon, 0);
@@ -643,34 +655,40 @@ export class PathAndRouteService {
         if (length < 0.01) continue;
 
         const count = Math.max(1, Math.round(length / CLEARANCE_STATION_SPACING_M));
-        const clearances: number[] = [];
+        const clearances = known ? [...known.clearances] : new Array<number>(count).fill(NaN);
+        let tried = 0;
         let measured = 0;
         for (let k = 0; k < count; k++) {
+          if (!Number.isNaN(clearances[k])) continue;
+          tried++;
           const t = (k + 0.5) / count;
           const clearance = engine.measureStreetClearance(
             start.x + dx * t, start.z + dz * t, -dz, dx, CLEARANCE_RAY_HEIGHT_M, halfWidths[i], onBridge[i],
           );
-          clearances.push(clearance ?? NaN);
-          if (clearance !== null) measured++;
+          if (clearance === null) continue;
+          clearances[k] = clearance;
+          measured++;
         }
         segments++;
-        stations += count;
-        unmeasured += count - measured;
+        stations += tried;
+        unmeasured += tried - measured;
         if (measured === 0) continue;
 
+        // Without an entry the segment runs at the street width, one piece.
         const pieces = clearancePieces(halfWidths[i], clearances);
-        this.clearanceBySegment.set(key, pieces);
-        if (pieces.some((piece) => piece.halfWidth < halfWidths[i])) narrowed++;
+        const before = known?.pieces ?? [{ t: 0, halfWidth: halfWidths[i] }];
+        this.clearanceBySegment.set(key, { clearances, pieces });
+        if (!samePieces(pieces, before)) changed++;
       }
     }
 
     if (segments > 0) {
       console.warn(
         `[Corridor] clearance: segments=${segments} stations=${stations} unmeasured=${unmeasured} ` +
-        `rays=${2 * (stations - unmeasured)} narrowed=${narrowed} in ${(performance.now() - t0).toFixed(1)}ms`,
+        `rays=${2 * (stations - unmeasured)} changed=${changed} in ${(performance.now() - t0).toFixed(1)}ms`,
       );
     }
-    return narrowed > 0;
+    return changed > 0;
   }
 
   /**
