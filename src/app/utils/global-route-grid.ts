@@ -11,11 +11,14 @@ import {
   HeightResetResult,
   RouteCellBox,
   RouteCellDump,
+  RouteCellSpot,
   RouteGridSampleStats,
+  TowerRangeReport,
   collectCellsInBox,
   collectHeightOutliers,
   resetFallbackHeights,
   summarizeCellSamples,
+  summarizeTowerRange,
 } from './route-grid-diagnostics';
 import { RouteGridAggregateViz } from './route-grid-aggregate-viz';
 import { RouteCellSampler } from './route-cell-sampler';
@@ -1149,6 +1152,39 @@ export class GlobalRouteGrid {
   /** Fallback-Samples zurücksetzen und neu sampeln, siehe `resetFallbackHeights`. */
   resetHeightsAndRetry(): HeightResetResult {
     return resetFallbackHeights(this.cells, this.sampler, () => this.retryUnsampledCells());
+  }
+
+  /**
+   * Grid positions within `range` of (x, z) that have no cell while the four
+   * positions next to them along the axes all have one: holes in the
+   * corridor, which the LOS display would show as gaps in the street. Every
+   * segment claims a convex region of cells, so there should be none.
+   */
+  findHolesInRange(x: number, z: number, range: number): RouteCellSpot[] {
+    const holes: RouteCellSpot[] = [];
+    const rangeSq = range * range;
+    const has = (gx: number, gz: number) => this.cells.has(this.intCellKey(gx, gz));
+    for (let gx = this.cellIndex(x - range); gx <= this.cellIndex(x + range); gx++) {
+      const cx = (gx + 0.5) * this.CELL_SIZE;
+      for (let gz = this.cellIndex(z - range); gz <= this.cellIndex(z + range); gz++) {
+        const cz = (gz + 0.5) * this.CELL_SIZE;
+        if ((cx - x) ** 2 + (cz - z) ** 2 > rangeSq || has(gx, gz)) continue;
+        if (has(gx - 1, gz) && has(gx + 1, gz) && has(gx, gz - 1) && has(gx, gz + 1)) holes.push({ x: cx, z: cz });
+      }
+    }
+    return holes;
+  }
+
+  /** What the grid holds in a tower's range, see `summarizeTowerRange`. */
+  describeTowerRange(towerId: string, x: number, z: number, range: number): TowerRangeReport {
+    const rangeSq = range * range;
+    const inRange: RouteCell[] = [];
+    for (const cell of this.cellsInRange(x, z, range)) {
+      if ((cell.x - x) ** 2 + (cell.z - z) ** 2 <= rangeSq) inRange.push(cell);
+    }
+    return summarizeTowerRange(inRange, towerId, this.findHolesInRange(x, z, range), (cell) =>
+      this.medianOfStableNeighbourY(cell),
+    );
   }
 
   // ========================================
