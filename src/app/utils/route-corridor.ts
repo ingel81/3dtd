@@ -1,6 +1,7 @@
 /**
  * Route corridor geometry: how wide the corridor of route cells is on each
- * stretch of a route, and how far an enemy may walk off the centre line.
+ * stretch of a route, either side of the centre line, and how far an enemy
+ * may walk off it.
  *
  * Kept free of Angular and Three.js so the rules can be unit tested; the grid
  * (`GlobalRouteGrid.generateFromRoutes`), the route build
@@ -13,16 +14,19 @@ import { haversineDistance } from './geo-utils';
 /**
  * Every knob of the corridor, in one place. Lengths in metres. The values in
  * use are {@link corridorConfig}; routes and grid read them when they are
- * built, so a change needs a rebuild to show.
+ * built, so a change needs a rebuild to show (`__corridor.set()` does that).
  */
 export interface CorridorConfig {
   /**
-   * Smallest corridor half width. Two 2 m cells across: towers only see
-   * enemies that stand in a cell, so the corridor never shrinks to a single
-   * file.
+   * Smallest corridor half width, per side. Two 2 m cells across: towers
+   * only see enemies that stand in a cell, so the corridor never shrinks to
+   * a single file.
    */
   minHalfWidth: number;
-  /** Largest corridor half width. */
+  /**
+   * Largest corridor half width, per side. Also how far the clearance rays
+   * reach: where they hit nothing, the corridor gets this much.
+   */
   maxHalfWidth: number;
   /**
    * Half width for a route stretch nothing is known about (paths built
@@ -48,7 +52,8 @@ export interface CorridorConfig {
   stationSpacing: number;
   /**
    * Height of the clearance rays over the ground: over parked cars, into
-   * facades and into tree crowns that reach down to the street.
+   * facades, walls, high hedges and tree crowns that reach down to the
+   * street.
    */
   rayHeight: number;
   /**
@@ -65,14 +70,21 @@ export interface CorridorConfig {
   widthStep: number;
   /**
    * A dip in the measured free space up to about this long is closed: a
-   * lamp post, a sign, a van. Rounded up to whole stations either side, see
-   * {@link closeShortDips}.
+   * lamp post, a sign, a van, a single tree trunk. Rounded up to whole
+   * stations either side, see {@link closeShortDips}.
    */
   dipLength: number;
   /**
-   * Typical carriageway width per `highway` class. Used when a way has
-   * neither `width` nor `lanes`, which is most of them. Motorways are mapped
-   * per direction, so the value is one carriageway.
+   * A bulge in the measured free space up to about this long is cut: a
+   * driveway, a gap between two houses, the mouth of a narrow side street.
+   * Rounded up to whole stations either side, see {@link cutShortBulges}.
+   */
+  bulgeLength: number;
+  /**
+   * Typical carriageway width per `highway` class, for stations the tiles
+   * cannot measure. Used when a way has neither `width` nor `lanes`, which
+   * is most of them. Motorways are mapped per direction, so the value is
+   * one carriageway.
    */
   highwayWidths: Record<string, number>;
   /** Width for a `highway` class the table does not know. */
@@ -95,6 +107,7 @@ export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
   maxTileError: 5,
   widthStep: 0.5,
   dipLength: 4,
+  bulgeLength: 8,
   highwayWidths: Object.freeze({
     motorway: 11,
     trunk: 9,
@@ -221,49 +234,114 @@ export function closeShortDips(values: readonly number[], radius = stationRadius
   return dilated.map((_, k) => (Number.isNaN(values[k]) ? NaN : windowExtreme(dilated, k, radius, Math.min)));
 }
 
-/** A stretch of a segment with its own half width, from `t` (0-1 along the segment) to the next piece. */
-export interface CorridorPiece {
-  t: number;
-  halfWidth: number;
+/**
+ * Morphological opening, the counterpart of {@link closeShortDips}: a bulge
+ * in the clearance of up to `2 * radius` stations (a driveway, a gap
+ * between two houses) goes, a longer widening keeps its full length. NaN as
+ * there.
+ */
+export function cutShortBulges(values: readonly number[], radius = stationRadius(corridorConfig.bulgeLength)): number[] {
+  const eroded = values.map((_, k) => windowExtreme(values, k, radius, Math.min));
+  return eroded.map((_, k) => (Number.isNaN(values[k]) ? NaN : windowExtreme(eroded, k, radius, Math.max)));
 }
 
 /**
- * Split a segment into stretches with the half width the tiles allow.
- *
- * `clearances` holds one measured free space per station, station `k` of
- * `n` standing for `[k/n, (k+1)/n]` of the segment. Each station gets the
- * street's half width, or the free space where that is less (after
- * closeShortDips), never below the minimum, rounded down to `widthStep` so
- * a ragged facade does not split the segment at every station. Runs of
- * equal width become one piece.
+ * A stretch of a segment, from `t` (0-1 along the segment) to the next
+ * piece, with its half width left and right of the direction of travel.
  */
-export function clearancePieces(streetHalfWidth: number, clearances: readonly number[]): CorridorPiece[] {
-  const n = clearances.length;
-  const closed = closeShortDips(clearances);
-  const step = corridorConfig.widthStep;
-  const pieces: CorridorPiece[] = [];
-  for (let k = 0; k < n; k++) {
-    // A ray that hit nothing reports its full length, the street half width.
-    const clearance = closed[k];
-    const free = Number.isNaN(clearance) || clearance >= streetHalfWidth
-      ? streetHalfWidth
-      : Math.floor(clearance / step) * step;
-    const halfWidth = Math.min(streetHalfWidth, Math.max(corridorConfig.minHalfWidth, free));
-    if (pieces.length === 0 || pieces[pieces.length - 1].halfWidth !== halfWidth) {
-      pieces.push({ t: k / n, halfWidth });
+export interface CorridorPiece {
+  t: number;
+  left: number;
+  right: number;
+}
+
+/** One segment of a route as {@link fitCorridorPieces} sees it. */
+export interface CorridorStations {
+  /**
+   * Free space the tiles showed left and right of the direction of travel,
+   * one value per station; station `k` of `n` stands for `[k/n, (k+1)/n]`
+   * of the segment. NaN where no fine tile was loaded, empty if the segment
+   * was never measured.
+   */
+  left: readonly number[];
+  right: readonly number[];
+  /** Half width from the street, for stations the tiles could not measure. */
+  fallback: number;
+  /**
+   * The segment runs over a street. Off the network (the leg to the HQ,
+   * often through buildings and yards) the tiles may only narrow it below
+   * the fallback, not widen it.
+   */
+  onStreet: boolean;
+}
+
+/**
+ * The corridor pieces of each segment of a route, from what the tiles
+ * showed.
+ *
+ * The measured free space on each side is the half width on that side,
+ * clamped to [minHalfWidth, maxHalfWidth]. Along the whole route, across
+ * its waypoints, short dips are closed (closeShortDips) and short bulges
+ * cut (cutShortBulges), each side on its own, then the value is rounded
+ * down to `widthStep`. A station the tiles could not measure gets the
+ * street's half width. Runs of equal widths become one piece; a segment
+ * without stations is one piece at the fallback.
+ */
+export function fitCorridorPieces(segments: readonly CorridorStations[]): CorridorPiece[][] {
+  const smooth = (side: 'left' | 'right') => cutShortBulges(closeShortDips(segments.flatMap((s) => s[side])));
+  const left = smooth('left');
+  const right = smooth('right');
+  const { minHalfWidth, maxHalfWidth, widthStep } = corridorConfig;
+
+  const halfWidth = (free: number, segment: CorridorStations): number => {
+    if (Number.isNaN(free)) return segment.fallback;
+    // A ray that hit nothing reports its full length, the maximum.
+    const rounded = free >= maxHalfWidth ? maxHalfWidth : Math.floor(free / widthStep) * widthStep;
+    const clamped = Math.max(minHalfWidth, rounded);
+    return segment.onStreet ? clamped : Math.min(segment.fallback, clamped);
+  };
+
+  let offset = 0;
+  return segments.map((segment) => {
+    const n = segment.left.length;
+    if (n === 0) return [{ t: 0, left: segment.fallback, right: segment.fallback }];
+    const pieces: CorridorPiece[] = [];
+    for (let k = 0; k < n; k++) {
+      const l = halfWidth(left[offset + k], segment);
+      const r = halfWidth(right[offset + k], segment);
+      const last = pieces[pieces.length - 1];
+      if (!last || last.left !== l || last.right !== r) pieces.push({ t: k / n, left: l, right: r });
     }
-  }
-  return pieces;
+    offset += n;
+    return pieces;
+  });
 }
 
-/** Half width of the segment that starts at `waypoint`. */
-export function segmentHalfWidth(waypoint: RouteWaypoint): number {
-  return waypoint.corridorHalfWidth ?? corridorConfig.defaultHalfWidth;
+/** Half width left of the direction of travel on the segment that starts at `waypoint`. */
+export function segmentLeft(waypoint: RouteWaypoint): number {
+  return waypoint.corridorLeft ?? corridorConfig.defaultHalfWidth;
 }
 
-/** How far off the centre line an enemy may walk on a segment of this half width. */
+/** Half width right of the direction of travel on the segment that starts at `waypoint`. */
+export function segmentRight(waypoint: RouteWaypoint): number {
+  return waypoint.corridorRight ?? corridorConfig.defaultHalfWidth;
+}
+
+/** How far off the centre line an enemy may walk on a side of this half width. */
 export function lateralLimit(halfWidth: number): number {
   return Math.max(0, halfWidth - corridorConfig.edgeMargin);
+}
+
+/** Lateral limits on one side of a route. */
+export interface SideLimits {
+  /** Lateral limit of each segment, from its half width on this side. */
+  segment: Float64Array;
+  /**
+   * Lateral limit at each waypoint once the taper is applied: never more
+   * than an adjacent segment allows, and at most `taper` per metre above
+   * any other point of the route.
+   */
+  node: Float64Array;
 }
 
 /**
@@ -276,14 +354,9 @@ export interface RouteProfile {
   /** Prefix sums: `cumulativeLength[i]` = length of segments `0..i-1`. */
   cumulativeLength: number[];
   totalLength: number;
-  /** Lateral limit of each segment, from its half width. */
-  segmentLimit: Float64Array;
-  /**
-   * Lateral limit at each waypoint once the taper is applied: never more
-   * than an adjacent segment allows, and at most `taper` per metre above
-   * any other point of the route.
-   */
-  nodeLimit: Float64Array;
+  /** Lateral limits left and right of the direction of travel. */
+  left: SideLimits;
+  right: SideLimits;
   /** The taper the node limits were built with, metres sideways per metre. */
   taper: number;
 }
@@ -304,8 +377,6 @@ function buildRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
   const segments = Math.max(0, path.length - 1);
   const segmentLengths: number[] = new Array(segments);
   const cumulativeLength: number[] = new Array(segments + 1);
-  const segmentLimit = new Float64Array(segments);
-  const nodeLimit = new Float64Array(path.length);
   const taper = corridorConfig.taper;
 
   cumulativeLength[0] = 0;
@@ -314,8 +385,28 @@ function buildRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
     const b = path[i + 1];
     segmentLengths[i] = haversineDistance(a.lat, a.lon, b.lat, b.lon);
     cumulativeLength[i + 1] = cumulativeLength[i] + segmentLengths[i];
-    segmentLimit[i] = lateralLimit(segmentHalfWidth(a));
   }
+
+  return {
+    segmentLengths,
+    cumulativeLength,
+    totalLength: cumulativeLength[segments],
+    left: buildSideLimits(path, segmentLengths, segmentLeft, taper),
+    right: buildSideLimits(path, segmentLengths, segmentRight, taper),
+    taper,
+  };
+}
+
+function buildSideLimits(
+  path: readonly RouteWaypoint[],
+  segmentLengths: readonly number[],
+  halfWidthOf: (waypoint: RouteWaypoint) => number,
+  taper: number,
+): SideLimits {
+  const segments = segmentLengths.length;
+  const segment = new Float64Array(segments);
+  const node = new Float64Array(path.length);
+  for (let i = 0; i < segments; i++) segment[i] = lateralLimit(halfWidthOf(path[i]));
 
   if (segments > 0) {
     // A waypoint allows no more than the tighter of its two segments. Then
@@ -324,24 +415,16 @@ function buildRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
     // min(segment limit, start node + taper * s, end node + taper * rest),
     // because every other segment reaches it through one of the two nodes.
     for (let k = 0; k < path.length; k++) {
-      const before = k > 0 ? segmentLimit[k - 1] : Infinity;
-      const after = k < segments ? segmentLimit[k] : Infinity;
-      nodeLimit[k] = Math.min(before, after);
+      const before = k > 0 ? segment[k - 1] : Infinity;
+      const after = k < segments ? segment[k] : Infinity;
+      node[k] = Math.min(before, after);
     }
     for (let k = 1; k < path.length; k++) {
-      nodeLimit[k] = Math.min(nodeLimit[k], nodeLimit[k - 1] + taper * segmentLengths[k - 1]);
+      node[k] = Math.min(node[k], node[k - 1] + taper * segmentLengths[k - 1]);
     }
     for (let k = path.length - 2; k >= 0; k--) {
-      nodeLimit[k] = Math.min(nodeLimit[k], nodeLimit[k + 1] + taper * segmentLengths[k]);
+      node[k] = Math.min(node[k], node[k + 1] + taper * segmentLengths[k]);
     }
   }
-
-  return {
-    segmentLengths,
-    cumulativeLength,
-    totalLength: cumulativeLength[segments],
-    segmentLimit,
-    nodeLimit,
-    taper,
-  };
+  return { segment, node };
 }

@@ -377,13 +377,17 @@ describe('MovementComponent', () => {
       transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
     });
 
-    /** Waypoints going north from (LAT, LON), `lengths` metres apart, half width per segment. */
-    function northbound(lengths: number[], halfWidths: (number | undefined)[]): RouteWaypoint[] {
-      const path: RouteWaypoint[] = [{ lat: LAT, lon: LON, corridorHalfWidth: halfWidths[0] }];
+    /**
+     * Waypoints going north from (LAT, LON), `lengths` metres apart, half
+     * width per segment on the right (east) and, unless given, the same on
+     * the left (west).
+     */
+    function northbound(lengths: number[], right: (number | undefined)[], left = right): RouteWaypoint[] {
+      const path: RouteWaypoint[] = [{ lat: LAT, lon: LON, corridorLeft: left[0], corridorRight: right[0] }];
       let lat = LAT;
       for (let i = 0; i < lengths.length; i++) {
         lat += lengths[i] / METERS_PER_DEGREE_LAT;
-        path.push({ lat, lon: LON, corridorHalfWidth: halfWidths[i + 1] });
+        path.push({ lat, lon: LON, corridorLeft: left[i + 1], corridorRight: right[i + 1] });
       }
       return path;
     }
@@ -406,6 +410,22 @@ describe('MovementComponent', () => {
       movement.setPath(northbound([100], [2]));
       walk(30);
       expect(eastOfCentre()).toBeCloseTo(lateralLimit(2), 2);
+    });
+
+    it('spreads to each side by the width on that side', () => {
+      // Narrow on the left (west), wide on the right (east).
+      const path = northbound([100], [6], [2]);
+      movement.speedMps = 10;
+
+      movement.setLateralFactor(1);
+      movement.setPath(path);
+      walk(30);
+      expect(eastOfCentre()).toBeCloseTo(lateralLimit(6), 2);
+
+      movement.setLateralFactor(-0.5);
+      movement.setPath(path);
+      walk(30);
+      expect(eastOfCentre()).toBeCloseTo(-0.5 * lateralLimit(2), 2);
     });
 
     it('offsets at a right angle and by the stated length on every heading', () => {

@@ -13,11 +13,13 @@ export interface GeoPosition {
  */
 export interface RouteWaypoint extends GeoPosition {
   /**
-   * Half width of the route corridor on that segment, metres. Bounds the
-   * route cells and how far enemies spread. Unset: the default width, see
+   * Half width of the route corridor on that segment left and right of the
+   * direction of travel, metres. Bounds the route cells and how far enemies
+   * spread to that side. Unset: the default width, see
    * `utils/route-corridor.ts`.
    */
-  corridorHalfWidth?: number;
+  corridorLeft?: number;
+  corridorRight?: number;
   /**
    * The segment runs over a bridge (OSM `bridge=*`): its route cells stand
    * on the deck, not on the ground below.

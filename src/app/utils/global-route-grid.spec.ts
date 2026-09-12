@@ -282,8 +282,9 @@ describe('GlobalRouteGrid corridor width', () => {
     grid.initialize(sampler as never, coordinateSync);
   });
 
-  /** Local x, z to the fake geo space of `coordinateSync`. */
-  const at = (x: number, z: number, corridorHalfWidth?: number): RouteWaypoint => ({ lat: z, lon: x, corridorHalfWidth });
+  /** Local x, z to the fake geo space of `coordinateSync`, half widths left and right of the segment it starts. */
+  const at = (x: number, z: number, left?: number, right = left): RouteWaypoint =>
+    ({ lat: z, lon: x, corridorLeft: left, corridorRight: right });
 
   /** Distinct cells on the line x = `x`, from z = -20 to 20. */
   function cellsAcross(x: number): number {
@@ -294,6 +295,16 @@ describe('GlobalRouteGrid corridor width', () => {
     }
     return keys.size;
   }
+
+  it('takes each side from its own half width', () => {
+    // Heading east: right of the direction of travel is south (+z).
+    grid.generateFromRoutes([[at(0, 1, 2, 6), at(40, 1)]]);
+    // Centre (21, 7) is 6 m to the right, (21, -1) 2 m and (21, -3) 4 m to the left.
+    expect(grid.getCellAt(20, 6)).toBeDefined();
+    expect(grid.getCellAt(20, -0.5)).toBeDefined();
+    expect(grid.getCellAt(20, -2.5)).toBeUndefined();
+    expect(cellsAcross(20)).toBe(5);
+  });
 
   it('keeps two cells across the narrowest corridor', () => {
     // Centre line on a cell border, then through cell centres.
@@ -400,7 +411,7 @@ describe('GlobalRouteGrid tower range report', () => {
     };
     const grid = new GlobalRouteGrid();
     grid.initialize(column as never, coordinateSync);
-    grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorHalfWidth: 3 }, { lat: 1, lon: 60 }]]);
+    grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 3, corridorRight: 3 }, { lat: 1, lon: 60 }]]);
     // Tower at (20, 8): below the 10 m wall everything is visible.
     grid.registerTower('t1', 20, 8, 16, { referencePos: { x: 20, y: 20, z: 8 } } as never);
 
@@ -425,7 +436,7 @@ describe('GlobalRouteGrid bridges', () => {
     geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
   } as never;
   const at = (x: number, z: number, onBridge?: boolean): RouteWaypoint =>
-    ({ lat: z, lon: x, corridorHalfWidth: 3, onBridge });
+    ({ lat: z, lon: x, corridorLeft: 3, corridorRight: 3, onBridge });
 
   let grid: GlobalRouteGrid;
 
