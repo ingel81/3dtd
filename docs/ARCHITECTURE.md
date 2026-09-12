@@ -1501,7 +1501,7 @@ Feingranulare Line-of-Sight Visualisierung entlang der Gegner-Routen:
 // GlobalRouteGrid (utils/global-route-grid.ts)
 class GlobalRouteGrid {
   // 2m Zellenauflösung entlang aller Routen
-  generateFromRoutes(routes: GeoPosition[][]): void;
+  generateFromRoutes(routes: RouteWaypoint[][]): void;
 
   // Enemy-Tracking in Zellen
   getEnemiesInRadius(localX: number, localZ: number, radiusMeters: number, excludeId?: string, out?: Enemy[]): Enemy[];
@@ -1519,8 +1519,12 @@ class GlobalRouteGrid {
 - `route-grid-diagnostics.ts`: `__rg.*`-Dumps; `route-grid-log.ts`: `[CELL-GRID]`-Log
 
 **Zellengenerierung:**
-- Radiale/flächen-basierte Generierung (nicht perpendikular zur Route)
-- 7m Korridor-Breite um jede Route
+- Korridor pro Routensegment so breit wie die Straße (`corridorHalfWidth` am Waypoint,
+  aus OSM `width`/`lanes`/`highway`, `utils/route-corridor.ts`), Halbbreite 2 bis 7 m
+- Eine Zelle gehört dazu, wenn ihr Mittelpunkt höchstens die Halbbreite vom Segment entfernt
+  ist; mindestens 2 Zellen quer
+- Gegner-Seitenversatz auf Halbbreite minus 1,5 m begrenzt, damit jeder Gegner in einer Zelle
+  steht (Details: [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md))
 - 2m Zellenauflösung für präzise LOS-Prüfung
 
 **Shader-Visualisierung:**

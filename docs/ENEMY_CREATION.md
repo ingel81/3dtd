@@ -16,7 +16,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 - Status-Effekte (Slow, Poison — Freeze/Burn Typen reserviert)
 - Air und Ground Units
 - **Damage/Armor-Matrix** (`armorType` Pflichtfeld, Phase 5.x)
-- Lateral Offset und Height Variation für Bewegungsvariation
+- Lateral Spread und Height Variation für Bewegungsvariation
 - Boss-Enemies mit Custom Health Bar
 - Bluteffekte (`canBleed`), Emissive Glow, Color Multiplier, Unlit Rendering
 - Konfigurierbare Sidebar-Preview (Camera Distance / Angle / Offset)
@@ -42,7 +42,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | mech | heavy | 500 | 3 | – | Mechanisch, idle/walk |
 | mammoth | fortified | 400 | 3 | – | Random Mammoth Call |
 | herbert | fortified | 500 | 4 | – | Boss, `immunityPercent: 100` |
-| **stone-golem** | fortified | 480 | 2.5 | – | Neuer Fortified-Gegner (2026-05-12), `canBleed: false`, `randomAnimationStart: true`, `lateralOffset: 2.0`, `spawnStartDelay: 1200` |
+| **stone-golem** | fortified | 480 | 2.5 | – | Neuer Fortified-Gegner (2026-05-12), `canBleed: false`, `randomAnimationStart: true`, `lateralSpread: 0.65`, `spawnStartDelay: 1200` |
 | ghost | ethereal | 120 | 5 | – | Nur magic/chaos wirkt voll |
 | wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
 
@@ -124,7 +124,7 @@ const NEW_ENEMY_MODEL_URL = '/assets/models/enemies/new_enemy.glb';
   isElite: false,              // Visueller Marker für stärkere Variante
 
   // Movement Variation
-  lateralOffset: 2.0,     // ±2m seitlicher Versatz
+  lateralSpread: 0.65,    // Anteil der Korridorbreite für seitlichen Versatz
 
   // Preview (optional)
   previewScale: 1.5,            // Überschreibt Scale für Model-Preview (Sidebar)
@@ -339,13 +339,20 @@ heightVariation: 3,      // ±3m Variation zwischen Enemies
 
 ## Movement Variation
 
-### Lateral Offset (Seitlicher Versatz)
+### Lateral Spread (Seitlicher Versatz)
 
 ```typescript
-lateralOffset: 3.0,  // Max. ±3m seitlich zur Route
+lateralSpread: 1.0,  // Anteil des seitlichen Platzes im Routenkorridor (0-1)
 ```
 
-**Effekt:** Jeder Enemy bekommt einen zufälligen seitlichen Versatz zur Pfad-Mitte.
+**Effekt:** Jeder Enemy bekommt einen zufälligen Platz quer zur Route. Die
+Meter folgen der lokalen Korridorbreite (`utils/route-corridor.ts`): Grenze ist
+die Halbbreite des Korridors minus 1,5 m, auf einer Hauptstraße also mehrere
+Meter, in einer Gasse unter einem Meter. `lateralSpread` sagt, welchen Anteil
+davon der Typ höchstens nutzt: `1.0` bis zum Rand, `0.5` nur die innere Hälfte
+(Panzer, Bosse). Kein Gegner läuft dadurch außerhalb der Route-Cells, die Tower
+sehen ihn also immer. Vorher war es `lateralOffset` in festen Metern (3,0 m
+entspricht heute 1.0).
 
 **Verwendung:**
 - Verhindert "Gänsemarsch"-Effekt
@@ -431,7 +438,7 @@ zombie: {
   headingOffset: -0.349,
   randomAnimationStart: true,
   randomSoundStart: true,
-  lateralOffset: 3.0,
+  lateralSpread: 1.0,
   previewScale: 1,
 },
 ```
@@ -458,7 +465,7 @@ bat: {
   headingOffset: 0,
   isAirUnit: true,         // Nur Air-Tower können angreifen
   heightVariation: 3,      // ±3m Variation
-  lateralOffset: 2.0,
+  lateralSpread: 0.65,
   randomAnimationStart: true,
 },
 ```
@@ -489,7 +496,7 @@ herbert: {
   canBleed: true,
   headingOffset: -0.192,
   randomAnimationStart: true,
-  lateralOffset: 2.0,
+  lateralSpread: 0.65,
   previewScale: 1.05,
   previewCameraDistance: 3,
   previewCameraAngle: 0,
@@ -520,7 +527,7 @@ penguin: {
   unlit: true,               // Cartoon-Style ohne Beleuchtung
   headingOffset: 0,
   randomAnimationStart: true,
-  lateralOffset: 2.5,
+  lateralSpread: 0.85,
   previewScale: 0.008,       // Eigener Scale für Sidebar-Preview
   previewCameraDistance: 7,
   previewCameraAngle: 0,
@@ -564,7 +571,7 @@ wallsmasher: {
   canBleed: true,
   headingOffset: 0,
   randomAnimationStart: true,
-  lateralOffset: 2.0,
+  lateralSpread: 0.65,
   spawnStartDelay: 500,
 },
 ```
@@ -666,7 +673,7 @@ npx gltf-transform inspect model.glb
 
 1. **Animation Speed:** `animationSpeed: 1.0` als Basis, anpassen bis Bewegung natürlich wirkt
 2. **Sound Volumes:** Loop-Sounds leiser (0.2-0.4), Spawn-Sounds lauter (0.5-0.7)
-3. **Lateral Offset:** 2-3m für natürliche Bewegung, nicht zu viel (sonst laufen sie von der Route)
+3. **Lateral Spread:** 0.65-1.0 für normale Gegner, 0.5 für große, die in der Mitte bleiben sollen
 4. **Boss Health:** 10x normale Enemies (z.B. 500-5000 HP)
 5. **Base Speed:** 3-5 m/s für langsame, 6-8 m/s für schnelle, 10+ m/s für Air Units
 6. **Health Bar Offset:** `scale * 4` als Faustregel
@@ -691,7 +698,7 @@ npx gltf-transform inspect model.glb
 - Check `startMoving()` wurde aufgerufen
 
 ### Enemy läuft zu weit seitlich
-- Reduziere `lateralOffset` (z.B. von 5.0 auf 2.0)
+- Reduziere `lateralSpread` (z.B. von 1.0 auf 0.5). Läuft er auf Fassaden, ist der Korridor zu breit: `__routes.describe()` zeigt Breite und Quelle je Abschnitt
 
 ### Enemy bewegt sich nicht
 - Check `baseSpeed` > 0
