@@ -62,6 +62,17 @@ describe('VFXService muzzle flash', () => {
   });
 });
 
+describe('VFXService split', () => {
+  it('bursts in bone colours a metre above the body a split came from', () => {
+    const { eventBus, tilesEngine, service } = setup();
+    const enemy = { position: { lat: 1, lon: 2 }, transform: { terrainHeight: 30 }, typeConfig: { heightOffset: 0.5 } };
+    eventBus.emit({ type: 'enemy:split', enemy: enemy as never, children: [] });
+    expect(tilesEngine.effects.spawnBurstAtGeo)
+      .toHaveBeenCalledWith(1, 2, 31.5, EXPLOSION_PRESETS.bone.particles, BURST_PALETTES.bone);
+    service.destroy();
+  });
+});
+
 describe('VFXService projectile impact', () => {
   const impact = (eventBus: GameEventBus, projectileType: string) =>
     eventBus.emit({ type: 'vfx:projectile-impact', lat: 1, lon: 2, height: 3, projectileType, targetLost: false });

@@ -48,6 +48,19 @@ export class VFXService {
     this.subs.add(this.eventBus.on('vfx:chain-lightning', (event) => {
       this.handleChainLightning(event.points);
     }));
+
+    // Bone burst a metre above the body a split came from. The impact bursts'
+    // pool and switch: nothing while impact effects are off (VFX settings).
+    this.subs.add(this.eventBus.on('enemy:split', ({ enemy }) => {
+      const height = enemy.transform.terrainHeight + enemy.typeConfig.heightOffset + 1;
+      this.tilesEngine.effects.spawnBurstAtGeo(
+        enemy.position.lat,
+        enemy.position.lon,
+        height,
+        EXPLOSION_PRESETS.bone.particles,
+        BURST_PALETTES.bone,
+      );
+    }));
   }
 
   /**
