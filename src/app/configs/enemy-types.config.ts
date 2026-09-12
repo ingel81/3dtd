@@ -796,3 +796,17 @@ export function splitBodyCount(id: EnemyTypeId, depth = 0): number {
   if (!split || depth >= MAX_SPLIT_DEPTH) return 1;
   return 1 + split.count * splitBodyCount(split.type, depth + 1);
 }
+
+/**
+ * HP it takes to clear one enemy of `id` and everything a kill splits it
+ * into, at HP multiplier 1. Split children scale with their parent's
+ * multiplier, so the whole lineage scales with it. 80 for an unknown id,
+ * the fallback the fairness gate always used.
+ */
+export function lineageHp(id: EnemyTypeId, depth = 0): number {
+  const type = ENEMY_TYPES[id];
+  if (!type) return 80;
+  const split = type.splitOnDeath;
+  if (!split || depth >= MAX_SPLIT_DEPTH) return type.baseHp;
+  return type.baseHp + split.count * lineageHp(split.type, depth + 1);
+}

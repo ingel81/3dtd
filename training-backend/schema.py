@@ -65,6 +65,11 @@ NUM_ENEMY_TYPES: int = len(ENEMY_TYPES)
 # === ENEMY STATS ===
 _ENEMIES: list[dict[str, Any]] = SCHEMA["enemies"]
 ENEMY_BASE_HP: dict[str, float] = {e["id"]: e["baseHp"] for e in _ENEMIES}
+# HP and kills it takes to clear one enemy with everything it splits into
+# (splitOnDeath: a skeleton is 20 + 2 x 6 HP and three kills). A schema
+# without the fields has no splits: the enemy alone.
+ENEMY_LINEAGE_HP: dict[str, float] = {e["id"]: e.get("lineageHp", e["baseHp"]) for e in _ENEMIES}
+ENEMY_BODIES: dict[str, float] = {e["id"]: e.get("bodies", 1) for e in _ENEMIES}
 ENEMY_ARMOR: dict[str, str] = {e["id"]: e["armor"] for e in _ENEMIES}
 ENEMY_THREAT: dict[str, float] = {e["id"]: e["threat"] for e in _ENEMIES}
 ENEMY_BASE_SPEED: dict[str, float] = {e["id"]: e["baseSpeed"] for e in _ENEMIES}
@@ -217,6 +222,10 @@ def fair_max_count(
     templates.ts), so a wrong roster shows up as leaks rather than as a smaller
     wave. Air and ground are read separately so a defense that cannot shoot
     upward is not credited for a bat swarm.
+
+    An enemy that splits on death (a skeleton into two minions) counts with
+    its children: its HP is the whole lineage's and every body takes a kill.
+    Mirrors the TS gate, which reads `lineageHp` and `splitBodyCount`.
     """
     ground = (effective_dps_per_armor or {}).get("ground") or {}
     air = (effective_dps_per_armor or {}).get("air") or {}
@@ -227,6 +236,7 @@ def fair_max_count(
     weighted_hp = 0.0
     weighted_throughput = 0.0
     weighted_speed = 0.0
+    weighted_bodies = 0.0
     for group in template["enemies"]:
         enemy, share = group["type"], float(group["share"])
         if share <= 0:
@@ -237,8 +247,9 @@ def fair_max_count(
         weighted_throughput += share * float(
             throughput_src.get("air" if is_air else "ground", 0.0) or 0.0
         )
-        weighted_hp += share * float(ENEMY_BASE_HP.get(enemy, 80)) * hp_mult
+        weighted_hp += share * float(ENEMY_LINEAGE_HP.get(enemy, 80)) * hp_mult
         weighted_speed += share * max(0.1, float(ENEMY_BASE_SPEED.get(enemy, 5)))
+        weighted_bodies += share * max(1.0, float(ENEMY_BODIES.get(enemy, 1)))
         total_share += share
 
     if total_share <= 0:
@@ -246,6 +257,7 @@ def fair_max_count(
     dps = weighted_dps / total_share
     hp_per_enemy = weighted_hp / total_share
     throughput = weighted_throughput / total_share
+    bodies_per_enemy = weighted_bodies / total_share
     if dps <= 0 or hp_per_enemy <= 0:
         # No effective damage against this wave at all — a curriculum-forced air
         # wave against a ground-only defense, say, since forcing bypasses the
@@ -255,7 +267,9 @@ def fair_max_count(
         return FAIRNESS_MIN_COUNT
 
     dps_limited = dps / hp_per_enemy
-    kills_per_second = min(dps_limited, throughput) if throughput > 0 else dps_limited
+    kills_per_second = (
+        min(dps_limited, throughput / bodies_per_enemy) if throughput > 0 else dps_limited
+    )
     if kills_per_second <= 0:
         return None
 

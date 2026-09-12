@@ -394,6 +394,29 @@ def test_fast_enemies_get_less_engagement_time_than_slow_ones():
     assert slow > fast, f"slower enemies stay in range longer (fast={fast}, slow={slow})"
 
 
+def test_a_splitting_enemy_counts_with_its_children(monkeypatch):
+    """A skeleton leaves two minions: 20 + 2 x 6 HP and three kills.
+
+    Towers clear bodies, not skeletons, so a swarm that splits must get a
+    smaller cap than the same swarm without the split. Patched onto the zombie
+    so the test holds whatever the roster and the generated schema say.
+    """
+    tpl = _template("zombie_horde")
+    dps = _dps(ground=120)
+    # Low enough that the kills bind once each zombie is three bodies
+    thr = _throughput(ground=1.5)
+    plain = schema.fair_max_count(tpl, 1.0, 100, dps, thr)
+
+    monkeypatch.setitem(schema.ENEMY_LINEAGE_HP, "zombie", 80 + 2 * 24)
+    more_hp = schema.fair_max_count(tpl, 1.0, 100, dps, thr)
+    monkeypatch.setitem(schema.ENEMY_BODIES, "zombie", 3)
+    more_hp_and_bodies = schema.fair_max_count(tpl, 1.0, 100, dps, thr)
+
+    assert plain is not None and more_hp is not None and more_hp_and_bodies is not None
+    assert more_hp < plain
+    assert more_hp_and_bodies < more_hp
+
+
 def test_a_strong_defense_is_barely_constrained():
     """The gate is a floor on fairness, not the difficulty knob.
 

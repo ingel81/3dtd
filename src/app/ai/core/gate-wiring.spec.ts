@@ -191,7 +191,7 @@ describe('gate wiring', () => {
       TEMPLATES[0], 1, 100,
       { ground: { unarmored: 100 }, air: { unarmored: 100 } },
       { ground: 2, air: 2 },
-      () => 'unarmored', () => false, () => 50, () => 5,
+      () => 'unarmored', () => false, () => 50, () => 5, () => 1,
       100, 1, multiplier,
     );
 
@@ -207,7 +207,7 @@ describe('gate wiring', () => {
         TEMPLATES[0], 1, 100,
         { ground: { unarmored: 100 }, air: { unarmored: 100 } },
         { ground: 2, air: 2 },
-        () => 'unarmored', () => false, () => 50, () => 5,
+        () => 'unarmored', () => false, () => 50, () => 5, () => 1,
         100, 1,
       );
       expect(omitted).toBe(capWith(1));
@@ -216,6 +216,21 @@ describe('gate wiring', () => {
     it('never produces a negative budget from a hostile multiplier', () => {
       const cap = capWith(-5);
       if (cap !== null) expect(cap).toBeGreaterThan(0);
+    });
+  });
+
+  describe('fairMaxCount counts split children', () => {
+    const cap = (hp: number, bodies: number) => fairMaxCount(
+      TEMPLATES[0], 1, 100,
+      { ground: { unarmored: 100 }, air: { unarmored: 100 } },
+      { ground: 2, air: 2 },
+      () => 'unarmored', () => false, () => hp, () => 5, () => bodies,
+      100, 1,
+    )!;
+
+    it('with the HP of the whole lineage and a kill per body', () => {
+      expect(cap(50 + 2 * 15, 1)).toBeLessThan(cap(50, 1)); // more HP to clear
+      expect(cap(50, 3)).toBeLessThan(cap(50, 1)); // more kills to land
     });
   });
 });
