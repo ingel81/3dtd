@@ -1,8 +1,6 @@
 import { Injectable, WritableSignal, inject } from '@angular/core';
-import { Vector3, Vector2 } from 'three';
-import { Line2 } from 'three/examples/jsm/lines/Line2.js';
-import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
-import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+import { Vector3 } from 'three';
+import type { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { StreetNetwork, StreetNode } from '../location/osm-street.service';
@@ -29,6 +27,7 @@ import { PathfindingWorkerService } from '../location/pathfinding-worker.service
 import { GlobalRouteGridService } from './global-route-grid.service';
 import type { CorridorMeasurement } from './corridor-refit';
 import { RouteWayRun, describeRouteWays } from './route-way-report';
+import { RouteLineLayer } from './route-line-layer';
 
 /**
  * Interface for pathfinding services (OsmStreetService or DevStreetProvider)
@@ -174,8 +173,8 @@ export class PathAndRouteService {
   /** The clearance measurement under way, see beginClearanceMeasurement. */
   private clearanceRun: ClearanceRun | null = null;
 
-  /** 3D route lines for visualization (using Line2 for proper line width) */
-  private routeLines: Line2[] = [];
+  /** 3D route lines for visualization */
+  private readonly routeLines = new RouteLineLayer();
 
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
@@ -335,24 +334,13 @@ export class PathAndRouteService {
     const wasVisible = this.routesVisible?.() ?? false;
 
     // Remove existing route lines
-    for (const line of this.routeLines) {
-      overlayGroup.remove(line);
-      line.geometry.dispose();
-      if (Array.isArray(line.material)) {
-        line.material.forEach((m) => m.dispose());
-      } else {
-        line.material.dispose();
-      }
-    }
-    this.routeLines = [];
+    this.routeLines.clear(overlayGroup);
 
     // Re-create route lines for all spawns (in parallel via worker)
     await Promise.all(spawnPoints.map((spawn) => this.showPathFromSpawnAsync(spawn)));
 
     // Restore visibility state
-    for (const line of this.routeLines) {
-      line.visible = wasVisible;
-    }
+    this.routeLines.setVisible(wasVisible);
   }
 
   /**
@@ -361,34 +349,20 @@ export class PathAndRouteService {
    */
   refreshRouteLines(spawnPoints: SpawnPoint[]): void {
     if (!this.engine) return;
-    const tRefresh0 = performance.now();
 
     const overlayGroup = this.engine.getOverlayGroup();
     const wasVisible = this.routesVisible?.() ?? false;
 
     // Remove existing route lines
-    for (const line of this.routeLines) {
-      overlayGroup.remove(line);
-      line.geometry.dispose();
-      if (Array.isArray(line.material)) {
-        line.material.forEach((m) => m.dispose());
-      } else {
-        line.material.dispose();
-      }
-    }
-    this.routeLines = [];
+    this.routeLines.clear(overlayGroup);
 
     // Re-create route lines for all spawns
     for (const spawn of spawnPoints) {
       this.showPathFromSpawn(spawn);
     }
 
-    void tRefresh0;
-
     // Restore visibility state
-    for (const line of this.routeLines) {
-      line.visible = wasVisible;
-    }
+    this.routeLines.setVisible(wasVisible);
   }
 
   /**
@@ -555,34 +529,7 @@ export class PathAndRouteService {
     // The spawn portal stands on the route's first cell, facing along it
     this.onRouteBuilt?.(spawn.id, pathWithHeights, startCellY);
 
-    // Convert points to flat array for LineGeometry
-    const positions: number[] = [];
-    for (const pt of points) {
-      positions.push(pt.x, pt.y, pt.z);
-    }
-
-    const geometry = new LineGeometry();
-    geometry.setPositions(positions);
-
-    const material = new LineMaterial({
-      color: spawn.color,
-      linewidth: 2, // In pixels (actually works with Line2!)
-      transparent: true,
-      opacity: 0.85,
-      depthTest: true,
-      depthWrite: false,
-      worldUnits: false, // Use screen pixels, not world units
-      resolution: new Vector2(window.innerWidth, window.innerHeight),
-    });
-
-    const routeLine = new Line2(geometry, material);
-    routeLine.computeLineDistances(); // Required for Line2
-    routeLine.visible = this.routesVisible?.() ?? false;
-    routeLine.renderOrder = 1;
-    routeLine.frustumCulled = false; // Prevent disappearing at certain angles
-
-    overlayGroup.add(routeLine);
-    this.routeLines.push(routeLine);
+    this.routeLines.add(overlayGroup, points, spawn.color, this.routesVisible?.() ?? false);
   }
 
   /**
@@ -903,20 +850,7 @@ export class PathAndRouteService {
    */
   clearRouteLines(): void {
     if (!this.engine) return;
-
-    const overlayGroup = this.engine.getOverlayGroup();
-
-    for (const line of this.routeLines) {
-      overlayGroup.remove(line);
-      line.geometry.dispose();
-      if (Array.isArray(line.material)) {
-        line.material.forEach((m) => m.dispose());
-      } else {
-        line.material.dispose();
-      }
-    }
-
-    this.routeLines = [];
+    this.routeLines.clear(this.engine.getOverlayGroup());
   }
 
   /**
@@ -931,9 +865,7 @@ export class PathAndRouteService {
    * @param visible Visibility state
    */
   setRouteLinesVisible(visible: boolean): void {
-    for (const line of this.routeLines) {
-      line.visible = visible;
-    }
+    this.routeLines.setVisible(visible);
   }
 
   /**
@@ -948,7 +880,7 @@ export class PathAndRouteService {
    * Get all route lines
    */
   getRouteLines(): Line2[] {
-    return this.routeLines;
+    return this.routeLines.all;
   }
 
   // ========================================
