@@ -233,13 +233,23 @@ describe('MarkerVisualizationService', () => {
       expect(labels().size).toBe(1);
     });
 
-    it('sits at the bare float height when added without a terrain sample', () => {
+    it('keeps its height when added again without a terrain sample', () => {
       init();
       service.addBaseMarker();
       fake.terrain.fallback = null;
 
-      // addBaseMarker removes the old marker first, so there is no current
-      // height to keep: the marker drops to MARKER_FLOAT_HEIGHT (absolute).
+      // Until 2026-09-13 addBaseMarker removed the old marker before reading
+      // its height, so the marker dropped to MARKER_FLOAT_HEIGHT (absolute).
+      service.addBaseMarker();
+
+      expect(labels().get('hq')!.position.y).toBe(hqLabelY(100));
+    });
+
+    it('sits at the bare float height when first added without a terrain sample', () => {
+      init();
+      fake.terrain.fallback = null;
+
+      // Nothing to keep yet; updateMarkerHeights corrects it once tiles load
       service.addBaseMarker();
 
       expect(labels().get('hq')!.position.y).toBe(MARKER_FLOAT_HEIGHT + MARKER_LABEL_OFFSET);
