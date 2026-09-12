@@ -23,7 +23,7 @@ import {
 } from '../../utils/route-corridor';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
-import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+import { extendPathToOptimalTurnoff, leavePathForBase, subdivideGeoPath } from '../../utils/route-geometry';
 import { UIStore } from '../../store/ui.store';
 import { PathfindingWorkerService } from '../location/pathfinding-worker.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
@@ -526,57 +526,15 @@ export class PathAndRouteService {
     let geoPath = path.map((n) => ({ lat: n.lat, lon: n.lon }));
 
     // Extend the path along the street to find the optimal turn-off point
-    geoPath = this.extendPathToOptimalTurnoff(geoPath, this.baseCoords);
+    geoPath = extendPathToOptimalTurnoff(geoPath, this.baseCoords, this.streetNetwork.streets, this.pathfindingService);
 
-    // Find the closest point to HQ on the path
-    let closestSegmentIndex = geoPath.length - 2;
-    let closestPointOnSegment: { lat: number; lon: number } | null = null;
-    let closestDist = Infinity;
-
-    for (let i = 0; i < geoPath.length - 1; i++) {
-      const a = geoPath[i];
-      const b = geoPath[i + 1];
-
-      const closest = this.closestPointOnSegment(a, b, {
-        lat: this.baseCoords.lat,
-        lon: this.baseCoords.lon,
-      });
-      const dist = this.pathfindingService.haversineDistance(
-        closest.lat,
-        closest.lon,
-        this.baseCoords.lat,
-        this.baseCoords.lon
-      );
-
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestSegmentIndex = i;
-        closestPointOnSegment = closest;
-      }
-    }
-
-    // Cut path at the segment and insert the closest point
-    geoPath = geoPath.slice(0, closestSegmentIndex + 1);
-    if (closestPointOnSegment) {
-      const lastPoint = geoPath[geoPath.length - 1];
-      const distToLast = this.pathfindingService.haversineDistance(
-        closestPointOnSegment.lat,
-        closestPointOnSegment.lon,
-        lastPoint.lat,
-        lastPoint.lon
-      );
-      if (distToLast > 1) {
-        geoPath.push(closestPointOnSegment);
-      }
-    }
-
-    // Add HQ as final destination
-    geoPath.push({ lat: this.baseCoords.lat, lon: this.baseCoords.lon });
+    // Cut it where it passes closest to the HQ and end it at the HQ
+    geoPath = leavePathForBase(geoPath, this.baseCoords, this.pathfindingService);
 
     // DevWorld: Subdivide long segments for smooth terrain following on steep hills
     // Real World: Use original path directly (Google Maps terrain is smoother)
     if (this.devWorld.isActive) {
-      geoPath = this.subdivideGeoPath(geoPath, 2);
+      geoPath = subdivideGeoPath(geoPath, 2);
     }
 
     // Corridor half width per segment and side, from the free space the
@@ -1053,144 +1011,6 @@ export class PathAndRouteService {
   }
 
   // ========================================
-  // PATH OPTIMIZATION
-  // ========================================
-
-  /**
-   * Find closest point on a line segment to a target point
-   * @param a Segment start
-   * @param b Segment end
-   * @param target Target point
-   * @returns Closest point on segment
-   */
-  private closestPointOnSegment(
-    a: { lat: number; lon: number },
-    b: { lat: number; lon: number },
-    target: { lat: number; lon: number }
-  ): { lat: number; lon: number } {
-    // Project in metre-proportional units: a degree of longitude is only
-    // cos(lat) as long as a degree of latitude. Unscaled, the foot point
-    // slides along the street (~6 m on a diagonal street at 48° N) and the
-    // last leg to the HQ runs at a slant instead of straight across.
-    const lonScale = Math.cos(((a.lat + b.lat) * 0.5) * DEG_TO_RAD);
-    const dLon = b.lon - a.lon;
-    const dLat = b.lat - a.lat;
-    const dx = dLon * lonScale;
-    const lengthSquared = dx * dx + dLat * dLat;
-
-    if (lengthSquared === 0) {
-      return { lat: a.lat, lon: a.lon };
-    }
-
-    // Project target onto the line, clamped to segment
-    const t = Math.max(0, Math.min(1, ((target.lon - a.lon) * lonScale * dx + (target.lat - a.lat) * dLat) / lengthSquared));
-
-    return {
-      lat: a.lat + t * dLat,
-      lon: a.lon + t * dLon,
-    };
-  }
-
-  /**
-   * Extend path along streets to find optimal 90° turn-off point to HQ
-   * @param geoPath Current path
-   * @param base Base coordinates (GeoPosition with lat/lon)
-   * @returns Extended path
-   */
-  private extendPathToOptimalTurnoff(
-    geoPath: { lat: number; lon: number }[],
-    base: GeoPosition
-  ): { lat: number; lon: number }[] {
-    if (!this.streetNetwork || !this.pathfindingService || geoPath.length < 2) return geoPath;
-
-    const lastPoint = geoPath[geoPath.length - 1];
-
-    // Find streets that contain a node near the last point
-    const TOLERANCE = 0.00001; // ~1m tolerance
-    const matchingStreets: { street: Street; nodeIndex: number }[] = [];
-
-    for (const street of this.streetNetwork.streets) {
-      for (let i = 0; i < street.nodes.length; i++) {
-        const node = street.nodes[i];
-        if (Math.abs(node.lat - lastPoint.lat) < TOLERANCE && Math.abs(node.lon - lastPoint.lon) < TOLERANCE) {
-          matchingStreets.push({ street, nodeIndex: i });
-        }
-      }
-    }
-
-    if (matchingStreets.length === 0) return geoPath;
-
-    // Find best extension
-    let bestExtension: { lat: number; lon: number }[] = [];
-    let bestClosestDist = this.pathfindingService.haversineDistance(
-      lastPoint.lat,
-      lastPoint.lon,
-      base.lat,
-      base.lon
-    );
-
-    for (const { street, nodeIndex } of matchingStreets) {
-      // Try extending in both directions
-      for (const direction of [-1, 1]) {
-        const extension: { lat: number; lon: number }[] = [];
-        let idx = nodeIndex + direction;
-        let foundBetterPoint = false;
-
-        // Extend up to 20 nodes in this direction
-        while (idx >= 0 && idx < street.nodes.length && extension.length < 20) {
-          const node = street.nodes[idx];
-
-          const distToHQ = this.pathfindingService.haversineDistance(node.lat, node.lon, base.lat, base.lon);
-
-          const prevPoint = extension.length > 0 ? extension[extension.length - 1] : lastPoint;
-          const closestOnSeg = this.closestPointOnSegment(
-            prevPoint,
-            { lat: node.lat, lon: node.lon },
-            { lat: base.lat, lon: base.lon }
-          );
-          const segDistToHQ = this.pathfindingService.haversineDistance(
-            closestOnSeg.lat,
-            closestOnSeg.lon,
-            base.lat,
-            base.lon
-          );
-
-          if (segDistToHQ < bestClosestDist || distToHQ < bestClosestDist) {
-            foundBetterPoint = true;
-            extension.push({ lat: node.lat, lon: node.lon });
-            idx += direction;
-          } else {
-            break;
-          }
-        }
-
-        if (foundBetterPoint && extension.length > 0) {
-          let minDist = bestClosestDist;
-          for (let i = 0; i < extension.length; i++) {
-            const prev = i === 0 ? lastPoint : extension[i - 1];
-            const curr = extension[i];
-            const closest = this.closestPointOnSegment(prev, curr, {
-              lat: base.lat,
-              lon: base.lon,
-            });
-            const dist = this.pathfindingService.haversineDistance(closest.lat, closest.lon, base.lat, base.lon);
-            if (dist < minDist) {
-              minDist = dist;
-            }
-          }
-
-          if (minDist < bestClosestDist) {
-            bestClosestDist = minDist;
-            bestExtension = extension;
-          }
-        }
-      }
-    }
-
-    return [...geoPath, ...bestExtension];
-  }
-
-  // ========================================
   // DIAGNOSTICS
   // ========================================
 
@@ -1309,57 +1129,6 @@ export class PathAndRouteService {
     this.routesVisible = null;
     this.pathfindingService = null;
     this.onRouteBuilt = null;
-  }
-
-  /**
-   * Subdivide a geo path so no segment is longer than maxLength meters.
-   * This ensures smooth terrain following on hilly terrain.
-   *
-   * @param path Original geo path
-   * @param maxLength Maximum segment length in meters
-   * @returns Subdivided path with more points
-   */
-  private subdivideGeoPath(
-    path: { lat: number; lon: number }[],
-    maxLength: number
-  ): { lat: number; lon: number }[] {
-    if (path.length < 2) return path;
-
-    const METERS_PER_DEGREE = METERS_PER_DEGREE_LAT;
-    const result: { lat: number; lon: number }[] = [];
-
-    for (let i = 0; i < path.length - 1; i++) {
-      const a = path[i];
-      const b = path[i + 1];
-
-      // Calculate distance
-      const dLat = b.lat - a.lat;
-      const dLon = b.lon - a.lon;
-      const avgLat = (a.lat + b.lat) / 2;
-      const dx = dLon * METERS_PER_DEGREE * Math.cos(avgLat * Math.PI / 180);
-      const dy = dLat * METERS_PER_DEGREE;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      // Always add start point
-      result.push(a);
-
-      // Add intermediate points if segment is too long
-      if (distance > maxLength) {
-        const numSegments = Math.ceil(distance / maxLength);
-        for (let j = 1; j < numSegments; j++) {
-          const t = j / numSegments;
-          result.push({
-            lat: a.lat + t * dLat,
-            lon: a.lon + t * dLon,
-          });
-        }
-      }
-    }
-
-    // Add final point
-    result.push(path[path.length - 1]);
-
-    return result;
   }
 }
 
