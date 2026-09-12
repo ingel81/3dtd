@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { Color, Matrix4, Scene, Texture, Vector3 } from 'three';
+import { Color, Matrix4, Points, Scene, Texture, Vector3 } from 'three';
 import type { DecalInstanceManager } from './decal-instance.manager';
 import { EXPLOSION_LOOK } from '../../configs/visual-effects.config';
 import { ParticlePoolManager, atlasSpriteFrame, atlasSpriteSize, type Particle } from './particle-pool-manager';
@@ -87,6 +87,28 @@ describe('ParticleEffectsRenderer explosion', () => {
     // Frame steps of 16 ms, like update() gets them
     for (let t = 0; t < EXPLOSION_LOOK.smoke.delayMax + 0.02; t += 0.016) effects.update(0.016, 0);
     for (const p of alive('trailNormal')) expect(atlasSpriteSize(p)).toBeGreaterThan(0);
+  });
+
+  it('leaves waiting smoke out of the draw range, but keeps it ageing', () => {
+    // Drawn at size 0, some GPUs raster the puff as a 1 px point
+    const { pools, effects, alive } = setup();
+    const points = (pools as unknown as { trailParticlesNormal: Points }).trailParticlesNormal;
+    effects.spawnExplosion(0, 10, 0, 0, EXPLOSION_LOOK.referenceRadius, 3);
+
+    pools.updateBuffers();
+    expect(alive('trailNormal')).toHaveLength(3);
+    expect(points.geometry.drawRange.count).toBe(0);
+    expect(points.visible).toBe(false); // the draw gate hides the empty pool
+    expect(pools.isPoolActive('trailNormal')).toBe(true);
+
+    for (let t = 0; t < EXPLOSION_LOOK.smoke.delayMax + 0.02; t += 0.016) {
+      effects.update(0.016, 0);
+      pools.updateBuffers();
+    }
+    expect(points.geometry.drawRange.count).toBe(3);
+    expect(points.visible).toBe(true);
+    const sizes = points.geometry.getAttribute('size').array;
+    for (let i = 0; i < 3; i++) expect(sizes[i]).toBeGreaterThan(0);
   });
 
   it('scales speed and sprite size with the blast radius', () => {

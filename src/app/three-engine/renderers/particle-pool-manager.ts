@@ -50,8 +50,10 @@ export interface Particle {
 /**
  * Rendered size of a sprite-sheet particle: `size` scaled from `sizeStart`
  * at birth to `sizeEnd` at death. A `life` above 1 is a spawn delay still
- * running (life counts down from 1 + delay / maxLife); the particle is
- * drawn at size 0 until it reaches 1.
+ * running (life counts down from 1 + delay / maxLife); the size is 0 until
+ * it reaches 1. updateBuffers leaves such a particle out of the draw range
+ * rather than drawing it at size 0: some GPUs raster gl_PointSize 0 as a
+ * 1 px point, which showed as a dot where the smoke was about to appear.
  */
 export function atlasSpriteSize(p: Particle): number {
   const progress = 1 - p.life;
@@ -532,25 +534,33 @@ export class ParticlePoolManager {
       const colorArray = colors.array as Float32Array;
       const frameArray = frameIndices.array as Float32Array;
 
+      // Live particles keep the pool updating; drawn ones fill the buffers
       let activeCount = 0;
+      let drawCount = 0;
       for (let i = 0; i < this.trailPoolAdditive.length; i++) {
         const p = this.trailPoolAdditive[i];
         if (p.life > 0) {
-          const idx3 = activeCount * 3;
+          activeCount++;
+          let size: number;
+          let frame: number;
+          if (p.totalFrames > 0) {
+            size = atlasSpriteSize(p);
+            if (size <= 0) continue; // spawn delay running, see atlasSpriteSize
+            frame = atlasSpriteFrame(p);
+          } else {
+            size = p.size * p.life;
+            frame = -1;
+          }
+          const idx3 = drawCount * 3;
           posArray[idx3] = p.position.x;
           posArray[idx3 + 1] = p.position.y;
           posArray[idx3 + 2] = p.position.z;
           colorArray[idx3] = p.color.r;
           colorArray[idx3 + 1] = p.color.g;
           colorArray[idx3 + 2] = p.color.b;
-          if (p.totalFrames > 0) {
-            sizeArray[activeCount] = atlasSpriteSize(p);
-            frameArray[activeCount] = atlasSpriteFrame(p);
-          } else {
-            sizeArray[activeCount] = p.size * p.life;
-            frameArray[activeCount] = -1;
-          }
-          activeCount++;
+          sizeArray[drawCount] = size;
+          frameArray[drawCount] = frame;
+          drawCount++;
         } else {
           this.returnToFreeList(i, 'trailAdditive');
         }
@@ -563,8 +573,8 @@ export class ParticlePoolManager {
         colors.needsUpdate = true;
         frameIndices.needsUpdate = true;
       }
-      this.trailParticlesAdditive!.geometry.setDrawRange(0, activeCount);
-      this.gateAdditive.setCount(activeCount);
+      this.trailParticlesAdditive!.geometry.setDrawRange(0, drawCount);
+      this.gateAdditive.setCount(drawCount);
       this._prevActiveCountAdditive = activeCount;
       this._poolDirtyAdditive = false;
     }
@@ -578,24 +588,31 @@ export class ParticlePoolManager {
       const frameArray = frameIndices.array as Float32Array;
 
       let activeCount = 0;
+      let drawCount = 0;
       for (let i = 0; i < this.trailPoolNormal.length; i++) {
         const p = this.trailPoolNormal[i];
         if (p.life > 0) {
-          const idx3 = activeCount * 3;
+          activeCount++;
+          let size: number;
+          let frame: number;
+          if (p.totalFrames > 0) {
+            size = atlasSpriteSize(p);
+            if (size <= 0) continue; // spawn delay running, see atlasSpriteSize
+            frame = atlasSpriteFrame(p);
+          } else {
+            size = p.size * p.life;
+            frame = -1;
+          }
+          const idx3 = drawCount * 3;
           posArray[idx3] = p.position.x;
           posArray[idx3 + 1] = p.position.y;
           posArray[idx3 + 2] = p.position.z;
           colorArray[idx3] = p.color.r;
           colorArray[idx3 + 1] = p.color.g;
           colorArray[idx3 + 2] = p.color.b;
-          if (p.totalFrames > 0) {
-            sizeArray[activeCount] = atlasSpriteSize(p);
-            frameArray[activeCount] = atlasSpriteFrame(p);
-          } else {
-            sizeArray[activeCount] = p.size * p.life;
-            frameArray[activeCount] = -1;
-          }
-          activeCount++;
+          sizeArray[drawCount] = size;
+          frameArray[drawCount] = frame;
+          drawCount++;
         } else {
           this.returnToFreeList(i, 'trailNormal');
         }
@@ -607,8 +624,8 @@ export class ParticlePoolManager {
         colors.needsUpdate = true;
         frameIndices.needsUpdate = true;
       }
-      this.trailParticlesNormal!.geometry.setDrawRange(0, activeCount);
-      this.gateNormal.setCount(activeCount);
+      this.trailParticlesNormal!.geometry.setDrawRange(0, drawCount);
+      this.gateNormal.setCount(drawCount);
       this._prevActiveCountNormal = activeCount;
       this._poolDirtyNormal = false;
     }
