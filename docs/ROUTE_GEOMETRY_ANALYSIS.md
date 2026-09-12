@@ -47,8 +47,8 @@ Zellen folgen der Linie.
 | Route bauen | `path-route.service.ts:358` | lat/lon unverändert kopiert; `extendPathToOptimalTurnoff` (`:373`) hängt weitere Knoten desselben Ways an; Schnitt am HQ-nächsten Punkt (`:403`); HQ als letzter Punkt (`:418`). DevWorld unterteilt nur, Real World gar nicht |
 | Höhen je Waypoint | `path-route.service.ts:456` | Zellhöhe an jedem Waypoint, ergibt `cachedPaths` |
 | Rote Linie | `path-route.service.ts` (Line2) | Genau die Punkte aus `cachedPaths`; die Route-Animation nutzt über `routePathToLocalPoints` dieselben |
-| Gegner | `movement.component.ts:383-415`, `enemy.manager.ts:179` | Lineare Interpolation zwischen Waypoints, dazu ein fester seitlicher Versatz pro Gegner, zufällig bis `lateralOffset` (Zombie 3,0 m, `enemy-types.config.ts:124`). Höhe pro Frame aus der Zelle an der Gegnerposition (`global-route-grid.ts:1447`) |
-| Zellen | `global-route-grid.ts:707`, `:759` | Alle höchstens 2 m ein Stützpunkt auf jedem Routensegment, darum ein Kreis mit `CORRIDOR_WIDTH = 7` m Radius (`:377`) |
+| Gegner | `movement.component.ts:383-415`, `enemy.manager.ts:179` | Lineare Interpolation zwischen Waypoints, dazu ein fester seitlicher Versatz pro Gegner, zufällig bis `lateralOffset` (Zombie 3,0 m, `enemy-types.config.ts:124`). Höhe pro Frame aus der Zelle an der Gegnerposition (`global-route-grid.ts:1447`). Stand 2026-09-11, seit 2026-09-12 nach Korridorbreite, siehe unten |
+| Zellen | `global-route-grid.ts:707`, `:759` | Alle höchstens 2 m ein Stützpunkt auf jedem Routensegment, darum ein Kreis mit `CORRIDOR_WIDTH = 7` m Radius (`:377`). Stand 2026-09-11, seit 2026-09-12 nach Korridorbreite, siehe unten |
 | Zellhöhe | `column-sample.ts:59` | Unterster Treffer der feinsten LOD in der Säule |
 | Gelbes Overlay | `street-rendering.service.ts:159-167`, `:216`, `:271` | Dieselben Knoten der gefilterten Ways. Höhe aus `getGroundHeightEstimate` (`three-tiles-engine.ts:1263`: Mitte und je 3 m und 6 m quer; liegt die Mitte mehr als 3 m über dem Minimum, gilt das Minimum), danach `smoothPathHeights` (Fenster-Minimum, Hindernisschwelle 5 m, Steigungsgrenze, Gauß) |
 
@@ -145,12 +145,27 @@ muss mit.
 | Schritt | Wo | Was |
 |---|---|---|
 | Breite pro Way | `utils/route-corridor.ts` (`estimateStreetWidth`) | `width`-Tag, sonst `lanes` × 3 m + 1 m, sonst Tabelle nach `highway` (`primary` 8 m, `secondary` 7 m, `tertiary` 6,5 m, `residential` 5,5 m, `living_street` 4,5 m, `service` 3,5 m, `footway`/`path`/`cycleway`/`steps` 2 m, ...). `H = clamp(Breite / 2, 2 m, 7 m)`. Quelle wird mitgeführt (`width`, `lanes`, `highway`) |
-| Routenbau | `path-route.service.ts` (`buildRouteFromPath`) | Jedes Segment wird seinem Way zugeordnet (exakter Kantenschlüssel, sonst geometrisch: Abzweig zum HQ, DevWorld). `corridorHalfWidth` steht am Waypoint und gilt für das Segment ab dort (`RouteWaypoint`). Das HQ-Endstück übernimmt die Breite des Ways, von dem es abzweigt |
-| Tile-Messung | `path-route.service.ts`, `three-tiles-engine.ts` | Einmal pro Ortsladung, wenn die Korridor-Tiles stehen, nicht pro Frame: alle 2 m waagrechte Strahlen quer zur Route, 2 m über Grund, beide Seiten, bis 7 m. Freiraum = näherer Treffer. Einbrüche unter etwa 4 m Länge (Laternen, Schilder) werden weggefiltert. `H = clamp(min(H aus OSM, Freiraum), 2 m, 7 m)`, Segmente werden geteilt, wo sich der Wert ändert. Danach Routen und Grid neu gebaut. Log `[Corridor]` mit Strahlen und Zeit |
+| Routenbau | `path-route.service.ts` (`buildRouteFromPath`), `utils/route-ways.ts` | Jedes Segment wird seinem Way zugeordnet (`StreetEdgeIndex`: exakter Kantenschlüssel, sonst geometrisch für den Abzweig zum HQ, geteilte Segmente und DevWorld). `corridorHalfWidth` und `onBridge` stehen am Waypoint und gelten für das Segment ab dort (`RouteWaypoint`). Das HQ-Endstück übernimmt die Breite des Ways, von dem es abzweigt. DevWorld gibt die gezeichnete Straßenbreite als `width` weiter (`primary` 8 m, `secondary` 7 m, `residential` 5 m) |
+| Tile-Messung | `path-route.service.ts` (`measureStreetClearance`), `three-tiles-engine.ts`, `visualization-facade.service.ts` (`fitCorridorsToTiles`) | Einmal pro Ortsladung, nachdem die Overlay-Höhen stehen, und nur solange kein Tower steht und kein Gegner läuft; nie pro Frame. Alle 2 m ein waagrechter Strahl zu jeder Seite, 2 m über Grund (auf Brücken über dem Deck), so weit wie die Straßen-Halbbreite. Es zählen nur Tiles mit höchstens 5 m geometricError (die Verfeinerung des Korridors). Freiraum = näherer Treffer. Einbrüche kürzer als drei Stationen (Laternen, Schilder) werden geschlossen, der Rest auf 0,5 m abgerundet. `H = min(H aus OSM, Freiraum)`, nie unter 2 m; Segmente werden geteilt, wo sich der Wert ändert. Ist etwas schmaler geworden, werden Routen, Grid und rote Linie neu gebaut. Log `[Corridor] clearance: segments= stations= unmeasured= rays= narrowed= in ms`. DevWorld misst nicht |
 | Zellen | `global-route-grid.ts` (`generateFromRoutes`) | Eine Zelle gehört zum Korridor, wenn ihr Mittelpunkt höchstens `H` vom Segment entfernt ist. Mittelpunkte liegen damit auf der Straße, quer liegen mindestens 2 Zellen |
 | Gegner | `movement.component.ts`, `enemy.manager.ts` | Versatz = Faktor × lokale Grenze. Faktor = Zufall in [-1, 1] × `lateralSpread` des Typs (Anteil, ersetzt `lateralOffset` in Metern). Grenze = `H - 1,5 m`: die halbe Zelldiagonale ist 1,41 m, die Zelle unter dem Gegner hat ihren Mittelpunkt also sicher innerhalb `H`. Die Grenze ändert sich entlang der Route höchstens um 0,5 m pro Meter, Gegner rücken vor einer Engstelle sanft ein. Grenze pro Segment und Waypoint einmal pro Route vorberechnet, im Sub-Step nur Index und drei Vergleiche |
-| Brücken | `global-route-grid.ts`, `route-cell-sampler.ts` | Segmente über einen Way mit `bridge=*` markieren ihre Zellen als Deck, Deck-Zellen nehmen `topY` statt `groundY`. Beansprucht auch ein Segment ohne Brücke die Zelle, bleibt sie am Boden |
-| Diagnose | `__routes.describe()` | Pro Abschnitt Straßenbreite, Quelle und die tatsächliche Korridorbreite (bei Messung als Spanne) |
+| Brücken | `global-route-grid.ts`, `route-cell-sampler.ts` | Segmente über einen Way mit `bridge=*` markieren ihre Zellen als Deck (`RouteCell.surface`), Deck-Zellen nehmen `topY` statt `groundY`. Beansprucht auch ein Segment ohne Brücke die Zelle, bleibt sie am Boden. Die Fläche steht fest, bevor die Zelle zum ersten Mal gesampelt wird |
+| Diagnose | `__routes.describe()`, `__rg.dumpCellsInBox()` | Pro Abschnitt `widthM` (Straßenbreite), `widthSource` (`width`, `lanes`, `highway`, `inherited` für das HQ-Endstück) und `corridorM` (tatsächliche Korridorbreite, nach der Messung als Spanne wie `5.0-12.0`). Pro Zelle `surface` |
+
+**Grenzen, im Spiel noch nicht geprüft:**
+
+- Die Tile-Messung läuft einmal pro Ortsladung. Tiles, die danach feiner
+  werden, ändern die Breite nicht mehr. Stationen ohne feines Tile behalten
+  die OSM-Breite und stehen im Log als `unmeasured`.
+- Ein Spawn-Wechsel über den schnellen Pfad (`LocationFacadeService`, ohne
+  Neuladen des Orts) misst die neue Route nicht, sie läuft mit OSM-Breiten.
+- Die Messung ist symmetrisch (der nähere Treffer zählt für beide Seiten).
+  Liegt die OSM-Mittellinie neben der Straße der Photogrammetrie, wird der
+  Korridor schmaler, aber nicht verschoben.
+- Brücken mit Tragwerk über dem Deck (Bogen, Fachwerk) oder mit Autos und
+  Bäumen darauf: `topY` ist dann deren Oberkante.
+- Kreuzen sich zwei Routen auf verschiedenen Ebenen, gilt in den gemeinsamen
+  Zellen der Boden, die Gegner auf der Brücke sacken dort ab.
 
 **Höhenmodell (zu Fall B).** Der direktere Hebel wäre, Zellhöhen gegen die
 Mittellinie zu prüfen: Liegt eine Zelle deutlich über dem seitlichen Minimum
@@ -167,12 +182,12 @@ Konstante gibt es nicht mehr.
 liefert sie. Seit Commit `62165c6` stehen `bridge`, `tunnel`, `covered` und
 `layer` am `Street`, noch ohne Wirkung. Was damit zu tun wäre:
 
-- Brücke: `selectColumnSample` nimmt den untersten Treffer. Unter einer
-  Brücke ist das der Grund darunter (Fluss, Straße), Zellen und Gegner einer
-  Brückenroute laufen also unten. Für Brückensegmente bräuchte die Zelle
-  `topY` statt `groundY`. Die im Backlog genannte Idee "bridge: Korrektur
-  überspringen" hilft nicht: Schon die Probe in der Mitte liefert den Grund
-  unter der Brücke.
+- Brücke (umgesetzt, siehe Korridor oben): `selectColumnSample` nimmt den
+  untersten Treffer. Unter einer Brücke ist das der Grund darunter (Fluss,
+  Straße), Zellen und Gegner einer Brückenroute liefen also unten. Zellen von
+  Brückensegmenten nehmen jetzt `topY` statt `groundY`. Die im Backlog
+  genannte Idee "bridge: Korrektur überspringen" hätte nicht geholfen: Schon
+  die Probe in der Mitte liefert den Grund unter der Brücke.
 - Tunnel und Durchgang: Die Probe von oben liefert die Oberfläche darüber.
   Möglich wären ein höheres Routing-Gewicht oder Höhen, die zwischen den
   Portalen linear interpoliert werden.
@@ -194,13 +209,23 @@ Probe nach Fall B genau die Information ist, die den Zellen fehlt.
 | `4ad010a` | fix(route): leave the street at the point really closest to the HQ |
 | `03ffd7b` | feat(osm): keep width, lanes, bridge, tunnel, covered and layer on streets |
 | `aa121aa` | feat(debug): __routes.describe() shows the ways and the height gap of a route |
+| `4e2c8bc` | feat(route): estimate the corridor width per street |
+| `b999445` | feat(route): cached routes carry the corridor half width per segment |
+| `6862e1d` | feat(route-grid): the cell corridor follows the street width |
+| `f642fab` | feat(enemy): lateral offset follows the local corridor width |
+| `3bd8fed` | feat(route): narrow the corridor where the tiles show facades or trees |
+| `9434e2a` | feat(route-grid): cells on a bridge take the deck, not the ground below |
 
 ## Offene Punkte
 
 - Ort des Befunds unbekannt, mit `__routes.describe()` klären.
 - Entscheidung zum Höhenmodell der Zellen (Anker gegen die Mittellinie oder nicht).
-- Korridor und Versatz nach Straßenbreite (Entwurf oben).
-- HQ-Endstück läuft gerade durch Gebäude, bis 150 m.
+- Korridor und Versatz nach Straßenbreite: umgesetzt, im Spiel nicht geprüft
+  (Grenzen im Abschnitt Korridor).
+- Tunnel und Durchgänge: Zellen nehmen weiter die Oberfläche darüber.
+- HQ-Endstück läuft gerade durch Gebäude, bis 150 m. Es hat jetzt die Breite
+  der Straße, von der es abzweigt, und die Tile-Messung verengt es dort, wo
+  Gebäude stehen.
 - Beobachtet, nicht untersucht: Auf einem Playtest-Screenshot (Hongkong,
   Victoria Park Road) läuft die rote Linie am HQ vorbei und wieder zurück.
   Kandidat ist `extendPathToOptimalTurnoff` an einer zweibahnigen Straße.
