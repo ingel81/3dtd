@@ -10,17 +10,6 @@
 
 import type { DecisionExplanation } from '../decision-explainer';
 
-/**
- * Known enemy type IDs in the game.
- * Keep in sync with ENEMY_TYPES in configs/enemy-types.config.ts
- */
-export type KnownEnemyTypeId =
-  | 'zombie' | 'zombie-v2' | 'rat' | 'penguin'
-  | 'wallsmasher' | 'bat' | 'hornet' | 'spider'
-  | 'zombie-soldier' | 'tank' | 'bear' | 'dragon' | 'mech'
-  | 'mammoth' | 'herbert'
-  | 'ghost' | 'wraith';
-
 export type { SpawnPattern } from '../spawn-schedule-builder';
 
 /**
