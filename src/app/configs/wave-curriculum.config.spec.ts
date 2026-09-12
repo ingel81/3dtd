@@ -309,6 +309,16 @@ describe('wave-curriculum.config', () => {
       });
     });
 
+    it('every profile spawns only enemy types of its curriculum template', () => {
+      for (const p of STATIC_WAVE_PROFILES) {
+        const template = templateObjectForWave(p.wave)!;
+        const types = template.enemies.map(([id]) => id);
+        for (const g of p.groups) {
+          expect(types, `W${p.wave} ${template.id}`).toContain(g.enemyType);
+        }
+      }
+    });
+
     it('boss waves (W10/W20/W30) carry herbert + support groups', () => {
       for (const waveNum of [10, 20, 30]) {
         const p = STATIC_WAVE_PROFILES[waveNum - 1];

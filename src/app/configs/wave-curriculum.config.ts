@@ -273,7 +273,9 @@ export const STATIC_WAVE_PROFILES: readonly StaticWaveProfile[] = [
     { enemyType: 'mammoth', count:  4, hpMult: 1.8 },
     { enemyType: 'ghost',   count: 12, hpMult: 1.5 },
   ], spawnDelayMs: 400, pattern: 'interleaved' },
-  { wave: 19, groups: [{ enemyType: 'rat',     count: 500, hpMult: 2.0 }], spawnDelayMs:   50 },     // mega-swarm
+  // W19 mirrors template `skeleton_swarm`: the rat wave it replaced (500 rats
+  // × 5 HP × 2.0), same count, HP per enemy and pacing; skeletons walk 6 m/s, rats 10
+  { wave: 19, groups: [{ enemyType: 'skeleton', count: 500, hpMult: 0.5 }], spawnDelayMs:   50 },     // mega-swarm
   // ── Late game (W20-W30): pressure phase, boss spikes ─────────────────
   // W20 BOSS 2 — Herbert with bigger support
   { wave: 20, groups: [
