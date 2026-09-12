@@ -194,7 +194,7 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets |
 | **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): Pause-Button und ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft. Pausiert zeigt der Pause-Button das Play-Icon eingelassen in `--td-gold-light` mit `--td-gold-dark`-Rand, darunter ein Glas-Chip "PAUSED" (10px Mono-Versalien). In derselben Spalte (`.td-hud-top`) darunter die Boss-Leiste, siehe [Boss-Leiste](#boss-leiste) |
 | **Kompass** | Oben rechts, Klick setzt die Kamera zurück |
-| **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move, H: Shortcuts), verschwindet nach 15 s oder per Klick |
+| **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move, H: Shortcuts), verschwindet nach 15 s oder per Klick. Solange ein [First-Run-Tipp](#first-run-tipps) steht, bleibt er weg: der erste Tipp trägt dieselben Tasten |
 | **Quick Actions** | Sechs Icon-Buttons unten rechts, siehe unten |
 
 ### Quick Actions und Dev-Menü
@@ -473,6 +473,8 @@ Verwendung:
 />
 ```
 
+Optional: `title` (mit `counter` rechts daneben), `message` darunter, `actions` als Textbuttons unten (Output `actionClicked` mit der Id). Mit Actions nimmt die Box Klicks an (`pointer-events: auto`), sonst lässt sie sie durch. Das Spiel zeigt immer nur eine Box: Build-Modus vor Platzierungsmodus vor Zielmodus einer Fähigkeit vor First-Run-Tipp.
+
 ### Tastenkürzel
 
 Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine Funktion), ausgeführt vom `HotkeyService`, den die Spielkomponente nach dem `InputHandlerService` aufruft. Der `InputHandlerService` behält Kamera (WASD/Pfeile), Build- und Platzierungsmodus (R, Esc) und die Debug-Tasten (T, Shift+P); was er behandelt, ist `defaultPrevented` und für die Hotkeys tabu. Hotkeys ruhen, während getippt wird, ein Dialog offen ist oder das Spiel lädt; Strg/Alt/Meta und gehaltene Tasten (Repeat) lösen nichts aus.
@@ -493,6 +495,16 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Tower abwählen | |
 
 S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, "(K)" im Tooltip des Nuclear-Strike-Knopfs, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint.
+
+### First-Run-Tipps
+
+Vier kurze Tipps beim ersten Spiel in der Context-Hint-Box: Research Center platzieren, Tower bauen, erste Welle starten, Research öffnen. Zustandsmaschine in `services/onboarding/onboarding.ts`, Zustand in `OnboardingService` (localStorage `td_onboarding_v1`).
+
+- Ein Tipp verschwindet, wenn der Spieler tut, was er sagt (Events `tower:placed`, `wave:started`, `tower:selected` auf das Research Center, `research:started`), oder per "Skip"; "Hide tips" beendet alle. Schon erledigte Schritte zählen, bevor ihr Tipp dran ist
+- Kopf "1/4" rechts neben dem Titel; der erste Tipp zeigt die Kamera-Tasten und H (Shortcuts) als Tastenkappen, der Controls Hint wartet so lange
+- Nicht über Ladescreen, Token-Screen, Fehler, Intro-Flug, Game Over und Photo Mode
+- Die Tipp-Box sitzt 56px über der Unterkante statt 20px wie die Build-Hinweise: oberhalb des Bands der Offscreen-Pfeile (26px vom Rand, Chips bis 26px), damit kein Pfeil darunter verschwindet
+- "Tips" links im Sidebar-Footer startet die Tipps von vorn
 
 ### Damage-vs-Armor-Dialog
 

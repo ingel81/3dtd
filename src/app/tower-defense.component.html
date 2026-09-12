@@ -151,8 +151,9 @@
         </div>
       }
 
-      <!-- Controls Hint (auto-hides after 15s, click to dismiss) -->
-      @if (!loading() && !error() && controlsHintVisible()) {
+      <!-- Controls Hint (auto-hides after 15s, click to dismiss). Not while a
+           first-run tip shows: the first tip carries the camera keys. -->
+      @if (!loading() && !error() && controlsHintVisible() && !onboardingTip()) {
         <div class="td-controls-hint"
              (click)="controlsHintVisible.set(false)"
              (keydown.enter)="controlsHintVisible.set(false)"
@@ -204,27 +205,31 @@
         />
       }
 
-      <!-- Build Mode Context Hints -->
+      <!-- Context hint box, one at a time: build mode, map placement, ability
+           targeting, else the first-run tip -->
       @if (buildMode()) {
         <app-context-hint
           [hints]="buildModeHints"
           [warning]="buildModeWarning()"
         />
-      }
-
-      <!-- Placement Mode Context Hints -->
-      @if (mapPlacementMode()) {
+      } @else if (mapPlacementMode()) {
         <app-context-hint
           [hints]="placementModeHints"
           [warning]="placementModeWarning()"
         />
-      }
-
-      <!-- Ability Targeting Context Hints -->
-      @if (abilityTargetingActive()) {
+      } @else if (abilityTargetingActive()) {
         <app-context-hint
           [hints]="abilityTargetingHints"
           [warning]="abilityTargetingWarning()"
+        />
+      } @else if (onboardingTip(); as tip) {
+        <app-context-hint
+          [title]="tip.title"
+          [counter]="tip.index + '/' + tip.total"
+          [message]="tip.text"
+          [hints]="tip.keys"
+          [actions]="onboardingActions"
+          (actionClicked)="onOnboardingAction($event)"
         />
       }
 

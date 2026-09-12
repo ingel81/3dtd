@@ -37,7 +37,7 @@ import {
 } from './components/debug-window/debug-windows';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
-import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
+import { ContextHintComponent, HintAction, HintItem } from './components/context-hint/context-hint.component';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
 import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { LoadingScreenComponent } from './components/loading-screen/loading-screen.component';
@@ -90,6 +90,7 @@ import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.
 import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/offscreen-indicators.component';
 import { RunSummaryComponent } from './components/run-summary/run-summary.component';
 import { PhotoModeService } from './services/photo-mode.service';
+import { OnboardingService } from './services/onboarding/onboarding.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
@@ -336,6 +337,24 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     { key: 'ESC', description: 'Cancel' },
   ];
   readonly abilityTargetingWarning = this.abilityTargeting.warning;
+
+  // First-run tips share the context hint box; build, placement and targeting hints come first
+  private readonly onboarding = inject(OnboardingService);
+  readonly onboardingActions: HintAction[] = [
+    { id: 'skip', label: 'Skip' },
+    { id: 'hide', label: 'Hide tips' },
+  ];
+  /** Tip on screen: only over the running game, not over the intro flight, game over or photo mode */
+  readonly onboardingTip = computed(() => {
+    if (this.loading() || this.error() || this.awaitingCredentials()) return null;
+    if (this.introFlightActive() || this.isGameOver() || this.photoMode.active()) return null;
+    return this.onboarding.tip();
+  });
+
+  onOnboardingAction(id: string): void {
+    if (id === 'skip') this.onboarding.skip();
+    else if (id === 'hide') this.onboarding.hide();
+  }
 
   // Map placement mode (HQ/Spawn)
   readonly mapPlacementMode = computed(() => this.uiStore.mapPlacementMode());
