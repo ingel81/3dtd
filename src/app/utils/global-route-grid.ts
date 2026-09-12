@@ -6,7 +6,7 @@ import { CoordinateSync } from '../three-engine/renderers';
 import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
-import { RouteCell, getAirTargetY } from './route-cell';
+import { RouteCell, TunnelSpan, getAirTargetY } from './route-cell';
 import {
   HeightResetResult,
   RouteCellBox,
@@ -28,6 +28,66 @@ import { logGrid } from './route-grid-log';
 
 /** Numeric ascending order for Array.prototype.sort, hoisted so hot paths allocate no comparator. */
 const ascending = (a: number, b: number): number => a - b;
+
+/**
+ * How far outside a tunnel mouth its portal ground is probed, metres: right
+ * at the mouth a column can land on the overhang above it.
+ */
+const TUNNEL_PORTAL_OFFSET_M = 2;
+
+/**
+ * A segment in a tunnel stretch: the portals of the whole stretch (local x,
+ * z, TUNNEL_PORTAL_OFFSET_M outside the mouths) and the part of the way
+ * from portal a to b the segment covers.
+ */
+interface SegmentTunnel {
+  ax: number;
+  az: number;
+  bx: number;
+  bz: number;
+  from: number;
+  to: number;
+}
+
+/**
+ * The tunnel stretch each segment of `route` lies in (`inTunnel` on its
+ * start waypoint), null outside tunnels. `points` are the route's local
+ * positions.
+ */
+function tunnelSegments(route: readonly RouteWaypoint[], points: readonly { x: number; z: number }[]): (SegmentTunnel | null)[] {
+  const segments = route.length - 1;
+  const result: (SegmentTunnel | null)[] = new Array(segments).fill(null);
+  let i = 0;
+  while (i < segments) {
+    if (!route[i].inTunnel) {
+      i++;
+      continue;
+    }
+    let end = i;
+    while (end + 1 < segments && route[end + 1].inTunnel) end++;
+
+    const lengths: number[] = [];
+    for (let j = i; j <= end; j++) lengths.push(Math.hypot(points[j + 1].x - points[j].x, points[j + 1].z - points[j].z));
+    const inner = lengths.reduce((sum, l) => sum + l, 0);
+    const total = inner + 2 * TUNNEL_PORTAL_OFFSET_M;
+    // Portals moved out along the first and the last segment.
+    const outward = (from: { x: number; z: number }, to: { x: number; z: number }) => {
+      const len = Math.hypot(to.x - from.x, to.z - from.z) || 1;
+      return { x: to.x + ((to.x - from.x) / len) * TUNNEL_PORTAL_OFFSET_M, z: to.z + ((to.z - from.z) / len) * TUNNEL_PORTAL_OFFSET_M };
+    };
+    const a = outward(points[i + 1], points[i]);
+    const b = outward(points[end], points[end + 1]);
+
+    let along = TUNNEL_PORTAL_OFFSET_M;
+    for (let j = i; j <= end; j++) {
+      const from = along / total;
+      along += lengths[j - i];
+      result[j] = { ax: a.x, az: a.z, bx: b.x, bz: b.z, from, to: along / total };
+    }
+    i = end + 1;
+  }
+  return result;
+}
 
 /**
  * GlobalRouteGrid - Unified Cell System for Enemy Tracking and LOS
@@ -242,6 +302,11 @@ export class GlobalRouteGrid {
    * the column, instead of the ground under the bridge. A cell that a
    * segment off the bridge reaches as well stays on the ground: a cell holds
    * one height, and at the ends of a bridge deck and approach agree anyway.
+   *
+   * Cells of a segment in a tunnel or covered passage (`inTunnel`) take their
+   * height between the ground just outside the two mouths of the stretch,
+   * since their own column sees only the hill or the building above. A cell
+   * a tunnel segment reaches is a tunnel cell, whatever else reaches it.
    * @param routes Array of route paths
    */
   generateFromRoutes(routes: RouteWaypoint[][]): void {
@@ -259,12 +324,12 @@ export class GlobalRouteGrid {
     for (const route of routes) {
       if (route.length < 2) continue;
 
-      let start = sync.geoToLocalSimple(route[0].lat, route[0].lon, route[0].height ?? 0);
+      const points = route.map((p) => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
+      const tunnels = tunnelSegments(route, points);
       for (let i = 0; i < route.length - 1; i++) {
-        const endGeo = route[i + 1];
-        const end = sync.geoToLocalSimple(endGeo.lat, endGeo.lon, endGeo.height ?? 0);
-        this.generateSegmentCells(start, end, segmentLeft(route[i]), segmentRight(route[i]), route[i].onBridge === true);
-        start = end;
+        this.generateSegmentCells(
+          points[i], points[i + 1], segmentLeft(route[i]), segmentRight(route[i]), route[i].onBridge === true, tunnels[i],
+        );
       }
     }
 
@@ -281,7 +346,9 @@ export class GlobalRouteGrid {
    * single file of cells, a staircase on a diagonal, in which enemies walk
    * the centre line (lateral limit 0). Local coordinates; y is the smoothed
    * route height, stored on each new cell as its `routeAnchorY` and as
-   * fallback `terrainHeight` until the first sample succeeds.
+   * fallback `terrainHeight` until the first sample succeeds. `tunnel`:
+   * the segment lies in a tunnel, its cells take their height between the
+   * portals, also those another segment reaches as well.
    */
   private generateSegmentCells(
     start: { x: number; y: number; z: number },
@@ -289,6 +356,7 @@ export class GlobalRouteGrid {
     left: number,
     right: number,
     onBridge: boolean,
+    tunnel: SegmentTunnel | null,
   ): void {
     const dx = end.x - start.x;
     const dz = end.z - start.z;
@@ -315,15 +383,27 @@ export class GlobalRouteGrid {
 
         const key = this.intCellKey(gx, gz);
         const existing = this.cells.get(key);
+        const span: TunnelSpan | null = tunnel
+          ? { ax: tunnel.ax, az: tunnel.az, bx: tunnel.bx, bz: tunnel.bz, f: tunnel.from + (tunnel.to - tunnel.from) * t }
+          : null;
         if (existing) {
-          // Ground wins over deck, see generateFromRoutes.
-          if (!onBridge) existing.surface = 'ground';
+          // A cell several segments reach: a tunnel wins, or the cells in its
+          // mouth, reached by the approach first, would sample the hill above
+          // it; otherwise the ground wins over a deck.
+          if (span && existing.surface !== 'tunnel') {
+            existing.surface = 'tunnel';
+            existing.tunnelSpan = span;
+          } else if (!span && !onBridge && existing.surface === 'deck') {
+            existing.surface = 'ground';
+          }
           continue;
         }
         // The centre line's grid spot next to the cell, for the roof check in sampleCellY.
         const axisX = (this.cellIndex(start.x + dx * t) + 0.5) * this.CELL_SIZE;
         const axisZ = (this.cellIndex(start.z + dz * t) + 0.5) * this.CELL_SIZE;
-        this.addCell(key, cx, cz, axisX, axisZ, start.y + (end.y - start.y) * t, onBridge ? 'deck' : 'ground');
+        this.addCell(
+          key, cx, cz, axisX, axisZ, start.y + (end.y - start.y) * t, onBridge ? 'deck' : tunnel ? 'tunnel' : 'ground', span,
+        );
       }
     }
   }
@@ -374,6 +454,7 @@ export class GlobalRouteGrid {
     axisZ: number,
     anchorY: number,
     surface: RouteCell['surface'],
+    tunnelSpan: TunnelSpan | null,
   ): void {
     const cell: RouteCell = {
       key,
@@ -383,6 +464,7 @@ export class GlobalRouteGrid {
       axisZ,
       terrainHeight: anchorY,        // Fallback until sampleCellY succeeds.
       surface,
+      tunnelSpan,
       routeAnchorY: anchorY,
       sample: {
         state: 'unsampled',

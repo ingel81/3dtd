@@ -1,6 +1,6 @@
 import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
-import { isBetterLod } from '../three-engine/column-sample';
-import { RouteCell } from './route-cell';
+import { ColumnSample, isBetterLod } from '../three-engine/column-sample';
+import { RouteCell, TunnelSpan } from './route-cell';
 import { corridorConfig } from './route-corridor';
 import { logGrid } from './route-grid-log';
 
@@ -124,7 +124,9 @@ export class RouteCellSampler {
     this.raycastCount++;
     if (this.columnSampler === null) return false;
 
-    const column = this.columnSampler(cell.x, cell.z);
+    const column = cell.surface === 'tunnel' && cell.tunnelSpan
+      ? this.tunnelColumn(cell.tunnelSpan)
+      : this.columnSampler(cell.x, cell.z);
     if (column === null) {
       logGrid('SAMPLE', `miss key=${cell.key}`);
       return false;
@@ -224,6 +226,26 @@ export class RouteCellSampler {
       `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.y.toFixed(2)} depth=${hit.tileDepth} err=${hit.tileGeometricError.toFixed(2)}${clamped ? ' clamped' : ''}`,
     );
     return true;
+  }
+
+  /**
+   * The column a tunnel cell stands on. Its own column sees only the ground
+   * or roof above the tunnel, so: the ground at the two portals of its
+   * stretch, interpolated along it, with the coarser of the two LODs.
+   * Null until both portals have a tile.
+   */
+  private tunnelColumn(span: TunnelSpan): ColumnSample | null {
+    if (this.columnSampler === null) return null;
+    const a = this.columnSampler(span.ax, span.az);
+    const b = this.columnSampler(span.bx, span.bz);
+    if (a === null || b === null) return null;
+    const y = a.groundY + (b.groundY - a.groundY) * span.f;
+    return {
+      groundY: y,
+      topY: y,
+      tileDepth: Math.min(a.tileDepth, b.tileDepth),
+      tileGeometricError: Math.max(a.tileGeometricError, b.tileGeometricError),
+    };
   }
 
   /**

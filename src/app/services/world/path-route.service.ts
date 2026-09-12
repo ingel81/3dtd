@@ -17,6 +17,7 @@ import {
   fitCorridorStations,
   probeFreeSpace,
   routeHalfWidths,
+  runsUnderCover,
   segmentLeft,
   segmentRight,
 } from '../../utils/route-corridor';
@@ -48,6 +49,8 @@ interface StreetRoute {
   onBridge: boolean[];
   /** The segment runs over a street; the leg to the HQ does not. */
   onStreet: boolean[];
+  /** The segment runs through a tunnel or a covered passage: not measured, its cells between the portals. */
+  inTunnel: boolean[];
 }
 
 /** Key of a directed route segment, for the clearance cache. */
@@ -165,6 +168,8 @@ export interface CorridorExplanation {
   widthSource: string;
   /** False on the leg to the HQ, where the street width is the cap. */
   onStreet: boolean;
+  /** In a tunnel or covered passage: not measured, the street width stays. */
+  inTunnel: boolean;
   /** Why the station has no measurement, null if it has one. */
   unmeasured: string | null;
   /** Geometric error of the tile under the station at the last probe. */
@@ -570,18 +575,20 @@ export class PathAndRouteService {
     // Corridor half width per segment and side, from the free space the
     // tiles showed (measureStreetClearance), the street's width where they
     // could not tell. Cells and enemy spread read it off the cached
-    // waypoints, the cells also whether the segment is on a bridge.
+    // waypoints, the cells also whether the segment is on a bridge or in a
+    // tunnel.
     const ways = this.getEdgeIndex(this.streetNetwork).match(geoPath);
     const streetRoute: StreetRoute = {
       points: geoPath,
       halfWidths: routeHalfWidths(ways),
       onBridge: ways.map((way) => way?.bridge !== undefined),
       onStreet: ways.map((way) => way !== null),
+      inTunnel: ways.map((way) => way !== null && runsUnderCover(way)),
     };
     this.streetRoutes.set(spawn.id, streetRoute);
     const fitted = this.applyClearance(streetRoute);
     geoPath = fitted.points;
-    const { left: leftWidths, right: rightWidths, onBridge } = fitted;
+    const { left: leftWidths, right: rightWidths, onBridge, inTunnel } = fitted;
 
     // Create route line in Three.js - on terrain with RELATIVE heights
     // DevWorld needs higher offset due to steep procedural terrain
@@ -630,6 +637,7 @@ export class PathAndRouteService {
         waypoint.corridorLeft = leftWidths[i];
         waypoint.corridorRight = rightWidths[i];
         if (onBridge[i]) waypoint.onBridge = true;
+        if (inTunnel[i]) waypoint.inTunnel = true;
       }
       pathWithHeights[i] = waypoint;
     }
@@ -670,18 +678,21 @@ export class PathAndRouteService {
    * Split each segment into the pieces the tiles gave it
    * (fitCorridorPieces), with the half width left and right of the
    * direction of travel per piece. Each piece keeps its segment's bridge
-   * flag. Before anything was measured, every segment runs at its street's
-   * half width on both sides.
+   * and tunnel flags. Before anything was measured, every segment runs at
+   * its street's half width on both sides.
    */
-  private applyClearance(route: StreetRoute): { points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[] } {
-    const { points, halfWidths, onBridge } = route;
-    if (this.clearanceBySegment.size === 0) return { points, left: halfWidths, right: halfWidths, onBridge };
+  private applyClearance(
+    route: StreetRoute,
+  ): { points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[] } {
+    const { points, halfWidths, onBridge, inTunnel } = route;
+    if (this.clearanceBySegment.size === 0) return { points, left: halfWidths, right: halfWidths, onBridge, inTunnel };
 
     const fitted = this.fitRoute(route);
     const fittedPoints: LatLon[] = [];
     const left: number[] = [];
     const right: number[] = [];
     const fittedBridges: boolean[] = [];
+    const fittedTunnels: boolean[] = [];
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i];
       const b = points[i + 1];
@@ -690,10 +701,11 @@ export class PathAndRouteService {
         left.push(piece.left);
         right.push(piece.right);
         fittedBridges.push(onBridge[i]);
+        fittedTunnels.push(inTunnel[i]);
       }
     }
     fittedPoints.push(points[points.length - 1]);
-    return { points: fittedPoints, left, right, onBridge: fittedBridges };
+    return { points: fittedPoints, left, right, onBridge: fittedBridges, inTunnel: fittedTunnels };
   }
 
   /** The corridor pieces of each segment of `route`, from what the tiles showed. */
@@ -799,7 +811,9 @@ export class PathAndRouteService {
         smoothedM: station ? round1(station.smoothed) : null,
         halfWidthM: station ? station.halfWidth : route.halfWidths[i],
         inUseM: inUse ? inUse[side] : null,
-        rule: station ? station.rule : 'not measured yet: street width',
+        rule: station ? station.rule
+          : route.inTunnel[i] ? 'tunnel or covered: street width'
+          : 'not measured yet: street width',
       };
     };
 
@@ -839,7 +853,11 @@ export class PathAndRouteService {
       streetWidthM: estimate?.widthM ?? null,
       widthSource: estimate?.source ?? 'inherited',
       onStreet: route.onStreet[i],
-      unmeasured: probe ? probe.unmeasured : measured ? 'no probe (DevWorld)' : 'not measured yet',
+      inTunnel: route.inTunnel[i],
+      unmeasured: route.inTunnel[i] ? 'tunnel or covered: not measured'
+        : probe ? probe.unmeasured
+        : measured ? 'no probe (DevWorld)'
+        : 'not measured yet',
       tileError: probe ? round1(probe.tileError) : null,
       sides: [sideRow('left'), sideRow('right')],
       nearby,
@@ -903,8 +921,11 @@ export class PathAndRouteService {
     const seen = new Set<string>();
     const rayHeights = [corridorConfig.rayHeightLow, corridorConfig.rayHeightHigh];
 
-    for (const { points, onBridge } of this.streetRoutes.values()) {
+    for (const { points, onBridge, inTunnel } of this.streetRoutes.values()) {
       for (let i = 0; i < points.length - 1; i++) {
+        // In a tunnel the rays would hit its walls and the column the ground
+        // above: the street width stays.
+        if (inTunnel[i]) continue;
         const a = points[i];
         const b = points[i + 1];
         const key = segmentKey(a, b);

@@ -24,11 +24,16 @@ const CELL_VIZ_Y_OFFSET_M = 0.05;
  * State of a cell for the overlay contour (`aCellKind`): 0 sampled on the
  * ground, 1 clamped by the roof check, 2 on a bridge deck, 3 without a
  * height sample (the fallback height; a tower's LOS display leaves these
- * out). Plus 4 when the route centre line runs through the cell.
+ * out), 4 in a tunnel or covered passage. Plus 8 when the route centre
+ * line runs through the cell.
  */
 export function overlayCellKind(cell: RouteCell): number {
-  const kind = !cell.heightSampled ? 3 : cell.surface === 'deck' ? 2 : cell.sample.clamped ? 1 : 0;
-  return cell.axisX === cell.x && cell.axisZ === cell.z ? kind + 4 : kind;
+  const kind = !cell.heightSampled ? 3
+    : cell.surface === 'deck' ? 2
+    : cell.surface === 'tunnel' ? 4
+    : cell.sample.clamped ? 1
+    : 0;
+  return cell.axisX === cell.x && cell.axisZ === cell.z ? kind + 8 : kind;
 }
 
 /**
@@ -173,11 +178,11 @@ void main() {
                 (1.0 - ${LOS_VIZ_CONFIG.pulseDepth.toFixed(3)} * 0.5);
   alpha *= pulse;
 
-  // Zellen der Mittellinie etwas kräftiger (kind + 4).
+  // Zellen der Mittellinie etwas kräftiger (kind + 8).
   float kind = floor(vCellKind + 0.5);
-  if (kind > 3.5) {
+  if (kind > 7.5) {
     alpha = min(1.0, alpha + ${o.centreAlphaBoost.toFixed(3)});
-    kind -= 4.0;
+    kind -= 8.0;
   }
 
   // Kontur: Abstand zum Plattenrand in Metern, mindestens 1,5 Pixel.
@@ -186,7 +191,8 @@ void main() {
     color = kind < 0.5 ? ${vec(o.borders.normal)}
           : kind < 1.5 ? ${vec(o.borders.clamped)}
           : kind < 2.5 ? ${vec(o.borders.deck)}
-          : ${vec(o.borders.unsampled)};
+          : kind < 3.5 ? ${vec(o.borders.unsampled)}
+          : ${vec(o.borders.tunnel)};
     alpha = ${o.borderAlpha.toFixed(3)};
   }
 
