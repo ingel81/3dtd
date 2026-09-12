@@ -410,8 +410,9 @@ Decals nutzen Konfigurationen aus `BLOOD_DECAL_CONFIG` / `ICE_DECAL_CONFIG`
    (`atlasSpriteSize`). Bis 2026-09-12 schrumpfte sie wie bei runden Partikeln auf 0
    und halbierte den Feuerball, bevor seine Frames an der Reihe waren.
 2. **Rauch**: `smokePuffs` Sprites aus dem Rauch-Atlas im Normal-Pool, dunkel getönt.
-   Sie warten 0,2 bis 0,35 s (die Lebenszeit startet über 1, `atlasSpriteSize` zeichnet
-   sie bis dahin mit Größe 0), steigen dann auf und wachsen von halber auf volle
+   Sie warten 0,2 bis 0,35 s (die Lebenszeit startet über 1, `atlasSpriteSize` gibt
+   bis dahin Größe 0, und `updateBuffers` lässt sie aus dem Draw-Range, weil manche
+   GPUs `gl_PointSize` 0 als 1-px-Punkt rastern), steigen dann auf und wachsen von halber auf volle
    Größe, während der Atlas sie bis auf Alpha 0 ausblendet. Vorher gab es keinen
    sichtbaren Rauch: die Rauch-Frames des Explosions-Atlas sind dunkel und gehen im
    additiven Pool unter, der Rauch-Atlas war erzeugt, aber ungenutzt.
