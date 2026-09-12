@@ -27,6 +27,8 @@ interface PendingLoad {
 const reg = vi.hoisted(() => ({
   audios: [] as FakeAudioShape[],
   failing: new Set<string>(),
+  /** URLs whose error callback fires inside load(), before it returns. */
+  syncFailing: new Set<string>(),
   manual: false,
   pending: [] as PendingLoad[],
   bufferFor(url: string): FakeBuffer {
@@ -83,7 +85,9 @@ vi.mock('three', async (importOriginal) => {
 
   class FakeAudioLoader {
     load(url: string, onLoad: (b: FakeBuffer) => void, _progress?: unknown, onError?: (e: unknown) => void) {
-      if (reg.failing.has(url)) {
+      if (reg.syncFailing.has(url)) {
+        onError?.(new Error(`bad url ${url}`));
+      } else if (reg.failing.has(url)) {
         // Network errors arrive asynchronously, as with the real loader.
         void Promise.resolve().then(() => onError?.(new Error(`404 ${url}`)));
       } else if (reg.manual) {
@@ -186,6 +190,7 @@ beforeEach(() => {
   Object.assign(BACKGROUND_MUSIC, reg.testConfig());
   reg.audios.length = 0;
   reg.failing.clear();
+  reg.syncFailing.clear();
   reg.manual = false;
   reg.pending.length = 0;
   FakeHtmlAudio.instances = [];
@@ -536,6 +541,29 @@ describe('BackgroundMusicService', () => {
       // Preload and the retry on the phase change both report the file.
       expect(warn).toHaveBeenCalledTimes(2);
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('w1.mp3'), expect.anything());
+    });
+
+    it('plays nothing when the phase change shares a preload that then fails', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      reg.failing.add('w1.mp3');
+      const { playing, waveStarted } = setup();
+
+      await waveStarted(); // the preload of w1 is still in flight
+
+      expect(playing()).toHaveLength(0);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it('loads a track again after the loader reported an error synchronously', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      reg.syncFailing.add('w1.mp3');
+      const { playing, waveStarted } = setup();
+      await flush();
+      reg.syncFailing.clear();
+
+      await waveStarted();
+
+      expect(playing().map((c) => c.buffer?.url)).toEqual(['w1.mp3']);
     });
 
     it('loads every build and wave track once up front', () => {
