@@ -60,6 +60,7 @@ describe('damageTypeIcon', () => {
   it('maps a damage type to its icon and falls back to the sword', () => {
     expect(damageTypeIcon('fire')).toBe('flame');
     expect(damageTypeIcon('ice')).toBe('splash');
+    expect(damageTypeIcon('chaos')).toBe('shuffle');
     expect(damageTypeIcon('lightning')).toBe('sword');
   });
 });

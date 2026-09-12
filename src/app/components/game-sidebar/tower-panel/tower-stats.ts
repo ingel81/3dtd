@@ -14,6 +14,7 @@ const DAMAGE_TYPE_ICON: Record<string, TdIconName> = {
   fire: 'flame',
   ice: 'splash',
   poison: 'skull',
+  chaos: 'shuffle',
 };
 
 export function damageTypeIcon(type: string): TdIconName {

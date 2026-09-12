@@ -87,6 +87,14 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     shortLabel: 'LTNG',
     description: 'Chain hitscan, anti-swarm/air',
   },
+  chaos: {
+    id: 'chaos',
+    label: 'Chaos',
+    icon: '🌀',
+    color: '#D946EF',
+    shortLabel: 'CHAO',
+    description: 'Full damage vs every armor, no weak spot',
+  },
 };
 
 // ==================== Armor Type UI ====================

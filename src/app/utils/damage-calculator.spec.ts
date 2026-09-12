@@ -27,16 +27,16 @@ describe('damage-matrix.config', () => {
       }
     });
 
-    it('covers exactly 40 multiplier entries (8 damage × 5 armor)', () => {
+    it('covers exactly 45 multiplier entries (9 damage × 5 armor)', () => {
       const totalEntries = DAMAGE_TYPES.length * ARMOR_TYPES.length;
-      expect(totalEntries).toBe(40);
+      expect(totalEntries).toBe(45);
       let count = 0;
       for (const dmg of DAMAGE_TYPES) {
         for (const armor of ARMOR_TYPES) {
           if (typeof DAMAGE_MATRIX[dmg][armor] === 'number') count++;
         }
       }
-      expect(count).toBe(40);
+      expect(count).toBe(45);
     });
 
     // Pinning tests for the canonical balance values — guards against silent
@@ -90,6 +90,12 @@ describe('damage-matrix.config', () => {
       ['lightning', 'heavy',     1.2],
       ['lightning', 'fortified', 0.3],
       ['lightning', 'ethereal',  1.5],
+      // chaos
+      ['chaos',     'unarmored', 1.0],
+      ['chaos',     'light',     1.0],
+      ['chaos',     'heavy',     1.0],
+      ['chaos',     'fortified', 1.0],
+      ['chaos',     'ethereal',  1.0],
     ];
 
     for (const [dmg, armor, expected] of expectedMultipliers) {
@@ -103,10 +109,19 @@ describe('damage-matrix.config', () => {
   // späteres Feintuning sie nicht still bricht.
   describe('DAMAGE_MATRIX design rules', () => {
     it('every damage type has a pairing ≤ 0.5, every type but physical one ≥ 1.3', () => {
-      for (const dmg of DAMAGE_TYPES) {
+      // Chaos is the generalist and deliberately has neither.
+      for (const dmg of DAMAGE_TYPES.filter((d) => d !== 'chaos')) {
         const values = ARMOR_TYPES.map((a) => DAMAGE_MATRIX[dmg][a]);
         expect(Math.min(...values), dmg).toBeLessThanOrEqual(0.5);
         if (dmg !== 'physical') expect(Math.max(...values), dmg).toBeGreaterThanOrEqual(1.3);
+      }
+    });
+
+    it('chaos lands at 1.0 against every armor, below the best counter of each', () => {
+      for (const armor of ARMOR_TYPES) {
+        expect(DAMAGE_MATRIX.chaos[armor], armor).toBe(1.0);
+        const best = Math.max(...DAMAGE_TYPES.map((d) => DAMAGE_MATRIX[d][armor]));
+        expect(best, armor).toBeGreaterThan(DAMAGE_MATRIX.chaos[armor]);
       }
     });
 
