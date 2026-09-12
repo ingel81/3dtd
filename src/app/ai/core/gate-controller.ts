@@ -61,19 +61,44 @@ export const GATE_MULT_DOWN = 0.8;
 export const GATE_MULT_MIN = 0.5;
 export const GATE_MULT_MAX = 8;
 
+/** What the loop did with the most recent wave it saw. */
+export type GateStep = 'warming-up' | 'opened' | 'closed' | 'held' | 'backed-off';
+
+/** Read-only view of the loop, for the decision explainer. */
+export interface GateStatus {
+  multiplier: number;
+  /** Leak samples in the window, up to GATE_ADAPT_WINDOW. */
+  samples: number;
+  /** Mean leak over the window, or null until the window is full. */
+  meanLeak: number | null;
+  lastStep: GateStep;
+}
+
 export class GateController {
   private leakShares: number[] = [];
   private multiplier = 1;
+  private lastStep: GateStep = 'warming-up';
 
   /** Current correction factor for `fairMaxCount`'s kill estimate. */
   get budgetMultiplier(): number {
     return this.multiplier;
   }
 
+  get status(): GateStatus {
+    const full = this.leakShares.length >= GATE_ADAPT_WINDOW;
+    return {
+      multiplier: this.multiplier,
+      samples: this.leakShares.length,
+      meanLeak: full ? this.leakShares.reduce((a, b) => a + b, 0) / this.leakShares.length : null,
+      lastStep: this.lastStep,
+    };
+  }
+
   /** Clear per-run state. Must be called when a new game starts. */
   reset(): void {
     this.leakShares = [];
     this.multiplier = 1;
+    this.lastStep = 'warming-up';
   }
 
   /**
@@ -94,7 +119,10 @@ export class GateController {
       if (this.leakShares.length > GATE_ADAPT_WINDOW) this.leakShares.shift();
     }
 
-    if (this.leakShares.length < GATE_ADAPT_WINDOW) return this.multiplier;
+    if (this.leakShares.length < GATE_ADAPT_WINDOW) {
+      this.lastStep = 'warming-up';
+      return this.multiplier;
+    }
 
     const leaked = this.leakShares.reduce((a, b) => a + b, 0) / this.leakShares.length;
 
@@ -102,14 +130,18 @@ export class GateController {
       // The one outcome the gate exists to prevent. Back off hard rather than
       // proportionally — the cost of an over-large wave is asymmetric.
       this.multiplier = Math.max(GATE_MULT_MIN, this.multiplier * GATE_MULT_DOWN);
+      this.lastStep = 'backed-off';
     } else if (leaked < GATE_LEAK_TARGET_LO || leaked > GATE_LEAK_TARGET_HI) {
       const target = (GATE_LEAK_TARGET_LO + GATE_LEAK_TARGET_HI) / 2;
       const error = (target - leaked) / target;          // +1 = nothing leaks at all
       const step = 1 + GATE_GAIN * Math.max(-1, Math.min(1, error));
       this.multiplier = Math.max(GATE_MULT_MIN, Math.min(GATE_MULT_MAX, this.multiplier * step));
+      this.lastStep = leaked < GATE_LEAK_TARGET_LO ? 'opened' : 'closed';
+    } else {
+      // Inside the band a little gets through and the player lives: that is
+      // the target state. Hold.
+      this.lastStep = 'held';
     }
-    // Inside the band — a little gets through and the player lives — is the
-    // target state. Hold.
 
     return this.multiplier;
   }
