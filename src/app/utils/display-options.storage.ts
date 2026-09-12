@@ -1,4 +1,4 @@
-import type { ColorGradingPreset } from '../three-engine/post-processing/color-grading';
+import type { VfxSettings } from '../three-engine/vfx-settings';
 
 /**
  * Persistence of the display options. The display menu of the quick actions
@@ -15,8 +15,8 @@ export const STORAGE_KEY = 'td_display_options';
 export const LEGACY_FPS_LIMIT_KEY = '3dtd-fps-limit';
 export const LEGACY_SCREEN_SHAKE_KEY = 'td_screen_shake_enabled';
 
-/** Everything stored under STORAGE_KEY. */
-export interface StoredDisplayOptions {
+/** Everything stored under STORAGE_KEY. The VFX settings sit flat in it. */
+export interface StoredDisplayOptions extends Partial<VfxSettings> {
   // Display debug window
   enemies?: boolean;
   animations?: boolean;
@@ -24,8 +24,7 @@ export interface StoredDisplayOptions {
   textures?: boolean;
   skeletonCloning?: boolean;
   alphaBlend?: boolean;
-  colorGrading?: ColorGradingPreset;
-  // Display menu of the quick actions
+  // Display menu of the quick actions, besides the VFX settings
   healthBars?: boolean;
   damageNumbers?: boolean;
   screenShake?: boolean;

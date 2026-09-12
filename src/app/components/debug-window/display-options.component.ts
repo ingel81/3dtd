@@ -1,4 +1,4 @@
-import { Component, inject, signal, output, effect, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, output, effect, ChangeDetectionStrategy } from '@angular/core';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { DebugFacadeService } from '../../services/debug/debug-facade.service';
@@ -160,7 +160,8 @@ export class DisplayOptionsComponent {
   readonly skeletonCloning = signal(true);
   readonly alphaBlend = signal(true);
   readonly screenShake = this.debugFacade.screenShakeEnabled;
-  readonly colorGrading = signal<ColorGradingPreset>('none');
+  /** One of the VFX settings, which the display menu shows as well. */
+  readonly colorGrading = computed(() => this.debugFacade.vfx().colorGrading);
   /** Session only, see DebugFacadeService.onTileLodDebugToggled. */
   readonly tileLodDebug = signal(false);
 
@@ -180,8 +181,8 @@ export class DisplayOptionsComponent {
   constructor() {
     this.loadFromStorage();
 
-    // Persist on change. Health bars and screen shake are DebugFacadeService
-    // signals, it persists them itself.
+    // Persist on change. Health bars, screen shake and color grading are
+    // DebugFacadeService state, it persists them itself.
     effect(() => {
       persistDisplayOptions({
         enemies: this.enemies(),
@@ -190,7 +191,6 @@ export class DisplayOptionsComponent {
         textures: this.textures(),
         skeletonCloning: this.skeletonCloning(),
         alphaBlend: this.alphaBlend(),
-        colorGrading: this.colorGrading(),
       });
     });
   }
@@ -247,9 +247,7 @@ export class DisplayOptionsComponent {
 
   onColorGradingChange(event: Event): void {
     const select = event.target as HTMLSelectElement;
-    const preset = select.value as ColorGradingPreset;
-    this.colorGrading.set(preset);
-    this.colorGradingChanged.emit(preset);
+    this.colorGradingChanged.emit(select.value as ColorGradingPreset);
   }
 
   private loadFromStorage(): void {
@@ -260,6 +258,5 @@ export class DisplayOptionsComponent {
     this.textures.set(opts.textures ?? true);
     this.skeletonCloning.set(opts.skeletonCloning ?? true);
     this.alphaBlend.set(opts.alphaBlend ?? true);
-    this.colorGrading.set(opts.colorGrading ?? 'none');
   }
 }
