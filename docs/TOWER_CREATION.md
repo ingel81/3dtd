@@ -1,6 +1,6 @@
 # Tower Creation Guide
 
-**Stand:** 2026-05-12
+**Stand:** 2026-09-13
 
 Anleitung zum Erstellen neuer Tower-Typen mit optionalen rotierenden Teilen.
 
@@ -30,7 +30,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 
 | Tower | attackType | damageType | Schaden | Reichweite | Feuerrate | Kosten | Besonderheiten |
 |-------|------------|------------|---------|------------|-----------|--------|----------------|
-| Archer | projectile | physical | 25 | 60m | 1.0/s | 45 | Animiert (PingPong), Air+Ground |
+| Archer | projectile | physical | 25 | 30m | 1.0/s | 45 | Animiert (PingPong), Air+Ground |
 | Dual-Gatling | projectile | pierce | 10 | 50m | 5.0/s | 90 | Rotierender Turret, 2 Fire-Points |
 | Cannon | projectile | siege | 55 | 70m | 0.5/s | 150 | Splash 6m (max. 8 Ziele), default `first` |
 | Magic | projectile | magic | 40 | 70m | 1.5/s | 140 | Stark gegen ethereal |
@@ -42,6 +42,11 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
 | Research Center | **passive** | — | 0 | 0 | 0 | 75 | Kein Combat — siehe Research-System |
+
+Archer und Research Center sind von Anfang an baubar. Alle anderen Tower schaltet eine Forschung
+mit einem `unlock-tower`-Effekt frei (`configs/research/research-tree.config.ts`, Chaos:
+`chaos-rift`), geprüft in `ResearchStore.isTowerUnlocked`. Bis dahin zeigt das Baumenü die Karte
+gesperrt, mit dem Namen der Forschung im Tooltip.
 
 ---
 
@@ -60,7 +65,7 @@ export type TowerTypeId =
 ### 2. Model-URL definieren
 
 ```typescript
-const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
+const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 ```
 
 ### 3. Tower-Konfiguration hinzufügen
@@ -128,7 +133,8 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee', 'chain' oder 'passive' |
 | `damagePerSecond` | number | - | DPS für Beam-Tower |
 | `beamWidth` | number | - | Kegel-Breite am Ende in Metern |
-| `defaultTargeting` | TargetingStrategy | - | Standard-Targeting-Strategie |
+| `defaultTargeting` | TargetingStrategy | `'closest'` | Standard-Targeting-Strategie |
+| `defaultAirSubStrategy` | AirSubStrategy | `'closest'` | Auswahl unter Air-Zielen bei `air-priority` |
 | `firePoints` | { x, z }[] | - | Mehrere Feuer-Positionen (z.B. Dual-Gatling) |
 | `meleeStrikeDuration` | number | 250 | Melee-Angriffs-Dauer in ms (z.B. Tentacle) |
 | `maxJumps` | number | - | **Chain-only:** Anzahl zusaetzlicher Ziele nach Primary (Lightning: 2 → 3 Hits) |
@@ -175,6 +181,12 @@ case 'new-visual':
   return this.newProjectileManager;
 ```
 
+Den Manager außerdem im Konstruktor mit `scene.add(...)` einhängen und in `count`, `commitToGPU()`,
+`clear()` und `dispose()` aufnehmen, bei einem ShaderMaterial mit `uTime` auch in
+`updateShaderUniforms()`. Einen Trail-Streak bekommt nur ein Visual Type mit Pool in
+`TrailStreakRenderer.initPools()` (heute `rocket`, `arrow`, `magic`, `ice`, `cannonball`, `bullet`),
+den Stil liefert `TRAIL_STYLES`.
+
 ---
 
 ## Rotierende Tower-Teile (Turrets)
@@ -186,14 +198,15 @@ Das 3D-Modell braucht einen benannten Node, der sich dreht:
 - Heißt der Teil anders, benennt ihn die Tower-Config über `turretNode`, die GLB bleibt
   unverändert (Chaos: `turretNode: 'crystal'`). Dann gilt nur dieser Name, die Standardnamen
   nicht mehr. Ein Test prüft, dass der Node im Modell existiert; fehlt er zur Laufzeit, warnt
-  der Renderer einmal pro Tower-Typ.
+  der Renderer einmal pro Tower-Typ. Der Turm dreht sich dann nicht, schießt aber weiter:
+  `isTurretAligned` gilt ohne Turret-Teil als erfüllt.
 - Dieses Teil rotiert automatisch in Richtung der Feinde
 
 ### Wie es funktioniert
 
 1. **Model-Struktur:** Das Modell besteht aus statischer Basis und rotierendem Teil
 2. **Mesh-Erkennung:** Der Renderer findet `turret_top` (oder, falls gesetzt, nur den `turretNode` der Config) beim Laden
-3. **Rotation:** `updateRotation()` dreht nur den Turret-Teil
+3. **Rotation:** `updateRotation()` setzt die Zielrichtung, `advanceTurretAim()` dreht den Turret-Teil pro Sub-Step mit π rad/s (Game-Time) dorthin
 
 ### Koordinatensystem-Konvertierung
 
@@ -235,7 +248,7 @@ const localRotation = threeJsTargetRotation - parentRotation;
 
 ### Ohne Ziel: Richtung halten, nach der Welle Wachrichtung
 
-Ein Tower schießt erst, wenn der Turm auf 15° ausgerichtet ist
+Ein Projektil-Tower schießt erst, wenn der Turm auf 15° ausgerichtet ist
 (`isTurretAligned`). Deshalb dreht er ohne Ziel nicht mehr in eine
 Grundstellung zurück:
 
@@ -248,11 +261,19 @@ Grundstellung zurück:
   Route in die Reichweite ein, ist der Wert `null` und der Turm behält seine
   Richtung. Berechnet vom `TowerManager` bei Platzierung, Reichweiten-Upgrade
   und Routenänderung.
-- **Neu platziert** startet der Turm in der Wachrichtung
-  (`create(..., initialHeading)`), der Scan-Schwenk läuft um sie herum.
+- **Neu platziert** steht der Turm in der Pose, in der er platziert wurde (wie
+  in der Vorschau). Nach 800 ms schwenkt er 75° nach links und rechts um diese
+  Pose und dreht danach mit Zielgeschwindigkeit zur Wachrichtung
+  (`create(..., initialHeading)` setzt nur das Ziel dieser Drehung).
 - **Nach der Welle** dreht der `GameStateManager` auf `wave:completed` alle
   Tower mit `turnTowersToGuard` zur Wachrichtung (`setIdleHeading`, gleiche
-  Drehgeschwindigkeit wie beim Zielen).
+  Drehgeschwindigkeit wie beim Zielen). Außerhalb einer Welle tut er das,
+  sobald kein Gegner mehr lebt (nach `enemy:died`, `enemy:reached-base`,
+  `debug:remove-enemy`, `debug:clear-enemies`), und nach einer Routenänderung.
+  Nach einem Reichweiten-Upgrade dreht der Turm zwischen den Wellen sofort zur
+  neuen Wachrichtung, in einer Welle erst nach deren Ende.
+- **Magic** ist die Ausnahme: ohne Ziel dreht sich die Kugel langsam weiter
+  (0,3 rad/s, nur Optik), statt eine Richtung zu halten.
 
 ```typescript
 // tower-combat.service.ts
@@ -270,26 +291,30 @@ if (target) {
 
 ### Projektil-Sounds registrieren
 
-In `managers/projectile.manager.ts`:
+In `configs/projectile-types.config.ts`:
 
 ```typescript
-const PROJECTILE_SOUNDS = {
+export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> = {
   arrow: {
-    url: '/assets/sounds/arrow_01.mp3',
+    url: 'assets/sounds/towers/archer/shoot.mp3',
     refDistance: 50,
     rolloffFactor: 1,
     volume: 0.5,
   },
   bullet: {
-    url: '/assets/sounds/gatling_0.mp3',
+    url: 'assets/sounds/towers/gatling/shoot.mp3',
     refDistance: 40,
     rolloffFactor: 1.2,
     volume: 0.25,  // Niedriger bei hoher Feuerrate
   },
+  // ...
 } as const;
 ```
 
-Sounds werden automatisch bei `playProjectileSound()` abgespielt, wenn der Projektiltyp in `PROJECTILE_SOUNDS` existiert.
+Jeder Projektiltyp braucht einen Eintrag (`Record<ProjectileTypeId, …>`). Der `ProjectileManager`
+registriert alle Einträge in `initialize()` und spielt sie über `playProjectileSound()` als
+deferred `audio:play`-Event an der Tower-Position ab. Beam-, Melee- und Chain-Tower haben kein
+Projektil, ihre Sounds registriert der `TowerManager` in `initialize()`.
 
 ---
 
@@ -321,7 +346,9 @@ export const TOWER_TYPES = {
   fire: { ... },               // 7. Position
   tentacle: { ... },           // 8. Position
   poison: { ... },             // 9. Position
-  'research-center': { ... },  // 10. Position (passives Building, kein Combat)
+  lightning: { ... },          // 10. Position
+  chaos: { ... },              // 11. Position
+  'research-center': { ... },  // 12. Position (passives Building, kein Combat)
 };
 ```
 
@@ -369,26 +396,26 @@ export interface TowerUpgrade {
     stat: 'fireRate' | 'damage' | 'range' | 'beamWidth' | 'research-slots';
     multiplier: number;      // z.B. 2.0 = verdoppelt
   };
+  lateFromLevel?: number;    // letzte Stufe mit vollem multiplier (default: alle)
+  lateMultiplier?: number;   // Multiplier jeder Stufe danach (default: multiplier)
 }
 ```
 
-Beispiel:
+Beispiel: der Fire-Rate-Track der Dual-Gatling, wie ihn
+`degressiveUpgrade('speed', 'Fire Rate', 'fireRate', 1.06)` baut:
 
 ```typescript
-upgrades: [
-  {
-    id: 'speed',
-    name: 'Rapid Fire',
-    description: 'Doubles the fire rate',
-    cost: 90,                     // Basiskosten
-    costScaling: 2.0,             // Verdoppelt pro Level
-    maxLevel: 4,
-    effect: {
-      stat: 'fireRate',
-      multiplier: 2.0,
-    },
-  },
-],
+{
+  id: 'speed',
+  name: 'Fire Rate',
+  description: 'Increases fire rate (+6% per level up to L15, +2.4% after, compounding).',
+  cost: 50,                     // UPGRADE_BASE_COST
+  costScaling: 1.25,            // UPGRADE_COST_SCALING
+  maxLevel: 25,                 // UPGRADE_MAX_LEVEL
+  effect: { stat: 'fireRate', multiplier: 1.06 },
+  lateFromLevel: 15,            // UPGRADE_LATE_FROM_LEVEL
+  lateMultiplier: 1.024,        // 1 + 0,4 × (1,06 − 1)
+},
 ```
 
 ### Verfügbare Stats
@@ -425,12 +452,14 @@ export function getUpgradeCost(upgrade: TowerUpgrade, currentLevel: number): num
 | 1.8 | baseCost | baseCost * 1.8 | baseCost * 3.24 | baseCost * 5.83 |
 | 2.0 | baseCost | baseCost * 2 | baseCost * 4 | baseCost * 8 |
 
-**Beispiel Dual-Gatling Speed Upgrade (cost: 90, costScaling: 2.0, maxLevel: 4):**
-- Level 1: 90 Credits
-- Level 2: 180 Credits
-- Level 3: 360 Credits
-- Level 4: 720 Credits
-- **Total: 1350 Credits**
+**Beispiel Standard-Track (cost: 50, costScaling: 1.25), gleich für jeden Damage-, Fire-Rate-, Range- und Beam-Width-Track:**
+- Level 1: 50 Credits
+- Level 2: 63 Credits
+- Level 3: 78 Credits
+- Level 5: 122 Credits
+- Level 10: 373 Credits
+- Level 25: 10.588 Credits
+- **Total L1–10: 1.664 Credits, L1–25: 52.740 Credits**
 
 ### Multi-Level Upgrades
 
@@ -451,7 +480,8 @@ Upgrades mit `maxLevel > 1` können mehrfach gekauft werden. Der Effekt-Multipli
 - Level 2: Schaden x 1.5 x 1.5 = 2.25 (Kosten: 204)
 - Level 3: Schaden x 1.5^3 = 3.375 (Kosten: 347)
 
-**Hinweis:** Multiplier werden multipliziert, nicht addiert!
+**Hinweis:** Multiplier werden multipliziert, nicht addiert. Mit `lateFromLevel` gilt ab der
+Stufe danach `lateMultiplier` (`upgradeFactor`).
 
 ### Upgrade anwenden (Code)
 
@@ -465,28 +495,19 @@ tower.canUpgrade(upgradeId): boolean             // Noch upgradebar?
 tower.applyUpgrade(upgradeId): boolean           // Upgrade anwenden
 tower.getNextUpgradeCost(upgradeId): number      // Kosten für nächstes Level (mit Scaling)
 tower.getTotalUpgradeCost(): number              // Gesamte investierte Upgrade-Kosten
+tower.getSellValue(): number                     // SELL_RATIO × (cost + Upgrade-Kosten)
 ```
 
 ### Range-Upgrade Spezialfall
 
-**Problem:** Range-Upgrades erfordern **LOS-Grid Neuberechnung**.
+Die sichtbaren Zellen eines Towers hängen an seiner Reichweite. Nach einem Range-Upgrade (auch
+beim Debug-Max-Upgrade) ruft der `GameCommandsHandler` deshalb
+`GameStateManager.recomputeTowerRangeAfterUpgrade(tower)` auf:
 
-**Warum:**
-- LOS-Grid speichert Sichtbarkeits-Zellen basierend auf aktueller Range
-- Bei Range-Upgrade müssen neue Zellen berechnet werden
-
-**Lösung (geplant):**
-```typescript
-case 'range':
-  const oldRange = tower.combat.range;
-  tower.combat.range *= upgrade.effect.multiplier;
-
-  // LOS-Grid für diesen Tower neu berechnen
-  this.towerPlacementService.recalculateLosGrid(tower.id, tower.combat.range);
-  break;
-```
-
-**Siehe:** [TODO.md - Range-Upgrade System implementieren](TODO.md)
+- `TowerPlacementService.recomputeTowerLOS(tower)` berechnet die LOS-Zellen neu
+- `tower.rangeSquaredGeo` (Sleep-/Wake-Checks) und der Reichweitenring (`updateRangeIndicatorTerrain`) folgen
+- `TowerManager.refreshGuardHeading(tower)` rechnet die Wachrichtung neu; zwischen den Wellen
+  dreht der Turm sofort dorthin
 
 ### Beispiele aus dem Codebase
 
@@ -542,10 +563,10 @@ Combat-Tower wählen ihr Ziel über eine `TargetingStrategy`. `defaultTargeting`
 
 | Strategy | Beschreibung |
 |----------|--------------|
-| `closest` | Nächstgelegener Feind (Default falls `defaultTargeting` fehlt) |
+| `closest` | Nächstgelegener Feind (Tentacle; Default falls `defaultTargeting` fehlt) |
 | `lowest-hp` | Schwächster Feind |
-| `highest-hp` | Stärkster Feind (z.B. Cannon, Rocket Default) |
-| `first` | Feind, der der Basis am nächsten ist (z.B. Archer, Ice, Poison Default) |
+| `highest-hp` | Stärkster Feind |
+| `first` | Feind, der der Basis am nächsten ist (Default aller anderen Combat-Tower) |
 | `air-priority` | Bevorzugt fliegende Ziele; Sub-Strategy via `defaultAirSubStrategy` |
 
 `AirSubStrategy` (`closest` / `lowest-hp` / `highest-hp`) entscheidet, welches Air-Target gewählt wird, wenn `air-priority` aktiv ist und mehrere Air-Units in Reichweite sind.
@@ -584,15 +605,21 @@ fire: {
 - [ ] Tower-Config in `TOWER_TYPES` hinzugefügt
 - [ ] `attackType` gesetzt falls Beam-/Melee-/Chain-Tower
 - [ ] `canTargetAir`/`canTargetGround` gesetzt falls nicht default
-- [ ] `damageType` gewählt + Damage-Matrix-Eintrag pruefen (`combat/damage-matrix.config.ts`)
+- [ ] `damageType` gewählt, Paarungen in `configs/combat/damage-matrix.config.ts` geprüft. Ein neuer
+  Schadenstyp braucht eine Zeile in `DAMAGE_MATRIX` und Einträge in `DAMAGE_TYPE_UI` und
+  `DAMAGE_ACCENT` (Tooltip-Farbe), der Compiler meldet fehlende
 - [ ] Projektiltyp vorhanden (oder neuen erstellt) — bei `chain`/`beam` Fallback-`projectileType` ok
 - [ ] Bei `chain`: `maxJumps`, `chainFalloff`, `jumpRange` gesetzt
 - [ ] Sound-Datei in `/public/assets/sounds/` (optional)
-- [ ] Sound in `PROJECTILE_SOUNDS` registriert (optional)
+- [ ] Bei neuem Projektiltyp: Eintrag in `PROJECTILE_SOUNDS` (Pflicht, `Record<ProjectileTypeId, …>`)
 - [ ] Bei rotierendem Turret: `turret_top` Mesh im Model benannt, oder `turretNode` in der Config gesetzt
 - [ ] Bei rotierendem Turret: `turretBarrelOffset` für Barrel-Orientierung gesetzt
 - [ ] Bei Animationen: `hasAnimations` und ggf. `animationPingPong` gesetzt
 - [ ] Reihenfolge in `TOWER_TYPES` nach Wunsch angepasst
+- [ ] Forschung mit `unlock-tower`-Effekt in `configs/research/research-tree.config.ts`
+- [ ] Eintrag in `TOWER_TIER` (Build-Panel, `Record<TowerTypeId, number>`)
+- [ ] Nur Schuss-Tower: Mündungsfeuer über einen Eintrag in `MUZZLE_FLASH_PROFILES`
+  (`configs/visual-effects.config.ts`), ohne Eintrag kein Flash
 
 ---
 
@@ -604,7 +631,7 @@ Vollständiges Beispiel eines Towers mit rotierendem Turret:
 'dual-gatling': {
   id: 'dual-gatling',
   name: 'Dual-Gatling Tower',
-  modelUrl: '/assets/models/towers/gatling.glb',
+  modelUrl: 'assets/models/towers/gatling.glb',
   scale: 2.5,
   previewScale: 5.5,
   heightOffset: 2.4,
@@ -639,7 +666,7 @@ Vollständiges Beispiel eines Beam-Towers:
 fire: {
   id: 'fire',
   name: 'Fire Tower',
-  modelUrl: '/assets/models/towers/fire.glb',
+  modelUrl: 'assets/models/towers/fire.glb',
   scale: 8,
   previewScale: 9.8,
   heightOffset: 3.8,
@@ -679,7 +706,7 @@ Jagged-Polyline aus Endpunkten und Seed pro Instanz) plus additive Aufhell-Halos
 lightning: {
   id: 'lightning',
   name: 'Lightning Tower',
-  modelUrl: '/assets/models/towers/lightning.glb',
+  modelUrl: 'assets/models/towers/lightning.glb',
   scale: 11,
   previewScale: 14,
   heightOffset: 0,
@@ -721,7 +748,8 @@ Das Platzieren von Türmen wird durch den `TowerPlacementService` gesteuert.
 - **3D-Model-Preview:** Zeigt das echte Tower-Model als Vorschau
 - **Grün/Rot-Färbung:** Je nach Gültigkeit der Position
 - **R-Taste Rotation:** Kontinuierliche Drehung bei gehaltenem R
-- **Line-of-Sight Preview:** Zeigt Sichtfeld nach 300ms Stillstand
+- **Line-of-Sight Preview:** Zeigt das Sichtfeld an gültigen Positionen ohne Wartezeit; neu
+  gebaut, wenn der Cursor mehr als 1 m wandert, sonst wird nur die Tower-Spitze nachgeführt
 
 ### Platzierungsregeln
 
@@ -740,7 +768,8 @@ Den Kontext (Spielbereich, HQ, Spawns, Tower, Routen) stellt der
 | `MIN_DISTANCE_TO_OTHER_TOWER` | 8m | Mindestabstand zu anderen Türmen |
 | `MIN_DISTANCE_TO_ROUTE` | 10m | Mindestabstand zu den Gegnerrouten (Abstand zum Segment) |
 
-Alle Abstände sind horizontal (Haversine). Gebäude sind kein Hindernis: Der
+Alle Abstände sind horizontal (Haversine zu HQ, Spawns und Towern, `distanceToSegment` zur
+Route). Gebäude sind kein Hindernis: Der
 Tower wird auf Dachhöhe gehoben und steht dann auf dem Dach.
 
 ### Keyboard-Shortcuts im Build-Modus

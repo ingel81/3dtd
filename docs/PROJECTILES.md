@@ -1,6 +1,6 @@
 # Projektil-System
 
-**Stand:** 2026-09-11
+**Stand:** 2026-09-13
 
 ## Architektur
 
@@ -8,7 +8,7 @@
 Das Projektil-Entity verwaltet Position, Bewegung und Flugbahn.
 
 **Wichtige Properties:**
-- `direction` - Normalisierter Richtungsvektor im lokalen Frame (-X = Ost, +Z = Nord, Meter; Längengrad mit cos(lat) skaliert). Bei Spawn berechnet, bei Homing/Arc-Projektilen kontinuierlich aktualisiert. Nur Optik (Mesh-Rotation, Schweif), die Bewegung läuft über lat/lon
+- `direction` - Normalisierter Richtungsvektor im lokalen Frame (-X = Ost, +Z = Nord, Meter; Längengrad mit cos(lat) skaliert). Bei Spawn berechnet, bei Homing/Arc-Projektilen alle 3 Sub-Steps neu (`DIRECTION_RECALC_EVERY_N`). Nur Optik (Mesh-Rotation, Schweif), die Bewegung läuft über lat/lon
 - `flightHeight` - Aktuelle Flughöhe (interpoliert mit Parabel-Bogen oder linear)
 - `flightProgress` - Fortschritt entlang der Flugbahn (0-1)
 - `isHoming` - Ob das Projektil zielverfolgend ist (Rockets)
@@ -18,7 +18,7 @@ Das Projektil-Entity verwaltet Position, Bewegung und Flugbahn.
 **Wichtige Methoden:**
 - `calculateDirectionVector(startPos, startHeight)` - Berechnet normalisierten Richtungsvektor von Start zu Ziel
 - `calculateFlightHeight()` - Berechnet Flughöhe (Parabel-Bogen für Arrow/Cannonball, linear für andere)
-- `getTargetHeight()` - Gibt Zielhöhe zurück (Enemy-TerrainHeight + heightOffset + 3m Kopfhöhe)
+- `getTargetHeight()` - Gibt Zielhöhe zurück (Enemy-TerrainHeight + heightOffset + gemessene Modellmitte aus `getEnemyAimOffsetY`)
 - `updateTowardsTarget(deltaTime)` - Bewegt Projektil Richtung Ziel, gibt `true` bei Treffer zurück
 - `calculateArcTangentDirection()` - Berechnet Tangentenrichtung entlang der Parabel für Arc-Projektile
 
@@ -33,7 +33,7 @@ const baseHeight = startHeight + (targetHeight - startHeight) * progress;
 const arcOffset = maxArcHeight * 4 * progress * (1 - progress);
 return baseHeight + arcOffset;
 
-// Homing (Rocket) und andere (Bullet, Arcane-Orb, Ice-Shard): Linear
+// Homing (Rocket) und andere (Bullet, Arcane-Orb, Ice-Shard, Poison-Glob, Chaos-Orb): Linear
 return startHeight + (targetHeight - startHeight) * progress;
 ```
 
@@ -47,11 +47,14 @@ const projectile = new Projectile(..., spawnHeight);
 ```
 
 **Wichtige Methoden:**
-- `spawn(tower, targetEnemy)` - Erstellt neues Projektil und spielt Sound ab
+- `spawn(tower, targetEnemy, heading?)` - Erstellt das Projektil (bei `firePoints` versetzt und um `heading` gedreht), legt Instanz und Trail-Streak an, spielt den Sound und emittiert `vfx:muzzle-flash`
 - `playProjectileSound(tower, projectileType)` - Emittiert Audio-Event an Tower-Position
 
 **Update:**
-- Position wird jeden Frame aktualisiert
+- `update(deltaTime)` bewegt die Projektile pro Sub-Step und emittiert bei Treffer `projectile:hit`
+  (ist das Ziel schon tot, nur bei Splash) und `vfx:projectile-impact`
+- `presentFrame()` schiebt Position, Rotation, Trail-Partikel und Streak einmal pro gerendertem
+  Frame an den Renderer
 - Homing-Projektile (Rockets) und Arc-Projektile (Arrows, Cannonballs) aktualisieren Rotation kontinuierlich
 - Reguläre Projektile behalten fixe Rotation (einmal bei Spawn berechnet)
 - Trail-Partikel: ein Spawn-Gate pro 0,5 m Flugstrecke (`TRAIL_SPAWN_DISTANCE_M`). Die Gates
@@ -76,6 +79,11 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 | Bullet | 1000 |
 | Rocket | 100 |
 | Poison | 500 |
+| Chaos | 500 |
+
+Ist ein Pool voll, bleibt ein neues Projektil unsichtbar (`add()` findet keinen Slot), die
+Simulation läuft trotzdem. `commitToGPU()` lädt einmal pro Frame nur den gezeichneten Bereich der
+Instanz-Matrizen hoch (`addUpdateRange(0, activeCount * 16)`), nicht den ganzen Puffer.
 
 **Rotation:**
 - Verwendet Quaternion: `setFromUnitVectors(+Y, direction)`
@@ -94,6 +102,7 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 | bullet | 150 m/s | 0.15 | bullet (Cylinder) | - | Gelber Tracer (additive) |
 | rocket | 120 m/s | 1.0 | rocket (Merged Mesh) | - | Dünne graue Rauchspur (normal blending), Düsenglühen als kurzer Streak |
 | poison-glob | 70 m/s | 0.5 | poison (Shader Orb) | 8m | Grüne Partikel (additive) |
+| chaos-orb | 90 m/s | 0.4 | chaos (Shader Orb) | - | Schwarz-violette Rauchspur (normal blending), kein Streak |
 
 **Visuelle Typen** (`ProjectileVisualType`):
 - `arrow` - GLB-Modell aus `/assets/models/projectiles/arrow.glb`
@@ -103,6 +112,7 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 - `bullet` - CylinderGeometry, gelb/golden leuchtend
 - `rocket` - `createRocketGeometry()`: Düse, Körper, Nasenkegel und 4 Finnen zu einer Geometrie gemergt, Teilfarben als Vertex-Farben (weißer Körper, rote Nase und Finnen, dunkle Düse). 4,2 m lang, 1,6 m Finnenspannweite, zentriert auf die Projektilposition, weiterhin 1 Draw Call für alle Raketen
 - `poison` - SphereGeometry mit ShaderMaterial (grün)
+- `chaos` - SphereGeometry mit dem Orb-Shader, fast schwarzer Kern mit violetten und magenta Highlights (additive: der dunkle Kern fällt weg, das Schwarz kommt aus der Rauchspur)
 
 **Schweif-Ansatz** (`tailOffset`, optional): Meter hinter der Mesh-Mitte, an denen Trail-Partikel
 und Trail-Streak ansetzen. Rakete: 2,1 m, also die Düse. Nur Optik, Default 0 (Mitte).
@@ -111,7 +121,8 @@ und Trail-Streak ansetzen. Rakete: 2,1 m, also die Düse. Nur Optik, Default 0 (
 dem Kopf, dort wird der Streak abgeschnitten. Rakete 6 m, Pfeil 17 m, Bullet 17,5 m, Arcane Orb
 32 m, Ice Shard 25,5 m, Kanonenkugel 9 m. Bis 2026-09-12 bestand er aus einer festen Zahl von
 Positionen, eine pro gerendertem Frame, und wurde bei 30 FPS oder 2x-Spielgeschwindigkeit doppelt,
-bei 4x viermal so lang.
+bei 4x viermal so lang. Poison-Glob und Chaos-Orb haben keinen Streak: `TrailStreakRenderer.initPools()`
+legt nur für `rocket`, `arrow`, `magic`, `ice`, `cannonball` und `bullet` einen Pool an.
 
 **Splash-Damage-Konfiguration:**
 ```typescript
@@ -155,6 +166,7 @@ fire:             { projectileType: 'arrow',    attackType: 'beam' }    // Beam-
 tentacle:         { projectileType: 'arrow',    attackType: 'melee' }   // Melee-Tower, kein Projektil
 poison:           { projectileType: 'poison-glob' }
 lightning:        { projectileType: 'arrow',    attackType: 'chain' }   // Chain-Tower, kein Projektil
+chaos:            { projectileType: 'chaos-orb' }
 'research-center':{ projectileType: 'arrow',    attackType: 'passive' } // Passive Building, kein Combat
 ```
 
@@ -164,13 +176,14 @@ Jeder Projektiltyp hat eigene Sound-Konfiguration in `PROJECTILE_SOUNDS`:
 
 | Projektil | Sound-Datei | Volume | refDistance |
 |-----------|-------------|--------|------------|
-| arrow | `/assets/sounds/towers/archer/shoot.mp3` | 0.5 | 50 |
-| cannonball | `/assets/sounds/towers/cannon/shoot.mp3` | 0.6 | 70 |
-| arcane-orb | `/assets/sounds/towers/magic/cast.mp3` | 0.45 | 55 |
-| ice-shard | `/assets/sounds/towers/ice/cast.mp3` | 0.4 | 50 |
-| bullet | `/assets/sounds/towers/gatling/shoot.mp3` | 0.25 | 40 |
-| rocket | `/assets/sounds/towers/rocket/launch.mp3` | 0.7 | 60 |
-| poison-glob | `/assets/sounds/towers/poison/poison_spit.mp3` | 0.4 | 50 |
+| arrow | `assets/sounds/towers/archer/shoot.mp3` | 0.5 | 50 |
+| cannonball | `assets/sounds/towers/cannon/shoot.mp3` | 0.6 | 70 |
+| arcane-orb | `assets/sounds/towers/magic/cast.mp3` | 0.45 | 55 |
+| ice-shard | `assets/sounds/towers/ice/cast.mp3` | 0.4 | 50 |
+| bullet | `assets/sounds/towers/gatling/shoot.mp3` | 0.25 | 40 |
+| rocket | `assets/sounds/towers/rocket/launch.mp3` | 0.7 | 60 |
+| poison-glob | `assets/sounds/towers/poison/poison_spit.mp3` | 0.4 | 50 |
+| chaos-orb | `assets/sounds/towers/magic/cast.mp3` (bis Chaos einen eigenen hat) | 0.5 | 55 |
 
 Sounds werden als Events ueber den `GameEventBus` emittiert (`audio:play`), nicht direkt abgespielt.
 
@@ -222,6 +235,7 @@ public/assets/
         ├── magic/cast.mp3      # Arcane-Orb-Sound
         ├── ice/cast.mp3        # Eis-Sound
         ├── gatling/shoot.mp3   # Kugel-Sound
+        ├── poison/poison_spit.mp3  # Gift-Sound
         └── rocket/launch.mp3   # Raketen-Sound
 ```
 
@@ -234,4 +248,3 @@ public/assets/
   tiefer Anteil nur in den ersten ~80 ms, ca. -16 bis -14 LUFS, Peak ≤ -1 dBFS, mono. Es ersetzt
   die Datei am selben Pfad, danach `volume` (heute 0.7) gegen die anderen Tower abgleichen.
 
-- [ ] Line-of-Sight Check für Air-Targets fehlt — Tower schießen visuell durch Gebäude auf Air-Units. Ground-LOS existiert bereits via `tower.visibleCells`/`losReady`. Siehe TODO.md.
