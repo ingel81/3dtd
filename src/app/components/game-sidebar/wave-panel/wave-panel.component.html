@@ -36,7 +36,7 @@
       </div>
     }
     <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
-            [disabled]="waveActive() || buildMode() || isGameOver()">
+            [disabled]="waveActive() || isGameOver()">
       @if (waveActive()) {
         <span class="td-wave-btn-main">
           <td-icon name="wave" [size]="16"></td-icon>

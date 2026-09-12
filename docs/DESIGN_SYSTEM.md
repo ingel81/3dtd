@@ -290,9 +290,11 @@ Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche, Farbe und Inh
 
 | Zustand | Auslöser | Darstellung |
 |---------|----------|-------------|
-| Bereit | keine Welle, kein Build-Mode | Gold-Verlauf, Hover `--td-gold-glow`, Pressed-Inset, `:focus-visible`-Outline in `--td-gold-light` |
-| Gesperrt | Build-Mode, Game Over | grauer Verlauf wie `.td-btn:disabled`, `--td-text-disabled`, weiter "Start Wave N" |
+| Bereit | keine Welle, auch im Build-Mode | Gold-Verlauf, Hover `--td-gold-glow`, Pressed-Inset, `:focus-visible`-Outline in `--td-gold-light` |
+| Gesperrt | Game Over | grauer Verlauf wie `.td-btn:disabled`, `--td-text-disabled`, weiter "Start Wave N" |
 | Welle läuft | `waveActive()` | `.td-wave-running`: `--td-panel-shadow` mit den Kanten der vertieften Fläche; links Icon `wave` und "Wave N" in `--td-teal`, rechts "{n} left" (11px, `--td-text-muted`, keine Versalien), unten ein 2px-Balken in `--td-teal`, so breit wie der Anteil der Gegner, die weder getötet noch durchgekommen sind |
+
+Ein Start aus dem Build-Mode lässt den Build-Mode an: Vorschau und gewählter Tower bleiben, gebaut werden darf auch während der Welle.
 
 Beschriftung, Restzahl und Balkenbreite liefert `waveButtonView()` (`wave-panel/wave-button.ts`) aus zwei Store-Werten: `waveEnemyTotal` (von `wave:started` angekündigte Größe) und `waveEnemiesLeft` (lebende plus noch nicht gespawnte Gegner). Beide pflegt `GameStateSyncService` aus `wave:started`, `enemy:died`, `enemy:reached-base` und `debug:kill-all`. Manuelle Debug-Wellen kündigen keine Größe an, dann fehlen Zahl und Balken.
 

@@ -63,7 +63,6 @@ export class SidebarWavePanelComponent implements AfterViewInit {
     this.destroyRef.onDestroy(() => this.destroyMixedEnemyPreviews());
   }
 
-  readonly buildMode = input.required<boolean>();
   readonly waveActive = input.required<boolean>();
   readonly isGameOver = input.required<boolean>();
 
