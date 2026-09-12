@@ -24,7 +24,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 
 ---
 
-## Aktuelle Enemy-Typen (19)
+## Aktuelle Enemy-Typen (20)
 
 | Enemy | armorType | baseHp | Speed | Air? | Besonderheit |
 |-------|-----------|--------|-------|------|--------------|
@@ -34,7 +34,8 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | rat | unarmored | 5 | 10 | – | Schwächster Swarm-Gegner |
 | spider | light | 60 | 9 | – | Schneller, wenig HP |
 | penguin | unarmored | 30 | 9 | – | Unlit Cartoon-Style |
-| skeleton | unarmored | 20 | 6 | – | Swarm (2026-09-12), Kenney-Modell aus starren Teilen mit Node-Animation (`bakeObjectAnimVAT`), `canBleed: false`, `animationSpeed: 0.93` (Beine passend zu 6 m/s), Template `skeleton_swarm` (Curriculum W19) |
+| skeleton | unarmored | 20 | 6 | – | Swarm (2026-09-12), Kenney-Modell aus starren Teilen mit Node-Animation (`bakeObjectAnimVAT`), `canBleed: false`, `animationSpeed: 0.93` (Beine passend zu 6 m/s), Template `skeleton_swarm` (Curriculum W19), `splitOnDeath`: ein Kill teilt ihn in 2 `skeleton-minion` (2026-09-13) |
+| skeleton-minion | unarmored | 6 | 7 | – | Nur aus dem Split eines Skeletons, kein Template. Gleiches Modell bei `scale: 2.4` in eigenem VAT-Pool, `animationSpeed: 1.82`, teilt sich nicht weiter |
 | wallsmasher | light | 200 | 4 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5` (rennt 10 m/s, im Mittel 7 m/s), **silent-spawn** (kein `spawnSound`) |
 | bat | light | 25 | 8 | ✓ | Air-Unit, `heightOffset: 15` |
 | hornet | light | 80 | 9 | ✓ | Air-Unit, `heightOffset: 18` |
@@ -63,7 +64,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: { ... },
   tank: { ... },
-  // ... (siehe Tabelle oben für alle 19 aktuellen Typen)
+  // ... (siehe Tabelle oben für alle 20 aktuellen Typen)
   'new-enemy': { ... }, // Neuer Enemy
 };
 
@@ -379,6 +380,41 @@ spawnStartDelay: 800,  // 800ms zwischen Start von Enemies
 **Standard:** 300ms
 **Verwendung:** Größere Delays für große/langsame Enemies (Panzer, Bosse)
 
+### Split on Death (`splitOnDeath`)
+
+```typescript
+splitOnDeath: { type: 'skeleton-minion', count: 2, spread: 0.3 },
+```
+
+Ein Kill durch Tower oder Damage-over-Time teilt den Gegner in `count` Gegner vom
+Typ `type`. Ein Leck an der Basis teilt nicht, `debug:kill-all` auch nicht
+(Ursache `'debug'` in `EnemyManager.kill()`). Umgesetzt für den Skeleton; der
+Slime aus dem Game Design kann denselben Mechanismus nutzen.
+
+- **Wo:** Die Kinder starten auf dem Pfad des getöteten Gegners, auf seinem
+  Segment und Fortschritt (`MovementComponent.setPath(path, index, progress)`,
+  keine Kopie des Pfads), auf der Bodenhöhe des Route-Grids unter ihm.
+- **Seitlich:** Ihre Spuren liegen nach Index um seine Spur, `spread`
+  auseinander (Anteil des Korridors), und bleiben im `lateralSpread` des
+  Kind-Typs.
+- **Werte:** HP und Tempo der Kinder skalieren mit seinen Multiplikatoren, das
+  `hpMult` einer Welle erreicht also auch sie.
+- **Deterministisch:** Der Split läuft in dem Sub-Step, der den tödlichen
+  Schaden austeilt, ohne `Math.random`. Stirbt der Gegner durch DoT im
+  Bewegungs-Pass, laufen die Kinder ab dem nächsten Sub-Step.
+- **Welle:** Die Welle wartet auf die Kinder, sie leben ja. Das Kill-Gold
+  verteilt sich auf alle Körper (`WaveManager.getExpectedBodyCount()`), ein Split
+  erhöht es nicht. Ein durchgelaufenes Kind ist ein Leck. `enemy:split` erhöht
+  Rest und Gesamtzahl im Wave-Panel und löst den Knochen-Burst aus.
+- **Fairness-Gate:** `fairMaxCount` rechnet mit der HP der ganzen Linie
+  (`lineageHp`) und einem Kill pro Körper (`splitBodyCount`).
+- **Kind-Typ:** ein eigener Eintrag in `ENEMY_TYPES` (eigener VAT-Pool, eigene
+  Werte), in keinem Template. Nicht in `AI_ENEMY_ORDER` aufnehmen, solange ihn
+  kein Template nennt: Sein Platz in der Typ-History bliebe 0, und der
+  Schema-Bruch machte alle Checkpoints unbrauchbar.
+- **Budget:** `npm run model-budget` zählt die Kinder in „max./Welle“ und in der
+  Vertex-Last der Templates mit.
+
 ---
 
 ## Status-Effekte
@@ -605,6 +641,7 @@ wallsmasher: {
 - [ ] Bei Boss: `healthBarColor` und `bossName` gesetzt (`immunityPercent` wird derzeit nicht ausgewertet)
 - [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu gross/klein
 - [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse
+- [ ] Bei `splitOnDeath`: Kind-Typ in `ENEMY_TYPES`, kein Zyklus, `countRange` der Templates an die HP der ganzen Linie angepasst, `npm run ai-schema` gelaufen (`lineageHp`, `bodies`)
 
 ---
 
@@ -626,7 +663,7 @@ nach `training-backend/generated/ai-schema.json`.
   name: 'Skeleton Swarm',
   description: 'A rattling swarm of skeletons.',
   enemies: [['skeleton', 1.0]],
-  countRange: [40, 1500],
+  countRange: [25, 940], // mit den Minions des Splits bis 2.820 Körper
   spawnDelayRange: [15, 300],
   hpMultRange: [0.5, 5.0],
   variationRange: [0.05, 0.35],

@@ -40,7 +40,8 @@ export class WaveManager implements IGameManager {
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void;
   setCurrentHealthProvider(provider: () => number): void; // für CloseCall-Detection
-  getExpectedEnemyCount(): number; // genutzt vom EnemyManager (Swarm-Discount)
+  getExpectedEnemyCount(): number; // Gegner laut Schedule, auf sie wartet die Wave-Completion
+  getExpectedBodyCount(): number; // dazu die Split-Kinder: Kill-Gold-Slots des EnemyManager
   beginWave(): void;
   startWave(config: WaveConfig): void;
   /** Sub-step-driven spawner — called per sub-step from GameStateManager */
@@ -379,9 +380,13 @@ this.waveManager.startWave(waveConfig);
 
 Verbindet den `WaveManager` mit dem aktuellen Base-Health-Wert aus `GameStateManager`. Wird am Wave-Ende für CloseCall-Detection ausgewertet.
 
-### getExpectedEnemyCount()
+### getExpectedEnemyCount() / getExpectedBodyCount()
 
-Gibt die Anzahl Enemies zurück, die diese Wave tatsächlich enthält (post-Validation). Wird vom `EnemyManager` für den Swarm-Discount in der Kill-Reward-Formel benutzt.
+`getExpectedEnemyCount()` gibt die Anzahl Enemies zurück, die der Schedule dieser Wave spawnt (post-Validation); auf sie wartet `checkWaveComplete()`.
+
+`getExpectedBodyCount()` zählt dazu, was ein Kill abspaltet (`splitBodyCount`, ein Skeleton zählt 3). Damit teilt der `EnemyManager` das Kill-Gold der Welle in Slots: Jeder Körper zahlt einen Slot, ein durchgelaufener Gegner verliert seinen und die seiner nie entstandenen Kinder, und ein Split erhöht das Gold der Welle nicht.
+
+Split-Kinder leben, also wartet die Wave-Completion ohne eigenen Zähler auf sie.
 
 ### stopSpawning()
 
@@ -591,8 +596,8 @@ Quelle `GameStore`). `GameStateSyncService` füllt ihn aus den Events:
 | Store-Signal | gesetzt bei |
 |---|---|
 | `phase`, `waveNumber` | `wave:started` (Phase `wave`), `wave:completed` (Phase `setup`), `game:over` (Phase `gameover`) |
-| `waveEnemyTotal` | `wave:started` (`enemyCount`), 0 bei `wave:completed` |
-| `waveEnemiesLeft` | `wave:started`, -1 je `enemy:died` und `enemy:reached-base`, 0 bei `wave:completed` und `debug:kill-all` |
+| `waveEnemyTotal` | `wave:started` (`enemyCount`), + Kinder je `enemy:split` in der Welle, 0 bei `wave:completed` |
+| `waveEnemiesLeft` | `wave:started`, -1 je `enemy:died` und `enemy:reached-base`, + Kinder je `enemy:split` in der Welle, 0 bei `wave:completed` und `debug:kill-all` |
 
 Manuelle Wellen (`beginWave()`) melden `enemyCount: 0`; Total und Rest bleiben
 dann 0.

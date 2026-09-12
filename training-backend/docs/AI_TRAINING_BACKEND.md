@@ -1,6 +1,6 @@
 # AI Training Backend
 
-**Stand:** 2026-09-12, Schema v5 (208 Features), Reward v4, A/B-Director-Roster.
+**Stand:** 2026-09-13 (Skeleton-Split), Schema v5 (208 Features), Reward v4, A/B-Director-Roster.
 
 > **Das Backend ist ein Messinstrument, keine Produktionsabhängigkeit.**
 > Seit `3875d61` entscheidet im Spiel ein Regel-Director im Client
@@ -158,6 +158,12 @@ Tower-Level, Unlocks, DPS pro Schadenstyp); v3-Checkpoints sind damit nicht
 mehr ladbar. Schema v5 (ebenfalls 2026-09-12) hängt `skeleton` an die
 Gegner-Reihenfolge an (+1 Feature in der Typ-History).
 
+Der Skeleton-Split (2026-09-13) ändert am Layout nichts und bleibt v5:
+`skeleton-minion` steht in keinem Template und damit nicht in der
+Gegner-Reihenfolge. Neu sind die Felder `lineageHp` und `bodies` je Gegner, die
+`schema.fair_max_count` liest (siehe Fairness-Gate). Anders sieht das Netz nur
+`skeleton_swarm`: dessen Count-Range (jetzt 25–940) und den Fairness-Headroom.
+
 Layout: `server.py::_encode_state`. Frontend-Pendant:
 `src/app/ai/core/game-state-encoder.ts`. Beide werden gegen dieselbe
 Schema-Datei validiert; eine falsche Länge lässt den Encoder mit `ValueError`
@@ -212,6 +218,11 @@ den Waves 1–10 gemessen und ist ab Wave 11 falsch — die Schätzung hat also 
 stehenden Bias und keine Möglichkeit, ihn zu bemerken. `server.py::steer_gate`
 korrigiert ihn aus dem einzigen belastbaren Signal: was tatsächlich die Basis
 erreicht hat.
+
+Ein Gegner, der sich beim Tod teilt (Skeleton), zählt wie im Spiel mit seinen
+Kindern: HP der ganzen Linie (`lineageHp`) und ein Kill pro Körper (`bodies`).
+Die Leck-Quote zählt die Kinder als eigene Körper, weil `enemyProgressValues`
+jeden Gegner einzeln führt.
 
 ```python
 if len(ctx.leak_shares) < GATE_ADAPT_WINDOW:  return ctx.gate_multiplier
@@ -744,3 +755,5 @@ Kurz-Timeline:
   als Tower und als Schadenstyp
 - **Skeleton (2026-09-12)** Schema v4 → v5 (207 → 208 Features): `skeleton`
   als Gegner, Template `skeleton_swarm` auf W19
+- **Skeleton-Split (2026-09-13)** bleibt v5 (208 Features): `lineageHp` und
+  `bodies` je Gegner für `fair_max_count`, `skeleton_swarm` 25–940 statt 40–1500

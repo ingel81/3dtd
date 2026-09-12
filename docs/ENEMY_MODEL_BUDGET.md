@@ -19,9 +19,9 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
   69.297 VAT-Vertices (122.736 Dreiecke in 16 starren Meshes), 210 Hornets sind 14,6 Mio.
   Danach folgen `zombie_horde` (14,4), `rat_tide` (10,8), `spider_swarm` (10,5) und
   `wraith_storm` (9,1).
-- Alle 19 Typen werden beim Start gebacken (`preloadAllModels`). Zusammen belegen die VATs
-  264,0 MB GPU-Speicher: 18 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in
-  RGBA32F wären 485,2 MB). Gebacken wird nur, was das Spiel zeigt: Todes-Clips bis zum
+- Alle 20 Typen werden beim Start gebacken (`preloadAllModels`). Zusammen belegen die VATs
+  264,2 MB GPU-Speicher: 19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in
+  RGBA32F wären 485,7 MB). Gebacken wird nur, was das Spiel zeigt: Todes-Clips bis zum
   Entfernen des Gegners, Idle gar nicht (bis 2026-09-12 waren es 664,6 MB).
 - Der Wallsmasher lädt als FBX nicht indiziert: 17.010 Vertices für 5.670 Dreiecke. Als GLB
   wären es 3.444, ohne sichtbare Änderung.
@@ -238,6 +238,13 @@ Budget: ≤ 1.500 VAT-Vertices, Diffuse ≤ 512². Kandidaten mit Lizenz und Que
 - **Kenney character-skeleton** (CC0): 1.156 Vertices, 658 Dreiecke, sechs starre Teile mit
   Node-Animation, läuft über `bakeObjectAnimVAT` und liegt ohne Umbau im Budget. Blockiger
   Stil, `die` dauert nur 0,33 s.
+
+Umgesetzt mit dem Kenney-Modell (2026-09-12). Seit dem Split (2026-09-13) hinterlässt jedes
+getötete Skeleton zwei `skeleton-minion`: dasselbe Modell bei 0,6 der Größe in einem eigenen
+VAT-Pool (+0,2 MB als RGBA16F). Ein Skeleton bringt damit drei Körper, `skeleton_swarm` ging deshalb von
+höchstens 1.500 auf 940 Skeletons (2.820 Körper, 3,3 Mio. VAT-Vertices; ungekürzt wären es
+5,2 Mio. gewesen). Die Tabellen zählen die Minions, als lebten alle Körper gleichzeitig;
+tatsächlich entstehen sie erst beim Tod ihres Skeletons.
 
 ## Werkzeug
 
