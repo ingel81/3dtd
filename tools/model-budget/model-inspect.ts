@@ -466,7 +466,7 @@ function fbxChild(node: FbxNode | undefined, name: string): FbxNode | undefined 
 
 /** "Walk\0\x01AnimStack" -> "Walk". */
 function fbxName(prop: FbxProp | undefined): string {
-  return typeof prop === 'string' ? prop.split(' ')[0] : '';
+  return typeof prop === 'string' ? prop.split('\0\x01')[0] : '';
 }
 
 /**
