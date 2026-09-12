@@ -14,13 +14,13 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
 
 - **zombie_v2** hat 31.342 VAT-Vertices pro Instanz, das alte Zombie 4.525 (knapp 7×).
   2.000 Instanzen sind 62,7 Mio. Vertex-Shader-Aufrufe pro Frame statt 9,1 Mio. Seine VAT
-  belegt 136,0 MB (vier Clips, zusammen 272 Frames).
+  belegt 105,5 MB (drei Clips, zusammen 211 Frames).
 - Die teuerste Welle nach Vertex-Last ist `hornet_strike`, nicht die Zombie-Horde: Hornet hat
   69.297 VAT-Vertices (122.736 Dreiecke in 16 starren Meshes), 210 Hornets sind 14,6 Mio.
   Danach folgen `zombie_horde` (14,4), `rat_tide` (10,8), `spider_swarm` (10,5) und
   `wraith_storm` (9,1).
 - Alle 18 Typen werden beim Start gebacken (`preloadAllModels`). Zusammen belegen die VATs
-  516,1 MB GPU-Speicher. Gebacken wird nur, was das Spiel zeigt: Todes-Clips bis zum
+  485,6 MB GPU-Speicher. Gebacken wird nur, was das Spiel zeigt: Todes-Clips bis zum
   Entfernen des Gegners, Idle gar nicht (bis 2026-09-12 waren es 664,6 MB).
 - Der Wallsmasher lädt als FBX nicht indiziert: 17.010 Vertices für 5.670 Dreiecke. Als GLB
   wären es 3.444, ohne sichtbare Änderung.
@@ -102,11 +102,12 @@ Blender; das Ergebnis mit `npm run model-budget` nachmessen.
   16 %, besser Retopologie mit neuer Abwicklung und gebackener Textur.
 - Soll zombie-v2 in `zombie_horde` mehr als die heutigen 10 % stellen, gilt das
   Swarm-Budget (≤ 1.500).
-- Die drei Todes-Clips sind auf die sichtbaren 2 s gekürzt (je 61 Frames). `Electrocuted_Fall`
-  (6,33 s) passt nicht dazu: Die Hüfte des Clips bleibt bis 3,0 s auf Standhöhe, der Sturz
-  beginnt bei etwa 3,25 s und endet bei etwa 5 s. Der Gegner verschwindet also zuckend im
-  Stehen (aus den Keyframes gelesen, nicht im Browser gesehen).
-- Wirkung: VAT 136,0 → rund 21 MB (5.000 Vertices), `zombie_horde` 14,4 → 9,1 Mio. (das
+- Die beiden Todes-Clips sind auf die sichtbaren 2 s gekürzt (je 61 Frames).
+  `Electrocuted_Fall` (6,33 s) ist nicht mehr im Pool: Die Hüfte des Clips bleibt bis 3,0 s
+  auf Standhöhe, der Sturz beginnt bei etwa 3,25 s und endet bei etwa 5 s. Der Gegner
+  verschwand also zuckend im Stehen (aus den Keyframes gelesen, nicht im Browser gesehen).
+  Soll die Variante zurück, den Sturz in Blender herausschneiden (etwa 3,0 bis 5,0 s).
+- Wirkung: VAT 105,5 → rund 16 MB (5.000 Vertices), `zombie_horde` 14,4 → 9,1 Mio. (das
   alte Zombie bleibt der größere Posten, siehe Nr. 6).
 - Das Backup `zombie_v2.original.glb.bak`, auf das die TODO verweist, liegt nicht im
   Hauptcheckout.
@@ -183,11 +184,9 @@ höchstens dreimal pro Welle. Bear und Zombie Soldier liegen im Budget.
 ## Stellschrauben ohne Modelländerung
 
 Die Config hat keine VAT-Stellschraube pro Typ; Bake-fps und VAT-Breite sind Konstanten in
-`vat-baker.ts`. In der Config lassen sich nur Clips weglassen, zum Beispiel
-`Electrocuted_Fall` bei zombie-v2 (−61 Frames, −30,5 MB, eine von drei Todesvarianten fällt
-weg). Das spart Speicher und Bake-Zeit, keine Frame-Zeit. Die Swarm-Gegner mit der größten
-Vertex-Last (Ratte, Spinne) backen je nur einen Clip mit 11 bzw. 25 Frames, da gibt es nichts
-wegzulassen.
+`vat-baker.ts`. In der Config lassen sich nur Clips weglassen; das spart Speicher und
+Bake-Zeit, keine Frame-Zeit. Die Swarm-Gegner mit der größten Vertex-Last (Ratte, Spinne)
+backen je nur einen Clip mit 11 bzw. 25 Frames, da gibt es nichts wegzulassen.
 
 Code-seitig umgesetzt (2026-09-12):
 
@@ -195,10 +194,12 @@ Code-seitig umgesetzt (2026-09-12):
   `deathAnimationDuration × animationSpeed`. Idle wird nicht mehr gebacken; das Config-Feld
   `idleAnimation` und der Idle-Knopf im Debug-Fenster sind entfernt, denn Idle lief nur dort.
   VAT 664,6 → 516,1 MB.
+- **`Electrocuted_Fall` aus dem zombie-v2-Pool**: Der Sturz käme erst nach dem Entfernen
+  (siehe Nr. 2). −61 Frames, −30,5 MB, VAT gesamt 485,6 MB.
 
 Code-seitig, nicht umgesetzt:
 
-- **VAT als RGBA16F** (`HalfFloatType`): halbiert den VAT-Speicher (516,1 → rund 258 MB) und
+- **VAT als RGBA16F** (`HalfFloatType`): halbiert den VAT-Speicher (485,6 → rund 243 MB) und
   die Bytes pro VAT-Zugriff. Half-Float hat 11 Bit Mantisse; vorher prüfen, welche Modelle
   große lokale Koordinaten haben.
 - **Offene Frage**: Alle VAT-Materialien sind `transparent: true`. Ein Ausblenden beim Tod
@@ -250,7 +251,7 @@ Gegner der größten Welle gleichzeitig leben.
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |
 | Hornet (`hornet`) | Normal | 210 | 69.297 | 122.736 | 14,6 | Objekt-Anim. | 59 | 8192×531 | 66,4 | 1024² |
 | Mech (`mech`) | Normal | 100 | 42.455 | 28.850 | 4,2 | Objekt-Anim. | 41 | 8192×246 | 30,8 | 1024² |
-| Zombie v2 (`zombie-v2`) | Normal | 200 | 31.342 | 30.887 | 6,3 | Skinning | 272 | 8192×1088 | 136,0 | 1024² |
+| Zombie v2 (`zombie-v2`) | Normal | 200 | 31.342 | 30.887 | 6,3 | Skinning | 211 | 8192×844 | 105,5 | 1024² |
 | Herbert (`herbert`) | Elite/Boss | 3 | 30.831 | 31.949 | 0,1 | Skinning | 32 | 8192×128 | 16,0 | 512² |
 | Wraith (`wraith`) | Normal | 300 | 30.228 | 39.986 | 9,1 | Skinning | 15 | 8192×60 | 7,5 | 1024² |
 | Wallsmasher (`wallsmasher`) | Normal | 200 | 17.010 | 5.670 | 3,4 | Skinning | 103 | 8192×309 | 38,6 | – |
@@ -267,8 +268,8 @@ Gegner der größten Welle gleichzeitig leben.
 | Rat (`rat`) | Swarm | 5.000 | 2.150 | 3.642 | 10,8 | Skinning | 11 | 2150×11 | 0,4 | 1024² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | 2,6 | 1024² |
 
-VAT-Speicher aller Typen zusammen: **516,1 MB** (RGBA32F, 30 fps).
-Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **90,9 MB** dazu.
+VAT-Speicher aller Typen zusammen: **485,6 MB** (RGBA32F, 30 fps).
+Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **26,4 MB** dazu.
 
 ### Modellinhalt
 
@@ -310,7 +311,6 @@ die weggelassenen Frames.
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
 | Zombie v2 | `Dead` | death | 2,96 | 61 | 28 |
 | Zombie v2 | `dying_backwards` | death | 2,21 | 61 | 6 |
-| Zombie v2 | `Electrocuted_Fall` | death | 6,33 | 61 | 129 |
 | Herbert | `Armature\|walking_man\|baselayer` | walk | 1,04 | 32 | – |
 | Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
 | Wallsmasher | `CharacterArmature\|Walk` | walk | 1,33 | 40 | – |
