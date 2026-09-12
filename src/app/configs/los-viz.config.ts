@@ -129,6 +129,8 @@ export const LOS_VIZ_CONFIG = {
       deck: new Color(0x56b4e9),
       /** Ohne Höhenprobe, nur Ersatzhöhe. Die LOS-Anzeige eines Towers zeichnet sie nicht. */
       unsampled: new Color(0xcc79a7),
+      /** In einem Tunnel oder überdachten Durchgang, Höhe zwischen den Portalen. */
+      tunnel: new Color(0xf0e442),
     },
   },
 

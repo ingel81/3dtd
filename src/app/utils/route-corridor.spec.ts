@@ -13,6 +13,7 @@ import {
   lateralLimit,
   resetCorridorConfig,
   routeHalfWidths,
+  runsUnderCover,
   setCorridorConfig,
 } from './route-corridor';
 import { METERS_PER_DEGREE_LAT } from './geo-utils';
@@ -67,6 +68,16 @@ describe('routeHalfWidths', () => {
 
   it('uses the default before any street', () => {
     expect(routeHalfWidths([null, { type: 'footway' }])).toEqual([corridorConfig.defaultHalfWidth, 1]);
+  });
+});
+
+describe('runsUnderCover', () => {
+  it('takes any tunnel value but no, and covered=yes', () => {
+    expect(runsUnderCover({ tunnel: 'yes' })).toBe(true);
+    expect(runsUnderCover({ tunnel: 'building_passage' })).toBe(true);
+    expect(runsUnderCover({ covered: 'yes' })).toBe(true);
+    expect(runsUnderCover({})).toBe(false);
+    expect(runsUnderCover({ tunnel: 'no', covered: 'no' })).toBe(false);
   });
 });
 

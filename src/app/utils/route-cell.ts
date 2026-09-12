@@ -63,10 +63,14 @@ export interface RouteCell {
   /**
    * Which surface of the column the cell stands on: `ground` is the lowest
    * hit, `deck` the highest, the deck of a bridge the route crosses rather
-   * than the river or road below it. Set at generation from the OSM
-   * `bridge` tag of the segments that reach the cell, read by `sampleCellY`.
+   * than the river or road below it. `tunnel`: neither, the cell lies in a
+   * tunnel or covered passage and takes its height between the portals
+   * (`tunnelSpan`). Set at generation from the OSM tags of the segments
+   * that reach the cell, read by `sampleCellY`.
    */
-  surface: 'ground' | 'deck';
+  surface: 'ground' | 'deck' | 'tunnel';
+  /** Portals a `tunnel` cell takes its height between; null on every other cell. */
+  tunnelSpan: TunnelSpan | null;
   /**
    * Route-anchor Y, taken at generation time from the smoothed route height
    * at the nearest route sample point. Stands in as `terrainHeight` until the
@@ -90,6 +94,19 @@ export interface RouteCell {
   towerVisibility: Map<string, boolean>;
   /** Map of tower ID -> visibility for air targets (raycast against the air sample altitude) */
   airVisibility: Map<string, boolean>;
+}
+
+/**
+ * Where a tunnel cell takes its height from: the ground at the two portals
+ * of the tunnel stretch it lies in (local x, z, just outside the mouths),
+ * `f` of the way from `a` to `b`.
+ */
+export interface TunnelSpan {
+  ax: number;
+  az: number;
+  bx: number;
+  bz: number;
+  f: number;
 }
 
 /**

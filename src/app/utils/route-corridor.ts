@@ -301,6 +301,22 @@ export function routeHalfWidths(ways: readonly (StreetWidthTags | null)[]): numb
   return halfWidths;
 }
 
+/** The OSM fields that put a street under cover. */
+export interface CoverTags {
+  tunnel?: string;
+  covered?: string;
+}
+
+/**
+ * The street runs through a tunnel or a covered passage: `tunnel=*` other
+ * than `no` (`yes`, `building_passage`, `culvert`, ...) or `covered=yes`.
+ * A column there sees only the ground or roof above, and the clearance
+ * rays would hit the tunnel walls.
+ */
+export function runsUnderCover(street: CoverTags): boolean {
+  return (street.tunnel !== undefined && street.tunnel !== 'no') || street.covered === 'yes';
+}
+
 /**
  * Largest (or smallest) known value among station `k` and the `radius`
  * stations either side; NaN if none is known.

@@ -593,6 +593,59 @@ describe('GlobalRouteGrid bridges', () => {
 });
 
 /**
+ * In a tunnel or covered passage a column sees only the hill or the building
+ * above it. Its cells take the ground just outside the two mouths instead,
+ * interpolated along the stretch.
+ */
+describe('GlobalRouteGrid tunnels', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+  const at = (x: number, z: number, inTunnel?: boolean): RouteWaypoint =>
+    ({ lat: z, lon: x, corridorLeft: 3, corridorRight: 3, inTunnel });
+  /** Eastbound along z = 1, in a tunnel from x = 20 to 40. */
+  const route = [at(0, 1), at(20, 1, true), at(40, 1), at(60, 1)];
+  /** Ground at 0 m west of the hill, 10 m east of it, the hill top at 30 m over the tunnel. */
+  const hill = (x: number): ColumnSample | null => ({
+    groundY: x > 20 && x < 40 ? 30 : x <= 20 ? 0 : 10, topY: 30, tileDepth: 20, tileGeometricError: 2,
+  });
+
+  function build(column: (x: number, z: number) => ColumnSample | null): GlobalRouteGrid {
+    const grid = new GlobalRouteGrid();
+    grid.initialize(column as never, coordinateSync);
+    grid.generateFromRoutes([route]);
+    return grid;
+  }
+
+  it('puts the cells between the ground outside the two mouths', () => {
+    const grid = build(hill);
+    // Portals 2 m outside the mouths, at x = 18 (0 m) and 42 (10 m), 24 m apart.
+    const inside = grid.getCellAt(31, 1)!;
+    expect(inside.surface).toBe('tunnel');
+    expect(inside.terrainHeight).toBeCloseTo((10 * 13) / 24, 6);
+    expect(inside.sample.clamped).toBe(false);
+    expect(grid.getCellAt(10, 1)!.surface).toBe('ground');
+    expect(grid.getCellAt(10, 1)!.terrainHeight).toBe(0);
+    expect(grid.getCellAt(50, 1)!.terrainHeight).toBe(10);
+  });
+
+  it('makes a cell in the mouth that the approach reaches too a tunnel cell', () => {
+    const grid = build(hill);
+    // Centre (21, 1): 1 m from the approach, on the hill's column.
+    const mouth = grid.getCellAt(21, 1)!;
+    expect(mouth.surface).toBe('tunnel');
+    expect(mouth.terrainHeight).toBeCloseTo((10 * 3) / 24, 6);
+  });
+
+  it('leaves the cells unsampled until both portals have a tile', () => {
+    const grid = build((x) => (x > 41 ? null : hill(x)));
+    const inside = grid.getCellAt(31, 1)!;
+    expect(inside.sample.state).toBe('unsampled');
+    expect(inside.heightSampled).toBe(false);
+  });
+});
+
+/**
  * Cells are keyed with Math.floor when they are created, so every lookup has
  * to use the same rule. Truncation (`| 0`) rounds toward zero and put
  * positions left of / behind the origin into the neighbour cell on the origin

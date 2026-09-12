@@ -20,6 +20,7 @@ function cell(
     axisZ: 0,
     terrainHeight: sampled ? 5 : 0,
     surface: opts.surface ?? 'ground',
+    tunnelSpan: null,
     routeAnchorY: 0,
     sample: {
       state: sampled ? 'stable' : 'unsampled',
@@ -72,7 +73,7 @@ describe('RouteGridAggregateViz', () => {
 
   it('marks the state of each cell for its outline', () => {
     // Centre line + sampled, clamped, deck, unsampled.
-    expect(attribute(viz().createVisualization(), 'aCellKind')).toEqual([4, 1, 2, 3]);
+    expect(attribute(viz().createVisualization(), 'aCellKind')).toEqual([8, 1, 2, 3]);
   });
 
   it('keeps the coverage buffer aligned with every cell', () => {
@@ -94,11 +95,17 @@ describe('RouteGridAggregateViz', () => {
 });
 
 describe('overlayCellKind', () => {
-  it('puts a missing sample before anything else, then deck, then clamped', () => {
+  it('puts a missing sample before anything else, then deck or tunnel, then clamped', () => {
     expect(overlayCellKind(cell(1, 0, { sampled: false, surface: 'deck' }))).toBe(3);
+    expect(overlayCellKind(cell(1, 0, { sampled: false, surface: 'tunnel' }))).toBe(3);
     expect(overlayCellKind(cell(1, 0, { surface: 'deck' }))).toBe(2);
+    expect(overlayCellKind(cell(1, 0, { surface: 'tunnel' }))).toBe(4);
     expect(overlayCellKind(cell(1, 0, { clamped: true }))).toBe(1);
     expect(overlayCellKind(cell(1, 0))).toBe(0);
-    expect(overlayCellKind(cell(1, 0, { clamped: true, centre: true }))).toBe(5);
+  });
+
+  it('adds 8 on the centre line, which the shader takes off again', () => {
+    expect(overlayCellKind(cell(1, 0, { clamped: true, centre: true }))).toBe(9);
+    expect(overlayCellKind(cell(1, 0, { surface: 'tunnel', centre: true }))).toBe(12);
   });
 });

@@ -106,7 +106,16 @@ function makeEngine(): ThreeTilesEngine {
 }
 
 function makeNetwork(
-  streets: { id: number; type?: string; width?: number; lanes?: number; bridge?: string; nodes: StreetNode[] }[],
+  streets: {
+    id: number;
+    type?: string;
+    width?: number;
+    lanes?: number;
+    bridge?: string;
+    tunnel?: string;
+    covered?: string;
+    nodes: StreetNode[];
+  }[],
 ): StreetNetwork {
   const nodes = new Map<number, StreetNode>();
   for (const s of streets) for (const n of s.nodes) nodes.set(n.id, n);
@@ -410,6 +419,35 @@ describe('PathAndRouteService route geometry', () => {
         clearanceAt = (_x, _z, max) => max;
         expect(service.measureStreetClearance()).toBe(true);
         expect(service.hasUnmeasuredStations()).toBe(false);
+      });
+
+      it('does not measure a tunnel or covered passage and keeps its street width there', () => {
+        network = makeNetwork([
+          { id: 100, nodes: [n10, n1] },
+          { id: 200, type: 'primary', width: 12, tunnel: 'yes', nodes: [n1, n2, n3] },
+          { id: 300, covered: 'yes', nodes: [n3, n30] },
+        ]);
+        // Facades 5.2 m off everywhere; inside a tunnel the rays would hit its walls.
+        const probedOn200: number[] = [];
+        clearanceAt = (x, z) => {
+          if (Math.abs(x) < 1 && northOfN1(z) > 1) probedOn200.push(northOfN1(z));
+          return 5.2;
+        };
+        const service = buildRouteService(network, spawn, hq);
+        expect(service.measureStreetClearance()).toBe(true);
+        service.showPathFromSpawn(spawnPointAt(spawn));
+        const route = service.getCachedPath('s1')!;
+
+        expect(probedOn200).toEqual([]);
+        // n10, n1, n2, n3, turn-off on way 300, HQ: way 100 measured, 200
+        // and 300 at their street width, the leg to the HQ inherits it.
+        expect(route.map((p) => p.inTunnel === true)).toEqual([false, true, true, true, false, false]);
+        expect(route.map((p) => p.corridorLeft)).toEqual([4.5, 6, 6, 2.75, 2.75, undefined]);
+
+        const n1Local = toMeters(n1);
+        const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
+        expect(why).toMatchObject({ way: 200, inTunnel: true, unmeasured: 'tunnel or covered: not measured' });
+        expect(why.sides[0]).toMatchObject({ halfWidthM: 6, rule: 'tunnel or covered: street width' });
       });
     });
   });
