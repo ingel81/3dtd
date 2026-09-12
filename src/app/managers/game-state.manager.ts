@@ -17,7 +17,7 @@ import { WaveDebugService } from '../services/debug/wave-debug.service';
 import { EnemyDebugService } from '../services/debug/enemy-debug.service';
 import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
 import { TowerPlacementService } from '../services/tower-placement.service';
-import { GeoPosition } from '../models/game.types';
+import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
@@ -906,7 +906,7 @@ export class GameStateManager {
   /**
    * Get cached enemy routes for LOS preview during tower placement
    */
-  getCachedRoutes(): GeoPosition[][] {
+  getCachedRoutes(): RouteWaypoint[][] {
     return Array.from(this.pathRouteService.getCachedPaths().values());
   }
 

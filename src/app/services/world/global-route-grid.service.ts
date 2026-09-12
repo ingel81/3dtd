@@ -3,7 +3,7 @@ import { GlobalRouteGrid } from '../../utils/global-route-grid';
 import { RouteCell } from '../../utils/route-cell';
 import { buildRouteAltitudeTubes, disposeRouteAltitudeTubes } from '../../utils/route-altitude-tubes';
 import { Enemy } from '../../entities/enemy.entity';
-import { GeoPosition } from '../../models/game.types';
+import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
 import { ColumnSampler, TerrainPeekLOD } from '../../three-engine/renderers/three-tower.renderer';
 import { LosResolveContext } from '../../utils/gpu-cube-resolve';
@@ -137,7 +137,7 @@ export class GlobalRouteGridService {
    * Generate grid cells from enemy routes
    * @param routes Array of route paths (each path is GeoPosition[])
    */
-  generateFromRoutes(routes: GeoPosition[][]): void {
+  generateFromRoutes(routes: RouteWaypoint[][]): void {
     this.grid.generateFromRoutes(routes);
     // Routes changed → existing tube geometry is stale, rebuild if shown
     if (this.airRouteTube) {

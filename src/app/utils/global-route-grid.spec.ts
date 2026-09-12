@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GlobalRouteGrid } from './global-route-grid';
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { Enemy } from '../entities/enemy.entity';
+import type { RouteWaypoint } from '../models/game.types';
+import { CORRIDOR_MIN_HALF_WIDTH_M, lateralLimit } from './route-corridor';
 
 // Stand-in for the cubemap: a wall at 10 m, so a cell's visibility follows
 // its height. Targets below it are visible, targets above it are not.
@@ -179,7 +181,7 @@ describe('GlobalRouteGrid enemy cell memo', () => {
   const coordinateSync = {
     geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
   } as never;
-  /** Straight route along +x at z = 0; the corridor reaches ~7 m either side. */
+  /** Straight route along +x at z = 0; no width on it, so the default 4.5 m either side. */
   const route = [[{ lat: 0, lon: 0 }, { lat: 0, lon: 20 }]];
   const makeEnemy = (id: string) => ({ id }) as unknown as Enemy;
 
@@ -259,6 +261,92 @@ describe('GlobalRouteGrid enemy cell memo', () => {
     }
     // A position the memo does not cover falls back to the lookup.
     expect(grid.getGroundLocalYForEnemy(enemy, 2.1, 0.1)).toBe(grid.getGroundLocalYAt(2.1, 0.1));
+  });
+});
+
+/**
+ * The corridor follows the street: each segment brings its own half width,
+ * and every point an enemy may reach (lateralLimit) has to lie in a cell,
+ * or towers would not see the enemy standing there.
+ */
+describe('GlobalRouteGrid corridor width', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+  const sampler = () => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 2 });
+
+  let grid: GlobalRouteGrid;
+
+  beforeEach(() => {
+    grid = new GlobalRouteGrid();
+    grid.initialize(sampler as never, coordinateSync);
+  });
+
+  /** Local x, z to the fake geo space of `coordinateSync`. */
+  const at = (x: number, z: number, corridorHalfWidth?: number): RouteWaypoint => ({ lat: z, lon: x, corridorHalfWidth });
+
+  /** Distinct cells on the line x = `x`, from z = -20 to 20. */
+  function cellsAcross(x: number): number {
+    const keys = new Set<number>();
+    for (let z = -20; z <= 20; z += 0.25) {
+      const cell = grid.getCellAt(x, z);
+      if (cell) keys.add(cell.key);
+    }
+    return keys.size;
+  }
+
+  it('keeps two cells across the narrowest corridor', () => {
+    // Centre line on a cell border, then through cell centres.
+    grid.generateFromRoutes([[at(0, 0, CORRIDOR_MIN_HALF_WIDTH_M), at(40, 0)]]);
+    expect(cellsAcross(10)).toBe(2);
+
+    grid.generateFromRoutes([[at(0, 1, CORRIDOR_MIN_HALF_WIDTH_M), at(40, 1)]]);
+    expect(cellsAcross(10)).toBe(3);
+  });
+
+  it('follows the width of each segment', () => {
+    grid.generateFromRoutes([[at(0, 0, 2), at(40, 0, 6), at(80, 0)]]);
+    expect(grid.getCellAt(20, 4.5)).toBeUndefined();
+    expect(grid.getCellAt(60, 4.5)).toBeDefined();
+    expect(cellsAcross(60)).toBeGreaterThan(cellsAcross(20));
+  });
+
+  it('keeps every cell centre within the half width of its segment', () => {
+    grid.generateFromRoutes([[at(0, 0, 2.75), at(30, 17, 2.75), at(60, 17)]]);
+    const segments: [number, number, number, number][] = [[0, 0, 30, 17], [30, 17, 60, 17]];
+    const distance = (px: number, pz: number, [ax, az, bx, bz]: [number, number, number, number]) => {
+      const dx = bx - ax;
+      const dz = bz - az;
+      const t = Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / (dx * dx + dz * dz)));
+      return Math.hypot(ax + t * dx - px, az + t * dz - pz);
+    };
+    const cells = grid.getCellsInRange(30, 10, 100);
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) {
+      expect(Math.min(...segments.map((s) => distance(cell.x, cell.z, s)))).toBeLessThanOrEqual(2.75);
+    }
+  });
+
+  it('puts every point an enemy may reach into a cell, at any heading', () => {
+    for (const halfWidth of [CORRIDOR_MIN_HALF_WIDTH_M, 2.75, 4, 7]) {
+      for (let angle = 0; angle < Math.PI; angle += Math.PI / 13) {
+        const ux = Math.cos(angle);
+        const uz = Math.sin(angle);
+        // Start off the cell lattice so the line cuts cells unevenly.
+        const ax = 0.37;
+        const az = -0.61;
+        grid.generateFromRoutes([[at(ax, az, halfWidth), at(ax + 50 * ux, az + 50 * uz)]]);
+
+        const limit = lateralLimit(halfWidth);
+        for (let s = 0; s <= 50; s += 0.7) {
+          for (const side of [-1, -0.5, 0, 0.5, 1]) {
+            const x = ax + s * ux - side * limit * uz;
+            const z = az + s * uz + side * limit * ux;
+            expect(grid.getCellAt(x, z), `hw ${halfWidth} angle ${angle.toFixed(2)} s ${s} side ${side}`).toBeDefined();
+          }
+        }
+      }
+    }
   });
 });
 
