@@ -167,7 +167,7 @@ export class WaveDirectorService {
         // Refuse a model that was trained against a different state encoding.
         //
         // The checked-in model was exported at schema v2 and expects 156
-        // inputs; the encoder produces ENCODED_STATE_SIZE (203 at schema v3).
+        // inputs; the encoder produces ENCODED_STATE_SIZE (207 at schema v4).
         // Without this check the session loads happily and then throws a shape
         // error on the first `run()` — mid-wave, in a path with no fallback,
         // long after the button that started it. Failing here keeps the rules

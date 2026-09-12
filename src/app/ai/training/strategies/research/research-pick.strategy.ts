@@ -59,6 +59,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'advanced-weaponry',      // W11-15 — T2 upgrades
       'storm-mastery',          // W12+ — Lightning: chain, anti-air, anti-ethereal
       'master-engineering',     // W15-18 — T3 upgrades
+      'chaos-rift',             // W16+: Chaos, expensive generalist after the T3 tier
       'advanced-engineering',   // W19-23 — T4 upgrades (L16-20)
       'transcendent-tech',      // W24-30 — T5 upgrades (L21-25)
     ],
@@ -67,7 +68,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'siege-engineering', 'rocketry', 'aa-retrofit',
       'arcane-studies', 'toxic-compounds', 'fire-alchemy',
       'advanced-weaponry', 'storm-mastery', 'master-engineering',
-      'advanced-engineering', 'transcendent-tech',
+      'chaos-rift', 'advanced-engineering', 'transcendent-tech',
     ],
   };
 

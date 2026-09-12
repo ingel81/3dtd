@@ -7,7 +7,7 @@
  *
  * The layout is defined by `ai-schema.ts`, which is also what generates the
  * Python backend's copy — so this encoder and `server.py::_encode_state`
- * cannot drift apart the way they used to. With schema v2 the vector is 162
+ * cannot drift apart the way they used to. With schema v4 the vector is 207
  * features wide:
  *
  *   Player state: credits, lives%, wave, time                            (4)
@@ -32,6 +32,11 @@
  *   --- armor-matrix block ---
  *   Effective DPS vs armor, ground                                       (A)
  *   Effective DPS vs armor, air                                          (A)
+ *   AoE share of ground and air DPS                                      (2)
+ *   --- wave-context block ---
+ *   Template availability mask                         (MAX_TEMPLATE_SLOTS)
+ *   Effective template ranges                                            (6)
+ *   Fairness headroom                                                    (1)
  *   --- spatial block ---
  *   Ground DPS profile                                          (NUM_BINS)
  *   Air DPS profile                                             (NUM_BINS)

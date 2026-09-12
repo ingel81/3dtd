@@ -147,7 +147,7 @@ und sollte mit den neuen Difficulty-Knobs trotzdem spielbar sein.
 
 Zwei Stufen haben das überholt:
 
-1. **Training-Refresh (2026-08):** Schema-Wechsel (heute v3, 203 Features) machte
+1. **Training-Refresh (2026-08):** Schema-Wechsel (heute v4, 207 Features) machte
    den Checkpoint unladbar, und mehrere Trainingsbugs — allen voran ein nie
    feuernder DEATH-Term — machten den alten Lauf ohnehin wertlos.
 2. **Regel-Director (2026-09):** Es wird gar kein Modell mehr geladen. Das Netz

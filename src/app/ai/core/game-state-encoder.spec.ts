@@ -106,7 +106,8 @@ describe('encodeGameState() schema', () => {
       fire:          { count: 1, avgLevel: 5, totalDamage: 120, totalDPS: 60 },
       tentacle:      { count: 0, avgLevel: 0, totalDamage: 0,   totalDPS: 0 },
       poison:        { count: 0, avgLevel: 0, totalDamage: 0,   totalDPS: 0 },
-      lightning:     { count: 2, avgLevel: 1, totalDamage: 70,  totalDPS: 35 },
+      lightning:     { count: 1, avgLevel: 1, totalDamage: 35,  totalDPS: 35 },
+      chaos:         { count: 1, avgLevel: 3, totalDamage: 50,  totalDPS: 60 },
     };
     s.recentHistory.damagePerWave    = [0.1, 0.2, 0.0, 0.3, 0.05];
     s.recentHistory.progressPerWave  = [0.2, 0.3, 0.4, 0.5, 0.6];
@@ -130,7 +131,7 @@ describe('encodeGameState() schema', () => {
       towerUnlocked: {
         archer: true, cannon: true, magic: false, 'dual-gatling': false,
         rocket: true, ice: false, fire: false, tentacle: false, poison: false,
-        lightning: false, chaos: false, 'research-center': true,
+        lightning: false, chaos: true, 'research-center': true,
       },
     };
     s.defense.aoeDpsShare = { ground: 0.4, air: 0.25 };
@@ -187,8 +188,9 @@ describe('encodeGameState() schema', () => {
       expect(at('fire')).toBeCloseTo(0.1, 5);
       expect(at('tentacle')).toBe(0);
       expect(at('poison')).toBe(0);
-      // Lightning became visible to the AI in schema v2.
-      expect(at('lightning')).toBeCloseTo(0.2, 5);
+      // Lightning became visible to the AI in schema v2, chaos in v4.
+      expect(at('lightning')).toBeCloseTo(0.1, 5);
+      expect(at('chaos')).toBeCloseTo(0.1, 5);
     });
 
     it('history damage — last 5 raw values, oldest first', () => {
@@ -305,6 +307,7 @@ describe('encodeGameState() schema', () => {
       expect(at('rocket')).toBeCloseTo(4 / 5, 5);
       expect(at('fire')).toBeCloseTo(1, 5);
       expect(at('lightning')).toBeCloseTo(1 / 5, 5);
+      expect(at('chaos')).toBeCloseTo(3 / 5, 5);
     });
 
     it('defense capabilities — antiAir, splash, slow, dot', () => {
@@ -326,6 +329,7 @@ describe('encodeGameState() schema', () => {
       expect(at('tentacle')).toBe(0);
       expect(at('poison')).toBe(0);
       expect(at('lightning')).toBe(0);
+      expect(at('chaos')).toBe(1);
     });
 
     it('near-miss history — last 5 values, oldest first', () => {

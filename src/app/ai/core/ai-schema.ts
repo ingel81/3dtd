@@ -24,6 +24,8 @@
  *       for mech_army. Adds the availability mask, the effective template's
  *       ranges and the fairness headroom. Also repurposes two dead blocks: a
  *       hardcoded zero and a verbatim copy of the damage history.
+ *   4: Chaos tower 2026-09, 207 features. Adds `chaos` as a buildable tower
+ *       (tower order 10 → 11) and as a damage type (8 → 9).
  */
 
 import { ARMOR_TYPES, type ArmorType, type DamageType } from '../../configs/combat/combat.types';
@@ -32,7 +34,7 @@ import { type TowerTypeId } from '../../configs/tower-types.config';
 import { MAX_TEMPLATE_SLOTS } from './templates';
 
 /** Bumped whenever a length or an order below changes. */
-export const AI_SCHEMA_VERSION = 3;
+export const AI_SCHEMA_VERSION = 4;
 
 /**
  * Enemy order — 18 entries. Append-only: new enemies go at the end so the
@@ -49,7 +51,7 @@ export const AI_ENEMY_ORDER: readonly EnemyTypeId[] = [
 ];
 
 /**
- * Combat-tower order — 10 entries. `research-center` is deliberately absent:
+ * Combat-tower order, 11 entries. `research-center` is deliberately absent:
  * it deals no damage and its state is already covered by the research block
  * (`centerLevel`, `slotsUsed`, `maxSlots`).
  */
@@ -57,13 +59,17 @@ export const AI_TOWER_ORDER: readonly TowerTypeId[] = [
   'archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice', 'fire', 'tentacle', 'poison',
   // --- schema v2 ---
   'lightning',
+  // --- schema v4 ---
+  'chaos',
 ];
 
-/** Damage-type order — 8 entries, mirrors `DAMAGE_TYPES`. */
+/** Damage-type order, 9 entries, mirrors `DAMAGE_TYPES`. */
 export const AI_DAMAGE_TYPE_ORDER: readonly DamageType[] = [
   'physical', 'pierce', 'siege', 'magic', 'fire', 'ice', 'poison',
   // --- schema v2 ---
   'lightning',
+  // --- schema v4 ---
+  'chaos',
 ];
 
 /** Armor-type order — 5 entries, mirrors `ARMOR_TYPES`. */

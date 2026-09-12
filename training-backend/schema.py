@@ -20,7 +20,7 @@ from typing import Any, Optional
 # Schema version this backend understands. Bumped together with
 # AI_SCHEMA_VERSION in src/app/ai/core/ai-schema.ts whenever a feature order
 # or block size changes (which invalidates every checkpoint).
-EXPECTED_SCHEMA_VERSION = 3
+EXPECTED_SCHEMA_VERSION = 4
 
 SCHEMA_PATH = Path(__file__).parent / "generated" / "ai-schema.json"
 

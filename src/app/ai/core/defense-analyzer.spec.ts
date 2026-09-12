@@ -8,13 +8,14 @@ import { FAIRNESS_MATCHUP_FLOOR } from './templates';
 import { Tower } from '../../entities/tower.entity';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
+import { ARMOR_TYPES } from '../../configs/combat/combat.types';
 
 const POS = { lat: 10, lon: 20, height: 0 };
 
 describe('isSplashTower()', () => {
   it('matches what the game actually does', () => {
     const splash: TowerTypeId[] = ['cannon', 'ice', 'poison', 'fire', 'lightning'];
-    const single: TowerTypeId[] = ['archer', 'dual-gatling', 'magic', 'rocket', 'tentacle', 'research-center'];
+    const single: TowerTypeId[] = ['archer', 'dual-gatling', 'magic', 'rocket', 'tentacle', 'chaos', 'research-center'];
     for (const id of splash) expect(isSplashTower(id), id).toBe(true);
     for (const id of single) expect(isSplashTower(id), id).toBe(false);
   });
@@ -40,6 +41,22 @@ describe('analyzeDefense() kill throughput', () => {
     expect(gate.ground.unarmored).toBeCloseTo(dps * m.unarmored, 6); // above the floor
     expect(gate.ground.ethereal).toBeCloseTo(eff.ground.ethereal, 6);
     expect(gate.air).toEqual(eff.air);
+  });
+
+  it('a chaos tower alone opens the air and ethereal gates, at full DPS against every armor', () => {
+    const chaos = new Tower(POS, 'chaos');
+    const dps = computeTowerDPS(chaos);
+    const { capabilities, effectiveDPSPerArmor: eff, gateDpsPerArmor: gate } = analyzeDefense([chaos], false);
+
+    expect(capabilities.hasAntiAir).toBe(true);
+    expect(capabilities.hasAntiEthereal).toBe(true);
+    expect(capabilities.hasSplash).toBe(false);
+    for (const armor of ARMOR_TYPES) {
+      expect(eff.ground[armor], armor).toBeCloseTo(dps, 6);
+      expect(eff.air[armor], armor).toBeCloseTo(dps, 6);
+      // 1.0 sits above FAIRNESS_MATCHUP_FLOOR, so the gate sees the same.
+      expect(gate.ground[armor], armor).toBeCloseTo(dps, 6);
+    }
   });
 
   it('counts ice and poison splash', () => {
