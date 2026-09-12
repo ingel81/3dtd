@@ -5,6 +5,7 @@ import {
 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { MarkerVisualizationService } from './marker-visualization.service';
+import { provisionalPortalPose } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { UIStore } from '../../store/ui.store';
@@ -113,13 +114,10 @@ export class MapPlacementService {
     // Determine color
     this.validColor = mode === 'hq' ? HQ_COLOR : SPAWN_COLOR;
 
-    // Create preview marker (semi-transparent)
-    this.previewMarker = this.markerViz.createDiamondMarker({
-      color: this.validColor,
-      size: 0.8,
-      showRings: mode === 'hq',
-      glowIntensity: 0.6,
-    });
+    // Create preview marker (semi-transparent): the HQ diamond or a spawn portal
+    this.previewMarker = mode === 'hq'
+      ? this.markerViz.createDiamondMarker({ color: this.validColor, size: 0.8, glowIntensity: 0.6 })
+      : this.markerViz.createPortalPreview(this.validColor);
     this.previewMarker.name = 'placementPreview';
     this.previewMarker.visible = false;
 
@@ -150,12 +148,19 @@ export class MapPlacementService {
     // Store current position
     this.currentPosition = { lat, lon, height };
 
-    // Position the marker
+    // Position the marker: the HQ diamond floats, a spawn portal stands on
+    // the ground facing the HQ, as it will until its route is built
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
-    const terrainY = this.engine.getTerrainHeightAtGeo(lat, lon);
-    const markerY = (terrainY ?? 0) + HEIGHT_ABOVE_GROUND;
-
-    this.previewMarker.position.set(local.x, markerY, local.z);
+    const groundY = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
+    if (mode === 'hq') {
+      this.previewMarker.position.set(local.x, groundY + HEIGHT_ABOVE_GROUND, local.z);
+    } else {
+      this.previewMarker.position.set(local.x, groundY, local.z);
+      if (this.baseCoords) {
+        const hq = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
+        this.previewMarker.rotation.y = provisionalPortalPose(local.x, groundY, local.z, hq.x, hq.z).heading;
+      }
+    }
     this.previewMarker.visible = true;
 
     // Validate and colorize
@@ -190,7 +195,7 @@ export class MapPlacementService {
   exitPlacementMode(): void {
     if (this.previewMarker && this.engine) {
       this.engine.getOverlayGroup().remove(this.previewMarker);
-      this.markerViz.disposeDiamondMarker(this.previewMarker);
+      this.markerViz.disposePreviewMarker(this.previewMarker);
       this.previewMarker = null;
     }
 

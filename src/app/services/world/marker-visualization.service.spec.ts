@@ -7,6 +7,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  MeshPhongMaterial,
   OctahedronGeometry,
   PerspectiveCamera,
   Quaternion,
@@ -22,6 +23,7 @@ import type { ThreeTilesEngine } from '../../three-engine';
 import {
   MARKER_FLOAT_HEIGHT,
   MARKER_LABEL_OFFSET,
+  PORTAL_OPENING_HEIGHT,
   PORTAL_OPENING_WIDTH,
   PORTAL_SETBACK,
   portalLabelHeight,
@@ -623,33 +625,47 @@ describe('MarkerVisualizationService', () => {
     });
   });
 
-  describe('placement preview diamond', () => {
-    it('builds core, wireframe and glow plus two rings by default', () => {
+  describe('placement previews', () => {
+    it('builds the HQ diamond from core, wireframe, glow and two rings', () => {
       const marker = service.createDiamondMarker({ color: 0xff0000 });
       expect(marker.children).toHaveLength(5);
       expect(marker.children.every((c) => c instanceof Mesh)).toBe(true);
     });
 
-    it('leaves out the rings on request and scales with size', () => {
-      const small = service.createDiamondMarker({ color: 0xff0000, showRings: false });
-      const big = service.createDiamondMarker({ color: 0xff0000, size: 2, showRings: false });
+    it('scales the diamond with size', () => {
+      const small = service.createDiamondMarker({ color: 0xff0000 });
+      const big = service.createDiamondMarker({ color: 0xff0000, size: 2 });
 
-      expect(small.children).toHaveLength(3);
       const coreRadius = (g: Group) => ((g.children[0] as Mesh).geometry as OctahedronGeometry).parameters.radius;
       expect(coreRadius(big)).toBe(2 * coreRadius(small));
     });
 
+    it('builds the spawn preview as a portal standing on its origin, in tintable materials', () => {
+      const preview = service.createPortalPreview(0xef4444);
+
+      expect(preview.children).toHaveLength(2);
+      const [frame, surface] = preview.children as Mesh[];
+      expect(frame.material).toBeInstanceOf(MeshPhongMaterial);
+      expect(surface.material).toBeInstanceOf(MeshBasicMaterial);
+      surface.geometry.computeBoundingBox();
+      const box = surface.geometry.boundingBox!;
+      expect(box.min.y).toBeCloseTo(0);
+      expect(box.max.y).toBeCloseTo(PORTAL_OPENING_HEIGHT);
+      expect(box.max.x).toBeCloseTo(PORTAL_OPENING_WIDTH / 2);
+    });
+
     it('works without initialize and disposes every geometry and material', () => {
-      const marker = service.createDiamondMarker({ color: 0x00ff00 });
       const disposed = vi.fn();
-      for (const child of marker.children as Mesh[]) {
-        child.geometry.addEventListener('dispose', disposed);
-        (child.material as MeshBasicMaterial).addEventListener('dispose', disposed);
+      for (const preview of [service.createDiamondMarker({ color: 0x00ff00 }), service.createPortalPreview(0x00ff00)]) {
+        for (const child of preview.children as Mesh[]) {
+          child.geometry.addEventListener('dispose', disposed);
+          (child.material as MeshBasicMaterial).addEventListener('dispose', disposed);
+        }
+        service.disposePreviewMarker(preview);
       }
 
-      service.disposeDiamondMarker(marker);
-
-      expect(disposed).toHaveBeenCalledTimes(10);
+      // Diamond 5 meshes, portal 2, a geometry and a material each
+      expect(disposed).toHaveBeenCalledTimes(14);
     });
   });
 

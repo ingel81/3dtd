@@ -5,6 +5,7 @@ import {
   MeshBasicMaterial,
   MeshPhongMaterial,
   OctahedronGeometry,
+  PlaneGeometry,
   TorusGeometry,
   DoubleSide,
   BackSide,
@@ -20,6 +21,7 @@ import { UIStore } from '../../store/ui.store';
 import { MarkerInstanceManager } from '../../three-engine/renderers/marker/marker-instance.manager';
 import { MarkerLabelManager } from '../../three-engine/renderers/marker/marker-label.manager';
 import { SpawnPortalManager } from '../../three-engine/renderers/marker/spawn-portal.manager';
+import { createPortalFrameGeometry } from '../../three-engine/renderers/marker/spawn-portal-geometry';
 import {
   type SpawnPortalPose,
   provisionalPortalPose,
@@ -67,13 +69,12 @@ export interface SpawnPoint extends GeoPosition {
 }
 
 /**
- * Options for creating a diamond marker (used for placement preview)
+ * Options for creating a diamond marker (used for the HQ placement preview)
  */
 export interface DiamondMarkerOptions {
   color: number;
   size?: number;
   glowIntensity?: number;
-  showRings?: boolean;
 }
 
 /**
@@ -525,11 +526,12 @@ export class MarkerVisualizationService {
   // ========================================
 
   /**
-   * Create a diamond marker Group for placement preview (non-instanced).
-   * Used by MapPlacementService for cursor-following preview markers.
+   * Create a diamond marker Group for the HQ placement preview
+   * (non-instanced). Used by MapPlacementService for the cursor-following
+   * preview; the spawn preview is createPortalPreview().
    */
   createDiamondMarker(options: DiamondMarkerOptions): Group {
-    const { color, size = 1, glowIntensity = 1, showRings = true } = options;
+    const { color, size = 1, glowIntensity = 1 } = options;
 
     const group = new Group();
     const baseColor = new Color(color);
@@ -566,36 +568,59 @@ export class MarkerVisualizationService {
     glowMesh.renderOrder = 2;
     group.add(glowMesh);
 
-    if (showRings) {
-      const ringGeom = new TorusGeometry(14 * size, 0.8 * size, 8, 32);
-      const ringMat = new MeshBasicMaterial({
-        color: lighterColor, transparent: true,
-        opacity: 0.7 * glowIntensity,
-      });
-      const ringMesh = new Mesh(ringGeom, ringMat);
-      ringMesh.rotation.x = Math.PI / 2;
-      ringMesh.renderOrder = 2;
-      group.add(ringMesh);
+    const ringGeom = new TorusGeometry(14 * size, 0.8 * size, 8, 32);
+    const ringMat = new MeshBasicMaterial({
+      color: lighterColor, transparent: true,
+      opacity: 0.7 * glowIntensity,
+    });
+    const ringMesh = new Mesh(ringGeom, ringMat);
+    ringMesh.rotation.x = Math.PI / 2;
+    ringMesh.renderOrder = 2;
+    group.add(ringMesh);
 
-      const ring2Geom = new TorusGeometry(16 * size, 0.5 * size, 8, 32);
-      const ring2Mat = new MeshBasicMaterial({
-        color: lighterColor, transparent: true,
-        opacity: 0.4 * glowIntensity,
-      });
-      const ring2Mesh = new Mesh(ring2Geom, ring2Mat);
-      ring2Mesh.rotation.x = Math.PI / 2;
-      ring2Mesh.rotation.z = Math.PI / 6;
-      ring2Mesh.renderOrder = 2;
-      group.add(ring2Mesh);
-    }
+    const ring2Geom = new TorusGeometry(16 * size, 0.5 * size, 8, 32);
+    const ring2Mat = new MeshBasicMaterial({
+      color: lighterColor, transparent: true,
+      opacity: 0.4 * glowIntensity,
+    });
+    const ring2Mesh = new Mesh(ring2Geom, ring2Mat);
+    ring2Mesh.rotation.x = Math.PI / 2;
+    ring2Mesh.rotation.z = Math.PI / 6;
+    ring2Mesh.renderOrder = 2;
+    group.add(ring2Mesh);
 
     return group;
   }
 
   /**
-   * Dispose a diamond marker group (for placement preview cleanup).
+   * Create a spawn portal Group for the spawn placement preview
+   * (non-instanced): the frame and a flat surface in the opening, at
+   * scale 1, standing on its origin and facing +z. Plain Phong/Basic
+   * materials, so MapPlacementService can tint and fade it.
    */
-  disposeDiamondMarker(marker: Group): void {
+  createPortalPreview(color: number): Group {
+    const group = new Group();
+    const emissive = new Color(color).multiplyScalar(0.3);
+
+    const frameMat = new MeshPhongMaterial({ color, emissive, flatShading: true });
+    const frame = new Mesh(createPortalFrameGeometry(), frameMat);
+    frame.renderOrder = 3;
+    group.add(frame);
+
+    const surfaceGeom = new PlaneGeometry(PORTAL_OPENING_WIDTH, PORTAL_OPENING_HEIGHT);
+    surfaceGeom.translate(0, PORTAL_OPENING_HEIGHT / 2, 0);
+    const surfaceMat = new MeshBasicMaterial({ color, transparent: true, opacity: 0.6, side: DoubleSide });
+    const surface = new Mesh(surfaceGeom, surfaceMat);
+    surface.renderOrder = 4;
+    group.add(surface);
+
+    return group;
+  }
+
+  /**
+   * Dispose a placement preview group (diamond or portal).
+   */
+  disposePreviewMarker(marker: Group): void {
     marker.traverse((obj) => {
       if ((obj as Mesh).isMesh) {
         (obj as Mesh).geometry.dispose();
