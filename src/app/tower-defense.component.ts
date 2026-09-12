@@ -21,17 +21,20 @@ import { getAllEnemyTypes } from './configs/enemy-types.config';
 import { GameSidebarComponent } from './components/game-sidebar/game-sidebar.component';
 import { CompassComponent } from './components/compass/compass.component';
 import { GameHeaderComponent } from './components/game-header/game-header.component';
-import { CameraDebuggerComponent } from './components/debug-window/camera-debugger.component';
-import { WaveDebuggerComponent } from './components/debug-window/wave-debugger.component';
-import { SoundDebuggerComponent } from './components/debug-window/sound-debugger.component';
-import { EventDebuggerComponent } from './components/debug-window/event-debugger.component';
-import { DevWorldDebuggerComponent } from './devworld/devworld-debugger.component';
-import { TrainingDebuggerComponent } from './components/debug-window/training-debugger.component';
-import { TowerDebuggerComponent } from './components/debug-window/tower-debugger.component';
-import { EnemyDebuggerComponent } from './components/debug-window/enemy-debugger.component';
-import { DisplayOptionsComponent } from './components/debug-window/display-options.component';
-import { PerformanceDebuggerComponent } from './components/debug-window/performance-debugger.component';
-import { LosDebuggerComponent } from './components/debug-window/los-debugger.component';
+// Deferred as one chunk, see debugWindowsRequested and debug-windows.ts
+import {
+  CameraDebuggerComponent,
+  WaveDebuggerComponent,
+  SoundDebuggerComponent,
+  EventDebuggerComponent,
+  DevWorldDebuggerComponent,
+  TrainingDebuggerComponent,
+  TowerDebuggerComponent,
+  EnemyDebuggerComponent,
+  DisplayOptionsComponent,
+  PerformanceDebuggerComponent,
+  LosDebuggerComponent,
+} from './components/debug-window/debug-windows';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
@@ -41,6 +44,7 @@ import { DevWorldService } from './devworld/devworld.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
 import { EnemyDebugService } from './services/debug/enemy-debug.service';
 import { DebugFacadeService } from './services/debug/debug-facade.service';
+import { DebugWindowService } from './services/debug/debug-window.service';
 import { LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { CameraControlService } from './services/camera-control.service';
@@ -185,6 +189,18 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly waveDebug = inject(WaveDebugService);
   readonly enemyDebug = inject(EnemyDebugService);
   readonly debugFacade = inject(DebugFacadeService);
+  private readonly debugWindows = inject(DebugWindowService);
+
+  /**
+   * The debug windows load as one lazy chunk once the dev menu opens or a
+   * window is open, which includes one restored from storage after a reload.
+   * A `when` trigger fires once, the windows stay loaded after that. Only the
+   * window components are deferred; their services, and the debug hooks on
+   * window, are part of the game chunk as before.
+   */
+  readonly debugWindowsRequested = computed(
+    () => this.uiStore.devMenuExpanded() || this.debugWindows.hasOpenWindows()
+  );
 
   // AI Bot Training (delegated to TrainingClientService)
   private readonly trainingClient = inject(TrainingClientService);
