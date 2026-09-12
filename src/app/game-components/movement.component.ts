@@ -110,26 +110,47 @@ export class MovementComponent extends Component {
     return this.heightVariationMeters;
   }
 
+  /** Where across the corridor this enemy walks, see setLateralFactor(). */
+  getLateralFactor(): number {
+    return this.lateralFactor;
+  }
+
   /**
    * Set the path. Its lengths and lateral limits come from the route
    * profile every enemy on this path shares.
+   *
+   * `startIndex` and `startProgress` put the enemy part-way along it, on
+   * segment `startIndex` at `startProgress` (0-1) of its length, instead of
+   * on path[0]: a split child joins where its parent died. The path is not
+   * copied, so the child keeps sharing the parent's route profile.
    */
-  setPath(path: RouteWaypoint[]): void {
+  setPath(path: RouteWaypoint[], startIndex = 0, startProgress = 0): void {
     this.path = path;
     this.profile = getRouteProfile(path);
-    this.currentIndex = 0;
-    this.progress = 0;
+    this.currentIndex = Math.min(Math.max(0, startIndex), Math.max(0, path.length - 2));
+    this.progress = Math.min(Math.max(0, startProgress), 1);
     this.cachedPerpSegIdx = -1;
     this.cachedPerpValid = false;
     this.breakHeadingContinuity();
 
-    // Set initial position
+    // Set initial position, on the centre line like move() before its offset
     const transform = this.transformRef;
     if (transform && path.length > 0) {
-      transform.setPosition(path[0].lat, path[0].lon, path[0].height);
-      if (path[0].height !== undefined) {
+      const from = path[this.currentIndex];
+      const to = path[this.currentIndex + 1] ?? from;
+      const t = this.progress;
+      const height =
+        from.height !== undefined && to.height !== undefined
+          ? from.height + (to.height - from.height) * t
+          : from.height;
+      transform.setPosition(
+        from.lat + (to.lat - from.lat) * t,
+        from.lon + (to.lon - from.lon) * t,
+        height,
+      );
+      if (height !== undefined) {
         // Seed only — replaced by the grid read on the first update tick.
-        transform.terrainHeight = path[0].height;
+        transform.terrainHeight = height;
       }
     }
   }
