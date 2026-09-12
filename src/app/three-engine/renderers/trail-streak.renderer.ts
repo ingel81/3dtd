@@ -439,11 +439,25 @@ export class TrailStreakRenderer {
     }
   }
 
+  /** VFX setting projectileTrails; while off no projectile gets a trail. */
+  private enabled = true;
+
+  /**
+   * Switch the trails on or off (VFX setting projectileTrails). Off drops
+   * the trails in flight: each one is a mesh and a draw call of its own,
+   * and its geometry is rebuilt every frame.
+   */
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+    if (!enabled) this.clear();
+  }
+
   /**
    * Acquire a trail for a new projectile.
-   * @returns true if a trail was available
+   * @returns true if a trail was available (never while trails are off)
    */
   create(projectileId: string, visualType: ProjectileVisualType): boolean {
+    if (!this.enabled) return false;
     if (this.active.has(projectileId)) return true; // already exists
 
     const pool = this.pools.get(visualType);

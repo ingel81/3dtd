@@ -81,7 +81,8 @@ export class VFXService {
 
     this.tilesEngine.effects.spawnBloodSplatter(lat, lon, height, count);
 
-    if (!skipGroundDecal) {
+    // With ground marks off there is no decal, and no terrain raycast for one
+    if (!skipGroundDecal && this.tilesEngine.effects.groundMarksEnabled) {
       const decalSize = this.getBloodDecalSize(intensity);
       if (decalSize > 0) {
         const terrainHeight = this.tilesEngine.getTerrainHeightAtGeo(lat, lon);

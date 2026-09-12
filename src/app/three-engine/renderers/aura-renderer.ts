@@ -22,17 +22,32 @@ export class AuraRenderer {
   // Poison aura tracking (orbiting green particles per enemy)
   private activePoisonAuras = new Map<string, AuraInstance>();
 
+  /** VFX setting freezeTint; while off the frost auras are tracked without particles. */
+  private frostShown = true;
+
   constructor(private readonly pools: ParticlePoolManager) {}
 
   /**
-   * Spawn orbiting cyan ice particles around a slowed enemy.
+   * Spawn orbiting cyan ice particles around a slowed enemy. While frost
+   * auras are hidden the aura only follows the enemy, with no particles.
    */
   spawnFrostAura(enemyId: string, localPosition: Vector3): string {
     if (this.activeFrostAuras.has(enemyId)) return enemyId;
 
+    const center = localPosition.clone();
+    this.activeFrostAuras.set(enemyId, {
+      particles: this.frostShown ? this.takeFrostParticles(center) : [],
+      localPosition: center,
+      orbitAngle: 0,
+    });
+
+    return enemyId;
+  }
+
+  /** Three ice particles from the additive pool, 120° apart around `center`. */
+  private takeFrostParticles(center: Vector3): Particle[] {
     const particleCount = 3;
     const particles: Particle[] = [];
-    const center = localPosition.clone();
 
     for (let i = 0; i < particleCount; i++) {
       const particle = this.pools.getInactiveParticle('trailAdditive');
@@ -67,13 +82,25 @@ export class AuraRenderer {
       particles.push(particle);
     }
 
-    this.activeFrostAuras.set(enemyId, {
-      particles,
-      localPosition: center,
-      orbitAngle: 0,
-    });
+    return particles;
+  }
 
-    return enemyId;
+  /**
+   * Show or hide the frost auras (VFX setting freezeTint). Hidden auras
+   * give their particles back and keep following their enemy, so switching
+   * back on shows the aura on every enemy that is slowed right now.
+   */
+  setFrostEnabled(enabled: boolean): void {
+    if (enabled === this.frostShown) return;
+    this.frostShown = enabled;
+    for (const aura of this.activeFrostAuras.values()) {
+      if (enabled) {
+        aura.particles = this.takeFrostParticles(aura.localPosition);
+      } else {
+        for (const p of aura.particles) p.life = 0;
+        aura.particles = [];
+      }
+    }
   }
 
   /**

@@ -483,6 +483,20 @@ export class ThreeEffectsRenderer {
   }
 
   /**
+   * VFX settings: muzzle flashes, trail particles, impact effects and
+   * ground marks are not spawned while off, frost auras not shown.
+   */
+  setVfxSettings(settings: import('../vfx-settings').VfxSettings): void {
+    this.particleEffects.setVfxSettings(settings);
+    this.auras.setFrostEnabled(settings.freezeTint);
+  }
+
+  /** Whether ground marks are laid down; spares callers the terrain raycast for a decal. */
+  get groundMarksEnabled(): boolean {
+    return this.particleEffects.groundMarksEnabled;
+  }
+
+  /**
    * Burn a scorch mark on the ground below a local hit point, at most one
    * per route cell (see SCORCH_DECAL_CONFIG).
    */

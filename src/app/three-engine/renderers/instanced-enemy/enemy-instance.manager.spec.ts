@@ -198,6 +198,31 @@ describe('EnemyInstanceManager', () => {
     );
   });
 
+  it('hides the freeze tint while it is off and brings it back on the enemies still slowed', () => {
+    type State = NonNullable<ReturnType<EnemyInstanceManager['addEnemy']>>;
+    const tintOf = (s: State) => [
+      s.pool.tintColorAttr.getX(s.index),
+      s.pool.tintColorAttr.getY(s.index),
+      s.pool.tintColorAttr.getZ(s.index),
+    ];
+    const freeze = [0.4, 0.8, 1.0].map(Math.fround);
+    const a = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    const b = manager.addEnemy('b', 'wallsmasher', new Vector3(), 0)!;
+    manager.setFreezeVisual('a', true);
+    manager.setFreezeVisual('b', true);
+    manager.setPoisonVisual('b', true);
+
+    manager.setFreezeTintEnabled(false);
+    expect(tintOf(a)).toEqual([0, 0, 0]);
+    expect(tintOf(b)).toEqual([0.2, 0.8, 0.1].map(Math.fround)); // poison shows through
+    manager.setFreezeVisual('a', true); // slowed again while hidden
+    expect(tintOf(a)).toEqual([0, 0, 0]);
+
+    manager.setFreezeTintEnabled(true);
+    expect(tintOf(a)).toEqual(freeze);
+    expect(tintOf(b)).toEqual(freeze);
+  });
+
   it('writes the matrix Matrix4.compose + setMatrixAt would, bit for bit', () => {
     const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     const array = state.pool.instancedMesh.instanceMatrix.array as Float32Array;

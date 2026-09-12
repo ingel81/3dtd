@@ -332,6 +332,11 @@ export class InstancedEnemyRenderer {
     this.instanceManager.setFreezeVisual(id, active);
   }
 
+  /** VFX setting freezeTint, see EnemyInstanceManager.setFreezeTintEnabled. */
+  setFreezeTintEnabled(enabled: boolean): void {
+    this.instanceManager.setFreezeTintEnabled(enabled);
+  }
+
   setPoisonVisual(id: string, active: boolean): void {
     this.instanceManager.setPoisonVisual(id, active);
   }

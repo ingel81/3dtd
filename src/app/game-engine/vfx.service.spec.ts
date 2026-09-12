@@ -111,3 +111,26 @@ describe('VFXService projectile impact', () => {
     service.destroy();
   });
 });
+
+describe('VFXService blood', () => {
+  it('lays no decal and casts no ray for one while ground marks are off', () => {
+    const eventBus = new GameEventBus();
+    const tilesEngine = {
+      sync: { localToGeo: vi.fn(() => ({ lat: 1, lon: 2, height: 3 })) },
+      getTerrainHeightAtGeo: vi.fn(() => 0),
+      effects: { spawnBloodSplatter: vi.fn(), spawnBloodDecal: vi.fn(), groundMarksEnabled: false },
+    };
+    const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
+    const bleed = () => eventBus.emit({ type: 'vfx:blood', position: new Vector3(), intensity: 40 });
+
+    bleed();
+    expect(tilesEngine.effects.spawnBloodSplatter).toHaveBeenCalledTimes(1);
+    expect(tilesEngine.effects.spawnBloodDecal).not.toHaveBeenCalled();
+    expect(tilesEngine.getTerrainHeightAtGeo).not.toHaveBeenCalled();
+
+    tilesEngine.effects.groundMarksEnabled = true;
+    bleed();
+    expect(tilesEngine.effects.spawnBloodDecal).toHaveBeenCalledTimes(1);
+    service.destroy();
+  });
+});

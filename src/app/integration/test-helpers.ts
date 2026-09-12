@@ -183,6 +183,7 @@ export function createMockTilesEngine(): any {
       spawnMuzzleFlash: vi.fn(),
       setScorchGround: vi.fn(),
       markScorch: vi.fn(),
+      groundMarksEnabled: true,
       clear: vi.fn(),
     },
     triggerScreenShake: vi.fn(),

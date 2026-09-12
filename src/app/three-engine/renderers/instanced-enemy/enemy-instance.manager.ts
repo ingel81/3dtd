@@ -408,14 +408,32 @@ export class EnemyInstanceManager {
     }
   }
 
+  /** VFX setting freezeTint; while off a slowed enemy shows no freeze tint. */
+  private freezeTint = true;
+
+  /**
+   * Show or hide the freeze tint (VFX setting freezeTint). Enemies stay
+   * marked as slowed, so the tint comes back on the ones slowed right now.
+   */
+  setFreezeTintEnabled(enabled: boolean): void {
+    if (enabled === this.freezeTint) return;
+    this.freezeTint = enabled;
+    for (const pool of this.pools.values()) {
+      for (const state of pool.instances.values()) {
+        if (state.frozen) this.applyTint(state, pool);
+      }
+    }
+  }
+
   /**
    * Compute the correct tint colour for an enemy given its state and write
-   * it into the instance attribute. Priority: hit-flash > freeze > burn > poison > none.
+   * it into the instance attribute. Priority: hit-flash > freeze (unless
+   * switched off) > burn > poison > none.
    */
   private applyTint(state: EnemyInstanceState, pool: TypePool): void {
     if (state.hitFlashEnd > performance.now()) {
       pool.tintColorAttr.setXYZ(state.index, HIT_FLASH_R, HIT_FLASH_G, HIT_FLASH_B);
-    } else if (state.frozen) {
+    } else if (state.frozen && this.freezeTint) {
       pool.tintColorAttr.setXYZ(state.index, FREEZE_TINT_R, FREEZE_TINT_G, FREEZE_TINT_B);
     } else if (state.burning) {
       pool.tintColorAttr.setXYZ(state.index, BURN_TINT_R, BURN_TINT_G, BURN_TINT_B);
