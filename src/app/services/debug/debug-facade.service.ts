@@ -47,7 +47,7 @@ export class DebugFacadeService {
   readonly healthBarsVisible = signal(this.stored.healthBars !== false);
   readonly screenShakeEnabled = signal(this.stored.screenShake !== false);
   readonly damageNumbersVisible = signal(this.stored.damageNumbers !== false);
-  /** Render-loop frame cap, see ThreeTilesEngine.setFpsLimit. */
+  /** Render-loop frame cap, see RenderLoop.setFpsLimit. */
   readonly fpsLimit = signal<FpsLimit>(toFpsLimit(this.stored.fpsLimit));
   /** Visual effects switched on or off, see VfxSettings. */
   readonly vfx = signal<VfxSettings>(readVfxSettings(this.stored));
@@ -280,7 +280,7 @@ export class DebugFacadeService {
    */
   onFpsLimitChanged(fps: FpsLimit): void {
     this.fpsLimit.set(fps);
-    this.engine?.setFpsLimit(fps);
+    this.engine?.renderLoop.setFpsLimit(fps);
     persistDisplayOptions({ fpsLimit: fps });
   }
 
@@ -293,7 +293,7 @@ export class DebugFacadeService {
    * Called after engine initialization to restore user preferences.
    */
   applyDisplayOptions(): void {
-    this.engine?.setFpsLimit(this.fpsLimit());
+    this.engine?.renderLoop.setFpsLimit(this.fpsLimit());
     this.engine?.applyVfxSettings(this.vfx());
     if (!this.healthBarsVisible()) this.engine?.enemies.setHealthBarsVisible(false);
     if (!this.damageNumbersVisible()) this.combatEffect.damageNumbersEnabled = false;

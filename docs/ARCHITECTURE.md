@@ -336,18 +336,23 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | `three-tiles-engine.ts` | Haupt-Engine: Scene, Renderer, TilesRenderer, Overlays |
 | `camera-rig.ts` | Kamera-Controls (GlobeControls, in DevWorld EnvironmentControls), Startposition, lokaler Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine |
 | `tile-loading-tracker.ts` | Tile-Loading-State: erster Tile-Load (Debounce 500 ms, Retry 200 ms x 50, Force-Update x 3), Auth-Fehler, Tile-Stats. Hintergrund: [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) |
+| `render-loop.ts` | Render-Loop: rAF-Treiber mit FPS-Cap (`FramePacer`), Heartbeat-Worker für versteckte Trainings-Tabs, FPS-Zähler, Warten auf den nächsten gezeichneten Frame. Als `engine.renderLoop` erreichbar |
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
 
 `CameraRig`, `TileLoadingTracker` und `PostProcessingPipeline` gehören dem Engine, er legt
 sie im Konstruktor an und reicht Aufrufe durch; seine öffentliche API bleibt die Fassade.
+`RenderLoop` legt er ebenfalls an, reicht ihn aber nicht durch: Aufrufer nehmen
+`engine.renderLoop` direkt (`start()`, `setFpsLimit()`, `setBackgroundLoopEnabled()`, `getFPS()`).
+Der Loop ruft pro Frame `update()` und `render()` des Engines, `render()` meldet jeden
+gezeichneten Frame mit `renderLoop.frameRendered()` zurück.
 `initialize()` bindet sie in fester Reihenfolge an den TilesRenderer: Plugins registrieren,
 Gruppe in die Szene, `cameraRig.setupGlobeControls()`, Kamera und Streaming-Budget am
 Renderer setzen, dann `tileLoading.attach()` (Listener für `tiles-load-end`, `load-tileset`,
 `load-error`). Nach jedem beruhigten `tiles-load-end` meldet der Tracker
 `onTileSetSettled()` zurück, dort invalidiert der Engine LOD-Version und LOS-Cubemap und
-ruft `onTilesLoadCallback`. `setOrigin()` ruft `tileLoading.reset()`. `dispose()` löst
-zuerst die Listener (`tileLoading.dispose()`, `cameraRig.dispose()`) und gibt danach
+ruft `onTilesLoadCallback`. `setOrigin()` ruft `tileLoading.reset()`. `dispose()` stoppt
+zuerst den Loop (`renderLoop.stop()`), löst dann die Listener (`tileLoading.dispose()`, `cameraRig.dispose()`) und gibt danach
 Entity-Renderer, TilesRenderer, Pipeline und WebGLRenderer frei.
 
 ### Koordinatensystem (WICHTIG!)
@@ -1122,7 +1127,7 @@ const dist = geoDistance(enemy.position, tower.position);
 **Design-Prinzip:** Der Game Loop läuft IMMER. Die Phase kontrolliert WAS passiert, nicht OB der Loop läuft.
 
 ```typescript
-// Engine Render Loop (three-tiles-engine.ts) - läuft IMMER
+// Engine Render Loop (render-loop.ts) - läuft IMMER
 function engineLoop(currentTime: number) {
   engine.update(deltaTime);    // Animationen, Effekte, Shader
   engine.render();             // Three.js Rendering
@@ -1145,7 +1150,7 @@ function onEngineUpdate(deltaTime: number) {
 Quick-Actions, persistiert von `DebugFacadeService` als `fpsLimit` in
 `td_display_options` (`utils/display-options.storage.ts`; bis 2026-09-12 unter
 eigenem Schlüssel `3dtd-fps-limit`, der beim Laden übernommen wird).
-`ThreeTilesEngine.setFpsLimit()` gibt sie an einen `FramePacer`
+`engine.renderLoop.setFpsLimit()` (`three-engine/render-loop.ts`) gibt sie an einen `FramePacer`
 (`utils/frame-pacer.ts`), der zu frühe rAF-Callbacks komplett überspringt,
 Update eingeschlossen. Der Anker rückt pro gelaufenem Frame um genau ein
 Intervall vor, so bleibt z. B. 50 auf 60 Hz bei 50 statt auf 30 zu fallen;
@@ -1225,6 +1230,7 @@ src/app/
 │   ├── three-tiles-engine.ts     # Haupt-Engine: Scene, Renderer, TilesRenderer, Terrain-Raycasts
 │   ├── camera-rig.ts             # Controls + Startposition der Kamera (seit 2026-09-11)
 │   ├── tile-loading-tracker.ts   # Erster Tile-Load, Retry, Auth-Fehler, Tile-Stats (seit 2026-09-11)
+│   ├── render-loop.ts            # rAF-Loop, FPS-Cap, Heartbeat für versteckte Tabs (seit 2026-09-13)
 │   ├── ellipsoid-sync.ts         # Koordinaten
 │   ├── index.ts                  # Exports
 │   ├── post-processing/          # Bloom + Color Grading (eigene Pipeline-Klasse seit 2026-05-10)

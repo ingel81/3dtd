@@ -22,7 +22,7 @@ function createFacade(): DebugFacadeService {
 }
 
 function fakeEngine() {
-  const engine = { setFpsLimit: vi.fn(), applyVfxSettings: vi.fn() };
+  const engine = { renderLoop: { setFpsLimit: vi.fn() }, applyVfxSettings: vi.fn() };
   return { engine, asEngine: engine as unknown as ThreeTilesEngine };
 }
 
@@ -49,7 +49,7 @@ describe('DebugFacadeService frame cap', () => {
     const { engine, asEngine } = fakeEngine();
     facade.setEngine(asEngine);
     facade.applyDisplayOptions();
-    expect(engine.setFpsLimit).toHaveBeenCalledWith(30);
+    expect(engine.renderLoop.setFpsLimit).toHaveBeenCalledWith(30);
   });
 
   it('takes the cap from the key it had before', () => {
@@ -74,7 +74,7 @@ describe('DebugFacadeService frame cap', () => {
     facade.onFpsLimitChanged(60);
 
     expect(facade.fpsLimit()).toBe(60);
-    expect(engine.setFpsLimit).toHaveBeenCalledWith(60);
+    expect(engine.renderLoop.setFpsLimit).toHaveBeenCalledWith(60);
     expect(stored()).toEqual({ damageNumbers: false, fpsLimit: 60 });
   });
 });
