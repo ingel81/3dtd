@@ -107,6 +107,16 @@ export class GameCommandsHandler {
         this.gsm.addCredits(refund);
       }
     }));
+
+    // Queued researches are charged when they start (sub-step, see
+    // ResearchManager.startQueued), so neither command touches the credits.
+    this.subs.add(this.eventBus.on('command:queue-research', (event) => {
+      this.gsm.researchManager.queueResearch(event.researchId);
+    }));
+
+    this.subs.add(this.eventBus.on('command:unqueue-research', (event) => {
+      this.gsm.researchManager.unqueueResearch(event.researchId);
+    }));
   }
 
   private attachWaveCommands(): void {

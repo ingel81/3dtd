@@ -198,6 +198,10 @@ export class GameStateManager {
   /** EventBus subscription bag — cleaned up in initialize() (re-init) and dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
 
+  /** Bound once for the research queue, which runs every sub-step (ResearchManager.startQueued) */
+  private readonly creditsNow = (): number => this.credits();
+  private readonly spendForResearch = (cost: number): boolean => this.spendCredits(cost);
+
   /**
    * Set performance profiler for frame timing instrumentation.
    */
@@ -559,6 +563,7 @@ export class GameStateManager {
     const tProjectile = profiling ? performance.now() - t0 : 0;
 
     this.researchManager.update(stepMs);
+    this.researchManager.startQueued(this.creditsNow, this.spendForResearch);
 
     t0 = profiling ? performance.now() : 0;
     this.eventBus.processQueue();

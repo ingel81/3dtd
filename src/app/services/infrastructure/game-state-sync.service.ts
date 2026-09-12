@@ -134,6 +134,7 @@ export class GameStateSyncService {
         new Map(event.activeResearches.map(a => [a.researchId, a.elapsed])),
       );
       this.researchStore.completedResearches.set(event.completedResearches);
+      this.researchStore.queuedResearches.set(event.queuedResearches);
       this.researchStore.centerLevel.set(event.centerLevel);
       this.researchStore.researchSlots.set(event.maxSlots);
     }));

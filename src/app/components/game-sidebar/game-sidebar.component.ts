@@ -77,6 +77,8 @@ export class GameSidebarComponent implements OnDestroy {
   readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
   readonly startResearch = output<ResearchId>();
   readonly cancelResearch = output<ResearchId>();
+  readonly queueResearch = output<ResearchId>();
+  readonly unqueueResearch = output<ResearchId>();
 
   /** Das Research Center bekommt statt des Tower-Details sein eigenes Panel. */
   readonly isResearchCenter = computed(() =>

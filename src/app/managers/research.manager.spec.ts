@@ -304,6 +304,134 @@ describe('ResearchManager', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Queue: waits for a slot and the credits, charged at the start
+  // -------------------------------------------------------------------------
+  describe('queue', () => {
+    const QUEUE_ID = 'ice-magic'; // no prerequisites either
+    let credits: number;
+    const creditsNow = () => credits;
+    const spend = (cost: number) => {
+      if (credits < cost) return false;
+      credits -= cost;
+      return true;
+    };
+
+    beforeEach(() => {
+      credits = 1000;
+      rm.onCenterPlaced(); // 1 slot
+    });
+
+    it('queues an available research without charging it', () => {
+      rm.startResearch(NO_PREREQ_ID);
+      expect(rm.queueResearch(QUEUE_ID)).toBe(true);
+      expect(rm.getQueuedResearches()).toEqual([QUEUE_ID]);
+      rm.startQueued(creditsNow, spend); // slot still busy
+      expect(credits).toBe(1000);
+      expect(rm.isActive(QUEUE_ID)).toBe(false);
+    });
+
+    it('refuses what cannot go into the queue', () => {
+      expect(rm.canQueueResearch(WITH_PREREQ_ID).reason).toMatch(/prerequisite/i);
+      rm.startResearch(NO_PREREQ_ID);
+      expect(rm.canQueueResearch(NO_PREREQ_ID).reason).toMatch(/progress/i);
+      rm.queueResearch(QUEUE_ID);
+      expect(rm.queueResearch(QUEUE_ID)).toBe(false);
+      expect(rm.getQueuedResearches()).toEqual([QUEUE_ID]);
+
+      const { rm: noCenter } = makeManager();
+      expect(noCenter.canQueueResearch(QUEUE_ID).reason).toMatch(/Research Center/i);
+    });
+
+    it('starts the head once a slot frees and charges it then', () => {
+      rm.startResearch(NO_PREREQ_ID);
+      rm.queueResearch(QUEUE_ID);
+
+      // The sub-step order: update() frees the slot, startQueued() takes it
+      rm.update(getResearch(NO_PREREQ_ID)!.duration * 1000);
+      rm.startQueued(creditsNow, spend);
+
+      expect(rm.isActive(QUEUE_ID)).toBe(true);
+      expect(rm.getQueuedResearches()).toEqual([]);
+      expect(credits).toBe(1000 - getResearch(QUEUE_ID)!.cost);
+    });
+
+    it('lets the head wait for its credits, nothing behind it jumps ahead', () => {
+      const pricier = 'tentacle-biology'; // no prerequisites, costs more than QUEUE_ID
+      rm.queueResearch(pricier);
+      rm.queueResearch(QUEUE_ID);
+      credits = getResearch(pricier)!.cost - 1;
+      expect(credits).toBeGreaterThanOrEqual(getResearch(QUEUE_ID)!.cost);
+
+      rm.startQueued(creditsNow, spend);
+      expect(rm.usedSlots).toBe(0);
+      expect(rm.getQueuedResearches()).toEqual([pricier, QUEUE_ID]);
+
+      credits += 1;
+      rm.startQueued(creditsNow, spend);
+      expect(rm.isActive(pricier)).toBe(true);
+      expect(credits).toBe(0);
+    });
+
+    it('fills every free slot in queue order', () => {
+      rm.upgradeCenter(); // 2 slots
+      rm.queueResearch(NO_PREREQ_ID);
+      rm.queueResearch(QUEUE_ID);
+      rm.startQueued(creditsNow, spend);
+      expect(rm.isActive(NO_PREREQ_ID)).toBe(true);
+      expect(rm.isActive(QUEUE_ID)).toBe(true);
+    });
+
+    it('drops a head that got started some other way', () => {
+      rm.upgradeCenter(); // 2 slots
+      rm.queueResearch(NO_PREREQ_ID);
+      rm.startResearch(NO_PREREQ_ID); // e.g. a click on the node after all
+      const snapshots = vi.fn();
+      bus.on('research:state-changed', snapshots);
+
+      rm.startQueued(creditsNow, spend);
+      expect(rm.getQueuedResearches()).toEqual([]);
+      expect(snapshots).toHaveBeenCalledWith(expect.objectContaining({ queuedResearches: [] }));
+      expect(credits).toBe(1000);
+    });
+
+    it('unqueues without a refund, and sends the queue in every snapshot', () => {
+      const snapshots = vi.fn();
+      bus.on('research:state-changed', snapshots);
+      rm.queueResearch(QUEUE_ID);
+      expect(snapshots).toHaveBeenLastCalledWith(expect.objectContaining({ queuedResearches: [QUEUE_ID] }));
+
+      expect(rm.unqueueResearch(QUEUE_ID)).toBe(true);
+      expect(rm.unqueueResearch(QUEUE_ID)).toBe(false);
+      expect(snapshots).toHaveBeenLastCalledWith(expect.objectContaining({ queuedResearches: [] }));
+      expect(credits).toBe(1000);
+    });
+
+    it('is emptied by reset, a sold Research Center and the debug cheat', () => {
+      rm.queueResearch(QUEUE_ID);
+      rm.reset();
+      expect(rm.getQueuedResearches()).toEqual([]);
+
+      rm.onCenterPlaced();
+      rm.queueResearch(QUEUE_ID);
+      rm.onCenterRemoved();
+      expect(rm.getQueuedResearches()).toEqual([]);
+
+      rm.onCenterPlaced();
+      rm.queueResearch(QUEUE_ID);
+      rm.completeAllResearch();
+      expect(rm.getQueuedResearches()).toEqual([]);
+    });
+
+    it('survives getState / restoreState', () => {
+      rm.startResearch(NO_PREREQ_ID);
+      rm.queueResearch(QUEUE_ID);
+      const { rm: rm2 } = makeManager();
+      rm2.restoreState(rm.getState());
+      expect(rm2.getQueuedResearches()).toEqual([QUEUE_ID]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // getMaxUpgradeTier()
   // -------------------------------------------------------------------------
   describe('getMaxUpgradeTier()', () => {

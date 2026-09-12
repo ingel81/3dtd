@@ -23,6 +23,8 @@
           (upgradeTower)="upgradeTower.emit($event)"
           (startResearch)="startResearch.emit($event)"
           (cancelResearch)="cancelResearch.emit($event)"
+          (queueResearch)="queueResearch.emit($event)"
+          (unqueueResearch)="unqueueResearch.emit($event)"
         />
       } @else {
         <app-sidebar-tower-panel

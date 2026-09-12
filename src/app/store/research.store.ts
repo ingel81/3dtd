@@ -17,6 +17,9 @@ export class ResearchStore {
   /** Currently active researches with progress */
   readonly activeResearches = signal<ActiveResearch[]>([]);
 
+  /** Researches waiting for a slot and the credits, in start order */
+  readonly queuedResearches = signal<ResearchId[]>([]);
+
   /**
    * Vergangene Spielzeit (s) je laufender Forschung. `ActiveResearch.elapsed`
    * zählt der ResearchManager am Objekt hoch, ohne Signal; dieses Signal kommt
@@ -106,6 +109,7 @@ export class ResearchStore {
   resetResearchState(): void {
     this.completedResearches.set(new Set());
     this.activeResearches.set([]);
+    this.queuedResearches.set([]);
     this.researchElapsed.set(new Map());
     this.centerLevel.set(0);
     this.researchSlots.set(1);

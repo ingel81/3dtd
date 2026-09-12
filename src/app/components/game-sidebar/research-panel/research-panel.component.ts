@@ -44,8 +44,13 @@ export class SidebarResearchPanelComponent {
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
   readonly startResearch = output<ResearchId>();
   readonly cancelResearch = output<ResearchId>();
+  readonly queueResearch = output<ResearchId>();
+  readonly unqueueResearch = output<ResearchId>();
 
   readonly allResearches = Object.values(RESEARCH_TREE);
+
+  /** Waiting for a slot and the credits, in start order */
+  readonly queue = this.researchStore.queuedResearches;
 
   /** Verkaufswert; ändert sich mit Upgrades, siehe `selectedTowerRevision`. */
   readonly sellValue = computed(() => {
@@ -58,7 +63,41 @@ export class SidebarResearchPanelComponent {
       id,
       this.researchStore.completedResearches(),
       this.researchStore.activeResearches(),
+      this.queue(),
     );
+  }
+
+  /** A free slot and the credits: a click starts it, otherwise it queues. */
+  canStartNow(research: ResearchConfig): boolean {
+    return this.store.credits() >= research.cost && this.store.availableResearchSlots() > 0;
+  }
+
+  onResearchClick(research: ResearchConfig): void {
+    if (this.getResearchStatus(research.id) !== 'available') return;
+    if (this.canStartNow(research)) {
+      this.startResearch.emit(research.id);
+    } else {
+      this.queueResearch.emit(research.id);
+    }
+  }
+
+  nodeTooltip(research: ResearchConfig): string {
+    switch (this.getResearchStatus(research.id)) {
+      case 'locked':
+        return 'Requires: ' + this.getMissingPrereqs(research.id);
+      case 'queued':
+        return `${research.description} Queued: starts once a slot is free and you can pay.`;
+      case 'available':
+        return this.canStartNow(research)
+          ? research.description
+          : `${research.description} Click to queue: it starts once a slot is free and you can pay, the credits are charged then.`;
+      default:
+        return research.description;
+    }
+  }
+
+  researchCost(id: ResearchId): number {
+    return getResearch(id)?.cost ?? 0;
   }
 
   researchNodeIconName(research: ResearchConfig): string {

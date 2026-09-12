@@ -21,6 +21,9 @@
     <!-- Active Research Slots -->
     <div class="td-research-slots-header">
       <span>Research Slots: {{ store.activeResearches().length }}/{{ researchStore.researchSlots() }}</span>
+      @if (queue().length > 0) {
+        <span class="td-research-queue-count">· {{ queue().length }} queued</span>
+      }
     </div>
 
     <!-- Active Researches -->
@@ -40,16 +43,35 @@
       </div>
     }
 
+    <!-- Queue: starts by itself in this order, paid at the start -->
+    @if (queue().length > 0) {
+      <div class="td-research-queue" role="list" aria-label="Research queue">
+        <div class="td-research-queue-note">Queued · credits are paid when it starts</div>
+        @for (id of queue(); track id; let i = $index) {
+          <div class="td-research-queued" role="listitem">
+            <span class="td-research-queued-pos">{{ i + 1 }}</span>
+            <span class="td-research-queued-name">{{ getResearchName(id) }}</span>
+            <span class="td-research-queued-cost" [class.td-short]="store.credits() < researchCost(id)">{{ researchCost(id) }}</span>
+            <button class="td-research-cancel-btn" (click)="unqueueResearch.emit(id)"
+                    [attr.aria-label]="'Remove from queue: ' + getResearchName(id)">
+              <td-icon name="cross" [size]="14"></td-icon>
+            </button>
+          </div>
+        }
+      </div>
+    }
+
     <!-- Research Tree -->
     @for (research of allResearches; track research.id) {
       <button class="td-research-node"
               [class.td-research-completed]="getResearchStatus(research.id) === 'completed'"
               [class.td-research-available]="getResearchStatus(research.id) === 'available'"
               [class.td-research-active]="getResearchStatus(research.id) === 'active'"
+              [class.td-research-queued-node]="getResearchStatus(research.id) === 'queued'"
               [class.td-research-locked]="getResearchStatus(research.id) === 'locked'"
-              [disabled]="getResearchStatus(research.id) !== 'available' || store.credits() < research.cost || store.availableResearchSlots() <= 0"
-              (click)="startResearch.emit(research.id)"
-              [matTooltip]="getResearchStatus(research.id) === 'locked' ? 'Requires: ' + getMissingPrereqs(research.id) : research.description"
+              [disabled]="getResearchStatus(research.id) !== 'available'"
+              (click)="onResearchClick(research)"
+              [matTooltip]="nodeTooltip(research)"
               matTooltipPosition="left">
         <td-icon class="td-research-node-icon" [size]="18"
           [name]="$any(researchNodeIconName(research))"></td-icon>
@@ -59,6 +81,11 @@
             @switch (getResearchStatus(research.id)) {
               @case ('completed') { Completed }
               @case ('active') { Researching... }
+              @case ('queued') { Queued · {{ research.cost }} at start }
+              @case ('available') {
+                {{ research.cost }} · {{ research.duration }}s
+                @if (!canStartNow(research)) { <span class="td-research-queue-hint">· queue</span> }
+              }
               @default { {{ research.cost }} · {{ research.duration }}s }
             }
           </span>
