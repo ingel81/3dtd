@@ -44,11 +44,11 @@ import {
 } from '../../utils/flight-gate';
 import {
   CorridorConfig,
-  MEASUREMENT_KEYS,
   corridorConfig,
   resetCorridorConfig,
   setCorridorConfig,
 } from '../../utils/route-corridor';
+import { CorridorRefit } from '../world/corridor-refit';
 
 /**
  * Sub-facade for visualization, camera, rendering, and height updates.
@@ -137,8 +137,8 @@ export class VisualizationFacadeService {
     // `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`.
     (globalThis as Record<string, unknown>)['__corridor'] = {
       get: () => ({ ...corridorConfig, highwayWidths: { ...corridorConfig.highwayWidths } }),
-      set: (patch: Partial<CorridorConfig>) => this.changeCorridor(() => setCorridorConfig(patch)),
-      reset: () => this.changeCorridor(() => {
+      set: (patch: Partial<CorridorConfig>) => this.corridorRefit.change(() => setCorridorConfig(patch)),
+      reset: () => this.corridorRefit.change(() => {
         resetCorridorConfig();
         return [];
       }),
@@ -187,42 +187,24 @@ export class VisualizationFacadeService {
   }
 
   /**
-   * Why the corridor cannot be rebuilt now, null if it can. Towers keep
-   * their LOS answers in the cells a rebuild replaces, and enemies their
-   * cell and their route.
+   * When the route corridor is measured and routes and cells are rebuilt
+   * with it: after the height update (scheduleOverlayHeightUpdate), after
+   * each settled tile batch (scheduleRouteGridConvergence) and from
+   * `__corridor.set()` / `reset()`. The rules live in CorridorRefit.
    */
-  private corridorRebuildBlocker(): string | null {
-    if (this.gameState.towerCount() > 0) return 'towers stand on the map, sell them first';
-    if (this.gameState.waveManager.phase() === 'wave') return 'a wave is running';
-    if (this.gameState.enemyManager.getAliveCount() > 0) return 'enemies are on the map';
-    return null;
-  }
-
-  /**
-   * Apply a change of the corridor settings and rebuild routes, cells and
-   * route line with it (`__corridor.set()` / `reset()`). Measures again
-   * first when the change moves the stations or what the rays see, the
-   * other settings only reshape what was measured.
-   *
-   * @param apply Changes `corridorConfig`, returns the problems that kept it from doing so
-   * @returns what happened, for the console
-   */
-  private changeCorridor(apply: () => string[]): string {
-    if (!this.engineInit.getEngine()) return 'Not changed: no location loaded.';
-    const blocker = this.corridorRebuildBlocker();
-    if (blocker) return `Not changed: ${blocker}.`;
-
-    const before = { ...corridorConfig };
-    const problems = apply();
-    if (problems.length > 0) return `Not changed: ${problems.join('; ')}.`;
-
-    const remeasure = MEASUREMENT_KEYS.some((key) => before[key] !== corridorConfig[key]);
-    if (remeasure) this.pathRoute.clearCorridorMeasurements();
-    this.pathRoute.measureStreetClearance();
-    this.rebuildCorridors();
-    const cells = this.gameState.getGlobalRouteGrid().getStats().totalCells;
-    return `Corridor rebuilt${remeasure ? ', measured again' : ''}: ${cells} cells. Widths per stretch: __routes.describe()`;
-  }
+  private readonly corridorRefit = new CorridorRefit({
+    ready: () => this.engineInit.getEngine() !== null,
+    towerCount: () => this.gameState.towerCount(),
+    enemyCount: () => this.gameState.enemyManager.getAliveCount(),
+    waveRunning: () => this.gameState.waveManager.phase() === 'wave',
+    introRunning: () => this.introFlight.isRunning(),
+    measure: () => this.pathRoute.measureStreetClearance(),
+    hasUnmeasured: () => this.pathRoute.hasUnmeasuredStations(),
+    clearMeasurements: () => this.pathRoute.clearCorridorMeasurements(),
+    rebuild: () => this.rebuildCorridors(),
+    cellCount: () => this.gameState.getGlobalRouteGrid().getStats().totalCells,
+    now: () => performance.now(),
+  });
 
   /**
    * What the grid holds in a tower's range and what its LOS display draws
@@ -641,40 +623,8 @@ export class VisualizationFacadeService {
     );
 
     await this.heightUpdate.scheduleOverlayHeightUpdate();
-    this.fitCorridorsToTiles();
-  }
-
-  /**
-   * Fit the route corridors to the street the tiles show, once they have
-   * loaded: measure the free space along every route and, where it gives
-   * other widths than before, rebuild the routes, their cells and the route
-   * line. Skipped while towers stand, enemies walk or a wave runs (see
-   * corridorRebuildBlocker).
-   */
-  private fitCorridorsToTiles(): void {
-    if (this.corridorRebuildBlocker()) return;
-    if (!this.pathRoute.measureStreetClearance()) return;
-    this.rebuildCorridors();
-  }
-
-  /**
-   * Measure the corridor stations again that had no fine tile at the last
-   * run, once a tile-load batch has settled, and rebuild the corridor where
-   * that changes it. The first measurement runs when the height update
-   * stops, about two seconds into the location, and does not wait for the
-   * corridor tiles, which refine by error alone and keep streaming in for
-   * a while after; stations still on coarse tiles kept the OSM width for
-   * the whole location. Only while fitCorridorsToTiles may (no tower, no
-   * enemy, no wave), not during the intro flight, and at most every
-   * CORRIDOR_REMEASURE_INTERVAL_MS.
-   */
-  private remeasureCorridor(): void {
-    if (!this.pathRoute.hasUnmeasuredStations()) return;
-    if (this.corridorRebuildBlocker() || this.introFlight.isRunning()) return;
-    const now = performance.now();
-    if (now - this.lastCorridorRemeasure < VisualizationFacadeService.CORRIDOR_REMEASURE_INTERVAL_MS) return;
-    this.lastCorridorRemeasure = now;
-    this.fitCorridorsToTiles();
+    // First fit of the corridors to the tiles, see CorridorRefit.
+    this.corridorRefit.fitToTiles();
   }
 
   /** Rebuild the routes with the corridor widths as measured and configured now, their cells and the route line. */
@@ -1027,12 +977,6 @@ export class VisualizationFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   private routeGridConvergenceScheduled = false;
-
-  /** When remeasureCorridor last measured, performance.now() ms. */
-  private lastCorridorRemeasure = -Infinity;
-
-  /** Shortest time between two corridor re-measurements after tile loads. */
-  private static readonly CORRIDOR_REMEASURE_INTERVAL_MS = 3000;
   /** rAF handle for the convergence loop — cancelled in dispose(). */
   private routeGridConvergenceRaf: number | null = null;
 
@@ -1078,8 +1022,8 @@ export class VisualizationFacadeService {
         this.scheduleBakedHeightRefresh();
       }
       // The batch has settled: corridor stations that were still on coarse
-      // tiles may have fine ones now.
-      this.remeasureCorridor();
+      // tiles may have fine ones now (CorridorRefit.remeasure).
+      this.corridorRefit.remeasure();
     };
 
     const tick = () => {
