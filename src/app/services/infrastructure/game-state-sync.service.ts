@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
+import { RunStatsTracker } from './run-stats';
 
 /**
  * GameStateSyncService — Bridges GSM (GameStateManager) events to the Store.
@@ -25,15 +26,22 @@ export class GameStateSyncService {
   private readonly store = inject(TowerDefenseStore);
   private readonly researchStore = inject(ResearchStore);
   private readonly subs = new SubscriptionBag();
+  /** Counts the run for the game-over screen */
+  private readonly runStats = new RunStatsTracker();
 
   /**
    * Subscribe to EventBus events and sync state changes to the Store.
    * Must be called after GameStateManager.initialize() so the EventBus is ready.
+   *
+   * @param gameClock game time in ms (GameStateManager.gameTimeMs), read once
+   *   at game over for the run's duration
    */
-  initialize(eventBus: GameEventBus): void {
+  initialize(eventBus: GameEventBus, gameClock: () => number = () => 0): void {
     // Defensive: clear any prior subscriptions so a future re-init path can't
     // double-subscribe (consistent with combat-effect/hq-damage/game-state).
     this.subs.disposeAll();
+    this.runStats.reset();
+    this.runStats.attach(eventBus, this.subs);
     // ── Wave lifecycle ────────────────────────────────────────────
     this.subs.add(eventBus.on('wave:started', (event) => {
       this.store.phase.set('wave');
@@ -59,6 +67,7 @@ export class GameStateSyncService {
     // ── Game state events ─────────────────────────────────────────
     this.subs.add(eventBus.on('game:over', (_event) => {
       this.store.phase.set('gameover');
+      this.store.runSummary.set(this.runStats.summary(gameClock()));
       this.store.showGameOverScreen.set(true);
     }));
 

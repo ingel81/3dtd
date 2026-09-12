@@ -1,0 +1,73 @@
+<div class="run-summary">
+  <dl class="run-figures">
+    <div class="run-figure">
+      <dt>Wave</dt>
+      <dd>{{ summary().waveReached }}</dd>
+    </div>
+    <div class="run-figure">
+      <dt>Kills</dt>
+      <dd>{{ compact(summary().kills) }}</dd>
+    </div>
+    <div class="run-figure">
+      <dt>Time</dt>
+      <dd>{{ runTime() }}</dd>
+    </div>
+    <div class="run-figure">
+      <dt>Earned</dt>
+      <dd>{{ compact(summary().goldEarned) }}</dd>
+    </div>
+    <div class="run-figure">
+      <dt>Spent</dt>
+      <dd>{{ compact(summary().goldSpent) }}</dd>
+    </div>
+  </dl>
+
+  @if (leakBars().length > 0) {
+    <section class="run-block">
+      <h3 class="run-caption">
+        <span>Leaks per wave</span>
+        <span class="run-caption-total">{{ totalLeaks() }} total</span>
+      </h3>
+      <div class="run-leaks" role="img"
+           [attr.aria-label]="'Leaks per wave: ' + summary().leaksPerWave.join(', ')">
+        @for (bar of leakBars(); track bar.wave) {
+          <span class="run-leak-bar" [class.run-leak-none]="bar.leaks === 0"
+                [style.height.%]="bar.leaks === 0 ? null : bar.height * 100"
+                [title]="'Wave ' + bar.wave + ': ' + bar.leaks + ' leaked, ' + bar.hqDamage + ' HQ damage'"></span>
+        }
+      </div>
+      <div class="run-axis">
+        <span>1</span>
+        @if (leakBars().length > 1) {
+          <span>{{ leakBars().length }}</span>
+        }
+      </div>
+    </section>
+  }
+
+  @if (summary().topTowers.length > 0) {
+    <section class="run-block">
+      <h3 class="run-caption"><span>Top towers by damage</span></h3>
+      <table class="run-towers">
+        <thead class="run-visually-hidden">
+          <tr><th>Rank</th><th>Tower</th><th>Damage</th><th>Kills</th></tr>
+        </thead>
+        <tbody>
+          @for (tower of summary().topTowers; track tower.id; let i = $index) {
+            <tr>
+              <td class="run-rank">{{ i + 1 }}</td>
+              <td class="run-tower-name">
+                {{ tower.name }}
+                @if (tower.sold) {
+                  <span class="run-sold">sold</span>
+                }
+              </td>
+              <td class="run-num">{{ compact(tower.damageDealt) }} <span class="run-unit">dmg</span></td>
+              <td class="run-num">{{ tower.kills }} <span class="run-unit">kills</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+</div>

@@ -503,6 +503,16 @@ Hilfe-Dialog in `components/damage-matrix-dialog/`, geöffnet über den `i`-Butt
 - Breite `min(880px, 92vw)` über die Dialog-Config (`width`/`maxWidth`), nicht per CSS: das Overlay-Pane von MatDialog ist per Klasse auf 560px begrenzt, nur der Inline-Style der Config hebt das auf. Die Tabelle hat `table-layout: fixed` (Tower-Spalte 150px, Rüstungsspalten gleich breit), Gegnerlisten brechen um; horizontal gescrollt wird erst unter 600px Tabellenbreite.
 - Esc schließt nur den Dialog: `isEscapeForDialog` (`utils/dialog-key-guard.ts`) hält Esc vom globalen Key-Handler fern, solange ein Dialog offen ist oder Esc schon verbraucht hat.
 
+### Game-Over-Bilanz
+
+`components/run-summary/` im Game-Over-Overlay zwischen Untertitel und Restart. Die Zahlen sammelt `RunStatsTracker` (`services/infrastructure/run-stats.ts`, Angular-frei) am Event-Bus, gehalten von `GameStateSyncService`; bei `game:over` landet die Zusammenfassung in `GameStore.runSummary`, `game:reset` leert sie.
+
+- Kennzahlen in einer Zeile mit Haarlinien, keine Kacheln: Wave, Kills, Time (Spielzeit ab Reset, Bauphase eingeschlossen), Earned (Kill-Belohnungen und Wellenboni, ohne Rückerstattungen und Cheat-Credits), Spent (Tower, Upgrades, Forschung, abzüglich Rückerstattungen)
+- Leaks per wave: ein Balken je Welle, Höhe relativ zur schlimmsten Welle, `--td-health-red`; Wellen ohne Leak als 2px-Strich in `--td-frame-dark`. Der Tooltip je Balken nennt Leaks und HQ-Schaden der Welle
+- Top towers by damage: bis zu drei Tower, verkaufte mit dem Stand beim Verkauf (Zusatz "sold"); Tower ohne Schaden und Kills (Research Center) fehlen
+
+Den Schaden je Tower zählt `CombatComponent.damageDealt`: `DamageApplicationService` addiert pro Treffer die tatsächlich abgezogenen HP (ohne Overkill). Das Tower-Panel zeigt ihn als Kachel "Dealt" neben Kills (Raster drei über vier Kacheln) und liest ihn alle 250 ms neu, statt pro Treffer `selectedTowerRevision` zu erhöhen.
+
 ---
 
 ## WC3-Design-Regeln

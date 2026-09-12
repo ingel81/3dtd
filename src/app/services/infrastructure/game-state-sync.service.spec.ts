@@ -156,6 +156,26 @@ describe('GameStateSyncService (real service)', () => {
       expect(store.showGameOverScreen()).toBe(true);
     });
 
+    it('game:over → runSummary of the run, with the game clock as duration; game:reset clears it', () => {
+      service.dispose();
+      service.initialize(eventBus, () => 90_000);
+      eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 2 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 5 });
+      eventBus.emit({ type: 'enemy:reached-base', enemy: {} as never, damage: 10 });
+      eventBus.emit({ type: 'health:changed', health: 90, delta: -10 });
+      eventBus.emit({ type: 'game:over', reason: 'base-destroyed' });
+      expect(store.runSummary()).toMatchObject({
+        waveReached: 1,
+        kills: 1,
+        leaksPerWave: [1],
+        hqDamagePerWave: [10],
+        durationMs: 90_000,
+      });
+
+      eventBus.emit({ type: 'game:reset' });
+      expect(store.runSummary()).toBeNull();
+    });
+
     it('game:reset → resetGameState()', () => {
       store.credits.set(123);
       store.phase.set('wave');

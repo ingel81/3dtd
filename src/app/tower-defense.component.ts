@@ -88,6 +88,7 @@ import { IntroSkipComponent } from './components/intro-skip/intro-skip.component
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.component';
 import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/offscreen-indicators.component';
+import { RunSummaryComponent } from './components/run-summary/run-summary.component';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
@@ -127,6 +128,7 @@ import { BUILD_VERSION } from './configs/build-info.config';
     TokenSetupComponent,
     LeakVignetteComponent,
     OffscreenIndicatorsComponent,
+    RunSummaryComponent,
   ],
   providers: [
     GameStateManager,

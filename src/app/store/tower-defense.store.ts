@@ -95,6 +95,9 @@ export class TowerDefenseStore {
   /** Show game over overlay screen */
   readonly showGameOverScreen = this.gameStore.showGameOverScreen;
 
+  /** Numbers of the run that just ended (game-over screen) */
+  readonly runSummary = this.gameStore.runSummary;
+
   /** Training mode timescale (1.0 = normal, up to 75x) */
   readonly trainingTimescale = this.gameStore.trainingTimescale;
 
