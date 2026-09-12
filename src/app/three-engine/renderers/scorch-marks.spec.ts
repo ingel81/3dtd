@@ -72,6 +72,25 @@ describe('ScorchMarks', () => {
     expect(marks.decals.getInstance(`scorch_${grid.getCellAt(x1, z1)!.key}`)).toBeUndefined();
   });
 
+  it('is drawn only while it holds a mark (DrawGate)', () => {
+    const { marks } = create();
+    const mesh = marks.decals.instancedMesh;
+    expect(mesh.visible).toBe(false);
+
+    marks.mark(1, 5, 1, 'cannon', 0);
+    expect(mesh.visible).toBe(true);
+    expect(mesh.count).toBe(1);
+    marks.mark(1, 5, 1, 'cannon', 10); // reinforced, still one
+    expect(mesh.count).toBe(1);
+
+    marks.updateFades(SCORCH_DECAL_CONFIG.fadeDelay + SCORCH_DECAL_CONFIG.fadeDuration + 100);
+    expect(mesh.visible).toBe(false);
+
+    marks.mark(3, 5, 1, 'rocket', 0);
+    marks.clear();
+    expect(mesh.visible).toBe(false);
+  });
+
   it('fades marks out and clears them on reset', () => {
     const { marks } = create();
     marks.mark(1, 5, 1, 'cannon', 0);
