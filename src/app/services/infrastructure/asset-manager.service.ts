@@ -1,9 +1,8 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial, Color } from 'three';
+import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
-import type { ModelTint } from '../../configs/tower-types.config';
 
 /**
  * Unified model data structure for cached models
@@ -25,8 +24,6 @@ export interface CachedModel {
 export interface CloneOptions {
   /** Use SkeletonUtils.clone for animated models (preserves skeleton bindings) */
   preserveSkeleton?: boolean;
-  /** Recolour the clone, see ModelTint. Only the clone's own materials change. */
-  tint?: ModelTint;
 }
 
 /**
@@ -184,31 +181,8 @@ export class AssetManagerService {
     // Deep-clone materials to prevent shared state issues
     // (e.g., build preview tinting affecting placed towers)
     this.cloneMaterials(clone);
-    if (options.tint) this.applyTint(clone, options.tint);
 
     return clone;
-  }
-
-  /**
-   * Multiply every material colour by the tint and give it the tint's glow.
-   * Runs on the materials cloneMaterials just made, so the cached template and
-   * other clones of the same model keep their look.
-   */
-  private applyTint(object: Object3D, tint: ModelTint): void {
-    const color = new Color(tint.color);
-    object.traverse((node) => {
-      if (!(node as Mesh).isMesh) return;
-      const mesh = node as Mesh;
-      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      for (const mat of materials) {
-        const std = mat as MeshStandardMaterial;
-        std.color?.multiply(color);
-        if (std.emissive) {
-          std.emissive.set(tint.emissive);
-          std.emissiveIntensity = tint.emissiveIntensity;
-        }
-      }
-    });
   }
 
   /**

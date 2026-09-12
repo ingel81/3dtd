@@ -176,17 +176,6 @@ function combatUpgrades(profile: { damage: number; rate: number }): TowerUpgrade
   ];
 }
 
-/**
- * Recolours a model that stands in for a tower without one of its own. Every
- * material colour is multiplied by `color`; `emissive` adds a glow of its own,
- * so the tint also shows on textures a multiply alone would only darken.
- */
-export interface ModelTint {
-  color: number;
-  emissive: number;
-  emissiveIntensity: number;
-}
-
 export interface TowerTypeConfig {
   id: TowerTypeId;
   name: string;
@@ -197,7 +186,7 @@ export interface TowerTypeConfig {
   shootHeight: number; // Height above base where projectiles originate (for LoS calculations)
   rotationY?: number; // Initial Y rotation in radians for visual alignment (default: 0)
   turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point -Z/North)
-  modelTint?: ModelTint; // Placeholder look for a tower that borrows another tower's model
+  turretNode?: string; // Node that turns to the target when the model has no turret_top/tower_top/top
 
   damageType: DamageType; // Damage type for the damage matrix
   damage: number;
@@ -247,6 +236,7 @@ const MAGIC_MODEL_URL = 'assets/models/towers/magic.glb';
 const FIRE_MODEL_URL = 'assets/models/towers/fire.glb';
 const POISON_MODEL_URL = 'assets/models/towers/poison_tower.glb';
 const LIGHTNING_MODEL_URL = 'assets/models/towers/lightning.glb';
+const CHAOS_MODEL_URL = 'assets/models/towers/chaos.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -488,17 +478,16 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'chaos',
     name: 'Chaos Tower',
     defaultTargeting: 'first',
-    // PLATZHALTER: Chaos hat noch kein eigenes Modell. Bis eines kommt, steht
-    // hier das Poison-Modell (Projektil-Tower mit drehbarem Aufsatz, Maße und
-    // Schusshöhe von dort übernommen), per modelTint schwarz-violett gefärbt.
-    // Mit dem echten Modell fallen modelTint und diese fünf Werte weg.
-    modelUrl: POISON_MODEL_URL,
-    modelTint: { color: 0x9966cc, emissive: 0x4a1070, emissiveIntensity: 0.6 },
-    scale: 7.6,
-    previewScale: 12,
-    heightOffset: 2.8,
-    shootHeight: 1.4,
-    rotationY: 3.1416, // 180°
+    // Kenney "tower-round-crystals" (CC0): runder Sockel, fünf Kristalle als
+    // eigene Nodes, 1 Einheit breit, Spitze des mittleren Kristalls bei 0,82.
+    // Ein turret_top gibt es nicht, der mittlere Kristall dreht sich zum Ziel.
+    modelUrl: CHAOS_MODEL_URL,
+    turretNode: 'crystal',
+    scale: 7.5, // 7,5 m breit, 6,1 m hoch: im Rahmen der mittelgroßen Tower
+    previewScale: 11,
+    heightOffset: 0, // Der Sockel sitzt bei y = 0
+    shootHeight: 5.8, // Knapp unter der Kristallspitze (6,1 m), dort startet der Orb
+    rotationY: 0,
     damageType: 'chaos',
     damage: 50,
     range: 60,

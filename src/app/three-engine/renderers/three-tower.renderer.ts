@@ -365,7 +365,7 @@ export class ThreeTowerRenderer {
     }
 
     // Clone the model
-    const mesh = this.assetManager.cloneModel(config.modelUrl, { tint: config.modelTint });
+    const mesh = this.assetManager.cloneModel(config.modelUrl);
     if (!mesh) {
       console.error(`[ThreeTowerRenderer] Failed to clone model: ${typeId}`);
       return null;
@@ -381,13 +381,16 @@ export class ThreeTowerRenderer {
     const baseRotation = config.rotationY ?? 0;
     mesh.rotation.y = baseRotation + customRotation;
 
-    // Find turret part if it exists (for turret rotation)
-    // Supports 'turret_top', 'tower_top', and 'top' naming conventions
+    // Find turret part if it exists (for turret rotation). The config can name
+    // the node (turretNode); otherwise 'turret_top', 'tower_top' and 'top'.
+    const isTurretNode = (name: string): boolean => config.turretNode
+      ? name === config.turretNode
+      : name === 'turret_top' || name === 'tower_top' || name === 'top';
     let turretPart: Object3D | null = null;
     let turretBaseY = 0;
     let turretOriginalRotationY = 0; // Preserve model's original turret rotation
     mesh.traverse((node) => {
-      if ((node.name === 'turret_top' || node.name === 'tower_top' || node.name === 'top') && !turretPart) {
+      if (isTurretNode(node.name) && !turretPart) {
         turretPart = node;
         turretBaseY = node.position.y;
         turretOriginalRotationY = node.rotation.y;

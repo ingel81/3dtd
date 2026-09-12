@@ -98,3 +98,35 @@ describe('ThreeTowerRenderer turret heading', () => {
     expect(angleBetween(turretHeading(data), (3 * Math.PI) / 4)).toBeLessThan(1e-9);
   });
 });
+
+describe('ThreeTowerRenderer turret node', () => {
+  /** A model with a 'top' node and a chaos-style 'crystal' among its siblings. */
+  const assetManager = {
+    loadModel: async () => ({ animations: [] }),
+    cloneModel: () => {
+      const model = new Group();
+      for (const name of ['crystal-small', 'top', 'crystal']) {
+        const node = new Object3D();
+        node.name = name;
+        model.add(node);
+      }
+      return model;
+    },
+    isFbxModel: () => false,
+  };
+  const sync = {
+    geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
+  };
+
+  it('turns the node the config names, not the default names', async () => {
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    const data = (await renderer.create('c1', 'chaos', 0, 0, 0, 0, null))!;
+    expect(data.turretPart?.name).toBe('crystal');
+  });
+
+  it('falls back to turret_top, tower_top or top without a turretNode', async () => {
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    const data = (await renderer.create('a1', 'archer', 0, 0, 0, 0, null))!;
+    expect(data.turretPart?.name).toBe('top');
+  });
+});

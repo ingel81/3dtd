@@ -12,6 +12,8 @@ import { ARMOR_TYPES, ArmorType } from './combat/combat.types';
 import { DAMAGE_MATRIX } from './combat/damage-matrix.config';
 import { computeTowerDPSFromLevels } from '../ai/core/tower-dps.util';
 import { getResearch, getResearchForTower } from './research/research-tree.config';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 describe('tower types config', () => {
   // Combat towers + passive buildings (research-center)
@@ -171,6 +173,18 @@ describe('tower types config', () => {
     visit(unlock!.id);
     expect(required).toContain('siege-engineering');
     expect(required).toContain('arcane-studies');
+  });
+
+  it('every configured turretNode exists in its model', () => {
+    // A renamed node would leave the tower without a turret and no error.
+    const towers = getAllTowerTypes().filter((t) => t.turretNode);
+    expect(towers.map((t) => t.id)).toContain('chaos');
+    for (const tower of towers) {
+      const glb = readFileSync(resolve(process.cwd(), 'public', tower.modelUrl));
+      const json = JSON.parse(glb.subarray(20, 20 + glb.readUInt32LE(12)).toString('utf8'));
+      const names = (json.nodes ?? []).map((n: { name?: string }) => n.name);
+      expect(names, tower.id).toContain(tower.turretNode);
+    }
   });
 
   it('targeting rules for specific towers', () => {

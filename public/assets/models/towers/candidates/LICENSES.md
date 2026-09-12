@@ -1,13 +1,13 @@
 # Tower-Kandidaten: Herkunft und Lizenzen
 
-Modell für den Chaos Tower. Wird es ins Spiel übernommen, kommt es in
-`src/app/configs/attributions.config.ts`.
+Messwerte aus `tools/model-budget/model-inspect.ts`.
 
-Messwerte aus `tools/model-budget/model-inspect.ts`. Ein drehbarer Turret braucht laut
-[docs/TOWER_CREATION.md](../../../../../docs/TOWER_CREATION.md) ein Mesh namens `turret_top`;
-das Modell hat noch keins, der passende Teil wäre umzubenennen.
+## kenney-tower-defense-kit/tower-round-crystals.glb (übernommen)
 
-## kenney-tower-defense-kit/tower-round-crystals.glb
+Seit 2026-09-12 das Modell des Chaos Tower: liegt als `towers/chaos.glb`, die Textur als
+`towers/Textures/colormap.png` (das GLB verweist relativ darauf), Nennung in
+`src/app/configs/attributions.config.ts`. Ein `turret_top` braucht es nicht, die
+Tower-Config benennt den drehbaren Kristall über `turretNode: 'crystal'`.
 
 | | |
 |---|---|
