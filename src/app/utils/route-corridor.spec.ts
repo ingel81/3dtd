@@ -11,6 +11,7 @@ import {
   lateralLimit,
   resetCorridorConfig,
   routeHalfWidths,
+  setCorridorConfig,
 } from './route-corridor';
 import { METERS_PER_DEGREE_LAT } from './geo-utils';
 import type { RouteWaypoint } from '../models/game.types';
@@ -241,5 +242,39 @@ describe('getRouteProfile', () => {
   it('handles paths too short to have a segment', () => {
     expect(getRouteProfile([]).totalLength).toBe(0);
     expect(getRouteProfile([{ lat: 1, lon: 1 }]).segmentLengths).toEqual([]);
+  });
+});
+
+describe('setCorridorConfig', () => {
+  it('applies the values and adds to the street width table', () => {
+    expect(setCorridorConfig({ maxHalfWidth: 8, bulgeLength: 12, highwayWidths: { residential: 7 } })).toEqual([]);
+    expect(corridorConfig.maxHalfWidth).toBe(8);
+    expect(corridorConfig.bulgeLength).toBe(12);
+    expect(corridorConfig.highwayWidths['residential']).toBe(7);
+    expect(corridorConfig.highwayWidths['primary']).toBe(8);
+  });
+
+  it('changes nothing when a key is unknown or a value out of range', () => {
+    const problems = setCorridorConfig({ maxHalfWidth: 9, bogus: 1, taper: -1 } as never);
+    expect(problems).toEqual(['unknown setting bogus', 'taper must be a number from 0.05 to 5']);
+    expect(corridorConfig.maxHalfWidth).toBe(7);
+    expect(setCorridorConfig({ highwayWidths: { residential: 'wide' } } as never)).toHaveLength(1);
+    expect(corridorConfig.highwayWidths['residential']).toBe(5.5);
+  });
+
+  it('keeps enemies at the edge inside the cells', () => {
+    expect(setCorridorConfig({ edgeMargin: 1 })).toHaveLength(1);
+    expect(corridorConfig.edgeMargin).toBe(1.5);
+  });
+
+  it('refuses a minimum above the maximum', () => {
+    expect(setCorridorConfig({ minHalfWidth: 6, maxHalfWidth: 5 })).toEqual(['minHalfWidth must not be above maxHalfWidth']);
+  });
+
+  it('moves the default into a narrower range unless it is set with it', () => {
+    expect(setCorridorConfig({ maxHalfWidth: 4 })).toEqual([]);
+    expect(corridorConfig.defaultHalfWidth).toBe(4);
+    expect(setCorridorConfig({ maxHalfWidth: 3, defaultHalfWidth: 3.5 })).toHaveLength(1);
+    expect(corridorConfig.maxHalfWidth).toBe(4);
   });
 });

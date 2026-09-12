@@ -653,6 +653,15 @@ export class PathAndRouteService {
   }
 
   /**
+   * Forget what the tiles showed, so the next measureStreetClearance
+   * measures every station again: after a settings change that moves the
+   * stations or the rays (MEASUREMENT_KEYS).
+   */
+  clearCorridorMeasurements(): void {
+    this.clearanceBySegment.clear();
+  }
+
+  /**
    * Measure how much room the tiles leave left and right of every route
    * segment, so the next route build fits the corridor to it: the free space
    * on each side sets the half width there, up to

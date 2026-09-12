@@ -150,6 +150,73 @@ export function resetCorridorConfig(): void {
   Object.assign(corridorConfig, copyConfig(CORRIDOR_DEFAULTS));
 }
 
+/**
+ * Settings whose change moves the clearance stations or what the rays see:
+ * changing one means measuring again. The others only reshape what was
+ * measured.
+ */
+export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = ['stationSpacing', 'rayHeight', 'maxHalfWidth', 'maxTileError'];
+
+/** Allowed range per numeric setting, inclusive. */
+const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [number, number]> = {
+  minHalfWidth: [1.5, 15],
+  // The route corridor loads fine tiles 20 m either side.
+  maxHalfWidth: [1.5, 15],
+  defaultHalfWidth: [1.5, 15],
+  // Half a cell diagonal at least, or enemies at the edge stand outside the cells.
+  edgeMargin: [1.42, 5],
+  taper: [0.05, 5],
+  stationSpacing: [0.5, 10],
+  rayHeight: [0.3, 10],
+  maxTileError: [0.1, 100],
+  widthStep: [0.1, 2],
+  dipLength: [0, 100],
+  bulgeLength: [0, 100],
+  unknownHighwayWidth: [1, 50],
+  laneWidth: [1, 10],
+  laneExtra: [0, 10],
+};
+
+/**
+ * Change settings in {@link corridorConfig}. A `highwayWidths` patch adds to
+ * the table instead of replacing it. A default half width the new range
+ * leaves out is moved into it, unless the patch sets it itself. Nothing
+ * changes if a key is unknown, a value out of range or the minimum above
+ * the maximum.
+ *
+ * @returns the problems; empty when the patch was applied
+ */
+export function setCorridorConfig(patch: Partial<CorridorConfig>): string[] {
+  const next = copyConfig(corridorConfig);
+  const problems: string[] = [];
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === 'highwayWidths') {
+      for (const [type, width] of Object.entries((value ?? {}) as Record<string, unknown>)) {
+        if (typeof width === 'number' && width > 0 && width <= 50) next.highwayWidths[type] = width;
+        else problems.push(`highwayWidths.${type} must be a width from 0 to 50 m`);
+      }
+      continue;
+    }
+    const range = SETTING_RANGES[key as keyof typeof SETTING_RANGES];
+    if (!range) {
+      problems.push(`unknown setting ${key}`);
+    } else if (typeof value !== 'number' || !(value >= range[0] && value <= range[1])) {
+      problems.push(`${key} must be a number from ${range[0]} to ${range[1]}`);
+    } else {
+      next[key as keyof typeof SETTING_RANGES] = value;
+    }
+  }
+  if (next.minHalfWidth > next.maxHalfWidth) problems.push('minHalfWidth must not be above maxHalfWidth');
+  const defaultOutside = next.defaultHalfWidth < next.minHalfWidth || next.defaultHalfWidth > next.maxHalfWidth;
+  if (defaultOutside && 'defaultHalfWidth' in patch) {
+    problems.push('defaultHalfWidth must lie between minHalfWidth and maxHalfWidth');
+  } else if (defaultOutside) {
+    next.defaultHalfWidth = Math.min(next.maxHalfWidth, Math.max(next.minHalfWidth, next.defaultHalfWidth));
+  }
+  if (problems.length === 0) Object.assign(corridorConfig, next);
+  return problems;
+}
+
 /** Where a street width came from, for the diagnostics. */
 export type StreetWidthSource = 'width' | 'lanes' | 'highway';
 

@@ -42,6 +42,13 @@ import {
   flightGateMeta,
   flightGateOpen,
 } from '../../utils/flight-gate';
+import {
+  CorridorConfig,
+  MEASUREMENT_KEYS,
+  corridorConfig,
+  resetCorridorConfig,
+  setCorridorConfig,
+} from '../../utils/route-corridor';
 
 /**
  * Sub-facade for visualization, camera, rendering, and height updates.
@@ -125,11 +132,56 @@ export class VisualizationFacadeService {
     this.gameState = gameState;
     this.initialized = true;
 
-    // Diagnose-API für Playtests, analog zu `__rg` und `__routes`:
-    // `__corridor.towerCells()` in DevTools, siehe describeTowerCells().
+    // Korridor-API für Playtests, analog zu `__rg` und `__routes`, in
+    // DevTools: `__corridor.get()`, `__corridor.set({ maxHalfWidth: 8 })`,
+    // `__corridor.reset()`, `__corridor.towerCells()`.
     (globalThis as Record<string, unknown>)['__corridor'] = {
+      get: () => ({ ...corridorConfig, highwayWidths: { ...corridorConfig.highwayWidths } }),
+      set: (patch: Partial<CorridorConfig>) => this.changeCorridor(() => setCorridorConfig(patch)),
+      reset: () => this.changeCorridor(() => {
+        resetCorridorConfig();
+        return [];
+      }),
       towerCells: (towerId?: string) => this.describeTowerCells(towerId),
     };
+  }
+
+  /**
+   * Why the corridor cannot be rebuilt now, null if it can. Towers keep
+   * their LOS answers in the cells a rebuild replaces, and enemies their
+   * cell and their route.
+   */
+  private corridorRebuildBlocker(): string | null {
+    if (this.gameState.towerCount() > 0) return 'towers stand on the map, sell them first';
+    if (this.gameState.waveManager.phase() === 'wave') return 'a wave is running';
+    if (this.gameState.enemyManager.getAliveCount() > 0) return 'enemies are on the map';
+    return null;
+  }
+
+  /**
+   * Apply a change of the corridor settings and rebuild routes, cells and
+   * route line with it (`__corridor.set()` / `reset()`). Measures again
+   * first when the change moves the stations or what the rays see, the
+   * other settings only reshape what was measured.
+   *
+   * @param apply Changes `corridorConfig`, returns the problems that kept it from doing so
+   * @returns what happened, for the console
+   */
+  private changeCorridor(apply: () => string[]): string {
+    if (!this.engineInit.getEngine()) return 'Not changed: no location loaded.';
+    const blocker = this.corridorRebuildBlocker();
+    if (blocker) return `Not changed: ${blocker}.`;
+
+    const before = { ...corridorConfig };
+    const problems = apply();
+    if (problems.length > 0) return `Not changed: ${problems.join('; ')}.`;
+
+    const remeasure = MEASUREMENT_KEYS.some((key) => before[key] !== corridorConfig[key]);
+    if (remeasure) this.pathRoute.clearCorridorMeasurements();
+    this.pathRoute.measureStreetClearance();
+    this.rebuildCorridors();
+    const cells = this.gameState.getGlobalRouteGrid().getStats().totalCells;
+    return `Corridor rebuilt${remeasure ? ', measured again' : ''}: ${cells} cells. Widths per stretch: __routes.describe()`;
   }
 
   /**
@@ -539,16 +591,20 @@ export class VisualizationFacadeService {
 
   /**
    * Fit the route corridors to the street the tiles show, once they have
-   * loaded: measure the free space along every route and, where it is less
-   * than the street width says, rebuild the routes, their cells and the
-   * route line. Skipped while towers stand or enemies walk, since both hang
-   * on the cells a rebuild replaces.
+   * loaded: measure the free space along every route and, where it gives
+   * other widths than before, rebuild the routes, their cells and the route
+   * line. Skipped while towers stand, enemies walk or a wave runs (see
+   * corridorRebuildBlocker).
    */
   private fitCorridorsToTiles(): void {
-    if (this.gameState.towerCount() > 0 || this.gameState.enemyManager.getAliveCount() > 0) return;
+    if (this.corridorRebuildBlocker()) return;
     if (!this.pathRoute.measureStreetClearance()) return;
+    this.rebuildCorridors();
+  }
 
-    // Routes with the narrowed widths first, then the cells built from them,
+  /** Rebuild the routes with the corridor widths as measured and configured now, their cells and the route line. */
+  private rebuildCorridors(): void {
+    // Routes with the new widths first, then the cells built from them,
     // then the route line on the new cells' heights.
     const spawns = this.store.spawnPoints();
     const grid = this.gameState.getGlobalRouteGrid();
