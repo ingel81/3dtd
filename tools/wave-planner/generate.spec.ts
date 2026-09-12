@@ -1196,7 +1196,7 @@ function exampleProgression() {
 
   const plan = [];
 
-  // ===== W1-W12: build phase — all 11 tower types + every tower-unlock research =====
+  // ===== W1-W12: build phase, all 11 tower types + every tower-unlock research =====
   // W1: 2 archers (bootstrap)
   plan.push({ towers: { archer: t(2) }, researches: [], rcLevel: 0 });
   // W2: same, place Research Center

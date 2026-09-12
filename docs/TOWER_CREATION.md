@@ -13,7 +13,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Verschiedene 3D-Modelle (GLB, FBX)
 - Rotierende Turret-Teile (z.B. Geschütztürme)
 - Eigene Projektiltypen
-- **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x — 9 Schadenstypen: physical, pierce, siege, magic, fire, ice, poison, lightning, chaos)
+- **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x, 9 Schadenstypen: physical, pierce, siege, magic, fire, ice, poison, lightning, chaos)
 - **Upgrade-System** mit Tier-Gating: Damage/Fire Rate 25 Stufen (ab L16 degressiv), Range 10 Stufen, Profil pro Tower über `combatUpgrades({ damage, rate })`
 - Separate Preview-Skalierung für die UI
 - Air/Ground Targeting (5 Targeting-Strategien inkl. `air-priority` mit Air-Sub-Strategy)
