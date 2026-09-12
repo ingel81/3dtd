@@ -24,6 +24,7 @@ import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
+import type { Enemy } from '../entities/enemy.entity';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { raycastStats } from '../utils/raycast-stats';
@@ -333,6 +334,24 @@ export class GameStateManager {
     this.eventBusSubs.add(this.eventBus.on('wave:completed', () => {
       this.towerCombat.turnTowersToGuard(this.towerManager);
     }));
+
+    // Debug enemies fought outside a wave never complete one, so no
+    // wave:completed turns the towers back. Once the last enemy is gone
+    // outside a wave, turn them as the wave end would. `leaving` is the
+    // enemy of the event: one that reaches the base is still alive while
+    // the event runs and removed after it.
+    const turnToGuardIfClear = (leaving?: Enemy) => {
+      if (this.waveManager.phase() === 'wave') return;
+      for (const enemy of this.enemyManager.getAlive()) {
+        if (enemy !== leaving) return;
+      }
+      this.towerCombat.turnTowersToGuard(this.towerManager);
+    };
+    this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => turnToGuardIfClear(event.enemy)));
+    this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => turnToGuardIfClear(event.enemy)));
+    // EnemyManager subscribed first and has removed the enemies by now
+    this.eventBusSubs.add(this.eventBus.on('debug:remove-enemy', () => turnToGuardIfClear()));
+    this.eventBusSubs.add(this.eventBus.on('debug:clear-enemies', () => turnToGuardIfClear()));
 
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
