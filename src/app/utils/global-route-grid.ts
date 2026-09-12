@@ -1114,6 +1114,34 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * The cell whose centre lies nearest to (localX, localZ) and no further
+   * than `maxDistanceM`, or undefined when there is none. Scans the square of
+   * grid spots around the point, O((maxDistance / cell size)²) lookups rather
+   * than O(cells). Equal distances keep the first cell in scan order, so the
+   * answer does not depend on how the cells were inserted.
+   */
+  findNearestCell(localX: number, localZ: number, maxDistanceM: number): RouteCell | undefined {
+    const reach = Math.ceil(maxDistanceM * this.INV_CELL_SIZE);
+    const centerX = this.cellIndex(localX);
+    const centerZ = this.cellIndex(localZ);
+    const maxSq = maxDistanceM * maxDistanceM;
+    let best: RouteCell | undefined;
+    let bestSq = Infinity;
+    for (let dx = -reach; dx <= reach; dx++) {
+      for (let dz = -reach; dz <= reach; dz++) {
+        const cell = this.cells.get(this.intCellKey(centerX + dx, centerZ + dz));
+        if (!cell) continue;
+        const distSq = (cell.x - localX) ** 2 + (cell.z - localZ) ** 2;
+        if (distSq <= maxSq && distSq < bestSq) {
+          best = cell;
+          bestSq = distSq;
+        }
+      }
+    }
+    return best;
+  }
+
+  /**
    * Single source of truth for ground terrain Y at an arbitrary local
    * (x, z) position. Used by enemy movement (per-frame), spawn
    * initialization and the red route-line builder so every consumer

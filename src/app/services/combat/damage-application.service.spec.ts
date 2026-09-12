@@ -21,13 +21,14 @@ interface EnemyStub {
   position: { lat: number; lon: number };
   transform: { terrainHeight: number };
   typeConfig: { canBleed: boolean; heightOffset: number; armorType: ArmorType };
-  health: { takeDamage: (n: number) => boolean; hp: number };
+  health: { takeDamage: (n: number) => boolean; hp: number; maxHp: number };
   getEffectiveArmorType: () => ArmorType;
 }
 
 function makeEnemy(opts: {
   id?: string;
   hp?: number;
+  maxHp?: number;
   armor?: ArmorType;
   canBleed?: boolean;
 } = {}): EnemyStub {
@@ -44,6 +45,7 @@ function makeEnemy(opts: {
     },
     health: {
       get hp() { return hp; },
+      maxHp: opts.maxHp ?? opts.hp ?? 100,
       takeDamage(n: number) {
         hp -= n;
         return hp <= 0;
@@ -238,6 +240,54 @@ describe('DamageApplicationService', () => {
       const fresh = new DamageApplicationService();
       const r = fresh.applyBeamDamage(vfx as never, makeEnemy() as never, 10, 'fire' as DamageType, 't', true);
       expect(r).toBeNull();
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // applyMaxHpFraction: the matrix-free path for abilities
+  // ────────────────────────────────────────────────────────────────
+  describe('applyMaxHpFraction', () => {
+    it('takes the share of max HP, whatever the armor', () => {
+      const enemy = makeEnemy({ hp: 200, armor: 'fortified' });
+      const killed = service.applyMaxHpFraction(vfx as never, enemy as never, 0.6, true);
+      expect(killed).toBe(false);
+      expect(enemy.health.hp).toBeCloseTo(80);
+      expect(vfx.emitHitBlood).not.toHaveBeenCalled();
+    });
+
+    it('measures the share against max HP, not against what is left', () => {
+      const enemy = makeEnemy({ id: 'worn', hp: 50, maxHp: 100 });
+      expect(service.applyMaxHpFraction(vfx as never, enemy as never, 0.6, false)).toBe(true);
+      expect(killedEnemyIds).toContain('worn');
+    });
+
+    it('credits the kill to no tower', () => {
+      const handler = vi.fn();
+      bus.on('tower:kill', handler);
+      service.applyMaxHpFraction(vfx as never, makeEnemy({ hp: 10, maxHp: 100 }) as never, 0.6, false);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('spawns death blood only when asked to', () => {
+      const first = makeEnemy({ id: 'a', hp: 10, maxHp: 100 });
+      const second = makeEnemy({ id: 'b', hp: 10, maxHp: 100 });
+      service.applyMaxHpFraction(vfx as never, first as never, 0.6, false);
+      service.applyMaxHpFraction(vfx as never, second as never, 0.6, true);
+      expect(vfx.emitDeathBlood.mock.calls).toEqual([[second]]);
+    });
+
+    it('reports no kill for an enemy that is already dying', () => {
+      dyingIds.add('dying');
+      const enemy = makeEnemy({ id: 'dying', hp: 10, maxHp: 100 });
+      expect(service.applyMaxHpFraction(vfx as never, enemy as never, 0.6, true)).toBe(false);
+      expect(vfx.emitDeathBlood).not.toHaveBeenCalled();
+    });
+
+    it('does nothing before initialize', () => {
+      const fresh = new DamageApplicationService();
+      const enemy = makeEnemy({ hp: 100 });
+      expect(fresh.applyMaxHpFraction(vfx as never, enemy as never, 0.6, true)).toBe(false);
+      expect(enemy.health.hp).toBe(100);
     });
   });
 });

@@ -7,7 +7,7 @@ import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
 import { ColumnSampler, TerrainPeekLOD } from '../../three-engine/renderers/three-tower.renderer';
 import { LosResolveContext } from '../../utils/gpu-cube-resolve';
-import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
+import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry, Vector3 } from 'three';
 import { UIStore } from '../../store/ui.store';
 
 /**
@@ -237,6 +237,23 @@ export class GlobalRouteGridService {
    */
   getCellAt(localX: number, localZ: number): RouteCell | undefined {
     return this.grid.getCellAt(localX, localZ);
+  }
+
+  /**
+   * Centre of the route cell nearest to `target` within `maxDistanceM`, on
+   * the cell's ground, or null when no cell is that close. Where abilities
+   * land: a click hits a roof, the enemies walk on the street.
+   */
+  snapToRouteCell(target: GeoPosition, maxDistanceM: number): GeoPosition | null {
+    const sync = this.grid.getCoordinateSync();
+    // The engine's sync always converts back; the optional member is for test doubles
+    if (!this.initialized || !sync?.localToGeo) return null;
+    const local = sync.geoToLocalSimple(target.lat, target.lon, 0);
+    const cell = this.grid.findNearestCell(local.x, local.z, maxDistanceM);
+    if (!cell) return null;
+    const groundY = this.grid.getGroundLocalYAt(cell.x, cell.z) ?? cell.terrainHeight;
+    const geo = sync.localToGeo(new Vector3(cell.x, groundY, cell.z));
+    return { lat: geo.lat, lon: geo.lon, height: geo.height };
   }
 
   /**
