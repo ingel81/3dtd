@@ -1,6 +1,6 @@
 # Status Effects System
 
-**Stand:** 2026-09-11
+**Stand:** 2026-09-13
 
 Dokumentation des Status-Effekt-Systems für Debuffs und Buffs auf Enemies.
 
@@ -18,6 +18,9 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 **Reserviert (im `StatusEffectType` definiert, aber aktuell nicht aktiv genutzt):**
 - Freeze
 
+Status-Effekte hängen am Projektiltyp (`ice-shard`, `poison-glob`) bzw. am Fire-Beam, nicht am
+Schadenstyp. Der Chaos Tower (Schadenstyp `chaos`, 1,0 gegen jede Rüstung) legt keinen Effekt.
+
 > **Wichtig — Game-Time statt Wall-Clock:** Seit dem Sub-Step-Refactor laufen Status-Effekt-Timer **in Game-Time-Millisekunden** (deterministisch, unabhängig vom Speed-Multiplier). `effect.startTime` wird über einen `gameClockProvider` aus dem `GameStateManager` bezogen — kein `performance.now()` mehr.
 
 ---
@@ -33,7 +36,7 @@ export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'poison';
 
 export interface StatusEffect {
   type: StatusEffectType;
-  value: number;        // Effekt-Stärke (z.B. 0.5 = 50% slow, oder 5 = 5 DPS bei poison)
+  value: number;        // Effekt-Stärke (z.B. 0.5 = 50% slow, oder 8 = 8 DPS bei poison)
   duration: number;     // Dauer in Game-Time ms
   /** GameStateManager.gameTimeMs zum Zeitpunkt des Anwendens. */
   startTime: number;
@@ -152,7 +155,7 @@ applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string):
 }
 
 // Aufruf aus CombatEffectService:
-// this.statusEffectService.applySlow(enemy, slowAmount, duration, tower.id);
+// this.statusEffectService.applySlow(enemy, slowAmount, duration, projectile.sourceTowerId);
 ```
 
 ### Refresh-Logik
@@ -217,12 +220,16 @@ removeExpiredEffects(gameTimeMs: number): void {
 ```typescript
 {
   type: 'poison',
-  value: 5,                          // 5 Schaden pro Sekunde
+  value: 8,                          // DPS, Basis GAME_BALANCE.effects.poison.dotDamagePerSecond
   duration: 4000,                    // 4 Sekunden Game-Time
   startTime: gameClockProvider(),
-  sourceId: tower.id,
+  sourceId: projectile.sourceTowerId,
 }
 ```
+
+Die Gift-DPS wächst mit dem Damage-Upgrade: `CombatEffectService` rechnet
+`8 × projectile.damage / 5`, wobei 5 der dort fest eingetragene Basisschaden des Poison Tower ist.
+Hauptziel und Splash-Opfer bekommen denselben Wert.
 
 **Implementierung:**
 - DoT-Tick im Enemy-Sub-Step-Loop (`EnemyManager.tickDamageOverTime`): Game-Time-Akkumulator `tickAccumMs` auf dem Effekt, alle `COMBAT_TUNING.poisonTickIntervalMs` (500 ms) ein `dot:damage` mit `value × 0,5`.
@@ -280,52 +287,46 @@ Wie Poison im Enemy-Sub-Step (`EnemyManager.tickDamageOverTime`), aber je Burn-E
 
 ## Freeze (Reserviert)
 
-`freeze` ist als `StatusEffectType` definiert; im Update-Pfad behandelt `updateStatusEffects()` `freeze` zwar als `isSlowed = true`, aber es gibt aktuell keinen Tower, der ihn ausspielt. Designs werden in [TODO.md](../TODO.md) und [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) verfolgt.
+`freeze` ist als `StatusEffectType` definiert; im Update-Pfad behandelt `updateStatusEffects()` `freeze` als `isSlowed = true` mit `slowMultiplier = 0` (voller Stopp, `getSlowMultiplier()` ebenso), aber es gibt aktuell keinen Tower, der ihn ausspielt. Designs werden in [TODO.md](../TODO.md) und [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) verfolgt.
 
 ---
 
 ## Ice Tower Integration (Slow Example)
 
-Der Ice Tower wendet Slow auf alle Enemies in Splash-Radius an. Die Logik liegt im `CombatEffectService`, der event-driven auf `projectile:hit` Events reagiert:
+Der Ice Tower wendet Slow auf das Hauptziel und alle Splash-Opfer an (8 m, Luft und Boden). Die Logik liegt im `CombatEffectService`, der event-driven auf `projectile:hit` Events reagiert:
 
 ```typescript
 // In CombatEffectService.handleProjectileHit() (via projectile:hit Event)
 const isIceShard = projectile.typeConfig.id === 'ice-shard';
 
-// Schaden auf Hauptziel
-this.applyDamageToEnemy(enemy, projectile.damage, projectile.sourceTowerId, false, isIceShard);
+// Eis-Burst und Frost-Decals am Treffer
+if (hasSplash && isIceShard) this.vfx.emitIceExplosion(enemy);
 
-// Slow auf Hauptziel
-if (isIceShard) {
-  this.applySlowEffect(
-    enemy,
-    GAME_BALANCE.effects.ice.slowAmount,  // 0.5
-    GAME_BALANCE.effects.ice.duration,    // 3000ms
-    projectile.sourceTowerId
-  );
-}
+if (!targetLost) {
+  // Schaden auf Hauptziel (ohne Blut bei Ice und Poison)
+  this.damageService.applyDamage(this.vfx, enemy, projectile.damage, damageType,
+    projectile.sourceTowerId, false, suppressBlood);
 
-// Splash: Slow + Damage auf nahe Enemies
-if (hasSplash) {
-  const nearbyEnemies = this.globalRouteGrid.getEnemiesInRadiusGeo(
-    enemy.position,
-    splashRadius,
-    enemy.id
-  );
-
-  for (const nearbyEnemy of nearbyEnemies) {
-    // Splash-Schaden mit Distance-Falloff
-    // ...
-    if (isIceShard) {
-      this.applySlowEffect(
-        nearbyEnemy,
-        GAME_BALANCE.effects.ice.slowAmount,
-        GAME_BALANCE.effects.ice.duration,
-        projectile.sourceTowerId
-      );
-    }
+  // Slow auf Hauptziel
+  if (isIceShard) {
+    this.statusEffectService.applySlow(
+      enemy,
+      GAME_BALANCE.effects.ice.slowAmount,  // 0.5
+      GAME_BALANCE.effects.ice.duration,    // 3000ms
+      projectile.sourceTowerId
+    );
   }
 }
+
+// Splash, auch wenn das Hauptziel im Flug starb (dann um den Einschlagpunkt)
+if (hasSplash) {
+  this.applySplashDamage(projectile, originPos, excludeId, splashRadius, damageType, isIceShard, isPoisonGlob);
+}
+
+// applySplashDamage(): Kandidaten aus globalRouteGrid.getEnemiesInRadiusGeo(), nur auf
+// Ebenen, die der Quell-Tower anvisieren darf, höchstens splashMaxTargets (nächste zuerst).
+// Pro Opfer Splash-Schaden mit Distance-Falloff, beim Ice Shard dazu applySlow() und
+// ein Frost-Decal.
 ```
 
 **Konfiguration** (aus `configs/game-balance.config.ts`):
@@ -348,6 +349,7 @@ effects: {
 - Eis-Explosion (Partikel) am Einschlagort (`spawnIceExplosionAtGeo`)
 - Eis-Decals auf dem Boden (nur bei Ground Units, `spawnIceDecal`)
 - Zusätzliche kleinere Decals im Umkreis
+- Blauer Tint auf der Instanz und Frost-Aura, solange der Slow wirkt (`setFreezeVisual`, `spawnFrostAura`), flankengesteuert in `EnemyManager.presentFrame()`
 - Langsamere Bewegung des Enemies
 
 **Geplant:**
@@ -360,6 +362,12 @@ effects: {
 - Eis-Overlay auf Model (Material-Ersatz)
 - Blauer Glow (emissive)
 - Einfrieren-Partikel
+
+### Poison Effect
+
+**Aktuell implementiert:**
+- Grüner Tint auf der Instanz und Gift-Aura (`setPoisonVisual`, `spawnPoisonAura`), flankengesteuert in `EnemyManager.presentFrame()`
+- Grüne Schadenszahlen pro Tick
 
 ### Burn Effect
 
@@ -378,26 +386,12 @@ effects: {
 ### Status Effect Array
 
 - Pro Enemy: 0-5 Effekte (typisch 0-2)
-- Filter-Operation jedes Frame: O(n) mit n = Anzahl Effekte
+- Update pro Sub-Step: ein Durchlauf mit In-place-Compaction (`updateStatusEffects`), O(n) mit n = Anzahl Effekte, keine Allokation
 - Kein Problem bei <1000 Enemies
 
 ### Optimization Möglichkeiten
 
-1. **Fixed Array statt Filter:**
-   ```typescript
-   // Statt filter (Array-Allocation)
-   removeExpiredEffects(): void {
-     let writeIndex = 0;
-     for (let i = 0; i < this.statusEffects.length; i++) {
-       if (!this.isExpired(this.statusEffects[i])) {
-         this.statusEffects[writeIndex++] = this.statusEffects[i];
-       }
-     }
-     this.statusEffects.length = writeIndex;
-   }
-   ```
-
-2. **Max Effects Limit:**
+1. **Max Effects Limit:**
    ```typescript
    const MAX_EFFECTS = 5;
    if (this.statusEffects.length >= MAX_EFFECTS) {
@@ -406,7 +400,7 @@ effects: {
    this.statusEffects.push(effect);
    ```
 
-3. **Batch Cleanup:**
+2. **Batch Cleanup:**
    ```typescript
    // Nur alle 100ms cleanen statt jedes Frame
    if (now - this.lastCleanup > 100) {
@@ -429,15 +423,11 @@ export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'poison' | 'NEW_EFFE
 ### 2. Anwendungs-Logik
 
 ```typescript
-// In Tower oder Projectile
-enemy.movement.applyStatusEffect({
-  type: 'NEW_EFFECT',
-  value: 1.0,
-  duration: 5000,
-  startTime: performance.now(),
-  sourceId: tower.id,
-});
+// Über den StatusEffectService, damit startTime aus der Game-Clock kommt
+this.statusEffectService.applyEffect(enemy, 'NEW_EFFECT', 1.0, 5000, tower.id);
 ```
+
+Ein neuer Typ wird pro Quelle geführt: `findEffectSlot` gibt nur `slow` und `poison` einen Slot pro Typ.
 
 ### 3. Effekt-Handling
 
@@ -445,7 +435,7 @@ enemy.movement.applyStatusEffect({
 
 ```typescript
 // movement.component.ts
-getNewEffectMultiplier(): number {
+getNewEffectMultiplier(gameTimeMs: number): number {
   // Ähnlich wie getSlowMultiplier()
 }
 ```
@@ -457,9 +447,11 @@ Neuen DoT-Typ in `EnemyManager.tickDamageOverTime()` eintragen (Tick-Intervall u
 ### 4. Visuals (optional)
 
 ```typescript
-// In ThreeEnemyRenderer
-if (enemy.movement.isSlowed(timescale)) {
-  this.applySlowGlow(enemy.id);
+// EnemyManager.presentFrame(), Muster Burn: das Visual nur beim Wechsel schalten
+const isBurning = enemy.movement.isBurning(gameTimeMs);
+if (isBurning !== this.burnVisualEnemies.has(enemy.id)) {
+  engine.enemies.setBurnVisual(enemy.id, isBurning); // Tint-Priorität in EnemyInstanceManager.applyTint()
+  // burnVisualEnemies nachführen
 }
 ```
 
