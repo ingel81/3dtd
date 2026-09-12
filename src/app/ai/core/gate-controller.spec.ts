@@ -19,6 +19,44 @@ describe('GateController', () => {
   };
   const mid = (GATE_LEAK_TARGET_LO + GATE_LEAK_TARGET_HI) / 2;
 
+  describe('status, for the decision explainer', () => {
+    it('is warming up until the window is full', () => {
+      const g = new GateController();
+      feed(g, 0, GATE_ADAPT_WINDOW - 1);
+      expect(g.status).toEqual({
+        multiplier: 1, samples: GATE_ADAPT_WINDOW - 1, meanLeak: null, lastStep: 'warming-up',
+      });
+    });
+
+    it('reports opening, holding and closing with the window mean', () => {
+      const g = new GateController();
+      feed(g, 0, GATE_ADAPT_WINDOW);
+      expect(g.status).toMatchObject({ lastStep: 'opened', meanLeak: 0, samples: GATE_ADAPT_WINDOW });
+      expect(g.status.multiplier).toBe(g.budgetMultiplier);
+
+      feed(g, mid, GATE_ADAPT_WINDOW);
+      expect(g.status.lastStep).toBe('held');
+      expect(g.status.meanLeak).toBeCloseTo(mid, 6);
+
+      feed(g, 0.5, 1);                     // window mean (3 * mid + 0.5) / 4 is above the band
+      expect(g.status.lastStep).toBe('closed');
+    });
+
+    it('reports the back-off when a wave ends the run', () => {
+      const g = new GateController();
+      feed(g, mid, GATE_ADAPT_WINDOW);
+      g.recordWave(1, false);
+      expect(g.status.lastStep).toBe('backed-off');
+    });
+
+    it('starts over on reset', () => {
+      const g = new GateController();
+      feed(g, 0, GATE_ADAPT_WINDOW * 2);
+      g.reset();
+      expect(g.status).toEqual({ multiplier: 1, samples: 0, meanLeak: null, lastStep: 'warming-up' });
+    });
+  });
+
   it('holds steady inside the target band', () => {
     // The invariant both historical bugs violated: a defense that is behaving
     // exactly as intended must not move the budget at all.

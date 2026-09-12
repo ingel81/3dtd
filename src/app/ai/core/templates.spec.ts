@@ -4,6 +4,7 @@ import {
   MAX_TEMPLATE_SLOTS,
   getTemplate,
   getAvailableTemplateMask,
+  describeTemplateMask,
   lerpRange,
 } from './templates';
 
@@ -132,6 +133,57 @@ describe('Phase 5.11 Range-Based Templates', () => {
       const mask = getAvailableTemplateMask(15, true, true, [], null, true);
       expect(live(mask).length).toBeGreaterThan(0);
       expect(live(mask).some((i) => bossSlots.includes(i))).toBe(false);
+    });
+  });
+
+  describe('describeTemplateMask', () => {
+    const idx = (id: string) => TEMPLATES.findIndex((t) => t.id === id);
+    const live = (mask: boolean[]) => mask.flatMap((on, i) => (on ? [i] : []));
+    const needing = (capability: 'antiAir' | 'antiEthereal', wave: number, boss = false) =>
+      TEMPLATES.flatMap((t, i) =>
+        t.bossOnly === boss && t.requiresCapability === capability && wave >= t.minWave ? [i] : []);
+
+    it('returns the mask getAvailableTemplateMask returns', () => {
+      expect(describeTemplateMask(41, false, true, [0, 1]).mask).toEqual(getAvailableTemplateMask(41, false, true, [0, 1]));
+      expect(describeTemplateMask(35, true, true, [], null, true).mask)
+        .toEqual(getAvailableTemplateMask(35, true, true, [], null, true));
+    });
+
+    it('names a curriculum pin and the capability it bypasses', () => {
+      const { mask, reason } = describeTemplateMask(7, false, true, [], 'bat_swarm', false);
+      expect(live(mask)).toEqual([idx('bat_swarm')]);
+      expect(reason).toMatchObject({ rule: 'curriculum', pinnedLacks: 'antiAir' });
+      expect(describeTemplateMask(7, true, true, [], 'bat_swarm', false).reason.pinnedLacks).toBeNull();
+    });
+
+    it('lists the templates held back by a missing capability', () => {
+      const { mask, reason } = describeTemplateMask(41, false, false, [], null, false);
+      expect(reason.rule).toBe('free');
+      expect(reason.heldBack.antiAir).toEqual(needing('antiAir', 41));
+      expect(reason.heldBack.antiEthereal).toEqual(needing('antiEthereal', 41));
+      for (const i of [...reason.heldBack.antiAir, ...reason.heldBack.antiEthereal]) expect(mask[i]).toBe(false);
+    });
+
+    it('does not list templates minWave or the boss rule exclude anyway', () => {
+      // Bat Swarm opens at W7: at W5 the capability is not what holds it back.
+      expect(describeTemplateMask(5, false, true, []).reason.heldBack.antiAir).not.toContain(idx('bat_swarm'));
+      // On a boss wave only boss templates are candidates.
+      expect(describeTemplateMask(35, false, true, [], null, true).reason.heldBack.antiAir)
+        .toEqual(needing('antiAir', 35, true));
+    });
+
+    it('marks a boss wave, and one no boss template can serve', () => {
+      expect(describeTemplateMask(35, true, true, [], null, true).reason.rule).toBe('boss');
+      expect(describeTemplateMask(15, true, true, [], null, true).reason)
+        .toMatchObject({ rule: 'free', bossUnavailable: true });
+    });
+
+    it('reports a waived cooldown', () => {
+      // W1 has one eligible template; having just run it starves the mask.
+      const { mask, reason } = describeTemplateMask(1, true, true, [idx('zombie_horde')]);
+      expect(mask[idx('zombie_horde')]).toBe(true);
+      expect(reason.cooldownWaived).toBe(true);
+      expect(describeTemplateMask(1, true, true, []).reason.cooldownWaived).toBe(false);
     });
   });
 });

@@ -604,14 +604,63 @@ export function getAvailableTemplateMask(
   forcedTemplateId: string | null = null,
   bossWave = false,
 ): boolean[] {
+  return describeTemplateMask(
+    currentWave, hasAntiAir, hasAntiEthereal, recentTemplateIndices, forcedTemplateId, bossWave,
+  ).mask;
+}
+
+/**
+ * Why a wave's mask looks the way it does, for the decision explainer.
+ *
+ * Carried as data rather than rebuilt from the mask afterwards: a mask with
+ * one live slot looks the same whether the curriculum pinned it, the boss rule
+ * collapsed it or the gates left nothing else, and those are different answers
+ * to "why this wave".
+ */
+export interface TemplateMaskReason {
+  /** curriculum: pinned to one template; boss: boss templates only; free: open choice. */
+  rule: 'curriculum' | 'boss' | 'free';
+  /** A boss wave no boss template could serve, run as a normal wave instead. */
+  bossUnavailable: boolean;
+  /** Every eligible template had just run, so the reuse cooldown was waived. */
+  cooldownWaived: boolean;
+  /** Templates held back only because the defense lacks the capability they need. */
+  heldBack: { antiAir: number[]; antiEthereal: number[] };
+  /** Capability the pinned curriculum template needs and the defense lacks. */
+  pinnedLacks: TemplateCapability;
+}
+
+/** {@link getAvailableTemplateMask}, plus the reason for the result. */
+export function describeTemplateMask(
+  currentWave: number,
+  hasAntiAir: boolean,
+  hasAntiEthereal: boolean,
+  recentTemplateIndices: readonly number[],
+  forcedTemplateId: string | null = null,
+  bossWave = false,
+): { mask: boolean[]; reason: TemplateMaskReason } {
   const mask = new Array<boolean>(MAX_TEMPLATE_SLOTS).fill(false);
+  const lacks = (t: Template): TemplateCapability => {
+    if (t.requiresCapability === 'antiAir' && !hasAntiAir) return 'antiAir';
+    if (t.requiresCapability === 'antiEthereal' && !hasAntiEthereal) return 'antiEthereal';
+    return null;
+  };
+  const reason: TemplateMaskReason = {
+    rule: bossWave ? 'boss' : 'free',
+    bossUnavailable: false,
+    cooldownWaived: false,
+    heldBack: { antiAir: [], antiEthereal: [] },
+    pinnedLacks: null,
+  };
 
   const forcedId = forcedTemplateId;
   if (forcedId) {
     const forcedIdx = TEMPLATES.findIndex((t) => t.id === forcedId);
     if (forcedIdx >= 0) {
       mask[forcedIdx] = true;
-      return mask;
+      // The pin bypasses the capability gates on purpose; the fairness cap is
+      // what keeps such a wave survivable.
+      return { mask, reason: { ...reason, rule: 'curriculum', pinnedLacks: lacks(TEMPLATES[forcedIdx]) } };
     }
     // An unknown curriculum id is a config bug; fall through to free choice
     // rather than returning an all-false mask.
@@ -623,9 +672,7 @@ export function getAvailableTemplateMask(
     const t = TEMPLATES[i];
     if (t.bossOnly !== boss) return false;
     if (currentWave < t.minWave) return false;
-    if (t.requiresCapability === 'antiAir' && !hasAntiAir) return false;
-    if (t.requiresCapability === 'antiEthereal' && !hasAntiEthereal) return false;
-    return true;
+    return lacks(t) === null;
   };
   const fill = (boss: boolean, respectCooldown: boolean, firstOnly: boolean): void => {
     for (let i = 0; i < NUM_ACTIVE_TEMPLATES; i++) {
@@ -643,10 +690,30 @@ export function getAvailableTemplateMask(
   // capabilities) becomes a normal wave; the cooldown must never be able to
   // starve the mask; and an all-false mask would make the masked softmax
   // produce NaN.
-  if (empty() && bossWave) fill(true, false, true);
-  if (empty() && bossWave) fill(false, true, false);
-  if (empty()) fill(false, false, true);
+  if (empty() && bossWave) {
+    fill(true, false, true);
+    reason.cooldownWaived = !empty();
+  }
+  if (empty() && bossWave) {
+    reason.rule = 'free';
+    reason.bossUnavailable = true;
+    fill(false, true, false);
+  }
+  if (empty()) {
+    reason.cooldownWaived = true;
+    fill(false, false, true);
+  }
   if (empty()) mask[0] = true;
 
-  return mask;
+  // Only templates the other gates would have let through: minWave and the
+  // boss rule already exclude the rest, and listing those would be noise.
+  const boss = reason.rule === 'boss';
+  for (let i = 0; i < NUM_ACTIVE_TEMPLATES; i++) {
+    const t = TEMPLATES[i];
+    if (t.bossOnly !== boss || currentWave < t.minWave) continue;
+    const missing = lacks(t);
+    if (missing) reason.heldBack[missing].push(i);
+  }
+
+  return { mask, reason };
 }

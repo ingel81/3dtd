@@ -18,10 +18,11 @@
 import {
   TEMPLATES,
   MAX_TEMPLATE_SLOTS,
-  getAvailableTemplateMask,
+  describeTemplateMask,
   fairMaxCount,
   type NumberRange,
   type Template,
+  type TemplateMaskReason,
 } from './templates';
 import { templateForWave, isBossWave, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
@@ -30,6 +31,8 @@ import { GameStateSnapshot } from './models/game-state-snapshot';
 export interface WaveContext {
   /** Which template slots the model may pick this wave. */
   mask: boolean[];
+  /** Why the mask looks the way it does (curriculum pin, boss rule, gates). */
+  maskReason: TemplateMaskReason;
   /**
    * Ranges of the template that will actually run. Inside the curriculum that
    * is a single template; past it, the average across everything still legal —
@@ -96,7 +99,7 @@ export function buildWaveContext(
   const upcomingWave = (state.waveNumber ?? 0) + 1;
   const { hasAntiAir, hasAntiEthereal } = deriveCapabilities(state);
 
-  const mask = getAvailableTemplateMask(
+  const { mask, reason: maskReason } = describeTemplateMask(
     upcomingWave,
     hasAntiAir,
     hasAntiEthereal,
@@ -142,5 +145,13 @@ export function buildWaveContext(
     }
   }
 
-  return { mask, countRange, hpMultRange, spawnDelayRange, fairnessHeadroom: headroom, fairMaxCount: cap };
+  return {
+    mask,
+    maskReason,
+    countRange,
+    hpMultRange,
+    spawnDelayRange,
+    fairnessHeadroom: headroom,
+    fairMaxCount: cap,
+  };
 }
