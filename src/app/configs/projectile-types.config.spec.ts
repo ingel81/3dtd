@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  getAllProjectileTypes,
   getProjectileType,
   PROJECTILE_SOUNDS,
   PROJECTILE_TYPES,
@@ -68,9 +67,8 @@ describe('projectile types config', () => {
     });
   });
 
-  it('getAllProjectileTypes() returns array with 8 elements', () => {
-    const all = getAllProjectileTypes();
-    expect(all).toHaveLength(8);
+  it('has exactly 8 projectile types', () => {
+    expect(Object.values(PROJECTILE_TYPES)).toHaveLength(8);
   });
 
   it('has a sound for every projectile type and budgets exactly those sounds', () => {
@@ -126,8 +124,7 @@ describe('projectile types config', () => {
   });
 
   it('all projectile types have required fields and valid values', () => {
-    const all = getAllProjectileTypes();
-    all.forEach((projectile) => {
+    Object.values(PROJECTILE_TYPES).forEach((projectile) => {
       expect(projectile.id).toBeTruthy();
       expect(projectile.visualType).toBeTruthy();
       expect(projectile.scale).toBeGreaterThan(0);

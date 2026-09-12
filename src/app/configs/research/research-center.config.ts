@@ -46,8 +46,3 @@ export function getResearchCenterLevel(level: number): ResearchCenterLevelConfig
 export function getMaxResearchSlots(level: number): number {
   return getResearchCenterLevel(level)?.researchSlots ?? 1;
 }
-
-export function getNextLevelCost(currentLevel: number): number | null {
-  const nextLevel = getResearchCenterLevel(currentLevel + 1);
-  return nextLevel ? nextLevel.upgradeCost : null;
-}

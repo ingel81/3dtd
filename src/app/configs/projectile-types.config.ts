@@ -268,10 +268,6 @@ export function getProjectileType(id: ProjectileTypeId): ProjectileTypeConfig {
   return PROJECTILE_TYPES[id];
 }
 
-export function getAllProjectileTypes(): ProjectileTypeConfig[] {
-  return Object.values(PROJECTILE_TYPES);
-}
-
 /**
  * Sound configuration for projectile types
  * Used by ProjectileManager for spatial audio

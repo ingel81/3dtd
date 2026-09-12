@@ -80,6 +80,3 @@ export const GAME_SOUNDS = {
     volume: 1.4,
   },
 } as const;
-
-/** Type exports */
-export type SpatialAudioDefaults = typeof SPATIAL_AUDIO_DEFAULTS;
