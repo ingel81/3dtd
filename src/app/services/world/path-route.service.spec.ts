@@ -253,8 +253,9 @@ describe('PathAndRouteService route geometry', () => {
       });
 
       it('widens or narrows the corridor to the free space the tiles show', () => {
-        // Facades 5.2 m off everywhere: more room than the 5.5 m residential
-        // ways get from OSM, less than the 12 m of way 200.
+        // Facades 5.2 m off everywhere, 4.5 m after the wall margin: more
+        // room than the 5.5 m residential ways get from OSM, less than the
+        // 12 m of way 200.
         clearanceAt = () => 5.2;
         const service = buildRouteService(network, spawn, hq);
 
@@ -263,9 +264,9 @@ describe('PathAndRouteService route geometry', () => {
         const route = service.getCachedPath('s1')!;
 
         // The leg to the HQ runs off the network and keeps the width it inherited.
-        expect(route.map((p) => p.corridorLeft)).toEqual([5, 5, 5, 5, 2.75, undefined]);
-        expect(route.map((p) => p.corridorRight)).toEqual([5, 5, 5, 5, 2.75, undefined]);
-        expect(service.describeRoutes()[1]).toMatchObject({ way: 200, corridorM: '10.0', leftM: '5.0', rightM: '5.0' });
+        expect(route.map((p) => p.corridorLeft)).toEqual([4.5, 4.5, 4.5, 4.5, 2.75, undefined]);
+        expect(route.map((p) => p.corridorRight)).toEqual([4.5, 4.5, 4.5, 4.5, 2.75, undefined]);
+        expect(service.describeRoutes()[1]).toMatchObject({ way: 200, corridorM: '9.0', leftM: '4.5', rightM: '4.5' });
       });
 
       it('gives each side the free space on that side', () => {
@@ -279,7 +280,8 @@ describe('PathAndRouteService route geometry', () => {
         service.showPathFromSpawn(spawnPointAt(spawn));
         const route = service.getCachedPath('s1')!;
 
-        const narrow = route.filter((p) => p.corridorRight === 2.5);
+        // 2.6 m to the wall, 2.0 m after the wall margin.
+        const narrow = route.filter((p) => p.corridorRight === 2);
         expect(narrow).toHaveLength(1);
         expect(narrow[0].corridorLeft).toBe(7);
         const start = northOfN1(-toMeters(narrow[0]).z);
@@ -287,9 +289,9 @@ describe('PathAndRouteService route geometry', () => {
         expect(start).toBeLessThan(42);
         expect(service.describeRoutes()[1]).toMatchObject({
           way: 200,
-          corridorM: '9.5-14.0',
+          corridorM: '9.0-14.0',
           leftM: '7.0',
-          rightM: '2.5-7.0',
+          rightM: '2.0-7.0',
         });
       });
 
@@ -331,7 +333,7 @@ describe('PathAndRouteService route geometry', () => {
         // The narrow stretch now runs to 80 m instead of ending at 60.
         service.showPathFromSpawn(spawnPointAt(spawn));
         const route = service.getCachedPath('s1')!;
-        const k = route.findIndex((p) => p.corridorLeft === 2.5);
+        const k = route.findIndex((p) => p.corridorLeft === 2);
         expect(northOfN1(-toMeters(route[k]).z)).toBeGreaterThan(38);
         expect(northOfN1(-toMeters(route[k]).z)).toBeLessThan(42);
         expect(northOfN1(-toMeters(route[k + 1]).z)).toBeGreaterThan(78);

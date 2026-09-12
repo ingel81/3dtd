@@ -1071,11 +1071,14 @@ export class ThreeTilesEngine {
 
   /**
    * Free space either side of a point on a street, for fitting the route
-   * corridor to the street the tiles show. Casts one horizontal ray to each
-   * side, `heightAboveGround` over the column's ground (over its top
-   * `onDeck`, for a bridge), and returns the distance to the first fine tile
-   * surface (facade, wall, tree) on each, capped at `maxDistance`.
-   * `acrossX, acrossZ` points to the right of the direction of travel.
+   * corridor to the street the tiles show. Casts a horizontal ray to each
+   * side at every height in `heightsAboveGround`, over the column's ground
+   * (over its top `onDeck`, for a bridge). Only what blocks the rays at all
+   * heights counts as a wall (a facade, a wall, a trunk), so the free space
+   * on a side is the farthest of the first hits: a parked van stops the
+   * low ray, an eave or a tree crown the high one, neither the corridor.
+   * Capped at `maxDistance`. `acrossX, acrossZ` points to the right of the
+   * direction of travel.
    *
    * Only tiles up to `corridorConfig.maxTileError` count, for the column
    * and for the hits, so a coarse hull still waiting for its children
@@ -1089,13 +1092,13 @@ export class ThreeTilesEngine {
     localZ: number,
     acrossX: number,
     acrossZ: number,
-    heightAboveGround: number,
+    heightsAboveGround: readonly number[],
     maxDistance: number,
     onDeck = false,
   ): { left: number; right: number } | null {
     const tiles = this.tilesRenderer;
     if (this.devTerrainProvider || !tiles) return null;
-    // The column under the station and both side rays count as the corridor's.
+    // The column under the station and all side rays count as the corridor's.
     const scope = raycastStats.enter('routeCorridor');
     try {
       const column = this.sampleColumn(localX, localZ);
@@ -1104,11 +1107,14 @@ export class ThreeTilesEngine {
       if (len === 0) return null;
 
       const surfaceY = onDeck ? column.topY : column.groundY;
-      this._clearanceOrigin.set(localX, surfaceY + heightAboveGround, localZ);
-      return {
-        left: this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance),
-        right: this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance),
-      };
+      let left = 0;
+      let right = 0;
+      for (const height of heightsAboveGround) {
+        this._clearanceOrigin.set(localX, surfaceY + height, localZ);
+        left = Math.max(left, this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance));
+        right = Math.max(right, this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance));
+      }
+      return { left, right };
     } finally {
       raycastStats.exit(scope);
     }

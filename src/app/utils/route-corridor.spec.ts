@@ -114,12 +114,20 @@ describe('fitCorridorPieces', () => {
 
   it('widens each side to the free space the tiles show, up to the maximum', () => {
     // A 5.5 m residential street: 2.75 m from OSM, but the tiles show a
-    // parking lane and a pavement on the right and front gardens on the left.
-    expect(fitCorridorPieces([measured([7, 7, 7], [5.2, 5.2, 5.2])])).toEqual([[{ t: 0, left: 7, right: 5 }]]);
+    // parking lane and a pavement on the right up to a facade at 5.2 m,
+    // less the 0.5 m wall margin, and open front gardens on the left.
+    expect(fitCorridorPieces([measured([7, 7, 7], [5.2, 5.2, 5.2])])).toEqual([[{ t: 0, left: 7, right: 4.5 }]]);
   });
 
   it('narrows a side to the free space, rounded down, never below half a cell', () => {
-    expect(fitCorridorPieces([measured([2.9, 2.9, 2.9], [0.4, 0.4, 0.4], 4)])).toEqual([[{ t: 0, left: 2.5, right: 1 }]]);
+    expect(fitCorridorPieces([measured([2.9, 2.9, 2.9], [0.4, 0.4, 0.4], 4)])).toEqual([[{ t: 0, left: 2, right: 1 }]]);
+  });
+
+  it('keeps the wall margin off a wall, not off open space', () => {
+    corridorConfig.wallMargin = 0;
+    expect(fitCorridorPieces([measured([7, 7], [5.2, 5.2])])).toEqual([[{ t: 0, left: 7, right: 5 }]]);
+    corridorConfig.wallMargin = 1;
+    expect(fitCorridorPieces([measured([7, 7], [5.2, 5.2])])).toEqual([[{ t: 0, left: 7, right: 4 }]]);
   });
 
   it('keeps the street width at stations it could not measure', () => {
@@ -130,14 +138,14 @@ describe('fitCorridorPieces', () => {
   it('lets the tiles only narrow the leg off the network', () => {
     const offStreet = (free: number) => measured([free, free, free], [free, free, free], 2.75, false);
     expect(fitCorridorPieces([offStreet(7)])).toEqual([[{ t: 0, left: 2.75, right: 2.75 }]]);
-    expect(fitCorridorPieces([offStreet(2.2)])).toEqual([[{ t: 0, left: 2, right: 2 }]]);
+    expect(fitCorridorPieces([offStreet(2.2)])).toEqual([[{ t: 0, left: 1.5, right: 1.5 }]]);
   });
 
   it('splits a segment where the width changes and merges equal runs', () => {
     const left = [3, 3, 3, 3, 3, 6, 6, 6, 6, 6];
     expect(fitCorridorPieces([measured(left, left.map(() => 4))])).toEqual([[
-      { t: 0, left: 3, right: 4 },
-      { t: 0.5, left: 6, right: 4 },
+      { t: 0, left: 2.5, right: 3.5 },
+      { t: 0.5, left: 5.5, right: 3.5 },
     ]]);
   });
 
@@ -147,7 +155,7 @@ describe('fitCorridorPieces', () => {
     expect(vanAtNode).toEqual([[{ t: 0, left: 7, right: 7 }], [{ t: 0, left: 7, right: 7 }]]);
     // A driveway right at a waypoint.
     const gapAtNode = fitCorridorPieces([measured([3, 3, 3, 7], [3, 3, 3, 3]), measured([7, 3, 3, 3], [3, 3, 3, 3])]);
-    expect(gapAtNode).toEqual([[{ t: 0, left: 3, right: 3 }], [{ t: 0, left: 3, right: 3 }]]);
+    expect(gapAtNode).toEqual([[{ t: 0, left: 2.5, right: 2.5 }], [{ t: 0, left: 2.5, right: 2.5 }]]);
   });
 
   it('follows the configured limits', () => {

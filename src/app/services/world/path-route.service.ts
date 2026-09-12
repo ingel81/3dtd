@@ -666,8 +666,8 @@ export class PathAndRouteService {
    * segment, so the next route build fits the corridor to it: the free space
    * on each side sets the half width there, up to
    * `corridorConfig.maxHalfWidth` (fitCorridorPieces). A station every
-   * `stationSpacing` metres with one horizontal ray to each side
-   * (ThreeTilesEngine.measureStreetClearance); a station without fine tiles
+   * `stationSpacing` metres with a low and a high horizontal ray to each
+   * side (ThreeTilesEngine.measureStreetClearance); a station without fine tiles
    * keeps the street width. Stations measured before are kept and only the
    * ones without fine tiles are measured again, so a segment whose tiles had
    * only partly loaded gets the rest on a later run instead of keeping the
@@ -691,6 +691,7 @@ export class PathAndRouteService {
     let unmeasured = 0;
     // Routes from several spawns share segments; one pass over each is enough.
     const seen = new Set<string>();
+    const rayHeights = [corridorConfig.rayHeightLow, corridorConfig.rayHeightHigh];
 
     for (const { points, onBridge } of this.streetRoutes.values()) {
       for (let i = 0; i < points.length - 1; i++) {
@@ -720,7 +721,7 @@ export class PathAndRouteService {
           const t = (k + 0.5) / count;
           // (-dz, dx) points right of the direction of travel.
           const clearance = engine.measureStreetClearance(
-            start.x + dx * t, start.z + dz * t, -dz, dx, corridorConfig.rayHeight, corridorConfig.maxHalfWidth, onBridge[i],
+            start.x + dx * t, start.z + dz * t, -dz, dx, rayHeights, corridorConfig.maxHalfWidth, onBridge[i],
           );
           if (clearance === null) continue;
           left[k] = clearance.left;
@@ -741,7 +742,7 @@ export class PathAndRouteService {
     if (segments > 0) {
       console.warn(
         `[Corridor] clearance: segments=${segments} stations=${stations} unmeasured=${unmeasured} ` +
-        `rays=${2 * (stations - unmeasured)} changed=${changed} in ${(performance.now() - t0).toFixed(1)}ms`,
+        `rays=${2 * rayHeights.length * (stations - unmeasured)} changed=${changed} in ${(performance.now() - t0).toFixed(1)}ms`,
       );
     }
     return changed;
