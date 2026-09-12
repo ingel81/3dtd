@@ -25,10 +25,9 @@ ueber fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
 
 Pool-Limits und Effektwerte in `configs/visual-effects.config.ts` (`PARTICLE_LIMITS`,
 `BLOOD_DECAL_CONFIG`, `ICE_DECAL_CONFIG`, `SCORCH_DECAL_CONFIG`, `EXPLOSION_PRESETS`,
-`EXPLOSION_LOOK`, `BURST_PALETTES`, `MUZZLE_FLASH_PROFILES`, `SCREEN_SHAKE_CONFIG`).
+`EXPLOSION_LOOK`, `BURST_PALETTES`, `MUZZLE_FLASH_PROFILES`, `SCREEN_SHAKE_CONFIG`,
+`FIRE_INTENSITY` mit Anzahl und Radius für `spawnFire*`).
 Der Tower-Fire-Pool (800) ist `MAX_TOWER_FIRE_PARTICLES` in `particle-pool-manager.ts`.
-`FIRE_INTENSITY` und `EFFECT_COLORS` sind in der Config definiert, werden aber nirgends
-gelesen: `spawnFire*` nimmt Anzahl und Radius aus einer eigenen Tabelle im Renderer.
 
 ---
 
@@ -409,7 +408,7 @@ typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
 | `spawnBloodDecal(lat, lon, h, size)` | Boden-Decal (GPU-instanced) |
 | `spawnIceDecal(lat, lon, h, size)` | Eis-Decal (GPU-instanced) |
 | `markScorch(localX, localY, localZ, source)` | Kampfspur am Boden unter einem Treffer, eine pro Route-Zelle |
-| `spawnFire(...)` / `spawnFireOnTerrain(...)` / `spawnFireAtLocalY(...)` | Anhaltende Feuerquelle, Stufe `tiny` bis `inferno` (Anzahl und Radius aus einer Tabelle im Renderer) |
+| `spawnFire(...)` / `spawnFireOnTerrain(...)` / `spawnFireAtLocalY(...)` | Anhaltende Feuerquelle, Stufe `tiny` bis `inferno` (Anzahl und Radius aus `FIRE_INTENSITY`) |
 | `spawnFireFlash(lat, lon, localY)` | Kurzer Feuerblitz (z.B. Flame-Beam-Hit) |
 | `spawnExplosion(localX, localY, localZ, count, radius, smokePuffs)` | Zweistufige Feuer-Atlas-Explosion am lokalen Punkt, siehe unten |
 | `spawnExplosionAtGeo(lat, lon, h, count, radius, smokePuffs)` | Dasselbe an Geo-Position |

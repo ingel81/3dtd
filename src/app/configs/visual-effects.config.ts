@@ -101,13 +101,18 @@ export const SCREEN_SHAKE_CONFIG = {
   },
 } as const satisfies { nearDistance: number; farDistance: number; presets: Record<string, ScreenShakePreset> };
 
-/** Fire intensity presets */
+/**
+ * Fire intensity presets for spawnFire and its terrain/local-Y variants:
+ * particle count and the radius they scatter over (m). Every fire burns until
+ * stopFire(). Until 2026-09-13 this table held other values that nothing
+ * read, and the renderer kept its own copy of the ones below.
+ */
 export const FIRE_INTENSITY = {
-  tiny:    { count: 10,  radius: 1, duration: 3000 },
-  small:   { count: 30,  radius: 2, duration: 5000 },
-  medium:  { count: 60,  radius: 3, duration: 8000 },
-  large:   { count: 100, radius: 5, duration: 10000 },
-  inferno: { count: 200, radius: 8, duration: -1 },  // -1 = infinite
+  tiny:    { count: 15,  radius: 1.5 },
+  small:   { count: 40,  radius: 2.5 },
+  medium:  { count: 80,  radius: 4 },
+  large:   { count: 120, radius: 6 },
+  inferno: { count: 200, radius: 10 },
 } as const;
 
 /**
@@ -293,25 +298,6 @@ export const MUZZLE_FLASH_PROFILES: Partial<Record<TowerTypeId, MuzzleFlashProfi
   // Heavy gun at 0.5 shots/s: the biggest and longest flash
   cannon: { countMin: 6, countMax: 8, sizeMin: 2.5, sizeMax: 4.5, lifeMin: 0.06, lifeMax: 0.1, lightIntensity: 5 },
 };
-
-/** Effect color presets (RGB 0-1) */
-export const EFFECT_COLORS = {
-  blood: { r: 0.55, g: 0, b: 0 },
-  fire: {
-    core:  { r: 1, g: 0.9, b: 0.3 },
-    mid:   { r: 1, g: 0.5, b: 0.1 },
-    edge:  { r: 1, g: 0.2, b: 0.05 },
-  },
-  ice: {
-    white: { r: 1.0, g: 1.0, b: 1.0 },
-    cyan:  { r: 0.8, g: 0.95, b: 1.0 },
-  },
-  poison: {
-    dark:   { r: 0.1, g: 0.4, b: 0.0 },
-    mid:    { r: 0.2, g: 0.8, b: 0.05 },
-    bright: { r: 0.8, g: 1.0, b: 0.2 },
-  },
-} as const;
 
 /** Type exports */
 export type FireIntensityLevel = keyof typeof FIRE_INTENSITY;
