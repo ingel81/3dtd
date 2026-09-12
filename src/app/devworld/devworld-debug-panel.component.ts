@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject, output, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DevWorldService, TerrainPreset } from './devworld.service';
+import { DevWorldService } from './devworld.service';
+import { TerrainPreset } from './terrain-presets';
 import { TD_CSS_VARS } from '../styles/td-theme';
 import { TdIconComponent } from '../components/icon/icon.component';
 

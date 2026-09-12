@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevWorldService, DEV_WORLD_SIZE, DEV_WORLD_MAX_HEIGHT, DEV_WORLD_HEIGHTMAP_SIZE } from './devworld.service';
-import { TerrainGenerator, TerrainPreset } from './generators/terrain-generator';
+import { TerrainGenerator } from './generators/terrain-generator';
+import { TerrainPreset } from './terrain-presets';
 import { BuildingConfig, BuildingDensity } from './generators/building-generator';
 import { StreetSegment, SpawnPoint, DEV_STREET_WIDTHS } from './generators/street-generator';
 import type { DevWorldWorkerMessage, DevWorldWorkerResponse, DevWorldWorkerConfig } from './devworld-worker.types';

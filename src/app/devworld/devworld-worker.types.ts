@@ -6,7 +6,7 @@
 
 import { StreetSegment, SpawnPoint } from './generators/street-generator';
 import { BuildingConfig, BuildingDensity } from './generators/building-generator';
-import { TerrainPreset } from './generators/terrain-generator';
+import { TerrainPreset } from './terrain-presets';
 
 // ========================================
 // Worker Input Messages

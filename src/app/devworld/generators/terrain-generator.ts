@@ -5,7 +5,7 @@
  * No PNG files needed - everything is computed on demand.
  *
  * Features:
- * - 28 unique terrain presets
+ * - 30 terrain presets (TERRAIN_PRESETS in ../terrain-presets.ts)
  * - Multi-layer domain warping for organic shapes
  * - Hydraulic and thermal erosion simulation
  * - Seeded reproducibility (same seed = same terrain)
@@ -24,53 +24,11 @@ import {
   fastCellular,
   hashSeed,
 } from '../utils/seeded-random';
+import { TerrainPreset } from '../terrain-presets';
 
 // ========================================
 // Types
 // ========================================
-
-export type TerrainPreset =
-  // Basic
-  | 'flat'
-  | 'gentle'
-  | 'default'
-  // Slopes
-  | 'slope_ns'
-  | 'slope_ew'
-  | 'slope_diag'
-  // Mountains
-  | 'mountains'
-  | 'peaks'
-  // Valleys
-  | 'crater'
-  | 'bowl'
-  | 'dome'
-  // Plateaus
-  | 'mesa'
-  | 'terraces'
-  | 'steps'
-  // Cellular
-  | 'canyon'
-  | 'cells'
-  | 'cracks'
-  // Waves
-  | 'waves'
-  | 'dunes'
-  | 'ripples'
-  // Patterns
-  | 'spiral'
-  | 'rings'
-  // Eroded
-  | 'eroded'
-  | 'weathered'
-  // Biomes
-  | 'islands'
-  | 'highlands'
-  | 'badlands'
-  // Extreme
-  | 'chaos'
-  | 'alien'
-  | 'fractal';
 
 export interface TerrainGeneratorConfig {
   /** Terrain preset type */
