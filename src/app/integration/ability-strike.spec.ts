@@ -100,16 +100,26 @@ const ROSTER: { type: EnemyTypeId; speed: number; preDamage: number }[] = [
   { type: 'zombie', speed: 12, preDamage: 0.5 },
 ];
 
+/** A skeleton where the third zombie of ROSTER stands, half its HP gone, so the strike kills it */
+const SKELETON_ROSTER: typeof ROSTER = [{ type: 'skeleton', speed: 6, preDamage: 0.5 }];
+
 interface Outcome {
   impactStep: number;
   hpShare: number[];
   alive: boolean[];
   kills: number;
+  /** Sum of `kills` over the ability:impact events */
+  abilityKills: number;
+  /** HP share of every living skeleton-minion */
+  minions: number[];
   credits: number;
 }
 
-/** @param pauseFrames frames the game stays paused at PAUSE_STEP, 0 for none */
-function run(timescale: number, pauseFrames = 0): Outcome {
+/**
+ * @param pauseFrames frames the game stays paused at PAUSE_STEP, 0 for none
+ * @param roster      enemies spawned at the wave start
+ */
+function run(timescale: number, pauseFrames = 0, roster = ROSTER): Outcome {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
   GameObject.resetIdCounter();
 
@@ -147,9 +157,11 @@ function run(timescale: number, pauseFrames = 0): Outcome {
   });
   let kills = 0;
   bus.on('enemy:died', () => kills++);
+  let abilityKills = 0;
+  bus.on('ability:impact', (event) => (abilityKills += event.kills));
 
   gsm.beginWave();
-  const enemies = ROSTER.map(({ type, speed, preDamage }) => {
+  const enemies = roster.map(({ type, speed, preDamage }) => {
     const enemy = gsm.enemyManager.spawn(TEST_PATH, type, speed);
     enemy.health.takeDamage(enemy.health.maxHp * preDamage);
     return enemy;
@@ -183,6 +195,10 @@ function run(timescale: number, pauseFrames = 0): Outcome {
           hpShare: enemies.map((e) => e.health.hp / e.health.maxHp),
           alive: enemies.map((e) => e.alive),
           kills,
+          abilityKills,
+          minions: gsm.enemyManager.getAlive()
+            .filter((e) => e.typeConfig.id === 'skeleton-minion')
+            .map((e) => e.health.hp / e.health.maxHp),
           credits: gsm.credits(),
         };
       }
@@ -204,7 +220,7 @@ describe('Nuclear strike through the sub-step loop', () => {
   it('hits ground and air in the radius: 60% of max HP, the boss 20%', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     expect(ENEMY_TYPES['bat'].isAirUnit).toBe(true);
-    const { hpShare, alive, kills } = run(1);
+    const { hpShare, alive, kills, abilityKills } = run(1);
 
     expect(hpShare[0]).toBe(1);             // 31 m away, untouched
     expect(hpShare[1]).toBeCloseTo(0.4);    // full HP, keeps 40%
@@ -215,6 +231,18 @@ describe('Nuclear strike through the sub-step loop', () => {
     expect(hpShare[5]).toBeCloseTo(0.4);    // bat, in the air
     expect(alive[6]).toBe(false);
     expect(kills).toBe(3);
+    expect(abilityKills).toBe(3);
+  });
+
+  it('splits a struck skeleton, its minions take no damage and are no ability kills', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    expect(ENEMY_TYPES['skeleton'].splitOnDeath).toMatchObject({ type: 'skeleton-minion', count: 2 });
+    const { alive, kills, abilityKills, minions } = run(1, 0, SKELETON_ROSTER);
+
+    expect(alive[0]).toBe(false);
+    expect(kills).toBe(1);           // enemy:died for the skeleton only
+    expect(abilityKills).toBe(1);    // the gate books one leak, not three
+    expect(minions).toEqual([1, 1]); // both minions on the route at full HP
   });
 
   it('gives the same outcome at timescale 1 and 10', () => {
