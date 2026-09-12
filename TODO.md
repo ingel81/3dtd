@@ -45,6 +45,10 @@
         `docs/ROUTE_GEOMETRY_ANALYSIS.md`).
       Folgen: Zellzuordnung, LOS-Registrierung, Targeting und Bodenhöhe der
       Gegner ändern sich; Hot Path (20k Gegner) nicht verlangsamen.
+      **Stand 2026-09-12 (Runde 2):** umgesetzt auf dem Sprint-Branch
+      (`1306460` bis `bfb550c`), inklusive Tile-Messung und Brücken-Deck;
+      Tunnel nicht angefasst. Playtest steht aus
+      (`docs/REVIEW_SPRINT_2026-09-12.md`).
 
 ## 1.1 Engine-Bugs
 
@@ -75,6 +79,8 @@
         eine Großstadt gegenprüfen.
       **Entscheidung 2026-09-12:** Diese Punkte kommen in die nächste
       nummerierte Playtest-Liste, danach schließen.
+      **Stand:** Punkte 5 bis 8 der Playtest-Liste in
+      `docs/REVIEW_SPRINT_2026-09-12.md`.
 
 - [ ] **Route folgt der Straße nicht, Route-Cells auf Dach und Baum**
       Playtest 2026-09-10 (Kleinstadt, Engstelle): Die rote Enemy-Route
@@ -151,6 +157,9 @@
       - **R10:** erst loggen, ob die Tile-Materialien überhaupt Licht rechnen
         (Materialtyp im `load-model`-Event), dann entscheiden. Die Zahl der
         PointLights bleibt bei 1.
+      **Stand 2026-09-12 (Runde 2):** R6 und Shader-Warm-up umgesetzt, R10
+      loggt die Materialtypen (`aa0bd7a` bis `33aed45`); Entscheidung zu R10
+      nach dem Playtest.
 
 ## 1.6 Befunde aus dem Sprint 2026-09-11 (nicht behoben)
 
@@ -168,6 +177,7 @@
       Zusammenlegen ändert die Kandidatenwahl der Bots.
       **Entscheidung 2026-09-12:** zusammenlegen, eine Regelquelle für Spiel
       und Bots.
+      **Stand 2026-09-12 (Runde 2):** umgesetzt (`9eecf67`).
 
 - [ ] **Decision-Explainer ist halb tot**
       `ai/core/decision-explainer.ts` schreibt seine Zusammenfassung nach
@@ -176,6 +186,7 @@
       `debugMode`.
       **Entscheidung 2026-09-12:** im Wave-Debug-Fenster anzeigen (Zeile "Why
       this wave"), `aiExplanation` dafür nutzen, `lastExplanation` entfernen.
+      **Stand 2026-09-12 (Runde 2):** umgesetzt (`0f3c364` bis `98676f2`).
 
 - [ ] **Debug-Fenster gemeinsam per `@defer` laden**
       Die elf Debug-Fenster liegen mit ~160 kB im Start-Bundle. Einzeln lohnt
@@ -192,6 +203,59 @@
       in einzelnen Debug-Fenstern haben noch kein `aria-label` (meist `title`)
       · ein im Browser gecachter Fehlschlag beim Nachladen des Training-Chunks
       lässt sich per Retry eventuell nicht beheben, dann hilft nur ein Reload.
+
+## 1.7 Befunde aus der Sprint-Runde 2026-09-12 (nicht behoben)
+
+> Übersicht der Runde: `docs/REVIEW_SPRINT_2026-09-12.md`.
+
+- [ ] **Routenkorridor: Restpunkte**
+      Tunnel und Durchgänge nutzen ihre Tags noch nicht. Ein Spawn-Wechsel
+      ohne Neuladen misst die neue Route nicht, sie läuft mit OSM-Breiten.
+      Kreuzen sich zwei Routen auf verschiedenen Ebenen, gilt in den
+      gemeinsamen Zellen der Boden. Der Neuaufbau nach der Tile-Messung läuft
+      synchron, möglicherweise bei schon sichtbarer Karte (Strahlen je
+      Station, bei Verengung zweimal A* pro Spawn, neue Zellen, ein
+      Höhen-Sweep). Das `[Corridor]`-Log misst nur die Strahlen, der
+      Neuaufbau ist ungemessen; erst messen, bei spürbarem Hänger stückeln. `fitCorridorsToTiles` hat
+      keinen Spec. Gemessen wird nur einmal pro Ortsladung; Stationen ohne
+      feines Tile bleiben auf OSM-Breite (`unmeasured` im Log). Ein zweiter
+      Lauf nach weiterem Tile-Streaming, solange kein Tower steht, wäre
+      möglich (Nachmessen unterstützt der Service seit `72b62bd`).
+
+- [ ] **Gegnermodelle: Blender-Runde**
+      Reihenfolge laut `docs/ENEMY_MODEL_BUDGET.md`: Hornet (69 297
+      VAT-Vertices pro Instanz), zombie_v2, Rat, Spider, Wraith, Zombie, Mech,
+      Wallsmasher als GLB statt FBX, Dragon-Flug-Clip (13 s) auf einen Loop
+      kürzen (die ganze Dragon-VAT hat 98,5 MB). `tools/blender/optimize_zombie_v2.py` behält
+      `Electrocuted_Fall` noch in `KEEP_ANIMATIONS`: löschen oder auf den
+      Sturz zuschneiden, dann kann der Clip zurück in den Pool. Zombie Soldier
+      verschwindet möglicherweise ebenfalls mitten im Fallen (ungeprüft). Alle
+      VAT-Materialien sind `transparent: true`, Kosten ungemessen.
+
+- [ ] **Lizenzen und Attributions**
+      In `attributions.config.ts` fehlen Ghost, Hornet, Mech, Wraith, Herbert,
+      Stone Golem und zombie_v2; die 14 älteren Dateien in
+      `enemies/candidates/` sind ohne Lizenznachweis getrackt. Herkunft nicht
+      geprüft. Die Kenney-Texturen liegen als `Textures/colormap.png` unter
+      `towers/` und `enemies/`; ein Modell aus einem weiteren Kenney-Kit
+      braucht einen eigenen Ordner.
+
+- [ ] **Bot-Läufe mit den neuen Inhalten**
+      Keine Bot-Baseline mit Chaos Tower und `skeleton_swarm`, die Wirkung auf
+      die Director-Zahlen ist offen.
+
+- [ ] **Kleinkram Runde 2**
+      `GameStateManager.initialize` hat den unbenutzten Parameter
+      `_streetNetwork` · mit Debug-Gegnern außerhalb einer Welle kommt kein
+      `wave:completed`, die Tower drehen dann nicht zur Wachrichtung ·
+      `getCurrentDifficulty()` und `calculateReward()` im `WaveDirectorService`
+      haben keine Aufrufer · `poison-glob` fehlt in `PROJECTILE_SOUND_IDS` ·
+      economy-chart, tower-stats-chart und wave-planner schreiben noch ohne
+      `writeGeneratedFile` · verzögerter Rauch wird mit Größe 0 gezeichnet,
+      manche GPUs zeigen dann eventuell einen 1-px-Punkt (ungeprüft) · der Split des Skeletons aus
+      MASTER_GAME_DESIGN §4 ist nicht umgesetzt · `EXPLOSION_PRESETS.hq`, der
+      Typ `ExplosionPreset` und `ThreeTilesEngine.clearEntities()` haben keine
+      Nutzer.
 
 ---
 
@@ -370,11 +434,18 @@
       Sprite-Sheet Partikel (Flash→Fireball→Rauch) — Timing, Größe, Farben polieren
       Betrifft Cannon- und Rocket-Einschläge. Zusammen mit
       "Advanced-Explosion-Staging" (zweistufig, Backlog) denken.
+      **Stand 2026-09-12 (Runde 2):** umgesetzt (`c904b3f` bis `6686dc1`),
+      Sichtprüfung steht aus.
 
 - [ ] **Screen Shake Performance untersuchen** (nächste Runde, festgelegt 2026-09-12)
       Aktuell deaktiviert wegen Performance-Bedenken
       Messen: tatsächlicher FPS-Impact, ggf. nur bei nahen Explosionen aktivieren
       Dateien: `screen-shake.service.ts`, Display Options Toggle
+      **Stand 2026-09-12 (Runde 2):** Der Shake verschiebt nur noch die
+      Projektion beim Zeichnen, ohne Tile-Traversierung, und nur bei nahen
+      Einschlägen (`142193c`). Messen mit `await __perf.shakeBench(5)`. Anders
+      als oben steht, ist er seit `02d9d43` standardmäßig an; wer ihn aus
+      sieht, hat das im localStorage gespeichert.
 
 - [ ] **Loading Screen optimieren**
       Layout/Wirkung des Initial-Loading-Screens überarbeiten. Detaillierter Stats-Block
@@ -390,6 +461,8 @@
       **Entscheidung 2026-09-12:** Während der Welle in der letzten Richtung
       stehen bleiben; nach der Welle zur Stelle drehen, an der die Route in die
       Reichweite eintritt (Wachrichtung).
+      **Stand 2026-09-12 (Runde 2):** umgesetzt (`c4cb08b`), dazu der
+      Zielwinkel in Metern (`eb1c8c8`).
 
 - [ ] **Kampfspuren (Heatmap Schicht 1)**
       Studie: `docs/game-design/COMBAT_HEATMAP_STUDY.md` (machbar).
@@ -397,6 +470,7 @@
       als Decals auf dem vorhandenen Decal-Pool, höchstens einer pro
       Route-Grid-Zelle (dedupliziert), rein optisch, Aufwand S. Die
       Kill-Heatmap (Schicht 2) bleibt vorerst weg.
+      **Stand 2026-09-12 (Runde 2):** umgesetzt (`e404806`, `412cbff`).
 
 - [ ] **Rocket Tower: Abschuss-Sound ersetzen**
       Geschoss und Schweif sind seit dem Sprint 2026-09-11 erledigt (DONE.md
@@ -424,6 +498,8 @@
       (Hinweis: `chaos` ist aktuell **nicht** im `DamageType`-Enum
       → Type erst erweitern, Matrix-Eintrag ergänzen)
       Nächste Runde (festgelegt 2026-09-12).
+      **Stand 2026-09-12 (Runde 2):** umgesetzt (`0fcacd8` bis `12e9f1e`,
+      Kenney-Kristallmodell), Balance-Playtest steht aus.
 
 - [ ] **Globale Damage-Matrix-Übersicht im UI** (Optional, niedrige Priorität)
       Tooltips zeigen aktuell nur Multiplier per Tower und per Enemy. Eine globale
@@ -506,6 +582,12 @@
       **Festgelegt 2026-09-12:** auf alle Gegnermodelle ausweiten: erst alle
       vermessen (Dreiecke, Knochen, Texturgrößen, VAT-Frames), die schwersten
       zuerst optimieren; das Blender-Werkzeug (MCP) ist angebunden.
+      **Stand 2026-09-12 (Runde 2):** alle vermessen
+      (`docs/ENEMY_MODEL_BUDGET.md`, `npm run model-budget`), VAT backt nur
+      noch sichtbare Frames (`be5eaa0`, `fd18a10`: 664,6 auf 485,6 MB, aus
+      den Modelldateien gerechnet). Die
+      Mesh-Optimierung in Blender ist offen (siehe 1.7). Das oben genannte
+      `zombie_v2.original.glb.bak` gibt es im Repo nicht.
 
 - **Verworfen: Enemy Movement auf SoA (Structure of Arrays)**
       Nicht erneut als Teilumbau angehen. Gebaut in `bd1d3a5`, zurückgenommen in
@@ -527,6 +609,8 @@
       Platzier-Vorschau und Intro-Sampling, nicht bei den FPS in Wellen;
       Kosten: BVH-Aufbau pro Tile beim Laden, mehr Speicher. Erst messen, wie
       viel Zeit Raycasts heute kosten.
+      **Stand 2026-09-12 (Runde 2):** Messung eingebaut (`072d29f`,
+      `__raycastStats()`), Entscheidung nach dem Playtest.
 - [ ] **Web Worker Offloading** - weitere rechenintensive Logik
       Pathfinding läuft bereits im Worker (`pathfinding-worker.service.ts`).
       Übrige Kandidaten (Collision-Checks, Wave-Director-Inference,
@@ -652,4 +736,8 @@
 - [ ] **MechaCat** - Roboter-Katze als neuer Gegner-Typ
       Model bereits vorhanden: `public/assets/models/enemies/candidates/mechacat_01.glb`
 - [ ] **Ghost** - `ethereal` Rüstung, nur Magic/Chaos wirkt (nächste Runde, festgelegt 2026-09-12)
+      Stand 2026-09-12: gibt es schon (`ghost` in `enemy-types.config.ts`, im
+      Curriculum auf W13, W18 und W23); der Eintrag kann weg.
 - [ ] **Skeleton** - `unarmored`, Swarm (nächste Runde, festgelegt 2026-09-12)
+      **Stand 2026-09-12 (Runde 2):** umgesetzt (`a177026`, `3f9b854`:
+      Kenney-Modell, `skeleton_swarm` auf W19).
