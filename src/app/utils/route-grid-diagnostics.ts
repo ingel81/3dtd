@@ -83,6 +83,84 @@ export interface HeightResetResult {
   topMoves: { key: number; x: number; z: number; before: number; after: number; delta: number }[];
 }
 
+/** A cell or grid position in local coordinates. */
+export interface RouteCellSpot {
+  x: number;
+  z: number;
+}
+
+/** Above the median of its neighbours by more than this, a cell counts as raised (car roof, tree crown). */
+const RAISED_CELL_M = 1;
+
+/**
+ * What the grid holds in one tower's range, for `__corridor.towerCells()`:
+ * where a gap in the tower's LOS display comes from.
+ */
+export interface TowerRangeReport {
+  /** Cells whose centre lies within the range. */
+  cells: number;
+  /** Of those, cells without a terrain sample. The LOS display leaves them out. */
+  unsampled: number;
+  /** The tower's ground answers: visible, blocked, none at all. */
+  groundVisible: number;
+  groundBlocked: number;
+  groundMissing: number;
+  /** The same for its air answers. */
+  airVisible: number;
+  airBlocked: number;
+  airMissing: number;
+  /** Positions in range without a cell, but with a cell on all four sides. */
+  holes: RouteCellSpot[];
+  /** Sampled cells more than 1 m above the median of their sampled neighbours. */
+  raised: (RouteCellSpot & { aboveM: number })[];
+}
+
+/**
+ * Count what the grid knows about the cells in a tower's range.
+ *
+ * @param inRange Every cell whose centre lies within the range, sampled or not.
+ * @param holes Grid positions in range without a cell, see `GlobalRouteGrid.findHolesInRange`.
+ * @param neighbourMedian Median height of a cell's stable neighbours, null with fewer than three.
+ */
+export function summarizeTowerRange(
+  inRange: readonly RouteCell[],
+  towerId: string,
+  holes: RouteCellSpot[],
+  neighbourMedian: (cell: RouteCell) => number | null,
+): TowerRangeReport {
+  const report: TowerRangeReport = {
+    cells: inRange.length,
+    unsampled: 0,
+    groundVisible: 0,
+    groundBlocked: 0,
+    groundMissing: 0,
+    airVisible: 0,
+    airBlocked: 0,
+    airMissing: 0,
+    holes,
+    raised: [],
+  };
+  for (const cell of inRange) {
+    if (!cell.heightSampled) report.unsampled++;
+    const ground = cell.towerVisibility.get(towerId);
+    if (ground === undefined) report.groundMissing++;
+    else if (ground) report.groundVisible++;
+    else report.groundBlocked++;
+    const air = cell.airVisibility.get(towerId);
+    if (air === undefined) report.airMissing++;
+    else if (air) report.airVisible++;
+    else report.airBlocked++;
+
+    if (!cell.heightSampled) continue;
+    const median = neighbourMedian(cell);
+    if (median !== null && cell.terrainHeight - median > RAISED_CELL_M) {
+      report.raised.push({ x: cell.x, z: cell.z, aboveM: Math.round((cell.terrainHeight - median) * 10) / 10 });
+    }
+  }
+  report.raised.sort((a, b) => b.aboveM - a.aboveM);
+  return report;
+}
+
 /**
  * Per-cell snapshot of the sample state — used by `dumpCellsInBox` /
  * `__rg.dumpCellsInBox(...)` to classify Sub-Fall A (unsampled+fallback)

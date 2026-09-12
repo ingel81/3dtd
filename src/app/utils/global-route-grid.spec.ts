@@ -327,6 +327,37 @@ describe('GlobalRouteGrid corridor width', () => {
     }
   });
 
+  it('leaves no hole in the corridor at any heading, with narrow and wide stretches on it', () => {
+    // A cell missing between cells on all four sides would show as a gap
+    // in a tower's LOS display, on the free street.
+    const holes: string[] = [];
+    for (const widths of [[2, 2, 2], [2.75, 2, 2.75], [7, 2, 4], [2, 7, 2], [4.5, 3.5, 6]]) {
+      for (let angle = 0; angle < Math.PI; angle += Math.PI / 17) {
+        const ux = Math.cos(angle);
+        const uz = Math.sin(angle);
+        const route = [0, 20, 40, 60].map((s, k) => at(0.37 + s * ux, -0.61 + s * uz, widths[k]));
+        // And a corner: the last stretch turns right by 60 degrees.
+        const turn = angle + Math.PI / 3;
+        route.push(at(route[3].lon + 20 * Math.cos(turn), route[3].lat + 20 * Math.sin(turn)));
+        grid.generateFromRoutes([route]);
+        for (const hole of grid.findHolesInRange(route[3].lon, route[3].lat, 60)) {
+          holes.push(`widths ${widths} angle ${angle.toFixed(2)} at ${hole.x},${hole.z}`);
+        }
+      }
+    }
+    expect(holes).toEqual([]);
+  });
+
+  it('finds a hole where a cell is missing between cells on all four sides', () => {
+    grid.generateFromRoutes([[at(0, 1, 4), at(40, 1)]]);
+    expect(grid.findHolesInRange(20, 1, 30)).toEqual([]);
+    // Drop the cell at (21, 1) behind the grid's back.
+    const cells = (grid as unknown as { cells: Map<number, unknown> }).cells;
+    const key = grid.getCellAt(21, 1)!.key;
+    cells.delete(key);
+    expect(grid.findHolesInRange(20, 1, 30)).toEqual([{ x: 21, z: 1 }]);
+  });
+
   it('puts every point an enemy may reach into a cell, at any heading', () => {
     for (const halfWidth of [CORRIDOR_MIN_HALF_WIDTH_M, 2.75, 4, 7]) {
       for (let angle = 0; angle < Math.PI; angle += Math.PI / 13) {
@@ -347,6 +378,41 @@ describe('GlobalRouteGrid corridor width', () => {
         }
       }
     }
+  });
+});
+
+/**
+ * `__corridor.towerCells()` reads this: what the grid holds in a tower's
+ * range, to tell a gap in the LOS display apart.
+ */
+describe('GlobalRouteGrid tower range report', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+
+  it('counts the answers, the cells without a sample and the raised ones', () => {
+    // Ground at 0, a van roof at 2.5 m over the cell around (21, 1), no tile
+    // at all beyond x = 30.
+    const column = (x: number, z: number): ColumnSample | null => {
+      if (x > 30) return null;
+      const y = Math.abs(x - 21) < 1 && Math.abs(z - 1) < 1 ? 2.5 : 0;
+      return { groundY: y, topY: y, tileDepth: 20, tileGeometricError: 2 };
+    };
+    const grid = new GlobalRouteGrid();
+    grid.initialize(column as never, coordinateSync);
+    grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorHalfWidth: 3 }, { lat: 1, lon: 60 }]]);
+    // Tower at (20, 8): below the 10 m wall everything is visible.
+    grid.registerTower('t1', 20, 8, 16, { referencePos: { x: 20, y: 20, z: 8 } } as never);
+
+    const report = grid.describeTowerRange('t1', 20, 8, 16);
+    expect(report.cells).toBeGreaterThan(20);
+    expect(report.groundVisible + report.groundBlocked + report.groundMissing).toBe(report.cells);
+    expect(report.groundMissing).toBe(0);
+    expect(report.airMissing).toBe(report.cells);
+    // The columns beyond x = 30 found no tile.
+    expect(report.unsampled).toBeGreaterThan(0);
+    expect(report.holes).toEqual([]);
+    expect(report.raised).toEqual([{ x: 21, z: 1, aboveM: 2.5 }]);
   });
 });
 

@@ -124,6 +124,60 @@ export class VisualizationFacadeService {
     this.bridge = bridge;
     this.gameState = gameState;
     this.initialized = true;
+
+    // Diagnose-API für Playtests, analog zu `__rg` und `__routes`:
+    // `__corridor.towerCells()` in DevTools, siehe describeTowerCells().
+    (globalThis as Record<string, unknown>)['__corridor'] = {
+      towerCells: (towerId?: string) => this.describeTowerCells(towerId),
+    };
+  }
+
+  /**
+   * What the grid holds in a tower's range and what its LOS display draws
+   * of it, for a gap in the display: a cell missing from the grid (`holes`),
+   * a cell without a terrain sample (`unsampled`, the display leaves those
+   * out), a cell sampled on a car roof or tree crown (`raised`, its plate
+   * floats), a display built before the cells changed (`displayOutdated`,
+   * `notDisplayed`) or a cube rendered from another tower (`cubeFromTower`
+   * false). The selected tower unless an id is given.
+   */
+  private describeTowerCells(towerId?: string): Record<string, unknown> | string {
+    const towers = this.gameState.towerManager;
+    const tower = towerId ? towers.getById(towerId) : towers.getSelected();
+    if (!tower) return 'No tower: select one or pass its id.';
+    const engine = this.engineInit.getEngine();
+    if (!engine) return 'No engine.';
+
+    const grid = this.gameState.getGlobalRouteGrid().getGrid();
+    const local = engine.sync.geoToLocalSimple(tower.position.lat, tower.position.lon, tower.position.height ?? 0);
+    const range = tower.combat.range;
+    const report = grid.describeTowerRange(tower.id, local.x, local.z, range);
+
+    // The display is a snapshot of the sampled cells in range, coloured
+    // against the shared cube. Only the selected tower has one.
+    const layer = towers.getSelected() === tower ? towers.getSelectionViz()?.getLayer() ?? null : null;
+    const drawn = layer ? new Set(layer.cells) : null;
+    const reference = engine.getTowerShadowMapper().getReferencePos();
+    const summary = {
+      tower: tower.id,
+      range,
+      cells: report.cells,
+      unsampled: report.unsampled,
+      groundVisible: report.groundVisible,
+      groundBlocked: report.groundBlocked,
+      groundMissing: report.groundMissing,
+      airVisible: report.airVisible,
+      airBlocked: report.airBlocked,
+      airMissing: report.airMissing,
+      holes: report.holes.length,
+      raised: report.raised.length,
+      displayed: drawn?.size ?? null,
+      displayOutdated: layer ? layer.cells.filter((c) => grid.getCellAt(c.x, c.z) !== c).length : null,
+      notDisplayed: drawn ? grid.getCellsInRange(local.x, local.z, range).filter((c) => !drawn.has(c)).length : null,
+      cubeFromTower: Math.hypot(reference.x - local.x, reference.z - local.z) <= 0.5,
+    };
+    console.table(summary);
+    return { ...summary, holeCells: report.holes, raisedCells: report.raised.slice(0, 20) };
   }
 
   /**
