@@ -218,7 +218,7 @@ unverändert. Der Test prüft beides (`damage-calculator.spec.ts`).
 - **Niche:** zweiter glaubwürdiger Ethereal-Counter (1.5×), stark gegen Light-Swarms (1.5×, profitiert zusätzlich vom Chain-Pattern) und neben der Rocket der zweite Anti-Drachen-Tower (1.2× gegen Heavy, Metall leitet). **Wirkungslos gegen Fortified** (0.3×) — Cannon/Siege oder Magic bleibt der Pflichtbau gegen Mammoth/Stone-Golem.
 - Visuell: dauerhaftes Idle-Crackle am Turm-Tip, additive Aufhell-Halos pro Hit (Workaround, weil Photorealistic 3D Tiles dynamische Lichter ignorieren).
 
-### 3.13 Chaos — Chaos (seit 2026-09-12)
+### 3.13 Chaos (seit 2026-09-12)
 - **Generalist:** 1,0 gegen jede Rüstung (§2.3), Luft und Boden, Einzelziel-Projektil (`chaos-orb`, kein Splash).
 - **Teuer und spät:** 200 Gold, der teuerste Tower. Freischaltung über **Chaos Rift** (1.000 Gold, 30 s) hinter Siege Engineering und Storm Mastery, damit auch hinter Arcane Studies. Der ganze Pfad kostet 3.650 Gold Forschung (Gatling Tech, Siege Engineering, Ice Magic, Arcane Studies, Storm Mastery, Chaos Rift).
 - **Kein Pflicht-Tower:** 60 DPS wie Magic. Nach dem DPS-Modell (`computeTowerDPSFromLevels`, Basisstufe, nicht gemessen) bringt Chaos gegen jede Rüstung 0,30 DPS pro Gold, der beste Tower je Rüstung 0,56 (Fortified: Magic) bis 0,89 (Light: Gatling). Auch pro Bauplatz liegt Chaos in keiner Spalte vorn:
