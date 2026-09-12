@@ -80,7 +80,11 @@ export class AIDataCollectorService {
   private currentWaveConfig: WaveConfig | null = null;
   private currentWaveOutcome: Partial<WaveOutcome> = {};
   private lowestHealthThisWave = 100;
+  /** Spawn time of every enemy still on the field this wave. */
   private enemySpawnTimes = new Map<string, number>();
+  /** Summed lifetime of the enemies that already died or reached the base. */
+  private endedLifetimeTotalMs = 0;
+  private endedLifetimeCount = 0;
   private enemyPathProgress = new Map<string, number>();
 
   // === HISTORY ===
@@ -342,8 +346,7 @@ export class AIDataCollectorService {
       enemyPerformance: {},
     };
 
-    this.enemySpawnTimes.clear();
-    this.enemyPathProgress.clear();
+    this.clearEnemyTracking();
   }
 
   private onEnemySpawned(event: { enemy: Enemy }): void {
@@ -403,16 +406,7 @@ export class AIDataCollectorService {
     this.currentWaveOutcome.wasCloseCall =
       this.lowestHealthThisWave / GAME_BALANCE.player.startHealth < CLOSE_CALL_THRESHOLD;
 
-    // Calculate average enemy lifetime (normalized)
-    if (this.enemySpawnTimes.size > 0) {
-      let totalLifetime = 0;
-      let count = 0;
-      for (const spawnTime of this.enemySpawnTimes.values()) {
-        totalLifetime += Date.now() - spawnTime;
-        count++;
-      }
-      this.currentWaveOutcome.avgEnemyLifetimeMs = (totalLifetime / count) / timescale;
-    }
+    this.currentWaveOutcome.avgEnemyLifetimeMs = this.averageEnemyLifetimeMs() / timescale;
 
     // Calculate path progress metrics
     if (this.enemyPathProgress.size > 0) {
@@ -469,6 +463,7 @@ export class AIDataCollectorService {
       const lifetime = Date.now() - spawnTime;
       this.updateEnemyLifetime(enemyType, lifetime);
     }
+    this.endEnemyLifetime(event.enemy.id);
 
     // Track path progress (Enemy IS a GameObject, so access components directly)
     const movement = event.enemy.getComponent(ComponentType.MOVEMENT) as MovementComponent | undefined;
@@ -494,6 +489,7 @@ export class AIDataCollectorService {
 
     // Track path progress (enemies that reached base completed 100% of path)
     this.enemyPathProgress.set(event.enemy.id, 1.0);
+    this.endEnemyLifetime(event.enemy.id);
   }
 
   private onHealthChanged(event: { health: number; delta: number }): void {
@@ -532,16 +528,7 @@ export class AIDataCollectorService {
         this.currentWaveOutcome.lowestPlayerHealth = this.lowestHealthThisWave;
         this.currentWaveOutcome.wasCloseCall = this.lowestHealthThisWave <= 0;
 
-        // Calculate average enemy lifetime
-        if (this.enemySpawnTimes.size > 0) {
-          let totalLifetime = 0;
-          let count = 0;
-          for (const spawnTime of this.enemySpawnTimes.values()) {
-            totalLifetime += Date.now() - spawnTime;
-            count++;
-          }
-          this.currentWaveOutcome.avgEnemyLifetimeMs = (totalLifetime / count) / timescale;
-        }
+        this.currentWaveOutcome.avgEnemyLifetimeMs = this.averageEnemyLifetimeMs() / timescale;
 
         // Calculate path progress metrics. The per-enemy list matters as much
         // as the average: the training backend derives its near-miss ratio and
@@ -608,6 +595,37 @@ export class AIDataCollectorService {
     }
 
     this.currentWaveOutcome.enemyPerformance = perf;
+  }
+
+  /** An enemy left the field (died or reached the base): its lifetime is final. */
+  private endEnemyLifetime(enemyId: string): void {
+    const spawnTime = this.enemySpawnTimes.get(enemyId);
+    if (spawnTime === undefined) return;
+    this.endedLifetimeTotalMs += Date.now() - spawnTime;
+    this.endedLifetimeCount++;
+    this.enemySpawnTimes.delete(enemyId);
+  }
+
+  /**
+   * Mean time from spawn to death or base arrival over this wave's enemies,
+   * in wall-clock ms. Enemies still on the field count up to now. 0 for a
+   * wave nothing spawned in.
+   */
+  private averageEnemyLifetimeMs(): number {
+    const now = Date.now();
+    let total = this.endedLifetimeTotalMs;
+    for (const spawnTime of this.enemySpawnTimes.values()) {
+      total += now - spawnTime;
+    }
+    const count = this.endedLifetimeCount + this.enemySpawnTimes.size;
+    return count > 0 ? total / count : 0;
+  }
+
+  private clearEnemyTracking(): void {
+    this.enemySpawnTimes.clear();
+    this.endedLifetimeTotalMs = 0;
+    this.endedLifetimeCount = 0;
+    this.enemyPathProgress.clear();
   }
 
   private updateEnemyLifetime(enemyType: string, lifetimeMs: number): void {
@@ -686,8 +704,7 @@ export class AIDataCollectorService {
     this.currentWaveConfig = null;
     this.currentWaveOutcome = {};
     this.lowestHealthThisWave = 100;
-    this.enemySpawnTimes.clear();
-    this.enemyPathProgress.clear();
+    this.clearEnemyTracking();
   }
 
   /**
