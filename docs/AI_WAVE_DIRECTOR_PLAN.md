@@ -446,4 +446,4 @@ sichtbaren Tabs, die Läufe stehen dann still und melden trotzdem „gesund".
 | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Backend-Details |
 | [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte |
 | [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) | ONNX-Export |
-| [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md) | _Historisch:_ Übergang von 16-Softmax zu Templates |
+| [PHASE_5.10_TEMPLATES.md](archive/PHASE_5.10_TEMPLATES.md) | _Historisch:_ Übergang von 16-Softmax zu Templates |
