@@ -1,0 +1,250 @@
+@if (windowService.waveWindow().isOpen) {
+  <app-draggable-debug-panel
+    windowId="wave"
+    title="Wave Debug"
+    icon="bug"
+    [position]="windowService.waveWindow().position"
+    [zIndex]="windowService.waveWindow().zIndex"
+    (closed)="windowService.close('wave')"
+    (positionChange)="windowService.updatePosition('wave', $event)"
+    (focused)="windowService.bringToFront('wave')"
+  >
+    <div class="wave-debug-content">
+      <!-- Director reasoning for the wave in play -->
+      <div class="section why">
+        <div class="section-title">Why this wave</div>
+        @if (explanation(); as why) {
+          <div class="why-summary">{{ why.summary }}</div>
+          <ul class="why-reasons">
+            @for (reason of why.reasons; track $index) {
+              <li>{{ reason }}</li>
+            }
+          </ul>
+        } @else {
+          <div class="why-empty">No director decision for this wave.</div>
+        }
+      </div>
+
+      <!-- Mode Toggle -->
+      <div class="mode-toggle">
+        <button class="mode-btn" [class.active]="!waveDebug.mixedMode()" (click)="waveDebug.mixedMode() && waveDebug.toggleMixedMode()">
+          Single
+        </button>
+        <button class="mode-btn" [class.active]="waveDebug.mixedMode()" (click)="!waveDebug.mixedMode() && waveDebug.toggleMixedMode()">
+          Mixed
+        </button>
+      </div>
+
+      @if (!waveDebug.mixedMode()) {
+        <!-- Single Type Mode (existing UI) -->
+        <div class="section">
+          <div class="section-title">Spawn</div>
+
+          <div class="select-row">
+            <span class="label">Type</span>
+            <select class="enemy-select" (change)="onEnemyTypeChange($event)">
+              @for (type of waveDebug.enemyTypes(); track type.id) {
+                <option [value]="type.id" [selected]="type.id === waveDebug.enemyType()">
+                  {{ type.name }}
+                </option>
+              }
+            </select>
+          </div>
+
+          <div class="slider-row">
+            <span class="label">Count</span>
+            <input type="range" min="1" max="20000" step="1"
+                   [value]="waveDebug.enemyCount()"
+                   (input)="onEnemyCountChange($event)" />
+            <input type="number" class="number-input" min="1" max="20000"
+                   [value]="waveDebug.enemyCount()"
+                   (change)="onEnemyCountChange($event)" />
+          </div>
+
+          <div class="slider-row">
+            <span class="label">Speed</span>
+            <input type="range" min="1" max="100" step="1"
+                   [value]="waveDebug.enemySpeed()"
+                   (input)="onSpeedChange($event)" />
+            <input type="number" class="number-input" min="1" max="100"
+                   [value]="waveDebug.enemySpeed()"
+                   (change)="onSpeedChange($event)" />
+            <span class="unit">m/s</span>
+          </div>
+
+          <div class="slider-row">
+            <span class="label">Health</span>
+            <input type="range" min="1" max="10000" step="1"
+                   [value]="waveDebug.enemyHealth()"
+                   (input)="onHealthChange($event)" />
+            <input type="number" class="number-input" min="1" max="10000"
+                   [value]="waveDebug.enemyHealth()"
+                   (change)="onHealthChange($event)" />
+            <span class="unit">HP</span>
+          </div>
+
+          <div class="toggle-row">
+            <span class="label">Mode</span>
+            <button class="toggle-btn" [class.active]="waveDebug.spawnMode() === 'each'" (click)="waveDebug.toggleSpawnMode()">
+              <td-icon [name]="waveDebug.spawnMode() === 'each' ? 'share' : 'shuffle'" [size]="14"></td-icon>
+              {{ waveDebug.spawnMode() === 'each' ? 'Distributed' : 'Random' }}
+            </button>
+          </div>
+
+          <div class="slider-row">
+            <span class="label">Delay</span>
+            <input type="range" min="0" max="5000" step="0.1"
+                   [value]="waveDebug.spawnDelay()"
+                   (input)="onSpawnDelayChange($event)" />
+            <span class="value">{{ formatDelay(waveDebug.spawnDelay()) }}</span>
+          </div>
+
+          <div class="slider-row">
+            <span class="label">Batch</span>
+            <input type="range" min="1" max="100" step="1"
+                   [value]="waveDebug.maxSpawnsPerFrame()"
+                   (input)="onMaxSpawnsPerFrameChange($event)" />
+            <span class="value">{{ waveDebug.maxSpawnsPerFrame() }}/frame</span>
+          </div>
+
+          <button class="start-wave-btn"
+                  [disabled]="waveDebug.waveActive()"
+                  (click)="onStartCustomWave()">
+            <td-icon name="play" [size]="14"></td-icon>
+            {{ waveDebug.waveActive() ? 'Wave running...' : 'Start Custom Wave' }}
+          </button>
+        </div>
+      } @else {
+        <!-- Mixed Wave Designer -->
+        <div class="section">
+          <div class="section-title">Groups</div>
+
+          @for (group of waveDebug.mixedGroups(); track group.id) {
+            <div class="group-card">
+              <div class="group-header">
+                <span class="group-label">Group {{ $index + 1 }}</span>
+                <button class="remove-btn" (click)="waveDebug.removeGroup(group.id)"
+                        [disabled]="waveDebug.mixedGroups().length <= 1"
+                        [attr.aria-label]="'Remove group ' + ($index + 1)">
+                  <td-icon name="cross" [size]="14"></td-icon>
+                </button>
+              </div>
+
+              <div class="group-row">
+                <select class="enemy-select compact" (change)="onGroupTypeChange(group.id, $event)">
+                  @for (type of waveDebug.enemyTypes(); track type.id) {
+                    <option [value]="type.id" [selected]="type.id === group.enemyType">
+                      {{ type.name }}
+                    </option>
+                  }
+                </select>
+                <input type="number" class="number-input count-input" min="1" max="500"
+                       [value]="group.count"
+                       (change)="onGroupCountChange(group.id, $event)" />
+              </div>
+
+              <div class="group-row multipliers">
+                <span class="mult-label">HP</span>
+                <input type="number" class="number-input mult-input" min="0.1" max="10" step="0.1"
+                       [value]="group.healthMultiplier"
+                       (change)="onGroupHealthMultChange(group.id, $event)" />
+                <span class="mult-label">Spd</span>
+                <input type="number" class="number-input mult-input" min="0.1" max="5" step="0.1"
+                       [value]="group.speedMultiplier"
+                       (change)="onGroupSpeedMultChange(group.id, $event)" />
+                <span class="mult-label">Delay</span>
+                <input type="number" class="number-input delay-input" min="1" max="5000" step="1"
+                       [value]="group.spawnDelay ?? ''"
+                       [placeholder]="'global'"
+                       (change)="onGroupDelayChange(group.id, $event)" />
+              </div>
+            </div>
+          }
+
+          <button class="add-group-btn" (click)="waveDebug.addGroup()">
+            <td-icon name="plus" [size]="14"></td-icon> Add Group
+          </button>
+        </div>
+
+        <!-- Pattern Section -->
+        <div class="section">
+          <div class="section-title">Pattern</div>
+
+          <div class="pattern-grid">
+            @for (pattern of waveDebug.allPatterns; track pattern) {
+              <button class="pattern-btn" [class.active]="waveDebug.spawnPattern() === pattern"
+                      (click)="waveDebug.setSpawnPattern(pattern)"
+                      [title]="patternLabels[pattern]">
+                <td-icon [name]="$any(patternIcons[pattern])" [size]="14"></td-icon>
+                <span>{{ patternLabels[pattern] }}</span>
+              </button>
+            }
+          </div>
+
+          @if (waveDebug.spawnPattern() === 'clustered') {
+            <div class="slider-row">
+              <span class="label">Cluster</span>
+              <input type="range" min="1" max="20" step="1"
+                     [value]="waveDebug.clusterSize()"
+                     (input)="onClusterSizeChange($event)" />
+              <input type="number" class="number-input" min="1" max="20"
+                     [value]="waveDebug.clusterSize()"
+                     (change)="onClusterSizeChange($event)" />
+            </div>
+          }
+
+          @if (waveDebug.spawnPattern() === 'wave-in-wave') {
+            <div class="slider-row">
+              <span class="label">Pause</span>
+              <input type="range" min="500" max="10000" step="100"
+                     [value]="waveDebug.subWavePause()"
+                     (input)="onSubWavePauseChange($event)" />
+              <span class="value">{{ formatDelay(waveDebug.subWavePause()) }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Spawn Settings Section -->
+        <div class="section">
+          <div class="section-title">Spawn</div>
+
+          <div class="slider-row">
+            <span class="label">Delay</span>
+            <input type="range" min="0" max="5000" step="0.1"
+                   [value]="waveDebug.spawnDelay()"
+                   (input)="onSpawnDelayChange($event)" />
+            <span class="value">{{ formatDelay(waveDebug.spawnDelay()) }}</span>
+          </div>
+
+          <div class="slider-row">
+            <span class="label">Batch</span>
+            <input type="range" min="1" max="100" step="1"
+                   [value]="waveDebug.maxSpawnsPerFrame()"
+                   (input)="onMaxSpawnsPerFrameChange($event)" />
+            <span class="value">{{ waveDebug.maxSpawnsPerFrame() }}/frame</span>
+          </div>
+
+          <div class="slider-row">
+            <span class="label">Variation</span>
+            <input type="range" min="0" max="0.5" step="0.05"
+                   [value]="waveDebug.delayVariation()"
+                   (input)="onDelayVariationChange($event)" />
+            <span class="value">{{ formatPercent(waveDebug.delayVariation()) }}</span>
+          </div>
+
+          <div class="total-row">
+            <span class="label">Total</span>
+            <span class="total-count">{{ waveDebug.mixedTotalCount() }} enemies</span>
+          </div>
+
+          <button class="start-wave-btn mixed"
+                  [disabled]="waveDebug.waveActive()"
+                  (click)="onStartCustomWave()">
+            <td-icon name="play" [size]="14"></td-icon>
+            {{ waveDebug.waveActive() ? 'Wave running...' : 'Start Mixed Wave' }}
+          </button>
+        </div>
+      }
+    </div>
+  </app-draggable-debug-panel>
+}

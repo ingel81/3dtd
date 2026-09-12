@@ -1,0 +1,91 @@
+@if (windowService.soundWindow().isOpen) {
+  <app-draggable-debug-panel
+    windowId="sound"
+    title="Sound Debug"
+    icon="audio"
+    [position]="windowService.soundWindow().position"
+    [zIndex]="windowService.soundWindow().zIndex"
+    (closed)="windowService.close('sound')"
+    (positionChange)="windowService.updatePosition('sound', $event)"
+    (focused)="windowService.bringToFront('sound')"
+  >
+    <div class="sound-debug-content">
+      @if (soundDebug.stats(); as stats) {
+        <!-- Active Sounds -->
+        <div class="section">
+          <div class="section-title">Active</div>
+          <div class="stat-row">
+            <span class="label">One-Shots</span>
+            <span class="value">{{ stats.activeOneShots }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">Loops</span>
+            <span class="value">{{ stats.activeLoops }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="label">Buffers</span>
+            <span class="value">{{ stats.cachedBuffers }}/50</span>
+          </div>
+        </div>
+
+        <!-- Budget Stats -->
+        <div class="section">
+          <div class="section-title">Budget</div>
+          <div class="stat-row">
+            <span class="label">Enemy</span>
+            <span class="value" [class.warning]="stats.enemyBudget.current >= stats.enemyBudget.max">
+              {{ stats.enemyBudget.current }}/{{ stats.enemyBudget.max }}
+            </span>
+            <div class="bar-container">
+              <div class="bar enemy" [style.width.%]="enemyBudgetPercent()"></div>
+            </div>
+          </div>
+          <div class="stat-row">
+            <span class="label">Projectile</span>
+            <span class="value" [class.warning]="stats.projectileBudget.current >= stats.projectileBudget.max">
+              {{ stats.projectileBudget.current }}/{{ stats.projectileBudget.max }}
+            </span>
+            <div class="bar-container">
+              <div class="bar projectile" [style.width.%]="projectileBudgetPercent()"></div>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="section">
+          <div class="no-data">
+            @if (soundDebug.connected()) {
+              Waiting for data...
+            } @else {
+              <td-icon name="cross" [size]="14"></td-icon>
+              Not connected
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Event Log (takes the remaining panel height) -->
+      <div class="section log-section">
+        <div class="section-title">
+          Events
+          <div class="title-actions">
+            @if (soundDebug.events().length > 0) {
+              <button class="action-btn" (click)="copyLog()" title="Copy log" aria-label="Copy log">
+                <td-icon name="copy" [size]="14"></td-icon>
+              </button>
+              <button class="action-btn danger" (click)="soundDebug.clearEvents()" title="Clear events" aria-label="Clear events">
+                <td-icon name="trash" [size]="14"></td-icon>
+              </button>
+            }
+          </div>
+        </div>
+        <div class="event-log" #logContainer>
+          @for (event of soundDebug.events(); track event.timestamp) {
+            <div class="event-line" [class]="soundDebug.getEventTypeClass(event.type)">{{ formatEvent(event) }}</div>
+          } @empty {
+            <div class="no-events">No events</div>
+          }
+        </div>
+      </div>
+    </div>
+  </app-draggable-debug-panel>
+}

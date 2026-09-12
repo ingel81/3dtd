@@ -17,7 +17,7 @@ import {
   DEBUG_PANEL_MIN_SIZE,
   clampPanelSize,
 } from '../../services/debug/debug-window.service';
-import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
+import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 /**
@@ -30,164 +30,16 @@ import { TdIconComponent } from '../icon/icon.component';
   standalone: true,
   imports: [CommonModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div
-      class="debug-panel"
-      [style.left.px]="position().x"
-      [style.top.px]="position().y"
-      [style.z-index]="zIndex()"
-      [style.width.px]="size().width"
-      [style.height.px]="size().height"
-      (mousedown)="onPanelClick()"
-    >
-      <div
-        class="debug-panel-header"
-        (mousedown)="onHeaderMouseDown($event)"
-      >
-        <td-icon class="debug-panel-icon" [name]="$any(icon())" [size]="14"></td-icon>
-        <span class="debug-panel-title">{{ title() }}</span>
-        <button class="debug-panel-close" (click)="onClose($event)" [attr.aria-label]="'Close ' + title()">
-          <td-icon name="cross" [size]="14"></td-icon>
-        </button>
-      </div>
-      <div class="debug-panel-content">
-        <ng-content></ng-content>
-      </div>
-      <div class="resize-handle" (mousedown)="onResizeMouseDown($event)">
-        <td-icon name="dragHandle" [size]="14"></td-icon>
-      </div>
-    </div>
-  `,
+  templateUrl: './draggable-debug-panel.component.html',
+  styleUrl: './draggable-debug-panel.component.scss',
   styles: `
     :host {
       ${TD_CSS_VARS}
     }
 
     .debug-panel {
-      position: absolute;
-      display: flex;
-      flex-direction: column;
-      /* Stored size is the outer size, so the viewport clamp can use it */
-      box-sizing: border-box;
       min-width: ${DEBUG_PANEL_MIN_SIZE.width}px;
       min-height: ${DEBUG_PANEL_MIN_SIZE.height}px;
-      background: rgba(20, 24, 21, 0.95);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      box-shadow:
-        0 4px 12px rgba(0, 0, 0, 0.5),
-        0 2px 4px rgba(0, 0, 0, 0.3);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      user-select: none;
-    }
-
-    .debug-panel-header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 8px;
-      background: var(--td-panel-secondary);
-      border-bottom: 1px solid var(--td-frame-dark);
-      cursor: grab;
-    }
-
-    .debug-panel-header:active {
-      cursor: grabbing;
-    }
-
-    .debug-panel-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      color: var(--td-gold);
-    }
-
-    .debug-panel-title {
-      flex: 1;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      color: var(--td-gold);
-      text-transform: uppercase;
-    }
-
-    .debug-panel-close {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 18px;
-      height: 18px;
-      padding: 0;
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--td-text-muted);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .debug-panel-close mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-
-    .debug-panel-close:hover {
-      background: var(--td-health-red);
-      border-color: var(--td-health-red);
-      color: var(--td-text-primary);
-    }
-
-    .debug-panel-content {
-      flex: 1;
-      min-height: 0;
-      padding: 8px;
-      overflow: auto;
-      ${TD_SCROLLBAR_STYLES}
-    }
-
-    .debug-panel-content::-webkit-scrollbar {
-      ${TD_SCROLLBAR_WEBKIT.scrollbar}
-    }
-
-    .debug-panel-content::-webkit-scrollbar-track {
-      ${TD_SCROLLBAR_WEBKIT.track}
-    }
-
-    .debug-panel-content::-webkit-scrollbar-thumb {
-      ${TD_SCROLLBAR_WEBKIT.thumb}
-    }
-
-    .debug-panel-content::-webkit-scrollbar-thumb:hover {
-      ${TD_SCROLLBAR_WEBKIT.thumbHover}
-    }
-
-    .resize-handle {
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 20px;
-      height: 20px;
-      cursor: nwse-resize;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--td-text-muted);
-      opacity: 0.5;
-      transition: opacity 0.15s;
-    }
-
-    .resize-handle:hover {
-      opacity: 1;
-      color: var(--td-teal);
-    }
-
-    .resize-handle mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      transform: rotate(-45deg);
     }
   `,
 })

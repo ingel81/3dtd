@@ -1,0 +1,70 @@
+@if (windowService.cameraWindow().isOpen) {
+  <app-draggable-debug-panel
+    windowId="camera"
+    title="Camera"
+    icon="eye"
+    [position]="windowService.cameraWindow().position"
+    [zIndex]="windowService.cameraWindow().zIndex"
+    (closed)="windowService.close('camera')"
+    (positionChange)="windowService.updatePosition('camera', $event)"
+    (focused)="windowService.bringToFront('camera')"
+  >
+    @if (cameraInfo(); as cam) {
+      <div class="camera-debug-content">
+        <div class="section">
+          <span class="section-label">Position</span>
+          <div class="row">
+            <span class="key">X:</span>
+            <span class="value">{{ cam.posX | number:'1.0-0' }}m</span>
+          </div>
+          <div class="row">
+            <span class="key">Y:</span>
+            <span class="value">{{ cam.posY | number:'1.0-0' }}m</span>
+          </div>
+          <div class="row">
+            <span class="key">Z:</span>
+            <span class="value">{{ cam.posZ | number:'1.0-0' }}m</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <span class="section-label">Angle</span>
+          <div class="row">
+            <span class="key">Heading:</span>
+            <span class="value">{{ cam.heading | number:'1.0-0' }}°</span>
+          </div>
+          <div class="row">
+            <span class="key">Pitch:</span>
+            <span class="value">{{ cam.pitch | number:'1.1-1' }}°</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <span class="section-label">Distance</span>
+          <div class="row">
+            <span class="key">Height:</span>
+            <span class="value">{{ cam.altitude | number:'1.0-0' }}m</span>
+          </div>
+          <div class="row">
+            <span class="key">Distance:</span>
+            <span class="value">{{ cam.distanceToCenter | number:'1.0-0' }}m</span>
+          </div>
+          <div class="row">
+            <span class="key">Terrain:</span>
+            <span class="value">{{ cam.terrainHeight | number:'1.0-0' }}m</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <span class="section-label">Optics</span>
+          <div class="row">
+            <span class="key">FOV:</span>
+            <span class="value">{{ cam.fov | number:'1.0-0' }}°</span>
+          </div>
+        </div>
+      </div>
+    } @else {
+      <div class="no-data">No camera data</div>
+    }
+  </app-draggable-debug-panel>
+}
