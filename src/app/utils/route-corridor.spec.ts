@@ -48,7 +48,7 @@ describe('corridorHalfWidth', () => {
     expect(corridorHalfWidth(8)).toBe(4);
   });
 
-  it('never goes below two cells or above the maximum', () => {
+  it('never goes below the minimum or above the maximum', () => {
     expect(corridorHalfWidth(2)).toBe(corridorConfig.minHalfWidth);
     expect(corridorHalfWidth(40)).toBe(corridorConfig.maxHalfWidth);
   });
@@ -64,7 +64,7 @@ describe('routeHalfWidths', () => {
   });
 
   it('uses the default before any street', () => {
-    expect(routeHalfWidths([null, { type: 'footway' }])).toEqual([corridorConfig.defaultHalfWidth, 2]);
+    expect(routeHalfWidths([null, { type: 'footway' }])).toEqual([corridorConfig.defaultHalfWidth, 1]);
   });
 });
 
@@ -118,8 +118,8 @@ describe('fitCorridorPieces', () => {
     expect(fitCorridorPieces([measured([7, 7, 7], [5.2, 5.2, 5.2])])).toEqual([[{ t: 0, left: 7, right: 5 }]]);
   });
 
-  it('narrows a side to the free space, rounded down, never below two cells', () => {
-    expect(fitCorridorPieces([measured([2.9, 2.9, 2.9], [0.4, 0.4, 0.4], 4)])).toEqual([[{ t: 0, left: 2.5, right: 2 }]]);
+  it('narrows a side to the free space, rounded down, never below half a cell', () => {
+    expect(fitCorridorPieces([measured([2.9, 2.9, 2.9], [0.4, 0.4, 0.4], 4)])).toEqual([[{ t: 0, left: 2.5, right: 1 }]]);
   });
 
   it('keeps the street width at stations it could not measure', () => {
@@ -163,8 +163,9 @@ describe('lateralLimit', () => {
     expect(lateralLimit(4)).toBe(4 - corridorConfig.edgeMargin);
   });
 
-  it('leaves room to spread even in the narrowest corridor', () => {
-    expect(lateralLimit(corridorConfig.minHalfWidth)).toBeGreaterThan(0);
+  it('lets enemies walk the centre line at a bottleneck', () => {
+    expect(lateralLimit(corridorConfig.minHalfWidth)).toBe(0);
+    expect(lateralLimit(2)).toBeGreaterThan(0);
   });
 });
 

@@ -18,9 +18,10 @@ import { haversineDistance } from './geo-utils';
  */
 export interface CorridorConfig {
   /**
-   * Smallest corridor half width, per side. Two 2 m cells across: towers
-   * only see enemies that stand in a cell, so the corridor never shrinks to
-   * a single file.
+   * Smallest corridor half width, per side. Half a cell: at a bottleneck the
+   * corridor is the file of cells the centre line runs through (the grid
+   * claims those in any case), and enemies there walk the centre line,
+   * since `lateralLimit` is 0 below `edgeMargin`.
    */
   minHalfWidth: number;
   /**
@@ -104,7 +105,7 @@ export interface CorridorConfig {
 
 /** The corridor as built, see {@link CorridorConfig}. */
 export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
-  minHalfWidth: 2,
+  minHalfWidth: 1,
   maxHalfWidth: 7,
   defaultHalfWidth: 4.5,
   edgeMargin: 1.5,
@@ -167,10 +168,11 @@ export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = ['stationSpac
 
 /** Allowed range per numeric setting, inclusive. */
 const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [number, number]> = {
-  minHalfWidth: [1.5, 15],
+  // The cells the centre line runs through belong to the corridor at any width.
+  minHalfWidth: [0, 15],
   // The route corridor loads fine tiles 20 m either side.
-  maxHalfWidth: [1.5, 15],
-  defaultHalfWidth: [1.5, 15],
+  maxHalfWidth: [1, 15],
+  defaultHalfWidth: [1, 15],
   // Half a cell diagonal at least, or enemies at the edge stand outside the cells.
   edgeMargin: [1.42, 5],
   taper: [0.05, 5],

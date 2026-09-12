@@ -222,11 +222,11 @@ describe('PathAndRouteService route geometry', () => {
       const route = buildRoute(network, { lat: 47.9995, lon: 9.0 }, hq);
 
       // n10, n1, n2, n3, turn-off on way 300, HQ. Residential 5.5 m, the
-      // 12 m width tag, a 2 m footway clamped to two cells, the leg to the
-      // HQ keeps the footway's, the HQ ends the route. Nothing is measured
-      // yet, so both sides have the street's half width.
-      expect(route.map((p) => p.corridorLeft)).toEqual([2.75, 6, 6, 2, 2, undefined]);
-      expect(route.map((p) => p.corridorRight)).toEqual([2.75, 6, 6, 2, 2, undefined]);
+      // 12 m width tag, a 2 m footway, one cell wide, the leg to the HQ
+      // keeps the footway's, the HQ ends the route. Nothing is measured yet,
+      // so both sides have the street's half width.
+      expect(route.map((p) => p.corridorLeft)).toEqual([2.75, 6, 6, 1, 1, undefined]);
+      expect(route.map((p) => p.corridorRight)).toEqual([2.75, 6, 6, 1, 1, undefined]);
     });
 
     it('marks the segments that run over a bridge', () => {

@@ -101,6 +101,31 @@ describe('Route corridor coverage', () => {
     expect(positionsOutside(route, factors)).toEqual([]);
   });
 
+  it('keeps every enemy inside a route cell at a bottleneck one cell wide', () => {
+    // Stretches half a cell either side between wide ones, straight north
+    // and on a diagonal.
+    const route: RouteWaypoint[] = [
+      at(0, 0, 6),
+      at(0, 60, 1),
+      at(0, 100, 6),
+      at(40, 130, 1),
+      at(80, 160, 5),
+      at(80, 200),
+    ];
+    expect(positionsOutside(route, factors)).toEqual([]);
+  });
+
+  it('keeps every enemy inside a route cell with one side a single cell and the other wide', () => {
+    const route: RouteWaypoint[] = [
+      at(0, 0, 1, 7),
+      at(0, 60, 7, 1),
+      at(40, 100, 1, 6),
+      at(80, 110, 6, 1),
+      at(80, 150),
+    ];
+    expect(positionsOutside(route, factors)).toEqual([]);
+  });
+
   it('keeps every enemy inside a route cell on random uneven routes', () => {
     // Deterministic pseudo-random routes: headings, lengths and both widths vary.
     let seed = 12345;
@@ -115,7 +140,7 @@ describe('Route corridor coverage', () => {
       let north = 0;
       let heading = random() * Math.PI * 2;
       for (let i = 0; i < 8; i++) {
-        route.push(at(east, north, 2 + Math.floor(random() * 11) / 2, 2 + Math.floor(random() * 11) / 2));
+        route.push(at(east, north, 1 + Math.floor(random() * 13) / 2, 1 + Math.floor(random() * 13) / 2));
         heading += (random() - 0.5) * Math.PI * 0.9;
         const length = 6 + random() * 40;
         east += Math.cos(heading) * length;
