@@ -14,8 +14,8 @@ import { ProjectileVisualType } from '../../configs/projectile-types.config';
 // ─── Trail Style Configs ────────────────────────────────────────────
 
 export interface TrailStreakStyle {
-  /** Maximum positions stored in ring buffer */
-  maxPoints: number;
+  /** Length behind the head, metres. The streak is cut there. */
+  length: number;
   /** Width at head (world units) */
   widthHead: number;
   /** Width at tail (world units) */
@@ -34,14 +34,20 @@ export interface TrailStreakStyle {
   minSegmentDistSq: number;
 }
 
+// Until 2026-09-12 a streak was its last `maxPoints` positions. Positions are
+// pushed once per rendered frame, so the same flight left a longer streak
+// the fewer frames it got: twice as long at 30 FPS or 2x game speed, four
+// times at 4x. It is now cut at `length`. The lengths are what the point
+// counts drew at 60 FPS and 1x, (maxPoints - 1) * speed / 60 with the speed
+// of the one projectile type that uses the style.
 const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
   rocket: {
     // Playtest 2026-09-10: 22 points drew a ~40 m fire line behind the
-    // rocket (points land once per frame, 2 m apart at 60 FPS). Now it is
-    // only the nozzle glow: 4 points, about 6 m at 60 FPS, hot yellow-white
-    // at the nozzle (PROJECTILE_TYPES.rocket.tailOffset) fading through
-    // orange to nothing. The grey smoke particles carry the trail.
-    maxPoints: 4,
+    // rocket. Now it is only the nozzle glow: 6 m (4 points at 60 FPS),
+    // hot yellow-white at the nozzle (PROJECTILE_TYPES.rocket.tailOffset)
+    // fading through orange to nothing. The grey smoke particles carry the
+    // trail.
+    length: 6,
     widthHead: 0.35,
     widthTail: 0.08,
     alphaHead: 0.8,
@@ -57,7 +63,7 @@ const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
   // theme-specific volume (spiral arcs for magic, frost puffs for ice, smoke
   // for cannon). Pool budget audited: ~73% additive / ~15% normal at peak.
   arrow: {
-    maxPoints: 14,
+    length: 17,
     widthHead: 0.2,
     widthTail: 0.15,
     alphaHead: 0.55,
@@ -68,7 +74,7 @@ const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
     minSegmentDistSq: 0.25,
   },
   magic: {
-    maxPoints: 20,
+    length: 32,
     widthHead: 0.4,
     widthTail: 0.3,
     alphaHead: 0.55,
@@ -79,7 +85,7 @@ const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
     minSegmentDistSq: 0.2,
   },
   ice: {
-    maxPoints: 18,
+    length: 25.5,
     widthHead: 0.35,
     widthTail: 0.25,
     alphaHead: 0.55,
@@ -90,7 +96,7 @@ const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
     minSegmentDistSq: 0.25,
   },
   cannonball: {
-    maxPoints: 12,
+    length: 9,
     widthHead: 0.3,
     widthTail: 0.2,
     alphaHead: 0.45,
@@ -105,7 +111,7 @@ const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
     // through emissive 2.0 + 0.25/0.02 wedge. Tracer now has volume
     // (uniform thickness) and a warm orange fade so it feels like a
     // proper tracer round, not a sci-fi laser.
-    maxPoints: 8,
+    length: 17.5,
     widthHead: 0.4,
     widthTail: 0.25,
     alphaHead: 0.55,
@@ -180,7 +186,10 @@ class TrailStreak {
   readonly style: TrailStreakStyle;
   readonly mesh: Mesh;
 
-  // Ring buffer of world positions (head = newest)
+  // Ring buffer of world positions (head = newest). Recorded positions are
+  // at least sqrt(minSegmentDistSq) apart, so `capacity` of them always
+  // reach `length`.
+  private readonly capacity: number;
   private ring: Vector3[];
   private head = 0;   // write cursor
   private count = 0;  // how many valid entries
@@ -192,16 +201,23 @@ class TrailStreak {
   private indexAttr: BufferAttribute;
 
   // Reusable temp vectors
-  private static _forward = new Vector3();
   private static _side = new Vector3();
   private static _up = new Vector3(0, 1, 0);
-  private static _prev = new Vector3();
-  private static _next = new Vector3();
+  private static _xAxis = new Vector3(1, 0, 0);
   private static _tangent = new Vector3();
+  // Drawn points of the trail being rebuilt, newest first, and their
+  // distance from the head. Shared: trails rebuild one after another.
+  private static _points: Vector3[] = [];
+  private static _along: number[] = [];
 
   constructor(style: TrailStreakStyle, sharedMaterial: ShaderMaterial) {
     this.style = style;
-    const n = style.maxPoints;
+    const n = Math.ceil(style.length / Math.sqrt(style.minSegmentDistSq)) + 1;
+    this.capacity = n;
+    while (TrailStreak._points.length < n) {
+      TrailStreak._points.push(new Vector3());
+      TrailStreak._along.push(0);
+    }
 
     // Ring buffer
     this.ring = [];
@@ -273,66 +289,77 @@ class TrailStreak {
   /** Push a new world-space position (call once per frame per projectile) */
   pushPosition(pos: Vector3): void {
     // Skip if too close to last position (avoid degenerate segments)
+    const cap = this.capacity;
     if (this.count > 0) {
-      const last = this.ring[(this.head - 1 + this.style.maxPoints) % this.style.maxPoints];
+      const last = this.ring[(this.head - 1 + cap) % cap];
       if (pos.distanceToSquared(last) < this.style.minSegmentDistSq) return;
     }
 
     this.ring[this.head].copy(pos);
-    this.head = (this.head + 1) % this.style.maxPoints;
-    if (this.count < this.style.maxPoints) this.count++;
+    this.head = (this.head + 1) % cap;
+    if (this.count < cap) this.count++;
   }
 
-  /** Rebuild mesh geometry from current ring buffer. Call once per frame. */
+  /**
+   * Rebuild mesh geometry from the ring buffer. Call once per frame.
+   *
+   * Walks back from the newest position and cuts the streak where it
+   * reaches `style.length`, so the distance flown between two rendered
+   * frames (frame rate, game speed) does not change how long it is.
+   */
   updateGeometry(): void {
     if (this.count < 2) {
       this.mesh.geometry.setDrawRange(0, 0);
       return;
     }
 
-    const n = this.count;
+    const cap = this.capacity;
+    const maxLength = this.style.length;
+    const points = TrailStreak._points;
+    const along = TrailStreak._along;
+
+    // Newest first; the oldest drawn point sits where the length runs out
+    let ringIdx = (this.head - 1 + cap) % cap;
+    points[0].copy(this.ring[ringIdx]);
+    along[0] = 0;
+    let n = 1;
+    let total = 0;
+    for (let k = 1; k < this.count && total < maxLength; k++) {
+      ringIdx = (ringIdx - 1 + cap) % cap;
+      const older = this.ring[ringIdx];
+      const seg = points[n - 1].distanceTo(older);
+      if (total + seg > maxLength) {
+        points[n].lerpVectors(points[n - 1], older, (maxLength - total) / seg);
+        total = maxLength;
+      } else {
+        points[n].copy(older);
+        total += seg;
+      }
+      along[n++] = total;
+    }
+
     const positions = this.posAttr.array as Float32Array;
     const alphas = this.alphaAttr.array as Float32Array;
     const colors = this.colorAttr.array as Float32Array;
 
     const { widthHead, widthTail, alphaHead, alphaTail, colorHead, colorTail } = this.style;
 
-    // Iterate from tail (oldest) to head (newest)
     for (let i = 0; i < n; i++) {
-      // ring index: oldest first
-      const ringIdx = (this.head - n + i + this.style.maxPoints) % this.style.maxPoints;
-      const pt = this.ring[ringIdx];
+      const pt = points[i];
 
-      // t: 0 = tail (oldest), 1 = head (newest)
-      const t = n > 1 ? i / (n - 1) : 1;
+      // t: 1 = head (newest), 0 = tail end, by distance along the streak
+      const t = 1 - along[i] / total;
 
-      // Compute tangent
-      const _prevIdx = (ringIdx - 1 + this.style.maxPoints) % this.style.maxPoints;
-      const _nextIdx = (ringIdx + 1) % this.style.maxPoints;
-
-      if (i === 0 && n > 1) {
-        // First point — forward direction only
-        const next = this.ring[(this.head - n + 1 + this.style.maxPoints) % this.style.maxPoints];
-        TrailStreak._tangent.subVectors(next, pt).normalize();
-      } else if (i === n - 1 && n > 1) {
-        // Last point — backward direction only
-        const prevRing = (this.head - n + i - 1 + this.style.maxPoints) % this.style.maxPoints;
-        const prev = this.ring[prevRing];
-        TrailStreak._tangent.subVectors(pt, prev).normalize();
-      } else {
-        // Middle — average of neighbours
-        const pRing = (this.head - n + i - 1 + this.style.maxPoints) % this.style.maxPoints;
-        const nRing = (this.head - n + i + 1 + this.style.maxPoints) % this.style.maxPoints;
-        TrailStreak._prev.copy(this.ring[pRing]);
-        TrailStreak._next.copy(this.ring[nRing]);
-        TrailStreak._tangent.subVectors(TrailStreak._next, TrailStreak._prev).normalize();
-      }
+      // Tangent towards the head, from the neighbours (one-sided at the ends)
+      TrailStreak._tangent
+        .subVectors(points[Math.max(i - 1, 0)], points[Math.min(i + 1, n - 1)])
+        .normalize();
 
       // Side vector = cross(tangent, up), fallback if nearly parallel
       TrailStreak._side.crossVectors(TrailStreak._tangent, TrailStreak._up);
       if (TrailStreak._side.lengthSq() < 0.001) {
-        // Tangent nearly vertical — use world X as fallback up
-        TrailStreak._side.crossVectors(TrailStreak._tangent, new Vector3(1, 0, 0));
+        // Tangent nearly vertical: use world X as fallback up
+        TrailStreak._side.crossVectors(TrailStreak._tangent, TrailStreak._xAxis);
       }
       TrailStreak._side.normalize();
 
