@@ -49,11 +49,33 @@ describe('ThreeTowerRenderer turret heading', () => {
     renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
   });
 
-  it('starts a new tower at its guard heading, and the placement scan returns there', async () => {
+  it('sweeps around the placed pose first, then turns to the guard heading', async () => {
     const data = await create(1.0);
-    expect(angleBetween(turretHeading(data), 1.0)).toBeLessThan(1e-9);
+    // Placed as the preview showed it: the model's own turret pose.
+    expect(data.currentLocalRotation).toBe(0);
+    expect(data.turretPart!.rotation.y).toBe(0);
 
-    advance(5000); // 800 ms delay, then left, right and back
+    // Visible the whole way: the node follows every step, never faster than
+    // the aiming speed, so there is no jump.
+    const maxStep = Math.PI * (STEP_MS / 1000) + 1e-9;
+    let previous = data.turretPart!.rotation.y;
+    let sweepMin = 0;
+    let sweepMax = 0;
+    for (let t = 0; t < 6000; t += STEP_MS) {
+      renderer.advanceTurretAim(STEP_MS);
+      expect(data.turretPart!.rotation.y).toBe(data.currentLocalRotation);
+      expect(Math.abs(data.turretPart!.rotation.y - previous)).toBeLessThanOrEqual(maxStep);
+      previous = data.turretPart!.rotation.y;
+      if (data.scanPhase > 0) {
+        sweepMin = Math.min(sweepMin, data.currentLocalRotation);
+        sweepMax = Math.max(sweepMax, data.currentLocalRotation);
+      }
+    }
+
+    // Reference sweep: 75° either side of the pose it was placed in.
+    expect(sweepMin).toBeCloseTo(-1.309, 6);
+    expect(sweepMax).toBeCloseTo(1.309, 6);
+    // Then the turn to the guard heading.
     expect(data.scanPhase).toBe(0);
     expect(angleBetween(turretHeading(data), 1.0)).toBeLessThan(1e-9);
   });
