@@ -108,18 +108,28 @@ import { TdIconComponent } from '../icon/icon.component';
             <span>{{ enemiesAlive() }}</span>
           </div>
         }
+        <!-- The visible labels name the values, the icons are decoration -->
         <div class="header-stats">
           <div class="stat hp">
-            <td-icon name="heart" [size]="16" ariaLabel="Health"></td-icon>
-            <span>{{ baseHealth() }}</span>
+            <td-icon name="heart" [size]="16"></td-icon>
+            <div class="stat-text">
+              <span class="stat-label">HQ</span>
+              <span class="stat-value">{{ baseHealth() }}</span>
+            </div>
           </div>
           <div class="stat credits">
-            <td-icon name="coin" [size]="16" ariaLabel="Credits"></td-icon>
-            <span>{{ credits() }}</span>
+            <td-icon name="coin" [size]="16"></td-icon>
+            <div class="stat-text">
+              <span class="stat-label">CREDITS</span>
+              <span class="stat-value">{{ credits() }}</span>
+            </div>
           </div>
           <div class="stat wave">
-            <td-icon name="wave" [size]="16" ariaLabel="Wave"></td-icon>
-            <span>{{ waveNumber() }}</span>
+            <td-icon name="wave" [size]="16"></td-icon>
+            <div class="stat-text">
+              <span class="stat-label">WAVE</span>
+              <span class="stat-value">{{ waveNumber() }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -148,7 +158,7 @@ import { TdIconComponent } from '../icon/icon.component';
         url('./src/styles/textures/stone-wall.jpg') repeat;
       background-size: auto, 64px 64px;
       border-bottom: 3px solid var(--td-panel-shadow);
-      border-top: 1px solid var(--td-frame-light);
+      border-top: 1px solid var(--td-gold-dark);
       box-shadow:
         0 4px 8px rgba(0, 0, 0, 0.5),
         0 2px 4px rgba(0, 0, 0, 0.3),
@@ -251,30 +261,46 @@ import { TdIconComponent } from '../icon/icon.component';
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
       min-width: 0;
-      font-size: 15px;
-      font-weight: 700;
       font-variant-numeric: tabular-nums;
-      padding: 6px 8px;
+    }
+
+    /* Bar cells: icon plus a small label over the value. Label 9px and
+       value 17px line-height plus 3px padding keep the bar at 34px, so the
+       header stays 46px high. */
+    .header-stats .stat {
+      gap: 7px;
+      padding: 3px 8px;
+    }
+
+    .stat-text {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .stat-label {
+      font-size: 8px;
+      line-height: 9px;
+      letter-spacing: 0.16em;
+      color: var(--td-text-muted);
+    }
+
+    .stat-value {
+      font-size: 15px;
+      line-height: 17px;
+      font-weight: 700;
     }
 
     .enemies-chip {
+      gap: 6px;
       padding: 6px 12px;
+      font-size: 15px;
+      font-weight: 700;
     }
 
     .stat + .stat {
       border-left: 1px solid var(--td-frame-dark);
-    }
-
-    .stat mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-
-    .stat td-icon {
-      stroke-width: 1.6;
     }
 
     .stat.hp { color: var(--td-health-red); }
