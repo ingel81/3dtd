@@ -9,7 +9,7 @@ import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../configs/enem
 import { AssetManagerService } from '../../../services/infrastructure/asset-manager.service';
 import { EnemyInstanceManager, EnemyInstanceState } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
-import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT, vatClips } from './vat-baker';
+import { bakeEnemyVAT } from './vat-baker';
 import { registerEnemyModelCenterY } from '../../../utils/enemy-aim.util';
 
 // Dummy Object3D shared across all instanced enemy stubs
@@ -107,53 +107,24 @@ export class InstancedEnemyRenderer {
     try {
       const cached = await this.assetManager.loadModel(config.modelUrl);
 
-      if (config.hasAnimations && cached.animations.length > 0) {
-        // Clone with skeleton for VAT baking
-        const clone = this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: true });
-        if (!clone) {
-          console.error(`[InstancedRenderer] Clone failed for ${typeId} — enemy type will not render`);
-          this.loadedTypes.add(typeId);
-          return;
-        }
-
-        const clips = vatClips(config);
-        let vatData = bakeVAT(clone, cached.animations, clips);
-
-        // Fallback: try object/rigid-body animation bake (e.g., mech, hornet)
-        if (!vatData) {
-          vatData = bakeObjectAnimVAT(clone, cached.animations, clips);
-        }
-
-        if (vatData) {
-          // Use config's unlit flag (material detection is unreliable before conversion)
-          if (config.unlit) vatData.isUnlit = true;
-          registerEnemyModelCenterY(typeId, (vatData.modelMinY + vatData.modelMaxY) / 2);
-          this.instanceManager.createPool(typeId, vatData, config);
-          this.loadedTypes.add(typeId);
-        } else {
-          console.error(`[InstancedRenderer] VAT bake failed for ${typeId} — enemy type will not render`);
-          this.loadedTypes.add(typeId);
-        }
-      } else {
-        // Non-animated model → static VAT
-        const clone = this.assetManager.cloneModel(config.modelUrl);
-        if (!clone) {
-          console.error(`[InstancedRenderer] Clone failed for ${typeId} — enemy type will not render`);
-          this.loadedTypes.add(typeId);
-          return;
-        }
-
-        const vatData = bakeStaticVAT(clone);
-        if (vatData) {
-          if (config.unlit) vatData.isUnlit = true;
-          registerEnemyModelCenterY(typeId, (vatData.modelMinY + vatData.modelMaxY) / 2);
-          this.instanceManager.createPool(typeId, vatData, config);
-          this.loadedTypes.add(typeId);
-        } else {
-          console.error(`[InstancedRenderer] Static VAT failed for ${typeId} — enemy type will not render`);
-          this.loadedTypes.add(typeId);
-        }
+      // Clone with skeleton for VAT baking; for a model without bones it is a plain clone.
+      const clone = this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: true });
+      if (!clone) {
+        console.error(`[InstancedRenderer] Clone failed for ${typeId}, enemy type will not render`);
+        this.loadedTypes.add(typeId);
+        return;
       }
+
+      const vatData = bakeEnemyVAT(config, clone, cached.animations);
+      if (vatData) {
+        // Use config's unlit flag (material detection is unreliable before conversion)
+        if (config.unlit) vatData.isUnlit = true;
+        registerEnemyModelCenterY(typeId, (vatData.modelMinY + vatData.modelMaxY) / 2);
+        this.instanceManager.createPool(typeId, vatData, config);
+      } else {
+        console.error(`[InstancedRenderer] VAT bake failed for ${typeId}, enemy type will not render`);
+      }
+      this.loadedTypes.add(typeId);
     } catch (err) {
       console.error(`[InstancedRenderer] Failed to bake ${typeId}:`, err);
       this.loadedTypes.add(typeId);

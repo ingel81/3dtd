@@ -131,6 +131,26 @@ vec2 vatUV = vec2(
 
 Das `+ 0.5` ist Texel-Center-Sampling (NearestFilter).
 
+### Texelformat (RGBA16F oder RGBA32F)
+
+`vatEncoding()` wählt das Format pro Gegnertyp aus den gebackenen Positionen:
+
+- Gespeichert wird relativ zur Mitte der Bounding-Box über alle Frames, geteilt durch die
+  halbe Ausdehnung je Achse. Jeder Wert liegt damit in [-1, 1], und Half-Float
+  (`toHalfFloatRounded`, rundet zum nächsten Wert) weicht höchstens um 2^-12 der halben
+  Ausdehnung ab. Wie weit das Modell von seinem eigenen Ursprung entfernt liegt, spielt keine
+  Rolle mehr.
+- Bleibt dieser Fehler mal `EnemyTypeConfig.scale` bei höchstens `VAT_HALF_FLOAT_MAX_ERROR`
+  (2 mm), ist die VAT RGBA16F (`HalfFloatType`, 8 Byte pro Texel), sonst RGBA32F
+  (16 Byte) mit den Positionen, wie sie sind.
+- Die 2 mm: Die Kamera bleibt mindestens 5 m vom Orbit-Ziel (`CameraRig`, 60° vertikales
+  FOV). Ein Pixel deckt dort 5,3 mm bei 1080 und 4,0 mm bei 1440 Bildzeilen ab.
+- Der Shader dekodiert mit `vatPos.xyz * vatExtent + vatOrigin`. Für RGBA32F sind Extent 1
+  und Origin 0, die Positionen bleiben bitgleich.
+- Welcher Typ welches Format bekommt, zeigt [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md)
+  (Spalten „Format“ und „Half-Fehler mm“). Der Generator backt dafür jedes Modell mit den
+  Loadern des Spiels.
+
 ### Multi-Material Support
 
 Modelle mit mehreren Materialien (z.B. Tank: Turret mit Textur, Ketten ohne) werden ueber Per-Vertex Attribute gehandhabt:
@@ -166,10 +186,12 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 
 | Uniform | Typ | Beschreibung |
 |---------|-----|-------------|
-| `vatTexture` | sampler2D | VAT DataTexture (RGBA32F) |
+| `vatTexture` | sampler2D | VAT DataTexture (RGBA16F oder RGBA32F) |
 | `vatWidth` | float | Texturbreite (texWidth) |
 | `vatHeight` | float | Texturhoehe (totalFrames × rowsPerFrame) |
 | `rowsPerFrame` | float | Zeilen pro Frame (Tiling) |
+| `vatOrigin` | vec3 | Mitte der Bounding-Box (RGBA16F), sonst 0 |
+| `vatExtent` | vec3 | Halbe Ausdehnung der Bounding-Box (RGBA16F), sonst 1 |
 | `diffuseMap` | sampler2D | Diffuse Texture (optional) |
 | `hasDiffuse` | float | 1.0 wenn Texture vorhanden |
 | `isUnlit` | float | 1.0 fuer unbeleuchtete Modelle |

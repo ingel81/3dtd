@@ -16,22 +16,34 @@
  * InstancedEnemyRenderer.bakeAndCreatePool: skinned meshes if there are any,
  * otherwise the rigid meshes of an object-animated model, and every mesh of a
  * static one.
+ *
+ * The texel format (RGBA16F or RGBA32F) depends on the baked positions, so
+ * every model is also loaded with the game's loaders and baked like the game
+ * does it (bakeEnemyVAT), without textures: the bake reads geometry only.
  */
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { HalfFloatType, type AnimationClip, type Object3D } from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import { ENEMY_TYPES, type EnemyTypeConfig } from '../../src/app/configs/enemy-types.config';
 import { TEMPLATES } from '../../src/app/ai/core/templates';
 import { WAVE_CURRICULUM, STATIC_WAVE_PROFILES } from '../../src/app/configs/wave-curriculum.config';
 import { TIMING } from '../../src/app/configs/timing.config';
 import {
+  bakeEnemyVAT,
   DEFAULT_BAKE_FPS,
+  VAT_HALF_FLOAT_MAX_ERROR,
   vatClips,
   vatFrameCount,
   vatLayout,
+  type VATData,
+  type VATEncoding,
 } from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
 import { writeGeneratedFile } from '../generated-file';
 import { inspectModel, type ImageInfo, type MeshInfo, type ModelInfo } from './model-inspect';
@@ -45,8 +57,6 @@ const END = '<!-- model-budget:end -->';
 /** A wave can bring at least this many of a swarm enemy. */
 const SWARM_MIN_PER_WAVE = 400;
 const NORMAL_MIN_PER_WAVE = 100;
-/** The VAT is RGBA32F. */
-const VAT_BYTES_PER_TEXEL = 16;
 
 type BakePath = 'skinned' | 'object' | 'static' | 'failed';
 
@@ -86,6 +96,8 @@ interface Row {
   rowsPerFrame: number;
   diffuse: ImageInfo | null;
   presence: Presence;
+  /** The game's bake of the model, null if it failed. */
+  baked: { encoding: VATEncoding; width: number; height: number } | null;
 }
 
 function roleOf(config: EnemyTypeConfig, name: string): string {
@@ -136,38 +148,74 @@ function presenceOf(id: string): Presence {
   return { perWave, waves, staticMax };
 }
 
-function buildRows(): Row[] {
-  return Object.entries(ENEMY_TYPES)
-    .map(([id, config]): Row => {
-      const model = inspectModel(resolve(ROOT, 'public', config.modelUrl));
-      const bake = planBake(config, model);
-      const vertices = bake.meshes.reduce((s, m) => s + m.vertices, 0);
-      const triangles = bake.meshes.reduce((s, m) => s + m.triangles, 0);
-      const { texWidth, rowsPerFrame } = vatLayout(Math.max(1, vertices));
-      // The shader samples the map of the mesh with the most vertices.
-      let diffuse: ImageInfo | null = null;
-      let best = 0;
-      for (const mesh of bake.meshes) {
-        if (mesh.diffuse && mesh.vertices > best) {
-          diffuse = mesh.diffuse;
-          best = mesh.vertices;
-        }
+/** Loads a model with the game's loaders and bakes it as InstancedEnemyRenderer does. */
+async function bakeModel(config: EnemyTypeConfig): Promise<VATData | null> {
+  const bytes = readFileSync(resolve(ROOT, 'public', config.modelUrl));
+  // The loaders check `instanceof ArrayBuffer` against the test DOM's realm.
+  const buffer = new ArrayBuffer(bytes.length);
+  new Uint8Array(buffer).set(bytes);
+  let model: Object3D;
+  let animations: AnimationClip[];
+  if (config.modelUrl.toLowerCase().endsWith('.fbx')) {
+    model = new FBXLoader().parse(buffer, '');
+    animations = model.animations;
+  } else {
+    const loader = new GLTFLoader();
+    // Decoding images needs a browser. Without their extensions (WebP, ...)
+    // no built-in plugin takes a texture on before this one skips it.
+    loader.register((parser) => ({
+      name: 'model-budget-no-textures',
+      beforeRoot: () => {
+        for (const texture of parser.json.textures ?? []) delete texture.extensions;
+        return null;
+      },
+      loadTexture: () => Promise.resolve(null),
+    }));
+    const gltf = await loader.parseAsync(buffer, '');
+    model = gltf.scene;
+    animations = gltf.animations;
+  }
+  return bakeEnemyVAT(config, SkeletonUtils.clone(model), animations);
+}
+
+async function buildRows(): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (const [id, config] of Object.entries(ENEMY_TYPES)) {
+    const model = inspectModel(resolve(ROOT, 'public', config.modelUrl));
+    const bake = planBake(config, model);
+    const vertices = bake.meshes.reduce((s, m) => s + m.vertices, 0);
+    const triangles = bake.meshes.reduce((s, m) => s + m.triangles, 0);
+    const { texWidth, rowsPerFrame } = vatLayout(Math.max(1, vertices));
+    // The shader samples the map of the mesh with the most vertices.
+    let diffuse: ImageInfo | null = null;
+    let best = 0;
+    for (const mesh of bake.meshes) {
+      if (mesh.diffuse && mesh.vertices > best) {
+        diffuse = mesh.diffuse;
+        best = mesh.vertices;
       }
-      return {
-        id,
-        config,
-        model,
-        bake,
-        vertices,
-        triangles,
-        texWidth,
-        texHeight: bake.totalFrames * rowsPerFrame,
-        rowsPerFrame,
-        diffuse,
-        presence: presenceOf(id),
-      };
-    })
-    .sort((a, b) => b.vertices - a.vertices || a.id.localeCompare(b.id));
+    }
+    const vat = await bakeModel(config);
+    rows.push({
+      id,
+      config,
+      model,
+      bake,
+      vertices,
+      triangles,
+      texWidth,
+      texHeight: bake.totalFrames * rowsPerFrame,
+      rowsPerFrame,
+      diffuse,
+      presence: presenceOf(id),
+      baked: vat && {
+        encoding: vat.encoding,
+        width: vat.positionTexture.image.width,
+        height: vat.positionTexture.image.height,
+      },
+    });
+  }
+  return rows.sort((a, b) => b.vertices - a.vertices || a.id.localeCompare(b.id));
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +227,9 @@ const dec = (n: number, digits = 1): string =>
   n.toLocaleString('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 const mb = (bytes: number): string => dec(bytes / (1024 * 1024));
 const size = (image: ImageInfo | null): string => (image ? `${image.width}²` : '–');
-const vatBytes = (row: Row): number => row.texWidth * row.texHeight * VAT_BYTES_PER_TEXEL;
+const isHalfFloat = (row: Row): boolean => row.baked?.encoding.type === HalfFloatType;
+const bytesPerTexel = (row: Row): number => (isHalfFloat(row) ? 8 : 16);
+const vatBytes = (row: Row): number => row.texWidth * row.texHeight * bytesPerTexel(row);
 
 function classOf(perWave: number): string {
   if (perWave >= SWARM_MIN_PER_WAVE) return 'Swarm';
@@ -231,11 +281,13 @@ function render(rows: Row[]): string {
   out.push('Sortiert nach VAT-Vertices pro Instanz. „max./Welle“ ist Anteil × Obergrenze von');
   out.push('`countRange` über alle Templates, vor dem Fairness-Gate, das die meisten Wellen kleiner');
   out.push('macht. „Mio. Vertices“ = VAT-Vertices × max./Welle, also die Vertex-Shader-Last, wenn alle');
-  out.push('Gegner der größten Welle gleichzeitig leben.');
+  out.push('Gegner der größten Welle gleichzeitig leben. „Half-Fehler“ ist der größte Fehler, den');
+  out.push('RGBA16F einer Position im Spiel zufügt (`vatEncoding` in `vat-baker.ts`, aus den gebackenen');
+  out.push(`Positionen). Bis ${dec(VAT_HALF_FLOAT_MAX_ERROR * 1000, 0)} mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (16 Byte).`);
   out.push('');
   out.push(table(
-    ['Gegner', 'Klasse', 'max./Welle', 'VAT-Vertices', 'Dreiecke', 'Mio. Vertices', 'Bake-Pfad', 'VAT-Frames', 'VAT-Textur', 'VAT-MB', 'Diffuse'],
-    'llrrrrlrrrr',
+    ['Gegner', 'Klasse', 'max./Welle', 'VAT-Vertices', 'Dreiecke', 'Mio. Vertices', 'Bake-Pfad', 'VAT-Frames', 'VAT-Textur', 'Format', 'Half-Fehler mm', 'VAT-MB', 'Diffuse'],
+    'llrrrrlrrlrrr',
     rows.map((r) => [
       `${r.config.name} (\`${r.id}\`)`,
       classOf(r.presence.perWave),
@@ -246,17 +298,20 @@ function render(rows: Row[]): string {
       BAKE_LABEL[r.bake.path],
       int(r.bake.totalFrames),
       `${r.texWidth}×${r.texHeight}`,
+      r.baked ? (isHalfFloat(r) ? 'RGBA16F' : 'RGBA32F') : '–',
+      r.baked ? dec(r.baked.encoding.halfFloatError * 1000, 2) : '–',
       mb(vatBytes(r)),
       size(r.diffuse),
     ]),
   ));
   const totalVat = rows.reduce((s, r) => s + vatBytes(r), 0);
+  const totalVat32 = rows.reduce((s, r) => s + r.texWidth * r.texHeight * 16, 0);
   const cutVat = rows.reduce(
-    (s, r) => s + r.bake.clips.reduce((c, clip) => c + clip.cutFrames, 0) * r.rowsPerFrame * r.texWidth * VAT_BYTES_PER_TEXEL,
+    (s, r) => s + r.bake.clips.reduce((c, clip) => c + clip.cutFrames, 0) * r.rowsPerFrame * r.texWidth * bytesPerTexel(r),
     0,
   );
   out.push('');
-  out.push(`VAT-Speicher aller Typen zusammen: **${mb(totalVat)} MB** (RGBA32F, ${DEFAULT_BAKE_FPS} fps).`);
+  out.push(`VAT-Speicher aller Typen zusammen: **${mb(totalVat)} MB** (${DEFAULT_BAKE_FPS} fps), alles in RGBA32F wären **${mb(totalVat32)} MB**.`);
   out.push(`Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **${mb(cutVat)} MB** dazu.`);
   out.push('');
 
@@ -345,13 +400,16 @@ function render(rows: Row[]): string {
 }
 
 describe('enemy model budget', () => {
-  it('measures every enemy model and writes the budget tables', () => {
-    const rows = buildRows();
+  it('measures every enemy model and writes the budget tables', async () => {
+    const rows = await buildRows();
     for (const row of rows) {
       expect(row.bake.path, `${row.id}: VAT bake`).not.toBe('failed');
       expect(row.vertices, `${row.id}: VAT vertices`).toBeGreaterThan(0);
       const missing = row.bake.clips.filter((c) => c.duration === null).map((c) => c.name);
       expect(missing, `${row.id}: configured clips missing from the model`).toEqual([]);
+      // The size planned from the file must be what the game's bake builds.
+      expect(row.baked, `${row.id}: bake with the game's loaders`).not.toBeNull();
+      expect([row.baked?.width, row.baked?.height], `${row.id}: baked VAT size`).toEqual([row.texWidth, row.texHeight]);
     }
 
     const doc = readFileSync(DOC_PATH, 'utf8');
