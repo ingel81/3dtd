@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Group, Vector3 } from 'three';
 
 // Zellen-Stub, pro Test steuerbar: `ready` = Grid initialisiert, `cellY` = Zellhöhe.
@@ -78,6 +78,9 @@ type Hits = number | number[];
 type Clearance = number | { left: Hits; right: Hits } | null;
 let clearanceAt: (x: number, z: number, max: number) => Clearance = (_x, _z, max) => max;
 
+/** Jede Messstation, die der Engine-Ersatz beantwortet hat: Ort, Richtung, Strahlhöhen, Länge, Deck. */
+const probeCalls: unknown[][] = [];
+
 /** Minimaler Engine-Ersatz: flaches Gelände, Geo→Lokal als Plattkarte um ORIGIN. */
 function makeEngine(): ThreeTilesEngine {
   const overlay = new Group();
@@ -88,8 +91,9 @@ function makeEngine(): ThreeTilesEngine {
       // Höhe des gelben Overlays: flaches Gelände.
       getGroundHeightEstimate: () => 0,
       measureStreetClearance: (
-        x: number, z: number, _ax: number, _az: number, heights: readonly number[], max: number,
+        x: number, z: number, ax: number, az: number, heights: readonly number[], max: number, onDeck = false,
       ): StationProbe => {
+        probeCalls.push([x, z, ax, az, [...heights], max, onDeck]);
         const free = clearanceAt(x, z, max);
         if (free === null) return { unmeasured: 'coarse tile', tileError: 20, left: [], right: [] };
         const perHeight = (hits: Hits) => (typeof hits === 'number' ? heights.map(() => hits) : hits);
@@ -148,6 +152,13 @@ function buildRouteService(network: StreetNetwork, spawn: { lat: number; lon: nu
 
 function spawnPointAt(spawn: { lat: number; lon: number }): SpawnPoint {
   return { id: 's1', name: 'Spawn', color: 0xff0000, lat: spawn.lat, lon: spawn.lon };
+}
+
+/** Measure every station in one go: a run with an unlimited budget, committed. */
+function measure(service: PathAndRouteService): boolean {
+  const run = service.beginClearanceMeasurement();
+  run.step(Infinity);
+  return run.commit();
 }
 
 describe('PathAndRouteService route geometry', () => {
@@ -278,7 +289,7 @@ describe('PathAndRouteService route geometry', () => {
         clearanceAt = () => 5.2;
         const service = buildRouteService(network, spawn, hq);
 
-        expect(service.measureStreetClearance()).toBe(true);
+        expect(measure(service)).toBe(true);
         service.showPathFromSpawn(spawnPointAt(spawn));
         const route = service.getCachedPath('s1')!;
 
@@ -295,7 +306,7 @@ describe('PathAndRouteService route geometry', () => {
           Math.abs(x) < 1 && northOfN1(z) > 40 && northOfN1(z) < 80 ? { left: max, right: 2.6 } : max;
         const service = buildRouteService(network, spawn, hq);
 
-        expect(service.measureStreetClearance()).toBe(true);
+        expect(measure(service)).toBe(true);
         service.showPathFromSpawn(spawnPointAt(spawn));
         const route = service.getCachedPath('s1')!;
 
@@ -317,7 +328,7 @@ describe('PathAndRouteService route geometry', () => {
       it('ignores something narrow that stands in the way for a single station', () => {
         clearanceAt = (x, z, max) => (Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 1 ? 1 : max);
         const service = buildRouteService(network, spawn, hq);
-        service.measureStreetClearance();
+        measure(service);
         service.showPathFromSpawn(spawnPointAt(spawn));
         expect(service.getCachedPath('s1')!.map((p) => p.corridorLeft)).toEqual([7, 7, 7, 7, 2.75, undefined]);
       });
@@ -325,10 +336,10 @@ describe('PathAndRouteService route geometry', () => {
       it('keeps the street width where no fine tile is loaded, and tries again later', () => {
         clearanceAt = () => null;
         const service = buildRouteService(network, spawn, hq);
-        expect(service.measureStreetClearance()).toBe(false);
+        expect(measure(service)).toBe(false);
 
         clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 40 && northOfN1(z) < 80 ? 2.6 : max);
-        expect(service.measureStreetClearance()).toBe(true);
+        expect(measure(service)).toBe(true);
       });
 
       it('measures the stations again that had no fine tile, and only those', () => {
@@ -338,14 +349,14 @@ describe('PathAndRouteService route geometry', () => {
           Math.abs(x) < 1 && northOfN1(z) > 40 && northOfN1(z) < 80 ? 2.6 : max;
         clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 60 && northOfN1(z) < 110 ? null : facades(x, z, max));
         const service = buildRouteService(network, spawn, hq);
-        expect(service.measureStreetClearance()).toBe(true);
+        expect(measure(service)).toBe(true);
 
         const remeasured: number[] = [];
         clearanceAt = (x, z, max) => {
           if (Math.abs(x) < 1) remeasured.push(northOfN1(z));
           return facades(x, z, max);
         };
-        expect(service.measureStreetClearance()).toBe(true);
+        expect(measure(service)).toBe(true);
         expect(remeasured.length).toBeGreaterThan(0);
         expect(Math.min(...remeasured)).toBeGreaterThan(60);
 
@@ -366,11 +377,11 @@ describe('PathAndRouteService route geometry', () => {
           return max;
         };
         const service = buildRouteService(network, spawn, hq);
-        service.measureStreetClearance();
+        measure(service);
         expect(calls).toBeGreaterThan(100);
 
         calls = 0;
-        service.measureStreetClearance();
+        measure(service);
         expect(calls).toBe(0);
       });
 
@@ -380,7 +391,7 @@ describe('PathAndRouteService route geometry', () => {
         clearanceAt = (x, z, max) =>
           Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 30 ? { left: max, right: [2, 6] } : max;
         const service = buildRouteService(network, spawn, hq);
-        service.measureStreetClearance();
+        measure(service);
         service.showPathFromSpawn(spawnPointAt(spawn));
 
         const n1Local = toMeters(n1);
@@ -401,7 +412,7 @@ describe('PathAndRouteService route geometry', () => {
       it('says why a station has no measurement', () => {
         clearanceAt = () => null;
         const service = buildRouteService(network, spawn, hq);
-        service.measureStreetClearance();
+        measure(service);
 
         const n1Local = toMeters(n1);
         const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
@@ -414,12 +425,12 @@ describe('PathAndRouteService route geometry', () => {
         clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 60 && northOfN1(z) < 110 ? null : max);
         const service = buildRouteService(network, spawn, hq);
         expect(service.hasUnmeasuredStations()).toBe(false);
-        service.measureStreetClearance();
+        measure(service);
         expect(service.hasUnmeasuredStations()).toBe(true);
 
         // Finer tiles later: the stations get measured and widen the corridor there.
         clearanceAt = (_x, _z, max) => max;
-        expect(service.measureStreetClearance()).toBe(true);
+        expect(measure(service)).toBe(true);
         expect(service.hasUnmeasuredStations()).toBe(false);
       });
 
@@ -436,7 +447,7 @@ describe('PathAndRouteService route geometry', () => {
           return 5.2;
         };
         const service = buildRouteService(network, spawn, hq);
-        expect(service.measureStreetClearance()).toBe(true);
+        expect(measure(service)).toBe(true);
         service.showPathFromSpawn(spawnPointAt(spawn));
         const route = service.getCachedPath('s1')!;
 
@@ -450,6 +461,114 @@ describe('PathAndRouteService route geometry', () => {
         const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
         expect(why).toMatchObject({ way: 200, inTunnel: true, unmeasured: 'tunnel or covered: not measured' });
         expect(why.sides[0]).toMatchObject({ halfWidthM: 6, rule: 'tunnel or covered: street width' });
+      });
+
+      describe('in slices', () => {
+        /** Facades 2.6 m off to the right from 40 to 80 m north of n1, nothing on the left. */
+        const facades = (x: number, z: number, max: number): Clearance =>
+          Math.abs(x) < 1 && northOfN1(z) > 40 && northOfN1(z) < 80 ? { left: max, right: 2.6 } : max;
+
+        afterEach(() => vi.restoreAllMocks());
+
+        it('casts the same rays in the same order and gives the same corridor as one go', () => {
+          const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          clearanceAt = facades;
+          const oneGo = buildRouteService(network, spawn, hq);
+          probeCalls.length = 0;
+          expect(measure(oneGo)).toBe(true);
+          const oneGoProbes = [...probeCalls];
+
+          // Each station costs 1.7 ms on a fake clock, as in the city-centre playtest.
+          let clock = 0;
+          vi.spyOn(performance, 'now').mockImplementation(() => clock);
+          clearanceAt = (x, z, max) => {
+            clock += 1.7;
+            return facades(x, z, max);
+          };
+          const sliced = buildRouteService(network, spawn, hq);
+          probeCalls.length = 0;
+          const run = sliced.beginClearanceMeasurement();
+          let slices = 1;
+          while (!run.step(4)) slices++;
+          expect(run.commit()).toBe(true);
+
+          expect(probeCalls).toEqual(oneGoProbes);
+          // Two stations fit into 4 ms.
+          expect(slices).toBe(Math.ceil(oneGoProbes.length / 2));
+          oneGo.showPathFromSpawn(spawnPointAt(spawn));
+          sliced.showPathFromSpawn(spawnPointAt(spawn));
+          expect(sliced.getCachedPath('s1')).toEqual(oneGo.getCachedPath('s1'));
+          expect(sliced.describeRoutes()).toEqual(oneGo.describeRoutes());
+
+          // The log keeps its fields; the sliced run adds how it was cut up.
+          const [oneGoLog, slicedLog] = warn.mock.calls
+            .map(([line]) => String(line))
+            .filter((line) => line.startsWith('[Corridor] clearance:'));
+          expect(slicedLog.split(' in ')[0]).toBe(oneGoLog.split(' in ')[0]);
+          expect(slicedLog).toMatch(new RegExp(`slices=${slices} wall=`));
+          expect(oneGoLog).toMatch(/slices=1 wall=/);
+        });
+
+        it('keeps the corridor in use until the run is committed', () => {
+          clearanceAt = () => 5.2;
+          const service = buildRouteService(network, spawn, hq);
+          const widths = () => service.getCachedPath('s1')!.map((p) => p.corridorLeft);
+          const before = widths();
+
+          const run = service.beginClearanceMeasurement();
+          // A budget of 0 takes one station a step.
+          expect(run.step(0)).toBe(false);
+          expect(run.step(0)).toBe(false);
+          // A route build in between, as after a settled tile batch.
+          service.showPathFromSpawn(spawnPointAt(spawn));
+          expect(widths()).toEqual(before);
+
+          run.step(Infinity);
+          expect(run.commit()).toBe(true);
+          service.showPathFromSpawn(spawnPointAt(spawn));
+          expect(widths()).toEqual([4.5, 4.5, 4.5, 4.5, 2.75, undefined]);
+        });
+
+        it('stores nothing of a cancelled run, the next one measures every station', () => {
+          vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          clearanceAt = () => 5.2;
+          const service = buildRouteService(network, spawn, hq);
+          const run = service.beginClearanceMeasurement();
+          run.step(0);
+          run.cancel('a tower');
+
+          expect(run.open).toBe(false);
+          expect(run.step(4)).toBe(true);
+          expect(run.commit()).toBe(false);
+          expect(service.hasUnmeasuredStations()).toBe(false);
+          probeCalls.length = 0;
+          expect(measure(service)).toBe(true);
+          expect(probeCalls.length).toBeGreaterThan(100);
+        });
+
+        it('is cancelled when the routes or the measurements are replaced, or another run starts', () => {
+          const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          const replacements: [string, (service: PathAndRouteService) => void][] = [
+            ['routes replaced', (service) => service.clearCache()],
+            ['measurements cleared', (service) => service.clearCorridorMeasurements()],
+            ['location changed', (service) =>
+              service.initialize(makeEngine(), network, hq, (() => false) as never, new OsmStreetService(), null)],
+            ['disposed', (service) => service.dispose()],
+            ['superseded', (service) => service.beginClearanceMeasurement()],
+          ];
+          for (const [reason, replace] of replacements) {
+            const service = buildRouteService(network, spawn, hq);
+            const run = service.beginClearanceMeasurement();
+            run.step(0);
+            replace(service);
+
+            expect(run.open, reason).toBe(false);
+            expect(run.commit(), reason).toBe(false);
+            expect(String(warn.mock.calls.at(-1)?.[0]), reason).toMatch(
+              new RegExp(`^\\[Corridor\\] clearance cancelled \\(${reason}\\): stations=1 of \\d+ `),
+            );
+          }
+        });
       });
     });
   });

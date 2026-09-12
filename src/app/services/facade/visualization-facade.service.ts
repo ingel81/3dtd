@@ -207,7 +207,8 @@ export class VisualizationFacadeService {
    * When the route corridor is measured and routes and cells are rebuilt
    * with it: after the height update (scheduleOverlayHeightUpdate), after
    * each settled tile batch (scheduleRouteGridConvergence) and from
-   * `__corridor.set()` / `reset()`. The rules live in CorridorRefit.
+   * `__corridor.set()` / `reset()`. The rules live in CorridorRefit, which
+   * measures a slice per animation frame, like the terrain sweep.
    */
   private readonly corridorRefit = new CorridorRefit({
     ready: () => this.engineInit.getEngine() !== null,
@@ -215,12 +216,20 @@ export class VisualizationFacadeService {
     enemyCount: () => this.gameState.enemyManager.getAliveCount(),
     waveRunning: () => this.gameState.waveManager.phase() === 'wave',
     introRunning: () => this.introFlight.isRunning(),
-    measure: () => this.pathRoute.measureStreetClearance(),
+    beginMeasurement: () => this.pathRoute.beginClearanceMeasurement(),
     hasUnmeasured: () => this.pathRoute.hasUnmeasuredStations(),
     clearMeasurements: () => this.pathRoute.clearCorridorMeasurements(),
     rebuild: () => this.rebuildCorridors(),
     cellCount: () => this.gameState.getGlobalRouteGrid().getStats().totalCells,
     now: () => performance.now(),
+    eachFrame: (tick) => {
+      let frame = 0;
+      const step = () => {
+        if (tick()) frame = requestAnimationFrame(step);
+      };
+      frame = requestAnimationFrame(step);
+      return () => cancelAnimationFrame(frame);
+    },
   });
 
   /**
@@ -292,6 +301,7 @@ export class VisualizationFacadeService {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
+    this.corridorRefit.dispose();
     this.cellsChangedOff?.();
     this.cellsChangedOff = null;
     if (this.routeGridConvergenceRaf !== null) {
@@ -662,7 +672,8 @@ export class VisualizationFacadeService {
     );
 
     await this.heightUpdate.scheduleOverlayHeightUpdate();
-    // First fit of the corridors to the tiles, see CorridorRefit.
+    // First fit of the corridors to the tiles, measured over the next frames
+    // (CorridorRefit); does not hold the location change up.
     this.corridorRefit.fitToTiles();
   }
 
