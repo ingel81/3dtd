@@ -434,6 +434,51 @@ describe('GameStateManager', () => {
         expect(tower.guardHeading).toBeLessThan(Math.PI / 4);
         expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
       });
+
+      // Debug enemies fought between waves never complete a wave
+      describe('once the last enemy outside a wave is gone', () => {
+        const enemy = (id: string) => ({
+          id,
+          position: { lat: 48.77, lon: 9.18, height: 0 },
+          transform: { terrainHeight: 0 },
+        }) as never;
+
+        beforeEach(() => combat()['turnTowersToGuard'].mockClear());
+
+        it('turns the towers to guard when the last one dies', () => {
+          const [a, b] = [enemy('a'), enemy('b')];
+          const alive = vi.spyOn(gsm.enemyManager, 'getAlive').mockReturnValue([b]);
+          bus.emit({ type: 'enemy:died', enemy: a, credits: 0 });
+          expect(combat()['turnTowersToGuard']).not.toHaveBeenCalled();
+
+          alive.mockReturnValue([]);
+          bus.emit({ type: 'enemy:died', enemy: b, credits: 0 });
+          expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
+        });
+
+        it('counts an enemy that reaches the base as gone', () => {
+          // Still alive while the event runs, removed after it
+          const a = enemy('a');
+          vi.spyOn(gsm.enemyManager, 'getAlive').mockReturnValue([a]);
+          bus.emit({ type: 'enemy:reached-base', enemy: a, damage: 0 });
+          expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
+        });
+
+        it('turns them when the enemy debugger removes the last one', () => {
+          vi.spyOn(gsm.enemyManager, 'getAlive').mockReturnValue([]);
+          bus.emit({ type: 'debug:remove-enemy', enemyId: 'a' });
+          expect(combat()['turnTowersToGuard']).toHaveBeenCalledTimes(1);
+          bus.emit({ type: 'debug:clear-enemies' });
+          expect(combat()['turnTowersToGuard']).toHaveBeenCalledTimes(2);
+        });
+
+        it('leaves the turn to the wave end during a wave', () => {
+          vi.spyOn(gsm.enemyManager, 'getAlive').mockReturnValue([]);
+          gsm.waveManager.phase.set('wave');
+          bus.emit({ type: 'enemy:died', enemy: enemy('a'), credits: 0 });
+          expect(combat()['turnTowersToGuard']).not.toHaveBeenCalled();
+        });
+      });
     });
 
     describe('reset()', () => {
