@@ -98,6 +98,9 @@ export class TowerDefenseStore {
   /** Headless training mode: skip per-frame 3D rendering */
   readonly renderingEnabled = this.gameStore.renderingEnabled;
 
+  /** Seconds until the auto-started next wave, null while none counts down */
+  readonly autoWaveSecondsLeft = this.gameStore.autoWaveSecondsLeft;
+
   // ════════════════════════════════════════════════════════════
   // LOADING / INIT STATE
   // ════════════════════════════════════════════════════════════

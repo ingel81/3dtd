@@ -117,6 +117,11 @@ describe('UIStore', () => {
     it('the new field wins over leftover old flags', () => {
       expect(load({ openMenu: 'audio', devMenuExpanded: true }).openMenu()).toBe('audio');
     });
+
+    it('restores the auto-start of waves, off when never stored', () => {
+      expect(load({ autoStartWaves: true }).autoStartWaves()).toBe(true);
+      expect(load({}).autoStartWaves()).toBe(false);
+    });
   });
 
   describe('toggleBuildings', () => {

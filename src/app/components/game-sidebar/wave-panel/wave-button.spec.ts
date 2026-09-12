@@ -7,6 +7,7 @@ describe('waveButtonView', () => {
       label: 'Start Wave 7',
       left: null,
       barPercent: 0,
+      countdown: null,
     });
   });
 
@@ -19,6 +20,7 @@ describe('waveButtonView', () => {
       label: 'Wave 7',
       left: '18 left',
       barPercent: 45,
+      countdown: null,
     });
   });
 
@@ -33,6 +35,26 @@ describe('waveButtonView', () => {
   });
 
   it('a manual debug wave without a known size shows no count and no bar', () => {
-    expect(waveButtonView(5, true, 0, 0)).toEqual({ label: 'Wave 5', left: null, barPercent: 0 });
+    expect(waveButtonView(5, true, 0, 0)).toEqual({ label: 'Wave 5', left: null, barPercent: 0, countdown: null });
+  });
+
+  describe('auto-start countdown', () => {
+    it('idle: the seconds left and the bar at the share of time left', () => {
+      expect(waveButtonView(6, false, 0, 0, 7, 10)).toEqual({
+        label: 'Start Wave 6',
+        left: null,
+        barPercent: 70,
+        countdown: '7s',
+      });
+    });
+
+    it('clamps into 0..total', () => {
+      expect(waveButtonView(6, false, 0, 0, 12, 10)).toMatchObject({ countdown: '10s', barPercent: 100 });
+      expect(waveButtonView(6, false, 0, 0, -1, 10)).toMatchObject({ countdown: '0s', barPercent: 0 });
+    });
+
+    it('a running wave shows no countdown', () => {
+      expect(waveButtonView(6, true, 10, 5, 7, 10).countdown).toBeNull();
+    });
   });
 });
