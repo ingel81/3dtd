@@ -10,11 +10,14 @@ import {
   OctahedronGeometry,
   PerspectiveCamera,
   Quaternion,
+  ShaderMaterial,
   Vector3,
 } from 'three';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { HQDamageService } from '../combat/hq-damage.service';
 import { UIStore } from '../../store/ui.store';
+import { GameEventBus } from '../../game-engine/game-event-bus';
+import { SPAWN_PORTAL_LOOK } from '../../configs/visual-effects.config';
 import type { ThreeTilesEngine } from '../../three-engine';
 import {
   MARKER_FLOAT_HEIGHT,
@@ -429,6 +432,32 @@ describe('MarkerVisualizationService', () => {
       service.animateMarkers(16);
 
       expect(labelFake.instances[0].frames).toBe(2);
+    });
+  });
+
+  describe('wave events', () => {
+    it('surges the portals at wave start and calms them after the wave', () => {
+      const L = SPAWN_PORTAL_LOOK;
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+      init();
+      service.addSpawnMarker('s1', 'S1', BASE.lat + 0.001, BASE.lon, 0xff0000);
+      const bus = new GameEventBus();
+      service.subscribeToEventBus(bus);
+      const energy = () => (portalFrames().material as ShaderMaterial).uniforms['uEnergy'].value as number;
+
+      service.animateMarkers(16);
+      expect(energy()).toBeCloseTo(L.idleEnergy);
+
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
+      service.animateMarkers(16);
+      expect(energy()).toBeGreaterThan(L.idleEnergy + 0.9 * L.surge);
+
+      bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+      for (let t = 1000; t <= 20_000; t += 16) {
+        now.mockReturnValue(t);
+        service.animateMarkers(16);
+      }
+      expect(energy()).toBeCloseTo(L.idleEnergy, 2);
     });
   });
 

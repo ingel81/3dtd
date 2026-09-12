@@ -171,6 +171,7 @@ describe('VisualizationFacadeService', () => {
   const markerViz = {
     initialize: vi.fn(),
     placeSpawnPortal: vi.fn(),
+    subscribeToEventBus: vi.fn(),
     addBaseMarker: vi.fn(),
     updateMarkerHeights: vi.fn(),
     toggleSpecialPointsDebug: vi.fn(),
@@ -1015,6 +1016,11 @@ describe('VisualizationFacadeService', () => {
 
   describe('event bus and dispose', () => {
     const selected = { type: 'tower:selected', tower: { typeConfig: { id: 'cannon' } } } as never;
+
+    it('lets the spawn portals follow the game events', () => {
+      facade.subscribeToEventBus();
+      expect(markerViz.subscribeToEventBus).toHaveBeenCalledWith(bus);
+    });
 
     it('selects the tower type in the debug panel when a tower is selected', () => {
       facade.subscribeToEventBus();

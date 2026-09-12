@@ -195,9 +195,19 @@ export const EXPLOSION_LOOK = {
 /**
  * Spawn portals (SpawnPortalManager). Energy is a factor on the glow of the
  * surface, the runes and the light on the street, and on the swirl's speed.
+ * Times in seconds of wall time: the portal keeps moving while the game is
+ * paused.
  */
 export const SPAWN_PORTAL_LOOK = {
+  /** Between waves */
   idleEnergy: 0.45,
+  /** While a wave runs */
+  waveEnergy: 0.8,
+  /** Extra energy at wave start, falling off with the time constant surgeDecay */
+  surge: 1.2,
+  surgeDecay: 1.2,
+  /** Time constant of the change between idle and wave energy */
+  settle: 1.5,
 } as const;
 
 /** RGB colour, channels 0-1 (linear, as the particle pools store it). */
