@@ -99,17 +99,3 @@ export function createSimpleWaveConfig(
     spawnDelay,
   };
 }
-
-/**
- * Create a mixed-type wave config (utility for debug paths).
- */
-export function createMixedWaveConfig(
-  groups: WaveEnemyGroup[],
-  spawnDelay = 800
-): WaveConfig {
-  return {
-    enemies: groups,
-    totalCount: groups.reduce((sum, g) => sum + g.count, 0),
-    spawnDelay,
-  };
-}
