@@ -113,8 +113,8 @@ export const FIRE_INTENSITY = {
 /**
  * Explosion presets for different projectile types. `radius` sizes the
  * fire-atlas explosion (EXPLOSION_LOOK), `smokePuffs` is its smoke stage.
- * The spark bursts (poison, arcane, chaos) only take a particle count, their
- * colours come from BURST_PALETTES.
+ * The spark bursts (poison, arcane, chaos, bone) only take a particle count,
+ * their colours come from BURST_PALETTES.
  */
 export const EXPLOSION_PRESETS = {
   // No splash: the radius is purely visual
@@ -131,6 +131,8 @@ export const EXPLOSION_PRESETS = {
   poison:   { particles: 14 },
   arcane:   { particles: 14 },
   chaos:    { particles: 14 },
+  // Where a skeleton splits into its minions (enemy:split, BURST_PALETTES.bone)
+  bone:     { particles: 12 },
 } as const;
 
 /**
@@ -230,8 +232,15 @@ export interface EffectRgb {
 /** Spark-burst palette: 40 % of the particles get the first colour, 30 % each the other two. */
 export type BurstPalette = readonly [EffectRgb, EffectRgb, EffectRgb];
 
-/** Palettes for the round-particle spark bursts (ice, arcane orb, chaos orb and poison glob hits). */
+/** Palettes for the round-particle spark bursts (ice, arcane orb, chaos orb and poison glob hits, a skeleton's split). */
 export const BURST_PALETTES = {
+  // Bone white to dust grey. The pool blends additively, so the colours stay
+  // dim: a bone-white core at full value would flash like the ice burst.
+  bone: [
+    { r: 0.8, g: 0.77, b: 0.68 },  // Bone white
+    { r: 0.55, g: 0.51, b: 0.44 }, // Aged bone
+    { r: 0.32, g: 0.3, b: 0.26 },  // Dust
+  ],
   poison: [
     { r: 0.55, g: 1.0, b: 0.2 },  // Bright toxic green core
     { r: 0.2, g: 0.8, b: 0.05 },  // Green
