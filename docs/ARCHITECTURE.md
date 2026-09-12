@@ -1520,10 +1520,13 @@ class GlobalRouteGrid {
 
 **Zellengenerierung:**
 - Korridor pro Routensegment und Seite so breit wie der Freiraum, den die Tiles zeigen
-  (`corridorLeft`/`corridorRight` am Waypoint, `utils/route-corridor.ts`), Halbbreite 2 bis
+  (`corridorLeft`/`corridorRight` am Waypoint, `utils/route-corridor.ts`), Halbbreite 1 bis
   7 m; OSM `width`/`lanes`/`highway` nur, wo nicht gemessen werden kann
 - Eine Zelle gehört dazu, wenn ihr Mittelpunkt auf seiner Seite höchstens die Halbbreite vom
-  Segment entfernt ist; mindestens 2 Zellen quer
+  Segment entfernt ist, außerdem jede Zelle, durch die die Mittellinie läuft (Engstelle: eine
+  Zellreihe)
+- Randzellen, deren Säule ein Dach oder eine Krone trifft, nehmen den Boden der Mittellinie
+  daneben (`roofRise`, `CellSample.clamped`)
 - Gegner-Seitenversatz auf die Halbbreite der Seite minus 1,5 m begrenzt, damit jeder Gegner
   in einer Zelle steht (Details: [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md))
 - 2m Zellenauflösung für präzise LOS-Prüfung

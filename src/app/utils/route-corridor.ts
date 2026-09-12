@@ -52,11 +52,21 @@ export interface CorridorConfig {
   /** Spacing of the clearance stations along a route segment. */
   stationSpacing: number;
   /**
-   * Height of the clearance rays over the ground: over parked cars, into
-   * facades, walls, high hedges and tree crowns that reach down to the
-   * street.
+   * Heights of the low and the high clearance ray over the ground. Only
+   * what blocks both counts as a wall: a facade, a wall, a trunk. What
+   * stops only the low ray (a parked car or van, a hedge, a fence) or only
+   * the high one (a tree crown, an eave, a balcony) does not narrow the
+   * corridor; a cell that ends up under a crown or an eave is put back on
+   * the ground by the roof check (`roofRise`).
    */
-  rayHeight: number;
+  rayHeightLow: number;
+  rayHeightHigh: number;
+  /**
+   * Distance kept from a wall the rays found, taken off the free space, so
+   * the cells next to a facade stay out from under balconies and canopies.
+   * Not taken off where the rays hit nothing.
+   */
+  wallMargin: number;
   /**
    * Tiles coarser than this (geometric error) do not count for the clearance
    * rays. During refinement a coarse ancestor hull stays active and averages
@@ -111,7 +121,9 @@ export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
   edgeMargin: 1.5,
   taper: 0.5,
   stationSpacing: 2,
-  rayHeight: 2,
+  rayHeightLow: 1,
+  rayHeightHigh: 3.5,
+  wallMargin: 0.5,
   maxTileError: 5,
   widthStep: 0.5,
   dipLength: 4,
@@ -164,7 +176,13 @@ export function resetCorridorConfig(): void {
  * changing one means measuring again. The others only reshape what was
  * measured.
  */
-export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = ['stationSpacing', 'rayHeight', 'maxHalfWidth', 'maxTileError'];
+export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = [
+  'stationSpacing',
+  'rayHeightLow',
+  'rayHeightHigh',
+  'maxHalfWidth',
+  'maxTileError',
+];
 
 /** Allowed range per numeric setting, inclusive. */
 const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [number, number]> = {
@@ -177,7 +195,9 @@ const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [nu
   edgeMargin: [1.42, 5],
   taper: [0.05, 5],
   stationSpacing: [0.5, 10],
-  rayHeight: [0.3, 10],
+  rayHeightLow: [0.3, 10],
+  rayHeightHigh: [0.3, 20],
+  wallMargin: [0, 5],
   maxTileError: [0.1, 100],
   widthStep: [0.1, 2],
   dipLength: [0, 100],
@@ -357,8 +377,9 @@ export interface CorridorStations {
  * The corridor pieces of each segment of a route, from what the tiles
  * showed.
  *
- * The measured free space on each side is the half width on that side,
- * clamped to [minHalfWidth, maxHalfWidth]. Along the whole route, across
+ * The measured free space on each side, less `wallMargin` where the rays
+ * found a wall, is the half width on that side, clamped to
+ * [minHalfWidth, maxHalfWidth]. Along the whole route, across
  * its waypoints, short dips are closed (closeShortDips) and short bulges
  * cut (cutShortBulges), each side on its own, then the value is rounded
  * down to `widthStep`. A station the tiles could not measure gets the
@@ -369,12 +390,13 @@ export function fitCorridorPieces(segments: readonly CorridorStations[]): Corrid
   const smooth = (side: 'left' | 'right') => cutShortBulges(closeShortDips(segments.flatMap((s) => s[side])));
   const left = smooth('left');
   const right = smooth('right');
-  const { minHalfWidth, maxHalfWidth, widthStep } = corridorConfig;
+  const { minHalfWidth, maxHalfWidth, widthStep, wallMargin } = corridorConfig;
 
   const halfWidth = (free: number, segment: CorridorStations): number => {
     if (Number.isNaN(free)) return segment.fallback;
-    // A ray that hit nothing reports its full length, the maximum.
-    const rounded = free >= maxHalfWidth ? maxHalfWidth : Math.floor(free / widthStep) * widthStep;
+    // A ray that hit nothing reports its full length, the maximum; a wall
+    // keeps `wallMargin` off.
+    const rounded = free >= maxHalfWidth ? maxHalfWidth : Math.floor((free - wallMargin) / widthStep) * widthStep;
     const clamped = Math.max(minHalfWidth, rounded);
     return segment.onStreet ? clamped : Math.min(segment.fallback, clamped);
   };

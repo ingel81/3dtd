@@ -149,14 +149,14 @@ Stationen, die sich nicht messen lassen.
 
 | Schritt | Wo | Was |
 |---|---|---|
-| Breite pro Way | `utils/route-corridor.ts` (`estimateStreetWidth`) | `width`-Tag, sonst `lanes` × 3 m + 1 m, sonst Tabelle nach `highway` (`primary` 8 m, `secondary` 7 m, `tertiary` 6,5 m, `residential` 5,5 m, `living_street` 4,5 m, `service` 3,5 m, `footway`/`path`/`cycleway`/`steps` 2 m, ...). `H = clamp(Breite / 2, 2 m, 7 m)`. Quelle wird mitgeführt (`width`, `lanes`, `highway`). Gilt nur, wo die Tiles nicht messen, und als Obergrenze auf dem HQ-Endstück |
+| Breite pro Way | `utils/route-corridor.ts` (`estimateStreetWidth`) | `width`-Tag, sonst `lanes` × 3 m + 1 m, sonst Tabelle nach `highway` (`primary` 8 m, `secondary` 7 m, `tertiary` 6,5 m, `residential` 5,5 m, `living_street` 4,5 m, `service` 3,5 m, `footway`/`path`/`cycleway`/`steps` 2 m, ...). `H = clamp(Breite / 2, 1 m, 7 m)`. Quelle wird mitgeführt (`width`, `lanes`, `highway`). Gilt nur, wo die Tiles nicht messen, und als Obergrenze auf dem HQ-Endstück |
 | Routenbau | `path-route.service.ts` (`buildRouteFromPath`), `utils/route-ways.ts` | Jedes Segment wird seinem Way zugeordnet (`StreetEdgeIndex`: exakter Kantenschlüssel, sonst geometrisch für den Abzweig zum HQ, geteilte Segmente und DevWorld). `corridorLeft`, `corridorRight` (Halbbreite links und rechts der Fahrtrichtung) und `onBridge` stehen am Waypoint und gelten für das Segment ab dort (`RouteWaypoint`). Das HQ-Endstück übernimmt die Breite des Ways, von dem es abzweigt. DevWorld gibt die gezeichnete Straßenbreite als `width` weiter (`primary` 8 m, `secondary` 7 m, `residential` 5 m) |
-| Tile-Messung | `path-route.service.ts` (`measureStreetClearance`), `three-tiles-engine.ts`, `visualization-facade.service.ts` (`fitCorridorsToTiles`) | Einmal pro Ortsladung, nachdem die Overlay-Höhen stehen, und nur solange kein Tower steht und kein Gegner läuft; nie pro Frame. Alle 2 m je ein waagrechter Strahl nach links und nach rechts, 2 m über Grund (auf Brücken über dem Deck), jeder bis 7 m. Es zählen nur Tiles mit höchstens 5 m geometricError (die Verfeinerung des Korridors). Gespeichert wird der Freiraum je Station und Seite, NaN ohne feines Tile. Hat sich ein Korridor geändert, werden Routen, Grid und rote Linie neu gebaut. Gemessene Stationen bleiben gespeichert, ein weiterer Aufruf misst nur die ohne feines Tile nach. Log `[Corridor] clearance: segments= stations= unmeasured= rays= changed= in ms`. DevWorld misst nicht |
-| Breite aus der Messung | `route-corridor.ts` (`fitCorridorPieces`), bei jedem Routenbau | Pro Seite: Halbbreite = gemessener Freiraum, begrenzt auf [2 m, 7 m], abgerundet auf 0,5 m. Die Messung verbreitert also auch. Stationen ohne Messung bekommen die Halbbreite aus OSM. Ausnahme HQ-Endstück (Segment ohne Way): dort darf die Messung nur unter die geerbte Breite gehen, denn es läuft oft durch Gebäude, und ein Strahl aus einem Gebäude heraus trifft keine Fassade (Rückseiten zählen beim Raycast nicht). Vorher geglättet, entlang der ganzen Route über Waypoints hinweg und je Seite: Einbrüche bis etwa 4 m (Laterne, Schild, Transporter, Baumstamm) werden geschlossen, Ausbuchtungen bis etwa 8 m (Einfahrt, Lücke zwischen zwei Häusern, schmale Einmündung) abgeschnitten; längere bleiben in voller Länge. Segmente werden geteilt, wo sich eine Seite ändert |
-| Zellen | `global-route-grid.ts` (`generateFromRoutes`) | Eine Zelle gehört zum Korridor, wenn ihr Mittelpunkt höchstens `H` ihrer Seite vom Segment entfernt ist. Mittelpunkte liegen damit auf freier Fläche, quer liegen mindestens 2 Zellen |
-| Gegner | `movement.component.ts`, `enemy.manager.ts` | Versatz = Faktor × lokale Grenze der Seite, auf der der Gegner läuft (Faktor < 0 links, > 0 rechts der Fahrtrichtung). Faktor = Zufall in [-1, 1] × `lateralSpread` des Typs (Anteil, ersetzt `lateralOffset` in Metern). Grenze = `H - 1,5 m`: die halbe Zelldiagonale ist 1,41 m, die Zelle unter dem Gegner hat ihren Mittelpunkt also sicher innerhalb `H`. Die Grenze ändert sich entlang der Route höchstens um 0,5 m pro Meter, Gegner rücken vor einer Engstelle sanft ein. Grenze pro Segment, Waypoint und Seite einmal pro Route vorberechnet, im Sub-Step Index, Seitenwahl und drei Vergleiche |
+| Tile-Messung | `path-route.service.ts` (`measureStreetClearance`), `three-tiles-engine.ts`, `visualization-facade.service.ts` (`fitCorridorsToTiles`) | Einmal pro Ortsladung, nachdem die Overlay-Höhen stehen, und nur solange kein Tower steht und kein Gegner läuft; nie pro Frame. Alle 2 m je zwei waagrechte Strahlen nach links und nach rechts, 1 m und 3,5 m über Grund (auf Brücken über dem Deck), jeder bis 7 m. Als Wand zählt nur, was beide trifft (Fassade, Mauer, Stamm): Der Freiraum einer Seite ist der weitere der beiden ersten Treffer. Es zählen nur Tiles mit höchstens 5 m geometricError (die Verfeinerung des Korridors). Gespeichert wird der Freiraum je Station und Seite, NaN ohne feines Tile. Hat sich ein Korridor geändert, werden Routen, Grid und rote Linie neu gebaut. Gemessene Stationen bleiben gespeichert, ein weiterer Aufruf misst nur die ohne feines Tile nach. Log `[Corridor] clearance: segments= stations= unmeasured= rays= changed= in ms`. DevWorld misst nicht |
+| Breite aus der Messung | `route-corridor.ts` (`fitCorridorPieces`), bei jedem Routenbau | Pro Seite: Halbbreite = gemessener Freiraum, abzüglich 0,5 m Wandabstand, wo die Strahlen eine Wand fanden, abgerundet auf 0,5 m, begrenzt auf [1 m, 7 m]. Die Messung verbreitert also auch. Stationen ohne Messung bekommen die Halbbreite aus OSM. Ausnahme HQ-Endstück (Segment ohne Way): dort darf die Messung nur unter die geerbte Breite gehen, denn es läuft oft durch Gebäude, und ein Strahl aus einem Gebäude heraus trifft keine Fassade (Rückseiten zählen beim Raycast nicht). Vorher geglättet, entlang der ganzen Route über Waypoints hinweg und je Seite: Einbrüche bis etwa 4 m (Laterne, Schild, Transporter, Baumstamm) werden geschlossen, Ausbuchtungen bis etwa 8 m (Einfahrt, Lücke zwischen zwei Häusern, schmale Einmündung) abgeschnitten; längere bleiben in voller Länge. Segmente werden geteilt, wo sich eine Seite ändert |
+| Zellen | `global-route-grid.ts` (`generateFromRoutes`) | Eine Zelle gehört zum Korridor, wenn ihr Mittelpunkt höchstens `H` ihrer Seite vom Segment entfernt ist, außerdem jede Zelle, durch die die Mittellinie läuft. Eine Engstelle schmaler als eine Zelle bleibt so eine Zellreihe, auf Diagonalen eine Treppe. Liegt die Säule einer Zelle mehr als 2,5 m über der Säule der Mittellinie daneben (Dach, Traufe oder Krone ohne Boden darunter), nimmt die Zelle diese Bodenhöhe und ist `clamped` (`route-cell-sampler.ts`, nicht auf Brückendecks) |
+| Gegner | `movement.component.ts`, `enemy.manager.ts` | Versatz = Faktor × lokale Grenze der Seite, auf der der Gegner läuft (Faktor < 0 links, > 0 rechts der Fahrtrichtung). Faktor = Zufall in [-1, 1] × `lateralSpread` des Typs (Anteil, ersetzt `lateralOffset` in Metern). Grenze = `H - 1,5 m`: die halbe Zelldiagonale ist 1,41 m, die Zelle unter dem Gegner hat ihren Mittelpunkt also sicher innerhalb `H`. Die Grenze ändert sich entlang der Route höchstens um 0,5 m pro Meter, Gegner rücken vor einer Engstelle sanft ein. Grenze pro Segment, Waypoint und Seite einmal pro Route vorberechnet, im Sub-Step Index, Seitenwahl und drei Vergleiche. Unter 1,5 m Halbbreite ist die Grenze 0, dort laufen Gegner auf der Mittellinie |
 | Brücken | `global-route-grid.ts`, `route-cell-sampler.ts` | Segmente über einen Way mit `bridge=*` markieren ihre Zellen als Deck (`RouteCell.surface`), Deck-Zellen nehmen `topY` statt `groundY`. Beansprucht auch ein Segment ohne Brücke die Zelle, bleibt sie am Boden. Die Fläche steht fest, bevor die Zelle zum ersten Mal gesampelt wird |
-| Diagnose | `__routes.describe()`, `__rg.dumpCellsInBox()`, `__corridor.towerCells()` | Pro Abschnitt `widthM` (Straßenbreite), `widthSource` (`width`, `lanes`, `highway`, `inherited` für das HQ-Endstück), `corridorM` (tatsächliche Korridorbreite links plus rechts, nach der Messung als Spanne wie `9.5-14.0`), `leftM` und `rightM` (Halbbreite je Seite). Pro Zelle `surface`. Zu Towern siehe Abschnitt "Lücken in der LOS-Anzeige" |
+| Diagnose | `__routes.describe()`, `__rg.dumpCellsInBox()`, `__corridor.towerCells()`, `__corridor.pick()` | Pro Abschnitt `widthM` (Straßenbreite), `widthSource` (`width`, `lanes`, `highway`, `inherited` für das HQ-Endstück), `corridorM` (tatsächliche Korridorbreite links plus rechts, nach der Messung als Spanne wie `9.5-14.0`), `leftM` und `rightM` (Halbbreite je Seite). Pro Zelle `surface`. Zu Towern siehe Abschnitt "Lücken in der LOS-Anzeige" |
 
 **Grenzen, im Spiel noch nicht geprüft:**
 
@@ -177,16 +177,26 @@ Stationen, die sich nicht messen lassen.
   breit, Gegner mit großem Versatz schwenken mit höchstens 0,5 m pro Meter
   hinein und wieder zurück. Das ist Freiraum, den es gibt; wer es ruhiger
   will, stellt die Ausbuchtungslänge höher (siehe Stellschrauben).
-- Freiflächen: Ohne Fassade, Mauer, Hecke oder Baum innerhalb von 7 m
-  (Platz, Park, Vorgärten mit Zaun unter 2 m) wird der Korridor auf dieser
-  Seite 7 m breit. Zellen liegen dann auch auf Parkstreifen, Gehwegen und
-  Vorgärten.
-- Geparkte Autos sind niedriger als die Strahlhöhe und engen nicht ein.
-  Liegt eine Zelle auf einem Auto, trifft die senkrechte Säulenprobe
+- Freiflächen: Ohne etwas, das beide Strahlen trifft, innerhalb von 7 m
+  (Platz, Park, Vorgärten mit Zaun, Hecke oder Mauer unter 3,5 m) wird der
+  Korridor auf dieser Seite 7 m breit. Zellen liegen dann auch auf
+  Parkstreifen, Gehwegen und Vorgärten.
+- Zwei Strahlhöhen: Autos, Transporter, Hecken und Zäune treffen nur den
+  unteren Strahl, Kronen, Traufen und Balkone nur den oberen, beides engt
+  nicht ein. Das sind doppelt so viele Strahlen beim Laden, gebucht unter
+  `routeCorridor` in `__raycastStats()`. Nicht gemessen.
+- Liegt eine Zelle auf einem Auto, trifft die senkrechte Säulenprobe
   vermutlich dessen Dach, weil die Photogrammetrie unter dem Auto keinen
-  Boden hat; die Zelle und Gegner auf ihr stehen dann gut 1,5 m höher. Ein
-  breiterer Korridor enthält mehr solche Zellen. Im Spiel nicht geprüft,
-  zählbar mit `__corridor.towerCells()` (`raised`).
+  Boden hat. Unter 2,5 m über der Mittellinie greift der Dach-Check nicht,
+  die Zelle und Gegner auf ihr stehen dann gut 1,5 m höher. Im Spiel nicht
+  geprüft, zählbar mit `__corridor.towerCells()` (`raised`).
+- Dach-Check: Bezug ist die Säule der Mittellinie neben der Zelle. Steht
+  dort selbst eine Krone, greift er nicht. Bei starker Querneigung (mehr
+  als 2,5 m Höhenunterschied über die Halbbreite) senkt er echte
+  Randzellen ab; dort treffen aber meist schon die Strahlen den Hang. Eine
+  Zelle unter einem Dach ist von den meisten Towern aus verdeckt und löst
+  als `blocked` auf, was in der Sache stimmt. Eine Säulenprobe mehr je
+  Randzelle, meist aus dem Cache der Mittelzelle.
 - Mehr Zellen: Bei 5 bis 7 m pro Seite statt 2,75 m entstehen pro Meter
   Route etwa doppelt bis zweieinhalbmal so viele Zellen. Mehr Arbeit fällt
   an bei der Grid-Erzeugung (eine Säulenprobe je neuer Zelle), bei der
@@ -219,21 +229,24 @@ __corridor.reset()                                      // zurück auf die Vorga
 und kein Gegner auf der Karte ist; sonst kommt `Not changed: ...` zurück.
 Unbekannte Namen und Werte außerhalb des Bereichs werden abgelehnt, dann
 ändert sich nichts. Sonst werden Routen, Zellen und rote Linie neu gebaut,
-bei `stationSpacing`, `rayHeight`, `maxHalfWidth` und `maxTileError` wird
-vorher neu gemessen (Log `[Corridor] clearance:`). Die Antwort nennt die
+bei `stationSpacing`, `rayHeightLow`, `rayHeightHigh`, `maxHalfWidth` und
+`maxTileError` wird vorher neu gemessen (Log `[Corridor] clearance:`). Die Antwort nennt die
 Zellzahl; die Breiten je Abschnitt zeigt `__routes.describe()`. Die Werte
 gelten bis zum Neuladen der Seite. Übernehmen heißt `CORRIDOR_DEFAULTS` im
 Code ändern.
 
 | Name | Vorgabe | Bereich | Wirkung |
 |---|---|---|---|
-| `minHalfWidth` | 2 | 1,5 bis 15 | kleinste Halbbreite je Seite |
-| `maxHalfWidth` | 7 | 1,5 bis 15 | größte Halbbreite je Seite, zugleich die Strahllänge (misst neu) |
+| `minHalfWidth` | 1 | 0 bis 15 | kleinste Halbbreite je Seite. Die Zellen der Mittellinie gehören immer dazu, unter 1,5 m laufen Gegner auf der Mittellinie |
+| `maxHalfWidth` | 7 | 1 bis 15 | größte Halbbreite je Seite, zugleich die Strahllänge (misst neu) |
 | `defaultHalfWidth` | 4,5 | min bis max | Halbbreite, wo nichts bekannt ist (Pfade außerhalb des Routenbaus); rückt bei engerem Bereich mit |
 | `edgeMargin` | 1,5 | 1,42 bis 5 | Abstand der Gegner zum Korridorrand. Unter der halben Zelldiagonale stünden Gegner am Rand außerhalb der Zellen |
 | `taper` | 0,5 | 0,05 bis 5 | wie schnell sich der Seitenversatz entlang der Route ändern darf, m pro m |
 | `stationSpacing` | 2 | 0,5 bis 10 | Abstand der Messstationen (misst neu) |
-| `rayHeight` | 2 | 0,3 bis 10 | Höhe der Strahlen über Grund (misst neu). Tiefer: Autos und niedrige Hecken engen ein. Höher: nur Fassaden und hohe Kronen |
+| `rayHeightLow` | 1 | 0,3 bis 10 | Höhe des unteren Strahls über Grund (misst neu) |
+| `rayHeightHigh` | 3,5 | 0,3 bis 20 | Höhe des oberen Strahls (misst neu). Als Wand zählt nur, was beide trifft; höher: Transporter und Gartenmauern engen seltener ein, tiefe Kronen und Traufen öfter |
+| `wallMargin` | 0,5 | 0 bis 5 | Abstand zur gefundenen Wand, vom Freiraum abgezogen; nicht, wo die Strahlen nichts trafen |
+| `roofRise` | 2,5 | 0,5 bis 50 | Liegt die Säule einer Zelle mehr als das über der Mittellinie daneben, gilt deren Boden (Dach-Check) |
 | `maxTileError` | 5 | 0,1 bis 100 | gröbstes Tile in m geometricError, das für die Strahlen zählt (misst neu) |
 | `widthStep` | 0,5 | 0,1 bis 2 | Rundung der gemessenen Breite nach unten |
 | `dipLength` | 4 | 0 bis 100 | Einbrüche bis etwa so lang werden geschlossen (Laterne, Transporter). Auf ganze Stationen je Seite aufgerundet |
@@ -241,14 +254,15 @@ Code ändern.
 | `highwayWidths` | Tabelle oben | je bis 50 | Straßenbreite je `highway`-Klasse, nur für Stationen ohne Messung und das HQ-Endstück |
 | `unknownHighwayWidth`, `laneWidth`, `laneExtra` | 5, 3, 1 | | Breite unbekannter Klassen, Spurbreite und Zuschlag bei `lanes` |
 
-**Höhenmodell (zu Fall B).** Der direktere Hebel wäre, Zellhöhen gegen die
-Mittellinie zu prüfen: Liegt eine Zelle deutlich über dem seitlichen Minimum
-der Mittellinie, gilt dieses. Das wäre wieder ein Anker mit Toleranzband, den
-`column-sample.ts` bewusst abgeschafft hat ("no anchor, no tolerance band, no
-guessing"). Das ist eine Designentscheidung, keine Kleinigkeit. Nebenbei: Der
-Kommentar an `RouteCell.routeAnchorY` (`global-route-grid.ts:65-70`)
-beschreibt noch eine Verwerfung über `GROUND_ANCHOR_TOLERANCE_M`; die
-Konstante gibt es nicht mehr.
+**Höhenmodell (zu Fall B).** Umgesetzt als Dach-Check für die Zellen neben
+der Mittellinie (siehe Zellen, `roofRise`), nach den Playtest-Befunden vom
+2026-09-12 (Randzellen auf Traufen, eine Zelle auf einem Dach in einer
+Gasse). Bezug ist bewusst nicht `routeAnchorY`: Beim ersten Grid-Aufbau
+stehen die Routenhöhen noch auf der flachen HQ-Höhe, am Hang würden Zellen
+sonst eingegraben. Stattdessen die Säule der Mittellinie daneben, mit
+derselben LOD-Auswahl wie jede Zelle. Die Zellen der Mittellinie selbst
+bleiben ungeprüft; liegt die Mittellinie unter einer Krone, bleibt es beim
+alten Verhalten.
 
 ## Lücken in der LOS-Anzeige eines Towers (Playtest 2026-09-12)
 
@@ -296,6 +310,9 @@ Die Tabelle:
 | `airVisible`, `airBlocked`, `airMissing` | dasselbe für Luftziele | Bei reinen Boden-Towern ist `airMissing` gleich `cells` |
 | `holes` | Stellen ohne Zelle, aber mit Zellen auf allen vier Seiten | > 0 widerspräche dem Test zu (a); Liste in `holeCells` |
 | `raised` | Zellen mehr als 1 m über dem Median ihrer Nachbarn | > 0: Kandidaten für (d); Liste in `raisedCells` (x, z, Meter über den Nachbarn) |
+| `clamped` | Zellen, die der Dach-Check auf den Boden gesetzt hat | Randzellen unter Traufen, Dächern, Kronen; meist `groundBlocked` |
+| `centreCells`, `centreMissing` | Zellen der Mittellinie in Reichweite, Stellen der Mittellinie ohne Zelle | `centreMissing` > 0 widerspräche den Tests zur Mittelreihe; Liste in `centreMissingCells` |
+| `centreUnsampled`, `centreBlocked`, `centreRaised`, `centreClamped`, `centreNotDisplayed` | dasselbe wie oben, nur für die Mittellinie | zeigt, woran eine fehlende Reihe entlang der roten Linie liegt |
 | `displayed` | Platten der Anzeige | |
 | `displayOutdated` | Platten, deren Zelle nicht mehr im Grid ist | > 0: Grid neu gebaut, Anzeige nicht |
 | `notDisplayed` | Zellen mit Höhe in Reichweite, die der Anzeige fehlen | > 0: Anzeige ist ein alter Schnappschuss, Fall (e) |
@@ -303,6 +320,28 @@ Die Tabelle:
 
 Die Koordinaten aus `holeCells` und `raisedCells` lassen sich mit
 `__rg.dumpCellsInBox({ xMin, xMax, zMin, zMax })` genauer ansehen.
+
+**Ohne Koordinaten: `__corridor.pick()`.** Aufrufen, dann mit links auf
+die Stelle der Karte klicken, die falsch aussieht. Der Klick wählt nichts
+aus und baut nichts; der ausgewählte Tower und seine Anzeige bleiben. In
+der Konsole steht danach je Rasterstelle im Umkreis von 4 m
+(`__corridor.pick(6)` für 6 m), die nächste zur roten Linie zuerst:
+`routeM` (Abstand zur Mittellinie), `cell` (gibt es eine Zelle), `state`,
+`heightM`, `clamped`, `aboveNeighboursM`, `surface`, `ground`/`air` (Antwort
+des ausgewählten Towers) und `displayed` (zeichnet seine Anzeige die Zelle).
+
+**Zweiter Befund: eine ganze Reihe entlang der roten Linie.** Auf einer
+schrägen, freien, flachen Straße fehlte in der Anzeige genau die Reihe, durch
+die die rote Linie läuft, über mehrere Zellen; links und rechts standen je
+zwei Reihen. Geprüft:
+
+| Kandidat | Ergebnis | Beleg |
+|---|---|---|
+| Die Säulenprobe trifft Routenlinie, Straßen-Overlay, Marker oder Gegner | Verworfen | Die Probe schneidet nur die Tile-Gruppe (`raycastColumn`); Routenlinie, Straßen und Marker hängen in der eigenen `overlayGroup` der Szene. Treffer ohne Tile würden ohnehin verworfen (`selectColumnSample`) |
+| Die Mittelreihe wird von zwei Segmenten oder Routen beansprucht und dabei falsch behandelt | Verworfen | Test "keeps the centre row of a street two routes share, whichever way they run": zwei Routen gegenläufig auf derselben Straße, eine mit Abzweig; jede Zelle der Mittellinie existiert, hat eine Höhe, eine Antwort des Towers und steht in der Liste der Anzeige. Die Registrierung eines Towers läuft über alle Zellen in Reichweite, unabhängig davon, wer sie angelegt hat |
+| Schlüssel und Position passen nicht zusammen (floor gegen round) | Verworfen | Test "finds every cell at its own centre, one cell per spot": Erzeugung und Suche nutzen dieselbe `cellIndex`-Regel, jede Zelle liegt allein an ihrer Stelle |
+| Die Animation der Route (1 m breite rote Linie, 1,8 m breiter Schein, in Weltmetern) überdeckt die Reihe | Möglich, nur während sie läuft | Sie liegt mit `renderOrder` 2 und 3 auf der Höhe der Platten und endet nach einem Durchlauf; die statische rote Linie ist 2 px breit und verdeckt keine Platte |
+| Zellen der Mittelreihe ohne Höhenprobe oder auf falscher Höhe | Offen | Zeigt `__corridor.towerCells()` (`centreUnsampled`, `centreRaised`, `centreNotDisplayed`) und `__corridor.pick()` an der Stelle |
 
 ## Backlog-Punkte aus "Terrain & Routing Experimente"
 
@@ -343,13 +382,26 @@ Probe nach Fall B genau die Information ist, die den Zellen fehlt.
 | `59e6db3` | feat(enemy): lateral offset follows the local corridor width |
 | `147e4e3` | feat(route): narrow the corridor where the tiles show facades or trees |
 | `b0a8424` | feat(route-grid): cells on a bridge take the deck, not the ground below |
+| `88bd5cd` | fix(los): a tower's LOS display takes the shared cube back |
+| `7e5b57b` | feat(debug): __corridor.towerCells() explains gaps in a tower's LOS display |
+| `ef6a1d8` | refactor(route): collect the corridor knobs in one config |
+| `331c7a3` | feat(route): corridor width from the free space the tiles show, per side |
+| `9367158` | feat(debug): tune the corridor from the console with __corridor.set() |
+| `bf695ff` | feat(debug): report the centre line cells and the grid around a click |
+| `d2f3e26` | fix(route-grid): a cell whose column finds a roof stands on the ground |
+| `f4532a1` | feat(route-grid): a bottleneck may be one cell wide |
+| (dieser) | feat(route): a wall is what stops a low and a high ray |
 
 ## Offene Punkte
 
 - Ort des Befunds unbekannt, mit `__routes.describe()` klären.
 - Entscheidung zum Höhenmodell der Zellen (Anker gegen die Mittellinie oder nicht).
-- Korridor und Versatz nach Straßenbreite: umgesetzt, im Spiel nicht geprüft
-  (Grenzen im Abschnitt Korridor).
+- Korridor nach Freiraum pro Seite, Engstelle mit einer Zelle, zwei
+  Strahlhöhen, Dach-Check: umgesetzt, im Spiel nicht geprüft (Grenzen im
+  Abschnitt Korridor).
+- Fehlende Reihe entlang der roten Linie (Playtest 2026-09-12): Ursache
+  offen, mit `__corridor.towerCells()` und `__corridor.pick()` an der Stelle
+  klären.
 - Tunnel und Durchgänge: Zellen nehmen weiter die Oberfläche darüber.
 - HQ-Endstück läuft gerade durch Gebäude, bis 150 m. Es hat jetzt die Breite
   der Straße, von der es abzweigt, und die Tile-Messung verengt es dort, wo
