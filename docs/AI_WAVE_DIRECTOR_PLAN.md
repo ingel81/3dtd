@@ -225,6 +225,13 @@ Minion ist ein Leck, das getötete Skeleton ein Kill. Der Nenner wächst mit jed
 Split; die Fortschrittsliste führt jeden Gegner ohnehin einzeln, und
 `WaveOutcome.enemiesSpawned` zählt die Kinder seit 2026-09-13 mit.
 
+**Fähigkeits-Kills zählen als Leck.** Was ein Nuklearschlag des Spielers tötet,
+zählt `gateLeakRatio()` zu den Ankünften (Entscheidung 6.1 b in
+[PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md)): der Einsatz
+rettet HP und Gold, macht die Wellen danach aber nicht größer. Die Zahl kommt
+über `WaveOutcome.abilityKills` vom Collector; das Backend-Gate zählt genauso
+(`gate_leak_share`), der Reward nicht. Details in [ABILITIES.md](ABILITIES.md).
+
 **State ist per Run.** `reset()` gehört an den Spielstart und wird von
 `WaveDirectorService.resetForNewGame()` aufgerufen (Aufrufer:
 `game-loop-facade.service.ts`). Ließ man den Multiplikator über Runs hinweg

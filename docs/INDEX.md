@@ -28,6 +28,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [ENEMY_CREATION.md](ENEMY_CREATION.md) | Aktuell | Enemies erstellen, Animationen, Audio-System |
 | [STATUS_EFFECTS.md](STATUS_EFFECTS.md) | Aktuell | Status-Effekt-System (Slow, Burn, Poison; Freeze reserviert) |
 | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | Aktuell | Wave-Management, Sub-Step-Spawner, Mixed Waves, Game Phases |
+| [ABILITIES.md](ABILITIES.md) | Aktuell | Spieler-Fähigkeiten, bisher der Nuklearschlag: Ladungen, Zielmodus, Einschlag in Sub-Steps, Leck-Buchung im Gate, Bot-Strategie |
 | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) | Aktuell | Debug-Pfad ohne Director: `STATIC_WAVE_PROFILES`, UI-Toggle, Post-W30-Loop |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
 | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) | Aktuell | Breite des Routenkorridors: Freiraum je Seite aus den Tiles, OSM-Breite als Rückfall, Dach-Check, Brücken, Tunnel, Nachmessen (`CorridorRefit`), Seitenversatz der Gegner, `__corridor.*`, `__routes.describe()` |
@@ -47,7 +48,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 |----------|--------|--------------|
 | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) | Aktuell | Game Design: Schadenstypen, Rüstung, Damage-Matrix, Balance |
 | [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md) | Bericht | Balance-Vorschlag vom 2026-09-11: Upgrade-Kurven, Cannon, Matrix-Spreizung, Boss-Takt ab W31, mit Rechenwegen. Im Sprint 2026-09-11 umgesetzt; die offenen Fragen stehen am Ende |
-| [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) | Konzept | Spieler aktiver einbinden: Fähigkeiten, Held, Varianten mit Aufwand. Abschnitt 7 hält die Entscheidung vom 2026-09-12 fest (Nuklearschlag zuerst) |
+| [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) | Konzept (Teil umgesetzt) | Spieler aktiver einbinden: Fähigkeiten, Held, Varianten mit Aufwand. Abschnitt 7 hält die Entscheidung vom 2026-09-12 fest (Nuklearschlag zuerst), Abschnitt 8 die Umsetzung vom 2026-09-13 |
 | [COMBAT_HEATMAP_STUDY.md](game-design/COMBAT_HEATMAP_STUDY.md) | Bericht | Machbarkeitsstudie Kampfzonen. Schicht 1 (Kampfspuren) ist umgesetzt, siehe PARTICLE_SYSTEM.md; Schicht 2 (Heatmap) nicht |
 | [UX_DISCUSSION_NOTES.md](game-design/UX_DISCUSSION_NOTES.md) | Bericht | Diskussionsnotizen: Turmdrehung nach Wegfall des Ziels, Color Grading |
 
@@ -128,6 +129,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...das Tower-Placement verstehen | [TOWER_CREATION.md](TOWER_CREATION.md) → Tower-Placement-System |
 | ...Enemy-Animationen konfigurieren | [ENEMY_CREATION.md](ENEMY_CREATION.md) → Animation-System |
 | ...Status-Effekte verstehen | [STATUS_EFFECTS.md](STATUS_EFFECTS.md) |
+| ...den Nuklearschlag (Fähigkeiten) verstehen | [ABILITIES.md](ABILITIES.md) |
 | ...Waves konfigurieren / Mixed Waves bauen | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
 | ...verstehen, wer die Wellen aussucht | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) |
 | ...den Fairness-Cap / das Gate verstehen | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) → Gate-Controller |

@@ -77,6 +77,8 @@ src/app/ai/training/
 │
 └── strategies/
     ├── tower-strategy.interface.ts  # ITowerStrategy, BaseStrategy (+ Tower-Bewertung)
+    ├── ability/
+    │   └── nuclear-strike.strategy.ts              # 97
     ├── placement/
     │   ├── research-center-placement.strategy.ts   # 95
     │   ├── anti-air-placement.strategy.ts          # 90
@@ -147,15 +149,16 @@ export interface ITowerStrategy {
 
 ```typescript
 export type TowerActionType =
-  'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave' | 'research-start' | 'research-cancel';
+  'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave' | 'research-start' | 'research-cancel' | 'use-ability';
 
 export interface TowerAction {
   type: TowerActionType;
-  position?: { x: number; z: number };   // place — x = lon, z = lat
+  position?: { x: number; z: number };   // place, use-ability: x = lon, z = lat
   towerType?: TowerTypeId;               // place
   towerId?: string;                      // upgrade, sell
   upgradeId?: string;                    // upgrade
   researchId?: string;                   // research-start, research-cancel
+  abilityId?: AbilityId;                 // use-ability
   confidence?: number;
   reason?: string;
 }
@@ -215,6 +218,7 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 
 | Priority | Strategie | beginner | casual | strategist | meta |
 |---:|---|:--:|:--:|:--:|:--:|
+| 97 | NuclearStrike | ✓ | ✓ | ✓ | ✓ |
 | 95 | ResearchCenterPlacement | ✓ | ✓ | ✓ | ✓ |
 | 90 | AntiAirPlacement | | ✓ | ✓ | ✓ |
 | 88 | AntiEtherealPlacement | | ✓ | ✓ | ✓ |
@@ -227,6 +231,9 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 | 30 | AutoStartWave | (✓) | (✓) | (✓) | (✓) |
 
 `(✓)` = wird nur angehängt, wenn `createBot(skill, autoStartWaves = true)`.
+
+NuclearStrike steht in jedem Set, feuert aber nur mit erforschtem
+`nuclear-strike`, und das erforschen nur strategist und meta (ResearchPick).
 
 **casual und meta haben dasselbe Strategie-Set**; sie unterscheiden sich nur in
 Reaktionszeit (1500 vs. 400 ms) und Turm-Cap (15 vs. 20).
@@ -299,7 +306,7 @@ ist und ihre Prereqs erfüllt sind.
   daraus nichts kommt, greift die statische Liste
   (`gatling-tech → ice-magic → tentacle-biology → siege-engineering → rocketry →
   aa-retrofit → arcane-studies → toxic-compounds → fire-alchemy →
-  advanced-weaponry → storm-mastery → master-engineering → chaos-rift →
+  advanced-weaponry → nuclear-strike → storm-mastery → master-engineering → chaos-rift →
   advanced-engineering → transcendent-tech`), die am Wave-Curriculum ausgerichtet ist: AA fertig vor
   `bat_swarm` (W7), Cannon vor `boss_herbert` (W10), Magic vor `ghost_surge`
   (W13).
@@ -389,6 +396,30 @@ Dieselbe Varianz-/Verstärkungslogik wie DistributedPlacement, aber über
 `findStrategicPositions` statt Zonen und mit 50/50 statt 30/70 beim
 Spar-Entscheid; gespart wird auf einen zufälligen fehlenden Typ statt auf den
 billigsten. Erster Turm: der billigste. Gleicher Archer-Cap.
+
+### NuclearStrike (97)
+
+Feuert den Nuklearschlag ([ABILITIES.md](ABILITIES.md)): während einer Welle,
+sobald die Fähigkeit bereit ist (`AbilityManager.checkUse`), und nur, wenn
+mindestens 10 Gegner im letzten Fünftel ihrer Route stehen (Pfadfortschritt ab
+0,8). Ziel ist der Gegner in diesem Abschnitt mit den meisten anderen im
+Strike-Radius von 25 m. Geprüft werden höchstens 48 Kandidaten, gleichmäßig
+über den Abschnitt verteilt, damit ein Mega-Schwarm billig bleibt. Die Aktion
+`use-ability` geht als `command:use-ability` an den AbilityManager, der das
+Ziel wie einen Klick auf die Route snappt.
+
+Die Gegner liest die Strategie aus dem GameStateManager, nicht aus dem
+Snapshot: der trägt keine Positionen und geht unverändert ans Backend.
+
+**Vergleichbarkeit:** Strategist (der Trainings-Bot) und meta erforschen die
+Fähigkeit für 1.000 Gold und setzen sie ein. Ihre Läufe sind mit Läufen vor dem
+2026-09-13 nicht direkt vergleichbar: anderes Gold, eine andere
+Forschungsfolge, weniger Lecks in Wellen mit Einsatz. Beginner und casual
+erforschen sie nie und spielen unverändert. Das Fairness-Gate bucht die Kills
+als Leck, im Frontend wie im Backend (`gate_leak_share`), die Wellengröße
+wächst also nicht durch den Einsatz. Außerdem verschiebt der sechzehnte
+Forschungsknoten das Encoder-Merkmal `research_progress` (abgeschlossen durch
+gesamt) für alle Bots.
 
 ### AutoStartWave — 30
 
@@ -631,6 +662,12 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 ---
 
 ## Changelog
+
+### 2026-09-13: Nuklearschlag
+- Neue Aktion `use-ability`, neue Strategie NuclearStrike (97) in allen
+  Skill-Stufen; `nuclear-strike` in den Forschungslisten von strategist und
+  meta nach `advanced-weaponry`. Folgen für Messungen:
+  [NuclearStrike (97)](#nuclearstrike-97).
 
 ### 2026-09-12: Platzierungsregeln aus einer Quelle
 - `TowerManager.validatePosition` und `StrategicPlacementService.meetsPlacementConstraints`

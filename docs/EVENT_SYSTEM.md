@@ -57,6 +57,10 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `research:cancelled` | ResearchManager | kein Listener (nur Event-Debugger über `onAny`) | Forschung abgebrochen (`researchId`, `refund`) |
 | `research:state-changed` | ResearchManager | GameStateSyncService | **Snapshot-Event** nach jeder Research-Mutation (`activeResearches`, `completedResearches`, `queuedResearches`, `centerLevel`, `maxSlots`). Single Source of Truth fuer Store-Sync — ersetzt 2026-05-10 das direkte `syncResearchStoreState()`-Polling aus dem GameStateManager. |
 | `research:progress` | ResearchManager | GameStateSyncService | Vergangene Spielzeit je laufender Forschung (`elapsed`), höchstens alle 100 ms Wanduhr. Füllt `ResearchStore.researchElapsed`, das den Fortschrittsbalken treibt |
+| `ability:used` | AbilityManager (`use()`) | VFXService (Zielmarker) | Nuklearschlag unterwegs, die Ladung ist verbraucht (`abilityId`, `strikeId`, `target` auf die Route gesnappt, `radiusM`, `warningMs`). Siehe [ABILITIES.md](ABILITIES.md) |
+| `ability:impact` | AbilityManager (im Sub-Step des Einschlags) | VFXService, AudioService, ScreenShakeService, AIDataCollector | Einschlag (`abilityId`, `strikeId`, `target`, `radiusM`, `hits`, `kills`). Die Kills bucht das Fairness-Gate als Leck |
+| `ability:rejected` | AbilityManager (`use()`) | kein Listener (nur Event-Debugger über `onAny`) | Einsatz abgelehnt (`abilityId`, `reason`: `locked`, `no-charge`, `no-wave`, `no-route`, `unknown`) |
+| `ability:state-changed` | AbilityManager | GameStateSyncService | **Snapshot-Event** nach Freischaltung, Einsatz, Einschlag und Nachladen (`abilities`). Füllt `GameStore.abilities` |
 
 ### Deferred Events (nicht-kritisch, queued)
 
@@ -122,6 +126,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `command:cancel-research` | TowerDefenseComponent (`facade.emitCommand`), TrainingSession | GameCommandsHandler → ResearchManager | Forschung abbrechen (`researchId`) |
 | `command:queue-research` | TowerDefenseComponent (nur Spieler) | GameCommandsHandler → ResearchManager | In die Warteschlange (`researchId`), kostet nichts. Gestartet und bezahlt wird im Sub-Step nach `update()` (`ResearchManager.startQueued`), sobald ein Slot frei ist und das Gold reicht; der Kopf der Schlange wartet, nichts dahinter überholt. Bots nutzen weiter `command:start-research`, das bei vollen Slots ablehnt |
 | `command:unqueue-research` | TowerDefenseComponent | GameCommandsHandler → ResearchManager | Aus der Warteschlange nehmen (`researchId`), keine Erstattung, weil nichts bezahlt war |
+| `command:use-ability` | AbilityTargetingService (Klick im Zielmodus), TrainingSession (Bot-Aktion `use-ability`) | GameCommandsHandler → AbilityManager.use() | Fähigkeit einsetzen (`abilityId`, `target`); Antwort `ability:used` oder `ability:rejected` |
 
 ---
 
@@ -310,11 +315,11 @@ bag.disposeAll();
 
 | Datei | LOC | Beschreibung |
 |-------|-----|--------------|
-| `game-engine/game-event-bus.ts` | ~715 | Event Bus Core (GameEvent Union, Subscriptions, processQueue) |
-| `game-engine/vfx.service.ts` | ~194 | VFX Event Handler |
-| `game-engine/audio.service.ts` | ~61 | Audio Event Handler |
+| `game-engine/game-event-bus.ts` | ~763 | Event Bus Core (GameEvent Union, Subscriptions, processQueue) |
+| `game-engine/vfx.service.ts` | ~268 | VFX Event Handler, Zielmarker und Explosion des Nuklearschlags |
+| `game-engine/audio.service.ts` | ~80 | Audio Event Handler, Sound des Nuklearschlags |
 | `game-engine/background-music.service.ts` | — | Phasen-basiertes Crossfade-System |
-| `game-engine/screen-shake.service.ts` | — | Screen-Shake bei nahen Einschlägen, HQ-Schaden und Boss-Tod |
+| `game-engine/screen-shake.service.ts` | ~156 | Screen-Shake bei nahen Einschlägen, HQ-Schaden, Boss-Tod und Nuklearschlag |
 | `game-engine/index.ts` | ~26 | Barrel Exports |
 | `components/debug-window/event-debugger.component.ts` | — | Debug Panel |
 

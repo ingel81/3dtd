@@ -301,6 +301,22 @@ Ein Start aus dem Build-Mode lässt den Build-Mode an: Vorschau und gewählter T
 
 Beschriftung, Restzahl und Balkenbreite liefert `waveButtonView()` (`wave-panel/wave-button.ts`) aus zwei Store-Werten: `waveEnemyTotal` (von `wave:started` angekündigte Größe) und `waveEnemiesLeft` (lebende plus noch nicht gespawnte Gegner). Beide pflegt `GameStateSyncService` aus `wave:started`, `enemy:died`, `enemy:reached-base` und `debug:kill-all`. Manuelle Debug-Wellen kündigen keine Größe an, dann fehlen Zahl und Balken.
 
+### Nuclear-Strike-Knopf (Sidebar)
+
+Quadrat (`.td-strike-btn`, 44 × 44px) rechts neben dem Next-Wave-Button, sichtbar erst nach der Forschung `nuclear-strike` ([ABILITIES.md](ABILITIES.md)). Beide stehen in einer Zeile (`.td-wave-actions`, `gap` 6px), der Next-Wave-Button nimmt den Rest der Breite. Fläche und Kanten wie die laufende Welle (`--td-panel-shadow`, vertiefte Kanten, Ecken 3px), Icon `radiation` 20px. Unten drei 2px-Striche, einer je Welle bis zur nächsten Ladung: `--td-gold`, sobald die Welle geschafft ist, sonst `--td-frame-mid`; solange die Ladung steht, sind alle hell.
+
+| Zustand | Auslöser | Darstellung |
+|---------|----------|-------------|
+| Bereit | geladen, Welle läuft | Rand `--td-gold-dark`, Icon `--td-gold-light`, Hover `--td-gold-glow` |
+| Zielt | Zielmodus an | Gold-Verlauf wie der Next-Wave-Button, Icon und Striche `#1A140A`, `--td-gold-glow`, `aria-pressed` |
+| Wartet | geladen, keine Welle | Icon `--td-text-muted` |
+| Unterwegs | Schlag zwischen Befehl und Einschlag | Icon `--td-warn-orange` |
+| Lädt | Ladung verbraucht | Icon `--td-text-disabled`, die Striche zählen die geschafften Wellen |
+
+Ohne Wirkung bleibt der Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht ("Nuclear Strike: recharges in 2 waves"). Zustand, Striche und Text liefert `abilityButtonView()` (`wave-panel/ability-button.ts`) aus `GameStore.abilities`.
+
+Im Zielmodus zeigt die Kontext-Hinweis-Box "Click Strike" und "ESC Cancel", dazu die Warnung "No route within 30 m", solange keine Route-Zelle in Reichweite ist. Auf der Karte ist der Zielring gold (`--td-gold`), wo der Schlag landen würde, und rot (`--td-health-red`), wo er abgelehnt würde; der Marker während der Vorwarnung ist orange (`--td-warn-orange`) mit goldenem Countdown-Ring (`--td-gold-light`).
+
 ### Header (mit Stein-Textur)
 
 ```css

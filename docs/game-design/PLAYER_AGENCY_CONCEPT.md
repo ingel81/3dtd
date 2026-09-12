@@ -1,8 +1,9 @@
 # Konzept: Spieler aktiver ins Geschehen einbinden
 
-**Status:** Entschieden am 2026-09-12 (Abschnitt 7), MVP noch nicht gebaut.
+**Status:** Entschieden am 2026-09-12 (Abschnitt 7). MVP Nuklearschlag gebaut
+am 2026-09-13 (Abschnitt 8, Dokumentation in [ABILITIES.md](../ABILITIES.md)).
 **Stand:** 2026-09-11 (Abschnitte 0 bis 6, Code-Stand `3338f4b`), 2026-09-12
-(Abschnitt 7).
+(Abschnitt 7), 2026-09-13 (Abschnitt 8).
 **Bezug:** TODO.md, Backlog „Gameplay-Konzepte: Spieler aktiver ins Geschehen
 einbinden“.
 
@@ -334,3 +335,24 @@ Vom Nutzer über den Entscheidungsbogen getroffen (Kurzform
 
 Damit entspricht der MVP Abschnitt 5, ergänzt um die Bot-Strategie und die
 Leck-Buchung der Fähigkeits-Kills im `GateController`.
+
+---
+
+## 8. Umsetzung (2026-09-13)
+
+Gebaut wie in Abschnitt 7 entschieden; Aufbau, Ablauf und Dateien in
+[ABILITIES.md](../ABILITIES.md). Beim Bau festgelegt, wo Abschnitt 5 und 7
+nichts sagen:
+
+| Punkt | Umsetzung |
+|---|---|
+| Forschungs-ID | `nuclear-strike` (Kategorie `global-perk`, Perk `nuclear-strike`); die Forschung gibt die erste Ladung |
+| Einsatz | nur während einer Welle; außerhalb lehnt der Manager mit `no-wave` ab |
+| Nachladen | die Welle des Einsatzes zählt mit (Einsatz in W12, wieder bereit ab W15); solange die Ladung steht, sammeln Wellen nichts an |
+| Ladung | wird mit dem Befehl verbraucht. Stirbt der Rest der Welle in den 1,5 s, trifft der Einschlag niemanden |
+| Bosse | `isBoss` nur bei Herbert. Golem und Drache kommen auch in normalen Wellen vor, das Flag gilt pro Typ |
+| Name im Spiel | "Nuclear Strike" (Knopf mit Symbol, Tooltip, Forschung) |
+| Leck-Buchung im Training | das Backend-Gate zählt die Fähigkeits-Kills genauso (`gate_leak_share`), der Reward nicht |
+| Bots | Strategie ab 10 Gegnern mit Pfadfortschritt ab 0,8. In allen Skill-Stufen eingehängt, erforscht wird die Fähigkeit nur von strategist und meta. Deren Baselines sind mit Läufen vor der Umsetzung nicht direkt vergleichbar, beginner und casual spielen unverändert |
+
+Nicht gebaut: Hotkey, Warnsirene, weitere Fähigkeiten, Pickups.

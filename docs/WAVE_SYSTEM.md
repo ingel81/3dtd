@@ -320,6 +320,10 @@ haengt an `AIDataCollectorService.onWaveResult()`, **nicht** am Event
 waere ueber das Event nie erreichbar gewesen. `onWaveResult` haengt an
 `addToHistory()`, dem einzigen Punkt, den beide Pfade passieren.
 
+Kills durch Spieler-Fähigkeiten (Nuklearschlag) zählen für den Regler als Leck
+(`gateLeakRatio`, `WaveOutcome.abilityKills`): der Einsatz rettet HP und Gold,
+vergrößert die folgenden Wellen aber nicht. Siehe [ABILITIES.md](ABILITIES.md).
+
 Der Zustand ist **pro Run**: `GameLoopFacadeService.restartGame()` ruft
 `waveDirector.resetForNewGame()`. Lief der Multiplikator ueber Runs hinweg
 weiter, wurde er zur Ratsche — neue Runs starteten gegen Wellen, die fuer eine
