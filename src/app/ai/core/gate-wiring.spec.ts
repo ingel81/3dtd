@@ -71,12 +71,12 @@ function defenceSnapshot(): GameStateSnapshot {
   return s;
 }
 
-function waveResult(progress: number[], survived = true): WaveResult {
+function waveResult(progress: number[], survived = true, abilityKills = 0): WaveResult {
   return {
     waveNumber: 1,
     timestamp: 0,
     config: { enemies: [], totalCount: progress.length, spawnDelay: 500 },
-    outcome: { enemyProgressValues: progress, playerSurvived: survived },
+    outcome: { enemyProgressValues: progress, playerSurvived: survived, abilityKills },
   } as unknown as WaveResult;
 }
 
@@ -125,6 +125,23 @@ describe('gate wiring', () => {
         collector.emitWaveResult(waveResult([1, 1, 1, 0.5]));   // 75% arrived
       }
       expect(director.gate.budgetMultiplier).toBeLessThan(opened);
+    });
+
+    it('books ability kills as leaks, so a strike does not grow the next waves', () => {
+      // Nobody reached the base. Without the strike that opens the gate; with
+      // 1 of 10 struck down it reads 10% through, inside the band, and holds
+      // (PLAYER_AGENCY_CONCEPT.md, 6.1 b).
+      const wave = Array(10).fill(0.5);
+      for (let i = 0; i < GATE_ADAPT_WINDOW * 3; i++) {
+        collector.emitWaveResult(waveResult(wave, true, 1));
+      }
+      expect(director.gate.budgetMultiplier).toBe(1);
+
+      director.resetForNewGame();
+      for (let i = 0; i < GATE_ADAPT_WINDOW * 3; i++) {
+        collector.emitWaveResult(waveResult(wave));
+      }
+      expect(director.gate.budgetMultiplier).toBeGreaterThan(1);
     });
 
     it('ignores waves that carry no per-enemy data', () => {

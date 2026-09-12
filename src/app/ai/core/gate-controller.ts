@@ -61,6 +61,26 @@ export const GATE_MULT_DOWN = 0.8;
 export const GATE_MULT_MIN = 0.5;
 export const GATE_MULT_MAX = 8;
 
+/**
+ * Share of a wave the loop counts as through: enemies that reached the base
+ * plus enemies an ability killed, over every enemy with a progress sample.
+ *
+ * Ability kills count as leaks (PLAYER_AGENCY_CONCEPT.md, 6.1 b): a strike
+ * saves the player HP and gold in the wave it lands in, but must not read as
+ * defense strength and grow the waves after it. A struck enemy's progress
+ * sample is where it died, below 1, so it is counted once.
+ *
+ * null when the wave carries no per-enemy data, see recordWave.
+ */
+export function gateLeakRatio(progress: readonly number[], abilityKills = 0): number | null {
+  if (progress.length === 0) return null;
+  let leaked = Math.max(0, abilityKills);
+  for (const p of progress) {
+    if (p >= 1) leaked++;
+  }
+  return Math.min(1, leaked / progress.length);
+}
+
 /** What the loop did with the most recent wave it saw. */
 export type GateStep = 'warming-up' | 'opened' | 'closed' | 'held' | 'backed-off';
 

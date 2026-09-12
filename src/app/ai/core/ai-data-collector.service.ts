@@ -292,6 +292,14 @@ export class AIDataCollectorService {
     this.subscriptions.add(
       this.eventBus.on('enemy:split', (event) => this.onEnemySplit(event))
     );
+    // Ability kills: the fairness gate books them as leaks (gateLeakRatio).
+    // Their enemy:died already recorded them as killed.
+    this.subscriptions.add(
+      this.eventBus.on('ability:impact', (event) => {
+        this.currentWaveOutcome.abilityKills =
+          (this.currentWaveOutcome.abilityKills || 0) + event.kills;
+      })
+    );
 
     // Health tracking
     this.subscriptions.add(
@@ -328,6 +336,7 @@ export class AIDataCollectorService {
       enemiesSpawned: event.enemyCount,
       enemiesKilled: 0,
       enemiesReachedBase: 0,
+      abilityKills: 0,
       damageToPlayer: 0,
       damagePercent: 0,
       waveDurationMs: 0,

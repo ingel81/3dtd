@@ -46,6 +46,12 @@ export interface WaveOutcome {
   /** Enemies that reached the base */
   enemiesReachedBase: number;
 
+  /**
+   * Enemies a player ability killed (also counted in enemiesKilled). The
+   * fairness gate books them as leaks, see gateLeakRatio.
+   */
+  abilityKills?: number;
+
   /** Total damage dealt to player lives */
   damageToPlayer: number;
 
