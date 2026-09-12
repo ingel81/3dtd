@@ -227,8 +227,8 @@ removeExpiredEffects(gameTimeMs: number): void {
 }
 ```
 
-Die Gift-DPS wächst mit dem Damage-Upgrade: `CombatEffectService` rechnet
-`8 × projectile.damage / 5`, wobei 5 der dort fest eingetragene Basisschaden des Poison Tower ist.
+Die Gift-DPS wächst mit dem Damage-Upgrade: `CombatEffectService.poisonDotDps()` rechnet
+`8 × projectile.damage / TOWER_TYPES.poison.damage` (Basisschaden des Poison Tower, derzeit 5).
 Hauptziel und Splash-Opfer bekommen denselben Wert.
 
 **Implementierung:**

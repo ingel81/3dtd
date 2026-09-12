@@ -16,6 +16,7 @@ vi.mock('@angular/core', async () => {
 import { CombatEffectService } from './combat-effect.service';
 import { PROJECTILE_TYPES, ProjectileTypeId } from '../../configs/projectile-types.config';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
+import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 
 /**
@@ -90,6 +91,15 @@ describe('CombatEffectService splash', () => {
     expect(ids).toContain('zombie');
     expect(ids).not.toContain('bat');
     expect(applyPoison.mock.calls.some((c) => c[0] === bat)).toBe(false);
+  });
+
+  it('poisons primary and splash targets with the DOT scaled by the glob damage', () => {
+    const zombie = enemyAt('zombie', 2, false);
+    hit('poison', [zombie]);
+    // The glob hits for 60: the base DOT times 60 over the tower's base damage
+    const dotDps = GAME_BALANCE.effects.poison.dotDamagePerSecond * (60 / TOWER_TYPES.poison.damage);
+    expect(applyPoison.mock.calls.map((c) => c[1])).toEqual([dotDps, dotDps]);
+    expect(applyPoison.mock.calls[1][0]).toBe(zombie);
   });
 
   it('cannon splash stops at the 8 nearest victims', () => {

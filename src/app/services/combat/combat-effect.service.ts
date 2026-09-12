@@ -138,14 +138,9 @@ export class CombatEffectService {
 
       // Apply poison DOT for poison-glob
       if (isPoisonGlob) {
-        // Scale DOT DPS with tower damage upgrade multiplier
-        const baseDamage = 5; // Poison tower base damage
-        const upgradeMultiplier = projectile.damage / baseDamage;
-        const dotDps = GAME_BALANCE.effects.poison.dotDamagePerSecond * upgradeMultiplier;
-
         this.statusEffectService.applyPoison(
           enemy,
-          dotDps,
+          this.poisonDotDps(projectile),
           GAME_BALANCE.effects.poison.duration,
           projectile.sourceTowerId
         );
@@ -261,18 +256,24 @@ export class CombatEffectService {
 
       // Apply poison DOT to splash targets
       if (isPoisonGlob) {
-        const baseDamage = 5;
-        const upgradeMultiplier = projectile.damage / baseDamage;
-        const dotDps = GAME_BALANCE.effects.poison.dotDamagePerSecond * upgradeMultiplier;
-
         this.statusEffectService.applyPoison(
           nearbyEnemy,
-          dotDps,
+          this.poisonDotDps(projectile),
           GAME_BALANCE.effects.poison.duration,
           projectile.sourceTowerId
         );
       }
     }
+  }
+
+  /**
+   * DOT DPS of a poison glob. It grows with the tower's damage track: a glob
+   * that hits for twice the Poison Tower's base damage poisons for twice the
+   * base DOT.
+   */
+  private poisonDotDps(projectile: Projectile): number {
+    const upgradeMultiplier = projectile.damage / TOWER_TYPES.poison.damage;
+    return GAME_BALANCE.effects.poison.dotDamagePerSecond * upgradeMultiplier;
   }
 
   /**
