@@ -7,6 +7,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { BaseTowerBot } from './bots/base-tower-bot';
 import { ITowerBot, TowerAction } from './bots/tower-bot.interface';
 import { GameStateSnapshot } from '../core/models/game-state-snapshot';
+import { GameEventBus } from '../../game-engine/game-event-bus';
 
 /** Sub-step length the game loop hands the bot (GameStateManager.FIXED_STEP_MS). */
 const STEP_MS = 16.667;
@@ -90,5 +91,41 @@ describe('TrainingSession.updateBot snapshot laziness', () => {
 
     expect(snapshot).not.toHaveBeenCalled();
     expect(bot.decisionCount).toBe(0);
+  });
+});
+
+describe('TrainingSession bot actions', () => {
+  class StrikeBot extends BaseTowerBot {
+    constructor() {
+      super('strategist', { reactionTimeMs: 400 }, 'StrikeBot');
+    }
+    protected decideAction(_state: GameStateSnapshot): TowerAction | null {
+      return { type: 'use-ability', abilityId: 'nuclear-strike', position: { x: 9.1, z: 48.2 } };
+    }
+  }
+
+  it('sends use-ability as command:use-ability, the aim as lat/lon', () => {
+    const bus = new GameEventBus();
+    const commands = vi.fn();
+    bus.on('command:use-ability', commands);
+    const injector = Injector.create({
+      providers: [
+        { provide: AIDataCollectorService, useValue: {} },
+        { provide: TowerDefenseStore, useValue: { phase: signal('wave') } },
+      ],
+    });
+    const client = runInInjectionContext(injector, () => new TrainingClientService());
+    const deps = { gameState: { getEventBus: () => bus } } as unknown as TrainingDeps;
+    const session = runInInjectionContext(injector, () => new TrainingSession(client, deps));
+    (session as unknown as { currentBot: ITowerBot | null }).currentBot = new StrikeBot();
+    client.botEnabled.set(true);
+
+    session.updateBot(() => ({}) as GameStateSnapshot, 0);
+
+    expect(commands).toHaveBeenCalledWith({
+      type: 'command:use-ability',
+      abilityId: 'nuclear-strike',
+      target: { lat: 48.2, lon: 9.1 },
+    });
   });
 });
