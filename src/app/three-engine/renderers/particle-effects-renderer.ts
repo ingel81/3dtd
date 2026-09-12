@@ -55,9 +55,8 @@ const BLOOD_GRAVITY = -19.6;
  *
  * Split out of three-effects.renderer.ts. Owns the blood/ice decal managers
  * and borrows GPU particles from the ParticlePoolManager (trail additive /
- * normal pools). Handles blood splatter, fire, muzzle flashes, bullet
- * tracers, cannon smoke, configurable trails, explosions, ice/arcane bursts,
- * and the persistent-fire respawn logic.
+ * normal pools). Handles blood splatter, fire, muzzle flashes, configurable
+ * trails, explosions, ice/arcane bursts, and the persistent-fire respawn logic.
  */
 export class ParticleEffectsRenderer {
   // Active effects
@@ -653,89 +652,6 @@ export class ParticleEffectsRenderer {
     }
 
     console.log('[Effects] Scaled fire to inferno:', fireId, '| Particles:', effect.particles.length);
-  }
-
-  /**
-   * Spawn bullet tracer effect at local position
-   * Tiny and fast-fading
-   * Uses ADDITIVE blending (bright tracer effect)
-   */
-  spawnBulletTracer(localX: number, localY: number, localZ: number, count = 1): void {
-    for (let i = 0; i < count; i++) {
-      const particle = this.pools.getInactiveParticle('trailAdditive');
-      if (!particle) break;
-
-      // Spawn at bullet position with tiny random offset
-      particle.position.set(
-        localX + (Math.random() - 0.5) * 0.1,
-        localY + (Math.random() - 0.5) * 0.1,
-        localZ + (Math.random() - 0.5) * 0.1
-      );
-
-      // Minimal velocity - tracer stays mostly in place
-      particle.velocity.set(
-        (Math.random() - 0.5) * 0.5,
-        (Math.random() - 0.5) * 0.5,
-        (Math.random() - 0.5) * 0.5
-      );
-
-      particle.life = 1.0;
-      particle.maxLife = 0.01 + Math.random() * 0.01; // 0.01-0.02 seconds (instant fade)
-      particle.size = 0.03 + Math.random() * 0.02; // 0.03-0.05 size (barely visible)
-
-      // Bright yellow/white tracer color
-      particle.color.setRGB(1, 0.95, 0.6);
-    }
-  }
-
-  /**
-   * Spawn bullet tracer at geo coordinates
-   */
-  spawnBulletTracerAtGeo(lat: number, lon: number, height: number, count = 1): void {
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    this.spawnBulletTracer(localPos.x, localPos.y, localPos.z, count);
-  }
-
-  /**
-   * Spawn subtle cannon smoke at local position
-   * Very subtle black/dark grey particles for cannonball trails
-   * Uses NORMAL blending (opaque smoke effect)
-   */
-  spawnCannonSmoke(localX: number, localY: number, localZ: number, count = 1): void {
-    for (let i = 0; i < count; i++) {
-      const particle = this.pools.getInactiveParticle('trailNormal');
-      if (!particle) break;
-
-      // Spawn at cannonball position with small random offset
-      particle.position.set(
-        localX + (Math.random() - 0.5) * 0.3,
-        localY + (Math.random() - 0.5) * 0.3,
-        localZ + (Math.random() - 0.5) * 0.3
-      );
-
-      // Slow drift upward and outward
-      particle.velocity.set(
-        (Math.random() - 0.5) * 1.5,
-        0.5 + Math.random() * 1.0, // Drift upward
-        (Math.random() - 0.5) * 1.5
-      );
-
-      particle.life = 1.0;
-      particle.maxLife = 0.3 + Math.random() * 0.4; // 0.3-0.7 seconds
-      particle.size = 0.4 + Math.random() * 0.4; // Small particles
-
-      // Dark grey/black smoke color
-      const grey = 0.1 + Math.random() * 0.15; // 0.1-0.25 (very dark)
-      particle.color.setRGB(grey, grey, grey);
-    }
-  }
-
-  /**
-   * Spawn cannon smoke at geo coordinates
-   */
-  spawnCannonSmokeAtGeo(lat: number, lon: number, height: number, count = 1): void {
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    this.spawnCannonSmoke(localPos.x, localPos.y, localPos.z, count);
   }
 
   /**

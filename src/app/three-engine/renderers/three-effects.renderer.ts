@@ -356,38 +356,6 @@ export class ThreeEffectsRenderer {
   }
 
   /**
-   * Spawn bullet tracer effect at local position
-   * Tiny and fast-fading
-   * Uses ADDITIVE blending (bright tracer effect)
-   */
-  spawnBulletTracer(localX: number, localY: number, localZ: number, count = 1): void {
-    this.particleEffects.spawnBulletTracer(localX, localY, localZ, count);
-  }
-
-  /**
-   * Spawn bullet tracer at geo coordinates
-   */
-  spawnBulletTracerAtGeo(lat: number, lon: number, height: number, count = 1): void {
-    this.particleEffects.spawnBulletTracerAtGeo(lat, lon, height, count);
-  }
-
-  /**
-   * Spawn subtle cannon smoke at local position
-   * Very subtle black/dark grey particles for cannonball trails
-   * Uses NORMAL blending (opaque smoke effect)
-   */
-  spawnCannonSmoke(localX: number, localY: number, localZ: number, count = 1): void {
-    this.particleEffects.spawnCannonSmoke(localX, localY, localZ, count);
-  }
-
-  /**
-   * Spawn cannon smoke at geo coordinates
-   */
-  spawnCannonSmokeAtGeo(lat: number, lon: number, height: number, count = 1): void {
-    this.particleEffects.spawnCannonSmokeAtGeo(lat, lon, height, count);
-  }
-
-  /**
    * Spawn configurable trail particles based on TrailParticleConfig
    * Generic method that uses config values instead of hardcoded parameters
    * Automatically chooses additive or normal blending pool based on config.blending

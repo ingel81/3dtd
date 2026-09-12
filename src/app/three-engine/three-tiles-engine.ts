@@ -2078,24 +2078,6 @@ export class ThreeTilesEngine {
     this.postProcessing?.setColorGradingPreset(settings.colorGrading);
   }
 
-  // ---- Bloom post-processing controls (delegate to PostProcessingPipeline) ----
-
-  setBloomEnabled(enabled: boolean): void {
-    this.postProcessing?.setBloomEnabled(enabled);
-  }
-
-  isBloomEnabled(): boolean {
-    return this.postProcessing?.isBloomEnabled() ?? false;
-  }
-
-  setBloomStrength(strength: number): void {
-    this.postProcessing?.setBloomStrength(strength);
-  }
-
-  setBloomThreshold(threshold: number): void {
-    this.postProcessing?.setBloomThreshold(threshold);
-  }
-
   // ---- Color Grading (LUT) ----
 
   setColorGradingPreset(preset: ColorGradingPreset): void {

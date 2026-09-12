@@ -79,15 +79,6 @@ export class PostProcessingPipeline {
     this.bloomEnabled = enabled;
     this.bloomPass.enabled = enabled;
   }
-  isBloomEnabled(): boolean {
-    return this.bloomEnabled;
-  }
-  setBloomStrength(strength: number): void {
-    this.bloomPass.strength = strength;
-  }
-  setBloomThreshold(threshold: number): void {
-    this.bloomPass.threshold = threshold;
-  }
 
   // ── Color Grading ────────────────────────────────────────────────
   setColorGradingPreset(preset: ColorGradingPreset): void {
