@@ -156,6 +156,25 @@ describe('ParticleEffectsRenderer effect particles', () => {
     expect(old.life).toBeLessThanOrEqual(1e-9); // both gone in the same frame
   });
 
+  it('leaves a particle alone that another effect took over after it died', () => {
+    const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+    const { effects, alive, frame } = setup();
+    effects.spawnBloodSplatter(0, 0, 0, 3); // the effect expires at 1.5 s
+    const blood = alive('trailNormal');
+
+    let t = 0;
+    for (; t < 1.0; t += 0.016) frame(0.016, t * 1000); // the splatter lives 0.5-0.75 s
+    expect(alive('trailNormal')).toHaveLength(0);
+
+    effects.spawnExplosion(0, 0, 0, 0, EXPLOSION_LOOK.referenceRadius, 1); // one smoke puff, 1.4 s or more
+    const [smoke] = alive('trailNormal');
+    expect(blood).toContain(smoke); // it took a slot the splatter had
+
+    for (; t < 1.6; t += 0.016) frame(0.016, t * 1000);
+    expect(smoke.life).toBeGreaterThan(0);
+    now.mockRestore();
+  });
+
   it('keeps every particle of a burning fire alive', () => {
     const { effects, alive, frame } = setup();
     effects.spawnFire(0, 0, 0, 'small');
