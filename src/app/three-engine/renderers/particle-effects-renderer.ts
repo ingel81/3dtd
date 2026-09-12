@@ -1164,7 +1164,8 @@ export class ParticleEffectsRenderer {
 
       // Check if effect expired
       if (effect.duration > 0 && elapsed > effect.duration) {
-        // Return particles to pool
+        // Return particles to pool. The effect only holds live ones (dead
+        // ones are dropped below), so none of them belongs to anyone else.
         for (const p of effect.particles) {
           p.life = 0;
         }
@@ -1174,9 +1175,19 @@ export class ParticleEffectsRenderer {
 
       // Fires burn (duration -1) until stopFire() gives them a duration
       const burning = effect.type === 'fire' && effect.duration < 0;
-      for (const particle of effect.particles) {
+      const particles = effect.particles;
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const particle = particles[i];
         if (particle.life <= 0) {
-          if (burning) this.respawnFireParticle(particle, effect);
+          if (burning) {
+            this.respawnFireParticle(particle, effect);
+          } else {
+            // Out for good. Dropped now, before updateBuffers() frees it: a
+            // later spawn may take the slot, and the expiry above used to
+            // kill that new owner's particle.
+            particles[i] = particles[particles.length - 1];
+            particles.pop();
+          }
           continue;
         }
         // Blood falls, fire rises on its own velocity
