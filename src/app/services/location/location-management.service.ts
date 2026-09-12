@@ -1,12 +1,21 @@
-import { Injectable, signal, inject, computed } from '@angular/core';
+import { Injectable, signal, inject, computed, effect, untracked } from '@angular/core';
 import { SpawnLocationConfig, FavoriteLocation } from '../../models/location.types';
 import { GeocodingService, NominatimAddress } from './geocoding.service';
 import { MissionInfo } from '../../components/loading-screen/boot-step.model';
+import { DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
+import {
+  RecentLocation,
+  addRecentLocation,
+  loadRecentLocations,
+  saveRecentLocations,
+} from './recent-locations';
 
 const FAVORITES_KEY = 'td_favorites_v2';
 const MAX_FAVORITES = 10;
 /** Header text while no location is set */
 const NO_LOCATION_NAME = 'No location';
+/** Header text while the reverse geocode of a new HQ runs */
+const LOADING_NAME = 'Loading...';
 
 /**
  * LocationManagementService - Simplified
@@ -61,6 +70,9 @@ export class LocationManagementService {
   // Favorites (just coordinates)
   readonly favorites = signal<FavoriteLocation[]>([]);
 
+  /** Places played lately, newest first (localStorage td_recent_locations_v1) */
+  readonly recents = signal<RecentLocation[]>([]);
+
   // Check if location is set
   readonly hasLocation = computed(() => this.hq() !== null);
 
@@ -81,6 +93,8 @@ export class LocationManagementService {
 
   constructor() {
     this.loadFavorites();
+    this.recents.set(loadRecentLocations());
+    this.trackRecents();
   }
 
   // ==================== LOCATION ====================
@@ -115,7 +129,7 @@ export class LocationManagementService {
    * Resolve display name via reverse geocoding
    */
   private async resolveDisplayName(lat: number, lon: number): Promise<void> {
-    this.displayName.set('Loading...');
+    this.displayName.set(LOADING_NAME);
     this.address.set(null);
 
     try {
@@ -190,6 +204,45 @@ export class LocationManagementService {
     } catch {
       // Ignore
     }
+  }
+
+  // ==================== RECENT LOCATIONS ====================
+
+  /**
+   * Remember every location once it is complete: HQ, a spawn and a resolved
+   * name. That covers every way in (URL, geolocation, dialog, favorite, World
+   * Dice, moving the HQ) without hooking each one. A new spawn at the same HQ
+   * updates that entry, see addRecentLocation().
+   */
+  private trackRecents(): void {
+    try {
+      effect(() => {
+        const hq = this.hq();
+        const spawns = this.spawns();
+        const name = this.displayName();
+        if (!hq || spawns.length === 0 || name === NO_LOCATION_NAME || name === LOADING_NAME) return;
+        untracked(() => this.recordRecent(hq, spawns, name));
+      });
+    } catch {
+      // Outside an injection context (unit tests): not tracked
+    }
+  }
+
+  /** Put a location on top of the recent list and persist it. DevWorld's fake origin is skipped. */
+  recordRecent(
+    hq: { lat: number; lon: number },
+    spawns: { lat: number; lon: number }[],
+    name: string,
+  ): void {
+    if (hq.lat === DEV_WORLD_ORIGIN.lat && hq.lon === DEV_WORLD_ORIGIN.lon) return;
+    const next = addRecentLocation(this.recents(), {
+      hq: { lat: hq.lat, lon: hq.lon },
+      spawns: spawns.map((s) => ({ lat: s.lat, lon: s.lon })),
+      name,
+      visitedAt: Date.now(),
+    });
+    this.recents.set(next);
+    saveRecentLocations(next);
   }
 
   // ==================== LEGACY COMPATIBILITY ====================

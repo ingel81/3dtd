@@ -7,6 +7,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AddressAutocompleteComponent } from '../address-autocomplete.component';
 import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from '../../services/location/geocoding.service';
+import { LocationManagementService } from '../../services/location/location-management.service';
+import { RecentLocation, formatVisitAge, isSamePlace } from '../../services/location/recent-locations';
 import { TdIconComponent } from '../icon/icon.component';
 import {
   LocationDialogData,
@@ -45,7 +47,15 @@ type EditMode = 'full' | 'spawn-only';
 export class LocationDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<LocationDialogComponent>);
   private readonly geocodingService = inject(GeocodingService);
+  private readonly locationMgmt = inject(LocationManagementService);
   readonly data: LocationDialogData = inject(MAT_DIALOG_DATA);
+
+  /** Recent places except the one being played, which would only restart it. */
+  readonly recentLocations = computed(() => {
+    const current = this.data.currentLocation;
+    return this.locationMgmt.recents().filter((r) => !current || !isSamePlace(r.hq, current));
+  });
+  private readonly openedAt = Date.now();
 
   // State
   readonly editMode = signal<EditMode>('full');
@@ -281,6 +291,22 @@ export class LocationDialogComponent {
 
   cancel(): void {
     this.dialogRef.close(null);
+  }
+
+  visitAge(recent: RecentLocation): string {
+    return formatVisitAge(recent.visitedAt, this.openedAt);
+  }
+
+  /** One click loads a recent place with the spawn it was played with. */
+  loadRecent(recent: RecentLocation): void {
+    const spawn = recent.spawns[0];
+    this.dialogRef.close({
+      hq: { lat: recent.hq.lat, lon: recent.hq.lon, name: recent.name, displayName: recent.name },
+      spawn: spawn
+        ? { id: 'spawn_recent', lat: spawn.lat, lon: spawn.lon, isRandom: false }
+        : { id: 'spawn_random', lat: 0, lon: 0, isRandom: true },
+      confirmed: true,
+    } satisfies LocationDialogResult);
   }
 
   confirm(): void {
