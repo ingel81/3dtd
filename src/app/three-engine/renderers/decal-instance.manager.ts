@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { InstanceSlotAllocator } from './instance-slot-allocator';
+import { DrawGate } from './draw-gate';
 
 /**
  * Decal instance data
@@ -27,6 +28,8 @@ export class DecalInstanceManager {
   readonly instancedMesh: THREE.InstancedMesh;
   private instances = new Map<string, DecalInstance>();
   private readonly slots: InstanceSlotAllocator;
+  /** Hides the mesh while no decal is placed (R6). */
+  private readonly gate: DrawGate;
   private readonly matrix = new THREE.Matrix4();
 
   /**
@@ -56,6 +59,7 @@ export class DecalInstanceManager {
     this.instancedMesh.frustumCulled = false;
     this.instancedMesh.renderOrder = 999; // Render after 3D tiles
     this.slots = new InstanceSlotAllocator(maxCount);
+    this.gate = new DrawGate([this.instancedMesh]);
 
     // Create per-instance attributes
     const colors = new Float32Array(maxCount * 3); // RGB
@@ -101,7 +105,7 @@ export class DecalInstanceManager {
     };
 
     this.instances.set(id, instance);
-    this.instancedMesh.count = this.slots.activeCount;
+    this.syncDrawCount();
     this.nextFadeStart = Math.min(this.nextFadeStart, instance.fadeStartTime);
 
     // Set matrix (position, rotation, scale)
@@ -194,7 +198,7 @@ export class DecalInstanceManager {
 
     this.instances.delete(id);
     this.slots.release(instance.index);
-    this.instancedMesh.count = this.slots.activeCount;
+    this.syncDrawCount();
   }
 
   /**
@@ -213,8 +217,14 @@ export class DecalInstanceManager {
     }
     this.instances.clear();
     this.slots.reset();
-    this.instancedMesh.count = 0;
+    this.syncDrawCount();
     this.nextFadeStart = Infinity;
+  }
+
+  /** Draw count follows the slot allocator; the gate hides an empty pool. */
+  private syncDrawCount(): void {
+    this.instancedMesh.count = this.slots.activeCount;
+    this.gate.setCount(this.slots.activeCount);
   }
 
   /**

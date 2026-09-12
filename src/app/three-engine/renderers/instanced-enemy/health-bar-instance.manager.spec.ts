@@ -80,4 +80,32 @@ describe('HealthBarInstanceManager', () => {
     expect(attribute('aCenter').updateRanges).toEqual([{ start: 0, count: 3 }]);
     expect(attribute('aHealth').updateRanges).toEqual([{ start: 0, count: 1 }]);
   });
+
+  it('keeps both passes out of the render list while no bar is drawn', () => {
+    const visible = () => meshes.map((m) => m.visible);
+    expect(visible()).toEqual([false, false]);
+
+    add('a');
+    expect(visible()).toEqual([true, true]);
+    bars.remove('a');
+    expect(visible()).toEqual([false, false]);
+
+    add('b');
+    bars.clear();
+    expect(visible()).toEqual([false, false]);
+  });
+
+  it('honours the visibility toggle whether bars exist or not', () => {
+    const visible = () => meshes.map((m) => m.visible);
+    bars.setVisible(false);
+    add('a');
+    expect(visible()).toEqual([false, false]);
+
+    bars.setVisible(true);
+    expect(visible()).toEqual([true, true]);
+    bars.remove('a');
+    bars.setVisible(false);
+    bars.setVisible(true);
+    expect(visible()).toEqual([false, false]);
+  });
 });

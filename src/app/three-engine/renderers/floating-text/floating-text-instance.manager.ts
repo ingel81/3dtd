@@ -10,6 +10,7 @@ import {
 import { FloatingTextAtlas, AtlasSlot } from './floating-text-atlas';
 import { createFloatingTextMaterial } from './floating-text-material';
 import { CoordinateSync } from '../index';
+import { DrawGate } from '../draw-gate';
 
 const MAX_INSTANCES = 2048;
 const SWEEP_INTERVAL = 0.25; // seconds between expiration sweeps
@@ -45,6 +46,8 @@ export class FloatingTextInstanceManager {
   private readonly instancedMesh: InstancedMesh;
   private readonly atlas: FloatingTextAtlas;
   private readonly material: ShaderMaterial;
+  /** Hides the mesh while no text is drawn (R6); setVisible() goes through it. */
+  private readonly gate: DrawGate;
 
   // Instance tracking
   private activeInstances = new Map<number, ActiveInstance>();
@@ -96,6 +99,7 @@ export class FloatingTextInstanceManager {
     this.instancedMesh.count = 0;
     this.instancedMesh.frustumCulled = false;
     this.instancedMesh.renderOrder = 1001;
+    this.gate = new DrawGate([this.instancedMesh]);
 
     // Initialize all instances with duration=0 (shader hides them)
     (this.durationAttr.array as Float32Array).fill(0);
@@ -179,7 +183,7 @@ export class FloatingTextInstanceManager {
     // Update mesh count
     if (index + 1 > this.maxUsedIndex) {
       this.maxUsedIndex = index + 1;
-      this.instancedMesh.count = this.maxUsedIndex;
+      this.syncDrawCount();
     }
   }
 
@@ -206,7 +210,7 @@ export class FloatingTextInstanceManager {
   }
 
   setVisible(visible: boolean): void {
-    this.instancedMesh.visible = visible;
+    this.gate.setShown(visible);
   }
 
   /** Clear all active instances (round reset). */
@@ -226,7 +230,7 @@ export class FloatingTextInstanceManager {
     this.durationAttr.needsUpdate = true;
 
     this.maxUsedIndex = 0;
-    this.instancedMesh.count = 0;
+    this.syncDrawCount();
 
     this.atlas.clear();
   }
@@ -286,6 +290,12 @@ export class FloatingTextInstanceManager {
       }
       this.maxUsedIndex = max;
     }
+    this.syncDrawCount();
+  }
+
+  /** Draw count is the highest used slot + 1; the gate hides an empty mesh. */
+  private syncDrawCount(): void {
     this.instancedMesh.count = this.maxUsedIndex;
+    this.gate.setCount(this.maxUsedIndex);
   }
 }

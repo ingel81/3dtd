@@ -113,4 +113,19 @@ describe('DecalInstanceManager', () => {
     expect(decals.getInstance('b')).toBeDefined();
     expect(opacityOf(decals).getX(decals.getInstance('b')!.index)).toBeCloseTo(0.5);
   });
+
+  it('stays out of the render list while no decal is placed', () => {
+    const decals = create(8);
+    expect(decals.instancedMesh.visible).toBe(false);
+
+    addTimed(decals, 'a', 0, 10, 10);
+    expect(decals.instancedMesh.visible).toBe(true);
+    decals.updateFades(100); // faded out and removed
+    expect(decals.count).toBe(0);
+    expect(decals.instancedMesh.visible).toBe(false);
+
+    add(decals, 'b');
+    decals.clear();
+    expect(decals.instancedMesh.visible).toBe(false);
+  });
 });

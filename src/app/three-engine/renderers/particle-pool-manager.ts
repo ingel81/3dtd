@@ -14,6 +14,7 @@ import {
 import { PARTICLE_LIMITS } from '../../configs/visual-effects.config';
 import { generateExplosionAtlas, generateSmokeAtlas } from './sprite-atlas-generator';
 import { createParticleShaderMaterials } from './particle-shaders';
+import { DrawGate } from './draw-gate';
 
 // Pool size constants derived from config
 const TRAIL_ADDITIVE_POOL_SIZE = PARTICLE_LIMITS.maxTrailParticlesPerPool;
@@ -101,6 +102,11 @@ export class ParticlePoolManager {
   private _poolDirtyNormal = false;
   private _poolDirtyTowerFire = false;
 
+  // Hide a pool's Points while its draw range is empty (R6)
+  private gateAdditive!: DrawGate;
+  private gateNormal!: DrawGate;
+  private gateTowerFire!: DrawGate;
+
   // Cached buffer attribute references (avoid per-frame string lookup)
   private _bufAdditive: { pos: BufferAttribute; size: BufferAttribute; color: BufferAttribute; frame: BufferAttribute } | null = null;
   private _bufNormal: { pos: BufferAttribute; size: BufferAttribute; color: BufferAttribute; frame: BufferAttribute } | null = null;
@@ -177,6 +183,7 @@ export class ParticlePoolManager {
     this.towerFireParticles = new Points(geometry, this.trailShaderMaterialAdditive!);
     this.towerFireParticles.frustumCulled = false;
     this.towerFireParticles.renderOrder = 999;
+    this.gateTowerFire = new DrawGate([this.towerFireParticles]);
     this.scene.add(this.towerFireParticles);
 
     // Initialize particle pool
@@ -235,6 +242,7 @@ export class ParticlePoolManager {
     this.trailParticlesAdditive = new Points(trailGeometryAdditive, additiveMaterial);
     this.trailParticlesAdditive.frustumCulled = false;
     this.trailParticlesAdditive.renderOrder = 999; // Render after 3D tiles
+    this.gateAdditive = new DrawGate([this.trailParticlesAdditive]);
     this.scene.add(this.trailParticlesAdditive);
 
     // Initialize additive trail pool
@@ -278,6 +286,7 @@ export class ParticlePoolManager {
     this.trailParticlesNormal = new Points(trailGeometryNormal, normalMaterial);
     this.trailParticlesNormal.frustumCulled = false;
     this.trailParticlesNormal.renderOrder = 999; // Render after 3D tiles
+    this.gateNormal = new DrawGate([this.trailParticlesNormal]);
     this.scene.add(this.trailParticlesNormal);
 
     // Initialize normal trail pool
@@ -524,6 +533,7 @@ export class ParticlePoolManager {
         frameIndices.needsUpdate = true;
       }
       this.trailParticlesAdditive!.geometry.setDrawRange(0, activeCount);
+      this.gateAdditive.setCount(activeCount);
       this._prevActiveCountAdditive = activeCount;
       this._poolDirtyAdditive = false;
     }
@@ -570,6 +580,7 @@ export class ParticlePoolManager {
         frameIndices.needsUpdate = true;
       }
       this.trailParticlesNormal!.geometry.setDrawRange(0, activeCount);
+      this.gateNormal.setCount(activeCount);
       this._prevActiveCountNormal = activeCount;
       this._poolDirtyNormal = false;
     }
@@ -608,6 +619,7 @@ export class ParticlePoolManager {
         frameIndices.needsUpdate = true;
       }
       this.towerFireParticles!.geometry.setDrawRange(0, activeCount);
+      this.gateTowerFire.setCount(activeCount);
       this._prevActiveCountTowerFire = activeCount;
       this._poolDirtyTowerFire = false;
     }

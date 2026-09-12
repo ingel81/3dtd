@@ -261,6 +261,22 @@ describe('LightningBoltRenderer', () => {
     expect(bolts.activeCount).toBe(0);
   });
 
+  it('keeps the mesh out of the render list while no bolt is alive', () => {
+    expect(mesh.visible).toBe(false);
+
+    spawn(10, { lifetime: 0.1 });
+    expect(mesh.visible).toBe(true);
+    bolts.update(10.05);
+    expect(mesh.visible).toBe(true);
+    bolts.update(10.2); // expired
+    expect(bolts.activeCount).toBe(0);
+    expect(mesh.visible).toBe(false);
+
+    spawn(11);
+    bolts.clear();
+    expect(mesh.visible).toBe(false);
+  });
+
   it('dispose removes the mesh and the halos from the scene', () => {
     spawn(10, { attachLight: true });
     bolts.dispose();

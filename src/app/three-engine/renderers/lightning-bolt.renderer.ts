@@ -35,6 +35,7 @@ import {
 } from 'three';
 import { LIGHTNING_BOLT_VERTEX, LIGHTNING_BOLT_FRAGMENT } from './lightning-bolt-shaders';
 import { InstanceSlotAllocator } from './instance-slot-allocator';
+import { DrawGate } from './draw-gate';
 
 // ─── Bolt spawn options ─────────────────────────────────────────────
 
@@ -176,6 +177,8 @@ export class LightningBoltRenderer {
   private readonly geometry: InstancedBufferGeometry;
   private readonly material: ShaderMaterial;
   private readonly slots: InstanceSlotAllocator;
+  /** Hides the mesh while no bolt is alive (R6). */
+  private readonly gate: DrawGate;
 
   /** Per-instance data of all slots, STRIDE floats each (see OFFSET_*). */
   private readonly data: Float32Array;
@@ -249,6 +252,7 @@ export class LightningBoltRenderer {
     this.mesh.updateMatrixWorld(true);
     this.mesh.matrixAutoUpdate = false;
     this.mesh.matrixWorldAutoUpdate = false;
+    this.gate = new DrawGate([this.mesh]);
     scene.add(this.mesh);
 
     this.haloTexture = createHaloTexture();
@@ -306,7 +310,7 @@ export class LightningBoltRenderer {
     this.spawnTimes[slot] = now;
     this.lifetimes[slot] = lifetime;
     this.activeSlots.add(slot);
-    this.geometry.instanceCount = this.slots.activeCount;
+    this.syncDrawCount();
 
     if (opts.attachLight) {
       const haloIdx = this.haloFreeIndices.pop();
@@ -413,7 +417,7 @@ export class LightningBoltRenderer {
     this.detachHalo(slot);
     this.activeSlots.delete(slot);
     this.slots.release(slot);
-    this.geometry.instanceCount = this.slots.activeCount;
+    this.syncDrawCount();
   }
 
   /** Hide the slot's halo and return it to the pool. */
@@ -439,8 +443,14 @@ export class LightningBoltRenderer {
     // No data writes needed: instanceCount 0 draws nothing, and spawnBolt()
     // rewrites a slot before the pool grows over it again.
     this.slots.reset();
-    this.geometry.instanceCount = 0;
+    this.syncDrawCount();
     this.dirty = false;
+  }
+
+  /** Draw count follows the slot allocator; the gate hides an empty pool. */
+  private syncDrawCount(): void {
+    this.geometry.instanceCount = this.slots.activeCount;
+    this.gate.setCount(this.slots.activeCount);
   }
 
   /** Dispose of all GPU resources. */
