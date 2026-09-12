@@ -1,6 +1,6 @@
 # Instanced Enemy Rendering (VAT System)
 
-**Stand:** 2026-09-12
+**Stand:** 2026-09-13
 
 GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert Draw Calls von ~2 pro Enemy auf ~1 pro Enemy-Typ.
 
@@ -8,7 +8,7 @@ GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert
 
 ## Uebersicht
 
-Das klassische Rendering erzeugt pro Enemy 2 Draw Calls (Mesh + Health Bar Sprite). Bei 500 Enemies sind das ~1000 Draw Calls. Das instanzierte System reduziert das auf ~14 Draw Calls (1 InstancedMesh pro Enemy-Typ + 1 instanzierte Health Bar fuer alle).
+Das frühere klassische Rendering (`ThreeEnemyRenderer`, entfernt in 2bbf91f) erzeugte pro Enemy 2 Draw Calls (Mesh + Health Bar Sprite), bei 500 Enemies ~1000. Heute läuft jeder Typ instanziert: ein Draw Call pro Enemy-Typ mit belegten Slots plus zwei für alle Health-Bars (zwei Passes). Leere Pools stehen nicht in der Render-Liste (siehe Slot-Vergabe).
 
 | Komponente | Klassisch | Instanziert |
 |-----------|-----------|-------------|
@@ -24,10 +24,10 @@ Das klassische Rendering erzeugt pro Enemy 2 Draw Calls (Mesh + Health Bar Sprit
 
 ```
 src/app/three-engine/renderers/instanced-enemy/
-├── instanced-enemy.renderer.ts   # Orchestrator (API-kompatibel mit ThreeEnemyRenderer)
+├── instanced-enemy.renderer.ts   # Orchestrator: Bake, Pools, Health-Bars (`tilesEngine.enemies`)
 ├── enemy-instance.manager.ts     # Per-Typ InstancedMesh Pools + Animation State
 ├── health-bar-instance.manager.ts # Instanzierte Health Bars (1 Draw Call, Two-Pass)
-├── vat-baker.ts                  # Skeletal → VAT Baking (animiert + statisch)
+├── vat-baker.ts                  # VAT Baking (Skinning, Node-Animation, statisch) + Clip-/Layout-Helfer
 └── vat-material.ts               # VAT ShaderMaterial (Vertex + Fragment Shader)
 ```
 
@@ -37,9 +37,9 @@ src/app/three-engine/renderers/instanced-enemy/
 Model laden → VAT baken → InstancedMesh Pool erstellen → Pro Frame: Animation updaten → Shader rendert
 ```
 
-1. **Preload**: Model wird geladen und VAT gebacken (`bakeVAT` oder `bakeStaticVAT`)
+1. **Preload**: Model wird geladen und VAT gebacken (`bakeVAT`, Fallback `bakeObjectAnimVAT`, ohne Animation `bakeStaticVAT`)
 2. **Create**: Enemy wird als Instance-Slot im Pool registriert
-3. **Update**: Position/Rotation per `setMatrixAt()`, Animation per `aAnimFrame` Attribut
+3. **Update**: Position/Rotation direkt in den `instanceMatrix`-Buffer (dieselbe Rechnung wie `Matrix4.compose()`), Animation per `aAnimFrame` Attribut
 4. **Render**: Shader liest animierte Position aus VAT DataTexture
 
 ---
@@ -53,17 +53,30 @@ Skelettanimationen werden in eine DataTexture "gebacken": Fuer jeden Frame wird 
 ### Animierte Modelle (`bakeVAT`)
 
 ```
-Eingabe: SkinnedMesh + AnimationClips
+Eingabe: Model-Root (Clone mit preserveSkeleton) + AnimationClips + vatClips(config)
 Ausgabe: DataTexture (width=texWidth, height=totalFrames × rowsPerFrame)
 ```
 
 **Ablauf:**
-1. Groesstes SkinnedMesh im Model finden (nach Vertex-Anzahl)
+1. Alle SkinnedMeshes im Model sammeln (Body, Haare, Anhänge) und ihre Vertices hintereinander in eine Geometrie legen
 2. Fuer jeden Clip einen frischen `AnimationMixer` erstellen
-3. Pro Frame: `mixer.setTime(t)` → `applyBoneTransform(v, pos)` → in Textur schreiben
+3. Pro Frame: `mixer.setTime(t)` → für jedes SkinnedMesh `applyBoneTransform(v, pos)` → in Textur schreiben
 4. Positionen von Mesh-Local nach Model-Root-Space transformieren
 
+Ohne SkinnedMesh oder ohne passenden Clip liefert `bakeVAT` `null`.
+
 **Wichtig:** `mixer.setTime(t)` intern resettet auf 0 und addiert t. Daher **frischer Mixer pro Clip**, sonst State-Leaking.
+
+### Node-Animation (`bakeObjectAnimVAT`)
+
+Für Modelle, deren Clips starre Mesh-Teile per Node-Transform bewegen, statt Vertices über
+Skin-Gewichte zu verformen (Mech, Hornet, Skeleton). `InstancedEnemyRenderer` ruft es auf,
+wenn `bakeVAT` `null` liefert.
+
+1. Alle Non-Skinned Meshes sammeln und in eine Geometrie legen
+2. Pro Frame: `mixer.setTime(t)` und `updateMatrixWorld()`, dann für jedes Mesh `meshToRoot`
+   aus seiner aktuellen `matrixWorld` neu rechnen und seine Vertices damit transformieren
+3. Die Pool-Geometrie ist die Ruhepose; Clip-Auswahl, Frame-Zahl und Layout wie bei `bakeVAT`
 
 ### Nur sichtbare Frames
 
@@ -75,6 +88,11 @@ Ausgabe: DataTexture (width=texWidth, height=totalFrames × rowsPerFrame)
   (`vatDeathSeconds`), bis einschließlich des Frames `floor(t × fps)`, der beim Entfernen zu
   sehen ist (`vatFrameCount`). Kürzere Todes-Clips kommen ganz in die VAT.
 - Idle wird nicht gebacken, kein Spielzustand zeigt es.
+- Clips, die das Modell nicht enthält, fallen weg.
+
+`vatClips()`, `vatFrameCount()` und `vatLayout()` sind exportiert. Das Model-Budget-Tool
+(`tools/model-budget/generate.spec.ts`, `npm run model-budget`) rechnet mit denselben
+Funktionen die VAT-Größen für [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md).
 
 Ein toter Gegner hält den letzten gebackenen Frame (Clamp in `updateAnimations`), er springt
 nicht auf Frame 0 zurück. Opazität und Position ändern sich nach dem Tod nicht mehr, es gibt
@@ -82,7 +100,7 @@ kein Ausblenden und kein Einsinken.
 
 ### Statische Modelle (`bakeStaticVAT`)
 
-Fuer Modelle ohne Skelettanimation (z.B. Tank):
+Für Modelle ohne Animation (`hasAnimations: false` oder keine Clips im Model, z.B. Tank):
 
 1. **Alle** Non-Skinned Meshes im Model sammeln
 2. Geometrien mergen (Positionen, Normalen, UVs, Indices)
@@ -92,7 +110,7 @@ Fuer Modelle ohne Skelettanimation (z.B. Tank):
 
 ### Texture Tiling
 
-WebGL limitiert Texturgroesse auf `MAX_TEXTURE_SIZE` (typisch 16384). Bei Modellen mit >8192 Vertices werden Vertices auf mehrere Zeilen verteilt:
+WebGL limitiert Texturgroesse auf `MAX_TEXTURE_SIZE` (typisch 16384). Bei Modellen mit >8192 Vertices werden Vertices auf mehrere Zeilen verteilt (`vatLayout()`):
 
 ```
 texWidth = min(vertexCount, 8192)
@@ -120,14 +138,23 @@ Modelle mit mehreren Materialien (z.B. Tank: Turret mit Textur, Ketten ohne) wer
 | Attribut | Typ | Beschreibung |
 |----------|-----|-------------|
 | `aVertexColor` | vec3 | Material-Farbe pro Vertex |
+| `aVertexAlpha` | float | Material-Opazität pro Vertex (bei eigener Textur × Textur-Alpha) |
 | `aUseMap` | float | 1.0 = Diffuse Texture nutzen, 0.0 = Vertex Color nutzen |
+
+Die Diffuse Texture des Pools ist die des Meshes mit den meisten Vertices. Meshes mit
+derselben Textur (auch derselben glTF-Bildquelle) setzen `aUseMap = 1`. Meshes mit einer
+eigenen, anderen Textur werden beim Bake auf der CPU abgetastet: Farbe und Alpha am UV des
+Vertex landen in `aVertexColor`/`aVertexAlpha`.
 
 Der Fragment Shader entscheidet pro Fragment:
 ```glsl
 if (vUseMap > 0.5 && hasDiffuse > 0.5) {
-  baseColor = texture2D(diffuseMap, vUv).rgb;
+  vec4 texSample = texture2D(diffuseMap, vUv);
+  baseColor = texSample.rgb;
+  baseAlpha = texSample.a;
 } else {
   baseColor = vVertexColor;
+  baseAlpha = vVertexAlpha;
 }
 ```
 
@@ -148,6 +175,7 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 | `isUnlit` | float | 1.0 fuer unbeleuchtete Modelle |
 | `emissiveIntensity` | float | Additiver Helligkeitsboost (aus EnemyTypeConfig) |
 | `emissiveColor` | vec3 | Emissive-Farbe (default weiss) |
+| `colorMultiplier` | float | Helligkeitsfaktor vor dem Emissive (aus EnemyTypeConfig, default 1.0) |
 
 ### Per-Vertex Attribute
 
@@ -155,6 +183,7 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 |----------|-----|--------|
 | `aVertexIndex` | float | Vertex-ID fuer VAT Lookup |
 | `aVertexColor` | vec3 | Material-Farbe (Fallback) |
+| `aVertexAlpha` | float | Alpha zur Vertex-Farbe |
 | `aUseMap` | float | Texture vs Color Flag |
 
 ### Per-Instance Attribute
@@ -162,8 +191,11 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 | Attribut | Typ | Beschreibung |
 |----------|-----|-------------|
 | `aAnimFrame` | float | Aktueller VAT Frame |
-| `aTintColor` | vec3 | Tint-Overlay (Freeze-Effekt) |
-| `aOpacity` | float | Transparenz (Death Fade) |
+| `aTintColor` | vec3 | Tint-Overlay, 50 % gemischt (0,0,0 = keiner) |
+| `aOpacity` | float | Instanz-Opazität, beim Anlegen 1.0 und danach nicht verändert (kein Death Fade) |
+
+Tint-Priorität (`applyTint()`): Hit-Flash vor Freeze vor Burn vor Poison. Den Freeze-Tint
+schaltet die VFX-Einstellung `freezeTint` ab (`setFreezeTintEnabled()`).
 
 ### Beleuchtung
 
@@ -177,6 +209,9 @@ Ambient: neutral,               Intensitaet 0.5
 ```
 
 **Wichtig:** Normalen werden in World-Space transformiert (`mat3(instanceMatrix) * normal`), NICHT View-Space. Die Lichtrichtungen sind hardcodiert in World-Space.
+
+Danach rechnet der Fragment-Shader `colorMultiplier`, das additive Emissive, den Tint und ein
+ACES-Filmic-Tonemapping ein. Lichter der Szene wirken nicht auf die Gegner.
 
 ### LogDepthBuf
 
@@ -192,6 +227,7 @@ Pro Enemy-Typ ein `TypePool`:
 - 1 `InstancedMesh` (max 20.000 Instances)
 - Slot-Vergabe über `InstanceSlotAllocator` (siehe unten)
 - Per-Instance Attribute Arrays (animFrame, tintColor, opacity)
+- Ein `DrawGate`, das das Mesh bei leerem Pool aus der Render-Liste nimmt
 
 ### Slot-Vergabe und Uploads
 
@@ -217,7 +253,9 @@ Decal-Pools (`decal-instance.manager.ts`) und die Lightning-Bolts
   laufen über `DrawGate.setShown()`, nicht über `mesh.visible`. Weil ein
   unsichtbarer Pool seine Buffer und die VAT-Textur erst beim ersten Zeichnen
   hochlädt, zeichnet der Lade-Warm-up (`three-engine/scene-warmup.ts`) alle
-  leeren Pools einmal.
+  leeren Pools einmal. Davor kompiliert er per `renderer.compileAsync()` die
+  Shader aller Materialien der Szene, versteckte Pools eingeschlossen, damit die
+  erste Welle keine Programme mehr baut.
 
 Frame-Flushes laden `(0, activeCount × n)` hoch (`clearUpdateRanges()` +
 `addUpdateRange()`), nie den vollen MAX-Buffer. Bei `activeCount = 0` wird keine
@@ -246,15 +284,23 @@ Pro Enemy-Instance:
 interface EnemyInstanceState {
   id: string;
   typeId: string;
-  index: number;        // Instance-Slot
+  index: number;           // Instance-Slot
   config: EnemyTypeConfig; // Typ-Konfiguration
-  currentAnim: string;  // Clip-Name
-  animTime: number;     // Akkumulierte Zeit
-  animSpeed: number;    // Playback Speed
-  speedMultiplier: number; // Aus Movement
+  pool: TypePool;          // Pool des Slots, spart den typeId-Lookup pro Frame
+  currentAnim: string;     // Clip-Name
+  animTime: number;        // Akkumulierte Zeit (s)
+  animSpeed: number;       // animationSpeed bzw. Debug-Override
+  speedMultiplier: number; // aktuelle Geschwindigkeit / Basisgeschwindigkeit
   isWalking: boolean;
   isDead: boolean;
   frozen: boolean;
+  poisoned: boolean;
+  burning: boolean;
+  hitFlashEnd: number;     // performance.now() am Ende des Hit-Flash, 0 = keiner
+  lastFrame: number;       // zuletzt geschriebener VAT-Frame
+  released: boolean;       // Slot freigegeben, der State wird nicht wiederverwendet
+  healthBarIndex: number;  // Health-Bar-Slot, -1 = keiner
+  // dazu gecachte Heading-Quaternion und Debug-Overrides (debugScale, ...)
 }
 ```
 
@@ -262,10 +308,13 @@ interface EnemyInstanceState {
 
 `updateAnimations(deltaTime)` wird einmal pro Render-Frame aufgerufen:
 
-1. `animTime += deltaTime × animSpeed × speedMultiplier`
+1. `animTime += deltaTime × animSpeed × speedMultiplier` (tote Gegner ohne `speedMultiplier`)
 2. Frame berechnen: `localFrame = floor((animTime / totalTime) % 1.0 × frameCount)`
 3. Looping fuer Walk/Run, Clamping fuer Death (hält den letzten gebackenen Frame)
-4. `aAnimFrame` Attribut setzen → Shader liest naechsten Frame
+4. `aAnimFrame` nur schreiben, wenn sich der globale Frame geändert hat (`lastFrame`), sonst entfällt der Upload
+
+`speedMultiplier` setzt `updateEnemyState()`: aktuelle Geschwindigkeit geteilt durch
+`baseSpeed`, beim Run-Clip durch `baseSpeed × runSpeedMultiplier`.
 
 `InstancedEnemyRenderer.updateAnimations(deltaTime, camera)` ruft danach
 `flushDirtyFlags()` und `updateBillboard()`. Der Debug-Schalter "Animationen aus"
@@ -290,25 +339,24 @@ zwei `Mesh`-Passes:
   `InstancedMesh` legt es trotzdem an und lädt es hoch (2 × 20.000 × 16 Floats =
   2,56 MB). `frustumCulled` bleibt aus, die Bounding-Sphere der Geometrie ist nur
   das Quad am Ursprung.
-- Farbverlauf: Gruen (>60%) → Gelb (>30%) → Rot (<30%)
+- Farbverlauf: Grün (>60%) → Gelb (>30%) → Rot, außer `aBarColor` ist gesetzt (`healthBarColor` des Typs)
 - Max 20.000 Health Bars
-- **Two-Pass Rendering** für korrektes Depth-Testing: erst Pass mit
-  Tiefen-Test (Bars hinter Geometrie verdeckt), dann zweiter Pass mit
-  reduzierter Opazitaet (Bars schimmern leicht durch Verdeckungen).
-  Verhindert "Pop-Through"-Artefakte ohne komplettes Disablen des Z-Buffers.
+- **Two-Pass Rendering**: Pass 1 (`renderOrder` 999) zeichnet alle Bars mit
+  Tiefen-Test, Geometrie verdeckt sie. Pass 2 (`renderOrder` 1000) zeichnet ohne
+  Tiefen-Test nur beschädigte Bars (`aHealth` < 0.999), die sind also auch hinter
+  Verdeckungen zu sehen. Keiner der Passes schreibt Tiefe.
 
 ---
 
 ## Instanced Enemy Renderer (instanced-enemy.renderer.ts)
 
-Orchestrator mit Boss-Fallback:
+Orchestrator über `EnemyInstanceManager` und `HealthBarInstanceManager`. Alle Typen laufen
+instanziert, Bosse eingeschlossen; einen klassischen Renderer gibt es nicht mehr.
 
-```
-Normal Enemy → InstancedMesh (VAT)
-Boss Enemy   → Klassischer ThreeEnemyRenderer (Object3D + AnimationMixer)
-```
-
-**API-kompatibel** mit ThreeEnemyRenderer: `create()`, `update()`, `remove()`, `startWalkAnimation()`, etc.
+API: `create()`, `resolveSlot()` + `updateSlot()` (Push pro Render-Frame aus
+`EnemyManager.presentFrame()`), `remove()`, `startWalkAnimation()`, `startRunAnimation()`,
+`playDeathAnimation()`, `updateAnimations()`, Status-Visuals (`setFreezeVisual()`,
+`setPoisonVisual()`, `setBurnVisual()`, `triggerHitFlash()`) und `applyDebugOverrides()`.
 
 ### Preloading
 
@@ -317,11 +365,16 @@ await renderer.preloadModel('zombie');  // Bake + Pool erstellen
 await renderer.preloadAllModels();      // Alle Typen parallel
 ```
 
-### Fallback-Strategie
+### Bake-Auswahl und Fehlerfälle
 
-1. Boss-Enemy → immer klassisch
-2. VAT Bake fehlgeschlagen → klassisch
-3. Clone fehlgeschlagen → klassisch
+1. `hasAnimations` und Clips im Model → `bakeVAT`, bei `null` → `bakeObjectAnimVAT`
+2. sonst → `bakeStaticVAT`
+3. Clone oder Bake fehlgeschlagen → `console.error` ("... enemy type will not render"), kein
+   Pool; `create()` liefert `null`, Gegner dieses Typs sind unsichtbar
+
+Nach dem Bake überschreibt `config.unlit` den erkannten `isUnlit`-Wert, und
+`registerEnemyModelCenterY()` (`utils/enemy-aim.util.ts`) bekommt die Modellmitte aus
+`modelMinY`/`modelMaxY`.
 
 ---
 
@@ -350,7 +403,7 @@ await renderer.preloadAllModels();      // Alle Typen parallel
 ### 5. Multi-SkinnedMesh (Spider: 2 SkinnedMeshes)
 
 **Problem:** Erstes SkinnedMesh war nur 340 Vertices (Attachment), nicht der 12833-Vertex Body.
-**Loesung:** Groesstes SkinnedMesh nach Vertex-Count waehlen.
+**Lösung:** Zuerst das größte SkinnedMesh gewählt; heute merged `bakeVAT` alle SkinnedMeshes (Spider: 13.173 VAT-Vertices, siehe ENEMY_MODEL_BUDGET.md).
 
 ---
 
@@ -360,7 +413,7 @@ await renderer.preloadAllModels();      // Alle Typen parallel
 
 | Feld | Beschreibung |
 |------|-------------|
-| `hasAnimations` | true → `bakeVAT`, false → `bakeStaticVAT` |
+| `hasAnimations` | true (und Clips im Model) → `bakeVAT` bzw. `bakeObjectAnimVAT`, sonst `bakeStaticVAT` |
 | `walkAnimation` | Clip-Name fuer Walk |
 | `runAnimation` | Clip-Name fuer Run |
 | `deathAnimation` | Clip-Name fuer Death (gebacken bis zum Entfernen) |
@@ -370,7 +423,8 @@ await renderer.preloadAllModels();      // Alle Typen parallel
 | `unlit` | true → kein Lighting (Cartoon-Modelle) |
 | `scale` | Model-Skalierung (in Instance Matrix) |
 | `headingOffset` | Rotations-Korrektur |
-| `bossName` | Wenn gesetzt → klassischer Renderer |
+| `emissiveIntensity`, `emissiveColor`, `colorMultiplier` | Uniforms des VAT-Materials |
+| `healthBarColor` | Feste Farbe der Health-Bar |
 
 ### Limits
 

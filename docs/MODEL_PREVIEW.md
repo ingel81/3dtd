@@ -1,6 +1,6 @@
 # 3D Model Preview System
 
-**Stand:** 2026-09-11
+**Stand:** 2026-09-13
 
 Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Sidebar.
 
@@ -29,10 +29,10 @@ Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Si
   Mit Max-Size + Viewport laeuft x4 jetzt mit ~10% Idle-Reserve (vorher 0%).
 
 ### Dateien
-- `services/infrastructure/model-preview.service.ts` - Haupt-Service
+- `services/infrastructure/model-preview.service.ts` - Haupt-Service, nicht `providedIn: 'root'`, sondern in den `providers` von `tower-defense.component.ts`
 - `components/game-sidebar/wave-panel/wave-panel.component.ts` - Gegner-Previews der laufenden Welle (`mixed-enemy-<index>`)
 - `components/game-sidebar/build-panel/build-panel.component.ts` - Tower-Previews der Build-Karten (`tower-preview-<towerId>`), `isHidden`, solange ein Tower gewählt ist
-- `components/game-sidebar/game-sidebar.component.ts` - `dispose()` beim Abbau der Sidebar
+- `components/game-sidebar/game-sidebar.component.ts` - `dispose()` in `ngOnDestroy`; `services/facade/tower-defense-facade.service.ts` ruft es in seinem `dispose()` ebenfalls
 
 ## PreviewConfig Optionen
 
@@ -74,9 +74,10 @@ interface PreviewConfig {
 
 ### Animation & Caching
 - **Alle Modelle**: Werden via `AssetManager.loadModel()` gecached und geklont
-- **Animierte Modelle**: Werden mit `cloneModel(url, { preserveSkeleton: true })` geklont
+- **Mit `animationName`**: Werden mit `cloneModel(url, { preserveSkeleton: true })` geklont
   - Grund: `preserveSkeleton` erhält Bone-Referenzen fuer AnimationMixer
-- **Statische Modelle**: Werden mit `cloneModel(url)` ohne Skeleton-Erhaltung geklont
+- **Ohne `animationName`**: Werden ohne Skeleton-Erhaltung geklont (`preserveSkeleton: false`), kein Mixer
+- **FBX-Modelle**: bekommen nach dem Klonen `assetManager.applyFbxMaterials()`
 - **Fallback Animation**: Wenn `animationName` nicht gefunden wird, wird automatisch die erste Animation verwendet
 
 ### Pivot-Rotation
@@ -88,8 +89,8 @@ interface PreviewConfig {
 
 | Preview Typ | Canvas-Groesse |
 |-------------|----------------|
-| Enemy Preview | 72x72 pixel |
-| Tower Preview | 100%×70 pixel (flexible Breite) |
+| Enemy Preview | 64×64 pixel (`width`/`height` im Template) |
+| Tower Preview | CSS 100 %×80 px; `createTowerPreview()` setzt die Canvas-Auflösung auf CSS-Größe × `devicePixelRatio` |
 | Shared Renderer (intern) | startet 128×128, waechst monoton bis zur groessten Preview-Groesse |
 
 ## Renderer Settings
@@ -141,12 +142,14 @@ rimLight.position.set(-2, 1, -2);
 
 ### Enemy Preview (animiert)
 ```typescript
-this.modelPreview.createPreview('enemy-preview', canvas, {
+// wave-panel.component.ts; overrides = Enemy-Debugger, sonst Config, sonst Fallback
+this.modelPreview.createPreview(`mixed-enemy-${idx}`, canvas, {
   modelUrl: enemyConfig.modelUrl,
-  scale: enemyConfig.previewScale ?? enemyConfig.scale * 0.5,  // previewScale oder Fallback
+  scale: overrides?.previewScale ?? enemyConfig.previewScale ?? enemyConfig.scale * 0.5,
   rotationSpeed: 0.4,
-  cameraDistance: 7,
-  cameraAngle: Math.PI / 12,       // 15° - flacher Blickwinkel
+  cameraDistance: overrides?.previewCameraDistance ?? enemyConfig.previewCameraDistance ?? 7,
+  cameraAngle: overrides?.previewCameraAngle ?? enemyConfig.previewCameraAngle ?? Math.PI / 12, // 15°
+  offsetY: overrides?.previewOffsetY ?? enemyConfig.previewOffsetY ?? 0,
   animationName: enemyConfig.walkAnimation || undefined,
   animationTimeScale: 0.7,
   lightIntensity: 1.3,
@@ -163,6 +166,7 @@ this.modelPreview.createPreview(`tower-preview-${towerId}`, canvas, {
   cameraDistance: 20,
   cameraAngle: Math.PI / 5,        // 36° - steilerer Blickwinkel
   lightIntensity: 1.2,
+  isHidden: this.isBuildPanelHidden, // true, solange ein Tower gewählt ist
 });
 ```
 
@@ -179,10 +183,10 @@ this.modelPreview.createPreview(`tower-preview-${towerId}`, canvas, {
 
 ```
 +------------------+
-|            [50]  |  <- Kosten-Badge (absolute, top-right)
+| [**]       [50]  |  <- Tier-Marken (top-left), Kosten-Badge (absolute, top-right)
 |                  |
-|    [3D Model]    |  <- Canvas (100% Breite)
-|                  |
+|    [3D Model]    |  <- Canvas (100% Breite, 80 px)
+| [AA]             |  <- Anti-Air-Badge (bottom-left, nur Tower mit Luftziel)
 +------------------+
 |   Tower Name     |  <- Name-Leiste (unten)
 +------------------+
@@ -212,6 +216,6 @@ Jedes Sidebar-Panel meldet seine Previews selbst an und ab.
 1. `ngAfterViewInit` des Panels -> erste Previews nach 100ms (WAVE: `initMixedEnemyPreviews()`, BUILD: `initTowerPreviews()`)
 2. Das erste `createPreview()` startet Renderer und Animation-Loop (`initialize()`)
 3. Bei Canvas-Änderungen (`QueryList.changes`): Re-Initialisierung nach 100ms (WAVE, zerstört vorher die alten Gegner-Previews) bzw. 50ms (BUILD)
-4. Debug-Overrides (Enemy-/Tower-Debugger) erzeugen das betroffene Preview per `effect` neu
+4. WAVE: ein `effect` auf die Wellen-Gruppen und die Enemy-Debug-Overrides baut alle Gegner-Previews neu. BUILD: ein `effect` auf die Tower-Debug-Overrides baut das Preview des im Debugger gewählten Towers neu
 5. Animation-Loop rendert alle sichtbaren Previews mit 30 fps (siehe Frame-Takt)
 6. Abbau eines Panels -> `destroyPreview()` für seine IDs; Abbau der Sidebar -> `modelPreview.dispose()`
