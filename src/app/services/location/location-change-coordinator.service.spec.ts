@@ -10,12 +10,12 @@ vi.mock('../../components/location-dialog/location-dialog.component', () => ({
   LocationDialogComponent: class LocationDialogComponent {},
 }));
 
+import { LocationChangeCoordinatorService, LocationFlowDelegate } from './location-change-coordinator.service';
 import {
-  LocationChangeCoordinatorService,
+  LocationChangeExecutorService,
   LocationChangeCallbacks,
   LocationChangeContext,
-  LocationFlowDelegate,
-} from './location-change-coordinator.service';
+} from './location-change-executor.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { OsmStreetService } from './osm-street.service';
 import { HeightUpdateService } from '../world/height-update.service';
@@ -118,6 +118,7 @@ function makeCallbacks(state: { spawnPoints: { id: string; name: string; lat: nu
 
 describe('LocationChangeCoordinatorService', () => {
   let coordinator: LocationChangeCoordinatorService;
+  let executor: LocationChangeExecutorService;
   let engineInit: ReturnType<typeof makeEngineInit>;
   let locationMgmt: ReturnType<typeof makeLocationMgmt>;
   let engine: ReturnType<typeof makeEngine>;
@@ -203,9 +204,12 @@ describe('LocationChangeCoordinatorService', () => {
         { provide: UrlLocationService, useValue: urlLocation },
         { provide: WorldDiceService, useValue: worldDice },
         { provide: UIStore, useValue: uiStore },
+        // A factory, like the coordinator below: a class provider would need the JIT compiler.
+        { provide: LocationChangeExecutorService, useFactory: () => new LocationChangeExecutorService() },
       ],
     });
     coordinator = runInInjectionContext(injector, () => new LocationChangeCoordinatorService());
+    executor = injector.get(LocationChangeExecutorService);
   });
 
   afterEach(() => {
@@ -216,9 +220,9 @@ describe('LocationChangeCoordinatorService', () => {
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
   const input = () => ({ hq: { ...HQ, name: 'HQ' }, spawn: { ...SPAWN, name: 'Main Street, Stuttgart' } });
 
-  describe('executeLocationChange', () => {
+  describe('executeLocationChange (LocationChangeExecutorService)', () => {
     it('reports the loading steps in order and closes each one', async () => {
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(engineInit.setStepCurrent.mock.calls.map((c) => c[0])).toEqual([
         'engine', 'streets', 'hq', 'spawns', 'routes', 'grid', 'view',
@@ -242,7 +246,7 @@ describe('LocationChangeCoordinatorService', () => {
         ];
       });
 
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(flagsDuringReset).toEqual([true, true, true, true, true]);
       expect(heightUpdate.heightProgress()).toBe(0);
@@ -253,7 +257,7 @@ describe('LocationChangeCoordinatorService', () => {
     });
 
     it('stops the running world and moves the origin to the new HQ', async () => {
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(heightUpdate.stopHeightUpdates).toHaveBeenCalled();
       expect(routeAnimation.stopAnimation).toHaveBeenCalled();
@@ -270,7 +274,7 @@ describe('LocationChangeCoordinatorService', () => {
     });
 
     it('frames the camera on HQ and spawn with the lens of the live camera', async () => {
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(cameraFraming.computeInitialFrame).toHaveBeenCalledWith(HQ, [SPAWN], {
         padding: 0.1, angle: 70, markerRadius: 8, estimatedTerrainY: 0, aspectRatio: 1.5, fov: 50,
@@ -283,7 +287,7 @@ describe('LocationChangeCoordinatorService', () => {
       const loaded = network(5);
       osm.loadStreets.mockResolvedValue(loaded);
 
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(osm.loadStreets).toHaveBeenCalledWith(HQ.lat, HQ.lon, 2000);
       expect(callbacks.setStreetNetwork).toHaveBeenCalledWith(loaded);
@@ -297,7 +301,7 @@ describe('LocationChangeCoordinatorService', () => {
       ctx.streetNetwork = cached;
       ctx.streetNetworkLocation = { lat: HQ.lat + 0.0009, lon: HQ.lon - 0.0009 };
 
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(osm.loadStreets).not.toHaveBeenCalled();
       expect(engineInit.updateStepMeta).toHaveBeenCalledWith('streets', 'Using cache...');
@@ -309,19 +313,19 @@ describe('LocationChangeCoordinatorService', () => {
       ctx.streetNetwork = network();
       ctx.streetNetworkLocation = { lat: HQ.lat + 0.0011, lon: HQ.lon };
 
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(osm.loadStreets).toHaveBeenCalledTimes(1);
     });
 
     it('closes the streets step without a count when no street was found', async () => {
       osm.loadStreets.mockResolvedValue(network(0));
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
       expect(engineInit.setStepDone).toHaveBeenCalledWith('streets', undefined);
     });
 
     it('initialises the world services on the new HQ and places its marker', async () => {
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(markerViz.initialize).toHaveBeenCalledWith(engine, HQ, ctx.heightDebugVisible);
       expect(pathRoute.initialize).toHaveBeenCalledWith(
@@ -342,17 +346,17 @@ describe('LocationChangeCoordinatorService', () => {
     });
 
     it('adds one spawn named after the part before the first comma', async () => {
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Main Street', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0]);
     });
 
     it('names the spawn "Spawn" when it has no name', async () => {
-      await coordinator.executeLocationChange({ hq: HQ, spawn: { ...SPAWN, name: '' } }, ctx, callbacks);
+      await executor.executeLocationChange({ hq: HQ, spawn: { ...SPAWN, name: '' } }, ctx, callbacks);
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0]);
     });
 
     it('starts the game state on the spawns without their colour and builds the grid', async () => {
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(gameState.initialize).toHaveBeenCalledWith(
         engine, HQ, [{ id: 'spawn-1', name: 'Main Street', lat: SPAWN.lat, lon: SPAWN.lon }], cachedPaths,
@@ -366,7 +370,7 @@ describe('LocationChangeCoordinatorService', () => {
     it('throws when no route connects HQ and spawn, before the grid is built', async () => {
       cachedPaths = new Map();
 
-      await expect(coordinator.executeLocationChange(input(), ctx, callbacks))
+      await expect(executor.executeLocationChange(input(), ctx, callbacks))
         .rejects.toThrow('No route possible between HQ and spawn');
       expect(gameState.initializeGlobalRouteGrid).not.toHaveBeenCalled();
       expect(callbacks.initializeTowerPlacement).not.toHaveBeenCalled();
@@ -378,7 +382,7 @@ describe('LocationChangeCoordinatorService', () => {
         () => new Promise<undefined>((resolve) => { releaseHeights = () => resolve(undefined); }),
       );
 
-      const done = coordinator.executeLocationChange(input(), ctx, callbacks);
+      const done = executor.executeLocationChange(input(), ctx, callbacks);
       await settle();
       expect(callbacks.scheduleOverlayHeightUpdate).toHaveBeenCalled();
       expect(locationMgmt.saveLocationsToStorage).not.toHaveBeenCalled();
@@ -392,7 +396,7 @@ describe('LocationChangeCoordinatorService', () => {
     });
 
     it('starts the route animation and the intro flight on the new routes', async () => {
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(routeAnimation.startAnimation).toHaveBeenCalledWith(cachedPaths, state.spawnPoints);
       expect(introFlight.start).toHaveBeenCalledWith(cachedPaths);
@@ -402,7 +406,7 @@ describe('LocationChangeCoordinatorService', () => {
       routeAnimation.isRunning.mockReturnValue(true);
       introFlight.isRunning.mockReturnValue(true);
 
-      await coordinator.executeLocationChange(input(), ctx, callbacks);
+      await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
       expect(introFlight.start).not.toHaveBeenCalled();
@@ -412,7 +416,7 @@ describe('LocationChangeCoordinatorService', () => {
       vi.useFakeTimers();
       engine.setOnFirstTilesLoadedCallback.mockImplementation(() => undefined);
 
-      const done = coordinator.executeLocationChange(input(), ctx, callbacks);
+      const done = executor.executeLocationChange(input(), ctx, callbacks);
       await vi.advanceTimersByTimeAsync(14_999);
       expect(markerViz.initialize).not.toHaveBeenCalled();
       expect(engineInit.tilesLoading()).toBe(true);
