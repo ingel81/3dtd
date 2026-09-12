@@ -646,14 +646,14 @@ class TrainingServer:
             has_anti_air = bool(
                 tower_unlocked.get("archer") or tower_unlocked.get("ice")
                 or tower_unlocked.get("rocket") or tower_unlocked.get("lightning")
-                or air_targeting
+                or tower_unlocked.get("chaos") or air_targeting
             )
         if "hasAntiEthereal" in caps:
             has_anti_ethereal = bool(caps.get("hasAntiEthereal"))
         else:
             has_anti_ethereal = bool(
                 tower_unlocked.get("magic") or tower_unlocked.get("ice")
-                or tower_unlocked.get("lightning")
+                or tower_unlocked.get("lightning") or tower_unlocked.get("chaos")
             )
 
         recent_tpls = ctx.recent_template_indices if ctx else []

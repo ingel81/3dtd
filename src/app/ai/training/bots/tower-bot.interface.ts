@@ -118,6 +118,7 @@ const ALL_COMBAT_TOWERS: TowerTypeId[] = [
   // Lightning was missing here, so the bot could never build it even after
   // researching storm-mastery — and the AI therefore never saw it played.
   'lightning',
+  'chaos',
 ];
 
 /**

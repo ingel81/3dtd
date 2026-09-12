@@ -184,7 +184,7 @@ export interface BotConfig {
 | meta | 400 | 20 | true |
 
 `knownTowerTypes` ist bei allen `ALL_COMBAT_TOWERS` (archer, dual-gatling,
-cannon, magic, rocket, ice, fire, tentacle, poison, lightning). Was ein Bot
+cannon, magic, rocket, ice, fire, tentacle, poison, lightning, chaos). Was ein Bot
 tatsächlich bauen *kann*, entscheidet der Research-Unlock, nicht die Config.
 Skill-Level unterscheiden sich in Reaktionszeit, Turm-Cap und Strategie-Set.
 
@@ -265,8 +265,8 @@ auf einen Dragon. `light` ist die Rüstung, die die ersten Luftwellen schicken.
 Aktiv bei `vulnerabilities.etherealGap`, ab Welle 9.
 
 Ethereal ist die eine Rüstungsklasse, die sich nicht mit Masse erschlagen lässt:
-physical, pierce und fire liegen alle bei 0.15×, nur magic (1.75×), ice (1.5×)
-und lightning (1.5×) kommen durch. Das Curriculum forciert `ghost_surge` auf
+physical, pierce und fire liegen alle bei 0.1×, nur magic (2.0×), ice (1.5×),
+lightning (1.5×) und chaos (1.0×) kommen durch. Das Curriculum forciert `ghost_surge` auf
 W13 und `wraith_storm` auf W17, und ein forciertes Template ignoriert das
 Capability-Gate — ohne diese Strategie verliert der Bot dort schlicht. Vorher
 entstanden Ethereal-Konter nur zufällig über den „neuen Typ probieren"-Zweig der
@@ -298,8 +298,8 @@ ist und ihre Prereqs erfüllt sind.
   daraus nichts kommt, greift die statische Liste
   (`gatling-tech → ice-magic → tentacle-biology → siege-engineering → rocketry →
   aa-retrofit → arcane-studies → toxic-compounds → fire-alchemy →
-  advanced-weaponry → storm-mastery → master-engineering → advanced-engineering →
-  transcendent-tech`), die am Wave-Curriculum ausgerichtet ist: AA fertig vor
+  advanced-weaponry → storm-mastery → master-engineering → chaos-rift →
+  advanced-engineering → transcendent-tech`), die am Wave-Curriculum ausgerichtet ist: AA fertig vor
   `bat_swarm` (W7), Cannon vor `boss_herbert` (W10), Magic vor `ghost_surge`
   (W13).
 
@@ -633,6 +633,14 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
   dem Stand von `initializeWithContext`.
 - Die Strategien nehmen den besten Kandidaten direkt; die zweite Prüfschleife
   pro Kandidat entfällt.
+
+### 2026-09-12: Chaos Tower
+- `chaos` in `ALL_COMBAT_TOWERS`, `chaos-rift` in den Research-Listen von
+  strategist und meta, nach Master Engineering.
+- Keine neue Strategie: Chaos zählt als Anti-Air und Anti-Ethereal
+  (`isAntiEtherealTower`, Schwelle 1,0), die bestehenden Placement-Strategien
+  wählen ihn nach Wert pro Credit. Gegen Ethereal (0,30) liegt er dort hinter
+  Magic (0,86) und Lightning (0,71), gegen Light hinter Gatling und Lightning.
 
 ### 2026-09 — Platzierung an beiden Pfadenden
 - `NearSpawnUpgradeStrategy` → **`PathCoverageUpgradeStrategy`**, Datei

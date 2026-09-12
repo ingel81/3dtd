@@ -232,8 +232,8 @@ zählt.
 5.14/5.16-Decoder-Knobs ohne Retraining — die Architektur (156→36) war damals
 identisch geblieben.
 
-> **Stand 2026-09:** Der Encoder ging über Schema v2 (162) auf **v3 (203
-> Features)**; alte Checkpoints sind nicht ladbar. Wichtiger: Es wird kein Modell
+> **Stand 2026-09:** Der Encoder ging über Schema v2 (162) und v3 (203) auf
+> **v4 (207 Features)**; alte Checkpoints sind nicht ladbar. Wichtiger: Es wird kein Modell
 > mehr geladen. `WaveDirectorService` startet im Modus `'rules'`, lädt beim
 > Start weder ONNX-Runtime noch Modelldatei, und `loadModel()` ist ein
 > ausdrückliches Opt-in — schlägt es fehl, bleibt der Regel-Director aktiv

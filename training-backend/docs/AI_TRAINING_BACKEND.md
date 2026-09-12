@@ -1,6 +1,6 @@
 # AI Training Backend
 
-**Stand:** 2026-09-07 — Schema v3 (203 Features), Reward v4, A/B-Director-Roster.
+**Stand:** 2026-09-12, Schema v4 (207 Features), Reward v4, A/B-Director-Roster.
 
 > **Das Backend ist ein Messinstrument, keine Produktionsabhängigkeit.**
 > Seit `3875d61` entscheidet im Spiel ein Regel-Director im Client
@@ -132,25 +132,30 @@ trägt alles, was eine **Trainings-Entscheidung** ist.
 
 ## Kern-Konzepte
 
-### 1. State-Vektor (203 Features, Schema v3)
+### 1. State-Vektor (207 Features, Schema v4)
 
 Alle Größen kommen aus `generated/ai-schema.json`; `INPUT_SIZE` ist nirgends
 hartkodiert.
 
 | Block | Größe | Inhalt |
 |---|---|---|
-| Base | 55 | Spieler, Tower-Counts, Damage-/Progress-History, Wave-Signale, Research |
-| Awareness | 57 | Typ-/Armor-History, Tower-Level, Capabilities, Unlocks, Near-Miss-History |
+| Base | 57 | Spieler, Tower-Counts, Damage-/Progress-History, Wave-Signale, Research |
+| Awareness | 59 | Typ-/Armor-History, Tower-Level, Capabilities, Unlocks, Near-Miss-History |
 | Effective DPS | 12 | effektive DPS pro Armor-Typ (Ground 5 + Air 5) + AoE-Anteil (2) |
 | Wave-Context | 39 | Availability-Maske (32) + effektive Ranges (6) + Fairness-Headroom (1) |
-| **Scalar gesamt** | **163** | |
+| **Scalar gesamt** | **167** | |
 | Spatial | 40 | Ground-DPS-Profil (20 Bins) + Air-DPS-Profil (20 Bins) |
-| **INPUT_SIZE** | **203** | |
+| **INPUT_SIZE** | **207** | |
 
 Der **Wave-Context-Block** ist die Neuerung von Schema v3 und der Grund für den
 Versionssprung: Das Netz gab vorher `count_factor` aus, ohne zu wissen, auf
 welches Template es angewendet wird — derselbe 0..1-Wert bedeutet 20–2000 Gegner
 für `zombie_horde` und 5–100 für `mech_army`.
+
+Schema v4 (2026-09-12) ändert am Layout nichts. Es verlängert nur die Tower-
+und die Schadenstyp-Reihenfolge um `chaos` (+4 Features: Tower-Counts,
+Tower-Level, Unlocks, DPS pro Schadenstyp); v3-Checkpoints sind damit nicht
+mehr ladbar.
 
 Layout: `server.py::_encode_state`. Frontend-Pendant:
 `src/app/ai/core/game-state-encoder.ts`. Beide werden gegen dieselbe
@@ -159,7 +164,7 @@ fehlschlagen statt still zu kürzen.
 
 > **Bekannte Abweichung:** Der Docstring von `_encode_state` beschreibt sich
 > selbst noch als „schema v2 (162 features)" und listet den Wave-Context-Block
-> nicht auf. Der Code darunter ist korrekt und produziert 203 Features.
+> nicht auf. Der Code darunter ist korrekt und produziert 207 Features.
 
 ### 2. Template-basierter Action-Space
 
@@ -304,11 +309,11 @@ gegen 44,7 [41,48]), `rules` und `maxgate` erzeugten mehr Spannung (near-miss
 dem Schema ab.
 
 ```
-Input: 203 Features
-├── Scalar Branch [0..162]: NUM_SCALAR = 163
-│   → Linear(163, 128) + LayerNorm + ReLU → 128 Features
+Input: 207 Features
+├── Scalar Branch [0..166]: NUM_SCALAR = 167
+│   → Linear(167, 128) + LayerNorm + ReLU → 128 Features
 │
-├── Spatial Branch [163..202]: 40 Features = 2 Channels × 20 Bins
+├── Spatial Branch [167..206]: 40 Features = 2 Channels × 20 Bins
 │   → Conv1d(2→16, k=3, padding=1) + ReLU
 │   → Conv1d(16→32, k=3, padding=1) + ReLU
 │   → AdaptiveAvgPool1d(1) → 32 Features
@@ -524,7 +529,7 @@ schlug jede nachhaltige Politik.
    (Wave-Context-Block) und Filter auf den Template-Output. Eine Quelle, damit
    beide nicht auseinanderlaufen können.
 3. Fährt ein nicht-lernender Director diesen Client, entscheidet er hier; sonst
-   kodiert der Server 203 Features und sampelt aus dem Modell.
+   kodiert der Server 207 Features und sampelt aus dem Modell.
 4. Decoder übersetzt in eine Wave-Config (Range-Interpolation, DPS-Caps,
    Duration-Cap, Fairness-Gate).
 5. Browser spielt die Wave und sendet das Ergebnis (`damagePercent`,
@@ -591,7 +596,7 @@ Ratio-Werte für Templates, die es nie hätte wählen können.
 | Type | Beschreibung |
 |------|---|
 | `connect` | Initial-Connection |
-| `state` | Game-State-Snapshot (wird serverseitig zu 203 Features kodiert) |
+| `state` | Game-State-Snapshot (wird serverseitig zu 207 Features kodiert) |
 | `result` | Wave-Outcome (`damagePercent`, `nearMissRatio`, `leakRatio`, `p90Progress`, `enemiesSpawned`, `stateAfter`, …) |
 | `game_start` | Neues Spiel (+ `enemyBaseHp`-Map) |
 | `game_over` | Spiel beendet |
@@ -734,3 +739,5 @@ Kurz-Timeline:
   A/B-Roster, Advantage-Clipping — und das Ergebnis der Messung: das Spiel
   läuft auf Regeln, das Backend ist ein Messinstrument
   (`docs/HANDOVER_RULE_DIRECTOR.md`)
+- **Chaos Tower (2026-09-12)** Schema v3 → v4 (203 → 207 Features): `chaos`
+  als Tower und als Schadenstyp

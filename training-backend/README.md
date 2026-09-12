@@ -2,7 +2,7 @@
 
 Python-Trainings- und Messserver für den Wave Director mit Live-Web-Dashboard.
 
-**Aktuelle Architektur:** Schema v3 (203 Features), Reward v4, A/B-Director-Roster.
+**Aktuelle Architektur:** Schema v4 (207 Features), Reward v4, A/B-Director-Roster.
 
 > **Das Backend ist ein Messinstrument, keine Produktionsabhängigkeit.** Im
 > Spiel entscheidet ein Regel-Director im Client
@@ -103,7 +103,7 @@ Editiere `config.py`:
 | Parameter | Default | Bedeutung |
 |---|---|---|
 | `SERVER_PORT` | 3001 | WebSocket-Port |
-| `INPUT_SIZE` | 203 | State-Vektor-Größe (163 scalar + 40 spatial), **aus dem Schema** |
+| `INPUT_SIZE` | 207 | State-Vektor-Größe (167 scalar + 40 spatial), **aus dem Schema** |
 | `MAX_TEMPLATE_SLOTS` | 32 | Reservierte Template-Slots (19 aktiv), aus dem Schema |
 | `NUM_CONTINUOUS` | 4 | Continuous-Params (count, spawn_delay, hp_mult, variation) |
 | `DIRECTOR_ROSTER` | `["model","rules","random","maxgate"]` | A/B-Zuweisung an verbindende Clients; `["model"]` = Einzelbetrieb |

@@ -75,12 +75,14 @@ export function deriveCapabilities(state: GameStateSnapshot): {
       || research?.towerUnlocked?.['ice']
       || research?.towerUnlocked?.['rocket']
       || research?.towerUnlocked?.['lightning']
+      || research?.towerUnlocked?.['chaos']
       || research?.airTargetingUnlocked
     ),
     hasAntiEthereal: caps?.hasAntiEthereal ?? !!(
       research?.towerUnlocked?.['magic']
       || research?.towerUnlocked?.['ice']
       || research?.towerUnlocked?.['lightning']
+      || research?.towerUnlocked?.['chaos']
     ),
   };
 }
