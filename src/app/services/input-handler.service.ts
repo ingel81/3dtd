@@ -99,6 +99,16 @@ export class InputHandlerService {
   private lastPointerMoveTime = 0;
   private readonly POINTER_MOVE_THROTTLE_MS = 16; // ~60fps max
 
+  /** Tower under the pointer outside build and placement mode; its range shows */
+  private hoveredTowerId: string | null = null;
+  /** A hover pick tests every tower mesh, so at most this often (ms) */
+  private readonly HOVER_PICK_INTERVAL_MS = 100;
+  private lastHoverPickTime = -Infinity;
+  /** Trailing pick for the last pointer position, so a stop right after a pick is not lost */
+  private hoverPickTimer: ReturnType<typeof setTimeout> | null = null;
+  private hoverX = 0;
+  private hoverY = 0;
+
   // ========================================
   // INITIALIZATION
   // ========================================
@@ -215,6 +225,9 @@ export class InputHandlerService {
     this.pointerMoveHandler = (event: PointerEvent) => {
       if (event.target === canvas || canvas.contains(event.target as Node)) {
         this.handlePointerMove(event);
+      } else if (this.hoveredTowerId) {
+        // Over the sidebar or an overlay now, not over the tower any more
+        this.setHoveredTower(null);
       }
     };
     document.addEventListener('pointermove', this.pointerMoveHandler, { capture: true });
@@ -356,7 +369,11 @@ export class InputHandlerService {
     const inBuildMode = this.buildModeSignal?.() ?? false;
     const inPlacementMode = !!this.mapPlacementModeSignal?.();
 
-    if (!inBuildMode && !inPlacementMode) return;
+    if (!inBuildMode && !inPlacementMode) {
+      this.scheduleHoverPick(event);
+      return;
+    }
+    if (this.hoveredTowerId) this.setHoveredTower(null);
 
     // Throttle to prevent excessive raycasts
     const now = performance.now();
@@ -380,6 +397,44 @@ export class InputHandlerService {
     } else if (inBuildMode && this.onMouseMoveCallback) {
       this.onMouseMoveCallback(geo.lat, geo.lon, hitPoint);
     }
+  }
+
+  /**
+   * Range of the tower under the pointer, outside build and placement mode.
+   * Kept cheap: no pick while a button is held (a camera drag), at most one
+   * per HOVER_PICK_INTERVAL_MS with a trailing one for where the pointer
+   * stopped, and none when the pointer has not moved since the last.
+   */
+  private scheduleHoverPick(event: PointerEvent): void {
+    if (event.buttons !== 0) return;
+    this.hoverX = event.clientX;
+    this.hoverY = event.clientY;
+    if (this.hoverPickTimer !== null) return;
+    const wait = Math.max(0, this.lastHoverPickTime + this.HOVER_PICK_INTERVAL_MS - performance.now());
+    this.hoverPickTimer = setTimeout(() => {
+      this.hoverPickTimer = null;
+      this.pickHoveredTower();
+    }, wait);
+  }
+
+  private lastHoverPickX = NaN;
+  private lastHoverPickY = NaN;
+
+  private pickHoveredTower(): void {
+    if (!this.engine) return;
+    // Build or placement mode may have started since the move
+    if (this.buildModeSignal?.() || this.mapPlacementModeSignal?.()) return;
+    if (this.hoverX === this.lastHoverPickX && this.hoverY === this.lastHoverPickY) return;
+    this.lastHoverPickTime = performance.now();
+    this.lastHoverPickX = this.hoverX;
+    this.lastHoverPickY = this.hoverY;
+    this.setHoveredTower(this.engine.picker.raycastTowers(this.hoverX, this.hoverY));
+  }
+
+  private setHoveredTower(id: string | null): void {
+    if (id === this.hoveredTowerId) return;
+    this.hoveredTowerId = id;
+    this.engine?.towers.setHovered(id);
   }
 
   // ========================================
@@ -509,6 +564,13 @@ export class InputHandlerService {
       document.removeEventListener('contextmenu', this.contextMenuHandler, { capture: true });
       this.contextMenuHandler = null;
     }
+    if (this.hoverPickTimer !== null) {
+      clearTimeout(this.hoverPickTimer);
+      this.hoverPickTimer = null;
+    }
+    this.setHoveredTower(null);
+    this.lastHoverPickX = NaN;
+    this.lastHoverPickY = NaN;
 
     this.engine = null;
     this.gameState = null;

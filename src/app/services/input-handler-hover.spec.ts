@@ -1,0 +1,108 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Only their DI tokens are needed. Material's dialog needs the JIT compiler
+// under vitest, the placement service pulls in the whole tower pipeline.
+vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
+vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
+
+import { Injector, runInInjectionContext, signal } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
+import { InputHandlerService } from './input-handler.service';
+import { KeyboardPanService } from './keyboard-pan.service';
+import { TowerPlacementService } from './tower-placement.service';
+import { TowerDefenseStore } from '../store/tower-defense.store';
+
+/**
+ * Range ring on hover: the tower under the pointer shows its range outside
+ * build and placement mode, picked at most every 100 ms and never during a
+ * camera drag.
+ */
+describe('InputHandlerService tower hover', () => {
+  let service: InputHandlerService;
+  let canvas: HTMLCanvasElement;
+  const buildMode = signal(false);
+  let engine: {
+    picker: {
+      raycastTowers: ReturnType<typeof vi.fn>;
+      raycastTerrain: ReturnType<typeof vi.fn>;
+    };
+    towers: { setHovered: ReturnType<typeof vi.fn> };
+  };
+
+  const move = (x: number, y: number, init: PointerEventInit = {}, target: EventTarget = canvas) =>
+    target.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true, ...init }));
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+    buildMode.set(false);
+    engine = {
+      picker: {
+        raycastTowers: vi.fn(() => 't1'),
+        raycastTerrain: vi.fn(() => null),
+      },
+      towers: { setHovered: vi.fn() },
+    };
+
+    const injector = Injector.create({
+      providers: [
+        { provide: TowerDefenseStore, useValue: {} },
+        { provide: MatDialog, useValue: { openDialogs: [] } },
+        { provide: KeyboardPanService, useValue: {} },
+        { provide: TowerPlacementService, useValue: {} },
+      ],
+    });
+    service = runInInjectionContext(injector, () => new InputHandlerService());
+    service.initialize(canvas, engine as never, {} as never, buildMode, vi.fn(), vi.fn());
+  });
+
+  afterEach(() => {
+    service.dispose();
+    canvas.remove();
+    vi.useRealTimers();
+  });
+
+  it('shows the range of the tower under the pointer', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    expect(engine.picker.raycastTowers).toHaveBeenCalledWith(10, 10);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith('t1');
+  });
+
+  it('picks at most every 100 ms, the last position included', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    move(20, 20);
+    move(30, 30);
+    vi.advanceTimersByTime(50);
+    expect(engine.picker.raycastTowers).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(60);
+    expect(engine.picker.raycastTowers).toHaveBeenCalledTimes(2);
+    expect(engine.picker.raycastTowers).toHaveBeenLastCalledWith(30, 30);
+  });
+
+  it('does not pick during a camera drag', () => {
+    move(10, 10, { buttons: 1 });
+    vi.advanceTimersByTime(200);
+    expect(engine.picker.raycastTowers).not.toHaveBeenCalled();
+  });
+
+  it('drops the hover when the pointer leaves the canvas', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    move(10, 10, {}, document.body);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith(null);
+  });
+
+  it('drops the hover in build mode and picks no tower there', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    buildMode.set(true);
+    move(40, 40);
+    vi.advanceTimersByTime(200);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith(null);
+    expect(engine.picker.raycastTowers).toHaveBeenCalledTimes(1);
+  });
+});
