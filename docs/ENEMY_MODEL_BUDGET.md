@@ -306,12 +306,12 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 2048² |
 | Wallsmasher (`wallsmasher`) | Normal | 200 | 3.444 | 5.670 | 0,7 | Skinning | 104 | 3444×104 | RGBA16F | 1,28 | 2,7 | 512² |
-| Rat (`rat`) | Swarm | 5.000 | 2.150 | 3.642 | 10,8 | Skinning | 11 | 2150×11 | RGBA16F | 0,26 | 0,2 | 1024² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 1024² |
 | Skeleton (`skeleton`) | Swarm | 940 | 1.156 | 658 | 1,1 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
+| Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 
-VAT-Speicher aller Typen zusammen: **216,5 MB** (30 fps), alles in RGBA32F wären **390,2 MB**.
+VAT-Speicher aller Typen zusammen: **216,4 MB** (30 fps), alles in RGBA32F wären **390,0 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **15,9 MB** dazu.
 
 ### Alpha
@@ -329,7 +329,7 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 | Hornet | Blend | 0 |
 | Bear | Blend | 33.852 (3,2 %) |
 
-Opak ohne Texel unter 0,05 (16): Mech, Zombie v2, Herbert, Wraith, Stone Golem, Spider, Mammoth, Tank, Zombie, Zombie Soldier, Bat, Wallsmasher, Rat, Penguin, Skeleton, Skeleton Minion.
+Opak ohne Texel unter 0,05 (16): Mech, Zombie v2, Herbert, Wraith, Stone Golem, Spider, Mammoth, Tank, Zombie, Zombie Soldier, Bat, Wallsmasher, Penguin, Skeleton, Skeleton Minion, Rat.
 Texel unter 0,05, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis 0,05): **keine**.
 
 ### Modellinhalt
@@ -356,10 +356,10 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Bear | `bear.glb` | 2,0 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
 | Bat | `bat.glb` | 5,5 | 1 (1) | 28 | 0 | 1 | 3× 2048² | 2 | 3.559 / 3.559 / 1.345 |
 | Wallsmasher | `wallsmasher.glb` | 0,4 | 1 (1) | 61 | 0 | 1 | 512² | 3 | 3.444 / 3.025 / 2.956 |
-| Rat | `rat.glb` | 2,5 | 1 (1) | 21 | 0 | 1 | 3× 1024² | 1 | 2.150 / 2.150 / 1.823 |
 | Penguin | `penguin.glb` | 1,3 | 1 (1) | 21 | 0 | 1 | 3× 1024² | 5 | 1.993 / 1.993 / 1.723 |
 | Skeleton | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
 | Skeleton Minion | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
+| Rat | `rat.glb` | 0,2 | 1 (1) | 21 | 0 | 1 | 512² | 1 | 999 / 999 / 767 |
 
 ### Gebackene Clips
 
@@ -392,13 +392,13 @@ die weggelassenen Frames.
 | Wallsmasher | `CharacterArmature\|Walk` | walk | 1,33 | 40 | – |
 | Wallsmasher | `CharacterArmature\|Run` | run | 0,80 | 24 | – |
 | Wallsmasher | `CharacterArmature\|Death` | death | 1,30 | 40 | – |
-| Rat | `Run` | walk | 0,34 | 11 | – |
 | Penguin | `Walk` | walk | 1,00 | 30 | – |
 | Penguin | `Fall` | death | 1,88 | 57 | – |
 | Skeleton | `sprint` | walk | 0,50 | 15 | – |
 | Skeleton | `die` | death | 0,33 | 11 | – |
 | Skeleton Minion | `sprint` | walk | 0,50 | 15 | – |
 | Skeleton Minion | `die` | death | 0,33 | 11 | – |
+| Rat | `Run` | walk | 0,34 | 11 | – |
 
 ### Vorkommen in Wellen
 
@@ -409,18 +409,18 @@ mit allem, was ein Kill abspaltet.
 | Template | Kurrikulum | max. Anzahl | Mischung | Mio. Vertices |
 | --- | --- | ---: | --- | ---: |
 | `zombie_horde` | W1 | 2.000 | zombie 90 %, zombie-v2 10 % | 14,4 |
-| `rat_tide` | W2 | 5.000 | rat 100 % | 10,8 |
 | `spider_swarm` | W6 | 800 | spider 100 % | 10,5 |
 | `wraith_storm` | W17, W27 | 300 | wraith 100 % | 9,1 |
+| `rat_tide` | W2 | 5.000 | rat 100 % | 5,0 |
 | `mech_army` | W28 | 100 | mech 100 % | 4,2 |
 | `ghost_surge` | W13, W23 | 350 | ghost 80 %, wraith 20 % | 3,6 |
 | `light_mix` | W4 | 400 | wallsmasher 50 %, spider 50 % | 3,3 |
 | `skeleton_swarm` | W19 | 940 | skeleton 100 % (je Kill +2 skeleton-minion) | 3,3 |
-| `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,7 |
+| `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,5 |
 | `chaos_wave` | W16, W29 | 500 | zombie 30 %, tank 30 %, hornet 20 %, bear 20 % | 2,3 |
 | `bat_swarm` | W7, W21 | 600 | bat 100 % | 2,1 |
 | `hornet_strike` | W8, W26 | 300 | hornet 70 %, bat 30 % | 1,4 |
-| `penguin_rush` | W3 | 500 | penguin 90 %, rat 10 % | 1,0 |
+| `penguin_rush` | W3 | 500 | penguin 90 %, rat 10 % | 0,9 |
 | `dragon_elite` | W12, W24 | 100 | dragon 60 %, hornet 40 % | 0,9 |
 | `golem_squad` | W15 | 60 | stone-golem 100 % | 0,8 |
 | `tank_column` | W9, W22 | 150 | tank 60 %, zombie-soldier 40 % | 0,7 |
