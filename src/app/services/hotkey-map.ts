@@ -3,9 +3,12 @@
  * whether the action can run right now is HotkeyService's call.
  *
  * Not here, InputHandlerService handles them first: W/A/S/D and the arrows
- * (camera), R (rotate while building), Esc in build and placement mode, and
- * the debug keys T and Shift+P. S stays with the camera, selling is Delete.
+ * (camera), R (rotate while building), Esc in build and placement mode and
+ * while aiming an ability, and the debug keys T and Shift+P. S stays with the
+ * camera, selling is Delete.
  */
+
+import type { AbilityId } from '../configs/abilities.config';
 
 export type HotkeyAction =
   /** Pick the build card at this position of the BUILD panel, 0-based */
@@ -17,6 +20,8 @@ export type HotkeyAction =
   | { kind: 'speed'; step: 1 | -1 }
   | { kind: 'help' }
   | { kind: 'cancel' }
+  /** Arm the ability's targeting mode, or leave it */
+  | { kind: 'ability'; abilityId: AbilityId }
   | { kind: 'camera-hq' }
   /** Fly to the next spawn point, round the list */
   | { kind: 'camera-spawn' };
@@ -68,6 +73,8 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
       return e.shiftKey ? null : { kind: 'pause' };
     case 'h':
       return { kind: 'help' };
+    case 'k':
+      return { kind: 'ability', abilityId: 'nuclear-strike' };
     case 'n':
       return { kind: 'camera-spawn' };
   }
@@ -94,6 +101,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['Space'], label: 'Start the next wave' },
       { keys: ['P'], label: 'Pause and resume' },
       { keys: ['+', '-'], label: 'Game speed up and down' },
+      { keys: ['K'], label: 'Aim the Nuclear Strike once researched, press again to cancel' },
     ],
   },
   {

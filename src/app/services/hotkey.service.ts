@@ -14,6 +14,8 @@ import { CameraControlService } from './camera-control.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { HotkeyAction, resolveHotkey } from './hotkey-map';
+import { AbilityTargetingService } from './ability-targeting.service';
+import type { AbilityId } from '../configs/abilities.config';
 import { SellConfirmService } from './sell-confirm.service';
 import { TowerPlacementService } from './tower-placement.service';
 
@@ -40,6 +42,7 @@ export class HotkeyService {
   private readonly dialog = inject(MatDialog);
   private readonly cameraControl = inject(CameraControlService);
   private readonly introFlight = inject(IntroCameraFlightService);
+  private readonly abilityTargeting = inject(AbilityTargetingService);
 
   /** BUILD panel order, the number keys follow it */
   private readonly towerTypes = getAllTowerTypes();
@@ -87,9 +90,23 @@ export class HotkeyService {
         openHotkeyHelpDialog(this.dialog);
         return true;
       case 'cancel': return this.cancel();
+      case 'ability': return this.toggleAbility(action.abilityId);
       case 'camera-hq': return this.focusHq();
       case 'camera-spawn': return this.focusNextSpawn();
     }
+  }
+
+  /**
+   * Like the ability's button: arms the targeting mode when it can fire (a
+   * wave runs, a charge is there), a second press leaves the mode.
+   */
+  private toggleAbility(id: AbilityId): boolean {
+    if (this.abilityTargeting.targeting() === id) {
+      this.abilityTargeting.cancel();
+      return true;
+    }
+    this.abilityTargeting.start(id);
+    return this.abilityTargeting.targeting() === id;
   }
 
   /** The intro flight owns the camera while it plays. */

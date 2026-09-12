@@ -147,6 +147,9 @@ schaltet den Zielmodus ein (`UIStore.abilityTargeting`, geführt vom
   der Modus an. Tower-Auswahl und Bauen sind im Modus aus.
 - Esc und ein kurzer Rechtsklick brechen ab. Wellenende, verbrauchte Ladung,
   Build-Mode und Kartenplatzierung beenden den Modus ebenfalls.
+- K wirkt wie ein Klick auf den Knopf (`services/hotkey-map.ts`,
+  `HotkeyService`): schaltet den Modus an, wenn der Schlag feuern kann, ein
+  zweites K schaltet ihn ab. Die Tastenübersicht (H) führt die Taste auf.
 
 ---
 
@@ -206,7 +209,7 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
 
 ## Bewusst nicht gemacht
 
-- Kein Hotkey und keine Warnsirene.
+- Keine Warnsirene.
 - Sterben alle Gegner in den 1,5 s der Vorwarnung, endet die Welle vor dem
   Einschlag: die Ladung ist verbraucht, der Einschlag trifft niemanden.
 - Der Event-Debugger hat keine eigene Kategorie für `ability:*`; die Events

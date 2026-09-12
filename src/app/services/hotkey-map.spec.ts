@@ -39,6 +39,11 @@ describe('resolveHotkey', () => {
     expect(resolveHotkey(key('N', { shiftKey: true }))).toEqual({ kind: 'camera-spawn' });
   });
 
+  it('aims the nuclear strike on K', () => {
+    expect(resolveHotkey(key('k'))).toEqual({ kind: 'ability', abilityId: 'nuclear-strike' });
+    expect(resolveHotkey(key('K', { shiftKey: true }))).toEqual({ kind: 'ability', abilityId: 'nuclear-strike' });
+  });
+
   it('opens the help on H and ?', () => {
     expect(resolveHotkey(key('h'))).toEqual({ kind: 'help' });
     expect(resolveHotkey(key('?', { shiftKey: true }))).toEqual({ kind: 'help' });
