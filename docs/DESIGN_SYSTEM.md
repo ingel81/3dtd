@@ -46,7 +46,7 @@ import { TD_CSS_VARS } from '../styles/td-theme';
 }
 ```
 
-Angular setzt die Regeln aus `styleUrl` vor die Inline-`styles`. Der `:host`-Block kollidiert damit nicht, solange die `.scss` selbst keine `--td-*` auf `:host` setzt. Wiederverwendbare Style-Rezepte (Scrollbar) liegen als Sass-Mixins in `styles/_td-mixins.scss`.
+Angular setzt die Regeln aus `styleUrl` vor die Inline-`styles`. Der `:host`-Block kollidiert damit nicht, solange die `.scss` selbst keine `--td-*` auf `:host` setzt. Wiederverwendbare Style-Rezepte (Scrollbar, Glas) liegen als Sass-Mixins in `styles/_td-mixins.scss`.
 
 ---
 
@@ -137,7 +137,7 @@ Titel-Akzent der Tower-Tooltips (`DAMAGE_ACCENT` in `sidebar-tooltips.ts`), dazu
 
 | Variable | Wert | Verwendung |
 |----------|------|------------|
-| `--td-glass-tint` | `rgba(17,22,19,0.78)` | Fläche der Glas-Overlays mit Backdrop-Blur (`TD_BEVEL_GLASS`, Quick Actions, Dialoge) |
+| `--td-glass-tint` | `rgba(17,22,19,0.78)` | Fläche der Glas-Overlays mit Backdrop-Blur (Mixin `bevel-glass`, Quick Actions, Dialoge) |
 | `--td-scrim` | `rgba(8,11,9,0.58)` | Abdunklung hinter Overlays |
 | `--td-shadow-soft` | `0 6px 20px rgba(0,0,0,0.55), 0 2px 4px rgba(0,0,0,0.5)` | Schlagschatten erhöhter Flächen (Dialoge, Popover) |
 | `--td-shadow-key` | `0 1px 0 rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.4)` | Kante unter Buttons |
@@ -145,7 +145,7 @@ Titel-Akzent der Tower-Tooltips (`DAMAGE_ACCENT` in `sidebar-tooltips.ts`), dazu
 | `--td-gold-glow` | `0 0 14px rgba(194,160,85,0.28), …` | Hover/Aktiv der Gold-Buttons |
 | `--td-teal-glow` | `0 0 14px rgba(107,182,164,0.32), …` | Hover/Aktiv der Teal-Buttons |
 
-Dazu die Rezepte als Strings: `TD_BEVEL_PANEL` (erhöhtes Panel: 1px `--td-frame-dark` plus Inset-Kanten, ersetzt den alten Vier-Kanten-Rahmen), `TD_BEVEL_INSET` (vertiefte Fläche: Slots, Inputs, HP-Hintergrund), `TD_BEVEL_GLASS` (Glas-Overlay).
+Dazu die Rezepte als Strings: `TD_BEVEL_PANEL` (erhöhtes Panel: 1px `--td-frame-dark` plus Inset-Kanten, ersetzt den alten Vier-Kanten-Rahmen), `TD_BEVEL_INSET` (vertiefte Fläche: Slots, Inputs, HP-Hintergrund). Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`.
 
 ### Schriften
 
@@ -214,7 +214,7 @@ Geöffnet leuchten Display und Audio (wie die aktiven Layer-Schalter) im Teal-Ve
 
 Die Quick Actions reichen vertikal von unterhalb des Kompasses (`top: 112px`) bis 36px über der Unterkante (`bottom: 36px`); die Buttons sitzen unten, die leere Fläche darüber ist `pointer-events: none`. Untermenüs klappen nach oben auf. Es ist immer nur eines der vier Menüs (Display, Audio, Layers, Dev) offen: `UIStore.openMenu` ist die einzige Quelle, `toggleMenu()` schließt beim Öffnen die anderen, gespeichert wird nur das zuletzt offene. Das Dev-Panel spannt die ganze Leiste und würde die anderen sonst überdecken.
 
-Das Dev-Menü (`.td-dev-menu`) ist ein Glas-Panel (`TD_BEVEL_GLASS`) über der Leiste: genau so breit wie sie (212px), rechtsbündig, Unterkante 4px über den Buttons, außerhalb des Flusses. Innen ein Raster mit vier Spalten (`gap` 4px, `padding` 6px), gegliedert in Gruppen, deren Titel über die volle Breite laufen (8px/600, `letter-spacing: 0.16em`, `--td-text-muted`):
+Das Dev-Menü (`.td-dev-menu`) ist ein Glas-Panel (Mixin `bevel-glass`) über der Leiste: genau so breit wie sie (212px), rechtsbündig, Unterkante 4px über den Buttons, außerhalb des Flusses. Innen ein Raster mit vier Spalten (`gap` 4px, `padding` 6px), gegliedert in Gruppen, deren Titel über die volle Breite laufen (8px/600, `letter-spacing: 0.16em`, `--td-text-muted`):
 
 | Gruppe | Kacheln |
 |--------|---------|
@@ -377,7 +377,7 @@ Wiederverwendbare Hinweis-Box fuer kontextabhaengige Aktionen (z.B. Build-Modus)
   border-radius: 4px;
   font-family: var(--td-font-body);
 
-  /* Glas wie TD_BEVEL_GLASS */
+  /* Glas wie der Mixin bevel-glass */
   background: var(--td-glass-tint);
   backdrop-filter: blur(8px) saturate(1.1);
   border: 1px solid var(--td-frame-mid);

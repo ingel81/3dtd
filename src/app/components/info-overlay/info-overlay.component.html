@@ -1,0 +1,22 @@
+<aside class="td-info" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
+       (click)="uiStore.toggleInfoOverlay()"
+       (keydown.enter)="uiStore.toggleInfoOverlay()"
+       (keydown.space)="uiStore.toggleInfoOverlay()"
+       tabindex="0"
+       role="button" [attr.aria-expanded]="uiStore.infoOverlayVisible()">
+  <div class="td-info__row td-info__row--head">
+    @if (uiStore.infoOverlayVisible()) {
+      <span class="k">FPS</span>
+    }
+    <span class="v">{{ fps() | number:'1.0-0' }}</span>
+    <td-icon class="caret"
+             [name]="uiStore.infoOverlayVisible() ? 'caretU' : 'caret'"
+             [size]="10"></td-icon>
+  </div>
+  @if (uiStore.infoOverlayVisible()) {
+    <div class="td-info__row"><span class="k">Tiles</span><span class="v">{{ tileStats().visible }}/{{ tileStats().total }}</span></div>
+    <div class="td-info__row"><span class="k">Cache</span><span class="v">{{ tileStats().cacheMB }} MB</span></div>
+    <div class="td-info__row"><span class="k">Sounds</span><span class="v">{{ activeSounds() }}</span></div>
+    <div class="td-info__row"><span class="k">Streets</span><span class="v">{{ streetCount() }}</span></div>
+  }
+</aside>

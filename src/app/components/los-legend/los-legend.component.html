@@ -1,0 +1,11 @@
+<div class="los-legend">
+  <div class="los-legend-title">Line of Sight</div>
+  <div class="los-legend-row">
+    @for (entry of entries(); track entry.label) {
+      <div class="los-legend-item">
+        <span class="los-legend-swatch" [style.background]="entry.swatch"></span>
+        <span class="los-legend-label">{{ entry.label }}</span>
+      </div>
+    }
+  </div>
+</div>

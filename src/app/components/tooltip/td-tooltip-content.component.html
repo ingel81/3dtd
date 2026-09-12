@@ -1,0 +1,54 @@
+@if (data(); as d) {
+  <div class="td-tooltip">
+    <header class="td-tooltip__header">
+      <span class="td-tooltip__title" [style.color]="accentColor()">{{ d.title }}</span>
+      @if (d.category) {
+        <span class="td-tooltip__category">{{ d.category }}</span>
+      }
+    </header>
+
+    @if (d.stats && d.stats.length > 0) {
+      <div class="td-tooltip__stats" [style.grid-template-columns]="statColumns()">
+        @for (stat of d.stats; track stat.label) {
+          <div class="td-tooltip__stat">
+            <dt>{{ stat.label }}</dt>
+            <dd>{{ stat.value }}</dd>
+          </div>
+        }
+      </div>
+    }
+
+    @if (d.targeting; as t) {
+      <div class="td-tooltip__targeting"
+           [class.td-tooltip__targeting--air-only]="t.mode === 'air-only'"
+           [class.td-tooltip__targeting--air-ground]="t.mode === 'air-ground'"
+           [class.td-tooltip__targeting--ground-only]="t.mode === 'ground-only'">
+        <td-icon class="td-tooltip__targeting-icon"
+                 [name]="targetingIcon(t)" [size]="14"></td-icon>
+        <span class="td-tooltip__targeting-label">{{ targetingLabel(t) }}</span>
+        @if (t.viaResearch) {
+          <span class="td-tooltip__targeting-note">via Research</span>
+        }
+      </div>
+    }
+
+    @if (d.armor && d.armor.length > 0) {
+      <div class="td-tooltip__armor">
+        @if (d.armorTitle) {
+          <h4>{{ d.armorTitle }}</h4>
+        }
+        @for (row of d.armor; track row.label) {
+          <div class="td-tooltip__armor-row" [class.dim]="row.dim">
+            <span class="dot" [style.--dot-color]="row.color"></span>
+            <span class="armor-label">{{ row.label }}</span>
+            <span class="armor-mul">{{ row.multiplier }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    @if (d.flavor) {
+      <div class="td-tooltip__flavor">{{ d.flavor }}</div>
+    }
+  </div>
+}
