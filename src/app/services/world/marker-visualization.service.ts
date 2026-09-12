@@ -13,6 +13,7 @@ import {
   Color,
 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
+import { GameEventBus, SubscriptionBag } from '../../game-engine';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { HQDamageService } from '../combat/hq-damage.service';
 import { UIStore } from '../../store/ui.store';
@@ -102,6 +103,9 @@ export class MarkerVisualizationService {
   /** Height debug visibility state (from UIStore) */
   private heightDebugVisible: WritableSignal<boolean> | null = null;
 
+  /** Game events the portals follow, see subscribeToEventBus() */
+  private readonly eventBusSubs = new SubscriptionBag();
+
   private readonly tmpVec = new Vector3();
 
   // ========================================
@@ -130,6 +134,19 @@ export class MarkerVisualizationService {
     this.markerManager = new MarkerInstanceManager(overlayGroup);
     this.portalManager = new SpawnPortalManager(overlayGroup);
     this.labelManager = new MarkerLabelManager(overlayGroup);
+  }
+
+  /**
+   * Let the portals follow the waves: a surge at wave start, the wave's
+   * energy while it runs, idle again once it or the game is over.
+   */
+  subscribeToEventBus(eventBus: GameEventBus): void {
+    this.eventBusSubs.disposeAll();
+    this.eventBusSubs.add(eventBus.on('wave:started', () => this.portalManager?.startWave(performance.now())));
+    const calmDown = () => this.portalManager?.endWave();
+    this.eventBusSubs.add(eventBus.on('wave:completed', calmDown));
+    this.eventBusSubs.add(eventBus.on('game:over', calmDown));
+    this.eventBusSubs.add(eventBus.on('game:reset', calmDown));
   }
 
   // ========================================
@@ -533,6 +550,7 @@ export class MarkerVisualizationService {
    * Dispose all markers and cleanup
    */
   dispose(): void {
+    this.eventBusSubs.disposeAll();
     this.markerManager?.dispose();
     this.portalManager?.dispose();
     this.labelManager?.dispose();

@@ -347,6 +347,9 @@ export class VisualizationFacadeService {
     this.eventBusSubs.disposeAll();
     const eventBus = this.gameState.getEventBus();
 
+    // Spawn portals surge at wave start and calm down after the wave
+    this.markerViz.subscribeToEventBus(eventBus);
+
     // Subscribe to tower:selected event — sync debug panel dropdown
     this.eventBusSubs.add(
       eventBus.on('tower:selected', (event) => {

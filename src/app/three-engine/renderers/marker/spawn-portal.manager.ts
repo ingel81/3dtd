@@ -32,6 +32,8 @@ interface PortalEntry {
  * - energy: the swirling surface, whose dark void hides the street behind
  *   the portal, and the light it throws on the street in front
  *
+ * The energy (glow, swirl speed) follows the waves: idle between them, a
+ * surge at wave start, the wave's level while it runs (startWave/endWave).
  * Runs on wall time like the HQ marker, so the portal keeps swirling while
  * the game is paused. All glow is emissive: the Photorealistic Tiles take
  * no scene light.
@@ -48,6 +50,13 @@ export class SpawnPortalManager {
 
   private readonly portals = new Map<string, PortalEntry>();
   private readonly freeIndices: number[] = [];
+
+  // Energy: idle between waves, higher while one runs, a surge at its start
+  private waveActive = false;
+  private settledEnergy: number = SPAWN_PORTAL_LOOK.idleEnergy;
+  private energy: number = SPAWN_PORTAL_LOOK.idleEnergy;
+  private surgeAtMs = -Infinity;
+  private lastUpdateMs: number | null = null;
 
   private readonly tmpMatrix = new Matrix4();
   private readonly tmpScale = new Vector3();
@@ -142,12 +151,40 @@ export class SpawnPortalManager {
     for (const id of [...this.portals.keys()]) this.remove(id);
   }
 
-  /** Per-frame update of the shader clock (wall time, ms). */
+  /** A wave starts: surge, then hold the wave energy until endWave(). */
+  startWave(nowMs: number): void {
+    this.waveActive = true;
+    this.surgeAtMs = nowMs;
+  }
+
+  /** The wave (or the game) is over: settle back to idle. */
+  endWave(): void {
+    this.waveActive = false;
+  }
+
+  /** Energy handed to the shaders by the last update. */
+  get energyLevel(): number {
+    return this.energy;
+  }
+
+  /** Per-frame update of the energy and the shader clock (wall time, ms). */
   update(nowMs: number): void {
+    const look = SPAWN_PORTAL_LOOK;
+    // A hitch or a hidden tab must not jump the settling
+    const dt = this.lastUpdateMs === null ? 0 : Math.min(Math.max(nowMs - this.lastUpdateMs, 0), 250) / 1000;
+    this.lastUpdateMs = nowMs;
+    const target = this.waveActive ? look.waveEnergy : look.idleEnergy;
+    this.settledEnergy += (target - this.settledEnergy) * (1 - Math.exp(-dt / look.settle));
+    const sinceSurge = (nowMs - this.surgeAtMs) / 1000;
+    const surge = sinceSurge >= 0 ? look.surge * Math.exp(-sinceSurge / look.surgeDecay) : 0;
+    this.energy = this.settledEnergy + surge;
+
     if (this.portals.size === 0) return;
     const time = nowMs / 1000;
     this.frameMat.uniforms['uTime'].value = time;
+    this.frameMat.uniforms['uEnergy'].value = this.energy;
     this.energyMat.uniforms['uTime'].value = time;
+    this.energyMat.uniforms['uEnergy'].value = this.energy;
   }
 
   dispose(): void {
