@@ -217,6 +217,7 @@ describe('GameStateManager', () => {
       expect(bus.hasListeners('command:upgrade-tower')).toBe(true);
       expect(bus.hasListeners('command:start-wave')).toBe(true);
       expect(bus.hasListeners('command:restart-game')).toBe(true);
+      expect(bus.hasListeners('command:use-ability')).toBe(true);
       expect(bus.hasListeners('enemy:reached-base')).toBe(true);
       expect(bus.hasListeners('enemy:died')).toBe(true);
     });
@@ -369,6 +370,29 @@ describe('GameStateManager', () => {
         if (tower) {
           expect(gsm.credits()).toBeLessThan(initial);
         }
+      });
+    });
+
+    describe('command:use-ability', () => {
+      it('hands the ability and the target to the AbilityManager', () => {
+        const use = vi.spyOn(gsm.abilityManager, 'use');
+        bus.emit({
+          type: 'command:use-ability',
+          abilityId: 'nuclear-strike',
+          target: { lat: 48.771, lon: 9.181, height: 3 },
+        });
+        expect(use).toHaveBeenCalledWith('nuclear-strike', { lat: 48.771, lon: 9.181, height: 3 });
+      });
+
+      it('answers a locked ability with ability:rejected', () => {
+        const rejected = vi.fn();
+        bus.on('ability:rejected', rejected);
+        bus.emit({ type: 'command:use-ability', abilityId: 'nuclear-strike', target: { lat: 48.771, lon: 9.181 } });
+        expect(rejected).toHaveBeenCalledWith({
+          type: 'ability:rejected',
+          abilityId: 'nuclear-strike',
+          reason: 'locked',
+        });
       });
     });
 

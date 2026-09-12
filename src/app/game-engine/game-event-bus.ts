@@ -4,6 +4,7 @@ import { Tower } from '../entities/tower.entity';
 import { Projectile } from '../entities/projectile.entity';
 import { GeoPosition } from '../models/game.types';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
+import type { AbilityId, AbilityRejectReason, AbilityStatus } from '../configs/abilities.config';
 import { WaveConfig } from '../managers/wave.manager';
 
 /**
@@ -183,6 +184,50 @@ export type GameEvent =
   | {
       type: 'command:unqueue-research';
       researchId: string;
+    }
+
+  // ==================== Ability Events ====================
+  | {
+      // A strike is on its way: the charge is spent, the impact lands
+      // `warningMs` of game time later on `target`, already snapped to the
+      // route. Drives the target marker.
+      type: 'ability:used';
+      abilityId: AbilityId;
+      strikeId: number;
+      target: GeoPosition;
+      radiusM: number;
+      warningMs: number;
+    }
+  | {
+      // The strike landed. `kills` count as leaks for the fairness gate
+      // (GateController), `hits` includes the survivors.
+      type: 'ability:impact';
+      abilityId: AbilityId;
+      strikeId: number;
+      target: GeoPosition;
+      radiusM: number;
+      hits: number;
+      kills: number;
+    }
+  | {
+      type: 'ability:rejected';
+      abilityId: AbilityId;
+      reason: AbilityRejectReason;
+    }
+  | {
+      // Snapshot after every AbilityManager mutation (unlock, use, impact,
+      // recharge). GameStateSyncService writes it into GameStore.abilities.
+      type: 'ability:state-changed';
+      abilities: AbilityStatus[];
+    }
+
+  // ==================== Ability Commands ====================
+  | {
+      // The AbilityManager validates, snaps the target to the route and
+      // answers with ability:used or ability:rejected.
+      type: 'command:use-ability';
+      abilityId: AbilityId;
+      target: { lat: number; lon: number; height?: number };
     }
 
   // ==================== Effect Events (Deferred) ====================

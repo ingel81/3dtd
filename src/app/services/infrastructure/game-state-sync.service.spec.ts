@@ -327,6 +327,33 @@ describe('GameStateSyncService (real service)', () => {
     });
   });
 
+  // ── Abilities ──────────────────────────────────────────────────
+  describe('ability events', () => {
+    const charged = {
+      id: 'nuclear-strike' as const,
+      unlocked: true,
+      charges: 1,
+      maxCharges: 1,
+      wavesUntilCharge: 0,
+      pending: false,
+    };
+
+    it('starts with every ability locked', () => {
+      expect(store.abilities()['nuclear-strike'].unlocked).toBe(false);
+    });
+
+    it('ability:state-changed → store.abilities', () => {
+      eventBus.emit({ type: 'ability:state-changed', abilities: [charged] });
+      expect(store.abilities()['nuclear-strike']).toEqual(charged);
+    });
+
+    it('game:reset → every ability locked again', () => {
+      eventBus.emit({ type: 'ability:state-changed', abilities: [charged] });
+      eventBus.emit({ type: 'game:reset' });
+      expect(store.abilities()['nuclear-strike'].unlocked).toBe(false);
+    });
+  });
+
   // ── Lifecycle: dispose() detaches all subscriptions ────────────
   describe('dispose()', () => {
     it('detaches every subscription so subsequent events are ignored', () => {

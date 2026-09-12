@@ -134,6 +134,16 @@ export class GameStateSyncService {
       this.store.waveEnemiesLeft.update(left => left + n);
     }));
 
+    // ── Abilities ─────────────────────────────────────────────────
+    // Snapshot after every AbilityManager mutation (unlock, use, impact, recharge)
+    this.subs.add(eventBus.on('ability:state-changed', (event) => {
+      this.store.abilities.update((current) => {
+        const next = { ...current };
+        for (const status of event.abilities) next[status.id] = status;
+        return next;
+      });
+    }));
+
     // ── Research lifecycle ────────────────────────────────────────
     // research:state-changed ist der Single-Source-of-Truth-Sync-Pfad —
     // ResearchManager emittiert ihn nach jeder State-Mutation.

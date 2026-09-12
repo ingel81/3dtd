@@ -12,6 +12,10 @@
  * Framework-agnostic like the other managers. The route grid and the damage
  * path come in through `AbilityWorld`, so the manager runs without a grid or
  * the combat services.
+ *
+ * Emits `ability:used` and `ability:rejected` for every use, `ability:impact`
+ * when a strike lands, and an `ability:state-changed` snapshot after every
+ * mutation, like the ResearchManager's `research:state-changed`.
  */
 
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
@@ -137,9 +141,29 @@ export class AbilityManager implements IGameManager {
   /**
    * Fire `id` at `target`: validate, spend a charge, queue the impact. The
    * impact lands `warningMs` of game time later on the route cell nearest to
-   * the target.
+   * the target. Announces the outcome as `ability:used` or `ability:rejected`.
    */
   use(id: AbilityId, target: GeoPosition): AbilityUseResult {
+    const result = this.tryUse(id, target);
+    if (!result.ok) {
+      this.eventBus.emit({ type: 'ability:rejected', abilityId: id, reason: result.reason });
+      return result;
+    }
+
+    const config = ABILITIES[id];
+    this.eventBus.emit({
+      type: 'ability:used',
+      abilityId: id,
+      strikeId: result.strike.id,
+      target: result.strike.target,
+      radiusM: config.radiusM,
+      warningMs: config.warningMs,
+    });
+    this.emitStateSnapshot();
+    return result;
+  }
+
+  private tryUse(id: AbilityId, target: GeoPosition): AbilityUseResult {
     const reason = this.checkUse(id);
     if (reason) return { ok: false, reason };
 
@@ -192,13 +216,26 @@ export class AbilityManager implements IGameManager {
   private resolve(strike: PendingStrike): void {
     const config = ABILITIES[strike.abilityId];
     const targets = this.world.enemiesInRadius(strike.target, config.radiusM, this.targetScratch);
-    if (targets.length > 0) {
-      this.world.strike(targets, (enemy) => abilityDamageFraction(config, enemy.typeConfig));
-    }
+    const hits = targets.length;
+    const kills = hits > 0
+      ? this.world.strike(targets, (enemy) => abilityDamageFraction(config, enemy.typeConfig))
+      : 0;
     this.targetScratch.length = 0;
+
+    this.eventBus.emit({
+      type: 'ability:impact',
+      abilityId: strike.abilityId,
+      strikeId: strike.id,
+      target: strike.target,
+      radiusM: config.radiusM,
+      hits,
+      kills,
+    });
+    this.emitStateSnapshot();
   }
 
   private onResearchCompleted(effects: readonly ResearchEffect[]): void {
+    let changed = false;
     for (const effect of effects) {
       if (effect.kind !== 'global-perk') continue;
       for (const id of ABILITY_IDS) {
@@ -209,8 +246,10 @@ export class AbilityManager implements IGameManager {
         state.unlocked = true;
         state.charges = ABILITIES[id].maxCharges;
         state.wavesTowardCharge = 0;
+        changed = true;
       }
     }
+    if (changed) this.emitStateSnapshot();
   }
 
   /**
@@ -219,6 +258,7 @@ export class AbilityManager implements IGameManager {
    * charge needs `rechargeWaves` completed waves, the wave of the use counted.
    */
   private onWaveCompleted(): void {
+    let changed = false;
     for (const [id, state] of this.states) {
       const config = ABILITIES[id];
       if (!state.unlocked || state.charges >= config.maxCharges) continue;
@@ -227,7 +267,13 @@ export class AbilityManager implements IGameManager {
         state.charges++;
         state.wavesTowardCharge = 0;
       }
+      changed = true;
     }
+    if (changed) this.emitStateSnapshot();
+  }
+
+  private emitStateSnapshot(): void {
+    this.eventBus.emit({ type: 'ability:state-changed', abilities: this.getStatuses() });
   }
 
   private stateOf(id: AbilityId): ChargeState {
