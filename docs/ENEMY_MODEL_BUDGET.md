@@ -98,10 +98,12 @@ gebacken und Frame für Frame verglichen wurden (Prozent beziehen sich auf die M
 - **Wallsmasher** 17.010 → 3.444, 19,5 → 2,7 MB, 3,4 → 0,4 MB: GLB statt FBX, nur Walk, Run
   und Death. Die GLB ist in Metern, `scale` 0,037 → 3,7. Gleiche Posen. Der FBX-Ladepfad im
   AssetManager und im Generator ist entfernt.
-- **Hornet** 69.297 → 4.913, 33,2 → 2,2 MB, 4,4 → 1,1 MB: jedes Körperteil auf 3,7 % der
+- **Hornet** 69.297 → 4.915, 33,2 → 2,2 MB, 4,4 → 1,1 MB: jedes Körperteil auf 3,6 % der
   Dreiecke, die vier Flügel unverändert. Zum Zusammenfassen gab es nichts: Jeder animierte
-  Empty trägt ein Mesh, der Kopf zwei mit verschiedenen Materialien. Aus der Nähe sind die
-  Beinsegmente facettiert und die Mandibel-Textur ist an UV-Nähten verzogen.
+  Empty trägt ein Mesh, der Kopf zwei mit verschiedenen Materialien. Kopf, Brust und
+  Hinterleib werden mit Nahtgewicht decimiert (UV-Nahtvertices kollabieren später); ohne das
+  zog die Textur schwarze Streifen über die Mandibeln. Aus der Nähe sind die Beinsegmente
+  facettiert.
 - **Rat** 2.150 → 999, 0,2 → 0,1 MB, 2,5 → 0,2 MB: Decimate auf 42 %, eine 512²-Basisfarbe.
   **Animation nicht exakt**: Blender gibt `Run` zwischen den Keys anders wieder als die Datei,
   bei Frame 3 und 7 von 11 bis 9,4 % am hinteren Rücken, mit jeder getesteten
@@ -359,7 +361,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Ghost (`ghost`) | Normal | 280 | 5.245 | 7.773 | 1,5 | Skinning | 200 | 5245×200 | RGBA16F | 0,46 | 8,0 | 1024² |
 | Tank (`tank`) | Normal | 150 | 5.094 | 2.796 | 0,8 | statisch | 1 | 5094×1 | RGBA16F | 1,12 | 0,0 | – |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 5.013 | 3.550 | 1,0 | Skinning | 272 | 5013×272 | RGBA16F | 1,08 | 10,4 | 1024² |
-| Hornet (`hornet`) | Normal | 210 | 4.913 | 6.564 | 1,0 | Objekt-Anim. | 59 | 4913×59 | RGBA16F | 0,35 | 2,2 | 1024² |
+| Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
 | Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 107 | 4266×107 | RGBA16F | 0,56 | 3,5 | 1024² |
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
@@ -409,7 +411,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Ghost | `ghost.glb` | 2,7 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 5.245 / 3.894 / 3.467 |
 | Tank | `tank.glb` | 0,2 | 7 (0) | 0 | 0 | 7 | – | 0 | 5.094 / 2.269 / 1.676 |
 | Zombie v2 | `zombie_v2.glb` | 2,2 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 5.013 / 5.013 / 1.750 |
-| Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.913 / 4.913 / 3.428 |
+| Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.915 / 4.913 / 3.370 |
 | Zombie Soldier | `zombie_soldier.glb` | 3,5 | 1 (1) | 56 | 0 | 1 | 3× 1024² | 6 | 4.249 / 4.249 / 3.603 |
 | Bear | `bear.glb` | 2,0 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
 | Bat | `bat.glb` | 0,3 | 1 (1) | 28 | 0 | 1 | 512² | 1 | 3.559 / 3.559 / 2.520 |

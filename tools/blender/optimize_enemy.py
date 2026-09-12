@@ -36,6 +36,9 @@ ENEMIES = 'public/assets/models/enemies'
 #   trim        {exported clip name: (start frame, end frame, blend frames)}, see trim_action
 #   decimate    triangle ratio kept by the collapse decimator, for every mesh or
 #               {mesh name pattern: ratio}, first matching fnmatch pattern wins
+#   seams       {mesh name pattern: weight}: vertices on UV seams get this weight in
+#               an inverted decimate vertex group, so the decimator collapses them
+#               later and fewer triangles span two UV islands (see decimate)
 #   weld        merge vertices closer than this (model units) before decimating;
 #               for meshes the importer leaves as a triangle soup because the
 #               normals differ slightly across UV seams
@@ -69,9 +72,12 @@ RECIPES = {
     # 16 rigid meshes under animated empties (object-animation VAT path). Every
     # empty carries one mesh (the head two, with different materials), so there
     # is nothing to merge. The four wings are flat 266-vertex cards and stay.
+    # Without seam weights the head texture tore into black stripes across the
+    # mandibles.
     'hornet': {
         'src': f'{ENEMIES}/hornet.glb',
-        'decimate': {'wing01_wings_0*': 1.0, '*': 0.037},
+        'decimate': {'wing01_wings_0*': 1.0, '*': 0.036},
+        'seams': {'*Hornet1*': 0.5},
         'normals': 'smooth',
     },
     # Swarm enemy, up to 5,000 per wave. The shader samples the base colour
@@ -304,16 +310,49 @@ def weld(obj, distance):
     obj.data.update()
 
 
-def decimate(obj, ratio):
-    """Collapse decimate as the first modifier, so the armature pose is not applied."""
+def uv_seam_vertices(obj):
+    """Indices of vertices on an open edge or on an edge whose two faces disagree in UV."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    uv = bm.loops.layers.uv.active
+    found = set()
+    if uv is not None:
+        def uv_at(loop, v):
+            return loop[uv].uv if loop.vert == v else loop.link_loop_next[uv].uv
+        for e in bm.edges:
+            loops = list(e.link_loops)
+            if len(loops) != 2 or any((uv_at(loops[0], v) - uv_at(loops[1], v)).length > 1e-5 for v in e.verts):
+                found.update(v.index for v in e.verts)
+    bm.free()
+    return sorted(found)
+
+
+def decimate(obj, ratio, seam_weight=None):
+    """Collapse decimate as the first modifier, so the armature pose is not applied.
+
+    With `seam_weight` the UV seam vertices go into an inverted vertex group with
+    that weight, so collapsing them costs more and happens later. At weight 1
+    they stay entirely (the hornet head kept 5,424 VAT vertices instead of about
+    1,000); at 0.5 the ratio is still reached. It only helps where seams are a
+    minority: at zombie_v2 (62 % seam vertices) and the wraith (41 %) it
+    changed nothing.
+    """
     if ratio >= 1.0:
         return
     mod = obj.modifiers.new('Decimate', 'DECIMATE')
     mod.decimate_type = 'COLLAPSE'
     mod.ratio = ratio
     mod.use_collapse_triangulate = True
+    if seam_weight is not None:
+        group = obj.vertex_groups.new(name='uv_seams')
+        group.add(uv_seam_vertices(obj), seam_weight, 'REPLACE')
+        mod.vertex_group = group.name
+        mod.invert_vertex_group = True
+        mod.vertex_group_factor = 1.0
     with_object(obj, lambda: bpy.ops.object.modifier_move_to_index(modifier=mod.name, index=0))
     with_object(obj, lambda: bpy.ops.object.modifier_apply(modifier=mod.name))
+    if seam_weight is not None:
+        obj.vertex_groups.remove(obj.vertex_groups['uv_seams'])
 
 
 def set_normals(obj, normals):
@@ -510,8 +549,10 @@ def run(name):
                 ratio = next((r for pat, r in decim.items() if fnmatch.fnmatchcase(obj.name, pat)), 1.0)
             if 'weld' in recipe:
                 weld(obj, recipe['weld'])
+            seam_weight = next((w for pat, w in recipe.get('seams', {}).items()
+                                if fnmatch.fnmatchcase(obj.name, pat)), None)
             if ratio is not None:
-                decimate(obj, ratio)
+                decimate(obj, ratio, seam_weight)
             set_normals(obj, recipe.get('normals', 'keep'))
             if obj.data.validate():
                 print(f'[optimize_enemy] {obj.name}: repaired invalid geometry')
