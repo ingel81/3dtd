@@ -8,6 +8,8 @@ import {
   corridorHalfWidth,
   estimateStreetWidth,
   getRouteProfile,
+  clearancePieces,
+  closeShortDips,
   lateralLimit,
   routeHalfWidths,
 } from './route-corridor';
@@ -56,6 +58,47 @@ describe('routeHalfWidths', () => {
 
   it('uses the default before any street', () => {
     expect(routeHalfWidths([null, { type: 'footway' }])).toEqual([CORRIDOR_DEFAULT_HALF_WIDTH_M, 2]);
+  });
+});
+
+describe('closeShortDips', () => {
+  it('drops a dip shorter than three stations', () => {
+    expect(closeShortDips([7, 7, 1, 7, 7])).toEqual([7, 7, 7, 7, 7]);
+    expect(closeShortDips([7, 7, 1, 1, 7, 7])).toEqual([7, 7, 7, 7, 7, 7]);
+  });
+
+  it('keeps a narrowing of three stations or more at its full length', () => {
+    expect(closeShortDips([7, 7, 3, 3, 3, 7, 7])).toEqual([7, 7, 3, 3, 3, 7, 7]);
+  });
+
+  it('leaves unmeasured stations unknown and ignores them for the neighbours', () => {
+    const closed = closeShortDips([7, NaN, 3, 3, 3, 7]);
+    expect(closed[1]).toBeNaN();
+    expect(closed.slice(2)).toEqual([3, 3, 3, 7]);
+  });
+});
+
+describe('clearancePieces', () => {
+  it('keeps the street width where the tiles leave more room', () => {
+    expect(clearancePieces(4, [7, 7, 7])).toEqual([{ t: 0, halfWidth: 4 }]);
+    // A ray without a hit reports the street half width; it must not round down.
+    expect(clearancePieces(2.75, [2.75, 2.75])).toEqual([{ t: 0, halfWidth: 2.75 }]);
+  });
+
+  it('narrows to the free space where it is less, rounded down to 0.5 m', () => {
+    expect(clearancePieces(4, [7, 7, 2.9, 2.9, 2.9, 2.9, 7, 7])).toEqual([
+      { t: 0, halfWidth: 4 },
+      { t: 2 / 8, halfWidth: 2.5 },
+      { t: 6 / 8, halfWidth: 4 },
+    ]);
+  });
+
+  it('never goes below two cells', () => {
+    expect(clearancePieces(4, [0.4, 0.4, 0.4])).toEqual([{ t: 0, halfWidth: CORRIDOR_MIN_HALF_WIDTH_M }]);
+  });
+
+  it('keeps the street width at stations it could not measure', () => {
+    expect(clearancePieces(4, [NaN, NaN])).toEqual([{ t: 0, halfWidth: 4 }]);
   });
 });
 

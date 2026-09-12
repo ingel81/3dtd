@@ -67,6 +67,12 @@ function liesOnWayEdge(network: StreetNetwork, a: { lat: number; lon: number }, 
   return false;
 }
 
+/**
+ * Freiraum quer zur Route, den der Engine-Ersatz meldet, pro Test steuerbar:
+ * lokale x/z der Messstation, `max` = Suchweite. `null` = kein feines Tile.
+ */
+let clearanceAt: (x: number, z: number, max: number) => number | null = (_x, _z, max) => max;
+
 /** Minimaler Engine-Ersatz: flaches Gelände, Geo→Lokal als Plattkarte um ORIGIN. */
 function makeEngine(): ThreeTilesEngine {
   const overlay = new Group();
@@ -75,6 +81,8 @@ function makeEngine(): ThreeTilesEngine {
     getTerrainHeightAtGeo: () => 0,
     // Höhe des gelben Overlays: flaches Gelände.
     getGroundHeightEstimate: () => 0,
+    measureStreetClearance: (x: number, z: number, _ax: number, _az: number, _h: number, max: number) =>
+      clearanceAt(x, z, max),
     sync: {
       getOrigin: () => ({ ...ORIGIN, height: 0 }),
       geoToLocalSimple: (lat: number, lon: number, h: number) => {
@@ -111,9 +119,12 @@ function buildRouteService(network: StreetNetwork, spawn: { lat: number; lon: nu
     new OsmStreetService(),
     [],
   );
-  const spawnPoint: SpawnPoint = { id: 's1', name: 'Spawn', color: 0xff0000, lat: spawn.lat, lon: spawn.lon };
-  service.showPathFromSpawn(spawnPoint);
+  service.showPathFromSpawn(spawnPointAt(spawn));
   return service;
+}
+
+function spawnPointAt(spawn: { lat: number; lon: number }): SpawnPoint {
+  return { id: 's1', name: 'Spawn', color: 0xff0000, lat: spawn.lat, lon: spawn.lon };
 }
 
 describe('PathAndRouteService route geometry', () => {
@@ -129,6 +140,7 @@ describe('PathAndRouteService route geometry', () => {
   beforeEach(() => {
     grid.ready = false;
     grid.cellY = () => null;
+    clearanceAt = (_x, _z, max) => max;
     network = makeNetwork([
       { id: 100, nodes: [n10, n1] },
       { id: 200, nodes: [n1, n2, n3] },
@@ -209,6 +221,69 @@ describe('PathAndRouteService route geometry', () => {
       // 12 m width tag, a 2 m footway clamped to two cells, the leg to the
       // HQ keeps the footway's, the HQ ends the route.
       expect(route.map((p) => p.corridorHalfWidth)).toEqual([2.75, 6, 6, 2, 2, undefined]);
+    });
+
+    describe('fitted to the tiles', () => {
+      const spawn = { lat: 47.9995, lon: 9.0 };
+      /** Metres north of n1 at a local position (local z points south). */
+      const northOfN1 = (z: number) => -z - toMeters(n1).z;
+
+      beforeEach(() => {
+        network = makeNetwork([
+          { id: 100, nodes: [n10, n1] },
+          { id: 200, type: 'primary', width: 12, nodes: [n1, n2, n3] },
+          { id: 300, nodes: [n3, n30] },
+        ]);
+      });
+
+      it('narrows the corridor where facades stand closer than the street width', () => {
+        // 2.6 m free space from 40 to 80 m north of n1, on way 200.
+        clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 40 && northOfN1(z) < 80 ? 2.6 : max);
+        const service = buildRouteService(network, spawn, hq);
+
+        expect(service.measureStreetClearance()).toBe(true);
+        service.showPathFromSpawn(spawnPointAt(spawn));
+        const route = service.getCachedPath('s1')!;
+
+        const narrow = route.filter((p) => p.corridorHalfWidth === 2.5);
+        expect(narrow).toHaveLength(1);
+        const start = northOfN1(-toMeters(narrow[0]).z);
+        expect(start).toBeGreaterThan(38);
+        expect(start).toBeLessThan(42);
+        // The rest of way 200 keeps its 12 m, and the diagnostics show the range.
+        expect(route.filter((p) => p.corridorHalfWidth === 6).length).toBeGreaterThanOrEqual(2);
+        expect(service.describeRoutes()[1]).toMatchObject({ way: 200, corridorM: '5.0-12.0' });
+      });
+
+      it('ignores something narrow that stands in the way for a single station', () => {
+        clearanceAt = (x, z, max) => (Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 1 ? 1 : max);
+        const service = buildRouteService(network, spawn, hq);
+        expect(service.measureStreetClearance()).toBe(false);
+      });
+
+      it('keeps the street width where no fine tile is loaded, and tries again later', () => {
+        clearanceAt = () => null;
+        const service = buildRouteService(network, spawn, hq);
+        expect(service.measureStreetClearance()).toBe(false);
+
+        clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 40 && northOfN1(z) < 80 ? 2.6 : max);
+        expect(service.measureStreetClearance()).toBe(true);
+      });
+
+      it('measures a segment once', () => {
+        let calls = 0;
+        clearanceAt = (_x, _z, max) => {
+          calls++;
+          return max;
+        };
+        const service = buildRouteService(network, spawn, hq);
+        service.measureStreetClearance();
+        expect(calls).toBeGreaterThan(100);
+
+        calls = 0;
+        service.measureStreetClearance();
+        expect(calls).toBe(0);
+      });
     });
   });
 
