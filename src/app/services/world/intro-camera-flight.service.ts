@@ -1,8 +1,19 @@
 import { Injectable, NgZone, inject, signal } from '@angular/core';
-import { CatmullRomCurve3, MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
+import { type CatmullRomCurve3, MathUtils, Matrix4, type PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import type { ColumnSample } from '../../three-engine/column-sample';
 import { GeoPosition } from '../../models/game.types';
+import { buildFlightPath } from '../../utils/flight-path';
+import {
+  HQ_MARKER_SCALE,
+  MARKER_CORE_RADIUS,
+  MARKER_FLOAT_HEIGHT,
+  MARKER_LABEL_TOP,
+  MARKER_RING_RADIUS,
+  MARKER_Y_STRETCH,
+  SPAWN_MARKER_SCALE,
+} from '../../configs/marker-geometry.config';
+import { cameraTimeline } from '../../utils/camera-timeline';
 import { raycastStats } from '../../utils/raycast-stats';
 import { routePathToLocalPoints } from '../../utils/route-path.util';
 import {
@@ -22,7 +33,7 @@ import { RouteAnimationService } from './route-animation.service';
  * Phases of the intro sequence, in order. Each runs to its own timer except
  * `travel`, which runs until the path is used up.
  */
-type FlightPhase = 'hold-start' | 'travel' | 'hold-end' | 'outro';
+type FlightPhase = 'enter' | 'hold-start' | 'travel' | 'hold-end' | 'outro';
 
 /**
  * Live-tunable parameters. Mutated from DevTools via `__flight.cfg` so the
@@ -30,6 +41,11 @@ type FlightPhase = 'hold-start' | 'travel' | 'hold-end' | 'outro';
  * expected to move a lot before any of them is worth freezing.
  */
 interface FlightConfig {
+  /**
+   * Seconds of the swing from the view the flight starts in (the overview)
+   * into the hold over the HQ. 0 cuts straight to the hold.
+   */
+  enterSec: number;
   /** Seconds held over the HQ before departing. */
   holdStartSec: number;
   /**
@@ -123,6 +139,7 @@ interface FlightConfig {
 }
 
 const DEFAULT_CONFIG: FlightConfig = {
+  enterSec: 3,
   holdStartSec: 3,
   travelDurationSec: 26,
   minSpeed: 8,
@@ -167,33 +184,29 @@ function smoothingAlpha(rate: number, dt: number): number {
 /** Height above ground the path points are lifted to (matches route rendering). */
 const PATH_HEIGHT_OFFSET = 1;
 
-/**
- * Geometry of the HQ / spawn diamond markers, mirrored from
- * `MarkerVisualizationService`. They are overlay-group objects, so no raycast
- * against the tiles ever reports them — the flight has to know about them.
- *
- * `addBaseMarker` / `addSpawnMarker` place both at `HEIGHT_ABOVE_GROUND = 30`
- * with scales 1.2 (HQ) and 0.8 (spawn). `createDiamondMarker` builds an
- * `OctahedronGeometry(8 * size)` scaled 1.8× in Y for the opaque core and
- * rings out to `16 * size` horizontally.
- */
-const MARKER_FLOAT_HEIGHT = 30;
-const MARKER_CORE_RADIUS = 8;
-const MARKER_Y_STRETCH = 1.8;
-const MARKER_RING_RADIUS = 16;
-const HQ_MARKER_SCALE = 1.2;
-const SPAWN_MARKER_SCALE = 0.8;
+/** Snapshot of the flight for `__flight.state()` and the state dump. */
+export interface FlightDebugState {
+  running: boolean;
+  enabled: boolean;
+  phase: FlightPhase;
+  phaseElapsed: number;
+  skipReason: string | null;
+  distance: number;
+  totalLength: number;
+  speed: number;
+  currentY: number;
+  sampled: number;
+  reliable: number;
+  samples: number;
+}
 
 /**
- * Top of the name label above the diamond's centre (m).
- * `MarkerLabelManager` places it at `LABEL_Y_OFFSET = 20` with a quad of
- * `labelSize = 5`, so its upper edge sits ~22.5 m up. The label is the part
- * that has to stay in frame for the shot to be readable — it is taller above
- * the centre than the diamond core is.
+ * A marker treated as an obstacle in the altitude profile and as a subject to
+ * frame. Markers are overlay-group objects, so no raycast against the tiles
+ * ever reports them; the flight takes their extents from the marker config.
+ * The label is the part that has to stay in frame for a hold to be readable,
+ * it reaches higher above the centre than the diamond core does.
  */
-const MARKER_LABEL_TOP = 22.5;
-
-/** A marker treated as an obstacle in the altitude profile and as a subject to frame. */
 interface MarkerObstacle {
   x: number;
   z: number;
@@ -227,6 +240,12 @@ function markerObstacle(x: number, z: number, scale: number): MarkerObstacle {
 /** Profile samples taken synchronously in start() so frame 1 is not blind. */
 const PREWARM_SAMPLES = 40;
 
+/** Flight seconds between two rows of `__flight.trace()`. */
+const TRACE_INTERVAL_SEC = 0.1;
+/** Enough for any intro (about 40 s); a replay loop cannot grow it further. */
+const TRACE_MAX_ROWS = 1000;
+const TRACE_HEADER = 't,phase,distance,x,y,z,yaw,pitch,currentY,desiredY,groundY';
+
 /**
  * IntroCameraFlightService
  *
@@ -234,8 +253,8 @@ const PREWARM_SAMPLES = 40;
  * loading completes. Two jobs:
  *
  *  1. Intro — trace the enemy route back to its source, at street level:
- *     hold over the HQ, fly out along the route, hold over the spawn, then
- *     pull back into the normal game view.
+ *     swing in from the overview to the HQ, hold over it, fly out along the
+ *     route, hold over the spawn, then pull back into the normal game view.
  *  2. Tile prewarm — flying the route makes the tiles renderer stream exactly
  *     the corridor the game cares about (road surface for terrain heights,
  *     adjacent facades as LOS blockers) while nobody is playing yet.
@@ -267,8 +286,11 @@ export class IntroCameraFlightService {
   private phase: FlightPhase = 'hold-start';
   /** Seconds spent in the current phase. */
   private phaseElapsed = 0;
+  /** Horizontal (y = 0), see utils/flight-path.ts. */
   private curve: CatmullRomCurve3 | null = null;
   private totalLength = 0;
+  /** Scene Y of the route points at a distance along the curve, see routeGroundAt. */
+  private routeYAt: (distance: number) => number = () => 0;
   /** Travel speed resolved from path length at start (m/s). */
   private speed = 0;
   /**
@@ -311,13 +333,29 @@ export class IntroCameraFlightService {
   private readonly rawPos = new Vector3();
   /** Smoothed camera position actually written to the camera. */
   private readonly camPos = new Vector3();
-  /** Scratch for groundAt's cold-profile fallback raycast. */
-  private readonly fallbackPoint = new Vector3();
   private readonly orientMatrix = new Matrix4();
   private readonly targetQuat = new Quaternion();
 
-  /** First tick of a run snaps instead of easing — the entry is a hard cut. */
+  /**
+   * First tick of the hold snaps instead of easing. Only a cut when there is
+   * no enter swing (enterSec 0); the swing ends exactly on the hold's pose.
+   */
   private firstTick = true;
+
+  // ── Enter swing ─────────────────────────────────────────────────────
+  /** Camera position when the run began. */
+  private readonly enterFromPos = new Vector3();
+  /** Point the camera looked at when the run began, as far out as the HQ. */
+  private readonly enterFromLook = new Vector3();
+  private readonly enterLook = new Vector3();
+
+  // ── Trace (`__flight.trace()`) ──────────────────────────────────────
+  /** Flight seconds since the run began. */
+  private traceClock = 0;
+  private nextTraceAt = 0;
+  /** CSV rows of the last run, see recordTrace(). */
+  private readonly traceRows: string[] = [];
+  private readonly traceDir = new Vector3();
 
   /**
    * True while the intro is playing. Drives the Skip button in the UI.
@@ -337,6 +375,7 @@ export class IntroCameraFlightService {
   /** Record why a start attempt did nothing. Silent; read from DevTools. */
   private skip(reason: string): false {
     this.skipReason = reason;
+    cameraTimeline.record('intro.skip', { reason });
     return false;
   }
 
@@ -353,21 +392,33 @@ export class IntroCameraFlightService {
       setEnabled: (v: boolean) => { this.enabled = v; },
       stop: () => this.stop(),
       replay: () => this.replay(),
-      state: () => ({
-        running: this.running,
-        enabled: this.enabled,
-        phase: this.phase,
-        phaseElapsed: +this.phaseElapsed.toFixed(2),
-        skipReason: this.skipReason,
-        distance: Math.round(this.distance),
-        totalLength: Math.round(this.totalLength),
-        speed: +this.speed.toFixed(1),
-        currentY: +this.currentY.toFixed(1),
-        sampled: this.profile.ground.reduce((n, v) => (Number.isNaN(v) ? n : n + 1), 0),
-        reliable: countReliable(this.profile, this.cfg.maxSampleError),
-        samples: this.profile.ground.length,
-      }),
+      state: () => this.debugState(),
+      // CSV of the last run, one row per 0.1 s: `copy(__flight.trace())`
+      trace: () => this.traceCsv(),
     };
+  }
+
+  /** What `__flight.state()` shows; the state dump (Dev → Dump) carries it too. */
+  debugState(): FlightDebugState {
+    return {
+      running: this.running,
+      enabled: this.enabled,
+      phase: this.phase,
+      phaseElapsed: +this.phaseElapsed.toFixed(2),
+      skipReason: this.skipReason,
+      distance: Math.round(this.distance),
+      totalLength: Math.round(this.totalLength),
+      speed: +this.speed.toFixed(1),
+      currentY: +this.currentY.toFixed(1),
+      sampled: this.profile.ground.reduce((n, v) => (Number.isNaN(v) ? n : n + 1), 0),
+      reliable: countReliable(this.profile, this.cfg.maxSampleError),
+      samples: this.profile.ground.length,
+    };
+  }
+
+  /** CSV of the last run, one row per TRACE_INTERVAL_SEC, see recordTrace(). */
+  traceCsv(): string {
+    return [TRACE_HEADER, ...this.traceRows].join('\n');
   }
 
   isRunning(): boolean {
@@ -383,12 +434,18 @@ export class IntroCameraFlightService {
     if (!this.prepared && !this.prepare(cachedPaths)) return;
     this.prepared = false;
 
-    // Capture the view the flight has to land in BEFORE moving the camera —
-    // it is stored during engine init and would otherwise be at risk of
-    // being re-captured mid-flight.
-    const initialView = this.cameraControl.getInitialView();
+    // The view the flight lands in, computed now: the ground under it is
+    // better than during loading (a cold cache has none there at all).
+    const initialView = this.cameraControl.getOverview();
     this.endPos = initialView ? new Vector3(initialView.position.x, initialView.position.y, initialView.position.z) : null;
     this.endTarget = initialView ? new Vector3(initialView.target.x, initialView.target.y, initialView.target.z) : null;
+    cameraTimeline.record('intro.start', {
+      endPos: initialView?.position ?? null,
+      endTarget: initialView?.target ?? null,
+      travelStart: Math.round(this.travelStart),
+      travelEnd: Math.round(this.travelEnd),
+      speed: +this.speed.toFixed(1),
+    });
 
     this.beginRun();
   }
@@ -412,17 +469,18 @@ export class IntroCameraFlightService {
     const points = this.pickLongestRoute(engine, cachedPaths);
     if (!points || points.length < 2) return this.skip('route-too-short');
 
-    const curve = new CatmullRomCurve3(points, false, 'centripetal');
-    // Default 200 divisions is far too coarse for a multi-hundred-metre
-    // street route — getPointAt() would not be evenly spaced.
-    curve.arcLengthDivisions = Math.max(200, points.length * 8);
-    const totalLength = curve.getLength();
+    // Horizontal curve: the route heights are cell heights at build time,
+    // on a cold cache often from coarse tiles, and must not bend the path.
+    const path = buildFlightPath(points);
+    const curve = path.curve;
+    const totalLength = path.length;
     // Too short to be worth a cinematic
     if (totalLength < 50) return this.skip('path-under-50m');
 
     this.skipReason = null;
     this.curve = curve;
     this.totalLength = totalLength;
+    this.routeYAt = path.routeYAt;
 
     // HQ is the local origin (ReorientationPlugin recenters on it); the spawn
     // marker is snapped to the path's own end by `snapSpawnMarkerToPathStart`.
@@ -461,6 +519,7 @@ export class IntroCameraFlightService {
     this.profile = createFlightProfile(sampleCount);
     this.sampleCursor = 0;
     this.prepared = true;
+    cameraTimeline.record('intro.prepare', { points: points.length, totalLength: Math.round(totalLength) });
     return true;
   }
 
@@ -509,6 +568,7 @@ export class IntroCameraFlightService {
     this.detachCancelHandlers();
     if (!this.running) return;
     this.running = false;
+    cameraTimeline.record('intro.stop', { phase: this.phase });
     // The natural end of the flight is reached from inside the render loop,
     // which runs outside the Angular zone — same reason the game loop wraps
     // its store writes. Without this the Skip button would linger.
@@ -528,8 +588,9 @@ export class IntroCameraFlightService {
    * cases the player asked for control, so hand it over immediately rather
    * than playing out the remaining phases.
    */
-  cancel(): void {
+  cancel(reason = 'api'): void {
     if (!this.running) return;
+    cameraTimeline.record('intro.cancel', { reason, phase: this.phase, phaseElapsed: +this.phaseElapsed.toFixed(2) });
     this.stop();
     this.cameraControl.resetCamera();
   }
@@ -559,15 +620,30 @@ export class IntroCameraFlightService {
     const curve = this.curve;
     if (!curve) return;
 
-    this.phase = 'hold-start';
     this.phaseElapsed = 0;
     this.distance = this.travelStart;
     this.firstTick = true;
+    this.traceRows.length = 0;
+    this.traceClock = 0;
+    this.nextTraceAt = 0;
 
     // Frame 1 must not be blind — sample the opening window synchronously.
     this.prewarmProfile();
 
     this.currentY = this.desiredAltitude(this.travelStart);
+
+    // Swing in from wherever the camera is (the overview after loading).
+    // The look point sits on the current view axis as far out as the HQ, so
+    // the swing starts on exactly the current orientation.
+    const camera = this.engine?.getCamera();
+    if (camera && this.cfg.enterSec > 0 && this.markerAim(0, this.aimPoint)) {
+      this.enterFromPos.copy(camera.position);
+      const reach = camera.position.distanceTo(this.aimPoint);
+      this.enterFromLook.set(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(reach).add(camera.position);
+      this.phase = 'enter';
+    } else {
+      this.phase = 'hold-start';
+    }
 
     const controls = this.engine?.getControls();
     if (controls) controls.enabled = false;
@@ -596,6 +672,7 @@ export class IntroCameraFlightService {
     // camera through a building.
     const dt = Math.min(deltaTime, 100) / 1000;
     const cfg = this.cfg;
+    this.traceClock += dt;
 
     this.sampleProfileAhead();
     this.phaseElapsed += dt;
@@ -603,6 +680,10 @@ export class IntroCameraFlightService {
     // Advance the phase machine. Falls through deliberately: a phase that
     // ends mid-frame hands the remainder to the next one on the next tick.
     switch (this.phase) {
+      case 'enter':
+        if (this.phaseElapsed >= cfg.enterSec) this.enterPhase('hold-start');
+        break;
+
       case 'hold-start':
         if (this.phaseElapsed >= cfg.holdStartSec) this.enterPhase('travel');
         break;
@@ -650,6 +731,7 @@ export class IntroCameraFlightService {
       const eased = raw * raw * (3 - 2 * raw); // smoothstep
       camera.position.copy(this.outroFromPos).lerp(this.endPos, eased);
       camera.quaternion.copy(this.outroFromQuat).slerp(this.outroToQuat, eased);
+      this.recordTrace(camera);
       return;
     }
 
@@ -680,9 +762,14 @@ export class IntroCameraFlightService {
     // near the top edge of the frame — the marker floats 30 m up while the
     // generic aim sits at ground + lookAtLift.
     const holdMarker =
-      this.phase === 'hold-start' ? 0 : this.phase === 'hold-end' ? 1 : -1;
+      this.phase === 'enter' || this.phase === 'hold-start' ? 0 : this.phase === 'hold-end' ? 1 : -1;
     if (holdMarker < 0 || !this.markerAim(holdMarker, this.aimPoint)) {
       this.computeAim(this.distance + cfg.lookAhead);
+    }
+
+    if (this.phase === 'enter') {
+      this.applyEnterSwing(camera, floorY);
+      return;
     }
 
     // Orientation as a quaternion target, then slerp — smoothing the actual
@@ -705,14 +792,66 @@ export class IntroCameraFlightService {
     // under the floor either.
     if (this.camPos.y < floorY) this.camPos.y = floorY;
     camera.position.copy(this.camPos);
+    this.recordTrace(camera);
+  }
+
+  /**
+   * One row every TRACE_INTERVAL_SEC for `__flight.trace()`: where the camera
+   * is, where it looks (yaw from +Z towards +X, pitch positive upward) and
+   * what the altitude loop wants there. For reading a wobble off numbers.
+   */
+  private recordTrace(camera: PerspectiveCamera): void {
+    if (this.traceClock < this.nextTraceAt || this.traceRows.length >= TRACE_MAX_ROWS) return;
+    this.nextTraceAt = this.traceClock + TRACE_INTERVAL_SEC;
+
+    const dir = this.traceDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    const f1 = (v: number) => v.toFixed(1);
+    this.traceRows.push([
+      this.traceClock.toFixed(2),
+      this.phase,
+      f1(this.distance),
+      f1(camera.position.x),
+      f1(camera.position.y),
+      f1(camera.position.z),
+      f1(MathUtils.radToDeg(Math.atan2(dir.x, dir.z))),
+      f1(MathUtils.radToDeg(Math.asin(MathUtils.clamp(dir.y, -1, 1)))),
+      f1(this.currentY),
+      this.phase === 'outro' ? '' : f1(this.desiredAltitude(this.distance)),
+      f1(this.groundAt(this.distance)),
+    ].join(','));
+  }
+
+  /**
+   * One frame of the enter swing: position and look point both ease
+   * (smoothstep) from where the run began to the hold's live pose, which
+   * keeps settling as the profile fills. The camera always looks at the
+   * blended point, so the HQ drifts into the centre instead of being
+   * rotated past. Ends exactly on the hold's pose, the hold then continues
+   * without a snap.
+   */
+  private applyEnterSwing(camera: PerspectiveCamera, floorY: number): void {
+    const raw = MathUtils.clamp(this.phaseElapsed / Math.max(0.001, this.cfg.enterSec), 0, 1);
+    const eased = raw * raw * (3 - 2 * raw);
+
+    this.camPos.copy(this.enterFromPos).lerp(this.rawPos, eased);
+    if (this.camPos.y < floorY) this.camPos.y = floorY;
+    this.enterLook.copy(this.enterFromLook).lerp(this.aimPoint, eased);
+
+    camera.position.copy(this.camPos);
+    this.orientMatrix.lookAt(this.camPos, this.enterLook, camera.up);
+    camera.quaternion.setFromRotationMatrix(this.orientMatrix);
+    this.firstTick = false;
+    this.recordTrace(camera);
   }
 
   private enterPhase(phase: FlightPhase): void {
     this.phase = phase;
     this.phaseElapsed = 0;
+    cameraTimeline.record('intro.phase', { phase, distance: Math.round(this.distance) });
   }
 
   private finish(): void {
+    cameraTimeline.record('intro.finish');
     const camera = this.engine?.getCamera();
     if (camera && this.endPos && this.endTarget) {
       camera.position.copy(this.endPos);
@@ -750,8 +889,9 @@ export class IntroCameraFlightService {
   }
 
   /**
-   * Point on the path at `d` metres, written to `out`. Returns false if there
-   * is no curve.
+   * Point on the path at `d` metres, written to `out`, at y = 0 (the curve is
+   * horizontal; heights come from the profile). Returns false if there is no
+   * curve.
    *
    * Distances outside [0, totalLength] are extrapolated along the end
    * tangents rather than clamped — the flight deliberately starts before the
@@ -847,8 +987,8 @@ export class IntroCameraFlightService {
    * (for obstacle clearance) and the bare ground (for the aim and the floor),
    * plus the tile error that decides whether the sample counts as reliable.
    *
-   * Altitudes come from these samples rather than from the curve's own Y so
-   * the flight stays independent of how the route line happens to be built.
+   * Altitudes come from these samples; the curve itself is horizontal, and
+   * the route's own heights only serve as groundAt's fallback.
    */
   private sampleIndex(i: number): void {
     const engine = this.engine;
@@ -919,8 +1059,7 @@ export class IntroCameraFlightService {
 
   /** Ground the route line was built on (cell heights at build time), without its lift. */
   private routeGroundAt(distance: number): number {
-    this.pointAtDistance(distance, this.fallbackPoint);
-    return this.fallbackPoint.y - PATH_HEIGHT_OFFSET;
+    return this.routeYAt(distance) - PATH_HEIGHT_OFFSET;
   }
 
   // ========================================
@@ -977,7 +1116,7 @@ export class IntroCameraFlightService {
     const dom = this.engine?.getRenderer().domElement;
     if (!dom || this.cancelHandler) return;
 
-    const onInput = () => this.cancel();
+    const onInput = (e: Event) => this.cancel(e.type);
     // Any key skips, except while the user is typing somewhere (the header's
     // location field is editable during the intro).
     const onKey = (e: KeyboardEvent) => {
@@ -985,7 +1124,7 @@ export class IntroCameraFlightService {
       if (t?.isContentEditable || t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) {
         return;
       }
-      this.cancel();
+      this.cancel(`key ${e.key}`);
     };
 
     dom.addEventListener('pointerdown', onInput);

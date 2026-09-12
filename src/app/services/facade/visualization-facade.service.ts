@@ -1,7 +1,7 @@
 import { Injectable, inject, Injector, effect } from '@angular/core';
 import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
-import { CameraControlService } from '../camera-control.service';
+import { CameraControlService, type CameraView } from '../camera-control.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { InputHandlerService } from '../input-handler.service';
@@ -10,7 +10,7 @@ import { MapPlacementService } from '../world/map-placement.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
-import { CameraFramingService, GeoPoint } from '../camera-framing.service';
+import { CameraFramingService, GeoPoint, type CameraFrame } from '../camera-framing.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
@@ -49,6 +49,21 @@ import {
   setCorridorConfig,
 } from '../../utils/route-corridor';
 import { CorridorRefit } from '../world/corridor-refit';
+import { cameraTimeline } from '../../utils/camera-timeline';
+
+/**
+ * Cells from tiles up to this geometric error (m) count as reliable ground
+ * for the overview frame, the same bound the intro flight uses
+ * (IntroCameraFlightService maxSampleError).
+ */
+const OVERVIEW_MAX_TILE_ERROR = 20;
+
+function frameToView(frame: CameraFrame): CameraView {
+  return {
+    position: { x: frame.camX, y: frame.camY, z: frame.camZ },
+    target: { x: frame.lookAtX, y: frame.lookAtY, z: frame.lookAtZ },
+  };
+}
 
 /**
  * Sub-facade for visualization, camera, rendering, and height updates.
@@ -377,6 +392,16 @@ export class VisualizationFacadeService {
 
     // Initialize camera control service
     this.cameraControl.initialize(engine, { lat: baseCoords.lat, lon: baseCoords.lon });
+    // The overview frame needs the camera's real lens and the terrain from the
+    // first reframe on; without the engine it fell back to a 75° default lens
+    // and could not apply the frame at all.
+    this.cameraFraming.setEngine(engine);
+    // Reset Camera, intro cancel and the intro's landing compute the
+    // overview fresh, see CameraControlService.setOverviewProvider().
+    this.cameraControl.setOverviewProvider(() => {
+      const frame = this.computeOverviewFrame();
+      return frame ? frameToView(frame) : null;
+    });
 
     // Initialize route animation service
     this.routeAnimation.initialize(engine);
@@ -613,11 +638,10 @@ export class VisualizationFacadeService {
       (detail: string) => this.engineInit.updateStepMeta('view', detail),
       () => this.checkAllLoaded(),
       () => {
-        this.cameraFraming.setEngine(engine);
-        const realTerrainY = engine.getTerrainHeightAtGeo(base.lat, base.lon) ?? 0;
-        if (Math.abs(realTerrainY) > 1) {
-          this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
-        }
+        // Heights are known now: frame the overview on the real ground and
+        // store it as the view the intro lands in and Reset Camera returns to.
+        cameraTimeline.record('heights.cameraCorrection', { introRunning: this.introFlight.isRunning() });
+        this.reframeCameraWithRoutes();
         this.saveInitialCameraPosition();
       }
     );
@@ -741,6 +765,7 @@ export class VisualizationFacadeService {
 
     const readiness = this.introFlight.readiness();
     if (flightGateOpen(readiness, performance.now(), this.introGateDeadline)) {
+      cameraTimeline.record('intro.gateOpen', { readiness: Math.round(readiness * 100) / 100 });
       this.introGateDone = true;
       void this.engineInit.setStepDone('flight', flightGateMeta(readiness));
       return false;
@@ -771,6 +796,7 @@ export class VisualizationFacadeService {
     const isNowLoading = this.engineInit.loading();
 
     if (wasLoading && !isNowLoading) {
+      cameraTimeline.record('loading.done', { isApplying });
       // Transition from opening music → build phase music now that loading screen is gone
       this.gameState.backgroundMusic?.onLoadingComplete();
 
@@ -801,7 +827,9 @@ export class VisualizationFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   /**
-   * Save current camera position as initial position for reset.
+   * Store the last computed overview frame as the initial view (intro
+   * landing, Reset Camera, intro cancel). The frame, not the live camera: by
+   * now the camera may be anywhere, mid-intro or panned.
    */
   saveInitialCameraPosition(): void {
     const hq = this.store.baseCoords();
@@ -815,12 +843,10 @@ export class VisualizationFacadeService {
       this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, CAMERA_PADDING, routePoints);
     }
 
-    const lastFrame = this.cameraFraming.getLastFrame();
-    const target = lastFrame
-      ? { x: lastFrame.lookAtX, y: lastFrame.lookAtY, z: lastFrame.lookAtZ }
-      : undefined;
-
-    this.cameraControl.saveInitialPosition(target);
+    // Without a frame (no ground known yet) nothing is stored: the camera's
+    // start pose is no overview. Reset and intro compute one when needed.
+    const frame = this.cameraFraming.getLastFrame();
+    if (frame) this.cameraControl.saveInitialPosition(frameToView(frame));
   }
 
   /**
@@ -862,9 +888,22 @@ export class VisualizationFacadeService {
   }
 
   /**
-   * Reframe camera to include all calculated routes.
+   * Compute the overview frame around HQ, spawns and all routes and move the
+   * camera there, unless the intro flight has the camera; it lands in the
+   * overview anyway.
    */
   reframeCameraWithRoutes(): void {
+    const frame = this.computeOverviewFrame();
+    if (frame && !this.introFlight.isRunning()) {
+      this.cameraFraming.applyFrame(frame);
+    }
+  }
+
+  /**
+   * The overview frame around HQ, spawns and all routes, on the ground of
+   * the route cells; null without routes or without any ground yet.
+   */
+  private computeOverviewFrame(): CameraFrame | null {
     const base = this.store.baseCoords();
     const hq: GeoPoint = { lat: base.lat, lon: base.lon };
 
@@ -874,14 +913,22 @@ export class VisualizationFacadeService {
     }));
 
     const routePoints = this.collectRoutePoints();
+    if (routePoints.length === 0) return null;
 
-    if (routePoints.length > 0) {
-      this.cameraFraming.reframeWithRoutes(hq, spawns, routePoints, {
-        padding: CAMERA_PADDING,
-        angle: CAMERA_ANGLE,
-        markerRadius: CAMERA_MARKER_RADIUS,
-      });
-    }
+    const routeGrid = this.gameState.getGlobalRouteGrid();
+    const cells = routeGrid.isInitialized() ? routeGrid.getGrid() : null;
+    return this.cameraFraming.computeFrameWithEngine(hq, spawns, {
+      padding: CAMERA_PADDING,
+      angle: CAMERA_ANGLE,
+      markerRadius: CAMERA_MARKER_RADIUS,
+      routePoints,
+      groundAt: cells
+        ? (x, z) => {
+            const sample = cells.getGroundSampleAt(x, z);
+            return sample && { y: sample.y, reliable: sample.tileError <= OVERVIEW_MAX_TILE_ERROR };
+          }
+        : undefined,
+    });
   }
 
   // ══════════════════════════════════════════════════════════════

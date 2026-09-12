@@ -78,6 +78,6 @@ export class IntroSkipComponent {
   private readonly introFlight = inject(IntroCameraFlightService);
 
   skip(): void {
-    this.introFlight.cancel();
+    this.introFlight.cancel('skip-button');
   }
 }

@@ -17,6 +17,19 @@ import {
 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
+import { cameraTimeline } from '../utils/camera-timeline';
+
+export interface Point3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** A camera pose as position and look-at target, local coordinates. */
+export interface CameraView {
+  position: Point3;
+  target: Point3;
+}
 
 /**
  * Camera debug information for UI display
@@ -56,6 +69,9 @@ export class CameraControlService {
   private initialCameraPosition: { x: number; y: number; z: number } | null = null;
   private initialCameraTarget: { x: number; y: number; z: number } | null = null;
 
+  /** Computes the overview fresh, see setOverviewProvider(). */
+  private overviewProvider: (() => CameraView | null) | null = null;
+
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
 
@@ -87,43 +103,44 @@ export class CameraControlService {
   // ========================================
 
   /**
-   * Save current camera position and target as initial position
-   * This is called after engine initialization to store the default view
-   * @param target Optional explicit target coordinates (if not provided, defaults to origin at terrain level)
+   * Store the initial view (intro landing, Reset Camera): the overview frame.
    */
-  saveInitialPosition(target?: { x: number; y: number; z: number }): void {
+  saveInitialPosition(view: CameraView): void {
     if (!this.engine) return;
 
-    const camera = this.engine.getCamera();
-    this.initialCameraPosition = {
-      x: camera.position.x,
-      y: camera.position.y,
-      z: camera.position.z,
-    };
-
-    // Save target (use provided target or calculate from terrain)
-    if (target) {
-      this.initialCameraTarget = { ...target };
-    } else {
-      // Default: look at origin (HQ position) at terrain level
-      const terrainY = this.baseCoords
-        ? (this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0)
-        : 0;
-      this.initialCameraTarget = { x: 0, y: terrainY, z: 0 };
-    }
+    this.initialCameraPosition = { ...view.position };
+    this.initialCameraTarget = { ...view.target };
+    cameraTimeline.record(
+      'initialView.save',
+      { position: this.initialCameraPosition, target: this.initialCameraTarget },
+      true,
+    );
   }
 
   /**
-   * The stored initial view (position + look-at target) in local coordinates,
-   * or null before `saveInitialPosition()` has run.
-   *
-   * Used by scripted camera moves that need to land exactly in the normal
-   * game view when they finish (intro flight outro blend).
+   * Computes the overview when it is needed (Reset Camera, intro cancel, the
+   * intro's landing). The ground under it improves while tiles stream (with
+   * a cold cache there is none at all during loading), and the window may
+   * have changed since the last one.
    */
-  getInitialView(): {
-    position: { x: number; y: number; z: number };
-    target: { x: number; y: number; z: number };
-  } | null {
+  setOverviewProvider(provider: (() => CameraView | null) | null): void {
+    this.overviewProvider = provider;
+  }
+
+  /**
+   * The overview (position + look-at target) in local coordinates, computed
+   * fresh by the provider where possible and stored, else the stored one;
+   * null while there is none. Used by scripted camera moves that need to
+   * land exactly in the normal game view (intro flight outro blend).
+   */
+  getOverview(): CameraView | null {
+    const fresh = this.overviewProvider?.() ?? null;
+    if (fresh) this.saveInitialPosition(fresh);
+    return this.getInitialView();
+  }
+
+  /** The stored overview, read only (state dump); see getOverview(). */
+  getInitialView(): CameraView | null {
     if (!this.initialCameraPosition || !this.initialCameraTarget) return null;
     return {
       position: { ...this.initialCameraPosition },
@@ -132,28 +149,22 @@ export class CameraControlService {
   }
 
   /**
-   * Reset camera to initial position or fallback to base coordinates
+   * Move the camera to the overview. Without one (no ground known yet) it
+   * stays where it is rather than guessing a pose over a ground that is not
+   * there; the start pose once stood in for it and ended up ~100 m over the
+   * streets, looking at a point far below them.
    */
   resetCamera(): void {
     if (!this.engine) return;
+    cameraTimeline.record('camera.reset', {}, true);
 
-    // Use stored initial camera position and target if available
-    if (this.initialCameraPosition && this.initialCameraTarget) {
-      const pos = this.initialCameraPosition;
-      const target = this.initialCameraTarget;
-      this.engine.setLocalCameraPosition(pos.x, pos.y, pos.z, target.x, target.y, target.z);
-    } else {
-      // Fallback: calculate from terrain (less accurate before tiles fully load)
-      if (!this.baseCoords) {
-        console.warn('[Camera] No base coords available for fallback positioning');
-        return;
-      }
-
-      const terrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
-      const heightAboveGround = 400;
-      const cameraY = terrainY + heightAboveGround;
-      this.engine.setLocalCameraPosition(0, cameraY, -heightAboveGround, 0, terrainY, 0);
+    const view = this.getOverview();
+    if (!view) {
+      cameraTimeline.record('camera.reset.noOverview');
+      return;
     }
+    const { position: pos, target } = view;
+    this.engine.setLocalCameraPosition(pos.x, pos.y, pos.z, target.x, target.y, target.z);
   }
 
   /**
@@ -477,6 +488,7 @@ export class CameraControlService {
     this.baseCoords = null;
     this.initialCameraPosition = null;
     this.initialCameraTarget = null;
+    this.overviewProvider = null;
     this.debugFramingEnabled = false;
   }
 }
