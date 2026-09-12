@@ -33,31 +33,34 @@
 
 @include panel.content;
 
-/* === Next-Wave Button ===
- * Primärer Call-to-Action der Sidebar. Rezept wie .td-btn-green und
- * TD_BUTTON_TEAL_STYLES (Verlauf, Kante, Key-Shadow, Mono-Caps 12px), Ecken
- * wie Tower-Karten und Stat-Kacheln (3px), Höhe wie der Cancel-Button im
- * Build-Mode (36px). Typografie und Höhe bleiben in jedem Zustand gleich,
- * es wechseln nur Fläche und Farbe:
- *   bereit          Teal-Verlauf, Hover-Glow, Pressed-Inset
+/* === Wave Button ===
+ * Primärer Call-to-Action der Sidebar, "Start Wave N". Gold-Rezept wie
+ * TD_BUTTON_STYLES (Verlauf, Kante, Key-Shadow, Mono-Caps), 13px und 44px
+ * hoch, damit er sich vom Rest der Sidebar abhebt; Ecken wie Tower-Karten
+ * (3px). Typografie und Höhe bleiben in jedem Zustand gleich, es wechseln
+ * nur Fläche, Farbe und Inhalt:
+ *   bereit          Gold-Verlauf, Hover-Glow, Pressed-Inset
  *   gesperrt        Build-Mode / Game Over, grau wie .td-btn:disabled
- *   Welle läuft     flach eingelassen, reine Statusanzeige */
+ *   Welle läuft     flach eingelassen, "Wave N" links, "N left" rechts,
+ *                   unten ein Teal-Balken mit dem Anteil der Restgegner */
 .td-wave-btn {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  height: 36px;
+  height: 44px;
   margin-top: 4px;
   padding: 0 14px;
   background: linear-gradient(
     180deg,
-    var(--td-teal-light) 0%,
-    var(--td-teal) 55%,
-    var(--td-teal-dark) 100%
+    var(--td-gold-light) 0%,
+    var(--td-gold) 55%,
+    var(--td-gold-dark) 100%
   );
-  color: #0E1612;
+  color: #1A140A;
   border: 1px solid #11140F;
   border-radius: 3px;
   box-shadow:
@@ -65,9 +68,9 @@
     inset 0 -1px 0 rgba(0, 0, 0, 0.35),
     var(--td-shadow-key);
   font-family: var(--td-font-mono);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
   transition: box-shadow 0.18s ease;
@@ -77,7 +80,7 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
     inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    var(--td-teal-glow);
+    var(--td-gold-glow);
 }
 
 .td-wave-btn:active:not(:disabled) {
@@ -87,7 +90,7 @@
 }
 
 .td-wave-btn:focus-visible {
-  outline: 1px solid var(--td-teal-light);
+  outline: 1px solid var(--td-gold-light);
   outline-offset: 2px;
 }
 
@@ -100,6 +103,7 @@
 
 /* Laufende Welle: eingelassen wie Slots und Inputs (TD_BEVEL_INSET) */
 .td-wave-btn.td-wave-running {
+  justify-content: space-between;
   background: var(--td-panel-shadow);
   color: var(--td-teal);
   border-color: var(--td-frame-dark);
@@ -107,6 +111,29 @@
     inset 0 1px 2px rgba(0, 0, 0, 0.5),
     inset 0 -1px 0 rgba(74, 84, 77, 0.13);
   cursor: default;
+}
+
+.td-wave-btn-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.td-wave-left {
+  font-size: 11px;
+  color: var(--td-text-muted);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* Anteil der Gegner, die weder getötet noch durchgekommen sind */
+.td-wave-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--td-teal);
+  transition: width 0.3s ease;
 }
 
 /* Curriculum coming-up preview, flat, embedded directly under the

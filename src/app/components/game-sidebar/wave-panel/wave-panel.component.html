@@ -37,8 +37,19 @@
     }
     <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
             [disabled]="waveActive() || buildMode() || isGameOver()">
-      <td-icon [name]="waveActive() ? 'wave' : 'play'" [size]="16"></td-icon>
-      <span>{{ waveActive() ? 'Wave running' : 'Next Wave' }}</span>
+      @if (waveActive()) {
+        <span class="td-wave-btn-main">
+          <td-icon name="wave" [size]="16"></td-icon>
+          <span>{{ waveButton().label }}</span>
+        </span>
+        @if (waveButton().left; as left) {
+          <span class="td-wave-left">{{ left }}</span>
+          <span class="td-wave-bar" [style.width.%]="waveButton().barPercent"></span>
+        }
+      } @else {
+        <td-icon name="play" [size]="16"></td-icon>
+        <span>{{ waveButton().label }}</span>
+      }
     </button>
 
     <!-- Phase 5.16: Coming-Up curriculum preview -->
