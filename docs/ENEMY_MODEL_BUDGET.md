@@ -303,7 +303,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Zombie (`zombie`) | Swarm | 1.800 | 4.525 | 2.157 | 8,1 | Skinning | 209 | 4525×209 | RGBA16F | 0,83 | 7,2 | 1024² |
 | Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 107 | 4266×107 | RGBA16F | 0,56 | 3,5 | 1024² |
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
-| Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 2048² |
+| Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
 | Wallsmasher (`wallsmasher`) | Normal | 200 | 3.444 | 5.670 | 0,7 | Skinning | 104 | 3444×104 | RGBA16F | 1,28 | 2,7 | 512² |
 | Spider (`spider`) | Swarm | 800 | 2.140 | 2.417 | 1,7 | Skinning | 25 | 2140×25 | RGBA16F | 0,56 | 0,4 | 512² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 1024² |
@@ -353,7 +353,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Zombie | `zombie.glb` | 2,0 | 1 (1) | 49 | 0 | 1 | 1024² | 13 | 4.525 / 1.453 / 1.086 |
 | Zombie Soldier | `zombie_soldier.glb` | 3,5 | 1 (1) | 56 | 0 | 1 | 3× 1024² | 6 | 4.249 / 4.249 / 3.603 |
 | Bear | `bear.glb` | 2,0 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
-| Bat | `bat.glb` | 5,5 | 1 (1) | 28 | 0 | 1 | 3× 2048² | 2 | 3.559 / 3.559 / 1.345 |
+| Bat | `bat.glb` | 0,3 | 1 (1) | 28 | 0 | 1 | 512² | 1 | 3.559 / 3.559 / 2.520 |
 | Wallsmasher | `wallsmasher.glb` | 0,4 | 1 (1) | 61 | 0 | 1 | 512² | 3 | 3.444 / 3.025 / 2.956 |
 | Spider | `spider.glb` | 0,6 | 2 (2) | 113 | 0 | 2 | 512² | 1 | 2.140 / 2.133 / 1.716 |
 | Penguin | `penguin.glb` | 1,3 | 1 (1) | 21 | 0 | 1 | 3× 1024² | 5 | 1.993 / 1.993 / 1.723 |
