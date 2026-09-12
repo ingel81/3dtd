@@ -16,7 +16,7 @@ Route (vom Spawn zum HQ).
 | Schritt | Code | Ergebnis |
 |---|---|---|
 | Straßenbreite je Segment | `utils/route-corridor.ts` (`estimateStreetWidth`, `routeHalfWidths`), Zuordnung Segment zu OSM-Way in `path-route.service.ts:580-588` | Halbbreite aus OSM, Rückfall für alles, was die Tiles nicht messen |
-| Messung | `PathAndRouteService.measureStreetClearance` (`path-route.service.ts:909`), Strahlen in `ThreeTilesEngine.measureStreetClearance` (`three-tiles-engine.ts:1092`) | Freiraum je Station und Seite |
+| Messung | `PathAndRouteService.measureStreetClearance` (`path-route.service.ts:909`), Strahlen in `TerrainQueries.measureStreetClearance` (`three-engine/terrain-queries.ts:324`, als `engine.terrain` erreichbar) | Freiraum je Station und Seite |
 | Anpassung | `fitCorridorStations`, `fitCorridorPieces` (`route-corridor.ts:445`, `:496`), `applyClearance` (`path-route.service.ts:684`) | Segmente geteilt, wo sich eine Seite ändert; Halbbreite links und rechts je Stück |
 | Waypoints | `path-route.service.ts:636-641` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts:312`) | 2-m-Zellen im Korridor |
@@ -63,7 +63,7 @@ geht jedes Segment jeder Route durch. Ein Segment der Länge `L` bekommt
 `(k + 0,5) / n` des Segments. Segmente, die mehrere Routen teilen, werden
 einmal gemessen.
 
-Je Station (`three-tiles-engine.ts:1092-1147`):
+Je Station (`TerrainQueries.measureStreetClearance`, `terrain-queries.ts:324-378`):
 
 1. Eine Säulenprobe unter der Station. Ohne Tile ist die Station
    `unmeasured: 'no tile'`, mit einem Tile gröber als `maxTileError` ist sie
@@ -72,7 +72,7 @@ Je Station (`three-tiles-engine.ts:1092-1147`):
    1 m und 3,5 m über dem Boden der Säule (auf einer Brücke über ihrer
    Oberkante `topY`), jeder `maxHalfWidth` lang.
 3. Ein Treffer zählt nur auf einem Tile mit höchstens `maxTileError`
-   geometricError und nicht auf dem Wurzel-Tile (`:1142-1143`). Ohne Treffer
+   geometricError und nicht auf dem Wurzel-Tile (`:374-375`). Ohne Treffer
    meldet der Strahl seine volle Länge.
 
 Der Freiraum einer Seite ist der weitere der beiden ersten Treffer
@@ -150,7 +150,7 @@ Die OSM-Breite gilt:
 - an Stationen ohne Messung (kein oder zu grobes Tile),
 - in Tunneln und Durchgängen,
 - als Obergrenze auf dem Endstück zum HQ,
-- in DevWorld. Dort liefert die Engine keine Probe (`three-tiles-engine.ts:1102`), und die
+- in DevWorld. Dort liefert `TerrainQueries` keine Probe (`terrain-queries.ts:334`), und die
   Straßen werden in der Breite gezeichnet, die der Korridor ohnehin nimmt
   (siehe [DEVWORLD.md](DEVWORLD.md)).
 
@@ -294,7 +294,7 @@ einem Frame:
   - `rays`: 2 Strahlhöhen × 2 Seiten × gemessene Stationen; die Säulenprobe
     ist nicht mitgezählt.
   - `__raycastStats()` bucht die Strahlen und die Säulenprobe unter
-    `routeCorridor` (`three-tiles-engine.ts:1104`).
+    `routeCorridor` (`terrain-queries.ts:336`).
 - **`rebuild`**: erscheint nur bei einem Neuaufbau, also nach `changed=true`
   oder nach `__corridor.set()`/`reset()`.
 - **Gemessen** (Playtest 2026-09-12, Innenstadt, eine Route, Punkt 52 in
@@ -306,7 +306,7 @@ einem Frame:
 Die Tile-Region `RouteCorridorRegion` (`three-engine/route-corridor-region.ts`)
 hält Tiles bis 20 m neben den Routensegmenten auf 5 m geometricError und aktiv,
 auch außerhalb des Bildes (`ROUTE_CORRIDOR_HALF_WIDTH`,
-`ROUTE_CORRIDOR_ERROR_TARGET`, `three-tiles-engine.ts:104-110`, `:1267`). Daher
+`ROUTE_CORRIDOR_ERROR_TARGET`, `three-tiles-engine.ts:69-75`, `:743`). Daher
 die Vorgabe `maxTileError` 5 und die Obergrenze 15 für `maxHalfWidth`: Weiter
 als 20 m neben der Route gibt es keine garantiert feinen Tiles.
 
@@ -395,7 +395,7 @@ Nur für Diagnose: je Punkt alle 2 m bis zu fünf Säulenproben.
 ### Route Grid Overlay
 
 Layer "Route Grid Overlay" im Layers-Menü der Quick-Actions
-(`quick-actions.component.ts:172`). Gezeichnet wird jede Zelle des Grids, auch
+(`quick-actions.component.html:135`). Gezeichnet wird jede Zelle des Grids, auch
 ohne Höhenprobe. Die Fläche ist grau ohne Tower-Abdeckung und grün mit, Zellen
 der Mittellinie sind etwas kräftiger.
 

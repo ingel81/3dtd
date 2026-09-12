@@ -62,7 +62,7 @@ Die Zuordnung Gegner zu Zelle bräuchte also keinen Raster-Lookup.
 Unabhängig von der Zellform sind: die LOS-Auflösung selbst (sie braucht nur
 einen Punkt), der Anzeige-Shader (braucht nur den Mittelpunkt), die
 Platzierungsregeln und die Tile-Verfeinerung entlang der Route
-(`three-engine/three-tiles-engine.ts:104`, 20 m pro Seite).
+(`three-engine/three-tiles-engine.ts:69`, 20 m pro Seite).
 
 ## Problemstellen
 
