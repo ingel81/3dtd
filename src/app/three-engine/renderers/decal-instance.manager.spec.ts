@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { BufferAttribute, Color, PlaneGeometry, ShaderMaterial, Vector3 } from 'three';
+import { BufferAttribute, Color, Matrix4, PlaneGeometry, ShaderMaterial, Vector3 } from 'three';
 import { DecalInstanceManager } from './decal-instance.manager';
 
 describe('DecalInstanceManager', () => {
@@ -101,6 +101,52 @@ describe('DecalInstanceManager', () => {
 
     decals.updateFades(1600);
     expect(decals.count).toBe(0);
+  });
+
+  it('reinforces a decal from what it shows, capped, and restarts its fade', () => {
+    const decals = create(8);
+    const opacity = opacityOf(decals);
+    addTimed(decals, 'a', 0, 100, 100, 0.5); // fadet 100-200
+    expect(decals.reinforce('a', 0.2, 0.8, 50, 100)).toBe(true); // fadet jetzt 150-250
+    expect(opacity.getX(0)).toBeCloseTo(0.7);
+
+    decals.updateFades(149);
+    expect(opacity.getX(0)).toBeCloseTo(0.7);
+    decals.updateFades(200);
+    expect(opacity.getX(0)).toBeCloseTo(0.35);
+
+    decals.reinforce('a', 0.2, 0.8, 200, 100); // vom ausgeblendeten Wert aus
+    expect(opacity.getX(0)).toBeCloseTo(0.55);
+    decals.reinforce('a', 0.5, 0.8, 200, 100);
+    expect(opacity.getX(0)).toBeCloseTo(0.8);
+    expect(decals.reinforce('missing', 0.1, 1, 0, 0)).toBe(false);
+  });
+
+  it('treats a reinforced decal as the youngest for removeOldest', () => {
+    const decals = create(4);
+    addTimed(decals, 'a', 0, 1000, 100);
+    addTimed(decals, 'b', 10, 1000, 100);
+    decals.reinforce('a', 0.1, 1, 20, 1000);
+    decals.removeOldest();
+    expect(decals.getInstance('b')).toBeUndefined();
+    expect(decals.getInstance('a')).toBeDefined();
+  });
+
+  it('scales the quad along Z by sizeZ, 1 by default', () => {
+    const decals = create(4);
+    decals.add('oval', new Vector3(), 3, 0, new Color(), 1, 0, 1, 1);
+    decals.add('round', new Vector3(), 3, 0, new Color(), 1, 0, 1, 1, 3);
+    const matrix = new Matrix4();
+    const scale = new Vector3();
+
+    decals.instancedMesh.getMatrixAt(0, matrix);
+    scale.setFromMatrixScale(matrix);
+    expect(scale.x).toBeCloseTo(3);
+    expect(scale.z).toBeCloseTo(1);
+
+    decals.instancedMesh.getMatrixAt(1, matrix);
+    scale.setFromMatrixScale(matrix);
+    expect(scale.z).toBeCloseTo(3);
   });
 
   it('wakes up for a decal added after the loop went idle', () => {

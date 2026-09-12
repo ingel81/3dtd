@@ -1,5 +1,6 @@
 import { Vector3, Color } from 'three';
 import { ThreeEffectsRenderer } from './three-effects.renderer';
+import { SCORCH_DECAL_CONFIG } from '../../configs/visual-effects.config';
 
 /**
  * Active beam state
@@ -10,6 +11,8 @@ interface ActiveBeam {
   targetPosition: Vector3;
   beamWidth: number;
   lastSpawnTime: number;
+  /** When this beam last burnt a scorch mark at its target (ms) */
+  lastScorchTime: number;
 }
 
 /**
@@ -86,6 +89,7 @@ export class ThreeFlameBeamRenderer {
         targetPosition: targetPos.clone(),
         beamWidth,
         lastSpawnTime: performance.now(),
+        lastScorchTime: -Infinity,
       };
       this.activeBeams.set(towerId, beam);
     } else {
@@ -120,6 +124,13 @@ export class ThreeFlameBeamRenderer {
 
     for (const beam of this.activeBeams.values()) {
       this.spawnBeamParticles(beam, now, dt);
+
+      // Burn mark where the flame lands, one per SCORCH_DECAL_CONFIG.fireIntervalMs
+      if (now - beam.lastScorchTime >= SCORCH_DECAL_CONFIG.fireIntervalMs) {
+        beam.lastScorchTime = now;
+        const target = beam.targetPosition;
+        this.effectsRenderer.markScorch(target.x, target.y, target.z, 'fire');
+      }
     }
   }
 

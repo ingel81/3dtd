@@ -1,7 +1,7 @@
 /**
  * Decal Shader Materials
  *
- * Custom shaders for instanced blood and ice decals with:
+ * Custom shaders for instanced blood, scorch and ice decals with:
  * - Logarithmic depth buffer support (correct occlusion with 3D tiles)
  * - Per-instance color, opacity, variation
  * - Soft edges and procedural noise patterns
@@ -104,6 +104,112 @@ export function createBloodDecalShader(): ShaderMaterial {
       alpha *= vInstanceOpacity;
 
       gl_FragColor = vec4(color, alpha);
+
+      #include <logdepthbuf_fragment>
+    }
+  `;
+
+  return new ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    transparent: true,
+    depthWrite: false,
+    side: DoubleSide,
+  });
+}
+
+/**
+ * Scorch Decal Shader (burn and blast marks)
+ *
+ * Features:
+ * - Charred core fading to a ragged rim
+ * - Soot streaks radiating from the centre, blotchy darker patches
+ * - Normal alpha blending of a dark colour: darkens the photoreal tiles,
+ *   which ignore scene lights
+ * - Rim and streak noise sample the direction vector, not atan(), so there
+ *   is no seam where the angle wraps
+ */
+export function createScorchDecalShader(): ShaderMaterial {
+  const vertexShader = /* glsl */ `
+    attribute vec3 instanceColor;
+    attribute float instanceOpacity;
+    attribute float instanceVariation;
+
+    varying vec2 vUv;
+    varying vec3 vInstanceColor;
+    varying float vInstanceOpacity;
+    varying float vInstanceVariation;
+
+    #include <common>
+    #include <logdepthbuf_pars_vertex>
+
+    void main() {
+      vUv = uv;
+      vInstanceColor = instanceColor;
+      vInstanceOpacity = instanceOpacity;
+      vInstanceVariation = instanceVariation;
+
+      // Apply instance matrix (position, rotation, scale)
+      vec4 worldPosition = instanceMatrix * vec4(position, 1.0);
+      vec4 mvPosition = modelViewMatrix * worldPosition;
+
+      gl_Position = projectionMatrix * mvPosition;
+
+      #include <logdepthbuf_vertex>
+    }
+  `;
+
+  const fragmentShader = /* glsl */ `
+    precision highp float;
+    varying vec2 vUv;
+    varying vec3 vInstanceColor;
+    varying float vInstanceOpacity;
+    varying float vInstanceVariation;
+
+    #include <logdepthbuf_pars_fragment>
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+
+      float a = hash(i);
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+
+      return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    }
+
+    void main() {
+      // Center coordinates (-1 to 1)
+      vec2 center = vUv * 2.0 - 1.0;
+      float dist = length(center);
+      if (dist > 1.0) discard;
+
+      vec2 dir = center / max(dist, 0.0001);
+      vec2 seed = vec2(vInstanceVariation * 17.0, vInstanceVariation * 29.0);
+
+      // Ragged rim between 0.6 and 0.95 of the quad
+      float rim = 0.6 + 0.35 * noise(dir * 1.8 + seed);
+      if (dist > rim) discard;
+
+      // Charred core, soft towards the rim
+      float alpha = 1.0 - smoothstep(0.15, rim, dist);
+
+      // Soot streaks radiating outwards
+      float streaks = noise(dir * 5.0 + seed + vec2(dist * 1.2, 0.0));
+      alpha *= 0.7 + 0.3 * streaks;
+
+      // Blotchy darker patches
+      float blotch = noise(center * 4.0 + seed * 0.5);
+      vec3 color = mix(vInstanceColor, vInstanceColor * 0.45, smoothstep(0.35, 0.75, blotch) * 0.7);
+
+      gl_FragColor = vec4(color, alpha * vInstanceOpacity);
 
       #include <logdepthbuf_fragment>
     }

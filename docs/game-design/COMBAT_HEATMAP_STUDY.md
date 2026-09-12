@@ -3,6 +3,12 @@
 **Status:** Machbarkeitsstudie, kein Code.
 **Stand:** 2026-09-11, Code-Stand `3338f4b`.
 **Bezug:** TODO.md 3.1 „Untersuchen: Kampfzonen einfärben“.
+**Umsetzung:** Schicht 1 (Kampfspuren) seit 2026-09-12, beschrieben in
+`docs/PARTICLE_SYSTEM.md`, Abschnitt „Kampfspuren“. Abweichend von 2.2: Quelle ist
+`vfx:projectile-impact` (Cannon, Rocket) plus der Flammenstrahl, `vfx:explosion`
+gibt es nicht mehr; Todesorte nicht blutender Gegner hinterlassen keine Spur; der
+Decal-Pool blieb bei linearer Suche für den ältesten Eintrag und vollem Upload.
+Schicht 2 (Heatmap) ist nicht umgesetzt.
 
 ---
 

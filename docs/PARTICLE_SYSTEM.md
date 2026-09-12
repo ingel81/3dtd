@@ -16,15 +16,16 @@ ueber fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
   4×4 prozedural generierte Texturen, Atlas-Frame-Animation via
   `frameIndex` Attribut.
 - **GPU-instanzierte Decals** (`DecalInstanceManager`): Blood-Decals (max 100),
-  Ice-Decals (max 150) — 1 Draw Call pro Decal-Typ. Fade-In/Out per Shader.
+  Ice-Decals (max 150), Kampfspuren (max 200, eine pro Route-Zelle, siehe unten),
+  1 Draw Call pro Decal-Typ. Ausblenden über das Opacity-Attribut.
 - **GPU-instanzierte Floating Text** (`FloatingTextInstanceManager`):
   Floating Damage Numbers ueber Gegnern. 1 Draw Call fuer alle Texts.
 - **Frost-/Poison-Auren**: Pro-Enemy orbitierende Partikel-Cluster (Tracking
   ueber Maps mit `localPosition` und `orbitAngle`).
 
 Pool-Limits zentral in `configs/visual-effects.config.ts` (`PARTICLE_LIMITS`,
-`BLOOD_DECAL_CONFIG`, `ICE_DECAL_CONFIG`, `FIRE_INTENSITY`, `EXPLOSION_PRESETS`,
-`EFFECT_COLORS`).
+`BLOOD_DECAL_CONFIG`, `ICE_DECAL_CONFIG`, `SCORCH_DECAL_CONFIG`, `FIRE_INTENSITY`,
+`EXPLOSION_PRESETS`, `EXPLOSION_LOOK`, `EFFECT_COLORS`).
 
 ---
 
@@ -382,6 +383,7 @@ typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
 | `spawnBloodSplatter(lat, lon, h, count)` | Blut-Partikel (Normal Pool) |
 | `spawnBloodDecal(lat, lon, h, size)` | Boden-Decal (GPU-instanced) |
 | `spawnIceDecal(lat, lon, h, size)` | Eis-Decal (GPU-instanced) |
+| `markScorch(localX, localY, localZ, source)` | Kampfspur am Boden unter einem Treffer, eine pro Route-Zelle |
 | `spawnFire(...)` / `spawnFireOnTerrain(...)` / `spawnFireAtLocalY(...)` | Anhaltende Feuerquelle (Intensity-Preset) |
 | `spawnFireFlash(lat, lon, localY)` | Kurzer Feuerblitz (z.B. Flame-Beam-Hit) |
 | `spawnExplosion(localX, localY, localZ, count, radius, smokePuffs)` | Zweistufige Feuer-Atlas-Explosion am lokalen Punkt, siehe unten |
@@ -422,6 +424,35 @@ alten Bild: `fire.sizeEnd = 0` und `smokePuffs = 0` in `EXPLOSION_PRESETS`.
 
 ---
 
+## Kampfspuren (Scorch-Decals)
+
+Schicht 1 aus `docs/game-design/COMBAT_HEATMAP_STUDY.md`, seit 2026-09-12. Dunkle
+Brandflecken als eigener `DecalInstanceManager`-Pool (`ScorchMarks` in
+`scorch-marks.ts`, Shader `createScorchDecalShader`), Werte in `SCORCH_DECAL_CONFIG`:
+
+- **Auslöser:** Einschläge von Cannon und Rocket (`VFXService`, aus
+  `vfx:projectile-impact`) und Flammenstrahlen: jeder brennende Strahl markiert sein
+  Ziel alle 400 ms (`ThreeFlameBeamRenderer`).
+- **Höchstens eine Spur pro Route-Grid-Zelle** (2 × 2 m). Die Decal-ID ist der
+  Zellschlüssel. Ein weiterer Treffer in derselben Zelle macht die Spur dunkler
+  (Cannon +0,1, Rocket +0,12, Feuer +0,05, höchstens 0,8) und startet ihr Ausblenden
+  neu (`DecalInstanceManager.reinforce`).
+- **Nur auf der Route und am Boden:** Punkte außerhalb der Korridor-Zellen und Treffer
+  mehr als 6 m über dem Zellboden (Flieger) hinterlassen nichts. Die Höhe kommt aus
+  dem Route-Grid (`getGroundLocalYAt`, verdrahtet in `GameStateManager.initialize`),
+  nicht aus der Einschlagshöhe.
+- **Lebensdauer:** Wanduhr wie Blut, 60 s stehen, 30 s ausblenden. Pool 200; ist er
+  voll, weicht die Spur, die am längsten nicht mehr getroffen wurde.
+- **Reihenfolge:** `renderOrder` 998, also unter Blut und Eis (999).
+- **Reset:** `ThreeEffectsRenderer.clear()` (Spielneustart, Standortwechsel).
+- Rein optisch, kein Einfluss auf Gameplay oder Training.
+
+Kampfspuren sind rund (`sizeZ = size` in `DecalInstanceManager.add`). Blood- und
+Ice-Decals lassen `sizeZ` bei 1 und sind damit, wie schon immer, Ovale von
+2·size × 2 m, nicht Kreise mit `size` als Durchmesser.
+
+---
+
 ## VFXService (Event-Bridge)
 
 Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
@@ -452,8 +483,9 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/particle-effects-renderer.ts` | Combat-VFX (Blood/Fire/Explosion/Smoke/Trails/Muzzle), Decals, `activeEffects`-Lifecycle |
 | `three-engine/renderers/environment-effects-renderer.ts` | HQ-Explosion, Fire-Flash, Tower-Inner-Fire |
 | `three-engine/renderers/aura-renderer.ts` | Orbitierende Frost-/Poison-Status-Auren |
-| `three-engine/renderers/decal-instance.manager.ts` | GPU-instanced Blood/Ice-Decals |
+| `three-engine/renderers/decal-instance.manager.ts` | GPU-instanced Blood/Ice/Scorch-Decals |
 | `three-engine/renderers/decal-shaders.ts` | Decal-Shader (Fade, Color-Variation) |
+| `three-engine/renderers/scorch-marks.ts` | Kampfspuren: eine pro Route-Zelle, Verstärken bei Wiederholung |
 | `three-engine/renderers/floating-text/floating-text-instance.manager.ts` | GPU-instanced Floating Damage Numbers |
 | `three-engine/renderers/floating-text/floating-text-material.ts` | Custom ShaderMaterial fuer Text-Atlas |
 | `three-engine/renderers/floating-text/floating-text-atlas.ts` | Prozedurale Text-Atlas-Generierung |

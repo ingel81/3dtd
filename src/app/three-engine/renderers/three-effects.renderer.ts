@@ -9,7 +9,8 @@ import {
 } from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
-import type { MuzzleFlashProfile } from '../../configs/visual-effects.config';
+import type { MuzzleFlashProfile, ScorchSource } from '../../configs/visual-effects.config';
+import type { ScorchGround } from './scorch-marks';
 import { FloatingTextInstanceManager } from './floating-text/floating-text-instance.manager';
 import { ParticlePoolManager } from './particle-pool-manager';
 import { AuraRenderer } from './aura-renderer';
@@ -479,6 +480,19 @@ export class ThreeEffectsRenderer {
    */
   spawnIceDecal(lat: number, lon: number, height: number, size = 2.0): string {
     return this.particleEffects.spawnIceDecal(lat, lon, height, size);
+  }
+
+  /** Route grid the scorch marks sit on (GlobalRouteGridService); null leaves none. */
+  setScorchGround(ground: ScorchGround | null): void {
+    this.particleEffects.setScorchGround(ground);
+  }
+
+  /**
+   * Burn a scorch mark on the ground below a local hit point, at most one
+   * per route cell (see SCORCH_DECAL_CONFIG).
+   */
+  markScorch(localX: number, localY: number, localZ: number, source: ScorchSource): void {
+    this.particleEffects.markScorch(localX, localY, localZ, source);
   }
 
   /**

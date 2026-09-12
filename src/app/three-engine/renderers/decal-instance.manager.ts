@@ -48,6 +48,7 @@ export class DecalInstanceManager {
   private static readonly _tempPos = new THREE.Vector3();
   private static readonly _tempRot = new THREE.Quaternion();
   private static readonly _tempScale = new THREE.Vector3();
+  private static readonly _up = new THREE.Vector3(0, 1, 0);
 
   constructor(
     geometry: THREE.BufferGeometry,
@@ -76,7 +77,12 @@ export class DecalInstanceManager {
   }
 
   /**
-   * Add a new decal instance
+   * Add a new decal instance.
+   *
+   * `size` scales the flat quad along its local X, `sizeZ` along its local Z
+   * (before the rotation about Y). Blood and ice leave `sizeZ` at 1, which
+   * has always made them 2*size by 2 m ovals; pass `sizeZ = size` for a
+   * round decal of radius `size`.
    */
   add(
     id: string,
@@ -87,7 +93,8 @@ export class DecalInstanceManager {
     opacity: number,
     spawnTime: number,
     fadeDelay: number,
-    fadeDuration: number
+    fadeDuration: number,
+    sizeZ = 1
   ): void {
     if (this.instances.has(id)) return;
 
@@ -110,8 +117,8 @@ export class DecalInstanceManager {
 
     // Set matrix (position, rotation, scale)
     DecalInstanceManager._tempPos.copy(position);
-    DecalInstanceManager._tempRot.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotation);
-    DecalInstanceManager._tempScale.set(size, size, 1);
+    DecalInstanceManager._tempRot.setFromAxisAngle(DecalInstanceManager._up, rotation);
+    DecalInstanceManager._tempScale.set(size, size, sizeZ);
 
     this.matrix.compose(
       DecalInstanceManager._tempPos,
@@ -163,6 +170,32 @@ export class DecalInstanceManager {
       nextFadeStart = now;
     }
     this.nextFadeStart = nextFadeStart;
+  }
+
+  /**
+   * Make an existing decal darker and young again: its opacity rises by
+   * `step` from what it shows now (a fading decal counts at its faded
+   * value), capped at `max`, its fade starts over `fadeDelay` from `now`,
+   * and removeOldest() treats it as just added.
+   *
+   * @returns false when there is no decal with that ID
+   */
+  reinforce(id: string, step: number, max: number, now: number, fadeDelay: number): boolean {
+    const instance = this.instances.get(id);
+    if (!instance) return false;
+
+    const elapsed = now - instance.fadeStartTime;
+    const shown = elapsed > 0
+      ? instance.baseOpacity * (1 - Math.min(elapsed / instance.fadeDuration, 1))
+      : instance.baseOpacity;
+    instance.baseOpacity = Math.min(max, shown + step);
+    instance.spawnTime = now;
+    instance.fadeStartTime = now + fadeDelay;
+    this.nextFadeStart = Math.min(this.nextFadeStart, instance.fadeStartTime);
+
+    this.opacityAttribute.setX(instance.index, instance.baseOpacity);
+    this.opacityAttribute.needsUpdate = true;
+    return true;
   }
 
   /**

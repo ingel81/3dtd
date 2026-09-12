@@ -263,6 +263,8 @@ export class GameStateManager {
 
     // Initialize VFX service (subscribes to vfx events)
     this.vfxService = new VFXService(this.eventBus, tilesEngine);
+    // Scorch marks sit on route cells, one per cell, at the grid's ground height
+    tilesEngine.effects.setScorchGround(this.globalRouteGrid);
 
     // Initialize Audio service (subscribes to audio events)
     this.audioService = new AudioService(this.eventBus, tilesEngine);

@@ -37,6 +37,37 @@ export const ICE_DECAL_CONFIG = {
   heightOffset: 0.12,   // Above ground to avoid z-fighting
 } as const;
 
+/**
+ * Scorch marks, layer 1 of COMBAT_HEATMAP_STUDY.md: dark burn marks where
+ * cannon shells and rockets land and where flame beams hit. At most one per
+ * route-grid cell: another hit in the same cell darkens the mark and starts
+ * its fade over instead of adding one, so the zones that see the most
+ * fighting turn dark and the pool does not fill up with duplicates. Only
+ * on route cells, only near the ground (air hits leave none).
+ */
+export const SCORCH_DECAL_CONFIG = {
+  maxDecals: 200,
+  fadeDelay: 60000,    // ms before fade starts (wall clock, like blood)
+  fadeDuration: 30000, // ms fade duration
+  /** Cap for the darkening by repeated hits */
+  maxOpacity: 0.8,
+  baseColor: { r: 0.07, g: 0.05, b: 0.035 },  // Soot, brownish black
+  colorVariation: 0.03,
+  heightOffset: 0.1,   // Above ground, below blood and ice (0.12)
+  /** A hit further above the cell's ground than this (air units) leaves no mark, m */
+  maxHeightAboveGround: 6,
+  /** Per source: decal radius (m), opacity of a new mark, opacity added per further hit */
+  sources: {
+    cannon: { size: 2.2, opacity: 0.5, opacityStep: 0.1 },
+    rocket: { size: 2.6, opacity: 0.55, opacityStep: 0.12 },
+    fire:   { size: 1.6, opacity: 0.3, opacityStep: 0.05 },
+  },
+  /** A burning flame beam marks its target this often, ms */
+  fireIntervalMs: 400,
+} as const;
+
+export type ScorchSource = keyof typeof SCORCH_DECAL_CONFIG.sources;
+
 /** Fire intensity presets */
 export const FIRE_INTENSITY = {
   tiny:    { count: 10,  radius: 1, duration: 3000 },

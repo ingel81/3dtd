@@ -9,8 +9,10 @@ import {
   ICE_DECAL_CONFIG,
   type MuzzleFlashProfile,
 } from '../../configs/visual-effects.config';
+import type { ScorchSource } from '../../configs/visual-effects.config';
 import { DecalInstanceManager } from './decal-instance.manager';
 import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
+import { ScorchMarks, type ScorchGround } from './scorch-marks';
 import { ParticlePoolManager, type Particle } from './particle-pool-manager';
 
 /**
@@ -54,6 +56,9 @@ export class ParticleEffectsRenderer {
   private readonly ICE_DECAL_FADE_DURATION = ICE_DECAL_CONFIG.fadeDuration;
   private decalIdCounter = 0;
 
+  // Scorch marks on the route grid (combat heatmap layer 1)
+  private scorchMarks: ScorchMarks | null = null;
+
   // Spiral angle tracker for railgun effect (uses time-based rotation)
   private spiralAngle = 0;
 
@@ -95,6 +100,10 @@ export class ParticleEffectsRenderer {
       this.MAX_ICE_DECALS
     );
     this.scene.add(this.iceDecalManager.instancedMesh);
+
+    // Scorch marks, at most one per route cell (SCORCH_DECAL_CONFIG)
+    this.scorchMarks = new ScorchMarks(decalGeometry.clone());
+    this.scene.add(this.scorchMarks.decals.instancedMesh);
 
     console.log('[ThreeEffectsRenderer] Instanced decal managers initialized');
     console.log(`  Blood decals: max ${this.MAX_BLOOD_DECALS} instances (1 draw call)`);
@@ -1083,6 +1092,19 @@ export class ParticleEffectsRenderer {
     return id;
   }
 
+  /** Route grid the scorch marks sit on; null (the default) leaves none. */
+  setScorchGround(ground: ScorchGround | null): void {
+    this.scorchMarks?.setGround(ground);
+  }
+
+  /**
+   * Burn a scorch mark on the ground below a local hit point. At most one
+   * per route cell: a repeat hit darkens that cell's mark instead.
+   */
+  markScorch(localX: number, localY: number, localZ: number, source: ScorchSource): void {
+    this.scorchMarks?.mark(localX, localY, localZ, source, performance.now());
+  }
+
   /**
    * Update all active effects, decals, and trail particle pools.
    *
@@ -1159,9 +1181,10 @@ export class ParticleEffectsRenderer {
       }
     }
 
-    // Fade out blood and ice decals (idle until the first fade is due)
+    // Fade out blood, ice and scorch decals (idle until the first fade is due)
     this.bloodDecalManager?.updateFades(now);
     this.iceDecalManager?.updateFades(now);
+    this.scorchMarks?.updateFades(now);
 
     // Update trail particles - ADDITIVE pool (skip when idle)
     if (this.pools.isPoolActive('trailAdditive')) {
@@ -1197,6 +1220,7 @@ export class ParticleEffectsRenderer {
     if (this.iceDecalManager) {
       this.iceDecalManager.clear();
     }
+    this.scorchMarks?.clear();
   }
 
   /**
@@ -1211,6 +1235,10 @@ export class ParticleEffectsRenderer {
     if (this.iceDecalManager) {
       this.scene.remove(this.iceDecalManager.instancedMesh);
       this.iceDecalManager.dispose();
+    }
+    if (this.scorchMarks) {
+      this.scene.remove(this.scorchMarks.decals.instancedMesh);
+      this.scorchMarks.dispose();
     }
   }
 }
