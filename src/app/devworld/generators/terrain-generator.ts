@@ -72,39 +72,6 @@ export type TerrainPreset =
   | 'alien'
   | 'fractal';
 
-export const TERRAIN_PRESETS: TerrainPreset[] = [
-  'flat',
-  'gentle',
-  'default',
-  'slope_ns',
-  'slope_ew',
-  'slope_diag',
-  'mountains',
-  'peaks',
-  'crater',
-  'bowl',
-  'dome',
-  'mesa',
-  'terraces',
-  'steps',
-  'canyon',
-  'cells',
-  'cracks',
-  'waves',
-  'dunes',
-  'ripples',
-  'spiral',
-  'rings',
-  'eroded',
-  'weathered',
-  'islands',
-  'highlands',
-  'badlands',
-  'chaos',
-  'alien',
-  'fractal',
-];
-
 export interface TerrainGeneratorConfig {
   /** Terrain preset type */
   preset: TerrainPreset;
@@ -898,30 +865,4 @@ export class TerrainGenerator {
   getConfig(): Required<TerrainGeneratorConfig> {
     return { ...this.config };
   }
-}
-
-/**
- * Get description for a terrain preset.
- */
-export function getTerrainPresetDescription(preset: TerrainPreset): string {
-  return GENERATORS[preset]?.desc ?? 'Unknown preset';
-}
-
-/**
- * Get all terrain presets grouped by category.
- */
-export function getTerrainCategories(): { name: string; presets: TerrainPreset[] }[] {
-  return [
-    { name: 'Basic', presets: ['flat', 'gentle', 'default'] },
-    { name: 'Slopes', presets: ['slope_ns', 'slope_ew', 'slope_diag'] },
-    { name: 'Mountains', presets: ['mountains', 'peaks'] },
-    { name: 'Valleys', presets: ['crater', 'bowl', 'dome'] },
-    { name: 'Plateaus', presets: ['mesa', 'terraces', 'steps'] },
-    { name: 'Cellular', presets: ['canyon', 'cells', 'cracks'] },
-    { name: 'Waves', presets: ['waves', 'dunes', 'ripples'] },
-    { name: 'Patterns', presets: ['spiral', 'rings'] },
-    { name: 'Eroded', presets: ['eroded', 'weathered'] },
-    { name: 'Biomes', presets: ['islands', 'highlands', 'badlands'] },
-    { name: 'Extreme', presets: ['chaos', 'alien', 'fractal'] },
-  ];
 }
