@@ -1,6 +1,6 @@
 # AI Model Export Guide
 
-**Stand:** 2026-09-12, Schema v4 (207 Features). Der Export ist ein Opt-in-Pfad.
+**Stand:** 2026-09-12, Schema v5 (208 Features). Der Export ist ein Opt-in-Pfad.
 
 Anleitung zum Exportieren des trainierten PyTorch-Modells für Browser-Inferenz.
 
@@ -25,14 +25,14 @@ Anleitung zum Exportieren des trainierten PyTorch-Modells für Browser-Inferenz.
 
 `public/assets/ai/wave-director/wave-director.onnx` stammt aus Phase 5.10
 (`metadata.json`: `version 5.10.0`, `checkpoint_7350.pt`, `inputSize 156`,
-exportiert 2026-04-21). Der Encoder produziert seit Schema v4 **207** Features.
+exportiert 2026-04-21). Der Encoder produziert seit Schema v5 **208** Features.
 
 Die Datei selbst ist ein gültiges Modell, `InferenceSession.create` dürfte also
 durchgehen; der Konflikt schlägt beim ersten `session.run()` zu, und
 `runInference` hat keinen Fallback (nicht nachgemessen — der Pfad wurde seit dem
 Schema-Sprung nicht mehr benutzt). Wer ihn heute benutzen will, muss vorher neu
 exportieren (`npm run export-ai`) und braucht dafür einen Checkpoint aus einem
-Schema-v4-Lauf.
+Schema-v5-Lauf.
 
 ---
 
@@ -92,7 +92,7 @@ python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_7350.pt
 ```
 Loading checkpoint: checkpoints/checkpoint_latest.pt
 Validating model...
-  Input shape:  torch.Size([1, 207])
+  Input shape:  torch.Size([1, 208])
   Output shape: torch.Size([1, 36])
   Validation passed! (36 = 32 templates + 4 params)
 
@@ -131,17 +131,17 @@ Reihenfolgen.
 > das ausgelieferte `.onnx` exportiert wurde — genau die Frage, die oben den
 > Inkompatibilitäts-Kasten begründet.
 
-## Modell-Format (Schema v4)
+## Modell-Format (Schema v5)
 
-### Input: 207 Features
+### Input: 208 Features
 
-`GameStateEncoder` kodiert den Spielzustand in 207 Float-Werte
+`GameStateEncoder` kodiert den Spielzustand in 208 Float-Werte
 (`ENCODED_STATE_SIZE`):
 
 | Block | Größe | Inhalt |
 |---|---|---|
 | Base | 57 | Spieler, Tower-Counts, History, Wave-Signale, Research |
-| Awareness | 59 | Typ-/Armor-History, Tower-Level, Capabilities, Unlocks, Near-Miss |
+| Awareness | 60 | Typ-/Armor-History, Tower-Level, Capabilities, Unlocks, Near-Miss |
 | Effective DPS | 12 | effektive DPS pro Armor (Ground 5 + Air 5) + AoE-Anteil (2) |
 | Wave-Context | 39 | Availability-Maske (32) + effektive Ranges (6) + Fairness-Headroom (1) |
 | Spatial | 40 | Ground-DPS-Profil (20 Bins) + Air-DPS-Profil (20 Bins) |
@@ -157,7 +157,7 @@ Das ONNX-Modell gibt einen flachen Tensor mit 36 Werten zurück
 
 | Index | Bedeutung | Nachbearbeitung im Frontend |
 |---|---|---|
-| `[0..31]` | Template-Logits (32 Slots, 19 aktiv) | Mask + Softmax + Temperature-Sampling |
+| `[0..31]` | Template-Logits (32 Slots, 22 aktiv) | Mask + Softmax + Temperature-Sampling |
 | `[32]` | `count` raw | `sigmoid` → lerp in `template.countRange` |
 | `[33]` | `spawn_delay` raw | `sigmoid` → lerp in `template.spawnDelayRange` |
 | `[34]` | `hp_mult` raw | `sigmoid` → lerp in `template.hpMultRange` |
@@ -234,7 +234,7 @@ npm run postinstall
 
 **`Shape mismatch` beim Export**
 Der Checkpoint stammt aus einer älteren Architektur. Das aktuelle Modell hat
-`INPUT_SIZE = 207` und `OUTPUT_SIZE = 36`. Pre-Phase-5.5-Checkpoints liegen in
+`INPUT_SIZE = 208` und `OUTPUT_SIZE = 36`. Pre-Phase-5.5-Checkpoints liegen in
 `checkpoints/archive-v3.5/` und sind inkompatibel.
 
 **`Failed to load model` oder Shape-Fehler beim ersten `session.run()` im Browser**

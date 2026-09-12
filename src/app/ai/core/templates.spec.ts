@@ -9,16 +9,24 @@ import {
 } from './templates';
 
 describe('Phase 5.11 Range-Based Templates', () => {
-  it('has exactly 21 active templates (incl. three boss templates)', () => {
-    expect(NUM_ACTIVE_TEMPLATES).toBe(21);
-    expect(TEMPLATES.length).toBe(21);
+  it('has exactly 22 active templates (incl. three boss templates)', () => {
+    expect(NUM_ACTIVE_TEMPLATES).toBe(22);
+    expect(TEMPLATES.length).toBe(22);
     expect(TEMPLATES.filter((t) => t.bossOnly).map((t) => t.id))
       .toEqual(['boss_herbert', 'boss_golem', 'boss_dragon']);
   });
 
-  it('has 32 max slots (11 reserved for future expansion)', () => {
+  it('has 32 max slots (10 reserved for future expansion)', () => {
     expect(MAX_TEMPLATE_SLOTS).toBe(32);
-    expect(MAX_TEMPLATE_SLOTS - NUM_ACTIVE_TEMPLATES).toBe(11);
+    expect(MAX_TEMPLATE_SLOTS - NUM_ACTIVE_TEMPLATES).toBe(10);
+  });
+
+  it('skeleton_swarm is appended, so every older slot keeps its index', () => {
+    const idx = TEMPLATES.findIndex((t) => t.id === 'skeleton_swarm');
+    expect(idx).toBe(TEMPLATES.length - 1);
+    expect(TEMPLATES[idx].enemies).toEqual([['skeleton', 1.0]]);
+    expect(TEMPLATES[idx].requiresCapability).toBeNull();
+    expect(TEMPLATES[idx].bossOnly).toBe(false);
   });
 
   it('every template has enemy shares summing to ~1.0', () => {

@@ -267,7 +267,7 @@ Gegner der größten Welle gleichzeitig leben.
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | 2,7 | 2048² |
 | Rat (`rat`) | Swarm | 5.000 | 2.150 | 3.642 | 10,8 | Skinning | 11 | 2150×11 | 0,4 | 1024² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | 2,6 | 1024² |
-| Skeleton (`skeleton`) | in keiner Welle | 0 | 1.156 | 658 | 0,0 | Objekt-Anim. | 26 | 1156×26 | 0,5 | 512² |
+| Skeleton (`skeleton`) | Swarm | 1.500 | 1.156 | 658 | 1,7 | Objekt-Anim. | 26 | 1156×26 | 0,5 | 512² |
 
 VAT-Speicher aller Typen zusammen: **486,1 MB** (RGBA32F, 30 fps).
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **26,4 MB** dazu.
@@ -346,7 +346,7 @@ Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `c
 | --- | --- | ---: | --- | ---: |
 | `hornet_strike` | W8, W26 | 300 | hornet 70 %, bat 30 % | 14,9 |
 | `zombie_horde` | W1 | 2.000 | zombie 90 %, zombie-v2 10 % | 14,4 |
-| `rat_tide` | W2, W19 | 5.000 | rat 100 % | 10,8 |
+| `rat_tide` | W2 | 5.000 | rat 100 % | 10,8 |
 | `spider_swarm` | W6 | 800 | spider 100 % | 10,5 |
 | `wraith_storm` | W17, W27 | 300 | wraith 100 % | 9,1 |
 | `chaos_wave` | W16, W29 | 500 | zombie 30 %, tank 30 %, hornet 20 %, bear 20 % | 8,8 |
@@ -358,6 +358,7 @@ Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `c
 | `boss_dragon` | – | 80 | dragon 50 %, hornet 50 % | 3,3 |
 | `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,7 |
 | `bat_swarm` | W7, W21 | 600 | bat 100 % | 2,1 |
+| `skeleton_swarm` | W19 | 1.500 | skeleton 100 % | 1,7 |
 | `mammoth_siege` | W14, W25 | 120 | mammoth 70 %, wallsmasher 30 % | 1,1 |
 | `penguin_rush` | W3 | 500 | penguin 90 %, rat 10 % | 1,0 |
 | `golem_squad` | W15 | 60 | stone-golem 100 % | 0,8 |
@@ -377,8 +378,8 @@ Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `c
 | Mammoth | W14, W18, W25 | 12 |
 | Mech | W28 | 20 |
 | Penguin | W3 | 25 |
-| Rat | W2, W3, W18, W19 | 500 |
-| Skeleton | – | 0 |
+| Rat | W2, W3, W18 | 500 |
+| Skeleton | W19 | 0 |
 | Spider | W4, W6 | 35 |
 | Stone Golem | W15 | 6 |
 | Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 25 |

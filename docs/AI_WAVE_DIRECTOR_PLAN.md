@@ -284,7 +284,7 @@ prüften. `gate-wiring.spec.ts` existiert genau dagegen.
 - Fallbacks verhindern eine leere Maske (die den maskierten Softmax auf NaN
   laufen ließe).
 
-21 aktive Templates in 32 permanenten Output-Slots (`MAX_TEMPLATE_SLOTS = 32`).
+22 aktive Templates in 32 permanenten Output-Slots (`MAX_TEMPLATE_SLOTS = 32`).
 
 ### Erklärung im Wave-Debug-Fenster
 
@@ -318,7 +318,7 @@ Nichts davon ist tot, das meiste ist weiterhin der gemeinsame Unterbau:
 |------|--------|
 | Templates, Ranges, Maske, Curriculum | **Produktiv.** Der Regel-Director benutzt exakt sie. |
 | `fairMaxCount`, DPS-Ramp, Duration-Cap | **Produktiv.** Unverändert geteilt. |
-| State-Encoder (207 Features) | Nur für Training/ONNX-Pfad relevant. Der Regel-Director liest ihn nicht. |
+| State-Encoder (208 Features) | Nur für Training/ONNX-Pfad relevant. Der Regel-Director liest ihn nicht. |
 | ONNX-Inferenz (`decodeModelOutput`) | **Opt-in** über das Debug-Fenster. |
 | Python-Backend (PPO, Reward, Dashboard) | Nur für Trainingsläufe. Für das Spiel irrelevant. |
 | `directors.py` | Das Messinstrument. Ohne A/B-Baseline ist jede Aussage über „das Modell ist besser" unbelegt. |
@@ -341,7 +341,7 @@ Das Backend wurde parallel repariert — Details in
   fester Schrittweite. Beides ist in `gate-controller.ts` nachgebaut.
 - Advantage-Clipping im Trainer.
 - `directors.py` + `tests/test_directors.py`, `tests/test_gate_loop.py` neu.
-- State-Vektor: 207 Features (167 skalar + 40 spatial, Schema v4), Output 36
+- State-Vektor: 208 Features (168 skalar + 40 spatial, Schema v5), Output 36
   (32 Template-Logits + 4 Faktoren).
 - Reward: 4 Terme `death`, `drama`, `pacing`, `swarm_size`.
 
@@ -373,7 +373,7 @@ Ehrlichkeitsabschnitt. Nichts davon ist belegt:
 | `rule-director.ts` | Template + 4 Formfaktoren (der produktive Director) |
 | `gate-controller.ts` | Leak-Regelkreis für den Fairness-Cap |
 | `wave-director.service.ts` | Einstieg (`getNextWave`), `runRules`, `decodeModelOutput`, `buildWaveConfig` |
-| `templates.ts` | 19 Templates, Maske, `fairMaxCount`, `lerpRange` (SSOT) |
+| `templates.ts` | 22 Templates, Maske, `fairMaxCount`, `lerpRange` (SSOT) |
 | `wave-context.ts` | Maske + Ranges + Fairness-Headroom, einmal pro Entscheidung |
 | `wave-config-adapter.ts` | `WaveConfig` → Spielformat |
 | `ai-schema.ts` | Vokabulare + abgeleitete Blockgrößen (SSOT für den State) |
@@ -402,7 +402,7 @@ Tests: `gate-controller.spec.ts`, `gate-wiring.spec.ts`, `rule-director.spec.ts`
 |-------|----------|
 | `server.py` | WebSocket-Server (:3001), State-Encoder, `_decode_action`, A/B-Verteilung |
 | `directors.py` | `model` / `rules` / `random` / `maxgate` als austauschbare Strategien |
-| `core/model.py` | Conv1D + Dense, 207 → 36 |
+| `core/model.py` | Conv1D + Dense, 208 → 36 |
 | `core/trainer.py` | PPO |
 | `core/reward.py` | 4 Terme (death, drama, pacing, swarm_size) |
 | `config.py` | Hyperparameter, `DIRECTOR_ROSTER`, Reward-Schwellen |
