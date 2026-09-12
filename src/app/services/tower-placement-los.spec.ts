@@ -22,6 +22,7 @@ vi.mock('../utils/gpu-cube-resolve', async (importOriginal) => ({
 }));
 
 import { TowerPlacementService } from './tower-placement.service';
+import { TowerLosRegistry } from './tower-los-registry';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { ResearchStore } from '../store/research.store';
 import { Tower } from '../entities/tower.entity';
@@ -152,7 +153,7 @@ describe('TowerPlacementService tower LOS refresh', () => {
   it('recomputes each covering tower once per sweep, not once per slice', () => {
     const a = place(15, 10);
     const b = place(40, 10);
-    const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
 
     fine();
     grid.beginTerrainHeightRefresh();
@@ -180,7 +181,7 @@ describe('TowerPlacementService tower LOS refresh', () => {
     const towersInRange = [place(15, 10), place(40, 10), place(25, -10)];
     fine();
     grid.updateTerrainHeights();
-    const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
 
     runFrame();
     expect(recompute).toHaveBeenCalledTimes(1);
@@ -198,7 +199,7 @@ describe('TowerPlacementService tower LOS refresh', () => {
     const b = place(40, 10);
     fine();
     grid.updateTerrainHeights();
-    const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
 
     service.unregisterTowerFromGrid(b);
     towers.splice(towers.indexOf(b), 1);
@@ -212,7 +213,7 @@ describe('TowerPlacementService tower LOS refresh', () => {
     const b = place(40, 10);
     fine();
     grid.updateTerrainHeights();
-    const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
 
     // e.g. a range upgrade before the next frame
     service.recomputeTowerLOS(a);
@@ -261,7 +262,7 @@ describe('TowerPlacementService tower LOS refresh', () => {
     grid.beginTerrainHeightRefresh();
     // First slice: moves cells in a's range and queues a.
     grid.stepTerrainHeightRefresh(0);
-    const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
 
     // Continuous panning: every tile load restarts the sweep before it ends.
     for (; clock < 3000; clock += 500) {
@@ -281,7 +282,7 @@ describe('TowerPlacementService tower LOS refresh', () => {
     const b = place(40, 10);
     // Finer tiles are in, but no sweep has run yet.
     fine();
-    const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
 
     // e.g. a range upgrade: samples a's cells on the way
     service.recomputeTowerLOS(a);

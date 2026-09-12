@@ -221,7 +221,8 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 | `src/app/utils/route-cell-sampler.ts` | `sampleCellY` (einziger Schreiber von `cell.terrainHeight`), Column-Probe, LOD-Peek, Sweep-Zähler. `[CELL-GRID]`-Log in `route-grid-log.ts` |
 | `src/app/utils/route-grid-aggregate-viz.ts` | Aggregate-Mesh (`grid`/`gridAir`) + Cell-Shader |
 | `src/app/utils/route-grid-diagnostics.ts` | `__rg`-Dumps (Höhen-Histogramm, Outlier, Fallback-Reset) |
-| `src/app/services/tower-placement.service.ts` | `buildLosResolveContext` (private), `registerTowerOnGrid`, `recomputeTowerLOS`, `onCellsChanged` + `drainLosRefresh` (private: sammeln geänderte Cells pro Tower, Recompute nach dem Sweep) |
+| `src/app/services/tower-los-registry.ts` | `TowerLosRegistry`: `buildLosResolveContext` (private), `register`, `recompute`, `onCellsChanged` + `drainLosRefresh` (private: sammeln geänderte Cells pro Tower, Recompute nach dem Sweep) |
+| `src/app/services/tower-placement.service.ts` | Öffentlicher Einstieg: `registerTowerOnGrid`, `recomputeTowerLOS`, `scheduleLosRecompute` delegieren an die Registry; Build-Preview-Viz in `build-preview-los.ts` |
 | `src/app/services/world/global-route-grid.service.ts` | Angular-Wrapper-Service |
 | `src/app/services/facade/visualization-facade.service.ts` | `onTilesLoaded` (`updateTerrainHeights` + `RouteGridConvergence.schedule`, `services/world/route-grid-convergence.ts`), initialisiert `LosDebugService` |
 | `src/app/managers/tower.manager.ts` | Selection-Viz-Owner, `refreshSelectionViz`, `applyLosFilter`, `getSelectionViz()` |
@@ -321,7 +322,7 @@ Tuning-Werkzeug bewusst so gelassen.
 ```
 
 Der cells-changed-Listener (`addCellsChangedListener`, behandelt in
-`tower-placement.service.ts onCellsChanged`) macht **keinen** Full-Sweep
+`tower-los-registry.ts onCellsChanged`) macht **keinen** Full-Sweep
 und rechnet auch nicht sofort: er merkt sich pro Tower, welche seiner
 Cells sich geändert haben (`staleLos`), plus ein rAF-debounced
 `rebuildAirRouteLayer()`. `drainLosRefresh` wartet, solange der

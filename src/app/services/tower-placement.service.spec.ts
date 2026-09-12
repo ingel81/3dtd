@@ -44,6 +44,7 @@ vi.mock('../utils/tower-los-viz', () => ({
 }));
 
 import { TowerPlacementService } from './tower-placement.service';
+import { TowerLosRegistry } from './tower-los-registry';
 import { Tower } from '../entities/tower.entity';
 import { TOWER_TYPES, TowerTypeId } from '../configs/tower-types.config';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
@@ -899,7 +900,7 @@ describe('TowerPlacementService', () => {
       farAway.losReady = true;
       const unregistered = new Tower({ ...at(0, 305), height: 0 }, 'archer');
       towers.push(covering, farAway, unregistered);
-      const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+      const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
 
       grid.cellsChanged!([cellAt(0, 310)]);
       runFrames();

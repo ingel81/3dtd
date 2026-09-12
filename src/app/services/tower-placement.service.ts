@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, effect } from '@angular/core';
-import { Object3D, Mesh, Color, MeshStandardMaterial, Vector3 } from 'three';
+import { Object3D } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './location/osm-street.service';
 import { OsmStreetService } from './location/osm-street.service';
@@ -13,23 +13,10 @@ import { AssetManagerService } from './infrastructure/asset-manager.service';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { checkTowerPlacement, TowerPlacementContext, TowerPlacementResult } from '../utils/tower-placement-rules';
-import { TowerLosViz } from '../utils/tower-los-viz';
-import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
-import { losPerf } from '../utils/los-perf';
-import { LosResolveContext } from '../utils/gpu-cube-resolve';
-import { RouteCell } from '../utils/route-cell';
-import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
-
-/** A tower's place in the stale-LOS queue, see TowerPlacementService.staleLos. */
-interface StaleLosEntry {
-  /** Cells whose height changed after the tower's answers for them were resolved. */
-  cells: Set<RouteCell>;
-  /** performance.now() when the tower was queued, measured against MAX_LOS_WAIT_MS. */
-  since: number;
-  /** Asked for by scheduleLosRecompute: nothing to coalesce, so it does not wait for a sweep. */
-  explicit: boolean;
-}
+import { TowerLosRegistry } from './tower-los-registry';
+import { BuildPreviewLos } from './build-preview-los';
+import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 
 /**
  * TowerPlacementService
@@ -37,8 +24,11 @@ interface StaleLosEntry {
  * Professional tower placement with:
  * - 3D tower preview following mouse cursor
  * - Green/red tint based on placement validity
- * - Line-of-Sight hex grid preview
+ * - Line-of-Sight hex grid preview (BuildPreviewLos)
  * - Direct rotation control (tower faces mouse direction)
+ *
+ * Also the entry point for a placed tower's LOS on the route grid; the work
+ * is done by TowerLosRegistry.
  */
 @Injectable({ providedIn: 'root' })
 export class TowerPlacementService {
@@ -72,19 +62,20 @@ export class TowerPlacementService {
   // STATE
   // ========================================
 
+  /** Per-tower LOS on the route grid: registration and refresh. */
+  private readonly losRegistry = new TowerLosRegistry(
+    this.globalRouteGrid,
+    () => this.researchStore.airTargetingUnlocked(),
+  );
+
+  /** GPU-LOS-Viz der Build-Preview. */
+  private readonly buildPreviewLos = new BuildPreviewLos(
+    this.globalRouteGrid,
+    () => this.researchStore.airTargetingUnlocked(),
+  );
+
   /** Single preview tower mesh - used throughout placement */
   private previewTowerMesh: Object3D | null = null;
-
-  /**
-   * GPU-LOS-Viz für die Build-Preview. Lifecycle: erzeugt bei erstem
-   * validen Cursor-Hover, neu gebaut bei jedem Mouse-Move (das Cell-Set
-   * ändert sich mit der Tower-Position), disposed beim Verlassen des
-   * Build-Mode. Lesson 9 — niemals parallel zur Selection-Viz.
-   */
-  private buildPreviewViz: TowerLosViz | null = null;
-  /** Zuletzt für die Preview-Viz verwendete Tower-XZ — als Move-Schwelle. */
-  private buildPreviewLastX = 0;
-  private buildPreviewLastZ = 0;
 
   /**
    * Reactive sync: jedes Mal wenn der User `perTowerLosFilter` im
@@ -93,10 +84,8 @@ export class TowerPlacementService {
    */
   private readonly losFilterSync = effect(() => {
     const mode = this.uiStore.perTowerLosFilter();
-    this.buildPreviewViz?.setFilterMode(mode);
+    this.buildPreviewLos.setFilterMode(mode);
   });
-  /** Bewegung in m bevor das Cell-Set neu gebaut wird. */
-  private static readonly BUILD_PREVIEW_REBUILD_THRESHOLD_M = 1.0;
 
   /** Flag indicating model is being loaded */
   private modelLoading = false;
@@ -155,160 +144,9 @@ export class TowerPlacementService {
     this.baseCoords = baseCoords;
     this.gameState = gameState;
 
-    // When tile-loading changes a cell's terrain sample — promoted
-    // (heightSampled false → true) or refreshed (sampled → strictly-better
-    // tile LOD) — any tower whose range covers it has stale LOS resolved
-    // against the old terrainHeight. Listen for changed cells and recompute
-    // LOS + viz mesh for just the affected towers, so the system self-heals
-    // as tiles stream in without a full per-tower cache rebuild.
-    // initialize() runs again on every location change while the grid is a
-    // root singleton, so drop the previous subscription first — otherwise the
-    // handler stacks up and each emit recomputes every affected tower's LOS
-    // once per past location (a forced cubemap render each time).
-    this.cellsChangedOff?.();
-    this.cellsChangedOff = this.globalRouteGrid.addCellsChangedListener((changed) =>
-      this.onCellsChanged(changed),
-    );
-    // Towers queued for the previous location went with its grid.
-    this.staleLos.clear();
-  }
-
-  /** Unsubscribe for the cells-changed listener registered in initialize(). */
-  private cellsChangedOff: (() => void) | null = null;
-
-  private tubeRebuildScheduled = false;
-
-  /**
-   * Towers whose LOS was resolved against a height that has changed since,
-   * with the cells in question, plus towers a caller asked a recompute for
-   * (scheduleLosRecompute). Filled by onCellsChanged, worked off by
-   * drainLosRefresh. The old answers stay in the cells until the recompute
-   * replaces them: a stale answer for a second beats no answer, which would
-   * send every candidate in those cells down the CPU-raycast fallback of the
-   * combat loop.
-   */
-  private readonly staleLos = new Map<Tower, StaleLosEntry>();
-  private losRefreshRaf: number | null = null;
-  /** Tower whose registerTowerIncremental is running: its answers for the cells the grid reports are current. */
-  private resolvingTower: Tower | null = null;
-
-  /**
-   * LOS recomputes per frame. Each one is a forced cubemap render plus the
-   * face readback; a big zoom-in refreshes hundreds of cells under every
-   * tower at once, and running all of those towers in one frame blocked the
-   * main thread for 1-2 s.
-   */
-  private static readonly LOS_RECOMPUTES_PER_FRAME = 1;
-
-  /**
-   * Longest a queued tower waits for a running terrain sweep, in wall-clock
-   * ms. A full sweep converges in about 1.5-2 s at its 5 ms frame budget, so
-   * a normal sweep still finishes first and the coalescing holds. Continuous
-   * panning restarts the sweep with every tile load, though, and would hold
-   * the queue back for as long as it goes on. Wall clock rather than game
-   * time: the sweep and its restarts run on frames and tile loads, and game
-   * time stands still in a pause.
-   */
-  private static readonly MAX_LOS_WAIT_MS = 3000;
-
-  private onCellsChanged(changed: RouteCell[]): void {
-    if (!this.gameState || !this.engine || changed.length === 0) return;
-
-    // The air-route tube caches cell terrainHeights at build time; without
-    // a rebuild it visibly stays on the old (wrong) heights even after
-    // cell promotions correct them. Debounced via rAF so a streaming burst
-    // collapses to a single rebuild.
-    if (!this.tubeRebuildScheduled) {
-      this.tubeRebuildScheduled = true;
-      requestAnimationFrame(() => {
-        this.tubeRebuildScheduled = false;
-        this.globalRouteGrid.rebuildAirRouteLayer();
-      });
-    }
-
-    const towers = this.gameState.towerManager.getAll();
-    if (towers.length === 0) return;
-
-    // Precompute tower local positions to avoid N*M geo-to-local conversions.
-    // A tower that is not registered yet has nothing stale: its registration
-    // resolves every cell against the current height anyway. Neither has the
-    // tower being resolved right now: the grid reports the cells it moved
-    // after re-resolving them for that tower.
-    const towerPositions: { tower: Tower; x: number; z: number; rangeSq: number }[] = [];
-    for (const tower of towers) {
-      if (!tower.losReady || tower === this.resolvingTower) continue;
-      const lp = this.engine.sync.geoToLocalSimple(
-        tower.position.lat, tower.position.lon, tower.position.height ?? 0,
-      );
-      towerPositions.push({
-        tower, x: lp.x, z: lp.z,
-        rangeSq: tower.combat.range * tower.combat.range,
-      });
-    }
-
-    // For each changed cell, note the towers whose range covers it. Nothing
-    // is recomputed here: during a budgeted sweep this runs once per slice,
-    // and recomputing per slice re-rendered the same tower's cubemap in every
-    // frame of the sweep.
-    const now = performance.now();
-    for (const cell of changed) {
-      for (const t of towerPositions) {
-        const distSq = (cell.x - t.x) ** 2 + (cell.z - t.z) ** 2;
-        if (distSq > t.rangeSq) continue;
-        let entry = this.staleLos.get(t.tower);
-        if (!entry) {
-          entry = { cells: new Set(), since: now, explicit: false };
-          this.staleLos.set(t.tower, entry);
-        }
-        entry.cells.add(cell);
-      }
-    }
-    if (this.staleLos.size > 0) this.scheduleLosRefresh();
-  }
-
-  /** Schedule the next drainLosRefresh, at most one frame callback at a time. */
-  private scheduleLosRefresh(): void {
-    if (this.losRefreshRaf !== null) return;
-    this.losRefreshRaf = requestAnimationFrame(() => {
-      this.losRefreshRaf = null;
-      this.drainLosRefresh();
-    });
-  }
-
-  /**
-   * Recompute the towers queued in `staleLos`. While a budgeted terrain sweep
-   * is in flight, entries for changed cells wait, the same way the route-line
-   * refresh does: the sweep reports its changes slice by slice, so a tower
-   * covered by several slices would otherwise pay for a forced cubemap render
-   * plus face readback once per slice. After the sweep each tower runs once,
-   * with all its cells, spread over the following frames
-   * (LOS_RECOMPUTES_PER_FRAME). Explicit requests do not wait, and no entry
-   * waits longer than MAX_LOS_WAIT_MS.
-   */
-  private drainLosRefresh(): void {
-    const sweeping = this.globalRouteGrid.isTerrainRefreshActive();
-    const now = performance.now();
-    let budget = TowerPlacementService.LOS_RECOMPUTES_PER_FRAME;
-    for (const [tower, entry] of this.staleLos) {
-      if (sweeping && !entry.explicit && now - entry.since < TowerPlacementService.MAX_LOS_WAIT_MS) continue;
-      // recomputeTowerLOS takes the tower out of the queue.
-      this.recomputeTowerLOS(tower);
-      if (--budget === 0) break;
-    }
-    if (this.staleLos.size > 0) this.scheduleLosRefresh();
-  }
-
-  /**
-   * recomputeTowerLOS in one of the next frames instead of right away,
-   * through the same queue as the height changes. For callers inside an
-   * event handler whose follow-up state the recompute has to see. Does not
-   * wait for a running terrain sweep: there is nothing to coalesce.
-   */
-  scheduleLosRecompute(tower: Tower): void {
-    const entry = this.staleLos.get(tower);
-    if (entry) entry.explicit = true;
-    else this.staleLos.set(tower, { cells: new Set(), since: performance.now(), explicit: true });
-    this.scheduleLosRefresh();
+    // Runs again on every location change; the registry drops what it
+    // queued for the previous one.
+    this.losRegistry.attach(engine, gameState);
   }
 
   updateStreetNetwork(streetNetwork: StreetNetwork): void {
@@ -361,19 +199,9 @@ export class TowerPlacementService {
     this.cleanupPreviewTower();
 
     // GPU-LOS-Preview-Viz auflösen
-    this.disposeBuildPreviewViz();
+    this.buildPreviewLos.dispose();
 
     this.buildMode.set(false);
-  }
-
-  /**
-   * Dispose the active GPU-LOS preview viz, if any.
-   */
-  private disposeBuildPreviewViz(): void {
-    if (this.buildPreviewViz) {
-      this.buildPreviewViz.dispose();
-      this.buildPreviewViz = null;
-    }
   }
 
   // ========================================
@@ -414,7 +242,7 @@ export class TowerPlacementService {
       model.scale.setScalar(config.scale);
       // Apply base rotation from config
       model.rotation.y = config.rotationY ?? 0;
-      this.makeModelTransparent(model, 0.7);
+      makeModelTransparent(model, 0.7);
 
       this.previewTowerMesh = model;
       this.previewTowerMesh.visible = false;
@@ -442,42 +270,6 @@ export class TowerPlacementService {
       this.engine.getOverlayGroup().remove(this.previewTowerMesh);
       this.previewTowerMesh = null;
     }
-  }
-
-  private makeModelTransparent(model: Object3D, opacity: number): void {
-    model.traverse((child) => {
-      if ((child as Mesh).isMesh) {
-        const mesh = child as Mesh;
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        materials.forEach((mat) => {
-          mat.transparent = true;
-          (mat as MeshStandardMaterial).opacity = opacity;
-          mat.depthWrite = false;
-        });
-      }
-    });
-  }
-
-  private colorizePreviewModel(valid: boolean): void {
-    if (!this.previewTowerMesh) return;
-
-    const tintColor = valid
-      ? new Color(0.15, 0.8, 0.15)  // Green tint
-      : new Color(0.9, 0.15, 0.15); // Red tint
-
-    this.previewTowerMesh.traverse((child) => {
-      if ((child as Mesh).isMesh) {
-        const mesh = child as Mesh;
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        materials.forEach((mat) => {
-          const stdMat = mat as MeshStandardMaterial;
-          if (stdMat.emissive) {
-            stdMat.emissive.copy(tintColor);
-            stdMat.emissiveIntensity = 0.5;
-          }
-        });
-      }
-    });
   }
 
   // ========================================
@@ -548,7 +340,7 @@ export class TowerPlacementService {
       this.lastValidation = { lat, lon, resolvedHeight, valid: validValid, reason: validReason };
       // Material tint only flips when the valid/invalid result changes.
       if (previousValid === null || previousValid !== validValid) {
-        this.colorizePreviewModel(validValid);
+        tintPreviewModel(this.previewTowerMesh, validValid);
       }
     }
 
@@ -582,10 +374,12 @@ export class TowerPlacementService {
 
     // Update LoS preview only for valid positions (skip calculation for invalid spots)
     if (validValid) {
-      this.updateLosPreview(lat, lon, resolvedHeight, typeId);
+      this.buildPreviewLos.update(
+        this.engine, lat, lon, resolvedHeight, typeId, this.uiStore.perTowerLosFilter(),
+      );
     } else {
       // Invalid position — Preview-Viz auflösen (kein Debounce mehr).
-      this.disposeBuildPreviewViz();
+      this.buildPreviewLos.dispose();
     }
   }
 
@@ -597,88 +391,9 @@ export class TowerPlacementService {
     return Math.sqrt(dLat * dLat + dLon * dLon);
   }
 
-  /**
-   * GPU-LOS-Preview-Viz aktualisieren. Wenn die Tower-XZ-Position sich
-   * mehr als REBUILD_THRESHOLD verschoben hat → Cell-Set ändert sich,
-   * also komplett neu bauen. Sonst nur den TowerTip-Uniform refreshen
-   * (triggert auch das move-gated Cube-Render im Mapper).
-   */
-  private updateLosPreview(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
-    if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
-
-    const config = TOWER_TYPES[typeId];
-    if (!config) return;
-
-    const local = this.engine.sync.geoToLocalSimple(lat, lon, height);
-    const tipY = local.y + config.heightOffset + config.shootHeight;
-
-    const canTargetGround = config.canTargetGround ?? true;
-    const canTargetAir = canTargetAirEffective(typeId, this.researchStore.airTargetingUnlocked());
-    const range = config.range;
-
-    // Cells in der Cursor-Region zu `stable` promoten falls noch nicht
-    // gesampelt — sonst tauchen sie nicht in der Viz auf (getCellsInRange
-    // filtert auf `heightSampled`). Schmal-Variante: stabile Cells werden
-    // übersprungen, also kein Raycast pro Move. LOD-Upgrades für stabile
-    // Cells laufen separat über den Tile-Streaming-Pfad.
-    const tPromoteStart = performance.now();
-    this.globalRouteGrid.promoteUnsampledCellsInRadius(
-      local.x, local.z, range,
-    );
-    losPerf.sample('preview/promote', performance.now() - tPromoteStart);
-
-    // Move-Schwelle: nur bei größerer Bewegung neu bauen
-    const movedSq =
-      (local.x - this.buildPreviewLastX) ** 2 +
-      (local.z - this.buildPreviewLastZ) ** 2;
-    const threshold = TowerPlacementService.BUILD_PREVIEW_REBUILD_THRESHOLD_M;
-    const needsRebuild =
-      !this.buildPreviewViz ||
-      movedSq > threshold * threshold;
-
-    const tipWorld = new Vector3(local.x, tipY, local.z);
-
-    if (!needsRebuild && this.buildPreviewViz) {
-      const tTipStart = performance.now();
-      this.buildPreviewViz.updateTowerTip(tipWorld);
-      losPerf.sample('preview/tip-only', performance.now() - tTipStart);
-      return;
-    }
-
-    // Komplett neu bauen — Cell-Set neu sammeln.
-    this.disposeBuildPreviewViz();
-
-    const blockerGroup = this.engine.getLosBlockerGroup();
-    if (!blockerGroup) return;
-    const tGetStart = performance.now();
-    const cells = this.globalRouteGrid.getCellsInRange(
-      local.x, local.z, range,
-    );
-    losPerf.sample('preview/getCells', performance.now() - tGetStart, cells.length);
-    if (cells.length === 0) return;
-
-    this.buildPreviewViz = new TowerLosViz({
-      cells,
-      towerTip: tipWorld,
-      groundRange: range,
-      airRange: range,
-      canTargetGround,
-      canTargetAir,
-      gridCellSize: this.globalRouteGrid.getCellSize(),
-      shadowMapper: this.engine.getTowerShadowMapper(),
-      blockerGroup,
-    });
-    // Apply current per-tower-LOS filter directly — the reactive effect
-    // would only fire on signal changes, not on viz (re)creation.
-    this.buildPreviewViz.setFilterMode(this.uiStore.perTowerLosFilter());
-    this.buildPreviewViz.addTo(this.engine.getScene());
-    this.buildPreviewLastX = local.x;
-    this.buildPreviewLastZ = local.z;
-  }
-
   /** Per-Frame-Tick für die GPU-LOS-Preview-Pulse-Animation. */
   tickBuildPreviewViz(timeSeconds: number): void {
-    this.buildPreviewViz?.tick(timeSeconds);
+    this.buildPreviewLos.tick(timeSeconds);
   }
 
   // ========================================
@@ -819,169 +534,39 @@ export class TowerPlacementService {
   }
 
   // ========================================
-  // TOWER GRID REGISTRATION (Backend)
+  // TOWER GRID REGISTRATION (TowerLosRegistry)
   // ========================================
 
   /**
-   * Register a placed tower on the GlobalRouteGrid:
-   * - LOS raycasting to determine visible cells
-   * - Grid registration for enemy targeting
-   * - LOS visualization mesh (hidden by default, shown on selection)
+   * Register a placed tower on the GlobalRouteGrid: LOS resolve of the
+   * cells in range, grid registration for targeting, selection viz refresh.
    */
   registerTowerOnGrid(tower: Tower, position: GeoPosition, typeId: TowerTypeId): void {
-    if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
-
-    const config = TOWER_TYPES[typeId];
-    if (!config) return;
-
-    const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
-    const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
-
-    const canTargetGround = config.canTargetGround ?? true;
-    const canTargetAir = canTargetAirEffective(
-      tower.typeConfig.id as TowerTypeId,
-      this.researchStore.airTargetingUnlocked(),
-    );
-
-    // Refine cell-Y in the tower's range BEFORE LOS computation. This
-    // promotes any still-unsampled cells in the tower's reach using the
-    // current tile state, so the cubemap render sees accurate
-    // terrainHeight values for sample-Y computation. Cheap: only walks
-    // cells inside the radius.
-    this.globalRouteGrid.refineCellsInRadius(terrainPos.x, terrainPos.z, config.range);
-
-    const tipWorld = new Vector3(terrainPos.x, tipY, terrainPos.z);
-    const ctx = this.buildLosResolveContext(tipWorld, config.range);
-    if (!ctx) {
-      console.warn('[TowerPlacementService] registerTowerOnGrid: no LOS blocker group');
-      return;
-    }
-
-    const visibleCells = this.globalRouteGrid.registerTower(
-      tower.id,
-      terrainPos.x,
-      terrainPos.z,
-      config.range,
-      ctx,
-      canTargetGround,
-      canTargetAir,
-    );
-    tower.visibleCells = visibleCells;
-    tower.losReady = true;
-
-    // Wenn dieser Tower bereits selected ist (z.B. nach Auto-Select beim
-    // Place), die Selection-Viz vom TowerManager refreshen lassen.
-    if (tower.selected) {
-      this.gameState?.towerManager.refreshSelectionViz(tower);
-    }
-  }
-
-  /**
-   * Renders the tower-shadow cubemap from `tipWorld` with `range` as far,
-   * then returns a context the GlobalRouteGrid uses to GPU-resolve cell
-   * visibility. `mapper.invalidate()` is hardcoded here so the move-gate
-   * never skips a render that the caller needs (a previous build-preview
-   * call may have left the cube cached for a different tip).
-   */
-  private buildLosResolveContext(tipWorld: Vector3, range: number): LosResolveContext | null {
-    if (!this.engine) return null;
-    const blockerGroup = this.engine.getLosBlockerGroup();
-    if (!blockerGroup) return null;
-    const mapper = this.engine.getTowerShadowMapper();
-    mapper.invalidate();
-    mapper.update(tipWorld, range, blockerGroup);
-    return {
-      cube: mapper.getRenderTarget(),
-      referencePos: mapper.getReferencePos(),
-      farDistance: mapper.getFarDistance(),
-      // Alle 6 Faces einmal in die CPU-Buffer holen — statt einem
-      // synchronen 1×1-Readback pro Cell beim anschließenden Resolve.
-      // Lazy: erst wenn der Resolve wirklich eine Zelle sampelt. Eine
-      // inkrementelle Registrierung, die nur gecachte Zellen sieht,
-      // löst damit gar keinen GPU→CPU-Roundtrip aus.
-      get faces() {
-        return mapper.readFacesToCpu();
-      },
-      visibilityBias: LOS_VIZ_CONFIG.visibilityBiasMeters,
-      emptyDepthEpsilon: LOS_VIZ_CONFIG.emptyDepthEpsilon,
-    };
+    this.losRegistry.register(tower, position, typeId);
   }
 
   /**
    * Unregister a tower from the GlobalRouteGrid.
    */
   unregisterTowerFromGrid(tower: Tower): void {
-    // Selection-Viz wird vom TowerManager bereinigt (Owner-Pattern).
-    this.gameState?.towerManager.onTowerUnregistered(tower);
-    this.globalRouteGrid.unregisterTower(tower.id);
-    this.staleLos.delete(tower);
-    tower.visibleCells = [];
+    this.losRegistry.unregister(tower);
   }
 
   /**
-   * Recompute a tower's LOS after some cells in its range changed their
-   * terrain sample, or after its range grew. Uses incremental registration:
-   * cells that still hold a cached entry for this tower keep it (no raycast);
-   * the cells queued for it in `staleLos` drop theirs first and get
-   * re-resolved against a fresh cubemap, like the cells new to its range.
+   * Recompute a tower's LOS now, e.g. after its range grew. Also settles
+   * whatever the height-change queue held for it.
    */
   recomputeTowerLOS(tower: Tower): void {
-    if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
+    this.losRegistry.recompute(tower);
+  }
 
-    const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
-    if (!config) return;
-
-    const position = tower.position;
-    const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
-    const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
-
-    const canTargetGround = config.canTargetGround ?? true;
-    const canTargetAir = canTargetAirEffective(
-      tower.typeConfig.id as TowerTypeId,
-      this.researchStore.airTargetingUnlocked(),
-    );
-
-    const tipWorld = new Vector3(terrainPos.x, tipY, terrainPos.z);
-    const ctx = this.buildLosResolveContext(tipWorld, tower.combat.range);
-    if (!ctx) {
-      console.warn('[TowerPlacementService] recomputeTowerLOS: no LOS blocker group');
-      return;
-    }
-
-    // The queue entry is settled only here, once the recompute can run. One
-    // that bails above stays queued and the drain retries it next frame:
-    // dropped, its old answers would stay in the cells for good, because the
-    // peek-skip keeps every later sweep from reporting those cells again. A
-    // direct call (range upgrade) settles the entry as well.
-    const stale = this.staleLos.get(tower);
-    this.staleLos.delete(tower);
-    if (stale) {
-      for (const cell of stale.cells) {
-        cell.towerVisibility.delete(tower.id);
-        cell.airVisibility.delete(tower.id);
-      }
-    }
-
-    // Incremental: only sample cells that don't already have a cached entry
-    this.resolvingTower = tower;
-    try {
-      tower.visibleCells = this.globalRouteGrid.registerTowerIncremental(
-        tower.id,
-        terrainPos.x,
-        terrainPos.z,
-        tower.combat.range,
-        ctx,
-        canTargetGround,
-        canTargetAir
-      );
-    } finally {
-      this.resolvingTower = null;
-    }
-
-    // Selection-Viz refreshen, falls dieser Tower selected ist.
-    if (tower.selected) {
-      this.gameState?.towerManager.refreshSelectionViz(tower);
-    }
+  /**
+   * recomputeTowerLOS in one of the next frames instead of right away. For
+   * callers inside an event handler whose follow-up state the recompute has
+   * to see.
+   */
+  scheduleLosRecompute(tower: Tower): void {
+    this.losRegistry.scheduleRecompute(tower);
   }
 
   /**
@@ -1000,13 +585,7 @@ export class TowerPlacementService {
 
   dispose(): void {
     this.exitBuildMode();
-    this.cellsChangedOff?.();
-    this.cellsChangedOff = null;
-    if (this.losRefreshRaf !== null) {
-      cancelAnimationFrame(this.losRefreshRaf);
-      this.losRefreshRaf = null;
-    }
-    this.staleLos.clear();
+    this.losRegistry.detach();
 
     // Release model references from AssetManager
     for (const url of this.loadedModelUrls) {
