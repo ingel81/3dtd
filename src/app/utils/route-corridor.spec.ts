@@ -5,6 +5,8 @@ import {
   corridorHalfWidth,
   estimateStreetWidth,
   fitCorridorPieces,
+  fitCorridorStations,
+  probeFreeSpace,
   getRouteProfile,
   closeShortDips,
   cutShortBulges,
@@ -162,6 +164,50 @@ describe('fitCorridorPieces', () => {
     corridorConfig.maxHalfWidth = 5;
     corridorConfig.widthStep = 1;
     expect(fitCorridorPieces([measured([7, 7, 7], [4.8, 4.8, 4.8])])).toEqual([[{ t: 0, left: 5, right: 4 }]]);
+  });
+});
+
+describe('fitCorridorStations', () => {
+  const measured = (left: number[], right: number[], fallback = 2.75, onStreet = true): CorridorStations =>
+    ({ left, right, fallback, onStreet });
+  /** The fit of station `k` on the left of a single segment. */
+  const leftAt = (segment: CorridorStations, k: number) => fitCorridorStations([segment]).left[0][k];
+
+  it('names the rule that set each half width', () => {
+    expect(leftAt(measured([7, 7, 7], [7, 7, 7]), 1)).toEqual({ free: 7, smoothed: 7, halfWidth: 7, rule: 'no wall within the maximum' });
+    expect(leftAt(measured([5.2, 5.2, 5.2], [7, 7, 7]), 1)).toMatchObject({ halfWidth: 4.5, rule: 'wall less margin' });
+    expect(leftAt(measured([0.4, 0.4, 0.4], [7, 7, 7]), 1)).toMatchObject({ halfWidth: 1, rule: 'wall less margin, minimum' });
+    expect(leftAt(measured([NaN, NaN], [7, 7], 4), 0)).toMatchObject({ halfWidth: 4, rule: 'unmeasured: street width' });
+    expect(leftAt(measured([7, 7, 7], [7, 7, 7], 2.75, false), 1))
+      .toMatchObject({ halfWidth: 2.75, rule: 'no wall within the maximum, leg to the HQ: street width' });
+  });
+
+  it('shows what the smoothing did', () => {
+    // A driveway: two open stations between walls at 3 m.
+    expect(leftAt(measured([3, 3, 3, 7, 7, 3, 3, 3], [3, 3, 3, 3, 3, 3, 3, 3]), 3))
+      .toEqual({ free: 7, smoothed: 3, halfWidth: 2.5, rule: 'bulge cut, wall less margin' });
+    // A lamp post in the open.
+    expect(leftAt(measured([7, 7, 1, 7, 7], [7, 7, 7, 7, 7]), 2))
+      .toEqual({ free: 1, smoothed: 7, halfWidth: 7, rule: 'dip closed, no wall within the maximum' });
+  });
+
+  it('gives the same half widths the pieces are made of', () => {
+    const segments = [measured([3, 3, 3, 3, 3, 6, 6, 6, 6, 6], [4, 4, 4, 4, 4, 4, 4, 4, 4, 4])];
+    const fit = fitCorridorStations(segments);
+    expect(fit.left[0].map((s) => s.halfWidth)).toEqual([2.5, 2.5, 2.5, 2.5, 2.5, 5.5, 5.5, 5.5, 5.5, 5.5]);
+    expect(fitCorridorPieces(segments)).toEqual([[{ t: 0, left: 2.5, right: 3.5 }, { t: 0.5, left: 5.5, right: 3.5 }]]);
+  });
+});
+
+describe('probeFreeSpace', () => {
+  it('takes the farther first hit, since a wall stops every ray', () => {
+    expect(probeFreeSpace({ unmeasured: null, tileError: 2, left: [2, 6], right: [7, 3] }, 'left')).toBe(6);
+    expect(probeFreeSpace({ unmeasured: null, tileError: 2, left: [2, 6], right: [7, 3] }, 'right')).toBe(7);
+  });
+
+  it('is unknown without a measurement', () => {
+    expect(probeFreeSpace({ unmeasured: 'coarse tile', tileError: 20, left: [], right: [] }, 'left')).toBeNaN();
+    expect(probeFreeSpace(null, 'right')).toBeNaN();
   });
 });
 

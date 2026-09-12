@@ -330,6 +330,23 @@ der Konsole steht danach je Rasterstelle im Umkreis von 4 m
 `heightM`, `clamped`, `aboveNeighboursM`, `surface`, `ground`/`air` (Antwort
 des ausgewählten Towers) und `displayed` (zeichnet seine Anzeige die Zelle).
 
+Danach steht für die Routenstation, die dem Klick am nächsten liegt, woher
+die Korridorbreite dort kommt (`explainCorridorAt`): Straßenbreite aus OSM
+und ihre Quelle, `onStreet` (false auf dem HQ-Endstück, dort ist die
+Straßenbreite die Obergrenze), `unmeasured` (warum die Station keine Messung
+hat; `coarse tile` heißt, das Tile war beim Messen noch gröber als
+`maxTileError`, `tileError` nennt den Wert). Je Seite eine Zeile:
+`lowHitM` und `highHitM` (erster Treffer des unteren und des oberen
+Strahls, die Strahllänge ohne Treffer), `wall` (beide getroffen),
+`freeM` (der weitere Treffer), `smoothedM` (nach der Glättung entlang der
+Route), `halfWidthM` (was daraus wird), `inUseM` (was die Route gerade
+nutzt, gleich bis zum nächsten Neuaufbau) und `rule`, die entscheidende
+Regel: `unmeasured: street width`, `bulge cut`, `dip closed`,
+`wall less margin`, `no wall within the maximum`, `minimum`,
+`leg to the HQ: street width`. Eine zweite Tabelle zeigt die vier
+Stationen davor und danach. Der Log `[Corridor] clearance:` nennt bei
+`unmeasured` den Anteil `coarse tile`.
+
 **Mit dem Route Grid Overlay.** Layer "Route Grid Overlay" einschalten. Es
 zeichnet jede Zelle des Grids, auch die ohne Höhenprobe, mit einer Kontur
 nach ihrem Zustand: weiß normal, orange vom Dach-Check auf den Boden

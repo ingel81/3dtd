@@ -48,7 +48,7 @@ import { TileLoadingTracker, type TileStats } from './tile-loading-tracker';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { FramePacer } from '../utils/frame-pacer';
-import { corridorConfig } from '../utils/route-corridor';
+import { StationProbe, corridorConfig } from '../utils/route-corridor';
 import { ColumnHit, ColumnSample, isBetterLod, selectColumnSample } from './column-sample';
 import {
   CoordinateSync,
@@ -1082,10 +1082,12 @@ export class ThreeTilesEngine {
    *
    * Only tiles up to `corridorConfig.maxTileError` count, for the column
    * and for the hits, so a coarse hull still waiting for its children
-   * neither places the rays nor blocks them.
+   * neither places the rays nor blocks them. A station without such a tile
+   * comes back unmeasured, with the reason (`StationProbe.unmeasured`).
    *
-   * @returns null where it cannot tell: in DevWorld (its roads are drawn at
-   *   the width the corridor already uses) or where no fine tile is loaded.
+   * @returns the first hit per height and side (probeFreeSpace makes the
+   *   free space of it), or null where there is nothing to measure: in
+   *   DevWorld (its roads are drawn at the width the corridor already uses).
    */
   measureStreetClearance(
     localX: number,
@@ -1095,26 +1097,29 @@ export class ThreeTilesEngine {
     heightsAboveGround: readonly number[],
     maxDistance: number,
     onDeck = false,
-  ): { left: number; right: number } | null {
+  ): StationProbe | null {
     const tiles = this.tilesRenderer;
     if (this.devTerrainProvider || !tiles) return null;
     // The column under the station and all side rays count as the corridor's.
     const scope = raycastStats.enter('routeCorridor');
     try {
       const column = this.sampleColumn(localX, localZ);
-      if (!column || column.tileGeometricError > corridorConfig.maxTileError) return null;
+      if (!column) return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
+      if (column.tileGeometricError > corridorConfig.maxTileError) {
+        return { unmeasured: 'coarse tile', tileError: column.tileGeometricError, left: [], right: [] };
+      }
       const len = Math.hypot(acrossX, acrossZ);
       if (len === 0) return null;
 
       const surfaceY = onDeck ? column.topY : column.groundY;
-      let left = 0;
-      let right = 0;
+      const left: number[] = [];
+      const right: number[] = [];
       for (const height of heightsAboveGround) {
         this._clearanceOrigin.set(localX, surfaceY + height, localZ);
-        left = Math.max(left, this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance));
-        right = Math.max(right, this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance));
+        left.push(this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance));
+        right.push(this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance));
       }
-      return { left, right };
+      return { unmeasured: null, tileError: column.tileGeometricError, left, right };
     } finally {
       raycastStats.exit(scope);
     }

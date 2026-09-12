@@ -374,45 +374,121 @@ export interface CorridorStations {
 }
 
 /**
- * The corridor pieces of each segment of a route, from what the tiles
- * showed.
+ * What the clearance rays found at one station
+ * (ThreeTilesEngine.measureStreetClearance).
+ */
+export interface StationProbe {
+  /**
+   * Why the station could not be measured: no tile under it, or its tile
+   * is coarser than `maxTileError` (still streaming in). Null when measured.
+   */
+  unmeasured: 'no tile' | 'coarse tile' | null;
+  /** Geometric error of the tile under the station, Infinity without one. */
+  tileError: number;
+  /**
+   * Distance to the first fine hit per ray height (low, high) left and
+   * right of the direction of travel; the ray length where nothing was
+   * hit. Empty when unmeasured.
+   */
+  left: number[];
+  right: number[];
+}
+
+/**
+ * Free space on one side of a probed station: a wall stops every ray, so
+ * the farthest of the first hits. NaN when the station was not measured.
+ */
+export function probeFreeSpace(probe: StationProbe | null, side: 'left' | 'right'): number {
+  if (!probe || probe.unmeasured !== null || probe[side].length === 0) return NaN;
+  return Math.max(...probe[side]);
+}
+
+/** How one side of one station got its half width, see {@link fitCorridorStations}. */
+export interface StationFit {
+  /** Measured free space, NaN where the station could not be measured. */
+  free: number;
+  /** After closing short dips and cutting short bulges along the route. */
+  smoothed: number;
+  halfWidth: number;
+  /** What set the half width, e.g. "bulge cut, wall less margin". For `__corridor.pick()`. */
+  rule: string;
+}
+
+/**
+ * The half width of every station of a route, per side, and how it came
+ * about.
  *
  * The measured free space on each side, less `wallMargin` where the rays
  * found a wall, is the half width on that side, clamped to
- * [minHalfWidth, maxHalfWidth]. Along the whole route, across
- * its waypoints, short dips are closed (closeShortDips) and short bulges
- * cut (cutShortBulges), each side on its own, then the value is rounded
- * down to `widthStep`. A station the tiles could not measure gets the
- * street's half width. Runs of equal widths become one piece; a segment
- * without stations is one piece at the fallback.
+ * [minHalfWidth, maxHalfWidth]. Along the whole route, across its
+ * waypoints, short dips are closed (closeShortDips) and short bulges cut
+ * (cutShortBulges), each side on its own, then the value is rounded down
+ * to `widthStep`. A station the tiles could not measure gets the street's
+ * half width; off the network the street's half width is the cap.
  */
-export function fitCorridorPieces(segments: readonly CorridorStations[]): CorridorPiece[][] {
-  const smooth = (side: 'left' | 'right') => cutShortBulges(closeShortDips(segments.flatMap((s) => s[side])));
-  const left = smooth('left');
-  const right = smooth('right');
+export function fitCorridorStations(
+  segments: readonly CorridorStations[],
+): { left: StationFit[][]; right: StationFit[][] } {
   const { minHalfWidth, maxHalfWidth, widthStep, wallMargin } = corridorConfig;
 
-  const halfWidth = (free: number, segment: CorridorStations): number => {
-    if (Number.isNaN(free)) return segment.fallback;
-    // A ray that hit nothing reports its full length, the maximum; a wall
-    // keeps `wallMargin` off.
-    const rounded = free >= maxHalfWidth ? maxHalfWidth : Math.floor((free - wallMargin) / widthStep) * widthStep;
-    const clamped = Math.max(minHalfWidth, rounded);
-    return segment.onStreet ? clamped : Math.min(segment.fallback, clamped);
+  const fitSide = (side: 'left' | 'right'): StationFit[][] => {
+    const free = segments.flatMap((s) => s[side]);
+    const smoothed = cutShortBulges(closeShortDips(free));
+    let offset = 0;
+    return segments.map((segment) => {
+      const fits = segment[side].map((_, k): StationFit => {
+        const f = free[offset + k];
+        const s = smoothed[offset + k];
+        if (Number.isNaN(s)) return { free: f, smoothed: s, halfWidth: segment.fallback, rule: 'unmeasured: street width' };
+        const rules: string[] = [];
+        if (s > f) rules.push('dip closed');
+        else if (s < f) rules.push('bulge cut');
+        // A ray that hit nothing reports its full length, the maximum; a
+        // wall keeps `wallMargin` off.
+        let halfWidth: number;
+        if (s >= maxHalfWidth) {
+          halfWidth = maxHalfWidth;
+          rules.push('no wall within the maximum');
+        } else {
+          halfWidth = Math.floor((s - wallMargin) / widthStep) * widthStep;
+          rules.push('wall less margin');
+        }
+        if (halfWidth < minHalfWidth) {
+          halfWidth = minHalfWidth;
+          rules.push('minimum');
+        }
+        if (!segment.onStreet && segment.fallback < halfWidth) {
+          halfWidth = segment.fallback;
+          rules.push('leg to the HQ: street width');
+        }
+        return { free: f, smoothed: s, halfWidth, rule: rules.join(', ') };
+      });
+      offset += segment[side].length;
+      return fits;
+    });
   };
 
-  let offset = 0;
-  return segments.map((segment) => {
+  return { left: fitSide('left'), right: fitSide('right') };
+}
+
+/**
+ * The corridor pieces of each segment of a route, from what the tiles
+ * showed: the station half widths of {@link fitCorridorStations}, runs of
+ * equal widths as one piece. A segment without stations is one piece at
+ * the fallback.
+ */
+export function fitCorridorPieces(segments: readonly CorridorStations[]): CorridorPiece[][] {
+  const { left, right } = fitCorridorStations(segments);
+  return segments.map((segment, i) => {
     const n = segment.left.length;
     if (n === 0) return [{ t: 0, left: segment.fallback, right: segment.fallback }];
     const pieces: CorridorPiece[] = [];
     for (let k = 0; k < n; k++) {
-      const l = halfWidth(left[offset + k], segment);
-      const r = halfWidth(right[offset + k], segment);
+      const l = left[i][k].halfWidth;
+      const r = right[i][k].halfWidth;
       const last = pieces[pieces.length - 1];
       if (!last || last.left !== l || last.right !== r) pieces.push({ t: k / n, left: l, right: r });
     }
-    offset += n;
     return pieces;
   });
 }
