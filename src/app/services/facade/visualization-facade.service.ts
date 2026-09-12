@@ -627,23 +627,43 @@ export class VisualizationFacadeService {
     this.corridorRefit.fitToTiles();
   }
 
-  /** Rebuild the routes with the corridor widths as measured and configured now, their cells and the route line. */
+  /**
+   * Rebuild the routes with the corridor widths as measured and configured
+   * now, their cells and the route line, all in one frame. Logs how long
+   * each part took (`[Corridor] rebuild:`): routes (pathfinding, corridor
+   * fit, route line), grid (the cells and their first sample), heights (the
+   * full terrain sweep), lines (pathfinding and route line again, on the new
+   * cells' heights) and overlays (debug layers, route animation).
+   */
   private rebuildCorridors(): void {
     // Routes with the new widths first, then the cells built from them,
     // then the route line on the new cells' heights.
+    const t0 = performance.now();
     const spawns = this.store.spawnPoints();
     const grid = this.gameState.getGlobalRouteGrid();
     this.pathRoute.refreshRouteLines(spawns);
+    const tRoutes = performance.now();
     grid.clear();
     this.gameState.initializeGlobalRouteGrid();
+    const tGrid = performance.now();
     grid.updateTerrainHeights();
+    const tHeights = performance.now();
     this.pathRoute.refreshRouteLines(spawns);
+    const tLines = performance.now();
     grid.initSpatialGridVisualizationIfEnabled();
     grid.initAirSpatialGridVisualizationIfEnabled();
     grid.initAirRouteLayerIfEnabled();
     if (this.routeAnimation.isRunning()) {
       this.routeAnimation.startAnimation(this.pathRoute.getCachedPaths(), spawns);
     }
+    const tEnd = performance.now();
+
+    const ms = (from: number, to: number) => (to - from).toFixed(1);
+    console.warn(
+      `[Corridor] rebuild: routes=${ms(t0, tRoutes)} grid=${ms(tRoutes, tGrid)} heights=${ms(tGrid, tHeights)} ` +
+      `lines=${ms(tHeights, tLines)} overlays=${ms(tLines, tEnd)} total=${ms(t0, tEnd)}ms ` +
+      `spawns=${spawns.length} cells=${grid.getStats().totalCells}`,
+    );
   }
 
   /**
