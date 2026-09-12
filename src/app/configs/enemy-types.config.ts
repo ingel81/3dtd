@@ -96,9 +96,6 @@ export interface EnemyTypeConfig {
   // Air Unit
   isAirUnit?: boolean; // true = air unit, only attackable by air towers
 
-  // Elite flag — visual/UX marker for stronger variants of a base enemy
-  isElite?: boolean;
-
   // Spawning
   spawnStartDelay?: number; // Delay in ms between spawning enemies of this type (default: 300)
   splitOnDeath?: SplitOnDeath; // What a kill splits this enemy into (none on a leak)
