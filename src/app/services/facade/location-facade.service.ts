@@ -14,7 +14,7 @@ import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { WaveDebugService } from '../debug/wave-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
-import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
+import { openLocationDialog } from '../../components/location-dialog/open-location-dialog';
 import { LocationDialogData, LocationDialogResult } from '../../models/location.types';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
@@ -229,7 +229,7 @@ export class LocationFacadeService {
         }
       });
 
-      const dialogRef = this.dialog.open(LocationDialogComponent, {
+      void openLocationDialog(this.dialog, {
         data: {
           currentLocation: null,
           currentSpawn: null,
@@ -237,21 +237,26 @@ export class LocationFacadeService {
         } as LocationDialogData,
         panelClass: 'td-dialog-panel',
         disableClose: true,
+      }).then((dialogRef) => {
+        // The component went away while the dialog chunk loaded
+        if (settled) {
+          dialogRef.close();
+          return;
+        }
+        dialogRef.afterClosed()
+          .pipe(takeUntilDestroyed(destroyRef))
+          .subscribe((result: LocationDialogResult | null | undefined) => {
+            if (settled) return;
+            settled = true;
+            if (result?.confirmed) {
+              this.locationMgmt.setLocation(
+                { lat: result.hq.lat, lon: result.hq.lon },
+                result.spawn.isRandom ? [] : [{ lat: result.spawn.lat, lon: result.spawn.lon }]
+              );
+            }
+            resolve();
+          });
       });
-
-      dialogRef.afterClosed()
-        .pipe(takeUntilDestroyed(destroyRef))
-        .subscribe((result: LocationDialogResult | null) => {
-          if (settled) return;
-          settled = true;
-          if (result?.confirmed) {
-            this.locationMgmt.setLocation(
-              { lat: result.hq.lat, lon: result.hq.lon },
-              result.spawn.isRandom ? [] : [{ lat: result.spawn.lat, lon: result.spawn.lon }]
-            );
-          }
-          resolve();
-        });
     });
   }
 
