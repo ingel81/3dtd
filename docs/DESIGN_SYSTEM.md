@@ -262,7 +262,8 @@ Panels, Buttons, Slots und Inputs kommen aus String-Rezepten in `td-theme.ts`, d
 | `TD_DIALOG_STYLES` | Panel mit `--td-font-body` |
 | `TD_INPUT_STYLES` | `--td-panel-shadow` plus `TD_BEVEL_INSET`, `--td-font-mono` |
 | `TD_OPTION_STYLES` | Radio-/Checkbox-Option, Slot-Optik |
-| `TD_SCROLLBAR_STYLES`, `TD_SCROLLBAR_WEBKIT` | Dunkle Scrollbar für Firefox bzw. WebKit |
+
+Die dunkle Scrollbar kommt aus Sass-Mixins in `styles/_td-mixins.scss`: `scrollbar` (Firefox) gehört in die scrollende Regel, `webkit-scrollbar`, `webkit-scrollbar-track`, `webkit-scrollbar-thumb`, `webkit-scrollbar-thumb-hover` und `webkit-scrollbar-corner` in die passenden `::-webkit-scrollbar*`-Regeln.
 
 Die globalen Buttons `.td-btn` (`tower-defense.component.scss`) folgen dem Gold-Rezept, Hover mit `--td-gold-glow` statt Verschiebung, `:disabled` als grauer Verlauf mit `--td-text-disabled`. Die Sidebar-Sektionen (`.td-panel`) sind flach, ohne Rahmen (`_sidebar-panel.scss`).
 

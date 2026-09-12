@@ -1,0 +1,209 @@
+<div class="location-dialog">
+  <!-- Header -->
+  <div class="dialog-header">
+    <td-icon class="header-icon" name="pin" [size]="20"></td-icon>
+    <h2>Change Location</h2>
+  </div>
+
+  <!-- Mode Tabs -->
+  <div class="mode-tabs">
+    <button
+      class="mode-tab"
+      [class.active]="editMode() === 'full'"
+      (click)="setEditMode('full')"
+    >
+      <td-icon name="shuffle" [size]="16"></td-icon>
+      <span>New Location</span>
+    </button>
+    <button
+      class="mode-tab"
+      [class.active]="editMode() === 'spawn-only'"
+      (click)="setEditMode('spawn-only')"
+      [disabled]="!data.currentLocation"
+    >
+      <td-icon name="flag" [size]="16"></td-icon>
+      <span>Spawn Only</span>
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div class="dialog-content">
+    <!-- Warning box (only for full mode with game in progress) -->
+    @if (data.isGameInProgress && editMode() === 'full') {
+      <div class="warning-box">
+        <td-icon name="warn" [size]="16"></td-icon>
+        <div class="warning-text">
+          <strong>Warning!</strong> The current game will be ended.
+        </div>
+      </div>
+    }
+
+    <!-- FULL MODE: New HQ + Spawn -->
+    @if (editMode() === 'full') {
+      <!-- HQ Section -->
+      <div class="section hq-section">
+        <div class="section-header">
+          <td-icon name="home" [size]="14"></td-icon>
+          <span class="section-title">Headquarters (HQ)</span>
+        </div>
+        <div class="section-body">
+          <app-td-address-autocomplete
+            [placeholder]="'City, street or address...'"
+            [currentValue]="selectedHQ()"
+            (locationSelected)="onHQSelected($event)"
+            (locationCleared)="onHQCleared()"
+          />
+          <!-- Coordinates toggle -->
+          <button class="coords-toggle" (click)="toggleCoordinates()">
+            <td-icon [name]="showCoordinates() ? 'caretU' : 'caret'" [size]="14"></td-icon>
+            <span>Enter coordinates</span>
+          </button>
+          @if (showCoordinates()) {
+            <div class="coords-input">
+              <div class="coord-field">
+                <label for="coord-lat">Lat</label>
+                <input
+                  id="coord-lat"
+                  type="text"
+                  [value]="coordLat()"
+                  (input)="onCoordLatChange($event)"
+                  (paste)="onCoordPaste($event)"
+                  placeholder="49.5432"
+                />
+              </div>
+              <div class="coord-field">
+                <label for="coord-lon">Lon</label>
+                <input
+                  id="coord-lon"
+                  type="text"
+                  [value]="coordLon()"
+                  (input)="onCoordLonChange($event)"
+                  (paste)="onCoordPaste($event)"
+                  placeholder="9.1234"
+                />
+              </div>
+              <button
+                class="apply-coords-btn"
+                [disabled]="!canApplyCoords()"
+                (click)="applyCoordinates()"
+                matTooltip="Apply coordinates"
+                aria-label="Apply coordinates"
+              >
+                @if (isLoadingCoords()) {
+                  <mat-spinner diameter="14"></mat-spinner>
+                } @else {
+                  <td-icon name="check" [size]="14"></td-icon>
+                }
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Spawn Section (full mode) -->
+      <div class="section spawn-section">
+        <div class="section-header">
+          <td-icon name="flag" [size]="14"></td-icon>
+          <span class="section-title">Spawn Point</span>
+          <span class="section-hint">Enemies appear here</span>
+        </div>
+        <div class="section-body">
+          <div class="spawn-mode-toggle">
+            <button
+              class="spawn-mode-btn"
+              [class.active]="spawnMode() === 'random'"
+              (click)="setSpawnMode('random')"
+            >
+              <td-icon name="random" [size]="14"></td-icon>
+              <span>Random</span>
+            </button>
+            <button
+              class="spawn-mode-btn"
+              [class.active]="spawnMode() === 'manual'"
+              (click)="setSpawnMode('manual')"
+            >
+              <td-icon name="edit" [size]="14"></td-icon>
+              <span>Manual</span>
+            </button>
+          </div>
+          @if (spawnMode() === 'random') {
+            <div class="spawn-info">
+              <td-icon name="info" [size]="12"></td-icon>
+              <span>Automatically placed 500m-1km from HQ on a street</span>
+            </div>
+          } @else {
+            <div class="manual-spawn-input">
+              <app-td-address-autocomplete
+                [placeholder]="'Search spawn address...'"
+                [currentValue]="selectedSpawn()"
+                (locationSelected)="onSpawnSelected($event)"
+                (locationCleared)="onSpawnCleared()"
+              />
+              @if (spawnDistance() !== null) {
+                <div class="distance-badge" [class.error]="isSpawnTooFar()">
+                  <td-icon [name]="isSpawnTooFar() ? 'warn' : 'sliders'" [size]="14"></td-icon>
+                  <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km</span>
+                  @if (isSpawnTooFar()) {
+                    <span class="limit">(max 1.5 km)</span>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- SPAWN-ONLY MODE -->
+    @if (editMode() === 'spawn-only') {
+      <!-- Current HQ (readonly) -->
+      @if (data.currentLocation) {
+        <div class="current-hq-info">
+          <td-icon name="home" [size]="18"></td-icon>
+          <div class="hq-details">
+            <span class="hq-label">HQ stays</span>
+            <span class="hq-name">{{ data.currentLocation.name }}</span>
+          </div>
+        </div>
+      }
+
+      <!-- Spawn Section (spawn-only mode) -->
+      <div class="section spawn-section">
+        <div class="section-header">
+          <td-icon name="flag" [size]="14"></td-icon>
+          <span class="section-title">New Spawn Point</span>
+        </div>
+        <div class="section-body">
+          <app-td-address-autocomplete
+            [placeholder]="'Search new spawn point...'"
+            [currentValue]="selectedSpawn()"
+            (locationSelected)="onSpawnSelected($event)"
+            (locationCleared)="onSpawnCleared()"
+          />
+          @if (spawnDistance() !== null) {
+            <div class="distance-badge" [class.error]="isSpawnTooFar()">
+              <td-icon [name]="isSpawnTooFar() ? 'warn' : 'sliders'" [size]="14"></td-icon>
+              <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km from HQ</span>
+              @if (isSpawnTooFar()) {
+                <span class="limit">(max 1.5 km)</span>
+              }
+            </div>
+          }
+          <div class="spawn-info">
+            <td-icon name="info" [size]="12"></td-icon>
+            <span>Spawn must be max. 1.5 km from HQ</span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Actions -->
+  <div class="dialog-actions">
+    <button class="cancel-btn" (click)="cancel()">Cancel</button>
+    <button class="confirm-btn" [disabled]="!canConfirm()" (click)="confirm()">
+      <td-icon name="check" [size]="12"></td-icon>
+      {{ editMode() === 'spawn-only' ? 'Change Spawn' : 'Change Location' }}
+    </button>
+  </div>
+</div>

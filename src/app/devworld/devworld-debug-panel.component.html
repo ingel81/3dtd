@@ -1,0 +1,74 @@
+<div class="devworld-panel">
+  <div class="badge">
+    <td-icon name="gamepad" [size]="16"></td-icon>
+    <span>DevWorld</span>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Terrain</div>
+    <select class="terrain-select" (change)="onTerrainChange($event)">
+      @for (category of categories; track category.name) {
+        <optgroup [label]="category.name">
+          @for (preset of category.presets; track preset) {
+            <option [value]="preset" [selected]="preset === devWorld.config.terrain">{{ preset }}</option>
+          }
+        </optgroup>
+      }
+    </select>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Seed</div>
+    <div class="seed-row">
+      <input
+        type="number"
+        class="seed-input"
+        [value]="devWorld.config.seed"
+        (change)="onSeedChange($event)"
+        min="0"
+        max="99999"
+      />
+      <button class="seed-btn" (click)="randomSeed()" title="Random Seed" aria-label="Random seed">
+        <td-icon name="shuffle" [size]="14"></td-icon>
+      </button>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Buildings</div>
+    <div class="btn-row">
+      @for (preset of buildingPresets; track preset) {
+        <button
+          class="building-btn"
+          [class.active]="devWorld.config.buildings === preset"
+          (click)="selectBuildings(preset)"
+        >
+          {{ preset }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Actions</div>
+    <button class="regenerate-btn" [class.loading]="isRegenerating()" [disabled]="isRegenerating()" (click)="regenerate()" title="Regenerate world with current settings">
+      <td-icon name="refresh" [size]="14" [class.spinning]="isRegenerating()"></td-icon>
+      {{ isRegenerating() ? 'Regenerating...' : 'Regenerate World' }}
+    </button>
+    <button class="copy-btn" (click)="copyUrl()" title="Copy shareable URL">
+      <td-icon name="share" [size]="14"></td-icon>
+      Copy URL
+    </button>
+  </div>
+
+  <div class="info">
+    <div class="info-row">
+      <span class="label">Size:</span>
+      <span class="value">1000m x 1000m</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Max Height:</span>
+      <span class="value">150m</span>
+    </div>
+  </div>
+</div>
