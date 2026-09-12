@@ -57,6 +57,13 @@ export class GameStore {
   readonly trainingTimescale = signal<number>(1.0);
 
   /**
+   * Game time stands still: no sub-steps, so no spawns, combat, projectiles
+   * or research. Rendering, camera and UI keep running. Separate from the
+   * timescale, whose floor is 0.1, so resuming returns to the chosen speed.
+   */
+  readonly paused = signal<boolean>(false);
+
+  /**
    * Phase 5.14: Skip 3D rendering to free CPU/GPU for more parallel training
    * clients. Gameplay simulation still runs (sub-step loop is decoupled from
    * render loop), but `renderer.render()` + `tilesRenderer.update()` + all
@@ -134,6 +141,7 @@ export class GameStore {
     this.towerCount.set(0);
     this.showGameOverScreen.set(false);
     this.aiExplanation.set(null);
+    this.paused.set(false);
   }
 
   /**

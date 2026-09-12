@@ -122,6 +122,14 @@ export class GameStateManager {
     this.trainingTimescale.set(storeValue);
   });
 
+  /** Game time stands still, see GameStore.paused. */
+  readonly paused = signal<boolean>(false);
+
+  /** Sync pause from GameStore (UI source of truth) → local signal */
+  private readonly pauseSyncEffect = effect(() => {
+    this.paused.set(this.gameStore.paused());
+  });
+
   /** Phase 5.14: sync renderingEnabled signal → ThreeTilesEngine. Gameplay
    *  runs unaffected; only per-frame visual work is skipped when disabled. */
   private readonly renderingSyncEffect = effect(() => {
@@ -415,6 +423,17 @@ export class GameStateManager {
    * than wall-clock at high training timescales.
    */
   update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void): void {
+    // Paused: no sub-step runs, so nothing in the simulation moves and the
+    // game clock stands. The wall clock is still taken, otherwise the first
+    // frame after the pause would try to catch up the whole pause. The
+    // remainder stays as it was, the resume continues where the pause began.
+    // The renderer clock goes to 0 so walk cycles freeze with their enemies.
+    if (this.paused()) {
+      this.lastUpdateTime = currentTime;
+      this.tilesEngine?.setTimescale(0);
+      return;
+    }
+
     const frameStart = performance.now();
     const profiling = this.profiler !== null;
 
