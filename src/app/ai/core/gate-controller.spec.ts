@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   GateController,
+  gateLeakRatio,
   GATE_ADAPT_WINDOW,
   GATE_LEAK_TARGET_LO,
   GATE_LEAK_TARGET_HI,
@@ -134,5 +135,24 @@ describe('GateController', () => {
     const h = new GateController();
     feed(h, 5, 20);
     expect(h.budgetMultiplier).toBeGreaterThanOrEqual(GATE_MULT_MIN);
+  });
+});
+
+describe('gateLeakRatio', () => {
+  it('counts the enemies that reached the base', () => {
+    expect(gateLeakRatio([1, 1, 0.5, 0.2])).toBe(0.5);
+  });
+
+  it('books ability kills as leaks', () => {
+    // Two struck enemies died at 0.3 and 0.6; one enemy arrived
+    expect(gateLeakRatio([0.3, 0.6, 0.9, 1], 2)).toBe(0.75);
+  });
+
+  it('stays null without per-enemy data, ability kills or not', () => {
+    expect(gateLeakRatio([], 3)).toBeNull();
+  });
+
+  it('never exceeds the whole wave', () => {
+    expect(gateLeakRatio([1, 0.5], 5)).toBe(1);
   });
 });

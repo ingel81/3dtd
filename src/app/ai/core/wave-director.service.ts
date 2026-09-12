@@ -41,7 +41,7 @@ import {
 } from './templates';
 import { buildWaveContext, type WaveContext } from './wave-context';
 import { RuleDirector, type DirectorDecision } from './rule-director';
-import { GateController } from './gate-controller';
+import { GateController, gateLeakRatio } from './gate-controller';
 import { ENEMY_TYPES, lineageHp, splitBodyCount, type EnemyTypeId } from '../../configs/enemy-types.config';
 import { endgameHpMultiplier, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
 import type { InferenceSession } from 'onnxruntime-web';
@@ -550,11 +550,12 @@ export class WaveDirectorService {
   onWaveCompleted(result: WaveResult): void {
     // Feed the fairness gate. This is the loop that sizes the next wave, so it
     // has to see every completed wave — not just the ones a debug flag prints.
-    const progress = result.outcome.enemyProgressValues ?? [];
     // null, not 0: a wave with no per-enemy data is no evidence either way.
-    const leakRatio = progress.length > 0
-      ? progress.filter(p => p >= 1).length / progress.length
-      : null;
+    // Ability kills count as leaks, see gateLeakRatio.
+    const leakRatio = gateLeakRatio(
+      result.outcome.enemyProgressValues ?? [],
+      result.outcome.abilityKills ?? 0,
+    );
     const survived = result.outcome.playerSurvived !== false;
     this.gate.recordWave(leakRatio, survived);
 

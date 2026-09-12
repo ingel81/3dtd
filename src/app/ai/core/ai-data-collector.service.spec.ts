@@ -33,7 +33,8 @@ vi.mock('./dps-profile', async (importOriginal) => {
 
 const SUBSCRIBED: GameEvent['type'][] = [
   'wave:started', 'wave:completed', 'enemy:spawned', 'enemy:died', 'enemy:reached-base', 'enemy:split',
-  'health:changed', 'game:started', 'game:over', 'tower:placed', 'tower:sold', 'tower:upgraded',
+  'ability:impact', 'health:changed', 'game:started', 'game:over', 'tower:placed', 'tower:sold',
+  'tower:upgraded',
 ];
 
 const DEFAULT_CONFIG: WaveConfig = { enemies: [{ type: 'zombie', count: 10 }], totalCount: 10, spawnDelay: 800 };
