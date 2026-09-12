@@ -662,6 +662,63 @@ describe('GameStateManager', () => {
         expect(gsm.gameTimeMs - gtBefore).toBeLessThan(1000);
       });
 
+      describe('pause', () => {
+        it('runs no sub-step and keeps the game clock while paused', () => {
+          const onSub = vi.fn();
+          gsm.update(1, onSub);
+          gsm.update(17, onSub);
+          const steps = onSub.mock.calls.length;
+          const clock = gsm.gameTimeMs;
+
+          gsm.paused.set(true);
+          gsm.update(34, onSub);
+          gsm.update(500, onSub);
+          gsm.update(5000, onSub);
+
+          expect(onSub.mock.calls.length).toBe(steps);
+          expect(gsm.gameTimeMs).toBe(clock);
+        });
+
+        it('does not tick the wave spawner while paused', () => {
+          const tick = vi.spyOn(gsm.waveManager, 'tickSpawn');
+          gsm.waveManager.phase.set('wave');
+          gsm.paused.set(true);
+          gsm.update(1, undefined);
+          gsm.update(200, undefined);
+          expect(tick).not.toHaveBeenCalled();
+        });
+
+        it('does not catch up the paused wall time after resuming', () => {
+          const onSub = vi.fn();
+          gsm.update(1, onSub);
+          gsm.update(17, onSub);
+
+          gsm.paused.set(true);
+          for (let t = 1000; t <= 60_000; t += 1000) gsm.update(t, onSub);
+          const beforeResume = onSub.mock.calls.length;
+
+          gsm.paused.set(false);
+          gsm.update(60_017, onSub); // one normal frame after the pause
+
+          expect(onSub.mock.calls.length - beforeResume).toBeLessThanOrEqual(2);
+        });
+
+        it('stops the renderer clock while paused and restores it on resume', () => {
+          const engine = createMockEngine() as unknown as { setTimescale: ReturnType<typeof vi.fn> };
+          const paused = new GameStateManager();
+          paused.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+          paused.setTrainingTimescale(2, false);
+
+          paused.paused.set(true);
+          paused.update(1, undefined);
+          expect(engine.setTimescale).toHaveBeenLastCalledWith(0);
+
+          paused.paused.set(false);
+          paused.update(17, undefined);
+          expect(engine.setTimescale).toHaveBeenLastCalledWith(2);
+        });
+      });
+
       it('reset() zeroes the game-clock and remainder', () => {
         gsm.update(0, undefined);
         gsm.update(100, undefined);

@@ -192,7 +192,7 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 | **Canvas** | 3D-Spielfeld mit Google Photorealistic Tiles |
 | **Sidebar** | Rechte Sidebar: WAVE-Panel, darunter BUILD, Tower-Detail oder Research (siehe [Sidebar-Panels](#sidebar-panels)) |
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets |
-| **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft |
+| **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): Pause-Button und ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft. Pausiert zeigt der Pause-Button das Play-Icon eingelassen in `--td-gold-light` mit `--td-gold-dark`-Rand, darunter ein Glas-Chip "PAUSED" (10px Mono-Versalien) |
 | **Kompass** | Oben rechts, Klick setzt die Kamera zurück |
 | **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move), verschwindet nach 15 s oder per Klick |
 | **Quick Actions** | Sechs Icon-Buttons unten rechts, siehe unten |
@@ -463,7 +463,7 @@ Hilfe-Dialog in `components/damage-matrix-dialog/`, geöffnet über den `i`-Butt
 | `components/compass/` | Kompass-Anzeige |
 | `components/info-overlay/` | FPS / Tile-Stats Overlay (toggle ueber Caret) |
 | `components/quick-actions/` | Quick Actions: Route-Animation, Display-, Audio-, Layer- und Dev-Menü, Kamera-Reset |
-| `components/game-speed/` | Game-Speed-Button (1x/2x/4x, Bauphase und Welle) |
+| `components/game-speed/` | Pause und Game-Speed (1x/2x/4x), Bauphase und Welle |
 | `components/debug-window/` | Debug-Panel Container + alle Debug-Ansichten (Wave, Camera, Event, Performance, …) |
 | `components/context-hint/` | Wiederverwendbare Kontext-Hinweis-Box |
 | `components/attributions-dialog/` | Attributions & Lizenzen Dialog |

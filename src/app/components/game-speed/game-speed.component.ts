@@ -10,16 +10,31 @@ import { TdIconComponent } from '../icon/icon.component';
   imports: [MatTooltipModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <button
-      class="speed-btn"
-      [class.fast]="currentSpeed() > 1"
-      (click)="cycleSpeed()"
-      [matTooltip]="'Game Speed: ' + currentSpeed() + 'x'"
-      [attr.aria-label]="'Game speed ' + currentSpeed() + 'x'"
-      matTooltipPosition="below">
-      <td-icon [name]="currentSpeed() === 1 ? 'play' : 'fastForward'" [size]="18"></td-icon>
-      {{ currentSpeed() }}x
-    </button>
+    <div class="speed-group" role="group" aria-label="Game speed">
+      <button
+        class="hud-btn pause-btn"
+        [class.paused]="paused()"
+        (click)="togglePause()"
+        [matTooltip]="paused() ? 'Resume' : 'Pause'"
+        [attr.aria-label]="paused() ? 'Resume game' : 'Pause game'"
+        [attr.aria-pressed]="paused()"
+        matTooltipPosition="below">
+        <td-icon [name]="paused() ? 'play' : 'pause'" [size]="16"></td-icon>
+      </button>
+      <button
+        class="hud-btn speed-btn"
+        [class.fast]="currentSpeed() > 1"
+        (click)="cycleSpeed()"
+        [matTooltip]="'Game Speed: ' + currentSpeed() + 'x'"
+        [attr.aria-label]="'Game speed ' + currentSpeed() + 'x'"
+        matTooltipPosition="below">
+        <td-icon [name]="currentSpeed() === 1 ? 'play' : 'fastForward'" [size]="18"></td-icon>
+        {{ currentSpeed() }}x
+      </button>
+    </div>
+    @if (paused()) {
+      <div class="paused-chip" role="status">Paused</div>
+    }
   `,
   styles: `
     :host {
@@ -28,9 +43,17 @@ import { TdIconComponent } from '../icon/icon.component';
       left: 50%;
       transform: translateX(-50%);
       z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
       ${TD_CSS_VARS}
     }
-    .speed-btn {
+    .speed-group {
+      display: flex;
+      gap: 2px;
+    }
+    .hud-btn {
       display: flex;
       align-items: center;
       gap: 4px;
@@ -46,13 +69,35 @@ import { TdIconComponent } from '../icon/icon.component';
       font-family: inherit;
       transition: all 0.15s;
     }
-    .speed-btn:hover {
+    .hud-btn:hover {
       background: var(--td-frame-mid);
       color: var(--td-text-primary);
+    }
+    .pause-btn {
+      padding: 4px 7px;
+    }
+    /* Paused: the button now resumes, held in like a pressed key */
+    .pause-btn.paused {
+      background: var(--td-panel-shadow);
+      border-color: var(--td-gold-dark);
+      color: var(--td-gold-light);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
     }
     .speed-btn.fast {
       background: var(--td-teal);
       color: var(--td-bg-dark);
+    }
+    .paused-chip {
+      padding: 3px 10px;
+      font: 700 10px/1 var(--td-font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--td-gold-light);
+      background: var(--td-glass-tint);
+      backdrop-filter: blur(8px) saturate(1.1);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.33), var(--td-shadow-soft);
+      pointer-events: none;
     }
   `
 })
@@ -60,6 +105,7 @@ export class GameSpeedComponent {
   private gameStore = inject(GameStore);
 
   readonly currentSpeed = this.gameStore.trainingTimescale;
+  readonly paused = this.gameStore.paused;
 
   private speeds = [1, 2, 4];
 
@@ -68,5 +114,9 @@ export class GameSpeedComponent {
     const idx = this.speeds.indexOf(current);
     const next = this.speeds[(idx + 1) % this.speeds.length];
     this.gameStore.trainingTimescale.set(next);
+  }
+
+  togglePause(): void {
+    this.gameStore.paused.update(p => !p);
   }
 }

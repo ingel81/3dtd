@@ -1244,7 +1244,17 @@ Simulation rechnet mit dem Wanduhr-Delta zwischen den gelaufenen Frames: bei
 also volle Spielgeschwindigkeit, auch bei Training-Timescales. Standard ist
 unbegrenzt, der Loop verhält sich dann wie ohne Cap.
 
-**Update-Matrix nach Phase** (pro Sub-Step, `runSubStep`):
+**Pause:** `GameStore.paused` (Pause-Button neben dem Game-Speed), gespiegelt
+in `GameStateManager.paused`. Pausiert läuft kein Sub-Step: Spawns, Kampf,
+Projektile, Status-Effekte, Forschung und Bot-Ticks stehen, die Game-Clock
+auch. `update()` merkt sich trotzdem die Wanduhr, damit der erste Frame nach
+der Pause nichts nachholt, und setzt die Renderer-Timescale auf 0, damit die
+Laufanimationen mit ihren Gegnern stehen bleiben. Rendering, Kamera, Partikel
+und UI laufen weiter. Die Timescale (Untergrenze 0,1) bleibt unberührt, beim
+Fortsetzen gilt wieder die gewählte Geschwindigkeit. Ein Neustart hebt die
+Pause auf (`resetGameState`).
+
+**Update-Matrix nach Phase** (pro Sub-Step, `runSubStep`, pausiert läuft keiner):
 | System | setup | wave | gameover |
 |--------|-------|------|----------|
 | Projektile, Forschung, Event-Queue | ✓ | ✓ | ✓ |
