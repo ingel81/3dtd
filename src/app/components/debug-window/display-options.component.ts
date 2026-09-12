@@ -4,7 +4,7 @@ import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { DebugFacadeService } from '../../services/debug/debug-facade.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { ColorGradingPreset, COLOR_GRADING_PRESETS } from '../../three-engine/post-processing/color-grading';
-import { DisplayOptions, STORAGE_KEY, persistDisplayOptions } from './display-options.storage';
+import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-options.storage';
 
 @Component({
   selector: 'app-display-options',
@@ -180,20 +180,18 @@ export class DisplayOptionsComponent {
   constructor() {
     this.loadFromStorage();
 
-    // Persist on change
+    // Persist on change. Health bars and screen shake are DebugFacadeService
+    // signals, it persists them itself.
     effect(() => {
-      const opts: DisplayOptions = {
+      persistDisplayOptions({
         enemies: this.enemies(),
-        healthBars: this.healthBars(),
         animations: this.animations(),
         movement: this.movement(),
         textures: this.textures(),
         skeletonCloning: this.skeletonCloning(),
         alphaBlend: this.alphaBlend(),
-        screenShake: this.screenShake(),
         colorGrading: this.colorGrading(),
-      };
-      persistDisplayOptions(opts);
+      });
     });
   }
 
@@ -255,19 +253,13 @@ export class DisplayOptionsComponent {
   }
 
   private loadFromStorage(): void {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const opts = JSON.parse(stored) as DisplayOptions;
-        this.enemies.set(opts.enemies ?? true);
-        // healthBars and screenShake are managed by DebugFacadeService shared signals
-        this.animations.set(opts.animations ?? true);
-        this.movement.set(opts.movement ?? true);
-        this.textures.set(opts.textures ?? true);
-        this.skeletonCloning.set(opts.skeletonCloning ?? true);
-        this.alphaBlend.set(opts.alphaBlend ?? true);
-        this.colorGrading.set(opts.colorGrading ?? 'none');
-      }
-    } catch { /* ignore */ }
+    const opts = loadDisplayOptions();
+    this.enemies.set(opts.enemies ?? true);
+    this.animations.set(opts.animations ?? true);
+    this.movement.set(opts.movement ?? true);
+    this.textures.set(opts.textures ?? true);
+    this.skeletonCloning.set(opts.skeletonCloning ?? true);
+    this.alphaBlend.set(opts.alphaBlend ?? true);
+    this.colorGrading.set(opts.colorGrading ?? 'none');
   }
 }

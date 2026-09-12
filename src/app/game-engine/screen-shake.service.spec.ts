@@ -4,11 +4,13 @@ import { GameEventBus } from './game-event-bus';
 import { ScreenShakeService, shakeFalloff } from './screen-shake.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { LEGACY_SCREEN_SHAKE_KEY, STORAGE_KEY } from '../utils/display-options.storage';
 
 const { nearDistance, farDistance, presets } = SCREEN_SHAKE_CONFIG;
 
-function setup() {
-  localStorage.removeItem('td_screen_shake_enabled');
+function setup(stored?: object) {
+  localStorage.clear();
+  if (stored) localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
   const eventBus = new GameEventBus();
   const engine = {
     triggerScreenShake: vi.fn(),
@@ -75,6 +77,22 @@ describe('ScreenShakeService', () => {
     impact('rocket', 0);
     expect(engine.triggerScreenShake).toHaveBeenCalledTimes(1);
     service.destroy();
-    localStorage.removeItem('td_screen_shake_enabled');
+  });
+
+  it('starts from the display options, so a new game state keeps the choice', () => {
+    const { engine, service, impact } = setup({ screenShake: false });
+    expect(service.enabled).toBe(false);
+    impact('rocket', 0);
+    expect(engine.triggerScreenShake).not.toHaveBeenCalled();
+    service.destroy();
+  });
+
+  it('takes the key it used to have of its own', () => {
+    localStorage.clear();
+    localStorage.setItem(LEGACY_SCREEN_SHAKE_KEY, 'false');
+    const service = new ScreenShakeService(new GameEventBus(), {} as ThreeTilesEngine);
+    expect(service.enabled).toBe(false);
+    expect(localStorage.getItem(LEGACY_SCREEN_SHAKE_KEY)).toBeNull();
+    service.destroy();
   });
 });
