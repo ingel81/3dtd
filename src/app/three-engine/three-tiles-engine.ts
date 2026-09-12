@@ -2058,6 +2058,21 @@ export class ThreeTilesEngine {
     return strings.join('; ');
   }
 
+  /**
+   * Hand the VFX settings to the renderers and the post-processing
+   * pipeline. An effect that is off is neither spawned nor drawn, and a
+   * post pass that is off leaves the pipeline (with both off the scene is
+   * drawn without the composer). Visual only: game logic never reads them.
+   */
+  applyVfxSettings(settings: import('./vfx-settings').VfxSettings): void {
+    this.effects.setVfxSettings(settings);
+    this.trailStreaks.setEnabled(settings.projectileTrails);
+    this.towers.setMuzzleFlashEnabled(settings.muzzleFlash);
+    this.enemies.setFreezeTintEnabled(settings.freezeTint);
+    this.postProcessing?.setBloomEnabled(settings.bloom);
+    this.postProcessing?.setColorGradingPreset(settings.colorGrading);
+  }
+
   // ---- Bloom post-processing controls (delegate to PostProcessingPipeline) ----
 
   setBloomEnabled(enabled: boolean): void {

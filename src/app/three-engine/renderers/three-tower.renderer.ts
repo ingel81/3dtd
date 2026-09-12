@@ -1442,13 +1442,28 @@ export class ThreeTowerRenderer {
     );
   }
 
+  /** VFX setting muzzleFlash; while off the light stays dark. */
+  private muzzleFlashEnabled = true;
+
+  /**
+   * Switch the muzzle flash light on or off (VFX setting muzzleFlash). The
+   * light stays in the scene, dark as between shots: taking it out would
+   * give every lit material a new shader program (see the constructor).
+   */
+  setMuzzleFlashEnabled(enabled: boolean): void {
+    this.muzzleFlashEnabled = enabled;
+    if (!enabled && this.muzzleFlashLight) this.muzzleFlashLight.intensity = 0;
+  }
+
   /**
    * Light the tower's shoot position with the pooled muzzle flash light for
    * 50 ms. The particles are spawned separately (ThreeEffectsRenderer).
+   * Nothing while muzzle flashes are off.
    *
    * @param intensity - Light intensity, from the tower's MUZZLE_FLASH_PROFILES entry
    */
   triggerMuzzleFlash(towerId: string, intensity: number): void {
+    if (!this.muzzleFlashEnabled) return;
     const data = this.towers.get(towerId);
     if (!data) return;
 

@@ -10,6 +10,7 @@ import {
   type MuzzleFlashProfile,
 } from '../../configs/visual-effects.config';
 import type { ScorchSource } from '../../configs/visual-effects.config';
+import type { VfxSettings } from '../vfx-settings';
 import { DecalInstanceManager } from './decal-instance.manager';
 import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
 import { ScorchMarks, type ScorchGround } from './scorch-marks';
@@ -77,6 +78,12 @@ export class ParticleEffectsRenderer {
   // Scorch marks on the route grid (combat heatmap layer 1)
   private scorchMarks: ScorchMarks | null = null;
 
+  // Effects the VFX settings switched off are not spawned (setVfxSettings)
+  private muzzleFlashes = true;
+  private trailParticles = true;
+  private impacts = true;
+  private groundMarks = true;
+
   // Spiral angle tracker for railgun effect (uses time-based rotation)
   private spiralAngle = 0;
 
@@ -129,7 +136,8 @@ export class ParticleEffectsRenderer {
   }
 
   /**
-   * Spawn blood splatter effect at a position
+   * Spawn blood splatter effect at a position. Nothing while impact effects
+   * are off (VFX settings).
    *
    * @param lat - Latitude
    * @param lon - Longitude
@@ -137,6 +145,7 @@ export class ParticleEffectsRenderer {
    * @param count - Number of particles (default 20)
    */
   spawnBloodSplatter(lat: number, lon: number, height: number, count = 20): string {
+    if (!this.impacts) return '';
     const localPos = this.sync.geoToLocal(lat, lon, height);
     const id = `blood_${this.effectIdCounter++}`;
 
@@ -181,6 +190,7 @@ export class ParticleEffectsRenderer {
   /**
    * Spawn a persistent blood decal on the ground
    * NOW USES GPU INSTANCING - much better performance!
+   * Nothing while ground marks are off (VFX settings).
    *
    * @param lat - Latitude
    * @param lon - Longitude
@@ -189,6 +199,7 @@ export class ParticleEffectsRenderer {
    * @returns Decal ID
    */
   spawnBloodDecal(lat: number, lon: number, height: number, size = 2.0): string {
+    if (!this.groundMarks) return '';
     if (!this.bloodDecalManager) {
       console.warn('[ThreeEffectsRenderer] Blood decal manager not initialized');
       return '';
@@ -479,7 +490,8 @@ export class ParticleEffectsRenderer {
   /**
    * Spawn a brief muzzle flash at a local position: a few bright additive
    * particles (yellow/white), count, size and lifetime from the tower's
-   * MUZZLE_FLASH_PROFILES entry.
+   * MUZZLE_FLASH_PROFILES entry. Nothing while muzzle flashes are off (VFX
+   * settings).
    *
    * @param localX - Local X coordinate (tower shoot position)
    * @param localY - Local Y coordinate (tower shoot position)
@@ -487,6 +499,7 @@ export class ParticleEffectsRenderer {
    * @param profile - The firing tower's muzzle flash profile
    */
   spawnMuzzleFlash(localX: number, localY: number, localZ: number, profile: MuzzleFlashProfile): void {
+    if (!this.muzzleFlashes) return;
     const count = profile.countMin + Math.floor(Math.random() * (profile.countMax - profile.countMin + 1));
 
     for (let i = 0; i < count; i++) {
@@ -730,6 +743,7 @@ export class ParticleEffectsRenderer {
    * Generic method that uses config values instead of hardcoded parameters
    * Automatically chooses additive or normal blending pool based on config.blending
    * Supports 'spiral' trailType for railgun-style rotating particles
+   * Nothing while projectile trails are off (VFX settings).
    */
   spawnConfigurableTrail(
     localX: number,
@@ -737,6 +751,8 @@ export class ParticleEffectsRenderer {
     localZ: number,
     config: TrailParticleConfig
   ): void {
+    if (!this.trailParticles) return;
+
     // Check spawn chance
     if (Math.random() > config.spawnChance) return;
 
@@ -830,7 +846,7 @@ export class ParticleEffectsRenderer {
    * (EXPLOSION_LOOK): a fireball of additive explosion-atlas sprites, then
    * `smokePuffs` smoke-atlas puffs in the normal pool that show up once the
    * fireball's bright half is over. Speeds and sprite sizes scale with
-   * `radius`.
+   * `radius`. Nothing while impact effects are off (VFX settings).
    *
    * @param localX - Local X coordinate
    * @param localY - Local Y coordinate (height)
@@ -847,6 +863,7 @@ export class ParticleEffectsRenderer {
     radius: number = EXPLOSION_LOOK.referenceRadius,
     smokePuffs = 0
   ): void {
+    if (!this.impacts) return;
     const totalAtlasFrames = this.pools.ATLAS_COLS * this.pools.ATLAS_ROWS; // 16 frames
     const scale = radius / EXPLOSION_LOOK.referenceRadius;
     const fire = EXPLOSION_LOOK.fire;
@@ -1006,6 +1023,7 @@ export class ParticleEffectsRenderer {
   /**
    * Round additive particles bursting outward from a point, coloured from a
    * three-colour palette. Shared by the ice, arcane, chaos and poison impacts.
+   * Nothing while impact effects are off (VFX settings).
    */
   private spawnColorBurst(
     localX: number,
@@ -1014,6 +1032,7 @@ export class ParticleEffectsRenderer {
     count: number,
     palette: BurstPalette
   ): void {
+    if (!this.impacts) return;
     for (let i = 0; i < count; i++) {
       const particle = this.pools.getInactiveParticle('trailAdditive');
       if (!particle) break;
@@ -1045,6 +1064,7 @@ export class ParticleEffectsRenderer {
   /**
    * Spawn ice decal on ground (frost patch)
    * NOW USES GPU INSTANCING - much better performance!
+   * Nothing while ground marks are off (VFX settings).
    *
    * @param lat - Latitude
    * @param lon - Longitude
@@ -1053,6 +1073,7 @@ export class ParticleEffectsRenderer {
    * @returns Decal ID
    */
   spawnIceDecal(lat: number, lon: number, height: number, size = 2.8): string {
+    if (!this.groundMarks) return '';
     if (!this.iceDecalManager) {
       console.warn('[ThreeEffectsRenderer] Ice decal manager not initialized');
       return '';
@@ -1106,10 +1127,35 @@ export class ParticleEffectsRenderer {
 
   /**
    * Burn a scorch mark on the ground below a local hit point. At most one
-   * per route cell: a repeat hit darkens that cell's mark instead.
+   * per route cell: a repeat hit darkens that cell's mark instead. Nothing
+   * while ground marks are off (VFX settings).
    */
   markScorch(localX: number, localY: number, localZ: number, source: ScorchSource): void {
+    if (!this.groundMarks) return;
     this.scorchMarks?.mark(localX, localY, localZ, source, performance.now());
+  }
+
+  /**
+   * Switch effects on or off (VFX settings). Off means nothing new is
+   * spawned; particles already in the air run out within a second or two.
+   * Ground marks lie for up to a minute and a half, so switching them off
+   * clears them, and their empty pools leave the render list (DrawGate).
+   */
+  setVfxSettings(settings: VfxSettings): void {
+    this.muzzleFlashes = settings.muzzleFlash;
+    this.trailParticles = settings.projectileTrails;
+    this.impacts = settings.impactEffects;
+    if (this.groundMarks && !settings.groundMarks) {
+      this.bloodDecalManager?.clear();
+      this.iceDecalManager?.clear();
+      this.scorchMarks?.clear();
+    }
+    this.groundMarks = settings.groundMarks;
+  }
+
+  /** Whether ground marks are laid down; callers skip the terrain raycast for a decal otherwise. */
+  get groundMarksEnabled(): boolean {
+    return this.groundMarks;
   }
 
   /**

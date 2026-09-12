@@ -80,7 +80,8 @@ export class CombatVfxService {
     // Ice decals on ground (only for ground units). Sizes are diameters of
     // round decals; until 2026-09-12 they were 3.5, 1.5-3 and 2-3 and gave
     // ovals of 2*size by 2 m, the diameters below keep that area (2 * sqrt).
-    if (!enemy.typeConfig.isAirUnit) {
+    // None while ground marks are off, which also spares the four terrain raycasts
+    if (!enemy.typeConfig.isAirUnit && this.tilesEngine.effects.groundMarksEnabled) {
       const mainDecalHeight = this.getTerrainHeightForDecal(
         enemy.position.lat,
         enemy.position.lon,
@@ -114,10 +115,11 @@ export class CombatVfxService {
   }
 
   /**
-   * Spawn a single ice decal under an enemy (for splash targets).
+   * Spawn a single ice decal under an enemy (for splash targets), none
+   * while ground marks are off.
    */
   emitIceDecal(enemy: Enemy): void {
-    if (!this.tilesEngine || enemy.typeConfig.isAirUnit) return;
+    if (!this.tilesEngine || enemy.typeConfig.isAirUnit || !this.tilesEngine.effects.groundMarksEnabled) return;
 
     const decalHeight = this.getTerrainHeightForDecal(
       enemy.position.lat,
