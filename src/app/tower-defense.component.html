@@ -129,8 +129,9 @@
         />
       }
 
-      <!-- Game Speed (visible during active wave) -->
-      @if (waveActive()) {
+      <!-- Game Speed: build phase and waves. Between waves it speeds up
+           research, which runs in game time. -->
+      @if (!loading() && !error() && !isGameOver()) {
         <app-game-speed />
       }
 
