@@ -73,7 +73,7 @@ ThreeTilesEngine
 
 ## Terrain-Presets
 
-30 Presets in 11 Kategorien (siehe `getTerrainCategories()` in `terrain-generator.ts`):
+30 Presets in 11 Kategorien (Union-Typ `TerrainPreset` in `terrain-generator.ts`, dort nach Kategorie kommentiert):
 
 | Kategorie | Presets |
 |-----------|---------|
