@@ -28,7 +28,7 @@ export type TdIconName =
   | 'lock' | 'bookmark' | 'plus' | 'minus' | 'terrain' | 'copyright'
   | 'vibration' | 'fastForward' | 'gamepad' | 'trash' | 'copy' | 'dragHandle'
   | 'externalLink' | 'shuffle' | 'arrowUp' | 'walk' | 'run'
-  | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir';
+  | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir' | 'radiation';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -114,6 +114,9 @@ const ICONS: Record<TdIconName, IconDef> = {
   // Grid-air: a flat grid pattern lifted upward, suggesting an
   // elevated cell mesh. Used for the air-cell debug overlay.
   gridAir: { body: '<path d="M3 14h18M3 17h18M3 20h18M6 14v6M12 14v6M18 14v6M12 4l3 4H9l3-4Z" />' },
+  // Radiation trefoil: three 60° blades between r 3 and r 9 around a dot.
+  // Nuclear Strike research and ability button.
+  radiation: { body: '<circle cx="12" cy="12" r="1.5" fill="currentColor" /><path d="M13.5 9.4 16.5 4.2A9 9 0 0 1 21 12h-6a3 3 0 0 0-1.5-2.6ZM13.5 14.6l3 5.2A9 9 0 0 1 7.5 19.8l3-5.2a3 3 0 0 0 3 0ZM9 12H3A9 9 0 0 1 7.5 4.2l3 5.2A3 3 0 0 0 9 12Z" />' },
 };
 
 @Component({

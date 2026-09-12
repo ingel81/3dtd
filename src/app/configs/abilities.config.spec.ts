@@ -5,6 +5,7 @@ import {
   lockedAbilityStatus,
 } from './abilities.config';
 import { ENEMY_TYPES, getAllEnemyTypes } from './enemy-types.config';
+import { getResearch } from './research/research-tree.config';
 
 describe('abilities config', () => {
   it('holds the nuclear strike as decided (PLAYER_AGENCY_CONCEPT.md, section 7)', () => {
@@ -17,6 +18,21 @@ describe('abilities config', () => {
     expect(nuke.bossMaxHpFraction).toBe(0.2);
     expect(nuke.snapRadiusM).toBe(30);
     expect(nuke.researchId).toBe('nuclear-strike');
+  });
+
+  it('is unlocked by its research: 1,000 gold, 40 s, after Advanced Weaponry', () => {
+    const nuke = ABILITIES['nuclear-strike'];
+    const research = getResearch(nuke.researchId)!;
+    expect(research).toMatchObject({
+      category: 'global-perk',
+      icon: 'radiation',
+      cost: 1000,
+      duration: 40,
+      prerequisites: ['advanced-weaponry'],
+    });
+    expect(research.effects).toContainEqual(
+      expect.objectContaining({ kind: 'global-perk', perkId: nuke.perkId }),
+    );
   });
 
   it('keys every ability by its own id', () => {

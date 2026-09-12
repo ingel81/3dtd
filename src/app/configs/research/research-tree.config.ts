@@ -165,6 +165,26 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'enable-targeting', capability: 'air' }],
   },
 
+  'nuclear-strike': {
+    id: 'nuclear-strike',
+    name: 'Nuclear Strike',
+    description:
+      'Unlocks the Nuclear Strike: aim at the route, 1.5 s later everything within 25 m loses 60% of its max HP '
+      + '(bosses 20%). One charge, a new one every 3 waves',
+    category: 'global-perk',
+    icon: 'radiation',
+    cost: 1000,
+    duration: 40,
+    // Comes after the first boss (W10), when the curriculum picks up; no wave
+    // lock of its own (PLAYER_AGENCY_CONCEPT.md, section 7)
+    prerequisites: ['advanced-weaponry'],
+    effects: [{
+      kind: 'global-perk',
+      perkId: 'nuclear-strike',
+      description: 'Nuclear Strike ability: one charge, a new one every 3 completed waves',
+    }],
+  },
+
   // ==================== Upgrade Tiers ====================
 
   'advanced-weaponry': {
