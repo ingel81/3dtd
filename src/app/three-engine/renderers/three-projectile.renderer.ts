@@ -32,6 +32,7 @@ import {
   MAGIC_ORB_FRAGMENT,
 } from './magic-orb-shaders';
 import { InstanceSlotAllocator } from './instance-slot-allocator';
+import { DrawGate } from './draw-gate';
 
 /**
  * Projectile render data
@@ -48,6 +49,8 @@ export class ProjectileInstanceManager {
   readonly instancedMesh: InstancedMesh;
   private entities = new Map<string, number>(); // id -> instanceIndex
   private readonly slots: InstanceSlotAllocator;
+  /** Hides the mesh while no projectile is in flight (R6). */
+  private readonly gate: DrawGate;
   private readonly matrix = new Matrix4();
   /** Matrices written since the last flush(). */
   private matrixDirty = false;
@@ -66,6 +69,7 @@ export class ProjectileInstanceManager {
     this.instancedMesh.count = 0;
     this.instancedMesh.frustumCulled = false;
     this.slots = new InstanceSlotAllocator(maxCount);
+    this.gate = new DrawGate([this.instancedMesh]);
   }
 
   /** Skipped (not drawn) when all `maxCount` slots are in flight. */
@@ -81,7 +85,7 @@ export class ProjectileInstanceManager {
     if (index < 0) return;
 
     this.entities.set(id, index);
-    this.instancedMesh.count = this.slots.activeCount;
+    this.syncDrawCount();
 
     this.matrix.compose(
       position,
@@ -146,7 +150,7 @@ export class ProjectileInstanceManager {
 
     this.entities.delete(id);
     this.slots.release(index);
-    this.instancedMesh.count = this.slots.activeCount;
+    this.syncDrawCount();
   }
 
   get count(): number {
@@ -179,8 +183,14 @@ export class ProjectileInstanceManager {
     // slot before the pool grows over it again.
     this.entities.clear();
     this.slots.reset();
-    this.instancedMesh.count = 0;
+    this.syncDrawCount();
     this.matrixDirty = false;
+  }
+
+  /** Draw count follows the slot allocator; the gate hides an empty pool. */
+  private syncDrawCount(): void {
+    this.instancedMesh.count = this.slots.activeCount;
+    this.gate.setCount(this.slots.activeCount);
   }
 
   dispose(): void {

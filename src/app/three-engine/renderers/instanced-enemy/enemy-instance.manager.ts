@@ -11,6 +11,7 @@ import { VATData } from './vat-baker';
 import { createVATMaterial } from './vat-material';
 import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { InstanceSlotAllocator } from '../instance-slot-allocator';
+import { DrawGate } from '../draw-gate';
 
 const MAX_INSTANCES_PER_TYPE = 20000;
 const UP = new Vector3(0, 1, 0);
@@ -64,6 +65,8 @@ export interface TypePool {
   instances: Map<string, EnemyInstanceState>;
   /** Slot free list; its activeCount is the draw count and upload length. */
   slots: InstanceSlotAllocator;
+  /** Hides the mesh while no slot is drawn (R6). */
+  gate: DrawGate;
 
   // Per-instance attributes
   animFrameAttr: InstancedBufferAttribute;
@@ -130,6 +133,9 @@ export class EnemyInstanceManager {
   /** Instances with a hit-flash running, so expiry skips everyone else. */
   private readonly flashing: EnemyInstanceState[] = [];
 
+  /** setVisible() state, also applied to pools created later. */
+  private shown = true;
+
   // Reusable temp objects
   private readonly matrix = new Matrix4();
   private static readonly _tempQuat = new Quaternion();
@@ -170,7 +176,10 @@ export class EnemyInstanceManager {
     instancedMesh.geometry.setAttribute('aTintColor', tintColorAttr);
     instancedMesh.geometry.setAttribute('aOpacity', opacityAttr);
 
-    // count=0 → GPU renders nothing; slots are initialized on first use
+    // count=0 → GPU renders nothing; slots are initialized on first use.
+    // The gate keeps the empty mesh out of the render list.
+    const gate = new DrawGate([instancedMesh]);
+    gate.setShown(this.shown);
     this.scene.add(instancedMesh);
 
     this.pools.set(typeId, {
@@ -180,6 +189,7 @@ export class EnemyInstanceManager {
       config,
       instances: new Map(),
       slots: new InstanceSlotAllocator(MAX_INSTANCES_PER_TYPE),
+      gate,
       animFrameAttr,
       tintColorAttr,
       opacityAttr,
@@ -206,7 +216,7 @@ export class EnemyInstanceManager {
     // Allocate instance slot
     const index = pool.slots.alloc();
     if (index < 0) return null;
-    pool.instancedMesh.count = pool.slots.activeCount;
+    this.syncDrawCount(pool);
 
     // Set instance matrix
     this.setInstanceMatrix(pool, index, position, heading);
@@ -505,7 +515,7 @@ export class EnemyInstanceManager {
 
     pool.instances.delete(id);
     pool.slots.release(state.index);
-    pool.instancedMesh.count = pool.slots.activeCount;
+    this.syncDrawCount(pool);
     this.enemyToType.delete(id);
     this.cachedAllIds = null;
     state.released = true;
@@ -550,8 +560,9 @@ export class EnemyInstanceManager {
    * Set visibility of all instanced enemy meshes
    */
   setVisible(visible: boolean): void {
+    this.shown = visible;
     for (const pool of this.pools.values()) {
-      pool.instancedMesh.visible = visible;
+      pool.gate.setShown(visible);
     }
   }
 
@@ -571,7 +582,7 @@ export class EnemyInstanceManager {
       pool.instancedMesh.instanceMatrix.needsUpdate = true;
       pool.instances.clear();
       pool.slots.reset();
-      pool.instancedMesh.count = 0;
+      this.syncDrawCount(pool);
     }
     this.enemyToType.clear();
     this.cachedAllIds = null;
@@ -616,6 +627,12 @@ export class EnemyInstanceManager {
   // =====================================================
   // PRIVATE
   // =====================================================
+
+  /** Draw count follows the slot allocator; the gate hides an empty pool. */
+  private syncDrawCount(pool: TypePool): void {
+    pool.instancedMesh.count = pool.slots.activeCount;
+    pool.gate.setCount(pool.slots.activeCount);
+  }
 
   private setInstanceMatrix(
     pool: TypePool,

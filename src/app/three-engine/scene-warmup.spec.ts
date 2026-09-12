@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { PerspectiveCamera, Scene, type WebGLProgram, type WebGLRenderer } from 'three';
+import { Mesh, PerspectiveCamera, Scene, type WebGLProgram, type WebGLRenderer } from 'three';
 import { warmUpScene } from './scene-warmup';
+import { DrawGate } from './renderers/draw-gate';
 
 type WarmupRenderer = Pick<WebGLRenderer, 'compileAsync' | 'info'>;
 
@@ -19,20 +20,47 @@ function fakeRenderer(created: number) {
 }
 
 describe('warmUpScene', () => {
-  it('compiles the whole scene with the camera and waits until the programs are ready', async () => {
+  it('compiles the whole scene, then draws the empty pools for one frame', async () => {
     const scene = new Scene();
     const camera = new PerspectiveCamera();
+    const pool = new Mesh();
+    scene.add(pool);
+    const gate = new DrawGate([pool]);
     const { renderer, finish } = fakeRenderer(3);
 
-    let done = false;
-    const warmup = warmUpScene(renderer, scene, camera).then((r) => { done = true; return r; });
+    let frame!: () => void;
+    const renderedFrame = vi.fn(() => new Promise<void>((resolve) => { frame = resolve; }));
+    const warmup = warmUpScene(renderer, scene, camera, renderedFrame);
+
     await Promise.resolve();
     expect(renderer.compileAsync).toHaveBeenCalledWith(scene, camera);
-    expect(done).toBe(false);
+    expect(renderedFrame).not.toHaveBeenCalled();
+    expect(pool.visible).toBe(false);
 
     finish();
+    await vi.waitFor(() => expect(renderedFrame).toHaveBeenCalled());
+    // The frame the warm-up waits for draws the empty pool.
+    expect(pool.visible).toBe(true);
+
+    frame();
     const result = await warmup;
+    expect(pool.visible).toBe(false);
+    expect(gate.visible).toBe(false);
     expect(result.newPrograms).toBe(3);
-    expect(result.totalMs).toBeGreaterThanOrEqual(result.syncMs);
+    expect(result.pools).toBe(1);
+    expect(result.compileMs).toBeGreaterThanOrEqual(result.syncMs);
+  });
+
+  it('closes the pools again when the frame wait fails', async () => {
+    const scene = new Scene();
+    const pool = new Mesh();
+    scene.add(pool);
+    new DrawGate([pool]);
+    const { renderer, finish } = fakeRenderer(0);
+
+    const warmup = warmUpScene(renderer, scene, new PerspectiveCamera(), () => Promise.reject(new Error('gone')));
+    finish();
+    await expect(warmup).rejects.toThrow('gone');
+    expect(pool.visible).toBe(false);
   });
 });

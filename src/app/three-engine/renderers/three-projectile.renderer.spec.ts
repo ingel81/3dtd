@@ -98,4 +98,21 @@ describe('ProjectileInstanceManager', () => {
     add('f');
     expect(manager.count).toBe(4);
   });
+
+  it('stays out of the render list while no projectile is in flight', () => {
+    const mesh = manager.instancedMesh;
+    expect(mesh.visible).toBe(false);
+
+    add('a');
+    add('b');
+    expect(mesh.visible).toBe(true);
+    manager.remove('a');
+    expect(mesh.visible).toBe(true);
+    manager.remove('b');
+    expect(mesh.visible).toBe(false);
+
+    add('c');
+    manager.clear();
+    expect(mesh.visible).toBe(false);
+  });
 });

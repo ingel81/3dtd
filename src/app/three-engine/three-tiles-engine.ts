@@ -110,6 +110,12 @@ const ROUTE_CORRIDOR_ERROR_TARGET = 5;
 const TILE_LOD_DEBUG_MAX_ERROR = 20;
 
 /**
+ * Longest wait for a drawn frame in the shader warm-up. A hidden tab gets no
+ * rAF frames at all; the warm-up then closes the pools again without them.
+ */
+const FRAME_WAIT_TIMEOUT_MS = 1000;
+
+/**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
  *
  * Uses 3DTilesRendererJS (NASA JPL) to render Cesium Ion 3D Tiles
@@ -262,6 +268,9 @@ export class ThreeTilesEngine {
 
   /** Frame cap of the rAF loop, see setFpsLimit(). */
   private readonly framePacer = new FramePacer();
+
+  /** Released by the next drawn frame, see waitForRenderedFrame(). */
+  private frameWaiters: (() => void)[] = [];
 
   // Tile provider credentials
   private cesiumIonToken: string;
@@ -1317,6 +1326,7 @@ export class ThreeTilesEngine {
       } else {
         this.renderer.render(this.scene, this.camera);
       }
+      this.notifyFrameRendered();
 
       // Update FPS
       this.updateFPS();
@@ -1373,6 +1383,7 @@ export class ThreeTilesEngine {
     } else {
       this.renderer.render(this.scene, this.camera);
     }
+    this.notifyFrameRendered();
 
     // Update FPS
     this.updateFPS();
@@ -1937,12 +1948,38 @@ export class ThreeTilesEngine {
     await this.towers.precompile(this.renderer, this.camera);
     if (this.disposed) return;
 
-    const warmup = await warmUpScene(this.renderer, this.scene, this.camera);
+    const warmup = await warmUpScene(this.renderer, this.scene, this.camera, () => this.waitForRenderedFrame());
     console.log(
       `[Warmup] ${warmup.newPrograms} new shader programs, ` +
       `compile ${warmup.syncMs.toFixed(1)} ms on the main thread, ` +
-      `ready after ${warmup.totalMs.toFixed(1)} ms`
+      `ready after ${warmup.compileMs.toFixed(1)} ms; ` +
+      `${warmup.pools} empty pools drawn for one frame (${warmup.frameMs.toFixed(1)} ms)`
     );
+  }
+
+  /**
+   * Resolves after the next frame the loop draws, or after
+   * {@link FRAME_WAIT_TIMEOUT_MS} when none comes. Right away when nothing
+   * draws at all (loop stopped, headless training).
+   */
+  private waitForRenderedFrame(): Promise<void> {
+    if (!this.isRunning || !this._renderingEnabled) return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(done, FRAME_WAIT_TIMEOUT_MS);
+      this.frameWaiters.push(done);
+    });
+  }
+
+  /** Called at the end of render(), releases waitForRenderedFrame(). */
+  private notifyFrameRendered(): void {
+    if (this.frameWaiters.length === 0) return;
+    const waiters = this.frameWaiters;
+    this.frameWaiters = [];
+    for (const done of waiters) done();
   }
 
   /**

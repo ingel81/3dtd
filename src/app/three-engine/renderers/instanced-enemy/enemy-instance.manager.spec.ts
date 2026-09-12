@@ -5,6 +5,7 @@ import {
   Float32BufferAttribute,
   FloatType,
   InstancedBufferAttribute,
+  InstancedMesh,
   Matrix4,
   Mesh,
   PerspectiveCamera,
@@ -279,5 +280,45 @@ describe('InstancedEnemyRenderer slots', () => {
     now.mockReturnValue(1200);
     renderer.updateAnimations(0.016, new PerspectiveCamera());
     expect([tint.getX(slot.index), tint.getY(slot.index), tint.getZ(slot.index)]).toEqual([0, 0, 0]);
+  });
+});
+
+describe('EnemyInstanceManager pool visibility', () => {
+  const poolMeshes = (scene: Scene) =>
+    scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
+
+  it('keeps a pool out of the render list while no enemy of its type is drawn', () => {
+    const scene = new Scene();
+    const manager = new EnemyInstanceManager(scene);
+    manager.createPool('wallsmasher', fakeVat(CLIPS), CONFIG);
+    const [mesh] = poolMeshes(scene);
+    expect(mesh.visible).toBe(false);
+
+    manager.addEnemy('a', 'wallsmasher', new Vector3(), 0);
+    manager.addEnemy('b', 'wallsmasher', new Vector3(), 0);
+    expect(mesh.visible).toBe(true);
+    manager.removeEnemy('b');
+    expect(mesh.visible).toBe(true);
+    manager.removeEnemy('a');
+    expect(mesh.visible).toBe(false);
+
+    manager.addEnemy('c', 'wallsmasher', new Vector3(), 0);
+    manager.clear();
+    expect(mesh.visible).toBe(false);
+  });
+
+  it('hides filled pools while enemies are toggled off, also pools baked afterwards', () => {
+    const scene = new Scene();
+    const manager = new EnemyInstanceManager(scene);
+    manager.createPool('wallsmasher', fakeVat(CLIPS), CONFIG);
+    manager.addEnemy('a', 'wallsmasher', new Vector3(), 0);
+
+    manager.setVisible(false);
+    manager.createPool('zombie', fakeVat(CLIPS), ENEMY_TYPES['zombie']);
+    manager.addEnemy('b', 'zombie', new Vector3(), 0);
+    expect(poolMeshes(scene).map((m) => m.visible)).toEqual([false, false]);
+
+    manager.setVisible(true);
+    expect(poolMeshes(scene).map((m) => m.visible)).toEqual([true, true]);
   });
 });

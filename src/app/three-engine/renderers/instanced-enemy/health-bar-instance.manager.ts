@@ -10,6 +10,7 @@ import {
   DoubleSide,
 } from 'three';
 import { InstanceSlotAllocator } from '../instance-slot-allocator';
+import { DrawGate } from '../draw-gate';
 
 const MAX_HEALTH_BARS = 20000;
 
@@ -146,6 +147,8 @@ export class HealthBarInstanceManager {
   private readonly backgroundMesh: Mesh;
   /** Foreground pass, damaged bars only, always on top */
   private readonly foregroundMesh: Mesh;
+  /** Hides both passes while no bar is drawn (R6); setVisible() goes through it. */
+  private readonly gate: DrawGate;
 
   private instances = new Map<string, number>(); // enemyId → instanceIndex
   private readonly slots = new InstanceSlotAllocator(MAX_HEALTH_BARS);
@@ -227,6 +230,7 @@ export class HealthBarInstanceManager {
     this.foregroundMesh.matrixWorldAutoUpdate = false;
     this.foregroundMesh.updateMatrix();
 
+    this.gate = new DrawGate([this.backgroundMesh, this.foregroundMesh]);
     this.scene.add(this.backgroundMesh);
     this.scene.add(this.foregroundMesh);
   }
@@ -252,7 +256,7 @@ export class HealthBarInstanceManager {
     if (index < 0) return -1;
 
     this.instances.set(enemyId, index);
-    this.geometry.instanceCount = this.slots.activeCount;
+    this.syncDrawCount();
 
     // Position + size
     this.hiddenFlags[index] = 0;
@@ -375,25 +379,30 @@ export class HealthBarInstanceManager {
 
     this.instances.delete(enemyId);
     this.slots.release(index);
-    this.geometry.instanceCount = this.slots.activeCount;
+    this.syncDrawCount();
   }
 
   /**
    * Set visibility of all health bars
    */
   setVisible(visible: boolean): void {
-    this.backgroundMesh.visible = visible;
-    this.foregroundMesh.visible = visible;
+    this.gate.setShown(visible);
   }
 
   get count(): number {
     return this.instances.size;
   }
 
+  /** Draw count of both passes follows the slot allocator; the gate hides them while empty. */
+  private syncDrawCount(): void {
+    this.geometry.instanceCount = this.slots.activeCount;
+    this.gate.setCount(this.slots.activeCount);
+  }
+
   clear(): void {
     this.instances.clear();
     this.slots.reset();
-    this.geometry.instanceCount = 0;
+    this.syncDrawCount();
     // Reset all sizes to hidden so stale slots never reappear after reuse.
     // Drop the pending per-slot ranges first — this one is a full upload.
     (this.sizeAttribute.array as Float32Array).fill(0);

@@ -36,4 +36,26 @@ describe('EnvironmentEffectsRenderer tower fire', () => {
     pools.updateBuffers();
     expect(towerFire.geometry.drawRange.count).toBe(spawned);
   });
+
+  it('keeps the particle pools out of the render list while they are empty', () => {
+    const scene = new Scene();
+    const pools = new ParticlePoolManager(scene);
+    const environment = new EnvironmentEffectsRenderer({} as CoordinateSync, pools);
+    const points = scene.children.filter((child): child is Points => child instanceof Points);
+    const towerFire = points.find((p) => p.geometry.getAttribute('position').count === 800)!;
+    expect(points).toHaveLength(3);
+    expect(points.map((p) => p.visible)).toEqual([false, false, false]);
+
+    environment.spawnTowerInnerFire('t1', new Vector3(), 3, 0.1);
+    pools.updateBuffers();
+    expect(towerFire.visible).toBe(true);
+    // Die Trail-Pools haben weiter nichts zu zeichnen.
+    expect(points.filter((p) => p !== towerFire).map((p) => p.visible)).toEqual([false, false]);
+
+    environment.stopTowerInnerFire('t1');
+    environment.update(60); // alle sterben
+    pools.updateBuffers();
+    expect(towerFire.geometry.drawRange.count).toBe(0);
+    expect(towerFire.visible).toBe(false);
+  });
 });
