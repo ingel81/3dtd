@@ -284,7 +284,7 @@ export class PerformanceProfilerService {
     }
 
     const stats: PerformanceStats = {
-      fps: engine.getFPS(),
+      fps: engine.renderLoop.getFPS(),
       drawCalls: info.render.calls,
       triangles: info.render.triangles,
       enemies: gs?.enemyManager.getAliveCount() ?? 0,

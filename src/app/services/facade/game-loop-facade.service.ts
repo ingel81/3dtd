@@ -499,7 +499,7 @@ export class GameLoopFacadeService {
       const soundDebugOpen = this.debugWindows.soundWindow().isOpen;
       this.ngZone.run(() => {
         this.engineStore.updateEngineStats({
-          fps: engine.getFPS(),
+          fps: engine.renderLoop.getFPS(),
           tileStats: engine.getTileStats(),
           activeSoundCount: engine.spatialAudio.getActiveSoundCount(),
           attribution: engine.getAttributions(),

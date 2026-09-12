@@ -326,7 +326,7 @@ export class EngineInitializationService {
       // Start render loop outside Angular zone to avoid triggering change detection on every frame
       const engine = this.engine;
       this.ngZone.runOutsideAngular(() => {
-        engine.startRenderLoop();
+        engine.renderLoop.start();
       });
 
       // Step 2: Load OSM streets

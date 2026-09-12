@@ -302,7 +302,7 @@ export class TowerDefenseFacadeService {
         // once-a-second status push keeps reporting the client as healthy.
         // The normal game keeps the browser's throttling; it should not run
         // when nobody is watching.
-        engine.setBackgroundLoopEnabled(this.devWorld.isActive);
+        engine.renderLoop.setBackgroundLoopEnabled(this.devWorld.isActive);
 
         // Fix race condition: if tiles loaded during initEngine() before the
         // onTilesLoadCallback was set, the route refresh was skipped.
