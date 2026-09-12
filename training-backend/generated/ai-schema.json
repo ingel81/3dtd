@@ -93,7 +93,9 @@
       "baseSpeed": 5,
       "armor": "unarmored",
       "isAir": false,
-      "threat": 1
+      "threat": 1,
+      "lineageHp": 80,
+      "bodies": 1
     },
     {
       "id": "rat",
@@ -101,7 +103,9 @@
       "baseSpeed": 10,
       "armor": "unarmored",
       "isAir": false,
-      "threat": 0.5
+      "threat": 0.5,
+      "lineageHp": 5,
+      "bodies": 1
     },
     {
       "id": "penguin",
@@ -109,7 +113,9 @@
       "baseSpeed": 9,
       "armor": "unarmored",
       "isAir": false,
-      "threat": 0.8
+      "threat": 0.8,
+      "lineageHp": 30,
+      "bodies": 1
     },
     {
       "id": "wallsmasher",
@@ -117,7 +123,9 @@
       "baseSpeed": 4,
       "armor": "light",
       "isAir": false,
-      "threat": 3.5
+      "threat": 3.5,
+      "lineageHp": 200,
+      "bodies": 1
     },
     {
       "id": "bat",
@@ -125,7 +133,9 @@
       "baseSpeed": 8,
       "armor": "light",
       "isAir": true,
-      "threat": 1.5
+      "threat": 1.5,
+      "lineageHp": 25,
+      "bodies": 1
     },
     {
       "id": "hornet",
@@ -133,7 +143,9 @@
       "baseSpeed": 9,
       "armor": "light",
       "isAir": true,
-      "threat": 2
+      "threat": 2,
+      "lineageHp": 80,
+      "bodies": 1
     },
     {
       "id": "spider",
@@ -141,7 +153,9 @@
       "baseSpeed": 9,
       "armor": "light",
       "isAir": false,
-      "threat": 2
+      "threat": 2,
+      "lineageHp": 60,
+      "bodies": 1
     },
     {
       "id": "zombie-soldier",
@@ -149,7 +163,9 @@
       "baseSpeed": 6,
       "armor": "heavy",
       "isAir": false,
-      "threat": 3
+      "threat": 3,
+      "lineageHp": 160,
+      "bodies": 1
     },
     {
       "id": "tank",
@@ -157,7 +173,9 @@
       "baseSpeed": 3,
       "armor": "heavy",
       "isAir": false,
-      "threat": 4
+      "threat": 4,
+      "lineageHp": 250,
+      "bodies": 1
     },
     {
       "id": "bear",
@@ -165,7 +183,9 @@
       "baseSpeed": 8,
       "armor": "heavy",
       "isAir": false,
-      "threat": 3.5
+      "threat": 3.5,
+      "lineageHp": 300,
+      "bodies": 1
     },
     {
       "id": "dragon",
@@ -173,7 +193,9 @@
       "baseSpeed": 6,
       "armor": "heavy",
       "isAir": true,
-      "threat": 8
+      "threat": 8,
+      "lineageHp": 450,
+      "bodies": 1
     },
     {
       "id": "mech",
@@ -181,7 +203,9 @@
       "baseSpeed": 3,
       "armor": "heavy",
       "isAir": false,
-      "threat": 6
+      "threat": 6,
+      "lineageHp": 500,
+      "bodies": 1
     },
     {
       "id": "mammoth",
@@ -189,7 +213,9 @@
       "baseSpeed": 3,
       "armor": "fortified",
       "isAir": false,
-      "threat": 5
+      "threat": 5,
+      "lineageHp": 400,
+      "bodies": 1
     },
     {
       "id": "herbert",
@@ -197,7 +223,9 @@
       "baseSpeed": 4,
       "armor": "fortified",
       "isAir": false,
-      "threat": 50
+      "threat": 50,
+      "lineageHp": 500,
+      "bodies": 1
     },
     {
       "id": "ghost",
@@ -205,7 +233,9 @@
       "baseSpeed": 5,
       "armor": "ethereal",
       "isAir": false,
-      "threat": 6
+      "threat": 6,
+      "lineageHp": 120,
+      "bodies": 1
     },
     {
       "id": "wraith",
@@ -213,7 +243,9 @@
       "baseSpeed": 8,
       "armor": "ethereal",
       "isAir": false,
-      "threat": 7
+      "threat": 7,
+      "lineageHp": 100,
+      "bodies": 1
     },
     {
       "id": "zombie-v2",
@@ -221,7 +253,9 @@
       "baseSpeed": 3,
       "armor": "unarmored",
       "isAir": false,
-      "threat": 0.9
+      "threat": 0.9,
+      "lineageHp": 80,
+      "bodies": 1
     },
     {
       "id": "stone-golem",
@@ -229,7 +263,9 @@
       "baseSpeed": 2.5,
       "armor": "fortified",
       "isAir": false,
-      "threat": 5.5
+      "threat": 5.5,
+      "lineageHp": 480,
+      "bodies": 1
     },
     {
       "id": "skeleton",
@@ -237,7 +273,9 @@
       "baseSpeed": 6,
       "armor": "unarmored",
       "isAir": false,
-      "threat": 0.7
+      "threat": 0.7,
+      "lineageHp": 32,
+      "bodies": 3
     }
   ],
   "templates": {
@@ -1001,8 +1039,8 @@
           }
         ],
         "countRange": [
-          40,
-          1500
+          25,
+          940
         ],
         "spawnDelayRange": [
           15,
