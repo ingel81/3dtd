@@ -475,4 +475,58 @@ describe('MovementComponent', () => {
       spy.mockRestore();
     });
   });
+
+  describe('start part-way along the path', () => {
+    // Three 100 m segments going north, ground rising 10 m per waypoint
+    const LAT = 48.776;
+    const path: RouteWaypoint[] = [0, 1, 2, 3].map((i) => ({
+      lat: LAT + (i * 100) / METERS_PER_DEGREE_LAT,
+      lon: 9.183,
+      height: 10 + i * 10,
+    }));
+    let transform: TransformComponent;
+
+    beforeEach(() => {
+      transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+    });
+
+    it('starts on the given segment and progress, on the centre line', () => {
+      movement.setPath(path, 1, 0.25);
+
+      expect(movement.path).toBe(path); // shared, not a sub-path copy
+      expect(movement.currentIndex).toBe(1);
+      expect(movement.progress).toBe(0.25);
+      expect(movement.getPathProgress()).toBeCloseTo(125 / 300, 3);
+      expect(transform.position.lat).toBeCloseTo(path[1].lat + 0.25 * (path[2].lat - path[1].lat), 12);
+      expect(transform.position.lon).toBe(path[1].lon);
+      expect(transform.terrainHeight).toBeCloseTo(22.5, 9);
+    });
+
+    it('walks on from there to the end of the path', () => {
+      movement.setPath(path, 2, 0.5);
+      movement.speedMps = 10; // 1 m per 100 ms step, 50 m to go
+
+      let steps = 0;
+      while (movement.move(100, 0) !== 'reached_end' && steps < 1000) {
+        expect(movement.currentIndex).toBe(2);
+        steps++;
+      }
+      expect(steps).toBeGreaterThanOrEqual(48);
+      expect(steps).toBeLessThanOrEqual(51);
+    });
+
+    it('clamps a start past the last segment onto its end', () => {
+      movement.setPath(path, 7, 1.5);
+      expect(movement.currentIndex).toBe(2);
+      expect(movement.progress).toBe(1);
+      expect(movement.move(16, 0)).toBe('reached_end');
+    });
+
+    it('reads back the lateral factor it was given, clamped', () => {
+      movement.setLateralFactor(-0.4);
+      expect(movement.getLateralFactor()).toBe(-0.4);
+      movement.setLateralFactor(3);
+      expect(movement.getLateralFactor()).toBe(1);
+    });
+  });
 });
