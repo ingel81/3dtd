@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Group, Object3D, Scene, Vector3 } from 'three';
+import { Group, Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
 import { ThreeTowerRenderer, type TowerRenderData } from './three-tower.renderer';
 
 /**
@@ -118,6 +118,39 @@ describe('ThreeTowerRenderer turret heading', () => {
     expect(angleBetween(turretHeading(data), Math.PI / 2)).toBeLessThan(0.02);
     advance(500);
     expect(angleBetween(turretHeading(data), (3 * Math.PI) / 4)).toBeLessThan(1e-9);
+  });
+
+  // Until 2026-09-13 the Magic turret spun at 0.3 rad/s whenever it had no
+  // target, in render frames, and never turned to its guard heading.
+  describe('magic tower', () => {
+    const camera = new PerspectiveCamera();
+
+    /** Render frames and game sub-steps at 1x, as the engine runs them. */
+    const frames = (ms: number) => {
+      for (let t = 0; t < ms; t += STEP_MS) {
+        renderer.updateAnimations(STEP_MS, camera);
+        renderer.advanceTurretAim(STEP_MS);
+      }
+    };
+
+    it('turns to the guard heading after its sweep and holds it', async () => {
+      const data = (await renderer.create('t1', 'magic', 0, 0, 0, 0.4, 1.0))!;
+      frames(6000);
+      expect(data.scanPhase).toBe(0);
+      expect(angleBetween(turretHeading(data), 1.0)).toBeLessThan(1e-9);
+      frames(3000);
+      expect(angleBetween(turretHeading(data), 1.0)).toBeLessThan(1e-9);
+    });
+
+    it('holds the last aim once the target is gone', async () => {
+      const data = (await renderer.create('t1', 'magic', 0, 0, 0, 0.4, 0))!;
+      frames(6000);
+      renderer.updateRotation('t1', Math.PI / 2);
+      frames(1000);
+      renderer.releaseTarget('t1');
+      frames(3000);
+      expect(angleBetween(turretHeading(data), Math.PI / 2)).toBeLessThan(1e-9);
+    });
   });
 });
 

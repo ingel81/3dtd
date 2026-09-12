@@ -858,10 +858,9 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Visual update — once per RENDER frame. Drives selection-ring pulse,
-   * magic-idle spin, and GLTF mixer (LOD). NO gameplay-affecting state here:
-   * turret aim now flows through `advanceTurretAim()` which is called per
-   * sub-step in game-time.
+   * Visual update, once per RENDER frame. Drives the selection-ring pulse and
+   * the GLTF mixer (LOD). NO gameplay-affecting state here: turret aim flows
+   * through `advanceTurretAim()`, which is called per sub-step in game-time.
    */
   updateAnimations(deltaTime: number, camera: Camera): void {
     this.animationTime += deltaTime * 0.001;
@@ -897,18 +896,6 @@ export class ThreeTowerRenderer {
         const scale = 1 + Math.sin(this.animationTime) * 0.1;
         data.selectionRing.scale.setScalar(scale);
         data.selectionRing.rotation.z += deltaTime * 0.001;
-      }
-
-      // Magic-tower idle spin (visual)
-      if (
-        data.turretPart &&
-        data.typeConfig.id === 'magic' &&
-        !data.hasTarget &&
-        data.scanPhase === 0
-      ) {
-        const idleRotationSpeed = 0.3; // rad/s wall-clock — purely cosmetic
-        data.currentLocalRotation += idleRotationSpeed * (deltaTime / 1000);
-        data.turretPart.rotation.y = data.currentLocalRotation;
       }
     }
 
@@ -963,11 +950,7 @@ export class ThreeTowerRenderer {
           data.currentLocalRotation += rotation;
         }
         data.turretPart.rotation.y = data.currentLocalRotation;
-      } else if (
-        data.scanPhase === 0 &&
-        // skip magic-idle (handled in render-frame visual update)
-        !(data.typeConfig.id === 'magic' && !data.hasTarget)
-      ) {
+      } else if (data.scanPhase === 0) {
         const current = data.currentLocalRotation;
         const target = data.targetLocalRotation;
         let diff = target - current;

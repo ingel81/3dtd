@@ -272,8 +272,11 @@ Grundstellung zurück:
   `debug:remove-enemy`), und nach einer Routenänderung.
   Nach einem Reichweiten-Upgrade dreht der Turm zwischen den Wellen sofort zur
   neuen Wachrichtung, in einer Welle erst nach deren Ende.
-- **Magic** ist die Ausnahme: ohne Ziel dreht sich die Kugel langsam weiter
-  (0,3 rad/s, nur Optik), statt eine Richtung zu halten.
+- **Magic** verhält sich seit 2026-09-13 wie die anderen Tower. Vorher drehte
+  sich die Kugel ohne Ziel langsam weiter (0,3 rad/s, in Render-Frames statt
+  in Game-Time) und erreichte die Wachrichtung nie. Da `isTurretAligned`
+  dieselbe Drehung liest, hing die Zeit bis zum ersten Schuss auf ein neues
+  Ziel davon ab, wo die Kugel gerade stand.
 
 ```typescript
 // tower-combat.service.ts
