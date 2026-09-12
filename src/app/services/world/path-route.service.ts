@@ -893,7 +893,7 @@ export class PathAndRouteService {
    * on each side sets the half width there, up to
    * `corridorConfig.maxHalfWidth` (fitCorridorPieces). A station every
    * `stationSpacing` metres with a low and a high horizontal ray to each
-   * side (ThreeTilesEngine.measureStreetClearance); a station without fine tiles
+   * side (TerrainQueries.measureStreetClearance); a station without fine tiles
    * keeps the street width. Stations measured before are kept and only the
    * ones without fine tiles are measured again, so a segment whose tiles had
    * only partly loaded gets the rest on a later run instead of keeping the
@@ -952,7 +952,7 @@ export class PathAndRouteService {
           tried++;
           const t = (k + 0.5) / count;
           // (-dz, dx) points right of the direction of travel.
-          const probe = engine.measureStreetClearance(
+          const probe = engine.terrain.measureStreetClearance(
             start.x + dx * t, start.z + dz * t, -dz, dx, rayHeights, corridorConfig.maxHalfWidth, onBridge[i],
           );
           probes[k] = probe;
@@ -1458,7 +1458,7 @@ export class PathAndRouteService {
           const lon = a.lon + (b.lon - a.lon) * t;
           const local = engine.sync.geoToLocalSimple(lat, lon, 0);
           const cellY = this.globalRouteGrid.getGroundLocalYAt(local.x, local.z);
-          const streetY = engine.getGroundHeightEstimate(lat, lon, a.lat, a.lon, b.lat, b.lon);
+          const streetY = engine.terrain.getGroundHeightEstimate(lat, lon, a.lat, a.lon, b.lat, b.lon);
           if (cellY === null || streetY === null) continue;
           const gap = cellY - streetY;
           if (run.maxCellAboveStreetM === null || gap > run.maxCellAboveStreetM) {

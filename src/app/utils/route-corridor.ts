@@ -391,7 +391,7 @@ export interface CorridorStations {
 
 /**
  * What the clearance rays found at one station
- * (ThreeTilesEngine.measureStreetClearance).
+ * (TerrainQueries.measureStreetClearance).
  */
 export interface StationProbe {
   /**

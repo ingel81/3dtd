@@ -216,7 +216,7 @@ export class StreetRenderingService {
         if (prepared.isDevWorld) {
           terrainY = s.engine.getTerrainHeightAtGeo(prepared.node.lat, prepared.node.lon);
         } else {
-          terrainY = s.engine.getGroundHeightEstimate(
+          terrainY = s.engine.terrain.getGroundHeightEstimate(
             prepared.node.lat, prepared.node.lon,
             prepared.prev.lat, prepared.prev.lon,
             prepared.next.lat, prepared.next.lon

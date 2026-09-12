@@ -109,7 +109,6 @@ export function createMockTilesEngine() {
   return {
     getScene: vi.fn(() => ({})),
     getTerrainHeightAtGeo: vi.fn(() => 0),
-    getTerrainHeightAtLocal: vi.fn(() => 0),
     setTimescale: vi.fn(),
     sync: {
       getOrigin: vi.fn(() => ({ lat: 48.776, lon: 9.183, height: 300 })),

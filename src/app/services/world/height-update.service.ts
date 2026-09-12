@@ -179,7 +179,7 @@ export class HeightUpdateService {
 
     // Clear height cache before each attempt to get fresh values
     // This ensures we don't use stale heights from previous location
-    this.engine.clearHeightCache();
+    this.engine.terrain.clearHeightCache();
 
     // Re-render streets with current terrain data
     if (this.onRenderStreetsCallback) {

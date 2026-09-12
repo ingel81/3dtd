@@ -999,7 +999,7 @@ export class IntroCameraFlightService {
     const scope = raycastStats.enter('intro');
     let column: ColumnSample | null;
     try {
-      column = engine.sampleColumn(this.samplePoint.x, this.samplePoint.z);
+      column = engine.terrain.sampleColumn(this.samplePoint.x, this.samplePoint.z);
     } finally {
       raycastStats.exit(scope);
     }

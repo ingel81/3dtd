@@ -66,7 +66,7 @@ describe('LocationFacadeService', () => {
     getOverlayGroup: vi.fn(() => overlay),
     setOrigin: vi.fn(),
     getDevTerrainProvider: vi.fn((): unknown => null),
-    clearHeightCache: vi.fn(),
+    terrain: { clearHeightCache: vi.fn() },
   };
   const bridge = {
     getEngine: vi.fn((): unknown => engine),
@@ -783,7 +783,7 @@ describe('LocationFacadeService', () => {
     it('clears the height cache and reports the tiles as loaded in the real world', () => {
       const onTilesLoaded = vi.fn();
       facade.refreshTerrainHeights(onTilesLoaded);
-      expect(engine.clearHeightCache).toHaveBeenCalled();
+      expect(engine.terrain.clearHeightCache).toHaveBeenCalled();
       expect(onTilesLoaded).toHaveBeenCalled();
     });
 
@@ -813,7 +813,7 @@ describe('LocationFacadeService', () => {
       expect(markerViz.clearAllMarkers).toHaveBeenCalled();
       expect(streetRendering.dispose).toHaveBeenCalledWith(overlay);
       expect(store.spawnPoints()).toEqual([]);
-      expect(engine.clearHeightCache).toHaveBeenCalled();
+      expect(engine.terrain.clearHeightCache).toHaveBeenCalled();
       expect(onTilesLoaded).not.toHaveBeenCalled();
 
       finish();
