@@ -345,15 +345,17 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | `render-loop.ts` | Render-Loop: rAF-Treiber mit FPS-Cap (`FramePacer`), Heartbeat-Worker für versteckte Trainings-Tabs, FPS-Zähler, Warten auf den nächsten gezeichneten Frame. Als `engine.renderLoop` erreichbar |
 | `terrain-queries.ts` | Raycasts gegen Boden und Tiles: Säulen-Probe `sampleColumn()` mit Cache pro 0,5-m-Säule und `lodVersion`, `getGroundHeightEstimate()`, Tile-LOD-Peek ohne Raycast, Straßen-Freiraum für den Routen-Korridor (`measureStreetClearance()`), Line-of-Sight. Als `engine.terrain` erreichbar, nur `getTerrainHeightAtGeo()` reicht der Engine durch |
 | `scene-environment.ts` | Statische Szenen-Lichter (`addSceneLights()`) und der Himmel als Cube-Textur aus `day.webp` (`SkyBackground`) |
+| `screen-picker.ts` | Screen-Picking: Boden unter dem Mauszeiger (`raycastTerrain()`, in DevWorld über den DevTerrainProvider) und angeklickter Tower (`raycastTowers()`), je Aufruf ein frischer Raycaster. Als `engine.picker` erreichbar |
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
 
 `CameraRig`, `TileLoadingTracker` und `PostProcessingPipeline` gehören dem Engine, er legt
 sie im Konstruktor an und reicht Aufrufe durch; seine öffentliche API bleibt die Fassade.
-`RenderLoop` und `TerrainQueries` legt er ebenfalls an, reicht sie aber nicht durch: Aufrufer
+`RenderLoop`, `TerrainQueries` und `ScreenPicker` legt er ebenfalls an, reicht sie aber nicht durch: Aufrufer
 nehmen `engine.renderLoop` (`start()`, `setFpsLimit()`, `setBackgroundLoopEnabled()`, `getFPS()`)
 und `engine.terrain` (`sampleColumn()`, `peekBestTileLODAtLocal()`, `getGroundHeightEstimate()`,
-`measureStreetClearance()`, `clearHeightCache()`) direkt. Nur `getTerrainHeightAtGeo()` mit seinen
+`measureStreetClearance()`, `clearHeightCache()`) und `engine.picker` (`raycastTerrain()`, `raycastTowers()`)
+direkt. Nur `getTerrainHeightAtGeo()` mit seinen
 vielen Aufrufern bleibt als Durchreiche am Engine.
 Der Loop ruft pro Frame `update()` und `render()` des Engines, `render()` meldet jeden
 gezeichneten Frame mit `renderLoop.frameRendered()` zurück.
@@ -1325,6 +1327,7 @@ src/app/
 │   ├── scene-warmup.ts           # Warm-up beim Laden (Shader, leere Pools)
 │   ├── vfx-settings.ts           # Abschaltbare Effekte (Display-Menü)
 │   ├── tile-material-log.ts      # Diagnose: welche Materialien Szenenlichter rechnen
+│   ├── screen-picker.ts          # Boden und Tower unter dem Mauszeiger (seit 2026-09-13)
 │   ├── ellipsoid-sync.ts         # Koordinaten
 │   ├── index.ts                  # Exports
 │   ├── post-processing/          # Bloom + Color Grading (eigene Pipeline-Klasse seit 2026-05-10)
@@ -1839,7 +1842,7 @@ raycastTerrain(screenX: number, screenY: number): THREE.Vector3 | null {
 ```
 
 **Wo angewandt:**
-- `three-tiles-engine.ts`: `raycastTerrain()` und `raycastTowers()`
+- `screen-picker.ts`: `raycastTerrain()` und `raycastTowers()`
 
 **Regel:** Raycaster, die mit `setFromCamera()` arbeiten, sollten nie denselben Instance verwenden wie Raycaster mit manuellem `set(origin, direction)`.
 

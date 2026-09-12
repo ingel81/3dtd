@@ -2,10 +2,7 @@ import {
   WebGLRenderer,
   Scene,
   PerspectiveCamera,
-  Raycaster,
-  type Intersection,
   Vector3,
-  Vector2,
   Mesh,
   Object3D,
   Group,
@@ -36,6 +33,7 @@ import { EllipsoidSync } from './ellipsoid-sync';
 import { RenderLoop } from './render-loop';
 import { TerrainQueries } from './terrain-queries';
 import { SkyBackground, addSceneLights } from './scene-environment';
+import { ScreenPicker } from './screen-picker';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -56,7 +54,7 @@ import { TowerShadowMapper } from './tower-shadow-mapper';
 import { RouteCorridorRegion } from './route-corridor-region';
 import { warmUpScene } from './scene-warmup';
 import { logTileMaterialTypes } from './tile-material-log';
-import { instrumentRaycasts, raycastStats } from '../utils/raycast-stats';
+import { instrumentRaycasts } from '../utils/raycast-stats';
 import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
@@ -143,6 +141,9 @@ export class ThreeTilesEngine {
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
+
+  /** Screen picking: ground under the pointer, clicked tower. Reached as `engine.picker`. */
+  readonly picker: ScreenPicker;
 
   // GPU-LOS-Pipeline: lazy-initialised auf erste Anforderung. Shared
   // zwischen Build-Preview und Tower-Selection-Viz (Lesson 9, beide
@@ -318,6 +319,12 @@ export class ThreeTilesEngine {
     this.spatialAudio.setGeoToLocal((lat, lon, height) =>
       this.sync.geoToLocalSimple(lat, lon, height)
     );
+
+    // Screen picking against the tiles (DevWorld: its terrain) and the tower meshes
+    this.picker = new ScreenPicker(this.camera, this.renderer, this.towers, {
+      tiles: () => this.tilesRenderer,
+      devTerrain: () => this.devTerrainProvider,
+    });
 
     // Setup post-processing pipeline (bloom off by default)
     this.setupPostProcessing();
@@ -773,78 +780,6 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Raycast against towers at screen coordinates
-   * Returns the tower ID if a tower was hit, null otherwise
-   */
-  raycastTowers(screenX: number, screenY: number): string | null {
-    // Convert screen coords to NDC
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    const mouse = new Vector2(
-      ((screenX - rect.left) / rect.width) * 2 - 1,
-      -((screenY - rect.top) / rect.height) * 2 + 1
-    );
-
-    // Create a FRESH raycaster - reusing the LOS raycaster causes issues after LoS checks
-    const raycaster = new Raycaster();
-    raycaster.setFromCamera(mouse, this.camera);
-
-    // Test each tower mesh
-    const towerMeshes = this.towers.getAllMeshes();
-    for (const { id, mesh } of towerMeshes) {
-      const intersects = raycaster.intersectObject(mesh, true);
-      if (intersects.length > 0) {
-        return id;
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Raycast against terrain at screen coordinates
-   *
-   * IMPORTANT: Uses a fresh Raycaster instance each call.
-   * See ARCHITECTURE.md "Raycaster Corruption Issue" for details.
-   */
-  raycastTerrain(screenX: number, screenY: number): Vector3 | null {
-    // DevWorld: delegate to provider
-    if (this.devTerrainProvider) {
-      return this.devTerrainProvider.raycastFromScreen(
-        screenX, screenY, this.camera, this.renderer
-      );
-    }
-
-    if (!this.tilesRenderer) return null;
-
-    // Convert screen coords to NDC
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    const mouse = new Vector2(
-      ((screenX - rect.left) / rect.width) * 2 - 1,
-      -((screenY - rect.top) / rect.height) * 2 + 1
-    );
-
-    // Create a FRESH raycaster - reusing the LOS raycaster causes issues after LoS checks
-    // The shared raycaster gets corrupted state from LOS raycasting with custom origins
-    const raycaster = new Raycaster();
-    raycaster.setFromCamera(mouse, this.camera);
-
-    // Pointer moves in build and placement mode, and clicks
-    const scope = raycastStats.enter('screenPick');
-    let results: Intersection[];
-    try {
-      results = raycaster.intersectObject(this.tilesRenderer.group, true);
-    } finally {
-      raycastStats.exit(scope);
-    }
-
-    if (results.length > 0) {
-      return results[0].point.clone();
-    }
-
-    return null;
-  }
-
-  /**
    * Main render loop - call this each frame.
    * Headless-mode: when rendering is disabled, we skip all per-frame visual
    * work (tilesRenderer.update, camera updates, renderer.render, FPS tracking).
@@ -1201,25 +1136,6 @@ export class ThreeTilesEngine {
 
   setColorGradingIntensity(value: number): void {
     this.postProcessing?.setColorGradingIntensity(value);
-  }
-
-  /**
-   * Convert world position to screen coordinates
-   */
-  worldToScreen(worldPos: Vector3): { x: number; y: number } | null {
-    const vector = worldPos.clone();
-    vector.project(this.camera);
-
-    // Check if behind camera
-    if (vector.z > 1) {
-      return null;
-    }
-
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    return {
-      x: ((vector.x + 1) / 2) * rect.width + rect.left,
-      y: ((-vector.y + 1) / 2) * rect.height + rect.top,
-    };
   }
 
   /**
