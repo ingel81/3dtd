@@ -103,7 +103,10 @@ src/app/services/
 │   ├── economy.service.ts          ← Wave-Completion-Bonus, Perfect-Streak (extrahiert aus GSM, 2026-05-10)
 │   ├── input-handler.service.ts
 │   ├── keyboard-pan.service.ts
-│   └── tower-placement.service.ts
+│   ├── tower-placement.service.ts  ← Build-Mode, Preview, Validierung; LOS-API delegiert an:
+│   ├── tower-los-registry.ts       ← Tower-LOS auf dem Route-Grid (Register, Recompute, Stale-Queue)
+│   ├── build-preview-los.ts        ← GPU-LOS-Viz der Build-Preview
+│   └── tower-preview-model.ts      ← Transparenz + Gruen/Rot-Tint des Preview-Modells
 ├── combat/
 │   ├── combat-effect.service.ts
 │   ├── combat-vfx.service.ts
@@ -568,7 +571,7 @@ Tower-Platzierung und Kamera-Bewegung loesten frueher schwere Frame-Drops aus
   `tower.losReady = true`
 - Combat-System überspringt Towers mit `!losReady`
 - Ändern sich Cell-Höhen (cells-changed-Listener), kommen die betroffenen Tower in eine
-  Queue; `drainLosRefresh()` rechnet höchstens einen Tower pro Frame neu
+  Queue (`TowerLosRegistry`); `drainLosRefresh()` rechnet höchstens einen Tower pro Frame neu
   (`LOS_RECOMPUTES_PER_FRAME`) und wartet dabei auf einen laufenden Terrain-Sweep, maximal
   3 s (`MAX_LOS_WAIT_MS`)
 
