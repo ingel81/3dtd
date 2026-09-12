@@ -391,18 +391,6 @@ describe('AIDataCollectorService', () => {
       expect(collector.getWaveHistory()).toHaveLength(1);
       expect(console.error).toHaveBeenCalled();
     });
-
-    it('recentAvgDamage is evaluated once and does not follow new waves', () => {
-      // Current behaviour: the computed reads plain arrays, not signals, so it
-      // caches the value of its first read.
-      expect(collector.recentAvgDamage()).toBe(0);
-      playWave(1, { hpLost: 20 });
-      expect(collector.recentAvgDamage()).toBe(0);
-
-      const late = createCollector();
-      playWave(1, { hpLost: 20 });
-      expect(late.recentAvgDamage()).toBeCloseTo(0.2, 10);
-    });
   });
 
   describe('getStateSnapshot', () => {

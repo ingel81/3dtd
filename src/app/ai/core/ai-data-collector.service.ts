@@ -14,7 +14,7 @@
  * The game works fine without it.
  */
 
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { GamePhase } from '../../models/game.types';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { Enemy } from '../../entities/enemy.entity';
@@ -95,12 +95,6 @@ export class AIDataCollectorService {
   readonly isCollecting = signal(false);
   readonly lastSnapshot = signal<GameStateSnapshot | null>(null);
   readonly waveResultCount = signal(0);
-
-  readonly recentAvgDamage = computed(() => {
-    if (this.damageHistory.length === 0) return 0;
-    const sum = this.damageHistory.reduce((a, b) => a + b, 0);
-    return sum / this.damageHistory.length;
-  });
 
   constructor() {
     // Auto-start collecting when service is created
