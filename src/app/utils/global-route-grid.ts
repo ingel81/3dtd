@@ -11,11 +11,13 @@ import {
   HeightResetResult,
   RouteCellBox,
   RouteCellDump,
+  RouteCellProbe,
   RouteCellSpot,
   RouteGridSampleStats,
   TowerRangeReport,
   collectCellsInBox,
   collectHeightOutliers,
+  probeRouteCell,
   resetFallbackHeights,
   summarizeCellSamples,
   summarizeTowerRange,
@@ -1191,6 +1193,88 @@ export class GlobalRouteGrid {
     return summarizeTowerRange(inRange, towerId, this.findHolesInRange(x, z, range), (cell) =>
       this.medianOfStableNeighbourY(cell),
     );
+  }
+
+  /**
+   * The cells the route centre lines run through within `range` of (x, z),
+   * probed every half metre along each segment, and the spots on a centre
+   * line without a cell. A row missing along the red line shows up here.
+   */
+  centreLineCells(x: number, z: number, range: number): { cells: RouteCell[]; missing: RouteCellSpot[] } {
+    const cells = new Map<number, RouteCell>();
+    const missing = new Map<number, RouteCellSpot>();
+    const rangeSq = range * range;
+    this.forEachCentreSpot((px, pz) => {
+      if ((px - x) ** 2 + (pz - z) ** 2 > rangeSq) return;
+      const gx = this.cellIndex(px);
+      const gz = this.cellIndex(pz);
+      const key = this.intCellKey(gx, gz);
+      const cell = this.cells.get(key);
+      if (cell) cells.set(key, cell);
+      else missing.set(key, { x: (gx + 0.5) * this.CELL_SIZE, z: (gz + 0.5) * this.CELL_SIZE });
+    });
+    return { cells: [...cells.values()], missing: [...missing.values()] };
+  }
+
+  /** `describeTowerRange` for the centre line cells only; `holes` lists every centre spot without a cell. */
+  describeCentreLine(towerId: string, x: number, z: number, range: number): TowerRangeReport {
+    const { cells, missing } = this.centreLineCells(x, z, range);
+    return summarizeTowerRange(cells, towerId, missing, (cell) => this.medianOfStableNeighbourY(cell));
+  }
+
+  /**
+   * Every grid spot within `radius` of (x, z) and what the grid holds there,
+   * nearest to the route line first, for `__corridor.pick()`. `towerId`
+   * adds that tower's answers.
+   */
+  describeCellsAround(x: number, z: number, radius: number, towerId: string | null): RouteCellProbe[] {
+    const rows: RouteCellProbe[] = [];
+    const radiusSq = radius * radius;
+    for (let gx = this.cellIndex(x - radius); gx <= this.cellIndex(x + radius); gx++) {
+      const cx = (gx + 0.5) * this.CELL_SIZE;
+      for (let gz = this.cellIndex(z - radius); gz <= this.cellIndex(z + radius); gz++) {
+        const cz = (gz + 0.5) * this.CELL_SIZE;
+        if ((cx - x) ** 2 + (cz - z) ** 2 > radiusSq) continue;
+        rows.push(probeRouteCell(
+          this.cells.get(this.intCellKey(gx, gz)), cx, cz, this.distanceToRoutes(cx, cz), towerId,
+          (cell) => this.medianOfStableNeighbourY(cell),
+        ));
+      }
+    }
+    return rows.sort((a, b) => a.routeM - b.routeM);
+  }
+
+  /** Walk the centre lines of the cached routes in half-metre steps (local x, z). Diagnostics only. */
+  private forEachCentreSpot(visit: (x: number, z: number) => void): void {
+    const sync = this.coordinateSync;
+    if (!sync) return;
+    for (const route of this.cachedRoutes) {
+      for (let i = 0; i < route.length - 1; i++) {
+        const a = sync.geoToLocalSimple(route[i].lat, route[i].lon, 0);
+        const b = sync.geoToLocalSimple(route[i + 1].lat, route[i + 1].lon, 0);
+        const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5));
+        for (let s = 0; s <= steps; s++) visit(a.x + ((b.x - a.x) * s) / steps, a.z + ((b.z - a.z) * s) / steps);
+      }
+    }
+  }
+
+  /** Distance from (x, z) to the nearest centre line of the cached routes. Diagnostics only. */
+  private distanceToRoutes(x: number, z: number): number {
+    const sync = this.coordinateSync;
+    let best = Infinity;
+    if (!sync) return best;
+    for (const route of this.cachedRoutes) {
+      for (let i = 0; i < route.length - 1; i++) {
+        const a = sync.geoToLocalSimple(route[i].lat, route[i].lon, 0);
+        const b = sync.geoToLocalSimple(route[i + 1].lat, route[i + 1].lon, 0);
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const lenSq = dx * dx + dz * dz;
+        const t = lenSq > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / lenSq)) : 0;
+        best = Math.min(best, Math.hypot(a.x + dx * t - x, a.z + dz * t - z));
+      }
+    }
+    return best;
   }
 
   // ========================================

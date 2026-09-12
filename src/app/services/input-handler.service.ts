@@ -85,6 +85,9 @@ export class InputHandlerService {
   /** Map placement mouse move callback */
   private onMapPlacementMoveCallback: ((lat: number, lon: number, hitPoint: THREE.Vector3) => void) | null = null;
 
+  /** One-shot debug pick, see armPick. */
+  private pickCallback: ((hitPoint: THREE.Vector3) => void) | null = null;
+
   /** Stored event listeners for cleanup */
   private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
   private pointerUpHandler: ((event: PointerEvent) => void) | null = null;
@@ -158,6 +161,14 @@ export class InputHandlerService {
     this.mapPlacementModeSignal = modeSignal;
     this.onMapPlacementClickCallback = onClickCallback;
     this.onMapPlacementMoveCallback = onMoveCallback;
+  }
+
+  /**
+   * Hand the next left click on the ground to `callback` instead of the
+   * game, once: no tower selection, no building. For `__corridor.pick()`.
+   */
+  armPick(callback: (hitPoint: THREE.Vector3) => void): void {
+    this.pickCallback = callback;
   }
 
   // ========================================
@@ -243,6 +254,17 @@ export class InputHandlerService {
       if (pixelDist > this.PAN_THRESHOLD_PX) {
         return; // Was a pan, ignore
       }
+    }
+
+    // A debug pick takes this click and nothing else: the selected tower
+    // and its LOS display stay as they are.
+    if (this.pickCallback) {
+      const hit = this.engine.raycastTerrain(event.clientX, event.clientY);
+      if (!hit) return;
+      const pick = this.pickCallback;
+      this.pickCallback = null;
+      pick(hit);
+      return;
     }
 
     // First: Check tower selection via direct mesh raycast
@@ -511,6 +533,7 @@ export class InputHandlerService {
     this.mapPlacementModeSignal = null;
     this.onMapPlacementClickCallback = null;
     this.onMapPlacementMoveCallback = null;
+    this.pickCallback = null;
     this.mouseDownPos = null;
     this.keyboardCallbacks = null;
   }
