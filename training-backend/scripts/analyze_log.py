@@ -9,8 +9,8 @@ Analyzes:
 - Type cooldown effectiveness
 - Drift detection
 """
+import argparse
 import json
-import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -441,15 +441,28 @@ def find_latest_log():
     return max(logs, key=lambda p: p.stat().st_mtime)
 
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        logfile = sys.argv[1]
-    else:
+def main():
+    parser = argparse.ArgumentParser(
+        description="Analyze a training log: reward trend, enemy types, AI parameters, drift"
+    )
+    parser.add_argument(
+        'logfile',
+        nargs='?',
+        help='Path to a training_*.jsonl log (default: the newest one in logs/)',
+    )
+    args = parser.parse_args()
+
+    logfile = args.logfile
+    if logfile is None:
         logfile = find_latest_log()
-        if logfile:
-            print(f"Using latest log: {logfile}")
-        else:
-            print("No log file found. Usage: python analyze_log.py <logfile>")
-            sys.exit(1)
+        if logfile is None:
+            parser.error("no log file given and none found in logs/")
+        print(f"Using latest log: {logfile}")
+    elif not Path(logfile).is_file():
+        parser.error(f"log file not found: {logfile}")
 
     analyze_log(logfile)
+
+
+if __name__ == '__main__':
+    main()
