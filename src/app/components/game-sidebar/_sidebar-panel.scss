@@ -7,6 +7,8 @@
 // Spezifität dieselbe Eigenschaft setzen: tower-header nach header, sonst
 // verliert .td-tower-header sein padding-right.
 
+@use '../../styles/td-mixins' as td;
+
 @mixin section {
   /* === Section (was .td-panel), flat, no frames ===
    * The sidebar is a single panel; each section is just a vertical strip.
@@ -32,25 +34,19 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    /* Firefox, see TD_SCROLLBAR_STYLES in styles/td-theme.ts */
-    scrollbar-width: thin;
-    scrollbar-color: var(--td-frame-mid) var(--td-panel-shadow);
+    @include td.scrollbar;
   }
   .td-panel > .td-panel-content::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    @include td.webkit-scrollbar;
   }
   .td-panel > .td-panel-content::-webkit-scrollbar-track {
-    background: var(--td-panel-shadow);
-    border-radius: 4px;
+    @include td.webkit-scrollbar-track;
   }
   .td-panel > .td-panel-content::-webkit-scrollbar-thumb {
-    background: var(--td-frame-mid);
-    border-radius: 4px;
-    border: 1px solid var(--td-panel-shadow);
+    @include td.webkit-scrollbar-thumb;
   }
   .td-panel > .td-panel-content::-webkit-scrollbar-thumb:hover {
-    background: var(--td-frame-light);
+    @include td.webkit-scrollbar-thumb-hover;
   }
 }
 

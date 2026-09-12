@@ -1,0 +1,72 @@
+<div class="matrix-dialog">
+  <div class="dialog-header">
+    <td-icon class="header-icon" name="shield" [size]="18"></td-icon>
+    <div class="header-text">
+      <h2 [id]="titleId">Damage vs Armor</h2>
+      <p class="header-note" [id]="descId">Multiplier on every hit</p>
+    </div>
+  </div>
+
+  <div class="dialog-content" tabindex="0" role="region" aria-label="Damage multipliers">
+    <table class="matrix" [attr.aria-labelledby]="titleId">
+      <colgroup>
+        <col class="col-tower">
+        @for (col of columns; track col.armor) {
+          <col>
+        }
+      </colgroup>
+      <thead>
+        <tr>
+          <th scope="col" class="corner">Tower</th>
+          @for (col of columns; track col.armor) {
+            <th scope="col">{{ col.label }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="examples">
+          <th scope="row">Enemies</th>
+          @for (col of columns; track col.armor) {
+            <td>{{ col.examples.join(', ') }}</td>
+          }
+        </tr>
+        @for (row of rows(); track row.towerId) {
+          <tr class="tower-row"
+              [class.current]="row.towerId === highlightId"
+              [attr.aria-current]="row.towerId === highlightId ? 'true' : null">
+            <th scope="row" [style.--damage-color]="row.damageColor">
+              <span class="tower-name">{{ row.name }}</span>
+              <span class="damage-type">{{ row.damageLabel }}</span>
+            </th>
+            @for (cell of row.cells; track cell.armor) {
+              <td class="cell" [attr.data-eff]="cell.effectiveness" [style.--tier-color]="cell.color">
+                <span class="value">{{ cell.text }}</span><span class="sr-only"> {{ cell.tierLabel }}</span>
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+    @if (hasLockedTowers()) {
+      <p class="locked-hint">
+        <td-icon name="lock" [size]="12"></td-icon>
+        More towers unlock through research.
+      </p>
+    }
+  </div>
+
+  <div class="dialog-actions">
+    <ul class="legend" aria-label="Tiers">
+      @for (entry of legend; track entry.effectiveness) {
+        <li>
+          <span class="swatch" [style.--tier-color]="entry.color"></span>
+          <span>{{ entry.label }}</span>
+          @if (entry.range) {
+            <span class="legend-range">{{ entry.range }}</span>
+          }
+        </li>
+      }
+    </ul>
+    <button class="close-btn" (click)="close()">Close</button>
+  </div>
+</div>
