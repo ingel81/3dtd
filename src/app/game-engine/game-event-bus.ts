@@ -181,11 +181,6 @@ export type GameEvent =
       skipGroundDecal?: boolean;
     }
   | {
-      type: 'vfx:explosion';
-      position: Vector3;
-      radius: number;
-    }
-  | {
       type: 'vfx:projectile-impact';
       lat: number;
       lon: number;

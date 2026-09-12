@@ -403,7 +403,6 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 
 - `vfx:blood` → `spawnBloodSplatter` + optional `spawnBloodDecal`
   (Decal-Groesse haengt von `intensity` ab: ≥30 → 2.0, ≥10 → 0.8, sonst 0)
-- `vfx:explosion` → `spawnExplosionAtGeo`
 - `vfx:projectile-impact` → wahlweise rocket/cannon/bullet/poison/small/none
   Preset (`EXPLOSION_PRESETS`); `arcane-orb` bekommt statt der Feuer-Atlas-Explosion
   den violett-cyanfarbenen Burst (`spawnArcaneBurstAtGeo`, Preset `arcane`)

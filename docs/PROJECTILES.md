@@ -185,7 +185,8 @@ Implementiert in `three-effects.renderer.ts`, gesteuert ueber `vfx.service.ts` (
 
 ### Projektil-Impact-Effekte
 - Rockets: Grosse Explosion (50 Partikel)
-- Cannonball: Mittlere Explosion (35 Partikel)
+- Cannonball: Mittlere Explosion (50 Partikel, eine Explosion pro Einschlag; bis 2026-09-12
+  kamen über ein zweites Splash-Event 30 Partikel einen Meter tiefer dazu)
 - Bullet: Minimaler Impact (2 Partikel)
 - Poison: Kleiner Impact (6 Partikel)
 - Arcane Orb (Magic): Violett-cyanfarbener Funken-Burst (14 runde Partikel, `spawnArcaneBurstAtGeo`, gleiche Bewegung wie der Ice-Burst, keine Feuer-Atlas-Explosion)

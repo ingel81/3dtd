@@ -789,7 +789,7 @@ class GameEventBus {
 | Wave | `wave:started`, `wave:completed` (mit `perfect`, `closeCall`, `hpLost`) |
 | Game | `game:started`, `game:over`, `game:reset`, `health:changed`, `credits:changed` |
 | Research | `research:started`, `research:completed`, `research:cancelled` |
-| Effects | `vfx:blood`, `vfx:explosion`, `vfx:projectile-impact`, `vfx:muzzle-flash`, `audio:play` |
+| Effects | `vfx:blood`, `vfx:projectile-impact`, `vfx:muzzle-flash`, `audio:play` |
 | Debug | `debug:sound`, `debug:spawn-enemy`, `debug:kill-all`, `debug:start-custom-wave`, `debug:complete-all-research`, `debug:max-upgrade-all-towers` |
 | Commands | `command:place-tower`, `command:sell-tower`, `command:upgrade-tower`, `command:start-wave`, `command:restart-game`, `command:start-research`, `command:cancel-research` |
 

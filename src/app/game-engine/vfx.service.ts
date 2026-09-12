@@ -38,11 +38,6 @@ export class VFXService {
       this.handleBloodEffect(event.position, event.intensity, event.skipGroundDecal);
     }));
 
-    // Generic explosions
-    this.subs.add(this.eventBus.on('vfx:explosion', (event) => {
-      this.handleExplosionEffect(event.position, event.radius);
-    }));
-
     // Muzzle flash on tower fire (projectile towers only)
     this.subs.add(this.eventBus.on('vfx:muzzle-flash', (event) => {
       this.handleMuzzleFlash(event.towerId, event.towerTypeId);
@@ -93,12 +88,6 @@ export class VFXService {
         this.tilesEngine.effects.spawnBloodDecal(lat, lon, decalHeight, decalSize);
       }
     }
-  }
-
-  private handleExplosionEffect(position: Vector3, radius: number): void {
-    const { lat, lon, height } = this.tilesEngine.sync.localToGeo(position);
-    const count = Math.max(10, Math.round(radius));
-    this.tilesEngine.effects.spawnExplosionAtGeo(lat, lon, height, count);
   }
 
   private getBloodDecalSize(intensity: number): number {

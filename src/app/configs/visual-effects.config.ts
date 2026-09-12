@@ -49,7 +49,10 @@ export const FIRE_INTENSITY = {
 /** Explosion presets for different projectile types */
 export const EXPLOSION_PRESETS = {
   rocket:   { particles: 50,  radius: 8 },
-  cannon:   { particles: 35,  radius: 6 },
+  // Until 2026-09-12 a cannon hit spawned two explosions, 35 particles from
+  // the impact event and 30 more from a second splash event one metre lower.
+  // One explosion now, with most of the second one's particles folded in.
+  cannon:   { particles: 50,  radius: 6 },
   hq:       { particles: 150, radius: 15 },
   small:    { particles: 8,   radius: 3 },
   bullet:   { particles: 2,   radius: 1 },

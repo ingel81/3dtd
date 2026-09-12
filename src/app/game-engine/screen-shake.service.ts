@@ -18,8 +18,6 @@ const SHAKE_PRESETS = {
   hqDamage:  { intensity: 1.2,  duration: 300 },
   /** Boss death - massive screen shake */
   bossDeath: { intensity: 2.0,  duration: 400 },
-  /** Generic explosion - scales with radius */
-  explosion: { intensity: 0.5,  duration: 200 },
 } as const;
 
 const STORAGE_KEY = 'td_screen_shake_enabled';
@@ -92,16 +90,6 @@ export class ScreenShakeService {
         if (preset) {
           this.shake(preset.intensity, preset.duration);
         }
-      }),
-    );
-
-    // Generic explosion → shake scales with radius
-    this.subs.add(
-      this.eventBus.on('vfx:explosion', (event) => {
-        // Scale intensity linearly with radius, clamped
-        const radiusFactor = Math.min(event.radius / 10, 2.0);
-        const intensity = SHAKE_PRESETS.explosion.intensity * radiusFactor;
-        this.shake(intensity, SHAKE_PRESETS.explosion.duration);
       }),
     );
 
