@@ -2,8 +2,7 @@ import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from './game-event-bus';
 import { ThreeTilesEngine } from '../three-engine';
 import { SCREEN_SHAKE_CONFIG, type ScreenShakePreset } from '../configs/visual-effects.config';
-
-const STORAGE_KEY = 'td_screen_shake_enabled';
+import { loadDisplayOptions } from '../utils/display-options.storage';
 
 /**
  * Share of full strength an impact keeps at `distance` metres from the
@@ -24,8 +23,9 @@ export function shakeFalloff(distance: number, near: number, far: number): numbe
  *   cannon < rocket impacts, only near the camera
  *   HQ damage and boss deaths, wherever they happen
  *
- * Toggleable via enable()/disable(), persisted in localStorage
- * so motion-sensitive players can disable it permanently.
+ * Toggleable via enable()/disable() for motion-sensitive players. The
+ * choice lives in the display options (DebugFacadeService persists it);
+ * the service starts from it, a new game state included.
  */
 export class ScreenShakeService {
   private readonly subs = new SubscriptionBag();
@@ -36,8 +36,7 @@ export class ScreenShakeService {
     private readonly eventBus: GameEventBus,
     private readonly engine: ThreeTilesEngine,
   ) {
-    // Load preference from localStorage (default: enabled, overridden by applyDisplayOptions)
-    this._enabled = this.loadPreference();
+    this._enabled = loadDisplayOptions().screenShake !== false;
     this.setupEventHandlers();
   }
 
@@ -53,22 +52,16 @@ export class ScreenShakeService {
   /** Enable screen shake */
   enable(): void {
     this._enabled = true;
-    this.savePreference(true);
   }
 
   /** Disable screen shake (for motion-sensitive players) */
   disable(): void {
     this._enabled = false;
-    this.savePreference(false);
   }
 
   /** Toggle screen shake on/off */
   toggle(): boolean {
-    if (this._enabled) {
-      this.disable();
-    } else {
-      this.enable();
-    }
+    this._enabled = !this._enabled;
     return this._enabled;
   }
 
@@ -144,27 +137,6 @@ export class ScreenShakeService {
   private shake(amplitude: number, duration: number): void {
     if (!this._enabled) return;
     this.engine.triggerScreenShake(amplitude, duration);
-  }
-
-  // ========================================
-  // PERSISTENCE
-  // ========================================
-
-  private loadPreference(): boolean {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored !== null ? stored === 'true' : true; // Default: enabled
-    } catch {
-      return true;
-    }
-  }
-
-  private savePreference(enabled: boolean): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(enabled));
-    } catch {
-      /* ignore */
-    }
   }
 
   // ========================================

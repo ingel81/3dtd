@@ -4,10 +4,16 @@ import { EnemyDebugService } from './enemy-debug.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { CombatEffectService } from '../combat/combat-effect.service';
 import { GameStateManager } from '../../managers/game-state.manager';
+import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-options.storage';
 
 /** Frame caps the player can pick, in fps. 0 = unlimited. */
 export const FPS_LIMITS = [0, 60, 30] as const;
 export type FpsLimit = (typeof FPS_LIMITS)[number];
+
+/** A stored frame cap; anything the menu does not offer means unlimited. */
+function toFpsLimit(value: unknown): FpsLimit {
+  return (FPS_LIMITS as readonly unknown[]).includes(value) ? (value as FpsLimit) : 0;
+}
 
 /**
  * DebugFacadeService
@@ -19,8 +25,8 @@ export type FpsLimit = (typeof FPS_LIMITS)[number];
  * - MarkerVisualizationService: height debug marker visualization
  * - GameStateManager: game state cheats (credits, health)
  *
- * Also manages display option persistence (localStorage) and
- * engine-level display toggles (enemies, health bars, animations, movement).
+ * Also owns the display options (persisted in one object, see
+ * utils/display-options.storage) and applies them to the engine.
  */
 @Injectable({ providedIn: 'root' })
 export class DebugFacadeService {
@@ -29,25 +35,18 @@ export class DebugFacadeService {
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly combatEffect = inject(CombatEffectService);
 
-  /** LocalStorage key for display options */
-  private static readonly DISPLAY_OPTIONS_KEY = 'td_display_options';
-
-  /**
-   * LocalStorage key for the frame cap. Its own key, because
-   * DisplayOptionsComponent rewrites the display options object wholesale.
-   * The name predates this service; the engine used to persist it.
-   */
-  private static readonly FPS_LIMIT_KEY = '3dtd-fps-limit';
+  /** Display options as stored at startup; the shared signals below start from them. */
+  private readonly stored = loadDisplayOptions();
 
   // ========================================
   // Shared display option signals (single source of truth for UI sync)
   // Both QuickActions and DisplayOptions read from these.
   // ========================================
-  readonly healthBarsVisible = signal(true);
-  readonly screenShakeEnabled = signal(true);
-  readonly damageNumbersVisible = signal(true);
+  readonly healthBarsVisible = signal(this.stored.healthBars !== false);
+  readonly screenShakeEnabled = signal(this.stored.screenShake !== false);
+  readonly damageNumbersVisible = signal(this.stored.damageNumbers !== false);
   /** Render-loop frame cap, see ThreeTilesEngine.setFpsLimit. */
-  readonly fpsLimit = signal<FpsLimit>(DebugFacadeService.loadFpsLimit());
+  readonly fpsLimit = signal<FpsLimit>(toFpsLimit(this.stored.fpsLimit));
 
   // ========================================
   // Proxy signals from UIStore
@@ -163,7 +162,7 @@ export class DebugFacadeService {
    */
   onEnemiesToggled(visible: boolean): void {
     this.engine?.enemies.setEnemiesVisible(visible);
-    this.persistDisplayOption('enemies', visible);
+    persistDisplayOptions({ enemies: visible });
   }
 
   /**
@@ -172,7 +171,7 @@ export class DebugFacadeService {
   onHealthBarsToggled(visible: boolean): void {
     this.healthBarsVisible.set(visible);
     this.engine?.enemies.setHealthBarsVisible(visible);
-    this.persistDisplayOption('healthBars', visible);
+    persistDisplayOptions({ healthBars: visible });
   }
 
   /**
@@ -180,7 +179,7 @@ export class DebugFacadeService {
    */
   onAnimationsToggled(enabled: boolean): void {
     this.engine?.enemies.setAnimationsEnabled(enabled);
-    this.persistDisplayOption('animations', enabled);
+    persistDisplayOptions({ animations: enabled });
   }
 
   /**
@@ -190,7 +189,7 @@ export class DebugFacadeService {
     if (this.gameState) {
       this.gameState.enemyManager.movementEnabled = enabled;
     }
-    this.persistDisplayOption('movement', enabled);
+    persistDisplayOptions({ movement: enabled });
   }
 
   /**
@@ -198,7 +197,7 @@ export class DebugFacadeService {
    */
   onTexturesToggled(enabled: boolean): void {
     this.engine?.enemies.setTexturesEnabled(enabled);
-    this.persistDisplayOption('textures', enabled);
+    persistDisplayOptions({ textures: enabled });
   }
 
   /**
@@ -206,7 +205,7 @@ export class DebugFacadeService {
    */
   onSkeletonCloningToggled(enabled: boolean): void {
     this.engine?.enemies.setSkeletonCloningEnabled(enabled);
-    this.persistDisplayOption('skeletonCloning', enabled);
+    persistDisplayOptions({ skeletonCloning: enabled });
   }
 
   /**
@@ -214,7 +213,7 @@ export class DebugFacadeService {
    */
   onAlphaBlendToggled(enabled: boolean): void {
     this.engine?.enemies.setAlphaBlendEnabled(enabled);
-    this.persistDisplayOption('alphaBlend', enabled);
+    persistDisplayOptions({ alphaBlend: enabled });
   }
 
   /**
@@ -230,7 +229,7 @@ export class DebugFacadeService {
   onDamageNumbersToggled(visible: boolean): void {
     this.damageNumbersVisible.set(visible);
     this.combatEffect.damageNumbersEnabled = visible;
-    this.persistDisplayOption('damageNumbers', visible);
+    persistDisplayOptions({ damageNumbers: visible });
   }
 
   /**
@@ -245,7 +244,7 @@ export class DebugFacadeService {
         this.gameState.screenShakeService.disable();
       }
     }
-    this.persistDisplayOption('screenShake', enabled);
+    persistDisplayOptions({ screenShake: enabled });
   }
 
   /**
@@ -262,19 +261,7 @@ export class DebugFacadeService {
   onFpsLimitChanged(fps: FpsLimit): void {
     this.fpsLimit.set(fps);
     this.engine?.setFpsLimit(fps);
-    try {
-      localStorage.setItem(DebugFacadeService.FPS_LIMIT_KEY, String(fps));
-    } catch { /* ignore */ }
-  }
-
-  /** Stored frame cap; anything unknown or unreadable means unlimited. */
-  private static loadFpsLimit(): FpsLimit {
-    try {
-      const stored = Number(localStorage.getItem(DebugFacadeService.FPS_LIMIT_KEY));
-      return (FPS_LIMITS as readonly number[]).includes(stored) ? (stored as FpsLimit) : 0;
-    } catch {
-      return 0;
-    }
+    persistDisplayOptions({ fpsLimit: fps });
   }
 
   // ========================================
@@ -282,52 +269,28 @@ export class DebugFacadeService {
   // ========================================
 
   /**
-   * Apply saved display options from localStorage.
+   * Apply the display options to the engine and the game state.
    * Called after engine initialization to restore user preferences.
    */
   applyDisplayOptions(): void {
     this.engine?.setFpsLimit(this.fpsLimit());
-    try {
-      const stored = localStorage.getItem(DebugFacadeService.DISPLAY_OPTIONS_KEY);
-      if (stored) {
-        const opts = JSON.parse(stored);
-        if (opts.enemies === false) this.engine?.enemies.setEnemiesVisible(false);
-        if (opts.healthBars === false) {
-          this.healthBarsVisible.set(false);
-          this.engine?.enemies.setHealthBarsVisible(false);
-        }
-        if (opts.animations === false) this.engine?.enemies.setAnimationsEnabled(false);
-        if (opts.movement === false && this.gameState) {
-          this.gameState.enemyManager.movementEnabled = false;
-        }
-        if (opts.textures === false) this.engine?.enemies.setTexturesEnabled(false);
-        if (opts.skeletonCloning === false) this.engine?.enemies.setSkeletonCloningEnabled(false);
-        if (opts.alphaBlend === false) this.engine?.enemies.setAlphaBlendEnabled(false);
-        if (opts.colorGrading && opts.colorGrading !== 'none') {
-          this.engine?.setColorGradingPreset(opts.colorGrading);
-        }
-        if (opts.screenShake === false) {
-          this.screenShakeEnabled.set(false);
-          if (this.gameState) this.gameState.screenShakeService.disable();
-        }
-        if (opts.damageNumbers === false) {
-          this.damageNumbersVisible.set(false);
-          this.combatEffect.damageNumbersEnabled = false;
-        }
-      }
-    } catch { /* ignore corrupt localStorage */ }
-  }
+    if (!this.healthBarsVisible()) this.engine?.enemies.setHealthBarsVisible(false);
+    if (!this.damageNumbersVisible()) this.combatEffect.damageNumbersEnabled = false;
+    if (!this.screenShakeEnabled()) this.gameState?.screenShakeService.disable();
 
-  /**
-   * Persist a single display option to localStorage
-   */
-  persistDisplayOption(key: string, value: boolean): void {
-    try {
-      const stored = localStorage.getItem(DebugFacadeService.DISPLAY_OPTIONS_KEY);
-      const opts = stored ? JSON.parse(stored) : {};
-      opts[key] = value;
-      localStorage.setItem(DebugFacadeService.DISPLAY_OPTIONS_KEY, JSON.stringify(opts));
-    } catch { /* ignore */ }
+    // Debug window options, not held in signals here
+    const opts = loadDisplayOptions();
+    if (opts.enemies === false) this.engine?.enemies.setEnemiesVisible(false);
+    if (opts.animations === false) this.engine?.enemies.setAnimationsEnabled(false);
+    if (opts.movement === false && this.gameState) {
+      this.gameState.enemyManager.movementEnabled = false;
+    }
+    if (opts.textures === false) this.engine?.enemies.setTexturesEnabled(false);
+    if (opts.skeletonCloning === false) this.engine?.enemies.setSkeletonCloningEnabled(false);
+    if (opts.alphaBlend === false) this.engine?.enemies.setAlphaBlendEnabled(false);
+    if (opts.colorGrading && opts.colorGrading !== 'none') {
+      this.engine?.setColorGradingPreset(opts.colorGrading);
+    }
   }
 
   // ========================================

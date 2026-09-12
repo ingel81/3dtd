@@ -1142,7 +1142,9 @@ function onEngineUpdate(deltaTime: number) {
 ```
 
 **Frame-Cap (60 / 30 / unbegrenzt):** Spieler-Einstellung im Display-Menü der
-Quick-Actions, persistiert von `DebugFacadeService` unter `3dtd-fps-limit`.
+Quick-Actions, persistiert von `DebugFacadeService` als `fpsLimit` in
+`td_display_options` (`utils/display-options.storage.ts`; bis 2026-09-12 unter
+eigenem Schlüssel `3dtd-fps-limit`, der beim Laden übernommen wird).
 `ThreeTilesEngine.setFpsLimit()` gibt sie an einen `FramePacer`
 (`utils/frame-pacer.ts`), der zu frühe rAF-Callbacks komplett überspringt,
 Update eingeschlossen. Der Anker rückt pro gelaufenem Frame um genau ein
