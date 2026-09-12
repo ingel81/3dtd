@@ -13,7 +13,7 @@ import { StreetNetwork, StreetNode } from '../location/osm-street.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { raycastStats } from '../../utils/raycast-stats';
-import { PathAndRouteService } from './path-route.service';
+import { smoothPathHeights } from '../../utils/route-height-smoothing';
 import { GeoPosition } from '../../models/game.types';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { UIStore } from '../../store/ui.store';
@@ -54,7 +54,6 @@ interface PreparedNode {
 @Injectable({ providedIn: 'root' })
 export class StreetRenderingService {
   private readonly markerViz = inject(MarkerVisualizationService);
-  private readonly pathRoute = inject(PathAndRouteService);
   private readonly devWorld = inject(DevWorldService);
   private readonly uiStore = inject(UIStore);
 
@@ -274,7 +273,7 @@ export class StreetRenderingService {
 
       // Find street type for smoothing
       const street = s.streets[streetIdx];
-      const smoothedPoints = this.pathRoute.smoothPathHeights(points, street?.type);
+      const smoothedPoints = smoothPathHeights(points, street?.type);
 
       for (let i = 0; i < smoothedPoints.length - 1; i++) {
         const p1 = smoothedPoints[i];
