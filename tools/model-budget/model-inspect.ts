@@ -319,7 +319,8 @@ function inspectGltf(gltf: GltfJson, bin: Buffer | null, baseDir: string): Inspe
   const accessorMax = (index: number): number => {
     const accessor = accessors[index];
     if (!accessor) return 0;
-    if (accessor.max?.length) return accessor.max[0];
+    // GLTFLoader reads key times as float32; the JSON may carry the exact double.
+    if (accessor.max?.length) return Math.fround(accessor.max[0]);
     if (accessor.componentType !== GL_FLOAT || accessor.bufferView === undefined) return 0;
     const bytes = bufferViewBytes(accessor.bufferView);
     if (!bytes) return 0;
@@ -613,7 +614,8 @@ function inspectFbx(buf: Buffer): Inspected {
         }
       }
     }
-    clips.push({ name: fbxName(stack.props[1]), duration: lastTick / FBX_TICKS_PER_SECOND, channels, keyframes });
+    // FBXLoader keeps key times in a Float32Array, so the clip lasts the float32 of this.
+    clips.push({ name: fbxName(stack.props[1]), duration: Math.fround(lastTick / FBX_TICKS_PER_SECOND), channels, keyframes });
   }
 
   const images = objects

@@ -254,8 +254,8 @@ Gegner der größten Welle gleichzeitig leben.
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 31.342 | 30.887 | 6,3 | Skinning | 211 | 8192×844 | 105,5 | 1024² |
 | Herbert (`herbert`) | Elite/Boss | 3 | 30.831 | 31.949 | 0,1 | Skinning | 32 | 8192×128 | 16,0 | 512² |
 | Wraith (`wraith`) | Normal | 300 | 30.228 | 39.986 | 9,1 | Skinning | 15 | 8192×60 | 7,5 | 1024² |
-| Wallsmasher (`wallsmasher`) | Normal | 200 | 17.010 | 5.670 | 3,4 | Skinning | 103 | 8192×309 | 38,6 | – |
-| Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 172 | 8192×344 | 43,0 | 2048² |
+| Wallsmasher (`wallsmasher`) | Normal | 200 | 17.010 | 5.670 | 3,4 | Skinning | 105 | 8192×315 | 39,4 | – |
+| Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 171 | 8192×342 | 42,8 | 2048² |
 | Spider (`spider`) | Swarm | 800 | 13.173 | 21.128 | 10,5 | Skinning | 25 | 8192×50 | 6,3 | 512² |
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.267 | 19.542 | 0,7 | Skinning | 394 | 8192×788 | 98,5 | 1024² |
 | Mammoth (`mammoth`) | Normal | 150 | 5.541 | 8.685 | 0,8 | Skinning | 322 | 5541×322 | 27,2 | 1024² |
@@ -269,7 +269,7 @@ Gegner der größten Welle gleichzeitig leben.
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | 2,6 | 1024² |
 | Skeleton (`skeleton`) | Swarm | 1.500 | 1.156 | 658 | 1,7 | Objekt-Anim. | 26 | 1156×26 | 0,5 | 512² |
 
-VAT-Speicher aller Typen zusammen: **486,1 MB** (RGBA32F, 30 fps).
+VAT-Speicher aller Typen zusammen: **486,6 MB** (RGBA32F, 30 fps).
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **26,4 MB** dazu.
 
 ### Modellinhalt
@@ -315,10 +315,10 @@ die weggelassenen Frames.
 | Zombie v2 | `dying_backwards` | death | 2,21 | 61 | 6 |
 | Herbert | `Armature\|walking_man\|baselayer` | walk | 1,04 | 32 | – |
 | Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
-| Wallsmasher | `CharacterArmature\|Walk` | walk | 1,33 | 40 | – |
-| Wallsmasher | `CharacterArmature\|Run` | run | 0,80 | 24 | – |
+| Wallsmasher | `CharacterArmature\|Walk` | walk | 1,33 | 41 | – |
+| Wallsmasher | `CharacterArmature\|Run` | run | 0,80 | 25 | – |
 | Wallsmasher | `CharacterArmature\|Death` | death | 1,30 | 39 | – |
-| Stone Golem | `Casual_Walk` | walk | 4,17 | 126 | – |
+| Stone Golem | `Casual_Walk` | walk | 4,17 | 125 | – |
 | Stone Golem | `dying_backwards` | death | 2,21 | 46 | 21 |
 | Spider | `Armature\|Walk-Cycle-Basic` | walk | 0,83 | 25 | – |
 | Dragon | `flying` | walk | 13,13 | 394 | – |
