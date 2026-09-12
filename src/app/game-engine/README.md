@@ -63,7 +63,7 @@ src/app/game-engine/
 | VFXService | Subscriber: `vfx:*`, `projectile:hit` |
 | AudioService | Subscriber: `audio:play` |
 | BackgroundMusicService | Phasen-getriggerter Track-Wechsel mit Crossfade |
-| ScreenShakeService | Subscriber: VFX-Impact-Events |
+| ScreenShakeService | Subscriber: `vfx:projectile-impact` (nur nahe Einschläge), `health:changed`, `enemy:died` (Boss) |
 | ProjectileManager | Producer: `projectile:hit`, `vfx:*`, `audio:play` |
 | EnemyManager | Producer: `enemy:died`, `enemy:reached-base`, `dot:damage` |
 | WaveManager | Producer: `wave:started`, `wave:completed` |

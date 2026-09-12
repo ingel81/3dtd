@@ -25,6 +25,7 @@ import {
   AxesHelper,
   Material,
   MathUtils,
+  Matrix4,
 } from 'three';
 import { TilesRenderer, type GlobeControls } from '3d-tiles-renderer';
 import {
@@ -69,6 +70,9 @@ import { RouteCorridorRegion } from './route-corridor-region';
 import { warmUpScene } from './scene-warmup';
 import { logTileMaterialTypes } from './tile-material-log';
 import { instrumentRaycasts, raycastStats } from '../utils/raycast-stats';
+import { ScreenShake, offsetProjection } from './screen-shake';
+import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
+import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import type { GeoPosition } from '../models/game.types';
 
 /**
@@ -254,10 +258,14 @@ export class ThreeTilesEngine {
   private lastTilesUpdateCameraPos = new Vector3();
   private readonly TILES_UPDATE_THRESHOLD = 5; // meters
 
-  // Screen shake system
-  private shakeIntensity = 0;
-  private shakeDecay = 0;
-  private shakeOffset = new Vector3();
+  // Screen shake: a screen-space offset of the projection matrix, applied
+  // only while a frame is drawn (drawFrame), never seen by the tiles update
+  // or by raycasts between frames
+  private readonly screenShake = new ScreenShake();
+  private readonly unshakenProjection = new Matrix4();
+  private readonly unshakenProjectionInverse = new Matrix4();
+  /** Running __perf.shakeBench() measurement, null otherwise */
+  private shakeBench: ShakeBenchmark | null = null;
 
   // Callback for per-frame updates (animations)
   private onUpdateCallback: ((deltaTime: number) => void) | null = null;
@@ -426,16 +434,33 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Trigger camera screen shake (e.g., on explosion)
-   * @param intensity - Shake strength in meters (default 0.5)
-   * @param duration - Duration in ms (default 200)
+   * Trigger screen shake (e.g. on explosion). Max-wins: a weaker shake is
+   * dropped while a stronger one still runs.
+   * @param amplitude - Peak offset as a share of the view height (0.005 = about 5 px at 1080p)
+   * @param duration - ms until the offset is back to 0, falling linearly
    */
-  triggerScreenShake(intensity = 0.5, duration = 200): void {
-    // Max-wins: only override if new shake is stronger than current
-    if (intensity > this.shakeIntensity) {
-      this.shakeIntensity = intensity;
-      this.shakeDecay = intensity / (duration / 16.67); // Decay per frame at ~60fps
+  triggerScreenShake(amplitude: number, duration: number): void {
+    this.screenShake.trigger(amplitude, duration, performance.now());
+  }
+
+  /**
+   * Measure what the screen shake costs per frame (`__perf.shakeBench()`).
+   * Three phases of `seconds` each: no shake; the shake running the whole
+   * time (rocket strength, even when shake is off in the display options);
+   * the camera moved every frame the way the shake did before 2026-09-12.
+   * Keep the camera still while it runs. Resolves with one row per phase.
+   */
+  runShakeBenchmark(seconds = 5): Promise<ShakeBenchResult[]> {
+    if (this.devTerrainProvider) {
+      return Promise.reject(new Error('The shake benchmark measures the 3D tiles; DevWorld has none'));
     }
+    if (!this.shakeBench) {
+      const { amplitude } = SCREEN_SHAKE_CONFIG.presets.rocket;
+      this.shakeBench = new ShakeBenchmark(seconds * 1000, performance.now(), (now) =>
+        this.screenShake.trigger(amplitude, 100, now)
+      );
+    }
+    return this.shakeBench.done;
   }
 
   setTimescale(scale: number): void {
@@ -1422,12 +1447,9 @@ export class ThreeTilesEngine {
       // Position overlayGroup at terrain base height (no tiles movement in DevWorld)
       this.overlayGroup.position.y = 0;
 
-      // Render scene (use composer if any post-processing is active)
-      if (this.postProcessing?.needsRender()) {
-        this.postProcessing.render();
-      } else {
-        this.renderer.render(this.scene, this.camera);
-      }
+      // Render scene, shaken if a screen shake runs. drawFrame() has put the
+      // unshaken projection back before any frame waiter is released.
+      this.drawFrame();
       this.notifyFrameRendered();
 
       // Update FPS
@@ -1437,6 +1459,13 @@ export class ThreeTilesEngine {
 
     // Normal tiles render path
     if (!this.tilesRenderer) return;
+
+    // Shake benchmark (__perf.shakeBench): its camera-move phase moves the
+    // camera, so it starts before controls and tiles see it
+    let bench = this.shakeBench;
+    if (bench && !bench.beginFrame(performance.now(), this.camera)) {
+      bench = this.shakeBench = null;
+    }
 
     // Update controls
     this.cameraRig.update();
@@ -1456,7 +1485,10 @@ export class ThreeTilesEngine {
     this.camera.updateMatrixWorld();
 
     // UpdateOnChangePlugin skips the traversal while camera and tiles are unchanged.
+    const traversalsBefore = bench ? this.tilesTraversalCount() : 0;
+    const tilesStart = bench ? performance.now() : 0;
     this.tilesRenderer.update();
+    const tilesMs = bench ? performance.now() - tilesStart : 0;
 
     // Capture initial tiles position only when tiles have loaded (position is non-zero)
     if (!this.tilesPosInitialized) {
@@ -1479,16 +1511,63 @@ export class ThreeTilesEngine {
       this.overlayGroup.position.copy(deltaPos);
     }
 
-    // Render scene (use composer if any post-processing is active)
-    if (this.postProcessing?.needsRender()) {
-      this.postProcessing.render();
-    } else {
-      this.renderer.render(this.scene, this.camera);
-    }
+    // Render scene, shaken if a screen shake runs
+    this.drawFrame();
+
+    // Put a benchmark-moved camera back, then release the frame waiters
+    // (warm-up): they only ever see the still camera and projection.
+    bench?.endFrame(performance.now(), this.camera, tilesMs, this.tilesTraversalCount() !== traversalsBefore);
     this.notifyFrameRendered();
 
     // Update FPS
     this.updateFPS();
+  }
+
+  /**
+   * Draw the scene (through the composer if any post-processing is active),
+   * shaken if a screen shake runs.
+   *
+   * The shake offsets the projection matrix in screen space for this draw
+   * only and puts the exact matrices back afterwards, so the tiles update
+   * before it and every raycast between frames see the still camera. Until
+   * 2026-09-12 the shake moved camera.position instead: UpdateOnChangePlugin
+   * compares the view-projection matrix exactly, so every shaken frame ran
+   * the full tile traversal, and tower placement raycast from a shaking
+   * camera.
+   */
+  private drawFrame(): void {
+    const amplitude = this.screenShake.amplitudeAt(performance.now());
+    const camera = this.camera;
+    if (amplitude > 0) {
+      this.unshakenProjection.copy(camera.projectionMatrix);
+      this.unshakenProjectionInverse.copy(camera.projectionMatrixInverse);
+      // amplitude is a share of the view height; NDC spans 2 over the height
+      // and over the width, so X is divided by the aspect for equal pixels
+      const ndcY = (Math.random() * 2 - 1) * amplitude * 2;
+      const ndcX = ((Math.random() * 2 - 1) * amplitude * 2) / camera.aspect;
+      offsetProjection(camera.projectionMatrix, ndcX, ndcY);
+      camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    }
+
+    if (this.postProcessing?.needsRender()) {
+      this.postProcessing.render();
+    } else {
+      this.renderer.render(this.scene, camera);
+    }
+
+    if (amplitude > 0) {
+      camera.projectionMatrix.copy(this.unshakenProjection);
+      camera.projectionMatrixInverse.copy(this.unshakenProjectionInverse);
+    }
+  }
+
+  /**
+   * Traversals the tiles renderer has run. TilesRendererBase bumps its
+   * (untyped) frameCount once per traversal and not when
+   * UpdateOnChangePlugin skips one. Only the shake benchmark reads it.
+   */
+  private tilesTraversalCount(): number {
+    return (this.tilesRenderer as unknown as { frameCount?: number } | null)?.frameCount ?? 0;
   }
 
   /**
@@ -1548,22 +1627,7 @@ export class ThreeTilesEngine {
       this.testCube.rotation.y += deltaTime * 0.001;
     }
 
-    // Screen shake (XZ plane only, no vertical shake to avoid nausea)
-    // Always remove previous frame's offset first, then apply new one
-    if (this.shakeOffset.lengthSq() > 0) {
-      this.camera.position.sub(this.shakeOffset);
-    }
-    if (this.shakeIntensity > 0) {
-      this.shakeOffset.set(
-        (Math.random() - 0.5) * 2 * this.shakeIntensity,
-        0,
-        (Math.random() - 0.5) * 2 * this.shakeIntensity
-      );
-      this.camera.position.add(this.shakeOffset);
-      this.shakeIntensity = Math.max(0, this.shakeIntensity - this.shakeDecay);
-    } else {
-      this.shakeOffset.set(0, 0, 0);
-    }
+    // Screen shake is applied in render() (drawFrame), not to the camera
   }
 
   /**

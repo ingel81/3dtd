@@ -1,41 +1,35 @@
+import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from './game-event-bus';
 import { ThreeTilesEngine } from '../three-engine';
-
-/**
- * Screen Shake Intensity Presets
- *
- * Defines shake strength (meters of camera offset) and duration
- * for different explosion/impact types.
- */
-const SHAKE_PRESETS = {
-  /** Bullet impact - barely noticeable */
-  bullet:    { intensity: 0.1,  duration: 80 },
-  /** Cannon impact - moderate punch */
-  cannon:    { intensity: 0.4,  duration: 150 },
-  /** Rocket/homing explosion - heavy shake */
-  rocket:    { intensity: 0.8,  duration: 200 },
-  /** HQ taking damage - dramatic rumble */
-  hqDamage:  { intensity: 1.2,  duration: 300 },
-  /** Boss death - massive screen shake */
-  bossDeath: { intensity: 2.0,  duration: 400 },
-} as const;
+import { SCREEN_SHAKE_CONFIG, type ScreenShakePreset } from '../configs/visual-effects.config';
 
 const STORAGE_KEY = 'td_screen_shake_enabled';
 
 /**
+ * Share of full strength an impact keeps at `distance` metres from the
+ * camera: 1 up to `near`, then linearly down to 0 at `far`.
+ */
+export function shakeFalloff(distance: number, near: number, far: number): number {
+  if (distance <= near) return 1;
+  if (distance >= far) return 0;
+  return (far - distance) / (far - near);
+}
+
+/**
  * ScreenShakeService
  *
- * Listens to explosion/impact events on the EventBus and triggers
- * camera screen shake via ThreeTilesEngine.triggerScreenShake().
+ * Listens to impact and game events on the EventBus and triggers the
+ * screen shake via ThreeTilesEngine.triggerScreenShake(). Presets and
+ * distances live in SCREEN_SHAKE_CONFIG:
+ *   cannon < rocket impacts, only near the camera
+ *   HQ damage and boss deaths, wherever they happen
  *
- * Shake intensity scales with explosion type:
- *   bullet < cannon < rocket < HQ damage < boss death
- *
- * Toggleable via enable()/disable() — persisted in localStorage
+ * Toggleable via enable()/disable(), persisted in localStorage
  * so motion-sensitive players can disable it permanently.
  */
 export class ScreenShakeService {
   private readonly subs = new SubscriptionBag();
+  private readonly impactPos = new Vector3();
   private _enabled: boolean;
 
   constructor(
@@ -83,24 +77,24 @@ export class ScreenShakeService {
   // ========================================
 
   private setupEventHandlers(): void {
-    // Projectile impact → shake based on projectile type
+    const { presets } = SCREEN_SHAKE_CONFIG;
+
+    // Projectile impact → shake by projectile type, weaker with distance
     this.subs.add(
       this.eventBus.on('vfx:projectile-impact', (event) => {
         const preset = this.getPresetForProjectile(event.projectileType);
         if (preset) {
-          this.shake(preset.intensity, preset.duration);
+          this.shakeAt(preset, event.lat, event.lon, event.height);
         }
       }),
     );
 
-    // HQ taking damage → dramatic shake
+    // HQ taking damage → shake scales with the damage, not with distance
     this.subs.add(
       this.eventBus.on('health:changed', (event) => {
         if (event.delta < 0) {
-          // Scale with damage amount (more damage = stronger shake)
-          const damageFactor = Math.min(Math.abs(event.delta) / 10, 2.0);
-          const intensity = SHAKE_PRESETS.hqDamage.intensity * Math.max(0.5, damageFactor);
-          this.shake(intensity, SHAKE_PRESETS.hqDamage.duration);
+          const damageFactor = Math.max(0.5, Math.min(Math.abs(event.delta) / 10, 2.0));
+          this.shake(presets.hqDamage.amplitude * damageFactor, presets.hqDamage.duration);
         }
       }),
     );
@@ -109,7 +103,7 @@ export class ScreenShakeService {
     this.subs.add(
       this.eventBus.on('enemy:died', (event) => {
         if (event.enemy?.typeConfig?.bossName) {
-          this.shake(SHAKE_PRESETS.bossDeath.intensity, SHAKE_PRESETS.bossDeath.duration);
+          this.shake(presets.bossDeath.amplitude, presets.bossDeath.duration);
         }
       }),
     );
@@ -118,26 +112,38 @@ export class ScreenShakeService {
   /**
    * Map projectile type string to shake preset
    */
-  private getPresetForProjectile(
-    projectileType: string,
-  ): { intensity: number; duration: number } | null {
+  private getPresetForProjectile(projectileType: string): ScreenShakePreset | null {
     if (projectileType === 'rocket' || projectileType.includes('homing')) {
-      return SHAKE_PRESETS.rocket;
+      return SCREEN_SHAKE_CONFIG.presets.rocket;
     }
     if (projectileType === 'cannonball') {
-      return SHAKE_PRESETS.cannon;
+      return SCREEN_SHAKE_CONFIG.presets.cannon;
     }
-    // Bullets, arrows, ice — no shake (too frequent / too small)
+    // Bullets, arrows, ice, poison, arcane: no shake (too frequent / too small)
     return null;
   }
 
-  /**
-   * Trigger shake if enabled. Uses max-wins policy:
-   * if a stronger shake is already active, the new one is ignored.
-   */
-  private shake(intensity: number, duration: number): void {
+  /** Shake for an impact, fading with its distance from the camera. */
+  private shakeAt(preset: ScreenShakePreset, lat: number, lon: number, height: number): void {
     if (!this._enabled) return;
-    this.engine.triggerScreenShake(intensity, duration);
+    const impact = this.engine.sync.geoToLocalSimpleInto(lat, lon, height, this.impactPos);
+    const strength = shakeFalloff(
+      impact.distanceTo(this.engine.getCamera().position),
+      SCREEN_SHAKE_CONFIG.nearDistance,
+      SCREEN_SHAKE_CONFIG.farDistance,
+    );
+    if (strength > 0) {
+      this.shake(preset.amplitude * strength, preset.duration);
+    }
+  }
+
+  /**
+   * Trigger shake if enabled. Max-wins: a weaker shake that comes in while
+   * a stronger one still runs is dropped (ScreenShake in three-engine).
+   */
+  private shake(amplitude: number, duration: number): void {
+    if (!this._enabled) return;
+    this.engine.triggerScreenShake(amplitude, duration);
   }
 
   // ========================================

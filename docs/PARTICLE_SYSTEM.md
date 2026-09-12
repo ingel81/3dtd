@@ -453,6 +453,41 @@ Ice-Decals lassen `sizeZ` bei 1 und sind damit, wie schon immer, Ovale von
 
 ---
 
+## Screen Shake
+
+`ScreenShakeService` (`game-engine/`) wählt Stärke und Dauer, `ThreeTilesEngine`
+zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG`, Stand 2026-09-12:
+
+- **Umsetzung:** ein Versatz der Projektionsmatrix im Bildraum, nur für den Draw eines
+  Frames (`drawFrame`). Er wird nach `tilesRenderer.update()` gesetzt und danach mit
+  den exakten alten Matrizen zurückgesetzt. Bis 2026-09-12 bewegte der Shake
+  `camera.position`. `UpdateOnChangePlugin` vergleicht jeden Frame die
+  View-Projection-Matrix exakt und hat deshalb in jedem geschüttelten Frame die volle
+  Tile-Traversierung laufen lassen; Raycasts (Tower-Platzierung) sahen die geschüttelte
+  Kamera. Beides entfällt.
+- **Stärke:** Anteil der Bildhöhe (0,005 ≈ 5 px bei 1080p), linear auf 0 über die
+  Dauer, nach Wanduhr statt pro Frame (der alte Abbau pro Frame nahm 60 FPS an).
+  Cannon 0,0025 / 150 ms, Rocket 0,005 / 200 ms, HQ-Schaden 0,0025 × 0,5 bis 2 /
+  300 ms, Boss-Tod 0,004 / 400 ms. Kalibriert auf den alten Meter-Shake: Einschläge wie
+  aus 150 m Kameraabstand gesehen, HQ und Boss wie aus 425 m (Startkamera).
+- **Nur nahe Einschläge:** volle Stärke bis 150 m Abstand zwischen Kamera und
+  Einschlag, dann linear weniger bis 0 bei 450 m. HQ-Schaden und Boss-Tod schütteln
+  unabhängig vom Ort.
+
+### Messen
+
+`__perf.shakeBench(seconds = 5)` in der DevTools-Konsole, nur mit echten Tiles (nicht
+DevWorld). Drei Phasen à `seconds`: `off` (kein Shake), `shake` (Shake läuft
+durchgehend in Rocket-Stärke, auch wenn er in den Display Options aus ist),
+`camera-move` (Kamera jeden Frame um bis zu 0,8 m versetzt und nach dem Zeichnen
+zurückgesetzt, wie beim alten Shake). Danach `console.table` mit einer Zeile pro
+Phase: `frameMs` / `frameP95Ms` (Abstand zwischen Frames), `renderMs` (`render()` auf
+der CPU), `tilesUpdateMs` (`tilesRenderer.update()`), `traversals` (Frames mit voller
+Tile-Traversierung). Während der Messung Kamera nicht bewegen, Spiel am besten
+pausiert.
+
+---
+
 ## VFXService (Event-Bridge)
 
 Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
