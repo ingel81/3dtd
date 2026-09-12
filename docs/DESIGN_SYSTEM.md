@@ -164,6 +164,15 @@ Das Dev-Menü öffnet als zweispaltiger Block über seinem Toggle, außerhalb de
 
 Die Höhe ist auf den Platz zwischen Toggle und Kompass begrenzt; bei niedrigem Fenster scrollt das Menü, statt den Kompass zu überdecken. Neue Einträge in die passende Gruppe einsortieren und die Spalten ungefähr gleich hoch halten.
 
+Das Display-Menü ist ein Panel über seinem Toggle (`.td-display-panel`, 212px breit), ebenfalls außerhalb des Flusses. Sein Wrapper spannt die volle Höhe der Quick Actions, damit das Panel wie das Dev-Menü vor dem Kompass endet und bei niedrigem Fenster scrollt; der Wrapper selbst lässt Klicks auf die Karte durch.
+
+| Bereich | Inhalt |
+|---------|--------|
+| Effects | Preset-Leiste Low / Medium / High, darunter die Schalter, die ein Preset setzt (Muzzle Flash, Projectile Trails, Impact Effects, Ground Marks, Bloom) und Color Grading als Select. Passt kein Preset, steht "Custom" rechts im Kopf. |
+| General | Freeze Tint, Screen Shake, Health Bars, Damage Numbers, Frame Limit (Off / 60 / 30) |
+
+Zeilen sind Checkbox-Labels wie im Display-Debugfenster (Akzent `--td-teal`), Kopfzeilen 10px Versalien in `--td-text-tertiary`, Schrift `--td-font-mono` 12px. Preset und Frame Limit sind Segmente: `--td-panel-secondary`, 1px `--td-frame-dark`, aktiv im Teal-Verlauf der aktiven Quick-Buttons, `aria-pressed`. Jede Effektzeile sagt im Tooltip, was sie abschaltet. Was die Schalter technisch tun: [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#vfx-einstellungen).
+
 ---
 
 ## Komponenten-Styles
@@ -410,7 +419,7 @@ Hilfe-Dialog in `components/damage-matrix-dialog/`, geöffnet über den `i`-Butt
 `matTooltip` setzt nur `aria-describedby`, keinen Namen. Reine Icon-Buttons (Header, Sidebar, Quick-Actions, Kompass, Dialoge) brauchen deshalb zusätzlich einen englischen Namen:
 
 - `aria-label`, in der Regel mit dem Tooltip-Text; dynamisch per `[attr.aria-label]` (z. B. Sell-Wert, LOS-Filter-Modus)
-- Umschalter mit sichtbarem Aktiv-Zustand: `[attr.aria-pressed]` (Display-/Layer-Toggles, Mute, Targeting, Move HQ / Set spawn)
+- Umschalter mit sichtbarem Aktiv-Zustand: `[attr.aria-pressed]` (Layer-Toggles, Segmente im Display-Panel, Mute, Targeting, Move HQ / Set spawn)
 - Buttons, die ein Menü aufklappen: `[attr.aria-expanded]` (Favoriten, Display, Audio, Layers, Developer)
 - Deko-SVGs in gelabelten Links: `aria-hidden="true"`
 

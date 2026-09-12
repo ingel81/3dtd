@@ -490,6 +490,49 @@ pausiert.
 
 ---
 
+## VFX-Einstellungen
+
+Spieler-Schalter im Display-Menü der Quick Actions (Panel über dem Augen-Button),
+Stand 2026-09-12. Typ und Presets in `three-engine/vfx-settings.ts`,
+`ThreeTilesEngine.applyVfxSettings()` verteilt sie an die Renderer,
+`DebugFacadeService` hält und speichert sie. Umschalten wirkt sofort, ohne Reload.
+
+Aus heißt: nicht erzeugen und nicht zeichnen. Die Schalter sitzen an den
+Spawn-Stellen, nicht an der Sichtbarkeit. Die Spiel-Logik liest sie nicht, Schaden,
+Status-Effekte und Events laufen gleich, Training und Headless-Betrieb auch.
+
+| Schalter | Default | Aus heißt |
+|----------|---------|-----------|
+| Muzzle Flash | an | `spawnMuzzleFlash` erzeugt keine Partikel, `ThreeTowerRenderer.triggerMuzzleFlash` zündet das Licht nicht. Das PointLight bleibt dunkel in der Szene, sonst bräuchten alle beleuchteten Materialien ein neues Shader-Programm. |
+| Projectile Trails | an | `TrailStreakRenderer.create` vergibt keinen Streak, laufende fallen weg (je Projektil ein eigenes Mesh mit eigenem Draw Call, Geometrie jeden Frame neu). `spawnConfigurableTrail` erzeugt keine Trail-Partikel. |
+| Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch (die einzigen Sprite-Sheet-Partikel), keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. |
+| Ground Marks | an | Keine Blut-, Eis- und Brand-Decals. Beim Ausschalten werden die liegenden gelöscht, die leeren Pools fallen per `DrawGate` aus der Render-Liste. `VFXService` und `CombatVfxService` sparen die Terrain-Raycasts für ein Decal (einer pro Blut-Decal, bis zu vier pro Eis-Explosion). |
+| Bloom | aus | `UnrealBloomPass` aus. Sind Bloom und Color Grading beide aus, zeichnet die Engine ohne Composer. |
+| Color Grading | None | LUT-Pass aus. |
+| Freeze Tint | an | Kein blauer Tint und keine Frost-Aura auf verlangsamten Gegnern. Der Slow bleibt vermerkt, beim Einschalten kommen Tint und Aura sofort zurück. |
+
+Die Presets `Low`, `Medium` und `High` (`VFX_PRESETS`) setzen die ersten sechs
+Schalter; die Einzelschalter bleiben einstellbar, weicht einer ab, steht "Custom"
+im Kopf. Freeze Tint und Screen Shake setzt kein Preset: der Tint kostet so gut wie
+nichts, und wer den Shake wegen Übelkeit aus hat, bekommt ihn durch einen Klick auf
+High nicht zurück.
+
+- **Low:** Muzzle Flash, Trails, Impact Effects und Ground Marks aus, Bloom aus, Grading None.
+- **Medium:** nur die Projectile Trails aus.
+- **High:** das Spiel wie ausgeliefert. Bloom gehört nicht dazu, er lässt jedes
+  emissive Material dauerhaft leuchten (Kommentar in `VFXService.handleChainLightning`).
+
+Die Kosten sind nicht gemessen. Die Reihenfolge der Presets folgt dem Code: Draw
+Calls pro Projektil bei den Trails, Partikelzahl und Fill-Rate großer additiver
+Sprites bei den Explosionen, drei instanzierte Draw Calls bei den Bodenspuren.
+
+Gespeichert werden die Schalter flach in `td_display_options`
+(`utils/display-options.storage.ts`), zusammen mit Health Bars, Damage Numbers,
+Screen Shake und Frame-Limit. Die früheren Einzelschlüssel `3dtd-fps-limit` und
+`td_screen_shake_enabled` werden beim Laden übernommen und gelöscht.
+
+---
+
 ## VFXService (Event-Bridge)
 
 Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
@@ -530,4 +573,5 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `configs/projectile-types.config.ts` | Trail-Partikel Konfiguration (TrailParticleConfig) |
 | `configs/visual-effects.config.ts` | Partikel-Limits, Decal-Configs, Explosion-Presets, Farben |
 | `game-engine/vfx.service.ts` | VFX Event Handler (Blood, Explosion, Muzzle-Flash, Projectile Impact) |
+| `three-engine/vfx-settings.ts` | Spieler-Schalter und Presets Low/Medium/High, siehe [VFX-Einstellungen](#vfx-einstellungen) |
 | `components/engine-test/engine-test.component.ts` | Engine Test Sandbox |
