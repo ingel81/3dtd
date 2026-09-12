@@ -23,6 +23,8 @@ import tempfile
 import bmesh
 import bpy
 import numpy as np
+from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 # Commit that holds the original models.
 SOURCE_REV = '39fbb18'
@@ -43,6 +45,9 @@ ENEMIES = 'public/assets/models/enemies'
 #               for meshes the importer leaves as a triangle soup because the
 #               normals differ slightly across UV seams
 #   normals     'keep' (default), 'smooth' or a smoothing angle in degrees
+#   rebake      {'size', 'supersample'}: after decimating, new UVs and the base
+#               colour taken from the undecimated mesh (see rebake_base_color); for
+#               atlases whose seams the decimator cannot keep
 #   texture     longest side of every image left in the model
 #   base_color_only  drop every other texture (the VAT shader only samples base colour)
 #   image_format     'AUTO' (default) or 'JPEG'
@@ -126,8 +131,10 @@ RECIPES = {
     # 31,342 VAT vertices for 30,887 triangles: UV seams split almost every
     # edge, and the importer keeps the mesh as a triangle soup (normals differ
     # slightly across the seams). Welded first, the decimator works on the
-    # connected surface (15,418 positions); 11.5 % keeps the silhouette, the
-    # texture smears along UV seams in a close-up. Electrocuted_Fall (6.33 s)
+    # connected surface (15,418 positions). 62 % of those sit on UV seams, so
+    # seam weights cannot help; decimated on the old atlas the texture smeared
+    # along the seams. Rebaked onto new UVs instead, 12 % stays under 5,000
+    # VAT vertices (the new UVs split less). Electrocuted_Fall (6.33 s)
     # stands twitching until 3.0 s and hits the ground at about 5 s; the enemy
     # is removed 2 s after the kill, so only the fall, 3.0-5.0 s, is kept.
     'zombie-v2': {
@@ -136,8 +143,9 @@ RECIPES = {
                     'Electrocuted_Fall': 'Electrocuted_Fall'},
         'trim': {'Electrocuted_Fall': (90, 150, 0)},
         'weld': 1e-6,
-        'decimate': 0.115,
+        'decimate': 0.12,
         'normals': 'smooth',
+        'rebake': {'size': 1024, 'supersample': 2},
     },
     # Look change: the zombie is faceted, every vertex split at the normals
     # (4,525 VAT vertices for 2,157 triangles). Welded and smooth-shaded it
@@ -152,6 +160,9 @@ RECIPES = {
     # Split at UV seams like zombie_v2 (19,863 positions, 30,228 vertices). The
     # seams keep about 2.5 vertices per position after decimating, so 17 % ends
     # at 8,126 VAT vertices; 10.5 % (5,799) smeared the ribcage in a close-up.
+    # Neither fix used for zombie_v2 and the hornet helps here: 41 % of the
+    # vertices sit on seams, so seam weights change nothing, and a Cycles bake onto
+    # the thin double-layered robe came out dark with more VAT vertices.
     'wraith': {
         'src': f'{ENEMIES}/wraith.glb',
         'weld': 1e-6,
@@ -488,8 +499,202 @@ def keep_file_rest_pose():
     bpy.context.view_layer.update()
 
 
+def view3d_override(**extra):
+    """Context for edit-mode operators: the first 3D viewport if Blender has one."""
+    for win in bpy.context.window_manager.windows:
+        for area in win.screen.areas:
+            if area.type == 'VIEW_3D':
+                region = next(r for r in area.regions if r.type == 'WINDOW')
+                return bpy.context.temp_override(window=win, area=area, region=region, **extra)
+    return bpy.context.temp_override(**extra)
+
+
+def copy_for_bake(obj):
+    """Undecimated copy of `obj`: the surface and UVs the rebake samples."""
+    high = obj.copy()
+    high.data = obj.data.copy()
+    high.name = obj.name + '_bake_source'
+    for coll in obj.users_collection:
+        coll.objects.link(high)
+    return high
+
+
+def mesh_triangles(me):
+    """Vertex positions, triangle vertex indices and triangle corner UVs of `me`."""
+    me.calc_loop_triangles()
+    n = len(me.loop_triangles)
+    verts = np.empty(n * 3, dtype=np.int32)
+    loops = np.empty(n * 3, dtype=np.int32)
+    me.loop_triangles.foreach_get('vertices', verts)
+    me.loop_triangles.foreach_get('loops', loops)
+    co = np.empty(len(me.vertices) * 3, dtype=np.float64)
+    me.vertices.foreach_get('co', co)
+    uv = np.empty(len(me.loops) * 2, dtype=np.float64)
+    me.uv_layers.active.data.foreach_get('uv', uv)
+    return co.reshape(-1, 3), verts.reshape(-1, 3), uv.reshape(-1, 2)[loops.reshape(-1, 3)]
+
+
+def barycentric(p, a, b, c):
+    """Barycentric weights of the points `p` in the triangles (a, b, c), row by row."""
+    v0, v1, v2 = b - a, c - a, p - a
+    d00 = (v0 * v0).sum(-1)
+    d01 = (v0 * v1).sum(-1)
+    d11 = (v1 * v1).sum(-1)
+    d20 = (v2 * v0).sum(-1)
+    d21 = (v2 * v1).sum(-1)
+    den = d00 * d11 - d01 * d01
+    den = np.where(np.abs(den) < 1e-30, 1e-30, den)
+    v = (d11 * d20 - d01 * d21) / den
+    w = (d00 * d21 - d01 * d20) / den
+    return np.stack([1 - v - w, v, w], -1)
+
+
+def sample_image(img, uv):
+    """Bilinear samples of `img` at `uv` (repeat wrap), one row per point."""
+    w, h = img.size
+    px = np.empty(w * h * img.channels, dtype=np.float32)
+    img.pixels.foreach_get(px)
+    px = px.reshape(h, w, img.channels)
+    x = (uv[:, 0] % 1.0) * w - 0.5
+    y = (uv[:, 1] % 1.0) * h - 0.5
+    x0 = np.floor(x).astype(np.int64)
+    y0 = np.floor(y).astype(np.int64)
+    fx = (x - x0)[:, None]
+    fy = (y - y0)[:, None]
+    x0 %= w
+    y0 %= h
+    x1 = (x0 + 1) % w
+    y1 = (y0 + 1) % h
+    return ((px[y0, x0] * (1 - fx) + px[y0, x1] * fx) * (1 - fy)
+            + (px[y1, x0] * (1 - fx) + px[y1, x1] * fx) * fy)
+
+
+def raster_uv_triangles(uv_tris, res):
+    """Pixel centres of a res x res image covered by each UV triangle:
+    (pixel index, triangle index, barycentric weights), each pixel once."""
+    pix, tri, bary = [], [], []
+    for t, (a, b, c) in enumerate(uv_tris * res):
+        lo = np.clip(np.floor(np.minimum(np.minimum(a, b), c)).astype(int), 0, res - 1)
+        hi = np.clip(np.ceil(np.maximum(np.maximum(a, b), c)).astype(int), 0, res - 1)
+        d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1])
+        if abs(d) < 1e-12:
+            continue
+        xs, ys = np.meshgrid(np.arange(lo[0], hi[0] + 1), np.arange(lo[1], hi[1] + 1))
+        p = np.stack([xs.ravel() + 0.5, ys.ravel() + 0.5], -1)
+        l0 = ((b[1] - c[1]) * (p[:, 0] - c[0]) + (c[0] - b[0]) * (p[:, 1] - c[1])) / d
+        l1 = ((c[1] - a[1]) * (p[:, 0] - c[0]) + (a[0] - c[0]) * (p[:, 1] - c[1])) / d
+        l2 = 1 - l0 - l1
+        # About half a pixel of slack, so texels on an island edge are covered.
+        eps = 0.5 / max(1e-9, math.sqrt(abs(d)))
+        inside = (l0 >= -eps) & (l1 >= -eps) & (l2 >= -eps)
+        if not inside.any():
+            continue
+        q = p[inside]
+        pix.append(q[:, 1].astype(np.int64) * res + q[:, 0].astype(np.int64))
+        tri.append(np.full(len(q), t, dtype=np.int64))
+        bary.append(np.clip(np.stack([l0[inside], l1[inside], l2[inside]], -1), 0, 1))
+    pix, tri, bary = np.concatenate(pix), np.concatenate(tri), np.concatenate(bary)
+    bary /= bary.sum(-1, keepdims=True)
+    _, first = np.unique(pix, return_index=True)
+    return pix[first], tri[first], bary[first]
+
+
+def dilate(img, filled, steps):
+    """Grow the filled pixels of `img` by `steps` pixels (mean of filled neighbours),
+    so mipmaps do not pull the empty background into the islands."""
+    img = img.copy()
+    filled = filled.copy()
+    for _ in range(steps):
+        acc = np.zeros_like(img)
+        count = np.zeros(filled.shape, dtype=np.float32)
+        for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)):
+            m = np.roll(np.roll(filled, dy, 0), dx, 1)
+            acc += np.roll(np.roll(img, dy, 0), dx, 1) * m[..., None]
+            count += m
+        grow = ~filled & (count > 0)
+        img[grow] = acc[grow] / count[grow][:, None]
+        filled |= grow
+    return img
+
+
+def rebake_base_color(low, high, size=1024, supersample=2, margin=16):
+    """New UVs for `low` and its base colour taken from `high`, so the decimated
+    mesh no longer samples the old atlas across its seams.
+
+    Each texel of the new layout (supersample x supersample samples) is placed
+    on `low` in rest pose, moved to the closest point of `high` and takes the
+    atlas colour at that point's UV. A Cycles selected-to-active bake casts rays
+    along the low normals instead: at zombie_v2 (170 units tall, decimated up
+    to 0.4 units off the original) with an extrusion of 0.1, the ray of 12 % of
+    the head and 16 % of the body vertices hit another surface than the closest
+    one, which speckled the skull and the shirt. Every link from the old atlas
+    to the BSDF (the wraith's emission, too) moves to the new image; `high` is
+    removed.
+    """
+    low.data.materials[0] = low.data.materials[0].copy()
+    for o in bpy.context.view_layer.objects:
+        o.select_set(False)
+    low.select_set(True)
+    bpy.context.view_layer.objects.active = low
+    with view3d_override(object=low, active_object=low):
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.003)
+        # Packed by shape, the islands cover 51 % of the image instead of 37 %.
+        bpy.ops.uv.select_all(action='SELECT')
+        bpy.ops.uv.pack_islands(rotate=True, margin=0.002, shape_method='CONCAVE', margin_method='FRACTION')
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    mat = low.data.materials[0]
+    nt = mat.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    # Every image node that shows the old atlas (the wraith has a second one for emission).
+    atlases = {n.image for n in base_color_images(mat)}
+    if len(atlases) != 1:
+        raise RuntimeError(f'rebake expects one base colour image, found {len(atlases)}')
+    old = {n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.image in atlases}
+    targets = [link.to_socket for link in nt.links
+               if link.from_node in old and link.to_node == bsdf and link.to_socket.name != 'Alpha']
+
+    res = size * supersample
+    hco, htri, huv = mesh_triangles(high.data)
+    tree = BVHTree.FromPolygons([Vector(v) for v in hco], htri.tolist(), all_triangles=True)
+    lco, ltri, luv = mesh_triangles(low.data)
+    pix, tri, bary = raster_uv_triangles(luv, res)
+    points = (lco[ltri[tri]] * bary[..., None]).sum(1)
+    nearest = np.empty_like(points)
+    nearest_tri = np.empty(len(points), dtype=np.int64)
+    for i, p in enumerate(points):
+        loc, _, k, _ = tree.find_nearest(Vector(p))
+        nearest[i] = loc
+        nearest_tri[i] = k
+    w = np.clip(barycentric(nearest, *(hco[htri[nearest_tri][:, j]] for j in range(3))), 0, None)
+    w /= w.sum(-1, keepdims=True)
+    colour = sample_image(next(iter(atlases)), (huv[nearest_tri] * w[..., None]).sum(1))
+
+    out = np.zeros((res * res, 4), dtype=np.float32)
+    out[pix, :3] = colour[:, :3]
+    filled = np.zeros(res * res, dtype=bool)
+    filled[pix] = True
+    out = dilate(out.reshape(res, res, 4), filled.reshape(res, res), margin * supersample)
+    out[..., 3] = 1.0
+    out = out.reshape(size, supersample, size, supersample, 4).mean((1, 3))
+    image = bpy.data.images.new(mat.name + '_baked', size, size, alpha=False)
+    image.pixels.foreach_set(out.ravel())
+    image.pack()
+
+    tex = nt.nodes.new('ShaderNodeTexImage')
+    tex.image = image
+    for node in old:
+        nt.nodes.remove(node)
+    for sock in targets:
+        nt.links.new(tex.outputs['Color'], sock)
+    bpy.data.objects.remove(high, do_unlink=True)
+
+
 def purge_orphans():
-    for coll in (bpy.data.images, bpy.data.materials, bpy.data.meshes, bpy.data.textures):
+    # Materials first: an image loses its last user only once they are gone.
+    for coll in (bpy.data.materials, bpy.data.meshes, bpy.data.textures, bpy.data.images):
         for block in list(coll):
             if block.users == 0:
                 coll.remove(block)
@@ -547,6 +752,7 @@ def run(name):
             ratio = decim
             if isinstance(decim, dict):
                 ratio = next((r for pat, r in decim.items() if fnmatch.fnmatchcase(obj.name, pat)), 1.0)
+            bake_source = copy_for_bake(obj) if 'rebake' in recipe else None
             if 'weld' in recipe:
                 weld(obj, recipe['weld'])
             seam_weight = next((w for pat, w in recipe.get('seams', {}).items()
@@ -556,6 +762,8 @@ def run(name):
             set_normals(obj, recipe.get('normals', 'keep'))
             if obj.data.validate():
                 print(f'[optimize_enemy] {obj.name}: repaired invalid geometry')
+            if bake_source is not None:
+                rebake_base_color(obj, bake_source, **recipe['rebake'])
 
         for mat in bpy.data.materials:
             if recipe.get('base_color_only'):

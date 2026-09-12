@@ -14,8 +14,8 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
 
 - Die Blender-Runde vom 2026-09-13 hat zwölf Modelle geändert (`tools/blender/optimize_enemy.py`,
   ein Rezept je Modell, siehe [Empfehlungen](#empfehlungen-je-modell)). Alle 20 Typen werden
-  beim Start gebacken (`preloadAllModels`); ihre VATs belegen zusammen 105,5 MB GPU-Speicher,
-  19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in RGBA32F wären 189,5 MB).
+  beim Start gebacken (`preloadAllModels`); ihre VATs belegen zusammen 105,2 MB GPU-Speicher,
+  19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in RGBA32F wären 188,9 MB).
   Vor der Runde waren es 264,2 MB, bis 2026-09-12 (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
 - Die teuersten Wellen nach Vertex-Last sind jetzt `rat_tide` (5,0 Mio.), `mech_army` (4,2),
   `zombie_horde` (3,6), `skeleton_swarm` (3,3), `armor_gauntlet` (2,5) und `wraith_storm`
@@ -117,12 +117,20 @@ gebacken und Frame für Frame verglichen wurden (Prozent beziehen sich auf die M
 - **Stone Golem** 42,8 → 21,5 MB, 17,8 → 3,1 MB: `Casual_Walk` auf 1,33 s (40 Frames). Die
   alte Loop-Naht sprang um 3,2 %, die neue schließt ohne Sprung. Texturen 1024². Bleibt
   RGBA32F (Half-Fehler 2,64 mm).
-- **Zombie v2** 31.342 → 5.013, 52,8 → 10,4 MB, 3,8 → 2,2 MB: geschweißt, dann 11,5 %. Aus
-  der Nähe verschmiert die Textur an UV-Nähten. `Electrocuted_Fall` ist auf den Sturz
-  (3,0 bis 5,0 s) geschnitten und wieder im Todes-Pool.
+- **Zombie v2** 31.342 → 4.870, 52,8 → 10,1 MB, 3,8 → 1,9 MB: geschweißt, auf 12 %
+  decimiert, neue UVs (Smart UV Project, Inseln nach Form gepackt). Jedes Texel nimmt die
+  Atlasfarbe am nächstgelegenen Punkt des unveränderten Meshes in Ruhepose (2 × 2 Samples
+  je Texel). 62 % der Vertices liegen auf UV-Nähten des alten Atlas; darauf decimiert
+  verschmierte die Textur an den Nähten, Nahtgewichte änderten nichts. Ein Cycles-Bake
+  (Selected-to-Active) sprenkelte Schädel und Hemd, weil Strahlen andere Flächen trafen.
+  Aus der Nähe sind Schädel, Brust-Chevron und Gürtel wieder da; die Textur ist etwas
+  weicher als im Original, der Schädelumriss facettiert. `Electrocuted_Fall` ist auf den
+  Sturz (3,0 bis 5,0 s) geschnitten und wieder im Todes-Pool.
 - **Wraith** 30.228 → 8.126, 3,8 → 0,9 MB, 3,4 → 1,8 MB: geschweißt, dann 17 %. Über dem
   Richtwert, weil die UV-Nähte rund 2,5 Vertices pro Position übrig lassen; 10,5 % (5.799)
-  verschmierte den Brustkorb.
+  verschmierte den Brustkorb. Aus der Nähe verschmiert die Textur am Brustkorb auch bei 17 %.
+  Nahtgewichte (41 % Nahtvertices) änderten nichts; neu gebacken wurde die dünne,
+  doppellagige Robe dunkel und fleckig, mit mehr VAT-Vertices (12.267 bei 17 %).
 - **Zombie** 4.525 → 1.453, 7,2 → 2,3 MB: geglättete Normalen, eine Look-Änderung (glatt
   statt facettiert) im eigenen Commit.
 - **Penguin** 1.993 unverändert, 1,3 → 0,3 MB Datei: eine 512²-Basisfarbe (PNG, das
@@ -360,8 +368,8 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Mammoth (`mammoth`) | Normal | 150 | 5.557 | 8.685 | 0,8 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
 | Ghost (`ghost`) | Normal | 280 | 5.245 | 7.773 | 1,5 | Skinning | 200 | 5245×200 | RGBA16F | 0,46 | 8,0 | 1024² |
 | Tank (`tank`) | Normal | 150 | 5.094 | 2.796 | 0,8 | statisch | 1 | 5094×1 | RGBA16F | 1,12 | 0,0 | – |
-| Zombie v2 (`zombie-v2`) | Normal | 200 | 5.013 | 3.550 | 1,0 | Skinning | 272 | 5013×272 | RGBA16F | 1,08 | 10,4 | 1024² |
 | Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
+| Zombie v2 (`zombie-v2`) | Normal | 200 | 4.870 | 3.704 | 1,0 | Skinning | 272 | 4870×272 | RGBA16F | 1,08 | 10,1 | 1024² |
 | Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 107 | 4266×107 | RGBA16F | 0,56 | 3,5 | 1024² |
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
@@ -373,8 +381,8 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 | Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 
-VAT-Speicher aller Typen zusammen: **105,5 MB** (30 fps), alles in RGBA32F wären **189,5 MB**.
-Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **8,7 MB** dazu.
+VAT-Speicher aller Typen zusammen: **105,2 MB** (30 fps), alles in RGBA32F wären **188,9 MB**.
+Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **8,6 MB** dazu.
 
 ### Alpha
 
@@ -410,8 +418,8 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Mammoth | `mammoth.glb` | 2,6 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 2 | 5.557 / 5.541 / 5.121 |
 | Ghost | `ghost.glb` | 2,7 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 5.245 / 3.894 / 3.467 |
 | Tank | `tank.glb` | 0,2 | 7 (0) | 0 | 0 | 7 | – | 0 | 5.094 / 2.269 / 1.676 |
-| Zombie v2 | `zombie_v2.glb` | 2,2 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 5.013 / 5.013 / 1.750 |
 | Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.915 / 4.913 / 3.370 |
+| Zombie v2 | `zombie_v2.glb` | 1,9 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 4.870 / 4.870 / 1.827 |
 | Zombie Soldier | `zombie_soldier.glb` | 3,5 | 1 (1) | 56 | 0 | 1 | 3× 1024² | 6 | 4.249 / 4.249 / 3.603 |
 | Bear | `bear.glb` | 2,0 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
 | Bat | `bat.glb` | 0,3 | 1 (1) | 28 | 0 | 1 | 512² | 1 | 3.559 / 3.559 / 2.520 |
@@ -440,11 +448,11 @@ die weggelassenen Frames.
 | Mammoth | `Walk` | walk | 4,97 | 149 | – |
 | Mammoth | `Die` | death | 6,00 | 172 | 9 |
 | Ghost | `Take 001` | walk | 6,67 | 200 | – |
+| Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
 | Zombie v2 | `Dead` | death | 2,96 | 61 | 28 |
 | Zombie v2 | `dying_backwards` | death | 2,21 | 61 | 6 |
 | Zombie v2 | `Electrocuted_Fall` | death | 2,00 | 61 | – |
-| Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Zombie Soldier | `zombie_02_Run` | walk | 0,80 | 24 | – |
 | Zombie Soldier | `zombie_02_Death` | death | 4,50 | 83 | 53 |
 | Bear | `GltfAnimation 0` | walk | 1,37 | 41 | – |
