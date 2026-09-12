@@ -18,6 +18,7 @@ import {
   BufferAttribute,
   LoopOnce,
 } from 'three';
+import type { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 
 /** Registry entry for one animation clip within the VAT */
 export interface VATAnimationEntry {
@@ -58,8 +59,32 @@ export interface VATData {
   modelMaxY: number;
 }
 
-const DEFAULT_BAKE_FPS = 30;
-const MAX_VAT_WIDTH = 8192;
+export const DEFAULT_BAKE_FPS = 30;
+export const MAX_VAT_WIDTH = 8192;
+
+/** Clips baked for an enemy type, in bake order. */
+export function vatClipNames(
+  config: Pick<EnemyTypeConfig, 'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'idleAnimation'>,
+): string[] {
+  const names: string[] = [];
+  if (config.walkAnimation) names.push(config.walkAnimation);
+  if (config.runAnimation) names.push(config.runAnimation);
+  if (config.deathAnimation) names.push(config.deathAnimation);
+  if (config.deathAnimations) names.push(...config.deathAnimations);
+  if (config.idleAnimation) names.push(config.idleAnimation);
+  return names;
+}
+
+/** VAT frames one clip takes. */
+export function vatFrameCount(duration: number, fps: number): number {
+  return Math.max(1, Math.ceil(duration * fps));
+}
+
+/** Texture width and rows per frame; past MAX_VAT_WIDTH vertices a frame spans several rows. */
+export function vatLayout(vertexCount: number): { texWidth: number; rowsPerFrame: number } {
+  const texWidth = Math.min(vertexCount, MAX_VAT_WIDTH);
+  return { texWidth, rowsPerFrame: Math.ceil(vertexCount / texWidth) };
+}
 
 /**
  * Bake skeletal animations into a Vertex Animation Texture (VAT).
@@ -127,7 +152,7 @@ export function bakeVAT(
 
   for (const name of validClipNames) {
     const clip = clipMap.get(name)!;
-    const frameCount = Math.max(1, Math.ceil(clip.duration * fps));
+    const frameCount = vatFrameCount(clip.duration, fps);
     animEntries.set(name, {
       name,
       frameStart: totalFrames,
@@ -139,8 +164,7 @@ export function bakeVAT(
   }
 
   // Compute tiled texture dimensions (cap width to GPU-safe limit)
-  const texWidth = Math.min(totalVertices, MAX_VAT_WIDTH);
-  const rowsPerFrame = Math.ceil(totalVertices / texWidth);
+  const { texWidth, rowsPerFrame } = vatLayout(totalVertices);
   const texHeight = totalFrames * rowsPerFrame;
 
   // Allocate VAT data (width=texWidth, height=texHeight, RGBA32F)
@@ -457,7 +481,7 @@ export function bakeObjectAnimVAT(
 
   for (const name of validClipNames) {
     const clip = clipMap.get(name)!;
-    const frameCount = Math.max(1, Math.ceil(clip.duration * fps));
+    const frameCount = vatFrameCount(clip.duration, fps);
     animEntries.set(name, {
       name,
       frameStart: totalFrames,
@@ -469,8 +493,7 @@ export function bakeObjectAnimVAT(
   }
 
   // Compute tiled texture dimensions
-  const texWidth = Math.min(totalVertices, MAX_VAT_WIDTH);
-  const rowsPerFrame = Math.ceil(totalVertices / texWidth);
+  const { texWidth, rowsPerFrame } = vatLayout(totalVertices);
   const texHeight = totalFrames * rowsPerFrame;
 
   // Allocate VAT data
@@ -942,8 +965,7 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
   mergedGeometry.setAttribute('aUseMap', new BufferAttribute(mergedUseMap, 1));
 
   // VAT texture: 1-frame with tiled layout
-  const texWidth = Math.min(totalVertices, MAX_VAT_WIDTH);
-  const rowsPerFrame = Math.ceil(totalVertices / texWidth);
+  const { texWidth, rowsPerFrame } = vatLayout(totalVertices);
   const texHeight = rowsPerFrame;
 
   const data = new Float32Array(texWidth * texHeight * 4);
