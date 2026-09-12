@@ -11,12 +11,6 @@ import {
   Group,
   SRGBColorSpace,
   Fog,
-  HemisphereLight,
-  DirectionalLight,
-  AmbientLight,
-  TextureLoader,
-  WebGLCubeRenderTarget,
-  Color,
   MathUtils,
   Matrix4,
 } from 'three';
@@ -41,6 +35,7 @@ import { TileLoadingTracker, type TileStats } from './tile-loading-tracker';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { RenderLoop } from './render-loop';
 import { TerrainQueries } from './terrain-queries';
+import { SkyBackground, addSceneLights } from './scene-environment';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -113,9 +108,9 @@ export class ThreeTilesEngine {
   // Post-processing pipeline (composer + bloom + color grading + output pass)
   private postProcessing: PostProcessingPipeline | null = null;
 
-  // Sky as a cube render target, converted once from the equirect image
-  private skyTarget: WebGLCubeRenderTarget | null = null;
-  // The sky image can arrive after dispose(), it must not touch the renderer then
+  // Scene background, the image arrives after the constructor
+  private readonly sky: SkyBackground;
+  // Set by dispose(); preloadModels() skips the shader warm-up then
   private disposed = false;
 
   // Game speed multiplier for animations (turret rotation etc.)
@@ -297,8 +292,8 @@ export class ThreeTilesEngine {
     });
 
     // Setup lighting and sky
-    this.setupLighting();
-    this.setupSky();
+    addSceneLights(this.scene);
+    this.sky = new SkyBackground(this.renderer, this.scene);
 
     // Initialize entity renderers with coordinate sync adapter
     // Use geoToLocalSimple for consistency with raycast results
@@ -646,74 +641,6 @@ export class ThreeTilesEngine {
    */
   setOnUpdateCallback(callback: (deltaTime: number) => void): void {
     this.onUpdateCallback = callback;
-  }
-
-  private setupLighting(): void {
-    // Hemisphere light - warm sky/ground gradient
-    const hemi = new HemisphereLight(
-      0xffeedd, // Warm sky color
-      0x806040, // Warm ground color
-      1.5
-    );
-    this.scene.add(hemi);
-
-    // Main sun light (key light) - warm bright sun
-    const sun = new DirectionalLight(0xffeecc, 3.0); // Warm and bright
-    sun.position.set(-50, 100, -30); // SW direction, high angle
-    this.scene.add(sun);
-
-    // Fill light - warm from opposite side
-    const fill = new DirectionalLight(0xfff0e0, 1.5); // Warm
-    fill.position.set(50, 50, 30); // NE direction
-    this.scene.add(fill);
-
-    // Warm ambient for overall brightness
-    const ambient = new AmbientLight(0xffe8d0, 0.8); // Warm tint
-    this.scene.add(ambient);
-
-    // R1: lights never move after setup, compute their world matrix once and
-    // opt out of the per-frame matrixWorld pass.
-    for (const light of [hemi, sun, fill, ambient]) {
-      light.updateMatrix();
-      light.updateMatrixWorld(true);
-      light.matrixAutoUpdate = false;
-      light.matrixWorldAutoUpdate = false;
-    }
-  }
-
-  /**
-   * Setup sky background from equirectangular texture.
-   *
-   * three converts an equirect background into a cube render target on its
-   * own (WebGLEnvironments, face size = image height) and then keeps the
-   * source texture on the GPU next to it, never read again. Running the same
-   * conversion here lets the source go: same function, same size, same
-   * filters, so the same pixels.
-   */
-  private setupSky(): void {
-    const loader = new TextureLoader();
-
-    loader.load(
-      'assets/images/skybox/day.webp',
-      (texture) => {
-        if (this.disposed) {
-          texture.dispose();
-          return;
-        }
-        texture.colorSpace = SRGBColorSpace;
-        this.skyTarget = new WebGLCubeRenderTarget(texture.image.height).fromEquirectangularTexture(
-          this.renderer,
-          texture
-        );
-        this.scene.background = this.skyTarget.texture;
-        texture.dispose();
-      },
-      undefined,
-      (error) => {
-        console.warn('[ThreeTilesEngine] Failed to load sky texture, using fallback color', error);
-        this.scene.background = new Color(0x87ceeb); // Light blue fallback
-      }
-    );
   }
 
   private setupPostProcessing(): void {
@@ -1389,8 +1316,7 @@ export class ThreeTilesEngine {
     }
 
     // The sky cube is the scene background, the traverse above does not reach it
-    this.skyTarget?.dispose();
-    this.skyTarget = null;
+    this.sky.dispose();
 
     // Dispose renderer
     this.renderer.dispose();
