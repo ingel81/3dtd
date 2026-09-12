@@ -107,6 +107,12 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 **Schweif-Ansatz** (`tailOffset`, optional): Meter hinter der Mesh-Mitte, an denen Trail-Partikel
 und Trail-Streak ansetzen. Rakete: 2,1 m, also die Düse. Nur Optik, Default 0 (Mitte).
 
+**Trail-Streak-Länge** (`length` in `TRAIL_STYLES`, `trail-streak.renderer.ts`): Meter hinter
+dem Kopf, dort wird der Streak abgeschnitten. Rakete 6 m, Pfeil 17 m, Bullet 17,5 m, Arcane Orb
+32 m, Ice Shard 25,5 m, Kanonenkugel 9 m. Bis 2026-09-12 bestand er aus einer festen Zahl von
+Positionen, eine pro gerendertem Frame, und wurde bei 30 FPS oder 2x-Spielgeschwindigkeit doppelt,
+bei 4x viermal so lang.
+
 **Splash-Damage-Konfiguration:**
 ```typescript
 splashRadius?: number;          // Radius in Metern (0 oder undefined = kein Splash)
