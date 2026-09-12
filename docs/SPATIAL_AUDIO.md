@@ -144,6 +144,7 @@ export const ENEMY_SOUND_PATTERNS = [
 
 export const PROJECTILE_SOUND_IDS = [
   'arrow', 'bullet', 'rocket', 'cannonball', 'ice-shard', 'arcane-orb',
+  'chaos-orb', 'poison-glob',
 ] as const;
 ```
 

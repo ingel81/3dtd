@@ -73,13 +73,13 @@ describe('projectile types config', () => {
     expect(all).toHaveLength(8);
   });
 
-  it('has a sound for every projectile type and budgets only known sounds', () => {
+  it('has a sound for every projectile type and budgets exactly those sounds', () => {
     allIds.forEach((id) => {
       expect(PROJECTILE_SOUNDS[id].url).toMatch(/^assets\/sounds\/.+\.mp3$/);
     });
-    PROJECTILE_SOUND_IDS.forEach((id) => {
-      expect(PROJECTILE_SOUNDS[id as ProjectileTypeId]).toBeDefined();
-    });
+    // poison-glob was missing from the budget list until 2026-09-12, so the
+    // poison tower's shots never counted against maxProjectileSounds.
+    expect([...PROJECTILE_SOUND_IDS].sort()).toEqual(Object.keys(PROJECTILE_SOUNDS).sort());
   });
 
   it('gives every projectile-firing tower an existing projectile type', () => {
