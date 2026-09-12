@@ -40,6 +40,7 @@ import { TdIconComponent } from '../icon/icon.component';
                 [class.active]="enemyDebug.placementMode()"
                 (click)="enemyDebug.togglePlacementMode()"
                 title="Place enemy on route"
+                aria-label="Place enemy on route"
               >
                 <td-icon [name]="enemyDebug.placementMode() ? 'cross' : 'pin'" [size]="14"></td-icon>
               </button>
@@ -67,7 +68,8 @@ import { TdIconComponent } from '../icon/icon.component';
                       <span class="enemy-name">{{ getEnemyName(de.typeId) }}</span>
                       <span class="enemy-hp">{{ de.enemy.health.hp | number:'1.0-0' }}/{{ de.enemy.health.maxHp }}</span>
                     </span>
-                    <button class="remove-btn" (click)="onRemoveEnemy($event, de.id)" title="Remove">
+                    <button class="remove-btn" (click)="onRemoveEnemy($event, de.id)" title="Remove"
+                            [attr.aria-label]="'Remove ' + getEnemyName(de.typeId)">
                       <td-icon name="cross" [size]="14"></td-icon>
                     </button>
                   </div>
@@ -203,10 +205,10 @@ import { TdIconComponent } from '../icon/icon.component';
               <div class="control-group">
                 <div class="control-label">Animation</div>
                 <div class="btn-row">
-                  <button class="control-btn" (click)="playWalk.emit(selected.id)" title="Walk">
+                  <button class="control-btn" (click)="playWalk.emit(selected.id)" title="Walk" aria-label="Play walk animation">
                     <td-icon name="walk" [size]="14"></td-icon>
                   </button>
-                  <button class="control-btn" (click)="playRun.emit(selected.id)" title="Run">
+                  <button class="control-btn" (click)="playRun.emit(selected.id)" title="Run" aria-label="Play run animation">
                     <td-icon name="run" [size]="14"></td-icon>
                   </button>
                 </div>

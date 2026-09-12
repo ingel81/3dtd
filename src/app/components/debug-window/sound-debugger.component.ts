@@ -83,10 +83,10 @@ import { TdIconComponent } from '../icon/icon.component';
               Events
               <div class="title-actions">
                 @if (soundDebug.events().length > 0) {
-                  <button class="action-btn" (click)="copyLog()" title="Copy log">
+                  <button class="action-btn" (click)="copyLog()" title="Copy log" aria-label="Copy log">
                     <td-icon name="copy" [size]="14"></td-icon>
                   </button>
-                  <button class="action-btn danger" (click)="soundDebug.clearEvents()" title="Clear events">
+                  <button class="action-btn danger" (click)="soundDebug.clearEvents()" title="Clear events" aria-label="Clear events">
                     <td-icon name="trash" [size]="14"></td-icon>
                   </button>
                 }

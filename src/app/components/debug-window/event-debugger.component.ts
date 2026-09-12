@@ -75,7 +75,7 @@ const MAX_LOG_ENTRIES = 100;
               <span class="label">Shown:</span>
               <span class="value">{{ filteredEvents().length }}</span>
             </span>
-            <button class="clear-btn" (click)="clearLog()" title="Clear log">
+            <button class="clear-btn" (click)="clearLog()" title="Clear log" aria-label="Clear log">
               <td-icon name="trash" [size]="14"></td-icon>
             </button>
             <button
@@ -83,6 +83,7 @@ const MAX_LOG_ENTRIES = 100;
               [class.active]="isPaused()"
               (click)="togglePause()"
               [title]="isPaused() ? 'Resume' : 'Pause'"
+              [attr.aria-label]="isPaused() ? 'Resume' : 'Pause'"
             >
               <td-icon [name]="isPaused() ? 'play' : 'pause'" [size]="14"></td-icon>
             </button>
