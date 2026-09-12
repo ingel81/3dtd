@@ -218,6 +218,13 @@ härter zurückgenommen, weil die Kosten einer zu großen Welle asymmetrisch sin
 Beleg in irgendeine Richtung; ein Phantom-Sample „nichts ist durchgekommen"
 würde den Regler auf nicht existierender Evidenz öffnen.
 
+**Split-Kinder zählen mit.** Die Leck-Quote ist der Anteil der Körper, die die
+Basis erreicht haben, an allen Körpern, die die Welle auf die Route gebracht hat.
+Die zwei Minions eines getöteten Skeletons sind eigene Körper: ein durchgelaufener
+Minion ist ein Leck, das getötete Skeleton ein Kill. Der Nenner wächst mit jedem
+Split; die Fortschrittsliste führt jeden Gegner ohnehin einzeln, und
+`WaveOutcome.enemiesSpawned` zählt die Kinder seit 2026-09-13 mit.
+
 **State ist per Run.** `reset()` gehört an den Spielstart und wird von
 `WaveDirectorService.resetForNewGame()` aufgerufen (Aufrufer:
 `game-loop-facade.service.ts`). Ließ man den Multiplikator über Runs hinweg
@@ -257,7 +264,9 @@ prüften. `gate-wiring.spec.ts` existiert genau dagegen.
    Welle ab — eine flache Region, in der keine Präferenz ausdrückbar ist, und im
    Training eine gewählte Aktion, die von der ausgeführten abweicht. Liegt der Cap
    *unter* `countRange[0]`, gewinnt der Cap: Die Range kollabiert darauf, statt das
-   Template-Minimum trotzdem auszuliefern.
+   Template-Minimum trotzdem auszuliefern. Ein Gegner, der sich beim Tod teilt
+   (Skeleton), zählt mit seinen Kindern: mit der HP der ganzen Linie
+   (`lineageHp`, 20 + 2 × 6) und einem Kill pro Körper (`splitBodyCount`, 3).
 6. **Wave-Duration-Cap.** `count × spawnDelay > 180_000 ms` → `spawnDelay` wird
    komprimiert (`MIN_SPAWN_DELAY_MS = 5`). Danach **zweiter Pass** über den
    Fairness-Cap: Eine langsame Mega-Welle passiert das Gate gerade *weil* ihr

@@ -1,6 +1,6 @@
 # 3DTD — Master Game Design Document
 
-**Stand:** 2026-05-12 (§5 Economy, §6.5 + §8 Wave Director, §7.1 + §10: 2026-09-07)
+**Stand:** 2026-05-12 (§5 Economy, §6.5 + §8 Wave Director, §7.1 + §10: 2026-09-07; §4 Skeleton-Split: 2026-09-13)
 
 > **Implementierungsstatus:** Damage-Matrix (§2.3), Status-Effekte Slow/Burn/Mark
 > (§2.4), Tower-Katalog (§3) und Forschungszentrum (§6) sind implementiert
@@ -258,7 +258,8 @@ unverändert. Der Test prüft beides (`damage-calculator.spec.ts`).
 | **Mech** | Heavy | Shielded, immuneToBurn | Shield-Check |
 | **Bear** | Heavy | Tanky | Ground-Tank |
 | **Hornet** | Light | Air, Swarm | Air-Swarm |
-| **Skeleton** | Unarmored | Swarm (Split noch offen) | Swarm-Check, seit 2026-09-12 im Spiel (Template `skeleton_swarm`) |
+| **Skeleton** | Unarmored | Swarm, Split: ein Kill teilt ihn in 2 Skeleton Minions, ein Leck nicht | Swarm-Check, seit 2026-09-12 im Spiel (Template `skeleton_swarm`), Split seit 2026-09-13 |
+| **Skeleton Minion** | Unarmored | Fast, entsteht nur aus dem Split (30 % der Skeleton-HP, 7 m/s), teilt sich nicht weiter | Nachschlag des Swarm-Checks, kein eigenes Template |
 | **Slime** | Unarmored | Regen, Split | Regen-Check |
 | **Banshee** | Ethereal | Phasing | Slow-Check |
 
