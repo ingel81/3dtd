@@ -66,6 +66,7 @@ import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
 import { RouteCorridorRegion } from './route-corridor-region';
+import { warmUpScene } from './scene-warmup';
 import type { GeoPosition } from '../models/game.types';
 
 /**
@@ -1924,14 +1925,24 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Preload all entity models
+   * Preload all entity models, then compile the shaders of everything in the
+   * scene (enemy, projectile, particle and VFX pools) during loading.
    */
   async preloadModels(): Promise<void> {
     await Promise.all([
       this.enemies.preloadAllModels(),
       this.towers.preloadAllModels(),
+      this.projectiles.whenLoaded(),
     ]);
     await this.towers.precompile(this.renderer, this.camera);
+    if (this.disposed) return;
+
+    const warmup = await warmUpScene(this.renderer, this.scene, this.camera);
+    console.log(
+      `[Warmup] ${warmup.newPrograms} new shader programs, ` +
+      `compile ${warmup.syncMs.toFixed(1)} ms on the main thread, ` +
+      `ready after ${warmup.totalMs.toFixed(1)} ms`
+    );
   }
 
   /**
