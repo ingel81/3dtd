@@ -18,6 +18,7 @@ import { HQDamageService } from '../combat/hq-damage.service';
 import { UIStore } from '../../store/ui.store';
 import { MarkerInstanceManager } from '../../three-engine/renderers/marker/marker-instance.manager';
 import { MarkerLabelManager } from '../../three-engine/renderers/marker/marker-label.manager';
+import { HQ_MARKER_SCALE, MARKER_FLOAT_HEIGHT, SPAWN_MARKER_SCALE } from '../../configs/marker-geometry.config';
 
 /**
  * SpawnPoint definition - extends GeoPosition for consistent coordinate handling
@@ -45,9 +46,6 @@ export interface DiamondMarkerOptions {
  * Uses GPU-instanced rendering for diamond bodies, rings, ground glow, and labels.
  * Total: 4 draw calls for all markers (diamond + ring + ground + label).
  */
-/** Metres the HQ / spawn diamonds float above the ground beneath them. */
-const HQ_MARKER_HEIGHT = 30;
-
 @Injectable({ providedIn: 'root' })
 export class MarkerVisualizationService {
   // ========================================
@@ -119,7 +117,7 @@ export class MarkerVisualizationService {
 
     const pos = this.hqMarkerPos();
 
-    this.markerManager.add('hq', 'hq', pos, 0x22c55e, 1.2, 0.001);
+    this.markerManager.add('hq', 'hq', pos, 0x22c55e, HQ_MARKER_SCALE, 0.001);
     this.labelManager.addLabel('hq', 'HQ', pos, '#22c55e', this.getPhaseOffset('hq'));
   }
 
@@ -140,8 +138,8 @@ export class MarkerVisualizationService {
     const terrainY = this.engine!.getTerrainHeightAtGeo(base.lat, base.lon);
     const currentY = this.markerManager?.getPosition('hq')?.y;
     const y = terrainY !== null
-      ? terrainY + HQ_MARKER_HEIGHT
-      : currentY ?? HQ_MARKER_HEIGHT;
+      ? terrainY + MARKER_FLOAT_HEIGHT
+      : currentY ?? MARKER_FLOAT_HEIGHT;
     return new Vector3(local.x, y, local.z);
   }
 
@@ -164,14 +162,13 @@ export class MarkerVisualizationService {
   addSpawnMarker(id: string, name: string, lat: number, lon: number, color: number): Group | null {
     if (!this.engine || !this.baseCoords || !this.markerManager || !this.labelManager) return null;
 
-    const HEIGHT_ABOVE_GROUND = 30;
     const terrainY = this.engine.getTerrainHeightAtGeo(lat, lon);
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
 
     // Only this spawn's own column matters — it used to also require the HQ
     // column to have resolved, which left the marker at a bare offset
     // whenever that unrelated raycast happened to miss.
-    const markerY = (terrainY ?? 0) + HEIGHT_ABOVE_GROUND;
+    const markerY = (terrainY ?? 0) + MARKER_FLOAT_HEIGHT;
 
     const pos = new Vector3(local.x, markerY, local.z);
     this.spawnCounter++;
@@ -179,7 +176,7 @@ export class MarkerVisualizationService {
     // Convert hex color to CSS string for label outline
     const cssColor = '#' + new Color(color).getHexString();
 
-    const proxy = this.markerManager.add(id, 'spawn', pos, color, 0.8, -0.0015);
+    const proxy = this.markerManager.add(id, 'spawn', pos, color, SPAWN_MARKER_SCALE, -0.0015);
     this.labelManager.addLabel(id, name, pos, cssColor, this.getPhaseOffset(id));
 
     return proxy;
