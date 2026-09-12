@@ -160,12 +160,13 @@ Die OSM-Breite gilt:
 ## Zellen und Engstellen
 
 Die Route-Zellen sind 2 m groß (`global-route-grid.ts:150`).
-`generateSegmentCells` (`:353-409`) nimmt eine Zelle in den Korridor auf, wenn
+`claimSegmentCells` (`route-grid-builder.ts:123-182`) nimmt eine Zelle in den
+Korridor auf, wenn
 
 - ihr Mittelpunkt höchstens die Halbbreite ihrer Seite vom Segment entfernt
   liegt, oder
 - das Segment ihr Quadrat berührt (`segmentTouchesCell`, Liang-Barsky,
-  `:415-441`).
+  `route-grid-builder.ts:188-215`).
 
 Die zweite Regel sorgt dafür, dass die Zellen, durch die die Mittellinie läuft,
 bei jeder Breite dazugehören. Eine Engstelle schmaler als eine Zelle bleibt so
@@ -187,13 +188,13 @@ unterste Treffer der feinsten LOD (`column-sample.ts`). Ausnahmen:
   Krone getroffen, unter der die Photogrammetrie keinen Boden hat. Der Check
   senkt nur ab, gilt nur für Zellen mit Fläche `ground` und nicht für die
   Mittellinien-Zellen selbst. Welche Mittellinien-Zelle daneben liegt, legt
-  `generateSegmentCells` beim Anlegen fest (`axisX`, `axisZ`,
-  `global-route-grid.ts:401-403`).
+  `claimSegmentCells` beim Anlegen fest (`axisX`, `axisZ`,
+  `route-grid-builder.ts:174-176`).
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
   (`path-route.service.ts:591`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
   (`route-cell-sampler.ts:136`). Erreicht auch ein Segment ohne Brücke dieselbe
-  Zelle, bleibt sie am Boden (`global-route-grid.ts:396-398`).
+  Zelle, bleibt sie am Boden (`route-grid-builder.ts:169-171`).
 - **Tunnel und überdachte Durchgänge:** `runsUnderCover`
   (`route-corridor.ts:316`) gilt für `tunnel=*` außer `no` (also auch
   `building_passage`) und für `covered=yes`. Solche Segmente tragen `inTunnel`
@@ -201,13 +202,13 @@ unterste Treffer der feinsten LOD (`column-sample.ts`). Ausnahmen:
   Fläche `tunnel`.
   - **Höhe:** linear zwischen dem Boden an zwei Portalen, je 2 m vor den
     Mündungen des ganzen Tunnelstücks (`TUNNEL_PORTAL_OFFSET_M`,
-    `tunnelSegments`, `global-route-grid.ts:33-90`). Die Höhe hat die gröbere
+    `tunnelSegments`, `route-grid-builder.ts:12-90`). Die Höhe hat die gröbere
     LOD der beiden Portale (`tunnelColumn`, `route-cell-sampler.ts:237-249`).
   - **Ohne Portal-Tile:** Solange an einem der beiden Portale kein Tile
     liegt, bleibt die Zelle ohne Höhenprobe.
   - **Geteilte Zellen:** Erreicht ein Tunnelsegment eine Zelle, ist sie
     Tunnelzelle, auch wenn ein anderes Segment sie ebenfalls erreicht
-    (`global-route-grid.ts:393-395`).
+    (`route-grid-builder.ts:166-168`).
   - Kein Dach-Check.
 
 ## Seitenversatz der Gegner
