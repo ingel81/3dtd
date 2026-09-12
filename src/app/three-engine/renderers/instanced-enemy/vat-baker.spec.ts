@@ -28,10 +28,19 @@ import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { TIMING } from '../../../configs/timing.config';
 
 describe('vatFrameCount', () => {
-  it('bakes a whole clip up to its last frame', () => {
+  it('bakes a loop up to the frame before its end, which is frame 0 again', () => {
     expect(vatFrameCount(2.958, 30)).toBe(89);
     expect(vatFrameCount(1, 30)).toBe(30);
     expect(vatFrameCount(0, 30)).toBe(1);
+  });
+
+  it('adds no frame to a loop whose float32 duration runs a hair past a whole frame', () => {
+    // The loaders read 4/3 s as 1.3333333730697632 s: 40.0000012 frames.
+    expect(vatFrameCount(Math.fround(4 / 3), 30)).toBe(40);
+    expect(vatFrameCount(Math.fround(0.8), 30)).toBe(24);
+    expect(vatFrameCount(Math.fround(149 / 30), 30)).toBe(149);
+    // A hair short of a whole frame stays as it was.
+    expect(vatFrameCount(Math.fround(25 / 6), 30)).toBe(125);
   });
 
   it('bakes a cut clip up to the frame shown at the cut', () => {
@@ -41,9 +50,12 @@ describe('vatFrameCount', () => {
     expect(vatFrameCount(4.5, 30, 2.76)).toBe(83);
   });
 
-  it('bakes the whole clip when the cut is past its end', () => {
+  it('bakes a clip that ends before the cut up to its end pose', () => {
     expect(vatFrameCount(2.958, 30, 8.22)).toBe(89);
-    expect(vatFrameCount(1, 30, 1)).toBe(30);
+    // Frame 30 is the pose at the end of a 1 s clip, held while the enemy lies dead.
+    expect(vatFrameCount(1, 30, 1)).toBe(31);
+    expect(vatFrameCount(Math.fround(1 / 3), 30, 2)).toBe(11);
+    expect(vatFrameCount(Math.fround(1.3), 30, 2)).toBe(40);
   });
 });
 
