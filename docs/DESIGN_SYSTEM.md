@@ -280,6 +280,8 @@ Die Sidebar (`components/game-sidebar/`) liefert Rahmen, Footer und die Wahl des
 
 Die Host-Elemente haben `display: contents`, die `<section class="td-panel">` bleibt damit Flex-Item der Sidebar-Spalte. Regeln, die mehrere Panels brauchen (Section, Header, Content, Scroll-Fläche, Tower-Header mit Sell-Button, `i`-Button, Upgrade-Kacheln), stehen einmal als Mixins in `_sidebar-panel.scss`; ein Panel bindet per `@include panel.<name>` ein, was sein Template nutzt. Die 1px-Trennlinie trägt nur das WAVE-Panel, die übrigen sind immer die letzte sichtbare Sektion. Tooltip-Aufbereitung (Tower-Karten, Gegnergruppen) liegt als reine Funktionen in `sidebar-tooltips.ts`.
 
+Verkaufen braucht zwei Klicks, ohne Dialog: der erste färbt den Sell-Button rot (`--td-health-red` auf `--td-health-bg`) und ersetzt den Namen im Header durch "Click again to sell", der zweite innerhalb von 2,5 s verkauft. Danach oder bei einem anderen Tower fällt der Button in den Normalzustand zurück. Der Zustand liegt im `SellConfirmService` (`services/sell-confirm.service.ts`), den Tower- und Research-Panel teilen.
+
 ### Next-Wave-Button (Sidebar)
 
 Primärer Call-to-Action (`.td-wave-btn` in `game-sidebar/wave-panel/wave-panel.component.scss`) mit der Beschriftung "Start Wave N", N ist die kommende Welle (dieselbe Nummer wie im Panel-Kopf). Gold-Button-Rezept: Verlauf `--td-gold-light` → `--td-gold` → `--td-gold-dark`, Text `#1A140A`, 1px dunkle Kante, Key-Shadow, `--td-font-mono` 13px/700, Versalien, `letter-spacing: 0.08em`. Ecken 3px wie Tower-Karten, Höhe 44px, Inhalt zentriert mit 10px Abstand, Icon `play` 16px.

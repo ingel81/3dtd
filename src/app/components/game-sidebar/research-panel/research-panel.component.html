@@ -1,13 +1,16 @@
 <!-- RESEARCH CENTER Panel -->
 <section class="td-panel td-research-panel">
   <div class="td-panel-header td-tower-header">
-    <span class="td-tower-header-name">RESEARCH CENTER · Lv.{{ researchStore.centerLevel() }}</span>
+    <span class="td-tower-header-name" [class.td-sell-armed-text]="sellArmed()" aria-live="polite">
+      {{ sellArmed() ? 'Click again to sell' : 'RESEARCH CENTER · Lv.' + researchStore.centerLevel() }}
+    </span>
     @if (sellValue() > 0) {
       <button class="td-header-sell-btn"
-              [matTooltip]="'Sell: refunds 75% of total invested (base + upgrades)'"
+              [class.armed]="sellArmed()"
+              [matTooltip]="sellArmed() ? 'Click again to sell for ' + sellValue() + ' credits' : 'Sell: refunds 75% of total invested (base + upgrades)'"
               matTooltipPosition="left"
-              [attr.aria-label]="'Sell for ' + sellValue() + ' credits'"
-              (click)="sellTower.emit()">
+              [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + sellValue() + ' credits'"
+              (click)="onSell()">
         <td-icon name="coin" [size]="14"></td-icon>
         <span class="td-header-sell-value">+{{ sellValue() }}</span>
       </button>

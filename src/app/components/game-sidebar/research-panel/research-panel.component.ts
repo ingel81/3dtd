@@ -7,6 +7,7 @@ import { UpgradeId } from '../../../configs/tower-types.config';
 import { RESEARCH_TREE, getResearch } from '../../../configs/research/research-tree.config';
 import { ActiveResearch, ResearchConfig, ResearchId } from '../../../configs/research/research.types';
 import { Tower } from '../../../entities/tower.entity';
+import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { TdIconComponent } from '../../icon/icon.component';
 import {
   missingPrereqNames,
@@ -32,8 +33,12 @@ import {
 export class SidebarResearchPanelComponent {
   readonly store = inject(TowerDefenseStore);
   readonly researchStore = inject(ResearchStore);
+  private readonly sellConfirm = inject(SellConfirmService);
 
   readonly tower = input.required<Tower>();
+
+  /** The first click on Sell only arms it, see SellConfirmService. */
+  readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
 
   readonly sellTower = output<void>();
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
@@ -74,6 +79,10 @@ export class SidebarResearchPanelComponent {
 
   getMissingPrereqs(id: ResearchId): string {
     return missingPrereqNames(id, this.researchStore.completedResearches());
+  }
+
+  onSell(): void {
+    if (this.sellConfirm.request(this.tower().id)) this.sellTower.emit();
   }
 
   onUpgradeTower(upgradeId: UpgradeId): void {

@@ -13,6 +13,7 @@ import {
 } from '../../../configs/tower-types.config';
 import { DAMAGE_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { Tower } from '../../../entities/tower.entity';
+import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/damage-matrix-dialog.component';
 import { TdIconComponent } from '../../icon/icon.component';
 import { damageTypeIcon, targetingStrategiesFor, towerStats, upgradeTierLockReason } from './tower-stats';
@@ -32,9 +33,13 @@ import { damageTypeIcon, targetingStrategiesFor, towerStats, upgradeTierLockReas
 export class SidebarTowerPanelComponent {
   private readonly dialog = inject(MatDialog);
   private readonly researchStore = inject(ResearchStore);
+  private readonly sellConfirm = inject(SellConfirmService);
   readonly store = inject(TowerDefenseStore);
 
   readonly tower = input.required<Tower>();
+
+  /** The first click on Sell only arms it, see SellConfirmService. */
+  readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
 
   readonly sellTower = output<void>();
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
@@ -87,6 +92,10 @@ export class SidebarTowerPanelComponent {
 
   onChangeAirSubStrategy(strategy: AirSubStrategy): void {
     this.changeAirSubStrategy.emit({ tower: this.tower(), strategy });
+  }
+
+  onSell(): void {
+    if (this.sellConfirm.request(this.tower().id)) this.sellTower.emit();
   }
 
   onUpgradeTower(upgradeId: UpgradeId): void {
