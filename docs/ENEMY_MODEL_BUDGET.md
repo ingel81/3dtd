@@ -293,8 +293,9 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Rat (`rat`) | Swarm | 5.000 | 2.150 | 3.642 | 10,8 | Skinning | 11 | 2150×11 | RGBA16F | 0,26 | 0,2 | 1024² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 1024² |
 | Skeleton (`skeleton`) | Swarm | 1.500 | 1.156 | 658 | 1,7 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
+| Skeleton Minion (`skeleton-minion`) | in keiner Welle | 0 | 1.156 | 658 | 0,0 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 
-VAT-Speicher aller Typen zusammen: **264,0 MB** (30 fps), alles in RGBA32F wären **485,2 MB**.
+VAT-Speicher aller Typen zusammen: **264,2 MB** (30 fps), alles in RGBA32F wären **485,7 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **15,9 MB** dazu.
 
 ### Modellinhalt
@@ -324,6 +325,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Rat | `rat.glb` | 2,5 | 1 (1) | 21 | 0 | 1 | 3× 1024² | 1 | 2.150 / 2.150 / 1.823 |
 | Penguin | `penguin.glb` | 1,3 | 1 (1) | 21 | 0 | 1 | 3× 1024² | 5 | 1.993 / 1.993 / 1.723 |
 | Skeleton | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
+| Skeleton Minion | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
 
 ### Gebackene Clips
 
@@ -361,6 +363,8 @@ die weggelassenen Frames.
 | Penguin | `Fall` | death | 1,88 | 57 | – |
 | Skeleton | `sprint` | walk | 0,50 | 15 | – |
 | Skeleton | `die` | death | 0,33 | 11 | – |
+| Skeleton Minion | `sprint` | walk | 0,50 | 15 | – |
+| Skeleton Minion | `die` | death | 0,33 | 11 | – |
 
 ### Vorkommen in Wellen
 
@@ -405,6 +409,7 @@ Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `c
 | Penguin | W3 | 25 |
 | Rat | W2, W3, W18 | 60 |
 | Skeleton | W19 | 500 |
+| Skeleton Minion | – | 0 |
 | Spider | W4, W6 | 35 |
 | Stone Golem | W15 | 6 |
 | Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 25 |

@@ -7,6 +7,20 @@
 
 import { ArmorType } from '../configs/combat/combat.types';
 
+/**
+ * What an enemy splits into when a tower kills it (EnemyManager.kill). A leak
+ * at the HQ and the debug kill-all do not split. The children join the
+ * parent's path where it died and scale with its HP and speed multipliers.
+ */
+export interface SplitOnDeath {
+  /** Enemy type of the children */
+  type: EnemyTypeId;
+  /** Children per kill */
+  count: number;
+  /** Lateral spread between the children, a share of the corridor room around the parent's lane (0-1) */
+  spread: number;
+}
+
 export interface EnemyTypeConfig {
   id: string;
   name: string;
@@ -87,6 +101,7 @@ export interface EnemyTypeConfig {
 
   // Spawning
   spawnStartDelay?: number; // Delay in ms between spawning enemies of this type (default: 300)
+  splitOnDeath?: SplitOnDeath; // What a kill splits this enemy into (none on a leak)
 
   // Preview
   previewScale?: number; // Override scale for model preview (sidebar)
@@ -459,6 +474,42 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralSpread: 1.0, // Swarm: up to the edge of the corridor
     spawnStartDelay: 150,
+    // A kill (not a leak) splits it into two minions where it died
+    splitOnDeath: { type: 'skeleton-minion', count: 2, spread: 0.3 },
+    previewScale: 2.5,
+    previewCameraDistance: 6,
+    previewCameraAngle: 0.2,
+  },
+
+  'skeleton-minion': {
+    id: 'skeleton-minion',
+    name: 'Skeleton Minion',
+    // What a killed skeleton splits into (splitOnDeath): the same Kenney model
+    // at 0.6 of its size, about 1.7 m tall, in a VAT pool of its own.
+    modelUrl: 'assets/models/enemies/skeleton.glb',
+    scale: 2.4,
+    minimumPixelSize: 0,
+    armorType: 'unarmored',
+    // 30 % of the skeleton's HP and a bit faster. The split scales both by the
+    // parent's multipliers, so a wave's hpMult reaches the minions too. No
+    // splitOnDeath of its own: a minion does not split again.
+    baseHp: 6,
+    baseSpeed: 7,
+    reward: 1,
+    hasAnimations: true,
+    walkAnimation: 'sprint',
+    deathAnimation: 'die',
+    // The skeleton's stride at 0.6 of its size, 1.92 m per 0.5 s cycle: 1.82
+    // puts the feet at 7 m/s (the skeleton's 0.9375 × 7/6 / 0.6).
+    animationSpeed: 1.82,
+    heightOffset: 0,
+    healthBarOffset: 2.3,
+    canBleed: false, // Bones
+    headingOffset: 0,
+    emissiveIntensity: 0.15,
+    randomAnimationStart: true,
+    lateralSpread: 1.0,
+    // Framed like the skeleton: the portrait is not a size comparison
     previewScale: 2.5,
     previewCameraDistance: 6,
     previewCameraAngle: 0.2,
