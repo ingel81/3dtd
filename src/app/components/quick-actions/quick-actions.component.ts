@@ -115,7 +115,7 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
         </div>
         <button class="td-quick-btn td-display-toggle-btn"
                 [class.active]="uiStore.displayMenuExpanded()"
-                (click)="uiStore.toggleDisplayMenu()"
+                (click)="uiStore.toggleMenu('display')"
                 matTooltip="Display" matTooltipPosition="left"
                 aria-label="Display" [attr.aria-expanded]="uiStore.displayMenuExpanded()">
           <td-icon [name]="uiStore.displayMenuExpanded() ? 'eyeOff' : 'eye'" [size]="18"></td-icon>
@@ -157,7 +157,7 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
         </div>
         <button class="td-quick-btn td-audio-toggle-btn"
                 [class.active]="uiStore.audioMenuExpanded()"
-                (click)="uiStore.toggleAudioMenu()"
+                (click)="uiStore.toggleMenu('audio')"
                 matTooltip="Audio" matTooltipPosition="left"
                 aria-label="Audio" [attr.aria-expanded]="uiStore.audioMenuExpanded()">
           <td-icon [name]="anyMuted() ? 'audioOff' : 'audio'" [size]="18"></td-icon>
@@ -224,7 +224,7 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
         </div>
         <button class="td-quick-btn td-layer-toggle-btn"
                 [class.active]="uiStore.layerMenuExpanded()"
-                (click)="uiStore.toggleLayerMenu()"
+                (click)="uiStore.toggleMenu('layers')"
                 matTooltip="Layers"
                 matTooltipPosition="left"
                 aria-label="Layers" [attr.aria-expanded]="uiStore.layerMenuExpanded()">
@@ -442,7 +442,7 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
         </div>
         <button class="td-quick-btn td-dev-toggle-btn"
                 [class.active]="uiStore.devMenuExpanded()"
-                (click)="uiStore.toggleDevMenu()"
+                (click)="uiStore.toggleMenu('dev')"
                 matTooltip="Developer options"
                 matTooltipPosition="left"
                 aria-label="Developer options" [attr.aria-expanded]="uiStore.devMenuExpanded()">
