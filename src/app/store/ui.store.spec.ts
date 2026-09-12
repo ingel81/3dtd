@@ -26,6 +26,11 @@ describe('UIStore', () => {
       expect(store.displayMenuExpanded()).toBe(false);
     });
 
+    it('no quick-actions menu is open', () => {
+      expect(store.openMenu()).toBeNull();
+      expect(store.audioMenuExpanded()).toBe(false);
+    });
+
     it('all debug visibility flags start as false', () => {
       expect(store.streetsVisible()).toBe(false);
       expect(store.routesVisible()).toBe(false);
@@ -53,6 +58,65 @@ describe('UIStore', () => {
       expect(store.buildValidationReason()).toBeNull();
     });
 
+  });
+
+  describe('quick-actions menus: only one open', () => {
+    const flags = () => ({
+      display: store.displayMenuExpanded(),
+      audio: store.audioMenuExpanded(),
+      layers: store.layerMenuExpanded(),
+      dev: store.devMenuExpanded(),
+    });
+
+    it('toggleMenu opens the menu and only that one', () => {
+      store.toggleMenu('layers');
+      expect(store.openMenu()).toBe('layers');
+      expect(flags()).toEqual({ display: false, audio: false, layers: true, dev: false });
+    });
+
+    it('opening another menu closes the open one', () => {
+      store.toggleMenu('display');
+      store.toggleMenu('dev');
+      expect(flags()).toEqual({ display: false, audio: false, layers: false, dev: true });
+      store.toggleMenu('audio');
+      expect(flags()).toEqual({ display: false, audio: true, layers: false, dev: false });
+    });
+
+    it('toggling the open menu closes it', () => {
+      store.toggleMenu('dev');
+      store.toggleMenu('dev');
+      expect(store.openMenu()).toBeNull();
+      expect(store.devMenuExpanded()).toBe(false);
+    });
+  });
+
+  describe('persisted open menu', () => {
+    const load = (state: object) => {
+      localStorage.setItem('td-ui-state', JSON.stringify(state));
+      return new UIStore();
+    };
+
+    it('reopens the stored menu', () => {
+      expect(load({ openMenu: 'layers' }).openMenu()).toBe('layers');
+      expect(load({ openMenu: null }).openMenu()).toBeNull();
+    });
+
+    it('ignores an unknown stored menu', () => {
+      expect(load({ openMenu: 'inventory' }).openMenu()).toBeNull();
+    });
+
+    it('migrates the old per-menu flags to one menu, dev first', () => {
+      const s = load({ devMenuExpanded: true, layerMenuExpanded: true, displayMenuExpanded: true });
+      expect(s.openMenu()).toBe('dev');
+      expect(s.layerMenuExpanded()).toBe(false);
+      expect(load({ layerMenuExpanded: true, audioMenuExpanded: true }).openMenu()).toBe('layers');
+      expect(load({ displayMenuExpanded: true }).openMenu()).toBe('display');
+      expect(load({ devMenuExpanded: false, layerMenuExpanded: false }).openMenu()).toBeNull();
+    });
+
+    it('the new field wins over leftover old flags', () => {
+      expect(load({ openMenu: 'audio', devMenuExpanded: true }).openMenu()).toBe('audio');
+    });
   });
 
   describe('toggleBuildings', () => {
@@ -123,9 +187,7 @@ describe('UIStore', () => {
   describe('resetAll', () => {
     it('resets all UI state to defaults', () => {
       store.debugMode.set(true);
-      store.layerMenuExpanded.set(true);
-      store.devMenuExpanded.set(true);
-      store.displayMenuExpanded.set(true);
+      store.toggleMenu('dev');
       store.streetsVisible.set(true);
       store.routesVisible.set(true);
       store.heightDebugVisible.set(true);
@@ -142,9 +204,8 @@ describe('UIStore', () => {
       store.resetAll();
 
       expect(store.debugMode()).toBe(false);
-      expect(store.layerMenuExpanded()).toBe(false);
+      expect(store.openMenu()).toBeNull();
       expect(store.devMenuExpanded()).toBe(false);
-      expect(store.displayMenuExpanded()).toBe(false);
       expect(store.streetsVisible()).toBe(false);
       expect(store.routesVisible()).toBe(false);
       expect(store.heightDebugVisible()).toBe(false);

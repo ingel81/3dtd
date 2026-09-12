@@ -153,7 +153,7 @@ Titel-Akzent der Tower-Tooltips (`DAMAGE_ACCENT` in `sidebar-tooltips.ts`), dazu
 
 ### Quick Actions und Dev-Menü
 
-Die Quick Actions reichen vertikal von unterhalb des Kompasses (`top: 112px`) bis zur Unterkante; die Buttons sitzen unten, die leere Fläche darüber ist `pointer-events: none`. Untermenüs klappen nach oben auf.
+Die Quick Actions reichen vertikal von unterhalb des Kompasses (`top: 112px`) bis zur Unterkante; die Buttons sitzen unten, die leere Fläche darüber ist `pointer-events: none`. Untermenüs klappen nach oben auf. Es ist immer nur eines der vier Menüs (Display, Audio, Layers, Dev) offen: `UIStore.openMenu` ist die einzige Quelle, `toggleMenu()` schließt beim Öffnen die anderen, gespeichert wird nur das zuletzt offene. Das Dev-Panel spannt die ganze Leiste und würde die anderen sonst überdecken.
 
 Das Dev-Menü (`.td-dev-menu`) ist ein Glas-Panel (`TD_BEVEL_GLASS`) über der Leiste: genau so breit wie sie (212px), rechtsbündig, Unterkante 4px über den Buttons, außerhalb des Flusses. Innen ein Raster mit vier Spalten (`gap` 4px, `padding` 6px), gegliedert in Gruppen, deren Titel über die volle Breite laufen (8px/600, `letter-spacing: 0.16em`, `--td-text-muted`):
 

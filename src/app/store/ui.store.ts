@@ -1,4 +1,4 @@
-import { Injectable, signal, effect } from '@angular/core';
+import { Injectable, computed, signal, effect } from '@angular/core';
 import { TowerTypeId } from '../configs/tower-types.config';
 
 /** LocalStorage key for persisted UI state */
@@ -6,6 +6,11 @@ const STORAGE_KEY = 'td-ui-state';
 
 /** Trailing debounce window for localStorage writes (ms) */
 const PERSIST_DEBOUNCE_MS = 500;
+
+/** Menus that open above the quick-actions bar. Only one is open at a time. */
+export type QuickMenu = 'display' | 'audio' | 'layers' | 'dev';
+
+const QUICK_MENUS: readonly QuickMenu[] = ['display', 'audio', 'layers', 'dev'];
 
 /** Shape of persisted UI state */
 interface PersistedUIState {
@@ -16,14 +21,34 @@ interface PersistedUIState {
   airSpatialGridDebugVisible?: boolean;
   airRouteVisible?: boolean;
   perTowerLosFilter?: 'both' | 'ground' | 'air';
-  devMenuExpanded: boolean;
-  layerMenuExpanded: boolean;
-  displayMenuExpanded: boolean;
-  audioMenuExpanded?: boolean;
+  openMenu?: QuickMenu | null;
   musicVolume?: number;
   sfxVolume?: number;
   musicMuted?: boolean;
   sfxMuted?: boolean;
+}
+
+/** Older states stored one flag per menu, and several could be open. */
+interface LegacyMenuFlags {
+  devMenuExpanded?: boolean;
+  layerMenuExpanded?: boolean;
+  displayMenuExpanded?: boolean;
+  audioMenuExpanded?: boolean;
+}
+
+/**
+ * Menu to reopen from a stored state. A legacy state with several open menus
+ * reopens one, taken right to left along the bar: dev, layers, audio, display.
+ */
+function storedOpenMenu(state: PersistedUIState & LegacyMenuFlags): QuickMenu | null {
+  if (state.openMenu !== undefined) {
+    return QUICK_MENUS.includes(state.openMenu as QuickMenu) ? state.openMenu : null;
+  }
+  if (state.devMenuExpanded) return 'dev';
+  if (state.layerMenuExpanded) return 'layers';
+  if (state.audioMenuExpanded) return 'audio';
+  if (state.displayMenuExpanded) return 'display';
+  return null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -31,17 +56,25 @@ export class UIStore {
   /** Debug panel visibility */
   readonly debugMode = signal<boolean>(false);
 
+  /**
+   * The open quick-actions menu, null when all are closed. Single source for
+   * the four menus: the dev panel spans the whole bar and would cover the
+   * others, so opening one closes the rest. Persisted, so a reload reopens
+   * the menu that was open last.
+   */
+  readonly openMenu = signal<QuickMenu | null>(null);
+
   /** Layer menu expanded */
-  readonly layerMenuExpanded = signal<boolean>(false);
+  readonly layerMenuExpanded = computed(() => this.openMenu() === 'layers');
 
   /** Developer menu expanded */
-  readonly devMenuExpanded = signal<boolean>(false);
+  readonly devMenuExpanded = computed(() => this.openMenu() === 'dev');
 
   /** Display settings menu expanded */
-  readonly displayMenuExpanded = signal<boolean>(false);
+  readonly displayMenuExpanded = computed(() => this.openMenu() === 'display');
 
   /** Audio settings menu expanded */
-  readonly audioMenuExpanded = signal<boolean>(false);
+  readonly audioMenuExpanded = computed(() => this.openMenu() === 'audio');
 
   /** Music volume (0-1), default matches BACKGROUND_MUSIC.masterVolume */
   readonly musicVolume = signal<number>(0.4);
@@ -123,7 +156,7 @@ export class UIStore {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const state: PersistedUIState = JSON.parse(stored);
+        const state: PersistedUIState & LegacyMenuFlags = JSON.parse(stored);
         if (state.infoOverlayVisible !== undefined) this.infoOverlayVisible.set(state.infoOverlayVisible);
         if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
         if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
@@ -131,10 +164,7 @@ export class UIStore {
         if (state.airSpatialGridDebugVisible !== undefined) this.airSpatialGridDebugVisible.set(state.airSpatialGridDebugVisible);
         if (state.airRouteVisible !== undefined) this.airRouteVisible.set(state.airRouteVisible);
         if (state.perTowerLosFilter !== undefined) this.perTowerLosFilter.set(state.perTowerLosFilter);
-        if (state.devMenuExpanded !== undefined) this.devMenuExpanded.set(state.devMenuExpanded);
-        if (state.layerMenuExpanded !== undefined) this.layerMenuExpanded.set(state.layerMenuExpanded);
-        if (state.displayMenuExpanded !== undefined) this.displayMenuExpanded.set(state.displayMenuExpanded);
-        if (state.audioMenuExpanded !== undefined) this.audioMenuExpanded.set(state.audioMenuExpanded);
+        this.openMenu.set(storedOpenMenu(state));
         if (state.musicVolume !== undefined) this.musicVolume.set(state.musicVolume);
         if (state.sfxVolume !== undefined) this.sfxVolume.set(state.sfxVolume);
         if (state.musicMuted !== undefined) this.musicMuted.set(state.musicMuted);
@@ -160,10 +190,7 @@ export class UIStore {
           airSpatialGridDebugVisible: this.airSpatialGridDebugVisible(),
           airRouteVisible: this.airRouteVisible(),
           perTowerLosFilter: this.perTowerLosFilter(),
-          devMenuExpanded: this.devMenuExpanded(),
-          layerMenuExpanded: this.layerMenuExpanded(),
-          displayMenuExpanded: this.displayMenuExpanded(),
-          audioMenuExpanded: this.audioMenuExpanded(),
+          openMenu: this.openMenu(),
           musicVolume: this.musicVolume(),
           sfxVolume: this.sfxVolume(),
           musicMuted: this.musicMuted(),
@@ -187,10 +214,8 @@ export class UIStore {
   // ════════════════════════════════════════════════════════════
 
   toggleDebug(): void { this.debugMode.update(v => !v); }
-  toggleLayerMenu(): void { this.layerMenuExpanded.update(v => !v); }
-  toggleDevMenu(): void { this.devMenuExpanded.update(v => !v); }
-  toggleDisplayMenu(): void { this.displayMenuExpanded.update(v => !v); }
-  toggleAudioMenu(): void { this.audioMenuExpanded.update(v => !v); }
+  /** Open a quick-actions menu and close the others, or close it if it is open. */
+  toggleMenu(menu: QuickMenu): void { this.openMenu.update(open => (open === menu ? null : menu)); }
   toggleStreets(): void { this.streetsVisible.update(v => !v); }
   toggleRoutes(): void { this.routesVisible.update(v => !v); }
   toggleHeightDebug(): void { this.heightDebugVisible.update(v => !v); }
@@ -236,9 +261,7 @@ export class UIStore {
   /** Full reset including UI state. */
   resetAll(): void {
     this.debugMode.set(false);
-    this.layerMenuExpanded.set(false);
-    this.devMenuExpanded.set(false);
-    this.displayMenuExpanded.set(false);
+    this.openMenu.set(null);
     this.streetsVisible.set(false);
     this.routesVisible.set(false);
     this.heightDebugVisible.set(false);
