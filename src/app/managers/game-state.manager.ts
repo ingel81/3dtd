@@ -332,6 +332,12 @@ export class GameStateManager {
       }
     }));
 
+    // Once a wave is over, turn the towers to where the route enters their
+    // range. During the wave a tower keeps the heading of its last target.
+    this.eventBusSubs.add(this.eventBus.on('wave:completed', () => {
+      this.towerCombat.turnTowersToGuard(this.towerManager);
+    }));
+
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
         this.updateCredits(event.credits);
@@ -494,13 +500,6 @@ export class GameStateManager {
     // Sync active research progress to store for UI (cheap, batched once/frame)
     if (this.researchManager.usedSlots > 0) {
       this.researchStore.activeResearches.set(this.researchManager.getActiveResearches());
-    }
-
-    // Tower idle-rotation visual (smooth return) when no combat is running
-    const isWavePhase = this.waveManager.phase() === 'wave';
-    const hasDebugEnemies = this.enemyDebug.debugEnemies().length > 0;
-    if (!(isWavePhase || hasDebugEnemies)) {
-      this.towerCombat.updateTowerIdleRotations(this.towerManager);
     }
 
     if (profiling) {
@@ -791,6 +790,14 @@ export class GameStateManager {
     const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
     tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
     this.tilesEngine?.towers.updateRangeIndicatorTerrain(tower.id, tower.combat.range);
+
+    // A longer range meets the route earlier. Between waves the tower stands
+    // at its guard heading and follows the new one; in a wave it keeps
+    // aiming where it was and turns after the wave.
+    this.towerManager.refreshGuardHeading(tower);
+    if (this.waveManager.phase() !== 'wave') {
+      this.towerCombat.turnToGuardHeading(tower);
+    }
   }
 
   /**
@@ -946,6 +953,12 @@ export class GameStateManager {
     this.tilesEngine.setRouteCorridor(routes);
     if (routes.length > 0) {
       this.globalRouteGrid.generateFromRoutes(routes);
+    }
+
+    // New routes enter the towers' ranges elsewhere.
+    this.towerManager.refreshGuardHeadings();
+    if (this.waveManager.phase() !== 'wave') {
+      this.towerCombat.turnTowersToGuard(this.towerManager);
     }
   }
 

@@ -60,7 +60,8 @@ function createStubService(name: string): Record<string, unknown> {
     },
     TowerCombatService: {
       initialize: vi.fn(),
-      updateTowerIdleRotations: vi.fn(),
+      turnTowersToGuard: vi.fn(),
+      turnToGuardHeading: vi.fn(),
       updateTowerShooting: vi.fn(),
       updateBeamTowers: vi.fn(),
       updateMeleeTowers: vi.fn(),
@@ -389,6 +390,49 @@ describe('GameStateManager', () => {
         // the unlock in a research:completed handler subscribed after this one.
         expect(placement['scheduleLosRecompute'].mock.calls).toEqual([[gatling]]);
         expect(placement['recomputeTowerLOS']).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('guard heading', () => {
+      const combat = () => mockServices['TowerCombatService'] as Record<string, ReturnType<typeof vi.fn>>;
+
+      it('turns the towers to their guard heading once a wave is completed', () => {
+        // The music also listens for the wave end; it has no audio graph here.
+        vi.spyOn(gsm.backgroundMusic as unknown as { playBuildPhase: () => void }, 'playBuildPhase')
+          .mockImplementation(() => undefined);
+        bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+        expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
+      });
+
+      it('follows a new guard heading after a range upgrade between waves', () => {
+        const tower = gsm.placeTower(BASE_POSITION, 'archer')!;
+        gsm.recomputeTowerRangeAfterUpgrade(tower);
+        expect(combat()['turnToGuardHeading']).toHaveBeenCalledWith(tower);
+      });
+
+      it('keeps the heading after a range upgrade during a wave', () => {
+        const tower = gsm.placeTower(BASE_POSITION, 'archer')!;
+        gsm.waveManager.phase.set('wave');
+        gsm.recomputeTowerRangeAfterUpgrade(tower);
+        expect(combat()['turnToGuardHeading']).not.toHaveBeenCalled();
+      });
+
+      it('recomputes the guard headings when the routes change', () => {
+        const tower = gsm.placeTower(BASE_POSITION, 'archer')!;
+        expect(tower.guardHeading).toBeNull();
+
+        // North to south, a few meters east of the tower.
+        const paths = mockServices['PathAndRouteService'] as { getCachedPaths: ReturnType<typeof vi.fn> };
+        paths.getCachedPaths.mockReturnValue(new Map([['sp-1', [
+          { lat: BASE_POSITION.lat + 0.01, lon: BASE_POSITION.lon + 0.00005 },
+          { lat: BASE_POSITION.lat - 0.01, lon: BASE_POSITION.lon + 0.00005 },
+        ]]]));
+        gsm.initializeGlobalRouteGrid();
+
+        // Entered from the north, slightly east of it.
+        expect(tower.guardHeading).toBeGreaterThan(0);
+        expect(tower.guardHeading).toBeLessThan(Math.PI / 4);
+        expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
       });
     });
 

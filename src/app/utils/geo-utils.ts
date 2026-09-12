@@ -124,6 +124,18 @@ export function geoDistanceFastSq(
 }
 
 /**
+ * Heading from one geo position to another, in radians: 0 = north, π/2 = east.
+ * Built from raw degree deltas, the convention the turret aim uses, so a
+ * turret turned to this heading lines up with its aim at a target there.
+ */
+export function geoHeading(
+  from: { lat: number; lon: number },
+  to: { lat: number; lon: number }
+): number {
+  return Math.atan2(to.lon - from.lon, to.lat - from.lat);
+}
+
+/**
  * Find the minimum distance from a point to any segment on the given routes.
  * Checks distance to line segments between consecutive route points, not just nodes.
  *

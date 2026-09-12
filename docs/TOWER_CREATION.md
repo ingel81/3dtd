@@ -227,17 +227,34 @@ const threeJsTargetRotation = -heading + turretModelOffset;
 const localRotation = threeJsTargetRotation - parentRotation;
 ```
 
-### Reset bei Idle
+### Ohne Ziel: Richtung halten, nach der Welle Wachrichtung
 
-Tower ohne Ziel drehen automatisch zur Basisposition zurück:
+Ein Tower schießt erst, wenn der Turm auf 15° ausgerichtet ist
+(`isTurretAligned`). Deshalb dreht er ohne Ziel nicht mehr in eine
+Grundstellung zurück:
+
+- **Während der Welle** ruft die Kampfschleife ohne Ziel `releaseTarget` auf.
+  Der Turm beendet die laufende Drehung und hält die Richtung des letzten
+  Ziels.
+- **Wachrichtung:** `Tower.guardHeading` zeigt dorthin, wo eine Route in die
+  Reichweite eintritt (`utils/tower-guard-heading.ts`). Bei mehreren Routen
+  zählt der Eintritt, der am frühesten auf seiner Route liegt. Tritt keine
+  Route in die Reichweite ein, ist der Wert `null` und der Turm behält seine
+  Richtung. Berechnet vom `TowerManager` bei Platzierung, Reichweiten-Upgrade
+  und Routenänderung.
+- **Neu platziert** startet der Turm in der Wachrichtung
+  (`create(..., initialHeading)`), der Scan-Schwenk läuft um sie herum.
+- **Nach der Welle** dreht der `GameStateManager` auf `wave:completed` alle
+  Tower mit `turnTowersToGuard` zur Wachrichtung (`setIdleHeading`, gleiche
+  Drehgeschwindigkeit wie beim Zielen).
 
 ```typescript
-// game-state.manager.ts
+// tower-combat.service.ts
 if (target) {
   this.tilesEngine?.towers.updateRotation(tower.id, heading);
   // ... fire
 } else {
-  this.tilesEngine?.towers.resetRotation(tower.id);
+  this.tilesEngine?.towers.releaseTarget(tower.id);
 }
 ```
 

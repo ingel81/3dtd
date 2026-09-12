@@ -68,6 +68,14 @@ export class Tower extends GameObject {
   /** Whether LOS computation is complete (tower won't fire until true) */
   losReady = false;
 
+  /**
+   * Heading (geoHeading convention) to where a route enters this tower's
+   * range; the turret faces it from placement on and again after each wave.
+   * null when no route reaches the range. Kept current by TowerManager on
+   * placement, range upgrades and route changes.
+   */
+  guardHeading: number | null = null;
+
   /** Cached current target - avoid re-searching every frame */
   private _currentTarget: Enemy | null = null;
 

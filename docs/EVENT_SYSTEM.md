@@ -69,7 +69,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `vfx:muzzle-flash` | TowerManager | VFXService | Muzzle-Flash VFX am Tower spawnen |
 | `vfx:chain-lightning` | TowerCombatService (Lightning Tower) | VFXService → LightningBoltRenderer | Chain-Polyline rendern (`points` = Tip → primary → jumpN, `sourceTowerId`). Triggert pro Segment einen Bolt + lokalen Aufhell-Halo. |
 | `audio:play` | ProjectileManager, HQDamageService | AudioService | 3D Sound abspielen |
-| `wave:completed` | WaveManager (`endWave()`) | UI, GameLoopFacade, AIDataCollector | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`). Siehe Warnung unten. |
+| `wave:completed` | WaveManager (`endWave()`) | UI, GameLoopFacade, AIDataCollector, GameStateManager (Tower in Wachrichtung drehen) | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`). Siehe Warnung unten. |
 
 > **`wave:completed` ist kein verlaesslicher „jede Welle"-Hook.**
 >

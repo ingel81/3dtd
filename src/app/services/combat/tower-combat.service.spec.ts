@@ -27,6 +27,7 @@ import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
  * - getEffectiveDPS / getEffectiveBeamWidth: upgrade-aware private getters
  * - Beam-state cleanup (stopTowerBeam, stopAllBeams) — flame-sound + throttle map
  * - updateBeamTowers: acquires only inside the flame, flame follows the range
+ * - Turret heading without a target: held during a wave, guard heading after
  *
  * Targeting strategies (closest/strongest/nearest/lowest-hp) live on
  * Tower.findTarget and are covered by tower.entity.spec.ts. Beam cone
@@ -246,7 +247,7 @@ describe('TowerCombatService', () => {
           geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }),
           geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target,
         },
-        towers: { updateRotation: vi.fn(), resetRotation: vi.fn(), hasLineOfSight: () => true },
+        towers: { updateRotation: vi.fn(), releaseTarget: vi.fn(), hasLineOfSight: () => true },
         flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn() },
       };
       service.initialize(engine as never);
@@ -368,7 +369,7 @@ describe('TowerCombatService', () => {
       service = new TowerCombatService();
       service.initialize({
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
-        towers: { resetRotation: vi.fn() },
+        towers: { releaseTarget: vi.fn() },
       } as never);
 
       const tower = new Tower({ lat: 48.0, lon: 9.0, height: 0 }, 'archer');
@@ -385,6 +386,64 @@ describe('TowerCombatService', () => {
       expect(hasEnemyInRadius.mock.calls[0][2]).toBeCloseTo(radius, 6);
       expect(tower.isSleeping).toBe(false);
       expect(getEnemiesInRadius.mock.calls[0][2]).toBeCloseTo(radius, 6);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // Turret heading without a target: held in a wave, guard heading after
+  // ────────────────────────────────────────────────────────────────
+  describe('turret heading without a target', () => {
+    const noEnemies = (_x: number, _z: number, _r: number, _ex: unknown, out: unknown[]) => {
+      out.length = 0;
+      return out;
+    };
+
+    function setup() {
+      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius: noEnemies };
+      service = new TowerCombatService();
+      const towers = { releaseTarget: vi.fn(), updateRotation: vi.fn(), setIdleHeading: vi.fn() };
+      service.initialize({
+        sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
+        towers,
+        flameBeams: { stopBeam: vi.fn() },
+      } as never);
+      return towers;
+    }
+
+    const loops: {
+      kind: string;
+      typeId: 'archer' | 'fire' | 'tentacle';
+      run: (towerManager: never) => void;
+    }[] = [
+      { kind: 'projectile', typeId: 'archer', run: (tm) => service.updateTowerShooting(1000, 16, tm, {} as never, {} as never) },
+      { kind: 'beam', typeId: 'fire', run: (tm) => service.updateBeamTowers(16, tm, {} as never, 1000) },
+      { kind: 'melee', typeId: 'tentacle', run: (tm) => service.updateMeleeTowers(16, tm, {} as never, 1000) },
+    ];
+
+    for (const { kind, typeId, run } of loops) {
+      it(`${kind}: keeps the heading when the tower has no target during a wave`, () => {
+        const towers = setup();
+        const tower = new Tower({ lat: 48.0, lon: 9.0, height: 0 }, typeId);
+        tower.losReady = true;
+        tower.guardHeading = 1.2;
+
+        run({ getAllActive: () => [tower] } as never);
+
+        expect(towers.releaseTarget).toHaveBeenCalledWith(tower.id);
+        expect(towers.updateRotation).not.toHaveBeenCalled();
+        expect(towers.setIdleHeading).not.toHaveBeenCalled();
+      });
+    }
+
+    it('turnTowersToGuard turns the towers that have a guard heading', () => {
+      const towers = setup();
+      const guarded = new Tower({ lat: 48.0, lon: 9.0, height: 0 }, 'archer');
+      guarded.guardHeading = 0.7;
+      const unguarded = new Tower({ lat: 48.001, lon: 9.0, height: 0 }, 'archer');
+
+      service.turnTowersToGuard({ getAllActive: () => [guarded, unguarded] } as never);
+
+      expect(towers.setIdleHeading.mock.calls).toEqual([[guarded.id, 0.7]]);
     });
   });
 
