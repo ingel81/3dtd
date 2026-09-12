@@ -21,6 +21,19 @@ export class GameStore {
   /** Number of enemies currently alive */
   readonly enemiesAlive = signal<number>(0);
 
+  /**
+   * Enemies the running wave brings in total, as announced by wave:started.
+   * 0 outside a wave and for manual debug waves, which announce no count.
+   */
+  readonly waveEnemyTotal = signal<number>(0);
+
+  /**
+   * Enemies of the running wave not yet killed or through to the HQ: the
+   * living ones plus those still to spawn. Drives the "N left" bar on the
+   * wave button.
+   */
+  readonly waveEnemiesLeft = signal<number>(0);
+
   /** Currently selected tower (for info panel / upgrades) */
   readonly selectedTower = signal<Tower | null>(null);
 
@@ -115,6 +128,8 @@ export class GameStore {
     this.phase.set('setup');
     this.waveNumber.set(0);
     this.enemiesAlive.set(0);
+    this.waveEnemyTotal.set(0);
+    this.waveEnemiesLeft.set(0);
     this.selectedTower.set(null);
     this.towerCount.set(0);
     this.showGameOverScreen.set(false);

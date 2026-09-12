@@ -31,6 +31,11 @@ describe('GameStore', () => {
       expect(store.enemiesAlive()).toBe(0);
     });
 
+    it('waveEnemyTotal and waveEnemiesLeft start at 0', () => {
+      expect(store.waveEnemyTotal()).toBe(0);
+      expect(store.waveEnemiesLeft()).toBe(0);
+    });
+
     it('selectedTower starts as null', () => {
       expect(store.selectedTower()).toBeNull();
     });
@@ -202,6 +207,8 @@ describe('GameStore', () => {
       store.phase.set('gameover');
       store.waveNumber.set(5);
       store.enemiesAlive.set(20);
+      store.waveEnemyTotal.set(30);
+      store.waveEnemiesLeft.set(22);
       store.towerCount.set(8);
       store.showGameOverScreen.set(true);
       store.aiExplanation.set({ summary: 'Wave 1: Zombie Horde · 20 enemies · HP ×0.50', reasons: [] });
@@ -213,6 +220,8 @@ describe('GameStore', () => {
       expect(store.phase()).toBe('setup');
       expect(store.waveNumber()).toBe(0);
       expect(store.enemiesAlive()).toBe(0);
+      expect(store.waveEnemyTotal()).toBe(0);
+      expect(store.waveEnemiesLeft()).toBe(0);
       expect(store.selectedTower()).toBeNull();
       expect(store.towerCount()).toBe(0);
       expect(store.showGameOverScreen()).toBe(false);

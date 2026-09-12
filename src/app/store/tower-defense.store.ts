@@ -71,6 +71,12 @@ export class TowerDefenseStore {
   /** Number of enemies currently alive */
   readonly enemiesAlive = this.gameStore.enemiesAlive;
 
+  /** Enemies the running wave brings in total (0 = none or not announced) */
+  readonly waveEnemyTotal = this.gameStore.waveEnemyTotal;
+
+  /** Enemies of the running wave not yet killed or through */
+  readonly waveEnemiesLeft = this.gameStore.waveEnemiesLeft;
+
   /** Currently selected tower (for info panel / upgrades) */
   readonly selectedTower = this.gameStore.selectedTower;
 

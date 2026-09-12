@@ -89,6 +89,51 @@ describe('GameStateSyncService (real service)', () => {
     });
   });
 
+  // ── Enemies left in the running wave (wave button bar) ─────────
+  describe('enemies left in the wave', () => {
+    it('wave:started → total and left = announced enemy count', () => {
+      eventBus.emit({ type: 'wave:started', wave: 4, enemyCount: 12 });
+      expect(store.waveEnemyTotal()).toBe(12);
+      expect(store.waveEnemiesLeft()).toBe(12);
+    });
+
+    it('killed and leaked enemies both count down, spawns do not', () => {
+      eventBus.emit({ type: 'wave:started', wave: 4, enemyCount: 5 });
+      eventBus.emit({ type: 'enemy:spawned', enemy: {} as never });
+      eventBus.emit({ type: 'enemy:spawned', enemy: {} as never });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 10 });
+      eventBus.emit({ type: 'enemy:reached-base', enemy: {} as never, damage: 10 });
+      // 3 still to spawn, both spawned ones are resolved
+      expect(store.waveEnemiesLeft()).toBe(3);
+      expect(store.waveEnemyTotal()).toBe(5);
+    });
+
+    it('left cannot go below 0', () => {
+      eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 1 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 });
+      expect(store.waveEnemiesLeft()).toBe(0);
+    });
+
+    it('debug:kill-all → left = 0, the unspawned rest is dropped too', () => {
+      eventBus.emit({ type: 'wave:started', wave: 2, enemyCount: 20 });
+      eventBus.emit({ type: 'enemy:spawned', enemy: {} as never });
+      eventBus.emit({ type: 'debug:kill-all' });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 });
+      expect(store.waveEnemiesLeft()).toBe(0);
+    });
+
+    it('wave:completed → total and left back to 0', () => {
+      eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 8 });
+      eventBus.emit({
+        type: 'wave:completed', wave: 1, credits: 50,
+        perfect: true, closeCall: false, hpLost: 0,
+      });
+      expect(store.waveEnemyTotal()).toBe(0);
+      expect(store.waveEnemiesLeft()).toBe(0);
+    });
+  });
+
   // ── Game state ─────────────────────────────────────────────────
   describe('game-state events', () => {
     it('game:over → phase=gameover, showGameOverScreen=true', () => {
