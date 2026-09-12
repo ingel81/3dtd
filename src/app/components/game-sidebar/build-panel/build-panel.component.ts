@@ -111,7 +111,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
    * Mirrors the research-tree progression depth, capped at 3:
    *   T1 = starter (archer, research-center)
    *   T2 = first unlock layer (gatling, ice, tentacle, poison)
-   *   T3 = deeper unlocks (cannon, fire, magic, rocket)
+   *   T3 = deeper unlocks (cannon, fire, magic, rocket, lightning, chaos)
    */
   private static readonly TOWER_TIER: Record<TowerTypeId, number> = {
     'archer': 1,
@@ -125,6 +125,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
     'magic': 3,
     'rocket': 3,
     'lightning': 3,
+    'chaos': 3,
   };
 
   getTowerTier(towerId: TowerTypeId): number {
@@ -233,6 +234,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
         cameraDistance: 20,
         cameraAngle: Math.PI / 5,
         lightIntensity: 1.2,
+        tint: towerConfig.modelTint,
         isHidden: this.isBuildPanelHidden,
       }
     );

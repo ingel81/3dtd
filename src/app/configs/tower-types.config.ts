@@ -1,6 +1,6 @@
 import { DamageType } from './combat/combat.types';
 
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'research-center';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos' | 'research-center';
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
 export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain';
@@ -176,6 +176,17 @@ function combatUpgrades(profile: { damage: number; rate: number }): TowerUpgrade
   ];
 }
 
+/**
+ * Recolours a model that stands in for a tower without one of its own. Every
+ * material colour is multiplied by `color`; `emissive` adds a glow of its own,
+ * so the tint also shows on textures a multiply alone would only darken.
+ */
+export interface ModelTint {
+  color: number;
+  emissive: number;
+  emissiveIntensity: number;
+}
+
 export interface TowerTypeConfig {
   id: TowerTypeId;
   name: string;
@@ -186,6 +197,7 @@ export interface TowerTypeConfig {
   shootHeight: number; // Height above base where projectiles originate (for LoS calculations)
   rotationY?: number; // Initial Y rotation in radians for visual alignment (default: 0)
   turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point -Z/North)
+  modelTint?: ModelTint; // Placeholder look for a tower that borrows another tower's model
 
   damageType: DamageType; // Damage type for the damage matrix
   damage: number;
@@ -470,6 +482,36 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     canTargetAir: true,
     canTargetGround: true,
     // Die Kette vervielfacht ohnehin (×2,19), daher kein Schwerpunkt.
+    upgrades: combatUpgrades({ damage: 1.05, rate: 1.04 }),
+  },
+  chaos: {
+    id: 'chaos',
+    name: 'Chaos Tower',
+    defaultTargeting: 'first',
+    // PLATZHALTER: Chaos hat noch kein eigenes Modell. Bis eines kommt, steht
+    // hier das Poison-Modell (Projektil-Tower mit drehbarem Aufsatz, Maße und
+    // Schusshöhe von dort übernommen), per modelTint schwarz-violett gefärbt.
+    // Mit dem echten Modell fallen modelTint und diese fünf Werte weg.
+    modelUrl: POISON_MODEL_URL,
+    modelTint: { color: 0x9966cc, emissive: 0x4a1070, emissiveIntensity: 0.6 },
+    scale: 7.6,
+    previewScale: 12,
+    heightOffset: 2.8,
+    shootHeight: 1.4,
+    rotationY: 3.1416, // 180°
+    damageType: 'chaos',
+    damage: 50,
+    range: 60,
+    fireRate: 1.2,
+    projectileType: 'chaos-orb',
+    // Teurer Generalist: 60 DPS wie Magic, aber 1,0 gegen jede Rüstung und
+    // Luft wie Boden. 0,30 DPS pro Gold, der beste Tower je Rüstung liegt bei
+    // 0,56 bis 0,89: in keiner Spalte die effizienteste Wahl, in keiner eine Lücke.
+    cost: 200,
+    canTargetAir: true,
+    canTargetGround: true,
+    // Wächst eher über Schaden, L25 ×5,35 wie Archer und Lightning: der
+    // Generalist soll die Spezialisten auch im Endausbau nicht überholen.
     upgrades: combatUpgrades({ damage: 1.05, rate: 1.04 }),
   },
   'research-center': {

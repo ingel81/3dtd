@@ -12,8 +12,8 @@ describe('canTargetAirEffective', () => {
   // Baseline: static canTargetAir flag
   // ────────────────────────────────────────────────────────────────
   describe('towers with static canTargetAir: true', () => {
-    // archer / rocket / ice / lightning carry canTargetAir: true in config.
-    for (const id of ['archer', 'rocket', 'ice', 'lightning'] as const) {
+    // archer / rocket / ice / lightning / chaos carry canTargetAir: true in config.
+    for (const id of ['archer', 'rocket', 'ice', 'lightning', 'chaos'] as const) {
       it(`${id} can target air regardless of research state`, () => {
         expect(canTargetAirEffective(id, false)).toBe(true);
         expect(canTargetAirEffective(id, true)).toBe(true);

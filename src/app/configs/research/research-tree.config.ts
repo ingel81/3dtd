@@ -134,6 +134,23 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-tower', towerId: 'rocket' }],
   },
 
+  // ==================== Tower Unlocks (Tier 3) ====================
+
+  'chaos-rift': {
+    id: 'chaos-rift',
+    name: 'Chaos Rift',
+    description: 'Unlocks the Chaos Tower: full damage against every armor, air and ground',
+    category: 'tower-unlock',
+    icon: 'shuffle',
+    cost: 1000,
+    duration: 30,
+    // Der späteste Tower: braucht den Panzer- und den Geister-Pfad. Über Storm
+    // Mastery hängt Arcane Studies davor, Chaos kommt also nie vor dem ersten
+    // echten Ethereal-Konter.
+    prerequisites: ['siege-engineering', 'storm-mastery'],
+    effects: [{ kind: 'unlock-tower', towerId: 'chaos' }],
+  },
+
   // ==================== Global Perks ====================
 
   'aa-retrofit': {

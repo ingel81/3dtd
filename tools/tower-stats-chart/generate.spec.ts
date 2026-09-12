@@ -65,6 +65,7 @@ const TOWER_COLORS: Record<string, string> = {
   tentacle: '#8FB339',
   poison: '#5FBF8F',
   lightning: '#E8D44D',
+  chaos: '#D946EF',
 };
 
 interface LevelPoint {
@@ -416,8 +417,8 @@ describe('tower-stats chart generator', () => {
     mkdirSync(dirname(OUT_PATH), { recursive: true });
     writeFileSync(OUT_PATH, html);
 
-    // 10 combat towers (11 tower types minus the passive research-center).
-    expect(series.length).toBeGreaterThanOrEqual(10);
+    // 11 combat towers (12 tower types minus the passive research-center).
+    expect(series.length).toBeGreaterThanOrEqual(11);
 
     for (const s of series) {
       expect(s.points.length).toBe(MAX_LEVEL + 1);

@@ -11,6 +11,9 @@
 > **Erweitert seit 2026-05-11:** Der **Lightning Tower** mit eigenem `damageType: 'lightning'`
 > (8. Schadenstyp im Code, `DAMAGE_TYPES` in `configs/combat/combat.types.ts`) ist
 > ausgeliefert und in §2.1 / §2.3 / §3.12 integriert.
+>
+> **Erweitert 2026-09-12:** Schadenstyp **Chaos** (9. Typ, 1,0 gegen jede
+> Rüstung) und der **Chaos Tower** als teurer Generalist, §2.1 / §2.3 / §3.13.
 
 ## 1. Design-Philosophie
 - **Einfach zu lernen, schwer zu meistern**: klare Basisregeln + Veteranen-Tiefe (Matrix, Status, Flags).
@@ -23,7 +26,7 @@
 
 ## 2. Damage & Armor System (Matrix + Status + Flags)
 
-### 2.1 Schadenstypen (8)
+### 2.1 Schadenstypen (9)
 - **Physical (⚔️)**: solider Allrounder ohne Stärke, prallt an Panzerung ab.
 - **Pierce (🎯)**: hohe Feuerrate, Schwarm- und Flinkkiller, gegen Stein und Stahl nutzlos.
 - **Siege (💥)**: langsame AoE, reiner Panzerknacker, gegen weiche Ziele und Geister schwach.
@@ -32,6 +35,7 @@
 - **Ice (❄️)**: Low-DPS, starker Slow/CC, Ethereal-Counter.
 - **Poison (☠️)**: DoT-Spezialist gegen Lebendes, eigenstaendiger Schadenstyp.
 - **Lightning (⚡)**: Hitscan-Chain (Primary + Jumps mit Falloff), stark gegen Light und Ethereal, gut gegen Heavy (Metall leitet), gegen Stein wirkungslos.
+- **Chaos (🌀)**: voller Schaden gegen jede Rüstung, keine Schwäche und keine Stärke. Der Generalist, teuer und spät erforschbar.
 
 ### 2.2 Rüstungstypen (5)
 - **Unarmored**
@@ -57,9 +61,11 @@ Fire      🔥       1.5×      1.2×     0.6×     0.25×       0.1×
 Ice       ❄️       1.0×      1.3×     0.8×     0.5×        1.5×
 Poison    ☠️       1.4×      1.2×     0.4×     0.3×        0.2×
 Lightning ⚡       1.0×      1.5×     1.2×     0.3×        1.5×
+Chaos     🌀       1.0×      1.0×     1.0×     1.0×        1.0×
 ```
 
 Spreizung: unarmored 3,0×, light 3,2×, heavy 5,0×, fortified 6,4×, ethereal 20×.
+Die Chaos-Zeile liegt in jeder Spalte innerhalb dieser Spannen und ändert sie nicht.
 
 > **Quelle der Wahrheit:** `src/app/configs/combat/damage-matrix.config.ts`. Bei
 > Anpassungen dort gilt es, diese Tabelle synchron zu halten — die TypeScript-
@@ -69,6 +75,17 @@ Spreizung: unarmored 3,0×, light 3,2×, heavy 5,0×, fortified 6,4×, ethereal 
 1. Jede Schadensart hat mindestens eine Paarung ≤ 0,5: dort beißt sich der Tower die Zähne aus.
 2. Jede Schadensart außer Physical hat mindestens eine Paarung ≥ 1,3. Physical bleibt der Allrounder ohne Stärke, er ist der Starttower.
 3. Jede Rüstungsart hat mindestens zwei Konter ≥ 1,2, beide erforschbar, bevor das Curriculum die Rüstung zum ersten Mal schickt.
+
+**Ausnahme Chaos** (seit 2026-09-12): Chaos bricht Regel 1 und 2 bewusst, die
+Zeile steht überall auf 1,0. Der Generalist bezahlt nicht mit einer
+Matrix-Lücke, sondern mit Preis (Tower 200, Forschung 1.000 hinter Siege
+Engineering und Storm Mastery, §3.13) und damit, dass er in keiner Spalte der
+beste Konter ist. Auch gegen Ethereal 1,0 statt einer Abwertung: Magic (2,0),
+Ice und Lightning (1,5) bleiben deutlich besser, und weil die Chaos-Forschung
+Arcane Studies voraussetzt, gibt es Chaos nie vor dem ersten echten
+Ethereal-Konter. Chaos zählt damit als Anti-Ethereal-Tower
+(`isAntiEtherealTower`, Schwelle 1,0), das Mechanik-Gate aus §6.5 bleibt
+unverändert. Der Test prüft beides (`damage-calculator.spec.ts`).
 
 | Rüstung | Konter ≥ 1,2 |
 |---|---|
@@ -126,6 +143,7 @@ Spreizung: unarmored 3,0×, light 3,2×, heavy 5,0×, fortified 6,4×, ethereal 
 | **Tentacle** | Physical | 30 dmg, 1.5/s, Range 25 | 80 | nein |
 | **Poison** | Poison | 5 dmg + DoT 8/s für 4 s, 1.0/s, Range 55, Splash 8 m | 100 | nein |
 | **Lightning** | Lightning | 35 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
+| **Chaos** | Chaos | 50 dmg, 1.2/s, Range 60, 1,0 gegen jede Rüstung | 200 | **Air + Ground** |
 
 ### 3.2 Upgrade-Regeln (Stand 2026-09)
 - **Kosten:** `50 × 1,25^Stufe` pro Stufe und Track, für alle Tower gleich.
@@ -151,6 +169,7 @@ Spreizung: unarmored 3,0×, light 3,2×, heavy 5,0×, fortified 6,4×, ethereal 
 | Tentacle | 1,07 | 1,03 | Nahkampf, wenige harte Schläge |
 | Poison | 1,05 | 1,04 | DoT skaliert mit dem Damage-Track |
 | Lightning | 1,05 | 1,04 | Kette vervielfacht ohnehin |
+| Chaos | 1,05 | 1,04 | Generalist, soll die Spezialisten auch im Endausbau nicht überholen |
 
 ### 3.3 Archer — Physical
 **Upgrade-Pfad 3 (Air):**
@@ -198,6 +217,21 @@ Spreizung: unarmored 3,0×, light 3,2×, heavy 5,0×, fortified 6,4×, ethereal 
 - **Air + Ground** ab Basis — Anti-Air ohne Forschungspflicht.
 - **Niche:** zweiter glaubwürdiger Ethereal-Counter (1.5×), stark gegen Light-Swarms (1.5×, profitiert zusätzlich vom Chain-Pattern) und neben der Rocket der zweite Anti-Drachen-Tower (1.2× gegen Heavy, Metall leitet). **Wirkungslos gegen Fortified** (0.3×) — Cannon/Siege oder Magic bleibt der Pflichtbau gegen Mammoth/Stone-Golem.
 - Visuell: dauerhaftes Idle-Crackle am Turm-Tip, additive Aufhell-Halos pro Hit (Workaround, weil Photorealistic 3D Tiles dynamische Lichter ignorieren).
+
+### 3.13 Chaos — Chaos (seit 2026-09-12)
+- **Generalist:** 1,0 gegen jede Rüstung (§2.3), Luft und Boden, Einzelziel-Projektil (`chaos-orb`, kein Splash).
+- **Teuer und spät:** 200 Gold, der teuerste Tower. Freischaltung über **Chaos Rift** (1.000 Gold, 30 s) hinter Siege Engineering und Storm Mastery, damit auch hinter Arcane Studies. Der ganze Pfad kostet 3.650 Gold Forschung (Gatling Tech, Siege Engineering, Ice Magic, Arcane Studies, Storm Mastery, Chaos Rift).
+- **Kein Pflicht-Tower:** 60 DPS wie Magic. Nach dem DPS-Modell (`computeTowerDPSFromLevels`, Basisstufe, nicht gemessen) bringt Chaos gegen jede Rüstung 0,30 DPS pro Gold, der beste Tower je Rüstung 0,56 (Fortified: Magic) bis 0,89 (Light: Gatling). Auch pro Bauplatz liegt Chaos in keiner Spalte vorn:
+
+| Basisstufe, DPS × Matrix | Unarmored | Light | Heavy | Fortified | Ethereal |
+|---|---:|---:|---:|---:|---:|
+| Chaos | 60 | 60 | 60 | 60 | 60 |
+| bester Spezialist | Fire 79 | Lightning 92 | Cannon 77 | Magic 78 | Magic 120 |
+
+  Die Stärke ist, dass eine gemischte Welle (`chaos_wave`, `armor_gauntlet`) keine Lücke findet, nicht die Menge. Der Test `tower-types.config.spec.ts` hält Preis und DPS pro Gold fest.
+- **Upgrades:** Damage 1,05, Fire Rate 1,04, L25 ×5,35 wie Archer und Lightning (§3.2).
+- **Platzhalter-Modell:** Es gibt noch kein Chaos-Modell. Bis eines kommt, steht das Poison-Modell schwarz-violett getönt (`modelTint`) im Spiel, Werte für Maße und Schusshöhe von dort. Der Sound ist der Magic-Cast.
+- **Wave-Director:** zählt als Anti-Air und als Anti-Ethereal (Ethereal-Multiplikator 1,0 erreicht die Schwelle von `isAntiEtherealTower`).
 
 ---
 
@@ -295,7 +329,9 @@ Verteidigung erreichte den Vollausbau und toetete ab W11 alles.
 gegen einen W30-Vollausbau gerechnet (jeder Tower 1×, Archer 3×, alle
 Upgrade-Tracks L20, alle Forschungen, RC Lv 3). Gesetzt wurde es mit ~25 %
 Puffer. Seit den degressiven Upgrade-Kurven (Range endet bei L10) kostet dieser
-Ausbau 431.542 statt 632.834 Gold, der Puffer liegt bei 83 %. Bewusst erst nach
+Ausbau 431.542 statt 632.834 Gold, der Puffer lag bei 83 %. Seit dem Chaos
+Tower (2026-09-12) gehört er mit L20 und seiner Forschung zum Roster (+37.160),
+Summe 468.702 Gold, Puffer 69 %. Bewusst erst nach
 dem Playtest nachsteuern (BALANCE_PROPOSAL_2026-09 §2.5); den Stand zeigt
 `npm run economy-chart` im Abschnitt „Design-Roster vs. Curriculum-Budget".
 
@@ -384,6 +420,13 @@ Drei Kategorien: **Tower-Unlock**, **Global Perk**, **Upgrade-Tier**.
 |---|---|---:|---:|---|---|
 | `rocketry` | Rocketry | 80 | 25s | Siege Engineering | Rocket Tower |
 
+**Tier 3** (Werte aus `research-tree.config.ts`, Stand 2026-09-12; die Tabellen
+darüber zeigen noch die Startwerte, die Config ist inzwischen um etwa das
+Zehnfache teurer):
+| ID | Name | Kosten | Dauer | Prereq | Schaltet frei |
+|---|---|---:|---:|---|---|
+| `chaos-rift` | Chaos Rift | 1.000 | 30s | Siege Engineering + Storm Mastery | Chaos Tower |
+
 #### Global Perks
 | ID | Name | Kosten | Dauer | Prereq | Effekt |
 |---|---|---:|---:|---|---|
@@ -458,6 +501,7 @@ sondern der Cap die Wellengroesse bestimmte. Mechanik siehe
 - **Archer/Gatling** (über AA Retrofit oder Upgrade-Pfad)
 - **Cannon** (Air-Upgrade Pfad)
 - **Fire** (Luftflamme)
+- **Chaos** (Base, 1,0 gegen Light- und Heavy-Flieger, spät und teuer)
 
 ---
 
@@ -507,7 +551,7 @@ beschreibt eine geplante Erweiterung, kein aktuelles Verhalten:
 ---
 
 ## 9. Visuelles Feedback
-- **Damage Numbers**: Groesse/Farbe nach Effektivitaet (weak < 0,6 grau, normal rot, strong ≥ 1,2 orange, devastating ≥ 1,5 gold; `EFFECTIVENESS_THRESHOLDS`). Jede Paarung ≤ 0,5 erscheint grau und klein.
+- **Damage Numbers**: Groesse/Farbe nach Effektivitaet (weak < 0,6 grau, normal rot, strong ≥ 1,2 orange, devastating ≥ 1,5 gold; `EFFECTIVENESS_THRESHOLDS`). Jede Paarung ≤ 0,5 erscheint grau und klein. Chaos (1,0) erscheint immer normal.
 - **Armor-Icons** am HP-Bar-Rahmen.
 - **DamageType Badge** im Tower-Stats-Panel (Icon + Label).
 - **ArmorType Badge** im Wave-Preview (Icon + "Weak to X").

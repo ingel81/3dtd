@@ -13,7 +13,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Verschiedene 3D-Modelle (GLB, FBX)
 - Rotierende Turret-Teile (z.B. Geschütztürme)
 - Eigene Projektiltypen
-- **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x — 8 Schadenstypen: physical, pierce, siege, magic, fire, ice, poison, lightning)
+- **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x — 9 Schadenstypen: physical, pierce, siege, magic, fire, ice, poison, lightning, chaos)
 - **Upgrade-System** mit Tier-Gating: Damage/Fire Rate 25 Stufen (ab L16 degressiv), Range 10 Stufen, Profil pro Tower über `combatUpgrades({ damage, rate })`
 - Separate Preview-Skalierung für die UI
 - Air/Ground Targeting (5 Targeting-Strategien inkl. `air-priority` mit Air-Sub-Strategy)
@@ -40,6 +40,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Tentacle | **melee** | physical | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering (`meleeStrikeDuration: 250`) |
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
+| Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. **Platzhalter-Modell:** Poison-Modell mit `modelTint` |
 | Research Center | **passive** | — | 0 | 0 | 0 | 75 | Kein Combat — siehe Research-System |
 
 ---
@@ -52,7 +53,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 // configs/tower-types.config.ts
 export type TowerTypeId =
   | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket'
-  | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'research-center'
+  | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos' | 'research-center'
   | 'NEW_TYPE';
 ```
 
@@ -113,6 +114,7 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `shootHeight` | number | - | Schussursprung-Höhe (LOS) |
 | `rotationY` | number | 0 | Y-Rotation in Radians (visuell) |
 | `turretBarrelOffset` | number | 0 | Barrel-Orientierung im Model Space |
+| `modelTint` | ModelTint | - | Platzhalter-Look für einen Tower, der das Modell eines anderen benutzt: multipliziert alle Materialfarben mit `color` und setzt `emissive`/`emissiveIntensity` (Welt und Baumenü-Vorschau, Chaos) |
 | `damage` | number | - | Schaden pro Schuss (0 bei beam) |
 | `range` | number | - | Erkennungsreichweite in Metern, bei Beam-Towern zugleich die Kegellänge |
 | `fireRate` | number | - | Schüsse pro Sekunde (0 bei beam) |
@@ -132,7 +134,7 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `maxJumps` | number | - | **Chain-only:** Anzahl zusaetzlicher Ziele nach Primary (Lightning: 2 → 3 Hits) |
 | `chainFalloff` | number | - | **Chain-only:** Schaden-Multiplier pro Jump (Lightning: 0.7 → 100%/70%/49%) |
 | `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
-| `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning |
+| `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning/chaos |
 
 ### 4. Projektiltyp hinzufügen (falls neu)
 
