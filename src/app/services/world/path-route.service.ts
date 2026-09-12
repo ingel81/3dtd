@@ -10,9 +10,12 @@ import { StreetEdgeIndex } from '../../utils/route-ways';
 import {
   CorridorPiece,
   CorridorStations,
+  StationProbe,
   corridorConfig,
   estimateStreetWidth,
   fitCorridorPieces,
+  fitCorridorStations,
+  probeFreeSpace,
   routeHalfWidths,
   segmentLeft,
   segmentRight,
@@ -110,6 +113,66 @@ export interface RouteWayRun {
   at: string;
 }
 
+const round1 = (v: number): number | null => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
+
+/** One side of the station `__corridor.pick()` explains, see explainCorridorAt(). */
+export interface CorridorSideRow {
+  side: 'left' | 'right';
+  /** Half width from the OSM street: the fallback, and the cap on the leg to the HQ. */
+  streetHalfWidthM: number;
+  /** First fine hit of the low and the high ray; the ray length where nothing was hit. */
+  lowHitM: number | null;
+  highHitM: number | null;
+  /** Both rays hit something within their length: a wall. */
+  wall: boolean | null;
+  /** Free space the fitting starts from (the farther hit), after smoothing along the route. */
+  freeM: number | null;
+  smoothedM: number | null;
+  /** Half width that gives now. */
+  halfWidthM: number;
+  /** Half width the route in use has there; differs from halfWidthM until the next rebuild. */
+  inUseM: number | null;
+  /** What set the half width. */
+  rule: string;
+}
+
+/** A station near the explained one, along the same route. */
+export interface CorridorStationRow {
+  /** Segment index, station number / stations on the segment. */
+  station: string;
+  /** Distance from the start of the route. */
+  alongM: number | null;
+  leftFreeM: number | null;
+  leftM: number;
+  rightFreeM: number | null;
+  rightM: number;
+  unmeasured: string | null;
+  here: boolean;
+}
+
+/** What `__corridor.pick()` prints about the route station nearest to a click. */
+export interface CorridorExplanation {
+  route: string;
+  /** Segment index, station number / stations on the segment. */
+  station: string;
+  /** Distance from the click to the station. */
+  distanceM: number | null;
+  way: number | null;
+  type: string;
+  name: string;
+  /** Street width from OSM and where it came from. */
+  streetWidthM: number | null;
+  widthSource: string;
+  /** False on the leg to the HQ, where the street width is the cap. */
+  onStreet: boolean;
+  /** Why the station has no measurement, null if it has one. */
+  unmeasured: string | null;
+  /** Geometric error of the tile under the station at the last probe. */
+  tileError: number | null;
+  sides: CorridorSideRow[];
+  nearby: CorridorStationRow[];
+}
+
 /**
  * PathAndRouteService
  *
@@ -142,11 +205,12 @@ export class PathAndRouteService {
   /**
    * What the tiles showed per street segment (segmentKey): the free space
    * left and right of the direction of travel at each station, NaN where no
-   * fine tile was loaded. Measured once per location, measureStreetClearance
+   * fine tile was loaded, and what each station's rays found (`probes`, for
+   * explainCorridorAt). Measured once per location, measureStreetClearance
    * measures the NaN stations again. Every route build fits its corridor
    * from these (fitRoute), so the corridor settings apply without new rays.
    */
-  private clearanceBySegment = new Map<string, { left: number[]; right: number[] }>();
+  private clearanceBySegment = new Map<string, { left: number[]; right: number[]; probes: (StationProbe | null)[] }>();
 
 
   /** 3D route lines for visualization (using Line2 for proper line width) */
@@ -634,6 +698,11 @@ export class PathAndRouteService {
 
   /** The corridor pieces of each segment of `route`, from what the tiles showed. */
   private fitRoute(route: StreetRoute): CorridorPiece[][] {
+    return fitCorridorPieces(this.corridorStationsOf(route));
+  }
+
+  /** The segments of `route` as the corridor fitting sees them. */
+  private corridorStationsOf(route: StreetRoute): CorridorStations[] {
     const segments: CorridorStations[] = [];
     for (let i = 0; i < route.points.length - 1; i++) {
       const measured = this.clearanceBySegment.get(segmentKey(route.points[i], route.points[i + 1]));
@@ -644,7 +713,7 @@ export class PathAndRouteService {
         onStreet: route.onStreet[i],
       });
     }
-    return fitCorridorPieces(segments);
+    return segments;
   }
 
   /** The pieces every route gets from what is measured now, to tell whether a measurement changed any. */
@@ -659,6 +728,133 @@ export class PathAndRouteService {
    */
   clearCorridorMeasurements(): void {
     this.clearanceBySegment.clear();
+  }
+
+  /**
+   * How the corridor comes about at the route station nearest to local
+   * (x, z), for `__corridor.pick()`: the street width from OSM and where it
+   * came from, what the station's rays found left and right (first hit of
+   * the low and the high ray, a wall or not), why a station stayed
+   * unmeasured, what the fitting made of it and which rule set the half
+   * width, plus the stations around it along the route. Null without routes.
+   */
+  explainCorridorAt(x: number, z: number): CorridorExplanation | null {
+    const engine = this.engine;
+    const network = this.streetNetwork;
+    if (!engine || !network) return null;
+    const local = (p: LatLon) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0);
+    const stationCount = (route: StreetRoute, i: number, length: number) =>
+      this.clearanceBySegment.get(segmentKey(route.points[i], route.points[i + 1]))?.left.length
+        ?? Math.max(1, Math.round(length / corridorConfig.stationSpacing));
+
+    // The nearest station over every route.
+    let best: { routeId: string; route: StreetRoute; i: number; k: number; n: number; x: number; z: number; d: number } | null = null;
+    for (const [routeId, route] of this.streetRoutes) {
+      for (let i = 0; i < route.points.length - 1; i++) {
+        const a = local(route.points[i]);
+        const b = local(route.points[i + 1]);
+        const n = stationCount(route, i, Math.hypot(b.x - a.x, b.z - a.z));
+        for (let k = 0; k < n; k++) {
+          const t = (k + 0.5) / n;
+          const sx = a.x + (b.x - a.x) * t;
+          const sz = a.z + (b.z - a.z) * t;
+          const d = Math.hypot(sx - x, sz - z);
+          if (!best || d < best.d) best = { routeId, route, i, k, n, x: sx, z: sz, d };
+        }
+      }
+    }
+    if (!best) return null;
+
+    const { routeId, route, i, k, n } = best;
+    const segments = this.corridorStationsOf(route);
+    const fit = fitCorridorStations(segments);
+    const measured = this.clearanceBySegment.get(segmentKey(route.points[i], route.points[i + 1]));
+    const probe = measured?.probes[k] ?? null;
+    const way = this.getEdgeIndex(network).match(route.points)[i];
+    const estimate = way ? estimateStreetWidth(way) : null;
+    const inUse = this.corridorInUse(routeId, best.x, best.z);
+
+    const sideRow = (side: 'left' | 'right'): CorridorSideRow => {
+      const station = fit[side][i][k];
+      const hits = probe && probe.unmeasured === null ? probe[side] : null;
+      return {
+        side,
+        streetHalfWidthM: route.halfWidths[i],
+        lowHitM: hits ? round1(hits[0]) : null,
+        highHitM: hits ? round1(hits[hits.length - 1]) : null,
+        wall: hits ? hits.every((d) => d < corridorConfig.maxHalfWidth) : null,
+        freeM: station ? round1(station.free) : null,
+        smoothedM: station ? round1(station.smoothed) : null,
+        halfWidthM: station ? station.halfWidth : route.halfWidths[i],
+        inUseM: inUse ? inUse[side] : null,
+        rule: station ? station.rule : 'not measured yet: street width',
+      };
+    };
+
+    // Four stations either side along the route, across its waypoints.
+    const flat: { i: number; k: number; n: number; alongM: number }[] = [];
+    let along = 0;
+    for (let j = 0; j < route.points.length - 1; j++) {
+      const a = local(route.points[j]);
+      const b = local(route.points[j + 1]);
+      const length = Math.hypot(b.x - a.x, b.z - a.z);
+      const count = segments[j].left.length;
+      for (let m = 0; m < count; m++) flat.push({ i: j, k: m, n: count, alongM: along + ((m + 0.5) / count) * length });
+      along += length;
+    }
+    const here = flat.findIndex((s) => s.i === i && s.k === k);
+    const nearby = (here < 0 ? [] : flat.slice(Math.max(0, here - 4), here + 5)).map((s): CorridorStationRow => {
+      const near = this.clearanceBySegment.get(segmentKey(route.points[s.i], route.points[s.i + 1]))?.probes[s.k] ?? null;
+      return {
+        station: `${s.i}:${s.k + 1}/${s.n}`,
+        alongM: round1(s.alongM),
+        leftFreeM: round1(fit.left[s.i][s.k].free),
+        leftM: fit.left[s.i][s.k].halfWidth,
+        rightFreeM: round1(fit.right[s.i][s.k].free),
+        rightM: fit.right[s.i][s.k].halfWidth,
+        unmeasured: near ? near.unmeasured : 'no probe',
+        here: s.i === i && s.k === k,
+      };
+    });
+
+    return {
+      route: routeId,
+      station: `${i}:${k + 1}/${n}`,
+      distanceM: round1(best.d),
+      way: way?.id ?? null,
+      type: way?.type ?? '(off network: leg to the HQ)',
+      name: way?.name ?? '',
+      streetWidthM: estimate?.widthM ?? null,
+      widthSource: estimate?.source ?? 'inherited',
+      onStreet: route.onStreet[i],
+      unmeasured: probe ? probe.unmeasured : measured ? 'no probe (DevWorld)' : 'not measured yet',
+      tileError: probe ? round1(probe.tileError) : null,
+      sides: [sideRow('left'), sideRow('right')],
+      nearby,
+    };
+  }
+
+  /** Half widths the cached route of `routeId` uses at local (x, z): those of its segment nearest to the point. */
+  private corridorInUse(routeId: string, x: number, z: number): { left: number; right: number } | null {
+    const path = this.cachedPaths.get(routeId);
+    const engine = this.engine;
+    if (!path || !engine) return null;
+    let best = Infinity;
+    let found: RouteWaypoint | null = null;
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = engine.sync.geoToLocalSimple(path[i].lat, path[i].lon, 0);
+      const b = engine.sync.geoToLocalSimple(path[i + 1].lat, path[i + 1].lon, 0);
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const lenSq = dx * dx + dz * dz;
+      const t = lenSq > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / lenSq)) : 0;
+      const d = Math.hypot(a.x + dx * t - x, a.z + dz * t - z);
+      if (d < best) {
+        best = d;
+        found = path[i];
+      }
+    }
+    return found ? { left: segmentLeft(found), right: segmentRight(found) } : null;
   }
 
   /**
@@ -689,6 +885,8 @@ export class PathAndRouteService {
     let segments = 0;
     let stations = 0;
     let unmeasured = 0;
+    // Of those, stations whose tile is still coarser than maxTileError.
+    let coarse = 0;
     // Routes from several spawns share segments; one pass over each is enough.
     const seen = new Set<string>();
     const rayHeights = [corridorConfig.rayHeightLow, corridorConfig.rayHeightHigh];
@@ -713,6 +911,7 @@ export class PathAndRouteService {
         const count = Math.max(1, Math.round(length / corridorConfig.stationSpacing));
         const left = known ? [...known.left] : new Array<number>(count).fill(NaN);
         const right = known ? [...known.right] : new Array<number>(count).fill(NaN);
+        const probes = known ? [...known.probes] : new Array<StationProbe | null>(count).fill(null);
         let tried = 0;
         let measured = 0;
         for (let k = 0; k < count; k++) {
@@ -720,12 +919,15 @@ export class PathAndRouteService {
           tried++;
           const t = (k + 0.5) / count;
           // (-dz, dx) points right of the direction of travel.
-          const clearance = engine.measureStreetClearance(
+          const probe = engine.measureStreetClearance(
             start.x + dx * t, start.z + dz * t, -dz, dx, rayHeights, corridorConfig.maxHalfWidth, onBridge[i],
           );
-          if (clearance === null) continue;
-          left[k] = clearance.left;
-          right[k] = clearance.right;
+          probes[k] = probe;
+          if (probe?.unmeasured === 'coarse tile') coarse++;
+          const free = probeFreeSpace(probe, 'left');
+          if (Number.isNaN(free)) continue;
+          left[k] = free;
+          right[k] = probeFreeSpace(probe, 'right');
           measured++;
         }
         segments++;
@@ -734,14 +936,14 @@ export class PathAndRouteService {
         // Stored with its unmeasured stations as well: they keep their
         // place, so the smoothing along the route does not join what lies
         // either side of them.
-        this.clearanceBySegment.set(key, { left, right });
+        this.clearanceBySegment.set(key, { left, right, probes });
       }
     }
 
     const changed = this.fittedCorridors() !== before;
     if (segments > 0) {
       console.warn(
-        `[Corridor] clearance: segments=${segments} stations=${stations} unmeasured=${unmeasured} ` +
+        `[Corridor] clearance: segments=${segments} stations=${stations} unmeasured=${unmeasured} (coarse tile ${coarse}) ` +
         `rays=${2 * rayHeights.length * (stations - unmeasured)} changed=${changed} in ${(performance.now() - t0).toFixed(1)}ms`,
       );
     }

@@ -151,7 +151,10 @@ export class VisualizationFacadeService {
    * `__corridor.pick()`: the next left click on the map prints every grid
    * spot within `radius` of it with its cell, sample state, height, surface,
    * the selected tower's answers and whether its LOS display draws it,
-   * nearest to the route line first. Selection and display stay as they are.
+   * nearest to the route line first. Then, for the route station nearest to
+   * the click, how the corridor width there came about
+   * (PathAndRouteService.explainCorridorAt). Selection and display stay as
+   * they are.
    */
   private armCellPick(radius: number): string {
     const engine = this.engineInit.getEngine();
@@ -171,8 +174,16 @@ export class VisualizationFacadeService {
         (tower ? `, answers and display of ${tower.id}` : ', no tower selected'),
       );
       console.table(rows);
+
+      const why = this.pathRoute.explainCorridorAt(local.x, local.z);
+      if (why) {
+        const { sides, nearby, ...station } = why;
+        console.log('[Corridor] width at the nearest route station', station);
+        console.table(sides);
+        console.table(nearby);
+      }
     });
-    return `Click the map (left button): the grid within ${radius} m of the click is printed here.`;
+    return `Click the map (left button): the grid within ${radius} m of the click and how the corridor width comes about there are printed here.`;
   }
 
   /**

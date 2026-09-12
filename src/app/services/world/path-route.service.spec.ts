@@ -31,6 +31,7 @@ import { OsmStreetService, StreetNetwork, StreetNode } from '../location/osm-str
 import { SpawnPoint } from './marker-visualization.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import type { ThreeTilesEngine } from '../../three-engine';
+import type { StationProbe } from '../../utils/route-corridor';
 
 const ORIGIN = { lat: 48.0, lon: 9.0 };
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
@@ -70,9 +71,11 @@ function liesOnWayEdge(network: StreetNetwork, a: { lat: number; lon: number }, 
 /**
  * Freiraum links und rechts der Fahrtrichtung, den der Engine-Ersatz meldet,
  * pro Test steuerbar: lokale x/z der Messstation, `max` = Suchweite. Eine
- * Zahl gilt für beide Seiten, `null` = kein feines Tile.
+ * Zahl gilt für beide Seiten und alle Strahlhöhen, ein Array je Strahlhöhe
+ * (unten, oben), `null` = kein feines Tile.
  */
-type Clearance = number | { left: number; right: number } | null;
+type Hits = number | number[];
+type Clearance = number | { left: Hits; right: Hits } | null;
 let clearanceAt: (x: number, z: number, max: number) => Clearance = (_x, _z, max) => max;
 
 /** Minimaler Engine-Ersatz: flaches Gelände, Geo→Lokal als Plattkarte um ORIGIN. */
@@ -83,9 +86,14 @@ function makeEngine(): ThreeTilesEngine {
     getTerrainHeightAtGeo: () => 0,
     // Höhe des gelben Overlays: flaches Gelände.
     getGroundHeightEstimate: () => 0,
-    measureStreetClearance: (x: number, z: number, _ax: number, _az: number, _h: number, max: number) => {
+    measureStreetClearance: (
+      x: number, z: number, _ax: number, _az: number, heights: readonly number[], max: number,
+    ): StationProbe => {
       const free = clearanceAt(x, z, max);
-      return typeof free === 'number' ? { left: free, right: free } : free;
+      if (free === null) return { unmeasured: 'coarse tile', tileError: 20, left: [], right: [] };
+      const perHeight = (hits: Hits) => (typeof hits === 'number' ? heights.map(() => hits) : hits);
+      const sides = typeof free === 'number' ? { left: free, right: free } : free;
+      return { unmeasured: null, tileError: 2, left: perHeight(sides.left), right: perHeight(sides.right) };
     },
     sync: {
       getOrigin: () => ({ ...ORIGIN, height: 0 }),
@@ -353,6 +361,41 @@ describe('PathAndRouteService route geometry', () => {
         calls = 0;
         service.measureStreetClearance();
         expect(calls).toBe(0);
+      });
+
+      it('explains the width at the station nearest to a point', () => {
+        // On way 200 from 20 to 80 m north of n1: a van 2 m to the right in
+        // front of a facade at 6 m; on the left the rays hit nothing.
+        clearanceAt = (x, z, max) =>
+          Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 30 ? { left: max, right: [2, 6] } : max;
+        const service = buildRouteService(network, spawn, hq);
+        service.measureStreetClearance();
+        service.showPathFromSpawn(spawnPointAt(spawn));
+
+        const n1Local = toMeters(n1);
+        const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
+        expect(why).toMatchObject({ route: 's1', way: 200, streetWidthM: 12, widthSource: 'width', onStreet: true, unmeasured: null });
+        expect(why.distanceM).toBeLessThan(1.5);
+        expect(why.sides[0]).toMatchObject({
+          side: 'left', lowHitM: 7, highHitM: 7, wall: false, halfWidthM: 7, inUseM: 7, rule: 'no wall within the maximum',
+        });
+        // The van stops only the low ray: the wall is the facade at 6 m, less the margin.
+        expect(why.sides[1]).toMatchObject({
+          side: 'right', lowHitM: 2, highHitM: 6, wall: true, freeM: 6, halfWidthM: 5.5, inUseM: 5.5, rule: 'wall less margin',
+        });
+        expect(why.nearby.filter((s) => s.here)).toHaveLength(1);
+        expect(why.nearby.length).toBe(9);
+      });
+
+      it('says why a station has no measurement', () => {
+        clearanceAt = () => null;
+        const service = buildRouteService(network, spawn, hq);
+        service.measureStreetClearance();
+
+        const n1Local = toMeters(n1);
+        const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
+        expect(why).toMatchObject({ way: 200, unmeasured: 'coarse tile', tileError: 20 });
+        expect(why.sides[0]).toMatchObject({ lowHitM: null, wall: null, freeM: null, halfWidthM: 6, rule: 'unmeasured: street width' });
       });
     });
   });
