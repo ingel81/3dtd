@@ -1,6 +1,7 @@
 import { InstancedMesh, Vector3 } from 'three';
 import { Enemy } from '../entities/enemy.entity';
-import { GeoPosition } from '../models/game.types';
+import { GeoPosition, RouteWaypoint } from '../models/game.types';
+import { segmentHalfWidth } from './route-corridor';
 import { CoordinateSync } from '../three-engine/renderers';
 import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
@@ -73,18 +74,15 @@ export class GlobalRouteGrid {
    * geometry the grid was built from. Empty until `generateFromRoutes`
    * runs at least once.
    */
-  private cachedRoutes: GeoPosition[][] = [];
+  private cachedRoutes: RouteWaypoint[][] = [];
 
   /** Cached enemy routes (geo-coordinate polylines) for debug overlays. */
-  getCachedRoutes(): GeoPosition[][] {
+  getCachedRoutes(): RouteWaypoint[][] {
     return this.cachedRoutes;
   }
 
   /** Grid cell size in meters (matches original CELL_SIZE) */
   private readonly CELL_SIZE = 2;
-
-  /** Corridor width from route center in meters */
-  private readonly CORRIDOR_WIDTH = 7;
 
   /** Cached inverse cell size for fast multiplication instead of division */
   private readonly INV_CELL_SIZE = 1 / this.CELL_SIZE;
@@ -213,12 +211,21 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Generate grid cells from enemy routes
-   * Creates cells along the route corridor and samples terrain height at each
-   * @param routes Array of route paths (each path is GeoPosition[])
+   * Generate grid cells from enemy routes and sample their terrain height.
+   *
+   * A cell belongs to the corridor if its centre lies within the half width
+   * of a route segment (`corridorHalfWidth` of the segment's start waypoint,
+   * see route-corridor.ts). Cell centres therefore stay on the street, at
+   * least two cells lie across it, and every point within
+   * `lateralLimit(halfWidth)` of the centre line lies in a cell: the cell
+   * containing it has its centre at most half a cell diagonal further out.
+   * That is how far MovementComponent lets enemies spread, so no enemy walks
+   * outside the cells towers look at.
+   * @param routes Array of route paths
    */
-  generateFromRoutes(routes: GeoPosition[][]): void {
-    if (!this.coordinateSync || !this.sampler.columnSampler) {
+  generateFromRoutes(routes: RouteWaypoint[][]): void {
+    const sync = this.coordinateSync;
+    if (!sync || !this.sampler.columnSampler) {
       console.error('[GlobalRouteGrid] Cannot generate - not initialized');
       return;
     }
@@ -228,109 +235,86 @@ export class GlobalRouteGrid {
     this.generation = GlobalRouteGrid.nextGeneration++;
     this.cachedRoutes = routes;
 
-    const processedCells = new Set<number>();
-
     for (const route of routes) {
       if (route.length < 2) continue;
 
-      // Process each segment of the route
+      let start = sync.geoToLocalSimple(route[0].lat, route[0].lon, route[0].height ?? 0);
       for (let i = 0; i < route.length - 1; i++) {
-        const startGeo = route[i];
         const endGeo = route[i + 1];
-
-        // Convert to local coordinates
-        const startLocal = this.coordinateSync.geoToLocalSimple(startGeo.lat, startGeo.lon, startGeo.height ?? 0);
-        const endLocal = this.coordinateSync.geoToLocalSimple(endGeo.lat, endGeo.lon, endGeo.height ?? 0);
-
-        // Sample points along this segment
-        const segmentLength = Math.sqrt(
-          Math.pow(endLocal.x - startLocal.x, 2) + Math.pow(endLocal.z - startLocal.z, 2)
-        );
-        const numSamples = Math.max(2, Math.ceil(segmentLength / this.CELL_SIZE));
-
-        for (let s = 0; s <= numSamples; s++) {
-          const t = s / numSamples;
-          const sampleX = startLocal.x + (endLocal.x - startLocal.x) * t;
-          const sampleZ = startLocal.z + (endLocal.z - startLocal.z) * t;
-          // Anchor Y from the smoothed route: fallback height of the new
-          // cells until their first real sample.
-          const anchorY = startLocal.y + (endLocal.y - startLocal.y) * t;
-
-          // Generate cells in corridor around this sample point
-          this.generateCorridorCells(sampleX, sampleZ, anchorY, processedCells);
-        }
+        const end = sync.geoToLocalSimple(endGeo.lat, endGeo.lon, endGeo.height ?? 0);
+        this.generateSegmentCells(start, end, segmentHalfWidth(route[i]));
+        start = end;
       }
     }
   }
 
   /**
-   * Generate cells in a circular corridor around a route sample point.
-   * @param anchorY Smoothed route Y at the corridor centre, stored on each
-   *   new cell as its `routeAnchorY` and as fallback `terrainHeight` until
-   *   the first sample succeeds.
+   * Create the missing cells whose centre lies within `halfWidth` of the
+   * segment `start`-`end` (local coordinates; y is the smoothed route
+   * height, stored on each new cell as its `routeAnchorY` and as fallback
+   * `terrainHeight` until the first sample succeeds).
    */
-  private generateCorridorCells(
-    centerX: number,
-    centerZ: number,
-    anchorY: number,
-    processedCells: Set<number>
-  ): number {
-    const corridorWidthSq = this.CORRIDOR_WIDTH * this.CORRIDOR_WIDTH;
-    const numCells = Math.ceil(this.CORRIDOR_WIDTH / this.CELL_SIZE);
-    let newCells = 0;
+  private generateSegmentCells(
+    start: { x: number; y: number; z: number },
+    end: { x: number; y: number; z: number },
+    halfWidth: number,
+  ): void {
+    const dx = end.x - start.x;
+    const dz = end.z - start.z;
+    const lenSq = dx * dx + dz * dz;
+    const halfWidthSq = halfWidth * halfWidth;
+    const gx0 = this.cellIndex(Math.min(start.x, end.x) - halfWidth);
+    const gx1 = this.cellIndex(Math.max(start.x, end.x) + halfWidth);
+    const gz0 = this.cellIndex(Math.min(start.z, end.z) - halfWidth);
+    const gz1 = this.cellIndex(Math.max(start.z, end.z) + halfWidth);
 
-    for (let dx = -numCells; dx <= numCells; dx++) {
-      for (let dz = -numCells; dz <= numCells; dz++) {
-        const cellX = centerX + dx * this.CELL_SIZE;
-        const cellZ = centerZ + dz * this.CELL_SIZE;
+    for (let gx = gx0; gx <= gx1; gx++) {
+      const cx = (gx + 0.5) * this.CELL_SIZE;
+      for (let gz = gz0; gz <= gz1; gz++) {
+        const key = this.intCellKey(gx, gz);
+        if (this.cells.has(key)) continue;
 
-        // Check if within corridor width (circular)
-        const distSq = (dx * this.CELL_SIZE) ** 2 + (dz * this.CELL_SIZE) ** 2;
-        if (distSq > corridorWidthSq) continue;
+        // Closest point of the segment to the cell centre.
+        const cz = (gz + 0.5) * this.CELL_SIZE;
+        const t = lenSq > 0 ? Math.max(0, Math.min(1, ((cx - start.x) * dx + (cz - start.z) * dz) / lenSq)) : 0;
+        const ox = start.x + dx * t - cx;
+        const oz = start.z + dz * t - cz;
+        if (ox * ox + oz * oz > halfWidthSq) continue;
 
-        // Create cell key (quantized to grid)
-        const cellKeyX = this.cellIndex(cellX);
-        const cellKeyZ = this.cellIndex(cellZ);
-        const key = this.intCellKey(cellKeyX, cellKeyZ);
-
-        // Skip if already processed
-        if (processedCells.has(key)) continue;
-        processedCells.add(key);
-
-        // Construct the cell in unsampled state with anchorY as a temporary
-        // terrain-Y fallback (combat-side reads need *some* value). Then
-        // funnel through sampleCellY — the sole writer of terrainHeight —
-        // which promotes the cell to `stable` iff the raycast hits.
-        const cellCenterX = (cellKeyX + 0.5) * this.CELL_SIZE;
-        const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
-
-        const cell: RouteCell = {
-          key,
-          x: cellCenterX,
-          z: cellCenterZ,
-          terrainHeight: anchorY,        // Fallback until sampleCellY succeeds.
-          routeAnchorY: anchorY,
-          sample: {
-            state: 'unsampled',
-            sampledAt: 0,
-            tileDepth: 0,
-            tileGeometricError: Infinity,
-          },
-          heightSampled: false,
-          enemies: new Set(),
-          towerVisibility: new Map(),
-          airVisibility: new Map(),
-        };
-
-        this.cells.set(key, cell);
-        newCells++;
-
-        // Promote to `stable` if tiles are loaded at this position.
-        this.sampler.sampleCellY(cell);
-        }
+        this.addCell(key, cx, cz, start.y + (end.y - start.y) * t);
+      }
     }
+  }
 
-    return newCells;
+  /**
+   * Construct a cell in unsampled state with `anchorY` as a temporary
+   * terrain-Y fallback (combat-side reads need *some* value). Then funnel it
+   * through sampleCellY, the sole writer of terrainHeight, which promotes
+   * the cell to `stable` iff the raycast hits.
+   */
+  private addCell(key: number, x: number, z: number, anchorY: number): void {
+    const cell: RouteCell = {
+      key,
+      x,
+      z,
+      terrainHeight: anchorY,        // Fallback until sampleCellY succeeds.
+      routeAnchorY: anchorY,
+      sample: {
+        state: 'unsampled',
+        sampledAt: 0,
+        tileDepth: 0,
+        tileGeometricError: Infinity,
+      },
+      heightSampled: false,
+      enemies: new Set(),
+      towerVisibility: new Map(),
+      airVisibility: new Map(),
+    };
+
+    this.cells.set(key, cell);
+
+    // Promote to `stable` if tiles are loaded at this position.
+    this.sampler.sampleCellY(cell);
   }
 
   /**
