@@ -195,7 +195,7 @@ Die Turret-Rotation muss zwischen Geo-Koordinaten und Three.js konvertieren:
 
 ```
 Geo-Koordinaten:
-- atan2(dLon, dLat): 0=Nord, π/2=Ost
+- geoHeading = atan2(dLon·cos(lat), dLat): 0=Nord, π/2=Ost (metrisch, `utils/geo-utils.ts`)
 
 Three.js:
 - rotation.y = 0: Blickrichtung -Z (Nord)

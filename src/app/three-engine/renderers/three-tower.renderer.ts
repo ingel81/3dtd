@@ -628,7 +628,7 @@ export class ThreeTowerRenderer {
    * Coordinate system mapping:
    * - Geo: North (+lat), East (+lon)
    * - Three.js local: North → -Z, East → +X
-   * - geoHeading = atan2(dLon, dLat): 0=North, π/2=East
+   * - geoHeading = atan2(dLon·cos(lat), dLat): 0=North, π/2=East
    * - Three.js rotation.y: 0 faces -Z (North), -π/2 faces +X (East)
    * - Conversion: threeJsRotation = -geoHeading
    */

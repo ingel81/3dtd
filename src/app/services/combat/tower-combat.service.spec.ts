@@ -68,6 +68,19 @@ describe('TowerCombatService', () => {
       const h = service.calculateHeading({ lat: 0, lon: 1 }, { lat: 0, lon: 0 });
       expect(h).toBeCloseTo(-Math.PI / 2, 6);
     });
+
+    it('is metric: a target as far north as east is π/4 away at 48°N too', () => {
+      // A degree of longitude is cos(lat) shorter than a degree of latitude;
+      // on raw degree deltas this target read as 56° instead of 45°.
+      const lat = 48;
+      const meters = 30;
+      const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos((lat * Math.PI) / 180);
+      const h = service.calculateHeading(
+        { lat, lon: 9 },
+        { lat: lat + meters / METERS_PER_DEGREE_LAT, lon: 9 + meters / mPerDegLon },
+      );
+      expect(h).toBeCloseTo(Math.PI / 4, 6);
+    });
   });
 
   // ────────────────────────────────────────────────────────────────
