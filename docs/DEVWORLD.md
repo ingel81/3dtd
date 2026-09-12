@@ -26,18 +26,15 @@ Ueber URL-Parameter:
 ?devworld&buildings=sparse         # Gebaeude-Dichte
 ?devworld&spawn=north              # Spawn-Position (nur Fallback, siehe unten)
 ?devworld&seed=123                 # Reproduzierbarer Seed
-?devworld&grid                     # wird geparst, aber von nichts gelesen
 ?devworld&bot=manual               # ohne Trainings-Bot, siehe Training
 ```
 
 `DevWorldService` schreibt die aufgelösten Werte per `replaceState` zurück in die URL
-(`terrain`, `seed`, `buildings` immer, `spawn` und `grid` nur wenn gesetzt bzw. nicht
-`north`). Unbekannte Werte fallen auf `flat`, `dense`, `north` und Seed 42 zurück.
+(`terrain`, `seed`, `buildings` immer, `spawn` nur wenn nicht `north`). Unbekannte Werte fallen auf `flat`, `dense`, `north` und Seed 42 zurück.
 
 `spawn` wirkt nur, wenn der Straßengenerator keinen Spawn liefert: Normalerweise nimmt
 `LocationFacadeService.addPredefinedSpawns()` den ersten generierten Spawn, erst ohne
-ihn gilt `DEV_WORLD_SPAWNS[spawn]`. `grid` steht in Config und Share-URL, ein
-Grid-Overlay liest es derzeit nicht.
+ihn gilt `DEV_WORLD_SPAWNS[spawn]`.
 
 ---
 

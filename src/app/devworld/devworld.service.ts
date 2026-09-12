@@ -9,7 +9,6 @@ import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
  * - ?devworld&terrain=hills - Terrain preset (flat, default, hills, valleys)
  * - ?devworld&buildings=dense - Building preset (none, sparse, dense, maze)
  * - ?devworld&spawn=north  - Spawn point (north, south, east, west, random)
- * - ?devworld&grid         - Show debug grid overlay
  */
 /**
  * All available terrain presets
@@ -50,9 +49,6 @@ export interface DevWorldConfig {
 
   /** Spawn point location */
   spawn: 'north' | 'south' | 'east' | 'west' | 'random';
-
-  /** Show debug grid overlay */
-  grid: boolean;
 
   /** Seed for reproducible generation (terrain, streets, buildings) */
   seed: number;
@@ -118,7 +114,6 @@ export class DevWorldService {
         terrain: this.parseTerrainParam(rawTerrain),
         buildings: this.parseBuildingsParam(params.get('buildings')),
         spawn: this.parseSpawnParam(params.get('spawn')),
-        grid: params.has('grid'),
         seed: this.parseSeedParam(params.get('seed')),
       };
 
@@ -130,7 +125,6 @@ export class DevWorldService {
         terrain: 'flat',
         buildings: 'dense',
         spawn: 'north',
-        grid: false,
         seed: DEV_WORLD_DEFAULT_SEED,
       };
     }
@@ -199,9 +193,6 @@ export class DevWorldService {
     if (this.config.spawn !== 'north') {
       params.set('spawn', this.config.spawn);
     }
-    if (this.config.grid) {
-      params.set('grid', '');
-    }
 
     const base = window.location.origin + window.location.pathname;
     return `${base}?${params.toString()}`;
@@ -260,11 +251,6 @@ export class DevWorldService {
       url.searchParams.set('spawn', this.config.spawn);
     } else {
       url.searchParams.delete('spawn');
-    }
-    if (this.config.grid) {
-      url.searchParams.set('grid', '');
-    } else {
-      url.searchParams.delete('grid');
     }
     window.history.replaceState({}, '', url.toString());
   }
