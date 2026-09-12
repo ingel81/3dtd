@@ -2,7 +2,7 @@
 
 **Status:** Implementiert
 **Zugriff:** `?devworld` URL-Parameter
-**Stand:** 2026-05-08
+**Stand:** 2026-09-13
 
 ---
 
@@ -24,50 +24,67 @@ Ueber URL-Parameter:
 ?devworld                          # Standard-Config (flat, dense, seed=42)
 ?devworld&terrain=mountains        # Terrain-Preset
 ?devworld&buildings=sparse         # Gebaeude-Dichte
-?devworld&spawn=north              # Spawn-Position
+?devworld&spawn=north              # Spawn-Position (nur Fallback, siehe unten)
 ?devworld&seed=123                 # Reproduzierbarer Seed
-?devworld&grid                     # Debug-Grid anzeigen
+?devworld&grid                     # wird geparst, aber von nichts gelesen
+?devworld&bot=manual               # ohne Trainings-Bot, siehe Training
 ```
+
+`DevWorldService` schreibt die aufgelösten Werte per `replaceState` zurück in die URL
+(`terrain`, `seed`, `buildings` immer, `spawn` und `grid` nur wenn gesetzt bzw. nicht
+`north`). Unbekannte Werte fallen auf `flat`, `dense`, `north` und Seed 42 zurück.
+
+`spawn` wirkt nur, wenn der Straßengenerator keinen Spawn liefert: Normalerweise nimmt
+`LocationFacadeService.addPredefinedSpawns()` den ersten generierten Spawn, erst ohne
+ihn gilt `DEV_WORLD_SPAWNS[spawn]`. `grid` steht in Config und Share-URL, ein
+Grid-Overlay liest es derzeit nicht.
 
 ---
 
 ## Architektur
 
-DevWorld nutzt das Provider-Pattern um Google 3D Tiles transparent zu ersetzen:
+DevWorld klinkt sich an zwei Stellen ein, beide über `DevWorldService.isActive`:
 
 ```
 ThreeTilesEngine
     |
-    +-- TerrainProvider (Interface)
-    |   +-- TilesTerrainProvider   (Google 3D Tiles - Production)
-    |   +-- DevTerrainProvider     (Generierte Geometrie - DevWorld)
+    +-- Produktion: TilesRenderer (Google 3D Tiles), direkt in der Engine
+    +-- DevWorld:   initializeDevWorld() -> DevTerrainProvider (implements TerrainProvider)
+                    Höhen-, LOS- und Screen-Raycasts der Engine verzweigen auf den Provider,
+                    Kamera über EnvironmentControls statt GlobeControls
+
+EngineInitializationService.loadStreets()
     |
-    +-- StreetNetworkProvider (Interface)
-        +-- OsmStreetService       (OpenStreetMap - Production, Angular Service)
-        +-- DevStreetProvider      (Generiertes Netz - DevWorld)
+    +-- Produktion: OsmStreetService.loadStreets(lat, lon, 2000)   (Overpass, IndexedDB-Cache)
+    +-- DevWorld:   DevStreetProvider (implements StreetNetworkProvider),
+                    Straßen und Spawns vom DevTerrainProvider
 ```
+
+Die Interfaces liegen in `src/app/interfaces/` (`terrain-provider.interface.ts`,
+`street-network-provider.interface.ts`). `OsmStreetService` hat dieselben Methoden,
+implementiert das Interface aber nicht formal. `PathAndRouteService` bekommt in DevWorld
+den `DevStreetProvider` als Pathfinding-Service (`VisualizationFacadeService`).
 
 ### Kernkomponenten
 
 | Datei | Beschreibung |
 |-------|--------------|
 | `devworld.service.ts` | URL-Parameter Parsing, Config, Konstanten |
-| `dev-terrain.provider.ts` | TerrainProvider-Implementierung, Web Worker Steuerung |
-| `dev-street.provider.ts` | StreetNetworkProvider mit A* Pathfinding |
+| `dev-terrain.provider.ts` | TerrainProvider-Implementierung, Meshes, Web Worker Steuerung |
+| `dev-street.provider.ts` | StreetNetworkProvider mit A* Pathfinding (Gewichtung nach Straßentyp) |
 | `devworld.worker.ts` | Web Worker fuer Off-Main-Thread Generation |
 | `devworld-worker.types.ts` | Worker Message Types |
-| `devworld-debug-panel.component.ts` | UI Panel fuer Terrain/Building-Auswahl |
+| `devworld-debug-panel.component.ts` | UI Panel: Terrain, Seed, Gebäude, Regenerate, Share-URL |
 | `devworld-debugger.component.ts` | Draggable Debug Window Wrapper |
 
 ### Generatoren
 
 | Datei | Beschreibung |
 |-------|--------------|
-| `generators/terrain-generator.ts` | 28 Terrain-Presets via Seeded Noise (Simplex, FBM, Ridged, etc.) |
+| `generators/terrain-generator.ts` | 30 Terrain-Presets via Seeded Noise (Simplex, FBM, Ridged, Warp, Cellular) |
 | `generators/street-generator.ts` | 3-Level Strassenhierarchie (Arterial, Collector, Residential) |
-| `generators/building-generator.ts` | Gebaeude als LOS-Blocker, entlang Strassen platziert |
-| `configs/building-presets.config.ts` | Vordefinierte Gebaeude-Layouts (none, sparse, dense, maze) |
-| `utils/seeded-random.ts` | Deterministische Noise-Funktionen (Mulberry32, Simplex) |
+| `generators/building-generator.ts` | Gebäude als LOS-Blocker entlang Straßen; Größen (`BUILDING_PRESETS`) und Dichten (`DENSITY_CONFIGS`) in derselben Datei |
+| `utils/seeded-random.ts` | Deterministische Noise-Funktionen (Mulberry32, `hashSeed`, Simplex aus `simplex-noise`, FBM, Ridged, Warp, Cellular) |
 
 ---
 
@@ -92,9 +109,13 @@ ThreeTilesEngine
 Terrain-Features:
 - Multi-Layer Domain Warping fuer organische Formen
 - Hydraulic/Thermal Erosion Simulation
-- Street Flattening (Strassen werden ins Terrain eingeebnet)
+- Keine Straßen-Einebnung: Straßen folgen dem Terrain (max. 15 % Steigung im Generator),
+  die Fahrbahn wird 0,5 m über dem Mesh gezeichnet
 - Heightmap-Aufloesung: 1024x1024 (~1m pro Pixel)
 - Max. Hoehe: 150m
+- Terrain-Mesh: 64x64 Segmente (ca. 15,6 m pro Quad). Höhenabfragen (`getHeightAtLocal`)
+  interpolieren die Mesh-Oberfläche, nicht die Heightmap, damit Boden-Samples, CPU-Raycasts
+  und die GPU-LOS-Cubemap dieselbe Fläche sehen
 
 ---
 
@@ -105,14 +126,14 @@ URL-akzeptierte Werte (`?devworld&buildings=…`, siehe `DevWorldService.parseBu
 | Preset | Beschreibung |
 |--------|--------------|
 | `none` | Keine Gebaeude |
-| `sparse` | Wenige grosse Gebaeude |
-| `dense` | Viele Gebaeude, Stadtgefuehl (Default) |
-| `maze` | Labyrinth-artig (lange Wand-Strukturen aus statischer Preset-Config) |
+| `sparse` | 150 Gebäude, nur `medium` und `large` |
+| `dense` | 1200 Gebäude, Stadtgefühl (Default) |
+| `maze` | 2000 Gebäude, überwiegend `small`: dicht gestellte Blocker, platziert wie die anderen Stufen |
 
 Hinweis: `building-generator.ts` definiert intern zusaetzlich eine Stufe `medium`
 (`BuildingDensity = 'none' | 'sparse' | 'medium' | 'dense' | 'maze'`).
-Diese ist aktuell nicht ueber den URL-Parameter erreichbar — `medium` wird vom
-Parser auf `dense` zurueckgesetzt. Bei Bedarf kann der Generator-Aufrufer den
+Über den URL-Parameter ist sie nicht erreichbar: `parseBuildingsParam` macht aus
+`medium` (wie aus jedem unbekannten Wert) `dense`. Bei Bedarf kann der Generator-Aufrufer den
 Wert direkt setzen.
 
 Platzierungslogik:
@@ -121,6 +142,8 @@ Platzierungslogik:
 - HQ Safe Zone wird respektiert (min. 60m Abstand)
 - Grid-Fallback wenn keine Strassen vorhanden
 - Gebaeude dienen als LOS-Blocker fuer Tower-Placement
+- Gerendert als ein InstancedMesh; für Raycasts hält `DevTerrainProvider` zusätzlich
+  Box-Meshes, die nicht in der Szene hängen
 
 ---
 
@@ -131,6 +154,10 @@ Platzierungslogik:
 2. **Collector** (secondary) - Verbindungsstrassen
 3. **Residential** - Wohnstrassen, schmaler
 
+Fahrbahnbreite je Klasse (`DEV_STREET_WIDTHS`): primary 8 m, secondary 7 m, residential 5 m.
+`DevTerrainProvider` zeichnet die Straßen so breit, `DevStreetProvider` gibt denselben Wert
+als `width` weiter wie ein OSM-Tag.
+
 Features:
 - Terrain-Following mit max. 15% Steigung
 - Catmull-Rom Splines fuer Kurven
@@ -138,6 +165,11 @@ Features:
 - Union-Find Connectivity Validation
 - Min. 30m Intersection-Abstand
 - A* Pathfinding mit Strassentyp-Gewichtung
+
+Spawns: Der Generator legt bis zu 4 an Straßenenden an (mindestens 0,7 x `minSpawnDistance`
+vom HQ, Default 300 m). Das Spiel nutzt nur den ersten, beim Laden
+(`addPredefinedSpawns()`) wie nach dem Regenerieren (`onDevWorldRegenerated()`), passend
+zum Ein-Spawn-Spiel der echten Welt.
 
 ---
 
@@ -150,15 +182,20 @@ Main Thread                    Worker
     |                             |
     |-- generate(config) -------->|
     |                             |-- Terrain generieren
-    |<-- progress(terrain, 50%) --|
+    |<-- progress(terrain, 0/100)-|
     |                             |-- Strassen generieren
-    |<-- progress(streets, 75%) --|
+    |<-- progress(streets, 0/100)-|
     |                             |-- Gebaeude platzieren
-    |<-- progress(buildings, 90%)-|
+    |<-- progress(buildings,0/100)|
     |                             |
     |<-- result(heightData,       |
-    |    streets, buildings) -----|
+    |    streetSegments,          |
+    |    spawnPoints,             |
+    |    buildingConfigs) --------|
 ```
+
+Jede Phase meldet nur 0 und 100 %; `DevTerrainProvider` wertet die Progress-Nachrichten
+derzeit nicht aus. Die Three.js-Meshes baut der Main Thread aus dem Ergebnis.
 
 ---
 
@@ -181,5 +218,37 @@ Das DevWorld Debug Panel (`app-devworld-debug-panel`) ermoeglicht zur Laufzeit:
 - Building-Dichte aendern
 - Seed aendern
 - Welt regenerieren
+- Share-URL kopieren (`DevWorldService.getShareUrl()`)
 
-Wird automatisch angezeigt wenn `?devworld` aktiv ist.
+Das Debug-Fenster ist nicht automatisch offen: Mit `?devworld` zeigen die Quick Actions eine
+Kachel "DevWorld", die es umschaltet.
+
+Regenerieren: `LocationFacadeService.refreshTerrainHeights()` räumt die Szene
+(`clearDevWorldVisuals()`), ruft `DevTerrainProvider.regenerate()` und danach
+`onDevWorldRegenerated()`: HQ-Marker, ein Spawn, Route-Grid vor den Routenlinien, dann
+`GameStateManager.reseatWavePipeline()`, damit die nächste Welle auf der neuen Karte startet.
+
+---
+
+## Route-Grid und Korridor
+
+- `filterStreetNetworkToRoutes()` filtert in DevWorld nicht, das ganze Netz bleibt.
+- Die Höhen kommen in einem Schritt vom Mesh; es gibt keine Tile-Batches und keine
+  cells-changed-Events. `VisualizationFacadeService` stößt den Höhen-Refresh der
+  Routenlinien deshalb explizit an.
+- Korridor: `ThreeTilesEngine.measureStreetClearance()` gibt in DevWorld `null` zurück, es
+  laufen keine Clearance-Rays. Der Korridor behält die Breite aus `DEV_STREET_WIDTHS`.
+  Details: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md).
+- LOS: Fahrbahn-Stempel und Terrain-Skirt tragen `userData.losTransparent` und fehlen in
+  der LOS-Cubemap (`tower-shadow-mapper.ts`); Terrain-Mesh und Gebäude blockieren.
+
+---
+
+## Training
+
+Mit `?devworld` schaltet `TowerDefenseFacadeService` den AI-Director ein
+(`useAIDirector`), verbindet `TrainingClientService` mit dem Backend und startet den Bot
+`strategist` mit Auto-Waves, außer bei `?bot=manual`. Die Engine läuft auch im
+Hintergrund-Tab weiter (`setBackgroundLoopEnabled`), und nur in DevWorld zeigt der Header
+den Rendering-Schalter (headless). Trainings-Tabs öffnen `http://localhost:4200/?devworld`,
+Details in [BOT_SYSTEM.md](BOT_SYSTEM.md).

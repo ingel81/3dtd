@@ -1,6 +1,6 @@
 # Location System
 
-**Stand:** 2026-05-12
+**Stand:** 2026-09-13
 
 Das Location-System ermoeglicht es Spielern, ihren eigenen Spielort zu waehlen. Die URL ist die Single Source of Truth fuer die aktuelle Location.
 
@@ -30,7 +30,12 @@ services/location/location-change-coordinator.service.ts    - 7-Step Change Sequ
 services/facade/location-facade.service.ts                  - Sub-Facade (Detection, Spawns, Cleanup)
 services/location/url-location.service.ts                   - URL als Source of Truth
 services/location/geocoding.service.ts                      - Nominatim Forward/Reverse Geocoding
-services/location/geolocation.service.ts                    - Browser/IP Geolocation Cascade
+services/location/geolocation.service.ts                    - Browser-Geolocation (kein IP-Lookup)
+services/location/osm-street.service.ts                     - Straßen via Overpass, A*, Random-Spawn-Suche
+services/location/street-cache.service.ts                   - IndexedDB-Cache für Straßennetze
+services/location/world-dice.service.ts                     - Zufällige Stadt via Wikidata
+services/world/path-route.service.ts                        - Routen je Spawn (Cache, Routenlinie)
+services/world/map-placement.service.ts                     - HQ/Spawn per Klick auf die Karte
 components/location-dialog/location-dialog.component.ts  - Dialog UI
 components/address-autocomplete.component.ts        - Adress-Autocomplete
 ```
@@ -110,6 +115,12 @@ export class LocationStore {
 }
 ```
 
+Geschrieben werden derzeit `baseCoords`, `centerCoords`, `spawnPoints` und `streetCount`
+(über `LocationFacadeService` und die Coordinator-Callbacks). `currentLocationName`,
+`favorites`, `favoriteNamesMap` und `isApplyingLocation` setzt nur `resetAll()`; die UI liest
+Anzeigename und Favoriten aus `LocationManagementService` bzw.
+`LocationChangeCoordinatorService.favoriteNamesMap`.
+
 ## LocationManagementService
 
 Verwaltet den aktuellen Location-State und Favorites. Speichert nur Koordinaten, Namen werden immer ueber `GeocodingService` aufgeloest (mit Cache).
@@ -121,6 +132,8 @@ readonly hq = signal<{ lat: number; lon: number } | null>(null);
 readonly spawns = signal<{ lat: number; lon: number }[]>([]);
 readonly needsRandomSpawn = signal<boolean>(false);
 readonly displayName = signal<string>(NO_LOCATION_NAME);   // 'No location', auch nach reset()
+readonly address = signal<NominatimAddress | null>(null);  // Adresse aus dem Reverse Geocoding
+readonly missionInfo = computed<MissionInfo | null>(...);  // Straße, PLZ, Ort, Koordinaten für den Ladescreen
 readonly isApplyingLocation = signal(false);
 readonly favorites = signal<FavoriteLocation[]>([]);
 readonly hasLocation = computed(() => this.hq() !== null);
@@ -149,6 +162,9 @@ loadFavorites(): void         // Aus localStorage laden (Key: td_favorites_v2)
 
 // Zuruecksetzen
 reset(): void                 // Alle Signals auf Defaults
+
+// Legacy, No-ops (die URL ist Source of Truth)
+initializeEditableLocations(), saveLocationsToStorage(), clearLocationsFromStorage()
 ```
 
 ### Favorites-System
@@ -169,6 +185,7 @@ URL ist die Single Source of Truth. Format:
 - `l` = HQ (lat,lon) - 5 Dezimalstellen
 - `s` = Spawns (Semikolon-getrennt), optional
 - Kein `s`-Parameter = Random Spawn wird generiert
+- In DevWorld schreibt `LocationFacadeService.syncUrlWithLocation()` nichts in die URL
 
 ```typescript
 parseFromUrl(): { hq, spawns } | null   // URL parsen
@@ -213,7 +230,7 @@ search(query: string): void
 
 readonly isLoading = signal(false);
 readonly results = signal<GeocodingResult[]>([]);
-readonly error = signal<string | null>(null);
+readonly error = signal<string | null>(null);   // 'Address search failed'
 
 clearResults(): void
 ```
@@ -228,9 +245,10 @@ reverseGeocodeDetailed(lat, lon): Promise<ReverseGeocodeResult | null>
 // Vollstaendig: displayName + locationName + address + lat/lon
 
 reverseGeocodeWithCache(lat, lon): Promise<string>
-// Mit Memory-Cache + localStorage-Cache (Key: td_geocode_cache_v1)
+// Memory-Cache, beim Start aus localStorage geladen (Key: td_geocode_cache_v1)
 // Max. 100 Eintraege, 4 Dezimalstellen Praezision (~11m)
-// Retry-Logik bei Rate-Limit (HTTP 429)
+// Fallback: "lat, lon" mit 4 Nachkommastellen, wird nicht gecacht
+// Kein Retry: fetchWithRetry() (Backoff 1/2/4 s bei HTTP 429) existiert, wird aber nicht aufgerufen
 ```
 
 ### Helper-Methoden
@@ -238,9 +256,10 @@ reverseGeocodeWithCache(lat, lon): Promise<string>
 ```typescript
 extractLocationName(address: NominatimAddress): string
 // Prioritaet: city > town > village > municipality > suburb > city_district > county
+// Sonst UNKNOWN_LOCATION_NAME ('Unknown location')
 
 formatAddressShort(addr: NominatimAddress): string
-// Format: "Strasse 123, Stadt"
+// Format: "Straße 123, Stadt"; ohne Straße und Ort: UNKNOWN_LOCATION_NAME
 ```
 
 ## Location Detection Flow
@@ -249,14 +268,15 @@ Beim App-Start in `LocationFacadeService.initializeLocation()`:
 
 ```
 1. DevWorld aktiv?
-   → Fake-Origin (DEV_WORLD_ORIGIN) setzen, fertig
+   → Fake-Origin (DEV_WORLD_ORIGIN) ohne Spawn setzen, fertig
+     (der Spawn kommt später aus dem Straßengenerator, siehe DEVWORLD.md)
 
 2. URL-Parameter vorhanden? (UrlLocationService.parseFromUrl())
    → Location aus URL laden, fertig
 
-3. Geolocation-Cascade (GeolocationService.detectLocation())
-   → Browser GPS / IP-API probieren
-   → Bei Erfolg: Location setzen, fertig
+3. Geolocation (GeolocationService.detectLocation())
+   → Browser-Geolocation, 15 s Timeout
+   → Bei Erfolg: Location ohne Spawn setzen, fertig
 
 4. Nichts gefunden
    → Location-Dialog (disableClose: true) anzeigen
@@ -291,7 +311,7 @@ STEP 1: Initialize Loading State
   - Loading-Steps zuruecksetzen
 
 STEP 2: Reset & Configure Engine
-  - Height-Updates und Route-Animation stoppen
+  - Height-Updates, Route-Animation und Intro-Kamerafahrt stoppen
   - gameState.reset() (Enemies, Towers, Projectiles, Effects)
   - Map-Entities und Pfad-Cache leeren
   - Engine-Origin auf neue Koordinaten setzen
@@ -302,6 +322,9 @@ STEP 2: Reset & Configure Engine
 STEP 3: Load Streets
   - OSM-Strassendaten laden (2000m Radius)
   - Cache-Check: Wenn gleiche Location (~100m), Cache wiederverwenden
+  - Sonst OsmStreetService.loadStreets(): erst IndexedDB (StreetCacheService,
+    Key v2_<lat>_<lon>_<radius>, max. 5 Orte, LRU), dann Overpass mit drei
+    Servern nacheinander (je 15 s Timeout)
   - Street-Count aktualisieren
   - Street-Rendering laeuft progressiv (50 Nodes/Frame, alte Strassen
     bleiben sichtbar bis neue fertig sind — `street-rendering.service.ts`)
@@ -313,33 +336,58 @@ STEP 4: Place HQ Marker
   - PathAndRouteService initialisieren
   - CameraControlService initialisieren
   - RouteAnimationService initialisieren
+  - IntroCameraFlightService initialisieren
   - KeyboardPanService initialisieren
   - HQ Base-Marker platzieren
 
 STEP 5: Place Spawn Point
   - Spawn-Punkt mit Marker und Pfad hinzufuegen
+    (addSpawnPoint() → PathAndRouteService.showPathFromSpawn(): A* über das
+    Straßennetz, die Route landet im Routen-Cache)
   - Spawn-Name aus Input extrahieren (vor erstem Komma)
   - Farbe: SPAWN_COLORS[0]
 
 STEP 6: Calculate Routes
-  - A* Pathfinding ausfuehren
-  - gameState.initialize() mit Engine, Streets, HQ, Spawns, Pfaden
+  - gameState.initialize() mit Engine, HQ, Spawns und den gecachten Routen
   - Validierung: Mindestens 1 Route muss existieren
-  - GlobalRouteGrid initialisieren
-  - TowerPlacement neu initialisieren (LOS wird beim Setzen progressiv
-    in 50-Cell-Batches berechnet, Tower bleibt `losReady=false` bis fertig)
-  - Street-Network auf Route-Korridor filtern
-  - Hoehen-Updates respektieren Tile-LOD via `geometricError`-Tracking
-    (Tile-Quality-Aware Route Protection, siehe `path-route.service.ts`):
-    Neue Hoehen werden nur akzeptiert wenn die Tile-Qualitaet nicht
-    schlechter als 2x gegenueber der vorherigen Berechnung ist.
+  - GlobalRouteGrid initialisieren (eigener Boot-Step "Generating Route Grid")
+  - TowerPlacement neu initialisieren
+  - Street-Network auf Route-Korridor filtern (nicht in DevWorld)
+  - Höhen liegen in den Zellen des GlobalRouteGrid, jede mit Tiefe und
+    geometricError des Tiles, aus dem ihr Sample stammt. Ein Sample aus
+    einem strikt schlechteren Tile (geringere Tiefe und größerer
+    geometricError) ersetzt ein stabiles nicht (`utils/route-cell-sampler.ts`).
 
 STEP 7: Finalize
-  - Hoehen-Updates durchfuehren (await)
-  - Location in Storage speichern
+  - Höhen-Updates durchführen (await); danach erste Anpassung des
+    Korridors an die Tiles, siehe ROUTE_CORRIDOR.md
+  - saveLocationsToStorage() (No-op, die URL ist schon aktuell)
   - isApplyingLocation = false
   - Route-Animation starten
+  - Intro-Kamerafahrt starten (IntroCameraFlightService.start())
 ```
+
+### Routen-Cache
+
+`PathAndRouteService` hält je Spawn eine Route als `RouteWaypoint[]` (`getCachedPaths()`,
+Key: Spawn-ID). Jeder Waypoint trägt für das Segment ab ihm die Korridor-Halbbreite links
+und rechts (`corridorLeft`/`corridorRight`). Woher die Breite kommt:
+[ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md). STEP 2 leert den Cache (`clearCache()`).
+
+### Ladescreen und Intro-Kamerafahrt
+
+Beim ersten Laden bleibt der Ladescreen nach Tiles, Straßen und Höhen noch stehen
+(`VisualizationFacadeService.holdForIntroFlight()`, Boot-Step "Preparing Intro Flight"):
+`IntroCameraFlightService.prepare()` legt die Flugbahn an, `prepareTick()` sampelt die
+Route (8 Samples pro Frame). Der Screen schließt, sobald 90 % der Route verlässliche
+Höhen haben (`INTRO_GATE_MIN_READY`) oder 8 s nach dem ersten Tile-Load
+(`INTRO_GATE_TIMEOUT_MS`, beide in `utils/flight-gate.ts`). Ohne Route oder wenn
+`prepare()` scheitert, wartet er nicht.
+
+Ein Ortswechsel wartet darauf nicht, STEP 7 startet die Fahrt direkt. Dann sichert nur die
+Fahrt selbst ab: Samples mit mehr als 20 m Tile-Fehler (`maxSampleError`) zählen nicht
+als verlässlich, und die Kamera bleibt mindestens 5 m (`hardClearance`) über dem bekannten
+Boden.
 
 ### Location Flow Methoden
 
@@ -372,11 +420,12 @@ Sub-Facade fuer Location-Management. Verbindet Coordinator mit Component-State.
 ```
 needsRandomSpawn && streetNetwork vorhanden?
   ├─ DevWorld aktiv?
-  │   → Spawns von DevTerrainProvider holen
-  │   → Fallback: devWorld.config.spawn Position
+  │   → ersten generierten Spawn vom DevTerrainProvider nehmen (der Generator liefert bis zu 4)
+  │   → Fallback: DEV_WORLD_SPAWNS[devWorld.config.spawn]
   │
   └─ Real World
       → osmService.findRandomStreetPoint(network, hq, 500m, 1000m)
+        (Knoten auf befahrbaren Straßentypen, bis zu 50 zufällige Kandidaten per findPath() geprüft)
       → URL mit generiertem Spawn synchronisieren
 
 Spawns aus URL/Service vorhanden?
@@ -391,29 +440,30 @@ Angular Material Dialog mit zwei Modi:
 
 | Modus | Beschreibung |
 |-------|--------------|
-| `full` | Neuer HQ + Spawn (Standard) |
-| `spawn-only` | Nur Spawn aendern (HQ bleibt) |
+| `full` | Neuer HQ + Spawn (Standard), Tab "New Location" |
+| `spawn-only` | Nur Spawn ändern (HQ bleibt), Tab "Spawn Only"; nur mit bestehender Location, stellt den Spawn-Modus auf `manual` |
 
 ### Spawn Modes
 
 | Modus | Beschreibung |
 |-------|--------------|
 | `random` | Automatisch 500m-1km vom HQ auf Strasse platziert |
-| `manual` | Adresse/Koordinaten manuell eingeben |
+| `manual` | Adresse per Autocomplete suchen |
 
 ### Features
 
 - **Autocomplete-Suche** via `AddressAutocompleteComponent` (Nominatim)
-- **Manuelle Koordinaten-Eingabe** (ausklappbare Sektion)
+- **Manuelle Koordinaten-Eingabe** (ausklappbar, nur für das HQ: "Enter coordinates")
   - Unterstuetzte Formate beim Einfuegen:
     - Dezimal: `49.5432, 9.1234`
     - Kardinal: `49.5432°N, 9.1234°E`
+    - Kardinal vorangestellt: `N 49.5432, E 9.1234`
     - DMS: `49°32'35.5"N 9°7'24.2"E`
     - Google Maps URL: `@49.5432,9.1234`
 - **Distanz-Badge**: Zeigt Entfernung Spawn-HQ an
-- **Max-Distanz**: 1.5 km (Spawn wird blockiert wenn weiter)
+- **Max-Distanz**: 1,5 km, im Dialog fest als 1500 m geprüft (nicht über `MAX_MANUAL_SPAWN_DISTANCE`); darüber bleibt Confirm gesperrt. Eine Mindestdistanz prüft der Dialog nicht
 - **Warnung** bei laufendem Spiel (nur im `full`-Modus)
-- **Validation**: Confirm-Button nur aktiv wenn HQ + Spawn gesetzt
+- **Validation**: Confirm-Button nur aktiv, wenn ein HQ gewählt ist (im `spawn-only`-Modus: vorhanden) und der Spawn `random` oder ausgewählt ist
 
 ### Dialog-Ergebnis
 
@@ -425,7 +475,7 @@ Angular Material Dialog mit zwei Modi:
 }
 ```
 
-Bei `isRandom: true` wird der Spawn-Punkt vom Coordinator nachtraeglich generiert (Street-Loading + `findRandomStreetPoint()`).
+Bei `isRandom: true` (`id: 'spawn_random'`, `lat`/`lon` = 0) lädt der Coordinator die Straßen und sucht den Spawn mit `findRandomStreetPoint()`; findet er keinen, nimmt er einen Punkt ca. 700 m nördlich des HQ.
 
 ## HQ-Relocation (interaktives Versetzen)
 
@@ -453,7 +503,9 @@ Wenn das HQ ausserhalb der Bounds platziert wird (z.B. 10km entfernt):
 | Modus | Innerhalb Bounds | Ausserhalb Bounds |
 |-------|------------------|-------------------|
 | `hq` | Naehe zu Strasse pruefen (max 150m) | Immer erlaubt (Streets werden nachgeladen) |
-| `spawn` | Naehe zu Strasse pruefen (max 150m) | Nicht erlaubt (Street-Network erforderlich) |
+| `spawn` | Straße des geladenen Netzes höchstens 150 m entfernt, 200-1500 m Luftlinie zum HQ | Gleiche Prüfung, scheitert ohne nahe Straße des geladenen Netzes |
+
+Beim Platzieren eines Spawns zeigt die Karte zwei Ringe um das HQ (200 m und 1500 m).
 
 ### Relevante Konstanten (`map-constants.config.ts`)
 
@@ -461,8 +513,8 @@ Wenn das HQ ausserhalb der Bounds platziert wird (z.B. 10km entfernt):
 SPAWN_DISCARD_DISTANCE = 1500     // Max Distanz bevor alter Spawn verworfen wird
 MIN_SPAWN_DISTANCE = 500          // Random Spawn: Mindestdistanz zum HQ
 MAX_SPAWN_DISTANCE = 1000         // Random Spawn: Maximaldistanz zum HQ
-MIN_MANUAL_SPAWN_DISTANCE = 200   // Manuelle Spawn-Eingabe: Mindestdistanz
-MAX_MANUAL_SPAWN_DISTANCE = 1500  // Manuelle Spawn-Eingabe: Maximaldistanz (Distanz-Badge im Dialog)
+MIN_MANUAL_SPAWN_DISTANCE = 200   // Spawn per Kartenklick: Mindestdistanz zum HQ (MapPlacementService)
+MAX_MANUAL_SPAWN_DISTANCE = 1500  // Spawn per Kartenklick: Maximaldistanz; der Dialog prüft 1500 m separat
 MAX_PLACEMENT_STREET_DISTANCE = 150  // Max Distanz zur naechsten Strasse fuer Placement
 STREET_FILTER_RADIUS = 100        // Radius fuer Street-Filter um Routen
 SPAWN_COLORS = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]  // bis zu 4 Spawns
@@ -470,9 +522,11 @@ SPAWN_COLORS = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]  // bis zu 4 Spawns
 
 ### Concurrent Location Changes Guard
 
-`LocationStore.isApplyingLocation` (Signal) wird waehrend STEP 1-7 auf `true`
-gesetzt; UI-Aktionen wie das Oeffnen des Location-Dialogs oder das Klicken auf
-Favoriten respektieren dieses Flag, um doppelte Pipelines zu verhindern.
+`LocationChangeCoordinatorService.applyNewLocation()` bricht ab, solange
+`LocationManagementService.isApplyingLocation` `true` ist (gesetzt in STEP 1,
+zurückgesetzt in STEP 7 oder im Fehlerfall). `VisualizationFacadeService` unterscheidet
+damit das erste Laden vom Ortswechsel. Das gleichnamige Signal im `LocationStore` setzt
+derzeit niemand, und keine UI-Komponente liest eines der beiden Flags.
 
 ## Bekannte Einschraenkungen
 
@@ -484,5 +538,5 @@ Nominatim gibt oft Strassen-Koordinaten statt exakte Gebaeude-Koordinaten zuruec
 ### Rate-Limiting
 Nominatim hat strikte Rate-Limits. Der GeocodingService verwendet:
 - Debouncing (300ms) bei Suchanfragen
-- Exponential Backoff Retry bei HTTP 429
-- Cache (Memory + localStorage) fuer Reverse Geocoding
+- Kein Retry bei HTTP 429 (`fetchWithRetry()` ist ungenutzt)
+- Cache (Memory + localStorage) nur in `reverseGeocodeWithCache()` (Favoriten-Namen); `setLocation()` fragt `reverseGeocodeDetailed()` ohne Cache
