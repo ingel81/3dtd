@@ -88,13 +88,3 @@ export interface TerrainProvider {
    */
   dispose(): void;
 }
-
-/**
- * Configuration for coordinate transformation.
- * DevWorld uses a fixed fake origin, real world uses actual GPS.
- */
-export interface TerrainOrigin {
-  lat: number;
-  lon: number;
-  height: number;
-}

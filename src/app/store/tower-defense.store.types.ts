@@ -45,11 +45,3 @@ export interface CameraDebugInfo {
   heading: number; pitch: number; altitude: number;
   distanceToCenter: number; fov: number; terrainHeight: number;
 }
-
-/** Loading step for init sequence */
-export interface LoadingStep {
-  id: string;
-  label: string;
-  status: 'pending' | 'active' | 'done' | 'error';
-  detail?: string;
-}

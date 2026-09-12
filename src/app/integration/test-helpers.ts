@@ -36,13 +36,6 @@ export const TEST_PATH: GeoPosition[] = [
   { lat: 48.7768, lon: 9.1829, height: 300 },
 ];
 
-/** Base position (near the end of path) */
-export const TEST_BASE_POSITION: GeoPosition = {
-  lat: 48.7768,
-  lon: 9.1829,
-  height: 300,
-};
-
 /** Tower position — close to path midpoint, within range of enemies */
 export const TEST_TOWER_POSITION: GeoPosition = {
   lat: 48.7763,
