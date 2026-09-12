@@ -517,8 +517,6 @@ describe('GameStateManager', () => {
           vi.spyOn(gsm.enemyManager, 'getAlive').mockReturnValue([]);
           bus.emit({ type: 'debug:remove-enemy', enemyId: 'a' });
           expect(combat()['turnTowersToGuard']).toHaveBeenCalledTimes(1);
-          bus.emit({ type: 'debug:clear-enemies' });
-          expect(combat()['turnTowersToGuard']).toHaveBeenCalledTimes(2);
         });
 
         it('leaves the turn to the wave end during a wave', () => {

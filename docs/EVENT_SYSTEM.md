@@ -96,9 +96,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `debug:add-health` | DebugFacadeService | GameCommandsHandler (emittiert `health:changed`) | Health hinzufügen (`amount`) |
 | `debug:complete-all-research` | DebugFacadeService | GameCommandsHandler → ResearchManager | Alle Forschungen sofort abschließen |
 | `debug:max-upgrade-all-towers` | DebugFacadeService | GameCommandsHandler | Alle Tower auf Max-Level setzen, emittiert je Tower `tower:upgraded` |
-| `debug:toggle-movement` | derzeit kein Emitter (das Display-Fenster setzt `enemyManager.movementEnabled` direkt) | EnemyManager | Enemy-Bewegung an/aus (`enabled`) |
-| `debug:remove-enemy` | derzeit kein Emitter außerhalb der Tests | EnemyManager, GameStateManager (Tower in Wachrichtung) | Einzelnen Enemy entfernen (`enemyId`) |
-| `debug:clear-enemies` | derzeit kein Emitter außerhalb der Tests | EnemyManager, GameStateManager (Tower in Wachrichtung) | Alle Enemies entfernen |
+| `debug:remove-enemy` | EnemyDebugService (Enemy-Debug-Fenster: Entfernen-Knopf, „Clear All“ je Debug-Enemy) | EnemyManager, GameStateManager (Tower in Wachrichtung) | Einzelnen Enemy entfernen (`enemyId`) |
 | `debug:start-custom-wave` | WaveDebuggerComponent | GameLoopFacade (`startCustomWave()`) | Custom Wave starten |
 | `debug:spawn-enemy` | EnemyDebugService | EnemyManager | Enemy manuell spawnen (`enemyType`, `count?`, `path?`, `speed?`, `paused?`, `health?`) |
 | `debug:kill-all` | DebugFacadeService | WaveManager (stoppt Spawns, tötet ohne Credits), GameStateSyncService (`waveEnemiesLeft` auf 0) | Alle Enemies töten |

@@ -839,7 +839,7 @@ Services und Manager sammeln ihre Subscriptions in einer `SubscriptionBag`
 | Game | `game:started`, `game:over`, `game:reset`, `health:changed`, `credits:changed` |
 | Research | `research:started`, `research:progress`, `research:completed`, `research:cancelled`, `research:state-changed` |
 | Effects | `vfx:blood`, `vfx:projectile-impact`, `vfx:muzzle-flash`, `vfx:chain-lightning`, `audio:play` |
-| Debug | `debug:sound`, `debug:spawn-enemy`, `debug:kill-all`, `debug:start-custom-wave`, `debug:complete-all-research`, `debug:max-upgrade-all-towers`, `debug:add-credits`, `debug:add-health`, `debug:remove-enemy`, `debug:clear-enemies`, `debug:toggle-movement` |
+| Debug | `debug:sound`, `debug:spawn-enemy`, `debug:kill-all`, `debug:start-custom-wave`, `debug:complete-all-research`, `debug:max-upgrade-all-towers`, `debug:add-credits`, `debug:add-health`, `debug:remove-enemy` |
 | Commands | `command:place-tower`, `command:sell-tower`, `command:upgrade-tower`, `command:start-wave`, `command:restart-game`, `command:start-research`, `command:cancel-research` |
 
 ### Immediate vs Deferred

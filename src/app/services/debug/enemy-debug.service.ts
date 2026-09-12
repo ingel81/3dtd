@@ -478,24 +478,28 @@ export class EnemyDebugService {
   }
 
   /**
-   * Remove a single debug enemy.
+   * Remove a single debug enemy. Goes through the event bus so the
+   * GameStateManager sees it: once the last enemy outside a wave is gone,
+   * the towers turn to their guard heading.
    */
   onRemoveDebugEnemy(enemyId: string): void {
     if (!this.gameState) return;
     const de = this.getDebugEnemy(enemyId);
     if (de) {
-      this.gameState.enemyManager.remove(de.enemy);
+      this.gameState.getEventBus().emit({ type: 'debug:remove-enemy', enemyId: de.enemy.id });
       this.removeDebugEnemy(enemyId);
     }
   }
 
   /**
-   * Clear all debug enemies.
+   * Clear all debug enemies, one debug:remove-enemy each (see
+   * onRemoveDebugEnemy). Enemies of a running wave stay.
    */
   onClearDebugEnemies(): void {
     if (!this.gameState) return;
+    const eventBus = this.gameState.getEventBus();
     for (const de of this.debugEnemies()) {
-      this.gameState.enemyManager.remove(de.enemy);
+      eventBus.emit({ type: 'debug:remove-enemy', enemyId: de.enemy.id });
     }
     this.clearDebugEnemies();
   }

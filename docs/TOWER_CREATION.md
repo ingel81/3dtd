@@ -269,7 +269,7 @@ Grundstellung zurück:
   Tower mit `turnTowersToGuard` zur Wachrichtung (`setIdleHeading`, gleiche
   Drehgeschwindigkeit wie beim Zielen). Außerhalb einer Welle tut er das,
   sobald kein Gegner mehr lebt (nach `enemy:died`, `enemy:reached-base`,
-  `debug:remove-enemy`, `debug:clear-enemies`), und nach einer Routenänderung.
+  `debug:remove-enemy`), und nach einer Routenänderung.
   Nach einem Reichweiten-Upgrade dreht der Turm zwischen den Wellen sofort zur
   neuen Wachrichtung, in einer Welle erst nach deren Ende.
 - **Magic** ist die Ausnahme: ohne Ziel dreht sich die Kugel langsam weiter

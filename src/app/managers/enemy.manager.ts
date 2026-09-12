@@ -124,19 +124,11 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   private registerDebugHandlers(): void {
-    this.subs.add(this.eventBus.on('debug:toggle-movement', (event) => {
-      this.movementEnabled = event.enabled;
-    }));
-
     this.subs.add(this.eventBus.on('debug:remove-enemy', (event) => {
       const enemy = this.getAll().find(e => e.id === event.enemyId);
       if (enemy) {
         this.remove(enemy);
       }
-    }));
-
-    this.subs.add(this.eventBus.on('debug:clear-enemies', () => {
-      this.clear();
     }));
 
     this.subs.add(this.eventBus.on('debug:spawn-enemy', (event) => {
