@@ -10,6 +10,9 @@
  * - Tracks WaveResults for reward calculation
  * - Maintains recent history for AI context
  *
+ * The running wave is tracked by WaveOutcomeTracker, the last waves by
+ * WaveHistory; the plain snapshot sections live in state-snapshot-parts.ts.
+ *
  * IMPORTANT: This service is completely optional.
  * The game works fine without it.
  */
@@ -21,16 +24,7 @@ import { Enemy } from '../../entities/enemy.entity';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
-import {
-  GameStateSnapshot,
-  PlayerState,
-  RecentHistory,
-  ResearchSnapshot,
-} from './models/game-state-snapshot';
-import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
-import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
-import { ArmorType } from '../../configs/combat/combat.types';
-import { getEnemyType, EnemyTypeId } from '../../configs/enemy-types.config';
+import { GameStateSnapshot } from './models/game-state-snapshot';
 import { WaveResult, WaveOutcome } from './models/wave-result';
 import { WaveConfig, createSimpleWaveConfig } from './models/wave-config';
 import {
@@ -39,21 +33,16 @@ import {
   estimatePathCoverage,
   estimateKillZoneStrength,
 } from './defense-analyzer';
-import { calculateWaveThreat, computeDpsByDamageType } from './game-state-encoder';
+import { computeDpsByDamageType } from './game-state-encoder';
 import { computeTowerDPS } from './tower-dps.util';
-import { templateObjectForWave } from '../../configs/wave-curriculum.config';
-import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { ComponentType } from '../../core/component';
 import { MovementComponent } from '../../game-components/movement.component';
 import { GlobalRouteGridService } from '../../services/world/global-route-grid.service';
 import { computePathDPSProfile, createEmptyDPSProfile, PathDPSProfile } from './dps-profile';
 import { Tower } from '../../entities/tower.entity';
-
-/** Maximum number of waves to keep in history */
-const MAX_HISTORY_SIZE = 10;
-
-/** Close call threshold (health percentage) */
-const CLOSE_CALL_THRESHOLD = 0.3;
+import { WaveOutcomeTracker } from './wave-outcome-tracker';
+import { WaveHistory } from './wave-history';
+import { expectedArmorDistribution, playerState, researchSnapshot } from './state-snapshot-parts';
 
 @Injectable() // Provided in TowerDefenseComponent alongside GameStateManager
 export class AIDataCollectorService {
@@ -74,26 +63,13 @@ export class AIDataCollectorService {
 
   // === CURRENT WAVE TRACKING ===
   private currentWaveNumber = 0;
-  private currentWaveStartTime = 0;
   /** Wall-clock start of the current run, for the encoder's gameTime feature. */
   private gameStartTime = Date.now();
   private currentWaveConfig: WaveConfig | null = null;
-  private currentWaveOutcome: Partial<WaveOutcome> = {};
-  private lowestHealthThisWave = 100;
-  /** Spawn time of every enemy still on the field this wave. */
-  private enemySpawnTimes = new Map<string, number>();
-  /** Summed lifetime of the enemies that already died or reached the base. */
-  private endedLifetimeTotalMs = 0;
-  private endedLifetimeCount = 0;
-  private enemyPathProgress = new Map<string, number>();
+  private readonly currentWave = new WaveOutcomeTracker();
 
   // === HISTORY ===
-  private waveHistory: WaveResult[] = [];
-  private damageHistory: number[] = [];
-  private progressHistory: number[] = [];
-  private nearMissHistory: number[] = [];
-  private enemyTypesHistory: string[][] = [];
-  private threatHistory: number[] = [];
+  private readonly history = new WaveHistory();
 
   // === SIGNALS FOR UI ===
   readonly isCollecting = signal(false);
@@ -148,13 +124,13 @@ export class AIDataCollectorService {
       gameTimeSeconds: (Date.now() - this.gameStartTime) / 1000,
       phase: this.store.phase() as GamePhase,
 
-      player: this.getPlayerState(),
+      player: playerState(this.store.baseHealth(), this.store.credits()),
       defense,
       vulnerabilities,
-      recentHistory: this.getRecentHistory(),
+      recentHistory: this.history.summary(),
       dpsProfile: this.getDPSProfile(towers, airTargetingUnlocked),
-      research: this.getResearchSnapshot(),
-      expectedArmorDistribution: this.getExpectedArmorDistribution(),
+      research: researchSnapshot(this.researchStore),
+      expectedArmorDistribution: expectedArmorDistribution(this.currentWaveConfig, this.store.waveNumber() + 1),
     };
 
     // Pre-compute dpsByDamageType so Python backend receives it via WebSocket
@@ -165,84 +141,18 @@ export class AIDataCollectorService {
     return snapshot;
   }
 
-  /** Build a research-state snapshot from ResearchStore. */
-  private getResearchSnapshot(): ResearchSnapshot {
-    const completed = this.researchStore.completedResearches();
-    const totalCount = Object.keys(RESEARCH_TREE).length;
-
-    // Build per-tower unlock map
-    const towerUnlocked: Record<TowerTypeId, boolean> = {} as Record<TowerTypeId, boolean>;
-    for (const id of Object.keys(TOWER_TYPES) as TowerTypeId[]) {
-      towerUnlocked[id] = this.researchStore.isTowerUnlocked(id);
-    }
-
-    const activeResearches = this.researchStore.activeResearches();
-    return {
-      completedIds: [...completed],
-      completedCount: completed.size,
-      totalCount,
-      activeIds: activeResearches.map(a => a.researchId),
-      centerLevel: this.researchStore.centerLevel(),
-      slotsUsed: activeResearches.length,
-      maxSlots: this.researchStore.researchSlots(),
-      airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),
-      maxUpgradeTier: this.researchStore.maxUpgradeTier(),
-      towerUnlocked,
-    };
-  }
-
-  /**
-   * Armor distribution the player should prepare for.
-   *
-   * During a wave this is the wave actually running. Between waves
-   * `currentWaveConfig` is null (it is cleared once a wave resolves), and that
-   * is exactly when both the bot and the Wave Director look at this feature —
-   * so an empty value there meant the AI planned against a uniform-armor
-   * fallback for the entire build phase. Fall back to the curriculum's next
-   * template instead, which is what will actually spawn.
-   */
-  private getExpectedArmorDistribution(): Record<ArmorType, number> | undefined {
-    const groups = this.currentWaveConfig?.enemies?.length
-      ? this.currentWaveConfig.enemies.map((g) => ({ type: g.type, weight: g.count }))
-      : this.upcomingTemplateGroups();
-    if (!groups || groups.length === 0) return undefined;
-
-    const dist: Record<ArmorType, number> = {
-      unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0,
-    };
-    let total = 0;
-    for (const group of groups) {
-      const enemyCfg = getEnemyType(group.type as EnemyTypeId);
-      if (!enemyCfg?.armorType) continue;
-      dist[enemyCfg.armorType] += group.weight;
-      total += group.weight;
-    }
-    if (total === 0) return undefined;
-    for (const k of Object.keys(dist) as ArmorType[]) {
-      dist[k] /= total;
-    }
-    return dist;
-  }
-
-  /** Enemy shares of the template the curriculum pins to the next wave. */
-  private upcomingTemplateGroups(): { type: string; weight: number }[] | undefined {
-    const template = templateObjectForWave(this.store.waveNumber() + 1);
-    if (!template) return undefined;
-    return template.enemies.map(([type, share]) => ({ type, weight: share }));
-  }
-
   /**
    * Get wave history for AI context
    */
   getWaveHistory(): WaveResult[] {
-    return [...this.waveHistory];
+    return this.history.all();
   }
 
   /**
    * Get the last N wave results
    */
   getRecentWaveResults(count = 5): WaveResult[] {
-    return this.waveHistory.slice(-count);
+    return this.history.recent(count);
   }
 
   /**
@@ -256,12 +166,7 @@ export class AIDataCollectorService {
    * Clear all collected data (for new game)
    */
   clearHistory(): void {
-    this.waveHistory = [];
-    this.damageHistory = [];
-    this.progressHistory = [];
-    this.nearMissHistory = [];
-    this.enemyTypesHistory = [];
-    this.threatHistory = [];
+    this.history.clear();
     this.waveResultCount.set(0);
     this.resetCurrentWave();
   }
@@ -294,8 +199,7 @@ export class AIDataCollectorService {
     // Their enemy:died already recorded them as killed.
     this.subscriptions.add(
       this.eventBus.on('ability:impact', (event) => {
-        this.currentWaveOutcome.abilityKills =
-          (this.currentWaveOutcome.abilityKills || 0) + event.kills;
+        this.currentWave.abilityKilled(event.kills);
       })
     );
 
@@ -326,47 +230,11 @@ export class AIDataCollectorService {
 
   private onWaveStarted(event: { wave: number; enemyCount: number }): void {
     this.currentWaveNumber = event.wave;
-    this.currentWaveStartTime = Date.now();
-    this.lowestHealthThisWave = this.store.baseHealth();
-
-    // Reset outcome tracking
-    this.currentWaveOutcome = {
-      enemiesSpawned: event.enemyCount,
-      enemiesKilled: 0,
-      enemiesReachedBase: 0,
-      abilityKills: 0,
-      damageToPlayer: 0,
-      damagePercent: 0,
-      waveDurationMs: 0,
-      avgEnemyLifetimeMs: 0,
-      avgPathProgressPercent: 0,
-      lowestPlayerHealth: this.lowestHealthThisWave,
-      wasCloseCall: false,
-      playerSurvived: true,
-      enemyPerformance: {},
-    };
-
-    this.clearEnemyTracking();
+    this.currentWave.start(event.enemyCount, this.store.baseHealth(), Date.now());
   }
 
   private onEnemySpawned(event: { enemy: Enemy }): void {
-    // Track spawn time for lifetime calculation
-    this.enemySpawnTimes.set(event.enemy.id, Date.now());
-
-    // Update per-enemy-type spawn count
-    const enemyType = event.enemy.typeConfig.id;
-    const perf = this.currentWaveOutcome.enemyPerformance || {};
-    if (!perf[enemyType]) {
-      perf[enemyType] = {
-        spawned: 0,
-        killed: 0,
-        reachedBase: 0,
-        avgLifetimeMs: 0,
-        totalDamageDealt: 0,
-      };
-    }
-    perf[enemyType].spawned++;
-    this.currentWaveOutcome.enemyPerformance = perf;
+    this.currentWave.enemySpawned(event.enemy.id, event.enemy.typeConfig.id, Date.now());
   }
 
   /**
@@ -376,8 +244,7 @@ export class AIDataCollectorService {
    * route, children included, so a leaked minion is a leak like any other.
    */
   private onEnemySplit(event: { children: readonly Enemy[] }): void {
-    this.currentWaveOutcome.enemiesSpawned =
-      (this.currentWaveOutcome.enemiesSpawned || 0) + event.children.length;
+    this.currentWave.enemiesSplit(event.children.length);
   }
 
   private onWaveCompleted(event: { wave: number; credits: number }): void {
@@ -395,247 +262,67 @@ export class AIDataCollectorService {
       return;
     }
 
-    const duration = Date.now() - this.currentWaveStartTime;
-
-    // Get training timescale for normalization
-    const timescale = this.gameState.trainingTimescale();
-
-    // Finalize outcome (normalize time metrics by dividing by timescale)
-    this.currentWaveOutcome.waveDurationMs = duration / timescale;
-    this.currentWaveOutcome.lowestPlayerHealth = this.lowestHealthThisWave;
-    this.currentWaveOutcome.wasCloseCall =
-      this.lowestHealthThisWave / GAME_BALANCE.player.startHealth < CLOSE_CALL_THRESHOLD;
-
-    this.currentWaveOutcome.avgEnemyLifetimeMs = this.averageEnemyLifetimeMs() / timescale;
-
-    // Calculate path progress metrics
-    if (this.enemyPathProgress.size > 0) {
-      const progressValues = Array.from(this.enemyPathProgress.values());
-      let totalProgress = 0;
-      for (const progress of progressValues) {
-        totalProgress += progress;
-      }
-      this.currentWaveOutcome.avgPathProgressPercent = totalProgress / progressValues.length;
-      this.currentWaveOutcome.enemyProgressValues = progressValues;
-    } else {
-      this.currentWaveOutcome.avgPathProgressPercent = 0;
-      this.currentWaveOutcome.enemyProgressValues = [];
-    }
-
-    // Normalize per-enemy-type lifetimes
-    if (this.currentWaveOutcome.enemyPerformance) {
-      for (const enemyType in this.currentWaveOutcome.enemyPerformance) {
-        const perf = this.currentWaveOutcome.enemyPerformance[enemyType];
-        if (perf.avgLifetimeMs > 0) {
-          perf.avgLifetimeMs = perf.avgLifetimeMs / timescale;
-        }
-      }
-    }
-
-    // Create wave result
-    const config = this.currentWaveConfig || createSimpleWaveConfig('zombie', 10);
-    const result: WaveResult = {
-      waveNumber: event.wave,
-      timestamp: Date.now(),
-      config,
-      outcome: this.currentWaveOutcome as WaveOutcome,
-    };
-
-    // Store in history
-    this.addToHistory(result);
-    this.waveResultCount.update((n) => n + 1);
+    // Time metrics are divided by the training timescale.
+    const outcome = this.currentWave.finalize('completed', Date.now(), this.gameState.trainingTimescale());
+    this.recordWave(event.wave, outcome);
 
     // Reset for next wave
     this.resetCurrentWave();
   }
 
   private onEnemyDied(event: { enemy: Enemy; credits: number }): void {
-    this.currentWaveOutcome.enemiesKilled =
-      (this.currentWaveOutcome.enemiesKilled || 0) + 1;
-
-    // Track per-enemy-type performance
-    const enemyType = event.enemy.typeConfig.id;
-    this.updateEnemyPerformance(enemyType, 'killed');
-
-    // Calculate lifetime
-    const spawnTime = this.enemySpawnTimes.get(event.enemy.id);
-    if (spawnTime) {
-      const lifetime = Date.now() - spawnTime;
-      this.updateEnemyLifetime(enemyType, lifetime);
-    }
-    this.endEnemyLifetime(event.enemy.id);
-
     // Track path progress (Enemy IS a GameObject, so access components directly)
     const movement = event.enemy.getComponent(ComponentType.MOVEMENT) as MovementComponent | undefined;
-    if (movement) {
-      const progress = movement.getPathProgress();
-      this.enemyPathProgress.set(event.enemy.id, progress);
-    }
+    this.currentWave.enemyDied(
+      event.enemy.id,
+      event.enemy.typeConfig.id,
+      movement ? movement.getPathProgress() : undefined,
+      Date.now(),
+    );
   }
 
   private onEnemyReachedBase(event: { enemy: { id: string; typeConfig: { id: string } }; damage: number }): void {
-    this.currentWaveOutcome.enemiesReachedBase =
-      (this.currentWaveOutcome.enemiesReachedBase || 0) + 1;
     // NOTE: `event.damage` is the NOMINAL leak cost. What the player actually
     // loses is capped per wave (GAME_BALANCE.combat.maxLeakDamagePerWave), so
     // the real figure is accumulated in `onHealthChanged` from the health
     // delta. Counting the nominal value here reported 74% HP lost on waves
     // that cost at most 18%, and the wave director would have been trained on
     // damage that never happened.
-
-    // Track per-enemy-type performance
-    const enemyType = event.enemy.typeConfig.id;
-    this.updateEnemyPerformance(enemyType, 'reachedBase');
-
-    // Track path progress (enemies that reached base completed 100% of path)
-    this.enemyPathProgress.set(event.enemy.id, 1.0);
-    this.endEnemyLifetime(event.enemy.id);
+    this.currentWave.enemyReachedBase(event.enemy.id, event.enemy.typeConfig.id, Date.now());
   }
 
   private onHealthChanged(event: { health: number; delta: number }): void {
     // Actual HP lost, after the per-wave leak cap. This is the figure the
     // reward is computed from; the nominal per-enemy cost is not.
-    if (event.delta < 0) {
-      this.currentWaveOutcome.damageToPlayer =
-        (this.currentWaveOutcome.damageToPlayer || 0) - event.delta;
-      this.currentWaveOutcome.damagePercent =
-        (this.currentWaveOutcome.damageToPlayer || 0) / GAME_BALANCE.player.startHealth;
-    }
-
-    if (event.health < this.lowestHealthThisWave) {
-      this.lowestHealthThisWave = event.health;
-    }
+    this.currentWave.healthChanged(event.health, event.delta);
   }
 
   private onGameStarted(): void {
     this.clearHistory();
     this.gameStartTime = Date.now();
-    this.currentWaveStartTime = Date.now();
+    this.currentWave.restartClock(Date.now());
   }
 
   private onGameOver(event: { reason: string }): void {
-    // Mark current wave as player death if applicable
-    if (event.reason === 'base-destroyed') {
-      this.currentWaveOutcome.playerSurvived = false;
+    // Finalize the current wave as a player death (wave:completed is not
+    // emitted on game over). Nothing to record before the first wave.
+    if (event.reason !== 'base-destroyed' || this.currentWaveNumber <= 0) return;
 
-      // Finalize current wave outcome (since wave:completed won't be emitted on game over)
-      if (this.currentWaveNumber > 0) {
-        const duration = Date.now() - this.currentWaveStartTime;
-        const timescale = this.gameState.trainingTimescale();
-
-        // Finalize outcome
-        this.currentWaveOutcome.waveDurationMs = duration / timescale;
-        this.currentWaveOutcome.lowestPlayerHealth = this.lowestHealthThisWave;
-        this.currentWaveOutcome.wasCloseCall = this.lowestHealthThisWave <= 0;
-
-        this.currentWaveOutcome.avgEnemyLifetimeMs = this.averageEnemyLifetimeMs() / timescale;
-
-        // Calculate path progress metrics. The per-enemy list matters as much
-        // as the average: the training backend derives its near-miss ratio and
-        // progress spread from it, and without it a fatal wave arrives with a
-        // synthesised single-value distribution.
-        if (this.enemyPathProgress.size > 0) {
-          const progressValues = Array.from(this.enemyPathProgress.values());
-          let totalProgress = 0;
-          for (const progress of progressValues) {
-            totalProgress += progress;
-          }
-          this.currentWaveOutcome.avgPathProgressPercent = totalProgress / progressValues.length;
-          this.currentWaveOutcome.enemyProgressValues = progressValues;
-        } else {
-          this.currentWaveOutcome.avgPathProgressPercent = 0;
-          this.currentWaveOutcome.enemyProgressValues = [];
-        }
-
-        // Normalize per-enemy-type lifetimes
-        if (this.currentWaveOutcome.enemyPerformance) {
-          for (const enemyType in this.currentWaveOutcome.enemyPerformance) {
-            const perf = this.currentWaveOutcome.enemyPerformance[enemyType];
-            if (perf.avgLifetimeMs > 0) {
-              perf.avgLifetimeMs = perf.avgLifetimeMs / timescale;
-            }
-          }
-        }
-
-        // Create wave result
-        const config = this.currentWaveConfig || createSimpleWaveConfig('zombie', 10);
-        const result: WaveResult = {
-          waveNumber: this.currentWaveNumber,
-          timestamp: Date.now(),
-          config,
-          outcome: this.currentWaveOutcome as WaveOutcome,
-        };
-
-        // Store in history
-        this.finalizedWaveNumber = this.currentWaveNumber;
-        this.addToHistory(result);
-        this.waveResultCount.update((n) => n + 1);
-
-      }
-    }
+    const outcome = this.currentWave.finalize('base-destroyed', Date.now(), this.gameState.trainingTimescale());
+    this.finalizedWaveNumber = this.currentWaveNumber;
+    this.recordWave(this.currentWaveNumber, outcome);
   }
 
-  private updateEnemyPerformance(enemyType: string, outcome: 'killed' | 'reachedBase'): void {
-    const perf = this.currentWaveOutcome.enemyPerformance || {};
-
-    if (!perf[enemyType]) {
-      perf[enemyType] = {
-        spawned: 0,
-        killed: 0,
-        reachedBase: 0,
-        avgLifetimeMs: 0,
-        totalDamageDealt: 0,
-      };
-    }
-
-    if (outcome === 'killed') {
-      perf[enemyType].killed++;
-    } else {
-      perf[enemyType].reachedBase++;
-    }
-
-    this.currentWaveOutcome.enemyPerformance = perf;
-  }
-
-  /** An enemy left the field (died or reached the base): its lifetime is final. */
-  private endEnemyLifetime(enemyId: string): void {
-    const spawnTime = this.enemySpawnTimes.get(enemyId);
-    if (spawnTime === undefined) return;
-    this.endedLifetimeTotalMs += Date.now() - spawnTime;
-    this.endedLifetimeCount++;
-    this.enemySpawnTimes.delete(enemyId);
-  }
-
-  /**
-   * Mean time from spawn to death or base arrival over this wave's enemies,
-   * in wall-clock ms. Enemies still on the field count up to now. 0 for a
-   * wave nothing spawned in.
-   */
-  private averageEnemyLifetimeMs(): number {
-    const now = Date.now();
-    let total = this.endedLifetimeTotalMs;
-    for (const spawnTime of this.enemySpawnTimes.values()) {
-      total += now - spawnTime;
-    }
-    const count = this.endedLifetimeCount + this.enemySpawnTimes.size;
-    return count > 0 ? total / count : 0;
-  }
-
-  private clearEnemyTracking(): void {
-    this.enemySpawnTimes.clear();
-    this.endedLifetimeTotalMs = 0;
-    this.endedLifetimeCount = 0;
-    this.enemyPathProgress.clear();
-  }
-
-  private updateEnemyLifetime(enemyType: string, lifetimeMs: number): void {
-    const perf = this.currentWaveOutcome.enemyPerformance || {};
-    if (perf[enemyType]) {
-      // Running average
-      const current = perf[enemyType].avgLifetimeMs;
-      const count = perf[enemyType].killed;
-      perf[enemyType].avgLifetimeMs = (current * (count - 1) + lifetimeMs) / count;
-    }
+  /** Store a finalised wave with the config it ran (a default when the director set none). */
+  private recordWave(waveNumber: number, outcome: WaveOutcome): void {
+    const result: WaveResult = {
+      waveNumber,
+      timestamp: Date.now(),
+      config: this.currentWaveConfig || createSimpleWaveConfig('zombie', 10),
+      outcome,
+    };
+    this.addToHistory(result);
+    this.waveResultCount.update((n) => n + 1);
   }
 
   /**
@@ -664,7 +351,7 @@ export class AIDataCollectorService {
   private finalizedWaveNumber: number | null = null;
 
   private addToHistory(result: WaveResult): void {
-    this.waveHistory.push(result);
+    this.history.add(result);
     for (const listener of this.waveResultListeners) {
       try {
         listener(result);
@@ -673,38 +360,11 @@ export class AIDataCollectorService {
         console.error('[AI] wave-result listener threw', error);
       }
     }
-    this.damageHistory.push(result.outcome.damagePercent);
-    this.progressHistory.push(result.outcome.avgPathProgressPercent);
-    // Derive near-miss ratio from enemyProgressValues: fraction reaching >0.8
-    const progressValues = result.outcome.enemyProgressValues ?? [];
-    const nearMissRatio = progressValues.length > 0
-      ? progressValues.filter((p) => p > 0.80).length / progressValues.length
-      : 0;
-    this.nearMissHistory.push(nearMissRatio);
-    this.enemyTypesHistory.push(
-      result.config.enemies.map((e) => e.type)
-    );
-
-    // Calculate and store threat rating for this wave
-    const threatRating = calculateWaveThreat(result.config);
-    this.threatHistory.push(threatRating);
-
-    // Trim to max size
-    if (this.waveHistory.length > MAX_HISTORY_SIZE) {
-      this.waveHistory.shift();
-      this.damageHistory.shift();
-      this.progressHistory.shift();
-      this.nearMissHistory.shift();
-      this.enemyTypesHistory.shift();
-      this.threatHistory.shift();
-    }
   }
 
   private resetCurrentWave(): void {
     this.currentWaveConfig = null;
-    this.currentWaveOutcome = {};
-    this.lowestHealthThisWave = 100;
-    this.clearEnemyTracking();
+    this.currentWave.reset();
   }
 
   /**
@@ -772,65 +432,5 @@ export class AIDataCollectorService {
     }
     hash += '_' + Math.round(dpsSum);
     return hash;
-  }
-
-  private getPlayerState(): PlayerState {
-    const health = this.store.baseHealth();
-    const maxHealth = GAME_BALANCE.player.startHealth;
-
-    return {
-      credits: this.store.credits(),
-      lives: health,
-      maxLives: maxHealth,
-      livesPercent: health / maxHealth,
-    };
-  }
-
-  private getRecentHistory(): RecentHistory {
-    // Count win streak (consecutive waves with 0 damage)
-    let winStreak = 0;
-    for (let i = this.damageHistory.length - 1; i >= 0; i--) {
-      if (this.damageHistory[i] === 0) {
-        winStreak++;
-      } else {
-        break;
-      }
-    }
-
-    // Count close call streak
-    let closeCallStreak = 0;
-    for (let i = this.waveHistory.length - 1; i >= 0; i--) {
-      if (this.waveHistory[i].outcome.wasCloseCall) {
-        closeCallStreak++;
-      } else {
-        break;
-      }
-    }
-
-    // Average wave duration
-    let avgDuration = 0;
-    if (this.waveHistory.length > 0) {
-      const totalDuration = this.waveHistory.reduce(
-        (sum, w) => sum + w.outcome.waveDurationMs,
-        0
-      );
-      avgDuration = totalDuration / this.waveHistory.length / 1000; // Convert to seconds
-    }
-
-    // Get last wave threat rating (0 if no waves yet)
-    const lastWaveThreat = this.threatHistory.length > 0
-      ? this.threatHistory[this.threatHistory.length - 1]
-      : 0;
-
-    return {
-      damagePerWave: [...this.damageHistory],
-      progressPerWave: [...this.progressHistory],
-      nearMissPerWave: [...this.nearMissHistory],
-      enemyTypesUsed: [...this.enemyTypesHistory],
-      lastWaveThreat,
-      avgWaveDuration: avgDuration,
-      winStreak,
-      closeCallStreak,
-    };
   }
 }
