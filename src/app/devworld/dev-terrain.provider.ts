@@ -3,7 +3,7 @@ import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevWorldService, DEV_WORLD_SIZE, DEV_WORLD_MAX_HEIGHT, DEV_WORLD_HEIGHTMAP_SIZE } from './devworld.service';
 import { TerrainGenerator, TerrainPreset } from './generators/terrain-generator';
 import { BuildingConfig, BuildingDensity } from './generators/building-generator';
-import { StreetSegment, SpawnPoint } from './generators/street-generator';
+import { StreetSegment, SpawnPoint, DEV_STREET_WIDTHS } from './generators/street-generator';
 import type { DevWorldWorkerMessage, DevWorldWorkerResponse, DevWorldWorkerConfig } from './devworld-worker.types';
 
 /**
@@ -18,8 +18,6 @@ import type { DevWorldWorkerMessage, DevWorldWorkerResponse, DevWorldWorkerConfi
  * - Seeded reproducibility (same seed = same world)
  * - Live regeneration via regenerate() method
  */
-/** Road width in meters */
-const ROAD_WIDTH = 6;
 /** Road thickness (height) in meters */
 const _ROAD_THICKNESS = 0.3; // Reserved for future use
 /** Road height offset above terrain */
@@ -500,12 +498,11 @@ export class DevTerrainProvider implements TerrainProvider {
       this.roadMesh = null;
     }
 
-    const radius = ROAD_WIDTH / 2;
     const subdivisionLength = 3; // Sample every 3m (was 1m)
     const circleSegments = 6; // Hexagon (was 8)
 
-    // Collect all road points
-    const roadPoints: { x: number; z: number; y: number }[] = [];
+    // Collect all road points, each with the stamp radius of its street class
+    const roadPoints: { x: number; z: number; y: number; radius: number }[] = [];
 
     // Raycaster for terrain height
     const rayOrigin = new THREE.Vector3();
@@ -522,6 +519,7 @@ export class DevTerrainProvider implements TerrainProvider {
       const dz = z2 - z1;
       const segmentLength = Math.sqrt(dx * dx + dz * dz);
       if (segmentLength < 0.5) continue;
+      const radius = DEV_STREET_WIDTHS[segment.type] / 2;
 
       const numPoints = Math.max(2, Math.ceil(segmentLength / subdivisionLength));
       for (let i = 0; i <= numPoints; i++) {
@@ -540,14 +538,14 @@ export class DevTerrainProvider implements TerrainProvider {
           }
         }
 
-        roadPoints.push({ x, z, y });
+        roadPoints.push({ x, z, y, radius });
       }
     }
 
     if (roadPoints.length === 0) return;
 
-    // Create single circle geometry (shared by all instances)
-    const circleGeom = new THREE.CircleGeometry(radius, circleSegments);
+    // Unit circle shared by all instances, scaled per instance to its street
+    const circleGeom = new THREE.CircleGeometry(1, circleSegments);
     circleGeom.rotateX(-Math.PI / 2); // Make horizontal
 
     // Asphalt material
@@ -564,7 +562,7 @@ export class DevTerrainProvider implements TerrainProvider {
     const matrix = new THREE.Matrix4();
     for (let i = 0; i < roadPoints.length; i++) {
       const p = roadPoints[i];
-      matrix.makeTranslation(p.x, p.y, p.z);
+      matrix.makeScale(p.radius, 1, p.radius).setPosition(p.x, p.y, p.z);
       instancedRoads.setMatrixAt(i, matrix);
     }
     instancedRoads.instanceMatrix.needsUpdate = true;

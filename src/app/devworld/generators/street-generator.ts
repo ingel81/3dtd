@@ -21,6 +21,17 @@ import { mulberry32, createSeededNoise, hashSeed, SeededNoiseCollection } from '
 
 export type StreetType = 'primary' | 'secondary' | 'residential';
 
+/**
+ * Paved width per street class, metres. DevTerrainProvider draws the roads
+ * this wide and DevStreetProvider hands it on as the OSM `width` tag, so the
+ * route corridor fits the drawn road the way it fits a real one.
+ */
+export const DEV_STREET_WIDTHS: Record<StreetType, number> = {
+  primary: 8,
+  secondary: 7,
+  residential: 5,
+};
+
 export interface StreetSegment {
   id: string;
   from: [number, number]; // [x, z] in meters

@@ -128,37 +128,29 @@ Deutung:
 Der Straßen-Cache hat den Schlüssel `v2_` bekommen: Ein bereits besuchter
 Ort wird einmal neu von Overpass geladen, danach sind die Tags da.
 
-## Entwurf: straßenabhängiger Korridor (nicht umgesetzt)
+## Korridor nach Straßenbreite (Umsetzung ab 2026-09-12)
 
-**Daten.** `width`, `lanes` und `highway` stehen seit Commit `62165c6` am
-`Street`. `width` ist in OSM selten gesetzt, `lanes` meist nur an größeren
-Straßen, `highway` immer. Breitenschätzung: `width`, sonst `lanes` mal 3 m
-plus 1 m, sonst eine Tabelle nach `highway` (etwa `primary` 8 m, `secondary`
-7 m, `tertiary` 6,5 m, `residential` 5,5 m, `living_street` 4,5 m, `service`
-3,5 m, `track` 3 m, `footway`/`path`/`cycleway`/`steps` 2 m).
+Vorher war der Zellkorridor überall ein Kreis von 7 m Radius um die Route und
+jeder Gegner lief mit festem Versatz bis `lateralOffset` (bis 3 m). Jetzt hat
+jedes Routensegment eine eigene Halbbreite `H`, und Zellen und Gegner richten
+sich danach.
 
 **Randbedingung.** Jeder Gegner muss in einer Zelle stehen. Außerhalb der
-Zellen fällt er aus `enemyCellKeys` (`global-route-grid.ts:1369-1376`),
-`getEnemiesForTower` findet ihn nicht mehr. Der Radius darf deshalb nicht
-unter den Versatz plus eine halbe Zelldiagonale fallen, heute 3,0 + 1,4, also
-etwa 4,5 m. Ein schmalerer Korridor allein ändert an der Engstelle wenig: Die
-Gegner mit großem Versatz stehen weiter in den Dachzellen. Der wirksame Hebel
-ist, den Versatz mitzubegrenzen.
+Zellen fällt er aus `enemyCellKeys`, `getEnemiesForTower` findet ihn nicht
+mehr. Ein schmalerer Korridor allein ändert an der Engstelle wenig, der Versatz
+muss mit.
 
-**Umsetzung in drei Teilen:**
+**Datenfluss:**
 
-1. Beim Routenbau jeder Kante ihren Way zuordnen (wie in `describeRoutes`)
-   und pro Waypoint eine halbe Straßenbreite mitgeben, als optionales Feld
-   oder als paralleles Array neben `cachedPaths`.
-2. `generateFromRoutes` nimmt den Radius pro Segment statt der Konstante
-   (`global-route-grid.ts:377`, einziger Leser `:765-766`):
-   `r = clamp(halbe Breite + 1,5 m, 4,5 m, 7 m)`.
-3. `MovementComponent` begrenzt den Versatz pro Segment auf
-   `max(0, halbe Breite - 0,5 m)`.
-
-**Warum nicht jetzt:** Es berührt Zellgenerierung (dort wird parallel
-gearbeitet), Gegnerbewegung und Targeting-Abdeckung, ist spielrelevant und
-ohne Teil 3 nahezu wirkungslos.
+| Schritt | Wo | Was |
+|---|---|---|
+| Breite pro Way | `utils/route-corridor.ts` (`estimateStreetWidth`) | `width`-Tag, sonst `lanes` × 3 m + 1 m, sonst Tabelle nach `highway` (`primary` 8 m, `secondary` 7 m, `tertiary` 6,5 m, `residential` 5,5 m, `living_street` 4,5 m, `service` 3,5 m, `footway`/`path`/`cycleway`/`steps` 2 m, ...). `H = clamp(Breite / 2, 2 m, 7 m)`. Quelle wird mitgeführt (`width`, `lanes`, `highway`) |
+| Routenbau | `path-route.service.ts` (`buildRouteFromPath`) | Jedes Segment wird seinem Way zugeordnet (exakter Kantenschlüssel, sonst geometrisch: Abzweig zum HQ, DevWorld). `corridorHalfWidth` steht am Waypoint und gilt für das Segment ab dort (`RouteWaypoint`). Das HQ-Endstück übernimmt die Breite des Ways, von dem es abzweigt |
+| Tile-Messung | `path-route.service.ts`, `three-tiles-engine.ts` | Einmal pro Ortsladung, wenn die Korridor-Tiles stehen, nicht pro Frame: alle 2 m waagrechte Strahlen quer zur Route, 2 m über Grund, beide Seiten, bis 7 m. Freiraum = näherer Treffer. Einbrüche unter etwa 4 m Länge (Laternen, Schilder) werden weggefiltert. `H = clamp(min(H aus OSM, Freiraum), 2 m, 7 m)`, Segmente werden geteilt, wo sich der Wert ändert. Danach Routen und Grid neu gebaut. Log `[Corridor]` mit Strahlen und Zeit |
+| Zellen | `global-route-grid.ts` (`generateFromRoutes`) | Eine Zelle gehört zum Korridor, wenn ihr Mittelpunkt höchstens `H` vom Segment entfernt ist. Mittelpunkte liegen damit auf der Straße, quer liegen mindestens 2 Zellen |
+| Gegner | `movement.component.ts`, `enemy.manager.ts` | Versatz = Faktor × lokale Grenze. Faktor = Zufall in [-1, 1] × `lateralSpread` des Typs (Anteil, ersetzt `lateralOffset` in Metern). Grenze = `H - 1,5 m`: die halbe Zelldiagonale ist 1,41 m, die Zelle unter dem Gegner hat ihren Mittelpunkt also sicher innerhalb `H`. Die Grenze ändert sich entlang der Route höchstens um 0,5 m pro Meter, Gegner rücken vor einer Engstelle sanft ein. Grenze pro Segment und Waypoint einmal pro Route vorberechnet, im Sub-Step nur Index und drei Vergleiche |
+| Brücken | `global-route-grid.ts`, `route-cell-sampler.ts` | Segmente über einen Way mit `bridge=*` markieren ihre Zellen als Deck, Deck-Zellen nehmen `topY` statt `groundY`. Beansprucht auch ein Segment ohne Brücke die Zelle, bleibt sie am Boden |
+| Diagnose | `__routes.describe()` | Pro Abschnitt Straßenbreite, Quelle und die tatsächliche Korridorbreite (bei Messung als Spanne) |
 
 **Höhenmodell (zu Fall B).** Der direktere Hebel wäre, Zellhöhen gegen die
 Mittellinie zu prüfen: Liegt eine Zelle deutlich über dem seitlichen Minimum
