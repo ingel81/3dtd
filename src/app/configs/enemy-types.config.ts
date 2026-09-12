@@ -86,6 +86,12 @@ export interface EnemyTypeConfig {
   healthBarColor?: string; // Fixed health bar color as hex (e.g. '#ff0000' for boss)
   bossName?: string; // Name above health bar (e.g. 'Boss')
   immunityPercent?: number; // Damage immunity in % (0-100, displayed as "Immune X%")
+  /**
+   * A boss unit. Abilities take a smaller share of its max HP
+   * (bossMaxHpFraction in abilities.config.ts). Per type, so only types that
+   * appear as the boss and nowhere else carry it.
+   */
+  isBoss?: boolean;
 
   // Randomness
   randomAnimationStart?: boolean; // Start animation at random frame
@@ -365,6 +371,9 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     heightOffset: 0.5,
     healthBarOffset: 7,
     immunityPercent: 100,
+    // Only in boss_herbert. Stone golem and dragon lead the later boss waves
+    // but also march in golem_squad and dragon_elite, so they stay regular.
+    isBoss: true,
     canBleed: true,
     headingOffset: -0.192, // ~-11° rotation offset
     randomAnimationStart: true,
