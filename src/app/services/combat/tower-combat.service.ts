@@ -8,7 +8,7 @@ import { ResearchStore } from '../../store/research.store';
 import { Enemy } from '../../entities/enemy.entity';
 import { Tower } from '../../entities/tower.entity';
 import { TowerManager } from '../../managers/tower.manager';
-import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD, geoHeading } from '../../utils/geo-utils';
 import { getEnemyAimOffsetY } from '../../utils/enemy-aim.util';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
 import { upgradeFactor } from '../../configs/tower-types.config';
@@ -24,7 +24,7 @@ import { ProjectileManager } from '../../managers/projectile.manager';
  * - Tower targeting with GlobalRouteGrid optimization
  * - Turret rotation towards targets
  * - Firing and projectile spawning
- * - Idle rotation when no targets
+ * - Guard heading between waves (turnTowersToGuard)
  */
 @Injectable({ providedIn: 'root' })
 export class TowerCombatService {
@@ -203,14 +203,21 @@ export class TowerCombatService {
   }
 
   /**
-   * Update tower idle rotations - smooth return to base position
-   * Call this when NOT in wave phase
+   * Turn every tower to its guard heading, where the route enters its range
+   * (`Tower.guardHeading`). Called once a wave is over: during the wave a
+   * tower that loses its target keeps its heading instead. Towers without a
+   * guard heading keep theirs as well.
    */
-  updateTowerIdleRotations(towerManager: TowerManager): void {
+  turnTowersToGuard(towerManager: TowerManager): void {
     for (const tower of towerManager.getAllActive()) {
-      if (tower.typeConfig.attackType === 'passive') continue;
-      this.tilesEngine?.towers.resetRotation(tower.id);
+      this.turnToGuardHeading(tower);
     }
+  }
+
+  /** turnTowersToGuard for a single tower. */
+  turnToGuardHeading(tower: Tower): void {
+    if (tower.guardHeading === null) return;
+    this.tilesEngine?.towers.setIdleHeading(tower.id, tower.guardHeading);
   }
 
   /**
@@ -282,7 +289,7 @@ export class TowerCombatService {
               tower.clearTarget();
               target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
               if (!target) {
-                this.tilesEngine?.towers.resetRotation(tower.id);
+                this.tilesEngine?.towers.releaseTarget(tower.id);
                 continue;
               }
               // Update rotation to new target, don't fire this sub-step
@@ -302,7 +309,11 @@ export class TowerCombatService {
         if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
           tower.isSleeping = true;
         }
-        this.tilesEngine?.towers.resetRotation(tower.id);
+        // Keep the heading. The next enemy mostly comes from the same side,
+        // and a turret that swung back to a rest pose had to turn round again
+        // (up to 1 s) before it was aligned and allowed to fire. The turn to
+        // the guard heading waits for the end of the wave.
+        this.tilesEngine?.towers.releaseTarget(tower.id);
       }
     }
   }
@@ -314,9 +325,7 @@ export class TowerCombatService {
     from: { lat: number; lon: number },
     to: { lat: number; lon: number }
   ): number {
-    const dLon = to.lon - from.lon;
-    const dLat = to.lat - from.lat;
-    return Math.atan2(dLon, dLat);
+    return geoHeading(from, to);
   }
 
   // =====================================================
@@ -457,10 +466,10 @@ export class TowerCombatService {
           this.combatEffectService.applyBurn(enemy, burnDps, tower.id);
         }
       } else {
-        // No target - stop beam, sound, and reset turret
+        // No target - stop beam and sound, the turret keeps its heading
         this.tilesEngine?.flameBeams.stopBeam(tower.id);
         this.stopFlameSound(tower.id);
-        this.tilesEngine.towers.resetRotation(tower.id);
+        this.tilesEngine.towers.releaseTarget(tower.id);
       }
     }
 
@@ -645,7 +654,7 @@ export class TowerCombatService {
         if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
           tower.isSleeping = true;
         }
-        this.tilesEngine.towers.resetRotation(tower.id);
+        this.tilesEngine.towers.releaseTarget(tower.id);
       }
     }
   }

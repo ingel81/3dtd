@@ -84,7 +84,8 @@ describe('TowerManager', () => {
       position.lat,
       position.lon,
       position.height,
-      0.5
+      0.5,
+      null, // no routes, so no guard heading
     );
     expect(tilesEngine.effects.spawnTowerInnerFire).toHaveBeenCalledWith(
       tower.id,
@@ -108,6 +109,54 @@ describe('TowerManager', () => {
         height: position.height,
       })
     );
+  });
+
+  describe('guard heading', () => {
+    // North to south, about 5.6 m east of a tower at (1, 2).
+    const southbound = [{ lat: 1.01, lon: 2.00005 }, { lat: 0.99, lon: 2.00005 }];
+    const place = () => manager.placeTower({ lat: 1, lon: 2, height: 0 }, 'archer') as Tower;
+
+    it('is computed on placement and handed to the renderer', () => {
+      manager.setActiveRoutesGetter(() => [southbound]);
+      const tower = place();
+
+      // Entered from the north, slightly east of it.
+      expect(tower.guardHeading).toBeGreaterThan(0);
+      expect(tower.guardHeading).toBeLessThan(Math.PI / 4);
+      expect(tilesEngine.towers.create).toHaveBeenCalledWith(
+        tower.id, 'archer', 1, 2, 0, 0, tower.guardHeading,
+      );
+    });
+
+    it('is null when no route reaches the range', () => {
+      manager.setActiveRoutesGetter(() => [[{ lat: 1.5, lon: 2 }, { lat: 1.5, lon: 3 }]]);
+      expect(place().guardHeading).toBeNull();
+    });
+
+    it('follows a range change', () => {
+      manager.setActiveRoutesGetter(() => [southbound]);
+      const tower = place();
+      const before = tower.guardHeading!;
+
+      tower.combat.range *= 2;
+      manager.refreshGuardHeading(tower);
+
+      // The wider circle meets the route further north.
+      expect(tower.guardHeading!).toBeGreaterThan(0);
+      expect(tower.guardHeading!).toBeLessThan(before);
+    });
+
+    it('follows a route change', () => {
+      let routes = [southbound];
+      manager.setActiveRoutesGetter(() => routes);
+      const tower = place();
+
+      routes = [[...southbound].reverse()];
+      manager.refreshGuardHeadings();
+
+      // Same street walked northwards: the tower now watches the south.
+      expect(Math.abs(tower.guardHeading!)).toBeGreaterThan((3 * Math.PI) / 4);
+    });
   });
 
   it('sells a tower, emits refund event and removes tower', () => {

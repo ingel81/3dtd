@@ -61,7 +61,6 @@ export interface TowerRenderData {
   // Turret rotation animation
   currentLocalRotation: number; // Current turret rotation (local space)
   targetLocalRotation: number; // Target turret rotation (local space)
-  turretOriginalRotationY: number; // Original rotation from model (for reset)
   // Turret hover animation (e.g., magic tower orb)
   turretBaseY: number; // Original Y position of turret part
   hoverPhaseOffset: number; // Random phase offset for desynchronized hover
@@ -337,6 +336,8 @@ export class ThreeTowerRenderer {
    * @param lon Longitude
    * @param height Terrain height
    * @param customRotation Custom rotation set by user during placement (radians)
+   * @param initialHeading Geo heading the turret starts at (the tower's guard
+   *   heading); null keeps the model's own turret pose
    */
   async create(
     id: string,
@@ -344,7 +345,8 @@ export class ThreeTowerRenderer {
     lat: number,
     lon: number,
     height: number,
-    customRotation = 0
+    customRotation = 0,
+    initialHeading: number | null = null,
   ): Promise<TowerRenderData | null> {
     const config = TOWER_TYPES[typeId];
     if (!config) {
@@ -393,6 +395,12 @@ export class ThreeTowerRenderer {
     });
     // (Diagnostic removed — fires on every tower placement for types without
     // a named turret part, which was flooding the console during training.)
+
+    // With a guard heading the turret faces it from the start, and the
+    // placement scan swings around it. Without one it keeps the model's pose.
+    const initialLocalRotation = initialHeading === null
+      ? turretOriginalRotationY
+      : this.headingToLocalRotation(config, mesh.rotation.y, initialHeading);
 
     // Position in local coordinates - terrain level (without height offset)
     const terrainPos = this.sync.geoToLocal(lat, lon, height);
@@ -523,15 +531,14 @@ export class ThreeTowerRenderer {
       height,
       tipY,
       customRotation,
-      currentLocalRotation: turretOriginalRotationY, // Start at model's original rotation
-      targetLocalRotation: turretOriginalRotationY, // Target at model's original rotation
-      turretOriginalRotationY, // Store for reset
+      currentLocalRotation: initialLocalRotation,
+      targetLocalRotation: initialLocalRotation,
       turretBaseY, // Store original Y for hover animation
       hoverPhaseOffset: Math.random() * Math.PI * 2, // Random start phase
       hasTarget: false, // Start without target
       // Start scan animation if tower has a turret (with short delay)
       scanPhase: turretPart ? 1 : 0, // 1 = start scanning left
-      scanStartRotation: turretOriginalRotationY,
+      scanStartRotation: initialLocalRotation,
       scanDelayRemaining: turretPart ? 800 : 0, // 800ms delay before scan starts
       mixer,
       animations,
@@ -616,8 +623,7 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Update tower rotation target (for aiming at target)
-   * Only affects turrets (turret_top). Actual rotation is interpolated in updateTurretAnimations().
+   * Geo heading to the turret's rotation relative to the tower mesh.
    *
    * Coordinate system mapping:
    * - Geo: North (+lat), East (+lon)
@@ -626,14 +632,15 @@ export class ThreeTowerRenderer {
    * - Three.js rotation.y: 0 faces -Z (North), -π/2 faces +X (East)
    * - Conversion: threeJsRotation = -geoHeading
    */
-  updateRotation(id: string, heading: number): void {
-    const data = this.towers.get(id);
-    if (!data || !data.turretPart) return;
-
+  private headingToLocalRotation(
+    typeConfig: TowerTypeConfig,
+    parentRotation: number,
+    heading: number,
+  ): number {
     // Turret barrel offset: compensates for models where barrels don't point -Z
     // For dual-gatling: barrels point +X in model space, so turretBarrelOffset = -π/2
     // Most towers have barrels pointing -Z, so turretBarrelOffset = 0 (default)
-    const turretBarrelOffset = data.typeConfig.turretBarrelOffset ?? 0;
+    const turretBarrelOffset = typeConfig.turretBarrelOffset ?? 0;
     const turretModelOffset = -turretBarrelOffset;
 
     // Convert geo heading to Three.js target rotation for the turret
@@ -641,26 +648,42 @@ export class ThreeTowerRenderer {
     // But if model barrels are offset, add that offset
     const threeJsTargetRotation = -heading + turretModelOffset;
 
-    // Parent mesh rotation (includes config.rotationY + customRotation)
-    const parentRotation = data.mesh.rotation.y;
+    // Convert to local space: subtract the parent's rotation
+    // (config.rotationY + customRotation)
+    return threeJsTargetRotation - parentRotation;
+  }
 
-    // Convert to local space: subtract parent's rotation
-    // Set as target - actual rotation is interpolated in updateTurretAnimations()
-    data.targetLocalRotation = threeJsTargetRotation - parentRotation;
+  /**
+   * Aim the turret at a target. Only affects turrets (turret_top); the actual
+   * rotation is interpolated in advanceTurretAim().
+   */
+  updateRotation(id: string, heading: number): void {
+    const data = this.towers.get(id);
+    if (!data || !data.turretPart) return;
+
+    data.targetLocalRotation = this.headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
     data.hasTarget = true;
   }
 
   /**
-   * Reset turret rotation to base position (facing forward relative to tower base)
-   * Called when tower has no targets in range - sets target for smooth return animation
+   * Turn the turret to a heading without a target (the guard heading between
+   * waves), at the same speed as aiming.
    */
-  resetRotation(id: string): void {
+  setIdleHeading(id: string, heading: number): void {
     const data = this.towers.get(id);
     if (!data || !data.turretPart) return;
 
-    // Set target to original model rotation (turret returns to default pose)
-    // Actual rotation is interpolated in updateTurretAnimations()
-    data.targetLocalRotation = data.turretOriginalRotationY;
+    data.targetLocalRotation = this.headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
+    data.hasTarget = false;
+  }
+
+  /**
+   * The tower has no target any more. The turret finishes its current turn
+   * and then holds that heading.
+   */
+  releaseTarget(id: string): void {
+    const data = this.towers.get(id);
+    if (!data) return;
     data.hasTarget = false;
   }
 
@@ -888,7 +911,7 @@ export class ThreeTowerRenderer {
         } else if (data.scanPhase === 2) {
           scanTarget = data.scanStartRotation + scanAngle;
         } else {
-          scanTarget = data.turretOriginalRotationY;
+          scanTarget = data.scanStartRotation;
         }
         let diff = scanTarget - data.currentLocalRotation;
         while (diff > Math.PI) diff -= Math.PI * 2;

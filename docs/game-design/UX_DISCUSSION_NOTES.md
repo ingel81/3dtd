@@ -63,6 +63,13 @@ zurückdrehen“ und „Color Grading Anwendungsfall klären“.
 Offen für den Menschen: Ist die Platzierungsdrehung für den Turm gewollt
 (dann bleibt Punkt 3 weg) oder nur für den Sockel?
 
+**Entschieden (2026-09-12) und umgesetzt:** Während der Welle hält der Turm
+die Richtung des letzten Ziels. Nach der Welle (`wave:completed`, nicht nach
+der Sleep-Verzögerung) dreht er zur Wachrichtung; neu platzierte Tower starten
+in ihr. Die Wachrichtung ist der Eintritt der Route in die Reichweite, ohne
+Sichtlinie. Die Platzierungsdrehung gilt nur noch für den Sockel. Stand der
+Mechanik: `docs/TOWER_CREATION.md`, Abschnitt „Ohne Ziel“.
+
 ---
 
 ## B. Color Grading: Anwendungsfall

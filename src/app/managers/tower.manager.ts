@@ -14,6 +14,7 @@ import { TOWER_TYPES } from '../configs/tower-types.config';
 import { TowerLosViz } from '../utils/tower-los-viz';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
+import { computeGuardHeading } from '../utils/tower-guard-heading';
 
 /**
  * Manages all tower entities
@@ -114,10 +115,31 @@ export class TowerManager extends EntityManager<Tower> {
   }
 
   /**
-   * Set a callback to retrieve active enemy routes for placement validation.
+   * Set a callback to retrieve active enemy routes for placement validation
+   * and the towers' guard headings.
    */
   setActiveRoutesGetter(getter: () => GeoPosition[][]): void {
     this.activeRoutesGetter = getter;
+  }
+
+  /**
+   * Recompute where a tower watches between waves (`Tower.guardHeading`).
+   * Needed after its range changed; placement does it itself.
+   */
+  refreshGuardHeading(tower: Tower): void {
+    this.updateGuardHeading(tower, this.activeRoutesGetter?.() ?? []);
+  }
+
+  /** refreshGuardHeading for every tower, after the routes changed. */
+  refreshGuardHeadings(): void {
+    const routes = this.activeRoutesGetter?.() ?? [];
+    for (const tower of this.getAll()) {
+      this.updateGuardHeading(tower, routes);
+    }
+  }
+
+  private updateGuardHeading(tower: Tower, routes: GeoPosition[][]): void {
+    tower.guardHeading = computeGuardHeading(tower.position, tower.combat.range, routes);
   }
 
   /**
@@ -135,6 +157,7 @@ export class TowerManager extends EntityManager<Tower> {
     // We skip redundant validation here to allow rooftop placements etc.
 
     const tower = new Tower(position, typeId, customRotation);
+    this.refreshGuardHeading(tower);
 
     if (position.height === undefined) {
       console.error('[TowerManager] position.height is undefined! Terrain height must be sampled before placing tower.');
@@ -147,7 +170,8 @@ export class TowerManager extends EntityManager<Tower> {
       position.lat,
       position.lon,
       terrainHeight,
-      customRotation
+      customRotation,
+      tower.guardHeading,
     );
 
     // Create tentacle visual for Tentacle Towers
