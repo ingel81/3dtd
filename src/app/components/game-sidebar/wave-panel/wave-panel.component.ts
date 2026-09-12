@@ -24,6 +24,7 @@ import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { enemyGroupTooltip } from '../sidebar-tooltips';
 import { peekUpcomingWaves } from './upcoming-waves';
+import { waveButtonView } from './wave-button';
 
 /**
  * WAVE-Sektion der Sidebar: Gegnergruppen der laufenden Welle mit 3D-Preview,
@@ -80,13 +81,23 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /**
    * Wave-number shown in the panel header. During an active wave it's the
    * running wave; during build/setup it's the UPCOMING wave (waveNumber+1)
-   * so the panel content (enemy preview, next-wave button) matches the label.
+   * so the panel content (enemy preview, "Start Wave N") matches the label.
    * Avoids the meaningless "WAVE 0" header at game start.
    */
   readonly displayedWaveNumber = computed(() => {
     const n = this.store.waveNumber();
     return this.waveActive() ? n : n + 1;
   });
+
+  /** Label, "N left" and bar width of the wave button. */
+  readonly waveButton = computed(() =>
+    waveButtonView(
+      this.displayedWaveNumber(),
+      this.waveActive(),
+      this.store.waveEnemyTotal(),
+      this.store.waveEnemiesLeft(),
+    )
+  );
 
   /** COMING UP: die nächsten zwei Curriculum-Wellen. */
   readonly upcomingWaves = computed(() => peekUpcomingWaves(this.store.waveNumber()));
