@@ -20,7 +20,6 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 - Boss-Enemies mit Custom Health Bar
 - Bluteffekte (`canBleed`), Emissive Glow, Color Multiplier, Unlit Rendering
 - Konfigurierbare Sidebar-Preview (Camera Distance / Angle / Offset)
-- `isElite`-Flag (im Interface, derzeit von keinem Typ gesetzt und von keinem Code gelesen)
 
 ---
 
@@ -124,7 +123,6 @@ const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
   emissiveColor: '#ccddff',   // Default '#ffffff'
   colorMultiplier: 1.3,       // Gesamt-Helligkeit (Default 1.0)
   unlit: false,                // Cartoon-Style ohne Beleuchtung
-  isElite: false,              // Visueller Marker für stärkere Variante
 
   // Movement Variation
   lateralSpread: 0.65,    // Anteil der Korridorbreite für seitlichen Versatz
@@ -289,14 +287,6 @@ colorMultiplier: 1.3,  // Gesamt-Helligkeit (Default 1.0; 1.3 = +30% heller)
 ```
 
 **Verwendung:** Modelle die im VAT-Renderer dunkel wirken aufhellen (z.B. zombie-soldier, bear, dragon).
-
-### Elite-Flag
-
-```typescript
-isElite: true,  // Visueller Marker für stärkere Variante eines Base-Enemy
-```
-
-**Stand:** Das Feld steht im Interface, kein Typ setzt es und kein Code liest es.
 
 ### Boss Health Bar
 
