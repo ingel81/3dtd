@@ -63,7 +63,7 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 ├── schema.py                   # Laedt generated/ai-schema.json (Templates, Curriculum, Masken)
 ├── config.py                   # Hyperparameter, DIRECTOR_ROSTER
 ├── core/
-│   ├── model.py                # Neural Network (Conv1D + Dense, State 203 → 36 Outputs)
+│   ├── model.py                # Neural Network (Conv1D + Dense, State 208 → 36 Outputs)
 │   ├── trainer.py              # PPO Training Algorithm
 │   └── reward.py               # Reward Function (4 Terms: death, drama, pacing, swarm_size)
 ├── utils/logger.py             # Console + JSONL-Logging
