@@ -153,15 +153,28 @@
         </div>
       </div>
 
-      <!-- Recent places: one click loads, no confirm step -->
-      @if (recentLocations().length > 0) {
-        <div class="section quick-section">
-          <div class="section-header">
-            <td-icon name="undo" [size]="14"></td-icon>
-            <span class="section-title">Recent</span>
-            <span class="section-hint">Click to load</span>
-          </div>
-          <ul class="quick-list">
+      <!-- Quick picks, recent and showcase places: one click loads, no confirm step -->
+      <div class="section quick-section">
+        <div class="section-header">
+          @if (recentLocations().length > 0) {
+            <div class="quick-tabs" role="group" aria-label="Quick picks">
+              <button type="button" class="quick-tab"
+                      [class.active]="activeQuickTab() === 'recent'"
+                      [attr.aria-pressed]="activeQuickTab() === 'recent'"
+                      (click)="quickTab.set('recent')">Recent</button>
+              <button type="button" class="quick-tab"
+                      [class.active]="activeQuickTab() === 'showcase'"
+                      [attr.aria-pressed]="activeQuickTab() === 'showcase'"
+                      (click)="quickTab.set('showcase')">Showcase</button>
+            </div>
+          } @else {
+            <td-icon name="pin" [size]="14"></td-icon>
+            <span class="section-title">Showcase</span>
+          }
+          <span class="section-hint">Click to load</span>
+        </div>
+        <ul class="quick-list">
+          @if (activeQuickTab() === 'recent') {
             @for (recent of recentLocations(); track recent.visitedAt) {
               <li>
                 <button type="button" class="quick-item" (click)="loadRecent(recent)">
@@ -170,9 +183,18 @@
                 </button>
               </li>
             }
-          </ul>
-        </div>
-      }
+          } @else {
+            @for (place of showcaseLocations; track place.id) {
+              <li>
+                <button type="button" class="quick-item quick-item-stacked" (click)="loadShowcase(place)">
+                  <span class="quick-name">{{ place.name }}</span>
+                  <span class="quick-hint">{{ place.hint }}</span>
+                </button>
+              </li>
+            }
+          }
+        </ul>
+      </div>
     }
 
     <!-- SPAWN-ONLY MODE -->
