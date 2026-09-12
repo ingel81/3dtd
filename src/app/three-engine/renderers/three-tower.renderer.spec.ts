@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Group, Object3D, Scene, Vector3 } from 'three';
 import { ThreeTowerRenderer, type TowerRenderData } from './three-tower.renderer';
 
@@ -128,5 +128,28 @@ describe('ThreeTowerRenderer turret node', () => {
     const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
     const data = (await renderer.create('a1', 'archer', 0, 0, 0, 0, null))!;
     expect(data.turretPart?.name).toBe('top');
+  });
+
+  it('turns nothing and warns once per type when the model lacks the turretNode', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const withoutCrystal = {
+      ...assetManager,
+      cloneModel: () => {
+        const model = new Group();
+        const top = new Object3D();
+        top.name = 'top';
+        model.add(top);
+        return model;
+      },
+    };
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, withoutCrystal as never);
+    const data = (await renderer.create('c1', 'chaos', 0, 0, 0, 0, null))!;
+    await renderer.create('c2', 'chaos', 0, 0, 0, 0, null);
+
+    expect(data.turretPart?.name).toBeUndefined();
+    const turretWarnings = warn.mock.calls.filter(([message]) => String(message).includes('turretNode'));
+    expect(turretWarnings).toHaveLength(1);
+    expect(turretWarnings[0][0]).toContain("'crystal'");
+    warn.mockRestore();
   });
 });

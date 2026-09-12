@@ -129,6 +129,9 @@ export class ThreeTowerRenderer {
   // Loaded model URLs for reference counting
   private loadedModelUrls = new Set<string>();
 
+  /** Tower types whose configured turretNode the model lacks, warned about once. */
+  private readonly missingTurretNodes = new Set<string>();
+
   // Active tower renders
   private towers = new Map<string, TowerRenderData>();
 
@@ -381,8 +384,9 @@ export class ThreeTowerRenderer {
     const baseRotation = config.rotationY ?? 0;
     mesh.rotation.y = baseRotation + customRotation;
 
-    // Find turret part if it exists (for turret rotation). The config can name
-    // the node (turretNode); otherwise 'turret_top', 'tower_top' and 'top'.
+    // Find turret part if it exists (for turret rotation). A turretNode in the
+    // config replaces the default names 'turret_top', 'tower_top' and 'top',
+    // there is no fallback to them.
     const isTurretNode = (name: string): boolean => config.turretNode
       ? name === config.turretNode
       : name === 'turret_top' || name === 'tower_top' || name === 'top';
@@ -396,6 +400,12 @@ export class ThreeTowerRenderer {
         turretOriginalRotationY = node.rotation.y;
       }
     });
+    // A configured node that is missing is a config error; once per type, so
+    // a bot placing towers does not flood the console.
+    if (config.turretNode && !turretPart && !this.missingTurretNodes.has(typeId)) {
+      this.missingTurretNodes.add(typeId);
+      console.warn(`[ThreeTowerRenderer] ${typeId}: turretNode '${config.turretNode}' is not in the model, the turret will not turn`);
+    }
     // (Diagnostic removed — fires on every tower placement for types without
     // a named turret part, which was flooding the console during training.)
 
