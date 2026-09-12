@@ -68,8 +68,9 @@ export class EnemyDebugService {
   private engine: ThreeTilesEngine | null = null;
   private spawnPoints!: Signal<SpawnPoint[]>;
 
-  /** Subscription for enemy:spawned listener (cleanup on re-init) */
+  /** Subscriptions for the enemy:spawned and enemy:split listeners (cleanup on re-init) */
   private enemySpawnedSub: EventSubscription | null = null;
+  private enemySplitSub: EventSubscription | null = null;
 
   /**
    * Initialize with runtime dependencies (called after game state is ready).
@@ -80,8 +81,9 @@ export class EnemyDebugService {
     this.engine = engine;
     this.spawnPoints = spawnPoints;
 
-    // Cleanup previous listener on re-init
+    // Cleanup previous listeners on re-init
     this.enemySpawnedSub?.dispose();
+    this.enemySplitSub?.dispose();
 
     // Register debug enemy placement (next spawned enemy after placement click)
     const eventBus = gameState.getEventBus();
@@ -94,6 +96,15 @@ export class EnemyDebugService {
       this.exitPlacementMode();
 
       console.log(`[EnemyDebug] Placed ${pending.typeId} at ${pending.lat.toFixed(6)}, ${pending.lon.toFixed(6)}`);
+    });
+
+    // What a debug enemy splits into is a debug enemy too: listed, shot at
+    // outside a wave and removed with the others.
+    this.enemySplitSub = eventBus.on('enemy:split', (event) => {
+      if (!this.getDebugEnemy(event.enemy.id)) return;
+      for (const child of event.children) {
+        this.registerDebugEnemy(child, child.typeConfig.id, child.position.lat, child.position.lon);
+      }
     });
   }
 

@@ -146,10 +146,11 @@ export class WaveManager implements IGameManager {
     this.subs.add(this.eventBus.on('debug:kill-all', () => {
       this.stopSpawning();
       // Phase 5.16: debug kill-all does NOT award credits — otherwise it'd be
-      // an instant gold farm during testing.
+      // an instant gold farm during testing. Nor does it split a skeleton:
+      // kill-all has to leave nothing of the wave.
       for (const enemy of this.enemyManager.getAlive()) {
         if (enemy.alive) {
-          this.enemyManager.kill(enemy, /*awardCredits*/ false);
+          this.enemyManager.kill(enemy, 'debug');
         }
       }
     }));

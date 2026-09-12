@@ -66,7 +66,17 @@ export class Enemy extends GameObject {
    */
   readonly rush: EnemyRush | null;
 
-  constructor(typeId: EnemyTypeId, path: GeoPosition[], speedOverride?: number) {
+  /**
+   * `startIndex` and `startProgress` start the enemy part-way along `path`
+   * (a split child where its parent died), see MovementComponent.setPath().
+   */
+  constructor(
+    typeId: EnemyTypeId,
+    path: GeoPosition[],
+    speedOverride?: number,
+    startIndex = 0,
+    startProgress = 0,
+  ) {
     super('enemy');
     this.typeConfig = getEnemyType(typeId);
     this.rush =
@@ -97,7 +107,7 @@ export class Enemy extends GameObject {
     );
 
     // Configure movement
-    this._movement.setPath(path);
+    this._movement.setPath(path, startIndex, startProgress);
     this._movement.speedMps = speedOverride ?? this.typeConfig.baseSpeed;
 
     // Register sounds

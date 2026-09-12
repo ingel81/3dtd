@@ -29,6 +29,14 @@ export type GameEvent =
       enemy: Enemy;
       damage: number;
     }
+  | {
+      /** A killed enemy split (EnemyTypeConfig.splitOnDeath), after its enemy:died */
+      type: 'enemy:split';
+      /** The killed enemy */
+      enemy: Enemy;
+      /** What it split into, already spawned, each with its own enemy:spawned */
+      children: readonly Enemy[];
+    }
 
   // ==================== Tower Lifecycle ====================
   | {
