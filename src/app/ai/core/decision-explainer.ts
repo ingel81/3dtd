@@ -1,324 +1,220 @@
 /**
  * Decision Explainer
  *
- * Generates human-readable explanations for AI wave decisions.
- * Used for debugging during development and as optional debug overlay in production.
+ * Turns the reasons behind a director decision into short sentences for the
+ * "Why this wave" block in the wave debug window and the debug-mode console.
+ *
+ * It only reads reasons the pipeline recorded while deciding: the mask
+ * (curriculum pin, boss rule, capability gates), how the director picked among
+ * what the mask allowed, and how the shared path sized the wave (DPS ramp,
+ * fairness cap, leak loop, duration cap, endgame HP). It never infers intent
+ * from the game state. The previous version did: it read the defense snapshot
+ * and printed heuristics like "no anti-air -> sending flying enemies" or "player
+ * is struggling, sending an easier wave (mercy)". The rule director does none
+ * of that, so those lines described decisions nobody made.
  */
 
-import { GameStateSnapshot } from './models/game-state-snapshot';
-import { WaveConfig } from './models/wave-config';
+import {
+  TEMPLATES,
+  TEMPLATE_COOLDOWN_WAVES,
+  DPS_RAMP_COUNT,
+  MAX_WAVE_DURATION_MS,
+  type NumberRange,
+  type TemplateCapability,
+  type TemplateMaskReason,
+} from './templates';
+import { RAMP_FULL_WAVE, type DirectorReason } from './rule-director';
+import {
+  GATE_ADAPT_WINDOW,
+  GATE_LEAK_TARGET_LO,
+  GATE_LEAK_TARGET_HI,
+  type GateStatus,
+} from './gate-controller';
+import {
+  CURRICULUM_FORCED_THROUGH_WAVE,
+  BOSS_WAVE_INTERVAL_AFTER_CURRICULUM,
+} from '../../configs/wave-curriculum.config';
+
+/** How the shared path sized the wave, as recorded by `buildWaveConfig`. */
+export interface WaveSizing {
+  /** The template's designer count range. */
+  countRange: NumberRange;
+  /** Upper end of the count range after the DPS ramp. */
+  dpsScaledMax: number;
+  totalDps: number;
+  /** Fairness cap at the shipped spawn delay; null means no finite cap. */
+  cap: number | null;
+  countFactor: number;
+  count: number;
+  hpMult: number;
+  /** Endgame share of `hpMult` (1 through wave 20). */
+  endgameHpMult: number;
+  spawnDelay: number;
+  /** The wave-duration cap compressed the spawn delay. */
+  durationCapped: boolean;
+}
+
+/** Everything the explainer is allowed to talk about. */
+export interface WaveDecisionTrace {
+  /** The wave being planned, not the one just finished. */
+  wave: number;
+  templateName: string;
+  mask: TemplateMaskReason;
+  director: DirectorReason;
+  gate: GateStatus;
+  sizing: WaveSizing;
+}
 
 export interface DecisionExplanation {
-  /** One-line summary */
+  /** One line: wave, template, size, HP. */
   summary: string;
-
-  /** Detailed reasoning points */
+  /** Short sentences, template choice first, then size. */
   reasons: string[];
-
-  /** Key factors that influenced the decision */
-  factors: DecisionFactor[];
-
-  /** Confidence level (0-1) */
-  confidence: number;
-
-  /** Phase 5.10 Template metadata (when AI picked a template) */
-  templateName?: string;
-  templateStrength?: number;
 }
 
-export interface DecisionFactor {
-  name: string;
-  value: string;
-  impact: 'positive' | 'negative' | 'neutral';
-  weight: number; // 0-1 importance
-}
+const CAPABILITY_LABEL: Record<NonNullable<TemplateCapability>, string> = {
+  antiAir: 'anti-air',
+  antiEthereal: 'anti-ethereal',
+};
 
-/**
- * Generate explanation for a wave decision
- */
-export function explainWaveDecision(
-  state: GameStateSnapshot,
-  config: WaveConfig
-): DecisionExplanation {
-  const factors: DecisionFactor[] = [];
-  const reasons: string[] = [];
-
-  // Analyze defense state
-  analyzeDefense(state, factors, reasons);
-
-  // Analyze vulnerabilities
-  analyzeVulnerabilities(state, config, factors, reasons);
-
-  // Analyze recent history
-  analyzeHistory(state, factors, reasons);
-
-  // Generate summary
-  const summary = generateSummary(state, config, reasons);
-
+export function explainWaveDecision(trace: WaveDecisionTrace): DecisionExplanation {
+  const { wave, templateName, sizing } = trace;
   return {
-    summary,
-    reasons,
-    factors,
-    confidence: config.confidence ?? 0.7,
-    templateName: config.templateName,
-    templateStrength: config.templateStrength,
+    summary: `Wave ${wave}: ${templateName} · ${sizing.count} enemies · HP ×${sizing.hpMult.toFixed(2)}`,
+    reasons: [...templateReasons(trace), ...sizeReasons(trace)],
   };
 }
 
-/**
- * Analyze defense and add factors
- */
-function analyzeDefense(
-  state: GameStateSnapshot,
-  factors: DecisionFactor[],
-  reasons: string[]
-): void {
-  const { defense } = state;
-
-  // Tower count
-  if (defense.towerCount < 3) {
-    factors.push({
-      name: 'Tower count',
-      value: `${defense.towerCount} (low)`,
-      impact: 'negative',
-      weight: 0.8,
-    });
-    reasons.push('Few towers placed, defense still weak');
-  } else if (defense.towerCount > 10) {
-    factors.push({
-      name: 'Tower count',
-      value: `${defense.towerCount} (strong)`,
-      impact: 'positive',
-      weight: 0.6,
-    });
-  }
-
-  // DPS
-  if (defense.totalDPS > 500) {
-    factors.push({
-      name: 'Total DPS',
-      value: `${Math.round(defense.totalDPS)}`,
-      impact: 'positive',
-      weight: 0.7,
-    });
-    reasons.push('High DPS, stronger enemies needed');
-  } else if (defense.totalDPS < 100) {
-    factors.push({
-      name: 'Total DPS',
-      value: `${Math.round(defense.totalDPS)} (low)`,
-      impact: 'negative',
-      weight: 0.7,
-    });
-  }
-
-  // Path coverage
-  if (defense.pathCoverage < 0.5) {
-    factors.push({
-      name: 'Path coverage',
-      value: `${Math.round(defense.pathCoverage * 100)}%`,
-      impact: 'negative',
-      weight: 0.6,
-    });
-    reasons.push('Parts of the path are unprotected');
-  }
-
-  // Kill zone
-  if (defense.killZoneStrength > 0.5) {
-    factors.push({
-      name: 'Kill zone',
-      value: 'Strong',
-      impact: 'positive',
-      weight: 0.5,
-    });
-    reasons.push('Strong kill zone detected, avoid concentrating there');
-  }
-
-  // Tower variety
-  if (defense.towerVariety < 0.3) {
-    factors.push({
-      name: 'Tower variety',
-      value: 'One-sided',
-      impact: 'neutral',
-      weight: 0.4,
-    });
-    reasons.push('Little tower variety, can be exploited');
-  }
+/** Plain text for the debug-mode console, same wording as the debug window. */
+export function formatExplanation(explanation: DecisionExplanation): string {
+  return [explanation.summary, ...explanation.reasons.map((r) => `  - ${r}`)].join('\n');
 }
 
-/**
- * Analyze vulnerabilities
- */
-function analyzeVulnerabilities(
-  state: GameStateSnapshot,
-  config: WaveConfig,
-  factors: DecisionFactor[],
-  reasons: string[]
-): void {
-  const { vulnerabilities } = state;
+function templateReasons({ wave, templateName, mask, director }: WaveDecisionTrace): string[] {
+  const reasons: string[] = [];
 
-  if (vulnerabilities.airDefenseGap) {
-    factors.push({
-      name: 'Air defense',
-      value: 'Missing!',
-      impact: 'negative',
-      weight: 0.9,
-    });
+  if (mask.rule === 'curriculum') {
+    reasons.push(
+      `Curriculum: wave ${wave} is always ${templateName} (waves 1-${CURRICULUM_FORCED_THROUGH_WAVE} are fixed).`,
+    );
+    if (mask.pinnedLacks) {
+      reasons.push(`Pinned although the defense has no ${CAPABILITY_LABEL[mask.pinnedLacks]}.`);
+    }
+    return reasons;
+  }
 
-    // Check if we're exploiting this
-    const hasAirEnemies = config.enemies.some((e) => e.type === 'bat');
-    if (hasAirEnemies) {
-      reasons.push('No anti-air towers -> sending flying enemies');
+  if (mask.rule === 'boss') {
+    reasons.push(
+      `Boss wave (every ${BOSS_WAVE_INTERVAL_AFTER_CURRICULUM} waves after wave ${CURRICULUM_FORCED_THROUGH_WAVE}): boss templates only.`,
+    );
+  } else if (mask.bossUnavailable) {
+    reasons.push('Boss wave, but no boss template is available: runs as a normal wave.');
+  }
+  if (mask.cooldownWaived) {
+    reasons.push(`Every eligible template ran in the last ${plural(TEMPLATE_COOLDOWN_WAVES, 'wave')}: cooldown waived.`);
+  }
+
+  reasons.push(pickReason(director));
+
+  for (const capability of ['antiAir', 'antiEthereal'] as const) {
+    const held = mask.heldBack[capability];
+    if (held.length > 0) {
+      const names = held.map((i) => TEMPLATES[i].name).join(', ');
+      reasons.push(`Held back, no ${CAPABILITY_LABEL[capability]}: ${names}.`);
+    }
+  }
+  return reasons;
+}
+
+function pickReason(director: DirectorReason): string {
+  if (director.by === 'model') {
+    return `ONNX model pick among ${plural(director.candidates, 'allowed template')} (p ${director.probability.toFixed(2)}).`;
+  }
+  const { candidates, lastRanWavesAgo, history, tied } = director;
+  if (candidates === 0) return 'No template allowed: fell back to the first one with fixed mid-range factors.';
+  if (candidates === 1) return 'The only template allowed.';
+
+  const age = lastRanWavesAgo !== null
+    ? `last ran ${plural(lastRanWavesAgo, 'wave')} ago`
+    : history > 0 ? `not used in the last ${plural(history, 'wave')}` : 'no history yet';
+  const tie = tied > 1 ? `, random among ${tied} tied` : '';
+  return `Oldest of ${candidates} allowed templates: ${age}${tie}.`;
+}
+
+function sizeReasons({ director, gate, sizing }: WaveDecisionTrace): string[] {
+  const reasons: string[] = [];
+  const [lo, hi] = sizing.countRange;
+  const dpsMax = Math.round(sizing.dpsScaledMax);
+  const { cap } = sizing;
+
+  if (dpsMax < hi) {
+    reasons.push(
+      `DPS ramp: ${Math.round(sizing.totalDps)} of ${DPS_RAMP_COUNT} DPS narrows the count range to ${lo}-${dpsMax}.`,
+    );
+  }
+
+  // Mirrors the fold in buildWaveConfig: a cap below the template minimum
+  // collapses the range onto the cap, a cap inside it becomes the new top.
+  const binding = cap !== null && cap < sizing.dpsScaledMax;
+  if (cap === null) {
+    reasons.push('Fairness gate: no cap, the defense kills faster than enemies spawn.');
+  } else if (cap < lo) {
+    reasons.push(`Fairness gate caps it at ${cap}, below the template minimum of ${lo}.`);
+  } else if (binding) {
+    reasons.push(`Fairness gate caps the count at ${cap}.`);
+  } else {
+    reasons.push(`Fairness gate: cap ${cap}, not binding.`);
+  }
+  // The loop only shaped this wave if its cap did.
+  if (binding) reasons.push(leakLoopReason(gate));
+
+  if (cap === null || cap >= lo) {
+    const top = binding ? cap : dpsMax;
+    const where = `count at ${percent(sizing.countFactor)} of ${lo}-${top}`;
+    if (director.by === 'model') {
+      reasons.push(`Model factor: ${where}.`);
+    } else if (director.candidates === 0) {
+      reasons.push(`Fixed factor: ${where}.`);
     } else {
-      reasons.push('No anti-air towers (will be exploited soon)');
+      reasons.push(`Ramp ${percent(director.ramp)} (full at wave ${RAMP_FULL_WAVE}): ${where}.`);
     }
   }
 
-  if (vulnerabilities.splashGap) {
-    factors.push({
-      name: 'Splash damage',
-      value: 'Missing',
-      impact: 'negative',
-      weight: 0.7,
-    });
-
-    if (config.templateName?.toLowerCase().includes('swarm') || config.templateName?.toLowerCase().includes('tide')) {
-      reasons.push('No splash damage -> sending a swarm');
-    }
+  if (sizing.durationCapped) {
+    reasons.push(
+      `Spawn delay compressed to ${sizing.spawnDelay} ms to keep the wave under ${MAX_WAVE_DURATION_MS / 60_000} min.`,
+    );
   }
-
-  if (vulnerabilities.slowGap) {
-    factors.push({
-      name: 'Slow effect',
-      value: 'Missing',
-      impact: 'negative',
-      weight: 0.6,
-    });
-
-    if (config.templateName?.toLowerCase().includes('rush')) {
-      reasons.push('No slow towers -> sending fast enemies');
-    }
+  if (sizing.endgameHpMult > 1) {
+    reasons.push(
+      `HP ×${sizing.hpMult.toFixed(2)} includes the endgame multiplier ×${sizing.endgameHpMult.toFixed(2)}.`,
+    );
   }
+  return reasons;
+}
 
-  // Overall vulnerability
-  if (vulnerabilities.overallVulnerability > 0.6) {
-    factors.push({
-      name: 'Overall vulnerability',
-      value: 'High',
-      impact: 'negative',
-      weight: 0.8,
-    });
-    reasons.push('Defense has several weak spots');
+function leakLoopReason(gate: GateStatus): string {
+  const mult = `×${gate.multiplier.toFixed(2)}`;
+  const band = `${percent(GATE_LEAK_TARGET_LO)}-${percent(GATE_LEAK_TARGET_HI)}`;
+  const leaked = `last ${GATE_ADAPT_WINDOW} waves leaked ${percent(gate.meanLeak ?? 0)}`;
+  switch (gate.lastStep) {
+    case 'warming-up':
+      return `Leak loop still collecting (${gate.samples} of ${GATE_ADAPT_WINDOW} waves), gate at ${mult}.`;
+    case 'opened':
+      return `Leak loop: ${leaked}, under the ${band} target, so the gate opened to ${mult}.`;
+    case 'closed':
+      return `Leak loop: ${leaked}, over the ${band} target, so the gate closed to ${mult}.`;
+    case 'held':
+      return `Leak loop: ${leaked}, inside the ${band} target, gate holds at ${mult}.`;
+    case 'backed-off':
+      return `Leak loop: the last wave ended the run, gate backed off to ${mult}.`;
   }
 }
 
-/**
- * Analyze recent history
- */
-function analyzeHistory(
-  state: GameStateSnapshot,
-  factors: DecisionFactor[],
-  reasons: string[]
-): void {
-  const { recentHistory } = state;
-
-  // Win streak
-  if (recentHistory.winStreak >= 3) {
-    factors.push({
-      name: 'Win streak',
-      value: `${recentHistory.winStreak} waves`,
-      impact: 'positive',
-      weight: 0.7,
-    });
-    reasons.push(`${recentHistory.winStreak} waves without damage, raising difficulty`);
-  }
-
-  // Close call streak (mercy system)
-  if (recentHistory.closeCallStreak >= 2) {
-    factors.push({
-      name: 'Close calls',
-      value: `${recentHistory.closeCallStreak}× close`,
-      impact: 'negative',
-      weight: 0.8,
-    });
-    reasons.push('Player is struggling, sending an easier wave (mercy)');
-  }
-
-  // Recent damage trend
-  const damages = recentHistory.damagePerWave;
-  if (damages.length >= 3) {
-    const recent = damages.slice(-3);
-    const avgRecent = recent.reduce((a, b) => a + b, 0) / recent.length;
-
-    if (avgRecent > 0.3) {
-      factors.push({
-        name: 'Damage trend',
-        value: `${Math.round(avgRecent * 100)}% avg`,
-        impact: 'negative',
-        weight: 0.6,
-      });
-    } else if (avgRecent === 0) {
-      factors.push({
-        name: 'Damage trend',
-        value: 'No damage',
-        impact: 'positive',
-        weight: 0.6,
-      });
-    }
-  }
+function percent(v: number): string {
+  return `${Math.round(v * 100)}%`;
 }
 
-/**
- * Generate summary sentence
- */
-function generateSummary(
-  state: GameStateSnapshot,
-  config: WaveConfig,
-  _reasons: string[]
-): string {
-  const wave = state.waveNumber;
-  const totalEnemies = config.totalCount;
-  const templateName = config.templateName ?? 'Template';
-  const strengthPart = config.templateStrength !== undefined
-    ? ` (strength ${config.templateStrength.toFixed(2)}×)`
-    : '';
-  return `Wave ${wave}: ${templateName}${strengthPart} · ${totalEnemies} enemies`;
-}
-
-/**
- * Format explanation for UI display
- */
-export function formatExplanationForUI(explanation: DecisionExplanation): string {
-  const lines: string[] = [];
-
-  lines.push(`=== ${explanation.summary} ===`);
-  lines.push('');
-
-  if (explanation.templateName) {
-    const strength = explanation.templateStrength !== undefined
-      ? ` (${explanation.templateStrength.toFixed(2)}×)`
-      : '';
-    lines.push(`Template: ${explanation.templateName}${strength}`);
-  }
-
-  lines.push(`Confidence: ${Math.round(explanation.confidence * 100)}%`);
-  lines.push('');
-
-  if (explanation.reasons.length > 0) {
-    lines.push('Reasons:');
-    for (const reason of explanation.reasons) {
-      lines.push(`  • ${reason}`);
-    }
-    lines.push('');
-  }
-
-  if (explanation.factors.length > 0) {
-    lines.push('Factors:');
-    for (const factor of explanation.factors) {
-      const icon =
-        factor.impact === 'positive' ? '+' : factor.impact === 'negative' ? '-' : '•';
-      lines.push(`  ${icon} ${factor.name}: ${factor.value}`);
-    }
-  }
-
-  return lines.join('\n');
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
 }

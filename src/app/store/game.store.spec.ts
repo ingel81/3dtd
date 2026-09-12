@@ -204,7 +204,7 @@ describe('GameStore', () => {
       store.enemiesAlive.set(20);
       store.towerCount.set(8);
       store.showGameOverScreen.set(true);
-      store.aiExplanation.set('test explanation');
+      store.aiExplanation.set({ summary: 'Wave 1: Zombie Horde · 20 enemies · HP ×0.50', reasons: [] });
 
       store.resetGameState();
 

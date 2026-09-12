@@ -25,7 +25,7 @@ import { AIDataCollectorService } from './ai-data-collector.service';
 import { GameStateSnapshot } from './models/game-state-snapshot';
 import { WaveConfig } from './models/wave-config';
 import { WaveResult } from './models/wave-result';
-import { explainWaveDecision, DecisionExplanation, formatExplanationForUI } from './decision-explainer';
+import { explainWaveDecision, formatExplanation } from './decision-explainer';
 import { encodeGameState, ENCODED_STATE_SIZE } from './game-state-encoder';
 import {
   MAX_TEMPLATE_SLOTS,
@@ -37,6 +37,7 @@ import {
   getTemplate,
   lerpRange,
   fairMaxCount,
+  type TemplateMaskReason,
 } from './templates';
 import { buildWaveContext, type WaveContext } from './wave-context';
 import { RuleDirector, type DirectorDecision } from './rule-director';
@@ -78,7 +79,6 @@ export class WaveDirectorService {
   readonly modelState = signal<ModelState>('rules');
   readonly aiMode = signal<AIMode>('rules');
   readonly lastDecision = signal<WaveConfig | null>(null);
-  readonly lastExplanation = signal<DecisionExplanation | null>(null);
   readonly inferenceTimeMs = signal(0);
 
   readonly isReady = computed(() => {
@@ -224,19 +224,15 @@ export class WaveDirectorService {
       ? await this.runInference(state)
       : this.runRules(state);
 
-    // Generate explanation
-    const explanation = explainWaveDecision(state, config);
-    config.explanation = explanation.summary;
-    config.confidence = explanation.confidence;
-
     this.lastDecision.set(config);
-    this.lastExplanation.set(explanation);
     this.dataCollector.setCurrentWaveConfig(config);
     this.inferenceTimeMs.set(performance.now() - startTime);
 
     if (this.debugMode()) {
       console.log('[AI] Wave decision:', config);
-      console.log('[AI] Explanation:', formatExplanationForUI(explanation));
+      if (config.explanation) {
+        console.log(`[AI] Why this wave:\n${formatExplanation(config.explanation)}`);
+      }
     }
 
     return config;
@@ -275,9 +271,7 @@ export class WaveDirectorService {
       state.waveNumber + 1,
       this.recentTemplateIndices,
     );
-    // A rule director simply decided; there is no distribution to read a
-    // confidence out of.
-    return this.buildWaveConfig(decision, state, 1);
+    return this.buildWaveConfig(decision, state, waveContext.maskReason);
   }
 
   /**
@@ -362,9 +356,10 @@ export class WaveDirectorService {
         spawnFactor: this.sigmoid(rawParams[1]),
         hpFactor: this.sigmoid(rawParams[2]),
         variationFactor: this.sigmoid(rawParams[3]),
+        why: { by: 'model', candidates: mask.filter(Boolean).length, probability: bestProb },
       },
       state,
-      bestProb,
+      waveContext.maskReason,
     );
   }
 
@@ -381,11 +376,13 @@ export class WaveDirectorService {
   private buildWaveConfig(
     decision: DirectorDecision,
     state: GameStateSnapshot,
-    confidence: number,
+    maskReason: TemplateMaskReason,
   ): WaveConfig {
     const upcomingWave = state.waveNumber + 1;
     let bestIdx = decision.templateIdx;
-    const bestProb = confidence;
+    // A rule director simply decided; there is no distribution to read a
+    // confidence out of.
+    const bestProb = decision.why.by === 'model' ? decision.why.probability : 1;
 
     // An invalid index means the mask and the template table disagree, which is
     // a real bug worth shouting about — but not one worth ending the wave over.
@@ -418,7 +415,8 @@ export class WaveDirectorService {
     // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
     // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).
     const baseHpMult = lerpCapped(template.hpMultRange, hpFactor, dpsFracHp);
-    const hpMult = Math.round(baseHpMult * endgameHpMultiplier(upcomingWave) * 1000) / 1000;
+    const endgameHpMult = endgameHpMultiplier(upcomingWave);
+    const hpMult = Math.round(baseHpMult * endgameHpMult * 1000) / 1000;
     const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
 
     // Fairness gate: never ship a wave the defense cannot plausibly fight.
@@ -470,19 +468,20 @@ export class WaveDirectorService {
       return { count: Math.max(1, Math.round(lo + (hi - lo) * countFactor)), cap };
     };
 
-    let totalCount = countFor(spawnDelay).count;
+    let sized = countFor(spawnDelay);
 
     // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
-    const totalDuration = totalCount * spawnDelay;
-    if (totalDuration > MAX_WAVE_DURATION_MS) {
-      spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.floor(MAX_WAVE_DURATION_MS / totalCount));
+    const durationCapped = sized.count * spawnDelay > MAX_WAVE_DURATION_MS;
+    if (durationCapped) {
+      spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.floor(MAX_WAVE_DURATION_MS / sized.count));
       // Re-derive against the compressed delay. A slow mega-wave can clear the
       // gate precisely BECAUSE its long spawn window gives the defense time,
       // and the compression then multiplies the spawn rate — so without this
       // the gate is bypassed by exactly the waves it exists to stop. The
       // backend has always done this second pass; the frontend did not.
-      totalCount = countFor(spawnDelay).count;
+      sized = countFor(spawnDelay);
     }
+    const totalCount = sized.count;
 
     // Expand template → enemy groups
     const enemies: { type: string; count: number; healthMultiplier: number }[] = [];
@@ -501,9 +500,10 @@ export class WaveDirectorService {
       this.recentTemplateIndices.shift();
     }
 
+    const shippedCount = enemies.reduce((s, e) => s + e.count, 0);
     return {
       enemies,
-      totalCount: enemies.reduce((s, e) => s + e.count, 0),
+      totalCount: shippedCount,
       spawnDelay,
       spawnDelayVariation: variation,
       pattern: template.spawnPattern ?? undefined,
@@ -511,6 +511,27 @@ export class WaveDirectorService {
       templateIdx: bestIdx,
       templateName: template.name,
       templateStrength: hpMult,
+      // Built from the values this function just used, so the debug window
+      // explains the wave that ships rather than a re-derivation of it.
+      explanation: explainWaveDecision({
+        wave: upcomingWave,
+        templateName: template.name,
+        mask: maskReason,
+        director: decision.why,
+        gate: this.gate.status,
+        sizing: {
+          countRange: template.countRange,
+          dpsScaledMax,
+          totalDps: totalDPS,
+          cap: sized.cap,
+          countFactor,
+          count: shippedCount,
+          hpMult,
+          endgameHpMult,
+          spawnDelay,
+          durationCapped,
+        },
+      }),
     };
   }
 

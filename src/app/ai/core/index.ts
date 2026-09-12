@@ -28,7 +28,7 @@ export {
 } from './templates';
 export {
   explainWaveDecision,
-  formatExplanationForUI,
+  formatExplanation,
   type DecisionExplanation,
-  type DecisionFactor,
+  type WaveDecisionTrace,
 } from './decision-explainer';

@@ -237,7 +237,7 @@ export class TowerDefenseStore {
   /** Static curriculum fallback (debug toggle; used when AI is off). */
   readonly useStaticCurriculum = this.gameStore.useStaticCurriculum;
 
-  /** AI explanation text for current wave */
+  /** Why the director planned the current wave (wave debug window) */
   readonly aiExplanation = this.gameStore.aiExplanation;
 
   /** Fatal AI error (blocking banner, e.g. ONNX model failed to load) */

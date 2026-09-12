@@ -19,6 +19,8 @@ export type KnownEnemyTypeId =
   | 'mammoth' | 'herbert'
   | 'ghost' | 'wraith';
 
+import type { DecisionExplanation } from '../decision-explainer';
+
 export type { SpawnPattern } from '../spawn-schedule-builder';
 
 /**
@@ -76,8 +78,8 @@ export interface WaveConfig {
   /** AI confidence in this configuration (0-1) */
   confidence?: number;
 
-  /** Human-readable explanation of why this wave was chosen */
-  explanation?: string;
+  /** Why the director planned this wave. Absent for waves it did not plan. */
+  explanation?: DecisionExplanation;
 
   /** Spawn pattern (from template.spawnPattern) */
   pattern?: import('../spawn-schedule-builder').SpawnPattern;
