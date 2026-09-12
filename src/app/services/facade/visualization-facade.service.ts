@@ -424,7 +424,6 @@ export class VisualizationFacadeService {
 
     this.gameState.initialize(
       engine,
-      streetNetwork,
       { lat: base.lat, lon: base.lon },
       waveSpawnPoints,
       this.pathRoute.getCachedPaths()

@@ -2151,20 +2151,6 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Clear all game entities
-   */
-  clearEntities(): void {
-    this.enemies.clear();
-    this.towers.clear();
-    this.projectiles.clear();
-    this.effects.clear();
-    this.flameBeams.clear();
-    this.tentacles.clear();
-    this.trailStreaks.clear();
-    this.lightningBolts.clear();
-  }
-
-  /**
    * Dispose all resources
    */
   dispose(): void {

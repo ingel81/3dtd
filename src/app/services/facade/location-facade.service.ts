@@ -522,7 +522,7 @@ export class LocationFacadeService {
       id: sp.id, name: sp.name, lat: sp.lat, lon: sp.lon,
     }));
     this.gameState.initialize(
-      engine, streetNetwork, { lat, lon }, waveSpawns, this.pathRoute.getCachedPaths(),
+      engine, { lat, lon }, waveSpawns, this.pathRoute.getCachedPaths(),
     );
     this.gameState.initializeGlobalRouteGrid();
 
@@ -613,7 +613,6 @@ export class LocationFacadeService {
     const waveSpawns = [{ id: 'spawn-1', name: 'Spawn', lat, lon }];
     this.gameState.initialize(
       engine,
-      streetNetwork,
       { lat: hq.lat, lon: hq.lon },
       waveSpawns,
       this.pathRoute.getCachedPaths(),

@@ -122,7 +122,6 @@ export const EXPLOSION_PRESETS = {
   // One explosion now, with most of the second one's particles folded in.
   // VFXService takes the radius from the cannonball's splashRadius.
   cannon:   { particles: 50,  radius: 6, smokePuffs: 5 },
-  hq:       { particles: 150, radius: 15 },
   // Passes no radius: sized like the reference radius (EXPLOSION_LOOK)
   bullet:   { particles: 2 },
   // Green spark burst (BURST_PALETTES.poison). Until 2026-09-12 the glob hit
@@ -277,4 +276,3 @@ export const EFFECT_COLORS = {
 
 /** Type exports */
 export type FireIntensityLevel = keyof typeof FIRE_INTENSITY;
-export type ExplosionPreset = keyof typeof EXPLOSION_PRESETS;
