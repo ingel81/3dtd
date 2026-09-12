@@ -261,6 +261,8 @@ export class ThreeProjectileRenderer {
 
   // Model loading state
   private arrowModelLoaded = false;
+  /** Settles once the arrow pool exists, from the model or the fallback. */
+  private readonly arrowLoad: Promise<void>;
 
   constructor(scene: Scene, sync: CoordinateSync) {
     this.scene = scene;
@@ -276,7 +278,7 @@ export class ThreeProjectileRenderer {
     this.poisonManager = this.createPoisonManager();
 
     // Load arrow model async
-    this.loadArrowModel();
+    this.arrowLoad = this.loadArrowModel();
 
     // Add meshes to scene
     // Arrow will be added when model loads
@@ -286,6 +288,14 @@ export class ThreeProjectileRenderer {
     scene.add(this.bulletManager.instancedMesh);
     scene.add(this.rocketManager.instancedMesh);
     scene.add(this.poisonManager.instancedMesh);
+  }
+
+  /**
+   * Resolves once every projectile pool exists, the arrow pool included.
+   * The shader warm-up waits for it so the arrow is not left out.
+   */
+  whenLoaded(): Promise<void> {
+    return this.arrowLoad;
   }
 
   /**
