@@ -3,6 +3,7 @@ import {
   AnimationMixer,
   DataTexture,
   FloatType,
+  HalfFloatType,
   NearestFilter,
   RGBAFormat,
   SkinnedMesh,
@@ -32,8 +33,10 @@ export interface VATAnimationEntry {
 
 /** Result of VAT baking for one enemy type */
 export interface VATData {
-  /** DataTexture: width=vertexCount, height=totalFrames, RGBA32F (xyz + padding) */
+  /** DataTexture: width=texWidth, height=totalFrames × rowsPerFrame, xyz + padding per texel (see encoding) */
   positionTexture: DataTexture;
+  /** Texel type of positionTexture and how its texels map back to positions */
+  encoding: VATEncoding;
   /** Number of vertices in the geometry */
   vertexCount: number;
   /** Total baked frames across all clips */
@@ -120,6 +123,140 @@ export function vatLayout(vertexCount: number): { texWidth: number; rowsPerFrame
 }
 
 /**
+ * Largest error (m, in game) half-float texels may add to a baked position.
+ * The camera stops 5 m from its orbit target (CameraRig minDistance) with a
+ * 60° vertical fov. A pixel there covers 5.3 mm at 1080 and 4.0 mm at 1440
+ * screen lines, so 2 mm stays within half a pixel up to 1440p.
+ */
+export const VAT_HALF_FLOAT_MAX_ERROR = 0.002;
+
+/** Texel type of a VAT and how a texel maps back to a position: texel.xyz × extent + origin. */
+export interface VATEncoding {
+  /** HalfFloatType (RGBA16F, 8 bytes per texel) or FloatType (RGBA32F, 16 bytes). */
+  type: typeof HalfFloatType | typeof FloatType;
+  origin: [number, number, number];
+  extent: [number, number, number];
+  /** Largest position error half-float texels add (m, in game), whichever type was picked. */
+  halfFloatError: number;
+}
+
+/** Per-axis bounds of baked positions (root space). */
+export interface VATBounds {
+  min: [number, number, number];
+  max: [number, number, number];
+}
+
+function emptyBounds(): VATBounds {
+  return { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+}
+
+function growBounds(bounds: VATBounds, v: Vector3): void {
+  const { min, max } = bounds;
+  if (v.x < min[0]) min[0] = v.x;
+  if (v.x > max[0]) max[0] = v.x;
+  if (v.y < min[1]) min[1] = v.y;
+  if (v.y > max[1]) max[1] = v.y;
+  if (v.z < min[2]) min[2] = v.z;
+  if (v.z > max[2]) max[2] = v.z;
+}
+
+/** Lowest and highest baked Y, 0 and 0 when nothing finite was baked. */
+function modelHeightRange(bounds: VATBounds): { modelMinY: number; modelMaxY: number } {
+  return Number.isFinite(bounds.min[1])
+    ? { modelMinY: bounds.min[1], modelMaxY: bounds.max[1] }
+    : { modelMinY: 0, modelMaxY: 0 };
+}
+
+/**
+ * Texel type and mapping for positions within `bounds`, shown at `worldScale`.
+ *
+ * Half floats keep 11 significant bits, so their error grows with the value.
+ * The positions are stored relative to the centre of their bounding box and
+ * divided by its half extent: every value lies in [-1, 1], where rounding to
+ * nearest is off by at most 2^-12 of the half extent. Within
+ * VAT_HALF_FLOAT_MAX_ERROR in game the VAT is RGBA16F, otherwise RGBA32F with
+ * the positions as they are.
+ */
+export function vatEncoding(bounds: VATBounds, worldScale: number): VATEncoding {
+  const { min, max } = bounds;
+  const half = [0, 1, 2].map((a) => (max[a] - min[a]) / 2);
+  const halfFloatError = Math.max(...half) * 2 ** -12 * worldScale;
+  if (Number.isFinite(halfFloatError) && halfFloatError <= VAT_HALF_FLOAT_MAX_ERROR) {
+    return {
+      type: HalfFloatType,
+      origin: [0, 1, 2].map((a) => (min[a] + max[a]) / 2) as [number, number, number],
+      // A flat axis stores 0 everywhere; any non-zero extent decodes it.
+      extent: half.map((h) => h || 1) as [number, number, number],
+      halfFloatError,
+    };
+  }
+  return { type: FloatType, origin: [0, 0, 0], extent: [1, 1, 1], halfFloatError };
+}
+
+const halfScratch = new Float32Array(1);
+const halfScratchBits = new Uint32Array(halfScratch.buffer);
+
+/**
+ * Half-float bits of `value`, rounded to nearest. DataUtils.toHalfFloat cuts
+ * the mantissa off, which doubles the error. Covers the range the VAT stores
+ * ([-1, 1]); past 65504 the result is wrong.
+ */
+export function toHalfFloatRounded(value: number): number {
+  halfScratch[0] = value;
+  const bits = halfScratchBits[0];
+  const sign = (bits >>> 16) & 0x8000;
+  const exponent = ((bits >>> 23) & 0xff) - 112; // float bias 127, half bias 15
+  const mantissa = bits & 0x7fffff;
+  if (exponent <= 0) {
+    // Subnormal half; below 2^-25 it rounds to zero.
+    if (exponent < -10) return sign;
+    const shift = 14 - exponent;
+    return sign | (((mantissa | 0x800000) + (1 << (shift - 1))) >>> shift);
+  }
+  // A carry out of the mantissa moves on to the next exponent, as it should.
+  return sign | (((exponent << 10) | (mantissa >>> 13)) + ((mantissa >>> 12) & 1));
+}
+
+const HALF_FLOAT_ONE = 0x3c00;
+
+/** The VAT texture for positions baked into `data` (xyz + padding per texel), stored as `encoding` says. */
+function createPositionTexture(data: Float32Array, width: number, height: number, encoding: VATEncoding): DataTexture {
+  let texture: DataTexture;
+  if (encoding.type === HalfFloatType) {
+    const [ox, oy, oz] = encoding.origin;
+    const [ex, ey, ez] = encoding.extent;
+    // Clamped: texels past the last vertex of a tiled frame are unused zeros
+    // and may lie outside the bounding box.
+    const clamp = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
+    const texels = new Uint16Array(data.length);
+    for (let i = 0; i < data.length; i += 4) {
+      texels[i] = toHalfFloatRounded(clamp((data[i] - ox) / ex));
+      texels[i + 1] = toHalfFloatRounded(clamp((data[i + 1] - oy) / ey));
+      texels[i + 2] = toHalfFloatRounded(clamp((data[i + 2] - oz) / ez));
+      texels[i + 3] = HALF_FLOAT_ONE;
+    }
+    texture = new DataTexture(texels, width, height, RGBAFormat, HalfFloatType);
+  } else {
+    texture = new DataTexture(data, width, height, RGBAFormat, FloatType);
+  }
+  texture.minFilter = NearestFilter;
+  texture.magFilter = NearestFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/**
+ * Bake an enemy type: its skinned meshes, else its object-animated meshes,
+ * and a model without clips as one static frame. `model` is a clone of the
+ * loaded model that keeps skeleton bindings (SkeletonUtils.clone).
+ */
+export function bakeEnemyVAT(config: EnemyTypeConfig, model: Object3D, animations: AnimationClip[]): VATData | null {
+  if (!config.hasAnimations || animations.length === 0) return bakeStaticVAT(model, config.scale);
+  const clips = vatClips(config);
+  return bakeVAT(model, animations, clips, config.scale) ?? bakeObjectAnimVAT(model, animations, clips, config.scale);
+}
+
+/**
  * Bake skeletal animations into a Vertex Animation Texture (VAT).
  *
  * Baked positions are in SkinnedMesh bind space (same coordinate system
@@ -129,12 +266,14 @@ export function vatLayout(vertexCount: number): { texWidth: number; rowsPerFrame
  * @param modelRoot - Cloned model root (with preserveSkeleton: true)
  * @param animations - AnimationClip array from CachedModel
  * @param clips - Clips to bake and how much of each (vatClips)
+ * @param worldScale - Scale the model is shown at in game, picks the texel type (vatEncoding)
  * @param fps - Baking framerate (default: 30)
  */
 export function bakeVAT(
   modelRoot: Object3D,
   animations: AnimationClip[],
   clips: VATClip[],
+  worldScale: number,
   fps: number = DEFAULT_BAKE_FPS,
 ): VATData | null {
   // Collect ALL SkinnedMeshes (multi-mesh support: body, hair, clothes, etc.)
@@ -200,11 +339,10 @@ export function bakeVAT(
   const { texWidth, rowsPerFrame } = vatLayout(totalVertices);
   const texHeight = totalFrames * rowsPerFrame;
 
-  // Allocate VAT data (width=texWidth, height=texHeight, RGBA32F)
+  // Allocate VAT data (width=texWidth, height=texHeight, xyz + padding)
   const data = new Float32Array(texWidth * texHeight * 4);
   const tempVec = new Vector3();
-  let modelMinY = Infinity;
-  let modelMaxY = -Infinity;
+  const bounds = emptyBounds();
 
   // Bake each clip using a fresh mixer
   for (const { name } of validClips) {
@@ -232,9 +370,7 @@ export function bakeVAT(
           tempVec.fromBufferAttribute(posAttr, v);
           skin.mesh.applyBoneTransform(v, tempVec);
           tempVec.applyMatrix4(skin.meshToRoot);
-
-          if (tempVec.y < modelMinY) modelMinY = tempVec.y;
-          if (tempVec.y > modelMaxY) modelMaxY = tempVec.y;
+          growBounds(bounds, tempVec);
 
           const globalV = skin.vertexOffset + v;
           const col = globalV % texWidth;
@@ -256,11 +392,8 @@ export function bakeVAT(
     mixer.uncacheRoot(modelRoot);
   }
 
-  // Create DataTexture
-  const positionTexture = new DataTexture(data, texWidth, texHeight, RGBAFormat, FloatType);
-  positionTexture.minFilter = NearestFilter;
-  positionTexture.magFilter = NearestFilter;
-  positionTexture.needsUpdate = true;
+  const encoding = vatEncoding(bounds, worldScale);
+  const positionTexture = createPositionTexture(data, texWidth, texHeight, encoding);
 
   // Extract material properties from all meshes (pick best diffuse map + track per-mesh materials)
   let diffuseMap: Texture | null = null;
@@ -430,10 +563,9 @@ export function bakeVAT(
   mergedGeometry.setAttribute('aVertexAlpha', new BufferAttribute(mergedAlpha, 1));
   mergedGeometry.setAttribute('aUseMap', new BufferAttribute(mergedUseMap, 1));
 
-  if (!Number.isFinite(modelMinY)) { modelMinY = 0; modelMaxY = 0; }
-
   return {
     positionTexture,
+    encoding,
     vertexCount: totalVertices,
     totalFrames,
     texWidth,
@@ -444,8 +576,7 @@ export function bakeVAT(
     baseColor,
     isUnlit,
     fps,
-    modelMinY,
-    modelMaxY,
+    ...modelHeightRange(bounds),
   };
 }
 
@@ -462,12 +593,14 @@ export function bakeVAT(
  * @param modelRoot - Cloned model root
  * @param animations - AnimationClip array from CachedModel
  * @param clips - Clips to bake and how much of each (vatClips)
+ * @param worldScale - Scale the model is shown at in game, picks the texel type (vatEncoding)
  * @param fps - Baking framerate (default: 30)
  */
 export function bakeObjectAnimVAT(
   modelRoot: Object3D,
   animations: AnimationClip[],
   clips: VATClip[],
+  worldScale: number,
   fps: number = DEFAULT_BAKE_FPS,
 ): VATData | null {
   // Collect all non-skinned Mesh nodes
@@ -534,8 +667,7 @@ export function bakeObjectAnimVAT(
   const tempVec = new Vector3();
   const meshToRoot = new Matrix4();
   const rootInverse = new Matrix4();
-  let modelMinY = Infinity;
-  let modelMaxY = -Infinity;
+  const bounds = emptyBounds();
 
   // Bake each clip
   for (const { name } of validClips) {
@@ -563,9 +695,7 @@ export function bakeObjectAnimVAT(
         for (let v = 0; v < info.vertexCount; v++) {
           tempVec.fromBufferAttribute(posAttr, v);
           tempVec.applyMatrix4(meshToRoot);
-
-          if (tempVec.y < modelMinY) modelMinY = tempVec.y;
-          if (tempVec.y > modelMaxY) modelMaxY = tempVec.y;
+          growBounds(bounds, tempVec);
 
           const globalV = info.vertexOffset + v;
           const col = globalV % texWidth;
@@ -586,11 +716,8 @@ export function bakeObjectAnimVAT(
     mixer.uncacheRoot(modelRoot);
   }
 
-  // Create DataTexture
-  const positionTexture = new DataTexture(data, texWidth, texHeight, RGBAFormat, FloatType);
-  positionTexture.minFilter = NearestFilter;
-  positionTexture.magFilter = NearestFilter;
-  positionTexture.needsUpdate = true;
+  const encoding = vatEncoding(bounds, worldScale);
+  const positionTexture = createPositionTexture(data, texWidth, texHeight, encoding);
 
   // Compute rest-pose transforms for geometry merging
   modelRoot.updateMatrixWorld(true);
@@ -761,10 +888,9 @@ export function bakeObjectAnimVAT(
   mergedGeometry.setAttribute('aVertexAlpha', new BufferAttribute(mergedAlpha, 1));
   mergedGeometry.setAttribute('aUseMap', new BufferAttribute(mergedUseMap, 1));
 
-  if (!Number.isFinite(modelMinY)) { modelMinY = 0; modelMaxY = 0; }
-
   return {
     positionTexture,
+    encoding,
     vertexCount: totalVertices,
     totalFrames,
     texWidth,
@@ -775,8 +901,7 @@ export function bakeObjectAnimVAT(
     baseColor,
     isUnlit,
     fps,
-    modelMinY,
-    modelMaxY,
+    ...modelHeightRange(bounds),
   };
 }
 
@@ -785,8 +910,10 @@ export function bakeObjectAnimVAT(
  * Used for enemy types without skeletal animations (e.g., tank).
  * Merges ALL meshes in the model into a single geometry to handle
  * multi-mesh models correctly.
+ *
+ * @param worldScale - Scale the model is shown at in game, picks the texel type (vatEncoding)
  */
-export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
+export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData | null {
   // Collect all non-skinned meshes
   const meshes: Mesh[] = [];
   modelRoot.traverse((node) => {
@@ -855,8 +982,7 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
   const mergedIndices: number[] = [];
   const tempVec = new Vector3();
   const tempNormal = new Vector3();
-  let modelMinY = Infinity;
-  let modelMaxY = -Infinity;
+  const bounds = emptyBounds();
 
   // Cache CPU texture samplers for meshes with unique textures
   const staticSamplerCache = new Map<Texture, Uint8ClampedArray | null>();
@@ -915,8 +1041,7 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
       // Position → root space
       tempVec.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
       tempVec.applyMatrix4(info.meshToRoot);
-      if (tempVec.y < modelMinY) modelMinY = tempVec.y;
-      if (tempVec.y > modelMaxY) modelMaxY = tempVec.y;
+      growBounds(bounds, tempVec);
       mergedPositions[vi * 3] = tempVec.x;
       mergedPositions[vi * 3 + 1] = tempVec.y;
       mergedPositions[vi * 3 + 2] = tempVec.z;
@@ -1012,10 +1137,8 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
     data[offset + 3] = 1.0;
   }
 
-  const positionTexture = new DataTexture(data, texWidth, texHeight, RGBAFormat, FloatType);
-  positionTexture.minFilter = NearestFilter;
-  positionTexture.magFilter = NearestFilter;
-  positionTexture.needsUpdate = true;
+  const encoding = vatEncoding(bounds, worldScale);
+  const positionTexture = createPositionTexture(data, texWidth, texHeight, encoding);
 
   // Single "static" animation entry
   const animations = new Map<string, VATAnimationEntry>();
@@ -1027,10 +1150,9 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
     totalTime: 1, // Static: single frame
   });
 
-  if (!Number.isFinite(modelMinY)) { modelMinY = 0; modelMaxY = 0; }
-
   return {
     positionTexture,
+    encoding,
     vertexCount: totalVertices,
     totalFrames: 1,
     texWidth,
@@ -1041,7 +1163,6 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
     baseColor,
     isUnlit,
     fps: DEFAULT_BAKE_FPS,
-    modelMinY,
-    modelMaxY,
+    ...modelHeightRange(bounds),
   };
 }

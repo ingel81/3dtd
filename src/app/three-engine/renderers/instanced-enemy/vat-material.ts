@@ -2,6 +2,7 @@ import {
   ShaderMaterial,
   FrontSide,
   Color,
+  Vector3,
 } from 'three';
 import { VATData } from './vat-baker';
 
@@ -33,6 +34,8 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     vatWidth: { value: vatData.texWidth },
     vatHeight: { value: vatData.totalFrames * vatData.rowsPerFrame },
     rowsPerFrame: { value: vatData.rowsPerFrame },
+    vatOrigin: { value: new Vector3(...vatData.encoding.origin) },
+    vatExtent: { value: new Vector3(...vatData.encoding.extent) },
     isUnlit: { value: vatData.isUnlit ? 1.0 : 0.0 },
     emissiveIntensity: { value: emissiveIntensity },
     emissiveColor: { value: emissiveColor },
@@ -66,6 +69,8 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       uniform float vatWidth;
       uniform float vatHeight;
       uniform float rowsPerFrame;
+      uniform vec3 vatOrigin;
+      uniform vec3 vatExtent;
 
       // Varyings
       varying vec2 vUv;
@@ -99,8 +104,10 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         );
         vec4 vatPos = texture2D(vatTexture, vatUV);
 
-        // Use VAT position instead of geometry position
-        vec3 animatedPosition = vatPos.xyz;
+        // Use VAT position instead of geometry position. Half-float VATs store
+        // it relative to their bounding box (vatEncoding in vat-baker.ts),
+        // float VATs as it is (extent 1, origin 0).
+        vec3 animatedPosition = vatPos.xyz * vatExtent + vatOrigin;
 
         // Transform normal to world space (light directions are world-space)
         vNormal = normalize(mat3(instanceMatrix) * normal);

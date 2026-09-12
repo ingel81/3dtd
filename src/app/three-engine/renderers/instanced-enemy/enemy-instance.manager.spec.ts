@@ -30,6 +30,7 @@ function fakeVat(clips: string[]): VATData {
   geometry.setAttribute('position', new Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
   return {
     positionTexture: new DataTexture(new Float32Array(3 * frames * 4), 3, frames, RGBAFormat, FloatType),
+    encoding: { type: FloatType, origin: [0, 0, 0], extent: [1, 1, 1], halfFloatError: 0 },
     vertexCount: 3,
     totalFrames: frames,
     animations,
