@@ -129,6 +129,7 @@ src/app/services/
 ├── facade/
 │   ├── game-loop-facade.service.ts
 │   ├── location-facade.service.ts
+│   ├── map-relocation.service.ts   ← HQ/Spawn auf der Karte versetzen (in place oder voller Wechsel)
 │   ├── tower-defense-facade.service.ts
 │   └── visualization-facade.service.ts
 ├── infrastructure/
