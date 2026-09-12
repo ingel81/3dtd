@@ -378,8 +378,8 @@ Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `c
 | Mammoth | W14, W18, W25 | 12 |
 | Mech | W28 | 20 |
 | Penguin | W3 | 25 |
-| Rat | W2, W3, W18 | 500 |
-| Skeleton | W19 | 0 |
+| Rat | W2, W3, W18 | 60 |
+| Skeleton | W19 | 500 |
 | Spider | W4, W6 | 35 |
 | Stone Golem | W15 | 6 |
 | Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 25 |
