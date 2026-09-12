@@ -42,8 +42,9 @@ export const WAVE_CURRICULUM: readonly CurriculumWave[] = [
   // with deliberate boss bonuses at W10/W20/W30.
   // Buffer over that roster: 25% when it was set, 83% since the upgrade
   // curves turned degressive and range stopped at L10 (roster 632,834 ->
-  // 431,542 gold, see economy-chart.html). Deliberately not retuned before a
-  // playtest, see BALANCE_PROPOSAL_2026-09 §2.5.
+  // 431,542 gold, see economy-chart.html), 69% since the chaos tower joined
+  // the roster (468,702). Deliberately not retuned before a playtest, see
+  // BALANCE_PROPOSAL_2026-09 §2.5.
   { template: 'zombie_horde',     goldKill:   133, goldComplete:    67 }, //  1 — unarmored intro (200 baseline; ~250 with combo)
   { template: 'rat_tide',         goldKill:   267, goldComplete:   133 }, //  2 — swarm test (400; funds gatling-tech)
   { template: 'penguin_rush',     goldKill:   333, goldComplete:   167 }, //  3 — speed mix (500; covers W4 build phase)

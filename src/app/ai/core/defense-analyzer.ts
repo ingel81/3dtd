@@ -52,6 +52,7 @@ const TOWER_CAPABILITIES: Record<
   tentacle: {}, // Melee tower — no special capabilities yet
   poison: { dot: true }, // Poison Tower applies DOT
   lightning: { antiAir: true },
+  chaos: { antiAir: true }, // Generalist: air and ground, 1.0 against every armor
   'research-center': {}, // Passive building — no combat capabilities
 };
 

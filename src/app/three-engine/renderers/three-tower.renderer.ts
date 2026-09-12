@@ -365,7 +365,7 @@ export class ThreeTowerRenderer {
     }
 
     // Clone the model
-    const mesh = this.assetManager.cloneModel(config.modelUrl);
+    const mesh = this.assetManager.cloneModel(config.modelUrl, { tint: config.modelTint });
     if (!mesh) {
       console.error(`[ThreeTowerRenderer] Failed to clone model: ${typeId}`);
       return null;

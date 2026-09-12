@@ -130,7 +130,7 @@ describe('encodeGameState() schema', () => {
       towerUnlocked: {
         archer: true, cannon: true, magic: false, 'dual-gatling': false,
         rocket: true, ice: false, fire: false, tentacle: false, poison: false,
-        lightning: false, 'research-center': true,
+        lightning: false, chaos: false, 'research-center': true,
       },
     };
     s.defense.aoeDpsShare = { ground: 0.4, air: 0.25 };

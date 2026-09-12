@@ -91,6 +91,7 @@ const TOWER_COLORS: Record<string, string> = {
   tentacle: '#8FB339',
   poison: '#5FBF8F',
   lightning: '#E8D44D',
+  chaos: '#D946EF',
 };
 
 // =====================================================================
@@ -1166,7 +1167,7 @@ function exampleProgression() {
   // Designer-curated example reaching the W30 target state:
   // every tower 1× (archer 3×), all upgrade tracks at L20 (range and beam
   // width stop at their L10 maximum, towerCost caps them), every research
-  // done, RC at Lv 3. Build phase finishes by W12 (all 10 tower types
+  // done, RC at Lv 3. Build phase finishes by W12 (all 11 tower types
   // deployed), then a uniform upgrade ramp through W13-W30 aligned with the
   // upgrade-tier research milestones. Air-debut at W7 is covered by archer
   // (canTargetAir) and the ice tower built in W5.
@@ -1186,6 +1187,7 @@ function exampleProgression() {
       tentacle:       { count: 1, levels: lvs('tentacle', lv) },
       poison:         { count: 1, levels: lvs('poison', lv) },
       lightning:      { count: 1, levels: lvs('lightning', lv) },
+      chaos:          { count: 1, levels: lvs('chaos', lv) },
     };
   }
   // Roster snapshots for the build phase — each entry is the cumulative roster
@@ -1194,7 +1196,7 @@ function exampleProgression() {
 
   const plan = [];
 
-  // ===== W1-W12: build phase — all 10 tower types + every tower-unlock research =====
+  // ===== W1-W12: build phase — all 11 tower types + every tower-unlock research =====
   // W1: 2 archers (bootstrap)
   plan.push({ towers: { archer: t(2) }, researches: [], rcLevel: 0 });
   // W2: same, place Research Center
@@ -1243,16 +1245,16 @@ function exampleProgression() {
     researches: ['gatling-tech', 'ice-magic', 'toxic-compounds', 'tentacle-biology', 'rocketry', 'siege-engineering', 'arcane-studies', 'storm-mastery'],
     rcLevel: 2,
   });
-  // W11: +lightning, +fire-alchemy
+  // W11: +lightning, +fire-alchemy, +chaos-rift
   plan.push({
     towers: { archer: t(3), 'dual-gatling': t(1), ice: t(1), poison: t(1), tentacle: t(1), rocket: t(1), cannon: t(1), magic: t(1), lightning: t(1) },
-    researches: ['gatling-tech', 'ice-magic', 'toxic-compounds', 'tentacle-biology', 'rocketry', 'siege-engineering', 'arcane-studies', 'storm-mastery', 'fire-alchemy'],
+    researches: ['gatling-tech', 'ice-magic', 'toxic-compounds', 'tentacle-biology', 'rocketry', 'siege-engineering', 'arcane-studies', 'storm-mastery', 'fire-alchemy', 'chaos-rift'],
     rcLevel: 2,
   });
-  // W12: +fire (now ALL 10 tower types!), +aa-retrofit. Every tower-unlock research is done.
+  // W12: +fire, +chaos (now ALL 11 tower types!), +aa-retrofit. Every tower-unlock research is done.
   plan.push({
     towers: allTowersAt(0),
-    researches: ['gatling-tech', 'ice-magic', 'toxic-compounds', 'tentacle-biology', 'rocketry', 'siege-engineering', 'arcane-studies', 'storm-mastery', 'fire-alchemy', 'aa-retrofit'],
+    researches: ['gatling-tech', 'ice-magic', 'toxic-compounds', 'tentacle-biology', 'rocketry', 'siege-engineering', 'arcane-studies', 'storm-mastery', 'fire-alchemy', 'chaos-rift', 'aa-retrofit'],
     rcLevel: 2,
   });
 
@@ -1265,7 +1267,7 @@ function exampleProgression() {
   const ramp = [1, 2, 3, 5, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20];
   const baseResearches = [
     'gatling-tech', 'ice-magic', 'toxic-compounds', 'tentacle-biology', 'rocketry',
-    'siege-engineering', 'arcane-studies', 'storm-mastery', 'fire-alchemy', 'aa-retrofit',
+    'siege-engineering', 'arcane-studies', 'storm-mastery', 'fire-alchemy', 'chaos-rift', 'aa-retrofit',
   ];
   for (let i = 0; i < ramp.length; i++) {
     const waveNum = 13 + i;

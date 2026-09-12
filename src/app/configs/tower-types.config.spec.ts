@@ -4,13 +4,18 @@ import {
   getUpgradeCost,
   upgradeFactor,
   TOWER_TYPES,
+  TowerTypeConfig,
   TowerTypeId,
   TowerUpgrade,
 } from './tower-types.config';
+import { ARMOR_TYPES, ArmorType } from './combat/combat.types';
+import { DAMAGE_MATRIX } from './combat/damage-matrix.config';
+import { computeTowerDPSFromLevels } from '../ai/core/tower-dps.util';
+import { getResearch, getResearchForTower } from './research/research-tree.config';
 
 describe('tower types config', () => {
   // Combat towers + passive buildings (research-center)
-  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning'];
+  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos'];
   const allIds: TowerTypeId[] = [...combatIds, 'research-center'];
 
   it('contains all tower types', () => {
@@ -128,6 +133,44 @@ describe('tower types config', () => {
       expect(factor, id).toBeGreaterThan(5);
       expect(factor, id).toBeLessThan(6.5);
     }
+  });
+
+  it('chaos is the priciest combat tower and at no armor the most cost-efficient pick', () => {
+    // The generalist hits every armor at 1.0 but must not be the obvious buy
+    // anywhere. Measured at base level, where the tower price still weighs in.
+    const chaos = getTowerType('chaos');
+    const others = combatIds.filter((id) => id !== 'chaos').map(getTowerType);
+    for (const t of others) expect(chaos.cost, t.id).toBeGreaterThan(t.cost);
+
+    const dpsPerGold = (t: TowerTypeConfig, armor: ArmorType) =>
+      (computeTowerDPSFromLevels(t, {}) * DAMAGE_MATRIX[t.damageType][armor]) / t.cost;
+    for (const armor of ARMOR_TYPES) {
+      const best = Math.max(...others.map((t) => dpsPerGold(t, armor)));
+      expect(dpsPerGold(chaos, armor), armor).toBeCloseTo(0.3, 5);
+      expect(best, armor).toBeGreaterThan(0.55);
+    }
+  });
+
+  it('chaos hits air and ground and unlocks behind the siege and the ethereal path', () => {
+    const chaos = getTowerType('chaos');
+    expect(chaos.damageType).toBe('chaos');
+    expect(chaos.canTargetAir).toBe(true);
+    expect(chaos.canTargetGround).toBe(true);
+
+    // Transitive prerequisites: chaos must never arrive before a real counter
+    // to heavy (cannon) and to ethereal (magic).
+    const required = new Set<string>();
+    const visit = (id: string): void => {
+      for (const p of getResearch(id)?.prerequisites ?? []) {
+        required.add(p);
+        visit(p);
+      }
+    };
+    const unlock = getResearchForTower('chaos');
+    expect(unlock).toBeDefined();
+    visit(unlock!.id);
+    expect(required).toContain('siege-engineering');
+    expect(required).toContain('arcane-studies');
   });
 
   it('targeting rules for specific towers', () => {
