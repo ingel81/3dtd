@@ -242,6 +242,26 @@ describe('TowerManager', () => {
     expect(target).toBe(enemyB);
   });
 
+  it('tower targeting "last" picks the enemy least far along its path', () => {
+    const tower = manager.placeTower({ lat: 0, lon: 0, height: 0 }, 'ice') as Tower;
+    tower.targetingStrategy = 'last';
+
+    const path: GeoPosition[] = [
+      { lat: 0.00004, lon: 0, height: 0 },
+      { lat: 0.00010, lon: 0, height: 0 },
+    ];
+    const ahead = new Enemy('zombie', path);
+    const behind = new Enemy('zombie', path);
+    const middle = new Enemy('zombie', path);
+    for (let i = 0; i < 20; i++) ahead.movement.move(0.1, 1.0);
+    for (let i = 0; i < 5; i++) middle.movement.move(0.1, 1.0);
+    for (let i = 0; i < 2; i++) behind.movement.move(0.1, 1.0);
+    expect(behind.movement.getPathProgress()).toBeLessThan(middle.movement.getPathProgress());
+
+    // Candidate order must not matter
+    expect(tower.findTarget([ahead, middle, behind], false)).toBe(behind);
+  });
+
   it('tower targeting selects lowest HP enemy when strategy is "lowest-hp"', () => {
     const tower = manager.placeTower({ lat: 0, lon: 0, height: 0 }, 'magic') as Tower;
     // Override strategy for this test

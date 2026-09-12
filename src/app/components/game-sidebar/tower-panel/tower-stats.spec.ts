@@ -33,12 +33,12 @@ describe('targetingStrategiesFor', () => {
   const ids = (id: TowerTypeId) => targetingStrategiesFor(TOWER_TYPES[id]).map((s) => s.id);
 
   it('offers air priority to a tower that hits ground and air', () => {
-    expect(ids('archer')).toEqual(['closest', 'lowest-hp', 'highest-hp', 'first', 'air-priority']);
+    expect(ids('archer')).toEqual(['closest', 'lowest-hp', 'highest-hp', 'first', 'last', 'air-priority']);
   });
 
   it('leaves air priority out for ground-only and air-only towers', () => {
     expect(ids('cannon')).not.toContain('air-priority');
-    expect(ids('rocket')).toEqual(['closest', 'lowest-hp', 'highest-hp', 'first']);
+    expect(ids('rocket')).toEqual(['closest', 'lowest-hp', 'highest-hp', 'first', 'last']);
   });
 });
 

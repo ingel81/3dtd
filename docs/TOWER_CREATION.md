@@ -16,7 +16,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x, 9 Schadenstypen: physical, pierce, siege, magic, fire, ice, poison, lightning, chaos)
 - **Upgrade-System** mit Tier-Gating: Damage/Fire Rate 25 Stufen (ab L16 degressiv), Range 10 Stufen, Profil pro Tower über `combatUpgrades({ damage, rate })`
 - Separate Preview-Skalierung für die UI
-- Air/Ground Targeting (5 Targeting-Strategien inkl. `air-priority` mit Air-Sub-Strategy)
+- Air/Ground Targeting (6 Targeting-Strategien inkl. `air-priority` mit Air-Sub-Strategy)
 - Animierte Tower-Modelle (GLTF-Animationen, optional PingPong-Loop)
 - Projektil-Angriffe mit optionalen mehreren Fire Points (Dual-Gatling)
 - Beam-Angriffe (Fire Tower, `attackType: 'beam'`)
@@ -567,6 +567,7 @@ Combat-Tower wählen ihr Ziel über eine `TargetingStrategy`. `defaultTargeting`
 | `lowest-hp` | Schwächster Feind |
 | `highest-hp` | Stärkster Feind |
 | `first` | Feind, der der Basis am nächsten ist (Default aller anderen Combat-Tower) |
+| `last` | Feind mit dem kürzesten zurückgelegten Weg (Gegenstück zu `first`, kein Tower hat es als Default) |
 | `air-priority` | Bevorzugt fliegende Ziele; Sub-Strategy via `defaultAirSubStrategy` |
 
 `AirSubStrategy` (`closest` / `lowest-hp` / `highest-hp`) entscheidet, welches Air-Target gewählt wird, wenn `air-priority` aktiv ist und mehrere Air-Units in Reichweite sind.

@@ -314,6 +314,20 @@ export class Tower extends GameObject {
         return best;
       }
 
+      case 'last': {
+        // Mirror of 'first': the enemy that has covered the least of its path
+        let best: Enemy | null = null;
+        let lowestProgress = Infinity;
+        for (const enemy of candidates) {
+          const progress = enemy.movement.getPathProgress();
+          if (progress < lowestProgress) {
+            lowestProgress = progress;
+            best = enemy;
+          }
+        }
+        return best;
+      }
+
       case 'air-priority': {
         // Separate air and ground enemies
         const airEnemies: Enemy[] = [];
