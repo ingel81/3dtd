@@ -399,6 +399,8 @@ Ehrlichkeitsabschnitt. Nichts davon ist belegt:
 | `ai-schema.ts` | Vokabulare + abgeleitete Blockgrößen (SSOT für den State) |
 | `game-state-encoder.ts` | State-Encoding (nur Training/ONNX) |
 | `ai-data-collector.service.ts` | State-Snapshot, DPS-Cache, `onWaveResult` |
+| `wave-outcome-tracker.ts` | Laufende Welle → `WaveOutcome` (Kills, Leaks, HP-Verlust, Lebensdauer, Progress) |
+| `wave-history.ts` | Letzte 10 Wellen + Reihen für `recentHistory` |
 | `dps-profile.ts` / `dps-profile-visualizer.ts` | 20-Bin-DPS-Profil entlang des Pfads + 3D-Visualisierung |
 | `defense-analyzer.ts` | Defense-Metriken |
 | `decision-explainer.ts` | „Why this wave" im Wave-Debug-Fenster (siehe Abschnitt 6) |
