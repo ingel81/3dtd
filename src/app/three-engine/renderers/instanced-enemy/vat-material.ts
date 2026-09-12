@@ -240,3 +240,10 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     depthWrite: true,
   });
 }
+
+/** Point a VAT material at another bake of the same model: same layout, new texture and mapping. */
+export function setVATTexture(material: ShaderMaterial, vatData: VATData): void {
+  material.uniforms['vatTexture'].value = vatData.positionTexture;
+  (material.uniforms['vatOrigin'].value as Vector3).set(...vatData.encoding.origin);
+  (material.uniforms['vatExtent'].value as Vector3).set(...vatData.encoding.extent);
+}

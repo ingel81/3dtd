@@ -147,6 +147,11 @@ export class PerformanceProfilerService {
    * shake running, camera moved every frame (the pre-2026-09-12 shake), each
    * for `seconds`. Logs a table and resolves with its rows, see
    * ThreeTilesEngine.runShakeBenchmark. Keep the camera still meanwhile.
+   *
+   * `__perf.loseContext(ms = 2000)` loses the WebGL context through
+   * renderer.forceContextLoss() and restores it `ms` later
+   * (forceContextRestore()), to check what comes back, e.g. the enemy VATs
+   * InstancedEnemyRenderer bakes again.
    */
   private exposeDebugApi(): void {
     (globalThis as Record<string, unknown>)['__perf'] = {
@@ -162,6 +167,13 @@ export class PerformanceProfilerService {
         const rows = await this.engine.runShakeBenchmark(seconds);
         console.table(rows);
         return rows;
+      },
+      loseContext: (ms = 2000) => {
+        const renderer = this.engine?.getRenderer();
+        if (!renderer) return false;
+        renderer.forceContextLoss();
+        setTimeout(() => renderer.forceContextRestore(), ms);
+        return true;
       },
     };
   }

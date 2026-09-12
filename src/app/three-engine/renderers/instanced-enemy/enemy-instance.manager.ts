@@ -6,9 +6,11 @@ import {
   Vector3,
   Quaternion,
   Scene,
+  ShaderMaterial,
+  Texture,
 } from 'three';
 import { VATData } from './vat-baker';
-import { createVATMaterial } from './vat-material';
+import { createVATMaterial, setVATTexture } from './vat-material';
 import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { InstanceSlotAllocator } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
@@ -98,6 +100,17 @@ const HIT_FLASH_R = 0.85;
 const HIT_FLASH_G = 0.95;
 const HIT_FLASH_B = 1.0;
 
+/**
+ * DataTexture.onUpdate for VATs. three calls it right after uploading the
+ * texels; from then on the shader reads the GPU copy only, so the CPU copy
+ * goes. After a WebGL context loss three would upload from that copy again;
+ * InstancedEnemyRenderer bakes those VATs again instead
+ * (rebakeAfterContextRestore).
+ */
+function releaseTexels(texture: Texture): void {
+  (texture.image as { data: unknown }).data = null;
+}
+
 /** Pick a death animation: random entry from deathAnimations pool, falling back to deathAnimation. Only returns clips the pool actually baked. */
 function pickDeathAnimation(config: EnemyTypeConfig, pool: TypePool): string | undefined {
   const candidates: string[] = [];
@@ -147,6 +160,8 @@ export class EnemyInstanceManager {
   createPool(typeId: string, vatData: VATData, config: EnemyTypeConfig): void {
     if (this.pools.has(typeId)) return;
 
+    // The VAT lives on the GPU once uploaded (up to 53 MB per type on the CPU otherwise).
+    vatData.positionTexture.onUpdate = releaseTexels;
     const material = createVATMaterial(vatData, {
       emissiveIntensity: config.emissiveIntensity,
       emissiveColor: config.emissiveColor,
@@ -600,6 +615,29 @@ export class EnemyInstanceManager {
     if (overrides.rotation !== undefined) state.debugRotation = overrides.rotation;
     if (overrides.healthBarOffset !== undefined) state.debugHealthBarOffset = overrides.healthBarOffset;
     if (overrides.animationSpeed !== undefined) state.animSpeed = overrides.animationSpeed;
+  }
+
+  /** Types whose VAT has dropped its CPU copy after the upload (releaseTexels). */
+  typesWithReleasedVAT(): string[] {
+    const types: string[] = [];
+    for (const pool of this.pools.values()) {
+      if ((pool.vatData.positionTexture.image as { data: unknown }).data == null) types.push(pool.typeId);
+    }
+    return types;
+  }
+
+  /**
+   * Swap in a VAT baked again after a WebGL context loss: same model, same
+   * layout and clips, so the geometry and the frame table stay. The old
+   * texture is not disposed: its GPU copy went with the lost context, and
+   * disposing it would hand the restored context a stale texture handle.
+   */
+  replaceVATAfterContextLoss(typeId: string, vatData: VATData): void {
+    const pool = this.pools.get(typeId);
+    if (!pool) return;
+    vatData.positionTexture.onUpdate = releaseTexels;
+    setVATTexture(pool.instancedMesh.material as ShaderMaterial, vatData);
+    pool.vatData = { ...pool.vatData, positionTexture: vatData.positionTexture, encoding: vatData.encoding };
   }
 
   /**

@@ -71,6 +71,9 @@ export class InstancedEnemyRenderer {
   private _showHealthBars = true;
   private _showAnimations = true;
 
+  /** Removes the webglcontextrestored listener (rebakeOnContextRestore). */
+  private stopRebakeOnRestore: (() => void) | null = null;
+
   constructor(
     private readonly scene: Scene,
     private readonly sync: CoordinateSync,
@@ -129,6 +132,44 @@ export class InstancedEnemyRenderer {
       console.error(`[InstancedRenderer] Failed to bake ${typeId}:`, err);
       this.loadedTypes.add(typeId);
     }
+  }
+
+  /**
+   * Bake again the VATs that dropped their CPU copy after the upload
+   * (EnemyInstanceManager.createPool) and swap them into their pools. After
+   * a WebGL context loss three uploads every texture again from its CPU copy,
+   * which such a VAT no longer has. Costs the bake time of those types.
+   */
+  rebakeAfterContextRestore(): void {
+    const start = performance.now();
+    const types = this.instanceManager.typesWithReleasedVAT();
+    for (const typeId of types) {
+      const config = ENEMY_TYPES[typeId];
+      const cached = config ? this.assetManager.getCachedModel(config.modelUrl) : undefined;
+      const clone = cached ? this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: true }) : null;
+      const vatData = cached && clone ? bakeEnemyVAT(config, clone, cached.animations) : null;
+      if (vatData) {
+        this.instanceManager.replaceVATAfterContextLoss(typeId, vatData);
+      } else {
+        console.error(`[InstancedRenderer] VAT rebake failed for ${typeId} after a context loss, its enemies collapse`);
+      }
+    }
+    if (types.length > 0) {
+      console.log(`[InstancedRenderer] Baked ${types.length} VATs again after a context loss (${(performance.now() - start).toFixed(0)} ms)`);
+    }
+  }
+
+  /**
+   * Bake the released VATs again whenever `canvas` gets its WebGL context
+   * back. three's own listener, added when the renderer was created, has
+   * restored its state by then, and no frame is drawn in between.
+   * dispose() stops listening.
+   */
+  rebakeOnContextRestore(canvas: HTMLCanvasElement): void {
+    this.stopRebakeOnRestore?.();
+    const onRestored = (): void => this.rebakeAfterContextRestore();
+    canvas.addEventListener('webglcontextrestored', onRestored);
+    this.stopRebakeOnRestore = () => canvas.removeEventListener('webglcontextrestored', onRestored);
   }
 
   // =====================================================
@@ -422,6 +463,8 @@ export class InstancedEnemyRenderer {
   }
 
   dispose(): void {
+    this.stopRebakeOnRestore?.();
+    this.stopRebakeOnRestore = null;
     this.clear();
     this.instanceManager.dispose();
     this.healthBarManager.dispose();

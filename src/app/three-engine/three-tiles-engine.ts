@@ -292,6 +292,9 @@ export class ThreeTilesEngine {
     }
 
     this.enemies = new InstancedEnemyRenderer(this.scene, coordinateSync, this.assetManager);
+    // A restored WebGL context comes back empty and three uploads every texture
+    // again from its CPU copy, which the VATs drop after their first upload.
+    this.enemies.rebakeOnContextRestore(this.renderer.domElement);
     this.towers = new ThreeTowerRenderer(this.scene, coordinateSync, this.assetManager);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
