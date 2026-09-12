@@ -135,7 +135,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     reward: 3,
     hasAnimations: true,
     walkAnimation: 'Unsteady_Walk',
-    deathAnimations: ['Dead', 'dying_backwards', 'Electrocuted_Fall'],
+    // Electrocuted_Fall stays out: its fall starts after 3 s, the enemy is gone after 2.
+    deathAnimations: ['Dead', 'dying_backwards'],
     animationSpeed: 1,
     movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
