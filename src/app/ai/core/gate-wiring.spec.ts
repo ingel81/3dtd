@@ -167,7 +167,7 @@ describe('gate wiring', () => {
     it('a wider budget ships bigger waves', async () => {
       // The other half of the blocker: a correctly-fed controller still does
       // nothing unless its output reaches fairMaxCount. Dropping the
-      // `this.gate.budgetMultiplier` argument in buildWaveConfig must fail this.
+      // `gate.budgetMultiplier` argument in buildWaveConfig must fail this.
       //
       // Averaged over many waves rather than compared one to one: the director
       // rotates templates to enforce variety, and templates carry different

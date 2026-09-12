@@ -23,7 +23,7 @@ Client:
 |---|---|
 | `src/app/ai/core/rule-director.ts` | wählt Template + die vier Formfaktoren (count, spawn_delay, hp_mult, variation) |
 | `src/app/ai/core/gate-controller.ts` | Regelkreis auf dem Fairness-Cap, per Run |
-| `src/app/ai/core/wave-director.service.ts` | gemeinsamer Pfad: Maske, Range-Interpolation, DPS-Ramp, Endgame-Multiplier, Fairness-Cap |
+| `src/app/ai/core/wave-config-builder.ts` | gemeinsamer Pfad: Range-Interpolation, DPS-Ramp, Endgame-Multiplier, Fairness-Cap (Maske: `wave-context.ts`) |
 
 Der Regel-Director ist ein 1:1-Ersatz für die fünf Zahlen, die das Netz
 ausgegeben hat — alles danach ist unverändert und wird geteilt. Zwei bewusste

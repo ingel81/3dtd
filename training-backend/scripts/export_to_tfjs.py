@@ -10,7 +10,7 @@ Phase 5.10 output format (34 values per sample):
   [0..MAX_TEMPLATE_SLOTS-1]               = template_logits (32)
   [MAX_TEMPLATE_SLOTS..+NUM_CONTINUOUS-1] = raw continuous params (strength, count)
 
-The frontend WaveDirectorService consumes this tensor in decodeModelOutput().
+The frontend consumes this tensor in decodeModelOutput() (src/app/ai/core/onnx-policy.ts).
 """
 
 import argparse

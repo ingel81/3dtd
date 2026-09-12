@@ -192,7 +192,7 @@ buildWaveContext(state, recent)        ai/core/wave-context.ts
 RuleDirector.decide(mask, wave, recent)   ai/core/rule-director.ts
    │   templateIdx + countFactor / spawnFactor / hpFactor / variationFactor
    ▼
-buildWaveConfig(decision, state, maskReason)   ai/core/wave-director.service.ts
+buildWaveConfig(decision, state, maskReason, gate)   ai/core/wave-config-builder.ts
    │   DPS-Ramp → endgameHpMultiplier → Fairness-Cap → Dauer-Cap → Gruppen
    │   + explanation (explainWaveDecision, "Why this wave")
    ▼

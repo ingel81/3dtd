@@ -169,7 +169,7 @@ geteilt — Curriculum-Gates (`minWave`), Capability-Gates (`antiAir`,
 und der Fairness-Gate. Das Modell ersetzt genau die fünf Zahlen oben und sonst
 nichts.
 
-Diese Logik lebt im Frontend in `src/app/ai/core/wave-director.service.ts` und
+Diese Logik lebt im Frontend in `src/app/ai/core/wave-config-builder.ts` und
 im Backend in `server.py::_decode_action` — beide müssen synchron bleiben.
 
 ## Browser-Integration
@@ -177,7 +177,7 @@ im Backend in `server.py::_decode_action` — beide müssen synchron bleiben.
 ### ONNX Runtime Web
 
 Wird **lazy** geladen, erst wenn `loadModel()` gerufen wird
-(`wave-director.service.ts`):
+(`OnnxPolicy.load()` in `onnx-policy.ts`):
 
 ```typescript
 const ort = await import('onnxruntime-web');
