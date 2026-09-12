@@ -280,6 +280,34 @@ describe('PathAndRouteService route geometry', () => {
         expect(service.measureStreetClearance()).toBe(true);
       });
 
+      it('measures the stations again that had no fine tile, and only those', () => {
+        // Facades 2.6 m off from 40 to 80 m north of n1, on way 200. The first
+        // run has fine tiles only up to 60 m.
+        const facades = (x: number, z: number, max: number) =>
+          Math.abs(x) < 1 && northOfN1(z) > 40 && northOfN1(z) < 80 ? 2.6 : max;
+        clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 60 && northOfN1(z) < 110 ? null : facades(x, z, max));
+        const service = buildRouteService(network, spawn, hq);
+        expect(service.measureStreetClearance()).toBe(true);
+
+        const remeasured: number[] = [];
+        clearanceAt = (x, z, max) => {
+          if (Math.abs(x) < 1) remeasured.push(northOfN1(z));
+          return facades(x, z, max);
+        };
+        expect(service.measureStreetClearance()).toBe(true);
+        expect(remeasured.length).toBeGreaterThan(0);
+        expect(Math.min(...remeasured)).toBeGreaterThan(60);
+
+        // The narrow stretch now runs to 80 m instead of ending at 60.
+        service.showPathFromSpawn(spawnPointAt(spawn));
+        const route = service.getCachedPath('s1')!;
+        const k = route.findIndex((p) => p.corridorHalfWidth === 2.5);
+        expect(northOfN1(-toMeters(route[k]).z)).toBeGreaterThan(38);
+        expect(northOfN1(-toMeters(route[k]).z)).toBeLessThan(42);
+        expect(northOfN1(-toMeters(route[k + 1]).z)).toBeGreaterThan(78);
+        expect(northOfN1(-toMeters(route[k + 1]).z)).toBeLessThan(82);
+      });
+
       it('measures a segment once', () => {
         let calls = 0;
         clearanceAt = (_x, _z, max) => {
