@@ -136,6 +136,43 @@
   transition: width 0.3s ease;
 }
 
+/* Auto-start counting down: label left, seconds right, and the bar drains
+ * with the game time left (stands while paused) */
+.td-wave-btn.td-wave-counting {
+  justify-content: space-between;
+}
+.td-wave-countdown {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.td-wave-bar.td-wave-bar-countdown {
+  background: rgba(26, 20, 10, 0.45);
+  transition: width 0.9s linear;
+}
+
+/* Auto-start toggle, a plain checkbox row under the button */
+.td-auto-wave {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.td-auto-wave input {
+  margin: 0;
+  accent-color: var(--td-teal);
+}
+.td-auto-wave-note {
+  margin-left: auto;
+  color: var(--td-text-muted);
+}
+
 /* Curriculum coming-up preview, flat, embedded directly under the
  * Next-Wave button. No quote-block style (no bg, no border-left, no radius).
  * Matches tmp/td-artboards.jsx HudSidebar Coming-Up section. */

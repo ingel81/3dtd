@@ -26,6 +26,7 @@ interface PersistedUIState {
   sfxVolume?: number;
   musicMuted?: boolean;
   sfxMuted?: boolean;
+  autoStartWaves?: boolean;
 }
 
 /** Older states stored one flag per menu, and several could be open. */
@@ -87,6 +88,12 @@ export class UIStore {
 
   /** SFX muted */
   readonly sfxMuted = signal<boolean>(false);
+
+  /**
+   * Start the next wave by itself after a countdown once a wave is done.
+   * Off by default, persisted. Ignored while a bot plays.
+   */
+  readonly autoStartWaves = signal<boolean>(false);
 
   /** Street network layer visibility */
   readonly streetsVisible = signal<boolean>(false);
@@ -169,6 +176,7 @@ export class UIStore {
         if (state.sfxVolume !== undefined) this.sfxVolume.set(state.sfxVolume);
         if (state.musicMuted !== undefined) this.musicMuted.set(state.musicMuted);
         if (state.sfxMuted !== undefined) this.sfxMuted.set(state.sfxMuted);
+        if (state.autoStartWaves !== undefined) this.autoStartWaves.set(state.autoStartWaves);
       }
     } catch {
       // Ignore parse errors
@@ -195,6 +203,7 @@ export class UIStore {
           sfxVolume: this.sfxVolume(),
           musicMuted: this.musicMuted(),
           sfxMuted: this.sfxMuted(),
+          autoStartWaves: this.autoStartWaves(),
         };
         if (this.persistTimer !== null) return;
         this.persistTimer = setTimeout(() => {
@@ -273,6 +282,7 @@ export class UIStore {
     this.perTowerLosFilter.set('both');
     this.dpsBinsVisible.set(false);
     this.buildingsVisible.set(false);
+    this.autoStartWaves.set(false);
     this.debugLog.set('');
     this.resetBuildState();
   }

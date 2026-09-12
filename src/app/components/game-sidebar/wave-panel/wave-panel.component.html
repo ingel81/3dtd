@@ -36,6 +36,8 @@
       </div>
     }
     <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
+            [class.td-wave-counting]="!!waveButton().countdown"
+            [attr.aria-label]="waveButtonAriaLabel()"
             aria-keyshortcuts="Space"
             [disabled]="waveActive() || isGameOver()">
       @if (waveActive()) {
@@ -48,10 +50,22 @@
           <span class="td-wave-bar" [style.width.%]="waveButton().barPercent"></span>
         }
       } @else {
-        <td-icon name="play" [size]="16"></td-icon>
-        <span>{{ waveButton().label }}</span>
+        <span class="td-wave-btn-main">
+          <td-icon name="play" [size]="16"></td-icon>
+          <span>{{ waveButton().label }}</span>
+        </span>
+        @if (waveButton().countdown; as countdown) {
+          <span class="td-wave-countdown">{{ countdown }}</span>
+          <span class="td-wave-bar td-wave-bar-countdown" [style.width.%]="waveButton().barPercent"></span>
+        }
       }
     </button>
+
+    <label class="td-auto-wave">
+      <input type="checkbox" [checked]="autoStart()" (change)="toggleAutoStart()">
+      <span>Auto-start next wave</span>
+      <span class="td-auto-wave-note">{{ autoStartSeconds }}s after a wave</span>
+    </label>
 
     <!-- Phase 5.16: Coming-Up curriculum preview -->
     @if (upcomingWaves().length > 0) {

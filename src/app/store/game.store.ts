@@ -64,6 +64,12 @@ export class GameStore {
   readonly paused = signal<boolean>(false);
 
   /**
+   * Whole seconds of game time until the auto-started next wave, null while
+   * nothing counts down. Written by GameLoopFacadeService.
+   */
+  readonly autoWaveSecondsLeft = signal<number | null>(null);
+
+  /**
    * Phase 5.14: Skip 3D rendering to free CPU/GPU for more parallel training
    * clients. Gameplay simulation still runs (sub-step loop is decoupled from
    * render loop), but `renderer.render()` + `tilesRenderer.update()` + all
@@ -142,6 +148,7 @@ export class GameStore {
     this.showGameOverScreen.set(false);
     this.aiExplanation.set(null);
     this.paused.set(false);
+    this.autoWaveSecondsLeft.set(null);
   }
 
   /**

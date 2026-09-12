@@ -1,4 +1,4 @@
-import { Injectable, inject, Injector, NgZone, effect } from '@angular/core';
+import { Injectable, inject, Injector, NgZone, effect, untracked } from '@angular/core';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { CameraControlService } from '../camera-control.service';
 import { TowerPlacementService } from '../tower-placement.service';
@@ -26,6 +26,7 @@ import { SoundPoolStats } from '../../managers/audio/spatial-audio.manager';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { UIStore } from '../../store/ui.store';
+import { AutoWaveCountdown } from '../../utils/auto-wave-countdown';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
@@ -84,6 +85,9 @@ export class GameLoopFacadeService {
   /** EventBus subscription bag — cleaned up in dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
 
+  /** Auto-start of the next wave, on the game clock, see AutoWaveCountdown */
+  private readonly autoWave = new AutoWaveCountdown();
+
   /**
    * Initialize sub-facade with bridge and game state.
    */
@@ -98,6 +102,7 @@ export class GameLoopFacadeService {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
+    this.autoWave.cancel();
     this.pendingAIWaveRequest = false;
     this.lastStatsUpdate = 0;
     this.initialized = false;
@@ -145,6 +150,19 @@ export class GameLoopFacadeService {
           }
         }
       }
+    }, { injector });
+
+    // Effect: the auto-start toggle. Switched on between waves it starts
+    // counting at once, switched off it stops a running countdown.
+    effect(() => {
+      const on = this.uiStore.autoStartWaves();
+      untracked(() => {
+        if (!on) {
+          this.cancelAutoWave();
+        } else if (this.store.phase() === 'setup' && this.store.waveNumber() > 0) {
+          this.armAutoWave();
+        }
+      });
     }, { injector });
 
     // Effect: Bridge UIStore.perTowerLosFilter → TowerManager selection
@@ -196,6 +214,54 @@ export class GameLoopFacadeService {
         callbacks.onGameOverExtra();
       })
     );
+
+    // Auto-start of the next wave: counts down after a completed wave. Any
+    // start ends it, the auto-start itself included, and so do game over
+    // and a restart.
+    this.eventBusSubs.add(eventBus.on('wave:completed', () => this.armAutoWave()));
+    this.eventBusSubs.add(eventBus.on('wave:started', () => this.cancelAutoWave()));
+    this.eventBusSubs.add(eventBus.on('game:over', () => this.cancelAutoWave()));
+    this.eventBusSubs.add(eventBus.on('game:reset', () => this.cancelAutoWave()));
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Auto-start of the next wave
+  // ══════════════════════════════════════════════════════════════
+
+  private armAutoWave(): void {
+    // A bot starts its own waves, a training run must not change behind it
+    if (!this.uiStore.autoStartWaves() || this.trainingClient.botEnabled()) return;
+    if (this.store.phase() === 'gameover') return;
+    const now = this.gameState.gameTimeMs;
+    this.autoWave.arm(now);
+    this.showAutoWaveSeconds(this.autoWave.secondsLeft(now));
+  }
+
+  private cancelAutoWave(): void {
+    this.autoWave.cancel();
+    this.showAutoWaveSeconds(null);
+  }
+
+  /**
+   * Per frame: run the countdown on the game clock and start the wave once
+   * it is due, the same way the button does. While the game is paused the
+   * clock stands, and the countdown with it.
+   */
+  tickAutoWave(): void {
+    if (!this.autoWave.armed) return;
+    const now = this.gameState.gameTimeMs;
+    if (this.autoWave.tick(now)) {
+      this.showAutoWaveSeconds(null);
+      this.ngZone.run(() => this.startWave());
+      return;
+    }
+    this.showAutoWaveSeconds(this.autoWave.secondsLeft(now));
+  }
+
+  /** Written only on change, so about once a second while counting. */
+  private showAutoWaveSeconds(seconds: number | null): void {
+    if (this.store.autoWaveSecondsLeft() === seconds) return;
+    this.ngZone.run(() => this.store.autoWaveSecondsLeft.set(seconds));
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -472,6 +538,8 @@ export class GameLoopFacadeService {
         );
       }
     });
+
+    this.tickAutoWave();
 
     // Performance profiler tick (console log timer)
     this.profiler.tick(deltaTime);

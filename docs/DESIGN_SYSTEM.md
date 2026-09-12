@@ -292,7 +292,10 @@ Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche, Farbe und Inh
 |---------|----------|-------------|
 | Bereit | keine Welle, auch im Build-Mode | Gold-Verlauf, Hover `--td-gold-glow`, Pressed-Inset, `:focus-visible`-Outline in `--td-gold-light` |
 | Gesperrt | Game Over | grauer Verlauf wie `.td-btn:disabled`, `--td-text-disabled`, weiter "Start Wave N" |
+| Countdown | Auto-Start an, Welle vorbei | wie Bereit, "Start Wave N" links, rechts "{n}s" (11px, 75 % Deckkraft, keine Versalien), unten ein 2px-Balken in `rgba(26,20,10,0.45)`, so breit wie der Rest der Wartezeit; ein Klick startet sofort |
 | Welle läuft | `waveActive()` | `.td-wave-running`: `--td-panel-shadow` mit den Kanten der vertieften Fläche; links Icon `wave` und "Wave N" in `--td-teal`, rechts "{n} left" (11px, `--td-text-muted`, keine Versalien), unten ein 2px-Balken in `--td-teal`, so breit wie der Anteil der Gegner, die weder getötet noch durchgekommen sind |
+
+Unter dem Button schaltet eine Checkbox-Zeile ("Auto-start next wave", rechts "10s after a wave" in `--td-text-muted`, Mono 10px, Akzent `--td-teal`) den Auto-Start, Standard aus, gespeichert in `td-ui-state` (`UIStore.autoStartWaves`). Der Countdown läuft in Spielzeit: bei 4x ist die Pause kürzer, pausiert steht er. Er beginnt nach `wave:completed` (wird er mitten in der Bauphase eingeschaltet, sofort), jeder Wellenstart, Game Over und ein Neustart beenden ihn, mit aktivem Bot bleibt er aus. Zahl und Balken liefert `waveButtonView()` aus `GameStore.autoWaveSecondsLeft`, das `GameLoopFacadeService` nur bei Änderung schreibt.
 
 Ein Start aus dem Build-Mode lässt den Build-Mode an: Vorschau und gewählter Tower bleiben, gebaut werden darf auch während der Welle.
 

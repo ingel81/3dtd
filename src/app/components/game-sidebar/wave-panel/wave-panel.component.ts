@@ -15,6 +15,8 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
+import { UIStore } from '../../../store/ui.store';
+import { AUTO_WAVE_DELAY_MS } from '../../../utils/auto-wave-countdown';
 import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { EnemyTypeId, ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { ModelPreviewService } from '../../../services/infrastructure/model-preview.service';
@@ -41,6 +43,7 @@ import { waveButtonView } from './wave-button';
 })
 export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly store = inject(TowerDefenseStore);
+  private readonly uiStore = inject(UIStore);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
@@ -88,15 +91,31 @@ export class SidebarWavePanelComponent implements AfterViewInit {
     return this.waveActive() ? n : n + 1;
   });
 
-  /** Label, "N left" and bar width of the wave button. */
+  /** Auto-start of the next wave, persisted in the UI state */
+  readonly autoStart = this.uiStore.autoStartWaves;
+  readonly autoStartSeconds = AUTO_WAVE_DELAY_MS / 1000;
+
+  /** Label, "N left", countdown and bar width of the wave button. */
   readonly waveButton = computed(() =>
     waveButtonView(
       this.displayedWaveNumber(),
       this.waveActive(),
       this.store.waveEnemyTotal(),
       this.store.waveEnemiesLeft(),
+      this.store.autoWaveSecondsLeft(),
+      this.autoStartSeconds,
     )
   );
+
+  /** While it counts down, the button still starts the wave at once. */
+  readonly waveButtonAriaLabel = computed(() => {
+    const view = this.waveButton();
+    return view.countdown ? `${view.label} now, starts by itself in ${view.countdown}` : null;
+  });
+
+  toggleAutoStart(): void {
+    this.uiStore.autoStartWaves.update(on => !on);
+  }
 
   /** COMING UP: die nächsten zwei Curriculum-Wellen. */
   readonly upcomingWaves = computed(() => peekUpcomingWaves(this.store.waveNumber()));

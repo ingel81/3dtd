@@ -213,6 +213,7 @@ describe('GameStore', () => {
       store.showGameOverScreen.set(true);
       store.aiExplanation.set({ summary: 'Wave 1: Zombie Horde · 20 enemies · HP ×0.50', reasons: [] });
       store.paused.set(true);
+      store.autoWaveSecondsLeft.set(7);
 
       store.resetGameState();
 
@@ -229,6 +230,7 @@ describe('GameStore', () => {
       expect(store.aiExplanation()).toBeNull();
       // A new game never starts frozen
       expect(store.paused()).toBe(false);
+      expect(store.autoWaveSecondsLeft()).toBeNull();
     });
 
     it('does NOT reset training timescale', () => {
