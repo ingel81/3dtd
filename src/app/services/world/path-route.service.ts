@@ -4,8 +4,10 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { ThreeTilesEngine } from '../../three-engine';
-import { GeoPosition } from '../../models/game.types';
+import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
+import { StreetEdgeIndex } from '../../utils/route-ways';
+import { estimateStreetWidth, routeHalfWidths, segmentHalfWidth } from '../../utils/route-corridor';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
@@ -44,6 +46,16 @@ export interface RouteWayRun {
   name: string;
   /** width/lanes/bridge/tunnel/covered/layer, where the way has them */
   tags: string;
+  /** Street width the corridor starts from, metres; null off the network */
+  widthM: number | null;
+  /**
+   * Where `widthM` came from: the `width` or `lanes` tag, a typical value
+   * for the `highway` class, or `inherited` off the network (the leg to the
+   * HQ keeps the width of the street it leaves).
+   */
+  widthSource: string;
+  /** Corridor width in use (twice the half width), a range where it varies */
+  corridorM: string;
   lengthM: number;
   /**
    * Largest gap between the cell height (red line, enemy feet) and the
@@ -74,7 +86,10 @@ export class PathAndRouteService {
   // ========================================
 
   /** Cached paths from spawn to base (key: spawnId) */
-  private cachedPaths = new Map<string, GeoPosition[]>();
+  private cachedPaths = new Map<string, RouteWaypoint[]>();
+
+  /** Street lookup for route segments, built on first use per street network. */
+  private edgeIndex: StreetEdgeIndex | null = null;
 
 
   /** 3D route lines for visualization (using Line2 for proper line width) */
@@ -121,6 +136,7 @@ export class PathAndRouteService {
   ): void {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
+    this.edgeIndex = null;
     this.baseCoords = baseCoords;
     this.routesVisible = routesVisible;
     this.pathfindingService = pathfindingService;
@@ -166,7 +182,7 @@ export class PathAndRouteService {
    * @param spawnId Spawn point ID
    * @returns Cached path or undefined
    */
-  getCachedPath(spawnId: string): GeoPosition[] | undefined {
+  getCachedPath(spawnId: string): RouteWaypoint[] | undefined {
     return this.cachedPaths.get(spawnId);
   }
 
@@ -175,7 +191,7 @@ export class PathAndRouteService {
    * @param spawnId Spawn point ID
    * @param path Path to cache
    */
-  cachePath(spawnId: string, path: GeoPosition[]): void {
+  cachePath(spawnId: string, path: RouteWaypoint[]): void {
     this.cachedPaths.set(spawnId, path);
   }
 
@@ -197,8 +213,13 @@ export class PathAndRouteService {
    * Get all cached paths as a Map
    * @returns Map of spawn ID to path
    */
-  getCachedPaths(): Map<string, GeoPosition[]> {
+  getCachedPaths(): Map<string, RouteWaypoint[]> {
     return this.cachedPaths;
+  }
+
+  /** The street lookup for the current network, see {@link StreetEdgeIndex}. */
+  private getEdgeIndex(network: StreetNetwork): StreetEdgeIndex {
+    return (this.edgeIndex ??= new StreetEdgeIndex(network.streets));
   }
 
 
@@ -423,6 +444,10 @@ export class PathAndRouteService {
       geoPath = this.subdivideGeoPath(geoPath, 2);
     }
 
+    // Corridor half width per segment, from the street each one runs over.
+    // Cells and enemy spread read it off the cached waypoints.
+    const halfWidths = routeHalfWidths(this.getEdgeIndex(this.streetNetwork).match(geoPath));
+
     // Create route line in Three.js - on terrain with RELATIVE heights
     // DevWorld needs higher offset due to steep procedural terrain
     const HEIGHT_ABOVE_GROUND = this.devWorld.isActive ? 3 : 1;
@@ -445,7 +470,7 @@ export class PathAndRouteService {
     // We draw a flat line at HQ level; refreshRouteLines runs after
     // onTilesLoaded / grid init and snaps the line up to real heights.
     const cellsReady = this.globalRouteGrid.isInitialized();
-    const pathWithHeights: GeoPosition[] = new Array(geoPath.length);
+    const pathWithHeights: RouteWaypoint[] = new Array(geoPath.length);
 
     for (let i = 0; i < geoPath.length; i++) {
       const pos = geoPath[i];
@@ -465,7 +490,9 @@ export class PathAndRouteService {
       // Cached path keeps an absolute geo height for any legacy reader.
       // Enemy movement/spawn no longer use this field — they read cells
       // directly — but route-animation and external consumers may rely on it.
-      pathWithHeights[i] = { ...pos, height: terrainY + origin.height };
+      const waypoint: RouteWaypoint = { ...pos, height: terrainY + origin.height };
+      if (i < halfWidths.length) waypoint.corridorHalfWidth = halfWidths[i];
+      pathWithHeights[i] = waypoint;
     }
 
     this.cachedPaths.set(spawn.id, pathWithHeights);
@@ -909,6 +936,8 @@ export class PathAndRouteService {
    * Routen-Befunds zwei Fragen: Läuft die Route dort über einen anderen Way
    * als die sichtbare Straße (Fußweg, Durchgang, Tunnel)? Und liegen die
    * Zellen dort auf Dach oder Baumkrone, während die Straße darunter liegt?
+   * Dazu die Straßenbreite, ihre Quelle und die Korridorbreite, die daraus
+   * geworden ist.
    *
    * Nur für Diagnose: ein Aufruf kostet pro Punkt bis zu fünf Säulen-Samples.
    */
@@ -917,50 +946,24 @@ export class PathAndRouteService {
     const service = this.pathfindingService;
     if (!engine || !service || !this.streetNetwork) return [];
 
-    // Kante (beide Richtungen) → Way. Die Route kopiert lat/lon unverändert
-    // aus den StreetNodes, der exakte Vergleich trifft also.
-    const pointKey = (p: { lat: number; lon: number }) => `${p.lat},${p.lon}`;
-    const edgeKey = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) =>
-      `${pointKey(a)}|${pointKey(b)}`;
-    const edges = new Map<string, Street>();
-    const neighbours = new Map<string, [StreetNode, Street][]>();
-    const link = (from: StreetNode, to: StreetNode, street: Street) => {
-      edges.set(edgeKey(from, to), street);
-      const list = neighbours.get(pointKey(from));
-      if (list) list.push([to, street]);
-      else neighbours.set(pointKey(from), [[to, street]]);
-    };
-    for (const street of this.streetNetwork.streets) {
-      for (let i = 0; i < street.nodes.length - 1; i++) {
-        link(street.nodes[i], street.nodes[i + 1], street);
-        link(street.nodes[i + 1], street.nodes[i], street);
-      }
-    }
-
+    const index = this.getEdgeIndex(this.streetNetwork);
     const cellsReady = this.globalRouteGrid.isInitialized();
     const rows: RouteWayRun[] = [];
 
     for (const [routeId, path] of this.cachedPaths) {
+      const ways = index.match(path);
       let run: RouteWayRun | null = null;
+      let corridorMin = Infinity;
+      let corridorMax = -Infinity;
 
       for (let i = 0; i < path.length - 1; i++) {
         const a = path[i];
         const b = path[i + 1];
-        let street = edges.get(edgeKey(a, b)) ?? null;
-        if (!street) {
-          // Der Abzweig zum HQ endet mitten auf einer Kante, die am Waypoint
-          // davor beginnt. Erst das Stück danach liegt wirklich neben dem Netz.
-          for (const [next, candidate] of neighbours.get(pointKey(a)) ?? []) {
-            const foot = this.closestPointOnSegment(a, next, b);
-            if (service.haversineDistance(foot.lat, foot.lon, b.lat, b.lon) < 0.5) {
-              street = candidate;
-              break;
-            }
-          }
-        }
+        const street = ways[i];
         const wayId = street?.id ?? null;
 
         if (!run || run.way !== wayId) {
+          const estimate = street ? estimateStreetWidth(street) : null;
           run = {
             route: routeId,
             fromIndex: i,
@@ -969,13 +972,25 @@ export class PathAndRouteService {
             type: street?.type ?? '(off network)',
             name: street?.name ?? '',
             tags: street ? describeStreetTags(street) : '',
+            widthM: estimate?.widthM ?? null,
+            widthSource: estimate?.source ?? 'inherited',
+            corridorM: '',
             lengthM: 0,
             maxCellAboveStreetM: null,
             at: '',
           };
           rows.push(run);
+          corridorMin = Infinity;
+          corridorMax = -Infinity;
         }
         run.toIndex = i + 1;
+
+        const corridor = 2 * segmentHalfWidth(a);
+        corridorMin = Math.min(corridorMin, corridor);
+        corridorMax = Math.max(corridorMax, corridor);
+        run.corridorM = corridorMin === corridorMax
+          ? corridorMin.toFixed(1)
+          : `${corridorMin.toFixed(1)}-${corridorMax.toFixed(1)}`;
 
         const length = service.haversineDistance(a.lat, a.lon, b.lat, b.lon);
         run.lengthM += length;
@@ -1021,6 +1036,7 @@ export class PathAndRouteService {
     this.pathfindingWorker.dispose();
     this.engine = null;
     this.streetNetwork = null;
+    this.edgeIndex = null;
     this.baseCoords = null;
     this.routesVisible = null;
     this.pathfindingService = null;

@@ -113,6 +113,21 @@ export function corridorHalfWidth(widthM: number): number {
   return Math.min(CORRIDOR_MAX_HALF_WIDTH_M, Math.max(CORRIDOR_MIN_HALF_WIDTH_M, widthM / 2));
 }
 
+/**
+ * Corridor half width per route segment, from the street each one runs
+ * over. A segment off the network (the leg to the HQ) keeps the width of the
+ * street it leaves; one with no street before it gets the default.
+ */
+export function routeHalfWidths(ways: readonly (StreetWidthTags | null)[]): number[] {
+  const halfWidths: number[] = [];
+  let previous = CORRIDOR_DEFAULT_HALF_WIDTH_M;
+  for (const way of ways) {
+    if (way) previous = corridorHalfWidth(estimateStreetWidth(way).widthM);
+    halfWidths.push(previous);
+  }
+  return halfWidths;
+}
+
 /** Half width of the segment that starts at `waypoint`. */
 export function segmentHalfWidth(waypoint: RouteWaypoint): number {
   return waypoint.corridorHalfWidth ?? CORRIDOR_DEFAULT_HALF_WIDTH_M;
