@@ -783,3 +783,16 @@ export function getAllEnemyTypes(): EnemyTypeConfig[] {
 export function getEnemyTypeIds(): EnemyTypeId[] {
   return Object.keys(ENEMY_TYPES) as EnemyTypeId[];
 }
+
+/** Guard against a split cycle in the config (a type splitting into itself). */
+const MAX_SPLIT_DEPTH = 4;
+
+/**
+ * Bodies one enemy of `id` can put on the route: itself plus everything a
+ * kill splits it into, recursively. 1 for a type without splitOnDeath.
+ */
+export function splitBodyCount(id: EnemyTypeId, depth = 0): number {
+  const split = ENEMY_TYPES[id]?.splitOnDeath;
+  if (!split || depth >= MAX_SPLIT_DEPTH) return 1;
+  return 1 + split.count * splitBodyCount(split.type, depth + 1);
+}

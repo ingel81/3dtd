@@ -246,7 +246,7 @@ export class GameStateManager {
     this.enemyManager.initialize(tilesEngine);
     // Wire wave-number + wave-size providers for the kill-reward formula
     this.enemyManager.setWaveNumberProvider(() => this.waveManager.waveNumber());
-    this.enemyManager.setWaveSizeProvider(() => this.waveManager.getExpectedEnemyCount());
+    this.enemyManager.setWaveSizeProvider(() => this.waveManager.getExpectedBodyCount());
 
     this.towerManager.initialize(tilesEngine);
     this.towerManager.setActiveRoutesGetter(() =>

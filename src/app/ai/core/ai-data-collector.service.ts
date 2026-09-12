@@ -289,6 +289,9 @@ export class AIDataCollectorService {
     this.subscriptions.add(
       this.eventBus.on('enemy:reached-base', (event) => this.onEnemyReachedBase(event))
     );
+    this.subscriptions.add(
+      this.eventBus.on('enemy:split', (event) => this.onEnemySplit(event))
+    );
 
     // Health tracking
     this.subscriptions.add(
@@ -358,6 +361,17 @@ export class AIDataCollectorService {
     }
     perf[enemyType].spawned++;
     this.currentWaveOutcome.enemyPerformance = perf;
+  }
+
+  /**
+   * Split children count as spawned. `enemiesSpawned` starts at the wave's
+   * announced size and is the backend's count of bodies, like the per-enemy
+   * progress list the leak share is read from: every body the wave put on the
+   * route, children included, so a leaked minion is a leak like any other.
+   */
+  private onEnemySplit(event: { children: readonly Enemy[] }): void {
+    this.currentWaveOutcome.enemiesSpawned =
+      (this.currentWaveOutcome.enemiesSpawned || 0) + event.children.length;
   }
 
   private onWaveCompleted(event: { wave: number; credits: number }): void {

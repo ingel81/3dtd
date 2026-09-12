@@ -125,6 +125,15 @@ export class GameStateSyncService {
       this.store.waveEnemiesLeft.update(n => Math.max(0, n - 1));
     }));
 
+    // A split adds its children to the wave: more left and a larger total,
+    // so the bar still runs out at zero. Outside a wave (debug) there is none.
+    this.subs.add(eventBus.on('enemy:split', (event) => {
+      if (this.store.phase() !== 'wave') return;
+      const n = event.children.length;
+      this.store.waveEnemyTotal.update(total => total + n);
+      this.store.waveEnemiesLeft.update(left => left + n);
+    }));
+
     // ── Research lifecycle ────────────────────────────────────────
     // research:state-changed ist der Single-Source-of-Truth-Sync-Pfad —
     // ResearchManager emittiert ihn nach jeder State-Mutation.

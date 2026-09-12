@@ -32,7 +32,7 @@ vi.mock('./dps-profile', async (importOriginal) => {
 });
 
 const SUBSCRIBED: GameEvent['type'][] = [
-  'wave:started', 'wave:completed', 'enemy:spawned', 'enemy:died', 'enemy:reached-base',
+  'wave:started', 'wave:completed', 'enemy:spawned', 'enemy:died', 'enemy:reached-base', 'enemy:split',
   'health:changed', 'game:started', 'game:over', 'tower:placed', 'tower:sold', 'tower:upgraded',
 ];
 
@@ -265,6 +265,33 @@ describe('AIDataCollectorService', () => {
       playWave(1, { config });
       playWave(2);
       expect(collector.getWaveHistory().map((r) => r.config)).toEqual([config, DEFAULT_CONFIG]);
+    });
+  });
+
+  describe('a wave with split children', () => {
+    it('counts the children as spawned bodies and a leaked child as a leak', () => {
+      emit({ type: 'wave:started', wave: 5, enemyCount: 1 });
+      const parent = enemy('p', 'skeleton', 0.3);
+      const [a, b] = [enemy('a', 'skeleton-minion', 0.6), enemy('b', 'skeleton-minion')];
+      emit({ type: 'enemy:spawned', enemy: parent });
+      emit({ type: 'enemy:died', enemy: parent, credits: 1 });
+      emit({ type: 'enemy:spawned', enemy: a });
+      emit({ type: 'enemy:spawned', enemy: b });
+      emit({ type: 'enemy:split', enemy: parent, children: [a, b] });
+      emit({ type: 'enemy:died', enemy: a, credits: 1 });
+      emit({ type: 'enemy:reached-base', enemy: b, damage: 1 });
+      advance(1000);
+      emit(completed(5));
+
+      const [result] = collector.getWaveHistory();
+      expect(result.outcome).toMatchObject({
+        enemiesSpawned: 3,
+        enemiesKilled: 2,
+        enemiesReachedBase: 1,
+        enemyProgressValues: [0.3, 0.6, 1], // the gate reads one leak in three bodies
+      });
+      expect(result.outcome.enemyPerformance['skeleton-minion'])
+        .toMatchObject({ spawned: 2, killed: 1, reachedBase: 1 });
     });
   });
 

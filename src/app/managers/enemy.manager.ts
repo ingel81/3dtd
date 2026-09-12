@@ -290,8 +290,9 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
-   * Set the wave-size provider (expected enemy count) from WaveManager.
-   * Used for swarm-discount in the kill-reward formula.
+   * Set the wave-size provider from WaveManager: the bodies the wave can
+   * field, split children included (getExpectedBodyCount). It sizes the
+   * kill-reward slots.
    */
   setWaveSizeProvider(provider: () => number): void {
     this.getWaveSize = provider;
@@ -302,7 +303,7 @@ export class EnemyManager extends EntityManager<Enemy> {
   /**
    * Calculate kill reward from the wave's deterministic kill-budget
    * (Phase 5.16): the curriculum pins a total per-wave gold amount which
-   * we split deterministically across the expected enemy count. Effect:
+   * we split deterministically across the expected bodies. Effect:
    *  - Income predictable wave-by-wave → balanceable against tower/research costs
    *  - Independent of NN's count/hp_mult choices (no swarm-flood, no boring-dribble)
    *  - Leaks naturally reduce earnings (uncollected kills = lost gold)
@@ -312,7 +313,11 @@ export class EnemyManager extends EntityManager<Enemy> {
    * so the SUM of rewards equals the budget exactly when every enemy dies —
    * fixes the W19 rat_tide bug where `Math.max(1, round(305/5000))` × 5000
    * paid out 5000g instead of the budgeted 305g. Extra kills past the slot
-   * count (e.g. boss spawning more sub-units than budgeted) pay 0g.
+   * count pay 0g.
+   *
+   * Split children have slots of their own: a skeleton and each of its two
+   * minions pay one slot, a leaked skeleton forfeits all three, and a split
+   * never raises the wave's gold.
    */
   private calculateDynamicReward(_enemy: Enemy): number {
     const wave = this.getWaveNumber();
