@@ -92,6 +92,52 @@ export interface RouteCellSpot {
 /** Above the median of its neighbours by more than this, a cell counts as raised (car roof, tree crown). */
 const RAISED_CELL_M = 1;
 
+/** One grid spot of `__corridor.pick()`: what the grid holds there. */
+export interface RouteCellProbe {
+  x: number;
+  z: number;
+  /** Distance of the spot to the nearest route centre line, metres. */
+  routeM: number;
+  /** false: no cell, the spot lies outside the corridor. */
+  cell: boolean;
+  state: CellSample['state'] | '-';
+  heightM: number | null;
+  /** Height above the median of the sampled neighbours. */
+  aboveNeighboursM: number | null;
+  surface: RouteCell['surface'] | '-';
+  /** The tower's answers for this cell. */
+  ground: 'visible' | 'blocked' | '-';
+  air: 'visible' | 'blocked' | '-';
+}
+
+const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
+
+const answer = (value: boolean | undefined) => (value === undefined ? '-' : value ? 'visible' : 'blocked');
+
+/** A row of `__corridor.pick()` for the spot (x, z); `cell` is the cell there, if any. */
+export function probeRouteCell(
+  cell: RouteCell | undefined,
+  x: number,
+  z: number,
+  routeM: number,
+  towerId: string | null,
+  neighbourMedian: (cell: RouteCell) => number | null,
+): RouteCellProbe {
+  const median = cell?.heightSampled ? neighbourMedian(cell) : null;
+  return {
+    x,
+    z,
+    routeM: round(routeM, 1),
+    cell: cell !== undefined,
+    state: cell?.sample.state ?? '-',
+    heightM: cell ? round(cell.terrainHeight, 2) : null,
+    aboveNeighboursM: cell && median !== null ? round(cell.terrainHeight - median, 2) : null,
+    surface: cell?.surface ?? '-',
+    ground: cell && towerId ? answer(cell.towerVisibility.get(towerId)) : '-',
+    air: cell && towerId ? answer(cell.airVisibility.get(towerId)) : '-',
+  };
+}
+
 /**
  * What the grid holds in one tower's range, for `__corridor.towerCells()`:
  * where a gap in the tower's LOS display comes from.

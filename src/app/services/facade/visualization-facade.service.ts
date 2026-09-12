@@ -134,7 +134,7 @@ export class VisualizationFacadeService {
 
     // Korridor-API für Playtests, analog zu `__rg` und `__routes`, in
     // DevTools: `__corridor.get()`, `__corridor.set({ maxHalfWidth: 8 })`,
-    // `__corridor.reset()`, `__corridor.towerCells()`.
+    // `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`.
     (globalThis as Record<string, unknown>)['__corridor'] = {
       get: () => ({ ...corridorConfig, highwayWidths: { ...corridorConfig.highwayWidths } }),
       set: (patch: Partial<CorridorConfig>) => this.changeCorridor(() => setCorridorConfig(patch)),
@@ -143,7 +143,36 @@ export class VisualizationFacadeService {
         return [];
       }),
       towerCells: (towerId?: string) => this.describeTowerCells(towerId),
+      pick: (radius = 4) => this.armCellPick(radius),
     };
+  }
+
+  /**
+   * `__corridor.pick()`: the next left click on the map prints every grid
+   * spot within `radius` of it with its cell, sample state, height, surface,
+   * the selected tower's answers and whether its LOS display draws it,
+   * nearest to the route line first. Selection and display stay as they are.
+   */
+  private armCellPick(radius: number): string {
+    const engine = this.engineInit.getEngine();
+    if (!engine) return 'No location loaded.';
+    this.inputHandler.armPick((hit) => {
+      const geo = engine.sync.localToGeo(hit);
+      const local = engine.sync.geoToLocalSimple(geo.lat, geo.lon, 0);
+      const towers = this.gameState.towerManager;
+      const tower = towers.getSelected();
+      const layer = tower ? towers.getSelectionViz()?.getLayer() ?? null : null;
+      const drawn = layer ? new Set(layer.cells.map((c) => `${c.x},${c.z}`)) : null;
+      const rows = this.gameState.getGlobalRouteGrid().getGrid()
+        .describeCellsAround(local.x, local.z, radius, tower?.id ?? null)
+        .map((row) => ({ ...row, displayed: drawn ? drawn.has(`${row.x},${row.z}`) : null }));
+      console.log(
+        `[Corridor] pick at ${local.x.toFixed(1)},${local.z.toFixed(1)}: ${rows.length} spots within ${radius} m` +
+        (tower ? `, answers and display of ${tower.id}` : ', no tower selected'),
+      );
+      console.table(rows);
+    });
+    return `Click the map (left button): the grid within ${radius} m of the click is printed here.`;
   }
 
   /**
@@ -204,6 +233,8 @@ export class VisualizationFacadeService {
     const local = engine.sync.geoToLocalSimple(tower.position.lat, tower.position.lon, tower.position.height ?? 0);
     const range = tower.combat.range;
     const report = grid.describeTowerRange(tower.id, local.x, local.z, range);
+    const centreLine = grid.centreLineCells(local.x, local.z, range);
+    const centre = grid.describeCentreLine(tower.id, local.x, local.z, range);
 
     // The display is a snapshot of the sampled cells in range, coloured
     // against the shared cube. Only the selected tower has one.
@@ -227,9 +258,21 @@ export class VisualizationFacadeService {
       displayOutdated: layer ? layer.cells.filter((c) => grid.getCellAt(c.x, c.z) !== c).length : null,
       notDisplayed: drawn ? grid.getCellsInRange(local.x, local.z, range).filter((c) => !drawn.has(c)).length : null,
       cubeFromTower: Math.hypot(reference.x - local.x, reference.z - local.z) <= 0.5,
+      // The cells the red line runs through, in range.
+      centreCells: centre.cells,
+      centreMissing: centre.holes.length,
+      centreUnsampled: centre.unsampled,
+      centreBlocked: centre.groundBlocked,
+      centreRaised: centre.raised.length,
+      centreNotDisplayed: drawn ? centreLine.cells.filter((c) => c.heightSampled && !drawn.has(c)).length : null,
     };
     console.table(summary);
-    return { ...summary, holeCells: report.holes, raisedCells: report.raised.slice(0, 20) };
+    return {
+      ...summary,
+      holeCells: report.holes,
+      raisedCells: report.raised.slice(0, 20),
+      centreMissingCells: centre.holes,
+    };
   }
 
   /**

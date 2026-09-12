@@ -428,6 +428,66 @@ describe('GlobalRouteGrid tower range report', () => {
 });
 
 /**
+ * Playtest 2026-09-12: the row of cells the red line runs through was
+ * missing from a tower's LOS display on a diagonal street. These pin down
+ * what the grid itself does with that row.
+ */
+describe('GlobalRouteGrid centre line', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+  const at = (x: number, z: number, left?: number, right = left): RouteWaypoint =>
+    ({ lat: z, lon: x, corridorLeft: left, corridorRight: right });
+
+  let grid: GlobalRouteGrid;
+
+  beforeEach(() => {
+    grid = new GlobalRouteGrid();
+    grid.initialize((() => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 2 })) as never, coordinateSync);
+  });
+
+  /** A diagonal street, narrowed in the middle, with a corner at its end. */
+  const diagonal = [at(0.37, -0.61, 2.75), at(20, 11, 2, 3), at(40, 23, 2.75), at(52, 40)];
+
+  it('finds every cell at its own centre, one cell per spot', () => {
+    grid.generateFromRoutes([diagonal]);
+    const cells = grid.getCellsInRange(25, 15, 100);
+    expect(cells.length).toBeGreaterThan(50);
+    for (const cell of cells) expect(grid.getCellAt(cell.x, cell.z)).toBe(cell);
+    expect(new Set(cells.map((c) => `${c.x},${c.z}`)).size).toBe(cells.length);
+  });
+
+  it('keeps the centre row of a street two routes share, whichever way they run', () => {
+    // A second spawn walks the same street the other way, then turns off to the HQ.
+    const reversed = [at(40, 23, 4), at(20, 11, 4), at(0.37, -0.61, 4), at(-10, -8)];
+    grid.generateFromRoutes([diagonal, reversed]);
+    grid.registerTower('t1', 20, 20, 30, { referencePos: { x: 20, y: 20, z: 20 } } as never);
+
+    const centre = grid.describeCentreLine('t1', 20, 20, 30);
+    expect(centre.cells).toBeGreaterThan(20);
+    expect(centre.holes).toEqual([]);
+    expect(centre.unsampled).toBe(0);
+    expect(centre.groundMissing).toBe(0);
+    // And the LOS display would take every one of them.
+    const shown = new Set(grid.getCellsInRange(20, 20, 30));
+    expect(grid.centreLineCells(20, 20, 30).cells.every((c) => shown.has(c))).toBe(true);
+  });
+
+  it('describes the spots around a point, nearest to the route line first', () => {
+    grid.generateFromRoutes([[at(0, 1, 2), at(40, 1)]]);
+    grid.registerTower('t1', 20, 8, 16, { referencePos: { x: 20, y: 20, z: 8 } } as never);
+
+    const rows = grid.describeCellsAround(21, 3, 4, 't1');
+    expect(rows[0].routeM).toBe(0);
+    expect(rows.find((r) => r.x === 21 && r.z === 1))
+      .toMatchObject({ routeM: 0, cell: true, state: 'stable', heightM: 0, ground: 'visible', air: '-' });
+    // 6 m off a 2 m corridor: no cell there.
+    expect(rows.find((r) => r.z === 7)).toMatchObject({ cell: false, state: '-', heightM: null, ground: '-' });
+    expect(rows.every((r, k) => k === 0 || r.routeM >= rows[k - 1].routeM)).toBe(true);
+  });
+});
+
+/**
  * On a bridge the lowest hit of a column is the river or road below. Route
  * cells of a bridge segment take the deck, the top of the column.
  */
