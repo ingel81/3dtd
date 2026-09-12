@@ -1,6 +1,6 @@
 # Wave System
 
-**Stand:** 2026-05-12 (Wave-Erzeugung/Fairness-Gate + Game-Over-Pfad: 2026-09-07)
+**Stand:** 2026-09-13
 
 Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen.
 
@@ -19,7 +19,6 @@ Das Wave-System (`WaveManager`) steuert:
 
 > **Sub-Step Refactor (Phase 5.x):** Der Spawner läuft nicht mehr über `setTimeout` mit `timescaleProvider`,
 > sondern über einen Sub-Step-Akkumulator. `GameStateManager` ruft `waveManager.tickSpawn(gameTimeDeltaMs)` einmal pro Sub-Step auf. Das ist deterministisch über alle Speed-Multiplier (inkl. Training x75).
-> `setTimescaleProvider()` ist als deprecated No-Op erhalten geblieben, bis Tests migriert sind.
 
 ---
 
@@ -35,11 +34,11 @@ export class WaveManager implements IGameManager {
   readonly waveNumber = signal(0);
 
   spawnPoints: SpawnPoint[] = [];
+  maxSpawnsPerFrame = 3; // max. Spawns pro tickSpawn()-Aufruf
 
   constructor(eventBus: GameEventBus, enemyManager: EnemyManager);
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void;
-  setTimescaleProvider(_provider: () => number): void; // deprecated no-op
   setCurrentHealthProvider(provider: () => number): void; // für CloseCall-Detection
   getExpectedEnemyCount(): number; // genutzt vom EnemyManager (Swarm-Discount)
   beginWave(): void;
@@ -47,7 +46,7 @@ export class WaveManager implements IGameManager {
   /** Sub-step-driven spawner — called per sub-step from GameStateManager */
   tickSpawn(gameTimeDeltaMs: number): void;
   checkWaveComplete(): boolean;
-  endWave(): void;
+  endWave(): { wave: number; perfect: boolean; closeCall: boolean; hpLost: number };
   stopSpawning(): void;
   reset(): void;
   update(dt: number): void;
@@ -74,7 +73,7 @@ export type GamePhase = 'setup' | 'wave' | 'gameover';
 | Event | Emitted von | Beschreibung |
 |-------|-------------|--------------|
 | `wave:started` | `beginWave()`, `startWave()` | Wave beginnt, enthaelt `wave` (Nummer) und `enemyCount` |
-| `wave:completed` | `endWave()` | Wave abgeschlossen, emitted via `emitDeferred()`. **Nicht** emittiert, wenn die Basis faellt — siehe [Game Over Integration](#base-destroyed). |
+| `wave:completed` | `endWave()` | Wave abgeschlossen, emitted via `emitDeferred()`, mit `perfect`, `closeCall` und `hpLost`. **Nicht** emittiert, wenn die Basis fällt, siehe [Game Over Integration](#base-destroyed). |
 
 ---
 
@@ -118,6 +117,16 @@ export interface SpawnEntry {
 | Training-Backend | `trainingClient.requestWaveConfig()`, solange die WebSocket-Verbindung steht |
 | Static Curriculum | `staticWaveResolvedFor(waveNum)` (siehe [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md)) |
 | Debug-Panel | `WaveDebugService.toAIWaveConfig()` |
+
+Welche Quelle die nächste Welle liefert, entscheidet
+`GameLoopFacadeService.startWave()` in dieser Reihenfolge: Ist der
+Static-Curriculum-Schalter an, kommt die Welle aus `staticWaveResolvedFor()`.
+Sonst, wenn der Director an ist (`useAIDirector`, Default an), fragt die Facade
+das Training-Backend, falls eine Verbindung steht, und andernfalls
+`WaveDirectorService.getNextWave()`. Ist der Director aus, gilt das
+Debug-Panel. Wirft der Director, schaltet die Facade ihn ab, setzt `aiError`
+und startet eine Debug-Panel-Welle. Alle Pfade senden `command:start-wave` mit
+fertiger `WaveConfig`.
 
 ### SpawnPoint Interface
 
@@ -182,8 +191,9 @@ buildWaveContext(state, recent)        ai/core/wave-context.ts
 RuleDirector.decide(mask, wave, recent)   ai/core/rule-director.ts
    │   templateIdx + countFactor / spawnFactor / hpFactor / variationFactor
    ▼
-buildWaveConfig(decision, state, conf)    ai/core/wave-director.service.ts
+buildWaveConfig(decision, state, maskReason)   ai/core/wave-director.service.ts
    │   DPS-Ramp → endgameHpMultiplier → Fairness-Cap → Dauer-Cap → Gruppen
+   │   + explanation (explainWaveDecision, "Why this wave")
    ▼
 AIWaveConfig ──adaptAIWaveConfig()──► WaveConfig (SpawnSchedule) ──► WaveManager
 ```
@@ -209,7 +219,8 @@ Der `RuleDirector` trifft genau zwei Entscheidungen, beide bewusst ohne Lernen:
 Rampe linear bis `RAMP_FULL_WAVE = 60`, danach gehalten; auf jeden Faktor kommt
 `JITTER = ±0.12`, damit aufeinanderfolgende Wellen nicht identisch sind.
 
-Die Maske selbst kommt aus `getAvailableTemplateMask()`: **innerhalb** des
+Die Maske selbst kommt aus `describeTemplateMask()` (`getAvailableTemplateMask()`
+ist der Wrapper ohne Begründung): **innerhalb** des
 Curriculums (bis `CURRICULUM_FORCED_THROUGH_WAVE`) kollabiert sie auf das eine
 gepinnte Template — die Gates greifen dort gar nicht, weil der Designer die
 Welle bereits gewaehlt hat. Erst danach gelten `minWave`,
@@ -232,8 +243,9 @@ im `RuleDirector` (Slot 0 mit festen Mittelwerten) ist deshalb rein defensiv.
 1. **DPS-Ramp** — `count`- und `hpMult`-Range werden am Defense-DPS gedeckelt
    (`DPS_RAMP_COUNT = 500`, `DPS_RAMP_HP_MULT = 1000`, Untergrenze
    `DPS_RAMP_FLOOR = 0.10`). Schwache Defense → schmaler effektiver Bereich.
-2. **`endgameHpMultiplier(wave)`** — multipliziert *nach* dem Faktor auf
-   `hpMult` (ab W20 +5%/Wave, Cap 4×, siehe `wave-curriculum.config.ts`).
+2. **`endgameHpMultiplier(wave)`**: multipliziert *nach* dem Faktor auf
+   `hpMult` (ab W21 +5 % pro Welle, W30 ×1,5, Cap 4× ab W80, siehe
+   `wave-curriculum.config.ts`).
 3. **Fairness-Cap** (`fairMaxCount`, siehe unten).
 4. **Dauer-Cap** — `MAX_WAVE_DURATION_MS = 180_000`. Wird er gerissen, wird
    `spawnDelay` komprimiert **und der Count danach neu abgeleitet**: eine
@@ -338,7 +350,7 @@ beginWave(): void {
 }
 ```
 
-**Verwendung:** Wird z.B. vom `GameStateManager` genutzt, wenn Enemies manuell (z.B. durch Bot/AI) gespawnt werden.
+**Verwendung:** `GameCommandsHandler` ruft `GameStateManager.beginWave()` für ein `command:start-wave` ohne `config`. Außerhalb der Tests sendet derzeit kein Aufrufer das Kommando ohne Config; Facade und Bot schicken immer eine.
 
 ### startWave(config)
 
@@ -359,13 +371,9 @@ this.waveManager.startWave(waveConfig);
 1. Empty-Schedule (`entries.length === 0`) → early-return, kein Event
 2. Wave-Nummer erhöht sich
 3. Phase wechselt zu `'wave'`
-4. Emitted `wave:started` Event mit tatsaechlicher Enemy-Anzahl
-5. Spawn-Loop startet, Enemies spawnen im konfigurierten Abstand
-6. Jeder Enemy beginnt sofort zu laufen
-
-### setTimescaleProvider(provider) — deprecated
-
-Hat seit dem Sub-Step-Refactor keine Funktion mehr; bleibt als No-Op erhalten, bis Legacy-Tests migriert sind. Spawn-Delays werden inhärent korrekt skaliert, weil `tickSpawn(dtMs)` mit Game-Time arbeitet (Game-Clock läuft bei x2 doppelt so schnell, also wird auch das Delay-Limit doppelt so schnell erreicht).
+4. Emitted `wave:started` Event mit tatsaechlicher Enemy-Anzahl (`entries.length`)
+5. Legt den Sub-Step-Spawner an; der erste Enemy spawnt beim ersten `tickSpawn()`, die weiteren im konfigurierten Abstand
+6. Jeder Enemy beginnt sofort zu laufen (`enemyManager.spawn(..., paused = false, ...)`)
 
 ### setCurrentHealthProvider(provider)
 
@@ -386,7 +394,7 @@ stopSpawning(): void {
 }
 ```
 
-**Verwendung:** Wird intern vom `debug:kill-all` Event-Handler aufgerufen.
+**Verwendung:** Intern vom `debug:kill-all`-Handler und von `GameLoopFacadeService.onGameOver()`.
 
 ### checkWaveComplete()
 
@@ -395,40 +403,58 @@ Prueft ob die Wave abgeschlossen ist.
 ```typescript
 checkWaveComplete(): boolean {
   if (this.phase() !== 'wave') return false;
+  if (!this._waveCheckDirty && this._cachedWaveComplete) return true;
 
   const allEnemiesSpawned = this.expectedEnemyCount === 0
     || this.spawnedEnemyCount >= this.expectedEnemyCount;
-  const allEnemiesDead = this.enemyManager.getAliveCount() === 0;
+  const allEnemiesDead = this.enemyManager.getAliveCount() === 0
+    && this.enemyManager.getKillingCount() === 0;
 
-  return allEnemiesSpawned && allEnemiesDead;
+  // (gekürzt: Stuck-Diagnose, loggt einmal pro Wave)
+  const complete = allEnemiesSpawned && allEnemiesDead;
+  this._cachedWaveComplete = complete;
+  this._waveCheckDirty = false;
+  return complete;
 }
 ```
 
 **Logik:**
-- Wave ist komplett wenn ALLE Enemies gespawnt UND ALLE gespawnten Enemies tot sind
+- Wave ist komplett wenn ALLE Enemies gespawnt UND ALLE gespawnten Enemies tot sind; Enemies in der Todesanimation (`getKillingCount()`) zählen noch mit
 - Im manuellen Modus (`expectedEnemyCount === 0`): Nur `allEnemiesDead` relevant
 - Verhindert vorzeitige Wave-Completion waehrend Enemies noch spawnen
+- Gecacht wird nur ein positives Ergebnis; `enemy:died`, `enemy:reached-base` und Spawn-Fortschritt setzen das Dirty-Flag
 
-**Aufruf:** Vom `GameStateManager` jedes Frame
+**Aufruf:** Vom `GameStateManager` in jedem Sub-Step der `wave`-Phase
 
 ### endWave()
 
 Beendet die aktuelle Wave.
 
 ```typescript
-endWave(): void {
+endWave(): { wave: number; perfect: boolean; closeCall: boolean; hpLost: number } {
   const waveNum = this.waveNumber();
   this.enemyManager.clear();
   this.phase.set('setup');
 
-  // Emit wave:completed event (deferred)
+  const hpLost = this.damageTakenThisWave;
+  const perfect = hpLost === 0;
+  const hpAtEnd = this.currentHealthProvider ? this.currentHealthProvider() : 100;
+  const closeCall = !perfect && hpAtEnd <= GAME_BALANCE.economy.closeCallHpThreshold;
+
   this.eventBus.emitDeferred({
     type: 'wave:completed',
     wave: waveNum,
-    credits: 0, // Credits werden separat via GAME_BALANCE verwaltet
+    credits: 0, // Credits vergibt der GameStateManager
+    perfect, closeCall, hpLost,
   });
+
+  return { wave: waveNum, perfect, closeCall, hpLost };
 }
 ```
+
+`hpLost` summiert den Schaden aus `enemy:reached-base` während der Welle,
+`closeCallHpThreshold` steht in `GAME_BALANCE.economy` (25). Den Rückgabewert
+reicht der `GameStateManager` an `applyWaveCompletionBonus()`.
 
 **Effekt:**
 - Alle restlichen Enemies entfernt
@@ -462,7 +488,7 @@ Per-Frame Update. Aktuell no-op — `tickSpawn(gameTimeDeltaMs)` wird stattdesse
 
 ### destroy()
 
-Raeumt alle Ressourcen auf: ruft `reset()` auf, leert `cachedPaths` und `spawnPoints`.
+Räumt alle Ressourcen auf: löst die EventBus-Subscriptions, ruft `reset()` auf, leert `cachedPaths` und `spawnPoints`.
 
 ---
 
@@ -482,9 +508,13 @@ tickSpawn(gameTimeDeltaMs: number): void {
   }
 
   spawner.accumulatedMs += gameTimeDeltaMs;
-  while (spawner.accumulatedMs >= spawner.nextDelayMs) {
-    spawner.accumulatedMs -= spawner.nextDelayMs;
+  let spawnsThisCall = 0;
+  while (spawnsThisCall < this.maxSpawnsPerFrame) {
+    // Delay 0 überspringt die Wartebedingung (Burst)
+    if (spawner.nextDelayMs > 0 && spawner.accumulatedMs < spawner.nextDelayMs) break;
+    if (spawner.nextDelayMs > 0) spawner.accumulatedMs -= spawner.nextDelayMs;
     const stillActive = spawner.spawnAndAdvance();
+    spawnsThisCall++;
     if (!stillActive) {
       this.activeSpawner = null;
       return;
@@ -499,9 +529,13 @@ Vorteile:
 - **Korrektes Verhalten bei x75-Training** — keine setTimeout-Drift bei extremen Geschwindigkeiten
 - **Saubere Pause-Semantik** — pausiertes Spiel = kein Tick = keine Spawns
 
-Die `spawnAndAdvance`-Closure ist je nach Mode unterschiedlich:
-- Single-Type: ruft `enemyManager.spawn(path, type, speed, false, health)` auf
-- Mixed-Schedule: iteriert `schedule.entries[]` und spawnt mit Per-Entry Type/Speed/Health/`pauseAfter`
+Pro Tick spawnen höchstens `maxSpawnsPerFrame` (Default 3) Enemies; ein Delay
+von 0 spawnt ohne Warten bis zu diesem Limit. Die `spawnAndAdvance`-Closure
+nimmt den nächsten Entry, wählt den Spawn-Point nach `spawnMode`, holt den Pfad
+aus `cachedPaths` und ruft `enemyManager.spawn(path, type, speed, false, health)`.
+Fehlt ein gültiger Pfad (weniger als 2 Punkte), zählt sie Fehlversuche; nach
+`spawnPoints.length * 2` in Folge bricht die Welle mit den bis dahin
+gespawnten Enemies ab.
 
 ### Spawn-Point-Auswahl
 
@@ -540,13 +574,10 @@ private registerDebugHandlers(): void {
 
 ### Check-Logik
 
-```typescript
-// game-state.manager.ts update()
-if (this.waveManager.checkWaveComplete()) {
-  this.waveManager.endWave();
-  // Optional: Rewards, UI Update, etc.
-}
-```
+Der Check läuft in der Sub-Step-Schleife von `GameStateManager.update()`, nur in
+der `wave`-Phase. Nach `endWave()` stoppt der Manager Beam- und Melee-Tower,
+räumt Debug-Enemies und zahlt über `applyWaveCompletionBonus(result)` den
+Abschlussbonus. Code siehe [Game Over Integration](#base-destroyed).
 
 ---
 
@@ -554,35 +585,31 @@ if (this.waveManager.checkWaveComplete()) {
 
 ### Reactive Signals
 
-```typescript
-// In Component
-readonly waveNumber = this.waveManager.waveNumber;
-readonly phase = this.waveManager.phase;
-```
+Die UI liest nicht den `WaveManager`, sondern den Store (`TowerDefenseStore`,
+Quelle `GameStore`). `GameStateSyncService` füllt ihn aus den Events:
 
-```html
-<!-- In Template -->
-<div class="wave-info">
-  <h3>Welle {{ waveNumber() }}</h3>
-  <p>Phase: {{ phase() }}</p>
-</div>
-```
+| Store-Signal | gesetzt bei |
+|---|---|
+| `phase`, `waveNumber` | `wave:started` (Phase `wave`), `wave:completed` (Phase `setup`), `game:over` (Phase `gameover`) |
+| `waveEnemyTotal` | `wave:started` (`enemyCount`), 0 bei `wave:completed` |
+| `waveEnemiesLeft` | `wave:started`, -1 je `enemy:died` und `enemy:reached-base`, 0 bei `wave:completed` und `debug:kill-all` |
+
+Manuelle Wellen (`beginWave()`) melden `enemyCount: 0`; Total und Rest bleiben
+dann 0.
 
 ### Wave Start Button
 
-```typescript
-startNextWave(): void {
-  if (this.waveManager.phase() !== 'setup') return;
+Der Button im Wave-Panel der Sidebar (`components/game-sidebar/wave-panel/`)
+sendet `startWave`; das landet über `TowerDefenseComponent` und
+`TowerDefenseFacadeService` in `GameLoopFacadeService.startWave()` (Quellen
+siehe [Wave-Konfiguration](#wave-konfiguration)). Text, Restzahl und Balken
+berechnet `waveButtonView()` in `wave-button.ts`:
 
-  this.waveManager.startWave({
-    enemyCount: 10 + this.waveManager.waveNumber() * 5,  // Progressive
-    enemyType: this.getWaveEnemyType(),
-    enemySpeed: 5,
-    spawnMode: 'random',
-    spawnDelay: 400,
-  });
-}
-```
+| Zustand | Label | rechts | Balken |
+|---|---|---|---|
+| keine Welle | `Start Wave N` | | |
+| Welle mit bekannter Größe | `Wave N` | `{n} left` | `waveEnemiesLeft / waveEnemyTotal` |
+| manuelle Welle (Total 0) | `Wave N` | | |
 
 ---
 
@@ -596,9 +623,9 @@ multipliziert sich:
 
 | Ebene | Wo | Wirkung |
 |---|---|---|
-| Content/Pacing | `WAVE_CURRICULUM` in `configs/wave-curriculum.config.ts` | pinnt Template + Gold-Budget pro Wave (W1–W30, danach Loop) |
+| Content/Pacing | `WAVE_CURRICULUM` in `configs/wave-curriculum.config.ts` | pinnt Template + Gold-Budget pro Wave (W1-W30). Danach wählt der Director das Template, das Gold halbiert sich pro Welle bis auf 5 % des W30-Budgets (Boss-Wellen doppelt, `goldBudgetForWave`) |
 | Formfaktoren | `RuleDirector` (`RAMP_FULL_WAVE = 60`) | Count/HP hoch, Spawn-Delay runter |
-| Endgame-HP | `endgameHpMultiplier(wave)` | ab W20 +5%/Wave auf `hpMult`, Cap 4× |
+| Endgame-HP | `endgameHpMultiplier(wave)` | ab W21 +5 % pro Welle auf `hpMult`, Cap 4× |
 | Leck-Schaden | `enemyBaseDamageForWave(wave)` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
 
 Nach oben gedeckelt wird die Kurve durch den Fairness-Cap und den
@@ -608,9 +635,13 @@ kann den Spieler nie mehr als 18 HP kosten.
 
 ### Boss Waves
 
-Boss-Wellen sind Templates mit `bossOnly: true`. Die Maske laesst sie nur auf
-Wave-Nummern zu, die durch 10 teilbar sind; innerhalb des Curriculums stehen sie
-ausserdem fest auf W10/W20/W30 (`boss_herbert` usw. in `WAVE_CURRICULUM`).
+Boss-Wellen sind Templates mit `bossOnly: true` (`boss_herbert`, `boss_golem`,
+`boss_dragon`). Welche Welle eine Boss-Welle ist, sagt `isBossWave()`: im
+Curriculum W10/W20/W30, dort fest auf `boss_herbert` gepinnt, danach jede
+fünfte Welle (W35, W40, ...). An Boss-Wellen lässt die Maske nur Boss-Templates
+zu, an allen anderen sperrt sie sie; Details unter
+[Regel-Director](#regel-director-abwechslung-und-kurve). `boss_golem` und
+`boss_dragon` haben `minWave: 31`, `boss_dragon` braucht Anti-Air.
 
 ---
 
@@ -637,41 +668,12 @@ Die Mixed-Wave-Logik basiert auf einem **SpawnSchedule** — einer vorab berechn
 
 ### Interfaces
 
-```typescript
-// managers/wave.manager.ts
-
-export interface SpawnEntry {
-  enemyType: EnemyTypeId;  // Typ dieses Spawns
-  speed: number;           // Geschwindigkeit (m/s)
-  health?: number;         // HP override (optional)
-  pauseAfter?: number;     // Extra-Pause in ms nach diesem Spawn
-}
-
-export interface SpawnSchedule {
-  entries: SpawnEntry[];   // Geordnete Spawn-Liste
-  baseDelay: number;       // Standard-Delay zwischen Spawns (ms)
-  getDelay?: () => number; // Optionale dynamische Delay-Funktion
-}
-```
-
-Das bestehende `WaveConfig` Interface wurde um ein optionales `schedule` Feld erweitert:
-
-```typescript
-export interface WaveConfig {
-  // Bestehende Felder (unveraendert)
-  enemyCount: number;
-  enemyType: EnemyTypeId;
-  enemySpeed: number;
-  enemyHealth?: number;
-  spawnMode: 'each' | 'random';
-  spawnDelay: number;
-  getSpawnDelay?: () => number;
-
-  schedule?: SpawnSchedule;  // Wenn vorhanden: Schedule-basiertes Spawning
-}
-```
-
-**Backwards-kompatibel:** Ohne `schedule` Feld verhalt sich alles exakt wie bisher.
+`SpawnEntry` und `SpawnSchedule` stehen oben unter
+[WaveConfig Interface](#waveconfig-interface-schedule-only-seit-2026-05-23);
+`WaveConfig` besteht nur aus `schedule`. Der Builder setzt pro Entry `speed`
+(Basis-Speed × `speedMultiplier`), `health` (Basis-HP × `healthMultiplier`,
+nur wenn gesetzt), `delay` aus dem `spawnDelay` der Gruppe und bei
+`wave-in-wave` `pauseAfter`.
 
 ### Spawn-Patterns
 
@@ -679,9 +681,9 @@ export interface WaveConfig {
 
 | Pattern | Verhalten | Beispiel (8Z, 4B, 2T) |
 |---------|-----------|------------------------|
-| `interleaved` | Proportionaler Round-Robin | Z B Z T Z B Z Z B Z T Z B Z |
+| `interleaved` | Round-Robin, pro Durchgang einer je Gruppe | Z B T Z B T Z B Z B Z Z Z Z |
 | `sequential` | Alle einer Gruppe, dann naechste | ZZZZZZZZ BBBB TT |
-| `clustered` | Cluster von N, dann Wechsel | ZZZ BBB ZZZ TT BBB ZZ |
+| `clustered` | Cluster von N (Default 3), dann Wechsel | ZZZ BBB TT ZZZ B ZZ |
 | `random` | Fisher-Yates Shuffle | Zufaellig durchmischt |
 | `front-loaded` | Staerkste zuerst (HP desc) | TT ZZZZZZZZ BBBB |
 | `back-loaded` | Schwaechste zuerst (HP asc) | BBBB ZZZZZZZZ TT |
@@ -706,34 +708,18 @@ const schedule = buildSpawnSchedule({
 });
 ```
 
-**Helper-Funktionen:**
-
-```typescript
-// Empfohlenes Pattern fuer einen Archetype
-getRecommendedPattern('swarm');  // -> 'random'
-getRecommendedPattern('boss');   // -> 'wave-in-wave'
-
-// Gruppen aus Ratio-basierter Definition
-fromRatio(20, { zombie: 0.6, bat: 0.3, tank: 0.1 });
-// -> [{ type: 'zombie', count: 12 }, { type: 'bat', count: 6 }, { type: 'tank', count: 2 }]
-```
+Ohne `pattern` nimmt der Adapter `DEFAULT_SPAWN_PATTERN` (`interleaved`).
+Director-Wellen tragen das `spawnPattern` ihres Templates; Templates ohne
+Pattern laufen damit `interleaved`. `delayVariation > 0` setzt `getDelay`, das
+jeden Abstand zufällig in `baseDelay × (1 ± variation)` wählt.
 
 ### WaveManager Integration
 
-Wenn `config.schedule` vorhanden ist, delegiert `startWave()` an `startScheduledWave()`:
-
-```typescript
-// Intern in wave.manager.ts
-startWave(config: WaveConfig): void {
-  if (config.schedule) {
-    this.startScheduledWave(config);  // Mixed-Wave Pfad
-    return;
-  }
-  // ... bestehender Single-Type Pfad
-}
-```
-
-`startScheduledWave()` iteriert ueber `schedule.entries[]` und spawnt jeden Entry mit dem richtigen Typ, Speed und Health. `pauseAfter` wird als Extra-Delay zum Standard-Delay addiert. Die bestehenden Mechanismen (Timescale, `stopSpawning()`, `checkWaveComplete()`) funktionieren unveraendert.
+Es gibt nur einen Pfad: `startWave()` spielt `schedule.entries[]` der Reihe
+nach ab, jeder Entry mit eigenem Typ, Speed und Health. Der Abstand vor Entry
+*i* ist das `delay` des vorigen Entries (sonst `getDelay()` bzw. `baseDelay`)
+plus dessen `pauseAfter`. `stopSpawning()` und `checkWaveComplete()` gelten für
+jede Welle gleich.
 
 ### Director Integration
 
@@ -768,7 +754,9 @@ Darunter bietet das Panel einen **Mode-Toggle** (Single/Mixed):
   - Delay + Variation Slider
   - Total-Counter
 
-State wird im `WaveDebugService` verwaltet (`wave-debug.service.ts`):
+State wird im `WaveDebugService` verwaltet (`wave-debug.service.ts`). Die
+Mixed-Mode-Signale liegen im Service selbst, die Single-Mode-Werte (Typ, Count,
+Speed, Health, Spawn-Mode, Delay) im `DebugStore`:
 
 ```typescript
 // Mixed-Mode Signals
@@ -779,21 +767,25 @@ readonly clusterSize = signal(3);
 readonly subWavePause = signal(3000);
 readonly delayVariation = signal(0);
 
-// Baut WaveConfig mit SpawnSchedule
-buildMixedWaveConfig(): WaveConfig { ... }
+// Baut die AIWaveConfig: Mixed-Mode mit allen Gruppen und Pattern,
+// Single-Mode als eine Gruppe mit Pattern 'sequential' und Spawn-Mode
+toAIWaveConfig(): AIWaveConfig { ... }
 ```
+
+`GameLoopFacadeService.startCustomWave()` reicht das Ergebnis durch
+`adaptAIWaveConfig()` und sendet `command:start-wave`.
 
 ### Dateien
 
 | Datei | Rolle |
 |-------|-------|
-| `managers/wave.manager.ts` | `SpawnEntry`, `SpawnSchedule` Interfaces, `startScheduledWave()` |
-| `ai/core/spawn-schedule-builder.ts` | 7 Pattern-Builder, `buildSpawnSchedule()`, Helpers |
+| `managers/wave.manager.ts` | `SpawnEntry`, `SpawnSchedule`, `WaveConfig`, `startWave()`, `tickSpawn()` |
+| `ai/core/spawn-schedule-builder.ts` | 7 Pattern-Builder, `buildSpawnSchedule()`, `ALL_SPAWN_PATTERNS`, `DEFAULT_SPAWN_PATTERN` |
 | `ai/core/wave-config-adapter.ts` | `adaptAIWaveConfig()` — einziger Konverter AIWaveConfig → WaveManager-Config |
-| `ai/core/models/wave-config.ts` | Optionales `pattern` Feld fuer AI Config |
-| `services/debug/wave-debug.service.ts` | Mixed-Mode Signals (delegiert State an `DebugStore`), `buildMixedWaveConfig()` |
+| `ai/core/models/wave-config.ts` | `AIWaveConfig` (dort `WaveConfig`): Gruppen, `spawnDelay`, optional `pattern`, `spawnMode`, `explanation` |
+| `services/debug/wave-debug.service.ts` | Mixed-Mode-Signale, Single-Mode-Werte aus dem `DebugStore`, `toAIWaveConfig()` |
 | `components/debug-window/wave-debugger.component.ts` | „Why this wave", Mixed Wave Designer UI |
-| `services/facade/game-loop-facade.service.ts` | Mixed-Mode Weiche in `startCustomWave()` |
+| `services/facade/game-loop-facade.service.ts` | Quellen-Reihenfolge in `startWave()`, `startCustomWave()` |
 
 ---
 
@@ -801,36 +793,16 @@ buildMixedWaveConfig(): WaveConfig { ... }
 
 ### Manual Wave Start
 
-```typescript
-// In Wave Debug Component
-startTestWave(): void {
-  this.waveManager.startWave({
-    enemyCount: this.enemyCount(),  // Slider value
-    enemyType: this.selectedEnemyType(),
-    enemySpeed: this.enemySpeed(),  // Slider value
-    spawnMode: this.spawnMode(),
-    spawnDelay: this.spawnDelay(),
-  });
-}
-```
+Im Wave-Debug-Fenster (`wave-debugger.component.ts`) Single- oder Mixed-Mode
+einstellen und starten. `onStartCustomWave()` sendet `debug:start-custom-wave`,
+die Welle kommt aus `WaveDebugService.toAIWaveConfig()` (siehe
+[Debug Panel](#debug-panel-mixed-wave-designer)). Das geht nur in Phase
+`setup` und mit mindestens einem Spawn-Point.
 
-### Wave Skip
+### Kill All
 
-```typescript
-// Debug: Wave sofort beenden
-skipWave(): void {
-  this.enemyManager.clear();
-  this.waveManager.endWave();
-}
-```
-
-### Enemy Count Debug
-
-```typescript
-// In Template
-<p>Alive: {{ waveManager.enemyManager.aliveCount() }}</p>
-<p>Total: {{ waveManager.enemyManager.getAll().length }}</p>
-```
+`debug:kill-all` stoppt den Spawner (`stopSpawning()`) und tötet alle lebenden
+Enemies ohne Credits. Die Welle endet danach regulär über `checkWaveComplete()`.
 
 ---
 
@@ -872,7 +844,9 @@ loest die Tower-Selektion, startet die HQ-Effekte und emittiert `game:over`.
 
 ### Wave Reset bei Game Over
 
-`WaveManager.reset()` verwirft den aktiven Spawner (`activeSpawner = null`),
+`WaveManager.reset()` läuft beim Neustart (`command:restart-game` →
+`GameStateManager.reset()`) und beim Location-Wechsel. Es verwirft den aktiven
+Spawner (`activeSpawner = null`),
 leert den EnemyManager, setzt Phase auf `setup`, `waveNumber` auf 0 und die
 Spawn-Tracking-Zaehler zurueck. Es gibt keine Timeouts mehr zu stoppen — der
 Spawner laeuft seit dem Sub-Step-Refactor ueber `tickSpawn()`.
@@ -900,57 +874,22 @@ export interface GeoPosition {
 }
 ```
 
-### Generierung
+### Herkunft
 
-Spawn-Points werden beim Location-Setup generiert:
-
-```typescript
-// In LocationManagementService
-private generateSpawnPoints(basePos: GeoPosition): SpawnPoint[] {
-  const spawnPoints: SpawnPoint[] = [];
-  const minDistance = 500;  // 500m von Base
-  const maxDistance = 1000; // 1000m von Base
-
-  // Versuche N Spawn-Points zu finden
-  for (let i = 0; i < 4; i++) {
-    const bearing = (i * 90) + Math.random() * 45;  // Ungefaehr N, E, S, W
-    const distance = minDistance + Math.random() * (maxDistance - minDistance);
-
-    const spawnPos = this.calculatePointAtBearing(basePos, bearing, distance);
-
-    // Validierung: Muss auf Strasse sein
-    if (this.isOnStreet(spawnPos)) {
-      spawnPoints.push({
-        id: `spawn_${i}`,
-        name: this.getCardinalDirection(bearing),
-        lat: spawnPos.lat,
-        lon: spawnPos.lon,
-      });
-    }
-  }
-
-  return spawnPoints;
-}
-```
+Spawn-Points werden nicht zufällig erzeugt. `LocationFacadeService` übernimmt
+die Spawn-Orte der Location aus `LocationManagementService.editableSpawnLocations()`
+(aus URL oder Location-Service) und legt jeden über `addSpawnPoint()` in den
+Store (`LocationStore.spawnPoints`). DevWorld erzeugt seine Spawns an
+Straßenenden (`StreetGenerator.generateSpawnsAtEnds()`).
 
 ### Cached Paths
 
-Pfade von Spawn -> HQ werden vorberechnet:
-
-```typescript
-// In PathAndRouteService
-private cachedPaths = new Map<string, GeoPosition[]>();
-
-for (const spawn of spawnPoints) {
-  const path = this.findPath(spawn, basePosition);
-  if (path) {
-    this.cachedPaths.set(spawn.id, path);
-  }
-}
-
-// Uebergabe an WaveManager
-this.waveManager.initialize(spawnPoints, this.cachedPaths);
-```
+`addSpawnPoint()` ruft `PathAndRouteService.showPathFromSpawn(spawn)`, das die
+Route berechnet; `buildRouteFromPath()` cached sie pro Spawn-ID mit Höhen
+(`cachedPaths.set(spawn.id, ...)`). `GameStateManager.initialize()` übergibt
+Spawn-Points und Pfade an `waveManager.initialize(spawnPoints, cachedPaths)`.
+Nach einer DevWorld-Neugenerierung setzt `reseatWavePipeline()` beide neu, weil
+`WaveManager.reset()` die Spawn-Points absichtlich behält.
 
 ---
 
@@ -971,37 +910,26 @@ spawnDelay: 800-1000,  // Empfohlen (Tank, Boss)
 
 ### 2. Wave Difficulty Curve
 
-```typescript
-// Linear: Langweilig
-enemyCount: 10 + waveNum * 2;  // Nicht empfohlen
-
-// Exponentiell: Zu schwer
-enemyCount: Math.pow(2, waveNum);  // Nicht empfohlen
-
-// Progressiv mit Cap: Gut
-enemyCount: Math.min(50, 10 + waveNum * 5);  // Empfohlen
-```
+Keine eigene Count-Formel schreiben: Count, HP und Delay kommen aus
+Template-Ranges, Rule-Director-Rampe, Fairness-Cap und Gate-Controller (siehe
+[Progressive Difficulty](#progressive-difficulty)). Feste Wellen stehen in
+`STATIC_WAVE_PROFILES`.
 
 ### 3. Mixed Enemy Types
 
-```typescript
-// Nicht nur ein Typ pro Wave
-// Mische einfache und schwere Enemies:
-
-const zombieCount = 10 + waveNum * 3;
-const tankCount = Math.floor(waveNum / 3);
-
-// Spawne Zombies zuerst, dann Tanks
-```
+Mischungen gehören in ein Template (`enemies: [[typ, anteil], ...]`) bzw. in
+die Gruppen einer `AIWaveConfig`; die Reihenfolge bestimmt das Spawn-Pattern.
 
 ---
 
 ## Troubleshooting
 
 ### Wave startet nicht
-- Check `phase() === 'setup'` vor `startWave()`
-- Check `spawnPoints.length > 0`
-- Check `cachedPaths` nicht leer
+- Phase muss `setup` sein (die Facade ignoriert Starts in `wave` und `gameover`)
+- Engine bereit und `store.spawnPoints().length > 0`
+- Director-Anfrage noch offen (`pendingAIWaveRequest`)? Dann wird ein weiterer Start ignoriert
+- Leerer Schedule (`entries.length === 0`): `WaveManager.startWave()` kehrt ohne Event zurück
+- Kein Pfad in `cachedPaths` für die Spawn-Points: die Welle bricht nach `spawnPoints.length * 2` Fehlversuchen ab
 
 ### Enemies spawnen an falscher Position
 - Check `cachedPaths` enthaelt richtigen Pfad
@@ -1033,19 +961,12 @@ spawnDelay: 200,  // 5 enemies/sec - empfohlen
 
 ### Large Waves
 
-```typescript
-// 100+ Enemies: Ueberlege Staggering
-if (enemyCount > 100) {
-  // Option 1: Laengerer Spawn-Delay
-  spawnDelay: 800;
-
-  // Option 2: Multiple Waves
-  this.startWave({ enemyCount: 50, ... });
-  setTimeout(() => {
-    this.startWave({ enemyCount: 50, ... });
-  }, 30000);  // 2. Wave nach 30s
-}
-```
+Zwei Grenzen im Code: Der Director komprimiert das Delay, wenn
+`count × spawnDelay` über `MAX_WAVE_DURATION_MS` (180 s) liegt, mit
+`MIN_SPAWN_DELAY_MS = 5` als Untergrenze. Der `WaveManager` spawnt pro Sub-Step
+höchstens `maxSpawnsPerFrame` (3) Enemies, auch bei Delay 0. Zwei Wellen
+parallel gibt es nicht: `GameLoopFacadeService.startWave()` startet nur aus
+`setup`.
 
 ---
 

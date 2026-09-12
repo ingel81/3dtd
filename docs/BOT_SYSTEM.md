@@ -1,6 +1,6 @@
 # Bot System — Dokumentation
 
-**Stand:** 2026-09-11
+**Stand:** 2026-09-13
 **Code:** `src/app/ai/training/`
 
 ## Überblick
@@ -141,7 +141,7 @@ export interface ITowerStrategy {
 |---|---|
 | `getAffordableTowers(credits, knownTypes, state?)` | filtert nach Kosten, wirft `attackType === 'passive'` (Research-Center) raus und respektiert `state.research.towerUnlocked` |
 | `getTowerValue(type)` | DPS pro Credit über `computeTowerDPSFromLevels` — **nicht** `damage × fireRate`. Die Abkürzung liefert 0 für Beam-Tower (Fire hat `damage: 0` und trägt seinen Output in `damagePerSecond`) und ignoriert Chain-Falloff, Splash und DoT |
-| `getTowerValueVsArmor(type, armor)` | effektive DPS pro Credit gegen eine Rüstungsklasse. Notwendig, weil die Damage-Matrix schief ist: Archer schlägt Magic auf dem Papier, landet aber bei 0.15× gegen Ethereal, wo Magic 1.75× macht |
+| `getTowerValueVsArmor(type, armor)` | effektive DPS pro Credit gegen eine Rüstungsklasse. Notwendig, weil die Damage-Matrix schief ist: Archer schlägt Magic auf dem Papier, landet aber bei 0.1× gegen Ethereal, wo Magic 2.0× macht |
 
 ### TowerAction
 
@@ -203,7 +203,8 @@ Skill-Level unterscheiden sich in Reaktionszeit, Turm-Cap und Strategie-Set.
   drückte.
 
 Die Factory legt beim Erzeugen ±30 % Jitter auf `reactionTimeMs` und `maxTowers`
-(`jitterConfig()`, Faktor in [0.7, 1.3], `maxTowers = 0` bleibt 0), damit
+(`jitterConfig()`, Faktor in [0.7, 1.3], Untergrenzen 100 ms und 5 Türme,
+`maxTowers = 0` bleibt 0), damit
 parallele Trainings-Tabs nicht identisch spielen.
 
 ---
@@ -308,8 +309,9 @@ Zwei Sonderregeln, beide aus konkreten Fehlern:
 - **Anti-Air-Dringlichkeit:** Enthält das Curriculum-Template der *nächsten*
   Welle Lufteinheiten und die Verteidigung hat keine Luftfähigkeit, bekommen
   `rocketry` und `aa-retrofit` +100 auf den Score. Ohne den Bump gewinnt die
-  reine Matrix-Bewertung mit Magic (1.0× gegen light) gegen Rocket (0.7×), und
-  der Bot geht wehrlos in eine forcierte Luftwelle.
+  reine Matrix-Bewertung mit einem Turm, der Luft nicht trifft (Gatling ohne
+  AA-Retrofit, 1,6× gegen light), gegen Rocket (0,5×), und der Bot geht
+  wehrlos in eine forcierte Luftwelle.
 - **`hasAntiAirCapability`** liest bevorzugt `defense.capabilities.hasAntiAir`
   (was wirklich gebaut ist und reicht) und fällt sonst auf die Unlock-Flags
   *aller* luftfähigen Türme zurück. Die alte Prüfung sah nur `rocket`, also galt
@@ -385,7 +387,8 @@ bezahlbar und der Cap erreicht, spart der Bot auf den billigsten Nicht-Archer.
 
 Dieselbe Varianz-/Verstärkungslogik wie DistributedPlacement, aber über
 `findStrategicPositions` statt Zonen und mit 50/50 statt 30/70 beim
-Spar-Entscheid. Erster Turm: der billigste. Gleicher Archer-Cap.
+Spar-Entscheid; gespart wird auf einen zufälligen fehlenden Typ statt auf den
+billigsten. Erster Turm: der billigste. Gleicher Archer-Cap.
 
 ### AutoStartWave — 30
 
@@ -479,7 +482,7 @@ abdeckt, ist `2·√(r² − 20²)`:
 | Archer | 30 | ~45 m |
 | Dual-Gatling | 50 | ~92 m |
 | Magic | 70 | ~134 m |
-| Cannon | 80 | ~155 m |
+| Cannon | 70 | ~134 m |
 | Rocket | 100 | ~196 m |
 
 Spawns liegen 500–1000 m vom HQ. Fünf Türme decken damit grob 25–50 % des Pfades.
@@ -514,8 +517,12 @@ updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean  // 
 ```
 
 `updateBot` läuft nur in Phase `setup` oder `wave`. `TrainingSession.executeBotAction`
-validiert noch einmal gegen den echten Spielstand (Kosten, Existenz des Turms)
-und setzt die Aktion über EventBus-Commands ab.
+prüft noch einmal gegen den echten Spielstand (Platzierungsregeln über
+`TowerPlacementService.validateTowerPosition`, Kosten, Existenz des Turms,
+Max-Level des Upgrades) und führt dann aus: Platzieren und Verkaufen direkt am
+`GameStateManager`, Upgrade und Wellenstart (nur in `setup`) über die
+Facade-Callbacks, Forschung über `command:start-research` bzw.
+`command:cancel-research`.
 
 `enableBot` wird **gepuffert** (`pendingBotSkill`), solange die Session nicht
 steht: der Chunk lädt noch, oder `initialize()` lief noch nicht. Die zweite
@@ -592,7 +599,7 @@ Erzeugungszeitpunkt gelesen — eine spätere Änderung wirkt erst beim nächste
 ### Bot platziert keine Türme
 
 1. Bot aktiv? → `botEnabled()`
-2. Genug Credits? → Konsole, „Cannot afford"
+2. Genug Credits? → Konsole, „Not enough credits"
 3. Valide Positionen? → `StrategicPlacementService` gibt nur Kandidaten zurück,
    die `TowerPlacementService.placementChecker()` besteht (dieselben Regeln wie
    Vorschau und Klick). Keine Kandidaten, keine Platzierung
