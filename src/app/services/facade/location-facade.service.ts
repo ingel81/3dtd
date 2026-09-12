@@ -42,6 +42,14 @@ export interface VizCallbacks {
   fitCorridorToTiles: () => void;
 }
 
+/** What the game component hands over in initialize(). */
+interface ComponentContext {
+  bridge: FacadeComponentBridge;
+  gameState: GameStateManager;
+  /** Component injector, for the DestroyRef of the location dialog. */
+  injector: Injector;
+}
+
 /**
  * Sub-facade for location management, DevWorld, spawns, and street loading.
  *
@@ -73,17 +81,14 @@ export class LocationFacadeService {
   private readonly dialog = inject(MatDialog);
   private readonly store = inject(TowerDefenseStore);
 
-  /** Component bridge — set via initialize() */
-  private bridge!: FacadeComponentBridge;
-
-  /** Game state manager — set via initialize() */
-  private gameState!: GameStateManager;
-
-  /** Component injector — needed for DestroyRef */
-  private componentInjector!: Injector;
-
-  /** Whether this sub-facade has been initialized */
-  private initialized = false;
+  /**
+   * The game component's bridge, game state and injector, from initialize()
+   * until dispose(). This service is a root singleton and outlives the
+   * component; without a component every entry point is a no-op, including
+   * async work (street loads, DevWorld regeneration) that finishes after the
+   * component went away.
+   */
+  private ctx: ComponentContext | null = null;
 
   /** Visualization callbacks for in-place operations (stored from initializeCoordinator) */
   private vizCallbacks: VizCallbacks | null = null;
@@ -92,17 +97,18 @@ export class LocationFacadeService {
    * Initialize sub-facade with bridge, game state, and component injector.
    */
   initialize(bridge: FacadeComponentBridge, gameState: GameStateManager, injector: Injector): void {
-    this.bridge = bridge;
-    this.gameState = gameState;
-    this.componentInjector = injector;
-    this.initialized = true;
+    this.ctx = { bridge, gameState, injector };
   }
 
   /**
-   * Reset state on dispose.
+   * Release the component: drop the bridge, the game state, the injector and
+   * the viz callbacks, so the root service no longer keeps the destroyed
+   * component reachable. initialize() and initializeCoordinator() set them
+   * again for the next one.
    */
   dispose(): void {
-    this.initialized = false;
+    this.ctx = null;
+    this.vizCallbacks = null;
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -125,13 +131,14 @@ export class LocationFacadeService {
   private buildLocationFlowDelegate(vizCallbacks: VizCallbacks): LocationFlowDelegate {
     return {
       getChangeContext: () => {
-        const engine = this.bridge.getEngine();
-        if (!engine) return null;
+        const ctx = this.ctx;
+        const engine = ctx?.bridge.getEngine();
+        if (!ctx || !engine) return null;
         return {
           engine,
-          gameState: this.gameState,
-          streetNetwork: this.bridge.getStreetNetwork(),
-          streetNetworkLocation: this.bridge.getStreetNetworkLocation(),
+          gameState: ctx.gameState,
+          streetNetwork: ctx.bridge.getStreetNetwork(),
+          streetNetworkLocation: ctx.bridge.getStreetNetworkLocation(),
           heightDebugVisible: this.store.heightDebugVisible,
         };
       },
@@ -141,8 +148,8 @@ export class LocationFacadeService {
         setSpawnPoints: (p) => this.store.spawnPoints.set(p),
         addSpawnPoint: (id, name, lat, lon, color) => this.addSpawnPoint(id, name, lat, lon, color),
         setStreetCount: (c) => this.store.streetCount.set(c),
-        setStreetNetwork: (n) => this.bridge.setStreetNetwork(n),
-        setStreetNetworkLocation: (l) => this.bridge.setStreetNetworkLocation(l),
+        setStreetNetwork: (n) => this.ctx?.bridge.setStreetNetwork(n),
+        setStreetNetworkLocation: (l) => this.ctx?.bridge.setStreetNetworkLocation(l),
         syncUrlWithLocation: () => this.syncUrlWithLocation(),
         clearMapEntities: () => this.clearMapEntities(),
         appendDebugLog: (msg) => this.debugFacade.appendDebugLog(msg),
@@ -216,11 +223,15 @@ export class LocationFacadeService {
 
   /**
    * Open location dialog and wait for user to select a location.
-   * Rejects if component is destroyed before dialog closes.
+   * Rejects if component is destroyed before dialog closes, or if there is
+   * no component to begin with.
    */
   waitForLocationFromDialog(): Promise<void> {
+    const ctx = this.ctx;
+    if (!ctx) return Promise.reject(new Error('Location facade is not initialized'));
+
     return new Promise((resolve, reject) => {
-      const destroyRef = this.componentInjector.get(DestroyRef);
+      const destroyRef = ctx.injector.get(DestroyRef);
       let settled = false;
 
       // Reject if component is destroyed before dialog closes
@@ -282,8 +293,10 @@ export class LocationFacadeService {
    * Add predefined spawn points.
    */
   addPredefinedSpawns(): number {
+    const ctx = this.ctx;
+    if (!ctx) return 0;
     const hq = this.locationMgmt.hq();
-    const streetNetwork = this.bridge.getStreetNetwork();
+    const streetNetwork = ctx.bridge.getStreetNetwork();
 
     if (!hq) {
       console.warn('[addPredefinedSpawns] No HQ location set');
@@ -293,7 +306,7 @@ export class LocationFacadeService {
     if (this.locationMgmt.needsRandomSpawn() && streetNetwork) {
       // DevWorld mode
       if (this.devWorld.isActive) {
-        const engine = this.bridge.getEngine() || this.engineInit.getEngine();
+        const engine = ctx.bridge.getEngine() || this.engineInit.getEngine();
         const devTerrainProvider = engine?.getDevTerrainProvider();
 
         if (devTerrainProvider) {
@@ -354,8 +367,10 @@ export class LocationFacadeService {
    * Add a spawn point (delegates to services).
    */
   addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number): void {
-    const engine = this.bridge.getEngine() || this.engineInit.getEngine();
-    const streetNetwork = this.bridge.getStreetNetwork();
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const engine = ctx.bridge.getEngine() || this.engineInit.getEngine();
+    const streetNetwork = ctx.bridge.getStreetNetwork();
     if (!engine || !streetNetwork) return;
 
     const spawn: SpawnPoint = { id, name, lat, lon, color };
@@ -397,7 +412,9 @@ export class LocationFacadeService {
    * Fast in-place if within street network bounds, full reload otherwise.
    */
   private async applyNewHqPosition(lat: number, lon: number): Promise<void> {
-    const streetNetwork = this.bridge.getStreetNetwork();
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const streetNetwork = ctx.bridge.getStreetNetwork();
 
     // Fast path: HQ within loaded street bounds → in-place update
     if (streetNetwork && this.isWithinBounds(streetNetwork.bounds, lat, lon)) {
@@ -428,9 +445,10 @@ export class LocationFacadeService {
       try {
         const newNetwork = await this.osmService.loadStreets(lat, lon, 2000);
 
-        // Cache in bridge so coordinator's step3 reuses it (avoids double-load)
-        this.bridge.setStreetNetwork(newNetwork);
-        this.bridge.setStreetNetworkLocation({ lat, lon });
+        // Cache in bridge so coordinator's step3 reuses it (avoids double-load).
+        // The component may have gone away during the load.
+        this.ctx?.bridge.setStreetNetwork(newNetwork);
+        this.ctx?.bridge.setStreetNetworkLocation({ lat, lon });
 
         const randomSpawn = this.osmService.findRandomStreetPoint(
           newNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE,
@@ -465,9 +483,11 @@ export class LocationFacadeService {
    * markers, paths, and game state without loading screen or street reload.
    */
   private async applyHqInPlace(lat: number, lon: number): Promise<void> {
-    const engine = this.bridge.getEngine();
-    const streetNetwork = this.bridge.getStreetNetwork();
-    if (!engine || !streetNetwork || !this.vizCallbacks) return;
+    const ctx = this.ctx;
+    const engine = ctx?.bridge.getEngine();
+    const streetNetwork = ctx?.bridge.getStreetNetwork();
+    if (!ctx || !engine || !streetNetwork || !this.vizCallbacks) return;
+    const { bridge, gameState } = ctx;
 
     // Save existing spawns before clearing
     const existingSpawns = this.store.spawnPoints().map(sp => ({
@@ -479,7 +499,7 @@ export class LocationFacadeService {
     this.heightUpdate.stopHeightUpdates();
 
     // 2. Reset game state (towers, enemies, etc.)
-    this.gameState.reset();
+    gameState.reset();
 
     // 3. Targeted cleanup — keep street network + street network location
     this.markerViz.clearAllMarkers();
@@ -487,7 +507,7 @@ export class LocationFacadeService {
     this.pathRoute.clearCachedPaths();
     this.streetRendering.dispose(engine.getOverlayGroup());
     this.store.spawnPoints.set([]);
-    this.bridge.setFilteredStreetNetwork(null);
+    bridge.setFilteredStreetNetwork(null);
 
     // 4. Update engine coordinate system
     engine.setOrigin(lat, lon);
@@ -527,10 +547,10 @@ export class LocationFacadeService {
     const waveSpawns: WaveSpawnPoint[] = this.store.spawnPoints().map(sp => ({
       id: sp.id, name: sp.name, lat: sp.lat, lon: sp.lon,
     }));
-    this.gameState.initialize(
+    gameState.initialize(
       engine, { lat, lon }, waveSpawns, this.pathRoute.getCachedPaths(),
     );
-    this.gameState.initializeGlobalRouteGrid();
+    gameState.initializeGlobalRouteGrid();
 
     // 11. Re-initialize tower placement + street filter + rendering
     this.vizCallbacks.initializeTowerPlacement();
@@ -569,7 +589,9 @@ export class LocationFacadeService {
    * Otherwise triggers a full location change.
    */
   private async applyNewSpawnPosition(lat: number, lon: number): Promise<void> {
-    const streetNetwork = this.bridge.getStreetNetwork();
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const streetNetwork = ctx.bridge.getStreetNetwork();
     const hq = this.store.baseCoords();
 
     if (streetNetwork && this.isWithinBounds(streetNetwork.bounds, lat, lon)) {
@@ -589,9 +611,11 @@ export class LocationFacadeService {
    * Avoids reloading streets — only recalculates paths and game state.
    */
   private async applySpawnInPlace(lat: number, lon: number): Promise<void> {
-    const engine = this.bridge.getEngine();
-    const streetNetwork = this.bridge.getStreetNetwork();
-    if (!engine || !streetNetwork) return;
+    const ctx = this.ctx;
+    const engine = ctx?.bridge.getEngine();
+    const streetNetwork = ctx?.bridge.getStreetNetwork();
+    if (!ctx || !engine || !streetNetwork) return;
+    const { gameState } = ctx;
 
     const hq = this.store.baseCoords();
 
@@ -610,7 +634,7 @@ export class LocationFacadeService {
     this.store.spawnPoints.set([]);
 
     // 3. Reset game state (towers, enemies, etc.)
-    this.gameState.reset();
+    gameState.reset();
 
     // 4. Add new spawn point
     this.addSpawnPoint('spawn-1', 'Spawn', lat, lon, SPAWN_COLORS[0]);
@@ -621,13 +645,13 @@ export class LocationFacadeService {
 
     // 6. Re-initialize game state with new routes
     const waveSpawns = [{ id: 'spawn-1', name: 'Spawn', lat, lon }];
-    this.gameState.initialize(
+    gameState.initialize(
       engine,
       { lat: hq.lat, lon: hq.lon },
       waveSpawns,
       this.pathRoute.getCachedPaths(),
     );
-    this.gameState.initializeGlobalRouteGrid();
+    gameState.initializeGlobalRouteGrid();
 
     // 7. Update map placement service dependencies
     this.mapPlacement.updateDependencies(streetNetwork, hq);
@@ -663,8 +687,9 @@ export class LocationFacadeService {
    * Clear all map entities (markers, routes, streets, spawns).
    */
   clearMapEntities(): void {
-    const engine = this.bridge.getEngine();
-    if (!engine) return;
+    const ctx = this.ctx;
+    const engine = ctx?.bridge.getEngine();
+    if (!ctx || !engine) return;
 
     const overlayGroup = engine.getOverlayGroup();
 
@@ -675,8 +700,8 @@ export class LocationFacadeService {
     this.store.spawnPoints.set([]);
     this.pathRoute.clearCachedPaths();
 
-    this.bridge.setFilteredStreetNetwork(null);
-    this.bridge.setStreetNetworkLocation(null);
+    ctx.bridge.setFilteredStreetNetwork(null);
+    ctx.bridge.setStreetNetworkLocation(null);
 
     this.engineInit.stopTileStatsPolling();
   }
@@ -689,7 +714,7 @@ export class LocationFacadeService {
    * Refresh terrain heights. In DevWorld: regenerates entire world.
    */
   refreshTerrainHeights(onTilesLoaded: () => void): void {
-    const engine = this.bridge.getEngine();
+    const engine = this.ctx?.bridge.getEngine();
     if (!engine) return;
 
     if (this.devWorld.isActive) {
@@ -718,16 +743,17 @@ export class LocationFacadeService {
    * Clear all DevWorld visuals before regeneration.
    */
   clearDevWorldVisuals(): void {
-    const engine = this.bridge.getEngine();
-    if (!engine) return;
+    const ctx = this.ctx;
+    const engine = ctx?.bridge.getEngine();
+    if (!ctx || !engine) return;
 
     const overlayGroup = engine.getOverlayGroup();
 
     this.routeAnimation.stopAnimation();
     this.heightUpdate.stopHeightUpdates();
 
-    this.gameState.reset();
-    this.gameState.getGlobalRouteGrid().disposeVisualization();
+    ctx.gameState.reset();
+    ctx.gameState.getGlobalRouteGrid().disposeVisualization();
 
     this.markerViz.clearAllMarkers();
     this.pathRoute.clearAllRoutes();
@@ -741,8 +767,10 @@ export class LocationFacadeService {
    * Called after DevWorld terrain regeneration.
    */
   onDevWorldRegenerated(devTerrainProvider: DevTerrainProvider): void {
-    const engine = this.bridge.getEngine();
-    if (!engine) return;
+    const ctx = this.ctx;
+    const engine = ctx?.bridge.getEngine();
+    if (!ctx || !engine) return;
+    const { bridge, gameState } = ctx;
 
     // Re-create base marker
     this.markerViz.addBaseMarker();
@@ -756,7 +784,7 @@ export class LocationFacadeService {
     }
 
     // Re-filter and render streets
-    this.bridge.setFilteredStreetNetwork(this.bridge.getStreetNetwork());
+    bridge.setFilteredStreetNetwork(bridge.getStreetNetwork());
 
     // Update marker heights and render routes
     this.markerViz.updateMarkerHeights();
@@ -764,13 +792,13 @@ export class LocationFacadeService {
     // Rebuild the route-cell grid BEFORE resolving route-line heights: the
     // grid is what `getGroundLocalYAt` reads, and until it is regenerated it
     // still holds the previous world's cells.
-    this.gameState.initializeGlobalRouteGrid();
+    gameState.initializeGlobalRouteGrid();
     this.pathRoute.refreshRouteLines(this.store.spawnPoints());
-    this.gameState.onTilesLoaded();
+    gameState.onTilesLoaded();
 
     // Hand the new spawns and routes to the wave pipeline. Without this the
     // WaveManager kept spawning at the old world's coordinates.
-    this.gameState.reseatWavePipeline(
+    gameState.reseatWavePipeline(
       this.store.spawnPoints().map((sp) => ({
         id: sp.id,
         name: sp.name,

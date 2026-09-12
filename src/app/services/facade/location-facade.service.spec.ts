@@ -862,6 +862,74 @@ describe('LocationFacadeService', () => {
     });
   });
 
+  describe('dispose', () => {
+    const initAgain = () => facade.initialize(
+      bridge as unknown as FacadeComponentBridge,
+      gameState as unknown as GameStateManager,
+      { get: () => destroyRef } as unknown as Injector,
+    );
+
+    it('gives the coordinator no change context any more', () => {
+      facade.initializeCoordinator(vizCallbacks as unknown as VizCallbacks);
+      facade.dispose();
+
+      expect(delegate().getChangeContext()).toBeNull();
+      delegate().getChangeCallbacks().setStreetNetwork(null);
+      expect(bridge.setStreetNetwork).not.toHaveBeenCalled();
+    });
+
+    it('moves nothing in place and draws no spawn', async () => {
+      facade.initializeCoordinator(vizCallbacks as unknown as VizCallbacks);
+      store.spawnPoints.set([OLD_SPAWN]);
+      locationMgmt.setLocation(HQ, []);
+      locationMgmt.editableSpawnLocations.set([{ id: 'a', name: 'Alpha', lat: 48.8, lon: 9.2 }]);
+      facade.dispose();
+
+      mapPlacement.handlePlacementClick.mockReturnValue({ mode: 'hq', ...INSIDE });
+      await facade.handleMapPlacementClick(INSIDE.lat, INSIDE.lon, 0);
+      facade.addSpawnPoint('s1', 'North', 48.8, 9.2, 1);
+      facade.clearMapEntities();
+
+      expect(facade.addPredefinedSpawns()).toBe(0);
+      expect(gameState.reset).not.toHaveBeenCalled();
+      expect(engine.setOrigin).not.toHaveBeenCalled();
+      expect(markerViz.clearAllMarkers).not.toHaveBeenCalled();
+      expect(store.spawnPoints()).toEqual([OLD_SPAWN]);
+    });
+
+    it('leaves the old game alone when a DevWorld regeneration finishes afterwards', async () => {
+      devWorld.isActive = true;
+      let finish!: () => void;
+      engine.getDevTerrainProvider.mockReturnValue({
+        regenerate: vi.fn(() => new Promise<void>((resolve) => { finish = resolve; })),
+        getSpawnPoints: () => [{ id: 'dev-n', name: 'North', position: { x: 100, z: 400 } }],
+      });
+      facade.refreshTerrainHeights(vi.fn());
+      facade.dispose();
+
+      finish();
+      await settle();
+
+      expect(store.isDevWorldRegenerating()).toBe(false);
+      expect(markerViz.addBaseMarker).not.toHaveBeenCalled();
+      expect(gameState.reseatWavePipeline).not.toHaveBeenCalled();
+    });
+
+    it('refuses the location dialog without a component', async () => {
+      facade.dispose();
+      await expect(facade.waitForLocationFromDialog()).rejects.toThrow('not initialized');
+      expect(dialog.open).not.toHaveBeenCalled();
+    });
+
+    it('works again after the next initialize', () => {
+      facade.dispose();
+      initAgain();
+
+      facade.addSpawnPoint('s1', 'North', 48.8, 9.2, 1);
+      expect(spawnIds()).toEqual(['s1']);
+    });
+  });
+
   describe('onDevWorldRegenerated', () => {
     const provider = {
       getSpawnPoints: () => [
