@@ -4,15 +4,16 @@ import {
   AudioLoader,
   Scene,
   Camera,
-  Object3D,
   Vector3,
   Audio,
 } from 'three';
-import { AUDIO_LIMITS, ENEMY_SOUND_PATTERNS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
+import { AUDIO_LIMITS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
 import { GameEventBus } from '../../game-engine';
 import { AudioBufferCache } from './audio-buffer-cache';
 import { AudioPoolManager } from './audio-pool.manager';
 import { SpatialAudioPlayback, RegisteredSound, SoundDebugEvent } from './spatial-audio-playback';
+import { SpatialAudioLoops } from './spatial-audio-loops';
+import { EnemySoundBudget, isEnemySoundId } from './enemy-sound-budget';
 
 export type { SoundDebugEvent };
 
@@ -58,19 +59,6 @@ const DEFAULT_CONFIG: Required<SpatialSoundConfig> = {
 };
 
 /**
- * Active looping sound (managed centrally)
- */
-interface ActiveLoop {
-  handle: string;
-  soundId: string;
-  audio: PositionalAudio;
-  container: Object3D;
-  isEnemySound: boolean;
-  paused: boolean;
-  baseVolume: number;
-}
-
-/**
  * Sound pool statistics for debugging
  */
 export interface SoundPoolStats {
@@ -90,26 +78,24 @@ export interface SoundPoolStats {
  * - AudioBufferCache: LRU buffer caching and loading
  * - AudioPoolManager: PositionalAudio lifecycle and panner updates
  * - SpatialAudioPlayback: playAt, playAtGeo, playGlobal, one-shot management
+ * - SpatialAudioLoops: looping sounds by handle, paused out of range
+ * - EnemySoundBudget: cap on audible enemy sounds
  *
- * This class handles: sound registration, loops, enemy budget, EventBus wiring.
+ * This class handles: the master bus, sound registration, master volume,
+ * context recovery and EventBus wiring.
  */
 export class SpatialAudioManager {
   private pool: AudioPoolManager;
   private bufferCache: AudioBufferCache;
   private playback: SpatialAudioPlayback;
+  private loops: SpatialAudioLoops;
+  private readonly enemyBudget = new EnemySoundBudget();
 
   // Registered sounds (id -> buffer + config)
   private sounds = new Map<string, RegisteredSound>();
 
-  // Active looping sounds
-  private activeLoops = new Map<string, ActiveLoop>();
-  private loopHandleCounter = 0;
-
   // Master SFX volume (0-1)
   private _masterVolume = 1.0;
-
-  // Enemy sound budget
-  private enemySoundCount = 0;
 
   /** Document listener from the constructor, removed again in dispose(). */
   private readonly onVisibilityChange: () => void;
@@ -167,6 +153,7 @@ export class SpatialAudioManager {
     this.pool = new AudioPoolManager(listener, scene);
     this.bufferCache = new AudioBufferCache(loader);
     this.playback = new SpatialAudioPlayback(this.pool, this.sounds, camera);
+    this.loops = new SpatialAudioLoops(this.pool, this.playback, this.sounds, this.enemyBudget);
   }
 
   // ─── Geo converter ───────────────────────────────────────
@@ -192,30 +179,23 @@ export class SpatialAudioManager {
   // ─── Enemy sound budget ──────────────────────────────────
 
   isEnemySound(soundId: string): boolean {
-    const lowerSoundId = soundId.toLowerCase();
-    return ENEMY_SOUND_PATTERNS.some((pattern) => lowerSoundId.includes(pattern));
+    return isEnemySoundId(soundId);
   }
 
   canPlayEnemySound(): boolean {
-    return this.enemySoundCount < AUDIO_LIMITS.maxEnemySounds;
+    return this.enemyBudget.canReserve();
   }
 
   getEnemySoundStats(): { current: number; max: number } {
-    return { current: this.enemySoundCount, max: AUDIO_LIMITS.maxEnemySounds };
+    return this.enemyBudget.stats();
   }
 
   registerEnemySound(): boolean {
-    if (this.enemySoundCount >= AUDIO_LIMITS.maxEnemySounds) {
-      return false;
-    }
-    this.enemySoundCount++;
-    return true;
+    return this.enemyBudget.reserve();
   }
 
   unregisterEnemySound(): void {
-    if (this.enemySoundCount > 0) {
-      this.enemySoundCount--;
-    }
+    this.enemyBudget.release();
   }
 
   // ─── Projectile helpers ──────────────────────────────────
@@ -231,16 +211,17 @@ export class SpatialAudioManager {
   // ─── Active sound counts ─────────────────────────────────
 
   getActiveSoundCount(): number {
-    return this.playback.getActiveSoundCount() + this.activeLoops.size;
+    return this.playback.getActiveSoundCount() + this.loops.size;
   }
 
   // ─── Debug ───────────────────────────────────────────────
 
   debugLogActiveSounds(): void {
+    const enemy = this.enemyBudget.stats();
     console.log('[SpatialAudio] Active sounds:', {
       oneShots: this.playback.getActiveSounds().map(s => s.soundId),
-      loops: Array.from(this.activeLoops.values()).map(l => ({ id: l.soundId, paused: l.paused })),
-      enemyBudget: `${this.enemySoundCount}/${AUDIO_LIMITS.maxEnemySounds}`,
+      loops: this.loops.describe(),
+      enemyBudget: `${enemy.current}/${enemy.max}`,
       projectileBudget: `${this.playback.getProjectileSoundStats().current}/${AUDIO_LIMITS.maxProjectileSounds}`,
       poolAvailable: 0,
     });
@@ -256,11 +237,8 @@ export class SpatialAudioManager {
       poolAvailable: 0,
       poolMax: 0,
       activeOneShots: this.playback.getActiveSoundCount(),
-      activeLoops: this.activeLoops.size,
-      enemyBudget: {
-        current: this.enemySoundCount,
-        max: AUDIO_LIMITS.maxEnemySounds,
-      },
+      activeLoops: this.loops.size,
+      enemyBudget: this.enemyBudget.stats(),
       projectileBudget: {
         current: projStats.current,
         max: projStats.max,
@@ -295,12 +273,7 @@ export class SpatialAudioManager {
   setMasterVolume(vol: number): void {
     this._masterVolume = Math.max(0, Math.min(1, vol));
     this.playback.setMasterVolume(this._masterVolume);
-    // Update active loops
-    for (const loop of this.activeLoops.values()) {
-      if (!loop.paused) {
-        loop.audio.setVolume(loop.baseVolume * this._masterVolume);
-      }
-    }
+    this.loops.setMasterVolume(this._masterVolume);
   }
 
   // ─── Sound registration ──────────────────────────────────
@@ -364,161 +337,34 @@ export class SpatialAudioManager {
     return this.playback.playGlobal(soundId, volumeMultiplier);
   }
 
-  // ─── Loop management ────────────────────────────────────
+  // ─── Loop management (delegated) ────────────────────────
 
   async createLoop(
     soundId: string,
     position: Vector3,
     config?: { volumeMultiplier?: number; randomStart?: boolean }
   ): Promise<string | null> {
-    const sound = this.sounds.get(soundId);
-    if (!sound) {
-      console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
-      return null;
-    }
-
-    const isEnemySound = this.isEnemySound(soundId);
-    if (isEnemySound) {
-      if (!this.registerEnemySound()) {
-        return null;
-      }
-    }
-
-    if (!this.playback.isWithinAudibleDistance(position)) {
-      if (isEnemySound) {
-        this.unregisterEnemySound();
-      }
-      return null;
-    }
-
-    await this.playback.resumeContext();
-
-    if (sound.loading) {
-      await sound.loading;
-    }
-    if (!sound.buffer) {
-      console.warn(`[SpatialAudio] No buffer for: ${soundId}`);
-      if (isEnemySound) {
-        this.unregisterEnemySound();
-      }
-      return null;
-    }
-
-    const audio = this.pool.createAudio();
-    audio.setBuffer(sound.buffer);
-    audio.setRefDistance(sound.config.refDistance);
-    audio.setRolloffFactor(sound.config.rolloffFactor);
-    audio.setDistanceModel(sound.config.distanceModel);
-    const baseVolume = sound.config.volume * (config?.volumeMultiplier ?? 1.0);
-    audio.setVolume(baseVolume * this._masterVolume);
-    audio.setLoop(true);
-
-    if (sound.config.maxDistance > 0) {
-      audio.setMaxDistance(sound.config.maxDistance);
-    }
-
-    if (config?.randomStart && sound.buffer.duration > 0) {
-      audio.offset = Math.random() * sound.buffer.duration;
-    }
-
-    const container = this.pool.createContainerAtPosition(audio, position);
-
-    const handle = `loop_${++this.loopHandleCounter}`;
-
-    const activeLoop: ActiveLoop = {
-      handle,
-      soundId,
-      audio,
-      container,
-      isEnemySound,
-      paused: false,
-      baseVolume,
-    };
-    this.activeLoops.set(handle, activeLoop);
-
-    audio.play();
-
-    return handle;
+    return this.loops.create(soundId, position, config);
   }
 
   updateLoopPosition(handle: string, position: Vector3): void {
-    const loop = this.activeLoops.get(handle);
-    if (!loop) return;
-
-    loop.container.position.copy(position);
-
-    const isInRange = this.playback.isWithinAudibleDistance(position);
-
-    if (!isInRange && !loop.paused) {
-      this.pauseLoopInternal(loop);
-    } else if (isInRange && loop.paused) {
-      this.resumeLoopInternal(loop);
-    }
+    this.loops.updatePosition(handle, position);
   }
 
   pauseLoop(handle: string): void {
-    const loop = this.activeLoops.get(handle);
-    if (loop && !loop.paused) {
-      this.pauseLoopInternal(loop);
-    }
+    this.loops.pause(handle);
   }
 
   resumeLoop(handle: string): boolean {
-    const loop = this.activeLoops.get(handle);
-    if (!loop || !loop.paused) return true;
-    return this.resumeLoopInternal(loop);
+    return this.loops.resume(handle);
   }
 
   stopLoop(handle: string): void {
-    const loop = this.activeLoops.get(handle);
-    if (!loop) return;
-
-    if (loop.isEnemySound && !loop.paused) {
-      this.unregisterEnemySound();
-    }
-
-    this.pool.cleanupAudio(loop.audio);
-    this.pool.removeContainer(loop.container);
-    this.activeLoops.delete(handle);
+    this.loops.stop(handle);
   }
 
   isLoopPaused(handle: string): boolean {
-    return this.activeLoops.get(handle)?.paused ?? false;
-  }
-
-  private pauseLoopInternal(loop: ActiveLoop): void {
-    try {
-      loop.audio.pause();
-      loop.paused = true;
-      if (loop.isEnemySound) {
-        this.unregisterEnemySound();
-      }
-    } catch (e) {
-      console.warn(`[SpatialAudio] pauseLoop failed:`, e);
-    }
-  }
-
-  private resumeLoopInternal(loop: ActiveLoop): boolean {
-    if (loop.isEnemySound) {
-      if (!this.registerEnemySound()) {
-        return false;
-      }
-    }
-
-    try {
-      loop.container.updateMatrixWorld(true);
-      this.pool.updatePannerPosition(loop.audio);
-
-      loop.audio.play();
-      loop.paused = false;
-      return true;
-    } catch (e) {
-      console.warn(`[SpatialAudio] resumeLoop failed:`, e);
-      if (loop.isEnemySound) {
-        this.unregisterEnemySound();
-      }
-      return false;
-    }
+    return this.loops.isPaused(handle);
   }
 
   // ─── Stop / cleanup ─────────────────────────────────────
@@ -529,10 +375,7 @@ export class SpatialAudioManager {
 
   stopAll(): void {
     this.playback.stopAllOneShots();
-    const loopHandles = Array.from(this.activeLoops.keys());
-    for (const handle of loopHandles) {
-      this.stopLoop(handle);
-    }
+    this.loops.stopAll();
   }
 
   /** Drop active one-shots that already finished playing (used on tab return). */

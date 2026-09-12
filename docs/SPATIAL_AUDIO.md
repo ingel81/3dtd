@@ -15,8 +15,8 @@ ThreeTilesEngine
             ├── bufferCache: AudioBufferCache    (LRU Cache, 50 Buffers)
             ├── playback: SpatialAudioPlayback   (playAt, playAtGeo, playGlobal, One-Shots,
             │                                     Projektil-Budget, Voice-Stealing)
-            ├── activeLoops Map                  (Loops, zentral verwaltet)
-            └── enemySoundCount                  (Enemy-Budget, nur Loops)
+            ├── loops: SpatialAudioLoops         (Loops per Handle, zentral verwaltet)
+            └── enemyBudget: EnemySoundBudget    (Zähler für Enemy-Sounds, nur Loops)
 
 GameObject (Enemy, Tower, ...)
     └── AudioComponent (dünner Wrapper)
@@ -25,7 +25,7 @@ GameObject (Enemy, Tower, ...)
 
 ### SpatialAudioManager (`managers/audio/spatial-audio.manager.ts`)
 
-Facade-Klasse fuer 3D-Audio. Delegiert an drei Helper:
+Facade-Klasse fuer 3D-Audio. Delegiert an fünf Helper:
 
 - `AudioBufferCache` (`audio-buffer-cache.ts`): LRU-Cache, Buffer-Loading.
 - `AudioPoolManager` (`audio-pool.manager.ts`): `PositionalAudio` erzeugen und
@@ -33,9 +33,13 @@ Facade-Klasse fuer 3D-Audio. Delegiert an drei Helper:
 - `SpatialAudioPlayback` (`spatial-audio-playback.ts`): `playAt`, `playAtGeo`,
   `playGlobal`, One-Shot-Verwaltung, Anti-Flood-Fenster, Polyphony-Caps,
   Projektil-Budget, Voice-Stealing.
+- `SpatialAudioLoops` (`spatial-audio-loops.ts`): Loops per Handle, Pausieren
+  außerhalb der Hörweite, Enemy-Budget pro Loop.
+- `EnemySoundBudget` (`enemy-sound-budget.ts`): Obergrenze gleichzeitig hörbarer
+  Enemy-Sounds.
 
-Die Manager-Klasse selbst kümmert sich um: Sound-Registrierung, Loops,
-Enemy-Budget, Master-Bus und Master-Lautstärke, EventBus-Wiring.
+Die Manager-Klasse selbst kümmert sich um: Sound-Registrierung, Master-Bus und
+Master-Lautstärke, Context-Recovery, EventBus-Wiring.
 
 **Master-Bus:** Der Konstruktor hängt `listener.gain` um:
 `listener.gain → preGain (0,6, etwa −4,4 dB) → DynamicsCompressor → destination`
@@ -336,7 +340,7 @@ eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height
 - Bei Cleanup: `disconnect()` und Entfernung aus Parent für saubere Freigabe
 
 ### Zentrale Loop-Verwaltung
-- Alle Loops in `SpatialAudioManager.activeLoops` Map
+- Alle Loops in `SpatialAudioLoops` (Handle → Loop), erreichbar über `SpatialAudioManager`
 - Distance-Culling zentral in `updateLoopPosition()`
 - Enemy-Budget zentral verwaltet (keine doppelte Buchführung)
 
