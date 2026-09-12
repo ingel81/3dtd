@@ -1,0 +1,126 @@
+@use '../../styles/td-mixins' as td;
+
+.debug-panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  /* Stored size is the outer size, so the viewport clamp can use it */
+  box-sizing: border-box;
+  background: rgba(20, 24, 21, 0.95);
+  border: 1px solid var(--td-frame-mid);
+  border-top-color: var(--td-frame-light);
+  border-bottom-color: var(--td-frame-dark);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  user-select: none;
+}
+
+.debug-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--td-panel-secondary);
+  border-bottom: 1px solid var(--td-frame-dark);
+  cursor: grab;
+}
+
+.debug-panel-header:active {
+  cursor: grabbing;
+}
+
+.debug-panel-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  color: var(--td-gold);
+}
+
+.debug-panel-title {
+  flex: 1;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--td-gold);
+  text-transform: uppercase;
+}
+
+.debug-panel-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--td-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.debug-panel-close mat-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+
+.debug-panel-close:hover {
+  background: var(--td-health-red);
+  border-color: var(--td-health-red);
+  color: var(--td-text-primary);
+}
+
+.debug-panel-content {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow: auto;
+  @include td.scrollbar;
+}
+
+.debug-panel-content::-webkit-scrollbar {
+  @include td.webkit-scrollbar;
+}
+
+.debug-panel-content::-webkit-scrollbar-track {
+  @include td.webkit-scrollbar-track;
+}
+
+.debug-panel-content::-webkit-scrollbar-thumb {
+  @include td.webkit-scrollbar-thumb;
+}
+
+.debug-panel-content::-webkit-scrollbar-thumb:hover {
+  @include td.webkit-scrollbar-thumb-hover;
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--td-text-muted);
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.resize-handle:hover {
+  opacity: 1;
+  color: var(--td-teal);
+}
+
+.resize-handle mat-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  transform: rotate(-45deg);
+}

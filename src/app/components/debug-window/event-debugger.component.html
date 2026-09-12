@@ -1,0 +1,70 @@
+@if (windowService.eventsWindow().isOpen) {
+  <app-draggable-debug-panel
+    windowId="events"
+    title="Event Bus"
+    icon="share"
+    [position]="windowService.eventsWindow().position"
+    [zIndex]="windowService.eventsWindow().zIndex"
+    (closed)="windowService.close('events')"
+    (positionChange)="windowService.updatePosition('events', $event)"
+    (focused)="windowService.bringToFront('events')"
+  >
+    <div class="event-debug-content">
+      <!-- Filter Buttons -->
+      <div class="filter-row">
+        @for (cat of categories; track cat) {
+          <button
+            class="filter-btn"
+            [class.active]="selectedCategory() === cat"
+            (click)="selectCategory(cat)"
+          >
+            {{ cat | uppercase }}
+          </button>
+        }
+      </div>
+
+      <!-- Stats Row -->
+      <div class="stats-row">
+        <span class="stat">
+          <span class="label">Total:</span>
+          <span class="value">{{ totalEvents() }}</span>
+        </span>
+        <span class="stat">
+          <span class="label">Shown:</span>
+          <span class="value">{{ filteredEvents().length }}</span>
+        </span>
+        <button class="clear-btn" (click)="clearLog()" title="Clear log" aria-label="Clear log">
+          <td-icon name="trash" [size]="14"></td-icon>
+        </button>
+        <button
+          class="pause-btn"
+          [class.active]="isPaused()"
+          (click)="togglePause()"
+          [title]="isPaused() ? 'Resume' : 'Pause'"
+          [attr.aria-label]="isPaused() ? 'Resume' : 'Pause'"
+        >
+          <td-icon [name]="isPaused() ? 'play' : 'pause'" [size]="14"></td-icon>
+        </button>
+      </div>
+
+      <!-- Event Log -->
+      <div class="event-log">
+        @for (entry of filteredEvents(); track entry.id) {
+          <div class="event-entry" [class]="getEventClass(entry.event.type)">
+            <span class="time">{{ formatTime(entry.timestamp) }}</span>
+            <span class="type">{{ entry.event.type }}</span>
+            <span class="details">{{ getEventDetails(entry.event) }}</span>
+          </div>
+        } @empty {
+          <div class="empty-state">
+            @if (eventLog().length === 0) {
+              Waiting for events...
+            } @else {
+              No events for filter "{{ selectedCategory() }}"
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </app-draggable-debug-panel>
+}

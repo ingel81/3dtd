@@ -18,21 +18,35 @@ Zentrale Theme-Definition mit TypeScript-Konstanten und CSS Custom Properties.
 
 ### Verwendung in Komponenten
 
+Template und Styles liegen neben der Component (`*.component.html`, `*.component.scss`). Inline bleibt nur, was aus TypeScript kommt: `TD_CSS_VARS` auf `:host` und Werte aus TS-Konstanten.
+
 ```typescript
-import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
+import { TD_CSS_VARS } from '../styles/td-theme';
 
 @Component({
-  styles: [`
+  templateUrl: './panel.component.html',
+  styleUrl: './panel.component.scss',
+  styles: `
     :host {
       ${TD_CSS_VARS}
     }
-    .panel {
-      background: var(--td-panel-main);
-      color: var(--td-text-primary);
-    }
-  `]
+  `,
 })
 ```
+
+```scss
+// panel.component.scss
+@use '../styles/td-mixins' as td;
+
+.panel {
+  background: var(--td-panel-main);
+  color: var(--td-text-primary);
+  overflow-y: auto;
+  @include td.scrollbar;
+}
+```
+
+Angular setzt die Regeln aus `styleUrl` vor die Inline-`styles`. Der `:host`-Block kollidiert damit nicht, solange die `.scss` selbst keine `--td-*` auf `:host` setzt. Wiederverwendbare Style-Rezepte (Scrollbar) liegen als Sass-Mixins in `styles/_td-mixins.scss`.
 
 ---
 

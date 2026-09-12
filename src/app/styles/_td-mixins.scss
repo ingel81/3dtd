@@ -1,0 +1,35 @@
+// Style recipes for component stylesheets. The --td-* custom properties they
+// read come from TD_CSS_VARS (td-theme.ts), which each component sets on :host.
+
+// Dark scrollbar, Firefox standard properties. Goes into the scrolling rule.
+@mixin scrollbar {
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--td-frame-mid) var(--td-panel-shadow);
+}
+
+// Dark scrollbar, WebKit pseudo-elements. Each goes into its own rule,
+// e.g. `.log::-webkit-scrollbar-thumb { @include td.webkit-scrollbar-thumb; }`.
+@mixin webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+@mixin webkit-scrollbar-track {
+  background: var(--td-panel-shadow);
+  border-radius: 4px;
+}
+
+@mixin webkit-scrollbar-thumb {
+  background: var(--td-frame-mid);
+  border-radius: 4px;
+  border: 1px solid var(--td-panel-shadow);
+}
+
+@mixin webkit-scrollbar-thumb-hover {
+  background: var(--td-frame-light);
+}
+
+@mixin webkit-scrollbar-corner {
+  background: var(--td-panel-shadow);
+}

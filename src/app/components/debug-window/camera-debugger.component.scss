@@ -1,0 +1,52 @@
+.camera-debug-content {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  min-width: 180px;
+}
+
+.section {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--td-frame-dark);
+}
+
+.section:first-child {
+  padding-top: 0;
+}
+
+.section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.section-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--td-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+
+.key {
+  color: var(--td-text-muted);
+}
+
+.value {
+  color: var(--td-teal);
+  font-weight: 600;
+  text-align: right;
+}
+
+.no-data {
+  color: var(--td-text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 12px;
+}

@@ -1,0 +1,112 @@
+@if (windowService.losWindow().isOpen) {
+  <app-draggable-debug-panel
+    windowId="los"
+    title="LOS Cubemap"
+    icon="eye"
+    [position]="windowService.losWindow().position"
+    [zIndex]="windowService.losWindow().zIndex"
+    (closed)="windowService.close('los')"
+    (positionChange)="windowService.updatePosition('los', $event)"
+    (focused)="windowService.bringToFront('los')"
+  >
+    <div class="los-content">
+      <!-- Header: Tower-Info + Layer-Toggle -->
+      <div class="los-header">
+        @if (losDebug.activeTower(); as t) {
+          <span class="active-tower">{{ t.typeConfig.id }} · {{ losDebug.cellCount() }} cells</span>
+        } @else if (mapperReady()) {
+          <span class="active-tower">Build-Preview (no cell-hover)</span>
+        } @else {
+          <span class="active-tower muted">No tower selected</span>
+        }
+        <div class="layer-toggle">
+          <button [class.active]="layer() === 'ground'" (click)="setLayer('ground')">Ground</button>
+          <button [class.active]="layer() === 'air'" (click)="setLayer('air')">Air</button>
+        </div>
+      </div>
+
+      <!-- 4×3 Cross-Layout -->
+      <div
+        class="cross-grid"
+        #crossGrid
+        [style.grid-template-columns]="'repeat(4, ' + faceDisplayPx() + 'px)'"
+        [style.grid-template-rows]="'repeat(3, ' + faceDisplayPx() + 'px)'"
+        [style.width.px]="faceDisplayPx() * 4 + 6"
+      >
+        @for (f of faceOrder; track f.face) {
+          <div
+            class="face-slot"
+            [style.grid-column]="f.col + 1"
+            [style.grid-row]="f.row + 1"
+            [style.width.px]="faceDisplayPx()"
+            [style.height.px]="faceDisplayPx()"
+          >
+            <canvas
+              #faceCanvas
+              [width]="faceSize"
+              [height]="faceSize"
+              [attr.data-face]="f.face"
+              (mousemove)="onCanvasMove($event, f.face)"
+              (mouseleave)="onCanvasLeave()"
+            ></canvas>
+            <span class="face-label">{{ f.label }}</span>
+          </div>
+        }
+      </div>
+
+      <!-- Color-Legende: Mapping depth → color (single source of truth
+           passt zum Shader in TowerShadowMapper.ensureDebugResources) -->
+      <div class="legend">
+        <span class="legend-label">Blocker near</span>
+        <span class="legend-gradient"></span>
+        <span class="legend-label">clear (far/no hit)</span>
+      </div>
+
+      <!-- Hover-Readout + Zoom-Viewport -->
+      <div class="readout-row">
+      <div class="readout">
+        @if (losDebug.hoveredPixel(); as p) {
+          <div class="row">
+            <span class="key">Pixel</span>
+            <span class="val">face={{ p.face }} ({{ faceLabel(p.face) }}) · ({{ p.px }}, {{ p.py }})</span>
+          </div>
+          @if (pixelRgb(); as rgb) {
+            <div class="row">
+              <span class="key">Color</span>
+              <span class="val">
+                <span class="swatch" [style.background]="rgb.css"></span>
+                R={{ rgb.r }} G={{ rgb.g }} B={{ rgb.b }} · depth={{ rgb.depth }}
+              </span>
+            </div>
+          }
+          <div class="row">
+            <span class="key">Cells</span>
+            <span class="val">{{ losDebug.cellsAtHoveredPixel().length }}</span>
+          </div>
+          @if (hoverCellInfo(); as info) {
+            <div class="row">
+              <span class="key">Cell</span>
+              <span class="val">key={{ info.key }} · dist={{ info.dist }}m · y={{ info.y }}m</span>
+            </div>
+            <div class="row">
+              <span class="key">Blocker</span>
+              <span class="val">{{ info.blockerDist }} ({{ info.visible }})</span>
+            </div>
+          }
+        } @else {
+          <div class="row muted">Hover a face (or a cell on the route) to inspect</div>
+        }
+      </div>
+      <div class="zoom-wrap">
+        <canvas
+          #zoomCanvas
+          [width]="zoomCanvasPx"
+          [height]="zoomCanvasPx"
+          class="zoom-canvas"
+        ></canvas>
+        <span class="zoom-label">{{ zoomSourcePx }}px → {{ zoomFactor }}×</span>
+      </div>
+      </div>
+    </div>
+  </app-draggable-debug-panel>
+}

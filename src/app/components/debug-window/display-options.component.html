@@ -1,0 +1,65 @@
+@if (windowService.displayWindow().isOpen) {
+  <app-draggable-debug-panel
+    windowId="display"
+    title="Display"
+    icon="sliders"
+    [position]="windowService.displayWindow().position"
+    [zIndex]="windowService.displayWindow().zIndex"
+    (closed)="windowService.close('display')"
+    (positionChange)="windowService.updatePosition('display', $event)"
+    (focused)="windowService.bringToFront('display')"
+  >
+    <div class="display-options">
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="enemies()" (change)="toggleEnemies()" />
+        <span>Enemies</span>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="healthBars()" (change)="toggleHealthBars()" />
+        <span>Health Bars</span>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="animations()" (change)="toggleAnimations()" />
+        <span>Animations</span>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="movement()" (change)="toggleMovement()" />
+        <span>Movement</span>
+      </label>
+      <div class="separator">Performance</div>
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="textures()" (change)="toggleTextures()" />
+        <span>Textures</span>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="skeletonCloning()" (change)="toggleSkeletonCloning()" />
+        <span>Skeleton Clone</span>
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="alphaBlend()" (change)="toggleAlphaBlend()" />
+        <span>Alpha Blend</span>
+      </label>
+      <div class="separator">Effects</div>
+      <label class="checkbox-row">
+        <input type="checkbox" [checked]="screenShake()" (change)="toggleScreenShake()" />
+        <span>Screen Shake</span>
+      </label>
+      <div class="separator">Tiles</div>
+      <label class="checkbox-row" title="Tiles by geometric error: dark = fine, white = 20 m or coarser">
+        <input type="checkbox" [checked]="tileLodDebug()" (change)="toggleTileLodDebug()" />
+        <span>LOD Colors</span>
+      </label>
+      <div class="separator">Post-Processing</div>
+      <label class="select-row">
+        <span>Color Grading</span>
+        <select (change)="onColorGradingChange($event)">
+          @for (preset of colorGradingPresets; track preset.id) {
+            <option [value]="preset.id" [selected]="colorGrading() === preset.id">
+              {{ preset.label }}
+            </option>
+          }
+        </select>
+      </label>
+    </div>
+  </app-draggable-debug-panel>
+}
