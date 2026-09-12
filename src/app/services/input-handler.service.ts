@@ -259,7 +259,7 @@ export class InputHandlerService {
     // A debug pick takes this click and nothing else: the selected tower
     // and its LOS display stay as they are.
     if (this.pickCallback) {
-      const hit = this.engine.raycastTerrain(event.clientX, event.clientY);
+      const hit = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
       if (!hit) return;
       const pick = this.pickCallback;
       this.pickCallback = null;
@@ -269,7 +269,7 @@ export class InputHandlerService {
 
     // First: Check tower selection via direct mesh raycast
     if (!this.buildModeSignal()) {
-      const clickedTowerId = this.engine.raycastTowers(event.clientX, event.clientY);
+      const clickedTowerId = this.engine.picker.raycastTowers(event.clientX, event.clientY);
 
       if (clickedTowerId) {
         if (this.store.selectedTowerId() === clickedTowerId) {
@@ -284,7 +284,7 @@ export class InputHandlerService {
     }
 
     // Raycast to get world position (needed for build mode)
-    const hitPoint = this.engine.raycastTerrain(event.clientX, event.clientY);
+    const hitPoint = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
 
     if (!hitPoint) {
       return; // No terrain hit, but tower selection already handled above
@@ -364,7 +364,7 @@ export class InputHandlerService {
     }
     this.lastPointerMoveTime = now;
 
-    const hitPoint = this.engine.raycastTerrain(event.clientX, event.clientY);
+    const hitPoint = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
 
     if (!hitPoint) {
       return;
