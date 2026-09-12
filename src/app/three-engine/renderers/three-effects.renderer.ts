@@ -9,7 +9,7 @@ import {
 } from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
-import type { MuzzleFlashProfile, ScorchSource } from '../../configs/visual-effects.config';
+import type { BurstPalette, MuzzleFlashProfile, ScorchSource } from '../../configs/visual-effects.config';
 import type { ScorchGround } from './scorch-marks';
 import { FloatingTextInstanceManager } from './floating-text/floating-text-instance.manager';
 import { ParticlePoolManager } from './particle-pool-manager';
@@ -458,14 +458,9 @@ export class ThreeEffectsRenderer {
     this.particleEffects.spawnIceExplosionAtGeo(lat, lon, height, count);
   }
 
-  /** Spawn the violet/cyan arcane orb impact burst at geo coordinates. */
-  spawnArcaneBurstAtGeo(lat: number, lon: number, height: number, count: number): void {
-    this.particleEffects.spawnArcaneBurstAtGeo(lat, lon, height, count);
-  }
-
-  /** Spawn the green poison glob impact burst at geo coordinates. */
-  spawnPoisonBurstAtGeo(lat: number, lon: number, height: number, count: number): void {
-    this.particleEffects.spawnPoisonBurstAtGeo(lat, lon, height, count);
+  /** Spawn an impact spark burst (arcane, chaos, poison) in the given palette at geo coordinates. */
+  spawnBurstAtGeo(lat: number, lon: number, height: number, count: number, palette: BurstPalette): void {
+    this.particleEffects.spawnBurstAtGeo(lat, lon, height, count, palette);
   }
 
   /**

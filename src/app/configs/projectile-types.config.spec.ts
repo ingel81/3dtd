@@ -11,7 +11,7 @@ import { PROJECTILE_SOUND_IDS } from './audio.config';
 import { TOWER_TYPES } from './tower-types.config';
 
 describe('projectile types config', () => {
-  const allIds: ProjectileTypeId[] = ['arrow', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob'];
+  const allIds: ProjectileTypeId[] = ['arrow', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob', 'chaos-orb'];
 
   const expectValidTrail = (trail: TrailParticleConfig) => {
     expect(typeof trail.enabled).toBe('boolean');
@@ -68,9 +68,9 @@ describe('projectile types config', () => {
     });
   });
 
-  it('getAllProjectileTypes() returns array with 7 elements', () => {
+  it('getAllProjectileTypes() returns array with 8 elements', () => {
     const all = getAllProjectileTypes();
-    expect(all).toHaveLength(7);
+    expect(all).toHaveLength(8);
   });
 
   it('has a sound for every projectile type and budgets only known sounds', () => {
@@ -109,6 +109,20 @@ describe('projectile types config', () => {
     const alivePerRocket = gatesPerSecond * trail.spawnChance * trail.countPerSpawn * meanLifetime;
     expect(alivePerRocket).toBeLessThan(80);
     expect(trail.sizeMax).toBeLessThanOrEqual(1.2);
+  });
+
+  it('keeps the chaos orb trail a dark smoke line in the normal pool', () => {
+    // Additive particles can only brighten, so the black-violet trail needs
+    // the normal pool, and it must stay as cheap per orb as the rocket's.
+    const orb = PROJECTILE_TYPES['chaos-orb'];
+    const trail = orb.trailParticles!;
+    expect(trail.blending).toBe('normal');
+    expect(trail.colorMax.b).toBeGreaterThan(trail.colorMax.g);
+    expect(Math.max(trail.colorMax.r, trail.colorMax.g, trail.colorMax.b)).toBeLessThan(0.5);
+    const gatesPerSecond = orb.speed / 0.5; // TRAIL_SPAWN_DISTANCE_M in projectile.manager
+    const meanLifetime = (trail.lifetimeMin + trail.lifetimeMax) / 2;
+    const alivePerOrb = gatesPerSecond * trail.spawnChance * trail.countPerSpawn * meanLifetime;
+    expect(alivePerOrb).toBeLessThan(40);
   });
 
   it('all projectile types have required fields and valid values', () => {

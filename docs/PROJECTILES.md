@@ -189,9 +189,10 @@ Implementiert in `three-effects.renderer.ts`, gesteuert ueber `vfx.service.ts` (
 - Cannonball: Mittlere Explosion (50 Partikel, eine Explosion pro Einschlag; bis 2026-09-12
   kamen über ein zweites Splash-Event 30 Partikel einen Meter tiefer dazu)
 - Bullet: Minimaler Impact (2 Partikel)
-- Poison: Grüner Funken-Burst (14 Partikel, `spawnPoisonBurstAtGeo`; bis 2026-09-12 eine orange
-  Feuer-Atlas-Explosion aus 6 + 30 Partikeln)
-- Arcane Orb (Magic): Violett-cyanfarbener Funken-Burst (14 runde Partikel, `spawnArcaneBurstAtGeo`, gleiche Bewegung wie der Ice-Burst, keine Feuer-Atlas-Explosion)
+- Poison: Grüner Funken-Burst (14 Partikel, `spawnBurstAtGeo` mit `BURST_PALETTES.poison`; bis
+  2026-09-12 eine orange Feuer-Atlas-Explosion aus 6 + 30 Partikeln)
+- Arcane Orb (Magic): Violett-cyanfarbener Funken-Burst (14 runde Partikel, `spawnBurstAtGeo` mit `BURST_PALETTES.arcane`, gleiche Bewegung wie der Ice-Burst, keine Feuer-Atlas-Explosion)
+- Chaos Orb (Chaos): Violett-magentafarbener Funken-Burst (14 Partikel, `spawnBurstAtGeo` mit `BURST_PALETTES.chaos`)
 - Ice-Shard: Eis-Burst (35 Partikel) und Frost-Decals vom Treffer (`CombatVfxService.emitIceExplosion`);
   die zusätzliche kleine Feuer-Atlas-Explosion (8 Partikel) ist seit 2026-09-12 weg
 - Arrow: Kein Impact-Effekt

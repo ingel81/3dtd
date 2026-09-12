@@ -988,37 +988,24 @@ export class ParticleEffectsRenderer {
   }
 
   /**
-   * Spawn the arcane orb impact at geo coordinates: the ice burst's motion
-   * in violet/cyan, so the Magic Tower's hit reads as a spell, not as the
+   * Spawn an impact spark burst at geo coordinates: the ice burst's motion in
+   * the given palette, so the magic, chaos and poison hits do not read as the
    * fire-atlas explosion the other impacts use.
    *
    * @param lat - Latitude
    * @param lon - Longitude
    * @param height - Height above ground
    * @param count - Number of particles
+   * @param palette - Burst colours, see BURST_PALETTES
    */
-  spawnArcaneBurstAtGeo(lat: number, lon: number, height: number, count: number): void {
+  spawnBurstAtGeo(lat: number, lon: number, height: number, count: number, palette: BurstPalette): void {
     const localPos = this.sync.geoToLocal(lat, lon, height);
-    this.spawnColorBurst(localPos.x, localPos.y, localPos.z, count, BURST_PALETTES.arcane);
-  }
-
-  /**
-   * Spawn the poison glob impact at geo coordinates: the ice burst's motion
-   * in greens instead of the fire-atlas explosion.
-   *
-   * @param lat - Latitude
-   * @param lon - Longitude
-   * @param height - Height above ground
-   * @param count - Number of particles
-   */
-  spawnPoisonBurstAtGeo(lat: number, lon: number, height: number, count: number): void {
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    this.spawnColorBurst(localPos.x, localPos.y, localPos.z, count, BURST_PALETTES.poison);
+    this.spawnColorBurst(localPos.x, localPos.y, localPos.z, count, palette);
   }
 
   /**
    * Round additive particles bursting outward from a point, coloured from a
-   * three-colour palette. Shared by the ice and arcane impacts.
+   * three-colour palette. Shared by the ice, arcane, chaos and poison impacts.
    */
   private spawnColorBurst(
     localX: number,

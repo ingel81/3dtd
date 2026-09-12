@@ -3,7 +3,7 @@ import { ProjectileTypeId } from './tower-types.config';
 // Re-export ProjectileTypeId for convenience
 export type { ProjectileTypeId } from './tower-types.config';
 
-export type ProjectileVisualType = 'arrow' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket' | 'poison';
+export type ProjectileVisualType = 'arrow' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket' | 'poison' | 'chaos';
 
 /**
  * Trail particle configuration for projectiles
@@ -236,6 +236,32 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
       blending: 'additive',
     },
   },
+  'chaos-orb': {
+    id: 'chaos-orb',
+    speed: 90,
+    visualType: 'chaos',
+    scale: 0.4,
+    // Chaos Tower: magenta orb trailing a black-violet smoke line. Normal
+    // blending, because an additive trail can brighten but never darken.
+    // At 90 m/s the 0.5 m trail gate fires 180 times a second, so
+    // 0.4 x 1 particle x ~0.45 s keeps ~30 alive per orb in the normal pool.
+    trailParticles: {
+      enabled: true,
+      spawnChance: 0.4,
+      countPerSpawn: 1,
+      colorMin: { r: 0.04, g: 0.0, b: 0.07 },  // Near black
+      colorMax: { r: 0.32, g: 0.04, b: 0.45 }, // Dark violet
+      sizeMin: 0.5,
+      sizeMax: 1.1,
+      lifetimeMin: 0.3,
+      lifetimeMax: 0.6,
+      velocityX: { min: -0.4, max: 0.4 },
+      velocityY: { min: -0.2, max: 0.4 },
+      velocityZ: { min: -0.4, max: 0.4 },
+      spawnOffset: 0.3,
+      blending: 'normal',
+    },
+  },
 };
 
 export function getProjectileType(id: ProjectileTypeId): ProjectileTypeConfig {
@@ -299,5 +325,12 @@ export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> 
     refDistance: 50,
     rolloffFactor: 1,
     volume: 0.4,
+  },
+  // Chaos Tower: the magic cast until it has a sound of its own.
+  'chaos-orb': {
+    url: 'assets/sounds/towers/magic/cast.mp3',
+    refDistance: 55,
+    rolloffFactor: 1.1,
+    volume: 0.5,
   },
 } as const;

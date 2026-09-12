@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
-import { EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES, type ScorchSource } from '../configs/visual-effects.config';
+import { BURST_PALETTES, EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES, type ScorchSource } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 
@@ -131,10 +131,13 @@ export class VFXService {
       effects.spawnExplosionAtGeo(lat, lon, height, EXPLOSION_PRESETS.bullet.particles);
     } else if (projectileType === 'poison-glob') {
       // Green spark burst instead of the fire-atlas explosion
-      effects.spawnPoisonBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.poison.particles);
+      effects.spawnBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.poison.particles, BURST_PALETTES.poison);
     } else if (projectileType === 'arcane-orb') {
       // Violet/cyan spark burst instead of the fire-atlas explosion
-      effects.spawnArcaneBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.arcane.particles);
+      effects.spawnBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.arcane.particles, BURST_PALETTES.arcane);
+    } else if (projectileType === 'chaos-orb') {
+      // Same burst in violet/magenta for the Chaos Tower
+      effects.spawnBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.chaos.particles, BURST_PALETTES.chaos);
     }
     // Nothing for arrows. The ice shard's burst and frost decals come from
     // the hit itself (CombatVfxService.emitIceExplosion).

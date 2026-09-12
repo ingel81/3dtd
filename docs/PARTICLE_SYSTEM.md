@@ -389,8 +389,7 @@ typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
 | `spawnExplosion(localX, localY, localZ, count, radius, smokePuffs)` | Zweistufige Feuer-Atlas-Explosion am lokalen Punkt, siehe unten |
 | `spawnExplosionAtGeo(lat, lon, h, count, radius, smokePuffs)` | Dasselbe an Geo-Position |
 | `spawnIceExplosionAtGeo(lat, lon, h, count)` | Runder Funken-Burst, Palette `BURST_PALETTES.ice` |
-| `spawnArcaneBurstAtGeo(lat, lon, h, count)` | Gleicher Burst in Violett/Cyan (`BURST_PALETTES.arcane`), Einschlag des Arcane Orb |
-| `spawnPoisonBurstAtGeo(lat, lon, h, count)` | Gleicher Burst in Grün (`BURST_PALETTES.poison`), Einschlag des Poison Glob |
+| `spawnBurstAtGeo(lat, lon, h, count, palette)` | Gleicher Burst in einer Palette aus `BURST_PALETTES`: `arcane` (Arcane Orb, Violett/Cyan), `chaos` (Chaos Orb, Violett/Magenta), `poison` (Poison Glob, Grün) |
 | `spawnMuzzleFlash(localX, localY, localZ, profile)` | Muendungsfeuer, Anzahl/Größe/Dauer aus `MUZZLE_FLASH_PROFILES` |
 | `spawnTrailParticles(pos, config)` | Konfigurierbarer Projektil-Trail |
 | `spawnFloatingText(...)` | GPU-instanced Floating Damage Number |
@@ -498,8 +497,8 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 - `vfx:blood` → `spawnBloodSplatter` + optional `spawnBloodDecal`
   (Decal-Durchmesser haengt von `intensity` ab: ≥30 → 2,8 m, ≥10 → 1,8 m, sonst keins)
 - `vfx:projectile-impact` → Feuer-Atlas-Explosion mit rocket/cannon/bullet-Preset
-  (`EXPLOSION_PRESETS`); `arcane-orb` und `poison-glob` bekommen statt dessen einen
-  Funken-Burst (`spawnArcaneBurstAtGeo`, `spawnPoisonBurstAtGeo`, Paletten in
+  (`EXPLOSION_PRESETS`); `arcane-orb`, `chaos-orb` und `poison-glob` bekommen statt
+  dessen einen Funken-Burst (`spawnBurstAtGeo` mit ihrer Palette aus
   `BURST_PALETTES`); `ice-shard` und `arrow` nichts, der Eis-Burst kommt vom Treffer
   selbst (`CombatVfxService.emitIceExplosion`)
 - `vfx:muzzle-flash` → Partikel + gepoolter `PointLight`, nur für Tower mit Eintrag in

@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { GameEventBus } from './game-event-bus';
 import { VFXService } from './vfx.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import { EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../configs/visual-effects.config';
+import { BURST_PALETTES, EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../configs/visual-effects.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 
@@ -21,8 +21,7 @@ function setup() {
     effects: {
       markScorch: vi.fn(),
       spawnMuzzleFlash: vi.fn(),
-      spawnArcaneBurstAtGeo: vi.fn(),
-      spawnPoisonBurstAtGeo: vi.fn(),
+      spawnBurstAtGeo: vi.fn(),
       spawnExplosionAtGeo: vi.fn(),
     },
   };
@@ -67,18 +66,14 @@ describe('VFXService projectile impact', () => {
   const impact = (eventBus: GameEventBus, projectileType: string) =>
     eventBus.emit({ type: 'vfx:projectile-impact', lat: 1, lon: 2, height: 3, projectileType, targetLost: false });
 
-  it('bursts violet/cyan for the arcane orb instead of the fire explosion', () => {
+  it.each([
+    ['arcane-orb', EXPLOSION_PRESETS.arcane.particles, BURST_PALETTES.arcane],
+    ['chaos-orb', EXPLOSION_PRESETS.chaos.particles, BURST_PALETTES.chaos],
+    ['poison-glob', EXPLOSION_PRESETS.poison.particles, BURST_PALETTES.poison],
+  ] as const)('bursts %s in its own palette instead of the fire explosion', (projectileType, particles, palette) => {
     const { eventBus, tilesEngine, service } = setup();
-    impact(eventBus, 'arcane-orb');
-    expect(tilesEngine.effects.spawnArcaneBurstAtGeo).toHaveBeenCalledWith(1, 2, 3, expect.any(Number));
-    expect(tilesEngine.effects.spawnExplosionAtGeo).not.toHaveBeenCalled();
-    service.destroy();
-  });
-
-  it('bursts green for the poison glob instead of the fire explosion', () => {
-    const { eventBus, tilesEngine, service } = setup();
-    impact(eventBus, 'poison-glob');
-    expect(tilesEngine.effects.spawnPoisonBurstAtGeo).toHaveBeenCalledWith(1, 2, 3, EXPLOSION_PRESETS.poison.particles);
+    impact(eventBus, projectileType);
+    expect(tilesEngine.effects.spawnBurstAtGeo).toHaveBeenCalledWith(1, 2, 3, particles, palette);
     expect(tilesEngine.effects.spawnExplosionAtGeo).not.toHaveBeenCalled();
     service.destroy();
   });
@@ -87,7 +82,7 @@ describe('VFXService projectile impact', () => {
     const { eventBus, tilesEngine, service } = setup();
     impact(eventBus, projectileType);
     expect(tilesEngine.effects.spawnExplosionAtGeo).not.toHaveBeenCalled();
-    expect(tilesEngine.effects.spawnPoisonBurstAtGeo).not.toHaveBeenCalled();
+    expect(tilesEngine.effects.spawnBurstAtGeo).not.toHaveBeenCalled();
     service.destroy();
   });
 
@@ -106,7 +101,7 @@ describe('VFXService projectile impact', () => {
 
   it('burns scorch marks under cannon and rocket hits only', () => {
     const { eventBus, tilesEngine, service } = setup();
-    for (const type of ['cannonball', 'rocket', 'bullet', 'poison-glob', 'arcane-orb', 'ice-shard', 'arrow']) {
+    for (const type of ['cannonball', 'rocket', 'bullet', 'poison-glob', 'arcane-orb', 'chaos-orb', 'ice-shard', 'arrow']) {
       impact(eventBus, type);
     }
     expect(tilesEngine.effects.markScorch.mock.calls).toEqual([
