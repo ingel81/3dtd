@@ -178,8 +178,9 @@ Implementiert in `three-effects.renderer.ts`, gesteuert ueber `vfx.service.ts` (
 - Partikel fallen nach unten (Gravitation)
 
 ### Blood Decals (Bodenflecken)
-- Standard: 1.0m Durchmesser (konfigurierbar via `size` Parameter)
-- Intensity >= 10: 0.8m, Intensity >= 30: 2.0m (via VFX Service)
+- Rund, `size` ist der Durchmesser (Standard 2,0 m, ±20 %)
+- Intensity >= 10: 1,8 m, Intensity >= 30: 2,8 m (via VFX Service). Bis 2026-09-12 waren
+  es 0,8 und 2,0 als Ovale von 2·size × 2 m; die neuen Durchmesser haben dieselbe Fläche
 - Faden nach 20s aus (ueber 10s)
 - Max 100 Decals gleichzeitig
 

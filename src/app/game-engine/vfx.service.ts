@@ -91,9 +91,14 @@ export class VFXService {
     }
   }
 
+  /**
+   * Blood decal diameter in meters. Until 2026-09-12 these were 2.0 and 0.8
+   * and gave ovals of 2*size by 2 m; the round decals keep their area
+   * (diameter 2 * sqrt(old size)).
+   */
   private getBloodDecalSize(intensity: number): number {
-    if (intensity >= 30) return 2.0;
-    if (intensity >= 10) return 0.8;
+    if (intensity >= 30) return 2.8;
+    if (intensity >= 10) return 1.8;
     return 0;
   }
 

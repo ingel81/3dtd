@@ -76,8 +76,7 @@ export class ScorchMarks {
       style.opacity,
       now,
       cfg.fadeDelay,
-      cfg.fadeDuration,
-      size
+      cfg.fadeDuration
     );
     return true;
   }

@@ -185,10 +185,10 @@ export class ParticleEffectsRenderer {
    * @param lat - Latitude
    * @param lon - Longitude
    * @param height - Height (terrain height)
-   * @param size - Size of the decal (0.5-3.0 meters, default 1.0)
+   * @param size - Diameter of the round decal in meters, ±20 % (default 2.0)
    * @returns Decal ID
    */
-  spawnBloodDecal(lat: number, lon: number, height: number, size = 1.0): string {
+  spawnBloodDecal(lat: number, lon: number, height: number, size = 2.0): string {
     if (!this.bloodDecalManager) {
       console.warn('[ThreeEffectsRenderer] Blood decal manager not initialized');
       return '';
@@ -203,8 +203,8 @@ export class ParticleEffectsRenderer {
     // Random rotation for variety
     const rotation = Math.random() * Math.PI * 2;
 
-    // Apply size with randomness - ellipse shape for puddle effect
-    const baseSize = size * (0.8 + Math.random() * 0.4);
+    // Round, `size` across with some randomness
+    const radius = (size * (0.8 + Math.random() * 0.4)) / 2;
 
     // Randomize color slightly (dark red variations) - from config
     const colorVariation = Math.random() * BLOOD_DECAL_CONFIG.colorVariation;
@@ -223,7 +223,7 @@ export class ParticleEffectsRenderer {
     this.bloodDecalManager.add(
       id,
       localPos,
-      baseSize,
+      radius,
       rotation,
       color,
       BLOOD_DECAL_CONFIG.baseOpacity,
@@ -1062,10 +1062,10 @@ export class ParticleEffectsRenderer {
    * @param lat - Latitude
    * @param lon - Longitude
    * @param height - Terrain height
-   * @param size - Size of the decal (1.0-4.0 meters, default 2.0)
+   * @param size - Diameter of the round decal in meters, ±20 % (default 2.8)
    * @returns Decal ID
    */
-  spawnIceDecal(lat: number, lon: number, height: number, size = 2.0): string {
+  spawnIceDecal(lat: number, lon: number, height: number, size = 2.8): string {
     if (!this.iceDecalManager) {
       console.warn('[ThreeEffectsRenderer] Ice decal manager not initialized');
       return '';
@@ -1080,8 +1080,8 @@ export class ParticleEffectsRenderer {
     // Random rotation for variety
     const rotation = Math.random() * Math.PI * 2;
 
-    // Apply size with randomness
-    const baseSize = size * (0.8 + Math.random() * 0.4);
+    // Round, `size` across with some randomness
+    const radius = (size * (0.8 + Math.random() * 0.4)) / 2;
 
     // Randomize color slightly (very light cyan/white variations) - from config
     const colorVariation = Math.random() * ICE_DECAL_CONFIG.colorVariation;
@@ -1100,7 +1100,7 @@ export class ParticleEffectsRenderer {
     this.iceDecalManager.add(
       id,
       localPos,
-      baseSize,
+      radius,
       rotation,
       color,
       ICE_DECAL_CONFIG.baseOpacity,
