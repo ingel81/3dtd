@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Integration Test: TowerManager + EnemyManager + ProjectileManager
  *
@@ -19,8 +18,6 @@ import {
   TEST_PATH,
   TEST_TOWER_POSITION,
   TEST_TOWER_NEAR_SPAWN,
-  TEST_BASE_POSITION,
-  TEST_SPAWN_POINTS,
 } from './test-helpers';
 import { GeoPosition } from '../models/game.types';
 import { Enemy } from '../entities/enemy.entity';
@@ -46,12 +43,7 @@ describe('Tower → Enemy Combat Integration', () => {
 
   function placeTower(position: GeoPosition = TEST_TOWER_POSITION): Tower {
     // Initialize tower manager first
-    m.towerManager.initializeWithContext(
-      m.tilesEngine,
-      { nodes: [], ways: [] } as any,
-      TEST_BASE_POSITION,
-      TEST_SPAWN_POINTS.map(s => ({ lat: s.lat, lon: s.lon }))
-    );
+    m.towerManager.initialize(m.tilesEngine);
     return m.towerManager.placeTower(position, 'archer', 0)!;
   }
 

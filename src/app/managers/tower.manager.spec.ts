@@ -13,11 +13,8 @@ import { GameEventBus } from '../game-engine';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-import type { OsmStreetService, StreetNetwork } from '../services/location/osm-street.service';
+import type { OsmStreetService } from '../services/location/osm-street.service';
 import type { ThreeTilesEngine } from '../three-engine';
-
-const basePosition: GeoPosition = { lat: 0, lon: 0, height: 0 };
-const spawnPoints: GeoPosition[] = [{ lat: 0.01, lon: 0, height: 0 }];
 
 const createMockTilesEngine = () => ({
   towers: {
@@ -59,12 +56,7 @@ describe('TowerManager', () => {
       osmService as unknown as OsmStreetService,
       { airTargetingUnlocked: () => false } as unknown as import('../store/research.store').ResearchStore,
     );
-    manager.initializeWithContext(
-      tilesEngine as unknown as ThreeTilesEngine,
-      {} as unknown as StreetNetwork,
-      basePosition,
-      spawnPoints
-    );
+    manager.initialize(tilesEngine as unknown as ThreeTilesEngine);
   });
 
   it('places a tower, creates renderer and emits event', () => {

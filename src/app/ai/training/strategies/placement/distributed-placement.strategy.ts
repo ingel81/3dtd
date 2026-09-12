@@ -162,26 +162,21 @@ export class DistributedPlacementStrategy extends BaseStrategy {
   private placeTower(chosen: TowerTypeId, existingTowers: Tower[], reason: string): TowerAction | null {
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
-    const candidates = this.strategicPlacement.findDistributedPositions(
+    // Candidates already obey the placement rules; take the best one.
+    const [best] = this.strategicPlacement.findDistributedPositions(
       spawnPoints,
       paths,
       TOWER_TYPES[chosen].range,
       existingTowers
     );
+    if (!best) return null;
 
-    for (const candidate of candidates) {
-      const validation = this.gameState.towerManager.validatePosition(candidate.position);
-      if (validation.valid) {
-        return {
-          type: 'place',
-          position: { x: candidate.position.lon, z: candidate.position.lat },
-          towerType: chosen,
-          confidence: 0.8,
-          reason: `Distributed: ${TOWER_TYPES[chosen].name} (${reason}) - ${candidate.reason}`
-        };
-      }
-    }
-
-    return null;
+    return {
+      type: 'place',
+      position: { x: best.position.lon, z: best.position.lat },
+      towerType: chosen,
+      confidence: 0.8,
+      reason: `Distributed: ${TOWER_TYPES[chosen].name} (${reason}) - ${best.reason}`
+    };
   }
 }

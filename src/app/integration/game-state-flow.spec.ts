@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Integration Test: Full Game-State Flow via EventBus
  *
@@ -22,7 +21,6 @@ import {
   TEST_PATH,
   TEST_TOWER_POSITION,
   TEST_TOWER_NEAR_SPAWN,
-  TEST_BASE_POSITION,
   TEST_SPAWN_POINTS,
   createTestCachedPaths,
   tickEngine,
@@ -39,12 +37,7 @@ describe('Game State Flow Integration', () => {
     m = createTestManagers();
     m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
 
-    m.towerManager.initializeWithContext(
-      m.tilesEngine,
-      { nodes: [], ways: [] } as any,
-      TEST_BASE_POSITION,
-      TEST_SPAWN_POINTS.map(s => ({ lat: s.lat, lon: s.lon }))
-    );
+    m.towerManager.initialize(m.tilesEngine);
 
     clock = { now: 0 };
   });

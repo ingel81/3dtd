@@ -84,10 +84,10 @@ export class GameStateManager {
    *
    * initialize(), reset() and the per-frame update() sequence stay hardcoded
    * on purpose and are deliberately NOT driven off this array:
-   *  - initialize(): every manager takes a different signature (TowerManager
-   *    uses initializeWithContext(), WaveManager takes spawnPoints + paths,
-   *    EnemyManager needs follow-up provider wiring, ResearchManager has no
-   *    lifecycle initialize at all). A uniform forEach would require unsafe
+   *  - initialize(): the managers take different arguments (WaveManager
+   *    takes spawnPoints + paths, EnemyManager needs follow-up provider
+   *    wiring, ResearchManager has no lifecycle initialize at all). A
+   *    uniform forEach would require unsafe
    *    `...unknown[]` casts and lose all per-manager type-checking.
    *  - update(): runSubStep() interleaves the managers with
    *    eventBus.processQueue() and conditional towerCombat — the order is
@@ -201,7 +201,9 @@ export class GameStateManager {
    */
   initialize(
     tilesEngine: ThreeTilesEngine,
-    streetNetwork: StreetNetwork,
+    // Unused since the placement rules moved to TowerPlacementService; kept
+    // so the location flows that call this stay untouched.
+    _streetNetwork: StreetNetwork,
     basePosition: GeoPosition,
     spawnPoints: SpawnPoint[],
     cachedPaths: Map<string, GeoPosition[]>
@@ -236,12 +238,7 @@ export class GameStateManager {
     this.enemyManager.setWaveNumberProvider(() => this.waveManager.waveNumber());
     this.enemyManager.setWaveSizeProvider(() => this.waveManager.getExpectedEnemyCount());
 
-    this.towerManager.initializeWithContext(
-      tilesEngine,
-      streetNetwork,
-      basePosition,
-      spawnPoints.map((s) => ({ lat: s.lat, lon: s.lon }))
-    );
+    this.towerManager.initialize(tilesEngine);
     this.towerManager.setActiveRoutesGetter(() =>
       Array.from(this.pathRouteService.getCachedPaths().values())
     );

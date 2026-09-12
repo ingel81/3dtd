@@ -62,27 +62,20 @@ export class AntiEtherealPlacementStrategy extends BaseStrategy {
 
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
-    const positions = this.strategicPlacement.findStrategicPositions(
+    const [best] = this.strategicPlacement.findStrategicPositions(
       spawnPoints,
       paths,
       TOWER_TYPES[bestTower].range,
-      this.gameState.towerManager.getAll()
     );
+    if (!best) return null;
 
-    for (const candidate of positions) {
-      const validation = this.gameState.towerManager.validatePosition(candidate.position);
-      if (validation.valid) {
-        return {
-          type: 'place',
-          position: { x: candidate.position.lon, z: candidate.position.lat },
-          towerType: bestTower,
-          confidence: 0.93,
-          reason: `No answer to ethereal armor - ${candidate.reason}`,
-        };
-      }
-    }
-
-    return null;
+    return {
+      type: 'place',
+      position: { x: best.position.lon, z: best.position.lat },
+      towerType: bestTower,
+      confidence: 0.93,
+      reason: `No answer to ethereal armor - ${best.reason}`,
+    };
   }
 
   private affordableAntiEthereal(state: GameStateSnapshot) {

@@ -7,14 +7,12 @@
 
 import { Injectable, inject } from '@angular/core';
 import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
-import { PathAndRouteService } from './path-route.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
+import { TowerPlacementService } from '../tower-placement.service';
 import { GeoPosition } from '../../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { SpawnPoint } from '../../managers/wave.manager';
-import { PLACEMENT_CONFIG } from '../../configs/placement.config';
 import { Tower } from '../../entities/tower.entity';
-import { findNearestRouteDistance } from '../../utils/geo-utils';
 
 /**
  * Weight of the HQ end of the path relative to the spawn end, in the U-shaped
@@ -52,8 +50,9 @@ export interface PlacementCandidate {
 @Injectable({ providedIn: 'root' })
 export class StrategicPlacementService {
   private osmService = inject(OsmStreetService);
-  private pathRouteService = inject(PathAndRouteService);
   private globalRouteGrid = inject(GlobalRouteGridService);
+  /** Source of the placement rules, the same the player's clicks go through. */
+  private towerPlacement = inject(TowerPlacementService);
 
   private streetNetwork: StreetNetwork | null = null;
 
@@ -65,15 +64,16 @@ export class StrategicPlacementService {
   }
 
   /**
-   * Finds optimal tower positions based on spawn points and paths
+   * Finds optimal tower positions based on spawn points and paths. Every
+   * candidate passes the placement rules, checked against the current towers.
    */
   findStrategicPositions(
     spawnPoints: SpawnPoint[],
     paths: Map<string, GeoPosition[]>,
     towerRange = 60,  // Tower range in meters
-    existingTowers: Tower[] = []  // Optional: existing towers to avoid
   ): PlacementCandidate[] {
     const candidates: PlacementCandidate[] = [];
+    const isPlaceable = this.towerPlacement.placementChecker();
 
     for (const [spawnId, path] of paths.entries()) {
       const spawnPoint = spawnPoints.find(s => s.id === spawnId);
@@ -115,8 +115,8 @@ export class StrategicPlacementService {
               offset * side
             );
 
-            // 4. Validate constraints
-            if (!this.meetsPlacementConstraints(position, spawnPoints, existingTowers)) {
+            // 4. Placement rules, the same the player's clicks go through
+            if (!isPlaceable(position.lat, position.lon).valid) {
               continue;
             }
 
@@ -126,7 +126,6 @@ export class StrategicPlacementService {
               spawnPoint,
               path,
               towerRange,
-              existingTowers
             );
 
             candidates.push({
@@ -148,6 +147,8 @@ export class StrategicPlacementService {
   /**
    * Finds tower positions distributed evenly across zones along the path.
    * Instead of clustering near spawn, prioritizes under-defended zones.
+   * `existingTowers` only weighs the zones; every candidate passes the
+   * placement rules, checked against the current towers.
    */
   findDistributedPositions(
     spawnPoints: SpawnPoint[],
@@ -157,6 +158,7 @@ export class StrategicPlacementService {
     numZones = 5
   ): PlacementCandidate[] {
     const candidates: PlacementCandidate[] = [];
+    const isPlaceable = this.towerPlacement.placementChecker();
 
     for (const [spawnId, path] of paths.entries()) {
       const spawnPoint = spawnPoints.find(s => s.id === spawnId);
@@ -193,7 +195,7 @@ export class StrategicPlacementService {
           for (const side of [-1, 1]) {
             const position = this.getPerpendicularPosition(segmentStart, segmentEnd, pathPos, offset * side);
 
-            if (!this.meetsPlacementConstraints(position, spawnPoints, existingTowers)) continue;
+            if (!isPlaceable(position.lat, position.lon).valid) continue;
 
             // Zone-based scoring
             const zone = Math.min(numZones - 1, Math.floor((d / pathLength) * numZones));
@@ -339,35 +341,6 @@ export class StrategicPlacementService {
   }
 
   /**
-   * Checks if position meets placement constraints
-   */
-  private meetsPlacementConstraints(pos: GeoPosition, spawnPoints: SpawnPoint[], existingTowers: Tower[] = []): boolean {
-    // Check distance to active enemy routes
-    const activeRoutes = Array.from(this.pathRouteService.getCachedPaths().values());
-    if (activeRoutes.length > 0) {
-      const routeDist = findNearestRouteDistance(activeRoutes, pos.lat, pos.lon);
-      if (routeDist < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) return false;
-    }
-
-    // Check distance to spawns (min 30m)
-    for (const spawn of spawnPoints) {
-      const dist = this.osmService.haversineDistance(pos.lat, pos.lon, spawn.lat, spawn.lon);
-      if (dist < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) return false;
-    }
-
-    // Check distance to existing towers (min 8m)
-    for (const tower of existingTowers) {
-      const towerPos = tower.transform.position;
-      if (!towerPos) continue;
-
-      const dist = this.osmService.haversineDistance(pos.lat, pos.lon, towerPos.lat, towerPos.lon);
-      if (dist < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) return false;
-    }
-
-    return true;
-  }
-
-  /**
    * Calculates placement score (0-1)
    *
    * Strategy: build killzones at BOTH ends of the path — near spawn and near
@@ -393,7 +366,6 @@ export class StrategicPlacementService {
     spawnPoint: SpawnPoint,
     path: GeoPosition[],
     towerRange: number,
-    _existingTowers: Tower[] = []
   ): number {
     let score = 0;
 

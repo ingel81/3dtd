@@ -716,33 +716,26 @@ Das Platzieren von Türmen wird durch den `TowerPlacementService` gesteuert.
 - **Grün/Rot-Färbung:** Je nach Gültigkeit der Position
 - **R-Taste Rotation:** Kontinuierliche Drehung bei gehaltenem R
 - **Line-of-Sight Preview:** Zeigt Sichtfeld nach 300ms Stillstand
-- **3D-Distanz-Berechnung:** Berücksichtigt Höhenunterschied zur Straße
 
 ### Platzierungsregeln
 
+Eine Regelquelle für Maus-Vorschau, Klick und Bots: `checkTowerPlacement`
+(`utils/tower-placement-rules.ts`), Werte in `configs/placement.config.ts`.
+Den Kontext (Spielbereich, HQ, Spawns, Tower, Routen) stellt der
+`TowerPlacementService` zusammen: `validateTowerPosition` für eine Position,
+`placementChecker()` für viele hintereinander (Kandidatensuche der Bots im
+`StrategicPlacementService`). Die erste verletzte Regel liefert den Grund.
+
 | Regel | Wert | Beschreibung |
 |-------|------|--------------|
-| `MIN_DISTANCE_TO_STREET` | 10m | Mindestabstand zur Straße (3D!) |
-| `MAX_DISTANCE_TO_STREET` | 50m | Maximaler Abstand zur Straße |
-| `MIN_DISTANCE_TO_BASE` | 30m | Mindestabstand zur Basis |
-| `MIN_DISTANCE_TO_SPAWN` | 30m | Mindestabstand zu Spawns |
+| Spielbereich | Bounds des Straßennetzes | Position innerhalb der geladenen Straßen |
+| `MIN_DISTANCE_TO_BASE` | 30m | Mindestabstand zum HQ |
+| `MIN_DISTANCE_TO_SPAWN` | 60m | Mindestabstand zu Spawns |
 | `MIN_DISTANCE_TO_OTHER_TOWER` | 8m | Mindestabstand zu anderen Türmen |
+| `MIN_DISTANCE_TO_ROUTE` | 10m | Mindestabstand zu den Gegnerrouten (Abstand zum Segment) |
 
-### 3D-Distanz zur Straße
-
-Die Distanz zur Straße wird in 3D berechnet, nicht nur horizontal:
-
-```
-3D-Distanz = sqrt(horizontalDist² + höhenDiff²)
-```
-
-**Beispiel:** Ein Tower auf einem 8m hohen Dach direkt neben der Straße:
-- Horizontal: 5m (normalerweise zu nah!)
-- Höhendifferenz: 8m
-- 3D-Distanz: sqrt(25 + 64) ≈ 9.4m → **Immer noch zu nah**
-
-Aber bei 6m horizontal und 8m hoch:
-- 3D-Distanz: sqrt(36 + 64) = 10m → **Erlaubt!**
+Alle Abstände sind horizontal (Haversine). Gebäude sind kein Hindernis: Der
+Tower wird auf Dachhöhe gehoben und steht dann auf dem Dach.
 
 ### Keyboard-Shortcuts im Build-Modus
 

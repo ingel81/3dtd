@@ -3,11 +3,9 @@ import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Tower } from '../entities/tower.entity';
 import { TowerTypeId } from '../configs/tower-types.config';
-import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GeoPosition } from '../models/game.types';
-import { OsmStreetService, StreetNetwork } from '../services/location/osm-street.service';
+import { OsmStreetService } from '../services/location/osm-street.service';
 import { ThreeTilesEngine } from '../three-engine';
-import { geoDistanceFastSq, findNearestRouteDistance } from '../utils/geo-utils';
 import { GameEventBus } from '../game-engine';
 import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { TOWER_TYPES } from '../configs/tower-types.config';
@@ -36,9 +34,6 @@ export class TowerManager extends EntityManager<Tower> {
 
   // Use signal for reactive updates
   private readonly _selectedTowerId = signal<string | null>(null);
-  private streetNetwork: StreetNetwork | null = null;
-  private basePosition: GeoPosition | null = null;
-  private spawnPoints: GeoPosition[] = [];
   private placementSoundRegistered = false;
   private activeRoutesGetter: (() => GeoPosition[][]) | null = null;
 
@@ -60,18 +55,12 @@ export class TowerManager extends EntityManager<Tower> {
   private selectionVizTowerId: string | null = null;
 
   /**
-   * Initialize with ThreeTilesEngine and street network context
+   * Initialize with ThreeTilesEngine and register the tower sounds.
+   * Placement rules are not checked here: TowerPlacementService validates
+   * every position (see checkTowerPlacement) before a tower is placed.
    */
-  initializeWithContext(
-    tilesEngine: ThreeTilesEngine,
-    streetNetwork: StreetNetwork,
-    basePosition: GeoPosition,
-    spawnPoints: GeoPosition[]
-  ): void {
+  override initialize(tilesEngine: ThreeTilesEngine): void {
     super.initialize(tilesEngine);
-    this.streetNetwork = streetNetwork;
-    this.basePosition = basePosition;
-    this.spawnPoints = spawnPoints;
 
     // Register placement sound
     if (!this.placementSoundRegistered && tilesEngine.spatialAudio) {
@@ -115,8 +104,8 @@ export class TowerManager extends EntityManager<Tower> {
   }
 
   /**
-   * Set a callback to retrieve active enemy routes for placement validation
-   * and the towers' guard headings.
+   * Set a callback to retrieve the active enemy routes, for the towers'
+   * guard headings.
    */
   setActiveRoutesGetter(getter: () => GeoPosition[][]): void {
     this.activeRoutesGetter = getter;
@@ -238,49 +227,6 @@ export class TowerManager extends EntityManager<Tower> {
     });
 
     return tower;
-  }
-
-  /**
-   * Validate tower placement position
-   */
-  validatePosition(position: GeoPosition): { valid: boolean; reason?: string } {
-    if (!this.streetNetwork || !this.basePosition) {
-      return { valid: false, reason: 'Not initialized' };
-    }
-
-    // Check distance to base (squared comparison avoids sqrt)
-    const distToBaseSq = geoDistanceFastSq(position, this.basePosition);
-    if (distToBaseSq < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE ** 2) {
-      return { valid: false, reason: 'Too close to base' };
-    }
-
-    // Check distance to spawn points (squared comparison avoids sqrt)
-    for (const spawn of this.spawnPoints) {
-      const distToSpawnSq = geoDistanceFastSq(position, spawn);
-      if (distToSpawnSq < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN ** 2) {
-        return { valid: false, reason: 'Too close to spawn point' };
-      }
-    }
-
-    // Check distance to other towers (squared comparison avoids sqrt)
-    for (const tower of this.getAll()) {
-      const distToTowerSq = geoDistanceFastSq(position, tower.position);
-      if (distToTowerSq < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER ** 2) {
-        return { valid: false, reason: 'Too close to another tower' };
-      }
-    }
-
-    // Check distance to active enemy routes
-    const activeRoutes = this.activeRoutesGetter?.() ?? [];
-    if (activeRoutes.length > 0) {
-      const routeDistance = findNearestRouteDistance(activeRoutes, position.lat, position.lon);
-      if (routeDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) {
-        return { valid: false, reason: 'Too close to route' };
-      }
-    }
-    // If no routes exist yet, allow placement anywhere
-
-    return { valid: true };
   }
 
   /**
