@@ -111,6 +111,9 @@ export class SpatialAudioManager {
   // Enemy sound budget
   private enemySoundCount = 0;
 
+  /** Document listener from the constructor, removed again in dispose(). */
+  private readonly onVisibilityChange: () => void;
+
   constructor(scene: Scene, camera: Camera) {
     // Create audio listener and attach to camera
     const listener = new AudioListener();
@@ -146,7 +149,7 @@ export class SpatialAudioManager {
         ctx.resume().catch(() => { /* user gesture required, try again later */ });
       }
     };
-    document.addEventListener('visibilitychange', () => {
+    this.onVisibilityChange = () => {
       if (!document.hidden) {
         tryResume();
         // Drop any active one-shots that the browser cleared while the tab
@@ -156,7 +159,8 @@ export class SpatialAudioManager {
         // here avoids playing into a saturated bookkeeping state.
         this.revalidateActiveSounds();
       }
-    });
+    };
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
 
     const loader = new AudioLoader();
 
@@ -543,6 +547,7 @@ export class SpatialAudioManager {
   // ─── Dispose ─────────────────────────────────────────────
 
   dispose(): void {
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.stopAll();
     const listener = this.pool.getListener();
     if (listener.parent) {

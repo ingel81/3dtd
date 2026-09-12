@@ -728,5 +728,16 @@ describe('SpatialAudioManager', () => {
       expect(manager.getSoundConfig('fire')).toBeNull();
       expect(() => manager.dispose()).not.toThrow();
     });
+
+    it('dispose stops listening for the tab coming back', () => {
+      const { manager, listener } = setup();
+      manager.dispose();
+      listener.context.state = 'suspended';
+
+      vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      expect(listener.context.resume).not.toHaveBeenCalled();
+    });
   });
 });
