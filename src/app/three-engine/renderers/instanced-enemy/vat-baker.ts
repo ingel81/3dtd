@@ -128,12 +128,22 @@ export function vatClips(config: VATClipConfig): VATClip[] {
 }
 
 /**
- * VAT frames one clip takes. The renderer shows frame floor(t × fps) at clip
- * time t, so a clip cut at `seconds` needs frames 0 to floor(seconds × fps).
+ * Frames by which a clip duration may run past a whole frame count: the
+ * loaders keep key times in float32, so 4/3 s reads as 1.3333334 s, which is
+ * 40.0000012 frames at 30 fps.
+ */
+const FRAME_EPSILON = 1e-3;
+
+/**
+ * VAT frames one clip takes. A loop needs the frames before its end, since
+ * the frame at the end is frame 0 again: ceil(duration × fps). A clip that
+ * stops (death) shows frame floor(t × fps) at clip time t and holds the last
+ * one, so it needs frames 0 to floor(min(seconds, duration) × fps), its end
+ * pose included when it ends before the cut. `seconds` is Infinity for loops.
  */
 export function vatFrameCount(duration: number, fps: number, seconds = Infinity): number {
-  const whole = Math.max(1, Math.ceil(duration * fps));
-  return seconds < duration ? Math.min(whole, Math.floor(seconds * fps) + 1) : whole;
+  if (seconds === Infinity) return Math.max(1, Math.ceil(duration * fps - FRAME_EPSILON));
+  return Math.floor(Math.min(seconds, duration) * fps + FRAME_EPSILON) + 1;
 }
 
 /** Texture width and rows per frame; past MAX_VAT_WIDTH vertices a frame spans several rows. */

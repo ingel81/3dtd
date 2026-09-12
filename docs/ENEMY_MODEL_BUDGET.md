@@ -20,8 +20,8 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
   Danach folgen `zombie_horde` (14,4), `rat_tide` (10,8), `spider_swarm` (10,5) und
   `wraith_storm` (9,1).
 - Alle 19 Typen werden beim Start gebacken (`preloadAllModels`). Zusammen belegen die VATs
-  264,7 MB GPU-Speicher: 18 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in
-  RGBA32F wären 486,6 MB). Gebacken wird nur, was das Spiel zeigt: Todes-Clips bis zum
+  264,0 MB GPU-Speicher: 18 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in
+  RGBA32F wären 485,2 MB). Gebacken wird nur, was das Spiel zeigt: Todes-Clips bis zum
   Entfernen des Gegners, Idle gar nicht (bis 2026-09-12 waren es 664,6 MB).
 - Der Wallsmasher lädt als FBX nicht indiziert: 17.010 Vertices für 5.670 Dreiecke. Als GLB
   wären es 3.444, ohne sichtbare Änderung.
@@ -216,6 +216,12 @@ Code-seitig umgesetzt (2026-09-13):
   unter 1, beim Hornet die Flügel) blenden, Dragon schneidet mit `alphaTest` 0,5 aus
   (glTF MASK), die übrigen 15 Typen zeichnen opak. `aOpacity` ist entfernt, es war immer 1.
   Ob opak messbar schneller ist, ist nicht gemessen.
+- **Kein doppelter Loop-Frame** (`vatFrameCount`): Die Loader lesen Key-Zeiten als float32,
+  `ceil(Dauer × fps)` zählte deshalb bei sechs Loop-Clips einen Frame zu viel, der die
+  Startpose ein zweites Mal zeigte (Mech Walk, Wallsmasher Walk und Run, Mammoth Walk,
+  Zombie Soldier Run, Bear Walk). Jetzt mit 0,001 Frames Toleranz. Todes-Clips, die vor dem
+  Entfernen enden, haben ihre Endpose als letzten Frame (Wallsmasher Death +1). VAT gesamt
+  264,7 → 264,0 MB.
 
 ## Neue Gegner: Skeleton (Swarm)
 
@@ -266,27 +272,27 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Gegner | Klasse | max./Welle | VAT-Vertices | Dreiecke | Mio. Vertices | Bake-Pfad | VAT-Frames | VAT-Textur | Format | Half-Fehler mm | VAT-MB | Diffuse |
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
 | Hornet (`hornet`) | Normal | 210 | 69.297 | 122.736 | 14,6 | Objekt-Anim. | 59 | 8192×531 | RGBA16F | 0,35 | 33,2 | 1024² |
-| Mech (`mech`) | Normal | 100 | 42.455 | 28.850 | 4,2 | Objekt-Anim. | 41 | 8192×246 | RGBA16F | 1,45 | 15,4 | 1024² |
+| Mech (`mech`) | Normal | 100 | 42.455 | 28.850 | 4,2 | Objekt-Anim. | 40 | 8192×240 | RGBA16F | 1,45 | 15,0 | 1024² |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 31.342 | 30.887 | 6,3 | Skinning | 211 | 8192×844 | RGBA16F | 0,85 | 52,8 | 1024² |
 | Herbert (`herbert`) | Elite/Boss | 3 | 30.831 | 31.949 | 0,1 | Skinning | 32 | 8192×128 | RGBA16F | 0,56 | 8,0 | 512² |
 | Wraith (`wraith`) | Normal | 300 | 30.228 | 39.986 | 9,1 | Skinning | 15 | 8192×60 | RGBA16F | 0,48 | 3,8 | 1024² |
-| Wallsmasher (`wallsmasher`) | Normal | 200 | 17.010 | 5.670 | 3,4 | Skinning | 105 | 8192×315 | RGBA16F | 1,28 | 19,7 | – |
+| Wallsmasher (`wallsmasher`) | Normal | 200 | 17.010 | 5.670 | 3,4 | Skinning | 104 | 8192×312 | RGBA16F | 1,28 | 19,5 | – |
 | Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 171 | 8192×342 | RGBA32F | 2,64 | 42,8 | 2048² |
 | Spider (`spider`) | Swarm | 800 | 13.173 | 21.128 | 10,5 | Skinning | 25 | 8192×50 | RGBA16F | 0,56 | 3,1 | 512² |
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.267 | 19.542 | 0,7 | Skinning | 394 | 8192×788 | RGBA16F | 1,78 | 49,3 | 1024² |
-| Mammoth (`mammoth`) | Normal | 150 | 5.541 | 8.685 | 0,8 | Skinning | 322 | 5541×322 | RGBA16F | 1,51 | 13,6 | 1024² |
+| Mammoth (`mammoth`) | Normal | 150 | 5.541 | 8.685 | 0,8 | Skinning | 321 | 5541×321 | RGBA16F | 1,51 | 13,6 | 1024² |
 | Ghost (`ghost`) | Normal | 280 | 5.245 | 7.773 | 1,5 | Skinning | 200 | 5245×200 | RGBA16F | 0,46 | 8,0 | 1024² |
 | Tank (`tank`) | Normal | 150 | 5.094 | 2.796 | 0,8 | statisch | 1 | 5094×1 | RGBA16F | 1,12 | 0,0 | – |
 | Zombie (`zombie`) | Swarm | 1.800 | 4.525 | 2.157 | 8,1 | Skinning | 209 | 4525×209 | RGBA16F | 0,83 | 7,2 | 1024² |
-| Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 108 | 4266×108 | RGBA16F | 0,56 | 3,5 | 1024² |
-| Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 42 | 4083×42 | RGBA16F | 0,74 | 1,3 | 1024² |
+| Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 107 | 4266×107 | RGBA16F | 0,56 | 3,5 | 1024² |
+| Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 2048² |
 | Rat (`rat`) | Swarm | 5.000 | 2.150 | 3.642 | 10,8 | Skinning | 11 | 2150×11 | RGBA16F | 0,26 | 0,2 | 1024² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 1024² |
 | Skeleton (`skeleton`) | Swarm | 1.500 | 1.156 | 658 | 1,7 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
 
-VAT-Speicher aller Typen zusammen: **264,7 MB** (30 fps), alles in RGBA32F wären **486,6 MB**.
-Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **15,8 MB** dazu.
+VAT-Speicher aller Typen zusammen: **264,0 MB** (30 fps), alles in RGBA32F wären **485,2 MB**.
+Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **15,9 MB** dazu.
 
 ### Modellinhalt
 
@@ -325,27 +331,27 @@ die weggelassenen Frames.
 | Gegner | Clip | Rolle | Dauer s | Frames | gekürzt |
 | --- | --- | --- | ---: | ---: | ---: |
 | Hornet | `Take 001` | walk | 1,96 | 59 | – |
-| Mech | `Armature\|Walk` | walk | 1,33 | 41 | – |
+| Mech | `Armature\|Walk` | walk | 1,33 | 40 | – |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
 | Zombie v2 | `Dead` | death | 2,96 | 61 | 28 |
 | Zombie v2 | `dying_backwards` | death | 2,21 | 61 | 6 |
 | Herbert | `Armature\|walking_man\|baselayer` | walk | 1,04 | 32 | – |
 | Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
-| Wallsmasher | `CharacterArmature\|Walk` | walk | 1,33 | 41 | – |
-| Wallsmasher | `CharacterArmature\|Run` | run | 0,80 | 25 | – |
-| Wallsmasher | `CharacterArmature\|Death` | death | 1,30 | 39 | – |
+| Wallsmasher | `CharacterArmature\|Walk` | walk | 1,33 | 40 | – |
+| Wallsmasher | `CharacterArmature\|Run` | run | 0,80 | 24 | – |
+| Wallsmasher | `CharacterArmature\|Death` | death | 1,30 | 40 | – |
 | Stone Golem | `Casual_Walk` | walk | 4,17 | 125 | – |
 | Stone Golem | `dying_backwards` | death | 2,21 | 46 | 21 |
 | Spider | `Armature\|Walk-Cycle-Basic` | walk | 0,83 | 25 | – |
 | Dragon | `flying` | walk | 13,13 | 394 | – |
-| Mammoth | `Walk` | walk | 4,97 | 150 | – |
+| Mammoth | `Walk` | walk | 4,97 | 149 | – |
 | Mammoth | `Die` | death | 6,00 | 172 | 9 |
 | Ghost | `Take 001` | walk | 6,67 | 200 | – |
 | Zombie | `Armature\|Walk` | walk | 4,00 | 120 | – |
 | Zombie | `Armature\|Die` | death | 2,96 | 89 | – |
-| Zombie Soldier | `zombie_02_Run` | walk | 0,80 | 25 | – |
-| Zombie Soldier | `zombie_02_Death` | death | 4,50 | 83 | 52 |
-| Bear | `GltfAnimation 0` | walk | 1,37 | 42 | – |
+| Zombie Soldier | `zombie_02_Run` | walk | 0,80 | 24 | – |
+| Zombie Soldier | `zombie_02_Death` | death | 4,50 | 83 | 53 |
+| Bear | `GltfAnimation 0` | walk | 1,37 | 41 | – |
 | Bat | `fly.001` | walk | 1,67 | 50 | – |
 | Rat | `Run` | walk | 0,34 | 11 | – |
 | Penguin | `Walk` | walk | 1,00 | 30 | – |

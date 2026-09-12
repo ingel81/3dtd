@@ -117,7 +117,8 @@ function planBake(config: EnemyTypeConfig, model: ModelInfo): Bake {
   const clipsByName = new Map(model.clips.map((c) => [c.name, c]));
   const clips = vatClips(config).map(({ name, seconds }): BakedClip => {
     const clip = clipsByName.get(name);
-    const whole = clip ? vatFrameCount(clip.duration, DEFAULT_BAKE_FPS) : 0;
+    // The whole clip, baked like its role: a loop, or a clip that stops at its end.
+    const whole = clip ? vatFrameCount(clip.duration, DEFAULT_BAKE_FPS, seconds === Infinity ? Infinity : clip.duration) : 0;
     const frames = clip ? vatFrameCount(clip.duration, DEFAULT_BAKE_FPS, seconds) : 0;
     return { name, role: roleOf(config, name), duration: clip?.duration ?? null, frames, cutFrames: whole - frames };
   });

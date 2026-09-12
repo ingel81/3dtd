@@ -82,11 +82,17 @@ wenn `bakeVAT` `null` liefert.
 
 `vatClips(config)` legt fest, welche Clips wie weit gebacken werden:
 
-- Walk und Run loopen und kommen ganz in die VAT.
+- Walk und Run loopen und kommen ganz in die VAT, bis auf den Frame am Clip-Ende: Der ist
+  wieder Frame 0 (`ceil(Dauer × fps)` Frames).
 - Todes-Clips laufen mit `animationSpeed`, bis `EnemyManager` den Gegner nach
   `TIMING.deathAnimationDuration` entfernt. Gebacken wird nur diese Clip-Zeit
   (`vatDeathSeconds`), bis einschließlich des Frames `floor(t × fps)`, der beim Entfernen zu
-  sehen ist (`vatFrameCount`). Kürzere Todes-Clips kommen ganz in die VAT.
+  sehen ist (`vatFrameCount`). Kürzere Todes-Clips kommen ganz in die VAT, mit ihrer
+  Endpose als letztem Frame.
+- Die Loader lesen Key-Zeiten als float32, eine Dauer liegt dann oft knapp über einer ganzen
+  Frame-Zahl (4/3 s wird 1,3333334 s, bei 30 fps 40,0000012 Frames). `vatFrameCount` rechnet
+  mit 0,001 Frames Toleranz. Ohne sie hätten sechs Loop-Clips die Startpose doppelt gezeigt
+  (bis 2026-09-13).
 - Idle wird nicht gebacken, kein Spielzustand zeigt es.
 - Clips, die das Modell nicht enthält, fallen weg.
 
