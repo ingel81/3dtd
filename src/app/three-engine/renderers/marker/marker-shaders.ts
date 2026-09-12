@@ -1,9 +1,15 @@
 import {
   ShaderMaterial,
   DoubleSide,
+  FrontSide,
+  Vector2,
   Vector3,
   Texture,
   AdditiveBlending,
+  CustomBlending,
+  AddEquation,
+  OneFactor,
+  OneMinusSrcAlphaFactor,
 } from 'three';
 
 // ============================================================
@@ -328,6 +334,279 @@ export function createGroundGlowMaterial(): ShaderMaterial {
     transparent: true,
     depthWrite: false,
     blending: AdditiveBlending,
+  });
+}
+
+// ============================================================
+// SPAWN PORTAL SHADERS
+// ============================================================
+
+/** Value noise and a three-octave fbm for the portal shaders. */
+const PORTAL_NOISE_GLSL = /* glsl */ `
+  float portalHash(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+  }
+
+  float portalNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float a = portalHash(i);
+    float b = portalHash(i + vec2(1.0, 0.0));
+    float c = portalHash(i + vec2(0.0, 1.0));
+    float d = portalHash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+  }
+
+  float portalFbm(vec2 p) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 3; i++) {
+      v += amp * portalNoise(p);
+      p = p * 2.03 + vec2(1.7, 9.2);
+      amp *= 0.5;
+    }
+    return v / 0.875;
+  }
+`;
+
+/** Opening of the portal at scale 1 (m), see PORTAL_ENERGY_LAYOUT. */
+export interface PortalShaderLayout {
+  halfOpening: number;
+  openingHeight: number;
+  groundHalfWidth: number;
+  groundBack: number;
+  groundFront: number;
+}
+
+/**
+ * Stone frame of the spawn portals. Unlit like every marker shader: a
+ * fixed key light shapes the blocks, the portal's own light falls on the
+ * faces around the opening, and runes down the pillars and along the
+ * lintel glow in the spawn's colour. The Photorealistic Tiles around it
+ * take no scene light either way.
+ */
+export function createPortalFrameMaterial(layout: PortalShaderLayout, energy: number): ShaderMaterial {
+  return new ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uEnergy: { value: energy },
+      uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
+    },
+    vertexShader: /* glsl */ `
+      attribute vec3 aColor;
+      attribute float aPhase;
+
+      varying vec3 vLocalPos;
+      varying vec3 vLocalNormal;
+      varying vec3 vNormal;
+      varying vec3 vColor;
+      varying float vPhase;
+
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
+
+      void main() {
+        vLocalPos = position;
+        vLocalNormal = normal;
+        vNormal = normalize(mat3(instanceMatrix) * normal);
+        vColor = aColor;
+        vPhase = aPhase;
+
+        vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+
+        #include <logdepthbuf_vertex>
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      precision highp float;
+
+      uniform float uTime;
+      uniform float uEnergy;
+      uniform vec2 uOpening; // half width, height
+
+      varying vec3 vLocalPos;
+      varying vec3 vLocalNormal;
+      varying vec3 vNormal;
+      varying vec3 vColor;
+      varying float vPhase;
+
+      #include <logdepthbuf_pars_fragment>
+
+      ${PORTAL_NOISE_GLSL}
+
+      // Glyph of one rune cell: a stem, up to three bars and two diagonals,
+      // picked by the cell's hash. p in cell units.
+      float portalRune(vec2 p) {
+        vec2 cell = floor(p);
+        vec2 f = fract(p) - 0.5;
+        float h = portalHash(cell);
+        float h2 = portalHash(cell + 17.0);
+        const float STROKE = 0.075;
+        const float AA = 0.035;
+        float m = (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.x))) * step(abs(f.y), 0.36) * step(0.25, h);
+        float bar = step(abs(f.x), 0.26);
+        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.y - 0.28))) * bar * step(0.5, fract(h * 7.0)));
+        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.y))) * bar * step(0.55, fract(h * 13.0)));
+        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.y + 0.28))) * bar * step(0.5, fract(h * 29.0)));
+        float diag = bar * step(abs(f.y), 0.3);
+        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.x - f.y) * 0.7071)) * diag * step(0.6, h2));
+        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.x + f.y) * 0.7071)) * diag * step(0.75, fract(h2 * 5.0)));
+        return m;
+      }
+
+      void main() {
+        #include <logdepthbuf_fragment>
+
+        vec3 p = vLocalPos;
+        vec3 ln = vLocalNormal;
+        float ax = abs(p.x);
+
+        // Dark basalt with some grain
+        float grain = portalNoise(p.xy * 1.9 + p.z * 0.7) * 0.6 + portalNoise(p.zy * 6.1 + p.x) * 0.4;
+        vec3 stone = vec3(0.085, 0.075, 0.075) * (0.7 + 0.6 * grain);
+        vec3 n = normalize(vNormal);
+        float key = max(dot(n, normalize(vec3(0.4, 0.8, 0.45))), 0.0);
+        vec3 col = stone * (0.45 + 0.75 * key + 0.25 * n.y);
+
+        vec3 hot = mix(vColor, vec3(1.0, 0.9, 0.65), 0.35);
+
+        // The portal's light on the pillars' inner sides, the lintel's
+        // underside and the front edges next to the opening
+        float inner = clamp(-sign(p.x) * ln.x, 0.0, 1.0);
+        float under = clamp(-ln.y, 0.0, 1.0) * step(ax, uOpening.x + 0.6);
+        float edge = abs(ln.z) * exp(-max(ax - uOpening.x, 0.0) * 1.6);
+        float near = step(p.y, uOpening.y + 0.4) * smoothstep(-0.5, 1.0, p.y);
+        float flicker = 0.85 + 0.15 * portalNoise(vec2(uTime * 2.3 + vPhase, p.y * 0.4));
+        col += vColor * (inner * 0.9 + under * 0.7 + edge * 0.45) * near * (0.35 + 0.65 * uEnergy) * flicker;
+
+        // Runes down the front and back of the pillars and along the
+        // lintel, lit in a wave that climbs the frame
+        float face = step(0.6, abs(ln.z));
+        float pillarBand = step(uOpening.x + 0.35, ax) * step(ax, uOpening.x + 1.25)
+          * step(1.8, p.y) * step(p.y, uOpening.y + 1.4);
+        float lintelBand = step(ax, uOpening.x - 0.3) * step(uOpening.y + 0.5, p.y) * step(p.y, uOpening.y + 2.1);
+        vec2 pillarCell = vec2((ax - uOpening.x - 0.35) / 0.9, (p.y - 1.8) / 0.95);
+        vec2 lintelCell = vec2((p.x + uOpening.x) / 0.95, (p.y - uOpening.y - 0.5) / 1.6);
+        float rune = face * (pillarBand * portalRune(pillarCell) + lintelBand * portalRune(lintelCell));
+        float climb = 0.55 + 0.45 * sin(uTime * 1.4 - p.y * 0.6 + vPhase);
+        col += hot * rune * climb * (0.6 + 0.8 * uEnergy);
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+    side: FrontSide,
+  });
+}
+
+/**
+ * Energy of the spawn portals: the swirling surface in the opening and the
+ * light it throws on the street, in one draw call. Premultiplied alpha
+ * (ONE, ONE_MINUS_SRC_ALPHA): the surface's dark void covers the street
+ * behind the portal and its swirl adds light on top, the ground patch
+ * writes alpha 0 and is purely additive.
+ */
+export function createPortalEnergyMaterial(layout: PortalShaderLayout, energy: number): ShaderMaterial {
+  return new ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uEnergy: { value: energy },
+      uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
+      uGround: { value: new Vector3(layout.groundHalfWidth, layout.groundBack, layout.groundFront) },
+    },
+    vertexShader: /* glsl */ `
+      attribute vec3 aColor;
+      attribute float aPhase;
+      attribute float aPart;
+
+      varying vec3 vLocal;
+      varying vec3 vColor;
+      varying float vPhase;
+      varying float vPart;
+
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
+
+      void main() {
+        vLocal = position;
+        vColor = aColor;
+        vPhase = aPhase;
+        vPart = aPart;
+
+        vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+
+        #include <logdepthbuf_vertex>
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      precision highp float;
+
+      uniform float uTime;
+      uniform float uEnergy;
+      uniform vec2 uOpening; // half width, height
+      uniform vec3 uGround;  // half width, depth behind, depth in front
+
+      varying vec3 vLocal;
+      varying vec3 vColor;
+      varying float vPhase;
+      varying float vPart;
+
+      #include <logdepthbuf_pars_fragment>
+
+      ${PORTAL_NOISE_GLSL}
+
+      void main() {
+        #include <logdepthbuf_fragment>
+
+        vec3 hot = mix(vColor, vec3(1.0, 0.93, 0.75), 0.6);
+
+        if (vPart < 0.5) {
+          // Surface: a swirl around an eye a little below the middle,
+          // tighter toward the eye, faster with more energy
+          vec2 m = vec2(vLocal.x, vLocal.y - uOpening.y * 0.45) / uOpening.x;
+          float r = length(m);
+          float a = atan(m.y, m.x);
+          float t = uTime * (0.3 + 0.25 * uEnergy) + vPhase;
+          float swirl = a + 2.4 / (r + 0.45) - t * 2.0;
+          vec2 q = vec2(cos(swirl), sin(swirl)) * r;
+          float n = portalFbm(q * 1.7 + vec2(0.0, t * 0.6));
+          float bands = 0.5 + 0.5 * sin(swirl * 3.0 + n * 5.0 - r * 4.0);
+          float glow = n * (0.3 + 0.7 * bands);
+
+          // Metres to the nearest edge of the opening: the rim burns brightest
+          float edge = min(uOpening.x - abs(vLocal.x), min(vLocal.y, uOpening.y - vLocal.y));
+          float rim = exp(-max(edge, 0.0) * 1.2);
+
+          vec3 light = mix(vColor * 0.7, hot, bands * n) * glow * (0.5 + uEnergy)
+            + hot * rim * (0.3 + 0.6 * uEnergy);
+          const float VOID = 0.82;
+          gl_FragColor = vec4(vColor * 0.03 * VOID + light, VOID);
+        } else {
+          // Street patch: strongest at the portal's foot, fading to the
+          // patch's edges, weaker behind the portal
+          float dx = max(abs(vLocal.x) - uOpening.x, 0.0);
+          float d = length(vec2(dx, vLocal.z));
+          float side = 1.0 - smoothstep(0.55, 1.0, abs(vLocal.x) / uGround.x);
+          float along = vLocal.z >= 0.0
+            ? 1.0 - smoothstep(0.35, 1.0, vLocal.z / uGround.z)
+            : (1.0 - smoothstep(0.2, 1.0, -vLocal.z / uGround.y)) * 0.45;
+          float flicker = 0.85 + 0.15 * portalNoise(vec2(uTime * 2.3 + vPhase, d * 0.3));
+          vec3 light = vColor * exp(-d * 0.25) * side * along * (0.25 + 0.45 * uEnergy) * flicker;
+          gl_FragColor = vec4(light, 0.0);
+        }
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: DoubleSide,
+    blending: CustomBlending,
+    blendEquation: AddEquation,
+    blendSrc: OneFactor,
+    blendDst: OneMinusSrcAlphaFactor,
   });
 }
 

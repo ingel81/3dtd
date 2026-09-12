@@ -170,7 +170,7 @@ describe('VisualizationFacadeService', () => {
   };
   const markerViz = {
     initialize: vi.fn(),
-    getSpawnMarkers: vi.fn(() => ['markers']),
+    placeSpawnPortal: vi.fn(),
     addBaseMarker: vi.fn(),
     updateMarkerHeights: vi.fn(),
     toggleSpecialPointsDebug: vi.fn(),
@@ -373,7 +373,13 @@ describe('VisualizationFacadeService', () => {
       facade.initializeVisualizationServices();
 
       expect(markerViz.initialize).toHaveBeenCalledWith(engine, HQ, store.heightDebugVisible);
-      expect(pathRoute.initialize).toHaveBeenCalledWith(engine, streetNetwork, HQ, uiStore.routesVisible, osm, ['markers']);
+      expect(pathRoute.initialize).toHaveBeenCalledWith(
+        engine, streetNetwork, HQ, uiStore.routesVisible, osm, expect.any(Function),
+      );
+      // Every built route puts its spawn's portal on the route start
+      const route = [{ lat: 1, lon: 2 }];
+      pathRoute.initialize.mock.calls[0][5]('spawn-1', route, 12);
+      expect(markerViz.placeSpawnPortal).toHaveBeenCalledWith('spawn-1', route, 12);
       expect(cameraControl.initialize).toHaveBeenCalledWith(engine, HQ);
       expect(cameraFraming.setEngine).toHaveBeenCalledWith(engine);
       expect(routeAnimation.initialize).toHaveBeenCalledWith(engine);
@@ -441,7 +447,7 @@ describe('VisualizationFacadeService', () => {
 
       expect(pathRoute.refreshRouteLines).toHaveBeenCalledTimes(1);
       expect(pathRoute.refreshRouteLines).toHaveBeenCalledWith([SPAWN]);
-      expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith([SPAWN]);
+      expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
       expect(routeAnimation.startAnimation).toHaveBeenCalledWith(cachedPaths, [SPAWN]);
     });
 
@@ -606,7 +612,7 @@ describe('VisualizationFacadeService', () => {
       expect([engineArg, base, status]).toEqual([engine, HQ, engineInit.loadingStatus]);
 
       onHeights();
-      expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith([SPAWN]);
+      expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
       expect(grid.updateTerrainHeights).toHaveBeenCalled();
       onStreets();
       expect(streetRendering.renderStreets).toHaveBeenCalled();
@@ -809,7 +815,7 @@ describe('VisualizationFacadeService', () => {
 
       expect(streetRendering.renderStreets).toHaveBeenCalled();
       expect(buildingRendering.renderBuildings).not.toHaveBeenCalled();
-      expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith([SPAWN]);
+      expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
       expect(grid.beginTerrainHeightRefresh).toHaveBeenCalled();
       expect(gameState.onTilesLoaded).toHaveBeenCalled();
       expect(grid.initSpatialGridVisualizationIfEnabled).toHaveBeenCalled();

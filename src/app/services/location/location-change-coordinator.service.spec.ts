@@ -131,7 +131,7 @@ describe('LocationChangeCoordinatorService', () => {
   const dialog = { open: vi.fn() };
   const osm = { loadStreets: vi.fn(), findRandomStreetPoint: vi.fn() };
   const heightUpdate = { heightsLoading: signal(false), heightProgress: signal(1), stopHeightUpdates: vi.fn() };
-  const markerViz = { initialize: vi.fn(), getSpawnMarkers: vi.fn(() => ['marker']), addBaseMarker: vi.fn() };
+  const markerViz = { initialize: vi.fn(), placeSpawnPortal: vi.fn(), addBaseMarker: vi.fn() };
   const pathRoute = {
     clearCache: vi.fn(),
     initialize: vi.fn(),
@@ -325,14 +325,18 @@ describe('LocationChangeCoordinatorService', () => {
 
       expect(markerViz.initialize).toHaveBeenCalledWith(engine, HQ, ctx.heightDebugVisible);
       expect(pathRoute.initialize).toHaveBeenCalledWith(
-        engine, expect.anything(), HQ, uiStore.routesVisible, osm, ['marker'],
+        engine, expect.anything(), HQ, uiStore.routesVisible, osm, expect.any(Function),
       );
+      // Every built route puts its spawn's portal on the route start
+      const route = [{ lat: 1, lon: 2 }];
+      pathRoute.initialize.mock.calls[0][5]('spawn-1', route, null);
+      expect(markerViz.placeSpawnPortal).toHaveBeenCalledWith('spawn-1', route, null);
       expect(cameraControl.initialize).toHaveBeenCalledWith(engine, HQ);
       expect(routeAnimation.initialize).toHaveBeenCalledWith(engine);
       expect(introFlight.initialize).toHaveBeenCalledWith(engine);
       expect(keyboardPan.initialize).toHaveBeenCalledWith(engine);
       expect(markerViz.addBaseMarker).toHaveBeenCalled();
-      // The marker service must be ready before the route service reads its spawn markers.
+      // The marker service must be ready before the route service hands it the first route.
       expect(markerViz.initialize.mock.invocationCallOrder[0])
         .toBeLessThan(pathRoute.initialize.mock.invocationCallOrder[0]);
     });

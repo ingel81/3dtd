@@ -387,7 +387,7 @@ export class VisualizationFacadeService {
       baseCoords,
       this.uiStore.routesVisible,
       pathfindingService,
-      this.markerViz.getSpawnMarkers()
+      (spawnId, route, startGroundY) => this.markerViz.placeSpawnPortal(spawnId, route, startGroundY)
     );
 
     // Initialize camera control service
@@ -630,7 +630,7 @@ export class VisualizationFacadeService {
       { lat: base.lat, lon: base.lon },
       this.engineInit.loadingStatus,
       () => {
-        this.markerViz.updateMarkerHeights(this.toSpawnPointDTOs());
+        this.markerViz.updateMarkerHeights();
         this.gameState.getGlobalRouteGrid().updateTerrainHeights();
       },
       () => this.renderStreets(),
@@ -725,7 +725,7 @@ export class VisualizationFacadeService {
       this.bakedRefreshScheduled = false;
       const spawns = this.store.spawnPoints();
       this.pathRoute.refreshRouteLines(spawns);
-      this.markerViz.updateMarkerHeights(this.toSpawnPointDTOs());
+      this.markerViz.updateMarkerHeights();
       if (this.routeAnimation.isRunning()) {
         const cachedPaths = this.pathRoute.getCachedPaths();
         if (cachedPaths.size > 0) {
@@ -959,7 +959,7 @@ export class VisualizationFacadeService {
     }
     const tBuildings = performance.now();
 
-    this.markerViz.updateMarkerHeights(this.toSpawnPointDTOs());
+    this.markerViz.updateMarkerHeights();
     const tMarkers = performance.now();
 
     // Refresh cell terrain heights against the just-streamed tile geometry
@@ -1130,19 +1130,6 @@ export class VisualizationFacadeService {
       }
     };
     this.routeGridConvergenceRaf = requestAnimationFrame(tick);
-  }
-
-  /**
-   * Map store spawn points to DTOs with color (for marker viz, tower placement, etc.).
-   */
-  private toSpawnPointDTOs(): { id: string; name: string; lat: number; lon: number; color: number }[] {
-    return this.store.spawnPoints().map(sp => ({
-      id: sp.id,
-      name: sp.name,
-      lat: sp.lat,
-      lon: sp.lon,
-      color: sp.color,
-    }));
   }
 
   /**

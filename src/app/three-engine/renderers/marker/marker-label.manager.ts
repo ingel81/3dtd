@@ -9,7 +9,7 @@ import {
 } from 'three';
 import { FloatingTextAtlas, AtlasSlot } from '../floating-text/floating-text-atlas';
 import { createLabelMaterial } from './marker-shaders';
-import { MARKER_LABEL_OFFSET, MARKER_LABEL_SIZE } from '../../../configs/marker-geometry.config';
+import { MARKER_LABEL_SIZE } from '../../../configs/marker-geometry.config';
 
 const MAX_LABELS = 8;
 
@@ -17,14 +17,15 @@ interface LabelEntry {
   id: string;
   index: number;
   atlasSlot: AtlasSlot;
-  position: Vector3; // Diamond position (label adds Y offset)
+  position: Vector3; // Label centre
   phaseOffset: number;
 }
 
 /**
  * GPU-instanced persistent label renderer for markers.
  *
- * Renders billboard text labels ("HQ", "Spawn 1", etc.) above marker diamonds.
+ * Renders billboard text labels ("HQ", "Spawn 1", etc.) above the HQ
+ * diamond and the spawn portals; the caller places the label's centre.
  * Uses FloatingTextAtlas for canvas-based text rendering into a shared texture.
  * All labels rendered in 1 draw call via InstancedMesh.
  *
@@ -81,7 +82,7 @@ export class MarkerLabelManager {
   }
 
   /**
-   * Add a persistent label above a marker.
+   * Add a persistent label with its centre at `position`.
    */
   addLabel(
     id: string,
@@ -98,8 +99,7 @@ export class MarkerLabelManager {
     // Render text into atlas
     const slot = this.atlas.getOrCreate(text, '#FFFFFF', 48, color, 4);
 
-    // Position: diamond pos + label Y offset
-    this.tmpMatrix.makeTranslation(position.x, position.y + MARKER_LABEL_OFFSET, position.z);
+    this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
     this.mesh.setMatrixAt(index, this.tmpMatrix);
 
     // Atlas UV
@@ -157,14 +157,14 @@ export class MarkerLabelManager {
   }
 
   /**
-   * Update label position (follows marker height changes).
+   * Move a label's centre (follows its marker).
    */
   updatePosition(id: string, position: Vector3): void {
     const entry = this.labels.get(id);
     if (!entry) return;
 
     entry.position.copy(position);
-    this.tmpMatrix.makeTranslation(position.x, position.y + MARKER_LABEL_OFFSET, position.z);
+    this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
     this.mesh.setMatrixAt(entry.index, this.tmpMatrix);
     this.mesh.instanceMatrix.needsUpdate = true;
   }

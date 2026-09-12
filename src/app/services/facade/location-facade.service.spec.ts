@@ -94,14 +94,12 @@ describe('LocationFacadeService', () => {
   };
   const markerViz = {
     addSpawnMarker: vi.fn(),
-    getSpawnMarkers: vi.fn(() => ['markers']),
     clearAllMarkers: vi.fn(),
     clearSpawnMarkers: vi.fn(),
     addBaseMarker: vi.fn(),
     updateMarkerHeights: vi.fn(),
   };
   const pathRoute = {
-    updateSpawnMarkers: vi.fn(),
     showPathFromSpawn: vi.fn(),
     clearAllRoutes: vi.fn(),
     clearCachedPaths: vi.fn(),
@@ -439,7 +437,6 @@ describe('LocationFacadeService', () => {
       const spawn = { id: 's1', name: 'North', lat: 48.8, lon: 9.2, color: 0xff0000 };
       expect(store.spawnPoints()).toEqual([spawn]);
       expect(markerViz.addSpawnMarker).toHaveBeenCalledWith('s1', 'North', 48.8, 9.2, 0xff0000);
-      expect(pathRoute.updateSpawnMarkers).toHaveBeenCalledWith(['markers']);
       expect(pathRoute.showPathFromSpawn).toHaveBeenCalledWith(spawn);
     });
 
@@ -852,7 +849,7 @@ describe('LocationFacadeService', () => {
       expect(markerViz.addBaseMarker).toHaveBeenCalled();
       expect(store.spawnPoints()).toEqual([spawn]);
       expect(bridge.setFilteredStreetNetwork).toHaveBeenCalledWith(streetNetwork);
-      expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith([spawn]);
+      expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
       expect(gameState.onTilesLoaded).toHaveBeenCalled();
       expect(gameState.reseatWavePipeline).toHaveBeenCalledWith([spawn], cachedPaths);
       expect(routeAnimation.startAnimation).toHaveBeenCalledWith(cachedPaths, [spawn]);

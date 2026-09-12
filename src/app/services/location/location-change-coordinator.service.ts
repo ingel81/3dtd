@@ -564,7 +564,7 @@ export class LocationChangeCoordinatorService {
       { lat: input.hq.lat, lon: input.hq.lon },
       this.uiStore.routesVisible,
       this.osmService,
-      this.markerViz.getSpawnMarkers()
+      (spawnId, route, startGroundY) => this.markerViz.placeSpawnPortal(spawnId, route, startGroundY)
     );
 
     this.cameraControl.initialize(ctx.engine, { lat: input.hq.lat, lon: input.hq.lon });

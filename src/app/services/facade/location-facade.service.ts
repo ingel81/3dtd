@@ -355,7 +355,6 @@ export class LocationFacadeService {
     this.store.spawnPoints.update((points) => [...points, spawn]);
 
     this.markerViz.addSpawnMarker(id, name, lat, lon, color);
-    this.pathRoute.updateSpawnMarkers(this.markerViz.getSpawnMarkers());
     this.pathRoute.showPathFromSpawn(spawn);
   }
 
@@ -741,20 +740,11 @@ export class LocationFacadeService {
       this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, SPAWN_COLORS[0]);
     }
 
-    this.pathRoute.updateSpawnMarkers(this.markerViz.getSpawnMarkers());
-
     // Re-filter and render streets
     this.bridge.setFilteredStreetNetwork(this.bridge.getStreetNetwork());
 
     // Update marker heights and render routes
-    const spawnPointsForMarkers = this.store.spawnPoints().map(sp => ({
-      id: sp.id,
-      name: sp.name,
-      lat: sp.lat,
-      lon: sp.lon,
-      color: sp.color,
-    }));
-    this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
+    this.markerViz.updateMarkerHeights();
 
     // Rebuild the route-cell grid BEFORE resolving route-line heights: the
     // grid is what `getGroundLocalYAt` reads, and until it is regenerated it
