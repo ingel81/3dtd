@@ -1,6 +1,6 @@
 # Enemy Creation Guide
 
-**Stand:** 2026-09-12
+**Stand:** 2026-09-13
 
 Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen Effekten.
 
@@ -10,30 +10,31 @@ Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen 
 
 Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` definiert (vorher `models/enemy-types.ts`, 2026-05-10 umgezogen — siehe DONE.md). Das System unterstützt:
 
-- Verschiedene 3D-Modelle (GLB, FBX) mit Skelett-Animationen (VAT-instanziert)
+- Verschiedene 3D-Modelle (GLB, FBX) mit Skinning- oder Node-Animationen, als VAT instanziert gerendert ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md))
 - Walk-, Run- und Death-Animationen mit Speed-Coupling
 - Spatial Audio (Loop-Sounds, Random Sounds, Spawn Sounds, Random-Sounds-Pool mit Shuffle)
-- Status-Effekte (Slow, Poison — Freeze/Burn Typen reserviert)
+- Status-Effekte (Slow, Poison, Burn; Freeze-Typ reserviert)
 - Air und Ground Units
 - **Damage/Armor-Matrix** (`armorType` Pflichtfeld, Phase 5.x)
 - Lateral Spread und Height Variation für Bewegungsvariation
 - Boss-Enemies mit Custom Health Bar
 - Bluteffekte (`canBleed`), Emissive Glow, Color Multiplier, Unlit Rendering
 - Konfigurierbare Sidebar-Preview (Camera Distance / Angle / Offset)
-- `isElite`-Flag für visuelle Markierung stärkerer Varianten
+- `isElite`-Flag (im Interface, derzeit von keinem Typ gesetzt und von keinem Code gelesen)
 
 ---
 
-## Aktuelle Enemy-Typen (18)
+## Aktuelle Enemy-Typen (19)
 
 | Enemy | armorType | baseHp | Speed | Air? | Besonderheit |
 |-------|-----------|--------|-------|------|--------------|
 | zombie | unarmored | 80 | 5 | – | Standard-Gegner |
+| zombie-v2 | unarmored | 80 | 3 | – | Zweites Zombie-Modell, Todes-Clip-Pool `deathAnimations: ['Dead', 'dying_backwards']`, 10 % der `zombie_horde` |
 | zombie-soldier | heavy | 160 | 6 | – | Stärkere Variante mit Emissive |
 | rat | unarmored | 5 | 10 | – | Schwächster Swarm-Gegner |
 | spider | light | 60 | 9 | – | Schneller, wenig HP |
 | penguin | unarmored | 30 | 9 | – | Unlit Cartoon-Style |
-| skeleton | unarmored | 20 | 6 | – | Swarm (2026-09-12), Kenney-Modell aus starren Teilen mit Node-Animation (`bakeObjectAnimVAT`), `canBleed: false`, Template `skeleton_swarm` |
+| skeleton | unarmored | 20 | 6 | – | Swarm (2026-09-12), Kenney-Modell aus starren Teilen mit Node-Animation (`bakeObjectAnimVAT`), `canBleed: false`, `animationSpeed: 0.93` (Beine passend zu 6 m/s), Template `skeleton_swarm` (Curriculum W19) |
 | wallsmasher | light | 200 | 4 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5` (rennt 10 m/s, im Mittel 7 m/s), **silent-spawn** (kein `spawnSound`) |
 | bat | light | 25 | 8 | ✓ | Air-Unit, `heightOffset: 15` |
 | hornet | light | 80 | 9 | ✓ | Air-Unit, `heightOffset: 18` |
@@ -42,7 +43,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | bear | heavy | 300 | 8 | – | Random Growl Sound |
 | mech | heavy | 500 | 3 | – | Mechanisch |
 | mammoth | fortified | 400 | 3 | – | Random Mammoth Call |
-| herbert | fortified | 500 | 4 | – | Boss, `immunityPercent: 100` |
+| herbert | fortified | 500 | 4 | – | Boss, `immunityPercent: 100` (derzeit nicht ausgewertet) |
 | **stone-golem** | fortified | 480 | 2.5 | – | Neuer Fortified-Gegner (2026-05-12), `canBleed: false`, `randomAnimationStart: true`, `lateralSpread: 0.65`, `spawnStartDelay: 1200` |
 | ghost | ethereal | 120 | 5 | – | Nur magic/chaos wirkt voll |
 | wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
@@ -62,7 +63,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: { ... },
   tank: { ... },
-  // ... (siehe Tabelle oben für alle 17 aktuellen Typen)
+  // ... (siehe Tabelle oben für alle 19 aktuellen Typen)
   'new-enemy': { ... }, // Neuer Enemy
 };
 
@@ -72,13 +73,13 @@ export type EnemyTypeId = keyof typeof ENEMY_TYPES;
 ### 2. Model-URL definieren
 
 ```typescript
-const NEW_ENEMY_MODEL_URL = '/assets/models/enemies/new_enemy.glb';
+const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
 ```
 
 **Model-Anforderungen:**
 - Unterstützte Formate: GLB, FBX
-- Skelett-Animationen optional aber empfohlen
-- Benannte Animationen (z.B. `Armature|Walk`, `Armature|Die`)
+- Animation per Skinning (SkinnedMesh) oder per Node-Transform starrer Teile (Skeleton, Mech, Hornet); ohne Animation wird das Modell statisch gebacken
+- Benannte Animationen (z.B. `Armature|Walk`, `Armature|Die`). Gebacken werden nur die Clips aus `walkAnimation`, `runAnimation`, `deathAnimation` und `deathAnimations`
 
 ### 3. Enemy-Konfiguration hinzufügen
 
@@ -86,7 +87,7 @@ const NEW_ENEMY_MODEL_URL = '/assets/models/enemies/new_enemy.glb';
 'new-enemy': {
   id: 'new-enemy',
   name: 'New Enemy',
-  modelUrl: '/assets/models/enemies/new_enemy.glb',
+  modelUrl: 'assets/models/enemies/new_enemy.glb',
   scale: 2.0,
   minimumPixelSize: 0, // 0 = echte Größe, kein Clamping
 
@@ -150,14 +151,20 @@ const NEW_ENEMY_MODEL_URL = '/assets/models/enemies/new_enemy.glb';
 
 Idle-Clips werden nicht gebacken, das Spiel zeigt keine stehenden Gegner.
 
+Ein Todes-Clip muss innerhalb von `animationSpeed` × 2 s Clip-Zeit am Boden sein, sonst
+verschwindet der Gegner stehend. `zombie-v2` hatte deshalb `Electrocuted_Fall` im Pool, dessen
+Fall erst nach etwa 3,25 s beginnt; der Clip ist raus (fd18a10). Ein kürzerer Clip hält seinen
+letzten Frame bis zum Entfernen (Skeleton: `die` mit 0,33 s).
+
 ### Animation Speed Coupling
 
 Animationen werden automatisch an die Bewegungsgeschwindigkeit gekoppelt:
 
 ```typescript
-// Berechnung in ThreeEnemyRenderer
-const speedRatio = currentSpeed / effectiveBaseSpeed;
-animationAction.timeScale = baseAnimSpeed * speedRatio;
+// EnemyInstanceManager.updateEnemyState() / updateAnimations()
+// currentSpeed = speedMps × speedMultiplier × Slow (EnemyManager.presentFrame)
+state.speedMultiplier = currentSpeed / effectiveBaseSpeed; // Run-Clip: baseSpeed × runSpeedMultiplier
+state.animTime += deltaTime * state.animSpeed * state.speedMultiplier; // animSpeed = animationSpeed
 ```
 
 **Beispiel:** Enemy mit `baseSpeed: 5` bewegt sich mit `7 m/s`:
@@ -288,14 +295,14 @@ colorMultiplier: 1.3,  // Gesamt-Helligkeit (Default 1.0; 1.3 = +30% heller)
 isElite: true,  // Visueller Marker für stärkere Variante eines Base-Enemy
 ```
 
-**Verwendung:** Z.B. von Wave-Director-Templates gesetzt; UI/Renderer können daran z.B. Glow-Aura zeigen.
+**Stand:** Das Feld steht im Interface, kein Typ setzt es und kein Code liest es.
 
 ### Boss Health Bar
 
 ```typescript
-immunityPercent: 100,        // "Immun 100%" Anzeige
+immunityPercent: 100,        // derzeit von keinem Spielcode gelesen (keine Anzeige, keine Schadensreduktion)
 healthBarColor: '#ff0000',   // Optional: feste Health-Bar-Farbe (z.B. Boss)
-bossName: 'Boss',            // Optional: Name über Health-Bar (UI-seitig noch nicht überall ausgewertet)
+bossName: 'Boss',            // Optional: nur der Screen-Shake liest es (Preset bossDeath beim Tod), kein Name über der Health-Bar
 ```
 
 ### Blood Effects
@@ -350,12 +357,13 @@ lateralSpread: 1.0,  // Anteil des seitlichen Platzes im Routenkorridor (0-1)
 
 **Effekt:** Jeder Enemy bekommt einen zufälligen Platz quer zur Route. Die
 Meter folgen der lokalen Korridorbreite (`utils/route-corridor.ts`): Grenze ist
-die Halbbreite des Korridors minus 1,5 m, auf einer Hauptstraße also mehrere
+die Halbbreite des Korridors minus 1,5 m (`CORRIDOR_DEFAULTS.edgeMargin`), auf einer Hauptstraße also mehrere
 Meter, in einer Gasse unter einem Meter. `lateralSpread` sagt, welchen Anteil
 davon der Typ höchstens nutzt: `1.0` bis zum Rand, `0.5` nur die innere Hälfte
 (Panzer, Bosse). Kein Gegner läuft dadurch außerhalb der Route-Cells, die Tower
 sehen ihn also immer. Vorher war es `lateralOffset` in festen Metern (3,0 m
-entspricht heute 1.0).
+entspricht heute 1.0). Wie die Korridorbreite entsteht, steht in
+[ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md).
 
 **Verwendung:**
 - Verhindert "Gänsemarsch"-Effekt
@@ -380,8 +388,8 @@ Enemies können von Towern mit Status-Effekten belegt werden:
 ### Slow (Verlangsamung)
 
 ```typescript
-// Automatisch wenn von Ice Tower getroffen
-statusEffect: {
+// Ice-Tower-Treffer: StatusEffectService.applySlow(), Werte aus GAME_BALANCE.effects.ice
+{
   type: 'slow',
   value: 0.5,        // 50% Verlangsamung
   duration: 3000,    // 3 Sekunden
@@ -397,8 +405,9 @@ statusEffect: {
 Vom Poison Tower angewendet. Kein Stacking — neuer Poison ersetzt vorherigen.
 
 ```typescript
+// StatusEffectService.applyPoison(), Werte aus GAME_BALANCE.effects.poison
 type: 'poison',
-value: 5,         // Schaden pro Sekunde
+value: 8,         // Schaden pro Sekunde (× Upgrade-Multiplikator des Towers)
 duration: 4000,   // Game-Time ms
 ```
 
@@ -420,7 +429,7 @@ Vom Fire Tower auf jeden Gegner im Flammenkegel angewendet: 20 % der Beam-DPS la
 zombie: {
   id: 'zombie',
   name: 'Zombie',
-  modelUrl: '/assets/models/enemies/zombie.glb',
+  modelUrl: 'assets/models/enemies/zombie.glb',
   scale: 0.984,
   minimumPixelSize: 0,
   armorType: 'unarmored',
@@ -431,7 +440,7 @@ zombie: {
   walkAnimation: 'Armature|Walk',
   deathAnimation: 'Armature|Die',
   animationSpeed: 4.11,
-  movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
+  movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
   movingSoundVolume: 0.4,
   movingSoundRefDistance: 25,
   heightOffset: 0.5,
@@ -451,7 +460,7 @@ zombie: {
 bat: {
   id: 'bat',
   name: 'Bat',
-  modelUrl: '/assets/models/enemies/bat.glb',
+  modelUrl: 'assets/models/enemies/bat.glb',
   scale: 3.958,
   minimumPixelSize: 0,
   armorType: 'light',
@@ -463,7 +472,7 @@ bat: {
   animationSpeed: 2.79,
   heightOffset: 15,        // 15m Flughöhe
   healthBarOffset: 3.5,
-  canBleed: false,
+  canBleed: true,
   headingOffset: 0,
   isAirUnit: true,         // Nur Air-Tower können angreifen
   heightVariation: 3,      // ±3m Variation
@@ -478,7 +487,7 @@ bat: {
 herbert: {
   id: 'herbert',
   name: 'Herbert',
-  modelUrl: '/assets/models/enemies/herbert_optimized.glb', // optimiertes Mesh
+  modelUrl: 'assets/models/enemies/herbert_optimized.glb', // optimiertes Mesh
   scale: 2.625,
   minimumPixelSize: 0,
   armorType: 'fortified',
@@ -512,7 +521,7 @@ herbert: {
 penguin: {
   id: 'penguin',
   name: 'Penguin',
-  modelUrl: '/assets/models/enemies/penguin.glb',
+  modelUrl: 'assets/models/enemies/penguin.glb',
   scale: 0.005,
   minimumPixelSize: 0,
   armorType: 'unarmored',
@@ -525,7 +534,7 @@ penguin: {
   animationSpeed: 5.6,
   heightOffset: 0.5,
   healthBarOffset: 4.5,
-  canBleed: false,
+  canBleed: true,
   unlit: true,               // Cartoon-Style ohne Beleuchtung
   headingOffset: 0,
   randomAnimationStart: true,
@@ -543,7 +552,7 @@ penguin: {
 wallsmasher: {
   id: 'wallsmasher',
   name: 'Wallsmasher',
-  modelUrl: '/assets/models/enemies/wallsmasher.fbx',
+  modelUrl: 'assets/models/enemies/wallsmasher.fbx',
   scale: 0.037,
   minimumPixelSize: 0,
   armorType: 'light',
@@ -561,7 +570,7 @@ wallsmasher: {
   // Kein spawnSound — Wallsmasher-Rush ist als visuelle Überraschung gedacht.
   // `enemy.entity.ts` gateet beide Pfade (Register + Play) durch
   // `if (this.typeConfig.spawnSound)`, also bleibt der Spawn ohne Property lautlos.
-  randomSound: '/assets/sounds/enemies/wallsmasher/attack.mp3',
+  randomSound: 'assets/sounds/enemies/wallsmasher/attack.mp3',
   randomSoundMinInterval: 8000,
   randomSoundMaxInterval: 25000,
   randomSoundVolumeMin: 0.2,
@@ -591,8 +600,9 @@ wallsmasher: {
 - [ ] Sound-Dateien in `/public/assets/sounds/` (optional)
 - [ ] `canBleed` korrekt (true für organisch, false für mechanisch)
 - [ ] Bei Air Unit: `isAirUnit: true` gesetzt
-- [ ] Bei Run-Animation: `runSpeedMultiplier` gesetzt
-- [ ] Bei Boss: `immunityPercent` gesetzt
+- [ ] Bei Run-Animation: `animationVariation: true` und `runSpeedMultiplier` gesetzt
+- [ ] Todes-Clip liegt innerhalb von `animationSpeed` × 2 s Clip-Zeit am Boden
+- [ ] Bei Boss: `healthBarColor` und `bossName` gesetzt (`immunityPercent` wird derzeit nicht ausgewertet)
 - [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu gross/klein
 - [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse
 
@@ -602,18 +612,33 @@ wallsmasher: {
 
 Siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md) für Wave-Konfiguration.
 
-**Quick Example:**
+Gegner kommen über Wave-Templates in die Wellen: `ai/core/templates.ts`, Feld `enemies` mit
+Anteilen, dazu `minWave` und die Bereiche für Anzahl, Spawn-Delay und HP. Das Curriculum
+(`configs/wave-curriculum.config.ts`) legt fest, welches Template in welcher Welle läuft. Im
+Debug-Pfad ohne Director erscheint ein Typ nur, wenn ein Eintrag in `STATIC_WAVE_PROFILES`
+(gleiche Datei) ihn nennt. Nach Änderungen an den Templates `npm run ai-schema` laufen lassen, das spiegelt sie
+nach `training-backend/generated/ai-schema.json`.
 
 ```typescript
-// In WaveDebugComponent oder Tower Defense
-this.waveManager.startWave({
-  enemyCount: 10,
-  enemyType: 'new-enemy',  // Your new enemy type
-  enemySpeed: 5,
-  spawnMode: 'random',
-  spawnDelay: 500,
-});
+// ai/core/templates.ts
+{
+  id: 'skeleton_swarm',
+  name: 'Skeleton Swarm',
+  description: 'A rattling swarm of skeletons.',
+  enemies: [['skeleton', 1.0]],
+  countRange: [40, 1500],
+  spawnDelayRange: [15, 300],
+  hpMultRange: [0.5, 5.0],
+  variationRange: [0.05, 0.35],
+  minWave: 6,
+  spawnPattern: null,
+  requiresCapability: null,
+  bossOnly: false,
+},
 ```
+
+`WaveManager.startWave()` nimmt nur einen fertigen `SpawnSchedule` (`{ schedule }`), keine
+Einzeltyp-Konfiguration mehr.
 
 ---
 
@@ -626,7 +651,7 @@ this.waveManager.startWave({
    ↓
 2. Initialize Components (Transform, Health, Movement, Audio)
    ↓
-3. Create 3D Model (ThreeEnemyRenderer)
+3. Instanz-Slot anlegen (InstancedEnemyRenderer.create, Pool aus dem VAT-Preload)
    ↓
 4. Play Spawn Sound
    ↓
@@ -643,12 +668,15 @@ this.waveManager.startWave({
 
 ### Renderer-Integration
 
-Enemies werden automatisch vom `ThreeEnemyRenderer` gerendert:
+Enemies werden automatisch vom `InstancedEnemyRenderer` (`tilesEngine.enemies`) gerendert.
+`ThreeTilesEngine` bäckt beim Laden per `preloadAllModels()` für jeden Typ in `ENEMY_TYPES`
+eine VAT und legt den Pool an.
 
 ```typescript
 // In EnemyManager
-this.tilesEngine.enemies.create(enemy.id, typeId, lat, lon, height);
-this.tilesEngine.enemies.update(enemy.id, lat, lon, height, rotation, healthPercent);
+this.tilesEngine.enemies.create(enemy.id, typeId, lat, lon, height);              // Spawn
+slot = engine.enemies.resolveSlot(enemy.id);                                      // presentFrame(), einmal pro Gegner
+engine.enemies.updateSlot(slot, localPos, rotation, healthPercent, currentSpeed); // presentFrame(), pro Render-Frame
 this.tilesEngine.enemies.startWalkAnimation(enemy.id);
 this.tilesEngine.enemies.playDeathAnimation(enemy.id);
 this.tilesEngine.enemies.remove(enemy.id);
@@ -673,11 +701,11 @@ npx gltf-transform inspect model.glb
 
 ## Best Practices
 
-1. **Animation Speed:** `animationSpeed: 1.0` als Basis, anpassen bis Bewegung natürlich wirkt
+1. **Animation Speed:** so wählen, dass die Füße bei `baseSpeed` nicht rutschen. Skeleton: 3,2 m Schrittlänge pro 0,5-s-Zyklus, bei 6 m/s also `0.93` (825e6d5). Die Kopplung an die aktuelle Geschwindigkeit hält das auch unter Slow
 2. **Sound Volumes:** Loop-Sounds leiser (0.2-0.4), Spawn-Sounds lauter (0.5-0.7)
 3. **Lateral Spread:** 0.65-1.0 für normale Gegner, 0.5 für große, die in der Mitte bleiben sollen
 4. **Boss Health:** 10x normale Enemies (z.B. 500-5000 HP)
-5. **Base Speed:** 3-5 m/s für langsame, 6-8 m/s für schnelle, 10+ m/s für Air Units
+5. **Base Speed:** 3-5 m/s für langsame, 6-8 m/s für schnelle Gegner; die Air Units liegen bei 6-9 m/s, die Ratte bei 10 m/s
 6. **Health Bar Offset:** `scale * 4` als Faustregel
 
 ---
@@ -688,10 +716,11 @@ npx gltf-transform inspect model.glb
 - Check `modelUrl` Pfad
 - Check `scale` (zu klein? zu groß?)
 - Check Browser Console für GLB-Ladefehlern
+- Check Console auf `[InstancedRenderer] ... will not render`: Clone oder VAT-Bake ist gescheitert, der Typ hat keinen Pool
 
 ### Animation spielt nicht
 - Check `hasAnimations: true` gesetzt
-- Check Animation-Name exakt wie in GLB/FBX
+- Check Animation-Name exakt wie in GLB/FBX; nur Clips aus `walkAnimation`, `runAnimation` und `deathAnimation(s)` werden gebacken
 - Check `animationSpeed` nicht 0
 
 ### Sound spielt nicht
