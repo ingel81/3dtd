@@ -1,0 +1,126 @@
+<header class="header">
+  <img class="logo" src="assets/images/logo/logo.png" alt="3DTD">
+  <div class="header-left">
+    <button class="location-btn" (click)="locationClick.emit()" matTooltip="Change location">
+      <span class="location-label">DEFEND</span>
+      <span class="location-name">{{ locationName() }}</span>
+      <td-icon class="location-edit" name="edit" [size]="16"></td-icon>
+    </button>
+
+    <!-- Location Actions -->
+    <div class="location-actions">
+      <!-- Share Button -->
+      <button class="action-btn" (click)="onShare()" matTooltip="Copy link"
+              [attr.aria-label]="shareConfirmed() ? 'Link copied' : 'Copy link'">
+        <td-icon [name]="shareConfirmed() ? 'check' : 'share'" [size]="22"></td-icon>
+      </button>
+
+      <!-- Favorites Dropdown -->
+      <div class="fav-wrapper">
+        <button class="action-btn" [class.active]="favMenuExpanded()"
+                (click)="toggleFavMenu()" matTooltip="Favorites"
+                aria-label="Favorites" [attr.aria-expanded]="favMenuExpanded()">
+          <td-icon name="bookmark" [size]="22"></td-icon>
+        </button>
+        <div class="fav-dropdown" [class.expanded]="favMenuExpanded()">
+          @if (canAddFavorite()) {
+            <button class="fav-item fav-add" (click)="onAddFavorite()">
+              <td-icon name="plus" [size]="14"></td-icon>
+              <span>Save location</span>
+            </button>
+          }
+          @for (fav of favorites(); track fav.id) {
+            <div class="fav-item">
+              <button class="fav-select" (click)="onSelectFavorite(fav)">
+                <span class="fav-name">{{ favoriteNames()[fav.id] || 'Loading...' }}</span>
+                <span class="fav-coords">{{ fav.hq.lat.toFixed(4) }}, {{ fav.hq.lon.toFixed(4) }}</span>
+              </button>
+              <button class="fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Delete"
+                      [attr.aria-label]="'Delete ' + (favoriteNames()[fav.id] || 'favorite')">
+                <td-icon name="cross" [size]="14"></td-icon>
+              </button>
+            </div>
+          } @empty {
+            @if (!canAddFavorite()) {
+              <div class="fav-empty">Max favorites reached</div>
+            } @else {
+              <div class="fav-empty">No favorites</div>
+            }
+          }
+        </div>
+      </div>
+
+      <!-- World Dice -->
+      <button class="action-btn" (click)="diceClick.emit()" matTooltip="Random location"
+              aria-label="Random location">
+        <td-icon name="random" [size]="22"></td-icon>
+      </button>
+
+      <!-- Rendering Toggle (Phase 5.14), headless mode for training, DevWorld only -->
+      @if (isDevWorld) {
+        <button class="action-btn" (click)="toggleRendering()"
+                [class.active]="!renderingEnabled()"
+                [matTooltip]="renderingEnabled() ? 'Disable 3D rendering (headless)' : 'Enable 3D rendering'"
+                [attr.aria-label]="renderingEnabled() ? 'Disable 3D rendering' : 'Enable 3D rendering'">
+          <td-icon [name]="renderingEnabled() ? 'eye' : 'eyeOff'" [size]="22"></td-icon>
+        </button>
+      }
+
+      <!-- Placement Divider + Buttons -->
+      <span class="action-divider"></span>
+
+      <button class="action-btn" [class.active]="placementMode() === 'hq'"
+              (click)="placeHqClick.emit()" matTooltip="Move HQ"
+              aria-label="Move HQ" [attr.aria-pressed]="placementMode() === 'hq'"
+              [disabled]="!canPlace()">
+        <td-icon name="pin" [size]="22"></td-icon>
+      </button>
+
+      <button class="action-btn" [class.active]="placementMode() === 'spawn'"
+              (click)="placeSpawnClick.emit()" matTooltip="Set spawn"
+              aria-label="Set spawn" [attr.aria-pressed]="placementMode() === 'spawn'"
+              [disabled]="!canPlace()">
+        <td-icon name="flag" [size]="22"></td-icon>
+      </button>
+    </div>
+  </div>
+  <div class="header-right">
+    <!-- Only during a wave. Sits left of the stat bar so the bar keeps
+         its width and stays lined up with the sidebar. -->
+    @if (waveActive()) {
+      <div class="stat enemies enemies-chip">
+        <td-icon name="bug" [size]="16" ariaLabel="Enemies"></td-icon>
+        <span>{{ enemiesAlive() }}</span>
+      </div>
+    }
+    <!-- The visible labels name the values, the icons are decoration -->
+    <div class="header-stats">
+      <div class="stat hp">
+        <td-icon name="heart" [size]="16"></td-icon>
+        <div class="stat-text">
+          <span class="stat-label">HQ</span>
+          <span class="stat-value">{{ baseHealth() }}</span>
+        </div>
+      </div>
+      <div class="stat credits">
+        <td-icon name="coin" [size]="16"></td-icon>
+        <div class="stat-text">
+          <span class="stat-label">CREDITS</span>
+          <span class="stat-value">{{ credits() }}</span>
+        </div>
+      </div>
+      <div class="stat wave">
+        <td-icon name="wave" [size]="16"></td-icon>
+        <div class="stat-text">
+          <span class="stat-label">WAVE</span>
+          <span class="stat-value">{{ waveNumber() }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  @if (isDialog()) {
+    <button class="close-btn" (click)="closeClick.emit()" matTooltip="Close" aria-label="Close">
+      <td-icon name="cross" [size]="16"></td-icon>
+    </button>
+  }
+</header>

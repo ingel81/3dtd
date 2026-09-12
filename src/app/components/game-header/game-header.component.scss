@@ -1,0 +1,356 @@
+:host {
+  display: block;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* Right padding = sidebar gutter, so the stat bar ends flush with the
+     sidebar content below it */
+  padding: 4px var(--td-sidebar-gutter) 4px 12px;
+  background:
+    linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
+    url('../../../styles/textures/stone-wall.jpg') repeat;
+  background-size: auto, 64px 64px;
+  border-bottom: 3px solid var(--td-panel-shadow);
+  border-top: 1px solid var(--td-gold-dark);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.logo {
+  width: 74px;
+  height: 74px;
+  object-fit: contain;
+  margin: -25px 0;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  filter:
+    drop-shadow(0 -1px 0 rgba(255, 255, 220, 0.45))
+    drop-shadow(0 1px 0 rgba(0, 0, 0, 0.9));
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.location-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  border-top-color: var(--td-frame-mid);
+  color: var(--td-gold);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.location-btn:hover {
+  border-color: var(--td-gold-dark);
+  background: rgba(255, 215, 0, 0.15);
+  color: var(--td-gold-light);
+}
+
+.location-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--td-text-secondary);
+  opacity: 0.6;
+}
+
+.location-name {
+  font-weight: 500;
+}
+
+.location-edit {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  opacity: 0.5;
+}
+
+.location-btn:hover .location-edit {
+  opacity: 1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* The stat bar sits right above the sidebar content: same width and outer
+   edges as the next-wave button and the tower grid. Sidebar width minus
+   both gutters minus the sidebar's 1px border-left; the header's right
+   padding supplies the right gutter. Three equal columns, so a growing
+   value never shifts its neighbours. */
+.header-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: calc(var(--td-sidebar-width) - 2 * var(--td-sidebar-gutter) - 1px);
+}
+
+.header-stats,
+.enemies-chip {
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.13),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bar cells: icon plus a small label over the value. Label 9px and
+   value 17px line-height plus 3px padding keep the bar at 34px, so the
+   header stays 46px high. */
+.header-stats .stat {
+  gap: 7px;
+  padding: 3px 8px;
+}
+
+.stat-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 8px;
+  line-height: 9px;
+  letter-spacing: 0.16em;
+  color: var(--td-text-muted);
+}
+
+.stat-value {
+  font-size: 15px;
+  line-height: 17px;
+  font-weight: 700;
+}
+
+.enemies-chip {
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.stat + .stat {
+  border-left: 1px solid var(--td-frame-dark);
+}
+
+.stat.hp { color: var(--td-health-red); }
+.stat.credits { color: var(--td-gold); }
+.stat.wave { color: var(--td-teal); }
+.stat.enemies { color: var(--td-warn-orange); }
+
+.close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.18),
+    inset 0 -1px 0 var(--td-panel-shadow),
+    var(--td-shadow-key);
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.18s;
+}
+
+.close-btn mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.close-btn:hover {
+  background: var(--td-health-red);
+  color: var(--td-text-primary);
+}
+
+/* Location Actions */
+.location-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-btn:hover, .action-btn.active {
+  background: rgba(255, 215, 0, 0.1);
+  border-color: var(--td-gold-dark);
+  color: var(--td-gold);
+}
+
+.action-btn mat-icon {
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+}
+
+.action-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.action-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--td-frame-mid);
+  margin: 0 2px;
+  opacity: 0.5;
+}
+
+.fav-wrapper {
+  position: relative;
+}
+
+.fav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 200px;
+  background: var(--td-panel-main);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.2),
+    inset 0 -1px 0 var(--td-panel-shadow),
+    var(--td-shadow-soft);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+  z-index: 100;
+}
+
+.fav-dropdown.expanded {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.fav-item {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--td-frame-dark);
+}
+
+.fav-item:last-child {
+  border-bottom: none;
+}
+
+.fav-select {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.fav-select:hover {
+  background: rgba(255, 215, 0, 0.1);
+  color: var(--td-gold);
+}
+
+.fav-name {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.fav-coords {
+  font-size: 9px;
+  opacity: 0.6;
+}
+
+.fav-delete {
+  padding: 8px;
+  background: transparent;
+  border: none;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  opacity: 0.5;
+}
+
+.fav-delete:hover {
+  color: var(--td-health-red);
+  opacity: 1;
+}
+
+.fav-delete mat-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+
+.fav-add, .fav-empty {
+  padding: 8px 10px;
+  font-size: 10px;
+  color: var(--td-text-secondary);
+}
+
+.fav-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--td-frame-dark);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.fav-add:hover {
+  background: rgba(255, 215, 0, 0.1);
+  color: var(--td-gold);
+}
+
+.fav-add mat-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}

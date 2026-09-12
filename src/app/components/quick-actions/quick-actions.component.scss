@@ -1,0 +1,512 @@
+@use '../../styles/td-mixins' as td;
+
+:host {
+  display: contents;
+}
+
+.td-quick-actions {
+  position: absolute;
+  /* Spans from below the compass (top 12px + 88px + clearance) to the
+     bottom edge, so the dev menu can cap its height against it and never
+     grows into the compass. The buttons sit at the bottom; the empty area
+     above them must not eat map drags/clicks. */
+  top: 112px;
+  bottom: 36px;
+  right: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.td-quick-actions > * {
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+
+/* === Shared: Accordion wrapper + collapse === */
+.td-layer-menu-wrapper,
+.td-display-menu-wrapper,
+.td-dev-menu-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.td-layer-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s ease-out, opacity 0.15s ease;
+}
+
+.td-layer-toggles.expanded {
+  max-height: 100vh;
+  opacity: 1;
+}
+
+/* === Shared: Icon button base — refined glass + bevel === */
+.td-quick-btn,
+.td-layer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  box-sizing: border-box;
+  background: var(--td-glass-tint);
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.2),
+    inset 0 -1px 0 var(--td-panel-shadow),
+    0 1px 0 rgba(0, 0, 0, 0.6);
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  transition: box-shadow 0.18s ease, background 0.15s, color 0.15s;
+}
+
+
+.td-quick-btn:hover,
+.td-layer-btn:hover {
+  color: var(--td-text-primary);
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.2),
+    inset 0 -1px 0 var(--td-panel-shadow),
+    0 0 0 1px var(--td-frame-mid),
+    0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* === Active states (teal for display/layer/audio, gold for the layers
+   and dev toggles) === */
+.td-quick-btn.active,
+.td-layer-btn.active,
+.td-segment.active,
+.td-display-toggle-btn.active,
+.td-audio-toggle-btn.active {
+  background: linear-gradient(180deg, var(--td-teal-light) 0%, var(--td-teal) 55%, var(--td-teal-dark) 100%);
+  color: #0E1612;
+  border-color: #11140F;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    var(--td-teal-glow);
+}
+
+.td-layer-toggle-btn.active,
+.td-dev-toggle-btn.active {
+  background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 55%, var(--td-gold-dark) 100%);
+  color: #1A140A;
+  border-color: #11140F;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    var(--td-gold-glow);
+}
+
+/* === Display panel: settings above the display toggle ===
+   Out of flow like the dev menu, so it does not push the other buttons
+   aside. The wrapper stretches over the whole quick-actions height and
+   caps the panel against the compass; on short windows the panel
+   scrolls. The wrapper itself lets map drags and clicks through. */
+.td-quick-actions > .td-display-menu-wrapper {
+  position: relative;
+  align-self: stretch;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.td-display-menu-wrapper > * {
+  pointer-events: auto;
+}
+
+.td-display-panel {
+  position: absolute;
+  right: 0;
+  bottom: 36px;
+  max-height: calc(100% - 36px);
+  width: 212px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  overflow-y: auto;
+  background: var(--td-glass-tint);
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.2),
+    inset 0 -1px 0 var(--td-panel-shadow),
+    var(--td-shadow-soft);
+  font-family: var(--td-font-mono);
+  font-size: 12px;
+  color: var(--td-text-secondary);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s linear 0.15s;
+  @include td.scrollbar;
+}
+
+.td-display-panel.expanded {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s;
+}
+
+.td-settings-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--td-text-tertiary);
+}
+
+.td-settings-divider {
+  border-top: 1px solid var(--td-frame-dark);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.td-settings-custom {
+  color: var(--td-text-muted);
+}
+
+.td-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.td-setting-row:hover {
+  color: var(--td-text-primary);
+}
+
+.td-setting-row input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--td-teal);
+}
+
+.td-setting-split {
+  justify-content: space-between;
+  cursor: default;
+}
+
+.td-setting-select {
+  background: var(--td-panel-secondary);
+  color: var(--td-text-primary);
+  border: 1px solid var(--td-frame-dark);
+  border-top-color: var(--td-panel-shadow);
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.td-setting-select:hover {
+  border-color: var(--td-frame-mid);
+}
+
+.td-setting-select:focus-visible {
+  outline: 1px solid var(--td-teal);
+  outline-offset: 1px;
+}
+
+.td-segmented {
+  display: flex;
+}
+
+.td-segment {
+  flex: 1;
+  height: 22px;
+  padding: 0 6px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--td-text-secondary);
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+  cursor: pointer;
+}
+
+.td-segment + .td-segment {
+  border-left: none;
+}
+
+.td-segment:hover {
+  color: var(--td-text-primary);
+}
+
+.td-segment:focus-visible {
+  outline: 1px solid var(--td-teal-light);
+  outline-offset: -2px;
+}
+
+.td-setting-split .td-segment {
+  flex: 0 0 auto;
+  min-width: 32px;
+}
+
+.td-audio-menu-wrapper {
+  position: relative;
+}
+
+.td-audio-panel {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--td-glass-tint);
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.2),
+    inset 0 -1px 0 var(--td-panel-shadow),
+    var(--td-shadow-soft);
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  padding: 0 10px;
+  pointer-events: none;
+  transition: max-height 0.3s ease-out, opacity 0.15s ease, padding 0.15s ease;
+}
+
+.td-audio-panel.expanded {
+  max-height: 100vh;
+  opacity: 1;
+  padding: 10px;
+  pointer-events: auto;
+}
+
+.td-audio-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.td-audio-label {
+  font-size: 14px !important;
+  width: 14px !important;
+  height: 14px !important;
+  color: var(--td-text-secondary);
+  flex-shrink: 0;
+}
+
+.td-audio-slider {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--td-frame-mid);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.td-audio-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--td-teal);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.td-audio-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--td-teal);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.td-audio-mute {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  background: transparent;
+  border: none;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+
+.td-audio-mute:hover {
+  color: var(--td-text-primary);
+}
+
+.td-audio-mute.muted {
+  color: var(--td-health-red);
+}
+
+.route-anim-btn {
+  border-color: var(--td-warn-orange);
+  color: var(--td-warn-orange);
+}
+
+.route-anim-btn:hover {
+  background: var(--td-warn-orange);
+  color: var(--td-bg-dark);
+}
+
+/* === Dev menu: tile grid above the quick-actions bar ===
+   Glass panel as wide as the bar (6 x 32px + 5 x 4px), right-aligned
+   over it, bottom edge 4px above the buttons. Its containing block is
+   .td-quick-actions (the wrapper is not positioned). Out of flow like the
+   display panel, so it does not push the other buttons aside. Capped at
+   the free height between bar and compass; on short windows it scrolls
+   instead of overlapping. Four columns, group titles span the row. */
+.td-dev-menu {
+  position: absolute;
+  right: 0;
+  bottom: 36px;
+  max-height: calc(100% - 36px);
+  width: 212px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  @include td.bevel-glass;
+  font-family: var(--td-font-mono);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s linear 0.15s;
+  @include td.scrollbar;
+}
+
+.td-dev-menu.expanded {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s;
+}
+
+.td-dev-menu::-webkit-scrollbar,
+.td-display-panel::-webkit-scrollbar {
+  @include td.webkit-scrollbar;
+}
+
+.td-dev-menu::-webkit-scrollbar-track,
+.td-display-panel::-webkit-scrollbar-track {
+  @include td.webkit-scrollbar-track;
+}
+
+.td-dev-menu::-webkit-scrollbar-thumb,
+.td-display-panel::-webkit-scrollbar-thumb {
+  @include td.webkit-scrollbar-thumb;
+}
+
+.td-dev-group {
+  grid-column: 1 / -1;
+  margin: 4px 2px 0;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.td-dev-group:first-child {
+  margin-top: 2px;
+}
+
+/* Tile: icon over a short caption. The longest captions (DEVWORLD,
+   RESEARCH) measure about 39px in the monospace fallback, the tile is
+   44.5px wide inside. */
+.td-dev-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 44px;
+  min-width: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background: rgba(11, 15, 12, 0.6);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.14);
+  color: var(--td-text-secondary);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.td-dev-tile span {
+  font-size: 8px;
+  line-height: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.td-dev-tile:hover {
+  border-color: var(--td-frame-mid);
+  color: var(--td-text-primary);
+}
+
+/* Window open or switch on */
+.td-dev-tile.active {
+  background: rgba(194, 160, 85, 0.16);
+  border-color: var(--td-gold-dark);
+  box-shadow: inset 0 1px 0 rgba(217, 188, 104, 0.18);
+  color: var(--td-gold-light);
+}
+
+/* Cheats: one-shot actions without an active state, coloured by what
+   they touch. Hover keeps the colour and draws the border in it. */
+.td-dev-cheat,
+.td-dev-cheat:hover {
+  color: var(--cheat-color);
+}
+
+.td-dev-cheat:hover {
+  border-color: var(--cheat-color);
+}
+
+.td-dev-cheat-danger,
+.td-dev-cheat-health {
+  --cheat-color: var(--td-health-red);
+}
+
+.td-dev-cheat-credits {
+  --cheat-color: var(--td-gold);
+}
+
+.td-dev-cheat-research {
+  --cheat-color: var(--td-teal);
+}

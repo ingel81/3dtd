@@ -208,20 +208,6 @@ export const TD_BEVEL_INSET = `
 `;
 
 /**
- * Glass overlay recipe (dialogs, hint-popups, quick-actions)
- *
- * Stone-tinted matte glass via backdrop-blur. Use on:
- *   .td-dialog-panel .mdc-dialog__surface, app-context-hint, quick-actions buttons.
- */
-export const TD_BEVEL_GLASS = `
-  background: var(--td-glass-tint);
-  backdrop-filter: blur(8px) saturate(1.1);
-  -webkit-backdrop-filter: blur(8px) saturate(1.1);
-  border: 1px solid var(--td-frame-mid);
-  box-shadow: var(--td-shadow-soft), inset 0 1px 0 rgba(122, 133, 128, 0.33);
-`;
-
-/**
  * Gemeinsame Panel-Styles (WC3-Rahmen)
  * Verwendung: background: var(--td-panel-main);
  */

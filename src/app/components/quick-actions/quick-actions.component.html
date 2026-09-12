@@ -1,0 +1,415 @@
+<div class="td-quick-actions">
+  <!-- Route Animation Button -->
+  <button class="td-quick-btn route-anim-btn"
+          (click)="playRouteAnimation.emit()"
+          matTooltip="Play route animation"
+          matTooltipPosition="left"
+          aria-label="Play route animation">
+    <td-icon name="route" [size]="18"></td-icon>
+  </button>
+  <!-- Display settings (panel opens above its toggle) -->
+  <div class="td-display-menu-wrapper">
+    <div class="td-display-panel" [class.expanded]="uiStore.displayMenuExpanded()">
+      <div class="td-settings-head">
+        <span>Effects</span>
+        @if (!activePreset()) {
+          <span class="td-settings-custom">Custom</span>
+        }
+      </div>
+      <div class="td-segmented" role="group" aria-label="Effect quality">
+        @for (preset of presetButtons; track preset.id) {
+          <button type="button" class="td-segment"
+                  [class.active]="activePreset() === preset.id"
+                  [attr.aria-pressed]="activePreset() === preset.id"
+                  (click)="debugFacade.onVfxPresetSelected(preset.id)"
+                  [matTooltip]="preset.hint" matTooltipPosition="above">{{ preset.label }}</button>
+        }
+      </div>
+      @for (row of effectRows; track row.key) {
+        <label class="td-setting-row" [matTooltip]="row.hint" matTooltipPosition="left">
+          <input type="checkbox" [checked]="vfx()[row.key]" (change)="toggleVfx(row.key)">
+          <span>{{ row.label }}</span>
+        </label>
+      }
+      <label class="td-setting-row td-setting-split"
+             matTooltip="Tints the whole picture, an extra full-screen pass" matTooltipPosition="left">
+        <span>Color Grading</span>
+        <select class="td-setting-select" (change)="onColorGradingChange($event)">
+          @for (preset of colorGradingPresets; track preset.id) {
+            <option [value]="preset.id" [selected]="vfx().colorGrading === preset.id">{{ preset.label }}</option>
+          }
+        </select>
+      </label>
+
+      <div class="td-settings-head td-settings-divider">
+        <span>General</span>
+      </div>
+      <label class="td-setting-row" matTooltip="Blue tint and ice sparks on slowed enemies" matTooltipPosition="left">
+        <input type="checkbox" [checked]="vfx().freezeTint" (change)="toggleVfx('freezeTint')">
+        <span>Freeze Tint</span>
+      </label>
+      <label class="td-setting-row" matTooltip="Nearby explosions, HQ damage and boss deaths shake the view"
+             matTooltipPosition="left">
+        <input type="checkbox" [checked]="screenShakeEnabled()"
+               (change)="debugFacade.onScreenShakeToggled(!screenShakeEnabled())">
+        <span>Screen Shake</span>
+      </label>
+      <label class="td-setting-row">
+        <input type="checkbox" [checked]="healthBarsVisible()"
+               (change)="debugFacade.onHealthBarsToggled(!healthBarsVisible())">
+        <span>Health Bars</span>
+      </label>
+      <label class="td-setting-row">
+        <input type="checkbox" [checked]="damageNumbersVisible()"
+               (change)="debugFacade.onDamageNumbersToggled(!damageNumbersVisible())">
+        <span>Damage Numbers</span>
+      </label>
+      <div class="td-setting-row td-setting-split">
+        <span>Frame Limit</span>
+        <div class="td-segmented" role="group" aria-label="Frame limit">
+          @for (fps of fpsLimits; track fps) {
+            <button type="button" class="td-segment"
+                    [class.active]="fpsLimit() === fps"
+                    [attr.aria-pressed]="fpsLimit() === fps"
+                    (click)="debugFacade.onFpsLimitChanged(fps)">{{ fps === 0 ? 'Off' : fps }}</button>
+          }
+        </div>
+      </div>
+    </div>
+    <button class="td-quick-btn td-display-toggle-btn"
+            [class.active]="uiStore.displayMenuExpanded()"
+            (click)="uiStore.toggleMenu('display')"
+            matTooltip="Display" matTooltipPosition="left"
+            aria-label="Display" [attr.aria-expanded]="uiStore.displayMenuExpanded()">
+      <td-icon [name]="uiStore.displayMenuExpanded() ? 'eyeOff' : 'eye'" [size]="18"></td-icon>
+    </button>
+  </div>
+  <!-- Audio Settings Menu (collapsible, expands upward) -->
+  <div class="td-audio-menu-wrapper">
+    <div class="td-audio-panel" [class.expanded]="uiStore.audioMenuExpanded()">
+      <div class="td-audio-row">
+        <td-icon class="td-audio-label" name="audio" [size]="14"></td-icon>
+        <input type="range" class="td-audio-slider"
+               min="0" max="100" step="1"
+               aria-label="Music volume"
+               [value]="uiStore.musicVolume() * 100"
+               (input)="onMusicSlider($event)">
+        <button class="td-audio-mute"
+                [class.muted]="uiStore.musicMuted()"
+                (click)="toggleMusicMute()"
+                matTooltip="Mute music" matTooltipPosition="left"
+                aria-label="Mute music" [attr.aria-pressed]="uiStore.musicMuted()">
+          <td-icon [name]="uiStore.musicMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
+        </button>
+      </div>
+      <div class="td-audio-row">
+        <td-icon class="td-audio-label" name="sliders" [size]="14"></td-icon>
+        <input type="range" class="td-audio-slider"
+               min="0" max="100" step="1"
+               aria-label="Sound effects volume"
+               [value]="uiStore.sfxVolume() * 100"
+               (input)="onSfxSlider($event)">
+        <button class="td-audio-mute"
+                [class.muted]="uiStore.sfxMuted()"
+                (click)="toggleSfxMute()"
+                matTooltip="Mute SFX" matTooltipPosition="left"
+                aria-label="Mute SFX" [attr.aria-pressed]="uiStore.sfxMuted()">
+          <td-icon [name]="uiStore.sfxMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
+        </button>
+      </div>
+    </div>
+    <button class="td-quick-btn td-audio-toggle-btn"
+            [class.active]="uiStore.audioMenuExpanded()"
+            (click)="uiStore.toggleMenu('audio')"
+            matTooltip="Audio" matTooltipPosition="left"
+            aria-label="Audio" [attr.aria-expanded]="uiStore.audioMenuExpanded()">
+      <td-icon [name]="anyMuted() ? 'audioOff' : 'audio'" [size]="18"></td-icon>
+    </button>
+  </div>
+  <!-- Layer Menu (collapsible, expands upward) -->
+  <div class="td-layer-menu-wrapper">
+    <div class="td-layer-toggles" [class.expanded]="uiStore.layerMenuExpanded()">
+      <button class="td-layer-btn"
+              [class.active]="uiStore.spatialGridDebugVisible()"
+              (click)="spatialGridDebugToggled.emit()"
+              matTooltip="Route Grid Overlay. Fill: grey no tower, green covered. Outline: white cell, orange on the ground under a roof, blue bridge deck, yellow tunnel or covered passage, pink no height sample (a tower's LOS view leaves it out). Brighter: centre line"
+              matTooltipPosition="left"
+              aria-label="Route Grid Overlay" [attr.aria-pressed]="uiStore.spatialGridDebugVisible()">
+        <td-icon name="grid" [size]="18"></td-icon>
+      </button>
+      <button class="td-layer-btn"
+              [class.active]="uiStore.buildingsVisible()"
+              (click)="uiStore.toggleBuildings(); buildingsToggled.emit()"
+              matTooltip="Show buildings"
+              matTooltipPosition="left"
+              aria-label="Show buildings" [attr.aria-pressed]="uiStore.buildingsVisible()">
+        <td-icon name="tower" [size]="18"></td-icon>
+      </button>
+      <button class="td-layer-btn"
+              [class.active]="uiStore.streetsVisible()"
+              (click)="uiStore.toggleStreets(); streetsToggled.emit()"
+              matTooltip="Show streets"
+              matTooltipPosition="left"
+              aria-label="Show streets" [attr.aria-pressed]="uiStore.streetsVisible()">
+        <td-icon name="route" [size]="18"></td-icon>
+      </button>
+      <button class="td-layer-btn"
+              [class.active]="uiStore.routesVisible()"
+              (click)="uiStore.toggleRoutes(); routesToggled.emit()"
+              matTooltip="Show routes"
+              matTooltipPosition="left"
+              aria-label="Show routes" [attr.aria-pressed]="uiStore.routesVisible()">
+        <td-icon name="chart" [size]="18"></td-icon>
+      </button>
+      <button class="td-layer-btn"
+              [class.active]="uiStore.airRouteVisible()"
+              (click)="airRouteToggled.emit()"
+              matTooltip="Air-route altitude"
+              matTooltipPosition="left"
+              aria-label="Air-route altitude" [attr.aria-pressed]="uiStore.airRouteVisible()">
+        <td-icon name="wind" [size]="18"></td-icon>
+      </button>
+      <button class="td-layer-btn"
+              [class.active]="uiStore.airSpatialGridDebugVisible()"
+              (click)="airSpatialGridDebugToggled.emit()"
+              matTooltip="Air Route Grid Overlay. Fill: grey no tower, blue covered. Outline as in the Route Grid Overlay"
+              matTooltipPosition="left"
+              aria-label="Air Route Grid Overlay" [attr.aria-pressed]="uiStore.airSpatialGridDebugVisible()">
+        <td-icon name="gridAir" [size]="18"></td-icon>
+      </button>
+      <button class="td-layer-btn td-layer-btn-cycle"
+              (click)="perTowerLosFilterCycled.emit()"
+              [matTooltip]="perTowerLosFilterTooltip()"
+              matTooltipPosition="left"
+              [attr.aria-label]="perTowerLosFilterTooltip()">
+        <td-icon [name]="perTowerLosFilterIcon()" [size]="18"></td-icon>
+      </button>
+    </div>
+    <button class="td-quick-btn td-layer-toggle-btn"
+            [class.active]="uiStore.layerMenuExpanded()"
+            (click)="uiStore.toggleMenu('layers')"
+            matTooltip="Layers"
+            matTooltipPosition="left"
+            aria-label="Layers" [attr.aria-expanded]="uiStore.layerMenuExpanded()">
+      <td-icon name="layers" [size]="18"></td-icon>
+    </button>
+  </div>
+  <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Reset camera" matTooltipPosition="left"
+          aria-label="Reset camera">
+    <td-icon name="target" [size]="18"></td-icon>
+  </button>
+  <!-- Dev Menu: tile grid in four groups, opens above the quick-actions bar -->
+  <div class="td-dev-menu-wrapper">
+    <div class="td-dev-menu" [class.expanded]="uiStore.devMenuExpanded()">
+      <div class="td-dev-group">Map</div>
+      <button class="td-dev-tile"
+              [class.active]="uiStore.heightDebugVisible()"
+              (click)="heightDebugToggled.emit()"
+              matTooltip="Height markers"
+              matTooltipPosition="left"
+              aria-label="Height markers">
+        <td-icon name="terrain" [size]="18"></td-icon>
+        <span>Height</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="uiStore.specialPointsDebugVisible()"
+              (click)="specialPointsDebugToggled.emit()"
+              matTooltip="Special points"
+              matTooltipPosition="left"
+              aria-label="Special points">
+        <td-icon name="pin" [size]="18"></td-icon>
+        <span>Points</span>
+      </button>
+      <button class="td-dev-tile"
+              (click)="refreshHeights.emit()"
+              matTooltip="Re-raycast heights"
+              matTooltipPosition="left"
+              aria-label="Re-raycast heights">
+        <td-icon name="refresh" [size]="18"></td-icon>
+        <span>Recast</span>
+      </button>
+      <!-- State dump: JSON download for bug reports -->
+      <button class="td-dev-tile"
+              (click)="debugStateDump.dumpAndDownload()"
+              matTooltip="Download state dump (JSON)"
+              matTooltipPosition="left"
+              aria-label="Download state dump">
+        <td-icon name="copy" [size]="18"></td-icon>
+        <span>Dump</span>
+      </button>
+
+      <div class="td-dev-group">View &amp; Panels</div>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.cameraWindow().isOpen"
+              (click)="debugWindows.toggle('camera')"
+              matTooltip="Camera info"
+              matTooltipPosition="left"
+              aria-label="Camera info">
+        <td-icon name="eye" [size]="18"></td-icon>
+        <span>Camera</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="cameraFramingDebug()"
+              (click)="cameraFramingDebugToggled.emit()"
+              matTooltip="Framing guides"
+              matTooltipPosition="left"
+              aria-label="Framing guides">
+        <td-icon name="fullscreen" [size]="18"></td-icon>
+        <span>Frame</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.displayWindow().isOpen"
+              (click)="debugWindows.toggle('display')"
+              matTooltip="Display options"
+              matTooltipPosition="left"
+              aria-label="Display options">
+        <td-icon name="sliders" [size]="18"></td-icon>
+        <span>Display</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.performanceWindow().isOpen"
+              (click)="debugWindows.toggle('performance')"
+              matTooltip="Performance"
+              matTooltipPosition="left"
+              aria-label="Performance">
+        <td-icon name="speed" [size]="18"></td-icon>
+        <span>Perf</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.losWindow().isOpen"
+              (click)="debugWindows.toggle('los')"
+              matTooltip="LOS Cubemap"
+              matTooltipPosition="left"
+              aria-label="LOS Cubemap">
+        <td-icon name="layers" [size]="18"></td-icon>
+        <span>LOS</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.soundWindow().isOpen"
+              (click)="debugWindows.toggle('sound')"
+              matTooltip="Spatial audio"
+              matTooltipPosition="left"
+              aria-label="Spatial audio">
+        <td-icon name="audio" [size]="18"></td-icon>
+        <span>Audio</span>
+      </button>
+      @if (devWorld.isActive) {
+        <button class="td-dev-tile"
+                [class.active]="debugWindows.devworldWindow().isOpen"
+                (click)="debugWindows.toggle('devworld')"
+                matTooltip="DevWorld"
+                matTooltipPosition="left"
+                aria-label="DevWorld">
+          <td-icon name="target" [size]="18"></td-icon>
+          <span>DevWorld</span>
+        </button>
+      }
+
+      <div class="td-dev-group">Cheats</div>
+      <button class="td-dev-tile td-dev-cheat td-dev-cheat-danger"
+              (click)="killAllEnemies.emit()"
+              matTooltip="Kill all enemies"
+              matTooltipPosition="left"
+              aria-label="Kill all enemies">
+        <td-icon name="skull" [size]="18"></td-icon>
+        <span>Kill</span>
+      </button>
+      <button class="td-dev-tile td-dev-cheat td-dev-cheat-credits"
+              (click)="addCredits.emit($event)"
+              matTooltip="+1000 Credits (Shift+Click: +100k)"
+              matTooltipPosition="left"
+              aria-label="Add 1000 credits">
+        <td-icon name="coin" [size]="18"></td-icon>
+        <span>Credits</span>
+      </button>
+      <button class="td-dev-tile td-dev-cheat td-dev-cheat-health"
+              (click)="addHealth.emit($event)"
+              matTooltip="+1000 HP (Shift+Click: +100k)"
+              matTooltipPosition="left"
+              aria-label="Add 1000 HP">
+        <td-icon name="heart" [size]="18"></td-icon>
+        <span>+HP</span>
+      </button>
+      <button class="td-dev-tile td-dev-cheat td-dev-cheat-research"
+              (click)="completeAllResearch.emit()"
+              matTooltip="Complete all research"
+              matTooltipPosition="left"
+              aria-label="Complete all research">
+        <td-icon name="flask" [size]="18"></td-icon>
+        <span>Research</span>
+      </button>
+      <button class="td-dev-tile td-dev-cheat td-dev-cheat-research"
+              (click)="maxUpgradeAllTowers.emit()"
+              matTooltip="Max-upgrade all towers"
+              matTooltipPosition="left"
+              aria-label="Max-upgrade all towers">
+        <td-icon name="arrowUp" [size]="18"></td-icon>
+        <span>Max Up</span>
+      </button>
+
+      <div class="td-dev-group">Waves &amp; Inspect</div>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.waveWindow().isOpen"
+              (click)="debugWindows.toggle('wave')"
+              matTooltip="Wave spawner"
+              matTooltipPosition="left"
+              aria-label="Wave spawner">
+        <td-icon name="wave" [size]="18"></td-icon>
+        <span>Waves</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="useStaticCurriculum()"
+              (click)="staticCurriculumToggled.emit()"
+              matTooltip="Static curriculum waves (AI-off fallback)"
+              matTooltipPosition="left"
+              aria-label="Static curriculum waves">
+        <td-icon name="filing" [size]="18"></td-icon>
+        <span>Static</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.trainingWindow().isOpen"
+              (click)="debugWindows.toggle('training')"
+              matTooltip="AI Training"
+              matTooltipPosition="left"
+              aria-label="AI Training">
+        <td-icon name="bulb" [size]="18"></td-icon>
+        <span>AI</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.towerWindow().isOpen"
+              (click)="debugWindows.toggle('tower')"
+              matTooltip="Tower inspector"
+              matTooltipPosition="left"
+              aria-label="Tower inspector">
+        <td-icon name="tower" [size]="18"></td-icon>
+        <span>Towers</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.enemyWindow().isOpen"
+              (click)="debugWindows.toggle('enemy')"
+              matTooltip="Enemy inspector"
+              matTooltipPosition="left"
+              aria-label="Enemy inspector">
+        <td-icon name="bug" [size]="18"></td-icon>
+        <span>Enemies</span>
+      </button>
+      <button class="td-dev-tile"
+              [class.active]="debugWindows.eventsWindow().isOpen"
+              (click)="debugWindows.toggle('events')"
+              matTooltip="Event bus"
+              matTooltipPosition="left"
+              aria-label="Event bus">
+        <td-icon name="share" [size]="18"></td-icon>
+        <span>Events</span>
+      </button>
+    </div>
+    <button class="td-quick-btn td-dev-toggle-btn"
+            [class.active]="uiStore.devMenuExpanded()"
+            (click)="uiStore.toggleMenu('dev')"
+            matTooltip="Developer options"
+            matTooltipPosition="left"
+            aria-label="Developer options" [attr.aria-expanded]="uiStore.devMenuExpanded()">
+      <td-icon name="text" [size]="18"></td-icon>
+    </button>
+  </div>
+</div>
