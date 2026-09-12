@@ -72,10 +72,8 @@ export class AudioPoolManager {
    * the panner when isPlaying=true, but we need the correct position BEFORE play().
    */
   updatePannerPosition(audio: PositionalAudio): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const panner = (audio as any).panner as PannerNode;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ctx = (audio as any).context as AudioContext;
+    const panner = audio.panner;
+    const ctx = audio.context;
 
     if (!panner || !ctx) return;
 

@@ -26,9 +26,9 @@ export class TrainingDebuggerComponent {
   readonly botEnabled = input<boolean>(false);
   readonly botSkillLevel = input<BotSkillLevel>('strategist');
   readonly botStats = input<{ towersPlaced: number; goldSpent: number }>({ towersPlaced: 0, goldSpent: 0 });
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- no-op until the parent binds a handler
   readonly onEnableBot = input<(skillLevel: BotSkillLevel) => void>(() => {});
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- no-op until the parent binds a handler
   readonly onDisableBot = input<() => void>(() => {});
 
   // DPS Bins visualization toggle

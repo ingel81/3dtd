@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/no-empty-function -- stub methods are deliberate no-ops */
 
 // Minimal Three.js mock for unit tests that don't need real 3D rendering.
 // Add stubs as needed when tests fail with "No X export is defined".

@@ -75,7 +75,7 @@ export class StrategyBot extends BaseTowerBot {
           continue;
         }
 
-        this.notifyStrategies('onActionExecuted', action);
+        this.notifyActionExecuted(action);
         return action;
       }
     }
@@ -91,20 +91,17 @@ export class StrategyBot extends BaseTowerBot {
 
   override reset(): void {
     super.reset();
-    this.notifyStrategies('onReset');
+    for (const strategy of this.strategies) {
+      strategy.onReset?.();
+    }
   }
 
   /**
-   * Notify all strategies of events (optional hook)
+   * Notify all strategies that an action was executed (optional hook)
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private notifyStrategies(event: string, ...args: any[]): void {
+  private notifyActionExecuted(action: TowerAction): void {
     for (const strategy of this.strategies) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const handler = (strategy as any)[event];
-      if (typeof handler === 'function') {
-        handler.call(strategy, ...args);
-      }
+      strategy.onActionExecuted?.(action);
     }
   }
 

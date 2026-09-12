@@ -44,6 +44,7 @@ import { RuleDirector, type DirectorDecision } from './rule-director';
 import { GateController } from './gate-controller';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
 import { endgameHpMultiplier, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
+import type { InferenceSession } from 'onnxruntime-web';
 
 /** Model loading states */
 type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'rules';
@@ -51,11 +52,8 @@ type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'rules';
 /** AI Mode */
 type AIMode = 'inference' | 'rules' | 'training' | 'disabled';
 
-/** ONNX Runtime types (lazy loaded) */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type OrtModule = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type InferenceSession = any;
+/** ONNX Runtime module type. Type-only: the runtime is imported lazily in loadModel(). */
+type OrtModule = typeof import('onnxruntime-web');
 
 @Injectable() // Provided in TowerDefenseComponent alongside GameStateManager
 export class WaveDirectorService {
@@ -154,7 +152,7 @@ export class WaveDirectorService {
       // Try to load model from assets
       try {
         // Create inference session with WASM backend only (simpler, more compatible)
-        const options: { executionProviders: string[]; logSeverityLevel: number } = {
+        const options: InferenceSession.SessionOptions = {
           executionProviders: ['wasm'],
           logSeverityLevel: 3, // ERROR only (suppress "Unknown CPU vendor" warning)
         };
@@ -297,7 +295,7 @@ export class WaveDirectorService {
     const results = await this.session.run(feeds);
 
     // Get output tensor (name: 'action')
-    const outputTensor = results.action;
+    const outputTensor = results['action'];
     const output = outputTensor.data as Float32Array;
 
     // Debug: Log raw model output

@@ -286,6 +286,9 @@ type GameEventMap = {
   [K in GameEvent['type']]: Extract<GameEvent, { type: K }>;
 };
 
+/** A handler as stored in GameEventBus.listeners: widened to the union, see on(). */
+type StoredHandler = (event: GameEvent) => void;
+
 /**
  * Subscription Handle
  * Returned by on() for manual cleanup
@@ -387,8 +390,7 @@ interface EventBusMetrics {
  */
 export class GameEventBus {
   /** Map of event types to their listener sets */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private listeners = new Map<GameEvent['type'], Set<(event: any) => void>>();
+  private listeners = new Map<GameEvent['type'], Set<StoredHandler>>();
 
   /** Queue for deferred events (processed at stable point in game loop) */
   private deferredQueue: GameEvent[] = [];
@@ -452,7 +454,8 @@ export class GameEventBus {
       this.listeners.set(eventType, new Set());
     }
 
-    this.listeners.get(eventType)!.add(handler);
+    // Widening is safe: the set under eventType only receives events of that type.
+    this.listeners.get(eventType)!.add(handler as StoredHandler);
 
     return new EventSubscription(() => this.off(eventType, handler));
   }
@@ -467,7 +470,7 @@ export class GameEventBus {
     eventType: T,
     handler: (event: GameEventMap[T]) => void
   ): void {
-    this.listeners.get(eventType)?.delete(handler);
+    this.listeners.get(eventType)?.delete(handler as StoredHandler);
   }
 
   /**
