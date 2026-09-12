@@ -128,10 +128,6 @@ export class ParticleEffectsRenderer {
     // Scorch marks, at most one per route cell (SCORCH_DECAL_CONFIG)
     this.scorchMarks = new ScorchMarks(decalGeometry.clone());
     this.scene.add(this.scorchMarks.decals.instancedMesh);
-
-    console.log('[ThreeEffectsRenderer] Instanced decal managers initialized');
-    console.log(`  Blood decals: max ${this.MAX_BLOOD_DECALS} instances (1 draw call)`);
-    console.log(`  Ice decals: max ${this.MAX_ICE_DECALS} instances (1 draw call)`);
   }
 
   /**
@@ -650,8 +646,6 @@ export class ParticleEffectsRenderer {
 
       effect.particles.push(particle);
     }
-
-    console.log('[Effects] Scaled fire to inferno:', fireId, '| Particles:', effect.particles.length);
   }
 
   /**

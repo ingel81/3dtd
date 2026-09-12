@@ -59,10 +59,6 @@ export class ThreeFlameBeamRenderer {
   private readonly tempSpawnPos = new Vector3();
   private readonly tempVelocity = new Vector3();
 
-  constructor() {
-    console.log('[FlameBeamRenderer] Initialized (particle-based)');
-  }
-
   /**
    * Set the effects renderer reference (called after construction)
    */

@@ -280,7 +280,6 @@ export class EnvironmentEffectsRenderer {
       localPosition: fireCenter.clone(),
     });
 
-    console.log('[Effects] Tower inner fire spawned:', towerId, '| Particles:', particles.length);
     return towerId;
   }
 
@@ -297,7 +296,6 @@ export class EnvironmentEffectsRenderer {
     }
 
     this.activeTowerFires.delete(towerId);
-    console.log('[Effects] Tower inner fire stopped:', towerId);
   }
 
   /**

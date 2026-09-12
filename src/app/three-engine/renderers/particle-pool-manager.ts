@@ -243,8 +243,6 @@ export class ParticlePoolManager {
       color: geometry.attributes['color'] as BufferAttribute,
       frame: geometry.attributes['frameIndex'] as BufferAttribute,
     };
-
-    console.log('[ParticlePoolManager] Tower fire pool initialized:', this.MAX_TOWER_FIRE_PARTICLES, 'particles');
   }
 
   /**
@@ -374,8 +372,6 @@ export class ParticlePoolManager {
     );
     this.trailShaderMaterialAdditive = materials.additive;
     this.trailShaderMaterialNormal = materials.normal;
-
-    console.log('[ParticlePoolManager] ShaderMaterials with sprite-sheet atlas + log depth initialized');
   }
 
   /**
