@@ -4,7 +4,7 @@ import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { StatusEffect, StatusEffectType } from '../models/status-effects';
 import { TransformComponent } from './transform.component';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
-import { LATERAL_TAPER, RouteProfile, getRouteProfile } from '../utils/route-corridor';
+import { RouteProfile, getRouteProfile } from '../utils/route-corridor';
 
 /**
  * MovementComponent handles path-following movement
@@ -409,12 +409,12 @@ export class MovementComponent extends Component {
         const segLen = profile.segmentLengths[i];
         const s = this.progress * segLen;
         let limit = profile.segmentLimit[i];
-        const entry = profile.nodeLimit[i] + LATERAL_TAPER * s;
+        const entry = profile.nodeLimit[i] + profile.taper * s;
         if (entry < limit) {
           limit = entry;
           piece = 1;
         }
-        const exit = profile.nodeLimit[i + 1] + LATERAL_TAPER * (segLen - s);
+        const exit = profile.nodeLimit[i + 1] + profile.taper * (segLen - s);
         if (exit < limit) {
           limit = exit;
           piece = 2;

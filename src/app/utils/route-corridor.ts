@@ -11,43 +11,131 @@ import { RouteWaypoint } from '../models/game.types';
 import { haversineDistance } from './geo-utils';
 
 /**
- * Smallest corridor half width. Two 2 m cells across: towers only see enemies
- * that stand in a cell, so the corridor never shrinks to a single file.
+ * Every knob of the corridor, in one place. Lengths in metres. The values in
+ * use are {@link corridorConfig}; routes and grid read them when they are
+ * built, so a change needs a rebuild to show.
  */
-export const CORRIDOR_MIN_HALF_WIDTH_M = 2;
+export interface CorridorConfig {
+  /**
+   * Smallest corridor half width. Two 2 m cells across: towers only see
+   * enemies that stand in a cell, so the corridor never shrinks to a single
+   * file.
+   */
+  minHalfWidth: number;
+  /** Largest corridor half width. */
+  maxHalfWidth: number;
+  /**
+   * Half width for a route stretch nothing is known about (paths built
+   * outside the route service, tests).
+   */
+  defaultHalfWidth: number;
+  /**
+   * Distance an enemy keeps from the corridor edge. At least half the
+   * diagonal of a 2 m route cell (1.41 m): an enemy within
+   * `halfWidth - edgeMargin` of the centre line stands in a cell whose
+   * centre is within `halfWidth`, and those are exactly the cells the grid
+   * creates.
+   */
+  edgeMargin: number;
+  /**
+   * How fast the lateral room may change along the route, metres sideways
+   * per metre walked. Where the street narrows, enemies start moving in
+   * before the narrow stretch instead of jumping sideways at its first
+   * waypoint.
+   */
+  taper: number;
+  /** Spacing of the clearance stations along a route segment. */
+  stationSpacing: number;
+  /**
+   * Height of the clearance rays over the ground: over parked cars, into
+   * facades and into tree crowns that reach down to the street.
+   */
+  rayHeight: number;
+  /**
+   * Tiles coarser than this (geometric error) do not count for the clearance
+   * rays. During refinement a coarse ancestor hull stays active and averages
+   * street and facades into one lump, which a horizontal ray would hit right
+   * away. The route corridor refines its tiles to 5 m.
+   */
+  maxTileError: number;
+  /**
+   * Measured free space is rounded down to this step, so a ragged facade
+   * does not split the segment at every station.
+   */
+  widthStep: number;
+  /**
+   * A dip in the measured free space up to about this long is closed: a
+   * lamp post, a sign, a van. Rounded up to whole stations either side, see
+   * {@link closeShortDips}.
+   */
+  dipLength: number;
+  /**
+   * Typical carriageway width per `highway` class. Used when a way has
+   * neither `width` nor `lanes`, which is most of them. Motorways are mapped
+   * per direction, so the value is one carriageway.
+   */
+  highwayWidths: Record<string, number>;
+  /** Width for a `highway` class the table does not know. */
+  unknownHighwayWidth: number;
+  /** Width of one lane, for ways with a `lanes` tag. */
+  laneWidth: number;
+  /** Share of kerb and markings added to `lanes` × `laneWidth`. */
+  laneExtra: number;
+}
 
-/** Largest corridor half width, the radius of the old fixed corridor. */
-export const CORRIDOR_MAX_HALF_WIDTH_M = 7;
+/** The corridor as built, see {@link CorridorConfig}. */
+export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
+  minHalfWidth: 2,
+  maxHalfWidth: 7,
+  defaultHalfWidth: 4.5,
+  edgeMargin: 1.5,
+  taper: 0.5,
+  stationSpacing: 2,
+  rayHeight: 2,
+  maxTileError: 5,
+  widthStep: 0.5,
+  dipLength: 4,
+  highwayWidths: Object.freeze({
+    motorway: 11,
+    trunk: 9,
+    primary: 8,
+    secondary: 7,
+    tertiary: 6.5,
+    motorway_link: 5,
+    trunk_link: 5,
+    primary_link: 5,
+    secondary_link: 5,
+    tertiary_link: 5,
+    unclassified: 5.5,
+    residential: 5.5,
+    road: 5.5,
+    pedestrian: 6,
+    living_street: 4.5,
+    busway: 4,
+    service: 3.5,
+    track: 3,
+    cycleway: 2,
+    footway: 2,
+    path: 2,
+    bridleway: 2,
+    steps: 2,
+  }),
+  unknownHighwayWidth: 5,
+  laneWidth: 3,
+  laneExtra: 1,
+});
 
-/**
- * Half width for a route stretch nothing is known about (paths built outside
- * the route service, tests). Leaves 3 m of lateral room, the old maximum.
- */
-export const CORRIDOR_DEFAULT_HALF_WIDTH_M = 4.5;
+function copyConfig(config: Readonly<CorridorConfig>): CorridorConfig {
+  return { ...config, highwayWidths: { ...config.highwayWidths } };
+}
 
-/**
- * Distance an enemy keeps from the corridor edge. At least half the diagonal
- * of a 2 m route cell (1.41 m): an enemy within `halfWidth - margin` of the
- * centre line stands in a cell whose centre is within `halfWidth`, and those
- * are exactly the cells the grid creates.
- */
-export const LATERAL_EDGE_MARGIN_M = 1.5;
+/** The values in use. Start as {@link CORRIDOR_DEFAULTS}. */
+export const corridorConfig: CorridorConfig = copyConfig(CORRIDOR_DEFAULTS);
 
-/**
- * How fast the lateral room may change along the route, metres sideways per
- * metre walked. Where the street narrows, enemies start moving in before the
- * narrow stretch instead of jumping sideways at its first waypoint.
- */
-export const LATERAL_TAPER = 0.5;
-
-/** Spacing of the clearance stations along a route segment, metres. */
-export const CLEARANCE_STATION_SPACING_M = 2;
-
-/**
- * Height of the clearance rays over the ground, metres: over parked cars,
- * into facades and into tree crowns that reach down to the street.
- */
-export const CLEARANCE_RAY_HEIGHT_M = 2;
+/** Back to {@link CORRIDOR_DEFAULTS}. */
+export function resetCorridorConfig(): void {
+  Object.assign(corridorConfig, copyConfig(CORRIDOR_DEFAULTS));
+}
 
 /** Where a street width came from, for the diagnostics. */
 export type StreetWidthSource = 'width' | 'lanes' | 'highway';
@@ -66,60 +154,25 @@ export interface StreetWidthTags {
 }
 
 /**
- * Typical carriageway width per `highway` class, metres. Used when a way has
- * neither `width` nor `lanes`, which is most of them. Motorways are mapped
- * per direction, so the value is one carriageway.
- */
-const HIGHWAY_WIDTHS_M: Record<string, number> = {
-  motorway: 11,
-  trunk: 9,
-  primary: 8,
-  secondary: 7,
-  tertiary: 6.5,
-  motorway_link: 5,
-  trunk_link: 5,
-  primary_link: 5,
-  secondary_link: 5,
-  tertiary_link: 5,
-  unclassified: 5.5,
-  residential: 5.5,
-  road: 5.5,
-  pedestrian: 6,
-  living_street: 4.5,
-  busway: 4,
-  service: 3.5,
-  track: 3,
-  cycleway: 2,
-  footway: 2,
-  path: 2,
-  bridleway: 2,
-  steps: 2,
-};
-
-/** Width for a `highway` class the table does not know. */
-const UNKNOWN_HIGHWAY_WIDTH_M = 5;
-
-/** Width of one lane plus the share of kerb and markings, metres. */
-const LANE_WIDTH_M = 3;
-const LANE_EXTRA_M = 1;
-
-/**
- * Carriageway width of a street: the `width` tag, else `lanes` × 3 m + 1 m,
- * else a typical value for its `highway` class.
+ * Carriageway width of a street: the `width` tag, else `lanes` × lane width
+ * plus kerb, else a typical value for its `highway` class.
  */
 export function estimateStreetWidth(street: StreetWidthTags): StreetWidthEstimate {
   if (street.width !== undefined && street.width > 0) {
     return { widthM: street.width, source: 'width' };
   }
   if (street.lanes !== undefined && street.lanes > 0) {
-    return { widthM: street.lanes * LANE_WIDTH_M + LANE_EXTRA_M, source: 'lanes' };
+    return { widthM: street.lanes * corridorConfig.laneWidth + corridorConfig.laneExtra, source: 'lanes' };
   }
-  return { widthM: HIGHWAY_WIDTHS_M[street.type] ?? UNKNOWN_HIGHWAY_WIDTH_M, source: 'highway' };
+  return {
+    widthM: corridorConfig.highwayWidths[street.type] ?? corridorConfig.unknownHighwayWidth,
+    source: 'highway',
+  };
 }
 
-/** Corridor half width for a street or free-space width, clamped to [2 m, 7 m]. */
+/** Corridor half width for a street or free-space width, clamped to the configured range. */
 export function corridorHalfWidth(widthM: number): number {
-  return Math.min(CORRIDOR_MAX_HALF_WIDTH_M, Math.max(CORRIDOR_MIN_HALF_WIDTH_M, widthM / 2));
+  return Math.min(corridorConfig.maxHalfWidth, Math.max(corridorConfig.minHalfWidth, widthM / 2));
 }
 
 /**
@@ -129,7 +182,7 @@ export function corridorHalfWidth(widthM: number): number {
  */
 export function routeHalfWidths(ways: readonly (StreetWidthTags | null)[]): number[] {
   const halfWidths: number[] = [];
-  let previous = CORRIDOR_DEFAULT_HALF_WIDTH_M;
+  let previous = corridorConfig.defaultHalfWidth;
   for (const way of ways) {
     if (way) previous = corridorHalfWidth(estimateStreetWidth(way).widthM);
     halfWidths.push(previous);
@@ -137,10 +190,13 @@ export function routeHalfWidths(ways: readonly (StreetWidthTags | null)[]): numb
   return halfWidths;
 }
 
-/** Largest (or smallest) known value among station `k` and its neighbours; NaN if none is known. */
-function windowExtreme(values: readonly number[], k: number, pick: (a: number, b: number) => number): number {
+/**
+ * Largest (or smallest) known value among station `k` and the `radius`
+ * stations either side; NaN if none is known.
+ */
+function windowExtreme(values: readonly number[], k: number, radius: number, pick: (a: number, b: number) => number): number {
   let result = NaN;
-  for (let j = Math.max(0, k - 1); j <= Math.min(values.length - 1, k + 1); j++) {
+  for (let j = Math.max(0, k - radius); j <= Math.min(values.length - 1, k + radius); j++) {
     const v = values[j];
     if (Number.isNaN(v)) continue;
     result = Number.isNaN(result) ? v : pick(result, v);
@@ -148,15 +204,21 @@ function windowExtreme(values: readonly number[], k: number, pick: (a: number, b
   return result;
 }
 
+/** Stations either side a filter has to look at to catch features up to `lengthM` long. */
+function stationRadius(lengthM: number): number {
+  return Math.max(0, Math.ceil(lengthM / corridorConfig.stationSpacing / 2));
+}
+
 /**
- * Morphological closing over one station either side. A dip in the
- * clearance shorter than three stations (a lamp post, a sign, a van) goes,
- * a longer narrowing keeps its full length. NaN marks a station that could
- * not be measured; it stays unknown and does not count for its neighbours.
+ * Morphological closing over `radius` stations either side (by default
+ * enough for `dipLength`). A dip in the clearance of up to `2 * radius`
+ * stations (a lamp post, a sign, a van) goes, a longer narrowing keeps its
+ * full length. NaN marks a station that could not be measured; it stays
+ * unknown and does not count for its neighbours.
  */
-export function closeShortDips(values: readonly number[]): number[] {
-  const dilated = values.map((_, k) => windowExtreme(values, k, Math.max));
-  return dilated.map((_, k) => (Number.isNaN(values[k]) ? NaN : windowExtreme(dilated, k, Math.min)));
+export function closeShortDips(values: readonly number[], radius = stationRadius(corridorConfig.dipLength)): number[] {
+  const dilated = values.map((_, k) => windowExtreme(values, k, radius, Math.max));
+  return dilated.map((_, k) => (Number.isNaN(values[k]) ? NaN : windowExtreme(dilated, k, radius, Math.min)));
 }
 
 /** A stretch of a segment with its own half width, from `t` (0-1 along the segment) to the next piece. */
@@ -171,21 +233,22 @@ export interface CorridorPiece {
  * `clearances` holds one measured free space per station, station `k` of
  * `n` standing for `[k/n, (k+1)/n]` of the segment. Each station gets the
  * street's half width, or the free space where that is less (after
- * closeShortDips), never below two cells, rounded down to 0.5 m so a ragged
- * facade does not split the segment at every station. Runs of equal width
- * become one piece.
+ * closeShortDips), never below the minimum, rounded down to `widthStep` so
+ * a ragged facade does not split the segment at every station. Runs of
+ * equal width become one piece.
  */
 export function clearancePieces(streetHalfWidth: number, clearances: readonly number[]): CorridorPiece[] {
   const n = clearances.length;
   const closed = closeShortDips(clearances);
+  const step = corridorConfig.widthStep;
   const pieces: CorridorPiece[] = [];
   for (let k = 0; k < n; k++) {
     // A ray that hit nothing reports its full length, the street half width.
     const clearance = closed[k];
     const free = Number.isNaN(clearance) || clearance >= streetHalfWidth
       ? streetHalfWidth
-      : Math.floor(clearance * 2) / 2;
-    const halfWidth = Math.min(streetHalfWidth, Math.max(CORRIDOR_MIN_HALF_WIDTH_M, free));
+      : Math.floor(clearance / step) * step;
+    const halfWidth = Math.min(streetHalfWidth, Math.max(corridorConfig.minHalfWidth, free));
     if (pieces.length === 0 || pieces[pieces.length - 1].halfWidth !== halfWidth) {
       pieces.push({ t: k / n, halfWidth });
     }
@@ -195,12 +258,12 @@ export function clearancePieces(streetHalfWidth: number, clearances: readonly nu
 
 /** Half width of the segment that starts at `waypoint`. */
 export function segmentHalfWidth(waypoint: RouteWaypoint): number {
-  return waypoint.corridorHalfWidth ?? CORRIDOR_DEFAULT_HALF_WIDTH_M;
+  return waypoint.corridorHalfWidth ?? corridorConfig.defaultHalfWidth;
 }
 
 /** How far off the centre line an enemy may walk on a segment of this half width. */
 export function lateralLimit(halfWidth: number): number {
-  return Math.max(0, halfWidth - LATERAL_EDGE_MARGIN_M);
+  return Math.max(0, halfWidth - corridorConfig.edgeMargin);
 }
 
 /**
@@ -217,10 +280,12 @@ export interface RouteProfile {
   segmentLimit: Float64Array;
   /**
    * Lateral limit at each waypoint once the taper is applied: never more
-   * than an adjacent segment allows, and at most {@link LATERAL_TAPER} per
-   * metre above any other point of the route.
+   * than an adjacent segment allows, and at most `taper` per metre above
+   * any other point of the route.
    */
   nodeLimit: Float64Array;
+  /** The taper the node limits were built with, metres sideways per metre. */
+  taper: number;
 }
 
 const profiles = new WeakMap<readonly RouteWaypoint[], RouteProfile>();
@@ -241,6 +306,7 @@ function buildRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
   const cumulativeLength: number[] = new Array(segments + 1);
   const segmentLimit = new Float64Array(segments);
   const nodeLimit = new Float64Array(path.length);
+  const taper = corridorConfig.taper;
 
   cumulativeLength[0] = 0;
   for (let i = 0; i < segments; i++) {
@@ -254,7 +320,7 @@ function buildRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
   if (segments > 0) {
     // A waypoint allows no more than the tighter of its two segments. Then
     // a min-plus distance transform, one pass each way: the limit may rise
-    // by at most LATERAL_TAPER per metre. Inside a segment the envelope is
+    // by at most `taper` per metre. Inside a segment the envelope is
     // min(segment limit, start node + taper * s, end node + taper * rest),
     // because every other segment reaches it through one of the two nodes.
     for (let k = 0; k < path.length; k++) {
@@ -263,10 +329,10 @@ function buildRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
       nodeLimit[k] = Math.min(before, after);
     }
     for (let k = 1; k < path.length; k++) {
-      nodeLimit[k] = Math.min(nodeLimit[k], nodeLimit[k - 1] + LATERAL_TAPER * segmentLengths[k - 1]);
+      nodeLimit[k] = Math.min(nodeLimit[k], nodeLimit[k - 1] + taper * segmentLengths[k - 1]);
     }
     for (let k = path.length - 2; k >= 0; k--) {
-      nodeLimit[k] = Math.min(nodeLimit[k], nodeLimit[k + 1] + LATERAL_TAPER * segmentLengths[k]);
+      nodeLimit[k] = Math.min(nodeLimit[k], nodeLimit[k + 1] + taper * segmentLengths[k]);
     }
   }
 
@@ -276,5 +342,6 @@ function buildRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
     totalLength: cumulativeLength[segments],
     segmentLimit,
     nodeLimit,
+    taper,
   };
 }

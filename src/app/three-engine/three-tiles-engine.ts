@@ -48,6 +48,7 @@ import { TileLoadingTracker, type TileStats } from './tile-loading-tracker';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { FramePacer } from '../utils/frame-pacer';
+import { corridorConfig } from '../utils/route-corridor';
 import { ColumnHit, ColumnSample, isBetterLod, selectColumnSample } from './column-sample';
 import {
   CoordinateSync,
@@ -120,14 +121,6 @@ const TILE_LOD_DEBUG_MAX_ERROR = 20;
  * rAF frames at all; the warm-up then closes the pools again without them.
  */
 const FRAME_WAIT_TIMEOUT_MS = 1000;
-
-/**
- * Tiles coarser than this (geometric error, metres) do not count for the
- * street clearance probe. During refinement a coarse ancestor hull stays
- * active and averages street and facades into one lump, which a horizontal
- * ray would hit right away. The corridor refines to this error.
- */
-const CLEARANCE_MAX_TILE_ERROR = ROUTE_CORRIDOR_ERROR_TARGET;
 
 /**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
@@ -1083,9 +1076,9 @@ export class ThreeTilesEngine {
    * (over its top `onDeck`, for a bridge), and returns the nearer distance
    * to a fine tile surface (facade, tree), capped at `maxDistance`.
    *
-   * Only tiles at the corridor's refinement error count, for the column and
-   * for the hits, so a coarse hull still waiting for its children neither
-   * places the ray nor blocks it.
+   * Only tiles up to `corridorConfig.maxTileError` count, for the column
+   * and for the hits, so a coarse hull still waiting for its children
+   * neither places the ray nor blocks it.
    *
    * @returns null where it cannot tell: in DevWorld (its roads are drawn at
    *   the width the corridor already uses) or where no fine tile is loaded.
@@ -1105,7 +1098,7 @@ export class ThreeTilesEngine {
     const scope = raycastStats.enter('routeCorridor');
     try {
       const column = this.sampleColumn(localX, localZ);
-      if (!column || column.tileGeometricError > CLEARANCE_MAX_TILE_ERROR) return null;
+      if (!column || column.tileGeometricError > corridorConfig.maxTileError) return null;
       const len = Math.hypot(acrossX, acrossZ);
       if (len === 0) return null;
 
@@ -1122,7 +1115,7 @@ export class ThreeTilesEngine {
         for (const r of this._clearanceResults) {
           const tile = r.object.userData['tile'] as ActiveTile | undefined;
           if ((tile?.internal?.depth ?? 0) === 0) continue;
-          if ((tile?.geometricError ?? Infinity) > CLEARANCE_MAX_TILE_ERROR) continue;
+          if ((tile?.geometricError ?? Infinity) > corridorConfig.maxTileError) continue;
           nearest = Math.min(nearest, r.distance);
           break;
         }

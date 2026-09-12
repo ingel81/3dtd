@@ -6,7 +6,7 @@ import { ComponentType } from '../core/component';
 import { StatusEffect } from '../models/status-effects';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
-import { CORRIDOR_DEFAULT_HALF_WIDTH_M, LATERAL_TAPER, lateralLimit } from '../utils/route-corridor';
+import { corridorConfig, lateralLimit } from '../utils/route-corridor';
 
 class TestGameObject extends GameObject {
   constructor() {
@@ -417,7 +417,7 @@ describe('MovementComponent', () => {
       walk(30);
 
       expect((LAT - transform.position.lat) * METERS_PER_DEGREE_LAT)
-        .toBeCloseTo(lateralLimit(CORRIDOR_DEFAULT_HALF_WIDTH_M), 2);
+        .toBeCloseTo(lateralLimit(corridorConfig.defaultHalfWidth), 2);
     });
 
     it('moves in before the street narrows instead of jumping', () => {
@@ -437,7 +437,7 @@ describe('MovementComponent', () => {
       let largestStep = 0;
       for (let i = 1; i < offsets.length; i++) largestStep = Math.max(largestStep, Math.abs(offsets[i] - offsets[i - 1]));
       // 5 m/s moves 8.3 cm per step, so the taper allows 4.2 cm sideways.
-      expect(largestStep).toBeLessThanOrEqual(LATERAL_TAPER * 5 * (STEP_MS / 1000) + 1e-4);
+      expect(largestStep).toBeLessThanOrEqual(corridorConfig.taper * 5 * (STEP_MS / 1000) + 1e-4);
       expect(largestStep).toBeGreaterThan(0);
     });
 
