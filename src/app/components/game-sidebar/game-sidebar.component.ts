@@ -22,6 +22,7 @@ import { ModelPreviewService } from '../../services/infrastructure/model-preview
 import { openAttributionsDialog } from '../attributions-dialog/open-attributions-dialog';
 import { ConfigService } from '../../core/services/config.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { BUILD_VERSION } from '../../configs/build-info.config';
 import { TdIconComponent } from '../icon/icon.component';
 import { SidebarWavePanelComponent } from './wave-panel/wave-panel.component';
 import { SidebarBuildPanelComponent } from './build-panel/build-panel.component';
@@ -60,6 +61,8 @@ export class GameSidebarComponent implements OnDestroy {
 
   // Store, single source of truth
   readonly store = inject(TowerDefenseStore);
+
+  readonly buildVersion = BUILD_VERSION;
 
   // Inputs
   readonly towerTypes = input.required<TowerTypeConfig[]>();
