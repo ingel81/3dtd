@@ -585,6 +585,7 @@ wallsmasher: {
 - [ ] Bei Run-Animation: `runSpeedMultiplier` gesetzt
 - [ ] Bei Boss: `immunityPercent` gesetzt
 - [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu gross/klein
+- [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse
 
 ---
 
