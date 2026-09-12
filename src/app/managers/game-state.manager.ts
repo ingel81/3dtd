@@ -26,6 +26,7 @@ import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { raycastStats } from '../utils/raycast-stats';
 import { EconomyService } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
 import { ThreeTilesEngine } from '../three-engine';
@@ -918,7 +919,15 @@ export class GameStateManager {
     // One terrain probe for the grid: ground plus the tile LOD it came from,
     // which `sampleCellY` uses so a coarse streaming pass cannot overwrite a
     // finer sample. The engine caches per column, so repeated cells are free.
-    const columnSampler = (x: number, z: number) => this.tilesEngine!.sampleColumn(x, z);
+    // Its rays are booked as routeGrid (`__raycastStats()`).
+    const columnSampler = (x: number, z: number) => {
+      const scope = raycastStats.enter('routeGrid');
+      try {
+        return this.tilesEngine!.sampleColumn(x, z);
+      } finally {
+        raycastStats.exit(scope);
+      }
+    };
     // Cheap LOD-probe used by the route-grid full-sweep to skip stable
     // cells whose tile-LOD has not improved (Option C, perf/route-grid-
     // tile-aware-update).
