@@ -8,6 +8,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
 import { EnemyTypeId } from '../../configs/enemy-types.config';
 import { SpawnPattern } from '../../ai/core/spawn-schedule-builder';
 import { TdIconComponent } from '../icon/icon.component';
+import { TowerDefenseStore } from '../../store/tower-defense.store';
 
 const PATTERN_LABELS: Record<SpawnPattern, string> = {
   'interleaved': 'Interleaved',
@@ -47,6 +48,21 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
         (focused)="windowService.bringToFront('wave')"
       >
         <div class="wave-debug-content">
+          <!-- Director reasoning for the wave in play -->
+          <div class="section why">
+            <div class="section-title">Why this wave</div>
+            @if (explanation(); as why) {
+              <div class="why-summary">{{ why.summary }}</div>
+              <ul class="why-reasons">
+                @for (reason of why.reasons; track $index) {
+                  <li>{{ reason }}</li>
+                }
+              </ul>
+            } @else {
+              <div class="why-empty">No director decision for this wave.</div>
+            }
+          </div>
+
           <!-- Mode Toggle -->
           <div class="mode-toggle">
             <button class="mode-btn" [class.active]="!waveDebug.mixedMode()" (click)="waveDebug.mixedMode() && waveDebug.toggleMixedMode()">
@@ -279,6 +295,41 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
       font-family: 'JetBrains Mono', monospace;
       font-size: 10px;
       min-width: 340px;
+    }
+
+    /* Why this wave */
+    .why {
+      margin-bottom: 8px;
+    }
+
+    .why-summary {
+      color: var(--td-text-primary);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .why-reasons {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .why-reasons li {
+      position: relative;
+      padding-left: 10px;
+      color: var(--td-text-secondary);
+      line-height: 1.4;
+    }
+
+    .why-reasons li::before {
+      content: '·';
+      position: absolute;
+      left: 2px;
+      color: var(--td-teal);
+    }
+
+    .why-empty {
+      color: var(--td-text-muted);
     }
 
     /* Mode Toggle */
@@ -807,6 +858,8 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
 export class WaveDebuggerComponent {
   readonly windowService = inject(DebugWindowService);
   readonly waveDebug = inject(WaveDebugService);
+  /** Director's reasons for the wave in play; null for waves it did not plan. */
+  readonly explanation = inject(TowerDefenseStore).aiExplanation;
 
   readonly eventBus = input<GameEventBus>();
 
