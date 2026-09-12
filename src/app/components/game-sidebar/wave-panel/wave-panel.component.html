@@ -74,7 +74,8 @@
                 [attr.aria-disabled]="!strikeButton().enabled"
                 [attr.aria-pressed]="strikeButton().state === 'armed'"
                 [attr.aria-label]="strikeButton().label"
-                [matTooltip]="strikeButton().label"
+                aria-keyshortcuts="K"
+                [matTooltip]="strikeButton().label + ' (K)'"
                 matTooltipPosition="left"
                 (click)="toggleStrike()">
           <td-icon name="radiation" [size]="20"></td-icon>

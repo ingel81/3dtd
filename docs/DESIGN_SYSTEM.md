@@ -313,7 +313,7 @@ Quadrat (`.td-strike-btn`, 44 × 44px) rechts neben dem Next-Wave-Button, sichtb
 | Unterwegs | Schlag zwischen Befehl und Einschlag | Icon `--td-warn-orange` |
 | Lädt | Ladung verbraucht | Icon `--td-text-disabled`, die Striche zählen die geschafften Wellen |
 
-Ohne Wirkung bleibt der Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht ("Nuclear Strike: recharges in 2 waves"). Zustand, Striche und Text liefert `abilityButtonView()` (`wave-panel/ability-button.ts`) aus `GameStore.abilities`.
+Ohne Wirkung bleibt der Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht ("Nuclear Strike: recharges in 2 waves (K)"). K wirkt wie ein Klick (siehe Tastenkürzel). Zustand, Striche und Text liefert `abilityButtonView()` (`wave-panel/ability-button.ts`) aus `GameStore.abilities`.
 
 Im Zielmodus zeigt die Kontext-Hinweis-Box "Click Strike" und "ESC Cancel", dazu die Warnung "No route within 30 m", solange keine Route-Zelle in Reichweite ist. Auf der Karte ist der Zielring gold (`--td-gold`), wo der Schlag landen würde, und rot (`--td-health-red`), wo er abgelehnt würde; der Marker während der Vorwarnung ist orange (`--td-warn-orange`) mit goldenem Countdown-Ring (`--td-gold-light`).
 
@@ -453,9 +453,10 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | H / ? | Übersicht als Dialog | |
 | Pos1 (Home) | Kamera gleitet zum HQ | nicht während des Intro-Flugs |
 | N | Kamera gleitet zum nächsten Spawnpunkt, reihum | nicht während des Intro-Flugs |
+| K | Zielmodus des Nuclear Strike an, nochmal drücken schaltet ihn ab | Nuclear-Strike-Knopf (`AbilityTargetingService.start`) |
 | Esc | Quick-Menü schließen, sonst Verkauf abbrechen, sonst Tower abwählen | |
 
-S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, `aria-keyshortcuts` an Wave-, Pause-, Sell- und Kartenbuttons, "H: Shortcuts" im Controls Hint.
+S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, "(K)" im Tooltip des Nuclear-Strike-Knopfs, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint.
 
 ### Damage-vs-Armor-Dialog
 

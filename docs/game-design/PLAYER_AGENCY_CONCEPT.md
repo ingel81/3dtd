@@ -355,4 +355,4 @@ nichts sagen:
 | Leck-Buchung im Training | das Backend-Gate zählt die Fähigkeits-Kills genauso (`gate_leak_share`), der Reward nicht |
 | Bots | Strategie ab 10 Gegnern mit Pfadfortschritt ab 0,8. In allen Skill-Stufen eingehängt, erforscht wird die Fähigkeit nur von strategist und meta. Deren Baselines sind mit Läufen vor der Umsetzung nicht direkt vergleichbar, beginner und casual spielen unverändert |
 
-Nicht gebaut: Hotkey, Warnsirene, weitere Fähigkeiten, Pickups.
+Taste K schaltet den Zielmodus wie der Knopf. Nicht gebaut: Warnsirene, weitere Fähigkeiten, Pickups.

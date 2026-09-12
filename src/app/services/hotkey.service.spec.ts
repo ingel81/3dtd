@@ -17,6 +17,9 @@ vi.mock('./camera-control.service', () => ({ CameraControlService: class CameraC
 vi.mock('./world/intro-camera-flight.service', () => ({
   IntroCameraFlightService: class IntroCameraFlightService {},
 }));
+vi.mock('./ability-targeting.service', () => ({
+  AbilityTargetingService: class AbilityTargetingService {},
+}));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -31,6 +34,7 @@ import { TowerPlacementService } from './tower-placement.service';
 import { SellConfirmService } from './sell-confirm.service';
 import { CameraControlService } from './camera-control.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
+import { AbilityTargetingService } from './ability-targeting.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 
 function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
@@ -48,6 +52,15 @@ describe('HotkeyService', () => {
   let sellConfirm: SellConfirmService;
   let focusGeo: ReturnType<typeof vi.fn>;
   const introActive = signal(false);
+  /** Whether the strike could fire, AbilityTargetingService.start checks it */
+  let strikeCanFire: boolean;
+  const abilityTargeting = {
+    targeting: signal<string | null>(null),
+    start: vi.fn((id: string) => {
+      if (strikeCanFire) abilityTargeting.targeting.set(id);
+    }),
+    cancel: vi.fn(() => abilityTargeting.targeting.set(null)),
+  };
 
   const tower = {
     id: 't1',
@@ -101,6 +114,10 @@ describe('HotkeyService', () => {
     sellConfirm = new SellConfirmService();
     focusGeo = vi.fn(() => true);
     introActive.set(false);
+    strikeCanFire = true;
+    abilityTargeting.targeting.set(null);
+    abilityTargeting.start.mockClear();
+    abilityTargeting.cancel.mockClear();
 
     const injector = Injector.create({
       providers: [
@@ -115,6 +132,7 @@ describe('HotkeyService', () => {
         { provide: MatDialog, useValue: { open: openDialog, get openDialogs() { return openDialogs; } } },
         { provide: CameraControlService, useValue: { focusGeo } },
         { provide: IntroCameraFlightService, useValue: { active: introActive } },
+        { provide: AbilityTargetingService, useValue: abilityTargeting },
       ],
     });
     service = runInInjectionContext(injector, () => new HotkeyService());
@@ -240,6 +258,28 @@ describe('HotkeyService', () => {
       service.handleKeyDown(press('Home'));
       service.handleKeyDown(press('n'));
       expect(focusGeo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('K', () => {
+    it('arms the nuclear strike like its button, a second press leaves the mode', () => {
+      const first = press('k');
+      service.handleKeyDown(first);
+      expect(abilityTargeting.start).toHaveBeenCalledWith('nuclear-strike');
+      expect(abilityTargeting.targeting()).toBe('nuclear-strike');
+      expect(first.defaultPrevented).toBe(true);
+
+      service.handleKeyDown(press('k'));
+      expect(abilityTargeting.cancel).toHaveBeenCalledTimes(1);
+      expect(abilityTargeting.targeting()).toBeNull();
+    });
+
+    it('leaves the key alone while the strike cannot fire', () => {
+      strikeCanFire = false;
+      const event = press('k');
+      service.handleKeyDown(event);
+      expect(abilityTargeting.targeting()).toBeNull();
+      expect(event.defaultPrevented).toBe(false);
     });
   });
 
