@@ -186,14 +186,15 @@ das Einkommen tut es nicht. Ein Static-Run über W31+ ist absichtlich knapp.
 
 ## UI-Toggle
 
-Filing-Icon-Button in der Quick-Actions-Dev-Toolbar (rechts unten):
+Kachel "Static" (Filing-Icon) in der Gruppe WAVES & INSPECT des Dev-Menüs (Quick Actions, rechts unten):
 
 ```html
-<button class="td-dev-btn"
+<button class="td-dev-tile"
         [class.active]="useStaticCurriculum()"
         (click)="staticCurriculumToggled.emit()"
         matTooltip="Static curriculum waves (AI-off fallback)">
   <td-icon name="filing" />
+  <span>Static</span>
 </button>
 ```
 
