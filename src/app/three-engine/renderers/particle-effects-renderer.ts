@@ -6,6 +6,8 @@ import {
   BURST_PALETTES,
   type BurstPalette,
   EXPLOSION_LOOK,
+  FIRE_INTENSITY,
+  type FireIntensityLevel,
   ICE_DECAL_CONFIG,
   type MuzzleFlashProfile,
 } from '../../configs/visual-effects.config';
@@ -247,27 +249,18 @@ export class ParticleEffectsRenderer {
    * @param lat - Latitude
    * @param lon - Longitude
    * @param height - Height above ground
-   * @param intensity - Fire intensity ('tiny' | 'small' | 'medium' | 'large' | 'inferno')
+   * @param intensity - Fire intensity (FIRE_INTENSITY)
    */
   spawnFire(
     lat: number,
     lon: number,
     height: number,
-    intensity: 'tiny' | 'small' | 'medium' | 'large' | 'inferno' = 'medium'
+    intensity: FireIntensityLevel = 'medium'
   ): string {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     const id = `fire_${this.effectIdCounter++}`;
 
-    // Fire intensity config - all use duration: -1 for persistent fire
-    const intensityConfig = {
-      tiny: { count: 15, radius: 1.5 },
-      small: { count: 40, radius: 2.5 },
-      medium: { count: 80, radius: 4 },
-      large: { count: 120, radius: 6 },
-      inferno: { count: 200, radius: 10 },
-    };
-
-    const config = intensityConfig[intensity];
+    const config = FIRE_INTENSITY[intensity];
 
     const effect: EffectInstance = {
       id,
@@ -333,7 +326,7 @@ export class ParticleEffectsRenderer {
     lat: number,
     lon: number,
     getTerrainHeight: (lat: number, lon: number) => number | null,
-    intensity: 'tiny' | 'small' | 'medium' | 'large' | 'inferno' = 'medium',
+    intensity: FireIntensityLevel = 'medium',
     heightOffset = 0
   ): string {
     const localY = getTerrainHeight(lat, lon) ?? 0;
@@ -353,7 +346,7 @@ export class ParticleEffectsRenderer {
     lat: number,
     lon: number,
     localY: number,
-    intensity: 'tiny' | 'small' | 'medium' | 'large' | 'inferno' = 'medium'
+    intensity: FireIntensityLevel = 'medium'
   ): string {
     // Get X/Z from geo, but use provided localY directly
     const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
@@ -361,16 +354,7 @@ export class ParticleEffectsRenderer {
 
     const id = `fire_${this.effectIdCounter++}`;
 
-    // Fire intensity config - all use duration: -1 for persistent fire
-    const intensityConfig = {
-      tiny: { count: 15, radius: 1.5 },
-      small: { count: 40, radius: 2.5 },
-      medium: { count: 80, radius: 4 },
-      large: { count: 120, radius: 6 },
-      inferno: { count: 200, radius: 10 },
-    };
-
-    const config = intensityConfig[intensity];
+    const config = FIRE_INTENSITY[intensity];
 
     const effect: EffectInstance = {
       id,

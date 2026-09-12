@@ -1557,14 +1557,14 @@ Feuer-Effekte bei HQ-Damage und Game Over, als Partikel.
 #### Technische Implementierung
 
 ```typescript
-spawnFire(lat: number, lon: number, height: number, intensity: FireIntensity): string;
-spawnFireOnTerrain(lat: number, lon: number, getHeight: Function, intensity: FireIntensity): string;
-spawnFireAtLocalY(lat: number, lon: number, localY: number, intensity: FireIntensity): string;
+spawnFire(lat: number, lon: number, height: number, intensity: FireIntensityLevel): string;
+spawnFireOnTerrain(lat: number, lon: number, getHeight: Function, intensity: FireIntensityLevel): string;
+spawnFireAtLocalY(lat: number, lon: number, localY: number, intensity: FireIntensityLevel): string;
 
-type FireIntensityLevel = 'tiny' | 'small' | 'medium' | 'large' | 'inferno';
+type FireIntensityLevel = keyof typeof FIRE_INTENSITY; // 'tiny' | 'small' | 'medium' | 'large' | 'inferno'
 ```
 
-**Intensitätsstufen** (Werte in `ParticleEffectsRenderer.spawnFire`, jedes Feuer brennt bis `stopFire()`):
+**Intensitätsstufen** (`FIRE_INTENSITY` in `configs/visual-effects.config.ts`, jedes Feuer brennt bis `stopFire()`):
 
 | Intensity | Partikel | Radius |
 |-----------|----------|--------|
@@ -1616,8 +1616,8 @@ spawnFireAtLocalY(lat, lon, localY, 'medium');
 
 **WICHTIG:** `spawnFireOnTerrain` nutzt die übergebene `getTerrainHeight` Funktion. Grund: ThreeEffectsRenderer hat keinen direkten Zugriff auf TilesRenderer.
 
-**Konfiguration:** `FIRE_INTENSITY` in `configs/visual-effects.config.ts` liefert nur noch
-den Typ `FireIntensityLevel`; `spawnFire()` liest seine Werte nicht (Tabelle oben).
+**Konfiguration:** `FIRE_INTENSITY` in `configs/visual-effects.config.ts` (Tabelle oben);
+der Typ `FireIntensityLevel` ist aus seinen Schlüsseln abgeleitet.
 
 ### Route Animation (Knight Rider Effekt)
 

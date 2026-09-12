@@ -9,7 +9,12 @@ import {
 } from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
-import type { BurstPalette, MuzzleFlashProfile, ScorchSource } from '../../configs/visual-effects.config';
+import type {
+  BurstPalette,
+  FireIntensityLevel,
+  MuzzleFlashProfile,
+  ScorchSource,
+} from '../../configs/visual-effects.config';
 import type { ScorchGround } from './scorch-marks';
 import { FloatingTextInstanceManager } from './floating-text/floating-text-instance.manager';
 import { ParticlePoolManager } from './particle-pool-manager';
@@ -150,13 +155,13 @@ export class ThreeEffectsRenderer {
    * @param lat - Latitude
    * @param lon - Longitude
    * @param height - Height above ground
-   * @param intensity - Fire intensity ('tiny' | 'small' | 'medium' | 'large' | 'inferno')
+   * @param intensity - Fire intensity (FIRE_INTENSITY)
    */
   spawnFire(
     lat: number,
     lon: number,
     height: number,
-    intensity: 'tiny' | 'small' | 'medium' | 'large' | 'inferno' = 'medium'
+    intensity: FireIntensityLevel = 'medium'
   ): string {
     return this.particleEffects.spawnFire(lat, lon, height, intensity);
   }
@@ -175,7 +180,7 @@ export class ThreeEffectsRenderer {
     lat: number,
     lon: number,
     getTerrainHeight: (lat: number, lon: number) => number | null,
-    intensity: 'tiny' | 'small' | 'medium' | 'large' | 'inferno' = 'medium',
+    intensity: FireIntensityLevel = 'medium',
     heightOffset = 0
   ): string {
     return this.particleEffects.spawnFireOnTerrain(lat, lon, getTerrainHeight, intensity, heightOffset);
@@ -194,7 +199,7 @@ export class ThreeEffectsRenderer {
     lat: number,
     lon: number,
     localY: number,
-    intensity: 'tiny' | 'small' | 'medium' | 'large' | 'inferno' = 'medium'
+    intensity: FireIntensityLevel = 'medium'
   ): string {
     return this.particleEffects.spawnFireAtLocalY(lat, lon, localY, intensity);
   }
