@@ -228,9 +228,9 @@ describe('AIDataCollectorService', () => {
         enemyProgressValues: [0.4, 0.9, 1],     // tank d never reported progress
       });
       expect(result.outcome.avgPathProgressPercent).toBeCloseTo(2.3 / 3, 10);
-      // Measured from each spawn to the END of the wave, not to the death:
-      // (3000 + 3000 + 2000 + 2000) / 4.
-      expect(result.outcome.avgEnemyLifetimeMs).toBe(2500);
+      // Spawn to death or base arrival; tank d is still alive and counts to
+      // the end of the wave: (1500 + 2500 + 1800 + 2000) / 4.
+      expect(result.outcome.avgEnemyLifetimeMs).toBe(1950);
       expect(result.outcome.enemyPerformance).toEqual({
         zombie: { spawned: 2, killed: 2, reachedBase: 0, avgLifetimeMs: 2000, totalDamageDealt: 0 },
         tank: { spawned: 2, killed: 0, reachedBase: 1, avgLifetimeMs: 0, totalDamageDealt: 0 },
@@ -243,7 +243,7 @@ describe('AIDataCollectorService', () => {
 
       const { outcome } = collector.getWaveHistory()[0];
       expect(outcome.waveDurationMs).toBe(750);
-      expect(outcome.avgEnemyLifetimeMs).toBe(625);
+      expect(outcome.avgEnemyLifetimeMs).toBe(487.5);
       expect(outcome.enemyPerformance['zombie'].avgLifetimeMs).toBe(500);
     });
 
@@ -316,6 +316,7 @@ describe('AIDataCollectorService', () => {
         wasCloseCall: true,
         lowestPlayerHealth: 0,
         waveDurationMs: 2000,
+        avgEnemyLifetimeMs: 2000,
         enemyProgressValues: [1],
         avgPathProgressPercent: 1,
         damagePercent: 1,

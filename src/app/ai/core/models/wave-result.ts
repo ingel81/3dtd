@@ -63,7 +63,11 @@ export interface WaveOutcome {
   /** How long the wave lasted in milliseconds */
   waveDurationMs: number;
 
-  /** Average enemy lifetime in milliseconds */
+  /**
+   * Average time from spawn to death or base arrival, in milliseconds (game
+   * time: divided by the training timescale). Enemies still alive when the
+   * wave is finalised count up to that moment.
+   */
   avgEnemyLifetimeMs: number;
 
   /** Average path progress (0-1, where 1 = reached base) */
