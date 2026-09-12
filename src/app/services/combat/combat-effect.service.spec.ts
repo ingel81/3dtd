@@ -70,7 +70,6 @@ describe('CombatEffectService splash', () => {
     mockInjections['DamageApplicationService'] = { applyDamage };
     mockInjections['StatusEffectService'] = { applySlow, applyPoison };
     mockInjections['CombatVfxService'] = {
-      emitExplosion: vi.fn(),
       emitIceExplosion: vi.fn(),
       emitIceDecal: vi.fn(),
     };

@@ -288,14 +288,14 @@ describe('GameEventBus', () => {
 
     it('listener can remove itself during emit without crash', () => {
       const handler = vi.fn(() => {
-        bus.off('vfx:explosion', handler);
+        bus.off('vfx:blood', handler);
       });
       const secondary = vi.fn();
 
-      bus.on('vfx:explosion', handler);
-      bus.on('vfx:explosion', secondary);
+      bus.on('vfx:blood', handler);
+      bus.on('vfx:blood', secondary);
 
-      bus.emit({ type: 'vfx:explosion', position: new Vector3(1, 2, 3), radius: 5 });
+      bus.emit({ type: 'vfx:blood', position: new Vector3(1, 2, 3), intensity: 5 });
 
       expect(handler).toHaveBeenCalledTimes(1);
       expect(secondary).toHaveBeenCalledTimes(1);

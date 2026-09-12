@@ -58,31 +58,6 @@ export class CombatVfxService {
   }
 
   // =====================================================
-  // EXPLOSION EFFECTS
-  // =====================================================
-
-  /**
-   * Spawn a generic explosion VFX at an enemy's position.
-   */
-  emitExplosion(enemy: Enemy): void {
-    if (!this.tilesEngine || !this.eventBus) return;
-
-    const groundOffset = enemy.typeConfig.isAirUnit ? 0 : 2;
-    const explosionHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + groundOffset;
-
-    const explosionPos = this.tilesEngine.sync.geoToLocalSimple(
-      enemy.position.lat,
-      enemy.position.lon,
-      explosionHeight
-    );
-    this.eventBus.emitDeferred({
-      type: 'vfx:explosion',
-      position: explosionPos,
-      radius: 30,
-    });
-  }
-
-  // =====================================================
   // ICE EFFECTS
   // =====================================================
 

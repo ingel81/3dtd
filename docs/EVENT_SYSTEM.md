@@ -64,8 +64,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
 | `vfx:blood` | CombatEffectService | VFXService | Blut-VFX spawnen |
-| `vfx:explosion` | CombatEffectService | VFXService | Explosion VFX spawnen |
-| `vfx:projectile-impact` | ProjectileManager | VFXService | Projektil-Einschlag VFX spawnen |
+| `vfx:projectile-impact` | ProjectileManager | VFXService, ScreenShakeService | Projektil-Einschlag VFX spawnen, einzige Quelle für Explosionen |
 | `vfx:muzzle-flash` | TowerManager | VFXService | Muzzle-Flash VFX am Tower spawnen |
 | `vfx:chain-lightning` | TowerCombatService (Lightning Tower) | VFXService → LightningBoltRenderer | Chain-Polyline rendern (`points` = Tip → primary → jumpN, `sourceTowerId`). Triggert pro Segment einen Bolt + lokalen Aufhell-Halo. |
 | `audio:play` | ProjectileManager, HQDamageService | AudioService | 3D Sound abspielen |
