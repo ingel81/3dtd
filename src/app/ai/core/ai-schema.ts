@@ -26,6 +26,8 @@
  *       hardcoded zero and a verbatim copy of the damage history.
  *   4: Chaos tower 2026-09, 207 features. Adds `chaos` as a buildable tower
  *       (tower order 10 → 11) and as a damage type (8 → 9).
+ *   5: Skeleton 2026-09, 208 features. Adds `skeleton` to the enemy order
+ *       (18 → 19).
  */
 
 import { ARMOR_TYPES, type ArmorType, type DamageType } from '../../configs/combat/combat.types';
@@ -34,10 +36,10 @@ import { type TowerTypeId } from '../../configs/tower-types.config';
 import { MAX_TEMPLATE_SLOTS } from './templates';
 
 /** Bumped whenever a length or an order below changes. */
-export const AI_SCHEMA_VERSION = 4;
+export const AI_SCHEMA_VERSION = 5;
 
 /**
- * Enemy order — 18 entries. Append-only: new enemies go at the end so the
+ * Enemy order, 19 entries. Append-only: new enemies go at the end so the
  * leading indices keep their meaning across schema versions.
  */
 export const AI_ENEMY_ORDER: readonly EnemyTypeId[] = [
@@ -48,6 +50,8 @@ export const AI_ENEMY_ORDER: readonly EnemyTypeId[] = [
   'ghost', 'wraith',
   // --- schema v2 ---
   'zombie-v2', 'stone-golem',
+  // --- schema v5 ---
+  'skeleton',
 ];
 
 /**
@@ -86,6 +90,7 @@ export const ENEMY_THREAT_RATING: Readonly<Record<string, number>> = {
   'zombie-v2': 0.9,         // Same 80 HP but slower (3 m/s)
   rat: 0.5,                 // Swarm, very low HP (5)
   penguin: 0.8,             // Very fast (9 m/s), fragile
+  skeleton: 0.7,            // Swarm, 20 HP, 6 m/s
   // Light
   wallsmasher: 3.5,         // High HP (200), fast
   bat: 1.5,                 // Air, low HP

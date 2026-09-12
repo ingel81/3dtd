@@ -8,7 +8,7 @@
  * The NN produces template_idx + 4 factors in [0,1]; the decoder
  * interpolates each factor into the template's designer-set range.
  *
- * Slots 0-20 are active. Slots 21-31 are reserved for future expansion
+ * Slots 0-21 are active. Slots 22-31 are reserved for future expansion
  * without retraining (blocked by slot-availability mask). New templates are
  * appended, so existing slots keep their index.
  *
@@ -342,6 +342,23 @@ export const TEMPLATES: readonly Template[] = [
     spawnPattern: 'clustered',
     requiresCapability: 'antiAir',
     bossOnly: true,
+  },
+  {
+    // Skeletons: unarmored like the zombie, a quarter of its HP and faster,
+    // a swarm between rat_tide (5 HP) and zombie_horde. Curriculum slot W19,
+    // the mega-swarm checkpoint that used to run rat_tide a second time.
+    id: 'skeleton_swarm',
+    name: 'Skeleton Swarm',
+    description: 'A rattling swarm of skeletons.',
+    enemies: [['skeleton', 1.0]],
+    countRange: [40, 1500],
+    spawnDelayRange: [15, 300],
+    hpMultRange: [0.5, 5.0],
+    variationRange: [0.05, 0.35],
+    minWave: 6,
+    spawnPattern: null,
+    requiresCapability: null,
+    bossOnly: false,
   },
 ];
 

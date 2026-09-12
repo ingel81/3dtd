@@ -63,7 +63,7 @@ export const WAVE_CURRICULUM: readonly CurriculumWave[] = [
   { template: 'chaos_wave',       goldKill:  3667, goldComplete:  1833 }, // 16 — multi-armor + air
   { template: 'wraith_storm',     goldKill:  4667, goldComplete:  2333 }, // 17 — ethereal swarm
   { template: 'armor_gauntlet',   goldKill:  6000, goldComplete:  3000 }, // 18 — multi-armor mix
-  { template: 'rat_tide',         goldKill:  8000, goldComplete:  4000 }, // 19 — mega-swarm checkpoint
+  { template: 'skeleton_swarm',   goldKill:  8000, goldComplete:  4000 }, // 19: mega-swarm checkpoint (skeletons, was a second rat_tide)
   { template: 'boss_herbert',     goldKill: 12000, goldComplete:  6000 }, // 20 — BOSS 2 (bonus peak)
   { template: 'bat_swarm',        goldKill: 10667, goldComplete:  5333 }, // 21 — air pressure
   { template: 'tank_column',      goldKill: 14667, goldComplete:  7333 }, // 22 — heavy pressure

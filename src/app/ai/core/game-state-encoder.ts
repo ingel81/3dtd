@@ -7,7 +7,7 @@
  *
  * The layout is defined by `ai-schema.ts`, which is also what generates the
  * Python backend's copy — so this encoder and `server.py::_encode_state`
- * cannot drift apart the way they used to. With schema v4 the vector is 207
+ * cannot drift apart the way they used to. With schema v5 the vector is 208
  * features wide:
  *
  *   Player state: credits, lives%, wave, time                            (4)
