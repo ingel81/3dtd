@@ -126,6 +126,7 @@ export const EXPLOSION_PRESETS = {
   // with 6 + 30 orange fire-atlas particles, which read as a fireball.
   poison:   { particles: 14,  radius: 2 },
   arcane:   { particles: 14,  radius: 3 },
+  chaos:    { particles: 14,  radius: 3 },
 } as const;
 
 /**
@@ -197,7 +198,7 @@ export interface EffectRgb {
 /** Spark-burst palette: 40 % of the particles get the first colour, 30 % each the other two. */
 export type BurstPalette = readonly [EffectRgb, EffectRgb, EffectRgb];
 
-/** Palettes for the round-particle spark bursts (ice, arcane orb and poison glob hits). */
+/** Palettes for the round-particle spark bursts (ice, arcane orb, chaos orb and poison glob hits). */
 export const BURST_PALETTES = {
   poison: [
     { r: 0.55, g: 1.0, b: 0.2 },  // Bright toxic green core
@@ -213,6 +214,11 @@ export const BURST_PALETTES = {
     { r: 0.85, g: 0.9, b: 1.0 },  // White-lavender core
     { r: 0.55, g: 0.25, b: 1.0 }, // Violet
     { r: 0.3, g: 0.8, b: 1.0 },   // Cyan
+  ],
+  chaos: [
+    { r: 1.0, g: 0.6, b: 1.0 },   // Pale magenta core
+    { r: 0.6, g: 0.0, b: 1.0 },   // Violet
+    { r: 0.95, g: 0.1, b: 0.65 }, // Magenta
   ],
 } as const satisfies Record<string, BurstPalette>;
 

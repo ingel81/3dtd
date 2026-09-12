@@ -265,6 +265,7 @@ export class ThreeProjectileRenderer {
   private bulletManager: ProjectileInstanceManager;
   private rocketManager: ProjectileInstanceManager;
   private poisonManager: ProjectileInstanceManager;
+  private chaosManager: ProjectileInstanceManager;
 
   // Track which manager owns each projectile
   private projectileTypes = new Map<string, ProjectileVisualType>();
@@ -286,6 +287,7 @@ export class ThreeProjectileRenderer {
     this.bulletManager = this.createBulletManager();
     this.rocketManager = this.createRocketManager();
     this.poisonManager = this.createPoisonManager();
+    this.chaosManager = this.createChaosManager();
 
     // Load arrow model async
     this.arrowLoad = this.loadArrowModel();
@@ -298,6 +300,7 @@ export class ThreeProjectileRenderer {
     scene.add(this.bulletManager.instancedMesh);
     scene.add(this.rocketManager.instancedMesh);
     scene.add(this.poisonManager.instancedMesh);
+    scene.add(this.chaosManager.instancedMesh);
   }
 
   /**
@@ -482,6 +485,31 @@ export class ThreeProjectileRenderer {
     return new ProjectileInstanceManager(geometry, material, 500);
   }
 
+  private createChaosManager(): ProjectileInstanceManager {
+    // Chaos orb: the arcane-orb shader over a near-black core. Additive
+    // blending drops the dark body, so it reads as a violet/magenta rim
+    // around a void; the black comes from its smoke trail.
+    const geometry = new SphereGeometry(1.2, 32, 32);
+
+    const material = new ShaderMaterial({
+      vertexShader: MAGIC_ORB_VERTEX,
+      fragmentShader: MAGIC_ORB_FRAGMENT,
+      uniforms: {
+        uTime: { value: 0.0 },
+        uColor1: { value: new Color(0x12001c) }, // Near-black violet
+        uColor2: { value: new Color(0x9d00ff) }, // Violet
+        uColor3: { value: new Color(0xff2fd6) }, // Magenta highlights
+        uIntensity: { value: 2.5 },
+      },
+      transparent: true,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      side: DoubleSide,
+    });
+
+    return new ProjectileInstanceManager(geometry, material, 500);
+  }
+
   private getManager(visualType: ProjectileVisualType): ProjectileInstanceManager | null {
     switch (visualType) {
       case 'arrow':
@@ -498,6 +526,8 @@ export class ThreeProjectileRenderer {
         return this.rocketManager;
       case 'poison':
         return this.poisonManager;
+      case 'chaos':
+        return this.chaosManager;
     }
   }
 
@@ -626,7 +656,8 @@ export class ThreeProjectileRenderer {
       this.iceManager.count +
       this.bulletManager.count +
       this.rocketManager.count +
-      this.poisonManager.count
+      this.poisonManager.count +
+      this.chaosManager.count
     );
   }
 
@@ -642,6 +673,7 @@ export class ThreeProjectileRenderer {
     this.bulletManager.flush();
     this.rocketManager.flush();
     this.poisonManager.flush();
+    this.chaosManager.flush();
   }
 
   clear(): void {
@@ -652,6 +684,7 @@ export class ThreeProjectileRenderer {
     this.bulletManager.clear();
     this.rocketManager.clear();
     this.poisonManager.clear();
+    this.chaosManager.clear();
     this.projectileTypes.clear();
   }
 
@@ -676,6 +709,12 @@ export class ThreeProjectileRenderer {
     if (poisonMaterial.uniforms?.['uTime']) {
       poisonMaterial.uniforms['uTime'].value = time;
     }
+
+    // Update chaos orb shader time uniform
+    const chaosMaterial = this.chaosManager.instancedMesh.material as ShaderMaterial;
+    if (chaosMaterial.uniforms?.['uTime']) {
+      chaosMaterial.uniforms['uTime'].value = time;
+    }
   }
 
   dispose(): void {
@@ -689,6 +728,7 @@ export class ThreeProjectileRenderer {
     this.scene.remove(this.bulletManager.instancedMesh);
     this.scene.remove(this.rocketManager.instancedMesh);
     this.scene.remove(this.poisonManager.instancedMesh);
+    this.scene.remove(this.chaosManager.instancedMesh);
 
     this.cannonballManager.dispose();
     this.magicManager.dispose();
@@ -696,6 +736,7 @@ export class ThreeProjectileRenderer {
     this.bulletManager.dispose();
     this.rocketManager.dispose();
     this.poisonManager.dispose();
+    this.chaosManager.dispose();
     this.projectileTypes.clear();
   }
 }
