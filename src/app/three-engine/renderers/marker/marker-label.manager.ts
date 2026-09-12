@@ -9,9 +9,9 @@ import {
 } from 'three';
 import { FloatingTextAtlas, AtlasSlot } from '../floating-text/floating-text-atlas';
 import { createLabelMaterial } from './marker-shaders';
+import { MARKER_LABEL_OFFSET, MARKER_LABEL_SIZE } from '../../../configs/marker-geometry.config';
 
 const MAX_LABELS = 8;
-const LABEL_Y_OFFSET = 20; // Units above diamond center
 
 interface LabelEntry {
   id: string;
@@ -99,7 +99,7 @@ export class MarkerLabelManager {
     const slot = this.atlas.getOrCreate(text, '#FFFFFF', 48, color, 4);
 
     // Position: diamond pos + label Y offset
-    this.tmpMatrix.makeTranslation(position.x, position.y + LABEL_Y_OFFSET, position.z);
+    this.tmpMatrix.makeTranslation(position.x, position.y + MARKER_LABEL_OFFSET, position.z);
     this.mesh.setMatrixAt(index, this.tmpMatrix);
 
     // Atlas UV
@@ -107,8 +107,7 @@ export class MarkerLabelManager {
     this.atlasRectAttr.setXYZW(index, u, v, w, h);
 
     // Scale based on text aspect ratio
-    const labelSize = 5;
-    this.baseScaleAttr.setXY(index, labelSize * slot.textAspect, labelSize);
+    this.baseScaleAttr.setXY(index, MARKER_LABEL_SIZE * slot.textAspect, MARKER_LABEL_SIZE);
 
     // Phase + alpha
     this.phaseAttr.setX(index, phaseOffset);
@@ -165,7 +164,7 @@ export class MarkerLabelManager {
     if (!entry) return;
 
     entry.position.copy(position);
-    this.tmpMatrix.makeTranslation(position.x, position.y + LABEL_Y_OFFSET, position.z);
+    this.tmpMatrix.makeTranslation(position.x, position.y + MARKER_LABEL_OFFSET, position.z);
     this.mesh.setMatrixAt(entry.index, this.tmpMatrix);
     this.mesh.instanceMatrix.needsUpdate = true;
   }
