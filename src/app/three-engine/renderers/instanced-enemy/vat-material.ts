@@ -4,7 +4,14 @@ import {
   Color,
   Vector3,
 } from 'three';
-import { VATData } from './vat-baker';
+import { VATData, type VATAlphaMode } from './vat-baker';
+
+/** Shader switch per VAT alpha mode. */
+const ALPHA_DEFINES: Record<VATAlphaMode, Record<string, string>> = {
+  opaque: {},
+  mask: { VAT_ALPHA_MASK: '' },
+  blend: { VAT_ALPHA_BLEND: '' },
+};
 
 export interface VATMaterialOptions {
   emissiveIntensity?: number;
@@ -16,13 +23,15 @@ export interface VATMaterialOptions {
  * Create a ShaderMaterial for Vertex Animation Texture (VAT) rendering.
  *
  * Vertex shader: samples baked vertex positions from the VAT DataTexture
- * Fragment shader: applies diffuse texture × tint color with opacity
+ * Fragment shader: applies diffuse texture × tint color. Alpha only counts
+ * where the model's materials use it (vatData.alpha): opaque types draw in
+ * the opaque pass, masked ones discard below the cutoff, only blending types
+ * are transparent.
  * Includes logarithmic depth buffer support for correct 3D tiles occlusion.
  *
  * Per-instance attributes:
  *   aAnimFrame (float) - current animation frame in the VAT
  *   aTintColor (vec3) - tint color overlay (0,0,0 = no tint)
- *   aOpacity (float) - instance opacity (1.0 = fully visible)
  */
 export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions): ShaderMaterial {
   const emissiveIntensity = options?.emissiveIntensity ?? 0;
@@ -40,6 +49,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     emissiveIntensity: { value: emissiveIntensity },
     emissiveColor: { value: emissiveColor },
     colorMultiplier: { value: colorMultiplier },
+    alphaCutoff: { value: vatData.alpha.cutoff },
   };
 
   if (vatData.diffuseMap) {
@@ -62,7 +72,6 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       // Per-instance attributes
       attribute float aAnimFrame;
       attribute vec3 aTintColor;
-      attribute float aOpacity;
 
       // VAT uniforms
       uniform sampler2D vatTexture;
@@ -76,7 +85,6 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vTintColor;
-      varying float vOpacity;
       varying float vHasTint;
       varying vec3 vVertexColor;
       varying float vVertexAlpha;
@@ -88,7 +96,6 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       void main() {
         vUv = uv;
         vTintColor = aTintColor;
-        vOpacity = aOpacity;
         vHasTint = step(0.01, dot(aTintColor, aTintColor));
         vVertexColor = aVertexColor;
         vVertexAlpha = aVertexAlpha;
@@ -129,11 +136,11 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       uniform float emissiveIntensity;
       uniform vec3 emissiveColor;
       uniform float colorMultiplier;
+      uniform float alphaCutoff;
 
       varying vec2 vUv;
       varying vec3 vNormal;
       varying vec3 vTintColor;
-      varying float vOpacity;
       varying float vHasTint;
       varying vec3 vVertexColor;
       varying float vVertexAlpha;
@@ -142,9 +149,6 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       #include <logdepthbuf_pars_fragment>
 
       void main() {
-        // Discard fully transparent fragments early (before lighting)
-        if (vOpacity < 0.01) discard;
-
         #include <logdepthbuf_fragment>
 
         // Base color + alpha: per-vertex texture flag decides texture vs vertex color
@@ -159,9 +163,12 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
           baseAlpha = vVertexAlpha;
         }
 
-        // Alpha test: discard nearly transparent fragments
-        float finalAlpha = vOpacity * baseAlpha;
-        if (finalAlpha < 0.05) discard;
+        // Alpha as the model's materials use it (vatAlpha in vat-baker.ts)
+        #if defined( VAT_ALPHA_BLEND )
+          if (baseAlpha < 0.05) discard; // nearly transparent, before lighting
+        #elif defined( VAT_ALPHA_MASK )
+          if (baseAlpha < alphaCutoff) discard;
+        #endif
 
         vec3 litColor;
 
@@ -216,10 +223,15 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         litColor = (litColor * (2.51 * litColor + 0.03)) /
                    (litColor * (2.43 * litColor + 0.59) + 0.14);
 
-        gl_FragColor = vec4(litColor, finalAlpha);
+        #ifdef VAT_ALPHA_BLEND
+          gl_FragColor = vec4(litColor, baseAlpha);
+        #else
+          gl_FragColor = vec4(litColor, 1.0);
+        #endif
       }
     `,
-    transparent: true,
+    defines: { ...ALPHA_DEFINES[vatData.alpha.mode] },
+    transparent: vatData.alpha.mode === 'blend',
     side: FrontSide,
     depthWrite: true,
   });

@@ -211,13 +211,11 @@ Code-seitig umgesetzt (2026-09-13):
   sonst RGBA32F. VAT gesamt 486,6 → 264,7 MB, halb so viele Bytes pro VAT-Zugriff. RGBA32F
   bleibt nur der Stone Golem (2,64 mm). Begründung der 2 mm in
   [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#texelformat-rgba16f-oder-rgba32f).
-
-Code-seitig, nicht umgesetzt:
-
-- **Offene Frage**: Alle VAT-Materialien sind `transparent: true`. Ein Ausblenden beim Tod
-  gibt es nicht, `aOpacity` bleibt immer 1. Ob lebende Gegner opak gerendert messbar schneller
-  wären und welche Modelle Alpha-Blending brauchen (Alpha in Textur oder Material), ist nicht
-  geprüft.
+- **Opake VAT-Materialien** (`vatAlpha` in `vat-baker.ts`): Transparent sind nur noch Typen,
+  deren Materialien Alpha brauchen. Bear (Alpha in der Textur), Ghost und Hornet (Opacity
+  unter 1, beim Hornet die Flügel) blenden, Dragon schneidet mit `alphaTest` 0,5 aus
+  (glTF MASK), die übrigen 15 Typen zeichnen opak. `aOpacity` ist entfernt, es war immer 1.
+  Ob opak messbar schneller ist, ist nicht gemessen.
 
 ## Neue Gegner: Skeleton (Swarm)
 

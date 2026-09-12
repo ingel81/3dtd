@@ -13,6 +13,7 @@ import {
   Object3D,
   BufferGeometry,
   Texture,
+  Material,
   MeshStandardMaterial,
   MeshBasicMaterial,
   Mesh,
@@ -49,6 +50,8 @@ export interface VATData {
   diffuseMap: Texture | null;
   /** Whether the material was unlit (MeshBasicMaterial) */
   isUnlit: boolean;
+  /** How the shader treats alpha, from the materials of the baked meshes (vatAlpha) */
+  alpha: VATAlpha;
   /** Baking FPS */
   fps: number;
   /** Actual texture width (capped for GPU limits) */
@@ -427,9 +430,8 @@ export function bakeVAT(
   const mergedIndices: number[] = [];
   const tempNormal = new Vector3();
 
-  // Cache CPU texture samplers for meshes with unique textures
-  const samplerCache = new Map<Texture, Uint8ClampedArray | null>();
-  const samplerSizes = new Map<Texture, { w: number; h: number }>();
+  // CPU copies of textures (own textures of meshes, alpha checks)
+  const pixelCache = new Map<Texture, TexturePixels | null>();
 
   for (const skin of skins) {
     const geo = skin.mesh.geometry;
@@ -448,34 +450,10 @@ export function bakeVAT(
     const matOpacity = mat ? mat.opacity ?? 1.0 : 1.0;
 
     // For meshes with their own unique texture: sample on CPU and bake into vertex colors
-    let texPixels: Uint8ClampedArray | null = null;
-    let texW = 0, texH = 0;
-    if (meshHasOwnTexture && uvAttr) {
-      const tex = mat.map!;
-      if (!samplerCache.has(tex)) {
-        try {
-          const img = tex.image as HTMLImageElement | ImageBitmap | HTMLCanvasElement;
-          const w = (img as HTMLImageElement).naturalWidth || img.width || 0;
-          const h = (img as HTMLImageElement).naturalHeight || img.height || 0;
-          if (w > 0 && h > 0) {
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d')!;
-            ctx.drawImage(img as CanvasImageSource, 0, 0);
-            samplerCache.set(tex, ctx.getImageData(0, 0, w, h).data);
-            samplerSizes.set(tex, { w, h });
-          } else {
-            samplerCache.set(tex, null);
-          }
-        } catch {
-          samplerCache.set(tex, null);
-        }
-      }
-      texPixels = samplerCache.get(tex) ?? null;
-      const size = samplerSizes.get(tex);
-      if (size) { texW = size.w; texH = size.h; }
-    }
+    const own = meshHasOwnTexture && uvAttr ? texturePixels(mat.map!, pixelCache) : null;
+    const texPixels = own?.data ?? null;
+    const texW = own?.width ?? 0;
+    const texH = own?.height ?? 0;
 
     for (let i = 0; i < skin.vertexCount; i++) {
       const vi = skin.vertexOffset + i;
@@ -571,6 +549,7 @@ export function bakeVAT(
     texWidth,
     rowsPerFrame,
     animations: animEntries,
+    alpha: vatAlpha(skins.map((s) => s.mesh.material), (map) => texturePixels(map, pixelCache)),
     geometry: mergedGeometry,
     diffuseMap,
     baseColor,
@@ -755,8 +734,7 @@ export function bakeObjectAnimVAT(
   const mergedIndices: number[] = [];
   const tempNormal = new Vector3();
 
-  const samplerCache = new Map<Texture, Uint8ClampedArray | null>();
-  const samplerSizes = new Map<Texture, { w: number; h: number }>();
+  const pixelCache = new Map<Texture, TexturePixels | null>();
 
   for (const info of meshInfos) {
     const geo = info.mesh.geometry;
@@ -777,34 +755,10 @@ export function bakeObjectAnimVAT(
     const cb = mat && mat.color ? mat.color.b : 1.0;
     const matOpacity = mat ? mat.opacity ?? 1.0 : 1.0;
 
-    let texPixels: Uint8ClampedArray | null = null;
-    let texW = 0, texH = 0;
-    if (meshHasOwnTexture && uvAttr) {
-      const tex = mat.map!;
-      if (!samplerCache.has(tex)) {
-        try {
-          const img = tex.image as HTMLImageElement | ImageBitmap | HTMLCanvasElement;
-          const w = (img as HTMLImageElement).naturalWidth || img.width || 0;
-          const h = (img as HTMLImageElement).naturalHeight || img.height || 0;
-          if (w > 0 && h > 0) {
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d')!;
-            ctx.drawImage(img as CanvasImageSource, 0, 0);
-            samplerCache.set(tex, ctx.getImageData(0, 0, w, h).data);
-            samplerSizes.set(tex, { w, h });
-          } else {
-            samplerCache.set(tex, null);
-          }
-        } catch {
-          samplerCache.set(tex, null);
-        }
-      }
-      texPixels = samplerCache.get(tex) ?? null;
-      const size = samplerSizes.get(tex);
-      if (size) { texW = size.w; texH = size.h; }
-    }
+    const own = meshHasOwnTexture && uvAttr ? texturePixels(mat.map!, pixelCache) : null;
+    const texPixels = own?.data ?? null;
+    const texW = own?.width ?? 0;
+    const texH = own?.height ?? 0;
 
     for (let i = 0; i < info.vertexCount; i++) {
       const vi = info.vertexOffset + i;
@@ -896,6 +850,7 @@ export function bakeObjectAnimVAT(
     texWidth,
     rowsPerFrame,
     animations: animEntries,
+    alpha: vatAlpha(meshInfos.map((m) => m.mesh.material), (map) => texturePixels(map, pixelCache)),
     geometry: mergedGeometry,
     diffuseMap,
     baseColor,
@@ -984,9 +939,8 @@ export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData 
   const tempNormal = new Vector3();
   const bounds = emptyBounds();
 
-  // Cache CPU texture samplers for meshes with unique textures
-  const staticSamplerCache = new Map<Texture, Uint8ClampedArray | null>();
-  const staticSamplerSizes = new Map<Texture, { w: number; h: number }>();
+  // CPU copies of textures (own textures of meshes, alpha checks)
+  const pixelCache = new Map<Texture, TexturePixels | null>();
 
   let vertexOffset = 0;
   for (const info of meshInfos) {
@@ -1006,34 +960,10 @@ export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData 
     const matOpacity = mat ? mat.opacity ?? 1.0 : 1.0;
 
     // For meshes with their own unique texture: sample on CPU
-    let texPixels: Uint8ClampedArray | null = null;
-    let texW = 0, texH = 0;
-    if (meshHasOwnTexture && uvAttr) {
-      const tex = mat.map!;
-      if (!staticSamplerCache.has(tex)) {
-        try {
-          const img = tex.image as HTMLImageElement | ImageBitmap | HTMLCanvasElement;
-          const w = (img as HTMLImageElement).naturalWidth || img.width || 0;
-          const h = (img as HTMLImageElement).naturalHeight || img.height || 0;
-          if (w > 0 && h > 0) {
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d')!;
-            ctx.drawImage(img as CanvasImageSource, 0, 0);
-            staticSamplerCache.set(tex, ctx.getImageData(0, 0, w, h).data);
-            staticSamplerSizes.set(tex, { w, h });
-          } else {
-            staticSamplerCache.set(tex, null);
-          }
-        } catch {
-          staticSamplerCache.set(tex, null);
-        }
-      }
-      texPixels = staticSamplerCache.get(tex) ?? null;
-      const size = staticSamplerSizes.get(tex);
-      if (size) { texW = size.w; texH = size.h; }
-    }
+    const own = meshHasOwnTexture && uvAttr ? texturePixels(mat.map!, pixelCache) : null;
+    const texPixels = own?.data ?? null;
+    const texW = own?.width ?? 0;
+    const texH = own?.height ?? 0;
 
     for (let i = 0; i < info.vertexCount; i++) {
       const vi = vertexOffset + i;
@@ -1158,6 +1088,7 @@ export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData 
     texWidth,
     rowsPerFrame,
     animations,
+    alpha: vatAlpha(meshInfos.map((m) => m.mesh.material), (map) => texturePixels(map, pixelCache)),
     geometry: mergedGeometry,
     diffuseMap,
     baseColor,
@@ -1165,4 +1096,84 @@ export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData 
     fps: DEFAULT_BAKE_FPS,
     ...modelHeightRange(bounds),
   };
+}
+
+/** RGBA bytes of a texture's image, read through a 2D canvas. */
+export interface TexturePixels {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+}
+
+/**
+ * The pixels of `tex`, read once per cache. Null when the texture has no
+ * decoded image or no 2D canvas is available.
+ */
+function texturePixels(tex: Texture, cache: Map<Texture, TexturePixels | null>): TexturePixels | null {
+  if (cache.has(tex)) return cache.get(tex) ?? null;
+  let pixels: TexturePixels | null = null;
+  try {
+    const img = tex.image as HTMLImageElement | ImageBitmap | HTMLCanvasElement;
+    const width = (img as HTMLImageElement).naturalWidth || img.width || 0;
+    const height = (img as HTMLImageElement).naturalHeight || img.height || 0;
+    if (width > 0 && height > 0) {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img as CanvasImageSource, 0, 0);
+      pixels = { data: ctx.getImageData(0, 0, width, height).data, width, height };
+    }
+  } catch {
+    pixels = null;
+  }
+  cache.set(tex, pixels);
+  return pixels;
+}
+
+/**
+ * How the VAT shader treats alpha: 'opaque' ignores it and draws in the
+ * opaque pass, 'mask' discards below the cutoff, 'blend' is transparent.
+ */
+export type VATAlphaMode = 'opaque' | 'mask' | 'blend';
+
+export interface VATAlpha {
+  mode: VATAlphaMode;
+  /** Alpha below which 'mask' discards a fragment (0 for the other modes). */
+  cutoff: number;
+}
+
+/**
+ * The alpha mode of a type from the materials of its baked meshes, the way
+ * three.js draws them: a transparent material blends (glTF BLEND), one with
+ * alphaTest cuts out below it (glTF MASK), any other ignores alpha. A
+ * transparent material without alpha below 1 (opacity 1, no translucent
+ * texel in its map) draws opaque. A type has one material, so one blending
+ * mesh makes all of it blend; among masks the lowest cutoff wins.
+ * `pixels` reads a map; a map it cannot read counts as translucent.
+ */
+export function vatAlpha(
+  materials: (Material | Material[])[],
+  pixels: (map: Texture) => TexturePixels | null,
+): VATAlpha {
+  let cutoff = Infinity;
+  for (const material of materials.flat()) {
+    if (material.transparent) {
+      const map = (material as MeshStandardMaterial).map;
+      if (material.opacity < 1 || (map && !isOpaque(pixels(map)))) return { mode: 'blend', cutoff: 0 };
+    } else if (material.alphaTest > 0) {
+      cutoff = Math.min(cutoff, material.alphaTest);
+    }
+  }
+  return cutoff < Infinity ? { mode: 'mask', cutoff } : { mode: 'opaque', cutoff: 0 };
+}
+
+/** Every texel fully opaque; unknown pixels count as translucent. */
+function isOpaque(pixels: TexturePixels | null): boolean {
+  if (!pixels) return false;
+  const { data } = pixels;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 255) return false;
+  }
+  return true;
 }
