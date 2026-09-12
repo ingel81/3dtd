@@ -87,7 +87,7 @@ den `DevStreetProvider` als Pathfinding-Service (`VisualizationFacadeService`).
 
 ## Terrain-Presets
 
-30 Presets in 11 Kategorien (Union-Typ `TerrainPreset` in `terrain-generator.ts`, dort nach Kategorie kommentiert):
+30 Presets in 11 Kategorien (`TERRAIN_PRESETS` in `devworld/terrain-presets.ts`, dort nach Kategorie kommentiert; der Typ `TerrainPreset` ist daraus abgeleitet):
 
 | Kategorie | Presets |
 |-----------|---------|

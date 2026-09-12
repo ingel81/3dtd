@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { TERRAIN_PRESETS, TerrainPreset } from './terrain-presets';
 
 /**
  * DevWorld Configuration
@@ -10,36 +11,6 @@ import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
  * - ?devworld&buildings=dense - Building preset (none, sparse, dense, maze)
  * - ?devworld&spawn=north  - Spawn point (north, south, east, west, random)
  */
-/**
- * All available terrain presets
- */
-export const TERRAIN_PRESETS = [
-  // Basic
-  'flat', 'gentle', 'default',
-  // Slopes
-  'slope_ns', 'slope_ew', 'slope_diag',
-  // Mountains
-  'mountains', 'peaks',
-  // Valleys
-  'crater', 'bowl', 'dome',
-  // Plateaus
-  'mesa', 'terraces', 'steps',
-  // Cellular
-  'canyon', 'cells', 'cracks',
-  // Waves
-  'waves', 'dunes', 'ripples',
-  // Patterns
-  'spiral', 'rings',
-  // Eroded
-  'eroded', 'weathered',
-  // Biomes
-  'islands', 'highlands', 'badlands',
-  // Extreme
-  'chaos', 'alien', 'fractal',
-] as const;
-
-export type TerrainPreset = typeof TERRAIN_PRESETS[number];
-
 export interface DevWorldConfig {
   /** Terrain heightmap preset */
   terrain: TerrainPreset;
