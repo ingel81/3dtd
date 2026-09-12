@@ -24,7 +24,6 @@ export interface EnemyTypeConfig {
 
   // Animation
   hasAnimations: boolean;
-  idleAnimation?: string;
   walkAnimation?: string;
   runAnimation?: string; // Alternative to walk animation (variation)
   deathAnimation?: string;
@@ -108,7 +107,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     baseSpeed: 5,
     reward: 3, // Only without AI
     hasAnimations: true,
-    idleAnimation: 'Armature|Idle',
     walkAnimation: 'Armature|Walk',
     deathAnimation: 'Armature|Die',
     animationSpeed: 4.11,
@@ -637,7 +635,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     baseSpeed: 3,
     reward: 12,
     hasAnimations: true,
-    idleAnimation: 'Armature|Idle',
     walkAnimation: 'Armature|Walk',
     animationSpeed: 0.7,
     heightOffset: 0.5,

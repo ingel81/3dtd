@@ -19,6 +19,7 @@ import {
   LoopOnce,
 } from 'three';
 import type { EnemyTypeConfig } from '../../../configs/enemy-types.config';
+import { TIMING } from '../../../configs/timing.config';
 
 /** Registry entry for one animation clip within the VAT */
 export interface VATAnimationEntry {
@@ -62,22 +63,54 @@ export interface VATData {
 export const DEFAULT_BAKE_FPS = 30;
 export const MAX_VAT_WIDTH = 8192;
 
-/** Clips baked for an enemy type, in bake order. */
-export function vatClipNames(
-  config: Pick<EnemyTypeConfig, 'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'idleAnimation'>,
-): string[] {
-  const names: string[] = [];
-  if (config.walkAnimation) names.push(config.walkAnimation);
-  if (config.runAnimation) names.push(config.runAnimation);
-  if (config.deathAnimation) names.push(config.deathAnimation);
-  if (config.deathAnimations) names.push(...config.deathAnimations);
-  if (config.idleAnimation) names.push(config.idleAnimation);
-  return names;
+/** One clip to bake. */
+export interface VATClip {
+  name: string;
+  /** Clip time the game can show (s); the bake stops there. Infinity for looping clips. */
+  seconds: number;
 }
 
-/** VAT frames one clip takes. */
-export function vatFrameCount(duration: number, fps: number): number {
-  return Math.max(1, Math.ceil(duration * fps));
+type VATClipConfig = Pick<
+  EnemyTypeConfig,
+  'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'animationSpeed'
+>;
+
+/**
+ * Clip time a death animation is on screen. It plays at animationSpeed until
+ * EnemyManager removes the enemy, TIMING.deathAnimationDuration after the kill.
+ */
+export function vatDeathSeconds(config: Pick<EnemyTypeConfig, 'animationSpeed'>): number {
+  return (TIMING.deathAnimationDuration / 1000) * (config.animationSpeed ?? 1);
+}
+
+/**
+ * Clips baked for an enemy type, in bake order. Walk and run loop and are
+ * baked whole; death clips only up to vatDeathSeconds(), the rest of the clip
+ * would never be on screen.
+ */
+export function vatClips(config: VATClipConfig): VATClip[] {
+  const clips: VATClip[] = [];
+  const add = (name: string | undefined, seconds: number): void => {
+    if (!name) return;
+    const known = clips.find((c) => c.name === name);
+    if (known) known.seconds = Math.max(known.seconds, seconds);
+    else clips.push({ name, seconds });
+  };
+  add(config.walkAnimation, Infinity);
+  add(config.runAnimation, Infinity);
+  const deathSeconds = vatDeathSeconds(config);
+  add(config.deathAnimation, deathSeconds);
+  for (const name of config.deathAnimations ?? []) add(name, deathSeconds);
+  return clips;
+}
+
+/**
+ * VAT frames one clip takes. The renderer shows frame floor(t × fps) at clip
+ * time t, so a clip cut at `seconds` needs frames 0 to floor(seconds × fps).
+ */
+export function vatFrameCount(duration: number, fps: number, seconds = Infinity): number {
+  const whole = Math.max(1, Math.ceil(duration * fps));
+  return seconds < duration ? Math.min(whole, Math.floor(seconds * fps) + 1) : whole;
 }
 
 /** Texture width and rows per frame; past MAX_VAT_WIDTH vertices a frame spans several rows. */
@@ -95,13 +128,13 @@ export function vatLayout(vertexCount: number): { texWidth: number; rowsPerFrame
  *
  * @param modelRoot - Cloned model root (with preserveSkeleton: true)
  * @param animations - AnimationClip array from CachedModel
- * @param clipNames - Animation clip names to bake (from EnemyTypeConfig)
+ * @param clips - Clips to bake and how much of each (vatClips)
  * @param fps - Baking framerate (default: 30)
  */
 export function bakeVAT(
   modelRoot: Object3D,
   animations: AnimationClip[],
-  clipNames: string[],
+  clips: VATClip[],
   fps: number = DEFAULT_BAKE_FPS,
 ): VATData | null {
   // Collect ALL SkinnedMeshes (multi-mesh support: body, hair, clothes, etc.)
@@ -140,8 +173,8 @@ export function bakeVAT(
     clipMap.set(clip.name, clip);
   }
 
-  const validClipNames = clipNames.filter((name) => clipMap.has(name));
-  if (validClipNames.length === 0) {
+  const validClips = clips.filter((c) => clipMap.has(c.name));
+  if (validClips.length === 0) {
     console.warn('[VATBaker] No matching animation clips found');
     return null;
   }
@@ -150,9 +183,9 @@ export function bakeVAT(
   let totalFrames = 0;
   const animEntries = new Map<string, VATAnimationEntry>();
 
-  for (const name of validClipNames) {
+  for (const { name, seconds } of validClips) {
     const clip = clipMap.get(name)!;
-    const frameCount = vatFrameCount(clip.duration, fps);
+    const frameCount = vatFrameCount(clip.duration, fps, seconds);
     animEntries.set(name, {
       name,
       frameStart: totalFrames,
@@ -174,7 +207,7 @@ export function bakeVAT(
   let modelMaxY = -Infinity;
 
   // Bake each clip using a fresh mixer
-  for (const name of validClipNames) {
+  for (const { name } of validClips) {
     const clip = clipMap.get(name)!;
     const entry = animEntries.get(name)!;
 
@@ -428,13 +461,13 @@ export function bakeVAT(
  *
  * @param modelRoot - Cloned model root
  * @param animations - AnimationClip array from CachedModel
- * @param clipNames - Animation clip names to bake (from EnemyTypeConfig)
+ * @param clips - Clips to bake and how much of each (vatClips)
  * @param fps - Baking framerate (default: 30)
  */
 export function bakeObjectAnimVAT(
   modelRoot: Object3D,
   animations: AnimationClip[],
-  clipNames: string[],
+  clips: VATClip[],
   fps: number = DEFAULT_BAKE_FPS,
 ): VATData | null {
   // Collect all non-skinned Mesh nodes
@@ -469,8 +502,8 @@ export function bakeObjectAnimVAT(
     clipMap.set(clip.name, clip);
   }
 
-  const validClipNames = clipNames.filter((name) => clipMap.has(name));
-  if (validClipNames.length === 0) {
+  const validClips = clips.filter((c) => clipMap.has(c.name));
+  if (validClips.length === 0) {
     console.warn('[VATBaker] No matching animation clips found for object-anim bake');
     return null;
   }
@@ -479,9 +512,9 @@ export function bakeObjectAnimVAT(
   let totalFrames = 0;
   const animEntries = new Map<string, VATAnimationEntry>();
 
-  for (const name of validClipNames) {
+  for (const { name, seconds } of validClips) {
     const clip = clipMap.get(name)!;
-    const frameCount = vatFrameCount(clip.duration, fps);
+    const frameCount = vatFrameCount(clip.duration, fps, seconds);
     animEntries.set(name, {
       name,
       frameStart: totalFrames,
@@ -505,7 +538,7 @@ export function bakeObjectAnimVAT(
   let modelMaxY = -Infinity;
 
   // Bake each clip
-  for (const name of validClipNames) {
+  for (const { name } of validClips) {
     const clip = clipMap.get(name)!;
     const entry = animEntries.get(name)!;
 

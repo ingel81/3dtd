@@ -147,7 +147,7 @@ this.modelPreview.createPreview('enemy-preview', canvas, {
   rotationSpeed: 0.4,
   cameraDistance: 7,
   cameraAngle: Math.PI / 12,       // 15° - flacher Blickwinkel
-  animationName: enemyConfig.walkAnimation || enemyConfig.idleAnimation || undefined,
+  animationName: enemyConfig.walkAnimation || undefined,
   animationTimeScale: 0.7,
   lightIntensity: 1.3,
   groundModel: true,               // Wichtig fuer Charaktere!

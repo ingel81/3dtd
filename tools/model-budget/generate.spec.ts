@@ -11,7 +11,7 @@
  * Like the other generators in tools/ it also runs with `npm test`, so the
  * tables follow model and config changes. Same inputs give the same output.
  *
- * The VAT numbers come from the helpers the baker uses (vatClipNames,
+ * The VAT numbers come from the helpers the baker uses (vatClips,
  * vatFrameCount, vatLayout). Which meshes get baked follows
  * InstancedEnemyRenderer.bakeAndCreatePool: skinned meshes if there are any,
  * otherwise the rigid meshes of an object-animated model, and every mesh of a
@@ -29,7 +29,7 @@ import { WAVE_CURRICULUM, STATIC_WAVE_PROFILES } from '../../src/app/configs/wav
 import { TIMING } from '../../src/app/configs/timing.config';
 import {
   DEFAULT_BAKE_FPS,
-  vatClipNames,
+  vatClips,
   vatFrameCount,
   vatLayout,
 } from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
@@ -56,8 +56,8 @@ interface BakedClip {
   /** Null when the model has no clip of that name. */
   duration: number | null;
   frames: number;
-  /** Frames the game never shows (death clip past the removal, idle outside debug). */
-  unseenFrames: number;
+  /** Frames left out of the bake because the game never shows them (death clip past the removal). */
+  cutFrames: number;
 }
 
 interface Bake {
@@ -93,7 +93,6 @@ function roleOf(config: EnemyTypeConfig, name: string): string {
   if (name === config.walkAnimation) roles.push('walk');
   if (name === config.runAnimation) roles.push('run');
   if (name === config.deathAnimation || config.deathAnimations?.includes(name)) roles.push('death');
-  if (name === config.idleAnimation) roles.push('idle');
   return roles.join('+');
 }
 
@@ -104,17 +103,11 @@ function planBake(config: EnemyTypeConfig, model: ModelInfo): Bake {
   }
 
   const clipsByName = new Map(model.clips.map((c) => [c.name, c]));
-  // Death clips play at animationSpeed until the enemy is removed.
-  const deathSeconds = (TIMING.deathAnimationDuration / 1000) * (config.animationSpeed ?? 1);
-  const clips = vatClipNames(config).map((name): BakedClip => {
+  const clips = vatClips(config).map(({ name, seconds }): BakedClip => {
     const clip = clipsByName.get(name);
-    const role = roleOf(config, name);
-    const frames = clip ? vatFrameCount(clip.duration, DEFAULT_BAKE_FPS) : 0;
-    const unseenFrames =
-      role === 'idle' ? frames
-        : role === 'death' ? Math.max(0, frames - vatFrameCount(deathSeconds, DEFAULT_BAKE_FPS))
-          : 0;
-    return { name, role, duration: clip?.duration ?? null, frames, unseenFrames };
+    const whole = clip ? vatFrameCount(clip.duration, DEFAULT_BAKE_FPS) : 0;
+    const frames = clip ? vatFrameCount(clip.duration, DEFAULT_BAKE_FPS, seconds) : 0;
+    return { name, role: roleOf(config, name), duration: clip?.duration ?? null, frames, cutFrames: whole - frames };
   });
 
   const skinned = model.meshes.filter((m) => m.skinned && m.vertices > 0);
@@ -258,14 +251,13 @@ function render(rows: Row[]): string {
     ]),
   ));
   const totalVat = rows.reduce((s, r) => s + vatBytes(r), 0);
-  const unseenVat = rows.reduce(
-    (s, r) => s + r.bake.clips.reduce((c, clip) => c + clip.unseenFrames, 0) * r.rowsPerFrame * r.texWidth * VAT_BYTES_PER_TEXEL,
+  const cutVat = rows.reduce(
+    (s, r) => s + r.bake.clips.reduce((c, clip) => c + clip.cutFrames, 0) * r.rowsPerFrame * r.texWidth * VAT_BYTES_PER_TEXEL,
     0,
   );
   out.push('');
   out.push(`VAT-Speicher aller Typen zusammen: **${mb(totalVat)} MB** (RGBA32F, ${DEFAULT_BAKE_FPS} fps).`);
-  out.push(`Davon Frames, die das Spiel nie zeigt (Idle nur im Debug-Fenster, Todes-Clips nach dem`);
-  out.push(`Entfernen): **${mb(unseenVat)} MB**.`);
+  out.push(`Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **${mb(cutVat)} MB** dazu.`);
   out.push('');
 
   out.push('### Modellinhalt');
@@ -300,11 +292,11 @@ function render(rows: Row[]): string {
   out.push('### Gebackene Clips');
   out.push('');
   out.push(`Todes-Clips laufen mit \`animationSpeed\`, bis der Gegner nach ${int(TIMING.deathAnimationDuration)} ms`);
-  out.push('entfernt wird; was danach kommt, ist gebacken, aber nie zu sehen. Idle spielt nur das');
-  out.push('Debug-Fenster ab.');
+  out.push('entfernt wird. Gebacken wird nur dieser Teil (`vatClips` in `vat-baker.ts`), „gekürzt“ zählt');
+  out.push('die weggelassenen Frames.');
   out.push('');
   out.push(table(
-    ['Gegner', 'Clip', 'Rolle', 'Dauer s', 'Frames', 'nie sichtbar'],
+    ['Gegner', 'Clip', 'Rolle', 'Dauer s', 'Frames', 'gekürzt'],
     'lllrrr',
     rows.flatMap((r) => r.bake.clips.map((clip) => [
       r.config.name,
@@ -312,7 +304,7 @@ function render(rows: Row[]): string {
       clip.role,
       clip.duration === null ? 'fehlt im Modell' : dec(clip.duration, 2),
       int(clip.frames),
-      clip.unseenFrames > 0 ? int(clip.unseenFrames) : '–',
+      clip.cutFrames > 0 ? int(clip.cutFrames) : '–',
     ])),
   ));
   out.push('');

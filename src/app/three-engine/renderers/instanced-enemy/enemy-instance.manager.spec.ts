@@ -87,6 +87,23 @@ describe('EnemyInstanceManager', () => {
     expect(state.isWalking).toBe(true);
   });
 
+  it('holds the last baked death frame instead of looping back', () => {
+    const scene = new Scene();
+    const deathManager = new EnemyInstanceManager(scene);
+    // The death clip takes frames 20-29.
+    deathManager.createPool('wallsmasher', fakeVat([...CLIPS, CONFIG.deathAnimation!]), CONFIG);
+    const state = deathManager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    deathManager.playDeathAnimation('a');
+
+    const frame = () => state.pool.animFrameAttr.getX(state.index);
+    deathManager.updateAnimations(0.45 / CONFIG.animationSpeed!); // clip time 0.45 s
+    expect(frame()).toBe(24);
+    deathManager.updateAnimations(5);
+    expect(frame()).toBe(29);
+    deathManager.updateAnimations(5);
+    expect(frame()).toBe(29);
+  });
+
   it('plays the run clip at its natural rate while the enemy runs at run speed', () => {
     const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     manager.startRunAnimation('a');
