@@ -4,6 +4,7 @@ import { VFXService } from './vfx.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import { EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../configs/visual-effects.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
+import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 
 function setup() {
   const eventBus = new GameEventBus();
@@ -85,11 +86,16 @@ describe('VFXService projectile impact', () => {
     service.destroy();
   });
 
-  it('explodes cannon and rocket hits', () => {
+  it('sizes the cannon explosion by its splash radius and the rocket by its preset', () => {
     const { eventBus, tilesEngine, service } = setup();
     impact(eventBus, 'cannonball');
     impact(eventBus, 'rocket');
-    expect(tilesEngine.effects.spawnExplosionAtGeo).toHaveBeenCalledTimes(2);
+    const { cannon, rocket } = EXPLOSION_PRESETS;
+    expect(tilesEngine.effects.spawnExplosionAtGeo.mock.calls).toEqual([
+      [1, 2, 3, cannon.particles, PROJECTILE_TYPES.cannonball.splashRadius, cannon.smokePuffs],
+      [1, 2, 3, rocket.particles, rocket.radius, rocket.smokePuffs],
+    ]);
+    expect(cannon.smokePuffs).toBeGreaterThan(0);
     service.destroy();
   });
 });

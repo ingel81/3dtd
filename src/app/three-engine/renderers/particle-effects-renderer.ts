@@ -5,6 +5,7 @@ import {
   BLOOD_DECAL_CONFIG,
   BURST_PALETTES,
   type BurstPalette,
+  EXPLOSION_LOOK,
   ICE_DECAL_CONFIG,
   type MuzzleFlashProfile,
 } from '../../configs/visual-effects.config';
@@ -796,18 +797,30 @@ export class ParticleEffectsRenderer {
   }
 
   /**
-   * Spawn explosion effect at local position
-   * Used for rocket impacts and other explosions
-   * Uses ADDITIVE blending (fire/glow effect)
+   * Spawn a fire-atlas explosion at a local position, in two stages
+   * (EXPLOSION_LOOK): a fireball of additive explosion-atlas sprites, then
+   * `smokePuffs` smoke-atlas puffs in the normal pool that show up once the
+   * fireball's bright half is over. Speeds and sprite sizes scale with
+   * `radius`.
    *
    * @param localX - Local X coordinate
    * @param localY - Local Y coordinate (height)
    * @param localZ - Local Z coordinate
-   * @param count - Number of particles (default 25)
-   * @param radius - Explosion radius in meters (default 5)
+   * @param count - Fireball particles (default 25)
+   * @param radius - Blast radius in meters (default EXPLOSION_LOOK.referenceRadius)
+   * @param smokePuffs - Smoke puffs after the fireball (default 0)
    */
-  spawnExplosion(localX: number, localY: number, localZ: number, count = 25, _radius = 5): void {
+  spawnExplosion(
+    localX: number,
+    localY: number,
+    localZ: number,
+    count = 25,
+    radius: number = EXPLOSION_LOOK.referenceRadius,
+    smokePuffs = 0
+  ): void {
     const totalAtlasFrames = this.pools.ATLAS_COLS * this.pools.ATLAS_ROWS; // 16 frames
+    const scale = radius / EXPLOSION_LOOK.referenceRadius;
+    const fire = EXPLOSION_LOOK.fire;
 
     for (let i = 0; i < count; i++) {
       const particle = this.pools.getInactiveParticle('trailAdditive');
@@ -819,7 +832,7 @@ export class ParticleEffectsRenderer {
       // Random direction outward (spherical distribution)
       const theta = Math.random() * Math.PI * 2; // Horizontal angle
       const phi = Math.random() * Math.PI; // Vertical angle
-      const speed = 5 + Math.random() * 15; // 5-20 m/s outward
+      const speed = (fire.speedMin + Math.random() * (fire.speedMax - fire.speedMin)) * scale;
 
       particle.velocity.set(
         Math.sin(phi) * Math.cos(theta) * speed,
@@ -828,12 +841,14 @@ export class ParticleEffectsRenderer {
       );
 
       particle.life = 1.0;
-      particle.maxLife = 0.3 + Math.random() * 0.4; // 0.3-0.7 seconds (slightly longer for animation)
-      particle.size = 2.5 + Math.random() * 3.0; // Bigger to show atlas detail (2.5-5.5)
+      particle.maxLife = fire.lifeMin + Math.random() * (fire.lifeMax - fire.lifeMin);
+      particle.size = (fire.sizeMin + Math.random() * (fire.sizeMax - fire.sizeMin)) * scale;
+      particle.sizeStart = fire.sizeStart;
+      particle.sizeEnd = fire.sizeEnd;
 
-      // Sprite-sheet animation: each particle starts at a random early frame
-      // so the explosion looks varied (not all particles on same frame)
-      particle.frameIndex = Math.floor(Math.random() * 3); // Start at frame 0-2
+      // Sprite-sheet animation: the pool derives the frame from the life
+      // (atlasSpriteFrame), flash → fireball → dissipating → wisps
+      particle.frameIndex = 0;
       particle.totalFrames = totalAtlasFrames;
 
       // Tint color (white = use atlas color as-is, slight variation adds richness)
@@ -846,6 +861,52 @@ export class ParticleEffectsRenderer {
         particle.color.setRGB(1, 0.7, 0.5); // Orange tint
       }
     }
+
+    this.spawnExplosionSmoke(localX, localY, localZ, smokePuffs, radius, totalAtlasFrames);
+  }
+
+  /**
+   * Smoke stage of spawnExplosion: dark smoke-atlas puffs in the normal
+   * pool. Each waits EXPLOSION_LOOK.smoke.delay* before it shows (its life
+   * starts above 1, see atlasSpriteSize), then rises and billows out while
+   * the atlas fades it to nothing.
+   */
+  private spawnExplosionSmoke(
+    localX: number,
+    localY: number,
+    localZ: number,
+    count: number,
+    radius: number,
+    totalAtlasFrames: number
+  ): void {
+    const smoke = EXPLOSION_LOOK.smoke;
+    const scale = radius / EXPLOSION_LOOK.referenceRadius;
+
+    for (let i = 0; i < count; i++) {
+      const particle = this.pools.getInactiveParticle('trailNormal');
+      if (!particle) break;
+
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * smoke.spread * radius;
+      particle.position.set(localX + Math.cos(angle) * dist, localY, localZ + Math.sin(angle) * dist);
+      particle.velocity.set(
+        (Math.random() - 0.5) * 2 * smoke.drift,
+        smoke.riseMin + Math.random() * (smoke.riseMax - smoke.riseMin),
+        (Math.random() - 0.5) * 2 * smoke.drift
+      );
+
+      particle.maxLife = smoke.lifeMin + Math.random() * (smoke.lifeMax - smoke.lifeMin);
+      const delay = smoke.delayMin + Math.random() * (smoke.delayMax - smoke.delayMin);
+      particle.life = 1 + delay / particle.maxLife;
+      particle.size = (smoke.sizeMin + Math.random() * (smoke.sizeMax - smoke.sizeMin)) * scale;
+      particle.sizeStart = smoke.sizeStart;
+      particle.sizeEnd = smoke.sizeEnd;
+      particle.frameIndex = 0;
+      particle.totalFrames = totalAtlasFrames;
+
+      const grey = smoke.greyMin + Math.random() * (smoke.greyMax - smoke.greyMin);
+      particle.color.setRGB(grey, grey, grey * 0.95);
+    }
   }
 
   /**
@@ -855,11 +916,20 @@ export class ParticleEffectsRenderer {
    * @param lat - Latitude
    * @param lon - Longitude
    * @param height - Height above ground
-   * @param count - Number of particles (default 25)
+   * @param count - Fireball particles (default 25)
+   * @param radius - Blast radius in meters (default EXPLOSION_LOOK.referenceRadius)
+   * @param smokePuffs - Smoke puffs after the fireball (default 0)
    */
-  spawnExplosionAtGeo(lat: number, lon: number, height: number, count = 25): void {
+  spawnExplosionAtGeo(
+    lat: number,
+    lon: number,
+    height: number,
+    count = 25,
+    radius: number = EXPLOSION_LOOK.referenceRadius,
+    smokePuffs = 0
+  ): void {
     const localPos = this.sync.geoToLocal(lat, lon, height);
-    this.spawnExplosion(localPos.x, localPos.y, localPos.z, count);
+    this.spawnExplosion(localPos.x, localPos.y, localPos.z, count, radius, smokePuffs);
   }
 
   /**

@@ -402,18 +402,19 @@ export class ThreeEffectsRenderer {
   }
 
   /**
-   * Spawn explosion effect at local position
-   * Used for rocket impacts and other explosions
-   * Uses ADDITIVE blending (fire/glow effect)
+   * Spawn a two-stage fire-atlas explosion (fireball, then smoke) at a
+   * local position. Speeds and sprite sizes scale with `radius`, see
+   * EXPLOSION_LOOK.
    *
    * @param localX - Local X coordinate
    * @param localY - Local Y coordinate (height)
    * @param localZ - Local Z coordinate
-   * @param count - Number of particles (default 25)
-   * @param radius - Explosion radius in meters (default 5)
+   * @param count - Fireball particles (default 25)
+   * @param radius - Blast radius in meters (default EXPLOSION_LOOK.referenceRadius)
+   * @param smokePuffs - Smoke puffs after the fireball (default 0)
    */
-  spawnExplosion(localX: number, localY: number, localZ: number, count = 25, _radius = 5): void {
-    this.particleEffects.spawnExplosion(localX, localY, localZ, count, _radius);
+  spawnExplosion(localX: number, localY: number, localZ: number, count = 25, radius?: number, smokePuffs = 0): void {
+    this.particleEffects.spawnExplosion(localX, localY, localZ, count, radius, smokePuffs);
   }
 
   /**
@@ -423,10 +424,12 @@ export class ThreeEffectsRenderer {
    * @param lat - Latitude
    * @param lon - Longitude
    * @param height - Height above ground
-   * @param count - Number of particles (default 25)
+   * @param count - Fireball particles (default 25)
+   * @param radius - Blast radius in meters (default EXPLOSION_LOOK.referenceRadius)
+   * @param smokePuffs - Smoke puffs after the fireball (default 0)
    */
-  spawnExplosionAtGeo(lat: number, lon: number, height: number, count = 25): void {
-    this.particleEffects.spawnExplosionAtGeo(lat, lon, height, count);
+  spawnExplosionAtGeo(lat: number, lon: number, height: number, count = 25, radius?: number, smokePuffs = 0): void {
+    this.particleEffects.spawnExplosionAtGeo(lat, lon, height, count, radius, smokePuffs);
   }
 
   /**
