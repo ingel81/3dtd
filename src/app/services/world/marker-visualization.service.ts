@@ -29,12 +29,33 @@ import {
   HQ_MARKER_SCALE,
   MARKER_FLOAT_HEIGHT,
   MARKER_LABEL_OFFSET,
+  PORTAL_OPENING_HEIGHT,
+  PORTAL_OPENING_WIDTH,
+  PORTAL_SETBACK,
   portalLabelHeight,
 } from '../../configs/marker-geometry.config';
+import { SPAWN_PORTAL_LOOK, type BurstPalette } from '../../configs/visual-effects.config';
 import { corridorConfig } from '../../utils/route-corridor';
 
 /** Waypoints from the route start read for a portal's heading, see spawnPortalPose. */
 const PORTAL_POSE_WAYPOINTS = 16;
+
+/**
+ * An enemy spawning this close to a portal's centre came out of it (m).
+ * Enemies start on the route start, PORTAL_SETBACK behind the portal plane.
+ */
+const SPAWN_MATCH_RADIUS = PORTAL_SETBACK + 6;
+
+/** Spark colours of a portal: white-hot, its colour, its colour darkened. */
+function portalPalette(color: number): BurstPalette {
+  const c = new Color(color);
+  const hot = c.clone().lerp(new Color(0xffffff), 0.65);
+  return [
+    { r: hot.r, g: hot.g, b: hot.b },
+    { r: c.r, g: c.g, b: c.b },
+    { r: c.r * 0.5, g: c.g * 0.5, b: c.b * 0.5 },
+  ];
+}
 
 /**
  * SpawnPoint definition - extends GeoPosition for consistent coordinate handling
@@ -91,6 +112,9 @@ export class MarkerVisualizationService {
    */
   private readonly portalsOnCells = new Set<string>();
 
+  /** Spark colours per portal, built once when the portal is added */
+  private readonly portalPalettes = new Map<string, BurstPalette>();
+
   /** Height debug markers group (small spheres for terrain height debugging) */
   private heightDebugGroup: Group | null = null;
 
@@ -129,6 +153,7 @@ export class MarkerVisualizationService {
     this.portalManager?.dispose();
     this.labelManager?.dispose();
     this.portalsOnCells.clear();
+    this.portalPalettes.clear();
 
     const overlayGroup = engine.getOverlayGroup();
     this.markerManager = new MarkerInstanceManager(overlayGroup);
@@ -137,8 +162,9 @@ export class MarkerVisualizationService {
   }
 
   /**
-   * Let the portals follow the waves: a surge at wave start, the wave's
-   * energy while it runs, idle again once it or the game is over.
+   * Let the portals follow the game: a surge at wave start, the wave's
+   * energy while it runs, idle again once it or the game is over, and a
+   * burst when an enemy steps through (onEnemySpawned).
    */
   subscribeToEventBus(eventBus: GameEventBus): void {
     this.eventBusSubs.disposeAll();
@@ -147,6 +173,43 @@ export class MarkerVisualizationService {
     this.eventBusSubs.add(eventBus.on('wave:completed', calmDown));
     this.eventBusSubs.add(eventBus.on('game:over', calmDown));
     this.eventBusSubs.add(eventBus.on('game:reset', calmDown));
+    this.eventBusSubs.add(eventBus.on('enemy:spawned', (event) => this.onEnemySpawned(event.enemy.position)));
+  }
+
+  /**
+   * Spawn effect when an enemy steps through a portal: a ripple over the
+   * surface and the street and sparks thrown out along its facing. Waves
+   * reach thousands of enemies, so a portal takes at most one burst per
+   * SPAWN_PORTAL_LOOK.burstIntervalMs, and while every portal waits an
+   * enemy costs one comparison. No allocation per enemy. Decoration of the
+   * impact kind: off together with the impact effects (VFX settings); the
+   * portal itself always shows.
+   */
+  private onEnemySpawned(position: GeoPosition): void {
+    const engine = this.engine;
+    const portals = this.portalManager;
+    if (!engine || !portals) return;
+    const now = performance.now();
+    if (now < portals.burstReadyMs || !engine.effects.impactEffectsEnabled) return;
+
+    const local = engine.sync.geoToLocalSimpleInto(position.lat, position.lon, 0, this.tmpVec);
+    const id = portals.portalNear(local.x, local.z, SPAWN_MATCH_RADIUS);
+    if (id === null || !portals.tryBurst(id, now)) return;
+
+    const pose = portals.getPose(id)!;
+    const palette = this.portalPalettes.get(id);
+    if (!palette) return;
+    engine.effects.spawnPortalSparks(
+      pose.x,
+      pose.y,
+      pose.z,
+      Math.sin(pose.heading),
+      Math.cos(pose.heading),
+      (PORTAL_OPENING_WIDTH / 2) * pose.scale,
+      PORTAL_OPENING_HEIGHT * pose.scale,
+      SPAWN_PORTAL_LOOK.burstParticles,
+      palette,
+    );
   }
 
   // ========================================
@@ -227,6 +290,7 @@ export class MarkerVisualizationService {
 
     this.portalManager.add(id, pose, color);
     this.portalsOnCells.delete(id);
+    this.portalPalettes.set(id, portalPalette(color));
     this.labelManager.addLabel(id, name, this.portalLabelCentre(pose), cssColor, this.getPhaseOffset(id));
   }
 
@@ -281,6 +345,7 @@ export class MarkerVisualizationService {
     this.portalManager.remove(spawnId);
     this.labelManager.removeLabel(spawnId);
     this.portalsOnCells.delete(spawnId);
+    this.portalPalettes.delete(spawnId);
   }
 
   /**
@@ -294,6 +359,7 @@ export class MarkerVisualizationService {
       this.labelManager.removeLabel(id);
     }
     this.portalsOnCells.clear();
+    this.portalPalettes.clear();
   }
 
   // ========================================
@@ -414,6 +480,7 @@ export class MarkerVisualizationService {
     this.labelManager?.clear();
     this.clearHeightDebugMarkers();
     this.portalsOnCells.clear();
+    this.portalPalettes.clear();
   }
 
   // ========================================
@@ -559,6 +626,7 @@ export class MarkerVisualizationService {
     this.portalManager = null;
     this.labelManager = null;
     this.portalsOnCells.clear();
+    this.portalPalettes.clear();
     this.engine = null;
     this.baseCoords = null;
     this.heightDebugVisible = null;

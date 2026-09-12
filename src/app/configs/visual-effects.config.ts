@@ -208,6 +208,16 @@ export const SPAWN_PORTAL_LOOK = {
   surgeDecay: 1.2,
   /** Time constant of the change between idle and wave energy */
   settle: 1.5,
+  /**
+   * Spawn effect, when an enemy steps through: a ripple over the surface
+   * and the street, and sparks thrown out of the portal. Waves reach
+   * thousands of enemies, so a portal takes at most one burst per
+   * burstIntervalMs (wall time), however many come through.
+   */
+  burstIntervalMs: 250,
+  burstParticles: 10,
+  /** Life of the ripple (s) */
+  rippleLife: 0.9,
 } as const;
 
 /** RGB colour, channels 0-1 (linear, as the particle pools store it). */

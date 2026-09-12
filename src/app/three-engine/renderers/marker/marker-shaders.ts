@@ -507,24 +507,33 @@ export function createPortalFrameMaterial(layout: PortalShaderLayout, energy: nu
  * light it throws on the street, in one draw call. Premultiplied alpha
  * (ONE, ONE_MINUS_SRC_ALPHA): the surface's dark void covers the street
  * behind the portal and its swirl adds light on top, the ground patch
- * writes alpha 0 and is purely additive.
+ * writes alpha 0 and is purely additive. aRipple is the wall time (s) of
+ * the portal's last spawn burst: a ring runs out from the eye over the
+ * surface and from the portal's foot over the street.
  */
-export function createPortalEnergyMaterial(layout: PortalShaderLayout, energy: number): ShaderMaterial {
+export function createPortalEnergyMaterial(
+  layout: PortalShaderLayout,
+  energy: number,
+  rippleLife: number,
+): ShaderMaterial {
   return new ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
       uEnergy: { value: energy },
+      uRippleLife: { value: rippleLife },
       uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
       uGround: { value: new Vector3(layout.groundHalfWidth, layout.groundBack, layout.groundFront) },
     },
     vertexShader: /* glsl */ `
       attribute vec3 aColor;
       attribute float aPhase;
+      attribute float aRipple;
       attribute float aPart;
 
       varying vec3 vLocal;
       varying vec3 vColor;
       varying float vPhase;
+      varying float vRipple;
       varying float vPart;
 
       #include <common>
@@ -534,6 +543,7 @@ export function createPortalEnergyMaterial(layout: PortalShaderLayout, energy: n
         vLocal = position;
         vColor = aColor;
         vPhase = aPhase;
+        vRipple = aRipple;
         vPart = aPart;
 
         vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
@@ -547,12 +557,14 @@ export function createPortalEnergyMaterial(layout: PortalShaderLayout, energy: n
 
       uniform float uTime;
       uniform float uEnergy;
+      uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height
       uniform vec3 uGround;  // half width, depth behind, depth in front
 
       varying vec3 vLocal;
       varying vec3 vColor;
       varying float vPhase;
+      varying float vRipple;
       varying float vPart;
 
       #include <logdepthbuf_pars_fragment>
@@ -563,6 +575,11 @@ export function createPortalEnergyMaterial(layout: PortalShaderLayout, energy: n
         #include <logdepthbuf_fragment>
 
         vec3 hot = mix(vColor, vec3(1.0, 0.93, 0.75), 0.6);
+
+        // Spawn burst: strength fading from 1 to 0 over the ripple's life
+        float age = uTime - vRipple;
+        float ripple = age >= 0.0 && age < uRippleLife ? 1.0 - age / uRippleLife : 0.0;
+        float progress = 1.0 - ripple;
 
         if (vPart < 0.5) {
           // Surface: a swirl around an eye a little below the middle,
@@ -580,9 +597,12 @@ export function createPortalEnergyMaterial(layout: PortalShaderLayout, energy: n
           // Metres to the nearest edge of the opening: the rim burns brightest
           float edge = min(uOpening.x - abs(vLocal.x), min(vLocal.y, uOpening.y - vLocal.y));
           float rim = exp(-max(edge, 0.0) * 1.2);
+          // Ring running out from the eye past the frame
+          float wave = ripple * exp(-pow((r - progress * 2.2) * 5.0, 2.0));
 
           vec3 light = mix(vColor * 0.7, hot, bands * n) * glow * (0.5 + uEnergy)
-            + hot * rim * (0.3 + 0.6 * uEnergy);
+            + hot * rim * (0.3 + 0.6 * uEnergy)
+            + hot * wave * 1.6;
           const float VOID = 0.82;
           gl_FragColor = vec4(vColor * 0.03 * VOID + light, VOID);
         } else {
@@ -595,7 +615,10 @@ export function createPortalEnergyMaterial(layout: PortalShaderLayout, energy: n
             ? 1.0 - smoothstep(0.35, 1.0, vLocal.z / uGround.z)
             : (1.0 - smoothstep(0.2, 1.0, -vLocal.z / uGround.y)) * 0.45;
           float flicker = 0.85 + 0.15 * portalNoise(vec2(uTime * 2.3 + vPhase, d * 0.3));
-          vec3 light = vColor * exp(-d * 0.25) * side * along * (0.25 + 0.45 * uEnergy) * flicker;
+          // Ring running out from the portal's foot over the street
+          float ring = ripple * exp(-pow(d - progress * uGround.z, 2.0) * 0.6);
+          vec3 light = vColor * exp(-d * 0.25) * side * along * (0.25 + 0.45 * uEnergy) * flicker
+            + hot * ring * side * along * 0.9;
           gl_FragColor = vec4(light, 0.0);
         }
       }

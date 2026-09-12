@@ -69,6 +69,7 @@ const SPAWNS = {
     e.spawnIceExplosion(0, 0, 0, 20);
     e.spawnBurstAtGeo(0, 0, 0, 14, BURST_PALETTES.arcane);
     e.spawnBloodSplatter(0, 0, 0, 10);
+    e.spawnPortalSparks(0, 0, 0, 0, 1, 4, 10, 10, BURST_PALETTES.chaos);
   },
 };
 type ParticleSwitch = keyof typeof SPAWNS;

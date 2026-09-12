@@ -95,8 +95,15 @@ function fakeEngine() {
       return terrain.at.has(key) ? terrain.at.get(key)! : terrain.fallback;
     }),
     getCamera: vi.fn(() => new PerspectiveCamera()),
-    sync: { geoToLocalSimple: vi.fn(geoToLocal), localToGeo: vi.fn(localToGeo) },
-    effects: { setDebugSpheresVisible: vi.fn() },
+    sync: {
+      geoToLocalSimple: vi.fn(geoToLocal),
+      geoToLocalSimpleInto: vi.fn((lat: number, lon: number, height: number, out: Vector3) => {
+        const p = geoToLocal(lat, lon, height);
+        return out.set(p.x, p.y, p.z);
+      }),
+      localToGeo: vi.fn(localToGeo),
+    },
+    effects: { setDebugSpheresVisible: vi.fn(), impactEffectsEnabled: true, spawnPortalSparks: vi.fn() },
   };
   return { engine, overlay, terrain, asEngine: engine as unknown as ThreeTilesEngine };
 }
@@ -458,6 +465,63 @@ describe('MarkerVisualizationService', () => {
         service.animateMarkers(16);
       }
       expect(energy()).toBeCloseTo(L.idleEnergy, 2);
+    });
+  });
+
+  describe('spawn burst', () => {
+    const lat = BASE.lat + 0.002;
+    // Route south toward the HQ, (0, 200) to (0, 100) in local metres
+    const route = [{ lat, lon: BASE.lon }, { lat: BASE.lat + 0.001, lon: BASE.lon }];
+
+    /** A portal on the route start, listening to a fresh event bus; returns an enemy spawner. */
+    function portalOnRoute() {
+      init();
+      service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);
+      service.placeSpawnPortal('s1', route, 12);
+      const bus = new GameEventBus();
+      service.subscribeToEventBus(bus);
+      return (at: { lat: number; lon: number }) =>
+        bus.emit({ type: 'enemy:spawned', enemy: { position: at } } as never);
+    }
+
+    it('throws sparks out of the portal along the route, at most once per interval', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+      const enemyAt = portalOnRoute();
+      const sparks = fake.engine.effects.spawnPortalSparks;
+
+      // A thousand enemies at the same moment
+      for (let i = 0; i < 1000; i++) enemyAt(route[0]);
+      expect(sparks).toHaveBeenCalledTimes(1);
+
+      // Portal plane 2 m ahead of the route start, on the cell, facing south
+      const [x, y, z, forwardX, forwardZ] = sparks.mock.calls[0] as number[];
+      expect(x).toBeCloseTo(0);
+      expect(y).toBe(12);
+      expect(z).toBeCloseTo(200 - PORTAL_SETBACK);
+      expect(forwardX).toBeCloseTo(0);
+      expect(forwardZ).toBeCloseTo(-1);
+
+      now.mockReturnValue(1000 + SPAWN_PORTAL_LOOK.burstIntervalMs);
+      enemyAt(route[0]);
+      expect(sparks).toHaveBeenCalledTimes(2);
+    });
+
+    it('stays off with the impact effects off, and for enemies that start at no portal', () => {
+      vi.spyOn(performance, 'now').mockReturnValue(1000);
+      const enemyAt = portalOnRoute();
+      const sparks = fake.engine.effects.spawnPortalSparks;
+
+      fake.engine.effects.impactEffectsEnabled = false;
+      enemyAt(route[0]);
+      expect(sparks).not.toHaveBeenCalled();
+
+      fake.engine.effects.impactEffectsEnabled = true;
+      enemyAt({ lat: BASE.lat + 0.0015, lon: BASE.lon + 0.001 }); // a debug spawn elsewhere
+      expect(sparks).not.toHaveBeenCalled();
+
+      // The switched-off enemy did not use up the portal's burst
+      enemyAt(route[0]);
+      expect(sparks).toHaveBeenCalledTimes(1);
     });
   });
 

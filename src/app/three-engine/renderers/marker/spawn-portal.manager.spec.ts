@@ -48,3 +48,45 @@ describe('SpawnPortalManager: Energie', () => {
     expect(portals.energyLevel).toBeLessThan(L.waveEnergy);
   });
 });
+
+describe('SpawnPortalManager: Spawn-Effekt', () => {
+  it('nimmt je Portal höchstens einen Burst pro Intervall, egal wie viele Gegner kommen', () => {
+    const portals = new SpawnPortalManager(new Group());
+    portals.add('s1', POSE, 0xef4444);
+    portals.add('s2', { ...POSE, x: 300 }, 0xf97316);
+
+    // 2000 Gegner in einer Sekunde durch s1
+    let bursts = 0;
+    for (let i = 0; i < 2000; i++) if (portals.tryBurst('s1', 1000 + i * 0.5)) bursts++;
+    expect(bursts).toBe(Math.ceil(1000 / SPAWN_PORTAL_LOOK.burstIntervalMs));
+
+    // s2 hat seine eigene Uhr
+    expect(portals.tryBurst('s2', 1500)).toBe(true);
+    expect(portals.tryBurst('unbekannt', 1500)).toBe(false);
+  });
+
+  it('meldet, ab wann wieder ein Portal einen Burst nimmt', () => {
+    const portals = new SpawnPortalManager(new Group());
+    expect(portals.burstReadyMs).toBe(Infinity);
+    portals.add('s1', POSE, 0xef4444);
+    portals.add('s2', { ...POSE, x: 300 }, 0xf97316);
+    expect(portals.burstReadyMs).toBe(0);
+
+    portals.tryBurst('s1', 1000);
+    expect(portals.burstReadyMs).toBe(0);
+    portals.tryBurst('s2', 1100);
+    expect(portals.burstReadyMs).toBe(1000 + SPAWN_PORTAL_LOOK.burstIntervalMs);
+
+    portals.clear();
+    expect(portals.burstReadyMs).toBe(Infinity);
+  });
+
+  it('ordnet einen Gegner dem nächsten Portal im Umkreis zu', () => {
+    const portals = new SpawnPortalManager(new Group());
+    portals.add('s1', POSE, 0xef4444);
+    portals.add('s2', { ...POSE, x: 300 }, 0xf97316);
+    expect(portals.portalNear(-2, 1, 8)).toBe('s1');
+    expect(portals.portalNear(297, 0, 8)).toBe('s2');
+    expect(portals.portalNear(150, 0, 8)).toBeNull();
+  });
+});
