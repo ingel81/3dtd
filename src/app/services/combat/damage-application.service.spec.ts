@@ -46,9 +46,10 @@ function makeEnemy(opts: {
     health: {
       get hp() { return hp; },
       maxHp: opts.maxHp ?? opts.hp ?? 100,
+      // Clamps at 0 like HealthComponent.takeDamage
       takeDamage(n: number) {
-        hp -= n;
-        return hp <= 0;
+        hp = Math.max(0, hp - n);
+        return hp === 0;
       },
     },
     getEffectiveArmorType: () => armor,
@@ -56,12 +57,12 @@ function makeEnemy(opts: {
 }
 
 function makeTower(id: string) {
-  return { id, combat: { kills: 0 } };
+  return { id, combat: { kills: 0, damageDealt: 0 } };
 }
 
 describe('DamageApplicationService', () => {
   let service: DamageApplicationService;
-  let towerKillsById: Record<string, { combat: { kills: number } }>;
+  let towerKillsById: Record<string, { combat: { kills: number; damageDealt: number } }>;
   let killedEnemyIds: string[];
   let dyingIds: Set<string>;
   let bus: GameEventBus;
@@ -206,6 +207,48 @@ describe('DamageApplicationService', () => {
       expect(killedEnemyIds).not.toContain('dying');
       expect(towerKillsById['t-A'].combat.kills).toBe(0);
       expect(handler).not.toHaveBeenCalled();
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // Damage dealt per tower
+  // ────────────────────────────────────────────────────────────────
+  describe('damage dealt', () => {
+    it('adds the final damage of a hit to the source tower', () => {
+      towerKillsById['t-A'] = makeTower('t-A');
+      service.applyDamage(vfx as never, makeEnemy({ hp: 100 }) as never, 25, 'physical' as DamageType, 't-A', false, false);
+      service.applyDamage(vfx as never, makeEnemy({ hp: 100 }) as never, 10, 'physical' as DamageType, 't-A', false, false);
+      expect(towerKillsById['t-A'].combat.damageDealt).toBe(35);
+    });
+
+    it('counts only the HP a lethal hit took, not the overkill', () => {
+      towerKillsById['t-A'] = makeTower('t-A');
+      service.applyDamage(vfx as never, makeEnemy({ hp: 10 }) as never, 100, 'physical' as DamageType, 't-A', false, false);
+      expect(towerKillsById['t-A'].combat.damageDealt).toBe(10);
+    });
+
+    it('adds nothing for a hit on an enemy already at 0 HP', () => {
+      towerKillsById['t-A'] = makeTower('t-A');
+      const enemy = makeEnemy({ hp: 5 });
+      service.applyDamage(vfx as never, enemy as never, 50, 'physical' as DamageType, 't-A', false, false);
+      service.applyDamage(vfx as never, enemy as never, 50, 'physical' as DamageType, 't-A', false, false);
+      expect(towerKillsById['t-A'].combat.damageDealt).toBe(5);
+    });
+
+    it('counts beam ticks too', () => {
+      towerKillsById['flame'] = makeTower('flame');
+      const enemy = makeEnemy({ hp: 1000 });
+      service.applyBeamDamage(vfx as never, enemy as never, 2.5, 'fire' as DamageType, 'flame', false);
+      service.applyBeamDamage(vfx as never, enemy as never, 2.5, 'fire' as DamageType, 'flame', false);
+      // Whatever the fire multiplier is: dealt equals the HP the two ticks took
+      expect(enemy.health.hp).toBeLessThan(1000);
+      expect(towerKillsById['flame'].combat.damageDealt).toBeCloseTo(1000 - enemy.health.hp, 6);
+    });
+
+    it('credits nothing to a tower that is gone (sold)', () => {
+      expect(() =>
+        service.applyDamage(vfx as never, makeEnemy() as never, 10, 'physical' as DamageType, 'sold', false, false),
+      ).not.toThrow();
     });
   });
 

@@ -44,15 +44,21 @@
 
 @include panel.tower-section;
 
-/* Stats Grid, 3×2 (Phase 5.16) with damage-type tile at pos 0 */
+/* Stats Grid: three tiles over four on a 12-column track, damage-type tile at pos 0 */
 .td-stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
 }
-.td-stats-grid.td-stats-grid-3 {
-  grid-template-columns: repeat(3, 1fr);
+.td-stats-grid.td-stats-grid-7 {
+  grid-template-columns: repeat(12, 1fr);
   gap: 4px;
+}
+.td-stats-grid-7 > .td-stat-tile {
+  grid-column: span 4;
+}
+.td-stats-grid-7 > .td-stat-tile:nth-child(n + 4) {
+  grid-column: span 3;
 }
 
 .td-stat-tile {

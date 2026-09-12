@@ -63,7 +63,9 @@ export class DamageApplicationService {
       vfx.emitHitBlood(enemy, isSplashDamage);
     }
 
+    const hpBefore = enemy.health.hp;
     const killed = enemy.health.takeDamage(result.finalDamage);
+    this.creditDamage(sourceTowerId, hpBefore - enemy.health.hp);
     if (killed) {
       if (!skipBloodEffects) {
         vfx.emitDeathBlood(enemy);
@@ -104,7 +106,9 @@ export class DamageApplicationService {
       vfx.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 5);
     }
 
+    const hpBefore = enemy.health.hp;
     const killed = enemy.health.takeDamage(result.finalDamage);
+    this.creditDamage(sourceTowerId, hpBefore - enemy.health.hp);
     if (killed) {
       vfx.emitDeathBlood(enemy);
       this.killEnemy(enemy, sourceTowerId);
@@ -143,6 +147,17 @@ export class DamageApplicationService {
       vfx.emitDeathBlood(enemy);
     }
     return true;
+  }
+
+  /**
+   * Add the HP a hit actually took to its tower's damageDealt. Overkill and
+   * hits on an enemy already at 0 HP add nothing; a sold tower is not found.
+   * Ability damage (applyMaxHpFraction) belongs to no tower and is not counted.
+   */
+  private creditDamage(sourceTowerId: string, dealt: number): void {
+    if (dealt <= 0 || !this.towerManager) return;
+    const tower = this.towerManager.getById(sourceTowerId);
+    if (tower) tower.combat.damageDealt += dealt;
   }
 
   /**
