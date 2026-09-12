@@ -111,6 +111,17 @@
   .td-header-sell-value {
     font-variant-numeric: tabular-nums;
   }
+  /* First click on Sell: the button stays red and the name gives way to the
+   * prompt until the second click or SELL_CONFIRM_WINDOW_MS. More specific
+   * than the teal name of the tower panel, which sets it with three classes. */
+  .td-header-sell-btn.armed {
+    color: var(--td-health-red);
+    background: var(--td-health-bg);
+    box-shadow: 0 0 0 1px var(--td-health-red);
+  }
+  .td-panel-header .td-tower-header-name.td-sell-armed-text {
+    color: var(--td-health-red);
+  }
 }
 
 @mixin matrix-btn {

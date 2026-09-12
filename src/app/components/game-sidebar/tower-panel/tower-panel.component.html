@@ -1,13 +1,16 @@
 <!-- NORMAL TOWER Panel -->
 <section class="td-panel td-tower-panel">
   <div class="td-panel-header td-tower-header">
-    <span class="td-tower-header-name">{{ tower().typeConfig.name | uppercase }}</span>
+    <span class="td-tower-header-name" [class.td-sell-armed-text]="sellArmed()" aria-live="polite">
+      {{ sellArmed() ? 'Click again to sell' : (tower().typeConfig.name | uppercase) }}
+    </span>
     @if (stats().sellValue > 0) {
       <button class="td-header-sell-btn"
-              [matTooltip]="'Sell tower: refunds 75% of total invested (base + upgrades)'"
+              [class.armed]="sellArmed()"
+              [matTooltip]="sellArmed() ? 'Click again to sell for ' + stats().sellValue + ' credits' : 'Sell tower: refunds 75% of total invested (base + upgrades)'"
               matTooltipPosition="left"
-              [attr.aria-label]="'Sell for ' + stats().sellValue + ' credits'"
-              (click)="sellTower.emit()">
+              [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + stats().sellValue + ' credits'"
+              (click)="onSell()">
         <td-icon name="coin" [size]="14"></td-icon>
         <span class="td-header-sell-value">+{{ stats().sellValue }}</span>
       </button>
