@@ -1054,9 +1054,9 @@ export class ThreeTilesEngine {
   /**
    * Free space either side of a point on a street, for fitting the route
    * corridor to the street the tiles show. Casts one horizontal ray each way
-   * along `acrossX, acrossZ`, `heightAboveGround` over the column's ground,
-   * and returns the nearer distance to a fine tile surface (facade, tree),
-   * capped at `maxDistance`.
+   * along `acrossX, acrossZ`, `heightAboveGround` over the column's ground
+   * (over its top `onDeck`, for a bridge), and returns the nearer distance
+   * to a fine tile surface (facade, tree), capped at `maxDistance`.
    *
    * Only tiles at the corridor's refinement error count, for the column and
    * for the hits, so a coarse hull still waiting for its children neither
@@ -1072,6 +1072,7 @@ export class ThreeTilesEngine {
     acrossZ: number,
     heightAboveGround: number,
     maxDistance: number,
+    onDeck = false,
   ): number | null {
     if (this.devTerrainProvider || !this.tilesRenderer) return null;
     const column = this.sampleColumn(localX, localZ);
@@ -1079,7 +1080,8 @@ export class ThreeTilesEngine {
     const len = Math.hypot(acrossX, acrossZ);
     if (len === 0) return null;
 
-    this._clearanceOrigin.set(localX, column.groundY + heightAboveGround, localZ);
+    const surfaceY = onDeck ? column.topY : column.groundY;
+    this._clearanceOrigin.set(localX, surfaceY + heightAboveGround, localZ);
     let nearest = maxDistance;
     for (const side of [1, -1]) {
       this._clearanceDirection.set((side * acrossX) / len, 0, (side * acrossZ) / len);

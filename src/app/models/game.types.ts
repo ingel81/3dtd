@@ -18,6 +18,11 @@ export interface RouteWaypoint extends GeoPosition {
    * `utils/route-corridor.ts`.
    */
   corridorHalfWidth?: number;
+  /**
+   * The segment runs over a bridge (OSM `bridge=*`): its route cells stand
+   * on the deck, not on the ground below.
+   */
+  onBridge?: boolean;
 }
 
 /**

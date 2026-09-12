@@ -47,6 +47,13 @@ export interface RouteCell {
   /** Terrain height at cell center (local Y coordinate) */
   terrainHeight: number;
   /**
+   * Which surface of the column the cell stands on: `ground` is the lowest
+   * hit, `deck` the highest, the deck of a bridge the route crosses rather
+   * than the river or road below it. Set at generation from the OSM
+   * `bridge` tag of the segments that reach the cell, read by `sampleCellY`.
+   */
+  surface: 'ground' | 'deck';
+  /**
    * Route-anchor Y, taken at generation time from the smoothed route height
    * at the nearest route sample point. Stands in as `terrainHeight` until the
    * first real sample and is the reference for the height diagnostics

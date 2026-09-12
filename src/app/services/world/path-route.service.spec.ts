@@ -94,7 +94,7 @@ function makeEngine(): ThreeTilesEngine {
 }
 
 function makeNetwork(
-  streets: { id: number; type?: string; width?: number; lanes?: number; nodes: StreetNode[] }[],
+  streets: { id: number; type?: string; width?: number; lanes?: number; bridge?: string; nodes: StreetNode[] }[],
 ): StreetNetwork {
   const nodes = new Map<number, StreetNode>();
   for (const s of streets) for (const n of s.nodes) nodes.set(n.id, n);
@@ -221,6 +221,16 @@ describe('PathAndRouteService route geometry', () => {
       // 12 m width tag, a 2 m footway clamped to two cells, the leg to the
       // HQ keeps the footway's, the HQ ends the route.
       expect(route.map((p) => p.corridorHalfWidth)).toEqual([2.75, 6, 6, 2, 2, undefined]);
+    });
+
+    it('marks the segments that run over a bridge', () => {
+      network = makeNetwork([
+        { id: 100, nodes: [n10, n1] },
+        { id: 200, bridge: 'yes', nodes: [n1, n2, n3] },
+        { id: 300, nodes: [n3, n30] },
+      ]);
+      const route = buildRoute(network, { lat: 47.9995, lon: 9.0 }, hq);
+      expect(route.map((p) => p.onBridge === true)).toEqual([false, true, true, false, false, false]);
     });
 
     describe('fitted to the tiles', () => {
