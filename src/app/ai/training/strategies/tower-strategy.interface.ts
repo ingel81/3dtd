@@ -38,6 +38,12 @@ export interface ITowerStrategy {
    * strategies with internal cooldowns (e.g. sell-cooldown, wave-start-delay).
    */
   tickCooldowns?(deltaTime: number): void;
+
+  /** Optional: called after the bot executes a non-wait action from any strategy. */
+  onActionExecuted?(action: TowerAction): void;
+
+  /** Optional: called when the bot resets for a new game. */
+  onReset?(): void;
 }
 
 /**

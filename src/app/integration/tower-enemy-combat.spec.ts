@@ -43,7 +43,7 @@ describe('Tower → Enemy Combat Integration', () => {
 
   function placeTower(position: GeoPosition = TEST_TOWER_POSITION): Tower {
     // Initialize tower manager first
-    m.towerManager.initialize(m.tilesEngine);
+    m.towerManager.initialize(m.engine);
     return m.towerManager.placeTower(position, 'archer', 0)!;
   }
 

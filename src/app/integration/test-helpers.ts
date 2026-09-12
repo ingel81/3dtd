@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Shared test helpers for integration tests.
  *
@@ -17,6 +16,8 @@ import { OsmStreetService } from '../services/location/osm-street.service';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
+import type { ThreeTilesEngine } from '../three-engine';
+import type { ResearchStore } from '../store/research.store';
 
 // ─── Test Path Data ───────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ export function makeSingleTypeWaveConfig(opts: {
 // ─── Mock ThreeTilesEngine ────────────────────────────────────────
 
 /** Creates a mock ThreeTilesEngine that stubs all rendering calls */
-export function createMockTilesEngine(): any {
+export function createMockTilesEngine() {
   return {
     getScene: vi.fn(() => ({})),
     getTerrainHeightAtGeo: vi.fn(() => 0),
@@ -190,13 +191,15 @@ export function createMockTilesEngine(): any {
   };
 }
 
+export type MockTilesEngine = ReturnType<typeof createMockTilesEngine>;
+
 // ─── Mock Angular Services ────────────────────────────────────────
 
 /** Creates a mock OsmStreetService */
 export function createMockOsmService(): OsmStreetService {
   return {
     findNearestStreetPoint: vi.fn(() => ({ distance: 20, lat: 0, lon: 0 })),
-  } as any;
+  } as unknown as OsmStreetService;
 }
 
 /** Creates a mock GlobalRouteGridService */
@@ -209,13 +212,13 @@ export function createMockGlobalRouteGrid(): GlobalRouteGridService {
     getStats: vi.fn(() => ({ trackedEnemies: 0, occupiedCells: 0 })),
     initDebugViz: vi.fn(),
     clear: vi.fn(),
-  } as any;
+  } as unknown as GlobalRouteGridService;
 }
 
-export function createMockResearchStore(): any {
+export function createMockResearchStore(): ResearchStore {
   return {
     airTargetingUnlocked: vi.fn(() => false),
-  };
+  } as unknown as ResearchStore;
 }
 
 // ─── Factory: create wired-up managers ────────────────────────────
@@ -226,7 +229,9 @@ export interface TestManagers {
   towerManager: TowerManager;
   projectileManager: ProjectileManager;
   waveManager: WaveManager;
-  tilesEngine: any;
+  tilesEngine: MockTilesEngine;
+  /** The same mock typed as the engine, for passing to initialize(). */
+  engine: ThreeTilesEngine;
 }
 
 /**
@@ -247,10 +252,11 @@ export function createTestManagers(): TestManagers {
   const waveManager = new WaveManager(eventBus, enemyManager);
 
   const tilesEngine = createMockTilesEngine();
+  const engine = tilesEngine as unknown as ThreeTilesEngine;
 
   // Initialize with mock engine
-  enemyManager.initialize(tilesEngine);
-  projectileManager.initialize(tilesEngine);
+  enemyManager.initialize(engine);
+  projectileManager.initialize(engine);
 
   return {
     eventBus,
@@ -259,6 +265,7 @@ export function createTestManagers(): TestManagers {
     projectileManager,
     waveManager,
     tilesEngine,
+    engine,
   };
 }
 
