@@ -18,7 +18,8 @@ import { openLocationDialog } from '../../components/location-dialog/open-locati
 import { LocationDialogData, LocationDialogResult } from '../../models/location.types';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
-import { LocationChangeCoordinatorService, LocationFlowDelegate, LocationChangeCallbacks } from '../location/location-change-coordinator.service';
+import { LocationChangeCoordinatorService, LocationFlowDelegate } from '../location/location-change-coordinator.service';
+import { LocationChangeCallbacks } from '../location/location-change-executor.service';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { MapPlacementService } from '../world/map-placement.service';

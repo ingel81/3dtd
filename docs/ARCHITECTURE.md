@@ -140,6 +140,7 @@ src/app/services/
 │   ├── geocoding.service.ts
 │   ├── geolocation.service.ts
 │   ├── location-change-coordinator.service.ts
+│   ├── location-change-executor.service.ts
 │   ├── location-management.service.ts
 │   ├── osm-street.service.ts
 │   ├── pathfinding-worker.service.ts
@@ -221,7 +222,8 @@ src/app/services/
 | Service | Verantwortung |
 |---------|---------------|
 | **LocationManagementService** | Location CRUD, LocalStorage Persistence |
-| **LocationChangeCoordinatorService** | Koordiniert Location-Wechsel (Dialog, Spawns, Reset) |
+| **LocationChangeCoordinatorService** | Koordiniert Location-Wechsel (Dialog, Favoriten, Weltwürfel, Fehler-Unwinding) |
+| **LocationChangeExecutorService** | Die 7 Schritte eines Location-Wechsels (Reset, Straßen, HQ, Spawn, Routen, Finalize) |
 | **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
 | **GeolocationService** | Browser Geolocation API Wrapper |
 | **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
@@ -302,7 +304,7 @@ tower-defense.component.ts
     │
     ├── LocationFacadeService ────────── Location, DevWorld, Spawns
     │   ├── LocationManagementService ── Location CRUD
-    │   ├── LocationChangeCoordinatorService ── Location-Wechsel
+    │   ├── LocationChangeCoordinatorService ── Location-Wechsel (7 Schritte: LocationChangeExecutorService)
     │   ├── UrlLocationService ────────── URL Sharing
     │   ├── GeocodingService ──────────── Nominatim
     │   ├── GeolocationService ────────── Browser GPS

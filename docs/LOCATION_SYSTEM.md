@@ -15,7 +15,9 @@ LocationManagementService           ← State (Signals), Favorites
   ↓
 LocationFacadeService               ← Location Detection, Spawn-Logik
   ↓
-LocationChangeCoordinatorService    ← 7-Step Location Change Sequence
+LocationChangeCoordinatorService    ← Dialog, Favoriten, Weltwürfel; applyNewLocation
+  ↓
+LocationChangeExecutorService       ← 7-Step Location Change Sequence
   ↓
 LocationDialogComponent             ← UI fuer Ortswahl
 ```
@@ -26,7 +28,8 @@ LocationDialogComponent             ← UI fuer Ortswahl
 models/location.types.ts                                    - Interfaces (LocationConfig, LocationInfo, etc.)
 store/location.store.ts                                     - LocationStore (Angular Signals)
 services/location/location-management.service.ts            - Location State & Favorites
-services/location/location-change-coordinator.service.ts    - 7-Step Change Sequence
+services/location/location-change-coordinator.service.ts    - Location-UI-Flows, applyNewLocation (Guard + Fehler-Unwinding)
+services/location/location-change-executor.service.ts       - 7-Step Change Sequence
 services/facade/location-facade.service.ts                  - Sub-Facade (Detection, Spawns, Cleanup)
 services/location/url-location.service.ts                   - URL als Source of Truth
 services/location/geocoding.service.ts                      - Nominatim Forward/Reverse Geocoding
@@ -290,6 +293,9 @@ Nach Erkennung wird die URL synchronisiert (`syncUrlWithLocation()`).
 ## LocationChangeCoordinatorService - 7-Step Sequence
 
 Orchestriert den kompletten Ortswechsel. Extrahiert aus der TowerDefenseComponent um God-Object-Komplexitaet zu reduzieren.
+`applyNewLocation()` verhindert parallele Wechsel, laesst die sieben Schritte in
+`LocationChangeExecutorService.executeLocationChange()` laufen und setzt bei einem
+Fehler die Loading-Flags zurueck.
 
 ### Delegate-Pattern
 
