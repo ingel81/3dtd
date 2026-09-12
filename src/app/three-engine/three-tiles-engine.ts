@@ -1093,7 +1093,7 @@ export class ThreeTilesEngine {
    */
   dispose(): void {
     this.disposed = true;
-    this.renderLoop.stop();
+    this.renderLoop.dispose();
 
     // DevWorld owns a generation Web Worker and a set of raycast-only building
     // meshes that live outside the scene graph. Nothing else disposes them, so

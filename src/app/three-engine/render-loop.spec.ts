@@ -255,6 +255,42 @@ describe('RenderLoop', () => {
       expect(worker.terminate).toHaveBeenCalledTimes(1);
     });
 
+    it('dispose() beendet den Worker und löst den Sichtbarkeits-Listener', () => {
+      const add = vi.spyOn(document, 'addEventListener');
+      const remove = vi.spyOn(document, 'removeEventListener');
+      const { loop, hooks } = setup();
+      loop.setBackgroundLoopEnabled(true);
+      loop.start();
+      setHidden(true);
+      const worker = FakeWorker.instances[0];
+      const listener = add.mock.calls.find(([type]) => type === 'visibilitychange')?.[1];
+      expect(listener).toBeDefined();
+
+      loop.dispose();
+      expect(worker.terminate).toHaveBeenCalledTimes(1);
+      expect(remove).toHaveBeenCalledWith('visibilitychange', listener);
+
+      setHidden(false);
+      setHidden(true);
+      vi.advanceTimersByTime(100);
+      expect(FakeWorker.instances).toHaveLength(1);
+      expect(hooks.update).not.toHaveBeenCalled();
+    });
+
+    it('stop() allein behält den Listener, ein neuer start() nimmt den Heartbeat wieder auf', () => {
+      const { loop } = setup();
+      loop.setBackgroundLoopEnabled(true);
+      loop.start();
+      setHidden(true);
+      loop.stop();
+
+      setHidden(false);
+      loop.start();
+      expect(FakeWorker.instances).toHaveLength(1);
+      setHidden(true);
+      expect(FakeWorker.instances).toHaveLength(2);
+    });
+
     it('läuft auf rAF weiter, wenn der Worker nicht startet', () => {
       const error = new Error('no workers');
       vi.stubGlobal('Worker', class {
