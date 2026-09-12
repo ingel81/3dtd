@@ -68,6 +68,7 @@ import { TowerShadowMapper } from './tower-shadow-mapper';
 import { RouteCorridorRegion } from './route-corridor-region';
 import { warmUpScene } from './scene-warmup';
 import { logTileMaterialTypes } from './tile-material-log';
+import { instrumentRaycasts, raycastStats } from '../utils/raycast-stats';
 import type { GeoPosition } from '../models/game.types';
 
 /**
@@ -368,7 +369,7 @@ export class ThreeTilesEngine {
 
     // Lade-Events hängen sich erst in initialize() an den TilesRenderer
     this.tileLoading = new TileLoadingTracker(this.camera, this.renderer, {
-      probeOriginGround: () => this.raycastTerrainHeight(0, 0),
+      probeOriginGround: () => this.raycastTerrainHeight(0, 0, 'tileProbe'),
       onTileSetSettled: () => this.onTileSetSettled(),
     });
 
@@ -562,12 +563,15 @@ export class ThreeTilesEngine {
     // R10: do the tile materials run the scene lights? Logged once per type.
     logTileMaterialTypes(this.tilesRenderer);
 
+    // Every raycast into the tiles is timed per caller, see `__raycastStats()`.
+    instrumentRaycasts(this.tilesRenderer.group);
+
     // Set up terrain height sampler for tower range indicators (legacy)
     this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
 
     // Set up direct terrain raycaster for accurate terrain-conforming range indicators
     // This raycasts directly at local X,Z coordinates for exact terrain mesh intersection
-    this.towers.setTerrainRaycaster((localX, localZ) => this.raycastTerrainHeight(localX, localZ));
+    this.towers.setTerrainRaycaster((localX, localZ) => this.raycastTerrainHeight(localX, localZ, 'towerRange'));
 
     // Set up Line-of-Sight raycaster for visibility checks
     // Returns true if line of sight is BLOCKED
@@ -619,7 +623,7 @@ export class ThreeTilesEngine {
     this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
 
     // Set up direct terrain raycaster
-    this.towers.setTerrainRaycaster((localX, localZ) => this.raycastTerrainHeight(localX, localZ));
+    this.towers.setTerrainRaycaster((localX, localZ) => this.raycastTerrainHeight(localX, localZ, 'towerRange'));
 
     // Set up Line-of-Sight raycaster
     this.towers.setLineOfSightRaycaster((ox, oy, oz, tx, ty, tz) =>
@@ -874,7 +878,12 @@ export class ThreeTilesEngine {
 
     // Caching happens per column in `sampleColumn`, keyed on local (x,z), // one keyspace for the whole engine instead of a second lat/lon one.
     const localPos = this.sync.geoToLocalSimple(lat, lon, 0);
-    return this.sampleColumn(localPos.x, localPos.z)?.groundY ?? null;
+    const scope = raycastStats.enter('heightAtGeo');
+    try {
+      return this.sampleColumn(localPos.x, localPos.z)?.groundY ?? null;
+    } finally {
+      raycastStats.exit(scope);
+    }
   }
 
   /**
@@ -1038,10 +1047,16 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Ground height at a local position. Thin read of {@link sampleColumn}.
+   * Ground height at a local position. Thin read of {@link sampleColumn},
+   * the rays it casts are booked on `caller` (raycastStats).
    */
-  private raycastTerrainHeight(localX: number, localZ: number): number | null {
-    return this.sampleColumn(localX, localZ)?.groundY ?? null;
+  private raycastTerrainHeight(localX: number, localZ: number, caller: string): number | null {
+    const scope = raycastStats.enter(caller);
+    try {
+      return this.sampleColumn(localX, localZ)?.groundY ?? null;
+    } finally {
+      raycastStats.exit(scope);
+    }
   }
 
   /**
@@ -1210,7 +1225,12 @@ export class ThreeTilesEngine {
 
     // Reuse intersection array, intersectObject appends, so clear first
     this._losResults.length = 0;
-    this.raycaster.intersectObject(this.tilesRenderer.group, true, this._losResults);
+    const scope = raycastStats.enter('lineOfSight');
+    try {
+      this.raycaster.intersectObject(this.tilesRenderer.group, true, this._losResults);
+    } finally {
+      raycastStats.exit(scope);
+    }
 
     return this._losResults.length > 0;
   }
@@ -1226,7 +1246,7 @@ export class ThreeTilesEngine {
    * @returns Height in local Y coordinates, or null if no hit (and no anchor)
    */
   getTerrainHeightAtLocal(localX: number, localZ: number): number | null {
-    return this.raycastTerrainHeight(localX, localZ);
+    return this.raycastTerrainHeight(localX, localZ, 'heightAtLocal');
   }
 
 
@@ -1294,7 +1314,14 @@ export class ThreeTilesEngine {
     const raycaster = new Raycaster();
     raycaster.setFromCamera(mouse, this.camera);
 
-    const results = raycaster.intersectObject(this.tilesRenderer.group, true);
+    // Pointer moves in build and placement mode, and clicks
+    const scope = raycastStats.enter('screenPick');
+    let results: Intersection[];
+    try {
+      results = raycaster.intersectObject(this.tilesRenderer.group, true);
+    } finally {
+      raycastStats.exit(scope);
+    }
 
     if (results.length > 0) {
       return results[0].point.clone();

@@ -12,6 +12,7 @@ import { ThreeTilesEngine } from '../../three-engine';
 import { StreetNetwork, StreetNode } from '../location/osm-street.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { raycastStats } from '../../utils/raycast-stats';
 import { PathAndRouteService } from './path-route.service';
 import { GeoPosition } from '../../models/game.types';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -208,16 +209,21 @@ export class StreetRenderingService {
       const prepared = s.allNodes[i];
       const streetIdx = s.streetIndices[i];
 
-      // Get terrain height
+      // Get terrain height (rays booked as `streets`, see __raycastStats())
       let terrainY: number | null;
-      if (prepared.isDevWorld) {
-        terrainY = s.engine.getTerrainHeightAtGeo(prepared.node.lat, prepared.node.lon);
-      } else {
-        terrainY = s.engine.getGroundHeightEstimate(
-          prepared.node.lat, prepared.node.lon,
-          prepared.prev.lat, prepared.prev.lon,
-          prepared.next.lat, prepared.next.lon
-        );
+      const scope = raycastStats.enter('streets');
+      try {
+        if (prepared.isDevWorld) {
+          terrainY = s.engine.getTerrainHeightAtGeo(prepared.node.lat, prepared.node.lon);
+        } else {
+          terrainY = s.engine.getGroundHeightEstimate(
+            prepared.node.lat, prepared.node.lon,
+            prepared.prev.lat, prepared.prev.lon,
+            prepared.next.lat, prepared.next.lon
+          );
+        }
+      } finally {
+        raycastStats.exit(scope);
       }
 
       if (terrainY !== null) {

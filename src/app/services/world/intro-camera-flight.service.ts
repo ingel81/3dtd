@@ -1,7 +1,9 @@
 import { Injectable, NgZone, inject, signal } from '@angular/core';
 import { CatmullRomCurve3, MathUtils, Matrix4, Quaternion, Vector3 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
+import type { ColumnSample } from '../../three-engine/column-sample';
 import { GeoPosition } from '../../models/game.types';
+import { raycastStats } from '../../utils/raycast-stats';
 import { routePathToLocalPoints } from '../../utils/route-path.util';
 import {
   type FlightProfile,
@@ -854,7 +856,13 @@ export class IntroCameraFlightService {
     const distance = this.indexToDistance(i);
     if (!this.pointAtDistance(distance, this.samplePoint)) return;
 
-    const column = engine.sampleColumn(this.samplePoint.x, this.samplePoint.z);
+    const scope = raycastStats.enter('intro');
+    let column: ColumnSample | null;
+    try {
+      column = engine.sampleColumn(this.samplePoint.x, this.samplePoint.z);
+    } finally {
+      raycastStats.exit(scope);
+    }
     if (column !== null) {
       this.profile.top[i] = column.topY;
       this.profile.ground[i] = column.groundY;
