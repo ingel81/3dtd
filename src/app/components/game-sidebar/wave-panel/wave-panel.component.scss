@@ -42,7 +42,15 @@
  *   bereit          Gold-Verlauf, Hover-Glow, Pressed-Inset
  *   gesperrt        Build-Mode / Game Over, grau wie .td-btn:disabled
  *   Welle läuft     flach eingelassen, "Wave N" links, "N left" rechts,
- *                   unten ein Teal-Balken mit dem Anteil der Restgegner */
+ *                   unten ein Teal-Balken mit dem Anteil der Restgegner
+ * Er teilt sich die Zeile mit dem Nuclear-Strike-Knopf, sobald dessen
+ * Forschung fertig ist, und nimmt den Rest der Breite. */
+.td-wave-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
 .td-wave-btn {
   position: relative;
   overflow: hidden;
@@ -50,9 +58,9 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   height: 44px;
-  margin-top: 4px;
   padding: 0 14px;
   background: linear-gradient(
     180deg,
@@ -171,6 +179,100 @@
 .td-auto-wave-note {
   margin-left: auto;
   color: var(--td-text-muted);
+}
+
+/* === Nuclear Strike ===
+ * Quadrat neben dem Wave-Button, erst nach der Forschung. Eingelassen wie die
+ * laufende Welle; Gold nur, solange der Schlag bereit ist, der volle
+ * Gold-Verlauf des Wave-Buttons, solange gezielt wird. Unten ein Strich je
+ * Welle bis zur nächsten Ladung, alle hell, solange sie steht.
+ *   ready       Rand --td-gold-dark, Icon --td-gold-light, Hover-Glow
+ *   armed       Gold-Verlauf, Icon und Striche dunkel, Glow
+ *   waiting     geladen, keine Welle: Icon --td-text-muted
+ *   pending     Schlag unterwegs: Icon --td-warn-orange
+ *   recharging  Icon --td-text-disabled
+ * Ohne Wirkung bleibt er klickbar (aria-disabled), sonst zeigt der Tooltip
+ * die Restwellen nicht. */
+.td-strike-btn {
+  position: relative;
+  flex: 0 0 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 4px;
+  background: var(--td-panel-shadow);
+  color: var(--td-text-disabled);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(74, 84, 77, 0.13);
+  cursor: default;
+  transition: box-shadow 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.td-strike-btn.td-strike-ready {
+  color: var(--td-gold-light);
+  border-color: var(--td-gold-dark);
+  cursor: pointer;
+}
+
+.td-strike-btn.td-strike-ready:hover {
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.5),
+    var(--td-gold-glow);
+}
+
+.td-strike-btn.td-strike-armed {
+  background: linear-gradient(
+    180deg,
+    var(--td-gold-light) 0%,
+    var(--td-gold) 55%,
+    var(--td-gold-dark) 100%
+  );
+  color: #1A140A;
+  border-color: #11140F;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    var(--td-gold-glow);
+  cursor: pointer;
+}
+
+.td-strike-btn.td-strike-waiting {
+  color: var(--td-text-muted);
+}
+
+.td-strike-btn.td-strike-pending {
+  color: var(--td-warn-orange);
+}
+
+.td-strike-btn:focus-visible {
+  outline: 1px solid var(--td-gold-light);
+  outline-offset: 2px;
+}
+
+.td-strike-pips {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 5px;
+  display: flex;
+  gap: 3px;
+}
+
+.td-strike-pip {
+  flex: 1;
+  height: 2px;
+  background: var(--td-frame-mid);
+}
+
+.td-strike-pip.td-strike-pip-lit {
+  background: var(--td-gold);
+}
+
+.td-strike-armed .td-strike-pip.td-strike-pip-lit {
+  background: #1A140A;
 }
 
 /* Curriculum coming-up preview, flat, embedded directly under the

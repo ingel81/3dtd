@@ -38,31 +38,54 @@
         }
       </div>
     }
-    <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
-            [class.td-wave-counting]="!!waveButton().countdown"
-            [attr.aria-label]="waveButtonAriaLabel()"
-            aria-keyshortcuts="Space"
-            [disabled]="waveActive() || isGameOver()">
-      @if (waveActive()) {
-        <span class="td-wave-btn-main">
-          <td-icon name="wave" [size]="16"></td-icon>
-          <span>{{ waveButton().label }}</span>
-        </span>
-        @if (waveButton().left; as left) {
-          <span class="td-wave-left">{{ left }}</span>
-          <span class="td-wave-bar" [style.width.%]="waveButton().barPercent"></span>
+    <div class="td-wave-actions">
+      <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
+              [class.td-wave-counting]="!!waveButton().countdown"
+              [attr.aria-label]="waveButtonAriaLabel()"
+              aria-keyshortcuts="Space"
+              [disabled]="waveActive() || isGameOver()">
+        @if (waveActive()) {
+          <span class="td-wave-btn-main">
+            <td-icon name="wave" [size]="16"></td-icon>
+            <span>{{ waveButton().label }}</span>
+          </span>
+          @if (waveButton().left; as left) {
+            <span class="td-wave-left">{{ left }}</span>
+            <span class="td-wave-bar" [style.width.%]="waveButton().barPercent"></span>
+          }
+        } @else {
+          <span class="td-wave-btn-main">
+            <td-icon name="play" [size]="16"></td-icon>
+            <span>{{ waveButton().label }}</span>
+          </span>
+          @if (waveButton().countdown; as countdown) {
+            <span class="td-wave-countdown">{{ countdown }}</span>
+            <span class="td-wave-bar td-wave-bar-countdown" [style.width.%]="waveButton().barPercent"></span>
+          }
         }
-      } @else {
-        <span class="td-wave-btn-main">
-          <td-icon name="play" [size]="16"></td-icon>
-          <span>{{ waveButton().label }}</span>
-        </span>
-        @if (waveButton().countdown; as countdown) {
-          <span class="td-wave-countdown">{{ countdown }}</span>
-          <span class="td-wave-bar td-wave-bar-countdown" [style.width.%]="waveButton().barPercent"></span>
-        }
+      </button>
+
+      @if (strikeButton().visible) {
+        <button class="td-strike-btn"
+                [class.td-strike-ready]="strikeButton().state === 'ready'"
+                [class.td-strike-armed]="strikeButton().state === 'armed'"
+                [class.td-strike-waiting]="strikeButton().state === 'waiting'"
+                [class.td-strike-pending]="strikeButton().state === 'pending'"
+                [attr.aria-disabled]="!strikeButton().enabled"
+                [attr.aria-pressed]="strikeButton().state === 'armed'"
+                [attr.aria-label]="strikeButton().label"
+                [matTooltip]="strikeButton().label"
+                matTooltipPosition="left"
+                (click)="toggleStrike()">
+          <td-icon name="radiation" [size]="20"></td-icon>
+          <span class="td-strike-pips" aria-hidden="true">
+            @for (lit of strikeButton().pips; track $index) {
+              <span class="td-strike-pip" [class.td-strike-pip-lit]="lit"></span>
+            }
+          </span>
+        </button>
       }
-    </button>
+    </div>
 
     <label class="td-auto-wave">
       <input type="checkbox" [checked]="autoStart()" (change)="toggleAutoStart()">

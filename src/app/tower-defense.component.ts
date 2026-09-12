@@ -51,6 +51,7 @@ import { CameraControlService } from './services/camera-control.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { HotkeyService } from './services/hotkey.service';
 import { TowerPlacementService } from './services/tower-placement.service';
+import { AbilityTargetingService } from './services/ability-targeting.service';
 import { MapPlacementService } from './services/world/map-placement.service';
 import { LocationManagementService } from './services/location/location-management.service';
 import { HeightUpdateService } from './services/world/height-update.service';
@@ -163,6 +164,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly hotkeys = inject(HotkeyService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
+  private readonly abilityTargeting = inject(AbilityTargetingService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
@@ -311,6 +313,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     { key: 'ESC', description: 'Cancel' },
   ];
   readonly placementModeWarning = computed(() => this.mapPlacement.validationReason());
+
+  // Ability targeting hints (Nuclear Strike) for context hint box
+  readonly abilityTargetingActive = computed(() => this.abilityTargeting.targeting() !== null);
+  readonly abilityTargetingHints: HintItem[] = [
+    { key: 'Click', description: 'Strike' },
+    { key: 'ESC', description: 'Cancel' },
+  ];
+  readonly abilityTargetingWarning = this.abilityTargeting.warning;
 
   // Map placement mode (HQ/Spawn)
   readonly mapPlacementMode = computed(() => this.uiStore.mapPlacementMode());

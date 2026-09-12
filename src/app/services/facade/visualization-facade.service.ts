@@ -6,6 +6,7 @@ import { MarkerVisualizationService } from '../world/marker-visualization.servic
 import { PathAndRouteService } from '../world/path-route.service';
 import { InputHandlerService } from '../input-handler.service';
 import { TowerPlacementService } from '../tower-placement.service';
+import { AbilityTargetingService } from '../ability-targeting.service';
 import { MapPlacementService } from '../world/map-placement.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
@@ -88,6 +89,7 @@ export class VisualizationFacadeService {
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly inputHandler = inject(InputHandlerService);
   private readonly towerPlacement = inject(TowerPlacementService);
+  private readonly abilityTargeting = inject(AbilityTargetingService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly devWorld = inject(DevWorldService);
@@ -459,6 +461,13 @@ export class VisualizationFacadeService {
       (lat: number, lon: number, hitPoint: Vector3) => this.bridge.onMapPlacementMove(lat, lon, hitPoint),
     );
 
+    this.inputHandler.setAbilityTargetingCallback(
+      () => this.abilityTargeting.targeting(),
+      (lat: number, lon: number, height: number) => this.abilityTargeting.click(lat, lon, height),
+      (lat: number, lon: number, hitPoint: Vector3) => this.abilityTargeting.hover(lat, lon, hitPoint),
+      () => this.abilityTargeting.cancel(),
+    );
+
     this.inputHandler.initKeyboard({
       exitBuildMode: () => this.bridge.exitBuildMode(),
       exitMapPlacement: () => this.bridge.exitMapPlacement(),
@@ -548,6 +557,9 @@ export class VisualizationFacadeService {
 
     // Initialize map placement service (HQ/Spawn click-to-place)
     this.mapPlacement.initialize(engine, streetNetwork, { lat: base.lat, lon: base.lon });
+
+    // Ability targeting (Nuclear Strike): aims with the engine, fires through the game state
+    this.abilityTargeting.initialize(engine, this.gameState);
 
     // LOS-Debug-Panel — beobachtet TowerManager-Selection + Cubemap
     this.losDebug.initialize(
