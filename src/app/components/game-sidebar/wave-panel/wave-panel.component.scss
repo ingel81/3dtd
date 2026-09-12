@@ -34,8 +34,8 @@
 @include panel.content;
 
 /* === Wave Button ===
- * Primärer Call-to-Action der Sidebar, "Start Wave N". Gold-Rezept wie
- * TD_BUTTON_STYLES (Verlauf, Kante, Key-Shadow, Mono-Caps), 13px und 44px
+ * Primärer Call-to-Action der Sidebar, "Start Wave N". Gold-Button-Rezept
+ * aus DESIGN_SYSTEM.md (Verlauf, Kante, Key-Shadow, Mono-Caps), 13px und 44px
  * hoch, damit er sich vom Rest der Sidebar abhebt; Ecken wie Tower-Karten
  * (3px). Typografie und Höhe bleiben in jedem Zustand gleich, es wechseln
  * nur Fläche, Farbe und Inhalt:
@@ -101,7 +101,7 @@
   cursor: not-allowed;
 }
 
-/* Laufende Welle: eingelassen wie Slots und Inputs (TD_BEVEL_INSET) */
+/* Laufende Welle: eingelassen wie Slots und Inputs (vertiefte Fläche, DESIGN_SYSTEM.md) */
 .td-wave-btn.td-wave-running {
   justify-content: space-between;
   background: var(--td-panel-shadow);
