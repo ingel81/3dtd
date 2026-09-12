@@ -162,7 +162,8 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
                   <div class="group-header">
                     <span class="group-label">Group {{ $index + 1 }}</span>
                     <button class="remove-btn" (click)="waveDebug.removeGroup(group.id)"
-                            [disabled]="waveDebug.mixedGroups().length <= 1">
+                            [disabled]="waveDebug.mixedGroups().length <= 1"
+                            [attr.aria-label]="'Remove group ' + ($index + 1)">
                       <td-icon name="cross" [size]="14"></td-icon>
                     </button>
                   </div>

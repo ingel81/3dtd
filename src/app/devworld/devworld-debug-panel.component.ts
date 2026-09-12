@@ -57,7 +57,7 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
             min="0"
             max="99999"
           />
-          <button class="seed-btn" (click)="randomSeed()" title="Random Seed">
+          <button class="seed-btn" (click)="randomSeed()" title="Random Seed" aria-label="Random seed">
             <td-icon name="shuffle" [size]="14"></td-icon>
           </button>
         </div>
