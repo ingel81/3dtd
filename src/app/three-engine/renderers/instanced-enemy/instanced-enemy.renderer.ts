@@ -9,7 +9,7 @@ import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../configs/enem
 import { AssetManagerService } from '../../../services/infrastructure/asset-manager.service';
 import { EnemyInstanceManager, EnemyInstanceState } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
-import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT } from './vat-baker';
+import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT, vatClipNames } from './vat-baker';
 import { registerEnemyModelCenterY } from '../../../utils/enemy-aim.util';
 
 // Dummy Object3D shared across all instanced enemy stubs
@@ -116,16 +116,7 @@ export class InstancedEnemyRenderer {
           return;
         }
 
-        // Collect animation clip names to bake
-        const clipNames: string[] = [];
-        if (config.walkAnimation) clipNames.push(config.walkAnimation);
-        if (config.runAnimation) clipNames.push(config.runAnimation);
-        if (config.deathAnimation) clipNames.push(config.deathAnimation);
-        if (config.deathAnimations) {
-          for (const n of config.deathAnimations) clipNames.push(n);
-        }
-        if (config.idleAnimation) clipNames.push(config.idleAnimation);
-
+        const clipNames = vatClipNames(config);
         let vatData = bakeVAT(clone, cached.animations, clipNames);
 
         // Fallback: try object/rigid-body animation bake (e.g., mech, hornet)
