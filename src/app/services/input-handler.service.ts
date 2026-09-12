@@ -8,6 +8,7 @@ import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { isEscapeForDialog } from '../utils/dialog-key-guard';
 import { isTypingTarget } from '../utils/keyboard-target';
+import type { AbilityId } from '../configs/abilities.config';
 
 /**
  * Callbacks that the component provides for keyboard actions
@@ -88,6 +89,12 @@ export class InputHandlerService {
 
   /** One-shot debug pick, see armPick. */
   private pickCallback: ((hitPoint: THREE.Vector3) => void) | null = null;
+
+  /** Ability targeting mode: the ability being aimed, or null (AbilityTargetingService) */
+  private abilityTargetingSignal: (() => AbilityId | null) | null = null;
+  private onAbilityClickCallback: ((lat: number, lon: number, height: number) => void) | null = null;
+  private onAbilityMoveCallback: ((lat: number, lon: number, hitPoint: THREE.Vector3) => void) | null = null;
+  private onAbilityCancelCallback: (() => void) | null = null;
 
   /** Stored event listeners for cleanup */
   private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
@@ -175,6 +182,23 @@ export class InputHandlerService {
   }
 
   /**
+   * Set up the ability targeting mode. While `modeSignal` names an ability,
+   * left clicks on the ground and pointer moves go to the callbacks instead of
+   * tower selection and building; Escape and a short right click cancel.
+   */
+  setAbilityTargetingCallback(
+    modeSignal: () => AbilityId | null,
+    onClickCallback: (lat: number, lon: number, height: number) => void,
+    onMoveCallback: (lat: number, lon: number, hitPoint: THREE.Vector3) => void,
+    onCancelCallback: () => void,
+  ): void {
+    this.abilityTargetingSignal = modeSignal;
+    this.onAbilityClickCallback = onClickCallback;
+    this.onAbilityMoveCallback = onMoveCallback;
+    this.onAbilityCancelCallback = onCancelCallback;
+  }
+
+  /**
    * Hand the next left click on the ground to `callback` instead of the
    * game, once: no tower selection, no building. For `__corridor.pick()`.
    */
@@ -232,13 +256,14 @@ export class InputHandlerService {
     };
     document.addEventListener('pointermove', this.pointerMoveHandler, { capture: true });
 
-    // Suppress browser context menu in build/placement mode
+    // Suppress browser context menu in build/placement/targeting mode
     this.contextMenuHandler = (event: MouseEvent) => {
       if (event.target === canvas || canvas.contains(event.target as Node)) {
         const inPlacementMode = !!this.mapPlacementModeSignal?.();
         const inBuildMode = this.buildModeSignal?.() ?? false;
+        const inTargeting = !!this.abilityTargetingSignal?.();
 
-        if (inPlacementMode || inBuildMode) {
+        if (inPlacementMode || inBuildMode || inTargeting) {
           event.preventDefault();
         }
       }
@@ -278,6 +303,15 @@ export class InputHandlerService {
       const pick = this.pickCallback;
       this.pickCallback = null;
       pick(hit);
+      return;
+    }
+
+    // Ability targeting takes the click too: it aims, it does not select or build
+    if (this.abilityTargetingSignal?.() && this.onAbilityClickCallback) {
+      const hit = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
+      if (!hit) return;
+      const aim = this.engine.sync.localToGeo(hit);
+      this.onAbilityClickCallback(aim.lat, aim.lon, aim.height);
       return;
     }
 
@@ -337,15 +371,18 @@ export class InputHandlerService {
 
     const inPlacementMode = !!this.mapPlacementModeSignal?.();
     const inBuildMode = this.buildModeSignal?.() ?? false;
+    const inTargeting = !!this.abilityTargetingSignal?.();
 
-    if (inPlacementMode || inBuildMode) {
+    if (inPlacementMode || inBuildMode || inTargeting) {
       const dx = event.clientX - this.rightClickDownPos.x;
       const dy = event.clientY - this.rightClickDownPos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       const duration = Date.now() - this.rightClickDownTime;
 
       if (distance < 5 && duration < 300) {
-        if (inPlacementMode) {
+        if (inTargeting) {
+          this.onAbilityCancelCallback?.();
+        } else if (inPlacementMode) {
           this.keyboardCallbacks?.exitMapPlacement?.();
         } else {
           this.keyboardCallbacks?.exitBuildMode();
@@ -368,8 +405,9 @@ export class InputHandlerService {
 
     const inBuildMode = this.buildModeSignal?.() ?? false;
     const inPlacementMode = !!this.mapPlacementModeSignal?.();
+    const inTargeting = !!this.abilityTargetingSignal?.();
 
-    if (!inBuildMode && !inPlacementMode) {
+    if (!inBuildMode && !inPlacementMode && !inTargeting) {
       this.scheduleHoverPick(event);
       return;
     }
@@ -392,7 +430,9 @@ export class InputHandlerService {
     const geo = this.engine.sync.localToGeo(hitPoint);
 
     // Route to appropriate callback
-    if (inPlacementMode && this.onMapPlacementMoveCallback) {
+    if (inTargeting && this.onAbilityMoveCallback) {
+      this.onAbilityMoveCallback(geo.lat, geo.lon, hitPoint);
+    } else if (inPlacementMode && this.onMapPlacementMoveCallback) {
       this.onMapPlacementMoveCallback(geo.lat, geo.lon, hitPoint);
     } else if (inBuildMode && this.onMouseMoveCallback) {
       this.onMouseMoveCallback(geo.lat, geo.lon, hitPoint);
@@ -497,6 +537,13 @@ export class InputHandlerService {
       }
     }
 
+    // ESC cancels ability targeting
+    if (event.key === 'Escape' && this.abilityTargetingSignal?.()) {
+      event.preventDefault();
+      this.onAbilityCancelCallback?.();
+      return;
+    }
+
     // ESC cancels map placement mode
     if (event.key === 'Escape' && this.mapPlacementModeSignal?.()) {
       event.preventDefault();
@@ -583,6 +630,10 @@ export class InputHandlerService {
     this.mapPlacementModeSignal = null;
     this.onMapPlacementClickCallback = null;
     this.onMapPlacementMoveCallback = null;
+    this.abilityTargetingSignal = null;
+    this.onAbilityClickCallback = null;
+    this.onAbilityMoveCallback = null;
+    this.onAbilityCancelCallback = null;
     this.pickCallback = null;
     this.mouseDownPos = null;
     this.keyboardCallbacks = null;

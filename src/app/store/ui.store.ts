@@ -1,5 +1,6 @@
 import { Injectable, computed, signal, effect } from '@angular/core';
 import { TowerTypeId } from '../configs/tower-types.config';
+import type { AbilityId } from '../configs/abilities.config';
 
 /** LocalStorage key for persisted UI state */
 const STORAGE_KEY = 'td-ui-state';
@@ -149,6 +150,9 @@ export class UIStore {
   /** Map placement mode: 'hq' to place HQ, 'spawn' to place spawn, null when inactive */
   readonly mapPlacementMode = signal<'hq' | 'spawn' | null>(null);
 
+  /** Ability being aimed (targeting mode, AbilityTargetingService), null outside it */
+  readonly abilityTargeting = signal<AbilityId | null>(null);
+
   constructor() {
     this.loadPersistedState();
     this.setupPersistence();
@@ -265,6 +269,7 @@ export class UIStore {
     this.selectedTowerType.set(null);
     this.buildValidationReason.set(null);
     this.mapPlacementMode.set(null);
+    this.abilityTargeting.set(null);
   }
 
   /** Full reset including UI state. */

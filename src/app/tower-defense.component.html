@@ -203,6 +203,14 @@
         />
       }
 
+      <!-- Ability Targeting Context Hints -->
+      @if (abilityTargetingActive()) {
+        <app-context-hint
+          [hints]="abilityTargetingHints"
+          [warning]="abilityTargetingWarning()"
+        />
+      }
+
       <!-- Game Over Overlay -->
       @if (store.showGameOverScreen()) {
         <div class="td-gameover-overlay">
