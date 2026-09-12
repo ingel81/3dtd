@@ -24,6 +24,12 @@ import { DamageMatrix, DamageEffectiveness } from './combat.types';
  * jede Rüstung mindestens zwei Konter ≥ 1,2. Damit das Fairness-Gate die
  * Spreizung nicht wegrechnet, zählt es schlechte Boden-Paarungen mit
  * FAIRNESS_MATCHUP_FLOOR (templates.ts).
+ *
+ * Chaos ist die eine bewusste Ausnahme von den ersten beiden Regeln: 1,0 gegen
+ * alles, keine Schwäche und keine Stärke. Der Generalist bezahlt dafür mit
+ * Preis und Forschungstiefe, nicht mit einer Matrix-Lücke. Auch gegen Ethereal
+ * 1,0: Magic (2,0), Ice und Lightning (1,5) bleiben die besseren Konter, und
+ * die Chaos-Forschung setzt Arcane Studies voraus.
  */
 export const DAMAGE_MATRIX: DamageMatrix = {
   //                 unarmored  light   heavy   fortified  ethereal
@@ -35,6 +41,7 @@ export const DAMAGE_MATRIX: DamageMatrix = {
   ice:             { unarmored: 1.0,  light: 1.3,  heavy: 0.8,  fortified: 0.5,  ethereal: 1.5 },
   poison:          { unarmored: 1.4,  light: 1.2,  heavy: 0.4,  fortified: 0.3,  ethereal: 0.2 },
   lightning:       { unarmored: 1.0,  light: 1.5,  heavy: 1.2,  fortified: 0.3,  ethereal: 1.5 },
+  chaos:           { unarmored: 1.0,  light: 1.0,  heavy: 1.0,  fortified: 1.0,  ethereal: 1.0 },
 };
 
 // ==================== Effectiveness Thresholds ====================
