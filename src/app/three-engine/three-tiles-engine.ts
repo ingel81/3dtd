@@ -1074,31 +1074,38 @@ export class ThreeTilesEngine {
     maxDistance: number,
     onDeck = false,
   ): number | null {
-    if (this.devTerrainProvider || !this.tilesRenderer) return null;
-    const column = this.sampleColumn(localX, localZ);
-    if (!column || column.tileGeometricError > CLEARANCE_MAX_TILE_ERROR) return null;
-    const len = Math.hypot(acrossX, acrossZ);
-    if (len === 0) return null;
+    const tiles = this.tilesRenderer;
+    if (this.devTerrainProvider || !tiles) return null;
+    // The column under the station and both side rays count as the corridor's.
+    const scope = raycastStats.enter('routeCorridor');
+    try {
+      const column = this.sampleColumn(localX, localZ);
+      if (!column || column.tileGeometricError > CLEARANCE_MAX_TILE_ERROR) return null;
+      const len = Math.hypot(acrossX, acrossZ);
+      if (len === 0) return null;
 
-    const surfaceY = onDeck ? column.topY : column.groundY;
-    this._clearanceOrigin.set(localX, surfaceY + heightAboveGround, localZ);
-    let nearest = maxDistance;
-    for (const side of [1, -1]) {
-      this._clearanceDirection.set((side * acrossX) / len, 0, (side * acrossZ) / len);
-      this.clearanceRaycaster.set(this._clearanceOrigin, this._clearanceDirection);
-      this.clearanceRaycaster.far = nearest;
-      this._clearanceResults.length = 0;
-      this.clearanceRaycaster.intersectObject(this.tilesRenderer.group, true, this._clearanceResults);
-      // Sorted by distance: the first fine hit is the nearest one.
-      for (const r of this._clearanceResults) {
-        const tile = r.object.userData['tile'] as ActiveTile | undefined;
-        if ((tile?.internal?.depth ?? 0) === 0) continue;
-        if ((tile?.geometricError ?? Infinity) > CLEARANCE_MAX_TILE_ERROR) continue;
-        nearest = Math.min(nearest, r.distance);
-        break;
+      const surfaceY = onDeck ? column.topY : column.groundY;
+      this._clearanceOrigin.set(localX, surfaceY + heightAboveGround, localZ);
+      let nearest = maxDistance;
+      for (const side of [1, -1]) {
+        this._clearanceDirection.set((side * acrossX) / len, 0, (side * acrossZ) / len);
+        this.clearanceRaycaster.set(this._clearanceOrigin, this._clearanceDirection);
+        this.clearanceRaycaster.far = nearest;
+        this._clearanceResults.length = 0;
+        this.clearanceRaycaster.intersectObject(tiles.group, true, this._clearanceResults);
+        // Sorted by distance: the first fine hit is the nearest one.
+        for (const r of this._clearanceResults) {
+          const tile = r.object.userData['tile'] as ActiveTile | undefined;
+          if ((tile?.internal?.depth ?? 0) === 0) continue;
+          if ((tile?.geometricError ?? Infinity) > CLEARANCE_MAX_TILE_ERROR) continue;
+          nearest = Math.min(nearest, r.distance);
+          break;
+        }
       }
+      return nearest;
+    } finally {
+      raycastStats.exit(scope);
     }
-    return nearest;
   }
 
   /** Quantised column key, 0.5 m grid, Szudzik pairing (negatives safe). */
