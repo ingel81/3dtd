@@ -223,11 +223,13 @@ export class MarkerVisualizationService {
   addBaseMarker(): void {
     if (!this.engine || !this.baseCoords || !this.markerManager || !this.labelManager) return;
 
+    // Before the old marker goes: without a terrain sample the new one keeps
+    // its height (hqMarkerPos), which is gone once it is removed.
+    const pos = this.hqMarkerPos();
+
     // Remove existing
     this.markerManager.remove('hq');
     this.labelManager.removeLabel('hq');
-
-    const pos = this.hqMarkerPos();
 
     this.markerManager.add('hq', pos, 0x22c55e, HQ_MARKER_SCALE, 0.001);
     this.labelManager.addLabel('hq', 'HQ', this.hqLabelCentre(pos), '#22c55e', this.getPhaseOffset('hq'));
