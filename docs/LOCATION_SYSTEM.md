@@ -242,7 +242,7 @@ reverseGeocodeWithCache(lat, lon): Promise<string>
 // Memory-Cache, beim Start aus localStorage geladen (Key: td_geocode_cache_v1)
 // Max. 100 Eintraege, 4 Dezimalstellen Praezision (~11m)
 // Fallback: "lat, lon" mit 4 Nachkommastellen, wird nicht gecacht
-// Kein Retry: fetchWithRetry() (Backoff 1/2/4 s bei HTTP 429) existiert, wird aber nicht aufgerufen
+// Kein Retry bei HTTP 429
 ```
 
 ### Helper-Methoden
@@ -531,5 +531,5 @@ Nominatim gibt oft Strassen-Koordinaten statt exakte Gebaeude-Koordinaten zuruec
 ### Rate-Limiting
 Nominatim hat strikte Rate-Limits. Der GeocodingService verwendet:
 - Debouncing (300ms) bei Suchanfragen
-- Kein Retry bei HTTP 429 (`fetchWithRetry()` ist ungenutzt)
+- Kein Retry bei HTTP 429
 - Cache (Memory + localStorage) nur in `reverseGeocodeWithCache()` (Favoriten-Namen); `setLocation()` fragt `reverseGeocodeDetailed()` ohne Cache
