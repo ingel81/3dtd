@@ -306,7 +306,7 @@ einem Frame:
 Die Tile-Region `RouteCorridorRegion` (`three-engine/route-corridor-region.ts`)
 hält Tiles bis 20 m neben den Routensegmenten auf 5 m geometricError und aktiv,
 auch außerhalb des Bildes (`ROUTE_CORRIDOR_HALF_WIDTH`,
-`ROUTE_CORRIDOR_ERROR_TARGET`, `three-tiles-engine.ts:69-75`, `:743`). Daher
+`ROUTE_CORRIDOR_ERROR_TARGET`, `three-tiles-engine.ts:61-67`, `setRouteCorridor()` `:654`). Daher
 die Vorgabe `maxTileError` 5 und die Obergrenze 15 für `maxHalfWidth`: Weiter
 als 20 m neben der Route gibt es keine garantiert feinen Tiles.
 
