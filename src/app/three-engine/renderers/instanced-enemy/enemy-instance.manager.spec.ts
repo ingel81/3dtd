@@ -37,6 +37,7 @@ function fakeVat(clips: string[]): VATData {
     geometry,
     diffuseMap: null,
     isUnlit: false,
+    alpha: { mode: 'opaque', cutoff: 0 },
     fps: 10,
     texWidth: 3,
     rowsPerFrame: 1,
@@ -176,7 +177,6 @@ describe('EnemyInstanceManager', () => {
       pool.instancedMesh.instanceMatrix,
       pool.animFrameAttr,
       pool.tintColorAttr,
-      pool.opacityAttr,
     ];
     for (const attribute of attributes) {
       expect(attribute.updateRanges.length).toBeLessThanOrEqual(64);

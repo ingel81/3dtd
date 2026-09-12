@@ -95,8 +95,8 @@ wenn `bakeVAT` `null` liefert.
 Funktionen die VAT-Größen für [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md).
 
 Ein toter Gegner hält den letzten gebackenen Frame (Clamp in `updateAnimations`), er springt
-nicht auf Frame 0 zurück. Opazität und Position ändern sich nach dem Tod nicht mehr, es gibt
-kein Ausblenden und kein Einsinken.
+nicht auf Frame 0 zurück. Die Position ändert sich nach dem Tod nicht mehr, es gibt kein
+Ausblenden und kein Einsinken.
 
 ### Statische Modelle (`bakeStaticVAT`)
 
@@ -198,6 +198,7 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 | `emissiveIntensity` | float | Additiver Helligkeitsboost (aus EnemyTypeConfig) |
 | `emissiveColor` | vec3 | Emissive-Farbe (default weiss) |
 | `colorMultiplier` | float | Helligkeitsfaktor vor dem Emissive (aus EnemyTypeConfig, default 1.0) |
+| `alphaCutoff` | float | Alpha-Grenze im Modus Maske (siehe Alpha) |
 
 ### Per-Vertex Attribute
 
@@ -214,10 +215,28 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 |----------|-----|-------------|
 | `aAnimFrame` | float | Aktueller VAT Frame |
 | `aTintColor` | vec3 | Tint-Overlay, 50 % gemischt (0,0,0 = keiner) |
-| `aOpacity` | float | Instanz-Opazität, beim Anlegen 1.0 und danach nicht verändert (kein Death Fade) |
 
 Tint-Priorität (`applyTint()`): Hit-Flash vor Freeze vor Burn vor Poison. Den Freeze-Tint
 schaltet die VFX-Einstellung `freezeTint` ab (`setFreezeTintEnabled()`).
+
+### Alpha
+
+`vatAlpha()` bestimmt pro Typ aus den Materialien der gebackenen Meshes, wie der Shader Alpha
+behandelt, so wie three.js die Materialien zeichnen würde:
+
+| Modus | Wann | Material |
+|---|---|---|
+| opak | kein Material braucht Alpha | `transparent: false`, Alpha wird ignoriert |
+| Maske | ein Material hat `alphaTest` (glTF MASK) | `transparent: false`, `discard` unter `alphaCutoff` |
+| Blending | ein transparentes Material (glTF BLEND) mit Opacity unter 1 oder durchscheinenden Texeln | `transparent: true`, `discard` unter 0,05 |
+
+- Ein transparentes Material ohne Alpha unter 1 (Opacity 1, kein durchscheinender Texel in
+  der Map, per Canvas gelesen) zählt als opak. Lässt sich die Map nicht lesen, bleibt es beim
+  Blending.
+- Ein Pool hat ein Material: Blendet ein Mesh, blendet der ganze Typ.
+- Stand 2026-09-13: Bear (Alpha in der Textur), Ghost und Hornet (Opacity unter 1, beim
+  Hornet die Flügel) blenden, Dragon ist Maske (Cutoff 0,5), die übrigen 15 Typen sind opak.
+- Eine Opazität pro Instanz gibt es nicht, Gegner werden beim Tod nicht ausgeblendet.
 
 ### Beleuchtung
 
@@ -248,7 +267,7 @@ Beide Shader (VAT + Health Bar) enthalten die Three.js `logdepthbuf` Chunks fuer
 Pro Enemy-Typ ein `TypePool`:
 - 1 `InstancedMesh` (max 20.000 Instances)
 - Slot-Vergabe über `InstanceSlotAllocator` (siehe unten)
-- Per-Instance Attribute Arrays (animFrame, tintColor, opacity)
+- Per-Instance Attribute Arrays (animFrame, tintColor)
 - Ein `DrawGate`, das das Mesh bei leerem Pool aus der Render-Liste nimmt
 
 ### Slot-Vergabe und Uploads
@@ -294,9 +313,9 @@ kein Einzelpfad unbegrenzt Ranges anhängen:
   flusht einmal pro Frame), Lightning-Bolt-Instanzdaten (`aStart`/`aEnd`/`aTiming`/
   `aShape` in einem Interleaved-Buffer, Flush am Ende von
   `LightningBoltRenderer.update()`, nur in Frames mit Spawns).
-- Attribute ohne Frame-Flush (Enemy `aOpacity`, Health-Bar `aSize`, `aBarColor`,
-  `aIsBoss`) laufen über `InstanceSlotAllocator.uploadSlot()`: eine Range pro Slot,
-  ab 64 wartenden Ranges zusammengefasst zu einer über die gezeichneten Slots.
+- Attribute ohne Frame-Flush (Health-Bar `aSize`, `aBarColor`, `aIsBoss`) laufen über
+  `InstanceSlotAllocator.uploadSlot()`: eine Range pro Slot, ab 64 wartenden Ranges
+  zusammengefasst zu einer über die gezeichneten Slots.
 
 ### Animation State
 

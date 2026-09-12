@@ -71,7 +71,6 @@ export interface TypePool {
   // Per-instance attributes
   animFrameAttr: InstancedBufferAttribute;
   tintColorAttr: InstancedBufferAttribute;
-  opacityAttr: InstancedBufferAttribute;
 
   // Dirty flags for batched GPU buffer updates (set per-instance, flushed once per frame)
   matrixDirty: boolean;
@@ -164,17 +163,12 @@ export class EnemyInstanceManager {
     // Per-instance attributes
     const animFrameData = new Float32Array(MAX_INSTANCES_PER_TYPE);
     const tintColorData = new Float32Array(MAX_INSTANCES_PER_TYPE * 3);
-    const opacityData = new Float32Array(MAX_INSTANCES_PER_TYPE);
-    // Initialize opacity to 1
-    opacityData.fill(1.0);
 
     const animFrameAttr = new InstancedBufferAttribute(animFrameData, 1);
     const tintColorAttr = new InstancedBufferAttribute(tintColorData, 3);
-    const opacityAttr = new InstancedBufferAttribute(opacityData, 1);
 
     instancedMesh.geometry.setAttribute('aAnimFrame', animFrameAttr);
     instancedMesh.geometry.setAttribute('aTintColor', tintColorAttr);
-    instancedMesh.geometry.setAttribute('aOpacity', opacityAttr);
 
     // count=0 → GPU renders nothing; slots are initialized on first use.
     // The gate keeps the empty mesh out of the render list.
@@ -192,7 +186,6 @@ export class EnemyInstanceManager {
       gate,
       animFrameAttr,
       tintColorAttr,
-      opacityAttr,
       matrixDirty: false,
       tintDirty: false,
       animFrameDirty: false,
@@ -221,15 +214,11 @@ export class EnemyInstanceManager {
     // Set instance matrix
     this.setInstanceMatrix(pool, index, position, heading);
 
-    // Set initial attributes. Frame and tint go out with the frame flush;
-    // opacity has none and queues just this slot (without a range Three.js
-    // re-uploads the full MAX-sized buffer).
+    // Set initial attributes; they go out with the frame flush.
     pool.animFrameAttr.setX(index, 0);
     pool.tintColorAttr.setXYZ(index, 0, 0, 0);
-    pool.opacityAttr.setX(index, 1.0);
     pool.animFrameDirty = true;
     pool.tintDirty = true;
-    pool.slots.uploadSlot(pool.opacityAttr, index);
 
     // Determine initial animation
     const config = pool.config;
