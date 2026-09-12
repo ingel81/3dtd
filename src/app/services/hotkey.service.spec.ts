@@ -13,6 +13,10 @@ vi.mock('./facade/tower-defense-facade.service', () => ({
 }));
 vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
 vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
+vi.mock('./camera-control.service', () => ({ CameraControlService: class CameraControlService {} }));
+vi.mock('./world/intro-camera-flight.service', () => ({
+  IntroCameraFlightService: class IntroCameraFlightService {},
+}));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -25,6 +29,8 @@ import { UIStore } from '../store/ui.store';
 import { ResearchStore } from '../store/research.store';
 import { TowerPlacementService } from './tower-placement.service';
 import { SellConfirmService } from './sell-confirm.service';
+import { CameraControlService } from './camera-control.service';
+import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 
 function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
@@ -40,6 +46,8 @@ describe('HotkeyService', () => {
   let openDialog: ReturnType<typeof vi.fn>;
   let openDialogs: unknown[];
   let sellConfirm: SellConfirmService;
+  let focusGeo: ReturnType<typeof vi.fn>;
+  const introActive = signal(false);
 
   const tower = {
     id: 't1',
@@ -56,6 +64,8 @@ describe('HotkeyService', () => {
     credits: signal(10_000),
     canStartWave: signal(true),
     isGameOver: signal(false),
+    baseCoords: signal({ lat: 48.7, lon: 9.1 }),
+    spawnPoints: signal([{ lat: 48.71, lon: 9.1 }, { lat: 48.69, lon: 9.12 }]),
   };
   const gameStore = { paused: signal(false), trainingTimescale: signal(1) };
   const uiStore = {
@@ -89,6 +99,8 @@ describe('HotkeyService', () => {
     openDialog = vi.fn();
     openDialogs = [];
     sellConfirm = new SellConfirmService();
+    focusGeo = vi.fn(() => true);
+    introActive.set(false);
 
     const injector = Injector.create({
       providers: [
@@ -101,6 +113,8 @@ describe('HotkeyService', () => {
         { provide: TowerPlacementService, useValue: { selectTowerType } },
         { provide: SellConfirmService, useValue: sellConfirm },
         { provide: MatDialog, useValue: { open: openDialog, get openDialogs() { return openDialogs; } } },
+        { provide: CameraControlService, useValue: { focusGeo } },
+        { provide: IntroCameraFlightService, useValue: { active: introActive } },
       ],
     });
     service = runInInjectionContext(injector, () => new HotkeyService());
@@ -206,6 +220,27 @@ describe('HotkeyService', () => {
     expect(gameStore.trainingTimescale()).toBe(4);
     service.handleKeyDown(press('-'));
     expect(gameStore.trainingTimescale()).toBe(2);
+  });
+
+  describe('camera jumps', () => {
+    it('Home flies to the HQ', () => {
+      service.handleKeyDown(press('Home'));
+      expect(focusGeo).toHaveBeenCalledWith(48.7, 9.1);
+    });
+
+    it('N goes round the spawn points', () => {
+      service.handleKeyDown(press('n'));
+      service.handleKeyDown(press('n'));
+      service.handleKeyDown(press('n'));
+      expect(focusGeo.mock.calls).toEqual([[48.71, 9.1], [48.69, 9.12], [48.71, 9.1]]);
+    });
+
+    it('leaves the camera to the intro flight while it plays', () => {
+      introActive.set(true);
+      service.handleKeyDown(press('Home'));
+      service.handleKeyDown(press('n'));
+      expect(focusGeo).not.toHaveBeenCalled();
+    });
   });
 
   it('H opens the shortcut overview', () => {

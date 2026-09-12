@@ -18,6 +18,7 @@ import {
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { cameraTimeline } from '../utils/camera-timeline';
+import { easeInOutCubic, jumpCameraPosition } from '../utils/camera-jump';
 
 export interface Point3 {
   x: number;
@@ -83,6 +84,15 @@ export class CameraControlService {
 
   /** Debug meshes for cleanup */
   private debugMeshes: Object3D[] = [];
+
+  /** Wall-clock length of a quick jump (Home, N), ms */
+  private static readonly JUMP_DURATION_MS = 600;
+  /** Distance of the fallback view when the camera looks at the horizon, m */
+  private static readonly JUMP_FALLBACK_DISTANCE_M = 300;
+
+  /** Running quick jump: whole displacement, time run, share already applied */
+  private jump: { dx: number; dy: number; dz: number; elapsedMs: number; applied: number } | null = null;
+  private readonly jumpDirection = new Vector3();
 
   // ========================================
   // INITIALIZATION
@@ -157,6 +167,7 @@ export class CameraControlService {
   resetCamera(): void {
     if (!this.engine) return;
     cameraTimeline.record('camera.reset', {}, true);
+    this.jump = null;
 
     const view = this.getOverview();
     if (!view) {
@@ -165,6 +176,71 @@ export class CameraControlService {
     }
     const { position: pos, target } = view;
     this.engine.setLocalCameraPosition(pos.x, pos.y, pos.z, target.x, target.y, target.z);
+  }
+
+  /**
+   * Glide the camera so it shows a ground point the way it shows the ground
+   * now (hotkeys Home: HQ, N: spawn points). Orientation stays, only the
+   * position moves, see jumpCameraPosition. The move is added per frame on
+   * top of whatever else moves the camera (keyboard pan, the controls), so
+   * nothing fights over it. Looking at the horizon there is no ground point
+   * to keep, the camera then cuts to a 45° view of the target along its
+   * heading.
+   *
+   * @returns false without an engine
+   */
+  focusGeo(lat: number, lon: number): boolean {
+    if (!this.engine) return false;
+
+    const ground = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+    // The overview target sits on the cell ground near the HQ, a fair guess
+    // while the tiles under the target have not streamed in
+    const y = this.engine.getTerrainHeightAtGeo(lat, lon) ?? this.initialCameraTarget?.y ?? 0;
+    const target = { x: ground.x, y, z: ground.z };
+    cameraTimeline.record('camera.jump', { target: [target.x, target.y, target.z] }, true);
+
+    const camera = this.engine.getCamera();
+    camera.getWorldDirection(this.jumpDirection);
+    const to = jumpCameraPosition(camera.position, this.jumpDirection, target);
+    if (!to) {
+      this.jump = null;
+      const horizontal = Math.hypot(this.jumpDirection.x, this.jumpDirection.z) || 1;
+      const back = CameraControlService.JUMP_FALLBACK_DISTANCE_M * Math.SQRT1_2 / horizontal;
+      this.engine.setLocalCameraPosition(
+        target.x - this.jumpDirection.x * back,
+        target.y + CameraControlService.JUMP_FALLBACK_DISTANCE_M * Math.SQRT1_2,
+        target.z - this.jumpDirection.z * back,
+        target.x, target.y, target.z,
+      );
+      return true;
+    }
+
+    this.jump = {
+      dx: to.x - camera.position.x,
+      dy: to.y - camera.position.y,
+      dz: to.z - camera.position.z,
+      elapsedMs: 0,
+      applied: 0,
+    };
+    return true;
+  }
+
+  /** Per frame from the game loop, wall-clock ms: advance a running jump. */
+  update(deltaMs: number): void {
+    const jump = this.jump;
+    if (!jump || !this.engine) return;
+
+    jump.elapsedMs = Math.min(CameraControlService.JUMP_DURATION_MS, jump.elapsedMs + deltaMs);
+    const eased = easeInOutCubic(jump.elapsedMs / CameraControlService.JUMP_DURATION_MS);
+    const share = eased - jump.applied;
+    jump.applied = eased;
+
+    const position = this.engine.getCamera().position;
+    position.x += jump.dx * share;
+    position.y += jump.dy * share;
+    position.z += jump.dz * share;
+
+    if (jump.elapsedMs >= CameraControlService.JUMP_DURATION_MS) this.jump = null;
   }
 
   /**
@@ -490,5 +566,6 @@ export class CameraControlService {
     this.initialCameraTarget = null;
     this.overviewProvider = null;
     this.debugFramingEnabled = false;
+    this.jump = null;
   }
 }
