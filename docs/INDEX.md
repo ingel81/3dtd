@@ -34,6 +34,7 @@ nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
 | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) | Aktuell | 3D Model Previews in der Sidebar (Renderer-Capacity-Strategie) |
 | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) | Aktuell | Partikel, Decals, Floating Text, VFX-Subsysteme |
 | [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) | Aktuell | GPU Instancing mit VAT (Draw-Call-Reduktion) |
+| [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) | Aktuell | Gegnermodelle vermessen (VAT-Vertices, VAT-Speicher, Clips, Vorkommen in Wellen), Budget je Klasse, Optimierungsliste. Tabellen per `npm run model-budget` |
 | [HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md) | Aktuell | GPU-Cubemap-LOS-Pipeline (Ground + Air produktiv) |
 | [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) | Aktuell | 3D-Tiles Loading Bug + Tile-Quality-Aware Route Protection |
 | [DEVWORLD.md](DEVWORLD.md) | Aktuell | Offline-Entwicklungsumgebung, Terrain-Presets (`?devworld`) |
