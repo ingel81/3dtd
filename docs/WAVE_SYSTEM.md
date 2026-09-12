@@ -752,7 +752,12 @@ const waveConfig = adaptAIWaveConfig(aiConfig);
 
 ### Debug Panel: Mixed Wave Designer
 
-Das Wave-Debug-Panel (`wave-debugger.component.ts`) bietet einen **Mode-Toggle** (Single/Mixed):
+Oben im Wave-Debug-Panel (`wave-debugger.component.ts`) steht **Why this wave**:
+die Begründung des Directors für die laufende Welle (`GameStore.aiExplanation`,
+Herkunft der Gründe in [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md)).
+Custom-, Static-Curriculum- und Backend-Wellen haben keine Begründung.
+
+Darunter bietet das Panel einen **Mode-Toggle** (Single/Mixed):
 
 - **Single Mode:** Bestehende Steuerung (Typ, Count, Speed, Health, Delay)
 - **Mixed Mode:** Voller Wave-Designer:
@@ -787,7 +792,7 @@ buildMixedWaveConfig(): WaveConfig { ... }
 | `ai/core/wave-config-adapter.ts` | `adaptAIWaveConfig()` — einziger Konverter AIWaveConfig → WaveManager-Config |
 | `ai/core/models/wave-config.ts` | Optionales `pattern` Feld fuer AI Config |
 | `services/debug/wave-debug.service.ts` | Mixed-Mode Signals (delegiert State an `DebugStore`), `buildMixedWaveConfig()` |
-| `components/debug-window/wave-debugger.component.ts` | Mixed Wave Designer UI |
+| `components/debug-window/wave-debugger.component.ts` | „Why this wave", Mixed Wave Designer UI |
 | `services/facade/game-loop-facade.service.ts` | Mixed-Mode Weiche in `startCustomWave()` |
 
 ---

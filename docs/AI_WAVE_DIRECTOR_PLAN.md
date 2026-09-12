@@ -286,6 +286,28 @@ prüften. `gate-wiring.spec.ts` existiert genau dagegen.
 
 21 aktive Templates in 32 permanenten Output-Slots (`MAX_TEMPLATE_SLOTS = 32`).
 
+### Erklärung im Wave-Debug-Fenster
+
+Jede Director-Welle trägt ihre Begründung in `WaveConfig.explanation`; die
+Facade legt sie nach `GameStore.aiExplanation`, das Wave-Debug-Fenster zeigt sie
+als „Why this wave". Custom-Wellen, das statische Curriculum und Wellen des
+Trainings-Backends setzen `null`.
+
+Die Gründe stammen aus der Entscheidung selbst, nicht aus einer Analyse des
+Spielzustands:
+
+| Quelle | Liefert |
+|--------|---------|
+| `describeTemplateMask` (`templates.ts`) | Curriculum-Pin, Boss-Regel, Templates, die eine fehlende Fähigkeit sperrt (Anti-Air, Anti-Ethereal), Cooldown-Verzicht |
+| `DirectorDecision.why` (`rule-director.ts`, ONNX-Decoder) | Anzahl erlaubter Templates, wann das gewählte zuletzt lief, Gleichstand, Rampen-Position bzw. ONNX-Wahrscheinlichkeit |
+| `GateController.status` | Leck-Mittel über das Fenster, letzter Schritt des Reglers, Multiplikator |
+| `buildWaveConfig` | DPS-Ramp, Fairness-Cap (bindet / kollabiert / bindet nicht), Duration-Cap, Endgame-HP |
+
+`decision-explainer.ts` formt daraus nur Sätze. Der Leck-Regler wird nur genannt,
+wenn der Fairness-Cap die Welle tatsächlich begrenzt hat. Die frühere Fassung
+las den Defense-Snapshot und behauptete Absichten wie „keine Anti-Air, also
+Flieger" oder „Mercy-Welle"; beides tut der Regel-Director nicht.
+
 ---
 
 ## 7. Was vom RL-Aufbau bleibt
@@ -359,7 +381,7 @@ Ehrlichkeitsabschnitt. Nichts davon ist belegt:
 | `ai-data-collector.service.ts` | State-Snapshot, DPS-Cache, `onWaveResult` |
 | `dps-profile.ts` / `dps-profile-visualizer.ts` | 20-Bin-DPS-Profil entlang des Pfads + 3D-Visualisierung |
 | `defense-analyzer.ts` | Defense-Metriken |
-| `decision-explainer.ts` | Erklärtext für das UI |
+| `decision-explainer.ts` | „Why this wave" im Wave-Debug-Fenster (siehe Abschnitt 6) |
 | `spawn-schedule-builder.ts` | Pattern-basierter Spawn-Plan |
 | `tower-dps.util.ts` | DPS pro Tower-Typ |
 | `models/` | `game-state-snapshot.ts`, `wave-config.ts`, `wave-result.ts` |
@@ -372,7 +394,7 @@ Das Curriculum liegt **nicht** unter `ai/core/`, sondern in
 `endgameHpMultiplier`, `enemyBaseDamageForWave`, `STATIC_WAVE_PROFILES`).
 
 Tests: `gate-controller.spec.ts`, `gate-wiring.spec.ts`, `rule-director.spec.ts`,
-`templates.spec.ts`, `game-state-encoder.spec.ts`.
+`templates.spec.ts`, `game-state-encoder.spec.ts`, `decision-explainer.spec.ts`.
 
 ### Backend (`training-backend/`)
 
