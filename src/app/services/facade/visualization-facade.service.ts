@@ -254,6 +254,7 @@ export class VisualizationFacadeService {
       airMissing: report.airMissing,
       holes: report.holes.length,
       raised: report.raised.length,
+      clamped: report.clamped,
       displayed: drawn?.size ?? null,
       displayOutdated: layer ? layer.cells.filter((c) => grid.getCellAt(c.x, c.z) !== c).length : null,
       notDisplayed: drawn ? grid.getCellsInRange(local.x, local.z, range).filter((c) => !drawn.has(c)).length : null,
@@ -264,6 +265,7 @@ export class VisualizationFacadeService {
       centreUnsampled: centre.unsampled,
       centreBlocked: centre.groundBlocked,
       centreRaised: centre.raised.length,
+      centreClamped: centre.clamped,
       centreNotDisplayed: drawn ? centreLine.cells.filter((c) => c.heightSampled && !drawn.has(c)).length : null,
     };
     console.table(summary);

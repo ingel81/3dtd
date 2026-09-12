@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GlobalRouteGrid } from './global-route-grid';
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
-import { corridorConfig, lateralLimit } from './route-corridor';
+import { corridorConfig, lateralLimit, resetCorridorConfig } from './route-corridor';
 
 // Stand-in for the cubemap: a wall at 10 m, so a cell's visibility follows
 // its height. Targets below it are visible, targets above it are not.
@@ -484,6 +484,58 @@ describe('GlobalRouteGrid centre line', () => {
     // 6 m off a 2 m corridor: no cell there.
     expect(rows.find((r) => r.z === 7)).toMatchObject({ cell: false, state: '-', heightM: null, ground: '-' });
     expect(rows.every((r, k) => k === 0 || r.routeM >= rows[k - 1].routeM)).toBe(true);
+  });
+});
+
+/**
+ * Playtest 2026-09-12: edge cells sat on the eaves of houses at the street
+ * and on a roof in an alley. The photogrammetry has no ground under a roof,
+ * so the column there finds only the roof.
+ */
+describe('GlobalRouteGrid roof cells', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+  /** Street at 0 m; south of z = 2.5 a house whose roof, `roof` metres up, is all a column finds. */
+  const street = (roof: number, deck = 0) => (_x: number, z: number): ColumnSample =>
+    z > 2.5
+      ? { groundY: roof, topY: roof, tileDepth: 20, tileGeometricError: 2 }
+      : { groundY: 0, topY: deck, tileDepth: 20, tileGeometricError: 2 };
+  const at = (x: number, z: number, onBridge?: boolean): RouteWaypoint =>
+    ({ lat: z, lon: x, corridorLeft: 4, corridorRight: 4, onBridge });
+
+  /** An eastbound street along z = 1, 4 m either side. */
+  function build(column: (x: number, z: number) => ColumnSample, route = [at(0, 1), at(40, 1)]): GlobalRouteGrid {
+    const grid = new GlobalRouteGrid();
+    grid.initialize(column as never, coordinateSync);
+    grid.generateFromRoutes([route]);
+    return grid;
+  }
+
+  afterEach(() => resetCorridorConfig());
+
+  it('puts a cell whose column finds only a roof back on the ground beside the route', () => {
+    const grid = build(street(6));
+    // Centre (21, 3): under the roof, 2 m off the centre line.
+    const eave = grid.getCellAt(20.5, 3.5)!;
+    expect(eave.terrainHeight).toBe(0);
+    expect(eave.sample.clamped).toBe(true);
+    expect(grid.getCellAt(20.5, 1.5)!.sample.clamped).toBe(false);
+    // Enemies stand on the ground there, not on the roof.
+    expect(grid.getGroundLocalYAt(20.5, 3.5)).toBe(0);
+    expect(grid.describeTowerRange('t1', 20, 1, 10).clamped).toBeGreaterThan(0);
+  });
+
+  it('keeps a step below the threshold, and a bridge deck', () => {
+    expect(build(street(2)).getCellAt(20.5, 3.5)!.terrainHeight).toBe(2);
+    // Deck at 8 m over a street at 0: the edge cell stays on the deck.
+    const bridge = build(street(0, 8), [at(0, 1, true), at(40, 1)]);
+    expect(bridge.getCellAt(20.5, -0.5)!.terrainHeight).toBe(8);
+  });
+
+  it('takes the threshold from corridorConfig.roofRise', () => {
+    corridorConfig.roofRise = 1.5;
+    expect(build(street(2)).getCellAt(20.5, 3.5)!.sample.clamped).toBe(true);
   });
 });
 

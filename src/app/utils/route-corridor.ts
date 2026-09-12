@@ -81,6 +81,13 @@ export interface CorridorConfig {
    */
   bulgeLength: number;
   /**
+   * A route cell whose column comes down more than this above the ground
+   * on the route centre line beside it takes that ground instead: the
+   * column hit a roof, an eave or a tree crown over the street, with no
+   * ground under it in the photogrammetry (RouteCellSampler.sampleCellY).
+   */
+  roofRise: number;
+  /**
    * Typical carriageway width per `highway` class, for stations the tiles
    * cannot measure. Used when a way has neither `width` nor `lanes`, which
    * is most of them. Motorways are mapped per direction, so the value is
@@ -108,6 +115,7 @@ export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
   widthStep: 0.5,
   dipLength: 4,
   bulgeLength: 8,
+  roofRise: 2.5,
   highwayWidths: Object.freeze({
     motorway: 11,
     trunk: 9,
@@ -172,6 +180,7 @@ const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [nu
   widthStep: [0.1, 2],
   dipLength: [0, 100],
   bulgeLength: [0, 100],
+  roofRise: [0.5, 50],
   unknownHighwayWidth: [1, 50],
   laneWidth: [1, 10],
   laneExtra: [0, 10],

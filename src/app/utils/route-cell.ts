@@ -25,6 +25,12 @@ export interface CellSample {
   tileDepth: number;
   /** Tile geometricError at last sample. Lower = better LOD. Infinity if unknown. */
   tileGeometricError: number;
+  /**
+   * The column came down on something far above the ground on the route
+   * centre line beside the cell (a roof, an eave, a tree crown over the
+   * street), and `terrainHeight` is that ground instead. See `sampleCellY`.
+   */
+  clamped: boolean;
 }
 
 /**
@@ -44,6 +50,14 @@ export interface RouteCell {
   x: number;
   /** Cell center Z in local coordinates */
   z: number;
+  /**
+   * Centre of the grid spot on the route centre line next to the cell: the
+   * point of its segment nearest to the cell, snapped to its grid spot.
+   * Equal to x, z for a cell the centre line runs through. The ground there
+   * is what `sampleCellY` checks the cell's height against.
+   */
+  axisX: number;
+  axisZ: number;
   /** Terrain height at cell center (local Y coordinate) */
   terrainHeight: number;
   /**

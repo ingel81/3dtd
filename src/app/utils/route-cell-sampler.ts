@@ -1,6 +1,7 @@
 import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
 import { isBetterLod } from '../three-engine/column-sample';
 import { RouteCell } from './route-cell';
+import { corridorConfig } from './route-corridor';
 import { logGrid } from './route-grid-log';
 
 /**
@@ -135,6 +136,22 @@ export class RouteCellSampler {
       tileGeometricError: column.tileGeometricError,
     };
 
+    // A column at the corridor edge can come down on a roof, an eave or a
+    // tree crown reaching over the street: the photogrammetry has no ground
+    // under them, so the lowest hit is their top. Far above the ground on
+    // the route centre line beside it, the cell takes that ground instead.
+    // Only ever lowered, and never on a bridge deck, which is meant to be
+    // high. The probe on the centre line is the centre cell's own column,
+    // cached by the engine.
+    let clamped = false;
+    if (cell.surface === 'ground' && (cell.axisX !== cell.x || cell.axisZ !== cell.z)) {
+      const axis = this.columnSampler(cell.axisX, cell.axisZ);
+      if (axis !== null && hit.y - axis.groundY > corridorConfig.roofRise) {
+        hit.y = axis.groundY;
+        clamped = true;
+      }
+    }
+
     // Reject hits that diverge >50m from the local stable-neighbour median.
     // Catches localised outlier clusters where the tile engine returns a
     // bad hit (BBox / backface / water) for one region while surrounding
@@ -185,7 +202,8 @@ export class RouteCellSampler {
       // Same Y and same LOD: nothing to do.
       if (
         Math.abs(hit.y - cell.terrainHeight) < 0.01 &&
-        newDepth === oldDepth
+        newDepth === oldDepth &&
+        clamped === cell.sample.clamped
       ) {
         return false;
       }
@@ -198,11 +216,12 @@ export class RouteCellSampler {
       sampledAt: ++this.sampleFrame,
       tileDepth: hit.tileDepth,
       tileGeometricError: hit.tileGeometricError,
+      clamped,
     };
     cell.heightSampled = true;
     logGrid(
       'SAMPLE',
-      `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.y.toFixed(2)} depth=${hit.tileDepth} err=${hit.tileGeometricError.toFixed(2)}`,
+      `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.y.toFixed(2)} depth=${hit.tileDepth} err=${hit.tileGeometricError.toFixed(2)}${clamped ? ' clamped' : ''}`,
     );
     return true;
   }
@@ -218,6 +237,7 @@ export class RouteCellSampler {
       sampledAt: 0,
       tileDepth: 0,
       tileGeometricError: Infinity,
+      clamped: false,
     };
     cell.heightSampled = false;
     cell.terrainHeight = cell.routeAnchorY;
