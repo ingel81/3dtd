@@ -428,6 +428,39 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewOffsetY: -0.2,
   },
 
+  skeleton: {
+    id: 'skeleton',
+    name: 'Skeleton',
+    // Kenney "character-skeleton" (CC0, Graveyard Kit): six rigid parts moved
+    // by node animation, baked through bakeObjectAnimVAT like mech and hornet.
+    // 0.70 units tall, about 2.8 m at scale 4 (the zombie stands about 4.4 m).
+    modelUrl: 'assets/models/enemies/skeleton.glb',
+    scale: 4,
+    minimumPixelSize: 0,
+    armorType: 'unarmored',
+    // Swarm between the rat (5 HP, 10 m/s) and the zombie (80 HP, 5 m/s).
+    baseHp: 20,
+    baseSpeed: 6,
+    reward: 1,
+    hasAnimations: true,
+    walkAnimation: 'sprint',
+    // 0.33 s, clamped on its last frame; removal after
+    // TIMING.deathAnimationDuration (2 s) leaves the bones lying for 1.7 s.
+    deathAnimation: 'die',
+    animationSpeed: 1.25,
+    heightOffset: 0,
+    healthBarOffset: 3.8,
+    canBleed: false, // Bones
+    headingOffset: 0,
+    emissiveIntensity: 0.15,
+    randomAnimationStart: true,
+    lateralSpread: 1.0, // Swarm: up to the edge of the corridor
+    spawnStartDelay: 150,
+    previewScale: 2.5,
+    previewCameraDistance: 6,
+    previewCameraAngle: 0.2,
+  },
+
   spider: {
     id: 'spider',
     name: 'Spider',

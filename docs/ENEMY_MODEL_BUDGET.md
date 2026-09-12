@@ -267,8 +267,9 @@ Gegner der größten Welle gleichzeitig leben.
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | 2,7 | 2048² |
 | Rat (`rat`) | Swarm | 5.000 | 2.150 | 3.642 | 10,8 | Skinning | 11 | 2150×11 | 0,4 | 1024² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | 2,6 | 1024² |
+| Skeleton (`skeleton`) | in keiner Welle | 0 | 1.156 | 658 | 0,0 | Objekt-Anim. | 26 | 1156×26 | 0,5 | 512² |
 
-VAT-Speicher aller Typen zusammen: **485,6 MB** (RGBA32F, 30 fps).
+VAT-Speicher aller Typen zusammen: **486,1 MB** (RGBA32F, 30 fps).
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **26,4 MB** dazu.
 
 ### Modellinhalt
@@ -297,6 +298,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Bat | `bat.glb` | 5,5 | 1 (1) | 28 | 0 | 1 | 3× 2048² | 2 | 3.559 / 3.559 / 1.345 |
 | Rat | `rat.glb` | 2,5 | 1 (1) | 21 | 0 | 1 | 3× 1024² | 1 | 2.150 / 2.150 / 1.823 |
 | Penguin | `penguin.glb` | 1,3 | 1 (1) | 21 | 0 | 1 | 3× 1024² | 5 | 1.993 / 1.993 / 1.723 |
+| Skeleton | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
 
 ### Gebackene Clips
 
@@ -332,6 +334,8 @@ die weggelassenen Frames.
 | Rat | `Run` | walk | 0,34 | 11 | – |
 | Penguin | `Walk` | walk | 1,00 | 30 | – |
 | Penguin | `Fall` | death | 1,88 | 57 | – |
+| Skeleton | `sprint` | walk | 0,50 | 15 | – |
+| Skeleton | `die` | death | 0,33 | 11 | – |
 
 ### Vorkommen in Wellen
 
@@ -374,6 +378,7 @@ Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `c
 | Mech | W28 | 20 |
 | Penguin | W3 | 25 |
 | Rat | W2, W3, W18, W19 | 500 |
+| Skeleton | – | 0 |
 | Spider | W4, W6 | 35 |
 | Stone Golem | W15 | 6 |
 | Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 25 |
