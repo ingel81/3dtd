@@ -1,0 +1,539 @@
+"""Optimise enemy models for the VAT renderer (docs/ENEMY_MODEL_BUDGET.md).
+
+Each recipe below reads the original model from git (SOURCE_REV), so a rerun
+gives the same file instead of optimising an already optimised one, and writes
+the result into public/assets/models/enemies/.
+
+Headless:
+    blender --background --python tools/blender/optimize_enemy.py -- rat spider
+From a running Blender (Text editor or the Blender MCP):
+    REPO = r'D:/Source/3dtd'
+    exec(open(REPO + '/tools/blender/optimize_enemy.py').read()); run('rat')
+
+After a run: `npm run model-budget` measures the new file and fails if a clip
+the config expects is missing.
+"""
+import fnmatch
+import math
+import os
+import subprocess
+import sys
+import tempfile
+
+import bmesh
+import bpy
+import numpy as np
+
+# Commit that holds the original models.
+SOURCE_REV = '39fbb18'
+ENEMIES = 'public/assets/models/enemies'
+
+# Recipe keys (all optional except `src`):
+#   src         model path in the repo at SOURCE_REV
+#   extra       further files the importer needs next to it (external textures)
+#   out         output path in the repo (default: src with .glb)
+#   actions     {source action: exported clip name}; every other action is dropped
+#   trim        {exported clip name: (start frame, end frame, blend frames)}, see trim_action
+#   decimate    triangle ratio kept by the collapse decimator, for every mesh or
+#               {mesh name pattern: ratio}, first matching fnmatch pattern wins
+#   weld        merge vertices closer than this (model units) before decimating;
+#               for meshes the importer leaves as a triangle soup because the
+#               normals differ slightly across UV seams
+#   normals     'keep' (default), 'smooth' or a smoothing angle in degrees
+#   texture     longest side of every image left in the model
+#   base_color_only  drop every other texture (the VAT shader only samples base colour)
+#   image_format     'AUTO' (default) or 'JPEG'
+#   sample      resample every frame on export (default False: write the source
+#               keys, so clip lengths like 58.75 frames stay exact)
+#   slide       shift every clip to start at 0 (default False: keep the key times)
+#   guess_bind_pose  glTF importer option (default True); False for rigs whose
+#               bind pose the importer guesses wrong (the rat's Sketchfab rig)
+#   rest_from_file   write the file's node transforms as the rest pose, not the
+#               bind pose the importer guessed (see keep_file_rest_pose)
+RECIPES = {
+    # FBXLoader builds three vertices per triangle (17,010); as indexed GLB the
+    # same mesh is 3,444. Only the clips the config uses stay.
+    'wallsmasher': {
+        'src': f'{ENEMIES}/wallsmasher.fbx',
+        'extra': [f'{ENEMIES}/Zombie_Atlas.png'],
+        'out': f'{ENEMIES}/wallsmasher.glb',
+        'actions': {
+            'CharacterArmature|CharacterArmature|Walk': 'CharacterArmature|Walk',
+            'CharacterArmature|CharacterArmature|Run': 'CharacterArmature|Run',
+            'CharacterArmature|CharacterArmature|Death': 'CharacterArmature|Death',
+        },
+        # The FBX clips start at frame 1.
+        'sample': True,
+        'slide': True,
+    },
+    # 16 rigid meshes under animated empties (object-animation VAT path). Every
+    # empty carries one mesh (the head two, with different materials), so there
+    # is nothing to merge. The four wings are flat 266-vertex cards and stay.
+    'hornet': {
+        'src': f'{ENEMIES}/hornet.glb',
+        'decimate': {'wing01_wings_0*': 1.0, '*': 0.037},
+        'normals': 'smooth',
+    },
+    # Swarm enemy, up to 5,000 per wave. The shader samples the base colour
+    # only; the metal-roughness and normal maps (1024² each) go. Not exact:
+    # with the bind pose guess this rig exports broken, without it Blender's
+    # Run differs from the file between the keys (up to 9.4 % of the height
+    # at frames 3 and 7 of 11, upper hind body), whatever the export options.
+    'rat': {
+        'src': f'{ENEMIES}/rat.glb',
+        'guess_bind_pose': False,
+        'decimate': 0.42,
+        'normals': 'smooth',
+        'base_color_only': True,
+        'texture': 512,
+        'image_format': 'JPEG',
+    },
+    # Swarm enemy, up to 800 per wave. Body 12,833 and eyes 340 vertices; the
+    # config plays only the basic walk, the other five cycles go. At 8 % the
+    # legs turn into triangular prisms and the eyes vanish, so the body keeps
+    # 11 % (above the 1,500 swarm guideline) and the eyes (Object_10) 30 %.
+    'spider': {
+        'src': f'{ENEMIES}/spider.glb',
+        'actions': {'Armature|Walk-Cycle-Basic': 'Armature|Walk-Cycle-Basic'},
+        'decimate': {'Object_10': 0.3, '*': 0.11},
+        'normals': 'smooth',
+    },
+    # Three 2048² JPEGs (base colour, metal-roughness, normal) for a bat the
+    # size of a pigeon; the shader samples the base colour only. `fly` is a
+    # single-frame clip nothing plays. Geometry stays as it is.
+    'bat': {
+        'src': f'{ENEMIES}/bat.glb',
+        'actions': {'fly.001': 'fly.001'},
+        'base_color_only': True,
+        'texture': 512,
+        'image_format': 'JPEG',
+    },
+    # `flying` (13.13 s) is two copies of a 99-frame flight cycle (3.3 s);
+    # shorter windows do not repeat (7 % of the height off at 1 s). Frames
+    # 158-257 differ by 0.21 %, eased over the last 4 frames. The config
+    # plays only `flying`.
+    'dragon': {
+        'src': f'{ENEMIES}/dragon.glb',
+        'actions': {'flying': 'flying'},
+        'trim': {'flying': (158, 257, 4)},
+    },
+    # 31,342 VAT vertices for 30,887 triangles: UV seams split almost every
+    # edge, and the importer keeps the mesh as a triangle soup (normals differ
+    # slightly across the seams). Welded first, the decimator works on the
+    # connected surface (15,418 positions); 11.5 % keeps the silhouette, the
+    # texture smears along UV seams in a close-up. Electrocuted_Fall (6.33 s)
+    # stands twitching until 3.0 s and hits the ground at about 5 s; the enemy
+    # is removed 2 s after the kill, so only the fall, 3.0-5.0 s, is kept.
+    'zombie-v2': {
+        'src': f'{ENEMIES}/zombie_v2.glb',
+        'actions': {'Unsteady_Walk': 'Unsteady_Walk', 'Dead': 'Dead', 'dying_backwards': 'dying_backwards',
+                    'Electrocuted_Fall': 'Electrocuted_Fall'},
+        'trim': {'Electrocuted_Fall': (90, 150, 0)},
+        'weld': 1e-6,
+        'decimate': 0.115,
+        'normals': 'smooth',
+    },
+    # Look change: the zombie is faceted, every vertex split at the normals
+    # (4,525 VAT vertices for 2,157 triangles). Welded and smooth-shaded it
+    # keeps only the UV splits. Geometry, texture and clips stay.
+    'zombie': {
+        'src': f'{ENEMIES}/zombie.glb',
+        'weld': 1e-6,
+        'normals': 'smooth',
+        # Walk leaves 20 bones unkeyed; with the guessed bind pose as rest they moved.
+        'rest_from_file': True,
+    },
+    # Split at UV seams like zombie_v2 (19,863 positions, 30,228 vertices). The
+    # seams keep about 2.5 vertices per position after decimating, so 17 % ends
+    # at 8,126 VAT vertices; 10.5 % (5,799) smeared the ribcage in a close-up.
+    'wraith': {
+        'src': f'{ENEMIES}/wraith.glb',
+        'weld': 1e-6,
+        'decimate': 0.17,
+        'normals': 'smooth',
+    },
+    # Swarm enemy. Three 1024² PNGs, the shader samples the base colour only;
+    # it keeps its alpha (the material blends), so it stays PNG. Of five clips
+    # the config plays Walk and Fall. Exact only with the file's node pose.
+    'penguin': {
+        'src': f'{ENEMIES}/penguin.glb',
+        'actions': {'Walk': 'Walk', 'Fall': 'Fall'},
+        'base_color_only': True,
+        'texture': 512,
+        'rest_from_file': True,
+    },
+    # Twelve clips, the config plays Walk and Die. Geometry and textures stay.
+    # The default import moves the rig; with the file's node pose it is exact.
+    'mammoth': {
+        'src': f'{ENEMIES}/mammoth.glb',
+        'actions': {'Walk': 'Walk', 'Die': 'Die'},
+        'rest_from_file': True,
+    },
+    # Casual_Walk (4.17 s) jumps by 3.2 % of the height where it loops. The
+    # window 50-90 (1.33 s, a whole number of 30 fps frames on the 24 fps key
+    # raster) jumps by 1.2 %; the last 7.5 frames ease into the first pose.
+    # Base colour and emission (the same image twice) 2048² -> 1024²; of six
+    # clips the config plays two.
+    'stone-golem': {
+        'src': f'{ENEMIES}/stone_golem.glb',
+        'actions': {'Casual_Walk': 'Casual_Walk', 'dying_backwards': 'dying_backwards'},
+        'trim': {'Casual_Walk': (50, 90, 7.5)},
+        'texture': 1024,
+    },
+    # No mech recipe: its round trip is exact only without the bind pose guess,
+    # and decimating the 34 hard-surface parts to 12 % (6,739 VAT vertices, not
+    # 5,000) left shards and texture seams; mech_army stays at 4.2 million.
+}
+
+
+def repo_root():
+    if 'REPO' in globals():
+        return globals()['REPO']
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+
+def git_export(repo, path, dest_dir):
+    """Write `path` as it is at SOURCE_REV into dest_dir, return the file path."""
+    data = subprocess.run(['git', '-C', repo, 'show', f'{SOURCE_REV}:{path}'],
+                          check=True, capture_output=True).stdout
+    dest = os.path.join(dest_dir, os.path.basename(path))
+    with open(dest, 'wb') as f:
+        f.write(data)
+    return dest
+
+
+def clear_scene():
+    for coll in (bpy.data.objects, bpy.data.meshes, bpy.data.armatures, bpy.data.actions,
+                 bpy.data.materials, bpy.data.images, bpy.data.textures, bpy.data.node_groups,
+                 bpy.data.cameras, bpy.data.lights):
+        for block in list(coll):
+            coll.remove(block)
+    for c in list(bpy.data.collections):
+        bpy.data.collections.remove(c)
+
+
+def import_model(path, merge_vertices, guess_bind_pose=True):
+    if path.lower().endswith('.fbx'):
+        bpy.ops.import_scene.fbx(filepath=path)
+    else:
+        # No bone shapes: the importer would add an Icosphere mesh that ends up in the export.
+        bpy.ops.import_scene.gltf(filepath=path, merge_vertices=merge_vertices, disable_bone_shape=True,
+                                  guess_original_bind_pose=guess_bind_pose)
+
+
+def keep_actions(mapping):
+    for act in list(bpy.data.actions):
+        if act.name not in mapping:
+            bpy.data.actions.remove(act)
+    for act in list(bpy.data.actions):
+        act.name = mapping[act.name]
+        act.use_fake_user = True
+    missing = set(mapping.values()) - {a.name for a in bpy.data.actions}
+    if missing:
+        raise RuntimeError(f'actions not found: {sorted(missing)}')
+
+
+def trim_action(act, start, end, blend=0):
+    """Keep the keys in [start, end] (frames) and move them to start at 0.
+
+    With `blend` > 0 the last `blend` frames are eased (smoothstep) towards the
+    pose at `start`, so the clip ends where it begins and loops without a jump.
+    Expects keys on every frame of the window, as glTF imports of baked clips
+    have them.
+    """
+    for layer in act.layers:
+        for strip in layer.strips:
+            for cb in strip.channelbags:
+                groups = {}
+                for fc in cb.fcurves:
+                    groups.setdefault(fc.data_path, []).append(fc)
+                for path, fcs in groups.items():
+                    fcs.sort(key=lambda f: f.array_index)
+                    first = [fc.evaluate(start) for fc in fcs]
+                    last = [fc.evaluate(end) for fc in fcs]
+                    quat = path.endswith('rotation_quaternion') and len(fcs) == 4
+                    if quat and sum(a * b for a, b in zip(first, last)) < 0:
+                        first = [-x for x in first]
+                    delta = [a - b for a, b in zip(first, last)]
+                    by_frame = {}
+                    for i, fc in enumerate(fcs):
+                        pts = fc.keyframe_points
+                        for p in reversed(list(pts)):
+                            if p.co.x < start - 1e-3 or p.co.x > end + 1e-3:
+                                pts.remove(p, fast=True)
+                        for p in pts:
+                            by_frame.setdefault(round(p.co.x, 3), [None] * len(fcs))[i] = p
+                    for frame, pts in by_frame.items():
+                        w = 0.0
+                        if blend and frame > end - blend:
+                            t = (frame - (end - blend)) / blend
+                            w = t * t * (3 - 2 * t)
+                        if w and all(pts):
+                            vals = [p.co.y + d * w for p, d in zip(pts, delta)]
+                            if quat:
+                                n = sum(v * v for v in vals) ** 0.5
+                                vals = [v / n for v in vals]
+                            for p, v in zip(pts, vals):
+                                p.co.y = v
+                        for p in pts:
+                            if p is None:
+                                continue
+                            p.co.x -= start
+                            p.handle_left.x -= start
+                            p.handle_right.x -= start
+                    for fc in fcs:
+                        fc.keyframe_points.handles_recalc()
+                        fc.update()
+    act.use_frame_range = False
+
+
+def with_object(obj, fn):
+    with bpy.context.temp_override(object=obj, active_object=obj, selected_objects=[obj]):
+        return fn()
+
+
+def weld(obj, distance):
+    """Merge co-located vertices; UVs stay per corner, so seams survive."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=distance)
+    bm.to_mesh(obj.data)
+    bm.free()
+    # Faces that end up on the same three vertices would make the mesh invalid.
+    obj.data.validate()
+    obj.data.update()
+
+
+def decimate(obj, ratio):
+    """Collapse decimate as the first modifier, so the armature pose is not applied."""
+    if ratio >= 1.0:
+        return
+    mod = obj.modifiers.new('Decimate', 'DECIMATE')
+    mod.decimate_type = 'COLLAPSE'
+    mod.ratio = ratio
+    mod.use_collapse_triangulate = True
+    with_object(obj, lambda: bpy.ops.object.modifier_move_to_index(modifier=mod.name, index=0))
+    with_object(obj, lambda: bpy.ops.object.modifier_apply(modifier=mod.name))
+
+
+def set_normals(obj, normals):
+    if normals == 'keep':
+        return
+    me = obj.data
+    if me.has_custom_normals:
+        with_object(obj, lambda: bpy.ops.mesh.customdata_custom_splitnormals_clear())
+    if normals == 'smooth':
+        me.shade_smooth()
+        if 'sharp_edge' in me.attributes:
+            me.attributes.remove(me.attributes['sharp_edge'])
+    else:
+        me.shade_smooth()
+        me.set_sharp_from_angle(angle=math.radians(normals))
+
+
+def base_color_images(mat):
+    """Image nodes feeding the Principled BSDF base colour (directly or through mix nodes)."""
+    if not (mat and mat.use_nodes):
+        return []
+    nt = mat.node_tree
+    bsdf = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+    if bsdf is None:
+        return []
+    found, stack = [], [bsdf.inputs['Base Color']]
+    while stack:
+        sock = stack.pop()
+        for link in sock.links:
+            node = link.from_node
+            if node.type == 'TEX_IMAGE':
+                found.append(node)
+            else:
+                stack.extend(i for i in node.inputs if i.is_linked)
+    return found
+
+
+def channel_mean(sock):
+    """Mean of what drives a Metallic/Roughness socket: factor x one channel of
+    the metal-roughness image (glTF: roughness green, metallic blue)."""
+    node, factor = sock.links[0].from_node, 1.0
+    if node.type == 'MATH' and node.operation == 'MULTIPLY':
+        factor = next((i.default_value for i in node.inputs[:2] if not i.is_linked), 1.0)
+        node = next(i.links[0].from_node for i in node.inputs[:2] if i.is_linked)
+    if node.type != 'SEPARATE_COLOR':
+        return factor
+    channel = {'Red': 0, 'Green': 1, 'Blue': 2}[next(
+        l.from_socket.name for l in node.outputs[0].links + node.outputs[1].links + node.outputs[2].links
+        if l.to_socket == sock or l.to_node.type == 'MATH')]
+    src = node.inputs[0].links[0].from_node if node.inputs[0].is_linked else None
+    if src is None or src.type != 'TEX_IMAGE' or src.image is None:
+        return factor
+    img = src.image
+    px = np.empty(len(img.pixels), dtype=np.float32)
+    img.pixels.foreach_get(px)
+    return factor * float(px[channel::4].mean())
+
+
+def strip_to_base_color(mat):
+    nt = mat.node_tree
+    bsdf = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+    if bsdf is None:
+        return
+    keep = set(base_color_images(mat))
+    for sock in bsdf.inputs:
+        if sock.name in ('Base Color', 'Alpha') or not sock.is_linked:
+            continue
+        # The importer writes a glTF factor as Math(multiply) with the texture, or
+        # leaves it out at 1.0. Unlinked, the socket gets factor x texture mean.
+        value = channel_mean(sock) if sock.name in ('Metallic', 'Roughness') else None
+        for link in list(sock.links):
+            nt.links.remove(link)
+        if value is not None:
+            sock.default_value = value
+    # Remove the chains left dangling (image -> Separate Color / Normal Map -> nothing).
+    removed = True
+    while removed:
+        removed = False
+        for node in list(nt.nodes):
+            if node.type in ('OUTPUT_MATERIAL', 'BSDF_PRINCIPLED') or node in keep:
+                continue
+            if not any(o.is_linked for o in node.outputs):
+                nt.nodes.remove(node)
+                removed = True
+
+
+def drop_opaque_image_alpha(mat):
+    """The glTF importer multiplies the factor alpha with the texture alpha in a
+    Math node, also for a JPEG, which has none. The exporter then packs colour and
+    alpha into a new PNG. A plain factor alpha keeps the JPEG as it was."""
+    if not (mat and mat.use_nodes):
+        return
+    nt = mat.node_tree
+    bsdf = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+    if bsdf is None or not bsdf.inputs['Alpha'].is_linked:
+        return
+    math = bsdf.inputs['Alpha'].links[0].from_node
+    if math.type != 'MATH' or math.operation != 'MULTIPLY':
+        return
+    linked = [i for i in math.inputs[:2] if i.is_linked]
+    if len(linked) != 1 or linked[0].links[0].from_node.type != 'TEX_IMAGE':
+        return
+    img = linked[0].links[0].from_node.image
+    if img is None or img.file_format != 'JPEG':
+        return
+    factor = next(i.default_value for i in math.inputs[:2] if not i.is_linked)
+    nt.nodes.remove(math)
+    bsdf.inputs['Alpha'].default_value = factor
+
+
+def resize_image(img, longest):
+    w, h = img.size
+    if max(w, h) <= longest:
+        return
+    f = longest / max(w, h)
+    img.scale(max(1, round(w * f)), max(1, round(h * f)))
+
+
+def keep_file_rest_pose():
+    """Bones without keys in a clip stand at their node transform in three.js.
+    The importer makes the guessed bind pose Blender's rest pose and poses the
+    bones at the file's node transforms; with no action applied, exporting that
+    pose as the rest keeps those bones where the file had them."""
+    for arm in (o for o in bpy.context.scene.objects if o.type == 'ARMATURE'):
+        ad = arm.animation_data
+        if ad is None:
+            continue
+        ad.action = None
+        for track in list(ad.nla_tracks):
+            ad.nla_tracks.remove(track)
+    for act in bpy.data.actions:
+        act.use_fake_user = True
+    bpy.context.view_layer.update()
+
+
+def purge_orphans():
+    for coll in (bpy.data.images, bpy.data.materials, bpy.data.meshes, bpy.data.textures):
+        for block in list(coll):
+            if block.users == 0:
+                coll.remove(block)
+
+
+def export_glb(path, image_format, sample, slide, rest_position=True):
+    bpy.ops.export_scene.gltf(
+        filepath=path,
+        export_format='GLB',
+        export_animations=True,
+        export_animation_mode='ACTIONS',
+        export_anim_slide_to_zero=slide,
+        export_force_sampling=sample,
+        export_optimize_animation_size=True,
+        export_skins=True,
+        export_influence_nb=4,
+        export_morph=True,
+        export_materials='EXPORT',
+        export_image_format=image_format,
+        export_jpeg_quality=90,
+        export_image_quality=90,
+        export_apply=False,
+        export_yup=True,
+        export_cameras=False,
+        export_lights=False,
+        export_rest_position_armature=rest_position,
+    )
+
+
+def run(name):
+    recipe = RECIPES[name]
+    repo = repo_root()
+    out = os.path.join(repo, recipe.get('out') or os.path.splitext(recipe['src'])[0] + '.glb')
+    decim = recipe.get('decimate')
+    with tempfile.TemporaryDirectory() as tmp:
+        src = git_export(repo, recipe['src'], tmp)
+        for extra in recipe.get('extra', []):
+            git_export(repo, extra, tmp)
+        clear_scene()
+        # The importer places keys by the scene rate, and recipe frames (`trim`) count
+        # at the baker's 30 fps; a fresh Blender runs at 24.
+        bpy.context.scene.render.fps = 30
+        bpy.context.scene.render.fps_base = 1.0
+        # Merged vertices let the decimator collapse across UV seams without tearing them open.
+        import_model(src, merge_vertices=decim is not None,
+                     guess_bind_pose=recipe.get('guess_bind_pose', True))
+
+        if 'actions' in recipe:
+            keep_actions(recipe['actions'])
+        for action_name, window in recipe.get('trim', {}).items():
+            trim_action(bpy.data.actions[action_name], *window)
+
+        meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+        for obj in meshes:
+            ratio = decim
+            if isinstance(decim, dict):
+                ratio = next((r for pat, r in decim.items() if fnmatch.fnmatchcase(obj.name, pat)), 1.0)
+            if 'weld' in recipe:
+                weld(obj, recipe['weld'])
+            if ratio is not None:
+                decimate(obj, ratio)
+            set_normals(obj, recipe.get('normals', 'keep'))
+            if obj.data.validate():
+                print(f'[optimize_enemy] {obj.name}: repaired invalid geometry')
+
+        for mat in bpy.data.materials:
+            if recipe.get('base_color_only'):
+                strip_to_base_color(mat)
+            drop_opaque_image_alpha(mat)
+        purge_orphans()
+        if 'texture' in recipe:
+            for img in bpy.data.images:
+                resize_image(img, recipe['texture'])
+
+        rest_from_file = recipe.get('rest_from_file', False)
+        if rest_from_file:
+            keep_file_rest_pose()
+        export_glb(out, recipe.get('image_format', 'AUTO'), recipe.get('sample', False),
+                   recipe.get('slide', False), rest_position=not rest_from_file)
+    print(f'[optimize_enemy] {name}: {out} ({os.path.getsize(out) / 1048576:.2f} MB)')
+    return out
+
+
+if __name__ == '__main__' and '--' in sys.argv:
+    for recipe_name in sys.argv[sys.argv.index('--') + 1:]:
+        run(recipe_name)
