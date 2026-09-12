@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { GameEventBus } from './game-event-bus';
 import { VFXService } from './vfx.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import { MUZZLE_FLASH_PROFILES } from '../configs/visual-effects.config';
+import { EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../configs/visual-effects.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 
 function setup() {
@@ -13,7 +13,12 @@ function setup() {
       triggerMuzzleFlash: vi.fn(),
     },
     sync: { geoToLocal: vi.fn(() => ({ x: 1, y: 0, z: 2 })) },
-    effects: { spawnMuzzleFlash: vi.fn(), spawnArcaneBurstAtGeo: vi.fn(), spawnExplosionAtGeo: vi.fn() },
+    effects: {
+      spawnMuzzleFlash: vi.fn(),
+      spawnArcaneBurstAtGeo: vi.fn(),
+      spawnPoisonBurstAtGeo: vi.fn(),
+      spawnExplosionAtGeo: vi.fn(),
+    },
   };
   const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
   const fire = (towerTypeId: string) =>
@@ -53,18 +58,38 @@ describe('VFXService muzzle flash', () => {
 });
 
 describe('VFXService projectile impact', () => {
+  const impact = (eventBus: GameEventBus, projectileType: string) =>
+    eventBus.emit({ type: 'vfx:projectile-impact', lat: 1, lon: 2, height: 3, projectileType, targetLost: false });
+
   it('bursts violet/cyan for the arcane orb instead of the fire explosion', () => {
     const { eventBus, tilesEngine, service } = setup();
-    eventBus.emit({
-      type: 'vfx:projectile-impact',
-      lat: 1,
-      lon: 2,
-      height: 3,
-      projectileType: 'arcane-orb',
-      targetLost: false,
-    });
+    impact(eventBus, 'arcane-orb');
     expect(tilesEngine.effects.spawnArcaneBurstAtGeo).toHaveBeenCalledWith(1, 2, 3, expect.any(Number));
     expect(tilesEngine.effects.spawnExplosionAtGeo).not.toHaveBeenCalled();
+    service.destroy();
+  });
+
+  it('bursts green for the poison glob instead of the fire explosion', () => {
+    const { eventBus, tilesEngine, service } = setup();
+    impact(eventBus, 'poison-glob');
+    expect(tilesEngine.effects.spawnPoisonBurstAtGeo).toHaveBeenCalledWith(1, 2, 3, EXPLOSION_PRESETS.poison.particles);
+    expect(tilesEngine.effects.spawnExplosionAtGeo).not.toHaveBeenCalled();
+    service.destroy();
+  });
+
+  it.each(['ice-shard', 'arrow'])('leaves the %s impact to other effects', (projectileType) => {
+    const { eventBus, tilesEngine, service } = setup();
+    impact(eventBus, projectileType);
+    expect(tilesEngine.effects.spawnExplosionAtGeo).not.toHaveBeenCalled();
+    expect(tilesEngine.effects.spawnPoisonBurstAtGeo).not.toHaveBeenCalled();
+    service.destroy();
+  });
+
+  it('explodes cannon and rocket hits', () => {
+    const { eventBus, tilesEngine, service } = setup();
+    impact(eventBus, 'cannonball');
+    impact(eventBus, 'rocket');
+    expect(tilesEngine.effects.spawnExplosionAtGeo).toHaveBeenCalledTimes(2);
     service.destroy();
   });
 });

@@ -121,17 +121,16 @@ export class VFXService {
       // Minimal impact effect for bullets
       preset = EXPLOSION_PRESETS.bullet.particles;
     } else if (projectileType === 'poison-glob') {
-      // Small green impact for poison
-      preset = EXPLOSION_PRESETS.poison.particles;
+      // Green spark burst instead of the fire-atlas explosion
+      this.tilesEngine.effects.spawnPoisonBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.poison.particles);
+      return;
     } else if (projectileType === 'arcane-orb') {
       // Violet/cyan spark burst instead of the fire-atlas explosion
       this.tilesEngine.effects.spawnArcaneBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.arcane.particles);
       return;
-    } else if (projectileType !== 'arrow') {
-      // Small impact effect for other projectiles (ice, etc.)
-      preset = EXPLOSION_PRESETS.small.particles;
     } else {
-      // No effect for arrows
+      // Nothing for arrows. The ice shard's burst and frost decals come from
+      // the hit itself (CombatVfxService.emitIceExplosion).
       return;
     }
 

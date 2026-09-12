@@ -54,9 +54,10 @@ export const EXPLOSION_PRESETS = {
   // One explosion now, with most of the second one's particles folded in.
   cannon:   { particles: 50,  radius: 6 },
   hq:       { particles: 150, radius: 15 },
-  small:    { particles: 8,   radius: 3 },
   bullet:   { particles: 2,   radius: 1 },
-  poison:   { particles: 6,   radius: 2 },
+  // Green spark burst (BURST_PALETTES.poison). Until 2026-09-12 the glob hit
+  // with 6 + 30 orange fire-atlas particles, which read as a fireball.
+  poison:   { particles: 14,  radius: 2 },
   arcane:   { particles: 14,  radius: 3 },
 } as const;
 
@@ -70,8 +71,13 @@ export interface EffectRgb {
 /** Spark-burst palette: 40 % of the particles get the first colour, 30 % each the other two. */
 export type BurstPalette = readonly [EffectRgb, EffectRgb, EffectRgb];
 
-/** Palettes for the round-particle spark bursts (ice hit, arcane orb hit). */
+/** Palettes for the round-particle spark bursts (ice, arcane orb and poison glob hits). */
 export const BURST_PALETTES = {
+  poison: [
+    { r: 0.55, g: 1.0, b: 0.2 },  // Bright toxic green core
+    { r: 0.2, g: 0.8, b: 0.05 },  // Green
+    { r: 0.1, g: 0.45, b: 0.0 },  // Dark green
+  ],
   ice: [
     { r: 1.0, g: 1.0, b: 1.0 },   // White core
     { r: 0.9, g: 0.98, b: 1.0 },  // Very light cyan
