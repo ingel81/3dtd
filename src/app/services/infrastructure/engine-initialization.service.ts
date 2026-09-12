@@ -6,14 +6,7 @@ import { AssetManagerService } from './asset-manager.service';
 import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { DevStreetProvider } from '../../devworld/dev-street.provider';
-import { BootStep, BootStepStatus } from '../../components/loading-screen/boot-step.model';
-
-/**
- * Re-export for legacy import paths. The status / step types now live in the
- * loading-screen component folder so the screen owns its own data shape.
- */
-export type LoadingStepStatus = BootStepStatus;
-export type LoadingStep = BootStep;
+import { BootStep } from '../../components/loading-screen/boot-step.model';
 
 /**
  * EngineInitializationService

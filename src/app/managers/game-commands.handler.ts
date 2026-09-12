@@ -2,7 +2,6 @@ import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { requiredUpgradeTier } from '../configs/tower-types.config';
 import { GameStateManager } from './game-state.manager';
 import { getResearch } from '../configs/research/research-tree.config';
-import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 
 /**
  * GameCommandsHandler — Command-Bus-Adapter für GameStateManager.
@@ -164,6 +163,3 @@ export class GameCommandsHandler {
     }));
   }
 }
-
-// Re-export tu Helper-Konstanten, falls weitere Module das brauchen.
-export { METERS_PER_DEGREE_LAT, DEG_TO_RAD };
