@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
-import { EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../configs/visual-effects.config';
+import { EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES, type ScorchSource } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 
@@ -14,7 +14,7 @@ import type { TowerTypeId } from '../configs/tower-types.config';
 export class VFXService {
   private readonly subs = new SubscriptionBag();
 
-  // Scratch vectors to avoid per-event allocations in the chain-lightning handler.
+  // Scratch vectors to avoid per-event allocations (chain lightning, scorch marks).
   private readonly tmpA = new Vector3();
   private readonly tmpB = new Vector3();
 
@@ -114,11 +114,13 @@ export class VFXService {
       // Rocket explosion - large fire effect, the radius is visual only
       const { particles, radius, smokePuffs } = EXPLOSION_PRESETS.rocket;
       effects.spawnExplosionAtGeo(lat, lon, height, particles, radius, smokePuffs);
+      this.markScorch(lat, lon, height, 'rocket');
     } else if (projectileType === 'cannonball') {
       // Cannonball explosion - as wide as the splash that deals its damage
       const { particles, smokePuffs } = EXPLOSION_PRESETS.cannon;
       const radius = PROJECTILE_TYPES.cannonball.splashRadius ?? EXPLOSION_PRESETS.cannon.radius;
       effects.spawnExplosionAtGeo(lat, lon, height, particles, radius, smokePuffs);
+      this.markScorch(lat, lon, height, 'cannon');
     } else if (projectileType === 'bullet') {
       // Minimal impact effect for bullets
       effects.spawnExplosionAtGeo(lat, lon, height, EXPLOSION_PRESETS.bullet.particles);
@@ -131,6 +133,15 @@ export class VFXService {
     }
     // Nothing for arrows. The ice shard's burst and frost decals come from
     // the hit itself (CombatVfxService.emitIceExplosion).
+  }
+
+  /**
+   * Scorch mark on the ground below an impact. The effects renderer keeps
+   * one per route cell and skips hits off the route or high in the air.
+   */
+  private markScorch(lat: number, lon: number, height: number, source: ScorchSource): void {
+    const p = this.tilesEngine.sync.geoToLocalSimpleInto(lat, lon, height, this.tmpA);
+    this.tilesEngine.effects.markScorch(p.x, p.y, p.z, source);
   }
 
   /**

@@ -181,6 +181,8 @@ export function createMockTilesEngine(): any {
       stopFrostAura: vi.fn(),
       hasFrostAura: vi.fn(() => false),
       spawnMuzzleFlash: vi.fn(),
+      setScorchGround: vi.fn(),
+      markScorch: vi.fn(),
       clear: vi.fn(),
     },
     triggerScreenShake: vi.fn(),

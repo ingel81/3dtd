@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { Vector3 } from 'three';
 import { GameEventBus } from './game-event-bus';
 import { VFXService } from './vfx.service';
 import type { ThreeTilesEngine } from '../three-engine';
@@ -13,8 +14,12 @@ function setup() {
       get: vi.fn(() => ({ lat: 0, lon: 0, height: 0, tipY: 12 })),
       triggerMuzzleFlash: vi.fn(),
     },
-    sync: { geoToLocal: vi.fn(() => ({ x: 1, y: 0, z: 2 })) },
+    sync: {
+      geoToLocal: vi.fn(() => ({ x: 1, y: 0, z: 2 })),
+      geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: Vector3) => target.set(7, 8, 9)),
+    },
     effects: {
+      markScorch: vi.fn(),
       spawnMuzzleFlash: vi.fn(),
       spawnArcaneBurstAtGeo: vi.fn(),
       spawnPoisonBurstAtGeo: vi.fn(),
@@ -96,6 +101,18 @@ describe('VFXService projectile impact', () => {
       [1, 2, 3, rocket.particles, rocket.radius, rocket.smokePuffs],
     ]);
     expect(cannon.smokePuffs).toBeGreaterThan(0);
+    service.destroy();
+  });
+
+  it('burns scorch marks under cannon and rocket hits only', () => {
+    const { eventBus, tilesEngine, service } = setup();
+    for (const type of ['cannonball', 'rocket', 'bullet', 'poison-glob', 'arcane-orb', 'ice-shard', 'arrow']) {
+      impact(eventBus, type);
+    }
+    expect(tilesEngine.effects.markScorch.mock.calls).toEqual([
+      [7, 8, 9, 'cannon'],
+      [7, 8, 9, 'rocket'],
+    ]);
     service.destroy();
   });
 });
