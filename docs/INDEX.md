@@ -3,8 +3,9 @@
 Technische Dokumentation zum Tower Defense auf Google Maps 3D Tiles.
 
 Die Statusspalte sagt, wie weit man einem Dokument trauen darf:
-**Aktuell** = beschreibt den laufenden Stand · **Plan** = beschreibt etwas noch
-nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
+**Aktuell** = beschreibt den laufenden Stand · **Plan** / **Konzept** = beschreibt
+etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum ·
+**Historisch** = überholt, nur noch als Herkunft interessant.
 
 ---
 
@@ -29,6 +30,7 @@ nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
 | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | Aktuell | Wave-Management, Sub-Step-Spawner, Mixed Waves, Game Phases |
 | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) | Aktuell | Debug-Pfad ohne Director: `STATIC_WAVE_PROFILES`, UI-Toggle, Post-W30-Loop |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
+| [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) | Aktuell | Breite des Routenkorridors: Freiraum je Seite aus den Tiles, OSM-Breite als Rückfall, Dach-Check, Brücken, Tunnel, Nachmessen (`CorridorRefit`), Seitenversatz der Gegner, `__corridor.*`, `__routes.describe()` |
 | [PROJECTILES.md](PROJECTILES.md) | Aktuell | Projektil-System, Flugbahnen, Konfiguration |
 | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | Aktuell | 3D Audio, positionsabhängige Sounds, Hintergrundmusik |
 | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) | Aktuell | 3D Model Previews in der Sidebar (Renderer-Capacity-Strategie) |
@@ -38,33 +40,44 @@ nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
 | [HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md) | Aktuell | GPU-Cubemap-LOS-Pipeline (Ground + Air produktiv) |
 | [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) | Aktuell | 3D-Tiles Loading Bug + Tile-Quality-Aware Route Protection |
 | [DEVWORLD.md](DEVWORLD.md) | Aktuell | Offline-Entwicklungsumgebung, Terrain-Presets (`?devworld`) |
+
+## Game Design
+
+| Dokument | Status | Beschreibung |
+|----------|--------|--------------|
 | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) | Aktuell | Game Design: Schadenstypen, Rüstung, Damage-Matrix, Balance |
+| [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md) | Bericht | Balance-Vorschlag vom 2026-09-11: Upgrade-Kurven, Cannon, Matrix-Spreizung, Boss-Takt ab W31, mit Rechenwegen. Im Sprint 2026-09-11 umgesetzt; die offenen Fragen stehen am Ende |
+| [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) | Konzept | Spieler aktiver einbinden: Fähigkeiten, Held, Varianten mit Aufwand. Abschnitt 7 hält die Entscheidung vom 2026-09-12 fest (Nuklearschlag zuerst) |
+| [COMBAT_HEATMAP_STUDY.md](game-design/COMBAT_HEATMAP_STUDY.md) | Bericht | Machbarkeitsstudie Kampfzonen. Schicht 1 (Kampfspuren) ist umgesetzt, siehe PARTICLE_SYSTEM.md; Schicht 2 (Heatmap) nicht |
+| [UX_DISCUSSION_NOTES.md](game-design/UX_DISCUSSION_NOTES.md) | Bericht | Diskussionsnotizen: Turmdrehung nach Wegfall des Ziels, Color Grading |
 
 ## Wave Director & AI
 
-> Der Wave-Director ist seit dem aktuellen Stand **regelbasiert und vollständig
-> clientseitig**. Das ONNX-Modell ist Opt-in im Debug-Fenster, kein Python-Server
-> im Spielbetrieb. Begründung und Messungen: AI_WAVE_DIRECTOR_PLAN.md.
+> Der Wave-Director ist **regelbasiert und vollständig clientseitig**. Das
+> ONNX-Modell ist Opt-in im Debug-Fenster, kein Python-Server im Spielbetrieb.
+> Begründung und Messungen: AI_WAVE_DIRECTOR_PLAN.md.
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
 | **[AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md)** | **Aktuell** | **Einstiegspunkt:** Regel-Director, Gate-Controller, warum das Modell ersetzt wurde, was vom RL-Aufbau bleibt |
-| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research) — der Gegenspieler im Training |
+| [HANDOVER_RULE_DIRECTOR.md](HANDOVER_RULE_DIRECTOR.md) | Bericht | Umstellung vom ONNX-Netz auf den Regel-Director (2026-09-07): die Messreihe dahinter, Einstieg für ein späteres Training |
+| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Gegenspieler im Training |
 | [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) | Aktuell | Balance-Stand: Wave-Curriculum, Endgame-Knobs, Gold-Budget |
 | [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) | Aktuell (Teil) | Range-Templates, Decoder-Constraints, Reward-Tuning. Die Template-/Decoder-Mechanik gilt weiter; die Aussagen zum Modell als Director sind überholt |
 | [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md) | Aktuell | Refresh des Trainings-Backends: Befunde, Grundsatzentscheidungen, Messbetrieb |
+| [training-backend/README.md](../training-backend/README.md) | Aktuell | Backend starten, Ordner, Befehle |
 | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Aktuell | Python Training Backend: PPO, State-Encoder, Reward, Decoder-Constraints, A/B-Directors |
-| [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) | Aktuell | ONNX-Export (`npm run export-ai`) — nur für den Opt-in-Pfad nötig |
+| [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) | Aktuell | ONNX-Export (`npm run export-ai`), nur für den Opt-in-Pfad nötig |
 | [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Historisch/Log | Entwicklungsgeschichte v1 → v3.5 + Phase-5.x-Index |
 
 ## Analysen & Berichte
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
-| [ENGINE_DEEP_REVIEW_2026-05-16.md](ENGINE_DEEP_REVIEW_2026-05-16.md) | Bericht | Engine-Review über `src/app/`, Dependencies, Tests |
+| [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) | Bericht (Playtest läuft) | Zweite Sprint-Runde auf `sprint/todo-2026-09-11`: Änderungen, Review-Befunde, nummerierte Playtest-Liste mit Ergebnissen |
+| [REVIEW_SPRINT_2026-09-11.md](REVIEW_SPRINT_2026-09-11.md) | Bericht | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand. TODO.md 1.6 verweist darauf |
+| [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md) | Bericht | Route vs. Straße (Playtest 2026-09-10): Kette Overpass bis Zelle, Herleitung des Korridors, Lücken in der LOS-Anzeige. Der aktuelle Stand des Korridors steht in ROUTE_CORRIDOR.md |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](PERF_BUG_ANALYSIS_2026-05-28.md) | Bericht | Performance- und Bug-Deep-Dive: Render-Loop, Instancing, VFX, Game-Loop, Leaks |
-| [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](HANDOVER_MERGE_LOCAL_VS_ORIGIN.md) | Bericht | Merge-Divergenz lokal ↔ origin/main (2026-08-23) |
-| [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md) | Bericht | Route vs. Straße (Playtest 2026-09-10): Kette Overpass bis Zelle, `__routes.describe()`; Korridor nach Freiraum pro Seite, Stellschrauben `__corridor.set()`, Lücken in der LOS-Anzeige `__corridor.towerCells()` |
 
 ## Pläne (nicht umgesetzt)
 
@@ -74,12 +87,17 @@ nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
 | [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Plan | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei durchentworfene Zielmodi. Kein Code |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Plan | Windows-Desktop-Build via Electron. PoC abgeschlossen und zurückgebaut |
 
-## Historisch
+## Archiv
 
-| Dokument | Ersetzt durch |
-|----------|---------------|
-| [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md) | [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) — Übergang von 16-Softmax zu Templates |
-| `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) — historisches Restart-Runbook, liegt bewusst nur unter `training-backend/` |
+Überholte Dokumente liegen unter [archive/](archive/). Sie werden nicht mehr
+nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
+
+| Dokument | Ersetzt durch / Anlass |
+|----------|------------------------|
+| [PHASE_5.10_TEMPLATES.md](archive/PHASE_5.10_TEMPLATES.md) | [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md), Übergang von 16-Softmax zu Templates |
+| [ENGINE_DEEP_REVIEW_2026-05-16.md](archive/ENGINE_DEEP_REVIEW_2026-05-16.md) | Engine-Review über `src/app/`, Dependencies, Tests (Stand 2026-05-16) |
+| [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](archive/HANDOVER_MERGE_LOCAL_VS_ORIGIN.md) | Merge-Divergenz lokal ↔ origin/main (2026-08-23) |
+| `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md), historisches Restart-Runbook, liegt bewusst unter `training-backend/` |
 
 ## Werkzeuge (HTML, lokal im Browser öffnen)
 
@@ -102,8 +120,10 @@ nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
 | ...das UI stylen | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | ...einen Bug fixen | [TODO.md](../TODO.md) |
 | ...wissen, was schon fertig ist | [DONE.md](../DONE.md) |
+| ...den laufenden Playtest-Stand sehen | [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) → Playtest-Liste |
 | ...einen neuen Tower erstellen | [TOWER_CREATION.md](TOWER_CREATION.md) |
 | ...einen neuen Enemy erstellen | [ENEMY_CREATION.md](ENEMY_CREATION.md) |
+| ...wissen, wie teuer ein Gegnermodell ist | [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) |
 | ...rotierende Turrets bauen | [TOWER_CREATION.md](TOWER_CREATION.md) → Rotierende Tower-Teile |
 | ...das Tower-Placement verstehen | [TOWER_CREATION.md](TOWER_CREATION.md) → Tower-Placement-System |
 | ...Enemy-Animationen konfigurieren | [ENEMY_CREATION.md](ENEMY_CREATION.md) → Animation-System |
@@ -114,10 +134,11 @@ nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
 | ...wissen, warum das ONNX-Modell nicht mehr läuft | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) → Warum die Regeln |
 | ...ohne Director durchspielen (Static-Fallback) | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) |
 | ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
-| ...den Balance-Stand verstehen | [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) |
+| ...den Balance-Stand verstehen | [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md), [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md) |
 | ...ein Training fahren | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) |
 | ...ein neues Modell exportieren | [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) |
 | ...das Location-System anpassen | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
+| ...verstehen, wie breit Route und Zellkorridor sind | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | ...Sounds hinzufügen | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
 | ...neue Projektiltypen erstellen | [PROJECTILES.md](PROJECTILES.md) |
 | ...Model Previews anpassen | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) |
@@ -133,20 +154,21 @@ nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
 
 ```
 src/app/
-├── tower-defense.component.ts   # Haupt-Spielkomponente
+├── tower-defense.component.*    # Haupt-Spielkomponente (.ts, .html, .scss)
 ├── ai/
 │   ├── core/                    # Regel-Director, Gate-Controller, Templates, Encoder
 │   └── training/                # Bots + Strategien, WebSocket-Client
 ├── devworld/                    # Offline-Umgebung (Terrain, Streets, Buildings)
-├── game-engine/                 # Event Bus, VFX/Audio/Music (framework-agnostisch)
+├── game-engine/                 # Event Bus, VFX/Audio/Music/Screen Shake (framework-agnostisch)
 ├── services/                    # Angular Services (Facades, UI-Bindings)
 ├── store/                       # Signal Stores
-├── managers/                    # Manager (Enemy, Tower, Wave, Research — event-driven)
+├── managers/                    # Manager (Enemy, Tower, Wave, Research; event-driven)
 ├── entities/                    # Enemy, Tower, Projectile
 ├── game-components/             # Transform, Health, Movement, Combat, ...
 ├── configs/                     # Tower/Enemy/Projectile/Combat/Research/Audio/Wave-Curriculum
 ├── components/                  # UI Sub-Components
-├── workers/                     # Web Workers (Pathfinding)
+├── utils/                       # Route-Grid, Route-Korridor, Geo-Utils, ...
+├── workers/                     # Web Workers (Pathfinding, Heartbeat)
 └── three-engine/                # Three.js Engine + Renderers
 ```
 
