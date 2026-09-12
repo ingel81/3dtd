@@ -19,7 +19,7 @@ import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
 import { WorldDiceService } from './world-dice.service';
 import { UIStore } from '../../store/ui.store';
-import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
+import { openLocationDialog } from '../../components/location-dialog/open-location-dialog';
 import { LocationConfig, LocationDialogData, LocationDialogResult, FavoriteLocation } from '../../models/location.types';
 import { GeoPosition } from '../../models/game.types';
 
@@ -138,9 +138,10 @@ export class LocationChangeCoordinatorService {
   // ==================== Location Flow Methods ====================
 
   /**
-   * Open location dialog to change HQ and spawn point
+   * Open location dialog to change HQ and spawn point. Resolves once the
+   * dialog is open; the first call loads its chunk.
    */
-  openLocationDialog(): void {
+  async openLocationDialog(): Promise<void> {
     if (!this.delegate) {
       console.error('[LocationCoordinator] No delegate registered');
       return;
@@ -169,7 +170,7 @@ export class LocationChangeCoordinatorService {
       isGameInProgress: this.delegate.isGameInProgress(),
     };
 
-    const dialogRef = this.dialog.open(LocationDialogComponent, {
+    const dialogRef = await openLocationDialog(this.dialog, {
       data: dialogData,
       panelClass: 'td-dialog-panel',
       disableClose: false,
@@ -177,7 +178,7 @@ export class LocationChangeCoordinatorService {
 
     dialogRef.afterClosed()
       .pipe(take(1))
-      .subscribe(async (result: LocationDialogResult | null) => {
+      .subscribe(async (result: LocationDialogResult | null | undefined) => {
       if (!result?.confirmed) return;
 
       // Show loading overlay IMMEDIATELY before any async operations

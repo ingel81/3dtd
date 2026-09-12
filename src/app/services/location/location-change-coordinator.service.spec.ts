@@ -489,17 +489,17 @@ describe('LocationChangeCoordinatorService', () => {
   });
 
   describe('openLocationDialog', () => {
-    it('does not open without a delegate', () => {
-      coordinator.openLocationDialog();
+    it('does not open without a delegate', async () => {
+      await coordinator.openLocationDialog();
       expect(dialog.open).not.toHaveBeenCalled();
     });
 
-    it('opens the dialog with the current HQ, spawn and game state', () => {
+    it('opens the dialog with the current HQ, spawn and game state', async () => {
       locationMgmt.editableHqLocation.set({ ...HQ, name: 'Schlossplatz' });
       locationMgmt.editableSpawnLocations.set([{ id: 's1', ...SPAWN, name: 'Spawn A' }]);
       coordinator.initializeFlow(delegate);
 
-      coordinator.openLocationDialog();
+      await coordinator.openLocationDialog();
 
       expect(dialog.open).toHaveBeenCalledWith(LocationDialogComponent, {
         data: {
@@ -512,9 +512,9 @@ describe('LocationChangeCoordinatorService', () => {
       });
     });
 
-    it('passes null locations when none is set yet', () => {
+    it('passes null locations when none is set yet', async () => {
       coordinator.initializeFlow(delegate);
-      coordinator.openLocationDialog();
+      await coordinator.openLocationDialog();
       const { data } = dialog.open.mock.calls[0][1];
       expect(data.currentLocation).toBeNull();
       expect(data.currentSpawn).toBeNull();
@@ -522,7 +522,7 @@ describe('LocationChangeCoordinatorService', () => {
 
     it('does nothing when the dialog is dismissed', async () => {
       coordinator.initializeFlow(delegate);
-      coordinator.openLocationDialog();
+      await coordinator.openLocationDialog();
 
       dialogClosed.next(null);
       await settle();
@@ -533,7 +533,7 @@ describe('LocationChangeCoordinatorService', () => {
 
     it('applies a confirmed location with the chosen spawn', async () => {
       coordinator.initializeFlow(delegate);
-      coordinator.openLocationDialog();
+      await coordinator.openLocationDialog();
 
       dialogClosed.next({
         confirmed: true,
@@ -552,7 +552,7 @@ describe('LocationChangeCoordinatorService', () => {
       osm.loadStreets.mockResolvedValue(loaded);
       osm.findRandomStreetPoint.mockReturnValue({ lat: 48.781, lon: 9.191, distance: 742.4, streetName: 'Hauptstätter Str.' });
       coordinator.initializeFlow(delegate);
-      coordinator.openLocationDialog();
+      await coordinator.openLocationDialog();
 
       dialogClosed.next({
         confirmed: true,
@@ -570,7 +570,7 @@ describe('LocationChangeCoordinatorService', () => {
 
     it('falls back to a spawn about 700 m north when no street point is found', async () => {
       coordinator.initializeFlow(delegate);
-      coordinator.openLocationDialog();
+      await coordinator.openLocationDialog();
 
       dialogClosed.next({
         confirmed: true,

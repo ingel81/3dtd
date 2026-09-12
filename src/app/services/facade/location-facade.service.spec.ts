@@ -140,6 +140,7 @@ describe('LocationFacadeService', () => {
   const coordinator = { initializeFlow: vi.fn(), applyNewLocation: vi.fn(async () => undefined) };
   const mapPlacement = { startPlacement: vi.fn(), handlePlacementClick: vi.fn(), updateDependencies: vi.fn() };
   const dialog = { open: vi.fn() };
+  const closeDialog = vi.fn();
   let store: {
     baseCoords: ReturnType<typeof signal<Spawn>>;
     centerCoords: ReturnType<typeof signal<Spawn & { height: number }>>;
@@ -152,6 +153,8 @@ describe('LocationFacadeService', () => {
   };
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+  /** The dialog opens once its lazy chunk has loaded. */
+  const dialogOpened = () => vi.waitFor(() => expect(dialog.open).toHaveBeenCalled());
   const delegate = (): LocationFlowDelegate => coordinator.initializeFlow.mock.calls[0][0];
   /** The spawn points the facade put into the store, by id. */
   const spawnIds = () => store.spawnPoints().map((s) => s.id);
@@ -164,7 +167,7 @@ describe('LocationFacadeService', () => {
     streetNetwork = { streets: [{}], bounds: BOUNDS };
     cachedPaths = new Map([['spawn-1', [HQ, OLD_SPAWN]]]);
     dialogClosed = new Subject();
-    dialog.open.mockReturnValue({ afterClosed: () => dialogClosed.asObservable() });
+    dialog.open.mockReturnValue({ afterClosed: () => dialogClosed.asObservable(), close: closeDialog });
     destroyCallbacks = [];
     destroyRef = {
       destroyed: false,
@@ -347,7 +350,7 @@ describe('LocationFacadeService', () => {
       geolocation.detectLocation.mockResolvedValue(null);
 
       const done = facade.initializeLocation();
-      await settle();
+      await dialogOpened();
       expect(engineInit.updateStepMeta).toHaveBeenCalledWith('location', 'Select location...');
       expect(dialog.open.mock.calls[0][1]).toMatchObject({ disableClose: true, panelClass: 'td-dialog-panel' });
 
@@ -364,7 +367,7 @@ describe('LocationFacadeService', () => {
       geolocation.detectLocation.mockResolvedValue(null);
 
       const done = facade.initializeLocation();
-      await settle();
+      await dialogOpened();
       destroyCallbacks.forEach((cb) => cb());
       await done;
 
@@ -374,8 +377,9 @@ describe('LocationFacadeService', () => {
   });
 
   describe('waitForLocationFromDialog', () => {
-    it('opens an empty dialog that cannot be dismissed by clicking outside', () => {
+    it('opens an empty dialog that cannot be dismissed by clicking outside', async () => {
       void facade.waitForLocationFromDialog();
+      await dialogOpened();
       expect(dialog.open).toHaveBeenCalledWith(LocationDialogComponent, {
         data: { currentLocation: null, currentSpawn: null, isGameInProgress: false },
         panelClass: 'td-dialog-panel',
@@ -385,6 +389,7 @@ describe('LocationFacadeService', () => {
 
     it('stores the confirmed HQ with its spawn', async () => {
       const done = facade.waitForLocationFromDialog();
+      await dialogOpened();
       dialogClosed.next({ confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE, isRandom: false } } as unknown as LocationDialogResult);
       await done;
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
@@ -392,6 +397,7 @@ describe('LocationFacadeService', () => {
 
     it('stores no spawn when the player asked for a random one', async () => {
       const done = facade.waitForLocationFromDialog();
+      await dialogOpened();
       dialogClosed.next({ confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE, isRandom: true } } as unknown as LocationDialogResult);
       await done;
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, []);
@@ -399,16 +405,19 @@ describe('LocationFacadeService', () => {
 
     it('resolves without a location when the dialog closes unconfirmed', async () => {
       const done = facade.waitForLocationFromDialog();
+      await dialogOpened();
       dialogClosed.next(null);
       await expect(done).resolves.toBeUndefined();
       expect(locationMgmt.setLocation).not.toHaveBeenCalled();
     });
 
-    it('rejects when the component is destroyed first and ignores a later close', async () => {
+    it('rejects when the component is destroyed first and closes the dialog that opens late', async () => {
       const done = facade.waitForLocationFromDialog();
       destroyCallbacks.forEach((cb) => cb());
       await expect(done).rejects.toThrow('Component destroyed before location was selected');
 
+      await dialogOpened();
+      expect(closeDialog).toHaveBeenCalled();
       dialogClosed.next({ confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE, isRandom: false } } as unknown as LocationDialogResult);
       expect(locationMgmt.setLocation).not.toHaveBeenCalled();
     });
