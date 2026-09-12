@@ -19,7 +19,7 @@ Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentr
 | `GameStore` | `store/game.store.ts` | Game State | credits, health, phase, wave, enemies (`enemiesAlive`, `waveEnemyTotal`, `waveEnemiesLeft`), towers (`selectedTower`, `selectedTowerRevision`), Training/AI-Director |
 | `UIStore` | `store/ui.store.ts` | UI State | debug flags, layer toggles, Quick-Actions-Menü (`openMenu`), Audio-Lautstärken, build mode, persistence |
 | `EngineStore` | `store/engine.store.ts` | Engine State | fps, tiles, camera, compass |
-| `LocationStore` | `store/location.store.ts` | Location State | coords, spawns, favorites, streets |
+| `LocationStore` | `store/location.store.ts` | Location State | coords, spawns, streets |
 | `ResearchStore` | `store/research.store.ts` | Research State | active research, completed, `researchElapsed`, unlocks |
 | `DebugStore` | `store/debug.store.ts` | Debug-Panel State | waveEnemy{Count,Speed,Health,Type}, waveSpawn{Mode,Delay}, towerSelectedId, towerOverrides, enemyPlacementMode, enemyOverrides |
 | **`TowerDefenseStore`** | `store/tower-defense.store.ts` | **Root/Aggregat** | Re-exports, Loading-Signals aus `EngineInitializationService`, cross-cutting computeds, resetAll() |
@@ -356,7 +356,7 @@ src/app/store/
   game.store.ts                   ← Game State (credits, health, phase, wave, towers, AI-Director)
   ui.store.ts                     ← UI State (debug flags, layers, menus, audio, build mode, persistence)
   engine.store.ts                 ← Engine State (fps, tiles, camera, compass)
-  location.store.ts               ← Location State (coords, spawns, favorites)
+  location.store.ts               ← Location State (coords, spawns, streets)
   research.store.ts               ← Research State (active, completed, elapsed, unlocks)
   debug.store.ts                  ← Debug-Panel State (wave/tower/enemy overrides)
   *.spec.ts                       ← Unit Tests

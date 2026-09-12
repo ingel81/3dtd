@@ -174,9 +174,6 @@ export class TowerDefenseStore {
   /** Build validation reason (why placement is invalid) */
   readonly buildValidationReason = this.uiStore.buildValidationReason;
 
-  /** Location being applied (disables certain UI) */
-  readonly isApplyingLocation = this.locationStore.isApplyingLocation;
-
   // ════════════════════════════════════════════════════════════
   // LOCATION (persistent state)
   // ════════════════════════════════════════════════════════════
@@ -189,15 +186,6 @@ export class TowerDefenseStore {
 
   /** Active spawn points */
   readonly spawnPoints = this.locationStore.spawnPoints;
-
-  /** Current location display name */
-  readonly currentLocationName = this.locationStore.currentLocationName;
-
-  /** Saved favorite locations */
-  readonly favorites = this.locationStore.favorites;
-
-  /** Favorite names lookup map */
-  readonly favoriteNamesMap = this.locationStore.favoriteNamesMap;
 
   // ════════════════════════════════════════════════════════════
   // ENGINE / PERFORMANCE

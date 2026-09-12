@@ -105,21 +105,15 @@ export class LocationStore {
   readonly baseCoords = signal<GeoCoord>({ lat: 0, lon: 0 });
   readonly centerCoords = signal<GeoCoordWithHeight>({ lat: 0, lon: 0, height: 400 });
   readonly spawnPoints = signal<StoreSpawnPoint[]>([]);
-  readonly currentLocationName = signal<string>('');
-  readonly favorites = signal<StoreFavoriteLocation[]>([]);
-  readonly favoriteNamesMap = signal<Map<string, string>>(new Map());
   readonly streetCount = signal<number>(0);
-  readonly isApplyingLocation = signal<boolean>(false);
 
   resetAll(): void { /* setzt alle Signals auf Defaults */ }
 }
 ```
 
-Geschrieben werden derzeit `baseCoords`, `centerCoords`, `spawnPoints` und `streetCount`
-(über `LocationFacadeService` und die Coordinator-Callbacks). `currentLocationName`,
-`favorites`, `favoriteNamesMap` und `isApplyingLocation` setzt nur `resetAll()`; die UI liest
-Anzeigename und Favoriten aus `LocationManagementService` bzw.
-`LocationChangeCoordinatorService.favoriteNamesMap`.
+Geschrieben werden die Signals über `LocationFacadeService` und die Coordinator-Callbacks.
+Anzeigename, Favoriten und `isApplyingLocation` hält `LocationManagementService`, die
+Favoriten-Namen `LocationChangeCoordinatorService.favoriteNamesMap`.
 
 ## LocationManagementService
 
@@ -525,8 +519,7 @@ SPAWN_COLORS = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]  // bis zu 4 Spawns
 `LocationChangeCoordinatorService.applyNewLocation()` bricht ab, solange
 `LocationManagementService.isApplyingLocation` `true` ist (gesetzt in STEP 1,
 zurückgesetzt in STEP 7 oder im Fehlerfall). `VisualizationFacadeService` unterscheidet
-damit das erste Laden vom Ortswechsel. Das gleichnamige Signal im `LocationStore` setzt
-derzeit niemand, und keine UI-Komponente liest eines der beiden Flags.
+damit das erste Laden vom Ortswechsel. Keine UI-Komponente liest das Flag.
 
 ## Bekannte Einschraenkungen
 

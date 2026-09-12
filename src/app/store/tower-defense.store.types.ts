@@ -20,14 +20,6 @@ export interface StoreSpawnPoint {
   color: number;
 }
 
-/** Favorite location */
-export interface StoreFavoriteLocation {
-  id: string;
-  name: string;
-  hq: GeoCoord;
-  spawns: GeoCoord[];
-}
-
 /** Tile loading statistics */
 export interface TileStats {
   parsing: number;

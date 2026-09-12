@@ -1400,7 +1400,7 @@ src/app/
 │   ├── game.store.ts             # Game State (credits, health, phase, wave)
 │   ├── ui.store.ts               # UI State (toggles, build mode, persistence)
 │   ├── engine.store.ts           # Engine Stats (fps, tiles, camera, loading)
-│   ├── location.store.ts         # Location (coords, spawns, favorites)
+│   ├── location.store.ts         # Location (coords, spawns, streets)
 │   ├── research.store.ts         # Research-State (active, completed, locks)
 │   └── debug.store.ts            # Wave/Tower/Enemy-Debug-State
 │
