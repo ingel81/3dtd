@@ -21,12 +21,19 @@ describe('Phase 5.11 Range-Based Templates', () => {
     expect(MAX_TEMPLATE_SLOTS - NUM_ACTIVE_TEMPLATES).toBe(10);
   });
 
-  it('skeleton_swarm is appended, so every older slot keeps its index', () => {
-    const idx = TEMPLATES.findIndex((t) => t.id === 'skeleton_swarm');
-    expect(idx).toBe(TEMPLATES.length - 1);
-    expect(TEMPLATES[idx].enemies).toEqual([['skeleton', 1.0]]);
-    expect(TEMPLATES[idx].requiresCapability).toBeNull();
-    expect(TEMPLATES[idx].bossOnly).toBe(false);
+  it('keeps every slot at its index, skeleton_swarm appended as slot 21', () => {
+    // Templates are addressed by index (`slot` in the generated schema), so a
+    // new one goes at the end and none of the others moves.
+    expect(TEMPLATES.map((t) => t.id)).toEqual([
+      'zombie_horde', 'rat_tide', 'penguin_rush', 'light_mix', 'spider_swarm', 'wallsmasher_crew',
+      'bat_swarm', 'hornet_strike', 'tank_column', 'bear_pack', 'mech_army', 'dragon_elite',
+      'mammoth_siege', 'ghost_surge', 'wraith_storm', 'chaos_wave', 'armor_gauntlet', 'boss_herbert',
+      'golem_squad', 'boss_golem', 'boss_dragon', 'skeleton_swarm',
+    ]);
+    const skeleton = TEMPLATES[21];
+    expect(skeleton.enemies).toEqual([['skeleton', 1.0]]);
+    expect(skeleton.requiresCapability).toBeNull();
+    expect(skeleton.bossOnly).toBe(false);
   });
 
   it('every template has enemy shares summing to ~1.0', () => {
