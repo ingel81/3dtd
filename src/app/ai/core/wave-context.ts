@@ -25,7 +25,7 @@ import {
   type TemplateMaskReason,
 } from './templates';
 import { templateForWave, isBossWave, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
-import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
+import { ENEMY_TYPES, lineageHp, splitBodyCount, type EnemyTypeId } from '../../configs/enemy-types.config';
 import { GameStateSnapshot } from './models/game-state-snapshot';
 
 export interface WaveContext {
@@ -135,8 +135,9 @@ export function buildWaveContext(
       state.defense?.killThroughput,
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
-      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
+      (id) => lineageHp(id as EnemyTypeId),
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
+      (id) => splitBodyCount(id as EnemyTypeId),
       state.player?.lives ?? 100,
       enemyBaseDamageForWave(upcomingWave),
     );

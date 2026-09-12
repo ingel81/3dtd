@@ -3,9 +3,35 @@ import {
   getAllEnemyTypes,
   getEnemyType,
   getEnemyTypeIds,
+  lineageHp,
+  splitBodyCount,
 } from './enemy-types.config';
 
 describe('enemy types config', () => {
+  it('splits only into enemy types that exist, without a cycle', () => {
+    for (const enemy of getAllEnemyTypes()) {
+      const split = enemy.splitOnDeath;
+      if (!split) continue;
+      expect(ENEMY_TYPES[split.type], `${enemy.id} splits into ${split.type}`).toBeDefined();
+      expect(split.count).toBeGreaterThan(0);
+      expect(split.spread).toBeGreaterThanOrEqual(0);
+      expect(split.spread).toBeLessThanOrEqual(1);
+      // Following the children ends before the depth guard would cut it off
+      let next: string | undefined = split.type;
+      for (let depth = 0; next && depth < 4; depth++) next = ENEMY_TYPES[next]?.splitOnDeath?.type;
+      expect(next, `${enemy.id} split chain`).toBeUndefined();
+    }
+  });
+
+  it('counts a skeleton with its two minions: three bodies, 20 + 2 × 6 HP', () => {
+    expect(splitBodyCount('skeleton')).toBe(3);
+    expect(lineageHp('skeleton')).toBe(32);
+    expect(splitBodyCount('skeleton-minion')).toBe(1);
+    expect(lineageHp('skeleton-minion')).toBe(6);
+    expect(splitBodyCount('zombie')).toBe(1);
+    expect(lineageHp('zombie')).toBe(ENEMY_TYPES['zombie'].baseHp);
+  });
+
   it('all enemy types have required fields', () => {
     const all = getAllEnemyTypes();
     all.forEach((enemy) => {

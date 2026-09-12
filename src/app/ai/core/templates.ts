@@ -492,8 +492,11 @@ export function fairMaxCount(
   killThroughput: { ground: number; air: number } | undefined,
   enemyArmor: (enemyId: string) => ArmorType,
   enemyIsAir: (enemyId: string) => boolean,
+  /** HP to clear one enemy, everything it splits into included (lineageHp). */
   enemyBaseHp: (enemyId: string) => number,
   enemyBaseSpeed: (enemyId: string) => number,
+  /** Kills one enemy takes: itself and everything it splits into (splitBodyCount). */
+  enemyBodies: (enemyId: string) => number,
   /** Player HP still on the clock, in HP points (not a fraction). */
   hpRemaining: number,
   /** HP the player loses per enemy that reaches the base, at this wave. */
@@ -521,6 +524,7 @@ export function fairMaxCount(
   let weightedHp = 0;
   let weightedThroughput = 0;
   let weightedSpeed = 0;
+  let weightedBodies = 0;
   for (const [enemy, share] of template.enemies) {
     if (share <= 0) continue;
     const isAir = enemyIsAir(enemy);
@@ -529,6 +533,7 @@ export function fairMaxCount(
     weightedThroughput += share * (isAir ? (killThroughput?.air ?? 0) : (killThroughput?.ground ?? 0));
     weightedHp += share * enemyBaseHp(enemy) * hpMult;
     weightedSpeed += share * Math.max(0.1, enemyBaseSpeed(enemy));
+    weightedBodies += share * Math.max(1, enemyBodies(enemy));
     totalShare += share;
   }
   if (totalShare <= 0) return null;
@@ -536,6 +541,7 @@ export function fairMaxCount(
   const dps = weightedDps / totalShare;
   const hpPerEnemy = weightedHp / totalShare;
   const throughput = weightedThroughput / totalShare;
+  const bodiesPerEnemy = weightedBodies / totalShare;
   // No effective damage against this wave at all — a curriculum-forced air wave
   // against a ground-only defense, say, since forcing bypasses the capability
   // mask. Every enemy will leak and leak damage scales with the count, so the
@@ -549,8 +555,11 @@ export function fairMaxCount(
   // away the surplus, so two archers kill two rats a second regardless of how
   // much damage each shot carries. Against tanky enemies the damage term binds
   // instead, and throughput is irrelevant. Whichever is scarcer wins.
+  //
+  // An enemy that splits counts with its children: its HP is the lineage's
+  // and every body takes a kill, so a kill clears 1/bodies of such an enemy.
   const dpsLimited = dps / hpPerEnemy;
-  const killsPerSecond = throughput > 0 ? Math.min(dpsLimited, throughput) : dpsLimited;
+  const killsPerSecond = throughput > 0 ? Math.min(dpsLimited, throughput / bodiesPerEnemy) : dpsLimited;
   if (killsPerSecond <= 0) return null;
 
   // Closed form, since the wave's duration depends on the count:
