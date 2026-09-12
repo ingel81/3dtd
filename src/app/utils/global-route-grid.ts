@@ -1,12 +1,12 @@
 import { InstancedMesh, Vector3 } from 'three';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
-import { segmentLeft, segmentRight } from './route-corridor';
 import { CoordinateSync } from '../three-engine/renderers';
 import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
-import { RouteCell, TunnelSpan, getAirTargetY } from './route-cell';
+import { RouteCell, getAirTargetY } from './route-cell';
+import { RouteCellLattice, claimRouteCells } from './route-grid-builder';
 import {
   HeightResetResult,
   RouteCellBox,
@@ -28,66 +28,6 @@ import { logGrid } from './route-grid-log';
 
 /** Numeric ascending order for Array.prototype.sort, hoisted so hot paths allocate no comparator. */
 const ascending = (a: number, b: number): number => a - b;
-
-/**
- * How far outside a tunnel mouth its portal ground is probed, metres: right
- * at the mouth a column can land on the overhang above it.
- */
-const TUNNEL_PORTAL_OFFSET_M = 2;
-
-/**
- * A segment in a tunnel stretch: the portals of the whole stretch (local x,
- * z, TUNNEL_PORTAL_OFFSET_M outside the mouths) and the part of the way
- * from portal a to b the segment covers.
- */
-interface SegmentTunnel {
-  ax: number;
-  az: number;
-  bx: number;
-  bz: number;
-  from: number;
-  to: number;
-}
-
-/**
- * The tunnel stretch each segment of `route` lies in (`inTunnel` on its
- * start waypoint), null outside tunnels. `points` are the route's local
- * positions.
- */
-function tunnelSegments(route: readonly RouteWaypoint[], points: readonly { x: number; z: number }[]): (SegmentTunnel | null)[] {
-  const segments = route.length - 1;
-  const result: (SegmentTunnel | null)[] = new Array(segments).fill(null);
-  let i = 0;
-  while (i < segments) {
-    if (!route[i].inTunnel) {
-      i++;
-      continue;
-    }
-    let end = i;
-    while (end + 1 < segments && route[end + 1].inTunnel) end++;
-
-    const lengths: number[] = [];
-    for (let j = i; j <= end; j++) lengths.push(Math.hypot(points[j + 1].x - points[j].x, points[j + 1].z - points[j].z));
-    const inner = lengths.reduce((sum, l) => sum + l, 0);
-    const total = inner + 2 * TUNNEL_PORTAL_OFFSET_M;
-    // Portals moved out along the first and the last segment.
-    const outward = (from: { x: number; z: number }, to: { x: number; z: number }) => {
-      const len = Math.hypot(to.x - from.x, to.z - from.z) || 1;
-      return { x: to.x + ((to.x - from.x) / len) * TUNNEL_PORTAL_OFFSET_M, z: to.z + ((to.z - from.z) / len) * TUNNEL_PORTAL_OFFSET_M };
-    };
-    const a = outward(points[i + 1], points[i]);
-    const b = outward(points[end], points[end + 1]);
-
-    let along = TUNNEL_PORTAL_OFFSET_M;
-    for (let j = i; j <= end; j++) {
-      const from = along / total;
-      along += lengths[j - i];
-      result[j] = { ax: a.x, az: a.z, bx: b.x, bz: b.z, from, to: along / total };
-    }
-    i = end + 1;
-  }
-  return result;
-}
 
 /**
  * GlobalRouteGrid - Unified Cell System for Enemy Tracking and LOS
@@ -151,6 +91,16 @@ export class GlobalRouteGrid {
 
   /** Cached inverse cell size for fast multiplication instead of division */
   private readonly INV_CELL_SIZE = 1 / this.CELL_SIZE;
+
+  /**
+   * Cell size and keying rule for route-grid-builder, which creates the
+   * cells: the intCellKey / cellIndex every lookup here uses as well.
+   */
+  private readonly lattice: RouteCellLattice = {
+    cellSize: this.CELL_SIZE,
+    index: (v) => this.cellIndex(v),
+    key: (gx, gz) => this.intCellKey(gx, gz),
+  };
 
   /** Reused scratch for per-enemy geo→local conversion in getEnemiesInRadius. */
   private readonly _radiusScanScratch = new Vector3();
@@ -325,161 +275,12 @@ export class GlobalRouteGrid {
       if (route.length < 2) continue;
 
       const points = route.map((p) => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
-      const tunnels = tunnelSegments(route, points);
-      for (let i = 0; i < route.length - 1; i++) {
-        this.generateSegmentCells(
-          points[i], points[i + 1], segmentLeft(route[i]), segmentRight(route[i]), route[i].onBridge === true, tunnels[i],
-        );
-      }
+      claimRouteCells(this.cells, this.lattice, route, points);
     }
 
     // Sampled only once every segment has claimed its cells: which surface
     // a cell samples depends on all segments that reach it.
     for (const cell of this.cells.values()) this.sampler.sampleCellY(cell);
-  }
-
-  /**
-   * Claim the cells whose centre lies within the half width of the segment
-   * `start`-`end`, `left` or `right` of its direction by the side the
-   * centre is on, and every cell the segment runs through, creating the
-   * missing ones. The second rule makes a bottleneck narrower than a cell a
-   * single file of cells, a staircase on a diagonal, in which enemies walk
-   * the centre line (lateral limit 0). Local coordinates; y is the smoothed
-   * route height, stored on each new cell as its `routeAnchorY` and as
-   * fallback `terrainHeight` until the first sample succeeds. `tunnel`:
-   * the segment lies in a tunnel, its cells take their height between the
-   * portals, also those another segment reaches as well.
-   */
-  private generateSegmentCells(
-    start: { x: number; y: number; z: number },
-    end: { x: number; y: number; z: number },
-    left: number,
-    right: number,
-    onBridge: boolean,
-    tunnel: SegmentTunnel | null,
-  ): void {
-    const dx = end.x - start.x;
-    const dz = end.z - start.z;
-    const lenSq = dx * dx + dz * dz;
-    const leftSq = left * left;
-    const rightSq = right * right;
-    const reach = Math.max(left, right);
-    const gx0 = this.cellIndex(Math.min(start.x, end.x) - reach);
-    const gx1 = this.cellIndex(Math.max(start.x, end.x) + reach);
-    const gz0 = this.cellIndex(Math.min(start.z, end.z) - reach);
-    const gz1 = this.cellIndex(Math.max(start.z, end.z) + reach);
-
-    for (let gx = gx0; gx <= gx1; gx++) {
-      const cx = (gx + 0.5) * this.CELL_SIZE;
-      for (let gz = gz0; gz <= gz1; gz++) {
-        // Closest point of the segment to the cell centre.
-        const cz = (gz + 0.5) * this.CELL_SIZE;
-        const t = lenSq > 0 ? Math.max(0, Math.min(1, ((cx - start.x) * dx + (cz - start.z) * dz) / lenSq)) : 0;
-        const ox = start.x + dx * t - cx;
-        const oz = start.z + dz * t - cz;
-        // (-dz, dx) points right of the direction of travel (x east, z south).
-        const rightOfLine = (cz - start.z) * dx - (cx - start.x) * dz >= 0;
-        if (ox * ox + oz * oz > (rightOfLine ? rightSq : leftSq) && !this.segmentTouchesCell(start, end, gx, gz)) continue;
-
-        const key = this.intCellKey(gx, gz);
-        const existing = this.cells.get(key);
-        const span: TunnelSpan | null = tunnel
-          ? { ax: tunnel.ax, az: tunnel.az, bx: tunnel.bx, bz: tunnel.bz, f: tunnel.from + (tunnel.to - tunnel.from) * t }
-          : null;
-        if (existing) {
-          // A cell several segments reach: a tunnel wins, or the cells in its
-          // mouth, reached by the approach first, would sample the hill above
-          // it; otherwise the ground wins over a deck.
-          if (span && existing.surface !== 'tunnel') {
-            existing.surface = 'tunnel';
-            existing.tunnelSpan = span;
-          } else if (!span && !onBridge && existing.surface === 'deck') {
-            existing.surface = 'ground';
-          }
-          continue;
-        }
-        // The centre line's grid spot next to the cell, for the roof check in sampleCellY.
-        const axisX = (this.cellIndex(start.x + dx * t) + 0.5) * this.CELL_SIZE;
-        const axisZ = (this.cellIndex(start.z + dz * t) + 0.5) * this.CELL_SIZE;
-        this.addCell(
-          key, cx, cz, axisX, axisZ, start.y + (end.y - start.y) * t, onBridge ? 'deck' : tunnel ? 'tunnel' : 'ground', span,
-        );
-      }
-    }
-  }
-
-  /**
-   * Whether the segment `start`-`end` touches the square of grid spot
-   * (gx, gz), edges included (Liang-Barsky clipping). Only at generation.
-   */
-  private segmentTouchesCell(
-    start: { x: number; z: number },
-    end: { x: number; z: number },
-    gx: number,
-    gz: number,
-  ): boolean {
-    const dx = end.x - start.x;
-    const dz = end.z - start.z;
-    let t0 = 0;
-    let t1 = 1;
-    const clip = (p: number, q: number): boolean => {
-      if (p === 0) return q >= 0;
-      const r = q / p;
-      if (p < 0) {
-        if (r > t1) return false;
-        if (r > t0) t0 = r;
-      } else {
-        if (r < t0) return false;
-        if (r < t1) t1 = r;
-      }
-      return true;
-    };
-    const x0 = gx * this.CELL_SIZE;
-    const z0 = gz * this.CELL_SIZE;
-    return clip(-dx, start.x - x0) && clip(dx, x0 + this.CELL_SIZE - start.x)
-      && clip(-dz, start.z - z0) && clip(dz, z0 + this.CELL_SIZE - start.z);
-  }
-
-  /**
-   * Construct a cell in unsampled state with `anchorY` as a temporary
-   * terrain-Y fallback (combat-side reads need *some* value). Its terrain
-   * height comes from sampleCellY, the sole writer of terrainHeight, which
-   * generateFromRoutes runs once all segments have claimed their cells.
-   */
-  private addCell(
-    key: number,
-    x: number,
-    z: number,
-    axisX: number,
-    axisZ: number,
-    anchorY: number,
-    surface: RouteCell['surface'],
-    tunnelSpan: TunnelSpan | null,
-  ): void {
-    const cell: RouteCell = {
-      key,
-      x,
-      z,
-      axisX,
-      axisZ,
-      terrainHeight: anchorY,        // Fallback until sampleCellY succeeds.
-      surface,
-      tunnelSpan,
-      routeAnchorY: anchorY,
-      sample: {
-        state: 'unsampled',
-        sampledAt: 0,
-        tileDepth: 0,
-        tileGeometricError: Infinity,
-        clamped: false,
-      },
-      heightSampled: false,
-      enemies: new Set(),
-      towerVisibility: new Map(),
-      airVisibility: new Map(),
-    };
-
-    this.cells.set(key, cell);
   }
 
   /**
