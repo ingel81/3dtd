@@ -156,13 +156,3 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
     weakTo: 'Magic, Ice, Lightning',
   },
 };
-
-// ==================== Helpers ====================
-
-export function getDamageTypeMeta(type: DamageType): DamageTypeUIMeta {
-  return DAMAGE_TYPE_UI[type];
-}
-
-export function getArmorTypeMeta(type: ArmorType): ArmorTypeUIMeta {
-  return ARMOR_TYPE_UI[type];
-}

@@ -222,14 +222,6 @@ export function getResearch(id: ResearchId): ResearchConfig | undefined {
   return RESEARCH_TREE[id];
 }
 
-export function getResearchesByCategory(category: ResearchConfig['category']): ResearchConfig[] {
-  return Object.values(RESEARCH_TREE).filter(r => r.category === category);
-}
-
-export function getAllResearches(): ResearchConfig[] {
-  return Object.values(RESEARCH_TREE);
-}
-
 export function getAllResearchIds(): ResearchId[] {
   return Object.keys(RESEARCH_TREE);
 }

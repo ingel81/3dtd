@@ -92,6 +92,3 @@ export const GAME_BALANCE = {
     comebackBonusSlope: 0.3,
   },
 } as const;
-
-/** Type for accessing game balance config values */
-export type GameBalanceConfig = typeof GAME_BALANCE;

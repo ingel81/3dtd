@@ -20,6 +20,3 @@ export const PLACEMENT_CONFIG = {
   /** Minimum distance between towers in meters */
   MIN_DISTANCE_TO_OTHER_TOWER: 8,
 } as const;
-
-/** Type for accessing placement config values */
-export type PlacementConfig = typeof PLACEMENT_CONFIG;
