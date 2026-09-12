@@ -222,6 +222,9 @@ Code-seitig umgesetzt (2026-09-13):
   Zombie Soldier Run, Bear Walk). Jetzt mit 0,001 Frames Toleranz. Todes-Clips, die vor dem
   Entfernen enden, haben ihre Endpose als letzten Frame (Wallsmasher Death +1). VAT gesamt
   264,7 → 264,0 MB.
+- **VAT nur noch auf der GPU**: Nach dem Upload gibt der Pool die CPU-Kopie frei, 264,0 MB
+  weniger im Speicher des Tabs. Nach einem WebGL-Context-Loss backt der Renderer die Typen
+  neu ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#cpu-kopie-und-context-loss)).
 
 ## Neue Gegner: Skeleton (Swarm)
 

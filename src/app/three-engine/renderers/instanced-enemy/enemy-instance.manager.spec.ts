@@ -5,17 +5,20 @@ import {
   Float32BufferAttribute,
   FloatType,
   FrontSide,
+  Group,
   InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
   Mesh,
+  MeshBasicMaterial,
   PerspectiveCamera,
   Quaternion,
   RGBAFormat,
   Scene,
+  ShaderMaterial,
   Vector3,
 } from 'three';
-import { EnemyInstanceManager } from './enemy-instance.manager';
+import { EnemyInstanceManager, type TypePool } from './enemy-instance.manager';
 import { InstancedEnemyRenderer } from './instanced-enemy.renderer';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import type { VATData, VATAnimationEntry } from './vat-baker';
@@ -365,5 +368,124 @@ describe('EnemyInstanceManager pool visibility', () => {
 
     manager.setVisible(true);
     expect(poolMeshes(scene).map((m) => m.visible)).toEqual([true, true]);
+  });
+});
+
+describe('VAT CPU copy', () => {
+  const texelsOf = (texture: DataTexture): unknown => (texture.image as { data: unknown }).data;
+  /** What three does right after uploading a texture. */
+  const upload = (texture: DataTexture): void => texture.onUpdate?.(texture);
+  const poolOf = (manager: EnemyInstanceManager, typeId: string): TypePool =>
+    (manager as unknown as { pools: Map<string, TypePool> }).pools.get(typeId)!;
+
+  it('drops the CPU copy of a VAT once three has uploaded it', () => {
+    const manager = new EnemyInstanceManager(new Scene());
+    const vat = fakeVat(CLIPS);
+    manager.createPool('wallsmasher', vat, CONFIG);
+    expect(texelsOf(vat.positionTexture)).toBeInstanceOf(Float32Array);
+    expect(manager.typesWithReleasedVAT()).toEqual([]);
+
+    upload(vat.positionTexture);
+    expect(texelsOf(vat.positionTexture)).toBeNull();
+    expect(manager.typesWithReleasedVAT()).toEqual(['wallsmasher']);
+  });
+
+  it('never asks three to upload a pooled VAT a second time', () => {
+    const manager = new EnemyInstanceManager(new Scene());
+    const vat = fakeVat(CLIPS);
+    manager.createPool('wallsmasher', vat, CONFIG);
+    const version = vat.positionTexture.version;
+
+    const a = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    manager.updateEnemyState(a, new Vector3(1, 0, 0), 0.5, 3);
+    manager.setFreezeVisual('a', true);
+    manager.triggerHitFlash('a');
+    manager.setFreezeTintEnabled(false);
+    manager.playDeathAnimation('a');
+    manager.updateAnimations(0.5);
+    manager.flushDirtyFlags();
+    manager.setVisible(false);
+    manager.setVisible(true);
+    manager.removeEnemy('a');
+    manager.clear();
+    // A second bake of a pooled type does not replace the pool.
+    manager.createPool('wallsmasher', fakeVat(CLIPS), CONFIG);
+
+    expect(vat.positionTexture.version).toBe(version);
+    expect(poolOf(manager, 'wallsmasher').vatData.positionTexture).toBe(vat.positionTexture);
+  });
+
+  it('swaps a VAT baked again after a context loss into the material', () => {
+    const manager = new EnemyInstanceManager(new Scene());
+    const vat = fakeVat(CLIPS);
+    manager.createPool('wallsmasher', vat, CONFIG);
+    upload(vat.positionTexture);
+
+    const again = fakeVat(CLIPS);
+    again.encoding = { ...again.encoding, origin: [1, 2, 3], extent: [4, 5, 6] };
+    manager.replaceVATAfterContextLoss('wallsmasher', again);
+
+    const pool = poolOf(manager, 'wallsmasher');
+    const uniforms = (pool.instancedMesh.material as ShaderMaterial).uniforms;
+    expect(uniforms['vatTexture'].value).toBe(again.positionTexture);
+    expect((uniforms['vatOrigin'].value as Vector3).toArray()).toEqual([1, 2, 3]);
+    expect((uniforms['vatExtent'].value as Vector3).toArray()).toEqual([4, 5, 6]);
+    expect(pool.vatData.positionTexture).toBe(again.positionTexture);
+    expect(manager.typesWithReleasedVAT()).toEqual([]);
+
+    upload(again.positionTexture);
+    expect(texelsOf(again.positionTexture)).toBeNull();
+  });
+});
+
+describe('InstancedEnemyRenderer after a context loss', () => {
+  /** A renderer with a tank and a wallsmasher pool and an asset cache holding a one-triangle model. */
+  function setup() {
+    const model = (): Group => {
+      const geometry = new BufferGeometry();
+      geometry.setAttribute('position', new Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
+      return new Group().add(new Mesh(geometry, new MeshBasicMaterial()));
+    };
+    const assets = { getCachedModel: vi.fn(() => ({ animations: [] })), cloneModel: vi.fn(model) };
+    const sync = { geoToLocal: () => new Vector3() };
+    const renderer = new InstancedEnemyRenderer(new Scene(), sync as never, assets as never);
+    const manager = (renderer as unknown as { instanceManager: EnemyInstanceManager }).instanceManager;
+    const tank = fakeVat(['static']);
+    const wallsmasher = fakeVat(CLIPS);
+    manager.createPool('tank', tank, ENEMY_TYPES['tank']);
+    manager.createPool('wallsmasher', wallsmasher, CONFIG);
+    const pool = (typeId: string): TypePool =>
+      (manager as unknown as { pools: Map<string, TypePool> }).pools.get(typeId)!;
+    return { renderer, assets, tank, wallsmasher, pool };
+  }
+
+  it('bakes the released VATs again from the asset cache', () => {
+    const { renderer, assets, tank, wallsmasher, pool } = setup();
+    tank.positionTexture.onUpdate?.(tank.positionTexture); // uploaded, CPU copy gone
+
+    renderer.rebakeAfterContextRestore();
+
+    expect(assets.cloneModel).toHaveBeenCalledTimes(1);
+    expect(assets.cloneModel).toHaveBeenCalledWith(ENEMY_TYPES['tank'].modelUrl, { preserveSkeleton: true });
+    const baked = pool('tank').vatData.positionTexture;
+    expect(baked).not.toBe(tank.positionTexture);
+    expect((baked.image as { data: unknown }).data).not.toBeNull();
+    expect((pool('tank').instancedMesh.material as ShaderMaterial).uniforms['vatTexture'].value).toBe(baked);
+    // Never uploaded, still has its CPU copy: left alone.
+    expect(pool('wallsmasher').vatData.positionTexture).toBe(wallsmasher.positionTexture);
+  });
+
+  it('bakes again when the canvas gets its WebGL context back, until disposed', () => {
+    const { renderer } = setup();
+    const canvas = document.createElement('canvas');
+    renderer.rebakeOnContextRestore(canvas);
+    const rebake = vi.spyOn(renderer, 'rebakeAfterContextRestore');
+
+    canvas.dispatchEvent(new Event('webglcontextrestored'));
+    expect(rebake).toHaveBeenCalledTimes(1);
+
+    renderer.dispose();
+    canvas.dispatchEvent(new Event('webglcontextrestored'));
+    expect(rebake).toHaveBeenCalledTimes(1);
   });
 });

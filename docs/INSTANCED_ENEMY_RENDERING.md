@@ -157,6 +157,25 @@ Das `+ 0.5` ist Texel-Center-Sampling (NearestFilter).
   (Spalten „Format“ und „Half-Fehler mm“). Der Generator backt dafür jedes Modell mit den
   Loadern des Spiels.
 
+### CPU-Kopie und Context-Loss
+
+- `createPool` hängt `releaseTexels` an `onUpdate` der VAT-Textur. three ruft es direkt nach
+  dem Upload auf; danach liegt die VAT nur noch auf der GPU, die CPU-Kopie (für alle 19 Typen
+  zusammen 264 MB) ist frei.
+- Nach einem WebGL-Context-Loss legt three beim Restore alle GPU-Objekte neu an und lädt jede
+  Textur beim nächsten Zeichnen aus ihrer CPU-Kopie. Für die VATs backt
+  `InstancedEnemyRenderer.rebakeAfterContextRestore()` bei `webglcontextrestored` die
+  freigegebenen Typen aus dem Asset-Cache neu und tauscht die Textur im Material, bevor ein
+  Frame zeichnet (Listener aus `ThreeTilesEngine`, er läuft nach dem von three). Das kostet
+  die Bake-Zeit dieser Typen; in Node brauchen alle 19 zusammen rund 5 s.
+- Einen zweiten Upload gibt es sonst nicht: Nur `createPositionTexture` setzt `needsUpdate`.
+  Frames, Tints, Sichtbarkeit und `clear()` fassen die Textur nicht an (Spec), ein zweites
+  `createPool` für denselben Typ wird ignoriert. Pools entstehen nur beim Bake; von außen
+  ruft das Spiel nur `clear()`, `setEnemiesVisible()` und `dispose()` auf den Renderer, und
+  eine neue Engine backt alles neu. Training ohne Rendering lädt nichts hoch und behält die
+  CPU-Kopie.
+- Test von Hand: `__perf.loseContext(2000)` in der Konsole (Context-Loss, Restore nach 2 s).
+
 ### Multi-Material Support
 
 Modelle mit mehreren Materialien (z.B. Tank: Turret mit Textur, Ketten ohne) werden ueber Per-Vertex Attribute gehandhabt:
