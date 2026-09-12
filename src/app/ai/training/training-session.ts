@@ -350,6 +350,18 @@ export class TrainingSession {
         }
         break;
       }
+
+      case 'use-ability': {
+        // The AbilityManager validates and snaps the aim to the route, as for a click
+        if (action.abilityId && action.position) {
+          this.gameState.getEventBus().emit({
+            type: 'command:use-ability',
+            abilityId: action.abilityId,
+            target: { lat: action.position.z, lon: action.position.x },
+          });
+        }
+        break;
+      }
     }
   }
 

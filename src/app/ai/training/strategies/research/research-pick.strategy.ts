@@ -57,6 +57,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'toxic-compounds',        // W9+
       'fire-alchemy',           // W10+
       'advanced-weaponry',      // W11-15 — T2 upgrades
+      'nuclear-strike',         // W12+: ability, fired by NuclearStrikeStrategy
       'storm-mastery',          // W12+ — Lightning: chain, anti-air, anti-ethereal
       'master-engineering',     // W15-18 — T3 upgrades
       'chaos-rift',             // W16+: Chaos, expensive generalist after the T3 tier
@@ -67,7 +68,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'gatling-tech', 'ice-magic', 'tentacle-biology',
       'siege-engineering', 'rocketry', 'aa-retrofit',
       'arcane-studies', 'toxic-compounds', 'fire-alchemy',
-      'advanced-weaponry', 'storm-mastery', 'master-engineering',
+      'advanced-weaponry', 'nuclear-strike', 'storm-mastery', 'master-engineering',
       'chaos-rift', 'advanced-engineering', 'transcendent-tech',
     ],
   };

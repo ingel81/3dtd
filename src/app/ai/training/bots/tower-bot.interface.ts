@@ -7,6 +7,7 @@
 
 import { GameStateSnapshot } from '../../core/models/game-state-snapshot';
 import { TowerTypeId } from '../../../configs/tower-types.config';
+import type { AbilityId } from '../../../configs/abilities.config';
 
 /**
  * Bot skill levels
@@ -16,7 +17,8 @@ export type BotSkillLevel = 'beginner' | 'casual' | 'strategist' | 'meta';
 /**
  * Tower action types
  */
-export type TowerActionType = 'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave' | 'research-start' | 'research-cancel';
+export type TowerActionType =
+  'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave' | 'research-start' | 'research-cancel' | 'use-ability';
 
 /**
  * Tower action returned by bot
@@ -24,8 +26,11 @@ export type TowerActionType = 'place' | 'upgrade' | 'sell' | 'wait' | 'start-wav
 export interface TowerAction {
   type: TowerActionType;
 
-  /** For 'place': Where to place the tower (grid coordinates) */
+  /** For 'place': where to place the tower; for 'use-ability': where to aim. x = lon, z = lat */
   position?: { x: number; z: number };
+
+  /** For 'use-ability': which ability to fire */
+  abilityId?: AbilityId;
 
   /** For 'place': What tower type to build */
   towerType?: TowerTypeId;

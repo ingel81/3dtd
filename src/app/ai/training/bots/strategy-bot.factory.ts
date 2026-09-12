@@ -22,6 +22,7 @@ import { ResearchPickStrategy } from '../strategies/research/research-pick.strat
 import { PathCoverageUpgradeStrategy } from '../strategies/upgrade/path-coverage-upgrade.strategy';
 import { SellUnderperformerStrategy } from '../strategies/upgrade/sell-underperformer.strategy';
 import { AutoStartWaveStrategy } from '../strategies/wave/auto-start-wave.strategy';
+import { NuclearStrikeStrategy } from '../strategies/ability/nuclear-strike.strategy';
 
 export class StrategyBotFactory {
   constructor(
@@ -124,6 +125,10 @@ export class StrategyBotFactory {
         );
         break;
     }
+
+    // Every skill level fires a nuclear strike it has. Only strategist and
+    // meta research it (ResearchPick), for beginner and casual it stays inert.
+    strategies.push(new NuclearStrikeStrategy(this.gameState));
 
     // Add auto-start wave strategy if enabled
     if (autoStartWaves) {
