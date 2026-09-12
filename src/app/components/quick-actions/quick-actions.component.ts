@@ -2,21 +2,32 @@ import { Component, inject, input, output, computed, ChangeDetectionStrategy } f
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
-import { DebugFacadeService, FPS_LIMITS, FpsLimit } from '../../services/debug/debug-facade.service';
+import { DebugFacadeService, FPS_LIMITS } from '../../services/debug/debug-facade.service';
 import { DebugStateDumpService } from '../../services/debug/debug-state-dump.service';
 import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
+import { matchingVfxPreset, type VfxPreset, type VfxSettings } from '../../three-engine/vfx-settings';
+import { COLOR_GRADING_PRESETS, type ColorGradingPreset } from '../../three-engine/post-processing/color-grading';
 
-/** Unlimited → 60 → 30 → unlimited. */
-function nextFpsLimit(fps: FpsLimit): FpsLimit {
-  return FPS_LIMITS[(FPS_LIMITS.indexOf(fps) + 1) % FPS_LIMITS.length];
-}
+type VfxSwitch = Exclude<keyof VfxSettings, 'colorGrading'>;
 
-function describeFpsLimit(fps: FpsLimit): string {
-  return fps === 0 ? 'off' : `${fps} FPS`;
-}
+/** Quality presets, see VFX_PRESETS. */
+const PRESET_BUTTONS: readonly { id: VfxPreset; label: string; hint: string }[] = [
+  { id: 'low', label: 'Low', hint: 'No muzzle flashes, trails, impact effects or ground marks' },
+  { id: 'medium', label: 'Medium', hint: 'All effects except projectile trails' },
+  { id: 'high', label: 'High', hint: 'All effects, bloom and color grading off' },
+];
+
+/** The switches the quality presets set, in menu order. */
+const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = [
+  { key: 'muzzleFlash', label: 'Muzzle Flash', hint: 'Flash and light at the barrel of guns, launcher and bow' },
+  { key: 'projectileTrails', label: 'Projectile Trails', hint: 'Streaks and particle trails behind projectiles' },
+  { key: 'impactEffects', label: 'Impact Effects', hint: 'Explosions, smoke, spark bursts and blood spray at hits' },
+  { key: 'groundMarks', label: 'Ground Marks', hint: 'Blood, frost and scorch marks on the ground' },
+  { key: 'bloom', label: 'Bloom', hint: 'Glow around bright surfaces, an extra full-screen pass' },
+];
 
 @Component({
   selector: 'app-quick-actions',
@@ -33,29 +44,74 @@ function describeFpsLimit(fps: FpsLimit): string {
               aria-label="Play route animation">
         <td-icon name="route" [size]="18"></td-icon>
       </button>
-      <!-- Display Settings Menu (collapsible, expands upward) -->
+      <!-- Display settings (panel opens above its toggle) -->
       <div class="td-display-menu-wrapper">
-        <div class="td-display-toggles" [class.expanded]="uiStore.displayMenuExpanded()">
-          <button class="td-display-btn" [class.active]="screenShakeEnabled()"
-                  (click)="toggleScreenShake()" matTooltip="Screen Shake" matTooltipPosition="left"
-                  aria-label="Screen Shake" [attr.aria-pressed]="screenShakeEnabled()">
-            <td-icon name="vibration" [size]="18"></td-icon>
-          </button>
-          <button class="td-display-btn" [class.active]="healthBarsVisible()"
-                  (click)="toggleHealthBars()" matTooltip="Health Bars" matTooltipPosition="left"
-                  aria-label="Health Bars" [attr.aria-pressed]="healthBarsVisible()">
-            <td-icon name="heart" [size]="18"></td-icon>
-          </button>
-          <button class="td-display-btn" [class.active]="damageNumbersVisible()"
-                  (click)="toggleDamageNumbers()" matTooltip="Damage Numbers" matTooltipPosition="left"
-                  aria-label="Damage Numbers" [attr.aria-pressed]="damageNumbersVisible()">
-            <td-icon name="pin" [size]="18"></td-icon>
-          </button>
-          <button class="td-display-btn td-fps-btn" [class.active]="fpsLimit() !== 0"
-                  (click)="cycleFpsLimit()" [matTooltip]="fpsLimitTooltip()" matTooltipPosition="left"
-                  [attr.aria-label]="'Frame limit ' + (fpsLimit() === 0 ? 'off' : fpsLimit() + ' FPS')">
-            {{ fpsLimit() === 0 ? '∞' : fpsLimit() }}
-          </button>
+        <div class="td-display-panel" [class.expanded]="uiStore.displayMenuExpanded()">
+          <div class="td-settings-head">
+            <span>Effects</span>
+            @if (!activePreset()) {
+              <span class="td-settings-custom">Custom</span>
+            }
+          </div>
+          <div class="td-segmented" role="group" aria-label="Effect quality">
+            @for (preset of presetButtons; track preset.id) {
+              <button type="button" class="td-segment"
+                      [class.active]="activePreset() === preset.id"
+                      [attr.aria-pressed]="activePreset() === preset.id"
+                      (click)="debugFacade.onVfxPresetSelected(preset.id)"
+                      [matTooltip]="preset.hint" matTooltipPosition="above">{{ preset.label }}</button>
+            }
+          </div>
+          @for (row of effectRows; track row.key) {
+            <label class="td-setting-row" [matTooltip]="row.hint" matTooltipPosition="left">
+              <input type="checkbox" [checked]="vfx()[row.key]" (change)="toggleVfx(row.key)">
+              <span>{{ row.label }}</span>
+            </label>
+          }
+          <label class="td-setting-row td-setting-split"
+                 matTooltip="Tints the whole picture, an extra full-screen pass" matTooltipPosition="left">
+            <span>Color Grading</span>
+            <select class="td-setting-select" (change)="onColorGradingChange($event)">
+              @for (preset of colorGradingPresets; track preset.id) {
+                <option [value]="preset.id" [selected]="vfx().colorGrading === preset.id">{{ preset.label }}</option>
+              }
+            </select>
+          </label>
+
+          <div class="td-settings-head td-settings-divider">
+            <span>General</span>
+          </div>
+          <label class="td-setting-row" matTooltip="Blue tint and ice sparks on slowed enemies" matTooltipPosition="left">
+            <input type="checkbox" [checked]="vfx().freezeTint" (change)="toggleVfx('freezeTint')">
+            <span>Freeze Tint</span>
+          </label>
+          <label class="td-setting-row" matTooltip="Nearby explosions, HQ damage and boss deaths shake the view"
+                 matTooltipPosition="left">
+            <input type="checkbox" [checked]="screenShakeEnabled()"
+                   (change)="debugFacade.onScreenShakeToggled(!screenShakeEnabled())">
+            <span>Screen Shake</span>
+          </label>
+          <label class="td-setting-row">
+            <input type="checkbox" [checked]="healthBarsVisible()"
+                   (change)="debugFacade.onHealthBarsToggled(!healthBarsVisible())">
+            <span>Health Bars</span>
+          </label>
+          <label class="td-setting-row">
+            <input type="checkbox" [checked]="damageNumbersVisible()"
+                   (change)="debugFacade.onDamageNumbersToggled(!damageNumbersVisible())">
+            <span>Damage Numbers</span>
+          </label>
+          <div class="td-setting-row td-setting-split">
+            <span>Frame Limit</span>
+            <div class="td-segmented" role="group" aria-label="Frame limit">
+              @for (fps of fpsLimits; track fps) {
+                <button type="button" class="td-segment"
+                        [class.active]="fpsLimit() === fps"
+                        [attr.aria-pressed]="fpsLimit() === fps"
+                        (click)="debugFacade.onFpsLimitChanged(fps)">{{ fps === 0 ? 'Off' : fps }}</button>
+              }
+            </div>
+          </div>
         </div>
         <button class="td-quick-btn td-display-toggle-btn"
                 [class.active]="uiStore.displayMenuExpanded()"
@@ -420,8 +476,7 @@ function describeFpsLimit(fps: FpsLimit): string {
       gap: 4px;
     }
 
-    .td-layer-toggles,
-    .td-display-toggles {
+    .td-layer-toggles {
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -431,8 +486,7 @@ function describeFpsLimit(fps: FpsLimit): string {
       transition: max-height 0.3s ease-out, opacity 0.15s ease;
     }
 
-    .td-layer-toggles.expanded,
-    .td-display-toggles.expanded {
+    .td-layer-toggles.expanded {
       max-height: 100vh;
       opacity: 1;
     }
@@ -440,7 +494,6 @@ function describeFpsLimit(fps: FpsLimit): string {
     /* === Shared: Icon button base — refined glass + bevel === */
     .td-quick-btn,
     .td-layer-btn,
-    .td-display-btn,
     .td-dev-btn {
       display: flex;
       align-items: center;
@@ -466,7 +519,6 @@ function describeFpsLimit(fps: FpsLimit): string {
 
     .td-quick-btn:hover,
     .td-layer-btn:hover,
-    .td-display-btn:hover,
     .td-dev-btn:hover {
       color: var(--td-text-primary);
       box-shadow:
@@ -479,7 +531,7 @@ function describeFpsLimit(fps: FpsLimit): string {
     /* === Active states (teal for display/layer/audio, gold for dev) === */
     .td-quick-btn.active,
     .td-layer-btn.active,
-    .td-display-btn.active,
+    .td-segment.active,
     .td-display-toggle-btn.active,
     .td-audio-toggle-btn.active {
       background: linear-gradient(180deg, var(--td-teal-light) 0%, var(--td-teal) 55%, var(--td-teal-dark) 100%);
@@ -501,11 +553,158 @@ function describeFpsLimit(fps: FpsLimit): string {
         var(--td-gold-glow);
     }
 
-    .td-fps-btn {
+    /* === Display panel: settings above the display toggle ===
+       Out of flow like the dev menu, so it does not push the other buttons
+       aside. The wrapper stretches over the whole quick-actions height and
+       caps the panel against the compass; on short windows the panel
+       scrolls. The wrapper itself lets map drags and clicks through. */
+    .td-quick-actions > .td-display-menu-wrapper {
+      position: relative;
+      align-self: stretch;
+      justify-content: flex-end;
+      pointer-events: none;
+    }
+
+    .td-display-menu-wrapper > * {
+      pointer-events: auto;
+    }
+
+    .td-display-panel {
+      position: absolute;
+      right: 0;
+      bottom: 36px;
+      max-height: calc(100% - 36px);
+      width: 212px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px;
+      overflow-y: auto;
+      background: var(--td-glass-tint);
+      backdrop-filter: blur(8px) saturate(1.1);
+      -webkit-backdrop-filter: blur(8px) saturate(1.1);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        var(--td-shadow-soft);
+      font-family: var(--td-font-mono);
+      font-size: 12px;
+      color: var(--td-text-secondary);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(8px);
+      transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s linear 0.15s;
+      ${TD_SCROLLBAR_STYLES}
+    }
+
+    .td-display-panel.expanded {
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+      transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s;
+    }
+
+    .td-settings-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--td-text-tertiary);
+    }
+
+    .td-settings-divider {
+      border-top: 1px solid var(--td-frame-dark);
+      padding-top: 8px;
+      margin-top: 4px;
+    }
+
+    .td-settings-custom {
+      color: var(--td-text-muted);
+    }
+
+    .td-setting-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 20px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .td-setting-row:hover {
+      color: var(--td-text-primary);
+    }
+
+    .td-setting-row input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      cursor: pointer;
+      accent-color: var(--td-teal);
+    }
+
+    .td-setting-split {
+      justify-content: space-between;
+      cursor: default;
+    }
+
+    .td-setting-select {
+      background: var(--td-panel-secondary);
+      color: var(--td-text-primary);
+      border: 1px solid var(--td-frame-dark);
+      border-top-color: var(--td-panel-shadow);
+      padding: 2px 4px;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .td-setting-select:hover {
+      border-color: var(--td-frame-mid);
+    }
+
+    .td-setting-select:focus-visible {
+      outline: 1px solid var(--td-teal);
+      outline-offset: 1px;
+    }
+
+    .td-segmented {
+      display: flex;
+    }
+
+    .td-segment {
+      flex: 1;
+      height: 22px;
+      padding: 0 6px;
+      font-family: inherit;
       font-size: 11px;
       font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
+      color: var(--td-text-secondary);
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-dark);
+      cursor: pointer;
+    }
+
+    .td-segment + .td-segment {
+      border-left: none;
+    }
+
+    .td-segment:hover {
+      color: var(--td-text-primary);
+    }
+
+    .td-segment:focus-visible {
+      outline: 1px solid var(--td-teal-light);
+      outline-offset: -2px;
+    }
+
+    .td-setting-split .td-segment {
+      flex: 0 0 auto;
+      min-width: 32px;
     }
 
     .td-audio-menu-wrapper {
@@ -656,15 +855,18 @@ function describeFpsLimit(fps: FpsLimit): string {
       transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s;
     }
 
-    .td-dev-menu::-webkit-scrollbar {
+    .td-dev-menu::-webkit-scrollbar,
+    .td-display-panel::-webkit-scrollbar {
       ${TD_SCROLLBAR_WEBKIT.scrollbar}
     }
 
-    .td-dev-menu::-webkit-scrollbar-track {
+    .td-dev-menu::-webkit-scrollbar-track,
+    .td-display-panel::-webkit-scrollbar-track {
       ${TD_SCROLLBAR_WEBKIT.track}
     }
 
-    .td-dev-menu::-webkit-scrollbar-thumb {
+    .td-dev-menu::-webkit-scrollbar-thumb,
+    .td-display-panel::-webkit-scrollbar-thumb {
       ${TD_SCROLLBAR_WEBKIT.thumb}
     }
 
@@ -731,7 +933,7 @@ export class QuickActionsComponent {
   readonly uiStore = inject(UIStore);
   readonly devWorld = inject(DevWorldService);
   readonly debugStateDump = inject(DebugStateDumpService);
-  private readonly debugFacade = inject(DebugFacadeService);
+  readonly debugFacade = inject(DebugFacadeService);
 
   // Input for camera framing debug state (component-local in parent)
   readonly cameraFramingDebug = input.required<boolean>();
@@ -739,15 +941,20 @@ export class QuickActionsComponent {
   // Static curriculum fallback state (game-store driven, parent passes in)
   readonly useStaticCurriculum = input.required<boolean>();
 
-  // Display settings — read from shared signals in DebugFacadeService (single source of truth)
+  // Display settings: shared signals in DebugFacadeService (single source of
+  // truth, also shown by the Display debug window), changed through its on*() methods
   readonly screenShakeEnabled = this.debugFacade.screenShakeEnabled;
   readonly healthBarsVisible = this.debugFacade.healthBarsVisible;
   readonly damageNumbersVisible = this.debugFacade.damageNumbersVisible;
   readonly fpsLimit = this.debugFacade.fpsLimit;
-  readonly fpsLimitTooltip = computed(() => {
-    const fps = this.fpsLimit();
-    return `Frame limit: ${describeFpsLimit(fps)} (click → ${describeFpsLimit(nextFpsLimit(fps))})`;
-  });
+  readonly vfx = this.debugFacade.vfx;
+  /** Preset the effect switches match, null for a mix of the player's own. */
+  readonly activePreset = computed(() => matchingVfxPreset(this.vfx()));
+
+  readonly presetButtons = PRESET_BUTTONS;
+  readonly effectRows = EFFECT_ROWS;
+  readonly colorGradingPresets = COLOR_GRADING_PRESETS;
+  readonly fpsLimits = FPS_LIMITS;
 
   // Per-tower-LOS filter — icon + tooltip computed from the UIStore signal
   // so the button reflects the current mode (both / ground / air).
@@ -761,12 +968,6 @@ export class QuickActionsComponent {
     const next = mode === 'both' ? 'Ground only' : mode === 'ground' ? 'Air only' : 'Both layers';
     return `Per-tower LOS: ${current} (click → ${next})`;
   });
-
-  // Display settings outputs
-  readonly screenShakeToggled = output<boolean>();
-  readonly healthBarsToggled = output<boolean>();
-  readonly damageNumbersToggled = output<boolean>();
-  readonly fpsLimitChanged = output<FpsLimit>();
 
   // Outputs for actions that need parent handling
   readonly resetCamera = output<void>();
@@ -796,20 +997,15 @@ export class QuickActionsComponent {
   // Computed: any channel muted?
   readonly anyMuted = computed(() => this.uiStore.musicMuted() || this.uiStore.sfxMuted());
 
-  toggleScreenShake(): void {
-    this.screenShakeToggled.emit(!this.screenShakeEnabled());
+  toggleVfx(key: VfxSwitch): void {
+    const change: Partial<VfxSettings> = {};
+    change[key] = !this.vfx()[key];
+    this.debugFacade.onVfxSettingsChanged(change);
   }
 
-  toggleHealthBars(): void {
-    this.healthBarsToggled.emit(!this.healthBarsVisible());
-  }
-
-  toggleDamageNumbers(): void {
-    this.damageNumbersToggled.emit(!this.damageNumbersVisible());
-  }
-
-  cycleFpsLimit(): void {
-    this.fpsLimitChanged.emit(nextFpsLimit(this.fpsLimit()));
+  onColorGradingChange(event: Event): void {
+    const preset = (event.target as HTMLSelectElement).value as ColorGradingPreset;
+    this.debugFacade.onVfxSettingsChanged({ colorGrading: preset });
   }
 
   // Audio controls

@@ -640,10 +640,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.onDpsBinsToggled(visible);
   }
 
-  onDamageNumbersToggled(visible: boolean): void {
-    this.debugFacade.onDamageNumbersToggled(visible);
-  }
-
   onMusicVolumeChanged(volume: number): void {
     this.gameState.backgroundMusic?.setVolume(volume);
   }

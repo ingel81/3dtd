@@ -5,6 +5,8 @@ import { MarkerVisualizationService } from '../world/marker-visualization.servic
 import { CombatEffectService } from '../combat/combat-effect.service';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-options.storage';
+import { readVfxSettings, withVfxPreset, type VfxPreset, type VfxSettings } from '../../three-engine/vfx-settings';
+import type { ColorGradingPreset } from '../../three-engine/post-processing/color-grading';
 
 /** Frame caps the player can pick, in fps. 0 = unlimited. */
 export const FPS_LIMITS = [0, 60, 30] as const;
@@ -47,6 +49,8 @@ export class DebugFacadeService {
   readonly damageNumbersVisible = signal(this.stored.damageNumbers !== false);
   /** Render-loop frame cap, see ThreeTilesEngine.setFpsLimit. */
   readonly fpsLimit = signal<FpsLimit>(toFpsLimit(this.stored.fpsLimit));
+  /** Visual effects switched on or off, see VfxSettings. */
+  readonly vfx = signal<VfxSettings>(readVfxSettings(this.stored));
 
   // ========================================
   // Proxy signals from UIStore
@@ -217,10 +221,26 @@ export class DebugFacadeService {
   }
 
   /**
-   * Change color grading preset (persisted by display-options component)
+   * Color grading preset from the debug window; one of the VFX settings.
    */
-  onColorGradingChanged(preset: string): void {
-    this.engine?.setColorGradingPreset(preset as import('../../three-engine/post-processing/color-grading').ColorGradingPreset);
+  onColorGradingChanged(preset: ColorGradingPreset): void {
+    this.onVfxSettingsChanged({ colorGrading: preset });
+  }
+
+  /**
+   * Change VFX settings: the engine takes them at once, no reload, and
+   * they are persisted with the other display options.
+   */
+  onVfxSettingsChanged(change: Partial<VfxSettings>): void {
+    const settings = { ...this.vfx(), ...change };
+    this.vfx.set(settings);
+    this.engine?.applyVfxSettings(settings);
+    persistDisplayOptions(settings);
+  }
+
+  /** Apply an effect quality preset. The switches stay adjustable one by one. */
+  onVfxPresetSelected(preset: VfxPreset): void {
+    this.onVfxSettingsChanged(withVfxPreset(this.vfx(), preset));
   }
 
   /**
@@ -274,6 +294,7 @@ export class DebugFacadeService {
    */
   applyDisplayOptions(): void {
     this.engine?.setFpsLimit(this.fpsLimit());
+    this.engine?.applyVfxSettings(this.vfx());
     if (!this.healthBarsVisible()) this.engine?.enemies.setHealthBarsVisible(false);
     if (!this.damageNumbersVisible()) this.combatEffect.damageNumbersEnabled = false;
     if (!this.screenShakeEnabled()) this.gameState?.screenShakeService.disable();
@@ -288,9 +309,6 @@ export class DebugFacadeService {
     if (opts.textures === false) this.engine?.enemies.setTexturesEnabled(false);
     if (opts.skeletonCloning === false) this.engine?.enemies.setSkeletonCloningEnabled(false);
     if (opts.alphaBlend === false) this.engine?.enemies.setAlphaBlendEnabled(false);
-    if (opts.colorGrading && opts.colorGrading !== 'none') {
-      this.engine?.setColorGradingPreset(opts.colorGrading);
-    }
   }
 
   // ========================================

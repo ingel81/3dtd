@@ -6,6 +6,7 @@ import { EnemyDebugService } from './enemy-debug.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { CombatEffectService } from '../combat/combat-effect.service';
 import type { ThreeTilesEngine } from '../../three-engine';
+import { DEFAULT_VFX_SETTINGS, matchingVfxPreset } from '../../three-engine/vfx-settings';
 import { LEGACY_FPS_LIMIT_KEY, STORAGE_KEY } from '../../utils/display-options.storage';
 
 function createFacade(): DebugFacadeService {
@@ -21,7 +22,7 @@ function createFacade(): DebugFacadeService {
 }
 
 function fakeEngine() {
-  const engine = { setFpsLimit: vi.fn() };
+  const engine = { setFpsLimit: vi.fn(), applyVfxSettings: vi.fn() };
   return { engine, asEngine: engine as unknown as ThreeTilesEngine };
 }
 
@@ -87,5 +88,55 @@ describe('DebugFacadeService display options', () => {
     expect(facade.healthBarsVisible()).toBe(false);
     expect(facade.screenShakeEnabled()).toBe(false);
     expect(facade.damageNumbersVisible()).toBe(true);
+  });
+});
+
+describe('DebugFacadeService VFX settings', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('starts from the stored switches, the defaults for the rest', () => {
+    store({ projectileTrails: false, colorGrading: 'noir', bloom: 'yes' });
+    expect(createFacade().vfx()).toEqual({ ...DEFAULT_VFX_SETTINGS, projectileTrails: false, colorGrading: 'noir' });
+  });
+
+  it('hands them to the engine with the other display options', () => {
+    store({ groundMarks: false });
+    const facade = createFacade();
+    const { engine, asEngine } = fakeEngine();
+    facade.setEngine(asEngine);
+    facade.applyDisplayOptions();
+    expect(engine.applyVfxSettings).toHaveBeenCalledWith({ ...DEFAULT_VFX_SETTINGS, groundMarks: false });
+  });
+
+  it('applies a changed switch at once and persists it next to the other options', () => {
+    store({ healthBars: false });
+    const facade = createFacade();
+    const { engine, asEngine } = fakeEngine();
+    facade.setEngine(asEngine);
+
+    facade.onVfxSettingsChanged({ impactEffects: false });
+
+    const expected = { ...DEFAULT_VFX_SETTINGS, impactEffects: false };
+    expect(facade.vfx()).toEqual(expected);
+    expect(engine.applyVfxSettings).toHaveBeenLastCalledWith(expected);
+    expect(stored()).toEqual({ healthBars: false, ...expected });
+    expect(createFacade().vfx()).toEqual(expected); // after a reload
+  });
+
+  it('sets the preset switches and leaves the freeze tint alone', () => {
+    const facade = createFacade();
+    facade.onVfxSettingsChanged({ freezeTint: false });
+
+    facade.onVfxPresetSelected('low');
+
+    expect(matchingVfxPreset(facade.vfx())).toBe('low');
+    expect(facade.vfx().freezeTint).toBe(false);
+  });
+
+  it('takes the color grading of the debug window as a VFX setting', () => {
+    const facade = createFacade();
+    facade.onColorGradingChanged('warm-sunset');
+    expect(facade.vfx().colorGrading).toBe('warm-sunset');
+    expect(stored()['colorGrading']).toBe('warm-sunset');
   });
 });
