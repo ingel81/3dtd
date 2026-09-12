@@ -550,9 +550,9 @@ Tower-LOS und Air-Routing bedienen.
 - LOD-versioned idempotency: stable cells are only resampled when the
   hit comes from a strictly better LOD
 
-**smoothPathHeights():** existiert noch in `path-route.service.ts`, wird aber
+**smoothPathHeights():** liegt in `utils/route-height-smoothing.ts` und wird
 ausschliesslich von `street-rendering.service.ts` für gerenderte Strassenmesh-
-Vertices genutzt. Der Pfad-Bau braucht es nicht mehr — Cells sind schon
+Vertices genutzt. Der Pfad-Bau braucht es nicht mehr, Cells sind schon
 sanity-checked.
 
 ### Progressive LOS & Street Rendering
