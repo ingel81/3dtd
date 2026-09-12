@@ -287,15 +287,8 @@ export type GameEvent =
       type: 'debug:max-upgrade-all-towers';
     }
   | {
-      type: 'debug:toggle-movement';
-      enabled: boolean;
-    }
-  | {
       type: 'debug:remove-enemy';
       enemyId: string;
-    }
-  | {
-      type: 'debug:clear-enemies';
     };
 
 /**

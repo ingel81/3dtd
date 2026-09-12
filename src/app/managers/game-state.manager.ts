@@ -361,9 +361,8 @@ export class GameStateManager {
     };
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => turnToGuardIfClear(event.enemy)));
     this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => turnToGuardIfClear(event.enemy)));
-    // EnemyManager subscribed first and has removed the enemies by now
+    // EnemyManager subscribed first and has removed the enemy by now
     this.eventBusSubs.add(this.eventBus.on('debug:remove-enemy', () => turnToGuardIfClear()));
-    this.eventBusSubs.add(this.eventBus.on('debug:clear-enemies', () => turnToGuardIfClear()));
 
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
