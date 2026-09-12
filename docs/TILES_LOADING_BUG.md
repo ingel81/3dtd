@@ -150,7 +150,7 @@ if (stats.visible === 0 && this.cameraNudgeCount < this.MAX_CAMERA_NUDGES) {
   - `getTileStats()` - liest `tilesRenderer.stats`, `visibleTiles`, `activeTiles` und die Cache-Größe
   - `reset()` - Standortwechsel, aufgerufen aus `ThreeTilesEngine.setOrigin()`
 - `src/app/three-engine/three-tiles-engine.ts`
-  - liefert die Origin-Probe (`raycastTerrainHeight(0, 0)`) und reagiert in `onTileSetSettled()` auf jeden beruhigten `tiles-load-end`
+  - liefert die Origin-Probe (`terrain.raycastTerrainHeight(0, 0)`, siehe `terrain-queries.ts`) und reagiert in `onTileSetSettled()` auf jeden beruhigten `tiles-load-end`
   - `getTileStats()`, `setOnFirstTilesLoadedCallback()` und `setOnAuthErrorCallback()` reichen an den Tracker durch
 
 ### Debug-Logs (aktiv)

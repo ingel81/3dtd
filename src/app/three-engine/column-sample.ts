@@ -3,7 +3,7 @@
  *
  * Kept free of Three.js and of the engine so the decision logic can be unit
  * tested against hand-written hit lists; the raycast itself lives in
- * `ThreeTilesEngine.sampleColumn`.
+ * `TerrainQueries.sampleColumn`.
  */
 
 /** One raycast hit, reduced to what the selection needs. */

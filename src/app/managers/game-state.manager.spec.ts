@@ -143,7 +143,6 @@ function createDeepMock(): never {
   return new Proxy(
     {
       getScene: noopReturning({}),
-      getTerrainHeightAtLocal: noopReturning(0),
       getTerrainHeightAtGeo: noopReturning(0),
       setTimescale: noopFn,
       sync: {

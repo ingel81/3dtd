@@ -683,7 +683,7 @@ export class LocationFacadeService {
       if (devTerrainProvider) {
         this.store.isDevWorldRegenerating.set(true);
         this.clearDevWorldVisuals();
-        engine.clearHeightCache();
+        engine.terrain.clearHeightCache();
 
         devTerrainProvider.regenerate().then(() => {
           this.onDevWorldRegenerated(devTerrainProvider);
@@ -696,7 +696,7 @@ export class LocationFacadeService {
       }
     }
 
-    engine.clearHeightCache();
+    engine.terrain.clearHeightCache();
     onTilesLoaded();
   }
 

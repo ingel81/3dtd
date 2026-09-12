@@ -84,16 +84,18 @@ function makeEngine(): ThreeTilesEngine {
   return {
     getOverlayGroup: () => overlay,
     getTerrainHeightAtGeo: () => 0,
-    // Höhe des gelben Overlays: flaches Gelände.
-    getGroundHeightEstimate: () => 0,
-    measureStreetClearance: (
-      x: number, z: number, _ax: number, _az: number, heights: readonly number[], max: number,
-    ): StationProbe => {
-      const free = clearanceAt(x, z, max);
-      if (free === null) return { unmeasured: 'coarse tile', tileError: 20, left: [], right: [] };
-      const perHeight = (hits: Hits) => (typeof hits === 'number' ? heights.map(() => hits) : hits);
-      const sides = typeof free === 'number' ? { left: free, right: free } : free;
-      return { unmeasured: null, tileError: 2, left: perHeight(sides.left), right: perHeight(sides.right) };
+    terrain: {
+      // Höhe des gelben Overlays: flaches Gelände.
+      getGroundHeightEstimate: () => 0,
+      measureStreetClearance: (
+        x: number, z: number, _ax: number, _az: number, heights: readonly number[], max: number,
+      ): StationProbe => {
+        const free = clearanceAt(x, z, max);
+        if (free === null) return { unmeasured: 'coarse tile', tileError: 20, left: [], right: [] };
+        const perHeight = (hits: Hits) => (typeof hits === 'number' ? heights.map(() => hits) : hits);
+        const sides = typeof free === 'number' ? { left: free, right: free } : free;
+        return { unmeasured: null, tileError: 2, left: perHeight(sides.left), right: perHeight(sides.right) };
+      },
     },
     sync: {
       getOrigin: () => ({ ...ORIGIN, height: 0 }),

@@ -17,7 +17,6 @@ import {
   TextureLoader,
   WebGLCubeRenderTarget,
   Color,
-  Box3,
   MathUtils,
   Matrix4,
 } from 'three';
@@ -41,9 +40,7 @@ import { CameraRig } from './camera-rig';
 import { TileLoadingTracker, type TileStats } from './tile-loading-tracker';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { RenderLoop } from './render-loop';
-import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
-import { StationProbe, corridorConfig } from '../utils/route-corridor';
-import { ColumnHit, ColumnSample, isBetterLod, selectColumnSample } from './column-sample';
+import { TerrainQueries } from './terrain-queries';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -69,27 +66,6 @@ import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import type { GeoPosition } from '../models/game.types';
-
-/**
- * Vertical tolerance (meters) around a route anchor when validating
- * top-down terrain raycasts. Hits more than this far from the anchor are
- * treated as overhead clutter (bridge decks, tree canopies) or sub-ground
- * artifacts (basements, mesh holes). 3m comfortably accepts curbs, low
- * ramps and tile-seam noise while rejecting typical bridge decks (4-6m)
- * and most tree crowns.
- */
-/** Shape of a 3D-Tiles tile as far as the tile-info map needs it. */
-interface ActiveTile {
-  geometricError?: number;
-  internal?: { depth?: number };
-  engineData?: { scene?: Object3D | null } | null;
-}
-
-/** Straight down, the terrain probe is always vertical. */
-const COLUMN_RAY_DIRECTION = new Vector3(0, -1, 0);
-
-/** Column cache granularity: 2 buckets per metre (0.5 m grid). */
-const COLUMN_CACHE_SCALE = 2;
 
 /**
  * Route corridor load region, see {@link RouteCorridorRegion}. The half width
@@ -154,51 +130,11 @@ export class ThreeTilesEngine {
   // Coordinate sync
   readonly sync: EllipsoidSync;
 
-  // Raycaster for terrain height queries
-  private raycaster: Raycaster;
-
   /**
-   * Lazy cache of per-tile horizontal AABB (min/max x,z). Built on demand
-   * by `peekBestTileLODAtLocal` and cached for the lifetime of each tile
-   * scene, tile geometry is immutable once loaded, so the AABB never
-   * changes until the scene unloads. WeakMap keys die with their scene,
-   * so no manual eviction needed.
+   * Terrain and tile raycasts: ground columns with their cache, street
+   * clearance, line of sight, tile-LOD peek. Reached as `engine.terrain`.
    */
-  private tileBoundsCache = new WeakMap<Object3D, { minX: number; maxX: number; minZ: number; maxZ: number }>();
-
-  /** Tiles-group position the cached AABBs were taken at. */
-  private readonly boundsCacheGroupPos = new Vector3(NaN, NaN, NaN);
-
-  /**
-   * Column samples keyed by quantised local (x,z), each stamped with the
-   * {@link lodVersion} it was taken at. Replaces the old lat/lon height cache
-   * and its all-or-nothing clear.
-   */
-  private columnCache = new Map<number, { sample: ColumnSample; lodVersion: number }>();
-
-  /**
-   * Raycaster reserved for terrain columns. Separate from `this.raycaster`
-   * because LOS checks set `far` to their segment length and screen picking
-   * sets its own origin, sharing one instance made the effective range
-   * depend on whatever ran last.
-   */
-  private readonly terrainRaycaster = new Raycaster();
-  private readonly _columnRayOrigin = new Vector3();
-  private readonly _columnResults: Intersection[] = [];
-  private readonly _columnHits: ColumnHit[] = [];
-
-  /** Raycaster for the horizontal street clearance probe, see measureStreetClearance. */
-  private readonly clearanceRaycaster = new Raycaster();
-  private readonly _clearanceOrigin = new Vector3();
-  private readonly _clearanceDirection = new Vector3();
-  private readonly _clearanceResults: Intersection[] = [];
-
-  /**
-   * Monotonic counter of loaded-tile-set changes. Every cached column sample
-   * records the version it was taken at; a newer version means "re-verify",
-   * which replaces the old all-or-nothing `heightCache.clear()`.
-   */
-  private lodVersion = 0;
+  readonly terrain: TerrainQueries;
 
   // Entity renderers
   readonly enemies: InstancedEnemyRenderer;
@@ -295,8 +231,12 @@ export class ThreeTilesEngine {
     // Initialize coordinate sync
     this.sync = new EllipsoidSync(originLat, originLon, originHeight);
 
-    // Raycaster for terrain queries
-    this.raycaster = new Raycaster();
+    // Terrain and tile raycasts. They read tilesRenderer and devTerrainProvider,
+    // which initialize() sets.
+    this.terrain = new TerrainQueries(this.sync, {
+      tiles: () => this.tilesRenderer,
+      devTerrain: () => this.devTerrainProvider,
+    });
 
     // Create WebGL renderer with error handling
     try {
@@ -352,7 +292,7 @@ export class ThreeTilesEngine {
 
     // Lade-Events hängen sich erst in initialize() an den TilesRenderer
     this.tileLoading = new TileLoadingTracker(this.camera, this.renderer, {
-      probeOriginGround: () => this.raycastTerrainHeight(0, 0, 'tileProbe'),
+      probeOriginGround: () => this.terrain.raycastTerrainHeight(0, 0, 'tileProbe'),
       onTileSetSettled: () => this.onTileSetSettled(),
     });
 
@@ -567,16 +507,16 @@ export class ThreeTilesEngine {
     instrumentRaycasts(this.tilesRenderer.group);
 
     // Set up terrain height sampler for tower range indicators (legacy)
-    this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
+    this.towers.setTerrainHeightSampler((lat, lon) => this.terrain.getTerrainHeightAtGeo(lat, lon));
 
     // Set up direct terrain raycaster for accurate terrain-conforming range indicators
     // This raycasts directly at local X,Z coordinates for exact terrain mesh intersection
-    this.towers.setTerrainRaycaster((localX, localZ) => this.raycastTerrainHeight(localX, localZ, 'towerRange'));
+    this.towers.setTerrainRaycaster((localX, localZ) => this.terrain.raycastTerrainHeight(localX, localZ, 'towerRange'));
 
     // Set up Line-of-Sight raycaster for visibility checks
     // Returns true if line of sight is BLOCKED
     this.towers.setLineOfSightRaycaster((ox, oy, oz, tx, ty, tz) =>
-      this.raycastLineOfSight(ox, oy, oz, tx, ty, tz)
+      this.terrain.raycastLineOfSight(ox, oy, oz, tx, ty, tz)
     );
 
   }
@@ -620,14 +560,14 @@ export class ThreeTilesEngine {
     this.cameraRig.setupEnvironmentControls(this.scene, this.devWorldGroup);
 
     // Set up terrain height sampler for tower range indicators
-    this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
+    this.towers.setTerrainHeightSampler((lat, lon) => this.terrain.getTerrainHeightAtGeo(lat, lon));
 
     // Set up direct terrain raycaster
-    this.towers.setTerrainRaycaster((localX, localZ) => this.raycastTerrainHeight(localX, localZ, 'towerRange'));
+    this.towers.setTerrainRaycaster((localX, localZ) => this.terrain.raycastTerrainHeight(localX, localZ, 'towerRange'));
 
     // Set up Line-of-Sight raycaster
     this.towers.setLineOfSightRaycaster((ox, oy, oz, tx, ty, tz) =>
-      this.raycastLineOfSight(ox, oy, oz, tx, ty, tz)
+      this.terrain.raycastLineOfSight(ox, oy, oz, tx, ty, tz)
     );
 
     // Mark as loaded immediately (no async tile loading in DevWorld)
@@ -656,7 +596,7 @@ export class ThreeTilesEngine {
 
     // Bumps `lodVersion`, which is what invalidates individual column
     // samples, no global cache clear needed.
-    this.markTileSetChanged();
+    this.terrain.markTileSetChanged();
 
     this.towerShadowMapper?.invalidate();
     const tShadowInvalidate = performance.now();
@@ -668,7 +608,7 @@ export class ThreeTilesEngine {
         `[PerfTrace] onTilesLoadCallback: ${(tEnd - tPre0).toFixed(1)}ms total | ` +
         `shadowInvalidate=${(tShadowInvalidate - tPre0).toFixed(1)} ` +
         `facadeCallback=${(tEnd - tShadowInvalidate).toFixed(1)}ms ` +
-        `(lodVersion=${this.lodVersion})`
+        `(lodVersion=${this.terrain.lodVersion})`
       );
     }
   }
@@ -822,7 +762,7 @@ export class ThreeTilesEngine {
     }
 
     // Clear height cache
-    this.clearHeightCache();
+    this.terrain.clearHeightCache();
 
     // Cancel pending debounce/retry timers from the previous location and
     // reset first-load, nudge and auth state
@@ -857,365 +797,12 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Get terrain height at geographic coordinates using LOCAL coordinate raycast.
-   * Uses cache to avoid expensive raycasts for the same positions.
-   *
-   * With ReorientationPlugin (recenter: true):
-   * - Tiles are centered at local origin (0,0,0) - NOT in ECEF!
-   * - tiles.group.rotation.x = -PI/2 converts Z-up to Y-up
-   * - We raycast from high above (Y=10000) straight down (0,-1,0)
-   * - geoToLocalSimple() gives local offsets in the same coordinate system
-   *
-   * @param lat - Latitude in degrees
-   * @param lon - Longitude in degrees
-   * @returns Height in local Y coordinates, or null if no hit
+   * Ground height at geographic coordinates, in local Y. See
+   * {@link TerrainQueries.getTerrainHeightAtGeo}; stays on the engine for
+   * its two dozen callers. The other terrain queries are on `terrain`.
    */
   getTerrainHeightAtGeo(lat: number, lon: number): number | null {
-    // DevWorld: delegate to provider
-    if (this.devTerrainProvider) {
-      return this.devTerrainProvider.getHeightAtGeo(lat, lon);
-    }
-
-    // Caching happens per column in `sampleColumn`, keyed on local (x,z), // one keyspace for the whole engine instead of a second lat/lon one.
-    const localPos = this.sync.geoToLocalSimple(lat, lon, 0);
-    const scope = raycastStats.enter('heightAtGeo');
-    try {
-      return this.sampleColumn(localPos.x, localPos.z)?.groundY ?? null;
-    } finally {
-      raycastStats.exit(scope);
-    }
-  }
-
-  /**
-   * Estimate ground height by sampling center + lateral points perpendicular to path direction.
-   * Detects obstacles (trees, buildings) by comparing center height with lateral samples.
-   *
-   * If center is significantly higher than the lateral minimum, the raycast likely hit
-   * a tree canopy or building roof. In that case, returns the lateral minimum as ground estimate.
-   *
-   * Preserves bridges: bridge decks are wide enough (6-12m+) that lateral samples at ±3m/±6m
-   * still hit the bridge surface, so center ≈ lateral → no correction applied.
-   *
-   * @param lat - Latitude of the path point
-   * @param lon - Longitude of the path point
-   * @param prevLat - Latitude of the previous path point (for direction)
-   * @param prevLon - Longitude of the previous path point
-   * @param nextLat - Latitude of the next path point (for direction)
-   * @param nextLon - Longitude of the next path point
-   * @returns Estimated ground height, or null if no hit
-   */
-  getGroundHeightEstimate(
-    lat: number, lon: number,
-    prevLat: number, prevLon: number,
-    nextLat: number, nextLon: number
-  ): number | null {
-    const centerHeight = this.getTerrainHeightAtGeo(lat, lon);
-    if (centerHeight === null) return null;
-
-    // DevWorld uses procedural terrain without tree/building issues
-    if (this.devTerrainProvider) return centerHeight;
-
-    // Calculate path direction vector (in degrees)
-    const dLat = nextLat - prevLat;
-    const dLon = nextLon - prevLon;
-    const len = Math.sqrt(dLat * dLat + dLon * dLon);
-
-    // If no direction available (single point), return center height
-    if (len < 1e-10) return centerHeight;
-
-    // Perpendicular direction (rotate 90°): swap and negate one component
-    const perpLat = -dLon / len;
-    const perpLon = dLat / len;
-
-    // Convert meter offsets to degree offsets
-    const METERS_TO_DEG_LAT = 1 / METERS_PER_DEGREE_LAT;
-    const cosLat = Math.cos(lat * DEG_TO_RAD);
-
-    // Sample at ±3m and ±6m perpendicular to path
-    const OFFSETS_M = [3, 6];
-    // If center is this much higher than lateral minimum, it's an obstacle (tree/building)
-    const OBSTACLE_THRESHOLD = 3;
-
-    let minLateralHeight = centerHeight;
-    let lateralSampleCount = 0;
-
-    for (const offsetM of OFFSETS_M) {
-      const offsetLat = perpLat * offsetM * METERS_TO_DEG_LAT;
-      const offsetLon = perpLon * offsetM * METERS_TO_DEG_LAT / cosLat;
-
-      // Left side of path
-      const leftH = this.getTerrainHeightAtGeo(lat + offsetLat, lon + offsetLon);
-      if (leftH !== null) {
-        minLateralHeight = Math.min(minLateralHeight, leftH);
-        lateralSampleCount++;
-      }
-
-      // Right side of path
-      const rightH = this.getTerrainHeightAtGeo(lat - offsetLat, lon - offsetLon);
-      if (rightH !== null) {
-        minLateralHeight = Math.min(minLateralHeight, rightH);
-        lateralSampleCount++;
-      }
-    }
-
-    // If lateral samples exist and center is significantly higher → obstacle detected
-    if (lateralSampleCount > 0 && (centerHeight - minLateralHeight) > OBSTACLE_THRESHOLD) {
-      return minLateralHeight;
-    }
-
-    return centerHeight;
-  }
-
-  /**
-   * The one vertical terrain probe. Everything that needs to know how high
-   * the ground is goes through here.
-   *
-   * Casts a single top-down ray, resolves each hit to its tile's LOD, and
-   * hands the set to {@link selectColumnSample}, which keeps only the finest
-   * LOD present and reads ground and top off that. See that function for why
-   * the finest-LOD filter is the whole point.
-   *
-   * Results are cached per 0.5 m column and invalidated per entry via
-   * {@link lodVersion}, a stale entry is only re-raycast when the peek says
-   * better tile data actually exists, otherwise it is just re-stamped.
-   *
-   * @returns null if nothing usable was hit; the cache is left untouched so
-   *   callers keep whatever value they already had.
-   */
-  sampleColumn(localX: number, localZ: number): ColumnSample | null {
-    if (this.devTerrainProvider) {
-      const y = this.devTerrainProvider.getHeightAtLocal(localX, localZ);
-      if (y === null) return null;
-      // DevWorld has no streaming LOD and no overhead clutter.
-      return { groundY: y, topY: y, tileDepth: 99, tileGeometricError: 0 };
-    }
-
-    const key = this.columnCacheKey(localX, localZ);
-    const entry = this.columnCache.get(key);
-    if (entry) {
-      if (entry.lodVersion === this.lodVersion) return entry.sample;
-      // Tile set changed. Only pay for a ray if finer data is actually there.
-      const peek = this.peekBestTileLODAtLocal(localX, localZ);
-      if (peek && !isBetterLod(peek, entry.sample)) {
-        entry.lodVersion = this.lodVersion;
-        return entry.sample;
-      }
-    }
-
-    const sample = this.raycastColumn(localX, localZ);
-    if (sample === null) return null;
-
-    this.columnCache.set(key, { sample, lodVersion: this.lodVersion });
-    return sample;
-  }
-
-  /** Uncached ray + LOD resolution behind {@link sampleColumn}. */
-  private raycastColumn(localX: number, localZ: number): ColumnSample | null {
-    // The ray only ever hits active tiles.
-    if (!this.tilesRenderer || this.tilesRenderer.activeTiles.size === 0) return null;
-
-    this._columnRayOrigin.set(localX, 10000, localZ);
-    this.terrainRaycaster.set(this._columnRayOrigin, COLUMN_RAY_DIRECTION);
-    this.terrainRaycaster.far = 20000;
-
-    this._columnResults.length = 0;
-    this.terrainRaycaster.intersectObject(this.tilesRenderer.group, true, this._columnResults);
-    if (this._columnResults.length === 0) return null;
-
-    this._columnHits.length = 0;
-    for (const r of this._columnResults) {
-      // Every object in a tile's scene carries its tile. Hits always come from
-      // tilesRenderer.raycast, so this is always a tile mesh.
-      const tile = r.object.userData['tile'] as ActiveTile | undefined;
-      this._columnHits.push({
-        y: r.point.y,
-        depth: tile?.internal?.depth ?? 0,
-        geometricError: tile?.geometricError ?? Infinity,
-      });
-    }
-
-    return selectColumnSample(this._columnHits);
-  }
-
-  /**
-   * Free space either side of a point on a street, for fitting the route
-   * corridor to the street the tiles show. Casts a horizontal ray to each
-   * side at every height in `heightsAboveGround`, over the column's ground
-   * (over its top `onDeck`, for a bridge). Only what blocks the rays at all
-   * heights counts as a wall (a facade, a wall, a trunk), so the free space
-   * on a side is the farthest of the first hits: a parked van stops the
-   * low ray, an eave or a tree crown the high one, neither the corridor.
-   * Capped at `maxDistance`. `acrossX, acrossZ` points to the right of the
-   * direction of travel.
-   *
-   * Only tiles up to `corridorConfig.maxTileError` count, for the column
-   * and for the hits, so a coarse hull still waiting for its children
-   * neither places the rays nor blocks them. A station without such a tile
-   * comes back unmeasured, with the reason (`StationProbe.unmeasured`).
-   *
-   * @returns the first hit per height and side (probeFreeSpace makes the
-   *   free space of it), or null where there is nothing to measure: in
-   *   DevWorld (its roads are drawn at the width the corridor already uses).
-   */
-  measureStreetClearance(
-    localX: number,
-    localZ: number,
-    acrossX: number,
-    acrossZ: number,
-    heightsAboveGround: readonly number[],
-    maxDistance: number,
-    onDeck = false,
-  ): StationProbe | null {
-    const tiles = this.tilesRenderer;
-    if (this.devTerrainProvider || !tiles) return null;
-    // The column under the station and all side rays count as the corridor's.
-    const scope = raycastStats.enter('routeCorridor');
-    try {
-      const column = this.sampleColumn(localX, localZ);
-      if (!column) return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
-      if (column.tileGeometricError > corridorConfig.maxTileError) {
-        return { unmeasured: 'coarse tile', tileError: column.tileGeometricError, left: [], right: [] };
-      }
-      const len = Math.hypot(acrossX, acrossZ);
-      if (len === 0) return null;
-
-      const surfaceY = onDeck ? column.topY : column.groundY;
-      const left: number[] = [];
-      const right: number[] = [];
-      for (const height of heightsAboveGround) {
-        this._clearanceOrigin.set(localX, surfaceY + height, localZ);
-        left.push(this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance));
-        right.push(this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance));
-      }
-      return { unmeasured: null, tileError: column.tileGeometricError, left, right };
-    } finally {
-      raycastStats.exit(scope);
-    }
-  }
-
-  /**
-   * Distance from `_clearanceOrigin` along the horizontal unit direction
-   * (dirX, dirZ) to the first fine tile surface, `maxDistance` if there is
-   * none that close.
-   */
-  private clearanceRay(group: Object3D, dirX: number, dirZ: number, maxDistance: number): number {
-    this._clearanceDirection.set(dirX, 0, dirZ);
-    this.clearanceRaycaster.set(this._clearanceOrigin, this._clearanceDirection);
-    this.clearanceRaycaster.far = maxDistance;
-    this._clearanceResults.length = 0;
-    this.clearanceRaycaster.intersectObject(group, true, this._clearanceResults);
-    // Sorted by distance: the first fine hit is the nearest one.
-    for (const r of this._clearanceResults) {
-      const tile = r.object.userData['tile'] as ActiveTile | undefined;
-      if ((tile?.internal?.depth ?? 0) === 0) continue;
-      if ((tile?.geometricError ?? Infinity) > corridorConfig.maxTileError) continue;
-      return Math.min(maxDistance, r.distance);
-    }
-    return maxDistance;
-  }
-
-  /** Quantised column key, 0.5 m grid, Szudzik pairing (negatives safe). */
-  private columnCacheKey(localX: number, localZ: number): number {
-    const xi = Math.round(localX * COLUMN_CACHE_SCALE);
-    const zi = Math.round(localZ * COLUMN_CACHE_SCALE);
-    const a = xi >= 0 ? 2 * xi : -2 * xi - 1;
-    const b = zi >= 0 ? 2 * zi : -2 * zi - 1;
-    return a >= b ? a * a + a + b : b * b + a;
-  }
-
-  /**
-   * Ground height at a local position. Thin read of {@link sampleColumn},
-   * the rays it casts are booked on `caller` (raycastStats).
-   */
-  private raycastTerrainHeight(localX: number, localZ: number, caller: string): number | null {
-    const scope = raycastStats.enter(caller);
-    try {
-      return this.sampleColumn(localX, localZ)?.groundY ?? null;
-    } finally {
-      raycastStats.exit(scope);
-    }
-  }
-
-  /**
-   * Called on every settled tile-load-end. Bumps {@link lodVersion}, which
-   * invalidates cached column samples one entry at a time instead of by a
-   * global cache wipe, and drops the lazily computed tile AABBs.
-   */
-  private markTileSetChanged(): void {
-    this.tileBoundsCache = new WeakMap();
-    this.lodVersion++;
-  }
-
-  /**
-   * Tile-LOD peek WITHOUT raycast. Walks the active tiles and returns the best
-   * (deepest / lowest geometricError) tile whose horizontal AABB contains the
-   * local (x,z). Used by the route-grid to skip stable cells whose Tile-LOD
-   * hasn't improved since the last sample, eliminates the per-cell raycast
-   * cost in the post-tile-load full-sweep.
-   *
-   * Reads `activeTiles`, NOT `forEachLoadedModel`: the latter also yields
-   * LRU-cached tiles that are loaded but not part of the current refinement,
-   * and those are invisible to the raycast (`TilesRenderer.raycast` walks the
-   * active traversal only). Reporting their LOD made the peek promise a
-   * quality the ray could never deliver.
-   *
-   * Returns `null` when no active tile horizontally contains (x,z).
-   *
-   * Cost: O(active tiles). AABB computed lazily on first touch per scene and
-   * cached in `tileBoundsCache` until the next tile-set change.
-   */
-  peekBestTileLODAtLocal(localX: number, localZ: number): { depth: number; geometricError: number } | null {
-    if (this.devTerrainProvider) {
-      // DevWorld has no streaming LOD, synthetic high quality so the
-      // route-grid never re-raycasts stable cells in dev mode.
-      return { depth: 99, geometricError: 0 };
-    }
-    if (!this.tilesRenderer) return null;
-
-    // Bounds are world-space, so they are only valid while the tiles group
-    // sits where it did when they were taken. The group moves when the root
-    // tileset loads and on every origin change; without this check the cache
-    // would quietly answer for the wrong patch of ground.
-    if (!this.tilesRenderer.group.position.equals(this.boundsCacheGroupPos)) {
-      this.tileBoundsCache = new WeakMap();
-      this.boundsCacheGroupPos.copy(this.tilesRenderer.group.position);
-    }
-
-    let bestDepth = -1;
-    let bestErr = Infinity;
-    let any = false;
-    for (const tile of this.tilesRenderer.activeTiles as Set<ActiveTile>) {
-      const scene = tile.engineData?.scene;
-      if (!scene) continue;
-      let bounds = this.tileBoundsCache.get(scene);
-      if (!bounds) {
-        // `setFromObject` reads matrixWorld. Touching a scene before the
-        // renderer has updated it bakes an AABB around an identity
-        // transform, permanently wrong, since the WeakMap has no eviction
-        // short of the scene unloading.
-        scene.updateWorldMatrix(true, true);
-        const box = new Box3().setFromObject(scene);
-        if (box.isEmpty()) continue;
-        bounds = {
-          minX: box.min.x,
-          maxX: box.max.x,
-          minZ: box.min.z,
-          maxZ: box.max.z,
-        };
-        this.tileBoundsCache.set(scene, bounds);
-      }
-      if (localX < bounds.minX || localX > bounds.maxX) continue;
-      if (localZ < bounds.minZ || localZ > bounds.maxZ) continue;
-      any = true;
-      // "Better" = strictly deeper depth, or same depth + lower geom-error.
-      const depth = tile.internal?.depth ?? 0;
-      const err = tile.geometricError ?? Infinity;
-      if (depth > bestDepth || (depth === bestDepth && err < bestErr)) {
-        bestDepth = depth;
-        bestErr = err;
-      }
-    }
-    return any ? { depth: bestDepth, geometricError: bestErr } : null;
+    return this.terrain.getTerrainHeightAtGeo(lat, lon);
   }
 
   /**
@@ -1264,77 +851,6 @@ export class ThreeTilesEngine {
     this.tilesRenderer.dispatchEvent({ type: 'needs-update' });
   }
 
-
-  /**
-   * Raycast between two 3D points to check Line-of-Sight
-   * Returns true if the ray is BLOCKED (hits terrain/building before reaching target)
-   *
-   * @param originX, originY, originZ - Starting point (e.g., tower tip)
-   * @param targetX, targetY, targetZ - End point (e.g., hex cell or enemy position)
-   * @returns true if blocked, false if clear line of sight
-   */
-  // Reused buffers for hot-path raycasts (called hundreds of times per LOS preview frame)
-  private readonly _losOrigin = new Vector3();
-  private readonly _losDirection = new Vector3();
-  private readonly _losResults: import('three').Intersection[] = [];
-
-  private raycastLineOfSight(
-    originX: number, originY: number, originZ: number,
-    targetX: number, targetY: number, targetZ: number
-  ): boolean {
-    // DevWorld: delegate to provider
-    if (this.devTerrainProvider) {
-      return this.devTerrainProvider.hasLineOfSightBlocked(
-        originX, originY, originZ,
-        targetX, targetY, targetZ
-      );
-    }
-
-    if (!this.tilesRenderer) return false;
-
-    this._losOrigin.set(originX, originY, originZ);
-    this._losDirection.set(targetX - originX, targetY - originY, targetZ - originZ);
-    const distance = this._losDirection.length();
-    this._losDirection.multiplyScalar(1 / distance);
-
-    this.raycaster.set(this._losOrigin, this._losDirection);
-    this.raycaster.far = distance - 0.5; // Stop slightly before target
-
-    // Reuse intersection array, intersectObject appends, so clear first
-    this._losResults.length = 0;
-    const scope = raycastStats.enter('lineOfSight');
-    try {
-      this.raycaster.intersectObject(this.tilesRenderer.group, true, this._losResults);
-    } finally {
-      raycastStats.exit(scope);
-    }
-
-    return this._losResults.length > 0;
-  }
-
-  /**
-   * Get terrain height at local coordinates (public wrapper for raycastTerrainHeight).
-   * Pass `anchorY` to validate the hit against a route-anchored band so
-   * bridges/trees don't pull the result up to canopy/deck level.
-   *
-   * @param localX - Local X coordinate (meters from origin)
-   * @param localZ - Local Z coordinate (meters from origin)
-   * @param anchorY - Optional route-anchor Y for validation
-   * @returns Height in local Y coordinates, or null if no hit (and no anchor)
-   */
-  getTerrainHeightAtLocal(localX: number, localZ: number): number | null {
-    return this.raycastTerrainHeight(localX, localZ, 'heightAtLocal');
-  }
-
-
-  /**
-   * Clear height cache
-   */
-  clearHeightCache(): void {
-    this.columnCache.clear();
-    this.tileBoundsCache = new WeakMap();
-  }
-
   /**
    * Raycast against towers at screen coordinates
    * Returns the tower ID if a tower was hit, null otherwise
@@ -1347,7 +863,7 @@ export class ThreeTilesEngine {
       -((screenY - rect.top) / rect.height) * 2 + 1
     );
 
-    // Create a FRESH raycaster - reusing this.raycaster causes issues after LoS checks
+    // Create a FRESH raycaster - reusing the LOS raycaster causes issues after LoS checks
     const raycaster = new Raycaster();
     raycaster.setFromCamera(mouse, this.camera);
 
@@ -1386,7 +902,7 @@ export class ThreeTilesEngine {
       -((screenY - rect.top) / rect.height) * 2 + 1
     );
 
-    // Create a FRESH raycaster - reusing this.raycaster causes issues after LoS checks
+    // Create a FRESH raycaster - reusing the LOS raycaster causes issues after LoS checks
     // The shared raycaster gets corrupted state from LOS raycasting with custom origins
     const raycaster = new Raycaster();
     raycaster.setFromCamera(mouse, this.camera);

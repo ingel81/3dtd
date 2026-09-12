@@ -945,7 +945,7 @@ export class GameStateManager {
     const columnSampler = (x: number, z: number) => {
       const scope = raycastStats.enter('routeGrid');
       try {
-        return this.tilesEngine!.sampleColumn(x, z);
+        return this.tilesEngine!.terrain.sampleColumn(x, z);
       } finally {
         raycastStats.exit(scope);
       }
@@ -954,7 +954,7 @@ export class GameStateManager {
     // cells whose tile-LOD has not improved (Option C, perf/route-grid-
     // tile-aware-update).
     const terrainPeekLOD = (x: number, z: number) =>
-      this.tilesEngine!.peekBestTileLODAtLocal(x, z);
+      this.tilesEngine!.terrain.peekBestTileLODAtLocal(x, z);
     this.globalRouteGrid.initialize(
       columnSampler,
       this.tilesEngine.sync,

@@ -1,0 +1,444 @@
+import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
+import type { TilesRenderer } from '3d-tiles-renderer';
+import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
+import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { corridorConfig } from '../utils/route-corridor';
+import { instrumentRaycasts, raycastStats } from '../utils/raycast-stats';
+import type { EllipsoidSync } from './ellipsoid-sync';
+import { TerrainQueries, columnCacheKey } from './terrain-queries';
+
+/** Was TerrainQueries von einer aktiven Tile liest. */
+interface FakeTile {
+  internal: { depth: number };
+  geometricError: number;
+  engineData: { scene: Mesh };
+}
+
+const material = new MeshBasicMaterial({ side: DoubleSide });
+
+/** Waagerechtes Quadrat mit Kantenlänge `size` in Höhe `y`, mittig über (cx, cz). */
+function floor(y: number, size = 40, cx = 0, cz = 0): Mesh {
+  const mesh = new Mesh(new PlaneGeometry(size, size), material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(cx, y, cz);
+  return mesh;
+}
+
+/** Senkrechte Wand quer zur X-Achse bei `x`, von z -20 bis 20 und y `bottom` bis `top`. */
+function wall(x: number, top = 30, bottom = 0): Mesh {
+  const mesh = new Mesh(new PlaneGeometry(40, top - bottom), material);
+  mesh.rotation.y = Math.PI / 2;
+  mesh.position.set(x, (top + bottom) / 2, 0);
+  return mesh;
+}
+
+/** Geo → lokal wie EllipsoidSync.geoToLocalSimple, Origin (0, 0): -X = Ost, +Z = Nord. */
+const sync = {
+  geoToLocalSimple: (lat: number, lon: number, height: number) =>
+    new Vector3(-lon * METERS_PER_DEGREE_LAT, height, lat * METERS_PER_DEGREE_LAT),
+} as unknown as EllipsoidSync;
+
+/** Breite und Länge eines lokalen Punkts für den Fake-Sync oben. */
+function geo(x: number, z: number): { lat: number; lon: number } {
+  return { lat: z / METERS_PER_DEGREE_LAT, lon: -x / METERS_PER_DEGREE_LAT };
+}
+
+function fakeDevTerrain(): TerrainProvider {
+  return {
+    getHeightAtGeo: vi.fn(() => 11),
+    getHeightAtLocal: vi.fn(() => 7),
+    hasLineOfSightBlocked: vi.fn(() => true),
+  } as unknown as TerrainProvider;
+}
+
+function setup() {
+  const group = new Group();
+  const activeTiles = new Set<FakeTile>();
+  const tilesRenderer = { group, activeTiles } as unknown as TilesRenderer;
+  let tiles: TilesRenderer | null = tilesRenderer;
+  let devTerrain: TerrainProvider | null = null;
+  const queries = new TerrainQueries(sync, { tiles: () => tiles, devTerrain: () => devTerrain });
+
+  /** Hängt `mesh` als aktive Tile der Tiefe `depth` in die Tiles-Gruppe. */
+  const addTile = (mesh: Mesh, depth: number, geometricError: number): FakeTile => {
+    const tile: FakeTile = { internal: { depth }, geometricError, engineData: { scene: mesh } };
+    mesh.userData['tile'] = tile;
+    group.add(mesh);
+    group.updateMatrixWorld(true);
+    activeTiles.add(tile);
+    return tile;
+  };
+
+  // Jeder intersectObject() auf die Gruppe ruft genau einmal group.raycast.
+  const rays = vi.spyOn(group, 'raycast');
+
+  return {
+    queries, group, activeTiles, addTile, rays,
+    useDevWorld: () => {
+      tiles = null;
+      devTerrain = fakeDevTerrain();
+      return devTerrain;
+    },
+    dropTiles: () => { tiles = null; },
+  };
+}
+
+describe('TerrainQueries', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('columnCacheKey()', () => {
+    it('fasst Punkte derselben 0,5-m-Säule zusammen', () => {
+      expect(columnCacheKey(0.1, 0.1)).toBe(columnCacheKey(0.2, 0.2));
+      expect(columnCacheKey(10.1, -3.9)).toBe(columnCacheKey(10.2, -4.2));
+    });
+
+    it('trennt Nachbarsäulen und Vorzeichen', () => {
+      expect(columnCacheKey(0.3, 0)).not.toBe(columnCacheKey(0, 0));
+      expect(columnCacheKey(-1, 0)).not.toBe(columnCacheKey(1, 0));
+      expect(columnCacheKey(1, -1)).not.toBe(columnCacheKey(-1, 1));
+    });
+
+    it('ist auf einem Raster von -20 m bis 20 m eindeutig', () => {
+      const keys = new Set<number>();
+      for (let xi = -40; xi <= 40; xi++) {
+        for (let zi = -40; zi <= 40; zi++) keys.add(columnCacheKey(xi / 2, zi / 2));
+      }
+      expect(keys.size).toBe(81 * 81);
+    });
+  });
+
+  describe('sampleColumn()', () => {
+    it('liest Boden und Oberkante aus der feinsten LOD, nicht aus der groben Hülle', () => {
+      const { queries, addTile } = setup();
+      addTile(floor(25, 100), 1, 40);
+      addTile(floor(2), 3, 2);
+      addTile(floor(12, 4), 3, 2);
+
+      const sample = queries.sampleColumn(0, 0);
+      expect(sample?.groundY).toBeCloseTo(2, 6);
+      expect(sample?.topY).toBeCloseTo(12, 6);
+      expect(sample?.tileDepth).toBe(3);
+      expect(sample?.tileGeometricError).toBe(2);
+    });
+
+    it('kostet pro 0,5-m-Säule nur einen Strahl', () => {
+      const { queries, addTile, rays } = setup();
+      addTile(floor(2), 3, 2);
+
+      const first = queries.sampleColumn(1, 1);
+      expect(queries.sampleColumn(1.1, 0.9)).toBe(first);
+      expect(rays).toHaveBeenCalledTimes(1);
+
+      queries.sampleColumn(3, 3);
+      expect(rays).toHaveBeenCalledTimes(2);
+    });
+
+    it('stempelt nach einem Tile-Wechsel ohne feinere Daten nur um, ohne neuen Strahl', () => {
+      const { queries, addTile, rays } = setup();
+      addTile(floor(2), 3, 2);
+      const first = queries.sampleColumn(0, 0);
+
+      queries.markTileSetChanged();
+      expect(queries.lodVersion).toBe(1);
+      expect(queries.sampleColumn(0, 0)).toBe(first);
+      expect(rays).toHaveBeenCalledTimes(1);
+    });
+
+    it('raycastet erst nach dem Tile-Wechsel neu, und nur wenn feinere Daten da sind', () => {
+      const { queries, addTile, rays } = setup();
+      addTile(floor(5), 2, 8);
+      expect(queries.sampleColumn(0, 0)?.groundY).toBeCloseTo(5, 6);
+
+      addTile(floor(3), 4, 1);
+      // Ohne gemeldeten Tile-Wechsel bleibt der Cache.
+      expect(queries.sampleColumn(0, 0)?.groundY).toBeCloseTo(5, 6);
+      expect(rays).toHaveBeenCalledTimes(1);
+
+      queries.markTileSetChanged();
+      const refined = queries.sampleColumn(0, 0);
+      expect(rays).toHaveBeenCalledTimes(2);
+      expect(refined?.groundY).toBeCloseTo(3, 6);
+      expect(refined?.tileDepth).toBe(4);
+    });
+
+    it('clearHeightCache() erzwingt den nächsten Strahl', () => {
+      const { queries, addTile, rays } = setup();
+      addTile(floor(2), 3, 2);
+      queries.sampleColumn(0, 0);
+
+      queries.clearHeightCache();
+      queries.sampleColumn(0, 0);
+      expect(rays).toHaveBeenCalledTimes(2);
+      expect(queries.lodVersion).toBe(0);
+    });
+
+    it('cacht keinen Fehlschlag', () => {
+      const { queries, addTile, rays, dropTiles } = setup();
+      addTile(floor(2, 10), 3, 2);
+
+      expect(queries.sampleColumn(50, 50)).toBeNull();
+      expect(queries.sampleColumn(50, 50)).toBeNull();
+      expect(rays).toHaveBeenCalledTimes(2);
+
+      dropTiles();
+      expect(queries.sampleColumn(1, 1)).toBeNull();
+      expect(rays).toHaveBeenCalledTimes(2);
+    });
+
+    it('schießt ohne aktive Tiles keinen Strahl', () => {
+      const { queries, rays } = setup();
+      expect(queries.sampleColumn(0, 0)).toBeNull();
+      expect(rays).not.toHaveBeenCalled();
+    });
+
+    it('fragt in DevWorld den DevTerrainProvider', () => {
+      const { queries, useDevWorld } = setup();
+      const devTerrain = useDevWorld();
+
+      expect(queries.sampleColumn(4, 5)).toEqual({ groundY: 7, topY: 7, tileDepth: 99, tileGeometricError: 0 });
+      expect(devTerrain.getHeightAtLocal).toHaveBeenCalledWith(4, 5);
+    });
+  });
+
+  describe('peekBestTileLODAtLocal()', () => {
+    it('meldet die feinste aktive Tile über dem Punkt, ohne Strahl', () => {
+      const { queries, addTile, rays } = setup();
+      addTile(floor(0, 100), 1, 30);
+      addTile(floor(0, 10, 20, 0), 3, 3);
+
+      expect(queries.peekBestTileLODAtLocal(20, 0)).toEqual({ depth: 3, geometricError: 3 });
+      expect(queries.peekBestTileLODAtLocal(0, 0)).toEqual({ depth: 1, geometricError: 30 });
+      expect(queries.peekBestTileLODAtLocal(500, 0)).toBeNull();
+      expect(rays).not.toHaveBeenCalled();
+    });
+
+    it('übergeht Tiles, die nicht mehr aktiv sind', () => {
+      const { queries, addTile, activeTiles } = setup();
+      addTile(floor(0, 100), 1, 30);
+      const fine = addTile(floor(0, 10, 20, 0), 3, 3);
+
+      activeTiles.delete(fine);
+      expect(queries.peekBestTileLODAtLocal(20, 0)).toEqual({ depth: 1, geometricError: 30 });
+    });
+
+    it('nimmt die Bounds neu, wenn die Tiles-Gruppe verschoben wurde', () => {
+      const { queries, addTile, group } = setup();
+      addTile(floor(0, 100), 1, 30);
+      addTile(floor(0, 10, 20, 0), 3, 3);
+      expect(queries.peekBestTileLODAtLocal(20, 0)).toEqual({ depth: 3, geometricError: 3 });
+
+      group.position.x = 100;
+      group.updateMatrixWorld(true);
+      expect(queries.peekBestTileLODAtLocal(20, 0)).toBeNull();
+      expect(queries.peekBestTileLODAtLocal(120, 0)).toEqual({ depth: 3, geometricError: 3 });
+    });
+
+    it('meldet in DevWorld eine synthetische Top-LOD', () => {
+      const { queries, useDevWorld } = setup();
+      useDevWorld();
+      expect(queries.peekBestTileLODAtLocal(0, 0)).toEqual({ depth: 99, geometricError: 0 });
+    });
+  });
+
+  describe('measureStreetClearance()', () => {
+    const FINE = 2;
+
+    /** Straße bei y=0 zwischen einer Wand 3 m links und einer 4 m rechts (Fahrtrichtung -Z). */
+    function street() {
+      const world = setup();
+      world.addTile(floor(0), 3, FINE);
+      world.addTile(wall(-3), 3, FINE);
+      world.addTile(wall(4), 3, FINE);
+      return world;
+    }
+
+    it('misst pro Strahlhöhe den Abstand zur ersten feinen Wand auf beiden Seiten', () => {
+      const { queries } = street();
+      const probe = queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10);
+
+      expect(probe?.unmeasured).toBeNull();
+      expect(probe?.tileError).toBe(FINE);
+      expect(probe?.left.map((d) => +d.toFixed(6))).toEqual([3, 3]);
+      expect(probe?.right.map((d) => +d.toFixed(6))).toEqual([4, 4]);
+    });
+
+    it('meldet ein niedriges Hindernis nur am unteren Strahl', () => {
+      const { queries, addTile } = street();
+      addTile(wall(2, 2), 3, FINE);
+      const probe = queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10);
+      expect(probe?.right.map((d) => +d.toFixed(6))).toEqual([2, 4]);
+    });
+
+    it('übergeht Treffer grober Tiles und Treffer ohne Tile-Tiefe', () => {
+      const { queries, addTile } = street();
+      addTile(wall(1), 1, corridorConfig.maxTileError + 15);
+      addTile(wall(1.5), 0, FINE);
+      const probe = queries.measureStreetClearance(0, 0, 1, 0, [1], 10);
+      expect(probe?.right.map((d) => +d.toFixed(6))).toEqual([4]);
+    });
+
+    it('deckelt auf maxDistance', () => {
+      const { queries } = street();
+      const probe = queries.measureStreetClearance(0, 0, 1, 0, [1], 2.5);
+      expect(probe?.left).toEqual([2.5]);
+      expect(probe?.right).toEqual([2.5]);
+    });
+
+    it('misst auf einer Brücke von der Oberkante der Säule aus (onDeck)', () => {
+      const { queries, addTile } = street();
+      addTile(floor(6, 4), 3, FINE);
+      addTile(wall(2, 10, 5), 3, FINE);
+
+      const below = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false);
+      const onDeck = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, true);
+      expect(below?.right.map((d) => +d.toFixed(6))).toEqual([4]);
+      expect(onDeck?.right.map((d) => +d.toFixed(6))).toEqual([2]);
+    });
+
+    it('meldet eine Station ohne Tile als ungemessen', () => {
+      const { queries } = street();
+      expect(queries.measureStreetClearance(100, 100, 1, 0, [1], 10)).toEqual({
+        unmeasured: 'no tile', tileError: Infinity, left: [], right: [],
+      });
+    });
+
+    it('meldet eine Station über einer zu groben Tile als ungemessen', () => {
+      const { queries, addTile } = setup();
+      const coarse = corridorConfig.maxTileError + 15;
+      addTile(floor(0), 3, coarse);
+      expect(queries.measureStreetClearance(0, 0, 1, 0, [1], 10)).toEqual({
+        unmeasured: 'coarse tile', tileError: coarse, left: [], right: [],
+      });
+    });
+
+    it('liefert null ohne Querrichtung, ohne Tiles und in DevWorld', () => {
+      const world = street();
+      expect(world.queries.measureStreetClearance(0, 0, 0, 0, [1], 10)).toBeNull();
+
+      world.dropTiles();
+      expect(world.queries.measureStreetClearance(0, 0, 1, 0, [1], 10)).toBeNull();
+
+      const dev = street();
+      dev.useDevWorld();
+      expect(dev.queries.measureStreetClearance(0, 0, 1, 0, [1], 10)).toBeNull();
+    });
+
+    it('bucht Säule und Seitenstrahlen einer Station auf routeCorridor', () => {
+      const { queries, group } = street();
+      instrumentRaycasts(group);
+      raycastStats.reset();
+
+      queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10);
+      expect(raycastStats.rows().map(({ caller, calls }) => ({ caller, calls }))).toEqual([
+        { caller: 'routeCorridor', calls: 5 },
+      ]);
+    });
+  });
+
+  describe('Höhenabfragen', () => {
+    it('getTerrainHeightAtGeo() liest den Boden unter dem Geo-Punkt und bucht auf heightAtGeo', () => {
+      const { queries, addTile, group } = setup();
+      addTile(floor(4, 10, 15, -8), 3, 2);
+      instrumentRaycasts(group);
+      raycastStats.reset();
+
+      const { lat, lon } = geo(15, -8);
+      expect(queries.getTerrainHeightAtGeo(lat, lon)).toBeCloseTo(4, 6);
+      expect(queries.getTerrainHeightAtGeo(0, 0)).toBeNull();
+      expect(raycastStats.rows().map(({ caller, calls }) => ({ caller, calls }))).toEqual([
+        { caller: 'heightAtGeo', calls: 2 },
+      ]);
+    });
+
+    it('raycastTerrainHeight() bucht auf den übergebenen Aufrufer', () => {
+      const { queries, addTile, group } = setup();
+      addTile(floor(4), 3, 2);
+      instrumentRaycasts(group);
+      raycastStats.reset();
+
+      expect(queries.raycastTerrainHeight(1, 1, 'towerRange')).toBeCloseTo(4, 6);
+      expect(raycastStats.rows().map(({ caller }) => caller)).toEqual(['towerRange']);
+    });
+
+    it('fragt in DevWorld den DevTerrainProvider nach der Geo-Höhe', () => {
+      const { queries, useDevWorld } = setup();
+      const devTerrain = useDevWorld();
+      expect(queries.getTerrainHeightAtGeo(1, 2)).toBe(11);
+      expect(devTerrain.getHeightAtGeo).toHaveBeenCalledWith(1, 2);
+    });
+
+    describe('getGroundHeightEstimate()', () => {
+      // Weg nach Norden durch den Origin, die Querproben liegen auf der X-Achse.
+      const prev = geo(0, -10);
+      const next = geo(0, 10);
+
+      it('nimmt das seitliche Minimum, wenn die Mitte mehr als 3 m über ihm liegt', () => {
+        const { queries, addTile } = setup();
+        // Boden links und rechts, in der Mitte nur ein Dach 8 m hoch.
+        addTile(floor(0, 19, -10.5, 0), 3, 2);
+        addTile(floor(0, 19, 10.5, 0), 3, 2);
+        addTile(floor(8, 2), 3, 2);
+
+        expect(queries.getTerrainHeightAtGeo(0, 0)).toBeCloseTo(8, 6);
+        expect(queries.getGroundHeightEstimate(0, 0, prev.lat, prev.lon, next.lat, next.lon)).toBeCloseTo(0, 6);
+      });
+
+      it('behält die Mitte, wenn die Querproben auf gleicher Höhe liegen (Brückendeck)', () => {
+        const { queries, addTile } = setup();
+        addTile(floor(5), 3, 2);
+        expect(queries.getGroundHeightEstimate(0, 0, prev.lat, prev.lon, next.lat, next.lon)).toBeCloseTo(5, 6);
+      });
+
+      it('behält die Mitte ohne Wegrichtung und in DevWorld', () => {
+        const world = setup();
+        world.addTile(floor(0, 19, -10.5, 0), 3, 2);
+        world.addTile(floor(0, 19, 10.5, 0), 3, 2);
+        world.addTile(floor(8, 2), 3, 2);
+        expect(world.queries.getGroundHeightEstimate(0, 0, 0, 0, 0, 0)).toBeCloseTo(8, 6);
+
+        const dev = setup();
+        dev.useDevWorld();
+        expect(dev.queries.getGroundHeightEstimate(0, 0, prev.lat, prev.lon, next.lat, next.lon)).toBe(11);
+      });
+    });
+  });
+
+  describe('raycastLineOfSight()', () => {
+    it('meldet eine Wand zwischen Turm und Ziel als Blockade und bucht auf lineOfSight', () => {
+      const { queries, addTile, group } = setup();
+      addTile(wall(5), 3, 2);
+      instrumentRaycasts(group);
+      raycastStats.reset();
+
+      expect(queries.raycastLineOfSight(0, 2, 0, 10, 2, 0)).toBe(true);
+      expect(queries.raycastLineOfSight(0, 2, 0, 4, 2, 0)).toBe(false);
+      expect(raycastStats.rows().map(({ caller, calls }) => ({ caller, calls }))).toEqual([
+        { caller: 'lineOfSight', calls: 2 },
+      ]);
+    });
+
+    it('hält 0,5 m vor dem Ziel an', () => {
+      const near = setup();
+      near.addTile(wall(9.7), 3, 2);
+      expect(near.queries.raycastLineOfSight(0, 2, 0, 10, 2, 0)).toBe(false);
+
+      const far = setup();
+      far.addTile(wall(9.4), 3, 2);
+      expect(far.queries.raycastLineOfSight(0, 2, 0, 10, 2, 0)).toBe(true);
+    });
+
+    it('ist ohne Tiles frei und fragt in DevWorld den Provider', () => {
+      const world = setup();
+      world.addTile(wall(5), 3, 2);
+      world.dropTiles();
+      expect(world.queries.raycastLineOfSight(0, 2, 0, 10, 2, 0)).toBe(false);
+
+      const dev = setup();
+      const devTerrain = dev.useDevWorld();
+      expect(dev.queries.raycastLineOfSight(1, 2, 3, 4, 5, 6)).toBe(true);
+      expect(devTerrain.hasLineOfSightBlocked).toHaveBeenCalledWith(1, 2, 3, 4, 5, 6);
+    });
+  });
+});

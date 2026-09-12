@@ -337,20 +337,24 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | `camera-rig.ts` | Kamera-Controls (GlobeControls, in DevWorld EnvironmentControls), Startposition, lokaler Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine |
 | `tile-loading-tracker.ts` | Tile-Loading-State: erster Tile-Load (Debounce 500 ms, Retry 200 ms x 50, Force-Update x 3), Auth-Fehler, Tile-Stats. Hintergrund: [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) |
 | `render-loop.ts` | Render-Loop: rAF-Treiber mit FPS-Cap (`FramePacer`), Heartbeat-Worker für versteckte Trainings-Tabs, FPS-Zähler, Warten auf den nächsten gezeichneten Frame. Als `engine.renderLoop` erreichbar |
+| `terrain-queries.ts` | Raycasts gegen Boden und Tiles: Säulen-Probe `sampleColumn()` mit Cache pro 0,5-m-Säule und `lodVersion`, `getGroundHeightEstimate()`, Tile-LOD-Peek ohne Raycast, Straßen-Freiraum für den Routen-Korridor (`measureStreetClearance()`), Line-of-Sight. Als `engine.terrain` erreichbar, nur `getTerrainHeightAtGeo()` reicht der Engine durch |
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
 
 `CameraRig`, `TileLoadingTracker` und `PostProcessingPipeline` gehören dem Engine, er legt
 sie im Konstruktor an und reicht Aufrufe durch; seine öffentliche API bleibt die Fassade.
-`RenderLoop` legt er ebenfalls an, reicht ihn aber nicht durch: Aufrufer nehmen
-`engine.renderLoop` direkt (`start()`, `setFpsLimit()`, `setBackgroundLoopEnabled()`, `getFPS()`).
+`RenderLoop` und `TerrainQueries` legt er ebenfalls an, reicht sie aber nicht durch: Aufrufer
+nehmen `engine.renderLoop` (`start()`, `setFpsLimit()`, `setBackgroundLoopEnabled()`, `getFPS()`)
+und `engine.terrain` (`sampleColumn()`, `peekBestTileLODAtLocal()`, `getGroundHeightEstimate()`,
+`measureStreetClearance()`, `clearHeightCache()`) direkt. Nur `getTerrainHeightAtGeo()` mit seinen
+vielen Aufrufern bleibt als Durchreiche am Engine.
 Der Loop ruft pro Frame `update()` und `render()` des Engines, `render()` meldet jeden
 gezeichneten Frame mit `renderLoop.frameRendered()` zurück.
 `initialize()` bindet sie in fester Reihenfolge an den TilesRenderer: Plugins registrieren,
 Gruppe in die Szene, `cameraRig.setupGlobeControls()`, Kamera und Streaming-Budget am
 Renderer setzen, dann `tileLoading.attach()` (Listener für `tiles-load-end`, `load-tileset`,
 `load-error`). Nach jedem beruhigten `tiles-load-end` meldet der Tracker
-`onTileSetSettled()` zurück, dort invalidiert der Engine LOD-Version und LOS-Cubemap und
+`onTileSetSettled()` zurück, dort invalidiert der Engine LOD-Version (`terrain.markTileSetChanged()`) und LOS-Cubemap und
 ruft `onTilesLoadCallback`. `setOrigin()` ruft `tileLoading.reset()`. `dispose()` stoppt
 zuerst den Loop (`renderLoop.stop()`), löst dann die Listener (`tileLoading.dispose()`, `cameraRig.dispose()`) und gibt danach
 Entity-Renderer, TilesRenderer, Pipeline und WebGLRenderer frei.
@@ -491,7 +495,7 @@ Tower-LOS und Air-Routing bedienen.
 ```
 
 **onTilesLoaded sequence:**
-1. `engine.clearHeightCache()` (signalled before callback)
+1. `engine.terrain.clearHeightCache()` (signalled before callback)
 2. `globalRouteGrid.updateTerrainHeights()` — re-sample all cells against
    freshly streamed tile geometry; quality-versioned idempotency skips
    stable cells unless LOD improved
@@ -1227,10 +1231,11 @@ src/app/
 │   └── game-manager.interface.ts # IGameManager
 │
 ├── three-engine/                 # Three.js Engine
-│   ├── three-tiles-engine.ts     # Haupt-Engine: Scene, Renderer, TilesRenderer, Terrain-Raycasts
+│   ├── three-tiles-engine.ts     # Haupt-Engine: Scene, Renderer, TilesRenderer, Frame-Ablauf
 │   ├── camera-rig.ts             # Controls + Startposition der Kamera (seit 2026-09-11)
 │   ├── tile-loading-tracker.ts   # Erster Tile-Load, Retry, Auth-Fehler, Tile-Stats (seit 2026-09-11)
 │   ├── render-loop.ts            # rAF-Loop, FPS-Cap, Heartbeat für versteckte Tabs (seit 2026-09-13)
+│   ├── terrain-queries.ts        # Boden-, Freiraum- und LOS-Raycasts mit Säulen-Cache (seit 2026-09-13)
 │   ├── ellipsoid-sync.ts         # Koordinaten
 │   ├── index.ts                  # Exports
 │   ├── post-processing/          # Bloom + Color Grading (eigene Pipeline-Klasse seit 2026-05-10)
