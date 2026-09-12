@@ -1,5 +1,4 @@
 import { Injectable, signal, WritableSignal } from '@angular/core';
-import { Group, Vector3 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition } from '../../models/game.types';
 import { cameraTimeline } from '../../utils/camera-timeline';
@@ -256,46 +255,6 @@ export class HeightUpdateService {
     if (this.heightStableResolve) {
       this.heightStableResolve();
       this.heightStableResolve = null;
-    }
-  }
-
-  /**
-   * Update marker heights to match terrain
-   * @param baseMarker Base marker reference
-   * @param spawnMarkers Spawn marker references
-   */
-  updateMarkerHeights(baseMarker: Group | null, spawnMarkers: Group[]): void {
-    if (!this.engine || !this.baseCoords) return;
-
-    const HQ_MARKER_HEIGHT = 30; // HQ marker floats higher (animated diamond)
-    const SPAWN_MARKER_HEIGHT = 30; // Spawn markers ~30m above ground
-
-    // Each marker follows its own column — absolute scene Y, no shared
-    // origin reference to drift against.
-    if (baseMarker) {
-      const local = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-      const hqTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
-      if (hqTerrainY !== null) {
-        baseMarker.position.set(local.x, hqTerrainY + HQ_MARKER_HEIGHT, local.z);
-      }
-    }
-
-    // Update spawn markers - use relative heights
-    for (const marker of spawnMarkers) {
-      // Extract spawn point info from marker name (format: "spawnMarker_spawn-1")
-      // spawnId available for future use: marker.name.replace('spawnMarker_', '')
-
-      // Get spawn position from marker's current world position
-      const worldPos = new Vector3();
-      marker.getWorldPosition(worldPos);
-      const geoPos = this.engine.sync.localToGeo(worldPos);
-
-      // Get terrain height at spawn location
-      const spawnTerrainY = this.engine.getTerrainHeightAtGeo(geoPos.lat, geoPos.lon);
-      if (spawnTerrainY !== null) {
-        const relativeY = spawnTerrainY + SPAWN_MARKER_HEIGHT;
-        marker.position.y = relativeY;
-      }
     }
   }
 

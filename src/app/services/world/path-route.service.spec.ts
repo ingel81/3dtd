@@ -140,7 +140,7 @@ function buildRouteService(network: StreetNetwork, spawn: { lat: number; lon: nu
     { lat: hq.lat, lon: hq.lon },
     (() => false) as never,
     new OsmStreetService(),
-    [],
+    null,
   );
   service.showPathFromSpawn(spawnPointAt(spawn));
   return service;

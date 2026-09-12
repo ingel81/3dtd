@@ -13,12 +13,27 @@ import {
   Color,
 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
-import { GeoPosition } from '../../models/game.types';
+import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { HQDamageService } from '../combat/hq-damage.service';
 import { UIStore } from '../../store/ui.store';
 import { MarkerInstanceManager } from '../../three-engine/renderers/marker/marker-instance.manager';
 import { MarkerLabelManager } from '../../three-engine/renderers/marker/marker-label.manager';
-import { HQ_MARKER_SCALE, MARKER_FLOAT_HEIGHT, SPAWN_MARKER_SCALE } from '../../configs/marker-geometry.config';
+import { SpawnPortalManager } from '../../three-engine/renderers/marker/spawn-portal.manager';
+import {
+  type SpawnPortalPose,
+  provisionalPortalPose,
+  spawnPortalPose,
+} from '../../three-engine/renderers/marker/spawn-portal-pose';
+import {
+  HQ_MARKER_SCALE,
+  MARKER_FLOAT_HEIGHT,
+  MARKER_LABEL_OFFSET,
+  portalLabelHeight,
+} from '../../configs/marker-geometry.config';
+import { corridorConfig } from '../../utils/route-corridor';
+
+/** Waypoints from the route start read for a portal's heading, see spawnPortalPose. */
+const PORTAL_POSE_WAYPOINTS = 16;
 
 /**
  * SpawnPoint definition - extends GeoPosition for consistent coordinate handling
@@ -42,9 +57,10 @@ export interface DiamondMarkerOptions {
 /**
  * MarkerVisualizationService
  *
- * Manages 3D marker visualization for spawns, base, and debug purposes.
- * Uses GPU-instanced rendering for diamond bodies, rings, ground glow, and labels.
- * Total: 4 draw calls for all markers (diamond + ring + ground + label).
+ * Manages the 3D markers: the HQ diamond, a portal on the start of every
+ * spawn's route, their labels, and debug markers. GPU-instanced: 3 draw
+ * calls for the HQ diamond (body, rings, ground glow), 2 for all spawn
+ * portals (frame, energy), 1 for all labels.
  */
 @Injectable({ providedIn: 'root' })
 export class MarkerVisualizationService {
@@ -59,11 +75,20 @@ export class MarkerVisualizationService {
   // STATE
   // ========================================
 
-  /** GPU-instanced marker renderer (diamonds, rings, ground glow) */
+  /** GPU-instanced HQ diamond renderer (body, rings, ground glow) */
   private markerManager: MarkerInstanceManager | null = null;
+
+  /** GPU-instanced spawn portal renderer (frame, energy) */
+  private portalManager: SpawnPortalManager | null = null;
 
   /** GPU-instanced label renderer (billboard text) */
   private labelManager: MarkerLabelManager | null = null;
+
+  /**
+   * Portals standing on a route cell. The others were placed before the
+   * cells existed and follow the terrain sample (updateMarkerHeights).
+   */
+  private readonly portalsOnCells = new Set<string>();
 
   /** Height debug markers group (small spheres for terrain height debugging) */
   private heightDebugGroup: Group | null = null;
@@ -77,8 +102,7 @@ export class MarkerVisualizationService {
   /** Height debug visibility state (from UIStore) */
   private heightDebugVisible: WritableSignal<boolean> | null = null;
 
-  /** Spawn counter for label numbering */
-  private spawnCounter = 0;
+  private readonly tmpVec = new Vector3();
 
   // ========================================
   // INITIALIZATION
@@ -96,8 +120,15 @@ export class MarkerVisualizationService {
     this.baseCoords = baseCoords;
     this.heightDebugVisible = heightDebugVisible;
 
+    // A location change initializes again: drop the previous meshes
+    this.markerManager?.dispose();
+    this.portalManager?.dispose();
+    this.labelManager?.dispose();
+    this.portalsOnCells.clear();
+
     const overlayGroup = engine.getOverlayGroup();
     this.markerManager = new MarkerInstanceManager(overlayGroup);
+    this.portalManager = new SpawnPortalManager(overlayGroup);
     this.labelManager = new MarkerLabelManager(overlayGroup);
   }
 
@@ -117,8 +148,8 @@ export class MarkerVisualizationService {
 
     const pos = this.hqMarkerPos();
 
-    this.markerManager.add('hq', 'hq', pos, 0x22c55e, HQ_MARKER_SCALE, 0.001);
-    this.labelManager.addLabel('hq', 'HQ', pos, '#22c55e', this.getPhaseOffset('hq'));
+    this.markerManager.add('hq', pos, 0x22c55e, HQ_MARKER_SCALE, 0.001);
+    this.labelManager.addLabel('hq', 'HQ', this.hqLabelCentre(pos), '#22c55e', this.getPhaseOffset('hq'));
   }
 
   /**
@@ -143,6 +174,11 @@ export class MarkerVisualizationService {
     return new Vector3(local.x, y, local.z);
   }
 
+  /** Centre of the HQ label above the diamond centre `pos`. */
+  private hqLabelCentre(pos: Vector3): Vector3 {
+    return new Vector3(pos.x, pos.y + MARKER_LABEL_OFFSET, pos.z);
+  }
+
   /**
    * Remove base marker
    */
@@ -153,72 +189,94 @@ export class MarkerVisualizationService {
   }
 
   // ========================================
-  // SPAWN MARKERS
+  // SPAWN PORTALS
   // ========================================
 
   /**
-   * Add spawn marker at specified location
+   * Add a spawn portal. Until its route is built (placeSpawnPortal) it
+   * stands on the spawn point, facing the HQ. Only this spawn's own column
+   * matters for its height.
    */
-  addSpawnMarker(id: string, name: string, lat: number, lon: number, color: number): Group | null {
-    if (!this.engine || !this.baseCoords || !this.markerManager || !this.labelManager) return null;
+  addSpawnMarker(id: string, name: string, lat: number, lon: number, color: number): void {
+    if (!this.engine || !this.baseCoords || !this.portalManager || !this.labelManager) return;
 
     const terrainY = this.engine.getTerrainHeightAtGeo(lat, lon);
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
-
-    // Only this spawn's own column matters — it used to also require the HQ
-    // column to have resolved, which left the marker at a bare offset
-    // whenever that unrelated raycast happened to miss.
-    const markerY = (terrainY ?? 0) + MARKER_FLOAT_HEIGHT;
-
-    const pos = new Vector3(local.x, markerY, local.z);
-    this.spawnCounter++;
+    const hq = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
+    const pose = provisionalPortalPose(local.x, terrainY ?? 0, local.z, hq.x, hq.z);
 
     // Convert hex color to CSS string for label outline
     const cssColor = '#' + new Color(color).getHexString();
 
-    const proxy = this.markerManager.add(id, 'spawn', pos, color, SPAWN_MARKER_SCALE, -0.0015);
-    this.labelManager.addLabel(id, name, pos, cssColor, this.getPhaseOffset(id));
-
-    return proxy;
+    this.portalManager.add(id, pose, color);
+    this.portalsOnCells.delete(id);
+    this.labelManager.addLabel(id, name, this.portalLabelCentre(pose), cssColor, this.getPhaseOffset(id));
   }
 
   /**
-   * Remove spawn marker by ID
+   * Stand a spawn portal on the start of its route. PathAndRouteService
+   * calls this whenever it builds the route: on the ground at the first
+   * waypoint, facing along the route, the opening as wide as the corridor
+   * there (spawnPortalPose).
+   *
+   * @param startGroundY Route cell height at the start, null while the cells
+   *   are not built; the portal then stands on the terrain sample there
+   */
+  placeSpawnPortal(id: string, route: readonly RouteWaypoint[], startGroundY: number | null): void {
+    const engine = this.engine;
+    const portals = this.portalManager;
+    if (!engine || !portals || !this.labelManager) return;
+    const current = portals.getPose(id);
+    if (!current || route.length < 2) return;
+
+    const count = Math.min(route.length, PORTAL_POSE_WAYPOINTS);
+    const points: { x: number; z: number }[] = [];
+    for (let i = 0; i < count; i++) {
+      const local = engine.sync.geoToLocalSimple(route[i].lat, route[i].lon, 0);
+      points.push({ x: local.x, z: local.z });
+    }
+
+    const start = route[0];
+    const halfWidth = Math.max(
+      start.corridorLeft ?? corridorConfig.defaultHalfWidth,
+      start.corridorRight ?? corridorConfig.defaultHalfWidth,
+    );
+    const groundY = startGroundY ?? engine.getTerrainHeightAtGeo(start.lat, start.lon) ?? current.y;
+    const pose = spawnPortalPose(points, groundY, 2 * halfWidth);
+    if (!pose) return;
+
+    portals.setPose(id, pose);
+    if (startGroundY !== null) this.portalsOnCells.add(id);
+    else this.portalsOnCells.delete(id);
+    this.labelManager.updatePosition(id, this.portalLabelCentre(pose));
+  }
+
+  /** Centre of a spawn label above its portal. */
+  private portalLabelCentre(pose: SpawnPortalPose): Vector3 {
+    return new Vector3(pose.x, pose.y + portalLabelHeight(pose.scale), pose.z);
+  }
+
+  /**
+   * Remove spawn portal by ID
    */
   removeSpawnMarker(spawnId: string): void {
-    if (!this.markerManager || !this.labelManager) return;
-    this.markerManager.remove(spawnId);
+    if (!this.portalManager || !this.labelManager) return;
+    this.portalManager.remove(spawnId);
     this.labelManager.removeLabel(spawnId);
+    this.portalsOnCells.delete(spawnId);
   }
 
   /**
-   * Clear all spawn markers
+   * Clear all spawn portals
    */
   clearSpawnMarkers(): void {
-    if (!this.markerManager || !this.labelManager) return;
+    if (!this.portalManager || !this.labelManager) return;
 
-    // Get all spawn proxies to find their ids
-    const proxies = this.markerManager.getAllSpawnProxies();
-    for (const proxy of proxies) {
-      const id = proxy.name.replace('spawnMarker_', '');
-      this.markerManager.remove(id);
+    for (const id of [...this.portalManager.ids()]) {
+      this.portalManager.remove(id);
       this.labelManager.removeLabel(id);
     }
-    this.spawnCounter = 0;
-  }
-
-  /**
-   * Get all spawn markers (proxy groups for backward compatibility)
-   */
-  getSpawnMarkers(): Group[] {
-    return this.markerManager?.getAllSpawnProxies() ?? [];
-  }
-
-  /**
-   * Get base marker (proxy group)
-   */
-  getBaseMarker(): Group | null {
-    return this.markerManager?.getBaseProxy() ?? null;
+    this.portalsOnCells.clear();
   }
 
   // ========================================
@@ -294,49 +352,39 @@ export class MarkerVisualizationService {
   // ========================================
 
   /**
-   * Animate markers (GPU shader handles rotation, pulsing, bobbing).
-   * Updates shader uniforms via managers.
+   * Animate markers (the shaders do the motion; this feeds their clocks).
+   * Wall time: the markers keep moving while the game is paused.
    */
   animateMarkers(_deltaTime: number): void {
-    if (!this.engine || !this.markerManager || !this.labelManager) return;
+    if (!this.engine || !this.markerManager || !this.portalManager || !this.labelManager) return;
 
-    const camera = this.engine.getCamera();
-    const changedIds = this.markerManager.update(camera);
-
-    // Sync label positions for markers whose proxy was moved (e.g. snap-to-path)
-    for (const id of changedIds) {
-      const proxy = this.markerManager.getProxy(id);
-      if (proxy) {
-        this.labelManager.updatePosition(id, proxy.position);
-      }
-    }
-
+    this.markerManager.update(this.engine.getCamera());
+    this.portalManager.update(performance.now());
     this.labelManager.update();
   }
 
   /**
-   * Update heights of all markers based on terrain
+   * Follow the terrain: the HQ diamond, and the spawn portals that do not
+   * stand on a route cell yet. A portal on a cell moves with its route
+   * (placeSpawnPortal), which is rebuilt when the cells change.
    */
-  updateMarkerHeights(spawnPoints: SpawnPoint[]): void {
-    if (!this.engine || !this.baseCoords || !this.markerManager || !this.labelManager) return;
-
-    const SPAWN_MARKER_HEIGHT = 30;
+  updateMarkerHeights(): void {
+    if (!this.engine || !this.baseCoords || !this.markerManager || !this.portalManager || !this.labelManager) return;
 
     // Update base marker
     const basePos = this.hqMarkerPos();
     this.markerManager.updatePosition('hq', basePos);
-    this.labelManager.updatePosition('hq', basePos);
+    this.labelManager.updatePosition('hq', this.hqLabelCentre(basePos));
 
-    // Update spawn markers
-    for (const spawn of spawnPoints) {
-      const terrainY = this.engine.getTerrainHeightAtGeo(spawn.lat, spawn.lon);
-      if (terrainY !== null) {
-        const local = this.engine.sync.geoToLocalSimple(spawn.lat, spawn.lon, 0);
-        const relativeY = terrainY + SPAWN_MARKER_HEIGHT;
-        const pos = new Vector3(local.x, relativeY, local.z);
-        this.markerManager.updatePosition(spawn.id, pos);
-        this.labelManager.updatePosition(spawn.id, pos);
-      }
+    for (const id of this.portalManager.ids()) {
+      if (this.portalsOnCells.has(id)) continue;
+      const pose = this.portalManager.getPose(id)!;
+      const geo = this.engine.sync.localToGeo(this.tmpVec.set(pose.x, 0, pose.z));
+      const terrainY = this.engine.getTerrainHeightAtGeo(geo.lat, geo.lon);
+      if (terrainY === null) continue;
+      const moved = { ...pose, y: terrainY };
+      this.portalManager.setPose(id, moved);
+      this.labelManager.updatePosition(id, this.portalLabelCentre(moved));
     }
   }
 
@@ -345,9 +393,10 @@ export class MarkerVisualizationService {
    */
   clearAllMarkers(): void {
     this.markerManager?.clear();
+    this.portalManager?.clear();
     this.labelManager?.clear();
     this.clearHeightDebugMarkers();
-    this.spawnCounter = 0;
+    this.portalsOnCells.clear();
   }
 
   // ========================================
@@ -485,14 +534,16 @@ export class MarkerVisualizationService {
    */
   dispose(): void {
     this.markerManager?.dispose();
+    this.portalManager?.dispose();
     this.labelManager?.dispose();
     this.clearHeightDebugMarkers();
     this.markerManager = null;
+    this.portalManager = null;
     this.labelManager = null;
+    this.portalsOnCells.clear();
     this.engine = null;
     this.baseCoords = null;
     this.heightDebugVisible = null;
-    this.spawnCounter = 0;
   }
 
   // ========================================

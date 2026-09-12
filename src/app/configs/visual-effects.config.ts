@@ -192,6 +192,14 @@ export const EXPLOSION_LOOK = {
   },
 } as const;
 
+/**
+ * Spawn portals (SpawnPortalManager). Energy is a factor on the glow of the
+ * surface, the runes and the light on the street, and on the swirl's speed.
+ */
+export const SPAWN_PORTAL_LOOK = {
+  idleEnergy: 0.45,
+} as const;
+
 /** RGB colour, channels 0-1 (linear, as the particle pools store it). */
 export interface EffectRgb {
   r: number;

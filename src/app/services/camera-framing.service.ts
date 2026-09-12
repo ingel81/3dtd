@@ -10,7 +10,9 @@ import {
   MARKER_LABEL_SIZE,
   MARKER_LABEL_TOP,
   MARKER_RING_RADIUS,
-  SPAWN_MARKER_SCALE,
+  PORTAL_LABEL_TOP,
+  PORTAL_MAX_RADIUS,
+  PORTAL_MAX_TOP,
 } from '../configs/marker-geometry.config';
 import { cameraTimeline } from '../utils/camera-timeline';
 
@@ -114,31 +116,39 @@ const RAISED_FIT_TOLERANCE = 0.01;
  */
 const MAX_STAND_IN_FACTOR = 4;
 
-/**
- * What must stay in the picture of one diamond marker, as height above the
- * ground: the ring at its four extremes and the upper corners of a label up
- * to twice as wide as tall.
- */
-function pushMarkerExtent(centre: Vector3, scale: number, out: Vector3[]): void {
-  const r = MARKER_RING_RADIUS * scale;
+/** Four points `r` out from the centre at `height` above the ground. */
+function pushReach(centre: Vector3, r: number, height: number, out: Vector3[]): void {
   out.push(
-    new Vector3(centre.x + r, MARKER_FLOAT_HEIGHT, centre.z),
-    new Vector3(centre.x - r, MARKER_FLOAT_HEIGHT, centre.z),
-    new Vector3(centre.x, MARKER_FLOAT_HEIGHT, centre.z + r),
-    new Vector3(centre.x, MARKER_FLOAT_HEIGHT, centre.z - r),
+    new Vector3(centre.x + r, height, centre.z),
+    new Vector3(centre.x - r, height, centre.z),
+    new Vector3(centre.x, height, centre.z + r),
+    new Vector3(centre.x, height, centre.z - r),
   );
-  const top = MARKER_FLOAT_HEIGHT + MARKER_LABEL_TOP;
+}
+
+/** Upper corners of a label up to twice as wide as tall, its top `top` above the ground. */
+function pushLabelTop(centre: Vector3, top: number, out: Vector3[]): void {
   out.push(
     new Vector3(centre.x + MARKER_LABEL_SIZE, top, centre.z),
     new Vector3(centre.x - MARKER_LABEL_SIZE, top, centre.z),
   );
 }
 
-/** Raised points of the HQ marker and every spawn marker. */
+/**
+ * Raised points of the HQ diamond and every spawn portal, as height above
+ * the ground: the diamond's ring at its four extremes, the portal's reach
+ * at the height of its crown (it may face any way), and each label's top.
+ * The portals are sized for the largest one, the frame does not know the
+ * corridor at a spawn.
+ */
 function markerPoints(hq: Vector3, spawns: readonly Vector3[]): Vector3[] {
   const out: Vector3[] = [];
-  pushMarkerExtent(hq, HQ_MARKER_SCALE, out);
-  for (const spawn of spawns) pushMarkerExtent(spawn, SPAWN_MARKER_SCALE, out);
+  pushReach(hq, MARKER_RING_RADIUS * HQ_MARKER_SCALE, MARKER_FLOAT_HEIGHT, out);
+  pushLabelTop(hq, MARKER_FLOAT_HEIGHT + MARKER_LABEL_TOP, out);
+  for (const spawn of spawns) {
+    pushReach(spawn, PORTAL_MAX_RADIUS, PORTAL_MAX_TOP, out);
+    pushLabelTop(spawn, PORTAL_LABEL_TOP, out);
+  }
   return out;
 }
 

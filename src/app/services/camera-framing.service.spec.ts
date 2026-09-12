@@ -6,7 +6,9 @@ import {
   MARKER_FLOAT_HEIGHT,
   MARKER_LABEL_TOP,
   MARKER_RING_RADIUS,
-  SPAWN_MARKER_SCALE,
+  PORTAL_LABEL_TOP,
+  PORTAL_MAX_RADIUS,
+  PORTAL_MAX_TOP,
 } from '../configs/marker-geometry.config';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 
@@ -28,20 +30,25 @@ function cameraFor(frame: CameraFrame, fov: number, aspect: number): Perspective
   return camera;
 }
 
-/** Ring extremes and label top of a marker, terrain at y = 0. */
-function markerParts(x: number, z: number, scale: number): Vector3[] {
-  const r = MARKER_RING_RADIUS * scale;
-  const y = MARKER_FLOAT_HEIGHT;
+/** Four points `r` out from (x, z) at height y, plus a label top straight above. */
+function parts(x: number, z: number, r: number, y: number, labelTop: number): Vector3[] {
   return [
     new Vector3(x + r, y, z),
     new Vector3(x - r, y, z),
     new Vector3(x, y, z + r),
     new Vector3(x, y, z - r),
-    new Vector3(x, y + MARKER_LABEL_TOP, z),
+    new Vector3(x, labelTop, z),
   ];
 }
 
-describe('CameraFramingService: Totale mit schwebenden Markern', () => {
+/** Ring extremes and label top of the HQ diamond, terrain at y = 0. */
+const hqParts = (x: number, z: number) =>
+  parts(x, z, MARKER_RING_RADIUS * HQ_MARKER_SCALE, MARKER_FLOAT_HEIGHT, MARKER_FLOAT_HEIGHT + MARKER_LABEL_TOP);
+
+/** Reach of the largest portal at its crown and its label top, terrain at y = 0. */
+const portalParts = (x: number, z: number) => parts(x, z, PORTAL_MAX_RADIUS, PORTAL_MAX_TOP, PORTAL_LABEL_TOP);
+
+describe('CameraFramingService: Totale mit HQ-Diamant und Spawn-Portal', () => {
   it.each([
     // [Name, fov, aspect, Spawn x, Spawn z]
     ['Querformat wie im Playtest, Spawn in der fernen Ecke', 60, 1.8635, 327.5, 243.8],
@@ -61,8 +68,8 @@ describe('CameraFramingService: Totale mit schwebenden Markern', () => {
     const camera = cameraFor(frame, fov, aspect);
 
     const parts = [
-      ...markerParts(0, 0, HQ_MARKER_SCALE),
-      ...markerParts(sx, sz, SPAWN_MARKER_SCALE),
+      ...hqParts(0, 0),
+      ...portalParts(sx, sz),
       ...local.map(([x, z]) => new Vector3(x, 0, z)),
     ];
     let outermost = 0;

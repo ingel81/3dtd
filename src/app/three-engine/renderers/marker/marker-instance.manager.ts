@@ -18,26 +18,22 @@ const MAX_RINGS = 8; // 2 per HQ marker, up to 4 HQs during transitions
 
 interface MarkerEntry {
   id: string;
-  type: 'hq' | 'spawn';
   diamondIndex: number;
   groundIndex: number;
-  ringIndices: number[]; // 0 for spawn, 2 for HQ
-  proxy: Group;
+  ringIndices: number[];
   position: Vector3;
-  phaseOffset: number;
 }
 
 /**
- * GPU-instanced marker renderer.
+ * GPU-instanced HQ marker renderer.
  *
- * Manages 3 InstancedMesh objects for all HQ/spawn markers:
+ * Manages 3 InstancedMesh objects for the HQ diamond:
  * - Diamond bodies (holographic octahedron with Fresnel/scan line shader)
- * - Rings (torus with glow, HQ only)
+ * - Rings (two tori with glow)
  * - Ground glow discs (radial pulse projection)
  *
- * Produces 3 draw calls total (or fewer if no rings/ground needed).
- * Each marker also maintains a lightweight proxy Group for backward
- * compatibility with PathRouteService (reads marker.position.x/z).
+ * Produces 3 draw calls total. The spawns stand as portals, see
+ * SpawnPortalManager.
  */
 export class MarkerInstanceManager {
   // InstancedMesh objects
@@ -74,7 +70,6 @@ export class MarkerInstanceManager {
   private diamondCount = 0;
   private ringCount = 0;
   private groundCount = 0;
-  private readonly changedIds: string[] = [];
 
   // Reusable temp objects
   private readonly tmpMatrix = new Matrix4();
@@ -154,16 +149,15 @@ export class MarkerInstanceManager {
   }
 
   /**
-   * Add a marker. Returns a lightweight proxy Group for backward compatibility.
+   * Add an HQ marker, or replace the one with the same id.
    */
   add(
     id: string,
-    type: 'hq' | 'spawn',
     position: Vector3,
     color: number,
     glowIntensity: number,
     rotationSpeed: number,
-  ): Group {
+  ): void {
     // Remove existing marker with same id
     if (this.markers.has(id)) this.remove(id);
 
@@ -195,52 +189,36 @@ export class MarkerInstanceManager {
     this.groundCount = Math.max(this.groundCount, gi + 1);
     this.groundMesh.count = this.groundCount;
 
-    // ── Ring instances (HQ only) ──
-    const ringIndices: number[] = [];
-    if (type === 'hq') {
-      // Ring 1: horizontal, moderate speed
-      const ri1 = this.ringFree.pop()!;
-      this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
-      this.ringMesh.setMatrixAt(ri1, this.tmpMatrix);
-      this.rColorAttr.setXYZ(ri1, this.tmpColor.r, this.tmpColor.g, this.tmpColor.b);
-      this.rTiltAttr.setX(ri1, 0); // No additional tilt
-      this.rRotSpeedAttr.setX(ri1, 0.0008);
-      this.rPhaseAttr.setX(ri1, phaseOffset);
-      ringIndices.push(ri1);
+    // ── Ring instances ──
+    // Ring 1: horizontal, moderate speed
+    const ri1 = this.ringFree.pop()!;
+    this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
+    this.ringMesh.setMatrixAt(ri1, this.tmpMatrix);
+    this.rColorAttr.setXYZ(ri1, this.tmpColor.r, this.tmpColor.g, this.tmpColor.b);
+    this.rTiltAttr.setX(ri1, 0); // No additional tilt
+    this.rRotSpeedAttr.setX(ri1, 0.0008);
+    this.rPhaseAttr.setX(ri1, phaseOffset);
 
-      // Ring 2: tilted 30°, slower, slightly larger handled by shader
-      const ri2 = this.ringFree.pop()!;
-      this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
-      this.ringMesh.setMatrixAt(ri2, this.tmpMatrix);
-      this.rColorAttr.setXYZ(ri2, this.tmpColor.r, this.tmpColor.g, this.tmpColor.b);
-      this.rTiltAttr.setX(ri2, Math.PI / 6); // 30° tilt
-      this.rRotSpeedAttr.setX(ri2, -0.0006);
-      this.rPhaseAttr.setX(ri2, phaseOffset);
-      ringIndices.push(ri2);
+    // Ring 2: tilted 30°, slower, slightly larger handled by shader
+    const ri2 = this.ringFree.pop()!;
+    this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
+    this.ringMesh.setMatrixAt(ri2, this.tmpMatrix);
+    this.rColorAttr.setXYZ(ri2, this.tmpColor.r, this.tmpColor.g, this.tmpColor.b);
+    this.rTiltAttr.setX(ri2, Math.PI / 6); // 30° tilt
+    this.rRotSpeedAttr.setX(ri2, -0.0006);
+    this.rPhaseAttr.setX(ri2, phaseOffset);
 
-      this.markRingDirty();
-      this.ringCount = Math.max(this.ringCount, Math.max(ri1, ri2) + 1);
-      this.ringMesh.count = this.ringCount;
-    }
+    this.markRingDirty();
+    this.ringCount = Math.max(this.ringCount, Math.max(ri1, ri2) + 1);
+    this.ringMesh.count = this.ringCount;
 
-    // ── Proxy Group ──
-    const proxy = new Group();
-    proxy.name = type === 'hq' ? 'baseMarker' : `spawnMarker_${id}`;
-    proxy.position.copy(position);
-
-    const entry: MarkerEntry = {
+    this.markers.set(id, {
       id,
-      type,
       diamondIndex: di,
       groundIndex: gi,
-      ringIndices,
-      proxy,
+      ringIndices: [ri1, ri2],
       position: position.clone(),
-      phaseOffset,
-    };
-    this.markers.set(id, entry);
-
-    return proxy;
+    });
   }
 
   /**
@@ -290,7 +268,6 @@ export class MarkerInstanceManager {
     if (!entry) return;
 
     entry.position.copy(position);
-    entry.proxy.position.copy(position);
 
     // Update diamond
     this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
@@ -308,34 +285,16 @@ export class MarkerInstanceManager {
 
     this.diamondMesh.instanceMatrix.needsUpdate = true;
     this.groundMesh.instanceMatrix.needsUpdate = true;
-    if (entry.ringIndices.length > 0) {
-      this.ringMesh.instanceMatrix.needsUpdate = true;
-    }
+    this.ringMesh.instanceMatrix.needsUpdate = true;
   }
 
   /**
-   * Per-frame update: sync proxy positions, update shader uniforms.
-   * Returns IDs of markers whose proxy position changed (for label sync).
-   * The array is reused by the next call, so read it before calling again.
+   * Per-frame update of the shader uniforms.
    */
-  update(camera: Camera): readonly string[] {
-    // Almost always empty, a fresh array per frame would be pure garbage.
-    const changedIds = this.changedIds;
-    changedIds.length = 0;
-    if (this.markers.size === 0) return changedIds;
+  update(camera: Camera): void {
+    if (this.markers.size === 0) return;
 
     const now = performance.now() / 1000;
-
-    // Sync proxy positions → instance matrices (PathRouteService may have changed them)
-    for (const entry of this.markers.values()) {
-      const p = entry.proxy.position;
-      if (p.x !== entry.position.x || p.y !== entry.position.y || p.z !== entry.position.z) {
-        this.updatePosition(entry.id, p);
-        changedIds.push(entry.id);
-      }
-    }
-
-    // Update shared uniforms
     const camPos = camera.getWorldPosition(this.tmpVec);
 
     this.diamondMat.uniforms['uTime'].value = now;
@@ -345,36 +304,6 @@ export class MarkerInstanceManager {
     this.ringMat.uniforms['uCameraPos'].value.copy(camPos);
 
     this.groundMat.uniforms['uTime'].value = now;
-
-    return changedIds;
-  }
-
-  /**
-   * Get proxy group for a specific marker.
-   */
-  getProxy(id: string): Group | null {
-    return this.markers.get(id)?.proxy ?? null;
-  }
-
-  /**
-   * Get all spawn marker proxy groups (excludes HQ).
-   */
-  getAllSpawnProxies(): Group[] {
-    const result: Group[] = [];
-    for (const entry of this.markers.values()) {
-      if (entry.type === 'spawn') result.push(entry.proxy);
-    }
-    return result;
-  }
-
-  /**
-   * Get base marker proxy.
-   */
-  getBaseProxy(): Group | null {
-    for (const entry of this.markers.values()) {
-      if (entry.type === 'hq') return entry.proxy;
-    }
-    return null;
   }
 
   /**

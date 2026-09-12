@@ -1,11 +1,28 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal, type WritableSignal } from '@angular/core';
-import { BufferGeometry, Group, Mesh, MeshBasicMaterial, OctahedronGeometry, PerspectiveCamera, Vector3 } from 'three';
-import { MarkerVisualizationService, type SpawnPoint } from './marker-visualization.service';
+import {
+  BufferGeometry,
+  Group,
+  InstancedMesh,
+  Matrix4,
+  Mesh,
+  MeshBasicMaterial,
+  OctahedronGeometry,
+  PerspectiveCamera,
+  Quaternion,
+  Vector3,
+} from 'three';
+import { MarkerVisualizationService } from './marker-visualization.service';
 import { HQDamageService } from '../combat/hq-damage.service';
 import { UIStore } from '../../store/ui.store';
 import type { ThreeTilesEngine } from '../../three-engine';
-import { MARKER_FLOAT_HEIGHT } from '../../configs/marker-geometry.config';
+import {
+  MARKER_FLOAT_HEIGHT,
+  MARKER_LABEL_OFFSET,
+  PORTAL_OPENING_WIDTH,
+  PORTAL_SETBACK,
+  portalLabelHeight,
+} from '../../configs/marker-geometry.config';
 
 // MarkerLabelManager renders text into a 2D canvas, which jsdom does not have.
 // The fake keeps what the service tells it so the tests can read the labels.
@@ -59,6 +76,11 @@ function geoToLocal(lat: number, lon: number, height: number) {
   return { x: (BASE.lon - lon) * 1e5, y: height, z: (lat - BASE.lat) * 1e5 };
 }
 
+/** Inverse of geoToLocal. */
+function localToGeo(v: { x: number; y: number; z: number }) {
+  return { lat: BASE.lat + v.z / 1e5, lon: BASE.lon - v.x / 1e5, height: v.y };
+}
+
 function fakeEngine() {
   const overlay = new Group();
   /** Terrain height per "lat,lon"; `fallback` for every other column. */
@@ -70,7 +92,7 @@ function fakeEngine() {
       return terrain.at.has(key) ? terrain.at.get(key)! : terrain.fallback;
     }),
     getCamera: vi.fn(() => new PerspectiveCamera()),
-    sync: { geoToLocalSimple: vi.fn(geoToLocal) },
+    sync: { geoToLocalSimple: vi.fn(geoToLocal), localToGeo: vi.fn(localToGeo) },
     effects: { setDebugSpheresVisible: vi.fn() },
   };
   return { engine, overlay, terrain, asEngine: engine as unknown as ThreeTilesEngine };
@@ -98,9 +120,8 @@ function labels() {
   return labelFake.instances[labelFake.instances.length - 1].labels;
 }
 
-function spawn(id: string, lat: number, lon: number): SpawnPoint {
-  return { id, name: id, lat, lon, color: 0xff0000 };
-}
+/** Centre of the HQ label for a diamond over terrain at `ground`. */
+const hqLabelY = (ground: number) => ground + MARKER_FLOAT_HEIGHT + MARKER_LABEL_OFFSET;
 
 describe('MarkerVisualizationService', () => {
   let service: MarkerVisualizationService;
@@ -120,17 +141,34 @@ describe('MarkerVisualizationService', () => {
 
   const init = () => service.initialize(fake.asEngine, { ...BASE }, heightDebugVisible);
 
+  const instanced = () =>
+    fake.overlay.children.filter((o): o is InstancedMesh => (o as InstancedMesh).isInstancedMesh === true);
+  const portalFrames = () => instanced().find((m) => m.name === 'spawnPortalFrames')!;
+  /** Instances the HQ diamond draws: body, two rings and the ground glow per HQ. */
+  const hqInstances = () =>
+    instanced().filter((m) => !m.name.startsWith('spawnPortal')).reduce((n, m) => n + m.count, 0);
+
+  /** Position, facing (the portal's +z) and scale of portal instance `index`. */
+  function portal(index = 0) {
+    const matrix = new Matrix4();
+    portalFrames().getMatrixAt(index, matrix);
+    const position = new Vector3();
+    const rotation = new Quaternion();
+    const scale = new Vector3();
+    matrix.decompose(position, rotation, scale);
+    return { position, forward: new Vector3(0, 0, 1).applyQuaternion(rotation), scale: scale.x };
+  }
+
   describe('before initialize', () => {
     it('has no markers and ignores every marker call', () => {
-      service.addBaseMarker();
-      expect(service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000)).toBeNull();
-      expect(service.getSpawnMarkers()).toEqual([]);
-      expect(service.getBaseMarker()).toBeNull();
       expect(() => {
+        service.addBaseMarker();
+        service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000);
+        service.placeSpawnPortal('s1', [{ ...BASE }, { lat: BASE.lat + 0.001, lon: BASE.lon }], 0);
         service.removeBaseMarker();
         service.removeSpawnMarker('s1');
         service.clearSpawnMarkers();
-        service.updateMarkerHeights([spawn('s1', BASE.lat, BASE.lon)]);
+        service.updateMarkerHeights();
         service.animateMarkers(16);
         service.addHeightDebugMarker(new Vector3(), 1, true);
         service.clearHeightDebugMarkers();
@@ -139,6 +177,7 @@ describe('MarkerVisualizationService', () => {
         service.updateDebugSpheresVisibility();
         service.dispose();
       }).not.toThrow();
+      expect(labelFake.instances).toHaveLength(0);
       expect(fake.engine.effects.setDebugSpheresVisible).not.toHaveBeenCalled();
     });
   });
@@ -150,27 +189,35 @@ describe('MarkerVisualizationService', () => {
     expect(labelFake.instances[0].overlay).toBe(fake.overlay);
   });
 
+  it('drops the previous meshes when initialized again', () => {
+    init();
+    const meshes = fake.overlay.children.length;
+
+    init();
+
+    expect(fake.overlay.children).toHaveLength(meshes);
+    expect(labelFake.instances[0].disposed).toBe(true);
+  });
+
   describe('HQ marker', () => {
     it('floats above the terrain under the HQ, labelled "HQ" in green', () => {
       init();
       service.addBaseMarker();
 
-      const hq = service.getBaseMarker()!;
-      expect(hq.position.toArray()).toEqual([0, 100 + MARKER_FLOAT_HEIGHT, 0]);
-      expect(labels().get('hq')).toMatchObject({ text: 'HQ', color: '#22c55e', position: { y: 130 } });
-      expect(service.getSpawnMarkers()).toEqual([]);
+      expect(hqInstances()).toBe(4);
+      expect(labels().get('hq')).toMatchObject({ text: 'HQ', color: '#22c55e', position: { y: hqLabelY(100) } });
+      expect(portalFrames().count).toBe(0);
     });
 
     it('replaces the previous HQ marker when added again', () => {
       init();
       service.addBaseMarker();
-      const first = service.getBaseMarker();
       fake.terrain.fallback = 50;
 
       service.addBaseMarker();
 
-      expect(service.getBaseMarker()).not.toBe(first);
-      expect(service.getBaseMarker()!.position.y).toBe(80);
+      expect(hqInstances()).toBe(4);
+      expect(labels().get('hq')!.position.y).toBe(hqLabelY(50));
       expect(labels().size).toBe(1);
     });
 
@@ -183,7 +230,7 @@ describe('MarkerVisualizationService', () => {
       // height to keep: the marker drops to MARKER_FLOAT_HEIGHT (absolute).
       service.addBaseMarker();
 
-      expect(service.getBaseMarker()!.position.y).toBe(MARKER_FLOAT_HEIGHT);
+      expect(labels().get('hq')!.position.y).toBe(MARKER_FLOAT_HEIGHT + MARKER_LABEL_OFFSET);
     });
 
     it('removes marker and label', () => {
@@ -192,53 +239,58 @@ describe('MarkerVisualizationService', () => {
 
       service.removeBaseMarker();
 
-      expect(service.getBaseMarker()).toBeNull();
+      expect(hqInstances()).toBe(0);
       expect(labels().has('hq')).toBe(false);
     });
   });
 
-  describe('spawn markers', () => {
-    it('adds a spawn at its own terrain column with its name and colour', () => {
+  describe('spawn portals', () => {
+    it('stands a portal on its own terrain column, facing the HQ, with its name and colour', () => {
       init();
       const lat = BASE.lat + 0.002;
       const lon = BASE.lon - 0.001;
       fake.terrain.at.set(`${lat},${lon}`, 40);
 
-      const proxy = service.addSpawnMarker('s1', 'North Gate', lat, lon, 0x3366ff)!;
+      service.addSpawnMarker('s1', 'North Gate', lat, lon, 0x3366ff);
 
-      expect(proxy.name).toBe('spawnMarker_s1');
-      expect(proxy.position.x).toBeCloseTo(100, 6);
-      expect(proxy.position.y).toBe(40 + MARKER_FLOAT_HEIGHT);
-      expect(proxy.position.z).toBeCloseTo(200, 6);
-      expect(service.getSpawnMarkers()).toEqual([proxy]);
+      const { position, forward, scale } = portal();
+      expect(position.x).toBeCloseTo(100, 3);
+      expect(position.y).toBe(40);
+      expect(position.z).toBeCloseTo(200, 3);
+      // Until its route is built it faces the HQ at the origin
+      expect(forward.x).toBeCloseTo(-100 / Math.hypot(100, 200), 4);
+      expect(forward.z).toBeCloseTo(-200 / Math.hypot(100, 200), 4);
+      expect(scale).toBeCloseTo(1, 4);
       expect(labels().get('s1')).toMatchObject({ text: 'North Gate', color: '#3366ff' });
+      expect(labels().get('s1')!.position.y).toBeCloseTo(40 + portalLabelHeight(1), 6);
     });
 
     it('does not depend on the HQ column resolving', () => {
       init();
       fake.terrain.at.set(`${BASE.lat},${BASE.lon}`, null);
 
-      const proxy = service.addSpawnMarker('s1', 'S1', BASE.lat + 0.001, BASE.lon, 0xff0000)!;
+      service.addSpawnMarker('s1', 'S1', BASE.lat + 0.001, BASE.lon, 0xff0000);
 
-      expect(proxy.position.y).toBe(100 + MARKER_FLOAT_HEIGHT);
+      expect(portal().position.y).toBe(100);
     });
 
-    it('uses the bare float height when its own column has no sample', () => {
+    it('stands at 0 when its own column has no sample', () => {
       init();
       fake.terrain.fallback = null;
 
-      const proxy = service.addSpawnMarker('s1', 'S1', BASE.lat + 0.001, BASE.lon, 0xff0000)!;
+      service.addSpawnMarker('s1', 'S1', BASE.lat + 0.001, BASE.lon, 0xff0000);
 
-      expect(proxy.position.y).toBe(MARKER_FLOAT_HEIGHT);
+      expect(portal().position.y).toBe(0);
     });
 
     it('replaces a spawn added again under the same id', () => {
       init();
       service.addSpawnMarker('s1', 'Old', BASE.lat + 0.001, BASE.lon, 0xff0000);
 
-      const proxy = service.addSpawnMarker('s1', 'New', BASE.lat + 0.002, BASE.lon, 0xff0000)!;
+      service.addSpawnMarker('s1', 'New', BASE.lat + 0.002, BASE.lon, 0xff0000);
 
-      expect(service.getSpawnMarkers()).toEqual([proxy]);
+      expect(portalFrames().count).toBe(1);
+      expect(portal().position.z).toBeCloseTo(200, 3);
       expect(labels().get('s1')!.text).toBe('New');
     });
 
@@ -257,12 +309,14 @@ describe('MarkerVisualizationService', () => {
     it('removes one spawn by id and ignores unknown ids', () => {
       init();
       service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000);
-      const s2 = service.addSpawnMarker('s2', 'S2', BASE.lat + 0.001, BASE.lon, 0xff0000);
+      service.addSpawnMarker('s2', 'S2', BASE.lat + 0.001, BASE.lon, 0xff0000);
 
       service.removeSpawnMarker('s1');
       service.removeSpawnMarker('nope');
 
-      expect(service.getSpawnMarkers()).toEqual([s2]);
+      // s1's instance is moved out of sight, s2 stays
+      expect(portal(0).position.y).toBe(-99999);
+      expect(portal(1).position.z).toBeCloseTo(100, 3);
       expect([...labels().keys()]).toEqual(['s2']);
     });
 
@@ -274,61 +328,106 @@ describe('MarkerVisualizationService', () => {
 
       service.clearSpawnMarkers();
 
-      expect(service.getSpawnMarkers()).toEqual([]);
-      expect(service.getBaseMarker()).not.toBeNull();
+      expect(portalFrames().count).toBe(0);
+      expect(hqInstances()).toBe(4);
       expect([...labels().keys()]).toEqual(['hq']);
     });
   });
 
-  describe('updateMarkerHeights', () => {
-    it('moves HQ and spawns to their current terrain, labels follow', () => {
+  describe('placeSpawnPortal', () => {
+    const lat = BASE.lat + 0.002;
+    // Route south toward the HQ, (0, 200) to (0, 100) in local metres
+    const route = [
+      { lat, lon: BASE.lon, corridorLeft: 6, corridorRight: 3 },
+      { lat: BASE.lat + 0.001, lon: BASE.lon },
+    ];
+
+    it('stands on the cell at the route start, ahead of it along the route, as wide as the corridor', () => {
       init();
-      const s1 = spawn('s1', BASE.lat + 0.001, BASE.lon);
-      service.addBaseMarker();
-      service.addSpawnMarker(s1.id, s1.name, s1.lat, s1.lon, s1.color);
-      fake.terrain.fallback = 250;
+      service.addSpawnMarker('s1', 'S1', lat + 0.0003, BASE.lon + 0.0002, 0xff0000);
 
-      service.updateMarkerHeights([s1]);
+      service.placeSpawnPortal('s1', route, 12);
 
-      expect(service.getBaseMarker()!.position.y).toBe(280);
-      expect(service.getSpawnMarkers()[0].position.y).toBe(280);
-      expect(labels().get('hq')!.position.y).toBe(280);
-      expect(labels().get('s1')!.position.y).toBe(280);
+      const { position, forward, scale } = portal();
+      expect(position.x).toBeCloseTo(0, 3);
+      expect(position.y).toBe(12);
+      expect(position.z).toBeCloseTo(200 - PORTAL_SETBACK, 3);
+      expect(forward.z).toBeCloseTo(-1, 4);
+      // The wider side sets the opening: 2 x 6 m
+      expect(scale).toBeCloseTo(12 / PORTAL_OPENING_WIDTH, 4);
+      expect(labels().get('s1')!.position.y).toBeCloseTo(12 + portalLabelHeight(12 / PORTAL_OPENING_WIDTH), 3);
     });
 
-    it('keeps markers whose column has no sample where they are', () => {
+    it('takes the terrain at the route start while the cells are not built', () => {
       init();
-      const s1 = spawn('s1', BASE.lat + 0.001, BASE.lon);
-      service.addBaseMarker();
-      service.addSpawnMarker(s1.id, s1.name, s1.lat, s1.lon, s1.color);
-      fake.terrain.fallback = null;
+      service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);
+      fake.terrain.at.set(`${lat},${BASE.lon}`, 55);
 
-      service.updateMarkerHeights([s1]);
+      service.placeSpawnPortal('s1', route, null);
 
-      expect(service.getBaseMarker()!.position.y).toBe(130);
-      expect(service.getSpawnMarkers()[0].position.y).toBe(130);
+      expect(portal().position.y).toBe(55);
     });
 
-    it('ignores spawn points without a marker', () => {
+    it('ignores unknown spawns and routes without a direction', () => {
       init();
-      service.addBaseMarker();
+      service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);
+      const before = portal();
 
-      expect(() => service.updateMarkerHeights([spawn('ghost', BASE.lat, BASE.lon)])).not.toThrow();
-      expect(service.getSpawnMarkers()).toEqual([]);
+      service.placeSpawnPortal('ghost', route, 12);
+      service.placeSpawnPortal('s1', [route[0]], 12);
+      service.placeSpawnPortal('s1', [route[0], route[0]], 12);
+
+      expect(portal().position).toEqual(before.position);
       expect(labels().has('ghost')).toBe(false);
     });
   });
 
-  describe('animateMarkers', () => {
-    it('moves the label along when a marker proxy was moved from outside', () => {
+  describe('updateMarkerHeights', () => {
+    it('moves the HQ and the portals off the cells to the current terrain, labels follow', () => {
       init();
-      const proxy = service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000)!;
+      service.addBaseMarker();
+      service.addSpawnMarker('s1', 'S1', BASE.lat + 0.001, BASE.lon, 0xff0000);
+      fake.terrain.fallback = 250;
+
+      service.updateMarkerHeights();
+
+      expect(labels().get('hq')!.position.y).toBe(hqLabelY(250));
+      expect(portal().position.y).toBe(250);
+      expect(labels().get('s1')!.position.y).toBeCloseTo(250 + portalLabelHeight(1), 6);
+    });
+
+    it('keeps markers whose column has no sample where they are', () => {
+      init();
+      service.addBaseMarker();
+      service.addSpawnMarker('s1', 'S1', BASE.lat + 0.001, BASE.lon, 0xff0000);
+      fake.terrain.fallback = null;
+
+      service.updateMarkerHeights();
+
+      expect(labels().get('hq')!.position.y).toBe(hqLabelY(100));
+      expect(portal().position.y).toBe(100);
+    });
+
+    it('leaves a portal standing on a route cell to its route', () => {
+      init();
+      service.addSpawnMarker('s1', 'S1', BASE.lat + 0.002, BASE.lon, 0xff0000);
+      service.placeSpawnPortal('s1', [{ lat: BASE.lat + 0.002, lon: BASE.lon }, { lat: BASE.lat + 0.001, lon: BASE.lon }], 12);
+      fake.terrain.fallback = 250;
+
+      service.updateMarkerHeights();
+
+      expect(portal().position.y).toBe(12);
+    });
+  });
+
+  describe('animateMarkers', () => {
+    it('ticks the labels once per frame', () => {
+      init();
+      service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000);
+
+      service.animateMarkers(16);
       service.animateMarkers(16);
 
-      proxy.position.set(7, 140, -3); // snap-to-path in PathRouteService
-      service.animateMarkers(16);
-
-      expect(labels().get('s1')!.position).toEqual({ x: 7, y: 140, z: -3 });
       expect(labelFake.instances[0].frames).toBe(2);
     });
   });
@@ -378,7 +477,7 @@ describe('MarkerVisualizationService', () => {
     });
   });
 
-  it('clearAllMarkers removes HQ, spawns, labels and height debug markers', () => {
+  it('clearAllMarkers removes HQ, portals, labels and height debug markers', () => {
     init();
     service.addBaseMarker();
     service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000);
@@ -386,8 +485,8 @@ describe('MarkerVisualizationService', () => {
 
     service.clearAllMarkers();
 
-    expect(service.getBaseMarker()).toBeNull();
-    expect(service.getSpawnMarkers()).toEqual([]);
+    expect(hqInstances()).toBe(0);
+    expect(portalFrames().count).toBe(0);
     expect(labels().size).toBe(0);
     expect(fake.overlay.children.some((o) => o.name === 'heightDebugGroup')).toBe(false);
   });
@@ -472,9 +571,11 @@ describe('MarkerVisualizationService', () => {
 
       expect(fake.overlay.children).toHaveLength(0);
       expect(labelFake.instances[0].disposed).toBe(true);
-      expect(service.getBaseMarker()).toBeNull();
-      expect(service.getSpawnMarkers()).toEqual([]);
-      expect(service.addSpawnMarker('s2', 'S2', BASE.lat, BASE.lon, 0xff0000)).toBeNull();
+      expect(labelFake.instances[0].labels.size).toBe(0);
+
+      service.addSpawnMarker('s2', 'S2', BASE.lat, BASE.lon, 0xff0000);
+      expect(fake.overlay.children).toHaveLength(0);
+      expect(labelFake.instances[0].labels.size).toBe(0);
     });
 
     it('can be initialized again with a new engine', () => {
@@ -485,7 +586,7 @@ describe('MarkerVisualizationService', () => {
       service.initialize(second.asEngine, { ...BASE }, heightDebugVisible);
       service.addBaseMarker();
 
-      expect(service.getBaseMarker()).not.toBeNull();
+      expect(labels().has('hq')).toBe(true);
       expect(second.overlay.children.length).toBeGreaterThan(0);
     });
   });

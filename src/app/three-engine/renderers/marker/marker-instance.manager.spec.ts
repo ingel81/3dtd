@@ -3,24 +3,26 @@ import { Group, PerspectiveCamera, Vector3 } from 'three';
 import { MarkerInstanceManager } from './marker-instance.manager';
 
 describe('MarkerInstanceManager', () => {
-  it('reports moved proxies in one array reused across frames', () => {
+  it('führt die Position je Marker und vergisst entfernte', () => {
     const markers = new MarkerInstanceManager(new Group());
-    const camera = new PerspectiveCamera();
+    markers.add('hq', new Vector3(10, 30, 0), 0x22c55e, 1.2, 0.001);
+    markers.add('hq-old', new Vector3(0, 30, 0), 0x22c55e, 1.2, 0.001);
 
-    const idle = markers.update(camera);
-    expect(idle).toEqual([]);
+    markers.updatePosition('hq', new Vector3(10, 45, 0));
+    markers.update(new PerspectiveCamera());
+    expect(markers.getPosition('hq')!.y).toBe(45);
 
-    const proxy = markers.add('s1', 'spawn', new Vector3(), 0xff0000, 0.8, 0.001);
-    markers.add('hq', 'hq', new Vector3(10, 0, 0), 0x00ff00, 1, 0.001);
-    expect(markers.update(camera)).toEqual([]);
+    markers.remove('hq-old');
+    expect(markers.getPosition('hq-old')).toBeNull();
+    expect(markers.getPosition('hq')!.x).toBe(10);
+  });
 
-    // PathRouteService schiebt den Proxy (Snap-to-Path), das Label muss mit.
-    proxy.position.set(5, 0, 0);
-    const moved = markers.update(camera);
-    expect(moved).toEqual(['s1']);
-    expect(moved).toBe(idle);
-    expect(markers.getPosition('s1')!.x).toBe(5);
-
-    expect(markers.update(camera)).toEqual([]);
+  it('ersetzt einen Marker unter derselben Id, statt Ringe zu verbrauchen', () => {
+    // Zwei Ringe je HQ, acht Plätze: ohne Ersetzen wäre beim fünften Mal Schluss.
+    const markers = new MarkerInstanceManager(new Group());
+    for (let i = 0; i < 10; i++) {
+      markers.add('hq', new Vector3(i, 30, 0), 0x22c55e, 1.2, 0.001);
+    }
+    expect(markers.getPosition('hq')!.x).toBe(9);
   });
 });

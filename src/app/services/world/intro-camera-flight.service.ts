@@ -11,7 +11,9 @@ import {
   MARKER_LABEL_TOP,
   MARKER_RING_RADIUS,
   MARKER_Y_STRETCH,
-  SPAWN_MARKER_SCALE,
+  PORTAL_LABEL_TOP,
+  PORTAL_MAX_RADIUS,
+  PORTAL_MAX_TOP,
 } from '../../configs/marker-geometry.config';
 import { cameraTimeline } from '../../utils/camera-timeline';
 import { raycastStats } from '../../utils/raycast-stats';
@@ -202,27 +204,27 @@ export interface FlightDebugState {
 
 /**
  * A marker treated as an obstacle in the altitude profile and as a subject to
- * frame. Markers are overlay-group objects, so no raycast against the tiles
- * ever reports them; the flight takes their extents from the marker config.
- * The label is the part that has to stay in frame for a hold to be readable,
- * it reaches higher above the centre than the diamond core does.
+ * frame: the HQ diamond or a spawn portal. Markers are overlay-group objects,
+ * so no raycast against the tiles ever reports them; the flight takes their
+ * extents from the marker config. The label is the part that has to stay in
+ * frame for a hold to be readable, it is the highest part of either marker.
  */
 interface MarkerObstacle {
   x: number;
   z: number;
   radiusSq: number;
-  /** Top of the opaque core, relative to the ground beneath it (m). */
+  /** Top of the solid part, relative to the ground beneath it (m). */
   topAboveGround: number;
-  /** Half the height of what must be framed (diamond core + label). */
+  /** Half the height of what must be framed (body + label). */
   subjectHalfHeight: number;
-  /** Offset of the framed subject's centre from the diamond centre (m). */
-  subjectCentreOffset: number;
+  /** Centre of the framed subject above the ground (m). */
+  subjectCentreAboveGround: number;
 }
 
-function markerObstacle(x: number, z: number, scale: number): MarkerObstacle {
-  const radius = MARKER_RING_RADIUS * scale;
-  const coreHalf = MARKER_CORE_RADIUS * scale * MARKER_Y_STRETCH;
-  // Subject spans the core's bottom up to the label's top — asymmetric about
+function hqObstacle(x: number, z: number): MarkerObstacle {
+  const radius = MARKER_RING_RADIUS * HQ_MARKER_SCALE;
+  const coreHalf = MARKER_CORE_RADIUS * HQ_MARKER_SCALE * MARKER_Y_STRETCH;
+  // Subject spans the core's bottom up to the label's top, asymmetric about
   // the diamond centre, so aiming at the diamond itself pushes the label
   // toward the top edge of the frame.
   return {
@@ -233,7 +235,23 @@ function markerObstacle(x: number, z: number, scale: number): MarkerObstacle {
     // is enough and keeps the flight from ballooning at both ends.
     topAboveGround: MARKER_FLOAT_HEIGHT + coreHalf,
     subjectHalfHeight: (MARKER_LABEL_TOP + coreHalf) / 2,
-    subjectCentreOffset: (MARKER_LABEL_TOP - coreHalf) / 2,
+    subjectCentreAboveGround: MARKER_FLOAT_HEIGHT + (MARKER_LABEL_TOP - coreHalf) / 2,
+  };
+}
+
+/**
+ * A spawn portal stands on the ground; the subject runs from its foot up to
+ * the label above the crown. Sized for the largest portal, the flight does
+ * not know the corridor at the spawn.
+ */
+function portalObstacle(x: number, z: number): MarkerObstacle {
+  return {
+    x,
+    z,
+    radiusSq: PORTAL_MAX_RADIUS * PORTAL_MAX_RADIUS,
+    topAboveGround: PORTAL_MAX_TOP,
+    subjectHalfHeight: PORTAL_LABEL_TOP / 2,
+    subjectCentreAboveGround: PORTAL_LABEL_TOP / 2,
   };
 }
 
@@ -483,14 +501,14 @@ export class IntroCameraFlightService {
     this.routeYAt = path.routeYAt;
 
     // HQ is the local origin (ReorientationPlugin recenters on it); the spawn
-    // marker is snapped to the path's own end by `snapSpawnMarkerToPathStart`.
+    // portal stands on the path's own end (MarkerVisualizationService.placeSpawnPortal).
     curve.getPointAt(1, this.samplePoint);
     this.markers = [
-      markerObstacle(0, 0, HQ_MARKER_SCALE),
-      markerObstacle(this.samplePoint.x, this.samplePoint.z, SPAWN_MARKER_SCALE),
+      hqObstacle(0, 0),
+      portalObstacle(this.samplePoint.x, this.samplePoint.z),
     ];
 
-    // Back off far enough that each marker (diamond + label) fits the frame
+    // Back off far enough that each marker (body + label) fits the frame
     // with the configured margin, but never closer than the explicit minimum.
     const framingDistance = (m: MarkerObstacle) => {
       const halfAngle = MathUtils.degToRad((this.cfg.holdFramingFill * engine.getCamera().fov) / 2);
@@ -864,16 +882,17 @@ export class IntroCameraFlightService {
    * Centre of the framed subject for marker `i` (0 = HQ, 1 = spawn), written
    * to `out`. Returns false when there is no such marker.
    *
-   * Aims at the midpoint between the diamond's lower tip and the label's top,
-   * not at the diamond's centre — the label reaches further up than the core
-   * reaches down, so centring on the diamond alone crops the label.
+   * Aims at the middle of the subject (see MarkerObstacle): for the HQ the
+   * midpoint between the diamond's lower tip and the label's top, for a
+   * portal the midpoint between its foot and the label. The label reaches
+   * further up than the body, so centring on the body alone crops it.
    */
   private markerAim(i: number, out: Vector3): boolean {
     const m = this.markers[i];
     if (!m) return false;
     const ground = this.groundAt(i === 0 ? 0 : this.totalLength);
 
-    out.set(m.x, ground + MARKER_FLOAT_HEIGHT + m.subjectCentreOffset, m.z);
+    out.set(m.x, ground + m.subjectCentreAboveGround, m.z);
     return true;
   }
 
@@ -1013,11 +1032,13 @@ export class IntroCameraFlightService {
   }
 
   /**
-   * Fold the HQ / spawn markers into the skyline profile at index `i`.
+   * Fold the HQ diamond and the spawn portal into the skyline profile at
+   * index `i`.
    *
    * They are overlay-group objects and therefore invisible to every raycast
-   * the profile is built from, but they are large and float 30 m up — the
-   * camera flew straight through the HQ diamond before this. Treating them as
+   * the profile is built from, but they are large (the diamond floats 30 m
+   * up, a portal stands up to PORTAL_MAX_TOP tall): the camera flew
+   * straight through the HQ diamond before this. Treating them as
    * skyline means the existing dilation lifts the camera well before it
    * arrives and the rate limiter brings it back down afterwards, no
    * special-casing in the flight logic.

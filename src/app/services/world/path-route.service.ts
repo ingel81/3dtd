@@ -1,5 +1,5 @@
 import { Injectable, WritableSignal, inject } from '@angular/core';
-import { Group, Vector3, Vector2 } from 'three';
+import { Vector3, Vector2 } from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
@@ -35,6 +35,17 @@ export interface PathfindingService {
   findPath(network: StreetNetwork, startLat: number, startLon: number, endLat: number, endLon: number): StreetNode[];
   haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number;
 }
+
+/**
+ * Told about each spawn's route when it is built: the route with its
+ * heights, and the route cell height at the start (scene Y), null while
+ * the cells are not built and the heights are a stand-in.
+ */
+export type SpawnRouteListener = (
+  spawnId: string,
+  route: readonly RouteWaypoint[],
+  startGroundY: number | null,
+) => void;
 
 interface LatLon {
   lat: number;
@@ -236,8 +247,8 @@ export class PathAndRouteService {
   /** Pathfinding service (OsmStreetService or DevStreetProvider) */
   private pathfindingService: PathfindingService | null = null;
 
-  /** Spawn markers for snap-to-path functionality */
-  private spawnMarkers: Group[] = [];
+  /** Told about every built route; the spawn portal stands on its start. */
+  private onRouteBuilt: SpawnRouteListener | null = null;
 
   // ========================================
   // INITIALIZATION
@@ -250,7 +261,7 @@ export class PathAndRouteService {
    * @param baseCoords Base/HQ coordinates
    * @param routesVisible Signal for routes visibility state
    * @param pathfindingService Service for pathfinding (OsmStreetService or DevStreetProvider)
-   * @param spawnMarkers Array of spawn markers for snapping
+   * @param onRouteBuilt Told about every built route, see SpawnRouteListener
    */
   initialize(
     engine: ThreeTilesEngine,
@@ -258,7 +269,7 @@ export class PathAndRouteService {
     baseCoords: GeoPosition,
     routesVisible: WritableSignal<boolean>,
     pathfindingService: PathfindingService,
-    spawnMarkers: Group[]
+    onRouteBuilt: SpawnRouteListener | null
   ): void {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
@@ -268,21 +279,13 @@ export class PathAndRouteService {
     this.baseCoords = baseCoords;
     this.routesVisible = routesVisible;
     this.pathfindingService = pathfindingService;
-    this.spawnMarkers = spawnMarkers;
+    this.onRouteBuilt = onRouteBuilt;
 
     // Diagnose-API für Playtests, analog zu `__rg`: in DevTools
     // `__routes.describe()` aufrufen, siehe describeRoutes().
     (globalThis as Record<string, unknown>)['__routes'] = {
       describe: () => console.table(this.describeRoutes()),
     };
-  }
-
-  /**
-   * Update spawn markers reference
-   * @param spawnMarkers Updated spawn markers array
-   */
-  updateSpawnMarkers(spawnMarkers: Group[]): void {
-    this.spawnMarkers = spawnMarkers;
   }
 
   /**
@@ -509,12 +512,6 @@ export class PathAndRouteService {
       return;
     }
 
-    // Snap spawn marker to actual path start
-    const pathStart = path[0];
-    if (pathStart) {
-      this.snapSpawnMarkerToPathStart(spawn.id, pathStart.lat, pathStart.lon);
-    }
-
     // Convert path to geoPath
     let geoPath = path.map((n) => ({ lat: n.lat, lon: n.lon }));
 
@@ -613,6 +610,7 @@ export class PathAndRouteService {
     // onTilesLoaded / grid init and snaps the line up to real heights.
     const cellsReady = this.globalRouteGrid.isInitialized();
     const pathWithHeights: RouteWaypoint[] = new Array(geoPath.length);
+    let startCellY: number | null = null;
 
     for (let i = 0; i < geoPath.length; i++) {
       const pos = geoPath[i];
@@ -622,6 +620,7 @@ export class PathAndRouteService {
       if (cellsReady) {
         cellY = this.globalRouteGrid.getGroundLocalYAt(local.x, local.z);
       }
+      if (i === 0) startCellY = cellY;
       const terrainY = cellY ?? fallbackTerrainY;
 
       // Line geometry: local frame, relative to origin's terrain Y, plus the
@@ -643,6 +642,9 @@ export class PathAndRouteService {
     }
 
     this.cachedPaths.set(spawn.id, pathWithHeights);
+
+    // The spawn portal stands on the route's first cell, facing along it
+    this.onRouteBuilt?.(spawn.id, pathWithHeights, startCellY);
 
     // Convert points to flat array for LineGeometry
     const positions: number[] = [];
@@ -1361,25 +1363,6 @@ export class PathAndRouteService {
     return [...geoPath, ...bestExtension];
   }
 
-  /**
-   * Snap spawn marker to actual path start position
-   * @param spawnId Spawn point ID
-   * @param lat Latitude
-   * @param lon Longitude
-   */
-  private snapSpawnMarkerToPathStart(spawnId: string, lat: number, lon: number): void {
-    if (!this.engine) return;
-
-    const marker = this.spawnMarkers.find((m) => m.name === `spawnMarker_${spawnId}`);
-    if (!marker) return;
-
-    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
-
-    // Keep same Y, only update X and Z to match path start
-    marker.position.x = local.x;
-    marker.position.z = local.z;
-  }
-
   // ========================================
   // DIAGNOSTICS
   // ========================================
@@ -1497,7 +1480,7 @@ export class PathAndRouteService {
     this.baseCoords = null;
     this.routesVisible = null;
     this.pathfindingService = null;
-    this.spawnMarkers = [];
+    this.onRouteBuilt = null;
   }
 
   /**
