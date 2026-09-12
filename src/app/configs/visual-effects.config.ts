@@ -86,10 +86,12 @@ export interface ScreenShakePreset {
  * Calibrated on the camera-offset shake used until 2026-09-12 (metres, so
  * its size on screen shrank with the camera distance): impacts match it
  * seen from 150 m, HQ damage and boss deaths from the 425 m start camera.
+ * Playtest 2026-09-12: 150 / 450 m reached too far, the shake has to fade
+ * out much sooner; now full up to 40 m, none from 100 m.
  */
 export const SCREEN_SHAKE_CONFIG = {
-  nearDistance: 150, // m, camera to impact
-  farDistance: 450,  // m
+  nearDistance: 40,  // m, camera to impact
+  farDistance: 100,  // m
   presets: {
     cannon:    { amplitude: 0.0025, duration: 150 },
     rocket:    { amplitude: 0.005,  duration: 200 },
