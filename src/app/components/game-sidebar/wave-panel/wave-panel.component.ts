@@ -24,7 +24,7 @@ import { WaveDebugService } from '../../../services/debug/wave-debug.service';
 import { EnemyDebugService } from '../../../services/debug/enemy-debug.service';
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
-import { enemyGroupTooltip } from '../sidebar-tooltips';
+import { enemyGroupTooltip, splitTraitLabel } from '../sidebar-tooltips';
 import { peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
 
@@ -121,6 +121,8 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   readonly upcomingWaves = computed(() => peekUpcomingWaves(this.store.waveNumber()));
 
   readonly groupTooltip = enemyGroupTooltip;
+  /** "Splits into 2 minions on death" under the armor line, null for a type that does not split. */
+  readonly splitTrait = splitTraitLabel;
 
   @ViewChildren('mixedEnemyCanvas') mixedEnemyCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
   private activeMixedPreviewIds: string[] = [];

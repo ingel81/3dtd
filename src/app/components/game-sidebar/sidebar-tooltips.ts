@@ -119,6 +119,17 @@ export function towerCardTooltip(
 }
 
 /**
+ * What a kill splits this enemy type into, for the wave panel and its
+ * tooltips: "Splits into 2 minions on death". Null for a type that does not
+ * split (EnemyTypeConfig.splitOnDeath).
+ */
+export function splitTraitLabel(enemyType: string): string | null {
+  const split = ENEMY_TYPES[enemyType]?.splitOnDeath;
+  if (!split) return null;
+  return `Splits into ${split.count} ${split.count === 1 ? 'minion' : 'minions'} on death`;
+}
+
+/**
  * Structured tooltip payload for the enemy-group rich tooltip.
  * Mirrors the tower-card tooltip layout, header (name + armor category),
  * 3-column stats (HP / SPEED / COUNT), and a "vs Damage" table sorted by
@@ -149,11 +160,14 @@ export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null
     }));
 
   // Surface wave-scaling multipliers as flavor when they differ from 1,
-  // so the player can see why HP/speed look inflated mid-run.
+  // so the player can see why HP/speed look inflated mid-run. A split
+  // comes first: it changes what the count means.
   const flavorParts: string[] = [];
   if (group.healthMultiplier !== 1) flavorParts.push(`HP ×${group.healthMultiplier.toFixed(1)}`);
   if (group.speedMultiplier !== 1) flavorParts.push(`Speed ×${group.speedMultiplier.toFixed(2)}`);
-  const flavor = flavorParts.length > 0 ? `Scaled: ${flavorParts.join(' · ')}` : undefined;
+  const scaled = flavorParts.length > 0 ? `Scaled: ${flavorParts.join(' · ')}` : null;
+  const lines = [splitTraitLabel(group.enemyType), scaled].filter((line): line is string => line !== null);
+  const flavor = lines.length > 0 ? lines.join('. ') : undefined;
 
   return {
     title: group.name,

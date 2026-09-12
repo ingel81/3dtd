@@ -1,6 +1,7 @@
 import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { EnemyTypeId, ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { templateObjectForWave } from '../../../configs/wave-curriculum.config';
+import { splitTraitLabel } from '../sidebar-tooltips';
 
 /** Eine Zeile der COMING-UP-Vorschau im WAVE-Panel. */
 export interface WavePeek {
@@ -9,6 +10,8 @@ export interface WavePeek {
   description: string;
   /** Armor-Glyphen der Gegnertypen, dazu ✈️, wenn Lufteinheiten dabei sind. */
   armorIcons: string;
+  /** Tooltip der Zeile: die Beschreibung, dazu, in was ein Kill Gegner der Welle teilt. */
+  tooltip: string;
 }
 
 /**
@@ -23,12 +26,15 @@ export function peekUpcomingWaves(currentWave: number): WavePeek[] {
     const t = templateObjectForWave(w);
     if (!t) continue;
     const armors = new Set<string>();
+    const traits: string[] = [];
     let hasAir = false;
     for (const [enemyId] of t.enemies) {
       const cfg = ENEMY_TYPES[enemyId as EnemyTypeId];
       if (!cfg) continue;
       armors.add(cfg.armorType);
       if (cfg.isAirUnit) hasAir = true;
+      const split = splitTraitLabel(enemyId);
+      if (split) traits.push(`${cfg.name}: ${split}.`);
     }
     const armorIcons = Array.from(armors)
       .map((a) => ARMOR_TYPE_UI[a as keyof typeof ARMOR_TYPE_UI]?.icon ?? '')
@@ -39,6 +45,7 @@ export function peekUpcomingWaves(currentWave: number): WavePeek[] {
       name: t.name,
       description: t.description,
       armorIcons,
+      tooltip: [t.description, ...traits].join(' '),
     });
   }
   return peeks;
