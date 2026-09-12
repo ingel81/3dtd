@@ -68,6 +68,37 @@ export const SCORCH_DECAL_CONFIG = {
 
 export type ScorchSource = keyof typeof SCORCH_DECAL_CONFIG.sources;
 
+/** Peak and length of one screen shake */
+export interface ScreenShakePreset {
+  /** Peak offset as a share of the view height (0.005 = about 5 px at 1080p) */
+  amplitude: number;
+  /** ms until the offset is back to 0, falling linearly */
+  duration: number;
+}
+
+/**
+ * Screen shake (ScreenShakeService picks, ThreeTilesEngine draws it as a
+ * screen-space offset of the projection). Impacts only shake near the
+ * camera: full strength up to nearDistance, none from farDistance on. HQ
+ * damage and boss deaths are game events rather than places and shake
+ * wherever they happen.
+ *
+ * Calibrated on the camera-offset shake used until 2026-09-12 (metres, so
+ * its size on screen shrank with the camera distance): impacts match it
+ * seen from 150 m, HQ damage and boss deaths from the 425 m start camera.
+ */
+export const SCREEN_SHAKE_CONFIG = {
+  nearDistance: 150, // m, camera to impact
+  farDistance: 450,  // m
+  presets: {
+    cannon:    { amplitude: 0.0025, duration: 150 },
+    rocket:    { amplitude: 0.005,  duration: 200 },
+    /** Times 0.5 to 2 for 5 to 20 HP lost */
+    hqDamage:  { amplitude: 0.0025, duration: 300 },
+    bossDeath: { amplitude: 0.004,  duration: 400 },
+  },
+} as const satisfies { nearDistance: number; farDistance: number; presets: Record<string, ScreenShakePreset> };
+
 /** Fire intensity presets */
 export const FIRE_INTENSITY = {
   tiny:    { count: 10,  radius: 1, duration: 3000 },

@@ -142,6 +142,11 @@ export class PerformanceProfilerService {
    * `__perf.stats()` returns the same numbers the panel shows; note they are
    * only collected while the panel is open, and that the sampled enemy timers
    * add a little cost of their own while it is.
+   *
+   * `__perf.shakeBench(seconds = 5)` measures the screen shake: no shake,
+   * shake running, camera moved every frame (the pre-2026-09-12 shake), each
+   * for `seconds`. Logs a table and resolves with its rows, see
+   * ThreeTilesEngine.runShakeBenchmark. Keep the camera still meanwhile.
    */
   private exposeDebugApi(): void {
     (globalThis as Record<string, unknown>)['__perf'] = {
@@ -151,6 +156,13 @@ export class PerformanceProfilerService {
       },
       isRendering: () => this.gameStore.renderingEnabled(),
       stats: () => this.stats(),
+      shakeBench: async (seconds = 5) => {
+        if (!this.engine) return null;
+        console.log(`[Perf] Shake benchmark: 3 phases of ${seconds} s, keep the camera still`);
+        const rows = await this.engine.runShakeBenchmark(seconds);
+        console.table(rows);
+        return rows;
+      },
     };
   }
 

@@ -305,7 +305,7 @@ bag.disposeAll();
 | `game-engine/vfx.service.ts` | ~153 | VFX Event Handler |
 | `game-engine/audio.service.ts` | ~61 | Audio Event Handler |
 | `game-engine/background-music.service.ts` | — | Phasen-basiertes Crossfade-System |
-| `game-engine/screen-shake.service.ts` | — | Camera-Shake auf VFX-Events |
+| `game-engine/screen-shake.service.ts` | — | Screen-Shake bei nahen Einschlägen, HQ-Schaden und Boss-Tod |
 | `game-engine/index.ts` | ~26 | Barrel Exports |
 | `components/debug-window/event-debugger.component.ts` | — | Debug Panel |
 
