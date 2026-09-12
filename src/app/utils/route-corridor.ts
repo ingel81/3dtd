@@ -40,6 +40,15 @@ export const LATERAL_EDGE_MARGIN_M = 1.5;
  */
 export const LATERAL_TAPER = 0.5;
 
+/** Spacing of the clearance stations along a route segment, metres. */
+export const CLEARANCE_STATION_SPACING_M = 2;
+
+/**
+ * Height of the clearance rays over the ground, metres: over parked cars,
+ * into facades and into tree crowns that reach down to the street.
+ */
+export const CLEARANCE_RAY_HEIGHT_M = 2;
+
 /** Where a street width came from, for the diagnostics. */
 export type StreetWidthSource = 'width' | 'lanes' | 'highway';
 
@@ -126,6 +135,62 @@ export function routeHalfWidths(ways: readonly (StreetWidthTags | null)[]): numb
     halfWidths.push(previous);
   }
   return halfWidths;
+}
+
+/** Largest (or smallest) known value among station `k` and its neighbours; NaN if none is known. */
+function windowExtreme(values: readonly number[], k: number, pick: (a: number, b: number) => number): number {
+  let result = NaN;
+  for (let j = Math.max(0, k - 1); j <= Math.min(values.length - 1, k + 1); j++) {
+    const v = values[j];
+    if (Number.isNaN(v)) continue;
+    result = Number.isNaN(result) ? v : pick(result, v);
+  }
+  return result;
+}
+
+/**
+ * Morphological closing over one station either side. A dip in the
+ * clearance shorter than three stations (a lamp post, a sign, a van) goes,
+ * a longer narrowing keeps its full length. NaN marks a station that could
+ * not be measured; it stays unknown and does not count for its neighbours.
+ */
+export function closeShortDips(values: readonly number[]): number[] {
+  const dilated = values.map((_, k) => windowExtreme(values, k, Math.max));
+  return dilated.map((_, k) => (Number.isNaN(values[k]) ? NaN : windowExtreme(dilated, k, Math.min)));
+}
+
+/** A stretch of a segment with its own half width, from `t` (0-1 along the segment) to the next piece. */
+export interface CorridorPiece {
+  t: number;
+  halfWidth: number;
+}
+
+/**
+ * Split a segment into stretches with the half width the tiles allow.
+ *
+ * `clearances` holds one measured free space per station, station `k` of
+ * `n` standing for `[k/n, (k+1)/n]` of the segment. Each station gets the
+ * street's half width, or the free space where that is less (after
+ * closeShortDips), never below two cells, rounded down to 0.5 m so a ragged
+ * facade does not split the segment at every station. Runs of equal width
+ * become one piece.
+ */
+export function clearancePieces(streetHalfWidth: number, clearances: readonly number[]): CorridorPiece[] {
+  const n = clearances.length;
+  const closed = closeShortDips(clearances);
+  const pieces: CorridorPiece[] = [];
+  for (let k = 0; k < n; k++) {
+    // A ray that hit nothing reports its full length, the street half width.
+    const clearance = closed[k];
+    const free = Number.isNaN(clearance) || clearance >= streetHalfWidth
+      ? streetHalfWidth
+      : Math.floor(clearance * 2) / 2;
+    const halfWidth = Math.min(streetHalfWidth, Math.max(CORRIDOR_MIN_HALF_WIDTH_M, free));
+    if (pieces.length === 0 || pieces[pieces.length - 1].halfWidth !== halfWidth) {
+      pieces.push({ t: k / n, halfWidth });
+    }
+  }
+  return pieces;
 }
 
 /** Half width of the segment that starts at `waypoint`. */

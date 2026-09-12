@@ -118,6 +118,14 @@ const TILE_LOD_DEBUG_MAX_ERROR = 20;
 const FRAME_WAIT_TIMEOUT_MS = 1000;
 
 /**
+ * Tiles coarser than this (geometric error, metres) do not count for the
+ * street clearance probe. During refinement a coarse ancestor hull stays
+ * active and averages street and facades into one lump, which a horizontal
+ * ray would hit right away. The corridor refines to this error.
+ */
+const CLEARANCE_MAX_TILE_ERROR = ROUTE_CORRIDOR_ERROR_TARGET;
+
+/**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
  *
  * Uses 3DTilesRendererJS (NASA JPL) to render Cesium Ion 3D Tiles
@@ -193,6 +201,12 @@ export class ThreeTilesEngine {
   private readonly _columnRayOrigin = new Vector3();
   private readonly _columnResults: Intersection[] = [];
   private readonly _columnHits: ColumnHit[] = [];
+
+  /** Raycaster for the horizontal street clearance probe, see measureStreetClearance. */
+  private readonly clearanceRaycaster = new Raycaster();
+  private readonly _clearanceOrigin = new Vector3();
+  private readonly _clearanceDirection = new Vector3();
+  private readonly _clearanceResults: Intersection[] = [];
 
   /**
    * Monotonic counter of loaded-tile-set changes. Every cached column sample
@@ -1035,6 +1049,54 @@ export class ThreeTilesEngine {
     }
 
     return selectColumnSample(this._columnHits);
+  }
+
+  /**
+   * Free space either side of a point on a street, for fitting the route
+   * corridor to the street the tiles show. Casts one horizontal ray each way
+   * along `acrossX, acrossZ`, `heightAboveGround` over the column's ground,
+   * and returns the nearer distance to a fine tile surface (facade, tree),
+   * capped at `maxDistance`.
+   *
+   * Only tiles at the corridor's refinement error count, for the column and
+   * for the hits, so a coarse hull still waiting for its children neither
+   * places the ray nor blocks it.
+   *
+   * @returns null where it cannot tell: in DevWorld (its roads are drawn at
+   *   the width the corridor already uses) or where no fine tile is loaded.
+   */
+  measureStreetClearance(
+    localX: number,
+    localZ: number,
+    acrossX: number,
+    acrossZ: number,
+    heightAboveGround: number,
+    maxDistance: number,
+  ): number | null {
+    if (this.devTerrainProvider || !this.tilesRenderer) return null;
+    const column = this.sampleColumn(localX, localZ);
+    if (!column || column.tileGeometricError > CLEARANCE_MAX_TILE_ERROR) return null;
+    const len = Math.hypot(acrossX, acrossZ);
+    if (len === 0) return null;
+
+    this._clearanceOrigin.set(localX, column.groundY + heightAboveGround, localZ);
+    let nearest = maxDistance;
+    for (const side of [1, -1]) {
+      this._clearanceDirection.set((side * acrossX) / len, 0, (side * acrossZ) / len);
+      this.clearanceRaycaster.set(this._clearanceOrigin, this._clearanceDirection);
+      this.clearanceRaycaster.far = nearest;
+      this._clearanceResults.length = 0;
+      this.clearanceRaycaster.intersectObject(this.tilesRenderer.group, true, this._clearanceResults);
+      // Sorted by distance: the first fine hit is the nearest one.
+      for (const r of this._clearanceResults) {
+        const tile = r.object.userData['tile'] as ActiveTile | undefined;
+        if ((tile?.internal?.depth ?? 0) === 0) continue;
+        if ((tile?.geometricError ?? Infinity) > CLEARANCE_MAX_TILE_ERROR) continue;
+        nearest = Math.min(nearest, r.distance);
+        break;
+      }
+    }
+    return nearest;
   }
 
   /** Quantised column key, 0.5 m grid, Szudzik pairing (negatives safe). */

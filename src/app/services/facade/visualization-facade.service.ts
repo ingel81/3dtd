@@ -480,6 +480,35 @@ export class VisualizationFacadeService {
     );
 
     await this.heightUpdate.scheduleOverlayHeightUpdate();
+    this.fitCorridorsToTiles();
+  }
+
+  /**
+   * Fit the route corridors to the street the tiles show, once they have
+   * loaded: measure the free space along every route and, where it is less
+   * than the street width says, rebuild the routes, their cells and the
+   * route line. Skipped while towers stand or enemies walk, since both hang
+   * on the cells a rebuild replaces.
+   */
+  private fitCorridorsToTiles(): void {
+    if (this.gameState.towerCount() > 0 || this.gameState.enemyManager.getAliveCount() > 0) return;
+    if (!this.pathRoute.measureStreetClearance()) return;
+
+    // Routes with the narrowed widths first, then the cells built from them,
+    // then the route line on the new cells' heights.
+    const spawns = this.store.spawnPoints();
+    const grid = this.gameState.getGlobalRouteGrid();
+    this.pathRoute.refreshRouteLines(spawns);
+    grid.clear();
+    this.gameState.initializeGlobalRouteGrid();
+    grid.updateTerrainHeights();
+    this.pathRoute.refreshRouteLines(spawns);
+    grid.initSpatialGridVisualizationIfEnabled();
+    grid.initAirSpatialGridVisualizationIfEnabled();
+    grid.initAirRouteLayerIfEnabled();
+    if (this.routeAnimation.isRunning()) {
+      this.routeAnimation.startAnimation(this.pathRoute.getCachedPaths(), spawns);
+    }
   }
 
   /**

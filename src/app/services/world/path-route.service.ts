@@ -7,7 +7,15 @@ import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import { StreetEdgeIndex } from '../../utils/route-ways';
-import { estimateStreetWidth, routeHalfWidths, segmentHalfWidth } from '../../utils/route-corridor';
+import {
+  CLEARANCE_RAY_HEIGHT_M,
+  CLEARANCE_STATION_SPACING_M,
+  CorridorPiece,
+  clearancePieces,
+  estimateStreetWidth,
+  routeHalfWidths,
+  segmentHalfWidth,
+} from '../../utils/route-corridor';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
@@ -22,6 +30,14 @@ export interface PathfindingService {
   findPath(network: StreetNetwork, startLat: number, startLon: number, endLat: number, endLon: number): StreetNode[];
   haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number;
 }
+
+interface LatLon {
+  lat: number;
+  lon: number;
+}
+
+/** Key of a directed route segment, for the clearance cache. */
+const segmentKey = (a: LatLon, b: LatLon) => `${a.lat},${a.lon}|${b.lat},${b.lon}`;
 
 /** `width=5 tunnel=building_passage` etc., for the diagnostics table. */
 function describeStreetTags(street: Street): string {
@@ -91,6 +107,19 @@ export class PathAndRouteService {
   /** Street lookup for route segments, built on first use per street network. */
   private edgeIndex: StreetEdgeIndex | null = null;
 
+  /**
+   * Each spawn's route as the street network gives it, before measured
+   * narrowings split its segments, with the street half width per segment.
+   * measureStreetClearance walks these.
+   */
+  private streetRoutes = new Map<string, { points: LatLon[]; halfWidths: number[] }>();
+
+  /**
+   * Corridor pieces the tiles allowed per street segment (segmentKey),
+   * measured once per location and applied on every route build.
+   */
+  private clearanceBySegment = new Map<string, CorridorPiece[]>();
+
 
   /** 3D route lines for visualization (using Line2 for proper line width) */
   private routeLines: Line2[] = [];
@@ -137,6 +166,8 @@ export class PathAndRouteService {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
     this.edgeIndex = null;
+    this.streetRoutes.clear();
+    this.clearanceBySegment.clear();
     this.baseCoords = baseCoords;
     this.routesVisible = routesVisible;
     this.pathfindingService = pathfindingService;
@@ -444,9 +475,14 @@ export class PathAndRouteService {
       geoPath = this.subdivideGeoPath(geoPath, 2);
     }
 
-    // Corridor half width per segment, from the street each one runs over.
+    // Corridor half width per segment, from the street each one runs over,
+    // then narrowed where the tiles showed less room (measureStreetClearance).
     // Cells and enemy spread read it off the cached waypoints.
-    const halfWidths = routeHalfWidths(this.getEdgeIndex(this.streetNetwork).match(geoPath));
+    const streetHalfWidths = routeHalfWidths(this.getEdgeIndex(this.streetNetwork).match(geoPath));
+    this.streetRoutes.set(spawn.id, { points: geoPath, halfWidths: streetHalfWidths });
+    const fitted = this.applyClearance(geoPath, streetHalfWidths);
+    geoPath = fitted.points;
+    const halfWidths = fitted.halfWidths;
 
     // Create route line in Three.js - on terrain with RELATIVE heights
     // DevWorld needs higher offset due to steep procedural terrain
@@ -525,6 +561,100 @@ export class PathAndRouteService {
 
     overlayGroup.add(routeLine);
     this.routeLines.push(routeLine);
+  }
+
+  /** Split the segments the tiles narrowed into their pieces, see clearancePieces. */
+  private applyClearance(points: LatLon[], halfWidths: number[]): { points: LatLon[]; halfWidths: number[] } {
+    if (this.clearanceBySegment.size === 0) return { points, halfWidths };
+
+    const fittedPoints: LatLon[] = [];
+    const fittedWidths: number[] = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      const pieces = this.clearanceBySegment.get(segmentKey(a, b));
+      if (!pieces || pieces.length === 0) {
+        fittedPoints.push(a);
+        fittedWidths.push(halfWidths[i]);
+        continue;
+      }
+      for (const piece of pieces) {
+        fittedPoints.push(piece.t === 0 ? a : { lat: a.lat + (b.lat - a.lat) * piece.t, lon: a.lon + (b.lon - a.lon) * piece.t });
+        fittedWidths.push(piece.halfWidth);
+      }
+    }
+    fittedPoints.push(points[points.length - 1]);
+    return { points: fittedPoints, halfWidths: fittedWidths };
+  }
+
+  /**
+   * Measure how much room the tiles leave either side of every route
+   * segment and remember where it is less than the street width, so the next
+   * route build fits the corridor to it. A station every 2 m with two
+   * horizontal rays (ThreeTilesEngine.measureStreetClearance); a station
+   * without fine tiles keeps the street width. Segments measured before are
+   * skipped, segments nothing could be measured on are tried again next time.
+   *
+   * Meant to run once per location, when the corridor tiles have loaded:
+   * the grid is rebuilt from the result, so it must not run under placed
+   * towers.
+   *
+   * @returns true when a segment came out narrower than its street, i.e.
+   *   routes and grid need a rebuild
+   */
+  measureStreetClearance(): boolean {
+    const engine = this.engine;
+    if (!engine) return false;
+
+    const t0 = performance.now();
+    let segments = 0;
+    let stations = 0;
+    let unmeasured = 0;
+    let narrowed = 0;
+
+    for (const { points, halfWidths } of this.streetRoutes.values()) {
+      for (let i = 0; i < points.length - 1; i++) {
+        const a = points[i];
+        const b = points[i + 1];
+        const key = segmentKey(a, b);
+        if (this.clearanceBySegment.has(key)) continue;
+
+        const start = engine.sync.geoToLocalSimple(a.lat, a.lon, 0);
+        const end = engine.sync.geoToLocalSimple(b.lat, b.lon, 0);
+        const dx = end.x - start.x;
+        const dz = end.z - start.z;
+        const length = Math.hypot(dx, dz);
+        if (length < 0.01) continue;
+
+        const count = Math.max(1, Math.round(length / CLEARANCE_STATION_SPACING_M));
+        const clearances: number[] = [];
+        let measured = 0;
+        for (let k = 0; k < count; k++) {
+          const t = (k + 0.5) / count;
+          const clearance = engine.measureStreetClearance(
+            start.x + dx * t, start.z + dz * t, -dz, dx, CLEARANCE_RAY_HEIGHT_M, halfWidths[i],
+          );
+          clearances.push(clearance ?? NaN);
+          if (clearance !== null) measured++;
+        }
+        segments++;
+        stations += count;
+        unmeasured += count - measured;
+        if (measured === 0) continue;
+
+        const pieces = clearancePieces(halfWidths[i], clearances);
+        this.clearanceBySegment.set(key, pieces);
+        if (pieces.some((piece) => piece.halfWidth < halfWidths[i])) narrowed++;
+      }
+    }
+
+    if (segments > 0) {
+      console.warn(
+        `[Corridor] clearance: segments=${segments} stations=${stations} unmeasured=${unmeasured} ` +
+        `rays=${2 * (stations - unmeasured)} narrowed=${narrowed} in ${(performance.now() - t0).toFixed(1)}ms`,
+      );
+    }
+    return narrowed > 0;
   }
 
   /**
@@ -1037,6 +1167,8 @@ export class PathAndRouteService {
     this.engine = null;
     this.streetNetwork = null;
     this.edgeIndex = null;
+    this.streetRoutes.clear();
+    this.clearanceBySegment.clear();
     this.baseCoords = null;
     this.routesVisible = null;
     this.pathfindingService = null;
