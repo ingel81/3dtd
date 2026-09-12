@@ -28,6 +28,11 @@ describe('researchStatus', () => {
     expect(researchStatus('gatling-tech', done('gatling-tech'), [running('gatling-tech')])).toBe('completed');
   });
 
+  it('reports a queued research as queued until it runs', () => {
+    expect(researchStatus('gatling-tech', done(), [], ['gatling-tech'])).toBe('queued');
+    expect(researchStatus('gatling-tech', done(), [running('gatling-tech')], ['gatling-tech'])).toBe('active');
+  });
+
   it('locks an unknown research', () => {
     expect(researchStatus('nope' as ResearchId, done(), [])).toBe('locked');
   });
@@ -39,6 +44,7 @@ describe('researchNodeIcon', () => {
   it('shows the status icon, and the research icon while available', () => {
     expect(researchNodeIcon(gatling, 'completed')).toBe('check');
     expect(researchNodeIcon(gatling, 'active')).toBe('refresh');
+    expect(researchNodeIcon(gatling, 'queued')).toBe('layers');
     expect(researchNodeIcon(gatling, 'locked')).toBe('lock');
     expect(researchNodeIcon(gatling, 'available')).toBe('speed');
   });

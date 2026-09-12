@@ -275,12 +275,14 @@ describe('GameStateSyncService (real service)', () => {
           { researchId: 'ice-magic', startTime: 0, duration: 15, elapsed: 5, cost: 40 },
         ],
         completedResearches: completed,
+        queuedResearches: ['arcane-studies'],
         centerLevel: 2,
         maxSlots: 3,
       });
 
       expect(researchStore.completedResearches().has('gatling-tech')).toBe(true);
       expect(researchStore.activeResearches().length).toBe(1);
+      expect(researchStore.queuedResearches()).toEqual(['arcane-studies']);
       expect(researchStore.centerLevel()).toBe(2);
       expect(researchStore.researchSlots()).toBe(3);
       expect(researchStore.researchElapsed().get('ice-magic')).toBe(5);

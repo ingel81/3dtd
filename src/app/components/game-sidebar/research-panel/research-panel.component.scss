@@ -119,3 +119,47 @@
   opacity: 0.4;
 }
 .td-research-locked .td-research-node-icon { color: var(--td-text-muted); }
+
+/* Queue: waits for a slot and the credits, starts by itself in this order */
+.td-research-queue-count { color: var(--td-text-tertiary); margin-left: 4px; }
+.td-research-queue { margin-bottom: 6px; }
+.td-research-queue-note {
+  margin: 2px 0 4px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--td-text-muted);
+}
+.td-research-queued {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  margin-bottom: 3px;
+  background: var(--td-panel-secondary);
+  border: 1px dashed var(--td-frame-mid);
+  border-radius: 3px;
+  font-size: 10px;
+}
+.td-research-queued-pos {
+  width: 10px;
+  color: var(--td-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.td-research-queued-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--td-text-secondary);
+}
+.td-research-queued-cost {
+  color: var(--td-gold);
+  font-variant-numeric: tabular-nums;
+}
+/* Not enough credits yet: the queue waits here */
+.td-research-queued-cost.td-short { color: var(--td-text-disabled); }
+.td-research-queued-node { border-style: dashed; border-color: var(--td-teal-dark); }
+.td-research-queued-node .td-research-node-icon { color: var(--td-teal-dark); }
+.td-research-queue-hint { color: var(--td-teal); }

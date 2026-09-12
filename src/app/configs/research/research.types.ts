@@ -61,4 +61,6 @@ export interface ResearchSaveState {
   active: { researchId: ResearchId; elapsed: number }[];
   slots: number;
   centerLevel: number;
+  /** Queue in start order; absent in states saved before the queue existed */
+  queued?: ResearchId[];
 }

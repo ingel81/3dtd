@@ -145,6 +145,8 @@ export type GameEvent =
       type: 'research:state-changed';
       activeResearches: import('../configs/research/research.types').ActiveResearch[];
       completedResearches: Set<import('../configs/research/research.types').ResearchId>;
+      /** Waiting for a slot and the credits, in start order */
+      queuedResearches: import('../configs/research/research.types').ResearchId[];
       centerLevel: number;
       maxSlots: number;
     }
@@ -162,6 +164,16 @@ export type GameEvent =
     }
   | {
       type: 'command:cancel-research';
+      researchId: string;
+    }
+  | {
+      // Player UI only: bots start researches with command:start-research,
+      // which still refuses when every slot is busy.
+      type: 'command:queue-research';
+      researchId: string;
+    }
+  | {
+      type: 'command:unqueue-research';
       researchId: string;
     }
 

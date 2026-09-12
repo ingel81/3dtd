@@ -54,7 +54,7 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `research:started` | ResearchManager | kein Listener (nur Event-Debugger über `onAny`) | Forschung gestartet (`researchId`, `cost`, `duration`) |
 | `research:completed` | ResearchManager (auch `completeAllResearch()`) | GameStateSyncService (`applyResearchEffects`), GameStateManager (LOS-Neuberechnung, wenn Air-Targeting frei wird) | Forschung fertig (`researchId`, `effects`) |
 | `research:cancelled` | ResearchManager | kein Listener (nur Event-Debugger über `onAny`) | Forschung abgebrochen (`researchId`, `refund`) |
-| `research:state-changed` | ResearchManager | GameStateSyncService | **Snapshot-Event** nach jeder Research-Mutation (`activeResearches`, `completedResearches`, `centerLevel`, `maxSlots`). Single Source of Truth fuer Store-Sync — ersetzt 2026-05-10 das direkte `syncResearchStoreState()`-Polling aus dem GameStateManager. |
+| `research:state-changed` | ResearchManager | GameStateSyncService | **Snapshot-Event** nach jeder Research-Mutation (`activeResearches`, `completedResearches`, `queuedResearches`, `centerLevel`, `maxSlots`). Single Source of Truth fuer Store-Sync — ersetzt 2026-05-10 das direkte `syncResearchStoreState()`-Polling aus dem GameStateManager. |
 | `research:progress` | ResearchManager | GameStateSyncService | Vergangene Spielzeit je laufender Forschung (`elapsed`), höchstens alle 100 ms Wanduhr. Füllt `ResearchStore.researchElapsed`, das den Fortschrittsbalken treibt |
 
 ### Deferred Events (nicht-kritisch, queued)
@@ -121,6 +121,8 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `command:restart-game` | GameLoopFacade | GameCommandsHandler → GameStateManager.reset() | Spiel neu starten |
 | `command:start-research` | TowerDefenseComponent (`facade.emitCommand`), TrainingSession | GameCommandsHandler → ResearchManager | Forschung starten (`researchId`) |
 | `command:cancel-research` | TowerDefenseComponent (`facade.emitCommand`), TrainingSession | GameCommandsHandler → ResearchManager | Forschung abbrechen (`researchId`) |
+| `command:queue-research` | TowerDefenseComponent (nur Spieler) | GameCommandsHandler → ResearchManager | In die Warteschlange (`researchId`), kostet nichts. Gestartet und bezahlt wird im Sub-Step nach `update()` (`ResearchManager.startQueued`), sobald ein Slot frei ist und das Gold reicht; der Kopf der Schlange wartet, nichts dahinter überholt. Bots nutzen weiter `command:start-research`, das bei vollen Slots ablehnt |
+| `command:unqueue-research` | TowerDefenseComponent | GameCommandsHandler → ResearchManager | Aus der Warteschlange nehmen (`researchId`), keine Erstattung, weil nichts bezahlt war |
 
 ---
 

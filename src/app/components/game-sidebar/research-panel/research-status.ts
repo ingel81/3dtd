@@ -1,16 +1,18 @@
 import { getResearch } from '../../../configs/research/research-tree.config';
 import { ActiveResearch, ResearchConfig, ResearchId } from '../../../configs/research/research.types';
 
-export type ResearchStatus = 'completed' | 'active' | 'available' | 'locked';
+export type ResearchStatus = 'completed' | 'active' | 'queued' | 'available' | 'locked';
 
 /** Status eines Knotens im Forschungsbaum, abgeleitet aus dem Research-Store. */
 export function researchStatus(
   id: ResearchId,
   completed: ReadonlySet<ResearchId>,
   active: readonly ActiveResearch[],
+  queued: readonly ResearchId[] = [],
 ): ResearchStatus {
   if (completed.has(id)) return 'completed';
   if (active.some(a => a.researchId === id)) return 'active';
+  if (queued.includes(id)) return 'queued';
   const config = getResearch(id);
   if (!config) return 'locked';
   const allPrereqsMet = config.prerequisites.every(p => completed.has(p));
@@ -24,6 +26,7 @@ export function researchStatus(
 export function researchNodeIcon(research: ResearchConfig, status: ResearchStatus): string {
   if (status === 'completed') return 'check';
   if (status === 'active') return 'refresh';
+  if (status === 'queued') return 'layers';
   if (status === 'locked') return 'lock';
   return research.icon; // td-icon name set in research-tree.config
 }

@@ -117,6 +117,7 @@ function createStubService(name: string): Record<string, unknown> {
 
 import { GameStateManager } from './game-state.manager';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { getResearch } from '../configs/research/research-tree.config';
 import { GameEventBus } from '../game-engine';
 
 function getEventBus(gsm: GameStateManager): GameEventBus {
@@ -389,6 +390,55 @@ describe('GameStateManager', () => {
         // the unlock in a research:completed handler subscribed after this one.
         expect(placement['scheduleLosRecompute'].mock.calls).toEqual([[gatling]]);
         expect(placement['recomputeTowerLOS']).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('research queue', () => {
+      it('starts a queued research in the sub-step a slot frees, paid only then', () => {
+        const first = getResearch('gatling-tech')!;
+        const queued = getResearch('ice-magic')!;
+        gsm.addCredits(first.cost + queued.cost);
+        gsm.researchManager.onCenterPlaced(); // 1 slot
+        bus.emit({ type: 'command:start-research', researchId: first.id });
+        const afterStart = gsm.credits();
+
+        bus.emit({ type: 'command:queue-research', researchId: queued.id });
+        expect(gsm.credits()).toBe(afterStart);
+
+        // Run the game clock past the first research at the training speed
+        gsm.setTrainingTimescale(75, false);
+        let t = 1;
+        gsm.update(t, undefined);
+        while (!gsm.researchManager.isCompleted(first.id) && t < 10_000) {
+          t += 50;
+          gsm.update(t, undefined);
+        }
+
+        expect(gsm.researchManager.isActive(queued.id)).toBe(true);
+        expect(gsm.credits()).toBe(afterStart - queued.cost);
+      });
+
+      it('does not start anything from the queue while paused', () => {
+        gsm.addCredits(1000);
+        gsm.researchManager.onCenterPlaced();
+        bus.emit({ type: 'command:queue-research', researchId: 'ice-magic' });
+        gsm.paused.set(true);
+        gsm.update(1, undefined);
+        gsm.update(100, undefined);
+        expect(gsm.researchManager.isActive('ice-magic')).toBe(false);
+
+        gsm.paused.set(false);
+        gsm.update(117, undefined);
+        expect(gsm.researchManager.isActive('ice-magic')).toBe(true);
+      });
+
+      it('leaves command:start-research as it was: refused when every slot is busy', () => {
+        gsm.addCredits(1000);
+        gsm.researchManager.onCenterPlaced();
+        bus.emit({ type: 'command:start-research', researchId: 'gatling-tech' });
+        bus.emit({ type: 'command:start-research', researchId: 'ice-magic' });
+        expect(gsm.researchManager.isActive('ice-magic')).toBe(false);
+        expect(gsm.researchManager.getQueuedResearches()).toEqual([]);
       });
     });
 
