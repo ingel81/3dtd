@@ -160,6 +160,16 @@ describe('HotkeyService', () => {
       expect(facade.startWave).not.toHaveBeenCalled();
     });
 
+    it('takes Space on a focused checkbox, it only toggles on click', () => {
+      const event = press(' ');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      Object.defineProperty(event, 'target', { value: checkbox });
+      service.handleKeyDown(event);
+      expect(facade.startWave).toHaveBeenCalledTimes(1);
+      expect(event.defaultPrevented).toBe(true);
+    });
+
     it('ignores keys while a dialog is open and while loading', () => {
       openDialogs = [{}];
       service.handleKeyDown(press(' '));
