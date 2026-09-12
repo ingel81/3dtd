@@ -80,43 +80,45 @@
         <!-- Compass Overlay -->
         <app-compass [rotation]="compassRotation()" (resetBearing)="resetCamera()" />
 
-        <!-- Debug Windows (draggable) -->
-        <app-camera-debugger />
-        <app-devworld-debugger [isRegenerating]="isDevWorldRegenerating()" (terrainRefresh)="refreshTerrainHeights()" />
-        <app-wave-debugger [eventBus]="gameState.getEventBus()" />
-        <app-sound-debugger />
-        <app-event-debugger [eventBus]="gameState.getEventBus()" />
-        <app-training-debugger
-          [botEnabled]="botEnabled()"
-          [botSkillLevel]="botSkillLevel()"
-          [botStats]="botStats()"
-          [onEnableBot]="enableBot"
-          [onDisableBot]="disableBot"
-          (dpsBinsToggled)="onDpsBinsToggled($event)"
-        />
-        <app-tower-debugger />
-        <app-enemy-debugger
-          (removeEnemy)="enemyDebug.onRemoveDebugEnemy($event)"
-          (clearAllEnemies)="enemyDebug.onClearDebugEnemies()"
-          (playWalk)="enemyDebug.onPlayWalkAnimation($event)"
-          (playRun)="enemyDebug.onPlayRunAnimation($event)"
-          (startMovement)="enemyDebug.onStartEnemyMovement($event)"
-          (stopMovement)="enemyDebug.onStopEnemyMovement($event)"
-        />
-        <app-performance-debugger />
-        <app-los-debugger />
-        <app-display-options
-          (enemiesToggled)="debugFacade.onEnemiesToggled($event)"
-          (healthBarsToggled)="debugFacade.onHealthBarsToggled($event)"
-          (animationsToggled)="debugFacade.onAnimationsToggled($event)"
-          (movementToggled)="debugFacade.onMovementToggled($event)"
-          (texturesToggled)="debugFacade.onTexturesToggled($event)"
-          (skeletonCloningToggled)="debugFacade.onSkeletonCloningToggled($event)"
-          (alphaBlendToggled)="debugFacade.onAlphaBlendToggled($event)"
-          (colorGradingChanged)="debugFacade.onColorGradingChanged($event)"
-          (screenShakeToggled)="debugFacade.onScreenShakeToggled($event)"
-          (tileLodDebugToggled)="debugFacade.onTileLodDebugToggled($event)"
-        />
+        <!-- Debug Windows (draggable), one lazy chunk, see debugWindowsRequested -->
+        @defer (when debugWindowsRequested()) {
+          <app-camera-debugger />
+          <app-devworld-debugger [isRegenerating]="isDevWorldRegenerating()" (terrainRefresh)="refreshTerrainHeights()" />
+          <app-wave-debugger [eventBus]="gameState.getEventBus()" />
+          <app-sound-debugger />
+          <app-event-debugger [eventBus]="gameState.getEventBus()" />
+          <app-training-debugger
+            [botEnabled]="botEnabled()"
+            [botSkillLevel]="botSkillLevel()"
+            [botStats]="botStats()"
+            [onEnableBot]="enableBot"
+            [onDisableBot]="disableBot"
+            (dpsBinsToggled)="onDpsBinsToggled($event)"
+          />
+          <app-tower-debugger />
+          <app-enemy-debugger
+            (removeEnemy)="enemyDebug.onRemoveDebugEnemy($event)"
+            (clearAllEnemies)="enemyDebug.onClearDebugEnemies()"
+            (playWalk)="enemyDebug.onPlayWalkAnimation($event)"
+            (playRun)="enemyDebug.onPlayRunAnimation($event)"
+            (startMovement)="enemyDebug.onStartEnemyMovement($event)"
+            (stopMovement)="enemyDebug.onStopEnemyMovement($event)"
+          />
+          <app-performance-debugger />
+          <app-los-debugger />
+          <app-display-options
+            (enemiesToggled)="debugFacade.onEnemiesToggled($event)"
+            (healthBarsToggled)="debugFacade.onHealthBarsToggled($event)"
+            (animationsToggled)="debugFacade.onAnimationsToggled($event)"
+            (movementToggled)="debugFacade.onMovementToggled($event)"
+            (texturesToggled)="debugFacade.onTexturesToggled($event)"
+            (skeletonCloningToggled)="debugFacade.onSkeletonCloningToggled($event)"
+            (alphaBlendToggled)="debugFacade.onAlphaBlendToggled($event)"
+            (colorGradingChanged)="debugFacade.onColorGradingChanged($event)"
+            (screenShakeToggled)="debugFacade.onScreenShakeToggled($event)"
+            (tileLodDebugToggled)="debugFacade.onTileLodDebugToggled($event)"
+          />
+        }
 
         <!-- Info Overlay (top left) -->
         <app-info-overlay
