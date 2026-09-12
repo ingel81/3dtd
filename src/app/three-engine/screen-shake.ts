@@ -33,10 +33,6 @@ export class ScreenShake {
     }
     return this.amplitude * (1 - Math.max(0, t));
   }
-
-  reset(): void {
-    this.amplitude = 0;
-  }
 }
 
 /**

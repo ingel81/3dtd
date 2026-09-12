@@ -23,13 +23,6 @@ describe('ScreenShake', () => {
     shake.trigger(0.008, 400, 350); // stronger than the 0.003 left
     expect(shake.amplitudeAt(550)).toBeCloseTo(0.004);
   });
-
-  it('stops at once on reset', () => {
-    const shake = new ScreenShake();
-    shake.trigger(0.01, 200, 0);
-    shake.reset();
-    expect(shake.amplitudeAt(10)).toBe(0);
-  });
 });
 
 describe('offsetProjection', () => {
