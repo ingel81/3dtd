@@ -3,6 +3,15 @@ import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationStore } from '../../store/location.store';
 import { UIStore } from '../../store/ui.store';
 import type { RouteCellDump, RouteGridSampleStats } from '../../utils/route-grid-diagnostics';
+import { CameraControlService } from '../camera-control.service';
+import { CameraFramingService, type CameraFrame } from '../camera-framing.service';
+import { IntroCameraFlightService, type FlightDebugState } from '../world/intro-camera-flight.service';
+import {
+  cameraTimeline,
+  type CameraLens,
+  type CameraPose,
+  type CameraTimelineEntry,
+} from '../../utils/camera-timeline';
 
 /**
  * Builds a structured JSON snapshot of currently-interesting engine state
@@ -19,6 +28,9 @@ export class DebugStateDumpService {
   private readonly routeGrid = inject(GlobalRouteGridService);
   private readonly locationStore = inject(LocationStore);
   private readonly uiStore = inject(UIStore);
+  private readonly cameraControl = inject(CameraControlService);
+  private readonly cameraFraming = inject(CameraFramingService);
+  private readonly introFlight = inject(IntroCameraFlightService);
 
   /** Build the snapshot and trigger a browser download. */
   dumpAndDownload(): void {
@@ -69,6 +81,16 @@ export class DebugStateDumpService {
         sampleStats: grid.dumpStats(),
         outliers20m: grid.dumpOutliers(20),
       },
+      camera: {
+        now: cameraTimeline.pose(),
+        lens: cameraTimeline.lens(),
+        viewport: { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio },
+        initialView: this.cameraControl.getInitialView(),
+        lastFrame: this.cameraFraming.getLastFrame(),
+        intro: this.introFlight.debugState(),
+        introTrace: this.introFlight.traceCsv(),
+        timeline: cameraTimeline.list(),
+      },
     };
   }
 
@@ -83,6 +105,12 @@ export class DebugStateDumpService {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
+}
+
+interface Point3 {
+  x: number;
+  y: number;
+  z: number;
 }
 
 export interface StateSnapshot {
@@ -103,5 +131,17 @@ export interface StateSnapshot {
     gridStats: { totalCells: number; trackedEnemies: number; occupiedCells: number };
     sampleStats: RouteGridSampleStats;
     outliers20m: RouteCellDump[];
+  };
+  /** Intro flight, overview frame and every camera setter since page load. */
+  camera: {
+    now: CameraPose | null;
+    lens: CameraLens | null;
+    viewport: { width: number; height: number; dpr: number };
+    initialView: { position: Point3; target: Point3 } | null;
+    lastFrame: CameraFrame | null;
+    intro: FlightDebugState;
+    /** CSV, one row per 0.1 s of the last intro run. */
+    introTrace: string;
+    timeline: readonly CameraTimelineEntry[];
   };
 }

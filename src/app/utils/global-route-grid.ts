@@ -1134,6 +1134,19 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * getGroundLocalYAt() with the tile error behind it: a sampled cell's
+   * height and the geometric error of the tile it came from, or the
+   * neighbour estimate with an infinite error. For callers that have to tell
+   * a fine-tile height from a coarse one (the overview frame).
+   */
+  getGroundSampleAt(localX: number, localZ: number): { y: number; tileError: number } | null {
+    const cell = this.cells.get(this.intCellKey(this.cellIndex(localX), this.cellIndex(localZ)));
+    if (cell && cell.heightSampled) return { y: cell.terrainHeight, tileError: cell.sample.tileGeometricError };
+    const y = this.estimateTerrainY(localX, localZ);
+    return y === null ? null : { y, tileError: Infinity };
+  }
+
+  /**
    * getGroundLocalYAt() for an enemy whose position was just passed to
    * updateEnemyPosition(): reuses the cell that call looked up instead of
    * probing `cells` again. The memo holds `cells.get(key)` from the current

@@ -1,5 +1,6 @@
 import { Object3D, PerspectiveCamera, Scene } from 'three';
 import { GlobeControls, EnvironmentControls, type TilesRenderer } from '3d-tiles-renderer';
+import { cameraTimeline } from '../utils/camera-timeline';
 
 /**
  * CameraRig: Controls und Startposition der Engine-Kamera.
@@ -22,7 +23,9 @@ export class CameraRig {
   constructor(
     private readonly camera: PerspectiveCamera,
     private readonly canvas: HTMLCanvasElement,
-  ) {}
+  ) {
+    cameraTimeline.attach(camera);
+  }
 
   /**
    * GlobeControls für den Tiles-Pfad. Wird in `initialize()` aufgerufen, nachdem die
@@ -108,6 +111,7 @@ export class CameraRig {
   private applyStartPosition(): void {
     this.camera.position.set(0, 400, -145); // ~70° angle, looking north
     this.camera.lookAt(0, 0, 0);
+    cameraTimeline.record('camera.startPosition');
   }
 
   /**
@@ -133,6 +137,7 @@ export class CameraRig {
   setLocalPosition(x: number, y: number, z: number, targetX: number, targetY: number, targetZ: number): void {
     this.camera.position.set(x, y, z);
     this.camera.lookAt(targetX, targetY, targetZ);
+    cameraTimeline.record('camera.set', { target: [targetX, targetY, targetZ] }, true);
   }
 
   /** GlobeControls im Tiles-Pfad, EnvironmentControls in DevWorld, null vor dem Setup und nach dispose(). */

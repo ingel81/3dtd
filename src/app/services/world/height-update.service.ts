@@ -2,6 +2,7 @@ import { Injectable, signal, WritableSignal } from '@angular/core';
 import { Group, Vector3 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition } from '../../models/game.types';
+import { cameraTimeline } from '../../utils/camera-timeline';
 
 /**
  * HeightUpdateService
@@ -128,6 +129,7 @@ export class HeightUpdateService {
    * @returns Promise that resolves when heights are stable
    */
   scheduleOverlayHeightUpdate(): Promise<void> {
+    cameraTimeline.record('heights.schedule', { alreadyRunning: this.heightUpdateIntervalId !== null });
     // Reset counters for fresh location
     this.heightUpdateAttempts = 0;
     this.overlayHeightsUpdated = false;
@@ -217,6 +219,7 @@ export class HeightUpdateService {
 
     // Only run callbacks if there was an active height update cycle
     const hadActiveInterval = this.heightUpdateIntervalId !== null;
+    cameraTimeline.record('heights.stop', { hadActiveInterval, attempts: this.heightUpdateAttempts }, true);
 
     if (this.heightUpdateIntervalId) {
       clearInterval(this.heightUpdateIntervalId);
