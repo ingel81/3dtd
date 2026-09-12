@@ -134,7 +134,17 @@ export class GlobalRouteGrid {
   private coordinateSync: CoordinateSync | null = null;
 
   /** Aggregat-Debug-Viz (`grid` / `gridAir`), liest dieselbe Cell-Map. */
-  private readonly aggregateViz = new RouteGridAggregateViz(this.cells, this.CELL_SIZE);
+  private readonly aggregateViz = new RouteGridAggregateViz(this.cells, this.CELL_SIZE, (cell) => this.overlayHeight(cell));
+
+  /**
+   * Height the overlay draws a cell at: its sample, or for a cell without
+   * one the median of its sampled neighbours, so it shows beside the others
+   * instead of at the route anchor, which can be far off.
+   */
+  private overlayHeight(cell: RouteCell): number {
+    if (cell.heightSampled) return cell.terrainHeight;
+    return this.estimateTerrainY(cell.x, cell.z) ?? cell.terrainHeight;
+  }
 
   /**
    * Median `terrainHeight` of the 8 adjacent stable cells. Returns `null`

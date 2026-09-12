@@ -330,6 +330,17 @@ der Konsole steht danach je Rasterstelle im Umkreis von 4 m
 `heightM`, `clamped`, `aboveNeighboursM`, `surface`, `ground`/`air` (Antwort
 des ausgewählten Towers) und `displayed` (zeichnet seine Anzeige die Zelle).
 
+**Mit dem Route Grid Overlay.** Layer "Route Grid Overlay" einschalten. Es
+zeichnet jede Zelle des Grids, auch die ohne Höhenprobe, mit einer Kontur
+nach ihrem Zustand: weiß normal, orange vom Dach-Check auf den Boden
+gesetzt, blau auf einem Brückendeck, rosa ohne Höhenprobe. Zellen der
+Mittellinie sind etwas heller. Fehlt eine Zelle auch im Overlay, gibt es sie
+nicht. Ist sie im Overlay da, aber rosa, fehlt ihr die Höhenprobe, und die
+LOS-Anzeige eines Towers lässt sie deshalb aus. Ist sie normal da und fehlt
+nur in der Tower-Anzeige, ist diese veraltet (`notDisplayed` in
+`__corridor.towerCells()`). Farben und Deckkraft stehen in
+`LOS_VIZ_CONFIG.gridOverlay`.
+
 **Zweiter Befund: eine ganze Reihe entlang der roten Linie.** Auf einer
 schrägen, freien, flachen Straße fehlte in der Anzeige genau die Reihe, durch
 die die rote Linie läuft, über mehrere Zellen; links und rechts standen je

@@ -93,11 +93,43 @@ export const LOS_VIZ_CONFIG = {
    */
   globalStates: {
     /** Cell von keinem Tower in Range / aktiv abgedeckt. */
-    uncovered:     { color: new Color(0x9999a1), alpha: 0.15 } as StateAppearance,
+    uncovered:     { color: new Color(0x9999a1), alpha: 0.35 } as StateAppearance,
     /** Enemy in Cell, aber kein Tower sieht ihn. */
     enemyInCell:   { color: new Color(0x8c59bf), alpha: 0.55 } as StateAppearance,
     /** Enemy in Cell + mindestens ein Tower sieht die Cell. */
     enemyVisible:  { color: new Color(0xd9b840), alpha: 0.65 } as StateAppearance,
+  },
+
+  /**
+   * Route Grid Overlay (Layer "Route Grid Overlay" und "Air Route Grid
+   * Overlay", `route-grid-aggregate-viz.ts`): die Fläche jeder Zelle nach
+   * Coverage (grau `globalStates.uncovered`, sonst Layer-Farbe), dazu eine
+   * Kontur, deren Farbe den Zustand der Zelle zeigt. Gezeichnet wird jede
+   * Zelle des Grids, auch ohne Höhenprobe. Legende im Tooltip der
+   * Layer-Buttons (`quick-actions.component.ts`).
+   */
+  gridOverlay: {
+    /** Plattenbreite als Anteil der Zellgröße, der Rest bleibt als Fuge. */
+    plateScale: 0.9,
+    /** Deckkraft der Fläche einer Zelle, die ein Tower abdeckt (Layer-Farbe). */
+    coveredAlpha: 0.6,
+    /** Zusätzliche Deckkraft der Fläche für Zellen, durch die die Mittellinie läuft. */
+    centreAlphaBoost: 0.12,
+    /** Konturbreite in Metern; nie schmaler als 1,5 Pixel. */
+    borderWidthMeters: 0.1,
+    /** Deckkraft der Kontur. */
+    borderAlpha: 0.85,
+    /** Konturfarbe je Zustand der Zelle (Okabe-Ito, sRGB-Hex). */
+    borders: {
+      /** Zelle mit Höhenprobe am Boden. */
+      normal: new Color(0xf0f0f0),
+      /** Dach-Check: die Säule traf ein Dach oder eine Krone, die Zelle steht am Boden daneben. */
+      clamped: new Color(0xe69f00),
+      /** Auf einem Brückendeck. */
+      deck: new Color(0x56b4e9),
+      /** Ohne Höhenprobe, nur Ersatzhöhe. Die LOS-Anzeige eines Towers zeichnet sie nicht. */
+      unsampled: new Color(0xcc79a7),
+    },
   },
 
   /** Plattendicke der Cell-Mesh (m). 0.02 = kaum sichtbare Höhe. */

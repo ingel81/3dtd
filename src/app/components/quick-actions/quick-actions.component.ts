@@ -169,7 +169,7 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
           <button class="td-layer-btn"
                   [class.active]="uiStore.spatialGridDebugVisible()"
                   (click)="spatialGridDebugToggled.emit()"
-                  matTooltip="Route Grid Overlay"
+                  matTooltip="Route Grid Overlay. Fill: grey no tower, green covered. Outline: white cell, orange on the ground under a roof, blue bridge deck, pink no height sample (a tower's LOS view leaves it out). Brighter: centre line"
                   matTooltipPosition="left"
                   aria-label="Route Grid Overlay" [attr.aria-pressed]="uiStore.spatialGridDebugVisible()">
             <td-icon name="grid" [size]="18"></td-icon>
@@ -209,7 +209,7 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
           <button class="td-layer-btn"
                   [class.active]="uiStore.airSpatialGridDebugVisible()"
                   (click)="airSpatialGridDebugToggled.emit()"
-                  matTooltip="Air Route Grid Overlay"
+                  matTooltip="Air Route Grid Overlay. Fill: grey no tower, blue covered. Outline as in the Route Grid Overlay"
                   matTooltipPosition="left"
                   aria-label="Air Route Grid Overlay" [attr.aria-pressed]="uiStore.airSpatialGridDebugVisible()">
             <td-icon name="gridAir" [size]="18"></td-icon>

@@ -9,16 +9,27 @@ import {
   DynamicDrawUsage,
 } from 'three';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
-import { RouteCell, getAirTargetY } from './route-cell';
+import { RouteCell } from './route-cell';
 
 /**
- * Visualisation geometry — decal-like flat plates that hug the surface.
- * Increase `HEIGHT_M` to give the cells perceptible thickness; raise
- * `Y_OFFSET_M` if Z-fighting reappears (currently depthTest is off, so
- * even +0.05m is safe). Modern-Minimal target: barely noticeable plates.
+ * Visualisation geometry: flat plates that hug the surface, 90 % of a cell
+ * with a contour (LOS_VIZ_CONFIG.gridOverlay). Raise `Y_OFFSET_M` if
+ * Z-fighting reappears (the ground layer draws without depth test, so even
+ * +0.05 m is safe).
  */
 const CELL_VIZ_HEIGHT_M = 0.02;
 const CELL_VIZ_Y_OFFSET_M = 0.05;
+
+/**
+ * State of a cell for the overlay contour (`aCellKind`): 0 sampled on the
+ * ground, 1 clamped by the roof check, 2 on a bridge deck, 3 without a
+ * height sample (the fallback height; a tower's LOS display leaves these
+ * out). Plus 4 when the route centre line runs through the cell.
+ */
+export function overlayCellKind(cell: RouteCell): number {
+  const kind = !cell.heightSampled ? 3 : cell.surface === 'deck' ? 2 : cell.sample.clamped ? 1 : 0;
+  return cell.axisX === cell.x && cell.axisZ === cell.z ? kind + 4 : kind;
+}
 
 /**
  * Globaler Debug-Route-Grid-Shader.
@@ -36,17 +47,24 @@ const CELL_VIZ_Y_OFFSET_M = 0.05;
  *   3 → both
  *   4 → enemyInCell (enemy hier, kein Tower sieht ihn)
  *   5 → enemyVisible(enemy + sichtbar = aktives Ziel)
+ *
+ * Dazu `aCellKind` (overlayCellKind) für die Kontur und `vPlate`, die
+ * Lage des Fragments auf der Platte, für den Abstand zum Plattenrand.
  */
 const LOS_CELL_VERTEX = /* glsl */ `
 attribute float aCellState;
+attribute float aCellKind;
 varying float vCellState;
-varying vec3 vWorldPosition;
+varying float vCellKind;
+varying vec2 vPlate;
 
 #include <common>
 #include <logdepthbuf_pars_vertex>
 
 void main() {
   vCellState = aCellState;
+  vCellKind = aCellKind;
+  vPlate = position.xz;
 
   vec4 localPos = vec4(position, 1.0);
 
@@ -55,7 +73,6 @@ void main() {
   #endif
 
   vec4 worldPos = modelMatrix * localPos;
-  vWorldPosition = worldPos.xyz;
   gl_Position = projectionMatrix * viewMatrix * worldPos;
   #include <logdepthbuf_vertex>
 }
@@ -64,18 +81,13 @@ void main() {
 /**
  * Build the per-cell fragment shader for the global aggregate viz.
  *
- * Strikt 2-State pro Layer: jede Aggregate-Mesh zeigt NUR ihre Layer-
- * Coverage (Layer-Primärfarbe) oder uncovered (grau). Eine eigene Both-
- * Farbe gibt es nicht, auch nicht in der per-Tower-Viz.
+ * Fläche strikt 2-State pro Layer: jede Aggregate-Mesh zeigt NUR ihre
+ * Layer-Coverage (Layer-Primärfarbe) oder uncovered (grau). Eine eigene
+ * Both-Farbe gibt es nicht, auch nicht in der per-Tower-Viz.
  *
  * Wenn beide Aggregate gleichzeitig sichtbar sind, sieht der Spieler
  * "both ground+air" implizit durch das visuelle Stapeln zweier
  * Schichten (grün am Boden + blau auf +15m für dieselbe Cell).
- *
- * Zukünftige Merged-View (gold in Aggregat) kann als dritte Variante
- * dieses Shaders gebaut werden — der State-Buffer enthält state 3
- * (both) weiterhin, nur die Interpretation hier collapsed ihn auf die
- * Layer-Primärfarbe.
  *
  *   Ground-Layer (gridLayer) — 2-State:
  *     state 0 (neither)       → grey
@@ -92,18 +104,20 @@ void main() {
  *     state 3 → blue  (air IS covered, ignore ground info)
  *     state 4 → grey
  *     state 5 → blue
+ *
+ * Kontur: am Plattenrand, `gridOverlay.borderWidthMeters` breit, aber nie
+ * schmaler als 1,5 Pixel, in der Farbe des Zell-Zustands.
  */
 function buildLosCellFragment(opts: { airLayer: boolean }): string {
   const s = LOS_VIZ_CONFIG.states;
   const g = LOS_VIZ_CONFIG.globalStates;
-  const c = (col: { color: { r: number; g: number; b: number } }) =>
-    `vec3(${col.color.r.toFixed(4)}, ${col.color.g.toFixed(4)}, ${col.color.b.toFixed(4)})`;
+  const o = LOS_VIZ_CONFIG.gridOverlay;
+  const vec = (color: { r: number; g: number; b: number }) =>
+    `vec3(${color.r.toFixed(4)}, ${color.g.toFixed(4)}, ${color.b.toFixed(4)})`;
 
-  const grey = `color = ${c(g.uncovered)}; alpha = ${g.uncovered.alpha.toFixed(3)};`;
+  const grey = `color = ${vec(g.uncovered.color)}; alpha = ${g.uncovered.alpha.toFixed(3)};`;
   // Layer-Primärfarbe (green für Ground-Layer, blue für Air-Layer):
-  const primary = opts.airLayer
-    ? `color = ${c(s.air)}; alpha = ${s.air.alpha.toFixed(3)};`
-    : `color = ${c(s.ground)}; alpha = ${s.ground.alpha.toFixed(3)};`;
+  const primary = `color = ${vec(opts.airLayer ? s.air.color : s.ground.color)}; alpha = ${o.coveredAlpha.toFixed(3)};`;
 
   // Per-Layer-Coverage-Test: ground-grid zeigt primary für state 1 (groundOnly)
   // UND state 3 (both); air-grid zeigt primary für state 2 (airOnly) UND state
@@ -119,8 +133,10 @@ precision highp float;
 #include <common>
 #include <logdepthbuf_pars_fragment>
 uniform float uTime;
+uniform float uHalfSize;
 varying float vCellState;
-varying vec3 vWorldPosition;
+varying float vCellKind;
+varying vec2 vPlate;
 
 void main() {
   #include <logdepthbuf_fragment>
@@ -155,7 +171,26 @@ void main() {
   float pulse = sin(uTime * ${LOS_VIZ_CONFIG.pulseSpeed.toFixed(2)}) *
                 ${LOS_VIZ_CONFIG.pulseDepth.toFixed(3)} +
                 (1.0 - ${LOS_VIZ_CONFIG.pulseDepth.toFixed(3)} * 0.5);
-  gl_FragColor = vec4(color, alpha * pulse);
+  alpha *= pulse;
+
+  // Zellen der Mittellinie etwas kräftiger (kind + 4).
+  float kind = floor(vCellKind + 0.5);
+  if (kind > 3.5) {
+    alpha = min(1.0, alpha + ${o.centreAlphaBoost.toFixed(3)});
+    kind -= 4.0;
+  }
+
+  // Kontur: Abstand zum Plattenrand in Metern, mindestens 1,5 Pixel.
+  float toEdge = uHalfSize - max(abs(vPlate.x), abs(vPlate.y));
+  if (toEdge < max(${o.borderWidthMeters.toFixed(3)}, fwidth(toEdge) * 1.5)) {
+    color = kind < 0.5 ? ${vec(o.borders.normal)}
+          : kind < 1.5 ? ${vec(o.borders.clamped)}
+          : kind < 2.5 ? ${vec(o.borders.deck)}
+          : ${vec(o.borders.unsampled)};
+    alpha = ${o.borderAlpha.toFixed(3)};
+  }
+
+  gl_FragColor = vec4(color, alpha);
   // Config-Farben sind sRGB-Hex: gleiche Wandlung wie im per-Tower-Shader
   #include <colorspace_fragment>
 }
@@ -168,10 +203,11 @@ const LOS_CELL_FRAGMENT_AIR = buildLosCellFragment({ airLayer: true });
 /**
  * Aggregat-Debug-Viz des Route-Grids (Toggles `grid` / `gridAir`): eine
  * Ground- und eine Air-InstancedMesh über dieselben Cells, mit geteiltem
- * State-Buffer. Liest Höhe und Visibility-Maps der Cells und schreibt
- * nichts zurück. `GlobalRouteGrid` hält eine Instanz, reicht die
- * öffentlichen Methoden durch und ruft `refreshPositions()`, sobald
- * Cells neu gesampelt wurden.
+ * State-Buffer. Zeichnet jede Cell, auch ohne Höhenprobe, damit man sieht,
+ * ob Zellen fehlen oder nur die LOS-Anzeige eines Towers sie auslässt.
+ * Liest Höhe und Visibility-Maps der Cells und schreibt nichts zurück.
+ * `GlobalRouteGrid` hält eine Instanz, reicht die öffentlichen Methoden
+ * durch und ruft `refreshPositions()`, sobald Cells neu gesampelt wurden.
  */
 export class RouteGridAggregateViz {
   /** Cell-Map des Grids. Dieselbe Instanz: das Grid leert sie, ersetzt sie aber nie. */
@@ -179,6 +215,12 @@ export class RouteGridAggregateViz {
 
   /** Kantenlänge einer Cell in Metern. */
   private readonly cellSize: number;
+
+  /**
+   * Höhe, auf der eine Cell gezeichnet wird: ihre Höhenprobe, ohne eine
+   * solche eine Schätzung aus den Nachbarn (vom Grid gestellt).
+   */
+  private readonly displayHeight: (cell: RouteCell) => number;
 
   /** Visualization mesh */
   private visualization: InstancedMesh | null = null;
@@ -188,7 +230,7 @@ export class RouteGridAggregateViz {
   /**
    * Optional air-altitude mirror of the global Aggregate-Viz — same cell
    * set, same `aCellState` buffer (shared!), positioned at
-   * `cell.terrainHeight + airSampleYOffset` with the air-layer fragment shader.
+   * `displayHeight + airSampleYOffset` with the air-layer fragment shader.
    * Built lazily by `createAirVisualization()` when the corresponding
    * toggle goes ON.
    */
@@ -202,7 +244,7 @@ export class RouteGridAggregateViz {
    * Safety hard-limit for the viz InstancedMesh capacity. Real cell counts
    * are passed directly via `this.cells.size` — this cap only fires if the
    * grid grows pathologically (e.g. a Manhattan-scale route fan-out) and
-   * keeps the buffer allocation bounded. 50k × (Matrix4 + Float32) ≈ 4 MB
+   * keeps the buffer allocation bounded. 50k × (Matrix4 + 2 Float32) ≈ 4 MB
    * per layer worst-case, which is fine.
    *
    * Three.js InstancedMesh cannot grow at runtime; if a grid genuinely
@@ -211,26 +253,20 @@ export class RouteGridAggregateViz {
    */
   private readonly MAX_VIZ_CELLS_HARDLIMIT = 50_000;
 
-  constructor(cells: ReadonlyMap<number, RouteCell>, cellSize: number) {
+  constructor(cells: ReadonlyMap<number, RouteCell>, cellSize: number, displayHeight: (cell: RouteCell) => number) {
     this.cells = cells;
     this.cellSize = cellSize;
+    this.displayHeight = displayHeight;
   }
 
-  /**
-   * Create visualization mesh (InstancedMesh with shader)
-   * Call once, then use updateVisualization() each frame for color updates only
-   */
-  createVisualization(): InstancedMesh {
-    this.disposeVisualization();
-
-    const cellSize = this.cellSize * 0.85;
-    const geometry = new BoxGeometry(cellSize, CELL_VIZ_HEIGHT_M, cellSize);
-
-    this.visualizationMaterial = new ShaderMaterial({
+  /** Material of either layer; they differ in fragment shader and depth handling. */
+  private createMaterial(airLayer: boolean): ShaderMaterial {
+    const material = new ShaderMaterial({
       vertexShader: LOS_CELL_VERTEX,
-      fragmentShader: LOS_CELL_FRAGMENT,
+      fragmentShader: airLayer ? LOS_CELL_FRAGMENT_AIR : LOS_CELL_FRAGMENT,
       uniforms: {
         uTime: { value: 0 },
+        uHalfSize: { value: (this.cellSize * LOS_VIZ_CONFIG.gridOverlay.plateScale) / 2 },
       },
       defines: {
         USE_INSTANCING: '',
@@ -240,8 +276,37 @@ export class RouteGridAggregateViz {
       depthWrite: false,
       side: DoubleSide,
     });
+    if (airLayer) {
+      // Air-Plate auf gleicher Y wie Air-Enemies (terrainHeight + 15m).
+      // depthTest:true + polygonOffset schiebt die Plate hinter den vor-
+      // gerenderten Enemy, sonst paint-over → Enemy unsichtbar. Siehe
+      // Begründung in tower-los-layer-builder.ts.
+      material.depthTest = true;
+      material.polygonOffset = true;
+      material.polygonOffsetFactor = 1.0;
+      material.polygonOffsetUnits = 1.0;
+    }
+    return material;
+  }
+
+  /** Plate geometry of one layer, with the per-instance cell kind for the contour. */
+  private createGeometry(maxCells: number): BoxGeometry {
+    const plate = this.cellSize * LOS_VIZ_CONFIG.gridOverlay.plateScale;
+    const geometry = new BoxGeometry(plate, CELL_VIZ_HEIGHT_M, plate);
+    geometry.setAttribute('aCellKind', new InstancedBufferAttribute(new Float32Array(maxCells), 1));
+    return geometry;
+  }
+
+  /**
+   * Create visualization mesh (InstancedMesh with shader)
+   * Call once, then use updateVisualization() each frame for color updates only
+   */
+  createVisualization(): InstancedMesh {
+    this.disposeVisualization();
 
     const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS_HARDLIMIT);
+    const geometry = this.createGeometry(maxCells);
+    this.visualizationMaterial = this.createMaterial(false);
     this.visualization = new InstancedMesh(geometry, this.visualizationMaterial, maxCells);
     this.visualization.frustumCulled = false;
     this.visualization.renderOrder = 3;
@@ -254,7 +319,6 @@ export class RouteGridAggregateViz {
     this.cellStateAttribute.setUsage(DynamicDrawUsage);
     geometry.setAttribute('aCellState', this.cellStateAttribute);
 
-    // Initialize positions ONCE with live terrain sampling (ground Y)
     this.initializePositions(this.visualization, /* airLayer */ false);
 
     // If an air visualization already exists (toggle ordering: air ON
@@ -273,7 +337,7 @@ export class RouteGridAggregateViz {
   /**
    * Create the air-layer mirror of the global aggregate viz. Same cell
    * set, same state buffer (shared with `visualization`), positioned at
-   * `terrainHeight + airSampleYOffset` with the air-layer fragment shader.
+   * `displayHeight + airSampleYOffset` with the air-layer fragment shader.
    *
    * Lazily created on first toggle; if `createVisualization()` has not
    * been called yet (no ground layer), the state attribute is created
@@ -282,32 +346,9 @@ export class RouteGridAggregateViz {
   createAirVisualization(): InstancedMesh {
     this.disposeAirVisualization();
 
-    const cellSize = this.cellSize * 0.85;
-    const geometry = new BoxGeometry(cellSize, CELL_VIZ_HEIGHT_M, cellSize);
-
-    this.airVisualizationMaterial = new ShaderMaterial({
-      vertexShader: LOS_CELL_VERTEX,
-      fragmentShader: LOS_CELL_FRAGMENT_AIR,
-      uniforms: {
-        uTime: { value: 0 },
-      },
-      defines: {
-        USE_INSTANCING: '',
-      },
-      transparent: true,
-      // Air-Plate auf gleicher Y wie Air-Enemies (terrainHeight + 15m).
-      // depthTest:true + polygonOffset schiebt die Plate hinter den vor-
-      // gerenderten Enemy, sonst paint-over → Enemy unsichtbar. Siehe
-      // Begründung in tower-los-layer-builder.ts.
-      depthTest: true,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: 1.0,
-      polygonOffsetUnits: 1.0,
-      side: DoubleSide,
-    });
-
     const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS_HARDLIMIT);
+    const geometry = this.createGeometry(maxCells);
+    this.airVisualizationMaterial = this.createMaterial(true);
     this.airVisualization = new InstancedMesh(geometry, this.airVisualizationMaterial, maxCells);
     this.airVisualization.frustumCulled = false;
     this.airVisualization.renderOrder = 4;
@@ -349,37 +390,32 @@ export class RouteGridAggregateViz {
   }
 
   /**
-   * Initialize cell positions for one of the two layer-meshes. Ground
-   * uses `terrainHeight + CELL_VIZ_Y_OFFSET_M`, Air uses
-   * `terrainHeight + airSampleYOffset`. Both layers walk `cells` in the
-   * same order and skip the same unsampled cells, so instance N on both
-   * meshes refers to the same `RouteCell` and the shared state attribute
-   * aligns correctly.
+   * Initialize cell positions and kinds for one of the two layer-meshes.
+   * Ground uses `displayHeight + CELL_VIZ_Y_OFFSET_M`, Air uses
+   * `displayHeight + airSampleYOffset`. Both layers walk every cell in the
+   * same order, so instance N on both meshes refers to the same `RouteCell`
+   * and the shared state attribute aligns correctly. A cell without a
+   * height sample is drawn as well, at the height its neighbours give it:
+   * those are the cells a tower's LOS display leaves out.
    */
   private initializePositions(mesh: InstancedMesh, airLayer: boolean): void {
     const maxCells = mesh.instanceMatrix.count;
+    const kinds = mesh.geometry.getAttribute('aCellKind') as InstancedBufferAttribute;
     const matrix = new Matrix4();
     let index = 0;
 
     for (const cell of this.cells.values()) {
       if (index >= maxCells) break;
-
-      // Only include cells whose terrainHeight came from a real raycast.
-      // Unsampled cells (fallback to anchorY at gen-time) would otherwise
-      // render far below the map until tiles stream in. They re-enter
-      // the viz once updateTerrainHeights promotes them.
-      if (!cell.heightSampled) continue;
-
-      const y = airLayer
-        ? getAirTargetY(cell)
-        : cell.terrainHeight + CELL_VIZ_Y_OFFSET_M;
+      const y = this.displayHeight(cell) + (airLayer ? LOS_VIZ_CONFIG.airSampleYOffset : CELL_VIZ_Y_OFFSET_M);
       matrix.setPosition(cell.x, y, cell.z);
       mesh.setMatrixAt(index, matrix);
+      kinds.setX(index, overlayCellKind(cell));
       index++;
     }
 
     mesh.count = index;
     mesh.instanceMatrix.needsUpdate = true;
+    kinds.needsUpdate = true;
   }
 
   /**
@@ -394,12 +430,11 @@ export class RouteGridAggregateViz {
     const meshCount = this.visualization?.count ?? this.airVisualization?.count ?? 0;
     if (meshCount === 0) return;
 
+    // Same order as initializePositions, every cell: the state buffer stays
+    // aligned with the matrix buffer.
     let index = 0;
     for (const cell of this.cells.values()) {
       if (index >= meshCount) break;
-      // Same skip-rule as initializePositions — keeps the state buffer
-      // aligned with the matrix buffer (both indexed by sampled cells only).
-      if (!cell.heightSampled) continue;
 
       // 4-State Aggregate (shared palette with per-tower viz) + Enemy-Overlays.
       // State-Codes siehe buildLosCellFragment() oben.
