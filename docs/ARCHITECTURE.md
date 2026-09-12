@@ -70,15 +70,14 @@ Details zum Weg vom Director zur fertigen Welle:
 
 ```typescript
 // GUT: Factory mit konfigurierbaren Optionen
-private createDiamondMarker(options: {
+createDiamondMarker(options: {
   color: number;
   size?: number;
-  showRings?: boolean;
+  glowIntensity?: number;
 }): THREE.Group { ... }
 
-// Verwendung für verschiedene Marker-Typen
-this.baseMarker = this.createDiamondMarker({ color: 0x22c55e, size: 1, showRings: true });
-const spawnMarker = this.createDiamondMarker({ color: 0xef4444, size: 0.5, showRings: false });
+// Verwendung: Platzierungsvorschau des HQ (MapPlacementService)
+const preview = this.markerViz.createDiamondMarker({ color: 0x22c55e, size: 0.8, glowIntensity: 0.6 });
 ```
 
 ---
@@ -323,7 +322,7 @@ tower-defense.component.ts
 │  │   ├─ Streets (LineSegments)                              │
 │  │   ├─ Route Lines                                         │
 │  │   ├─ HQ Marker                                           │
-│  │   └─ Spawn Markers                                       │
+│  │   └─ Spawn-Portale                                       │
 │  │                                                           │
 │  ├─ Enemies (InstancedMesh + VAT, InstancedEnemyRenderer)   │
 │  ├─ Towers (GLTFLoader)                                     │
@@ -964,7 +963,7 @@ Neben Tower-, Projektil- und Effects-Renderer gibt es mehrere spezialisierte Ren
 | **LightningBoltRenderer** | `renderers/lightning-bolt.renderer.ts` | Chain-Bolts, Idle-Crackle, Impact-Halos (Lightning Tower) |
 | **TrailStreakRenderer** | `renderers/trail-streak.renderer.ts` | Projektil-Trails als gestreckte Quads |
 | **FloatingTextInstanceManager** | `renderers/floating-text/` | GPU-instanzierte Schadenszahlen über Enemies, Atlas in `floating-text-atlas.ts` |
-| **MarkerInstanceManager** / **MarkerLabelManager** | `renderers/marker/` | HQ-/Spawn-Marker, Range-Discs, Labels |
+| **MarkerInstanceManager** / **SpawnPortalManager** / **MarkerLabelManager** | `renderers/marker/` | HQ-Diamant, Spawn-Portale, Range-Discs, Labels |
 | **SpriteAtlasGenerator** | `renderers/sprite-atlas-generator.ts` | Canvas2D-Atlas mit Animations-Frames (z. B. Explosion) für die Partikel-Pools (`ParticlePoolManager`) |
 
 Der klassische `ThreeEnemyRenderer` (GLTF + AnimationMixer pro Enemy) wurde entfernt
@@ -1371,7 +1370,7 @@ src/app/
 │       ├── instance-slot-allocator.ts # Update-Ranges pro Instanz-Slot
 │       ├── instanced-enemy/      # VAT-instanced enemy renderer
 │       ├── floating-text/        # GPU-instanzierte Schadenszahlen
-│       └── marker/               # HQ-/Spawn-Marker, Range-Discs
+│       └── marker/               # HQ-Marker, Spawn-Portale, Range-Discs
 │
 ├── devworld/                     # DevWorld Offline-Entwicklungsumgebung
 │
