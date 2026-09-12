@@ -447,7 +447,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // 0.33 s, clamped on its last frame; removal after
     // TIMING.deathAnimationDuration (2 s) leaves the bones lying for 1.7 s.
     deathAnimation: 'die',
-    animationSpeed: 1.25,
+    // Sprint swings the legs ±90° (hip to sole 0.8 m at scale 4), about 3.2 m
+    // of stride per 0.5 s cycle: 0.93 puts the feet at the 6 m/s ground speed.
+    // Worked out from the model file; 1.25 ran them at about 8 m/s.
+    animationSpeed: 0.93,
     heightOffset: 0,
     healthBarOffset: 3.8,
     canBleed: false, // Bones
