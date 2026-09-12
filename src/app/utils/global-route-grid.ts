@@ -306,7 +306,10 @@ export class GlobalRouteGrid {
           if (!onBridge) existing.surface = 'ground';
           continue;
         }
-        this.addCell(key, cx, cz, start.y + (end.y - start.y) * t, onBridge ? 'deck' : 'ground');
+        // The centre line's grid spot next to the cell, for the roof check in sampleCellY.
+        const axisX = (this.cellIndex(start.x + dx * t) + 0.5) * this.CELL_SIZE;
+        const axisZ = (this.cellIndex(start.z + dz * t) + 0.5) * this.CELL_SIZE;
+        this.addCell(key, cx, cz, axisX, axisZ, start.y + (end.y - start.y) * t, onBridge ? 'deck' : 'ground');
       }
     }
   }
@@ -317,11 +320,21 @@ export class GlobalRouteGrid {
    * height comes from sampleCellY, the sole writer of terrainHeight, which
    * generateFromRoutes runs once all segments have claimed their cells.
    */
-  private addCell(key: number, x: number, z: number, anchorY: number, surface: RouteCell['surface']): void {
+  private addCell(
+    key: number,
+    x: number,
+    z: number,
+    axisX: number,
+    axisZ: number,
+    anchorY: number,
+    surface: RouteCell['surface'],
+  ): void {
     const cell: RouteCell = {
       key,
       x,
       z,
+      axisX,
+      axisZ,
       terrainHeight: anchorY,        // Fallback until sampleCellY succeeds.
       surface,
       routeAnchorY: anchorY,
@@ -330,6 +343,7 @@ export class GlobalRouteGrid {
         sampledAt: 0,
         tileDepth: 0,
         tileGeometricError: Infinity,
+        clamped: false,
       },
       heightSampled: false,
       enemies: new Set(),

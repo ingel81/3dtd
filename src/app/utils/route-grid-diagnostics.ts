@@ -102,6 +102,8 @@ export interface RouteCellProbe {
   cell: boolean;
   state: CellSample['state'] | '-';
   heightM: number | null;
+  /** The column found a roof or crown there and the cell stands on the ground beside the route instead. */
+  clamped: boolean | null;
   /** Height above the median of the sampled neighbours. */
   aboveNeighboursM: number | null;
   surface: RouteCell['surface'] | '-';
@@ -131,6 +133,7 @@ export function probeRouteCell(
     cell: cell !== undefined,
     state: cell?.sample.state ?? '-',
     heightM: cell ? round(cell.terrainHeight, 2) : null,
+    clamped: cell ? cell.sample.clamped : null,
     aboveNeighboursM: cell && median !== null ? round(cell.terrainHeight - median, 2) : null,
     surface: cell?.surface ?? '-',
     ground: cell && towerId ? answer(cell.towerVisibility.get(towerId)) : '-',
@@ -159,6 +162,8 @@ export interface TowerRangeReport {
   holes: RouteCellSpot[];
   /** Sampled cells more than 1 m above the median of their sampled neighbours. */
   raised: (RouteCellSpot & { aboveM: number })[];
+  /** Sampled cells put back on the ground beside the route: their column found a roof, an eave or a crown. */
+  clamped: number;
 }
 
 /**
@@ -185,9 +190,11 @@ export function summarizeTowerRange(
     airMissing: 0,
     holes,
     raised: [],
+    clamped: 0,
   };
   for (const cell of inRange) {
     if (!cell.heightSampled) report.unsampled++;
+    if (cell.sample.clamped) report.clamped++;
     const ground = cell.towerVisibility.get(towerId);
     if (ground === undefined) report.groundMissing++;
     else if (ground) report.groundVisible++;
