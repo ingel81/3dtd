@@ -92,6 +92,13 @@ export class ScreenShakeService {
       }),
     );
 
+    // Nuclear strike → the biggest shake, wherever it lands: the player aimed it
+    this.subs.add(
+      this.eventBus.on('ability:impact', () => {
+        this.shake(presets.nuclearStrike.amplitude, presets.nuclearStrike.duration);
+      }),
+    );
+
     // Enemy died → extra shake for bosses
     this.subs.add(
       this.eventBus.on('enemy:died', (event) => {

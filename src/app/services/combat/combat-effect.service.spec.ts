@@ -18,6 +18,7 @@ import { PROJECTILE_TYPES, ProjectileTypeId } from '../../configs/projectile-typ
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
 
 /**
  * Coverage: Splash trifft nur Ziele, die der Quell-Tower anvisieren darf.
@@ -155,5 +156,13 @@ describe('CombatEffectService ability strike', () => {
     const service = new CombatEffectService();
     service.applyAbilityStrike([{ id: 'gone', alive: false, typeConfig: {} }] as never, () => 0.6);
     expect(applyMaxHpFraction).not.toHaveBeenCalled();
+  });
+
+  it('spawns death blood for the first kills only when 200 die at once', () => {
+    const service = new CombatEffectService();
+    const targets = Array.from({ length: 200 }, (_, i) => ({ id: `z${i}`, alive: true, typeConfig: {} }));
+    expect(service.applyAbilityStrike(targets as never, () => 0.6)).toBe(200);
+    const bloody = applyMaxHpFraction.mock.calls.filter((c) => c[3] === true).length;
+    expect(bloody).toBe(ABILITY_DEATH_BLOOD_CAP);
   });
 });

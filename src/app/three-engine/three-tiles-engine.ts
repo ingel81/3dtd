@@ -39,6 +39,7 @@ import {
   LightningBoltRenderer,
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
+import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -132,6 +133,7 @@ export class ThreeTilesEngine {
   readonly tentacles: ThreeTentacleRenderer;
   readonly trailStreaks: TrailStreakRenderer;
   readonly lightningBolts: LightningBoltRenderer;
+  readonly abilityMarkers: AbilityMarkerRenderer;
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -303,6 +305,7 @@ export class ThreeTilesEngine {
     this.tentacles = new ThreeTentacleRenderer(this.scene);
     this.trailStreaks = new TrailStreakRenderer(this.scene);
     this.lightningBolts = new LightningBoltRenderer(this.scene);
+    this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -884,6 +887,9 @@ export class ThreeTilesEngine {
     // Tick lightning bolt shader clocks and spawn idle-crackle micro-bolts
     this.lightningBolts.update(performance.now() / 1000);
 
+    // Strike markers: the countdown runs in game time, the pulse in real time
+    this.abilityMarkers.update(deltaTime, gameDeltaSeconds * 1000);
+
     // Screen shake is applied in render() (drawFrame), not to the camera
   }
 
@@ -1104,6 +1110,7 @@ export class ThreeTilesEngine {
     this.tentacles.dispose();
     this.trailStreaks.dispose();
     this.lightningBolts.dispose();
+    this.abilityMarkers.dispose();
 
     // Dispose spatial audio
     this.spatialAudio.dispose();
