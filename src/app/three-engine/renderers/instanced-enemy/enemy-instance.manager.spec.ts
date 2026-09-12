@@ -4,6 +4,7 @@ import {
   DataTexture,
   Float32BufferAttribute,
   FloatType,
+  FrontSide,
   InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
@@ -42,6 +43,7 @@ function fakeVat(clips: string[]): VATData {
     texWidth: 3,
     rowsPerFrame: 1,
     baseColor: { r: 1, g: 1, b: 1 },
+    side: FrontSide,
     modelMinY: 0,
     modelMaxY: 1,
   };

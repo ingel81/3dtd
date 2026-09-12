@@ -254,6 +254,22 @@ Ambient: neutral,               Intensitaet 0.5
 Danach rechnet der Fragment-Shader `colorMultiplier`, das additive Emissive, den Tint und ein
 ACES-Filmic-Tonemapping ein. Lichter der Szene wirken nicht auf die Gegner.
 
+### Seiten
+
+`vatSide()` übernimmt die Seite aus den Materialien der gebackenen Meshes (glTF
+`doubleSided` → `DoubleSide`). Sind sie sich uneinig, zeichnet der Typ beide Seiten. Stand
+2026-09-13 zeichnen Bat, Dragon, Ghost, Herbert, Hornet, Mammoth, Mech, Penguin, Skeleton,
+Spider und Wraith beide Seiten, die übrigen acht Typen nur die Vorderseite.
+
+- Rückseiten beleuchtet der Shader mit umgedrehter Normale (`gl_FrontFacing`).
+- Kosten: Die Vertex-Arbeit mit dem VAT-Lesen bleibt gleich, gecullt wird erst danach. Dazu
+  kommen die Rückseiten-Dreiecke im Rasterizer; ihre Fragmente werden bei geschlossenen
+  Meshes meist verdeckt (Tiefentest oder Überzeichnen).
+- `forceSinglePass`: Transparente DoubleSide-Materialien zeichnet three sonst in zwei Pässen
+  (erst Rück-, dann Vorderseiten), also mit doppelter Vertex-Arbeit. Ghost und Hornet
+  blenden deshalb in einem Pass; ob dort Vorder- oder Rückseite zuerst kommt, entscheidet
+  die Dreiecksreihenfolge.
+
 ### LogDepthBuf
 
 Beide Shader (VAT + Health Bar) enthalten die Three.js `logdepthbuf` Chunks fuer korrekte Tiefendarstellung mit 3D Tiles.
