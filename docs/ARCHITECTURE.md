@@ -1517,7 +1517,9 @@ class GlobalRouteGrid {
   Terrain-Sweep, cells-changed-Listener
 - `route-cell.ts`: `RouteCell`/`CellSample` + `getAirTargetY`
 - `route-cell-sampler.ts`: `sampleCellY`, einziger Schreiber von `cell.terrainHeight`
-- `route-grid-aggregate-viz.ts`: Aggregat-Debug-Mesh (`grid`/`gridAir`) mit Cell-Shader
+- `route-grid-aggregate-viz.ts`: Aggregat-Debug-Mesh (`grid`/`gridAir`, "Route Grid Overlay") mit
+  Cell-Shader: jede Zelle, auch ohne Höhenprobe, Fläche nach Coverage, Kontur nach Zustand
+  (normal, Dach-Check, Brückendeck, ohne Höhenprobe), Farben in `LOS_VIZ_CONFIG.gridOverlay`
 - `route-grid-diagnostics.ts`: `__rg.*`-Dumps; `route-grid-log.ts`: `[CELL-GRID]`-Log
 
 **Zellengenerierung:**
