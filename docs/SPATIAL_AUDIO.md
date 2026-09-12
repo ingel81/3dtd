@@ -13,9 +13,10 @@ ThreeTilesEngine
             ├── AudioListener (an Kamera)
             ├── pool: AudioPoolManager           (PositionalAudio Lifecycle, Panner-Updates)
             ├── bufferCache: AudioBufferCache    (LRU Cache, 50 Buffers)
-            ├── playback: SpatialAudioPlayback   (playAt, playAtGeo, playGlobal, One-Shots)
+            ├── playback: SpatialAudioPlayback   (playAt, playAtGeo, playGlobal, One-Shots,
+            │                                     Projektil-Budget, Voice-Stealing)
             ├── activeLoops Map                  (Loops, zentral verwaltet)
-            └── enemy/projectile budgets         (Zaehler + Voice-Stealing)
+            └── enemySoundCount                  (Enemy-Budget, nur Loops)
 
 GameObject (Enemy, Tower, ...)
     └── AudioComponent (dünner Wrapper)
@@ -26,14 +27,23 @@ GameObject (Enemy, Tower, ...)
 
 Facade-Klasse fuer 3D-Audio. Delegiert an drei Helper:
 
-- `AudioBufferCache` (`audio-buffer-cache.ts`) — LRU-Cache, Buffer-Loading.
-- `AudioPoolManager` (`audio-pool.manager.ts`) — `PositionalAudio` Lifecycle,
-  Panner-Updates, Zugriffsstatistiken.
-- `SpatialAudioPlayback` (`spatial-audio-playback.ts`) — `playAt`, `playAtGeo`,
-  `playGlobal`, One-Shot-Verwaltung, Anti-Flood-Fenster, Polyphony-Caps.
+- `AudioBufferCache` (`audio-buffer-cache.ts`): LRU-Cache, Buffer-Loading.
+- `AudioPoolManager` (`audio-pool.manager.ts`): `PositionalAudio` erzeugen und
+  aufräumen, Panner-Updates.
+- `SpatialAudioPlayback` (`spatial-audio-playback.ts`): `playAt`, `playAtGeo`,
+  `playGlobal`, One-Shot-Verwaltung, Anti-Flood-Fenster, Polyphony-Caps,
+  Projektil-Budget, Voice-Stealing.
 
-Die Manager-Klasse selbst kuemmert sich um: Sound-Registrierung, Loops,
-Enemy-/Projektil-Budget, Voice-Stealing, EventBus-Wiring.
+Die Manager-Klasse selbst kümmert sich um: Sound-Registrierung, Loops,
+Enemy-Budget, Master-Bus und Master-Lautstärke, EventBus-Wiring.
+
+**Master-Bus:** Der Konstruktor hängt `listener.gain` um:
+`listener.gain → preGain (0,6, etwa −4,4 dB) → DynamicsCompressor → destination`
+(Threshold −6 dB, Knee 6, Ratio 12, Attack 1 ms, Release 100 ms). Ohne ihn summieren
+sich gleichzeitige Sounds über ±1 und Web Audio clippt hart. Die Hintergrundmusik
+hängt am selben Listener und läuft durch denselben Bus, das Main Theme
+(`HTMLAudioElement`) nicht. `setMasterVolume(0..1)` gilt für neue One-Shots und
+sofort für laufende Loops.
 
 **Initialisierung:**
 ```typescript
@@ -114,7 +124,9 @@ enemy.audio.stop('moving');
 - `play(id, loop?, volumeMultiplier?)` - Sound abspielen
 - `stop(id)` - Sound stoppen
 - `stopAll()` - Alle Sounds stoppen
-- `update(deltaTime)` - Positionen updaten (automatisch via GameObject)
+- `update(deltaTime)` - Loop-Positionen nachführen, ohne Loop ein No-op. Läuft über
+  `GameObject.update()`; der `EnemyManager` ruft es direkt und nur für Gegner mit
+  `hasAudioLoops`, das die Komponente über `LoopFlagSink` aktuell hält
 
 **Interne Struktur:**
 - `loopHandles: Map<string, string>` - Mapping localId → SpatialAudioManager Handle
@@ -124,17 +136,17 @@ enemy.audio.stop('moving');
 ## Sound Budget System
 
 Um Performance und Audio-Klarheit zu gewährleisten, begrenzt das System die Anzahl
-gleichzeitiger Enemy-, Projektil- und globaler One-Shot-Sounds.
+gleichzeitiger Enemy-Loops, Projektil-One-Shots und One-Shots insgesamt (`playAt`,
+`playAtGeo`). `playGlobal()` läuft an allen Budgets vorbei.
 
 **Konstanten (`configs/audio.config.ts`):**
 ```typescript
 export const AUDIO_LIMITS = {
   maxEnemySounds: 12,           // Loop-only Budget fuer Enemy-Ambient (walk/roar)
   maxProjectileSounds: 25,      // Per-Kategorie-Cap fuer Projektil-Class One-Shots
-  maxConcurrentOneShots: 30,    // Globaler Cap ueber ALLE One-Shots — bei
-                                // Überschreitung Voice-Stealing (aeltester One-Shot wird
-                                // gestoppt, weicher als Reject).
-  maxEffectSounds: 10,
+  maxConcurrentOneShots: 30,    // Cap über alle One-Shots. Bei Überschreitung stoppt
+                                // Voice-Stealing den ältesten One-Shot (weicher als Reject).
+  maxEffectSounds: 10,          // wird derzeit nirgends gelesen
   maxAudibleDistance: 500,      // Sounds pausieren jenseits dieser Distanz
 } as const;
 
@@ -151,7 +163,15 @@ export const PROJECTILE_SOUND_IDS = [
 Per-Sound-Anti-Flood-Fenster und Polyphony-Cap werden zur Laufzeit aus der
 Buffer-Dauer abgeleitet (kurze Combat-Samples → locker, lange Spawn-Samples
 → strikt). Override pro Sound via `SpatialSoundConfig.minIntervalMs` /
-`maxInstances` beim `registerSound()`.
+`maxInstances` beim `registerSound()`. Der `ProjectileManager` registriert alle
+Projektil-Sounds mit `minIntervalMs: 10` und `maxInstances: 12`, weil Schuss-Samples bis
+etwa 1 s lang sind und die Heuristik sie sonst auf 4 Instanzen begrenzt. Beide Grenzen
+zählen pro `AudioBuffer`, nicht pro Sound-ID: eine Datei, die unter vielen IDs
+registriert ist (eine pro Gegner oder Tower), teilt sich ein Limit.
+
+Reihenfolge der Prüfungen in `SpatialAudioPlayback.playAt()`: Distanz (über 500 m
+verworfen), Anti-Flood, Polyphony-Cap, Projektil-Budget (voll: der neue Sound wird
+verworfen), globaler Cap (voll: der älteste One-Shot wird gestoppt).
 
 **Methoden in SpatialAudioManager:**
 ```typescript
@@ -166,10 +186,12 @@ getSoundPoolStats(): SoundPoolStats    // Gesamtstatistik (Debug)
 ```
 
 **Automatisches Budget-Management:**
-- Bei `createLoop()`: Budget wird sofort reserviert (Race-Condition-sicher)
+- Bei `createLoop()`: Budget wird sofort reserviert (Race-Condition-sicher). Liegt der
+  Punkt schon beim Anlegen jenseits von 500 m, gibt `createLoop()` `null` zurück und
+  es entsteht kein Loop.
 - Bei Distance-Culling Pause: Budget wird freigegeben
 - Bei Resume: Budget wird erneut angefragt (kann fehlschlagen)
-- Bei `stopLoop()`: Budget wird freigegeben
+- Bei `stopLoop()`: Budget wird freigegeben, sofern der Loop nicht pausiert war
 
 ## LRU Buffer Cache
 
@@ -182,6 +204,8 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
 
 **Funktionsweise:**
 - Separierte Klasse `AudioBufferCache` (`managers/audio/audio-buffer-cache.ts`)
+- Laden mit bis zu drei Wiederholungen im Abstand von 1 s; geräumt wird nach jedem
+  abgeschlossenen Laden
 - `accessTimestamps: Map<string, number>` trackt Zugriffs-Zeitpunkte (inkrementierender Counter)
 - Bei jedem Zugriff: Timestamp wird aktualisiert
 - Bei Überschreitung: Ältester Eintrag (niedrigster Timestamp) wird evicted
@@ -194,20 +218,25 @@ Hintergrundmusik laeuft separat zu Spatial Audio und ist **nicht-positional**
 
 - **Two-Channel A/B Crossfade-System** (zwei `THREE.Audio` Kanaele) fuer
   Build- und Wave-Musik.
-- **Phasen-Logik**: Wave-Start crossfadet auf einen Wave-Track; Wave-Ende
-  zurueck auf einen Build-Track; Game-Over fadet aus.
-- **Loop-Crossfade**: Vor Track-Ende startet derselbe Track auf dem anderen
-  Kanal mit Crossfade — ergibt nahtlose Loops ohne nativen `loop:true`-Gap.
+- **Phasen-Logik**: `wave:started` crossfadet auf einen Wave-Track, `wave:completed`
+  zurück auf einen Build-Track (je 1,5 s, `phaseFadeDuration`), `game:over` fadet aus,
+  `game:reset` stoppt sofort.
+- **Loop-Crossfade**: 2 s vor Track-Ende (`loopCrossfadeDuration`) startet derselbe
+  Track auf dem anderen Kanal mit Crossfade. Das ergibt nahtlose Loops ohne die Lücke
+  von nativem `loop: true`.
 - **Main Theme**: Wird per statischer `BackgroundMusicService.playMainTheme()`
   via `HTMLAudioElement` schon vor Engine-Init abgespielt. Optionale
   Track-Felder `startOffset` (Startzeit in s) und `loop`. `onLoadingComplete()`
-  loest einen **sequenziellen** Uebergang aus: Main-Theme langsam ausfaden
-  (`mainThemeFadeOutDuration`) → kurze Stille (`mainThemeGapDuration`) →
-  Build-Musik einfaden — kein ueberlappender Crossfade.
+  löst einen **sequenziellen** Übergang aus: Main-Theme langsam ausfaden
+  (`mainThemeFadeOutDuration`, 3 s) → Stille (`mainThemeGapDuration`, 0,6 s) →
+  Build-Musik einfaden, ohne überlappenden Crossfade. Ist das Main Theme schon zu Ende
+  (es läuft mit `loop: false`), folgt nach der Stille direkt die Build-Musik.
 - **Track-Auswahl**: `pickRandom()` schliesst den zuletzt gespielten Track aus,
   sodass beim Wechsel ein neuer Track gewaehlt wird.
 - **Persistenz**: `td_music_enabled` (localStorage) merkt User-Toggle.
 - **Tracks**: `configs/background-music.config.ts` (1 Main, 1 Build, 4 Wave).
+  Lautstärke = Track-`volume` (Default 0,5) × `masterVolume` 0,4 × Nutzer-Lautstärke
+  (`setVolume`).
 
 ## Distanz-Modelle
 
@@ -237,22 +266,29 @@ interface SpatialSoundConfig {
 }
 ```
 
+Die Defaults stehen in `SPATIAL_AUDIO_DEFAULTS` (`audio.config.ts`). `AudioComponent`
+setzt beim Registrieren eigene Werte, wenn nichts angegeben ist: `refDistance` 30,
+`rolloffFactor` 1, `volume` 0.5.
+
 ## Integration
 
 ### Projektil-Sounds (One-Shot)
-Der `ProjectileManager` registriert Sounds aus `PROJECTILE_SOUNDS` (definiert in `projectile-types.config.ts`) und emittiert `audio:play` Events via `GameEventBus`. Der `AudioService` empfängt diese Events und spielt die Sounds über `SpatialAudioManager.playAtGeo()` ab.
+Der `ProjectileManager` registriert die Sounds aus `PROJECTILE_SOUNDS` (`projectile-types.config.ts`) und emittiert in `spawn()` ein `audio:play`-Event an der Tower-Position. Der `AudioService` empfängt es und spielt den Sound über `SpatialAudioManager.playAtGeo()` ab. `PROJECTILE_SOUND_IDS` in `audio.config.ts` muss genau diese Schlüssel enthalten, sonst zählt ein Sound nicht gegen `maxProjectileSounds`; `projectile-types.config.spec.ts` prüft das.
 
 ```typescript
-// In projectile-types.config.ts
-const PROJECTILE_SOUNDS = {
-  arrow: { url: '/assets/sounds/towers/archer/shoot.mp3', refDistance: 50, volume: 0.5 },
-  bullet: { url: '/assets/sounds/towers/gatling/shoot.mp3', refDistance: 40, volume: 0.25 },
-  rocket: { url: '/assets/sounds/towers/rocket/launch.mp3', refDistance: 60, volume: 0.7 },
-  cannonball: { url: '/assets/sounds/towers/cannon/shoot.mp3', refDistance: 70, volume: 0.6 },
-  'ice-shard': { url: '/assets/sounds/towers/ice/cast.mp3', refDistance: 50, volume: 0.4 },
+// In projectile-types.config.ts, ein Eintrag pro Projektiltyp
+export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> = {
+  arrow:         { url: 'assets/sounds/towers/archer/shoot.mp3',       refDistance: 50, rolloffFactor: 1,   volume: 0.5 },
+  bullet:        { url: 'assets/sounds/towers/gatling/shoot.mp3',      refDistance: 40, rolloffFactor: 1.2, volume: 0.25 },
+  rocket:        { url: 'assets/sounds/towers/rocket/launch.mp3',      refDistance: 60, rolloffFactor: 1,   volume: 0.7 },
+  cannonball:    { url: 'assets/sounds/towers/cannon/shoot.mp3',       refDistance: 70, rolloffFactor: 1,   volume: 0.6 },
+  'ice-shard':   { url: 'assets/sounds/towers/ice/cast.mp3',           refDistance: 50, rolloffFactor: 1,   volume: 0.4 },
+  'arcane-orb':  { url: 'assets/sounds/towers/magic/cast.mp3',         refDistance: 55, rolloffFactor: 1.1, volume: 0.45 },
+  'poison-glob': { url: 'assets/sounds/towers/poison/poison_spit.mp3', refDistance: 50, rolloffFactor: 1,   volume: 0.4 },
+  'chaos-orb':   { url: 'assets/sounds/towers/magic/cast.mp3',         refDistance: 55, rolloffFactor: 1.1, volume: 0.5 },
 };
 
-// Sound wird bei spawn() via Event abgespielt
+// ProjectileManager.playProjectileSound(), aufgerufen in spawn()
 this.eventBus.emitDeferred({
   type: 'audio:play',
   sound: soundId,
@@ -267,9 +303,9 @@ Der `EnemyManager` initialisiert AudioComponent bei spawn():
 // In enemy.manager.ts spawn()
 enemy.audio.initialize(this.tilesEngine.spatialAudio);
 
-// Sound-Definition in enemy-types.ts
+// Sound-Definition in configs/enemy-types.config.ts
 zombie: {
-  movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
+  movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
   movingSoundVolume: 0.4,
   movingSoundRefDistance: 25,
   randomSoundStart: true,
@@ -280,12 +316,14 @@ this.audio.play('moving', true);
 ```
 
 ### HQ Damage Sound
+`HQDamageService.initialize()` registriert `GAME_SOUNDS.hqDamage` (`audio.config.ts`)
+und emittiert bei `health:changed` mit negativem `delta` ein `audio:play`-Event an der
+Basis, höchstens alle 150 ms (`DAMAGE_SOUND_COOLDOWN`).
 ```typescript
-// Konfiguriert in audio.config.ts (GAME_SOUNDS.hqDamage)
-spatialAudio.registerSound('hq_damage', '/assets/sounds/effects/explosion.mp3', {
+spatialAudio.registerSound('hq_damage', 'assets/sounds/effects/explosion.mp3', {
   refDistance: 40, rolloffFactor: 1, volume: 1.4,
 });
-spatialAudio.playAtGeo('hq_damage', hqLat, hqLon, hqHeight);
+eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height });
 ```
 
 ## Performance-Optimierungen
@@ -328,7 +366,9 @@ spatialAudio.playAtGeo('hq_damage', hqLat, hqLon, hqHeight);
 ## Wichtige Hinweise
 
 1. **AudioContext Resume**: Browser blockieren Audio bis zur ersten User-Interaktion.
-   Der Manager ruft `resumeContext()` automatisch auf.
+   Der Manager ruft `resumeContext()` vor jedem Abspielen auf. Wird der Tab wieder
+   sichtbar (`visibilitychange`), versucht er ein Resume und entfernt One-Shots, deren
+   Cleanup-Timer im Hintergrund-Tab nicht rechtzeitig lief (`revalidateActiveSounds`).
 
 2. **Performance**: One-Shots werden nach dem Abspielen automatisch aufgeräumt.
    Loops müssen explizit via `stop()` oder `stopLoop()` beendet werden.
@@ -352,6 +392,7 @@ public/assets/sounds/
 │   ├── cannon/shoot.mp3               # Kanonen-Schuss-Sound
 │   ├── ice/cast.mp3                   # Eis-Zauber-Sound
 │   ├── magic/cast.mp3                 # Magie-Zauber-Sound
+│   ├── poison/poison_spit.mp3         # Poison-Glob-Schuss-Sound
 │   ├── fire/flame_loop.mp3            # Flammenwerfer-Loop-Sound
 │   ├── tentacle/tentacle-01.mp3       # Tentacle-Strike-Sound
 │   └── lightning/lightning_chain.mp3  # Lightning-Chain-Sound
