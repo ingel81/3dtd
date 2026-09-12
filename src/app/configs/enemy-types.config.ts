@@ -203,8 +203,9 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   wallsmasher: {
     id: 'wallsmasher',
     name: 'Wallsmasher',
-    modelUrl: 'assets/models/enemies/wallsmasher.fbx',
-    scale: 0.037,
+    // GLB in metres (the FBX was in centimetres, scale 0.037), only Walk, Run and Death.
+    modelUrl: 'assets/models/enemies/wallsmasher.glb',
+    scale: 3.7,
     minimumPixelSize: 0,
     armorType: 'light',
     baseHp: 200,
@@ -234,7 +235,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralSpread: 0.65,
     spawnStartDelay: 500,
-    previewScale: 0.015,
+    previewScale: 1.5,
     previewCameraDistance: 4,
     previewCameraAngle: 0.26,
     previewOffsetY: 0,
