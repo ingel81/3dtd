@@ -155,14 +155,26 @@ Titel-Akzent der Tower-Tooltips (`DAMAGE_ACCENT` in `sidebar-tooltips.ts`), dazu
 
 Die Quick Actions reichen vertikal von unterhalb des Kompasses (`top: 112px`) bis zur Unterkante; die Buttons sitzen unten, die leere Fläche darüber ist `pointer-events: none`. Untermenüs klappen nach oben auf.
 
-Das Dev-Menü öffnet als zweispaltiger Block über seinem Toggle, außerhalb des Flusses (wie das Audio-Panel), damit es die übrigen Buttons nicht verschiebt:
+Das Dev-Menü (`.td-dev-menu`) ist ein Glas-Panel (`TD_BEVEL_GLASS`) über der Leiste: genau so breit wie sie (212px), rechtsbündig, Unterkante 4px über den Buttons, außerhalb des Flusses. Innen ein Raster mit vier Spalten (`gap` 4px, `padding` 6px), gegliedert in Gruppen, deren Titel über die volle Breite laufen (8px/600, `letter-spacing: 0.16em`, `--td-text-muted`):
 
-| Spalte | Gruppen |
+| Gruppe | Kacheln |
 |--------|---------|
-| Links: Welt, Rendering, Tools | Terrain & Map, Kamera, Display/Performance/LOS/Audio-Panels, State-Dump + DevWorld |
-| Rechts: Gameplay, Simulation | Cheats, Waves & AI (Wave-Spawner, Static Curriculum, Training), Inspektoren (Tower, Enemy, Event Bus) |
+| Map | Height, Points, Recast, Dump |
+| View & Panels | Camera, Frame, Display, Perf, LOS, Audio, DevWorld (nur mit `?devworld`) |
+| Cheats | Kill, Credits, +HP, Research, Max Up |
+| Waves & Inspect | Waves, Static, AI, Towers, Enemies, Events |
 
-Die Höhe ist auf den Platz zwischen Toggle und Kompass begrenzt; bei niedrigem Fenster scrollt das Menü, statt den Kompass zu überdecken. Neue Einträge in die passende Gruppe einsortieren und die Spalten ungefähr gleich hoch halten.
+Kachel (`.td-dev-tile`): 44px hoch, Icon 18px über einer Beschriftung in 8px Versalien (`letter-spacing: 0.06em`), Fläche `rgba(11,15,12,0.6)`, Rahmen `--td-frame-dark`.
+
+| Zustand | Darstellung |
+|---------|-------------|
+| Hover | Rahmen `--td-frame-mid`, Text `--td-text-primary` |
+| Aktiv (Fenster offen, Schalter an) | Fläche `rgba(194,160,85,0.16)`, Rahmen `--td-gold-dark`, Inset `rgba(217,188,104,0.18)`, Text `--td-gold-light` |
+| Cheat (`.td-dev-cheat`) | kein Aktiv-Zustand; Icon und Text in der Farbe der Wirkung (Kill und +HP `--td-health-red`, Credits `--td-gold`, Research und Max Up `--td-teal`), beim Hover nur der Rahmen in dieser Farbe |
+
+Die Tooltips nennen die volle Funktion (z. B. "+1000 Credits (Shift+Click: +100k)"), die `aria-label`s ebenso. Beschriftungen kurz halten: in der Mono-Ersatzschrift (Consolas) sind 8 Zeichen bei 8px rund 39px breit, die Kachel innen 44,5px. Der Dev-Toggle zeigt geöffnet das Gold-Rezept mit `--td-gold-glow`, wie der Layers-Toggle.
+
+Die Höhe ist auf den Platz zwischen Leiste und Kompass begrenzt; bei niedrigem Fenster scrollt das Panel, statt den Kompass zu überdecken. Neue Einträge in die passende Gruppe einsortieren.
 
 Das Display-Menü ist ein Panel über seinem Toggle (`.td-display-panel`, 212px breit), ebenfalls außerhalb des Flusses. Sein Wrapper spannt die volle Höhe der Quick Actions, damit das Panel wie das Dev-Menü vor dem Kompass endet und bei niedrigem Fenster scrollt; der Wrapper selbst lässt Klicks auf die Karte durch.
 
@@ -231,15 +243,17 @@ Die Host-Elemente haben `display: contents`, die `<section class="td-panel">` bl
 
 ### Next-Wave-Button (Sidebar)
 
-Primärer Call-to-Action (`.td-wave-btn` in `game-sidebar/wave-panel/wave-panel.component.scss`). Rezept wie `.td-btn-green` bzw. `TD_BUTTON_TEAL_STYLES`: Teal-Verlauf, 1px dunkle Kante, Key-Shadow, `--td-font-mono` 12px/700, Versalien, `letter-spacing: 0.06em`. Ecken 3px wie Tower-Karten und Stat-Kacheln, Höhe 36px wie der Cancel-Button im Build-Mode, Inhalt zentriert, Icon 16px.
+Primärer Call-to-Action (`.td-wave-btn` in `game-sidebar/wave-panel/wave-panel.component.scss`) mit der Beschriftung "Start Wave N", N ist die kommende Welle (dieselbe Nummer wie im Panel-Kopf). Gold-Rezept wie `TD_BUTTON_STYLES`: Verlauf `--td-gold-light` → `--td-gold` → `--td-gold-dark`, Text `#1A140A`, 1px dunkle Kante, Key-Shadow, `--td-font-mono` 13px/700, Versalien, `letter-spacing: 0.08em`. Ecken 3px wie Tower-Karten, Höhe 44px, Inhalt zentriert mit 10px Abstand, Icon `play` 16px.
 
-Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche und Farbe wechseln:
+Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche, Farbe und Inhalt wechseln:
 
 | Zustand | Auslöser | Darstellung |
 |---------|----------|-------------|
-| Bereit | keine Welle, kein Build-Mode | Teal-Verlauf, Hover `--td-teal-glow`, Pressed-Inset, `:focus-visible`-Outline |
-| Gesperrt | Build-Mode, Game Over | grauer Verlauf wie `.td-btn:disabled`, `--td-text-disabled` |
-| Welle läuft | `waveActive()` | `.td-wave-running`: `--td-panel-shadow` + `TD_BEVEL_INSET`, Text `--td-teal`, Icon `wave` statt `play` |
+| Bereit | keine Welle, kein Build-Mode | Gold-Verlauf, Hover `--td-gold-glow`, Pressed-Inset, `:focus-visible`-Outline in `--td-gold-light` |
+| Gesperrt | Build-Mode, Game Over | grauer Verlauf wie `.td-btn:disabled`, `--td-text-disabled`, weiter "Start Wave N" |
+| Welle läuft | `waveActive()` | `.td-wave-running`: `--td-panel-shadow` + `TD_BEVEL_INSET`; links Icon `wave` und "Wave N" in `--td-teal`, rechts "{n} left" (11px, `--td-text-muted`, keine Versalien), unten ein 2px-Balken in `--td-teal`, so breit wie der Anteil der Gegner, die weder getötet noch durchgekommen sind |
+
+Beschriftung, Restzahl und Balkenbreite liefert `waveButtonView()` (`wave-panel/wave-button.ts`) aus zwei Store-Werten: `waveEnemyTotal` (von `wave:started` angekündigte Größe) und `waveEnemiesLeft` (lebende plus noch nicht gespawnte Gegner). Beide pflegt `GameStateSyncService` aus `wave:started`, `enemy:died`, `enemy:reached-base` und `debug:kill-all`. Manuelle Debug-Wellen kündigen keine Größe an, dann fehlen Zahl und Balken.
 
 ### Slot (Item, Tower-Auswahl)
 
@@ -277,26 +291,23 @@ Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche und Farbe wech
 ### Header (mit Stein-Textur)
 
 ```css
-.td-header {
+.header {
   background:
     linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
-    url('/assets/images/backgrounds/stone-wall.jpg') repeat;
+    url('./src/styles/textures/stone-wall.jpg') repeat;
   background-size: auto, 64px 64px;
   border-bottom: 3px solid var(--td-panel-shadow);
-  border-top: 1px solid var(--td-frame-light);
-  padding: 4px 12px;
-}
-
-.td-header-title {
-  color: var(--td-gold);
-  font-size: 13px;
-  font-weight: 700;
+  border-top: 1px solid var(--td-gold-dark);
 }
 ```
 
+Die obere Kante ist Messing (`--td-gold-dark`) wie der Wave-Button, die untere die dunkle Schattenkante. Einen Titeltext gibt es nicht, links steht das Logo.
+
 ### Header-Stat-Leiste (an der Sidebar ausgerichtet)
 
-Health, Gold und Wave stehen in einer Leiste fester Breite (`.header-stats` in `game-header`) direkt über dem Sidebar-Inhalt: gleiche Breite und Außenkanten wie Next-Wave-Button und Tower-Raster. Drei gleich breite Spalten, Zahlen mit `tabular-nums`, damit wachsende Werte die Nachbarn nicht verschieben. Der Gegnerzähler erscheint nur während einer Welle als eigener Chip (`.enemies-chip`) links neben der Leiste, die Leiste selbst springt dabei nicht.
+HQ, Credits und Wave stehen in einer Leiste fester Breite (`.header-stats` in `game-header`) direkt über dem Sidebar-Inhalt: gleiche Breite und Außenkanten wie Next-Wave-Button und Tower-Raster. Drei gleich breite Spalten, Zahlen mit `tabular-nums`, damit wachsende Werte die Nachbarn nicht verschieben. Der Gegnerzähler erscheint nur während einer Welle als eigener Chip (`.enemies-chip`) links neben der Leiste, die Leiste selbst springt dabei nicht.
+
+Jede Zelle: Icon 16px, daneben eine kleine Spalte mit Label (`HQ`, `CREDITS`, `WAVE`; 8px, `line-height: 9px`, `letter-spacing: 0.16em`, `--td-text-muted`) über der Zahl (15px, `line-height: 17px`, 700). Zell-Padding 3px 8px, Abstand 7px. Mit diesen Zeilenhöhen bleibt die Leiste 34px und der Header 46px hoch. Die Labels benennen die Werte, die Icons sind Deko und tragen kein `aria-label`.
 
 Grundlage sind zwei Layout-Tokens aus `TD_LAYOUT` (`td-theme.ts`), die Header und Sidebar gemeinsam nutzen:
 
