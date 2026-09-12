@@ -34,6 +34,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, IGameManager, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/debug/performance-profiler.service';
 import { ResearchManager } from './research.manager';
+import { AbilityManager } from './ability.manager';
 import { ResearchStore } from '../store/research.store';
 
 /**
@@ -77,6 +78,12 @@ export class GameStateManager {
   readonly projectileManager = new ProjectileManager(this.eventBus);
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
   readonly researchManager = new ResearchManager(this.eventBus);
+  readonly abilityManager = new AbilityManager(this.eventBus, {
+    snapToRoute: (target, maxDistanceM) => this.globalRouteGrid.snapToRouteCell(target, maxDistanceM),
+    enemiesInRadius: (center, radiusM, out) =>
+      this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
+    strike: (targets, fractionOf) => this.combatEffect.applyAbilityStrike(targets, fractionOf),
+  });
 
   /**
    * Canonical list of sub-managers that implement IGameManager. Used for the
@@ -100,6 +107,7 @@ export class GameStateManager {
     this.projectileManager,
     this.waveManager,
     this.researchManager,
+    this.abilityManager,
   ];
 
   // Game state signals
@@ -247,6 +255,8 @@ export class GameStateManager {
     // Wire wave-number + wave-size providers for the kill-reward formula
     this.enemyManager.setWaveNumberProvider(() => this.waveManager.waveNumber());
     this.enemyManager.setWaveSizeProvider(() => this.waveManager.getExpectedBodyCount());
+    // Abilities fire during a wave only
+    this.abilityManager.setPhaseProvider(() => this.waveManager.phase());
 
     this.towerManager.initialize(tilesEngine);
     this.towerManager.setActiveRoutesGetter(() =>
@@ -563,6 +573,8 @@ export class GameStateManager {
 
     this.researchManager.update(stepMs);
     this.researchManager.startQueued(this.creditsNow, this.spendForResearch);
+    // Strike countdowns and impacts, in game time like the research
+    this.abilityManager.update(stepMs);
 
     t0 = profiling ? performance.now() : 0;
     this.eventBus.processQueue();
@@ -771,6 +783,7 @@ export class GameStateManager {
     this.projectileManager.clear();
     this.waveManager.reset();
     this.researchManager.reset();
+    this.abilityManager.reset();
 
     // NOTE: Do NOT clear GlobalRouteGrid here — it's bound to the location
     // and won't be re-initialized on a game-over restart. Tower visibility

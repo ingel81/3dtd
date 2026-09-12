@@ -123,3 +123,37 @@ describe('CombatEffectService splash', () => {
     expect(applySlow.mock.calls.some((c) => c[0] === bat)).toBe(true);
   });
 });
+
+describe('CombatEffectService ability strike', () => {
+  let applyMaxHpFraction: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
+    // Everyone dies except the enemy called 'survivor'
+    applyMaxHpFraction = vi.fn((_vfx: unknown, enemy: { id: string }) => enemy.id !== 'survivor');
+    mockInjections['DamageApplicationService'] = { applyMaxHpFraction };
+  });
+
+  it('applies each target its own share and counts the kills', () => {
+    const service = new CombatEffectService();
+    const targets = [
+      { id: 'a', alive: true, typeConfig: { isBoss: false } },
+      { id: 'survivor', alive: true, typeConfig: { isBoss: true } },
+    ];
+    const kills = service.applyAbilityStrike(
+      targets as never,
+      (enemy) => (enemy.typeConfig.isBoss ? 0.2 : 0.6),
+    );
+    expect(kills).toBe(1);
+    expect(applyMaxHpFraction.mock.calls.map((c) => [(c[1] as { id: string }).id, c[2]])).toEqual([
+      ['a', 0.6],
+      ['survivor', 0.2],
+    ]);
+  });
+
+  it('skips targets that are already dead', () => {
+    const service = new CombatEffectService();
+    service.applyAbilityStrike([{ id: 'gone', alive: false, typeConfig: {} }] as never, () => 0.6);
+    expect(applyMaxHpFraction).not.toHaveBeenCalled();
+  });
+});

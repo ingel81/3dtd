@@ -411,6 +411,24 @@ export class CombatEffectService {
   }
 
   /**
+   * Ability strike: every target loses `fractionOf(enemy)` of its max HP,
+   * matrix-free (DamageApplicationService.applyMaxHpFraction). No damage
+   * numbers, a strike hits up to a few hundred enemies at once.
+   *
+   * @returns the number of enemies the strike killed
+   */
+  applyAbilityStrike(targets: readonly Enemy[], fractionOf: (enemy: Enemy) => number): number {
+    let kills = 0;
+    for (const enemy of targets) {
+      if (!enemy.alive) continue;
+      if (this.damageService.applyMaxHpFraction(this.vfx, enemy, fractionOf(enemy), false)) {
+        kills++;
+      }
+    }
+    return kills;
+  }
+
+  /**
    * Emit a 'vfx:chain-lightning' event with the polyline of hit points
    * (tower tip → primary → jump1 → …) in local space.
    */

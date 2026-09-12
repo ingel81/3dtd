@@ -114,6 +114,38 @@ export class DamageApplicationService {
   }
 
   /**
+   * Take `fraction` of the enemy's max HP, past the damage matrix and armor.
+   *
+   * The path for abilities: a share of max HP scales over every wave without
+   * retuning and does not undercut the spread of the matrix
+   * (PLAYER_AGENCY_CONCEPT.md, 6.3). The kill credits no tower; it pays its
+   * share of the wave's kill budget like any other kill.
+   *
+   * @param vfx - CombatVfxService for the death blood
+   * @param enemy - Target enemy
+   * @param fraction - Share of max HP to take, 0..1
+   * @param showDeathBlood - Whether a kill spawns death blood (the caller caps mass kills)
+   * @returns true when this hit killed the enemy
+   */
+  applyMaxHpFraction(
+    vfx: CombatVfxService,
+    enemy: Enemy,
+    fraction: number,
+    showDeathBlood: boolean
+  ): boolean {
+    if (!this.towerManager || !this.enemyManager) return false;
+
+    const killed = enemy.health.takeDamage(enemy.health.maxHp * fraction);
+    // kill() ignores an enemy that is already dying
+    if (!killed || !this.enemyManager.kill(enemy)) return false;
+
+    if (showDeathBlood) {
+      vfx.emitDeathBlood(enemy);
+    }
+    return true;
+  }
+
+  /**
    * Handle enemy death — kill + track on source tower.
    */
   private killEnemy(enemy: Enemy, sourceTowerId: string): void {

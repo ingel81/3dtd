@@ -713,3 +713,40 @@ describe('GlobalRouteGrid cell keys around the origin', () => {
     expect(inRange.every((c) => c.towerVisibility.has('t1'))).toBe(true);
   });
 });
+
+describe('GlobalRouteGrid nearest cell', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+  /** Straight route along x through the origin; cell centres sit at odd x and z. */
+  const route = [[{ lat: 0, lon: -20 }, { lat: 0, lon: 20 }]];
+
+  let grid: GlobalRouteGrid;
+
+  beforeEach(() => {
+    const sampler = () => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 2 });
+    grid = new GlobalRouteGrid();
+    grid.initialize(sampler as never, coordinateSync);
+    grid.generateFromRoutes(route as never);
+  });
+
+  it('picks the cell whose centre is nearest to the point', () => {
+    expect(grid.findNearestCell(5.2, 1.1, 30)).toMatchObject({ x: 5, z: 1 });
+  });
+
+  it('reaches a route beside the point, up to the given distance', () => {
+    const cell = grid.findNearestCell(5, 28, 30)!;
+    expect(cell).toBeDefined();
+    expect(Math.hypot(cell.x - 5, cell.z - 28)).toBeLessThanOrEqual(30);
+  });
+
+  it('finds nothing when no cell is within the distance', () => {
+    expect(grid.findNearestCell(5, 40, 30)).toBeUndefined();
+    expect(grid.findNearestCell(60, 0, 30)).toBeUndefined();
+  });
+
+  it('breaks ties the same way every time: first cell in scan order', () => {
+    // (6, 0) is equally far from the centres (5, -1), (5, 1), (7, -1), (7, 1)
+    expect(grid.findNearestCell(6, 0, 30)).toMatchObject({ x: 5, z: -1 });
+  });
+});
