@@ -88,6 +88,9 @@ export interface ScreenShakePreset {
  * seen from 150 m, HQ damage and boss deaths from the 425 m start camera.
  * Playtest 2026-09-12: 150 / 450 m reached too far, the shake has to fade
  * out much sooner; now full up to 40 m, none from 100 m.
+ *
+ * The nuclear strike shakes wherever it lands, like HQ damage: the player
+ * aimed it and watches it, usually from further than 100 m.
  */
 export const SCREEN_SHAKE_CONFIG = {
   nearDistance: 40,  // m, camera to impact
@@ -98,6 +101,7 @@ export const SCREEN_SHAKE_CONFIG = {
     /** Times 0.5 to 2 for 5 to 20 HP lost */
     hqDamage:  { amplitude: 0.0025, duration: 300 },
     bossDeath: { amplitude: 0.004,  duration: 400 },
+    nuclearStrike: { amplitude: 0.008, duration: 700 },
   },
 } as const satisfies { nearDistance: number; farDistance: number; presets: Record<string, ScreenShakePreset> };
 
@@ -139,6 +143,36 @@ export const EXPLOSION_PRESETS = {
   // Where a skeleton splits into its minions (enemy:split, BURST_PALETTES.bone)
   bone:     { particles: 12 },
 } as const;
+
+/**
+ * Nuclear strike (abilities.config.ts): a staged explosion built from the
+ * pooled fire-atlas explosions. The core goes off on the impact, then two
+ * rings of smaller explosions around it, each later and further out.
+ * `distance` is a share of the strike radius, `delayMs` wall clock (the
+ * damage is dealt in the sub-step of the impact; the stages are only looks).
+ *
+ * Pool load of one strike: 140 + 6 x 40 + 9 x 22 = 578 fireball particles in
+ * the additive pool (3000), 16 + 6 x 5 + 9 x 3 = 73 smoke puffs in the normal
+ * pool (4000), which also takes the death blood (ABILITY_DEATH_BLOOD_CAP).
+ */
+export const NUCLEAR_STRIKE_VFX = {
+  core: { particles: 140, radius: 16, smokePuffs: 16 },
+  rings: [
+    { delayMs: 120, count: 6, distance: 0.45, particles: 40, radius: 8, smokePuffs: 5 },
+    { delayMs: 260, count: 9, distance: 0.85, particles: 22, radius: 6, smokePuffs: 3 },
+  ],
+  /** The explosions sit this far above the impact point on the ground, m */
+  heightM: 2,
+} as const;
+
+/**
+ * Death blood for at most this many kills of one ability strike, the first
+ * ones in grid order. A strike on a big wave kills 100 to 200 enemies at
+ * once; each splatter is 40 particles in the normal pool (4000) plus a decal
+ * with a terrain raycast. 24 splatters keep that under a quarter of the pool
+ * and 24 raycasts. The blood decal pool (100) would only evict its oldest.
+ */
+export const ABILITY_DEATH_BLOOD_CAP = 24;
 
 /**
  * Look of the fire-atlas explosion (cannon, rocket and bullet impacts), in

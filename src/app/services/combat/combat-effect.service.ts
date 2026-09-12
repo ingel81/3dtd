@@ -18,6 +18,7 @@ import { EnemyManager } from '../../managers/enemy.manager';
 import { GameEventBus, SubscriptionBag } from '../../game-engine';
 import { DamageType, DamageResult } from '../../configs/combat/combat.types';
 import { EFFECTIVENESS_COLORS, EFFECTIVENESS_SCALES } from '../../configs/combat/damage-matrix.config';
+import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
 
 /**
  * CombatEffectService - Orchestrates projectile hits
@@ -413,7 +414,8 @@ export class CombatEffectService {
   /**
    * Ability strike: every target loses `fractionOf(enemy)` of its max HP,
    * matrix-free (DamageApplicationService.applyMaxHpFraction). No damage
-   * numbers, a strike hits up to a few hundred enemies at once.
+   * numbers, a strike hits up to a few hundred enemies at once, and death
+   * blood for the first ABILITY_DEATH_BLOOD_CAP kills only.
    *
    * @returns the number of enemies the strike killed
    */
@@ -421,7 +423,8 @@ export class CombatEffectService {
     let kills = 0;
     for (const enemy of targets) {
       if (!enemy.alive) continue;
-      if (this.damageService.applyMaxHpFraction(this.vfx, enemy, fractionOf(enemy), false)) {
+      const showDeathBlood = kills < ABILITY_DEATH_BLOOD_CAP;
+      if (this.damageService.applyMaxHpFraction(this.vfx, enemy, fractionOf(enemy), showDeathBlood)) {
         kills++;
       }
     }

@@ -66,6 +66,19 @@ describe('ScreenShakeService', () => {
     service.destroy();
   });
 
+  it('shakes hardest for a nuclear strike, wherever it lands', () => {
+    const { eventBus, engine, service } = setup();
+    eventBus.emit({
+      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1,
+      target: { lat: farDistance * 5, lon: 0 }, radiusM: 25, hits: 10, kills: 4,
+    });
+    expect(engine.triggerScreenShake.mock.calls).toEqual([
+      [presets.nuclearStrike.amplitude, presets.nuclearStrike.duration],
+    ]);
+    expect(presets.nuclearStrike.amplitude).toBeGreaterThan(presets.bossDeath.amplitude);
+    service.destroy();
+  });
+
   it('stays still while disabled', () => {
     const { eventBus, engine, service, impact } = setup();
     service.disable();

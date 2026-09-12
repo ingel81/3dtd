@@ -79,4 +79,12 @@ export const GAME_SOUNDS = {
     rolloffFactor: 1,
     volume: 1.4,
   },
+  /** Nuclear strike impact: the same sample, louder and audible from further away */
+  nuclearStrike: {
+    id: 'nuclear_strike',
+    url: 'assets/sounds/effects/explosion.mp3',
+    refDistance: 150,
+    rolloffFactor: 0.6,
+    volume: 1.6,
+  },
 } as const;

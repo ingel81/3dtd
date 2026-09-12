@@ -1,9 +1,16 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Vector3 } from 'three';
 import { GameEventBus } from './game-event-bus';
 import { VFXService } from './vfx.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import { BURST_PALETTES, EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../configs/visual-effects.config';
+import {
+  ABILITY_DEATH_BLOOD_CAP,
+  BURST_PALETTES,
+  EXPLOSION_PRESETS,
+  MUZZLE_FLASH_PROFILES,
+  NUCLEAR_STRIKE_VFX,
+  PARTICLE_LIMITS,
+} from '../configs/visual-effects.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 
@@ -119,6 +126,80 @@ describe('VFXService projectile impact', () => {
       [7, 8, 9, 'cannon'],
       [7, 8, 9, 'rocket'],
     ]);
+    service.destroy();
+  });
+});
+
+describe('VFXService nuclear strike', () => {
+  const TARGET = { lat: 48, lon: 9, height: 300 };
+
+  function strikeSetup() {
+    vi.useFakeTimers();
+    const eventBus = new GameEventBus();
+    const tilesEngine = {
+      sync: {
+        geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: Vector3) => target.set(7, 8, 9)),
+      },
+      effects: { spawnExplosion: vi.fn(), markScorch: vi.fn() },
+      abilityMarkers: { showStrike: vi.fn(), removeStrike: vi.fn(), clear: vi.fn() },
+    };
+    const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
+    const used = () => eventBus.emit({
+      type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 3, target: TARGET, radiusM: 25, warningMs: 1500,
+    });
+    const impact = () => eventBus.emit({
+      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 3, target: TARGET, radiusM: 25, hits: 0, kills: 0,
+    });
+    return { eventBus, tilesEngine, service, used, impact };
+  }
+  const explosionCount = 1 + NUCLEAR_STRIKE_VFX.rings.reduce((n, r) => n + r.count, 0);
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('marks the target on the ground while the strike is on its way', () => {
+    const { tilesEngine, service, used } = strikeSetup();
+    used();
+    expect(tilesEngine.abilityMarkers.showStrike).toHaveBeenCalledWith(3, expect.objectContaining({ x: 7, y: 8, z: 9 }), 25, 1500);
+    service.destroy();
+  });
+
+  it('removes the marker and stages the explosion: the core first, the rings after', () => {
+    const { tilesEngine, service, impact } = strikeSetup();
+    impact();
+    expect(tilesEngine.abilityMarkers.removeStrike).toHaveBeenCalledWith(3);
+    const { core, heightM } = NUCLEAR_STRIKE_VFX;
+    expect(tilesEngine.effects.spawnExplosion.mock.calls).toEqual([
+      [7, 8 + heightM, 9, core.particles, core.radius, core.smokePuffs],
+    ]);
+
+    vi.advanceTimersByTime(1000);
+    expect(tilesEngine.effects.spawnExplosion).toHaveBeenCalledTimes(explosionCount);
+    expect(tilesEngine.effects.markScorch).toHaveBeenCalledTimes(explosionCount);
+    service.destroy();
+  });
+
+  it('stays within the particle pools, death blood included', () => {
+    const { tilesEngine, service, impact } = strikeSetup();
+    impact();
+    vi.advanceTimersByTime(1000);
+    const calls = tilesEngine.effects.spawnExplosion.mock.calls;
+    const fireball = calls.reduce((n, c) => n + (c[3] as number), 0);
+    const smoke = calls.reduce((n, c) => n + (c[5] as number), 0);
+    expect(fireball).toBeLessThanOrEqual(PARTICLE_LIMITS.maxTrailParticlesPerPool / 4);
+    // A death splatter is 40 particles in the normal pool (CombatVfxService.emitDeathBlood)
+    expect(smoke + ABILITY_DEATH_BLOOD_CAP * 40).toBeLessThanOrEqual(PARTICLE_LIMITS.maxTrailNormalParticlesPerPool / 3);
+    service.destroy();
+  });
+
+  it('drops the rings still to go off and the markers on a restart', () => {
+    const { eventBus, tilesEngine, service, impact } = strikeSetup();
+    impact();
+    eventBus.emit({ type: 'game:reset' });
+    vi.advanceTimersByTime(1000);
+    expect(tilesEngine.effects.spawnExplosion).toHaveBeenCalledTimes(1);
+    expect(tilesEngine.abilityMarkers.clear).toHaveBeenCalled();
     service.destroy();
   });
 });

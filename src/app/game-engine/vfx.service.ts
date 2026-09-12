@@ -1,9 +1,16 @@
 import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
-import { BURST_PALETTES, EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES, type ScorchSource } from '../configs/visual-effects.config';
+import {
+  BURST_PALETTES,
+  EXPLOSION_PRESETS,
+  MUZZLE_FLASH_PROFILES,
+  NUCLEAR_STRIKE_VFX,
+  type ScorchSource,
+} from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
+import type { GeoPosition } from '../models/game.types';
 
 /**
  * VFX Service - Handles visual effects via events
@@ -17,6 +24,9 @@ export class VFXService {
   // Scratch vectors to avoid per-event allocations (chain lightning, scorch marks).
   private readonly tmpA = new Vector3();
   private readonly tmpB = new Vector3();
+
+  /** Explosion rings of a nuclear strike still to go off */
+  private readonly strikeTimers = new Set<ReturnType<typeof setTimeout>>();
 
   constructor(
     private eventBus: GameEventBus,
@@ -61,6 +71,68 @@ export class VFXService {
         BURST_PALETTES.bone,
       );
     }));
+
+    // Nuclear strike: target marker while it is on its way, staged explosion on impact
+    this.subs.add(this.eventBus.on('ability:used', (event) => {
+      this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs);
+    }));
+    this.subs.add(this.eventBus.on('ability:impact', (event) => {
+      this.handleStrikeImpact(event.strikeId, event.target, event.radiusM);
+    }));
+    // A restart drops the markers and the rings still to go off
+    this.subs.add(this.eventBus.on('game:reset', () => this.clearStrikes()));
+  }
+
+  private handleStrikeUsed(strikeId: number, target: GeoPosition, radiusM: number, warningMs: number): void {
+    const center = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpA);
+    this.tilesEngine.abilityMarkers.showStrike(strikeId, center, radiusM, warningMs);
+  }
+
+  /**
+   * Staged explosion (NUCLEAR_STRIKE_VFX): the core on the impact point, then
+   * the rings around it, each ring turned half a step against the previous
+   * one so the explosions do not line up. Every explosion leaves a scorch
+   * mark where it meets a route cell.
+   */
+  private handleStrikeImpact(strikeId: number, target: GeoPosition, radiusM: number): void {
+    this.tilesEngine.abilityMarkers.removeStrike(strikeId);
+
+    const { core, rings, heightM } = NUCLEAR_STRIKE_VFX;
+    const ground = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpA);
+    const x = ground.x;
+    const y = ground.y + heightM;
+    const z = ground.z;
+    this.explodeAt(x, y, z, core.particles, core.radius, core.smokePuffs);
+
+    rings.forEach((ring, ringIndex) => {
+      const timer = setTimeout(() => {
+        this.strikeTimers.delete(timer);
+        const distance = ring.distance * radiusM;
+        for (let i = 0; i < ring.count; i++) {
+          const angle = ((i + ringIndex * 0.5) / ring.count) * Math.PI * 2;
+          this.explodeAt(
+            x + Math.cos(angle) * distance, y, z + Math.sin(angle) * distance,
+            ring.particles, ring.radius, ring.smokePuffs,
+          );
+        }
+      }, ring.delayMs);
+      this.strikeTimers.add(timer);
+    });
+  }
+
+  private explodeAt(x: number, y: number, z: number, particles: number, radius: number, smokePuffs: number): void {
+    this.tilesEngine.effects.spawnExplosion(x, y, z, particles, radius, smokePuffs);
+    this.tilesEngine.effects.markScorch(x, y, z, 'rocket');
+  }
+
+  private clearStrikes(): void {
+    this.cancelStrikeTimers();
+    this.tilesEngine.abilityMarkers.clear();
+  }
+
+  private cancelStrikeTimers(): void {
+    for (const timer of this.strikeTimers) clearTimeout(timer);
+    this.strikeTimers.clear();
   }
 
   /**
@@ -203,5 +275,7 @@ export class VFXService {
    */
   destroy(): void {
     this.subs.disposeAll();
+    // The markers belong to the engine: game:reset clears them, engine.dispose() frees them
+    this.cancelStrikeTimers();
   }
 }
