@@ -11,20 +11,13 @@ import {
   MathUtils,
   Matrix4,
 } from 'three';
-import { TilesRenderer, type GlobeControls } from '3d-tiles-renderer';
+import type { TilesRenderer, GlobeControls } from '3d-tiles-renderer';
 import {
-  TilesFadePlugin,
-  TileCompressionPlugin,
-  UpdateOnChangePlugin,
-  UnloadTilesPlugin,
-  GLTFExtensionsPlugin,
-  ReorientationPlugin,
-  LoadRegionPlugin,
   DebugTilesPlugin,
+  type ReorientationPlugin,
+  type LoadRegionPlugin,
   type ColorMode,
 } from '3d-tiles-renderer/plugins';
-import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/core/plugins';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
 import { CameraRig } from './camera-rig';
@@ -34,6 +27,7 @@ import { RenderLoop } from './render-loop';
 import { TerrainQueries } from './terrain-queries';
 import { SkyBackground, addSceneLights } from './scene-environment';
 import { ScreenPicker } from './screen-picker';
+import { applyStreamingBudget, createTilesRenderer } from './tiles-renderer-setup';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -395,60 +389,18 @@ export class ThreeTilesEngine {
     // NORMAL MODE - Load Google 3D Tiles
     // ========================================
 
-    // Create TilesRenderer
-    this.tilesRenderer = new TilesRenderer();
-    // Let three frustum-cull tile meshes. The renderer's own culling only
-    // covers the main camera, but the route corridor keeps off-screen tiles
-    // visible and the tower LOS cubemap renders from cameras of its own.
-    this.tilesRenderer.autoDisableRendererCulling = false;
-
-    // Register auth plugin based on tile provider
-    if (this.tileProvider === 'google') {
-      console.log('[ThreeTilesEngine] Using Google Cloud 3D Tiles (direct)');
-      this.tilesRenderer.registerPlugin(
-        // Sessions expire. Without the refresh, tiles start failing mid-game
-        // with per-tile errors, which the auth-error check below never sees.
-        new GoogleCloudAuthPlugin({ apiToken: this.googleMapsApiKey, autoRefreshToken: true })
-      );
-    } else {
-      console.log('[ThreeTilesEngine] Using Cesium Ion 3D Tiles');
-      this.tilesRenderer.registerPlugin(
-        new CesiumIonAuthPlugin({
-          apiToken: this.cesiumIonToken,
-          assetId: this.cesiumAssetId,
-        })
-      );
-    }
-    this.tilesRenderer.registerPlugin(new TileCompressionPlugin());
-    this.tilesRenderer.registerPlugin(new UpdateOnChangePlugin());
-    // Hidden tiles keep their GPU upload for 2 s, so turning the camera back
-    // does not re-upload what just left the view.
-    this.tilesRenderer.registerPlugin(new UnloadTilesPlugin({ delay: 2000 }));
-    this.tilesRenderer.registerPlugin(new TilesFadePlugin());
-    this.tilesRenderer.registerPlugin(
-      new GLTFExtensionsPlugin({
-        // Selbst ausgeliefert aus public/draco/gltf/. Ueber ein Fremd-CDN ginge
-        // die IP jedes Spielers dorthin, und das Spiel haenge an dessen Uptime.
-        dracoLoader: new DRACOLoader().setDecoderPath('draco/gltf/'),
-      })
-    );
-
-    // Reorientation plugin - centers tiles on origin
-    const origin = this.sync.getOrigin();
-    this.reorientationPlugin = new ReorientationPlugin({
-      lat: origin.lat * MathUtils.DEG2RAD,
-      lon: origin.lon * MathUtils.DEG2RAD,
-      height: origin.height,
-      recenter: true,
+    // TilesRenderer with the auth, streaming, reorientation and region
+    // plugins, group rotated to Y-up
+    const tiles = createTilesRenderer({
+      provider: this.tileProvider,
+      googleMapsApiKey: this.googleMapsApiKey,
+      cesiumIonToken: this.cesiumIonToken,
+      cesiumAssetId: this.cesiumAssetId,
+      origin: this.sync.getOrigin(),
     });
-    this.tilesRenderer.registerPlugin(this.reorientationPlugin);
-
-    // Keeps the enemy route corridor at fine LOD, see setRouteCorridor().
-    this.routeRegions = new LoadRegionPlugin();
-    this.tilesRenderer.registerPlugin(this.routeRegions);
-
-    // Important: rotate tiles group so Y is up (default is Z-up)
-    this.tilesRenderer.group.rotation.x = -Math.PI / 2;
+    this.tilesRenderer = tiles.tilesRenderer;
+    this.reorientationPlugin = tiles.reorientationPlugin;
+    this.routeRegions = tiles.routeRegions;
 
     // Add to scene
     this.scene.add(this.tilesRenderer.group);
@@ -466,32 +418,8 @@ export class ThreeTilesEngine {
     this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
     this.tilesRenderer.setCamera(this.camera);
 
-    // === STREAMING BUDGET ===
-    // Max screen-space error in px before a tile is refined. Higher = coarser.
-    // Lib default is 16. GoogleCloudAuthPlugin sets 20 on its own; this keeps
-    // the Cesium path on the same budget.
-    this.tilesRenderer.errorTarget = 20;
-    // Distant tiles refine less, fog-style (Cesium's dynamic screen-space
-    // error). Takes up to 24 px off the error: about 5 px at 2 km, 15 px at
-    // 4 km, 21 px at 6 km. Only bites when the camera tilts towards the
-    // horizon; load regions are exempt. Experimental in the library.
-    this.tilesRenderer.errorFalloff = 24;
-    this.tilesRenderer.errorFalloffDensity = 2.5e-4;
-
-    // Lib defaults: 25 downloads per server origin, 5 parses. Google serves all
-    // tiles from one origin, so the per-origin cap is the global cap. Parsing is
-    // async but finalization lands on the main thread, so one at a time keeps
-    // frame times flat.
-    this.tilesRenderer.downloadQueue.maxJobsPerOrigin = 4;
-    this.tilesRenderer.parseQueue.maxJobs = 1;
-
-    // Item caps stay at the lib defaults (6000/8000); on photorealistic tiles
-    // the byte cap binds first. Raised from 0.3/0.4 GiB so the route corridor
-    // does not crowd out the view; the info overlay shows the cache size.
-    // Every TilesRenderer shares this cache module-wide, which is fine with
-    // the one engine per page we run.
-    this.tilesRenderer.lruCache.minBytesSize = 0.5 * 2 ** 30;
-    this.tilesRenderer.lruCache.maxBytesSize = 0.7 * 2 ** 30;
+    // Refinement error, distance falloff, download and parse queues, LRU cache
+    applyStreamingBudget(this.tilesRenderer);
 
     // tiles-load-end (first load, debounce), load-tileset, load-error (auth)
     this.tileLoading.attach(this.tilesRenderer);

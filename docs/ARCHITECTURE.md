@@ -346,6 +346,7 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | `terrain-queries.ts` | Raycasts gegen Boden und Tiles: Säulen-Probe `sampleColumn()` mit Cache pro 0,5-m-Säule und `lodVersion`, `getGroundHeightEstimate()`, Tile-LOD-Peek ohne Raycast, Straßen-Freiraum für den Routen-Korridor (`measureStreetClearance()`), Line-of-Sight. Als `engine.terrain` erreichbar, nur `getTerrainHeightAtGeo()` reicht der Engine durch |
 | `scene-environment.ts` | Statische Szenen-Lichter (`addSceneLights()`) und der Himmel als Cube-Textur aus `day.webp` (`SkyBackground`) |
 | `screen-picker.ts` | Screen-Picking: Boden unter dem Mauszeiger (`raycastTerrain()`, in DevWorld über den DevTerrainProvider) und angeklickter Tower (`raycastTowers()`), je Aufruf ein frischer Raycaster. Als `engine.picker` erreichbar |
+| `tiles-renderer-setup.ts` | Aufbau des TilesRenderers (`createTilesRenderer()`: Auth je Provider, Kompression, Update-on-Change, verzögertes Entladen, Fade, glTF/Draco, Reorientation, Load-Regions, Gruppe auf Y-oben) und Streaming-Budget (`applyStreamingBudget()`) |
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
 
@@ -359,9 +360,9 @@ direkt. Nur `getTerrainHeightAtGeo()` mit seinen
 vielen Aufrufern bleibt als Durchreiche am Engine.
 Der Loop ruft pro Frame `update()` und `render()` des Engines, `render()` meldet jeden
 gezeichneten Frame mit `renderLoop.frameRendered()` zurück.
-`initialize()` bindet sie in fester Reihenfolge an den TilesRenderer: Plugins registrieren,
-Gruppe in die Szene, `cameraRig.setupGlobeControls()`, Kamera und Streaming-Budget am
-Renderer setzen, dann `tileLoading.attach()` (Listener für `tiles-load-end`, `load-tileset`,
+`initialize()` bindet sie in fester Reihenfolge an den TilesRenderer: `createTilesRenderer()`
+(Plugins registrieren), Gruppe in die Szene, `cameraRig.setupGlobeControls()`, Kamera setzen,
+`applyStreamingBudget()`, dann `tileLoading.attach()` (Listener für `tiles-load-end`, `load-tileset`,
 `load-error`). Nach jedem beruhigten `tiles-load-end` meldet der Tracker
 `onTileSetSettled()` zurück, dort invalidiert der Engine LOD-Version (`terrain.markTileSetChanged()`) und LOS-Cubemap und
 ruft `onTilesLoadCallback`. `setOrigin()` ruft `tileLoading.reset()`. `dispose()` stoppt
@@ -1328,6 +1329,7 @@ src/app/
 │   ├── vfx-settings.ts           # Abschaltbare Effekte (Display-Menü)
 │   ├── tile-material-log.ts      # Diagnose: welche Materialien Szenenlichter rechnen
 │   ├── screen-picker.ts          # Boden und Tower unter dem Mauszeiger (seit 2026-09-13)
+│   ├── tiles-renderer-setup.ts   # TilesRenderer-Aufbau + Streaming-Budget (seit 2026-09-13)
 │   ├── ellipsoid-sync.ts         # Koordinaten
 │   ├── index.ts                  # Exports
 │   ├── post-processing/          # Bloom + Color Grading (eigene Pipeline-Klasse seit 2026-05-10)
