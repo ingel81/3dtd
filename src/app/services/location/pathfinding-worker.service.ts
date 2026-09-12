@@ -106,7 +106,6 @@ export class PathfindingWorkerService {
             settled = true;
             this.workerReady = true;
             this.worker.onmessage = originalHandler;
-            console.log('[PathfindingWorker] Worker initialized and ready');
             resolve();
           } else if (msg.type === 'error') {
             settled = true;
