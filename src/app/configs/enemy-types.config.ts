@@ -153,8 +153,9 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     reward: 3,
     hasAnimations: true,
     walkAnimation: 'Unsteady_Walk',
-    // Electrocuted_Fall stays out: its fall starts after 3 s, the enemy is gone after 2.
-    deathAnimations: ['Dead', 'dying_backwards'],
+    // Electrocuted_Fall is cut to its fall (3.0-5.0 s of the source clip), the
+    // part that fits into the 2 s before the enemy is removed.
+    deathAnimations: ['Dead', 'dying_backwards', 'Electrocuted_Fall'],
     animationSpeed: 1,
     movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
