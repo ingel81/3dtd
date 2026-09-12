@@ -397,6 +397,20 @@ describe('PathAndRouteService route geometry', () => {
         expect(why).toMatchObject({ way: 200, unmeasured: 'coarse tile', tileError: 20 });
         expect(why.sides[0]).toMatchObject({ lowHitM: null, wall: null, freeM: null, halfWidthM: 6, rule: 'unmeasured: street width' });
       });
+
+      it('knows which stations still wait for finer tiles', () => {
+        // Way 200 from 60 to 110 m north of n1 is still on coarse tiles.
+        clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 60 && northOfN1(z) < 110 ? null : max);
+        const service = buildRouteService(network, spawn, hq);
+        expect(service.hasUnmeasuredStations()).toBe(false);
+        service.measureStreetClearance();
+        expect(service.hasUnmeasuredStations()).toBe(true);
+
+        // Finer tiles later: the stations get measured and widen the corridor there.
+        clearanceAt = (_x, _z, max) => max;
+        expect(service.measureStreetClearance()).toBe(true);
+        expect(service.hasUnmeasuredStations()).toBe(false);
+      });
     });
   });
 

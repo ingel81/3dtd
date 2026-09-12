@@ -657,6 +657,26 @@ export class VisualizationFacadeService {
     this.rebuildCorridors();
   }
 
+  /**
+   * Measure the corridor stations again that had no fine tile at the last
+   * run, once a tile-load batch has settled, and rebuild the corridor where
+   * that changes it. The first measurement runs when the height update
+   * stops, about two seconds into the location, and does not wait for the
+   * corridor tiles, which refine by error alone and keep streaming in for
+   * a while after; stations still on coarse tiles kept the OSM width for
+   * the whole location. Only while fitCorridorsToTiles may (no tower, no
+   * enemy, no wave), not during the intro flight, and at most every
+   * CORRIDOR_REMEASURE_INTERVAL_MS.
+   */
+  private remeasureCorridor(): void {
+    if (!this.pathRoute.hasUnmeasuredStations()) return;
+    if (this.corridorRebuildBlocker() || this.introFlight.isRunning()) return;
+    const now = performance.now();
+    if (now - this.lastCorridorRemeasure < VisualizationFacadeService.CORRIDOR_REMEASURE_INTERVAL_MS) return;
+    this.lastCorridorRemeasure = now;
+    this.fitCorridorsToTiles();
+  }
+
   /** Rebuild the routes with the corridor widths as measured and configured now, their cells and the route line. */
   private rebuildCorridors(): void {
     // Routes with the new widths first, then the cells built from them,
@@ -1007,6 +1027,12 @@ export class VisualizationFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   private routeGridConvergenceScheduled = false;
+
+  /** When remeasureCorridor last measured, performance.now() ms. */
+  private lastCorridorRemeasure = -Infinity;
+
+  /** Shortest time between two corridor re-measurements after tile loads. */
+  private static readonly CORRIDOR_REMEASURE_INTERVAL_MS = 3000;
   /** rAF handle for the convergence loop — cancelled in dispose(). */
   private routeGridConvergenceRaf: number | null = null;
 
@@ -1051,6 +1077,9 @@ export class VisualizationFacadeService {
         this.bakedRefreshPending = false;
         this.scheduleBakedHeightRefresh();
       }
+      // The batch has settled: corridor stations that were still on coarse
+      // tiles may have fine ones now.
+      this.remeasureCorridor();
     };
 
     const tick = () => {
