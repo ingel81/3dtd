@@ -8,6 +8,8 @@
  * (see src/app/ai/core/templates.ts).
  */
 
+import type { DecisionExplanation } from '../decision-explainer';
+
 /**
  * Known enemy type IDs in the game.
  * Keep in sync with ENEMY_TYPES in configs/enemy-types.config.ts
@@ -18,8 +20,6 @@ export type KnownEnemyTypeId =
   | 'zombie-soldier' | 'tank' | 'bear' | 'dragon' | 'mech'
   | 'mammoth' | 'herbert'
   | 'ghost' | 'wraith';
-
-import type { DecisionExplanation } from '../decision-explainer';
 
 export type { SpawnPattern } from '../spawn-schedule-builder';
 
