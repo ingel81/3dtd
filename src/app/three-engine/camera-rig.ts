@@ -63,9 +63,6 @@ export class CameraRig {
    * - Scroll wheel: Zoom in/out
    */
   setupEnvironmentControls(scene: Scene, devWorldGroup: Object3D): void {
-    const LOG = '[DevWorld]';
-    console.log(`${LOG} ========== CONTROLS SETUP ==========`);
-
     // EnvironmentControls - works with flat local terrain
     const envControls = new EnvironmentControls(scene, this.camera, this.canvas);
 
@@ -86,15 +83,9 @@ export class CameraRig {
 
     // Position camera - steep 70° view (same as real game)
     this.applyStartPosition();
-    console.log(`${LOG} Camera default: pos=(0, 400, -145), lookAt=(0, 0, 0)`);
 
     // Update controls after camera positioning
     envControls.update();
-
-    const pos = this.camera.position;
-    console.log(`${LOG} EnvironmentControls configured`);
-    console.log(`${LOG} Camera position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`);
-    console.log(`${LOG} Controls: pan=left-drag, rotate=right-drag, zoom=scroll`);
   }
 
   /**
