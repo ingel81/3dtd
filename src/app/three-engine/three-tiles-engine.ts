@@ -67,6 +67,7 @@ import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
 import { RouteCorridorRegion } from './route-corridor-region';
 import { warmUpScene } from './scene-warmup';
+import { logTileMaterialTypes } from './tile-material-log';
 import type { GeoPosition } from '../models/game.types';
 
 /**
@@ -557,6 +558,9 @@ export class ThreeTilesEngine {
 
     // tiles-load-end (first load, debounce), load-tileset, load-error (auth)
     this.tileLoading.attach(this.tilesRenderer);
+
+    // R10: do the tile materials run the scene lights? Logged once per type.
+    logTileMaterialTypes(this.tilesRenderer);
 
     // Set up terrain height sampler for tower range indicators (legacy)
     this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
