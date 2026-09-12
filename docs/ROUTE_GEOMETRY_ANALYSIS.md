@@ -214,8 +214,15 @@ Stationen, die sich nicht messen lassen.
   Gegner im Sub-Step kosten gleich viel. Nicht gemessen.
 - Fast jede Ortsladung baut Routen und Grid jetzt ein zweites Mal
   (`CorridorRefit.fitToTiles`), weil die Messung fast überall eine andere Breite
-  als OSM ergibt. Vorher geschah das nur bei einer Verengung. Die Dauer
-  steht nicht im Log und ist nicht gemessen.
+  als OSM ergibt. Vorher geschah das nur bei einer Verengung. Der
+  Neuaufbau läuft synchron in einem Frame. Jeder schreibt
+  `[Corridor] rebuild: routes= grid= heights= lines= overlays= total= ms spawns= cells=`:
+  `routes` ist Wegsuche (A*), Korridor-Anpassung und rote Linie, `grid` die
+  Zellen samt erster Höhenprobe, `heights` der volle Höhen-Sweep, `lines`
+  Wegsuche und rote Linie ein zweites Mal auf den neuen Zellhöhen,
+  `overlays` die Debug-Layer und die Routen-Animation. Die Messung selbst
+  steht davor in `[Corridor] clearance: ... in ms`. Zahlen aus dem Spiel
+  gibt es noch nicht.
 - Brücken mit Tragwerk über dem Deck (Bogen, Fachwerk) oder mit Autos und
   Bäumen darauf: `topY` ist dann deren Oberkante.
 - Kreuzen sich zwei Routen auf verschiedenen Ebenen, gilt in den gemeinsamen
