@@ -8,21 +8,21 @@
 >   Range-Interpolation und Fairness-Gate darunter sind geblieben. Warum: das
 >   Netz war in A/B-Läufen dreimal statistisch nicht von uniformem Zufall zu
 >   unterscheiden. Details und Messwerte in
->   [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) (Kopf) und
->   [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md).
+>   [PHASE_5.11_RANGES.md](../PHASE_5.11_RANGES.md) (Kopf) und
+>   [AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md).
 > - Der Training-Refresh (2026-08) hat `templates.py`, `wave_curriculum.py` und die
 >   Enemy-Tabellen in `config.py` gelöscht: Templates, Curriculum und Vokabulare
 >   kommen jetzt aus den TypeScript-Configs über
 >   `training-backend/generated/ai-schema.json`. Dateiverweise unten sind veraltet:
->   [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).
+>   [HANDOVER_TRAINING_REFRESH.md](../HANDOVER_TRAINING_REFRESH.md).
 >
 > - Phase 5.11 ersetzt statische `base_*`-Felder durch Ranges und erweitert den NN
 >   auf 4 Continuous-Parameter (count, spawn_delay, hp_mult, variation):
->   [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md).
+>   [PHASE_5.11_RANGES.md](../PHASE_5.11_RANGES.md).
 > - Phase 5.14 dämpft den SWARM-Reward (Slope 0.0015, Cap 2.0) — dokumentiert in
->   [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) (Abschnitt "Phase 5.14").
+>   [PHASE_5.11_RANGES.md](../PHASE_5.11_RANGES.md) (Abschnitt "Phase 5.14").
 > - Phase 5.16 fügt Wave-Curriculum-Override + Endgame-HP-Multiplier + Gold-Budget
->   hinzu: [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md).
+>   hinzu: [HANDOVER_PLAYTEST_PHASE5.16.md](../HANDOVER_PLAYTEST_PHASE5.16.md).
 >
 > Dieses Dokument beschreibt den Phase-5.10-Übergangsstand (Action-Space mit
 > 2 Continuous, statische Template-Werte) — nicht mehr aktuell.
@@ -147,7 +147,7 @@ retraining the model.
 > explicit opt-in that leaves the rule director running if it fails. The error
 > banner path still exists in `game-loop-facade.service.ts`, but anything that
 > reaches it now is a genuine bug rather than an absent asset. See
-> [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) for today's wave-source
+> [STATIC_WAVE_FALLBACK.md](../STATIC_WAVE_FALLBACK.md) for today's wave-source
 > priority.
 
 Phase-5.10 behaviour, for the record — if the ONNX model failed to load during
