@@ -295,7 +295,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 86 | 8192×172 | RGBA32F | 2,64 | 21,5 | 1024² |
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.272 | 19.541 | 0,7 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
 | Wraith (`wraith`) | Normal | 300 | 8.126 | 6.790 | 2,4 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
-| Mammoth (`mammoth`) | Normal | 150 | 5.541 | 8.685 | 0,8 | Skinning | 321 | 5541×321 | RGBA16F | 1,51 | 13,6 | 1024² |
+| Mammoth (`mammoth`) | Normal | 150 | 5.557 | 8.685 | 0,8 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
 | Ghost (`ghost`) | Normal | 280 | 5.245 | 7.773 | 1,5 | Skinning | 200 | 5245×200 | RGBA16F | 0,46 | 8,0 | 1024² |
 | Tank (`tank`) | Normal | 150 | 5.094 | 2.796 | 0,8 | statisch | 1 | 5094×1 | RGBA16F | 1,12 | 0,0 | – |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 5.013 | 3.550 | 1,0 | Skinning | 272 | 5013×272 | RGBA16F | 1,08 | 10,4 | 1024² |
@@ -311,7 +311,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 | Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 
-VAT-Speicher aller Typen zusammen: **105,5 MB** (30 fps), alles in RGBA32F wären **189,4 MB**.
+VAT-Speicher aller Typen zusammen: **105,5 MB** (30 fps), alles in RGBA32F wären **189,5 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **8,7 MB** dazu.
 
 ### Alpha
@@ -345,7 +345,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Stone Golem | `stone_golem.glb` | 3,1 | 1 (1) | 24 | 0 | 1 | 1024² | 2 | 13.612 / 13.415 / 5.205 |
 | Dragon | `dragon.glb` | 5,9 | 1 (1) | 220 | 0 | 1 | 4× 1024² | 1 | 12.082 / 11.868 / 10.208 |
 | Wraith | `wraith.glb` | 1,8 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
-| Mammoth | `mammoth.glb` | 4,9 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 12 | 5.541 / 5.541 / 5.121 |
+| Mammoth | `mammoth.glb` | 2,6 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 2 | 5.557 / 5.541 / 5.121 |
 | Ghost | `ghost.glb` | 2,7 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 5.245 / 3.894 / 3.467 |
 | Tank | `tank.glb` | 0,2 | 7 (0) | 0 | 0 | 7 | – | 0 | 5.094 / 2.269 / 1.676 |
 | Zombie v2 | `zombie_v2.glb` | 2,2 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 5.013 / 5.013 / 1.750 |
