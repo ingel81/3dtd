@@ -1287,7 +1287,6 @@ src/app/
 │   └── world/                    # Marker, Path/Route, Grid (Global/Spatial), Height, Streets, Buildings, Intro-Kamerafahrt, CorridorRefit
 │
 ├── managers/                     # Manager-Dateien (event-driven, Angular-frei)
-│   ├── index.ts                  # Manager Exports
 │   ├── entity-manager.ts         # Base class
 │   ├── game-state.manager.ts     # Orchestrator + subManagers[] + dispose()
 │   ├── game-commands.handler.ts  # 11 `command:*`/`debug:*` Subscriptions (extrahiert aus GSM, 2026-05-10)
@@ -1378,7 +1377,6 @@ src/app/
 ├── core/
 │   ├── game-object.ts
 │   ├── component.ts
-│   ├── index.ts
 │   └── services/config.service.ts
 │
 ├── store/                        # Signal Stores (Single Source of Truth)
@@ -1392,7 +1390,6 @@ src/app/
 │   └── debug.store.ts            # Wave/Tower/Enemy-Debug-State
 │
 ├── configs/
-│   ├── index.ts
 │   ├── tower-types.config.ts
 │   ├── enemy-types.config.ts     # (2026-05-10 aus models/ migriert)
 │   ├── projectile-types.config.ts

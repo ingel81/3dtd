@@ -236,7 +236,7 @@ Regenerieren: `LocationFacadeService.refreshTerrainHeights()` räumt die Szene
 - Die Höhen kommen in einem Schritt vom Mesh; es gibt keine Tile-Batches und keine
   cells-changed-Events. `VisualizationFacadeService` stößt den Höhen-Refresh der
   Routenlinien deshalb explizit an.
-- Korridor: `ThreeTilesEngine.measureStreetClearance()` gibt in DevWorld `null` zurück, es
+- Korridor: `engine.terrain.measureStreetClearance()` (`TerrainQueries`) gibt in DevWorld `null` zurück, es
   laufen keine Clearance-Rays. Der Korridor behält die Breite aus `DEV_STREET_WIDTHS`.
   Details: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md).
 - LOS: Fahrbahn-Stempel und Terrain-Skirt tragen `userData.losTransparent` und fehlen in
