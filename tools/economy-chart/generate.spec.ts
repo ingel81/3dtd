@@ -15,9 +15,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { GENERATED_AT_STAMP, writeGeneratedFile } from '../generated-file';
 
 import {
   WAVE_CURRICULUM,
@@ -827,7 +828,7 @@ describe('economy chart generator', () => {
     const html = renderHtml(waveRows, towerRows, researchRows, roster);
 
     mkdirSync(dirname(OUT_PATH), { recursive: true });
-    writeFileSync(OUT_PATH, html);
+    writeGeneratedFile(OUT_PATH, html, GENERATED_AT_STAMP);
 
     expect(html).toContain('Cumulative Player Gold');
     expect(waveRows.length).toBe(NUM_WAVES);

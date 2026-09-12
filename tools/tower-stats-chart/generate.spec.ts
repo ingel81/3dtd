@@ -21,9 +21,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { GENERATED_AT_STAMP, writeGeneratedFile } from '../generated-file';
 
 import {
   TOWER_TYPES,
@@ -415,7 +416,7 @@ describe('tower-stats chart generator', () => {
     const html = renderHtml(series);
 
     mkdirSync(dirname(OUT_PATH), { recursive: true });
-    writeFileSync(OUT_PATH, html);
+    writeGeneratedFile(OUT_PATH, html, GENERATED_AT_STAMP);
 
     // 11 combat towers (12 tower types minus the passive research-center).
     expect(series.length).toBeGreaterThanOrEqual(11);

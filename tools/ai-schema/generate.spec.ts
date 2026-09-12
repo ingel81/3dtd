@@ -25,9 +25,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeGeneratedFile } from '../generated-file';
 
 import {
   AI_SCHEMA_VERSION,
@@ -224,7 +225,7 @@ describe('ai schema generator', () => {
     const json = JSON.stringify(schema, null, 2) + '\n';
 
     mkdirSync(dirname(OUT_PATH), { recursive: true });
-    writeFileSync(OUT_PATH, json);
+    writeGeneratedFile(OUT_PATH, json);
 
     // Derived sizes must stay self-consistent — a mismatch here means the
     // encoder and the backend would disagree on where every feature lives.

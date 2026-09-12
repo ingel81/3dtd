@@ -27,9 +27,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { GENERATED_AT_STAMP, writeGeneratedFile } from '../generated-file';
 
 import {
   TOWER_TYPES,
@@ -1323,7 +1324,7 @@ describe('wave planner generator', () => {
     const html = renderHtml(payload);
 
     mkdirSync(dirname(OUT_PATH), { recursive: true });
-    writeFileSync(OUT_PATH, html);
+    writeGeneratedFile(OUT_PATH, html, GENERATED_AT_STAMP);
 
     expect(payload.curriculum.length).toBe(30);
     expect(payload.towers.length).toBeGreaterThanOrEqual(10);
