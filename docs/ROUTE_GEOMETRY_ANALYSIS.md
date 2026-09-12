@@ -160,11 +160,18 @@ Stationen, die sich nicht messen lassen.
 
 **Grenzen, im Spiel noch nicht geprüft:**
 
-- Die Tile-Messung läuft einmal pro Ortsladung. Tiles, die danach feiner
-  werden, ändern die Breite nicht mehr. Stationen ohne feines Tile behalten
-  die OSM-Breite und stehen im Log als `unmeasured`. Ein zweiter Aufruf von
-  `measureStreetClearance` würde genau diese Stationen nachmessen, im Spiel
-  ruft ihn aber nichts ein zweites Mal auf.
+- Die erste Tile-Messung läuft, sobald die Höhenaktualisierung stoppt, nach
+  vier Runden zu 500 ms, also etwa zwei Sekunden in den Ort. Auf die
+  Korridor-Tiles wartet sie nicht; die verfeinern allein nach Fehler und
+  laden noch eine Weile nach. Stationen, die dann noch auf groben Tiles
+  stehen, bekommen die OSM-Breite und stehen im Log als `unmeasured`
+  (Anteil `coarse tile`). Seit dem Playtest vom 2026-09-12 (Abzweigung nur
+  2 bis 3 Zellen breit) misst `remeasureCorridor` genau diese Stationen nach,
+  jedes Mal wenn sich ein Tile-Schub gesetzt hat, und baut den Korridor neu,
+  wo sich dadurch etwas ändert. Das gilt nur, solange kein Tower steht,
+  kein Gegner läuft und keine Welle läuft. Während des Intro-Flugs misst
+  es nicht nach, und höchstens alle 3 s. Danach bleiben verbleibende
+  Stationen bei der OSM-Breite.
 - Ein Spawn-Wechsel über den schnellen Pfad (`LocationFacadeService`, ohne
   Neuladen des Orts) misst die neue Route nicht, sie läuft mit OSM-Breiten.
 - Die Messung ist pro Seite. Liegt die OSM-Mittellinie neben der

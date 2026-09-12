@@ -731,6 +731,18 @@ export class PathAndRouteService {
   }
 
   /**
+   * Stations the last measurement could not take because their tile was
+   * missing or still coarser than `maxTileError`, which a later run may.
+   * DevWorld has none: there is nothing to measure there.
+   */
+  hasUnmeasuredStations(): boolean {
+    for (const { probes } of this.clearanceBySegment.values()) {
+      if (probes.some((probe) => probe !== null && probe.unmeasured !== null)) return true;
+    }
+    return false;
+  }
+
+  /**
    * How the corridor comes about at the route station nearest to local
    * (x, z), for `__corridor.pick()`: the street width from OSM and where it
    * came from, what the station's rays found left and right (first hit of
