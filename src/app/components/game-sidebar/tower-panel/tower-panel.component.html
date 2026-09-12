@@ -7,6 +7,7 @@
     @if (stats().sellValue > 0) {
       <button class="td-header-sell-btn"
               [class.armed]="sellArmed()"
+              aria-keyshortcuts="Delete"
               [matTooltip]="sellArmed() ? 'Click again to sell for ' + stats().sellValue + ' credits' : 'Sell tower: refunds 75% of total invested (base + upgrades)'"
               matTooltipPosition="left"
               [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + stats().sellValue + ' credits'"

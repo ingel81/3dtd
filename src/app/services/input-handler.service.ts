@@ -7,6 +7,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { isEscapeForDialog } from '../utils/dialog-key-guard';
+import { isTypingTarget } from '../utils/keyboard-target';
 
 /**
  * Callbacks that the component provides for keyboard actions
@@ -401,10 +402,12 @@ export class InputHandlerService {
 
   /**
    * Handle keydown events delegated from the component's @HostListener.
-   * Processes: WASD panning, debug toggles (T/P), build mode keys (R/Escape).
+   * Processes: WASD panning, debug toggles (T, Shift+P), build mode keys (R/Escape).
+   * Every key handled here is preventDefault()ed; HotkeyService, which runs
+   * after this, takes only the keys left alone.
    */
   handleKeyDown(event: KeyboardEvent): void {
-    if (this.isTypingInInputField(event)) {
+    if (isTypingTarget(event.target)) {
       return;
     }
 
@@ -429,8 +432,8 @@ export class InputHandlerService {
       }
     }
 
-    // Debug: Toggle ShaderMaterial for particles with 'P' key
-    if (event.key === 'p' || event.key === 'P') {
+    // Debug: Toggle ShaderMaterial for particles with Shift+P (plain P pauses, HotkeyService)
+    if (event.shiftKey && (event.key === 'p' || event.key === 'P')) {
       if (this.engine) {
         const currentlyUsingShader = this.engine.effects.isUsingShaderMaterial();
         this.engine.effects.setUseShaderMaterial(!currentlyUsingShader);
@@ -462,7 +465,7 @@ export class InputHandlerService {
    * Handle keyup events delegated from the component's @HostListener.
    */
   handleKeyUp(event: KeyboardEvent): void {
-    if (this.isTypingInInputField(event)) {
+    if (isTypingTarget(event.target)) {
       return;
     }
 
@@ -479,21 +482,6 @@ export class InputHandlerService {
    */
   handleWindowBlur(): void {
     this.keyboardPan.clearKeys();
-  }
-
-  /**
-   * Check if the user is typing in an input field.
-   * Game keyboard shortcuts should not interfere with text input.
-   */
-  private isTypingInInputField(event: KeyboardEvent): boolean {
-    const target = event.target as HTMLElement;
-    if (!target) return false;
-
-    const tagName = target.tagName.toLowerCase();
-    const isInputField = tagName === 'input' || tagName === 'textarea' || tagName === 'select';
-    const isContentEditable = target.isContentEditable;
-
-    return isInputField || isContentEditable;
   }
 
   // ========================================

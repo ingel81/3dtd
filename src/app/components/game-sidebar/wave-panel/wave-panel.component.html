@@ -36,6 +36,7 @@
       </div>
     }
     <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
+            aria-keyshortcuts="Space"
             [disabled]="waveActive() || isGameOver()">
       @if (waveActive()) {
         <span class="td-wave-btn-main">

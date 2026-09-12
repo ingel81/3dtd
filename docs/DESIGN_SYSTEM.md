@@ -194,7 +194,7 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets |
 | **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): Pause-Button und ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft. Pausiert zeigt der Pause-Button das Play-Icon eingelassen in `--td-gold-light` mit `--td-gold-dark`-Rand, darunter ein Glas-Chip "PAUSED" (10px Mono-Versalien) |
 | **Kompass** | Oben rechts, Klick setzt die Kamera zurück |
-| **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move), verschwindet nach 15 s oder per Klick |
+| **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move, H: Shortcuts), verschwindet nach 15 s oder per Klick |
 | **Quick Actions** | Sechs Icon-Buttons unten rechts, siehe unten |
 
 ### Quick Actions und Dev-Menü
@@ -418,6 +418,23 @@ Verwendung:
   [warning]="validationError"
 />
 ```
+
+### Tastenkürzel
+
+Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine Funktion), ausgeführt vom `HotkeyService`, den die Spielkomponente nach dem `InputHandlerService` aufruft. Der `InputHandlerService` behält Kamera (WASD/Pfeile), Build- und Platzierungsmodus (R, Esc) und die Debug-Tasten (T, Shift+P); was er behandelt, ist `defaultPrevented` und für die Hotkeys tabu. Hotkeys ruhen, während getippt wird, ein Dialog offen ist oder das Spiel lädt; Strg/Alt/Meta und gehaltene Tasten (Repeat) lösen nichts aus.
+
+| Taste | Aktion | Prüfung wie |
+|-------|--------|-------------|
+| 1 bis 9 | Karte an dieser Stelle im BUILD-Panel wählen | Karten-Button (`canPickTowerCard`) |
+| U | Erstes Upgrade des gewählten Towers, das bezahlbar und freigeschaltet ist | Upgrade-Kacheln (`firstAffordableUpgrade`) |
+| Entf / Backspace | Verkaufen, zweimal drücken | Sell-Button (`SellConfirmService`) |
+| Leertaste | Nächste Welle | `store.canStartWave` |
+| P | Pause | Pause-Button |
+| + / = / - | Geschwindigkeit hoch, runter (1x, 2x, 4x, ohne Umlauf) | `stepGameSpeed` |
+| H / ? | Übersicht als Dialog | |
+| Esc | Quick-Menü schließen, sonst Verkauf abbrechen, sonst Tower abwählen | |
+
+S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, `aria-keyshortcuts` an Wave-, Pause-, Sell- und Kartenbuttons, "H: Shortcuts" im Controls Hint.
 
 ### Damage-vs-Armor-Dialog
 

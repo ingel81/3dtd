@@ -18,6 +18,8 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { ResearchStore } from '../../../store/research.store';
 import { TOWER_TYPES, TowerTypeConfig, TowerTypeId } from '../../../configs/tower-types.config';
 import { canTargetAirEffective } from '../../../entities/tower-targeting.util';
+import { canPickTowerCard } from '../../../utils/player-actions';
+import { towerSlotKey } from '../../../services/hotkey-map';
 import { ModelPreviewService } from '../../../services/infrastructure/model-preview.service';
 import { TowerDebugService } from '../../../services/debug/tower-debug.service';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/damage-matrix-dialog.component';
@@ -78,6 +80,19 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   isTowerUnlocked(towerId: TowerTypeId): boolean {
     return this.researchStore.isTowerUnlocked(towerId);
   }
+
+  /** Card enabled; the number hotkeys check the same (canPickTowerCard). */
+  canPick(tower: TowerTypeConfig): boolean {
+    return canPickTowerCard(tower, {
+      credits: this.store.credits(),
+      gameOver: this.isGameOver(),
+      researchCenterPlaced: this.isResearchCenterPlaced(),
+      isUnlocked: (id) => this.isTowerUnlocked(id),
+    });
+  }
+
+  /** Number key of the card at this position, null past the ninth. */
+  readonly slotKey = towerSlotKey;
 
   /**
    * Tower targets ONLY air units (e.g. Rocket). Used to give the build-menu
@@ -141,10 +156,11 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   }
 
   /** Rich tooltip of a tower card, built in sidebar-tooltips.ts. */
-  getTowerCardTooltipData(tower: TowerTypeConfig): TdTooltipData {
+  getTowerCardTooltipData(tower: TowerTypeConfig, index: number): TdTooltipData {
     return towerCardTooltip(tower, {
       researchCenterPlaced: this.isResearchCenterPlaced(),
       airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),
+      hotkey: towerSlotKey(index),
     });
   }
 

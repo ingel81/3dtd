@@ -5,6 +5,9 @@
       @if (d.category) {
         <span class="td-tooltip__category">{{ d.category }}</span>
       }
+      @if (d.hotkey) {
+        <kbd class="td-tooltip__key" [attr.aria-label]="'Key ' + d.hotkey">{{ d.hotkey }}</kbd>
+      }
     </header>
 
     @if (d.stats && d.stats.length > 0) {
