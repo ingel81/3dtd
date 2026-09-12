@@ -47,8 +47,11 @@ export class SpatialAudioPlayback {
   private sounds: Map<string, RegisteredSound>;
   private activeSounds: ActiveSound[] = [];
   private projectileSoundCount = 0;
-  /** Tracked auto-disconnect timers for non-looping global one-shots. */
-  private globalOneShotTimers = new Set<ReturnType<typeof setTimeout>>();
+  /**
+   * Global (non-positional) sounds that are still playing, with the timer
+   * that disconnects a one-shot after its sample; null for a looping one.
+   */
+  private globalSounds = new Map<Audio, ReturnType<typeof setTimeout> | null>();
   private eventBus: GameEventBus | null = null;
   /**
    * Last play timestamp per AudioBuffer — used for anti-flood filtering.
@@ -349,14 +352,15 @@ export class SpatialAudioPlayback {
     audio.setLoop(sound.config.loop);
     audio.play();
 
+    let timer: ReturnType<typeof setTimeout> | null = null;
     if (!sound.config.loop) {
       const duration = sound.buffer.duration * 1000;
-      const timer = setTimeout(() => {
-        this.globalOneShotTimers.delete(timer);
+      timer = setTimeout(() => {
+        this.globalSounds.delete(audio);
         audio.disconnect();
       }, duration + 100);
-      this.globalOneShotTimers.add(timer);
     }
+    this.globalSounds.set(audio, timer);
 
     return audio;
   }
@@ -377,10 +381,12 @@ export class SpatialAudioPlayback {
       this.cleanupActiveSound(active);
     }
     this.activeSounds = [];
-    for (const timer of this.globalOneShotTimers) {
-      clearTimeout(timer);
+    for (const [audio, timer] of this.globalSounds) {
+      if (timer !== null) clearTimeout(timer);
+      if (audio.isPlaying) audio.stop();
+      audio.disconnect();
     }
-    this.globalOneShotTimers.clear();
+    this.globalSounds.clear();
   }
 
   /**
