@@ -18,9 +18,14 @@ import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
 
 const MAX_PORTALS = 8;
 
+/** Ripple start far in the past: no ripple until the first burst. */
+const NO_RIPPLE = -1e4;
+
 interface PortalEntry {
   index: number;
   pose: SpawnPortalPose;
+  /** Wall time (ms) from which the portal takes its next burst. */
+  nextBurstMs: number;
 }
 
 /**
@@ -34,6 +39,8 @@ interface PortalEntry {
  *
  * The energy (glow, swirl speed) follows the waves: idle between them, a
  * surge at wave start, the wave's level while it runs (startWave/endWave).
+ * When enemies step through, a ripple runs over the surface and the
+ * street, at most once per burst interval per portal (tryBurst).
  * Runs on wall time like the HQ marker, so the portal keeps swirling while
  * the game is paused. All glow is emissive: the Photorealistic Tiles take
  * no scene light.
@@ -44,12 +51,15 @@ export class SpawnPortalManager {
   private readonly frameMat: ShaderMaterial;
   private readonly energyMat: ShaderMaterial;
 
-  // Per-instance attributes, shared by both meshes
+  // Per-instance attributes, colour and phase shared by both meshes
   private readonly colorAttr: InstancedBufferAttribute;
   private readonly phaseAttr: InstancedBufferAttribute;
+  /** Wall time (s) of each portal's last spawn burst (energy mesh only) */
+  private readonly rippleAttr: InstancedBufferAttribute;
 
   private readonly portals = new Map<string, PortalEntry>();
   private readonly freeIndices: number[] = [];
+  private earliestBurstMs = Infinity;
 
   // Energy: idle between waves, higher while one runs, a surge at its start
   private waveActive = false;
@@ -65,6 +75,7 @@ export class SpawnPortalManager {
   constructor(private readonly overlayGroup: Group) {
     this.colorAttr = new InstancedBufferAttribute(new Float32Array(MAX_PORTALS * 3), 3);
     this.phaseAttr = new InstancedBufferAttribute(new Float32Array(MAX_PORTALS), 1);
+    this.rippleAttr = new InstancedBufferAttribute(new Float32Array(MAX_PORTALS).fill(NO_RIPPLE), 1);
 
     const frameGeom = createPortalFrameGeometry();
     frameGeom.setAttribute('aColor', this.colorAttr);
@@ -78,7 +89,12 @@ export class SpawnPortalManager {
     const energyGeom = createPortalEnergyGeometry();
     energyGeom.setAttribute('aColor', this.colorAttr);
     energyGeom.setAttribute('aPhase', this.phaseAttr);
-    this.energyMat = createPortalEnergyMaterial(PORTAL_ENERGY_LAYOUT, SPAWN_PORTAL_LOOK.idleEnergy);
+    energyGeom.setAttribute('aRipple', this.rippleAttr);
+    this.energyMat = createPortalEnergyMaterial(
+      PORTAL_ENERGY_LAYOUT,
+      SPAWN_PORTAL_LOOK.idleEnergy,
+      SPAWN_PORTAL_LOOK.rippleLife,
+    );
     this.energyMesh = new InstancedMesh(energyGeom, this.energyMat, MAX_PORTALS);
     this.energyMesh.count = 0;
     this.energyMesh.frustumCulled = false;
@@ -104,12 +120,15 @@ export class SpawnPortalManager {
     this.colorAttr.setXYZ(index, this.tmpColor.r, this.tmpColor.g, this.tmpColor.b);
     // Golden-angle spread: portals side by side do not swirl in step
     this.phaseAttr.setX(index, (index * 2.39996) % (Math.PI * 2));
+    this.rippleAttr.setX(index, NO_RIPPLE);
     this.colorAttr.needsUpdate = true;
     this.phaseAttr.needsUpdate = true;
+    this.rippleAttr.needsUpdate = true;
 
-    this.portals.set(id, { index, pose: { ...pose } });
+    this.portals.set(id, { index, pose: { ...pose }, nextBurstMs: 0 });
     this.writeMatrix(index, pose);
     this.recount();
+    this.updateBurstReady();
   }
 
   /** Move a portal, e.g. onto the start of its freshly built route. */
@@ -145,10 +164,51 @@ export class SpawnPortalManager {
     this.freeIndices.push(entry.index);
     this.portals.delete(id);
     this.recount();
+    this.updateBurstReady();
   }
 
   clear(): void {
     for (const id of [...this.portals.keys()]) this.remove(id);
+  }
+
+  /** The portal whose centre lies nearest to (x, z) within `maxDistance`, or null. */
+  portalNear(x: number, z: number, maxDistance: number): string | null {
+    let nearest: string | null = null;
+    let nearestSq = maxDistance * maxDistance;
+    for (const [id, entry] of this.portals) {
+      const dx = entry.pose.x - x;
+      const dz = entry.pose.z - z;
+      const distSq = dx * dx + dz * dz;
+      if (distSq <= nearestSq) {
+        nearest = id;
+        nearestSq = distSq;
+      }
+    }
+    return nearest;
+  }
+
+  /**
+   * Ripple a portal's surface unless it burst within the last
+   * SPAWN_PORTAL_LOOK.burstIntervalMs. Returns whether it did; the caller
+   * throws the sparks only then.
+   */
+  tryBurst(id: string, nowMs: number): boolean {
+    const entry = this.portals.get(id);
+    if (!entry || nowMs < entry.nextBurstMs) return false;
+    entry.nextBurstMs = nowMs + SPAWN_PORTAL_LOOK.burstIntervalMs;
+    this.rippleAttr.setX(entry.index, nowMs / 1000);
+    this.rippleAttr.needsUpdate = true;
+    this.updateBurstReady();
+    return true;
+  }
+
+  /**
+   * Wall time (ms) before which no portal takes a burst, Infinity without
+   * portals. Lets a caller skip everything else for the enemies of a wave
+   * that come through while every portal is still waiting.
+   */
+  get burstReadyMs(): number {
+    return this.earliestBurstMs;
   }
 
   /** A wave starts: surge, then hold the wave energy until endWave(). */
@@ -205,6 +265,12 @@ export class SpawnPortalManager {
     this.energyMesh.setMatrixAt(index, this.tmpMatrix);
     this.frameMesh.instanceMatrix.needsUpdate = true;
     this.energyMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  private updateBurstReady(): void {
+    let earliest = Infinity;
+    for (const entry of this.portals.values()) earliest = Math.min(earliest, entry.nextBurstMs);
+    this.earliestBurstMs = earliest;
   }
 
   private recount(): void {

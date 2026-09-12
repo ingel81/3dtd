@@ -431,6 +431,21 @@ export class ThreeEffectsRenderer {
     this.particleEffects.spawnBurstAtGeo(lat, lon, height, count, palette);
   }
 
+  /** Sparks out of a spawn portal's surface, see ParticleEffectsRenderer.spawnPortalSparks. */
+  spawnPortalSparks(
+    x: number,
+    y: number,
+    z: number,
+    forwardX: number,
+    forwardZ: number,
+    halfWidth: number,
+    height: number,
+    count: number,
+    palette: BurstPalette
+  ): void {
+    this.particleEffects.spawnPortalSparks(x, y, z, forwardX, forwardZ, halfWidth, height, count, palette);
+  }
+
   /**
    * Spawn ice decal on ground (frost patch)
    * NOW USES GPU INSTANCING - much better performance!
@@ -462,6 +477,11 @@ export class ThreeEffectsRenderer {
   /** Whether ground marks are laid down; spares callers the terrain raycast for a decal. */
   get groundMarksEnabled(): boolean {
     return this.particleEffects.groundMarksEnabled;
+  }
+
+  /** Whether impact effects are spawned (VFX settings). */
+  get impactEffectsEnabled(): boolean {
+    return this.particleEffects.impactEffectsEnabled;
   }
 
   /**

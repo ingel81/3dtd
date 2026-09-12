@@ -972,6 +972,57 @@ export class ParticleEffectsRenderer {
   }
 
   /**
+   * Sparks thrown out of a spawn portal's surface when an enemy steps
+   * through. The portal plane stands on (x, y, z) in local space, facing
+   * (forwardX, forwardZ), the way the enemies walk; the sparks start across
+   * the opening and fly out along the facing. Additive pool, palette as for
+   * the impact bursts. Nothing while impact effects are off (VFX settings).
+   */
+  spawnPortalSparks(
+    x: number,
+    y: number,
+    z: number,
+    forwardX: number,
+    forwardZ: number,
+    halfWidth: number,
+    height: number,
+    count: number,
+    palette: BurstPalette
+  ): void {
+    if (!this.impacts) return;
+    // Across the opening
+    const rightX = forwardZ;
+    const rightZ = -forwardX;
+    for (let i = 0; i < count; i++) {
+      const particle = this.pools.getInactiveParticle('trailAdditive');
+      if (!particle) break;
+
+      const across = (Math.random() * 2 - 1) * halfWidth * 0.9;
+      particle.position.set(
+        x + rightX * across,
+        y + (0.1 + Math.random() * 0.8) * height,
+        z + rightZ * across
+      );
+
+      const speed = 4 + Math.random() * 8;
+      const drift = (Math.random() * 2 - 1) * 2;
+      particle.velocity.set(
+        forwardX * speed + rightX * drift,
+        (Math.random() * 2 - 1) * 1.5 + 1,
+        forwardZ * speed + rightZ * drift
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 0.35 + Math.random() * 0.45;
+      particle.size = 0.8 + Math.random() * 1.2;
+
+      const t = Math.random();
+      const c = t < 0.4 ? palette[0] : t < 0.7 ? palette[1] : palette[2];
+      particle.color.setRGB(c.r, c.g, c.b);
+    }
+  }
+
+  /**
    * Spawn ice decal on ground (frost patch)
    * NOW USES GPU INSTANCING - much better performance!
    * Nothing while ground marks are off (VFX settings).
@@ -1066,6 +1117,11 @@ export class ParticleEffectsRenderer {
   /** Whether ground marks are laid down; callers skip the terrain raycast for a decal otherwise. */
   get groundMarksEnabled(): boolean {
     return this.groundMarks;
+  }
+
+  /** Whether impact effects are spawned; callers skip the work that only feeds one otherwise. */
+  get impactEffectsEnabled(): boolean {
+    return this.impacts;
   }
 
   /**
