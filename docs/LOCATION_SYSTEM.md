@@ -168,6 +168,14 @@ initializeEditableLocations(), saveLocationsToStorage(), clearLocationsFromStora
 - Jeder Favorit hat `id` (crypto.randomUUID), `hq`, `spawns`, `createdAt`
 - Namen werden nicht gespeichert, sondern via `GeocodingService.reverseGeocodeWithCache()` aufgeloest
 
+### Zuletzt gespielt (Recent)
+
+- `recents` (Signal), gespeichert unter eigenem Key `td_recent_locations_v1`, Logik in `recent-locations.ts`
+- Ein `effect()` im Konstruktor schreibt einen Eintrag, sobald HQ, mindestens ein Spawn und ein aufgelöster Name vorliegen. Damit ist jeder Weg abgedeckt (URL, Geolocation, Dialog, Favorit, World Dice, HQ versetzen), ohne jeden einzeln anzufassen
+- Max. 8 Einträge, neueste zuerst. HQs näher als 150 m gelten als derselbe Ort: der Eintrag rückt nach oben und übernimmt Spawn und Namen, statt eine zweite Zeile anzulegen
+- Der Name wird mitgespeichert (anders als bei Favoriten), die Liste braucht also kein Geocoding
+- DevWorld (Fake-Origin 0,0) wird nicht gespeichert; defekte Einträge im Storage werden beim Laden übersprungen
+
 ## UrlLocationService
 
 URL ist die Single Source of Truth. Format:
@@ -446,6 +454,7 @@ Angular Material Dialog mit zwei Modi:
 
 ### Features
 
+- **Recent** (nur `full`-Modus): zuletzt gespielte Orte ohne den aktuellen, ein Klick lädt den Ort mit seinem Spawn ohne Bestätigung (Ergebnis wie Confirm, `spawn.id: 'spawn_recent'`)
 - **Autocomplete-Suche** via `AddressAutocompleteComponent` (Nominatim)
 - **Manuelle Koordinaten-Eingabe** (ausklappbar, nur für das HQ: "Enter coordinates")
   - Unterstuetzte Formate beim Einfuegen:

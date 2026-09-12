@@ -1,3 +1,5 @@
+@use '../../styles/td-mixins' as td;
+
 .location-dialog {
   width: 420px;
   max-width: 90vw;
@@ -365,6 +367,58 @@ h2 {
 .distance-badge .limit {
   color: var(--td-health-red);
   font-weight: 500;
+}
+
+/* Quick picks (recent places): plain rows, one click loads */
+.quick-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 188px;
+  overflow-y: auto;
+  @include td.scrollbar;
+}
+
+.quick-list::-webkit-scrollbar { @include td.webkit-scrollbar; }
+.quick-list::-webkit-scrollbar-track { @include td.webkit-scrollbar-track; }
+.quick-list::-webkit-scrollbar-thumb { @include td.webkit-scrollbar-thumb; }
+
+.quick-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  color: var(--td-text-secondary);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quick-item:hover,
+.quick-item:focus-visible {
+  outline: none;
+  background: rgba(194, 160, 85, 0.08);
+  color: var(--td-gold-light);
+}
+
+.quick-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.quick-hint {
+  flex-shrink: 0;
+  font-family: var(--td-font-mono);
+  font-size: 9px;
+  color: var(--td-text-muted);
 }
 
 /* Current HQ Info (spawn-only mode) */

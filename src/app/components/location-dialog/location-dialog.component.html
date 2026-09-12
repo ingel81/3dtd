@@ -152,6 +152,27 @@
           }
         </div>
       </div>
+
+      <!-- Recent places: one click loads, no confirm step -->
+      @if (recentLocations().length > 0) {
+        <div class="section quick-section">
+          <div class="section-header">
+            <td-icon name="undo" [size]="14"></td-icon>
+            <span class="section-title">Recent</span>
+            <span class="section-hint">Click to load</span>
+          </div>
+          <ul class="quick-list">
+            @for (recent of recentLocations(); track recent.visitedAt) {
+              <li>
+                <button type="button" class="quick-item" (click)="loadRecent(recent)">
+                  <span class="quick-name">{{ recent.name }}</span>
+                  <span class="quick-hint">{{ visitAge(recent) }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        </div>
+      }
     }
 
     <!-- SPAWN-ONLY MODE -->
