@@ -111,6 +111,8 @@ export const FIRE_INTENSITY = {
 /**
  * Explosion presets for different projectile types. `radius` sizes the
  * fire-atlas explosion (EXPLOSION_LOOK), `smokePuffs` is its smoke stage.
+ * The spark bursts (poison, arcane, chaos) only take a particle count, their
+ * colours come from BURST_PALETTES.
  */
 export const EXPLOSION_PRESETS = {
   // No splash: the radius is purely visual
@@ -121,12 +123,13 @@ export const EXPLOSION_PRESETS = {
   // VFXService takes the radius from the cannonball's splashRadius.
   cannon:   { particles: 50,  radius: 6, smokePuffs: 5 },
   hq:       { particles: 150, radius: 15 },
-  bullet:   { particles: 2,   radius: 1 },
+  // Passes no radius: sized like the reference radius (EXPLOSION_LOOK)
+  bullet:   { particles: 2 },
   // Green spark burst (BURST_PALETTES.poison). Until 2026-09-12 the glob hit
   // with 6 + 30 orange fire-atlas particles, which read as a fireball.
-  poison:   { particles: 14,  radius: 2 },
-  arcane:   { particles: 14,  radius: 3 },
-  chaos:    { particles: 14,  radius: 3 },
+  poison:   { particles: 14 },
+  arcane:   { particles: 14 },
+  chaos:    { particles: 14 },
 } as const;
 
 /**
