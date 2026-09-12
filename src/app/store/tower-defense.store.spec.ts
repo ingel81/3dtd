@@ -306,12 +306,12 @@ describe('TowerDefenseStore', () => {
 
     it('does NOT reset location state', () => {
       locationStore.baseCoords.set({ lat: 48.77, lon: 9.18 });
-      locationStore.currentLocationName.set('Stuttgart');
+      locationStore.streetCount.set(50);
 
       store.resetGameState();
 
       expect(store.baseCoords()).toEqual({ lat: 48.77, lon: 9.18 });
-      expect(store.currentLocationName()).toBe('Stuttgart');
+      expect(store.streetCount()).toBe(50);
     });
 
     it('does NOT reset engine state', () => {
@@ -344,7 +344,6 @@ describe('TowerDefenseStore', () => {
 
       // Mutate location store
       locationStore.baseCoords.set({ lat: 48.77, lon: 9.18 });
-      locationStore.currentLocationName.set('Berlin');
       locationStore.streetCount.set(50);
 
       store.resetAll();
@@ -366,7 +365,6 @@ describe('TowerDefenseStore', () => {
 
       // Location state reset
       expect(store.baseCoords()).toEqual({ lat: 0, lon: 0 });
-      expect(store.currentLocationName()).toBe('');
       expect(store.streetCount()).toBe(0);
     });
 

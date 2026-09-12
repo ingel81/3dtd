@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationStore } from '../../store/location.store';
 import { UIStore } from '../../store/ui.store';
+import { LocationManagementService } from '../location/location-management.service';
 import type { RouteCellDump, RouteGridSampleStats } from '../../utils/route-grid-diagnostics';
 import { CameraControlService } from '../camera-control.service';
 import { CameraFramingService, type CameraFrame } from '../camera-framing.service';
@@ -27,6 +28,7 @@ import {
 export class DebugStateDumpService {
   private readonly routeGrid = inject(GlobalRouteGridService);
   private readonly locationStore = inject(LocationStore);
+  private readonly locationMgmt = inject(LocationManagementService);
   private readonly uiStore = inject(UIStore);
   private readonly cameraControl = inject(CameraControlService);
   private readonly cameraFraming = inject(CameraFramingService);
@@ -58,7 +60,7 @@ export class DebugStateDumpService {
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent,
         location: {
-          name: this.locationStore.currentLocationName(),
+          name: this.locationMgmt.getLocationDisplayName(),
           base: { lat: base.lat, lon: base.lon },
           center: { lat: center.lat, lon: center.lon, height: center.height },
           streetCount: this.locationStore.streetCount(),
