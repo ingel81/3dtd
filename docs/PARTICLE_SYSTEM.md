@@ -447,9 +447,12 @@ Brandflecken als eigener `DecalInstanceManager`-Pool (`ScorchMarks` in
 - **Reset:** `ThreeEffectsRenderer.clear()` (Spielneustart, Standortwechsel).
 - Rein optisch, kein Einfluss auf Gameplay oder Training.
 
-Kampfspuren sind rund (`sizeZ = size` in `DecalInstanceManager.add`). Blood- und
-Ice-Decals lassen `sizeZ` bei 1 und sind damit, wie schon immer, Ovale von
-2·size × 2 m, nicht Kreise mit `size` als Durchmesser.
+Alle Decals sind rund (`DecalInstanceManager.add` nimmt einen Radius). Bei Blood und
+Ice ist `size` der Durchmesser, bei Kampfspuren gibt die Config den Radius vor. Bis
+2026-09-12 blieb die Z-Achse bei 1, jedes Decal war ein Oval von 2·size × 2 m. Die
+Durchmesser der Aufrufer sind so gewählt, dass die Fläche gleich bleibt
+(Durchmesser = 2·√alte size): Blut 0,8 → 1,8 und 2,0 → 2,8, Eis 3,5 → 3,7,
+1,5 bis 3 → 2,4 bis 3,5 und 2 bis 3 → 2,8 bis 3,5.
 
 ---
 
@@ -493,7 +496,7 @@ pausiert.
 Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 
 - `vfx:blood` → `spawnBloodSplatter` + optional `spawnBloodDecal`
-  (Decal-Groesse haengt von `intensity` ab: ≥30 → 2.0, ≥10 → 0.8, sonst 0)
+  (Decal-Durchmesser haengt von `intensity` ab: ≥30 → 2,8 m, ≥10 → 1,8 m, sonst keins)
 - `vfx:projectile-impact` → Feuer-Atlas-Explosion mit rocket/cannon/bullet-Preset
   (`EXPLOSION_PRESETS`); `arcane-orb` und `poison-glob` bekommen statt dessen einen
   Funken-Burst (`spawnArcaneBurstAtGeo`, `spawnPoisonBurstAtGeo`, Paletten in

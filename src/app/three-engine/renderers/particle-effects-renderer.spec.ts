@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { Color, Scene, Texture, Vector3 } from 'three';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { Color, Matrix4, Scene, Texture, Vector3 } from 'three';
+import type { DecalInstanceManager } from './decal-instance.manager';
 import { EXPLOSION_LOOK } from '../../configs/visual-effects.config';
 import { ParticlePoolManager, atlasSpriteFrame, atlasSpriteSize, type Particle } from './particle-pool-manager';
 import { ParticleEffectsRenderer } from './particle-effects-renderer';
@@ -100,6 +101,32 @@ describe('ParticleEffectsRenderer explosion', () => {
       expect(Math.hypot(p.velocity.x, p.velocity.z)).toBeLessThanOrEqual(fire.speedMax * 2);
     }
     expect(alive('trailNormal')).toHaveLength(0); // no smoke unless asked for
+  });
+});
+
+describe('ParticleEffectsRenderer decals', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('lays blood and ice decals down round, with size as the diameter', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // no size variation
+    const pools = new ParticlePoolManager(new Scene());
+    const sync = { geoToLocal: () => new Vector3() } as unknown as CoordinateSync;
+    const effects = new ParticleEffectsRenderer(new Scene(), sync, pools);
+    const { bloodDecalManager, iceDecalManager } = effects as unknown as {
+      bloodDecalManager: DecalInstanceManager;
+      iceDecalManager: DecalInstanceManager;
+    };
+    effects.spawnBloodDecal(0, 0, 0, 2.8);
+    effects.spawnIceDecal(0, 0, 0, 3.7);
+
+    const matrix = new Matrix4();
+    const scale = new Vector3();
+    for (const [decals, diameter] of [[bloodDecalManager, 2.8], [iceDecalManager, 3.7]] as const) {
+      decals.instancedMesh.getMatrixAt(0, matrix);
+      scale.setFromMatrixScale(matrix);
+      expect(scale.x).toBeCloseTo(diameter / 2); // the quad spans ±1 before scaling
+      expect(scale.z).toBeCloseTo(diameter / 2);
+    }
   });
 });
 

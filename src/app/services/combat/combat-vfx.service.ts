@@ -77,7 +77,9 @@ export class CombatVfxService {
       35
     );
 
-    // Ice decals on ground (only for ground units)
+    // Ice decals on ground (only for ground units). Sizes are diameters of
+    // round decals; until 2026-09-12 they were 3.5, 1.5-3 and 2-3 and gave
+    // ovals of 2*size by 2 m, the diameters below keep that area (2 * sqrt).
     if (!enemy.typeConfig.isAirUnit) {
       const mainDecalHeight = this.getTerrainHeightForDecal(
         enemy.position.lat,
@@ -88,7 +90,7 @@ export class CombatVfxService {
         enemy.position.lat,
         enemy.position.lon,
         mainDecalHeight,
-        3.5
+        3.7
       );
       // Additional smaller decals
       for (let i = 0; i < 3; i++) {
@@ -105,7 +107,7 @@ export class CombatVfxService {
           decalLat,
           decalLon,
           decalHeight,
-          1.5 + Math.random() * 1.5
+          2.4 + Math.random() * 1.1
         );
       }
     }
@@ -126,7 +128,7 @@ export class CombatVfxService {
       enemy.position.lat,
       enemy.position.lon,
       decalHeight,
-      2.0 + Math.random()
+      2.8 + Math.random() * 0.7 // diameter, was 2-3 as an oval (see emitIceExplosion)
     );
   }
 

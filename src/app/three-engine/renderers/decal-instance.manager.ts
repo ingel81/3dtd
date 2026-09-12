@@ -77,24 +77,20 @@ export class DecalInstanceManager {
   }
 
   /**
-   * Add a new decal instance.
-   *
-   * `size` scales the flat quad along its local X, `sizeZ` along its local Z
-   * (before the rotation about Y). Blood and ice leave `sizeZ` at 1, which
-   * has always made them 2*size by 2 m ovals; pass `sizeZ = size` for a
-   * round decal of radius `size`.
+   * Add a new decal instance, round with the given radius: the flat quad
+   * spans ±1 before scaling. Until 2026-09-12 the Z axis stayed at 1, so
+   * every decal was a 2*size by 2 m oval.
    */
   add(
     id: string,
     position: THREE.Vector3,
-    size: number,
+    radius: number,
     rotation: number,
     color: THREE.Color,
     opacity: number,
     spawnTime: number,
     fadeDelay: number,
-    fadeDuration: number,
-    sizeZ = 1
+    fadeDuration: number
   ): void {
     if (this.instances.has(id)) return;
 
@@ -118,7 +114,7 @@ export class DecalInstanceManager {
     // Set matrix (position, rotation, scale)
     DecalInstanceManager._tempPos.copy(position);
     DecalInstanceManager._tempRot.setFromAxisAngle(DecalInstanceManager._up, rotation);
-    DecalInstanceManager._tempScale.set(size, size, sizeZ);
+    DecalInstanceManager._tempScale.setScalar(radius);
 
     this.matrix.compose(
       DecalInstanceManager._tempPos,

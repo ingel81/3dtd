@@ -132,20 +132,15 @@ describe('DecalInstanceManager', () => {
     expect(decals.getInstance('a')).toBeDefined();
   });
 
-  it('scales the quad along Z by sizeZ, 1 by default', () => {
+  it('scales the quad to a round decal of the given radius', () => {
     const decals = create(4);
-    decals.add('oval', new Vector3(), 3, 0, new Color(), 1, 0, 1, 1);
-    decals.add('round', new Vector3(), 3, 0, new Color(), 1, 0, 1, 1, 3);
+    decals.add('round', new Vector3(), 3, 1.2, new Color(), 1, 0, 1, 1);
     const matrix = new Matrix4();
     const scale = new Vector3();
 
     decals.instancedMesh.getMatrixAt(0, matrix);
     scale.setFromMatrixScale(matrix);
     expect(scale.x).toBeCloseTo(3);
-    expect(scale.z).toBeCloseTo(1);
-
-    decals.instancedMesh.getMatrixAt(1, matrix);
-    scale.setFromMatrixScale(matrix);
     expect(scale.z).toBeCloseTo(3);
   });
 
