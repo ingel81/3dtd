@@ -4,7 +4,7 @@ export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rock
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
 export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain';
-export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'air-priority';
+export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'last' | 'air-priority';
 export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
 
 export interface TowerUpgrade {
@@ -557,6 +557,7 @@ export const TARGETING_STRATEGIES: TargetingStrategyConfig[] = [
   { id: 'lowest-hp', label: 'Weakest', icon: 'heart', tooltip: 'Attacks the weakest enemy' },
   { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Attacks the strongest enemy' },
   { id: 'first', label: 'First', icon: 'flag', tooltip: 'Attacks the enemy closest to the base' },
+  { id: 'last', label: 'Last', icon: 'walk', tooltip: 'Attacks the enemy furthest from the base' },
   { id: 'air-priority', label: 'Air', icon: 'arrowUp', tooltip: 'Prioritizes flying enemies' },
 ];
 
