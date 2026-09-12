@@ -333,9 +333,17 @@ tatsächlich entstehen sie erst beim Tod ihres Skeletons.
   `vatAlpha` ihr Alpha liest wie im Spiel. Weicht die aus der Datei geplante VAT-Größe von
   der gebackenen ab, schlägt der Test fehl.
 - `tools/blender/optimize_enemy.py` hält ein Rezept je geändertem Modell (Clips behalten und
-  schneiden, schweißen, decimaten, Normalen, nur Basisfarbe, Bildgröße, Ruhepose aus der
-  Datei). Headless: `blender --background --python tools/blender/optimize_enemy.py -- rat`;
-  liest das Original aus Git und schreibt nach `public/assets/models/enemies/`.
+  schneiden, schweißen, decimaten mit oder ohne Nahtgewicht, neu backen, Normalen, nur
+  Basisfarbe, Bildgröße, Ruhepose aus der Datei). Headless:
+  `blender --background --python tools/blender/optimize_enemy.py -- rat`; liest das Original
+  aus Git und schreibt nach `public/assets/models/enemies/`. Der Rebake-Schritt braucht kein
+  Cycles und lief headless (Blender 5.1.2).
+- Vergleich vorher/nachher ohne Browser (Node 24, aus dem Repo-Wurzelverzeichnis):
+  `node tools/model-budget/bake-compare.mjs alt.glb neu.glb --clips Walk --death Die` backt
+  beide GLBs wie der Baker und meldet Abweichung pro Frame in Prozent der Modellhöhe;
+  `loop-find.mjs` sucht nahtlose Loop-Fenster in einem Clip, `clip-trace.mjs` zeigt den
+  Höhenverlauf eines Clips, `glb-summary.mjs` listet Materialien, Bilder und Clips aus dem
+  GLB-JSON.
 - Ein Modell ohne Config-Eintrag prüfen (Node 24):
   `node -e "import('./tools/model-budget/model-inspect.ts').then((m) => console.dir(m.inspectModel('pfad/zum/modell.glb'), { depth: 3 }))"`
 - Grenzen: kein ASCII-FBX. Bei Draco oder Meshopt stimmen die Vertexzahlen, die
