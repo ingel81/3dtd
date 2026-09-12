@@ -186,7 +186,7 @@ export interface TowerTypeConfig {
   shootHeight: number; // Height above base where projectiles originate (for LoS calculations)
   rotationY?: number; // Initial Y rotation in radians for visual alignment (default: 0)
   turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point -Z/North)
-  turretNode?: string; // Node that turns to the target when the model has no turret_top/tower_top/top
+  turretNode?: string; // Node that turns to the target. Replaces turret_top/tower_top/top, no fallback to them
 
   damageType: DamageType; // Damage type for the damage matrix
   damage: number;
