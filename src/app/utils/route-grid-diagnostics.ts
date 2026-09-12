@@ -50,6 +50,8 @@ export interface RouteCellDump {
   x: number;
   z: number;
   terrainHeight: number;
+  /** `deck` on a bridge (column top), sonst `ground` */
+  surface: RouteCell['surface'];
   routeAnchorY: number;
   deltaFromAnchor: number;
   state: CellSample['state'];
@@ -96,6 +98,7 @@ export function collectCellsInBox(cells: ReadonlyMap<number, RouteCell>, box: Ro
       x: cell.x,
       z: cell.z,
       terrainHeight: cell.terrainHeight,
+      surface: cell.surface,
       routeAnchorY: cell.routeAnchorY,
       deltaFromAnchor: cell.terrainHeight - cell.routeAnchorY,
       state: cell.sample.state,
@@ -179,6 +182,7 @@ export function collectHeightOutliers(cells: ReadonlyMap<number, RouteCell>, thr
       x: cell.x,
       z: cell.z,
       terrainHeight: cell.terrainHeight,
+      surface: cell.surface,
       routeAnchorY: cell.routeAnchorY,
       deltaFromAnchor: delta,
       state: cell.sample.state,

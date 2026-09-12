@@ -351,6 +351,50 @@ describe('GlobalRouteGrid corridor width', () => {
 });
 
 /**
+ * On a bridge the lowest hit of a column is the river or road below. Route
+ * cells of a bridge segment take the deck, the top of the column.
+ */
+describe('GlobalRouteGrid bridges', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+  const at = (x: number, z: number, onBridge?: boolean): RouteWaypoint =>
+    ({ lat: z, lon: x, corridorHalfWidth: 3, onBridge });
+
+  let grid: GlobalRouteGrid;
+
+  beforeEach(() => {
+    // A deck at 8 m over water at 0 m, as far as the columns are concerned.
+    grid = new GlobalRouteGrid();
+    grid.initialize((() => ({ groundY: 0, topY: 8, tileDepth: 20, tileGeometricError: 2 })) as never, coordinateSync);
+  });
+
+  it('puts the cells of a bridge segment on the deck and the rest on the ground', () => {
+    grid.generateFromRoutes([[at(0, 0), at(30, 0, true), at(60, 0), at(90, 0)]]);
+    expect(grid.getGroundLocalYAt(15, 0.5)).toBe(0);
+    expect(grid.getGroundLocalYAt(45, 0.5)).toBe(8);
+    expect(grid.getGroundLocalYAt(75, 0.5)).toBe(0);
+  });
+
+  it('keeps a cell on the ground when a segment off the bridge reaches it too', () => {
+    grid.generateFromRoutes([[at(0, 0), at(30, 0, true), at(60, 0)]]);
+    // Centre (31, 1) is 1.4 m from the approach, (35, 1) 5.1 m.
+    expect(grid.getGroundLocalYAt(31, 0.5)).toBe(0);
+    expect(grid.getGroundLocalYAt(35, 0.5)).toBe(8);
+  });
+
+  it('decides the surface before sampling, whichever route comes first', () => {
+    // Bridge route first, then a street that runs under its middle.
+    grid.generateFromRoutes([
+      [at(0, 0), at(30, 0, true), at(60, 0)],
+      [at(45, -20), at(45, 20)],
+    ]);
+    expect(grid.getGroundLocalYAt(45, 0.5)).toBe(0);
+    expect(grid.getGroundLocalYAt(35, 0.5)).toBe(8);
+  });
+});
+
+/**
  * Cells are keyed with Math.floor when they are created, so every lookup has
  * to use the same rule. Truncation (`| 0`) rounds toward zero and put
  * positions left of / behind the origin into the neighbour cell on the origin

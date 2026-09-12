@@ -112,7 +112,7 @@ export class PathAndRouteService {
    * narrowings split its segments, with the street half width per segment.
    * measureStreetClearance walks these.
    */
-  private streetRoutes = new Map<string, { points: LatLon[]; halfWidths: number[] }>();
+  private streetRoutes = new Map<string, { points: LatLon[]; halfWidths: number[]; onBridge: boolean[] }>();
 
   /**
    * Corridor pieces the tiles allowed per street segment (segmentKey),
@@ -477,12 +477,15 @@ export class PathAndRouteService {
 
     // Corridor half width per segment, from the street each one runs over,
     // then narrowed where the tiles showed less room (measureStreetClearance).
-    // Cells and enemy spread read it off the cached waypoints.
-    const streetHalfWidths = routeHalfWidths(this.getEdgeIndex(this.streetNetwork).match(geoPath));
-    this.streetRoutes.set(spawn.id, { points: geoPath, halfWidths: streetHalfWidths });
-    const fitted = this.applyClearance(geoPath, streetHalfWidths);
+    // Cells and enemy spread read it off the cached waypoints, the cells
+    // also whether the segment is on a bridge.
+    const ways = this.getEdgeIndex(this.streetNetwork).match(geoPath);
+    const streetHalfWidths = routeHalfWidths(ways);
+    const streetBridges = ways.map((way) => way?.bridge !== undefined);
+    this.streetRoutes.set(spawn.id, { points: geoPath, halfWidths: streetHalfWidths, onBridge: streetBridges });
+    const fitted = this.applyClearance(geoPath, streetHalfWidths, streetBridges);
     geoPath = fitted.points;
-    const halfWidths = fitted.halfWidths;
+    const { halfWidths, onBridge } = fitted;
 
     // Create route line in Three.js - on terrain with RELATIVE heights
     // DevWorld needs higher offset due to steep procedural terrain
@@ -527,7 +530,10 @@ export class PathAndRouteService {
       // Enemy movement/spawn no longer use this field — they read cells
       // directly — but route-animation and external consumers may rely on it.
       const waypoint: RouteWaypoint = { ...pos, height: terrainY + origin.height };
-      if (i < halfWidths.length) waypoint.corridorHalfWidth = halfWidths[i];
+      if (i < halfWidths.length) {
+        waypoint.corridorHalfWidth = halfWidths[i];
+        if (onBridge[i]) waypoint.onBridge = true;
+      }
       pathWithHeights[i] = waypoint;
     }
 
@@ -563,12 +569,20 @@ export class PathAndRouteService {
     this.routeLines.push(routeLine);
   }
 
-  /** Split the segments the tiles narrowed into their pieces, see clearancePieces. */
-  private applyClearance(points: LatLon[], halfWidths: number[]): { points: LatLon[]; halfWidths: number[] } {
-    if (this.clearanceBySegment.size === 0) return { points, halfWidths };
+  /**
+   * Split the segments the tiles narrowed into their pieces (see
+   * clearancePieces). Each piece keeps its segment's bridge flag.
+   */
+  private applyClearance(
+    points: LatLon[],
+    halfWidths: number[],
+    onBridge: boolean[],
+  ): { points: LatLon[]; halfWidths: number[]; onBridge: boolean[] } {
+    if (this.clearanceBySegment.size === 0) return { points, halfWidths, onBridge };
 
     const fittedPoints: LatLon[] = [];
     const fittedWidths: number[] = [];
+    const fittedBridges: boolean[] = [];
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i];
       const b = points[i + 1];
@@ -576,15 +590,17 @@ export class PathAndRouteService {
       if (!pieces || pieces.length === 0) {
         fittedPoints.push(a);
         fittedWidths.push(halfWidths[i]);
+        fittedBridges.push(onBridge[i]);
         continue;
       }
       for (const piece of pieces) {
         fittedPoints.push(piece.t === 0 ? a : { lat: a.lat + (b.lat - a.lat) * piece.t, lon: a.lon + (b.lon - a.lon) * piece.t });
         fittedWidths.push(piece.halfWidth);
+        fittedBridges.push(onBridge[i]);
       }
     }
     fittedPoints.push(points[points.length - 1]);
-    return { points: fittedPoints, halfWidths: fittedWidths };
+    return { points: fittedPoints, halfWidths: fittedWidths, onBridge: fittedBridges };
   }
 
   /**
@@ -612,7 +628,7 @@ export class PathAndRouteService {
     let unmeasured = 0;
     let narrowed = 0;
 
-    for (const { points, halfWidths } of this.streetRoutes.values()) {
+    for (const { points, halfWidths, onBridge } of this.streetRoutes.values()) {
       for (let i = 0; i < points.length - 1; i++) {
         const a = points[i];
         const b = points[i + 1];
@@ -632,7 +648,7 @@ export class PathAndRouteService {
         for (let k = 0; k < count; k++) {
           const t = (k + 0.5) / count;
           const clearance = engine.measureStreetClearance(
-            start.x + dx * t, start.z + dz * t, -dz, dx, CLEARANCE_RAY_HEIGHT_M, halfWidths[i],
+            start.x + dx * t, start.z + dz * t, -dz, dx, CLEARANCE_RAY_HEIGHT_M, halfWidths[i], onBridge[i],
           );
           clearances.push(clearance ?? NaN);
           if (clearance !== null) measured++;

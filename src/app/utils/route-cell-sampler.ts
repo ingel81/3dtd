@@ -129,7 +129,8 @@ export class RouteCellSampler {
       return false;
     }
     const hit = {
-      y: column.groundY,
+      // A bridge deck is the top of its column, the ground is the bottom.
+      y: cell.surface === 'deck' ? column.topY : column.groundY,
       tileDepth: column.tileDepth,
       tileGeometricError: column.tileGeometricError,
     };

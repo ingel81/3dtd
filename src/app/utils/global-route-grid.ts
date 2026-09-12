@@ -221,6 +221,11 @@ export class GlobalRouteGrid {
    * containing it has its centre at most half a cell diagonal further out.
    * That is how far MovementComponent lets enemies spread, so no enemy walks
    * outside the cells towers look at.
+   *
+   * Cells of a segment on a bridge (`onBridge`) sample the deck, the top of
+   * the column, instead of the ground under the bridge. A cell that a
+   * segment off the bridge reaches as well stays on the ground: a cell holds
+   * one height, and at the ends of a bridge deck and approach agree anyway.
    * @param routes Array of route paths
    */
   generateFromRoutes(routes: RouteWaypoint[][]): void {
@@ -242,22 +247,27 @@ export class GlobalRouteGrid {
       for (let i = 0; i < route.length - 1; i++) {
         const endGeo = route[i + 1];
         const end = sync.geoToLocalSimple(endGeo.lat, endGeo.lon, endGeo.height ?? 0);
-        this.generateSegmentCells(start, end, segmentHalfWidth(route[i]));
+        this.generateSegmentCells(start, end, segmentHalfWidth(route[i]), route[i].onBridge === true);
         start = end;
       }
     }
+
+    // Sampled only once every segment has claimed its cells: which surface
+    // a cell samples depends on all segments that reach it.
+    for (const cell of this.cells.values()) this.sampler.sampleCellY(cell);
   }
 
   /**
-   * Create the missing cells whose centre lies within `halfWidth` of the
-   * segment `start`-`end` (local coordinates; y is the smoothed route
-   * height, stored on each new cell as its `routeAnchorY` and as fallback
-   * `terrainHeight` until the first sample succeeds).
+   * Claim the cells whose centre lies within `halfWidth` of the segment
+   * `start`-`end`, creating the missing ones (local coordinates; y is the
+   * smoothed route height, stored on each new cell as its `routeAnchorY`
+   * and as fallback `terrainHeight` until the first sample succeeds).
    */
   private generateSegmentCells(
     start: { x: number; y: number; z: number },
     end: { x: number; y: number; z: number },
     halfWidth: number,
+    onBridge: boolean,
   ): void {
     const dx = end.x - start.x;
     const dz = end.z - start.z;
@@ -271,9 +281,6 @@ export class GlobalRouteGrid {
     for (let gx = gx0; gx <= gx1; gx++) {
       const cx = (gx + 0.5) * this.CELL_SIZE;
       for (let gz = gz0; gz <= gz1; gz++) {
-        const key = this.intCellKey(gx, gz);
-        if (this.cells.has(key)) continue;
-
         // Closest point of the segment to the cell centre.
         const cz = (gz + 0.5) * this.CELL_SIZE;
         const t = lenSq > 0 ? Math.max(0, Math.min(1, ((cx - start.x) * dx + (cz - start.z) * dz) / lenSq)) : 0;
@@ -281,23 +288,31 @@ export class GlobalRouteGrid {
         const oz = start.z + dz * t - cz;
         if (ox * ox + oz * oz > halfWidthSq) continue;
 
-        this.addCell(key, cx, cz, start.y + (end.y - start.y) * t);
+        const key = this.intCellKey(gx, gz);
+        const existing = this.cells.get(key);
+        if (existing) {
+          // Ground wins over deck, see generateFromRoutes.
+          if (!onBridge) existing.surface = 'ground';
+          continue;
+        }
+        this.addCell(key, cx, cz, start.y + (end.y - start.y) * t, onBridge ? 'deck' : 'ground');
       }
     }
   }
 
   /**
    * Construct a cell in unsampled state with `anchorY` as a temporary
-   * terrain-Y fallback (combat-side reads need *some* value). Then funnel it
-   * through sampleCellY, the sole writer of terrainHeight, which promotes
-   * the cell to `stable` iff the raycast hits.
+   * terrain-Y fallback (combat-side reads need *some* value). Its terrain
+   * height comes from sampleCellY, the sole writer of terrainHeight, which
+   * generateFromRoutes runs once all segments have claimed their cells.
    */
-  private addCell(key: number, x: number, z: number, anchorY: number): void {
+  private addCell(key: number, x: number, z: number, anchorY: number, surface: RouteCell['surface']): void {
     const cell: RouteCell = {
       key,
       x,
       z,
       terrainHeight: anchorY,        // Fallback until sampleCellY succeeds.
+      surface,
       routeAnchorY: anchorY,
       sample: {
         state: 'unsampled',
@@ -312,9 +327,6 @@ export class GlobalRouteGrid {
     };
 
     this.cells.set(key, cell);
-
-    // Promote to `stable` if tiles are loaded at this position.
-    this.sampler.sampleCellY(cell);
   }
 
   /**
