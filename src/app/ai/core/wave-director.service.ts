@@ -577,36 +577,6 @@ export class WaveDirectorService {
     this.recentTemplateIndices = [];
   }
 
-  /**
-   * Calculate reward for training (preview)
-   */
-  private calculateReward(result: WaveResult): number {
-    const damagePct = result.outcome.damagePercent;
-
-    let reward: number;
-
-    // Sweet spot: 10-30% damage
-    if (damagePct >= 0.1 && damagePct <= 0.3) {
-      reward = 1.0;
-    } else if (damagePct < 0.1) {
-      reward = -0.5 * ((0.1 - damagePct) / 0.1);
-    } else if (damagePct > 0.5) {
-      reward = -0.5 * ((damagePct - 0.5) / 0.5);
-    } else {
-      reward = 0.5;
-    }
-
-    if (result.outcome.wasCloseCall && result.outcome.playerSurvived) {
-      reward += 0.3;
-    }
-
-    if (!result.outcome.playerSurvived) {
-      reward -= 1.0;
-    }
-
-    return reward;
-  }
-
   // === PUBLIC API ===
 
   /**
@@ -636,21 +606,6 @@ export class WaveDirectorService {
    */
   isDebugMode(): boolean {
     return this.debugMode();
-  }
-
-  /**
-   * Get a coarse difficulty rating for the current wave decision (0-1).
-   * Phase 5.10: derived from template strength + count factor + wave-number.
-   */
-  getCurrentDifficulty(): number {
-    const config = this.lastDecision();
-    if (!config) return 0;
-    // Phase 5.11: derive from templateStrength (hp_mult) + count size.
-    // hp_mult ranges vary per template (up to 10× for mech/mammoth); normalize against 10.
-    const hpMult = config.templateStrength ?? 1.0;
-    const hpNorm = Math.min(1, hpMult / 10);
-    const countNorm = Math.min(1, config.totalCount / 1000);
-    return Math.min(1, hpNorm * 0.5 + countNorm * 0.5);
   }
 
   /**

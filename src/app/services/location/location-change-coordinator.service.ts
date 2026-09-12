@@ -406,7 +406,7 @@ export class LocationChangeCoordinatorService {
     await this.step5_PlaceSpawnPoint(input, callbacks);
 
     // STEP 6: Calculate routes and initialize grid
-    await this.step6_CalculateRoutes(ctx, streetNetwork, callbacks);
+    await this.step6_CalculateRoutes(ctx, callbacks);
 
     // STEP 7: Finalize (heights, save, animation)
     await this.step7_Finalize(ctx, callbacks);
@@ -600,7 +600,6 @@ export class LocationChangeCoordinatorService {
    */
   private async step6_CalculateRoutes(
     ctx: LocationChangeContext,
-    streetNetwork: StreetNetwork,
     callbacks: LocationChangeCallbacks
   ): Promise<void> {
     await this.engineInit.setStepCurrent('routes');
@@ -616,7 +615,6 @@ export class LocationChangeCoordinatorService {
 
     ctx.gameState.initialize(
       ctx.engine,
-      streetNetwork,
       { lat: base.lat, lon: base.lon },
       waveSpawnPoints,
       this.pathRoute.getCachedPaths()

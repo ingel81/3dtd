@@ -209,7 +209,7 @@ describe('GameStateManager', () => {
   describe('initialize()', () => {
     it('registers event handlers on the EventBus', () => {
       const engine = createMockEngine();
-      gsm.initialize(engine, {} as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+      gsm.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
 
       const bus = getEventBus(gsm);
       expect(bus.hasListeners('command:place-tower')).toBe(true);
@@ -227,7 +227,7 @@ describe('GameStateManager', () => {
 
     beforeEach(() => {
       const engine = createMockEngine();
-      gsm.initialize(engine, {} as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+      gsm.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
       bus = getEventBus(gsm);
     });
 
@@ -587,7 +587,7 @@ describe('GameStateManager', () => {
         const sped = vi.fn();
         const gsm2 = new GameStateManager();
         const engine = createMockEngine();
-        gsm2.initialize(engine, {} as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+        gsm2.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
         gsm2.setTrainingTimescale(5.0, false);
         gsm2.update(0, sped);
         gsm2.update(100, sped); // 100ms wall × 5× = 500ms game-time

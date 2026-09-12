@@ -12,7 +12,7 @@ import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { StatusEffectService } from '../services/combat/status-effect.service';
 import { HQDamageService } from '../services/combat/hq-damage.service';
 import { TowerCombatService } from '../services/combat/tower-combat.service';
-import { OsmStreetService, StreetNetwork } from '../services/location/osm-street.service';
+import { OsmStreetService } from '../services/location/osm-street.service';
 import { WaveDebugService } from '../services/debug/wave-debug.service';
 import { EnemyDebugService } from '../services/debug/enemy-debug.service';
 import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
@@ -201,9 +201,6 @@ export class GameStateManager {
    */
   initialize(
     tilesEngine: ThreeTilesEngine,
-    // Unused since the placement rules moved to TowerPlacementService; kept
-    // so the location flows that call this stay untouched.
-    _streetNetwork: StreetNetwork,
     basePosition: GeoPosition,
     spawnPoints: SpawnPoint[],
     cachedPaths: Map<string, GeoPosition[]>
