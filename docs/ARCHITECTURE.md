@@ -1321,7 +1321,9 @@ src/app/
 │   ├── core/
 │   │   ├── rule-director.ts      # Regel-Director (Default): Template + 4 Formfaktoren
 │   │   ├── gate-controller.ts    # Regelkreis fuer den Fairness-Cap (Leak-Quote)
-│   │   ├── wave-director.service.ts  # Decoder + buildWaveConfig, optionaler ONNX-Pfad
+│   │   ├── wave-director.service.ts  # Einstieg getNextWave, Regeln oder optionaler ONNX-Pfad
+│   │   ├── wave-config-builder.ts    # buildWaveConfig: Entscheidung → Welle (beide Directors)
+│   │   ├── onnx-policy.ts        # ONNX-Runtime + Session, decodeModelOutput
 │   │   ├── templates.ts          # Template-Tabelle, Mask, fairMaxCount
 │   │   ├── wave-context.ts       # Mask + Ranges + Fairness-Headroom (Encoder/Decoder-Sync)
 │   │   ├── wave-config-adapter.ts# AIWaveConfig → WaveConfig (SpawnSchedule)

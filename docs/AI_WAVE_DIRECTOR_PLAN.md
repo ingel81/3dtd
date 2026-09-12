@@ -23,8 +23,8 @@ gemeinsamer Code und identisch, egal wer die fünf Zahlen liefert.
 |-------|-----------|-------|
 | Die fünf Zahlen wählen | `RuleDirector` | `src/app/ai/core/rule-director.ts` |
 | Fairness-Cap nachführen | `GateController` | `src/app/ai/core/gate-controller.ts` |
-| Fünf Zahlen → Welle | `buildWaveConfig` | `src/app/ai/core/wave-director.service.ts` |
-| Optional statt Regeln | ONNX-Policy (Opt-in) | `decodeModelOutput` in derselben Datei |
+| Fünf Zahlen → Welle | `buildWaveConfig` | `src/app/ai/core/wave-config-builder.ts` |
+| Optional statt Regeln | ONNX-Policy (Opt-in) | `OnnxPolicy` + `decodeModelOutput` in `src/app/ai/core/onnx-policy.ts` |
 
 Der Default in `WaveDirectorService` ist `modelState = 'rules'` / `aiMode =
 'rules'`, `GameStore.useAIDirector` steht auf `true`. Beim Start wird **nichts**
@@ -251,7 +251,7 @@ prüften. `gate-wiring.spec.ts` existiert genau dagegen.
 
 ## 6. Gemeinsamer Pfad: fünf Zahlen → Welle
 
-`buildWaveConfig()` in `wave-director.service.ts`. Reihenfolge ist relevant:
+`buildWaveConfig()` in `wave-config-builder.ts`. Reihenfolge ist relevant:
 
 1. **Template-Lookup.** Ungültiger Index → Fehlerlog und Slot 0, keine Exception.
    Werfen würde bis zur Facade propagieren, dort den Director abschalten und auf
@@ -390,7 +390,9 @@ Ehrlichkeitsabschnitt. Nichts davon ist belegt:
 |-------|----------|
 | `rule-director.ts` | Template + 4 Formfaktoren (der produktive Director) |
 | `gate-controller.ts` | Leak-Regelkreis für den Fairness-Cap |
-| `wave-director.service.ts` | Einstieg (`getNextWave`), `runRules`, `decodeModelOutput`, `buildWaveConfig` |
+| `wave-director.service.ts` | Einstieg (`getNextWave`), `runRules`, Modell-Opt-in (`loadModel`), Template-Cooldown |
+| `wave-config-builder.ts` | `buildWaveConfig`: Entscheidung → Welle (für beide Directors gleich) |
+| `onnx-policy.ts` | ONNX-Runtime + Session (`OnnxPolicy`), `decodeModelOutput` |
 | `templates.ts` | 22 Templates, Maske, `fairMaxCount`, `lerpRange` (SSOT) |
 | `wave-context.ts` | Maske + Ranges + Fairness-Headroom, einmal pro Entscheidung |
 | `wave-config-adapter.ts` | `WaveConfig` → Spielformat |
