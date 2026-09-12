@@ -2,6 +2,7 @@ import { Group, Object3D, Scene, Vector3 } from 'three';
 import type { RouteCell } from './route-cell';
 import { TowerLosLayer, TowerLosLayerBuilder } from './tower-los-layer-builder';
 import { TowerShadowMapper } from '../three-engine/tower-shadow-mapper';
+import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
 export interface TowerLosVizOptions {
   /** Bereits gefilterte Cells (heightSampled === true, in Range). */
@@ -88,8 +89,20 @@ export class TowerLosViz {
     );
   }
 
-  /** Animation-Tick — refresht `uTime`. */
+  /**
+   * Animation-Tick — refresht `uTime`. Holt außerdem die Cubemap zurück,
+   * wenn ein anderer Tower sie inzwischen von seinem Tip aus gerendert hat:
+   * Der Mapper ist geteilt, und ein LOS-Recompute im Hintergrund
+   * (Tile-Streaming) rendert ihn für jeden betroffenen Tower neu. Die
+   * Platten würden sonst gegen dessen Sicht eingefärbt.
+   */
   tick(timeSeconds: number): void {
+    if (
+      !this.disposed &&
+      this.shadowMapper.getReferencePos().distanceTo(this.towerTip) > LOS_VIZ_CONFIG.cubeUpdateMoveThreshold
+    ) {
+      this.updateTowerTip(this.towerTip);
+    }
     this.layer?.tick(timeSeconds);
   }
 
