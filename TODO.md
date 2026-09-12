@@ -199,17 +199,18 @@
       `@defer` nicht (8 kB Defer-Runtime gegen 13,8 kB beim Training-Fenster),
       gemeinsam schon. Befund aus dem Lazy-Training-Umbau (`85d8402`).
       **Stand 2026-09-12 (Runde 2):** umgesetzt (`eddeb82`): ein Lazy-Chunk
-      für alle elf Fenster, Spielstart netto etwa 148 kB weniger (aus dem
-      Build berechnet). Browser-Test steht aus.
+      für alle elf Fenster, Spielstart netto etwa 147 kB weniger (statische
+      Import-Hülle des Builds, unkomprimiert). Browser-Test steht aus.
 
 - [ ] **Kleinkram**
-      Rocket-Düsenglühen (Trail-Streak) ist in der Länge FPS-abhängig ·
-      `training-backend/scripts/analyze_log.py` hat kein argparse und liest
-      `--help` als Logdatei · die Tower-Debug-Slider verschieben den Tip des
+      Rocket-Düsenglühen (Trail-Streak) ist in der Länge FPS-abhängig
+      (erledigt, `482f4e1`) · `training-backend/scripts/analyze_log.py` hat
+      kein argparse und liest `--help` als Logdatei (erledigt, `e2ac3ae`) · die Tower-Debug-Slider verschieben den Tip des
       CPU-Fallbacks, nicht die gecachte Grid-LOS (nur Debug) ·
       `SpatialGridService` rechnet Zellschlüssel mit `| 0` (Zelle 0 doppelt
       breit, beim Einfügen und Abfragen gleich, also kein Fehler) · elf Buttons
-      in einzelnen Debug-Fenstern haben noch kein `aria-label` (meist `title`)
+      in einzelnen Debug-Fenstern haben noch kein `aria-label` (meist `title`;
+      erledigt, `ef2e626`, es waren zehn)
       · ein im Browser gecachter Fehlschlag beim Nachladen des Training-Chunks
       lässt sich per Retry eventuell nicht beheben, dann hilft nur ein Reload.
 
@@ -218,18 +219,18 @@
 > Übersicht der Runde: `docs/REVIEW_SPRINT_2026-09-12.md`.
 
 - [ ] **Routenkorridor: Restpunkte**
-      Tunnel und Durchgänge nutzen ihre Tags noch nicht. Ein Spawn-Wechsel
+      Tunnel und Durchgänge: erledigt (`db2eb51`, Höhe zwischen den Portalen,
+      keine Messung; Entscheidung 2026-09-12: keine Sonderregel für die
+      Sicht der Tower). Ein Spawn-Wechsel
       ohne Neuladen misst die neue Route nicht, sie läuft mit OSM-Breiten.
       Kreuzen sich zwei Routen auf verschiedenen Ebenen, gilt in den
       gemeinsamen Zellen der Boden. Der Neuaufbau nach der Tile-Messung läuft
       synchron, möglicherweise bei schon sichtbarer Karte (Strahlen je
       Station, bei Verengung zweimal A* pro Spawn, neue Zellen, ein
-      Höhen-Sweep). Das `[Corridor]`-Log misst nur die Strahlen, der
-      Neuaufbau ist ungemessen; erst messen, bei spürbarem Hänger stückeln. `fitCorridorsToTiles` hat
-      keinen Spec. Gemessen wird nur einmal pro Ortsladung; Stationen ohne
-      feines Tile bleiben auf OSM-Breite (`unmeasured` im Log). Ein zweiter
-      Lauf nach weiterem Tile-Streaming, solange kein Tower steht, wäre
-      möglich (Nachmessen unterstützt der Service seit `72b62bd`).
+      Höhen-Sweep); seit `f9fe730` gemessen (`[Corridor] rebuild:`), Zahlen
+      aus dem Spiel fehlen noch, bei spürbarem Hänger stückeln. Nachmessen
+      nach Tile-Schüben seit `30bc473`, die Regeln stecken in
+      `CorridorRefit` mit Spec (`cb925c6`).
 
 - [ ] **Gegnermodelle: Blender-Runde**
       Reihenfolge laut `docs/ENEMY_MODEL_BUDGET.md`: Hornet (69 297
@@ -257,15 +258,16 @@
       `GameStateManager.initialize` hat den unbenutzten Parameter
       `_streetNetwork` (erledigt, `71f41ec`) · mit Debug-Gegnern außerhalb
       einer Welle kommt kein `wave:completed`, die Tower drehen dann nicht zur
-      Wachrichtung · `getCurrentDifficulty()` und `calculateReward()` im
+      Wachrichtung (erledigt, `d6a5b06`) · `getCurrentDifficulty()` und `calculateReward()` im
       `WaveDirectorService` haben keine Aufrufer (erledigt, `71f41ec`) ·
       `poison-glob` fehlt in `PROJECTILE_SOUND_IDS` (erledigt, `3047750`) ·
       economy-chart, tower-stats-chart und wave-planner schreiben noch ohne
-      `writeGeneratedFile` (erledigt, `9f4b0a5`; die committeten Charts sind
-      inhaltlich veraltet, einmal neu erzeugen) · `spawnBulletTracer`,
-      `spawnCannonSmoke`, `setBloomStrength`/`setBloomThreshold`/
-      `isBloomEnabled` haben keine Aufrufer · verzögerter Rauch wird mit Größe 0 gezeichnet,
-      manche GPUs zeigen dann eventuell einen 1-px-Punkt (ungeprüft) · der Split des Skeletons aus
+      `writeGeneratedFile` (erledigt, `9f4b0a5`; Charts neu erzeugt in
+      `881a7a7`) · `spawnBulletTracer`, `spawnCannonSmoke`,
+      `setBloomStrength`/`setBloomThreshold`/`isBloomEnabled` haben keine
+      Aufrufer (erledigt, `693571b`) · verzögerter Rauch wird mit Größe 0
+      gezeichnet, manche GPUs zeigen dann eventuell einen 1-px-Punkt
+      (erledigt, `bd5112d`) · der Split des Skeletons aus
       MASTER_GAME_DESIGN §4 ist nicht umgesetzt · `EXPLOSION_PRESETS.hq`, der
       Typ `ExplosionPreset` und `ThreeTilesEngine.clearEntities()` haben keine
       Nutzer (erledigt, `71f41ec`).
@@ -747,6 +749,12 @@
       zuerst). Nächster Schritt laut Nutzer: Konzept gemeinsam schärfen (Name
       der Fähigkeit, ob Fähigkeits-Kills für den Gate-Regler als Leck zählen,
       Ladungen pro Welle), erst danach bauen.
+      **Entscheidung 2026-09-12:** Konzept geschärft (Abschnitt 7 im
+      Konzept): Nuklearschlag, Kills zählen als Leck, 1 Ladung, nachladen
+      nach je 3 Wellen, 60 % Max-HP (Bosse 20 %), 25 m, 1,5 s Vorwarnung mit
+      Einschlag auf der nächsten Route-Zelle (30 m), Forschung (1.000 Gold,
+      40 s, nach `advanced-weaponry`, voraussichtlich nach dem ersten Boss),
+      sofort eine Bot-Strategie, danach der Held. Gebaut wird später.
 
 ## Tower-Ideen
 

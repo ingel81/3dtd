@@ -386,3 +386,172 @@ Erledigt auf dem Sprint-Branch, nach deinem OK nach DONE.md zu verschieben:
 | Backlog BVH | Messung eingebaut, Entscheidung nach Playtest | `072d29f` |
 | Enemy-Ideen Skeleton | umgesetzt | `a177026`, `3f9b854` |
 | Enemy-Ideen Ghost | war schon im Spiel (`ghost`, ethereal, W13/W18/W23) | |
+
+## Nachtrag: nach dem ersten Playtest (2026-09-12, nachmittags)
+
+Nach deinen Screenshots zum Korridor und deiner Wahl im Design-Canvas ging es
+auf demselben Branch weiter. Stand: Head `48e8e02`, 40 Commits seit `aaa6835`,
+102 Dateien, +6 122 / -1 758 Zeilen, 205 Commits vor `main`. vitest 131
+Testdateien mit 1690 Tests, beide tsc, ESLint und Production-Build grün.
+Auch hier lief nichts im Browser.
+
+### Korridor
+
+- **Breite aus dem gemessenen Freiraum, je Seite getrennt** (`331c7a3`): links
+  und rechts der Route gilt jeweils der Freiraum bis zur ersten Wand, geklemmt
+  auf höchstens 7 m. OSM-Breite und `highway`-Tabelle gelten nur noch, wo nicht
+  gemessen werden konnte, und als Obergrenze auf dem Endstück zum HQ. Kurze
+  Einbrüche (bis etwa 4 m) werden geschlossen, kurze Ausbuchtungen (bis etwa
+  8 m) abgeschnitten. Gegner verteilen sich je Seite.
+- **Engstelle mit einer Zelle** (`0185249`): Die Zellen, durch die die
+  Mittellinie läuft, gehören immer zum Korridor, die kleinste Halbbreite ist
+  1 m. An solchen Stellen laufen Gegner auf der Mittellinie.
+- **Dach-Check** (`04d5d86`): Liegt die gemessene Höhe einer Zelle mehr als
+  2,5 m über dem Boden der Mittellinie daneben, bekommt sie diesen Boden und die
+  Markierung `clamped` (nicht auf Brückendecks und in Tunneln). Unter einer
+  Traufe dürfte so eine Zelle in der Tower-Anzeige meist rot am Boden statt
+  grün auf dem Dach erscheinen (aus dem Code abgeleitet).
+- **Parkende Autos** (`8910463`): gemessen wird in 1 m und 3,5 m Höhe, als Wand
+  zählt nur, was beide Strahlen trifft; 0,5 m Abstand zur Wand. Nebenwirkung:
+  Hecken und Mauern unter 3,5 m begrenzen den Korridor nicht mehr.
+- **Nachmessen** (`30bc473`): Die erste Messung lief etwa 2 s nach dem Laden,
+  ohne auf die feinen Tiles entlang der Route zu warten. Stationen auf groben
+  Tiles fielen auf die OSM-Breite zurück. Das passt zu deiner schmalen
+  Abzweigung, ist aber nur aus dem Code abgeleitet. Jetzt werden nach jedem
+  Tile-Schub die Stationen nachgemessen, die noch auf groben Tiles standen,
+  und neu gebaut wird nur, wenn das den Korridor ändert; nur ohne Tower,
+  Gegner und Welle, nicht im Intro, höchstens alle 3 s.
+- **LOS-Anzeige** (`88bd5cd`): Die Anzeige eines ausgewählten Towers färbte
+  ihre Zellen nach der Sicht eines anderen Towers, wenn dieser die gemeinsame
+  Cubemap beim Tile-Streaming neu gerendert hatte. Behoben. Ob das zu deiner
+  fehlenden Mittelreihe beitrug, ist offen.
+- **Werkzeuge:** `__corridor.get()` / `.set({...})` / `.reset()` zum Tunen ohne
+  Tower (`9367158`), `__corridor.towerCells()` (`7e5b57b`), `__corridor.pick()`
+  mit Klick auf die Karte: Zellen im Umkreis und die Herkunft der Breite an der
+  nächsten Station (`6094f2e`, `b86c8c9`). Das Route Grid Overlay ist
+  kräftiger, zeichnet jede Zelle mit einer Kontur nach Zustand: weiß normal,
+  orange `clamped`, blau Brückendeck, rosa ohne Höhenprobe (`25da3d2`).
+- **Konzept route-parallele Zellen** (`a866e63`,
+  `docs/ROUTE_ALIGNED_CELLS_CONCEPT.md`): Empfehlung, erst den breiten
+  Korridor zu testen. Stören die Treppenkanten dann vor allem optisch, reicht
+  ein Band entlang der Route nur für die Anzeige (2 bis 3 Tage); echte
+  Routenzellen (8 bis 12 Tage) oder eine Mischform (6 bis 8) erst, wenn auch
+  das Spielverhalten an der Treppe stört.
+- **Auslöser getestet** (`cb925c6`): Wann gemessen, nachgemessen und neu
+  gebaut wird, entscheidet jetzt eine kleine Klasse `CorridorRefit` mit 13
+  Tests (Sperren bei Tower, Gegner, Welle, Intro, DevWorld, 3-s-Drosselung,
+  `__corridor.set`). Verhalten unverändert.
+- **Zeitmessung des Neuaufbaus** (`f9fe730`): Jeder Neuaufbau schreibt
+  `[Corridor] rebuild: routes= grid= heights= lines= overlays= total= ms
+  spawns= cells=`. Die Zeile erscheint nur bei einem Neuaufbau, also nach
+  einer Messung mit `changed=true` oder nach `__corridor.set`/`reset`.
+  Zahlen aus dem Spiel gibt es noch keine.
+- **Tunnel und überdachte Durchgänge** (`db2eb51`): `tunnel=*` (außer `no`)
+  und `covered=yes` werden nicht vermessen (OSM-Breite), die Zellhöhe wird
+  zwischen den Böden 2 m vor den beiden Mündungen interpoliert, die Zellen
+  tragen `surface: 'tunnel'` (gelbe Kontur im Overlay); liegt an einer der
+  beiden Mündungen noch kein Tile, bleiben sie ohne Höhe (dann rosa). Überschneidet sich
+  ein Tunnel mit einer anderen Route, gewinnt die Tunnelzelle; eine
+  Überführung über einem Tunnel sackt dort auf die Sohle ab. Deine
+  Entscheidung: Tower sehen und schießen in Tunnel nur so weit, wie die Tiles
+  es zulassen, also meist nur an den Mündungen; keine Sonderregel.
+- **Offen:** die Ursache der fehlenden Mittelreihe; die Kosten des
+  Neuaufbaus nach der Messung (synchron, jetzt messbar).
+
+### Design aus dem Canvas
+
+- **Header** (`7207384`): goldene Oberkante, die Stat-Leiste zeigt `HQ`,
+  `CREDITS`, `WAVE` klein über den Zahlen, bleibt 271 px breit und bündig über
+  dem Button.
+- **Next-Wave-Button** (`143dfb3`, `5ef87cf`): Gold, 44 px, "START WAVE N".
+  Während einer Welle "WAVE N" und "x left" mit einem Teal-Balken für den
+  Anteil der verbleibenden Gegner (lebende plus noch nicht gespawnte). Der
+  Gegner-Chip im Header zählt nur lebende, die Zahlen weichen deshalb ab.
+  Manuelle Debug-Wellen zeigen weder Zahl noch Balken.
+- **Dev-Menü** (`6deed16`): Kachel-Raster in Breite der Quick-Actions-Leiste,
+  Gruppen MAP, VIEW & PANELS, CHEATS, WAVES & INSPECT; der aktive Dev-Toggle
+  ist sauber gold (vorher gold mit Teal-Glow).
+- **Nur ein Menü offen** (`80ee3e9`): Display, Audio, Layers, Dev schließen
+  sich gegenseitig; nach dem Laden ist das zuletzt offene wieder offen.
+
+### Aufräumen und VFX-Einstellungen
+
+- **Debug-Fenster laden bei Bedarf** (`eddeb82`): ein gemeinsamer Lazy-Chunk,
+  Spielstart netto etwa 147 kB weniger (statische Import-Hülle des Builds,
+  unkomprimiert). Der Event-Debugger loggt
+  erst ab dem Laden des Chunks.
+- **Tote Reste entfernt** (`71f41ec`), `poison-glob` im Sound-Budget
+  (`3047750`), Generatoren schreiben nur bei echter Änderung (`9f4b0a5`),
+  aria-labels (`ef2e626`), Charts neu erzeugt (`881a7a7`).
+- **VFX-Einstellungen** (`8eb765f` bis `de1b57d`): Panel im Display-Menü mit
+  Preset Low/Medium/High und Schaltern für Muzzle Flash, Trails, Impact
+  Effects, Ground Marks, Bloom, Color Grading, Freeze Tint. Abgeschaltete
+  Effekte werden nicht erzeugt. Ein Preset setzt Screen Shake und Freeze Tint
+  nicht. Alle Display-Optionen liegen jetzt in `td_display_options`. Der
+  FPS-Gewinn je Schalter ist ungemessen.
+
+### Kleinkram
+
+- **Streaks der Projektile in Metern** (`482f4e1`): Der Trail-Streak bestand
+  aus den letzten Positionen je Render-Frame. Bei 30 FPS oder höherer
+  Spielgeschwindigkeit wurde das Düsenglühen der Rakete dadurch länger (bei
+  30 FPS oder 2x etwa 12 m statt 6 m). Jetzt hat jeder Streak-Typ eine feste
+  Länge in Metern, übernommen aus dem Bild bei 60 FPS und 1x. Das betrifft
+  alle Streak-Typen.
+- **Verzögerter Rauch** (`bd5112d`): Rauchpuffs, die noch warten, werden
+  nicht mehr gezeichnet; mögliche 1-px-Punkte vor dem Rauch sind damit weg.
+- **Wachrichtung nach Debug-Gegnern** (`d6a5b06`): Außerhalb einer Welle
+  drehen die Tower zur Wachrichtung, sobald der letzte Gegner tot, entfernt
+  oder durchgekommen ist.
+- **Tote Effekt- und Bloom-Methoden entfernt** (`693571b`); Bloom im
+  Display-Panel bleibt unberührt. `analyze_log.py` versteht jetzt `--help`
+  (`e2ac3ae`). `DESIGN_SYSTEM.md` entspricht wieder `td-theme.ts` (`48e8e02`).
+
+### Entschieden, noch nicht gebaut
+
+- **Erste Spielerfähigkeit:** Nuklearschlag, Kills zählen für den Regler als
+  Leck, eine Ladung, neue nach je drei Wellen, 60 % der Max-HP (Bosse 20 %),
+  25 m, 1,5 s Vorwarnung mit Einschlag auf der nächsten Route-Zelle,
+  Forschung (1.000 Gold, 40 s, nach `advanced-weaponry`, voraussichtlich nach
+  dem ersten Boss), sofort eine Bot-Strategie, danach der Held.
+  Festgehalten in `docs/game-design/PLAYER_AGENCY_CONCEPT.md`, Abschnitt 7.
+  Gebaut wird in einer eigenen Runde.
+
+### Playtest-Liste, Fortsetzung
+
+41. Korridor an einer Wohnstraße mit Parkstreifen: die Seite mit Parkstreifen
+    oder Vorgärten breiter als die an einer Fassade; in Gassen eine Zellreihe.
+42. Die schmale Abzweigung: ein paar Sekunden ohne Tower warten, im Log
+    `[Corridor] clearance` erscheint `changed=true`, der Korridor wird
+    breiter. Sonst `__corridor.pick()` und Klick darauf, Ausgabe schicken.
+43. Die fehlende Mittelreihe: Route Grid Overlay an. Fehlt die Zelle dort,
+    gibt es sie nicht; ist sie rosa, fehlt ihr die Höhenprobe; ist sie weiß,
+    zeichnet nur die Tower-Anzeige sie nicht.
+44. Straßenkante mit Traufe: Randzellen am Boden (orange Kontur im Overlay).
+45. `__corridor.set({ maxHalfWidth: 5 })` ohne Tower, dann `__corridor.reset()`.
+46. Header: Labels, goldene Kante, Höhe unverändert.
+47. Next-Wave-Button: "START WAVE N"; in der Welle "WAVE N" und "x left" mit
+    Balken; nach "Kill all" sofort 0; im Build-Mode grau.
+48. Dev-Menü: Kacheln lesbar, DevWorld nur mit `?devworld`, aktiver Toggle
+    gold; bei niedrigem Fenster scrollt das Panel.
+49. Nur ein Menü offen; nach dem Laden das zuletzt offene.
+50. Debug-Fenster: Dev-Menü öffnen lädt die Fenster; ein offenes Fenster geht
+    nach dem Laden wieder auf.
+51. VFX-Panel: "Low" in einer Welle mit Cannon und Rakete, keine Explosionen,
+    Trails oder Mündungsblitze, liegende Bodenspuren verschwinden, Schaden
+    unverändert; nach einem Einzelschalter steht "Custom"; nach dem Laden
+    bleiben die Werte, ein alter FPS-Cap wird übernommen.
+52. Die Zeilen `[Corridor] rebuild: ...` notieren (welcher Teil dominiert,
+    wie viele ms insgesamt). Sie erscheinen, wenn die clearance-Zeile
+    `changed=true` zeigt; sonst ohne Tower `__corridor.reset()` aufrufen, das
+    baut neu.
+53. Ort mit Tunnel oder Durchgang (`__routes.describe()`, Spalte `tags`):
+    Overlay-Zellen dort gelb und auf der Straße im Tunnel, nicht auf dem Hang,
+    sofern an beiden Mündungen Tiles liegen (sonst rosa);
+    `__corridor.pick()` zeigt `surface tunnel`.
+54. Raketen bei Frame Limit 30 und bei 4x: das Düsenglühen bleibt etwa 6 m
+    lang wie bei 60 FPS; die anderen Streaks ebenfalls unverändert lang.
+55. Explosion aus der Nähe: kein dunkler Punkt vor dem Rauch, der Rauch kommt
+    weiter.
+56. Zwischen zwei Wellen Debug-Gegner töten oder entfernen: danach drehen die
+    Tower zur Wachrichtung.
