@@ -46,6 +46,12 @@ Jeder Pool hat eine Free-List (`freeIndicesAdditive`, `freeIndicesNormal`,
 als Fallback. Aktivitaets-Tracking (`_poolDirtyAdditive` etc.) ueberspringt
 komplett inaktive Pools im Update-Loop.
 
+Ein Pool mit leerer Draw-Range ist unsichtbar und steht nicht in der
+Render-Liste (`DrawGate` aus `renderers/draw-gate.ts`, gesetzt in
+`updateBuffers()`). Dasselbe gilt fuer die Decal-Pools und Floating Text ohne
+Instanzen. Der Lade-Warm-up zeichnet sie einmal, damit Shader und Uploads nicht
+in die erste Welle fallen.
+
 ## Grundlagen: Was ist ein Partikelsystem?
 
 Ein **Partikelsystem** ist eine Technik, um viele kleine Objekte (Partikel) effizient zu rendern. Statt tausende einzelne 3D-Objekte zu verwalten, werden alle Partikel in einem einzigen Objekt (`THREE.Points`) zusammengefasst.

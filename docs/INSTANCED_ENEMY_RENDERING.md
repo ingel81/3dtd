@@ -1,6 +1,6 @@
 # Instanced Enemy Rendering (VAT System)
 
-**Stand:** 2026-09-11
+**Stand:** 2026-09-12
 
 GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert Draw Calls von ~2 pro Enemy auf ~1 pro Enemy-Typ.
 
@@ -196,6 +196,13 @@ Decal-Pools (`decal-instance.manager.ts`) und die Lightning-Bolts
   Eintrag unter `activeCount` ist also immer frei.
 - Ist der Pool voll, gibt es keinen Slot (`addEnemy` → `null`, Health-Bar → `-1`,
   Projektil wird nicht gezeichnet) statt über den Buffer hinaus zu schreiben.
+- Ein leerer Pool (`activeCount` 0) ist unsichtbar und steht nicht in der
+  Render-Liste (`renderers/draw-gate.ts`, R6). Das Gate schaltet nur beim Wechsel
+  zwischen leer und nicht leer. Die Schalter "Gegner ausblenden" und "Health-Bars"
+  laufen über `DrawGate.setShown()`, nicht über `mesh.visible`. Weil ein
+  unsichtbarer Pool seine Buffer und die VAT-Textur erst beim ersten Zeichnen
+  hochlädt, zeichnet der Lade-Warm-up (`three-engine/scene-warmup.ts`) alle
+  leeren Pools einmal.
 
 Frame-Flushes laden `(0, activeCount × n)` hoch (`clearUpdateRanges()` +
 `addUpdateRange()`), nie den vollen MAX-Buffer. Bei `activeCount = 0` wird keine
