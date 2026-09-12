@@ -372,19 +372,46 @@ describe('TowerPlacementService', () => {
       expect(assets.loadModel).not.toHaveBeenCalled();
     });
 
-    it('keeps a model that finishes loading after a cancel hidden until the next choice', async () => {
+    it('drops a model that finishes loading after a cancel', async () => {
       init();
       service.selectTowerType('archer');
       hover(FREE);
       service.exitBuildMode();
       await flush();
 
-      // Current behaviour: the late model lands in the overlay, hidden and
-      // not positioned; the next selectTowerType or dispose removes it.
-      expect(overlay.children).toHaveLength(1);
-      expect(preview()!.visible).toBe(false);
+      expect(overlay.children).toHaveLength(0);
       await enterBuild('cannon');
       expect(overlay.children).toHaveLength(1);
+    });
+
+    it('does not carry the cursor of a cancelled build into the next one', async () => {
+      init();
+      service.selectTowerType('archer');
+      hover(FREE);
+      service.exitBuildMode();
+      await enterBuild('cannon');
+
+      expect(preview()!.visible).toBe(false);
+      expect(service.handleBuildClick()).toBe(false);
+    });
+
+    it('keeps only the preview of the last choice when loads finish out of order', async () => {
+      init();
+      const pending: (() => void)[] = [];
+      assets.loadModel.mockImplementation(() => new Promise<void>((resolve) => pending.push(resolve)));
+      service.selectTowerType('archer');
+      service.selectTowerType('cannon');
+      hover(FREE);
+
+      pending[1]();
+      await flush();
+      pending[0]();
+      await flush();
+
+      expect(overlay.children).toHaveLength(1);
+      expect(assets.cloneModel).toHaveBeenCalledTimes(1);
+      expect(assets.cloneModel).toHaveBeenCalledWith(TOWER_TYPES.cannon.modelUrl);
+      expect(preview()!.visible).toBe(true);
     });
   });
 

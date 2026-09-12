@@ -101,6 +101,13 @@ export class TowerPlacementService {
   /** Flag indicating model is being loaded */
   private modelLoading = false;
 
+  /**
+   * Bumped by every exitBuildMode. A preview load that finishes after the
+   * token moved on belongs to a build mode that is gone: cancelled, or
+   * replaced by another type.
+   */
+  private previewLoadToken = 0;
+
   /** Queued position update while model was loading */
   private queuedPosition: { lat: number; lon: number; height: number } | null = null;
 
@@ -345,6 +352,11 @@ export class TowerPlacementService {
     this.validationReason.set(null);
     this.isRotating = false;
 
+    // Drop a preview that is still loading, and the cursor it would apply.
+    this.previewLoadToken++;
+    this.modelLoading = false;
+    this.queuedPosition = null;
+
     // Clean up preview tower
     this.cleanupPreviewTower();
 
@@ -379,16 +391,18 @@ export class TowerPlacementService {
       return;
     }
 
+    const token = this.previewLoadToken;
     try {
       // Load via AssetManager (cached)
       await this.assetManager.loadModel(config.modelUrl);
       this.loadedModelUrls.add(config.modelUrl);
+      // Build mode was left (or switched to another type) while loading.
+      if (token !== this.previewLoadToken || !this.engine) return;
 
       // Clone the model for preview
       const model = this.assetManager.cloneModel(config.modelUrl);
       if (!model) {
         console.error(`[TowerPlacement] Failed to clone model: ${typeId}`);
-        this.modelLoading = false;
         return;
       }
 
@@ -408,8 +422,9 @@ export class TowerPlacementService {
     } catch (err) {
       console.error(`[TowerPlacement] Failed to load preview model: ${typeId}`, err);
     } finally {
-      this.modelLoading = false;
+      if (token === this.previewLoadToken) this.modelLoading = false;
     }
+    if (token !== this.previewLoadToken) return;
 
     // Process queued position if any
     if (this.queuedPosition && this.buildMode()) {
