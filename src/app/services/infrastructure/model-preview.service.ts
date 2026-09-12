@@ -191,10 +191,6 @@ export class ModelPreviewService {
         return;
       }
 
-      // Apply FBX materials if needed
-      if (this.assetManager.isFbxModel(modelUrl)) {
-        this.assetManager.applyFbxMaterials(model);
-      }
       const scale = preview.config.scale ?? 1;
       model.scale.set(scale, scale, scale);
 
