@@ -146,3 +146,26 @@ describe('VFX settings in the trail streaks', () => {
     trails.dispose();
   });
 });
+
+describe('VFX settings through a game reset', () => {
+  it('keeps every switch when the effects are cleared', () => {
+    const { pools, effects, decals } = setup({ impactEffects: false, groundMarks: false });
+    const auras = new AuraRenderer(pools);
+    auras.setFrostEnabled(false);
+    const trails = new TrailStreakRenderer(new Scene());
+    trails.setEnabled(false);
+
+    // A restart or location change (GameStateManager) clears the effects and the projectile trails
+    effects.clear();
+    auras.clear();
+    trails.clear();
+
+    SPAWNS.impactEffects(effects);
+    effects.spawnBloodDecal(0, 0, 0, 2);
+    auras.spawnFrostAura('slowed', new Vector3());
+    expect(alive(pools)).toBe(0);
+    expect(decals()).toBe(0);
+    expect(trails.create('p', 'rocket')).toBe(false);
+    trails.dispose();
+  });
+});
