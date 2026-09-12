@@ -275,8 +275,26 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
 1. Intro mit kaltem Cache (DevTools "Disable cache"): Ladebildschirm zeigt
    "Preparing Intro Flight", der Flug startet erst mit Höhen,
    `__flight.state()` hat das Feld `reliable`.
+   **ok** (Playtest 2026-09-12, nach Fix: Flugkurve waagrecht, weicher
+   Einflug von der Totalen zum HQ; Kamera-Zeitleiste im Dev → Dump)
 2. Framing nach dem Intro und nach "Reset Camera" (`CAMERA_EDGE_MARGIN` 3 %).
+   **ok** (Playtest 2026-09-12, nach Fix: Framing mit echter Linse statt
+   75°-Default, Marker mit Höhe im Fit, Totale als Frame gespeichert;
+   Laden, Intro-Ende, Abbruch und Reset zeigen denselben Ausschnitt)
+   **Nachtrag** (Playtest 2026-09-12, Stuttgart Königstraße): Totale und Reset
+   viel zu nah, am Boden klebend. Laut Dump saß der Frame auf der Einzelprobe
+   unter dem HQ, -748,8 m in einem Mesh-Loch (Zellen-Median 296 m); die
+   Kamera landete unter dem Gelände. Fix: Boden der Totalen ist der Median
+   der Route-Zellen unter ihren Punkten.
+   Zweiter Fall (kalter Cache, früh abgebrochen, 2 von 4 bis 5 Versuchen):
+   beim Laden gab es noch gar keinen Boden (`framing.noTerrain`), gespeichert
+   wurde die Startpose (y 400 bei Boden 296, Blick auf y 0). Fix: ohne Frame
+   wird nichts gespeichert; Reset, Abbruch und Intro-Start rechnen die Totale
+   frisch, bevorzugt aus Zellen feiner Tiles (bis 20 m Fehler). **ok** nach
+   Fix (Playtest 2026-09-12, kalter Cache und früher Klick; HQ-Marker sitzt
+   richtig).
 3. Damage-Chart: gesperrte Tower ausgeblendet, passt in die Breite, neue Optik.
+   **ok** (Playtest 2026-09-12)
 4. Balance: Spreizung der Matrix spürbar, ab W31 jede fünfte Welle ein Boss,
    Gold bei W30 (über 150k oder mehr als 20 Tower: Gold W16 bis W30 kürzen).
 
@@ -298,6 +316,9 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
    hängt (Review-Befund 1).
 10. `__routes.describe()`: residential 5.5, primary 8, `lanes`-Ways mit Quelle
     `lanes`, verengte Abschnitte mit `corridorM` als Spanne.
+    **ok** (Playtest 2026-09-12: residential 5,5, `lanes` × 3 + 1, `width`-Tags
+    übernommen, Spannen wie "6.4-14.0"; `corridorM` meist 14,0, der
+    gemessene Freiraum mit Deckel 7 m je Seite)
 11. Debug-Toggle `grid`: in Gassen 2 bis 3 Zellen quer, auf Hauptstraßen
     breiter, deutlich weniger Zellen auf Dächern und Fassaden.
 12. Welle: Gegner in Gassen nah an der Mitte, auf Hauptstraßen verteilt, vor
@@ -311,10 +332,18 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
 **Tower**
 
 17. Tower neben die Route setzen: Turm zeigt sofort zum Routeneintritt.
+    **Befund** (Playtest 2026-09-12): Turm bewusst in Gegenrichtung gesetzt,
+    er sprang nach 800 ms hart zur Wachrichtung, statt zu drehen. Ursache:
+    die Wachrichtung wurde gerechnet, aber nicht auf den Turm-Knoten gesetzt.
+    Fix: Der Turm macht zuerst die Referenzfahrt (75° links, 75° rechts,
+    zurück) um den gesetzten Stand und dreht dann mit Zielgeschwindigkeit zur
+    Wachrichtung. **ok** nach Fix (Playtest 2026-09-12).
 18. In der Welle nach einem Kill: Turm bleibt stehen statt zurückzuschwenken,
     der nächste Gegner wird ohne Drehpause beschossen (am deutlichsten Cannon).
+    **ok** (Playtest 2026-09-12)
 19. Welle endet: alle Türme drehen zur Wachrichtung; Reichweiten-Upgrade
     zwischen den Wellen dreht leicht nach.
+    **ok** (Playtest 2026-09-12)
 20. Diagonal stehende Gegner: Läufe zeigen genau aufs Ziel, Fire-Tower in
     Flammenrichtung.
 21. Bots (DevWorld): keine Warnungen "Outside play area".
@@ -329,10 +358,15 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
 
 23. Konsole nach dem Laden: `[Warmup] ... P empty pools drawn for one frame
     (Z ms)`, P etwa Gegnertypen plus 15, Z etwa ein Frame (nicht 1000 ms).
+    **ok** (Playtest 2026-09-12: 16 neue Shader, 6,2 ms Compile im Main
+    Thread, bereit nach 16,7 ms; 36 Pools, Ladeframe 166,5 ms)
 24. Zeilen `[Tiles] material type: ...` notieren (lit oder unlit).
+    **ok** (Playtest 2026-09-12: beide Typen, `MeshBasicMaterial` unlit und
+    `MeshStandardMaterial` lit; Anteil unbekannt, R10-Entscheidung offen)
 25. Erste Welle: kein Ruckler und alles sichtbar beim ersten Spawn je Typ,
     ersten Pfeil, Raketen- und Magie-Schuss, ersten Decal, ersten Blitz.
 26. Debug-Schalter "Gegner" und "Health-Bars" an und aus, auch mit Gegnern.
+    **ok** (Playtest 2026-09-12)
 27. `__raycastStats(true)` nach dem Laden, dann eine Welle mit Platzieren,
     dann `__raycastStats()`: Werte für die BVH-Entscheidung.
 28. Gegner sterben lassen (W1 zombie_v2, Penguin, Zombie Soldier, Mammoth,
@@ -343,25 +377,40 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
 
 30. Cannon und Rakete auf 100 bis 200 m: Blitz, Feuerball, Rauch, Rakete
     größer, keine Überbelichtung; Poison grün, Ice ohne Orange.
+    **ok** (Playtest 2026-09-12). Anmerkung: Die Explosion wirkt erst groß und
+    zerfällt dann in mehrere kleine. Das sind die 50 Feuer-Sprites einer
+    einzigen Explosion, die mit 5 bis 20 m/s auseinanderfliegen und auf 40 %
+    schrumpfen. Kompakter über `EXPLOSION_LOOK.fire.speedMax` bzw. `sizeEnd`.
 31. Kampfspuren unter Einschlägen und Flammenzielen, nicht auf Dächern oder
     unter Fliegern, Blut darüber, kein Z-Fighting.
 32. Screen Shake nah ja, fern nein, Platzier-Cursor wackelt nicht; vertikales
     Zittern angenehm?
+    **ok** (Playtest 2026-09-12), Wunsch: Wackeln soll viel früher
+    verschwinden. Umgesetzt in zwei Schritten: volle Stärke bis 40 m statt
+    150 m, keins ab 100 m statt 450 m (`SCREEN_SHAKE_CONFIG`).
 33. `await __perf.shakeBench(5)` (echte Tiles, Pause, Kamera still): `shake`
     sieht bei `traversals` und `tilesUpdateMs` aus wie `off`.
 34. HQ unter halbe HP: Feuer bleibt dicht; Game-Over-Inferno voll, nicht zu
     hell.
 35. Blut- und Eisflecken rund, etwa so groß wie vorher.
+    **ok** (Playtest 2026-09-12)
 
 **Neue Inhalte**
 
 36. Chaos Rift erscheint nach Siege Engineering und Storm Mastery.
 37. Chaos Tower: Kristallturm in Welt und Build-Menü, Größe passt, der
     mittlere Kristall dreht sich, der Orb kommt aus der Spitze.
+    **ok** (Playtest 2026-09-12; ein eigenes Modell kommt später)
 38. Chaos-Balance an W16 und W18: nur noch Chaos oder gar nicht?
 39. Skeleton auf W19: läuft vorwärts, Beine passen zum Tempo, Größe lesbar,
     liegt nach dem Tod kurz und verschwindet.
+    **Befund** (Playtest 2026-09-12): sonst ok, Beine deutlich zu schnell.
+    `animationSpeed` 1,25 ließ die Füße mit etwa 8 m/s laufen (Sprint ±90°,
+    3,2 m Schritt je 0,5-s-Zyklus), jetzt 0,93 für 6 m/s. Die Animation
+    skaliert mit der aktuellen Geschwindigkeit, der Wert gilt also bei jedem
+    Tempo. **ok** nach Fix (Playtest 2026-09-12).
 40. Credits-Dialog: beide Kenney-Einträge.
+    **ok** (Playtest 2026-09-12)
 
 ## Befunde, offen
 
@@ -529,22 +578,33 @@ Auch hier lief nichts im Browser.
     zeichnet nur die Tower-Anzeige sie nicht.
 44. Straßenkante mit Traufe: Randzellen am Boden (orange Kontur im Overlay).
 45. `__corridor.set({ maxHalfWidth: 5 })` ohne Tower, dann `__corridor.reset()`.
+    **ok** (Playtest 2026-09-12)
 46. Header: Labels, goldene Kante, Höhe unverändert.
+    **ok** (Playtest 2026-09-12)
 47. Next-Wave-Button: "START WAVE N"; in der Welle "WAVE N" und "x left" mit
     Balken; nach "Kill all" sofort 0; im Build-Mode grau.
+    **ok** (Playtest 2026-09-12)
 48. Dev-Menü: Kacheln lesbar, DevWorld nur mit `?devworld`, aktiver Toggle
     gold; bei niedrigem Fenster scrollt das Panel.
+    **ok** (Playtest 2026-09-12)
 49. Nur ein Menü offen; nach dem Laden das zuletzt offene.
+    **ok** (Playtest 2026-09-12)
 50. Debug-Fenster: Dev-Menü öffnen lädt die Fenster; ein offenes Fenster geht
     nach dem Laden wieder auf.
+    **ok** (Playtest 2026-09-12)
 51. VFX-Panel: "Low" in einer Welle mit Cannon und Rakete, keine Explosionen,
     Trails oder Mündungsblitze, liegende Bodenspuren verschwinden, Schaden
     unverändert; nach einem Einzelschalter steht "Custom"; nach dem Laden
     bleiben die Werte, ein alter FPS-Cap wird übernommen.
+    **ok** (Playtest 2026-09-12)
 52. Die Zeilen `[Corridor] rebuild: ...` notieren (welcher Teil dominiert,
     wie viele ms insgesamt). Sie erscheinen, wenn die clearance-Zeile
     `changed=true` zeigt; sonst ohne Tower `__corridor.reset()` aufrufen, das
     baut neu.
+    **ok** (Playtest 2026-09-12, Innenstadt, 1 Route: Neuaufbau 39,5 bis
+    41,7 ms, routes 14, lines 11, grid 10, heights 4 bis 6 ms, kein Teil
+    dominiert. Die Messung davor, `clearance` mit 1260 Strahlen, dauerte
+    520 bis 533 ms synchron)
 53. Ort mit Tunnel oder Durchgang (`__routes.describe()`, Spalte `tags`):
     Overlay-Zellen dort gelb und auf der Straße im Tunnel, nicht auf dem Hang,
     sofern an beiden Mündungen Tiles liegen (sonst rosa);
@@ -553,5 +613,7 @@ Auch hier lief nichts im Browser.
     lang wie bei 60 FPS; die anderen Streaks ebenfalls unverändert lang.
 55. Explosion aus der Nähe: kein dunkler Punkt vor dem Rauch, der Rauch kommt
     weiter.
+    **ok** (Playtest 2026-09-12)
 56. Zwischen zwei Wellen Debug-Gegner töten oder entfernen: danach drehen die
     Tower zur Wachrichtung.
+    **ok** (Playtest 2026-09-12)

@@ -166,6 +166,10 @@
       **Stand 2026-09-12 (Runde 2):** R6 und Shader-Warm-up umgesetzt, R10
       loggt die Materialtypen (`aa0bd7a` bis `33aed45`); Entscheidung zu R10
       nach dem Playtest.
+      **Playtest 2026-09-12:** Beide Typen treten auf, `MeshBasicMaterial`
+      (unlit) und `MeshStandardMaterial` (lit). Ein Teil der Tiles rechnet die
+      Szenenlichter also doch; der Anteil ist nicht gemessen. Offen: Anteil
+      messen, dann Lichter reduzieren oder die Tiles einheitlich unlit machen.
 
 ## 1.6 Befunde aus dem Sprint 2026-09-11 (nicht behoben)
 
@@ -227,8 +231,12 @@
       gemeinsamen Zellen der Boden. Der Neuaufbau nach der Tile-Messung läuft
       synchron, möglicherweise bei schon sichtbarer Karte (Strahlen je
       Station, bei Verengung zweimal A* pro Spawn, neue Zellen, ein
-      Höhen-Sweep); seit `f9fe730` gemessen (`[Corridor] rebuild:`), Zahlen
-      aus dem Spiel fehlen noch, bei spürbarem Hänger stückeln. Nachmessen
+      Höhen-Sweep); seit `f9fe730` gemessen (`[Corridor] rebuild:`).
+      **Playtest 2026-09-12** (Innenstadt, 1 Route, 316 Stationen): Neuaufbau
+      etwa 40 ms, unkritisch. Teuer ist die Messung davor: `clearance` mit
+      1260 Strahlen 520 bis 533 ms am Stück im Main Thread, ein spürbarer
+      Hänger. Kandidat zum Stückeln (Stationen über mehrere Frames) oder für
+      die BVH-Entscheidung. Nachmessen
       nach Tile-Schüben seit `30bc473`, die Regeln stecken in
       `CorridorRefit` mit Spec (`cb925c6`).
 
@@ -694,6 +702,19 @@
       weitere Effekt-Kategorien (Explosions-Cores, Magic-Orb-Highlights) steht weiterhin aus.
       Dateien: `three-engine/post-processing/post-processing-pipeline.ts`,
       `three-engine/renderers/lightning-bolt.renderer.ts`, `three-engine/three-tiles-engine.ts`.
+
+- [ ] **Spawn-Portal statt Spawn-Marker** (Idee, 2026-09-12)
+      Der schwebende Diamant am Spawn wird zum Portal, im Stil des Dunklen Portals aus
+      WoW Burning Crusade: Die Gegner kommen aus einer anderen Dimension und treten
+      durch das Portal auf die Route.
+      Mögliche Bausteine: Portalrahmen am Routenanfang auf dem Boden statt schwebendem
+      Marker, wirbelnde Portalfläche (Shader), Spawn-Effekt beim Durchtreten (Funken,
+      Verzerrung), stärkeres Pulsieren bei Wellenstart.
+      Zu beachten: Die Marker-Geometrie steht in `configs/marker-geometry.config.ts`.
+      Intro-Flug (Marker als Hindernis und Motiv) und Totale (Framing) lesen daraus,
+      ein Portal am Boden ändert diese Maße.
+      Dateien: `services/world/marker-visualization.service.ts`,
+      `three-engine/renderers/marker/marker-instance.manager.ts`.
 
 ## Mobile Support & Accessibility
 
