@@ -131,20 +131,33 @@ function planBake(config: EnemyTypeConfig, model: ModelInfo): Bake {
   return { path, meshes, clips, totalFrames: clips.reduce((s, c) => s + c.frames, 0) };
 }
 
+/**
+ * Enemies of `id` that one enemy of `parent` puts on the route: itself if it
+ * is one, plus what a kill splits it into, recursively (splitOnDeath).
+ */
+function bodiesOf(parent: string, id: string, depth = 0): number {
+  const self = parent === id ? 1 : 0;
+  const split = ENEMY_TYPES[parent]?.splitOnDeath;
+  if (!split || depth >= 4) return self;
+  return self + split.count * bodiesOf(split.type, id, depth + 1);
+}
+
 function presenceOf(id: string): Presence {
   let perWave = 0;
   for (const template of TEMPLATES) {
+    let n = 0;
     for (const [enemy, share] of template.enemies) {
-      if (enemy === id) perWave = Math.max(perWave, Math.round(share * template.countRange[1]));
+      n += Math.round(share * template.countRange[1]) * bodiesOf(enemy, id);
     }
+    perWave = Math.max(perWave, n);
   }
   const waves = WAVE_CURRICULUM.flatMap((entry, i) => {
     const template = TEMPLATES.find((t) => t.id === entry.template);
-    return template?.enemies.some(([enemy]) => enemy === id) ? [i + 1] : [];
+    return template?.enemies.some(([enemy]) => bodiesOf(enemy, id) > 0) ? [i + 1] : [];
   });
   const staticMax = Math.max(
     0,
-    ...STATIC_WAVE_PROFILES.flatMap((p) => p.groups.filter((g) => g.enemyType === id).map((g) => g.count)),
+    ...STATIC_WAVE_PROFILES.map((p) => p.groups.reduce((s, g) => s + g.count * bodiesOf(g.enemyType, id), 0)),
   );
   return { perWave, waves, staticMax };
 }
@@ -281,8 +294,10 @@ function render(rows: Row[]): string {
   out.push('');
   out.push('Sortiert nach VAT-Vertices pro Instanz. „max./Welle“ ist Anteil × Obergrenze von');
   out.push('`countRange` über alle Templates, vor dem Fairness-Gate, das die meisten Wellen kleiner');
-  out.push('macht. „Mio. Vertices“ = VAT-Vertices × max./Welle, also die Vertex-Shader-Last, wenn alle');
-  out.push('Gegner der größten Welle gleichzeitig leben. „Half-Fehler“ ist der größte Fehler, den');
+  out.push('macht; was ein Kill abspaltet (`splitOnDeath`), zählt mit. „Mio. Vertices“ = VAT-Vertices ×');
+  out.push('max./Welle, also die Vertex-Shader-Last, wenn alle Gegner der größten Welle gleichzeitig');
+  out.push('leben. Für abgespaltene Gegner ist das eine Obergrenze: Sie entstehen erst, wenn der');
+  out.push('Gegner stirbt, der sie abspaltet. „Half-Fehler“ ist der größte Fehler, den');
   out.push('RGBA16F einer Position im Spiel zufügt (`vatEncoding` in `vat-baker.ts`, aus den gebackenen');
   out.push(`Positionen). Bis ${dec(VAT_HALF_FLOAT_MAX_ERROR * 1000, 0)} mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (16 Byte).`);
   out.push('');
@@ -368,11 +383,23 @@ function render(rows: Row[]): string {
   out.push('### Vorkommen in Wellen');
   out.push('');
   out.push('Kurrikulum W1-W30 pinnt die Templates; danach wählt der Director frei (Boss jede fünfte');
-  out.push('Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `countRange`.');
+  out.push('Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `countRange`,');
+  out.push('mit allem, was ein Kill abspaltet.');
   out.push('');
+  // VAT vertices of one enemy and everything a kill splits it into
+  const lineageVerts = (enemy: string, depth = 0): number => {
+    const own = vertsById.get(enemy) ?? 0;
+    const split = ENEMY_TYPES[enemy]?.splitOnDeath;
+    return !split || depth >= 4 ? own : own + split.count * lineageVerts(split.type, depth + 1);
+  };
+  const mixLabel = (enemy: string, share: number): string => {
+    const split = ENEMY_TYPES[enemy]?.splitOnDeath;
+    const label = `${enemy} ${int(share * 100)} %`;
+    return split ? `${label} (je Kill +${split.count} ${split.type})` : label;
+  };
   const templateRows = TEMPLATES.map((t) => {
     const top = t.countRange[1];
-    const load = t.enemies.reduce((s, [enemy, share]) => s + Math.round(share * top) * (vertsById.get(enemy) ?? 0), 0);
+    const load = t.enemies.reduce((s, [enemy, share]) => s + Math.round(share * top) * lineageVerts(enemy), 0);
     const waves = WAVE_CURRICULUM.flatMap((entry, i) => (entry.template === t.id ? [i + 1] : []));
     return { t, top, load, waves };
   }).sort((a, b) => b.load - a.load || a.t.id.localeCompare(b.t.id));
@@ -383,7 +410,7 @@ function render(rows: Row[]): string {
       `\`${t.id}\``,
       wavesLabel(waves),
       int(top),
-      t.enemies.map(([enemy, share]) => `${enemy} ${int(share * 100)} %`).join(', '),
+      t.enemies.map(([enemy, share]) => mixLabel(enemy, share)).join(', '),
       dec(load / 1e6),
     ]),
   ));

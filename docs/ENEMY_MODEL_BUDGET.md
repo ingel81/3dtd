@@ -267,8 +267,10 @@ Budget: ≤ 1.500 VAT-Vertices, Diffuse ≤ 512². Kandidaten mit Lizenz und Que
 
 Sortiert nach VAT-Vertices pro Instanz. „max./Welle“ ist Anteil × Obergrenze von
 `countRange` über alle Templates, vor dem Fairness-Gate, das die meisten Wellen kleiner
-macht. „Mio. Vertices“ = VAT-Vertices × max./Welle, also die Vertex-Shader-Last, wenn alle
-Gegner der größten Welle gleichzeitig leben. „Half-Fehler“ ist der größte Fehler, den
+macht; was ein Kill abspaltet (`splitOnDeath`), zählt mit. „Mio. Vertices“ = VAT-Vertices ×
+max./Welle, also die Vertex-Shader-Last, wenn alle Gegner der größten Welle gleichzeitig
+leben. Für abgespaltene Gegner ist das eine Obergrenze: Sie entstehen erst, wenn der
+Gegner stirbt, der sie abspaltet. „Half-Fehler“ ist der größte Fehler, den
 RGBA16F einer Position im Spiel zufügt (`vatEncoding` in `vat-baker.ts`, aus den gebackenen
 Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (16 Byte).
 
@@ -292,8 +294,8 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 2048² |
 | Rat (`rat`) | Swarm | 5.000 | 2.150 | 3.642 | 10,8 | Skinning | 11 | 2150×11 | RGBA16F | 0,26 | 0,2 | 1024² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 1024² |
-| Skeleton (`skeleton`) | Swarm | 1.500 | 1.156 | 658 | 1,7 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
-| Skeleton Minion (`skeleton-minion`) | in keiner Welle | 0 | 1.156 | 658 | 0,0 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
+| Skeleton (`skeleton`) | Swarm | 940 | 1.156 | 658 | 1,1 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
+| Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 
 VAT-Speicher aller Typen zusammen: **264,2 MB** (30 fps), alles in RGBA32F wären **485,7 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **15,9 MB** dazu.
@@ -369,7 +371,8 @@ die weggelassenen Frames.
 ### Vorkommen in Wellen
 
 Kurrikulum W1-W30 pinnt die Templates; danach wählt der Director frei (Boss jede fünfte
-Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `countRange`.
+Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `countRange`,
+mit allem, was ein Kill abspaltet.
 
 | Template | Kurrikulum | max. Anzahl | Mischung | Mio. Vertices |
 | --- | --- | ---: | --- | ---: |
@@ -385,9 +388,9 @@ Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `c
 | `dragon_elite` | W12, W24 | 100 | dragon 60 %, hornet 40 % | 3,5 |
 | `wallsmasher_crew` | W5 | 200 | wallsmasher 100 % | 3,4 |
 | `boss_dragon` | – | 80 | dragon 50 %, hornet 50 % | 3,3 |
+| `skeleton_swarm` | W19 | 940 | skeleton 100 % (je Kill +2 skeleton-minion) | 3,3 |
 | `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,7 |
 | `bat_swarm` | W7, W21 | 600 | bat 100 % | 2,1 |
-| `skeleton_swarm` | W19 | 1.500 | skeleton 100 % | 1,7 |
 | `mammoth_siege` | W14, W25 | 120 | mammoth 70 %, wallsmasher 30 % | 1,1 |
 | `penguin_rush` | W3 | 500 | penguin 90 %, rat 10 % | 1,0 |
 | `golem_squad` | W15 | 60 | stone-golem 100 % | 0,8 |
@@ -408,8 +411,8 @@ Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `c
 | Mech | W28 | 20 |
 | Penguin | W3 | 25 |
 | Rat | W2, W3, W18 | 60 |
-| Skeleton | W19 | 500 |
-| Skeleton Minion | – | 0 |
+| Skeleton | W19 | 310 |
+| Skeleton Minion | W19 | 620 |
 | Spider | W4, W6 | 35 |
 | Stone Golem | W15 | 6 |
 | Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 25 |
