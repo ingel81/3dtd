@@ -203,6 +203,44 @@ Stationen, die sich nicht messen lassen.
 - Kreuzen sich zwei Routen auf verschiedenen Ebenen, gilt in den gemeinsamen
   Zellen der Boden, die Gegner auf der Brücke sacken dort ab.
 
+**Stellschrauben.** Alle Werte stehen in `corridorConfig`
+(`utils/route-corridor.ts`), die Vorgaben in `CORRIDOR_DEFAULTS`. In
+DevTools, ohne Neuladen:
+
+```js
+__corridor.get()                                        // alle Werte
+__corridor.set({ maxHalfWidth: 8 })                     // ändern, Korridor wird neu gebaut
+__corridor.set({ bulgeLength: 14, dipLength: 6 })       // mehrere auf einmal
+__corridor.set({ highwayWidths: { residential: 7 } })   // einzelne Straßenklassen
+__corridor.reset()                                      // zurück auf die Vorgaben
+```
+
+`set` und `reset` laufen nur, solange kein Tower steht, keine Welle läuft
+und kein Gegner auf der Karte ist; sonst kommt `Not changed: ...` zurück.
+Unbekannte Namen und Werte außerhalb des Bereichs werden abgelehnt, dann
+ändert sich nichts. Sonst werden Routen, Zellen und rote Linie neu gebaut,
+bei `stationSpacing`, `rayHeight`, `maxHalfWidth` und `maxTileError` wird
+vorher neu gemessen (Log `[Corridor] clearance:`). Die Antwort nennt die
+Zellzahl; die Breiten je Abschnitt zeigt `__routes.describe()`. Die Werte
+gelten bis zum Neuladen der Seite. Übernehmen heißt `CORRIDOR_DEFAULTS` im
+Code ändern.
+
+| Name | Vorgabe | Bereich | Wirkung |
+|---|---|---|---|
+| `minHalfWidth` | 2 | 1,5 bis 15 | kleinste Halbbreite je Seite |
+| `maxHalfWidth` | 7 | 1,5 bis 15 | größte Halbbreite je Seite, zugleich die Strahllänge (misst neu) |
+| `defaultHalfWidth` | 4,5 | min bis max | Halbbreite, wo nichts bekannt ist (Pfade außerhalb des Routenbaus); rückt bei engerem Bereich mit |
+| `edgeMargin` | 1,5 | 1,42 bis 5 | Abstand der Gegner zum Korridorrand. Unter der halben Zelldiagonale stünden Gegner am Rand außerhalb der Zellen |
+| `taper` | 0,5 | 0,05 bis 5 | wie schnell sich der Seitenversatz entlang der Route ändern darf, m pro m |
+| `stationSpacing` | 2 | 0,5 bis 10 | Abstand der Messstationen (misst neu) |
+| `rayHeight` | 2 | 0,3 bis 10 | Höhe der Strahlen über Grund (misst neu). Tiefer: Autos und niedrige Hecken engen ein. Höher: nur Fassaden und hohe Kronen |
+| `maxTileError` | 5 | 0,1 bis 100 | gröbstes Tile in m geometricError, das für die Strahlen zählt (misst neu) |
+| `widthStep` | 0,5 | 0,1 bis 2 | Rundung der gemessenen Breite nach unten |
+| `dipLength` | 4 | 0 bis 100 | Einbrüche bis etwa so lang werden geschlossen (Laterne, Transporter). Auf ganze Stationen je Seite aufgerundet |
+| `bulgeLength` | 8 | 0 bis 100 | Ausbuchtungen bis etwa so lang werden abgeschnitten (Einfahrt, Hauslücke, schmale Einmündung). Höher: ruhigerer Rand, auch an Kreuzungen |
+| `highwayWidths` | Tabelle oben | je bis 50 | Straßenbreite je `highway`-Klasse, nur für Stationen ohne Messung und das HQ-Endstück |
+| `unknownHighwayWidth`, `laneWidth`, `laneExtra` | 5, 3, 1 | | Breite unbekannter Klassen, Spurbreite und Zuschlag bei `lanes` |
+
 **Höhenmodell (zu Fall B).** Der direktere Hebel wäre, Zellhöhen gegen die
 Mittellinie zu prüfen: Liegt eine Zelle deutlich über dem seitlichen Minimum
 der Mittellinie, gilt dieses. Das wäre wieder ein Anker mit Toleranzband, den
