@@ -12,19 +12,20 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
 
 ## Kurzfassung
 
-- **zombie_v2** hat 31.342 VAT-Vertices pro Instanz, das alte Zombie 4.525 (knapp 7×).
-  2.000 Instanzen sind 62,7 Mio. Vertex-Shader-Aufrufe pro Frame statt 9,1 Mio. Seine VAT
-  belegt 52,8 MB (RGBA16F, drei Clips, zusammen 211 Frames).
-- Die teuerste Welle nach Vertex-Last ist `hornet_strike`, nicht die Zombie-Horde: Hornet hat
-  69.297 VAT-Vertices (122.736 Dreiecke in 16 starren Meshes), 210 Hornets sind 14,6 Mio.
-  Danach folgen `zombie_horde` (14,4), `rat_tide` (10,8), `spider_swarm` (10,5) und
-  `wraith_storm` (9,1).
-- Alle 20 Typen werden beim Start gebacken (`preloadAllModels`). Zusammen belegen die VATs
-  264,2 MB GPU-Speicher: 19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in
-  RGBA32F wären 485,7 MB). Gebacken wird nur, was das Spiel zeigt: Todes-Clips bis zum
-  Entfernen des Gegners, Idle gar nicht (bis 2026-09-12 waren es 664,6 MB).
-- Der Wallsmasher lädt als FBX nicht indiziert: 17.010 Vertices für 5.670 Dreiecke. Als GLB
-  wären es 3.444, ohne sichtbare Änderung.
+- Die Blender-Runde vom 2026-09-13 hat zwölf Modelle geändert (`tools/blender/optimize_enemy.py`,
+  ein Rezept je Modell, siehe [Empfehlungen](#empfehlungen-je-modell)). Alle 20 Typen werden
+  beim Start gebacken (`preloadAllModels`); ihre VATs belegen zusammen 105,5 MB GPU-Speicher,
+  19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in RGBA32F wären 189,5 MB).
+  Vor der Runde waren es 264,2 MB, bis 2026-09-12 (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
+- Die teuersten Wellen nach Vertex-Last sind jetzt `rat_tide` (5,0 Mio.), `mech_army` (4,2),
+  `zombie_horde` (3,6), `skeleton_swarm` (3,3), `armor_gauntlet` (2,5) und `wraith_storm`
+  (2,4). Vorher führten `hornet_strike` (14,9) und `zombie_horde` (14,4). Kein Template liegt
+  mehr über dem Richtwert von 5 Mio.
+- Über dem Budget je Modell liegen noch Mech (42.455 VAT-Vertices, nicht geändert), Herbert
+  (30.831, höchstens drei pro Welle), Wraith (8.126), Ghost, Tank, Bat, Spider und Penguin.
+- Die Ratten-Animation ist seit der Runde nicht mehr exakt (siehe Rat). Bei den anderen
+  geänderten Modellen backt three.js dieselben Posen wie vorher; sie weichen nur durch das
+  Decimate ab und bei Dragon und Golem in den Blend-Frames am Loop-Ende.
 - Knochen und Dreiecke sind mit VAT zweitrangig. Die Knochen sind weggebacken, die Last ist
   Vertices × Instanzen.
 
@@ -87,9 +88,64 @@ darunter.
 
 ## Empfehlungen je Modell
 
-Reihenfolge nach Wirkung auf die teuersten Wellen. Die Decimate-Anteile sind Startwerte für
-Blender; das Ergebnis mit `npm run model-budget` nachmessen. Die VAT-MB-Angaben rechnen noch
-mit RGBA32F (vor 2026-09-13); mit RGBA16F ist es jeweils die Hälfte, außer beim Stone Golem.
+### Stand nach der Blender-Runde (2026-09-13)
+
+Je Modell: VAT-Vertices, VAT-Speicher (wie in der Tabelle, RGBA16F außer Stone Golem) und
+Datei vorher → nachher. Jedes Rezept in `tools/blender/optimize_enemy.py` liest das Original
+aus Git (`39fbb18`). Geprüft wurde, indem altes und neues GLB in three.js wie im Baker
+gebacken und Frame für Frame verglichen wurden (Prozent beziehen sich auf die Modellhöhe).
+
+- **Wallsmasher** 17.010 → 3.444, 19,5 → 2,7 MB, 3,4 → 0,4 MB: GLB statt FBX, nur Walk, Run
+  und Death. Die GLB ist in Metern, `scale` 0,037 → 3,7. Gleiche Posen. Der FBX-Ladepfad im
+  AssetManager und im Generator ist entfernt.
+- **Hornet** 69.297 → 4.913, 33,2 → 2,2 MB, 4,4 → 1,1 MB: jedes Körperteil auf 3,7 % der
+  Dreiecke, die vier Flügel unverändert. Zum Zusammenfassen gab es nichts: Jeder animierte
+  Empty trägt ein Mesh, der Kopf zwei mit verschiedenen Materialien. Aus der Nähe sind die
+  Beinsegmente facettiert und die Mandibel-Textur ist an UV-Nähten verzogen.
+- **Rat** 2.150 → 999, 0,2 → 0,1 MB, 2,5 → 0,2 MB: Decimate auf 42 %, eine 512²-Basisfarbe.
+  **Animation nicht exakt**: Blender gibt `Run` zwischen den Keys anders wieder als die Datei,
+  bei Frame 3 und 7 von 11 bis 9,4 % am hinteren Rücken, mit jeder getesteten
+  Export-Einstellung. Mit geratener Bind-Pose exportiert das Rig kaputt.
+- **Spider** 13.173 → 2.140, 3,1 → 0,4 MB, 1,6 → 0,6 MB: Körper 11 %, Augen 30 %, nur der
+  Basis-Walk. Über dem Swarm-Richtwert, weil 8 % (1.649) die Beine zu Dreikantstäben machte.
+- **Bat** 3.559 unverändert, 5,5 → 0,3 MB Datei: eine 512²-Basisfarbe statt drei
+  2048²-Bildern, kein Decimate.
+- **Dragon** 49,3 → 12,4 MB, 12,6 → 5,9 MB: `flying` auf einen Flugzyklus von 99 Frames
+  (3,3 s). Kürzer wiederholt sich der Clip nicht, bei 1 s liegen die Posen 7 % auseinander.
+- **Stone Golem** 42,8 → 21,5 MB, 17,8 → 3,1 MB: `Casual_Walk` auf 1,33 s (40 Frames). Die
+  alte Loop-Naht sprang um 3,2 %, die neue schließt ohne Sprung. Texturen 1024². Bleibt
+  RGBA32F (Half-Fehler 2,64 mm).
+- **Zombie v2** 31.342 → 5.013, 52,8 → 10,4 MB, 3,8 → 2,2 MB: geschweißt, dann 11,5 %. Aus
+  der Nähe verschmiert die Textur an UV-Nähten. `Electrocuted_Fall` ist auf den Sturz
+  (3,0 bis 5,0 s) geschnitten und wieder im Todes-Pool.
+- **Wraith** 30.228 → 8.126, 3,8 → 0,9 MB, 3,4 → 1,8 MB: geschweißt, dann 17 %. Über dem
+  Richtwert, weil die UV-Nähte rund 2,5 Vertices pro Position übrig lassen; 10,5 % (5.799)
+  verschmierte den Brustkorb.
+- **Zombie** 4.525 → 1.453, 7,2 → 2,3 MB: geglättete Normalen, eine Look-Änderung (glatt
+  statt facettiert) im eigenen Commit.
+- **Penguin** 1.993 unverändert, 1,3 → 0,3 MB Datei: eine 512²-Basisfarbe (PNG, das
+  Material blendet), nur Walk und Fall.
+- **Mammoth** 5.541 → 5.557, 4,9 → 2,6 MB Datei: nur Walk und Die.
+
+Beim Roundtrip durch Blender verschob der Standard-Import (geratene Bind-Pose) bei Zombie,
+Penguin und Mammoth Knochen; mit `rest_from_file` war er exakt. Beim Mech war er nur ohne
+geratene Bind-Pose exakt, bei der Ratte mit keiner Einstellung.
+
+Offen:
+
+- **Mech** (42.455, `mech_army` 4,2 Mio.): nicht geändert. 12 % Decimate ergab 6.739
+  VAT-Vertices und hinterließ Splitter und Texturnähte an den 34 Hard-Surface-Teilen. Unter
+  5.000 bräuchte es eine Retopologie.
+- **Ghost** (5.245, drei 1024²-Bilder) und **Tank** (5.094, flach schattiert) liegen knapp
+  über dem Budget, ihre Wellen unter 1,5 Mio. Beim Tank wären geglättete Normalen eine
+  Look-Änderung.
+
+### Ausgangslage (2026-09-12)
+
+Die folgenden Abschnitte sind die Empfehlungen vor der Runde, mit den damaligen Zahlen.
+Reihenfolge nach Wirkung auf die teuersten Wellen. Die Decimate-Anteile waren Startwerte für
+Blender. Die VAT-MB-Angaben rechnen noch mit RGBA32F (vor 2026-09-13); mit RGBA16F ist es
+jeweils die Hälfte, außer beim Stone Golem.
 
 ### 1. Hornet: 69.297 VAT-Vertices, Ziel ≤ 5.000
 
@@ -225,8 +281,8 @@ Code-seitig umgesetzt (2026-09-13):
   Zombie Soldier Run, Bear Walk). Jetzt mit 0,001 Frames Toleranz. Todes-Clips, die vor dem
   Entfernen enden, haben ihre Endpose als letzten Frame (Wallsmasher Death +1). VAT gesamt
   264,7 → 264,0 MB.
-- **VAT nur noch auf der GPU**: Nach dem Upload gibt der Pool die CPU-Kopie frei, 264,0 MB
-  weniger im Speicher des Tabs. Nach einem WebGL-Context-Loss backt der Renderer die Typen
+- **VAT nur noch auf der GPU**: Nach dem Upload gibt der Pool die CPU-Kopie frei, so viel
+  weniger im Speicher des Tabs, wie die VATs belegen. Nach einem WebGL-Context-Loss backt der Renderer die Typen
   neu ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#cpu-kopie-und-context-loss)).
 
 ## Neue Gegner: Skeleton (Swarm)
@@ -262,10 +318,14 @@ tatsächlich entstehen sie erst beim Tod ihres Skeletons.
   `vatClips`, `vatFrameCount` und `vatLayout` aus `vat-baker.ts`. Der Test schlägt fehl,
   wenn ein Typ nicht backbar ist oder ein konfigurierter Clip im Modell fehlt.
 - Für Format, Half-Fehler und Alpha-Modus lädt `generate.spec.ts` jedes Modell zusätzlich
-  mit GLTFLoader bzw. FBXLoader und backt es mit `bakeEnemyVAT` wie das Spiel. Von den
-  Texturen kommen nur die PNG-Basisfarben mit, dekodiert in Node (`decodePng` in
-  `model-inspect.ts`), damit `vatAlpha` ihr Alpha liest wie im Spiel. Weicht die aus der
-  Datei geplante VAT-Größe von der gebackenen ab, schlägt der Test fehl.
+  mit GLTFLoader und backt es mit `bakeEnemyVAT` wie das Spiel. Von den Texturen kommen nur
+  die PNG-Basisfarben mit, dekodiert in Node (`decodePng` in `model-inspect.ts`), damit
+  `vatAlpha` ihr Alpha liest wie im Spiel. Weicht die aus der Datei geplante VAT-Größe von
+  der gebackenen ab, schlägt der Test fehl.
+- `tools/blender/optimize_enemy.py` hält ein Rezept je geändertem Modell (Clips behalten und
+  schneiden, schweißen, decimaten, Normalen, nur Basisfarbe, Bildgröße, Ruhepose aus der
+  Datei). Headless: `blender --background --python tools/blender/optimize_enemy.py -- rat`;
+  liest das Original aus Git und schreibt nach `public/assets/models/enemies/`.
 - Ein Modell ohne Config-Eintrag prüfen (Node 24):
   `node -e "import('./tools/model-budget/model-inspect.ts').then((m) => console.dir(m.inspectModel('pfad/zum/modell.glb'), { depth: 3 }))"`
 - Grenzen: kein ASCII-FBX. Bei Draco oder Meshopt stimmen die Vertexzahlen, die
