@@ -22,8 +22,8 @@
     </button>
   </div>
   <div class="td-panel-content td-tower-section">
-    <!-- Stats grid: 3×2, damage-type tile takes pos 0 -->
-    <div class="td-stats-grid td-stats-grid-3">
+    <!-- Stats grid: type, damage, fire rate on top; range, DPS, kills, damage dealt below -->
+    <div class="td-stats-grid td-stats-grid-7">
       <div class="td-stat-tile td-stat-tile-dmgtype"
            [style.border-color]="damageTypeUI[tower().typeConfig.damageType].color">
         <td-icon class="td-stat-icon" [size]="18"
@@ -56,6 +56,12 @@
         <td-icon class="td-stat-icon td-icon-kills" name="shield" [size]="18"></td-icon>
         <span class="td-stat-value td-val-kills">{{ stats().kills }}</span>
         <span class="td-stat-label">Kills</span>
+      </div>
+      <div class="td-stat-tile"
+           matTooltip="Damage dealt since it was built, overkill not counted" matTooltipPosition="above">
+        <td-icon class="td-stat-icon td-icon-kills" name="sword" [size]="18"></td-icon>
+        <span class="td-stat-value td-val-kills">{{ damageDealt() }}</span>
+        <span class="td-stat-label">Dealt</span>
       </div>
     </div>
 

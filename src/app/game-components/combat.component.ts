@@ -25,6 +25,12 @@ export class CombatComponent extends Component {
   /** Number of kills this unit has made */
   kills = 0;
 
+  /**
+   * HP this unit took off enemies, overkill not counted. Summed per hit by
+   * DamageApplicationService, a plain number so the hot path allocates nothing.
+   */
+  damageDealt = 0;
+
   /** Remaining cooldown in GAME-TIME ms (0 = can fire). */
   private cooldownRemainingMs = 0;
 
