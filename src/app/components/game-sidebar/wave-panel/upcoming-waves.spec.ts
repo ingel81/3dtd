@@ -25,6 +25,17 @@ describe('peekUpcomingWaves', () => {
     expect(w7.armorIcons).toBe(`${ARMOR_TYPE_UI.light.icon} ✈️`);
   });
 
+  it('adds the split of the skeletons to the W19 tooltip', () => {
+    const [w19] = peekUpcomingWaves(18);
+    expect(w19).toMatchObject({ wave: 19, name: 'Skeleton Swarm' });
+    expect(w19.tooltip).toBe(`${w19.description} Skeleton: Splits into 2 minions on death.`);
+  });
+
+  it('shows the plain description for a wave without a split', () => {
+    const [w1] = peekUpcomingWaves(0);
+    expect(w1.tooltip).toBe(w1.description);
+  });
+
   it('stops where the curriculum ends', () => {
     const last = CURRICULUM_FORCED_THROUGH_WAVE;
     expect(peekUpcomingWaves(last - 1).map((p) => p.wave)).toEqual([last]);

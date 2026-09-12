@@ -122,4 +122,10 @@ describe('enemyGroupTooltip', () => {
     expect(enemyGroupTooltip(group('zombie', { healthMultiplier: 2, speedMultiplier: 1.25 }))?.flavor)
       .toBe('Scaled: HP ×2.0 · Speed ×1.25');
   });
+
+  it('names the split of a skeleton, before the scaling', () => {
+    expect(enemyGroupTooltip(group('skeleton'))?.flavor).toBe('Splits into 2 minions on death');
+    expect(enemyGroupTooltip(group('skeleton', { healthMultiplier: 0.5 }))?.flavor)
+      .toBe('Splits into 2 minions on death. Scaled: HP ×0.5');
+  });
 });

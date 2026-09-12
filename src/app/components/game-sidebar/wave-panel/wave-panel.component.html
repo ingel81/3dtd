@@ -30,6 +30,9 @@
                 <span>{{ getArmorIcon(group.enemyType) }} {{ getArmorLabel(group.enemyType) }}</span>
                 <span class="td-group-weak">{{ getArmorWeakTo(group.enemyType) }}</span>
               </div>
+              @if (splitTrait(group.enemyType); as split) {
+                <div class="td-group-trait">{{ split }}</div>
+              }
             </div>
           </div>
         }
@@ -72,7 +75,7 @@
       <div class="td-coming-up">
         <div class="td-coming-up-label">COMING UP</div>
         @for (peek of upcomingWaves(); track peek.wave) {
-          <div class="td-coming-up-row" [matTooltip]="peek.description" matTooltipPosition="left">
+          <div class="td-coming-up-row" [matTooltip]="peek.tooltip" matTooltipPosition="left">
             <span class="td-coming-up-wave">W{{ peek.wave }}</span>
             <span class="td-coming-up-name">{{ peek.name }}</span>
             @if (peek.armorIcons) {
