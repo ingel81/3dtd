@@ -209,12 +209,12 @@ Probe nach Fall B genau die Information ist, die den Zellen fehlt.
 | `4ad010a` | fix(route): leave the street at the point really closest to the HQ |
 | `03ffd7b` | feat(osm): keep width, lanes, bridge, tunnel, covered and layer on streets |
 | `aa121aa` | feat(debug): __routes.describe() shows the ways and the height gap of a route |
-| `4e2c8bc` | feat(route): estimate the corridor width per street |
-| `b999445` | feat(route): cached routes carry the corridor half width per segment |
-| `6862e1d` | feat(route-grid): the cell corridor follows the street width |
-| `f642fab` | feat(enemy): lateral offset follows the local corridor width |
-| `3bd8fed` | feat(route): narrow the corridor where the tiles show facades or trees |
-| `9434e2a` | feat(route-grid): cells on a bridge take the deck, not the ground below |
+| `1306460` | feat(route): estimate the corridor width per street |
+| `a46c507` | feat(route): cached routes carry the corridor half width per segment |
+| `daba76c` | feat(route-grid): the cell corridor follows the street width |
+| `59e6db3` | feat(enemy): lateral offset follows the local corridor width |
+| `147e4e3` | feat(route): narrow the corridor where the tiles show facades or trees |
+| `b0a8424` | feat(route-grid): cells on a bridge take the deck, not the ground below |
 
 ## Offene Punkte
 
