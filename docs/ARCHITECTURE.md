@@ -1680,12 +1680,13 @@ zwei instanzierte Draw Calls für alle Portale:
   Routenstart, wo `EnemyManager.spawn` jeden Gegner auf `path[0]` setzt (dieselbe Route, die
   das Portal bekommt, `path-route.service.spec.ts`). Ein Gegner steht damit im Volumen, von
   allen Seiten verdeckt samt Healthbar, bis er vorn heraustritt. Die Tiefe schrumpft bei
-  schmalen Korridoren nicht mit (`portalDepthScale`). `spawn-portal-geometry.spec.ts` prüft
-  das mit Strahlen rundum von den gemessenen Körpern aller Bodengegner (Bounding Box mal
+  schmalen Korridoren nicht mit (`portalDepthScale`). `spawn-portal-frame.spec.ts` prüft
+  das am echten Asset mit Strahlen rundum von den gemessenen Körpern aller Bodengegner (Bounding Box mal
   Skala, Mech und Tank bis 9,3 m lang): bei Skala 1 und 1,75 alle verdeckt, bei Skala 0,75
   (Gasse) sind Mammoth, Mech, Stone Golem und Wallsmasher breiter oder höher als das Tor.
   Lufteinheiten fliegen am Spawn 15 bis 20 m hoch (±3 bis 4 m) und damit über dem Tor.
-- **Glow** (additiv): das Licht auf der Straße vor der vorderen und hinter der hinteren Fläche.
+- **Glow** (additiv): das Licht auf der Straße vor der vorderen und hinter der hinteren Fläche,
+  dazu der Beschwörungskreis vor dem Portal.
 
 Look: die Leere ist ein langsamer Wirbel auf fast schwarzem Grund, dunkelrot glimmend,
 violett in den Tälern, stumpfes Orange nur an den heißesten Stellen, das Auge in der Mitte
@@ -1693,34 +1694,81 @@ schwarz. Glutpunkte steigen im Shader auf, ohne Partikel. Die Spawnfarbe tönt n
 die Sigillen und das Straßenlicht. Farben in `SPAWN_PORTAL_LOOK.palette`, Maße in
 `configs/marker-geometry.config.ts` (Intro-Flug und Totale lesen sie von dort).
 
-**Stein** (`spawn-portal-stone.ts`), prozedural, ohne Texturen: behauene Quader mit Fugen
-(Lagen und Blocklängen je Höhenband in `PORTAL_MASONRY`; Pfeilerlagen so hoch wie eine
-Sigillen-Zelle, Sturzfugen zwischen den Sigillen, ein Spec hält das fest), abgefaste und
-abgenutzte Kanten mit Abplatzern, Worley-Risse, Ruß und Brandspuren um die Öffnung, Maserung.
-Relief über geneigte Normalen (Fasen an Fugen und Blockkanten, Noise-Bump). Die Blockkanten
-kennt der Shader aus zwei Vertex-Attributen (`aFace`, `aWidth`: Lage auf der Fläche). Licht
-gefakt: feste Hauptlichtrichtung im Portalraum, Himmel, das dunkelrote Licht des Kerns aus der
-Öffnung, Verdeckung in Fugen, Rissen und an Kontaktkanten. Feinstruktur blendet über
-`fwidth` in der Ferne aus. Kosten je Rahmenpixel etwa 17 Value-Noise-Abfragen und eine
-Worley-Abfrage, keine Texturen, kein zusätzlicher Draw Call.
+**Rahmen** (`spawn-portal-frame.ts`): ein Asset, `public/assets/models/structures/spawn_portal.glb`,
+gebaut und gebacken von `tools/blender/spawn_portal.py` (Blender, headless oder über das MCP).
+7 151 Dreiecke, 2,5 MB: Basisfarbe und Normal-Map 2048 px JPEG, Verdeckung/Rauheit/Metall
+1024 px JPEG, Emissive-Daten 1024 px PNG (R Rillengrund der Sigillen, G Strichfolge 0 bis 1 je
+Sigille, B glühende Risse und die Rinne am First). Ein Doppeltor um das Volumen: vorn und
+hinten je ein Tor aus Pfeilern, Sturz, Gesims und Krone, 2,6 m tief, seine Außenseite 0,3 m
+vor der Fläche der Leere; dazwischen niedrigere Seitenwände und ein Satteldach mit einer
+glühenden Rinne am First unter eisernen Gittern, Spitzen entlang des Firsts und an den
+Traufecken. Seitenwände und Traufe (12,6 m) sind so bemessen, dass der breiteste und höchste
+Bodengegner (Stone Golem, 12,6 m breit, 12,4 m hoch) darin verschwindet. Krone und große Hörner
+mit Eisenringen stehen auf dem vorderen Tor, das hintere trägt eine kleinere Krone und
+Eckspitzen. Stein dunkel graubraun, kein Schwarz, Ton je Block, hellere abgeriebene Kanten,
+Abplatzer, Ruß und Brandspuren um die Öffnung, Verwitterung auf den Deckplatten;
+Kronenspitzen aus mehreren Ringen mit Rillen, Brüchen und Ruß zur Spitze.
+`MarkerVisualizationService` lädt das Asset einmal über den `AssetManagerService` und gibt es
+jedem `SpawnPortalManager` (`setFrame`); bis es da ist oder wenn es nicht lädt, stehen nur die
+zwei Flächen der Leere, die das Volumen vorn und hinten schon schließen. Die
+Platzierungsvorschau zeichnet eine Kopie der Geometrie.
+
+Licht gefakt, die Tiles nehmen keins: feste Hauptlichtrichtung im Portalraum, Himmel, das
+dunkelrote Licht des Kerns vom nächsten Punkt der Volumenachse, alles auf der Normal-Map, dazu
+die gebackene Verdeckung und Glanzlichter auf Obsidian und Eisen. Helligkeit über
+`SPAWN_PORTAL_LOOK.frameExposure` (Verstärkung der Basisfarbe) und `frameGlints`. Kosten je
+Rahmenpixel vier Texturzugriffe; die Texturen belegen mit Mipmaps etwa 53 MB GPU-Speicher;
+weiter zwei Draw Calls für alle Portale. `spawn-portal-frame.spec.ts` liest das GLB und prüft
+Maße, freie Öffnung, Flächen nach außen, saubere Tangenten, die vier Texturen, jede Sigille auf
+genau einem Stein und das Volumen. Das Layout (Öffnung, Tiefe, Sigillen samt Pose je Zelle)
+liest das Skript aus `tools/blender/spawn_portal_layout.json`, das
+`tools/blender/spawn-portal-layout.spec.ts` bei `npm test` aus den Configs schreibt; ändert
+sich die Datei dabei, braucht das Asset einen neuen Bake.
 
 **Sigillen** (`spawn-portal-sigils.ts`): ein fester, von Hand gesetzter Satz von zehn
-fiktiven Siegeln aus Kreisen, Bögen und Punkten. Jedes sitzt in einem Siegelring und trägt
-mindestens zwei weitere Zeichen, eins davon außerhalb der Mitte; jedes ist spiegelsymmetrisch
-zur Senkrechten. Sie laufen als Fries um die Öffnung (links hinauf, über den Sturz, rechts
-hinab, vorn und hinten); Zelle k zeigt Sigille `(3 k) mod 10`, benachbarte Zellen sind
-verschieden, jede Sigille kommt auf einem Rahmen vor. Der Shader-Code wird aus der Tabelle
-erzeugt. Ausgeschlossen sind:
+fiktiven okkulten Siegeln aus Bögen, Punkten, kleinen offenen Ringen und Sicheln, in das Asset
+graviert. Keins steht in einem Rand oder füllt eine runde Plakette: jedes ist eine lose, schiefe
+Gruppe um ein großes Zeichen (Sichel, Orbit mit Knoten, Schwung, Spiralfragment), aus der
+Zellmitte gerückt. Sie laufen als Fries um die Öffnung (links hinauf, über den Sturz, rechts
+hinab, vorn und hinten); Zelle k zeigt Sigille `(3 k) mod 10`, jede Zelle dreht (±30°),
+skaliert (0,72 bis 1) und verschiebt ihre Sigille anders (`sigilPoseForCell`). Im Stein sind
+sie stellenweise abgewittert, von Rissen durchlaufen und teils unter Ruß. Ausgeschlossen sind:
 
-- gerade Striche: keine Kreuze, keine Haken- oder gedrehten Kreuze, keine Blitz- oder
-  Zickzackstriche, nichts wie Runen des älteren Futhark (Sowilo, Othala, Algiz)
-- Buchstaben, Ziffern und alles, was wie eine echte Schrift wirkt: kein einzelner Kreis
-  (O, 0), kein Kreis mit Mittelpunkt (ʘ), keine bloßen konzentrischen Kreise (◎), keine
-  offene Einzelkurve (C, U), keine Punkte im Raster zwei mal drei (Braille)
+- gerade Striche: keine Kreuze, Haken, Blitze oder Zickzack, keine Runen
+- Buchstaben, Ziffern und alles wie echte Schrift: kein Bogen über 160° (C, U, O), kein
+  einzelner Kreis, kein Kreis mit Mittelpunkt (ʘ), keine konzentrischen Kreise (◎), keine
+  Punkte im Raster zwei mal drei (Braille)
+- Augen (Mandel aus zwei Bögen), Tomoe und Kommas, Dreifachmond, Vesica, Sichel mit Punkt oder
+  Stern in der Höhlung, nichts wie Yin-Yang
+- Ränder: Bögen ab 0,25 Zellen Radius um die Zellmitte zusammen höchstens ein Halbkreis, sonst
+  lesen sie sich als Drehregler, Knopf oder Lautsprechergitter
+- Halbmond und Stern: keine Sichel mit genau einem freistehenden Punkt daneben; die Erosion im
+  Asset lässt keinen Teil ganz verschwinden, so schrumpft keine Sigille darauf zusammen
+- Logos und UI-Symbole (Steam, Teilen, Bluetooth, WLAN, Power, Radioaktiv)
 
-Der Spec prüft den Aufbau (nur Kreise, Bögen und Punkte, Siegelring plus zwei Zeichen,
-Symmetrie, Platz auf den Stirnseiten); die Ausschlüsse folgen daraus oder sind beim Entwurf
-von Hand geprüft. Neue Sigillen müssen dieselben Regeln einhalten.
+Der Spec prüft den Aufbau (nur Bögen, Punkte, Ringe und Sicheln, in der Zelle auch nach der
+Pose, schief gegen Spiegelung und Dritteldrehung, Rand, Sichel und Punkt); was sich nicht
+rechnen lässt (Gesichter, Buchstaben, Logos), ist beim Entwurf von Hand am Kontaktbogen
+geprüft. Neue Sigillen
+müssen dieselben Regeln einhalten.
+
+**Leben der Sigillen** (Gate-Shader, `SPAWN_PORTAL_LOOK.glyphs`): meist ruhend, ein schwaches
+dunkelrotes bis violettes Flackern tief in der Rille, jede atmet in eigenem Takt. Ab und zu
+erwacht eine: ein ungleichmäßiges Glimmen kriecht an ihren Strichen entlang (Rauschen über der
+gebackenen Strichfolge), Stücke der Linien fangen Feuer und verlöschen wieder, nie eine
+umlaufende Front; es steigt an (1,2 s), hält (2,4 s) und sinkt zurück (3,2 s), mit
+Hitzeflimmern und Glut darüber. Jede Sigille bekommt Fenster von etwa 16 s und erwacht
+höchstens einmal darin, zwischen den Wellen mit 20 %, in einer Welle mit 55 %; der Schub beim
+Wellenstart lässt alle glimmen. Alles folgt aus Zelle, Phase des Portals und Uhrzeit, ohne
+Zustand auf der CPU.
+
+**Beschwörungskreis** (Glow-Shader, `SPAWN_PORTAL_LOOK.circle`): auf der Straße 4,6 m vor der
+vorderen Fläche, Radius 3,9 m: äußerer Doppelring, innerer Ring, dazwischen alle zehn Sigillen
+aufrecht nach außen, in der Mitte der "haloed moon", gegenläufig. Dunkel, dreht sehr langsam
+(0,02 rad/s), flammt mit dem Schub eines Wellenstarts auf. Unter Skala 1 bleibt die Tiefe bei 1
+(`portalDepthScale`); der Shader misst die Tiefe darum in Breiteneinheiten, so bleibt der Kreis
+rund. Aus den Distanzfeldern der Sigillen gezeichnet, ohne Geometrie und ohne Draw Call; die
+Linien blenden aus, wo ein Pixel zu viel Straße deckt.
 
 ### Route Animation (Knight Rider Effekt)
 
