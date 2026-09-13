@@ -91,7 +91,7 @@ export class SpawnPortalManager {
     const gateGeom = createPortalGateGeometry(null);
     this.shareInstanceAttributes(gateGeom);
     this.gateMat = createPortalGateMaterial(
-      PORTAL_SHADER_LAYOUT, look.palette, look.frameExposure, look.frameGlints, look.idleEnergy, look.rippleLife,
+      PORTAL_SHADER_LAYOUT, look.palette, look.frameExposure, look.frameGlints, look.glyphs, look, look.rippleLife,
     );
     this.gateMesh = new InstancedMesh(gateGeom, this.gateMat, MAX_PORTALS);
     this.gateMesh.count = 0;

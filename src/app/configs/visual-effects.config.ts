@@ -414,6 +414,18 @@ export const SPAWN_PORTAL_LOOK = {
    */
   frameExposure: 1.4,
   frameGlints: 0.35,
+  /**
+   * The carved sigils on the frame: mostly dormant, a faint dark red to
+   * violet flicker deep in their grooves, each breathing at its own pace.
+   * Now and then one wakes: an uneven glimmer crawls along its strokes
+   * (crawl, stroke orders per second), bits of the lines catching and
+   * dying, it rises (rise), holds (hold) and sinks back (fade), heat
+   * shimmers over it (UV units) and embers rise off it. Each sigil gets
+   * slots of about wakePeriod seconds (plus or minus 20 %) and wakes at
+   * most once in a slot, with the chance wakeChance, from idle to wave
+   * energy; the surge of a wave start stirs them all. Seconds of wall time.
+   */
+  glyphs: { wakePeriod: 16, wakeChance: [0.2, 0.55], rise: 1.2, hold: 2.4, fade: 3.2, crawl: 1.6, shimmer: 0.0015 },
   /** Between waves */
   idleEnergy: 0.45,
   /** While a wave runs */

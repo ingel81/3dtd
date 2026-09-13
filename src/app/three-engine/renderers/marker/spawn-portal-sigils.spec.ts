@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   CRESCENT_HOLLOW,
   CRESCENT_SHIFT,
+  PORTAL_GLYPH_CELL_GLSL,
   PORTAL_SIGILS,
   PORTAL_SIGIL_GLSL,
   SIGIL_CELLS,
@@ -209,6 +210,22 @@ describe('Portal-Sigillen: Auswahl und Platz auf dem Rahmen', () => {
     expect(new Set(cells.map((c) => c.scale.toFixed(4))).size).toBeGreaterThan(3);
     // Nicht jede Sigille mittig: die Hälfte der Zellen merklich verschoben
     expect(cells.filter((c) => Math.hypot(c.dx, c.dy) > 0.05).length).toBeGreaterThanOrEqual(SIGIL_CELLS / 2);
+  });
+
+  it('erzeugt die Zellsuche des Tors aus dem Layout, gezählt wie frameSigilCells', () => {
+    const L = SIGIL_LAYOUT;
+    const values: [string, number][] = [
+      ['SIZE', L.size], ['PILLAR_INSET', L.pillarInset], ['PILLAR_BOTTOM', L.pillarBottom],
+      ['PILLAR_PITCH', L.pillarPitch], ['PILLAR_ROWS', L.pillarRows], ['LINTEL_RISE', L.lintelRise],
+      ['LINTEL_PITCH', L.lintelPitch], ['LINTEL_COLUMNS', L.lintelColumns],
+    ];
+    for (const [name, value] of values) expect(PORTAL_GLYPH_CELL_GLSL).toContain(`GLYPH_${name} = ${value.toFixed(4)};`);
+    // Rechts von oben nach unten: die unterste rechte Zelle ist die letzte
+    const cells = frameSigilCells();
+    const last = cells[cells.length - 1];
+    expect(last.x).toBeGreaterThan(0);
+    expect(last.y).toBe(Math.min(...cells.map((c) => c.y)));
+    expect(PORTAL_GLYPH_CELL_GLSL).toContain('2.0 * GLYPH_PILLAR_ROWS + GLYPH_LINTEL_COLUMNS - 1.0 - row');
   });
 
   it('erzeugt je Sigille einen Zweig im Shader', () => {

@@ -12,7 +12,7 @@ import {
   OneFactor,
 } from 'three';
 import type { EffectRgb } from '../../../configs/visual-effects.config';
-import { PORTAL_SIGILS, PORTAL_SIGIL_GLSL } from './spawn-portal-sigils';
+import { PORTAL_GLYPH_CELL_GLSL, PORTAL_SIGILS, PORTAL_SIGIL_GLSL } from './spawn-portal-sigils';
 import type { SpawnPortalFrame } from './spawn-portal-frame';
 
 // ============================================================
@@ -411,6 +411,22 @@ const PORTAL_PALETTE_GLSL = /* glsl */ `
   uniform vec3 uViolet; // the swirl's troughs
 `;
 
+/** The carved sigils' life, see SPAWN_PORTAL_LOOK.glyphs. */
+export interface PortalGlyphLook {
+  wakePeriod: number;
+  wakeChance: readonly [number, number];
+  rise: number;
+  hold: number;
+  fade: number;
+  crawl: number;
+  shimmer: number;
+}
+
+/** Where the portal's energy runs, see SPAWN_PORTAL_LOOK. */
+export interface PortalEnergyLevels extends PortalSurge {
+  idleEnergy: number;
+}
+
 /** Hand the frame's baked textures to a gate material (createPortalGateMaterial). */
 export function setPortalGateTextures(
   material: ShaderMaterial,
@@ -428,8 +444,10 @@ export function setPortalGateTextures(
  * comes from the frame's baked textures (spawn-portal-frame.ts,
  * setPortalGateTextures) under faked light, a fixed key light with glints
  * on the glossy parts, the sky and the core's dim red light from the
- * opening, and the carved sigils glow faintly deep in their grooves,
- * tinted with the spawn's colour. `exposure` is the gain on the stone's
+ * opening. The carved sigils lie mostly dormant, a faint flicker deep in
+ * their grooves, each breathing at its own pace; now and then one wakes in
+ * an uneven glimmer crawling along its strokes (portalGlyphState), tinted
+ * with the spawn's colour. `exposure` is the gain on the stone's
  * base colour, `glints` the strength of the glints. The void, a surface in
  * front of the portal's volume and one behind it, is a slow, smouldering
  * swirl around a black eye; it writes depth, so whatever stands between
@@ -442,18 +460,22 @@ export function createPortalGateMaterial(
   palette: PortalPalette,
   exposure: number,
   glints: number,
-  energy: number,
+  glyphs: PortalGlyphLook,
+  levels: PortalEnergyLevels,
   rippleLife: number,
 ): ShaderMaterial {
   return new ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
-      uEnergy: { value: energy },
+      uEnergy: { value: levels.idleEnergy },
       uRippleLife: { value: rippleLife },
       uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
       uHalfDepth: { value: layout.halfDepth },
       uExposure: { value: exposure },
       uGlints: { value: glints },
+      uGlyphWake: { value: new Vector4(glyphs.wakePeriod, glyphs.rise, glyphs.hold, glyphs.fade) },
+      uGlyphMix: { value: new Vector4(glyphs.wakeChance[0], glyphs.wakeChance[1], glyphs.shimmer, glyphs.crawl) },
+      uEnergyRange: { value: new Vector3(levels.idleEnergy, levels.waveEnergy, levels.surge) },
       uBaseMap: { value: null as Texture | null },
       uNormalMap: { value: null as Texture | null },
       uOrmMap: { value: null as Texture | null },
@@ -514,6 +536,9 @@ export function createPortalGateMaterial(
       uniform float uHalfDepth; // half the volume's depth
       uniform float uExposure;  // gain on the stone's base colour
       uniform float uGlints;    // strength of the key light's glints
+      uniform vec4 uGlyphWake;   // wake period, rise, hold, fade (s)
+      uniform vec4 uGlyphMix;    // chance to wake between and in waves, shimmer, crawl
+      uniform vec3 uEnergyRange; // idle energy, wave energy, surge
       uniform sampler2D uBaseMap;
       uniform sampler2D uNormalMap;
       uniform sampler2D uOrmMap;      // occlusion, roughness, metal
@@ -571,6 +596,46 @@ export function createPortalGateMaterial(
         float catchLight = 0.35 + 8.0 * dot(base, vec3(0.3333));
         col += uEmber * wrap * wrap * exp(-dCore * 0.2) * orm.r * catchLight * (0.45 + 0.9 * uEnergy) * flicker;
         return col;
+      }
+
+      ${PORTAL_GLYPH_CELL_GLSL}
+
+      // The life of the sigil in frame cell 'cell' at uTime: 'breath' its
+      // slow, uneven breathing (0 to 1), 'wake' the envelope of a waking (0
+      // dormant, 1 awake). Every sigil of every portal keeps its own
+      // rhythm, from its cell and the portal's phase; the same time gives
+      // the same state, nothing is kept on the CPU.
+      void portalGlyphState(float cell, out float breath, out float wake) {
+        float h1 = portalHash(vec2(cell * 1.37 + 0.5, vPhase * 3.1 + 2.0));
+        float h2 = portalHash(vec2(cell * 2.11 + 7.0, vPhase * 1.7 + 5.0));
+        breath = (0.5 + 0.5 * sin(uTime * (0.19 + 0.23 * h1) + 6.2832 * h2))
+          * (0.55 + 0.45 * sin(uTime * (0.053 + 0.04 * h2) + 6.2832 * h1));
+        // Slots of about the wake period, a waking at most in each, with a
+        // chance that grows with the portal's energy
+        float period = uGlyphWake.x * (0.8 + 0.4 * h1);
+        float slotTime = uTime / period + h2;
+        float roll = portalHash(vec2(floor(slotTime) * 0.731 + cell * 3.3, h1 * 17.0 + vPhase));
+        float level = clamp((uEnergy - uEnergyRange.x) / (uEnergyRange.y - uEnergyRange.x), 0.0, 1.0);
+        float chance = mix(uGlyphMix.x, uGlyphMix.y, level);
+        // Seconds since the waking began, some way into the slot
+        float since = fract(slotTime) * period - (0.6 + 2.4 * fract(roll * 9.7));
+        float sinking = uGlyphWake.y + uGlyphWake.z;
+        wake = step(roll, chance) * smoothstep(0.0, uGlyphWake.y, since)
+          * (1.0 - smoothstep(sinking, sinking + uGlyphWake.w, since));
+      }
+
+      // Embers rising off a waking sigil over the stone above it: a speck
+      // in some cells of a grid drifting up, fading with height. q in metres
+      // from the sigil's centre.
+      float portalGlyphEmbers(vec2 q, float cell) {
+        vec2 g = vec2(q.x / 0.35, q.y / 0.45 - uTime * 1.1);
+        vec2 id = floor(g);
+        float h = portalHash(id + cell * 5.3 + vPhase);
+        vec2 at = vec2(0.3 + 0.4 * h, 0.3 + 0.4 * fract(h * 13.0));
+        float speck = 1.0 - smoothstep(0.05, 0.14, length((fract(g) - at) * vec2(1.0, 1.3)));
+        float column = 1.0 - smoothstep(0.35, 0.6, abs(q.x));
+        float rise = smoothstep(0.2, 0.6, q.y) * (1.0 - smoothstep(0.9, 1.8, q.y));
+        return speck * step(0.72, fract(h * 29.0)) * column * rise;
       }
 
       // Embers rising through the void: a speck in some cells of a grid
@@ -641,13 +706,42 @@ export function createPortalGateMaterial(
         float flicker = 0.8 + 0.2 * portalNoise(vec2(uTime * 1.7 + vPhase, p.y * 0.4));
         vec3 col = portalStone(p, footprint, flicker);
 
-        // Emissive data: the cracks round the opening glowing from within,
-        // the sigils glowing faintly deep in their grooves, tinted with the
-        // spawn's colour, in a wave that climbs the frame
-        vec3 e = texture2D(uEmissiveMap, vUv).rgb;
+        // The carved sigils (spawn-portal-sigils.ts), their life keyed to
+        // the frame cell they sit in
+        vec2 centre;
+        float cell = portalGlyphCell(p, uOpening, centre);
+        float breath = 0.0;
+        float wake = 0.0;
+        if (cell >= 0.0) portalGlyphState(cell, breath, wake);
+        // Heat shimmer over a waking sigil: its glow wavers
+        vec2 shimmer = wake * uGlyphMix.z * vec2(sin(uTime * 7.0 + p.y * 9.0 + cell), cos(uTime * 5.3 + p.x * 11.0 + cell));
+        // Emissive data: R the bottom of the grooves, G the order the strokes
+        // run in, B the cracks round the opening
+        vec3 e = texture2D(uEmissiveMap, vUv + shimmer).rgb;
         col += mix(uEmber, uHot, 0.3) * e.b * (0.2 + 0.5 * uEnergy) * flicker;
-        float climb = 0.55 + 0.45 * sin(uTime * 1.4 - p.y * 0.6 + vPhase);
-        col += mix(uEmber, vColor, 0.4) * e.r * e.r * climb * (0.15 + 0.35 * uEnergy);
+
+        // Dormant: a faint dark red to violet flicker deep in the groove,
+        // unsteady along the strokes
+        float deep = e.r * e.r;
+        // Only in the grooves: the noise below costs nothing on the rest of the stone
+        if (deep > 0.0005) {
+          float unsteady = 0.55 + 0.45 * portalNoise(vec2(uTime * 2.3 + cell * 3.1, e.g * 7.0 + vPhase));
+          vec3 glyph = mix(uViolet, uEmber, 0.2 + 0.5 * breath) * deep * (0.04 + 0.12 * breath) * unsteady;
+          // Waking: an uneven glimmer crawling along the strokes, bits of the
+          // lines catching and dying again, never a front running round
+          float crawl = portalNoise(vec2(e.g * 16.0 - uTime * uGlyphMix.w, cell * 7.3 + vPhase * 5.0));
+          float sparks = smoothstep(0.5, 0.9, crawl) * (0.5 + 0.5 * portalNoise(vec2(uTime * 11.0 + cell, e.g * 45.0)));
+          vec3 accent = mix(uEmber, vColor, 0.3);
+          glyph += wake * deep * mix(uViolet, accent, 0.4 + 0.6 * sparks) * (0.12 + 0.55 * sparks);
+          // The surge of a wave start stirs every sigil
+          float surge = clamp((uEnergy - uEnergyRange.y) / uEnergyRange.z, 0.0, 1.0);
+          glyph += accent * deep * sparks * surge * 0.5;
+          col += glyph;
+        }
+        // Embers off a waking sigil, on the front and the back
+        if (wake > 0.0) {
+          col += uHot * portalGlyphEmbers(p.xy - centre, cell) * wake * step(0.6, abs(vLocalNormal.z)) * 0.5;
+        }
 
         gl_FragColor = vec4(col, 1.0);
       }
