@@ -225,6 +225,11 @@ export class CameraControlService {
     return true;
   }
 
+  /** Drop a running quick jump; a scripted shot takes the camera (boss intro). */
+  stopJump(): void {
+    this.jump = null;
+  }
+
   /** Per frame from the game loop, wall-clock ms: advance a running jump. */
   update(deltaMs: number): void {
     const jump = this.jump;

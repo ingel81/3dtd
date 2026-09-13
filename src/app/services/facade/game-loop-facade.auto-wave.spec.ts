@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 
+// Only its DI token is needed; the real module pulls in the game state manager.
+vi.mock('../boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
+import { BossIntroService } from '../boss-intro.service';
+
 import { GameLoopFacadeService } from './game-loop-facade.service';
 import { EngineStore } from '../../store/engine.store';
 import { CameraControlService } from '../camera-control.service';
@@ -31,7 +35,7 @@ const UNUSED = [
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
   WaveDirectorService, AIDataCollectorService, PerformanceProfilerService,
-  StreetRenderingService,
+  StreetRenderingService, BossIntroService,
 ];
 
 const WAVE_DONE = { type: 'wave:completed', wave: 3, credits: 0, perfect: true, closeCall: false, hpLost: 0 } as const;
