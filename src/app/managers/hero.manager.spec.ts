@@ -227,8 +227,10 @@ describe('HeroManager', () => {
         expect(shot.target).toBe(ahead);
         expect(shot.ammo).toBe(HERO_AMMO.standard);
         expect(shot.damage).toBe(HERO_AMMO.standard.damage);
-        expect(shot.originHeight).toBe(100 + HERO.shotHeightM);
+        expect(shot.originHeight).toBe(100 + HERO.muzzle.upM);
       }
+      // Facing south at the HQ: the muzzle ahead of him and to his right, west
+      expect(local(shots.at(-1)!.origin)).toEqual({ x: -0.4, z: 297.6 });
       expect(manager.getTarget()).toBe(ahead as unknown as Enemy);
     });
 
@@ -426,7 +428,14 @@ describe('HeroManager', () => {
       enemies.push(enemyAt('close', 0, 285));
       tick(1);
       manager.presentFrame();
-      expect(shown.at(-1)!.pose).toBe('shoot');
+      expect(shown.at(-1)!.pose).toBe('run-shoot'); // fires on his way
+
+      enemies.length = 0;
+      tick(800); // at his post
+      enemies.push(enemyAt('at-post', 0, 195));
+      tick(1);
+      manager.presentFrame();
+      expect(shown.at(-1)).toMatchObject({ pose: 'shoot', x: 0, z: 200 });
 
       manager.reset();
       expect(cleared).toBe(1);
