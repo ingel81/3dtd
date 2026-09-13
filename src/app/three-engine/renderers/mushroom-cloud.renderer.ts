@@ -19,6 +19,7 @@ import {
   SpriteMaterial,
   Uniform,
   Vector3,
+  type Object3D,
   type PerspectiveCamera,
   type Scene,
 } from 'three';
@@ -80,6 +81,22 @@ const SCREEN_ORDER = 1003;
 const RING_LIFT = 0.6;
 /** Height of the shock dome over its radius */
 const DOME_FLATTEN = 0.8;
+
+function noRaycast(): void {
+  // an effect, nothing to pick
+}
+
+/**
+ * Keeps an object of the cloud out of every raycast. The gates only hide
+ * them, and three's raycast skips no hidden object: after a strike the
+ * shock dome (46 m, 37 m high), the flash sprite and the ring stayed over
+ * the impact in their last pose, and the camera controls zoomed onto them,
+ * pivoted on them and kept their ground clearance above them.
+ */
+function unpickable<T extends Object3D>(object: T): T {
+  object.raycast = noRaycast;
+  return object;
+}
 
 /** A quad over the whole screen, additive: the screen part of the flash. */
 const SCREEN_VERTEX_SHADER = /* glsl */ `
@@ -226,7 +243,7 @@ function particleBuffer(scene: Scene, capacity: number, material: ShaderMaterial
   geometry.setAttribute('frameIndex', frame);
   geometry.setDrawRange(0, 0);
 
-  const points = new Points(geometry, material);
+  const points = unpickable(new Points(geometry, material));
   points.frustumCulled = false;
   points.renderOrder = renderOrder;
   scene.add(points);
@@ -335,7 +352,7 @@ export class MushroomCloudRenderer {
         side: DoubleSide,
       });
       ringMaterial.color.setRGB(shockwave.r, shockwave.g, shockwave.b);
-      const ring = new Mesh(this.ringGeometry, ringMaterial);
+      const ring = unpickable(new Mesh(this.ringGeometry, ringMaterial));
       ring.frustumCulled = false;
       ring.renderOrder = RING_ORDER;
       scene.add(ring);
@@ -353,7 +370,7 @@ export class MushroomCloudRenderer {
         blending: AdditiveBlending,
         depthWrite: false,
       });
-      const dome = new Mesh(this.domeGeometry, domeMaterial);
+      const dome = unpickable(new Mesh(this.domeGeometry, domeMaterial));
       dome.frustumCulled = false;
       dome.renderOrder = DOME_ORDER;
       scene.add(dome);
@@ -369,7 +386,7 @@ export class MushroomCloudRenderer {
         depthWrite: false,
       });
       flashMaterial.color.setRGB(flash.r * intensity, flash.g * intensity, flash.b * intensity);
-      const sprite = new Sprite(flashMaterial);
+      const sprite = unpickable(new Sprite(flashMaterial));
       sprite.frustumCulled = false;
       sprite.renderOrder = FLASH_ORDER;
       scene.add(sprite);
@@ -389,7 +406,7 @@ export class MushroomCloudRenderer {
       depthTest: false,
       depthWrite: false,
     });
-    this.screen = new Mesh(new PlaneGeometry(2, 2), screenMaterial);
+    this.screen = unpickable(new Mesh(new PlaneGeometry(2, 2), screenMaterial));
     this.screen.frustumCulled = false;
     this.screen.renderOrder = SCREEN_ORDER;
     scene.add(this.screen);
