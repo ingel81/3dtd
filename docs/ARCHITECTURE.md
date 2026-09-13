@@ -368,7 +368,8 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | Datei | Beschreibung |
 |-------|--------------|
 | `three-tiles-engine.ts` | Haupt-Engine: Scene, Renderer, TilesRenderer, Overlays |
-| `camera-rig.ts` | Kamera-Controls (GlobeControls, in DevWorld EnvironmentControls), Startposition, lokaler Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine |
+| `camera-rig.ts` | Kamera-Controls (GlobeControls, in DevWorld EnvironmentControls), Startposition, lokaler Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine. Die GlobeControls raycasten nur gegen die Tiles (`ground-pick-root.ts`) |
+| `ground-pick-root.ts` | Szene der GlobeControls: Gruppe ohne Transform in der Engine-Szene, beantwortet ihre Strahlen (Punkt unter der Kamera, Zoom-Punkt, Pivot) nur mit der Tiles-Gruppe und trägt ihr Pivot-Mesh. three prüft beim Raycast `visible` nicht; mit der ganzen Szene trafen die Controls die versteckten Reichweiten-Scheiben der Tower an der Route |
 | `tile-loading-tracker.ts` | Tile-Loading-State: erster Tile-Load (Debounce 500 ms, Retry 200 ms x 50, Force-Update x 3), Auth-Fehler, Tile-Stats. Hintergrund: [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) |
 | `render-loop.ts` | Render-Loop: rAF-Treiber mit FPS-Cap (`FramePacer`), Heartbeat-Worker für versteckte Trainings-Tabs, FPS-Zähler, Warten auf den nächsten gezeichneten Frame. Als `engine.renderLoop` erreichbar |
 | `terrain-queries.ts` | Raycasts gegen Boden und Tiles: Säulen-Probe `sampleColumn()` mit Cache pro 0,5-m-Säule und `lodVersion`, `getGroundHeightEstimate()`, Tile-LOD-Peek ohne Raycast, Straßen-Freiraum für den Routen-Korridor (`measureStreetClearance()`), Line-of-Sight. Als `engine.terrain` erreichbar, nur `getTerrainHeightAtGeo()` reicht der Engine durch |
@@ -1374,6 +1375,7 @@ src/app/
 ├── three-engine/                 # Three.js Engine
 │   ├── three-tiles-engine.ts     # Haupt-Engine: Scene, Renderer, TilesRenderer, Frame-Ablauf
 │   ├── camera-rig.ts             # Controls + Startposition der Kamera (seit 2026-09-11)
+│   ├── ground-pick-root.ts       # Raycast-Ziel der GlobeControls: nur die Tiles (seit 2026-09-13)
 │   ├── tile-loading-tracker.ts   # Erster Tile-Load, Retry, Auth-Fehler, Tile-Stats (seit 2026-09-11)
 │   ├── render-loop.ts            # rAF-Loop, FPS-Cap, Heartbeat für versteckte Tabs (seit 2026-09-13)
 │   ├── terrain-queries.ts        # Boden-, Freiraum- und LOS-Raycasts mit Säulen-Cache (seit 2026-09-13)

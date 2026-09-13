@@ -1405,6 +1405,74 @@ dem Portal.
 238. Regulär bis W7 (bat_swarm) und W8 (hornet_strike) spielen: an jedem
      Portal wie 232 und 233.
 
+### Kamera an der Route (camnear, `bac034a`, `a7cdcf4`)
+
+Befund aus dem Playtest: "irgendwas beeinflusst das zoom und pan
+verhalten wenn man in der nähe der route unterwegs ist ... zäher und
+träger und lässt mich auch nich so nahe heran oder so geschmeidig panen".
+
+- Ursache: Die GlobeControls raycasten gegen die Szene, die sie
+  bekommen, und `CameraRig` gab ihnen die ganze Szene. Ihre Strahlen:
+  pro Frame zwei für den Punkt unter der Kamera (Mindestabstand
+  `cameraRadius`, 5 m), beim Zoomen einer für den Punkt unter dem Zeiger
+  (Zoom-Ziel, Halt `minDistance`, 10 m, davor), beim Drücken einer für
+  den Pivot von Ziehen und Drehen. three.js prüft beim Raycast `visible`
+  nicht. Getroffen wurden deshalb auch die versteckten
+  Reichweiten-Scheiben der Tower: je Tower ein DoubleSide-Mesh mit 20
+  bis 100 m Radius, 1,5 m über den gesampelten Tile-Höhen, auf 8 Ringen
+  × 48 Segmenten über Dächer und Straßen gespannt; dazu Randlinie
+  (+2 m), Auswahl- und LOS-Ring, Tower-Modelle und Route-Linien. Tower
+  stehen an der Route.
+- Wirkung dort: Der Zoom zielte auf die Scheibe über der Straße und
+  hielt 10 m davor an. Ein Pivot über dem Boden schiebt die Welt beim
+  Ziehen langsamer als den Zeiger, senkrecht von oben etwa im Verhältnis
+  (h - e) / h (Kamera h über dem Boden, Pivot e darüber). Jeder
+  Kamera-Strahl testete zusätzlich die Dreiecke dieser Meshes. Aus dem
+  Code hergeleitet, nicht im Browser gemessen.
+- Geprüft und nicht die Ursache: Die Dämpfung der Controls rechnet mit
+  der Frame-Zeit (`2^(-dt / dampingFactor)`), der Mausrad-Zoom wird je
+  Update ganz angewandt, Ziehen folgt dem Zeiger, Tastatur-Pan rechnet
+  m/s × dt. Keine Kamera-Höhenklemme liest `TerrainQueries`. Der
+  Hover-Pick der Tower (`bf414ab`) läuft höchstens alle 100 ms und nie
+  bei gedrückter Taste.
+- Nicht aus der Nachtschicht: In `39fbb18` stehen `setScene(scene)` und
+  die versteckten Scheiben genauso. DevWorld raycastete schon nur gegen
+  ihre Terrain-Gruppe.
+- `bac034a` Die Controls bekommen eine `GroundPickRoot`: eine Gruppe
+  ohne Transform in der Szene, die Strahlen nur mit der Tiles-Gruppe
+  beantwortet und das Pivot-Mesh trägt. Tiles per Debug ausgeblendet:
+  kein Treffer, Rückfall aufs Ellipsoid wie bisher. Verhaltensänderung:
+  Die Kamera hält nicht mehr an Towern, Overlays, Markern oder Gegnern
+  an und pivotiert nicht darauf. Die Spec nimmt die echten
+  `EnvironmentControls`: Eine versteckte Scheibe in 8 m hob die Kamera
+  vorher auf 13 m, jetzt nicht; der Pivot lag vorher auf ihr, jetzt auf
+  dem Boden.
+- `a7cdcf4` Die Strahlen der Controls stehen in `__raycastStats()` unter
+  `cameraControls` statt `unscoped`.
+- Offen: Nah an einem Tower kann die Kamera jetzt in sein Modell fahren,
+  der Mindestabstand gilt nur zu den Tiles. Tower als Hindernis wieder
+  aufzunehmen, würde Zoom-Halt und Pivot an ihnen wieder anheben; nicht
+  gemacht.
+
+250. Spiel an einem Ort mit Route, 4 bis 6 Tower dicht an eine gerade
+     Strecke der Route bauen, keine Welle nötig. Kamera über eine Stelle
+     300 m oder mehr abseits der Route ohne Tower, mit dem Mausrad bis
+     zum Anschlag hineinzoomen und die Nähe zum Boden merken. Dasselbe
+     über der Straße zwischen den Towern: Der Anschlag liegt genauso nah
+     am Boden, nicht höher, und der Zoom wird davor nicht zäher.
+251. Über der Route zwischen den Towern mit der linken Taste ziehen: Der
+     Boden unter dem Zeiger bleibt unter dem Zeiger, wie abseits der
+     Route.
+252. Rechte Taste über der Route halten und drehen: Der Pivot-Kreis
+     liegt auf der Straße, nicht in der Luft darüber.
+253. Mit dem Mausrad direkt auf einen Tower zoomen: Die Kamera fährt bis
+     nah an den Boden am Tower und kann dabei ins Modell geraten
+     (bekannt, siehe Offen).
+254. Konsole: `__raycastStats(true)`, 10 s über der Route zoomen und
+     ziehen, dann `__raycastStats()`: Zeile `cameraControls`, bei ruhender
+     Kamera etwa 2 Aufrufe pro Frame.
+255. DevWorld (`?devworld`): Zoom, Ziehen und Drehen wie bisher.
+
 ## TODO-Stand
 
 Jeder dieser Einträge hat in TODO.md eine Zeile "Stand 2026-09-13 (Nacht)".
