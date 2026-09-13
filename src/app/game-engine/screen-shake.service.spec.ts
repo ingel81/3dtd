@@ -67,16 +67,27 @@ describe('ScreenShakeService', () => {
     service.destroy();
   });
 
-  it('shakes hardest for a nuclear strike, wherever it lands', () => {
+  it('shakes hardest and longest for a nuclear strike, fading over a range of its own', () => {
     const { eventBus, engine, service } = setup();
-    eventBus.emit({
+    const { strikeNearDistance, strikeFarDistance } = SCREEN_SHAKE_CONFIG;
+    const strike = (distance: number) => eventBus.emit({
       type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1,
-      target: { lat: farDistance * 5, lon: 0 }, radiusM: 25, hits: 10, kills: 4,
+      target: { lat: distance, lon: 0 }, radiusM: 25, hits: 10, kills: 4,
     });
+    strike(farDistance * 3);
+    strike((strikeNearDistance + strikeFarDistance) / 2);
+    strike(strikeFarDistance + 10);
     expect(engine.triggerScreenShake.mock.calls).toEqual([
       [presets.nuclearStrike.amplitude, presets.nuclearStrike.duration],
+      [expect.closeTo(presets.nuclearStrike.amplitude * 0.5), presets.nuclearStrike.duration],
     ]);
-    expect(presets.nuclearStrike.amplitude).toBeGreaterThan(presets.bossDeath.amplitude);
+    // The overview camera stands about 425 m away and gets most of it
+    expect(shakeFalloff(425, strikeNearDistance, strikeFarDistance)).toBeGreaterThan(0.9);
+    for (const [name, preset] of Object.entries(presets)) {
+      if (name === 'nuclearStrike') continue;
+      expect(presets.nuclearStrike.amplitude).toBeGreaterThan(preset.amplitude);
+      expect(presets.nuclearStrike.duration).toBeGreaterThan(preset.duration);
+    }
     service.destroy();
   });
 
