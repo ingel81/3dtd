@@ -7,7 +7,12 @@ import { HeightUpdateService } from '../world/height-update.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
 import { WorldDiceService } from './world-dice.service';
-import { LOCATION_DIALOG_LOAD_FAILED, openLocationDialog } from '../../components/location-dialog/open-location-dialog';
+import {
+  LOCATION_DIALOG_LOAD_FAILED,
+  LOCATION_DIALOG_OPEN_FAILED,
+  LocationDialogLoadError,
+  openLocationDialog,
+} from '../../components/location-dialog/open-location-dialog';
 import { UIStore } from '../../store/ui.store';
 import { LocationConfig, LocationDialogData, LocationDialogResult, FavoriteLocation } from '../../models/location.types';
 import {
@@ -75,7 +80,8 @@ export class LocationChangeCoordinatorService {
   /**
    * Open location dialog to change HQ and spawn point. Resolves once the
    * dialog is open; the first call loads its chunk. When the chunk does not
-   * load, a notice over the game says so and the game goes on.
+   * load or the dialog fails to open, a notice over the game says which and
+   * the game goes on.
    */
   async openLocationDialog(): Promise<void> {
     if (!this.delegate) {
@@ -114,8 +120,13 @@ export class LocationChangeCoordinatorService {
         disableClose: false,
       });
     } catch (err) {
-      console.error('[LocationCoordinator] Location dialog did not load:', err);
-      this.uiStore.notice.set(LOCATION_DIALOG_LOAD_FAILED);
+      if (err instanceof LocationDialogLoadError) {
+        console.error('[LocationCoordinator] Location dialog did not load:', err);
+        this.uiStore.notice.set(LOCATION_DIALOG_LOAD_FAILED);
+      } else {
+        console.error('[LocationCoordinator] Location dialog failed to open:', err);
+        this.uiStore.notice.set(LOCATION_DIALOG_OPEN_FAILED);
+      }
       return;
     }
 

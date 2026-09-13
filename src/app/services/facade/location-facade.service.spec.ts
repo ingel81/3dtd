@@ -6,8 +6,13 @@ import { Subject } from 'rxjs';
 // The real dialog and material modules are partially compiled and need the JIT
 // compiler; the facade only uses them as DI token and dialog type.
 vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
+// With `fails` set, the dialog's lazy chunk does not load.
+const chunk = vi.hoisted(() => ({ fails: false, component: class LocationDialogComponent {} }));
 vi.mock('../../components/location-dialog/location-dialog.component', () => ({
-  LocationDialogComponent: class LocationDialogComponent {},
+  get LocationDialogComponent() {
+    if (chunk.fails) throw new TypeError('Failed to fetch dynamically imported module');
+    return chunk.component;
+  },
 }));
 
 import { LocationFacadeService, VizCallbacks } from './location-facade.service';
@@ -30,7 +35,11 @@ import { MapPlacementService } from '../world/map-placement.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
-import { LOCATION_DIALOG_LOAD_FAILED, LocationDialogLoadError } from '../../components/location-dialog/open-location-dialog';
+import {
+  LOCATION_DIALOG_LOAD_FAILED,
+  LOCATION_DIALOG_OPEN_FAILED,
+  LocationDialogLoadError,
+} from '../../components/location-dialog/open-location-dialog';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
@@ -172,6 +181,7 @@ describe('LocationFacadeService', () => {
     cachedPaths = new Map([['spawn-1', [HQ, OLD_SPAWN]]]);
     dialogClosed = new Subject();
     dialog.open.mockReturnValue({ afterClosed: () => dialogClosed.asObservable(), close: closeDialog });
+    chunk.fails = false;
     destroyCallbacks = [];
     destroyRef = {
       destroyed: false,
@@ -386,7 +396,7 @@ describe('LocationFacadeService', () => {
 
     it('shows the error screen and stops the boot when the dialog does not load', async () => {
       geolocation.detectLocation.mockResolvedValue(null);
-      dialog.open.mockImplementation(() => { throw new Error('Failed to fetch dynamically imported module'); });
+      chunk.fails = true;
 
       const done = facade.initializeLocation();
       await vi.waitFor(() => expect(engineInit.setError).toHaveBeenCalledWith(LOCATION_DIALOG_LOAD_FAILED));
@@ -394,6 +404,19 @@ describe('LocationFacadeService', () => {
       expect(await done).toBe(false);
       expect(engineInit.setLoading).toHaveBeenCalledWith(false);
       expect(engineInit.setStepDone).not.toHaveBeenCalled();
+      expect(console.error).toHaveBeenCalledWith('[LocationFacade] Location dialog failed:', expect.any(LocationDialogLoadError));
+    });
+
+    it('reports a dialog that loaded but failed to open as such, with its error in the console', async () => {
+      geolocation.detectLocation.mockResolvedValue(null);
+      const bug = new Error('NG0201: No provider found');
+      dialog.open.mockImplementation(() => { throw bug; });
+
+      expect(await facade.initializeLocation()).toBe(false);
+
+      expect(engineInit.setError).toHaveBeenCalledWith(LOCATION_DIALOG_OPEN_FAILED);
+      expect(engineInit.setLoading).toHaveBeenCalledWith(false);
+      expect(console.error).toHaveBeenCalledWith('[LocationFacade] Location dialog failed:', bug);
     });
   });
 
@@ -433,8 +456,14 @@ describe('LocationFacadeService', () => {
     });
 
     it('rejects with a load error when the dialog chunk does not load', async () => {
-      dialog.open.mockImplementation(() => { throw new Error('Failed to fetch dynamically imported module'); });
+      chunk.fails = true;
       await expect(facade.waitForLocationFromDialog()).rejects.toBeInstanceOf(LocationDialogLoadError);
+    });
+
+    it('rejects with the error itself when the loaded dialog fails to open', async () => {
+      const bug = new Error('NG0201: No provider found');
+      dialog.open.mockImplementation(() => { throw bug; });
+      await expect(facade.waitForLocationFromDialog()).rejects.toBe(bug);
     });
 
     it('rejects when the component is destroyed first and closes the dialog that opens late', async () => {

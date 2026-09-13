@@ -6,8 +6,13 @@ import { Subject } from 'rxjs';
 // The real dialog and material modules are partially compiled and need the JIT
 // compiler; the coordinator only uses them as DI token and dialog type.
 vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
+// With `fails` set, the dialog's lazy chunk does not load.
+const chunk = vi.hoisted(() => ({ fails: false, component: class LocationDialogComponent {} }));
 vi.mock('../../components/location-dialog/location-dialog.component', () => ({
-  LocationDialogComponent: class LocationDialogComponent {},
+  get LocationDialogComponent() {
+    if (chunk.fails) throw new TypeError('Failed to fetch dynamically imported module');
+    return chunk.component;
+  },
 }));
 
 import { LocationChangeCoordinatorService, LocationFlowDelegate } from './location-change-coordinator.service';
@@ -31,7 +36,11 @@ import { UrlLocationService } from './url-location.service';
 import { WorldDiceService } from './world-dice.service';
 import { UIStore } from '../../store/ui.store';
 import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
-import { LOCATION_DIALOG_LOAD_FAILED } from '../../components/location-dialog/open-location-dialog';
+import {
+  LOCATION_DIALOG_LOAD_FAILED,
+  LOCATION_DIALOG_OPEN_FAILED,
+  LocationDialogLoadError,
+} from '../../components/location-dialog/open-location-dialog';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { FavoriteLocation, LocationDialogResult } from '../../models/location.types';
 import type { StreetNetwork } from './osm-street.service';
@@ -167,6 +176,7 @@ describe('LocationChangeCoordinatorService', () => {
     cachedPaths = new Map([['spawn-1', [HQ, SPAWN]]]);
     dialogClosed = new Subject();
     dialog.open.mockReturnValue({ afterClosed: () => dialogClosed.asObservable() });
+    chunk.fails = false;
     osm.loadStreets.mockResolvedValue(network());
     osm.findRandomStreetPoint.mockReturnValue(null);
     worldDice.onStepDetail = null;
@@ -527,12 +537,27 @@ describe('LocationChangeCoordinatorService', () => {
     });
 
     it('says so over the game when the dialog does not load', async () => {
-      dialog.open.mockImplementation(() => { throw new Error('Failed to fetch dynamically imported module'); });
+      chunk.fails = true;
       coordinator.initializeFlow(delegate);
 
       await coordinator.openLocationDialog();
 
+      expect(console.error).toHaveBeenCalledWith(
+        '[LocationCoordinator] Location dialog did not load:', expect.any(LocationDialogLoadError),
+      );
       expect(uiStore.notice()).toBe(LOCATION_DIALOG_LOAD_FAILED);
+      expect(engineInit.loading()).toBe(false);
+    });
+
+    it('tells a dialog that loaded but failed to open apart from one that did not load', async () => {
+      const bug = new Error('NG0201: No provider found');
+      dialog.open.mockImplementation(() => { throw bug; });
+      coordinator.initializeFlow(delegate);
+
+      await coordinator.openLocationDialog();
+
+      expect(console.error).toHaveBeenCalledWith('[LocationCoordinator] Location dialog failed to open:', bug);
+      expect(uiStore.notice()).toBe(LOCATION_DIALOG_OPEN_FAILED);
       expect(engineInit.loading()).toBe(false);
     });
 
