@@ -378,6 +378,14 @@
         <td-icon name="radiation" [size]="18"></td-icon>
         <span>Nuke</span>
       </button>
+      <button class="td-dev-tile td-dev-cheat td-dev-cheat-hero"
+              (click)="readyHero.emit()"
+              matTooltip="Hero ready: Mercenary Contract researched, the Mercenary hired for free"
+              matTooltipPosition="left"
+              aria-label="Hero ready: Mercenary Contract researched, the Mercenary hired for free">
+        <td-icon name="user" [size]="18"></td-icon>
+        <span>Hero</span>
+      </button>
 
       <div class="td-dev-group">Waves &amp; Inspect</div>
       <button class="td-dev-tile"

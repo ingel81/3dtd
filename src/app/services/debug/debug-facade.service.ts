@@ -142,6 +142,16 @@ export class DebugFacadeService {
     this.appendDebugLog('Nuclear Strike ready (Debug)');
   }
 
+  /**
+   * Hero ready: his research with the prerequisites done and the Mercenary
+   * hired for free, at the route point next to the HQ. Deferred like the
+   * nuke cheat, so it lands in the next gameplay sub-step.
+   */
+  readyHero(gameState: GameStateManager): void {
+    gameState.getEventBus().emitDeferred({ type: 'debug:ready-hero' });
+    this.appendDebugLog('Mercenary hired (Debug)');
+  }
+
   // ========================================
   // Height Debug Toggle
   // ========================================

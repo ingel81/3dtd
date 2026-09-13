@@ -503,7 +503,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:hire-hero', 'command:hero-move',
         'command:start-wave', 'command:restart-game',
         'debug:add-credits', 'debug:add-health', 'debug:complete-all-research', 'debug:max-upgrade-all-towers',
-        'debug:ready-ability', 'debug:jump-to-wave',
+        'debug:ready-ability', 'debug:jump-to-wave', 'debug:ready-hero',
       ]);
     });
 

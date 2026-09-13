@@ -773,6 +773,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readyNuke(): void {
     this.debugFacade.readyNuclearStrike(this.gameState);
   }
+  readyHero(): void {
+    this.debugFacade.readyHero(this.gameState);
+  }
   clearDebugLog(): void {
     this.debugFacade.clearDebugLog();
   }

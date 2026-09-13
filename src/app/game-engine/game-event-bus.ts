@@ -440,6 +440,11 @@ export type GameEvent =
       grantGold: boolean;
     }
   | {
+      // The hero's research with its prerequisites done and the hero hired
+      // for free. Sent deferred, so it lands in a gameplay sub-step.
+      type: 'debug:ready-hero';
+    }
+  | {
       type: 'debug:remove-enemy';
       enemyId: string;
     };

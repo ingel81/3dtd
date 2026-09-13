@@ -167,6 +167,12 @@ export class GameStateSyncService {
       });
     }));
 
+    // ── Hero ──────────────────────────────────────────────────────
+    // Snapshot after every HeroManager change (unlock, hire, order, kill)
+    this.subs.add(eventBus.on('hero:state-changed', (event) => {
+      this.store.hero.set(event.hero);
+    }));
+
     // ── Research lifecycle ────────────────────────────────────────
     // research:state-changed ist der Single-Source-of-Truth-Sync-Pfad —
     // ResearchManager emittiert ihn nach jeder State-Mutation.
