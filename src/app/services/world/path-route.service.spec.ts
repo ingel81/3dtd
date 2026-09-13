@@ -72,10 +72,11 @@ function liesOnWayEdge(network: StreetNetwork, a: { lat: number; lon: number }, 
  * Freiraum links und rechts der Fahrtrichtung, den der Engine-Ersatz meldet,
  * pro Test steuerbar: lokale x/z der Messstation, `max` = Suchweite. Eine
  * Zahl gilt für beide Seiten und alle Strahlhöhen, ein Array je Strahlhöhe
- * (unten, oben), `null` = kein feines Tile.
+ * (unten, oben), `null` = kein feines Tile, `'no tile'` = gar kein Tile unter
+ * der Station (eine Naht zwischen zwei Tile-Meshes).
  */
 type Hits = number | number[];
-type Clearance = number | { left: Hits; right: Hits } | null;
+type Clearance = number | { left: Hits; right: Hits } | null | 'no tile';
 let clearanceAt: (x: number, z: number, max: number) => Clearance = (_x, _z, max) => max;
 
 /** Jede Messstation, die der Engine-Ersatz beantwortet hat: Ort, Richtung, Strahlhöhen, Länge, Deck. */
@@ -96,6 +97,7 @@ function makeEngine(): ThreeTilesEngine {
         probeCalls.push([x, z, ax, az, [...heights], max, onDeck]);
         const free = clearanceAt(x, z, max);
         if (free === null) return { unmeasured: 'coarse tile', tileError: 20, left: [], right: [] };
+        if (free === 'no tile') return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
         const perHeight = (hits: Hits) => (typeof hits === 'number' ? heights.map(() => hits) : hits);
         const sides = typeof free === 'number' ? { left: free, right: free } : free;
         return { unmeasured: null, tileError: 2, left: perHeight(sides.left), right: perHeight(sides.right) };
@@ -331,6 +333,30 @@ describe('PathAndRouteService route geometry', () => {
         measure(service);
         service.showPathFromSpawn(spawnPointAt(spawn));
         expect(service.getCachedPath('s1')!.map((p) => p.corridorLeft)).toEqual([7, 7, 7, 7, 2.75, undefined]);
+      });
+
+      it('gives a station without a tile between measured ones their width, not the street width', () => {
+        // Playtest 2026-09-13: a residential street (2.75 m from OSM), open
+        // on both sides, and a seam between two tile meshes under one station.
+        network = makeNetwork([
+          { id: 100, nodes: [n10, n1] },
+          { id: 200, nodes: [n1, n2, n3] },
+          { id: 300, nodes: [n3, n30] },
+        ]);
+        clearanceAt = (x, z, max) => (Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 1 ? 'no tile' : max);
+        const service = buildRouteService(network, spawn, hq);
+        measure(service);
+        service.showPathFromSpawn(spawnPointAt(spawn));
+        expect(service.getCachedPath('s1')!.map((p) => p.corridorLeft)).toEqual([7, 7, 7, 7, 2.75, undefined]);
+
+        const n1Local = toMeters(n1);
+        const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
+        expect(why).toMatchObject({ way: 200, streetWidthM: 5.5, unmeasured: 'no tile' });
+        expect(why.sides[0]).toMatchObject({
+          freeM: null, smoothedM: 7, halfWidthM: 7, rule: 'unmeasured: from neighbours, no wall within the maximum',
+        });
+        const here = why.nearby.find((s) => s.here)!;
+        expect(here).toMatchObject({ leftFreeM: null, leftM: 7, rightM: 7, unmeasured: 'no tile' });
       });
 
       it('keeps the street width where no fine tile is loaded, and tries again later', () => {
