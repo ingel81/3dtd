@@ -1,0 +1,50 @@
+/* Over the canvas like the hints, never in the way of a click. */
+:host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* One arrow per direction, centred on its point at the view edge: a small
+   dark glass chip with a chevron pointing out. Red for enemies close to the
+   HQ, gold and a little larger when a boss is among them. */
+.osi {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.osi-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--td-glass-tint);
+  border: 1px solid var(--td-health-red);
+  color: var(--td-health-red);
+  box-shadow: var(--td-shadow-soft);
+}
+
+.osi-boss .osi-chip {
+  width: 26px;
+  height: 26px;
+  border-color: var(--td-gold);
+  color: var(--td-gold-light);
+}
+
+/* Count toward the view centre (offset from the component), centred on
+   the chip first */
+.osi-count {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  margin: -7px 0 0 -14px;
+  text-align: center;
+  font: 700 10px/14px var(--td-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}

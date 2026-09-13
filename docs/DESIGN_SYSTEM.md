@@ -390,6 +390,14 @@ Der Standort-Button hat dieselbe Fläche mit 1px `--td-frame-dark` und heller Ob
 
 Erreicht ein Gegner das HQ (`enemy:reached-base`), blendet `app-leak-vignette` (`components/leak-vignette/`) einen roten Rand über dem Canvas ein und wieder aus: radialer Verlauf von transparent (58 %) zu `rgba(184,62,50,0.42)` an den Rändern, 650 ms, `pointer-events: none`, `z-index` 4 unter den HUD-Elementen. Ein neuer Puls startet höchstens alle 900 ms (`PulseThrottle`, Wanduhr); ein Schwarm, der auf einmal durchbricht, pulsiert also etwa im Sekundentakt, statt dauerhaft zu glühen. Der Handler läuft im Game-Loop außerhalb von Angular und macht pro Leak nur einen Zeitvergleich. Er reagiert auch, wenn der Leak-Deckel der Welle (`maxLeakDamagePerWave`) erreicht ist und das HQ nichts mehr verliert.
 
+### Off-Screen-Pfeile (Canvas)
+
+Während einer Welle zeigt `app-offscreen-indicators` (`components/offscreen-indicators/`) am Rand des Canvas Pfeile zu Gegnern, die die Kamera nicht zeigt: Bosse (`isBoss`) überall auf der Route, alle anderen erst auf den letzten 15 % ihres Wegs (`NEAR_HQ_PROGRESS`, `utils/offscreen-indicators.ts`). Die Richtungen fallen in acht Sektoren um die Bildmitte, je Sektor ein Pfeil mit Anzahl, höchstens sechs; Sektoren mit Boss zuerst, dann die volleren.
+
+Pfeil: Glas-Chip 22px (`--td-glass-tint`, `--td-shadow-soft`), 1px Rand und Chevron (`caretR`, 14px) in `--td-health-red`; mit Boss 26px, Rand `--td-gold`, Chevron `--td-gold-light`. Er sitzt 26px innerhalb des Rands, dort, wo der Strahl von der Bildmitte in seine Richtung den Rand trifft. Ab zwei Gegnern steht die Zahl (10px Mono, `--td-text-primary` mit Schatten) 20px zur Bildmitte hin. `pointer-events: none`, `z-index` 5, `aria-hidden`.
+
+Die Komponente läuft auf einem eigenen 8-Hz-Timer außerhalb von Angular: ein Durchlauf über die lebenden Gegner sucht die Bedrohungen (keine Allokation pro Gegner), ein zweiter projiziert sie durch die Kamera, und das Signal ändert sich nur, wenn sich ein Pfeil ändert. Pausiert entfällt der Durchlauf, die zuletzt gefundenen Gegner werden neu projiziert, die Pfeile folgen also weiter der Kamera. Ohne Rendering (Headless-Modus) und außerhalb von Wellen bleibt die Ebene leer.
+
 ### Debug-Panels
 
 Alle Debug-Fenster nutzen `app-draggable-debug-panel` (`components/debug-window/`) und verhalten sich gleich: verschiebbar, in der Größe änderbar über den Griff unten rechts, Position und Größe in `localStorage` gespeichert.
