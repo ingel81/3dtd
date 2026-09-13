@@ -192,6 +192,7 @@ export class VisualizationFacadeService {
   dispose(): void {
     this.eventBusSubs.disposeAll();
     this.corridor.dispose();
+    this.corridorConsole.uninstall();
     this.convergence.dispose();
     this.introGate.dispose();
     const engine = this.initialized ? this.bridge.getEngine() : null;

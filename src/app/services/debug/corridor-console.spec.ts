@@ -33,8 +33,9 @@ describe('CorridorConsole', () => {
   let change: ReturnType<typeof vi.fn>;
   let armPick: ReturnType<typeof vi.fn>;
   let grid: ReturnType<typeof fakeGrid>;
+  let installed: CorridorConsole;
 
-  const tower = (id: string) => ({ id, position: { lat: 10, lon: 20, height: 2 }, combat: { range: 8 } });
+  const tower =(id: string) => ({ id, position: { lat: 10, lon: 20, height: 2 }, combat: { range: 8 } });
   const towers: Record<string, ReturnType<typeof tower>> = { t1: tower('t1'), t2: tower('t2') };
 
   function fakeGrid() {
@@ -58,7 +59,7 @@ describe('CorridorConsole', () => {
     };
   }
 
-  function install(): void {
+  function install(): CorridorConsole {
     const towerManager = {
       getSelected: () => selected,
       getById: (id: string) => towers[id] ?? null,
@@ -71,7 +72,9 @@ describe('CorridorConsole', () => {
       pathRoute: { explainCorridorAt: vi.fn(() => explanation) },
       change,
     };
-    new CorridorConsole(deps as unknown as CorridorConsoleDeps).install();
+    const corridorConsole = new CorridorConsole(deps as unknown as CorridorConsoleDeps);
+    corridorConsole.install();
+    return corridorConsole;
   }
 
   beforeEach(() => {
@@ -95,13 +98,29 @@ describe('CorridorConsole', () => {
     });
     armPick = vi.fn();
     grid = fakeGrid();
-    install();
+    installed = install();
   });
 
   afterEach(() => {
     resetCorridorConfig();
     delete (globalThis as Record<string, unknown>)['__corridor'];
     vi.restoreAllMocks();
+  });
+
+  describe('uninstall', () => {
+    it('removes its own __corridor', () => {
+      installed.uninstall();
+      expect('__corridor' in globalThis).toBe(false);
+    });
+
+    it('leaves the __corridor of a newer instance in place', () => {
+      install();
+      const newer = api();
+
+      installed.uninstall();
+
+      expect(api()).toBe(newer);
+    });
   });
 
   describe('settings', () => {
