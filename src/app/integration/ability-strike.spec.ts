@@ -63,6 +63,7 @@ function createEngine(): never {
     engine[key] = withAutoStubs(engine[key]);
   }
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
+  engine['hero'] = withAutoStubs({});
   // BackgroundMusicService resumes the audio context on wave:started
   engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
   // Headless, like a training tab: no presentFrame

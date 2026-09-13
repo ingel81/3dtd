@@ -48,6 +48,7 @@ import { OozeBandRenderer } from './renderers/ooze/ooze-band.renderer';
 import { BloodMoonLook } from './blood-moon/blood-moon-look';
 import { BloodMoonMood } from './blood-moon/blood-moon-mood';
 import { SearchlightRenderer } from './renderers/searchlight/searchlight.renderer';
+import { HeroRenderer } from './renderers/hero.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -153,6 +154,7 @@ export class ThreeTilesEngine {
   readonly searchlights: SearchlightRenderer;
   /** Look of the blood moon waves, switched by BloodMoonService */
   readonly bloodMoon: BloodMoonLook;
+  readonly hero: HeroRenderer;
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -340,6 +342,7 @@ export class ThreeTilesEngine {
       searchlights: this.searchlights,
       oozes: this.oozes,
     });
+    this.hero = new HeroRenderer(this.scene, coordinateSync, this.assetManager);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -991,6 +994,9 @@ export class ThreeTilesEngine {
     // Blood moon on wall time while the game runs; a pause holds it
     this.bloodMoon.update(deltaTime, this.gameTimescale > 0, this.postProcessing?.needsRender() ?? false);
 
+    // Hero: his animation in game time, the selection pulse in real time
+    this.hero.update(deltaTime, gameDeltaSeconds * 1000);
+
     // Screen shake is applied in render() (drawFrame), not to the camera
   }
 
@@ -1223,6 +1229,7 @@ export class ThreeTilesEngine {
     this.oozes.dispose();
     this.searchlights.dispose();
     this.bloodMoon.dispose();
+    this.hero.dispose();
 
     // Dispose spatial audio
     this.spatialAudio.dispose();

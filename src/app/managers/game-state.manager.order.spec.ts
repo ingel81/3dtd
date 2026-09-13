@@ -152,6 +152,7 @@ function createEngine(): never {
     tentacles: auto(),
     abilityMarkers: auto(),
     mushroomClouds: auto(),
+    hero: auto(),
   };
   return auto(engine) as never;
 }
@@ -194,7 +195,7 @@ const WAVE_STEP = [
   'ability.hasPendingStrikes', 'wave.checkWaveComplete',
 ];
 /** Once per frame after the loop, when a sub-step ran and rendering is on */
-const PRESENT = ['enemy.presentFrame', 'projectile.presentFrame'];
+const PRESENT = ['enemy.presentFrame', 'projectile.presentFrame', 'hero.presentFrame'];
 
 const repeat = (sequence: string[], times: number): string[] =>
   Array.from({ length: times }, () => sequence).flat();
@@ -229,7 +230,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       'update', 'startQueued', 'reset', 'onCenterPlaced', 'onCenterRemoved', 'upgradeCenter',
     ]);
     trace(gsm.abilityManager, 'ability', ['update', 'reset', 'hasPendingStrikes']);
-    trace(gsm.heroManager, 'hero', ['update', 'reset']);
+    trace(gsm.heroManager, 'hero', ['update', 'reset', 'presentFrame']);
     trace(bus, 'bus', ['processQueue']);
     trace(gsm.waveManager, 'wave', ['tickSpawn', 'endWave', 'reset', 'startWave', 'beginWave']);
     trace((gsm as unknown as { healthLedger: object }).healthLedger, 'ledger', ['refillLeakBudget']);
@@ -488,7 +489,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'research:completed', 'hero:kill',
         // VFXService, AudioService, ScreenShakeService, BackgroundMusicService, BloodMoonService
         'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
-        'enemy:split', 'ability:used', 'ability:impact', 'game:reset',
+        'enemy:split', 'ability:used', 'ability:impact', 'game:reset', 'hero:level-up',
         'audio:play', 'ability:impact', 'game:reset',
         'vfx:projectile-impact', 'health:changed', 'ability:impact', 'enemy:died',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',

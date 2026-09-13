@@ -70,6 +70,32 @@ describe('VFXService muzzle flash', () => {
   });
 });
 
+describe('VFXService hero level-up', () => {
+  it('raises "LEVEL N" in gold from his head', () => {
+    const eventBus = new GameEventBus();
+    const spawnFloatingText = vi.fn();
+    const tilesEngine = {
+      hero: { headPosition: vi.fn((out: Vector3) => out.set(1, 2, 3)) },
+      sync: { localToGeo: vi.fn(() => ({ lat: 48.1, lon: 9.2, height: 310 })) },
+      effects: { spawnFloatingText },
+    };
+    const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
+    eventBus.emit({ type: 'hero:level-up', level: 3, position: { lat: 48.1, lon: 9.2 } });
+    expect(spawnFloatingText).toHaveBeenCalledWith('LEVEL 3', 48.1, 9.2, 310, expect.objectContaining({ color: '#D9BC68' }));
+    service.destroy();
+  });
+
+  it('shows nothing while he is not on the map', () => {
+    const eventBus = new GameEventBus();
+    const spawnFloatingText = vi.fn();
+    const tilesEngine = { hero: { headPosition: () => null }, sync: {}, effects: { spawnFloatingText } };
+    const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
+    eventBus.emit({ type: 'hero:level-up', level: 2, position: { lat: 0, lon: 0 } });
+    expect(spawnFloatingText).not.toHaveBeenCalled();
+    service.destroy();
+  });
+});
+
 describe('VFXService split', () => {
   it('bursts in bone colours a metre above the body a split came from', () => {
     const { eventBus, tilesEngine, service } = setup();
