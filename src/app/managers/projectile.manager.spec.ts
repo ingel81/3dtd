@@ -80,6 +80,16 @@ describe('ProjectileManager', () => {
     expect(eventBus.getQueueSize()).toBe(2); // audio event + muzzle flash deferred
   });
 
+  it('flies a shot no tower fires at a body to its aim point', () => {
+    const enemy = new Enemy('zombie', [
+      { lat: 0.0001, lon: 0, height: 0 },
+      { lat: 0.0002, lon: 0, height: 0 },
+    ]);
+    const aimPoint = { lat: 0.00005, lon: 0, height: 1.8 };
+    const projectile = manager.spawnShot({ lat: 0, lon: 0 }, 3, enemy, 'hero-round', 16, 'physical', 'hero', aimPoint);
+    expect(projectile.aimPoint).toEqual(aimPoint);
+  });
+
   it('fires a shot no tower fires: hero source, no tower type, sound where it starts, no muzzle flash', () => {
     const enemy = new Enemy('zombie', [
       { lat: 0.0001, lon: 0, height: 0 },

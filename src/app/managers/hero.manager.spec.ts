@@ -3,6 +3,7 @@ import { HeroManager, type HeroShot, type HeroWorld } from './hero.manager';
 import { GameEventBus, type GameEvent } from '../game-engine/game-event-bus';
 import { HERO, HERO_AMMO } from '../configs/hero.config';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { ROUTE_BODY_AIM_HEIGHT_M } from '../utils/route-body';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
 
@@ -40,6 +41,8 @@ interface FakeEnemy {
   position: GeoPosition;
   progress: number;
   movement: { getPathProgress(): number };
+  /** A body along the x = 0 street from tailZ to its tip at tipZ (the ooze) */
+  body?: { tailZ: number; tipZ: number };
 }
 
 function enemyAt(id: string, x: number, z: number, progress = 0.5): FakeEnemy {
@@ -53,10 +56,22 @@ function enemyAt(id: string, x: number, z: number, progress = 0.5): FakeEnemy {
   return enemy;
 }
 
+/** An ooze on the x = 0 street, its position at the tip as in the game. */
+function oozeAt(id: string, tailZ: number, tipZ: number): FakeEnemy {
+  return { ...enemyAt(id, 0, tipZ, 0.7), body: { tailZ, tipZ } };
+}
+
 function distanceM(a: GeoPosition, b: GeoPosition): number {
   const p = local(a);
   const q = local(b);
   return Math.hypot(p.x - q.x, p.z - q.z);
+}
+
+/** The point of a fake body nearest to `from`, and how far it is. */
+function nearestOnBody(body: { tailZ: number; tipZ: number }, from: GeoPosition): { z: number; distance: number } {
+  const p = local(from);
+  const z = Math.min(Math.max(p.z, body.tailZ), body.tipZ);
+  return { z, distance: Math.hypot(p.x, p.z - z) };
 }
 
 describe('HeroManager', () => {
@@ -101,8 +116,21 @@ describe('HeroManager', () => {
       enemiesInRadius: (center, radiusM, out) => {
         out.length = 0;
         for (const e of enemies) {
-          if (e.alive && distanceM(center, e.position) <= radiusM) out.push(e as unknown as Enemy);
+          // Like the route grid: a body is in the circle once any of it is
+          const d = e.body ? nearestOnBody(e.body, center).distance : distanceM(center, e.position);
+          if (e.alive && d <= radiusM) out.push(e as unknown as Enemy);
         }
+        return out;
+      },
+      bodyContact: (enemy, from, out) => {
+        const body = (enemy as unknown as FakeEnemy).body;
+        if (!body) return null;
+        const nearest = nearestOnBody(body, from);
+        const point = at(0, nearest.z);
+        out.lat = point.lat;
+        out.lon = point.lon;
+        out.height = 100;
+        out.distanceM = nearest.distance;
         return out;
       },
       groundHeight: () => 100,
@@ -232,6 +260,45 @@ describe('HeroManager', () => {
       // Facing south at the HQ: the muzzle ahead of him and to his right, west
       expect(local(shots.at(-1)!.origin)).toEqual({ x: -0.4, z: 297.6 });
       expect(manager.getTarget()).toBe(ahead as unknown as Enemy);
+    });
+
+    it('shoots the ooze where its body passes him, though its tip is out of range, at its nearest point', () => {
+      sendTo(0, 200);
+      shots.length = 0;
+      const ooze = oozeAt('ooze', 150, 260); // tip 60 m ahead, the body under his feet
+      enemies.push(ooze);
+      tick(60); // 1 s
+      expect(shots.length).toBeGreaterThan(0);
+      for (const shot of shots) {
+        expect(shot.target).toBe(ooze);
+        expect(local(shot.aimPoint!)).toEqual({ x: 0, z: 200 });
+        expect(shot.aimPoint!.height).toBe(100 + ROUTE_BODY_AIM_HEIGHT_M);
+      }
+    });
+
+    it('chases the nearest point of the body as far as his leash, then shoots at it', () => {
+      sendTo(0, 200);
+      shots.length = 0;
+      enemies.push(oozeAt('ooze', 225, 260)); // 25 m to the tail: out of range, within leash plus range
+      tick(120); // 2 s
+      expect(heroAt().z).toBeGreaterThan(200);
+      expect(heroAt().z).toBeLessThanOrEqual(220);
+      expect(shots.length).toBeGreaterThan(0);
+      expect(local(shots.at(-1)!.aimPoint!)).toEqual({ x: 0, z: 225 });
+    });
+
+    it('leaves an ooze out of reach alone, and shots at other enemies carry no aim point', () => {
+      sendTo(0, 200);
+      shots.length = 0;
+      enemies.push(oozeAt('ooze', 245, 260)); // 45 m to the tail, past leash plus range
+      tick(60);
+      expect(shots).toHaveLength(0);
+      expect(heroAt()).toEqual({ x: 0, z: 200 });
+
+      enemies.push(enemyAt('zombie', 0, 190));
+      tick(60);
+      expect(shots.length).toBeGreaterThan(0);
+      expect(shots.every((shot) => shot.aimPoint === null)).toBe(true);
     });
 
     it('keeps his target while it lives and stays in range', () => {

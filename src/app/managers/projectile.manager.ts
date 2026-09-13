@@ -122,6 +122,8 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * @param origin      where the shot starts, on the ground
    * @param originHeight geo height of the muzzle
    * @param sourceId    id the damage path credits, HERO_SOURCE_ID for the hero
+   * @param aimPoint    where the shot flies instead of the target's position
+   *   (a body along the route, see Projectile.aimPoint)
    */
   spawnShot(
     origin: GeoPosition,
@@ -131,10 +133,12 @@ export class ProjectileManager extends EntityManager<Projectile> {
     damage: number,
     damageType: DamageType,
     sourceId: string,
+    aimPoint?: GeoPosition,
   ): Projectile {
     return this.launch(
       origin, originHeight, targetEnemy, typeId, damage, damageType, sourceId, null,
       { lat: origin.lat, lon: origin.lon, height: originHeight },
+      aimPoint,
     );
   }
 

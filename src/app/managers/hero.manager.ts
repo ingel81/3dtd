@@ -42,6 +42,8 @@ import type { Enemy } from '../entities/enemy.entity';
 import { Hero } from '../entities/hero.entity';
 import { GraphPoint, RouteGraph } from '../utils/route-graph';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT, geoDistanceFastSq } from '../utils/geo-utils';
+import { ROUTE_BODY_AIM_HEIGHT_M } from '../utils/route-body';
+import type { HeroBodyContact } from '../utils/hero-body-contact';
 
 /** One shot of the hero, for HeroWorld.fire. */
 export interface HeroShot {
@@ -53,6 +55,12 @@ export interface HeroShot {
   ammo: HeroAmmoConfig;
   /** Damage of this shot, his level included, before the damage matrix */
   damage: number;
+  /**
+   * Where the shot flies instead of the target's position: the nearest point
+   * of a body along the route (the ooze), at the height shots at bodies aim;
+   * null for any other target
+   */
+  aimPoint: GeoPosition | null;
 }
 
 /** What the manager needs from the world. */
@@ -63,6 +71,13 @@ export interface HeroWorld {
   base(): GeoPosition | null;
   /** Living enemies within `radiusM` (2D) of `center`, ground and air, written into `out` */
   enemiesInRadius(center: GeoPosition, radiusM: number, out: Enemy[]): Enemy[];
+  /**
+   * The point of `enemy`'s body along the route (the ooze) nearest to `from`,
+   * written into `out`; null for an enemy without a body or without a map to
+   * measure on. Range, target, chase and aim use it instead of the enemy's
+   * position, which is the body's tip.
+   */
+  bodyContact(enemy: Enemy, from: GeoPosition, out: HeroBodyContact): HeroBodyContact | null;
   /** Geo height of the ground under a position; places the muzzle, visual only */
   groundHeight(lat: number, lon: number): number;
   /** Launch a shot */
@@ -116,6 +131,16 @@ export class HeroManager implements IGameManager {
 
   // Reused per query, see acquireTarget() and pickChase()
   private readonly scratch: Enemy[] = [];
+  /** Shared scratch of HeroWorld.bodyContact: read right after it is written */
+  private readonly contact: HeroBodyContact = { lat: 0, lon: 0, height: 0, distanceM: 0 };
+  /** Squared metres from `from` to `enemy`: to the nearest point of a body along the route, else to its position */
+  private readonly distanceSq = (enemy: Enemy, from: GeoPosition): number => {
+    if (enemy.body) {
+      const contact = this.world.bodyContact(enemy, from, this.contact);
+      if (contact) return contact.distanceM * contact.distanceM;
+    }
+    return geoDistanceFastSq(from, enemy.position);
+  };
 
   private view: HeroView | null = null;
   private readonly presentation: HeroPresentation = {
@@ -295,9 +320,11 @@ export class HeroManager implements IGameManager {
     }
 
     if (target) {
-      hero.transform.lookAt(target.position);
+      // A body along the route: he turns to and shoots at its nearest point
+      const body = target.body ? this.world.bodyContact(target, hero.position, this.contact) : null;
+      hero.transform.lookAt(body ?? target.position);
       if (hero.combat.canFire()) {
-        this.fire(hero, target);
+        this.fire(hero, target, body);
         hero.combat.fire();
       }
     }
@@ -309,9 +336,12 @@ export class HeroManager implements IGameManager {
    */
   private planLeash(graph: RouteGraph): void {
     if (!this.anchor) return;
-    const chase = this.pickChase(graph.pointGeo(this.anchor));
-    const goal = chase
-      ? graph.closestWithinReach(this.anchor, HERO.leashM, chase.position.lat, chase.position.lon)
+    const spot = graph.pointGeo(this.anchor);
+    const chase = this.pickChase(spot);
+    // After a body along the route: toward its point nearest to the spot
+    const at = chase && ((chase.body && this.world.bodyContact(chase, spot, this.contact)) || chase.position);
+    const goal = at
+      ? graph.closestWithinReach(this.anchor, HERO.leashM, at.lat, at.lon)
       : this.anchor;
     this.walkTo(graph, goal);
   }
@@ -353,11 +383,11 @@ export class HeroManager implements IGameManager {
   private acquireTarget(hero: Hero): Enemy | null {
     const rangeSq = HERO.rangeM * HERO.rangeM;
     const current = this.target;
-    if (current && current.alive && geoDistanceFastSq(hero.position, current.position) <= rangeSq) {
+    if (current && current.alive && this.distanceSq(current, hero.position) <= rangeSq) {
       return current;
     }
     const candidates = this.world.enemiesInRadius(hero.position, HERO.rangeM, this.scratch);
-    this.target = furthestAlong(candidates, hero.position, rangeSq);
+    this.target = furthestAlong(candidates, hero.position, rangeSq, this.distanceSq);
     candidates.length = 0;
     return this.target;
   }
@@ -366,12 +396,13 @@ export class HeroManager implements IGameManager {
   private pickChase(spot: GeoPosition): Enemy | null {
     const reach = HERO.leashM + HERO.rangeM;
     const candidates = this.world.enemiesInRadius(spot, reach, this.scratch);
-    const chase = furthestAlong(candidates, spot, reach * reach);
+    const chase = furthestAlong(candidates, spot, reach * reach, this.distanceSq);
     candidates.length = 0;
     return chase;
   }
 
-  private fire(hero: Hero, target: Enemy): void {
+  /** @param body the nearest point of the target's body along the route, null for any other target */
+  private fire(hero: Hero, target: Enemy, body: HeroBodyContact | null): void {
     const { lat, lon } = hero.position;
     const muzzle = heroMuzzleOffset(hero.transform.rotation);
     this.world.fire({
@@ -383,6 +414,7 @@ export class HeroManager implements IGameManager {
       target,
       ammo: HERO_AMMO[this.ammo],
       damage: hero.combat.damage,
+      aimPoint: body ? { lat: body.lat, lon: body.lon, height: body.height + ROUTE_BODY_AIM_HEIGHT_M } : null,
     });
   }
 
@@ -499,11 +531,16 @@ export class HeroManager implements IGameManager {
  * The living enemy furthest along its route within `rangeSq` of `from`, the
  * first found on a tie. The same rule as a tower's 'first' targeting.
  */
-function furthestAlong(candidates: readonly Enemy[], from: GeoPosition, rangeSq: number): Enemy | null {
+function furthestAlong(
+  candidates: readonly Enemy[],
+  from: GeoPosition,
+  rangeSq: number,
+  distanceSq: (enemy: Enemy, from: GeoPosition) => number,
+): Enemy | null {
   let best: Enemy | null = null;
   let bestProgress = -Infinity;
   for (const enemy of candidates) {
-    if (!enemy.alive || geoDistanceFastSq(from, enemy.position) > rangeSq) continue;
+    if (!enemy.alive || distanceSq(enemy, from) > rangeSq) continue;
     const progress = enemy.movement.getPathProgress();
     if (progress > bestProgress) {
       best = enemy;
