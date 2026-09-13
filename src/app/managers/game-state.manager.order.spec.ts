@@ -142,6 +142,7 @@ function createEngine(): never {
     towers: auto({
       updateRangeIndicatorTerrain: logged('engine.towers.updateRangeIndicatorTerrain'),
     }),
+    plinths: auto(),
     enemies: auto(),
     projectiles: auto(),
     trailStreaks: auto(),

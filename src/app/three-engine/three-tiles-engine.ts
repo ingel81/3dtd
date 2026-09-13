@@ -39,6 +39,7 @@ import {
   LightningBoltRenderer,
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
+import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.renderer';
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
@@ -128,6 +129,8 @@ export class ThreeTilesEngine {
   // Entity renderers
   readonly enemies: InstancedEnemyRenderer;
   readonly towers: ThreeTowerRenderer;
+  /** Stone plinths under towers on uneven ground */
+  readonly plinths: TowerPlinthRenderer;
   readonly projectiles: ThreeProjectileRenderer;
   readonly effects: ThreeEffectsRenderer;
   readonly flameBeams: ThreeFlameBeamRenderer;
@@ -300,6 +303,7 @@ export class ThreeTilesEngine {
     // again from its CPU copy, which the VATs drop after their first upload.
     this.enemies.rebakeOnContextRestore(this.renderer.domElement);
     this.towers = new ThreeTowerRenderer(this.scene, coordinateSync, this.assetManager);
+    this.plinths = new TowerPlinthRenderer(this.scene, coordinateSync);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
     this.flameBeams = new ThreeFlameBeamRenderer();
@@ -316,8 +320,12 @@ export class ThreeTilesEngine {
       this.sync.geoToLocalSimple(lat, lon, height)
     );
 
-    // Screen picking against the tiles (DevWorld: its terrain) and the tower meshes
-    this.picker = new ScreenPicker(this.camera, this.renderer, this.towers, {
+    // Screen picking against the tiles (DevWorld: its terrain) and the tower
+    // meshes; a plinth picks the tower on it
+    const pickableTowers = {
+      getAllMeshes: () => [...this.towers.getAllMeshes(), ...this.plinths.getAllMeshes()],
+    };
+    this.picker = new ScreenPicker(this.camera, this.renderer, pickableTowers, {
       tiles: () => this.tilesRenderer,
       devTerrain: () => this.devTerrainProvider,
     });
@@ -1122,6 +1130,8 @@ export class ThreeTilesEngine {
     ]);
     await this.towers.precompile(this.renderer, this.camera);
     if (this.disposed) return;
+    await this.plinths.precompile(this.renderer, this.camera);
+    if (this.disposed) return;
 
     const warmup = await warmUpScene(this.renderer, this.scene, this.camera, () => this.renderLoop.waitForRenderedFrame());
     console.log(
@@ -1157,6 +1167,7 @@ export class ThreeTilesEngine {
     // Dispose entity renderers
     this.enemies.dispose();
     this.towers.dispose();
+    this.plinths.dispose();
     this.projectiles.dispose();
     this.effects.dispose();
     this.flameBeams.dispose();
