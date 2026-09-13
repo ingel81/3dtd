@@ -582,7 +582,7 @@ describe('TowerPlacementService', () => {
     });
 
     it('re-probes only after the cursor moved a meter', async () => {
-      terrain.raycastColumnSample.mockImplementation(() => column(3));
+      terrain.raycastColumnSample.mockImplementation((x: number) => column(3 + x * 0.25));
       init();
       await enterBuild('archer');
       hover(FREE, 3);
@@ -649,6 +649,60 @@ describe('TowerPlacementService', () => {
       service.handleBuildClick();
 
       expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 21.5 }, plinthHeight: 1.5 });
+    });
+
+    describe('outer ring on level ground', () => {
+      /** Archer: the centre and 6 inner probes, 12 on the outer ring */
+      const INNER = 1 + 6;
+      const OUTER = 12;
+      const plinth = () => overlay.children.find((child) => child.name === 'tower-plinth');
+      /** Flat roof at 20 m over a street at 5 m, its edge 3 m east of the tower: only the outer ring overhangs */
+      const roofEdge = () => {
+        const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+        terrain.raycastColumnSample.mockImplementation((x: number) =>
+          x - local.x > 3 ? column(5) : { groundY: 5, topY: 20 },
+        );
+      };
+
+      it('probes only the centre and the inner ring while the cursor sweeps on', async () => {
+        terrain.raycastColumnSample.mockImplementation(() => column(3));
+        init();
+        await enterBuild('archer');
+        for (let i = 0; i < 10; i++) {
+          hover(at(0, 300 + 1.5 * i), 3);
+          service.tickBuildPreviewViz(i);
+        }
+        expect(terrain.raycastColumnSample).toHaveBeenCalledTimes(10 * INNER);
+
+        // The cursor rests a frame: the outer ring of the last spot, once
+        service.tickBuildPreviewViz(10);
+        service.tickBuildPreviewViz(11);
+        expect(terrain.raycastColumnSample).toHaveBeenCalledTimes(10 * INNER + OUTER);
+      });
+
+      it('shows the plinth once the cursor rests when only the outer ring is uneven', async () => {
+        roofEdge();
+        init();
+        await enterBuild('archer');
+        hover(FREE, 20);
+        service.tickBuildPreviewViz(0);
+        expect(plinth()?.visible ?? false).toBe(false);
+
+        service.tickBuildPreviewViz(1);
+        expect(plinth()!.visible).toBe(true);
+        expect(plinth()!.position.y).toBeCloseTo(5);
+        expect(preview()!.position.y).toBeCloseTo(20 + TOWER_TYPES.archer.heightOffset);
+      });
+
+      it('places with the whole footprint when clicked before the cursor rested', async () => {
+        roofEdge();
+        init();
+        await enterBuild('archer');
+        hover(FREE, 20);
+        service.handleBuildClick();
+
+        expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 20 }, plinthHeight: 15 });
+      });
     });
   });
 

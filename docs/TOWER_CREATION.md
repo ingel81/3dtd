@@ -842,8 +842,16 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   (`groundY` und `topY` der Säule, in `__raycastStats()` als `towerFootprint`), in DevWorld die
   oberste Fläche über `raycastDown` und den Boden über die Geländehöhe. Die Proben liegen in der
   Mitte, auf einem Ring bei halbem und einem bei vollem Radius, höchstens 2 m auseinander
-  (`footprintSampleOffsets`, 19 Proben bei einem normalen Tower, 49 beim Research Center). Neu
+  (`footprintSampleOffsets`, 19 bis 27 Proben je nach Tower, 49 beim Research Center). Neu
   geprobt wird wie die Validierung erst, wenn der Cursor 1 m gewandert ist.
+- **Bauvorschau:** Sie probt zuerst die Mitte und den inneren Ring. Liegen die weniger als 0,2 m
+  neben der Cursor-Fläche (`levelWithCursor`), gilt vorläufig ebener Grund, und der äußere Ring
+  folgt erst, wenn der Cursor einen Frame lang innerhalb dieses Meters bleibt
+  (`tickBuildPreviewViz`), spätestens beim Klick. Beim Überstreichen ebenen Grunds kostet eine
+  Validierung damit 7 bis 10 statt 19 bis 27 Säulen (Research Center 17 statt 49). Uneben wird
+  sofort alles geprobt. Das Ergebnis ist dasselbe; ein Sockel, den nur der äußere Ring verlangt
+  (etwa an einer Dachkante), erscheint erst, wenn der Cursor ruht. Der Trainings-Bot probt
+  immer alles (`resolveFootprint`).
 - **Entscheidung** (`resolveTowerFootprint`, Werte in `PLINTH_CONFIG`): Jede Probe zählt mit der
   obersten Fläche ihrer Säule. Weichen die Proben weniger als 0,2 m voneinander ab
   (`MIN_UNEVENNESS`), bleibt der Tower auf der Fläche unter dem Cursor, ohne Sockel, wie früher.

@@ -123,6 +123,27 @@ export function footprintSampleOffsets(radius: number): readonly (readonly [numb
   return footprintPattern(radius).offsets;
 }
 
+/** How many probes of footprintSampleOffsets(radius) come before the outer ring: the centre and the inner ring. */
+export function footprintInnerCount(radius: number): number {
+  return footprintPattern(radius).innerCount;
+}
+
+/**
+ * True while every column that hit something tops out less than
+ * PLINTH_CONFIG.MIN_UNEVENNESS from the cursor surface and from each other:
+ * level ground as far as these probes see.
+ */
+export function levelWithCursor(surfaceY: number, columns: readonly (FootprintColumn | null)[]): boolean {
+  let top = surfaceY;
+  let bottom = surfaceY;
+  for (const column of columns) {
+    if (column === null) continue;
+    if (column.topY > top) top = column.topY;
+    if (column.topY < bottom) bottom = column.topY;
+  }
+  return top - bottom < PLINTH_CONFIG.MIN_UNEVENNESS;
+}
+
 /**
  * The tower's foot and plinth from the surface under the cursor
  * (`surfaceY`) and the column of each probe of footprintSampleOffsets(radius),

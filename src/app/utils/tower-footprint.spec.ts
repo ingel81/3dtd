@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { FootprintColumn, footprintSampleOffsets, resolveTowerFootprint } from './tower-footprint';
+import {
+  FootprintColumn,
+  footprintInnerCount,
+  footprintSampleOffsets,
+  levelWithCursor,
+  resolveTowerFootprint,
+} from './tower-footprint';
 import { PLINTH_CONFIG } from '../configs/placement.config';
 
 type Surface = (x: number, z: number) => number | null;
@@ -52,6 +58,24 @@ describe('footprintSampleOffsets', () => {
 
   it('hands out the same list for the same radius', () => {
     expect(footprintSampleOffsets(4)).toBe(footprintSampleOffsets(4));
+  });
+});
+
+describe('footprintInnerCount', () => {
+  it('counts the centre and the inner ring, the probes before the outer ring', () => {
+    expect(footprintInnerCount(3.6)).toBe(1 + 6);
+    expect(footprintInnerCount(10)).toBe(1 + 16);
+    const inner = footprintSampleOffsets(10).slice(1, footprintInnerCount(10));
+    expect(inner.every(([x, z]) => Math.abs(Math.hypot(x, z) - 5) < 1e-9)).toBe(true);
+  });
+});
+
+describe('levelWithCursor', () => {
+  it('holds while every probe tops out within MIN_UNEVENNESS of the cursor surface', () => {
+    expect(levelWithCursor(12, [{ groundY: 12, topY: 12.1 }, null, { groundY: 11.95, topY: 11.95 }])).toBe(true);
+    expect(levelWithCursor(12, [])).toBe(true);
+    expect(levelWithCursor(12, [{ groundY: 12, topY: 12 + PLINTH_CONFIG.MIN_UNEVENNESS * 1.1 }])).toBe(false);
+    expect(levelWithCursor(12, [{ groundY: 12, topY: 12.15 }, { groundY: 11.9, topY: 11.9 }])).toBe(false);
   });
 });
 
