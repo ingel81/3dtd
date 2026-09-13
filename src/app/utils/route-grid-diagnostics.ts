@@ -75,6 +75,8 @@ export interface RouteGridSampleStats {
   deltaFromAnchorAbs: HistogramSummary | null;
   routeAnchorY: HistogramSummary | null;
   unsampledCells: { key: number; x: number; z: number; routeAnchorY: number; terrainHeight: number }[];
+  /** Cells without a sample of their own, their height interpolated between stable neighbours. */
+  filled: number;
 }
 
 /** Ergebnis von `resetFallbackHeights`. */
@@ -255,6 +257,7 @@ export function collectCellsInBox(cells: ReadonlyMap<number, RouteCell>, box: Ro
 export function summarizeCellSamples(cells: ReadonlyMap<number, RouteCell>, sampleFrame: number): RouteGridSampleStats {
   let unsampled = 0;
   let stable = 0;
+  let filled = 0;
   const depths: number[] = [];
   const errors: number[] = [];
   const heights: number[] = [];
@@ -272,6 +275,8 @@ export function summarizeCellSamples(cells: ReadonlyMap<number, RouteCell>, samp
         routeAnchorY: cell.routeAnchorY,
         terrainHeight: cell.terrainHeight,
       });
+    } else if (cell.sample.state === 'filled') {
+      filled++;
     } else {
       stable++;
       depths.push(cell.sample.tileDepth);
@@ -297,6 +302,7 @@ export function summarizeCellSamples(cells: ReadonlyMap<number, RouteCell>, samp
     deltaFromAnchorAbs: histogramSummary(deltas),
     routeAnchorY: histogramSummary(anchors),
     unsampledCells,
+    filled,
   };
 }
 

@@ -3,8 +3,9 @@ import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
 /**
  * Per-cell sampling metadata. Maintained exclusively by `RouteCellSampler`
- * (`sampleCellY`, plus the debug reset `resetToUnsampled`). Never write
- * from anywhere else, otherwise the single-source-of-truth invariant breaks.
+ * (`sampleCellY`, `fill` for the grid's gap filling, and `resetToUnsampled`).
+ * Never write from anywhere else, otherwise the single-source-of-truth
+ * invariant breaks.
  *
  * `tileDepth` and `tileGeometricError` are the LOD metadata of the tile
  * that produced the last successful sample. They drive the quality-
@@ -14,11 +15,16 @@ import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
  */
 export interface CellSample {
   /**
-   * `unsampled` — terrain raycast hasn't returned a hit yet, `terrainHeight`
+   * `unsampled`: terrain raycast hasn't returned a hit yet, `terrainHeight`
    *   is still a fallback (route-anchor Y). Viz call sites skip these cells.
-   * `stable` — terrain raycast returned a hit; `terrainHeight` is real.
+   * `filled`: no usable hit of its own, but the cell lies between stable
+   *   cells of its surface (a seam between two tile meshes) and
+   *   `terrainHeight` is interpolated between them (GlobalRouteGrid
+   *   fillGaps). Counts as having a height; sampling keeps trying it like an
+   *   unsampled cell.
+   * `stable`: terrain raycast returned a hit; `terrainHeight` is real.
    */
-  state: 'unsampled' | 'stable';
+  state: 'unsampled' | 'filled' | 'stable';
   /** Internal frame counter at last successful sample (debug only). */
   sampledAt: number;
   /** 3D Tiles tile depth at last sample. Higher = better LOD. 0 if unknown. */
@@ -84,8 +90,9 @@ export interface RouteCell {
    */
   sample: CellSample;
   /**
-   * Mirror of `sample.state === 'stable'`. Kept as a property (rather than
-   * a getter) for hot-path read access. Set in lockstep by `RouteCellSampler`.
+   * The cell has a height to stand on: `sample.state` is `stable` or
+   * `filled`. Kept as a property (rather than a getter) for hot-path read
+   * access. Set in lockstep by `RouteCellSampler`.
    */
   heightSampled: boolean;
   /** Set of enemies currently in this cell */

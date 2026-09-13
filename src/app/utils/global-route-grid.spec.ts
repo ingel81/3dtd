@@ -4,6 +4,7 @@ import type { ColumnSample } from '../three-engine/column-sample';
 import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
 import { corridorConfig, lateralLimit, resetCorridorConfig } from './route-corridor';
+import { overlayCellKind } from './route-grid-aggregate-viz';
 
 // Stand-in for the cubemap: a wall at 10 m, so a cell's visibility follows
 // its height. Targets below it are visible, targets above it are not.
@@ -219,7 +220,7 @@ describe('GlobalRouteGrid tile seams', () => {
     grid.initialize(fallsThrough(0.6) as never, coordinateSync);
     grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4 }, { lat: 1, lon: 40 }]]);
 
-    expect(grid.getCellAt(21, 1)!.heightSampled).toBe(false);
+    expect(grid.getCellAt(21, 1)!.sample.state).not.toBe('stable');
     // Enemies there stand on the neighbours' ground.
     expect(grid.getGroundLocalYAt(21, 1)).toBeCloseTo(2.1, 0);
   });
@@ -250,6 +251,59 @@ describe('GlobalRouteGrid tile seams', () => {
     grid.initialize(upgrade as never, coordinateSync);
     grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4 }, { lat: 1, lon: 40 }]]);
     expect(grid.getCellAt(21, 1)!.terrainHeight).toBe(-40);
+  });
+
+  const street = (column: (x: number) => ColumnSample | null) => {
+    const grid = new GlobalRouteGrid();
+    grid.initialize(column as never, coordinateSync);
+    grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4 }, { lat: 1, lon: 40 }]]);
+    return grid;
+  };
+
+  it('fills a cell between stable cells when no column near it gives ground', () => {
+    const grid = street(fallsThrough(0.6));
+    grid.updateTerrainHeights();
+
+    for (const z of [-3, -1, 1, 3, 5]) {
+      const cell = grid.getCellAt(21, z)!;
+      expect(cell.sample.state, `z=${z}`).toBe('filled');
+      expect(cell.heightSampled).toBe(true);
+      // Halfway between the ground at x = 19 and x = 23; the edge cell had taken the -3542 m.
+      expect(cell.terrainHeight, `z=${z}`).toBeCloseTo(2.1, 6);
+      // A plain contour in the Route Grid Overlay.
+      expect(overlayCellKind(cell) & 7).toBe(0);
+    }
+    expect(grid.dumpStats().filled).toBe(5);
+    // The LOS display takes them, enemies stand on them.
+    expect(grid.getCellsInRange(21, 1, 1)).toContain(grid.getCellAt(21, 1));
+    expect(grid.getGroundLocalYAt(21, -3)).toBeCloseTo(2.1, 6);
+  });
+
+  it('replaces a fill with the first sample it accepts and reports both', () => {
+    let width = 0.6;
+    const grid = street((x) => fallsThrough(width)(x));
+    const changed = vi.fn();
+    grid.addCellsChangedListener(changed);
+    // Its neighbours move: the fill follows them.
+    grid.updateTerrainHeights();
+    expect(changed).not.toHaveBeenCalled();
+
+    // Finer tiles close the gap to a thin seam.
+    width = 0;
+    grid.updateTerrainHeights();
+    const cell = grid.getCellAt(21, 1)!;
+    expect(cell.sample.state).toBe('stable');
+    expect(cell.terrainHeight).toBeCloseTo(2.15, 6);
+    expect(changed.mock.calls.flatMap(([cells]) => cells)).toContain(cell);
+  });
+
+  it('leaves a cell without stable cells on opposite sides unsampled', () => {
+    // A gap three cells wide.
+    const grid = street((x) => (Math.abs(x - 21) < 2.6 ? null : seam(x)));
+    grid.updateTerrainHeights();
+    const cell = grid.getCellAt(21, 1)!;
+    expect(cell.sample.state).toBe('unsampled');
+    expect(overlayCellKind(cell) & 7).toBe(3);
   });
 });
 

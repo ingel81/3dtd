@@ -4,7 +4,8 @@ import type { RouteCellSampler } from './route-cell-sampler';
 import { RouteGridHeightSweep } from './route-grid-height-sweep';
 
 const cells = (count: number, sampledFrom = count) =>
-  Array.from({ length: count }, (_, key) => ({ key, heightSampled: key >= sampledFrom }) as RouteCell);
+  Array.from({ length: count }, (_, key) =>
+    ({ key, heightSampled: key >= sampledFrom, sample: { state: key >= sampledFrom ? 'stable' : 'unsampled' } }) as RouteCell);
 
 /** A sampler whose sampleCellY reports a height change for the cells `moves` picks. */
 function fakeSampler(moves: (cell: RouteCell) => boolean) {
