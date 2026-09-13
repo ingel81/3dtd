@@ -7,9 +7,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
  * What the boss intro puts over the canvas (BossIntroService): a dark veil
  * that fades in before each camera cut and out after it, and while the
  * portal shot holds a title card in the lower third, the boss's name over a
- * thin gold rule. Always in the canvas area, so the veil's first fade has an
- * opacity to start from; without an intro it is transparent and lets every
- * click through.
+ * thin gold rule. Until the view is back, a transparent button over the
+ * whole canvas area skips the intro on a click, and keeps the click from the
+ * map, the HUD and the pause button under it. Always in the canvas area, so
+ * the veil's first fade has an opacity to start from; without an intro it
+ * is transparent and lets every click through.
  */
 @Component({
   selector: 'app-boss-intro',
@@ -25,7 +27,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
         <span class="overline">Boss<span class="mark"></span>Wave {{ card.wave }}</span>
         <span class="name">{{ card.name }}</span>
         <span class="rule"></span>
+        <span class="hint"><kbd>Esc</kbd> or click to skip</span>
       </div>
+    }
+    @if (skippable()) {
+      <button type="button" class="skip-layer" aria-label="Skip the boss intro" (click)="skip()"></button>
     }
   `,
   styles: [`
@@ -132,6 +138,40 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       background: linear-gradient(90deg, transparent, var(--td-gold), transparent);
     }
 
+    .hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: 400 10px/1 var(--td-font-mono);
+      letter-spacing: 0.08em;
+      color: var(--td-text-muted);
+    }
+
+    .hint kbd {
+      padding: 2px 5px;
+      border: 1px solid var(--td-frame-dark);
+      border-radius: 2px;
+      background: var(--td-panel-shadow);
+      font: inherit;
+      font-size: 9px;
+      color: var(--td-text-secondary);
+    }
+
+    .skip-layer {
+      position: absolute;
+      inset: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    .skip-layer:focus-visible {
+      outline: 1px solid var(--td-gold-dark);
+      outline-offset: -4px;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .card,
       .card.shown {
@@ -157,4 +197,13 @@ export class BossIntroComponent {
   });
   /** The card shows while the portal shot holds */
   readonly shown = computed(() => this.bossIntro.stage() === 'hold');
+  /** Until the view is back; while the veil lifts off it the map takes clicks again */
+  readonly skippable = computed(() => {
+    const stage = this.bossIntro.stage();
+    return stage !== null && stage !== 'reveal';
+  });
+
+  skip(): void {
+    this.bossIntro.skip();
+  }
 }
