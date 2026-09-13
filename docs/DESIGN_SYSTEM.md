@@ -442,7 +442,7 @@ Der Held-Knopf ist ein Schalter: Icon `--td-text-secondary`, Hover `--td-text-pr
 
 Ohne Wirkung bleibt ein Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht. Der Tooltip (`tdRichTooltip`, rechts daneben) trägt im Kopf Name, Zustand in Versalien ("RECHARGES IN 2 WAVES") und die Tastenkappe, darunter CHARGES und RECHARGE, dann die Beschreibung; gesperrt statt der Zahlen die Forschung, die freischaltet, mit Preis. Zustand, Striche und Texte liefern `abilityButtonView()` und `abilityTooltip()` (`ability-bar/ability-button.ts`) aus `GameStore.abilities`.
 
-Im Zielmodus zeigt die Kontext-Hinweis-Box "Click Strike" und "ESC Cancel", dazu die Warnung "No route within 30 m", solange keine Route-Zelle in Reichweite ist. Auf der Karte ist der Zielring gold (`--td-gold`), wo der Schlag landen würde, und rot (`--td-health-red`), wo er abgelehnt würde; der Marker während der Vorwarnung ist orange (`--td-warn-orange`) mit goldenem Countdown-Ring (`--td-gold-light`).
+Im Zielmodus zeigt die Kontext-Hinweis-Box "Click" mit dem `aimHint` der Fähigkeit (Nuklearschlag: "Strike") und "ESC Cancel", dazu die Warnung "No route within 30 m", solange keine Route-Zelle in Reichweite ist. Auf der Karte ist der Zielring gold (`--td-gold`), wo der Schlag landen würde, und rot (`--td-health-red`), wo er abgelehnt würde; der Marker während der Vorwarnung ist orange (`--td-warn-orange`) mit goldenem Countdown-Ring (`--td-gold-light`).
 
 ### Off-Screen-Pfeile (Canvas)
 

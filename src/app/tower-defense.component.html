@@ -252,7 +252,7 @@
         />
       } @else if (abilityTargetingActive()) {
         <app-context-hint
-          [hints]="abilityTargetingHints"
+          [hints]="abilityTargetingHints()"
           [warning]="abilityTargetingWarning()"
         />
       } @else if (heroSelected()) {

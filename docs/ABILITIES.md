@@ -24,7 +24,7 @@ Alle Werte stehen in `configs/abilities.config.ts` (`ABILITIES['nuclear-strike']
 | Einsatz | nur während einer Welle |
 | Ziel | Klick; der Einschlag liegt auf der Mitte der nächsten Route-Zelle im Umkreis von 30 m, sonst wird abgelehnt |
 | Vorwarnung | 1500 ms Spielzeit, das sind 90 Sub-Steps à 16,667 ms |
-| Wirkung | Radius 25 m, gemessen in 2D, also Boden und Luft; 60 % der Max-HP, Bosse (`isBoss`) 20 %; an der Schadensmatrix vorbei |
+| Wirkung | Radius 25 m, gemessen in 2D, also Boden und Luft; 60 % der Max-HP, Bosse (`isBoss`) 20 %; an der Schadensmatrix vorbei (`effect` der Art `max-hp-fraction`) |
 | Gold | jeder Kill zahlt seinen Anteil am Kill-Budget der Welle wie jeder andere; kein Tower bekommt ihn gutgeschrieben. Ein getötetes Skeleton splittet wie bei jedem Kill |
 | Wave-Director | Kills zählen im Fairness-Gate als Leck (siehe unten) |
 
@@ -316,12 +316,15 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
    ist (vergeben: siehe Tastenkürzel in DESIGN_SYSTEM.md).
 2. Eine Forschung mit einem `global-perk`, dessen `perkId` dem Eintrag
    entspricht, und `researchId` im Eintrag; der gesperrte Knopf nennt sie.
-3. Die Wirkung: `AbilityManager.resolve` kennt nur den Max-HP-Anteil im Radius.
+3. Die Wirkung: `AbilityConfig.effect`, eine Art aus `AbilityEffect`;
+   `AbilityManager.resolve` hat je Art einen Zweig. Eine neue Art kommt mit
+   ihrem Zweig.
 4. Einträge in `abilityVfx` (VFXService), `ABILITY_IMPACT_SOUNDS` und
    `ABILITY_IMPACT_SHAKE`, siehe [Darstellung](#darstellung); ohne sie
    kompiliert der Code nicht. Der Zielmarker (`abilityMarkers.showStrike`)
    passt zu jeder Fähigkeit mit Vorwarnung.
-5. Die Kontext-Hinweis-Box im Zielmodus sagt fest "Click Strike"
+5. `aimHint` im Eintrag: was ein Klick im Zielmodus tut, die
+   Kontext-Hinweis-Box zeigt "Click" und diesen Text
    (`abilityTargetingHints` in `tower-defense.component.ts`).
 
 ---

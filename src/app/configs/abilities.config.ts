@@ -16,6 +16,16 @@ import type { TdIconName } from '../components/icon/icon.component';
 
 export type AbilityId = 'nuclear-strike';
 
+/**
+ * What an ability does where it lands. AbilityManager.resolve() has one
+ * branch per kind.
+ *
+ * max-hp-fraction: every enemy in the radius loses `fraction` of its max
+ * HP, bosses (`isBoss`) `bossFraction`, independent of the damage matrix.
+ */
+export type AbilityEffect =
+  | { kind: 'max-hp-fraction'; fraction: number; bossFraction: number };
+
 export interface AbilityConfig {
   id: AbilityId;
   /** UI label; the game UI is English */
@@ -24,6 +34,8 @@ export interface AbilityConfig {
   description: string;
   /** Icon of its button in the ability bar */
   icon: TdIconName;
+  /** What a click does in the targeting mode, for the context hint box: "Click Strike" */
+  aimHint: string;
   /**
    * Key that works like a press on its button, one letter, case ignored. It
    * must not be one hotkey-map.ts or InputHandlerService already use;
@@ -41,10 +53,8 @@ export interface AbilityConfig {
   radiusM: number;
   /** Game time between the command and the impact, ms */
   warningMs: number;
-  /** Share of its max HP an enemy loses, independent of the damage matrix */
-  maxHpFraction: number;
-  /** The same for enemies with `isBoss` */
-  bossMaxHpFraction: number;
+  /** What it does where it lands */
+  effect: AbilityEffect;
   /**
    * The impact lands on the centre of the nearest route cell within this
    * distance of the target; with none in reach the command is rejected. Clicks
@@ -61,6 +71,7 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
       'Strike a spot on the route: 1.5 s later everything within 25 m loses 60% of its max HP, bosses 20%. '
       + 'One charge, a new one every 3 waves.',
     icon: 'radiation',
+    aimHint: 'Strike',
     hotkey: 'K',
     researchId: 'nuclear-strike',
     perkId: 'nuclear-strike',
@@ -68,20 +79,19 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
     rechargeWaves: 3,
     radiusM: 25,
     warningMs: 1500,
-    maxHpFraction: 0.6,
-    bossMaxHpFraction: 0.2,
+    effect: { kind: 'max-hp-fraction', fraction: 0.6, bossFraction: 0.2 },
     snapRadiusM: 30,
   },
 };
 
 export const ABILITY_IDS = Object.keys(ABILITIES) as AbilityId[];
 
-/** Share of its max HP an enemy of `enemyType` loses to `ability`. */
+/** Share of its max HP an enemy of `enemyType` loses to a max-hp-fraction effect. */
 export function abilityDamageFraction(
-  ability: AbilityConfig,
+  effect: Extract<AbilityEffect, { kind: 'max-hp-fraction' }>,
   enemyType: Pick<EnemyTypeConfig, 'isBoss'>,
 ): number {
-  return enemyType.isBoss ? ability.bossMaxHpFraction : ability.maxHpFraction;
+  return enemyType.isBoss ? effect.bossFraction : effect.fraction;
 }
 
 /** One ability as the UI and the bot see it: the AbilityManager's snapshot. */
