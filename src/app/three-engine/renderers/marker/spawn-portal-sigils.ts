@@ -212,12 +212,13 @@ export const PORTAL_SIGILS: readonly Sigil[] = [
     ],
   },
   {
-    name: 'drifting bodies',
+    // Replaces 'drifting bodies', whose ring and dots either side of a long
+    // flat sweep read as a percent sign
+    name: 'averted moon',
     parts: [
-      seg(0.95, 202, 248, 0.55, 0.55), node(0.035, on(0.55, 0.55, 0.95, 248)),
-      seg(0.12, 20, 110, 0.14, 0.17), seg(0.12, 140, 230, 0.14, 0.17), seg(0.115, 260, 350, 0.14, 0.17),
-      node(0.03, on(0.14, 0.17, 0.12, 125)),
-      dot(0.04, -0.3, -0.12), dot(0.03, -0.17, -0.3),
+      crescent(0.19, 215, -0.12, -0.02),
+      seg(0.1, 10, 120, 0.2, 0.22), seg(0.1, 150, 250, 0.2, 0.22), seg(0.095, 285, 345, 0.2, 0.22),
+      dot(0.03, -0.02, -0.36), dot(0.035, 0.12, -0.28), dot(0.028, 0.26, -0.2), dot(0.022, 0.36, -0.08),
     ],
   },
 ];

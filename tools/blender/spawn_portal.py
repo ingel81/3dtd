@@ -15,9 +15,11 @@ Textures (all share one UV set):
   base colour   TEX, JPEG, sRGB
   normal        TEX, JPEG, tangent space (OpenGL), the GLB carries tangents
   occlusion/roughness/metal   TEX_SMALL, JPEG: R ambient occlusion, G roughness, B metal
-  emissive      TEX_SMALL, PNG, a data map, not a colour: R the bottom of the
-                sigils' carved grooves, where they glow, G the order their strokes
-                are written in (0 to 1 over a sigil), B glowing cracks
+  emissive      TEX_SMALL, PNG, a data map, not a colour: R how much of each
+                carved sigil is left to glow, a smooth mask over its cell (the
+                game draws the glow itself from the sigil's distance field), G
+                the order its strokes are written in (0 to 1 over a sigil), B
+                glowing cracks
 
 Stages (the later ones read the earlier ones' results from WORK):
   build    low-poly frame and UVs
@@ -25,7 +27,9 @@ Stages (the later ones read the earlier ones' results from WORK):
   compose  numpy: height, base colour, occlusion/roughness/metal, emissive data
   normal   Cycles bake of the normal map from the height
   export   the GLB
-  render   preview renders for review, not part of the asset
+
+The game shades the frame with its own unlit shader (createPortalGateMaterial
+in marker-shaders.ts), not with Blender's lights: judge the look there.
 
 Headless:
     blender --background --python tools/blender/spawn_portal.py -- all
@@ -52,7 +56,6 @@ if 'REPO' not in globals():
 LAYOUT = json.load(open(os.path.join(REPO, 'tools/blender/spawn_portal_layout.json')))
 OUT_GLB = os.path.join(REPO, 'public/assets/models/structures/spawn_portal.glb')
 WORK = os.path.join(REPO, 'tmp/spawn_portal_work')
-RENDERS = os.path.join(REPO, 'tmp/spawn_portal_renders')
 
 SEED = 1313
 TEX = 2048
@@ -108,9 +111,9 @@ PLAIN, GLYPH, SPIKE, GLOW = 0, 1, 2, 3
 
 # ── Texture look (linear colours): dark grey-brown basalt, no black; the
 # game's frameExposure sets how bright it shows against the tiles ──
-BASALT = np.array([0.104, 0.090, 0.077], np.float32)
+BASALT = np.array([0.100, 0.083, 0.068], np.float32)
 OBSIDIAN = np.array([0.062, 0.057, 0.060], np.float32)
-WORN = np.array([0.200, 0.185, 0.170], np.float32)
+WORN = np.array([0.260, 0.235, 0.210], np.float32)
 SOOT = np.array([0.022, 0.018, 0.016], np.float32)
 SCORCH = np.array([0.110, 0.045, 0.020], np.float32)
 IRON_COL = np.array([0.075, 0.070, 0.066], np.float32)
@@ -1294,7 +1297,7 @@ def compose():
     S = SIGIL['size']
     stroke = SIGIL['stroke']
     groove = np.zeros(cov.shape, np.float32)
-    bottom = np.zeros(cov.shape, np.float32)
+    glow = np.zeros(cov.shape, np.float32)
     lip = np.zeros(cov.shape, np.float32)
     order = np.zeros(cov.shape, np.float32)
     stain = np.zeros(cov.shape, np.float32)
@@ -1309,6 +1312,9 @@ def compose():
     for cell in LAYOUT['cells']:
         sigil = LAYOUT['sigils'][cell['sigil']]
         inside = (np.abs(xs - cell['x']) < 0.5 * S) & (np.abs(ys - cell['y']) < 0.5 * S)
+        # A little past the cell, so bilinear filtering and mip levels do not
+        # pull its edge into the glow
+        around = (np.abs(xs - cell['x']) < 0.5 * S + 0.06) & (np.abs(ys - cell['y']) < 0.5 * S + 0.06)
         ii = idx[inside]
         c, s = math.cos(-cell['turn']), math.sin(-cell['turn'])
         px = (xs[inside] - cell['x']) / S - cell['dx']
@@ -1325,11 +1331,14 @@ def compose():
         kept = smoothstep(worn_from, worn_from + 0.1, wearing[inside])
         near = np.exp(-np.maximum(d, 0) / 0.06)
         cover = smoothstep(0.62, 0.85, sooting[inside] + 0.25 * float(cell_rng.random())) * near
-        # Steep walls and a flat bottom, where the glow sits; the cut edge
+        # Steep walls and a flat bottom; the cut edge
         # No part wears away wholly: a sigil never shrinks to a lone crescent and dot
         groove.ravel()[ii] = smoothstep(0.0, 0.6 * stroke, -d) * (0.4 + 0.6 * kept) * (1 - 0.45 * cover)
-        bottom.ravel()[ii] = (smoothstep(0.4 * stroke, 0.95 * stroke, -d) * (0.3 + 0.7 * smoothstep(0.2, 0.7, kept))
-                              * (1 - 0.8 * cover))
+        # How much of the carving is left to glow: the game draws the glow
+        # from the sigil's distance field and dims it by this where the
+        # sigil wears away or soot fills it. Smooth, so it holds far away
+        glow.ravel()[idx[around]] = 0.3 + 0.7 * smoothstep(0.2, 0.7, smoothstep(worn_from, worn_from + 0.1, wearing[around]))
+        glow.ravel()[ii] *= 1 - 0.8 * cover
         lip.ravel()[ii] = np.exp(-((d - 0.008) / 0.01) ** 2) * (d > 0) * kept
         order.ravel()[ii] = o
         # Smoke rises: the stain reaches up the face from the grooves
@@ -1411,7 +1420,7 @@ def compose():
     col *= (1 - 0.35 * grime)[..., None]
     col *= (0.7 + 0.3 * ao_out)[..., None]
     # Edges rubbed lighter, chips fresh and pale
-    col = col + (WORN - col) * (0.55 * wear)[..., None]
+    col = col + (WORN - col) * (0.7 * wear)[..., None]
     col = col + (WORN * 1.15 - col) * (0.85 * chip)[..., None]
     col *= (1 - 0.4 * pit)[..., None]
     soot = near_open * (0.55 + 0.45 * patches)
@@ -1453,14 +1462,15 @@ def compose():
 
     # ── Occlusion: the bake, and the cavities of the height ──
     h_filled = dilate(h, cov, 8)
-    cavity = np.clip(1 + 12 * (h_filled - blur(h_filled, 3)), 0.55, 1.0)
-    # Not too strong: the relief should read from the overview camera
-    occ = np.power(np.clip(ao_macro, 0, 1), 0.7) * cavity * (0.75 + 0.25 * np.clip(ao_out, 0, 1))
+    cavity = np.clip(1 + 12 * (h_filled - blur(h_filled, 3)), 0.45, 1.0)
+    # Deep enough that joints and crevices read dark against the lighter
+    # worn edges from the overview camera
+    occ = np.power(np.clip(ao_macro, 0, 1), 0.9) * cavity * (0.7 + 0.3 * np.clip(ao_out, 0, 1))
 
     # ── Emissive data ──
     crack_glow = crack_core * crack_area * smoothstep(0.4, 0.85, near_open)
     crack_glow = np.maximum(crack_glow, glowing * (0.45 + 0.55 * smoothstep(0.3, 0.8, fbm)))
-    emis = np.stack([bottom, order, crack_glow], -1)
+    emis = np.stack([blur(glow, 1), order, crack_glow], -1)
 
     # ── Write ──
     np.save(os.path.join(WORK, 'height.npy'), dilate(h, cov, 16))
@@ -1609,188 +1619,6 @@ def export():
     known = {p.identifier for p in bpy.ops.export_scene.gltf.get_rna_type().properties}
     bpy.ops.export_scene.gltf(filepath=OUT_GLB, **{k: v for k, v in options.items() if k in known})
     print(f'[portal] {OUT_GLB}: {os.path.getsize(OUT_GLB) / 1024:.0f} KB')
-
-
-# ════════════════════════════════════════════════════════════════════════
-# RENDER (review only)
-# ════════════════════════════════════════════════════════════════════════
-
-# Portal-space cameras: position, target, lens (mm)
-CAMERAS = {
-    # As the player sees it: from above at about 45 degrees, the whole portal
-    'overview': ((20.0, 42.0, 22.0 + HALF_DEPTH), (0.0, 7.0, 0.0), 35),
-    'front': ((0.0, 9.8, 44.0 + HALF_DEPTH), (0.0, 9.8, 0.0), 35),
-    'three_quarter': ((26.0, 13.0, 34.0), (0.0, 9.0, 0.0), 35),
-    'glyphs': ((7.6, 6.9, HALF_DEPTH + 7.5), (5.0, 6.5, HALF_DEPTH + WALL), 50),
-}
-
-
-def look_at(cam_ob, eye, at):
-    direction = P(*at) - P(*eye)
-    cam_ob.location = P(*eye)
-    cam_ob.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
-
-
-def mix_color(nt, blend, factor, a, b):
-    """A colour Mix node; a and b are sockets or RGBA tuples."""
-    node = nt.nodes.new('ShaderNodeMix')
-    node.data_type = 'RGBA'
-    node.blend_type = blend
-    fac = next(s for s in node.inputs if s.name == 'Factor' and s.type == 'VALUE')
-    if isinstance(factor, (int, float)):
-        fac.default_value = factor
-    else:
-        nt.links.new(factor, fac)
-    for name, src in (('A', a), ('B', b)):
-        sock = next(s for s in node.inputs if s.name == name and s.type == 'RGBA')
-        if isinstance(src, tuple):
-            sock.default_value = src
-        else:
-            nt.links.new(src, sock)
-    return next(s for s in node.outputs if s.name == 'Result' and s.type == 'RGBA')
-
-
-def render_material(awake_cell=None):
-    """The textures as the game shades them, roughly: the occlusion on the
-    colour, the sigils glowing faintly dark red to violet deep in their
-    grooves, one sigil waking: an uneven glimmer creeping along its strokes."""
-    mat = final_material().copy()
-    mat.name = 'sp_render'
-    nt = mat.node_tree
-    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
-    base = next(n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.image.name.startswith('base'))
-    sep = next(n for n in nt.nodes if n.type == 'SEPARATE_COLOR')
-    nt.links.new(mix_color(nt, 'MULTIPLY', 1.0, base.outputs['Color'], sep.outputs['Red']), bsdf.inputs['Base Color'])
-    emis = next(n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.image.name.startswith('emissive'))
-    esep = nt.nodes.new('ShaderNodeSeparateColor')
-    nt.links.new(emis.outputs['Color'], esep.inputs['Color'])
-    glow = math_node(nt, 'POWER', esep.outputs['Red'], 2.0)
-    # In the game each sigil breathes at its own pace; a slow noise stands in for that here
-    breath = noise(nt, object_coords(nt), 0.4, 1, offset=2.0)
-    level = math_node(nt, 'MULTIPLY', glow, math_node(nt, 'MULTIPLY', math_node(nt, 'POWER', breath, 3.0), 2.5))
-    red = mix_color(nt, 'MIX', level, (0.0, 0.0, 0.0, 1), (0.09, 0.004, 0.035, 1))
-    # Cracks near the opening
-    result = mix_color(nt, 'ADD', esep.outputs['Blue'], red, (0.35, 0.05, 0.012, 1))
-    if awake_cell is not None:
-        cx, cy = awake_cell
-        tc = nt.nodes.new('ShaderNodeTexCoord')
-        xyz = nt.nodes.new('ShaderNodeSeparateXYZ')
-        nt.links.new(tc.outputs['Object'], xyz.inputs['Vector'])
-        half = SIGIL['size'] / 2
-        inx = math_node(nt, 'LESS_THAN', math_node(nt, 'ABSOLUTE', math_node(nt, 'SUBTRACT', xyz.outputs['X'], cx)), half)
-        iny = math_node(nt, 'LESS_THAN', math_node(nt, 'ABSOLUTE', math_node(nt, 'SUBTRACT', xyz.outputs['Z'], cy)), half)
-        # A noise along the stroke order: bits of the lines flare, most stay dark
-        along = nt.nodes.new('ShaderNodeCombineXYZ')
-        # Low along the order: it is stored in 8 bits, a steep curve over it draws bands
-        nt.links.new(math_node(nt, 'MULTIPLY', esep.outputs['Green'], 6.0), along.inputs['X'])
-        along.inputs['Y'].default_value = 0.37
-        flicker = nt.nodes.new('ShaderNodeTexNoise')
-        flicker.inputs['Scale'].default_value = 1.0
-        flicker.inputs['Detail'].default_value = 1.0
-        nt.links.new(along.outputs['Vector'], flicker.inputs['Vector'])
-        glimmer = math_node(nt, 'MULTIPLY', math_node(nt, 'POWER', flicker.outputs['Fac'], 3.0), 6.0)
-        lit = math_node(nt, 'MULTIPLY', math_node(nt, 'MULTIPLY', inx, iny),
-                        math_node(nt, 'MULTIPLY', esep.outputs['Red'], glimmer))
-        result = mix_color(nt, 'ADD', lit, result, (0.45, 0.03, 0.06, 1))
-    nt.links.new(result, bsdf.inputs['Emission Color'])
-    bsdf.inputs['Emission Strength'].default_value = 2.0
-    return mat
-
-
-def stage_scene():
-    """Street, void, light and camera round the portal, as in the game:
-    a key light from the fixed direction, the core's red light from the
-    opening, a dusky sky."""
-    scene = bpy.context.scene
-    for o in list(scene.objects):
-        if o.name.startswith('sp_stage'):
-            bpy.data.objects.remove(o, do_unlink=True)
-    scene.render.engine = 'BLENDER_EEVEE'
-    scene.render.resolution_x = 1600
-    scene.render.resolution_y = 900
-    scene.eevee.taa_render_samples = 64
-    scene.view_settings.view_transform = 'AgX'
-    world = scene.world or bpy.data.worlds.new('sp_world')
-    scene.world = world
-    world.use_nodes = True
-    world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.028, 0.03, 0.04, 1)
-    world.node_tree.nodes['Background'].inputs['Strength'].default_value = 1.0
-
-    def add(name, data):
-        ob = bpy.data.objects.new(name, data)
-        scene.collection.objects.link(ob)
-        return ob
-    ground = add('sp_stage_ground', bpy.data.meshes.new('sp_stage_ground'))
-    bm = bmesh.new()
-    s = 80
-    bm.faces.new([bm.verts.new((a, b, 0.0)) for a, b in ((-s, -s), (s, -s), (s, s), (-s, s))])
-    bm.to_mesh(ground.data)
-    bm.free()
-    gmat = bpy.data.materials.new('sp_stage_asphalt')
-    gmat.use_nodes = True
-    gmat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.03, 0.03, 0.032, 1)
-    gmat.node_tree.nodes['Principled BSDF'].inputs['Roughness'].default_value = 0.9
-    ground.data.materials.append(gmat)
-
-    void = add('sp_stage_void', bpy.data.meshes.new('sp_stage_void'))
-    bm = bmesh.new()
-    # The void surfaces in front of the volume and behind it
-    for zz in (HALF_DEPTH, -HALF_DEPTH):
-        corners = ((-HALF - 0.3, -0.2), (HALF + 0.3, -0.2), (HALF + 0.3, OPEN_H + 0.3), (-HALF - 0.3, OPEN_H + 0.3))
-        bm.faces.new([bm.verts.new(P(x, yy, zz)) for x, yy in corners])
-    bm.to_mesh(void.data)
-    bm.free()
-    vmat = bpy.data.materials.new('sp_stage_void')
-    vmat.use_nodes = True
-    vn = vmat.node_tree
-    vn.nodes.clear()
-    em = vn.nodes.new('ShaderNodeEmission')
-    grad = vn.nodes.new('ShaderNodeTexGradient')
-    grad.gradient_type = 'SPHERICAL'
-    tc = vn.nodes.new('ShaderNodeTexCoord')
-    mp = vn.nodes.new('ShaderNodeMapping')
-    mp.inputs['Location'].default_value = (0, 0, -OPEN_H * 0.45 / 6)
-    # Both surfaces alike: the depth does not count
-    mp.inputs['Scale'].default_value = (1 / 6, 0, 1 / 6)
-    vn.links.new(tc.outputs['Object'], mp.inputs['Vector'])
-    vn.links.new(mp.outputs['Vector'], grad.inputs['Vector'])
-    ramp = vn.nodes.new('ShaderNodeValToRGB')
-    ramp.color_ramp.elements[0].color = (0.1, 0.008, 0.012, 1)
-    ramp.color_ramp.elements[1].color = (0.0, 0.0, 0.0, 1)
-    vn.links.new(grad.outputs['Fac'], ramp.inputs['Fac'])
-    vn.links.new(ramp.outputs['Color'], em.inputs['Color'])
-    out = vn.nodes.new('ShaderNodeOutputMaterial')
-    vn.links.new(em.outputs['Emission'], out.inputs['Surface'])
-    void.data.materials.append(vmat)
-
-    sun = add('sp_stage_key', bpy.data.lights.new('sp_stage_key', 'SUN'))
-    sun.data.energy = 3.0
-    key = P(0.4, 0.8, 0.45)
-    sun.rotation_euler = (-key).to_track_quat('-Z', 'Y').to_euler()
-    core = add('sp_stage_core', bpy.data.lights.new('sp_stage_core', 'POINT'))
-    core.data.energy = 900
-    core.data.color = (1.0, 0.12, 0.05)
-    core.location = P(0, OPEN_H * 0.45, HALF_DEPTH + 0.6)
-    cam = add('sp_stage_cam', bpy.data.cameras.new('sp_stage_cam'))
-    scene.camera = cam
-    return cam
-
-
-def render(out_dir=RENDERS, prefix='after', setup_portal=True):
-    """Front, three-quarter and a close-up of the pillar sigils."""
-    os.makedirs(out_dir, exist_ok=True)
-    cam = stage_scene()
-    if setup_portal:
-        ob = portal()
-        ob.data.materials.clear()
-        right_row2 = next(c for c in LAYOUT['cells'] if c['x'] > 0 and abs(c['y'] - 6.6) < 0.01)
-        ob.data.materials.append(render_material(awake_cell=(right_row2['x'], right_row2['y'])))
-    for name, (eye, at, lens) in CAMERAS.items():
-        look_at(cam, eye, at)
-        cam.data.lens = lens
-        bpy.context.scene.render.filepath = os.path.join(out_dir, f'{prefix}_{name}.png')
-        bpy.ops.render.render(write_still=True)
-        print('[portal] rendered', bpy.context.scene.render.filepath)
 
 
 # ════════════════════════════════════════════════════════════════════════
