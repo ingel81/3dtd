@@ -577,12 +577,12 @@ export class InputHandlerService {
 
   /**
    * Handle keyup events delegated from the component's @HostListener.
+   * A release always counts, also on an element that owns the key: an arrow
+   * held over the canvas and let go on a slider that took the focus meanwhile
+   * would otherwise keep the camera panning. Releasing a key that was never
+   * pressed changes nothing.
    */
   handleKeyUp(event: KeyboardEvent): void {
-    if (ownsKey(event.target, event.key)) {
-      return;
-    }
-
     // Camera panning key release
     this.keyboardPan.onKeyUp(event);
 
