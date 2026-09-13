@@ -187,6 +187,19 @@ describe('VFXService nuclear strike', () => {
     expect(ABILITY_DEATH_BLOOD_CAP * 40).toBeLessThanOrEqual(PARTICLE_LIMITS.maxTrailNormalParticlesPerPool / 3);
   });
 
+  it('picks the effects by the ability id: an ability without an entry shows nothing', () => {
+    const { eventBus, tilesEngine, service } = strikeSetup();
+    // Stands for an ability added later; the typed table would not compile without its entry
+    const abilityId = 'later-ability' as never;
+    eventBus.emit({ type: 'ability:used', abilityId, strikeId: 4, target: TARGET, radiusM: 25, warningMs: 1500 });
+    eventBus.emit({ type: 'ability:impact', abilityId, strikeId: 4, target: TARGET, radiusM: 25, hits: 0, kills: 0 });
+    expect(tilesEngine.abilityMarkers.showStrike).not.toHaveBeenCalled();
+    expect(tilesEngine.abilityMarkers.removeStrike).not.toHaveBeenCalled();
+    expect(tilesEngine.mushroomClouds.detonate).not.toHaveBeenCalled();
+    expect(tilesEngine.effects.markScorch).not.toHaveBeenCalled();
+    service.destroy();
+  });
+
   it('drops the markers and the clouds on a restart', () => {
     const { eventBus, tilesEngine, service, impact } = strikeSetup();
     impact();

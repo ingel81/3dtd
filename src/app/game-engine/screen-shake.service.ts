@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from './game-event-bus';
 import { ThreeTilesEngine } from '../three-engine';
-import { SCREEN_SHAKE_CONFIG, type ScreenShakePreset } from '../configs/visual-effects.config';
+import { ABILITY_IMPACT_SHAKE, SCREEN_SHAKE_CONFIG, type ScreenShakePreset } from '../configs/visual-effects.config';
 import { loadDisplayOptions } from '../utils/display-options.storage';
 
 /**
@@ -92,11 +92,13 @@ export class ScreenShakeService {
       }),
     );
 
-    // Nuclear strike → the biggest and longest shake, fading over a range of its own
+    // Ability impact → the ability's own shake (ABILITY_IMPACT_SHAKE), fading
+    // over a range of its own; the nuclear strike's is the biggest and longest
     this.subs.add(
-      this.eventBus.on('ability:impact', ({ target }) => {
-        const { strikeNearDistance, strikeFarDistance } = SCREEN_SHAKE_CONFIG;
-        this.shakeAt(presets.nuclearStrike, target.lat, target.lon, target.height ?? 0, strikeNearDistance, strikeFarDistance);
+      this.eventBus.on('ability:impact', ({ abilityId, target }) => {
+        const shake = ABILITY_IMPACT_SHAKE[abilityId];
+        if (!shake) return;
+        this.shakeAt(shake.preset, target.lat, target.lon, target.height ?? 0, shake.nearDistance, shake.farDistance);
       }),
     );
 

@@ -58,8 +58,8 @@ GameStateManager.runSubStep
 
 | Event | Abnehmer |
 |---|---|
-| `ability:used` | VFXService (Zielmarker) |
-| `ability:impact` | VFXService (Atompilz, Brandflecken), AudioService, ScreenShakeService, AIDataCollectorService (`abilityKills`) |
+| `ability:used` | VFXService (Zielmarker), je `abilityId` |
+| `ability:impact` | VFXService (Atompilz, Brandflecken), AudioService, ScreenShakeService, je `abilityId`; AIDataCollectorService (`abilityKills`, alle Fähigkeiten) |
 | `ability:rejected` | niemand fest; die UI prüft vor dem Klick selbst |
 | `ability:state-changed` | GameStateSyncService → `GameStore.abilities` |
 
@@ -180,6 +180,16 @@ den Display Options gilt auch hier. Sound `nuclear_strike`: das vorhandene
 Wanduhr-Timern wie das Sample selbst, `game:reset` verwirft ausstehende. Eine
 Warnsirene gibt es nicht, im Repo liegt kein passendes Sample.
 
+**Je Fähigkeit:** VFX, Ton und Shake wählen nach der `abilityId` im Event aus
+je einer Tabelle: `abilityVfx` im VFXService (was `ability:used` und
+`ability:impact` zeigen), `ABILITY_IMPACT_SOUNDS` in `audio.config.ts` und
+`ABILITY_IMPACT_SHAKE` in `visual-effects.config.ts`. Alle drei sind
+vollständig je `AbilityId` typisiert, eine neue Fähigkeit kompiliert erst mit
+ihren Einträgen; bei Ton und Shake heißt `null` keiner. Für den
+Nuklearschlag stehen dort die Werte von oben, sein Verhalten ist dasselbe.
+`game:reset` räumt Marker, Pilze und ausstehende Wiederholungen aller
+Fähigkeiten.
+
 ---
 
 ## Bedienung
@@ -299,8 +309,10 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
 2. Eine Forschung mit einem `global-perk`, dessen `perkId` dem Eintrag
    entspricht, und `researchId` im Eintrag; der gesperrte Knopf nennt sie.
 3. Die Wirkung: `AbilityManager.resolve` kennt nur den Max-HP-Anteil im Radius.
-4. VFXService, AudioService und ScreenShakeService behandeln jedes
-   `ability:used` und `ability:impact` wie den Nuklearschlag.
+4. Einträge in `abilityVfx` (VFXService), `ABILITY_IMPACT_SOUNDS` und
+   `ABILITY_IMPACT_SHAKE`, siehe [Darstellung](#darstellung); ohne sie
+   kompiliert der Code nicht. Der Zielmarker (`abilityMarkers.showStrike`)
+   passt zu jeder Fähigkeit mit Vorwarnung.
 5. Die Kontext-Hinweis-Box im Zielmodus sagt fest "Click Strike"
    (`abilityTargetingHints` in `tower-defense.component.ts`).
 

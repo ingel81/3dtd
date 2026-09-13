@@ -1,6 +1,6 @@
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
-import { GAME_SOUNDS } from '../configs/audio.config';
+import { ABILITY_IMPACT_SOUNDS } from '../configs/audio.config';
 
 /**
  * Audio Service - Handles spatial audio via events
@@ -9,11 +9,11 @@ import { GAME_SOUNDS } from '../configs/audio.config';
  * and plays sounds using ThreeTilesEngine's SpatialAudioManager.
  *
  * Event-driven: Subscribes to `audio:play` events from GameEventBus, and
- * plays the nuclear strike on `ability:impact`
+ * plays each ability's impact sound (ABILITY_IMPACT_SOUNDS) on `ability:impact`
  */
 export class AudioService {
   private readonly subs = new SubscriptionBag();
-  /** Repeats of the strike sound still to come (GAME_SOUNDS.nuclearStrike.tail) */
+  /** Repeats of impact sounds still to come (AbilityImpactSound.tail) */
   private readonly tailTimers = new Set<ReturnType<typeof setTimeout>>();
 
   constructor(
@@ -24,10 +24,13 @@ export class AudioService {
     this.setupEventHandlers();
   }
 
-  /** Sounds this service plays for game events of its own */
+  /** Sounds this service plays for game events of its own: the abilities' impacts */
   private registerSounds(): void {
-    const { id, url, refDistance, rolloffFactor, volume, maxInstances } = GAME_SOUNDS.nuclearStrike;
-    this.tilesEngine.spatialAudio?.registerSound(id, url, { refDistance, rolloffFactor, volume, maxInstances });
+    for (const sound of Object.values(ABILITY_IMPACT_SOUNDS)) {
+      if (!sound) continue;
+      const { id, url, refDistance, rolloffFactor, volume, maxInstances } = sound;
+      this.tilesEngine.spatialAudio?.registerSound(id, url, { refDistance, rolloffFactor, volume, maxInstances });
+    }
   }
 
   /**
@@ -38,13 +41,15 @@ export class AudioService {
       this.handleAudioPlay(event);
     }));
 
-    // Nuclear strike, at the impact point, with a rumbling tail of quieter repeats
-    this.subs.add(this.eventBus.on('ability:impact', ({ target }) => {
-      const { id, tail } = GAME_SOUNDS.nuclearStrike;
+    // The ability's own impact sound at the impact point, then its tail of
+    // quieter repeats (the nuclear strike rumbles)
+    this.subs.add(this.eventBus.on('ability:impact', ({ abilityId, target }) => {
+      const sound = ABILITY_IMPACT_SOUNDS[abilityId];
+      if (!sound) return;
       const play = (volume: number) =>
-        this.handleAudioPlay({ sound: id, lat: target.lat, lon: target.lon, height: target.height ?? 0, volume });
+        this.handleAudioPlay({ sound: sound.id, lat: target.lat, lon: target.lon, height: target.height ?? 0, volume });
       play(1);
-      for (const { delayMs, volume } of tail) {
+      for (const { delayMs, volume } of sound.tail) {
         const timer = setTimeout(() => {
           this.tailTimers.delete(timer);
           play(volume);
