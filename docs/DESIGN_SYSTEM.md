@@ -192,7 +192,7 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 | **Canvas** | 3D-Spielfeld mit Google Photorealistic Tiles |
 | **Sidebar** | Rechte Sidebar: WAVE-Panel, darunter BUILD, Tower-Detail oder Research (siehe [Sidebar-Panels](#sidebar-panels)) |
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets |
-| **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): Pause-Button und ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft. Pausiert zeigt der Pause-Button das Play-Icon eingelassen in `--td-gold-light` mit `--td-gold-dark`-Rand, darunter ein Glas-Chip "PAUSED" (10px Mono-Versalien) |
+| **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): Pause-Button und ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft. Pausiert zeigt der Pause-Button das Play-Icon eingelassen in `--td-gold-light` mit `--td-gold-dark`-Rand, darunter ein Glas-Chip "PAUSED" (10px Mono-Versalien). In derselben Spalte (`.td-hud-top`) darunter die Boss-Leiste, siehe [Boss-Leiste](#boss-leiste) |
 | **Kompass** | Oben rechts, Klick setzt die Kamera zurück |
 | **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move, H: Shortcuts), verschwindet nach 15 s oder per Klick |
 | **Quick Actions** | Sechs Icon-Buttons unten rechts, siehe unten |
@@ -243,6 +243,12 @@ Das Display-Menü ist ein Panel über seinem Toggle (`.td-display-panel`, 212px 
 | General | Freeze Tint, Screen Shake, Health Bars, Damage Numbers, Frame Limit (Off / 60 / 30) |
 
 Zeilen sind Checkbox-Labels wie im Display-Debugfenster (Akzent `--td-teal`), Kopfzeilen 10px Versalien in `--td-text-tertiary`, Schrift `--td-font-mono` 12px. Preset und Frame Limit sind Segmente: `--td-panel-secondary`, 1px `--td-frame-dark`, aktiv im Teal-Verlauf der aktiven Quick-Buttons, `aria-pressed`. Jede Effektzeile sagt im Tooltip, was sie abschaltet. Was die Schalter technisch tun: [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#vfx-einstellungen).
+
+### Boss-Leiste
+
+Solange ein Boss lebt (`EnemyTypeConfig.isBoss`, derzeit nur Herbert), steht oben mittig unter Game Speed und PAUSED-Chip `app-boss-bar` (`components/boss-bar/`): Glas-Panel (Mixin `bevel-glass`), `min(420px, 56vw)` breit, links der Name des Typs (12px/600 `--td-font-body`, Versalien, `--td-text-primary`), rechts die HP ("12,340 / 40,000", 10px Mono, `--td-text-muted`), darunter ein 8px-Balken als vertiefte Fläche mit Füllung in `--td-health-red`. Bei mehreren Bossen zeigt der große Balken den mit den meisten HP, die übrigen stehen als 3px-Balken darunter, höchstens vier, danach "+N" (Auswahl in `boss-bar.ts`). `pointer-events: none`.
+
+Bosse kommen über `enemy:spawned` in eine kurze Liste; ein 8-Hz-Timer außerhalb von Angular liest ihre HP und wirft die heraus, die gestorben, durchgekommen oder entfernt sind (ein Reset und das Debug-Fenster senden kein `enemy:died`, geprüft wird `active && alive`). Das Signal ändert sich nur, wenn sich die Leiste ändert; pausiert bleibt es also stehen.
 
 ---
 

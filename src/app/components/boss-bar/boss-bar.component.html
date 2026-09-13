@@ -1,0 +1,24 @@
+@if (view(); as boss) {
+  <div class="boss-bar">
+    <div class="boss-head">
+      <span class="boss-name">{{ boss.name }}</span>
+      <span class="boss-hp">{{ boss.hpText }}</span>
+    </div>
+    <div class="boss-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+         [attr.aria-valuenow]="boss.percent" [attr.aria-label]="boss.name + ' health'">
+      <div class="boss-fill" [style.width.%]="boss.percent"></div>
+    </div>
+    @if (boss.others.length > 0) {
+      <div class="boss-others">
+        @for (fill of boss.others; track $index) {
+          <div class="boss-track boss-track-small">
+            <div class="boss-fill" [style.width.%]="fill"></div>
+          </div>
+        }
+        @if (boss.more > 0) {
+          <span class="boss-more">+{{ boss.more }}</span>
+        }
+      </div>
+    }
+  </div>
+}

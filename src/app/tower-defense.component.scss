@@ -65,6 +65,25 @@
   cursor: pointer;
 }
 
+/* Top centre column: game speed with its PAUSED chip, under it the boss
+   bar. The column itself lets clicks through to the map. */
+.td-hud-top {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.td-hud-top > app-game-speed {
+  pointer-events: auto;
+}
+
 /* Logo Attribution (bottom left) */
 .td-logo-attribution {
   position: absolute;

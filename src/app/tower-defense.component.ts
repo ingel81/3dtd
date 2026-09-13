@@ -39,6 +39,7 @@ import { QuickActionsComponent } from './components/quick-actions/quick-actions.
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
+import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { LoadingScreenComponent } from './components/loading-screen/loading-screen.component';
 import { DevWorldService } from './devworld/devworld.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
@@ -117,6 +118,7 @@ import { ResearchStore } from './store/research.store';
     InfoOverlayComponent,
     ContextHintComponent,
     GameSpeedComponent,
+    BossBarComponent,
     LoadingScreenComponent,
     TdIconComponent,
     LosLegendComponent,
