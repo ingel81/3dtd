@@ -1400,8 +1400,8 @@ dem Portal.
 235. Dasselbe mit Hornet: wie die Fledermaus. Mit Dragon: steht bei
      normalen Portalen auf der Straße, ragt oben und seitlich aus dem Tor
      (bekannt), steigt dann.
-     **ok** (Playtest 2026-09-13). **Befund** nebenbei: der Drache macht
-     keinen Sound mehr. Ursache offen, auf Wunsch nur notiert (TODO 1.8).
+     **ok** (Playtest 2026-09-13). Nebenbei: der Drache wirkte stumm, laut
+     User eventuell eine Falschmeldung; erst nachstellen (TODO 1.8).
 236. Ein Tower, der Luft angreift, nah am Portal: er beschießt die tiefen
      Fledermäuse, die Schüsse fliegen auf den Körper, Schadenszahlen und
      Blut erscheinen am Körper, nicht 10 m darüber.
@@ -1680,7 +1680,8 @@ an den Punkten.
 - Hier ok: 232 bis 237, 239 bis 247, 249 bis 253, 255 bis 258.
   **Befund**: 248 (Beschwörungskreis mit Bloom unsichtbar). Teilweise: 254
   (die Kamera-Raycasts kosten auch in Ruhe Zeit). Nebenbei notiert: der
-  Drache hat keinen Sound (bei 235), per Debug gesetzte Gegner schauen
+  Drache wirkte stumm, eventuell Falschmeldung, erst nachstellen (bei 235),
+  per Debug gesetzte Gegner schauen
   anfangs falsch (bei 237), Tower versinken auf schrägen Dächern (Wunsch:
   automatischer Steinsockel). Alles in TODO 1.8.
 - Alte Liste (`REVIEW_SPRINT_2026-09-12.md`) ok: 6, 7, 8, 11, 12, 13, 15, 20,
