@@ -40,6 +40,7 @@ import {
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
+import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -134,6 +135,7 @@ export class ThreeTilesEngine {
   readonly trailStreaks: TrailStreakRenderer;
   readonly lightningBolts: LightningBoltRenderer;
   readonly abilityMarkers: AbilityMarkerRenderer;
+  readonly mushroomClouds: MushroomCloudRenderer;
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -306,6 +308,7 @@ export class ThreeTilesEngine {
     this.trailStreaks = new TrailStreakRenderer(this.scene);
     this.lightningBolts = new LightningBoltRenderer(this.scene);
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
+    this.mushroomClouds = new MushroomCloudRenderer(this.scene, this.effects.particleShaderMaterials);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -934,6 +937,9 @@ export class ThreeTilesEngine {
     // Strike markers: the countdown runs in game time, the pulse in real time
     this.abilityMarkers.update(deltaTime, gameDeltaSeconds * 1000);
 
+    // Mushroom clouds run in game time: a pause (timescale 0) holds them
+    this.mushroomClouds.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
+
     // Screen shake is applied in render() (drawFrame), not to the camera
   }
 
@@ -1080,6 +1086,7 @@ export class ThreeTilesEngine {
    */
   applyVfxSettings(settings: import('./vfx-settings').VfxSettings): void {
     this.effects.setVfxSettings(settings);
+    this.mushroomClouds.setFullCloud(settings.impactEffects);
     this.trailStreaks.setEnabled(settings.projectileTrails);
     this.towers.setMuzzleFlashEnabled(settings.muzzleFlash);
     this.enemies.setFreezeTintEnabled(settings.freezeTint);
@@ -1155,6 +1162,7 @@ export class ThreeTilesEngine {
     this.trailStreaks.dispose();
     this.lightningBolts.dispose();
     this.abilityMarkers.dispose();
+    this.mushroomClouds.dispose();
 
     // Dispose spatial audio
     this.spatialAudio.dispose();

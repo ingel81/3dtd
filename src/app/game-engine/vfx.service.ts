@@ -5,7 +5,7 @@ import {
   BURST_PALETTES,
   EXPLOSION_PRESETS,
   MUZZLE_FLASH_PROFILES,
-  NUCLEAR_STRIKE_VFX,
+  NUCLEAR_STRIKE_SCORCH_RINGS,
   type ScorchSource,
 } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
@@ -24,9 +24,6 @@ export class VFXService {
   // Scratch vectors to avoid per-event allocations (chain lightning, scorch marks).
   private readonly tmpA = new Vector3();
   private readonly tmpB = new Vector3();
-
-  /** Explosion rings of a nuclear strike still to go off */
-  private readonly strikeTimers = new Set<ReturnType<typeof setTimeout>>();
 
   constructor(
     private eventBus: GameEventBus,
@@ -72,14 +69,14 @@ export class VFXService {
       );
     }));
 
-    // Nuclear strike: target marker while it is on its way, staged explosion on impact
+    // Nuclear strike: target marker while it is on its way, mushroom cloud on impact
     this.subs.add(this.eventBus.on('ability:used', (event) => {
       this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs);
     }));
     this.subs.add(this.eventBus.on('ability:impact', (event) => {
       this.handleStrikeImpact(event.strikeId, event.target, event.radiusM);
     }));
-    // A restart drops the markers and the rings still to go off
+    // A restart drops the markers and the clouds
     this.subs.add(this.eventBus.on('game:reset', () => this.clearStrikes()));
   }
 
@@ -89,50 +86,33 @@ export class VFXService {
   }
 
   /**
-   * Staged explosion (NUCLEAR_STRIKE_VFX): the core on the impact point, then
-   * the rings around it, each ring turned half a step against the previous
-   * one so the explosions do not line up. Every explosion leaves a scorch
-   * mark where it meets a route cell.
+   * The marker goes and the mushroom cloud goes up on the ground point
+   * (MUSHROOM_CLOUD_LOOK; the engine runs it in game time). Scorch marks
+   * burn in on the centre and on NUCLEAR_STRIKE_SCORCH_RINGS around it,
+   * each ring turned half a step against the previous one, where they meet
+   * route cells.
    */
   private handleStrikeImpact(strikeId: number, target: GeoPosition, radiusM: number): void {
     this.tilesEngine.abilityMarkers.removeStrike(strikeId);
 
-    const { core, rings, heightM } = NUCLEAR_STRIKE_VFX;
     const ground = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpA);
-    const x = ground.x;
-    const y = ground.y + heightM;
-    const z = ground.z;
-    this.explodeAt(x, y, z, core.particles, core.radius, core.smokePuffs);
+    this.tilesEngine.mushroomClouds.detonate(ground, radiusM);
 
-    rings.forEach((ring, ringIndex) => {
-      const timer = setTimeout(() => {
-        this.strikeTimers.delete(timer);
-        const distance = ring.distance * radiusM;
-        for (let i = 0; i < ring.count; i++) {
-          const angle = ((i + ringIndex * 0.5) / ring.count) * Math.PI * 2;
-          this.explodeAt(
-            x + Math.cos(angle) * distance, y, z + Math.sin(angle) * distance,
-            ring.particles, ring.radius, ring.smokePuffs,
-          );
-        }
-      }, ring.delayMs);
-      this.strikeTimers.add(timer);
+    const { x, y, z } = ground;
+    const effects = this.tilesEngine.effects;
+    effects.markScorch(x, y, z, 'rocket');
+    NUCLEAR_STRIKE_SCORCH_RINGS.forEach((ring, ringIndex) => {
+      const distance = ring.distance * radiusM;
+      for (let i = 0; i < ring.count; i++) {
+        const angle = ((i + ringIndex * 0.5) / ring.count) * Math.PI * 2;
+        effects.markScorch(x + Math.cos(angle) * distance, y, z + Math.sin(angle) * distance, 'rocket');
+      }
     });
   }
 
-  private explodeAt(x: number, y: number, z: number, particles: number, radius: number, smokePuffs: number): void {
-    this.tilesEngine.effects.spawnExplosion(x, y, z, particles, radius, smokePuffs);
-    this.tilesEngine.effects.markScorch(x, y, z, 'rocket');
-  }
-
   private clearStrikes(): void {
-    this.cancelStrikeTimers();
     this.tilesEngine.abilityMarkers.clear();
-  }
-
-  private cancelStrikeTimers(): void {
-    for (const timer of this.strikeTimers) clearTimeout(timer);
-    this.strikeTimers.clear();
+    this.tilesEngine.mushroomClouds.clear();
   }
 
   /**
@@ -275,7 +255,6 @@ export class VFXService {
    */
   destroy(): void {
     this.subs.disposeAll();
-    // The markers belong to the engine: game:reset clears them, engine.dispose() frees them
-    this.cancelStrikeTimers();
+    // Markers and clouds belong to the engine: game:reset clears them, engine.dispose() frees them
   }
 }
