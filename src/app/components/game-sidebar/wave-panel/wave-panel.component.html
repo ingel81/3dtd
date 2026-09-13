@@ -72,16 +72,29 @@
       }
     </button>
 
-    <!-- Auto-start of the next wave: a small switch right under the button -->
-    <button type="button" class="td-auto-toggle"
-            [attr.aria-pressed]="autoStart()"
-            [attr.aria-label]="'Auto-start the next wave ' + autoStartSeconds + ' s after a wave'"
-            [matTooltip]="'Starts the next wave by itself ' + autoStartSeconds + ' s after a wave'"
-            matTooltipPosition="left"
-            (click)="toggleAutoStart()">
-      <span class="td-auto-switch" aria-hidden="true"></span>
-      <span>auto {{ autoStartSeconds }}s</span>
-    </button>
+    <!-- Right under the button: the auto-start switch, and between waves the
+         replay of the last one -->
+    <div class="td-wave-options">
+      <button type="button" class="td-auto-toggle"
+              [attr.aria-pressed]="autoStart()"
+              [attr.aria-label]="'Auto-start the next wave ' + autoStartSeconds + ' s after a wave'"
+              [matTooltip]="'Starts the next wave by itself ' + autoStartSeconds + ' s after a wave'"
+              matTooltipPosition="left"
+              (click)="toggleAutoStart()">
+        <span class="td-auto-switch" aria-hidden="true"></span>
+        <span>auto {{ autoStartSeconds }}s</span>
+      </button>
+      @if (replayWave(); as wave) {
+        <button type="button" class="td-replay-link"
+                [attr.aria-label]="'Replay wave ' + wave"
+                [matTooltip]="'Watch wave ' + wave + ' again: free camera, pause, 0.25x to 4x'"
+                matTooltipPosition="left"
+                (click)="replay.enter()">
+          <td-icon name="replay" [size]="12"></td-icon>
+          <span>replay W{{ wave }}</span>
+        </button>
+      }
+    </div>
 
     <!-- NEXT: the coming waves on a timeline, one detail line for one of
          them; past W30 what is known before the director picks -->

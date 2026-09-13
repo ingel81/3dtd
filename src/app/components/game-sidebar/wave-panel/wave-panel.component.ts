@@ -37,6 +37,7 @@ import { AirAlertAnnouncer, airAlertView, countAntiAirTowers, upcomingAirAlert }
 import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
 import { WaveTimelineComponent } from './wave-timeline.component';
+import { ReplayService } from '../../../services/replay.service';
 
 /**
  * WAVE-Sektion der Sidebar: Gegnergruppen der laufenden Welle mit 3D-Preview,
@@ -64,6 +65,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /** Display options; the blood moon marks follow its switch */
   private readonly vfx = inject(DebugFacadeService).vfx;
   private readonly destroyRef = inject(DestroyRef);
+  readonly replay = inject(ReplayService);
 
   constructor() {
     // Update enemy group previews when wave groups change
@@ -94,6 +96,15 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   readonly isGameOver = input.required<boolean>();
 
   readonly startWave = output<void>();
+
+  /**
+   * Wave the replay link under the button offers: the last one, between
+   * waves only (the game-over screen has a button of its own). Null hides it,
+   * so it goes the moment the next wave starts.
+   */
+  readonly replayWave = computed(() =>
+    !this.waveActive() && !this.isGameOver() && this.replay.available() ? this.replay.recordedWave() : null
+  );
 
   // Wave group display, only consumed by the template while a wave is active,
   // so we don't need curriculum-derived or debug-panel fallbacks. The NEXT

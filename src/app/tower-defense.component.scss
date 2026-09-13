@@ -314,6 +314,35 @@
   height: 18px;
 }
 
+/* Under Restart: the frame button recipe, quieter than the green Restart */
+.td-gameover-replay {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin: 12px auto 0;
+  padding: 0 12px;
+  background: var(--td-panel-main);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2);
+  color: var(--td-text-secondary);
+  font-family: var(--td-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.td-gameover-replay:hover {
+  color: var(--td-text-primary);
+  border-color: var(--td-frame-mid);
+}
+
+.td-gameover-replay:focus-visible {
+  outline: 1px solid var(--td-teal-light);
+  outline-offset: 2px;
+}
+
 /* === Photo mode ===
  * Header, sidebar and every overlay of the canvas area go; the canvas, the
  * map attribution the tiles require, the photo bar, and screens that block

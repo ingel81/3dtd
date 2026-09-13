@@ -192,11 +192,9 @@
  * slides right in --td-teal-light (teal was the accent of the checkbox it
  * replaces). */
 .td-auto-toggle {
-  align-self: flex-start;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: -3px;
   padding: 2px 0;
   background: none;
   border: 0;
@@ -241,6 +239,36 @@
 .td-auto-toggle[aria-pressed='true'] .td-auto-switch::after {
   transform: translateX(8px);
   background: var(--td-teal-light);
+}
+
+/* The row under the button: the auto-start switch left, between waves the
+ * replay of the last one right, both as quiet as each other */
+.td-wave-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: -3px;
+}
+
+.td-replay-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  background: none;
+  border: 0;
+  color: var(--td-text-muted);
+  font: 10px/1 var(--td-font-mono);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.td-replay-link:hover {
+  color: var(--td-text-secondary);
+}
+.td-replay-link:focus-visible {
+  outline: 1px solid var(--td-teal-light);
+  outline-offset: 2px;
 }
 
 /* === Wave Section ===
