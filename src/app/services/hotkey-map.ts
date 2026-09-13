@@ -8,7 +8,7 @@
  * camera, selling is Delete.
  */
 
-import type { AbilityId } from '../configs/abilities.config';
+import { ABILITIES, ABILITY_IDS, type AbilityId } from '../configs/abilities.config';
 
 export type HotkeyAction =
   /** Pick the build card at this position of the BUILD panel, 0-based */
@@ -33,6 +33,9 @@ export type HotkeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | '
 
 /** Build cards reachable by number key: the first nine, in BUILD panel order. */
 const TOWER_SLOT_KEYS = 9;
+
+/** Ability by its key (AbilityConfig.hotkey), lower case */
+const ABILITY_BY_KEY = new Map(ABILITY_IDS.map((id) => [ABILITIES[id].hotkey.toLowerCase(), id]));
 
 /** Number key of the build card at `index`, null past the ninth. */
 export function towerSlotKey(index: number): string | null {
@@ -75,14 +78,14 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
       return e.shiftKey ? null : { kind: 'pause' };
     case 'h':
       return { kind: 'help' };
-    case 'k':
-      return { kind: 'ability', abilityId: 'nuclear-strike' };
     case 'n':
       return { kind: 'camera-spawn' };
     case 'o':
       return { kind: 'photo-mode' };
   }
-  return null;
+  // After the fixed keys, so an ability cannot take one of them over
+  const abilityId = ABILITY_BY_KEY.get(key.toLowerCase());
+  return abilityId ? { kind: 'ability', abilityId } : null;
 }
 
 export interface HotkeyHelpRow {
@@ -105,7 +108,10 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['Space'], label: 'Start the next wave' },
       { keys: ['P'], label: 'Pause and resume' },
       { keys: ['+', '-'], label: 'Game speed up and down' },
-      { keys: ['K'], label: 'Aim the Nuclear Strike once researched, press again to cancel' },
+      ...ABILITY_IDS.map((id) => ({
+        keys: [ABILITIES[id].hotkey.toUpperCase()],
+        label: `Aim the ${ABILITIES[id].name} once researched, press again to cancel`,
+      })),
     ],
   },
   {
