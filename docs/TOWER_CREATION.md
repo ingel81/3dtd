@@ -23,6 +23,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Melee-Angriffe (Tentacle Tower, `attackType: 'melee'`)
 - **Chain-Hitscan-Angriffe** (Lightning Tower, `attackType: 'chain'` — Primary + N Jumps mit `chainFalloff` zwischen Hits, eigener `LightningBoltRenderer`)
 - Passive Buildings (Research Center, `attackType: 'passive'`)
+- **Veteranen-Ränge** aus Kills, rein kosmetisch, mit Abzeichen über dem Tower (siehe [Veteranen-Ränge](#veteranen-ränge))
 
 ---
 
@@ -577,6 +578,55 @@ Combat-Tower wählen ihr Ziel über eine `TargetingStrategy`. `defaultTargeting`
 | `air-priority` | Bevorzugt fliegende Ziele; Sub-Strategy via `defaultAirSubStrategy` |
 
 `AirSubStrategy` (`closest` / `lowest-hp` / `highest-hp`) entscheidet, welches Air-Target gewählt wird, wenn `air-priority` aktiv ist und mehrere Air-Units in Reichweite sind.
+
+---
+
+## Veteranen-Ränge
+
+Tower sammeln mit ihren Kills Ränge. Rein kosmetisch: Kampf, Wirtschaft und Wave-Director lesen
+sie nicht. Jeder Tower-Typ bekommt sie ohne eigene Config.
+
+- **Kill:** zählt für den Tower, dessen Treffer dem Gegner die letzten HP nimmt
+  (`DamageApplicationService`, `CombatComponent.kills`). Splash, Kettensprünge, Beam-Ticks und
+  Schaden über Zeit zählen für den Tower, von dem sie kommen. Der Schlag einer Fähigkeit und das
+  Projektil eines schon verkauften Towers zählen für keinen. Die Zuordnung läuft in den festen
+  Sub-Steps der Spielzeit.
+- **Leiter** (`configs/veteran-ranks.config.ts`, `VETERAN_RANKS`):
+
+| Rang | ab Kills | Abzeichen |
+|------|----------|-----------|
+| Recruit | 0 | keins |
+| Blooded | 10 | ein Winkel, silber |
+| Veteran | 50 | zwei Winkel, silber |
+| Elite | 150 | drei Winkel, silber |
+| Champion | 400 | drei Winkel, gold |
+| Legend | 1000 | Stern, gold |
+
+- **Schwellen:** gemessen an den Trainingslogs vom 2026-08-28 (Strategist-Bot, rund 500 Läufe je
+  Welle, Median der Kills der ganzen Verteidigung): 6 in W1, 117 bis W10 bei bis zu 10 Towern,
+  171 bis W18, dann allein der W19-Schwarm rund 3.000, 4.257 bis W30 bei 20 Towern. Blooded kommt
+  in den ersten Wellen, Veteran für die frühen Tower um W10, Elite kaum vor dem W19-Schwarm,
+  Champion und Legend nur für die Tower, die die Schwärme tragen. W19 war damals `rat_tide`, heute
+  ist es `skeleton_swarm` (bis 940 Skelette, mit den Minions bis 2.820 Körper).
+- **Kein eigener Zustand:** Der Rang wird aus `kills` abgeleitet, wo er gebraucht wird
+  (`veteranLevel`). Ein Upgrade behält ihn, Verkaufen nimmt ihn mit dem Tower weg. Was die Kills
+  wiederherstellt oder nachspielt, stellt auch den Rang wieder her.
+- **Abzeichen in der Welt:** `TowerBadgeRenderer` (`engine.towerBadges`,
+  `three-engine/renderers/tower-badge/`), alle Abzeichen in einem Draw Call, gebaut wie die
+  Lebensbalken der Gegner: eine `InstancedBufferGeometry` unter einem Mesh, Billboard im
+  Vertex-Shader, Winkel und Stern als Distanzfelder im Fragment-Shader, dunkler Rand
+  (`--td-panel-shadow`), Log-Depth und `colorspace_fragment`. Silber ist `--td-edge-highlight`,
+  Gold `--td-gold-light`. Das Abzeichen steht über der Oberkante der Bounding Box des
+  Tower-Modells, das schon auf Sockel und `heightOffset` steht, gemessen einmal, wenn das Abzeichen
+  zuerst erscheint; lädt das Modell noch, misst ein späterer Frame. 24 CSS-Pixel groß, in der Welt
+  zwischen 1,4 und 9 m gehalten, zwischen 700 und 1.100 m Kameraabstand ausgeblendet
+  (`tower-badge-shaders.ts`). Der Tiefentest lässt Gebäude davor das Abzeichen verdecken.
+- **Weg:** Der `GameStateManager` reicht jedes `tower:kill` an `TowerManager.refreshVeteranBadge`,
+  der den Rang an `towerBadges.setRank` gibt; gleicher Rang ändert nichts. Ein Tower unter dem
+  ersten Rang belegt keinen Slot. `TowerManager.remove` und `clear` nehmen die Abzeichen weg, der
+  Photo Mode blendet sie aus.
+- **Tower-Panel:** Rangzeile unter den Stat-Kacheln, siehe
+  [DESIGN_SYSTEM.md → Veteranen-Rang](DESIGN_SYSTEM.md#veteranen-rang).
 
 ---
 

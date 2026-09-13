@@ -531,7 +531,7 @@ Hilfe-Dialog in `components/damage-matrix-dialog/`, geöffnet über den `i`-Butt
 
 Blendet das HUD aus, die Kamera bleibt frei (Maus, WASD). Einstieg über "Photo Mode" im Display-Panel oder Taste O, Ausstieg über Esc, O oder "Exit". Zustand in `UIStore.photoMode` (nicht gespeichert), Ablauf in `PhotoModeService` (vom Spiel-Component bereitgestellt).
 
-- Beim Einstieg enden Build- und Platzierungsmodus, die Tower-Auswahl (Reichweite, LOS) und das offene Quick-Actions-Menü. Im Photo Mode wählen Klicks auf die Karte nichts aus, Hover zeigt keine Reichweite, die Zifferntasten wählen keine Karte
+- Beim Einstieg enden Build- und Platzierungsmodus, die Tower-Auswahl (Reichweite, LOS) und das offene Quick-Actions-Menü; die Veteranen-Abzeichen über den Towern sind bis zum Ausstieg aus. Im Photo Mode wählen Klicks auf die Karte nichts aus, Hover zeigt keine Reichweite, die Zifferntasten wählen keine Karte
 - O und Esc sind Hotkeys (`hotkey-map.ts`, `HotkeyService`, siehe [Tastenkürzel](#tastenkürzel)); Esc verlässt den Photo Mode vor allem anderen
 - Header und Sidebar verschwinden, der Canvas wird größer; `ThreeTilesEngine.fitToCanvas()` zieht den Zeichenpuffer nach dem nächsten Render nach. Sichtbar bleiben Canvas, Google-Logo und Kartenattribution, die Leiste und blockierende Screens (Laden, Token, Fehler, Game Over)
 - Leiste oben mittig (Glas, `bevel-glass`): "Save screenshot" und "Exit" mit `Esc`-Kappe
@@ -548,6 +548,21 @@ Blendet das HUD aus, die Kamera bleibt frei (Maus, WASD). Einstieg über "Photo 
 Hat der Lauf den Rekord des Ortes geschlagen, steht unter Restart der Hinweis `app-world-record` (`components/world-globe/`): Haarlinie oben, links ein Globus mit 112px auf den Ort gedreht und gold umringt, rechts "WORLD MAP" (9px Mono-Versalien, `--td-text-muted`), "New record for <Ort>: wave N" (13px/600, `--td-gold-light`) und "Best before: wave M" oder "First run here" (10px Mono, `--td-text-muted`), ganz rechts "Skip". Er blendet 1,2 s nach dem Overlay ein (400 ms, bei `prefers-reduced-motion` ohne Animation), Restart bleibt dabei stehen. Details: [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md#weltkarte-beste-welle-je-ort).
 
 Den Schaden je Tower zählt `CombatComponent.damageDealt`: `DamageApplicationService` addiert pro Treffer die tatsächlich abgezogenen HP (ohne Overkill). Das Tower-Panel zeigt ihn als Kachel "Dealt" neben Kills (Raster drei über vier Kacheln) und liest ihn alle 250 ms neu, statt pro Treffer `selectedTowerRevision` zu erhöhen.
+
+### Veteranen-Rang
+
+Tower sammeln mit Kills kosmetische Ränge (Leiter und Technik in [TOWER_CREATION.md → Veteranen-Ränge](TOWER_CREATION.md#veteranen-ränge)). Das Tower-Panel zeigt den Rang in einer Zeile zwischen Stat-Kacheln und Targeting (`.td-rank-row`):
+
+- Fläche `--td-panel-secondary`, 1px `--td-frame-dark`, Ecken 3px wie die Kacheln, `--td-font-mono`
+- Links das Abzeichen als td-icon 16px, gezeichnet wie über dem Tower: `caretU` (ein Winkel), `chevrons2`, `chevrons3`, `star` (gefüllt). Daneben der Rangname, 11px/700, Versalien, `letter-spacing: 0.06em`
+- Rechts "57 / 150 kills" bis zum nächsten Rang, 10px, `--td-text-muted`, `tabular-nums`; im obersten Rang nur "1234 kills"
+- An der Unterkante ein 2px-Balken in `--td-frame-dark`, gefüllt mit dem Weg vom aktuellen zum nächsten Rang
+- Silber bis Elite: Icon `--td-edge-highlight`, Name `--td-text-primary`, Balken `--td-edge-highlight`. Ab Champion Icon und Name `--td-gold-light`, Balken `--td-gold`. Unter dem ersten Rang ("Recruit") Icon `--td-text-disabled`, Name `--td-text-secondary`
+- Tooltip mit der Leiter: "Rank from killing blows, cosmetic only: Blooded 10 · Veteran 50 · …". Die Kachel Kills sagt im Tooltip "Killing blows since it was built"
+
+Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().kills`, neu gerechnet mit `selectedTowerRevision`, die bei jedem Kill des gewählten Towers hochzählt.
+
+Über dem Tower in der Welt steht dasselbe Abzeichen, 24 CSS-Pixel groß: Winkel oder Stern in Silber (`--td-edge-highlight`) oder Gold (`--td-gold-light`) mit dunklerem Innenrand und dunklem Außenrand (`--td-panel-shadow`) für helle Tiles, ohne Plakette dahinter. Der Photo Mode blendet es aus.
 
 ---
 
