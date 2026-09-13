@@ -425,6 +425,9 @@ während einer Welle.
 - `EmpStrategy` (94): setzt das EMP auf mindestens 3 Maschinen beisammen ab
   Pfadfortschritt 0,4, sonst auf eine Menge von mindestens 12 Gegnern ab 0,6
   ([BOT_SYSTEM.md](BOT_SYSTEM.md#emp-94)).
+- `OrbitalLaserStrategy` (93): zielt auf den Gegner ab Pfadfortschritt 0,5
+  mit den meisten Gegnern hinter sich auf derselben Route in 72 m, ab 10
+  ([BOT_SYSTEM.md](BOT_SYSTEM.md#orbitallaser-93)).
 
 ---
 
@@ -452,6 +455,7 @@ während einer Welle.
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 | `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
 | `ai/training/strategies/ability/emp.strategy.ts` | Bot des EMP |
+| `ai/training/strategies/ability/orbital-laser.strategy.ts` | Bot des Orbitallasers |
 
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,

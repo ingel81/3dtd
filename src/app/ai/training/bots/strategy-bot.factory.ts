@@ -25,6 +25,7 @@ import { AutoStartWaveStrategy } from '../strategies/wave/auto-start-wave.strate
 import { NuclearStrikeStrategy } from '../strategies/ability/nuclear-strike.strategy';
 import { FrostBombStrategy } from '../strategies/ability/frost-bomb.strategy';
 import { EmpStrategy } from '../strategies/ability/emp.strategy';
+import { OrbitalLaserStrategy } from '../strategies/ability/orbital-laser.strategy';
 
 export class StrategyBotFactory {
   constructor(
@@ -133,6 +134,7 @@ export class StrategyBotFactory {
     strategies.push(new NuclearStrikeStrategy(this.gameState));
     strategies.push(new FrostBombStrategy(this.gameState));
     strategies.push(new EmpStrategy(this.gameState));
+    strategies.push(new OrbitalLaserStrategy(this.gameState));
 
     // Add auto-start wave strategy if enabled
     if (autoStartWaves) {
