@@ -14,7 +14,11 @@ import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { WaveDebugService } from '../debug/wave-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
-import { LocationDialogLoadError, openLocationDialog } from '../../components/location-dialog/open-location-dialog';
+import {
+  LOCATION_DIALOG_OPEN_FAILED,
+  LocationDialogLoadError,
+  openLocationDialog,
+} from '../../components/location-dialog/open-location-dialog';
 import { LocationDialogData, LocationDialogResult } from '../../models/location.types';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
@@ -42,6 +46,9 @@ export interface VizCallbacks {
   /** Fit the route corridor to the tiles, over the next frames (CorridorRefit.fitToTiles). */
   fitCorridorToTiles: () => void;
 }
+
+/** The game component went away, or was never there, before a location was picked. */
+class ComponentGoneError extends Error {}
 
 /** What the game component hands over in initialize(). */
 interface ComponentContext {
@@ -219,11 +226,13 @@ export class LocationFacadeService {
         try {
           await this.waitForLocationFromDialog();
         } catch (err) {
-          if (err instanceof LocationDialogLoadError) {
-            this.engineInit.setError(err.message);
-            this.engineInit.setLoading(false);
-          }
-          // Otherwise the component was destroyed before the dialog closed
+          // The component went away before the dialog closed: nothing to show
+          if (err instanceof ComponentGoneError) return false;
+          console.error('[LocationFacade] Location dialog failed:', err);
+          this.engineInit.setError(
+            err instanceof LocationDialogLoadError ? err.message : LOCATION_DIALOG_OPEN_FAILED,
+          );
+          this.engineInit.setLoading(false);
           return false;
         }
         await this.engineInit.setStepDone('location', 'manually selected');
@@ -242,13 +251,14 @@ export class LocationFacadeService {
 
   /**
    * Open location dialog and wait for user to select a location.
-   * Rejects if component is destroyed before dialog closes, or if there is
-   * no component to begin with, and with a LocationDialogLoadError when the
-   * dialog's chunk does not load.
+   * Rejects with a ComponentGoneError if component is destroyed before dialog
+   * closes, or if there is no component to begin with, with a
+   * LocationDialogLoadError when the dialog's chunk does not load, and with
+   * the error itself when the loaded dialog fails to open.
    */
   waitForLocationFromDialog(): Promise<void> {
     const ctx = this.ctx;
-    if (!ctx) return Promise.reject(new Error('Location facade is not initialized'));
+    if (!ctx) return Promise.reject(new ComponentGoneError('Location facade is not initialized'));
 
     return new Promise((resolve, reject) => {
       const destroyRef = ctx.injector.get(DestroyRef);
@@ -258,7 +268,7 @@ export class LocationFacadeService {
       destroyRef.onDestroy(() => {
         if (!settled) {
           settled = true;
-          reject(new Error('Component destroyed before location was selected'));
+          reject(new ComponentGoneError('Component destroyed before location was selected'));
         }
       });
 
@@ -292,7 +302,7 @@ export class LocationFacadeService {
       }).catch((err: unknown) => {
         if (settled) return;
         settled = true;
-        reject(new LocationDialogLoadError(err));
+        reject(err);
       });
     });
   }
