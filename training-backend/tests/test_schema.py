@@ -417,6 +417,25 @@ def test_a_splitting_enemy_counts_with_its_children(monkeypatch):
     assert more_hp_and_bodies < more_hp
 
 
+def test_a_lineage_that_can_leak_twice_halves_the_leak_allowance(monkeypatch):
+    """A skeleton killed just before the base sends both minions on.
+
+    Each minion costs the full leak damage, so one skeleton past the kill
+    estimate can cost two leaks. The HP budget has to buy half as many of
+    them. 100 HP left makes the budget 6 HP: six leaks at 1 HP, or three
+    enemies that leak twice. Patched onto the zombie like the test above.
+    """
+    tpl = _template("zombie_horde")
+    args = (tpl, 1.0, 100, _dps(ground=120), _throughput(ground=1.5))
+    kwargs = dict(hp_remaining=100.0, leak_damage=1.0)
+    once = schema.fair_max_count(*args, **kwargs)
+    monkeypatch.setitem(schema.ENEMY_MAX_LEAKS, "zombie", 2)
+    twice = schema.fair_max_count(*args, **kwargs)
+
+    assert once is not None and twice is not None
+    assert once - twice == 3
+
+
 def test_a_strong_defense_is_barely_constrained():
     """The gate is a floor on fairness, not the difficulty knob.
 

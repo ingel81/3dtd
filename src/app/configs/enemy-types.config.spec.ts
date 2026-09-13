@@ -5,6 +5,7 @@ import {
   getEnemyTypeIds,
   lineageHp,
   splitBodyCount,
+  splitLeafCount,
 } from './enemy-types.config';
 
 describe('enemy types config', () => {
@@ -30,6 +31,13 @@ describe('enemy types config', () => {
     expect(lineageHp('skeleton-minion')).toBe(6);
     expect(splitBodyCount('zombie')).toBe(1);
     expect(lineageHp('zombie')).toBe(ENEMY_TYPES['zombie'].baseHp);
+  });
+
+  it('lets a skeleton leak twice: both minions reach the base when it dies just before', () => {
+    expect(splitLeafCount('skeleton')).toBe(ENEMY_TYPES['skeleton'].splitOnDeath!.count);
+    expect(splitLeafCount('skeleton')).toBe(2);
+    expect(splitLeafCount('skeleton-minion')).toBe(1);
+    expect(splitLeafCount('zombie')).toBe(1);
   });
 
   it('all enemy types have required fields', () => {

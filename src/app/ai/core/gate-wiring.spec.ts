@@ -208,7 +208,7 @@ describe('gate wiring', () => {
       TEMPLATES[0], 1, 100,
       { ground: { unarmored: 100 }, air: { unarmored: 100 } },
       { ground: 2, air: 2 },
-      () => 'unarmored', () => false, () => 50, () => 5, () => 1,
+      () => 'unarmored', () => false, () => 50, () => 5, () => 1, () => 1,
       100, 1, multiplier,
     );
 
@@ -224,7 +224,7 @@ describe('gate wiring', () => {
         TEMPLATES[0], 1, 100,
         { ground: { unarmored: 100 }, air: { unarmored: 100 } },
         { ground: 2, air: 2 },
-        () => 'unarmored', () => false, () => 50, () => 5, () => 1,
+        () => 'unarmored', () => false, () => 50, () => 5, () => 1, () => 1,
         100, 1,
       );
       expect(omitted).toBe(capWith(1));
@@ -237,17 +237,23 @@ describe('gate wiring', () => {
   });
 
   describe('fairMaxCount counts split children', () => {
-    const cap = (hp: number, bodies: number) => fairMaxCount(
+    const cap = (hp: number, bodies: number, maxLeaks = 1) => fairMaxCount(
       TEMPLATES[0], 1, 100,
       { ground: { unarmored: 100 }, air: { unarmored: 100 } },
       { ground: 2, air: 2 },
-      () => 'unarmored', () => false, () => hp, () => 5, () => bodies,
+      () => 'unarmored', () => false, () => hp, () => 5, () => bodies, () => maxLeaks,
       100, 1,
     )!;
 
     it('with the HP of the whole lineage and a kill per body', () => {
       expect(cap(50 + 2 * 15, 1)).toBeLessThan(cap(50, 1)); // more HP to clear
       expect(cap(50, 3)).toBeLessThan(cap(50, 1)); // more kills to land
+    });
+
+    it('and a leak per minion that can reach the base', () => {
+      // 100 HP left: a 6 HP budget, six leaks at 1 HP. A skeleton killed
+      // just before the base sends both minions on, so it buys three.
+      expect(cap(50, 3, 1) - cap(50, 3, 2)).toBe(3);
     });
   });
 });

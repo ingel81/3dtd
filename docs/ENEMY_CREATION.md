@@ -397,7 +397,8 @@ Slime aus dem Game Design kann denselben Mechanismus nutzen.
   erhöht es nicht. Ein durchgelaufenes Kind ist ein Leck. `enemy:split` erhöht
   Rest und Gesamtzahl im Wave-Panel und löst den Knochen-Burst aus.
 - **Fairness-Gate:** `fairMaxCount` rechnet mit der HP der ganzen Linie
-  (`lineageHp`) und einem Kill pro Körper (`splitBodyCount`).
+  (`lineageHp`), einem Kill pro Körper (`splitBodyCount`) und bis zu einem Leck
+  pro Ende des Split-Baums (`splitLeafCount`; Skeleton: 2).
 - **Kind-Typ:** ein eigener Eintrag in `ENEMY_TYPES` (eigener VAT-Pool, eigene
   Werte), in keinem Template. Nicht in `AI_ENEMY_ORDER` aufnehmen, solange ihn
   kein Template nennt: Sein Platz in der Typ-History bliebe 0, und der
@@ -631,7 +632,7 @@ wallsmasher: {
 - [ ] Bei Boss: `healthBarColor` und `bossName` gesetzt (`immunityPercent` wird derzeit nicht ausgewertet)
 - [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu gross/klein
 - [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse
-- [ ] Bei `splitOnDeath`: Kind-Typ in `ENEMY_TYPES`, kein Zyklus, `countRange` der Templates an die HP der ganzen Linie angepasst, `npm run ai-schema` gelaufen (`lineageHp`, `bodies`)
+- [ ] Bei `splitOnDeath`: Kind-Typ in `ENEMY_TYPES`, kein Zyklus, `countRange` der Templates an die HP der ganzen Linie angepasst, `npm run ai-schema` gelaufen (`lineageHp`, `bodies`, `maxLeaks`)
 
 ---
 

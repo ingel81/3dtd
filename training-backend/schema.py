@@ -66,10 +66,12 @@ NUM_ENEMY_TYPES: int = len(ENEMY_TYPES)
 _ENEMIES: list[dict[str, Any]] = SCHEMA["enemies"]
 ENEMY_BASE_HP: dict[str, float] = {e["id"]: e["baseHp"] for e in _ENEMIES}
 # HP and kills it takes to clear one enemy with everything it splits into
-# (splitOnDeath: a skeleton is 20 + 2 x 6 HP and three kills). A schema
-# without the fields has no splits: the enemy alone.
+# (splitOnDeath: a skeleton is 20 + 2 x 6 HP and three kills), and the most
+# leaks it can cost (a skeleton killed just before the base sends two minions
+# on). A schema without the fields has no splits: the enemy alone.
 ENEMY_LINEAGE_HP: dict[str, float] = {e["id"]: e.get("lineageHp", e["baseHp"]) for e in _ENEMIES}
 ENEMY_BODIES: dict[str, float] = {e["id"]: e.get("bodies", 1) for e in _ENEMIES}
+ENEMY_MAX_LEAKS: dict[str, float] = {e["id"]: e.get("maxLeaks", 1) for e in _ENEMIES}
 ENEMY_ARMOR: dict[str, str] = {e["id"]: e["armor"] for e in _ENEMIES}
 ENEMY_THREAT: dict[str, float] = {e["id"]: e["threat"] for e in _ENEMIES}
 ENEMY_BASE_SPEED: dict[str, float] = {e["id"]: e["baseSpeed"] for e in _ENEMIES}
@@ -224,8 +226,10 @@ def fair_max_count(
     upward is not credited for a bat swarm.
 
     An enemy that splits on death (a skeleton into two minions) counts with
-    its children: its HP is the whole lineage's and every body takes a kill.
-    Mirrors the TS gate, which reads `lineageHp` and `splitBodyCount`.
+    its children: its HP is the whole lineage's, every body takes a kill, and
+    every end of its split tree can leak for the full leak damage (a skeleton
+    killed just before the base sends both minions on). Mirrors the TS gate,
+    which reads `lineageHp`, `splitBodyCount` and `splitLeafCount`.
     """
     ground = (effective_dps_per_armor or {}).get("ground") or {}
     air = (effective_dps_per_armor or {}).get("air") or {}
@@ -237,6 +241,7 @@ def fair_max_count(
     weighted_throughput = 0.0
     weighted_speed = 0.0
     weighted_bodies = 0.0
+    weighted_leaks = 0.0
     for group in template["enemies"]:
         enemy, share = group["type"], float(group["share"])
         if share <= 0:
@@ -250,6 +255,7 @@ def fair_max_count(
         weighted_hp += share * float(ENEMY_LINEAGE_HP.get(enemy, 80)) * hp_mult
         weighted_speed += share * max(0.1, float(ENEMY_BASE_SPEED.get(enemy, 5)))
         weighted_bodies += share * max(1.0, float(ENEMY_BODIES.get(enemy, 1)))
+        weighted_leaks += share * max(1.0, float(ENEMY_MAX_LEAKS.get(enemy, 1)))
         total_share += share
 
     if total_share <= 0:
@@ -258,6 +264,7 @@ def fair_max_count(
     hp_per_enemy = weighted_hp / total_share
     throughput = weighted_throughput / total_share
     bodies_per_enemy = weighted_bodies / total_share
+    leaks_per_enemy = weighted_leaks / total_share
     if dps <= 0 or hp_per_enemy <= 0:
         # No effective damage against this wave at all — a curriculum-forced air
         # wave against a ground-only defense, say, since forcing bypasses the
@@ -301,8 +308,12 @@ def fair_max_count(
 
     # Allow an overshoot priced in HP rather than assumed away. The leaks are
     # what make a wave dramatic; the budget is what stops them ending the run.
+    # An enemy that splits can cost a leak per end of its split tree: a
+    # skeleton killed just before the base sends both minions on.
     leak_hp_budget = max(FAIRNESS_MIN_LEAK_HP, hp_remaining * FAIRNESS_WAVE_HP_BUDGET)
-    allowed_leaks = leak_hp_budget / leak_damage if leak_damage > 0 else leak_hp_budget
+    allowed_leaks = (
+        leak_hp_budget / leak_damage if leak_damage > 0 else leak_hp_budget
+    ) / leaks_per_enemy
 
     return max(FAIRNESS_MIN_COUNT, int(killable + allowed_leaks))
 

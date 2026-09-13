@@ -273,7 +273,9 @@ prüften. `gate-wiring.spec.ts` existiert genau dagegen.
    *unter* `countRange[0]`, gewinnt der Cap: Die Range kollabiert darauf, statt das
    Template-Minimum trotzdem auszuliefern. Ein Gegner, der sich beim Tod teilt
    (Skeleton), zählt mit seinen Kindern: mit der HP der ganzen Linie
-   (`lineageHp`, 20 + 2 × 6) und einem Kill pro Körper (`splitBodyCount`, 3).
+   (`lineageHp`, 20 + 2 × 6), einem Kill pro Körper (`splitBodyCount`, 3) und
+   bis zu einem Leck pro Kind (`splitLeafCount`, 2): Stirbt ein Skeleton kurz
+   vor dem HQ, laufen beide Minions durch und kosten je den vollen Leck-Schaden.
 6. **Wave-Duration-Cap.** `count × spawnDelay > 180_000 ms` → `spawnDelay` wird
    komprimiert (`MIN_SPAWN_DELAY_MS = 5`). Danach **zweiter Pass** über den
    Fairness-Cap: Eine langsame Mega-Welle passiert das Gate gerade *weil* ihr
