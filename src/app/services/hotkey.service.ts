@@ -8,7 +8,7 @@ import { ResearchStore } from '../store/research.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { canPickTowerCard, firstAffordableUpgrade } from '../utils/player-actions';
-import { isTypingTarget } from '../utils/keyboard-target';
+import { ownsKey } from '../utils/keyboard-target';
 import { openHotkeyHelpDialog } from '../components/hotkey-help-dialog/open-hotkey-help-dialog';
 import { CameraControlService } from './camera-control.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
@@ -77,7 +77,7 @@ export class HotkeyService {
 
   private acceptsKey(event: KeyboardEvent): boolean {
     return !event.defaultPrevented
-      && !isTypingTarget(event.target)
+      && !ownsKey(event.target, event.key)
       // A dialog owns the keyboard; the help dialog closes itself on H and ?
       && this.dialog.openDialogs.length === 0
       && !this.store.loading()
