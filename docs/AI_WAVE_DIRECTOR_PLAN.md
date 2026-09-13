@@ -232,6 +232,13 @@ rettet HP und Gold, macht die Wellen danach aber nicht größer. Die Zahl kommt
 über `WaveOutcome.abilityKills` vom Collector; das Backend-Gate zählt genauso
 (`gate_leak_share`), der Reward nicht. Details in [ABILITIES.md](ABILITIES.md).
 
+**Der Held zählt als Verteidigung.** Ein angeheuerter Held wirkt dauernd und
+steht deshalb im Defense-Modell: `analyzeDefense` rechnet ihn als virtuellen
+Tower mit Präsenzfaktor 0,5 in `effectiveDPSPerArmor`, `gateDpsPerArmor` und
+`killThroughput`, je Rüstung mit seiner besten Munition. Seine Kills sind
+gewöhnliche Kills, keine Lecks. Bots heuern ihn nie an, das Backend-Gate sieht
+also keinen. Details in [HERO.md](HERO.md#fairness-gate).
+
 **State ist per Run.** `reset()` gehört an den Spielstart und wird von
 `WaveDirectorService.resetForNewGame()` aufgerufen (Aufrufer:
 `game-loop-facade.service.ts`). Ließ man den Multiplikator über Runs hinweg

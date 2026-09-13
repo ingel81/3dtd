@@ -718,6 +718,7 @@ class GameStateManager {
   readonly projectileManager: ProjectileManager;
   readonly waveManager: WaveManager;
   readonly researchManager: ResearchManager;
+  readonly heroManager: HeroManager;
 
   // Event Bus
   private readonly eventBus = new GameEventBus();
@@ -807,6 +808,7 @@ class ProjectileManager extends EntityManager<Projectile> {
   constructor(eventBus: GameEventBus);
 
   spawn(tower: Tower, targetEnemy: Enemy, heading?: number): Projectile;  // Emittiert 'vfx:muzzle-flash'
+  spawnShot(origin, originHeight, target, typeId, damage, damageType, sourceId): Projectile;  // Schuss ohne Tower (Held)
   update(deltaTime: number): void;  // Emittiert 'projectile:hit', 'vfx:projectile-impact', 'audio:play'
 }
 ```
@@ -862,6 +864,26 @@ class SpatialAudioManager {
 ```
 
 **Sound Budget:** Maximal 12 gleichzeitige Enemy-Sounds, um Performance zu schonen.
+
+### 4.8 HeroManager (Framework-agnostic)
+
+```typescript
+// Kein @Injectable - Constructor Injection, Welt über HeroWorld
+class HeroManager implements IGameManager {
+  constructor(eventBus: GameEventBus, world: HeroWorld);
+
+  hire(price?: number): boolean;            // command:hire-hero
+  moveTo(target: GeoPosition): boolean;     // command:hero-move, Weg per Dijkstra im Befehl
+  setAmmo(ammo: HeroAmmoId): boolean;       // command:hero-ammo
+  update(stepMs: number): void;             // eigener Schritt am Ende von runSubStep
+  presentFrame(): void;                     // einmal pro Frame an den HeroRenderer
+  getDefenseProfile(): HeroDefenseProfile | null;  // für analyzeDefense
+}
+```
+
+Der Held (Söldner) läuft auf dem Routengraph (`utils/route-graph.ts`), kämpft
+über `ProjectileManager.spawnShot` und `DamageApplicationService` mit Quelle
+`hero` und steht als virtueller Tower im Fairness-Gate. Siehe [HERO.md](HERO.md).
 
 ---
 

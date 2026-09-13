@@ -64,6 +64,10 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `ability:impact` | AbilityManager (im Sub-Step des Einschlags) | VFXService, AudioService, ScreenShakeService (je `abilityId` aus einer Tabelle, siehe [ABILITIES.md](ABILITIES.md#darstellung)), AIDataCollector | Einschlag (`abilityId`, `strikeId`, `target`, `radiusM`, `hits`, `kills`). Die Kills bucht das Fairness-Gate als Leck |
 | `ability:rejected` | AbilityManager (`use()`) | kein Listener (nur Event-Debugger über `onAny`) | Einsatz abgelehnt (`abilityId`, `reason`: `locked`, `no-charge`, `no-wave`, `no-route`, `unknown`) |
 | `ability:state-changed` | AbilityManager | GameStateSyncService | **Snapshot-Event** nach Freischaltung, Einsatz, Einschlag und Nachladen (`abilities`). Füllt `GameStore.abilities` |
+| `hero:kill` | DamageApplicationService (Kill eines Schusses mit Quelle `hero`, nach dessen `enemy:died`) | HeroManager (Kills, Stufe) | Der Held hat getötet (`enemy`). Für das Fairness-Gate ein Kill wie der eines Towers, kein Leck. Siehe [HERO.md](HERO.md) |
+| `hero:level-up` | HeroManager | VFXService ("LEVEL N") | Neue Stufe durch Kills (`level`, `position`) |
+| `hero:rejected` | HeroManager | kein Listener (nur Event-Debugger über `onAny`) | Befehl abgelehnt (`reason`: `locked`, `hired`, `credits`, `no-hero`, `no-route`, `unknown-ammo`) |
+| `hero:state-changed` | HeroManager | GameStateSyncService | **Snapshot-Event** nach Freischaltung, Anheuern, Befehl, Ankunft, Kill und Munitionswechsel (`hero`). Füllt `GameStore.hero` |
 
 ### Deferred Events (nicht-kritisch, queued)
 
@@ -105,6 +109,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `debug:max-upgrade-all-towers` | DebugFacadeService | GameCommandsHandler → GameStateManager.maxUpgradeAllTowers() | Alle Tower auf Max-Level setzen, emittiert je Tower `tower:upgraded` |
 | `debug:ready-ability` | DebugFacadeService (Cheat "Nuke", **deferred**) | GameCommandsHandler → ResearchManager.completeResearch() (Forschung samt Voraussetzungen, je `research:completed`), dann AbilityManager.refillCharges() | Fähigkeit sofort bereit (`abilityId`): freigeschaltet, alle Ladungen. Deferred, damit es im nächsten Sub-Step greift; in der Pause erst beim Weiterlaufen |
 | `debug:jump-to-wave` | WaveDebuggerComponent (Abschnitt "Jump to wave") | GameCommandsHandler → GameStateManager.jumpToWave() (emittiert `wave:jumped`) | Nächster Start ist Welle `wave`, die Wellen davor übersprungen, mit `grantGold` samt ihrem Gold. Nur in Phase `setup`, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#jump-to-wave) |
+| `debug:ready-hero` | DebugFacadeService (Cheat "Hero", **deferred**) | GameCommandsHandler → ResearchManager.completeResearch(), dann HeroManager.hire(0) | Forschung `mercenary-contract` samt Voraussetzungen, dann der Held umsonst angeheuert; ist er schon da, passiert nichts |
 | `debug:remove-enemy` | EnemyDebugService (Enemy-Debug-Fenster: Entfernen-Knopf, „Clear All“ je Debug-Enemy) | EnemyManager, GameStateManager (Tower in Wachrichtung) | Einzelnen Enemy entfernen (`enemyId`) |
 | `debug:start-custom-wave` | WaveDebuggerComponent | GameLoopFacade (`startCustomWave()`) | Custom Wave starten |
 | `debug:spawn-enemy` | EnemyDebugService | EnemyManager | Enemy manuell spawnen (`enemyType`, `count?`, `path?`, `speed?`, `paused?`, `health?`) |
@@ -115,7 +120,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 > **Routing (2026-05-10):** Alle `command:*`-Subscriptions und die Cheat-Events
 > `debug:add-credits`, `debug:add-health`, `debug:complete-all-research`,
 > `debug:max-upgrade-all-towers` (seit 2026-09-13 auch `debug:ready-ability`, seit 2026-09-14
-> `debug:jump-to-wave`) liegen in
+> `debug:jump-to-wave` und `debug:ready-hero`) liegen in
 > `GameCommandsHandler` (`managers/game-commands.handler.ts`).
 > Vorher hingen die 11 Listener direkt am `GameStateManager`. Der Handler hält keinen State
 > und delegiert an den GameStateManager bzw. dessen `towerManager` und `researchManager`.
@@ -134,6 +139,9 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `command:queue-research` | TowerDefenseComponent (nur Spieler) | GameCommandsHandler → ResearchManager | In die Warteschlange (`researchId`), kostet nichts. Fehlende Voraussetzungen (weder fertig, laufend noch eingereiht) kommen davor, die ganze Kette in Reihenfolge. Gestartet und bezahlt wird im Sub-Step nach `update()` (`ResearchManager.startQueued`), sobald ein Slot frei ist und das Gold reicht. Wer aufs Gold wartet, hält die Schlange, nichts dahinter überholt; wer auf eine Voraussetzung wartet, lässt den Nächsten an den Slot. Bots nutzen weiter `command:start-research`, das bei vollen Slots ablehnt |
 | `command:unqueue-research` | TowerDefenseComponent | GameCommandsHandler → ResearchManager | Aus der Warteschlange nehmen (`researchId`), keine Erstattung, weil nichts bezahlt war. Was dahinter nur wegen dieser Voraussetzung stand, geht mit raus (ebenso beim Abbrechen einer laufenden Forschung) |
 | `command:use-ability` | AbilityTargetingService (Klick im Zielmodus), TrainingSession (Bot-Aktion `use-ability`) | GameCommandsHandler → AbilityManager.use() | Fähigkeit einsetzen (`abilityId`, `target`); Antwort `ability:used` oder `ability:rejected` |
+| `command:hire-hero` | SidebarWavePanelComponent (Helden-Knopf) | GameCommandsHandler → HeroManager.hire() | Held anheuern (Forschung, Credits, Route); Antwort `hero:state-changed` oder `hero:rejected`. Bots senden ihn nie |
+| `command:hero-move` | HeroControlService (Klick bei gewähltem Helden) | GameCommandsHandler → HeroManager.moveTo() | Held zum nächsten Routenpunkt im Umkreis von 30 m schicken (`target`), der Weg wird im Befehl berechnet |
+| `command:hero-ammo` | HeroControlService (Taste V, Helden-Panel) | GameCommandsHandler → HeroManager.setAmmo() | Munition laden (`ammo`: `standard`, `explosive`, `rune`) |
 
 ---
 
@@ -264,7 +272,8 @@ function gameLoop(deltaTime: number) {
 | **ResearchManager** | Nein | Producer | Emittiert `research:*` |
 | **GameCommandsHandler** | Nein | Subscriber | Reagiert auf `command:*` und die `debug:*`-Cheats (Credits, Health, Research, Max Up, Nuke, Wellensprung), sucht den Tower heraus und ruft den GameStateManager; emittiert selbst nichts |
 | **CombatEffectService** | Ja | Mixed | Reagiert auf `projectile:hit`, `dot:damage`, emittiert `vfx:chain-lightning` |
-| **DamageApplicationService** | Ja | Producer | Emittiert `tower:kill` |
+| **DamageApplicationService** | Ja | Producer | Emittiert `tower:kill`, bei Schüssen des Helden `hero:kill` |
+| **HeroManager** | Nein | Mixed | Emittiert `hero:state-changed`, `hero:rejected`, `hero:level-up`; reagiert auf `research:completed`, `hero:kill` |
 | **HQDamageService** | Ja | Mixed | Reagiert auf `health:changed`, emittiert `audio:play` |
 | **GameStateSyncService** | Ja | Subscriber | Synchronisiert Game State mit Angular UI |
 | **GameStateManager** | Ja | Adapter | Orchestriert Manager, emittiert `game:started`, `game:over`, `game:reset`; über seine Klassen in `managers/game-state/` außerdem `credits:changed`, `health:changed`, `tower:upgraded` |
