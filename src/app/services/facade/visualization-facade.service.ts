@@ -37,15 +37,10 @@ import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { EngineStore } from '../../store/engine.store';
 import { STREET_FILTER_RADIUS, CAMERA_PADDING, CAMERA_ANGLE, CAMERA_MARKER_RADIUS } from '../../configs/map-constants.config';
-import {
-  INTRO_GATE_SAMPLES_PER_FRAME,
-  INTRO_GATE_TIMEOUT_MS,
-  flightGateMeta,
-  flightGateOpen,
-} from '../../utils/flight-gate';
 import { CorridorController } from '../world/corridor-controller';
 import { CorridorConsole } from '../debug/corridor-console';
 import { RouteGridConvergence } from '../world/route-grid-convergence';
+import { IntroLoadingGate } from '../world/intro-loading-gate';
 import { cameraTimeline } from '../../utils/camera-timeline';
 
 /**
@@ -93,10 +88,6 @@ export class VisualizationFacadeService {
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly introFlight = inject(IntroCameraFlightService);
 
-  /** Intro boot gate, see holdForIntroFlight(): pending frame, deadline, passed. */
-  private introGateRaf: number | null = null;
-  private introGateDeadline: number | null = null;
-  private introGateDone = false;
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly buildingRendering = inject(BuildingRenderingService);
@@ -141,6 +132,15 @@ export class VisualizationFacadeService {
     settled: () => this.corridor.remeasure(),
   });
 
+  /** Loading screen held for the intro flight on the first load, see IntroLoadingGate. */
+  private readonly introGate = new IntroLoadingGate({
+    engineInit: this.engineInit,
+    heightUpdate: this.heightUpdate,
+    pathRoute: this.pathRoute,
+    introFlight: this.introFlight,
+    recheck: () => this.checkAllLoaded(),
+  });
+
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
 
@@ -180,12 +180,7 @@ export class VisualizationFacadeService {
     this.eventBusSubs.disposeAll();
     this.corridor.dispose();
     this.convergence.dispose();
-    if (this.introGateRaf !== null) {
-      cancelAnimationFrame(this.introGateRaf);
-      this.introGateRaf = null;
-    }
-    this.introGateDeadline = null;
-    this.introGateDone = false;
+    this.introGate.dispose();
     const engine = this.initialized ? this.bridge.getEngine() : null;
     this.disposeDpsVisualization(engine);
     this.cachedBuildings = null;
@@ -552,53 +547,6 @@ export class VisualizationFacadeService {
   }
 
   /**
-   * Intro boot gate (utils/flight-gate.ts). Once tiles, streets and heights
-   * are done, the loading screen stays up until the intro flight has reliable
-   * heights along INTRO_GATE_MIN_READY of its route, or until
-   * INTRO_GATE_TIMEOUT_MS after the first tiles arrived. Meanwhile it samples
-   * the route every frame; the route corridor streams fine tiles whatever
-   * the camera shows, so the share grows while the screen is up.
-   *
-   * @returns true while holding the loading screen
-   */
-  private holdForIntroFlight(): boolean {
-    if (this.introGateDone) return false;
-    if (this.engineInit.tilesLoading() || this.engineInit.osmLoading() || this.heightUpdate.heightsLoading()) {
-      return false;
-    }
-
-    if (this.introGateDeadline === null) {
-      const paths = this.pathRoute.getCachedPaths();
-      if (paths.size === 0 || !this.introFlight.prepare(paths)) {
-        this.introGateDone = true;
-        void this.engineInit.setStepDone('flight');
-        return false;
-      }
-      this.introGateDeadline = (this.engineInit.getFirstTilesLoadedAt() ?? performance.now()) + INTRO_GATE_TIMEOUT_MS;
-      void this.engineInit.setStepDone('tiles');
-      void this.engineInit.setStepCurrent('flight');
-    }
-
-    const readiness = this.introFlight.readiness();
-    if (flightGateOpen(readiness, performance.now(), this.introGateDeadline)) {
-      cameraTimeline.record('intro.gateOpen', { readiness: Math.round(readiness * 100) / 100 });
-      this.introGateDone = true;
-      void this.engineInit.setStepDone('flight', flightGateMeta(readiness));
-      return false;
-    }
-
-    this.engineInit.updateStepMeta('flight', flightGateMeta(readiness));
-    if (this.introGateRaf === null) {
-      this.introGateRaf = requestAnimationFrame(() => {
-        this.introGateRaf = null;
-        this.introFlight.prepareTick(INTRO_GATE_SAMPLES_PER_FRAME);
-        this.checkAllLoaded();
-      });
-    }
-    return true;
-  }
-
-  /**
    * Check if all loading is complete.
    */
   checkAllLoaded(): void {
@@ -606,7 +554,7 @@ export class VisualizationFacadeService {
     const isApplying = this.locationMgmt.isApplyingLocation();
 
     // First load only; a location change starts its flight from its own step 7.
-    if (wasLoading && !isApplying && this.holdForIntroFlight()) return;
+    if (wasLoading && !isApplying && this.introGate.hold()) return;
 
     this.engineInit.checkAllLoaded(this.heightUpdate.heightsLoading);
     const isNowLoading = this.engineInit.loading();

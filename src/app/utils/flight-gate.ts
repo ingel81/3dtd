@@ -1,8 +1,9 @@
 /**
  * Boot-Gate der Intro-Kamerafahrt: Der Ladescreen bleibt stehen, bis die Fahrt
  * entlang der Route verlässliche Höhen hat, oder bis ein Timeout abläuft, damit
- * langsame Verbindungen nicht hängen. Das Warten selbst steuert
- * VisualizationFacadeService.checkAllLoaded(); hier stehen Konstanten und Entscheidung.
+ * langsame Verbindungen nicht hängen. Das Warten selbst steuert IntroLoadingGate
+ * (aus VisualizationFacadeService.checkAllLoaded()); hier stehen Konstanten und
+ * Entscheidung.
  *
  * Das Sampling kommt während des Ladescreens voran, obwohl die Kamera dort nur den
  * Spielblick zeigt: Der Routen-Korridor (LoadRegionPlugin, 5 m geometricError) lädt
