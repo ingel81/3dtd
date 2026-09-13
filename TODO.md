@@ -117,6 +117,11 @@
       Noch offen: Camera-Setup (GlobeControls + Initial-Position) und Tile-Loading-State-Machine
       (firstTilesLoaded, retry, debounce). Beide deutlich enger mit `tilesRenderer.initialize()`
       verzahnt — eigene Session mit Plan vorab.
+      **Stand 2026-09-13 (Nacht):** Camera-Setup und Tile-Loading lagen schon
+      vor der Nacht in `CameraRig` und `TileLoadingTracker`. Dazu ausgelagert:
+      Render-Loop, Terrain-Abfragen, Szene, Picking, TilesRenderer-Setup; 2 234
+      auf 1 144 Zeilen, heute 1 198 (`89871ab` bis `f8d1a97`, `d57026c` bis
+      `1f7c867`), Playtest steht aus.
 
 ## 1.3 Test-Coverage (Housekeeping Tier 4)
 
@@ -239,16 +244,37 @@
       die BVH-Entscheidung. Nachmessen
       nach Tile-Schüben seit `30bc473`, die Regeln stecken in
       `CorridorRefit` mit Spec (`cb925c6`).
+      **Stand 2026-09-13 (Nacht):** Spawn- und HQ-Wechsel messen den Korridor
+      (`428f339`), die Messung läuft in 4-ms-Scheiben statt 520 ms am Stück
+      (`879ad8b`), ein Tower oder eine Welle misst den Rest zuerst (`b9f468c`),
+      zurückgehaltene Nachmessungen kommen nach etwa 3 s (`9a6aa37`). Offen:
+      gemeinsame Zellen zweier Routen auf verschiedenen Ebenen, Neuaufbau
+      synchron. Playtest steht aus.
 
 - [ ] **Gegnermodelle: Blender-Runde**
       Reihenfolge laut `docs/ENEMY_MODEL_BUDGET.md`: Hornet (69 297
       VAT-Vertices pro Instanz), zombie_v2, Rat, Spider, Wraith, Zombie, Mech,
       Wallsmasher als GLB statt FBX, Dragon-Flug-Clip (13 s) auf einen Loop
-      kürzen (die ganze Dragon-VAT hat 98,5 MB). `tools/blender/optimize_zombie_v2.py` behält
-      `Electrocuted_Fall` noch in `KEEP_ANIMATIONS`: löschen oder auf den
-      Sturz zuschneiden, dann kann der Clip zurück in den Pool. Zombie Soldier
+      kürzen (die ganze Dragon-VAT hat 98,5 MB). `Electrocuted_Fall` von
+      zombie_v2 auf den Sturz zuschneiden, dann kann der Clip zurück in den
+      Pool (das Skript dafür ist jetzt `tools/blender/optimize_enemy.py`,
+      `optimize_zombie_v2.py` ist entfernt). Zombie Soldier
       verschwindet möglicherweise ebenfalls mitten im Fallen (ungeprüft). Alle
-      VAT-Materialien sind `transparent: true`, Kosten ungemessen.
+      VAT-Materialien waren `transparent: true` (bis `eb3b7da`), Kosten
+      ungemessen.
+      **Stand 2026-09-13 (Nacht):** 12 Modelle optimiert (`99f2845` bis
+      `32195cb`): Hornet, zombie_v2 (neue UVs, Farbe neu gebacken), Rat,
+      Spider, Wraith, Zombie (glatte Normalen, Look), Wallsmasher als GLB
+      (FBX-Loader entfernt), Dragon-Flug auf 3,3 s, Stone-Golem-Walk auf
+      1,33 s, Bat, Penguin, Mammoth. VAT aller Typen 264,2 auf 105,2 MB, kein
+      Template über 5 Mio. Vertices pro Frame. `Electrocuted_Fall` ist auf den
+      Sturz geschnitten und zurück im Pool (`05b2523`). VAT-Materialien opak,
+      wo kein Alpha nötig ist (`eb3b7da`). Offen: Mech, Ghost und Tank nicht
+      geändert; Rat-Animation nicht exakt (`43a511c`); Wraith-Brustkorb aus
+      der Nähe gröber. `43a511c` und die glatten Normalen (`700b102`) lassen
+      sich im Code und in der GLB einzeln zurücknehmen, am Head mit Konflikt
+      nur in `docs/ENEMY_MODEL_BUDGET.md`; die Datei danach per
+      `npm run model-budget` neu erzeugen. Playtest steht aus.
 
 - [ ] **Lizenzen und Attributions**
       In `attributions.config.ts` fehlen Ghost, Hornet, Mech, Wraith, Herbert,
@@ -261,6 +287,9 @@
 - [ ] **Bot-Läufe mit den neuen Inhalten**
       Keine Bot-Baseline mit Chaos Tower und `skeleton_swarm`, die Wirkung auf
       die Director-Zahlen ist offen.
+      **Stand 2026-09-13 (Nacht):** Split und Nuklearschlag kommen dazu.
+      strategist und meta erforschen und nutzen den Schlag, ihre Baselines
+      sind mit Läufen vor `77f3f2d` nicht direkt vergleichbar. Weiter offen.
 
 - [ ] **Kleinkram Runde 2**
       `GameStateManager.initialize` hat den unbenutzten Parameter
@@ -279,6 +308,84 @@
       MASTER_GAME_DESIGN §4 ist nicht umgesetzt · `EXPLOSION_PRESETS.hq`, der
       Typ `ExplosionPreset` und `ThreeTilesEngine.clearEntities()` haben keine
       Nutzer (erledigt, `71f41ec`).
+      **Stand 2026-09-13 (Nacht):** Split des Skeletons umgesetzt (`99178cd`
+      bis `0557aba`, Fixes `5dc8409`, `42f94b3`), Playtest steht aus.
+
+## 1.8 Befunde aus der Nachtschicht 2026-09-13 (nicht behoben)
+
+> Auf `sprint/night-2026-09-13` aufgefallen, bewusst nicht in der Nacht
+> erledigt. Übersicht: `docs/REVIEW_SPRINT_2026-09-13.md`. In der Nacht noch
+> behoben (fix3, `158f0f1` bis `c8c4242`): Leck-Budget in `beginWave()`,
+> DPS-Bins doppelt abonniert, Höhen-Refresh und `__corridor` nach
+> `dispose()`, Musik bei verweigertem `ctx.resume()`, Sounddatei nach
+> Ladefehler, ein veralteter Verweis in HANDOVER_ROUTE_GRID_GPU_LOS; dazu die
+> vier Befunde des dritten Reviews (`06d49b2` bis `9d60aaa`): Lazy-Chunk ohne
+> Fehlerpfad, Air-Alert-Ton nach Restart, Pan-Taste auf einem Slider, Fokus im
+> Photo Mode; dazu die drei Befunde des vierten Reviews (fix4, `54a51cf` bis
+> `52f6b3b`): Lade- und Öffnungsfehler des Ortsdialogs unterscheiden, Air-Alert
+> erst nach dem Ton, `getOrLoad` löst mit null auf.
+
+- [ ] **Canvas folgt keiner Fenstergröße**
+      `engine.resize()` läuft nur beim Start
+      (`services/infrastructure/engine-initialization.service.ts:308`) und über
+      `fitToCanvas()` beim Photo Mode (`services/photo-mode.service.ts:95`).
+      Aus dem Code, nicht im Browser gesehen.
+
+- [ ] **COMING UP: Anzahl-Spanne nur mit aktivem Director** (laut hud-Worker)
+      `components/game-sidebar/wave-panel/upcoming-waves.ts:69`.
+
+- [ ] **Nuklearschlag: Explosionsstufen in Echtzeit**
+      Die Stufen nach 120 und 260 ms laufen über `setTimeout`
+      (`game-engine/vfx.service.ts:108`) und gehen auch in einer Pause los.
+      VFX, Audio und Shake unterscheiden keine Fähigkeiten, keine Warnsirene
+      (`docs/ABILITIES.md`, "Eine weitere Fähigkeit").
+
+- [ ] **Spawn-Portal an engen Stellen und Hängen** (laut portal-Worker, ungesehen)
+      Pfeiler können in Gassen in Fassaden ragen, der Lichtfleck liegt am Hang
+      eventuell schief, von hinten ploppen Gegner auf
+      (`three-engine/renderers/marker/spawn-portal.manager.ts`).
+
+- [ ] **Korridor-Neuaufbau im Intro**
+      Der Neuaufbau (etwa 40 ms, synchron) landet meist mitten im Intro, die
+      Routen-Animation startet dann neu. Eine Welle nach einem Flush nutzt die
+      vorher berechnete Director-Konfiguration
+      (`services/world/corridor-controller.ts`).
+
+- [ ] **Skeleton-Split: Reste**
+      Balance ungespielt; Training-`total_count` enthält die Minions; die
+      Debug-Platzierung kopiert weiter den Pfad; ist ein Debug-Skeleton der
+      einzige Gegner, drehen die Tower eventuell kurz zur Wachrichtung; der
+      Commit-Text von `99178cd` nennt +0,5 MB, richtig sind +0,2 MB
+      (`docs/ENEMY_MODEL_BUDGET.md:313`). Beschrieben ist der Split in
+      `docs/ENEMY_CREATION.md`, Abschnitt zu `splitOnDeath`.
+
+- [ ] **Lazy-Chunks: Reste**
+      Der Fehlerbildschirm nach einem gescheiterten Chunk-Download nennt
+      weiter "Change tile credentials" als Ausweg (laut fix3, `9d60aaa`).
+      `@angular/animations` steht noch in `package.json`.
+
+- [ ] **Steuerung und HUD: Kleinkram** (laut controls- und hud-Worker)
+      Ein Wellenstart hebt die Pause nicht auf; die Research-Queue nimmt keine
+      Ketten von Voraussetzungen. Ungemessen: Hover-Pick bis 10 pro Sekunde,
+      Offscreen-Scan bei 20k Gegnern. Ungesehen: die HQ-Zelle "100/100" ist
+      knapp (47 von 51 px). Die Photo-Leiste hat keine Fokusfalle
+      (`services/photo-mode.service.ts`).
+
+- [ ] **Meta: ungeprüft**
+      Showcase-Orte nicht angespielt (`configs/showcase-locations.config.ts`);
+      Recent speichert auch Orte, deren Route scheitert
+      (`services/location/recent-locations.ts`).
+
+- [ ] **VAT nach Context-Restore**
+      `InstancedEnemyRenderer` backt nach einem WebGL-Context-Restore alle
+      Typen neu (in Node etwa 5 s), im Browser ungemessen; die Ersparnis im
+      Tab-Speicher ist gerechnet
+      (`three-engine/renderers/instanced-enemy/instanced-enemy.renderer.ts`).
+
+- [ ] **Training-Debugger: Callbacks als Funktions-Inputs**
+      `components/debug-window/training-debugger.component.ts` bekommt seine
+      Callbacks als Funktions-`@Input` statt als Outputs. Von hygiene nicht
+      umgestellt, weil das die API der Komponente ändert.
 
 ---
 
@@ -622,6 +729,13 @@
       den Modelldateien gerechnet). Die
       Mesh-Optimierung in Blender ist offen (siehe 1.7). Das oben genannte
       `zombie_v2.original.glb.bak` gibt es im Repo nicht.
+      **Stand 2026-09-13 (Nacht):** VAT als RGBA16F, wo der Fehler im Spiel
+      höchstens 2 mm beträgt (486,6 auf 264,7 MB, `e948529`), opak gezeichnet,
+      wo kein Alpha nötig ist (`eb3b7da`), CPU-Kopie nach dem Upload
+      freigegeben, laut Rechnung 264 MB weniger Tab-Speicher (`ec878b6`). In
+      der Blender-Runde zombie_v2 von 31 342 auf 4 870 VAT-Vertices mit neu
+      gebackener Textur (`4c8d21c`, `b09d24d`); VAT aller Typen jetzt 105,2 MB
+      (siehe 1.7). Playtest steht aus.
 
 - **Verworfen: Enemy Movement auf SoA (Structure of Arrays)**
       Nicht erneut als Teilumbau angehen. Gebaut in `bd1d3a5`, zurückgenommen in
@@ -645,6 +759,9 @@
       viel Zeit Raycasts heute kosten.
       **Stand 2026-09-12 (Runde 2):** Messung eingebaut (`072d29f`,
       `__raycastStats()`), Entscheidung nach dem Playtest.
+      **Stand 2026-09-13 (Nacht):** Der größte gemessene Brocken, die
+      Korridor-Messung (520 ms am Stück), läuft in 4-ms-Scheiben (`879ad8b`).
+      Entscheidung weiter nach dem Playtest.
 - [ ] **Web Worker Offloading** - weitere rechenintensive Logik
       Pathfinding läuft bereits im Worker (`pathfinding-worker.service.ts`).
       Übrige Kandidaten (Collision-Checks, Wave-Director-Inference,
@@ -715,6 +832,10 @@
       ein Portal am Boden ändert diese Maße.
       Dateien: `services/world/marker-visualization.service.ts`,
       `three-engine/renderers/marker/marker-instance.manager.ts`.
+      **Stand 2026-09-13 (Nacht):** umgesetzt (`a214973` bis `cc8da0f`):
+      Steintor am Routenanfang (`spawn-portal.manager.ts`), Wirbel in der
+      Spawnfarbe, Aufflammen bei Wellenstart, Burst beim Durchtreten, Portal als
+      Platzier-Vorschau. Playtest steht aus.
 
 ## Mobile Support & Accessibility
 
@@ -776,6 +897,9 @@
       Einschlag auf der nächsten Route-Zelle (30 m), Forschung (1.000 Gold,
       40 s, nach `advanced-weaponry`, voraussichtlich nach dem ersten Boss),
       sofort eine Bot-Strategie, danach der Held. Gebaut wird später.
+      **Stand 2026-09-13 (Nacht):** Nuklearschlag gebaut (`94213b0` bis
+      `44b8741`, Fix `cf6b6ee`, `docs/ABILITIES.md`), der Held ist offen.
+      Playtest steht aus.
 
 ## Tower-Ideen
 
@@ -794,3 +918,6 @@
 - [ ] **Skeleton** - `unarmored`, Swarm (nächste Runde, festgelegt 2026-09-12)
       **Stand 2026-09-12 (Runde 2):** umgesetzt (`a177026`, `3f9b854`:
       Kenney-Modell, `skeleton_swarm` auf W19).
+      **Stand 2026-09-13 (Nacht):** Ein im Kampf getötetes Skeleton spaltet
+      sich in zwei `skeleton-minion` (`99178cd` bis `0557aba`), Playtest steht
+      aus.
