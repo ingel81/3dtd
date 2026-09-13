@@ -328,9 +328,10 @@ Nicht in der Gegner-Config, deshalb nicht in den Tabellen unten; von Hand gemess
   (three.js: `WristR`) an der Mündung.
 - **Wurm-Boss** (`public/assets/models/enemies/worm_head.glb` und `worm_segment.glb`,
   `tools/blender/worm_boss.py`, eigenes Werk ohne fremde Quellen): statische Meshes ohne
-  Knochen und Clips, Farben als Vertexfarben (COLOR_0) unter einem Material, keine UVs,
-  keine Texturen. Segment 584 Vertices (GPU), 556 Dreiecke, 25 kB; Kopf 1.341 Vertices,
-  1.662 Dreiecke, 59 kB. Bei 100 Segmenten sind das 58.400 Vertices je Wurm. Blick nach +z,
+  Knochen und Clips, je eine 512²-Basisfarbe (JPEG), aus den beim Bauen gesetzten
+  Vertexfarben gebacken; der statische VAT-Pfad liest Textur oder Materialfarbe, keine
+  Vertexfarben. Segment 634 Vertices (GPU), 556 Dreiecke, 41 kB; Kopf 1.700 Vertices,
+  1.662 Dreiecke, 87 kB. Bei 100 Segmenten sind das 63.400 Vertices je Wurm. Blick nach +z,
   Pivot am Boden unter der Ringmitte, Kettenabstand 1,0 Modelleinheiten (Segment
   z −0,58 bis 0,52, Breite mit Beinen 2,88, Höhe 1,78).
 
