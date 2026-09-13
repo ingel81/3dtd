@@ -41,6 +41,7 @@ import {
 } from '../../src/app/configs/research/research-center.config';
 import { GAME_BALANCE } from '../../src/app/configs/game-balance.config';
 import type { ResearchId } from '../../src/app/configs/research/research.types';
+import { HERO } from '../../src/app/configs/hero.config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/economy-chart.html');
@@ -157,6 +158,8 @@ interface RosterBudget {
   towers: number;
   research: number;
   researchCenter: number;
+  /** The mercenary's hire, once (HERO.cost); his research is in `research` */
+  hero: number;
   total: number;
   /** goldKill + goldComplete über das Curriculum, ohne Skill-Boni. */
   income: number;
@@ -170,7 +173,8 @@ const ROSTER_TOWER_COUNT: Partial<Record<TowerTypeId, number>> = { archer: 3 };
 /**
  * Das Roster, gegen das WAVE_CURRICULUM budgetiert ist: jeder Combat-Tower
  * einmal (Archer dreimal), alle Upgrade-Tracks auf L20 (kürzere Tracks auf
- * ihrem Maximum), alle Forschungen, Research Center Stufe 3. Preise aus
+ * ihrem Maximum), alle Forschungen, Research Center Stufe 3 und das
+ * Anheuern des Söldners (HERO.cost, einmal). Preise aus
  * TOWER_TYPES, auch für das Research Center (RESEARCH_CENTER_CONFIG zählt nur
  * Slots).
  */
@@ -194,9 +198,11 @@ function buildRosterBudget(): RosterBudget {
   const rcConfig = TOWER_TYPES['research-center'];
   const researchCenter = rcConfig.cost + rcConfig.upgrades.reduce((sum, u) => sum + trackCost(u, u.maxLevel), 0);
 
-  const total = towers + research + researchCenter;
+  const hero = HERO.cost;
+
+  const total = towers + research + researchCenter + hero;
   const income = WAVE_CURRICULUM.reduce((sum, w) => sum + w.goldKill + w.goldComplete, 0);
-  return { towers, research, researchCenter, total, income, buffer: income / total - 1 };
+  return { towers, research, researchCenter, hero, total, income, buffer: income / total - 1 };
 }
 
 function renderHtml(
@@ -500,6 +506,7 @@ ${upgradeMilestones
         <tr><td class="l">Towers incl. upgrades</td><td>${fmt(roster.towers)}</td></tr>
         <tr><td class="l">Research (all nodes)</td><td>${fmt(roster.research)}</td></tr>
         <tr><td class="l">Research Center L3</td><td>${fmt(roster.researchCenter)}</td></tr>
+        <tr><td class="l">Mercenary hire (once)</td><td>${fmt(roster.hero)}</td></tr>
         <tr class="milestone"><td class="l">Roster total</td><td>${fmt(roster.total)}</td></tr>
         <tr><td class="l">Curriculum income W1–W30</td><td>${fmt(roster.income)}</td></tr>
         <tr class="milestone"><td class="l">Buffer (income / roster − 1)</td><td>${Math.round(roster.buffer * 100)}%</td></tr>
