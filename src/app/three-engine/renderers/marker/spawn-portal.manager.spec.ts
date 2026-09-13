@@ -104,6 +104,24 @@ describe('SpawnPortalManager: Stein', () => {
   });
 });
 
+describe('SpawnPortalManager: Sigillen', () => {
+  it('gibt dem Tor den Rhythmus der Sigillen und die Energiestufen aus dem Look', () => {
+    const group = new Group();
+    new SpawnPortalManager(group);
+    const gate = group.children.find((o) => o.name === 'spawnPortalGates') as InstancedMesh;
+    const material = gate.material as ShaderMaterial;
+    const L = SPAWN_PORTAL_LOOK;
+    const G = L.glyphs;
+    expect(material.uniforms['uGlyphWake'].value.toArray()).toEqual([G.wakePeriod, G.rise, G.hold, G.fade]);
+    expect(material.uniforms['uGlyphMix'].value.toArray()).toEqual([G.wakeChance[0], G.wakeChance[1], G.shimmer, G.crawl]);
+    expect(material.uniforms['uEnergyRange'].value.toArray()).toEqual([L.idleEnergy, L.waveEnergy, L.surge]);
+    expect(material.uniforms['uEnergy'].value).toBe(L.idleEnergy);
+    // Jede Sigille nach ihrer Zelle, aufwachend mit einem Glimmen entlang der Striche
+    expect(material.fragmentShader).toContain('portalGlyphCell(p, uOpening, centre)');
+    expect(material.fragmentShader).toContain('e.g * 16.0 - uTime * uGlyphMix.w');
+  });
+});
+
 describe('SpawnPortalManager: Rahmen', () => {
   /** Ein Kasten mit Tangenten und den vier Texturen anstelle des GLB. */
   function fakeFrame(): SpawnPortalFrame {

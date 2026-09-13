@@ -338,6 +338,43 @@ function sigilBranches(): string {
 }
 
 /**
+ * GLSL of the frame's sigil cells, generated from SIGIL_LAYOUT:
+ * portalGlyphCell(p, opening, centre) gives the number of the cell whose
+ * square holds p (portal space, front or back), numbered as
+ * frameSigilCells() does, -1 off the cells, and in `centre` the square's
+ * centre. The gate shader keys each carved sigil's life to it.
+ */
+export const PORTAL_GLYPH_CELL_GLSL = /* glsl */ `
+  const float GLYPH_SIZE = ${glslFloat(SIGIL_LAYOUT.size)};
+  const float GLYPH_PILLAR_INSET = ${glslFloat(SIGIL_LAYOUT.pillarInset)};
+  const float GLYPH_PILLAR_BOTTOM = ${glslFloat(SIGIL_LAYOUT.pillarBottom)};
+  const float GLYPH_PILLAR_PITCH = ${glslFloat(SIGIL_LAYOUT.pillarPitch)};
+  const float GLYPH_PILLAR_ROWS = ${glslFloat(SIGIL_LAYOUT.pillarRows)};
+  const float GLYPH_LINTEL_RISE = ${glslFloat(SIGIL_LAYOUT.lintelRise)};
+  const float GLYPH_LINTEL_PITCH = ${glslFloat(SIGIL_LAYOUT.lintelPitch)};
+  const float GLYPH_LINTEL_COLUMNS = ${glslFloat(SIGIL_LAYOUT.lintelColumns)};
+
+  float portalGlyphCell(vec3 p, vec2 opening, out vec2 centre) {
+    float row = floor((p.y - GLYPH_PILLAR_BOTTOM) / GLYPH_PILLAR_PITCH);
+    float pillarX = opening.x + GLYPH_PILLAR_INSET;
+    centre = vec2(sign(p.x) * pillarX, GLYPH_PILLAR_BOTTOM + (row + 0.5) * GLYPH_PILLAR_PITCH);
+    if (row >= 0.0 && row < GLYPH_PILLAR_ROWS
+        && abs(abs(p.x) - pillarX) < 0.5 * GLYPH_SIZE && abs(p.y - centre.y) < 0.5 * GLYPH_SIZE) {
+      // Up the left pillar, down the right one after the lintel
+      return p.x < 0.0 ? row : 2.0 * GLYPH_PILLAR_ROWS + GLYPH_LINTEL_COLUMNS - 1.0 - row;
+    }
+    float lintelHalf = 0.5 * GLYPH_LINTEL_COLUMNS * GLYPH_LINTEL_PITCH;
+    float column = floor((p.x + lintelHalf) / GLYPH_LINTEL_PITCH);
+    centre = vec2(-lintelHalf + (column + 0.5) * GLYPH_LINTEL_PITCH, opening.y + GLYPH_LINTEL_RISE);
+    if (column >= 0.0 && column < GLYPH_LINTEL_COLUMNS
+        && abs(p.x - centre.x) < 0.5 * GLYPH_SIZE && abs(p.y - centre.y) < 0.5 * GLYPH_SIZE) {
+      return GLYPH_PILLAR_ROWS + column;
+    }
+    return -1.0;
+  }
+`;
+
+/**
  * GLSL of the sigils, generated from PORTAL_SIGILS: portalSigil(p, index)
  * gives the distance (cell units) from p to the ink of sigil `index`.
  */
