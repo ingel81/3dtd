@@ -2,6 +2,7 @@ import { BLOOD_MOON_LOOK } from '../../configs/blood-moon.config';
 import { BloodMoonFade } from './blood-moon-fade';
 import type { BloodMoonMood } from './blood-moon-mood';
 import type { InstancedEnemyRenderer } from '../renderers/instanced-enemy/instanced-enemy.renderer';
+import type { SearchlightRenderer } from '../renderers/searchlight/searchlight.renderer';
 
 /** What follows the blood moon fade; each part is optional. */
 export interface BloodMoonParts {
@@ -9,6 +10,8 @@ export interface BloodMoonParts {
   mood?: Pick<BloodMoonMood, 'setAmount' | 'dispose'>;
   /** Glowing enemies */
   enemies?: Pick<InstancedEnemyRenderer, 'setBloodMoon'>;
+  /** Sweeping searchlights on the towers */
+  searchlights?: Pick<SearchlightRenderer, 'setAmount' | 'advance'>;
 }
 
 /**
@@ -63,13 +66,18 @@ export class BloodMoonLook {
    * post-processing target (bloom or colour grading on).
    */
   update(deltaMs: number, running: boolean, linearOutput: boolean): void {
-    if (running) this.fade.step(deltaMs);
+    if (running) {
+      this.fade.step(deltaMs);
+      // The beams sweep only while they show, on the same clock as the fade
+      if (this.fade.amount > 0) this.parts.searchlights?.advance(deltaMs);
+    }
     const amount = this.fade.amount;
     if (amount === this.appliedAmount && linearOutput === this.appliedLinear) return;
     this.appliedAmount = amount;
     this.appliedLinear = linearOutput;
     this.parts.mood?.setAmount(amount, linearOutput);
     this.parts.enemies?.setBloodMoon(amount, linearOutput);
+    this.parts.searchlights?.setAmount(amount);
   }
 
   dispose(): void {

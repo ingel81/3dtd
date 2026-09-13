@@ -186,6 +186,17 @@ export class TowerManager extends EntityManager<Tower> {
       );
     }
 
+    // Searchlight for the blood moon, on the tower's foot (the plinth's top);
+    // passive buildings get none
+    this.tilesEngine.searchlights.add(
+      tower.id,
+      position.lat,
+      position.lon,
+      terrainHeight,
+      tower.typeConfig,
+      tower.guardHeading,
+    );
+
     // Create tentacle visual for Tentacle Towers
     if (typeId === 'tentacle') {
       const localPos = this.tilesEngine.sync.geoToLocalSimple(
@@ -487,6 +498,7 @@ export class TowerManager extends EntityManager<Tower> {
       this.tilesEngine?.plinths.remove(entity.id);
     }
     this.tilesEngine?.towerBadges.remove(entity.id);
+    this.tilesEngine?.searchlights.remove(entity.id);
     this.tilesEngine?.towers.remove(entity.id);
     super.remove(entity);
   }
@@ -501,6 +513,7 @@ export class TowerManager extends EntityManager<Tower> {
     this.tilesEngine?.tentacles.clear();
     this.tilesEngine?.plinths.clear();
     this.tilesEngine?.towerBadges.clear();
+    this.tilesEngine?.searchlights.clear();
     this.tilesEngine?.towers.clear();
     this._selectedTowerId.set(null);
     super.clear();

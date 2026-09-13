@@ -169,6 +169,7 @@ function createDeepMock(): never {
       plinths: autoProxy(),
       towerBadges: autoProxy(),
       bloodMoon: autoProxy(),
+      searchlights: autoProxy(),
       projectiles: autoProxy(),
       trailStreaks: autoProxy(),
       tentacles: autoProxy(),
