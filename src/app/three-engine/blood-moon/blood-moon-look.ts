@@ -1,11 +1,14 @@
 import { BLOOD_MOON_LOOK } from '../../configs/blood-moon.config';
 import { BloodMoonFade } from './blood-moon-fade';
 import type { BloodMoonMood } from './blood-moon-mood';
+import type { InstancedEnemyRenderer } from '../renderers/instanced-enemy/instanced-enemy.renderer';
 
 /** What follows the blood moon fade; each part is optional. */
 export interface BloodMoonParts {
   /** Red tint over the picture, sky and fog */
   mood?: Pick<BloodMoonMood, 'setAmount' | 'dispose'>;
+  /** Glowing enemies */
+  enemies?: Pick<InstancedEnemyRenderer, 'setBloodMoon'>;
 }
 
 /**
@@ -66,6 +69,7 @@ export class BloodMoonLook {
     this.appliedAmount = amount;
     this.appliedLinear = linearOutput;
     this.parts.mood?.setAmount(amount, linearOutput);
+    this.parts.enemies?.setBloodMoon(amount, linearOutput);
   }
 
   dispose(): void {

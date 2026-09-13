@@ -25,7 +25,27 @@ import { DrawGate } from '../renderers/draw-gate';
 const MOOD_ORDER = 900;
 
 /** Display values into the linear post-processing target, about sRGB */
-const LINEAR_EXPONENT = 2.2;
+export const LINEAR_EXPONENT = 2.2;
+
+/** The mood's tint in display values at `amount`: 1 at 0, BLOOD_MOON_LOOK.mood.tint at 1. */
+export function bloodMoonTintAt(amount: number, target: Vector3): Vector3 {
+  const k = Math.min(1, Math.max(0, amount));
+  const { tint } = BLOOD_MOON_LOOK.mood;
+  return target.set(1 + (tint.r - 1) * k, 1 + (tint.g - 1) * k, 1 + (tint.b - 1) * k);
+}
+
+/**
+ * What the mood multiplies the frame by at `amount`, without the darker
+ * corners, in the values of the target: display values on the canvas,
+ * linear ones in the post-processing target.
+ */
+export function bloodMoonMultiplier(amount: number, linearOutput: boolean, target: Vector3): Vector3 {
+  bloodMoonTintAt(amount, target);
+  if (linearOutput) {
+    target.set(target.x ** LINEAR_EXPONENT, target.y ** LINEAR_EXPONENT, target.z ** LINEAR_EXPONENT);
+  }
+  return target;
+}
 
 const MOOD_VERTEX_SHADER = /* glsl */ `
   varying vec2 vUv;
@@ -130,9 +150,9 @@ export class BloodMoonMood {
    */
   setAmount(amount: number, linearOutput: boolean): void {
     const k = Math.min(1, Math.max(0, amount));
-    const { tint, vignette, skyIntensity } = BLOOD_MOON_LOOK.mood;
+    const { vignette, skyIntensity } = BLOOD_MOON_LOOK.mood;
     const uniforms = this.quad.material.uniforms;
-    this.tint.set(1 + (tint.r - 1) * k, 1 + (tint.g - 1) * k, 1 + (tint.b - 1) * k);
+    bloodMoonTintAt(k, this.tint);
     uniforms['uVignette'].value = vignette * k;
     uniforms['uExponent'].value = linearOutput ? LINEAR_EXPONENT : 1;
     this.gate.setCount(k > 0 ? 1 : 0);

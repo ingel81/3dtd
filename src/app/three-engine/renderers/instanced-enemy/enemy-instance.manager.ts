@@ -10,7 +10,8 @@ import {
   Texture,
 } from 'three';
 import { VATData } from './vat-baker';
-import { createVATMaterial, setVATTexture } from './vat-material';
+import { createVATBloodMoonUniforms, createVATMaterial, setVATTexture } from './vat-material';
+import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
 import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { InstanceSlotAllocator } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
@@ -148,6 +149,9 @@ export class EnemyInstanceManager {
   /** setVisible() state, also applied to pools created later. */
   private shown = true;
 
+  /** Blood moon uniforms every pool's material shares, see setBloodMoon(). */
+  private readonly bloodMoon = createVATBloodMoonUniforms();
+
   // Reusable temp objects
   private readonly matrix = new Matrix4();
   private static readonly _tempQuat = new Quaternion();
@@ -168,6 +172,7 @@ export class EnemyInstanceManager {
       emissiveIntensity: config.emissiveIntensity,
       emissiveColor: config.emissiveColor,
       colorMultiplier: config.colorMultiplier,
+      bloodMoon: this.bloodMoon,
     });
     const instancedMesh = new InstancedMesh(
       vatData.geometry,
@@ -416,6 +421,17 @@ export class EnemyInstanceManager {
 
   /** VFX setting freezeTint; while off a slowed enemy shows no freeze tint. */
   private freezeTint = true;
+
+  /**
+   * Blood moon look at `amount` (0..1, BloodMoonLook): the glow of every
+   * type, and for the blending types, which draw after the mood's quad,
+   * the mood's multiplier in the values of the target. Two uniform writes
+   * for all pools, pools created later included.
+   */
+  setBloodMoon(amount: number, linearOutput: boolean): void {
+    this.bloodMoon.bloodMoonGlow.value = amount;
+    bloodMoonMultiplier(amount, linearOutput, this.bloodMoon.bloodMoonTint.value);
+  }
 
   /**
    * Show or hide the freeze tint (VFX setting freezeTint). Enemies stay

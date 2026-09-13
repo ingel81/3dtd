@@ -2,9 +2,11 @@ import {
   ShaderMaterial,
   Color,
   Vector3,
+  type IUniform,
 } from 'three';
 import { VATData } from './vat-baker';
 import type { VATAlphaMode } from './vat-surface';
+import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
 
 /** Shader switch per VAT alpha mode. */
 const ALPHA_DEFINES: Record<VATAlphaMode, Record<string, string>> = {
@@ -13,10 +15,30 @@ const ALPHA_DEFINES: Record<VATAlphaMode, Record<string, string>> = {
   blend: { VAT_ALPHA_BLEND: '' },
 };
 
+/**
+ * Blood moon uniforms. EnemyInstanceManager hands the same objects to every
+ * VAT material, so one write reaches all enemy types; no material clones.
+ */
+export interface VATBloodMoonUniforms {
+  /** 0 outside a blood moon, 1 at full glow */
+  bloodMoonGlow: IUniform<number>;
+  /** The mood's multiplier, for the blending types that draw after its quad */
+  bloodMoonTint: IUniform<Vector3>;
+}
+
+export function createVATBloodMoonUniforms(): VATBloodMoonUniforms {
+  return {
+    bloodMoonGlow: { value: 0 },
+    bloodMoonTint: { value: new Vector3(1, 1, 1) },
+  };
+}
+
 export interface VATMaterialOptions {
   emissiveIntensity?: number;
   emissiveColor?: string;
   colorMultiplier?: number;
+  /** Shared blood moon uniforms; without them the material gets its own, at rest */
+  bloodMoon?: VATBloodMoonUniforms;
 }
 
 /**
@@ -33,13 +55,23 @@ export interface VATMaterialOptions {
  * Per-instance attributes:
  *   aAnimFrame (float) - current animation frame in the VAT
  *   aTintColor (vec3) - tint color overlay (0,0,0 = no tint)
+ *
+ * Blood moon (VATBloodMoonUniforms, shared by every type): a rim glow while
+ * bloodMoonGlow is above 0, and for blending types the mood's multiplier.
  */
 export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions): ShaderMaterial {
   const emissiveIntensity = options?.emissiveIntensity ?? 0;
   const emissiveColor = new Color(options?.emissiveColor ?? '#ffffff');
   const colorMultiplier = options?.colorMultiplier ?? 1.0;
+  const bloodMoon = options?.bloodMoon ?? createVATBloodMoonUniforms();
+  const glow = BLOOD_MOON_LOOK.glow;
 
   const uniforms: Record<string, { value: unknown }> = {
+    // The same uniform objects in every material (see VATBloodMoonUniforms)
+    ...bloodMoon,
+    bloodMoonGlowColor: { value: new Vector3(glow.color.r, glow.color.g, glow.color.b) },
+    bloodMoonRim: { value: glow.rim },
+    bloodMoonBase: { value: glow.base },
     vatTexture: { value: vatData.positionTexture },
     vatWidth: { value: vatData.texWidth },
     vatHeight: { value: vatData.totalFrames * vatData.rowsPerFrame },
@@ -90,6 +122,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       varying vec3 vVertexColor;
       varying float vVertexAlpha;
       varying float vUseMap;
+      varying vec3 vWorldPosition;
 
       #include <common>
       #include <logdepthbuf_pars_vertex>
@@ -122,6 +155,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
 
         // Apply instance transform
         vec4 worldPosition = modelMatrix * instanceMatrix * vec4(animatedPosition, 1.0);
+        vWorldPosition = worldPosition.xyz;
         vec4 mvPosition = viewMatrix * worldPosition;
         gl_Position = projectionMatrix * mvPosition;
 
@@ -138,6 +172,11 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       uniform vec3 emissiveColor;
       uniform float colorMultiplier;
       uniform float alphaCutoff;
+      uniform float bloodMoonGlow;
+      uniform vec3 bloodMoonGlowColor;
+      uniform float bloodMoonRim;
+      uniform float bloodMoonBase;
+      uniform vec3 bloodMoonTint;
 
       varying vec2 vUv;
       varying vec3 vNormal;
@@ -146,6 +185,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       varying vec3 vVertexColor;
       varying float vVertexAlpha;
       varying float vUseMap;
+      varying vec3 vWorldPosition;
 
       #include <logdepthbuf_pars_fragment>
 
@@ -215,6 +255,15 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         // Emissive: additive glow (brightens the model)
         litColor += emissiveColor * emissiveIntensity;
 
+        // Blood moon glow, 0 outside it: a hot rim where the surface turns
+        // away from the camera, a faint glow all over
+        if (bloodMoonGlow > 0.0) {
+          vec3 glowNormal = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
+          vec3 toCamera = normalize(cameraPosition - vWorldPosition);
+          float rim = 1.0 - max(dot(glowNormal, toCamera), 0.0);
+          litColor += bloodMoonGlowColor * (bloodMoonRim * rim * rim + bloodMoonBase) * bloodMoonGlow;
+        }
+
         // Apply tint (for freeze/damage effects)
         if (vHasTint > 0.5) {
           litColor = mix(litColor, vTintColor, 0.5);
@@ -226,6 +275,9 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
                    (litColor * (2.43 * litColor + 0.59) + 0.14);
 
         #ifdef VAT_ALPHA_BLEND
+          // Drawn after the blood moon's mood quad (transparent), so the
+          // mood's multiplier comes in here; 1 outside a blood moon
+          litColor *= bloodMoonTint;
           gl_FragColor = vec4(litColor, baseAlpha);
         #else
           gl_FragColor = vec4(litColor, 1.0);

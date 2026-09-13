@@ -332,6 +332,7 @@ export class ThreeTilesEngine {
     // Takes the fog colour set above as the one to return to
     this.bloodMoon = new BloodMoonLook({
       mood: new BloodMoonMood(this.scene),
+      enemies: this.enemies,
     });
 
     // Initialize spatial audio with camera listener

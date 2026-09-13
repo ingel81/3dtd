@@ -46,4 +46,15 @@ export const BLOOD_MOON_LOOK = {
     skyIntensity: 0.6,
     fogColor: 0x2b1311,
   },
+  /**
+   * Enemies glow (VAT shader, one uniform for every type): `color` times
+   * `rim` where the surface turns away from the camera (squared falloff)
+   * plus `base` all over, added before the shader's tone mapping. The mood
+   * multiplies it afterwards, so an orange here ends up red on screen.
+   */
+  glow: {
+    color: { r: 1.0, g: 0.2, b: 0.08 },
+    rim: 2.4,
+    base: 0.12,
+  },
 } as const;

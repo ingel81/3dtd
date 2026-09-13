@@ -6,8 +6,9 @@ const { fadeInMs, fadeOutMs } = BLOOD_MOON_LOOK;
 
 function setup() {
   const mood = { setAmount: vi.fn(), dispose: vi.fn() };
-  const look = new BloodMoonLook({ mood });
-  return { look, mood };
+  const enemies = { setBloodMoon: vi.fn() };
+  const look = new BloodMoonLook({ mood, enemies });
+  return { look, mood, enemies };
 }
 
 describe('BloodMoonLook', () => {
@@ -87,6 +88,16 @@ describe('BloodMoonLook', () => {
     look.setActive(false, true);
     look.update(16, false, true);
     expect(mood.setAmount).toHaveBeenLastCalledWith(0, true);
+  });
+
+  it('lets the enemies glow along with the mood', () => {
+    const { look, enemies } = setup();
+    look.setActive(true);
+    look.update(fadeInMs / 2, true, false);
+    expect(enemies.setBloodMoon).toHaveBeenLastCalledWith(look.amount, false);
+    look.setActive(false, true);
+    look.update(16, true, false);
+    expect(enemies.setBloodMoon).toHaveBeenLastCalledWith(0, false);
   });
 
   it('disposes its parts', () => {
