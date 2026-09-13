@@ -412,6 +412,23 @@ describe('GameStateManager', () => {
       });
     });
 
+    describe('command:set-targeting', () => {
+      it('sets the strategy and the air sub-strategy of the tower, each only when given', () => {
+        const tower = { targetingStrategy: 'closest', airSubStrategy: 'closest' };
+        vi.spyOn(gsm.towerManager, 'getById').mockImplementation((id) => (id === 't1' ? tower as never : null));
+
+        bus.emit({ type: 'command:set-targeting', towerId: 't1', strategy: 'air-priority' });
+        expect(tower).toEqual({ targetingStrategy: 'air-priority', airSubStrategy: 'closest' });
+
+        bus.emit({ type: 'command:set-targeting', towerId: 't1', airSubStrategy: 'lowest-hp' });
+        expect(tower).toEqual({ targetingStrategy: 'air-priority', airSubStrategy: 'lowest-hp' });
+
+        // An unknown tower (sold meanwhile) changes nothing
+        bus.emit({ type: 'command:set-targeting', towerId: 'gone', strategy: 'first' });
+        expect(tower.targetingStrategy).toBe('air-priority');
+      });
+    });
+
     describe('corridor measurement under way (setBeforeCorridorLock)', () => {
       it('finishes before the tower is placed', () => {
         const order: string[] = [];
