@@ -675,8 +675,8 @@ DPS-Ramp, Endgame-Multiplikator); der Wurm nimmt ihn je Segment. Das Fairness-Ga
 die Größe nicht, die Länge des Wurms folgt der Route. „Why this wave“ nennt das ersetzte
 Template, der Collector speichert die Welle, die läuft. Templates, Curriculum, Encoder und
 `ai-schema.json` kennen die Varianten nicht; Wellen aus dem Training-Backend werden nie
-ersetzt. COMING UP im Wave-Panel zeigt eine Varianten-Welle vorab mit Namen, Rüstung und
-„weak to“.
+ersetzt. NEXT im Wave-Panel (Zeitleiste der kommenden Wellen, `wave-timeline.component`) zeigt
+eine Varianten-Welle vorab mit Namen, Rüstung und „weak to“.
 
 #### Boss-Intro
 
