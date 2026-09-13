@@ -587,6 +587,28 @@ An den betäubten Gegnern selbst: Tint und Funken des Stun
 
 ---
 
+## Orbitallaser
+
+`OrbitalBeamRenderer` (`three-engine/renderers/orbital-beam.renderer.ts`), Werte in
+`ORBITAL_BEAM_LOOK`, seit 2026-09-14, in Spielzeit: der Fuß steht nach
+Geschwindigkeit mal Alter auf dem Pfad, den der `AbilityManager` gefegt hat, so wie
+der Strahl in der Simulation. Die Pause hält ihn an.
+
+| Teil | Darstellung |
+|---|---|
+| Säule | Quad 9 m breit, 320 m hoch, um die Senkrechte zur Kamera gedreht; eigenes ShaderMaterial (Log-Depth-Chunks, `colorspace_fragment`, additiv, **mit** Tiefentest, Gebäude davor verdecken ihn): weißglühender Kern (0,9 m), orange Glut (3,2 m), nach oben ausblendend, am Boden am hellsten, mit Wellen, die in Spielzeit nach unten laufen |
+| Fuß | Glüh-Sprite (3,2 × Radius), pulsierend, Tiefentest aus |
+| Ring | am Boden im Strahlradius (5 m), die Zone, die Schaden nimmt, Tiefentest aus |
+| Blitz | Sprite 60 m, wo der Strahl aufsetzt, 0,3 s |
+| Funken | 220 je Sekunde vom Fuß, fliegen hinaus und fallen, 0,55 s; Funke k entsteht bei k/220 s dort, wo der Fuß da stand (Funktion seiner Nummer, kein Speicher) |
+| Brandspur | alle 3 m des Wegs ein Brandfleck (Quelle `rocket`), wo der Fuß vorbeikommt, nur auf Route-Zellen und mit Ground Marks an |
+
+Der Fuß steht auf dem Boden des Route-Grids (`setGround`, wie die Brandflecken), wo
+das Grid eine Zelle hat, sonst auf der Höhe des Pfads. Zwei Strahlen gleichzeitig. Mit
+Impact Effects aus keine Funken. `game:reset` leert sie.
+
+---
+
 ## Kampfspuren (Scorch-Decals)
 
 Schicht 1 aus `docs/game-design/COMBAT_HEATMAP_STUDY.md`, seit 2026-09-12. Dunkle

@@ -51,6 +51,7 @@ import { SearchlightRenderer } from './renderers/searchlight/searchlight.rendere
 import { HeroRenderer } from './renderers/hero.renderer';
 import { FrostBurstRenderer } from './renderers/frost-burst.renderer';
 import { EmpPulseRenderer } from './renderers/emp-pulse.renderer';
+import { OrbitalBeamRenderer } from './renderers/orbital-beam.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -159,6 +160,7 @@ export class ThreeTilesEngine {
   readonly hero: HeroRenderer;
   readonly frostBursts: FrostBurstRenderer;
   readonly empPulses: EmpPulseRenderer;
+  readonly orbitalBeams: OrbitalBeamRenderer;
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -349,6 +351,7 @@ export class ThreeTilesEngine {
     this.hero = new HeroRenderer(this.scene, coordinateSync, this.assetManager);
     this.frostBursts = new FrostBurstRenderer(this.scene, this.effects.particleShaderMaterials);
     this.empPulses = new EmpPulseRenderer(this.scene, this.effects.particleShaderMaterials);
+    this.orbitalBeams = new OrbitalBeamRenderer(this.scene, this.effects.particleShaderMaterials);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -996,6 +999,7 @@ export class ThreeTilesEngine {
     // Frost bursts run in game time as well
     this.frostBursts.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
     this.empPulses.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
+    this.orbitalBeams.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
 
     // The oozes' slime wobbles and sinks away in game time
     this.oozes.animate(gameDeltaSeconds * 1000);
@@ -1155,6 +1159,7 @@ export class ThreeTilesEngine {
     this.mushroomClouds.setFullCloud(settings.impactEffects);
     this.frostBursts.setFull(settings.impactEffects);
     this.empPulses.setFull(settings.impactEffects);
+    this.orbitalBeams.setFull(settings.impactEffects);
     this.trailStreaks.setEnabled(settings.projectileTrails);
     this.towers.setMuzzleFlashEnabled(settings.muzzleFlash);
     this.enemies.setFreezeTintEnabled(settings.freezeTint);
@@ -1243,6 +1248,7 @@ export class ThreeTilesEngine {
     this.hero.dispose();
     this.frostBursts.dispose();
     this.empPulses.dispose();
+    this.orbitalBeams.dispose();
 
     // Dispose spatial audio
     this.spatialAudio.dispose();

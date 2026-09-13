@@ -572,6 +572,52 @@ export const EMP_PULSE_LOOK = {
 } as const;
 
 /**
+ * Beam of the orbital laser (OrbitalBeamRenderer). Times are game seconds,
+ * so a pause holds the beam and the timescale plays it faster; the foot
+ * runs along the swept route at the ability's speed.
+ *
+ * A column of light `column.height` m high over the foot, a white-hot core
+ * of `coreWidth` and an orange glow of `glowWidth` (half widths, m) on a
+ * quad `quadWidth` m wide turned to the camera, depth tested; a glow at the
+ * foot and a ring at the beam's radius on the ground (depth test off); a
+ * flash where it comes down; `sparks.rate` sparks per second thrown from
+ * the foot; a scorch mark every `scorchStep` metres of the way (with
+ * ground marks on). Fades in over `fadeIn`, out over `fadeOut` once it has
+ * burnt its time or reached the end of its path.
+ *
+ * With impact effects off (VFX settings) no sparks. Budget per beam: about
+ * 120 sparks in a buffer of the renderer's own, four draw calls more
+ * (column, ring, foot, flash) while it burns; two beams at once.
+ */
+export const ORBITAL_BEAM_LOOK = {
+  /** Beams drawn at once; another takes the place of the oldest */
+  beams: 2,
+  column: { height: 320, coreWidth: 0.9, glowWidth: 3.2, quadWidth: 9, intensity: 2.2 },
+  fadeIn: 0.12,
+  fadeOut: 0.35,
+  /** Glow sprite at the foot, `size` times the beam radius across */
+  foot: { size: 3.2, intensity: 2.0 },
+  /** Sprite of `size` m where the beam comes down */
+  flash: { duration: 0.3, size: 60, intensity: 2.5 },
+  /** Ring on the ground at the beam's radius: where it hurts */
+  ring: { opacity: 0.8 },
+  /** Sparks: `rate` per second, out at `speed` and up at `lift` (m/s), pulled down by `gravity`; diameters m */
+  sparks: { rate: 220, life: 0.55, speed: [4, 12], lift: [3, 10], gravity: 14, size: [0.5, 1.3] },
+  /** Metres of the way between two scorch marks */
+  scorchStep: 3,
+  /** Tints, linear */
+  colors: {
+    core: { r: 1.0, g: 0.95, b: 0.85 },
+    glow: { r: 1.0, g: 0.42, b: 0.12 },
+    foot: { r: 1.0, g: 0.6, b: 0.25 },
+    flash: { r: 1.0, g: 0.85, b: 0.65 },
+    ring: { r: 1.0, g: 0.5, b: 0.18 },
+    spark: { r: 1.0, g: 0.45, b: 0.1 },
+    sparkHot: { r: 1.0, g: 0.9, b: 0.6 },
+  },
+} as const;
+
+/**
  * Spawn portals (SpawnPortalManager). Energy is a factor on the glow of the
  * surface, the sigils and the light on the street, and on the swirl's
  * speed. Times in seconds of wall time, the portal keeps moving while the
