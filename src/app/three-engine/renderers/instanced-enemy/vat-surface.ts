@@ -1,4 +1,19 @@
-import { DoubleSide, FrontSide, type Material, type MeshStandardMaterial, type Side, type Texture } from 'three';
+import {
+  BufferAttribute,
+  BufferGeometry,
+  DoubleSide,
+  FrontSide,
+  MeshBasicMaterial,
+  Vector3,
+  type Material,
+  type Matrix3,
+  type Matrix4,
+  type Mesh,
+  type MeshStandardMaterial,
+  type Side,
+  type Texture,
+} from 'three';
+import { growBounds, type VATBounds } from './vat-encoding';
 
 /**
  * Faces the VAT material draws, from the materials of the baked meshes
@@ -48,6 +63,188 @@ export function texturePixels(tex: Texture, cache: Map<Texture, TexturePixels | 
   }
   cache.set(tex, pixels);
   return pixels;
+}
+
+/** A baked mesh merged into the VAT geometry: `vertexCount` vertices from `vertexOffset`, into root space by `meshToRoot`. */
+export interface BakedMeshPart {
+  mesh: Mesh;
+  vertexCount: number;
+  vertexOffset: number;
+  meshToRoot: Matrix4;
+  normalMatrix: Matrix3;
+}
+
+/** The merged geometry of the baked meshes and what the VAT material takes from their materials. */
+export interface MergedBake {
+  geometry: BufferGeometry;
+  /** Root-space positions as the geometry stores them */
+  positions: Float32Array;
+  /** Map of the mesh with the most vertices that has one */
+  diffuseMap: Texture | null;
+  /** Colour of the mesh with the most vertices that has one (fallback when no diffuse map) */
+  baseColor: { r: number; g: number; b: number };
+  /** Whether a mesh is unlit (MeshBasicMaterial) */
+  isUnlit: boolean;
+  /** CPU copies of the textures read (own textures of meshes), for the alpha checks */
+  pixelCache: Map<Texture, TexturePixels | null>;
+}
+
+/**
+ * Merge the baked meshes into the geometry of the InstancedMesh: positions
+ * and normals in root space (the VAT overrides the positions at runtime),
+ * UVs, the indices offset per mesh, aVertexIndex, and per vertex a colour,
+ * an alpha and whether the shader samples the diffuse map. A mesh that
+ * shares the diffuse map (the same texture, or its source: a glTF atlas)
+ * samples it at runtime; one with a texture of its own has it sampled on the
+ * CPU into its vertex colours; one without keeps its material colour.
+ * `bounds`, when given, grows by every root-space position.
+ */
+export function mergeBakedMeshes(parts: BakedMeshPart[], totalVertices: number, bounds?: VATBounds): MergedBake {
+  // Pick the best diffuse map and colour (prefer the mesh with most vertices)
+  let diffuseMap: Texture | null = null;
+  let bestMapVertices = 0;
+  let isUnlit = false;
+  let baseColor = { r: 1.0, g: 1.0, b: 1.0 };
+  let bestColorVertices = 0;
+
+  for (const part of parts) {
+    const mat = part.mesh.material as MeshStandardMaterial & MeshBasicMaterial;
+    if (mat) {
+      if (mat.map && part.vertexCount > bestMapVertices) {
+        diffuseMap = mat.map;
+        bestMapVertices = part.vertexCount;
+      }
+      if (mat.color && part.vertexCount > bestColorVertices) {
+        baseColor = { r: mat.color.r, g: mat.color.g, b: mat.color.b };
+        bestColorVertices = part.vertexCount;
+      }
+      if (part.mesh.material instanceof MeshBasicMaterial) isUnlit = true;
+    }
+  }
+
+  // Build merged geometry with per-vertex material info
+  const mergedPositions = new Float32Array(totalVertices * 3);
+  const mergedNormals = new Float32Array(totalVertices * 3);
+  const mergedUVs = new Float32Array(totalVertices * 2);
+  const mergedColors = new Float32Array(totalVertices * 3);
+  const mergedAlpha = new Float32Array(totalVertices).fill(1.0);
+  const mergedUseMap = new Float32Array(totalVertices);
+  const mergedIndices: number[] = [];
+  const tempVec = new Vector3();
+  const tempNormal = new Vector3();
+
+  const pixelCache = new Map<Texture, TexturePixels | null>();
+
+  for (const part of parts) {
+    const geo = part.mesh.geometry;
+    const posAttr = geo.getAttribute('position');
+    const normalAttr = geo.getAttribute('normal');
+    const uvAttr = geo.getAttribute('uv');
+
+    const mat = part.mesh.material as MeshStandardMaterial & MeshBasicMaterial;
+    // Check shared texture via reference OR source (glTF shared atlas)
+    const meshSharesTexture = !!(mat && mat.map && diffuseMap &&
+      (mat.map === diffuseMap || mat.map.source === diffuseMap.source));
+    const meshHasOwnTexture = !meshSharesTexture && !!(mat && mat.map);
+    const cr = mat && mat.color ? mat.color.r : 1.0;
+    const cg = mat && mat.color ? mat.color.g : 1.0;
+    const cb = mat && mat.color ? mat.color.b : 1.0;
+    const matOpacity = mat ? mat.opacity ?? 1.0 : 1.0;
+
+    // For meshes with their own unique texture: sample on CPU and bake into vertex colors
+    const own = meshHasOwnTexture && uvAttr ? texturePixels(mat.map!, pixelCache) : null;
+    const texPixels = own?.data ?? null;
+    const texW = own?.width ?? 0;
+    const texH = own?.height ?? 0;
+
+    for (let i = 0; i < part.vertexCount; i++) {
+      const vi = part.vertexOffset + i;
+
+      // Position → root space
+      tempVec.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+      tempVec.applyMatrix4(part.meshToRoot);
+      if (bounds) growBounds(bounds, tempVec);
+      mergedPositions[vi * 3] = tempVec.x;
+      mergedPositions[vi * 3 + 1] = tempVec.y;
+      mergedPositions[vi * 3 + 2] = tempVec.z;
+
+      // Normal → root space
+      if (normalAttr) {
+        tempNormal.set(normalAttr.getX(i), normalAttr.getY(i), normalAttr.getZ(i));
+        tempNormal.applyMatrix3(part.normalMatrix).normalize();
+        mergedNormals[vi * 3] = tempNormal.x;
+        mergedNormals[vi * 3 + 1] = tempNormal.y;
+        mergedNormals[vi * 3 + 2] = tempNormal.z;
+      } else {
+        mergedNormals[vi * 3 + 1] = 1.0; // default up normal
+      }
+
+      // UV
+      if (uvAttr) {
+        mergedUVs[vi * 2] = uvAttr.getX(i);
+        mergedUVs[vi * 2 + 1] = uvAttr.getY(i);
+      }
+
+      // Per-vertex color, alpha and texture flag
+      if (meshSharesTexture) {
+        // Shares the main diffuse map → shader samples color + alpha at runtime
+        mergedColors[vi * 3] = 1.0;
+        mergedColors[vi * 3 + 1] = 1.0;
+        mergedColors[vi * 3 + 2] = 1.0;
+        mergedAlpha[vi] = matOpacity;
+        mergedUseMap[vi] = 1.0;
+      } else if (texPixels && uvAttr) {
+        // Own texture → bake sampled color + alpha into vertex attributes
+        let u = uvAttr.getX(i);
+        let v = uvAttr.getY(i);
+        u = u - Math.floor(u); // wrap to [0,1]
+        v = v - Math.floor(v);
+        const px = Math.min(Math.floor(u * texW), texW - 1);
+        const py = Math.min(Math.floor((1 - v) * texH), texH - 1); // flip V
+        const idx = (py * texW + px) * 4;
+        mergedColors[vi * 3] = texPixels[idx] / 255;
+        mergedColors[vi * 3 + 1] = texPixels[idx + 1] / 255;
+        mergedColors[vi * 3 + 2] = texPixels[idx + 2] / 255;
+        mergedAlpha[vi] = (texPixels[idx + 3] / 255) * matOpacity;
+        mergedUseMap[vi] = 0.0;
+      } else {
+        // No texture → material color + opacity
+        mergedColors[vi * 3] = cr;
+        mergedColors[vi * 3 + 1] = cg;
+        mergedColors[vi * 3 + 2] = cb;
+        mergedAlpha[vi] = matOpacity;
+        mergedUseMap[vi] = 0.0;
+      }
+    }
+
+    // Indices (offset by vertexOffset)
+    if (geo.index) {
+      for (let i = 0; i < geo.index.count; i++) {
+        mergedIndices.push(geo.index.getX(i) + part.vertexOffset);
+      }
+    } else {
+      for (let i = 0; i < part.vertexCount; i++) {
+        mergedIndices.push(part.vertexOffset + i);
+      }
+    }
+  }
+
+  // Create merged BufferGeometry
+  const mergedGeometry = new BufferGeometry();
+  mergedGeometry.setAttribute('position', new BufferAttribute(mergedPositions, 3));
+  mergedGeometry.setAttribute('normal', new BufferAttribute(mergedNormals, 3));
+  mergedGeometry.setAttribute('uv', new BufferAttribute(mergedUVs, 2));
+  mergedGeometry.setIndex(mergedIndices);
+
+  // Add vertex index, vertex color, alpha and texture flag attributes
+  const vertexIndices = new Float32Array(totalVertices);
+  for (let i = 0; i < totalVertices; i++) vertexIndices[i] = i;
+  mergedGeometry.setAttribute('aVertexIndex', new BufferAttribute(vertexIndices, 1));
+  mergedGeometry.setAttribute('aVertexColor', new BufferAttribute(mergedColors, 3));
+  mergedGeometry.setAttribute('aVertexAlpha', new BufferAttribute(mergedAlpha, 1));
+  mergedGeometry.setAttribute('aUseMap', new BufferAttribute(mergedUseMap, 1));
+
+  return { geometry: mergedGeometry, positions: mergedPositions, diffuseMap, baseColor, isUnlit, pixelCache };
 }
 
 /**
