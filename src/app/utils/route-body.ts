@@ -18,6 +18,9 @@ export const ROUTE_BODY_STATION_M = 2;
 /** Share of the corridor half width the body covers on each side. */
 export const ROUTE_BODY_COVER = 0.9;
 
+/** Height above the ground that shots at a body aim at (m), about half its thickness. */
+export const ROUTE_BODY_AIM_HEIGHT_M = 0.8;
+
 /**
  * Points every ROUTE_BODY_STATION_M along a path, on its centre line, with
  * what bodies on that path need at each: local and geo position, the
@@ -173,6 +176,8 @@ export class RouteBody {
    * body in writes the point it touched.
    */
   readonly hit = { lat: 0, lon: 0, height: 0 };
+  /** Metres from the centre of the latest radius query that took the body in to `hit` (splash falloff). */
+  hitDistanceM = 0;
 
   constructor(readonly stations: RouteBodyStations) {}
 
@@ -233,5 +238,12 @@ export class RouteBody {
     this.hit.lat = st.lat[k] + st.latPerRight[k] * offset;
     this.hit.lon = st.lon[k] + st.lonPerRight[k] * offset;
     this.hit.height = groundY + st.originHeight;
+  }
+
+  /** The hit lands at a geo point, `height` on the ground (a projectile's impact). */
+  setHitGeo(lat: number, lon: number, height: number): void {
+    this.hit.lat = lat;
+    this.hit.lon = lon;
+    this.hit.height = height;
   }
 }

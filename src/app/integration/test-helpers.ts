@@ -206,6 +206,8 @@ export function createMockGlobalRouteGrid(): GlobalRouteGridService {
     isInitialized: vi.fn(() => false),
     updateEnemyPosition: vi.fn(),
     removeEnemy: vi.fn(),
+    addBodyEnemy: vi.fn(),
+    removeBodyEnemy: vi.fn(),
     getEnemiesInRadiusGeo: vi.fn(() => []),
     getStats: vi.fn(() => ({ trackedEnemies: 0, occupiedCells: 0 })),
     initDebugViz: vi.fn(),

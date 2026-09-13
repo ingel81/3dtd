@@ -29,6 +29,7 @@ import { RouteGridAggregateViz } from './route-grid-aggregate-viz';
 import { RouteGridHeightSweep } from './route-grid-height-sweep';
 import { RouteCellSampler } from './route-cell-sampler';
 import { logGrid } from './route-grid-log';
+import type { RouteBodyContact } from './route-body';
 
 /** Numeric ascending order for Array.prototype.sort, hoisted so hot paths allocate no comparator. */
 const ascending = (a: number, b: number): number => a - b;
@@ -770,6 +771,50 @@ export class GlobalRouteGrid {
     }
   }
 
+  // ========================================
+  // BODIES ALONG THE ROUTE (Enemy.body, the ooze, see utils/route-body.ts)
+  // ========================================
+
+  /**
+   * Enemies whose body lies along the route. They are in no cell: a body
+   * covers dozens of them. Radius queries test the body instead
+   * (getEnemiesInRadius), and TowerCombatService adds them to every tower's
+   * candidates and aims at the nearest body point (BodyAim).
+   */
+  private readonly bodyEnemies: Enemy[] = [];
+  private readonly _bodyContact: RouteBodyContact = { station: 0, offset: 0, distance: 0 };
+
+  /** Track an enemy with a body (EnemyManager at its spawn). */
+  addBodyEnemy(enemy: Enemy): void {
+    if (enemy.body && !this.bodyEnemies.includes(enemy)) this.bodyEnemies.push(enemy);
+  }
+
+  removeBodyEnemy(enemy: Enemy): void {
+    const i = this.bodyEnemies.indexOf(enemy);
+    if (i >= 0) this.bodyEnemies.splice(i, 1);
+  }
+
+  /** The tracked enemies with a body, dead ones included until they are removed. */
+  getBodyEnemies(): readonly Enemy[] {
+    return this.bodyEnemies;
+  }
+
+  /** Whether a living body reaches within `radius` of local (x, z). */
+  hasBodyWithin(x: number, z: number, radius: number): boolean {
+    for (const enemy of this.bodyEnemies) {
+      if (enemy.alive && enemy.body!.touches(x, z, radius, this._bodyContact)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Bumped whenever the cells are rebuilt or dropped. Whoever keeps cells
+   * across frames (BodyAim) compares it to know they are still the grid's.
+   */
+  getGeneration(): number {
+    return this.generation;
+  }
+
   /**
    * Get enemies for tower targeting (from visible cells)
    * @param visibleCells Array of cells the tower can see
@@ -933,6 +978,25 @@ export class GlobalRouteGrid {
           }
         }
       }
+    }
+
+    // A body along the route that reaches into the circle is in it, once.
+    // Its hit goes on the point it reaches in with, so the splash or strike
+    // that asked lands there (RouteBody.hit, hitDistanceM for the falloff).
+    for (const enemy of this.bodyEnemies) {
+      if (!enemy.alive || (excludeId && enemy.id === excludeId)) continue;
+      const body = enemy.body!;
+      const contact = this._bodyContact;
+      if (!body.touches(localX, localZ, radiusMeters, contact)) continue;
+      const st = body.stations;
+      const k = contact.station;
+      const groundY = this.getGroundLocalYAt(
+        st.x[k] + st.rightX[k] * contact.offset,
+        st.z[k] + st.rightZ[k] * contact.offset,
+      ) ?? enemy.transform.terrainHeight - st.originHeight;
+      body.setHit(k, contact.offset, groundY);
+      body.hitDistanceM = contact.distance;
+      enemies.push(enemy);
     }
 
     return enemies;
@@ -1160,6 +1224,7 @@ export class GlobalRouteGrid {
   clear(): void {
     this.cells.clear();
     this.enemyCellKeys.clear();
+    this.bodyEnemies.length = 0;
     this.generation = GlobalRouteGrid.nextGeneration++;
     // Abandon any sweep in flight. Its queue holds hard references to the
     // cells we just dropped, and a driver that keeps stepping would raycast

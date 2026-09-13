@@ -126,6 +126,75 @@ describe('CombatEffectService splash', () => {
   });
 });
 
+describe('CombatEffectService hits on a body along the route', () => {
+  const impact = { lat: 48.0, lon: 9.0, height: 0 };
+
+  function ooze(id: string, hitDistanceM: number) {
+    return {
+      id,
+      alive: true,
+      // Its tip, where a hit must not be measured from
+      position: { lat: 48.01, lon: 9.0 },
+      typeConfig: { id: 'ooze', isAirUnit: false },
+      heightOffset: 0,
+      transform: { terrainHeight: 0 },
+      body: { setHitGeo: vi.fn(), hitDistanceM, hit: { lat: 0, lon: 0, height: 0 } },
+    };
+  }
+
+  let applyDamage: ReturnType<typeof vi.fn>;
+  let getEnemiesInRadiusGeo: ReturnType<typeof vi.fn>;
+
+  function shoot(primary: ReturnType<typeof ooze>, victims: ReturnType<typeof ooze>[]): void {
+    getEnemiesInRadiusGeo = vi.fn(() => victims);
+    mockInjections['GlobalRouteGridService'] = { getEnemiesInRadiusGeo };
+    const service = new CombatEffectService();
+    const projectile = {
+      typeConfig: PROJECTILE_TYPES.cannonball,
+      damage: 60,
+      sourceTowerId: 't-1',
+      sourceTowerType: 'cannon',
+      targetLost: false,
+      position: impact,
+      flightHeight: 10.8,
+      aimPoint: { ...impact, height: 10.8 },
+    };
+    (service as unknown as {
+      handleProjectileHit: (p: unknown, e: unknown, d: string) => void;
+    }).handleProjectileHit(projectile, primary, 'siege');
+  }
+
+  beforeEach(() => {
+    Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
+    applyDamage = vi.fn(() => null);
+    mockInjections['DamageApplicationService'] = { applyDamage };
+    mockInjections['StatusEffectService'] = { applySlow: vi.fn(), applyPoison: vi.fn() };
+    mockInjections['CombatVfxService'] = { emitIceExplosion: vi.fn(), emitIceDecal: vi.fn() };
+    mockInjections['ResearchStore'] = { airTargetingUnlocked: () => false };
+  });
+
+  it('puts the hit where the shot lands, on the ground under the aim point', () => {
+    const primary = ooze('ooze', 0);
+    shoot(primary, []);
+    expect(primary.body.setHitGeo).toHaveBeenCalledWith(impact.lat, impact.lon, expect.closeTo(10, 9));
+    expect(applyDamage.mock.calls[0][1]).toBe(primary);
+  });
+
+  it('detonates the splash at the impact, not at the tip', () => {
+    shoot(ooze('ooze', 0), []);
+    expect(getEnemiesInRadiusGeo.mock.calls[0][0]).toBe(impact);
+    expect(getEnemiesInRadiusGeo.mock.calls[0][2]).toBe('ooze');
+  });
+
+  it('falls off by the distance to the nearest point of a body the splash reached', () => {
+    const radius = PROJECTILE_TYPES.cannonball.splashRadius!;
+    const victim = ooze('other', radius / 2);
+    shoot(ooze('ooze', 0), [victim]);
+    const splash = applyDamage.mock.calls.find((c) => c[1] === victim)!;
+    expect(splash[2]).toBe(30);
+  });
+});
+
 describe('CombatEffectService ability strike', () => {
   let applyMaxHpFraction: ReturnType<typeof vi.fn>;
 

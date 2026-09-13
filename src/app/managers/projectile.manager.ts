@@ -7,6 +7,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { PROJECTILE_SOUNDS } from '../configs/projectile-types.config';
 import { GameEventBus } from '../game-engine';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import type { GeoPosition } from '../models/game.types';
 
 /**
  * Manages all projectile entities - spawning, updating, and collision
@@ -65,8 +66,10 @@ export class ProjectileManager extends EntityManager<Projectile> {
   /**
    * Spawn a new projectile from a tower to a target enemy.
    * @param heading Optional turret heading in radians (for fire point offset rotation)
+   * @param aimPoint Where the shot flies to instead of the target's position
+   *   (a body along the route, see Projectile.aimPoint)
    */
-  spawn(tower: Tower, targetEnemy: Enemy, heading?: number): Projectile {
+  spawn(tower: Tower, targetEnemy: Enemy, heading?: number, aimPoint?: GeoPosition): Projectile {
     if (!this.tilesEngine) {
       throw new Error('ProjectileManager not initialized');
     }
@@ -99,7 +102,8 @@ export class ProjectileManager extends EntityManager<Projectile> {
       spawnHeight,
       tower.id,
       tower.typeConfig.id,
-      tower.typeConfig.damageType
+      tower.typeConfig.damageType,
+      aimPoint,
     );
 
     this.tilesEngine.projectiles.create(

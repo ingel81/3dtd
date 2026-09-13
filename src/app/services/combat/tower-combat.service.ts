@@ -15,6 +15,9 @@ import { upgradeFactor } from '../../configs/tower-types.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { EnemyManager } from '../../managers/enemy.manager';
 import { ProjectileManager } from '../../managers/projectile.manager';
+import type { GeoPosition } from '../../models/game.types';
+import { ROUTE_BODY_AIM_HEIGHT_M } from '../../utils/route-body';
+import { BodyAim, type BodyAimPoint } from './body-aim';
 
 /**
  * TowerCombatService - Handles tower targeting, rotation, and shooting
@@ -59,6 +62,13 @@ export class TowerCombatService {
   // read right after it is written, never across a call.
   private readonly _towerLocalScratch = new Vector3();
 
+  // Enemies whose body lies along the route (the ooze): every tower aims at
+  // the nearest point of the body it sees, see BodyAim. Started per tower
+  // turn by beginBodyAim(); `_aimPoint` is read right after it is written.
+  private readonly bodyAim = new BodyAim(this.globalRouteGrid);
+  private readonly bodyDistSq = (enemy: Enemy): number => this.bodyAim.distSq(enemy);
+  private readonly _aimPoint: BodyAimPoint = { lat: 0, lon: 0, height: 0, x: 0, y: 0, z: 0 };
+
   /**
    * Initialize with engine reference
    */
@@ -88,6 +98,8 @@ export class TowerCombatService {
     // Capturing `engine` also removes the non-null assertion on the field.
     const pos = this._losScratch;
     return (enemy: Enemy) => {
+      // A body along the route: its aim point is one the tower sees
+      if (enemy.body) return this.bodyAim.distSq(enemy) < Infinity;
       engine.sync.geoToLocalSimpleInto(
         enemy.position.lat,
         enemy.position.lon,
@@ -136,11 +148,11 @@ export class TowerCombatService {
       0,
       this._towerLocalScratch,
     );
-    const hasNearby = this.spatialGrid.hasEnemyInRadius(
-      towerLocal.x,
-      towerLocal.z,
-      tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
-    );
+    const radius = tower.combat.range * COMBAT_TUNING.rangeMargin.standard;
+    // A body along the route is in the route grid's body list, not the spatial grid
+    const hasNearby =
+      this.spatialGrid.hasEnemyInRadius(towerLocal.x, towerLocal.z, radius) ||
+      this.globalRouteGrid.hasBodyWithin(towerLocal.x, towerLocal.z, radius);
     if (!hasNearby) return false;
     tower.isSleeping = false;
     return true;
@@ -158,6 +170,10 @@ export class TowerCombatService {
    *
    * FALLBACK: GlobalRouteGrid radius query, O(cells_in_radius). Without an
    * engine, a geo-distance filter over all alive enemies.
+   *
+   * Enemies whose body lies along the route are in no cell: the fast path
+   * adds each living one, the radius query takes those that reach into it.
+   * findTarget measures them at the tower's aim point (BodyAim).
    */
   private collectCandidates(
     tower: Tower,
@@ -165,7 +181,11 @@ export class TowerCombatService {
     enemyManager: EnemyManager,
   ): Enemy[] {
     if (tower.visibleCells.length > 0) {
-      return this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
+      const out = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
+      for (const enemy of this.globalRouteGrid.getBodyEnemies()) {
+        if (enemy.alive) out.push(enemy);
+      }
+      return out;
     }
 
     const engine = this.tilesEngine;
@@ -200,6 +220,62 @@ export class TowerCombatService {
       if (dx * dx + dy * dy <= radiusSq) out.push(enemy);
     }
     return out;
+  }
+
+  /**
+   * Start `tower`'s turn in BodyAim while an enemy with a body along the
+   * route is on the map. Its distance and aim point depend on the tower.
+   */
+  private beginBodyAim(tower: Tower): void {
+    const engine = this.tilesEngine;
+    if (!engine || this.globalRouteGrid.getBodyEnemies().length === 0) {
+      this.bodyAim.endTurn();
+      return;
+    }
+    const local = engine.sync.geoToLocalSimpleInto(
+      tower.position.lat,
+      tower.position.lon,
+      0,
+      this._towerLocalScratch,
+    );
+    this.bodyAim.beginTower(tower, local.x, local.z, engine.towers);
+  }
+
+  /**
+   * What the tower turns to: the target's position, or for a body along the
+   * route its aim point (BodyAim). The aim point is a shared scratch: read
+   * it right away.
+   */
+  private targetPoint(target: Enemy): GeoPosition {
+    if (target.body && this.bodyAim.aim(target, this._aimPoint)) return this._aimPoint;
+    return target.position;
+  }
+
+  /**
+   * Where a beam, a strike or a bolt meets `target`, local: a body's aim
+   * point (BodyAim, which also puts the body's hit there) or the model's
+   * visual centre.
+   */
+  private aimLocalPosition(target: Enemy): Vector3 {
+    const engine = this.tilesEngine!;
+    if (target.body && this.bodyAim.aim(target, this._aimPoint)) {
+      const p = this._aimPoint;
+      return engine.sync.geoToLocalSimple(p.lat, p.lon, p.height + ROUTE_BODY_AIM_HEIGHT_M);
+    }
+    const pos = engine.sync.geoToLocalSimple(
+      target.position.lat,
+      target.position.lon,
+      target.transform.terrainHeight + target.heightOffset,
+    );
+    pos.y += getEnemyAimOffsetY(target); // aim at the model's visual centre
+    return pos;
+  }
+
+  /** Where a shot at a body along the route flies to (its aim point); undefined for any other target. */
+  private projectileAim(target: Enemy): GeoPosition | undefined {
+    if (!target.body || !this.bodyAim.aim(target, this._aimPoint)) return undefined;
+    const p = this._aimPoint;
+    return { lat: p.lat, lon: p.lon, height: p.height + ROUTE_BODY_AIM_HEIGHT_M };
   }
 
   /**
@@ -263,10 +339,11 @@ export class TowerCombatService {
         tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
         enemyManager,
       );
+      this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
 
       // Fast path: get cached target or find new one
-      let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
+      let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
 
       if (target) {
         // Target found - update sleep tracking (game-time)
@@ -274,7 +351,7 @@ export class TowerCombatService {
         tower.isSleeping = false;
 
         // Always rotate turret towards target (rotation advances per sub-step)
-        const heading = this.calculateHeading(tower.position, target.position);
+        const heading = this.calculateHeading(tower.position, this.targetPoint(target));
         this.tilesEngine?.towers.updateRotation(tower.id, heading);
 
         // Fire if cooldown is ready AND turret is aligned
@@ -287,13 +364,13 @@ export class TowerCombatService {
             if (!losCheck(target)) {
               // Target no longer visible - find new target
               tower.clearTarget();
-              target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
+              target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
               if (!target) {
                 this.tilesEngine?.towers.releaseTarget(tower.id);
                 continue;
               }
               // Update rotation to new target, don't fire this sub-step
-              const newHeading = this.calculateHeading(tower.position, target.position);
+              const newHeading = this.calculateHeading(tower.position, this.targetPoint(target));
               this.tilesEngine?.towers.updateRotation(tower.id, newHeading);
               continue;
             }
@@ -302,7 +379,7 @@ export class TowerCombatService {
           // Single fire per sub-step — sub-step is small enough (≤16.67ms game-time)
           // that a tower with fireRate up to 60/sec produces at most 1 shot per step.
           tower.combat.fire();
-          projectileManager.spawn(tower, target, heading);
+          projectileManager.spawn(tower, target, heading, this.projectileAim(target));
         }
       } else {
         // No target - check if tower should sleep (game-time)
@@ -371,8 +448,9 @@ export class TowerCombatService {
       // Find primary target (closest/lowest HP in range). Same LOS predicate
       // as the projectile/melee/chain paths — beam towers must not acquire
       // targets behind buildings either.
+      this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
-      let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
+      let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
 
       // Periodic LOS recheck (throttled, same interval as the projectile
       // path). A beam HOLDS its target: findTarget's fast path keeps the
@@ -383,13 +461,13 @@ export class TowerCombatService {
         tower.markLosChecked(gameTimeMs);
         if (!losCheck(target)) {
           tower.clearTarget();
-          target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
+          target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
         }
       }
 
       if (target) {
         // Rotate turret towards target
-        const heading = this.calculateHeading(tower.position, target.position);
+        const heading = this.calculateHeading(tower.position, this.targetPoint(target));
         this.tilesEngine.towers.updateRotation(tower.id, heading);
 
         // Get local positions
@@ -402,12 +480,7 @@ export class TowerCombatService {
         const shootHeight = tower.typeConfig.shootHeight ?? 4.0;
         towerLocalPos.y += tower.typeConfig.heightOffset + shootHeight;
 
-        const targetLocalPos = this.tilesEngine.sync.geoToLocalSimple(
-          target.position.lat,
-          target.position.lon,
-          target.transform.terrainHeight + target.heightOffset
-        );
-        targetLocalPos.y += getEnemyAimOffsetY(target); // aim at the model's visual centre
+        const targetLocalPos = this.aimLocalPosition(target);
 
         // Start/update flame beam visual
         const beamWidth = this.getEffectiveBeamWidth(tower);
@@ -537,13 +610,26 @@ export class TowerCombatService {
       if (enemy.typeConfig.isAirUnit) continue;
 
       // Get enemy local position (reuse scratch — runs per candidate per beam)
-      const enemyLocalPos = this.tilesEngine.sync.geoToLocalSimpleInto(
-        enemy.position.lat,
-        enemy.position.lon,
-        enemy.transform.terrainHeight + enemy.heightOffset,
-        this._coneEnemyPos
-      );
-      enemyLocalPos.y += getEnemyAimOffsetY(enemy); // model's visual centre
+      let enemyLocalPos: Vector3;
+      if (enemy.body) {
+        // A body along the route: the point this tower aims at on it, where
+        // its hit then lands
+        if (!this.bodyAim.aim(enemy, this._aimPoint)) continue;
+        enemyLocalPos = this.tilesEngine.sync.geoToLocalSimpleInto(
+          this._aimPoint.lat,
+          this._aimPoint.lon,
+          this._aimPoint.height + ROUTE_BODY_AIM_HEIGHT_M,
+          this._coneEnemyPos
+        );
+      } else {
+        enemyLocalPos = this.tilesEngine.sync.geoToLocalSimpleInto(
+          enemy.position.lat,
+          enemy.position.lon,
+          enemy.transform.terrainHeight + enemy.heightOffset,
+          this._coneEnemyPos
+        );
+        enemyLocalPos.y += getEnemyAimOffsetY(enemy); // model's visual centre
+      }
 
       // Vector from source to enemy
       this.tempToEnemy.subVectors(enemyLocalPos, source);
@@ -621,19 +707,22 @@ export class TowerCombatService {
         tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
         enemyManager,
       );
+      this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
-      const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
+      const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
 
       if (target) {
         tower.lastTargetTime = gameTimeMs;
         tower.isSleeping = false;
 
-        const heading = this.calculateHeading(tower.position, target.position);
+        const heading = this.calculateHeading(tower.position, this.targetPoint(target));
         this.tilesEngine.towers.updateRotation(tower.id, heading);
 
         if (tower.combat.canFire()) {
           tower.combat.fire();
 
+          // Before the damage: on a body it also puts the hit where the strike lands
+          const targetLocalPos = this.aimLocalPosition(target);
           this.combatEffectService.applyMeleeDamage(
             target,
             tower.combat.damage,
@@ -641,12 +730,6 @@ export class TowerCombatService {
             tower.id,
           );
 
-          const targetLocalPos = this.tilesEngine.sync.geoToLocalSimple(
-            target.position.lat,
-            target.position.lon,
-            target.transform.terrainHeight + target.heightOffset,
-          );
-          targetLocalPos.y += getEnemyAimOffsetY(target); // model's visual centre
           this.tilesEngine.tentacles?.startStrike(tower.id, targetLocalPos);
           this.tilesEngine.spatialAudio?.playAt('tentacle-grab', targetLocalPos);
         }
@@ -702,8 +785,9 @@ export class TowerCombatService {
         tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
         enemyManager,
       );
+      this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
-      const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
+      const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
 
       if (!target) {
         if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
@@ -723,14 +807,18 @@ export class TowerCombatService {
       const jumpRange = tower.typeConfig.jumpRange ?? 15;
       const hits: Enemy[] = [target];
       const hitIds = new Set<string>([target.id]);
-      let lastEnemy: Enemy = target;
+      // Where the bolt is: a body's aim point, so a jump off it starts there
+      const first = this.targetPoint(target);
+      const at = { lat: first.lat, lon: first.lon };
 
       for (let i = 0; i < maxJumps; i++) {
-        const next = this.findNearestUnhit(lastEnemy, candidates, hitIds, jumpRange);
+        const next = this.findNearestUnhit(at, candidates, hitIds, jumpRange);
         if (!next) break;
         hits.push(next);
         hitIds.add(next.id);
-        lastEnemy = next;
+        const p = this.targetPoint(next);
+        at.lat = p.lat;
+        at.lon = p.lon;
       }
 
       // Apply damage with falloff per jump
@@ -739,6 +827,8 @@ export class TowerCombatService {
       const damageType = tower.typeConfig.damageType;
       for (let i = 0; i < hits.length; i++) {
         const dmg = baseDamage * Math.pow(falloff, i);
+        // A body's hit goes on the aim point the bolt strikes
+        if (hits[i].body) this.bodyAim.aim(hits[i], this._aimPoint);
         this.combatEffectService.applyChainDamage(hits[i], dmg, damageType, tower.id);
       }
 
@@ -749,23 +839,25 @@ export class TowerCombatService {
 
   /**
    * Find the nearest enemy (in flat-earth meters) to `from` that has not been
-   * hit yet by the current chain and is within `maxDist` meters. Returns null
-   * if no candidate qualifies.
+   * hit yet by the current chain and is within `maxDist` meters. A body along
+   * the route counts at the tower's aim point on it. Returns null if no
+   * candidate qualifies.
    */
   private findNearestUnhit(
-    from: Enemy,
+    from: { lat: number; lon: number },
     candidates: Enemy[],
     hitIds: Set<string>,
     maxDist: number,
   ): Enemy | null {
     const mPerDegLat = METERS_PER_DEGREE_LAT;
-    const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(from.position.lat * DEG_TO_RAD);
+    const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(from.lat * DEG_TO_RAD);
     let best: Enemy | null = null;
     let bestSq = maxDist * maxDist;
     for (const e of candidates) {
       if (hitIds.has(e.id) || !e.alive) continue;
-      const dx = (e.position.lat - from.position.lat) * mPerDegLat;
-      const dy = (e.position.lon - from.position.lon) * mPerDegLon;
+      const p = this.targetPoint(e);
+      const dx = (p.lat - from.lat) * mPerDegLat;
+      const dy = (p.lon - from.lon) * mPerDegLon;
       const dSq = dx * dx + dy * dy;
       if (dSq < bestSq) {
         bestSq = dSq;
@@ -798,14 +890,10 @@ export class TowerCombatService {
     const tipY = towerData.tipY;
     points.push({ x: tipLocal.x, y: tipY, z: tipLocal.z });
 
-    // Hits, center-of-mass
+    // Hits, center-of-mass (a body: the aim point)
     for (const e of hits) {
-      const p = this.tilesEngine.sync.geoToLocalSimple(
-        e.position.lat,
-        e.position.lon,
-        e.transform.terrainHeight + e.heightOffset,
-      );
-      points.push({ x: p.x, y: p.y + getEnemyAimOffsetY(e), z: p.z });
+      const p = this.aimLocalPosition(e);
+      points.push({ x: p.x, y: p.y, z: p.z });
     }
 
     this.combatEffectService.emitChainLightningVfx(points, tower.id);

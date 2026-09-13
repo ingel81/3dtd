@@ -256,6 +256,8 @@ export type GameEvent =
       position: Vector3;
       intensity: number;
       skipGroundDecal?: boolean;
+      /** Colour as hex (EnemyTypeConfig.bloodColor); red when unset */
+      color?: number;
     }
   | {
       type: 'vfx:projectile-impact';

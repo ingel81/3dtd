@@ -42,6 +42,8 @@ const createGlobalRouteGrid = () => ({
   isInitialized: vi.fn(() => false),
   updateEnemyPosition: vi.fn(),
   removeEnemy: vi.fn(),
+  addBodyEnemy: vi.fn(),
+  removeBodyEnemy: vi.fn(),
   getStats: vi.fn(() => ({ trackedEnemies: 0, occupiedCells: 0 })),
 });
 

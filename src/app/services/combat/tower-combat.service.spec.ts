@@ -252,7 +252,7 @@ describe('TowerCombatService', () => {
           return out;
         },
       );
-      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius };
+      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius, getBodyEnemies: () => [] };
       mockInjections['CombatEffectService'] = { applyBeamDamage: vi.fn() };
       service = new TowerCombatService();
 
@@ -379,7 +379,7 @@ describe('TowerCombatService', () => {
         },
       );
       mockInjections['SpatialGridService'] = { hasEnemyInRadius };
-      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius };
+      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius, getBodyEnemies: () => [] };
       service = new TowerCombatService();
       service.initialize({
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
@@ -413,7 +413,7 @@ describe('TowerCombatService', () => {
     };
 
     function setup() {
-      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius: noEnemies };
+      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius: noEnemies, getBodyEnemies: () => [] };
       service = new TowerCombatService();
       const towers = { releaseTarget: vi.fn(), updateRotation: vi.fn(), setIdleHeading: vi.fn() };
       service.initialize({
