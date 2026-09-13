@@ -417,7 +417,7 @@ einem Frame:
 ### Logs
 
 ```
-[Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms [flushed=tower|wave]
+[Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms [flushed=tower|wave] [noTile=x,z;x,z;...]
 [Corridor] clearance cancelled (Grund): stations=N of M in X ms slices= wall= ms, corridor unchanged
 [Corridor] rebuild: routes= grid= heights= lines= overlays= total= ms spawns= cells=
 ```
@@ -435,6 +435,10 @@ einem Frame:
   - `flushed`: nur bei einem Lauf, den ein Tower (`tower`) oder eine Welle
     (`wave`) zu Ende gebracht hat; die letzte Scheibe war dann der Rest am
     Stück.
+  - `noTile`: nur wenn Stationen auch 0,5 m voraus und zurück kein Tile
+    fanden. Ihre lokalen `x,z` (wie `[Corridor] pick at` sie druckt), mit `;`
+    getrennt, höchstens zehn, dahinter `;+N` für den Rest. Dort lohnt
+    `__corridor.pick()`.
   - `__raycastStats()` bucht die Strahlen und die Säulenprobe unter
     `routeCorridor` (`terrain-queries.ts:336`).
 - **`clearance cancelled`** (`:1022-1025`): Ein Lauf wurde verworfen, der

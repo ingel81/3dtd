@@ -391,6 +391,18 @@ describe('PathAndRouteService route geometry', () => {
         expect(service.explainCorridorAt(n1Local.x, -(n1Local.z + 30))).toMatchObject({ unmeasured: null, shiftM: null });
       });
 
+      it('names in the log where stations found no tile', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        clearanceAt = (x, z, max) => (Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 1 ? 'no tile' : max);
+        measure(buildRouteService(network, spawn, hq));
+        const line = warn.mock.calls.map(([l]) => String(l)).find((l) => l.startsWith('[Corridor] clearance:'))!;
+        warn.mockRestore();
+
+        const at = / unmeasured=1 \(coarse tile 0\) .* noTile=(-?[\d.]+),(-?[\d.]+)$/.exec(line)!;
+        expect(Number(at[1])).toBeCloseTo(toMeters(n1).x, 0);
+        expect(Math.abs(northOfN1(Number(at[2])) - 50)).toBeLessThan(1.1);
+      });
+
       it('keeps the street width where no fine tile is loaded, and tries again later', () => {
         clearanceAt = () => null;
         const service = buildRouteService(network, spawn, hq);
