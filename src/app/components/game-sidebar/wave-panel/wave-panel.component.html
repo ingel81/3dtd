@@ -38,6 +38,16 @@
         }
       </div>
     }
+    @if (airAlertView(); as air) {
+      <div class="td-air-alert" role="status"
+           [matTooltip]="air.tooltip" matTooltipPosition="left">
+        <td-icon class="td-air-alert-icon" name="plane" [size]="16"></td-icon>
+        <div class="td-air-alert-text">
+          <span class="td-air-alert-title">{{ air.title }} <span class="td-air-alert-when">· {{ air.when }}</span></span>
+          <span class="td-air-alert-defense" [class.td-air-alert-open]="!air.covered">{{ air.defense }}</span>
+        </div>
+      </div>
+    }
     <div class="td-wave-actions">
       <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
               [class.td-wave-counting]="!!waveButton().countdown"

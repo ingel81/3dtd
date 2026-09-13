@@ -10,21 +10,28 @@ import {
   input,
   output,
   QueryList,
+  untracked,
   ViewChildren,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { UIStore } from '../../../store/ui.store';
+import { ResearchStore } from '../../../store/research.store';
+import { GameStateManager } from '../../../managers/game-state.manager';
 import { AUTO_WAVE_DELAY_MS } from '../../../utils/auto-wave-countdown';
+import { toneWavDataUrl } from '../../../utils/alert-tone';
+import { UI_SOUNDS } from '../../../configs/audio.config';
 import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { EnemyTypeId, ENEMY_TYPES } from '../../../configs/enemy-types.config';
+import { TowerTypeId } from '../../../configs/tower-types.config';
 import { ModelPreviewService } from '../../../services/infrastructure/model-preview.service';
 import { WaveDebugService } from '../../../services/debug/wave-debug.service';
 import { EnemyDebugService } from '../../../services/debug/enemy-debug.service';
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { enemyGroupTooltip, splitTraitLabel } from '../sidebar-tooltips';
+import { airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
 import { peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
 import { abilityButtonView } from './ability-button';
@@ -49,6 +56,8 @@ const NUKE = ABILITIES['nuclear-strike'];
 export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly store = inject(TowerDefenseStore);
   private readonly uiStore = inject(UIStore);
+  private readonly researchStore = inject(ResearchStore);
+  private readonly gameState = inject(GameStateManager);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
@@ -67,6 +76,15 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       if (this.mixedEnemyCanvases?.length) {
         this.initMixedEnemyPreviews();
       }
+    });
+
+    // Air alert tone: once per air wave, when the alert first names it. A
+    // later build phase that still points at the same wave stays quiet.
+    effect(() => {
+      const alert = this.airAlert();
+      if (!alert || alert.wave === this.announcedAirWave) return;
+      this.announcedAirWave = alert.wave;
+      untracked(() => this.playAirAlertTone());
     });
 
     this.destroyRef.onDestroy(() => this.destroyMixedEnemyPreviews());
@@ -145,6 +163,43 @@ export class SidebarWavePanelComponent implements AfterViewInit {
 
   /** COMING UP: die nächsten zwei Curriculum-Wellen. */
   readonly upcomingWaves = computed(() => peekUpcomingWaves(this.store.waveNumber()));
+
+  /**
+   * Placed towers that hit air. Tower entities carry no signals: the tower
+   * count (placed, sold, reset) and the AA research tell when to recount.
+   */
+  private readonly antiAirTowers = computed(() => {
+    this.store.towerCount();
+    const unlocked = this.researchStore.airTargetingUnlocked();
+    const types = this.gameState.towerManager.getAll().map((t) => t.typeConfig.id as TowerTypeId);
+    return countAntiAirTowers(types, unlocked);
+  });
+
+  /** Air in the next or the next-but-one wave, build phase only. */
+  private readonly airAlert = computed(() =>
+    this.waveActive() || this.isGameOver()
+      ? null
+      : upcomingAirAlert(this.store.waveNumber(), this.antiAirTowers())
+  );
+
+  readonly airAlertView = computed(() => {
+    const alert = this.airAlert();
+    return alert ? airAlertView(alert, this.researchStore.airTargetingUnlocked()) : null;
+  });
+
+  /** Air wave the tone last played for */
+  private announcedAirWave = 0;
+
+  /** Global one-shot at the SFX volume, registered on first use. */
+  private playAirAlertTone(): void {
+    const audio = this.gameState.tilesEngine?.spatialAudio;
+    if (!audio) return;
+    const { id, notes, volume } = UI_SOUNDS.airAlert;
+    if (!audio.getSoundConfig(id)) {
+      audio.registerSound(id, toneWavDataUrl(notes), { volume });
+    }
+    void audio.playGlobal(id);
+  }
 
   readonly groupTooltip = enemyGroupTooltip;
   /** "Splits into 2 minions on death" under the armor line, null for a type that does not split. */
