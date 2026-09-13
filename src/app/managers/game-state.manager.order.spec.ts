@@ -183,8 +183,11 @@ const STEP_HEAD = [
 const SETUP_STEP = [...STEP_HEAD, 'enemy.update', 'onSubStep'];
 /** One sub-step outside a wave with debug enemies: combat runs, no spawner */
 const DEBUG_STEP = [...STEP_HEAD, 'enemy.update', ...COMBAT, 'onSubStep'];
-/** One sub-step in a wave: spawner, enemies, combat, hook, then the wave-end check */
-const WAVE_STEP = [...STEP_HEAD, 'wave.tickSpawn', 'enemy.update', ...COMBAT, 'onSubStep', 'wave.checkWaveComplete'];
+/** One sub-step in a wave: spawner, enemies, combat, hook, then the wave-end check (no strike pending) */
+const WAVE_STEP = [
+  ...STEP_HEAD, 'wave.tickSpawn', 'enemy.update', ...COMBAT, 'onSubStep',
+  'ability.hasPendingStrikes', 'wave.checkWaveComplete',
+];
 /** Once per frame after the loop, when a sub-step ran and rendering is on */
 const PRESENT = ['enemy.presentFrame', 'projectile.presentFrame'];
 
@@ -220,7 +223,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     trace(gsm.researchManager, 'research', [
       'update', 'startQueued', 'reset', 'onCenterPlaced', 'onCenterRemoved', 'upgradeCenter',
     ]);
-    trace(gsm.abilityManager, 'ability', ['update', 'reset']);
+    trace(gsm.abilityManager, 'ability', ['update', 'reset', 'hasPendingStrikes']);
     trace(bus, 'bus', ['processQueue']);
     trace(gsm.waveManager, 'wave', ['tickSpawn', 'endWave', 'reset', 'startWave', 'beginWave']);
     (gsm.waveManager as unknown as { checkWaveComplete: () => boolean }).checkWaveComplete = () => {
@@ -311,6 +314,26 @@ describe('GameStateManager order of operations (characterization)', () => {
         ...PRESENT,
       ]);
       expect(gsm.waveManager.phase()).toBe('setup');
+    });
+
+    it('holds the wave end while a strike is pending, without asking the wave manager', () => {
+      gsm.waveManager.phase.set('wave');
+      waveCompleteAnswers = [true, true, true];
+      (gsm.abilityManager as unknown as { hasPendingStrikes: () => boolean }).hasPendingStrikes = () => {
+        log.push('ability.hasPendingStrikes');
+        return true;
+      };
+      gsm.update(1000, onSubStep);
+      gsm.update(1050, onSubStep);
+
+      const heldStep = WAVE_STEP.slice(0, -1);
+      expect(log).toEqual([
+        'engine.setTimescale(1)',
+        'engine.setTimescale(1)',
+        ...repeat(heldStep, 3),
+        ...PRESENT,
+      ]);
+      expect(gsm.waveManager.phase()).toBe('wave');
     });
 
     it('breaks the loop after the sub-step that destroys the base and keeps the remainder', () => {
