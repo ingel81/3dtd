@@ -27,11 +27,9 @@ import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
-import { DpsProfileVisualizer } from '../../ai/core/dps-profile-visualizer';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { TowerTypeId } from '../../configs/tower-types.config';
-import { ThreeTilesEngine } from '../../three-engine';
 import { Vector3 } from 'three';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -42,6 +40,7 @@ import { CorridorConsole } from '../debug/corridor-console';
 import { RouteGridConvergence } from '../world/route-grid-convergence';
 import { IntroLoadingGate } from '../world/intro-loading-gate';
 import { CameraOverview } from '../camera-overview';
+import { DpsBinsOverlay } from '../debug/dps-bins-overlay';
 import { cameraTimeline } from '../../utils/camera-timeline';
 
 /**
@@ -139,6 +138,12 @@ export class VisualizationFacadeService {
     grid: () => this.gameState.getGlobalRouteGrid(),
   });
 
+  /** DPS profile bins along the path, see DpsBinsOverlay. */
+  private readonly dpsBins = new DpsBinsOverlay({
+    gameState: () => this.gameState,
+    aiDataCollector: this.aiDataCollector,
+  });
+
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
 
@@ -150,10 +155,6 @@ export class VisualizationFacadeService {
 
   /** EventBus subscription bag — cleaned up in dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
-
-  /** DPS profile visualization along path */
-  private dpsProfileViz: DpsProfileVisualizer | null = null;
-  private dpsVizUnsubscribes: (() => void)[] = [];
 
   /** Cached building footprints (filtered to route corridor) */
   private cachedBuildings: BuildingFootprint[] | null = null;
@@ -180,7 +181,7 @@ export class VisualizationFacadeService {
     this.convergence.dispose();
     this.introGate.dispose();
     const engine = this.initialized ? this.bridge.getEngine() : null;
-    this.disposeDpsVisualization(engine);
+    this.dpsBins.dispose(engine);
     this.cachedBuildings = null;
     this.buildingRendering.reset();
     this.initialized = false;
@@ -815,46 +816,7 @@ export class VisualizationFacadeService {
   onDpsBinsToggled(visible: boolean): void {
     const engine = this.bridge.getEngine() || this.engineInit.getEngine();
     if (!engine) return;
-
-    if (visible) {
-      const grid = this.gameState.getGlobalRouteGrid();
-      const coordSync = grid.getCoordinateSync();
-      if (!coordSync) return;
-
-      if (!this.dpsProfileViz) {
-        this.dpsProfileViz = new DpsProfileVisualizer(coordSync);
-      }
-
-      this.updateDpsViz(engine);
-
-      const eventBus = this.gameState.getEventBus();
-      const updateHandler = () => this.updateDpsViz(engine);
-      const sub1 = eventBus.on('tower:placed', updateHandler);
-      const sub2 = eventBus.on('tower:sold', updateHandler);
-      const sub3 = eventBus.on('tower:upgraded', updateHandler);
-      this.dpsVizUnsubscribes = [
-        () => sub1.dispose(),
-        () => sub2.dispose(),
-        () => sub3.dispose(),
-      ];
-    } else {
-      if (this.dpsProfileViz) {
-        this.dpsProfileViz.setVisible(false);
-      }
-      this.dpsVizUnsubscribes.forEach(fn => fn());
-      this.dpsVizUnsubscribes = [];
-    }
-  }
-
-  private updateDpsViz(engine: ThreeTilesEngine): void {
-    if (!this.dpsProfileViz) return;
-    const profile = this.aiDataCollector.getCurrentDPSProfile();
-    this.dpsProfileViz.update(profile);
-    this.dpsProfileViz.setVisible(true);
-    const mesh = this.dpsProfileViz.getMesh();
-    if (mesh && !mesh.parent) {
-      engine.getScene().add(mesh);
-    }
+    this.dpsBins.setVisible(visible, engine);
   }
 
   /**
@@ -863,20 +825,6 @@ export class VisualizationFacadeService {
    */
   cleanupDpsVisualization(): void {
     const engine = this.initialized ? this.bridge.getEngine() : null;
-    this.disposeDpsVisualization(engine);
-  }
-
-  /**
-   * Dispose DPS visualization resources.
-   */
-  private disposeDpsVisualization(engine: ThreeTilesEngine | null): void {
-    this.dpsVizUnsubscribes.forEach(fn => fn());
-    this.dpsVizUnsubscribes = [];
-    if (this.dpsProfileViz) {
-      const mesh = this.dpsProfileViz.getMesh();
-      if (mesh) engine?.getScene().remove(mesh);
-      this.dpsProfileViz.dispose();
-      this.dpsProfileViz = null;
-    }
+    this.dpsBins.dispose(engine);
   }
 }
