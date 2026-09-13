@@ -743,9 +743,10 @@ export class GameStateManager {
    * @param position Geo position
    * @param typeId Tower type ID
    * @param customRotation Custom rotation set by user (radians)
+   * @param plinthHeight Stone plinth below position.height (m), 0 = none
    */
-  placeTower(position: GeoPosition, typeId: TowerTypeId = 'archer', customRotation = 0): Tower | null {
-    return this.towerLifecycle.place(position, typeId, customRotation);
+  placeTower(position: GeoPosition, typeId: TowerTypeId = 'archer', customRotation = 0, plinthHeight = 0): Tower | null {
+    return this.towerLifecycle.place(position, typeId, customRotation, plinthHeight);
   }
 
   /**

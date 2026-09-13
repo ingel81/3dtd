@@ -59,6 +59,12 @@ export class Tower extends GameObject {
   /** Custom rotation set by user during placement (radians) */
   customRotation = 0;
 
+  /**
+   * Stone plinth under the tower (m), from the lowest point of its footprint
+   * up to `position.height`, which is the top of the plinth. 0 = none.
+   */
+  readonly plinthHeight: number;
+
   /** Index for alternating fire points (dual-barrel etc.) */
   private _nextFirePointIndex = 0;
 
@@ -85,10 +91,11 @@ export class Tower extends GameObject {
   /** Minimum interval between LOS rechecks (ms) */
   private readonly LOS_RECHECK_INTERVAL = TIMING.losRecheckInterval;
 
-  constructor(position: GeoPosition, typeId: TowerTypeId, customRotation = 0) {
+  constructor(position: GeoPosition, typeId: TowerTypeId, customRotation = 0, plinthHeight = 0) {
     super('tower');
     this.typeConfig = getTowerType(typeId);
     this.customRotation = customRotation;
+    this.plinthHeight = plinthHeight;
     this.targetingStrategy = this.typeConfig.defaultTargeting ?? 'closest';
     this.airSubStrategy = this.typeConfig.defaultAirSubStrategy ?? 'closest';
 

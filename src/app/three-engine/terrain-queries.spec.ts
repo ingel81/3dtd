@@ -390,6 +390,19 @@ describe('TerrainQueries', () => {
       expect(raycastStats.rows().map(({ caller }) => caller)).toEqual(['towerRange']);
     });
 
+    it('raycastSurfaceTop() liefert die oberste Fläche der Säule und bucht auf den Aufrufer', () => {
+      const { queries, addTile, group } = setup();
+      addTile(floor(4), 3, 2);
+      addTile(floor(9, 10), 3, 2);
+      instrumentRaycasts(group);
+      raycastStats.reset();
+
+      expect(queries.raycastSurfaceTop(1, 1, 'towerFootprint')).toBeCloseTo(9, 6);
+      expect(queries.raycastSurfaceTop(8, 8, 'towerFootprint')).toBeCloseTo(4, 6);
+      expect(queries.raycastSurfaceTop(30, 30, 'towerFootprint')).toBeNull();
+      expect(raycastStats.rows().map(({ caller }) => caller)).toEqual(['towerFootprint']);
+    });
+
     it('fragt in DevWorld den DevTerrainProvider nach der Geo-Höhe', () => {
       const { queries, useDevWorld } = setup();
       const devTerrain = useDevWorld();

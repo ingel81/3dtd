@@ -184,6 +184,13 @@ export interface TowerTypeConfig {
   previewScale?: number; // Optional separate scale for UI preview (defaults to scale * 0.4)
   heightOffset: number; // Vertical offset to place model above ground
   shootHeight: number; // Height above base where projectiles originate (for LoS calculations)
+  /**
+   * Radius (m) of the circle around the base of the placed model: its widest
+   * vertex from the model origin at `scale`. The ground under this circle
+   * decides how high the tower stands and whether it gets a plinth
+   * (resolveTowerFootprint), and the plinth is this wide.
+   */
+  footprintRadius: number;
   rotationY?: number; // Initial Y rotation in radians for visual alignment (default: 0)
   turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point -Z/North)
   turretNode?: string; // Node that turns to the target. Replaces turret_top/tower_top/top, no fallback to them
@@ -248,6 +255,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 12,
     heightOffset: 4.5,
     shootHeight: 1.05,
+    footprintRadius: 3.6,
     rotationY: 0,
     damageType: 'physical',
     damage: 25,
@@ -271,6 +279,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 5.5,
     heightOffset: 2.4,
     shootHeight: 2.1,
+    footprintRadius: 3.1,
     rotationY: -1.5708, // -90° visual alignment (barrels face North in idle)
     turretBarrelOffset: -1.5708, // Barrels point +X in model space (-90° from -Z)
     firePoints: [
@@ -295,6 +304,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 5.5,
     heightOffset: 2.3,
     shootHeight: 1.95,
+    footprintRadius: 3.4,
     rotationY: 3.1416, // 180°
     damageType: 'siege',
     damage: 55,
@@ -314,6 +324,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 14,
     heightOffset: 0,
     shootHeight: 8.85,
+    footprintRadius: 3.5,
     rotationY: 3.1416, // 180°
     damageType: 'magic',
     damage: 40,
@@ -332,6 +343,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 5.5,
     heightOffset: 2.6,
     shootHeight: 1.7,
+    footprintRadius: 3.6,
     rotationY: 3.1416, // 180°
     damageType: 'siege',
     damage: 40,
@@ -353,6 +365,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 32,
     heightOffset: 0.1,
     shootHeight: 3.4,
+    footprintRadius: 2.4,
     rotationY: 3.1416, // 180°
     turretBarrelOffset: 1.047, // Barrels point ~60° from -Z in model space
     damageType: 'ice',
@@ -375,6 +388,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 9.8,
     heightOffset: 3.8,
     shootHeight: 1.25,
+    footprintRadius: 5.3,
     rotationY: 3.0892, // ~177°
     turretBarrelOffset: 0.436, // ~25° correction for barrel orientation in model space
 
@@ -411,6 +425,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 12,
     heightOffset: 2,
     shootHeight: -2,
+    footprintRadius: 4.0,
     rotationY: 0,
 
     // Melee attack — direct hit, no projectile
@@ -434,6 +449,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 12,
     heightOffset: 2.8,
     shootHeight: 1.4,
+    footprintRadius: 4.0,
     rotationY: 3.1416, // 180°
     damageType: 'poison',
     damage: 5,
@@ -454,6 +470,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 14,
     heightOffset: 0,
     shootHeight: 9.65,
+    footprintRadius: 3.7,
     rotationY: 0,
 
     // Chain hitscan — primary + N jumps, damage falloff per hop
@@ -487,6 +504,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 11,
     heightOffset: 0, // Der Sockel sitzt bei y = 0
     shootHeight: 5.8, // Knapp unter der Kristallspitze (6,1 m), dort startet der Orb
+    footprintRadius: 4.4, // Ecken des quadratischen Sockels
     rotationY: 0,
     damageType: 'chaos',
     damage: 50,
@@ -511,6 +529,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 10,
     heightOffset: 5.1,
     shootHeight: 4.65,
+    footprintRadius: 10.0,
     rotationY: -3.1416,
 
     attackType: 'passive',

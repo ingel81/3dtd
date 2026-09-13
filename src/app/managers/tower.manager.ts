@@ -136,8 +136,9 @@ export class TowerManager extends EntityManager<Tower> {
    * @param position Geo position
    * @param typeId Tower type ID
    * @param customRotation Custom rotation set by user (radians)
+   * @param plinthHeight Stone plinth below position.height (m), 0 = none
    */
-  placeTower(position: GeoPosition, typeId: TowerTypeId, customRotation = 0): Tower | null {
+  placeTower(position: GeoPosition, typeId: TowerTypeId, customRotation = 0, plinthHeight = 0): Tower | null {
     if (!this.tilesEngine) {
       throw new Error('TowerManager not initialized');
     }
@@ -145,7 +146,7 @@ export class TowerManager extends EntityManager<Tower> {
     // Note: Validation is done by TowerPlacementService (with 3D distance calculation)
     // We skip redundant validation here to allow rooftop placements etc.
 
-    const tower = new Tower(position, typeId, customRotation);
+    const tower = new Tower(position, typeId, customRotation, plinthHeight);
     this.refreshGuardHeading(tower);
 
     if (position.height === undefined) {

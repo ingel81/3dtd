@@ -219,10 +219,19 @@ export class TrainingSession {
             terrainHeight,
           );
 
+          // On uneven ground the tower stands on the highest point of its
+          // footprint with a plinth below, as when the player places it.
+          const footprint = this.towerPlacement.resolveFootprint(
+            action.position.z,
+            action.position.x,
+            action.towerType,
+            surfaceHeight,
+          );
+
           const geoPos: GeoPosition = {
             lat: action.position.z,
             lon: action.position.x,
-            height: surfaceHeight
+            height: footprint.footY
           };
 
           // Same rules as the mouse preview and the click. Height plays no
@@ -241,7 +250,7 @@ export class TrainingSession {
             break;
           }
 
-          const tower = this.gameState.placeTower(geoPos, action.towerType);
+          const tower = this.gameState.placeTower(geoPos, action.towerType, 0, footprint.plinthHeight);
 
           if (tower) {
             this.signals.botStats.update(stats => ({
