@@ -119,6 +119,10 @@ describe('OrbitalBeamRenderer', () => {
     expect(material.fragmentShader).toContain('#include <logdepthbuf_fragment>');
     expect(material.vertexShader).toContain('#include <logdepthbuf_vertex>');
     expect(material.depthTest).toBe(true);
+    // WebGL2 compiles ShaderMaterials as GLSL ES 3.00, where these are reserved words
+    for (const source of [material.vertexShader, material.fragmentShader]) {
+      expect(source).not.toMatch(/\b(flat|smooth|sample|centroid|layout|invariant)\b/);
+    }
     beams.fire(PATH, RADIUS, SPEED, BURN_S, null);
     run(300);
     const ray = new Raycaster(new Vector3(20, 200, -5), new Vector3(0, -1, 0));
