@@ -324,6 +324,16 @@
   display: none !important;
 }
 
+/* === Replay of the last wave ===
+ * As in photo mode header, sidebar and the overlays of the canvas area go,
+ * the game-over screen as well: the replay can start from it. The replay
+ * bar (app-replay-bar) places itself at the bottom. */
+.td-replay-mode > app-game-header,
+.td-replay-mode app-game-sidebar,
+.td-replay-mode .td-canvas-area > :not(canvas):not(.td-logo-attribution):not(.td-map-attribution):not(app-replay-bar):not(.td-error-overlay):not(td-loading-screen):not(td-token-setup) {
+  display: none !important;
+}
+
 .td-photo-bar {
   position: absolute;
   top: 12px;

@@ -98,6 +98,8 @@ import { BossIntroComponent } from './components/boss-intro/boss-intro.component
 import { BestWaveService } from './services/location/best-wave.service';
 import { PhotoModeService } from './services/photo-mode.service';
 import { BossIntroService } from './services/boss-intro.service';
+import { ReplayService } from './services/replay.service';
+import { ReplayBarComponent } from './components/replay-bar/replay-bar.component';
 import { OnboardingService } from './services/onboarding/onboarding.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
@@ -144,6 +146,7 @@ import { ABILITIES } from './configs/abilities.config';
     AbilityBarComponent,
     RunSummaryComponent,
     BossIntroComponent,
+    ReplayBarComponent,
     // Used only inside @defer on the game-over screen, so it loads with the globe as a lazy chunk
     WorldRecordComponent,
   ],
@@ -164,6 +167,8 @@ import { ABILITIES } from './configs/abilities.config';
     PhotoModeService,
     // Listens on the component-scoped GameStateManager's bus, ticked by the game loop
     BossIntroService,
+    // Plays the GameStateManager's recording; the game loop and the hotkeys drive it
+    ReplayService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',
@@ -209,6 +214,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly photoMode = inject(PhotoModeService);
   /** Camera cut to a wave's boss with its title card */
   readonly bossIntro = inject(BossIntroService);
+  /** Replay of the last wave: HUD hidden, replay bar at the bottom */
+  readonly replay = inject(ReplayService);
 
   // Build / tiles version chips shown in the loading screen corners.
   readonly buildVersion = BUILD_VERSION;
@@ -389,10 +396,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     { id: 'skip', label: 'Skip' },
     { id: 'hide', label: 'Hide tips' },
   ];
-  /** Tip on screen: only over the running game, not over the intro flight, game over or photo mode */
+  /** Tip on screen: only over the running game, not over the intro flight, game over, photo mode or the replay */
   readonly onboardingTip = computed(() => {
     if (this.loading() || this.error() || this.awaitingCredentials()) return null;
-    if (this.introFlightActive() || this.isGameOver() || this.photoMode.active()) return null;
+    if (this.introFlightActive() || this.isGameOver() || this.uiStore.viewOnly()) return null;
     return this.onboarding.tip();
   });
 
@@ -481,8 +488,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   onKeyDown(event: KeyboardEvent): void {
     // A running boss intro takes Esc (skip) and holds the other game keys back
     if (this.bossIntro.handleKeyDown(event)) return;
-    // Photo mode keeps Tab in its bar
+    // Photo mode and the replay keep Tab in their bar
     this.photoMode.trapTab(event);
+    this.replay.trapTab(event);
     this.inputHandler.handleKeyDown(event);
     // Game hotkeys take what the input handler left alone (not defaultPrevented)
     this.hotkeys.handleKeyDown(event);

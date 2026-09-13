@@ -20,6 +20,7 @@ import { SellConfirmService } from './sell-confirm.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
+import { ReplayService } from './replay.service';
 
 /**
  * Runs the game hotkeys (see hotkey-map.ts). The component hands it every key
@@ -47,6 +48,7 @@ export class HotkeyService {
   private readonly abilityTargeting = inject(AbilityTargetingService);
   private readonly photoMode = inject(PhotoModeService);
   private readonly heroControl = inject(HeroControlService);
+  private readonly replay = inject(ReplayService);
 
   /** BUILD panel order, the number keys follow it */
   private readonly towerTypes = getAllTowerTypes();
@@ -90,6 +92,7 @@ export class HotkeyService {
 
   /** @returns true when the key did something */
   private run(action: HotkeyAction): boolean {
+    if (this.replay.active()) return this.runInReplay(action);
     switch (action.kind) {
       case 'select-tower': return this.selectTower(action.slot);
       case 'upgrade': return this.upgrade();
@@ -109,6 +112,33 @@ export class HotkeyService {
       case 'photo-mode':
         this.photoMode.toggle();
         return true;
+    }
+  }
+
+  /**
+   * During the replay the game keys drive the replay: Space and P pause and
+   * play it, + and - change its speed, Esc leaves it. The camera keys and
+   * the help stay; building, selling, upgrading, abilities and photo mode
+   * wait until the replay is over.
+   */
+  private runInReplay(action: HotkeyAction): boolean {
+    switch (action.kind) {
+      case 'start-wave':
+      case 'pause':
+        this.replay.togglePlay();
+        return true;
+      case 'speed':
+        this.replay.stepSpeed(action.step);
+        return true;
+      case 'cancel':
+        this.replay.exit();
+        return true;
+      case 'help':
+        openHotkeyHelpDialog(this.dialog);
+        return true;
+      case 'camera-hq': return this.focusHq();
+      case 'camera-spawn': return this.focusNextSpawn();
+      default: return false;
     }
   }
 

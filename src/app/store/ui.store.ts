@@ -159,6 +159,12 @@ export class UIStore {
   /** Photo mode: HUD hidden, camera free, screenshot bar on top. Not persisted. */
   readonly photoMode = signal<boolean>(false);
 
+  /** Replay of the last wave: HUD hidden, camera free, replay bar at the bottom. Not persisted. */
+  readonly replayMode = signal<boolean>(false);
+
+  /** Photo mode or replay: the camera moves, clicks and hover pick nothing, game keys build nothing. */
+  readonly viewOnly = computed(() => this.photoMode() || this.replayMode());
+
   /** Message in the banner over the game until closed, null for none. Not persisted. */
   readonly notice = signal<string | null>(null);
 

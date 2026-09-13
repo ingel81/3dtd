@@ -1,4 +1,5 @@
 <div class="td-container" [class.td-fullscreen]="!isDialog" [class.td-photo-mode]="photoMode.active()"
+     [class.td-replay-mode]="replay.active()"
      (contextmenu)="$event.preventDefault()">
   @if (store.aiError(); as aiErr) {
     <div class="ai-error-banner" role="alert">
@@ -311,6 +312,11 @@
             <kbd class="td-photo-key">Esc</kbd>
           </button>
         </div>
+      }
+
+      <!-- Replay of the last wave: only the map, its attribution and the replay bar stay -->
+      @if (replay.active()) {
+        <app-replay-bar />
       }
     </div>
 

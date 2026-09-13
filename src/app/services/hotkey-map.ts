@@ -149,6 +149,14 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
     ],
   },
   {
+    title: 'Replay of the last wave',
+    rows: [
+      { keys: ['Space', 'P'], label: 'Pause and play' },
+      { keys: ['+', '-'], label: 'Replay speed, 0.25x to 4x' },
+      { keys: ['Esc'], label: 'Back to the game' },
+    ],
+  },
+  {
     title: 'Help',
     rows: [
       { keys: ['H', '?'], label: 'This overview' },
