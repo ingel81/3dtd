@@ -59,7 +59,7 @@ GameStateManager.runSubStep
 | Event | Abnehmer |
 |---|---|
 | `ability:used` | VFXService (Zielmarker) |
-| `ability:impact` | VFXService (Explosion), AudioService, ScreenShakeService, AIDataCollectorService (`abilityKills`) |
+| `ability:impact` | VFXService (Atompilz, Brandflecken), AudioService, ScreenShakeService, AIDataCollectorService (`abilityKills`) |
 | `ability:rejected` | niemand fest; die UI prüft vor dem Klick selbst |
 | `ability:state-changed` | GameStateSyncService → `GameStore.abilities` |
 
@@ -120,11 +120,35 @@ goldener Ring, der sich in Spielzeit vom Radius auf die Mitte zusammenzieht.
 Flache Meshes mit Standard-Materialien, Tiefentest aus, damit der Marker
 zwischen Gebäuden lesbar bleibt.
 
-**Einschlag** (`NUCLEAR_STRIKE_VFX` in `visual-effects.config.ts`): gestaffelt
-aus den gepoolten Feuer-Atlas-Explosionen, ein Kern mit 140 Partikeln, dann
-6 und 9 kleinere Explosionen in zwei Ringen nach 120 und 260 ms, jede mit
-Brandfleck, wo sie eine Route-Zelle trifft. Pro Schlag 578 Partikel im
-additiven Pool (3000) und 73 Rauchpartikel im normalen Pool (4000).
+**Einschlag: Atompilz** (`MUSHROOM_CLOUD_LOOK` in `visual-effects.config.ts`,
+gezeichnet von `three-engine/renderers/mushroom-cloud.renderer.ts`). Er läuft
+in Spielzeit: Pause (P) hält ihn an, der Timescale spielt ihn schneller ab.
+Zeiten in Spielsekunden nach dem Einschlag, Längen bei 25 m Radius; sie
+skalieren mit dem Radius.
+
+| Zeit | Phase |
+|---|---|
+| 0 bis 0,4 s | Blitz: additiver Sprite (80 m) über dem Einschlag, 0,3 s lang zusätzlich eine schwache Aufhellung des ganzen Bildes |
+| 0 bis 1,1 s | Druckwelle: heller Ring am Boden, läuft schnell auf 36 m aus und verblasst |
+| 0 bis 2,8 s | Feuerball: Halbkugel am Boden (bis 12 m); ab 0,35 s steigt er auf und wird zum glühenden Kern der Kappe |
+| ab 0,05 s | Staub: Bodenwalze bis etwa 34 m, dazu dunklerer Staub am Stammfuß |
+| ab 0,3 s | Stamm: Rauch steigt in die Kappe, am Fuß breit, unten anfangs feuerbeleuchtet; bis 3 s Feuer im Kern |
+| ab 0,4 s | Kappe: Rauch-Torus, steigt auf knapp 60 m, rollt oben nach außen und unten nach innen. Unterseite bis etwa 5 s orange angeleuchtet (additive Randglut), Außenseite dunkler, eine Kuppel deckt die Mitte |
+| 5,5 bis 10 s | Auflösen: breiter und höher, treibt mit dem Wind, blendet aus |
+
+Budget: 106 additive Partikel (Explosions-Atlas) und 270 Rauchpartikel
+(Rauch-Atlas) pro Pilz, in eigenen Puffern für zwei gleichzeitige Pilze (212
+und 540), nicht in den Trail-Pools. Details in
+[PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#atompilz-nuklearschlag).
+
+**Brandflecken:** auf dem Einschlagpunkt und auf zwei Ringen, 6 bei 0,45 und 9
+bei 0,85 des Radius (`NUCLEAR_STRIKE_SCORCH_RINGS`), alle beim Einschlag, nur
+auf Route-Zellen und mit Ground Marks an.
+
+**VFX-Einstellungen:** Mit Impact Effects aus (Preset Low) bleiben Blitz,
+Feuerball und Druckwelle, kein Rauch. Bis 2026-09-13 bestand der Einschlag aus
+gestaffelten Feuer-Atlas-Explosionen auf Wanduhr-Timern, und Low zeigte davon
+nichts.
 
 **Massentode:** Todesblut nur für die ersten `ABILITY_DEATH_BLOOD_CAP` (24)
 Kills eines Schlags. Jede Blutwolke sind 40 Partikel im normalen Pool und ein
@@ -188,12 +212,13 @@ schaltet den Zielmodus ein (`UIStore.abilityTargeting`, geführt vom
 | `services/ability-targeting.service.ts` | Zielmodus |
 | `components/game-sidebar/wave-panel/ability-button.ts` | Zustand des Knopfs |
 | `three-engine/renderers/ability-marker.renderer.ts` | Zielmarker und Zielring |
+| `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,
 `gate-wiring.spec.ts`, `ai-data-collector.ability-kills.spec.ts`,
-`vfx.service.spec.ts`, `audio.service.spec.ts`, `screen-shake.service.spec.ts`,
+`vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `audio.service.spec.ts`, `screen-shake.service.spec.ts`,
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `ability-button.spec.ts`, `nuclear-strike.strategy.spec.ts`,
 `strategy-bot.factory.spec.ts`, Backend `tests/test_gate_loop.py`.
@@ -217,6 +242,8 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
 ## Bewusst nicht gemacht
 
 - Keine Warnsirene.
+- Kein längerer Grollen-Nachhall: im Repo liegt nur `explosion.mp3`, und
+  `SpatialAudioManager` hat keine Option für Tonhöhe oder Abspieltempo.
 - Keine Rückgabe der Ladung, wenn der Einschlag niemanden trifft, auch nicht,
   wenn der Rest der Welle in den 1,5 s der Vorwarnung stirbt oder durchläuft.
 - Der Event-Debugger hat keine eigene Kategorie für `ability:*`; die Events
