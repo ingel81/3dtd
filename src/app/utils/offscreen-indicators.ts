@@ -52,6 +52,7 @@ export class OffscreenClusterer {
   private halfW = 0;
   private halfH = 0;
   private margin = 0;
+  private leftInset = 0;
 
   constructor(private readonly sectors = 8) {
     this.count = new Int32Array(sectors);
@@ -61,8 +62,12 @@ export class OffscreenClusterer {
     this.step = (2 * Math.PI) / sectors;
   }
 
-  /** Start a pass for a view of `width` x `height` px, arrows `margin` px inside its edge. */
-  begin(width: number, height: number, margin: number): void {
+  /**
+   * Start a pass for a view of `width` x `height` px, arrows `margin` px
+   * inside its edge; on the left `leftInset` px further in (a HUD strip
+   * along that edge).
+   */
+  begin(width: number, height: number, margin: number, leftInset = 0): void {
     this.count.fill(0);
     this.bosses.fill(0);
     this.sumX.fill(0);
@@ -70,6 +75,7 @@ export class OffscreenClusterer {
     this.halfW = width / 2;
     this.halfH = height / 2;
     this.margin = margin;
+    this.leftInset = leftInset;
   }
 
   /**
@@ -110,7 +116,8 @@ export class OffscreenClusterer {
       Number(this.bosses[b] > 0) - Number(this.bosses[a] > 0) || this.count[b] - this.count[a]
     );
 
-    const ax = Math.max(0, this.halfW - this.margin);
+    const axRight = Math.max(0, this.halfW - this.margin);
+    const axLeft = Math.max(0, this.halfW - this.margin - this.leftInset);
     const ay = Math.max(0, this.halfH - this.margin);
     const arrows: OffscreenArrow[] = [];
     for (const s of used.slice(0, maxArrows)) {
@@ -127,7 +134,7 @@ export class OffscreenClusterer {
       uy /= len;
       // Where the ray from the centre leaves the inset rectangle
       const t = Math.min(
-        Math.abs(ux) > 1e-6 ? ax / Math.abs(ux) : Number.POSITIVE_INFINITY,
+        Math.abs(ux) > 1e-6 ? (ux > 0 ? axRight : axLeft) / Math.abs(ux) : Number.POSITIVE_INFINITY,
         Math.abs(uy) > 1e-6 ? ay / Math.abs(uy) : Number.POSITIVE_INFINITY,
       );
       arrows.push({

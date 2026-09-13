@@ -14,8 +14,8 @@ function noRouteWarning(id: AbilityId): string {
 }
 
 /**
- * Targeting mode of the player abilities: the button next to the wave
- * button arms it, the next click on the map fires, Escape or a short right
+ * Targeting mode of the player abilities: the ability's button in the
+ * ability bar or its key arms it, the next click on the map fires, Escape or a short right
  * click cancels. InputHandlerService routes the pointer here while it is on.
  *
  * While aiming, a ring of the strike radius follows the cursor, snapped to

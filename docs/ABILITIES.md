@@ -1,6 +1,6 @@
 # Fähigkeiten (Player Abilities)
 
-**Stand:** 2026-09-13. Erste und bisher einzige Fähigkeit: der Nuklearschlag
+**Stand:** 2026-09-14. Erste und bisher einzige Fähigkeit: der Nuklearschlag
 (im Spiel "Nuclear Strike"). Konzept und Entscheidungen:
 [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md), Abschnitte 5,
 7 und 8.
@@ -184,10 +184,11 @@ Warnsirene gibt es nicht, im Repo liegt kein passendes Sample.
 
 ## Bedienung
 
-Knopf rechts neben START WAVE, sichtbar ab der fertigen Forschung (Aussehen in
-[DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#nuclear-strike-knopf-sidebar)). Ein Druck
-schaltet den Zielmodus ein (`UIStore.abilityTargeting`, geführt vom
-`AbilityTargetingService`):
+Knopf in der Fähigkeitenleiste am linken Rand des Spielfelds (siehe unten,
+Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#fähigkeitenleiste-canvas)). Bis
+zur fertigen Forschung steht er gesperrt da, sein Tooltip nennt die Forschung
+und ihren Preis. Ein Druck schaltet den Zielmodus ein (`UIStore.abilityTargeting`,
+geführt vom `AbilityTargetingService`):
 
 - Ein Ring im Strike-Radius folgt dem Cursor, gesnappt auf die Route-Zelle, auf
   der der Schlag landen würde: gold, wo er landet, rot mit dem Hinweis
@@ -196,9 +197,42 @@ schaltet den Zielmodus ein (`UIStore.abilityTargeting`, geführt vom
   der Modus an. Tower-Auswahl und Bauen sind im Modus aus.
 - Esc und ein kurzer Rechtsklick brechen ab. Wellenende, verbrauchte Ladung,
   Build-Mode und Kartenplatzierung beenden den Modus ebenfalls.
-- K wirkt wie ein Klick auf den Knopf (`services/hotkey-map.ts`,
-  `HotkeyService`): schaltet den Modus an, wenn der Schlag feuern kann, ein
-  zweites K schaltet ihn ab. Die Tastenübersicht (H) führt die Taste auf.
+- K wirkt wie ein Klick auf den Knopf (`AbilityConfig.hotkey`, aufgelöst in
+  `services/hotkey-map.ts`, ausgeführt vom `HotkeyService`): schaltet den
+  Modus an, wenn der Schlag feuern kann, ein zweites K schaltet ihn ab. Die
+  Tastenübersicht (H) führt die Taste auf.
+
+### Fähigkeitenleiste
+
+`app-ability-bar` (`components/ability-bar/`) zeigt jede Fähigkeit aus
+`ABILITIES`, in der Reihenfolge der Einträge, und liest ihren Zustand aus
+`GameStore.abilities`. Was ein Knopf zeigt, kommt aus dem Eintrag und dem
+Snapshot des `AbilityManager`:
+
+| Anzeige | Quelle |
+|---|---|
+| Icon | `AbilityConfig.icon` (td-icon) |
+| Taste oben rechts, Tastenkappe im Tooltip | `AbilityConfig.hotkey` |
+| gesperrt, Forschung und Preis im Tooltip | `AbilityStatus.unlocked`, `AbilityConfig.researchId` |
+| Ladungen (als Zahl nur ab `maxCharges` 2) | `AbilityStatus.charges` |
+| ein Strich je Welle bis zur nächsten Ladung | `AbilityConfig.rechargeWaves`, `AbilityStatus.wavesUntilCharge` |
+| Schlag unterwegs | `AbilityStatus.pending` |
+| Zielmodus an | `AbilityTargetingService.targeting()` |
+
+Zustand und Texte berechnen `abilityButtonView()` und `abilityTooltip()`
+(`ability-bar/ability-button.ts`), reine Funktionen mit Spec.
+
+**Held.** Über den Fähigkeiten ist Platz für den Knopf des Helden. Die Leiste
+kennt den Helden nicht, sie bekommt ihn als Eingang und meldet den Druck:
+
+```html
+<app-ability-bar [hero]="heroSlot()" (heroPressed)="onHeroSlotPressed()" />
+```
+
+`hero` ist ein `AbilityBarHero` (`icon`, `name`, `hotkey` oder null,
+`selected`, optional `detail` als Tooltip-Zeile) oder `null`, der Standard;
+dann fehlen Knopf und Trennlinie. Was ein Druck tut (auswählen, Kamera
+hinfahren), entscheidet der Aufrufer.
 
 Zum Testen: Cheat "Nuke" im Dev-Menü (Gruppe Cheats). Er schließt die
 Forschung `nuclear-strike` samt Voraussetzungen ab (`ResearchManager.completeResearch`,
@@ -236,7 +270,8 @@ geht weiter nur während einer Welle.
 | `services/world/global-route-grid.service.ts`, `utils/global-route-grid.ts` | `snapToRouteCell`, `findNearestCell` |
 | `ai/core/gate-controller.ts` | `gateLeakRatio` |
 | `services/ability-targeting.service.ts` | Zielmodus |
-| `components/game-sidebar/wave-panel/ability-button.ts` | Zustand des Knopfs |
+| `components/ability-bar/` | Fähigkeitenleiste; `ability-button.ts`: Zustand und Tooltip der Knöpfe |
+| `services/hotkey-map.ts` | Taste je Fähigkeit aus `AbilityConfig.hotkey` |
 | `three-engine/renderers/ability-marker.renderer.ts` | Zielmarker und Zielring |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
@@ -255,14 +290,19 @@ Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 ## Eine weitere Fähigkeit
 
 Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
-`AbilityId`), der Rest noch nicht:
+`AbilityId`), die Leiste und die Tasten ebenso:
 
-1. `AbilityId` erweitern und einen Eintrag in `ABILITIES` anlegen.
-2. Eine Forschung mit einem `global-perk`, dessen `perkId` dem Eintrag entspricht.
+1. `AbilityId` erweitern und einen Eintrag in `ABILITIES` anlegen, mit `icon`
+   und `hotkey`. Knopf in der Leiste, Taste und Zeile in der Tastenübersicht
+   kommen aus diesem Eintrag; `hotkey-map.spec.ts` prüft, dass die Taste frei
+   ist (vergeben: siehe Tastenkürzel in DESIGN_SYSTEM.md).
+2. Eine Forschung mit einem `global-perk`, dessen `perkId` dem Eintrag
+   entspricht, und `researchId` im Eintrag; der gesperrte Knopf nennt sie.
 3. Die Wirkung: `AbilityManager.resolve` kennt nur den Max-HP-Anteil im Radius.
 4. VFXService, AudioService und ScreenShakeService behandeln jedes
    `ability:used` und `ability:impact` wie den Nuklearschlag.
-5. Das Wave-Panel zeigt fest den Knopf des Nuklearschlags.
+5. Die Kontext-Hinweis-Box im Zielmodus sagt fest "Click Strike"
+   (`abilityTargetingHints` in `tower-defense.component.ts`).
 
 ---
 
