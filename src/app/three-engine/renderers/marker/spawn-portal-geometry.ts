@@ -1,5 +1,9 @@
 import { BufferGeometry, Float32BufferAttribute } from 'three';
-import { PORTAL_OPENING_HEIGHT, PORTAL_OPENING_WIDTH } from '../../../configs/marker-geometry.config';
+import {
+  PORTAL_FRAME_TOP,
+  PORTAL_OPENING_HEIGHT,
+  PORTAL_OPENING_WIDTH,
+} from '../../../configs/marker-geometry.config';
 
 /**
  * Geometry of the spawn portal at scale 1, in portal space: x across the
@@ -24,23 +28,36 @@ interface Block {
   x1: number; y1: number; z1: number; w1: number; d1: number;
 }
 
+/** Top of the lintel and of the cornice slab on it, above the ground (m). */
+const LINTEL_TOP = OPENING_HEIGHT + 3;
+const CORNICE_TOP = LINTEL_TOP + 0.7;
+
 /** Blocks on the +x side; the frame mirrors them to -x. */
 const SIDE_BLOCKS: readonly Block[] = [
-  // Plinth under the pillar
-  { x0: HALF_OPENING + 1.5, y0: -BURY, z0: 0, w0: 3.2, d0: 4.2, x1: HALF_OPENING + 1.5, y1: 1.4, z1: 0, w1: 2.8, d1: 3.8 },
-  // Pillar: the inner face stands plumb on the opening's edge, the outer one leans in
-  { x0: HALF_OPENING + 1.15, y0: -BURY, z0: 0, w0: 2.3, d0: 3.2, x1: HALF_OPENING + 0.8, y1: OPENING_HEIGHT + 2.4, z1: 0, w1: 1.6, d1: 2.6 },
-  // Spire out of the lintel, leaning outward like a claw
-  { x0: HALF_OPENING + 1.2, y0: OPENING_HEIGHT + 2.2, z0: 0, w0: 1.3, d0: 1.5, x1: HALF_OPENING + 2.6, y1: 15, z1: 0, w1: 0, d1: 0 },
+  // Plinth under the pillar in two steps, flush with the opening's edge
+  { x0: HALF_OPENING + 1.9, y0: -BURY, z0: 0, w0: 3.8, d0: 5.2, x1: HALF_OPENING + 1.9, y1: 0.8, z1: 0, w1: 3.8, d1: 5 },
+  { x0: HALF_OPENING + 1.6, y0: 0.8, z0: 0, w0: 3.2, d0: 4.5, x1: HALF_OPENING + 1.65, y1: 1.9, z1: 0, w1: 3.1, d1: 4.2 },
+  // Pillar: the inner face stands plumb on the opening's edge, the outer
+  // one leans in; it ends inside the lintel
+  { x0: HALF_OPENING + 1.4, y0: -BURY, z0: 0, w0: 2.8, d0: 4, x1: HALF_OPENING + 1, y1: LINTEL_TOP - 0.2, z1: 0, w1: 2, d1: 3.4 },
+  // Horn out of the cornice's end: out, up, and curling back in at the tip
+  { x0: HALF_OPENING + 2.5, y0: CORNICE_TOP, z0: 0, w0: 1.8, d0: 2.1, x1: HALF_OPENING + 3.4, y1: CORNICE_TOP + 1.9, z1: 0, w1: 1.4, d1: 1.6 },
+  { x0: HALF_OPENING + 3.4, y0: CORNICE_TOP + 1.9, z0: 0, w0: 1.4, d0: 1.6, x1: HALF_OPENING + 3.7, y1: CORNICE_TOP + 3.3, z1: 0, w1: 0.8, d1: 0.9 },
+  { x0: HALF_OPENING + 3.7, y0: CORNICE_TOP + 3.3, z0: 0, w0: 0.8, d0: 0.9, x1: HALF_OPENING + 3.2, y1: CORNICE_TOP + 4.5, z1: 0, w1: 0, d1: 0 },
+  // Jagged spike beside the crown, leaning outward
+  { x0: 2.4, y0: CORNICE_TOP, z0: 0, w0: 1.5, d0: 1.8, x1: 3.2, y1: CORNICE_TOP + 2.7, z1: 0, w1: 0, d1: 0 },
 ];
 
 /** Blocks on the centre line. */
 const CENTRE_BLOCKS: readonly Block[] = [
-  // Lintel across both pillars, wider at the top
-  { x0: 0, y0: OPENING_HEIGHT, z0: 0, w0: 11.8, d0: 2.9, x1: 0, y1: OPENING_HEIGHT + 2.6, z1: 0, w1: 12.8, d1: 3.3 },
-  // Crown: a base on the lintel and a spike on it
-  { x0: 0, y0: OPENING_HEIGHT + 2.6, z0: 0, w0: 3.6, d0: 2.6, x1: 0, y1: OPENING_HEIGHT + 3.6, z1: 0, w1: 2.6, d1: 2 },
-  { x0: 0, y0: OPENING_HEIGHT + 3.6, z0: 0, w0: 2.6, d0: 2, x1: 0, y1: 15.5, z1: 0, w1: 0, d1: 0 },
+  // Lintel across both pillars, wider at the top, deep enough to cover the
+  // spawn behind the surface from above
+  { x0: 0, y0: OPENING_HEIGHT, z0: 0, w0: 13.2, d0: 4, x1: 0, y1: LINTEL_TOP, z1: 0, w1: 14, d1: 4.2 },
+  // Cornice slab overhanging the lintel
+  { x0: 0, y0: LINTEL_TOP, z0: 0, w0: 15.4, d0: 4.8, x1: 0, y1: CORNICE_TOP, z1: 0, w1: 15, d1: 4.6 },
+  // Crown: a base on the cornice and a spike on it, the top of the frame
+  { x0: 0, y0: CORNICE_TOP, z0: 0, w0: 4.2, d0: 3, x1: 0, y1: CORNICE_TOP + 1.1, z1: 0, w1: 3.2, d1: 2.4 },
+  { x0: 0, y0: CORNICE_TOP + 1.1, z0: 0, w0: 3.2, d0: 2.4, x1: 0, y1: PORTAL_FRAME_TOP, z1: 0, w1: 0, d1: 0 },
 ];
 
 const FRAME_BLOCKS: readonly Block[] = [
@@ -86,8 +103,9 @@ function framePositions(): number[] {
 }
 
 /**
- * Stone frame: plinths, two pillars, lintel, crown and two spires. Not
- * indexed, so the normals come out flat per face. The placement preview
+ * Stone frame: stepped plinths, two pillars, lintel and cornice, a crown
+ * between two jagged spikes, two horns. Not indexed, so the normals come
+ * out flat per face. The placement preview
  * draws it; the portal manager draws the gate (createPortalGateGeometry).
  */
 export function createPortalFrameGeometry(): BufferGeometry {

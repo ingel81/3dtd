@@ -313,6 +313,20 @@ export const MUSHROOM_CLOUD_LOOK = {
  * paused.
  */
 export const SPAWN_PORTAL_LOOK = {
+  /**
+   * Colours of the smouldering look, channels 0-1 as the shaders write
+   * them: the void's near-black ground, the dark red of its swirl, the
+   * glowing seams and the light on the stone and the street, the dull
+   * orange of the hottest points and the embers, a violet in the swirl's
+   * troughs. The spawn's own colour only tints the rim, the runes and the
+   * street light, so spawns stay apart without a bright disc.
+   */
+  palette: {
+    void: { r: 0.012, g: 0.004, b: 0.007 },
+    ember: { r: 0.4, g: 0.055, b: 0.03 },
+    hot: { r: 0.8, g: 0.26, b: 0.07 },
+    violet: { r: 0.15, g: 0.035, b: 0.2 },
+  },
   /** Between waves */
   idleEnergy: 0.45,
   /** While a wave runs */

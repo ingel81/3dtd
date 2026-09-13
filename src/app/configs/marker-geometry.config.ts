@@ -36,16 +36,16 @@ export const MARKER_LABEL_TOP = MARKER_LABEL_OFFSET + MARKER_LABEL_SIZE / 2;
 
 /** Opening between the pillars at scale 1 (m), and its height up to the lintel. */
 export const PORTAL_OPENING_WIDTH = 8;
-export const PORTAL_OPENING_HEIGHT = 10;
+export const PORTAL_OPENING_HEIGHT = 11;
 
 /** Tip of the crown above the ground at scale 1 (m): the top of the frame. */
-export const PORTAL_FRAME_TOP = 15.5;
+export const PORTAL_FRAME_TOP = 19.5;
 
 /**
  * Horizontal radius around the portal centre that holds the whole frame at
  * scale 1 (m), whichever way the portal faces: the plinths' outer corners.
  */
-export const PORTAL_RADIUS = 7.5;
+export const PORTAL_RADIUS = 8.25;
 
 /**
  * Scale range. A portal's opening spans the corridor at the route start

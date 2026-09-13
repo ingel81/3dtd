@@ -48,14 +48,17 @@ const PORTAL_POSE_WAYPOINTS = 16;
  */
 const SPAWN_MATCH_RADIUS = PORTAL_SETBACK + 6;
 
-/** Spark colours of a portal: white-hot, its colour, its colour darkened. */
+/**
+ * Spark colours of a portal: embers from its palette (dull orange with a
+ * little of the spawn's colour, dark red) and its colour darkened.
+ */
 function portalPalette(color: number): BurstPalette {
   const c = new Color(color);
-  const hot = c.clone().lerp(new Color(0xffffff), 0.65);
+  const { hot, ember } = SPAWN_PORTAL_LOOK.palette;
   return [
-    { r: hot.r, g: hot.g, b: hot.b },
-    { r: c.r, g: c.g, b: c.b },
-    { r: c.r * 0.5, g: c.g * 0.5, b: c.b * 0.5 },
+    { r: hot.r * 0.75 + c.r * 0.25, g: hot.g * 0.75 + c.g * 0.25, b: hot.b * 0.75 + c.b * 0.25 },
+    { r: ember.r, g: ember.g, b: ember.b },
+    { r: c.r * 0.35, g: c.g * 0.35, b: c.b * 0.35 },
   ];
 }
 
