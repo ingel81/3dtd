@@ -102,7 +102,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
 export interface ArmorTypeUIMeta {
   id: ArmorType;
   label: string;
-  icon: string;
   color: string;
   description: string;
 }
@@ -117,35 +116,30 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
   unarmored: {
     id: 'unarmored',
     label: 'Unarmored',
-    icon: '\uD83D\uDFE9',
     color: '#4CAF50',
     description: 'No damage resistance',
   },
   light: {
     id: 'light',
     label: 'Light',
-    icon: '\uD83D\uDFE6',
     color: '#2196F3',
     description: 'Fast, vulnerable to pierce',
   },
   heavy: {
     id: 'heavy',
     label: 'Heavy',
-    icon: '\uD83D\uDFE7',
     color: '#FF9800',
     description: 'Tough, requires siege',
   },
   fortified: {
     id: 'fortified',
     label: 'Fortified',
-    icon: '\uD83D\uDFE5',
     color: '#F44336',
     description: 'Very tough, DPS check',
   },
   ethereal: {
     id: 'ethereal',
     label: 'Ethereal',
-    icon: '\uD83D\uDFEA',
     color: '#9C27B0',
     description: 'Resists most, weak to magic/ice/lightning',
   },

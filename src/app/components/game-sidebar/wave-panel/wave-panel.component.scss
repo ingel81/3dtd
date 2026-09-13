@@ -333,6 +333,15 @@
   font-size: 9px;
   color: var(--td-text-secondary);
 }
+/* Armor as in the NEXT line: a grey shield before the name, no emoji */
+.td-group-armor-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.td-group-armor-type td-icon {
+  color: var(--td-text-muted);
+}
 .td-group-weak {
   color: var(--td-gold-dark);
   font-style: italic;

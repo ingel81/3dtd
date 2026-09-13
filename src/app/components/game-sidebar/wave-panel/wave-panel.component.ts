@@ -204,11 +204,6 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       });
   }
 
-  getArmorIcon(enemyType: EnemyTypeId): string {
-    const config = ENEMY_TYPES[enemyType];
-    return config?.armorType ? ARMOR_TYPE_UI[config.armorType].icon : '';
-  }
-
   getArmorLabel(enemyType: EnemyTypeId): string {
     const config = ENEMY_TYPES[enemyType];
     return config?.armorType ? ARMOR_TYPE_UI[config.armorType].label : '';
