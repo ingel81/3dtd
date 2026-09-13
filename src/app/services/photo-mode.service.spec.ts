@@ -53,11 +53,14 @@ describe('PhotoModeService focus', () => {
   let openMenu: ReturnType<typeof signal<string | null>>;
   let announce: ReturnType<typeof vi.fn>;
   let service: PhotoModeService;
+  /** What EngineInitializationService.getEngine() hands out */
+  let engine: unknown;
 
   const drawFrame = () => rendered.splice(0).forEach((callback) => callback());
 
   beforeEach(() => {
     rendered.length = 0;
+    engine = null;
     trigger = document.createElement('button');
     host = document.createElement('div');
     host.innerHTML = '<div class="td-photo-bar"><button>Save screenshot</button><button>Exit</button></div>';
@@ -74,7 +77,7 @@ describe('PhotoModeService focus', () => {
         { provide: TowerPlacementService, useValue: { buildMode: signal(false) } },
         { provide: MapPlacementService, useValue: {} },
         { provide: AbilityTargetingService, useValue: { targeting: signal(null) } },
-        { provide: EngineInitializationService, useValue: { getEngine: () => null } },
+        { provide: EngineInitializationService, useValue: { getEngine: () => engine } },
         { provide: LocationManagementService, useValue: {} },
         { provide: ConfigService, useValue: {} },
         { provide: DevWorldService, useValue: {} },
@@ -147,6 +150,16 @@ describe('PhotoModeService focus', () => {
       expect(tab().defaultPrevented).toBe(false);
       expect(document.activeElement).toBe(trigger);
     });
+  });
+
+  it('hides the veteran badges over the towers while it is on', () => {
+    const setVisible = vi.fn();
+    engine = { towerBadges: { setVisible }, fitToCanvas: vi.fn() };
+
+    service.enter();
+    expect(setVisible).toHaveBeenLastCalledWith(false);
+    service.exit();
+    expect(setVisible).toHaveBeenLastCalledWith(true);
   });
 
   it('leaves the focus where it is when the element it came from is gone', () => {

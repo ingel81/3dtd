@@ -13,6 +13,7 @@ import { TowerLosViz } from '../utils/tower-los-viz';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
 import { computeGuardHeading } from '../utils/tower-guard-heading';
+import { veteranLevel } from '../configs/veteran-ranks.config';
 
 /**
  * Manages all tower entities
@@ -129,6 +130,15 @@ export class TowerManager extends EntityManager<Tower> {
 
   private updateGuardHeading(tower: Tower, routes: GeoPosition[][]): void {
     tower.guardHeading = computeGuardHeading(tower.position, tower.combat.range, routes);
+  }
+
+  /**
+   * Show the veteran rank the tower's kills have earned above it. The
+   * GameStateManager calls it on every tower:kill; the badge renderer does
+   * nothing while the rank stays the same.
+   */
+  refreshVeteranBadge(tower: Tower): void {
+    this.tilesEngine?.towerBadges.setRank(tower.id, veteranLevel(tower.combat.kills));
   }
 
   /**
@@ -476,6 +486,7 @@ export class TowerManager extends EntityManager<Tower> {
     if (entity.plinthHeight > 0) {
       this.tilesEngine?.plinths.remove(entity.id);
     }
+    this.tilesEngine?.towerBadges.remove(entity.id);
     this.tilesEngine?.towers.remove(entity.id);
     super.remove(entity);
   }
@@ -489,6 +500,7 @@ export class TowerManager extends EntityManager<Tower> {
     // Clear all tentacle visuals
     this.tilesEngine?.tentacles.clear();
     this.tilesEngine?.plinths.clear();
+    this.tilesEngine?.towerBadges.clear();
     this.tilesEngine?.towers.clear();
     this._selectedTowerId.set(null);
     super.clear();

@@ -29,6 +29,11 @@ const createMockTilesEngine = () => ({
     remove: vi.fn(),
     clear: vi.fn(),
   },
+  towerBadges: {
+    setRank: vi.fn(),
+    remove: vi.fn(),
+    clear: vi.fn(),
+  },
   tentacles: {
     create: vi.fn(),
     remove: vi.fn(),
@@ -143,6 +148,25 @@ describe('TowerManager', () => {
 
     manager.clear();
     expect(tilesEngine.plinths.clear).toHaveBeenCalled();
+  });
+
+  it('shows the veteran rank its kills have earned above a tower', () => {
+    const tower = manager.placeTower({ lat: 1, lon: 2, height: 5 }, 'archer') as Tower;
+    tower.combat.kills = 9;
+    manager.refreshVeteranBadge(tower);
+    tower.combat.kills = 50;
+    manager.refreshVeteranBadge(tower);
+
+    expect(tilesEngine.towerBadges.setRank.mock.calls).toEqual([[tower.id, 0], [tower.id, 2]]);
+  });
+
+  it('takes the veteran badge down with its tower', () => {
+    const tower = manager.placeTower({ lat: 1, lon: 2, height: 5 }, 'archer') as Tower;
+    manager.sell(tower);
+    expect(tilesEngine.towerBadges.remove).toHaveBeenCalledWith(tower.id);
+
+    manager.clear();
+    expect(tilesEngine.towerBadges.clear).toHaveBeenCalled();
   });
 
   describe('guard heading', () => {

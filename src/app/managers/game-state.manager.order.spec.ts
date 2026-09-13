@@ -143,6 +143,7 @@ function createEngine(): never {
       updateRangeIndicatorTerrain: logged('engine.towers.updateRangeIndicatorTerrain'),
     }),
     plinths: auto(),
+    towerBadges: auto(),
     enemies: auto(),
     projectiles: auto(),
     trailStreaks: auto(),
@@ -486,9 +487,9 @@ describe('GameStateManager order of operations (characterization)', () => {
         'audio:play', 'ability:impact', 'game:reset',
         'vfx:projectile-impact', 'health:changed', 'ability:impact', 'enemy:died',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
-        // GameStateManager: leak budget, AA retrofit, guard turns, kill reward
+        // GameStateManager: leak budget, AA retrofit, guard turns, veteran badge, kill reward
         'enemy:reached-base', 'research:completed', 'wave:completed',
-        'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'enemy:died',
+        'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'tower:kill', 'enemy:died',
         // GameCommandsHandler
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower',
         'command:start-research', 'command:cancel-research', 'command:queue-research', 'command:unqueue-research',

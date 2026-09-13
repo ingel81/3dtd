@@ -167,6 +167,7 @@ function createDeepMock(): never {
       enemies: autoProxy(),
       towers: autoProxy(),
       plinths: autoProxy(),
+      towerBadges: autoProxy(),
       projectiles: autoProxy(),
       trailStreaks: autoProxy(),
       tentacles: autoProxy(),
@@ -221,6 +222,18 @@ describe('GameStateManager', () => {
       expect(bus.hasListeners('command:use-ability')).toBe(true);
       expect(bus.hasListeners('enemy:reached-base')).toBe(true);
       expect(bus.hasListeners('enemy:died')).toBe(true);
+    });
+  });
+
+  describe('veteran badges', () => {
+    it('sets the rank above a tower after each of its kills', () => {
+      const engine = createMockEngine() as { towerBadges: { setRank: ReturnType<typeof vi.fn> } };
+      gsm.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+
+      const tower = { id: 't-vet', combat: { kills: 10 } };
+      getEventBus(gsm).emit({ type: 'tower:kill', tower: tower as never });
+
+      expect(engine.towerBadges.setRank).toHaveBeenCalledWith('t-vet', 1);
     });
   });
 
