@@ -220,6 +220,7 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 |---:|---|:--:|:--:|:--:|:--:|
 | 97 | NuclearStrike | ✓ | ✓ | ✓ | ✓ |
 | 96 | FrostBomb | ✓ | ✓ | ✓ | ✓ |
+| 94 | Emp | ✓ | ✓ | ✓ | ✓ |
 | 95 | ResearchCenterPlacement | ✓ | ✓ | ✓ | ✓ |
 | 90 | AntiAirPlacement | | ✓ | ✓ | ✓ |
 | 88 | AntiEtherealPlacement | | ✓ | ✓ | ✓ |
@@ -235,7 +236,7 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 
 NuclearStrike steht in jedem Set, feuert aber nur mit erforschtem
 `nuclear-strike`, und das erforschen nur strategist und meta (ResearchPick).
-Dasselbe gilt für FrostBomb und `frost-bomb`.
+Dasselbe gilt für FrostBomb und `frost-bomb`, Emp und `emp`.
 
 **casual und meta haben dasselbe Strategie-Set**; sie unterscheiden sich nur in
 Reaktionszeit (1500 vs. 400 ms) und Turm-Cap (15 vs. 20).
@@ -680,9 +681,26 @@ vor.
 `nuclear-strike` (700 Gold). Ihre Läufe sind mit Läufen vor dem 2026-09-14
 nicht direkt vergleichbar; beginner und casual spielen unverändert.
 
+### Emp (94)
+
+Setzt das EMP ein ([ABILITIES.md](ABILITIES.md#emp-in-zahlen)): während einer
+Welle, sobald es bereit ist, wenn mindestens 3 Maschinen (`mechanical`) ab
+Pfadfortschritt 0,4 im Radius von 30 m um eine von ihnen stehen, dort stoppt
+es sie 6 s; sonst, wenn mindestens 12 Gegner beliebiger Art in den letzten
+40 % der Route (Pfadfortschritt ab 0,6) im Radius um einen stehen. Ziel ist die
+Maschine mit den meisten Maschinen im Radius, sonst der Gegner der Menge mit
+den meisten anderen (`densestCenter`).
+
+**Vergleichbarkeit:** strategist und meta erforschen `emp` direkt nach
+`storm-mastery` (800 Gold). Beginner und casual spielen unverändert.
+
 ---
 
 ## Changelog
+
+### 2026-09-14: EMP
+- Neue Strategie Emp (94) in allen Skill-Stufen; `emp` in den Forschungslisten
+  von strategist und meta nach `storm-mastery`.
 
 ### 2026-09-14: Frostbombe
 - Neue Strategie FrostBomb (96) in allen Skill-Stufen; `frost-bomb` in den
