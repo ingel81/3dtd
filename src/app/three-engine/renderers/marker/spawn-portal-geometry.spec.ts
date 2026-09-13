@@ -50,14 +50,16 @@ describe('Spawn-Portal-Geometrie', () => {
 
   it('dreht die Flächen nach außen (Wicklung gegen den Uhrzeigersinn)', () => {
     // Die Normalen kommen aus der Wicklung. Unterseiten im Boden (y = -2)
-    // müssen nach unten zeigen, die Deckfläche des Sturzes nach oben, die
-    // Innenseiten der Pfeiler zur Öffnung: dann ist die Wicklung außen.
+    // und die Unterseite des Sturzes über der Öffnung müssen nach unten
+    // zeigen, die Deckflächen der oberen Plinthenstufe (y = 1,9) nach oben,
+    // die Innenseiten der Pfeiler zur Öffnung: dann ist die Wicklung außen.
     const geometry = createPortalFrameGeometry();
     const position = geometry.getAttribute('position');
     const normal = geometry.getAttribute('normal');
     const n = new Vector3();
     let bottoms = 0;
-    let lintelTops = 0;
+    let lintelUndersides = 0;
+    let plinthTops = 0;
     let innerSides = 0;
     for (let i = 0; i < position.count; i += 3) {
       n.fromBufferAttribute(normal, i);
@@ -68,9 +70,13 @@ describe('Spawn-Portal-Geometrie', () => {
         expect(n.y).toBeCloseTo(-1, 5);
         bottoms++;
       }
-      if (ys.every((y) => Math.abs(y - (PORTAL_OPENING_HEIGHT + 2.6)) < 1e-4) && xs.some((x) => Math.abs(x) > 3)) {
+      if (ys.every((y) => Math.abs(y - PORTAL_OPENING_HEIGHT) < 1e-4)) {
+        expect(n.y).toBeCloseTo(-1, 5);
+        lintelUndersides++;
+      }
+      if (ys.every((y) => Math.abs(y - 1.9) < 1e-4)) {
         expect(n.y).toBeCloseTo(1, 5);
-        lintelTops++;
+        plinthTops++;
       }
       if (xs.every((x) => Math.abs(Math.abs(x) - PORTAL_OPENING_WIDTH / 2) < 1e-4) && ys.some((y) => y > 5)) {
         expect(Math.sign(n.x)).toBe(-Math.sign(xs[0]));
@@ -78,7 +84,8 @@ describe('Spawn-Portal-Geometrie', () => {
       }
     }
     expect(bottoms).toBeGreaterThan(0);
-    expect(lintelTops).toBeGreaterThan(0);
+    expect(lintelUndersides).toBe(2);
+    expect(plinthTops).toBe(4);
     expect(innerSides).toBe(4);
   });
 

@@ -83,7 +83,7 @@ export class SpawnPortalManager {
     gateGeom.setAttribute('aColor', this.colorAttr);
     gateGeom.setAttribute('aPhase', this.phaseAttr);
     gateGeom.setAttribute('aRipple', this.rippleAttr);
-    this.gateMat = createPortalGateMaterial(PORTAL_SHADER_LAYOUT, look.idleEnergy, look.rippleLife);
+    this.gateMat = createPortalGateMaterial(PORTAL_SHADER_LAYOUT, look.palette, look.idleEnergy, look.rippleLife);
     this.gateMesh = new InstancedMesh(gateGeom, this.gateMat, MAX_PORTALS);
     this.gateMesh.count = 0;
     this.gateMesh.frustumCulled = false;
@@ -93,7 +93,7 @@ export class SpawnPortalManager {
     glowGeom.setAttribute('aColor', this.colorAttr);
     glowGeom.setAttribute('aPhase', this.phaseAttr);
     glowGeom.setAttribute('aRipple', this.rippleAttr);
-    this.glowMat = createPortalGlowMaterial(PORTAL_SHADER_LAYOUT, look.idleEnergy, look.rippleLife);
+    this.glowMat = createPortalGlowMaterial(PORTAL_SHADER_LAYOUT, look.palette, look.idleEnergy, look.rippleLife);
     this.glowMesh = new InstancedMesh(glowGeom, this.glowMat, MAX_PORTALS);
     this.glowMesh.count = 0;
     this.glowMesh.frustumCulled = false;
