@@ -185,6 +185,26 @@ describe('PathAndRouteService route geometry', () => {
     ]);
   });
 
+  it('hands the spawn portal the very route the enemies spawn on, starting on the street', () => {
+    // EnemyManager.spawn starts every enemy on path[0] of the cached route;
+    // the portal stands on route[0] of the route it is handed
+    const onRouteBuilt = vi.fn();
+    const service = new PathAndRouteService();
+    service.initialize(
+      makeEngine(), network, { lat: 48.0011, lon: 9.0025 }, (() => false) as never, new OsmStreetService(), onRouteBuilt,
+    );
+    const spawn = { lat: 47.9993, lon: 9.0 };
+    service.showPathFromSpawn(spawnPointAt(spawn));
+
+    const route = service.getCachedPath('s1')!;
+    expect(onRouteBuilt).toHaveBeenCalledTimes(1);
+    expect(onRouteBuilt.mock.calls[0][0]).toBe('s1');
+    expect(onRouteBuilt.mock.calls[0][1]).toBe(route);
+    // The route starts on the street node nearest the spawn point, metres off it
+    expect([...network.nodes.values()].some((n) => n.lat === route[0].lat && n.lon === route[0].lon)).toBe(true);
+    expect(distToSegmentM(spawn, route[0], route[0])).toBeGreaterThan(1);
+  });
+
   it('keeps the corner shape node in the cached route', () => {
     // HQ gut 10 m nördlich von Way 300.
     const route = buildRoute(network, { lat: 47.9995, lon: 9.0 }, { lat: 48.0011, lon: 9.0025 });

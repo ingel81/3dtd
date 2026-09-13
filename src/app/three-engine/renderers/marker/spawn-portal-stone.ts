@@ -80,8 +80,8 @@ function masonryBranches(): string {
  * portalFbm). portalStone() shades a point of the frame: portal-space
  * position and flat normal, its place on the face (aFace, aWidth), the key
  * light in portal space, the pixel's footprint (m) that fades the fine
- * structure out in the distance, and the portal's opening, energy,
- * flicker and colours.
+ * structure out in the distance, and the portal's opening, half the depth
+ * of its volume, energy, flicker and colours.
  *
  * Cost per frame pixel: about 17 value-noise lookups, one 3 by 3 Worley
  * lookup and the masonry arithmetic, no texture reads; nothing per vertex.
@@ -121,7 +121,7 @@ export const PORTAL_STONE_GLSL = /* glsl */ `
   }
 
   vec3 portalStone(vec3 p, vec3 ln, vec3 face, vec2 width, vec3 light, float footprint,
-                   vec2 opening, float energy, float flicker, vec3 ember, vec3 hot) {
+                   vec2 opening, float halfDepth, float energy, float flicker, vec3 ember, vec3 hot) {
     vec3 an = abs(ln);
     bool top = an.y > max(an.x, an.z);
     bool side = !top && an.x > an.z;
@@ -183,7 +183,9 @@ export const PORTAL_STONE_GLSL = /* glsl */ `
 
     // Cracks along the borders of large Worley cells, in patches and round
     // the opening
-    float dOpen = length(vec2(max(abs(p.x) - opening.x, 0.0), max(p.y - opening.y, 0.0))) + abs(p.z) * 0.3;
+    // Distance to the opening; the volume's inner walls count as in it
+    float dOpen = length(vec2(max(abs(p.x) - opening.x, 0.0), max(p.y - opening.y, 0.0)))
+      + max(abs(p.z) - halfDepth, 0.0) * 0.3;
     float nearOpen = exp(-dOpen * 0.6);
     vec2 cells = portalWorley(uv * 0.8 + vec2(3.7, 1.3));
     float crackLine = 1.0 - smoothstep(0.02, 0.06 + footprint, cells.y - cells.x);
@@ -231,7 +233,9 @@ export const PORTAL_STONE_GLSL = /* glsl */ `
     float key = max(dot(n, light), 0.0);
     float sky = 0.55 + 0.45 * n.y;
     vec3 col = albedo * ao * (0.45 * sky + 0.9 * key);
-    vec3 toCore = vec3(0.0, opening.y * 0.45, 0.0) - p;
+    // From the core's axis through the volume, so the front and the back
+    // faces take its light like the walls inside
+    vec3 toCore = vec3(0.0, opening.y * 0.45, clamp(p.z, -halfDepth, halfDepth)) - p;
     float dCore = length(toCore);
     float wrap = clamp(dot(n, toCore / dCore) * 0.6 + 0.4, 0.0, 1.0);
     col += ember * wrap * wrap * exp(-dCore * 0.2) * ao * (0.45 + 0.9 * energy) * flicker;

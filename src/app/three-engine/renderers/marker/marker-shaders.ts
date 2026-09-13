@@ -378,6 +378,7 @@ const PORTAL_NOISE_GLSL = /* glsl */ `
 export interface PortalShaderLayout {
   halfOpening: number;
   openingHeight: number;
+  halfDepth: number;
   groundHalfWidth: number;
   groundBack: number;
   groundFront: number;
@@ -417,9 +418,10 @@ const PORTAL_PALETTE_GLSL = /* glsl */ `
  * a fixed key light and the core's dim red light from the opening, and a
  * fixed set of sigils up the pillars and along the
  * lintel (spawn-portal-sigils.ts) glows in a dark red tinted with the
- * spawn's colour. The void is a slow, smouldering
- * swirl around a black eye; it writes depth, so whatever stands behind it
- * (the enemies on the route start) stays hidden. aRipple is the wall time
+ * spawn's colour. The void, a surface in front of the portal's volume and
+ * one behind it, is a slow, smouldering swirl around a black eye; it
+ * writes depth, so whatever stands between the two (the enemies at their
+ * start) stays hidden. aRipple is the wall time
  * (s) of the portal's last spawn burst: a ring runs out from the eye. The
  * Photorealistic Tiles around it take no scene light either way.
  */
@@ -435,6 +437,7 @@ export function createPortalGateMaterial(
       uEnergy: { value: energy },
       uRippleLife: { value: rippleLife },
       uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
+      uHalfDepth: { value: layout.halfDepth },
       ...portalPaletteUniforms(palette),
     },
     vertexShader: /* glsl */ `
@@ -484,6 +487,7 @@ export function createPortalGateMaterial(
       uniform float uEnergy;
       uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height
+      uniform float uHalfDepth; // half the volume's depth
       ${PORTAL_PALETTE_GLSL}
 
       varying vec3 vLocalPos;
@@ -573,7 +577,7 @@ export function createPortalGateMaterial(
 
         // Hewn, worn, cracked and sooted stone (spawn-portal-stone.ts)
         vec3 col = portalStone(p, ln, vFace, vWidth, normalize(vLight), footprint,
-          uOpening, uEnergy, flicker, uEmber, uHot);
+          uOpening, uHalfDepth, uEnergy, flicker, uEmber, uHot);
 
         // Sigils in a frieze round the opening (spawn-portal-sigils.ts), on
         // the front and the back, with a faint glow round the ink, lit in a
@@ -612,6 +616,7 @@ export function createPortalGlowMaterial(
       uRippleLife: { value: rippleLife },
       uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
       uGround: { value: new Vector3(layout.groundHalfWidth, layout.groundBack, layout.groundFront) },
+      uHalfDepth: { value: layout.halfDepth },
       ...portalPaletteUniforms(palette),
     },
     vertexShader: /* glsl */ `
@@ -647,6 +652,7 @@ export function createPortalGlowMaterial(
       uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height
       uniform vec3 uGround;  // half width, depth behind, depth in front
+      uniform float uHalfDepth; // half the volume's depth
       ${PORTAL_PALETTE_GLSL}
 
       varying vec3 vLocal;
@@ -667,13 +673,15 @@ export function createPortalGlowMaterial(
         float progress = 1.0 - ripple;
 
         // Strongest at the portal's foot, fading to the patch's edges,
-        // weaker behind the portal
+        // weaker behind the portal; along the route measured from the front
+        // and the back surface, 0 inside the volume
+        float zOut = sign(vLocal.z) * max(abs(vLocal.z) - uHalfDepth, 0.0);
         float dx = max(abs(vLocal.x) - uOpening.x, 0.0);
-        float d = length(vec2(dx, vLocal.z));
+        float d = length(vec2(dx, zOut));
         float side = 1.0 - smoothstep(0.55, 1.0, abs(vLocal.x) / uGround.x);
-        float along = vLocal.z >= 0.0
-          ? 1.0 - smoothstep(0.35, 1.0, vLocal.z / uGround.z)
-          : (1.0 - smoothstep(0.2, 1.0, -vLocal.z / uGround.y)) * 0.45;
+        float along = zOut >= 0.0
+          ? 1.0 - smoothstep(0.35, 1.0, zOut / uGround.z)
+          : (1.0 - smoothstep(0.2, 1.0, -zOut / uGround.y)) * 0.45;
         float flicker = 0.8 + 0.2 * portalNoise(vec2(uTime * 1.7 + vPhase, d * 0.3));
         // Ring running out from the portal's foot over the street
         float front = d - progress * uGround.z;

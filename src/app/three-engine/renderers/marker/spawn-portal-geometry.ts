@@ -1,5 +1,6 @@
 import { BufferGeometry, Float32BufferAttribute } from 'three';
 import {
+  PORTAL_DEPTH,
   PORTAL_FRAME_TOP,
   PORTAL_OPENING_HEIGHT,
   PORTAL_OPENING_WIDTH,
@@ -7,14 +8,20 @@ import {
 
 /**
  * Geometry of the spawn portal at scale 1, in portal space: x across the
- * street, y up from the ground, z the way the enemies walk out. The
- * opening spans x = ±HALF_OPENING from the ground to OPENING_HEIGHT in the
- * plane z = 0. The frame top and radius are in marker-geometry.config.ts
+ * street, y up from the ground, z the way the enemies walk out, the origin
+ * on the route start. The opening spans x = ±HALF_OPENING from the ground
+ * to OPENING_HEIGHT; it is a volume PORTAL_DEPTH deep, closed by a surface
+ * at z = ±HALF_DEPTH, by the pillars on the sides and the lintel above.
+ * The frame top and radius are in marker-geometry.config.ts
  * (PORTAL_FRAME_TOP, PORTAL_RADIUS), a spec holds them to this geometry.
  */
 
 const HALF_OPENING = PORTAL_OPENING_WIDTH / 2;
 const OPENING_HEIGHT = PORTAL_OPENING_HEIGHT;
+const HALF_DEPTH = PORTAL_DEPTH / 2;
+
+/** Stone in front of each surface (m): pillars and lintel reach this far past the volume. */
+const WALL = 0.3;
 
 /** Pillars and plinths reach this far below the ground (m), so a slope leaves no gap. */
 const BURY = 2;
@@ -44,16 +51,19 @@ const PLINTH_SETBACK = 0.05;
 const SIDE_BLOCKS: readonly Block[] = [
   // Plinth under the pillar in two steps, just back from the opening's edge
   {
-    x0: HALF_OPENING + PLINTH_SETBACK + 1.875, y0: -BURY, z0: 0, w0: 3.75, d0: 5.2,
-    x1: HALF_OPENING + PLINTH_SETBACK + 1.875, y1: 0.8, z1: 0, w1: 3.75, d1: 5,
+    x0: HALF_OPENING + PLINTH_SETBACK + 1.875, y0: -BURY, z0: 0, w0: 3.75, d0: PORTAL_DEPTH + 1.8,
+    x1: HALF_OPENING + PLINTH_SETBACK + 1.875, y1: 0.8, z1: 0, w1: 3.75, d1: PORTAL_DEPTH + 1.6,
   },
   {
-    x0: HALF_OPENING + PLINTH_SETBACK + 1.6, y0: 0.8, z0: 0, w0: 3.2, d0: 4.5,
-    x1: HALF_OPENING + PLINTH_SETBACK + 1.65, y1: PORTAL_PLINTH_TOP, z1: 0, w1: 3.1, d1: 4.2,
+    x0: HALF_OPENING + PLINTH_SETBACK + 1.6, y0: 0.8, z0: 0, w0: 3.2, d0: PORTAL_DEPTH + 1.1,
+    x1: HALF_OPENING + PLINTH_SETBACK + 1.65, y1: PORTAL_PLINTH_TOP, z1: 0, w1: 3.1, d1: PORTAL_DEPTH + 0.8,
   },
-  // Pillar: the inner face stands plumb on the opening's edge, the outer
-  // one leans in; it ends inside the lintel
-  { x0: HALF_OPENING + 1.4, y0: -BURY, z0: 0, w0: 2.8, d0: 4, x1: HALF_OPENING + 1, y1: PORTAL_LINTEL_TOP - 0.2, z1: 0, w1: 2, d1: 3.4 },
+  // Pillar: the side wall of the volume. The inner face stands plumb on the
+  // opening's edge, the outer one leans in; it ends inside the lintel
+  {
+    x0: HALF_OPENING + 1.4, y0: -BURY, z0: 0, w0: 2.8, d0: PORTAL_DEPTH + 2 * WALL + 0.2,
+    x1: HALF_OPENING + 1, y1: PORTAL_LINTEL_TOP - 0.2, z1: 0, w1: 2, d1: PORTAL_DEPTH + 2 * WALL,
+  },
   // Horn out of the cornice's end: out, up, and curling back in at the tip
   { x0: HALF_OPENING + 2.5, y0: PORTAL_CORNICE_TOP, z0: 0, w0: 1.8, d0: 2.1, x1: HALF_OPENING + 3.4, y1: PORTAL_CORNICE_TOP + 1.9, z1: 0, w1: 1.4, d1: 1.6 },
   { x0: HALF_OPENING + 3.4, y0: PORTAL_CORNICE_TOP + 1.9, z0: 0, w0: 1.4, d0: 1.6, x1: HALF_OPENING + 3.7, y1: PORTAL_CORNICE_TOP + 3.3, z1: 0, w1: 0.8, d1: 0.9 },
@@ -64,11 +74,16 @@ const SIDE_BLOCKS: readonly Block[] = [
 
 /** Blocks on the centre line. */
 const CENTRE_BLOCKS: readonly Block[] = [
-  // Lintel across both pillars, wider at the top, deep enough to cover the
-  // spawn behind the surface from above
-  { x0: 0, y0: OPENING_HEIGHT, z0: 0, w0: 13.2, d0: 4, x1: 0, y1: PORTAL_LINTEL_TOP, z1: 0, w1: 14, d1: 4.2 },
+  // Lintel across both pillars, wider at the top: the volume's roof
+  {
+    x0: 0, y0: OPENING_HEIGHT, z0: 0, w0: 13.2, d0: PORTAL_DEPTH + 2 * WALL,
+    x1: 0, y1: PORTAL_LINTEL_TOP, z1: 0, w1: 14, d1: PORTAL_DEPTH + 2 * WALL + 0.2,
+  },
   // Cornice slab overhanging the lintel
-  { x0: 0, y0: PORTAL_LINTEL_TOP, z0: 0, w0: 15.4, d0: 4.8, x1: 0, y1: PORTAL_CORNICE_TOP, z1: 0, w1: 15, d1: 4.6 },
+  {
+    x0: 0, y0: PORTAL_LINTEL_TOP, z0: 0, w0: 15.4, d0: PORTAL_DEPTH + 1.4,
+    x1: 0, y1: PORTAL_CORNICE_TOP, z1: 0, w1: 15, d1: PORTAL_DEPTH + 1.2,
+  },
   // Crown: a base on the cornice and a spike on it, the top of the frame
   { x0: 0, y0: PORTAL_CORNICE_TOP, z0: 0, w0: 4.2, d0: 3, x1: 0, y1: PORTAL_CORNICE_TOP + 1.1, z1: 0, w1: 3.2, d1: 2.4 },
   { x0: 0, y0: PORTAL_CORNICE_TOP + 1.1, z0: 0, w0: 3.2, d0: 2.4, x1: 0, y1: PORTAL_FRAME_TOP, z1: 0, w1: 0, d1: 0 },
@@ -188,10 +203,11 @@ const VOID_BOTTOM = -0.6;
 
 /**
  * The gate the portal manager draws: the stone frame (aPart 0) and the
- * void in the opening (aPart 1), two quads back to back in the plane
- * z = 0, one facing each way. The void is opaque and writes depth: an
- * enemy on the route start, just behind it (PORTAL_SETBACK), stays hidden
- * with its health bar until it steps out, and the street behind the portal
+ * void (aPart 1), a surface in front of the volume at z = +HALF_DEPTH
+ * facing the way the enemies walk out and one behind it at z = -HALF_DEPTH
+ * facing back. Both are opaque and write depth: an enemy on the route
+ * start stands between them with its health bar, hidden from every side,
+ * until it steps out through the front, and the street behind the portal
  * does not show through.
  */
 export function createPortalGateGeometry(): BufferGeometry {
@@ -200,13 +216,14 @@ export function createPortalGateGeometry(): BufferGeometry {
   const sx = HALF_OPENING + VOID_OVERLAP;
   const sy0 = VOID_BOTTOM;
   const sy1 = OPENING_HEIGHT + VOID_OVERLAP;
+  const sz = HALF_DEPTH;
   buffers.positions.push(
-    // Facing +z, the way the enemies walk out
-    -sx, sy0, 0, sx, sy0, 0, sx, sy1, 0,
-    -sx, sy0, 0, sx, sy1, 0, -sx, sy1, 0,
-    // Facing -z
-    -sx, sy0, 0, sx, sy1, 0, sx, sy0, 0,
-    -sx, sy0, 0, -sx, sy1, 0, sx, sy1, 0,
+    // In front, facing +z, the way the enemies walk out
+    -sx, sy0, sz, sx, sy0, sz, sx, sy1, sz,
+    -sx, sy0, sz, sx, sy1, sz, -sx, sy1, sz,
+    // Behind, facing -z
+    -sx, sy0, -sz, sx, sy1, -sz, sx, sy0, -sz,
+    -sx, sy0, -sz, -sx, sy1, -sz, sx, sy1, -sz,
   );
   const vertices = buffers.positions.length / 3;
   for (let i = stoneVertices; i < vertices; i++) {
@@ -221,12 +238,13 @@ export function createPortalGateGeometry(): BufferGeometry {
 
 /**
  * Layout of the portal at scale 1 (m), handed to its shaders: the opening,
- * and the patch of street the portal lights (half width, depth behind and
- * in front of the portal plane).
+ * half the volume's depth, and the patch of street the portal lights (half
+ * width, depth behind the back surface and in front of the front one).
  */
 export const PORTAL_SHADER_LAYOUT = {
   halfOpening: HALF_OPENING,
   openingHeight: OPENING_HEIGHT,
+  halfDepth: HALF_DEPTH,
   groundHalfWidth: HALF_OPENING * 1.6,
   groundBack: HALF_OPENING * 0.8,
   groundFront: HALF_OPENING * 2.2,
@@ -239,8 +257,8 @@ const GROUND_LIFT = 0.25;
 export function createPortalGlowGeometry(): BufferGeometry {
   const L = PORTAL_SHADER_LAYOUT;
   const gx = L.groundHalfWidth;
-  const gz0 = -L.groundBack;
-  const gz1 = L.groundFront;
+  const gz0 = -(L.halfDepth + L.groundBack);
+  const gz1 = L.halfDepth + L.groundFront;
   const y = GROUND_LIFT;
   const positions = [
     -gx, y, gz0, gx, y, gz1, gx, y, gz0,

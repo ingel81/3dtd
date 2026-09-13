@@ -25,9 +25,24 @@ import {
   MARKER_LABEL_OFFSET,
   PORTAL_OPENING_HEIGHT,
   PORTAL_OPENING_WIDTH,
-  PORTAL_SETBACK,
+  PORTAL_DEPTH,
+  portalDepthScale,
   portalLabelHeight,
 } from '../../configs/marker-geometry.config';
+import { MovementComponent } from '../../game-components/movement.component';
+import { TransformComponent } from '../../game-components/transform.component';
+import { GameObject } from '../../core/game-object';
+import { ComponentType } from '../../core/component';
+import type { RouteWaypoint } from '../../models/game.types';
+import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+
+/** An enemy's body for the movement component: a game object with a transform. */
+class TestBody extends GameObject {
+  constructor() {
+    super('enemy');
+    this.addComponent(new TransformComponent(this), ComponentType.TRANSFORM);
+  }
+}
 
 // MarkerLabelManager renders text into a 2D canvas, which jsdom does not have.
 // The fake keeps what the service tells it so the tests can read the labels.
@@ -364,7 +379,7 @@ describe('MarkerVisualizationService', () => {
       { lat: BASE.lat + 0.001, lon: BASE.lon },
     ];
 
-    it('stands on the cell at the route start, ahead of it along the route, as wide as the corridor', () => {
+    it('centres on the cell at the route start, faces along the route, as wide as the corridor', () => {
       init();
       service.addSpawnMarker('s1', 'S1', lat + 0.0003, BASE.lon + 0.0002, 0xff0000);
 
@@ -373,11 +388,45 @@ describe('MarkerVisualizationService', () => {
       const { position, forward, scale } = portal();
       expect(position.x).toBeCloseTo(0, 3);
       expect(position.y).toBe(12);
-      expect(position.z).toBeCloseTo(200 - PORTAL_SETBACK, 3);
+      expect(position.z).toBeCloseTo(200, 3);
       expect(forward.z).toBeCloseTo(-1, 4);
       // The wider side sets the opening: 2 x 6 m
       expect(scale).toBeCloseTo(12 / PORTAL_OPENING_WIDTH, 4);
       expect(labels().get('s1')!.position.y).toBeCloseTo(12 + portalLabelHeight(12 / PORTAL_OPENING_WIDTH), 3);
+    });
+
+    it('has the enemies start in the middle of its volume, spread across the opening', () => {
+      init();
+      service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);
+      service.placeSpawnPortal('s1', route, 12);
+      const { position, forward, scale } = portal();
+      const across = new Vector3(forward.z, 0, -forward.x);
+      // The portal's centre is the route start
+      const start = geoToLocal(route[0].lat, route[0].lon, 0);
+      expect(position.x).toBeCloseTo(start.x, 3);
+      expect(position.z).toBeCloseTo(start.z, 3);
+
+      // Where EnemyManager.spawn puts an enemy: path[0] of the same route,
+      // on its lane, after its first step. Its offset from the start in
+      // metres as MovementComponent counts them, on the fake's axes (+x
+      // west, +z north)
+      const cosLat = Math.cos(route[0].lat * DEG_TO_RAD);
+      for (const lane of [-1, 0, 1]) {
+        const body = new TestBody();
+        const movement = new MovementComponent(body);
+        movement.setPath(route as RouteWaypoint[]);
+        movement.setLateralFactor(lane);
+        movement.speedMps = 0.01;
+        movement.move(10, 0);
+        const at = body.getComponent<TransformComponent>(ComponentType.TRANSFORM)!.position;
+        const offset = new Vector3(
+          -(at.lon - route[0].lon) * METERS_PER_DEGREE_LAT * cosLat,
+          0,
+          (at.lat - route[0].lat) * METERS_PER_DEGREE_LAT,
+        );
+        expect(Math.abs(offset.dot(forward)), `lane ${lane}`).toBeLessThan(0.05);
+        expect(Math.abs(offset.dot(across))).toBeLessThan((PORTAL_OPENING_WIDTH / 2) * scale);
+      }
     });
 
     it('takes the terrain at the route start while the cells are not built', () => {
@@ -505,11 +554,12 @@ describe('MarkerVisualizationService', () => {
       for (let i = 0; i < 1000; i++) enemyAt(route[0]);
       expect(sparks).toHaveBeenCalledTimes(1);
 
-      // Portal plane PORTAL_SETBACK ahead of the route start, on the cell, facing south
+      // Out of the front surface: the portal's centre on the route start, on
+      // the cell, facing south, the surface half the volume's depth ahead
       const [x, y, z, forwardX, forwardZ] = sparks.mock.calls[0] as number[];
       expect(x).toBeCloseTo(0);
       expect(y).toBe(12);
-      expect(z).toBeCloseTo(200 - PORTAL_SETBACK);
+      expect(z).toBeCloseTo(200 - (PORTAL_DEPTH / 2) * portalDepthScale(portal().scale));
       expect(forwardX).toBeCloseTo(0);
       expect(forwardZ).toBeCloseTo(-1);
 

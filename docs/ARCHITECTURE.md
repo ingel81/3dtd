@@ -1674,13 +1674,18 @@ der Typ `FireIntensityLevel` ist aus seinen Schlüsseln abgeleitet.
 Ein Steintor auf dem Routenstart jedes Spawns (`SpawnPortalManager`, `renderers/marker/`),
 zwei instanzierte Draw Calls für alle Portale:
 
-- **Tor** (opak): Steinblöcke und die Leere in der Öffnung, zwei Quads Rücken an Rücken.
-  Die Leere schreibt Tiefe. Die Portalfläche steht `PORTAL_SETBACK` (0,8 m) vor dem
-  Routenstart, der Spawn liegt damit in der Tiefe des Rahmens: ein Gegner erscheint knapp
-  hinter der Fläche, Leere, Pfeiler und Sturz verdecken ihn samt Healthbar, bis er
-  heraustritt. Ein Spec prüft das mit Strahlen von einem Körper am Spawn (bis 2,2 m hoch)
-  zu Kameras vor und über dem Portal. Von hinten ist der Gegner zu sehen, bis er eingetreten ist.
-- **Glow** (additiv): das Licht auf der Straße vor dem Portal.
+- **Tor** (opak): Steinblöcke und die Leere, eine Fläche vor und eine hinter dem Volumen des
+  Portals, `PORTAL_DEPTH` (10,5 m bei Skala 1) auseinander; Pfeiler und Sturz schließen es an
+  den Seiten und oben. Beide Flächen schreiben Tiefe. Die Mitte des Portals steht auf dem
+  Routenstart, wo `EnemyManager.spawn` jeden Gegner auf `path[0]` setzt (dieselbe Route, die
+  das Portal bekommt, `path-route.service.spec.ts`). Ein Gegner steht damit im Volumen, von
+  allen Seiten verdeckt samt Healthbar, bis er vorn heraustritt. Die Tiefe schrumpft bei
+  schmalen Korridoren nicht mit (`portalDepthScale`). `spawn-portal-geometry.spec.ts` prüft
+  das mit Strahlen rundum von den gemessenen Körpern aller Bodengegner (Bounding Box mal
+  Skala, Mech und Tank bis 9,3 m lang): bei Skala 1 und 1,75 alle verdeckt, bei Skala 0,75
+  (Gasse) sind Mammoth, Mech, Stone Golem und Wallsmasher breiter oder höher als das Tor.
+  Lufteinheiten fliegen am Spawn 15 bis 20 m hoch (±3 bis 4 m) und damit über dem Tor.
+- **Glow** (additiv): das Licht auf der Straße vor der vorderen und hinter der hinteren Fläche.
 
 Look: die Leere ist ein langsamer Wirbel auf fast schwarzem Grund, dunkelrot glimmend,
 violett in den Tälern, stumpfes Orange nur an den heißesten Stellen, das Auge in der Mitte

@@ -15,6 +15,7 @@ import {
 } from './spawn-portal-geometry';
 import type { SpawnPortalPose } from './spawn-portal-pose';
 import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
+import { portalDepthScale } from '../../../configs/marker-geometry.config';
 
 const MAX_PORTALS = 8;
 
@@ -33,9 +34,10 @@ interface PortalEntry {
  * way the enemies walk, with a swirling surface in the spawn's colour.
  * Two draw calls for all portals:
  * - gate: the opaque stone blocks, with emissive runes and the portal's
- *   light on the faces around the opening, and the void in the opening.
- *   The void writes depth: the enemies appear just behind it and stay
- *   hidden until they step out through it.
+ *   light on the faces around the opening, and the void, a surface in
+ *   front of the portal's volume and one behind it. The void writes depth:
+ *   the enemies appear between the two and stay hidden until they step
+ *   out through the front.
  * - glow: the light the portal throws on the street in front
  *
  * The energy (glow, swirl speed) follows the waves: idle between them, a
@@ -258,7 +260,7 @@ export class SpawnPortalManager {
 
   private writeMatrix(index: number, pose: SpawnPortalPose): void {
     this.tmpMatrix.makeRotationY(pose.heading);
-    this.tmpMatrix.scale(this.tmpScale.setScalar(pose.scale));
+    this.tmpMatrix.scale(this.tmpScale.set(pose.scale, pose.scale, portalDepthScale(pose.scale)));
     this.tmpMatrix.setPosition(pose.x, pose.y, pose.z);
     this.gateMesh.setMatrixAt(index, this.tmpMatrix);
     this.glowMesh.setMatrixAt(index, this.tmpMatrix);

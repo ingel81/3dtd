@@ -45,7 +45,7 @@ export const PORTAL_FRAME_TOP = 19.5;
  * Horizontal radius around the portal centre that holds the whole frame at
  * scale 1 (m), whichever way the portal faces: the plinths' outer corners.
  */
-export const PORTAL_RADIUS = 8.25;
+export const PORTAL_RADIUS = 10;
 
 /**
  * Scale range. A portal's opening spans the corridor at the route start
@@ -56,13 +56,24 @@ export const PORTAL_MIN_SCALE = 0.75;
 export const PORTAL_MAX_SCALE = 1.75;
 
 /**
- * Portal plane ahead of the route start (m). The enemies appear on the
- * route start, so a body starts just behind the opaque surface and steps
- * out through it. Small enough that the spawn lies within the frame's
- * depth even for the smallest portal: the pillars and the lintel hide it
- * from the sides and from above (spawn-portal-geometry.spec.ts).
+ * Depth of the portal's volume at scale 1 (m): an opaque surface in front
+ * and one behind, PORTAL_DEPTH apart, the pillars on the sides and the
+ * lintel above. The portal's centre stands on the route start, where the
+ * enemies appear, so an enemy starts inside the volume, hidden from every
+ * side, and steps out through the front surface. Deep enough for the
+ * longest ground enemies (mech and tank, about 9.3 m; the measured sizes
+ * are in spawn-portal-geometry.spec.ts).
  */
-export const PORTAL_SETBACK = 0.8;
+export const PORTAL_DEPTH = 10.5;
+
+/**
+ * Scale of the portal's depth for a portal of `scale`: the opening follows
+ * the corridor, the volume keeps at least its depth at scale 1, as an enemy
+ * is as long in an alley as on an avenue.
+ */
+export function portalDepthScale(scale: number): number {
+  return Math.max(1, scale);
+}
 
 /** Gap between the frame top and the spawn label's centre (m). */
 export const PORTAL_LABEL_GAP = 4;
