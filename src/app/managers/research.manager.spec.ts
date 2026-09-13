@@ -331,7 +331,6 @@ describe('ResearchManager', () => {
     });
 
     it('refuses what cannot go into the queue', () => {
-      expect(rm.canQueueResearch(WITH_PREREQ_ID).reason).toMatch(/prerequisite/i);
       rm.startResearch(NO_PREREQ_ID);
       expect(rm.canQueueResearch(NO_PREREQ_ID).reason).toMatch(/progress/i);
       rm.queueResearch(QUEUE_ID);
@@ -340,6 +339,48 @@ describe('ResearchManager', () => {
 
       const { rm: noCenter } = makeManager();
       expect(noCenter.canQueueResearch(QUEUE_ID).reason).toMatch(/Research Center/i);
+    });
+
+    it('queues what a research needs in front of it, prerequisites first', () => {
+      rm.startResearch(NO_PREREQ_ID); // gatling-tech runs, so it is not queued again
+      expect(rm.canQueueResearch('advanced-weaponry').canQueue).toBe(true);
+      expect(rm.queueResearch('advanced-weaponry')).toBe(true);
+      // siege-engineering needs gatling-tech, arcane-studies needs ice-magic
+      expect(rm.getQueuedResearches()).toEqual([
+        WITH_PREREQ_ID, QUEUE_ID, 'arcane-studies', 'advanced-weaponry',
+      ]);
+      expect(credits).toBe(1000);
+    });
+
+    it('lets one that waits for a prerequisite give its slot to the next', () => {
+      credits = 10_000; // all three, credits do not hold anything up here
+      rm.upgradeCenter(); // 2 slots
+      rm.queueResearch(WITH_PREREQ_ID); // gatling-tech, then siege-engineering
+      rm.queueResearch(QUEUE_ID);
+      expect(rm.getQueuedResearches()).toEqual([NO_PREREQ_ID, WITH_PREREQ_ID, QUEUE_ID]);
+
+      rm.startQueued(creditsNow, spend);
+      expect(rm.isActive(NO_PREREQ_ID)).toBe(true);
+      expect(rm.isActive(QUEUE_ID)).toBe(true);
+      expect(rm.getQueuedResearches()).toEqual([WITH_PREREQ_ID]);
+
+      // gatling-tech done: siege-engineering starts in the same sub-step
+      rm.update(getResearch(NO_PREREQ_ID)!.duration * 1000);
+      rm.startQueued(creditsNow, spend);
+      expect(rm.isActive(WITH_PREREQ_ID)).toBe(true);
+      expect(rm.getQueuedResearches()).toEqual([]);
+    });
+
+    it('takes out what needs a prerequisite that was unqueued or cancelled', () => {
+      rm.queueResearch('arcane-studies'); // ice-magic, then arcane-studies
+      rm.unqueueResearch(QUEUE_ID);
+      expect(rm.getQueuedResearches()).toEqual([]);
+
+      rm.startResearch(QUEUE_ID);
+      rm.queueResearch('arcane-studies'); // ice-magic runs: arcane-studies alone
+      expect(rm.getQueuedResearches()).toEqual(['arcane-studies']);
+      rm.cancelResearch(QUEUE_ID);
+      expect(rm.getQueuedResearches()).toEqual([]);
     });
 
     it('starts the head once a slot frees and charges it then', () => {

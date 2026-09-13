@@ -238,47 +238,78 @@ export class ResearchManager implements IGameManager {
   }
 
   /**
-   * Whether a research can go into the queue: a Research Center stands, the
-   * prerequisites are done, and it is not done, running or queued already.
-   * Slots and credits do not matter here, waiting for them is the point.
+   * Whether a research can go into the queue: a Research Center stands, and
+   * it is not done, running or queued already. Slots and credits do not
+   * matter here, waiting for them is the point; nor do its prerequisites,
+   * queueResearch() puts the missing ones in front of it.
    */
   canQueueResearch(id: ResearchId): { canQueue: boolean; reason?: string } {
     if (this._centerLevel === 0) return { canQueue: false, reason: 'No Research Center placed' };
     if (this.isCompleted(id)) return { canQueue: false, reason: 'Already completed' };
     if (this.isActive(id)) return { canQueue: false, reason: 'Already in progress' };
     if (this.isQueued(id)) return { canQueue: false, reason: 'Already queued' };
-    const config = getResearch(id);
-    if (!config) return { canQueue: false, reason: 'Unknown research' };
-    if (!config.prerequisites.every(p => this.completedResearches.has(p))) {
-      return { canQueue: false, reason: 'Prerequisites not met' };
-    }
+    if (!getResearch(id)) return { canQueue: false, reason: 'Unknown research' };
     return { canQueue: true };
   }
 
-  /** Append to the queue. Nothing is charged, see startQueued(). */
+  /**
+   * Append to the queue, after whatever of its prerequisites is not done,
+   * running or queued yet: the whole chain, prerequisites first. Nothing is
+   * charged, see startQueued().
+   */
   queueResearch(id: ResearchId): boolean {
     if (!this.canQueueResearch(id).canQueue) return false;
-    this.queue.push(id);
+    this.enqueueWithPrerequisites(id);
     this.emitStateSnapshot();
     return true;
   }
 
-  /** Take a research out of the queue. Nothing was paid, so nothing is refunded. */
+  private enqueueWithPrerequisites(id: ResearchId): void {
+    if (this.isCompleted(id) || this.isActive(id) || this.isQueued(id)) return;
+    const config = getResearch(id);
+    if (!config) return;
+    for (const prerequisite of config.prerequisites) this.enqueueWithPrerequisites(prerequisite);
+    this.queue.push(id);
+  }
+
+  /**
+   * Take a research out of the queue, and what was queued after it because
+   * it needs it. Nothing was paid, so nothing is refunded.
+   */
   unqueueResearch(id: ResearchId): boolean {
     const index = this.queue.indexOf(id);
     if (index < 0) return false;
     this.queue.splice(index, 1);
+    this.dropOrphans();
     this.emitStateSnapshot();
     return true;
+  }
+
+  /**
+   * Drop queued researches that can no longer start: a prerequisite is not
+   * done, not running and not queued before them (it was taken out of the
+   * queue or cancelled).
+   */
+  private dropOrphans(): void {
+    const coming = new Set<ResearchId>([...this.completedResearches, ...this.activeResearches.keys()]);
+    this.queue = this.queue.filter((id) => {
+      const config = getResearch(id);
+      if (!config || !config.prerequisites.every((p) => coming.has(p))) return false;
+      coming.add(id);
+      return true;
+    });
   }
 
   /**
    * Start queued researches while slots are free, in queue order. Runs in
    * the sub-step right after update(), so a slot a completion frees is taken
    * in the same game-time step at every timescale, and not at all while the
-   * game is paused. The credits are charged here, at the start. The head
-   * waits for its credits: a cheaper research further back does not jump it.
-   * A head that got done or started some other way meanwhile is dropped.
+   * game is paused. The credits are charged here, at the start.
+   *
+   * One that waits for a prerequisite still running or queued before it
+   * lets the next one take the slot. One that waits for its credits holds
+   * the queue: a cheaper research further back does not jump it. One that
+   * got done or started some other way meanwhile is dropped.
    *
    * @param credits current credits, read again after each start
    * @param spend   charges the credits, false when they are short
@@ -287,18 +318,23 @@ export class ResearchManager implements IGameManager {
     if (this.queue.length === 0) return;
 
     let dropped = false;
-    while (this.queue.length > 0 && this.availableSlots > 0) {
-      const head = this.queue[0];
-      const config = getResearch(head);
-      if (!config || this.isCompleted(head) || this.isActive(head)) {
-        this.queue.shift();
+    let i = 0;
+    while (i < this.queue.length && this.availableSlots > 0) {
+      const id = this.queue[i];
+      const config = getResearch(id);
+      if (!config || this.isCompleted(id) || this.isActive(id)) {
+        this.queue.splice(i, 1);
         dropped = true;
         continue;
       }
-      if (!this.canStartResearch(head, credits()).canStart || !spend(config.cost)) break;
-      this.queue.shift();
-      // Emits the snapshot, the queue already without the head
-      this.startResearch(head);
+      if (!config.prerequisites.every((p) => this.completedResearches.has(p))) {
+        i++;
+        continue;
+      }
+      if (!this.canStartResearch(id, credits()).canStart || !spend(config.cost)) break;
+      this.queue.splice(i, 1);
+      // Emits the snapshot, the queue already without it
+      this.startResearch(id);
       dropped = false;
     }
     if (dropped) this.emitStateSnapshot();
@@ -313,6 +349,8 @@ export class ResearchManager implements IGameManager {
 
     this.activeResearches.delete(id);
     const refund = Math.floor(active.cost * RESEARCH_CENTER_CONFIG.cancellationRefundPercent);
+    // What was queued behind it because it needs it cannot start any more
+    this.dropOrphans();
 
     this.eventBus.emit({
       type: 'research:cancelled',

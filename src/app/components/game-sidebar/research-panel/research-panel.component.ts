@@ -72,11 +72,18 @@ export class SidebarResearchPanelComponent {
     return this.store.credits() >= research.cost && this.store.availableResearchSlots() > 0;
   }
 
+  /** Available or locked: a click starts or queues it, see onResearchClick() */
+  canClick(research: ResearchConfig): boolean {
+    const status = this.getResearchStatus(research.id);
+    return status === 'available' || status === 'locked';
+  }
+
+  /** A locked one queues together with the prerequisites it still needs. */
   onResearchClick(research: ResearchConfig): void {
-    if (this.getResearchStatus(research.id) !== 'available') return;
-    if (this.canStartNow(research)) {
+    const status = this.getResearchStatus(research.id);
+    if (status === 'available' && this.canStartNow(research)) {
       this.startResearch.emit(research.id);
-    } else {
+    } else if (status === 'available' || status === 'locked') {
       this.queueResearch.emit(research.id);
     }
   }
@@ -84,7 +91,8 @@ export class SidebarResearchPanelComponent {
   nodeTooltip(research: ResearchConfig): string {
     switch (this.getResearchStatus(research.id)) {
       case 'locked':
-        return 'Requires: ' + this.getMissingPrereqs(research.id);
+        return `Requires: ${this.getMissingPrereqs(research.id)}. Click to queue it together with what it needs: `
+          + 'each starts once a slot is free and you can pay.';
       case 'queued':
         return `${research.description} Queued: starts once a slot is free and you can pay.`;
       case 'available':
