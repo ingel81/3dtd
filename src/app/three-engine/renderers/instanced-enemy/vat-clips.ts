@@ -1,3 +1,4 @@
+import type { AnimationClip } from 'three';
 import type { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { TIMING } from '../../../configs/timing.config';
 
@@ -70,4 +71,48 @@ const FRAME_EPSILON = 1e-3;
 export function vatFrameCount(duration: number, fps: number, seconds = Infinity): number {
   if (seconds === Infinity) return Math.max(1, Math.ceil(duration * fps - FRAME_EPSILON));
   return Math.floor(Math.min(seconds, duration) * fps + FRAME_EPSILON) + 1;
+}
+
+/** The clips of a model that get baked and their frames in the VAT (vatClipRegistry). */
+export interface VATClipRegistry {
+  /** The model's clips by name */
+  clipMap: Map<string, AnimationClip>;
+  /** The clips to bake that the model has, in bake order */
+  validClips: VATClip[];
+  /** Frame range of each baked clip */
+  animEntries: Map<string, VATAnimationEntry>;
+  totalFrames: number;
+}
+
+/**
+ * The clips of `clips` that `animations` has, one after the other in bake
+ * order, each with its frame range (vatFrameCount). Null when the model has
+ * none of them.
+ */
+export function vatClipRegistry(animations: AnimationClip[], clips: VATClip[], fps: number): VATClipRegistry | null {
+  const clipMap = new Map<string, AnimationClip>();
+  for (const clip of animations) {
+    clipMap.set(clip.name, clip);
+  }
+
+  const validClips = clips.filter((c) => clipMap.has(c.name));
+  if (validClips.length === 0) return null;
+
+  let totalFrames = 0;
+  const animEntries = new Map<string, VATAnimationEntry>();
+
+  for (const { name, seconds } of validClips) {
+    const clip = clipMap.get(name)!;
+    const frameCount = vatFrameCount(clip.duration, fps, seconds);
+    animEntries.set(name, {
+      name,
+      frameStart: totalFrames,
+      frameCount,
+      duration: clip.duration,
+      totalTime: frameCount / fps,
+    });
+    totalFrames += frameCount;
+  }
+
+  return { clipMap, validClips, animEntries, totalFrames };
 }

@@ -30,7 +30,7 @@ src/app/three-engine/renderers/instanced-enemy/
 ├── vat-baker.ts                  # VAT Baking (Skinning, Node-Animation, statisch), VATData
 ├── vat-clips.ts                  # Welche Clips wie weit gebacken werden, Frame-Zahlen, Bake-FPS
 ├── vat-encoding.ts               # Layout (MAX_VAT_WIDTH), RGBA16F oder RGBA32F, Positionstextur
-├── vat-surface.ts                # Seiten, Alpha-Modus und Texturpixel der gebackenen Meshes
+├── vat-surface.ts                # Zusammengeführte Geometrie (mergeBakedMeshes), Seiten, Alpha-Modus, Texturpixel
 └── vat-material.ts               # VAT ShaderMaterial (Vertex + Fragment Shader)
 ```
 
