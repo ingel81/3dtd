@@ -494,9 +494,10 @@ beim `ability:impact`; die Phasen stehen in [ABILITIES.md](ABILITIES.md#darstell
   Explosions-Atlas, normal mit dem Rauch-Atlas) mit den ShaderMaterials der
   Trail-Pools (`ParticlePoolManager.shaderMaterials`), also Log-Depth und Atlas wie
   dort. Nicht aus den Pools, weil ein Schlag auf eine große Welle trifft, die sie
-  füllt. Budget pro Pilz 106 Glut- und 270 Rauchpartikel, Puffer für zwei
-  gleichzeitige Pilze (212 und 540); ein dritter nimmt den Platz des ältesten.
-  Pro Frame keine Allokation.
+  füllt. Budget pro Pilz 432 Glut- und 546 Rauchpartikel (vor dem
+  Playtest-Nachtrag vom 2026-09-13 106 und 270), Puffer für zwei gleichzeitige
+  Pilze (864 und 1092); ein dritter nimmt den Platz des ältesten. Pro Frame keine
+  Allokation.
 - **Deckkraft über den Frame:** Der Normal-Shader kennt kein Alpha pro Partikel. Der
   Rauch-Atlas wird von Frame zu Frame breiter und blasser; der Renderer wählt den
   Frame nach der gewünschten Deckkraft und gleicht die Größe über den Anteil aus, den
@@ -511,12 +512,38 @@ beim `ability:impact`; die Phasen stehen in [ABILITIES.md](ABILITIES.md#darstell
   sie dämpft.
 - **Blitz, Druckwelle, Bildschirm:** Sprite und Ring mit eingebauten Materialien und
   prozeduralen `DataTexture`s, Tiefentest aus wie beim Zielmarker; ein
-  Vollbild-Quad (ShaderMaterial mit Log-Depth-Chunks) hellt das Bild 0,3 s lang
-  additiv auf (`flash.screenPeak`, 0 schaltet ihn ab). Alle Objekte hängen an
-  `DrawGate`s, ohne Pilz steht nichts in der Render-Liste.
+  Vollbild-Quad (ShaderMaterial mit Log-Depth-Chunks) hellt das Bild 0,55 s lang
+  additiv auf, Spitze 0,65, quadratisch abklingend (`flash.screenPeak`, 0 schaltet
+  ihn ab).
+- **Schockkuppel:** eine Halbkugel (`SphereGeometry`, 32 × 10 Segmente) mit eigenem
+  ShaderMaterial samt Log-Depth-Chunks, additiv, am Umriss am hellsten
+  (`1 - |n·v|` hoch 2,5). Anders als Ring und Blitz mit Tiefentest: Gebäude davor
+  verdecken sie.
+- **Glutbrocken:** 48 Schweife aus je 4 Glutpunkten im additiven Puffer, der Kopf und
+  seine Positionen 45, 90 und 135 ms früher, kleiner und dunkler. Die Flugbahn mit
+  linearer Luftreibung und Schwerkraft ist eine geschlossene Formel des Alters, also
+  in Spielzeit wie der Rest; ein Punkt unter der Höhe des Einschlagpunkts fällt weg.
+  Nicht über den `TrailStreakRenderer` (ein Mesh und Draw Call pro Schweif, jeden
+  Frame neu gebaut, am Schalter Projectile Trails) und nicht über die Trail-Pools
+  (Wanduhr).
+- **Bodenfeuer:** 32 Glutpunkte bis 24 m um den Einschlag, flackern über Größe,
+  Helligkeit und Atlas-Frame in Spielzeit, aus bis 7,5 s. Sie stehen auf der Höhe
+  des Einschlagpunkts; auf Hängen sitzen sie zu hoch oder im Boden.
+- **Bloom-Kick:** `MushroomCloudRenderer.bloomKick` (1 beim Einschlag, quadratisch
+  auf 0 über 0,9 s Spielzeit) geht jeden Frame an
+  `PostProcessingPipeline.setBloomKick`: Bloom-Stärke von 0,3 bis 1,4, Schwelle von
+  0,85 bis 0,55 (`MUSHROOM_CLOUD_LOOK.bloomKick`). `BloomKick`
+  (`post-processing/bloom-kick.ts`) merkt sich die Werte des Passes und schreibt
+  genau diese zurück, sobald der Kick vorbei ist oder Bloom ausgeschaltet wird. Nur
+  mit Bloom an, der Kick schaltet den Pass nie ein. Eine Belichtung zum Hochziehen
+  gibt es nicht, der Renderer hat kein Tone Mapping.
+- **Draw Calls:** Glut und Rauch je ein Points-Draw, solange ein Pilz steht; dazu
+  Ring (1,6 s), Kuppel (0,75 s), Blitz-Sprite (0,5 s) und Bild-Quad (0,55 s). Alle
+  Objekte hängen an `DrawGate`s, ohne Pilz steht nichts in der Render-Liste.
 - **VFX-Einstellungen:** Impact Effects aus (`setFullCloud(false)` aus
-  `applyVfxSettings`) lässt den nächsten Pilz auf Blitz, Feuerball und Druckwelle
-  schrumpfen.
+  `applyVfxSettings`) lässt den nächsten Pilz auf die Detonation schrumpfen: Blitz,
+  Kern, Feuerball, zweite Feuerfront (zusammen bis 120 Glutpunkte), Schockkuppel und
+  Druckwelle; kein Rauch, keine Glutbrocken, kein Bodenfeuer.
 - **Reset:** `game:reset` leert die Pilze (`VFXService`).
 
 ---
@@ -570,12 +597,15 @@ zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG`, Stand 2026-09-12:
 - **Stärke:** Anteil der Bildhöhe (0,005 ≈ 5 px bei 1080p), linear auf 0 über die
   Dauer, nach Wanduhr statt pro Frame (der alte Abbau pro Frame nahm 60 FPS an).
   Cannon 0,0025 / 150 ms, Rocket 0,005 / 200 ms, HQ-Schaden 0,0025 × 0,5 bis 2 /
-  300 ms, Boss-Tod 0,004 / 400 ms. Kalibriert auf den alten Meter-Shake: Einschläge wie
-  aus 150 m Kameraabstand gesehen, HQ und Boss wie aus 425 m (Startkamera).
+  300 ms, Boss-Tod 0,004 / 400 ms, Nuklearschlag 0,014 / 1600 ms (seit 2026-09-13).
+  Kalibriert auf den alten Meter-Shake: Einschläge wie aus 150 m Kameraabstand
+  gesehen, HQ und Boss wie aus 425 m (Startkamera).
 - **Nur nahe Einschläge:** volle Stärke bis 40 m Abstand zwischen Kamera und
   Einschlag (`nearDistance`), dann linear weniger bis 0 ab 100 m (`farDistance`,
   `shakeFalloff`). Es schütteln nur Cannon- und Rocket-Einschläge (auch `homing`-Typen).
-  HQ-Schaden und Boss-Tod schütteln unabhängig vom Ort.
+  HQ-Schaden und Boss-Tod schütteln unabhängig vom Ort. Der Nuklearschlag nimmt mit
+  eigener Reichweite ab: voll bis 350 m, keiner ab 1500 m (`strikeNearDistance`,
+  `strikeFarDistance`), aus der Übersichtskamera (etwa 425 m) gut 90 %.
 - **Überlagerung:** Der stärkere laufende Shake gewinnt, ein schwächerer, der
   währenddessen kommt, entfällt (`ScreenShake.trigger` in `three-engine/screen-shake.ts`).
 
