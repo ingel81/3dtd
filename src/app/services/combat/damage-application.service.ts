@@ -102,7 +102,7 @@ export class DamageApplicationService {
     const result = calculateDamage(damage, damageType, armorType);
 
     if (showBloodEffects && enemy.typeConfig.canBleed) {
-      const splatterHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 1;
+      const splatterHeight = enemy.transform.terrainHeight + enemy.heightOffset + 1;
       vfx.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 5);
     }
 

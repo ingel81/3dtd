@@ -50,7 +50,7 @@ describe('Projectile entity', () => {
     const direction = projectile.direction;
 
     // No VAT bake runs in unit tests → getEnemyAimOffsetY falls back to DEFAULT_AIM_OFFSET_Y.
-    const targetHeight = (enemy.transform.terrainHeight ?? 0) + (enemy.typeConfig.heightOffset ?? 0) + DEFAULT_AIM_OFFSET_Y;
+    const targetHeight = (enemy.transform.terrainHeight ?? 0) + enemy.heightOffset + DEFAULT_AIM_OFFSET_Y;
     const dy = targetHeight - 1;
     const dz = 0.001 * METERS_PER_DEGREE_LAT;
     const length = Math.sqrt(dz * dz + dy * dy);

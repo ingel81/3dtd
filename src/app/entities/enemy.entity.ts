@@ -67,6 +67,13 @@ export class Enemy extends GameObject {
   readonly rush: EnemyRush | null;
 
   /**
+   * Height of the model origin above `transform.terrainHeight` (m): the
+   * type's `heightOffset`. Everything placed on or aimed at the model reads
+   * this, not the config, so an enemy can fly lower than its type.
+   */
+  heightOffset: number;
+
+  /**
    * `startIndex` and `startProgress` start the enemy part-way along `path`
    * (a split child where its parent died), see MovementComponent.setPath().
    */
@@ -79,6 +86,7 @@ export class Enemy extends GameObject {
   ) {
     super('enemy');
     this.typeConfig = getEnemyType(typeId);
+    this.heightOffset = this.typeConfig.heightOffset;
     this.rush =
       this.typeConfig.animationVariation && this.typeConfig.runAnimation
         ? new EnemyRush(this.id, this.typeConfig.runSpeedMultiplier ?? 1)
