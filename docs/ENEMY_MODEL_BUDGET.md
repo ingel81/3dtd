@@ -371,6 +371,17 @@ Nicht in der Gegner-Config, deshalb nicht in den Tabellen unten; von Hand gemess
   Pivot am Boden unter der Ringmitte, Kettenabstand 1,0 Modelleinheiten (Segment
   z −0,58 bis 0,52, Breite mit Beinen 2,88, Höhe 1,78).
 
+## Boss-Variante: Chitin-Wurm
+
+Der Wurm (`worm`, `worm-segment`) steht in keinem Template, die Tabellen führen ihn deshalb
+„in keiner Welle“. Er kommt über die Boss-Rotation ab W35 (`configs/boss-variants.config.ts`),
+einer pro Varianten-Welle, dazu über Custom Wave und Enemy Debug. Ein Wurm hat höchstens
+`WORM_MAX_SEGMENTS` = 160 Segmente: ein Kopf aus dem Pool `worm`, der Rest aus
+`worm-segment`; jeder Split macht ein Körpersegment zum Kopf. Mit den Platzhaltern (Tank als
+Ring mit 5.094 VAT-Vertices, Spider als Kopf mit 2.140) sind das bei 160 lebenden Segmenten
+rund 0,8 Mio. VAT-Vertices. Bei 160 Instanzen hält ein Segment bis rund 30.000 VAT-Vertices
+den Richtwert von 5 Mio. ein; ein statischer Ring (ein VAT-Frame) kostet kaum VAT-Speicher.
+
 ## Werkzeug
 
 - `npm run model-budget` schreibt die Tabellen zwischen den Markern unten; der Test läuft
@@ -434,18 +445,20 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 4.870 | 3.704 | 1,0 | Skinning | 272 | 4870×272 | RGBA16F | 1,08 | 10,1 | 1024² |
 | Tank (`tank`) | Normal | 150 | 4.477 | 2.796 | 0,7 | statisch | 1 | 4477×1 | RGBA16F | 1,12 | 0,0 | – |
+| Chitin Worm Segment (`worm-segment`) | in keiner Welle | 0 | 4.477 | 2.796 | 0,0 | statisch | 1 | 4477×1 | RGBA16F | 0,45 | 0,0 | – |
 | Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 107 | 4266×107 | RGBA16F | 0,56 | 3,5 | 1024² |
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
 | Wallsmasher (`wallsmasher`) | Normal | 200 | 3.444 | 5.670 | 0,7 | Skinning | 104 | 3444×104 | RGBA16F | 1,28 | 2,7 | 512² |
 | Spider (`spider`) | Swarm | 800 | 2.140 | 2.417 | 1,7 | Skinning | 25 | 2140×25 | RGBA16F | 0,56 | 0,4 | 512² |
+| Chitin Worm (`worm`) | in keiner Welle | 0 | 2.140 | 2.417 | 0,0 | Skinning | 25 | 2140×25 | RGBA16F | 1,12 | 0,4 | 512² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 512² |
 | Zombie (`zombie`) | Swarm | 1.800 | 1.453 | 2.157 | 2,6 | Skinning | 209 | 1453×209 | RGBA16F | 0,83 | 2,3 | 1024² |
 | Skeleton (`skeleton`) | Swarm | 940 | 1.156 | 658 | 1,1 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 | Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 
-VAT-Speicher aller Typen zusammen: **88,1 MB** (30 fps), alles in RGBA32F wären **154,6 MB**.
+VAT-Speicher aller Typen zusammen: **88,5 MB** (30 fps), alles in RGBA32F wären **155,5 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **8,6 MB** dazu.
 
 ### Alpha
@@ -463,7 +476,7 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 | Hornet | Blend | 0 |
 | Bear | Blend | 33.852 (3,2 %) |
 
-Opak ohne Texel unter 0,05 (16): Herbert, Stone Golem, Wraith, Mammoth, Mech, Zombie v2, Tank, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Zombie, Skeleton, Skeleton Minion, Rat.
+Opak ohne Texel unter 0,05 (18): Herbert, Stone Golem, Wraith, Mammoth, Mech, Zombie v2, Tank, Chitin Worm Segment, Zombie Soldier, Bat, Wallsmasher, Spider, Chitin Worm, Penguin, Zombie, Skeleton, Skeleton Minion, Rat.
 Texel unter 0,05, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis 0,05): **keine**.
 
 ### Modellinhalt
@@ -484,11 +497,13 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.915 / 4.913 / 3.370 |
 | Zombie v2 | `zombie_v2.glb` | 1,9 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 4.870 / 4.870 / 1.827 |
 | Tank | `tank.glb` | 0,2 | 7 (0) | 0 | 0 | 7 | – | 0 | 4.469 / 2.269 / 1.676 |
+| Chitin Worm Segment | `tank.glb` | 0,2 | 7 (0) | 0 | 0 | 7 | – | 0 | 4.469 / 2.269 / 1.676 |
 | Zombie Soldier | `zombie_soldier.glb` | 3,5 | 1 (1) | 56 | 0 | 1 | 3× 1024² | 6 | 4.249 / 4.249 / 3.603 |
 | Bear | `bear.glb` | 2,0 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
 | Bat | `bat.glb` | 0,3 | 1 (1) | 28 | 0 | 1 | 512² | 1 | 3.559 / 3.559 / 2.520 |
 | Wallsmasher | `wallsmasher.glb` | 0,4 | 1 (1) | 61 | 0 | 1 | 512² | 3 | 3.444 / 3.025 / 2.956 |
 | Spider | `spider.glb` | 0,6 | 2 (2) | 113 | 0 | 2 | 512² | 1 | 2.140 / 2.133 / 1.716 |
+| Chitin Worm | `spider.glb` | 0,6 | 2 (2) | 113 | 0 | 2 | 512² | 1 | 2.140 / 2.133 / 1.716 |
 | Penguin | `penguin.glb` | 0,3 | 1 (1) | 21 | 0 | 1 | 512² | 2 | 1.993 / 1.993 / 1.723 |
 | Zombie | `zombie.glb` | 1,8 | 1 (1) | 49 | 0 | 1 | 1024² | 13 | 1.453 / 1.453 / 1.086 |
 | Skeleton | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
@@ -525,6 +540,7 @@ die weggelassenen Frames.
 | Wallsmasher | `CharacterArmature\|Run` | run | 0,80 | 24 | – |
 | Wallsmasher | `CharacterArmature\|Death` | death | 1,30 | 40 | – |
 | Spider | `Armature\|Walk-Cycle-Basic` | walk | 0,83 | 25 | – |
+| Chitin Worm | `Armature\|Walk-Cycle-Basic` | walk | 0,83 | 25 | – |
 | Penguin | `Walk` | walk | 1,00 | 30 | – |
 | Penguin | `Fall` | death | 1,88 | 57 | – |
 | Zombie | `Armature\|Walk` | walk | 4,00 | 120 | – |
@@ -584,6 +600,8 @@ mit allem, was ein Kill abspaltet.
 | Stone Golem | W15 | 6 |
 | Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 25 |
 | Wallsmasher | W4, W5, W14, W25 | 15 |
+| Chitin Worm | – | 0 |
+| Chitin Worm Segment | – | 0 |
 | Wraith | W13, W17, W23, W27 | 80 |
 | Zombie | W1, W10, W16, W20, W29, W30 | 60 |
 | Zombie Soldier | W9, W22 | 6 |
