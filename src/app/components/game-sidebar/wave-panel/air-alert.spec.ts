@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
+  AirAlertAnnouncer,
   airAlertView,
   countAntiAirTowers,
   curriculumWaveHasAir,
@@ -31,6 +32,41 @@ describe('upcomingAirAlert', () => {
   it('stays quiet when neither of the next two waves flies', () => {
     expect(upcomingAirAlert(0, 0)).toBeNull();
     expect(upcomingAirAlert(4, 0)).toBeNull();
+  });
+});
+
+describe('AirAlertAnnouncer', () => {
+  const alertFor = (wave: number) => ({ wave, wavesAhead: 2, antiAirTowers: 0 });
+
+  it('plays once per air wave, also when the alert is shown again', () => {
+    const announcer = new AirAlertAnnouncer();
+    const play = vi.fn(() => true);
+    announcer.update(5, alertFor(7), play);
+    announcer.update(5, null, play); // the wave runs
+    announcer.update(6, alertFor(7), play);
+    expect(play).toHaveBeenCalledTimes(1);
+
+    announcer.update(14, alertFor(16), play);
+    expect(play).toHaveBeenCalledTimes(2);
+  });
+
+  it('plays again for the same wave in a new run', () => {
+    const announcer = new AirAlertAnnouncer();
+    const play = vi.fn(() => true);
+    announcer.update(5, alertFor(7), play);
+    announcer.update(0, null, play); // restart or new location
+    announcer.update(5, alertFor(7), play);
+    expect(play).toHaveBeenCalledTimes(2);
+  });
+
+  it('counts a wave as announced only once the tone played', () => {
+    const announcer = new AirAlertAnnouncer();
+    const play = vi.fn(() => false); // no audio yet
+    announcer.update(5, alertFor(7), play);
+    play.mockReturnValue(true);
+    announcer.update(5, alertFor(7), play);
+    announcer.update(5, alertFor(7), play);
+    expect(play).toHaveBeenCalledTimes(2);
   });
 });
 
