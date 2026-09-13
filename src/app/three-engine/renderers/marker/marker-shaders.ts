@@ -728,9 +728,11 @@ export function createPortalGateMaterial(
           float unsteady = 0.55 + 0.45 * portalNoise(vec2(uTime * 2.3 + cell * 3.1, e.g * 7.0 + vPhase));
           vec3 glyph = mix(uViolet, uEmber, 0.2 + 0.5 * breath) * deep * (0.04 + 0.12 * breath) * unsteady;
           // Waking: an uneven glimmer crawling along the strokes, bits of the
-          // lines catching and dying again, never a front running round
-          float crawl = portalNoise(vec2(e.g * 16.0 - uTime * uGlyphMix.w, cell * 7.3 + vPhase * 5.0));
-          float sparks = smoothstep(0.5, 0.9, crawl) * (0.5 + 0.5 * portalNoise(vec2(uTime * 11.0 + cell, e.g * 45.0)));
+          // lines catching and dying again, never a front running round. The
+          // order is stored in 8 bits: read at a low rate and through a soft
+          // curve, its steps draw no bands across the strokes
+          float crawl = portalNoise(vec2(e.g * 6.0 - uTime * uGlyphMix.w, cell * 7.3 + vPhase * 5.0));
+          float sparks = smoothstep(0.35, 0.95, crawl) * (0.6 + 0.4 * portalNoise(vec2(uTime * 11.0 + cell, e.g * 4.0)));
           vec3 accent = mix(uEmber, vColor, 0.3);
           glyph += wake * deep * mix(uViolet, accent, 0.4 + 0.6 * sparks) * (0.12 + 0.55 * sparks);
           // The surge of a wave start stirs every sigil
