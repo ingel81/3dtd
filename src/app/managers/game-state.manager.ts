@@ -1,4 +1,5 @@
 import { Injectable, inject, signal, computed, effect } from '@angular/core';
+import { Vector3 } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
@@ -32,6 +33,7 @@ import { ResearchManager } from './research.manager';
 import { AbilityManager } from './ability.manager';
 import { HeroManager } from './hero.manager';
 import { HERO_SOURCE_ID } from '../configs/hero.config';
+import { heroBodyContact } from '../utils/hero-body-contact';
 import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
 import { CreditsLedger } from './game-state/credits-ledger';
@@ -87,16 +89,30 @@ export class GameStateManager {
       this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
     strike: (targets, fractionOf) => this.combatEffect.applyAbilityStrike(targets, fractionOf),
   });
+  // The hero's measure on bodies along the route (HeroWorld.bodyContact)
+  private readonly heroLocal = new Vector3();
+  private readonly routeGroundY = (x: number, z: number): number | null => this.globalRouteGrid.getGroundLocalYAt(x, z);
   readonly heroManager = new HeroManager(this.eventBus, {
     routes: () => this.pathRouteService.getCachedPaths(),
     base: () => this.basePosition,
     enemiesInRadius: (center, radiusM, out) =>
       this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
+    bodyContact: (enemy, from, out) => {
+      const body = enemy.body;
+      const engine = this.tilesEngine;
+      if (!body || !engine) return null;
+      const local = engine.sync.geoToLocalSimpleInto(from.lat, from.lon, 0, this.heroLocal);
+      return heroBodyContact(
+        body, local.x, local.z, this.routeGroundY,
+        enemy.transform.terrainHeight - body.stations.originHeight, out,
+      );
+    },
     groundHeight: (lat, lon) => this.groundHeightAt(lat, lon),
     fire: (shot) => {
       this.projectileManager.spawnShot(
         shot.origin, shot.originHeight, shot.target,
         shot.ammo.projectileType, shot.damage, shot.ammo.damageType, HERO_SOURCE_ID,
+        shot.aimPoint ?? undefined,
       );
     },
     spend: (cost) => this.creditsLedger.spend(cost),

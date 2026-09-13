@@ -120,7 +120,8 @@ Instanz-Matrizen hoch (`addUpdateRange(0, activeCount * 16)`), nicht den ganzen 
 
 Die Schüsse des Helden sind Projektile ohne Tower: `ProjectileManager.spawnShot`,
 `sourceTowerType` ist `null`, `sourceTowerId` ist `hero`. Splash eines solchen Schusses
-träfe Boden und Luft; seine drei Typen haben keinen.
+träfe Boden und Luft; seine drei Typen haben keinen. Auf einen Körper entlang der Route
+(die Ooze) fliegt er wie ein Tower-Schuss zum `aimPoint`, dem nächsten Körperpunkt.
 
 **Schweif-Ansatz** (`tailOffset`, optional): Meter hinter der Mesh-Mitte, an denen Trail-Partikel
 und Trail-Streak ansetzen. Rakete: 2,1 m, also die Düse. Nur Optik, Default 0 (Mitte).

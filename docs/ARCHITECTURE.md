@@ -808,7 +808,7 @@ class ProjectileManager extends EntityManager<Projectile> {
   constructor(eventBus: GameEventBus);
 
   spawn(tower: Tower, targetEnemy: Enemy, heading?: number): Projectile;  // Emittiert 'vfx:muzzle-flash'
-  spawnShot(origin, originHeight, target, typeId, damage, damageType, sourceId): Projectile;  // Schuss ohne Tower (Held)
+  spawnShot(origin, originHeight, target, typeId, damage, damageType, sourceId, aimPoint?): Projectile;  // Schuss ohne Tower (Held); aimPoint für Körper entlang der Route
   update(deltaTime: number): void;  // Emittiert 'projectile:hit', 'vfx:projectile-impact', 'audio:play'
 }
 ```

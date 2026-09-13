@@ -24,6 +24,7 @@ Alle Werte stehen in `configs/hero.config.ts` (`HERO`, `HERO_AMMO`, `HERO_LEVELS
 | Posten | der Punkt, an den er geschickt wurde. Dort steht er, solange er ein Ziel in Reichweite hat. Sonst verfolgt er den Gegner mit dem größten Pfadfortschritt im Umkreis von 38 m (Leine plus Reichweite) um den Posten, höchstens 20 m entlang der Route vom Posten weg, alle 250 ms Spielzeit neu gewählt. Ist keiner da, geht er zurück |
 | Unterwegs | auf dem Weg zu einem neuen Posten schießt er, bleibt aber nicht stehen und verfolgt niemanden |
 | Kampf | 18 m, gemessen in 2D wie bei den Towern, also Boden und Luft; keine Sichtlinie. Ziel ist der Gegner mit dem größten Pfadfortschritt in Reichweite; er hält es, solange es lebt und in Reichweite bleibt |
+| Körper entlang der Route (Ooze) | zählt mit seinem nächsten Punkt statt mit der Spitze: Reichweite, Zielwahl, Halten, Verfolgen und Schuss. Der Schuss fliegt wie bei den Towern zu diesem Punkt (`aimPoint` in Zielhöhe `ROUTE_BODY_AIM_HEIGHT_M`), ohne Sichtlinie. `HeroWorld.bodyContact` misst über `RouteBody.nearest` (`utils/hero-body-contact.ts`); ohne Karte (headless ohne Engine) gilt die Spitze |
 | Munition | drei Sorten, siehe unten; Wechsel mit `command:hero-ammo` |
 | Stufen | 5, erreicht bei 0, 30, 100, 250 und 500 Kills; Schaden je Schuss ×1,0 / 1,15 / 1,3 / 1,45 / 1,6. Reichweite, Tempo und Feuerrate bleiben |
 | Leben | unverwundbar, Gegner greifen ihn nicht an |
@@ -285,10 +286,11 @@ vergleichbar.
 |---|---|
 | `configs/hero.config.ts` | Werte, Munition, Stufen, Status, Gate-Profil |
 | `utils/route-graph.ts` | Routengraph, Dijkstra, Leine |
+| `utils/hero-body-contact.ts` | nächster Punkt eines Körpers entlang der Route, für Reichweite und Ziel |
 | `entities/hero.entity.ts` | Transform, Movement, Combat |
 | `managers/hero.manager.ts` | Anheuern, Befehle, Sub-Step, Kills, Präsentation |
 | `managers/game-commands.handler.ts` | `command:hire-hero`, `command:hero-move`, `command:hero-ammo`, `debug:ready-hero` |
-| `managers/projectile.manager.ts` | `spawnShot` |
+| `managers/projectile.manager.ts` | `spawnShot`, mit `aimPoint` für Körper entlang der Route |
 | `services/combat/damage-application.service.ts` | Quelle `hero` → `hero:kill` |
 | `ai/core/defense-analyzer.ts` | virtueller Tower im Gate |
 | `ai/training/strategies/research/research-pick.strategy.ts` | `BOT_SKIPPED_RESEARCH` |
@@ -300,7 +302,7 @@ vergleichbar.
 | `three-engine/renderers/hero-model.ts` | Modell-Config, GLB-Lader |
 | `three-engine/renderers/hero.renderer.ts` | Modell auf der Karte, Ringe |
 
-Tests: `route-graph.spec.ts`, `hero.manager.spec.ts`,
+Tests: `route-graph.spec.ts`, `hero.manager.spec.ts`, `hero-body-contact.spec.ts`,
 `integration/hero.spec.ts`, `hero.config.spec.ts`,
 `damage-application.service.spec.ts`, `projectile.manager.spec.ts`,
 `defense-analyzer.spec.ts`, `ai-data-collector.service.spec.ts`,
