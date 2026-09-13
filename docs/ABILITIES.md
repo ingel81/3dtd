@@ -124,29 +124,40 @@ zwischen Gebäuden lesbar bleibt.
 gezeichnet von `three-engine/renderers/mushroom-cloud.renderer.ts`). Er läuft
 in Spielzeit: Pause (P) hält ihn an, der Timescale spielt ihn schneller ab.
 Zeiten in Spielsekunden nach dem Einschlag, Längen bei 25 m Radius; sie
-skalieren mit dem Radius.
+skalieren mit dem Radius. Nach dem Playtest 2026-09-13 ("es fehlt an
+optischem Wumms") ist die Detonation dichter gestaffelt und der Pilz etwa
+doppelt so hoch:
 
 | Zeit | Phase |
 |---|---|
-| 0 bis 0,4 s | Blitz: additiver Sprite (80 m) über dem Einschlag, 0,3 s lang zusätzlich eine schwache Aufhellung des ganzen Bildes |
-| 0 bis 1,1 s | Druckwelle: heller Ring am Boden, läuft schnell auf 36 m aus und verblasst |
-| 0 bis 2,8 s | Feuerball: Halbkugel am Boden (bis 12 m); ab 0,35 s steigt er auf und wird zum glühenden Kern der Kappe |
-| ab 0,05 s | Staub: Bodenwalze bis etwa 34 m, dazu dunklerer Staub am Stammfuß |
-| ab 0,3 s | Stamm: Rauch steigt in die Kappe, am Fuß breit, unten anfangs feuerbeleuchtet; bis 3 s Feuer im Kern |
-| ab 0,4 s | Kappe: Rauch-Torus, steigt auf knapp 60 m, rollt oben nach außen und unten nach innen. Unterseite bis etwa 5 s orange angeleuchtet (additive Randglut), Außenseite dunkler, eine Kuppel deckt die Mitte |
-| 5,5 bis 10 s | Auflösen: breiter und höher, treibt mit dem Wind, blendet aus |
+| 0 bis 0,55 s | Blitz: additiver Sprite (150 m, dreifache Helligkeit) über dem Einschlag, dazu eine Aufhellung des ganzen Bildes, Spitze 0,65, quadratisch abklingend. Mit Bloom an (VFX-Einstellungen) zieht der Blitz 0,9 s lang die Bloom-Stärke von 0,3 auf bis zu 1,4 und die Schwelle von 0,85 auf 0,55 |
+| 0 bis 0,6 s | Weißglühender Kern im Feuerball |
+| 0 bis 0,75 s | Schockkuppel: helle Halbkugel, am Umriss am hellsten, bis 46 m |
+| 0,05 bis 1,05 s | Zweite Feuerfront: flache Schale aus Feuer, läuft bis 38 m aus |
+| 0 bis 1,6 s | Druckwelle: heller Ring am Boden bis 70 m, auf ihrer Front eine Staubwand, die bis 3,2 s stehen bleibt |
+| 0 bis 3,1 s | Feuerball: Halbkugel am Boden, in 0,15 s auf 18 m, ihr Zentrum schießt in der ersten halben Sekunde 14 m hoch; bis 0,7 s von weißglühend zu orange; ab 0,5 s steigt er in die Kappe |
+| 0 bis 2,9 s | Glutbrocken: 48 Funkenschweife fliegen mit 22 bis 55 m/s nach außen und oben, gebremst von Luft und Schwerkraft, und verlöschen am Boden |
+| 0,35 bis 7,5 s | Bodenfeuer: flackernde Glut bis 24 m um den Stammfuß |
+| ab 0,05 s | Staub: Bodenwalze bis etwa 50 m, dazu dunklerer Staub am Stammfuß |
+| ab 0,3 s | Stamm: Rauch steigt in die Kappe, am Fuß breit, unten anfangs feuerbeleuchtet; bis 3,8 s Feuer im Kern |
+| ab 0,35 s | Kappe: Rauch-Torus, schießt in der ersten Sekunde auf gut 55 m und steigt dann langsam weiter, bei 5 s knapp 100 m, beim Auflösen über 110 m. Rollt oben nach außen und unten nach innen, in Wülsten, die um den Stamm wandern. Oben dunkel, die Unterseite glüht bis etwa 7,5 s orange (additive Randglut), eine Kuppel deckt die Mitte |
+| 0,5 bis 3,8 s | Kondensationsring (Wilson-Wolke): weißer Ring um den Stamm auf halber Höhe, breitet sich von 8 auf 42 m aus |
+| 8 bis 14 s | Auflösen: breiter und höher, treibt mit dem Wind, blendet aus |
 
-Budget: 106 additive Partikel (Explosions-Atlas) und 270 Rauchpartikel
-(Rauch-Atlas) pro Pilz, in eigenen Puffern für zwei gleichzeitige Pilze (212
-und 540), nicht in den Trail-Pools. Details in
+Budget: 432 additive Partikel (Explosions-Atlas, davon 192 für die 48
+Glutschweife à 4 Punkte) und 546 Rauchpartikel (Rauch-Atlas) pro Pilz, in
+eigenen Puffern für zwei gleichzeitige Pilze (864 und 1092), nicht in den
+Trail-Pools. Vor dem Playtest-Nachtrag waren es 106 und 270. Details in
 [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#atompilz-nuklearschlag).
 
 **Brandflecken:** auf dem Einschlagpunkt und auf zwei Ringen, 6 bei 0,45 und 9
 bei 0,85 des Radius (`NUCLEAR_STRIKE_SCORCH_RINGS`), alle beim Einschlag, nur
 auf Route-Zellen und mit Ground Marks an.
 
-**VFX-Einstellungen:** Mit Impact Effects aus (Preset Low) bleiben Blitz,
-Feuerball und Druckwelle, kein Rauch. Bis 2026-09-13 bestand der Einschlag aus
+**VFX-Einstellungen:** Mit Impact Effects aus (Preset Low) bleibt die
+Detonation: Blitz mit Bildaufhellung, Kern, Feuerball, zweite Feuerfront,
+Schockkuppel und Druckwelle; kein Rauch, keine Glutbrocken, kein Bodenfeuer.
+Bloom ist im Low-Preset aus und damit auch der Bloom-Kick. Bis 2026-09-13 bestand der Einschlag aus
 gestaffelten Feuer-Atlas-Explosionen auf Wanduhr-Timern, und Low zeigte davon
 nichts.
 
@@ -157,10 +168,17 @@ Blut-Decal-Pool (100) verdrängt ohnehin seine ältesten Decals. Die
 Gold-Floating-Texts eines Schlags (je bezahltem Kill einer) bleiben unter dem
 Limit von 2048 Instanzen.
 
-**Shake und Sound:** Screen-Shake `nuclearStrike` (0,008 für 700 ms), unabhängig
-von der Entfernung zur Kamera, wie HQ-Schaden. Sound `nuclear_strike`: das
-vorhandene `explosion.mp3`, lauter und mit größerer Reichweite. Eine Warnsirene
-gibt es nicht, im Repo liegt kein passendes Sample.
+**Shake und Sound:** Screen-Shake `nuclearStrike` 0,014 der Bildhöhe für
+1600 ms (vorher 0,008 für 700 ms). Er nimmt mit der Entfernung zur Kamera ab
+wie bei Einschlägen, aber mit eigener Reichweite: voll bis 350 m, keiner mehr
+ab 1500 m (`strikeNearDistance`, `strikeFarDistance`); aus der
+Übersichtskamera (etwa 425 m) bleiben gut 90 %. Der Schalter Screen Shake in
+den Display Options gilt auch hier. Sound `nuclear_strike`: das vorhandene
+`explosion.mp3` (1,3 s), lauter und mit größerer Reichweite, dazu nach 350 und
+900 ms zwei leisere Wiederholungen (55 und 35 % der Lautstärke) als Grollen
+(`GAME_SOUNDS.nuclearStrike.tail`). Die Wiederholungen laufen auf
+Wanduhr-Timern wie das Sample selbst, `game:reset` verwirft ausstehende. Eine
+Warnsirene gibt es nicht, im Repo liegt kein passendes Sample.
 
 ---
 
@@ -213,12 +231,13 @@ schaltet den Zielmodus ein (`UIStore.abilityTargeting`, geführt vom
 | `components/game-sidebar/wave-panel/ability-button.ts` | Zustand des Knopfs |
 | `three-engine/renderers/ability-marker.renderer.ts` | Zielmarker und Zielring |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
+| `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,
 `gate-wiring.spec.ts`, `ai-data-collector.ability-kills.spec.ts`,
-`vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `audio.service.spec.ts`, `screen-shake.service.spec.ts`,
+`vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `screen-shake.service.spec.ts`,
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `ability-button.spec.ts`, `nuclear-strike.strategy.spec.ts`,
 `strategy-bot.factory.spec.ts`, Backend `tests/test_gate_loop.py`.
@@ -242,8 +261,9 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
 ## Bewusst nicht gemacht
 
 - Keine Warnsirene.
-- Kein längerer Grollen-Nachhall: im Repo liegt nur `explosion.mp3`, und
-  `SpatialAudioManager` hat keine Option für Tonhöhe oder Abspieltempo.
+- Kein eigenes Grollen-Sample und keine tiefere Tonlage: das Grollen sind
+  zwei leisere Wiederholungen von `explosion.mp3`, `SpatialAudioManager` hat
+  keine Option für Tonhöhe oder Abspieltempo.
 - Keine Rückgabe der Ladung, wenn der Einschlag niemanden trifft, auch nicht,
   wenn der Rest der Welle in den 1,5 s der Vorwarnung stirbt oder durchläuft.
 - Der Event-Debugger hat keine eigene Kategorie für `ability:*`; die Events
