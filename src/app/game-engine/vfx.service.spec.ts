@@ -30,6 +30,7 @@ function setup() {
       spawnMuzzleFlash: vi.fn(),
       spawnBurstAtGeo: vi.fn(),
       spawnExplosionAtGeo: vi.fn(),
+      spawnBloodSplatter: vi.fn(),
     },
   };
   const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
@@ -72,10 +73,31 @@ describe('VFXService muzzle flash', () => {
 describe('VFXService split', () => {
   it('bursts in bone colours a metre above the body a split came from', () => {
     const { eventBus, tilesEngine, service } = setup();
-    const enemy = { position: { lat: 1, lon: 2 }, transform: { terrainHeight: 30 }, heightOffset: 0.5 };
-    eventBus.emit({ type: 'enemy:split', enemy: enemy as never, children: [] });
+    const enemy = {
+      position: { lat: 1, lon: 2 },
+      transform: { terrainHeight: 30 },
+      heightOffset: 0.5,
+      typeConfig: { id: 'skeleton', canBleed: false },
+    };
+    eventBus.emit({ type: 'enemy:split', enemy: enemy as never, children: [enemy as never] });
     expect(tilesEngine.effects.spawnBurstAtGeo)
       .toHaveBeenCalledWith(1, 2, 31.5, EXPLOSION_PRESETS.bone.particles, BURST_PALETTES.bone);
+    expect(tilesEngine.effects.spawnBloodSplatter).not.toHaveBeenCalled();
+    service.destroy();
+  });
+
+  it('splashes in its blood colour where each piece of a bleeding enemy lands', () => {
+    const { eventBus, tilesEngine, service } = setup();
+    const ooze = {
+      position: { lat: 1, lon: 2 },
+      transform: { terrainHeight: 30 },
+      heightOffset: 0,
+      typeConfig: { id: 'ooze', canBleed: true, bloodColor: '#6fe021' },
+    };
+    const clump = { position: { lat: 3, lon: 4 }, transform: { terrainHeight: 10 } };
+    eventBus.emit({ type: 'enemy:split', enemy: ooze as never, children: [clump as never, clump as never] });
+    expect(tilesEngine.effects.spawnBloodSplatter).toHaveBeenCalledTimes(2);
+    expect(tilesEngine.effects.spawnBloodSplatter).toHaveBeenCalledWith(3, 4, 11, 12, 0x6fe021);
     service.destroy();
   });
 });

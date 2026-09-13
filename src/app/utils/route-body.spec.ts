@@ -55,6 +55,25 @@ describe('RouteBodyStations', () => {
     expect(st.right[3]).toBe(3);
   });
 
+  it('finds the segment and the progress on it for a distance along the route', () => {
+    const path: RouteWaypoint[] = [
+      { lat: LAT0, lon: LON0 },
+      { lat: LAT0 + 10 / METERS_PER_DEGREE_LAT, lon: LON0 },
+      { lat: LAT0 + 30 / METERS_PER_DEGREE_LAT, lon: LON0 },
+    ];
+    const st = new RouteBodyStations(path, flatSync, 0);
+    const out = { segmentIndex: -1, segmentProgress: -1 };
+    st.locate(st.length * 0.2, out);
+    expect(out.segmentIndex).toBe(0);
+    expect(out.segmentProgress).toBeCloseTo(0.6, 3);
+    st.locate(st.length * 0.5, out);
+    expect(out.segmentIndex).toBe(1);
+    expect(out.segmentProgress).toBeCloseTo(0.25, 3);
+    st.locate(st.length + 5, out);
+    expect(out.segmentIndex).toBe(1);
+    expect(out.segmentProgress).toBeCloseTo(1, 9);
+  });
+
   it('is built once per path array', () => {
     const path = northPath(30);
     expect(routeBodyStations(path, flatSync, 0)).toBe(routeBodyStations(path, flatSync, 0));

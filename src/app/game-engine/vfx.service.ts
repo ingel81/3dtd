@@ -13,6 +13,10 @@ import type { TowerTypeId } from '../configs/tower-types.config';
 import type { AbilityId } from '../configs/abilities.config';
 import type { GeoPosition } from '../models/game.types';
 import type { GameEvent } from './game-event-bus';
+import { enemyBloodColor } from '../utils/enemy-hit-spot';
+
+/** Blood particles per piece a bleeding enemy splits into (the ooze's clumps) */
+const SPLIT_SPLASH_PARTICLES = 12;
 
 /** What an ability shows while it is on its way and where it lands. */
 interface AbilityVfx {
@@ -78,7 +82,9 @@ export class VFXService {
 
     // Bone burst a metre above the body a split came from. The impact bursts'
     // pool and switch: nothing while impact effects are off (VFX settings).
-    this.subs.add(this.eventBus.on('enemy:split', ({ enemy }) => {
+    // A parent that bleeds (the ooze breaking into clumps along its body)
+    // splashes in its blood colour where each piece lands.
+    this.subs.add(this.eventBus.on('enemy:split', ({ enemy, children }) => {
       const height = enemy.transform.terrainHeight + enemy.heightOffset + 1;
       this.tilesEngine.effects.spawnBurstAtGeo(
         enemy.position.lat,
@@ -87,6 +93,17 @@ export class VFXService {
         EXPLOSION_PRESETS.bone.particles,
         BURST_PALETTES.bone,
       );
+      if (!enemy.typeConfig.canBleed) return;
+      const color = enemyBloodColor(enemy);
+      for (const child of children) {
+        this.tilesEngine.effects.spawnBloodSplatter(
+          child.position.lat,
+          child.position.lon,
+          child.transform.terrainHeight + 1,
+          SPLIT_SPLASH_PARTICLES,
+          color,
+        );
+      }
     }));
 
     // Abilities: what each one shows, see abilityVfx
