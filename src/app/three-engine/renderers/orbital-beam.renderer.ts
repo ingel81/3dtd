@@ -64,9 +64,10 @@ const COLUMN_VERTEX_SHADER = /* glsl */ `
 
   void main() {
     vec3 toCamera = cameraPosition - uBase;
-    vec2 flat = vec2(-toCamera.z, toCamera.x);
-    float len = length(flat);
-    vec3 side = len > 1e-4 ? vec3(flat.x / len, 0.0, flat.y / len) : vec3(1.0, 0.0, 0.0);
+    // Horizontal, square to the view (named so: the interpolation qualifiers are reserved words in GLSL ES 3.00)
+    vec2 across = vec2(-toCamera.z, toCamera.x);
+    float len = length(across);
+    vec3 side = len > 1e-4 ? vec3(across.x / len, 0.0, across.y / len) : vec3(1.0, 0.0, 0.0);
     vec3 world = uBase + side * (position.x * uHalfWidth) + vec3(0.0, position.y * uHeight, 0.0);
     vUv = position.xy;
     gl_Position = projectionMatrix * viewMatrix * vec4(world, 1.0);
