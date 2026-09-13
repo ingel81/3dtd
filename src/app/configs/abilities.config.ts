@@ -14,7 +14,7 @@ import type { ResearchId } from './research/research.types';
 import type { EnemyTypeConfig } from './enemy-types.config';
 import type { TdIconName } from '../components/icon/icon.component';
 
-export type AbilityId = 'nuclear-strike';
+export type AbilityId = 'nuclear-strike' | 'frost-bomb';
 
 /**
  * What an ability does where it lands. AbilityManager.resolve() has one
@@ -22,9 +22,21 @@ export type AbilityId = 'nuclear-strike';
  *
  * max-hp-fraction: every enemy in the radius loses `fraction` of its max
  * HP, bosses (`isBoss`) `bossFraction`, independent of the damage matrix.
+ *
+ * freeze: every enemy in the radius freezes solid (freeze status, it
+ * halts) for `durationMs` of game time, bosses for `bossDurationMs`.
  */
 export type AbilityEffect =
-  | { kind: 'max-hp-fraction'; fraction: number; bossFraction: number };
+  | { kind: 'max-hp-fraction'; fraction: number; bossFraction: number }
+  | { kind: 'freeze'; durationMs: number; bossDurationMs: number };
+
+/** Status an ability halts its targets with (AbilityWorld.halt). */
+export type AbilityHaltStatus = 'freeze';
+
+/** Status source id of an ability's effects, the same for each of its strikes. */
+export function abilitySourceId(id: AbilityId): string {
+  return `ability:${id}`;
+}
 
 export interface AbilityConfig {
   id: AbilityId;
@@ -82,6 +94,24 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
     effect: { kind: 'max-hp-fraction', fraction: 0.6, bossFraction: 0.2 },
     snapRadiusM: 30,
   },
+  'frost-bomb': {
+    id: 'frost-bomb',
+    name: 'Frost Bomb',
+    description:
+      'Throw a frost bomb onto the route: 0.5 s later everything within 20 m freezes solid for 3 s, bosses 1 s. '
+      + 'One charge, a new one every 3 waves.',
+    icon: 'snowflake',
+    aimHint: 'Freeze',
+    hotkey: 'F',
+    researchId: 'frost-bomb',
+    perkId: 'frost-bomb',
+    maxCharges: 1,
+    rechargeWaves: 3,
+    radiusM: 20,
+    warningMs: 500,
+    effect: { kind: 'freeze', durationMs: 3000, bossDurationMs: 1000 },
+    snapRadiusM: 30,
+  },
 };
 
 export const ABILITY_IDS = Object.keys(ABILITIES) as AbilityId[];
@@ -92,6 +122,14 @@ export function abilityDamageFraction(
   enemyType: Pick<EnemyTypeConfig, 'isBoss'>,
 ): number {
   return enemyType.isBoss ? effect.bossFraction : effect.fraction;
+}
+
+/** Game ms an enemy of `enemyType` stays frozen by a freeze effect. */
+export function abilityFreezeMs(
+  effect: Extract<AbilityEffect, { kind: 'freeze' }>,
+  enemyType: Pick<EnemyTypeConfig, 'isBoss'>,
+): number {
+  return enemyType.isBoss ? effect.bossDurationMs : effect.durationMs;
 }
 
 /** One ability as the UI and the bot see it: the AbilityManager's snapshot. */

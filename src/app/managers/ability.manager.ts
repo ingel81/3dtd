@@ -23,10 +23,13 @@ import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
 import {
   ABILITIES,
   ABILITY_IDS,
+  AbilityHaltStatus,
   AbilityId,
   AbilityRejectReason,
   AbilityStatus,
   abilityDamageFraction,
+  abilityFreezeMs,
+  abilitySourceId,
   lockedAbilityStatus,
 } from '../configs/abilities.config';
 import type { ResearchEffect } from '../configs/research/research.types';
@@ -41,6 +44,8 @@ export interface AbilityWorld {
   enemiesInRadius(center: GeoPosition, radiusM: number, out: Enemy[]): Enemy[];
   /** Every target loses `fractionOf(enemy)` of its max HP; returns the kills */
   strike(targets: readonly Enemy[], fractionOf: (enemy: Enemy) => number): number;
+  /** Every target halts with `status` for `durationMsOf(enemy)` game ms, the effect kept under `sourceId` */
+  halt(targets: readonly Enemy[], status: AbilityHaltStatus, durationMsOf: (enemy: Enemy) => number, sourceId: string): void;
 }
 
 /** A strike between command and impact. */
@@ -241,6 +246,9 @@ export class AbilityManager implements IGameManager {
       switch (effect.kind) {
         case 'max-hp-fraction':
           kills = this.world.strike(targets, (enemy) => abilityDamageFraction(effect, enemy.typeConfig));
+          break;
+        case 'freeze':
+          this.world.halt(targets, 'freeze', (enemy) => abilityFreezeMs(effect, enemy.typeConfig), abilitySourceId(strike.abilityId));
           break;
       }
     }

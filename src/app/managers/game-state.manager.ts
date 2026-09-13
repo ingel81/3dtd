@@ -88,6 +88,8 @@ export class GameStateManager {
     enemiesInRadius: (center, radiusM, out) =>
       this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
     strike: (targets, fractionOf) => this.combatEffect.applyAbilityStrike(targets, fractionOf),
+    halt: (targets, status, durationMsOf, sourceId) =>
+      this.combatEffect.applyAbilityHalt(targets, status, durationMsOf, sourceId),
   });
   // The hero's measure on bodies along the route (HeroWorld.bodyContact)
   private readonly heroLocal = new Vector3();

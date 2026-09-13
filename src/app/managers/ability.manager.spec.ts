@@ -9,6 +9,7 @@ import type { GamePhase, GeoPosition } from '../models/game.types';
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
 const NUKE = ABILITIES['nuclear-strike'];
+const FROST = ABILITIES['frost-bomb'];
 const TARGET: GeoPosition = { lat: 48.1, lon: 9.1, height: 0 };
 
 function enemyOf(id: string, type: string): Enemy {
@@ -22,6 +23,7 @@ describe('AbilityManager', () => {
   let routeInReach: boolean;
   let inRadius: Enemy[];
   let strikes: { ids: string[]; fractions: number[] }[];
+  let halts: { ids: string[]; status: string; durations: number[]; sourceId: string }[];
   let strikeKills: number;
   let world: AbilityWorld;
 
@@ -43,6 +45,7 @@ describe('AbilityManager', () => {
     routeInReach = true;
     inRadius = [];
     strikes = [];
+    halts = [];
     strikeKills = 0;
     world = {
       snapToRoute: vi.fn((target: GeoPosition) => (routeInReach ? { ...target, height: 5 } : null)),
@@ -54,6 +57,9 @@ describe('AbilityManager', () => {
       strike: vi.fn((targets: readonly Enemy[], fractionOf: (enemy: Enemy) => number) => {
         strikes.push({ ids: targets.map((t) => t.id), fractions: targets.map(fractionOf) });
         return strikeKills;
+      }),
+      halt: vi.fn((targets: readonly Enemy[], status: string, durationOf: (enemy: Enemy) => number, sourceId: string) => {
+        halts.push({ ids: targets.map((t) => t.id), status, durations: targets.map(durationOf), sourceId });
       }),
     };
     manager = new AbilityManager(bus, world);
@@ -146,6 +152,42 @@ describe('AbilityManager', () => {
       tick(90);
       expect(world.strike).not.toHaveBeenCalled();
       expect(manager.getStatus('nuclear-strike')).toMatchObject({ charges: 0, pending: false });
+    });
+  });
+
+  describe('frost bomb', () => {
+    beforeEach(() => unlock(FROST.perkId));
+
+    it('freezes everyone in the radius on the 30th sub-step: 3 s, bosses 1 s, ground and air', () => {
+      inRadius = [enemyOf('z1', 'zombie'), enemyOf('boss', 'herbert'), enemyOf('bat1', 'bat')];
+      expect(manager.use('frost-bomb', TARGET).ok).toBe(true);
+
+      tick(29);
+      expect(world.halt).not.toHaveBeenCalled();
+      tick(1);
+      expect(world.enemiesInRadius).toHaveBeenCalledWith({ ...TARGET, height: 5 }, FROST.radiusM, expect.any(Array));
+      expect(halts).toEqual([{
+        ids: ['z1', 'boss', 'bat1'],
+        status: 'freeze',
+        durations: [3000, 1000, 3000],
+        sourceId: 'ability:frost-bomb',
+      }]);
+      expect(world.strike).not.toHaveBeenCalled();
+    });
+
+    it('reports the frozen as hits and no kills', () => {
+      const resolved: GameEvent[] = [];
+      bus.on('ability:resolved', (e) => resolved.push(e));
+      inRadius = [enemyOf('z1', 'zombie'), enemyOf('z2', 'zombie')];
+      manager.use('frost-bomb', TARGET);
+      tick(30);
+      expect(resolved).toEqual([{ type: 'ability:resolved', abilityId: 'frost-bomb', strikeId: 1, hits: 2, kills: 0 }]);
+    });
+
+    it('keeps its charge apart from the nuclear strike', () => {
+      manager.use('frost-bomb', TARGET);
+      expect(manager.getStatus('frost-bomb')).toMatchObject({ charges: 0, wavesUntilCharge: 3 });
+      expect(manager.getStatus('nuclear-strike').unlocked).toBe(false);
     });
   });
 

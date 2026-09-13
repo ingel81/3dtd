@@ -95,12 +95,18 @@ export interface ScreenShakePreset {
  * (about 425 m), and from there it has to shake hard. Full up to
  * strikeNearDistance, none from strikeFarDistance on. Until 2026-09-13 it
  * shook at 0.008 for 700 ms wherever it landed.
+ *
+ * The other abilities are aimed and watched the same way but shake far
+ * less: full up to abilityNearDistance, none from abilityFarDistance on,
+ * so the overview camera (about 425 m) keeps about half.
  */
 export const SCREEN_SHAKE_CONFIG = {
   nearDistance: 40,  // m, camera to impact
   farDistance: 100,  // m
   strikeNearDistance: 350,  // m
   strikeFarDistance: 1500,  // m
+  abilityNearDistance: 150,  // m
+  abilityFarDistance: 700,  // m
   presets: {
     cannon:    { amplitude: 0.0025, duration: 150 },
     rocket:    { amplitude: 0.005,  duration: 200 },
@@ -108,12 +114,15 @@ export const SCREEN_SHAKE_CONFIG = {
     hqDamage:  { amplitude: 0.0025, duration: 300 },
     bossDeath: { amplitude: 0.004,  duration: 400 },
     nuclearStrike: { amplitude: 0.014, duration: 1600 },
+    frostBomb: { amplitude: 0.004, duration: 350 },
   },
 } as const satisfies {
   nearDistance: number;
   farDistance: number;
   strikeNearDistance: number;
   strikeFarDistance: number;
+  abilityNearDistance: number;
+  abilityFarDistance: number;
   presets: Record<string, ScreenShakePreset>;
 };
 
@@ -136,6 +145,11 @@ export const ABILITY_IMPACT_SHAKE: Record<AbilityId, AbilityImpactShake | null> 
     preset: SCREEN_SHAKE_CONFIG.presets.nuclearStrike,
     nearDistance: SCREEN_SHAKE_CONFIG.strikeNearDistance,
     farDistance: SCREEN_SHAKE_CONFIG.strikeFarDistance,
+  },
+  'frost-bomb': {
+    preset: SCREEN_SHAKE_CONFIG.presets.frostBomb,
+    nearDistance: SCREEN_SHAKE_CONFIG.abilityNearDistance,
+    farDistance: SCREEN_SHAKE_CONFIG.abilityFarDistance,
   },
 };
 
@@ -193,6 +207,17 @@ export const EXPLOSION_PRESETS = {
 export const NUCLEAR_STRIKE_SCORCH_RINGS = [
   { count: 6, distance: 0.45 },
   { count: 9, distance: 0.85 },
+] as const;
+
+/**
+ * Frost patches of a frost bomb (ice decals, the ice tower's), besides the
+ * one on the impact point: rings of `count` patches at `distance` times the
+ * radius, `size` metres across. Only with ground marks on. The burst itself
+ * is FROST_BURST_LOOK.
+ */
+export const FROST_BOMB_ICE_RINGS = [
+  { count: 6, distance: 0.45, size: 4 },
+  { count: 10, distance: 0.85, size: 3.2 },
 ] as const;
 
 /**

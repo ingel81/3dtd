@@ -207,6 +207,26 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     }],
   },
 
+  'frost-bomb': {
+    id: 'frost-bomb',
+    name: 'Frost Bomb',
+    description:
+      'Unlocks the Frost Bomb: aim at the route, 0.5 s later everything within 20 m freezes solid for 3 s '
+      + '(bosses 1 s). One charge, a new one every 3 waves',
+    category: 'global-perk',
+    icon: 'snowflake',
+    cost: 700,
+    duration: 25,
+    // After the ice line's second step, so it cannot come before W5 or so:
+    // 400 + 650 + 700 gold of research on top of the towers
+    prerequisites: ['arcane-studies'],
+    effects: [{
+      kind: 'global-perk',
+      perkId: 'frost-bomb',
+      description: 'Frost Bomb ability: one charge, a new one every 3 completed waves',
+    }],
+  },
+
   // ==================== Upgrade Tiers ====================
 
   'advanced-weaponry': {

@@ -14,7 +14,7 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 - **Slow** (Verlangsamung) — Ice Tower, Splash
 - **Poison** (DoT) — Poison Tower, Splash
 - **Burn** (DoT) — Fire Tower, jeder Gegner im Flammenkegel
-- **Freeze** (Stopp) — Mechanik und Darstellung fertig, noch ohne Quelle
+- **Freeze** (Stopp) — Frostbombe (Fähigkeit, [ABILITIES.md](ABILITIES.md))
 - **Stun** (Stopp, elektrisch) — wie Freeze mit eigener Darstellung, noch ohne Quelle
 
 Status-Effekte hängen am Projektiltyp (`ice-shard`, `poison-glob`) bzw. am Fire-Beam, nicht am
@@ -292,7 +292,7 @@ Wie Poison im Enemy-Sub-Step (`EnemyManager.tickDamageOverTime`), aber je Burn-E
 
 ## Freeze (Stopp)
 
-**Status:** Mechanik und Darstellung seit 2026-09-14; eine Quelle gibt es noch nicht.
+**Status:** seit 2026-09-14. Quelle: die Frostbombe (Quelle `ability:frost-bomb`, 3 s, Bosse 1 s, `CombatEffectService.applyAbilityHalt`).
 
 Ein eingefrorener Gegner **hält an**, solange der Effekt läuft (`MovementComponent.isHalted()`):
 

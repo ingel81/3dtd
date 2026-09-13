@@ -122,6 +122,22 @@ export const GAME_SOUNDS = {
       { delayMs: 900, volume: 0.35 },
     ],
   },
+  /**
+   * Frost bomb burst: the ice tower's cast (0.8 s), louder and further, and
+   * two quick quieter repeats that break it up into a crackle of ice.
+   */
+  frostBomb: {
+    id: 'frost_bomb',
+    url: 'assets/sounds/towers/ice/cast.mp3',
+    refDistance: 90,
+    rolloffFactor: 0.8,
+    volume: 1.5,
+    maxInstances: 4,
+    tail: [
+      { delayMs: 110, volume: 0.6 },
+      { delayMs: 260, volume: 0.35 },
+    ],
+  },
 } as const;
 
 /**
@@ -158,4 +174,5 @@ export interface AbilityImpactSound {
  */
 export const ABILITY_IMPACT_SOUNDS: Record<AbilityId, AbilityImpactSound | null> = {
   'nuclear-strike': GAME_SOUNDS.nuclearStrike,
+  'frost-bomb': GAME_SOUNDS.frostBomb,
 };
