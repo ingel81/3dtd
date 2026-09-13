@@ -231,21 +231,26 @@ export const EXPLOSION_LOOK = {
  * timescale runs it faster; lengths are metres at `referenceRadius` and
  * scale with the strike radius.
  *
- * 0 to 1 s: a white flash (over the ground point and, faint, over the whole
- * screen), a fireball on the ground and a shockwave ring running out over
- * the ground to 36 m, dust surging out behind it.
+ * 0 to 1.6 s, the detonation: a white flash over the ground point and over
+ * the whole screen, a white-hot core in a fireball that punches up and
+ * turns orange, a second fire front running out over the ground, a bright
+ * shock dome, a shockwave ring out to 70 m with a wall of dust on its
+ * front, embers thrown out and up.
  * 0.3 to 5 s: the fireball lifts and turns into the cap, a torus of smoke
  * that rolls outward over the top and back in underneath, lit orange from
- * below; a stem of fire turning into smoke flows up into it.
+ * below; a stem of fire turning into smoke flows up into it. The ground
+ * at its foot burns until 7.5 s.
  * 5.5 to 10 s: the cloud spreads, rises, drifts with the wind and fades.
  *
- * With impact effects off (VFX settings, the Low preset) the flash, the
- * shockwave and the fireball's `glowParticles.fireball` only: no smoke.
+ * With impact effects off (VFX settings, the Low preset) the detonation
+ * only: flash, core, fireball, fire front, shock dome and shockwave; no
+ * smoke, no embers, no ground fire.
  *
- * Budget: 106 glow and 270 smoke particles per cloud, in buffers of the
- * renderer's own (2 clouds: 212 and 540), not in the trail pools, which a
+ * Budget: 410 glow and 326 smoke particles per cloud, in buffers of the
+ * renderer's own (2 clouds: 820 and 652), not in the trail pools, which a
  * big wave keeps busy. While a cloud is up: two Points draw calls, for the
- * first second also the ring and the flash sprite, for 0.3 s a screen quad.
+ * first 1.6 s the ring, 0.75 s the dome, 0.5 s the flash sprite and 0.55 s
+ * a screen quad on top.
  */
 export const MUSHROOM_CLOUD_LOOK = {
   referenceRadius: 25,
@@ -253,23 +258,57 @@ export const MUSHROOM_CLOUD_LOOK = {
   duration: 10,
   /** Clouds drawn at once; another strike takes the place of the oldest */
   clouds: 2,
-  /** Additive particles from the explosion atlas, per cloud */
-  glowParticles: { fireball: 40, stemFire: 30, rim: 36 },
+  /**
+   * Additive particles from the explosion atlas, per cloud. `embers` counts
+   * streaks of `embers.trail` points each.
+   */
+  glowParticles: { core: 16, fireball: 56, shell: 48, embers: 48, groundFire: 32, stemFire: 30, rim: 36 },
   /** Normal-blended particles from the smoke atlas, per cloud */
-  smokeParticles: { cap: 110, dome: 40, stem: 60, dust: 40, skirt: 20 },
+  smokeParticles: { cap: 110, dome: 40, stem: 60, dust: 40, skirt: 20, wall: 56 },
   /**
    * Sprite of `size` metres `height` above the ground point, additive at
    * `intensity`, and a screen-wide brightening of `screenPeak`, both fading
    * out quadratically. screenPeak 0 turns the screen flash off.
    */
-  flash: { duration: 0.4, size: 80, height: 6, intensity: 2, screenPeak: 0.3, screenDuration: 0.3 },
+  flash: { duration: 0.5, size: 150, height: 10, intensity: 3, screenPeak: 0.65, screenDuration: 0.55 },
   /** Ring on the ground, its radius closing in on `radius` with the time constant */
-  shockwave: { duration: 1.1, radius: 36, timeConstant: 0.3, opacity: 0.9 },
+  shockwave: { duration: 1.6, radius: 70, timeConstant: 0.35, opacity: 1 },
   /**
-   * Hemisphere on the ground growing to `radius`, lifting into the cap
-   * between liftStart and liftEnd, gone by fadeEnd. Particle diameters m.
+   * Shock dome: a bright hemisphere, brightest along its outline, closing in
+   * on `radius` with the time constant and gone after `duration`.
    */
-  fireball: { radius: 12, growTime: 0.25, liftStart: 0.35, liftEnd: 1.4, fadeStart: 1.6, fadeEnd: 2.8, size: [7, 12] },
+  shockDome: { duration: 0.75, radius: 46, timeConstant: 0.22, opacity: 0.85 },
+  /** White-hot core of the fireball, gone by `duration`. Particle diameters m. */
+  core: { radius: 6, duration: 0.6, intensity: 3, size: [7, 11] },
+  /**
+   * Hemisphere on the ground growing to `radius`, its centre punched up by
+   * `punch` metres (time constant punchTime), lifting into the cap between
+   * liftStart and liftEnd, gone by fadeEnd. White-hot until hotEnd, then
+   * orange. Particle diameters m.
+   */
+  fireball: {
+    radius: 18,
+    growTime: 0.15,
+    punch: 14,
+    punchTime: 0.3,
+    hotEnd: 0.7,
+    liftStart: 0.5,
+    liftEnd: 1.7,
+    fadeStart: 1.9,
+    fadeEnd: 3.1,
+    size: [9, 15],
+  },
+  /** Second fire front: a flattened shell running out to `radius` from `start` on */
+  shell: { start: 0.05, duration: 1, radius: 38, timeConstant: 0.25, size: [8, 13] },
+  /**
+   * Glowing debris thrown out and up at `speed` (m/s), slowed by air drag
+   * (time constant `drag`) and pulled down by `gravity`; each lives `life`
+   * seconds or until it reaches the ground. Drawn as streaks: the head and
+   * its positions `trailStep`, 2 and 3 times that many seconds earlier.
+   */
+  embers: { speed: [22, 55], life: [1.2, 2.6], drag: 1.2, gravity: 9.8, trail: 4, trailStep: 0.045, size: [2, 3.2] },
+  /** Burning ground between `radius` metres from the centre, flickering, out by fadeEnd */
+  groundFire: { start: 0.35, fadeStart: 4.5, fadeEnd: 7.5, radius: [5, 24], size: [3, 6] },
   /**
    * The cap from `start` on: its centre rises from startHeight towards
    * height (time constant riseTime), ring and tube radius grow from the
@@ -298,11 +337,18 @@ export const MUSHROOM_CLOUD_LOOK = {
     smoke: { r: 0.34, g: 0.31, b: 0.29 },
     fireLit: { r: 1.5, g: 0.78, b: 0.36 },
     dust: { r: 0.74, g: 0.66, b: 0.54 },
-    fireball: { r: 1, g: 0.85, b: 0.6 },
+    core: { r: 1, g: 0.98, b: 0.92 },
+    /** The fireball runs from fireballHot to fireball */
+    fireballHot: { r: 1, g: 0.93, b: 0.8 },
+    fireball: { r: 1, g: 0.62, b: 0.28 },
+    shell: { r: 1, g: 0.55, b: 0.2 },
+    ember: { r: 1, g: 0.72, b: 0.36 },
+    groundFire: { r: 1, g: 0.5, b: 0.16 },
     stemFire: { r: 1, g: 0.62, b: 0.3 },
     rim: { r: 1, g: 0.5, b: 0.18 },
     flash: { r: 1, g: 0.95, b: 0.85 },
     shockwave: { r: 1, g: 0.86, b: 0.62 },
+    shockDome: { r: 1, g: 0.9, b: 0.75 },
   },
 } as const;
 
