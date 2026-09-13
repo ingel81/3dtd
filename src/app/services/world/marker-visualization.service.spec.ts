@@ -155,7 +155,7 @@ describe('MarkerVisualizationService', () => {
 
   const instanced = () =>
     fake.overlay.children.filter((o): o is InstancedMesh => (o as InstancedMesh).isInstancedMesh === true);
-  const portalFrames = () => instanced().find((m) => m.name === 'spawnPortalFrames')!;
+  const portalFrames = () => instanced().find((m) => m.name === 'spawnPortalGates')!;
   /** Instances the HQ diamond draws: body, two rings and the ground glow per HQ. */
   const hqInstances = () =>
     instanced().filter((m) => !m.name.startsWith('spawnPortal')).reduce((n, m) => n + m.count, 0);
@@ -505,7 +505,7 @@ describe('MarkerVisualizationService', () => {
       for (let i = 0; i < 1000; i++) enemyAt(route[0]);
       expect(sparks).toHaveBeenCalledTimes(1);
 
-      // Portal plane 2 m ahead of the route start, on the cell, facing south
+      // Portal plane PORTAL_SETBACK ahead of the route start, on the cell, facing south
       const [x, y, z, forwardX, forwardZ] = sparks.mock.calls[0] as number[];
       expect(x).toBeCloseTo(0);
       expect(y).toBe(12);

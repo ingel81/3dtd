@@ -1,11 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { Vector3 } from 'three';
-import { createPortalEnergyGeometry, createPortalFrameGeometry } from './spawn-portal-geometry';
+import { DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three';
+import {
+  createPortalFrameGeometry,
+  createPortalGateGeometry,
+  createPortalGlowGeometry,
+} from './spawn-portal-geometry';
 import {
   PORTAL_FRAME_TOP,
+  PORTAL_MAX_SCALE,
+  PORTAL_MIN_SCALE,
   PORTAL_OPENING_HEIGHT,
   PORTAL_OPENING_WIDTH,
   PORTAL_RADIUS,
+  PORTAL_SETBACK,
 } from '../../../configs/marker-geometry.config';
 
 describe('Spawn-Portal-Geometrie', () => {
@@ -75,13 +82,105 @@ describe('Spawn-Portal-Geometrie', () => {
     expect(innerSides).toBe(4);
   });
 
-  it('teilt die Energie in Fläche (aPart 0) und Bodenlicht (aPart 1)', () => {
-    const geometry = createPortalEnergyGeometry();
+  it('füllt die Öffnung mit der Leere (aPart 1), nach beiden Seiten, bis in den Stein', () => {
+    const geometry = createPortalGateGeometry();
     const position = geometry.getAttribute('position');
+    const normal = geometry.getAttribute('normal');
     const part = geometry.getAttribute('aPart');
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let front = 0;
+    let back = 0;
     for (let i = 0; i < part.count; i++) {
-      if (part.getX(i) === 0) expect(position.getZ(i)).toBe(0);
-      else expect(position.getY(i)).toBeGreaterThan(0);
+      if (part.getX(i) === 0) continue;
+      expect(position.getZ(i)).toBe(0);
+      minX = Math.min(minX, position.getX(i));
+      maxX = Math.max(maxX, position.getX(i));
+      minY = Math.min(minY, position.getY(i));
+      maxY = Math.max(maxY, position.getY(i));
+      if (normal.getZ(i) > 0.99) front++;
+      if (normal.getZ(i) < -0.99) back++;
     }
+    expect(front).toBe(6);
+    expect(back).toBe(6);
+    expect(minX).toBeLessThan(-PORTAL_OPENING_WIDTH / 2);
+    expect(maxX).toBeGreaterThan(PORTAL_OPENING_WIDTH / 2);
+    expect(minY).toBeLessThan(0);
+    expect(maxY).toBeGreaterThan(PORTAL_OPENING_HEIGHT);
+    // Der Steinteil ist der Rahmen der Vorschau
+    const stone = createPortalFrameGeometry().getAttribute('position').count;
+    expect(part.count).toBe(stone + 12);
+  });
+
+  it('legt das Bodenlicht knapp über den Boden', () => {
+    const position = createPortalGlowGeometry().getAttribute('position');
+    for (let i = 0; i < position.count; i++) expect(position.getY(i)).toBeGreaterThan(0);
+  });
+});
+
+describe('Spawn-Portal: Gegner treten aus der Fläche', () => {
+  /** Portal wie im Spiel: Tor auf der Pose, Spawn PORTAL_SETBACK hinter der Fläche. */
+  function gate(scale: number): Mesh {
+    const mesh = new Mesh(createPortalGateGeometry(), new MeshBasicMaterial({ side: DoubleSide }));
+    mesh.scale.setScalar(scale);
+    mesh.updateMatrixWorld(true);
+    return mesh;
+  }
+
+  /**
+   * Punkte eines Gegnerkörpers am Spawn in Metern, Portalraum: quer bis an
+   * die Spur am Rand (Korridor-Halbbreite minus edgeMargin, höchstens die
+   * halbe Öffnung minus 1,5 m), 0,4 m Körperradius, bis 2,2 m hoch.
+   */
+  function bodyAtSpawn(scale: number): Vector3[] {
+    const lane = (PORTAL_OPENING_WIDTH / 2) * scale - 1.5;
+    const points: Vector3[] = [];
+    for (const x of [-lane - 0.4, 0, lane + 0.4]) {
+      for (const y of [0.2, 1.2, 2.2]) {
+        for (const dz of [-0.4, 0, 0.4]) points.push(new Vector3(x, y, -PORTAL_SETBACK + dz));
+      }
+    }
+    return points;
+  }
+
+  /** Kamerarichtungen vor dem Portal: seitlich bis 80°, flach bis steil von oben. */
+  function frontCameras(): Vector3[] {
+    const dirs: Vector3[] = [];
+    for (const azimuth of [-80, -60, -30, 0, 30, 60, 80]) {
+      for (const elevation of [5, 30, 60, 80]) {
+        const a = (azimuth * Math.PI) / 180;
+        const e = (elevation * Math.PI) / 180;
+        dirs.push(new Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)));
+      }
+    }
+    dirs.push(new Vector3(0, 1, 0));
+    return dirs;
+  }
+
+  for (const scale of [PORTAL_MIN_SCALE, 1, PORTAL_MAX_SCALE]) {
+    it(`verdeckt den Gegner am Spawn vor und über dem Portal (Skala ${scale})`, () => {
+      const mesh = gate(scale);
+      const raycaster = new Raycaster();
+      const visible: string[] = [];
+      for (const point of bodyAtSpawn(scale)) {
+        expect(point.z).toBeLessThan(0);
+        for (const dir of frontCameras()) {
+          raycaster.set(point, dir);
+          raycaster.far = 200;
+          if (raycaster.intersectObject(mesh).length === 0) {
+            visible.push(`${point.toArray().map((v) => v.toFixed(1))} -> ${dir.toArray().map((v) => v.toFixed(2))}`);
+          }
+        }
+      }
+      expect(visible).toEqual([]);
+    });
+  }
+
+  it('liegt der Spawn in der Tiefe des Rahmens, auch beim kleinsten Portal', () => {
+    // Die Pfeiler reichen vor und hinter die Fläche; ein Spawn weiter
+    // hinten stünde hinter dem Tor frei sichtbar.
+    const position = createPortalFrameGeometry().getAttribute('position');
+    let minZ = 0;
+    for (let i = 0; i < position.count; i++) minZ = Math.min(minZ, position.getZ(i));
+    expect(PORTAL_SETBACK + 0.4).toBeLessThan(-minZ * PORTAL_MIN_SCALE);
   });
 });

@@ -78,25 +78,67 @@ function pushBlock(out: number[], b: Block): void {
   pushTriangle(out, b0, b3, t3); pushTriangle(out, b0, t3, t0); // -x
 }
 
-/**
- * Stone frame: plinths, two pillars, lintel, crown and two spires. Not
- * indexed, so the normals come out flat per face.
- */
-export function createPortalFrameGeometry(): BufferGeometry {
+/** Triangles of all frame blocks. */
+function framePositions(): number[] {
   const positions: number[] = [];
   for (const block of FRAME_BLOCKS) pushBlock(positions, block);
+  return positions;
+}
+
+/**
+ * Stone frame: plinths, two pillars, lintel, crown and two spires. Not
+ * indexed, so the normals come out flat per face. The placement preview
+ * draws it; the portal manager draws the gate (createPortalGateGeometry).
+ */
+export function createPortalFrameGeometry(): BufferGeometry {
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(framePositions(), 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/** How far the void reaches into the pillars and the lintel (m), so no seam shows. */
+const VOID_OVERLAP = 0.3;
+
+/** Bottom of the void below the ground (m), so a slope leaves no gap. */
+const VOID_BOTTOM = -0.6;
+
+/**
+ * The gate the portal manager draws: the stone frame (aPart 0) and the
+ * void in the opening (aPart 1), two quads back to back in the plane
+ * z = 0, one facing each way. The void is opaque and writes depth: an
+ * enemy on the route start, just behind it (PORTAL_SETBACK), stays hidden
+ * with its health bar until it steps out, and the street behind the portal
+ * does not show through.
+ */
+export function createPortalGateGeometry(): BufferGeometry {
+  const positions = framePositions();
+  const stoneVertices = positions.length / 3;
+  const sx = HALF_OPENING + VOID_OVERLAP;
+  const sy0 = VOID_BOTTOM;
+  const sy1 = OPENING_HEIGHT + VOID_OVERLAP;
+  positions.push(
+    // Facing +z, the way the enemies walk out
+    -sx, sy0, 0, sx, sy0, 0, sx, sy1, 0,
+    -sx, sy0, 0, sx, sy1, 0, -sx, sy1, 0,
+    // Facing -z
+    -sx, sy0, 0, sx, sy1, 0, sx, sy0, 0,
+    -sx, sy0, 0, -sx, sy1, 0, sx, sy1, 0,
+  );
+  const parts = new Float32Array(positions.length / 3).fill(1, stoneVertices);
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('aPart', new Float32BufferAttribute(parts, 1));
   geometry.computeVertexNormals();
   return geometry;
 }
 
 /**
- * Layout of the energy geometry at scale 1 (m), handed to its shader: the
- * opening, and the patch of street the portal lights (half width, depth
- * behind and in front of the portal plane).
+ * Layout of the portal at scale 1 (m), handed to its shaders: the opening,
+ * and the patch of street the portal lights (half width, depth behind and
+ * in front of the portal plane).
  */
-export const PORTAL_ENERGY_LAYOUT = {
+export const PORTAL_SHADER_LAYOUT = {
   halfOpening: HALF_OPENING,
   openingHeight: OPENING_HEIGHT,
   groundHalfWidth: HALF_OPENING * 1.6,
@@ -107,31 +149,18 @@ export const PORTAL_ENERGY_LAYOUT = {
 /** Lift of the ground patch over the ground at the route start (m). */
 const GROUND_LIFT = 0.25;
 
-/**
- * Energy of the portal: the surface in the opening (aPart 0), reaching
- * into the pillars and below the ground so no seam shows, and the patch of
- * street it lights (aPart 1), just above the ground.
- */
-export function createPortalEnergyGeometry(): BufferGeometry {
-  const L = PORTAL_ENERGY_LAYOUT;
-  const sx = L.halfOpening + 0.3;
-  const sy0 = -0.6;
-  const sy1 = L.openingHeight + 0.3;
+/** The patch of street the portal lights, just above the ground, facing up. */
+export function createPortalGlowGeometry(): BufferGeometry {
+  const L = PORTAL_SHADER_LAYOUT;
   const gx = L.groundHalfWidth;
   const gz0 = -L.groundBack;
   const gz1 = L.groundFront;
   const y = GROUND_LIFT;
   const positions = [
-    // Surface, facing +z
-    -sx, sy0, 0, sx, sy0, 0, sx, sy1, 0,
-    -sx, sy0, 0, sx, sy1, 0, -sx, sy1, 0,
-    // Ground patch, facing up
     -gx, y, gz0, gx, y, gz1, gx, y, gz0,
     -gx, y, gz0, -gx, y, gz1, gx, y, gz1,
   ];
-  const parts = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1];
   const geometry = new BufferGeometry();
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('aPart', new Float32BufferAttribute(parts, 1));
   return geometry;
 }
