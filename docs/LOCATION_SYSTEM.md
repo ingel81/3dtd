@@ -1,6 +1,6 @@
 # Location System
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-14
 
 Das Location-System ermoeglicht es Spielern, ihren eigenen Spielort zu waehlen. Die URL ist die Single Source of Truth fuer die aktuelle Location.
 
@@ -39,8 +39,15 @@ services/location/street-cache.service.ts                   - IndexedDB-Cache f�
 services/location/world-dice.service.ts                     - Zufällige Stadt via Wikidata
 services/world/path-route.service.ts                        - Routen je Spawn (Cache, Routenlinie)
 services/world/map-placement.service.ts                     - HQ/Spawn per Klick auf die Karte
+services/location/best-waves.ts                             - Beste Welle je Ort: Liste, Rekord, localStorage (reine Funktionen)
+services/location/best-wave.service.ts                      - Beste Welle je Ort: Aufzeichnung am Event-Bus, neuer Rekord bei Game Over
 components/location-dialog/location-dialog.component.ts  - Dialog UI
 components/address-autocomplete.component.ts        - Adress-Autocomplete
+components/world-globe/world-globe.component.ts             - Weltkarte: Globus auf 2D-Canvas
+components/world-globe/globe-projection.ts                  - Orthografische Projektion, Horizont-Schnitt, Drehen, Zoom
+components/world-globe/world-outlines.data.ts               - Küsten und Landgrenzen (generiert, Natural Earth)
+components/world-globe/world-record.component.ts            - Hinweis "New record" im Game-Over-Overlay
+tools/world-outlines/build.mjs                              - Erzeugt world-outlines.data.ts
 ```
 
 ## Interfaces (`location.types.ts`)
@@ -178,6 +185,47 @@ initializeEditableLocations(), saveLocationsToStorage(), clearLocationsFromStora
 - Max. 8 Einträge, neueste zuerst. HQs näher als 150 m gelten als derselbe Ort: der Eintrag rückt nach oben und übernimmt Spawn und Namen, statt eine zweite Zeile anzulegen
 - Der Name wird mitgespeichert (anders als bei Favoriten), die Liste braucht also kein Geocoding
 - DevWorld (Fake-Origin 0,0) wird nicht gespeichert; defekte Einträge im Storage werden beim Laden übersprungen
+
+## Weltkarte (beste Welle je Ort)
+
+Ein Globus mit allen verteidigten Orten und der besten Welle je Ort; ein Klick lädt den Ort.
+
+### Speicher (`best-waves.ts`)
+
+- Key `td_best_waves_v1`, ein Eintrag je Ort: HQ, Spawns des Rekordlaufs, Name, Headertext (`detail`), beste Welle, Zeitpunkt. Orte wie bei Recent: HQs näher als 150 m sind derselbe Ort
+- Name: Ort aus der Adresse (`GeocodingService.extractLocationName`, city > town > village > ...), sonst der Headertext, solange der noch lädt die Koordinaten. Ein neuer Rekord übernimmt HQ, Spawns und Namen des Laufs
+- Max. 200 Orte. Darüber kommt der gerade gespielte Ort trotzdem hinein, der schwächste andere (niedrigste Welle, dann der älteste) fällt heraus
+- Unlesbarer Storage liest sich als leere Liste, defekte Einträge werden beim Laden übersprungen
+
+### Aufzeichnung (`BestWaveService`)
+
+- Hängt am Event-Bus, verbunden in `TowerDefenseFacadeService` neben dem Onboarding
+- Geschrieben wird bei `wave:started`: Welle N gestartet heißt Welle N erreicht, dieselbe Zahl, die die Game-Over-Bilanz als Wave zeigt. So bleibt der Stand auch bei Läufen, die nicht mit Game Over enden (Restart, anderer Ort, World Dice mit Reload, Reload, Tab geschlossen), ohne einen Hook für jeden dieser Wege
+- Nichts in DevWorld und nichts, solange der Bot spielt (`TrainingClientService.botEnabled`). Cheats und Debug-Wellen zählen mit
+- Neuer Rekord: beim ersten Wellenstart eines Laufs merkt sich der Service den bisherigen Rekord des Ortes. Liegt die erreichte Welle bei `game:over` darüber, steht in `newRecord` Ort, Welle und der alte Rekord (0 beim ersten Lauf dort). `game:reset` und Skip leeren ihn
+
+### Einstiege
+
+| Wo | Was |
+|----|-----|
+| Standort-Dialog, Tab "World" | Globus, darunter die Orte als Zeilen (Name, Welle), höchste Welle zuerst |
+| Sidebar-Fuß, "World" | Öffnet den Standort-Dialog auf dem Tab (`openLocationDialog('world')`, `LocationDialogData.initialMode`) |
+| Game-Over-Overlay | Unter Restart, blendet nach 1,2 s ein: kleiner Globus auf den Ort gedreht und gold umringt, "New record for <Ort>: wave N", darunter "Best before: wave M" oder "First run here"; "Skip" blendet aus. Der Restart-Button verschiebt sich nicht |
+
+Ein Klick auf einen Marker oder eine Zeile schließt den Dialog wie ein Recent-Eintrag: HQ und erster Spawn des Rekordlaufs (`spawn.id: 'spawn_world'`, ohne Spawn Random), der Coordinator wendet ihn an. Der gerade gespielte Ort ist grau umringt, in der Liste ausgegraut und lädt nicht. Hover oder Fokus auf einer Zeile dreht den Globus zum Ort.
+
+### Globus (`components/world-globe/`)
+
+- 2D-Canvas in orthografischer Projektion (`globe-projection.ts`, ohne Angular und Canvas testbar): dunkle Scheibe (`--td-panel-shadow`), Gradnetz alle 30°, Landgrenzen und Küsten in den Rahmen-Grautönen, Marker in `--td-gold` mit der Welle daneben. Linien werden am Horizont geschnitten und enden am Rand; Beschriftungen, die eine höhere überdecken würden, fallen weg; Marker blassen zum Rand hin aus
+- Ziehen dreht (Breite des Mittelpunkts bis ±80°), Mausrad zoomt 1x bis 8x, Hover zeigt Name, Headertext und beste Welle
+- Gezeichnet wird außerhalb von Angular per `requestAnimationFrame`, nur bei Änderungen; einziges Signal ist der Hover-Tipp, und das nur, wenn sich der Ort darunter ändert
+- Lazy: Globus und Umrisse sind ein eigener Chunk (`world-globe-component`, 32 kB roh, 16 kB übertragen), geladen per `@defer (on immediate)` beim ersten Öffnen des Tabs oder beim ersten Rekord-Hinweis. Kein `@placeholder`, `@loading` oder `on timer`: deren Code käme in den Core-Chunk des Initial-Bundles (für `@placeholder` und `@loading` gemessen: +2,4 kB). Das Initial-Bundle bleibt bei 357,18 kB
+
+### Umrisse (Natural Earth)
+
+Quelle: Natural Earth 1:110m, Version 5.1.2, `ne_110m_coastline` und `ne_110m_admin_0_boundary_lines_land`, **Public Domain** (https://www.naturalearthdata.com/about/terms-of-use/). In den Credits unter "Map Data".
+
+`node tools/world-outlines/build.mjs` lädt beide GeoJSON-Dateien von GitHub (nvkelso/natural-earth-vector, Tag v5.1.2) oder liest sie aus einem Ordner (`build.mjs <dir>`), vereinfacht jede Linie (Douglas-Peucker, 0,1°), teilt Segmente über 2° (der Globus zieht gerade Sehnen, eine Grenze entlang 49° N soll mitbiegen), rundet auf 0,1° und schreibt kodierte Polylines (Googles Polyline-Algorithmus mit Faktor 10, Breite vor Länge) nach `world-outlines.data.ts`: rund 7200 Punkte in 20 kB Text. `decodePolyline()` liest sie zurück.
 
 ## UrlLocationService
 
@@ -403,7 +451,7 @@ Boden.
 Der Coordinator bietet auch UI-Flow-Methoden:
 
 ```typescript
-openLocationDialog(): void       // Dialog oeffnen, bei Bestaetigung applyNewLocation()
+openLocationDialog(initialMode?): void  // Dialog oeffnen (optional auf einem Tab), bei Bestaetigung applyNewLocation()
 onShareLocation(): void          // URL in Clipboard kopieren
 onWorldDice(): Promise<void>     // Zufaellige Stadt via Wikidata, URL-Reload
 onAddFavorite(): void            // Aktuelle Location als Favorit
@@ -444,7 +492,7 @@ Spawns aus URL/Service vorhanden?
 
 ## Location Dialog Component
 
-Angular Material Dialog mit zwei Modi:
+Angular Material Dialog mit drei Modi:
 
 ### Edit Modes
 
@@ -452,6 +500,9 @@ Angular Material Dialog mit zwei Modi:
 |-------|--------------|
 | `full` | Neuer HQ + Spawn (Standard), Tab "New Location" |
 | `spawn-only` | Nur Spawn ändern (HQ bleibt), Tab "Spawn Only"; nur mit bestehender Location, stellt den Spawn-Modus auf `manual` |
+| `world` | Weltkarte der verteidigten Orte, Tab "World", siehe [Weltkarte](#weltkarte-beste-welle-je-ort); ohne Confirm-Button, ein Klick lädt |
+
+`LocationDialogData.initialMode` wählt den Tab beim Öffnen (Standard `full`).
 
 ### Spawn Modes
 
@@ -475,7 +526,7 @@ Angular Material Dialog mit zwei Modi:
     - Google Maps URL: `@49.5432,9.1234`
 - **Distanz-Badge**: Zeigt Entfernung Spawn-HQ an
 - **Max-Distanz**: 1,5 km, im Dialog fest als 1500 m geprüft (nicht über `MAX_MANUAL_SPAWN_DISTANCE`); darüber bleibt Confirm gesperrt. Eine Mindestdistanz prüft der Dialog nicht
-- **Warnung** bei laufendem Spiel (nur im `full`-Modus)
+- **Warnung** bei laufendem Spiel (in den Modi `full` und `world`)
 - **Validation**: Confirm-Button nur aktiv, wenn ein HQ gewählt ist (im `spawn-only`-Modus: vorhanden) und der Spawn `random` oder ausgewählt ist
 
 ### Dialog-Ergebnis

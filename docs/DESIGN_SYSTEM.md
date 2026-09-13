@@ -545,6 +545,8 @@ Blendet das HUD aus, die Kamera bleibt frei (Maus, WASD). Einstieg über "Photo 
 - Leaks per wave: ein Balken je Welle, Höhe relativ zur schlimmsten Welle, `--td-health-red`; Wellen ohne Leak als 2px-Strich in `--td-frame-dark`. Der Tooltip je Balken nennt Leaks und HQ-Schaden der Welle
 - Top towers by damage: bis zu drei Tower, verkaufte mit dem Stand beim Verkauf (Zusatz "sold"); Tower ohne Schaden und Kills (Research Center) fehlen
 
+Hat der Lauf den Rekord des Ortes geschlagen, steht unter Restart der Hinweis `app-world-record` (`components/world-globe/`): Haarlinie oben, links ein Globus mit 112px auf den Ort gedreht und gold umringt, rechts "WORLD MAP" (9px Mono-Versalien, `--td-text-muted`), "New record for <Ort>: wave N" (13px/600, `--td-gold-light`) und "Best before: wave M" oder "First run here" (10px Mono, `--td-text-muted`), ganz rechts "Skip". Er blendet 1,2 s nach dem Overlay ein (400 ms, bei `prefers-reduced-motion` ohne Animation), Restart bleibt dabei stehen. Details: [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md#weltkarte-beste-welle-je-ort).
+
 Den Schaden je Tower zählt `CombatComponent.damageDealt`: `DamageApplicationService` addiert pro Treffer die tatsächlich abgezogenen HP (ohne Overkill). Das Tower-Panel zeigt ihn als Kachel "Dealt" neben Kills (Raster drei über vier Kacheln) und liest ihn alle 250 ms neu, statt pro Treffer `selectedTowerRevision` zu erhöhen.
 
 ---
@@ -590,7 +592,8 @@ Den Schaden je Tower zählt `CombatComponent.damageDealt`: `DamageApplicationSer
 | `components/context-hint/` | Wiederverwendbare Kontext-Hinweis-Box |
 | `components/attributions-dialog/` | Attributions & Lizenzen Dialog |
 | `components/damage-matrix-dialog/` | Damage-vs-Armor-Tabelle (Hilfe-Dialog aus der Sidebar) |
-| `components/location-dialog/` | Location-Auswahl Dialog |
+| `components/location-dialog/` | Location-Auswahl Dialog, Tabs New Location, Spawn Only, World |
+| `components/world-globe/` | Weltkarte: Globus (2D-Canvas), Rekord-Hinweis im Game-Over-Overlay |
 | `components/address-autocomplete.component.ts` | Adress-Autocomplete (Nominatim) |
 | `components/engine-test/` | Standalone Engine-Test-View |
 
