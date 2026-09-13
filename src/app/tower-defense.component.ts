@@ -90,6 +90,8 @@ import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.
 import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/offscreen-indicators.component';
 import { AbilityBarComponent } from './components/ability-bar/ability-bar.component';
 import { RunSummaryComponent } from './components/run-summary/run-summary.component';
+import { WorldRecordComponent } from './components/world-globe/world-record.component';
+import { BestWaveService } from './services/location/best-wave.service';
 import { PhotoModeService } from './services/photo-mode.service';
 import { OnboardingService } from './services/onboarding/onboarding.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
@@ -134,6 +136,8 @@ import { isLocationDialogFailure } from './components/location-dialog/open-locat
     OffscreenIndicatorsComponent,
     AbilityBarComponent,
     RunSummaryComponent,
+    // Used only inside @defer on the game-over screen, so it loads with the globe as a lazy chunk
+    WorldRecordComponent,
   ],
   providers: [
     GameStateManager,
@@ -189,6 +193,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly devWorld = inject(DevWorldService);
   readonly facade = inject(TowerDefenseFacadeService);
   readonly store = inject(TowerDefenseStore);
+  /** Best wave per place; a new record shows on the game-over screen */
+  readonly bestWaves = inject(BestWaveService);
   /** HUD hidden, screenshot bar on top */
   readonly photoMode = inject(PhotoModeService);
 
