@@ -828,7 +828,8 @@ von `GameStateManager.update()`, in dieser Reihenfolge:
 
 ```typescript
 // managers/game-state.manager.ts (Sub-Step-Schleife)
-if (isWavePhase && this.waveManager.checkWaveComplete()) {
+// Ein Nuklearschlag in der Vorwarnung hält die Welle offen (ABILITIES.md)
+if (isWavePhase && !this.abilityManager.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
   const result = this.waveManager.endWave();   // emittiert wave:completed (deferred)
   ...
   this.applyWaveCompletionBonus(result);

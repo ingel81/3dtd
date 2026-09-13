@@ -525,7 +525,8 @@ export class GameStateManager {
       // so they catch state transitions mid-frame (otherwise a wave might
       // visibly run for "one extra frame" at high timescales).
       const isWavePhase = this.waveManager.phase() === 'wave';
-      if (isWavePhase && this.waveManager.checkWaveComplete()) {
+      // A pending strike lands in its own wave, never in the setup or the next one
+      if (isWavePhase && !this.abilityManager.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
         const result = this.waveManager.endWave();
         this.towerCombat.stopAllBeams();
         this.towerCombat.stopAllMelee();
