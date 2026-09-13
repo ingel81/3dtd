@@ -164,7 +164,7 @@ export class DamageApplicationService {
   }
 
   /**
-   * Handle enemy death — kill + track on source tower, or on the hero.
+   * Handle enemy death: kill + track on source tower, or on the hero.
    */
   private killEnemy(enemy: Enemy, sourceTowerId: string): void {
     if (!this.towerManager || !this.enemyManager) return;

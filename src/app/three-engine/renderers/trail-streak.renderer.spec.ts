@@ -50,6 +50,13 @@ describe('TrailStreakRenderer', () => {
     expect(rocketStreak(2, 3).length).toBeCloseTo(4, 5);
   });
 
+  it('has a streak for the hero\'s explosive round, in its own colour', () => {
+    const trails = new TrailStreakRenderer(new Scene());
+    expect(trails.create('shot', 'shell')).toBe(true);
+    expect(getTrailStyle('shell').colorHead.equals(getTrailStyle('bullet').colorHead)).toBe(false);
+    trails.dispose();
+  });
+
   it('reaches its length with positions at the minimum spacing', () => {
     const { length, minSegmentDistSq } = getTrailStyle('rocket');
     expect(rocketStreak(Math.sqrt(minSegmentDistSq), 100).length).toBeCloseTo(length, 5);
