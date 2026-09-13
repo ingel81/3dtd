@@ -11,16 +11,18 @@ import { InputHandlerService } from './input-handler.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { UIStore } from '../store/ui.store';
 
 /**
  * Range ring on hover: the tower under the pointer shows its range outside
- * build and placement mode, picked at most every 100 ms and never during a
- * camera drag.
+ * build, placement and photo mode, picked at most every 100 ms and never
+ * during a camera drag.
  */
 describe('InputHandlerService tower hover', () => {
   let service: InputHandlerService;
   let canvas: HTMLCanvasElement;
   const buildMode = signal(false);
+  const photoMode = signal(false);
   let engine: {
     picker: {
       raycastTowers: ReturnType<typeof vi.fn>;
@@ -37,6 +39,7 @@ describe('InputHandlerService tower hover', () => {
     canvas = document.createElement('canvas');
     document.body.appendChild(canvas);
     buildMode.set(false);
+    photoMode.set(false);
     engine = {
       picker: {
         raycastTowers: vi.fn(() => 't1'),
@@ -48,6 +51,7 @@ describe('InputHandlerService tower hover', () => {
     const injector = Injector.create({
       providers: [
         { provide: TowerDefenseStore, useValue: {} },
+        { provide: UIStore, useValue: { photoMode } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         { provide: KeyboardPanService, useValue: {} },
         { provide: TowerPlacementService, useValue: {} },
@@ -94,6 +98,16 @@ describe('InputHandlerService tower hover', () => {
     vi.advanceTimersByTime(0);
     move(10, 10, {}, document.body);
     expect(engine.towers.setHovered).toHaveBeenLastCalledWith(null);
+  });
+
+  it('drops the hover in photo mode and picks no tower there', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    photoMode.set(true);
+    move(40, 40);
+    vi.advanceTimersByTime(200);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith(null);
+    expect(engine.picker.raycastTowers).toHaveBeenCalledTimes(1);
   });
 
   it('drops the hover in build mode and picks no tower there', () => {

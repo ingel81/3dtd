@@ -28,7 +28,7 @@ export type TdIconName =
   | 'lock' | 'bookmark' | 'plus' | 'minus' | 'terrain' | 'copyright'
   | 'vibration' | 'fastForward' | 'gamepad' | 'trash' | 'copy' | 'dragHandle'
   | 'externalLink' | 'shuffle' | 'arrowUp' | 'walk' | 'run'
-  | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir' | 'radiation' | 'plane';
+  | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir' | 'radiation' | 'plane' | 'camera';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -119,6 +119,8 @@ const ICONS: Record<TdIconName, IconDef> = {
   radiation: { body: '<circle cx="12" cy="12" r="1.5" fill="currentColor" /><path d="M13.5 9.4 16.5 4.2A9 9 0 0 1 21 12h-6a3 3 0 0 0-1.5-2.6ZM13.5 14.6l3 5.2A9 9 0 0 1 7.5 19.8l3-5.2a3 3 0 0 0 3 0ZM9 12H3A9 9 0 0 1 7.5 4.2l3 5.2A3 3 0 0 0 9 12Z" />' },
   // Plane seen from above, nose up. Air alert in the WAVE panel.
   plane: { body: '<path d="M12 3c.9 0 1.5.9 1.5 2v4.5L21 14v2l-7.5-2.5V18l2 1.5V21L12 20l-3.5 1v-1.5l2-1.5v-4.5L3 16v-2l7.5-4.5V5c0-1.1.6-2 1.5-2Z" />' },
+  // Camera body with lens, for photo mode and screenshots.
+  camera: { body: '<path d="M3 8h4l2-3h6l2 3h4v11H3V8Z" /><circle cx="12" cy="13" r="3.5" />' },
 };
 
 @Component({

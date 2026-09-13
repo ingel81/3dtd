@@ -241,6 +241,7 @@ Das Display-Menü ist ein Panel über seinem Toggle (`.td-display-panel`, 212px 
 |---------|--------|
 | Effects | Preset-Leiste Low / Medium / High, darunter die Schalter, die ein Preset setzt (Muzzle Flash, Projectile Trails, Impact Effects, Ground Marks, Bloom) und Color Grading als Select. Passt kein Preset, steht "Custom" rechts im Kopf. |
 | General | Freeze Tint, Screen Shake, Health Bars, Damage Numbers, Frame Limit (Off / 60 / 30) |
+| View | Photo Mode (Taste O), siehe [Photo Mode](#photo-mode) |
 
 Zeilen sind Checkbox-Labels wie im Display-Debugfenster (Akzent `--td-teal`), Kopfzeilen 10px Versalien in `--td-text-tertiary`, Schrift `--td-font-mono` 12px. Preset und Frame Limit sind Segmente: `--td-panel-secondary`, 1px `--td-frame-dark`, aktiv im Teal-Verlauf der aktiven Quick-Buttons, `aria-pressed`. Jede Effektzeile sagt im Tooltip, was sie abschaltet. Was die Schalter technisch tun: [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#vfx-einstellungen).
 
@@ -487,8 +488,9 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | H / ? | Übersicht als Dialog | |
 | Pos1 (Home) | Kamera gleitet zum HQ | nicht während des Intro-Flugs |
 | N | Kamera gleitet zum nächsten Spawnpunkt, reihum | nicht während des Intro-Flugs |
-| K | Zielmodus des Nuclear Strike an, nochmal drücken schaltet ihn ab | Nuclear-Strike-Knopf (`AbilityTargetingService.start`) |
-| Esc | Quick-Menü schließen, sonst Verkauf abbrechen, sonst Tower abwählen | |
+| K | Zielmodus des Nuclear Strike an, nochmal drücken schaltet ihn ab (nicht im Photo Mode) | Nuclear-Strike-Knopf (`AbilityTargetingService.start`) |
+| O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |
+| Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Tower abwählen | |
 
 S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, "(K)" im Tooltip des Nuclear-Strike-Knopfs, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint.
 
@@ -502,6 +504,16 @@ Hilfe-Dialog in `components/damage-matrix-dialog/`, geöffnet über den `i`-Butt
 - Nur freigeschaltete Tower (`ResearchStore.isTowerUnlocked`, dieselbe Prüfung wie das Baumenü). Die Liste ist reaktiv: eine Forschung, die bei offenem Dialog fertig wird, fügt die Zeile sofort ein. Solange noch Tower gesperrt sind, steht unter der Tabelle "More towers unlock through research."
 - Breite `min(880px, 92vw)` über die Dialog-Config (`width`/`maxWidth`), nicht per CSS: das Overlay-Pane von MatDialog ist per Klasse auf 560px begrenzt, nur der Inline-Style der Config hebt das auf. Die Tabelle hat `table-layout: fixed` (Tower-Spalte 150px, Rüstungsspalten gleich breit), Gegnerlisten brechen um; horizontal gescrollt wird erst unter 600px Tabellenbreite.
 - Esc schließt nur den Dialog: `isEscapeForDialog` (`utils/dialog-key-guard.ts`) hält Esc vom globalen Key-Handler fern, solange ein Dialog offen ist oder Esc schon verbraucht hat.
+
+### Photo Mode
+
+Blendet das HUD aus, die Kamera bleibt frei (Maus, WASD). Einstieg über "Photo Mode" im Display-Panel oder Taste O, Ausstieg über Esc, O oder "Exit". Zustand in `UIStore.photoMode` (nicht gespeichert), Ablauf in `PhotoModeService` (vom Spiel-Component bereitgestellt).
+
+- Beim Einstieg enden Build- und Platzierungsmodus, die Tower-Auswahl (Reichweite, LOS) und das offene Quick-Actions-Menü. Im Photo Mode wählen Klicks auf die Karte nichts aus, Hover zeigt keine Reichweite, die Zifferntasten wählen keine Karte
+- O und Esc sind Hotkeys (`hotkey-map.ts`, `HotkeyService`, siehe [Tastenkürzel](#tastenkürzel)); Esc verlässt den Photo Mode vor allem anderen
+- Header und Sidebar verschwinden, der Canvas wird größer; `ThreeTilesEngine.fitToCanvas()` zieht den Zeichenpuffer nach dem nächsten Render nach. Sichtbar bleiben Canvas, Google-Logo und Kartenattribution, die Leiste und blockierende Screens (Laden, Token, Fehler, Game Over)
+- Leiste oben mittig (Glas, `bevel-glass`): "Save screenshot" und "Exit" mit `Esc`-Kappe
+- Screenshot: `captureFrame()` kopiert den nächsten gezeichneten Frame synchron in `RenderLoop.onNextFrameRendered()`, weil der Renderer ohne `preserveDrawingBuffer` läuft. Logos und Attribution werden ins Bild gestempelt (auf dem Schirm sind sie HTML), dann PNG-Download als `3dtd-<ort>-<datum>-<zeit>.png`
 
 ### Game-Over-Bilanz
 

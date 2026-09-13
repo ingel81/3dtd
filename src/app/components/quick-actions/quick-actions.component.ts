@@ -103,6 +103,7 @@ export class QuickActionsComponent {
   readonly addHealth = output<MouseEvent>();
   readonly completeAllResearch = output<void>();
   readonly maxUpgradeAllTowers = output<void>();
+  readonly photoModeRequested = output<void>();
 
   // Audio outputs
   readonly musicVolumeChanged = output<number>();

@@ -20,6 +20,7 @@ vi.mock('./world/intro-camera-flight.service', () => ({
 vi.mock('./ability-targeting.service', () => ({
   AbilityTargetingService: class AbilityTargetingService {},
 }));
+vi.mock('./photo-mode.service', () => ({ PhotoModeService: class PhotoModeService {} }));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -35,6 +36,7 @@ import { SellConfirmService } from './sell-confirm.service';
 import { CameraControlService } from './camera-control.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { AbilityTargetingService } from './ability-targeting.service';
+import { PhotoModeService } from './photo-mode.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 
 function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
@@ -64,6 +66,12 @@ describe('HotkeyService', () => {
       if (strikeCanFire) abilityTargeting.targeting.set(id);
     }),
     cancel: vi.fn(() => abilityTargeting.targeting.set(null)),
+  };
+  const photoActive = signal(false);
+  const photoMode = {
+    active: photoActive,
+    toggle: vi.fn(() => photoActive.update((on) => !on)),
+    exit: vi.fn(() => photoActive.set(false)),
   };
 
   const tower = {
@@ -122,6 +130,7 @@ describe('HotkeyService', () => {
     abilityTargeting.targeting.set(null);
     abilityTargeting.start.mockClear();
     abilityTargeting.cancel.mockClear();
+    photoActive.set(false);
 
     const injector = Injector.create({
       providers: [
@@ -137,6 +146,7 @@ describe('HotkeyService', () => {
         { provide: CameraControlService, useValue: { focusGeo } },
         { provide: IntroCameraFlightService, useValue: { active: introActive } },
         { provide: AbilityTargetingService, useValue: abilityTargeting },
+        { provide: PhotoModeService, useValue: photoMode },
       ],
     });
     service = runInInjectionContext(injector, () => new HotkeyService());
@@ -337,6 +347,39 @@ describe('HotkeyService', () => {
   it('H opens the shortcut overview', () => {
     service.handleKeyDown(press('h'));
     expect(openDialog).toHaveBeenCalledTimes(1);
+  });
+
+  describe('photo mode', () => {
+    it('O turns it on and off and takes the key', () => {
+      const event = press('o');
+      service.handleKeyDown(event);
+      expect(photoActive()).toBe(true);
+      expect(event.defaultPrevented).toBe(true);
+      service.handleKeyDown(press('o'));
+      expect(photoActive()).toBe(false);
+    });
+
+    it('Esc leaves it before it closes a menu', () => {
+      photoActive.set(true);
+      uiStore.openMenu.set('display');
+      service.handleKeyDown(press('Escape'));
+      expect(photoActive()).toBe(false);
+      expect(uiStore.openMenu()).toBe('display');
+    });
+
+    it('number keys do not start building while it is on', () => {
+      photoActive.set(true);
+      service.handleKeyDown(press('1'));
+      expect(selectTowerType).not.toHaveBeenCalled();
+    });
+
+    it('K does not aim the strike while it is on', () => {
+      photoActive.set(true);
+      const event = press('k');
+      service.handleKeyDown(event);
+      expect(abilityTargeting.start).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(false);
+    });
   });
 
   it('Esc closes a menu first, then drops a pending sale, then deselects', () => {

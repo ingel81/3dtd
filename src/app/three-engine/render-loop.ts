@@ -67,6 +67,9 @@ export class RenderLoop {
   /** Released by the next drawn frame, see waitForRenderedFrame(). */
   private frameWaiters: (() => void)[] = [];
 
+  /** Run synchronously after the next drawn frame, see onNextFrameRendered(). */
+  private frameCallbacks: (() => void)[] = [];
+
   // Performance stats
   private lastFrameTime = 0;
   private frameCount = 0;
@@ -235,8 +238,29 @@ export class RenderLoop {
    * waitForRenderedFrame() and counts the frame for getFPS().
    */
   frameRendered(): void {
+    this.runFrameCallbacks();
     this.notifyFrameRendered();
     this.updateFPS();
+  }
+
+  /**
+   * Run `callback` once, synchronously, right after the next drawn frame.
+   *
+   * The renderer keeps no copy of a frame (preserveDrawingBuffer is off), and
+   * the browser may clear the drawing buffer once the frame is presented. A
+   * canvas read for a screenshot has to happen in here, not in a promise
+   * continuation or a later task. Callbacks added while they run wait for the
+   * frame after.
+   */
+  onNextFrameRendered(callback: () => void): void {
+    this.frameCallbacks.push(callback);
+  }
+
+  private runFrameCallbacks(): void {
+    if (this.frameCallbacks.length === 0) return;
+    const callbacks = this.frameCallbacks;
+    this.frameCallbacks = [];
+    for (const callback of callbacks) callback();
   }
 
   private updateFPS(): void {

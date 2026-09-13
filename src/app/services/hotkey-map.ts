@@ -24,7 +24,9 @@ export type HotkeyAction =
   | { kind: 'ability'; abilityId: AbilityId }
   | { kind: 'camera-hq' }
   /** Fly to the next spawn point, round the list */
-  | { kind: 'camera-spawn' };
+  | { kind: 'camera-spawn' }
+  /** Photo mode on or off */
+  | { kind: 'photo-mode' };
 
 /** The parts of a KeyboardEvent the mapping reads. */
 export type HotkeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey' | 'repeat'>;
@@ -77,6 +79,8 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
       return { kind: 'ability', abilityId: 'nuclear-strike' };
     case 'n':
       return { kind: 'camera-spawn' };
+    case 'o':
+      return { kind: 'photo-mode' };
   }
   return null;
 }
@@ -120,6 +124,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['W', 'A', 'S', 'D'], label: 'Move, arrow keys too, hold Shift for faster' },
       { keys: ['Home'], label: 'Fly to the HQ' },
       { keys: ['N'], label: 'Fly to the next spawn point' },
+      { keys: ['O'], label: 'Photo mode: hide the interface, save screenshots; Esc leaves it' },
     ],
   },
   {
