@@ -1,0 +1,21 @@
+/* Over the canvas, under the HUD (attribution, hints and panels sit at 5+),
+   never in the way of a click. */
+:host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Red at the edges (--td-health-red), clear in the middle. Invisible until
+   a leak fades it in and out, see the component. */
+.leak-edge {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(184, 62, 50, 0) 58%,
+    rgba(184, 62, 50, 0.42) 100%
+  );
+}

@@ -160,6 +160,35 @@
 }
 
 .stat.hp { color: var(--td-health-red); }
+
+/* HQ health: the max small and muted next to the value, and a 2px bar
+   along the bottom edge of the cell, like the bar of the wave button.
+   A loss of health flashes the bar (Web Animations, see the component). */
+.stat.hp {
+  position: relative;
+}
+
+.stat-max {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--td-text-muted);
+}
+
+.hp-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(184, 62, 50, 0.18);
+}
+
+.hp-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--td-health-red);
+  transition: width 0.3s ease;
+}
 .stat.credits { color: var(--td-gold); }
 .stat.wave { color: var(--td-teal); }
 .stat.enemies { color: var(--td-warn-orange); }

@@ -36,7 +36,7 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 |-------|----------|----------|--------------|
 | `enemy:spawned` | EnemyManager | GameStateSyncService, AIDataCollector, EnemyDebugService | Enemy gespawnt (`enemy`) |
 | `enemy:died` | EnemyManager (`kill()`, u.a. aus DamageApplicationService) | GameStateManager (Credits; außerhalb einer Welle Tower in Wachrichtung), GameStateSyncService, WaveManager, ScreenShakeService (Boss), AIDataCollector | Enemy gestorben (`enemy`, `credits`) |
-| `enemy:reached-base` | EnemyManager | GameStateManager (Schaden, gedeckelt durch `maxLeakDamagePerWave`), WaveManager, GameStateSyncService, AIDataCollector | Enemy am Ziel (`enemy`, `damage`) |
+| `enemy:reached-base` | EnemyManager | GameStateManager (Schaden, gedeckelt durch `maxLeakDamagePerWave`), WaveManager, GameStateSyncService, AIDataCollector, LeakVignetteComponent (roter Rand, gedrosselt) | Enemy am Ziel (`enemy`, `damage`) |
 | `enemy:split` | EnemyManager (`kill()` mit Ursache `combat`, Typ mit `splitOnDeath`) | GameStateSyncService (Rest und Gesamtzahl der Welle), AIDataCollector (`enemiesSpawned`), VFXService (Knochen-Burst), EnemyDebugService (Kinder eines Debug-Gegners) | Getöteter Enemy hat sich geteilt (`enemy`, `children`); kommt nach seinem `enemy:died` und den `enemy:spawned` der Kinder |
 | `projectile:hit` | ProjectileManager | CombatEffectService | Projektil trifft (`projectile`, `target`, `damage`, `damageType`) |
 | `dot:damage` | EnemyManager (`tickDamageOverTime()`) | CombatEffectService → DamageApplicationService | DOT-Tick (Poison, Burn) (`enemy`, `damage`, `sourceId`, `effectType`, `damageType`) |

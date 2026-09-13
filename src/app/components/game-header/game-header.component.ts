@@ -1,11 +1,34 @@
-import { Component, input, output, signal, HostListener, ElementRef, inject, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  input,
+  output,
+  signal,
+  computed,
+  effect,
+  viewChild,
+  HostListener,
+  ElementRef,
+  inject,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { FavoriteLocation } from '../../models/location.types';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { DevWorldService } from '../../devworld/devworld.service';
+import { GAME_BALANCE } from '../../configs/game-balance.config';
+import { PulseThrottle } from '../../utils/pulse-throttle';
 import { TdIconComponent } from '../icon/icon.component';
+
+/** Flash of the HQ bar when the HQ loses health */
+const HQ_BAR_PULSE: Keyframe[] = [
+  { filter: 'brightness(2)', boxShadow: '0 0 6px 1px rgba(184, 62, 50, 0.9)' },
+  { filter: 'brightness(1)', boxShadow: '0 0 0 0 rgba(184, 62, 50, 0)' },
+];
+const HQ_BAR_PULSE_MS = 450;
+/** Several leaks in a row flash once, not in a flicker */
+const HQ_BAR_PULSE_MIN_INTERVAL_MS = 300;
 
 @Component({
   selector: 'app-game-header',
@@ -76,6 +99,33 @@ export class GameHeaderComponent {
   // Internal state
   readonly favMenuExpanded = signal(false);
   readonly shareConfirmed = signal(false);
+
+  /** HQ health at the start of a run. Nothing heals in play; the +HP cheat can go past it. */
+  readonly maxHealth = GAME_BALANCE.player.startHealth;
+
+  /** Fill of the HQ bar, 0-100 */
+  readonly healthPercent = computed(() =>
+    Math.max(0, Math.min(100, (this.baseHealth() / this.maxHealth) * 100))
+  );
+
+  private readonly hpBar = viewChild<ElementRef<HTMLElement>>('hpBar');
+  private readonly hpPulse = new PulseThrottle(HQ_BAR_PULSE_MIN_INTERVAL_MS);
+  private lastHealth: number | null = null;
+
+  constructor() {
+    // Flash the HQ bar when the HQ loses health; a reset or the cheat raises it quietly
+    effect(() => {
+      const health = this.baseHealth();
+      const previous = this.lastHealth;
+      this.lastHealth = health;
+      if (previous === null || health >= previous) return;
+      const bar = this.hpBar()?.nativeElement;
+      if (!bar || typeof bar.animate !== 'function') return;
+      if (this.hpPulse.tryPulse(performance.now())) {
+        bar.animate(HQ_BAR_PULSE, { duration: HQ_BAR_PULSE_MS, easing: 'ease-out' });
+      }
+    });
+  }
 
   /**
    * Toggle favorites menu

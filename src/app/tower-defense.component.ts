@@ -85,6 +85,7 @@ import { LosLegendComponent } from './components/los-legend/los-legend.component
 import { IntroSkipComponent } from './components/intro-skip/intro-skip.component';
 // Deferred in the template, loaded the first time the screen shows
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
+import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.component';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
@@ -120,6 +121,7 @@ import { ResearchStore } from './store/research.store';
     LosLegendComponent,
     IntroSkipComponent,
     TokenSetupComponent,
+    LeakVignetteComponent,
   ],
   providers: [
     GameStateManager,
