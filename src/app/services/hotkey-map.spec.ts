@@ -44,6 +44,12 @@ describe('resolveHotkey', () => {
     expect(resolveHotkey(key('K', { shiftKey: true }))).toEqual({ kind: 'ability', abilityId: 'nuclear-strike' });
   });
 
+  it('toggles photo mode on O, also with Caps Lock or Shift', () => {
+    expect(resolveHotkey(key('o'))).toEqual({ kind: 'photo-mode' });
+    expect(resolveHotkey(key('O', { shiftKey: true }))).toEqual({ kind: 'photo-mode' });
+    expect(resolveHotkey(key('o', { ctrlKey: true }))).toBeNull();
+  });
+
   it('opens the help on H and ?', () => {
     expect(resolveHotkey(key('h'))).toEqual({ kind: 'help' });
     expect(resolveHotkey(key('?', { shiftKey: true }))).toEqual({ kind: 'help' });

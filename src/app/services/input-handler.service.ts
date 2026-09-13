@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameStateManager } from '../managers/game-state.manager';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { UIStore } from '../store/ui.store';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { isEscapeForDialog } from '../utils/dialog-key-guard';
@@ -55,6 +56,9 @@ export class InputHandlerService {
 
   /** Reference to game state manager */
   private readonly store = inject(TowerDefenseStore);
+
+  /** Photo mode flag: clicks and hover select nothing, the camera still moves */
+  private readonly uiStore = inject(UIStore);
 
   /** Open dialogs own Escape, see isEscapeForDialog */
   private readonly dialog = inject(MatDialog);
@@ -295,6 +299,9 @@ export class InputHandlerService {
       }
     }
 
+    // Photo mode: a click selects nothing, a selection would draw range and LOS into the picture
+    if (this.uiStore.photoMode()) return;
+
     // A debug pick takes this click and nothing else: the selected tower
     // and its LOS display stay as they are.
     if (this.pickCallback) {
@@ -446,6 +453,11 @@ export class InputHandlerService {
    * stopped, and none when the pointer has not moved since the last.
    */
   private scheduleHoverPick(event: PointerEvent): void {
+    // Photo mode: no range ring in the picture
+    if (this.uiStore.photoMode()) {
+      if (this.hoveredTowerId) this.setHoveredTower(null);
+      return;
+    }
     if (event.buttons !== 0) return;
     this.hoverX = event.clientX;
     this.hoverY = event.clientY;
@@ -462,8 +474,8 @@ export class InputHandlerService {
 
   private pickHoveredTower(): void {
     if (!this.engine) return;
-    // Build or placement mode may have started since the move
-    if (this.buildModeSignal?.() || this.mapPlacementModeSignal?.()) return;
+    // Build, placement or photo mode may have started since the move
+    if (this.buildModeSignal?.() || this.mapPlacementModeSignal?.() || this.uiStore.photoMode()) return;
     if (this.hoverX === this.lastHoverPickX && this.hoverY === this.lastHoverPickY) return;
     this.lastHoverPickTime = performance.now();
     this.lastHoverPickX = this.hoverX;

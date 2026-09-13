@@ -153,6 +153,9 @@ export class UIStore {
   /** Ability being aimed (targeting mode, AbilityTargetingService), null outside it */
   readonly abilityTargeting = signal<AbilityId | null>(null);
 
+  /** Photo mode: HUD hidden, camera free, screenshot bar on top. Not persisted. */
+  readonly photoMode = signal<boolean>(false);
+
   constructor() {
     this.loadPersistedState();
     this.setupPersistence();

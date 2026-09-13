@@ -18,6 +18,7 @@ import { AbilityTargetingService } from './ability-targeting.service';
 import type { AbilityId } from '../configs/abilities.config';
 import { SellConfirmService } from './sell-confirm.service';
 import { TowerPlacementService } from './tower-placement.service';
+import { PhotoModeService } from './photo-mode.service';
 
 /**
  * Runs the game hotkeys (see hotkey-map.ts). The component hands it every key
@@ -43,6 +44,7 @@ export class HotkeyService {
   private readonly cameraControl = inject(CameraControlService);
   private readonly introFlight = inject(IntroCameraFlightService);
   private readonly abilityTargeting = inject(AbilityTargetingService);
+  private readonly photoMode = inject(PhotoModeService);
 
   /** BUILD panel order, the number keys follow it */
   private readonly towerTypes = getAllTowerTypes();
@@ -100,6 +102,9 @@ export class HotkeyService {
       case 'ability': return this.toggleAbility(action.abilityId);
       case 'camera-hq': return this.focusHq();
       case 'camera-spawn': return this.focusNextSpawn();
+      case 'photo-mode':
+        this.photoMode.toggle();
+        return true;
     }
   }
 
@@ -108,6 +113,8 @@ export class HotkeyService {
    * wave runs, a charge is there), a second press leaves the mode.
    */
   private toggleAbility(id: AbilityId): boolean {
+    // Photo mode hides the ability button; an aiming reticle would end up in the picture
+    if (this.photoMode.active()) return false;
     if (this.abilityTargeting.targeting() === id) {
       this.abilityTargeting.cancel();
       return true;
@@ -133,7 +140,8 @@ export class HotkeyService {
 
   private selectTower(slot: number): boolean {
     const tower = this.towerTypes[slot];
-    if (!tower || this.uiStore.mapPlacementMode()) return false;
+    // Photo mode hides the build panel; a build preview would end up in the picture
+    if (!tower || this.uiStore.mapPlacementMode() || this.photoMode.active()) return false;
     const pickable = canPickTowerCard(tower, {
       credits: this.store.credits(),
       gameOver: this.store.isGameOver(),
@@ -185,10 +193,15 @@ export class HotkeyService {
   }
 
   /**
-   * Esc that build and placement mode left over: close the open quick-actions
-   * menu, else drop a pending sale, else deselect the tower.
+   * Esc that build and placement mode left over: leave photo mode, else close
+   * the open quick-actions menu, else drop a pending sale, else deselect the
+   * tower.
    */
   private cancel(): boolean {
+    if (this.photoMode.active()) {
+      this.photoMode.exit();
+      return true;
+    }
     if (this.uiStore.openMenu()) {
       this.uiStore.openMenu.set(null);
       return true;

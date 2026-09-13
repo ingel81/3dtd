@@ -1,4 +1,5 @@
-<div class="td-container" [class.td-fullscreen]="!isDialog" (contextmenu)="$event.preventDefault()">
+<div class="td-container" [class.td-fullscreen]="!isDialog" [class.td-photo-mode]="photoMode.active()"
+     (contextmenu)="$event.preventDefault()">
   @if (store.aiError(); as aiErr) {
     <div class="ai-error-banner" role="alert">
       <strong>AI error:</strong>
@@ -186,6 +187,7 @@
           (maxUpgradeAllTowers)="maxUpgradeAllTowers()"
           (musicVolumeChanged)="onMusicVolumeChanged($event)"
           (sfxVolumeChanged)="onSfxVolumeChanged($event)"
+          (photoModeRequested)="photoMode.enter()"
         />
       }
 
@@ -240,6 +242,20 @@
               RESTART
             </button>
           </div>
+        </div>
+      }
+
+      <!-- Photo mode: only the map, its attribution and this bar stay -->
+      @if (photoMode.active()) {
+        <div class="td-photo-bar" role="toolbar" aria-label="Photo mode">
+          <button type="button" class="td-photo-btn" (click)="photoMode.saveScreenshot()" [disabled]="photoMode.saving()">
+            <td-icon name="camera" [size]="16"></td-icon>
+            <span>Save screenshot</span>
+          </button>
+          <button type="button" class="td-photo-btn" (click)="photoMode.exit()">
+            <span>Exit</span>
+            <kbd class="td-photo-key">Esc</kbd>
+          </button>
         </div>
       }
     </div>

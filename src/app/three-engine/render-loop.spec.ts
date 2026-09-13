@@ -353,6 +353,41 @@ describe('RenderLoop', () => {
     });
   });
 
+  describe('onNextFrameRendered()', () => {
+    it('ruft synchron im nächsten gezeichneten Frame auf, einmal', () => {
+      const { loop } = setup();
+      const callback = vi.fn();
+      loop.onNextFrameRendered(callback);
+      expect(callback).not.toHaveBeenCalled();
+
+      loop.frameRendered();
+      expect(callback).toHaveBeenCalledTimes(1);
+      loop.frameRendered();
+      expect(callback).toHaveBeenCalledTimes(1);
+    });
+
+    it('läuft vor den Wartenden von waitForRenderedFrame()', async () => {
+      const { loop } = setup();
+      loop.start();
+      const order: string[] = [];
+      void loop.waitForRenderedFrame().then(() => order.push('waiter'));
+      loop.onNextFrameRendered(() => order.push('callback'));
+      loop.frameRendered();
+      await Promise.resolve();
+      expect(order).toEqual(['callback', 'waiter']);
+    });
+
+    it('verschiebt einen Callback, der im Aufruf angemeldet wird, auf den Frame danach', () => {
+      const { loop } = setup();
+      const late = vi.fn();
+      loop.onNextFrameRendered(() => loop.onNextFrameRendered(late));
+      loop.frameRendered();
+      expect(late).not.toHaveBeenCalled();
+      loop.frameRendered();
+      expect(late).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('getFPS()', () => {
     it('zählt die gezeichneten Frames der letzten vollen Sekunde', () => {
       const { loop } = setup();

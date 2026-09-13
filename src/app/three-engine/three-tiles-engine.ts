@@ -635,6 +635,50 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Match the drawing buffer to the canvas' current CSS size, after a layout
+   * change such as photo mode hiding header and sidebar.
+   */
+  fitToCanvas(): void {
+    const canvas = this.renderer.domElement;
+    if (canvas.clientWidth > 0 && canvas.clientHeight > 0) {
+      this.resize(canvas.clientWidth, canvas.clientHeight);
+    }
+  }
+
+  /**
+   * Copy of the next drawn frame as a 2D canvas in drawing-buffer pixels, for
+   * screenshots. Copied inside the frame (RenderLoop.onNextFrameRendered), so
+   * it works without preserveDrawingBuffer. Null while nothing draws
+   * (headless training) or when no frame comes within a second (hidden tab).
+   */
+  captureFrame(): Promise<HTMLCanvasElement | null> {
+    if (!this._renderingEnabled) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        settled = true;
+        resolve(null);
+      }, 1000);
+      this.renderLoop.onNextFrameRendered(() => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        const source = this.renderer.domElement;
+        const copy = document.createElement('canvas');
+        copy.width = source.width;
+        copy.height = source.height;
+        const ctx = copy.getContext('2d');
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(source, 0, 0);
+        resolve(copy);
+      });
+    });
+  }
+
+  /**
    * Get DevTerrainProvider for wiring up street provider.
    * Only available when DevWorld mode is active.
    */

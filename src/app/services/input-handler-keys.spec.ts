@@ -5,12 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
 vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
 
-import { Injector, runInInjectionContext } from '@angular/core';
+import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { InputHandlerService } from './input-handler.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { UIStore } from '../store/ui.store';
 
 function keyOn(type: 'keydown' | 'keyup', key: string, target: EventTarget): KeyboardEvent {
   const event = new KeyboardEvent(type, { key, cancelable: true });
@@ -35,6 +36,7 @@ describe('InputHandlerService keys on a focused slider', () => {
     const injector = Injector.create({
       providers: [
         { provide: TowerDefenseStore, useValue: {} },
+        { provide: UIStore, useValue: { photoMode: signal(false) } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         { provide: KeyboardPanService, useValue: pan },
         { provide: TowerPlacementService, useValue: {} },

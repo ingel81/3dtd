@@ -89,6 +89,7 @@ import { TokenSetupComponent } from './components/token-setup/token-setup.compon
 import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.component';
 import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/offscreen-indicators.component';
 import { RunSummaryComponent } from './components/run-summary/run-summary.component';
+import { PhotoModeService } from './services/photo-mode.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
@@ -143,6 +144,8 @@ import { BUILD_VERSION } from './configs/build-info.config';
     VisualizationFacadeService,
     // Game hotkeys drive the facade, so they live in the same scope
     HotkeyService,
+    // Deselects through the component-scoped GameStateManager
+    PhotoModeService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',
@@ -182,6 +185,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly devWorld = inject(DevWorldService);
   readonly facade = inject(TowerDefenseFacadeService);
   readonly store = inject(TowerDefenseStore);
+  /** HUD hidden, screenshot bar on top */
+  readonly photoMode = inject(PhotoModeService);
 
   // Build / tiles version chips shown in the loading screen corners.
   readonly buildVersion = BUILD_VERSION;

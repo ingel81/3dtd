@@ -211,6 +211,34 @@
   cursor: default;
 }
 
+/* A row that runs an action (Photo Mode) instead of switching a setting */
+.td-setting-action {
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+}
+
+.td-setting-action:focus-visible {
+  outline: 1px solid var(--td-teal);
+  outline-offset: 1px;
+}
+
+.td-setting-key {
+  margin-left: auto;
+  padding: 0 5px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  color: var(--td-gold-light);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 16px;
+}
+
 .td-setting-select {
   background: var(--td-panel-secondary);
   color: var(--td-text-primary);

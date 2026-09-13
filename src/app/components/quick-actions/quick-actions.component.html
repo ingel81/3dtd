@@ -75,6 +75,17 @@
           }
         </div>
       </div>
+
+      <div class="td-settings-head td-settings-divider">
+        <span>View</span>
+      </div>
+      <button type="button" class="td-setting-row td-setting-action"
+              (click)="photoModeRequested.emit()"
+              matTooltip="Hide the interface, keep the camera free, save screenshots" matTooltipPosition="left">
+        <td-icon name="camera" [size]="14"></td-icon>
+        <span>Photo Mode</span>
+        <kbd class="td-setting-key">O</kbd>
+      </button>
     </div>
     <button class="td-quick-btn td-display-toggle-btn"
             [class.active]="uiStore.displayMenuExpanded()"
