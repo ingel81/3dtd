@@ -132,7 +132,7 @@ export class EnemyManager extends EntityManager<Enemy> {
   /** Every worm (EnemyTypeConfig.chain) on the routes, ticked in update() */
   private readonly worms = new WormChains({
     spawnSegment: (group, link, paused) =>
-      this.spawnOne(group.path, group.type.id, group.speedMps, paused, group.segmentMaxHp, undefined, link),
+      this.spawnOne(group.path, group.type.id, group.speedMps, paused, group.segmentMaxHp, group.start ?? undefined, link),
     // The head model is the worm type's own; presentFrame resolves the new slot
     showAsHead: (enemy) => this.tilesEngine?.enemies.setRenderType(enemy.id, enemy.typeConfig.id),
   });
@@ -204,7 +204,8 @@ export class EnemyManager extends EntityManager<Enemy> {
    *
    * A type with a chain (the worm) puts its whole chain on the route, and
    * `healthOverride` is the HP of each segment. Returns the head; the other
-   * segments come out of the portal as the chain moves (WormChains).
+   * segments come out where it did, out of the portal or at a SpawnStart
+   * (Enemy Debug placement), as the chain moves (WormChains).
    */
   spawn(
     path: GeoPosition[],
@@ -219,6 +220,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (chain) {
       const head = this.worms.spawn(
         path, type, chain, speedOverride ?? type.baseSpeed, healthOverride ?? type.baseHp, paused,
+        typeof entry === 'object' ? entry : null,
       );
       if (head.worm !== null) this.eventBus.emit({ type: 'worm:spawned', head, group: head.worm.group });
       return head;
