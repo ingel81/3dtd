@@ -484,7 +484,9 @@ export class GameStateManager {
 
     this.researchManager.update(stepMs);
     this.researchManager.startQueued(this.creditsNow, this.spendForResearch);
-    // Strike countdowns and impacts, in game time like the research
+    // The rumbling tail of a strike that already hit, then strike countdowns
+    // and impacts, in game time like the research
+    this.audioService?.update(stepMs);
     this.abilityManager.update(stepMs);
 
     t0 = profiling ? performance.now() : 0;

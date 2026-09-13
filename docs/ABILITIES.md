@@ -176,8 +176,9 @@ ab 1500 m (`strikeNearDistance`, `strikeFarDistance`); aus der
 den Display Options gilt auch hier. Sound `nuclear_strike`: das vorhandene
 `explosion.mp3` (1,3 s), lauter und mit größerer Reichweite, dazu nach 350 und
 900 ms zwei leisere Wiederholungen (55 und 35 % der Lautstärke) als Grollen
-(`GAME_SOUNDS.nuclearStrike.tail`). Die Wiederholungen laufen auf
-Wanduhr-Timern wie das Sample selbst, `game:reset` verwirft ausstehende. Eine
+(`GAME_SOUNDS.nuclearStrike.tail`). Die Wiederholungen laufen in Spielzeit
+(`AudioService.update()` je Sub-Step): eine Pause hält sie an, höheres Tempo
+verkürzt sie, `game:reset` verwirft ausstehende. Eine
 Warnsirene gibt es nicht, im Repo liegt kein passendes Sample.
 
 **Je Fähigkeit:** VFX, Ton und Shake wählen nach der `abilityId` im Event aus
