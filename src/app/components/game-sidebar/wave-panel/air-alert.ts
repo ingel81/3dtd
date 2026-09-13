@@ -51,6 +51,25 @@ export function upcomingAirAlert(lastWave: number, antiAirTowers: number): AirAl
   return null;
 }
 
+/**
+ * When the alert tone plays: once per air wave, when the alert first names
+ * it, and again in a new run (restart or new location, the wave number falls
+ * back). A wave counts as announced only once the tone actually played.
+ */
+export class AirAlertAnnouncer {
+  /** Air wave the tone last played for */
+  private announcedWave = 0;
+  private lastWaveNumber = 0;
+
+  /** `play` plays the tone and answers whether it did. */
+  update(waveNumber: number, alert: AirAlert | null, play: () => boolean): void {
+    if (waveNumber < this.lastWaveNumber) this.announcedWave = 0;
+    this.lastWaveNumber = waveNumber;
+    if (!alert || alert.wave === this.announcedWave) return;
+    if (play()) this.announcedWave = alert.wave;
+  }
+}
+
 /** Placed towers of these types that hit air, research included. */
 export function countAntiAirTowers(typeIds: Iterable<TowerTypeId>, airTargetingUnlocked: boolean): number {
   let n = 0;

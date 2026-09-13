@@ -32,7 +32,7 @@ import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { enemyGroupTooltip, splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
 import { calculateTotalDPS } from '../../../ai/core/defense-analyzer';
-import { airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
+import { AirAlertAnnouncer, airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
 import { peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
 import { abilityButtonView } from './ability-button';
@@ -79,13 +79,12 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       }
     });
 
-    // Air alert tone: once per air wave, when the alert first names it. A
+    // Air alert tone: once per air wave and run, see AirAlertAnnouncer. A
     // later build phase that still points at the same wave stays quiet.
     effect(() => {
+      const waveNumber = this.store.waveNumber();
       const alert = this.airAlert();
-      if (!alert || alert.wave === this.announcedAirWave) return;
-      this.announcedAirWave = alert.wave;
-      untracked(() => this.playAirAlertTone());
+      untracked(() => this.airAlertAnnouncer.update(waveNumber, alert, () => this.playAirAlertTone()));
     });
 
     this.destroyRef.onDestroy(() => this.destroyMixedEnemyPreviews());
@@ -201,18 +200,21 @@ export class SidebarWavePanelComponent implements AfterViewInit {
     return alert ? airAlertView(alert, this.researchStore.airTargetingUnlocked()) : null;
   });
 
-  /** Air wave the tone last played for */
-  private announcedAirWave = 0;
+  private readonly airAlertAnnouncer = new AirAlertAnnouncer();
 
-  /** Global one-shot at the SFX volume, registered on first use. */
-  private playAirAlertTone(): void {
+  /**
+   * Global one-shot at the SFX volume, registered on first use. False when
+   * there is no audio yet, so the wave stays unannounced.
+   */
+  private playAirAlertTone(): boolean {
     const audio = this.gameState.tilesEngine?.spatialAudio;
-    if (!audio) return;
+    if (!audio) return false;
     const { id, notes, volume } = UI_SOUNDS.airAlert;
     if (!audio.getSoundConfig(id)) {
       audio.registerSound(id, toneWavDataUrl(notes), { volume });
     }
     void audio.playGlobal(id);
+    return true;
   }
 
   readonly groupTooltip = enemyGroupTooltip;
