@@ -13,34 +13,18 @@
   border-bottom: 1px solid var(--td-frame-dark);
 }
 
-@include panel.header;
-
-.td-wave-panel .td-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.td-mixed-badge {
-  font-size: 9px;
-  color: var(--td-warn-orange);
-  background: rgba(255, 152, 0, 0.15);
-  padding: 1px 5px;
-  border-radius: 2px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
 @include panel.content;
 
 /* === Wave Button ===
- * Primärer Call-to-Action der Sidebar, "Start Wave N". Gold-Button-Rezept
- * aus DESIGN_SYSTEM.md (Verlauf, Kante, Key-Shadow, Mono-Caps), 13px und 44px
- * hoch, damit er sich vom Rest der Sidebar abhebt; Ecken wie Tower-Karten
- * (3px). Typografie und Höhe bleiben in jedem Zustand gleich, es wechseln
- * nur Fläche, Farbe und Inhalt:
- *   bereit          Gold-Verlauf, Hover-Glow, Pressed-Inset
- *   gesperrt        Build-Mode / Game Over, grau wie .td-btn:disabled
+ * Primärer Call-to-Action der Sidebar, "▶ WAVE N" links, rechts die Taste
+ * Space. Keine Kopfzeile darüber: der Knopf nennt die Welle. Gold-Button-
+ * Rezept aus DESIGN_SYSTEM.md (Verlauf, Kante, Key-Shadow, Mono-Caps), 13px
+ * und 44px hoch, damit er sich vom Rest der Sidebar abhebt; Ecken wie
+ * Tower-Karten (3px). Typografie und Höhe bleiben in jedem Zustand gleich,
+ * es wechseln nur Fläche, Farbe und Inhalt:
+ *   bereit          Gold-Verlauf, Hover-Glow, Pressed-Inset, rechts Space
+ *   Countdown       rechts die Sekunden statt Space, unten der Restbalken
+ *   gesperrt        Game Over, grau wie .td-btn:disabled, ohne Taste
  *   Welle läuft     flach eingelassen, "Wave N" links, "N left" rechts,
  *                   unten ein Teal-Balken mit dem Anteil der Restgegner */
 .td-wave-btn {
@@ -48,9 +32,8 @@
   overflow: hidden;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 10px;
-  margin-top: 4px;
   height: 44px;
   padding: 0 14px;
   background: linear-gradient(
@@ -102,7 +85,6 @@
 
 /* Laufende Welle: eingelassen wie Slots und Inputs (vertiefte Fläche, DESIGN_SYSTEM.md) */
 .td-wave-btn.td-wave-running {
-  justify-content: space-between;
   background: var(--td-panel-shadow);
   color: var(--td-teal);
   border-color: var(--td-frame-dark);
@@ -135,11 +117,19 @@
   transition: width 0.3s ease;
 }
 
-/* Auto-start counting down: label left, seconds right, and the bar drains
- * with the game time left (stands while paused) */
-.td-wave-btn.td-wave-counting {
-  justify-content: space-between;
+/* Key cap on the gold: dark ink, a faint rim, as quiet as the countdown */
+.td-wave-key {
+  padding: 3px 5px;
+  border: 1px solid rgba(26, 20, 10, 0.35);
+  border-radius: 2px;
+  background: rgba(26, 20, 10, 0.08);
+  color: rgba(26, 20, 10, 0.75);
+  font: 600 9px/1 var(--td-font-mono);
+  letter-spacing: 0.08em;
 }
+
+/* Auto-start counting down: seconds right instead of the key, and the bar
+ * drains with the game time left (stands while paused) */
 .td-wave-countdown {
   font-size: 11px;
   letter-spacing: 0.04em;
@@ -197,24 +187,60 @@
   color: var(--td-warn-orange);
 }
 
-/* Auto-start toggle, a plain checkbox row under the button */
-.td-auto-wave {
-  display: flex;
+/* Auto-start: a small switch right under the button, "auto 10s". Off the
+ * track is sunk and the knob grey; on, the track tints teal and the knob
+ * slides right in --td-teal-light (teal was the accent of the checkbox it
+ * replaces). */
+.td-auto-toggle {
+  align-self: flex-start;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--td-font-mono);
-  font-size: 10px;
-  color: var(--td-text-secondary);
-  cursor: pointer;
-  user-select: none;
-}
-.td-auto-wave input {
-  margin: 0;
-  accent-color: var(--td-teal);
-}
-.td-auto-wave-note {
-  margin-left: auto;
+  margin-top: -3px;
+  padding: 2px 0;
+  background: none;
+  border: 0;
   color: var(--td-text-muted);
+  font: 10px/1 var(--td-font-mono);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.td-auto-toggle:hover,
+.td-auto-toggle[aria-pressed='true'] {
+  color: var(--td-text-secondary);
+}
+.td-auto-toggle:focus-visible {
+  outline: 1px solid var(--td-teal-light);
+  outline-offset: 2px;
+}
+.td-auto-switch {
+  position: relative;
+  box-sizing: border-box;
+  width: 18px;
+  height: 10px;
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 5px;
+  background: var(--td-panel-shadow);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.td-auto-switch::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--td-text-disabled);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.td-auto-toggle[aria-pressed='true'] .td-auto-switch {
+  border-color: var(--td-teal-dark);
+  background: rgba(31, 135, 114, 0.35);
+}
+.td-auto-toggle[aria-pressed='true'] .td-auto-switch::after {
+  transform: translateX(8px);
+  background: var(--td-teal-light);
 }
 
 /* Curriculum coming-up preview, flat, embedded directly under the
@@ -291,8 +317,11 @@
   font-style: italic;
 }
 
-/* === Wave Section === */
+/* === Wave Section ===
+ * Without a head line the content starts 12px under the top, like the
+ * heads of the other panels */
 .td-wave-section {
+  padding-top: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;

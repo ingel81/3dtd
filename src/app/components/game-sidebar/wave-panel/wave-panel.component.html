@@ -1,11 +1,5 @@
-<!-- WAVE Section -->
-<section class="td-panel td-wave-panel">
-  <div class="td-panel-header">
-    WAVE {{ displayedWaveNumber() }}
-    @if (isMixedWave()) {
-      <span class="td-mixed-badge">MIX · {{ mixedTotalCount() }}</span>
-    }
-  </div>
+<!-- WAVE Section: no head line, the button names the wave -->
+<section class="td-panel td-wave-panel" aria-label="Wave">
   <div class="td-panel-content td-wave-section">
     @if (waveActive()) {
       <div class="td-enemy-group-list">
@@ -49,8 +43,7 @@
       </div>
     }
     <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
-            [class.td-wave-counting]="!!waveButton().countdown"
-            [attr.aria-label]="waveButtonAriaLabel()"
+            [attr.aria-label]="waveButton().ariaLabel"
             aria-keyshortcuts="Space"
             [disabled]="waveActive() || isGameOver()">
       @if (waveActive()) {
@@ -70,15 +63,22 @@
         @if (waveButton().countdown; as countdown) {
           <span class="td-wave-countdown">{{ countdown }}</span>
           <span class="td-wave-bar td-wave-bar-countdown" [style.width.%]="waveButton().barPercent"></span>
+        } @else if (!isGameOver()) {
+          <kbd class="td-wave-key" aria-hidden="true">Space</kbd>
         }
       }
     </button>
 
-    <label class="td-auto-wave">
-      <input type="checkbox" [checked]="autoStart()" (change)="toggleAutoStart()">
-      <span>Auto-start next wave</span>
-      <span class="td-auto-wave-note">{{ autoStartSeconds }}s after a wave</span>
-    </label>
+    <!-- Auto-start of the next wave: a small switch right under the button -->
+    <button type="button" class="td-auto-toggle"
+            [attr.aria-pressed]="autoStart()"
+            [attr.aria-label]="'Auto-start the next wave ' + autoStartSeconds + ' s after a wave'"
+            [matTooltip]="'Starts the next wave by itself ' + autoStartSeconds + ' s after a wave'"
+            matTooltipPosition="left"
+            (click)="toggleAutoStart()">
+      <span class="td-auto-switch" aria-hidden="true"></span>
+      <span>auto {{ autoStartSeconds }}s</span>
+    </button>
 
     <!-- COMING UP: the next two waves from the curriculum; past W30 what is
          known before the director picks -->
