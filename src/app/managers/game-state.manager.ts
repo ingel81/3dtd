@@ -599,6 +599,8 @@ export class GameStateManager {
       this.eventBus.emit({ type: 'game:started' });
     }
 
+    // A manual wave is a wave all the same: its leaks get their own budget.
+    this.healthLedger.refillLeakBudget();
     this.waveManager.beginWave();
   }
 
