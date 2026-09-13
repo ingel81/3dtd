@@ -227,7 +227,9 @@ export class EnemyManager extends EntityManager<Enemy> {
         path, type, chain, speedOverride ?? type.baseSpeed, healthOverride ?? type.baseHp, paused,
         typeof entry === 'object' ? entry : null,
       );
-      if (head.worm !== null) this.eventBus.emit({ type: 'worm:spawned', head, group: head.worm.group });
+      if (head.worm !== null) {
+        this.eventBus.emit({ type: 'worm:spawned', head, group: head.worm.group, viaPortal: entry === 'portal' });
+      }
       return head;
     }
     return this.spawnOne(path, typeId, speedOverride, paused, healthOverride, entry, null);

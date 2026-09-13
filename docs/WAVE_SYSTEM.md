@@ -692,6 +692,12 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
   in einer Welle (fünf Herberts einer Custom Wave, die Segmente eines Wurms)
   bekommen eines, zwei Typen je eines, nacheinander. `game:reset` setzt das
   Tor zurück, der nächste Lauf zählt wieder ab Welle 1.
+- **Wurm und Ooze**: den Wurm meldet `worm:spawned` mit `viaPortal` (Kopf als
+  Boss); die `enemy:spawned` seiner Segmente tragen kein `viaPortal`, weil sie
+  einzeln nachkommen, und lösen nichts aus. Ein zerstörtes Segment teilt den
+  Wurm ohne neuen Spawn. Die Ooze kommt als ein Gegner aus dem Portal, ihre
+  Spitze läuft die Route wie jeder Gegner; ihre Schleimklumpen beim Tod sind
+  Split-Kinder ohne `viaPortal`.
 - **Nur Wellen-Spawns**, Custom Wave eingeschlossen. Per Enemy Debug gesetzte
   Bosse stehen irgendwo auf der Route, ein Schnitt aufs Portal zeigte nichts.
 - **Der Schnitt wartet, bis der Boss draußen ist**: Routendistanz

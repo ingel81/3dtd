@@ -65,6 +65,12 @@ export type GameEvent =
       type: 'worm:spawned';
       head: Enemy;
       group: WormGroup;
+      /**
+       * A wave worm out of its spawn portal, as on enemy:spawned. Its
+       * segments' own enemy:spawned carry no viaPortal: they come out one by
+       * one as the chain moves.
+       */
+      viaPortal?: boolean;
     }
 
   // ==================== Tower Lifecycle ====================

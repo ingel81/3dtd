@@ -211,6 +211,36 @@ describe('BossIntroService', () => {
     expect(service.stage()).toBe('dip-in');
   });
 
+  it('gives a worm one intro, from its worm:spawned, not from its segments', () => {
+    const head = fakeBoss('worm');
+    const segment = fakeBoss('worm');
+    head.walked = segment.walked = 20;
+    // Head and segments bring their own enemy:spawned, without viaPortal
+    spawn(head, false);
+    bus.emit({ type: 'worm:spawned', head: head.enemy, group: {} as never, viaPortal: true });
+    spawn(segment, false);
+    frame();
+    expect(service.stage()).toBe('dip-in');
+    play(bossIntroReturnMs() + BOSS_INTRO_TIMING.revealMs);
+    expect(service.stage()).toBeNull();
+
+    // A second worm of the same wave, and more segments: none
+    const second = fakeBoss('worm');
+    second.walked = 20;
+    bus.emit({ type: 'worm:spawned', head: second.enemy, group: {} as never, viaPortal: true });
+    spawn(segment, false);
+    frame();
+    expect(service.stage()).toBeNull();
+  });
+
+  it('leaves a worm placed through Enemy Debug alone', () => {
+    const head = fakeBoss('worm');
+    head.walked = 20;
+    bus.emit({ type: 'worm:spawned', head: head.enemy, group: {} as never, viaPortal: false });
+    frame();
+    expect(service.stage()).toBeNull();
+  });
+
   it('stays out when switched off in the display menu', () => {
     bossIntroEnabled.set(false);
     const boss = fakeBoss();
