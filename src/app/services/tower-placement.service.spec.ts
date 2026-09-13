@@ -586,6 +586,28 @@ describe('TowerPlacementService', () => {
       expect(terrain.raycastSurfaceTop).toHaveBeenCalledTimes(38);
     });
 
+    it('shows the plinth under the preview, down to the lowest point', async () => {
+      devTerrain = { raycastDown: vi.fn((x: number) => ({ y: slope(x) })) };
+      init();
+      await enterBuild('archer');
+      hover(FREE, 5);
+
+      const r = TOWER_TYPES.archer.footprintRadius;
+      const plinth = overlay.children.find((child) => child.name === 'tower-plinth') as Mesh;
+      const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+      expect(plinth.visible).toBe(true);
+      expect(plinth.position.x).toBeCloseTo(local.x);
+      expect(plinth.position.y).toBeCloseTo(slope(-r));
+      expect(plinth.position.z).toBeCloseTo(local.z);
+      expect((plinth.material as MeshStandardMaterial).transparent).toBe(true);
+
+      service.hidePreview();
+      expect(plinth.visible).toBe(false);
+
+      service.exitBuildMode();
+      expect(overlay.children).toHaveLength(0);
+    });
+
     it('keeps the cursor surface on even ground', async () => {
       terrain.raycastSurfaceTop.mockImplementation(() => 3.05);
       init();
@@ -594,6 +616,7 @@ describe('TowerPlacementService', () => {
       service.handleBuildClick();
 
       expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 3 }, plinthHeight: 0 });
+      expect(overlay.children.some((child) => child.name === 'tower-plinth')).toBe(false);
     });
   });
 
