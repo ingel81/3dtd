@@ -1,24 +1,15 @@
 import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { HOTKEY_HELP } from '../../services/hotkey-map';
 import { TdIconComponent } from '../icon/icon.component';
+import { HOTKEY_HELP_TITLE_ID } from './open-hotkey-help-dialog';
 
-const TITLE_ID = 'td-hotkey-help-title';
-
-/** Opens the shortcut overview (H or ?). Esc, H, ? and the backdrop close it. */
-export function openHotkeyHelpDialog(dialog: MatDialog): MatDialogRef<HotkeyHelpDialogComponent> {
-  return dialog.open(HotkeyHelpDialogComponent, {
-    panelClass: 'td-dialog-panel',
-    width: 'min(460px, 92vw)',
-    maxWidth: '92vw',
-    ariaLabelledBy: TITLE_ID,
-    autoFocus: 'dialog',
-  });
-}
-
-/** Keyboard shortcuts, read from HOTKEY_HELP next to the key mapping itself. */
+/**
+ * Keyboard shortcuts, read from HOTKEY_HELP next to the key mapping itself.
+ * Opened through openHotkeyHelpDialog.
+ */
 @Component({
   selector: 'app-hotkey-help-dialog',
   standalone: true,
@@ -35,7 +26,7 @@ export function openHotkeyHelpDialog(dialog: MatDialog): MatDialogRef<HotkeyHelp
 export class HotkeyHelpDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<HotkeyHelpDialogComponent>);
 
-  readonly titleId = TITLE_ID;
+  readonly titleId = HOTKEY_HELP_TITLE_ID;
   readonly groups = HOTKEY_HELP;
 
   constructor() {
