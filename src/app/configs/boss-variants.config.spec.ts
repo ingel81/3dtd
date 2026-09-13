@@ -31,6 +31,11 @@ describe('bossVariantForWave', () => {
     expect(BOSS_VARIANT_ROTATION).toContain(null);
   });
 
+  it('gives W45 to the ooze, between two worm waves', () => {
+    expect([35, 40, 45, 50, 55].map((w) => bossVariantForWave(w)?.id ?? null))
+      .toEqual(['worm', null, 'ooze', null, 'worm']);
+  });
+
   it('names boss types that exist', () => {
     for (const id of Object.keys(BOSS_VARIANTS) as BossVariantId[]) {
       const variant = BOSS_VARIANTS[id];

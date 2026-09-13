@@ -532,7 +532,8 @@ ooze: {
 
 Wave-Director: Ooze und Slime Clump stehen in keinem Template und nicht in
 `AI_ENEMY_ORDER`; Schema, Encoder (208 Werte) und Templates bleiben gleich. In
-die Wellen kommt die Ooze als Boss-Gast ab W35 (WAVE_SYSTEM.md, Boss Waves),
+die Wellen kommt die Ooze als Boss-Variante der Endlos-Rotation, zuerst an W45
+(`configs/boss-variants.config.ts`, WAVE_SYSTEM.md, Boss Waves),
 außerdem über Custom Wave und das Enemy-Debug-Fenster.
 
 Grenzen:
