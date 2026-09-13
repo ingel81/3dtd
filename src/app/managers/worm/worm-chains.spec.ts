@@ -239,6 +239,46 @@ describe('Worm chains', () => {
     expect(distance(first)).toBeCloseTo(SPEED * 12, 6);
   });
 
+  describe('placed in Enemy Debug', () => {
+    it('is removed as a whole with the head the debug list shows', () => {
+      const head = m.enemyManager.spawn(straightPath(300), 'worm', undefined, true);
+      const group = head.worm!.group;
+      head.startMoving();
+      tickEngine(m, 10_000);
+      expect(out(group).length).toBeGreaterThan(5);
+
+      m.eventBus.emit({ type: 'debug:remove-enemy', enemyId: head.id });
+
+      expect(group.remaining).toBe(0);
+      expect(m.enemyManager.getAll()).toHaveLength(0);
+      expect(m.enemyManager.getPendingSpawnCount()).toBe(0);
+    });
+
+    it('is removed as a whole also after its head was killed', () => {
+      const head = m.enemyManager.spawn(straightPath(300), 'worm');
+      const group = head.worm!.group;
+      tickEngine(m, 10_000);
+      m.enemyManager.kill(head);
+      tickEngine(m, 3_000);
+
+      m.eventBus.emit({ type: 'debug:remove-enemy', enemyId: head.id });
+      expect(group.remaining).toBe(0);
+      expect(m.enemyManager.getAll()).toHaveLength(0);
+    });
+
+    it('lets the rest of an idle worm come out once its head is killed', () => {
+      const head = m.enemyManager.spawn(straightPath(300), 'worm', undefined, true);
+      const group = head.worm!.group;
+      tickEngine(m, 2_000);
+      m.enemyManager.kill(head);
+
+      tickEngine(m, 5_000);
+
+      expect(out(group).length).toBeGreaterThan(0);
+      expect(group.pending).toBeLessThan(group.size - 1);
+    });
+  });
+
   it('leaves nothing of a worm after a clear, the segments in the portal included', () => {
     const group = m.enemyManager.spawn(straightPath(300), 'worm').worm!.group;
     tickEngine(m, 5_000);

@@ -71,7 +71,14 @@ export class WormChains {
     const front = Math.min(0, ahead - CHAIN_GAP_SPACINGS * chain.spacing);
     const group = new WormGroup(type, chain, path, size, speedMps, segmentHp, front, paused);
     this.groups.push(group);
-    return this.emerge(group, group.chains[0], 0, paused);
+    const head = this.emerge(group, group.chains[0], 0, paused);
+    group.spawnedHeadId = head.id;
+    return head;
+  }
+
+  /** The worm that was spawned with head `id` and is not beaten yet, if any. */
+  groupSpawnedWith(id: string): WormGroup | null {
+    return this.groups.find((group) => group.spawnedHeadId === id && group.remaining > 0) ?? null;
   }
 
   /** Segments of all worms still inside the portal; the wave waits for them. */
@@ -90,6 +97,10 @@ export class WormChains {
     for (const group of this.groups) {
       if (group.remaining === 0) continue;
       this.groups[write++] = group;
+      // Idle holds a placed worm only while one of its segments is out to
+      // hold it. With all of them gone the rest comes out; parked in the
+      // portal it would keep every later wave from ending.
+      if (group.idle && group.pending === group.remaining) group.idle = false;
       for (const chain of group.chains) this.tickChain(group, chain, seconds, gameTimeMs);
     }
     this.groups.length = write;
