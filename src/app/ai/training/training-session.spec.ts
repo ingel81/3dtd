@@ -9,7 +9,7 @@ import { ITowerBot, TowerAction } from './bots/tower-bot.interface';
 import { GameStateSnapshot } from '../core/models/game-state-snapshot';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 
-/** Sub-step length the game loop hands the bot (GameStateManager.FIXED_STEP_MS). */
+/** Sub-step length the game loop hands the bot (GameClock.FIXED_STEP_MS). */
 const STEP_MS = 16.667;
 
 class TestBot extends BaseTowerBot {

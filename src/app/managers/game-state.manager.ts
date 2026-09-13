@@ -36,6 +36,7 @@ import { PerformanceProfilerService } from '../services/debug/performance-profil
 import { ResearchManager } from './research.manager';
 import { AbilityManager } from './ability.manager';
 import { ResearchStore } from '../store/research.store';
+import { GameClock } from './game-state/game-clock';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -155,53 +156,21 @@ export class GameStateManager {
 
   // Engine reference (public so visual hooks like turret-aim can access it).
   tilesEngine: ThreeTilesEngine | null = null;
-  private lastUpdateTime = 0;
   private basePosition: GeoPosition | null = null;
 
-  // ──────────────────────────────────────────────────────────────────
-  // Game-Clock — single source of truth for ALL gameplay timing.
-  // Advances by FIXED_STEP_MS per sub-step. Sub-stepping ensures the
-  // simulation runs identically at every training timescale: at 75× a
-  // single render-frame splits into ~75 sub-steps, each behaving like
-  // one 1× tick. No /timescale compensation anywhere.
-  // ──────────────────────────────────────────────────────────────────
-  private _gameTimeMs = 0;
-  private subStepRemainderMs = 0;
-  /** Fixed game-time per sub-step (~60Hz game-time granularity). */
-  private static readonly FIXED_STEP_MS = 16.667;
-  /** Max sub-steps per real-frame. At 75× training and 10fps real-time
-   *  we need ~450 sub-steps to keep up; 600 gives headroom for heavier
-   *  scenes before the simulation falls behind wall-clock-timescale. */
-  private static readonly MAX_SUBSTEPS_PER_FRAME = 600;
-  /** Cap on unprocessed game-time debt. Without a cap, frame-drops cause
-   *  `subStepRemainderMs` to grow unboundedly — the sim trails further
-   *  behind every frame and never catches up. Capping at one real-frame
-   *  worth of timescale lets spikes recover but bounds the debt. */
-  private static readonly MAX_REMAINDER_MS = 2000;
-
-  /**
-   * Upper bound on the wall-clock delta a single frame may carry into the
-   * sub-step loop (ms), applied before the timescale scales it.
-   *
-   * 50 ms ≈ three sub-steps, i.e. real-time is held down to 20 FPS. Below
-   * that the simulation runs slower than the wall clock instead of trying
-   * to catch up — a consistent slow-motion rather than a spiral. Everything
-   * in gameplay reasons in game-time, so nothing observes the difference.
-   *
-   * The player's 30 fps frame cap (RenderLoop.setFpsLimit) hands in
-   * ~33 ms per frame, inside the bound, so a capped game keeps full speed.
-   * Going below ~34 ms here would turn that cap into slow motion.
-   */
-  private static readonly MAX_CATCHUP_MS = 50;
+  /** Sub-step accounting: accumulator, catch-up cap, game time. */
+  private readonly clock = new GameClock();
 
   /** Read-only access to the game-clock for any consumer that needs
    *  game-time (status effects, sleep checks, AI bot ticks, etc). */
   get gameTimeMs(): number {
-    return this._gameTimeMs;
+    return this.clock.gameTimeMs;
   }
 
   // Performance profiler (optional, set via setProfiler())
   private profiler: PerformanceProfilerService | null = null;
+  /** Profiler sums of one frame, filled by runSubStep() */
+  private readonly stepTimings = { tProjectile: 0, tCombat: 0, tEvents: 0 };
 
   /**
    * Called right before a tower is placed or a wave starts, both of which
@@ -277,7 +246,7 @@ export class GameStateManager {
 
     // Wire the engine game-clock into StatusEffectService (breaks DI cycle —
     // StatusEffectService can't directly inject GameStateManager).
-    this.statusEffectService.setGameClockProvider(() => this._gameTimeMs);
+    this.statusEffectService.setGameClockProvider(() => this.clock.gameTimeMs);
 
     // Initialize combat effect service (subscribes to projectile:hit events)
     this.combatEffect.initialize(
@@ -454,7 +423,7 @@ export class GameStateManager {
     // remainder stays as it was, the resume continues where the pause began.
     // The renderer clock goes to 0 so walk cycles freeze with their enemies.
     if (this.paused()) {
-      this.lastUpdateTime = currentTime;
+      this.clock.holdFrame(currentTime);
       this.tilesEngine?.setTimescale(0);
       return;
     }
@@ -462,28 +431,10 @@ export class GameStateManager {
     const frameStart = performance.now();
     const profiling = this.profiler !== null;
 
-    // Clamp the wall-clock delta BEFORE the timescale multiplies it. The
-    // sub-step loop exists to keep game-time in step with wall-clock, so an
-    // unclamped delta means a slow frame is fully caught up on the next one:
-    // more sub-steps, more work, a slower frame still. Measured at 11.7k
-    // enemies with rendering off: 40.5 sub-steps per frame and climbing.
-    //
-    // Clamping the real delta rather than the sub-step count keeps timescale
-    // semantics exact — 20x still runs its 20 steps for a healthy frame,
-    // because the multiplication happens after. Only catch-up debt from
-    // frames that ran long is dropped, which the loop already did via
-    // `maxBudget`, just at a ~12 second threshold.
-    //
-    // This also covers a case that has nothing to do with load: rAF is
-    // throttled in a background tab, so returning to one produced a delta of
-    // minutes and a multi-second hang while the loop worked it off.
-    const rawDeltaTime = this.lastUpdateTime
-      ? Math.min(currentTime - this.lastUpdateTime, GameStateManager.MAX_CATCHUP_MS)
-      : 16;
-    this.lastUpdateTime = currentTime;
-
+    // Clamped wall-clock delta × timescale plus the carried remainder,
+    // see GameClock.beginFrame().
     const timescale = this.trainingTimescale();
-    const frameGameTimeMs = rawDeltaTime * timescale;
+    this.clock.beginFrame(currentTime, timescale);
 
     // Sync timescale to renderer (turret-pulse / hover / shader-time only —
     // gameplay rotation now flows through sub-step game-time).
@@ -492,34 +443,18 @@ export class GameStateManager {
     // ══════════════════════════════════════════════════════════════
     // SUB-STEP LOOP (gameplay)
     // ══════════════════════════════════════════════════════════════
-    // Cap accumulated game-time so a slow real-frame (heavy rendering /
-    // massive waves) doesn't grow the sim debt without bound. Excess is
-    // dropped — simulation stays ≤ MAX_REMAINDER_MS behind wall-clock
-    // × timescale but never more.
-    let pendingMs = this.subStepRemainderMs + frameGameTimeMs;
-    const maxBudget =
-      GameStateManager.MAX_SUBSTEPS_PER_FRAME * GameStateManager.FIXED_STEP_MS
-      + GameStateManager.MAX_REMAINDER_MS;
-    if (pendingMs > maxBudget) pendingMs = maxBudget;
-    let stepsExecuted = 0;
-    let tProjectile = 0, tCombat = 0, tEvents = 0, tTower = 0;
+    const timings = this.stepTimings;
+    timings.tProjectile = 0;
+    timings.tCombat = 0;
+    timings.tEvents = 0;
+    const stepMs = GameClock.FIXED_STEP_MS;
 
-    while (
-      pendingMs >= GameStateManager.FIXED_STEP_MS &&
-      stepsExecuted < GameStateManager.MAX_SUBSTEPS_PER_FRAME
-    ) {
-      const stepMs = GameStateManager.FIXED_STEP_MS;
-      const step = this.runSubStep(stepMs, profiling);
-      tProjectile += step.tProjectile;
-      tCombat += step.tCombat;
-      tEvents += step.tEvents;
-      tTower += step.tTower;
+    // nextSubStep() advances the game clock before the step runs
+    while (this.clock.nextSubStep()) {
+      this.runSubStep(stepMs, profiling);
 
       // Notify per-sub-step listeners (AI bot, etc.)
       onSubStep?.(stepMs);
-
-      pendingMs -= stepMs;
-      stepsExecuted++;
 
       // Wave-completion / game-over checks belong INSIDE the sub-step loop
       // so they catch state transitions mid-frame (otherwise a wave might
@@ -538,7 +473,8 @@ export class GameStateManager {
         break; // no point running more sub-steps after game-over
       }
     }
-    this.subStepRemainderMs = pendingMs;
+    this.clock.endFrame();
+    const stepsExecuted = this.clock.stepsThisFrame;
 
     // ══════════════════════════════════════════════════════════════
     // ONCE PER RENDER-FRAME (visuals + UI sync)
@@ -553,7 +489,7 @@ export class GameStateManager {
     // per-enemy matrix work used to happen there too, for a frame that is
     // never drawn.
     if (stepsExecuted > 0 && this.tilesEngine?.renderingEnabled) {
-      this.enemyManager.presentFrame(this._gameTimeMs);
+      this.enemyManager.presentFrame(this.clock.gameTimeMs);
       this.projectileManager.presentFrame();
     }
 
@@ -564,7 +500,7 @@ export class GameStateManager {
 
     if (profiling) {
       this.profiler!.accumulateFrameTiming(
-        tTower, tProjectile, tCombat, tEvents,
+        0, timings.tProjectile, timings.tCombat, timings.tEvents,
         performance.now() - frameStart,
         stepsExecuted,
       );
@@ -574,15 +510,16 @@ export class GameStateManager {
   /**
    * Execute one fixed game-time sub-step. Called repeatedly from update()
    * so the simulation always runs at ~60Hz game-time regardless of timescale.
+   * The game clock has already advanced for this step; profiler times add
+   * up in `stepTimings`.
    */
-  private runSubStep(stepMs: number, profiling: boolean): {
-    tProjectile: number; tCombat: number; tEvents: number; tTower: number;
-  } {
-    this._gameTimeMs += stepMs;
+  private runSubStep(stepMs: number, profiling: boolean): void {
+    const now = this.clock.gameTimeMs;
+    const timings = this.stepTimings;
 
     let t0 = profiling ? performance.now() : 0;
     this.projectileManager.update(stepMs);
-    const tProjectile = profiling ? performance.now() - t0 : 0;
+    if (profiling) timings.tProjectile += performance.now() - t0;
 
     this.researchManager.update(stepMs);
     this.researchManager.startQueued(this.creditsNow, this.spendForResearch);
@@ -591,7 +528,7 @@ export class GameStateManager {
 
     t0 = profiling ? performance.now() : 0;
     this.eventBus.processQueue();
-    const tEvents = profiling ? performance.now() - t0 : 0;
+    if (profiling) timings.tEvents += performance.now() - t0;
 
     const hasDebugEnemies = this.enemyDebug.debugEnemies().length > 0;
     const isWavePhase = this.waveManager.phase() === 'wave';
@@ -605,13 +542,12 @@ export class GameStateManager {
     // still needs to tick pending-death / pending-start accumulators, and
     // tickPendingDeaths is what finalises the removal of enemies whose
     // death animation just expired.
-    this.enemyManager.update(stepMs, this._gameTimeMs);
+    this.enemyManager.update(stepMs, now);
 
-    let tCombat = 0;
     if (shouldRunCombat) {
       t0 = profiling ? performance.now() : 0;
       this.towerCombat.updateTowerShooting(
-        this._gameTimeMs,
+        now,
         stepMs,
         this.towerManager,
         this.enemyManager,
@@ -621,24 +557,22 @@ export class GameStateManager {
         stepMs,
         this.towerManager,
         this.enemyManager,
-        this._gameTimeMs,
+        now,
       );
       this.towerCombat.updateMeleeTowers(
         stepMs,
         this.towerManager,
         this.enemyManager,
-        this._gameTimeMs,
+        now,
       );
       this.towerCombat.updateChainTowers(
         stepMs,
         this.towerManager,
         this.enemyManager,
-        this._gameTimeMs,
+        now,
       );
-      tCombat = profiling ? performance.now() - t0 : 0;
+      if (profiling) timings.tCombat += performance.now() - t0;
     }
-
-    return { tProjectile, tCombat, tEvents, tTower: 0 };
   }
 
   /**
@@ -815,9 +749,7 @@ export class GameStateManager {
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
     this.waveLeakDamage = 0;
     this.updateCredits(GAME_BALANCE.player.startCredits - this.credits());
-    this.lastUpdateTime = 0;
-    this._gameTimeMs = 0;
-    this.subStepRemainderMs = 0;
+    this.clock.reset();
     this.economy.reset();
 
     GameObject.resetIdCounter();
