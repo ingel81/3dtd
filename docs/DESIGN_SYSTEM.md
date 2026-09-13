@@ -529,7 +529,7 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | H / ? | Übersicht als Dialog | |
 | Pos1 (Home) | Kamera gleitet zum HQ | nicht während des Intro-Flugs |
 | N | Kamera gleitet zum nächsten Spawnpunkt, reihum | nicht während des Intro-Flugs |
-| K (je Fähigkeit `AbilityConfig.hotkey`) | Zielmodus des Nuclear Strike an, nochmal drücken schaltet ihn ab (nicht im Photo Mode) | Knopf in der Fähigkeitenleiste (`AbilityTargetingService.start`) |
+| Taste der Fähigkeit (`AbilityConfig.hotkey`, K für den Nuclear Strike, alle in [ABILITIES.md](ABILITIES.md)) | Zielmodus der Fähigkeit an, nochmal drücken schaltet ihn ab (nicht im Photo Mode) | Knopf in der Fähigkeitenleiste (`AbilityTargetingService.start`) |
 | G | Held wählen; ist er gewählt, gleitet die Kamera zu ihm (nicht im Photo Mode, nicht während des Intro-Flugs) | Held-Knopf in der Fähigkeitenleiste, Klick auf den Helden (`HeroControlService.summon`) |
 | V | Nächste Munition des Helden, reihum (auch ohne ihn zu wählen) | Segmente im Helden-Panel (`HeroControlService.cycleAmmo`) |
 | O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |

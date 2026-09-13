@@ -215,7 +215,7 @@ geführt vom `AbilityTargetingService`):
   der Modus an. Tower-Auswahl und Bauen sind im Modus aus.
 - Esc und ein kurzer Rechtsklick brechen ab. Wellenende, verbrauchte Ladung,
   Build-Mode und Kartenplatzierung beenden den Modus ebenfalls.
-- K wirkt wie ein Klick auf den Knopf (`AbilityConfig.hotkey`, aufgelöst in
+- Die Taste der Fähigkeit (Nuklearschlag: K) wirkt wie ein Klick auf den Knopf (`AbilityConfig.hotkey`, aufgelöst in
   `services/hotkey-map.ts`, ausgeführt vom `HotkeyService`): schaltet den
   Modus an, wenn der Schlag feuern kann, ein zweites K schaltet ihn ab. Die
   Tastenübersicht (H) führt die Taste auf.
