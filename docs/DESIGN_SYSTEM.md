@@ -438,7 +438,7 @@ Knopf: Quadrat 44 × 44px, Fläche und Kanten wie die laufende Welle (`--td-pane
 | Unterwegs | Schlag zwischen Befehl und Einschlag | Icon `--td-warn-orange` |
 | Lädt | Ladung verbraucht | Icon `--td-text-disabled`, die Striche zählen die geschafften Wellen |
 
-Der Held-Knopf ist ein Schalter: Icon `--td-text-secondary`, Hover `--td-text-primary`, ausgewählt im Aktiv-Rezept der Dev-Kacheln (Fläche `rgba(194,160,85,0.16)`, Rand `--td-gold-dark`, Icon `--td-gold-light`, `aria-pressed`).
+Der Held-Knopf ist ein Schalter: Icon `--td-text-secondary`, Hover `--td-text-primary`, ausgewählt im Aktiv-Rezept der Dev-Kacheln (Fläche `rgba(194,160,85,0.16)`, Rand `--td-gold-dark`, Icon `--td-gold-light`, `aria-pressed`). Er erscheint mit der fertigen Forschung `mercenary-contract`: bis zum Anheuern als Münze (`coin`) ohne Taste, der Tooltip nennt Preis und fehlende Credits; danach der Held (`user`) mit G, Tooltip mit Stufe und Munition. Inhalt aus `heroBarView()` (`ability-bar/hero-bar.ts`).
 
 Ohne Wirkung bleibt ein Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht. Der Tooltip (`tdRichTooltip`, rechts daneben) trägt im Kopf Name, Zustand in Versalien ("RECHARGES IN 2 WAVES") und die Tastenkappe, darunter CHARGES und RECHARGE, dann die Beschreibung; gesperrt statt der Zahlen die Forschung, die freischaltet, mit Preis. Zustand, Striche und Texte liefern `abilityButtonView()` und `abilityTooltip()` (`ability-bar/ability-button.ts`) aus `GameStore.abilities`.
 
@@ -530,7 +530,7 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | Pos1 (Home) | Kamera gleitet zum HQ | nicht während des Intro-Flugs |
 | N | Kamera gleitet zum nächsten Spawnpunkt, reihum | nicht während des Intro-Flugs |
 | K (je Fähigkeit `AbilityConfig.hotkey`) | Zielmodus des Nuclear Strike an, nochmal drücken schaltet ihn ab (nicht im Photo Mode) | Knopf in der Fähigkeitenleiste (`AbilityTargetingService.start`) |
-| G | Held wählen; ist er gewählt, gleitet die Kamera zu ihm (nicht im Photo Mode, nicht während des Intro-Flugs) | Klick auf den Helden (`HeroControlService.select`) |
+| G | Held wählen; ist er gewählt, gleitet die Kamera zu ihm (nicht im Photo Mode, nicht während des Intro-Flugs) | Held-Knopf in der Fähigkeitenleiste, Klick auf den Helden (`HeroControlService.summon`) |
 | V | Nächste Munition des Helden, reihum (auch ohne ihn zu wählen) | Segmente im Helden-Panel (`HeroControlService.cycleAmmo`) |
 | O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |
 | Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Held loslassen, sonst Tower abwählen | |

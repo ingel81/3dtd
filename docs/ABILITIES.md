@@ -242,13 +242,15 @@ Zustand und Texte berechnen `abilityButtonView()` und `abilityTooltip()`
 kennt den Helden nicht, sie bekommt ihn als Eingang und meldet den Druck:
 
 ```html
-<app-ability-bar [hero]="heroSlot()" (heroPressed)="onHeroSlotPressed()" />
+<app-ability-bar [hero]="heroBar()" (heroPressed)="onHeroBarPressed()" />
 ```
 
 `hero` ist ein `AbilityBarHero` (`icon`, `name`, `hotkey` oder null,
 `selected`, optional `detail` als Tooltip-Zeile) oder `null`, der Standard;
 dann fehlen Knopf und Trennlinie. Was ein Druck tut (auswählen, Kamera
-hinfahren), entscheidet der Aufrufer.
+hinfahren), entscheidet der Aufrufer. Im Spiel füllt ihn `heroBarView()`
+(`ability-bar/hero-bar.ts`): erst das Anheuern, dann der Held, siehe
+[HERO.md](HERO.md#bedienung).
 
 Zum Testen: Cheat "Nuke" im Dev-Menü (Gruppe Cheats). Er schließt die
 Forschung `nuclear-strike` samt Voraussetzungen ab (`ResearchManager.completeResearch`,

@@ -75,16 +75,12 @@ describe('HotkeyService', () => {
     toggle: vi.fn(() => photoActive.update((on) => !on)),
     exit: vi.fn(() => photoActive.set(false)),
   };
-  /** Whether the hero is hired, HeroControlService.select checks it */
+  /** Whether the hero is hired, HeroControlService.summon and cycleAmmo check it */
   let heroHired: boolean;
   const heroControl = {
     selected: signal(false),
-    select: vi.fn(() => {
-      if (heroHired) heroControl.selected.set(true);
-      return heroHired;
-    }),
+    summon: vi.fn(() => heroHired),
     deselect: vi.fn(() => heroControl.selected.set(false)),
-    position: () => ({ lat: 48.75, lon: 9.15 }),
     cycleAmmo: vi.fn(() => heroHired),
   };
 
@@ -147,7 +143,7 @@ describe('HotkeyService', () => {
     photoActive.set(false);
     heroHired = true;
     heroControl.selected.set(false);
-    heroControl.select.mockClear();
+    heroControl.summon.mockClear();
     heroControl.deselect.mockClear();
     heroControl.cycleAmmo.mockClear();
 
@@ -365,27 +361,18 @@ describe('HotkeyService', () => {
   });
 
   describe('hero keys', () => {
-    it('G selects him, a second G flies the camera to him', () => {
-      const first = press('g');
-      service.handleKeyDown(first);
-      expect(heroControl.select).toHaveBeenCalledTimes(1);
-      expect(first.defaultPrevented).toBe(true);
-      expect(focusGeo).not.toHaveBeenCalled();
-
-      service.handleKeyDown(press('g'));
-      expect(focusGeo).toHaveBeenCalledWith(48.75, 9.15);
+    it('G does what his bar button does and takes the key', () => {
+      const event = press('g');
+      service.handleKeyDown(event);
+      expect(heroControl.summon).toHaveBeenCalledTimes(1);
+      expect(event.defaultPrevented).toBe(true);
     });
 
-    it('G leaves the key alone before the hire and in photo mode', () => {
+    it('G leaves the key alone when that does nothing, before the hire', () => {
       heroHired = false;
       const event = press('g');
       service.handleKeyDown(event);
       expect(event.defaultPrevented).toBe(false);
-
-      heroHired = true;
-      photoActive.set(true);
-      service.handleKeyDown(press('g'));
-      expect(heroControl.selected()).toBe(false);
     });
 
     it('V switches his ammo once he is hired', () => {

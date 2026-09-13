@@ -222,7 +222,7 @@
 
         <!-- Ability bar (left edge): the hero on top once there is one, then
              one button per ability -->
-        <app-ability-bar />
+        <app-ability-bar [hero]="heroBar()" (heroPressed)="onHeroBarPressed()" />
       }
 
       <!-- Intro camera flight skip control -->

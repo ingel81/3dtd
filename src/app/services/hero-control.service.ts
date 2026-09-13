@@ -5,6 +5,8 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { TowerPlacementService } from './tower-placement.service';
 import { MapPlacementService } from './world/map-placement.service';
 import { AbilityTargetingService } from './ability-targeting.service';
+import { CameraControlService } from './camera-control.service';
+import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { HERO, HeroAmmoId, nextHeroAmmo } from '../configs/hero.config';
 import type { GeoPosition } from '../models/game.types';
 import type { ThreeTilesEngine } from '../three-engine';
@@ -14,8 +16,8 @@ import type { GameStateManager } from '../managers/game-state.manager';
 const NO_ROUTE_WARNING = `No route within ${HERO.orderSnapM} m`;
 
 /**
- * Selecting and ordering the hero: a click on him or G selects him, the hero
- * button in the WAVE panel as well. While he is selected the next click on
+ * Selecting and ordering the hero: a click on him or G selects him, his
+ * button in the ability bar as well. While he is selected the next click on
  * the ground sends him to the route point nearest to it (command:hero-move),
  * a move ring shows where under the cursor, V or the panel switches his ammo
  * (command:hero-ammo). Escape, a short right click or a click on him again
@@ -33,6 +35,8 @@ export class HeroControlService {
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly abilityTargeting = inject(AbilityTargetingService);
+  private readonly cameraControl = inject(CameraControlService);
+  private readonly introFlight = inject(IntroCameraFlightService);
 
   private engine: ThreeTilesEngine | null = null;
   private gameState: GameStateManager | null = null;
@@ -92,6 +96,25 @@ export class HeroControlService {
   toggle(): void {
     if (this.selected()) this.deselect();
     else this.select();
+  }
+
+  /**
+   * G and his bar button: select him, or bring him into view when he is
+   * selected. Not in photo mode, no camera while the intro flight plays.
+   */
+  summon(): boolean {
+    if (this.uiStore.photoMode()) return false;
+    if (!this.selected()) return this.select();
+    const at = this.position();
+    if (!at || this.introFlight.active()) return false;
+    return this.cameraControl.focusGeo(at.lat, at.lon);
+  }
+
+  /** His bar button before the hire. The HeroManager checks research and credits. */
+  hire(): boolean {
+    if (!this.gameState) return false;
+    this.gameState.getEventBus().emit({ type: 'command:hire-hero' });
+    return true;
   }
 
   /** Where he stands, null until hired. */

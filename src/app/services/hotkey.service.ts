@@ -102,7 +102,7 @@ export class HotkeyService {
         return true;
       case 'cancel': return this.cancel();
       case 'ability': return this.toggleAbility(action.abilityId);
-      case 'hero': return this.selectHero();
+      case 'hero': return this.heroControl.summon();
       case 'hero-ammo': return this.heroControl.cycleAmmo();
       case 'camera-hq': return this.focusHq();
       case 'camera-spawn': return this.focusNextSpawn();
@@ -131,14 +131,6 @@ export class HotkeyService {
    * G: select the hero like a click on him; pressed again while he is
    * selected, the camera flies to him.
    */
-  private selectHero(): boolean {
-    if (this.photoMode.active()) return false;
-    if (!this.heroControl.selected()) return this.heroControl.select();
-    const at = this.heroControl.position();
-    if (!at || this.introFlight.active()) return false;
-    return this.cameraControl.focusGeo(at.lat, at.lon);
-  }
-
   /** The intro flight owns the camera while it plays. */
   private focusHq(): boolean {
     if (this.introFlight.active()) return false;

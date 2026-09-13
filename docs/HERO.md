@@ -87,7 +87,7 @@ nützlich. Das ist eine Playtest-Frage.
 ## Ablauf
 
 ```
-UI: Klick auf die Route (HeroControlService), Taste V, Helden-Panel, Helden-Knopf
+UI: Klick auf die Route (HeroControlService), Taste V, Helden-Panel, Held-Knopf der Leiste
     command:hire-hero · command:hero-move { target } · command:hero-ammo { ammo }
                                    │
                     GameCommandsHandler → HeroManager.hire / moveTo / setAmmo
@@ -219,20 +219,25 @@ Tower-Modellen.
 
 ## Bedienung
 
-- **Anheuern:** Knopf rechts vom Nuclear-Strike-Knopf, sichtbar ab der
-  fertigen Forschung; vor dem Anheuern mit dem Preis, danach mit seiner
-  Stufe (Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#helden-knopf-sidebar)).
-- **Wählen:** Klick auf ihn, Taste G oder der Helden-Knopf. Das beendet
+- **Anheuern:** oberster Knopf der Fähigkeitenleiste am linken Rand,
+  sichtbar ab der fertigen Forschung. Vor dem Anheuern zeigt er eine Münze
+  ohne Taste, sein Tooltip den Preis und die fehlenden Credits; ein Druck
+  schickt `command:hire-hero` (`HeroControlService.hire`), der HeroManager
+  prüft Forschung und Credits. Danach zeigt der Knopf den Helden mit G, im
+  Tooltip Stufe und Munition (`heroBarView()` in `ability-bar/hero-bar.ts`,
+  Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#fähigkeitenleiste-canvas)).
+- **Wählen:** Klick auf ihn, Taste G oder sein Knopf in der Leiste
+  (`HeroControlService.summon`, Knopf und Taste tun dasselbe). Das beendet
   Build-Modus, Kartenplatzierung und Zielmodus und wählt den Tower ab.
 - **Schicken:** gewählt schickt ein Linksklick auf den Boden ihn zum
   nächsten Routenpunkt; ein Klick auf einen Tower wählt weiter den Tower.
   Er bleibt gewählt. Ohne Route in 30 m warnt die Kontext-Hinweis-Box "No
   route within 30 m".
-- **Kamera:** G, während er gewählt ist, fliegt zu ihm.
+- **Kamera:** G oder sein Knopf, während er gewählt ist, fliegt zu ihm.
 - **Munition:** V schaltet reihum, auch ohne ihn zu wählen; im Helden-Panel
   die drei Segmente.
 - **Loslassen:** Esc (nach offenem Menü und schwebendem Verkauf, vor dem
-  Tower), kurzer Rechtsklick, Klick auf ihn, der Helden-Knopf. Build-Modus,
+  Tower), kurzer Rechtsklick, Klick auf ihn. Build-Modus,
   Kartenplatzierung, Zielmodus, Photo Mode, ein gewählter Tower und ein
   Neustart lassen ihn ebenfalls los.
 - **Panel:** solange er gewählt ist, statt des Tower-Details: Stufe, Kills,
@@ -241,9 +246,6 @@ Tower-Modellen.
 - **Cheat:** "Hero" im Dev-Menü (Gruppe Cheats) schließt die Forschung samt
   Voraussetzungen ab und heuert ihn umsonst an (`debug:ready-hero`,
   deferred, im nächsten Sub-Step).
-
-Zwischenstand bis zur neuen Leiste am linken Rand: der Helden-Knopf sitzt
-neben dem Nuclear-Strike-Knopf und zieht mit der Leiste dorthin um.
 
 ---
 
@@ -275,7 +277,7 @@ vergleichbar.
 | `services/input-handler.service.ts` | `setHeroCallbacks` |
 | `services/hotkey-map.ts`, `services/hotkey.service.ts` | G, V, Esc |
 | `components/game-sidebar/hero-panel/` | Helden-Panel |
-| `components/game-sidebar/wave-panel/hero-button.ts` | Zustand des Helden-Knopfs |
+| `components/ability-bar/hero-bar.ts` | Held-Knopf der Fähigkeitenleiste: Angebot, Held, was ein Druck tut |
 | `three-engine/renderers/hero-model.ts` | Modell-Naht, Platzhalter, GLB-Lader |
 | `three-engine/renderers/hero.renderer.ts` | Modell auf der Karte, Ringe |
 
@@ -285,7 +287,7 @@ Tests: `route-graph.spec.ts`, `hero.manager.spec.ts`,
 `defense-analyzer.spec.ts`, `ai-data-collector.service.spec.ts`,
 `ai-data-collector.ability-kills.spec.ts`, `research-pick.strategy.spec.ts`,
 `hero-control.service.spec.ts`, `hotkey-map.spec.ts`,
-`hotkey.service.spec.ts`, `hero-panel.spec.ts`, `hero-button.spec.ts`,
+`hotkey.service.spec.ts`, `hero-panel.spec.ts`, `hero-bar.spec.ts`,
 `hero.renderer.spec.ts`, `vfx.service.spec.ts`,
 `game-state.manager.spec.ts`, `game-state.manager.order.spec.ts`.
 
