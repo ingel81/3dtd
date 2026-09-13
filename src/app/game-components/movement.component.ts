@@ -152,6 +152,10 @@ export class MovementComponent extends Component {
         // Seed only — replaced by the grid read on the first update tick.
         transform.terrainHeight = height;
       }
+      // Face along the segment from the start, not only from the first
+      // step: an enemy that stands still at first (debug placement, a
+      // delayed start) would otherwise show heading 0, north.
+      transform.lookAt(to);
     }
   }
 
@@ -499,9 +503,9 @@ export class MovementComponent extends Component {
             this.headingLocked = transform.lookAt(target) && continuous;
           }
         } else {
-          // First frame: look at next waypoint. Not a movement direction
-          // (the start point carries no lateral offset), so it is not held.
-          transform.lookAt(next);
+          // First step: setPath() already faced along the segment. The start
+          // point carries no lateral offset, so this step is no movement
+          // direction to take a heading from.
           this.hasMovedOnce = true;
         }
       }
