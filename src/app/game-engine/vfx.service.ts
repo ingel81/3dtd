@@ -10,7 +10,15 @@ import {
 } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
+import type { AbilityId } from '../configs/abilities.config';
 import type { GeoPosition } from '../models/game.types';
+import type { GameEvent } from './game-event-bus';
+
+/** What an ability shows while it is on its way and where it lands. */
+interface AbilityVfx {
+  used(event: Extract<GameEvent, { type: 'ability:used' }>): void;
+  impact(event: Extract<GameEvent, { type: 'ability:impact' }>): void;
+}
 
 /**
  * VFX Service - Handles visual effects via events
@@ -24,6 +32,18 @@ export class VFXService {
   // Scratch vectors to avoid per-event allocations (chain lightning, scorch marks).
   private readonly tmpA = new Vector3();
   private readonly tmpB = new Vector3();
+
+  /**
+   * Effects per ability, picked by the event's ability id. Complete per
+   * AbilityId, so a new ability decides here what it shows.
+   */
+  private readonly abilityVfx: Record<AbilityId, AbilityVfx> = {
+    // Target marker while it is on its way, mushroom cloud and scorch marks on impact
+    'nuclear-strike': {
+      used: (event) => this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs),
+      impact: (event) => this.handleStrikeImpact(event.strikeId, event.target, event.radiusM),
+    },
+  };
 
   constructor(
     private eventBus: GameEventBus,
@@ -69,12 +89,12 @@ export class VFXService {
       );
     }));
 
-    // Nuclear strike: target marker while it is on its way, mushroom cloud on impact
+    // Abilities: what each one shows, see abilityVfx
     this.subs.add(this.eventBus.on('ability:used', (event) => {
-      this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs);
+      this.abilityVfx[event.abilityId]?.used(event);
     }));
     this.subs.add(this.eventBus.on('ability:impact', (event) => {
-      this.handleStrikeImpact(event.strikeId, event.target, event.radiusM);
+      this.abilityVfx[event.abilityId]?.impact(event);
     }));
     // A restart drops the markers and the clouds
     this.subs.add(this.eventBus.on('game:reset', () => this.clearStrikes()));

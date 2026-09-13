@@ -6,6 +6,7 @@
  */
 
 import type { TowerTypeId } from './tower-types.config';
+import type { AbilityId } from './abilities.config';
 
 /** Particle pool limits */
 export const PARTICLE_LIMITS = {
@@ -114,6 +115,28 @@ export const SCREEN_SHAKE_CONFIG = {
   strikeNearDistance: number;
   strikeFarDistance: number;
   presets: Record<string, ScreenShakePreset>;
+};
+
+/** Screen shake of an ability's impact and the camera distances it fades over */
+export interface AbilityImpactShake {
+  preset: ScreenShakePreset;
+  /** Full strength up to this distance from the camera, m */
+  nearDistance: number;
+  /** None from this distance on, m */
+  farDistance: number;
+}
+
+/**
+ * Screen shake per ability on `ability:impact` (ScreenShakeService), null
+ * for one that does not shake. Complete per AbilityId, so a new ability
+ * decides here.
+ */
+export const ABILITY_IMPACT_SHAKE: Record<AbilityId, AbilityImpactShake | null> = {
+  'nuclear-strike': {
+    preset: SCREEN_SHAKE_CONFIG.presets.nuclearStrike,
+    nearDistance: SCREEN_SHAKE_CONFIG.strikeNearDistance,
+    farDistance: SCREEN_SHAKE_CONFIG.strikeFarDistance,
+  },
 };
 
 /**

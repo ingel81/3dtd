@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { GameEventBus } from './game-event-bus';
 import { AudioService } from './audio.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import { GAME_SOUNDS } from '../configs/audio.config';
+import { ABILITY_IMPACT_SOUNDS, GAME_SOUNDS } from '../configs/audio.config';
 
 const { id, tail } = GAME_SOUNDS.nuclearStrike;
 const LAST_TAIL_MS = Math.max(...tail.map((repeat) => repeat.delayMs));
@@ -44,6 +44,20 @@ describe('AudioService nuclear strike', () => {
       ...tail.map((repeat) => [id, 48, 9, 310, repeat.volume]),
     ]);
     for (const repeat of tail) expect(repeat.volume).toBeLessThan(1);
+    service.destroy();
+  });
+
+  it('plays the sound of the ability that landed: one without an entry stays silent', () => {
+    vi.useFakeTimers();
+    const { eventBus, spatialAudio, service } = setup();
+    expect(ABILITY_IMPACT_SOUNDS['nuclear-strike']).toBe(GAME_SOUNDS.nuclearStrike);
+    // Stands for an ability added later; the typed table would not compile without its entry
+    eventBus.emit({
+      type: 'ability:impact', abilityId: 'later-ability' as never, strikeId: 2,
+      target: { lat: 48, lon: 9, height: 310 }, radiusM: 25, hits: 3, kills: 1,
+    });
+    vi.advanceTimersByTime(LAST_TAIL_MS);
+    expect(spatialAudio.playAtGeo).not.toHaveBeenCalled();
     service.destroy();
   });
 

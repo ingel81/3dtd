@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { GameEventBus } from './game-event-bus';
 import { ScreenShakeService, shakeFalloff } from './screen-shake.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { ABILITY_IMPACT_SHAKE, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import { LEGACY_SCREEN_SHAKE_KEY, STORAGE_KEY } from '../utils/display-options.storage';
 
 const { nearDistance, farDistance, presets } = SCREEN_SHAKE_CONFIG;
@@ -88,6 +88,22 @@ describe('ScreenShakeService', () => {
       expect(presets.nuclearStrike.amplitude).toBeGreaterThan(preset.amplitude);
       expect(presets.nuclearStrike.duration).toBeGreaterThan(preset.duration);
     }
+    service.destroy();
+  });
+
+  it('shakes by the ability that landed: one without an entry does not shake', () => {
+    const { eventBus, engine, service } = setup();
+    expect(ABILITY_IMPACT_SHAKE['nuclear-strike']).toEqual({
+      preset: presets.nuclearStrike,
+      nearDistance: SCREEN_SHAKE_CONFIG.strikeNearDistance,
+      farDistance: SCREEN_SHAKE_CONFIG.strikeFarDistance,
+    });
+    // Stands for an ability added later; the typed table would not compile without its entry
+    eventBus.emit({
+      type: 'ability:impact', abilityId: 'later-ability' as never, strikeId: 1,
+      target: { lat: 0, lon: 0 }, radiusM: 25, hits: 10, kills: 4,
+    });
+    expect(engine.triggerScreenShake).not.toHaveBeenCalled();
     service.destroy();
   });
 

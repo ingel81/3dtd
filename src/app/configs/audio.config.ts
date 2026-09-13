@@ -5,6 +5,8 @@
  * Previously hardcoded in spatial-audio.manager.ts and game-state.manager.ts
  */
 
+import type { AbilityId } from './abilities.config';
+
 /** Sound budget limits to prevent audio overload */
 export const AUDIO_LIMITS = {
   /** Loop-only budget for enemy ambient sounds (walk/roar). */
@@ -118,3 +120,24 @@ export const GAME_SOUNDS = {
     ],
   },
 } as const;
+
+/** A sound an ability plays where it lands */
+export interface AbilityImpactSound {
+  id: string;
+  url: string;
+  refDistance: number;
+  rolloffFactor: number;
+  volume: number;
+  maxInstances?: number;
+  /** Played again after each delay (wall-clock ms) at that share of the volume */
+  tail: readonly { readonly delayMs: number; readonly volume: number }[];
+}
+
+/**
+ * Sound per ability on `ability:impact` (AudioService registers and plays
+ * them), null for a silent one. Complete per AbilityId, so a new ability
+ * decides here.
+ */
+export const ABILITY_IMPACT_SOUNDS: Record<AbilityId, AbilityImpactSound | null> = {
+  'nuclear-strike': GAME_SOUNDS.nuclearStrike,
+};
