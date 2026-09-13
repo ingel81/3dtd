@@ -187,7 +187,7 @@ src/app/services/
 | **InputHandlerService** | Click/Pan Detection, Terrain Raycasting, Kamera-, Build- und Debug-Tasten. Außerhalb von Build- und Platzierungsmodus zeigt der Tower unter dem Zeiger seine Reichweite (Scheibe und Auswahlring des Renderers, `ThreeTowerRenderer.setHovered`): höchstens ein Tower-Pick alle 100 ms mit Nachzügler für die Endposition, keiner bei gedrückter Maustaste |
 | **HotkeyService** | Spieltasten (1-9, U, Entf, Leertaste, P, +/-, H, Esc, Pos1, N) nach dem InputHandler; Provider der Spielkomponente, weil er die Facade braucht. Zuordnung in `hotkey-map.ts` |
 | **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
-| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh, refineCellsInRadius vor LOS-Reg |
+| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh, refineCellsInRadius vor LOS-Reg. Tastet die Grundfläche ab (`resolveFootprint`): auf unebenem Grund Fuß auf dem höchsten Punkt, Sockel bis zum tiefsten, schon in der Vorschau |
 | **EconomyService** | Wave-Completion-Bonus + Perfect-Streak (extrahiert aus GameStateManager, 2026-05-10) |
 
 #### combat/
@@ -1005,6 +1005,7 @@ Neben Tower-, Projektil- und Effects-Renderer gibt es mehrere spezialisierte Ren
 | **DecalInstanceManager** | `renderers/decal-instance.manager.ts` | Blut-, Eis- und Scorch-Decals (`scorch-marks.ts`) als InstancedMesh mit Free-List-Pool |
 | **ThreeFlameBeamRenderer** | `renderers/three-flame-beam.renderer.ts` | Fire-Tower-Beam (animierter Flammen-Kegel) |
 | **ThreeTentacleRenderer** | `renderers/three-tentacle.renderer.ts` | Bezier-basierte Tentakel fuer Tentacle-Tower |
+| **TowerPlinthRenderer** | `renderers/tower-plinth/` | Steinsockel unter Towern auf unebenem Grund (`engine.plinths`), ein Mesh pro Sockel, Bruchsteinmauerwerk prozedural im `MeshStandardMaterial` (`onBeforeCompile`). Angelegt und entfernt vom `TowerManager`, Höhe aus `Tower.plinthHeight`, siehe [TOWER_CREATION.md → Sockel auf unebenem Grund](TOWER_CREATION.md#sockel-auf-unebenem-grund) |
 | **LightningBoltRenderer** | `renderers/lightning-bolt.renderer.ts` | Chain-Bolts, Idle-Crackle, Impact-Halos (Lightning Tower) |
 | **TrailStreakRenderer** | `renderers/trail-streak.renderer.ts` | Projektil-Trails als gestreckte Quads |
 | **FloatingTextInstanceManager** | `renderers/floating-text/` | GPU-instanzierte Schadenszahlen über Enemies, Atlas in `floating-text-atlas.ts` |
@@ -1419,6 +1420,7 @@ src/app/
 │       ├── draw-gate.ts          # Leere Pools aus der Render-Liste nehmen
 │       ├── instance-slot-allocator.ts # Update-Ranges pro Instanz-Slot
 │       ├── instanced-enemy/      # VAT-instanced enemy renderer
+│       ├── tower-plinth/         # Steinsockel unter Towern auf unebenem Grund
 │       ├── floating-text/        # GPU-instanzierte Schadenszahlen
 │       └── marker/               # HQ-Marker, Spawn-Portale, Range-Discs
 │

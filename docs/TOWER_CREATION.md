@@ -1,6 +1,6 @@
 # Tower Creation Guide
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-14
 
 Anleitung zum Erstellen neuer Tower-Typen mit optionalen rotierenden Teilen.
 
@@ -79,6 +79,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
   previewScale: 3.0,             // Optional: Separate Skalierung für UI-Preview
   heightOffset: 0,               // Vertikaler Offset über dem Terrain
   shootHeight: 5,                // Höhe des Schussursprungs (für LOS)
+  footprintRadius: 3.5,          // Radius der Grundfläche (m), siehe "Sockel auf unebenem Grund"
   rotationY: 0,                  // Initiale Y-Rotation in Radians (visuelles Alignment)
   turretBarrelOffset: 0,         // Optional: Turret-Barrel-Orientierung im Model Space (default: 0 = -Z/Nord)
   damage: 50,
@@ -117,6 +118,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `previewScale` | number | `scale * 0.4` | UI-Preview-Skalierung |
 | `heightOffset` | number | - | Vertikaler Offset |
 | `shootHeight` | number | - | Schussursprung-Höhe (LOS) |
+| `footprintRadius` | number | - | Radius der Grundfläche in Metern: weitester Vertex des Sockels vom Modell-Ursprung bei `scale`. Bestimmt Höhe und Sockel auf unebenem Grund und die Breite des Sockels |
 | `rotationY` | number | 0 | Y-Rotation in Radians (visuell) |
 | `turretBarrelOffset` | number | 0 | Barrel-Orientierung im Model Space |
 | `turretNode` | string | - | Name des Nodes, der sich zum Ziel dreht. Überschreibt die Standardnamen `turret_top`/`tower_top`/`top`, ohne Rückfall auf sie; fehlt der Node im Modell, dreht sich nichts und der Renderer warnt einmal pro Typ (Chaos: `crystal`) |
@@ -608,6 +610,7 @@ fire: {
 - [ ] TowerTypeId erweitert
 - [ ] Model in `/public/assets/models/towers/` abgelegt
 - [ ] Tower-Config in `TOWER_TYPES` hinzugefügt
+- [ ] `footprintRadius` am Modell gemessen (weitester Vertex der Basis bei `scale`, aufgerundet)
 - [ ] `attackType` gesetzt falls Beam-/Melee-/Chain-Tower
 - [ ] `canTargetAir`/`canTargetGround` gesetzt falls nicht default
 - [ ] `damageType` gewählt, Paarungen in `configs/combat/damage-matrix.config.ts` geprüft. Ein neuer
@@ -776,6 +779,38 @@ Den Kontext (Spielbereich, HQ, Spawns, Tower, Routen) stellt der
 Alle Abstände sind horizontal (Haversine zu HQ, Spawns und Towern, `distanceToSegment` zur
 Route). Gebäude sind kein Hindernis: Der
 Tower wird auf Dachhöhe gehoben und steht dann auf dem Dach.
+
+### Sockel auf unebenem Grund
+
+Ob ein Tower an einer Stelle stehen darf, entscheiden allein die Regeln oben. Wie hoch er dort
+steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
+
+- **Abtastung:** `TowerPlacementService.resolveFootprint` fragt senkrecht von oben die oberste
+  Fläche jeder Säule ab, auf den 3D-Tiles über `TerrainQueries.raycastSurfaceTop` (`topY` der
+  Säule, in `__raycastStats()` als `towerFootprint`), in DevWorld über `raycastDown`. Die Proben
+  liegen in der Mitte, auf einem Ring bei halbem und einem bei vollem Radius, höchstens 2 m
+  auseinander (`footprintSampleOffsets`, 19 Proben bei einem normalen Tower, 49 beim Research
+  Center). Neu geprobt wird wie die Validierung erst, wenn der Cursor 1 m gewandert ist.
+- **Entscheidung** (`resolveTowerFootprint`, Werte in `PLINTH_CONFIG`): Weichen die Proben
+  weniger als 0,2 m voneinander ab (`MIN_UNEVENNESS`), bleibt der Tower auf der Fläche unter dem
+  Cursor, ohne Sockel, wie früher. Sonst steht sein Fuß auf der höchsten Probe, und ein Sockel
+  reicht bis zur tiefsten. Proben mehr als 5 m über der Cursor-Fläche (`MAX_RISE`: Fassade,
+  Baumkrone, Traufe daneben) oder mehr als 30 m darunter (`MAX_DROP`: Abbruch hinter einer
+  Dachkante) zählen nicht.
+- **Weg ins Spiel:** `command:place-tower` trägt `position.height` = Fuß (Oberkante des Sockels)
+  und `plinthHeight`. Beides landet im `Tower` (`position.height`, `plinthHeight`). Alles, was
+  von `position.height` ausgeht, beginnt damit am angehobenen Fuß: LOS-Registrierung
+  (`TowerLosRegistry`), LOS-Vorschau, Schussursprung, Tip-Marker, Tentakel und Idle-Crackle.
+  Der Trainings-Bot geht denselben Weg.
+- **Darstellung:** `TowerPlinthRenderer` (`engine.plinths`, `three-engine/renderers/tower-plinth/`)
+  baut pro Sockel ein Mesh: runde, leicht geböschte Säule, 0,2 m breiter als die Grundfläche,
+  0,4 m tiefer als die tiefste Probe. Das Bruchsteinmauerwerk zeichnet ein
+  `MeshStandardMaterial` mit `onBeforeCompile` prozedural in Weltkoordinaten (Steine als
+  3D-Voronoi-Zellen, Kalkmörtel, Laufspuren, Moos in Fugen, oben und am Fuß). Als Standard-Material
+  bekommt der Sockel dieselben Lichter wie die Tower-Modelle, Log-Depth und die Farbraum-Wandlung.
+  Der `TowerManager` legt den Sockel mit dem Tower an und entfernt ihn beim Verkauf. Ein Klick
+  auf den Sockel wählt den Tower. Die Bauvorschau zeigt den Sockel durchscheinend und grün oder
+  rot getönt wie den Vorschau-Tower (`TowerPlinthPreview`).
 
 ### Keyboard-Shortcuts im Build-Modus
 
