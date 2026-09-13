@@ -81,6 +81,8 @@ export class ParticleEffectsRenderer {
   private trailParticles = true;
   private impacts = true;
   private groundMarks = true;
+  /** No new ground marks while set, the ones lying stay (holdGroundMarks) */
+  private groundMarksHeld = false;
 
   // Spiral angle tracker for railgun effect (uses time-based rotation)
   private spiralAngle = 0;
@@ -163,7 +165,7 @@ export class ParticleEffectsRenderer {
    * @returns Decal ID
    */
   spawnBloodDecal(lat: number, lon: number, height: number, size = 2.0, color?: number): string {
-    if (!this.groundMarks) return '';
+    if (!this.laysGroundMarks) return '';
     return this.decals.layBlood(this.sync.geoToLocal(lat, lon, height), size, color);
   }
 
@@ -550,7 +552,7 @@ export class ParticleEffectsRenderer {
    * @returns Decal ID
    */
   spawnIceDecal(lat: number, lon: number, height: number, size = 2.8): string {
-    if (!this.groundMarks) return '';
+    if (!this.laysGroundMarks) return '';
     return this.decals.layIce(this.sync.geoToLocal(lat, lon, height), size);
   }
 
@@ -565,7 +567,7 @@ export class ParticleEffectsRenderer {
    * while ground marks are off (VFX settings).
    */
   markScorch(localX: number, localY: number, localZ: number, source: ScorchSource): void {
-    if (!this.groundMarks) return;
+    if (!this.laysGroundMarks) return;
     this.decals.markScorch(localX, localY, localZ, source, performance.now());
   }
 
@@ -587,7 +589,20 @@ export class ParticleEffectsRenderer {
 
   /** Whether ground marks are laid down; callers skip the terrain raycast for a decal otherwise. */
   get groundMarksEnabled(): boolean {
-    return this.groundMarks;
+    return this.laysGroundMarks;
+  }
+
+  /**
+   * Lay no new ground marks while `held`, whatever the VFX settings say;
+   * the marks already lying stay. The wave replay holds them: its impacts
+   * would mark the live ground a second time.
+   */
+  holdGroundMarks(held: boolean): void {
+    this.groundMarksHeld = held;
+  }
+
+  private get laysGroundMarks(): boolean {
+    return this.groundMarks && !this.groundMarksHeld;
   }
 
   /** Blood moon tint of the ground marks, see GroundDecals.setBloodMoon. */
