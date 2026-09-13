@@ -16,6 +16,7 @@ import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { WormGroup } from '../../managers/worm/worm-group';
+import { HERO, heroDefenseProfile, type HeroDefenseProfile } from '../../configs/hero.config';
 
 /**
  * Characterization of the collector: which events it listens to, what a wave
@@ -81,10 +82,14 @@ describe('AIDataCollectorService', () => {
   const completed = (wave: number, hpLost = 0): GameEvent =>
     ({ type: 'wave:completed', wave, credits: 0, perfect: hpLost === 0, closeCall: false, hpLost });
 
+  /** What the HeroManager reports for the gate, null while no hero is hired */
+  let heroProfile: HeroDefenseProfile | null = null;
+
   function createCollector(): AIDataCollectorService {
     const gameState = {
       getEventBus: () => bus,
       towerManager: { getAll: () => [] },
+      heroManager: { getDefenseProfile: () => heroProfile },
       trainingTimescale: () => timescale,
       getCachedRoutes: () => routes,
     };
@@ -438,6 +443,19 @@ describe('AIDataCollectorService', () => {
       expect(grid.getDefenseReachPercent).toHaveBeenCalledWith(routes);
       expect(snapshot.dpsByDamageType).toBeDefined();
       expect(collector.lastSnapshot()).toBe(snapshot);
+    });
+
+    it('counts the hired hero in the defense the gate reads', () => {
+      expect(collector.getStateSnapshot().defense.killThroughput).toEqual({ ground: 0, air: 0 });
+      heroProfile = heroDefenseProfile(0);
+      try {
+        const { defense } = collector.getStateSnapshot();
+        expect(defense.killThroughput.ground).toBeCloseTo(3 * HERO.gatePresence, 6);
+        expect(defense.gateDpsPerArmor.ground.heavy).toBeCloseTo(48 * 1.75 * HERO.gatePresence, 6);
+        expect(defense.totalDPS).toBe(0);
+      } finally {
+        heroProfile = null;
+      }
     });
 
     it('builds the research snapshot from the research store', () => {

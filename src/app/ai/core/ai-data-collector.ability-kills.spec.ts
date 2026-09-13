@@ -56,6 +56,14 @@ describe('AIDataCollectorService ability kills', () => {
     expect(results[0].outcome.abilityKills).toBe(10);
   });
 
+  it('leaves the hero\'s kills out: for the gate they are kills like a tower\'s, not leaks', () => {
+    bus.emit({ type: 'wave:started', wave: 12, enemyCount: 40 });
+    for (let i = 0; i < 5; i++) bus.emit({ type: 'hero:kill', enemy: {} as never });
+    impact(2);
+    completeWave(12);
+    expect(results[0].outcome.abilityKills).toBe(2);
+  });
+
   it('starts every wave at zero', () => {
     bus.emit({ type: 'wave:started', wave: 12, enemyCount: 40 });
     impact(7);

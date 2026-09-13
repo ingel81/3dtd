@@ -133,6 +133,32 @@ export function heroLevelFor(kills: number): HeroLevel {
   return reached;
 }
 
+// ==================== Fairness gate ====================
+
+/**
+ * The hero as the fairness gate reads him (analyzeDefense): a virtual tower
+ * with his damage per second and shots per second for each ammo, counted at
+ * `presence`. The gate takes the best ammo per armor, since the player can
+ * switch any time.
+ */
+export interface HeroDefenseProfile {
+  ammo: readonly { damageType: DamageType; dps: number; shotsPerSecond: number }[];
+  /** Share the gate counts, HERO.gatePresence */
+  presence: number;
+}
+
+/** The profile of a hero with `kills`, his level's damage included. */
+export function heroDefenseProfile(kills: number): HeroDefenseProfile {
+  const multiplier = heroLevelFor(kills).damageMultiplier;
+  return {
+    ammo: HERO_AMMO_ORDER.map((id) => {
+      const ammo = HERO_AMMO[id];
+      return { damageType: ammo.damageType, dps: ammo.damage * multiplier * ammo.fireRate, shotsPerSecond: ammo.fireRate };
+    }),
+    presence: HERO.gatePresence,
+  };
+}
+
 // ==================== Status ====================
 
 /** What the UI shows of the hero: the HeroManager's snapshot. */

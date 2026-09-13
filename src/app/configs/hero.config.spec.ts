@@ -6,6 +6,7 @@ import {
   HERO_LEVELS,
   heroLevelFor,
   heroStatus,
+  heroDefenseProfile,
   initialHeroStatus,
   nextHeroAmmo,
 } from './hero.config';
@@ -58,6 +59,18 @@ describe('hero config', () => {
     expect(heroLevelFor(29).level).toBe(1);
     expect(heroLevelFor(30).level).toBe(2);
     expect(heroLevelFor(10_000).level).toBe(5);
+  });
+
+  it('gives the gate every ammo at his level and half presence', () => {
+    expect(heroDefenseProfile(0)).toEqual({
+      ammo: [
+        { damageType: 'physical', dps: 48, shotsPerSecond: 3 },
+        { damageType: 'siege', dps: 48, shotsPerSecond: 1.5 },
+        { damageType: 'magic', dps: 48, shotsPerSecond: 2 },
+      ],
+      presence: 0.5,
+    });
+    expect(heroDefenseProfile(100).ammo[0].dps).toBeCloseTo(48 * 1.3, 6);
   });
 
   it('reports the experience within the level', () => {
