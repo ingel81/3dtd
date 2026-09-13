@@ -52,7 +52,7 @@ describe('FrostBombStrategy', () => {
 
   it('keeps the charge while no group is big enough, or the group is still in the first half', () => {
     for (let i = 0; i < 7; i++) enemies.push(enemyAt(i, 0.6));     // seven: one short
-    for (let i = 0; i < 20; i++) enemies.push(enemyAt(i * 30, 0.8)); // spread far apart
+    for (let i = 0; i < 20; i++) enemies.push(enemyAt(100 + i * 30, 0.8)); // spread far apart
     for (let i = 0; i < 30; i++) enemies.push(enemyAt(i, 0.3));    // packed, but early
     expect(strategy.canExecute(inWave)).toBe(false);
   });

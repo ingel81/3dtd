@@ -219,6 +219,7 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 | Priority | Strategie | beginner | casual | strategist | meta |
 |---:|---|:--:|:--:|:--:|:--:|
 | 97 | NuclearStrike | ✓ | ✓ | ✓ | ✓ |
+| 96 | FrostBomb | ✓ | ✓ | ✓ | ✓ |
 | 95 | ResearchCenterPlacement | ✓ | ✓ | ✓ | ✓ |
 | 90 | AntiAirPlacement | | ✓ | ✓ | ✓ |
 | 88 | AntiEtherealPlacement | | ✓ | ✓ | ✓ |
@@ -234,6 +235,7 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 
 NuclearStrike steht in jedem Set, feuert aber nur mit erforschtem
 `nuclear-strike`, und das erforschen nur strategist und meta (ResearchPick).
+Dasselbe gilt für FrostBomb und `frost-bomb`.
 
 **casual und meta haben dasselbe Strategie-Set**; sie unterscheiden sich nur in
 Reaktionszeit (1500 vs. 400 ms) und Turm-Cap (15 vs. 20).
@@ -664,9 +666,28 @@ bezahlbaren Upgrades) und die Platzierungsstrategien am Turm-Cap hängen. Die
 90 %-Feuerrate ab 2000 Credits und SellUnderperformer sind die Gegenmaßnahmen;
 beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 
+### FrostBomb (96)
+
+Wirft die Frostbombe ([ABILITIES.md](ABILITIES.md#frostbombe-in-zahlen)):
+während einer Welle, sobald sie bereit ist, und nur, wenn irgendwo in der
+zweiten Hälfte der Route (Pfadfortschritt ab 0,5) mindestens 8 Gegner im
+Radius von 20 m um einen von ihnen stehen. Ziel ist dieser Gegner, gewählt wie
+beim Nuklearschlag (`densestCenter` in `strategies/ability/ability-aim.ts`,
+höchstens 48 Kandidaten). Steht beides bereit, geht der Nuklearschlag (97)
+vor.
+
+**Vergleichbarkeit:** strategist und meta erforschen `frost-bomb` direkt nach
+`nuclear-strike` (700 Gold). Ihre Läufe sind mit Läufen vor dem 2026-09-14
+nicht direkt vergleichbar; beginner und casual spielen unverändert.
+
 ---
 
 ## Changelog
+
+### 2026-09-14: Frostbombe
+- Neue Strategie FrostBomb (96) in allen Skill-Stufen; `frost-bomb` in den
+  Forschungslisten von strategist und meta nach `nuclear-strike`. Die
+  Zielhilfen des Nuklearschlags liegen jetzt in `ability-aim.ts`.
 
 ### 2026-09-13: Nuklearschlag
 - Neue Aktion `use-ability`, neue Strategie NuclearStrike (97) in allen
