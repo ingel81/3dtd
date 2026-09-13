@@ -6,7 +6,7 @@ import { PORTAL_OPENING_HEIGHT, PORTAL_OPENING_WIDTH } from '../../../configs/ma
  * (tools/blender/spawn_portal.py reads them, each cell's pose included,
  * from spawn_portal_layout.json, which tools/blender/spawn-portal-layout.spec.ts
  * writes from this file) and drawn as signed distances in the summoning
- * circle on the street (marker-shaders.ts, PORTAL_SIGIL_GLSL). They replace random glyphs of a
+ * circle on the street (spawn-portal-glow-material.ts, PORTAL_SIGIL_GLSL). They replace random glyphs of a
  * stem, bars and diagonals, which came out as shapes like 千, キ, ス or
  * Latin letters, and two sets of seals in rings round the cell's centre,
  * closed and then broken, which both read like buttons, dials or grilles.

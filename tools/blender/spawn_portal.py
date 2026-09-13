@@ -29,7 +29,7 @@ Stages (the later ones read the earlier ones' results from WORK):
   export   the GLB
 
 The game shades the frame with its own unlit shader (createPortalGateMaterial
-in marker-shaders.ts), not with Blender's lights: judge the look there.
+in spawn-portal-gate-material.ts), not with Blender's lights: judge the look there.
 
 Headless:
     blender --background --python tools/blender/spawn_portal.py -- all

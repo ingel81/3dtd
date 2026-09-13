@@ -481,7 +481,7 @@ export const SPAWN_PORTAL_LOOK = {
   rippleLife: 0.9,
   /**
    * Summoning circle on the street ahead of the portal, drawn in the
-   * frame's sigils (marker-shaders.ts, portalCircle): centre ahead of the
+   * frame's sigils (spawn-portal-glow-material.ts, portalCircle): centre ahead of the
    * front surface and outer radius (m, scale 1), turn (rad/s), glow between
    * and during waves, and on top of it at the peak of a wave start's surge.
    */

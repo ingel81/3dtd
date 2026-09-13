@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { BoxGeometry, Color, Float32BufferAttribute, Group, InstancedMesh, ShaderMaterial, Texture, Vector3 } from 'three';
 import { SpawnPortalManager } from './spawn-portal.manager';
-import { portalGlyphDrive } from './marker-shaders';
+import { portalGlyphDrive } from './spawn-portal-gate-material';
 import { GameClock } from '../../../managers/game-state/game-clock';
 import type { SpawnPortalFrame } from './spawn-portal-frame';
 import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';

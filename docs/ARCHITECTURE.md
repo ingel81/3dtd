@@ -1432,7 +1432,7 @@ src/app/
 │       ├── instanced-enemy/      # VAT-instanced enemy renderer
 │       ├── tower-plinth/         # Steinsockel unter Towern auf unebenem Grund
 │       ├── floating-text/        # GPU-instanzierte Schadenszahlen
-│       └── marker/               # HQ-Marker, Spawn-Portale, Range-Discs
+│       └── marker/               # HQ-Marker + Labels (marker-shaders.ts), Spawn-Portale (spawn-portal-*.ts), Range-Discs
 │
 ├── devworld/                     # DevWorld Offline-Entwicklungsumgebung
 │
@@ -1789,7 +1789,8 @@ rechnen lässt (Gesichter, Buchstaben, Logos), ist beim Entwurf von Hand am Kont
 geprüft. Neue Sigillen
 müssen dieselben Regeln einhalten.
 
-**Glühen und Leben der Sigillen** (Gate-Shader, `SPAWN_PORTAL_LOOK.glyphs`): Die Sigillen
+**Glühen und Leben der Sigillen** (Gate-Shader in `spawn-portal-gate-material.ts`,
+`SPAWN_PORTAL_LOOK.glyphs`): Die Sigillen
 glühen aus ihren Rillen, heißer Kern entlang jedes Strichs, dunkleres Blutrot am Rand, ein
 schwacher Schein auf dem Stein daneben. Der Shader zeichnet sie aus dem Distanzfeld der Sigille
 (`portalGlyphInk`, Pose je Zelle wie im Asset), nicht aus der Textur: nah bleiben sie scharf,
@@ -1813,7 +1814,8 @@ steht (`GameStateManager.paused`); die Zeitskala beschleunigt sie nicht. Wirbel,
 Straßenlicht laufen in Echtzeit weiter, auch in der Pause.
 Alles folgt aus Zelle, Phase des Portals und Zeit, ohne Zustand auf der CPU.
 
-**Beschwörungskreis** (Glow-Shader, `SPAWN_PORTAL_LOOK.circle`): auf der Straße 4,6 m vor der
+**Beschwörungskreis** (Glow-Shader in `spawn-portal-glow-material.ts`,
+`SPAWN_PORTAL_LOOK.circle`): auf der Straße 4,6 m vor der
 vorderen Fläche, Radius 3,9 m: äußerer Doppelring, innerer Ring, dazwischen alle zehn Sigillen
 aufrecht nach außen, in der Mitte der "haloed moon", gegenläufig. Dunkel, dreht sehr langsam
 (0,02 rad/s), flammt mit dem Schub eines Wellenstarts auf. Unter Skala 1 bleibt die Tiefe bei 1
