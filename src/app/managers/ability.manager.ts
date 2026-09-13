@@ -30,6 +30,7 @@ import {
   abilityDamageFraction,
   abilityFreezeMs,
   abilitySourceId,
+  abilityStunMs,
   lockedAbilityStatus,
 } from '../configs/abilities.config';
 import type { ResearchEffect } from '../configs/research/research.types';
@@ -249,6 +250,9 @@ export class AbilityManager implements IGameManager {
           break;
         case 'freeze':
           this.world.halt(targets, 'freeze', (enemy) => abilityFreezeMs(effect, enemy.typeConfig), abilitySourceId(strike.abilityId));
+          break;
+        case 'stun':
+          this.world.halt(targets, 'stun', (enemy) => abilityStunMs(effect, enemy.typeConfig), abilitySourceId(strike.abilityId));
           break;
       }
     }

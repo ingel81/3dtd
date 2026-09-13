@@ -14,7 +14,7 @@ import type { ResearchId } from './research/research.types';
 import type { EnemyTypeConfig } from './enemy-types.config';
 import type { TdIconName } from '../components/icon/icon.component';
 
-export type AbilityId = 'nuclear-strike' | 'frost-bomb';
+export type AbilityId = 'nuclear-strike' | 'frost-bomb' | 'emp';
 
 /**
  * What an ability does where it lands. AbilityManager.resolve() has one
@@ -25,13 +25,18 @@ export type AbilityId = 'nuclear-strike' | 'frost-bomb';
  *
  * freeze: every enemy in the radius freezes solid (freeze status, it
  * halts) for `durationMs` of game time, bosses for `bossDurationMs`.
+ *
+ * stun: every enemy in the radius is stunned (stun status, it halts):
+ * machines (`mechanical`) for `mechanicalDurationMs`, bosses for
+ * `bossDurationMs`, everything else for `durationMs`.
  */
 export type AbilityEffect =
   | { kind: 'max-hp-fraction'; fraction: number; bossFraction: number }
-  | { kind: 'freeze'; durationMs: number; bossDurationMs: number };
+  | { kind: 'freeze'; durationMs: number; bossDurationMs: number }
+  | { kind: 'stun'; durationMs: number; mechanicalDurationMs: number; bossDurationMs: number };
 
 /** Status an ability halts its targets with (AbilityWorld.halt). */
-export type AbilityHaltStatus = 'freeze';
+export type AbilityHaltStatus = 'freeze' | 'stun';
 
 /** Status source id of an ability's effects, the same for each of its strikes. */
 export function abilitySourceId(id: AbilityId): string {
@@ -112,6 +117,24 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
     effect: { kind: 'freeze', durationMs: 3000, bossDurationMs: 1000 },
     snapRadiusM: 30,
   },
+  emp: {
+    id: 'emp',
+    name: 'EMP',
+    description:
+      'Set off an EMP on the route: 0.5 s later machines within 30 m (tanks, mechs) stop for 6 s, '
+      + 'everything else for 1.5 s, bosses 0.75 s. One charge, a new one every 3 waves.',
+    icon: 'bolt',
+    aimHint: 'Pulse',
+    hotkey: 'E',
+    researchId: 'emp',
+    perkId: 'emp',
+    maxCharges: 1,
+    rechargeWaves: 3,
+    radiusM: 30,
+    warningMs: 500,
+    effect: { kind: 'stun', durationMs: 1500, mechanicalDurationMs: 6000, bossDurationMs: 750 },
+    snapRadiusM: 30,
+  },
 };
 
 export const ABILITY_IDS = Object.keys(ABILITIES) as AbilityId[];
@@ -130,6 +153,15 @@ export function abilityFreezeMs(
   enemyType: Pick<EnemyTypeConfig, 'isBoss'>,
 ): number {
   return enemyType.isBoss ? effect.bossDurationMs : effect.durationMs;
+}
+
+/** Game ms an enemy of `enemyType` stays stunned by a stun effect: bosses first, then machines. */
+export function abilityStunMs(
+  effect: Extract<AbilityEffect, { kind: 'stun' }>,
+  enemyType: Pick<EnemyTypeConfig, 'isBoss' | 'mechanical'>,
+): number {
+  if (enemyType.isBoss) return effect.bossDurationMs;
+  return enemyType.mechanical ? effect.mechanicalDurationMs : effect.durationMs;
 }
 
 /** One ability as the UI and the bot see it: the AbilityManager's snapshot. */

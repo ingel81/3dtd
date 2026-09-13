@@ -15,7 +15,7 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 - **Poison** (DoT) — Poison Tower, Splash
 - **Burn** (DoT) — Fire Tower, jeder Gegner im Flammenkegel
 - **Freeze** (Stopp) — Frostbombe (Fähigkeit, [ABILITIES.md](ABILITIES.md))
-- **Stun** (Stopp, elektrisch) — wie Freeze mit eigener Darstellung, noch ohne Quelle
+- **Stun** (Stopp, elektrisch) — EMP (Fähigkeit, [ABILITIES.md](ABILITIES.md))
 
 Status-Effekte hängen am Projektiltyp (`ice-shard`, `poison-glob`) bzw. am Fire-Beam, nicht am
 Schadenstyp. Der Chaos Tower (Schadenstyp `chaos`, 1,0 gegen jede Rüstung) legt keinen Effekt.
@@ -310,7 +310,7 @@ this.statusEffectService.applyFreeze(enemy, 3000, 'ability:frost-bomb');
 
 ## Stun (Stopp, elektrisch)
 
-**Status:** seit 2026-09-14, eine Quelle gibt es noch nicht.
+**Status:** seit 2026-09-14. Quelle: das EMP (Quelle `ability:emp`; Maschinen 6 s, Bosse 0,75 s, sonst 1,5 s).
 
 Derselbe Stopp wie Freeze (`isHalted()`, Multiplikator 0, kein Laufzyklus, kein Gehen/Rennen-Wechsel), als eigener Typ, damit Darstellung und Quelle ihn auseinanderhalten: `isStunned()`, `applyStun(enemy, durationMs, sourceId)`, pro Quelle geführt. Ein Gegner kann gleichzeitig eingefroren und betäubt sein; er steht, bis beides abgelaufen ist.
 

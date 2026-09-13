@@ -10,6 +10,7 @@ Fähigkeitenleiste, Befehl über `command:use-ability`, Kills zählen als Leck.
 |---|---|---|---|
 | Nuklearschlag | Nuclear Strike | K | Max-HP-Anteil im Radius |
 | Frostbombe | Frost Bomb | F | Freeze im Radius |
+| EMP | EMP | E | Stun im Radius, Maschinen länger |
 
 Eine Fähigkeit ist eine Aktion des Spielers während einer Welle, im Gegensatz
 zum Tower, der von selbst handelt. Sie wird per Forschung freigeschaltet, hat
@@ -68,6 +69,32 @@ Arcane Studies (650) kostet der Weg dahin 1.750 Gold Forschung, frühestens um
 W5 bis W6, praktisch nach dem ersten Luftangriff (W7), also nicht in den
 ersten Wellen, die das Curriculum ohne Fähigkeiten austariert. Bosse bleiben
 nur 1 s stehen, damit ein Boss-Lauf nicht mit einer Taste halbiert wird.
+
+---
+
+## EMP in Zahlen
+
+`ABILITIES['emp']`, Wirkung `stun` (Status Stun, siehe
+[STATUS_EFFECTS.md](STATUS_EFFECTS.md#stun-stopp-elektrisch)).
+
+| Punkt | Wert |
+|---|---|
+| Freischaltung | Forschung `emp`: 800 Gold, 30 s, Voraussetzung `storm-mastery` |
+| Ladungen | wie der Nuklearschlag: 1, eine neue nach je 3 abgeschlossenen Wellen |
+| Ziel | Klick, Route-Zelle im Umkreis von 30 m |
+| Vorwarnung | 500 ms Spielzeit, 30 Sub-Steps |
+| Wirkung | Radius 30 m in 2D, Boden und Luft: Stun, Maschinen (`mechanical`, Stand heute Tank und Mech) 6000 ms, Bosse 750 ms (auch ein Boss, der Maschine ist), alle anderen 1500 ms. Kein Schaden |
+| Wave-Director | `hits` sind die Betäubten, `kills` 0 |
+
+**Warum diese Zahlen.** Was eine Maschine ist, steht als Feld am Gegnertyp
+(`EnemyTypeConfig.mechanical`), nicht in der Fähigkeit. Ein Tank (3 m/s)
+verliert in 6 s 18 m Weg, ein Zombie (5 m/s) in 1,5 s 7,5 m: gegen eine
+Maschinenwelle ist das EMP die stärkere Kontrolle, gegen alles andere eine
+kurze. Der Radius ist deshalb größer als bei der Frostbombe (30 statt 20 m).
+Die Forschung hängt an Storm Mastery (Lightning Tower); mit Ice Magic, Arcane
+Studies und Storm Mastery kostet der Weg 2.550 Gold Forschung, sie kommt also
+nach den ersten Wellen. Im Curriculum laufen Maschinen sicher in W9 und W22
+(`tank_column`) und W28 (`mech_army`).
 
 ---
 
@@ -235,6 +262,14 @@ schnellen leiseren Wiederholungen nach 110 und 260 ms als Knistern. Shake
 (`abilityNearDistance`, `abilityFarDistance`); aus der Übersichtskamera
 bleibt etwa die Hälfte.
 
+**EMP:** derselbe Zielmarker in 30 m. Beim Einschlag der Puls
+(`EmpPulseRenderer`, `EMP_PULSE_LOOK`, in Spielzeit): blau-weißer Blitz, zwei
+elektrische Fronten, die gezackt und knisternd über den Radius laufen, eine
+schwache Hülle darüber und Funken entlang der ersten Front. An den Gegnern
+Tint und Funken des Stun. Ton `emp`: der Kettenblitz des Lightning Towers,
+lauter, mit zwei leiseren Wiederholungen nach 180 und 420 ms. Shake `emp`
+0,005 für 450 ms, dieselbe Reichweite wie die Frostbombe. Keine Bodenspuren.
+
 **Je Fähigkeit:** VFX, Ton und Shake wählen nach der `abilityId` im Event aus
 je einer Tabelle: `abilityVfx` im VFXService (was `ability:used` und
 `ability:impact` zeigen), `ABILITY_IMPACT_SOUNDS` in `audio.config.ts` und
@@ -347,7 +382,8 @@ während einer Welle.
 | `three-engine/renderers/ability-marker.renderer.ts` | Zielmarker und Zielring |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
 | `three-engine/renderers/frost-burst.renderer.ts` | Frostausbruch der Frostbombe |
-| `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze über den `StatusEffectService`) |
+| `three-engine/renderers/emp-pulse.renderer.ts` | Puls des EMP |
+| `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze und Stun über den `StatusEffectService`) |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 | `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
@@ -358,6 +394,7 @@ Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `screen-shake.service.spec.ts`,
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
+`integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,
 `ability-button.spec.ts`, `nuclear-strike.strategy.spec.ts`,
 `strategy-bot.factory.spec.ts`, Backend `tests/test_gate_loop.py`.
 

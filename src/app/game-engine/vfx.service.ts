@@ -57,6 +57,11 @@ export class VFXService {
       used: (event) => this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs),
       impact: (event) => this.handleFrostImpact(event.strikeId, event.target, event.radiusM),
     },
+    // Target marker while the pulse charges, the EMP pulse where it goes off
+    emp: {
+      used: (event) => this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs),
+      impact: (event) => this.handleEmpImpact(event.strikeId, event.target, event.radiusM),
+    },
   };
 
   constructor(
@@ -205,10 +210,18 @@ export class VFXService {
     });
   }
 
+  /** The marker goes and the EMP pulse runs out from the ground point (EMP_PULSE_LOOK, in game time). */
+  private handleEmpImpact(strikeId: number, target: GeoPosition, radiusM: number): void {
+    this.tilesEngine.abilityMarkers.removeStrike(strikeId);
+    const ground = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpA);
+    this.tilesEngine.empPulses.pulse(ground, radiusM);
+  }
+
   private clearStrikes(): void {
     this.tilesEngine.abilityMarkers.clear();
     this.tilesEngine.mushroomClouds.clear();
     this.tilesEngine.frostBursts.clear();
+    this.tilesEngine.empPulses.clear();
   }
 
   /**

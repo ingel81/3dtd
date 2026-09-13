@@ -3,6 +3,7 @@ import {
   ABILITY_IDS,
   abilityDamageFraction,
   abilityFreezeMs,
+  abilityStunMs,
   lockedAbilityStatus,
 } from './abilities.config';
 import type { AbilityEffect } from './abilities.config';
@@ -67,6 +68,42 @@ describe('abilities config', () => {
     });
     expect(research.effects).toContainEqual(
       expect.objectContaining({ kind: 'global-perk', perkId: frost.perkId }),
+    );
+  });
+
+  it('holds the EMP: 30 m, 0.5 s, machines 6 s, others 1.5 s, bosses 0.75 s, key E', () => {
+    const emp = ABILITIES['emp'];
+    expect(emp).toMatchObject({
+      maxCharges: 1,
+      rechargeWaves: 3,
+      radiusM: 30,
+      warningMs: 500,
+      snapRadiusM: 30,
+      icon: 'bolt',
+      hotkey: 'E',
+      effect: { kind: 'stun', durationMs: 1500, mechanicalDurationMs: 6000, bossDurationMs: 750 },
+    });
+    const effect = emp.effect as Extract<typeof emp.effect, { kind: 'stun' }>;
+    expect(abilityStunMs(effect, ENEMY_TYPES['tank'])).toBe(6000);
+    expect(abilityStunMs(effect, ENEMY_TYPES['mech'])).toBe(6000);
+    expect(abilityStunMs(effect, ENEMY_TYPES['zombie'])).toBe(1500);
+    expect(abilityStunMs(effect, ENEMY_TYPES['herbert'])).toBe(750);
+    // A machine that is a boss counts as a boss
+    expect(abilityStunMs(effect, { isBoss: true, mechanical: true })).toBe(750);
+  });
+
+  it('unlocks the EMP by its research: 800 gold, 30 s, after Storm Mastery', () => {
+    const emp = ABILITIES['emp'];
+    const research = getResearch(emp.researchId)!;
+    expect(research).toMatchObject({
+      category: 'global-perk',
+      icon: 'bolt',
+      cost: 800,
+      duration: 30,
+      prerequisites: ['storm-mastery'],
+    });
+    expect(research.effects).toContainEqual(
+      expect.objectContaining({ kind: 'global-perk', perkId: emp.perkId }),
     );
   });
 

@@ -10,6 +10,7 @@ import type { GamePhase, GeoPosition } from '../models/game.types';
 const STEP_MS = 16.667;
 const NUKE = ABILITIES['nuclear-strike'];
 const FROST = ABILITIES['frost-bomb'];
+const EMP = ABILITIES['emp'];
 const TARGET: GeoPosition = { lat: 48.1, lon: 9.1, height: 0 };
 
 function enemyOf(id: string, type: string): Enemy {
@@ -188,6 +189,27 @@ describe('AbilityManager', () => {
       manager.use('frost-bomb', TARGET);
       expect(manager.getStatus('frost-bomb')).toMatchObject({ charges: 0, wavesUntilCharge: 3 });
       expect(manager.getStatus('nuclear-strike').unlocked).toBe(false);
+    });
+  });
+
+  describe('EMP', () => {
+    beforeEach(() => unlock(EMP.perkId));
+
+    it('stuns everyone in the radius on the 30th sub-step: machines 6 s, others 1.5 s, bosses 0.75 s', () => {
+      inRadius = [enemyOf('t1', 'tank'), enemyOf('z1', 'zombie'), enemyOf('m1', 'mech'), enemyOf('boss', 'herbert')];
+      expect(manager.use('emp', TARGET).ok).toBe(true);
+
+      tick(29);
+      expect(world.halt).not.toHaveBeenCalled();
+      tick(1);
+      expect(world.enemiesInRadius).toHaveBeenCalledWith({ ...TARGET, height: 5 }, EMP.radiusM, expect.any(Array));
+      expect(halts).toEqual([{
+        ids: ['t1', 'z1', 'm1', 'boss'],
+        status: 'stun',
+        durations: [6000, 1500, 6000, 750],
+        sourceId: 'ability:emp',
+      }]);
+      expect(world.strike).not.toHaveBeenCalled();
     });
   });
 

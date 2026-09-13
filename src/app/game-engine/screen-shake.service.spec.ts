@@ -123,6 +123,22 @@ describe('ScreenShakeService', () => {
     service.destroy();
   });
 
+  it('shakes a little for an EMP, over the ability range, less than the nuclear strike', () => {
+    const { eventBus, engine, service } = setup();
+    expect(ABILITY_IMPACT_SHAKE['emp']).toEqual({
+      preset: presets.emp,
+      nearDistance: SCREEN_SHAKE_CONFIG.abilityNearDistance,
+      farDistance: SCREEN_SHAKE_CONFIG.abilityFarDistance,
+    });
+    eventBus.emit({
+      type: 'ability:impact', abilityId: 'emp', strikeId: 1,
+      target: { lat: 0, lon: 0 }, radiusM: 30,
+    });
+    expect(engine.triggerScreenShake.mock.calls).toEqual([[presets.emp.amplitude, presets.emp.duration]]);
+    expect(presets.emp.amplitude).toBeLessThan(presets.nuclearStrike.amplitude);
+    service.destroy();
+  });
+
   it('shakes by the ability that landed: one without an entry does not shake', () => {
     const { eventBus, engine, service } = setup();
     expect(ABILITY_IMPACT_SHAKE['nuclear-strike']).toEqual({

@@ -468,6 +468,9 @@ export class CombatEffectService {
         case 'freeze':
           this.statusEffectService.applyFreeze(enemy, durationMsOf(enemy), sourceId);
           break;
+        case 'stun':
+          this.statusEffectService.applyStun(enemy, durationMsOf(enemy), sourceId);
+          break;
       }
     }
   }
