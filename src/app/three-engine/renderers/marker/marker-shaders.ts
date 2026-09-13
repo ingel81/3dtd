@@ -881,7 +881,9 @@ const CIRCLE_CENTRE_SIGIL = PORTAL_SIGILS.findIndex((s) => s.name === 'haloed mo
  * from the portal's foot over the street. A summoning circle lies on the
  * street ahead of the front surface, drawn in the frame's sigils
  * (portalCircle): dim, turning very slowly, flaring with the surge of a
- * wave start.
+ * wave start. The circle is encoded for its target like the gate, so over
+ * a dark street it shows alike with and without post-processing; the
+ * street light is still written as it is.
  */
 export function createPortalGlowMaterial(
   layout: PortalShaderLayout,
@@ -1020,7 +1022,11 @@ export function createPortalGlowMaterial(
         float breathe = 0.75 + 0.25 * sin(uTime * 0.7 + vPhase);
         float level = uCircle.w * breathe * (0.6 + 0.8 * uEnergy) + uFlare.z * surge;
         vec3 tint = mix(mix(uViolet, uEmber, 0.55 + 0.45 * surge), vColor, 0.15);
-        light += tint * (ink + 0.35 * halo) * level * sharp;
+        vec3 circle = tint * (ink + 0.35 * halo) * level * sharp;
+        // The circle is drawn in display values, like the gate's void:
+        // decoded, then encoded for the target, it shows as it is on the
+        // canvas and as linear light through the post-processing target
+        light += linearToOutputTexel(sRGBTransferEOTF(vec4(circle, 1.0))).rgb;
         gl_FragColor = vec4(light, 1.0);
       }
     `,

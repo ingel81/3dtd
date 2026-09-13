@@ -46,4 +46,13 @@ describe('Portal-Shader', () => {
     expect(ember.x).toBeCloseTo(((L.palette.ember.r + 0.055) / 1.055) ** 2.4, 5);
     expect(gate.vertexShader).toContain('#include <logdepthbuf_vertex>');
   });
+
+  it('kodiert den Beschwörungskreis für sein Ziel, das Straßenlicht bleibt, wie es ist', () => {
+    const fragment = glow.fragmentShader;
+    // In Anzeigewerten gebaut, dekodiert und für Canvas oder Nachbearbeitung kodiert
+    expect(fragment).toContain('light += linearToOutputTexel(sRGBTransferEOTF(vec4(circle, 1.0))).rgb;');
+    // Nicht die ganze Ausgabe: das Straßenlicht wird nicht angefasst
+    expect(fragment).not.toContain('#include <colorspace_fragment>');
+    expect(fragment).toContain('#include <logdepthbuf_fragment>');
+  });
 });
