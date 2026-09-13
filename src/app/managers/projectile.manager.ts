@@ -104,7 +104,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
       aimPoint,
     );
 
-    // Muzzle flash VFX (deferred — handled by VFXService)
+    // Muzzle flash VFX (deferred, handled by VFXService)
     this.eventBus.emitDeferred({
       type: 'vfx:muzzle-flash',
       towerId: tower.id,

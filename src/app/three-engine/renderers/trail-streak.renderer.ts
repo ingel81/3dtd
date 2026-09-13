@@ -453,7 +453,7 @@ export class TrailStreakRenderer {
   }
 
   private initPools(): void {
-    const types: ProjectileVisualType[] = ['rocket', 'arrow', 'magic', 'ice', 'cannonball', 'bullet'];
+    const types: ProjectileVisualType[] = ['rocket', 'arrow', 'magic', 'ice', 'cannonball', 'bullet', 'shell'];
     for (const vt of types) {
       const style = getTrailStyle(vt);
       // One material per type, shared by all trails of that type.
