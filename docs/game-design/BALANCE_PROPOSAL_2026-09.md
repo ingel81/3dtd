@@ -58,7 +58,7 @@ Stufen 1 bis 20 zusammen, und bringen ×1,71 DPS.
 
 **Gating.** Stufen werden in 5er-Bändern durch Forschung freigeschaltet
 (`tower-types.config.ts:81-87`, durchgesetzt in
-`game-commands.handler.ts:63-66`): T2 Advanced Weaponry 800 Gold, T3 Master
+`TowerLifecycle.upgrade()`, `managers/game-state/tower-lifecycle.ts`): T2 Advanced Weaponry 800 Gold, T3 Master
 Engineering 1.500, T4 Advanced Engineering 2.500, T5 Transcendent Tech 4.000
 (`research-tree.config.ts:153-199`). Forschung erhöht keine Tower-Werte, sie
 schaltet nur Tower, Air-Targeting und Tiers frei (`research.types.ts:27-31`).

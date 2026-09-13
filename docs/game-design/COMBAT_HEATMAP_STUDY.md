@@ -191,7 +191,7 @@ class CombatHeatField {
 - **Speicher:** 50.000 Zellen × 2 Floats × 4 B = 400 KB.
 - **Gewichte:** Kill = 1. Schaden als Option mit `schaden / maxHp` des
   Gegners, damit Panzer die Karte nicht dominieren.
-- **Zeitbasis:** Spielzeit (`_gameTimeMs` des `GameStateManager`), damit das
+- **Zeitbasis:** Spielzeit (`gameTimeMs` des `GameStateManager`, geführt von `GameClock`), damit das
   Bild bei Timescale 10 dasselbe ist, nur schneller erreicht.
 - **Upload:** höchstens viermal pro Sekunde, nur der Bereich
   `dirtyMin..dirtyMax` beider Attribute (`addUpdateRange`), und nur, wenn

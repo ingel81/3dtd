@@ -40,9 +40,9 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `enemy:split` | EnemyManager (`kill()` mit Ursache `combat`, Typ mit `splitOnDeath`) | GameStateSyncService (Rest und Gesamtzahl der Welle), AIDataCollector (`enemiesSpawned`), VFXService (Knochen-Burst), EnemyDebugService (Kinder eines Debug-Gegners) | Getöteter Enemy hat sich geteilt (`enemy`, `children`); kommt nach seinem `enemy:died` und den `enemy:spawned` der Kinder |
 | `projectile:hit` | ProjectileManager | CombatEffectService | Projektil trifft (`projectile`, `target`, `damage`, `damageType`) |
 | `dot:damage` | EnemyManager (`tickDamageOverTime()`) | CombatEffectService → DamageApplicationService | DOT-Tick (Poison, Burn) (`enemy`, `damage`, `sourceId`, `effectType`, `damageType`) |
-| `tower:placed` | TowerManager | GameStateSyncService, VisualizationFacade, AIDataCollector | Tower gebaut (`tower`, `position`, `cost`). Die Kosten zieht `GameStateManager.placeTower()` direkt ab |
-| `tower:upgraded` | GameCommandsHandler (auch bei `debug:max-upgrade-all-towers`, dann mit `level: 0`, `cost: 0`) | GameStateSyncService, VisualizationFacade, AIDataCollector | Tower aufgewertet (`tower`, `level`, `cost`) |
-| `tower:sold` | TowerManager | GameStateSyncService, VisualizationFacade, LosDebugService, AIDataCollector | Tower verkauft (`tower`, `refund`). Die Gutschrift macht `GameStateManager.sellTower()` direkt |
+| `tower:placed` | TowerManager | GameStateSyncService, VisualizationFacade, AIDataCollector | Tower gebaut (`tower`, `position`, `cost`). Die Kosten zieht `GameStateManager.placeTower()` (`TowerLifecycle.place()`) direkt ab |
+| `tower:upgraded` | TowerLifecycle (`upgrade()`; auch bei `debug:max-upgrade-all-towers` über `maxUpgradeAll()`, dann mit `level: 0`, `cost: 0`) | GameStateSyncService, VisualizationFacade, AIDataCollector | Tower aufgewertet (`tower`, `level`, `cost`) |
+| `tower:sold` | TowerManager | GameStateSyncService, VisualizationFacade, LosDebugService, AIDataCollector | Tower verkauft (`tower`, `refund`). Die Gutschrift macht `GameStateManager.sellTower()` (`TowerLifecycle.sell()`) direkt |
 | `tower:selected` | TowerManager | GameStateSyncService, VisualizationFacade, LosDebugService | Tower ausgewählt (`tower`) |
 | `tower:deselected` | TowerManager | GameStateSyncService, LosDebugService | Tower-Auswahl aufgehoben |
 | `tower:kill` | DamageApplicationService | GameStateSyncService | Kill einem Tower gutgeschrieben, `combat.kills` ist schon erhöht (`tower`). Zählt beim gewählten Tower `selectedTowerRevision` hoch, daraus leitet die Sidebar Kills und Stats ab |
@@ -50,8 +50,8 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `game:started` | GameStateManager (vor der ersten Welle) | AIDataCollector | Spiel gestartet |
 | `game:over` | GameStateManager (`triggerGameOver()`) | GameStateSyncService, GameLoopFacade, AIDataCollector, BackgroundMusicService, TrainingSession | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`; emittiert wird nur `'base-destroyed'`) |
 | `game:reset` | GameStateManager (`reset()`) | GameStateSyncService, BackgroundMusicService | Spiel zurückgesetzt |
-| `credits:changed` | GameStateManager | GameStateSyncService | Credits geändert (`credits`, `delta`) |
-| `health:changed` | GameStateManager, GameCommandsHandler (`debug:add-health`) | HQDamageService, ScreenShakeService, GameStateSyncService, AIDataCollector | Base Health geändert (`health`, `delta`) |
+| `credits:changed` | GameStateManager (`CreditsLedger`) | GameStateSyncService | Credits geändert (`credits`, `delta`) |
+| `health:changed` | GameStateManager (`BaseHealthLedger`: Leaks und `debug:add-health`) | HQDamageService, ScreenShakeService, GameStateSyncService, AIDataCollector | Base Health geändert (`health`, `delta`) |
 | `research:started` | ResearchManager | kein Listener (nur Event-Debugger über `onAny`) | Forschung gestartet (`researchId`, `cost`, `duration`) |
 | `research:completed` | ResearchManager (auch `completeAllResearch()`) | GameStateSyncService (`applyResearchEffects`), GameStateManager (LOS-Neuberechnung, wenn Air-Targeting frei wird) | Forschung fertig (`researchId`, `effects`) |
 | `research:cancelled` | ResearchManager | kein Listener (nur Event-Debugger über `onAny`) | Forschung abgebrochen (`researchId`, `refund`) |
@@ -97,9 +97,9 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 |-------|----------|----------|--------------|
 | `debug:sound` | SpatialAudioPlayback (deferred) | SoundDebugService | Sound-Debug-Events (`eventType`: play, stop, budget_exceeded, pool_exhausted, distance_culled; `soundId`, `timestamp`, `details?`) |
 | `debug:add-credits` | DebugFacadeService | GameCommandsHandler → GameStateManager | Credits hinzufügen (`amount`) |
-| `debug:add-health` | DebugFacadeService | GameCommandsHandler (emittiert `health:changed`) | Health hinzufügen (`amount`) |
+| `debug:add-health` | DebugFacadeService | GameCommandsHandler → GameStateManager.adjustBaseHealth() (emittiert `health:changed`) | Health hinzufügen (`amount`) |
 | `debug:complete-all-research` | DebugFacadeService | GameCommandsHandler → ResearchManager | Alle Forschungen sofort abschließen |
-| `debug:max-upgrade-all-towers` | DebugFacadeService | GameCommandsHandler | Alle Tower auf Max-Level setzen, emittiert je Tower `tower:upgraded` |
+| `debug:max-upgrade-all-towers` | DebugFacadeService | GameCommandsHandler → GameStateManager.maxUpgradeAllTowers() | Alle Tower auf Max-Level setzen, emittiert je Tower `tower:upgraded` |
 | `debug:remove-enemy` | EnemyDebugService (Enemy-Debug-Fenster: Entfernen-Knopf, „Clear All“ je Debug-Enemy) | EnemyManager, GameStateManager (Tower in Wachrichtung) | Einzelnen Enemy entfernen (`enemyId`) |
 | `debug:start-custom-wave` | WaveDebuggerComponent | GameLoopFacade (`startCustomWave()`) | Custom Wave starten |
 | `debug:spawn-enemy` | EnemyDebugService | EnemyManager | Enemy manuell spawnen (`enemyType`, `count?`, `path?`, `speed?`, `paused?`, `health?`) |
@@ -119,7 +119,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 |-------|----------|----------|--------------|
 | `command:place-tower` | TowerPlacementService (der Trainings-Bot ruft `GameStateManager.placeTower()` direkt) | GameCommandsHandler → GameStateManager.placeTower() | Tower platzieren (`position`, `typeId`, `rotation?`) |
 | `command:sell-tower` | TowerDefenseFacade (der Trainings-Bot ruft `GameStateManager.sellTower()` direkt) | GameCommandsHandler → GameStateManager.sellTower() | Tower verkaufen (`towerId`) |
-| `command:upgrade-tower` | GameLoopFacade (`upgradeTower()`, auch für den Trainings-Bot per Callback) | GameCommandsHandler (Kosten, Tier-Gating, emittiert `tower:upgraded`) | Tower upgraden (`towerId`, `upgradeId`) |
+| `command:upgrade-tower` | GameLoopFacade (`upgradeTower()`, auch für den Trainings-Bot per Callback) | GameCommandsHandler → GameStateManager.upgradeTower() (`TowerLifecycle`: Kosten, Tier-Gating, emittiert `tower:upgraded`) | Tower upgraden (`towerId`, `upgradeId`) |
 | `command:start-wave` | GameLoopFacade | GameCommandsHandler → GameStateManager.startWave() bzw. beginWave() → WaveManager | Welle starten (`config?`) |
 | `command:restart-game` | GameLoopFacade | GameCommandsHandler → GameStateManager.reset() | Spiel neu starten |
 | `command:start-research` | TowerDefenseComponent (`facade.emitCommand`), TrainingSession | GameCommandsHandler → ResearchManager | Forschung starten (`researchId`) |
@@ -254,12 +254,12 @@ function gameLoop(deltaTime: number) {
 | **WaveManager** | Nein | Mixed | Emittiert `wave:started`, `wave:completed`; reagiert auf `enemy:died`, `enemy:reached-base`, `debug:kill-all` |
 | **TowerManager** | Nein | Producer | Emittiert `tower:placed`, `tower:sold`, `tower:selected`, `tower:deselected`, `audio:play` |
 | **ResearchManager** | Nein | Producer | Emittiert `research:*` |
-| **GameCommandsHandler** | Nein | Mixed | Reagiert auf `command:*` und vier `debug:*`-Cheats, emittiert `tower:upgraded`, `health:changed` |
+| **GameCommandsHandler** | Nein | Subscriber | Reagiert auf `command:*` und vier `debug:*`-Cheats, sucht den Tower heraus und ruft den GameStateManager; emittiert selbst nichts |
 | **CombatEffectService** | Ja | Mixed | Reagiert auf `projectile:hit`, `dot:damage`, emittiert `vfx:chain-lightning` |
 | **DamageApplicationService** | Ja | Producer | Emittiert `tower:kill` |
 | **HQDamageService** | Ja | Mixed | Reagiert auf `health:changed`, emittiert `audio:play` |
 | **GameStateSyncService** | Ja | Subscriber | Synchronisiert Game State mit Angular UI |
-| **GameStateManager** | Ja | Adapter | Orchestriert Manager, emittiert `game:started`, `game:over`, `game:reset`, `credits:changed`, `health:changed` |
+| **GameStateManager** | Ja | Adapter | Orchestriert Manager, emittiert `game:started`, `game:over`, `game:reset`; über seine Klassen in `managers/game-state/` außerdem `credits:changed`, `health:changed`, `tower:upgraded` |
 
 ---
 

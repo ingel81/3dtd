@@ -280,7 +280,7 @@ der gerade auflösende Tower selbst wird dabei übersprungen.
 
 ### AA-Retrofit (`research:completed`)
 
-`GameStateManager` stellt die Tower, die erst durch das Research Air
+`GameStateManager` (`TowerLifecycle.scheduleAirRetrofit`) stellt die Tower, die erst durch das Research Air
 bekommen, per `scheduleLosRecompute` in dieselbe Queue (`staleLos`, als
 explizite Anfrage: wartet nicht auf einen laufenden Sweep, es gibt nichts
 zu bündeln). Nicht synchron: der ResearchStore setzt das Air-Flag erst im
@@ -290,7 +290,7 @@ keinen einzigen Air-Eintrag auf.
 
 Sonst entwertet nichts die Registrierung eines platzierten Towers (Stand
 2026-09-11): Range ändert sich nur per Range-Upgrade (beide Pfade in
-`game-commands.handler.ts` rufen `recomputeTowerRangeAfterUpgrade`),
+`TowerLifecycle` rufen `recomputeRangeAfterUpgrade`),
 Position und Höhe sind ab Platzierung fest, `canTargetGround` ist
 statisch, und die übrigen Research-Effekte (`unlock-tower`,
 `unlock-upgrade-tier`, `global-perk`) berühren platzierte Tower nicht.

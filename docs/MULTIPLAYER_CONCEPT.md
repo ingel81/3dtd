@@ -40,7 +40,7 @@ typischen Singleplayer-Codebase.
 
 | Asset | Fundstelle | Warum es zaehlt |
 |-------|-----------|-----------------|
-| **Fixed-Timestep-Sub-Step-Loop** | `game-state.manager.ts:358` — `FIXED_STEP_MS = 16.667` | Die wichtigste Voraussetzung fuer Lockstep ist schon da. Gameplay laeuft bereits in festen Game-Time-Schritten, unabhaengig von der Framerate. |
+| **Fixed-Timestep-Sub-Step-Loop** | `managers/game-state/game-clock.ts`: `GameClock.FIXED_STEP_MS = 16.667` | Die wichtigste Voraussetzung fuer Lockstep ist schon da. Gameplay laeuft bereits in festen Game-Time-Schritten, unabhaengig von der Framerate. |
 | **Command-Bus mit exakt 7 Player-Commands** | `game-event-bus.ts` + `game-commands.handler.ts` | `place-tower`, `sell-tower`, `upgrade-tower`, `start-wave`, `start-research`, `cancel-research`, `restart-game`. Das ist die *komplette* Input-Oberflaeche — genau das, was ueber die Leitung muss. |
 | **Command-Handler ist bereits vom Game-Loop-Owner getrennt** | `game-commands.handler.ts` | Der Netzwerk-Layer haengt sich zwischen Bus und Handler, ohne Manager anzufassen. |
 | **Serialisierbares Strassennetz** | `pathfinding.worker.ts` — `SerializedStreetNetwork` | Das Format fuer den World-Snapshot existiert schon, inklusive Tests. |
@@ -185,13 +185,15 @@ schlechtesten RTT im Raum angepasst werden.
 
 ### 4.2 Tick-Barriere
 
-Die Sub-Step-Schleife in `game-state.manager.ts:404` laeuft heute frei bis
-`MAX_SUBSTEPS_PER_FRAME`. Sie braucht ein Gate:
+Die Sub-Step-Schleife in `GameStateManager.update()` laeuft heute frei bis
+`MAX_SUBSTEPS_PER_FRAME`. Jeden Schritt gibt `GameClock.nextSubStep()` frei
+(`managers/game-state/game-clock.ts`), dort braucht sie ein Gate:
 
 ```ts
-while (pendingMs >= FIXED_STEP_MS && steps < MAX) {
-  if (this.net?.mustStallAt(this.currentNetTick)) break;  // NEU
-  ...
+nextSubStep(): boolean {
+  if (this.net?.mustStallAt(this.currentNetTick)) return false;  // NEU
+  if (this.pendingMs >= FIXED_STEP_MS && this._stepsThisFrame < MAX) { ... return true; }
+  return false;
 }
 ```
 
@@ -299,7 +301,8 @@ Design-Entscheidungen (Vorschlag):
 Braucht das volle Lockstep-Programm aus Abschnitt 4.
 
 Grosser Refactor-Punkt: `credits` ist heute ein einzelnes Signal in
-`game-state.manager.ts:105`. Muss zu `players: Map<PlayerId, PlayerEconomy>`
+`CreditsLedger` (`managers/game-state/credits-ledger.ts`), der einzigen Stelle, die
+Credits bucht. Muss zu `players: Map<PlayerId, PlayerEconomy>`
 werden, wobei Singleplayer schlicht ein Spieler mit `localPlayerId` ist.
 
 ### Modus C — Asymmetrisch: Angreifer vs. Verteidiger · **das eigentlich spannende**
@@ -336,13 +339,13 @@ Grob nach Aufwand sortiert, mit Dateibezug:
 **Netzwerk-Layer (neu, `src/app/net/`)**
 5. `NetworkClient` (WS, Reconnect) — Vorlage: `ai/training/training-session.ts`
 6. `NetworkCommandInterceptor` + `NetworkCommandQueue` (Tick-Stempel, stabile Ordnung)
-7. Tick-Barriere in `game-state.manager.ts:404`
+7. Tick-Barriere in `GameClock.nextSubStep()` (`managers/game-state/game-clock.ts`)
 8. `WorldSnapshot`-Serializer/Loader
 9. Host-LOS-Masken-Pfad in `services/tower-placement.service.ts` + `global-route-grid.ts`
 
 **Gameplay-Umbau**
 10. Per-Spieler-Oekonomie: `credits`-Signal → `Map<PlayerId, PlayerEconomy>`
-11. `Tower.ownerId` + Besitzregeln im `GameCommandsHandler`
+11. `Tower.ownerId` + Besitzregeln in `TowerLifecycle` (`sell`, `upgrade`)
 12. Wave-Schedule als Command statt lokaler Berechnung *(entschärft: der Regel-Director ist deterministisch, sobald er die geseedete Quelle bekommt)*
 13. `trainingTimescale` im MP pinnen
 
@@ -693,7 +696,7 @@ Damit pruefbar:
 - Existiert der Turm? Gehoert er dem Absender? (`sell`, `upgrade`)
 - Stimmt der Preis gegen die Server-Config? Reicht das gebuchte Gold?
 - Ist das Upgrade-Tier per Research freigeschaltet? (Spiegel der Tier-Logik aus
-  `game-commands.handler.ts`)
+  `TowerLifecycle.upgrade()`, `managers/game-state/tower-lifecycle.ts`)
 - Sind Research-Voraussetzungen erfuellt, laeuft schon eine Forschung?
 - Passt der Bauplatz in den Room-Snapshot (Zelle existiert, nicht belegt)?
 - Plausibilitaets- und Rate-Limits: Commands pro Sekunde, Tuerme pro Welle.
@@ -1085,7 +1088,7 @@ Preis, Einkommens-Ertrag, Kill-Gold fuer den Gegner, Spawn-Anzahl. Der Katalog
 ist eine Config-Datei, keine Mechanik.
 
 **Upgraden — Tier-Tracks pro Gegnertyp.** Analog zu den Tower-Upgrades
-(25 Level in 5er-Baendern, `game-commands.handler.ts`). Ein Tier-Upgrade
+(25 Level in 5er-Baendern, durchgesetzt in `TowerLifecycle.upgrade()`). Ein Tier-Upgrade
 verstaerkt alle kuenftigen Sends dieses Typs. Zwei Gruende, das genau so zu
 bauen:
 
