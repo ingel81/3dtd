@@ -314,7 +314,7 @@ Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche, Farbe und Inh
 | Countdown | Auto-Start an, Welle vorbei | wie Bereit, rechts "{n}s" statt der Tastenkappe (11px, 75 % Deckkraft, keine Versalien), unten ein 2px-Balken in `rgba(26,20,10,0.45)`, so breit wie der Rest der Wartezeit; ein Klick startet sofort |
 | Welle läuft | `waveActive()` | `.td-wave-running`: `--td-panel-shadow` mit den Kanten der vertieften Fläche; links Icon `wave` und "Wave N" in `--td-teal`, rechts "{n} left" (11px, `--td-text-muted`, keine Versalien), unten ein 2px-Balken in `--td-teal`, so breit wie der Anteil der Gegner, die weder getötet noch durchgekommen sind |
 
-Direkt unter dem Button schaltet ein kleiner Schalter "auto 10s" (`.td-auto-toggle`, ein Knopf mit `aria-pressed`, 5px Abstand zum Button) den Auto-Start, Standard aus, gespeichert in `td-ui-state` (`UIStore.autoStartWaves`). Aus: vertiefte Spur 18 × 10px auf `--td-panel-shadow` mit Rand `--td-frame-dark`, Knopf 6px in `--td-text-disabled`, Text 10px Mono in `--td-text-muted`. An: Spur `rgba(31,135,114,0.35)` mit Rand `--td-teal-dark`, der Knopf gleitet nach rechts und wird `--td-teal-light`, Text `--td-text-secondary`. Tooltip und Name nennen die 10 s. Teal war schon der Akzent der Checkbox, die der Schalter ersetzt. Der Countdown läuft in Spielzeit: bei 4x ist die Pause kürzer, pausiert steht er. Er beginnt nach `wave:completed` (wird er mitten in der Bauphase eingeschaltet, sofort), jeder Wellenstart, Game Over und ein Neustart beenden ihn, mit aktivem Bot bleibt er aus. Zahl und Balken liefert `waveButtonView()` aus `GameStore.autoWaveSecondsLeft`, das `GameLoopFacadeService` nur bei Änderung schreibt.
+Direkt unter dem Button schaltet ein kleiner Schalter "auto 10s" (`.td-auto-toggle`, ein Knopf mit `aria-pressed`, 5px Abstand zum Button; rechts daneben zwischen den Wellen der Replay-Link, siehe [Replay der letzten Welle](#replay-der-letzten-welle)) den Auto-Start, Standard aus, gespeichert in `td-ui-state` (`UIStore.autoStartWaves`). Aus: vertiefte Spur 18 × 10px auf `--td-panel-shadow` mit Rand `--td-frame-dark`, Knopf 6px in `--td-text-disabled`, Text 10px Mono in `--td-text-muted`. An: Spur `rgba(31,135,114,0.35)` mit Rand `--td-teal-dark`, der Knopf gleitet nach rechts und wird `--td-teal-light`, Text `--td-text-secondary`. Tooltip und Name nennen die 10 s. Teal war schon der Akzent der Checkbox, die der Schalter ersetzt. Der Countdown läuft in Spielzeit: bei 4x ist die Pause kürzer, pausiert steht er. Er beginnt nach `wave:completed` (wird er mitten in der Bauphase eingeschaltet, sofort), jeder Wellenstart, Game Over und ein Neustart beenden ihn, mit aktivem Bot bleibt er aus. Zahl und Balken liefert `waveButtonView()` aus `GameStore.autoWaveSecondsLeft`, das `GameLoopFacadeService` nur bei Änderung schreibt.
 
 Ein Start aus dem Build-Mode lässt den Build-Mode an: Vorschau und gewählter Tower bleiben, gebaut werden darf auch während der Welle.
 
@@ -537,6 +537,8 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 
 Während eines [Boss-Intros](#boss-intro-canvas) fragt die Spielkomponente vor InputHandler und HotkeyService den `BossIntroService`: Esc überspringt das Intro (vor Build- und Zielmodus), alle anderen Spieltasten warten, bis die Sicht zurück ist. Tippen in einem Feld und ein Esc, das ein Dialog schon genommen hat, bleiben unberührt.
 
+Während des Replays der letzten Welle steuern Leertaste und P dessen Pause, + und - dessen Geschwindigkeit, Esc führt zurück ins Spiel; Kamera-Tasten und H bleiben, alles andere ruht (`HotkeyService.runInReplay`, siehe [Replay der letzten Welle](#replay-der-letzten-welle)).
+
 S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint. Das Helden-Panel zeigt V, G und Esc als Tastenkappen, seine Munitionswahl trägt `aria-keyshortcuts`.
 
 ### First-Run-Tipps
@@ -545,7 +547,7 @@ Vier kurze Tipps beim ersten Spiel in der Context-Hint-Box: Research Center plat
 
 - Ein Tipp verschwindet, wenn der Spieler tut, was er sagt (Events `tower:placed`, `wave:started`, `tower:selected` auf das Research Center, `research:started`), oder per "Skip"; "Hide tips" beendet alle. Schon erledigte Schritte zählen, bevor ihr Tipp dran ist
 - Kopf "1/4" rechts neben dem Titel; der erste Tipp zeigt die Kamera-Tasten und H (Shortcuts) als Tastenkappen, der Controls Hint wartet so lange
-- Nicht über Ladescreen, Token-Screen, Fehler, Intro-Flug, Game Over und Photo Mode
+- Nicht über Ladescreen, Token-Screen, Fehler, Intro-Flug, Game Over, Photo Mode und Replay
 - Die Tipp-Box sitzt 56px über der Unterkante statt 20px wie die Build-Hinweise: oberhalb des Bands der Offscreen-Pfeile (26px vom Rand, Chips bis 26px), damit kein Pfeil darunter verschwindet
 - "Tips" links im Sidebar-Footer startet die Tipps von vorn
 
@@ -569,6 +571,21 @@ Blendet das HUD aus, die Kamera bleibt frei (Maus, WASD). Einstieg über "Photo 
 - Header und Sidebar verschwinden, der Canvas wird größer; `ThreeTilesEngine.fitToCanvas()` zieht den Zeichenpuffer nach dem nächsten Render nach. Sichtbar bleiben Canvas, Google-Logo und Kartenattribution, die Leiste und blockierende Screens (Laden, Token, Fehler, Game Over)
 - Leiste oben mittig (Glas, `bevel-glass`): "Save screenshot" und "Exit" mit `Esc`-Kappe
 - Screenshot: `captureFrame()` kopiert den nächsten gezeichneten Frame synchron in `RenderLoop.onNextFrameRendered()`, weil der Renderer ohne `preserveDrawingBuffer` läuft. Logos und Attribution werden ins Bild gestempelt (auf dem Schirm sind sie HTML), dann PNG-Download als `3dtd-<ort>-<datum>-<zeit>.png`
+- Tab bleibt in der Leiste (`cycleTab` in `utils/focus-cycle.ts`, geteilt mit dem Replay)
+
+### Replay der letzten Welle
+
+Technik in [REPLAY.md](REPLAY.md). Zustand in `UIStore.replayMode`, Ablauf in `ReplayService` (vom Spiel-Component bereitgestellt). `UIStore.viewOnly` fasst Photo Mode und Replay zusammen: Klicks und Hover wählen dann nichts aus.
+
+- **Einstieg im WAVE-Panel:** in der Zeile unter dem Wellen-Button (`.td-wave-options`, 3px nach oben gezogen wie zuvor der Schalter) links der Auto-Start-Schalter, rechts zwischen den Wellen der Link „replay W12“ (`.td-replay-link`): kein Rahmen, Icon `replay` 12px, dann Text 10px Mono in `--td-text-muted` wie beim Schalter, Hover `--td-text-secondary`, `:focus-visible`-Outline in `--td-teal-light`. Name „Replay wave 12“, Tooltip nennt freie Kamera, Pause und 0,25x bis 4x. Er erscheint, sobald eine Welle aufgenommen ist, und verschwindet mit dem Start der nächsten
+- **Einstieg auf dem Game-Over-Screen:** unter Restart „Replay wave N“ (`.td-gameover-replay`) als Rahmen-Button (`--td-panel-main`, 1px `--td-frame-dark`, Inset-Kante, `--td-text-secondary`, 11px Mono-Versalien), 12px Abstand, leiser als das grüne Restart
+- Beim Einstieg enden Build-, Platzierungs- und Zielmodus, die Tower-Auswahl, das offene Quick-Menü und ein laufender Photo Mode; die Veteranen-Abzeichen sind aus, das Spiel pausiert. Header, Sidebar und alle Overlays des Canvas verschwinden wie im Photo Mode, hier auch der Game-Over-Screen (er kommt nach dem Replay wieder). Beim Ausstieg kehren Kamera, Pause, Menü und Fokus zurück
+- **Leiste** unten mittig, 30px über der Unterkante (über Logo und Attribution), bis 760px breit, 16px Rand zu den Seiten, Glas (`bevel-glass`), zwei Zeilen in `--td-font-mono`:
+  - Oben „REPLAY“ (10px Versalien, `letter-spacing: 0.18em`, `--td-text-muted`) mit „Wave N“ in `--td-gold-light` fett; rechts HQ-Leben (`heart`) und Gegner auf der Route (`skull`) im gezeigten Moment, 11px `tabular-nums` in `--td-text-secondary`, Icons in `--td-text-muted`; ganz rechts „Exit“ mit `Esc`-Kappe im Rezept der Photo-Mode-Knöpfe
+  - Unten Play/Pause (30px breit, Icon in `--td-gold-light`; am Ende `refresh`, „Play the replay again“), der Fortschrittsbalken, die Zeit „0:42 / 2:13“ (11px `tabular-nums`) und die Geschwindigkeiten 0.25x bis 4x als Segmente (10px, `--td-text-muted` auf `--td-panel-secondary`; die aktive eingedrückt wie der Pause-Knopf: `--td-panel-shadow`, Rand `--td-gold-dark`, Text `--td-gold-light`, `aria-pressed`)
+  - Fortschrittsbalken: `input type="range"`, Spur 4px als vertiefte Fläche, bis zum gezeigten Moment in `--td-gold-dark` gefüllt, Griff 10 × 14px im Gold-Verlauf. Darunter 1px-Marken in `--td-teal-light` (75 %) an den Stellen, an denen der Spieler Befehle gab; Marken, die sich berühren würden, werden eine. Tooltip „Drag to jump. Ticks mark your builds, sales, upgrades and abilities“
+  - Unter 640px Breite rücken die Geschwindigkeiten in eine eigene Zeile
+- Tab bleibt in der Leiste; der Fokus liegt beim Einstieg auf Play/Pause
 
 ### Game-Over-Bilanz
 

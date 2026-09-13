@@ -750,6 +750,9 @@ ohne Angular-DI, und delegiert an sie. Seine öffentliche API (`placeTower`, `se
 | `BaseHealthLedger` | `baseHealth`-Signal und Leck-Budget pro Welle; emittiert `health:changed` |
 | `TowerLifecycle` | Bauen, Verkaufen, Upgraden (Prüfungen, Kosten, Tier-Gating, `tower:upgraded`), Range-Refresh, AA-Retrofit, Wachrichtung |
 
+Außerdem hält er den `ReplayRecorder`, der die laufende Welle für das Replay aufnimmt
+(siehe [4.9](#49-replay-der-letzten-welle)).
+
 `update()`/`runSubStep()` und das Event-Wiring in `initialize()` bleiben im GameStateManager,
 damit die Reihenfolge an einer Stelle steht. `game-state.manager.order.spec.ts` hält sie fest:
 Aufrufe pro Sub-Step und pro Frame, Pause, Timescale 1 und 10, Listener-Reihenfolge, Tower-Befehle, `reset()`.
@@ -884,6 +887,28 @@ class HeroManager implements IGameManager {
 Der Held (Söldner) läuft auf dem Routengraph (`utils/route-graph.ts`), kämpft
 über `ProjectileManager.spawnShot` und `DamageApplicationService` mit Quelle
 `hero` und steht als virtueller Tower im Fairness-Gate. Siehe [HERO.md](HERO.md).
+
+### 4.9 Replay der letzten Welle
+
+> **Vollständige Dokumentation:** [REPLAY.md](REPLAY.md)
+
+Ein Präsentations-Replay, keine Re-Simulation (Begründung in REPLAY.md):
+`ReplayRecorder` (`replay/`, ohne Angular-DI, vom GameStateManager gehalten)
+nimmt alle 6 Sub-Steps auf, was die Renderer zeigen, in Typed-Array-Spalten
+mit Speichergrenze, dazu Effekt-Events und jedes `command:*` über `onAny()`.
+`ReplayPlayer` spielt das über die Live-Renderer ab, während das Spiel
+pausiert; Effekte laufen über einen eigenen Bus mit eigenem `VFXService`,
+`AudioService` und `ScreenShakeService`. `ReplayService` (Angular, vom
+Spiel-Component bereitgestellt) steuert den Modus, `app-replay-bar` die Leiste.
+
+```typescript
+class ReplayRecorder {
+  readonly readyWave: Signal<number | null>;  // Welle der fertigen Aufnahme
+  onSubStep(): void;                           // GameStateManager, nach dem Turret-Aim
+  finish(outcome: 'completed' | 'gameover'): void;
+  clear(): void;
+}
+```
 
 ---
 

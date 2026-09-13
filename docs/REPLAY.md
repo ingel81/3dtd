@@ -1,0 +1,204 @@
+# Replay der letzten Welle
+
+**Stand:** 2026-09-14
+
+Nach einer Welle lässt sie sich noch einmal ansehen: freie Kamera, Pause,
+0,25x bis 4x, Sprung an jede Stelle über den Fortschrittsbalken. Nur die
+letzte Welle wird gehalten. Der Einstieg sitzt im WAVE-Panel unter dem
+Wellen-Button und auf dem Game-Over-Screen; nach dem Replay steht das Spiel
+genau so da wie vorher, die Kamera eingeschlossen.
+
+---
+
+## Entscheidung: Präsentations-Replay statt Re-Simulation
+
+Die naheliegende Idee war, den Zustand beim Wellenstart zu sichern und die
+Welle mit den aufgezeichneten Befehlen noch einmal zu simulieren. Das geht
+heute nicht verlässlich, aus diesen Gründen im Code:
+
+| Befund | Fundstelle | Folge für eine Re-Simulation |
+|--------|------------|------------------------------|
+| Ungeseedetes `Math.random()` bei jedem Spawn: Seitenversatz im Korridor, Höhenvariation der Luftgegner | `managers/enemy.manager.ts` (`spawn()`) | Gegner laufen auf anderen Bahnen, treffen andere Zellen, andere Türme zielen auf sie |
+| Spawnpunkt per `Math.random()`, `spawnMode` ist standardmäßig `'random'` | `managers/wave.manager.ts` (`selectSpawnPoint()`) | Gegner kommen aus anderen Portalen |
+| Sichtlinie eines Turms aus einem GPU-Readback gegen die gerade geladenen Tiles; ein während der Welle gebauter Turm schießt erst, wenn `losReady` gesetzt ist, und Zellhöhen ändern sich, während Tiles nachladen | `services/tower-los-registry.ts`, `services/combat/tower-combat.service.ts`, `EnemyManager.update()` (Bodenhöhe aus dem Route-Grid) | Andere Treffer, anderer Ausgang, abhängig von Framerate und Streaming |
+| Die Turmdrehung, die das Feuern freigibt, lebt im Renderer | `ThreeTowerRenderer.advanceTurretAim()` | Die Simulation hängt an Renderer-Zustand |
+| Die Simulationsdienste sind Singletons, die das laufende Spiel teilt: Route-Grid (Gegner je Zelle, Sichtbarkeit), Spatial-Grid, Kampf-, Status- und Turm-Kampfdienst | `GlobalRouteGridService`, `SpatialGridService`, `CombatEffectService`, `StatusEffectService`, `TowerCombatService` | Eine zweite Simulation müsste all das sichern und zurückspielen oder doppelt aufbauen; der Live-Zustand darf aber nicht angefasst werden |
+
+Das deckt sich mit den Blockern in [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md#2-die-drei-determinismus-blocker)
+(GPU-LOS, Zellhöhen, RNG). Deshalb zeichnet das Replay auf, **was die
+Renderer gezeigt haben**, und spielt das über dieselben Renderer ab. Die
+Simulation wird dabei nie berührt.
+
+Die Befehle der Welle werden trotzdem vollständig mitgeschrieben (jedes
+`command:*` als Klartext, dazu die `WaveConfig` des Startbefehls). Eine
+spätere Re-Simulation, sobald die Blocker gelöst sind, kann darauf aufsetzen
+(MULTIPLAYER_CONCEPT, Abschnitt 18).
+
+---
+
+## Aufbau
+
+| Datei | Aufgabe |
+|-------|---------|
+| `configs/replay.config.ts` | Framedichte, Speichergrenze, Event-Grenze, Geschwindigkeiten |
+| `replay/replay-recording.ts` | Die Aufnahme: Tabellen je Gegner, Projektil, Turm, Frames als Typed-Array-Spalten, Events, Befehle, HQ-Leben; Speichergrenze mit Ausdünnen (`thin()`) |
+| `replay/replay-recorder.ts` | Nimmt auf. Gehört dem `GameStateManager`, liest den Bus über `onAny()` |
+| `replay/replay-events.ts` | Welche Events aufgehoben werden und in welcher Form; Befehle als Klartext (`toPlainData`) |
+| `replay/replay-player.ts` | Spielt eine Aufnahme über die Live-Renderer ab und gibt sie danach unverändert zurück |
+| `replay/replay-bar-view.ts` | Reine Funktionen für die Leiste: Befehls-Marken, Zeit, Geschwindigkeit |
+| `services/replay.service.ts` | Replay-Modus: HUD aus, Spiel pausiert, Kamera sichern und zurückstellen, Leiste füttern |
+| `components/replay-bar/` | Die Leiste unten mittig |
+
+Einbindung:
+
+- `GameStateManager`: hält `replayRecorder`, ruft `onSubStep()` in jedem Sub-Step nach dem Turret-Aim, `finish('completed')` direkt nach `endWave()`, `finish('gameover')` in `triggerGameOver()` noch vor dem Leeren der Gegner, `clear()` bei `reset()`, `initialize()` (neuer Ort) und `reseatWavePipeline()` (neue DevWorld)
+- `GameLoopFacadeService.onEngineUpdate()`: `replay.update(deltaTime)` nach `gameState.update()`, damit das Replay den Timescale der Renderer setzt, nachdem die Pause ihn auf 0 gestellt hat
+- `HotkeyService`: während des Replays steuern Leertaste, P, +/- und Esc das Replay (siehe Bedienung)
+- `UIStore.replayMode` und `UIStore.viewOnly` (Photo Mode oder Replay): der `InputHandlerService` wählt dann per Klick und Hover nichts aus
+- Neu an den Renderern: `ThreeEffectsRenderer.holdGroundMarks()`, `ThreeFlameBeamRenderer.getBeam()`, `ThreeTentacleRenderer.getStrikeTarget()`, `setVisible()`, `captureStrike()` und `restoreStrike()`, `TowerPlinthRenderer.setVisible()`
+- `command:set-targeting`: die Zielwahl im Tower-Panel lief bisher an der Befehlskette vorbei und geht jetzt über den Bus, damit sie im Befehlslog steht ([EVENT_SYSTEM.md](EVENT_SYSTEM.md))
+
+---
+
+## Aufnahme
+
+Die Aufnahme beginnt mit `wave:started` (auch bei manuellen Debug-Wellen) und
+hält dabei den Stand zu Wellenbeginn fest: die stehenden Türme (Position, Typ,
+Drehung, Sockelhöhe), HQ-Leben, Credits und die `WaveConfig` des Befehls, der
+die Welle gestartet hat. Solange der Renderer aus ist (Training ohne
+Rendering), wird nichts aufgenommen.
+
+Alle `stepsPerFrame` Sub-Steps (6, also 10 Frames pro Sekunde Spielzeit)
+kommt ein Frame dazu, im selben Sub-Step direkt nach dem Turret-Aim:
+
+| Stichprobe | Felder | Bytes |
+|------------|--------|-------|
+| Gegner (lebend) | Tabellenindex, lokale Position mit Höhenversatz, Blickrichtung (16 bit), Bodengeschwindigkeit (cm/s), Leben (0-255), Status (verlangsamt, vergiftet, brennt, rennt) | 22 |
+| Projektil | Tabellenindex, lokale Position | 16 |
+| Turm | Tabellenindex, Turret-Drehung, Flammenstrahl oder Tentakelschlag mit Ziel und Breite | 23 |
+
+Türme ohne Turret, Strahl und Schlag (etwa das Research Center) bekommen
+keine Stichprobe. Sterbende Gegner stehen nicht in den Frames; ihr Tod steht
+in der Tabelle, der Player spielt die Todesanimation von dort.
+
+Neben den Frames kommt alles aus dem Bus:
+
+- Tabellen: Spawn (`enemy:spawned`), Tod (`enemy:died`), Leck (`enemy:reached-base`), Treffer eines Projektils mit Trefferpunkt (`projectile:hit`), gebaute und verkaufte Türme (`tower:placed`, `tower:sold`). Ein Projektil ohne Treffer-Event (Ziel verloren, kein Splash) endet am ersten Frame, in dem es fehlt
+- Effekt-Events: jedes `vfx:*`, `audio:play`, die `ability:*`-Events außer `ability:state-changed` und `ability:rejected`, `health:changed` und `enemy:split` (als Stummel mit der Stelle des toten Gegners). Die Objekte werden aufgehoben, nicht kopiert: ihre Sender bauen je Event ein neues Objekt. Ein Event, das eine lebende Entity hält, wird verworfen, weil es beim Abspielen deren heutigen Zustand zeigen würde
+- Befehle: jedes `command:*` als Klartext mit Zeitpunkt. Befehle, die es heute noch nicht gibt (etwa die des Helden), landen ohne Änderung im Log
+
+Die Aufnahme endet, wenn der `GameStateManager` sie schließt (Welle vorbei
+oder HQ zerstört); ein letzter Frame hält den Stand dabei fest. Offene Gegner
+gelten dann als „cleared“. Der nächste Wellenstart, ein Neustart, ein neuer
+Ort und eine neu erzeugte DevWorld verwerfen sie.
+
+### Speicher
+
+Die Stichproben liegen in wachsenden Typed-Array-Spalten, die von Welle zu
+Welle bleiben: nach der ersten großen Welle legt die Aufnahme nur noch
+Tabelleneinträge und Map-Einträge für neue Gegner und Projektile an. Alle
+Spalten zusammen bleiben unter `sampleBudgetBytes` (48 MB). Passt ein Frame
+nicht mehr hinein, fällt jeder zweite Frame weg und der Abstand verdoppelt
+sich (`ReplayRecording.thin()`), bis hinunter zu 1,25 Frames pro Sekunde
+(`maxStepsPerFrame` 48). Passt es auch dann nicht, hört die Aufnahme auf zu
+wachsen (`truncated`), das Replay endet früher. Die Frames liegen immer auf
+Vielfachen des aktuellen Abstands ab Wellenbeginn, deshalb geht das Ausdünnen
+ohne Lücken weiter.
+
+Rechnung für den ungünstigsten Fall, 2 800 Körper gleichzeitig auf der Route
+(ein Skelett-Schwarm am Rand seiner Template-Spanne; die Curriculum-W19 hat
+310 Skelette mit je 2 Minions, höchstens 930 Körper):
+
+- 2 800 × 22 B × 10 Frames/s = 616 KB pro Sekunde Spielzeit, nur Gegner
+- 48 MB reichen damit für rund 78 s mit 10 Frames/s, danach 5 Frames/s bis rund 156 s, 2,5 bis rund 312 s, 1,25 bis rund 624 s
+- Mit einigen hundert Gegnern gleichzeitig (500 × 22 B × 10 = 110 KB/s) belegt eine dreiminütige Welle rund 20 MB, ohne auszudünnen
+
+Dazu kommen die Tabellen (11 B je Gegner, 18 B je Projektil) und die Events,
+höchstens `maxEvents` (150 000) Stück; darüber wird gezählt und verworfen
+(`droppedEvents`). Ein aufgehobenes Event-Objekt ist geschätzt 100 B groß,
+das wären bis zu rund 15 MB.
+
+### Kosten im laufenden Spiel
+
+Gemessen in `replay-recorder.spec.ts` (vitest, jsdom): ein Frame mit 2 800
+Gegnern, 300 Projektilen und 60 Türmen kostet 84 µs, also 0,84 ms je Sekunde
+Spielzeit bei 10 Frames/s; bei 4x Spielgeschwindigkeit 3,4 ms je Sekunde
+Echtzeit. In der ersten Welle, während die Spalten wachsen, waren es 96 µs.
+Eine Messung im Browser steht aus. Die übrigen Sub-Steps kosten einen
+Zähler. Pro Frame wird nichts angelegt außer Map-Einträgen für neue Gegner
+und Projektile.
+
+---
+
+## Wiedergabe
+
+`ReplayService.enter()` beendet Build-, Platzierungs- und Zielmodus, die
+Tower-Auswahl, das offene Quick-Menü und einen laufenden Photo Mode, blendet
+die Veteranen-Abzeichen aus, merkt sich Kamera (Position, Ausrichtung, Up),
+Pause, Menü und Fokus und pausiert das Spiel (`GameStore.paused` und
+`GameStateManager.paused`). Dann übernimmt der `ReplayPlayer`:
+
+- Gegner und Projektile bekommen eigene Instanzen in den bestehenden Renderern (`replay-enemy-N`, `replay-projectile-N`); Positionen, Blickrichtungen und Turret-Drehungen werden zwischen zwei Frames interpoliert. Status-Tönungen und Auren, Gehen und Rennen, Todesanimationen (ab dem aufgezeichneten Todeszeitpunkt) und Lecks folgen der Aufnahme
+- Die Live-Türme drehen sich auf die aufgezeichnete Turret-Drehung und sind unsichtbar, bis sie in der Welle gebaut wurden. In der Welle verkaufte Türme kommen als eigene Modelle (`replay-tower-N`) mit Sockel und Tentakel zurück, nach der Welle gebaute sind während des Replays ausgeblendet. Flammenstrahlen und Tentakelschläge spielen aus den Turm-Stichproben
+- Die Effekt-Events laufen über einen eigenen Bus des Players, auf dem ein eigener `VFXService`, `AudioService` und `ScreenShakeService` hören: dieselben Effekte wie im Spiel. Oberhalb von 1x spielt das Replay keine Sounds
+- Der Timescale der Renderer folgt der Replay-Geschwindigkeit (0 in der Pause), damit laufen Gehzyklen, Todesanimationen und Atompilze mit
+- Bodenmarken (Blut, Frost, Brandflecken) sind angehalten (`holdGroundMarks`): die Einschläge der Welle haben den Boden schon markiert
+- Springen spielt keine Events dazwischen, holt Gegner zurück ins Leben, wenn der Sprung vor ihren Tod geht, und beginnt die Projektilspuren neu
+
+`exit()` nimmt alle eigenen Instanzen weg, stellt Turret-Drehung, Suchschwenk,
+Tentakelschlag und Sichtbarkeit der Live-Türme zurück, entfernt die Replay-Modelle, gibt die
+Bodenmarken frei und stellt Kamera, Pause, Menü und Fokus zurück. Die
+Controls der Kamera werden dafür kurz ab- und wieder eingeschaltet, das
+verwirft Trägheit und einen laufenden Zug.
+
+### Bedienung
+
+| Eingabe | Wirkung |
+|---------|---------|
+| „replay W12“ im WAVE-Panel (zwischen den Wellen) oder „Replay wave N“ auf dem Game-Over-Screen | Replay starten |
+| Leertaste, P, Play-Knopf | Pause und weiter; am Ende startet Play von vorn |
+| + / - , Geschwindigkeitsknöpfe | 0,25x, 0,5x, 1x, 2x, 4x |
+| Fortschrittsbalken (Maus, Pfeiltasten bei Fokus) | Springen; beim Ziehen hält das Replay an und spielt beim Loslassen weiter. Marken zeigen, wann der Spieler Befehle gab |
+| Maus, WASD, Pos1, N | Kamera wie im Spiel |
+| Esc, Exit | Zurück ins Spiel |
+
+Bauen, Verkaufen, Upgraden, Fähigkeiten und der Photo Mode ruhen während des
+Replays. Die Leiste zeigt Welle, HQ-Leben und Gegner auf der Route im
+gezeigten Moment, Tab bleibt in ihr.
+
+---
+
+## Was das Replay nicht zeigt
+
+- Schadenszahlen, Gold-Popups und das Aufblitzen bei Kettenblitz-Treffern: sie gehen direkt an den Renderer, nicht über ein Event
+- Eis-Explosionen und Frost-Decals der Eis-Treffer (`CombatVfxService.emitIceExplosion` ruft den Renderer direkt); Bodenmarken allgemein (angehalten, siehe oben)
+- Gegner-Sounds (Laufgeräusche, Zufallsrufe) und den Flammen-Loop der Feuertürme: sie hängen an Entities, nicht an Events
+- Den Zustand des HQ-Feuers: er bleibt, wie die Welle ihn hinterlassen hat. Die Leck-Vignette und die Boss-Leiste sind mit dem HUD ausgeblendet; der Screen-Shake beim Tod eines Bosses fehlt, weil `enemy:died` nicht wiederholt wird
+- Das Innenfeuer eines Feuerturms und das Knistern eines Blitzturms bei Türmen, die während oder nach der Welle gebaut oder verkauft wurden: sie folgen der Sichtbarkeit des Modells nicht
+- Türme haben im Replay ihr heutiges Modell, Upgrades der Welle sind nicht Schritt für Schritt zu sehen
+- Ein Gegner, der zwischen zwei Frames spawnt und stirbt, hat keine Stichprobe und fehlt; nach dem Ausdünnen werden Kurven gröber
+- Eine Todesanimation, in deren Mitte gesprungen wird, beginnt von vorn. Zielmarker eines Nuklearschlags erscheinen nur, wenn das `ability:used` abgespielt wurde, nicht nach einem Sprung
+- Landet im Replay eine Fähigkeit, räumt `exit()` alle Atompilze ab, auch einen, der im Spiel noch aufstieg
+
+---
+
+## Erweitern
+
+- **Neue Effekte:** ein neues `vfx:*`- oder `ability:*`-Event mit reinen Daten wird ohne Änderung aufgenommen und über den `VFXService` des Players abgespielt. Hält es eine Entity, braucht es in `replay-events.ts` einen Stummel wie `enemy:split`, sonst wird es verworfen
+- **Neue Befehle:** jedes `command:*` steht ohne Änderung im Befehlslog (auch die des Helden)
+- **Neue Gegner und Bosse:** was über den Instanced-Renderer läuft und seinen Zustand über Position, Höhe, Blickrichtung, Leben, Status und Animation zeigt, braucht nichts. Ein Boss mit eigenem Renderer außerhalb von `EnemyInstanceManager` erscheint im Replay erst, wenn sein Zustand in den Frames steht
+- **Visuals direkt aus Diensten:** was ein Dienst an einem Renderer ruft statt ein Event zu senden, fehlt, bis es in einer Stichprobe oder als Event steht. Flammenstrahl und Tentakelschlag stehen deshalb eigens in den Turm-Stichproben
+
+---
+
+## Tests
+
+| Spec | Prüft |
+|------|-------|
+| `replay/replay-recording.spec.ts` | Tabellen, Frames, Quantisierung, Wachsen bis zur Grenze, Ausdünnen mit erhaltenen Stichproben, `truncated`, Event-Grenze |
+| `replay/replay-recorder.spec.ts` | Start und Ende, Frame-Takt, Stichproben, Tabellen aus dem Bus, Türme mit Strahl und Schlag, Befehlslog, Effekt-Events, nur die letzte Welle, kein Rendering keine Aufnahme; Kostenmessung |
+| `replay/replay-recorder-budget.spec.ts` | Frames bleiben beim Ausdünnen auf dem Raster |
+| `replay/replay-events.spec.ts` | Auswahl der Events, Stummel für `enemy:split`, Klartext der Befehle |
+| `replay/replay-player.spec.ts` | Interpolation, Status, Lecks, Todesanimation und Zurückspringen, Projektile, Türme (Sichtbarkeit, Drehung, Strahl, Schlag), Events und Sounds, Rückgabe beim Verlassen |
+| `replay/replay-bar-view.spec.ts` | Marken, Zeitformat |
+| `services/hotkey.service.spec.ts` | Tasten während des Replays |

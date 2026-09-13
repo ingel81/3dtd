@@ -279,6 +279,7 @@ function gameLoop(deltaTime: number) {
 | **HQDamageService** | Ja | Mixed | Reagiert auf `health:changed`, emittiert `audio:play` |
 | **GameStateSyncService** | Ja | Subscriber | Synchronisiert Game State mit Angular UI |
 | **GameStateManager** | Ja | Adapter | Orchestriert Manager, emittiert `game:started`, `game:over`, `game:reset`; über seine Klassen in `managers/game-state/` außerdem `credits:changed`, `health:changed`, `tower:upgraded` |
+| **ReplayRecorder** | Nein | Subscriber (`onAny`) | Nimmt die laufende Welle für das Replay auf: startet bei `wave:started`, liest Spawns, Tode, Lecks, `projectile:hit`, gebaute und verkaufte Tower, die Effekt-Events (`vfx:*`, `audio:play`, `ability:*`, `health:changed`, `enemy:split`) und jedes `command:*`. Emittiert nichts. Der `ReplayPlayer` spielt die Effekt-Events später auf einem eigenen Bus ab. Siehe [REPLAY.md](REPLAY.md) |
 
 ---
 
@@ -303,6 +304,10 @@ eventBus.onAny((event) => {
   console.log(`[Event] ${event.type}`, event);
 });
 ```
+
+`onAny` hört vor den typisierten Listenern desselben Events. Neben dem
+Event-Debugger nutzt es der `ReplayRecorder`, damit jedes `command:*` im Log
+landet, auch eines, das es beim Schreiben des Recorders noch nicht gab.
 
 ---
 
