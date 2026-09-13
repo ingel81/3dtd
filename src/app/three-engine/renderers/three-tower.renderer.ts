@@ -9,7 +9,6 @@ import {
   AnimationAction,
   MeshBasicMaterial,
   RingGeometry,
-  PointLight,
   Vector3,
   DoubleSide,
   LoopPingPong,
@@ -30,6 +29,7 @@ import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-t
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import { TerrainRaycaster, createLosRing, createRangeIndicator, createTipMarker } from './tower-overlays';
 import { headingToLocalRotation, stepTurretAim, turretAimError } from './tower-turret-aim';
+import { TowerMuzzleFlash } from './tower-muzzle-flash';
 
 /**
  * Tower render data - stored per tower
@@ -136,8 +136,7 @@ export class ThreeTowerRenderer {
   private static sharedRefCount = 0;
 
   // Muzzle flash (pooled - single reusable light)
-  private muzzleFlashLight: PointLight | null = null;
-  private muzzleFlashTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly muzzleFlash: TowerMuzzleFlash;
 
   // Terrain height sampler (optional - for terrain-conforming range indicators)
   private terrainHeightSampler: TerrainHeightSampler | null = null;
@@ -171,11 +170,9 @@ export class ThreeTowerRenderer {
     this.sync = sync;
     this.assetManager = assetManager;
 
-    // The muzzle flash light lives in the scene for good, dark between shots.
-    // Adding and removing it flipped the scene's point-light count, and every
-    // lit material then needed a new shader program on the next frame.
-    this.muzzleFlashLight = new PointLight(0xffaa44, 0, 30);
-    this.scene.add(this.muzzleFlashLight);
+    // The muzzle flash light lives in the scene for good, dark between shots
+    // (see TowerMuzzleFlash).
+    this.muzzleFlash = new TowerMuzzleFlash(this.scene);
 
     // Range indicator material (invisible - hex cells show visibility now)
     this.rangeMaterial = new MeshBasicMaterial({
@@ -949,17 +946,13 @@ export class ThreeTowerRenderer {
     );
   }
 
-  /** VFX setting muzzleFlash; while off the light stays dark. */
-  private muzzleFlashEnabled = true;
-
   /**
    * Switch the muzzle flash light on or off (VFX setting muzzleFlash). The
    * light stays in the scene, dark as between shots: taking it out would
-   * give every lit material a new shader program (see the constructor).
+   * give every lit material a new shader program (see TowerMuzzleFlash).
    */
   setMuzzleFlashEnabled(enabled: boolean): void {
-    this.muzzleFlashEnabled = enabled;
-    if (!enabled && this.muzzleFlashLight) this.muzzleFlashLight.intensity = 0;
+    this.muzzleFlash.setEnabled(enabled);
   }
 
   /**
@@ -970,30 +963,12 @@ export class ThreeTowerRenderer {
    * @param intensity - Light intensity, from the tower's MUZZLE_FLASH_PROFILES entry
    */
   triggerMuzzleFlash(towerId: string, intensity: number): void {
-    if (!this.muzzleFlashEnabled) return;
+    if (!this.muzzleFlash.isEnabled) return;
     const data = this.towers.get(towerId);
     if (!data) return;
 
     const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
-
-    if (!this.muzzleFlashLight) return;
-
-    // Position at tower tip
-    this.muzzleFlashLight.position.set(terrainPos.x, data.tipY, terrainPos.z);
-    this.muzzleFlashLight.intensity = intensity;
-
-    // Clear any existing timer
-    if (this.muzzleFlashTimer) {
-      clearTimeout(this.muzzleFlashTimer);
-    }
-
-    // Dark again after 50ms. Intensity only, see the constructor.
-    this.muzzleFlashTimer = setTimeout(() => {
-      if (this.muzzleFlashLight) {
-        this.muzzleFlashLight.intensity = 0;
-      }
-      this.muzzleFlashTimer = null;
-    }, 50);
+    this.muzzleFlash.flash(terrainPos.x, data.tipY, terrainPos.z, intensity);
   }
 
   /**
@@ -1051,15 +1026,7 @@ export class ThreeTowerRenderer {
     }
 
     // Clean up muzzle flash
-    if (this.muzzleFlashTimer) {
-      clearTimeout(this.muzzleFlashTimer);
-      this.muzzleFlashTimer = null;
-    }
-    if (this.muzzleFlashLight) {
-      this.scene.remove(this.muzzleFlashLight);
-      this.muzzleFlashLight.dispose();
-      this.muzzleFlashLight = null;
-    }
+    this.muzzleFlash.dispose();
 
     // Clear map reference to allow GC
     this.towers.clear();
