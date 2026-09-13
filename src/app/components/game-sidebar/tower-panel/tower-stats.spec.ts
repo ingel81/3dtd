@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  damageTypeIcon,
   targetingStrategiesFor,
   towerDps,
   towerStats,
@@ -53,14 +52,5 @@ describe('upgradeTierLockReason', () => {
     expect(upgradeTierLockReason(3, 2)).toBe('Requires: Master Engineering');
     expect(upgradeTierLockReason(4, 1)).toBe('Requires: Advanced Engineering');
     expect(upgradeTierLockReason(5, 4)).toBe('Requires: Transcendent Tech');
-  });
-});
-
-describe('damageTypeIcon', () => {
-  it('maps a damage type to its icon and falls back to the sword', () => {
-    expect(damageTypeIcon('fire')).toBe('flame');
-    expect(damageTypeIcon('ice')).toBe('splash');
-    expect(damageTypeIcon('chaos')).toBe('shuffle');
-    expect(damageTypeIcon('lightning')).toBe('sword');
   });
 });

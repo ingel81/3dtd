@@ -1,0 +1,156 @@
+/* NEXT: the coming waves on a thin line, one detail line under it.
+ * Grey by default, gold only for what matters: the wave detailed below (a
+ * filled mark), boss waves (skull) and what the wave is weak to. */
+:host {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--td-font-mono);
+}
+
+.td-next-label {
+  margin-bottom: 4px;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--td-text-muted);
+  text-transform: uppercase;
+}
+
+/* The line runs through the marks, from the first centre to the last:
+ * icon row 12px, then the middle of the 7px diamond */
+.td-next-line {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+}
+.td-next-line::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 15px;
+  height: 1px;
+  background: var(--td-frame-mid);
+}
+
+.td-next-mark {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 28px;
+  padding: 0 0 1px;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.td-next-mark:focus-visible {
+  outline: 1px solid var(--td-gold-light);
+  outline-offset: 1px;
+}
+
+.td-next-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 12px;
+}
+.td-next-boss {
+  color: var(--td-gold);
+}
+.td-next-air {
+  color: var(--td-text-muted);
+}
+
+/* A diamond on the line, covering it; the sidebar ground as its fill */
+.td-next-dot {
+  box-sizing: border-box;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--td-bg-dark);
+  border: 1px solid var(--td-frame-light);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.td-next-num {
+  margin-top: 4px;
+  font-size: 9px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-muted);
+}
+
+/* The wave START WAVE starts next */
+.td-next-mark-first .td-next-dot {
+  border-color: var(--td-gold-dark);
+}
+.td-next-mark-first .td-next-num {
+  color: var(--td-text-secondary);
+}
+
+.td-next-mark:hover .td-next-dot {
+  border-color: var(--td-text-secondary);
+}
+
+/* The wave the line below details */
+.td-next-mark.td-next-mark-shown .td-next-dot {
+  background: var(--td-gold);
+  border-color: var(--td-gold-light);
+}
+.td-next-mark.td-next-mark-shown .td-next-num {
+  color: var(--td-gold-light);
+  font-weight: 700;
+}
+
+/* One line: name (shrinks first), count, armor, the weaknesses right */
+.td-next-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
+  cursor: help;
+}
+.td-next-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--td-text-secondary);
+}
+.td-next-name.td-next-name-boss {
+  color: var(--td-text-primary);
+  font-weight: 700;
+}
+.td-next-count {
+  flex-shrink: 0;
+  color: var(--td-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.td-next-armor {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--td-text-secondary);
+}
+.td-next-armor td-icon {
+  color: var(--td-text-muted);
+}
+.td-next-weak {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  color: var(--td-gold);
+}
+.td-next-note {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--td-text-muted);
+  font-style: italic;
+}

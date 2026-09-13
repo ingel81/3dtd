@@ -26,7 +26,8 @@ import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-matrix-dialog';
 import { TdIconComponent } from '../../icon/icon.component';
-import { damageTypeIcon, targetingStrategiesFor, towerStats, upgradeTierLockReason } from './tower-stats';
+import { damageTypeIcon } from '../../icon/damage-type-icon';
+import { targetingStrategiesFor, towerStats, upgradeTierLockReason } from './tower-stats';
 import { formatCompact } from '../../../utils/format-compact';
 
 /**

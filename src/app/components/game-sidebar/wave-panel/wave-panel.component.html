@@ -80,36 +80,8 @@
       <span>auto {{ autoStartSeconds }}s</span>
     </button>
 
-    <!-- COMING UP: the next two waves from the curriculum; past W30 what is
-         known before the director picks -->
-    <div class="td-coming-up">
-      <div class="td-coming-up-label">COMING UP</div>
-      @for (peek of upcomingWaves(); track peek.wave) {
-        <div class="td-coming-up-row" [matTooltip]="peek.tooltip" matTooltipPosition="left">
-          <div class="td-coming-up-head">
-            <span class="td-coming-up-wave">W{{ peek.wave }}</span>
-            <span class="td-coming-up-name" [class.td-coming-up-boss]="peek.boss">{{ peek.name }}</span>
-            @if (peek.count; as count) {
-              <span class="td-coming-up-count">{{ count }}</span>
-            }
-          </div>
-          @if (peek.known) {
-            <div class="td-coming-up-detail">
-              @for (armor of peek.armors; track armor.label) {
-                <span>{{ armor.icon }} {{ armor.label }}</span>
-              }
-              @if (peek.air) {
-                <span>✈️ Air</span>
-              }
-            </div>
-            @if (peek.weakTo) {
-              <div class="td-coming-up-weak">Weak to {{ peek.weakTo }}</div>
-            }
-          } @else {
-            <div class="td-coming-up-detail td-coming-up-note">{{ peek.note }}</div>
-          }
-        </div>
-      }
-    </div>
+    <!-- NEXT: the coming waves on a timeline, one detail line for one of
+         them; past W30 what is known before the director picks -->
+    <app-wave-timeline [peeks]="upcomingWaves()" />
   </div>
 </section>
