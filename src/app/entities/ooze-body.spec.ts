@@ -33,6 +33,28 @@ describe('OozeBody', () => {
     expect(body.lengthM).toBe(80);
   });
 
+  it('flows into the HQ at most as far as the body is long', () => {
+    const body = new OozeBody(stations, 80, 0);
+    body.grow(300);
+    body.arrived = true;
+    expect(body.flowIn(30)).toBe(30);
+    expect(body.lengthM).toBe(50);
+    expect(body.flowedIn).toBe(false);
+    expect(body.flowIn(70)).toBe(50);
+    expect(body.flowedIn).toBe(true);
+    expect(body.flowIn(10)).toBe(0);
+  });
+
+  it('charges whole points and settles the rest once in', () => {
+    const body = new OozeBody(stations, 80, 0);
+    expect(body.owe(0.4)).toBe(0);
+    expect(body.owe(0.7)).toBe(1);
+    expect(body.owe(0.3)).toBe(0);
+    expect(body.settle()).toBe(0); // 0.4 left, rounds down
+    expect(body.owe(0.6)).toBe(0);
+    expect(body.settle()).toBe(1);
+  });
+
   it('starts where the ooze joins its path and never moves back', () => {
     const body = new OozeBody(stations, 80, 40);
     expect(body.tailM).toBe(40);

@@ -13,10 +13,10 @@ const LEAK_PULSE_MS = 650;
 const LEAK_PULSE_MIN_INTERVAL_MS = 900;
 
 /**
- * Red edge over the canvas when an enemy reaches the HQ. Listens on the event
- * bus directly: the handler runs in the game loop, outside Angular, and does
- * one time comparison per leak. The pulse is a Web Animation on one element,
- * so no change detection runs for it.
+ * Red edge over the canvas when an enemy reaches the HQ, and while an ooze
+ * flows in. Listens on the event bus directly: the handler runs in the game
+ * loop, outside Angular, and does one time comparison per leak. The pulse is
+ * a Web Animation on one element, so no change detection runs for it.
  */
 @Component({
   selector: 'app-leak-vignette',
@@ -30,8 +30,12 @@ export class LeakVignetteComponent {
   private readonly throttle = new PulseThrottle(LEAK_PULSE_MIN_INTERVAL_MS);
 
   constructor() {
-    const sub = inject(GameStateManager).getEventBus().on('enemy:reached-base', () => this.pulse());
-    inject(DestroyRef).onDestroy(() => sub.dispose());
+    const bus = inject(GameStateManager).getEventBus();
+    const subs = [
+      bus.on('enemy:reached-base', () => this.pulse()),
+      bus.on('enemy:leaking', () => this.pulse()),
+    ];
+    inject(DestroyRef).onDestroy(() => subs.forEach((sub) => sub.dispose()));
   }
 
   private pulse(): void {

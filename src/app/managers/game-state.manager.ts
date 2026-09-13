@@ -295,6 +295,10 @@ export class GameStateManager {
     this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => {
       this.healthLedger.applyLeak(event.damage);
     }));
+    // An ooze flowing in costs HP before it reaches the base as a whole
+    this.eventBusSubs.add(this.eventBus.on('enemy:leaking', (event) => {
+      this.healthLedger.applyLeak(event.damage);
+    }));
 
 
     // AA-Retrofit: towers that just gained air targeting get their air LOS

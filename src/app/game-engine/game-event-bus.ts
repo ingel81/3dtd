@@ -33,6 +33,17 @@ export type GameEvent =
       damage: number;
     }
   | {
+      /**
+       * An enemy whose body lies along the route (the ooze) flows into the
+       * base: HQ damage for the metres that went in, in whole points. Its one
+       * enemy:reached-base follows once the whole body is in; until then it
+       * is alive and can still be killed.
+       */
+      type: 'enemy:leaking';
+      enemy: Enemy;
+      damage: number;
+    }
+  | {
       /** A killed enemy split (EnemyTypeConfig.splitOnDeath), after its enemy:died */
       type: 'enemy:split';
       /** The killed enemy */

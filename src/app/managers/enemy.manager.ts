@@ -147,7 +147,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     private spatialGrid: SpatialGridService
   ) {
     super();
-    this.oozes = new OozeBodies(globalRouteGrid);
+    this.oozes = new OozeBodies(globalRouteGrid, eventBus, () => this.getWaveNumber());
     this.registerDebugHandlers();
   }
 
@@ -636,7 +636,8 @@ export class EnemyManager extends EntityManager<Enemy> {
         : stepWormSegment(enemy.movement, enemy.worm);
       if (sample) tMove += performance.now() - t0;
 
-      if (moveResult === 'reached_end') {
+      // An ooze flows into the base over many sub-steps (OozeBodies.update)
+      if (moveResult === 'reached_end' && enemy.body === null) {
         // Emit enemy:reached-base event — leak damage scales with wave-number
         // (Phase 5.16) so late-game leaks hurt more.
         this.eventBus.emit({
@@ -732,8 +733,8 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
     }
 
-    // The oozes' bodies follow their tips
-    this.oozes.update();
+    // The oozes' bodies follow their tips; those fully in the base leak
+    this.oozes.update(deltaTime, gameTimeMs, this.toRemove);
 
     // Remove enemies that reached base
     for (const enemy of this.toRemove) {

@@ -114,6 +114,12 @@ export class WaveManager implements IGameManager {
       }
       this._waveCheckDirty = true;
     }));
+    // An ooze flowing in costs HP before it reaches the base as a whole
+    this.subs.add(this.eventBus.on('enemy:leaking', (e) => {
+      if (this.phase() === 'wave') {
+        this.damageTakenThisWave += e.damage;
+      }
+    }));
     // Any enemy lifecycle change invalidates the cached wave-complete result
     this.subs.add(this.eventBus.on('enemy:died', () => {
       this._waveCheckDirty = true;
