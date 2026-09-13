@@ -6,14 +6,16 @@ import {
   createPortalGlowGeometry,
 } from './spawn-portal-geometry';
 import {
+  PORTAL_DEPTH,
   PORTAL_FRAME_TOP,
   PORTAL_MAX_SCALE,
   PORTAL_MIN_SCALE,
   PORTAL_OPENING_HEIGHT,
   PORTAL_OPENING_WIDTH,
   PORTAL_RADIUS,
-  PORTAL_SETBACK,
+  portalDepthScale,
 } from '../../../configs/marker-geometry.config';
+import { lateralLimit } from '../../../utils/route-corridor';
 
 describe('Spawn-Portal-Geometrie', () => {
   it('bleibt in den Maßen, mit denen Intro und Totale rechnen', () => {
@@ -112,7 +114,7 @@ describe('Spawn-Portal-Geometrie', () => {
     }
   });
 
-  it('füllt die Öffnung mit der Leere (aPart 1), nach beiden Seiten, bis in den Stein', () => {
+  it('schließt die Öffnung vorn und hinten mit der Leere (aPart 1), PORTAL_DEPTH auseinander, bis in den Stein', () => {
     const geometry = createPortalGateGeometry();
     const position = geometry.getAttribute('position');
     const normal = geometry.getAttribute('normal');
@@ -122,13 +124,19 @@ describe('Spawn-Portal-Geometrie', () => {
     let back = 0;
     for (let i = 0; i < part.count; i++) {
       if (part.getX(i) === 0) continue;
-      expect(position.getZ(i)).toBe(0);
       minX = Math.min(minX, position.getX(i));
       maxX = Math.max(maxX, position.getX(i));
       minY = Math.min(minY, position.getY(i));
       maxY = Math.max(maxY, position.getY(i));
-      if (normal.getZ(i) > 0.99) front++;
-      if (normal.getZ(i) < -0.99) back++;
+      // Die vordere Fläche schaut nach vorn, die hintere nach hinten
+      if (normal.getZ(i) > 0.99) {
+        expect(position.getZ(i)).toBeCloseTo(PORTAL_DEPTH / 2);
+        front++;
+      }
+      if (normal.getZ(i) < -0.99) {
+        expect(position.getZ(i)).toBeCloseTo(-PORTAL_DEPTH / 2);
+        back++;
+      }
     }
     expect(front).toBe(6);
     expect(back).toBe(6);
@@ -141,42 +149,88 @@ describe('Spawn-Portal-Geometrie', () => {
     expect(part.count).toBe(stone + 12);
   });
 
-  it('legt das Bodenlicht knapp über den Boden', () => {
+  it('macht den Rahmen tiefer als das Volumen: Pfeiler und Sturz stehen vor und hinter den Flächen', () => {
+    const position = createPortalFrameGeometry().getAttribute('position');
+    let minZ = 0;
+    let maxZ = 0;
+    for (let i = 0; i < position.count; i++) {
+      minZ = Math.min(minZ, position.getZ(i));
+      maxZ = Math.max(maxZ, position.getZ(i));
+    }
+    expect(maxZ).toBeGreaterThan(PORTAL_DEPTH / 2 + 0.2);
+    expect(minZ).toBeLessThan(-PORTAL_DEPTH / 2 - 0.2);
+  });
+
+  it('legt das Bodenlicht knapp über den Boden, vor die vordere und hinter die hintere Fläche', () => {
     const position = createPortalGlowGeometry().getAttribute('position');
-    for (let i = 0; i < position.count; i++) expect(position.getY(i)).toBeGreaterThan(0);
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < position.count; i++) {
+      expect(position.getY(i)).toBeGreaterThan(0);
+      minZ = Math.min(minZ, position.getZ(i));
+      maxZ = Math.max(maxZ, position.getZ(i));
+    }
+    expect(maxZ).toBeGreaterThan(PORTAL_DEPTH / 2 + 5);
+    expect(minZ).toBeLessThan(-PORTAL_DEPTH / 2 - 2);
   });
 });
 
-describe('Spawn-Portal: Gegner treten aus der Fläche', () => {
-  /** Portal wie im Spiel: Tor auf der Pose, Spawn PORTAL_SETBACK hinter der Fläche. */
+/**
+ * Bodies of the ground enemies at their config scale (m): width across,
+ * height, length along the way they walk (+z of the model). Bounding boxes
+ * of their GLBs times `scale` in enemy-types.config.ts, measured
+ * 2026-09-13. The air units (bat, dragon, hornet) fly 15 to 20 m above the
+ * ground and are not held by the portal.
+ */
+const GROUND_BODIES: Record<string, readonly [number, number, number]> = {
+  zombie: [2.2, 4.2, 1.9],
+  'zombie-v2': [3.6, 4.1, 0.8],
+  tank: [3.7, 3.2, 9.2],
+  wallsmasher: [11.0, 5.8, 2.4],
+  'stone-golem': [12.6, 12.4, 7.1],
+  penguin: [1.9, 2.3, 1.3],
+  herbert: [2.4, 4.4, 1.2],
+  'zombie-soldier': [2.4, 4.6, 0.9],
+  rat: [1.9, 0.6, 0.4],
+  skeleton: [3.0, 2.8, 1.3],
+  'skeleton-minion': [1.8, 1.7, 0.8],
+  spider: [3.7, 4.2, 0.9],
+  mammoth: [9.9, 6.4, 3.3],
+  bear: [5.8, 3.7, 2.6],
+  ghost: [2.3, 3.7, 2.6],
+  mech: [7.6, 11.7, 9.3],
+  wraith: [1.5, 3.4, 1.3],
+};
+
+describe('Spawn-Portal: Gegner stehen im Volumen, bis sie vorn heraustreten', () => {
+  /** Portal wie im Spiel: Tor auf der Pose, die Tiefe nicht unter Skala 1. */
   function gate(scale: number): Mesh {
     const mesh = new Mesh(createPortalGateGeometry(), new MeshBasicMaterial({ side: DoubleSide }));
-    mesh.scale.setScalar(scale);
+    mesh.scale.set(scale, scale, portalDepthScale(scale));
     mesh.updateMatrixWorld(true);
     return mesh;
   }
 
   /**
-   * Punkte eines Gegnerkörpers am Spawn in Metern, Portalraum: quer bis an
-   * die Spur am Rand (Korridor-Halbbreite minus edgeMargin, höchstens die
-   * halbe Öffnung minus 1,5 m), 0,4 m Körperradius, bis 2,2 m hoch.
+   * Punkte eines Körpers am Spawn, der Mitte des Portals: seine Box um die
+   * Spur `lane` quer zur Öffnung, vom Boden bis zu seiner Höhe, über seine
+   * Länge vor und hinter der Mitte.
    */
-  function bodyAtSpawn(scale: number): Vector3[] {
-    const lane = (PORTAL_OPENING_WIDTH / 2) * scale - 1.5;
+  function bodyPoints([width, height, length]: readonly [number, number, number], lane: number): Vector3[] {
     const points: Vector3[] = [];
-    for (const x of [-lane - 0.4, 0, lane + 0.4]) {
-      for (const y of [0.2, 1.2, 2.2]) {
-        for (const dz of [-0.4, 0, 0.4]) points.push(new Vector3(x, y, -PORTAL_SETBACK + dz));
+    for (const x of [lane - width / 2, lane, lane + width / 2]) {
+      for (const y of [0.2, height / 2, height]) {
+        for (const z of [-length / 2, 0, length / 2]) points.push(new Vector3(x, y, z));
       }
     }
     return points;
   }
 
-  /** Kamerarichtungen vor dem Portal: seitlich bis 80°, flach bis steil von oben. */
-  function frontCameras(): Vector3[] {
+  /** Blickrichtungen rundum: vorn, seitlich, hinten, flach bis steil von oben. */
+  function allAround(): Vector3[] {
     const dirs: Vector3[] = [];
-    for (const azimuth of [-80, -60, -30, 0, 30, 60, 80]) {
-      for (const elevation of [5, 30, 60, 80]) {
+    for (let azimuth = 0; azimuth < 360; azimuth += 45) {
+      for (const elevation of [5, 30, 60, 85]) {
         const a = (azimuth * Math.PI) / 180;
         const e = (elevation * Math.PI) / 180;
         dirs.push(new Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)));
@@ -186,31 +240,41 @@ describe('Spawn-Portal: Gegner treten aus der Fläche', () => {
     return dirs;
   }
 
-  for (const scale of [PORTAL_MIN_SCALE, 1, PORTAL_MAX_SCALE]) {
-    it(`verdeckt den Gegner am Spawn vor und über dem Portal (Skala ${scale})`, () => {
-      const mesh = gate(scale);
-      const raycaster = new Raycaster();
-      const visible: string[] = [];
-      for (const point of bodyAtSpawn(scale)) {
-        expect(point.z).toBeLessThan(0);
-        for (const dir of frontCameras()) {
-          raycaster.set(point, dir);
-          raycaster.far = 200;
-          if (raycaster.intersectObject(mesh).length === 0) {
-            visible.push(`${point.toArray().map((v) => v.toFixed(1))} -> ${dir.toArray().map((v) => v.toFixed(2))}`);
+  /** Gegner, die von irgendwo zu sehen wären, bevor sie vorn heraustreten. */
+  function seen(scale: number): string[] {
+    const mesh = gate(scale);
+    const raycaster = new Raycaster();
+    raycaster.far = 300;
+    // Spuren wie EnemyManager und MovementComponent sie legen: bis zur
+    // seitlichen Grenze des Korridors, dessen Breite die Skala gab
+    const lane = lateralLimit((PORTAL_OPENING_WIDTH / 2) * scale);
+    const out = new Set<string>();
+    for (const [type, body] of Object.entries(GROUND_BODIES)) {
+      // Breite Körper gehen mittig heraus, schmale auf jeder Spur
+      const lanes = body[0] / 2 + lane <= (PORTAL_OPENING_WIDTH / 2) * scale ? [-lane, 0, lane] : [0];
+      for (const x of lanes) {
+        for (const point of bodyPoints(body, x)) {
+          for (const dir of allAround()) {
+            raycaster.set(point, dir);
+            if (raycaster.intersectObject(mesh).length === 0) out.add(type);
           }
         }
       }
-      expect(visible).toEqual([]);
-    });
+    }
+    return [...out].sort();
   }
 
-  it('liegt der Spawn in der Tiefe des Rahmens, auch beim kleinsten Portal', () => {
-    // Die Pfeiler reichen vor und hinter die Fläche; ein Spawn weiter
-    // hinten stünde hinter dem Tor frei sichtbar.
-    const position = createPortalFrameGeometry().getAttribute('position');
-    let minZ = 0;
-    for (let i = 0; i < position.count; i++) minZ = Math.min(minZ, position.getZ(i));
-    expect(PORTAL_SETBACK + 0.4).toBeLessThan(-minZ * PORTAL_MIN_SCALE);
+  it('verbirgt jeden Bodengegner von allen Seiten, auch von hinten (Skala 1)', () => {
+    expect(seen(1)).toEqual([]);
+  });
+
+  it('verbirgt jeden Bodengegner von allen Seiten, auch von hinten (größtes Portal)', () => {
+    expect(seen(PORTAL_MAX_SCALE)).toEqual([]);
+  });
+
+  it('verbirgt im kleinsten Portal alle bis auf die, die breiter oder höher sind als das Tor', () => {
+    // Skala 0,75 (Gasse): Öffnung 6 × 8,25 m, Sturzoberkante 10,5 m; die
+    // Tiefe bleibt die von Skala 1
+    expect(seen(PORTAL_MIN_SCALE)).toEqual(['mammoth', 'mech', 'stone-golem', 'wallsmasher']);
   });
 });

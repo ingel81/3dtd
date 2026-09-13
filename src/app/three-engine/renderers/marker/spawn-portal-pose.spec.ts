@@ -10,7 +10,6 @@ import {
   PORTAL_MAX_SCALE,
   PORTAL_MIN_SCALE,
   PORTAL_OPENING_WIDTH,
-  PORTAL_SETBACK,
 } from '../../../configs/marker-geometry.config';
 
 /** Where the portal's +z points after its heading. */
@@ -19,9 +18,9 @@ function facing(heading: number): Vector3 {
 }
 
 describe('spawnPortalPose', () => {
-  it('steht vor dem Routenstart und schaut entlang des ersten Segments', () => {
+  it('steht mit seiner Mitte auf dem Routenstart, wo die Gegner erscheinen, und schaut entlang des ersten Segments', () => {
     const pose = spawnPortalPose([{ x: 10, z: 20 }, { x: 40, z: 20 }], 296, PORTAL_OPENING_WIDTH)!;
-    expect(pose.x).toBeCloseTo(10 + PORTAL_SETBACK);
+    expect(pose.x).toBeCloseTo(10);
     expect(pose.z).toBeCloseTo(20);
     expect(pose.y).toBe(296);
     expect(pose.scale).toBeCloseTo(1);
@@ -36,7 +35,7 @@ describe('spawnPortalPose', () => {
     const pose = spawnPortalPose(points, 0, 9)!;
     const f = facing(pose.heading);
     expect(f.x).toBeGreaterThan(0.99);
-    expect(Math.hypot(pose.x, pose.z)).toBeCloseTo(PORTAL_SETBACK);
+    expect(Math.hypot(pose.x, pose.z)).toBeCloseTo(0);
   });
 
   it('nimmt den letzten Punkt, wenn die Route kürzer als der Vorlauf ist', () => {

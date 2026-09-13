@@ -31,9 +31,10 @@ import {
   HQ_MARKER_SCALE,
   MARKER_FLOAT_HEIGHT,
   MARKER_LABEL_OFFSET,
+  PORTAL_DEPTH,
   PORTAL_OPENING_HEIGHT,
   PORTAL_OPENING_WIDTH,
-  PORTAL_SETBACK,
+  portalDepthScale,
   portalLabelHeight,
 } from '../../configs/marker-geometry.config';
 import { SPAWN_PORTAL_LOOK, type BurstPalette } from '../../configs/visual-effects.config';
@@ -44,9 +45,10 @@ const PORTAL_POSE_WAYPOINTS = 16;
 
 /**
  * An enemy spawning this close to a portal's centre came out of it (m).
- * Enemies start on the route start, PORTAL_SETBACK behind the portal plane.
+ * Enemies start on the route start, the portal's centre, at most the
+ * corridor's lateral limit off it (under 6 m, route-corridor.ts).
  */
-const SPAWN_MATCH_RADIUS = PORTAL_SETBACK + 6;
+const SPAWN_MATCH_RADIUS = 7;
 
 /**
  * Spark colours of a portal: embers from its palette (dull orange with a
@@ -203,12 +205,16 @@ export class MarkerVisualizationService {
     const pose = portals.getPose(id)!;
     const palette = this.portalPalettes.get(id);
     if (!palette) return;
+    // Out of the front surface, half the volume's depth ahead of the centre
+    const forwardX = Math.sin(pose.heading);
+    const forwardZ = Math.cos(pose.heading);
+    const front = (PORTAL_DEPTH / 2) * portalDepthScale(pose.scale);
     engine.effects.spawnPortalSparks(
-      pose.x,
+      pose.x + forwardX * front,
       pose.y,
-      pose.z,
-      Math.sin(pose.heading),
-      Math.cos(pose.heading),
+      pose.z + forwardZ * front,
+      forwardX,
+      forwardZ,
       (PORTAL_OPENING_WIDTH / 2) * pose.scale,
       PORTAL_OPENING_HEIGHT * pose.scale,
       SPAWN_PORTAL_LOOK.burstParticles,

@@ -2,7 +2,6 @@ import {
   PORTAL_MAX_SCALE,
   PORTAL_MIN_SCALE,
   PORTAL_OPENING_WIDTH,
-  PORTAL_SETBACK,
 } from '../../../configs/marker-geometry.config';
 
 /** Where a spawn portal stands, in scene space. */
@@ -26,10 +25,10 @@ export function portalScaleForWidth(width: number): number {
 }
 
 /**
- * Pose of a spawn portal from the start of its route: on the ground at the
- * first waypoint, PORTAL_SETBACK ahead of it so the enemies appear behind
- * the surface and step out through it, facing along the route, the opening
- * as wide as the corridor there.
+ * Pose of a spawn portal from the start of its route: centred on the first
+ * waypoint, on the ground, where the enemies appear. They start inside the
+ * portal's volume (PORTAL_DEPTH) and step out through its front surface.
+ * It faces along the route, the opening as wide as the corridor there.
  *
  * The heading points at the first waypoint PORTAL_HEADING_RUN or more from
  * the start: a route can open with a stub of a metre before its first
@@ -61,9 +60,9 @@ export function spawnPortalPose(
   const fx = dx / length;
   const fz = dz / length;
   return {
-    x: start.x + fx * PORTAL_SETBACK,
+    x: start.x,
     y: groundY,
-    z: start.z + fz * PORTAL_SETBACK,
+    z: start.z,
     heading: Math.atan2(fx, fz),
     scale: portalScaleForWidth(corridorWidth),
   };
