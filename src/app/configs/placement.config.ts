@@ -39,9 +39,9 @@ export const PLINTH_CONFIG = {
 
   /**
    * A surface this far (m) above the one under the cursor is not ground under
-   * the tower but something beside it: a facade, a tree crown, an eave. It
-   * does not lift the tower, which then clips into it as before. 5 m covers a
-   * 45° roof across the widest footprint (5.3 m, Fire) from eave to ridge.
+   * the tower but something beside it: a facade, a tall crown. It does not
+   * lift the tower, which then clips into it as before. 5 m covers a 45° roof
+   * across the widest footprint (5.3 m, Fire) from eave to ridge.
    */
   MAX_RISE: 5,
 
@@ -50,4 +50,23 @@ export const PLINTH_CONFIG = {
    * edge (a high roof, a hole in the mesh), not the foot of a plinth.
    */
   MAX_DROP: 30,
+
+  /**
+   * The cursor surface this far (m) above the ground of its own column is a
+   * roof, a deck or a bridge. There every probe up to MAX_RISE may lift the
+   * tower: a ridge, the higher part of a stepped roof, also a dormer. Below
+   * it the cursor is on the ground and MAX_STEP applies. 2.5 m as the route
+   * grid's roof check (`roofRise`): a car is lower, a storey higher.
+   */
+  ROOF_ABOVE_GROUND: 2.5,
+
+  /**
+   * On the ground: how much higher (m) a probe may lie than the neighbouring
+   * probe it is reached from, beyond what the slope under the cursor gives
+   * along that step. Covers a kerb, a low step, a gentle bank. A parked car
+   * (bonnet about 0.9 m, roof 1.5 m), a hedge, a wall or a crown rise more and
+   * do not lift the tower. Neighbouring probes are up to 2.5 m apart on most
+   * towers, 3.3 m on Fire and 6.25 m on the Research Center.
+   */
+  MAX_STEP: 0.5,
 } as const;

@@ -390,16 +390,20 @@ describe('TerrainQueries', () => {
       expect(raycastStats.rows().map(({ caller }) => caller)).toEqual(['towerRange']);
     });
 
-    it('raycastSurfaceTop() liefert die oberste Fläche der Säule und bucht auf den Aufrufer', () => {
+    it('raycastColumnSample() liefert Boden und oberste Fläche der Säule und bucht auf den Aufrufer', () => {
       const { queries, addTile, group } = setup();
       addTile(floor(4), 3, 2);
       addTile(floor(9, 10), 3, 2);
       instrumentRaycasts(group);
       raycastStats.reset();
 
-      expect(queries.raycastSurfaceTop(1, 1, 'towerFootprint')).toBeCloseTo(9, 6);
-      expect(queries.raycastSurfaceTop(8, 8, 'towerFootprint')).toBeCloseTo(4, 6);
-      expect(queries.raycastSurfaceTop(30, 30, 'towerFootprint')).toBeNull();
+      const underDeck = queries.raycastColumnSample(1, 1, 'towerFootprint')!;
+      expect(underDeck.groundY).toBeCloseTo(4, 6);
+      expect(underDeck.topY).toBeCloseTo(9, 6);
+      const open = queries.raycastColumnSample(8, 8, 'towerFootprint')!;
+      expect(open.groundY).toBeCloseTo(4, 6);
+      expect(open.topY).toBeCloseTo(4, 6);
+      expect(queries.raycastColumnSample(30, 30, 'towerFootprint')).toBeNull();
       expect(raycastStats.rows().map(({ caller }) => caller)).toEqual(['towerFootprint']);
     });
 

@@ -1,6 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { footprintSampleOffsets, resolveTowerFootprint } from './tower-footprint';
+import { FootprintColumn, footprintSampleOffsets, resolveTowerFootprint } from './tower-footprint';
 import { PLINTH_CONFIG } from '../configs/placement.config';
+
+type Surface = (x: number, z: number) => number | null;
+
+/** Radius of the footprint most tests use (archer, rocket) */
+const R = 3.6;
+
+/**
+ * The columns resolveTowerFootprint gets for a footprint of `radius` at the
+ * origin: the top surface from `top`, the ground from `ground` (the top where
+ * not given, a surface without anything under it).
+ */
+const columns = (top: Surface, ground?: Surface, radius = R): (FootprintColumn | null)[] =>
+  footprintSampleOffsets(radius).map(([x, z]) => {
+    const topY = top(x, z);
+    return topY === null ? null : { groundY: ground?.(x, z) ?? topY, topY };
+  });
+
+/** Highest and lowest top among the probes where `counts` holds. */
+const extremes = (top: Surface, counts: (x: number, z: number) => boolean = () => true, radius = R) => {
+  const ys = footprintSampleOffsets(radius)
+    .filter(([x, z]) => counts(x, z))
+    .map(([x, z]) => top(x, z)!);
+  return { max: Math.max(...ys), min: Math.min(...ys) };
+};
+
+/** A parked car, 1.5 m high, on the box x0..x1, z0..z1 */
+const car = (x0: number, x1: number, z0: number, z1: number) => (x: number, z: number) =>
+  x >= x0 && x <= x1 && z >= z0 && z <= z1;
 
 describe('footprintSampleOffsets', () => {
   it('probes the centre, a ring at half the radius and one at the radius', () => {
@@ -29,39 +57,135 @@ describe('footprintSampleOffsets', () => {
 
 describe('resolveTowerFootprint', () => {
   it('keeps the cursor surface and builds no plinth on even ground', () => {
-    expect(resolveTowerFootprint(12, [12, 12, 12])).toEqual({ footY: 12, plinthHeight: 0 });
+    expect(resolveTowerFootprint(12, R, columns(() => 12))).toEqual({ footY: 12, plinthHeight: 0 });
   });
 
   it('ignores unevenness below the threshold, keeping the cursor surface', () => {
     const step = PLINTH_CONFIG.MIN_UNEVENNESS * 0.9;
-    expect(resolveTowerFootprint(12, [12 + step / 2, 12 - step / 2])).toEqual({ footY: 12, plinthHeight: 0 });
+    const top = (x: number) => 12 + (x > 0 ? step / 2 : -step / 2);
+    expect(resolveTowerFootprint(12, R, columns(top))).toEqual({ footY: 12, plinthHeight: 0 });
   });
 
-  it('stands on the highest point and reaches down to the lowest on a pitched roof', () => {
-    // 45° roof, cursor on the slope: ridge 2 m up, eave 1.5 m down.
-    const footprint = resolveTowerFootprint(20, [20, 21, 22, 19.5, 18.5]);
+  describe('on the ground', () => {
+    it('stands on the highest point of a slope and reaches down to the lowest', () => {
+      // 30 % across the diagonal, and 40° down to the north
+      const diagonal = (x: number, z: number) => 10 + (0.3 * (x + z)) / Math.SQRT2;
+      const steep = (_x: number, z: number) => 10 - 0.84 * z;
 
-    expect(footprint.footY).toBe(22);
-    expect(footprint.plinthHeight).toBeCloseTo(3.5, 9);
+      for (const top of [diagonal, steep]) {
+        const { max, min } = extremes(top);
+        const footprint = resolveTowerFootprint(10, R, columns(top));
+        expect(footprint.footY).toBeCloseTo(max, 9);
+        expect(footprint.plinthHeight).toBeCloseTo(max - min, 9);
+      }
+    });
+
+    it('does not climb onto a car beside the tower', () => {
+      const onCar = car(2.2, 4.4, -2.3, 2.3);
+      const top = (x: number, z: number) => (onCar(x, z) ? 13.5 : 12);
+      expect(resolveTowerFootprint(12, R, columns(top))).toEqual({ footY: 12, plinthHeight: 0 });
+    });
+
+    it('nor onto a car the inner ring reaches', () => {
+      const onCar = car(1, 3, -1.2, 1.2);
+      const top = (x: number, z: number) => (onCar(x, z) ? 13.5 : 12);
+      expect(resolveTowerFootprint(12, R, columns(top))).toEqual({ footY: 12, plinthHeight: 0 });
+    });
+
+    it('nor onto a hedge, a wall or a low crown along one side', () => {
+      for (const height of [1.2, 4]) {
+        const top = (_x: number, z: number) => (z >= 2 ? 12 + height : 12);
+        expect(resolveTowerFootprint(12, R, columns(top))).toEqual({ footY: 12, plinthHeight: 0 });
+      }
+    });
+
+    it('nor next to the Research Center, whose probes lie farther apart', () => {
+      const onCar = car(8, 10.2, -2.3, 2.3);
+      const top = (x: number, z: number) => (onCar(x, z) ? 13.5 : 12);
+      expect(resolveTowerFootprint(12, 10, columns(top, undefined, 10))).toEqual({ footY: 12, plinthHeight: 0 });
+    });
+
+    it('climbs the slope around a car, but not the car, uphill or across', () => {
+      const slope = (x: number) => 10 + 0.2 * x;
+      for (const onCar of [car(2.2, 4.4, -2.3, 2.3), car(-2.3, 2.3, 2.2, 4.4)]) {
+        const top = (x: number, z: number) => slope(x) + (onCar(x, z) ? 1.5 : 0);
+        const { max, min } = extremes(top, (x, z) => !onCar(x, z));
+
+        const footprint = resolveTowerFootprint(10, R, columns(top));
+        expect(footprint.footY).toBeCloseTo(max, 9);
+        expect(footprint.plinthHeight).toBeCloseTo(max - min, 9);
+      }
+    });
+
+    it('still climbs a step up to MAX_STEP, a kerb or a low terrace', () => {
+      const step = PLINTH_CONFIG.MAX_STEP - 0.1;
+      const top = (x: number) => (x > 1 ? 12 + step : 12);
+      const footprint = resolveTowerFootprint(12, R, columns(top));
+      expect(footprint.footY).toBeCloseTo(12 + step, 9);
+      expect(footprint.plinthHeight).toBeCloseTo(step, 9);
+    });
+
+    it('climbs a pitched roof also where its column shows no ground below', () => {
+      // Ridge 2 m east of the cursor, 45° either side
+      const top = (x: number) => 22 - Math.abs(x - 2);
+      const { max, min } = extremes(top);
+      const footprint = resolveTowerFootprint(20, R, columns(top));
+      expect(footprint.footY).toBeCloseTo(max, 9);
+      expect(footprint.plinthHeight).toBeCloseTo(max - min, 9);
+    });
+
+    it('stands on the cursor surface even when every probe around is lower', () => {
+      // The cursor on something small, a car roof or a crest: its surface is what the player points at
+      const top = (x: number, z: number) => (x === 0 && z === 0 ? 13.5 : 12);
+      expect(resolveTowerFootprint(13.5, R, columns(top))).toEqual({ footY: 13.5, plinthHeight: 1.5 });
+    });
+
+    it('reaches down past a wall or an edge, but not past a drop far below', () => {
+      expect(resolveTowerFootprint(50, R, columns((x) => (x > 1 ? 49 : 50)))).toEqual({ footY: 50, plinthHeight: 1 });
+      const street = 50 - PLINTH_CONFIG.MAX_DROP - 0.1;
+      expect(resolveTowerFootprint(50, R, columns((x) => (x > 1 ? street : 50)))).toEqual({
+        footY: 50,
+        plinthHeight: 0,
+      });
+    });
+
+    it('skips probes that hit nothing', () => {
+      const top = (x: number) => (x < 0 ? null : x > 1 ? 5.4 : 5);
+      const footprint = resolveTowerFootprint(5, R, columns(top));
+      expect(footprint.footY).toBeCloseTo(5.4, 9);
+      expect(footprint.plinthHeight).toBeCloseTo(0.4, 9);
+    });
   });
 
-  it('counts the cursor surface itself, also when every probe is lower', () => {
-    expect(resolveTowerFootprint(20, [19, 18])).toEqual({ footY: 20, plinthHeight: 2 });
-  });
+  describe('on a roof', () => {
+    /** The street under the building */
+    const street = () => 5;
 
-  it('does not climb a facade or crown far above the cursor surface', () => {
-    const facade = 12 + PLINTH_CONFIG.MAX_RISE + 0.1;
-    expect(resolveTowerFootprint(12, [12, facade, facade])).toEqual({ footY: 12, plinthHeight: 0 });
-    expect(resolveTowerFootprint(12, [12, facade, 13])).toEqual({ footY: 13, plinthHeight: 1 });
-  });
+    it('climbs what rises from the roof, which it would not on the ground', () => {
+      const top = (x: number) => (x > 1 ? 21.5 : 20);
+      expect(resolveTowerFootprint(20, R, columns(top, street))).toEqual({ footY: 21.5, plinthHeight: 1.5 });
+      expect(resolveTowerFootprint(20, R, columns(top))).toEqual({ footY: 20, plinthHeight: 0 });
+    });
 
-  it('does not reach down past an edge far below the cursor surface', () => {
-    const street = 50 - PLINTH_CONFIG.MAX_DROP - 0.1;
-    expect(resolveTowerFootprint(50, [50, street])).toEqual({ footY: 50, plinthHeight: 0 });
-    expect(resolveTowerFootprint(50, [49, street])).toEqual({ footY: 50, plinthHeight: 1 });
-  });
+    it('stands on the ridge of a pitched roof and reaches down to the eave', () => {
+      const top = (x: number) => 22 - Math.abs(x - 2);
+      const { max, min } = extremes(top);
+      const footprint = resolveTowerFootprint(20, R, columns(top, street));
+      expect(footprint.footY).toBeCloseTo(max, 9);
+      expect(footprint.plinthHeight).toBeCloseTo(max - min, 9);
+    });
 
-  it('skips probes that hit nothing', () => {
-    expect(resolveTowerFootprint(5, [null, 6, null])).toEqual({ footY: 6, plinthHeight: 1 });
+    it('does not climb a facade far above the cursor surface', () => {
+      const facade = 12 + PLINTH_CONFIG.MAX_RISE + 0.1;
+      const ground = () => 0;
+      expect(resolveTowerFootprint(12, R, columns((x) => (x > 1 ? facade : 12), ground))).toEqual({
+        footY: 12,
+        plinthHeight: 0,
+      });
+      expect(resolveTowerFootprint(12, R, columns((x) => (x > 1 ? 13 : 12), ground))).toEqual({
+        footY: 13,
+        plinthHeight: 1,
+      });
+    });
   });
 });

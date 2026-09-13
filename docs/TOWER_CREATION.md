@@ -837,18 +837,36 @@ Tower wird auf Dachhöhe gehoben und steht dann auf dem Dach.
 Ob ein Tower an einer Stelle stehen darf, entscheiden allein die Regeln oben. Wie hoch er dort
 steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
 
-- **Abtastung:** `TowerPlacementService.resolveFootprint` fragt senkrecht von oben die oberste
-  Fläche jeder Säule ab, auf den 3D-Tiles über `TerrainQueries.raycastSurfaceTop` (`topY` der
-  Säule, in `__raycastStats()` als `towerFootprint`), in DevWorld über `raycastDown`. Die Proben
-  liegen in der Mitte, auf einem Ring bei halbem und einem bei vollem Radius, höchstens 2 m
-  auseinander (`footprintSampleOffsets`, 19 Proben bei einem normalen Tower, 49 beim Research
-  Center). Neu geprobt wird wie die Validierung erst, wenn der Cursor 1 m gewandert ist.
-- **Entscheidung** (`resolveTowerFootprint`, Werte in `PLINTH_CONFIG`): Weichen die Proben
-  weniger als 0,2 m voneinander ab (`MIN_UNEVENNESS`), bleibt der Tower auf der Fläche unter dem
-  Cursor, ohne Sockel, wie früher. Sonst steht sein Fuß auf der höchsten Probe, und ein Sockel
-  reicht bis zur tiefsten. Proben mehr als 5 m über der Cursor-Fläche (`MAX_RISE`: Fassade,
-  Baumkrone, Traufe daneben) oder mehr als 30 m darunter (`MAX_DROP`: Abbruch hinter einer
-  Dachkante) zählen nicht.
+- **Abtastung:** `TowerPlacementService.resolveFootprint` liest senkrecht von oben die Säule jeder
+  Probe, Boden und oberste Fläche: auf den 3D-Tiles über `TerrainQueries.raycastColumnSample`
+  (`groundY` und `topY` der Säule, in `__raycastStats()` als `towerFootprint`), in DevWorld die
+  oberste Fläche über `raycastDown` und den Boden über die Geländehöhe. Die Proben liegen in der
+  Mitte, auf einem Ring bei halbem und einem bei vollem Radius, höchstens 2 m auseinander
+  (`footprintSampleOffsets`, 19 Proben bei einem normalen Tower, 49 beim Research Center). Neu
+  geprobt wird wie die Validierung erst, wenn der Cursor 1 m gewandert ist.
+- **Entscheidung** (`resolveTowerFootprint`, Werte in `PLINTH_CONFIG`): Jede Probe zählt mit der
+  obersten Fläche ihrer Säule. Weichen die Proben weniger als 0,2 m voneinander ab
+  (`MIN_UNEVENNESS`), bleibt der Tower auf der Fläche unter dem Cursor, ohne Sockel, wie früher.
+  Sonst steht sein Fuß auf der höchsten Probe, die ihn heben darf (unten), und ein Sockel reicht
+  bis zur tiefsten Probe. Proben mehr als 5 m über der Cursor-Fläche (`MAX_RISE`: Fassade, hohe
+  Krone) oder mehr als 30 m darunter (`MAX_DROP`: Abbruch hinter einer Dachkante) zählen nicht.
+- **Dach oder Boden:** Liegt die Cursor-Fläche mehr als 2,5 m über dem Boden ihrer eigenen Säule
+  (`ROOF_ABOVE_GROUND`, wie `roofRise` im Routenraster), steht der Cursor auf einem Dach, Deck
+  oder einer Brücke. Dann hebt jede Probe den Tower: First eines Satteldachs, höherer Teil eines
+  gestuften Dachs, auch Gaube oder Schornstein. Sonst steht der Cursor am Boden, und nur was der
+  Boden allmählich erreicht, hebt ihn: Von der Mitte über benachbarte Proben darf jeder Schritt
+  beliebig tief fallen, aber nur 0,5 m steigen (`MAX_STEP`), dazu die Steigung, die der Boden
+  unter dem Cursor in Schrittrichtung hat. Die Steigung kommt aus gegenüberliegenden Proben des
+  inneren Rings, je Paar aus der kleineren Seite, damit ein Auto auf einer Seite sie nicht
+  verfälscht. Ein geparktes Auto, eine Hecke, eine Mauer oder eine Krone neben dem Tower heben ihn
+  damit nicht, er steckt wie vor dem Sockel ein Stück darin; ein Hang oder eine geneigte Straße
+  hebt ihn.
+- **Grenzen:** Steht der Cursor selbst auf einem Auto, ist dessen Dach die Cursor-Fläche, und der
+  Tower steht darauf. Eine Böschung oder Terrassenmauer, die erst neben dem Cursor steiler als
+  `MAX_STEP` ansteigt, hebt ihn nicht, ebenso wenig die Hänge einer Mulde, in der der Cursor
+  liegt (beide Seiten steigen, keine Steigung). Auf einem Parkdeck gilt die Dach-Regel, dort
+  heben auch Autos. Sagt die Säule unter einem Dach keinen Boden darunter, gilt die
+  Boden-Regel; ein gleichmäßig geneigtes Dach hebt ihn dann über die Steigung trotzdem.
 - **Weg ins Spiel:** `command:place-tower` trägt `position.height` = Fuß (Oberkante des Sockels)
   und `plinthHeight`. Beides landet im `Tower` (`position.height`, `plinthHeight`). Alles, was
   von `position.height` ausgeht, beginnt damit am angehobenen Fuß: LOS-Registrierung
