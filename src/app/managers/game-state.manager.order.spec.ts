@@ -226,6 +226,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     trace(gsm.abilityManager, 'ability', ['update', 'reset', 'hasPendingStrikes']);
     trace(bus, 'bus', ['processQueue']);
     trace(gsm.waveManager, 'wave', ['tickSpawn', 'endWave', 'reset', 'startWave', 'beginWave']);
+    trace((gsm as unknown as { healthLedger: object }).healthLedger, 'ledger', ['refillLeakBudget']);
     (gsm.waveManager as unknown as { checkWaveComplete: () => boolean }).checkWaveComplete = () => {
       log.push('wave.checkWaveComplete');
       return waveCompleteAnswers.shift() ?? false;
@@ -651,7 +652,7 @@ describe('GameStateManager order of operations (characterization)', () => {
   });
 
   describe('lifecycle', () => {
-    it('starts the first wave: corridor lock, preview, game:started, then the wave', () => {
+    it('starts the first wave: corridor lock, preview, game:started, a fresh leak budget, then the wave', () => {
       gsm.startWave({
         schedule: {
           entries: [
@@ -666,15 +667,22 @@ describe('GameStateManager order of operations (characterization)', () => {
         'corridorLock(wave)',
         'waveDebug.setCurrentWaveGroups',
         'event:game:started',
+        'ledger.refillLeakBudget',
         'wave.startWave',
         'event:wave:started',
       ]);
     });
 
-    it('begins a manual wave: corridor lock, game:started, then the wave', () => {
+    it('begins a manual wave: corridor lock, game:started, a fresh leak budget, then the wave', () => {
       gsm.beginWave();
 
-      expect(log).toEqual(['corridorLock(wave)', 'event:game:started', 'wave.beginWave', 'event:wave:started']);
+      expect(log).toEqual([
+        'corridorLock(wave)',
+        'event:game:started',
+        'ledger.refillLeakBudget',
+        'wave.beginWave',
+        'event:wave:started',
+      ]);
     });
 
     it('resets in this order', () => {

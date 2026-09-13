@@ -295,6 +295,16 @@ describe('GameStateManager', () => {
         expect(gsm.baseHealth()).toBe(before - 2 * cap);
       });
 
+      it('the leak budget refills when a manual wave begins, too', () => {
+        const cap = GAME_BALANCE.combat.maxLeakDamagePerWave;
+        const before = gsm.baseHealth();
+        vi.spyOn(gsm.waveManager, 'beginWave').mockImplementation(() => undefined);
+        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e1' } as never, damage: 9999 });
+        gsm.beginWave();
+        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e2' } as never, damage: 9999 });
+        expect(gsm.baseHealth()).toBe(before - 2 * cap);
+      });
+
       it('health does not go below 0 across repeated waves', () => {
         for (let w = 0; w < 20; w++) {
           gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
