@@ -3,9 +3,9 @@ import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
-import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
-import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
-import { RouteCell, getAirTargetY } from './route-cell';
+import { LosResolveContext } from './gpu-cube-resolve';
+import { RouteCell } from './route-cell';
+import { resolveTowerLos, resolveTowerLosIncremental } from './route-grid-los';
 import { RouteCellLattice, claimRouteCells } from './route-grid-builder';
 import {
   HeightResetResult,
@@ -553,55 +553,9 @@ export class GlobalRouteGrid {
     canTargetGround = true,
     canTargetAir = false
   ): RouteCell[] {
-    const visibleCells: RouteCell[] = [];
-    const changed: RouteCell[] = [];
-    const rangeSq = range * range;
-    const tipX = ctx.referencePos.x;
-    const tipY = ctx.referencePos.y;
-    const tipZ = ctx.referencePos.z;
-
-    for (const cell of this.cellsInRange(towerX, towerZ, range)) {
-      const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
-      if (distSq > rangeSq) continue;
-
-      // Try to refresh terrain height from current tile state via the
-      // single-source-of-truth sampler. When the raycast fails, the cell
-      // keeps its previous terrainHeight (anchor fallback) — register the
-      // cell defensively so a later terrain promotion via
-      // the cells-changed listeners can recompute LOS for it instead of
-      // leaving holes in tower coverage.
-      if (this.sampler.sampleCellY(cell)) changed.push(cell);
-
-      const atTower = distSq < 0.01;
-
-      // Ground visibility — GPU-cube sample at cell.terrainHeight + 1.5m
-      let groundVisible = false;
-      if (canTargetGround) {
-        if (atTower) {
-          groundVisible = true;
-        } else {
-          const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
-          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
-        }
-        cell.towerVisibility.set(towerId, groundVisible);
-      }
-
-      // Air visibility — GPU-cube sample at getAirTargetY(cell) (terrain + 15m)
-      let airVisible = false;
-      if (canTargetAir) {
-        if (atTower) {
-          airVisible = true;
-        } else {
-          const targetY = getAirTargetY(cell);
-          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
-        }
-        cell.airVisibility.set(towerId, airVisible);
-      }
-
-      if (groundVisible || airVisible) {
-        visibleCells.push(cell);
-      }
-    }
+    const { visible, changed } = resolveTowerLos(
+      this.cellsInRange(towerX, towerZ, range), this.sampler, towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
+    );
 
     // Tower-reg re-sampled cell.terrainHeight for each visited cell — refresh
     // the global viz so its mesh positions match the new cached values,
@@ -615,7 +569,7 @@ export class GlobalRouteGrid {
     // samples. This tower's own answers are current already.
     this.emitCellsChanged(changed);
 
-    return visibleCells;
+    return visible;
   }
 
   /**
@@ -640,75 +594,9 @@ export class GlobalRouteGrid {
     canTargetGround = true,
     canTargetAir = false,
   ): RouteCell[] {
-    const visibleCells: RouteCell[] = [];
-    const changed: RouteCell[] = [];
-    const rangeSq = range * range;
-    const tipX = ctx.referencePos.x;
-    const tipY = ctx.referencePos.y;
-    const tipZ = ctx.referencePos.z;
-
-    for (const cell of this.cellsInRange(towerX, towerZ, range)) {
-      const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
-      const inRange = distSq <= rangeSq;
-
-      if (!inRange) {
-        // In-box but outside the exact circle — clean up any stale entry.
-        cell.towerVisibility.delete(towerId);
-        cell.airVisibility.delete(towerId);
-        continue;
-      }
-
-      // Refresh heights via single-source-of-truth sampler. If raycast
-      // fails, the cached value is kept and a later promotion via
-      // the cells-changed listeners will recompute LOS for this cell.
-      // If it moved the height, the cached answers are for the old one.
-      if (this.sampler.sampleCellY(cell)) {
-        changed.push(cell);
-        cell.towerVisibility.delete(towerId);
-        cell.airVisibility.delete(towerId);
-      }
-
-      const atTower = distSq < 0.01;
-
-      // Ground visibility — reuse cached value if present, otherwise GPU-sample
-      let groundVisible = false;
-      if (canTargetGround) {
-        if (cell.towerVisibility.has(towerId)) {
-          groundVisible = cell.towerVisibility.get(towerId)!;
-        } else if (atTower) {
-          groundVisible = true;
-          cell.towerVisibility.set(towerId, groundVisible);
-        } else {
-          const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
-          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
-          cell.towerVisibility.set(towerId, groundVisible);
-        }
-      } else {
-        // Capability removed — drop any stale entry
-        cell.towerVisibility.delete(towerId);
-      }
-
-      // Air visibility — reuse cached value if present, otherwise GPU-sample
-      let airVisible = false;
-      if (canTargetAir) {
-        if (cell.airVisibility.has(towerId)) {
-          airVisible = cell.airVisibility.get(towerId)!;
-        } else if (atTower) {
-          airVisible = true;
-          cell.airVisibility.set(towerId, airVisible);
-        } else {
-          const targetY = getAirTargetY(cell);
-          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
-          cell.airVisibility.set(towerId, airVisible);
-        }
-      } else {
-        cell.airVisibility.delete(towerId);
-      }
-
-      if (groundVisible || airVisible) {
-        visibleCells.push(cell);
-      }
-    }
+    const { visible, changed } = resolveTowerLosIncremental(
+      this.cellsInRange(towerX, towerZ, range), this.sampler, towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
+    );
 
     // Same rationale as in registerTower — incremental re-sampling may have
     // updated cell.terrainHeight, keep the global viz mesh in sync.
@@ -717,7 +605,7 @@ export class GlobalRouteGrid {
     // As in registerTower: report the moved cells once the loop is done.
     this.emitCellsChanged(changed);
 
-    return visibleCells;
+    return visible;
   }
 
   /**

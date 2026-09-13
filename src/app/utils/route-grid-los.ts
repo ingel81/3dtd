@@ -1,0 +1,195 @@
+import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
+import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
+import { RouteCell, getAirTargetY } from './route-cell';
+import type { RouteCellSampler } from './route-cell-sampler';
+
+/**
+ * Per-tower LOS answers on the route cells, resolved against the GPU cube
+ * of the tower (TowerShadowMapper). GlobalRouteGrid.registerTower and
+ * registerTowerIncremental run these over the cells in the tower's range
+ * box, then refresh the aggregate viz and report the moved cells.
+ */
+
+/** What a registration pass found. */
+export interface TowerLosPass {
+  /** Cells the tower can see something in, ground or air. */
+  visible: RouteCell[];
+  /** Cells whose height the sampling in this pass moved. */
+  changed: RouteCell[];
+}
+
+/**
+ * Compute LOS for every cell of `candidates` within `range` of the tower.
+ * Pre-computes ground LOS and/or air LOS depending on the tower's targeting
+ * capabilities. Samples terrain first (tiles are expected to be loaded),
+ * so the answer is for the freshest height.
+ *
+ * Visible cells are the UNION of ground- and air-visible cells: a cell
+ * counts as visible if the tower can see *something* in it (ground level
+ * OR the air sample altitude), so the tower-targeting fast path picks up
+ * enemies of either type.
+ *
+ * @param candidates Cells whose centre can lie in range (the range box)
+ * @param sampler The grid's cell sampler
+ * @param ctx GPU-cube resolve context (built by caller via TowerShadowMapper)
+ */
+export function resolveTowerLos(
+  candidates: Iterable<RouteCell>,
+  sampler: RouteCellSampler,
+  towerId: string,
+  towerX: number,
+  towerZ: number,
+  range: number,
+  ctx: LosResolveContext,
+  canTargetGround: boolean,
+  canTargetAir: boolean,
+): TowerLosPass {
+  const visibleCells: RouteCell[] = [];
+  const changed: RouteCell[] = [];
+  const rangeSq = range * range;
+  const tipX = ctx.referencePos.x;
+  const tipY = ctx.referencePos.y;
+  const tipZ = ctx.referencePos.z;
+
+  for (const cell of candidates) {
+    const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
+    if (distSq > rangeSq) continue;
+
+    // Try to refresh terrain height from current tile state via the
+    // single-source-of-truth sampler. When the raycast fails, the cell
+    // keeps its previous terrainHeight (anchor fallback) — register the
+    // cell defensively so a later terrain promotion via
+    // the cells-changed listeners can recompute LOS for it instead of
+    // leaving holes in tower coverage.
+    if (sampler.sampleCellY(cell)) changed.push(cell);
+
+    const atTower = distSq < 0.01;
+
+    // Ground visibility — GPU-cube sample at cell.terrainHeight + 1.5m
+    let groundVisible = false;
+    if (canTargetGround) {
+      if (atTower) {
+        groundVisible = true;
+      } else {
+        const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+        groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
+      }
+      cell.towerVisibility.set(towerId, groundVisible);
+    }
+
+    // Air visibility — GPU-cube sample at getAirTargetY(cell) (terrain + 15m)
+    let airVisible = false;
+    if (canTargetAir) {
+      if (atTower) {
+        airVisible = true;
+      } else {
+        const targetY = getAirTargetY(cell);
+        airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
+      }
+      cell.airVisibility.set(towerId, airVisible);
+    }
+
+    if (groundVisible || airVisible) {
+      visibleCells.push(cell);
+    }
+  }
+
+  return { visible: visibleCells, changed };
+}
+
+/**
+ * resolveTowerLos after a range change (e.g. range upgrade) without
+ * discarding existing LOS data.
+ *
+ * For cells already having an entry for this tower (in either visibility
+ * map), the cached value is reused, no GPU sample. Except where the
+ * sampling in this very pass moved the cell's height: that answer was for
+ * the old height and gets re-resolved. Cells in the box but outside the new
+ * range with a stale entry get cleaned up.
+ *
+ * This means a range-upgrade only samples the *new* cells (the annulus
+ * between old and new range), not the entire disc.
+ */
+export function resolveTowerLosIncremental(
+  candidates: Iterable<RouteCell>,
+  sampler: RouteCellSampler,
+  towerId: string,
+  towerX: number,
+  towerZ: number,
+  range: number,
+  ctx: LosResolveContext,
+  canTargetGround: boolean,
+  canTargetAir: boolean,
+): TowerLosPass {
+  const visibleCells: RouteCell[] = [];
+  const changed: RouteCell[] = [];
+  const rangeSq = range * range;
+  const tipX = ctx.referencePos.x;
+  const tipY = ctx.referencePos.y;
+  const tipZ = ctx.referencePos.z;
+
+  for (const cell of candidates) {
+    const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
+    const inRange = distSq <= rangeSq;
+
+    if (!inRange) {
+      // In-box but outside the exact circle — clean up any stale entry.
+      cell.towerVisibility.delete(towerId);
+      cell.airVisibility.delete(towerId);
+      continue;
+    }
+
+    // Refresh heights via single-source-of-truth sampler. If raycast
+    // fails, the cached value is kept and a later promotion via
+    // the cells-changed listeners will recompute LOS for this cell.
+    // If it moved the height, the cached answers are for the old one.
+    if (sampler.sampleCellY(cell)) {
+      changed.push(cell);
+      cell.towerVisibility.delete(towerId);
+      cell.airVisibility.delete(towerId);
+    }
+
+    const atTower = distSq < 0.01;
+
+    // Ground visibility — reuse cached value if present, otherwise GPU-sample
+    let groundVisible = false;
+    if (canTargetGround) {
+      if (cell.towerVisibility.has(towerId)) {
+        groundVisible = cell.towerVisibility.get(towerId)!;
+      } else if (atTower) {
+        groundVisible = true;
+        cell.towerVisibility.set(towerId, groundVisible);
+      } else {
+        const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+        groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
+        cell.towerVisibility.set(towerId, groundVisible);
+      }
+    } else {
+      // Capability removed — drop any stale entry
+      cell.towerVisibility.delete(towerId);
+    }
+
+    // Air visibility — reuse cached value if present, otherwise GPU-sample
+    let airVisible = false;
+    if (canTargetAir) {
+      if (cell.airVisibility.has(towerId)) {
+        airVisible = cell.airVisibility.get(towerId)!;
+      } else if (atTower) {
+        airVisible = true;
+        cell.airVisibility.set(towerId, airVisible);
+      } else {
+        const targetY = getAirTargetY(cell);
+        airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
+        cell.airVisibility.set(towerId, airVisible);
+      }
+    } else {
+      cell.airVisibility.delete(towerId);
+    }
+
+    if (groundVisible || airVisible) {
+      visibleCells.push(cell);
+    }
+  }
+
+  return { visible: visibleCells, changed };
+}
