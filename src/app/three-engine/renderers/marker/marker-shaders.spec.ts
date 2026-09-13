@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createPortalGateMaterial, createPortalGlowMaterial } from './marker-shaders';
+import { CIRCLE_STREET, createPortalGateMaterial, createPortalGlowMaterial } from './marker-shaders';
 import { PORTAL_SHADER_LAYOUT } from './spawn-portal-geometry';
 import { SPAWN_PORTAL_LOOK as L } from '../../../configs/visual-effects.config';
 
@@ -49,10 +49,31 @@ describe('Portal-Shader', () => {
 
   it('kodiert den Beschwörungskreis für sein Ziel, das Straßenlicht bleibt, wie es ist', () => {
     const fragment = glow.fragmentShader;
-    // In Anzeigewerten gebaut, dekodiert und für Canvas oder Nachbearbeitung kodiert
-    expect(fragment).toContain('light += linearToOutputTexel(sRGBTransferEOTF(vec4(circle, 1.0))).rgb;');
+    // Als Schritt von einer Straße der Helligkeit CIRCLE_STREET zu dieser Straße plus Kreis,
+    // beides für Canvas oder Nachbearbeitung kodiert
+    expect(fragment).toContain(`const vec3 street = vec3(${CIRCLE_STREET.toFixed(2)});`);
+    expect(fragment).toContain('light += linearToOutputTexel(sRGBTransferEOTF(vec4(street + circle, 1.0))).rgb');
+    expect(fragment).toContain('- linearToOutputTexel(sRGBTransferEOTF(vec4(street, 1.0))).rgb;');
+    // Nicht mehr der Kreis allein dekodiert: mit Bloom war er so kaum zu sehen (Playtest 248)
+    expect(fragment).not.toContain('sRGBTransferEOTF(vec4(circle, 1.0))');
     // Nicht die ganze Ausgabe: das Straßenlicht wird nicht angefasst
     expect(fragment).not.toContain('#include <colorspace_fragment>');
     expect(fragment).toContain('#include <logdepthbuf_fragment>');
+  });
+
+  it('hebt eine Straße von CIRCLE_STREET mit und ohne Nachbearbeitung gleich an', () => {
+    // sRGB wie sRGBTransferEOTF / sRGBTransferOETF in three
+    const eotf = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    const oetf = (v: number) => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+    const street = CIRCLE_STREET;
+    for (const circle of [0.02, 0.08, 0.4]) {
+      // Canvas: linearToOutputTexel kodiert sRGB, übrig bleibt der Kreis selbst
+      expect(oetf(eotf(street + circle)) - oetf(eotf(street))).toBeCloseTo(circle, 6);
+      // Composer-Ziel: linear addiert, am Ende kodiert, die Straße wird um den Kreis heller
+      const added = eotf(street + circle) - eotf(street);
+      expect(oetf(eotf(street) + added) - street).toBeCloseTo(circle, 6);
+      // Der Kreis allein dekodiert brachte dort weniger als die Hälfte
+      expect(oetf(eotf(street) + eotf(circle)) - street).toBeLessThan(0.5 * circle);
+    }
   });
 });
