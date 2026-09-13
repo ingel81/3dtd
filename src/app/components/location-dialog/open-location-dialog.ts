@@ -10,6 +10,14 @@ export const LOCATION_DIALOG_LOAD_FAILED =
 export const LOCATION_DIALOG_OPEN_FAILED =
   'The location dialog failed to open. Reload the page.';
 
+/**
+ * Whether the error screen shows one of the two messages above. New tile
+ * credentials would not help there, a reload does.
+ */
+export function isLocationDialogFailure(message: string | null): boolean {
+  return message === LOCATION_DIALOG_LOAD_FAILED || message === LOCATION_DIALOG_OPEN_FAILED;
+}
+
 /** The location dialog did not load, so no location can be picked in it. */
 export class LocationDialogLoadError extends Error {
   constructor(cause: unknown) {

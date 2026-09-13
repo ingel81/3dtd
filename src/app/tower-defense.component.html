@@ -76,9 +76,14 @@
           <h3>Error</h3>
           <p>{{ error() }}</p>
           <div class="td-error-actions">
-            <button class="td-btn td-btn-gold" (click)="awaitingCredentials.set(true)">
-              Change tile credentials
-            </button>
+            @if (errorOffersReload()) {
+              <!-- The location dialog did not load or open: a reload fetches it again -->
+              <button class="td-btn td-btn-gold" (click)="reloadPage()">Reload</button>
+            } @else {
+              <button class="td-btn td-btn-gold" (click)="awaitingCredentials.set(true)">
+                Change tile credentials
+              </button>
+            }
             <button class="td-btn" (click)="close()">Close</button>
           </div>
         </div>
