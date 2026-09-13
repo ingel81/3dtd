@@ -1,0 +1,53 @@
+<!-- HERO Panel (only while the hero is selected) -->
+<section class="td-panel td-hero-panel" aria-label="Hero">
+  <div class="td-panel-header td-hero-header">
+    <span class="td-hero-name">{{ view().name }}</span>
+    <span class="td-hero-level">LV {{ view().level }}<span class="td-hero-level-max">/{{ view().maxLevel }}</span></span>
+  </div>
+  <div class="td-panel-content td-hero-section">
+    <div class="td-hero-xp">
+      <div class="td-hero-xp-row">
+        <span class="td-hero-label">Next level</span>
+        <span class="td-hero-xp-value">{{ view().xpLabel }}</span>
+      </div>
+      <div class="td-hero-xp-bar" role="progressbar" aria-label="Kills toward the next level"
+           [attr.aria-valuenow]="view().xpPercent" aria-valuemin="0" aria-valuemax="100">
+        <span class="td-hero-xp-fill" [style.width.%]="view().xpPercent"></span>
+      </div>
+    </div>
+
+    <div class="td-hero-figures">
+      <span><span class="td-hero-label">Kills</span> {{ view().kills }}</span>
+      <span><span class="td-hero-label">DPS</span> {{ view().dps }}</span>
+      <span><span class="td-hero-label">Range</span> {{ view().rangeM }} m</span>
+    </div>
+
+    <div class="td-hero-ammo-head">
+      <span class="td-hero-label">Ammo</span>
+      <span class="td-hero-key" aria-hidden="true">V</span>
+    </div>
+    <div class="td-hero-ammo" role="radiogroup" aria-label="Ammo" aria-keyshortcuts="V">
+      @for (ammo of view().ammo; track ammo.id) {
+        <button class="td-hero-ammo-btn" type="button" role="radio"
+                [class.active]="ammo.active"
+                [attr.aria-checked]="ammo.active"
+                [attr.aria-label]="ammo.tooltip"
+                [matTooltip]="ammo.tooltip" matTooltipPosition="left"
+                (click)="setAmmo(ammo.id)">
+          <span class="td-hero-ammo-name">
+            <span class="td-hero-ammo-dot" [style.background]="ammo.color" aria-hidden="true"></span>
+            {{ ammo.label }}
+          </span>
+          <span class="td-hero-ammo-type">{{ ammo.damageLabel }}</span>
+        </button>
+      }
+    </div>
+
+    <p class="td-hero-hint">
+      <span class="td-hero-status">{{ view().status }}.</span>
+      Click the route to send him, he holds the spot and chases up to 20 m along it.
+      <span class="td-hero-key" aria-hidden="true">G</span> camera,
+      <span class="td-hero-key" aria-hidden="true">Esc</span> lets go.
+    </p>
+  </div>
+</section>

@@ -41,6 +41,7 @@ import { PathAndRouteService } from '../world/path-route.service';
 import { InputHandlerService } from '../input-handler.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
+import { HeroControlService } from '../hero-control.service';
 import { MapPlacementService } from '../world/map-placement.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
@@ -215,6 +216,7 @@ describe('VisualizationFacadeService', () => {
     setEnemyPlacementCallback: vi.fn(),
     setMapPlacementCallback: vi.fn(),
     setAbilityTargetingCallback: vi.fn(),
+    setHeroCallbacks: vi.fn(),
     initKeyboard: vi.fn(),
     armPick: vi.fn(),
   };
@@ -224,6 +226,15 @@ describe('VisualizationFacadeService', () => {
     click: vi.fn(),
     hover: vi.fn(),
     cancel: vi.fn(),
+    initialize: vi.fn(),
+  };
+  const heroControl = {
+    selected: vi.fn(() => true),
+    pick: vi.fn(() => false),
+    toggle: vi.fn(),
+    click: vi.fn(),
+    hover: vi.fn(),
+    deselect: vi.fn(),
     initialize: vi.fn(),
   };
   const heightUpdate = { initialize: vi.fn(), scheduleOverlayHeightUpdate: vi.fn(async () => undefined), heightsLoading: signal(false) };
@@ -297,6 +308,7 @@ describe('VisualizationFacadeService', () => {
         { provide: InputHandlerService, useValue: inputHandler },
         { provide: TowerPlacementService, useValue: towerPlacement },
         { provide: AbilityTargetingService, useValue: abilityTargeting },
+        { provide: HeroControlService, useValue: heroControl },
         { provide: HeightUpdateService, useValue: heightUpdate },
         { provide: EngineInitializationService, useValue: engineInit },
         { provide: DevWorldService, useValue: devWorld },
@@ -542,6 +554,19 @@ describe('VisualizationFacadeService', () => {
       expect(abilityTargeting.hover).toHaveBeenCalledWith(10, 11, 'hit');
       expect(abilityTargeting.cancel).toHaveBeenCalled();
 
+      const hero = inputHandler.setHeroCallbacks.mock.calls[0][0];
+      expect(hero.selected()).toBe(true);
+      expect(hero.pick(1, 2)).toBe(false);
+      hero.toggle();
+      hero.click(13, 14, 15);
+      hero.move(13, 14, 'hit');
+      hero.cancel();
+      expect(heroControl.pick).toHaveBeenCalledWith(1, 2);
+      expect(heroControl.toggle).toHaveBeenCalled();
+      expect(heroControl.click).toHaveBeenCalledWith(13, 14, 15);
+      expect(heroControl.hover).toHaveBeenCalledWith(13, 14, 'hit');
+      expect(heroControl.deselect).toHaveBeenCalled();
+
       const keys = inputHandler.initKeyboard.mock.calls[0][0];
       keys.exitBuildMode();
       keys.exitMapPlacement();
@@ -595,6 +620,7 @@ describe('VisualizationFacadeService', () => {
       expect(towerPlacement.initialize).toHaveBeenCalledWith(engine, streetNetwork, osm, HQ, gameState);
       expect(mapPlacement.initialize).toHaveBeenCalledWith(engine, streetNetwork, HQ);
       expect(abilityTargeting.initialize).toHaveBeenCalledWith(engine, gameState);
+      expect(heroControl.initialize).toHaveBeenCalledWith(engine, gameState);
       expect(losDebug.initialize).toHaveBeenCalledWith(engine, towerManager, bus, gridService);
     });
 

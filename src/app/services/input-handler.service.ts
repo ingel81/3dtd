@@ -22,6 +22,22 @@ export interface KeyboardCallbacks {
   exitMapPlacement?: () => void;
 }
 
+/** What the pointer does for the hero (HeroControlService). */
+export interface HeroInputCallbacks {
+  /** He is selected: clicks on the ground send him, pointer moves show where */
+  selected: () => boolean;
+  /** Whether his model lies under the screen point */
+  pick: (screenX: number, screenY: number) => boolean;
+  /** A click on him: select him, or let him go */
+  toggle: () => void;
+  /** A click on the ground while he is selected */
+  click: (lat: number, lon: number, height: number) => void;
+  /** The pointer over the ground while he is selected */
+  move: (lat: number, lon: number, hitPoint: THREE.Vector3) => void;
+  /** A short right click while he is selected */
+  cancel: () => void;
+}
+
 /**
  * InputHandlerService
  *
@@ -99,6 +115,9 @@ export class InputHandlerService {
   private onAbilityClickCallback: ((lat: number, lon: number, height: number) => void) | null = null;
   private onAbilityMoveCallback: ((lat: number, lon: number, hitPoint: THREE.Vector3) => void) | null = null;
   private onAbilityCancelCallback: (() => void) | null = null;
+
+  /** The hero: picking him, and while he is selected the move click (HeroControlService) */
+  private heroInput: HeroInputCallbacks | null = null;
 
   /** Stored event listeners for cleanup */
   private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
@@ -203,6 +222,16 @@ export class InputHandlerService {
   }
 
   /**
+   * Set up the hero's pointer handling. Outside build mode a click on him
+   * selects him or lets him go. While he is selected a left click on the
+   * ground sends him and pointer moves show where, a click on a tower still
+   * selects the tower, and a short right click lets him go.
+   */
+  setHeroCallbacks(callbacks: HeroInputCallbacks): void {
+    this.heroInput = callbacks;
+  }
+
+  /**
    * Hand the next left click on the ground to `callback` instead of the
    * game, once: no tower selection, no building. For `__corridor.pick()`.
    */
@@ -266,8 +295,9 @@ export class InputHandlerService {
         const inPlacementMode = !!this.mapPlacementModeSignal?.();
         const inBuildMode = this.buildModeSignal?.() ?? false;
         const inTargeting = !!this.abilityTargetingSignal?.();
+        const heroSelected = !!this.heroInput?.selected();
 
-        if (inPlacementMode || inBuildMode || inTargeting) {
+        if (inPlacementMode || inBuildMode || inTargeting || heroSelected) {
           event.preventDefault();
         }
       }
@@ -320,6 +350,28 @@ export class InputHandlerService {
       const aim = this.engine.sync.localToGeo(hit);
       this.onAbilityClickCallback(aim.lat, aim.lon, aim.height);
       return;
+    }
+
+    // The hero: a click on him selects him or lets him go. While he is
+    // selected a click on the ground sends him, one on a tower selects it
+    // (which lets him go, HeroControlService)
+    if (this.heroInput && !this.buildModeSignal()) {
+      if (this.heroInput.pick(event.clientX, event.clientY)) {
+        this.heroInput.toggle();
+        return;
+      }
+      if (this.heroInput.selected()) {
+        const towerId = this.engine.picker.raycastTowers(event.clientX, event.clientY);
+        if (towerId) {
+          this.gameState.towerManager.selectTower(towerId);
+          return;
+        }
+        const ground = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
+        if (!ground) return;
+        const at = this.engine.sync.localToGeo(ground);
+        this.heroInput.click(at.lat, at.lon, at.height);
+        return;
+      }
     }
 
     // First: Check tower selection via direct mesh raycast
@@ -379,8 +431,9 @@ export class InputHandlerService {
     const inPlacementMode = !!this.mapPlacementModeSignal?.();
     const inBuildMode = this.buildModeSignal?.() ?? false;
     const inTargeting = !!this.abilityTargetingSignal?.();
+    const heroSelected = !!this.heroInput?.selected();
 
-    if (inPlacementMode || inBuildMode || inTargeting) {
+    if (inPlacementMode || inBuildMode || inTargeting || heroSelected) {
       const dx = event.clientX - this.rightClickDownPos.x;
       const dy = event.clientY - this.rightClickDownPos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
@@ -391,8 +444,10 @@ export class InputHandlerService {
           this.onAbilityCancelCallback?.();
         } else if (inPlacementMode) {
           this.keyboardCallbacks?.exitMapPlacement?.();
-        } else {
+        } else if (inBuildMode) {
           this.keyboardCallbacks?.exitBuildMode();
+        } else {
+          this.heroInput?.cancel();
         }
       }
     }
@@ -413,8 +468,9 @@ export class InputHandlerService {
     const inBuildMode = this.buildModeSignal?.() ?? false;
     const inPlacementMode = !!this.mapPlacementModeSignal?.();
     const inTargeting = !!this.abilityTargetingSignal?.();
+    const heroSelected = !!this.heroInput?.selected();
 
-    if (!inBuildMode && !inPlacementMode && !inTargeting) {
+    if (!inBuildMode && !inPlacementMode && !inTargeting && !heroSelected) {
       this.scheduleHoverPick(event);
       return;
     }
@@ -443,6 +499,8 @@ export class InputHandlerService {
       this.onMapPlacementMoveCallback(geo.lat, geo.lon, hitPoint);
     } else if (inBuildMode && this.onMouseMoveCallback) {
       this.onMouseMoveCallback(geo.lat, geo.lon, hitPoint);
+    } else if (heroSelected) {
+      this.heroInput?.move(geo.lat, geo.lon, hitPoint);
     }
   }
 
@@ -646,6 +704,7 @@ export class InputHandlerService {
     this.onAbilityClickCallback = null;
     this.onAbilityMoveCallback = null;
     this.onAbilityCancelCallback = null;
+    this.heroInput = null;
     this.pickCallback = null;
     this.mouseDownPos = null;
     this.keyboardCallbacks = null;

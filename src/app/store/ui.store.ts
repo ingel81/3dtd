@@ -153,6 +153,9 @@ export class UIStore {
   /** Ability being aimed (targeting mode, AbilityTargetingService), null outside it */
   readonly abilityTargeting = signal<AbilityId | null>(null);
 
+  /** The hero is selected (HeroControlService): a click on the route sends him. Not persisted. */
+  readonly heroSelected = signal<boolean>(false);
+
   /** Photo mode: HUD hidden, camera free, screenshot bar on top. Not persisted. */
   readonly photoMode = signal<boolean>(false);
 
@@ -276,6 +279,7 @@ export class UIStore {
     this.buildValidationReason.set(null);
     this.mapPlacementMode.set(null);
     this.abilityTargeting.set(null);
+    this.heroSelected.set(false);
   }
 
   /** Full reset including UI state. */

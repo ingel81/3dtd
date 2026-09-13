@@ -19,6 +19,7 @@ import type { AbilityId } from '../configs/abilities.config';
 import { SellConfirmService } from './sell-confirm.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { PhotoModeService } from './photo-mode.service';
+import { HeroControlService } from './hero-control.service';
 
 /**
  * Runs the game hotkeys (see hotkey-map.ts). The component hands it every key
@@ -45,6 +46,7 @@ export class HotkeyService {
   private readonly introFlight = inject(IntroCameraFlightService);
   private readonly abilityTargeting = inject(AbilityTargetingService);
   private readonly photoMode = inject(PhotoModeService);
+  private readonly heroControl = inject(HeroControlService);
 
   /** BUILD panel order, the number keys follow it */
   private readonly towerTypes = getAllTowerTypes();
@@ -100,6 +102,8 @@ export class HotkeyService {
         return true;
       case 'cancel': return this.cancel();
       case 'ability': return this.toggleAbility(action.abilityId);
+      case 'hero': return this.selectHero();
+      case 'hero-ammo': return this.heroControl.cycleAmmo();
       case 'camera-hq': return this.focusHq();
       case 'camera-spawn': return this.focusNextSpawn();
       case 'photo-mode':
@@ -121,6 +125,18 @@ export class HotkeyService {
     }
     this.abilityTargeting.start(id);
     return this.abilityTargeting.targeting() === id;
+  }
+
+  /**
+   * G: select the hero like a click on him; pressed again while he is
+   * selected, the camera flies to him.
+   */
+  private selectHero(): boolean {
+    if (this.photoMode.active()) return false;
+    if (!this.heroControl.selected()) return this.heroControl.select();
+    const at = this.heroControl.position();
+    if (!at || this.introFlight.active()) return false;
+    return this.cameraControl.focusGeo(at.lat, at.lon);
   }
 
   /** The intro flight owns the camera while it plays. */
@@ -194,8 +210,8 @@ export class HotkeyService {
 
   /**
    * Esc that build and placement mode left over: leave photo mode, else close
-   * the open quick-actions menu, else drop a pending sale, else deselect the
-   * tower.
+   * the open quick-actions menu, else drop a pending sale, else let the hero
+   * go, else deselect the tower.
    */
   private cancel(): boolean {
     if (this.photoMode.active()) {
@@ -208,6 +224,10 @@ export class HotkeyService {
     }
     if (this.sellConfirm.armedTowerId()) {
       this.sellConfirm.disarm();
+      return true;
+    }
+    if (this.heroControl.selected()) {
+      this.heroControl.deselect();
       return true;
     }
     if (this.store.selectedTower()) {

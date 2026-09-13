@@ -39,16 +39,7 @@ export class ScreenPicker {
    * Returns the tower ID if a tower was hit, null otherwise
    */
   raycastTowers(screenX: number, screenY: number): string | null {
-    // Convert screen coords to NDC
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    const mouse = new Vector2(
-      ((screenX - rect.left) / rect.width) * 2 - 1,
-      -((screenY - rect.top) / rect.height) * 2 + 1
-    );
-
-    // Create a FRESH raycaster - reusing the LOS raycaster causes issues after LoS checks
-    const raycaster = new Raycaster();
-    raycaster.setFromCamera(mouse, this.camera);
+    const raycaster = this.rayAt(screenX, screenY);
 
     // Test each tower mesh
     const towerMeshes = this.towers.getAllMeshes();
@@ -60,6 +51,28 @@ export class ScreenPicker {
     }
 
     return null;
+  }
+
+  /** Whether `object` or one of its children lies under the screen point; false for null. The hero's pick. */
+  hits(screenX: number, screenY: number, object: Object3D | null): boolean {
+    if (!object) return false;
+    return this.rayAt(screenX, screenY).intersectObject(object, true).length > 0;
+  }
+
+  /**
+   * A FRESH raycaster through the screen point: reusing the LOS raycaster
+   * causes issues after LoS checks.
+   */
+  private rayAt(screenX: number, screenY: number): Raycaster {
+    // Convert screen coords to NDC
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const mouse = new Vector2(
+      ((screenX - rect.left) / rect.width) * 2 - 1,
+      -((screenY - rect.top) / rect.height) * 2 + 1
+    );
+    const raycaster = new Raycaster();
+    raycaster.setFromCamera(mouse, this.camera);
+    return raycaster;
   }
 
   /**

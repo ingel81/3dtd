@@ -239,7 +239,7 @@
       }
 
       <!-- Context hint box, one at a time: build mode, map placement, ability
-           targeting, else the first-run tip -->
+           targeting, the selected hero, else the first-run tip -->
       @if (buildMode()) {
         <app-context-hint
           [hints]="buildModeHints"
@@ -254,6 +254,11 @@
         <app-context-hint
           [hints]="abilityTargetingHints"
           [warning]="abilityTargetingWarning()"
+        />
+      } @else if (heroSelected()) {
+        <app-context-hint
+          [hints]="heroHints"
+          [warning]="heroWarning()"
         />
       } @else if (onboardingTip(); as tip) {
         <app-context-hint

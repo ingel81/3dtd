@@ -30,10 +30,12 @@ import { SidebarWavePanelComponent } from './wave-panel/wave-panel.component';
 import { SidebarBuildPanelComponent } from './build-panel/build-panel.component';
 import { SidebarTowerPanelComponent } from './tower-panel/tower-panel.component';
 import { SidebarResearchPanelComponent } from './research-panel/research-panel.component';
+import { SidebarHeroPanelComponent } from './hero-panel/hero-panel.component';
+import { UIStore } from '../../store/ui.store';
 
 /**
  * Rechte Sidebar: Rahmen, Footer und die Wahl des Panels. Die Sektionen sind
- * eigene Components (WAVE, BUILD, Tower, Research Center), ihre Outputs
+ * eigene Components (WAVE, BUILD, Tower, Research Center, Held), ihre Outputs
  * reicht die Sidebar an die Spielkomponente weiter.
  */
 @Component({
@@ -45,6 +47,7 @@ import { SidebarResearchPanelComponent } from './research-panel/research-panel.c
     SidebarBuildPanelComponent,
     SidebarTowerPanelComponent,
     SidebarResearchPanelComponent,
+    SidebarHeroPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './game-sidebar.component.html',
@@ -65,6 +68,9 @@ export class GameSidebarComponent implements OnDestroy {
 
   // Store, single source of truth
   readonly store = inject(TowerDefenseStore);
+
+  /** Der Held ist gewählt: sein Panel statt des Tower-Details. */
+  readonly heroSelected = inject(UIStore).heroSelected;
 
   readonly buildVersion = BUILD_VERSION;
 
