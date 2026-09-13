@@ -387,6 +387,21 @@ describe('SpatialAudioManager', () => {
       expect(manager.getProjectileSoundStats().current).toBe(0);
     });
 
+    it('keeps no polyphony slot and no flood window for a trigger the projectile budget refused', async () => {
+      const { manager, ready } = setup();
+      await ready('arrow', 'arrow.mp3', { maxInstances: 1000, minIntervalMs: 0 });
+      await ready('bullet', 'bullet.mp3', { maxInstances: 2, minIntervalMs: 50 });
+      for (let i = 0; i < AUDIO_LIMITS.maxProjectileSounds; i++) await manager.playAt('arrow', NEAR);
+
+      for (let i = 0; i < 3; i++) {
+        expect(await manager.playAt('bullet', NEAR)).toBeNull();
+      }
+      // The arrows end and free the budget; the clock has not moved.
+      await vi.advanceTimersByTimeAsync(400);
+
+      expect(await manager.playAt('bullet', NEAR)).not.toBeNull();
+    });
+
     it('steals the oldest one-shot when all voices are busy', async () => {
       const { manager, debugEvents, ready } = setup();
       const max = AUDIO_LIMITS.maxConcurrentOneShots;

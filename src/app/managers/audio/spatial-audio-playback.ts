@@ -222,16 +222,17 @@ export class SpatialAudioPlayback {
       this.emitDebug('budget_exceeded', soundId, `buffer-poly ${activeForBuffer}/${maxInstances}`);
       return null;
     }
+    // Budget check for projectile sounds. It comes before the sample's
+    // polyphony slot and flood timestamp are taken: a rejected trigger plays
+    // nothing, so it must hold no slot and start no flood window.
+    const isProjectile = this.isProjectileSound(soundId);
+    if (isProjectile && this.projectileSoundCount >= AUDIO_LIMITS.maxProjectileSounds) {
+      this.emitDebug('budget_exceeded', soundId, `projectile budget ${this.projectileSoundCount}/${AUDIO_LIMITS.maxProjectileSounds}`);
+      return null;
+    }
     this.lastTriggerMsByBuffer.set(sound.buffer, nowMs);
     this.activeCountByBuffer.set(sound.buffer, activeForBuffer + 1);
-
-    // Budget check for projectile sounds
-    const isProjectile = this.isProjectileSound(soundId);
     if (isProjectile) {
-      if (this.projectileSoundCount >= AUDIO_LIMITS.maxProjectileSounds) {
-        this.emitDebug('budget_exceeded', soundId, `projectile budget ${this.projectileSoundCount}/${AUDIO_LIMITS.maxProjectileSounds}`);
-        return null;
-      }
       this.projectileSoundCount++;
     }
 
