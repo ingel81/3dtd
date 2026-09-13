@@ -72,6 +72,11 @@ describe('GameLoopFacadeService: aiExplanation', () => {
     isConnected: () => connected,
     requestWaveConfig: vi.fn(async () => wave()),
   };
+  const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
+  /** Enemy types of the wave the facade started */
+  const startedTypes = () =>
+    (emitted as unknown as { config: { schedule: { entries: { enemyType: string }[] } } }[])[0]
+      .config.schedule.entries.map((e) => e.enemyType);
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -85,7 +90,7 @@ describe('GameLoopFacadeService: aiExplanation', () => {
         { provide: TowerDefenseStore, useValue: store },
         { provide: WaveDirectorService, useValue: director },
         { provide: TrainingClientService, useValue: backend },
-        { provide: AIDataCollectorService, useValue: { getStateSnapshot: () => ({}) } },
+        { provide: AIDataCollectorService, useValue: collector },
         { provide: WaveDebugService, useValue: { toAIWaveConfig: () => wave() } },
       ],
     });
@@ -131,6 +136,35 @@ describe('GameLoopFacadeService: aiExplanation', () => {
     await settle();
     expect(backend.requestWaveConfig).toHaveBeenCalled();
     expect(store.aiExplanation()).toBeNull();
+  });
+
+  describe('boss rotation past the curriculum', () => {
+    it('ships the variant in place of the director wave and explains that (W35: the worm)', async () => {
+      store.waveNumber.set(34);
+      facade.startWave();
+      await settle();
+      expect(startedTypes()).toEqual(['worm']);
+      expect(store.aiExplanation()?.summary).toContain('Boss: Chitin Worm');
+      expect(collector.setCurrentWaveConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ templateName: 'Boss: Chitin Worm' }),
+      );
+    });
+
+    it('leaves the director its own boss waves', async () => {
+      store.waveNumber.set(39);
+      facade.startWave();
+      await settle();
+      expect(startedTypes()).toEqual(Array(20).fill('zombie'));
+      expect(store.aiExplanation()).toBe(EXPLANATION);
+    });
+
+    it('leaves a training wave alone', async () => {
+      connected = true;
+      store.waveNumber.set(34);
+      facade.startWave();
+      await settle();
+      expect(startedTypes()).toEqual(Array(20).fill('zombie'));
+    });
   });
 });
 
