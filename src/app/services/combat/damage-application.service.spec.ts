@@ -191,6 +191,17 @@ describe('DamageApplicationService', () => {
       expect(handler).toHaveBeenCalledWith({ type: 'tower:kill', tower: towerKillsById['t-A'] });
     });
 
+    it('credits the tower whose hit takes the last HP, not the one that dealt the most', () => {
+      towerKillsById['t-A'] = makeTower('t-A');
+      towerKillsById['t-B'] = makeTower('t-B');
+      const enemy = makeEnemy({ hp: 100 });
+      service.applyDamage(vfx as never, enemy as never, 90, 'physical' as DamageType, 't-A', false, false);
+      // Damage over time and beam ticks come in through applyBeamDamage
+      service.applyBeamDamage(vfx as never, enemy as never, 20, 'physical' as DamageType, 't-B', false);
+      expect(towerKillsById['t-A'].combat.kills).toBe(0);
+      expect(towerKillsById['t-B'].combat.kills).toBe(1);
+    });
+
     it('does nothing on a missing source tower (no throw)', () => {
       const enemy = makeEnemy({ hp: 1 });
       expect(() =>
