@@ -173,6 +173,24 @@ describe('AbilityManager', () => {
     });
   });
 
+  describe('debug refill (Nuke ready)', () => {
+    it('does nothing while the ability is locked', () => {
+      manager.refillCharges('nuclear-strike');
+      expect(manager.getStatus('nuclear-strike').unlocked).toBe(false);
+    });
+
+    it('gives every charge back and restarts the count toward the next', () => {
+      unlock();
+      manager.use('nuclear-strike', TARGET);
+      completeWave();
+      manager.refillCharges('nuclear-strike');
+      expect(manager.getStatus('nuclear-strike')).toMatchObject({ charges: NUKE.maxCharges, wavesUntilCharge: 0 });
+
+      manager.use('nuclear-strike', TARGET);
+      expect(manager.getStatus('nuclear-strike')).toMatchObject({ charges: 0, wavesUntilCharge: NUKE.rechargeWaves });
+    });
+  });
+
   describe('announcements', () => {
     let events: GameEvent[];
     const ofType = <T extends GameEvent['type']>(type: T) =>

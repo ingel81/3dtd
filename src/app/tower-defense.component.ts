@@ -748,6 +748,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   maxUpgradeAllTowers(): void {
     this.debugFacade.maxUpgradeAllTowers(this.gameState);
   }
+  readyNuke(): void {
+    this.debugFacade.readyNuclearStrike(this.gameState);
+  }
   clearDebugLog(): void {
     this.debugFacade.clearDebugLog();
   }

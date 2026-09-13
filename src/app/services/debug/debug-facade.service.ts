@@ -129,6 +129,17 @@ export class DebugFacadeService {
     this.appendDebugLog('All towers max upgraded (Debug)');
   }
 
+  /**
+   * Nuclear Strike ready: its research with the prerequisites done and every
+   * charge back, as often as clicked, to test strike after strike. Sent
+   * deferred: it lands in the next gameplay sub-step like the rest of the
+   * simulation, so while the game is paused it waits until it runs on.
+   */
+  readyNuclearStrike(gameState: GameStateManager): void {
+    gameState.getEventBus().emitDeferred({ type: 'debug:ready-ability', abilityId: 'nuclear-strike' });
+    this.appendDebugLog('Nuclear Strike ready (Debug)');
+  }
+
   // ========================================
   // Height Debug Toggle
   // ========================================

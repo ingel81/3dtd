@@ -100,6 +100,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `debug:add-health` | DebugFacadeService | GameCommandsHandler → GameStateManager.adjustBaseHealth() (emittiert `health:changed`) | Health hinzufügen (`amount`) |
 | `debug:complete-all-research` | DebugFacadeService | GameCommandsHandler → ResearchManager | Alle Forschungen sofort abschließen |
 | `debug:max-upgrade-all-towers` | DebugFacadeService | GameCommandsHandler → GameStateManager.maxUpgradeAllTowers() | Alle Tower auf Max-Level setzen, emittiert je Tower `tower:upgraded` |
+| `debug:ready-ability` | DebugFacadeService (Cheat "Nuke", **deferred**) | GameCommandsHandler → ResearchManager.completeResearch() (Forschung samt Voraussetzungen, je `research:completed`), dann AbilityManager.refillCharges() | Fähigkeit sofort bereit (`abilityId`): freigeschaltet, alle Ladungen. Deferred, damit es im nächsten Sub-Step greift; in der Pause erst beim Weiterlaufen |
 | `debug:remove-enemy` | EnemyDebugService (Enemy-Debug-Fenster: Entfernen-Knopf, „Clear All“ je Debug-Enemy) | EnemyManager, GameStateManager (Tower in Wachrichtung) | Einzelnen Enemy entfernen (`enemyId`) |
 | `debug:start-custom-wave` | WaveDebuggerComponent | GameLoopFacade (`startCustomWave()`) | Custom Wave starten |
 | `debug:spawn-enemy` | EnemyDebugService | EnemyManager | Enemy manuell spawnen (`enemyType`, `count?`, `path?`, `speed?`, `paused?`, `health?`) |
@@ -107,9 +108,10 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 
 ### Command Events (UI → Game Engine)
 
-> **Routing (2026-05-10):** Alle `command:*`-Subscriptions und die vier Cheat-Events
+> **Routing (2026-05-10):** Alle `command:*`-Subscriptions und die Cheat-Events
 > `debug:add-credits`, `debug:add-health`, `debug:complete-all-research`,
-> `debug:max-upgrade-all-towers` liegen in `GameCommandsHandler` (`managers/game-commands.handler.ts`).
+> `debug:max-upgrade-all-towers` (seit 2026-09-13 auch `debug:ready-ability`) liegen in
+> `GameCommandsHandler` (`managers/game-commands.handler.ts`).
 > Vorher hingen die 11 Listener direkt am `GameStateManager`. Der Handler hält keinen State
 > und delegiert an den GameStateManager bzw. dessen `towerManager` und `researchManager`.
 > Die übrigen `debug:*`-Events abonnieren EnemyManager, WaveManager, GameLoopFacade,

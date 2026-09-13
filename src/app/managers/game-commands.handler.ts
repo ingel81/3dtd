@@ -1,6 +1,7 @@
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { GameStateManager } from './game-state.manager';
 import { getResearch } from '../configs/research/research-tree.config';
+import { ABILITIES } from '../configs/abilities.config';
 
 /**
  * GameCommandsHandler — Command-Bus-Adapter für GameStateManager.
@@ -126,6 +127,13 @@ export class GameCommandsHandler {
 
     this.subs.add(this.eventBus.on('debug:max-upgrade-all-towers', () => {
       this.gsm.maxUpgradeAllTowers();
+    }));
+
+    // The ability's research with its prerequisites (the research unlocks it
+    // with full charges), then full charges again on every further click
+    this.subs.add(this.eventBus.on('debug:ready-ability', (event) => {
+      this.gsm.researchManager.completeResearch(ABILITIES[event.abilityId].researchId);
+      this.gsm.abilityManager.refillCharges(event.abilityId);
     }));
   }
 }

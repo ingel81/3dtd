@@ -439,6 +439,29 @@ export class ResearchManager implements IGameManager {
     this.emitStateSnapshot();
   }
 
+  /**
+   * Debug: complete `id` and everything it needs, prerequisites first, each
+   * with its research:completed. One of them that is running or queued stops
+   * without refund, as in completeAllResearch. What is done already stays
+   * as it is.
+   */
+  completeResearch(id: ResearchId): void {
+    if (this.completeWithPrerequisites(id)) this.emitStateSnapshot();
+  }
+
+  /** Whether `id` was completed now. */
+  private completeWithPrerequisites(id: ResearchId): boolean {
+    if (this.completedResearches.has(id)) return false;
+    const config = getResearch(id);
+    if (!config) return false;
+    for (const prerequisite of config.prerequisites) this.completeWithPrerequisites(prerequisite);
+    this.activeResearches.delete(id);
+    this.queue = this.queue.filter((queued) => queued !== id);
+    this.completedResearches.add(id);
+    this.eventBus.emit({ type: 'research:completed', researchId: id, effects: config.effects });
+    return true;
+  }
+
   // ==================== Lifecycle (IGameManager) ====================
 
   /** No-op — ResearchManager has no setup work beyond the constructor. */

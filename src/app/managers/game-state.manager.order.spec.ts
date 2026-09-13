@@ -494,6 +494,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:use-ability',
         'command:start-wave', 'command:restart-game',
         'debug:add-credits', 'debug:add-health', 'debug:complete-all-research', 'debug:max-upgrade-all-towers',
+        'debug:ready-ability',
       ]);
     });
 
