@@ -20,12 +20,9 @@ import { TowerPlacementService } from '../services/tower-placement.service';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
-import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
+import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
-import type { Enemy } from '../entities/enemy.entity';
-import { canTargetAirEffective } from '../entities/tower-targeting.util';
-import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { raycastStats } from '../utils/raycast-stats';
 import { EconomyService } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
@@ -38,6 +35,7 @@ import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
 import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
+import { TowerLifecycle } from './game-state/tower-lifecycle';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -117,6 +115,21 @@ export class GameStateManager {
   readonly baseHealth = this.healthLedger.baseHealth;
   private readonly creditsLedger = new CreditsLedger(this.eventBus);
   readonly credits = this.creditsLedger.credits;
+
+  /** Place, sell and upgrade rules, range refresh and guard heading of the towers */
+  private readonly towerLifecycle = new TowerLifecycle(
+    this.towerManager,
+    this.researchManager,
+    this.waveManager,
+    this.enemyManager,
+    this.towerPlacement,
+    this.towerCombat,
+    this.researchStore,
+    this.creditsLedger,
+    this.eventBus,
+    () => this.tilesEngine,
+    () => this.beforeCorridorLock?.('tower'),
+  );
   /** Game over screen signal - delegated to HQDamageService */
   readonly showGameOverScreen = computed(() => this.hqDamage.showGameOverScreen());
 
@@ -284,58 +297,24 @@ export class GameStateManager {
     }));
 
 
-    // AA-Retrofit unlocks air targeting for towers that were placed WITHOUT
-    // it. Their per-cell air visibility was never resolved (registerTower ran
-    // with canTargetAir=false), so `cell.airVisibility` has no entry for them:
-    // air-only cells are missing from `visibleCells` entirely, and for the
-    // rest `buildLosCheck` finds no cached answer and falls back to a
-    // synchronous CPU raycast per candidate. Harmless while air LOS was not
-    // enforced in `findTarget` — now that it is, re-register the affected
-    // towers so the grid answers for them. registerTowerIncremental only
-    // samples the entries that are actually missing.
-    //
-    // Queued rather than run in this handler: recomputeTowerLOS reads the air
-    // flag from the ResearchStore, and the store learns about the unlock in
-    // GameStateSyncService's research:completed handler, which subscribes
-    // after this one. Run right here, the recompute still saw air targeting
-    // as locked and resolved no air entry at all.
+    // AA-Retrofit: towers that just gained air targeting get their air LOS
+    // resolved (queued, see TowerLifecycle.scheduleAirRetrofit)
     this.eventBusSubs.add(this.eventBus.on('research:completed', (event) => {
-      const unlocksAir = event.effects.some(
-        e => e.kind === 'enable-targeting' && e.capability === 'air',
-      );
-      if (!unlocksAir) return;
-      for (const tower of this.towerManager.getAll()) {
-        const typeId = tower.typeConfig.id as TowerTypeId;
-        // Only the retrofit-gated types — everything else already registered
-        // with its final air capability.
-        if (canTargetAirEffective(typeId, false)) continue;
-        if (!canTargetAirEffective(typeId, true)) continue;
-        this.towerPlacement.scheduleLosRecompute(tower);
-      }
+      this.towerLifecycle.scheduleAirRetrofit(event.effects);
     }));
 
     // Once a wave is over, turn the towers to where the route enters their
     // range. During the wave a tower keeps the heading of its last target.
     this.eventBusSubs.add(this.eventBus.on('wave:completed', () => {
-      this.towerCombat.turnTowersToGuard(this.towerManager);
+      this.towerLifecycle.turnAllToGuard();
     }));
 
-    // Debug enemies fought outside a wave never complete one, so no
-    // wave:completed turns the towers back. Once the last enemy is gone
-    // outside a wave, turn them as the wave end would. `leaving` is the
-    // enemy of the event: one that reaches the base is still alive while
-    // the event runs and removed after it.
-    const turnToGuardIfClear = (leaving?: Enemy) => {
-      if (this.waveManager.phase() === 'wave') return;
-      for (const enemy of this.enemyManager.getAlive()) {
-        if (enemy !== leaving) return;
-      }
-      this.towerCombat.turnTowersToGuard(this.towerManager);
-    };
-    this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => turnToGuardIfClear(event.enemy)));
-    this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => turnToGuardIfClear(event.enemy)));
+    // Outside a wave the last enemy leaving turns them as well
+    // (see TowerLifecycle.turnToGuardIfClear)
+    this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => this.towerLifecycle.turnToGuardIfClear(event.enemy)));
+    this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => this.towerLifecycle.turnToGuardIfClear(event.enemy)));
     // EnemyManager subscribed first and has removed the enemy by now
-    this.eventBusSubs.add(this.eventBus.on('debug:remove-enemy', () => turnToGuardIfClear()));
+    this.eventBusSubs.add(this.eventBus.on('debug:remove-enemy', () => this.towerLifecycle.turnToGuardIfClear()));
 
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
@@ -709,7 +688,7 @@ export class GameStateManager {
 
     // Clear tower overlays before clearing towers
     // (unregisters each tower from GlobalRouteGrid, disposes LOS meshes)
-    this.clearAllTowerOverlays();
+    this.towerLifecycle.clearAllOverlays();
 
     // Stop all active beams/melee before clearing towers
     this.towerCombat.stopAllBeams();
@@ -755,62 +734,30 @@ export class GameStateManager {
 
   /**
    * After a range-stat upgrade (manual or debug-max-upgrade), refresh the
-   * tower's LOS cells, geo-degree-squared range cache, and visual range disc.
-   * Pulled out of the upgrade-handler so the command handler can call it.
+   * tower's LOS cells, range cache, range disc and guard heading.
    */
   recomputeTowerRangeAfterUpgrade(tower: Tower): void {
-    this.towerPlacement.recomputeTowerLOS(tower);
-    const pos = tower.position;
-    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(pos.lat * DEG_TO_RAD);
-    const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
-    const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
-    tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
-    this.tilesEngine?.towers.updateRangeIndicatorTerrain(tower.id, tower.combat.range);
-
-    // A longer range meets the route earlier. Between waves the tower stands
-    // at its guard heading and follows the new one; in a wave it keeps
-    // aiming where it was and turns after the wave.
-    this.towerManager.refreshGuardHeading(tower);
-    if (this.waveManager.phase() !== 'wave') {
-      this.towerCombat.turnToGuardHeading(tower);
-    }
-  }
-
-  /**
-   * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
-   * Called on reset to cleanup before starting fresh
-   */
-  private clearAllTowerOverlays(): void {
-    // First deselect any selected tower (hides its LOS visualization)
-    this.towerManager.selectTower(null);
-
-    // Delegate to TowerPlacementService
-    this.towerPlacement.clearAllTowerOverlays(this.towerManager.getAll());
+    this.towerLifecycle.recomputeRangeAfterUpgrade(tower);
   }
 
   /**
    * Sell a tower and refund 50% of its cost
    */
   sellTower(tower: Tower): number {
-    // Unregister from grid + dispose LOS visualization
-    this.towerPlacement.unregisterTowerFromGrid(tower);
+    return this.towerLifecycle.sell(tower);
+  }
 
-    this.towerManager.selectTower(null);
+  /**
+   * Upgrade one track of a tower: cost, research tier, emits tower:upgraded.
+   * @returns false if refused (maxed out, tier locked, credits short)
+   */
+  upgradeTower(tower: Tower, upgradeId: UpgradeId): boolean {
+    return this.towerLifecycle.upgrade(tower, upgradeId);
+  }
 
-    // Stop flame beam if fire tower
-    if (tower.typeConfig.id === 'fire') {
-      this.towerCombat.stopTowerBeam(tower.id);
-    }
-
-    // Notify ResearchManager when Research Center is sold
-    if (tower.typeConfig.id === 'research-center') {
-      this.researchManager.onCenterRemoved();
-    }
-
-    // Sell tower (emits tower:sold event, returns refund)
-    const refund = this.towerManager.sell(tower);
-    this.creditsLedger.add(refund);
-    return refund;
+  /** Debug: every track of every tower to its max level, free of charge. */
+  maxUpgradeAllTowers(): void {
+    this.towerLifecycle.maxUpgradeAll();
   }
 
   /**
@@ -828,48 +775,7 @@ export class GameStateManager {
    * @param customRotation Custom rotation set by user (radians)
    */
   placeTower(position: GeoPosition, typeId: TowerTypeId = 'archer', customRotation = 0): Tower | null {
-    const config = TOWER_TYPES[typeId];
-    if (!config) return null;
-
-    // Research-gate: tower must be unlocked. Defense-in-depth against bots
-    // or commands that bypass the UI's isTowerUnlocked() check.
-    if (!this.researchStore.isTowerUnlocked(typeId)) {
-      return null;
-    }
-
-    // Research Center: only one allowed
-    if (typeId === 'research-center') {
-      const existing = this.towerManager.getAll().find(t => t.typeConfig.id === 'research-center');
-      if (existing) return null;
-    }
-
-    // Check if player has enough credits
-    if (this.credits() < config.cost) {
-      return null;
-    }
-
-    // A corridor measurement still under way finishes first: the tower
-    // stands on the cells it rebuilds.
-    this.beforeCorridorLock?.('tower');
-
-    const tower = this.towerManager.placeTower(position, typeId, customRotation);
-
-    if (tower) {
-      // Deduct cost
-      this.creditsLedger.add(-config.cost);
-
-      // Register tower on grid (LOS raycasting + grid registration + visualization)
-      // Skip grid registration for passive buildings (no targeting/LOS needed)
-      if (config.attackType !== 'passive') {
-        this.towerPlacement.registerTowerOnGrid(tower, position, typeId);
-      }
-
-      // Notify ResearchManager when Research Center is placed
-      if (typeId === 'research-center') {
-        this.researchManager.onCenterPlaced();
-      }
-    }
-    return tower;
+    return this.towerLifecycle.place(position, typeId, customRotation);
   }
 
   /**
@@ -934,10 +840,7 @@ export class GameStateManager {
     }
 
     // New routes enter the towers' ranges elsewhere.
-    this.towerManager.refreshGuardHeadings();
-    if (this.waveManager.phase() !== 'wave') {
-      this.towerCombat.turnTowersToGuard(this.towerManager);
-    }
+    this.towerLifecycle.refreshGuardHeadings();
   }
 
   /**
