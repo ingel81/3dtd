@@ -174,8 +174,10 @@ Stationen, die sich nicht messen lassen.
   es nicht nach, und höchstens alle 3 s. Danach bleiben verbleibende
   Stationen bei der OSM-Breite. Die Regeln (Sperren, Intro, 3 s, Neuaufbau
   nur bei Änderung, `__corridor.set()`) prüft `corridor-refit.spec.ts`.
-- Ein Spawn-Wechsel über den schnellen Pfad (`LocationFacadeService`, ohne
-  Neuladen des Orts) misst die neue Route nicht, sie läuft mit OSM-Breiten.
+- Ein Spawn- oder HQ-Wechsel über den schnellen Pfad (`LocationFacadeService`,
+  ohne Neuladen des Orts) misst die neue Route wie nach dem Laden
+  (`fitToTiles`, in Scheiben); bis der Lauf fertig ist, läuft sie mit
+  OSM-Breiten.
 - Die Messung ist pro Seite. Liegt die OSM-Mittellinie neben der
   Straßenmitte der Photogrammetrie, bekommt die Seite mit mehr Platz den
   breiteren Korridor. Die Mittellinie selbst (rote Linie, Mitte der
