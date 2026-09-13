@@ -12,6 +12,7 @@
 
 import type { ResearchId } from './research/research.types';
 import type { EnemyTypeConfig } from './enemy-types.config';
+import type { TdIconName } from '../components/icon/icon.component';
 
 export type AbilityId = 'nuclear-strike';
 
@@ -21,6 +22,14 @@ export interface AbilityConfig {
   name: string;
   /** Tooltip text */
   description: string;
+  /** Icon of its button in the ability bar */
+  icon: TdIconName;
+  /**
+   * Key that works like a press on its button, one letter, case ignored. It
+   * must not be one hotkey-map.ts or InputHandlerService already use;
+   * hotkey-map.spec.ts checks that.
+   */
+  hotkey: string;
   /** Research that unlocks the ability */
   researchId: ResearchId;
   /** Global perk that research grants; the manager unlocks on it */
@@ -51,6 +60,8 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
     description:
       'Strike a spot on the route: 1.5 s later everything within 25 m loses 60% of its max HP, bosses 20%. '
       + 'One charge, a new one every 3 waves.',
+    icon: 'radiation',
+    hotkey: 'K',
     researchId: 'nuclear-strike',
     perkId: 'nuclear-strike',
     maxCharges: 1,

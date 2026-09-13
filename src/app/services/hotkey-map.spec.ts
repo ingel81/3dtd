@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HotkeyEvent, resolveHotkey, towerSlotKey } from './hotkey-map';
+import { HOTKEY_HELP, HotkeyEvent, resolveHotkey, towerSlotKey } from './hotkey-map';
+import { ABILITIES, ABILITY_IDS } from '../configs/abilities.config';
 
 const key = (k: string, mods: Partial<HotkeyEvent> = {}): HotkeyEvent => ({
   key: k, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, repeat: false, ...mods,
@@ -42,6 +43,21 @@ describe('resolveHotkey', () => {
   it('aims the nuclear strike on K', () => {
     expect(resolveHotkey(key('k'))).toEqual({ kind: 'ability', abilityId: 'nuclear-strike' });
     expect(resolveHotkey(key('K', { shiftKey: true }))).toEqual({ kind: 'ability', abilityId: 'nuclear-strike' });
+  });
+
+  it('gives every ability its own key from the config, none a key that is taken', () => {
+    const keys = ABILITY_IDS.map((id) => ABILITIES[id].hotkey.toLowerCase());
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const id of ABILITY_IDS) {
+      const k = ABILITIES[id].hotkey;
+      expect(k).toMatch(/^[a-z]$/i);
+      // The fixed keys come first: a taken key would resolve to something else
+      expect(resolveHotkey(key(k.toLowerCase()))).toEqual({ kind: 'ability', abilityId: id });
+      // Camera, rotate while building, debug: InputHandlerService handles them first
+      expect(['w', 'a', 's', 'd', 'r', 't']).not.toContain(k.toLowerCase());
+      const help = HOTKEY_HELP.flatMap((group) => group.rows).find((row) => row.keys.includes(k.toUpperCase()));
+      expect(help?.label).toContain(ABILITIES[id].name);
+    }
   });
 
   it('toggles photo mode on O, also with Caps Lock or Shift', () => {

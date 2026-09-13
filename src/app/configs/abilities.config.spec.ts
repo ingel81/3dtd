@@ -18,6 +18,8 @@ describe('abilities config', () => {
     expect(nuke.bossMaxHpFraction).toBe(0.2);
     expect(nuke.snapRadiusM).toBe(30);
     expect(nuke.researchId).toBe('nuclear-strike');
+    expect(nuke.icon).toBe('radiation');
+    expect(nuke.hotkey).toBe('K');
   });
 
   it('is unlocked by its research: 1,000 gold, 40 s, after Advanced Weaponry', () => {
