@@ -987,6 +987,10 @@ class ClearanceRun implements CorridorMeasurement {
   private busyMs = 0;
   private readonly startedAt = performance.now();
   private isOpen = true;
+  /** Local "x,z" of the stations that found no tile, not even beside themselves, for the log. */
+  private readonly noTile: string[] = [];
+  /** Positions of stations without a tile the log names; the rest it counts. */
+  private static readonly MAX_LOGGED_STATIONS = 10;
 
   constructor(
     private readonly segments: ClearanceSegment[],
@@ -1035,7 +1039,8 @@ class ClearanceRun implements CorridorMeasurement {
         `[Corridor] clearance: segments=${this.segments.length} stations=${this.probed} unmeasured=${this.unmeasured} ` +
         `(coarse tile ${this.coarse}) rays=${this.raysPerStation * (this.probed - this.unmeasured)} changed=${changed} ` +
         `in ${this.busyMs.toFixed(1)}ms slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms` +
-        (flushedBy ? ` flushed=${flushedBy}` : ''),
+        (flushedBy ? ` flushed=${flushedBy}` : '') +
+        (this.noTile.length > 0 ? ` noTile=${this.noTileList()}` : ''),
       );
     }
     return changed;
@@ -1065,15 +1070,25 @@ class ClearanceRun implements CorridorMeasurement {
     return null;
   }
 
+  /** The first MAX_LOGGED_STATIONS positions of noTile, then how many more there are. */
+  private noTileList(): string {
+    const max = ClearanceRun.MAX_LOGGED_STATIONS;
+    const more = this.noTile.length - max;
+    return this.noTile.slice(0, max).join(';') + (more > 0 ? `;+${more}` : '');
+  }
+
   /** Measure the station next() found and move past it. */
   private probe(segment: ClearanceSegment): void {
     const k = this.station++;
     const t = (k + 0.5) / segment.count;
+    const x = segment.x + segment.dx * t;
+    const z = segment.z + segment.dz * t;
     // (-dz, dx) points right of the direction of travel.
-    const probe = this.probeAt(segment.x + segment.dx * t, segment.z + segment.dz * t, -segment.dz, segment.dx, segment.onBridge);
+    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge);
     segment.probes[k] = probe;
     this.probed++;
     if (probe?.unmeasured === 'coarse tile') this.coarse++;
+    if (probe?.unmeasured === 'no tile') this.noTile.push(`${x.toFixed(1)},${z.toFixed(1)}`);
     const free = probeFreeSpace(probe, 'left');
     if (Number.isNaN(free)) {
       this.unmeasured++;
