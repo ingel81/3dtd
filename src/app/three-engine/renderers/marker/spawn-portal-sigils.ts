@@ -27,7 +27,10 @@ import { PORTAL_OPENING_HEIGHT, PORTAL_OPENING_WIDTH } from '../../../configs/ma
  *   between two crescents), no vesica (two equal rings overlapping), no
  *   crescent with a star or a dot in its hollow, nothing like a yin-yang;
  * - no lone circle (O, 0), no circle with a dot in the middle (ʘ, ⊙), no
- *   concentric rings (◎), no dots in a two by three grid (Braille).
+ *   concentric rings (◎), no dots in a two by three grid (Braille);
+ * - no triskelion or anything like it: no three- or fourfold turn symmetry
+ *   round any centre, no node with three or more arms running out of it;
+ *   no ring and dots either side of a long flat sweep (a percent sign).
  * A new sigil has to keep to the same rules.
  */
 
@@ -169,13 +172,13 @@ export const PORTAL_SIGILS: readonly Sigil[] = [
     ],
   },
   {
-    name: 'chained nodes',
+    // Replaces 'chained nodes', whose three bowed arms round a central node
+    // read as a triskelion
+    name: 'tethered seeds',
     parts: [
-      dot(0.045, -0.34, 0.22), dot(0.03, -0.12, 0.3), dot(0.055, 0.05, 0.08), dot(0.028, 0.3, 0.12),
-      dot(0.04, 0.22, -0.2), dot(0.025, -0.02, -0.34),
-      link(-0.34, 0.22, -0.12, 0.3, 0.05), link(-0.12, 0.3, 0.05, 0.08, -0.06), link(0.05, 0.08, 0.3, 0.12, 0.04),
-      link(0.05, 0.08, 0.22, -0.2, -0.07), link(0.22, -0.2, -0.02, -0.34, -0.05),
-      crescent(0.08, 230, -0.28, -0.12),
+      dot(0.055, -0.22, 0.14), link(-0.22, 0.14, 0.06, 0.28, 0.07), dot(0.03, 0.06, 0.28),
+      dot(0.03, 0.06, -0.1), link(0.06, -0.1, 0.34, -0.22, 0.06), dot(0.04, 0.34, -0.22),
+      crescent(0.1, 200, -0.18, -0.22), ring(0.045, 0.33, 0.12),
     ],
   },
   {

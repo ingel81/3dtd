@@ -175,6 +175,46 @@ describe('Portal-Sigillen: der Satz', () => {
     }
   });
 
+  it('hat keinen Knoten mit drei oder mehr Armen und keine Drehsymmetrie um irgendein Zentrum (Triskele)', () => {
+    for (const sigil of PORTAL_SIGILS) {
+      const strokes = sigil.parts.filter((p) => p.kind === 'arc' || p.kind === 'ring');
+      // Arme je Knoten: ein Strich, der am Knoten endet, zählt einmal, einer, der hindurchläuft, zweimal
+      for (const node of sigil.parts.filter((p) => p.kind === 'dot')) {
+        const touches = (x: number, y: number) => Math.hypot(x - node.x, y - node.y) < node.r + SIGIL_STROKE + 0.01;
+        let arms = 0;
+        for (const s of strokes) {
+          const ends = s.kind === 'arc'
+            ? [s.at - s.span / 2, s.at + s.span / 2].filter((a) => touches(s.x + s.r * Math.cos(a), s.y + s.r * Math.sin(a))).length
+            : 0;
+          if (ends > 0) arms += ends;
+          else if (distance(s, node.x, node.y) < node.r + 0.01) arms += 2;
+        }
+        expect(arms, `${sigil.name}: Arme am Knoten (${node.x}, ${node.y})`).toBeLessThan(3);
+      }
+      // Drei- und vierzählig um den Schwerpunkt der Tinte und um den Mittelpunkt jedes Teils
+      const ink = inked(sigil);
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      ink.forEach((on, k) => {
+        if (!on) return;
+        sx += -0.5 + ((k % GRID) + 0.5) / GRID;
+        sy += -0.5 + (Math.floor(k / GRID) + 0.5) / GRID;
+        n++;
+      });
+      const centres: [number, number][] = [[sx / n, sy / n], ...sigil.parts.map((p): [number, number] => [p.x, p.y])];
+      for (const [cx, cy] of centres) {
+        for (const turn of [(2 * Math.PI) / 3, Math.PI / 2]) {
+          const turned = inked(sigil, (x, y) => [
+            cx + (x - cx) * Math.cos(turn) - (y - cy) * Math.sin(turn),
+            cy + (x - cx) * Math.sin(turn) + (y - cy) * Math.cos(turn),
+          ]);
+          expect(difference(ink, turned), `${sigil.name}: gedreht um (${cx.toFixed(2)}, ${cy.toFixed(2)})`).toBeGreaterThan(0.3);
+        }
+      }
+    }
+  });
+
   it('ist schief: weder spiegelsymmetrisch noch gleich nach einer Dritteldrehung', () => {
     const third = (2 * Math.PI) / 3;
     for (const sigil of PORTAL_SIGILS) {
