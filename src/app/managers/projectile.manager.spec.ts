@@ -80,6 +80,25 @@ describe('ProjectileManager', () => {
     expect(eventBus.getQueueSize()).toBe(2); // audio event + muzzle flash deferred
   });
 
+  it('fires a shot no tower fires: hero source, no tower type, sound where it starts, no muzzle flash', () => {
+    const enemy = new Enemy('zombie', [
+      { lat: 0.0001, lon: 0, height: 0 },
+      { lat: 0.0002, lon: 0, height: 0 },
+    ]);
+    const projectile = manager.spawnShot({ lat: 0, lon: 0 }, 3, enemy, 'hero-round', 16, 'physical', 'hero');
+
+    expect(projectile.sourceTowerId).toBe('hero');
+    expect(projectile.sourceTowerType).toBeNull();
+    expect(projectile.damage).toBe(16);
+    expect(projectile.damageType).toBe('physical');
+    expect(tilesEngine.projectiles.create).toHaveBeenCalledWith(projectile.id, 'hero-round', 0, 0, 3, projectile.direction);
+
+    const deferred: string[] = [];
+    eventBus.onAny((event) => deferred.push(event.type));
+    eventBus.processQueue();
+    expect(deferred).toEqual(['audio:play']);
+  });
+
   it('moves projectile and emits hit event on impact', () => {
     const hitSpy = vi.fn();
     eventBus.on('projectile:hit', hitSpy);

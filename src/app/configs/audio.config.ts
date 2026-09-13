@@ -60,6 +60,7 @@ export const PROJECTILE_SOUND_IDS = [
   'arcane-orb',
   'chaos-orb',
   'poison-glob',
+  'hero-round',
 ] as const;
 
 /** Default spatial audio settings */

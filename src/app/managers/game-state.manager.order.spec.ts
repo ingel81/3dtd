@@ -185,12 +185,12 @@ const STEP_HEAD = [
   'bus.processQueue',
 ];
 /** One sub-step outside a wave, no debug enemies */
-const SETUP_STEP = [...STEP_HEAD, 'enemy.update', 'onSubStep'];
+const SETUP_STEP = [...STEP_HEAD, 'enemy.update', 'hero.update', 'onSubStep'];
 /** One sub-step outside a wave with debug enemies: combat runs, no spawner */
-const DEBUG_STEP = [...STEP_HEAD, 'enemy.update', ...COMBAT, 'onSubStep'];
-/** One sub-step in a wave: spawner, enemies, combat, hook, then the wave-end check (no strike pending) */
+const DEBUG_STEP = [...STEP_HEAD, 'enemy.update', ...COMBAT, 'hero.update', 'onSubStep'];
+/** One sub-step in a wave: spawner, enemies, combat, hero, hook, then the wave-end check (no strike pending) */
 const WAVE_STEP = [
-  ...STEP_HEAD, 'wave.tickSpawn', 'enemy.update', ...COMBAT, 'onSubStep',
+  ...STEP_HEAD, 'wave.tickSpawn', 'enemy.update', ...COMBAT, 'hero.update', 'onSubStep',
   'ability.hasPendingStrikes', 'wave.checkWaveComplete',
 ];
 /** Once per frame after the loop, when a sub-step ran and rendering is on */
@@ -229,6 +229,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       'update', 'startQueued', 'reset', 'onCenterPlaced', 'onCenterRemoved', 'upgradeCenter',
     ]);
     trace(gsm.abilityManager, 'ability', ['update', 'reset', 'hasPendingStrikes']);
+    trace(gsm.heroManager, 'hero', ['update', 'reset']);
     trace(bus, 'bus', ['processQueue']);
     trace(gsm.waveManager, 'wave', ['tickSpawn', 'endWave', 'reset', 'startWave', 'beginWave']);
     trace((gsm as unknown as { healthLedger: object }).healthLedger, 'ledger', ['refillLeakBudget']);
@@ -316,6 +317,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'event:wave:completed',
         'combat.turnTowersToGuard',
         'enemy.update',
+        'hero.update',
         'onSubStep',
         ...PRESENT,
       ]);
@@ -479,10 +481,11 @@ describe('GameStateManager order of operations (characterization)', () => {
   describe('event wiring', () => {
     it('subscribes in this order at construction and initialize()', () => {
       expect(subscriptions).toEqual([
-        // EnemyManager, WaveManager, AbilityManager (constructors)
+        // EnemyManager, WaveManager, AbilityManager, HeroManager (constructors)
         'debug:remove-enemy', 'debug:spawn-enemy',
         'debug:kill-all', 'enemy:reached-base', 'enemy:leaking', 'enemy:died',
         'research:completed', 'wave:completed',
+        'research:completed', 'hero:kill',
         // VFXService, AudioService, ScreenShakeService, BackgroundMusicService, BloodMoonService
         'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
         'enemy:split', 'ability:used', 'ability:impact', 'game:reset',
@@ -497,6 +500,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower',
         'command:start-research', 'command:cancel-research', 'command:queue-research', 'command:unqueue-research',
         'command:use-ability',
+        'command:hire-hero', 'command:hero-move',
         'command:start-wave', 'command:restart-game',
         'debug:add-credits', 'debug:add-health', 'debug:complete-all-research', 'debug:max-upgrade-all-towers',
         'debug:ready-ability', 'debug:jump-to-wave',
@@ -711,6 +715,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'enemy.clear',
         'research.reset',
         'ability.reset',
+        'hero.reset',
         'engine.effects.clear',
         'event:credits:changed',
         'economy.reset',

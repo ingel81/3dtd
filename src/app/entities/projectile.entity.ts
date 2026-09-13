@@ -80,9 +80,13 @@ export class Projectile extends GameObject {
     typeId: ProjectileTypeId,
     damage: number,
     startHeight: number,
+    /** Tower that fired the shot, or HERO_SOURCE_ID for the hero's */
     sourceTowerId: string,
-    /** Tower type that fired the shot. Splash reads its air/ground targeting from it. */
-    public readonly sourceTowerType: TowerTypeId,
+    /**
+     * Tower type that fired the shot, null for a shot no tower fired (the
+     * hero's). Splash reads its air/ground targeting from it.
+     */
+    public readonly sourceTowerType: TowerTypeId | null,
     public readonly damageType: import('../configs/combat/combat.types').DamageType = 'physical',
     aimPoint?: GeoPosition,
   ) {
