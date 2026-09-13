@@ -195,6 +195,10 @@ export class AIDataCollectorService {
     this.subscriptions.add(
       this.eventBus.on('enemy:split', (event) => this.onEnemySplit(event))
     );
+    // A worm is one announced enemy and one body per segment, like a split
+    this.subscriptions.add(
+      this.eventBus.on('worm:spawned', (event) => this.currentWave.enemiesSplit(event.group.size - 1))
+    );
     // Ability kills: the fairness gate books them as leaks (gateLeakRatio).
     // Their enemy:died already recorded them as killed.
     this.subscriptions.add(

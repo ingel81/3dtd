@@ -7,6 +7,7 @@ import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import type { AbilityId, AbilityRejectReason, AbilityStatus } from '../configs/abilities.config';
 import { WaveConfig } from '../managers/wave.manager';
 import type { SpawnStart } from '../managers/enemy.manager';
+import type { WormGroup } from '../managers/worm/worm-group';
 
 /**
  * Game Event Type Definitions
@@ -38,6 +39,16 @@ export type GameEvent =
       enemy: Enemy;
       /** What it split into, already spawned, each with its own enemy:spawned */
       children: readonly Enemy[];
+    }
+  | {
+      /**
+       * A worm (EnemyTypeConfig.chain) was spawned, after its head's
+       * enemy:spawned. Its other `group.size - 1` segments follow out of the
+       * portal, each with its own enemy:spawned.
+       */
+      type: 'worm:spawned';
+      head: Enemy;
+      group: WormGroup;
     }
 
   // ==================== Tower Lifecycle ====================

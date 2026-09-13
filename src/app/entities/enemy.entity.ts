@@ -12,6 +12,7 @@ import { EnemyTypeId, getEnemyType, EnemyTypeConfig } from '../configs/enemy-typ
 import { ArmorType } from '../configs/combat/combat.types';
 import type { RouteCell } from '../utils/route-cell';
 import type { AirPortalExit } from '../utils/air-portal-exit';
+import type { WormLink } from '../managers/worm/worm-group';
 import type { SpatialEntry } from '../services/world/spatial-grid.service';
 import type { EnemyInstanceState } from '../three-engine/renderers/instanced-enemy/enemy-instance.manager';
 import { EnemyRush } from './enemy-rush';
@@ -80,6 +81,12 @@ export class Enemy extends GameObject {
    * `heightOffset` from it every sub-step.
    */
   portalExit: AirPortalExit | null = null;
+  /**
+   * A worm segment's place in its chain (managers/worm), null for every other
+   * enemy. Written only by EnemyManager at spawn; the chain writes its
+   * target every sub-step.
+   */
+  worm: WormLink | null = null;
 
   /**
    * `startIndex` and `startProgress` start the enemy part-way along `path`

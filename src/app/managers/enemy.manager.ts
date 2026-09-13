@@ -15,6 +15,8 @@ import type { DamageType } from '../configs/combat/combat.types';
 import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
 import { getEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
+import { WormChains, stepWormSegment } from './worm/worm-chains';
+import type { WormLink } from './worm/worm-group';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -122,10 +124,16 @@ export class EnemyManager extends EntityManager<Enemy> {
   // triggers a reset when the wave changes.
   private rewardWaveNumber = -1;
   private remainingKillBudget = 0;
-  private remainingRewardSlots = 0;
+  private paidRewardSlots = 0;
 
   /** EventBus subscriptions — disposed in destroy(). */
   private readonly subs = new SubscriptionBag();
+
+  /** Every worm (EnemyTypeConfig.chain) on the routes, ticked in update() */
+  private readonly worms = new WormChains({
+    spawnSegment: (group, link, paused) =>
+      this.spawnOne(group.path, group.type.id, group.speedMps, paused, group.segmentMaxHp, undefined, link),
+  });
 
   constructor(
     private eventBus: GameEventBus,
@@ -179,6 +187,10 @@ export class EnemyManager extends EntityManager<Enemy> {
   /**
    * Spawn a new enemy at the start of a path, out of its spawn portal, or
    * part-way along it (split children, see splitOnDeath()). See SpawnEntry.
+   *
+   * A type with a chain (the worm) puts its whole chain on the route, and
+   * `healthOverride` is the HP of each segment. Returns the head; the other
+   * segments come out of the portal as the chain moves (WormChains).
    */
   spawn(
     path: GeoPosition[],
@@ -188,12 +200,35 @@ export class EnemyManager extends EntityManager<Enemy> {
     healthOverride?: number,
     entry?: SpawnEntry,
   ): Enemy {
+    const type = ENEMY_TYPES[typeId];
+    const chain = type?.chain;
+    if (chain) {
+      const head = this.worms.spawn(
+        path, type, chain, speedOverride ?? type.baseSpeed, healthOverride ?? type.baseHp, paused,
+      );
+      if (head.worm !== null) this.eventBus.emit({ type: 'worm:spawned', head, group: head.worm.group });
+      return head;
+    }
+    return this.spawnOne(path, typeId, speedOverride, paused, healthOverride, entry, null);
+  }
+
+  /** One enemy, see spawn(). `worm` links a worm segment to its chain. */
+  private spawnOne(
+    path: GeoPosition[],
+    typeId: EnemyTypeId,
+    speedOverride: number | undefined,
+    paused: boolean,
+    healthOverride: number | undefined,
+    entry: SpawnEntry | undefined,
+    worm: WormLink | null,
+  ): Enemy {
     if (!this.tilesEngine) {
       throw new Error('EnemyManager not initialized');
     }
 
     const start = typeof entry === 'object' ? entry : undefined;
     const enemy = new Enemy(typeId, path, speedOverride, start?.segmentIndex, start?.segmentProgress);
+    enemy.worm = worm;
 
     // Override health if specified
     if (healthOverride !== undefined) {
@@ -265,8 +300,10 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     // Create 3D model and start animation. `position` is path[0], or the
     // split start on the centre line; the first step adds the lane offset.
+    // A worm's body segments are drawn with the segment model.
+    const renderType = worm !== null && !worm.head ? worm.group.chain.segmentModel : typeId;
     this.tilesEngine.enemies
-      .create(enemy.id, typeId, enemy.position.lat, enemy.position.lon, geoHeight + enemy.heightOffset)
+      .create(enemy.id, renderType, enemy.position.lat, enemy.position.lon, geoHeight + enemy.heightOffset)
       .then((renderData) => {
         if (renderData && !paused) {
           this.tilesEngine!.enemies.startWalkAnimation(enemy.id);
@@ -360,16 +397,19 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (wave !== this.rewardWaveNumber) {
       this.rewardWaveNumber = wave;
       this.remainingKillBudget = goldBudgetForWave(wave).kill;
-      this.remainingRewardSlots = Math.max(1, this.getWaveSize());
+      this.paidRewardSlots = 0;
     }
 
-    if (this.remainingRewardSlots <= 0 || this.remainingKillBudget <= 0) {
+    // The wave size is read on every kill: a worm adds its segments to the
+    // wave when it spawns, which can be after the wave's first kill.
+    const slots = Math.max(1, this.getWaveSize()) - this.paidRewardSlots;
+    if (slots <= 0 || this.remainingKillBudget <= 0) {
       return 0;
     }
 
-    const reward = Math.floor(this.remainingKillBudget / this.remainingRewardSlots);
+    const reward = Math.floor(this.remainingKillBudget / slots);
     this.remainingKillBudget -= reward;
-    this.remainingRewardSlots -= 1;
+    this.paidRewardSlots += 1;
     return reward;
   }
 
@@ -399,6 +439,13 @@ export class EnemyManager extends EntityManager<Enemy> {
     enemy.stopMoving();
 
     const combat = cause === 'combat';
+    // Before enemy:died, so its listeners see what is left of the worm
+    const worm = enemy.worm;
+    if (worm !== null) {
+      worm.group.lose(worm.slot);
+      // Kill-all leaves nothing of the wave, the rest of the worm included
+      if (!combat) worm.group.dropPending();
+    }
     const credits = combat ? this.calculateDynamicReward(enemy) : 0;
     this.eventBus.emit({ type: 'enemy:died', enemy, credits });
 
@@ -504,6 +551,10 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     if (!this.movementEnabled) return;
 
+    // Worms first: their segments go where the chains put them, and segments
+    // that come out of the portal now join the loop below
+    this.worms.tick(deltaTime, gameTimeMs);
+
     const profiling = this.onProfileTiming !== null;
     let tMove = 0, tGrid = 0, tHeight = 0;
     let processed = 0, sampled = 0;
@@ -553,7 +604,10 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
       // Single-pass: remove expired effects + get slow/poison/burn flags (game-time)
       const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
-      const moveResult = enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier);
+      // A worm segment goes where its chain put it (worms.tick above)
+      const moveResult = enemy.worm === null
+        ? enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier)
+        : stepWormSegment(enemy.movement, enemy.worm);
       if (sample) tMove += performance.now() - t0;
 
       if (moveResult === 'reached_end') {
@@ -907,6 +961,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
     // Safe: Set delete is not being iterated elsewhere in this call chain
     this.killingEnemies.delete(entity.id);
+    // Through at the HQ or removed: a gap in its worm (a kill made it one already)
+    if (entity.worm !== null) entity.worm.group.lose(entity.worm.slot);
     // Cleanup frost visual if active
     if (this.frozenVisualEnemies.has(entity.id)) {
       this.tilesEngine?.effects.stopFrostAura(entity.id);
@@ -941,6 +997,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Clear pending game-time death/start delays
     this.pendingDeaths.length = 0;
     this.pendingStarts.length = 0;
+    this.worms.clear();
 
     for (const enemy of this.getAll()) {
       this.globalRouteGrid.removeEnemy(enemy);
@@ -984,6 +1041,14 @@ export class EnemyManager extends EntityManager<Enemy> {
    */
   getKillingCount(): number {
     return this.killingEnemies.size;
+  }
+
+  /**
+   * Worm segments still inside the spawn portal (WormChains). No enemies
+   * yet, but the wave is not over before they have come out and are beaten.
+   */
+  getPendingSpawnCount(): number {
+    return this.worms.pendingCount();
   }
 
   /**

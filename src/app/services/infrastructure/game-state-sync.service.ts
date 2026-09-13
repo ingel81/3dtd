@@ -143,6 +143,14 @@ export class GameStateSyncService {
       this.store.waveEnemiesLeft.update(left => left + n);
     }));
 
+    // A worm is one entry of the wave and one enemy per segment on the route
+    this.subs.add(eventBus.on('worm:spawned', (event) => {
+      if (this.store.phase() !== 'wave') return;
+      const n = event.group.size - 1;
+      this.store.waveEnemyTotal.update(total => total + n);
+      this.store.waveEnemiesLeft.update(left => left + n);
+    }));
+
     // ── Abilities ─────────────────────────────────────────────────
     // Snapshot after every AbilityManager mutation (unlock, use, impact, recharge)
     this.subs.add(eventBus.on('ability:state-changed', (event) => {
