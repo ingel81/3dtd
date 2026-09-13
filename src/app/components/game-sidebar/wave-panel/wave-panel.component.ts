@@ -35,16 +35,12 @@ import { calculateTotalDPS } from '../../../ai/core/defense-analyzer';
 import { AirAlertAnnouncer, airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
 import { peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
-import { abilityButtonView } from './ability-button';
-import { ABILITIES } from '../../../configs/abilities.config';
-import { AbilityTargetingService } from '../../../services/ability-targeting.service';
-
-const NUKE = ABILITIES['nuclear-strike'];
 
 /**
  * WAVE-Sektion der Sidebar: Gegnergruppen der laufenden Welle mit 3D-Preview,
- * Next-Wave-Button mit dem Nuclear-Strike-Knopf daneben und COMING UP aus dem
- * Curriculum. Meldet die Enemy-Previews beim ModelPreviewService an und wieder ab.
+ * Next-Wave-Button und COMING UP aus dem Curriculum. Meldet die Enemy-Previews
+ * beim ModelPreviewService an und wieder ab. Die Fähigkeiten stehen in der
+ * Leiste am linken Rand des Spielfelds (app-ability-bar).
  */
 @Component({
   selector: 'app-sidebar-wave-panel',
@@ -62,7 +58,6 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
-  private readonly abilityTargeting = inject(AbilityTargetingService);
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
@@ -139,26 +134,6 @@ export class SidebarWavePanelComponent implements AfterViewInit {
 
   toggleAutoStart(): void {
     this.uiStore.autoStartWaves.update(on => !on);
-  }
-
-  /** Nuclear-Strike-Knopf neben dem Wave-Button: Zustand, Ladungsstriche, Tooltip. */
-  readonly strikeButton = computed(() =>
-    abilityButtonView(
-      NUKE.name,
-      this.store.abilities()[NUKE.id],
-      NUKE.rechargeWaves,
-      this.waveActive(),
-      this.abilityTargeting.targeting() === NUKE.id,
-    )
-  );
-
-  /**
-   * Zielmodus an oder aus. Der Knopf bleibt auch ohne Wirkung klickbar
-   * (aria-disabled statt disabled), damit sein Tooltip die Restwellen zeigt.
-   */
-  toggleStrike(): void {
-    if (!this.strikeButton().enabled) return;
-    this.abilityTargeting.toggle(NUKE.id);
   }
 
   /**

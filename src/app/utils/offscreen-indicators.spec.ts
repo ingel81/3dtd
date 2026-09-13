@@ -48,6 +48,14 @@ describe('OffscreenClusterer', () => {
     expect(arrows[1].x).toBe(20);
   });
 
+  it('keeps the left edge clear of a HUD strip, the other edges as they were', () => {
+    c.begin(800, 600, 20, 60);
+    c.add(-3, 0, false, false);
+    c.add(3, 0, false, false);
+    c.add(0, 2, false, false);
+    expect(c.build(6).map((a) => [a.x, a.y])).toEqual([[780, 300], [400, 20], [80, 300]]);
+  });
+
   it('counts a point behind the camera even where it lands inside the view', () => {
     expect(c.add(0.1, 0, true, false)).toBe(true);
     expect(c.build(6)[0]).toMatchObject({ x: 780, angle: 0 });

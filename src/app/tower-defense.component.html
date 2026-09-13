@@ -206,6 +206,10 @@
           (sfxVolumeChanged)="onSfxVolumeChanged($event)"
           (photoModeRequested)="photoMode.enter()"
         />
+
+        <!-- Ability bar (left edge): the hero on top once there is one, then
+             one button per ability -->
+        <app-ability-bar />
       }
 
       <!-- Intro camera flight skip control -->

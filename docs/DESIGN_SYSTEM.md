@@ -1,6 +1,6 @@
 # Tower Defense - Design System
 
-**Stand:** 2026-09-12
+**Stand:** 2026-09-14
 
 ## Uebersicht
 
@@ -176,8 +176,8 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 +------------------------------------------------------+-----------------------+
 | Info-Overlay        [Game Speed]           Kompass   | SIDEBAR               |
 |                                                      | WAVE                  |
-|                                                      | BUILD, Tower oder     |
-|                  3D CANVAS                           | Research              |
+| [Held]                                               | BUILD, Tower oder     |
+| [K]              3D CANVAS                           | Research              |
 |                                                      |                       |
 |                                  [Quick Actions]     |                       |
 | Logos  Controls Hint                  Attribution    |                       |
@@ -194,6 +194,7 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets |
 | **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): Pause-Button und ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft. Pausiert zeigt der Pause-Button das Play-Icon eingelassen in `--td-gold-light` mit `--td-gold-dark`-Rand, darunter ein Glas-Chip "PAUSED" (10px Mono-Versalien). In derselben Spalte (`.td-hud-top`) darunter die Boss-Leiste, siehe [Boss-Leiste](#boss-leiste) |
 | **Kompass** | Oben rechts, Klick setzt die Kamera zurück |
+| **Fähigkeitenleiste** | Linker Rand, senkrecht mittig: Held (sobald es einen gibt) und ein Knopf je Fähigkeit, siehe [Fähigkeitenleiste](#fähigkeitenleiste-canvas) |
 | **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move, H: Shortcuts), verschwindet nach 15 s oder per Klick. Solange ein [First-Run-Tipp](#first-run-tipps) steht, bleibt er weg: der erste Tipp trägt dieselben Tasten |
 | **Quick Actions** | Sechs Icon-Buttons unten rechts, siehe unten |
 
@@ -314,20 +315,6 @@ Beim ersten Erscheinen für eine Luftwelle spielt ein kurzer Ton (zwei fallende 
 
 Beschriftung, Restzahl und Balkenbreite liefert `waveButtonView()` (`wave-panel/wave-button.ts`) aus zwei Store-Werten: `waveEnemyTotal` (von `wave:started` angekündigte Größe) und `waveEnemiesLeft` (lebende plus noch nicht gespawnte Gegner). Beide pflegt `GameStateSyncService` aus `wave:started`, `enemy:died`, `enemy:reached-base` und `debug:kill-all`. Manuelle Debug-Wellen kündigen keine Größe an, dann fehlen Zahl und Balken.
 
-### Nuclear-Strike-Knopf (Sidebar)
-
-Quadrat (`.td-strike-btn`, 44 × 44px) rechts neben dem Next-Wave-Button, sichtbar erst nach der Forschung `nuclear-strike` ([ABILITIES.md](ABILITIES.md)). Beide stehen in einer Zeile (`.td-wave-actions`, `gap` 6px), der Next-Wave-Button nimmt den Rest der Breite. Fläche und Kanten wie die laufende Welle (`--td-panel-shadow`, vertiefte Kanten, Ecken 3px), Icon `radiation` 20px. Unten drei 2px-Striche, einer je Welle bis zur nächsten Ladung: `--td-gold`, sobald die Welle geschafft ist, sonst `--td-frame-mid`; solange die Ladung steht, sind alle hell.
-
-| Zustand | Auslöser | Darstellung |
-|---------|----------|-------------|
-| Bereit | geladen, Welle läuft | Rand `--td-gold-dark`, Icon `--td-gold-light`, Hover `--td-gold-glow` |
-| Zielt | Zielmodus an | Gold-Verlauf wie der Next-Wave-Button, Icon und Striche `#1A140A`, `--td-gold-glow`, `aria-pressed` |
-| Wartet | geladen, keine Welle | Icon `--td-text-muted` |
-| Unterwegs | Schlag zwischen Befehl und Einschlag | Icon `--td-warn-orange` |
-| Lädt | Ladung verbraucht | Icon `--td-text-disabled`, die Striche zählen die geschafften Wellen |
-
-Ohne Wirkung bleibt der Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht ("Nuclear Strike: recharges in 2 waves (K)"). K wirkt wie ein Klick (siehe Tastenkürzel). Zustand, Striche und Text liefert `abilityButtonView()` (`wave-panel/ability-button.ts`) aus `GameStore.abilities`.
-
 ### COMING UP (WAVE-Panel)
 
 Unter dem Auto-Start die nächsten zwei Wellen (`wave-panel/upcoming-waves.ts`). Je Welle eine Kopfzeile mit Nummer (`--td-rune-amber`), Template-Name und rechts der Anzahl (10px, `--td-text-muted`), darunter eingerückt unter dem Namen (34px, 9px) die Rüstungen als Icon und Name, "✈️ Air" bei Lufteinheiten und "Weak to …" in `--td-gold-dark` kursiv wie bei den Gegnergruppen der laufenden Welle. Boss-Templates stehen im Namen in `--td-text-primary`, fett.
@@ -335,8 +322,6 @@ Unter dem Auto-Start die nächsten zwei Wellen (`wave-panel/upcoming-waves.ts`).
 - Anzahl: vom Minimum des Templates bis zum Höchstwert, den der Director bei der aktuellen Tower-DPS schicken kann (`dpsScaledCountMax` in `templates.ts`, dieselbe Funktion, die `WaveDirectorService` nutzt; ab 500 DPS die volle Spanne). Das Fairness-Gate kann darunter bleiben, nie darüber; der Tooltip sagt beides. Die DPS (`calculateTotalDPS`, dieselbe Zahl, die der Director liest) wird neu gerechnet, wenn Tower gebaut oder verkauft werden, der gewählte Tower ein Upgrade bekommt oder eine Forschung fertig wird.
 - Weak to: die Schadensarten mit dem besten Multiplikator gegen die HP der Welle, nach Rüstung gewichtet (Template-Anteil × Basis-HP, `bestDamageTypesAgainst` in `damage-matrix.config.ts`): alle ab `strong` (1,2), höchstens drei; erreicht keine 1,2, die besten über 1,0, höchstens zwei. Bei einer Rüstung ergibt das dieselbe Liste wie der frühere handgepflegte `weakTo`-Text in `ARMOR_TYPE_UI`, der entfernt ist; die Gegnergruppen der laufenden Welle lesen jetzt ebenfalls aus der Matrix. Bei mehreren Rüstungen nennt der Tooltip die Konter je Rüstung.
 - Nach W30 wählt der Director das Template beim Wellenstart. Statt einer leeren Liste steht dort "Director's pick" mit "Template picked at wave start · boss W35" (`--td-text-muted`, kursiv), auf Boss-Wellen (ab W31 jede fünfte) "Boss wave".
-
-Im Zielmodus zeigt die Kontext-Hinweis-Box "Click Strike" und "ESC Cancel", dazu die Warnung "No route within 30 m", solange keine Route-Zelle in Reichweite ist. Auf der Karte ist der Zielring gold (`--td-gold`), wo der Schlag landen würde, und rot (`--td-health-red`), wo er abgelehnt würde; der Marker während der Vorwarnung ist orange (`--td-warn-orange`) mit goldenem Countdown-Ring (`--td-gold-light`).
 
 ### Header (mit Stein-Textur)
 
@@ -407,11 +392,32 @@ Der Standort-Button hat dieselbe Fläche mit 1px `--td-frame-dark` und heller Ob
 
 Erreicht ein Gegner das HQ (`enemy:reached-base`), blendet `app-leak-vignette` (`components/leak-vignette/`) einen roten Rand über dem Canvas ein und wieder aus: radialer Verlauf von transparent (58 %) zu `rgba(184,62,50,0.42)` an den Rändern, 650 ms, `pointer-events: none`, `z-index` 4 unter den HUD-Elementen. Ein neuer Puls startet höchstens alle 900 ms (`PulseThrottle`, Wanduhr); ein Schwarm, der auf einmal durchbricht, pulsiert also etwa im Sekundentakt, statt dauerhaft zu glühen. Der Handler läuft im Game-Loop außerhalb von Angular und macht pro Leak nur einen Zeitvergleich. Er reagiert auch, wenn der Leak-Deckel der Welle (`maxLeakDamagePerWave`) erreicht ist und das HQ nichts mehr verliert.
 
+### Fähigkeitenleiste (Canvas)
+
+`app-ability-bar` (`components/ability-bar/`) steht am linken Rand des Spielfelds, senkrecht mittig: ein Glas-Panel (Mixin `bevel-glass`, Innenabstand und `gap` 5px, Ecken 4px), `left` 12px wie das Info-Overlay, zusammen 56px breit. Oben der Knopf des Helden, sobald es einen gibt, darunter eine Haarlinie in `--td-frame-dark`, dann ein Knopf je Fähigkeit in der Reihenfolge von `ABILITIES` (Aufbau und Held-Schnittstelle in [ABILITIES.md](ABILITIES.md#fähigkeitenleiste)). Ohne Held fehlen Knopf und Linie. `z-index` 6: über der Leck-Vignette (4) und den Off-Screen-Pfeilen (5), unter dem Game-Over-Overlay (20). Im Photo Mode verschwindet sie mit dem übrigen HUD, beim Laden und bei Fehlern fehlt sie.
+
+Knopf: Quadrat 44 × 44px, Fläche und Kanten wie die laufende Welle (`--td-panel-shadow`, vertiefte Kanten, Ecken 3px), Icon aus der Config (20px, Held 22px). Oben rechts die Taste (8px Mono, `--td-text-muted`), unten ein 2px-Strich je Welle bis zur nächsten Ladung: `--td-gold`, sobald die Welle geschafft ist, sonst `--td-frame-mid`; solange die Ladung steht, sind alle hell. Hält eine Fähigkeit mehr als eine Ladung, steht die Zahl oben links (8px, `--td-gold-light`); der Nuklearschlag hält eine.
+
+| Zustand | Auslöser | Darstellung |
+|---------|----------|-------------|
+| Gesperrt | Forschung fehlt | Icon `--td-text-disabled` bei 50 % Deckkraft, Taste ebenso, statt der Striche ein Schloss (9px) |
+| Bereit | geladen, Welle läuft | Rand `--td-gold-dark`, Icon `--td-gold-light`, Hover `--td-gold-glow` |
+| Zielt | Zielmodus an | Gold-Verlauf wie der Next-Wave-Button, Icon, Taste und Striche `#1A140A`, `--td-gold-glow`, `aria-pressed` |
+| Wartet | geladen, keine Welle | Icon `--td-text-muted` |
+| Unterwegs | Schlag zwischen Befehl und Einschlag | Icon `--td-warn-orange` |
+| Lädt | Ladung verbraucht | Icon `--td-text-disabled`, die Striche zählen die geschafften Wellen |
+
+Der Held-Knopf ist ein Schalter: Icon `--td-text-secondary`, Hover `--td-text-primary`, ausgewählt im Aktiv-Rezept der Dev-Kacheln (Fläche `rgba(194,160,85,0.16)`, Rand `--td-gold-dark`, Icon `--td-gold-light`, `aria-pressed`).
+
+Ohne Wirkung bleibt ein Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht. Der Tooltip (`tdRichTooltip`, rechts daneben) trägt im Kopf Name, Zustand in Versalien ("RECHARGES IN 2 WAVES") und die Tastenkappe, darunter CHARGES und RECHARGE, dann die Beschreibung; gesperrt statt der Zahlen die Forschung, die freischaltet, mit Preis. Zustand, Striche und Texte liefern `abilityButtonView()` und `abilityTooltip()` (`ability-bar/ability-button.ts`) aus `GameStore.abilities`.
+
+Im Zielmodus zeigt die Kontext-Hinweis-Box "Click Strike" und "ESC Cancel", dazu die Warnung "No route within 30 m", solange keine Route-Zelle in Reichweite ist. Auf der Karte ist der Zielring gold (`--td-gold`), wo der Schlag landen würde, und rot (`--td-health-red`), wo er abgelehnt würde; der Marker während der Vorwarnung ist orange (`--td-warn-orange`) mit goldenem Countdown-Ring (`--td-gold-light`).
+
 ### Off-Screen-Pfeile (Canvas)
 
 Während einer Welle zeigt `app-offscreen-indicators` (`components/offscreen-indicators/`) am Rand des Canvas Pfeile zu Gegnern, die die Kamera nicht zeigt: Bosse (`isBoss`) überall auf der Route, alle anderen erst auf den letzten 15 % ihres Wegs (`NEAR_HQ_PROGRESS`, `utils/offscreen-indicators.ts`). Die Richtungen fallen in acht Sektoren um die Bildmitte, je Sektor ein Pfeil mit Anzahl, höchstens sechs; Sektoren mit Boss zuerst, dann die volleren.
 
-Pfeil: Glas-Chip 22px (`--td-glass-tint`, `--td-shadow-soft`), 1px Rand und Chevron (`caretR`, 14px) in `--td-health-red`; mit Boss 26px, Rand `--td-gold`, Chevron `--td-gold-light`. Er sitzt 26px innerhalb des Rands, dort, wo der Strahl von der Bildmitte in seine Richtung den Rand trifft. Ab zwei Gegnern steht die Zahl (10px Mono, `--td-text-primary` mit Schatten) 20px zur Bildmitte hin. `pointer-events: none`, `z-index` 5, `aria-hidden`.
+Pfeil: Glas-Chip 22px (`--td-glass-tint`, `--td-shadow-soft`), 1px Rand und Chevron (`caretR`, 14px) in `--td-health-red`; mit Boss 26px, Rand `--td-gold`, Chevron `--td-gold-light`. Er sitzt 26px innerhalb des Rands, dort, wo der Strahl von der Bildmitte in seine Richtung den Rand trifft; am linken Rand 26px rechts der Außenkante der [Fähigkeitenleiste](#fähigkeitenleiste-canvas) (`ABILITY_BAR_EDGE_PX` 68px, zusammen 94px), auf der ganzen Höhe. Ab zwei Gegnern steht die Zahl (10px Mono, `--td-text-primary` mit Schatten) 20px zur Bildmitte hin. `pointer-events: none`, `z-index` 5, `aria-hidden`.
 
 Die Komponente läuft auf einem eigenen 8-Hz-Timer außerhalb von Angular: ein Durchlauf über die lebenden Gegner sucht die Bedrohungen (keine Allokation pro Gegner), ein zweiter projiziert sie durch die Kamera, und das Signal ändert sich nur, wenn sich ein Pfeil ändert. Pausiert entfällt der Durchlauf, die zuletzt gefundenen Gegner werden neu projiziert, die Pfeile folgen also weiter der Kamera. Ohne Rendering (Headless-Modus) und außerhalb von Wellen bleibt die Ebene leer.
 
@@ -492,11 +498,11 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | H / ? | Übersicht als Dialog | |
 | Pos1 (Home) | Kamera gleitet zum HQ | nicht während des Intro-Flugs |
 | N | Kamera gleitet zum nächsten Spawnpunkt, reihum | nicht während des Intro-Flugs |
-| K | Zielmodus des Nuclear Strike an, nochmal drücken schaltet ihn ab (nicht im Photo Mode) | Nuclear-Strike-Knopf (`AbilityTargetingService.start`) |
+| K (je Fähigkeit `AbilityConfig.hotkey`) | Zielmodus des Nuclear Strike an, nochmal drücken schaltet ihn ab (nicht im Photo Mode) | Knopf in der Fähigkeitenleiste (`AbilityTargetingService.start`) |
 | O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |
 | Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Tower abwählen | |
 
-S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, "(K)" im Tooltip des Nuclear-Strike-Knopfs, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint.
+S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint.
 
 ### First-Run-Tipps
 
@@ -574,6 +580,7 @@ Den Schaden je Tower zählt `CombatComponent.damageDealt`: `DamageApplicationSer
 | `components/game-header/` | Info-Header mit Spielstatus |
 | `components/game-sidebar/` | Rechte Sidebar mit Aktionen, Tower-Slots, Wave-Preview (Panels siehe [Sidebar-Panels](#sidebar-panels)) |
 | `components/compass/` | Kompass-Anzeige |
+| `components/ability-bar/` | Fähigkeitenleiste am linken Rand (Held, Fähigkeiten) |
 | `components/info-overlay/` | FPS / Tile-Stats Overlay (toggle ueber Caret) |
 | `components/quick-actions/` | Quick Actions: Route-Animation, Display-, Audio-, Layer- und Dev-Menü, Kamera-Reset |
 | `components/game-speed/` | Pause und Game-Speed (1x/2x/4x), Bauphase und Welle |

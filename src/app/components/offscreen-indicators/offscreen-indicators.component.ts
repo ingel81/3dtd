@@ -10,6 +10,7 @@ import {
   sameArrows,
 } from '../../utils/offscreen-indicators';
 import { TdIconComponent } from '../icon/icon.component';
+import { ABILITY_BAR_EDGE_PX } from '../ability-bar/ability-button';
 
 /** Update interval; arrows need no more than 8 Hz */
 const TICK_MS = 125;
@@ -66,7 +67,8 @@ export class OffscreenIndicatorsComponent {
     if (!this.gameStore.paused()) this.scan();
 
     const view = this.host.nativeElement;
-    this.clusterer.begin(view.clientWidth, view.clientHeight, EDGE_MARGIN_PX);
+    // On the left edge the arrows keep clear of the ability bar
+    this.clusterer.begin(view.clientWidth, view.clientHeight, EDGE_MARGIN_PX, ABILITY_BAR_EDGE_PX);
     const camera = engine.getCamera();
     const p = this.point;
     for (const enemy of this.threats) {
