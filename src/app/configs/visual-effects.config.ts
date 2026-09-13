@@ -388,7 +388,7 @@ export const MUSHROOM_CLOUD_LOOK = {
  * Spawn portals (SpawnPortalManager). Energy is a factor on the glow of the
  * surface, the sigils and the light on the street, and on the swirl's
  * speed. Times in seconds of wall time, the portal keeps moving while the
- * game is paused; only the sigils' life (glyphs) runs on game time.
+ * game is paused; only the sigils' life (glyphs) stands in the pause.
  */
 export const SPAWN_PORTAL_LOOK = {
   /**
@@ -430,7 +430,8 @@ export const SPAWN_PORTAL_LOOK = {
    * Each sigil gets slots of about wakePeriod seconds (plus or minus 20 %)
    * and wakes at most once in a slot, with the chance wakeChance, from idle
    * to wave energy; the surge of a wave start stirs them all. Seconds of
-   * game time: the sigils stand still while the game is paused.
+   * wall time that stand while the game is paused; the timescale does not
+   * hurry them.
    */
   glyphs: {
     dormant: 0.38, active: 1.2, flare: 0.8, gain: 4.3, breath: [5, 11], breathDepth: 0.5,

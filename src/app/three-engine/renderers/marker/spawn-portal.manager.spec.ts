@@ -2,18 +2,16 @@ import { describe, it, expect, vi } from 'vitest';
 import { BoxGeometry, Color, Float32BufferAttribute, Group, InstancedMesh, ShaderMaterial, Texture, Vector3 } from 'three';
 import { SpawnPortalManager } from './spawn-portal.manager';
 import { portalGlyphDrive } from './marker-shaders';
+import { GameClock } from '../../../managers/game-state/game-clock';
 import type { SpawnPortalFrame } from './spawn-portal-frame';
 import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
 
 const POSE = { x: 0, y: 0, z: 0, heading: 0, scale: 1 };
 const FRAME_MS = 1000 / 60;
 
-/** `seconds` of frames at 60 fps from `t`, game time running with it, returns the end time. */
+/** `seconds` of frames at 60 fps from `t`, the game running, returns the end time. */
 function run(portals: SpawnPortalManager, t: number, seconds: number): number {
-  for (let i = 0; i < seconds * 60; i++) {
-    t += FRAME_MS;
-    portals.update(t, t);
-  }
+  for (let i = 0; i < seconds * 60; i++) portals.update((t += FRAME_MS), false);
   return t;
 }
 
@@ -24,11 +22,11 @@ describe('SpawnPortalManager: Energie', () => {
     portals.add('s1', POSE, 0xef4444);
 
     let t = 1000;
-    portals.update(t, t);
+    portals.update(t, false);
     expect(portals.energyLevel).toBeCloseTo(L.idleEnergy);
 
     portals.startWave(t);
-    portals.update(t, t);
+    portals.update(t, false);
     expect(portals.energyLevel).toBeGreaterThan(L.idleEnergy + 0.9 * L.surge);
 
     t = run(portals, t, 10);
@@ -46,9 +44,9 @@ describe('SpawnPortalManager: Energie', () => {
   it('springt nach einer langen Pause des Tabs nicht auf das Ziel', () => {
     const L = SPAWN_PORTAL_LOOK;
     const portals = new SpawnPortalManager(new Group());
-    portals.update(0, 0);
+    portals.update(0, false);
     portals.startWave(0);
-    portals.update(60_000, 0);
+    portals.update(60_000, false);
     // Ein Schritt zählt höchstens 250 ms
     expect(portals.energyLevel).toBeLessThan(L.waveEnergy);
   });
@@ -131,19 +129,50 @@ describe('SpawnPortalManager: Sigillen', () => {
     expect(material.fragmentShader).toContain('e.g * 6.0 - uGlyphTime * uGlyphFlow.x');
   });
 
-  it('läuft mit der Spielzeit: in der Pause steht das Leben der Sigillen, der Wirbel nicht', () => {
+  it('atmet in Echtzeit und steht in der Pause, der Wirbel läuft weiter', () => {
     const group = new Group();
     const portals = new SpawnPortalManager(group);
     portals.add('s1', POSE, 0xef4444);
     const uniforms = gateMaterial(group).uniforms;
 
-    portals.update(10_000, 3_000);
-    expect(uniforms['uGlyphTime'].value).toBe(3);
-    expect(uniforms['uTime'].value).toBe(10);
+    // The first update only sets the clock's start
+    portals.update(10_000, false);
+    let t = run(portals, 10_000, 2);
+    const breath = uniforms['uGlyphTime'].value as number;
+    expect(breath).toBeCloseTo(2, 3);
 
-    portals.update(15_000, 3_000);
-    expect(uniforms['uGlyphTime'].value).toBe(3);
-    expect(uniforms['uTime'].value).toBe(15);
+    // Pausiert: die Uhr der Sigillen steht, die des Wirbels nicht
+    for (let i = 0; i < 180; i++) portals.update((t += FRAME_MS), true);
+    expect(uniforms['uGlyphTime'].value).toBe(breath);
+    expect(uniforms['uTime'].value).toBeCloseTo(t / 1000, 6);
+
+    // Weiter ohne Sprung: der nächste Frame zählt nur seine eigene Zeit
+    portals.update(t + FRAME_MS, false);
+    expect(uniforms['uGlyphTime'].value).toBeCloseTo(breath + FRAME_MS / 1000, 6);
+  });
+
+  it('atmet bei jeder Zeitskala gleich schnell', () => {
+    const breathAfter = (timescale: number) => {
+      const group = new Group();
+      const portals = new SpawnPortalManager(group);
+      portals.add('s1', POSE, 0xef4444);
+      const clock = new GameClock();
+      let t = 1000;
+      for (let i = 0; i < 600; i++) {
+        t += FRAME_MS;
+        clock.beginFrame(t, timescale);
+        while (clock.nextSubStep()) { /* the simulation's sub-steps */ }
+        clock.endFrame();
+        portals.update(t, false);
+      }
+      return { breath: gateMaterial(group).uniforms['uGlyphTime'].value as number, game: clock.gameTimeMs / 1000 };
+    };
+    const normal = breathAfter(1);
+    const fast = breathAfter(10);
+    // Zehnmal so viel Spielzeit, derselbe Atem
+    expect(fast.game).toBeGreaterThan(9 * normal.game);
+    expect(fast.breath).toBeCloseTo(normal.breath, 6);
+    expect(normal.breath).toBeCloseTo(10, 1);
   });
 
   it('glüht zwischen den Wellen schwächer als in einer, am stärksten beim Wellenstart', () => {
@@ -154,13 +183,13 @@ describe('SpawnPortalManager: Sigillen', () => {
     const drive = () => (gateMaterial(group).uniforms['uGlyphDrive'].value as Vector3).clone();
 
     const t = 1000;
-    portals.update(t, t);
+    portals.update(t, false);
     const idle = drive();
     expect(idle.x).toBeCloseTo(L.glyphs.dormant);
     expect(idle.y).toBeCloseTo(L.glyphs.wakeChance[0]);
 
     portals.startWave(t);
-    portals.update(t, t);
+    portals.update(t, false);
     const surge = drive();
     expect(surge.x).toBeGreaterThan(L.glyphs.active);
     expect(surge.z).toBeGreaterThan(0);

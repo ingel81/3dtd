@@ -226,7 +226,7 @@ describe('MarkerVisualizationService', () => {
         service.removeSpawnMarker('s1');
         service.clearSpawnMarkers();
         service.updateMarkerHeights();
-        service.animateMarkers(16, 0);
+        service.animateMarkers(16, false);
         service.addHeightDebugMarker(new Vector3(), 1, true);
         service.clearHeightDebugMarkers();
         service.toggleHeightDebug(true);
@@ -526,27 +526,29 @@ describe('MarkerVisualizationService', () => {
       init();
       service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000);
 
-      service.animateMarkers(16, 0);
-      service.animateMarkers(16, 0);
+      service.animateMarkers(16, false);
+      service.animateMarkers(16, false);
 
       expect(labelFake.instances[0].frames).toBe(2);
     });
 
-    it('hands the portals the game time for their sigils, the wall time for the rest', () => {
+    it('stops the portals\' sigils while the game is paused, the rest runs on wall time', () => {
       const now = vi.spyOn(performance, 'now').mockReturnValue(4000);
       init();
       service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000);
       const uniforms = () => (portalFrames().material as ShaderMaterial).uniforms;
 
-      service.animateMarkers(16, 2500);
-      expect(uniforms()['uGlyphTime'].value).toBe(2.5);
-      expect(uniforms()['uTime'].value).toBe(4);
+      service.animateMarkers(16, false);
+      now.mockReturnValue(4200);
+      service.animateMarkers(16, false);
+      expect(uniforms()['uGlyphTime'].value).toBeCloseTo(0.2, 6);
+      expect(uniforms()['uTime'].value).toBe(4.2);
 
-      // Paused: the wall clock runs on, the game time stands
-      now.mockReturnValue(9000);
-      service.animateMarkers(16, 2500);
-      expect(uniforms()['uGlyphTime'].value).toBe(2.5);
-      expect(uniforms()['uTime'].value).toBe(9);
+      // Paused: the wall clock runs on, the sigils stand
+      now.mockReturnValue(4400);
+      service.animateMarkers(16, true);
+      expect(uniforms()['uGlyphTime'].value).toBeCloseTo(0.2, 6);
+      expect(uniforms()['uTime'].value).toBe(4.4);
       now.mockRestore();
     });
   });
@@ -561,17 +563,17 @@ describe('MarkerVisualizationService', () => {
       service.subscribeToEventBus(bus);
       const energy = () => (portalFrames().material as ShaderMaterial).uniforms['uEnergy'].value as number;
 
-      service.animateMarkers(16, 0);
+      service.animateMarkers(16, false);
       expect(energy()).toBeCloseTo(L.idleEnergy);
 
       bus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
-      service.animateMarkers(16, 0);
+      service.animateMarkers(16, false);
       expect(energy()).toBeGreaterThan(L.idleEnergy + 0.9 * L.surge);
 
       bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
       for (let t = 1000; t <= 20_000; t += 16) {
         now.mockReturnValue(t);
-        service.animateMarkers(16, 0);
+        service.animateMarkers(16, false);
       }
       expect(energy()).toBeCloseTo(L.idleEnergy, 2);
     });
