@@ -1,10 +1,13 @@
 """Worm boss (giant millipede): public/assets/models/enemies/worm_head.glb and
 worm_segment.glb.
 
-Two static meshes, everything built here from bmesh, no inputs, no textures:
-the colours are vertex colours (COLOR_0) under one material, dark brown to
-black chitin with lighter rims, flanges and spike tips. The game strings the
-segments into a chain and moves them; the models have no clips.
+Two static meshes, everything built here from bmesh, no inputs: dark brown to
+black chitin with lighter rims, flanges and spike tips. The colours are set
+per vertex while building and then baked into one base colour texture per
+model (TEX, JPEG) on new UVs: the enemy renderer's static VAT path colours a
+mesh by its texture or its material colour, not by vertex colours, so the
+GLB carries the texture and no COLOR_0. The game strings the segments into a
+chain and moves them; the models have no clips.
 
 Worm space as in the game: x across, y up, z forward (the way the head
 looks). Blender is z-up, so the worm point (x, y, z) lies at (x, -z, y); the
@@ -25,22 +28,31 @@ Headless:
 From a running Blender (Blender MCP):
     REPO = r'D:/Source/3dtd'
     exec(open(REPO + '/tools/blender/worm_boss.py').read()); run()
-`run(preview=12)` also lays a head and 12 segments along a bend (not
+`run(preview_count=12)` also lays a head and 12 segments along a bend (not
 exported), to judge the chain.
 """
 import math
 import os
+import sys
 
 import bmesh
 import bpy
-from mathutils import Matrix, Vector
+import numpy as np
+from mathutils import Vector
 
 if 'REPO' not in globals():
     REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# The UV rasteriser and the dilation of the enemy optimiser
+sys.path.insert(0, os.path.join(REPO, 'tools/blender'))
+from optimize_enemy import dilate, raster_uv_triangles, view3d_override  # noqa: E402
+
 OUT_HEAD = os.path.join(REPO, 'public/assets/models/enemies/worm_head.glb')
 OUT_SEGMENT = os.path.join(REPO, 'public/assets/models/enemies/worm_segment.glb')
 SCENE = 'worm_boss'
+TEX = 512
+SUPERSAMPLE = 2
+MARGIN = 8
 
 # ── Body (model units) ──
 PITCH = 1.0
@@ -58,7 +70,7 @@ KEEL = 0.05
 SEG_SIDES = 24
 HEAD_SIDES = 32
 
-# Ring loops of a segment, back to front would read the same: (z, scale, lift, flange, tone);
+# Ring loops of a segment from the rear to the front: (z, scale, lift, flange, tone);
 # tone 0 is the plate, 1 a lit edge
 SEGMENT_LOOPS = (
     (SEG_REAR, 1.02, 0.0, 0.20, 0.35),
@@ -276,29 +288,9 @@ def finish(b, name):
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
-    me.color_attributes.active_color = me.color_attributes['Col']
-    me.color_attributes.render_color_index = me.color_attributes.active_color_index
-    me.materials.append(chitin_material())
     ob = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(ob)
     return ob
-
-
-def chitin_material():
-    mat = bpy.data.materials.get('Chitin') or bpy.data.materials.new('Chitin')
-    mat.use_nodes = True
-    mat.use_backface_culling = True
-    nt = mat.node_tree
-    nt.nodes.clear()
-    out = nt.nodes.new('ShaderNodeOutputMaterial')
-    bsdf = nt.nodes.new('ShaderNodeBsdfPrincipled')
-    attr = nt.nodes.new('ShaderNodeVertexColor')
-    attr.layer_name = 'Col'
-    nt.links.new(attr.outputs['Color'], bsdf.inputs['Base Color'])
-    bsdf.inputs['Metallic'].default_value = 0.0
-    bsdf.inputs['Roughness'].default_value = ROUGHNESS
-    nt.links.new(bsdf.outputs['BSDF'], out.inputs['Surface'])
-    return mat
 
 
 def build_segment():
@@ -370,16 +362,90 @@ def build_head():
     return finish(b, 'WormHead')
 
 
+def unwrap(ob):
+    for o in bpy.context.scene.objects:
+        o.select_set(o == ob)
+    bpy.context.scene.view_layers[0].objects.active = ob
+    with view3d_override(object=ob, active_object=ob):
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.004)
+        bpy.ops.uv.select_all(action='SELECT')
+        bpy.ops.uv.pack_islands(rotate=True, margin=0.004, shape_method='CONCAVE', margin_method='FRACTION')
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+
+def to_srgb(c):
+    return np.where(c <= 0.0031308, 12.92 * c, 1.055 * np.power(np.maximum(c, 0), 1 / 2.4) - 0.055)
+
+
+def bake_colours(ob):
+    """The vertex colours, interpolated over each triangle, into a TEX² image
+    on the object's UVs (SUPERSAMPLE² samples a texel, islands grown by
+    MARGIN texels), and a material that shows it."""
+    me = ob.data
+    me.calc_loop_triangles()
+    n = len(me.loop_triangles)
+    verts = np.empty(n * 3, dtype=np.int32)
+    loops = np.empty(n * 3, dtype=np.int32)
+    me.loop_triangles.foreach_get('vertices', verts)
+    me.loop_triangles.foreach_get('loops', loops)
+    uv = np.empty(len(me.loops) * 2, dtype=np.float64)
+    me.uv_layers.active.data.foreach_get('uv', uv)
+    uv_tris = uv.reshape(-1, 2)[loops.reshape(-1, 3)]
+    col = np.empty(len(me.vertices) * 4, dtype=np.float32)
+    me.color_attributes['Col'].data.foreach_get('color', col)
+    col = col.reshape(-1, 4)[:, :3]
+
+    res = TEX * SUPERSAMPLE
+    pix, tri, bary = raster_uv_triangles(uv_tris, res)
+    corner = col[verts.reshape(-1, 3)[tri]]
+    linear = (corner * bary[..., None]).sum(1)
+    out = np.zeros((res * res, 4), dtype=np.float32)
+    # A byte image holds sRGB; `pixels` writes the stored values as they are
+    out[pix, :3] = to_srgb(linear)
+    filled = np.zeros(res * res, dtype=bool)
+    filled[pix] = True
+    out = dilate(out.reshape(res, res, 4), filled.reshape(res, res), MARGIN * SUPERSAMPLE)
+    out[..., 3] = 1.0
+    out = out.reshape(TEX, SUPERSAMPLE, TEX, SUPERSAMPLE, 4).mean((1, 3))
+    name = f'{ob.name}_colour'
+    old = bpy.data.images.get(name)
+    if old:
+        bpy.data.images.remove(old)
+    image = bpy.data.images.new(name, TEX, TEX, alpha=False)
+    image.pixels.foreach_set(out.ravel())
+    image.pack()
+
+    mat = bpy.data.materials.new(f'{ob.name}_chitin')
+    mat.use_nodes = True
+    mat.use_backface_culling = True
+    nt = mat.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    tex = nt.nodes.new('ShaderNodeTexImage')
+    tex.image = image
+    nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
+    bsdf.inputs['Metallic'].default_value = 0.0
+    bsdf.inputs['Roughness'].default_value = ROUGHNESS
+    me.materials.clear()
+    me.materials.append(mat)
+
+
 def clear_scene():
-    sc = bpy.data.scenes.get(SCENE) or bpy.data.scenes.new(SCENE)
+    """This script's scene, emptied; other scenes stay as they are. Headless
+    Blender has no window, the script then builds in the current scene."""
+    win = bpy.context.window
+    sc = (bpy.data.scenes.get(SCENE) or bpy.data.scenes.new(SCENE)) if win else bpy.context.scene
     for ob in list(sc.objects):
         bpy.data.objects.remove(ob, do_unlink=True)
     for coll in list(sc.collection.children):
         bpy.data.collections.remove(coll)
-    for me in list(bpy.data.meshes):
-        if me.users == 0:
-            bpy.data.meshes.remove(me)
-    bpy.context.window.scene = sc
+    for coll in (bpy.data.meshes, bpy.data.materials, bpy.data.images):
+        for block in list(coll):
+            if block.users == 0:
+                coll.remove(block)
+    if win:
+        win.scene = sc
     return sc
 
 
@@ -412,8 +478,10 @@ def export(ob, path):
         export_skins=False,
         export_morph=False,
         export_materials='EXPORT',
-        export_vertex_color='ACTIVE',
-        export_texcoords=False,
+        export_image_format='JPEG',
+        export_jpeg_quality=90,
+        export_vertex_color='NONE',
+        export_texcoords=True,
         export_normals=True,
         export_tangents=False,
         export_apply=True,
@@ -445,6 +513,9 @@ def run(write=True, preview_count=0):
     stats(segment, grounded=True)
     # The head has no legs, it floats over its pivot like the segments' bodies
     stats(head, grounded=False)
+    for ob in (segment, head):
+        unwrap(ob)
+        bake_colours(ob)
     if write:
         export(segment, OUT_SEGMENT)
         export(head, OUT_HEAD)
