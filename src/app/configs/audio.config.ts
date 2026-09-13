@@ -70,6 +70,23 @@ export const SPATIAL_AUDIO_DEFAULTS = {
   loop: false,
 } as const;
 
+/**
+ * Cues that do not sit in the world: played with playGlobal, at the SFX
+ * volume and silent when SFX is muted. The tones are synthesised
+ * (utils/alert-tone.ts), no asset behind them.
+ */
+export const UI_SOUNDS = {
+  /** Air two waves ahead (WAVE panel): two short falling notes */
+  airAlert: {
+    id: 'ui_air_alert',
+    notes: [
+      { freq: 880, ms: 90 },
+      { freq: 587, ms: 170 },
+    ],
+    volume: 0.35,
+  },
+} as const;
+
 /** Game state sounds configuration */
 export const GAME_SOUNDS = {
   hqDamage: {

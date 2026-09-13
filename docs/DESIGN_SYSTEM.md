@@ -299,6 +299,12 @@ Unter dem Button schaltet eine Checkbox-Zeile ("Auto-start next wave", rechts "1
 
 Ein Start aus dem Build-Mode lässt den Build-Mode an: Vorschau und gewählter Tower bleiben, gebaut werden darf auch während der Welle.
 
+### Air-Alert (WAVE-Panel)
+
+Bringt die nächste oder übernächste Curriculum-Welle Lufteinheiten mit, steht in der Bauphase über dem Next-Wave-Button eine Zeile (`.td-air-alert`, Logik in `wave-panel/air-alert.ts`): Fläche `--td-health-bg`, 1px Rand in `--td-health-red` bei 55 % Deckkraft, links das Icon `plane` in `--td-health-red`. Daneben "Air · Wave N" (11px/700, Versalien, `--td-text-primary`) mit "· next wave" bzw. "· in 2 waves" in `--td-text-muted`, darunter die Abwehr (10px): "N towers hit air" in `--td-text-secondary` oder "No tower hits air yet" in `--td-warn-orange`. Gezählt werden gebaute Tower, die laut `canTargetAirEffective` Luft treffen (der Archer tut das von Anfang an, der Dual Gatling nach AA-Forschung). Der Tooltip nennt alle Tower, die Luft treffen. Nach W30 wählt der Director das Template beim Wellenstart, dort bleibt der Alert aus.
+
+Beim ersten Erscheinen für eine Luftwelle spielt ein kurzer Ton (zwei fallende Noten, `UI_SOUNDS.airAlert` in `audio.config.ts`), im Code synthetisiert (`utils/alert-tone.ts`) und über `playGlobal` abgespielt, also mit der SFX-Lautstärke und stumm bei SFX-Mute. Zeigt der Alert in der nächsten Bauphase noch auf dieselbe Welle, bleibt es still.
+
 Beschriftung, Restzahl und Balkenbreite liefert `waveButtonView()` (`wave-panel/wave-button.ts`) aus zwei Store-Werten: `waveEnemyTotal` (von `wave:started` angekündigte Größe) und `waveEnemiesLeft` (lebende plus noch nicht gespawnte Gegner). Beide pflegt `GameStateSyncService` aus `wave:started`, `enemy:died`, `enemy:reached-base` und `debug:kill-all`. Manuelle Debug-Wellen kündigen keine Größe an, dann fehlen Zahl und Balken.
 
 ### Nuclear-Strike-Knopf (Sidebar)
