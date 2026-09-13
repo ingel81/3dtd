@@ -1,0 +1,427 @@
+import { signal } from '@angular/core';
+import { Vector3 } from 'three';
+import type { EventSubscription, GameEvent, GameEventBus } from '../game-engine/game-event-bus';
+import type { TowerTypeId } from '../configs/tower-types.config';
+import type { WaveConfig } from '../managers/wave.manager';
+import { ENEMY_END, ENEMY_FLAG, ReplayRecording, TOWER_FLAG } from './replay-recording';
+import { isPresentationEvent, presentationEvent, toPlainData } from './replay-events';
+
+/** What the recorder reads of an enemy; Enemy has all of it. */
+export interface RecordableEnemy {
+  readonly alive: boolean;
+  readonly heightOffset: number;
+  readonly position: { readonly lat: number; readonly lon: number };
+  readonly typeConfig: { readonly id: string };
+  readonly transform: { readonly terrainHeight: number; readonly rotation: number };
+  readonly health: { readonly healthPercent: number };
+  readonly movement: {
+    readonly speedMps: number;
+    readonly speedMultiplier: number;
+    readonly statusEffects: readonly unknown[];
+    getSlowMultiplier(gameTimeMs: number): number;
+    isSlowed(gameTimeMs: number): boolean;
+    isPoisoned(gameTimeMs: number): boolean;
+    isBurning(gameTimeMs: number): boolean;
+  };
+  readonly rush: { readonly running: boolean } | null;
+}
+
+/** What the recorder reads of a projectile; Projectile has all of it. */
+export interface RecordableProjectile {
+  readonly typeConfig: { readonly id: string };
+  readonly position: { readonly lat: number; readonly lon: number };
+  readonly flightHeight: number;
+}
+
+/** What the recorder reads of a tower; Tower has all of it. */
+export interface RecordableTower {
+  readonly id: string;
+  readonly typeConfig: { readonly id: string };
+  readonly position: { readonly lat: number; readonly lon: number; readonly height?: number };
+  readonly customRotation: number;
+  readonly plinthHeight: number;
+}
+
+/** The engine parts the recorder reads; ThreeTilesEngine has all of them. */
+export interface ReplayRecorderEngine {
+  readonly renderingEnabled: boolean;
+  readonly sync: {
+    geoToLocalSimpleInto(lat: number, lon: number, height: number, target: Vector3): Vector3;
+  };
+  readonly towers: {
+    get(id: string): { readonly currentLocalRotation: number; readonly turretPart: object | null } | undefined;
+  };
+  readonly flameBeams: {
+    getBeam(towerId: string): { readonly targetPosition: Vector3; readonly beamWidth: number } | null;
+  };
+  readonly tentacles: {
+    getStrikeTarget(towerId: string): Vector3 | null;
+  };
+}
+
+/** Where the recorder takes the live state from, see GameStateManager. */
+export interface ReplaySources {
+  enemies(): readonly RecordableEnemy[];
+  projectiles(): readonly RecordableProjectile[];
+  towers(): readonly RecordableTower[];
+  engine(): ReplayRecorderEngine | null;
+  gameTimeMs(): number;
+  baseHealth(): number;
+  credits(): number;
+}
+
+/**
+ * Records the running wave for the replay (docs/REPLAY.md).
+ *
+ * Owned by the GameStateManager: it starts on wave:started, samples a frame
+ * every ReplayRecording.stepsPerFrame sub-steps (onSubStep()), and is closed
+ * by finish() when the wave ends or the HQ falls. Everything else comes from
+ * the event bus, read through onAny(): spawns, deaths, leaks, hits, towers
+ * placed and sold, the effect events and every command:*, so a new command
+ * is logged without a change here.
+ *
+ * Only the last wave is kept: the next wave:started overwrites it. Nothing is
+ * recorded while the engine does not render (headless training).
+ *
+ * Per frame the cost is one local conversion and a few typed-array writes
+ * per body, no allocation; a Map entry per new enemy and projectile.
+ */
+export class ReplayRecorder {
+  /** Wave of the finished recording, null while there is none (none yet, a wave running, reset) */
+  readonly readyWave = signal<number | null>(null);
+
+  private readonly rec = new ReplayRecording();
+  private active = false;
+  /** Sub-steps since the wave started; frames fall on multiples of stepsPerFrame */
+  private stepIndex = 0;
+  /** Config of the command:start-wave that is about to start a wave */
+  private pendingConfig: WaveConfig | null = null;
+
+  private readonly enemyIndex = new Map<object, number>();
+  private readonly projectileIndex = new Map<object, number>();
+  private readonly towerIndex = new Map<string, number>();
+  /** Projectiles in flight: their table index, and the object for the Map */
+  private inFlight = new Int32Array(256);
+  private inFlightCount = 0;
+  private projectileRefs: (object | null)[] = [];
+  /** Capture a projectile was last sampled in, by table index */
+  private projectileSeen = new Uint32Array(256);
+  private captureSerial = 0;
+
+  private readonly local = new Vector3();
+  private readonly subscription: EventSubscription;
+
+  constructor(eventBus: GameEventBus, private readonly sources: ReplaySources) {
+    this.subscription = eventBus.onAny(this.onEvent);
+  }
+
+  /** The finished recording of the last wave, null while there is none. */
+  get recording(): ReplayRecording | null {
+    return this.readyWave() !== null ? this.rec : null;
+  }
+
+  /** A wave is being recorded. */
+  get isRecording(): boolean {
+    return this.active;
+  }
+
+  /** Once per gameplay sub-step, after the turrets turned (GameStateManager.update). */
+  onSubStep(): void {
+    if (!this.active) return;
+    this.stepIndex++;
+    if (this.stepIndex % this.rec.stepsPerFrame === 0) this.captureFrame(false);
+  }
+
+  /**
+   * Close the recording: a last frame of what is on screen now, open
+   * enemies and projectiles end here. Called when the wave is over and when
+   * the HQ falls, before the enemies are cleared.
+   */
+  finish(outcome: 'completed' | 'gameover'): void {
+    if (!this.active) return;
+    this.captureFrame(true);
+    this.rec.finish(this.nowMs(), outcome);
+    this.stop();
+    this.readyWave.set(this.rec.wave);
+  }
+
+  /** Drop the recording (restart, new location, new world). */
+  clear(): void {
+    this.stop();
+    this.pendingConfig = null;
+    this.rec.reset(0, 0, 0, 0, null);
+    this.readyWave.set(null);
+  }
+
+  dispose(): void {
+    this.subscription.dispose();
+    this.clear();
+  }
+
+  private readonly onEvent = (event: GameEvent): void => {
+    switch (event.type) {
+      case 'command:start-wave':
+        this.pendingConfig = event.config ?? null;
+        return;
+      case 'wave:started':
+        this.begin(event.wave);
+        return;
+    }
+    if (!this.active) return;
+
+    const ms = this.nowMs();
+    switch (event.type) {
+      case 'enemy:spawned':
+        this.enemyIndexOf(event.enemy, ms);
+        break;
+      case 'enemy:died':
+        this.endEnemy(event.enemy, ms, ENEMY_END.DIED);
+        break;
+      case 'enemy:reached-base':
+        this.endEnemy(event.enemy, ms, ENEMY_END.LEAKED);
+        break;
+      case 'projectile:hit':
+        this.endProjectileAtHit(event.projectile, ms);
+        break;
+      case 'tower:placed':
+        this.addTower(event.tower, ms);
+        break;
+      case 'tower:sold':
+        this.sellTower(event.tower.id, ms);
+        break;
+      case 'health:changed':
+        this.rec.pushHealth(ms, event.health);
+        break;
+    }
+
+    if (event.type.startsWith('command:')) {
+      this.rec.pushCommand(ms, toPlainData(event) as Record<string, unknown>);
+    } else if (isPresentationEvent(event.type)) {
+      const kept = presentationEvent(event);
+      if (kept) this.rec.pushEvent(ms, kept);
+    }
+  };
+
+  private begin(wave: number): void {
+    this.stop();
+    this.readyWave.set(null);
+    const config = this.pendingConfig;
+    this.pendingConfig = null;
+    this.rec.reset(wave, this.sources.gameTimeMs(), this.sources.baseHealth(), this.sources.credits(), config);
+
+    // Headless training draws nothing, and nobody watches a replay of it
+    const engine = this.sources.engine();
+    if (!engine || !engine.renderingEnabled) return;
+
+    for (const tower of this.sources.towers()) {
+      this.addTower(tower, -1);
+    }
+    this.active = true;
+    this.stepIndex = 0;
+    this.captureFrame(false);
+  }
+
+  private stop(): void {
+    this.active = false;
+    this.enemyIndex.clear();
+    this.projectileIndex.clear();
+    this.towerIndex.clear();
+    this.projectileRefs.length = 0;
+    this.inFlightCount = 0;
+  }
+
+  private nowMs(): number {
+    return this.sources.gameTimeMs() - this.rec.startGameMs;
+  }
+
+  private captureFrame(final: boolean): void {
+    const engine = this.sources.engine();
+    if (!engine) return;
+    const rec = this.rec;
+    const ms = this.nowMs();
+    // A finish on the sub-step of a regular frame has nothing to add
+    if (final && rec.frameCount > 0 && rec.frameMs[rec.frameCount - 1] >= ms) return;
+
+    const enemies = this.sources.enemies();
+    const projectiles = this.sources.projectiles();
+    const towers = this.sources.towers();
+    const fit = rec.reserveFrame(enemies.length, projectiles.length, towers.length);
+    if (fit === 'full') return;
+    // The spacing just doubled: a frame between two of the new grid waits
+    if (fit === 'thinned' && !final && this.stepIndex % rec.stepsPerFrame !== 0) return;
+
+    rec.beginFrame(ms);
+    this.sampleEnemies(enemies, engine, ms);
+    this.sampleProjectiles(projectiles, engine, ms);
+    this.sampleTowers(towers, engine);
+    rec.endFrame();
+  }
+
+  private sampleEnemies(enemies: readonly RecordableEnemy[], engine: ReplayRecorderEngine, ms: number): void {
+    const rec = this.rec;
+    const now = this.sources.gameTimeMs();
+    const local = this.local;
+    for (const enemy of enemies) {
+      // Dying ones are in the list until their death animation ends; the
+      // player plays that from the end the table holds
+      if (!enemy.alive) continue;
+      const index = this.enemyIndexOf(enemy, ms);
+      engine.sync.geoToLocalSimpleInto(
+        enemy.position.lat,
+        enemy.position.lon,
+        enemy.transform.terrainHeight + enemy.heightOffset,
+        local,
+      );
+      const movement = enemy.movement;
+      let flags = 0;
+      let slow = 1;
+      if (movement.statusEffects.length !== 0) {
+        slow = movement.getSlowMultiplier(now);
+        if (movement.isSlowed(now)) flags |= ENEMY_FLAG.SLOWED;
+        if (movement.isPoisoned(now)) flags |= ENEMY_FLAG.POISONED;
+        if (movement.isBurning(now)) flags |= ENEMY_FLAG.BURNING;
+      }
+      if (enemy.rush !== null && enemy.rush.running) flags |= ENEMY_FLAG.RUNNING;
+      rec.pushEnemy(
+        index,
+        local.x,
+        local.y,
+        local.z,
+        enemy.transform.rotation,
+        movement.speedMps * movement.speedMultiplier * slow,
+        enemy.health.healthPercent,
+        flags,
+      );
+    }
+  }
+
+  private sampleProjectiles(projectiles: readonly RecordableProjectile[], engine: ReplayRecorderEngine, ms: number): void {
+    const rec = this.rec;
+    const serial = ++this.captureSerial;
+    const local = this.local;
+    for (const projectile of projectiles) {
+      let index = this.projectileIndex.get(projectile);
+      if (index === undefined) {
+        index = rec.addProjectile(projectile.typeConfig.id);
+        this.projectileIndex.set(projectile, index);
+        this.projectileRefs[index] = projectile;
+        this.trackInFlight(index);
+      }
+      engine.sync.geoToLocalSimpleInto(projectile.position.lat, projectile.position.lon, projectile.flightHeight, local);
+      rec.pushProjectile(index, local.x, local.y, local.z);
+      this.projectileSeen[index] = serial;
+    }
+
+    // In flight last time and gone now: it hit, or vanished without a hit
+    // event (target lost, no splash), somewhere since the last frame
+    let kept = 0;
+    for (let i = 0; i < this.inFlightCount; i++) {
+      const index = this.inFlight[i];
+      if (this.projectileSeen[index] === serial) {
+        this.inFlight[kept++] = index;
+        continue;
+      }
+      rec.endProjectile(index, ms, NaN, NaN, NaN);
+      this.releaseProjectile(index);
+    }
+    this.inFlightCount = kept;
+  }
+
+  private sampleTowers(towers: readonly RecordableTower[], engine: ReplayRecorderEngine): void {
+    const rec = this.rec;
+    for (const tower of towers) {
+      const index = this.towerIndex.get(tower.id);
+      if (index === undefined) continue;
+      const data = engine.towers.get(tower.id);
+      const rotation = data ? data.currentLocalRotation : 0;
+
+      const beam = engine.flameBeams.getBeam(tower.id);
+      if (beam) {
+        const t = beam.targetPosition;
+        rec.pushTower(index, rotation, TOWER_FLAG.BEAM, t.x, t.y, t.z, beam.beamWidth);
+        continue;
+      }
+      const strike = engine.tentacles.getStrikeTarget(tower.id);
+      if (strike) {
+        rec.pushTower(index, rotation, TOWER_FLAG.STRIKE, strike.x, strike.y, strike.z, 0);
+        continue;
+      }
+      // A tower without a turret shows nothing a frame could change
+      if (data?.turretPart) rec.pushTower(index, rotation, 0, 0, 0, 0, 0);
+    }
+  }
+
+  private enemyIndexOf(enemy: object & { typeConfig: { id: string } }, ms: number): number {
+    let index = this.enemyIndex.get(enemy);
+    if (index === undefined) {
+      index = this.rec.addEnemy(enemy.typeConfig.id, ms);
+      this.enemyIndex.set(enemy, index);
+    }
+    return index;
+  }
+
+  private endEnemy(enemy: object, ms: number, end: number): void {
+    const index = this.enemyIndex.get(enemy);
+    if (index === undefined) return;
+    this.rec.endEnemy(index, ms, end);
+    this.enemyIndex.delete(enemy);
+  }
+
+  private endProjectileAtHit(projectile: RecordableProjectile, ms: number): void {
+    const index = this.projectileIndex.get(projectile);
+    if (index === undefined) return;
+    const engine = this.sources.engine();
+    if (engine) {
+      const p = this.local;
+      engine.sync.geoToLocalSimpleInto(projectile.position.lat, projectile.position.lon, projectile.flightHeight, p);
+      this.rec.endProjectile(index, ms, p.x, p.y, p.z);
+    } else {
+      this.rec.endProjectile(index, ms, NaN, NaN, NaN);
+    }
+    this.releaseProjectile(index);
+  }
+
+  /** Forget the projectile object; its table entry stays. */
+  private releaseProjectile(index: number): void {
+    const ref = this.projectileRefs[index];
+    if (ref) this.projectileIndex.delete(ref);
+    this.projectileRefs[index] = null;
+  }
+
+  private trackInFlight(index: number): void {
+    if (this.inFlightCount === this.inFlight.length) {
+      const grown = new Int32Array(this.inFlight.length * 2);
+      grown.set(this.inFlight);
+      this.inFlight = grown;
+    }
+    this.inFlight[this.inFlightCount++] = index;
+    if (index >= this.projectileSeen.length) {
+      const grown = new Uint32Array(Math.max(index + 1, this.projectileSeen.length * 2));
+      grown.set(this.projectileSeen);
+      this.projectileSeen = grown;
+    }
+  }
+
+  private addTower(tower: RecordableTower, placedMs: number): void {
+    if (this.towerIndex.has(tower.id)) return;
+    const index = this.rec.addTower({
+      id: tower.id,
+      typeId: tower.typeConfig.id as TowerTypeId,
+      lat: tower.position.lat,
+      lon: tower.position.lon,
+      height: tower.position.height ?? 0,
+      customRotation: tower.customRotation,
+      plinthHeight: tower.plinthHeight,
+      placedMs,
+      soldMs: Infinity,
+    });
+    this.towerIndex.set(tower.id, index);
+  }
+
+  private sellTower(id: string, ms: number): void {
+    const index = this.towerIndex.get(id);
+    if (index === undefined) return;
+    this.rec.towers[index].soldMs = ms;
+    this.towerIndex.delete(id);
+  }
+}

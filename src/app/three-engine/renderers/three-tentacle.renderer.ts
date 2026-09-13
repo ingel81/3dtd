@@ -189,6 +189,15 @@ export class ThreeTentacleRenderer {
   }
 
   /**
+   * Target of the tower's current strike, on the way out or back; null
+   * while the tentacle is idle. Read by the replay recorder.
+   */
+  getStrikeTarget(towerId: string): Vector3 | null {
+    const s = this.tentacles.get(towerId);
+    return s && s.state !== 'idle' ? s.strikeTarget : null;
+  }
+
+  /**
    * Update all tentacles (called per frame).
    * Only computes 4 control points and sets uniforms — no geometry mutation.
    */
