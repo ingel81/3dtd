@@ -18,6 +18,7 @@ import type {
 import type { ScorchGround } from './scorch-marks';
 import { FloatingTextInstanceManager } from './floating-text/floating-text-instance.manager';
 import { ParticlePoolManager } from './particle-pool-manager';
+import type { ParticleShaderMaterials } from './particle-shaders';
 import { AuraRenderer } from './aura-renderer';
 import { EnvironmentEffectsRenderer } from './environment-effects-renderer';
 import { ParticleEffectsRenderer } from './particle-effects-renderer';
@@ -120,6 +121,11 @@ export class ThreeEffectsRenderer {
    */
   isUsingShaderMaterial(): boolean {
     return this.pools.isUsingShaderMaterial();
+  }
+
+  /** The trail pools' ShaderMaterials, for Points drawn outside the pools (mushroom cloud). */
+  get particleShaderMaterials(): ParticleShaderMaterials {
+    return this.pools.shaderMaterials;
   }
 
   /**

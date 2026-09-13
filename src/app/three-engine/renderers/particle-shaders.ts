@@ -21,6 +21,13 @@ import {
  */
 
 /**
+ * A particle of `size` 1 is this many pixels wide at 1 m view depth
+ * (gl_PointSize = size * PARTICLE_POINT_SCALE / depth). Pixels, not metres:
+ * the same size covers less of the scene on a taller canvas.
+ */
+export const PARTICLE_POINT_SCALE = 3000;
+
+/**
  * Vertex shader: per-particle size attenuation + sprite-sheet frame passthrough.
  *   frameIndex < 0  → default circular particle (no atlas)
  *   frameIndex >= 0 → index into the NxN atlas grid
@@ -40,7 +47,7 @@ const PARTICLE_VERTEX_SHADER = /* glsl */ `
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
 
         // Size attenuation: larger particles when closer
-        gl_PointSize = size * (3000.0 / -mvPosition.z);
+        gl_PointSize = size * (${PARTICLE_POINT_SCALE.toFixed(1)} / -mvPosition.z);
         gl_Position = projectionMatrix * mvPosition;
 
         #include <logdepthbuf_vertex>
