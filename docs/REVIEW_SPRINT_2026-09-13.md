@@ -1405,6 +1405,127 @@ dem Portal.
 238. Regulär bis W7 (bat_swarm) und W8 (hornet_strike) spielen: an jedem
      Portal wie 232 und 233.
 
+### Spawn-Portal, Runde 4: heller Stein, lesbare Sigillen (portal4, `2034997` bis `f3f7238`)
+
+Befund aus dem Playtest: "etwas zu dunkel würde ich sagen und die glyphen
+sind garnicht zu erkennen?" Auf dem Screenshot bei Abendlicht war das Tor
+eine fast schwarze braune Masse, die Sigillen nur schwaches dunkles Relief.
+
+Ursache:
+
+- Der Tor-Shader ist ein eigenes `ShaderMaterial` ohne
+  `colorspace_fragment`. Die Basisfarbe ist eine sRGB-Textur, die GPU
+  dekodiert sie beim Lesen in lineares Licht, der Shader schrieb das
+  Ergebnis unkodiert. Mit Bloom und Color Grading aus (Standard in
+  `vfx-settings.ts`) rendert die Engine direkt auf den sRGB-Canvas, der
+  lineare Wert wurde als Anzeigewert gezeigt. Gerechnet: Basisfarbe im
+  Median linear 0,068, unter dem gefakten Licht etwa 0,05, gezeigt als etwa
+  14/255 statt etwa 60/255. Mit Bloom an lief der Rahmen über das
+  HalfFloat-Target und den OutputPass, der kodiert, und war heller. Die
+  Blender-Renders der Runde 3 liefen mit AgX und Blenders Licht; daran waren
+  `frameExposure` 1,4 und das Glimmen abgestimmt.
+- Die Sigillen glühten nur aus einem Kanal der Emissive-Karte am
+  Rillengrund: gut 0,1 % der Texel der 1024-px-Karte, eine Linie von ein
+  bis zwei Texeln, ruhend höchstens etwa 0,02 Rot. Mipmaps mitteln so eine
+  Linie aus 30 m und weiter mit dem Stein weg.
+- Die Lichter der Szene erreichen den Rahmen nicht (eigener, unbeleuchteter
+  Shader); Tag und Abend ändern nur die Umgebung.
+
+Änderungen:
+
+- `2034997` Asset und Generator: R der Emissive-Karte ist eine weiche
+  Glühmaske je Sigillenzelle (wie viel der Sigille noch glühen kann, weniger
+  wo sie abgewittert oder verrußt ist) statt des Rillengrunds. Basisfarbe
+  etwas brauner, abgeriebene Kanten heller, Fugen und Risse in der
+  Verdeckung tiefer. Die Sigille "drifting bodies" (Ring und Punkte
+  beiderseits eines langen flachen Schwungs, las sich als Prozentzeichen)
+  ist durch "averted moon" ersetzt: große Sichel, abgewandt, dahinter ein
+  gebrochener Ring, darunter ein Bogen aus Punkten. Die Render-Stufe des
+  Skripts ist entfernt; sie zeigte mit Blenders Licht und AgX einen Look,
+  den das Spiel nie hatte. Texturgrößen gleich, GPU-Speicher gleich (etwa
+  53 MB mit Mipmaps), GLB 2,54 auf 2,64 MB (JPEG der kontrastreicheren
+  Basisfarbe).
+- `0be611c` Shader und Anbindung: Der Tor-Shader rechnet linear und
+  kodiert selbst. Die Leere ist in Anzeigewerten gebaut und wird vorher
+  zurückgewandelt: sie sieht aus wie bisher, jetzt mit und ohne Bloom
+  gleich. Stein mit umhülltem Hauptlicht und mehr Himmel, `frameExposure`
+  1,4 auf 1,15. Die Sigillen zeichnet der Shader aus ihrem Distanzfeld
+  (Pose je Zelle wie im Asset): heißer Kern, blutroter Rand, schwacher
+  Schein auf dem Stein; fern bleibt die Linie etwa anderthalb Pixel breit.
+  Ruhend 0,38, in der Welle 1,2, beim Wellenstart bis 0,8 darüber
+  (`SPAWN_PORTAL_LOOK.glyphs`, `portalGlyphDrive`), `gain` 4,3. Jede
+  Sigille atmet in eigenem Takt (5 bis 11 s, zweite Welle langsamer, bis
+  zur Hälfte gedimmt, `sigilBreathForCell`), Stücke entlang der Striche
+  glühen heißer oder schwächer. Das Erwachen bleibt, bis etwa 2,5-mal
+  heller.
+- `6e9877a` Sigille "chained nodes" ersetzt: drei gebogene Arme um einen
+  zentralen Knoten lesen sich als Triskele, die u. a. rechtsextreme Gruppen
+  nutzen. Neu "tethered seeds": zwei Bögen mit je einem Knoten an beiden
+  Enden, eine abgewandte Sichel, ein kleiner Ring. Der Sigillen-Spec prüft
+  neu: kein Knoten mit drei oder mehr Armen, keine drei- oder vierzählige
+  Drehsymmetrie um den Schwerpunkt oder den Mittelpunkt eines Teils; vom
+  alten Satz fällt nur "chained nodes" durch. Asset neu gebacken.
+- `90e4ca8` Atem-Uhr: Atem und Erwachen laufen in Echtzeit zwischen den
+  Frames und stehen in der Pause (`animateMarkers(dt, paused)`,
+  `GameStateManager.paused`). Die Zeitskala beschleunigt sie nicht mehr;
+  in Spielzeit atmeten sie bei 10x zehnmal so schnell und flackerten bei
+  75x. Das Erwachen hängt über die Energie weiter an den Wellen.
+- `f3f7238` Beschwörungskreis kodiert wie das Tor: in Anzeigewerten
+  gebaut, für sein Ziel kodiert (`linearToOutputTexel`), auf dem Canvas
+  unverändert. Über dunkler Straße mit und ohne Bloom gleich; über heller
+  Straße weichen die Pfade etwas ab, weil additives Licht auf dem Canvas
+  in Anzeigewerten, im Nachbearbeitungs-Target linear addiert. Das
+  Straßenlicht im selben Shader ist nicht angefasst.
+- Kosten: weiter zwei Draw Calls; in einer Sigillenzelle zusätzlich das
+  Distanzfeld der einen Sigille (6 bis 12 Teile) und drei Noise-Abfragen,
+  sonst wie vorher.
+- Geprüft per Render: ein numpy-Nachbau des alten und des neuen Shaders auf
+  einem G-Buffer aus Blender (Cycles mittelt Texturen je Pixel, ähnlich den
+  Mipmaps), 35 und 70 m, über einer Kulisse aus dem Playtest-Screenshot und
+  einer helleren, kühleren Mittagsversion. Der Nachbau des alten Shaders
+  trifft den Screenshot. Nicht im Browser gesehen.
+- Geprüft per Compiler: Tor- und Glow-Shader, wie three sie zusammensetzt,
+  kompilieren unter Desktop-OpenGL 4.6 (Blender); eine Gegenprobe ohne
+  eine Funktion scheitert dort. Unter WebGL2 (GLSL ES 3.00, strenger bei
+  Typen) nicht kompiliert. `marker-shaders.spec.ts` prüft, dass beide
+  Shader nur Funktionen aufrufen, die es gibt.
+- Offen: Das Straßenlicht (im selben Glow-Material wie der Kreis), der
+  HQ-Diamant und die übrigen eigenen Shader schreiben weiter unkodiert und
+  sehen mit Bloom anders aus als ohne; nicht angefasst, die Liste geht an
+  TODO.
+
+239. Neues Spiel, N zum Portal, auf 30 bis 40 m herauszoomen: der Stein ist
+     dunkel graubraun, nicht schwarz; Quaderfugen dunkel, Kanten heller,
+     Risse sichtbar.
+240. Display-Menü (Augen-Button), Bloom an und wieder aus: Stein und Leere
+     gleich hell, nur die Glut der Sigillen strahlt mit Bloom etwas mehr.
+241. Vor der ersten Welle: alle Sigillen der Stirnseiten lesbar als
+     blutrote Glut in den Rillen, heißerer Kern, dunklerer Rand. Reset
+     Camera (Übersicht): noch als Zeichen zu erkennen.
+242. Eine Minute zusehen: jede Sigille atmet langsam für sich, nie alle im
+     Gleichtakt; entlang der Striche Stellen heller und dunkler.
+243. P (Pause): das Atmen der Sigillen steht, der Wirbel der Leere läuft
+     weiter; P wieder: es geht ohne Sprung weiter.
+244. Space (Welle): die Sigillen flammen auf, der Kern wird orange-rot,
+     während der Welle deutlich heller als davor; nach der Welle zurück auf
+     die Glut.
+245. Nah an eine Sigille: scharfe Linien, kein Kasten und kein Schein über
+     der ganzen Zelle; abgewitterte oder verrußte Stellen glühen schwächer.
+     Keine Sigille wie ein Prozentzeichen; die neue ("averted moon", große
+     Sichel, gebrochener Ring dahinter, Punktbogen darunter) erinnert an
+     kein bekanntes Symbol.
+246. Ort mit hellen Tiles bei Tag (etwa ein Showcase-Ort): der Rahmen hebt
+     sich als dunkler Stein ab, die Glut bleibt lesbar.
+247. Tempo 10x, dann (in der Bauphase oder mit Custom Wave) höchstes Tempo:
+     die Sigillen atmen so langsam wie bei 1x, kein Flackern.
+248. Beschwörungskreis vor dem Portal (Straße vor der vorderen Fläche), Bloom
+     im Display-Menü an und aus: der Kreis bleibt gleich hell, nur bei
+     Wellenstart blüht er mit Bloom etwas.
+249. Nah an die Sigillen: keine liest sich als Triskele (drei Arme um einen
+     Knoten); die neue ("tethered seeds": zwei Bögen mit Knoten an beiden
+     Enden, abgewandte Sichel, kleiner Ring) erinnert an kein bekanntes
+     Symbol.
+
 ### Kamera an der Route und nach dem Atomschlag (camnear, `bac034a`, `a7cdcf4`, `aef9d9e`)
 
 Befund aus dem Playtest: "irgendwas beeinflusst das zoom und pan
@@ -1522,7 +1643,7 @@ Nach DONE.md verschoben ist nichts, das passiert nach deinem OK:
 | 1.7 Bot-Läufe mit den neuen Inhalten | weiter offen, dazu Split und Nuklearschlag | |
 | Performance: zombie_v2 und alle Gegnermodelle | VAT als Half Float, opak wo möglich, nur auf der GPU; zombie_v2 in Blender 31 342 auf 4 870 VAT-Vertices; VAT gesamt 105,2 MB | `e948529`, `eb3b7da`, `ec878b6`, `4c8d21c`, `b09d24d` |
 | Performance: BVH für Terrain-Raycasts | der größte gemessene Brocken, die Korridor-Messung, läuft in Scheiben; Entscheidung weiter nach dem Playtest | `879ad8b` |
-| Visual Effects: Spawn-Portal | umgesetzt, nach dem Playtest nachgearbeitet (Heraustreten, Look, Siegel, Stein); Runde 3: Volumen, Doppeltor als Asset, neue Sigillen, Beschwörungskreis | `a214973` bis `cc8da0f`, `cfb85a8` bis `5bb5073`, `186474e` bis `329c4d0` |
+| Visual Effects: Spawn-Portal | umgesetzt, nach dem Playtest nachgearbeitet (Heraustreten, Look, Siegel, Stein); Runde 3: Volumen, Doppeltor als Asset, neue Sigillen, Beschwörungskreis; Runde 4: Stein kodiert und heller, Sigillen aus dem Distanzfeld, Atem mit Pause, Kreis kodiert, Sigille ohne Triskele | `a214973` bis `cc8da0f`, `cfb85a8` bis `5bb5073`, `186474e` bis `329c4d0`, `2034997` bis `f3f7238` |
 | Gameplay-Konzept: Spieler aktiver einbinden | Nuklearschlag gebaut, der Held ist offen | `94213b0` bis `44b8741`, `cf6b6ee` |
 | Enemy-Ideen: Skeleton | Split dazu | `99178cd` bis `0557aba` |
 

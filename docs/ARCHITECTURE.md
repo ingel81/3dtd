@@ -1705,9 +1705,10 @@ die Sigillen und das Straßenlicht. Farben in `SPAWN_PORTAL_LOOK.palette`, Maße
 
 **Rahmen** (`spawn-portal-frame.ts`): ein Asset, `public/assets/models/structures/spawn_portal.glb`,
 gebaut und gebacken von `tools/blender/spawn_portal.py` (Blender, headless oder über das MCP).
-7 151 Dreiecke, 2,5 MB: Basisfarbe und Normal-Map 2048 px JPEG, Verdeckung/Rauheit/Metall
-1024 px JPEG, Emissive-Daten 1024 px PNG (R Rillengrund der Sigillen, G Strichfolge 0 bis 1 je
-Sigille, B glühende Risse und die Rinne am First). Ein Doppeltor um das Volumen: vorn und
+7 151 Dreiecke, 2,6 MB: Basisfarbe und Normal-Map 2048 px JPEG, Verdeckung/Rauheit/Metall
+1024 px JPEG, Emissive-Daten 1024 px PNG (R Glühmaske der Sigillen: weich über jede Zelle, wie
+viel der Sigille noch glühen kann, weniger wo sie abgewittert oder verrußt ist; G Strichfolge 0
+bis 1 je Sigille; B glühende Risse und die Rinne am First). Ein Doppeltor um das Volumen: vorn und
 hinten je ein Tor aus Pfeilern, Sturz, Gesims und Krone, 2,6 m tief, seine Außenseite 0,3 m
 vor der Fläche der Leere; dazwischen niedrigere Seitenwände und ein Satteldach mit einer
 glühenden Rinne am First unter eisernen Gittern, Spitzen entlang des Firsts und an den
@@ -1722,12 +1723,20 @@ jedem `SpawnPortalManager` (`setFrame`); bis es da ist oder wenn es nicht lädt,
 zwei Flächen der Leere, die das Volumen vorn und hinten schon schließen. Die
 Platzierungsvorschau zeichnet eine Kopie der Geometrie.
 
-Licht gefakt, die Tiles nehmen keins: feste Hauptlichtrichtung im Portalraum, Himmel, das
-dunkelrote Licht des Kerns vom nächsten Punkt der Volumenachse, alles auf der Normal-Map, dazu
-die gebackene Verdeckung und Glanzlichter auf Obsidian und Eisen. Helligkeit über
-`SPAWN_PORTAL_LOOK.frameExposure` (Verstärkung der Basisfarbe) und `frameGlints`. Kosten je
-Rahmenpixel vier Texturzugriffe; die Texturen belegen mit Mipmaps etwa 53 MB GPU-Speicher;
-weiter zwei Draw Calls für alle Portale. `spawn-portal-frame.spec.ts` liest das GLB und prüft
+Licht gefakt, die Tiles nehmen keins, die Lichter der Szene erreichen auch den Rahmen nicht:
+Tag und Abend ändern im Spiel nur die Umgebung. Der Tor-Shader rechnet in linearem Licht und
+kodiert seine Ausgabe selbst (`colorspace_fragment`): die Basisfarbe ist eine sRGB-Textur, die
+die GPU beim Lesen dekodiert. Ohne die Kodierung kam der Stein beim Rendern direkt auf den
+Canvas (Bloom und Color Grading aus, der Standard) mehrfach zu dunkel an, mit Bloom dagegen
+heller; so war es bis zum Playtest 2026-09-13 abends. Hauptlicht fest in der Welt, umhüllt
+(eine abgewandte Fläche behält ihr Relief), Himmel, das dunkelrote Licht des Kerns vom nächsten
+Punkt der Volumenachse, alles auf der Normal-Map, dazu die gebackene Verdeckung und
+Glanzlichter auf Obsidian und Eisen. Die Leere ist in Anzeigewerten gebaut und wird vor der
+Kodierung zurückgewandelt, sie sieht mit und ohne Nachbearbeitung gleich aus. Helligkeit über
+`SPAWN_PORTAL_LOOK.frameExposure` (Verstärkung der Basisfarbe, 1,15) und `frameGlints`. Kosten
+je Rahmenpixel vier Texturzugriffe; in einer Sigillenzelle dazu das Distanzfeld der einen
+Sigille (6 bis 12 Teile) und drei Noise-Abfragen. Die Texturen belegen mit Mipmaps weiter etwa
+53 MB GPU-Speicher; weiter zwei Draw Calls für alle Portale. `spawn-portal-frame.spec.ts` liest das GLB und prüft
 Maße, freie Öffnung, Flächen nach außen, saubere Tangenten, die vier Texturen, jede Sigille auf
 genau einem Stein und das Volumen. Das Layout (Öffnung, Tiefe, Sigillen samt Pose je Zelle)
 liest das Skript aus `tools/blender/spawn_portal_layout.json`, das
@@ -1753,23 +1762,44 @@ sie stellenweise abgewittert, von Rissen durchlaufen und teils unter Ruß. Ausge
   lesen sie sich als Drehregler, Knopf oder Lautsprechergitter
 - Halbmond und Stern: keine Sichel mit genau einem freistehenden Punkt daneben; die Erosion im
   Asset lässt keinen Teil ganz verschwinden, so schrumpft keine Sigille darauf zusammen
-- Logos und UI-Symbole (Steam, Teilen, Bluetooth, WLAN, Power, Radioaktiv)
+- Logos und UI-Symbole (Steam, Teilen, Bluetooth, WLAN, Power, Radioaktiv), keine Ringe und
+  Punkte beiderseits eines langen flachen Schwungs (Prozentzeichen; "drifting bodies" ist
+  deshalb durch "averted moon" ersetzt)
+- Triskele und Verwandtes (u. a. von rechtsextremen Gruppen genutzt): keine drei- oder
+  vierzählige Drehsymmetrie um irgendein Zentrum, kein Knoten mit drei oder mehr Armen
+  ("chained nodes" ist deshalb durch "tethered seeds" ersetzt: zwei Bögen mit je einem Knoten an
+  beiden Enden, eine abgewandte Sichel, ein kleiner Ring)
 
 Der Spec prüft den Aufbau (nur Bögen, Punkte, Ringe und Sicheln, in der Zelle auch nach der
-Pose, schief gegen Spiegelung und Dritteldrehung, Rand, Sichel und Punkt); was sich nicht
+Pose, schief gegen Spiegelung und Dritteldrehung, Rand, Sichel und Punkt, Arme je Knoten,
+Drehsymmetrie um den Schwerpunkt und um den Mittelpunkt jedes Teils); was sich nicht
 rechnen lässt (Gesichter, Buchstaben, Logos), ist beim Entwurf von Hand am Kontaktbogen
 geprüft. Neue Sigillen
 müssen dieselben Regeln einhalten.
 
-**Leben der Sigillen** (Gate-Shader, `SPAWN_PORTAL_LOOK.glyphs`): meist ruhend, ein schwaches
-dunkelrotes bis violettes Flackern tief in der Rille, jede atmet in eigenem Takt. Ab und zu
-erwacht eine: ein ungleichmäßiges Glimmen kriecht an ihren Strichen entlang (Rauschen über der
-gebackenen Strichfolge), Stücke der Linien fangen Feuer und verlöschen wieder, nie eine
-umlaufende Front; es steigt an (1,2 s), hält (2,4 s) und sinkt zurück (3,2 s), mit
-Hitzeflimmern und Glut darüber. Jede Sigille bekommt Fenster von etwa 16 s und erwacht
-höchstens einmal darin, zwischen den Wellen mit 20 %, in einer Welle mit 55 %; der Schub beim
-Wellenstart lässt alle glimmen. Alles folgt aus Zelle, Phase des Portals und Uhrzeit, ohne
-Zustand auf der CPU.
+**Glühen und Leben der Sigillen** (Gate-Shader, `SPAWN_PORTAL_LOOK.glyphs`): Die Sigillen
+glühen aus ihren Rillen, heißer Kern entlang jedes Strichs, dunkleres Blutrot am Rand, ein
+schwacher Schein auf dem Stein daneben. Der Shader zeichnet sie aus dem Distanzfeld der Sigille
+(`portalGlyphInk`, Pose je Zelle wie im Asset), nicht aus der Textur: nah bleiben sie scharf,
+fern, wo ein Strich schmaler als ein Pixel ist, bleibt die Linie etwa anderthalb Pixel breit
+und die Sigille lesbar. Die Glühmaske (R) dimmt abgewitterte und verrußte Stellen. Zwischen den
+Wellen eine niedrige, gut lesbare Glut (`dormant` 0,38), in der Welle deutlich stärker
+(`active` 1,2, der Kern läuft ins Orange), beim Schub eines Wellenstarts bis `flare` 0,8
+darüber (`portalGlyphDrive`, auf der CPU aus der Energie). Jede Sigille atmet langsam und
+ungleichmäßig in eigenem Takt: zwei Wellen mit Rate und Phase je Zelle (`sigilBreathForCell`,
+Atem zwischen 5 und 11 s, die zweite Welle langsamer), dazu die Phase des Portals; sie dimmt um
+bis zur Hälfte, Nachbarn atmen nie im Gleichtakt. Entlang der Striche glühen Stücke heißer
+oder schwächer und wandern langsam. Ab und zu erwacht eine: ein ungleichmäßiges Glimmen kriecht
+an ihren Strichen entlang (Rauschen über der gebackenen Strichfolge), Stücke der Linien fangen
+Feuer und verlöschen wieder, nie eine umlaufende Front; es steigt an (1,2 s), hält (2,4 s) und
+sinkt zurück (3,2 s), an den Funken bis etwa 2,5-mal heller, mit Hitzeflimmern und Glut
+darüber. Jede Sigille
+bekommt Fenster von etwa 16 s und erwacht höchstens einmal darin, zwischen den Wellen mit 20 %,
+in einer Welle mit 55 %; der Schub beim Wellenstart lässt alle glimmen. Atem und Erwachen
+laufen auf einer eigenen Uhr (`uGlyphTime`): Echtzeit zwischen den Frames, die in der Pause
+steht (`GameStateManager.paused`); die Zeitskala beschleunigt sie nicht. Wirbel, Energie und
+Straßenlicht laufen in Echtzeit weiter, auch in der Pause.
+Alles folgt aus Zelle, Phase des Portals und Zeit, ohne Zustand auf der CPU.
 
 **Beschwörungskreis** (Glow-Shader, `SPAWN_PORTAL_LOOK.circle`): auf der Straße 4,6 m vor der
 vorderen Fläche, Radius 3,9 m: äußerer Doppelring, innerer Ring, dazwischen alle zehn Sigillen
@@ -1777,7 +1807,12 @@ aufrecht nach außen, in der Mitte der "haloed moon", gegenläufig. Dunkel, dreh
 (0,02 rad/s), flammt mit dem Schub eines Wellenstarts auf. Unter Skala 1 bleibt die Tiefe bei 1
 (`portalDepthScale`); der Shader misst die Tiefe darum in Breiteneinheiten, so bleibt der Kreis
 rund. Aus den Distanzfeldern der Sigillen gezeichnet, ohne Geometrie und ohne Draw Call; die
-Linien blenden aus, wo ein Pixel zu viel Straße deckt.
+Linien blenden aus, wo ein Pixel zu viel Straße deckt. Der Kreis ist in Anzeigewerten gebaut
+und wird für sein Ziel kodiert (`linearToOutputTexel`): auf dem Canvas wie gebaut, durch die
+Nachbearbeitung als lineares Licht; über dunkler Straße sieht er mit und ohne Bloom gleich aus.
+Additiv addiert der Canvas in Anzeigewerten, das Nachbearbeitungs-Target linear, über heller
+Straße weichen die Pfade darum etwas ab. Das Straßenlicht im selben Shader schreibt weiter
+unkodiert.
 
 ### Route Animation (Knight Rider Effekt)
 
