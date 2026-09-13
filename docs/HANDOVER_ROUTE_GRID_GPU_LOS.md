@@ -224,7 +224,7 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 | `src/app/services/tower-los-registry.ts` | `TowerLosRegistry`: `buildLosResolveContext` (private), `register`, `recompute`, `onCellsChanged` + `drainLosRefresh` (private: sammeln geänderte Cells pro Tower, Recompute nach dem Sweep) |
 | `src/app/services/tower-placement.service.ts` | Öffentlicher Einstieg: `registerTowerOnGrid`, `recomputeTowerLOS`, `scheduleLosRecompute` delegieren an die Registry; Build-Preview-Viz in `build-preview-los.ts` |
 | `src/app/services/world/global-route-grid.service.ts` | Angular-Wrapper-Service |
-| `src/app/services/facade/visualization-facade.service.ts` | `onTilesLoaded` (`updateTerrainHeights` + `RouteGridConvergence.schedule`, `services/world/route-grid-convergence.ts`), initialisiert `LosDebugService` |
+| `src/app/services/facade/visualization-facade.service.ts` | `onTilesLoaded` (`beginTerrainHeightRefresh` + `RouteGridConvergence.schedule`, `services/world/route-grid-convergence.ts`), initialisiert `LosDebugService` |
 | `src/app/managers/tower.manager.ts` | Selection-Viz-Owner, `refreshSelectionViz`, `applyLosFilter`, `getSelectionViz()` |
 | `src/app/managers/enemy.manager.ts` | Air-Enemy-Flughöhe — Skyline-Block entfernt 2026-05-14 |
 | `src/app/configs/los-viz.config.ts` | Single-Source-of-Truth-Magic-Numbers |
@@ -307,18 +307,28 @@ Tuning-Werkzeug bewusst so gelassen.
 1. tilesRenderer event → engine.onTilesLoadCallback
 2. visualization-facade:onTilesLoaded:
    a. UI updates (streets, buildings, markers)
-   b. globalRouteGrid.updateTerrainHeights()
-      — re-sampelt Cell-Heights gegen die frisch gestreamte Tile-
-      Geometrie. Sammelt promoted (unsampled→sampled) UND refreshed
-      (sampled→strikt-besseres-LOD) Cells und feuert EINMAL den
-      cells-changed-Listener mit beiden Listen.
-   c. pathRoute.refreshRouteLines() — liest die frischen Cell-Heights
+   b. globalRouteGrid.beginTerrainHeightRefresh()
+      — legt den frame-budgetierten Sweep über alle Cells an, er läuft
+      erst in e. Jede Scheibe re-sampelt Cell-Heights gegen die frisch
+      gestreamte Tile-Geometrie und feuert den cells-changed-Listener
+      für die Cells, die sich in ihr geändert haben: promoted
+      (unsampled→sampled) UND refreshed (sampled→strikt-besseres-LOD).
+   c. RouteGridConvergence.scheduleBakedHeightRefresh() — während des
+      Sweeps nur vorgemerkt; Route-Linien, Marker und Route-Animation
+      werden einmal neu gebaut, wenn der Sweep durch ist
    d. gameState.onTilesLoaded()
    e. RouteGridConvergence.schedule()
-      — rAF-getakteter retryUnsampledCells()-Loop; stoppt nach 2
-      Frames ohne Promotion oder bei 120-Frame-Safety-Cap. Jede
+      — rAF-Loop: erst stepTerrainHeightRefresh(5 ms) pro Frame, bis
+      der Sweep durch ist, dann retryUnsampledCells() bis 2 Frames
+      ohne Promotion oder bis zum 120-Frame-Safety-Cap. Jede
       Promotion feuert erneut den cells-changed-Listener.
    f. spatialGrid- + Air-Layer-Viz initialisieren
+
+Der blockierende `updateTerrainHeights()` (derselbe Sweep mit
+unbegrenztem Budget) läuft während der Höhen-Synchronisierung beim
+Laden eines Standorts (`HeightUpdateService`, alle 500 ms hinter dem
+Ladebildschirm) und beim Korridor-Rebuild
+(`CorridorController.rebuildCorridors`).
 ```
 
 Der cells-changed-Listener (`addCellsChangedListener`, behandelt in
