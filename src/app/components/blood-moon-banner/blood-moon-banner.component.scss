@@ -1,0 +1,50 @@
+@use '../../styles/td-mixins' as td;
+
+/* Over the canvas, below the HUD column at the top (game speed, boss bar),
+   never in the way of a click. */
+:host {
+  position: absolute;
+  top: 18%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Glass chip with a red rim like the air alert. Invisible until a blood
+   moon wave starts, see the component. */
+.bmb {
+  @include td.bevel-glass;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 8px 12px;
+  border-radius: 4px;
+  border-color: rgba(184, 62, 50, 0.55);
+  opacity: 0;
+}
+
+.bmb-icon {
+  color: var(--td-health-red);
+}
+
+.bmb-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bmb-title {
+  font: 600 12px/14px var(--td-font-body);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--td-text-primary);
+}
+
+.bmb-wave {
+  font: 10px/12px var(--td-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-muted);
+}

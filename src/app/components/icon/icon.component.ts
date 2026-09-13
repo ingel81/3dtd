@@ -28,7 +28,7 @@ export type TdIconName =
   | 'lock' | 'bookmark' | 'plus' | 'minus' | 'terrain' | 'copyright'
   | 'vibration' | 'fastForward' | 'gamepad' | 'trash' | 'copy' | 'dragHandle'
   | 'externalLink' | 'shuffle' | 'arrowUp' | 'walk' | 'run'
-  | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir' | 'radiation' | 'plane' | 'camera'
+  | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir' | 'radiation' | 'plane' | 'camera' | 'moon'
   // damage types without an icon of their own (DAMAGE_TYPE_ICON)
   | 'sparkle' | 'snowflake' | 'burst'
   // world map
@@ -127,6 +127,8 @@ const ICONS: Record<TdIconName, IconDef> = {
   plane: { body: '<path d="M12 3c.9 0 1.5.9 1.5 2v4.5L21 14v2l-7.5-2.5V18l2 1.5V21L12 20l-3.5 1v-1.5l2-1.5v-4.5L3 16v-2l7.5-4.5V5c0-1.1.6-2 1.5-2Z" />' },
   // Camera body with lens, for photo mode and screenshots.
   camera: { body: '<path d="M3 8h4l2-3h6l2 3h4v11H3V8Z" /><circle cx="12" cy="13" r="3.5" />' },
+  // Crescent moon, blood moon waves (NEXT timeline, banner).
+  moon: { body: '<path d="M19.5 14.5A8 8 0 1 1 9.5 4.5a6.5 6.5 0 0 0 10 10Z" />' },
   // Four-point star, magic damage.
   sparkle: { body: '<path d="M12 3 13.8 10.2 21 12l-7.2 1.8L12 21l-1.8-7.2L3 12l7.2-1.8L12 3Z" />' },
   // Three crossed arms with a chevron at each end of the upright one, ice damage.

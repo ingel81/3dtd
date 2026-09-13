@@ -88,6 +88,7 @@ import { IntroSkipComponent } from './components/intro-skip/intro-skip.component
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.component';
 import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/offscreen-indicators.component';
+import { BloodMoonBannerComponent } from './components/blood-moon-banner/blood-moon-banner.component';
 import { AbilityBarComponent } from './components/ability-bar/ability-bar.component';
 import { RunSummaryComponent } from './components/run-summary/run-summary.component';
 import { WorldRecordComponent } from './components/world-globe/world-record.component';
@@ -136,6 +137,7 @@ import { isLocationDialogFailure } from './components/location-dialog/open-locat
     TokenSetupComponent,
     LeakVignetteComponent,
     OffscreenIndicatorsComponent,
+    BloodMoonBannerComponent,
     AbilityBarComponent,
     RunSummaryComponent,
     BossIntroComponent,
