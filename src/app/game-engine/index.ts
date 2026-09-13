@@ -21,6 +21,7 @@ export { VFXService } from './vfx.service';
 export { AudioService } from './audio.service';
 export { ScreenShakeService } from './screen-shake.service';
 export { BackgroundMusicService } from './background-music.service';
+export { BloodMoonService } from './blood-moon.service';
 
 // Future: GameEngine abstraction
 // export { GameEngine } from './game-engine';

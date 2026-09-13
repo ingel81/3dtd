@@ -26,7 +26,7 @@ import { raycastStats } from '../utils/raycast-stats';
 import { EconomyService } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
 import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus, IGameManager, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, SubscriptionBag } from '../game-engine';
+import { GameEventBus, IGameManager, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, BloodMoonService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/debug/performance-profiler.service';
 import { ResearchManager } from './research.manager';
 import { AbilityManager } from './ability.manager';
@@ -68,6 +68,7 @@ export class GameStateManager {
   private audioService!: AudioService;
   screenShakeService!: ScreenShakeService;
   backgroundMusic!: BackgroundMusicService;
+  private bloodMoonService: BloodMoonService | null = null;
   private readonly researchStore = inject(ResearchStore);
   readonly towerManager = (() => {
     const mgr = new TowerManager(this.eventBus, this.osmService, this.researchStore);
@@ -232,6 +233,7 @@ export class GameStateManager {
     this.audioService?.destroy();
     this.screenShakeService?.destroy();
     this.backgroundMusic?.destroy();
+    this.bloodMoonService?.destroy();
     // Dispose previous command-bus adapter — otherwise its subscriptions on
     // command:* / debug:* events stack on top of the new handler below,
     // causing every command (place-tower, sell-tower, restart-game, …) to
@@ -292,6 +294,9 @@ export class GameStateManager {
 
     // Initialize Background Music service (subscribes to wave/game events)
     this.backgroundMusic = new BackgroundMusicService(this.eventBus, tilesEngine);
+
+    // Blood moon look on every seventh wave from W14 (subscribes to wave/game events)
+    this.bloodMoonService = new BloodMoonService(this.eventBus, tilesEngine.bloodMoon);
 
     // Register event handlers (tracked via SubscriptionBag for cleanup in reset())
     // Leaks cost HP, capped per wave; emits health:changed (HQDamageService)
@@ -646,6 +651,8 @@ export class GameStateManager {
     this.audioService?.destroy();
     this.screenShakeService?.destroy();
     this.backgroundMusic?.destroy();
+    this.bloodMoonService?.destroy();
+    this.bloodMoonService = null;
 
     this.hqDamage.reset();
 
