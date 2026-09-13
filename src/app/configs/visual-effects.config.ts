@@ -386,9 +386,9 @@ export const MUSHROOM_CLOUD_LOOK = {
 
 /**
  * Spawn portals (SpawnPortalManager). Energy is a factor on the glow of the
- * surface, the runes and the light on the street, and on the swirl's speed.
- * Times in seconds of wall time: the portal keeps moving while the game is
- * paused.
+ * surface, the sigils and the light on the street, and on the swirl's
+ * speed. Times in seconds of wall time, the portal keeps moving while the
+ * game is paused; only the sigils' life (glyphs) runs on game time.
  */
 export const SPAWN_PORTAL_LOOK = {
   /**
@@ -407,25 +407,35 @@ export const SPAWN_PORTAL_LOOK = {
   },
   /**
    * The frame's stone (baked textures, spawn-portal-frame.ts): gain on its
-   * base colour under the faked light, dark and threatening against the
-   * tiles but no black silhouette, the relief and the joints readable from
-   * the overview; and the strength of the key light's glints on the glossy
-   * obsidian and the iron. Leave the glow alone.
+   * base colour under the faked light, in linear light, dark and
+   * threatening against the tiles but no black silhouette, the relief, the
+   * joints and the worn edges readable from the overview; and the strength
+   * of the key light's glints on the glossy obsidian and the iron. Leave
+   * the glow alone.
    */
-  frameExposure: 1.4,
+  frameExposure: 1.15,
   frameGlints: 0.35,
   /**
-   * The carved sigils on the frame: mostly dormant, a faint dark red to
-   * violet flicker deep in their grooves, each breathing at its own pace.
-   * Now and then one wakes: an uneven glimmer crawls along its strokes
-   * (crawl, stroke orders per second), bits of the lines catching and
-   * dying, it rises (rise), holds (hold) and sinks back (fade), heat
-   * shimmers over it (UV units) and embers rise off it. Each sigil gets
-   * slots of about wakePeriod seconds (plus or minus 20 %) and wakes at
-   * most once in a slot, with the chance wakeChance, from idle to wave
-   * energy; the surge of a wave start stirs them all. Seconds of wall time.
+   * The carved sigils on the frame, glowing from inside their grooves: a
+   * hot core along each stroke, a darker blood red at its edges. Glow level
+   * `dormant` between waves, a low ember that still reads from the
+   * overview, `active` while a wave runs, up to `flare` more at the peak of
+   * a wave start's surge; `gain` is the core's light at level 1, times the
+   * palette's hot as linear light. Each sigil breathes at its own pace, its
+   * breaths between the two `breath` lengths (s), dimming by up to
+   * breathDepth of its glow. Now and then one wakes: an uneven glimmer
+   * crawls along its strokes (crawl, stroke orders per second), it rises
+   * (rise), holds (hold) and sinks back (fade), up to wakeGain brighter,
+   * heat shimmers over it (shimmer, cell units) and embers rise off it.
+   * Each sigil gets slots of about wakePeriod seconds (plus or minus 20 %)
+   * and wakes at most once in a slot, with the chance wakeChance, from idle
+   * to wave energy; the surge of a wave start stirs them all. Seconds of
+   * game time: the sigils stand still while the game is paused.
    */
-  glyphs: { wakePeriod: 16, wakeChance: [0.2, 0.55], rise: 1.2, hold: 2.4, fade: 3.2, crawl: 1.6, shimmer: 0.0015 },
+  glyphs: {
+    dormant: 0.38, active: 1.2, flare: 0.8, gain: 4.3, breath: [5, 11], breathDepth: 0.5,
+    wakePeriod: 16, wakeChance: [0.2, 0.55], rise: 1.2, hold: 2.4, fade: 3.2, wakeGain: 1.2, crawl: 1.6, shimmer: 0.004,
+  },
   /** Between waves */
   idleEnergy: 0.45,
   /** While a wave runs */

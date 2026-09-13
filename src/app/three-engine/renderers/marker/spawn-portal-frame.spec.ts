@@ -312,7 +312,7 @@ describe('Spawn-Portal-Rahmen (GLB)', () => {
     expect(new Set(maps).size).toBe(4);
     // Verdeckung, Rauheit und Metall in einem Bild
     expect(source(material.pbrMetallicRoughness?.metallicRoughnessTexture)).toBe(source(material.occlusionTexture));
-    // Die Emissive-Karte trägt Daten (Rillen, Strichfolge, Risse): verlustfrei
+    // Die Emissive-Karte trägt Daten (Glühmaske der Sigillen, Strichfolge, Risse): verlustfrei
     expect(json.images![source(material.emissiveTexture)!].mimeType).toBe('image/png');
     expect(GLB.byteLength).toBeLessThan(3 * 1024 * 1024);
   });

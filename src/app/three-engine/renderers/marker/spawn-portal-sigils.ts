@@ -274,6 +274,22 @@ export function sigilPoseForCell(cell: number): { turn: number; scale: number; d
   return { turn: (((cell * 7) % 11) - 5) * 6 * DEG, scale, dx: room * Math.cos(a), dy: room * Math.sin(a) };
 }
 
+/**
+ * How the sigil in frame cell `cell` breathes (the gate shader,
+ * portalGlyphState): two slow waves, each `rate` of the way from the
+ * slowest to the fastest breath of the look (0 to 1) and starting at
+ * `phase` (rad). Irrational steps spread them, so neighbouring cells never
+ * breathe in step; the portal's phase shifts them all once more, so
+ * portals side by side do not either. The same on every run.
+ */
+export function sigilBreathForCell(cell: number): { rate: [number, number]; phase: [number, number] } {
+  const frac = (v: number) => v - Math.floor(v);
+  return {
+    rate: [frac(0.31 + cell * 0.618034), frac(0.77 + cell * 0.414214)],
+    phase: [2 * Math.PI * frac(0.13 + cell * 0.56984), 2 * Math.PI * frac(0.52 + cell * 0.707107)],
+  };
+}
+
 /** A frame cell: its number (sigilForCell), the centre of its square in portal space (m, scale 1), its pose. */
 export interface SigilCell {
   cell: number;
@@ -339,14 +355,35 @@ function sigilBranches(): string {
   }).join(' ');
 }
 
+/** A GLSL constant array of vec4, one row each. */
+function vec4Array(name: string, rows: readonly (readonly number[])[]): string {
+  const items = rows.map((row) => `vec4(${row.map(glslFloat).join(', ')})`).join(',\n    ');
+  return `const vec4 ${name}[${rows.length}] = vec4[${rows.length}](\n    ${items}\n  );`;
+}
+
 /**
- * GLSL of the frame's sigil cells, generated from SIGIL_LAYOUT:
+ * GLSL of the frame's sigil cells, generated from SIGIL_LAYOUT and the
+ * cells' poses and breaths; needs PORTAL_SIGIL_GLSL before it.
  * portalGlyphCell(p, opening, centre) gives the number of the cell whose
  * square holds p (portal space, front or back), numbered as
  * frameSigilCells() does, -1 off the cells, and in `centre` the square's
- * centre. The gate shader keys each carved sigil's life to it.
+ * centre. portalGlyphInk(p, cell, centre, wobble, stroke) gives the
+ * distance (m at scale 1) from p to the ink of the sigil carved there,
+ * turned, sized and moved as the asset carves it (sigilPoseForCell), and in
+ * `stroke` half the width of its strokes (m). GLYPH_BREATH holds each
+ * cell's breath (sigilBreathForCell: rates, phases). The gate shader keys
+ * each carved sigil's glow and life to them.
  */
 export const PORTAL_GLYPH_CELL_GLSL = /* glsl */ `
+  const float GLYPH_SIGILS = ${glslFloat(PORTAL_SIGILS.length)};
+  const float GLYPH_STRIDE = ${glslFloat(SIGIL_STRIDE)};
+  // Per cell: turn (rad), scale, shift (cell units)
+  ${vec4Array('GLYPH_POSE', frameSigilCells().map((c) => [c.turn, c.scale, c.dx, c.dy]))}
+  // Per cell: the rates of its two breaths (0 to 1), their phases (rad)
+  ${vec4Array('GLYPH_BREATH', frameSigilCells().map((c) => {
+    const b = sigilBreathForCell(c.cell);
+    return [...b.rate, ...b.phase];
+  }))}
   const float GLYPH_SIZE = ${glslFloat(SIGIL_LAYOUT.size)};
   const float GLYPH_PILLAR_INSET = ${glslFloat(SIGIL_LAYOUT.pillarInset)};
   const float GLYPH_PILLAR_BOTTOM = ${glslFloat(SIGIL_LAYOUT.pillarBottom)};
@@ -373,6 +410,17 @@ export const PORTAL_GLYPH_CELL_GLSL = /* glsl */ `
       return GLYPH_PILLAR_ROWS + column;
     }
     return -1.0;
+  }
+
+  float portalGlyphInk(vec2 p, float cell, vec2 centre, vec2 wobble, out float stroke) {
+    vec4 pose = GLYPH_POSE[int(cell)];
+    vec2 local = (p - centre) / GLYPH_SIZE - pose.zw + wobble;
+    float c = cos(pose.x);
+    float s = sin(pose.x);
+    vec2 q = vec2(c * local.x + s * local.y, c * local.y - s * local.x) / pose.y;
+    float metres = pose.y * GLYPH_SIZE;
+    stroke = SIGIL_STROKE * metres;
+    return portalSigil(q, mod(cell * GLYPH_STRIDE, GLYPH_SIGILS)) * metres;
   }
 `;
 

@@ -25,9 +25,10 @@ export interface SpawnPortalFrame {
   /** R ambient occlusion, G roughness, B metal */
   orm: Texture;
   /**
-   * Data, not a colour: R the bottom of the sigils' carved grooves, where
-   * they glow, G the order their strokes run in (0 to 1 over a sigil), B
-   * glowing cracks round the opening
+   * Data, not a colour: R how much of each carved sigil is left to glow, a
+   * smooth mask over its cell (the gate shader draws the glow from the
+   * sigil's distance field), G the order its strokes run in (0 to 1 over a
+   * sigil), B glowing cracks round the opening
    */
   emissive: Texture;
 }

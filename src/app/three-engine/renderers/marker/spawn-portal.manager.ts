@@ -8,7 +8,12 @@ import {
   Color,
   Group,
 } from 'three';
-import { createPortalGateMaterial, createPortalGlowMaterial, setPortalGateTextures } from './marker-shaders';
+import {
+  createPortalGateMaterial,
+  createPortalGlowMaterial,
+  portalGlyphDrive,
+  setPortalGateTextures,
+} from './marker-shaders';
 import {
   createPortalGateGeometry,
   createPortalGlowGeometry,
@@ -51,7 +56,9 @@ interface PortalEntry {
  * When enemies step through, a ripple runs over the surface and the
  * street, at most once per burst interval per portal (tryBurst).
  * Runs on wall time like the HQ marker, so the portal keeps swirling while
- * the game is paused. All glow is emissive: the Photorealistic Tiles take
+ * the game is paused; only the carved sigils' breathing and waking follow
+ * game time and stand with it. The energy sets how strongly they glow
+ * (portalGlyphDrive). All glow is emissive: the Photorealistic Tiles take
  * no scene light.
  */
 export class SpawnPortalManager {
@@ -91,7 +98,7 @@ export class SpawnPortalManager {
     const gateGeom = createPortalGateGeometry(null);
     this.shareInstanceAttributes(gateGeom);
     this.gateMat = createPortalGateMaterial(
-      PORTAL_SHADER_LAYOUT, look.palette, look.frameExposure, look.frameGlints, look.glyphs, look, look.rippleLife,
+      PORTAL_SHADER_LAYOUT, look.palette, look.frameExposure, look.frameGlints, look.glyphs, look.idleEnergy, look.rippleLife,
     );
     this.gateMesh = new InstancedMesh(gateGeom, this.gateMat, MAX_PORTALS);
     this.gateMesh.count = 0;
@@ -253,8 +260,12 @@ export class SpawnPortalManager {
     return this.energy;
   }
 
-  /** Per-frame update of the energy and the shader clock (wall time, ms). */
-  update(nowMs: number): void {
+  /**
+   * Per-frame update of the energy and the shader clocks: wall time (ms)
+   * for the energy, the void and the street, game time (ms) for the
+   * sigils' life, which stands while the game is paused.
+   */
+  update(nowMs: number, gameTimeMs: number): void {
     const look = SPAWN_PORTAL_LOOK;
     // A hitch or a hidden tab must not jump the settling
     const dt = this.lastUpdateMs === null ? 0 : Math.min(Math.max(nowMs - this.lastUpdateMs, 0), 250) / 1000;
@@ -268,7 +279,10 @@ export class SpawnPortalManager {
     if (this.portals.size === 0) return;
     const time = nowMs / 1000;
     this.gateMat.uniforms['uTime'].value = time;
+    this.gateMat.uniforms['uGlyphTime'].value = gameTimeMs / 1000;
     this.gateMat.uniforms['uEnergy'].value = this.energy;
+    const drive = portalGlyphDrive(this.energy, look, look.glyphs);
+    (this.gateMat.uniforms['uGlyphDrive'].value as Vector3).set(drive.level, drive.wakeChance, drive.surge);
     this.glowMat.uniforms['uTime'].value = time;
     this.glowMat.uniforms['uEnergy'].value = this.energy;
   }
