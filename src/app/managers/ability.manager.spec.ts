@@ -6,7 +6,7 @@ import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GamePhase, GeoPosition } from '../models/game.types';
 
-/** GameStateManager.FIXED_STEP_MS: the length of one gameplay sub-step. */
+/** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
 const NUKE = ABILITIES['nuclear-strike'];
 const TARGET: GeoPosition = { lat: 48.1, lon: 9.1, height: 0 };
