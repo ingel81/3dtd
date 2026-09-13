@@ -29,6 +29,12 @@ const createMockTilesEngine = () => ({
     resolveSlot: vi.fn((_id: string): unknown => null),
     updateSlot: vi.fn(),
   },
+  oozes: {
+    add: vi.fn(),
+    setFrame: vi.fn(),
+    remove: vi.fn(),
+    clear: vi.fn(),
+  },
   spatialAudio: null,
   sync: {
     getOrigin: vi.fn(() => ({ height: 0 })),

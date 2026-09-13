@@ -44,6 +44,7 @@ import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.rende
 import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer';
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
+import { OozeBandRenderer } from './renderers/ooze/ooze-band.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -143,6 +144,8 @@ export class ThreeTilesEngine {
   readonly lightningBolts: LightningBoltRenderer;
   readonly abilityMarkers: AbilityMarkerRenderer;
   readonly mushroomClouds: MushroomCloudRenderer;
+  /** Bodies of the oozes along the route, see OozeBodies */
+  readonly oozes: OozeBandRenderer;
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -321,6 +324,7 @@ export class ThreeTilesEngine {
     this.lightningBolts = new LightningBoltRenderer(this.scene);
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
     this.mushroomClouds = new MushroomCloudRenderer(this.scene, this.effects.particleShaderMaterials);
+    this.oozes = new OozeBandRenderer(this.scene);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -966,6 +970,9 @@ export class ThreeTilesEngine {
     // Their flash kicks the bloom, where bloom is on
     this.postProcessing?.setBloomKick(this.mushroomClouds.bloomKick, MUSHROOM_CLOUD_LOOK.bloomKick);
 
+    // The oozes' slime wobbles and sinks away in game time
+    this.oozes.animate(gameDeltaSeconds * 1000);
+
     // Screen shake is applied in render() (drawFrame), not to the camera
   }
 
@@ -1194,6 +1201,7 @@ export class ThreeTilesEngine {
     this.lightningBolts.dispose();
     this.abilityMarkers.dispose();
     this.mushroomClouds.dispose();
+    this.oozes.dispose();
 
     // Dispose spatial audio
     this.spatialAudio.dispose();

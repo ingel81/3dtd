@@ -160,6 +160,12 @@ export function createMockTilesEngine() {
       setFreezeVisual: vi.fn(),
       setRenderType: vi.fn(),
     },
+    oozes: {
+      add: vi.fn(),
+      setFrame: vi.fn(),
+      remove: vi.fn(),
+      clear: vi.fn(),
+    },
     projectiles: {
       create: vi.fn(),
       update: vi.fn(),

@@ -260,6 +260,40 @@ export const EXPLOSION_LOOK = {
 } as const;
 
 /**
+ * The ooze's body (OozeBandRenderer): a band of toxic green translucent
+ * slime along the route, as wide as the covered corridor, with bubbles
+ * rising in it and bone remnants drifting inside, glossy at the edges. It
+ * thins with the ooze's HP. Colours are linear; the shader encodes its
+ * output for the canvas. Times are game seconds.
+ */
+export const OOZE_LOOK = {
+  /** Height of the crest at full HP (m) */
+  height: 1.5,
+  /** Share of the width and the height left at 0 HP */
+  minWidth: 0.6,
+  minHeight: 0.55,
+  /** Length over which tip and tail round off (m) */
+  capLength: 4,
+  /** Vertices across the band */
+  across: 9,
+  /** Seconds between two ground refreshes of the body's stretch (route cells refine as tiles stream) */
+  groundRefresh: 1,
+  /** Seconds the band takes to sink away once the ooze is gone */
+  dissolve: 0.6,
+  /** Deep and bright slime, bone remnants, the glow of bubbles and rim */
+  deep: [0.015, 0.12, 0.008] as const,
+  bright: [0.22, 0.8, 0.04] as const,
+  bone: [0.55, 0.5, 0.38] as const,
+  glow: [0.4, 1.0, 0.25] as const,
+  /** Status tints: colour mixed in and how much (slow, poison); burn glows on top */
+  slowTint: [0.35, 0.75, 1.0] as const,
+  slowAmount: 0.4,
+  poisonTint: [0.18, 0.02, 0.22] as const,
+  poisonAmount: 0.3,
+  burnGlow: [1.0, 0.45, 0.08] as const,
+};
+
+/**
  * Mushroom cloud of the nuclear strike (MushroomCloudRenderer). Times are
  * game seconds after the impact, so a pause freezes the cloud and the
  * timescale runs it faster; lengths are metres at `referenceRadius` and
