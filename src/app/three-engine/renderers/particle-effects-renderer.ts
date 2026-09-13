@@ -1,21 +1,18 @@
-import { Vector3, Color, Scene, PlaneGeometry } from 'three';
+import { Vector3, Color, Scene } from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
 import {
-  BLOOD_DECAL_CONFIG,
   BURST_PALETTES,
   type BurstPalette,
   EXPLOSION_LOOK,
   FIRE_INTENSITY,
   type FireIntensityLevel,
-  ICE_DECAL_CONFIG,
   type MuzzleFlashProfile,
 } from '../../configs/visual-effects.config';
 import type { ScorchSource } from '../../configs/visual-effects.config';
 import type { VfxSettings } from '../vfx-settings';
-import { DecalInstanceManager } from './decal-instance.manager';
-import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
-import { ScorchMarks, type ScorchGround } from './scorch-marks';
+import type { ScorchGround } from './scorch-marks';
+import { GroundDecals } from './ground-decals';
 import { ParticlePoolManager, type Particle } from './particle-pool-manager';
 import {
   emitColorBurst,
@@ -63,7 +60,7 @@ const BLOOD_GRAVITY = -19.6;
  * ParticleEffectsRenderer — combat & environment particle effects plus the
  * central activeEffects lifecycle map.
  *
- * Split out of three-effects.renderer.ts. Owns the blood/ice decal managers
+ * Split out of three-effects.renderer.ts. Owns the ground marks (GroundDecals)
  * and borrows GPU particles from the ParticlePoolManager (trail additive /
  * normal pools). Handles blood splatter, fire, muzzle flashes, configurable
  * trails, explosions, ice/arcane bursts, and the persistent-fire respawn logic.
@@ -73,19 +70,8 @@ export class ParticleEffectsRenderer {
   private activeEffects = new Map<string, EffectInstance>();
   private effectIdCounter = 0;
 
-  // Instanced decal managers (GPU instancing for performance)
-  private bloodDecalManager: DecalInstanceManager | null = null;
-  private iceDecalManager: DecalInstanceManager | null = null;
-  private readonly MAX_BLOOD_DECALS = BLOOD_DECAL_CONFIG.maxDecals;
-  private readonly DECAL_FADE_DELAY = BLOOD_DECAL_CONFIG.fadeDelay;
-  private readonly DECAL_FADE_DURATION = BLOOD_DECAL_CONFIG.fadeDuration;
-  private readonly MAX_ICE_DECALS = ICE_DECAL_CONFIG.maxDecals;
-  private readonly ICE_DECAL_FADE_DELAY = ICE_DECAL_CONFIG.fadeDelay;
-  private readonly ICE_DECAL_FADE_DURATION = ICE_DECAL_CONFIG.fadeDuration;
-  private decalIdCounter = 0;
-
-  // Scorch marks on the route grid (combat heatmap layer 1)
-  private scorchMarks: ScorchMarks | null = null;
+  // Blood, ice and scorch marks on the ground (GPU instancing for performance)
+  private readonly decals: GroundDecals;
 
   // Effects the VFX settings switched off are not spawned (setVfxSettings)
   private muzzleFlashes = true;
@@ -104,40 +90,7 @@ export class ParticleEffectsRenderer {
     private readonly sync: CoordinateSync,
     private readonly pools: ParticlePoolManager,
   ) {
-    // Initialize instanced decal managers with custom shaders
-    this.initDecalManagers();
-  }
-
-  /**
-   * Initialize instanced decal managers with custom shaders
-   * Replaces old per-decal mesh system with GPU instancing (2 draw calls instead of 250!)
-   */
-  private initDecalManagers(): void {
-    // Create shared plane geometry for all decals (rotated to lay flat)
-    const decalGeometry = new PlaneGeometry(2, 2);
-    decalGeometry.rotateX(-Math.PI / 2); // Rotate to lie flat on ground (XZ plane)
-
-    // Create blood decal manager with custom shader
-    const bloodShader = createBloodDecalShader();
-    this.bloodDecalManager = new DecalInstanceManager(
-      decalGeometry.clone(),
-      bloodShader,
-      this.MAX_BLOOD_DECALS
-    );
-    this.scene.add(this.bloodDecalManager.instancedMesh);
-
-    // Create ice decal manager with custom shader
-    const iceShader = createIceDecalShader();
-    this.iceDecalManager = new DecalInstanceManager(
-      decalGeometry.clone(),
-      iceShader,
-      this.MAX_ICE_DECALS
-    );
-    this.scene.add(this.iceDecalManager.instancedMesh);
-
-    // Scorch marks, at most one per route cell (SCORCH_DECAL_CONFIG)
-    this.scorchMarks = new ScorchMarks(decalGeometry.clone());
-    this.scene.add(this.scorchMarks.decals.instancedMesh);
+    this.decals = new GroundDecals(scene);
   }
 
   /**
@@ -205,50 +158,7 @@ export class ParticleEffectsRenderer {
    */
   spawnBloodDecal(lat: number, lon: number, height: number, size = 2.0): string {
     if (!this.groundMarks) return '';
-    if (!this.bloodDecalManager) {
-      console.warn('[ThreeEffectsRenderer] Blood decal manager not initialized');
-      return '';
-    }
-
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    localPos.y += BLOOD_DECAL_CONFIG.heightOffset;
-
-    const id = `blood_decal_${this.decalIdCounter++}`;
-    const now = performance.now();
-
-    // Random rotation for variety
-    const rotation = Math.random() * Math.PI * 2;
-
-    // Round, `size` across with some randomness
-    const radius = (size * (0.8 + Math.random() * 0.4)) / 2;
-
-    // Randomize color slightly (dark red variations) - from config
-    const colorVariation = Math.random() * BLOOD_DECAL_CONFIG.colorVariation;
-    const color = new Color(
-      BLOOD_DECAL_CONFIG.baseColor.r + colorVariation,
-      BLOOD_DECAL_CONFIG.baseColor.g,
-      BLOOD_DECAL_CONFIG.baseColor.b
-    );
-
-    // If pool is full, remove oldest decal
-    if (this.bloodDecalManager.count >= this.MAX_BLOOD_DECALS) {
-      this.bloodDecalManager.removeOldest();
-    }
-
-    // Add new decal instance
-    this.bloodDecalManager.add(
-      id,
-      localPos,
-      radius,
-      rotation,
-      color,
-      BLOOD_DECAL_CONFIG.baseOpacity,
-      now,
-      this.DECAL_FADE_DELAY,
-      this.DECAL_FADE_DURATION
-    );
-
-    return id;
+    return this.decals.layBlood(this.sync.geoToLocal(lat, lon, height), size);
   }
 
   /**
@@ -760,55 +670,12 @@ export class ParticleEffectsRenderer {
    */
   spawnIceDecal(lat: number, lon: number, height: number, size = 2.8): string {
     if (!this.groundMarks) return '';
-    if (!this.iceDecalManager) {
-      console.warn('[ThreeEffectsRenderer] Ice decal manager not initialized');
-      return '';
-    }
-
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    localPos.y += ICE_DECAL_CONFIG.heightOffset;
-
-    const id = `ice_decal_${this.decalIdCounter++}`;
-    const now = performance.now();
-
-    // Random rotation for variety
-    const rotation = Math.random() * Math.PI * 2;
-
-    // Round, `size` across with some randomness
-    const radius = (size * (0.8 + Math.random() * 0.4)) / 2;
-
-    // Randomize color slightly (very light cyan/white variations) - from config
-    const colorVariation = Math.random() * ICE_DECAL_CONFIG.colorVariation;
-    const color = new Color(
-      ICE_DECAL_CONFIG.baseColor.r + colorVariation,
-      ICE_DECAL_CONFIG.baseColor.g + colorVariation * 0.5,
-      ICE_DECAL_CONFIG.baseColor.b
-    );
-
-    // If pool is full, remove oldest decal
-    if (this.iceDecalManager.count >= this.MAX_ICE_DECALS) {
-      this.iceDecalManager.removeOldest();
-    }
-
-    // Add new decal instance
-    this.iceDecalManager.add(
-      id,
-      localPos,
-      radius,
-      rotation,
-      color,
-      ICE_DECAL_CONFIG.baseOpacity,
-      now,
-      this.ICE_DECAL_FADE_DELAY,
-      this.ICE_DECAL_FADE_DURATION
-    );
-
-    return id;
+    return this.decals.layIce(this.sync.geoToLocal(lat, lon, height), size);
   }
 
   /** Route grid the scorch marks sit on; null (the default) leaves none. */
   setScorchGround(ground: ScorchGround | null): void {
-    this.scorchMarks?.setGround(ground);
+    this.decals.setScorchGround(ground);
   }
 
   /**
@@ -818,7 +685,7 @@ export class ParticleEffectsRenderer {
    */
   markScorch(localX: number, localY: number, localZ: number, source: ScorchSource): void {
     if (!this.groundMarks) return;
-    this.scorchMarks?.mark(localX, localY, localZ, source, performance.now());
+    this.decals.markScorch(localX, localY, localZ, source, performance.now());
   }
 
   /**
@@ -832,9 +699,7 @@ export class ParticleEffectsRenderer {
     this.trailParticles = settings.projectileTrails;
     this.impacts = settings.impactEffects;
     if (this.groundMarks && !settings.groundMarks) {
-      this.bloodDecalManager?.clear();
-      this.iceDecalManager?.clear();
-      this.scorchMarks?.clear();
+      this.decals.clear();
     }
     this.groundMarks = settings.groundMarks;
   }
@@ -922,9 +787,7 @@ export class ParticleEffectsRenderer {
     }
 
     // Fade out blood, ice and scorch decals (idle until the first fade is due)
-    this.bloodDecalManager?.updateFades(now);
-    this.iceDecalManager?.updateFades(now);
-    this.scorchMarks?.updateFades(now);
+    this.decals.updateFades(now);
   }
 
   /** Light a burnt-out particle of a burning fire again, somewhere in its radius. */
@@ -970,13 +833,7 @@ export class ParticleEffectsRenderer {
     this.activeEffects.clear();
 
     // Clear instanced decals
-    if (this.bloodDecalManager) {
-      this.bloodDecalManager.clear();
-    }
-    if (this.iceDecalManager) {
-      this.iceDecalManager.clear();
-    }
-    this.scorchMarks?.clear();
+    this.decals.clear();
   }
 
   /**
@@ -984,17 +841,6 @@ export class ParticleEffectsRenderer {
    */
   dispose(): void {
     // Dispose instanced decal managers
-    if (this.bloodDecalManager) {
-      this.scene.remove(this.bloodDecalManager.instancedMesh);
-      this.bloodDecalManager.dispose();
-    }
-    if (this.iceDecalManager) {
-      this.scene.remove(this.iceDecalManager.instancedMesh);
-      this.iceDecalManager.dispose();
-    }
-    if (this.scorchMarks) {
-      this.scene.remove(this.scorchMarks.decals.instancedMesh);
-      this.scorchMarks.dispose();
-    }
+    this.decals.dispose();
   }
 }

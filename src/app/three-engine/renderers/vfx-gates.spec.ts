@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Scene, Texture, Vector3 } from 'three';
-import type { DecalInstanceManager } from './decal-instance.manager';
+import type { GroundDecals } from './ground-decals';
 import { BURST_PALETTES, MUZZLE_FLASH_PROFILES } from '../../configs/visual-effects.config';
 import type { TrailParticleConfig } from '../../configs/projectile-types.config';
 import { DEFAULT_VFX_SETTINGS, type VfxSettings } from '../vfx-settings';
@@ -50,12 +50,8 @@ function setup(off: Partial<VfxSettings> = {}) {
   const effects = new ParticleEffectsRenderer(new Scene(), sync, pools);
   effects.setScorchGround(FLAT_ROUTE);
   effects.setVfxSettings({ ...DEFAULT_VFX_SETTINGS, ...off });
-  const { bloodDecalManager, iceDecalManager, scorchMarks } = effects as unknown as {
-    bloodDecalManager: DecalInstanceManager;
-    iceDecalManager: DecalInstanceManager;
-    scorchMarks: { decals: DecalInstanceManager };
-  };
-  const decalPools = [bloodDecalManager, iceDecalManager, scorchMarks.decals];
+  const { blood, ice, scorch } = (effects as unknown as { decals: GroundDecals }).decals;
+  const decalPools = [blood, ice, scorch.decals];
   const decals = () => decalPools.reduce((n, pool) => n + pool.count, 0);
   return { pools, effects, decals, decalPools };
 }

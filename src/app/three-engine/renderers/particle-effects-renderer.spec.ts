@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { Color, Matrix4, Points, Scene, Texture, Vector3 } from 'three';
-import type { DecalInstanceManager } from './decal-instance.manager';
+import type { GroundDecals } from './ground-decals';
 import { EXPLOSION_LOOK } from '../../configs/visual-effects.config';
 import { ParticlePoolManager, atlasSpriteFrame, atlasSpriteSize, type Particle } from './particle-pool-manager';
 import { ParticleEffectsRenderer } from './particle-effects-renderer';
@@ -134,16 +134,13 @@ describe('ParticleEffectsRenderer decals', () => {
     const pools = new ParticlePoolManager(new Scene());
     const sync = { geoToLocal: () => new Vector3() } as unknown as CoordinateSync;
     const effects = new ParticleEffectsRenderer(new Scene(), sync, pools);
-    const { bloodDecalManager, iceDecalManager } = effects as unknown as {
-      bloodDecalManager: DecalInstanceManager;
-      iceDecalManager: DecalInstanceManager;
-    };
+    const { blood, ice } = (effects as unknown as { decals: GroundDecals }).decals;
     effects.spawnBloodDecal(0, 0, 0, 2.8);
     effects.spawnIceDecal(0, 0, 0, 3.7);
 
     const matrix = new Matrix4();
     const scale = new Vector3();
-    for (const [decals, diameter] of [[bloodDecalManager, 2.8], [iceDecalManager, 3.7]] as const) {
+    for (const [decals, diameter] of [[blood, 2.8], [ice, 3.7]] as const) {
       decals.instancedMesh.getMatrixAt(0, matrix);
       scale.setFromMatrixScale(matrix);
       expect(scale.x).toBeCloseTo(diameter / 2); // the quad spans ±1 before scaling
