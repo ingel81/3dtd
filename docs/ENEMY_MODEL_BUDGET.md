@@ -455,8 +455,10 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 | Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 | Chitin Worm Segment (`worm-segment`) | in keiner Welle | 0 | 634 | 556 | 0,0 | statisch | 1 | 634×1 | RGBA16F | 0,88 | 0,0 | 512² |
+| Ooze (`ooze`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 24 | 282×24 | RGBA16F | 0,50 | 0,1 | – |
+| Slime Clump (`slime-clump`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
 
-VAT-Speicher aller Typen zusammen: **88,1 MB** (30 fps), alles in RGBA32F wären **154,7 MB**.
+VAT-Speicher aller Typen zusammen: **88,2 MB** (30 fps), alles in RGBA32F wären **154,9 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **8,6 MB** dazu.
 
 ### Alpha
@@ -474,7 +476,7 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 | Hornet | Blend | 0 |
 | Bear | Blend | 33.852 (3,2 %) |
 
-Opak ohne Texel unter 0,05 (18): Herbert, Stone Golem, Wraith, Mammoth, Mech, Zombie v2, Tank, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Chitin Worm, Zombie, Skeleton, Skeleton Minion, Rat, Chitin Worm Segment.
+Opak ohne Texel unter 0,05 (20): Herbert, Stone Golem, Wraith, Mammoth, Mech, Zombie v2, Tank, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Chitin Worm, Zombie, Skeleton, Skeleton Minion, Rat, Chitin Worm Segment, Ooze, Slime Clump.
 Texel unter 0,05, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis 0,05): **keine**.
 
 ### Modellinhalt
@@ -507,6 +509,8 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Skeleton Minion | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
 | Rat | `rat.glb` | 0,2 | 1 (1) | 21 | 0 | 1 | 512² | 1 | 999 / 999 / 767 |
 | Chitin Worm Segment | `worm_segment.glb` | 0,0 | 1 (0) | 0 | 0 | 1 | 512² | 0 | 634 / 580 / 296 |
+| Ooze | `slime.glb` | 0,0 | 2 (0) | 0 | 0 | 2 | – | 2 | 282 / 282 / 282 |
+| Slime Clump | `slime.glb` | 0,0 | 2 (0) | 0 | 0 | 2 | – | 2 | 282 / 282 / 282 |
 
 ### Gebackene Clips
 
@@ -547,6 +551,9 @@ die weggelassenen Frames.
 | Skeleton Minion | `sprint` | walk | 0,50 | 15 | – |
 | Skeleton Minion | `die` | death | 0,33 | 11 | – |
 | Rat | `Run` | walk | 0,34 | 11 | – |
+| Ooze | `Wobble` | walk | 0,80 | 24 | – |
+| Slime Clump | `Wobble` | walk | 0,80 | 24 | – |
+| Slime Clump | `Splat` | death | 0,45 | 14 | – |
 
 ### Vorkommen in Wellen
 
@@ -589,10 +596,12 @@ mit allem, was ein Kill abspaltet.
 | Hornet | W8, W12, W16, W24, W26, W29 | 80 |
 | Mammoth | W14, W18, W25 | 12 |
 | Mech | W28 | 20 |
+| Ooze | – | 0 |
 | Penguin | W3 | 25 |
 | Rat | W2, W3, W18 | 60 |
 | Skeleton | W19 | 310 |
 | Skeleton Minion | W19 | 620 |
+| Slime Clump | – | 0 |
 | Spider | W4, W6 | 35 |
 | Stone Golem | W15 | 6 |
 | Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 25 |
