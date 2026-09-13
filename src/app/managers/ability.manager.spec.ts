@@ -242,21 +242,30 @@ describe('AbilityManager', () => {
       expect(ofType('ability:used')).toEqual([]);
     });
 
-    it('reports hits and kills when the strike lands', () => {
+    it('announces the impact, then the hits and kills, in the sub-step it lands', () => {
       unlock();
       inRadius = [enemyOf('a', 'zombie'), enemyOf('b', 'zombie'), enemyOf('c', 'herbert')];
       strikeKills = 2;
       manager.use('nuclear-strike', TARGET);
-      tick(90);
+      tick(89);
+      expect(ofType('ability:impact')).toEqual([]);
+      tick(1);
       expect(ofType('ability:impact')).toEqual([{
         type: 'ability:impact',
         abilityId: 'nuclear-strike',
         strikeId: 1,
         target: { ...TARGET, height: 5 },
         radiusM: 25,
+      }]);
+      expect(ofType('ability:resolved')).toEqual([{
+        type: 'ability:resolved',
+        abilityId: 'nuclear-strike',
+        strikeId: 1,
         hits: 3,
         kills: 2,
       }]);
+      const order = events.map((e) => e.type).filter((t) => t === 'ability:impact' || t === 'ability:resolved');
+      expect(order).toEqual(['ability:impact', 'ability:resolved']);
     });
 
     it('sends a snapshot after unlock, use, impact and every wave toward a charge', () => {

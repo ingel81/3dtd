@@ -19,7 +19,7 @@ import type { WaveResult } from './models/wave-result';
 
 /**
  * The collector's share of the ability booking: kills reported by
- * `ability:impact` land in the wave's outcome, where the fairness gate
+ * `ability:resolved` land in the wave's outcome, where the fairness gate
  * books them as leaks (gateLeakRatio, gate-wiring.spec.ts).
  */
 describe('AIDataCollectorService ability kills', () => {
@@ -28,11 +28,9 @@ describe('AIDataCollectorService ability kills', () => {
 
   const impact = (kills: number) =>
     bus.emit({
-      type: 'ability:impact',
+      type: 'ability:resolved',
       abilityId: 'nuclear-strike',
       strikeId: 1,
-      target: { lat: 48, lon: 9 },
-      radiusM: 25,
       hits: kills + 1,
       kills,
     });

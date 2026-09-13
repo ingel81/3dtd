@@ -109,7 +109,7 @@ interface Outcome {
   hpShare: number[];
   alive: boolean[];
   kills: number;
-  /** Sum of `kills` over the ability:impact events */
+  /** Sum of `kills` over the ability:resolved events */
   abilityKills: number;
   /** HP share of every living skeleton-minion */
   minions: number[];
@@ -165,7 +165,7 @@ function run(timescale: number, pauseFrames = 0, roster = ROSTER): Outcome {
   let kills = 0;
   bus.on('enemy:died', () => kills++);
   let abilityKills = 0;
-  bus.on('ability:impact', (event) => (abilityKills += event.kills));
+  bus.on('ability:resolved', (event) => (abilityKills += event.kills));
 
   gsm.beginWave();
   const enemies = roster.map(({ type, speed, preDamage }) => {

@@ -219,7 +219,7 @@ describe('VFXService nuclear strike', () => {
       type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 3, target: TARGET, radiusM: 25, warningMs: 1500,
     });
     const impact = () => eventBus.emit({
-      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 3, target: TARGET, radiusM: 25, hits: 0, kills: 0,
+      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 3, target: TARGET, radiusM: 25,
     });
     return { eventBus, tilesEngine, service, used, impact };
   }
@@ -263,7 +263,7 @@ describe('VFXService nuclear strike', () => {
     // Stands for an ability added later; the typed table would not compile without its entry
     const abilityId = 'later-ability' as never;
     eventBus.emit({ type: 'ability:used', abilityId, strikeId: 4, target: TARGET, radiusM: 25, warningMs: 1500 });
-    eventBus.emit({ type: 'ability:impact', abilityId, strikeId: 4, target: TARGET, radiusM: 25, hits: 0, kills: 0 });
+    eventBus.emit({ type: 'ability:impact', abilityId, strikeId: 4, target: TARGET, radiusM: 25 });
     expect(tilesEngine.abilityMarkers.showStrike).not.toHaveBeenCalled();
     expect(tilesEngine.abilityMarkers.removeStrike).not.toHaveBeenCalled();
     expect(tilesEngine.mushroomClouds.detonate).not.toHaveBeenCalled();

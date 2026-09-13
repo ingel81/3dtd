@@ -84,7 +84,7 @@ describe('ScreenShakeService', () => {
     const { strikeNearDistance, strikeFarDistance } = SCREEN_SHAKE_CONFIG;
     const strike = (distance: number) => eventBus.emit({
       type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1,
-      target: { lat: distance, lon: 0 }, radiusM: 25, hits: 10, kills: 4,
+      target: { lat: distance, lon: 0 }, radiusM: 25,
     });
     strike(farDistance * 3);
     strike((strikeNearDistance + strikeFarDistance) / 2);
@@ -113,7 +113,7 @@ describe('ScreenShakeService', () => {
     // Stands for an ability added later; the typed table would not compile without its entry
     eventBus.emit({
       type: 'ability:impact', abilityId: 'later-ability' as never, strikeId: 1,
-      target: { lat: 0, lon: 0 }, radiusM: 25, hits: 10, kills: 4,
+      target: { lat: 0, lon: 0 }, radiusM: 25,
     });
     expect(engine.triggerScreenShake).not.toHaveBeenCalled();
     service.destroy();

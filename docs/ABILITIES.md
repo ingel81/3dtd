@@ -58,13 +58,15 @@ GameStateManager.runSubStep
        CombatEffectService.applyAbilityStrike
        DamageApplicationService.applyMaxHpFraction           matrixfrei, kein Tower-Kill
                                    │
-                    ability:impact { hits, kills } + ability:state-changed
+       ability:impact { target, radiusM }, ability:resolved { hits, kills }
+                                  + ability:state-changed
 ```
 
 | Event | Abnehmer |
 |---|---|
 | `ability:used` | VFXService (Zielmarker), je `abilityId` |
-| `ability:impact` | VFXService (Atompilz, Brandflecken), AudioService, ScreenShakeService, je `abilityId`; AIDataCollectorService (`abilityKills`, alle Fähigkeiten) |
+| `ability:impact` | VFXService (Atompilz, Brandflecken), AudioService, ScreenShakeService, je `abilityId` |
+| `ability:resolved` | AIDataCollectorService (`abilityKills`, alle Fähigkeiten). Beim Nuklearschlag im selben Sub-Step direkt nach `ability:impact` |
 | `ability:rejected` | niemand fest; die UI prüft vor dem Klick selbst |
 | `ability:state-changed` | GameStateSyncService → `GameStore.abilities` |
 
@@ -101,7 +103,7 @@ Entscheidung 6.1 b: Kills durch Fähigkeiten zählen für den Leck-Regler als
 Leck. Der Einsatz rettet HP und Gold in seiner Welle, macht aber die Wellen
 danach nicht größer.
 
-- `AIDataCollectorService` addiert die `kills` jedes `ability:impact` einer
+- `AIDataCollectorService` addiert die `kills` jedes `ability:resolved` einer
   Welle in `WaveOutcome.abilityKills`.
 - `gateLeakRatio(progress, abilityKills)` (`ai/core/gate-controller.ts`) zählt
   sie zu den Ankünften. Ein getroffener Gegner hat als Fortschritt die Stelle,
