@@ -10,6 +10,7 @@ import { DEFAULT_VFX_SETTINGS, matchingVfxPreset } from '../../three-engine/vfx-
 import { LEGACY_FPS_LIMIT_KEY, STORAGE_KEY } from '../../utils/display-options.storage';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import type { GameStateManager } from '../../managers/game-state.manager';
+import { ABILITY_IDS } from '../../configs/abilities.config';
 
 function createFacade(uiStore: object = {}): DebugFacadeService {
   const injector = Injector.create({
@@ -37,18 +38,21 @@ function stored(): Record<string, unknown> {
 }
 
 describe('DebugFacadeService cheats', () => {
-  it('readies the Nuclear Strike through a deferred debug event, for the next sub-step', () => {
+  it('readies every ability through deferred debug events, for the next sub-step', () => {
     const appendDebugLog = vi.fn();
     const facade = createFacade({ appendDebugLog });
     const bus = new GameEventBus();
     const received = vi.fn();
     bus.on('debug:ready-ability', received);
 
-    facade.readyNuclearStrike({ getEventBus: () => bus } as unknown as GameStateManager);
+    facade.readyAbilities({ getEventBus: () => bus } as unknown as GameStateManager);
     expect(received).not.toHaveBeenCalled();
     bus.processQueue();
+    expect(received.mock.calls.map(([event]) => event)).toEqual(
+      ABILITY_IDS.map((abilityId) => ({ type: 'debug:ready-ability', abilityId })),
+    );
     expect(received).toHaveBeenCalledWith({ type: 'debug:ready-ability', abilityId: 'nuclear-strike' });
-    expect(appendDebugLog).toHaveBeenCalledWith('Nuclear Strike ready (Debug)');
+    expect(appendDebugLog).toHaveBeenCalledWith('Abilities ready (Debug)');
   });
 });
 

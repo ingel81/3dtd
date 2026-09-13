@@ -7,6 +7,7 @@ import { GameStateManager } from '../../managers/game-state.manager';
 import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-options.storage';
 import { readVfxSettings, withVfxPreset, type VfxPreset, type VfxSettings } from '../../three-engine/vfx-settings';
 import type { ColorGradingPreset } from '../../three-engine/post-processing/color-grading';
+import { ABILITY_IDS } from '../../configs/abilities.config';
 
 /** Frame caps the player can pick, in fps. 0 = unlimited. */
 export const FPS_LIMITS = [0, 60, 30] as const;
@@ -132,14 +133,18 @@ export class DebugFacadeService {
   }
 
   /**
-   * Nuclear Strike ready: its research with the prerequisites done and every
+   * Every ability ready: its research with the prerequisites done and every
    * charge back, as often as clicked, to test strike after strike. Sent
-   * deferred: it lands in the next gameplay sub-step like the rest of the
-   * simulation, so while the game is paused it waits until it runs on.
+   * deferred, one event per ability: it lands in the next gameplay sub-step
+   * like the rest of the simulation, so while the game is paused it waits
+   * until it runs on.
    */
-  readyNuclearStrike(gameState: GameStateManager): void {
-    gameState.getEventBus().emitDeferred({ type: 'debug:ready-ability', abilityId: 'nuclear-strike' });
-    this.appendDebugLog('Nuclear Strike ready (Debug)');
+  readyAbilities(gameState: GameStateManager): void {
+    const bus = gameState.getEventBus();
+    for (const abilityId of ABILITY_IDS) {
+      bus.emitDeferred({ type: 'debug:ready-ability', abilityId });
+    }
+    this.appendDebugLog('Abilities ready (Debug)');
   }
 
   /**

@@ -254,13 +254,15 @@ hinfahren), entscheidet der Aufrufer. Im Spiel füllt ihn `heroBarView()`
 (`ability-bar/hero-bar.ts`): erst das Anheuern, dann der Held, siehe
 [HERO.md](HERO.md#bedienung).
 
-Zum Testen: Cheat "Nuke" im Dev-Menü (Gruppe Cheats). Er schließt die
-Forschung `nuclear-strike` samt Voraussetzungen ab (`ResearchManager.completeResearch`,
-je Forschung ein `research:completed`) und füllt die Ladungen auf
-(`AbilityManager.refillCharges`), beliebig oft hintereinander. Die UI schickt
-`debug:ready-ability` verzögert (`emitDeferred`), der `GameCommandsHandler`
-setzt es im nächsten Sub-Step um; in der Pause erst beim Weiterlaufen. Feuern
-geht weiter nur während einer Welle.
+Zum Testen: Cheat "Abilities" im Dev-Menü (Gruppe Cheats; bis 2026-09-14
+"Nuke", nur für den Nuklearschlag). Er schließt für jede Fähigkeit aus
+`ABILITIES` die Forschung samt Voraussetzungen ab
+(`ResearchManager.completeResearch`, je Forschung ein `research:completed`) und
+füllt die Ladungen auf (`AbilityManager.refillCharges`), beliebig oft
+hintereinander. Die UI schickt je Fähigkeit ein `debug:ready-ability`
+verzögert (`emitDeferred`), der `GameCommandsHandler` setzt es im nächsten
+Sub-Step um; in der Pause erst beim Weiterlaufen. Feuern geht weiter nur
+während einer Welle.
 
 ---
 
