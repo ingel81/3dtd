@@ -8,7 +8,7 @@
  * All values are tuneable without code changes.
  */
 
-import { DamageMatrix, DamageEffectiveness } from './combat.types';
+import { ArmorType, DAMAGE_TYPES, DamageEffectiveness, DamageMatrix, DamageType } from './combat.types';
 
 // ==================== Damage Multiplier Matrix ====================
 
@@ -65,6 +65,33 @@ export function getEffectiveness(multiplier: number): DamageEffectiveness {
   if (multiplier >= EFFECTIVENESS_THRESHOLDS.strong) return 'strong';
   if (multiplier < EFFECTIVENESS_THRESHOLDS.weak) return 'weak';
   return 'normal';
+}
+
+/**
+ * Damage types that do best against a mix of armors, weighted by what each
+ * armor brings (the WAVE panel weights by HP). Types whose weighted
+ * multiplier reaches `strong` count, best first; when none does, the best
+ * ones above neutral, at most two. At most `limit`, ties in DAMAGE_TYPES
+ * order. The sidebar's "Weak to" reads this, so a rebalanced matrix needs
+ * no UI change.
+ */
+export function bestDamageTypesAgainst(
+  weights: readonly (readonly [ArmorType, number])[],
+  limit = 3,
+): DamageType[] {
+  const total = weights.reduce((sum, [, w]) => sum + Math.max(0, w), 0);
+  if (total <= 0) return [];
+  const scored = DAMAGE_TYPES.map((damageType) => ({
+    damageType,
+    multiplier:
+      weights.reduce((sum, [armor, w]) => sum + DAMAGE_MATRIX[damageType][armor] * Math.max(0, w), 0) / total,
+  })).sort((a, b) => b.multiplier - a.multiplier);
+  const eps = 1e-9;
+  const strong = scored.filter((s) => s.multiplier >= EFFECTIVENESS_THRESHOLDS.strong - eps);
+  const picked = strong.length > 0
+    ? strong.slice(0, limit)
+    : scored.filter((s) => s.multiplier > 1 + eps).slice(0, Math.min(2, limit));
+  return picked.map((s) => s.damageType);
 }
 
 // ==================== Visual Feedback Config ====================

@@ -32,8 +32,8 @@ import {
   MAX_WAVE_DURATION_MS,
   MIN_SPAWN_DELAY_MS,
   DPS_RAMP_FLOOR,
-  DPS_RAMP_COUNT,
   DPS_RAMP_HP_MULT,
+  dpsScaledCountMax,
   getTemplate,
   lerpRange,
   fairMaxCount,
@@ -404,7 +404,6 @@ export class WaveDirectorService {
     // DPS-scaled range caps for difficulty axes (count, hp_mult). Weak defense
     // → narrow effective range; strong defense → full range.
     const totalDPS = Math.max(0, state.defense?.totalDPS ?? 0);
-    const dpsFracCount = Math.max(DPS_RAMP_FLOOR, Math.min(1.0, totalDPS / DPS_RAMP_COUNT));
     const dpsFracHp = Math.max(DPS_RAMP_FLOOR, Math.min(1.0, totalDPS / DPS_RAMP_HP_MULT));
     const lerpCapped = (rng: readonly [number, number], factor: number, dpsFrac: number): number => {
       const effMax = rng[0] + (rng[1] - rng[0]) * dpsFrac;
@@ -436,7 +435,7 @@ export class WaveDirectorService {
     // that were actually emitted — the context's value is a coarse ceiling
     // signal for the model, this is the binding decision.
     const countLo = template.countRange[0];
-    const dpsScaledMax = lerpRange(template.countRange, dpsFracCount);
+    const dpsScaledMax = dpsScaledCountMax(template.countRange, totalDPS);
     const countFor = (delay: number): { count: number; cap: number | null } => {
       const cap = fairMaxCount(
         template,

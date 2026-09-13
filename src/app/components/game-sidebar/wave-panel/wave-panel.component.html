@@ -104,20 +104,36 @@
       <span class="td-auto-wave-note">{{ autoStartSeconds }}s after a wave</span>
     </label>
 
-    <!-- Phase 5.16: Coming-Up curriculum preview -->
-    @if (upcomingWaves().length > 0) {
-      <div class="td-coming-up">
-        <div class="td-coming-up-label">COMING UP</div>
-        @for (peek of upcomingWaves(); track peek.wave) {
-          <div class="td-coming-up-row" [matTooltip]="peek.tooltip" matTooltipPosition="left">
+    <!-- COMING UP: the next two waves from the curriculum; past W30 what is
+         known before the director picks -->
+    <div class="td-coming-up">
+      <div class="td-coming-up-label">COMING UP</div>
+      @for (peek of upcomingWaves(); track peek.wave) {
+        <div class="td-coming-up-row" [matTooltip]="peek.tooltip" matTooltipPosition="left">
+          <div class="td-coming-up-head">
             <span class="td-coming-up-wave">W{{ peek.wave }}</span>
-            <span class="td-coming-up-name">{{ peek.name }}</span>
-            @if (peek.armorIcons) {
-              <span class="td-coming-up-icons">{{ peek.armorIcons }}</span>
+            <span class="td-coming-up-name" [class.td-coming-up-boss]="peek.boss">{{ peek.name }}</span>
+            @if (peek.count; as count) {
+              <span class="td-coming-up-count">{{ count }}</span>
             }
           </div>
-        }
-      </div>
-    }
+          @if (peek.known) {
+            <div class="td-coming-up-detail">
+              @for (armor of peek.armors; track armor.label) {
+                <span>{{ armor.icon }} {{ armor.label }}</span>
+              }
+              @if (peek.air) {
+                <span>✈️ Air</span>
+              }
+            </div>
+            @if (peek.weakTo) {
+              <div class="td-coming-up-weak">Weak to {{ peek.weakTo }}</div>
+            }
+          } @else {
+            <div class="td-coming-up-detail td-coming-up-note">{{ peek.note }}</div>
+          }
+        </div>
+      }
+    </div>
   </div>
 </section>

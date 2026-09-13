@@ -105,14 +105,13 @@ export interface ArmorTypeUIMeta {
   icon: string;
   color: string;
   description: string;
-  weakTo: string;
 }
 
 /**
  * UI metadata for each armor type. Compile-time complete.
  *
- * `weakTo` lists the strongest counters from DAMAGE_MATRIX (the column for
- * this armor type). Keep both in sync when the matrix is rebalanced.
+ * What an armor is weak to is not listed here: the sidebar reads it off
+ * DAMAGE_MATRIX (bestDamageTypesAgainst), so it follows a rebalance.
  */
 export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
   unarmored: {
@@ -121,7 +120,6 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
     icon: '\uD83D\uDFE9',
     color: '#4CAF50',
     description: 'No damage resistance',
-    weakTo: 'Fire, Poison, Pierce',
   },
   light: {
     id: 'light',
@@ -129,7 +127,6 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
     icon: '\uD83D\uDFE6',
     color: '#2196F3',
     description: 'Fast, vulnerable to pierce',
-    weakTo: 'Pierce, Lightning, Ice',
   },
   heavy: {
     id: 'heavy',
@@ -137,7 +134,6 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
     icon: '\uD83D\uDFE7',
     color: '#FF9800',
     description: 'Tough, requires siege',
-    weakTo: 'Siege, Lightning',
   },
   fortified: {
     id: 'fortified',
@@ -145,7 +141,6 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
     icon: '\uD83D\uDFE5',
     color: '#F44336',
     description: 'Very tough, DPS check',
-    weakTo: 'Siege, Magic',
   },
   ethereal: {
     id: 'ethereal',
@@ -153,6 +148,5 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
     icon: '\uD83D\uDFEA',
     color: '#9C27B0',
     description: 'Resists most, weak to magic/ice/lightning',
-    weakTo: 'Magic, Ice, Lightning',
   },
 };
