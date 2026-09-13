@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
@@ -117,6 +117,68 @@ describe('AudioBufferCache', () => {
       // All 3 should still be in cache since they're all loading
       expect(delayedCache.size).toBe(3);
       expect(getAccessTimestamps(delayedCache).size).toBe(3);
+    });
+  });
+
+  describe('failed loads', () => {
+    const fakeBuffer = { duration: 1 } as unknown as AudioBuffer;
+    type OnLoad = (buffer: AudioBuffer) => void;
+    type OnError = (error: unknown) => void;
+    const failing = (_url: string, _onLoad: OnLoad, _onProgress: unknown, onError: OnError) =>
+      onError(new Error('404'));
+    // One round: the first attempt and three retries, a second apart.
+    const ROUND_MS = 3000;
+    const COOLDOWN_MS = 30_000;
+
+    let failingLoader: { load: ReturnType<typeof vi.fn> };
+    let failingCache: AudioBufferCache;
+
+    /** Register the URL and let the round run to its end; the outcome of its load. */
+    async function round(url = 'x.mp3'): Promise<string | null> {
+      const entry = failingCache.getOrLoad(url);
+      if (!entry.loading) return null;
+      const outcome = entry.loading.then(() => 'loaded', () => 'failed');
+      await vi.advanceTimersByTimeAsync(ROUND_MS);
+      return outcome;
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      failingLoader = { load: vi.fn(failing) };
+      failingCache = new AudioBufferCache(failingLoader as never);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
+
+    it('loads a file that failed again on a registration after the cooldown', async () => {
+      expect(await round()).toBe('failed');
+      expect(failingLoader.load).toHaveBeenCalledTimes(4);
+      expect(failingCache.size).toBe(0);
+
+      // Within the cooldown every registration gets nothing to play, no load.
+      expect(failingCache.getOrLoad('x.mp3')).toEqual({ buffer: null, loading: null });
+      expect(failingLoader.load).toHaveBeenCalledTimes(4);
+
+      await vi.advanceTimersByTimeAsync(COOLDOWN_MS);
+      failingLoader.load.mockImplementation((_url: string, onLoad: OnLoad) => onLoad(fakeBuffer));
+      expect(await round()).toBe('loaded');
+      expect(failingCache.getOrLoad('x.mp3').buffer).toBe(fakeBuffer);
+      expect(failingLoader.load).toHaveBeenCalledTimes(5);
+    });
+
+    it('gives a file up after three failed rounds', async () => {
+      for (let i = 0; i < 3; i++) {
+        expect(await round()).toBe('failed');
+        await vi.advanceTimersByTimeAsync(COOLDOWN_MS);
+      }
+
+      expect(await round()).toBeNull();
+      expect(failingLoader.load).toHaveBeenCalledTimes(12);
     });
   });
 

@@ -17,6 +17,15 @@ export class AudioBufferCache {
   /** Maximum number of cached buffers */
   private readonly MAX_CACHED_BUFFERS = 50;
 
+  /** URL → failed load rounds and when the next round may start, see getOrLoad(). */
+  private failures = new Map<string, { rounds: number; retryAt: number }>();
+
+  /** A URL that failed all retries is not loaded again for this long. */
+  private readonly RETRY_COOLDOWN_MS = 30_000;
+
+  /** Failed rounds (each with its retries) after which a URL stays failed. */
+  private readonly MAX_LOAD_ROUNDS = 3;
+
   constructor(loader: AudioLoader) {
     this.loader = loader;
   }
@@ -24,18 +33,38 @@ export class AudioBufferCache {
   /**
    * Get or start loading a buffer for the given URL.
    * Returns the cache entry (buffer may still be loading).
+   *
+   * A load that fails all retries leaves no entry behind, so a later
+   * registration loads the file again. Enemies register their sounds on
+   * every spawn, so that happens only after RETRY_COOLDOWN_MS and at most
+   * MAX_LOAD_ROUNDS times per URL; until then the entry has neither buffer
+   * nor load, which every player treats as "cannot play".
    */
   getOrLoad(url: string): { buffer: AudioBuffer | null; loading: Promise<AudioBuffer> | null } {
     let cached = this.bufferCache.get(url);
 
     if (!cached) {
-      cached = { buffer: null, loading: null };
-      cached.loading = this.loadBuffer(url).then((buffer) => {
-        cached!.buffer = buffer;
-        cached!.loading = null;
-        this.evictOldestBuffers();
-        return buffer;
-      });
+      if (this.isFailed(url)) return { buffer: null, loading: null };
+      const entry: { buffer: AudioBuffer | null; loading: Promise<AudioBuffer> | null } = { buffer: null, loading: null };
+      entry.loading = this.loadBuffer(url).then(
+        (buffer) => {
+          entry.buffer = buffer;
+          entry.loading = null;
+          this.failures.delete(url);
+          this.evictOldestBuffers();
+          return buffer;
+        },
+        (error) => {
+          if (this.bufferCache.get(url) === entry) {
+            this.bufferCache.delete(url);
+            this.accessTimestamps.delete(url);
+          }
+          const rounds = (this.failures.get(url)?.rounds ?? 0) + 1;
+          this.failures.set(url, { rounds, retryAt: Date.now() + this.RETRY_COOLDOWN_MS });
+          throw error;
+        },
+      );
+      cached = entry;
       this.bufferCache.set(url, cached);
       this.touchBuffer(url);
     } else {
@@ -73,6 +102,13 @@ export class AudioBufferCache {
       };
       attemptLoad(retries);
     });
+  }
+
+  /** The URL failed and is waiting out its cooldown, or has used up its rounds. */
+  private isFailed(url: string): boolean {
+    const failure = this.failures.get(url);
+    if (!failure) return false;
+    return failure.rounds >= this.MAX_LOAD_ROUNDS || Date.now() < failure.retryAt;
   }
 
   /**
