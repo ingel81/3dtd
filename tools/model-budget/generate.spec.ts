@@ -327,7 +327,7 @@ function renderAlpha(rows: Row[]): string {
   const threshold = dec(LOW_ALPHA, 2);
   out.push('### Alpha');
   out.push('');
-  out.push('Wie der VAT-Shader Alpha behandelt (`vatAlpha` in `vat-baker.ts`, aus den Materialien der');
+  out.push('Wie der VAT-Shader Alpha behandelt (`vatAlpha` in `vat-surface.ts`, aus den Materialien der');
   out.push('gebackenen Meshes und dem Alpha ihrer Basisfarb-Texturen): opak ignoriert Alpha, Maske verwirft');
   out.push(`unter dem Cutoff, Blend ist transparent und verwirft unter ${threshold}. „Texel unter ${threshold}“ zählt in den`);
   out.push('Basisfarb-Texturen der gebackenen Meshes alle Texel mit Alpha darunter, auch solche, die kein UV');
@@ -373,7 +373,7 @@ function render(rows: Row[]): string {
   out.push('max./Welle, also die Vertex-Shader-Last, wenn alle Gegner der größten Welle gleichzeitig');
   out.push('leben. Für abgespaltene Gegner ist das eine Obergrenze: Sie entstehen erst, wenn der');
   out.push('Gegner stirbt, der sie abspaltet. „Half-Fehler“ ist der größte Fehler, den');
-  out.push('RGBA16F einer Position im Spiel zufügt (`vatEncoding` in `vat-baker.ts`, aus den gebackenen');
+  out.push('RGBA16F einer Position im Spiel zufügt (`vatEncoding` in `vat-encoding.ts`, aus den gebackenen');
   out.push(`Positionen). Bis ${dec(VAT_HALF_FLOAT_MAX_ERROR * 1000, 0)} mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (16 Byte).`);
   out.push('');
   out.push(table(
@@ -441,7 +441,7 @@ function render(rows: Row[]): string {
   out.push('### Gebackene Clips');
   out.push('');
   out.push(`Todes-Clips laufen mit \`animationSpeed\`, bis der Gegner nach ${int(TIMING.deathAnimationDuration)} ms`);
-  out.push('entfernt wird. Gebacken wird nur dieser Teil (`vatClips` in `vat-baker.ts`), „gekürzt“ zählt');
+  out.push('entfernt wird. Gebacken wird nur dieser Teil (`vatClips` in `vat-clips.ts`), „gekürzt“ zählt');
   out.push('die weggelassenen Frames.');
   out.push('');
   out.push(table(
