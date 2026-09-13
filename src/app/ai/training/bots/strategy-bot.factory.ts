@@ -23,6 +23,7 @@ import { PathCoverageUpgradeStrategy } from '../strategies/upgrade/path-coverage
 import { SellUnderperformerStrategy } from '../strategies/upgrade/sell-underperformer.strategy';
 import { AutoStartWaveStrategy } from '../strategies/wave/auto-start-wave.strategy';
 import { NuclearStrikeStrategy } from '../strategies/ability/nuclear-strike.strategy';
+import { FrostBombStrategy } from '../strategies/ability/frost-bomb.strategy';
 
 export class StrategyBotFactory {
   constructor(
@@ -129,6 +130,7 @@ export class StrategyBotFactory {
     // Every skill level fires a nuclear strike it has. Only strategist and
     // meta research it (ResearchPick), for beginner and casual it stays inert.
     strategies.push(new NuclearStrikeStrategy(this.gameState));
+    strategies.push(new FrostBombStrategy(this.gameState));
 
     // Add auto-start wave strategy if enabled
     if (autoStartWaves) {

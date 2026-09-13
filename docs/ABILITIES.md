@@ -325,6 +325,9 @@ während einer Welle.
 - Die Factory hängt die Strategie an alle Skill-Stufen. Erforschen tun sie nur
   strategist und meta; für beginner und casual bleibt sie wirkungslos. Folge
   für Messungen: siehe [BOT_SYSTEM.md](BOT_SYSTEM.md#nuclearstrike-97).
+- `FrostBombStrategy` (96): wirft die Frostbombe auf die dichteste Gruppe von
+  mindestens 8 Gegnern in der zweiten Hälfte der Route
+  ([BOT_SYSTEM.md](BOT_SYSTEM.md#frostbomb-96)).
 
 ---
 
@@ -347,6 +350,7 @@ während einer Welle.
 | `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze über den `StatusEffectService`) |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
+| `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
 
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,
