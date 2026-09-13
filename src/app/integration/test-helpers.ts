@@ -143,6 +143,11 @@ export function createMockTilesEngine() {
       select: vi.fn(),
       deselect: vi.fn(),
     },
+    towerBadges: {
+      setRank: vi.fn(),
+      remove: vi.fn(),
+      clear: vi.fn(),
+    },
     enemies: {
       create: vi.fn(() => Promise.resolve({})),
       remove: vi.fn(),

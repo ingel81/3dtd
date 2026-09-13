@@ -41,6 +41,7 @@ import {
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
 import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.renderer';
+import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer';
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
@@ -132,6 +133,8 @@ export class ThreeTilesEngine {
   readonly towers: ThreeTowerRenderer;
   /** Stone plinths under towers on uneven ground */
   readonly plinths: TowerPlinthRenderer;
+  /** Veteran insignia above towers with a rank */
+  readonly towerBadges: TowerBadgeRenderer;
   readonly projectiles: ThreeProjectileRenderer;
   readonly effects: ThreeEffectsRenderer;
   readonly flameBeams: ThreeFlameBeamRenderer;
@@ -308,6 +311,7 @@ export class ThreeTilesEngine {
     this.enemies.rebakeOnContextRestore(this.renderer.domElement);
     this.towers = new ThreeTowerRenderer(this.scene, coordinateSync, this.assetManager);
     this.plinths = new TowerPlinthRenderer(this.scene, coordinateSync);
+    this.towerBadges = new TowerBadgeRenderer(this.scene, (id) => this.towers.get(id)?.mesh ?? null);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
     this.flameBeams = new ThreeFlameBeamRenderer();
@@ -926,6 +930,10 @@ export class ThreeTilesEngine {
     // Tower visuals only (selection ring pulse, magic hover, GLTF mixer LOD)
     this.towers.updateAnimations(deltaTime, this.camera);
 
+    // Veteran badges face the camera; their size is set in CSS pixels. The
+    // drawing buffer's height, not clientHeight, which could force a layout
+    this.towerBadges.update(this.camera, this.renderer.domElement.height / this.renderer.getPixelRatio());
+
     // Commit projectile instance changes to GPU
     this.projectiles.commitToGPU();
 
@@ -1177,6 +1185,7 @@ export class ThreeTilesEngine {
     this.enemies.dispose();
     this.towers.dispose();
     this.plinths.dispose();
+    this.towerBadges.dispose();
     this.projectiles.dispose();
     this.effects.dispose();
     this.flameBeams.dispose();

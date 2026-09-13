@@ -57,11 +57,13 @@ export class PhotoModeService {
     this.focusBefore = focusedElement();
     this.menuBefore = this.uiStore.openMenu();
     // Nothing of the game UI in the picture: build preview, placement
-    // markers, an ability's aiming reticle, the selected tower's range and LOS
+    // markers, an ability's aiming reticle, the selected tower's range and
+    // LOS, the veteran badges over the towers
     if (this.towerPlacement.buildMode()) this.towerPlacement.exitBuildMode();
     if (this.uiStore.mapPlacementMode()) this.mapPlacement.exitPlacementMode();
     if (this.abilityTargeting.targeting()) this.abilityTargeting.cancel();
     this.gameState.towerManager.selectTower(null);
+    this.engineInit.getEngine()?.towerBadges.setVisible(false);
     this.uiStore.openMenu.set(null);
     this.active.set(true);
     this.announcer.announce('Photo mode. Esc leaves it.');
@@ -71,6 +73,7 @@ export class PhotoModeService {
   exit(): void {
     if (!this.active()) return;
     this.active.set(false);
+    this.engineInit.getEngine()?.towerBadges.setVisible(true);
     this.uiStore.openMenu.set(this.menuBefore);
     const focus = this.focusBefore;
     this.focusBefore = null;
