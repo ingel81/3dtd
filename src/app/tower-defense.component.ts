@@ -54,6 +54,7 @@ import { HotkeyService } from './services/hotkey.service';
 import { TowerPlacementService } from './services/tower-placement.service';
 import { AbilityTargetingService } from './services/ability-targeting.service';
 import { HeroControlService } from './services/hero-control.service';
+import { heroBarView } from './components/ability-bar/hero-bar';
 import { MapPlacementService } from './services/world/map-placement.service';
 import { LocationManagementService } from './services/location/location-management.service';
 import { HeightUpdateService } from './services/world/height-update.service';
@@ -369,6 +370,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     { key: 'ESC', description: 'Let go' },
   ];
   readonly heroWarning = this.heroControl.warning;
+  /** His button at the top of the ability bar: the hire offer, then him */
+  readonly heroBar = computed(() => heroBarView(this.store.hero(), this.heroSelected(), this.store.credits()));
+
+  onHeroBarPressed(): void {
+    const bar = this.heroBar();
+    if (bar?.action === 'hire') this.heroControl.hire();
+    else if (bar?.action === 'summon') this.heroControl.summon();
+  }
 
   // First-run tips share the context hint box; build, placement and targeting hints come first
   private readonly onboarding = inject(OnboardingService);

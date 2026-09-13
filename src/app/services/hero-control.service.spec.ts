@@ -18,6 +18,8 @@ vi.mock('@angular/core', async () => {
 vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
 vi.mock('./world/map-placement.service', () => ({ MapPlacementService: class MapPlacementService {} }));
 vi.mock('./ability-targeting.service', () => ({ AbilityTargetingService: class AbilityTargetingService {} }));
+vi.mock('./camera-control.service', () => ({ CameraControlService: class CameraControlService {} }));
+vi.mock('./world/intro-camera-flight.service', () => ({ IntroCameraFlightService: class IntroCameraFlightService {} }));
 
 import { HeroControlService } from './hero-control.service';
 import { heroStatus, initialHeroStatus, type HeroStatus } from '../configs/hero.config';
@@ -48,6 +50,8 @@ describe('HeroControlService', () => {
     pickTarget: () => object;
   };
   let hits: ReturnType<typeof vi.fn>;
+  let focusGeo: ReturnType<typeof vi.fn>;
+  let introActive: ReturnType<typeof signal<boolean>>;
 
   const runEffects = () => effects.forEach((fn) => fn());
 
@@ -69,6 +73,10 @@ describe('HeroControlService', () => {
     injections['TowerPlacementService'] = { exitBuildMode };
     injections['MapPlacementService'] = { exitPlacementMode: vi.fn() };
     injections['AbilityTargetingService'] = { cancel: cancelAiming };
+    focusGeo = vi.fn(() => true);
+    introActive = signal(false);
+    injections['CameraControlService'] = { focusGeo };
+    injections['IntroCameraFlightService'] = { active: introActive };
     snapTo = { lat: 48.10001, lon: 9.10001 };
     sent = [];
     heroView = { setSelected: vi.fn(), showMoveTarget: vi.fn(), hideMoveTarget: vi.fn(), pickTarget: () => ({ id: 'hero' }) };
@@ -113,6 +121,37 @@ describe('HeroControlService', () => {
     service.toggle();
     expect(service.selected()).toBe(false);
     expect(heroView.hideMoveTarget).toHaveBeenCalled();
+  });
+
+  it('summons him like G: selects him first, brings him into view the second time', () => {
+    expect(service.summon()).toBe(true);
+    expect(service.selected()).toBe(true);
+    expect(focusGeo).not.toHaveBeenCalled();
+
+    expect(service.summon()).toBe(true);
+    expect(focusGeo).toHaveBeenCalledWith(48.2, 9.3);
+    expect(service.selected()).toBe(true);
+  });
+
+  it('summons nothing before the hire or in photo mode, no camera during the intro flight', () => {
+    store.hero.set({ ...initialHeroStatus(), unlocked: true });
+    expect(service.summon()).toBe(false);
+
+    store.hero.set(HIRED);
+    ui.photoMode.set(true);
+    expect(service.summon()).toBe(false);
+    expect(service.selected()).toBe(false);
+
+    ui.photoMode.set(false);
+    service.select();
+    introActive.set(true);
+    expect(service.summon()).toBe(false);
+    expect(focusGeo).not.toHaveBeenCalled();
+  });
+
+  it('hires him by command and leaves the checks to the HeroManager', () => {
+    expect(service.hire()).toBe(true);
+    expect(sent).toEqual([{ type: 'command:hire-hero' }]);
   });
 
   it('picks him with his model', () => {
