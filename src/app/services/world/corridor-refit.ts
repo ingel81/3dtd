@@ -81,7 +81,7 @@ export class CorridorRefit {
    * Main-thread time per frame for the measurement. A station (a column and
    * four rays) cost about 1.7 ms in the city-centre playtest of 2026-09-12
    * (533 ms for 316 stations): two stations a frame there. Below the 5 ms of
-   * the terrain sweep (VisualizationFacadeService.TERRAIN_REFRESH_BUDGET_MS),
+   * the terrain sweep (RouteGridConvergence.TERRAIN_REFRESH_BUDGET_MS),
    * which runs in the same frames after a tile load, so both together stay
    * under 10 ms of a 16.7 ms frame. Nothing waits for the run, the corridor
    * in use holds until it is done.
