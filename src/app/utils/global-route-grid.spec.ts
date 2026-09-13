@@ -196,6 +196,61 @@ describe('GlobalRouteGrid tile seams', () => {
       expect(cell.terrainHeight).toBeCloseTo(2.15, 6);
     }
   });
+
+  /** A column in the seam comes down on a coarse tile 3.5 km below, `width` metres either side of x = 21. */
+  const fallsThrough = (width: number) => (x: number): ColumnSample | null =>
+    Math.abs(x - 21) < width ? { groundY: -3542, topY: -3542, tileDepth: 10, tileGeometricError: 500 } : seam(x);
+
+  it('samples a cell whose centre column falls through the seam from beside it', () => {
+    const grid = new GlobalRouteGrid();
+    grid.initialize(fallsThrough(0.05) as never, coordinateSync);
+    grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4 }, { lat: 1, lon: 40 }]]);
+    grid.updateTerrainHeights();
+
+    for (const z of [-3, -1, 1, 3, 5]) {
+      const cell = grid.getCellAt(21, z)!;
+      expect(cell.heightSampled, `z=${z}`).toBe(true);
+      expect(cell.terrainHeight, `z=${z}`).toBeCloseTo(2.15, 6);
+    }
+  });
+
+  it('refuses a first sample far below the neighbours, from a coarser tile', () => {
+    const grid = new GlobalRouteGrid();
+    grid.initialize(fallsThrough(0.6) as never, coordinateSync);
+    grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4 }, { lat: 1, lon: 40 }]]);
+
+    expect(grid.getCellAt(21, 1)!.heightSampled).toBe(false);
+    // Enemies there stand on the neighbours' ground.
+    expect(grid.getGroundLocalYAt(21, 1)).toBeCloseTo(2.1, 0);
+  });
+
+  it('compares a street under a high bridge with the street, not with the deck', () => {
+    // A viaduct 60 m up along z = 1, a lane under it along x = 21, one cell wide.
+    const viaduct = (): ColumnSample => ({ groundY: 0, topY: 60, tileDepth: 20, tileGeometricError: 2 });
+    const grid = new GlobalRouteGrid();
+    grid.initialize(viaduct as never, coordinateSync);
+    grid.generateFromRoutes([
+      [{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4, onBridge: true }, { lat: 1, lon: 40 }],
+      [{ lat: -20, lon: 21, corridorLeft: 0.5, corridorRight: 0.5 }, { lat: 20, lon: 21 }],
+    ]);
+    const under = grid.getCellAt(21, 1)!;
+    expect(under.surface).toBe('ground');
+    expect(grid.getCellAt(19, 1)!.terrainHeight).toBe(60);
+    expect(under.heightSampled).toBe(true);
+    expect(under.terrainHeight).toBe(0);
+  });
+
+  it('still takes a first sample from a finer tile than the neighbours had', () => {
+    // Neighbours on a coarse hull 30 m up, the cell on the seam gets the fine street.
+    const upgrade = (x: number): ColumnSample | null =>
+      Math.abs(x - 21) < 0.6
+        ? { groundY: -40, topY: -40, tileDepth: 21, tileGeometricError: 2 }
+        : { groundY: 30, topY: 30, tileDepth: 14, tileGeometricError: 40 };
+    const grid = new GlobalRouteGrid();
+    grid.initialize(upgrade as never, coordinateSync);
+    grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4 }, { lat: 1, lon: 40 }]]);
+    expect(grid.getCellAt(21, 1)!.terrainHeight).toBe(-40);
+  });
 });
 
 /**

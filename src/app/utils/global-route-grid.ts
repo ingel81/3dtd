@@ -128,7 +128,7 @@ export class GlobalRouteGrid {
   }
 
   /** Terrain-Sampling der Cells (`sampleCellY`) mit Proben und Sweep-Zählern. */
-  private readonly sampler = new RouteCellSampler((cell) => this.medianOfStableNeighbourY(cell));
+  private readonly sampler = new RouteCellSampler((cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth));
 
   /**
    * Frame-budgeted terrain-refresh sweep, see RouteGridHeightSweep. A slice
@@ -156,25 +156,33 @@ export class GlobalRouteGrid {
     return this.estimateTerrainY(cell.x, cell.z) ?? cell.terrainHeight;
   }
 
+  /** Reused sample buffer for medianOfStableNeighbourY. */
+  private readonly _medianScratch: number[] = [];
+
   /**
-   * Median `terrainHeight` of the 8 adjacent stable cells. Returns `null`
-   * when fewer than 3 stable neighbours exist — not enough signal for a
+   * Median `terrainHeight` of the 8 adjacent stable cells of the same
+   * surface sampled from a tile at least `minDepth` deep. Returns `null`
+   * when fewer than 3 such neighbours exist: not enough signal for a
    * meaningful sanity check. Used by `sampleCellY` to reject hits that
-   * diverge wildly from the local terrain.
+   * diverge wildly from the local terrain. Same surface: a street under a
+   * bridge lies a deck height below the deck cells around it.
    */
-  private medianOfStableNeighbourY(cell: RouteCell): number | null {
+  private medianOfStableNeighbourY(cell: RouteCell, minDepth = 0): number | null {
     const gx = this.cellIndex(cell.x);
     const gz = this.cellIndex(cell.z);
-    const samples: number[] = [];
+    const samples = this._medianScratch;
+    samples.length = 0;
     for (let dx = -1; dx <= 1; dx++) {
       for (let dz = -1; dz <= 1; dz++) {
         if (dx === 0 && dz === 0) continue;
         const n = this.cells.get(this.intCellKey(gx + dx, gz + dz));
-        if (n && n.sample.state === 'stable') samples.push(n.terrainHeight);
+        if (n && n.sample.state === 'stable' && n.surface === cell.surface && n.sample.tileDepth >= minDepth) {
+          samples.push(n.terrainHeight);
+        }
       }
     }
     if (samples.length < 3) return null;
-    samples.sort((a, b) => a - b);
+    samples.sort(ascending);
     return samples[Math.floor(samples.length / 2)];
   }
 
