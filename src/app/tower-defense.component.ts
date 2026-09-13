@@ -96,6 +96,7 @@ import { IntroCameraFlightService } from './services/world/intro-camera-flight.s
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
 import { BUILD_VERSION } from './configs/build-info.config';
+import { isLocationDialogFailure } from './components/location-dialog/open-location-dialog';
 
 @Component({
   selector: 'app-tower-defense',
@@ -252,6 +253,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Loading / Engine, from Store
   readonly loading = this.store.loading;
   readonly error = this.store.error;
+  /** The error screen's way out: a reload when the location dialog failed, else new tile credentials */
+  readonly errorOffersReload = computed(() => isLocationDialogFailure(this.error()));
   readonly loadingSteps = this.store.loadingSteps;
 
   // UI State, from Store
