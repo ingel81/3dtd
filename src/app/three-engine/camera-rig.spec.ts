@@ -186,7 +186,10 @@ describe('CameraRig', () => {
     it('gibt die Controls frei und macht update() danach zum No-op', () => {
       const { rig, controls } = setup();
       const scene = new Scene();
-      rig.setupGlobeControls(scene, fakeTilesRenderer());
+      const tiles = fakeTilesRenderer();
+      const added = vi.spyOn(tiles, 'addEventListener');
+      const removed = vi.spyOn(tiles, 'removeEventListener');
+      rig.setupGlobeControls(scene, tiles);
       const disposed = controls();
       const root = disposed.ctorArgs[0] as GroundPickRoot;
 
@@ -199,6 +202,9 @@ describe('CameraRig', () => {
       expect(rig.getControls()).toBeNull();
       expect(root.parent).toBeNull();
       expect(scene.children).not.toContain(root);
+      // Der Raycast-Cache hängt nicht mehr an den Tiles
+      expect(added.mock.calls.length).toBeGreaterThan(0);
+      expect(removed.mock.calls).toEqual(added.mock.calls);
     });
   });
 });
