@@ -1,6 +1,6 @@
 # Wave System
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-14
 
 Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen.
 
@@ -127,7 +127,9 @@ das Training-Backend, falls eine Verbindung steht, und andernfalls
 `WaveDirectorService.getNextWave()`. Ist der Director aus, gilt das
 Debug-Panel. Wirft der Director, schaltet die Facade ihn ab, setzt `aiError`
 und startet eine Debug-Panel-Welle. Alle Pfade senden `command:start-wave` mit
-fertiger `WaveConfig`.
+fertiger `WaveConfig`. Auf einer Boss-Welle der Rotation (siehe
+[Boss Waves](#boss-waves)) ersetzt die Facade die Welle des lokalen Directors durch die
+der Boss-Variante; Wellen aus dem Training-Backend bleiben unverändert.
 
 ### SpawnPoint Interface
 
@@ -390,6 +392,8 @@ Verbindet den `WaveManager` mit dem aktuellen Base-Health-Wert aus `GameStateMan
 
 `getExpectedBodyCount()` zählt dazu, was ein Kill abspaltet (`splitBodyCount`, ein Skeleton zählt 3). Damit teilt der `EnemyManager` das Kill-Gold der Welle in Slots: Jeder Körper zahlt einen Slot, ein durchgelaufener Gegner verliert seinen und die seiner nie entstandenen Kinder, und ein Split erhöht das Gold der Welle nicht.
 
+Ein Wurm (`chain`, [ENEMY_CREATION.md](ENEMY_CREATION.md#kette-chain-der-wurm)) ist ein Eintrag im Schedule, bringt aber ein Enemy je Segment. Seine Länge hängt von der Route ab, die er bekommt; beim Spawn erhöht der `WaveManager` die Körper um `size - 1`. Der `EnemyManager` liest die Wellengröße deshalb bei jedem Kill neu und zählt die schon bezahlten Slots, statt die Slots beim ersten Kill der Welle festzulegen.
+
 Split-Kinder leben, also wartet die Wave-Completion ohne eigenen Zähler auf sie.
 
 ### stopSpawning()
@@ -417,7 +421,8 @@ checkWaveComplete(): boolean {
   const allEnemiesSpawned = this.expectedEnemyCount === 0
     || this.spawnedEnemyCount >= this.expectedEnemyCount;
   const allEnemiesDead = this.enemyManager.getAliveCount() === 0
-    && this.enemyManager.getKillingCount() === 0;
+    && this.enemyManager.getKillingCount() === 0
+    && this.enemyManager.getPendingSpawnCount() === 0;
 
   // (gekürzt: Stuck-Diagnose, loggt einmal pro Wave)
   const complete = allEnemiesSpawned && allEnemiesDead;
@@ -428,7 +433,7 @@ checkWaveComplete(): boolean {
 ```
 
 **Logik:**
-- Wave ist komplett wenn ALLE Enemies gespawnt UND ALLE gespawnten Enemies tot sind; Enemies in der Todesanimation (`getKillingCount()`) zählen noch mit
+- Wave ist komplett wenn ALLE Enemies gespawnt UND ALLE gespawnten Enemies tot sind; Enemies in der Todesanimation (`getKillingCount()`) zählen noch mit, ebenso Wurm-Segmente, die noch im Portal stecken (`getPendingSpawnCount()`)
 - Im manuellen Modus (`expectedEnemyCount === 0`): Nur `allEnemiesDead` relevant
 - Verhindert vorzeitige Wave-Completion waehrend Enemies noch spawnen
 - Gecacht wird nur ein positives Ergebnis; `enemy:died`, `enemy:reached-base` und Spawn-Fortschritt setzen das Dirty-Flag
@@ -655,6 +660,21 @@ fünfte Welle (W35, W40, ...). An Boss-Wellen lässt die Maske nur Boss-Template
 zu, an allen anderen sperrt sie sie; Details unter
 [Regel-Director](#regel-director-abwechslung-und-kurve). `boss_golem` und
 `boss_dragon` haben `minWave: 31`, `boss_dragon` braucht Anti-Air.
+
+**Boss-Varianten** (`configs/boss-variants.config.ts`): Bosse, die kein Template des
+Directors sind, kommen über eine Rotation über die Boss-Wellen nach dem Curriculum.
+`BOSS_VARIANT_ROTATION` läuft über W35, W40, W45, ... und nennt je Welle eine Variante oder
+`null` für das Boss-Template des Directors; derzeit `['worm', null]`: W35, W45, W55, ...
+bringen den Chitin-Wurm, W40, W50, ... die Director-Bosse. Der Director plant auch diese
+Wellen wie bisher. `GameLoopFacadeService.startWaveWithAI()` ersetzt danach seine Welle durch
+`bossVariantWave()`: ein Gegner des Varianten-Typs (ein Wurm, also ein Enemy je Segment) mit
+dem HP-Multiplikator, den der Director für diese Welle gerechnet hat (Template-Range,
+DPS-Ramp, Endgame-Multiplikator); der Wurm nimmt ihn je Segment. Das Fairness-Gate bestimmt
+die Größe nicht, die Länge des Wurms folgt der Route. „Why this wave“ nennt das ersetzte
+Template, der Collector speichert die Welle, die läuft. Templates, Curriculum, Encoder und
+`ai-schema.json` kennen die Varianten nicht; Wellen aus dem Training-Backend werden nie
+ersetzt. COMING UP im Wave-Panel zeigt eine Varianten-Welle vorab mit Namen, Rüstung und
+„weak to“.
 
 ---
 

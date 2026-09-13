@@ -1,6 +1,6 @@
 # Instanced Enemy Rendering (VAT System)
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-14
 
 GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert Draw Calls von ~2 pro Enemy auf ~1 pro Enemy-Typ.
 
@@ -436,9 +436,24 @@ Orchestrator über `EnemyInstanceManager` und `HealthBarInstanceManager`. Alle T
 instanziert, Bosse eingeschlossen; einen klassischen Renderer gibt es nicht mehr.
 
 API: `create()`, `resolveSlot()` + `updateSlot()` (Push pro Render-Frame aus
-`EnemyManager.presentFrame()`), `remove()`, `startWalkAnimation()`, `startRunAnimation()`,
-`playDeathAnimation()`, `updateAnimations()`, Status-Visuals (`setFreezeVisual()`,
-`setPoisonVisual()`, `setBurnVisual()`, `triggerHitFlash()`) und `applyDebugOverrides()`.
+`EnemyManager.presentFrame()`), `remove()`, `setRenderType()`, `startWalkAnimation()`,
+`startRunAnimation()`, `playDeathAnimation()`, `updateAnimations()`, Status-Visuals
+(`setFreezeVisual()`, `setPoisonVisual()`, `setBurnVisual()`, `triggerHitFlash()`) und
+`applyDebugOverrides()`.
+
+### Pool-Wechsel (Wurm-Kopf)
+
+`create()` nimmt den Typ des Pools, nicht zwingend den Typ des Gegners: Die Segmente eines
+Wurms sind Gegner des Typs `worm`, der Körper wird aus dem Pool `worm-segment` gezeichnet.
+Wird ein Körpersegment Kopf eines Wurms (Split, siehe
+[ENEMY_CREATION.md](ENEMY_CREATION.md#kette-chain-der-wurm)), zieht
+`setRenderType(id, typeId)` die Instanz in den Pool des Kopfmodells
+(`EnemyInstanceManager.changeType()`): Matrix, Tints, Debug-Overrides und der
+Health-Bar-Slot gehen mit, die Animation beginnt im neuen Pool von vorn. Der alte State ist
+danach `released`, `EnemyManager.presentFrame()` löst den neuen Slot per Id auf. Bis zum
+nächsten `updateSlot()` trägt der neue Slot die alte Matrix, das neue Modell steht also
+höchstens einen Frame in der Skala des alten. Ohne Pool für `typeId` bleibt die Instanz, wo
+sie ist.
 
 ### Preloading
 

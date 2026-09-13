@@ -1,6 +1,6 @@
 # Enemy Creation Guide
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-14
 
 Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen Effekten.
 
@@ -23,7 +23,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 
 ---
 
-## Aktuelle Enemy-Typen (20)
+## Aktuelle Enemy-Typen (22)
 
 | Enemy | armorType | baseHp | Speed | Air? | Besonderheit |
 |-------|-----------|--------|-------|------|--------------|
@@ -47,6 +47,8 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | **stone-golem** | fortified | 480 | 2.5 | – | Neuer Fortified-Gegner (2026-05-12), `canBleed: false`, `randomAnimationStart: true`, `lateralSpread: 0.65`, `spawnStartDelay: 1200` |
 | ghost | ethereal | 120 | 5 | – | Nur magic/chaos wirkt voll |
 | wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
+| **worm** | heavy | 50 je Segment | 4.5 | – | Boss, Kette aus Segmenten (`chain`, siehe [Kette](#kette-chain-der-wurm)), jedes Segment ein eigener Gegner; Endlos-Rotation ab W35, kein Template |
+| worm-segment | heavy | 50 | 4.5 | – | Modell der Wurm-Segmente (eigener VAT-Pool, statisch). Einzeln gespawnt ein einzelner Ring mit den Werten des Wurms |
 
 > **Wave-Director:** Stone Golem ist seit 2026-08-27 angebunden — Template
 > `golem_squad` (`src/app/ai/core/templates.ts`, `minWave: 14`) steht auf Wave 15
@@ -63,7 +65,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: { ... },
   tank: { ... },
-  // ... (siehe Tabelle oben für alle 20 aktuellen Typen)
+  // ... (siehe Tabelle oben für alle 22 aktuellen Typen)
   'new-enemy': { ... }, // Neuer Enemy
 };
 
@@ -413,6 +415,67 @@ Slime aus dem Game Design kann denselben Mechanismus nutzen.
 - **Budget:** `npm run model-budget` zählt die Kinder in „max./Welle“ und in der
   Vertex-Last der Templates mit.
 
+### Kette (`chain`, der Wurm)
+
+```typescript
+chain: {
+  segmentModel: 'worm-segment', // VAT-Pool der Körpersegmente
+  spacing: 3.6,                 // Abstand der Segmente auf der Routenmitte (m)
+  minSegments: 16,
+  maxSegments: WORM_MAX_SEGMENTS, // 160
+  sway: 0.45,                   // Schlängeln, Anteil des Korridors
+  swayWavelength: 32,           // Länge einer Schlängelwelle (m)
+},
+```
+
+Ein Spawn eines Typs mit `chain` setzt einen ganzen Wurm auf die Route (`managers/worm/`).
+Umgesetzt für den Chitin-Wurm (`worm`).
+
+- **Länge:** so viele Segmente, dass der Kopf das HQ erreicht, wenn das letzte Segment den
+  Start verlässt (`floor(Routenlänge / spacing) + 1`), mindestens `minSegments`, höchstens
+  `maxSegments`. Die Obergrenze `WORM_MAX_SEGMENTS` = 160 (576 m) ist eine Leistungsgrenze:
+  Jedes Segment ist ein ganzer Gegner (Targeting, Health-Bar, Kill-Gold-Slot, VAT-Instanz),
+  und 160 × 3,6 m brauchen bei 4,5 m/s 128 s, bis sie aus dem Portal sind. Längere Routen
+  bekommen einen Wurm dieser Länge.
+- **Segmente:** Jedes Segment ist ein `Enemy` des Typs `worm` mit eigener HP; `healthOverride`
+  gilt je Segment (Custom Wave: „Health“ ist die HP eines Segments). Der Kopf nutzt das Modell
+  des Typs, der Körper das von `segmentModel`. `Enemy.worm` (`WormLink`) hält Gruppe, Slot,
+  Kopf-Flag und das Ziel des Segments in diesem Sub-Step.
+- **Bewegung:** `WormChains.tick()` läuft pro Sub-Step vor der Enemy-Schleife. Eine Kette
+  schiebt eine Front-Distanz vor, im Mittel der Slows ihrer Segmente auf der Route (ein
+  verlangsamtes Segment bremst den ganzen Wurm), und gibt jedem Segment Distanz und Platz quer
+  zur Route vor. `stepWormSegment()` bringt es mit `MovementComponent.advance()` dorthin. Pro
+  Segment wird nichts aufintegriert, der Abstand bleibt bei jeder Timescale exakt. Das
+  Schlängeln (`wormSway`) hängt nur von der Routendistanz ab: Der Körper läuft durch die
+  S-Kurve des Kopfes, gerade aus dem Portal und erst nach dessen vorderer Fläche geschlängelt.
+- **Aus dem Portal:** Ein Segment erscheint, wenn sein Slot am Routenstart Distanz 0
+  erreicht, also eins nach dem anderen. Wer noch nicht draußen ist, ist kein Gegner (kein
+  Ziel). Ein zweiter Wurm auf demselben Pfad wartet mit dem Kopf im Portal hinter dem ersten.
+- **Zerstörtes Segment:** Der Wurm zerfällt in zwei unabhängige Würmer
+  (`WormGroup.lose()`). Das erste Segment hinter der Lücke wird Kopf und wechselt in den Pool
+  des Kopfmodells (`InstancedEnemyRenderer.setRenderType()`). Jeder Teil läuft in seinem
+  eigenen Tempo, rückt dem Teil davor aber nicht näher als zwei Abstände (die Lücke eines
+  Segments). Ein Leck am HQ und ein entferntes Segment trennen genauso.
+- **Welle:** Die Welle endet erst, wenn auch die Segmente im Portal draußen und besiegt sind
+  (`EnemyManager.getPendingSpawnCount()`). Ein Wurm-Eintrag zählt als ein Gegner im Schedule
+  und als `size` Körper für das Kill-Gold; `worm:spawned` erhöht Gesamtzahl und Rest im
+  Wave-Panel. `debug:kill-all` nimmt die Segmente im Portal mit.
+- **Boss:** `isBoss` steht auf beiden Typen, also bekommt jedes Segment den Boss-Anteil der
+  Fähigkeiten. Die Boss-Leiste zeigt einen Balken für den ganzen Wurm (HP aller Teile,
+  „Chitin Worm ×3“ nach zwei Splits), der Screen-Shake kommt einmal, mit dem letzten Segment.
+- **Enemy Debug:** Die Liste zeigt den Kopf. Entfernen nimmt den ganzen Wurm samt Segmenten
+  im Portal mit. Ein platzierter (pausierter) Wurm steht, bis sein Kopf gestartet wird; ist
+  kein Segment mehr draußen, kommt der Rest von selbst heraus.
+- **Director:** kein Template, kein Curriculum-Slot, nicht in `AI_ENEMY_ORDER`;
+  `ai-schema.json` und Encoder bleiben gleich. In Wellen kommt der Wurm über die
+  Boss-Rotation ab W35 (`configs/boss-variants.config.ts`, siehe
+  [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-waves)).
+- **Modelle:** `WORM_MODELS` in `enemy-types.config.ts` fasst alles Modellabhängige zusammen
+  (URL, Skala, Clips, Offsets, Abstand); bis die Chitin-GLBs da sind, stehen Spider (Kopf) und
+  Tank (Ring) als Platzhalter dort.
+- **Kein Sound:** Alle Segmente sind vom Typ `worm`, ein Loop-Sound liefe auf jedem Segment
+  und belegte das Budget von 12 Gegner-Sounds.
+
 ---
 
 ## Status-Effekte
@@ -640,6 +703,7 @@ wallsmasher: {
 - [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu gross/klein
 - [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse
 - [ ] Bei `splitOnDeath`: Kind-Typ in `ENEMY_TYPES`, kein Zyklus, `countRange` der Templates an die HP der ganzen Linie angepasst, `npm run ai-schema` gelaufen (`lineageHp`, `bodies`, `maxLeaks`)
+- [ ] Bei `chain`: `segmentModel` als eigener Typ in `ENEMY_TYPES` (gleiche Werte, nur das Modell), `spacing` passend zur Segmentlänge, `maxSegments` im Blick auf Gegnerzahl und Wellendauer
 
 ---
 
