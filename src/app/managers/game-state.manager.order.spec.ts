@@ -488,7 +488,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         // GameStateManager: leak budget, AA retrofit, guard turns, kill reward
         'enemy:reached-base', 'research:completed', 'wave:completed',
-        'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'enemy:died',
+        'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'enemy:died',
         // GameCommandsHandler
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower',
         'command:start-research', 'command:cancel-research', 'command:queue-research', 'command:unqueue-research',
