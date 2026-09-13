@@ -110,6 +110,75 @@
   letter-spacing: 0.3px;
 }
 
+/* === Veteran Rank Row ===
+ * Insignia and name left, kills to the next rank right, a 2px bar of the
+ * way there along the bottom edge. Silver (--td-edge-highlight) like the
+ * badge over the tower, gold from Champion on. */
+.td-rank-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 7px;
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 3px;
+  font-family: var(--td-font-mono);
+}
+
+.td-rank-icon {
+  color: var(--td-edge-highlight);
+}
+
+.td-rank-name {
+  color: var(--td-text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.td-rank-count {
+  margin-left: auto;
+  color: var(--td-text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.td-rank-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 3px;
+  height: 2px;
+  background: var(--td-frame-dark);
+}
+
+.td-rank-bar-fill {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  background: var(--td-edge-highlight);
+}
+
+.td-rank-gold .td-rank-icon,
+.td-rank-gold .td-rank-name {
+  color: var(--td-gold-light);
+}
+
+.td-rank-gold .td-rank-bar-fill {
+  background: var(--td-gold);
+}
+
+/* Below the first rank: the chevron to come, greyed out */
+.td-rank-recruit .td-rank-icon {
+  color: var(--td-text-disabled);
+}
+
+.td-rank-recruit .td-rank-name {
+  color: var(--td-text-secondary);
+}
+
 /* === Targeting Strategy Row === */
 .td-targeting-row {
   display: flex;

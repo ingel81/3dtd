@@ -52,7 +52,8 @@
         <span class="td-stat-value">{{ stats().dps | number:'1.0-0' }}</span>
         <span class="td-stat-label">DPS</span>
       </div>
-      <div class="td-stat-tile">
+      <div class="td-stat-tile"
+           matTooltip="Killing blows since it was built" matTooltipPosition="above">
         <td-icon class="td-stat-icon td-icon-kills" name="shield" [size]="18"></td-icon>
         <span class="td-stat-value td-val-kills">{{ stats().kills }}</span>
         <span class="td-stat-label">Kills</span>
@@ -63,6 +64,23 @@
         <span class="td-stat-value td-val-kills">{{ damageDealt() }}</span>
         <span class="td-stat-label">Dealt</span>
       </div>
+    </div>
+
+    <!-- Veteran rank from killing blows, cosmetic: insignia as over the tower, kills to the next rank -->
+    <div class="td-rank-row" [class.td-rank-gold]="veteran().gold" [class.td-rank-recruit]="veteran().level === 0"
+         [matTooltip]="veteranTooltip" matTooltipPosition="above">
+      <td-icon class="td-rank-icon" [name]="veteran().icon" [size]="16" [strokeWidth]="2"></td-icon>
+      <span class="td-rank-name">{{ veteran().name }}</span>
+      <span class="td-rank-count">
+        @if (veteran().nextAt !== null) {
+          {{ veteran().kills }} / {{ veteran().nextAt }} kills
+        } @else {
+          {{ veteran().kills }} kills
+        }
+      </span>
+      <span class="td-rank-bar" aria-hidden="true">
+        <span class="td-rank-bar-fill" [style.width.%]="veteran().progress * 100"></span>
+      </span>
     </div>
 
     <!-- Targeting Strategy -->
