@@ -304,6 +304,34 @@ describe('TerrainQueries', () => {
       });
     });
 
+    it('misst eine Station auf einer Naht zwischen zwei Tiles aus der Säule einen halben Meter weiter', () => {
+      // Zwei Boden-Tiles mit 10 cm Fuge bei z = 0, quer zur Fahrtrichtung -Z.
+      const world = setup();
+      world.addTile(floor(0, 19.9, 0, -10), 3, FINE);
+      world.addTile(floor(0, 19.9, 0, 10), 3, FINE);
+      world.addTile(wall(-3), 3, FINE);
+      world.addTile(wall(4), 3, FINE);
+      expect(world.queries.sampleColumn(0, 0)).toBeNull();
+
+      const probe = world.queries.measureStreetClearance(0, 0, 1, 0, [1], 10);
+      expect(probe?.unmeasured).toBeNull();
+      expect(probe?.shiftM).toBe(0.5);
+      expect(probe?.left.map((d) => +d.toFixed(6))).toEqual([3]);
+      expect(probe?.right.map((d) => +d.toFixed(6))).toEqual([4]);
+      // Ohne Fuge bleibt die Station, wo sie ist.
+      expect(street().queries.measureStreetClearance(0, 0, 1, 0, [1], 10)).not.toHaveProperty('shiftM');
+    });
+
+    it('probiert ohne Tile höchstens zwei weitere Säulen', () => {
+      const { queries, group } = street();
+      instrumentRaycasts(group);
+      raycastStats.reset();
+      expect(queries.measureStreetClearance(100, 100, 1, 0, [1], 10)?.unmeasured).toBe('no tile');
+      expect(raycastStats.rows().map(({ caller, calls }) => ({ caller, calls }))).toEqual([
+        { caller: 'routeCorridor', calls: 3 },
+      ]);
+    });
+
     it('meldet eine Station über einer zu groben Tile als ungemessen', () => {
       const { queries, addTile } = setup();
       const coarse = corridorConfig.maxTileError + 15;

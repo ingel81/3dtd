@@ -438,6 +438,12 @@ export interface StationProbe {
    */
   left: number[];
   right: number[];
+  /**
+   * The column under the station found no tile (a seam between two tile
+   * meshes), so the station was measured from the column this far along
+   * the route, ahead positive. Absent when the column under it had a tile.
+   */
+  shiftM?: number;
 }
 
 /**
