@@ -10,7 +10,7 @@ import { AssetManagerService } from '../../../services/infrastructure/asset-mana
 import { EnemyInstanceManager, EnemyInstanceState } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { bakeEnemyVAT } from './vat-baker';
-import { registerEnemyModelCenterY } from '../../../utils/enemy-aim.util';
+import { registerEnemyModelRangeY } from '../../../utils/enemy-aim.util';
 
 // Dummy Object3D shared across all instanced enemy stubs
 const DUMMY_OBJECT = new Object3D();
@@ -122,7 +122,7 @@ export class InstancedEnemyRenderer {
       if (vatData) {
         // Use config's unlit flag (material detection is unreliable before conversion)
         if (config.unlit) vatData.isUnlit = true;
-        registerEnemyModelCenterY(typeId, (vatData.modelMinY + vatData.modelMaxY) / 2);
+        registerEnemyModelRangeY(typeId, vatData.modelMinY, vatData.modelMaxY);
         this.instanceManager.createPool(typeId, vatData, config);
       } else {
         console.error(`[InstancedRenderer] VAT bake failed for ${typeId}, enemy type will not render`);

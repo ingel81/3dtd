@@ -178,14 +178,25 @@ export class MovementComponent extends Component {
    * Get overall path progress (0 = start, 1 = reached end)
    */
   getPathProgress(): number {
-    const { segmentLengths, cumulativeLength, totalLength } = this.profile;
+    const { segmentLengths, totalLength } = this.profile;
     if (this.path.length === 0 || segmentLengths.length === 0) {
       return 0;
     }
     if (totalLength === 0) return 1;
 
-    // Completed segments via prefix sum (O(1)); clamp index past the end.
+    return Math.min(1, this.getDistanceAlongPath() / totalLength);
+  }
+
+  /**
+   * Distance covered along the path from path[0] (m), on the centre line:
+   * the lateral offset does not count.
+   */
+  getDistanceAlongPath(): number {
+    const { segmentLengths, cumulativeLength } = this.profile;
     const segCount = segmentLengths.length;
+    if (this.path.length === 0 || segCount === 0) return 0;
+
+    // Completed segments via prefix sum (O(1)); clamp index past the end.
     const idx = this.currentIndex < segCount ? this.currentIndex : segCount;
     let coveredDistance = cumulativeLength[idx];
 
@@ -193,8 +204,7 @@ export class MovementComponent extends Component {
     if (this.currentIndex < segCount) {
       coveredDistance += segmentLengths[this.currentIndex] * this.progress;
     }
-
-    return Math.min(1, coveredDistance / totalLength);
+    return coveredDistance;
   }
 
   /**

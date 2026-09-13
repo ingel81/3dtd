@@ -1,7 +1,8 @@
 /**
  * Geometry of the HQ diamond marker and the spawn portals
  * (MarkerVisualizationService, MarkerInstanceManager, SpawnPortalManager,
- * MarkerLabelManager). The intro flight treats both as obstacles and shot
+ * MarkerLabelManager), and how air units leave a portal (EnemyManager).
+ * The intro flight treats both as obstacles and shot
  * subjects, the overview frame keeps them in the picture; both read the
  * extents from here.
  */
@@ -74,6 +75,33 @@ export const PORTAL_DEPTH = 10.5;
 export function portalDepthScale(scale: number): number {
   return Math.max(1, scale);
 }
+
+/**
+ * How an air unit of a wave comes out of its spawn portal
+ * (utils/air-portal-exit.ts, EnemyManager): from path[0] inside the volume,
+ * its body centred in the opening (PORTAL_OPENING_HEIGHT * scale / 2 above
+ * the ground), level through the front surface and on, then up to its
+ * cruise altitude. Both are distances along the route, so the climb is the
+ * same at every frame rate and timescale. Debug spawns and split children
+ * start at their altitude.
+ */
+export const AIR_PORTAL_EXIT = {
+  /**
+   * Level flight past the front surface (m). The dragon, the longest air
+   * body, reaches 7.8 m behind its origin: at 8 m its tail is out of the
+   * gate before the climb lifts it. 0.9 to 1.3 s at the air units' 6 to
+   * 9 m/s.
+   */
+  holdPastFront: 8,
+  /**
+   * Route distance of the climb to cruise altitude (m), eased at both ends
+   * (smoothstep, steepest at 1.5 times the mean slope). The rise is 2 to
+   * 25 m by type, portal and altitude spread: at most about 35° for the
+   * bat, 40° for the hornet, 50° for a dragon at the top of its spread.
+   * 3.3 to 5 s at their speeds.
+   */
+  climbDistance: 30,
+} as const;
 
 /** Gap between the frame top and the spawn label's centre (m). */
 export const PORTAL_LABEL_GAP = 4;

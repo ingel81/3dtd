@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
 import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath } from '../configs/enemy-types.config';
-import { GeoPosition } from '../models/game.types';
+import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
@@ -12,6 +12,9 @@ import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
 import type { DamageType } from '../configs/combat/combat.types';
+import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
+import { getEnemyModelRangeY } from '../utils/enemy-aim.util';
+import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -55,6 +58,16 @@ export interface SpawnStart {
   /** Ground height (geo) at the start, the route grid's value under the parent */
   groundHeight: number;
 }
+
+/**
+ * How a spawn enters its path:
+ * - 'portal': out of the spawn portal on path[0], a wave spawn. An air unit
+ *   flies out through the opening and climbs to its altitude
+ *   (AIR_PORTAL_EXIT).
+ * - a SpawnStart: part-way along it, a split child.
+ * - none: on path[0] at its type's height, a debug spawn.
+ */
+export type SpawnEntry = SpawnStart | 'portal';
 
 /**
  * Manages all enemy entities - spawning, updating, and lifecycle
@@ -163,8 +176,8 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
-   * Spawn a new enemy at the start of a path, or part-way along it at
-   * `start` (split children, see splitOnDeath()).
+   * Spawn a new enemy at the start of a path, out of its spawn portal, or
+   * part-way along it (split children, see splitOnDeath()). See SpawnEntry.
    */
   spawn(
     path: GeoPosition[],
@@ -172,12 +185,13 @@ export class EnemyManager extends EntityManager<Enemy> {
     speedOverride?: number,
     paused = false,
     healthOverride?: number,
-    start?: SpawnStart,
+    entry?: SpawnEntry,
   ): Enemy {
     if (!this.tilesEngine) {
       throw new Error('EnemyManager not initialized');
     }
 
+    const start = typeof entry === 'object' ? entry : undefined;
     const enemy = new Enemy(typeId, path, speedOverride, start?.segmentIndex, start?.segmentProgress);
 
     // Override health if specified
@@ -239,6 +253,15 @@ export class EnemyManager extends EntityManager<Enemy> {
       enemy.transform.terrainHeight = geoHeight;
     }
 
+    // A wave spawn comes out of the spawn portal on path[0]. An air unit
+    // flies out through the middle of the opening and climbs to its
+    // altitude on the way (update()); a ground unit is at its height there.
+    if (entry === 'portal' && enemy.typeConfig.isAirUnit) {
+      const exit = this.portalExitFor(enemy, path[0]);
+      enemy.portalExit = exit;
+      enemy.heightOffset = exit.from;
+    }
+
     // Create 3D model and start animation. `position` is path[0], or the
     // split start on the centre line; the first step adds the lane offset.
     this.tilesEngine.enemies
@@ -270,6 +293,25 @@ export class EnemyManager extends EntityManager<Enemy> {
     });
 
     return enemy;
+  }
+
+  /**
+   * An air unit's way out of the portal on `start`, see airPortalExit(). The
+   * portal's scale follows the corridor there, as MarkerVisualizationService
+   * stands it; the body is the VAT bake's measured range. Every type is
+   * baked while the game loads; before that (unit tests) the body counts as
+   * a point at its origin.
+   */
+  private portalExitFor(enemy: Enemy, start: RouteWaypoint): AirPortalExit {
+    const range = getEnemyModelRangeY(enemy.typeConfig.id);
+    const scale = enemy.typeConfig.scale;
+    return airPortalExit(
+      portalScaleForWidth(portalCorridorWidth(start)),
+      range !== undefined ? range.min * scale : 0,
+      range !== undefined ? range.max * scale : 0,
+      enemy.movement.getHeightVariation(),
+      enemy.typeConfig.heightOffset,
+    );
   }
 
   /**
@@ -525,6 +567,16 @@ export class EnemyManager extends EntityManager<Enemy> {
         continue;
       }
 
+      // On the way out of the spawn portal an air unit's height follows the
+      // distance it has flown along the route, the same at every timescale.
+      // Once it is up it cruises at its type's height.
+      const exit = enemy.portalExit;
+      if (exit !== null) {
+        const flown = enemy.movement.getDistanceAlongPath();
+        enemy.heightOffset = airPortalExitOffset(exit, flown);
+        if (flown >= exit.climbEnd) enemy.portalExit = null;
+      }
+
       // Update global route grid position for O(1) tower targeting
       // Also update spatial grid for O(1) proximity queries (sleep wake-checks, fallback targeting)
       t0 = sample ? performance.now() : 0;
@@ -708,7 +760,9 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Single-source-of-truth: matches `getAirTargetY(cell)` from the LOS
       // pipeline. Caveat (Option B): in dense skyscraper scenes, air units
       // may clip through facades — accepted trade-off for predictable
-      // coverage visualization.
+      // coverage visualization. Out of a spawn portal they fly lower for
+      // the first ~45 m (Enemy.portalExit); the air LOS still samples the
+      // cruise height there.
       this._tempLocalPos.y = origin
         ? (enemy.transform.terrainHeight + enemy.heightOffset) - origin.height
         : 0;

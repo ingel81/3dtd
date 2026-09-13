@@ -3,6 +3,8 @@ import {
   PORTAL_MIN_SCALE,
   PORTAL_OPENING_WIDTH,
 } from '../../../configs/marker-geometry.config';
+import type { RouteWaypoint } from '../../../models/game.types';
+import { corridorConfig } from '../../../utils/route-corridor';
 
 /** Where a spawn portal stands, in scene space. */
 export interface SpawnPortalPose {
@@ -22,6 +24,18 @@ export const PORTAL_HEADING_RUN = 4;
 /** Portal scale for a corridor `width` metres wide at the route start. */
 export function portalScaleForWidth(width: number): number {
   return Math.min(PORTAL_MAX_SCALE, Math.max(PORTAL_MIN_SCALE, width / PORTAL_OPENING_WIDTH));
+}
+
+/**
+ * Width of the route corridor a portal on the route start `start` spans:
+ * twice its wider side, as the portal stands centred on the route. Read by
+ * the portal's pose and by the air units coming out of it.
+ */
+export function portalCorridorWidth(start: RouteWaypoint): number {
+  return 2 * Math.max(
+    start.corridorLeft ?? corridorConfig.defaultHalfWidth,
+    start.corridorRight ?? corridorConfig.defaultHalfWidth,
+  );
 }
 
 /**
