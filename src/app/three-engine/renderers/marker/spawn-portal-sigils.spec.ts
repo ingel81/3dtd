@@ -7,6 +7,7 @@ import {
   PORTAL_SIGIL_GLSL,
   SIGIL_CELLS,
   SIGIL_LAYOUT,
+  SIGIL_REACH,
   SIGIL_STROKE,
   frameSigilCells,
   sigilForCell,
@@ -96,13 +97,13 @@ describe('Portal-Sigillen: der Satz', () => {
       for (const part of sigil.parts) {
         expect(['ring', 'arc', 'dot', 'crescent']).toContain(part.kind);
         expect(part.r, sigil.name).toBeGreaterThan(0);
-        expect(reach(part), `${sigil.name}: ${JSON.stringify(part)}`).toBeLessThanOrEqual(0.46);
+        expect(reach(part), `${sigil.name}: ${JSON.stringify(part)}`).toBeLessThanOrEqual(SIGIL_REACH);
         if (part.kind === 'dot') expect(part.r).toBeGreaterThanOrEqual(0.02);
         if (part.kind === 'crescent') expect(part.r).toBeGreaterThanOrEqual(0.06);
         if (part.kind === 'arc') {
-          // Kein ganzer Kreis und kein bloßer Tupfen
+          // Kein bloßer Tupfen, und nichts, das sich zu C, U oder O schließt
           expect(part.span).toBeGreaterThan(0.5);
-          expect(part.span).toBeLessThan(2 * Math.PI - 0.5);
+          expect(part.span, `${sigil.name}: Bogen über 160°`).toBeLessThanOrEqual((160 * Math.PI) / 180 + 1e-9);
         }
       }
     }
@@ -115,15 +116,18 @@ describe('Portal-Sigillen: der Satz', () => {
     }
   });
 
-  it('sitzt in keinem Kreisrahmen und hat keine konzentrischen Ringe, keinen Punkt in der Mitte eines Rings', () => {
+  it('hat keinen Rand um die Zellmitte, keine konzentrischen Ringe, keinen Punkt in der Mitte eines Rings', () => {
     for (const sigil of PORTAL_SIGILS) {
       const round = sigil.parts.filter((part) => roundAbout(part, (270 * Math.PI) / 180));
+      // Kein Rand, auch kein gebrochener: große Ringe und Bögen um die
+      // Zellmitte zusammen höchstens einen halben Kreis (Drehregler, Plakette)
+      let rim = 0;
       for (const part of sigil.parts) {
-        // Kein Ring und kein fast geschlossener Bogen um die Zelle
-        if (roundAbout(part, (300 * Math.PI) / 180)) {
-          expect(part.r >= 0.3 && Math.hypot(part.x, part.y) < 0.08, `${sigil.name}: Kreisrahmen`).toBe(false);
+        if ((part.kind === 'ring' || part.kind === 'arc') && part.r >= 0.25 && Math.hypot(part.x, part.y) < 0.12) {
+          rim += part.kind === 'ring' ? 2 * Math.PI : part.span;
         }
       }
+      expect(rim, `${sigil.name}: Rand`).toBeLessThanOrEqual(Math.PI);
       // ʘ, ⊙: kein Punkt in der Mitte eines Rings
       for (const circle of round) {
         for (const part of sigil.parts.filter((p) => p.kind === 'dot')) {
@@ -194,15 +198,19 @@ describe('Portal-Sigillen: Auswahl und Platz auf dem Rahmen', () => {
     expect(new Set(picks).size).toBe(PORTAL_SIGILS.length);
   });
 
-  it('dreht und skaliert die Sigille je Zelle ein wenig anders, nie über die Zelle hinaus', () => {
+  it('dreht, skaliert und verschiebt die Sigille je Zelle anders, nie über die Zelle hinaus', () => {
     const cells = frameSigilCells();
-    for (const { turn, scale } of cells) {
+    for (const { turn, scale, dx, dy } of cells) {
       expect(Math.abs(turn)).toBeLessThanOrEqual((30 * Math.PI) / 180 + 1e-9);
-      expect(scale).toBeGreaterThanOrEqual(0.8);
+      expect(scale).toBeGreaterThanOrEqual(0.72);
       expect(scale).toBeLessThanOrEqual(1);
+      // Die weiteste Tinte bleibt in der Zelle
+      expect(SIGIL_REACH * scale + Math.hypot(dx, dy)).toBeLessThanOrEqual(0.49 + 1e-9);
     }
     expect(new Set(cells.map((c) => c.turn.toFixed(4))).size).toBeGreaterThan(6);
     expect(new Set(cells.map((c) => c.scale.toFixed(4))).size).toBeGreaterThan(3);
+    // Nicht jede Sigille mittig: die Hälfte der Zellen merklich verschoben
+    expect(cells.filter((c) => Math.hypot(c.dx, c.dy) > 0.05).length).toBeGreaterThanOrEqual(SIGIL_CELLS / 2);
   });
 
   it('setzt jede Sigille ganz auf die Stirnseite eines Pfeilers oder des Sturzes, vorn und hinten', () => {
@@ -225,6 +233,7 @@ describe('Portal-Sigillen: Auswahl und Platz auf dem Rahmen', () => {
     expect(PORTAL_SIGIL_GLSL.match(/index < /g)).toHaveLength(PORTAL_SIGILS.length - 1);
     expect(PORTAL_SIGIL_GLSL).toContain(`SIGIL_TURNS[${SIGIL_CELLS}] = float[${SIGIL_CELLS}](`);
     expect(PORTAL_SIGIL_GLSL).toContain(`SIGIL_SCALES[${SIGIL_CELLS}] = float[${SIGIL_CELLS}](`);
+    expect(PORTAL_SIGIL_GLSL).toContain(`SIGIL_SHIFTS[${SIGIL_CELLS}] = vec2[${SIGIL_CELLS}](`);
     expect(PORTAL_SIGIL_GLSL).toContain('sigilCrescent(p, ');
     expect(PORTAL_SIGIL_GLSL).not.toContain('NaN');
   });
