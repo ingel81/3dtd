@@ -1,4 +1,5 @@
 import {
+  BufferGeometry,
   InstancedMesh,
   InstancedBufferAttribute,
   ShaderMaterial,
@@ -7,17 +8,21 @@ import {
   Color,
   Group,
 } from 'three';
-import { createPortalGateMaterial, createPortalGlowMaterial } from './marker-shaders';
+import { createPortalGateMaterial, createPortalGlowMaterial, setPortalGateTextures } from './marker-shaders';
 import {
   createPortalGateGeometry,
   createPortalGlowGeometry,
   PORTAL_SHADER_LAYOUT,
 } from './spawn-portal-geometry';
+import type { SpawnPortalFrame } from './spawn-portal-frame';
 import type { SpawnPortalPose } from './spawn-portal-pose';
 import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
 import { portalDepthScale } from '../../../configs/marker-geometry.config';
 
 const MAX_PORTALS = 8;
+
+/** Per-instance attributes both meshes share. */
+const INSTANCE_ATTRIBUTES = ['aColor', 'aPhase', 'aRipple'] as const;
 
 /** Ripple start far in the past: no ripple until the first burst. */
 const NO_RIPPLE = -1e4;
@@ -33,11 +38,11 @@ interface PortalEntry {
  * GPU-instanced spawn portals: a stone gate on the route start, facing the
  * way the enemies walk, with a swirling surface in the spawn's colour.
  * Two draw calls for all portals:
- * - gate: the opaque stone blocks, with emissive runes and the portal's
- *   light on the faces around the opening, and the void, a surface in
- *   front of the portal's volume and one behind it. The void writes depth:
- *   the enemies appear between the two and stay hidden until they step
- *   out through the front.
+ * - gate: the stone frame (its asset, see setFrame) with the portal's
+ *   light on the faces round the opening and its carved sigils glowing,
+ *   and the void, a surface in front of the portal's volume and one behind
+ *   it. The void writes depth: the enemies appear between the two and stay
+ *   hidden until they step out through the front.
  * - glow: the light the portal throws on the street in front, and the
  *   summoning circle on it
  *
@@ -82,12 +87,11 @@ export class SpawnPortalManager {
     this.rippleAttr = new InstancedBufferAttribute(new Float32Array(MAX_PORTALS).fill(NO_RIPPLE), 1);
 
     const look = SPAWN_PORTAL_LOOK;
-    const gateGeom = createPortalGateGeometry();
-    gateGeom.setAttribute('aColor', this.colorAttr);
-    gateGeom.setAttribute('aPhase', this.phaseAttr);
-    gateGeom.setAttribute('aRipple', this.rippleAttr);
+    // The two void surfaces until the frame's asset arrives (setFrame)
+    const gateGeom = createPortalGateGeometry(null);
+    this.shareInstanceAttributes(gateGeom);
     this.gateMat = createPortalGateMaterial(
-      PORTAL_SHADER_LAYOUT, look.palette, look.frameExposure, look.idleEnergy, look.rippleLife,
+      PORTAL_SHADER_LAYOUT, look.palette, look.frameExposure, look.frameGlints, look.idleEnergy, look.rippleLife,
     );
     this.gateMesh = new InstancedMesh(gateGeom, this.gateMat, MAX_PORTALS);
     this.gateMesh.count = 0;
@@ -95,9 +99,7 @@ export class SpawnPortalManager {
     this.gateMesh.name = 'spawnPortalGates';
 
     const glowGeom = createPortalGlowGeometry();
-    glowGeom.setAttribute('aColor', this.colorAttr);
-    glowGeom.setAttribute('aPhase', this.phaseAttr);
-    glowGeom.setAttribute('aRipple', this.rippleAttr);
+    this.shareInstanceAttributes(glowGeom);
     this.glowMat = createPortalGlowMaterial(
       PORTAL_SHADER_LAYOUT, look.palette, look.idleEnergy, look.rippleLife, look.circle, look,
     );
@@ -135,6 +137,24 @@ export class SpawnPortalManager {
     this.writeMatrix(index, pose);
     this.recount();
     this.updateBurstReady();
+  }
+
+  /**
+   * Give the gates their stone frame, from its asset (see
+   * MarkerVisualizationService); until then they stand as the two void
+   * surfaces. The frame stays the caller's: the gate takes a copy of its
+   * geometry, and dispose() leaves its textures alone.
+   */
+  setFrame(frame: SpawnPortalFrame): void {
+    const geometry = createPortalGateGeometry(frame.geometry);
+    this.shareInstanceAttributes(geometry);
+    const old = this.gateMesh.geometry;
+    // Disposing frees the buffers of every attribute on the geometry: the
+    // shared ones come off first, the glow still draws with them
+    for (const name of INSTANCE_ATTRIBUTES) old.deleteAttribute(name);
+    old.dispose();
+    this.gateMesh.geometry = geometry;
+    setPortalGateTextures(this.gateMat, frame);
   }
 
   /** Move a portal, e.g. onto the start of its freshly built route. */
@@ -261,6 +281,12 @@ export class SpawnPortalManager {
     this.glowMesh.geometry.dispose();
     this.gateMat.dispose();
     this.glowMat.dispose();
+  }
+
+  private shareInstanceAttributes(geometry: BufferGeometry): void {
+    geometry.setAttribute('aColor', this.colorAttr);
+    geometry.setAttribute('aPhase', this.phaseAttr);
+    geometry.setAttribute('aRipple', this.rippleAttr);
   }
 
   private writeMatrix(index: number, pose: SpawnPortalPose): void {

@@ -1,9 +1,12 @@
 import { PORTAL_OPENING_HEIGHT, PORTAL_OPENING_WIDTH } from '../../../configs/marker-geometry.config';
 
 /**
- * Sigils on the spawn portal's frame: a fixed, hand-authored set of
- * fictional occult seals, drawn as signed distances by the gate shader
- * (marker-shaders.ts, PORTAL_SIGIL_GLSL). They replace random glyphs of a
+ * Sigils of the spawn portal: a fixed, hand-authored set of fictional
+ * occult seals. They are carved into the frame asset
+ * (tools/blender/spawn_portal.py reads them, each cell's pose included,
+ * from spawn_portal_layout.json, which tools/blender/spawn-portal-layout.spec.ts
+ * writes from this file) and drawn as signed distances in the summoning
+ * circle on the street (marker-shaders.ts, PORTAL_SIGIL_GLSL). They replace random glyphs of a
  * stem, bars and diagonals, which came out as shapes like 千, キ, ス or
  * Latin letters, and two sets of seals in rings round the cell's centre,
  * closed and then broken, which both read like buttons, dials or grilles.
@@ -334,36 +337,14 @@ function sigilBranches(): string {
   }).join(' ');
 }
 
-/** A GLSL float array of `values`. */
-function glslArray(values: readonly number[]): string {
-  return `float[${values.length}](${values.map(glslFloat).join(', ')})`;
-}
-
-const CELL_POSES = [...Array(SIGIL_CELLS).keys()].map(sigilPoseForCell);
-
 /**
- * GLSL of the sigils, generated from PORTAL_SIGILS and SIGIL_LAYOUT:
- * portalFrameSigils(p, opening, fade) gives the distance (cell units) from
- * a point of the frame (portal space, front or back face) to the ink of
- * its cell's sigil, posed as sigilPoseForCell says, 1.0 off the
- * cells, and in `fade` a weight that falls to 0 at the cell's border, for
- * a glow round the ink.
+ * GLSL of the sigils, generated from PORTAL_SIGILS: portalSigil(p, index)
+ * gives the distance (cell units) from p to the ink of sigil `index`.
  */
 export const PORTAL_SIGIL_GLSL = /* glsl */ `
   const float SIGIL_STROKE = ${glslFloat(SIGIL_STROKE)};
   const float CRESCENT_HOLLOW = ${glslFloat(CRESCENT_HOLLOW)};
   const float CRESCENT_SHIFT = ${glslFloat(CRESCENT_SHIFT)};
-  const float SIGIL_SIZE = ${glslFloat(SIGIL_LAYOUT.size)};
-  const float SIGIL_PILLAR_INSET = ${glslFloat(SIGIL_LAYOUT.pillarInset)};
-  const float SIGIL_PILLAR_BOTTOM = ${glslFloat(SIGIL_LAYOUT.pillarBottom)};
-  const float SIGIL_PILLAR_PITCH = ${glslFloat(SIGIL_LAYOUT.pillarPitch)};
-  const float SIGIL_PILLAR_ROWS = ${glslFloat(SIGIL_LAYOUT.pillarRows)};
-  const float SIGIL_LINTEL_RISE = ${glslFloat(SIGIL_LAYOUT.lintelRise)};
-  const float SIGIL_LINTEL_PITCH = ${glslFloat(SIGIL_LAYOUT.lintelPitch)};
-  const float SIGIL_LINTEL_COLUMNS = ${glslFloat(SIGIL_LAYOUT.lintelColumns)};
-  const float SIGIL_TURNS[${SIGIL_CELLS}] = ${glslArray(CELL_POSES.map((pose) => pose.turn))};
-  const float SIGIL_SCALES[${SIGIL_CELLS}] = ${glslArray(CELL_POSES.map((pose) => pose.scale))};
-  const vec2 SIGIL_SHIFTS[${SIGIL_CELLS}] = vec2[${SIGIL_CELLS}](${CELL_POSES.map((pose) => `vec2(${glslFloat(pose.dx)}, ${glslFloat(pose.dy)})`).join(', ')});
 
   float sigilRing(vec2 p, vec2 c, float r) {
     return abs(length(p - c) - r) - SIGIL_STROKE;
@@ -393,52 +374,5 @@ export const PORTAL_SIGIL_GLSL = /* glsl */ `
     float d = 1.0;
     ${sigilBranches()}
     return d;
-  }
-
-  // Sigil of frame cell 'cell', see sigilForCell()
-  float portalSigilIndex(float cell) {
-    return mod(cell * ${glslFloat(SIGIL_STRIDE)}, ${glslFloat(PORTAL_SIGILS.length)});
-  }
-
-  // Distance to the ink of frame cell 'cell' from q (cell units from the
-  // cell's centre), its sigil turned, sized and moved as sigilPoseForCell says
-  float portalCellSigil(vec2 q, float cell) {
-    int i = int(cell + 0.5);
-    float c = cos(SIGIL_TURNS[i]);
-    float s = sin(SIGIL_TURNS[i]);
-    float scale = SIGIL_SCALES[i];
-    return portalSigil(mat2(c, -s, s, c) * (q - SIGIL_SHIFTS[i]) / scale, portalSigilIndex(cell)) * scale;
-  }
-
-  float portalFrameSigils(vec3 p, vec2 opening, out float fade) {
-    fade = 0.0;
-    float row = floor((p.y - SIGIL_PILLAR_BOTTOM) / SIGIL_PILLAR_PITCH);
-    if (row >= 0.0 && row < SIGIL_PILLAR_ROWS) {
-      vec2 q = vec2(
-        abs(p.x) - opening.x - SIGIL_PILLAR_INSET,
-        p.y - SIGIL_PILLAR_BOTTOM - (row + 0.5) * SIGIL_PILLAR_PITCH
-      ) / SIGIL_SIZE;
-      float box = max(abs(q.x), abs(q.y));
-      if (box < 0.5) {
-        // Up the left pillar, down the right one after the lintel
-        float cell = p.x < 0.0 ? row : SIGIL_PILLAR_ROWS + SIGIL_LINTEL_COLUMNS + SIGIL_PILLAR_ROWS - 1.0 - row;
-        fade = 1.0 - smoothstep(0.4, 0.5, box);
-        return portalCellSigil(q, cell);
-      }
-    }
-    float lintelHalf = SIGIL_LINTEL_COLUMNS * SIGIL_LINTEL_PITCH * 0.5;
-    float column = floor((p.x + lintelHalf) / SIGIL_LINTEL_PITCH);
-    if (column >= 0.0 && column < SIGIL_LINTEL_COLUMNS) {
-      vec2 q = vec2(
-        p.x + lintelHalf - (column + 0.5) * SIGIL_LINTEL_PITCH,
-        p.y - opening.y - SIGIL_LINTEL_RISE
-      ) / SIGIL_SIZE;
-      float box = max(abs(q.x), abs(q.y));
-      if (box < 0.5) {
-        fade = 1.0 - smoothstep(0.4, 0.5, box);
-        return portalCellSigil(q, SIGIL_PILLAR_ROWS + column);
-      }
-    }
-    return 1.0;
   }
 `;

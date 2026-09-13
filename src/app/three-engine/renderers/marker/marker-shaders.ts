@@ -13,7 +13,7 @@ import {
 } from 'three';
 import type { EffectRgb } from '../../../configs/visual-effects.config';
 import { PORTAL_SIGILS, PORTAL_SIGIL_GLSL } from './spawn-portal-sigils';
-import { PORTAL_STONE_GLSL } from './spawn-portal-stone';
+import type { SpawnPortalFrame } from './spawn-portal-frame';
 
 // ============================================================
 // DIAMOND BODY SHADER
@@ -411,25 +411,37 @@ const PORTAL_PALETTE_GLSL = /* glsl */ `
   uniform vec3 uViolet; // the swirl's troughs
 `;
 
+/** Hand the frame's baked textures to a gate material (createPortalGateMaterial). */
+export function setPortalGateTextures(
+  material: ShaderMaterial,
+  textures: Pick<SpawnPortalFrame, 'baseColor' | 'normal' | 'orm' | 'emissive'>,
+): void {
+  material.uniforms['uBaseMap'].value = textures.baseColor;
+  material.uniforms['uNormalMap'].value = textures.normal;
+  material.uniforms['uOrmMap'].value = textures.orm;
+  material.uniforms['uEmissiveMap'].value = textures.emissive;
+}
+
 /**
- * Gate of the spawn portals: the stone frame (aPart 0) and the void in the
- * opening (aPart 1), opaque, in one draw call. Unlit like every marker
- * shader: the stone is procedural (spawn-portal-stone.ts: ashlars and
- * joints, worn and chipped edges, cracks, soot, relief) under faked light,
- * a fixed key light and the core's dim red light from the opening, and a
- * fixed set of sigils up the pillars and along the
- * lintel (spawn-portal-sigils.ts) glows in a dark red tinted with the
- * spawn's colour. The void, a surface in front of the portal's volume and
- * one behind it, is a slow, smouldering swirl around a black eye; it
- * writes depth, so whatever stands between the two (the enemies at their
- * start) stays hidden. aRipple is the wall time
- * (s) of the portal's last spawn burst: a ring runs out from the eye. The
- * Photorealistic Tiles around it take no scene light either way.
+ * Gate of the spawn portals: the stone frame (aPart 0) and the void (aPart
+ * 1), opaque, in one draw call. Unlit like every marker shader: the stone
+ * comes from the frame's baked textures (spawn-portal-frame.ts,
+ * setPortalGateTextures) under faked light, a fixed key light with glints
+ * on the glossy parts, the sky and the core's dim red light from the
+ * opening, and the carved sigils glow faintly deep in their grooves,
+ * tinted with the spawn's colour. `exposure` is the gain on the stone's
+ * base colour, `glints` the strength of the glints. The void, a surface in
+ * front of the portal's volume and one behind it, is a slow, smouldering
+ * swirl around a black eye; it writes depth, so whatever stands between
+ * the two (the enemies at their start) stays hidden. aRipple is the wall
+ * time (s) of the portal's last spawn burst: a ring runs out from the eye.
+ * The Photorealistic Tiles around it take no scene light either way.
  */
 export function createPortalGateMaterial(
   layout: PortalShaderLayout,
   palette: PortalPalette,
   exposure: number,
+  glints: number,
   energy: number,
   rippleLife: number,
 ): ShaderMaterial {
@@ -441,21 +453,26 @@ export function createPortalGateMaterial(
       uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
       uHalfDepth: { value: layout.halfDepth },
       uExposure: { value: exposure },
+      uGlints: { value: glints },
+      uBaseMap: { value: null as Texture | null },
+      uNormalMap: { value: null as Texture | null },
+      uOrmMap: { value: null as Texture | null },
+      uEmissiveMap: { value: null as Texture | null },
       ...portalPaletteUniforms(palette),
     },
     vertexShader: /* glsl */ `
+      attribute vec4 tangent;
       attribute vec3 aColor;
       attribute float aPhase;
       attribute float aRipple;
       attribute float aPart;
-      attribute vec3 aFace;
-      attribute vec2 aWidth;
 
       varying vec3 vLocalPos;
       varying vec3 vLocalNormal;
+      varying vec4 vLocalTangent;
+      varying vec2 vUv;
       varying vec3 vLight;
-      varying vec3 vFace;
-      varying vec2 vWidth;
+      varying vec3 vView;
       varying vec3 vColor;
       varying float vPhase;
       varying float vRipple;
@@ -467,17 +484,21 @@ export function createPortalGateMaterial(
       void main() {
         vLocalPos = position;
         vLocalNormal = normal;
-        vFace = aFace;
-        vWidth = aWidth;
+        vLocalTangent = tangent;
+        vUv = uv;
         // The fixed key light in portal space, so the shading turns with the portal
         vec3 key = normalize(vec3(0.4, 0.8, 0.45));
         vLight = vec3(dot(key, normalize(instanceMatrix[0].xyz)), key.y, dot(key, normalize(instanceMatrix[2].xyz)));
+        // The way to the camera in portal space, for the glints
+        mat4 toWorld = modelMatrix * instanceMatrix;
+        vec4 world = toWorld * vec4(position, 1.0);
+        vView = inverse(mat3(toWorld)) * (cameraPosition - world.xyz);
         vColor = aColor;
         vPhase = aPhase;
         vRipple = aRipple;
         vPart = aPart;
 
-        vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+        vec4 mvPosition = viewMatrix * world;
         gl_Position = projectionMatrix * mvPosition;
 
         #include <logdepthbuf_vertex>
@@ -491,14 +512,20 @@ export function createPortalGateMaterial(
       uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height
       uniform float uHalfDepth; // half the volume's depth
-      uniform float uExposure;  // gain on the lit stone
+      uniform float uExposure;  // gain on the stone's base colour
+      uniform float uGlints;    // strength of the key light's glints
+      uniform sampler2D uBaseMap;
+      uniform sampler2D uNormalMap;
+      uniform sampler2D uOrmMap;      // occlusion, roughness, metal
+      uniform sampler2D uEmissiveMap; // groove bottoms, stroke order, cracks
       ${PORTAL_PALETTE_GLSL}
 
       varying vec3 vLocalPos;
       varying vec3 vLocalNormal;
+      varying vec4 vLocalTangent;
+      varying vec2 vUv;
       varying vec3 vLight;
-      varying vec3 vFace;
-      varying vec2 vWidth;
+      varying vec3 vView;
       varying vec3 vColor;
       varying float vPhase;
       varying float vRipple;
@@ -508,7 +535,43 @@ export function createPortalGateMaterial(
 
       ${PORTAL_NOISE_GLSL}
 
-      ${PORTAL_STONE_GLSL}
+      // The frame's stone from its baked textures under the faked light:
+      // the key light and the sky on the normal map, the baked occlusion,
+      // glints on the glossy obsidian and the iron, the core's dark red
+      // light from the volume. p in portal space, footprint in metres per
+      // pixel.
+      vec3 portalStone(vec3 p, float footprint, float flicker) {
+        vec3 N = normalize(vLocalNormal);
+        vec3 t = vLocalTangent.xyz - N * dot(N, vLocalTangent.xyz);
+        vec3 mapped = texture2D(uNormalMap, vUv).xyz * 2.0 - 1.0;
+        // A degenerate tangent would turn the normal into NaN: keep the face's normal there
+        vec3 n = N;
+        if (dot(t, t) > 1e-8) {
+          vec3 T = normalize(t);
+          n = normalize(mat3(T, cross(N, T) * vLocalTangent.w, N) * mapped);
+        }
+        vec3 base = texture2D(uBaseMap, vUv).rgb;
+        vec3 orm = texture2D(uOrmMap, vUv).rgb;
+        vec3 L = normalize(vLight);
+        float key = max(dot(n, L), 0.0);
+        float sky = 0.55 + 0.45 * n.y;
+        vec3 col = base * uExposure * orm.r * (0.55 * sky + 0.9 * key);
+        // Glints, faded where a pixel covers the normal map's detail, which
+        // would sparkle
+        float gloss = 1.0 - orm.g;
+        float spec = pow(max(dot(n, normalize(L + normalize(vView))), 0.0), 4.0 + 120.0 * gloss * gloss) * gloss * gloss;
+        vec3 tint = mix(vec3(0.05), base * 8.0 + 0.02, orm.b);
+        col += tint * spec * key * orm.r * uGlints * (1.0 - smoothstep(0.03, 0.12, footprint));
+        // The core's light from the nearest point of the volume's axis,
+        // strongest on the faces round the opening; the lighter worn edges
+        // catch more of it than the soot
+        vec3 toCore = vec3(0.0, uOpening.y * 0.45, clamp(p.z, -uHalfDepth, uHalfDepth)) - p;
+        float dCore = length(toCore) + 1e-3;
+        float wrap = clamp(dot(n, toCore / dCore) * 0.6 + 0.4, 0.0, 1.0);
+        float catchLight = 0.35 + 8.0 * dot(base, vec3(0.3333));
+        col += uEmber * wrap * wrap * exp(-dCore * 0.2) * orm.r * catchLight * (0.45 + 0.9 * uEnergy) * flicker;
+        return col;
+      }
 
       // Embers rising through the void: a speck in some cells of a grid
       // that drifts up, each flickering at its own pace. p in metres.
@@ -561,13 +624,12 @@ export function createPortalGateMaterial(
         return col;
       }
 
-      ${PORTAL_SIGIL_GLSL}
-
       void main() {
         #include <logdepthbuf_fragment>
 
         // Metres of the frame per pixel; derivatives before any branch, as
-        // they need uniform control flow
+        // they need uniform control flow. vPart is the same over a
+        // triangle, so the texture reads below still see whole quads.
         float footprint = length(fwidth(vLocalPos));
 
         if (vPart > 0.5) {
@@ -576,23 +638,16 @@ export function createPortalGateMaterial(
         }
 
         vec3 p = vLocalPos;
-        vec3 ln = vLocalNormal;
         float flicker = 0.8 + 0.2 * portalNoise(vec2(uTime * 1.7 + vPhase, p.y * 0.4));
+        vec3 col = portalStone(p, footprint, flicker);
 
-        // Hewn, worn, cracked and sooted stone (spawn-portal-stone.ts)
-        vec3 col = portalStone(p, ln, vFace, vWidth, normalize(vLight), footprint,
-          uOpening, uHalfDepth, uExposure, uEnergy, flicker, uEmber, uHot);
-
-        // Sigils in a frieze round the opening (spawn-portal-sigils.ts), on
-        // the front and the back, with a faint glow round the ink, lit in a
-        // wave that climbs the frame
-        float face = step(0.6, abs(ln.z));
-        float fade;
-        float ink = portalFrameSigils(p, uOpening, fade);
-        float sigil = 1.0 - smoothstep(0.0, 0.04, ink);
-        float halo = exp(-max(ink, 0.0) * 25.0) * fade;
+        // Emissive data: the cracks round the opening glowing from within,
+        // the sigils glowing faintly deep in their grooves, tinted with the
+        // spawn's colour, in a wave that climbs the frame
+        vec3 e = texture2D(uEmissiveMap, vUv).rgb;
+        col += mix(uEmber, uHot, 0.3) * e.b * (0.2 + 0.5 * uEnergy) * flicker;
         float climb = 0.55 + 0.45 * sin(uTime * 1.4 - p.y * 0.6 + vPhase);
-        col += mix(uEmber, vColor, 0.4) * face * (sigil + 0.3 * halo) * climb * (0.5 + 0.7 * uEnergy);
+        col += mix(uEmber, vColor, 0.4) * e.r * e.r * climb * (0.15 + 0.35 * uEnergy);
 
         gl_FragColor = vec4(col, 1.0);
       }

@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three';
 import {
   CRESCENT_HOLLOW,
   CRESCENT_SHIFT,
@@ -14,7 +13,6 @@ import {
   type Sigil,
   type SigilPart,
 } from './spawn-portal-sigils';
-import { createPortalFrameGeometry } from './spawn-portal-geometry';
 
 /** Signed distance (cell units) from (x, y) to a part's ink, as the shader has it. */
 function distance(part: SigilPart, x: number, y: number): number {
@@ -213,27 +211,8 @@ describe('Portal-Sigillen: Auswahl und Platz auf dem Rahmen', () => {
     expect(cells.filter((c) => Math.hypot(c.dx, c.dy) > 0.05).length).toBeGreaterThanOrEqual(SIGIL_CELLS / 2);
   });
 
-  it('setzt jede Sigille ganz auf die Stirnseite eines Pfeilers oder des Sturzes, vorn und hinten', () => {
-    const mesh = new Mesh(createPortalFrameGeometry(), new MeshBasicMaterial({ side: DoubleSide }));
-    const raycaster = new Raycaster();
-    const half = 0.46 * SIGIL_LAYOUT.size;
-    for (const { x, y } of frameSigilCells()) {
-      for (const [dx, dy] of [[-half, -half], [half, -half], [-half, half], [half, half], [0, 0]]) {
-        for (const side of [1, -1]) {
-          raycaster.set(new Vector3(x + dx, y + dy, 30 * side), new Vector3(0, 0, -side));
-          const hit = raycaster.intersectObject(mesh)[0];
-          expect(hit, `Zelle bei (${x}, ${y})`).toBeDefined();
-          expect(hit.face!.normal.z * side).toBeGreaterThan(0.6);
-        }
-      }
-    }
-  });
-
-  it('erzeugt je Sigille einen Zweig im Shader und je Zelle ihre Drehung und Größe', () => {
+  it('erzeugt je Sigille einen Zweig im Shader', () => {
     expect(PORTAL_SIGIL_GLSL.match(/index < /g)).toHaveLength(PORTAL_SIGILS.length - 1);
-    expect(PORTAL_SIGIL_GLSL).toContain(`SIGIL_TURNS[${SIGIL_CELLS}] = float[${SIGIL_CELLS}](`);
-    expect(PORTAL_SIGIL_GLSL).toContain(`SIGIL_SCALES[${SIGIL_CELLS}] = float[${SIGIL_CELLS}](`);
-    expect(PORTAL_SIGIL_GLSL).toContain(`SIGIL_SHIFTS[${SIGIL_CELLS}] = vec2[${SIGIL_CELLS}](`);
     expect(PORTAL_SIGIL_GLSL).toContain('sigilCrescent(p, ');
     expect(PORTAL_SIGIL_GLSL).not.toContain('NaN');
   });
