@@ -363,6 +363,9 @@ während einer Welle.
 - `FrostBombStrategy` (96): wirft die Frostbombe auf die dichteste Gruppe von
   mindestens 8 Gegnern in der zweiten Hälfte der Route
   ([BOT_SYSTEM.md](BOT_SYSTEM.md#frostbomb-96)).
+- `EmpStrategy` (94): setzt das EMP auf mindestens 3 Maschinen beisammen ab
+  Pfadfortschritt 0,4, sonst auf eine Menge von mindestens 12 Gegnern ab 0,6
+  ([BOT_SYSTEM.md](BOT_SYSTEM.md#emp-94)).
 
 ---
 
@@ -387,6 +390,7 @@ während einer Welle.
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 | `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
+| `ai/training/strategies/ability/emp.strategy.ts` | Bot des EMP |
 
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,

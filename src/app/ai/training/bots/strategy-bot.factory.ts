@@ -24,6 +24,7 @@ import { SellUnderperformerStrategy } from '../strategies/upgrade/sell-underperf
 import { AutoStartWaveStrategy } from '../strategies/wave/auto-start-wave.strategy';
 import { NuclearStrikeStrategy } from '../strategies/ability/nuclear-strike.strategy';
 import { FrostBombStrategy } from '../strategies/ability/frost-bomb.strategy';
+import { EmpStrategy } from '../strategies/ability/emp.strategy';
 
 export class StrategyBotFactory {
   constructor(
@@ -131,6 +132,7 @@ export class StrategyBotFactory {
     // meta research it (ResearchPick), for beginner and casual it stays inert.
     strategies.push(new NuclearStrikeStrategy(this.gameState));
     strategies.push(new FrostBombStrategy(this.gameState));
+    strategies.push(new EmpStrategy(this.gameState));
 
     // Add auto-start wave strategy if enabled
     if (autoStartWaves) {
