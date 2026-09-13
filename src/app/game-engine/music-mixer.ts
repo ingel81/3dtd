@@ -49,6 +49,9 @@ export class MusicMixer {
   // User-controlled volume multiplier (0-1), applied on top of track + master volume
   private userVolume = 1.0;
 
+  /** A refused context resume is reported once, not on every crossfade and loop. */
+  private resumeFailureLogged = false;
+
   constructor(private readonly listener: AudioListener) {
     this.channelA = this.createChannel();
     this.channelB = this.createChannel();
@@ -57,8 +60,10 @@ export class MusicMixer {
   /**
    * Crossfade from the active channel to `buffer` on the idle one over
    * `durationMs`, the new track ending at `trackVolume`. Resumes a suspended
-   * audio context before it plays. `nearEnd` is called shortly before the
-   * new track ends, unless another crossfade or stop() came first.
+   * audio context before it plays; if the context refuses, the crossfade
+   * goes ahead and the track sounds once the context runs. `nearEnd` is
+   * called shortly before the new track ends, unless another crossfade or
+   * stop() came first.
    */
   async crossfadeTo(
     buffer: AudioBuffer,
@@ -91,7 +96,17 @@ export class MusicMixer {
     // Resume audio context if needed
     const ctx = this.listener.context;
     if (ctx.state === 'suspended') {
-      await ctx.resume();
+      try {
+        await ctx.resume();
+      } catch (err) {
+        // Go on: the fade above is cancelled and the old track's loop timer
+        // cleared, so stopping here would leave neither channel looping. A
+        // source started on a suspended context plays once it resumes.
+        if (!this.resumeFailureLogged) {
+          this.resumeFailureLogged = true;
+          console.warn('[MusicMixer] Audio context did not resume, music waits for it:', err);
+        }
+      }
     }
 
     inChannel.audio.play();
