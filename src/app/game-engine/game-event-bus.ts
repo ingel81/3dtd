@@ -247,13 +247,20 @@ export type GameEvent =
       warningMs: number;
     }
   | {
-      // The strike landed. `kills` count as leaks for the fairness gate
-      // (GateController), `hits` includes the survivors.
+      // The strike landed: drives its effects, sound and screen shake.
       type: 'ability:impact';
       abilityId: AbilityId;
       strikeId: number;
       target: GeoPosition;
       radiusM: number;
+    }
+  | {
+      // The strike is over, it hits and kills nothing more. `kills` count
+      // as leaks for the fairness gate (GateController), `hits` includes the
+      // survivors. Right after ability:impact for a strike that acts at once.
+      type: 'ability:resolved';
+      abilityId: AbilityId;
+      strikeId: number;
       hits: number;
       kills: number;
     }

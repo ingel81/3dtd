@@ -14,8 +14,9 @@
  * the combat services.
  *
  * Emits `ability:used` and `ability:rejected` for every use, `ability:impact`
- * when a strike lands, and an `ability:state-changed` snapshot after every
- * mutation, like the ResearchManager's `research:state-changed`.
+ * when a strike lands, `ability:resolved` with its hits and kills when it is
+ * over, and an `ability:state-changed` snapshot after every mutation, like
+ * the ResearchManager's `research:state-changed`.
  */
 
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
@@ -251,9 +252,8 @@ export class AbilityManager implements IGameManager {
       strikeId: strike.id,
       target: strike.target,
       radiusM: config.radiusM,
-      hits,
-      kills,
     });
+    this.eventBus.emit({ type: 'ability:resolved', abilityId: strike.abilityId, strikeId: strike.id, hits, kills });
     this.emitStateSnapshot();
   }
 

@@ -203,7 +203,7 @@ export class AIDataCollectorService {
     // Ability kills: the fairness gate books them as leaks (gateLeakRatio).
     // Their enemy:died already recorded them as killed.
     this.subscriptions.add(
-      this.eventBus.on('ability:impact', (event) => {
+      this.eventBus.on('ability:resolved', (event) => {
         this.currentWave.abilityKilled(event.kills);
       })
     );

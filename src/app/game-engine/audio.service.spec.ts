@@ -21,7 +21,7 @@ describe('AudioService nuclear strike', () => {
     const service = new AudioService(eventBus, { spatialAudio } as unknown as ThreeTilesEngine);
     const impact = () => eventBus.emit({
       type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1,
-      target: { lat: 48, lon: 9, height: 310 }, radiusM: 25, hits: 3, kills: 1,
+      target: { lat: 48, lon: 9, height: 310 }, radiusM: 25,
     });
     /** `ms` of game time in sub-steps, as GameStateManager runs them */
     const run = (ms: number) => {
@@ -62,7 +62,7 @@ describe('AudioService nuclear strike', () => {
     // Stands for an ability added later; the typed table would not compile without its entry
     eventBus.emit({
       type: 'ability:impact', abilityId: 'later-ability' as never, strikeId: 2,
-      target: { lat: 48, lon: 9, height: 310 }, radiusM: 25, hits: 3, kills: 1,
+      target: { lat: 48, lon: 9, height: 310 }, radiusM: 25,
     });
     run(LAST_TAIL_MS);
     expect(spatialAudio.playAtGeo).not.toHaveBeenCalled();
