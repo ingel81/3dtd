@@ -428,6 +428,7 @@ const PORTAL_PALETTE_GLSL = /* glsl */ `
 export function createPortalGateMaterial(
   layout: PortalShaderLayout,
   palette: PortalPalette,
+  exposure: number,
   energy: number,
   rippleLife: number,
 ): ShaderMaterial {
@@ -438,6 +439,7 @@ export function createPortalGateMaterial(
       uRippleLife: { value: rippleLife },
       uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
       uHalfDepth: { value: layout.halfDepth },
+      uExposure: { value: exposure },
       ...portalPaletteUniforms(palette),
     },
     vertexShader: /* glsl */ `
@@ -488,6 +490,7 @@ export function createPortalGateMaterial(
       uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height
       uniform float uHalfDepth; // half the volume's depth
+      uniform float uExposure;  // gain on the lit stone
       ${PORTAL_PALETTE_GLSL}
 
       varying vec3 vLocalPos;
@@ -577,7 +580,7 @@ export function createPortalGateMaterial(
 
         // Hewn, worn, cracked and sooted stone (spawn-portal-stone.ts)
         vec3 col = portalStone(p, ln, vFace, vWidth, normalize(vLight), footprint,
-          uOpening, uHalfDepth, uEnergy, flicker, uEmber, uHot);
+          uOpening, uHalfDepth, uExposure, uEnergy, flicker, uEmber, uHot);
 
         // Sigils in a frieze round the opening (spawn-portal-sigils.ts), on
         // the front and the back, with a faint glow round the ink, lit in a

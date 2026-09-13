@@ -85,7 +85,9 @@ export class SpawnPortalManager {
     gateGeom.setAttribute('aColor', this.colorAttr);
     gateGeom.setAttribute('aPhase', this.phaseAttr);
     gateGeom.setAttribute('aRipple', this.rippleAttr);
-    this.gateMat = createPortalGateMaterial(PORTAL_SHADER_LAYOUT, look.palette, look.idleEnergy, look.rippleLife);
+    this.gateMat = createPortalGateMaterial(
+      PORTAL_SHADER_LAYOUT, look.palette, look.frameExposure, look.idleEnergy, look.rippleLife,
+    );
     this.gateMesh = new InstancedMesh(gateGeom, this.gateMat, MAX_PORTALS);
     this.gateMesh.count = 0;
     this.gateMesh.frustumCulled = false;

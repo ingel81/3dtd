@@ -81,7 +81,8 @@ function masonryBranches(): string {
  * position and flat normal, its place on the face (aFace, aWidth), the key
  * light in portal space, the pixel's footprint (m) that fades the fine
  * structure out in the distance, and the portal's opening, half the depth
- * of its volume, energy, flicker and colours.
+ * of its volume, the exposure of the lit stone, energy, flicker and
+ * colours.
  *
  * Cost per frame pixel: about 17 value-noise lookups, one 3 by 3 Worley
  * lookup and the masonry arithmetic, no texture reads; nothing per vertex.
@@ -121,7 +122,8 @@ export const PORTAL_STONE_GLSL = /* glsl */ `
   }
 
   vec3 portalStone(vec3 p, vec3 ln, vec3 face, vec2 width, vec3 light, float footprint,
-                   vec2 opening, float halfDepth, float energy, float flicker, vec3 ember, vec3 hot) {
+                   vec2 opening, float halfDepth, float exposure, float energy, float flicker,
+                   vec3 ember, vec3 hot) {
     vec3 an = abs(ln);
     bool top = an.y > max(an.x, an.z);
     bool side = !top && an.x > an.z;
@@ -223,7 +225,7 @@ export const PORTAL_STONE_GLSL = /* glsl */ `
     float sides = top ? 0.0 : 1.0;
     float gap = 1.0 - smoothstep(0.02, 0.045 + footprint, joint);
     float ao = (1.0 - 0.85 * gap) * (1.0 - 0.3 * bevelJoint) * (1.0 - 0.5 * crack);
-    ao *= 0.55 + 0.45 * smoothstep(0.0, 1.2, p.y);
+    ao *= 0.7 + 0.3 * smoothstep(0.0, 1.2, p.y);
     ao *= 1.0 - 0.45 * exp(-abs(p.y - opening.y) * 1.8) * step(p.y, opening.y + 0.01) * step(abs(p.x), opening.x + 3.0);
     ao *= 1.0 - 0.35 * sides * exp(-max(p.y - STONE_PLINTH_TOP, 0.0) * 2.5) * step(STONE_PLINTH_TOP - 0.01, p.y);
     ao *= 1.0 - 0.35 * sides * exp(-max(p.y - STONE_CORNICE_TOP, 0.0) * 2.5) * step(STONE_CORNICE_TOP - 0.01, p.y);
@@ -232,7 +234,9 @@ export const PORTAL_STONE_GLSL = /* glsl */ `
     // on the faces round the opening, and the cracks near it glowing from within
     float key = max(dot(n, light), 0.0);
     float sky = 0.55 + 0.45 * n.y;
-    vec3 col = albedo * ao * (0.45 * sky + 0.9 * key);
+    // Exposure lifts the stone out of the dark between the tiles; the glow
+    // below keeps its own strength
+    vec3 col = albedo * exposure * ao * (0.55 * sky + 0.9 * key);
     // From the core's axis through the volume, so the front and the back
     // faces take its light like the walls inside
     vec3 toCore = vec3(0.0, opening.y * 0.45, clamp(p.z, -halfDepth, halfDepth)) - p;

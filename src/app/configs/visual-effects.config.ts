@@ -405,6 +405,12 @@ export const SPAWN_PORTAL_LOOK = {
     hot: { r: 0.8, g: 0.26, b: 0.07 },
     violet: { r: 0.15, g: 0.035, b: 0.2 },
   },
+  /**
+   * Gain on the lit stone of the frame: dark and threatening against the
+   * tiles, but no black silhouette, the relief and the joints readable from
+   * the overview. Leaves the glow alone.
+   */
+  frameExposure: 2,
   /** Between waves */
   idleEnergy: 0.45,
   /** While a wave runs */

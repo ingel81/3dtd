@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Group } from 'three';
+import { Group, InstancedMesh, ShaderMaterial } from 'three';
 import { SpawnPortalManager } from './spawn-portal.manager';
 import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
 
@@ -88,5 +88,16 @@ describe('SpawnPortalManager: Spawn-Effekt', () => {
     expect(portals.portalNear(-2, 1, 8)).toBe('s1');
     expect(portals.portalNear(297, 0, 8)).toBe('s2');
     expect(portals.portalNear(150, 0, 8)).toBeNull();
+  });
+});
+
+describe('SpawnPortalManager: Stein', () => {
+  it('gibt dem Tor die Belichtung des Steins aus dem Look', () => {
+    const group = new Group();
+    new SpawnPortalManager(group);
+    const gate = group.children.find((o) => o.name === 'spawnPortalGates') as InstancedMesh;
+    const material = gate.material as ShaderMaterial;
+    expect(material.uniforms['uExposure'].value).toBe(SPAWN_PORTAL_LOOK.frameExposure);
+    expect(material.fragmentShader).toContain('uExposure, uEnergy');
   });
 });
