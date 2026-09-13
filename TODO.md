@@ -425,9 +425,11 @@
       (`services/tower-los-registry.ts`, `heightOffset` + `shootHeight`),
       Sockel-Mesh (instanziert, Steinmaterial, eventuell aus Blender).
 
-- [ ] **Drache ohne Sound** (Playtest 2026-09-13, bei Punkt 235)
-      Der Drache macht keinen Sound mehr. Ursache offen; zu prüfen, seit wann
-      (etwa seit airgate `bd7ec68` oder der Blender-Runde).
+- [ ] **Drache ohne Sound? Erst prüfen** (Playtest 2026-09-13, bei Punkt 235)
+      Beim Test wirkte der Drache stumm; laut User eventuell eine
+      Falschmeldung. Zuerst nachstellen (Custom Wave Dragon, Kamera nah,
+      SFX an), erst bei Bestätigung Ursache suchen (etwa seit airgate
+      `bd7ec68` oder der Blender-Runde).
 
 - [ ] **Debug-Gegner: falsche Anfangsrichtung** (Playtest 2026-09-13, bei Punkt 237)
       Ein im Enemy-Inspector per Place gesetzter Gegner schaut zuerst in eine
