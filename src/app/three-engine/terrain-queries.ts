@@ -17,6 +17,14 @@ interface ActiveTile {
 /** Straight down, the terrain probe is always vertical. */
 const COLUMN_RAY_DIRECTION = new Vector3(0, -1, 0);
 
+/**
+ * How far along the route a clearance station moves its column when the
+ * column under it finds no tile, ahead first: a seam between two tile
+ * meshes is far thinner than that. One column cache bucket, so each shift
+ * is a column of its own.
+ */
+const SEAM_SHIFTS_M = [0.5, -0.5] as const;
+
 /** Column cache granularity: 2 buckets per metre (0.5 m grid). */
 const COLUMN_CACHE_SCALE = 2;
 
@@ -317,6 +325,12 @@ export class TerrainQueries {
    * neither places the rays nor blocks them. A station without such a tile
    * comes back unmeasured, with the reason (`StationProbe.unmeasured`).
    *
+   * A column that finds no tile at all may stand on a seam between two
+   * tile meshes. The station then tries the columns half a metre ahead and
+   * behind along the route (SEAM_SHIFTS_M) and measures from the first that
+   * finds one (`StationProbe.shiftM`): at most two more column rays, only
+   * for such a station.
+   *
    * @returns the first hit per height and side (probeFreeSpace makes the
    *   free space of it), or null where there is nothing to measure: in
    *   DevWorld (its roads are drawn at the width the corridor already uses).
@@ -335,23 +349,39 @@ export class TerrainQueries {
     // The column under the station and all side rays count as the corridor's.
     const scope = raycastStats.enter('routeCorridor');
     try {
-      const column = this.sampleColumn(localX, localZ);
+      const len = Math.hypot(acrossX, acrossZ);
+      let x = localX;
+      let z = localZ;
+      let shiftM: number | null = null;
+      let column = this.sampleColumn(x, z);
+      if (!column && len > 0) {
+        for (const shift of SEAM_SHIFTS_M) {
+          // (acrossZ, -acrossX) is the direction of travel: across points to its right.
+          x = localX + (acrossZ / len) * shift;
+          z = localZ - (acrossX / len) * shift;
+          column = this.sampleColumn(x, z);
+          if (column) {
+            shiftM = shift;
+            break;
+          }
+        }
+      }
+      const shifted = shiftM === null ? {} : { shiftM };
       if (!column) return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
       if (column.tileGeometricError > corridorConfig.maxTileError) {
-        return { unmeasured: 'coarse tile', tileError: column.tileGeometricError, left: [], right: [] };
+        return { unmeasured: 'coarse tile', tileError: column.tileGeometricError, left: [], right: [], ...shifted };
       }
-      const len = Math.hypot(acrossX, acrossZ);
       if (len === 0) return null;
 
       const surfaceY = onDeck ? column.topY : column.groundY;
       const left: number[] = [];
       const right: number[] = [];
       for (const height of heightsAboveGround) {
-        this._clearanceOrigin.set(localX, surfaceY + height, localZ);
+        this._clearanceOrigin.set(x, surfaceY + height, z);
         left.push(this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance));
         right.push(this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance));
       }
-      return { unmeasured: null, tileError: column.tileGeometricError, left, right };
+      return { unmeasured: null, tileError: column.tileGeometricError, left, right, ...shifted };
     } finally {
       raycastStats.exit(scope);
     }

@@ -76,7 +76,7 @@ function liesOnWayEdge(network: StreetNetwork, a: { lat: number; lon: number }, 
  * der Station (eine Naht zwischen zwei Tile-Meshes).
  */
 type Hits = number | number[];
-type Clearance = number | { left: Hits; right: Hits } | null | 'no tile';
+type Clearance = number | { left: Hits; right: Hits; shiftM?: number } | null | 'no tile';
 let clearanceAt: (x: number, z: number, max: number) => Clearance = (_x, _z, max) => max;
 
 /** Jede Messstation, die der Engine-Ersatz beantwortet hat: Ort, Richtung, Strahlhöhen, Länge, Deck. */
@@ -100,7 +100,8 @@ function makeEngine(): ThreeTilesEngine {
         if (free === 'no tile') return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
         const perHeight = (hits: Hits) => (typeof hits === 'number' ? heights.map(() => hits) : hits);
         const sides = typeof free === 'number' ? { left: free, right: free } : free;
-        return { unmeasured: null, tileError: 2, left: perHeight(sides.left), right: perHeight(sides.right) };
+        const shifted = typeof free === 'object' && free.shiftM !== undefined ? { shiftM: free.shiftM } : {};
+        return { unmeasured: null, tileError: 2, left: perHeight(sides.left), right: perHeight(sides.right), ...shifted };
       },
     },
     sync: {
@@ -357,6 +358,17 @@ describe('PathAndRouteService route geometry', () => {
         });
         const here = why.nearby.find((s) => s.here)!;
         expect(here).toMatchObject({ leftFreeM: null, leftM: 7, rightM: 7, unmeasured: 'no tile' });
+      });
+
+      it('says when a station was measured beside a seam', () => {
+        clearanceAt = (x, z, max) =>
+          Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 1 ? { left: max, right: max, shiftM: 0.5 } : max;
+        const service = buildRouteService(network, spawn, hq);
+        measure(service);
+
+        const n1Local = toMeters(n1);
+        expect(service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))).toMatchObject({ unmeasured: null, shiftM: 0.5 });
+        expect(service.explainCorridorAt(n1Local.x, -(n1Local.z + 30))).toMatchObject({ unmeasured: null, shiftM: null });
       });
 
       it('keeps the street width where no fine tile is loaded, and tries again later', () => {

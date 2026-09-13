@@ -128,6 +128,11 @@ export interface CorridorExplanation {
   tileError: number | null;
   sides: CorridorSideRow[];
   nearby: CorridorStationRow[];
+  /**
+   * How far along the route the station was measured from, because the
+   * column under it found no tile (a seam); null when it was not moved.
+   */
+  shiftM: number | null;
 }
 
 /**
@@ -725,6 +730,7 @@ export class PathAndRouteService {
       tileError: probe ? round1(probe.tileError) : null,
       sides: [sideRow('left'), sideRow('right')],
       nearby,
+      shiftM: probe?.shiftM ?? null,
     };
   }
 
