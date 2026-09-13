@@ -5,7 +5,7 @@ vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 // Only their DI tokens are needed. The real modules pull in Material's
 // dialog, which needs the JIT compiler under vitest.
 vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
-vi.mock('../components/hotkey-help-dialog/hotkey-help-dialog.component', () => ({
+vi.mock('../components/hotkey-help-dialog/open-hotkey-help-dialog', () => ({
   openHotkeyHelpDialog: (dialog: { open: () => void }) => dialog.open(),
 }));
 vi.mock('./facade/tower-defense-facade.service', () => ({

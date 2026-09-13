@@ -1,5 +1,5 @@
 import { Component, ChangeDetectionStrategy, ElementRef, afterNextRender, computed, inject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TowerTypeId } from '../../configs/tower-types.config';
 import { ResearchStore } from '../../store/research.store';
@@ -10,39 +10,11 @@ import {
   buildEffectivenessLegend,
   countLockedTowers,
 } from './damage-matrix-table';
+import { DAMAGE_MATRIX_DESC_ID, DAMAGE_MATRIX_TITLE_ID } from './open-damage-matrix-dialog';
 
 export interface DamageMatrixDialogData {
   /** Zeile dieses Towers wird hervorgehoben (Aufruf aus dem Tower-Panel). */
   towerId?: TowerTypeId;
-}
-
-const TITLE_ID = 'td-damage-matrix-title';
-const DESC_ID = 'td-damage-matrix-desc';
-
-/**
- * Breit genug für alle fünf Rüstungsspalten ohne horizontales Scrollen. Muss als
- * Dialog-Config gesetzt werden: das Overlay-Pane von MatDialog ist per Klasse
- * auf 560px begrenzt, nur der Inline-Style der Config hebt das auf.
- */
-const DIALOG_WIDTH = 'min(880px, 92vw)';
-
-/**
- * Öffnet die Damage-vs-Armor-Tabelle. Esc schließt (MatDialog-Default),
- * der Fokus kehrt danach zum auslösenden Button zurück.
- */
-export function openDamageMatrixDialog(
-  dialog: MatDialog,
-  towerId?: TowerTypeId,
-): MatDialogRef<DamageMatrixDialogComponent> {
-  return dialog.open<DamageMatrixDialogComponent, DamageMatrixDialogData>(DamageMatrixDialogComponent, {
-    panelClass: 'td-dialog-panel',
-    width: DIALOG_WIDTH,
-    maxWidth: '92vw',
-    ariaLabelledBy: TITLE_ID,
-    ariaDescribedBy: DESC_ID,
-    autoFocus: 'dialog',
-    data: { towerId },
-  });
 }
 
 /**
@@ -50,6 +22,7 @@ export function openDamageMatrixDialog(
  * Zellen nutzen dieselben Stufen wie die Schadenszahlen im Kampf (Farben: matrixTierColor).
  * Gesperrte Tower fehlen ganz (das Baumenü zeigt sie als gesperrte Karte), ein
  * Hinweis unter der Tabelle verweist auf die Forschung.
+ * Geöffnet über openDamageMatrixDialog.
  */
 @Component({
   selector: 'app-damage-matrix-dialog',
@@ -70,8 +43,8 @@ export class DamageMatrixDialogComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly research = inject(ResearchStore);
 
-  readonly titleId = TITLE_ID;
-  readonly descId = DESC_ID;
+  readonly titleId = DAMAGE_MATRIX_TITLE_ID;
+  readonly descId = DAMAGE_MATRIX_DESC_ID;
   readonly columns = buildDamageMatrixColumns();
   private readonly isUnlocked = (id: TowerTypeId): boolean => this.research.isTowerUnlocked(id);
   /** Reaktiv: eine Forschung, die bei offenem Dialog fertig wird, fügt die Zeile sofort ein. */

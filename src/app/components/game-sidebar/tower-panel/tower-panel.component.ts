@@ -14,7 +14,7 @@ import {
 import { DAMAGE_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
-import { openDamageMatrixDialog } from '../../damage-matrix-dialog/damage-matrix-dialog.component';
+import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-matrix-dialog';
 import { TdIconComponent } from '../../icon/icon.component';
 import { damageTypeIcon, targetingStrategiesFor, towerStats, upgradeTierLockReason } from './tower-stats';
 

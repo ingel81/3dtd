@@ -19,7 +19,7 @@ import {
 import { ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
-import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
+import { openAttributionsDialog } from '../attributions-dialog/open-attributions-dialog';
 import { ConfigService } from '../../core/services/config.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
@@ -100,8 +100,6 @@ export class GameSidebarComponent implements OnDestroy {
   }
 
   openAttributions(): void {
-    this.dialog.open(AttributionsDialogComponent, {
-      panelClass: 'td-dialog-panel',
-    });
+    void openAttributionsDialog(this.dialog);
   }
 }

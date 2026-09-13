@@ -9,7 +9,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { canPickTowerCard, firstAffordableUpgrade } from '../utils/player-actions';
 import { isTypingTarget } from '../utils/keyboard-target';
-import { openHotkeyHelpDialog } from '../components/hotkey-help-dialog/hotkey-help-dialog.component';
+import { openHotkeyHelpDialog } from '../components/hotkey-help-dialog/open-hotkey-help-dialog';
 import { CameraControlService } from './camera-control.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';

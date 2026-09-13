@@ -22,7 +22,7 @@ import { canPickTowerCard } from '../../../utils/player-actions';
 import { towerSlotKey } from '../../../services/hotkey-map';
 import { ModelPreviewService } from '../../../services/infrastructure/model-preview.service';
 import { TowerDebugService } from '../../../services/debug/tower-debug.service';
-import { openDamageMatrixDialog } from '../../damage-matrix-dialog/damage-matrix-dialog.component';
+import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-matrix-dialog';
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { TdTooltipData } from '../../tooltip/tooltip-data.types';
