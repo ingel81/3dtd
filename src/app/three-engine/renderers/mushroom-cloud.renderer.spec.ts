@@ -6,6 +6,7 @@ import {
   PerspectiveCamera,
   PlaneGeometry,
   Points,
+  Raycaster,
   Scene,
   ShaderMaterial,
   SphereGeometry,
@@ -301,6 +302,21 @@ describe('MushroomCloudRenderer', () => {
     run(MUSHROOM_CLOUD_LOOK.duration * 1000 + 100, 100);
     expect(clouds.activeClouds).toBe(0);
     expect(scene.children.filter((c) => c.visible)).toEqual([]);
+  });
+
+  it('leaves nothing a ray can hit, while it runs and after it', () => {
+    // three's raycast skips no hidden object; the camera controls pick
+    // for zoom, pan and ground clearance with such rays
+    const { scene, clouds, camera, run } = setup();
+    const ray = new Raycaster(new Vector3(GROUND.x + 5, GROUND.y + 200, GROUND.z + 5), new Vector3(0, -1, 0));
+    ray.camera = camera;
+    clouds.detonate(GROUND, RADIUS);
+    run(300, 50);
+    expect(ray.intersectObject(scene)).toEqual([]);
+
+    run(MUSHROOM_CLOUD_LOOK.duration * 1000, 100);
+    expect(clouds.activeClouds).toBe(0);
+    expect(ray.intersectObject(scene)).toEqual([]);
   });
 
   it('puts a strike in the oldest cloud\'s place once all are up', () => {
