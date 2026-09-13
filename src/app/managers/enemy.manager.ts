@@ -17,6 +17,7 @@ import { getEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
 import { WormChains, stepWormSegment } from './worm/worm-chains';
 import type { WormGroup, WormLink } from './worm/worm-group';
+import { OozeBodies } from './ooze-bodies';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -103,6 +104,9 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
   private _tempLocalPos = new Vector3();
+
+  /** Bodies of the oozes along their routes (OozeConfig) */
+  private readonly oozes = new OozeBodies();
 
   // Reactive signal for alive count (for UI bindings)
   readonly aliveCount = signal(0);
@@ -316,15 +320,20 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     // Create 3D model and start animation. `position` is path[0], or the
     // split start on the centre line; the first step adds the lane offset.
-    // A worm's body segments are drawn with the segment model.
-    const renderType = worm !== null && !worm.head ? worm.group.chain.segmentModel : typeId;
-    this.tilesEngine.enemies
-      .create(enemy.id, renderType, enemy.position.lat, enemy.position.lon, geoHeight + enemy.heightOffset)
-      .then((renderData) => {
-        if (renderData && !paused) {
-          this.tilesEngine!.enemies.startWalkAnimation(enemy.id);
-        }
-      });
+    // An ooze has no model instance: its body lies along the route. A worm's
+    // body segments are drawn with the segment model.
+    if (enemy.typeConfig.ooze) {
+      this.oozes.attach(enemy, this.tilesEngine);
+    } else {
+      const renderType = worm !== null && !worm.head ? worm.group.chain.segmentModel : typeId;
+      this.tilesEngine.enemies
+        .create(enemy.id, renderType, enemy.position.lat, enemy.position.lon, geoHeight + enemy.heightOffset)
+        .then((renderData) => {
+          if (renderData && !paused) {
+            this.tilesEngine!.enemies.startWalkAnimation(enemy.id);
+          }
+        });
+    }
 
     if (paused) {
       enemy.movement.pause();
@@ -719,6 +728,9 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
     }
 
+    // The oozes' bodies follow their tips
+    this.oozes.update();
+
     // Remove enemies that reached base
     for (const enemy of this.toRemove) {
       this.remove(enemy);
@@ -995,6 +1007,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.globalRouteGrid.removeEnemy(entity);
     this.spatialGrid.removeEnemy(entity.id);
     this.tilesEngine?.enemies.remove(entity.id);
+    if (entity.body !== null) this.oozes.detach(entity);
     super.remove(entity);
   }
 
@@ -1023,6 +1036,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.spatialGrid.clear();
 
     this.tilesEngine?.enemies.clear();
+    this.oozes.clear();
     this.killingEnemies.clear();
 
     // Stop frost auras before clearing the tracking set

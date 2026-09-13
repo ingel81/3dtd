@@ -50,10 +50,11 @@ describe('abilities config', () => {
   });
 
   it('flags only the pure bosses: golem and dragon also march in regular waves', () => {
-    // The worm and its ring appear only as a boss (rotation, Custom Wave, Enemy Debug)
+    // The worm, its ring and the ooze appear only as a boss (rotation, Custom Wave, Enemy Debug)
     const bosses = getAllEnemyTypes().filter((e) => e.isBoss).map((e) => e.id);
-    expect(bosses).toEqual(['herbert', 'worm', 'worm-segment']);
+    expect(bosses).toEqual(['herbert', 'worm', 'worm-segment', 'ooze']);
     expect(abilityDamageFraction(ABILITIES['nuclear-strike'], ENEMY_TYPES['worm'])).toBe(0.2);
+    expect(abilityDamageFraction(ABILITIES['nuclear-strike'], ENEMY_TYPES['ooze'])).toBe(0.2);
   });
 
   it('starts locked with no charge', () => {
