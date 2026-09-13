@@ -13,8 +13,12 @@ export interface CorridorMeasurement {
    * none is left, or when the run is closed.
    */
   step(budgetMs: number): boolean;
-  /** Store what was measured; true when that changes a corridor. False for a closed run. */
-  commit(): boolean;
+  /**
+   * Store what was measured; true when that changes a corridor. False for a
+   * closed run. `flushedBy` marks a run finished in one go before a tower or
+   * a wave (CorridorRefit.flush), for the log.
+   */
+  commit(flushedBy?: string): boolean;
   /** Drop the run and what it measured; `reason` goes to the log. */
   cancel(reason: string): void;
 }
@@ -65,8 +69,9 @@ export interface CorridorRefitHost {
  * per frame, instead of blocking the main thread for the whole run. Routes
  * and cells keep the corridor they have until the run is done; then it is
  * stored and, where it changes a corridor, rebuilt in the same frame. A
- * tower, an enemy or a wave that turns up before that cancels the run, so
- * they always meet the corridor that was there when they arrived.
+ * tower or a wave about to arrive finishes the run first (flush), enemies
+ * that turn up (debug panel) cancel it, so none of them meets a
+ * half-measured corridor.
  */
 export class CorridorRefit {
   /** Shortest time between two re-measurements after tile loads. */
@@ -179,6 +184,31 @@ export class CorridorRefit {
     measurement.commit();
     this.host.rebuild();
     return `Corridor rebuilt${remeasure ? ', measured again' : ''}: ${this.host.cellCount()} cells. Widths per stretch: __routes.describe()`;
+  }
+
+  /**
+   * Finish the measurement under way right now, before a tower is placed or
+   * a wave starts (GameStateManager.setBeforeCorridorLock). Either freezes
+   * the corridor; cancelling the run would leave the location at the street
+   * widths. The rest of the run is measured in one go, stored and rebuilt
+   * as usual, so at worst this is the one hitch of the old one-shot run. A
+   * blocker that is already there (enemies from the debug panel) cancels the
+   * run instead.
+   *
+   * @param reason What is about to freeze the corridor, for the log (`flushed=`)
+   */
+  flush(reason: string): void {
+    const running = this.running;
+    if (!running?.measurement.open) return;
+    this.running = null;
+    running.stop();
+    const blocker = this.rebuildBlocker();
+    if (blocker) {
+      running.measurement.cancel(blocker);
+      return;
+    }
+    running.measurement.step(Infinity);
+    if (running.measurement.commit(reason)) this.host.rebuild();
   }
 
   /** Stop for good, from the facade's dispose(). */

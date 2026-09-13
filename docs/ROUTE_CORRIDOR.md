@@ -22,7 +22,7 @@ Route (vom Spawn zum HQ).
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts:312`) | 2-m-Zellen im Korridor |
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`) | Boden, Brückendeck, Tunnelsohle, Dach-Check |
 | Gegner | `MovementComponent` (`movement.component.ts:379-428`), `getRouteProfile` (`route-corridor.ts:559`) | Seitenversatz innerhalb der Zellen |
-| Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `visualization-facade.service.ts:213-237` | Wann gemessen und neu gebaut wird |
+| Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `visualization-facade.service.ts:217-241` | Wann gemessen und neu gebaut wird |
 
 ## Einstellungen
 
@@ -249,8 +249,8 @@ Stelle, auf der Seite, auf der der Gegner läuft (`movement.component.ts:406-427
 
 | Auslöser | Wann | Bedingung |
 |---|---|---|
-| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:679-681`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:23-26`) | neu gebaut wird nur, wenn die Messung einen Korridor ändert |
-| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`visualization-facade.service.ts:1131-1133`), und von selbst noch einmal, wenn ihn einer der letzten drei Punkte rechts aufhielt (siehe unten) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
+| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:684-686`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:23-26`) | neu gebaut wird nur, wenn die Messung einen Korridor ändert |
+| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`visualization-facade.service.ts:1136-1138`), und von selbst noch einmal, wenn ihn einer der letzten drei Punkte rechts aufhielt (siehe unten) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
 | `change()` | `__corridor.set()` und `__corridor.reset()` | ein Ort ist geladen; bei geänderten `MEASUREMENT_KEYS` werden alle Messungen verworfen. Misst am Stück und baut immer neu |
 
 Für alle drei gilt die Sperre `rebuildBlocker()`: kein Neuaufbau, solange Tower
@@ -266,7 +266,7 @@ fertigen Korridorstücken aller Routen vor und nach dem Speichern
 (`path-route.service.ts:743-746`, `:984-994`).
 
 Hält der Intro-Flug, ein offener Lauf oder die 3 s `remeasure()` auf, ruft es
-sich selbst wieder auf (`retryRemeasure`, `corridor-refit.ts:192-198`): bei
+sich selbst wieder auf (`retryRemeasure`, `corridor-refit.ts:222-228`): bei
 den 3 s, sobald sie um sind, sonst alle 3 s, bis es misst; unter Tower,
 Gegner oder Welle nicht. Vorher geschah nach einem aufgehaltenen Aufruf nichts
 mehr bis zum nächsten Tile-Schub. Setzte sich der letzte Schub eines Orts
@@ -290,9 +290,9 @@ Route zählen für `hasUnmeasuredStations` nicht mehr.
 
 `fitToTiles()` und `remeasure()` messen nicht am Stück, sondern je Frame so
 viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
-`corridor-refit.ts:84`, Ablauf `:110-126`). Die Frames kommen aus
+`corridor-refit.ts:89`, Ablauf `:115-131`). Die Frames kommen aus
 `requestAnimationFrame` wie beim Höhen-Sweep
-(`visualization-facade.service.ts:225-231`).
+(`visualization-facade.service.ts:229-235`).
 
 - **Budget:** Eine Station (Säule und vier Strahlen) kostete im Playtest vom
   2026-09-12 in der Innenstadt etwa 1,7 ms (533 ms für 316 Stationen); 4 ms
@@ -304,19 +304,29 @@ viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
 - **Gleiches Ergebnis:** Der Lauf nimmt die Stationen in derselben
   Reihenfolge und mit denselben Strahlen wie der frühere Lauf am Stück und
   legt sie in dieselben Felder. `path-route.service.spec.ts` ("in slices")
-  vergleicht Strahlen, Korridor und Log beider Wege.
+  vergleicht Strahlen, Korridor und Log beider Wege, auch für einen Lauf,
+  den ein Tower zu Ende bringt.
 - **Erste Scheibe sofort:** Die erste Scheibe läuft im Aufruf selbst. Passt
   alles hinein (DevWorld, wo `TerrainQueries` keine Probe liefert, oder wenige
   Stationen), ist der Lauf wie früher im Aufruf fertig.
 - **Korridor bis zum Ende unverändert:** Bis zum Ende des Laufs bauen Routen
   und Zellen mit dem Korridor von vorher. Dann wird gespeichert und, wenn sich
   ein Korridor ändert, im selben Frame neu gebaut.
-- **Sperren:** `rebuildBlocker()` wird vor jeder Scheibe geprüft. Steht ein
-  Tower, läuft eine Welle oder ist ein Gegner auf der Karte, bevor der Lauf
-  fertig ist, wird er verworfen, und der Korridor bleibt, wie er war. Tower
-  und Welle treffen so den Korridor, der beim Setzen oder beim Start galt,
-  keinen halb gemessenen. Nach einem verworfenen ersten Lauf bleibt der Ort bei
-  der OSM-Breite, als wäre `fitToTiles()` gleich gesperrt gewesen.
+- **Tower und Welle bringen den Lauf zu Ende:** Soll ein Tower gesetzt werden
+  oder eine Welle starten, solange ein Lauf offen ist, misst
+  `CorridorRefit.flush` (`corridor-refit.ts:200`) den Rest sofort am Stück,
+  speichert und baut neu; erst dann steht der Tower oder startet die Welle.
+  Der Haken sitzt in `GameStateManager.placeTower`, `startWave` und
+  `beginWave` (`setBeforeCorridorLock`, gesetzt von
+  `VisualizationFacadeService.initialize`) und gilt damit für Klick, Hotkey,
+  Auto-Start, KI-Director und den Trainings-Bot, der `placeTower` direkt
+  aufruft. Im schlimmsten Fall ist das der eine Hänger des früheren Laufs am
+  Stück, mit demselben Ergebnis, und der Tower steht auf den neuen Zellen.
+  Eine abgelehnte Platzierung (Gold, Research, zweites Research Center) löst
+  nichts aus.
+- **Sperren:** `rebuildBlocker()` wird zusätzlich vor jeder Scheibe geprüft.
+  Gegner aus dem Debug-Panel verwerfen den Lauf, der Korridor bleibt dann, wie
+  er war, ebenso ein Tower oder eine Welle, die ohne den Haken dazukamen.
 - **Tiles laden weiter:** Laden während eines Laufs Tiles nach, läuft er
   weiter. Jede Station hält, was sie zu ihrem Zeitpunkt sah; eine Station auf
   einem noch groben Tile bleibt NaN und wird später nachgemessen. Ein Neustart
@@ -332,7 +342,7 @@ viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
 
 ### Neuaufbau
 
-`rebuildCorridors` (`visualization-facade.service.ts:702-731`) läuft synchron in
+`rebuildCorridors` (`visualization-facade.service.ts:707-736`) läuft synchron in
 einem Frame:
 
 1. `routes`: `refreshRouteLines`, also Wegsuche je Spawn, Korridoranpassung
@@ -345,12 +355,12 @@ einem Frame:
 ### Logs
 
 ```
-[Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms
+[Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms [flushed=tower|wave]
 [Corridor] clearance cancelled (Grund): stations=N of M in X ms slices= wall= ms, corridor unchanged
 [Corridor] rebuild: routes= grid= heights= lines= overlays= total= ms spawns= cells=
 ```
 
-- **`clearance`** (`ClearanceRun.commit`, `path-route.service.ts:1635-1639`):
+- **`clearance`** (`ClearanceRun.commit`, `path-route.service.ts:1635-1640`):
   erscheint am Ende eines Laufs, der mindestens ein Segment angefasst hat.
   - `stations`: die in diesem Lauf versuchten Stationen.
   - `rays`: 2 Strahlhöhen × 2 Seiten × gemessene Stationen; die Säulenprobe
@@ -360,12 +370,15 @@ einem Frame:
     Zahlen von vor dem Stückeln.
   - `slices`: Scheiben, eine je Frame. `wall`: Zeit vom Start bis zum Ende
     des Laufs.
+  - `flushed`: nur bei einem Lauf, den ein Tower (`tower`) oder eine Welle
+    (`wave`) zu Ende gebracht hat; die letzte Scheibe war dann der Rest am
+    Stück.
   - `__raycastStats()` bucht die Strahlen und die Säulenprobe unter
     `routeCorridor` (`terrain-queries.ts:336`).
-- **`clearance cancelled`** (`:1648-1651`): Ein Lauf wurde verworfen, der
+- **`clearance cancelled`** (`:1649-1652`): Ein Lauf wurde verworfen, der
   Korridor bleibt, wie er war. Der Grund ist einer der Sperrgründe
-  (`towers stand on the map, sell them first`, `a wave is running`,
-  `enemies are on the map`) oder `routes replaced`, `location changed`,
+  (`enemies are on the map`, sonst `towers stand on the map, sell them first`
+  oder `a wave is running`) oder `routes replaced`, `location changed`,
   `measurements cleared`, `settings changed`, `superseded`, `disposed`.
   `stations=N of M`: so weit kam er.
 - **`rebuild`**: erscheint nur bei einem Neuaufbau, also nach `changed=true`
@@ -388,7 +401,7 @@ als 20 m neben der Route gibt es keine garantiert feinen Tiles.
 
 ### `__corridor` (DevTools)
 
-Registriert in `visualization-facade.service.ts:155-164`.
+Registriert in `visualization-facade.service.ts:159-168`.
 
 ```js
 __corridor.get()                                        // alle Werte
@@ -406,10 +419,10 @@ __corridor.pick(6)
   ist, die Sperre greift oder ein Wert abgelehnt wird (unbekannter Name, Wert
   außerhalb des Bereichs, Minimum über Maximum). Sonst kommt
   `Corridor rebuilt[, measured again]: N cells. Widths per stretch: __routes.describe()`
-  zurück (`corridor-refit.ts:164-182`).
+  zurück (`corridor-refit.ts:169-187`).
   - Die Werte gelten bis zum Neuladen der Seite; dauerhaft heißt
     `CORRIDOR_DEFAULTS` im Code ändern.
-- **`towerCells`** gibt eine Tabelle zum Tower zurück (`visualization-facade.service.ts:248-301`):
+- **`towerCells`** gibt eine Tabelle zum Tower zurück (`visualization-facade.service.ts:252-305`):
   - Zellen in Reichweite: `cells`, `unsampled`.
   - Antworten des Towers: `groundVisible`/`Blocked`/`Missing`, dasselbe für
     `air`.
@@ -519,8 +532,11 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   der Höhen-Sweep (4 bis 6 ms), der auf den Sweep mit Frame-Budget könnte;
   das spart wenig und ließe die neuen Zellen einige Frames auf ihrer ersten
   Höhenprobe. Nicht gemacht.
-- Ein Tower, eine Welle oder ein Gegner, der kommt, solange der erste Lauf
-  noch misst, verwirft ihn (siehe "In Scheiben"). Der Ort bleibt dann bei der
-  OSM-Breite, bis alle Tower verkauft sind und `__corridor.set()` oder
-  `reset()` neu baut. Früher blockierte der Lauf den Hauptthread, eine Eingabe
-  kam erst danach an.
+- Setzt der Spieler einen Tower oder startet eine Welle, solange der erste
+  Lauf misst, hängt das Spiel in diesem Moment für den Rest der Messung
+  (höchstens so lange wie früher der ganze Lauf). Gegner aus dem Debug-Panel
+  verwerfen den Lauf dagegen; der Ort bleibt dann bei der OSM-Breite, bis sie
+  weg sind und `__corridor.set()` oder `reset()` neu baut.
+- Die Welle startet nach einem Flush mit der Konfiguration, die der
+  Director vorher berechnet hat. Die neuen Breiten ändern Route und Länge
+  nicht, nur die Zellen daneben.

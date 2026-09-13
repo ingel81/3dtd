@@ -529,6 +529,29 @@ describe('PathAndRouteService route geometry', () => {
           expect(widths()).toEqual([4.5, 4.5, 4.5, 4.5, 2.75, undefined]);
         });
 
+        it('gives the same corridor as one go when a tower or a wave has it finish at once', () => {
+          const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          clearanceAt = facades;
+          const oneGo = buildRouteService(network, spawn, hq);
+          probeCalls.length = 0;
+          measure(oneGo);
+          const oneGoProbes = [...probeCalls];
+
+          const flushed = buildRouteService(network, spawn, hq);
+          probeCalls.length = 0;
+          const run = flushed.beginClearanceMeasurement();
+          for (let i = 0; i < 5; i++) run.step(0);
+          // What CorridorRefit.flush does: the rest in one go.
+          run.step(Infinity);
+          expect(run.commit('tower')).toBe(true);
+
+          expect(probeCalls).toEqual(oneGoProbes);
+          oneGo.showPathFromSpawn(spawnPointAt(spawn));
+          flushed.showPathFromSpawn(spawnPointAt(spawn));
+          expect(flushed.getCachedPath('s1')).toEqual(oneGo.getCachedPath('s1'));
+          expect(String(warn.mock.calls.at(-1)?.[0])).toMatch(/ slices=6 wall=[\d.]+ms flushed=tower$/);
+        });
+
         it('stores nothing of a cancelled run, the next one measures every station', () => {
           vi.spyOn(console, 'warn').mockImplementation(() => undefined);
           clearanceAt = () => 5.2;
