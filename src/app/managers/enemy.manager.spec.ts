@@ -770,6 +770,44 @@ describe('EnemyManager', () => {
     });
   });
 
+  describe('ooze', () => {
+    // About 334 m due north
+    const route: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 0 },
+      { lat: 0.003, lon: 0, height: 0 },
+    ];
+    const walk = (enemy: Enemy, seconds: number): void => {
+      for (let t = 0; t < seconds * 1000; t += 100) manager.update(100, t);
+      expect(enemy.alive).toBe(true);
+    };
+
+    it('spawns without a model instance, with its body where it joins the path', () => {
+      const ooze = manager.spawn(route, 'ooze');
+      expect(tilesEngine.enemies.create).not.toHaveBeenCalled();
+      expect(ooze.body).not.toBeNull();
+      expect(ooze.body!.tailM).toBe(0);
+      expect(ooze.body!.tipM).toBe(0);
+      expect(ooze.body!.stations.path).toBe(ooze.movement.path);
+    });
+
+    it('grows behind its tip, the tail at the portal until the body is 80 m long', () => {
+      const ooze = manager.spawn(route, 'ooze');
+      walk(ooze, 20); // 3 m/s
+      expect(ooze.body!.tipM).toBeCloseTo(60, 6);
+      expect(ooze.body!.tailM).toBe(0);
+      walk(ooze, 10);
+      expect(ooze.body!.tipM).toBeCloseTo(90, 6);
+      expect(ooze.body!.tailM).toBeCloseTo(10, 6);
+    });
+
+    it('lets go of the body when it is removed', () => {
+      const ooze = manager.spawn(route, 'ooze');
+      manager.kill(ooze, 'debug');
+      expect(manager.getById(ooze.id)).toBeNull();
+      manager.update(100, 100); // nothing left to grow
+    });
+  });
+
   it('ignores debug spawn with invalid path', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 

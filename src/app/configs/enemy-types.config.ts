@@ -43,6 +43,17 @@ export interface EnemyChain {
   swayWavelength: number;
 }
 
+/**
+ * An enemy whose body lies along the route instead of standing on it (the
+ * ooze boss): its tip walks the path like any enemy, the tail stays at the
+ * portal until the body is `maxLengthM` long and follows the tip from then
+ * on. See entities/ooze-body.ts and managers/ooze-bodies.ts.
+ */
+export interface OozeConfig {
+  /** Longest the body grows along the route (m) */
+  maxLengthM: number;
+}
+
 export interface EnemyTypeConfig {
   id: string;
   name: string;
@@ -128,6 +139,8 @@ export interface EnemyTypeConfig {
   spawnStartDelay?: number; // Delay in ms between spawning enemies of this type (default: 300)
   splitOnDeath?: SplitOnDeath; // What a kill splits this enemy into (none on a leak)
   chain?: EnemyChain; // Walks as a chain of segments, each an enemy of this type (worm)
+  /** A body along the route instead of a model instance (the ooze), see OozeConfig */
+  ooze?: OozeConfig;
 
   // Preview
   previewScale?: number; // Override scale for model preview (sidebar)
@@ -911,6 +924,41 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Chitin Worm Segment',
     ...WORM_MODELS.segment,
     ...WORM_STATS,
+  },
+
+  ooze: {
+    id: 'ooze',
+    name: 'Ooze',
+    // The body is a band of slime along the route, drawn by the engine's
+    // ooze renderer; no model instance spawns. The procedural blob
+    // (tools/slime-model) stands in for it in the sidebar preview.
+    modelUrl: 'assets/models/enemies/slime.glb',
+    scale: 1.6,
+    minimumPixelSize: 0,
+    armorType: 'unarmored',
+    // One HP pool for the whole body, and every tower along it hits it at
+    // once: six Herberts, pinned by no template (not in AI_ENEMY_ORDER).
+    baseHp: 3000,
+    baseSpeed: 3,
+    reward: 20, // Only without AI
+    hasAnimations: true,
+    walkAnimation: 'Wobble',
+    animationSpeed: 0.6,
+    heightOffset: 0,
+    healthBarOffset: 3,
+    canBleed: true,
+    headingOffset: 0,
+    emissiveIntensity: 0.25,
+    emissiveColor: '#66ff22',
+    // Appears only as the boss, never in a template
+    isBoss: true,
+    // The tip keeps to the centre line; the body fills the corridor
+    lateralSpread: 0,
+    ooze: { maxLengthM: 80 },
+    previewScale: 1.4,
+    previewCameraDistance: 6,
+    previewCameraAngle: 0.35,
+    previewOffsetY: 0.6,
   },
 };
 

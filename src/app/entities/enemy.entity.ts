@@ -13,6 +13,7 @@ import { ArmorType } from '../configs/combat/combat.types';
 import type { RouteCell } from '../utils/route-cell';
 import type { AirPortalExit } from '../utils/air-portal-exit';
 import type { WormLink } from '../managers/worm/worm-group';
+import type { RouteBody } from '../utils/route-body';
 import type { SpatialEntry } from '../services/world/spatial-grid.service';
 import type { EnemyInstanceState } from '../three-engine/renderers/instanced-enemy/enemy-instance.manager';
 import { EnemyRush } from './enemy-rush';
@@ -87,6 +88,13 @@ export class Enemy extends GameObject {
    * target every sub-step.
    */
   worm: WormLink | null = null;
+  /**
+   * The body along the route of an enemy that lies on it instead of standing
+   * on it (the ooze, OozeConfig), null for every other enemy. Set by
+   * EnemyManager at the spawn; hits, radius queries and the renderer use it
+   * instead of `position`.
+   */
+  body: RouteBody | null = null;
 
   /**
    * `startIndex` and `startProgress` start the enemy part-way along `path`

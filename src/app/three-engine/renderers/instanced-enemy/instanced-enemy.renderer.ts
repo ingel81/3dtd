@@ -101,8 +101,9 @@ export class InstancedEnemyRenderer {
     this.bakingPromises.delete(typeId);
   }
 
+  /** A pool for every type that spawns as an instance; an ooze's body is drawn by the ooze renderer. */
   async preloadAllModels(): Promise<void> {
-    const types = Object.keys(ENEMY_TYPES) as EnemyTypeId[];
+    const types = (Object.keys(ENEMY_TYPES) as EnemyTypeId[]).filter((t) => !ENEMY_TYPES[t].ooze);
     await Promise.all(types.map((t) => this.preloadModel(t)));
   }
 
