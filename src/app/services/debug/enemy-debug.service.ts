@@ -8,6 +8,8 @@ import { ThreeTilesEngine } from '../../three-engine';
 import { PathAndRouteService } from '../world/path-route.service';
 import { SpawnPoint } from '../world/marker-visualization.service';
 import { DebugStore, EnemyOverrides } from '../../store/debug.store';
+import type { SpawnStart } from '../../managers/enemy.manager';
+import { DEG_TO_RAD } from '../../utils/geo-utils';
 
 export type { EnemyOverrides };
 
@@ -396,7 +398,8 @@ export class EnemyDebugService {
 
   /**
    * Handle enemy placement from debug panel.
-   * Validates position is on route, creates sub-path, and spawns enemy.
+   * Validates position is on route and spawns the enemy on it, see
+   * placementOnRoute().
    */
   handleEnemyPlacement(lat: number, lon: number, _height: number): void {
     if (!this.engine || !this.gameState) return;
@@ -411,10 +414,9 @@ export class EnemyDebugService {
       return;
     }
 
-    // Create path from click position to base
-    const path = this.createPathFromPosition(lat, lon);
-    if (!path || path.length < 2) {
-      console.warn('[EnemyDebug] Could not create path from position');
+    const placement = this.placementOnRoute(lat, lon, this.engine);
+    if (!placement) {
+      console.warn('[EnemyDebug] No route to place the enemy on');
       return;
     }
 
@@ -428,7 +430,8 @@ export class EnemyDebugService {
       type: 'debug:spawn-enemy',
       enemyType: typeId,
       count: 1,
-      path,
+      path: placement.path,
+      start: placement.start,
       speed: overrides.baseSpeed,
       paused: true,
       health: overrides.baseHp,
@@ -436,45 +439,59 @@ export class EnemyDebugService {
   }
 
   /**
-   * Create path from a position to the base.
-   * Finds nearest point on existing path and creates sub-path.
+   * Where a click lands on the first spawn's route: the segment, and the
+   * progress on it, of the route's nearest point, on the centre line. The
+   * enemy walks the route itself from there like a split child (SpawnStart),
+   * not a copy of it, so it shares the route's profile and its progress
+   * along the route compares with the wave's enemies.
    */
-  private createPathFromPosition(lat: number, lon: number): RouteWaypoint[] | null {
+  private placementOnRoute(
+    lat: number,
+    lon: number,
+    engine: ThreeTilesEngine,
+  ): { path: RouteWaypoint[]; start: SpawnStart } | null {
     const spawns = this.spawnPoints();
     if (spawns.length === 0) return null;
+    const path = this.pathRoute.getCachedPath(spawns[0].id);
+    if (!path || path.length < 2) return null;
 
-    // Try to find a cached path
-    const fullPath = this.pathRoute.getCachedPath(spawns[0].id);
-    if (!fullPath || fullPath.length < 2) return null;
-
-    // Find nearest point on path
-    let minDist = Infinity;
-    let closestIdx = 0;
-    for (let i = 0; i < fullPath.length; i++) {
-      const dx = fullPath[i].lat - lat;
-      const dy = fullPath[i].lon - lon;
-      const dist = dx * dx + dy * dy; // Squared distance is fine for comparison
-      if (dist < minDist) {
-        minDist = dist;
-        closestIdx = i;
+    // Nearest point of each segment, in degrees with the longitude scaled
+    // to the latitude's, so east and north measure alike
+    const cosLat = Math.cos(lat * DEG_TO_RAD);
+    let segmentIndex = 0;
+    let segmentProgress = 0;
+    let bestSq = Infinity;
+    for (let i = 0; i < path.length - 1; i++) {
+      const ax = (path[i].lon - lon) * cosLat;
+      const ay = path[i].lat - lat;
+      const dx = (path[i + 1].lon - path[i].lon) * cosLat;
+      const dy = path[i + 1].lat - path[i].lat;
+      const lenSq = dx * dx + dy * dy;
+      const t = lenSq > 0 ? Math.min(1, Math.max(0, -(ax * dx + ay * dy) / lenSq)) : 0;
+      const px = ax + dx * t;
+      const py = ay + dy * t;
+      const distSq = px * px + py * py;
+      if (distSq < bestSq) {
+        bestSq = distSq;
+        segmentIndex = i;
+        segmentProgress = t;
       }
     }
 
-    // Get height at click position (from path if available, else fallback)
-    const clickHeight = fullPath[closestIdx].height ?? 0;
+    // Ground from the route's heights there, else sampled like EnemyManager.spawn()
+    const from = path[segmentIndex];
+    const to = path[segmentIndex + 1];
+    const height = from.height !== undefined && to.height !== undefined
+      ? from.height + (to.height - from.height) * segmentProgress
+      : from.height;
+    const groundHeight = height !== undefined && height !== 0
+      ? height
+      : (engine.getTerrainHeightAtGeo(lat, lon) ?? 0) + engine.sync.getOrigin().height;
 
-    // Create sub-path: click position + rest of path. The first segment
-    // keeps the corridor width of the route segment it replaces.
-    return [
-      {
-        lat,
-        lon,
-        height: clickHeight,
-        corridorLeft: fullPath[closestIdx].corridorLeft,
-        corridorRight: fullPath[closestIdx].corridorRight,
-      },
-      ...fullPath.slice(closestIdx + 1)
-    ];
+    return {
+      path,
+      start: { segmentIndex, segmentProgress, lateralFactor: 0, heightVariation: 0, groundHeight },
+    };
   }
 
   /**

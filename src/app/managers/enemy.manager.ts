@@ -44,8 +44,8 @@ export type KillCause = 'combat' | 'debug';
 
 /**
  * Where a spawn joins its path when it does not start on path[0]: a split
- * child where its parent died. All of it comes from the parent, nothing is
- * rolled.
+ * child where its parent died, all of it from the parent, or an enemy the
+ * debugger placed on the route. Nothing is rolled.
  */
 export interface SpawnStart {
   /** Segment, and progress (0-1) on it, see MovementComponent.setPath() */
@@ -64,7 +64,7 @@ export interface SpawnStart {
  * - 'portal': out of the spawn portal on path[0], a wave spawn. An air unit
  *   flies out through the opening and climbs to its altitude
  *   (AIR_PORTAL_EXIT).
- * - a SpawnStart: part-way along it, a split child.
+ * - a SpawnStart: part-way along it, a split child or a placed debug enemy.
  * - none: on path[0] at its type's height, a debug spawn.
  */
 export type SpawnEntry = SpawnStart | 'portal';
@@ -163,6 +163,7 @@ export class EnemyManager extends EntityManager<Enemy> {
           event.speed,
           event.paused ?? false,
           event.health,
+          event.start,
         );
       }
     }));
