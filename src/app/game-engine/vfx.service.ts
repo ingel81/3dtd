@@ -247,9 +247,16 @@ export class VFXService {
       const radius = PROJECTILE_TYPES.cannonball.splashRadius ?? EXPLOSION_PRESETS.cannon.radius;
       effects.spawnExplosionAtGeo(lat, lon, height, particles, radius, smokePuffs);
       this.markScorch(lat, lon, height, 'cannon');
-    } else if (projectileType === 'bullet') {
+    } else if (projectileType === 'bullet' || projectileType === 'hero-round') {
       // Minimal impact effect for bullets
       effects.spawnExplosionAtGeo(lat, lon, height, EXPLOSION_PRESETS.bullet.particles);
+    } else if (projectileType === 'hero-shell') {
+      // The hero's explosive round: a small blast, visual only (no splash)
+      const { particles, radius, smokePuffs } = EXPLOSION_PRESETS.heroShell;
+      effects.spawnExplosionAtGeo(lat, lon, height, particles, radius, smokePuffs);
+    } else if (projectileType === 'hero-rune') {
+      // The hero's rune round: a few sparks in the arcane orb's colours
+      effects.spawnBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.heroRune.particles, BURST_PALETTES.arcane);
     } else if (projectileType === 'poison-glob') {
       // Green spark burst instead of the fire-atlas explosion
       effects.spawnBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.poison.particles, BURST_PALETTES.poison);

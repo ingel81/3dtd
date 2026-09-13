@@ -5,7 +5,7 @@ import { Projectile } from '../entities/projectile.entity';
 import { GeoPosition } from '../models/game.types';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import type { AbilityId, AbilityRejectReason, AbilityStatus } from '../configs/abilities.config';
-import type { HeroRejectReason, HeroStatus } from '../configs/hero.config';
+import type { HeroAmmoId, HeroRejectReason, HeroStatus } from '../configs/hero.config';
 import { WaveConfig } from '../managers/wave.manager';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { WormGroup } from '../managers/worm/worm-group';
@@ -315,6 +315,12 @@ export type GameEvent =
       // snaps it (within 30 m) and walks him there along the routes.
       type: 'command:hero-move';
       target: { lat: number; lon: number; height?: number };
+    }
+  | {
+      // Load the hero's ammo, which is his damage type. Carries the ammo,
+      // not "next", so a replay lands on the same one.
+      type: 'command:hero-ammo';
+      ammo: HeroAmmoId;
     }
 
   // ==================== Effect Events (Deferred) ====================

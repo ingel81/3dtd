@@ -266,6 +266,7 @@ export class ThreeProjectileRenderer {
   private rocketManager: ProjectileInstanceManager;
   private poisonManager: ProjectileInstanceManager;
   private chaosManager: ProjectileInstanceManager;
+  private shellManager: ProjectileInstanceManager;
 
   // Track which manager owns each projectile
   private projectileTypes = new Map<string, ProjectileVisualType>();
@@ -288,6 +289,7 @@ export class ThreeProjectileRenderer {
     this.rocketManager = this.createRocketManager();
     this.poisonManager = this.createPoisonManager();
     this.chaosManager = this.createChaosManager();
+    this.shellManager = this.createShellManager();
 
     // Load arrow model async
     this.arrowLoad = this.loadArrowModel();
@@ -301,6 +303,7 @@ export class ThreeProjectileRenderer {
     scene.add(this.rocketManager.instancedMesh);
     scene.add(this.poisonManager.instancedMesh);
     scene.add(this.chaosManager.instancedMesh);
+    scene.add(this.shellManager.instancedMesh);
   }
 
   /**
@@ -510,6 +513,22 @@ export class ThreeProjectileRenderer {
     return new ProjectileInstanceManager(geometry, material, 500);
   }
 
+  private createShellManager(): ProjectileInstanceManager {
+    // The hero's explosive round: the bullet's tracer shape, glowing
+    // orange-red instead of gold, so the ammo reads at a glance
+    const geometry = new CylinderGeometry(0.3, 0.3, 2.0, 8);
+
+    const material = new MeshStandardMaterial({
+      color: 0xff5a1f,
+      emissive: 0xff3a0a,
+      emissiveIntensity: 2.0,
+      metalness: 0.6,
+      roughness: 0.3,
+    });
+
+    return new ProjectileInstanceManager(geometry, material, 100);
+  }
+
   private getManager(visualType: ProjectileVisualType): ProjectileInstanceManager | null {
     switch (visualType) {
       case 'arrow':
@@ -528,6 +547,8 @@ export class ThreeProjectileRenderer {
         return this.poisonManager;
       case 'chaos':
         return this.chaosManager;
+      case 'shell':
+        return this.shellManager;
     }
   }
 
@@ -657,7 +678,8 @@ export class ThreeProjectileRenderer {
       this.bulletManager.count +
       this.rocketManager.count +
       this.poisonManager.count +
-      this.chaosManager.count
+      this.chaosManager.count +
+      this.shellManager.count
     );
   }
 
@@ -674,6 +696,7 @@ export class ThreeProjectileRenderer {
     this.rocketManager.flush();
     this.poisonManager.flush();
     this.chaosManager.flush();
+    this.shellManager.flush();
   }
 
   clear(): void {
@@ -685,6 +708,7 @@ export class ThreeProjectileRenderer {
     this.rocketManager.clear();
     this.poisonManager.clear();
     this.chaosManager.clear();
+    this.shellManager.clear();
     this.projectileTypes.clear();
   }
 
@@ -729,6 +753,7 @@ export class ThreeProjectileRenderer {
     this.scene.remove(this.rocketManager.instancedMesh);
     this.scene.remove(this.poisonManager.instancedMesh);
     this.scene.remove(this.chaosManager.instancedMesh);
+    this.scene.remove(this.shellManager.instancedMesh);
 
     this.cannonballManager.dispose();
     this.magicManager.dispose();
@@ -737,6 +762,7 @@ export class ThreeProjectileRenderer {
     this.rocketManager.dispose();
     this.poisonManager.dispose();
     this.chaosManager.dispose();
+    this.shellManager.dispose();
     this.projectileTypes.clear();
   }
 }

@@ -121,6 +121,19 @@ const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
     emissiveIntensity: 0.8,
     minSegmentDistSq: 0.2,
   },
+  // The hero's explosive round: the bullet tracer in orange-red, so the
+  // three ammo types tell apart by colour (gold, orange-red, violet)
+  shell: {
+    length: 14,
+    widthHead: 0.4,
+    widthTail: 0.25,
+    alphaHead: 0.6,
+    alphaTail: 0.0,
+    colorHead: new Color(1.0, 0.45, 0.15),   // hot orange
+    colorTail: new Color(0.6, 0.12, 0.02),   // dark red fade
+    emissiveIntensity: 0.8,
+    minSegmentDistSq: 0.2,
+  },
 };
 
 /**

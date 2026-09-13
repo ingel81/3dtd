@@ -4,7 +4,7 @@ export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rock
 export type ProjectileTypeId =
   | 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb'
   // The hero's ammo (hero.config.ts), fired by no tower
-  | 'hero-round';
+  | 'hero-round' | 'hero-shell' | 'hero-rune';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
 export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'last' | 'air-priority';

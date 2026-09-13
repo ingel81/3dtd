@@ -501,7 +501,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower',
         'command:start-research', 'command:cancel-research', 'command:queue-research', 'command:unqueue-research',
         'command:use-ability',
-        'command:hire-hero', 'command:hero-move',
+        'command:hire-hero', 'command:hero-move', 'command:hero-ammo',
         'command:start-wave', 'command:restart-game',
         'debug:add-credits', 'debug:add-health', 'debug:complete-all-research', 'debug:max-upgrade-all-towers',
         'debug:ready-ability', 'debug:jump-to-wave', 'debug:ready-hero',

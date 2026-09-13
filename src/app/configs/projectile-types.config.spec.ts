@@ -12,7 +12,7 @@ import { TOWER_TYPES } from './tower-types.config';
 describe('projectile types config', () => {
   const allIds: ProjectileTypeId[] = [
     'arrow', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob', 'chaos-orb',
-    'hero-round',
+    'hero-round', 'hero-shell', 'hero-rune',
   ];
 
   const expectValidTrail = (trail: TrailParticleConfig) => {

@@ -191,7 +191,8 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     name: 'Mercenary Contract',
     description:
       `Lets you hire the ${HERO.name} once for ${HERO.cost} credits: a soldier you send along the enemy route. `
-      + `He fights on his own within ${HERO.rangeM} m and levels up through his kills`,
+      + `He fights on his own within ${HERO.rangeM} m, switches between standard (physical), explosive (siege) `
+      + `and rune (magic) rounds and levels up through his kills`,
     category: 'global-perk',
     icon: 'user',
     cost: 600,
