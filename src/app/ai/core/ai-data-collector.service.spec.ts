@@ -15,6 +15,7 @@ import { ComponentType } from '../../core/component';
 import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import type { Enemy } from '../../entities/enemy.entity';
+import type { WormGroup } from '../../managers/worm/worm-group';
 
 /**
  * Characterization of the collector: which events it listens to, what a wave
@@ -33,8 +34,8 @@ vi.mock('./dps-profile', async (importOriginal) => {
 
 const SUBSCRIBED: GameEvent['type'][] = [
   'wave:started', 'wave:completed', 'enemy:spawned', 'enemy:died', 'enemy:reached-base', 'enemy:split',
-  'ability:impact', 'health:changed', 'game:started', 'game:over', 'tower:placed', 'tower:sold',
-  'tower:upgraded',
+  'worm:spawned', 'ability:impact', 'health:changed', 'game:started', 'game:over', 'tower:placed',
+  'tower:sold', 'tower:upgraded',
 ];
 
 const DEFAULT_CONFIG: WaveConfig = { enemies: [{ type: 'zombie', count: 10 }], totalCount: 10, spawnDelay: 800 };
@@ -293,6 +294,30 @@ describe('AIDataCollectorService', () => {
       });
       expect(result.outcome.enemyPerformance['skeleton-minion'])
         .toMatchObject({ spawned: 2, killed: 1, reachedBase: 1 });
+    });
+  });
+
+  describe('a wave with a worm', () => {
+    it('counts one body per segment, the worm being one announced enemy', () => {
+      emit({ type: 'wave:started', wave: 35, enemyCount: 1 });
+      const head = enemy('h', 'worm', 0.4);
+      emit({ type: 'enemy:spawned', enemy: head });
+      emit({ type: 'worm:spawned', head, group: { size: 3 } as unknown as WormGroup });
+      const [a, b] = [enemy('a', 'worm', 0.5), enemy('b', 'worm')];
+      emit({ type: 'enemy:spawned', enemy: a });
+      emit({ type: 'enemy:spawned', enemy: b });
+      emit({ type: 'enemy:died', enemy: head, credits: 1 });
+      emit({ type: 'enemy:died', enemy: a, credits: 1 });
+      emit({ type: 'enemy:reached-base', enemy: b, damage: 3 });
+      advance(1000);
+      emit(completed(35));
+
+      const [result] = collector.getWaveHistory();
+      expect(result.outcome).toMatchObject({
+        enemiesSpawned: 3,
+        enemiesKilled: 2,
+        enemiesReachedBase: 1,
+      });
     });
   });
 

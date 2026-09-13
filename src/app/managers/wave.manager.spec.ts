@@ -10,11 +10,12 @@ import { GeoPosition } from '../models/game.types';
 // Create a minimal mock for EnemyManager
 function createMockEnemyManager(): EnemyManager {
   return {
-    spawn: vi.fn(),
+    spawn: vi.fn(() => ({ worm: null })),
     getAll: vi.fn().mockReturnValue([]),
     getAlive: vi.fn().mockReturnValue([]),
     getAliveCount: vi.fn().mockReturnValue(0),
     getKillingCount: vi.fn().mockReturnValue(0),
+    getPendingSpawnCount: vi.fn().mockReturnValue(0),
     clear: vi.fn(),
     kill: vi.fn(),
   } as unknown as EnemyManager;

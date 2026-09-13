@@ -21,6 +21,28 @@ export interface SplitOnDeath {
   spread: number;
 }
 
+/**
+ * A boss that walks as a chain of segments, the chitin worm (managers/worm).
+ * Every segment is an enemy of the chained type with its own HP; the type's
+ * own model draws the head, `segmentModel` the body. One spawn of the type
+ * puts the whole chain on the route, the segments coming out one after
+ * another.
+ */
+export interface EnemyChain {
+  /** Type whose VAT pool draws the body segments (only its model is used) */
+  segmentModel: EnemyTypeId;
+  /** Distance between two segments along the route centre line (m) */
+  spacing: number;
+  /** As many segments as fit the route, at least this many ... */
+  minSegments: number;
+  /** ... and at most this many, see WORM_MAX_SEGMENTS */
+  maxSegments: number;
+  /** Sideways sway, a share of the corridor room (0-1) */
+  sway: number;
+  /** Length of one sway along the route (m) */
+  swayWavelength: number;
+}
+
 export interface EnemyTypeConfig {
   id: string;
   name: string;
@@ -105,6 +127,7 @@ export interface EnemyTypeConfig {
   // Spawning
   spawnStartDelay?: number; // Delay in ms between spawning enemies of this type (default: 300)
   splitOnDeath?: SplitOnDeath; // What a kill splits this enemy into (none on a leak)
+  chain?: EnemyChain; // Walks as a chain of segments, each an enemy of this type (worm)
 
   // Preview
   previewScale?: number; // Override scale for model preview (sidebar)
@@ -112,6 +135,85 @@ export interface EnemyTypeConfig {
   previewCameraAngle?: number; // Camera pitch angle in radians for preview (default: Math.PI / 12)
   previewOffsetY?: number; // Vertical offset for preview camera target (default: 0)
 }
+
+/** What a worm head or segment model sets; the rest of the type is shared. */
+type WormModel = Pick<
+  EnemyTypeConfig,
+  | 'modelUrl' | 'scale' | 'hasAnimations' | 'walkAnimation' | 'animationSpeed'
+  | 'headingOffset' | 'heightOffset' | 'healthBarOffset'
+  | 'previewScale' | 'previewCameraDistance' | 'previewCameraAngle' | 'previewOffsetY'
+>;
+
+interface WormModels {
+  head: WormModel;
+  segment: WormModel;
+  /** Chain spacing: segment length along the route less the overlap of the rings (m) */
+  spacing: number;
+}
+
+/**
+ * Stand-ins until the chitin head and segment GLBs arrive: the spider as the
+ * head, the tank (static, one VAT frame) as the armoured ring.
+ */
+const PLACEHOLDER_WORM_MODELS: WormModels = {
+  head: {
+    modelUrl: 'assets/models/enemies/spider.glb',
+    scale: 3,
+    hasAnimations: true,
+    walkAnimation: 'Armature|Walk-Cycle-Basic',
+    animationSpeed: 1.2,
+    headingOffset: 0,
+    heightOffset: 0,
+    healthBarOffset: 6,
+    previewScale: 1.9,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 1,
+  },
+  segment: {
+    // The tank is about 4.6 units long: 3.7 m at 0.8
+    modelUrl: 'assets/models/enemies/tank.glb',
+    scale: 0.8,
+    hasAnimations: false,
+    headingOffset: -0.122,
+    heightOffset: 0,
+    healthBarOffset: 4,
+    previewScale: 1.073,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 0,
+  },
+  spacing: 3.6,
+};
+
+/** The worm's models: swapping in the chitin GLBs is this line. */
+const WORM_MODELS: WormModels = PLACEHOLDER_WORM_MODELS;
+
+/**
+ * Most segments one worm has. At 3.6 m that is 576 m of worm, which fills a
+ * route up to that length; a longer route gets a worm of this length. Each
+ * segment is a whole enemy (targeting, health bar, kill-gold slot, VAT
+ * instance) and the worm takes 160 × 3.6 m / 4.5 m/s = 128 s to come out of
+ * the portal, near the director's 3-minute cap on a wave's spawn window.
+ */
+export const WORM_MAX_SEGMENTS = 160;
+
+/** Stats every worm segment has, head or body: one enemy type ('worm') for all of them. */
+const WORM_STATS = {
+  minimumPixelSize: 0,
+  // Chitin: siege, lightning and magic get through, arrows and fire much less
+  armorType: 'heavy',
+  // Per segment; a worm of 160 is 8,000 HP at HP multiplier 1
+  baseHp: 50,
+  baseSpeed: 4.5,
+  reward: 1,
+  canBleed: true,
+  // Only the worm, only in the boss rotation, Custom Wave and Enemy Debug
+  isBoss: true,
+  randomAnimationStart: true,
+  // The chain sways the whole worm (EnemyChain.sway), no lane of its own
+  lateralSpread: 0,
+} satisfies Partial<EnemyTypeConfig>;
 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
@@ -770,6 +872,35 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewCameraDistance: 6.5,
     previewCameraAngle: 0,
     previewOffsetY: 1.9,
+  },
+
+  worm: {
+    id: 'worm',
+    name: 'Chitin Worm',
+    ...WORM_MODELS.head,
+    ...WORM_STATS,
+    // One spawn puts the whole worm on the route: as long as the route, one
+    // enemy per segment, the head drawn with this model, the body with
+    // worm-segment's (managers/worm)
+    chain: {
+      segmentModel: 'worm-segment',
+      spacing: WORM_MODELS.spacing,
+      minSegments: 16,
+      maxSegments: WORM_MAX_SEGMENTS,
+      sway: 0.45,
+      swayWavelength: 32,
+    },
+  },
+
+  'worm-segment': {
+    // The body ring of the worm. The worm's segments are enemies of type
+    // 'worm' drawn from this pool; spawned on its own (Custom Wave, Enemy
+    // Debug) it is a single ring with the worm's stats, handy to tune the
+    // model.
+    id: 'worm-segment',
+    name: 'Chitin Worm Segment',
+    ...WORM_MODELS.segment,
+    ...WORM_STATS,
   },
 };
 

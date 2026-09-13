@@ -253,7 +253,9 @@ export class WaveManager implements IGameManager {
       const spawn = this.selectSpawnPoint(spawnMode, spawnIndex);
       const path = this.cachedPaths.get(spawn.id);
       if (path && path.length > 1) {
-        this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health, 'portal');
+        const enemy = this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health, 'portal');
+        // A worm puts all its segments on the route from this one entry
+        if (enemy.worm !== null) this.expectedBodyCount += enemy.worm.group.size - 1;
         spawnIndex++;
         this.spawnedEnemyCount++;
         consecutiveFailures = 0;
@@ -341,7 +343,9 @@ export class WaveManager implements IGameManager {
     const aliveCount = this.enemyManager.getAliveCount();
     const killingCount = this.enemyManager.getKillingCount();
     const totalEntities = this.enemyManager.getAll().length;
-    const allEnemiesDead = aliveCount === 0 && killingCount === 0;
+    // Worm segments still in the portal come out yet (EnemyManager.getPendingSpawnCount)
+    const allEnemiesDead = aliveCount === 0 && killingCount === 0
+      && this.enemyManager.getPendingSpawnCount() === 0;
 
     // Stuck-detection: log ONCE per wave when spawning is fully done but
     // counters have been frozen for ≥5s. `_loggedStuckForWave` ensures we
