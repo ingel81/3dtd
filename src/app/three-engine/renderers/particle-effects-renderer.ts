@@ -17,6 +17,14 @@ import { DecalInstanceManager } from './decal-instance.manager';
 import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
 import { ScorchMarks, type ScorchGround } from './scorch-marks';
 import { ParticlePoolManager, type Particle } from './particle-pool-manager';
+import {
+  emitColorBurst,
+  emitConfigurableTrail,
+  emitExplosion,
+  emitFlameParticle,
+  emitMuzzleFlash,
+  emitPortalSparks,
+} from './particle-emitters';
 
 /**
  * Active effect instance
@@ -455,15 +463,7 @@ export class ParticleEffectsRenderer {
     size: number,
     maxLife: number
   ): void {
-    const particle = this.pools.getInactiveParticle('trailAdditive');
-    if (!particle) return;
-
-    particle.position.copy(position);
-    particle.velocity.copy(velocity);
-    particle.color.copy(color);
-    particle.size = size;
-    particle.life = 1.0;
-    particle.maxLife = maxLife;
+    emitFlameParticle(this.pools, position, velocity, color, size, maxLife);
   }
 
   /**
@@ -479,38 +479,7 @@ export class ParticleEffectsRenderer {
    */
   spawnMuzzleFlash(localX: number, localY: number, localZ: number, profile: MuzzleFlashProfile): void {
     if (!this.muzzleFlashes) return;
-    const count = profile.countMin + Math.floor(Math.random() * (profile.countMax - profile.countMin + 1));
-
-    for (let i = 0; i < count; i++) {
-      const particle = this.pools.getInactiveParticle('trailAdditive');
-      if (!particle) break;
-
-      // Spawn at shoot position with tiny random jitter
-      particle.position.set(
-        localX + (Math.random() - 0.5) * 0.3,
-        localY + (Math.random() - 0.5) * 0.3,
-        localZ + (Math.random() - 0.5) * 0.3
-      );
-
-      // Small outward burst velocity
-      particle.velocity.set(
-        (Math.random() - 0.5) * 4,
-        Math.random() * 3,
-        (Math.random() - 0.5) * 4
-      );
-
-      particle.life = 1.0;
-      particle.maxLife = profile.lifeMin + Math.random() * (profile.lifeMax - profile.lifeMin);
-      particle.size = profile.sizeMin + Math.random() * (profile.sizeMax - profile.sizeMin);
-
-      // Bright yellow/white flash color
-      const t = Math.random();
-      if (t < 0.5) {
-        particle.color.setRGB(1, 1, 0.85); // White-yellow
-      } else {
-        particle.color.setRGB(1, 0.9, 0.4); // Warm yellow
-      }
-    }
+    emitMuzzleFlash(this.pools, localX, localY, localZ, profile);
   }
 
   /**
@@ -646,93 +615,7 @@ export class ParticleEffectsRenderer {
     config: TrailParticleConfig
   ): void {
     if (!this.trailParticles) return;
-
-    // Check spawn chance
-    if (Math.random() > config.spawnChance) return;
-
-    // Choose pool based on blending mode (default: additive for backwards compatibility)
-    const poolKey = config.blending === 'normal' ? 'trailNormal' as const : 'trailAdditive' as const;
-
-    // Spiral trail type: railgun-style rotating particles
-    if (config.trailType === 'spiral') {
-      const radius = config.spiralRadius ?? 1.0;
-      const speed = config.spiralSpeed ?? 3.0;
-      const angleStep = (Math.PI * 2) / Math.max(config.countPerSpawn, 1);
-
-      for (let i = 0; i < config.countPerSpawn; i++) {
-        const particle = this.pools.getInactiveParticle(poolKey);
-        if (!particle) break;
-
-        // Calculate spiral position around the projectile path
-        const angle = this.spiralAngle + i * angleStep;
-        const offsetX = Math.cos(angle) * radius;
-        const offsetY = Math.sin(angle) * radius;
-
-        particle.position.set(
-          localX + offsetX,
-          localY + offsetY,
-          localZ
-        );
-
-        // Outward velocity from center (creates expanding spiral)
-        const outwardSpeed = 2.0;
-        particle.velocity.set(
-          Math.cos(angle) * outwardSpeed,
-          Math.sin(angle) * outwardSpeed,
-          0
-        );
-
-        particle.life = 1.0;
-        particle.maxLife =
-          config.lifetimeMin + Math.random() * (config.lifetimeMax - config.lifetimeMin);
-        particle.size = config.sizeMin + Math.random() * (config.sizeMax - config.sizeMin);
-
-        // Interpolate between min and max color
-        const t = Math.random();
-        particle.color.setRGB(
-          config.colorMin.r + t * (config.colorMax.r - config.colorMin.r),
-          config.colorMin.g + t * (config.colorMax.g - config.colorMin.g),
-          config.colorMin.b + t * (config.colorMax.b - config.colorMin.b)
-        );
-      }
-
-      // Advance spiral angle for next frame
-      this.spiralAngle += speed * 0.016; // Assuming ~60fps
-      return;
-    }
-
-    // Default trail type: random dispersion
-    for (let i = 0; i < config.countPerSpawn; i++) {
-      const particle = this.pools.getInactiveParticle(poolKey);
-      if (!particle) break;
-
-      // Spawn at position with configurable offset
-      particle.position.set(
-        localX + (Math.random() - 0.5) * config.spawnOffset,
-        localY + (Math.random() - 0.5) * config.spawnOffset,
-        localZ + (Math.random() - 0.5) * config.spawnOffset
-      );
-
-      // Configurable velocity
-      particle.velocity.set(
-        config.velocityX.min + Math.random() * (config.velocityX.max - config.velocityX.min),
-        config.velocityY.min + Math.random() * (config.velocityY.max - config.velocityY.min),
-        config.velocityZ.min + Math.random() * (config.velocityZ.max - config.velocityZ.min)
-      );
-
-      particle.life = 1.0;
-      particle.maxLife =
-        config.lifetimeMin + Math.random() * (config.lifetimeMax - config.lifetimeMin);
-      particle.size = config.sizeMin + Math.random() * (config.sizeMax - config.sizeMin);
-
-      // Interpolate between min and max color
-      const t = Math.random();
-      particle.color.setRGB(
-        config.colorMin.r + t * (config.colorMax.r - config.colorMin.r),
-        config.colorMin.g + t * (config.colorMax.g - config.colorMin.g),
-        config.colorMin.b + t * (config.colorMax.b - config.colorMin.b)
-      );
-    }
+    this.spiralAngle = emitConfigurableTrail(this.pools, localX, localY, localZ, config, this.spiralAngle);
   }
 
   /**
@@ -758,95 +641,7 @@ export class ParticleEffectsRenderer {
     smokePuffs = 0
   ): void {
     if (!this.impacts) return;
-    const totalAtlasFrames = this.pools.ATLAS_COLS * this.pools.ATLAS_ROWS; // 16 frames
-    const scale = radius / EXPLOSION_LOOK.referenceRadius;
-    const fire = EXPLOSION_LOOK.fire;
-
-    for (let i = 0; i < count; i++) {
-      const particle = this.pools.getInactiveParticle('trailAdditive');
-      if (!particle) break;
-
-      // Spawn at impact position
-      particle.position.set(localX, localY, localZ);
-
-      // Random direction outward (spherical distribution)
-      const theta = Math.random() * Math.PI * 2; // Horizontal angle
-      const phi = Math.random() * Math.PI; // Vertical angle
-      const speed = (fire.speedMin + Math.random() * (fire.speedMax - fire.speedMin)) * scale;
-
-      particle.velocity.set(
-        Math.sin(phi) * Math.cos(theta) * speed,
-        Math.cos(phi) * speed * 0.5 + 2, // Bias upward slightly
-        Math.sin(phi) * Math.sin(theta) * speed
-      );
-
-      particle.life = 1.0;
-      particle.maxLife = fire.lifeMin + Math.random() * (fire.lifeMax - fire.lifeMin);
-      particle.size = (fire.sizeMin + Math.random() * (fire.sizeMax - fire.sizeMin)) * scale;
-      particle.sizeStart = fire.sizeStart;
-      particle.sizeEnd = fire.sizeEnd;
-
-      // Sprite-sheet animation: the pool derives the frame from the life
-      // (atlasSpriteFrame), flash → fireball → dissipating → wisps
-      particle.frameIndex = 0;
-      particle.totalFrames = totalAtlasFrames;
-
-      // Tint color (white = use atlas color as-is, slight variation adds richness)
-      const t = Math.random();
-      if (t < 0.4) {
-        particle.color.setRGB(1, 1, 1); // Pure atlas color
-      } else if (t < 0.7) {
-        particle.color.setRGB(1, 0.9, 0.7); // Warm tint
-      } else {
-        particle.color.setRGB(1, 0.7, 0.5); // Orange tint
-      }
-    }
-
-    this.spawnExplosionSmoke(localX, localY, localZ, smokePuffs, radius, totalAtlasFrames);
-  }
-
-  /**
-   * Smoke stage of spawnExplosion: dark smoke-atlas puffs in the normal
-   * pool. Each waits EXPLOSION_LOOK.smoke.delay* before it shows (its life
-   * starts above 1, see atlasSpriteSize), then rises and billows out while
-   * the atlas fades it to nothing.
-   */
-  private spawnExplosionSmoke(
-    localX: number,
-    localY: number,
-    localZ: number,
-    count: number,
-    radius: number,
-    totalAtlasFrames: number
-  ): void {
-    const smoke = EXPLOSION_LOOK.smoke;
-    const scale = radius / EXPLOSION_LOOK.referenceRadius;
-
-    for (let i = 0; i < count; i++) {
-      const particle = this.pools.getInactiveParticle('trailNormal');
-      if (!particle) break;
-
-      const angle = Math.random() * Math.PI * 2;
-      const dist = Math.random() * smoke.spread * radius;
-      particle.position.set(localX + Math.cos(angle) * dist, localY, localZ + Math.sin(angle) * dist);
-      particle.velocity.set(
-        (Math.random() - 0.5) * 2 * smoke.drift,
-        smoke.riseMin + Math.random() * (smoke.riseMax - smoke.riseMin),
-        (Math.random() - 0.5) * 2 * smoke.drift
-      );
-
-      particle.maxLife = smoke.lifeMin + Math.random() * (smoke.lifeMax - smoke.lifeMin);
-      const delay = smoke.delayMin + Math.random() * (smoke.delayMax - smoke.delayMin);
-      particle.life = 1 + delay / particle.maxLife;
-      particle.size = (smoke.sizeMin + Math.random() * (smoke.sizeMax - smoke.sizeMin)) * scale;
-      particle.sizeStart = smoke.sizeStart;
-      particle.sizeEnd = smoke.sizeEnd;
-      particle.frameIndex = 0;
-      particle.totalFrames = totalAtlasFrames;
-
-      const grey = smoke.greyMin + Math.random() * (smoke.greyMax - smoke.greyMin);
-      particle.color.setRGB(grey, grey, grey * 0.95);
-    }
+    emitExplosion(this.pools, localX, localY, localZ, count, radius, smokePuffs);
   }
 
   /**
@@ -927,32 +722,7 @@ export class ParticleEffectsRenderer {
     palette: BurstPalette
   ): void {
     if (!this.impacts) return;
-    for (let i = 0; i < count; i++) {
-      const particle = this.pools.getInactiveParticle('trailAdditive');
-      if (!particle) break;
-
-      // Spawn at impact position
-      particle.position.set(localX, localY, localZ);
-
-      // Random direction outward (spherical distribution)
-      const theta = Math.random() * Math.PI * 2; // Horizontal angle
-      const phi = Math.random() * Math.PI; // Vertical angle
-      const speed = 5 + Math.random() * 15;
-
-      particle.velocity.set(
-        Math.sin(phi) * Math.cos(theta) * speed,
-        Math.cos(phi) * speed * 0.5 + 2, // Bias upward
-        Math.sin(phi) * Math.sin(theta) * speed
-      );
-
-      particle.life = 1.0;
-      particle.maxLife = 0.4 + Math.random() * 0.5; // 0.4-0.9 seconds (longer visible)
-      particle.size = 1.5 + Math.random() * 2.0; // Larger particles
-
-      const t = Math.random();
-      const c = t < 0.4 ? palette[0] : t < 0.7 ? palette[1] : palette[2];
-      particle.color.setRGB(c.r, c.g, c.b);
-    }
+    emitColorBurst(this.pools, localX, localY, localZ, count, palette);
   }
 
   /**
@@ -974,36 +744,7 @@ export class ParticleEffectsRenderer {
     palette: BurstPalette
   ): void {
     if (!this.impacts) return;
-    // Across the opening
-    const rightX = forwardZ;
-    const rightZ = -forwardX;
-    for (let i = 0; i < count; i++) {
-      const particle = this.pools.getInactiveParticle('trailAdditive');
-      if (!particle) break;
-
-      const across = (Math.random() * 2 - 1) * halfWidth * 0.9;
-      particle.position.set(
-        x + rightX * across,
-        y + (0.1 + Math.random() * 0.8) * height,
-        z + rightZ * across
-      );
-
-      const speed = 4 + Math.random() * 8;
-      const drift = (Math.random() * 2 - 1) * 2;
-      particle.velocity.set(
-        forwardX * speed + rightX * drift,
-        (Math.random() * 2 - 1) * 1.5 + 1,
-        forwardZ * speed + rightZ * drift
-      );
-
-      particle.life = 1.0;
-      particle.maxLife = 0.35 + Math.random() * 0.45;
-      particle.size = 0.8 + Math.random() * 1.2;
-
-      const t = Math.random();
-      const c = t < 0.4 ? palette[0] : t < 0.7 ? palette[1] : palette[2];
-      particle.color.setRGB(c.r, c.g, c.b);
-    }
+    emitPortalSparks(this.pools, x, y, z, forwardX, forwardZ, halfWidth, height, count, palette);
   }
 
   /**
