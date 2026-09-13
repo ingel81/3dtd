@@ -214,8 +214,11 @@ Code-seitig umgesetzt (2026-09-13):
 - **Opake VAT-Materialien** (`vatAlpha` in `vat-baker.ts`): Transparent sind nur noch Typen,
   deren Materialien Alpha brauchen. Bear (Alpha in der Textur), Ghost und Hornet (Opacity
   unter 1, beim Hornet die Flügel) blenden, Dragon schneidet mit `alphaTest` 0,5 aus
-  (glTF MASK), die übrigen 15 Typen zeichnen opak. `aOpacity` ist entfernt, es war immer 1.
-  Ob opak messbar schneller ist, ist nicht gemessen.
+  (glTF MASK), die übrigen 16 Typen zeichnen opak. `aOpacity` ist entfernt, es war immer 1.
+  Ob opak messbar schneller ist, ist nicht gemessen. Vorher verwarf der Shader bei jedem Typ
+  Texel unter Alpha 0,05, opake Typen zeichnen sie jetzt deckend (wie three.js bei glTF
+  OPAQUE). Keiner der ausgelieferten opaken Typen hat solche Texel in seiner Basisfarbe; der
+  Generator prüft das (Tabelle „Alpha“ unter [Messwerte](#messwerte)).
 - **Kein doppelter Loop-Frame** (`vatFrameCount`): Die Loader lesen Key-Zeiten als float32,
   `ceil(Dauer × fps)` zählte deshalb bei sechs Loop-Clips einen Frame zu viel, der die
   Startpose ein zweites Mal zeigte (Mech Walk, Wallsmasher Walk und Run, Mammoth Walk,
@@ -258,13 +261,17 @@ tatsächlich entstehen sie erst beim Tod ihres Skeletons.
   `InstancedEnemyRenderer.bakeAndCreatePool` und rechnet Clips und VAT-Maße mit
   `vatClips`, `vatFrameCount` und `vatLayout` aus `vat-baker.ts`. Der Test schlägt fehl,
   wenn ein Typ nicht backbar ist oder ein konfigurierter Clip im Modell fehlt.
-- Für Format und Half-Fehler lädt `generate.spec.ts` jedes Modell zusätzlich mit GLTFLoader
-  bzw. FBXLoader (ohne Texturen) und backt es mit `bakeEnemyVAT` wie das Spiel (rund 6 s).
-  Weicht die aus der Datei geplante VAT-Größe von der gebackenen ab, schlägt der Test fehl.
+- Für Format, Half-Fehler und Alpha-Modus lädt `generate.spec.ts` jedes Modell zusätzlich
+  mit GLTFLoader bzw. FBXLoader und backt es mit `bakeEnemyVAT` wie das Spiel. Von den
+  Texturen kommen nur die PNG-Basisfarben mit, dekodiert in Node (`decodePng` in
+  `model-inspect.ts`), damit `vatAlpha` ihr Alpha liest wie im Spiel. Weicht die aus der
+  Datei geplante VAT-Größe von der gebackenen ab, schlägt der Test fehl.
 - Ein Modell ohne Config-Eintrag prüfen (Node 24):
   `node -e "import('./tools/model-budget/model-inspect.ts').then((m) => console.dir(m.inspectModel('pfad/zum/modell.glb'), { depth: 3 }))"`
 - Grenzen: kein ASCII-FBX. Bei Draco oder Meshopt stimmen die Vertexzahlen, die
-  Weld-Spalte nicht. Morph-Targets werden gezählt, der Baker ignoriert sie.
+  Weld-Spalte nicht. Morph-Targets werden gezählt, der Baker ignoriert sie. Basisfarben als
+  WebP, KTX2 oder interlaced PNG dekodiert der Generator nicht; `vatAlpha` zählt sie dort
+  als transparent, im Spiel liest es sie über ein Canvas.
 
 ## Messwerte
 
@@ -306,6 +313,24 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 
 VAT-Speicher aller Typen zusammen: **264,2 MB** (30 fps), alles in RGBA32F wären **485,7 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **15,9 MB** dazu.
+
+### Alpha
+
+Wie der VAT-Shader Alpha behandelt (`vatAlpha` in `vat-baker.ts`, aus den Materialien der
+gebackenen Meshes und dem Alpha ihrer Basisfarb-Texturen): opak ignoriert Alpha, Maske verwirft
+unter dem Cutoff, Blend ist transparent und verwirft unter 0,05. „Texel unter 0,05“ zählt in den
+Basisfarb-Texturen der gebackenen Meshes alle Texel mit Alpha darunter, auch solche, die kein UV
+trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind oder solche Texel haben.
+
+| Gegner | Alpha | Texel unter 0,05 |
+| --- | --- | ---: |
+| Hornet | Blend | 0 |
+| Dragon | Maske 0,50 | 80.170 (7,6 %) |
+| Ghost | Blend | 0 |
+| Bear | Blend | 33.852 (3,2 %) |
+
+Opak ohne Texel unter 0,05 (16): Mech, Zombie v2, Herbert, Wraith, Wallsmasher, Stone Golem, Spider, Mammoth, Tank, Zombie, Zombie Soldier, Bat, Rat, Penguin, Skeleton, Skeleton Minion.
+Texel unter 0,05, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis 0,05): **keine**.
 
 ### Modellinhalt
 

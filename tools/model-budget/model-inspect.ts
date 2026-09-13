@@ -24,7 +24,16 @@ export interface ImageInfo {
   mimeType: string;
   width: number;
   height: number;
+  /**
+   * Base colour images only: texels with alpha below LOW_ALPHA. 0 for JPEG,
+   * which has no alpha; null when the format is not decoded (WebP, KTX2,
+   * interlaced PNG).
+   */
+  lowAlphaTexels?: number | null;
 }
+
+/** Alpha below which the VAT shader discards in blend mode (vat-material.ts). */
+export const LOW_ALPHA = 0.05;
 
 /**
  * Distinct vertices by position, by position + UV and by position + normal +
@@ -135,6 +144,135 @@ export function imageSize(bytes: Buffer): { mimeType: string; width: number; hei
 }
 
 // ---------------------------------------------------------------------------
+// PNG pixels
+// ---------------------------------------------------------------------------
+
+/** RGBA bytes of a decoded image, row by row from the top. */
+export interface DecodedImage {
+  data: Uint8Array;
+  width: number;
+  height: number;
+}
+
+/** Channels per PNG colour type: grey, RGB, palette, grey + alpha, RGBA. */
+const PNG_CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+
+/**
+ * The pixels of a PNG as RGBA, with tRNS applied, 16-bit channels cut to
+ * their high byte. Null for anything but a PNG and for interlaced ones.
+ */
+export function decodePng(bytes: Buffer): DecodedImage | null {
+  if (bytes.length < 33 || bytes.readUInt32BE(0) !== 0x89504e47) return null;
+  let width = 0, height = 0, depth = 0, colorType = 0, interlace = 0;
+  let palette: Buffer | null = null;
+  let trns: Buffer | null = null;
+  const idat: Buffer[] = [];
+  for (let p = 8; p + 8 <= bytes.length; ) {
+    const length = bytes.readUInt32BE(p);
+    const type = bytes.toString('latin1', p + 4, p + 8);
+    const data = bytes.subarray(p + 8, p + 8 + length);
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      depth = data[8];
+      colorType = data[9];
+      interlace = data[12];
+    } else if (type === 'PLTE') palette = data;
+    else if (type === 'tRNS') trns = data;
+    else if (type === 'IDAT') idat.push(data);
+    else if (type === 'IEND') break;
+    p += 12 + length;
+  }
+  const channels = PNG_CHANNELS[colorType];
+  if (!channels || interlace !== 0 || width === 0 || height === 0) return null;
+  if (colorType === 3 && !palette) return null;
+
+  const bitsPerPixel = channels * depth;
+  const bpp = Math.max(1, bitsPerPixel >> 3);
+  const stride = Math.ceil((width * bitsPerPixel) / 8);
+  const raw = inflateSync(Buffer.concat(idat));
+  if (raw.length < height * (stride + 1)) return null;
+
+  // Undo the per-row filters (PNG spec, section 9)
+  const lines = new Uint8Array(height * stride);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)];
+    const src = y * (stride + 1) + 1;
+    const out = y * stride;
+    for (let x = 0; x < stride; x++) {
+      const a = x >= bpp ? lines[out + x - bpp] : 0;
+      const b = y > 0 ? lines[out - stride + x] : 0;
+      const c = x >= bpp && y > 0 ? lines[out - stride + x - bpp] : 0;
+      let v = raw[src + x];
+      if (filter === 1) v += a;
+      else if (filter === 2) v += b;
+      else if (filter === 3) v += (a + b) >> 1;
+      else if (filter === 4) {
+        const p = a + b - c;
+        const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+        v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+      } else if (filter !== 0) return null;
+      lines[out + x] = v & 0xff;
+    }
+  }
+
+  /** Channel `ch` of pixel `x` in row `y` at the file's bit depth. */
+  const sample = (y: number, x: number, ch: number): number => {
+    const row = y * stride;
+    if (depth === 8) return lines[row + x * channels + ch];
+    if (depth === 16) return (lines[row + (x * channels + ch) * 2] << 8) | lines[row + (x * channels + ch) * 2 + 1];
+    const bit = x * depth; // depth 1, 2 or 4: grey or palette only
+    return (lines[row + (bit >> 3)] >> (8 - depth - (bit & 7))) & ((1 << depth) - 1);
+  };
+  const to8 = (v: number): number =>
+    depth === 16 ? v >> 8 : depth === 8 ? v : Math.round((v * 255) / ((1 << depth) - 1));
+  const trnsAt = (i: number): number => (trns && trns.length >= 2 * i + 2 ? trns.readUInt16BE(2 * i) : -1);
+
+  const data = new Uint8Array(width * height * 4);
+  for (let y = 0, o = 0; y < height; y++) {
+    for (let x = 0; x < width; x++, o += 4) {
+      if (colorType === 3) {
+        const index = sample(y, x, 0);
+        data[o] = palette![index * 3];
+        data[o + 1] = palette![index * 3 + 1];
+        data[o + 2] = palette![index * 3 + 2];
+        data[o + 3] = trns && index < trns.length ? trns[index] : 255;
+      } else if (colorType === 0 || colorType === 4) {
+        const grey = sample(y, x, 0);
+        data[o] = data[o + 1] = data[o + 2] = to8(grey);
+        data[o + 3] = colorType === 4 ? to8(sample(y, x, 1)) : grey === trnsAt(0) ? 0 : 255;
+      } else {
+        const r = sample(y, x, 0), g = sample(y, x, 1), b = sample(y, x, 2);
+        data[o] = to8(r);
+        data[o + 1] = to8(g);
+        data[o + 2] = to8(b);
+        data[o + 3] = colorType === 6 ? to8(sample(y, x, 3))
+          : r === trnsAt(0) && g === trnsAt(1) && b === trnsAt(2) ? 0 : 255;
+      }
+    }
+  }
+  return { data, width, height };
+}
+
+/** Sets `lowAlphaTexels` of a base colour image, once per image. */
+function countLowAlpha(info: ImageInfo, bytes: Buffer | null): ImageInfo {
+  if (info.lowAlphaTexels !== undefined) return info;
+  if (info.mimeType === 'image/jpeg') {
+    info.lowAlphaTexels = 0;
+    return info;
+  }
+  const image = bytes ? decodePng(bytes) : null;
+  let low = 0;
+  if (image) {
+    for (let i = 3; i < image.data.length; i += 4) {
+      if (image.data[i] < LOW_ALPHA * 255) low++;
+    }
+  }
+  info.lowAlphaTexels = image ? low : null;
+  return info;
+}
+
+// ---------------------------------------------------------------------------
 // GLB
 // ---------------------------------------------------------------------------
 
@@ -239,19 +377,22 @@ function inspectGltf(gltf: GltfJson, bin: Buffer | null, baseDir: string): Inspe
     return keys;
   };
 
+  const imageBytes = (index: number): Buffer | null => {
+    const image = gltf.images?.[index];
+    if (image?.bufferView !== undefined) return bufferViewBytes(image.bufferView);
+    if (image?.uri?.startsWith('data:')) return Buffer.from(image.uri.slice(image.uri.indexOf(',') + 1), 'base64');
+    if (image?.uri) {
+      const file = resolve(baseDir, decodeURIComponent(image.uri));
+      return existsSync(file) ? readFileSync(file) : null;
+    }
+    return null;
+  };
+
   const imageCache = new Map<number, ImageInfo | null>();
   const imageInfo = (index: number): ImageInfo | null => {
     if (imageCache.has(index)) return imageCache.get(index) ?? null;
     const image = gltf.images?.[index];
-    let bytes: Buffer | null = null;
-    if (image?.bufferView !== undefined) {
-      bytes = bufferViewBytes(image.bufferView);
-    } else if (image?.uri?.startsWith('data:')) {
-      bytes = Buffer.from(image.uri.slice(image.uri.indexOf(',') + 1), 'base64');
-    } else if (image?.uri) {
-      const file = resolve(baseDir, decodeURIComponent(image.uri));
-      bytes = existsSync(file) ? readFileSync(file) : null;
-    }
+    const bytes = imageBytes(index);
     const size = bytes ? imageSize(bytes) : null;
     const info = size
       ? { label: image?.name || image?.uri?.slice(0, 40) || `image_${index}`, ...size }
@@ -269,7 +410,8 @@ function inspectGltf(gltf: GltfJson, bin: Buffer | null, baseDir: string): Inspe
       texture?.source ??
       texture?.extensions?.['EXT_texture_webp']?.source ??
       texture?.extensions?.['KHR_texture_basisu']?.source;
-    return source === undefined ? null : imageInfo(source);
+    const info = source === undefined ? null : imageInfo(source);
+    return info && countLowAlpha(info, imageBytes(source!));
   };
 
   const weldOf = (primitive: GltfPrimitive): WeldInfo | null => {
@@ -540,7 +682,8 @@ function inspectFbx(buf: Buffer): Inspected {
         if (texture?.name !== 'Texture') continue;
         for (const video of ofKind(kids.get(String(texture.props[0])), 'Video')) {
           const image = videoImage(video);
-          if (image) return image;
+          const content = fbxChild(video, 'Content')?.props[0];
+          if (image) return countLowAlpha(image, Buffer.isBuffer(content) ? content : null);
         }
       }
     }

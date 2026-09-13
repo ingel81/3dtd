@@ -19,14 +19,16 @@
  *
  * The texel format (RGBA16F or RGBA32F) depends on the baked positions, so
  * every model is also loaded with the game's loaders and baked like the game
- * does it (bakeEnemyVAT), without textures: the bake reads geometry only.
+ * does it (bakeEnemyVAT). Of the textures only the base colour PNGs come
+ * along, decoded in Node, so that vatAlpha picks the alpha mode the game
+ * picks; JPEG has no alpha and stays out like the other textures.
  */
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HalfFloatType, type AnimationClip, type Object3D } from 'three';
+import { HalfFloatType, Texture, type AnimationClip, type Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -42,11 +44,20 @@ import {
   vatClips,
   vatFrameCount,
   vatLayout,
+  type VATAlpha,
   type VATData,
   type VATEncoding,
 } from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
 import { writeGeneratedFile } from '../generated-file';
-import { inspectModel, type ImageInfo, type MeshInfo, type ModelInfo } from './model-inspect';
+import {
+  decodePng,
+  imageSize,
+  inspectModel,
+  LOW_ALPHA,
+  type ImageInfo,
+  type MeshInfo,
+  type ModelInfo,
+} from './model-inspect';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '../..');
@@ -97,7 +108,9 @@ interface Row {
   diffuse: ImageInfo | null;
   presence: Presence;
   /** The game's bake of the model, null if it failed. */
-  baked: { encoding: VATEncoding; width: number; height: number } | null;
+  baked: { encoding: VATEncoding; width: number; height: number; alpha: VATAlpha } | null;
+  /** Base colour images of the baked meshes, each once. */
+  baseColour: ImageInfo[];
 }
 
 function roleOf(config: EnemyTypeConfig, name: string): string {
@@ -164,7 +177,8 @@ function presenceOf(id: string): Presence {
 
 /** Loads a model with the game's loaders and bakes it as InstancedEnemyRenderer does. */
 async function bakeModel(config: EnemyTypeConfig): Promise<VATData | null> {
-  const bytes = readFileSync(resolve(ROOT, 'public', config.modelUrl));
+  const path = resolve(ROOT, 'public', config.modelUrl);
+  const bytes = readFileSync(path);
   // The loaders check `instanceof ArrayBuffer` against the test DOM's realm.
   const buffer = new ArrayBuffer(bytes.length);
   new Uint8Array(buffer).set(bytes);
@@ -175,15 +189,32 @@ async function bakeModel(config: EnemyTypeConfig): Promise<VATData | null> {
     animations = model.animations;
   } else {
     const loader = new GLTFLoader();
-    // Decoding images needs a browser. Without their extensions (WebP, ...)
-    // no built-in plugin takes a texture on before this one skips it.
+    // Decoding images needs a browser, so this plugin decodes the base colour
+    // PNGs itself: vatAlpha reads their alpha (texturePixels takes the bytes
+    // as they are). JPEG has no alpha, which is the same to vatAlpha as no
+    // map; other formats (WebP, ...) come as a texture without an image,
+    // which vatAlpha counts as translucent. Without their extensions no
+    // built-in plugin takes a texture on before this one.
     loader.register((parser) => ({
-      name: 'model-budget-no-textures',
+      name: 'model-budget-base-colour',
       beforeRoot: () => {
         for (const texture of parser.json.textures ?? []) delete texture.extensions;
         return null;
       },
-      loadTexture: () => Promise.resolve(null),
+      loadTexture: async (index: number) => {
+        const baseColour = (parser.json.materials ?? []).some(
+          (m: { pbrMetallicRoughness?: { baseColorTexture?: { index: number } } }) =>
+            m.pbrMetallicRoughness?.baseColorTexture?.index === index,
+        );
+        const image = parser.json.images?.[parser.json.textures[index].source];
+        if (!baseColour || !image) return null;
+        const file: Buffer | null = image.bufferView !== undefined
+          ? Buffer.from(await parser.getDependency('bufferView', image.bufferView))
+          : image.uri ? readFileSync(resolve(dirname(path), decodeURIComponent(image.uri))) : null;
+        if (file && imageSize(file)?.mimeType === 'image/jpeg') return null;
+        const pixels = file ? decodePng(file) : null;
+        return new Texture(pixels ?? undefined);
+      },
     }));
     const gltf = await loader.parseAsync(buffer, '');
     model = gltf.scene;
@@ -210,6 +241,7 @@ async function buildRows(): Promise<Row[]> {
       }
     }
     const vat = await bakeModel(config);
+    const baseColour = [...new Set(bake.meshes.map((m) => m.diffuse).filter((d): d is ImageInfo => d !== null))];
     rows.push({
       id,
       config,
@@ -226,7 +258,9 @@ async function buildRows(): Promise<Row[]> {
         encoding: vat.encoding,
         width: vat.positionTexture.image.width,
         height: vat.positionTexture.image.height,
+        alpha: vat.alpha,
       },
+      baseColour,
     });
   }
   return rows.sort((a, b) => b.vertices - a.vertices || a.id.localeCompare(b.id));
@@ -286,6 +320,60 @@ function wavesLabel(waves: number[]): string {
   return waves.length > 0 ? waves.map((w) => `W${w}`).join(', ') : '–';
 }
 
+/** Texels below LOW_ALPHA over the base colour images of a type, null if one is not decoded. */
+function lowAlphaOf(row: Row): number | null {
+  let low = 0;
+  for (const image of row.baseColour) {
+    if (image.lowAlphaTexels === null || image.lowAlphaTexels === undefined) return null;
+    low += image.lowAlphaTexels;
+  }
+  return low;
+}
+
+function alphaLabel(alpha: VATAlpha): string {
+  if (alpha.mode === 'mask') return `Maske ${dec(alpha.cutoff, 2)}`;
+  return alpha.mode === 'blend' ? 'Blend' : 'opak';
+}
+
+function renderAlpha(rows: Row[]): string {
+  const out: string[] = [];
+  const threshold = dec(LOW_ALPHA, 2);
+  out.push('### Alpha');
+  out.push('');
+  out.push('Wie der VAT-Shader Alpha behandelt (`vatAlpha` in `vat-baker.ts`, aus den Materialien der');
+  out.push('gebackenen Meshes und dem Alpha ihrer Basisfarb-Texturen): opak ignoriert Alpha, Maske verwirft');
+  out.push(`unter dem Cutoff, Blend ist transparent und verwirft unter ${threshold}. „Texel unter ${threshold}“ zählt in den`);
+  out.push('Basisfarb-Texturen der gebackenen Meshes alle Texel mit Alpha darunter, auch solche, die kein UV');
+  out.push('trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind oder solche Texel haben.');
+  out.push('');
+  const listed = rows.filter((r) => r.baked && (r.baked.alpha.mode !== 'opaque' || lowAlphaOf(r) !== 0));
+  out.push(table(
+    ['Gegner', 'Alpha', `Texel unter ${threshold}`],
+    'llr',
+    listed.map((r) => {
+      const low = lowAlphaOf(r);
+      const texels = r.baseColour.reduce((s, image) => s + image.width * image.height, 0);
+      return [
+        r.config.name,
+        alphaLabel(r.baked!.alpha),
+        low === null ? 'nicht dekodiert' : low === 0 ? '0' : `${int(low)} (${dec((100 * low) / texels)} %)`,
+      ];
+    }),
+  ));
+  out.push('');
+  const names = (list: Row[]): string => (list.length > 0 ? list.map((r) => r.config.name).join(', ') : 'keine');
+  const opaque = rows.filter((r) => r.baked?.alpha.mode === 'opaque' && lowAlphaOf(r) === 0);
+  // Texels below LOW_ALPHA that the shader draws: opaque ignores alpha, a mask keeps what reaches its cutoff
+  const drawn = rows.filter((r) => {
+    const alpha = r.baked?.alpha;
+    const low = lowAlphaOf(r);
+    return alpha && low !== 0 && (alpha.mode === 'opaque' || (alpha.mode === 'mask' && alpha.cutoff <= LOW_ALPHA));
+  });
+  out.push(`Opak ohne Texel unter ${threshold} (${opaque.length}): ${names(opaque)}.`);
+  out.push(`Texel unter ${threshold}, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis ${threshold}): **${names(drawn)}**.`);
+  return out.join('\n');
+}
+
 function render(rows: Row[]): string {
   const vertsById = new Map(rows.map((r) => [r.id, r.vertices]));
   const out: string[] = [];
@@ -329,6 +417,9 @@ function render(rows: Row[]): string {
   out.push('');
   out.push(`VAT-Speicher aller Typen zusammen: **${mb(totalVat)} MB** (${DEFAULT_BAKE_FPS} fps), alles in RGBA32F wären **${mb(totalVat32)} MB**.`);
   out.push(`Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **${mb(cutVat)} MB** dazu.`);
+  out.push('');
+
+  out.push(renderAlpha(rows));
   out.push('');
 
   out.push('### Modellinhalt');
