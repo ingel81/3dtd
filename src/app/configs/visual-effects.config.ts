@@ -89,21 +89,32 @@ export interface ScreenShakePreset {
  * Playtest 2026-09-12: 150 / 450 m reached too far, the shake has to fade
  * out much sooner; now full up to 40 m, none from 100 m.
  *
- * The nuclear strike shakes wherever it lands, like HQ damage: the player
- * aimed it and watches it, usually from further than 100 m.
+ * The nuclear strike fades with the distance too, over a range of its own:
+ * the player aims it and watches it, usually from the overview camera
+ * (about 425 m), and from there it has to shake hard. Full up to
+ * strikeNearDistance, none from strikeFarDistance on. Until 2026-09-13 it
+ * shook at 0.008 for 700 ms wherever it landed.
  */
 export const SCREEN_SHAKE_CONFIG = {
   nearDistance: 40,  // m, camera to impact
   farDistance: 100,  // m
+  strikeNearDistance: 350,  // m
+  strikeFarDistance: 1500,  // m
   presets: {
     cannon:    { amplitude: 0.0025, duration: 150 },
     rocket:    { amplitude: 0.005,  duration: 200 },
     /** Times 0.5 to 2 for 5 to 20 HP lost */
     hqDamage:  { amplitude: 0.0025, duration: 300 },
     bossDeath: { amplitude: 0.004,  duration: 400 },
-    nuclearStrike: { amplitude: 0.008, duration: 700 },
+    nuclearStrike: { amplitude: 0.014, duration: 1600 },
   },
-} as const satisfies { nearDistance: number; farDistance: number; presets: Record<string, ScreenShakePreset> };
+} as const satisfies {
+  nearDistance: number;
+  farDistance: number;
+  strikeNearDistance: number;
+  strikeFarDistance: number;
+  presets: Record<string, ScreenShakePreset>;
+};
 
 /**
  * Fire intensity presets for spawnFire and its terrain/local-Y variants:

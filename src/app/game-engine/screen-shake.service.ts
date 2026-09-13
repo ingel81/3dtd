@@ -92,10 +92,11 @@ export class ScreenShakeService {
       }),
     );
 
-    // Nuclear strike → the biggest shake, wherever it lands: the player aimed it
+    // Nuclear strike → the biggest and longest shake, fading over a range of its own
     this.subs.add(
-      this.eventBus.on('ability:impact', () => {
-        this.shake(presets.nuclearStrike.amplitude, presets.nuclearStrike.duration);
+      this.eventBus.on('ability:impact', ({ target }) => {
+        const { strikeNearDistance, strikeFarDistance } = SCREEN_SHAKE_CONFIG;
+        this.shakeAt(presets.nuclearStrike, target.lat, target.lon, target.height ?? 0, strikeNearDistance, strikeFarDistance);
       }),
     );
 
@@ -123,15 +124,18 @@ export class ScreenShakeService {
     return null;
   }
 
-  /** Shake for an impact, fading with its distance from the camera. */
-  private shakeAt(preset: ScreenShakePreset, lat: number, lon: number, height: number): void {
+  /** Shake for an impact, full up to `near` metres from the camera and none from `far` on. */
+  private shakeAt(
+    preset: ScreenShakePreset,
+    lat: number,
+    lon: number,
+    height: number,
+    near: number = SCREEN_SHAKE_CONFIG.nearDistance,
+    far: number = SCREEN_SHAKE_CONFIG.farDistance,
+  ): void {
     if (!this._enabled) return;
     const impact = this.engine.sync.geoToLocalSimpleInto(lat, lon, height, this.impactPos);
-    const strength = shakeFalloff(
-      impact.distanceTo(this.engine.getCamera().position),
-      SCREEN_SHAKE_CONFIG.nearDistance,
-      SCREEN_SHAKE_CONFIG.farDistance,
-    );
+    const strength = shakeFalloff(impact.distanceTo(this.engine.getCamera().position), near, far);
     if (strength > 0) {
       this.shake(preset.amplitude * strength, preset.duration);
     }
