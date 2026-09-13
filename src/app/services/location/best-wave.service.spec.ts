@@ -119,6 +119,29 @@ describe('BestWaveService', () => {
     expect(service.newRecord()).toBeNull();
   });
 
+  describe('dev wave jump', () => {
+    const jump = (from: number, to: number) =>
+      bus.emit({ type: 'wave:jumped', from, wave: to, skipped: to - 1 - from, credits: 0 });
+
+    it('records nothing from the jump on and reports no record at game over', () => {
+      wave(1); wave(2);
+      jump(2, 35);
+      wave(35); wave(36);
+      gameOver();
+      expect(service.records()[0].bestWave).toBe(2);
+      expect(service.newRecord()).toBeNull();
+    });
+
+    it('counts again once the game is reset', () => {
+      jump(0, 35);
+      wave(35);
+      expect(service.records()).toEqual([]);
+      bus.emit({ type: 'game:reset' });
+      wave(1);
+      expect(service.records()).toEqual([expect.objectContaining({ bestWave: 1 })]);
+    });
+  });
+
   it('records nothing in DevWorld or without an HQ', () => {
     location.hq.set({ lat: 0, lon: 0 });
     wave(1);

@@ -21,6 +21,9 @@ export interface NewRecord {
  * is abandoned (restart, another place, reload, closed tab) keeps the wave it
  * got to without a hook for each of those ways out. At game over `newRecord`
  * says whether the run beat what the place had before it began.
+ *
+ * A run that jumped waves with the dev cheat (`wave:jumped`) records nothing
+ * from the jump on and gets no new-record hint: its wave was not reached.
  */
 @Injectable({ providedIn: 'root' })
 export class BestWaveService {
@@ -37,6 +40,8 @@ export class BestWaveService {
   /** The place's record when the run's first wave started; null before that or when the run does not count */
   private bestBeforeRun: number | null = null;
   private runWave = 0;
+  /** The run jumped waves, see the class comment */
+  private jumped = false;
   private counts: () => boolean = () => true;
 
   /**
@@ -48,6 +53,7 @@ export class BestWaveService {
     this.counts = counts;
     this.resetRun();
     this.subs.add(bus.on('wave:started', (e) => this.onWaveStarted(e.wave)));
+    this.subs.add(bus.on('wave:jumped', () => { this.jumped = true; }));
     this.subs.add(bus.on('game:over', () => this.onGameOver()));
     this.subs.add(bus.on('game:reset', () => this.resetRun()));
   }
@@ -63,7 +69,7 @@ export class BestWaveService {
 
   private onWaveStarted(wave: number): void {
     const place = this.currentPlace();
-    if (!place || !this.counts()) return;
+    if (!place || !this.counts() || this.jumped) return;
     this.bestBeforeRun ??= findBestWave(this.records(), place.hq)?.bestWave ?? 0;
     this.runWave = Math.max(this.runWave, wave);
 
@@ -77,13 +83,14 @@ export class BestWaveService {
   private onGameOver(): void {
     const place = this.currentPlace();
     const before = this.bestBeforeRun;
-    if (!place || before === null || this.runWave <= before) return;
+    if (!place || before === null || this.jumped || this.runWave <= before) return;
     this.newRecord.set({ hq: place.hq, name: place.name, wave: this.runWave, previous: before });
   }
 
   private resetRun(): void {
     this.bestBeforeRun = null;
     this.runWave = 0;
+    this.jumped = false;
     this.newRecord.set(null);
   }
 

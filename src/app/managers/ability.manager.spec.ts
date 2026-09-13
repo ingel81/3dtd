@@ -171,6 +171,24 @@ describe('AbilityManager', () => {
       completeWave();
       expect(manager.getStatus('nuclear-strike').charges).toBe(0);
     });
+
+    it('counts the waves a dev jump skips like completed waves, up to full', () => {
+      manager.use('nuclear-strike', TARGET);
+      manager.advanceWaves(NUKE.rechargeWaves - 1);
+      expect(manager.getStatus('nuclear-strike')).toMatchObject({ charges: 0, wavesUntilCharge: 1 });
+
+      manager.advanceWaves(10 * NUKE.rechargeWaves);
+      expect(manager.getStatus('nuclear-strike')).toMatchObject({
+        charges: NUKE.maxCharges,
+        wavesUntilCharge: 0,
+      });
+    });
+
+    it('a jump leaves a locked ability locked', () => {
+      manager.reset();
+      manager.advanceWaves(20);
+      expect(manager.getStatus('nuclear-strike').unlocked).toBe(false);
+    });
   });
 
   describe('debug refill (Nuke ready)', () => {

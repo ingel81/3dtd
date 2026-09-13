@@ -23,7 +23,7 @@ import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { raycastStats } from '../utils/raycast-stats';
-import { EconomyService } from '../services/economy.service';
+import { EconomyService, skippedWavesGold } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, IGameManager, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, BloodMoonService, SubscriptionBag } from '../game-engine';
@@ -139,6 +139,12 @@ export class GameStateManager {
 
   /** Command-Bus-Adapter — registriert sich bei initialize(). */
   private commandsHandler: GameCommandsHandler | null = null;
+
+  /**
+   * A wave has started in this run; `game:started` goes out before the first.
+   * Not read off the counter: the dev wave jump moves it before any wave ran.
+   */
+  private runStarted = false;
 
   /** Sync timescale from GameStore (UI source of truth) → local signal */
   private readonly timescaleSyncEffect = effect(() => {
@@ -591,11 +597,10 @@ export class GameStateManager {
       this.waveDebug.setCurrentWaveGroups(groups);
     }
 
-    const isFirstWave = this.waveManager.waveNumber() === 0;
-
     // Emit lifecycle event BEFORE startWave() so that AIDataCollector.clearHistory()
     // runs before wave:started sets up tracking (prevents NaN in wave history)
-    if (isFirstWave) {
+    if (!this.runStarted) {
+      this.runStarted = true;
       this.eventBus.emit({ type: 'game:started' });
     }
 
@@ -610,11 +615,10 @@ export class GameStateManager {
     // A corridor measurement still under way finishes first.
     this.beforeCorridorLock?.('wave');
 
-    const isFirstWave = this.waveManager.waveNumber() === 0;
-
     // Emit lifecycle event BEFORE beginWave() so that AIDataCollector.clearHistory()
     // runs before wave:started sets up tracking (prevents NaN in wave history)
-    if (isFirstWave) {
+    if (!this.runStarted) {
+      this.runStarted = true;
       this.eventBus.emit({ type: 'game:started' });
     }
 
@@ -634,6 +638,29 @@ export class GameStateManager {
   /** Debug: add (or take) base HP outside the leak budget, emits health:changed. */
   adjustBaseHealth(amount: number): void {
     this.healthLedger.adjust(amount);
+  }
+
+  /**
+   * Debug: the next wave to start is `wave`; the waves before it are skipped
+   * without spawning. Between waves only and only forward. What counts
+   * completed waves moves with the counter: the ability recharge, and with
+   * `grantGold` the gold the skipped waves would have paid (skippedWavesGold).
+   * What runs on game time (research, auto-start countdown) stays, as no game
+   * time passes. The wave director keeps its state, see docs/WAVE_SYSTEM.md.
+   * Announced as `wave:jumped`.
+   * @returns false when refused: a wave running, game over, or `wave` not past the next wave
+   */
+  jumpToWave(wave: number, grantGold: boolean): boolean {
+    const from = this.waveManager.waveNumber();
+    if (this.waveManager.phase() !== 'setup' || !Number.isInteger(wave) || wave <= from + 1) return false;
+
+    const skipped = wave - 1 - from;
+    const credits = grantGold ? skippedWavesGold(from + 1, wave - 1) : 0;
+    this.waveManager.jumpTo(wave - 1);
+    if (credits > 0) this.creditsLedger.add(credits);
+    this.abilityManager.advanceWaves(skipped);
+    this.eventBus.emit({ type: 'wave:jumped', from, wave, skipped, credits });
+    return true;
   }
 
   /**
@@ -705,6 +732,7 @@ export class GameStateManager {
     this.creditsLedger.reset();
     this.clock.reset();
     this.economy.reset();
+    this.runStarted = false;
 
     GameObject.resetIdCounter();
 

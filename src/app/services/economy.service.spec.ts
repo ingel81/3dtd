@@ -10,7 +10,7 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { EconomyService } from './economy.service';
+import { EconomyService, skippedWavesGold } from './economy.service';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { goldBudgetForWave } from '../configs/wave-curriculum.config';
 
@@ -407,6 +407,37 @@ describe('EconomyService', () => {
       // the curriculum, so wave 31 sits below wave 30 and above wave 1.
       expect(base31).toBeLessThan(waveBase(30));
       expect(base31).toBeGreaterThan(waveBase(1));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Gold of the waves a dev jump skips
+  // -------------------------------------------------------------------------
+  describe('skippedWavesGold() (wave jump)', () => {
+    it('pays kill budget, base completion bonus and milestones of every skipped wave', () => {
+      let expected = 0;
+      for (let w = 1; w <= 13; w++) {
+        expected += goldBudgetForWave(w).kill + goldBudgetForWave(w).complete;
+      }
+      expected += GAME_BALANCE.economy.milestoneBonuses[10];
+      expect(skippedWavesGold(1, 13)).toBe(expected);
+    });
+
+    it('pays no skill bonus and leaves the perfect streak alone', () => {
+      service.computeWaveCompletionBonus({ wave: 1, perfect: true, closeCall: false, hpLost: 0 });
+      expect(skippedWavesGold(2, 2)).toBe(goldBudgetForWave(2).kill + waveBase(2));
+      expect(service.perfectStreak).toBe(1);
+    });
+
+    it('reads the tapered budget past the curriculum', () => {
+      const w31to34 = [31, 32, 33, 34].reduce(
+        (sum, w) => sum + goldBudgetForWave(w).kill + goldBudgetForWave(w).complete, 0);
+      expect(skippedWavesGold(31, 34)).toBe(w31to34);
+    });
+
+    it('pays nothing for an empty range or waves before 1', () => {
+      expect(skippedWavesGold(5, 4)).toBe(0);
+      expect(skippedWavesGold(-3, 0)).toBe(0);
     });
   });
 });

@@ -136,5 +136,10 @@ export class GameCommandsHandler {
       this.gsm.researchManager.completeResearch(ABILITIES[event.abilityId].researchId);
       this.gsm.abilityManager.refillCharges(event.abilityId);
     }));
+
+    // Between waves only; refused otherwise, see GameStateManager.jumpToWave
+    this.subs.add(this.eventBus.on('debug:jump-to-wave', (event) => {
+      this.gsm.jumpToWave(event.wave, event.grantGold);
+    }));
   }
 }

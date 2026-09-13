@@ -131,6 +131,19 @@ export type GameEvent =
       /** Anzahl HP die in dieser Wave verloren wurde (0 wenn perfect) */
       hpLost: number;
     }
+  | {
+      /**
+       * Dev cheat: the counter moved on between waves without the skipped
+       * waves being played (GameStateManager.jumpToWave). `from` is the last
+       * wave played, `wave` the next one to start; `credits` what the skipped
+       * waves paid, 0 without the gold grant.
+       */
+      type: 'wave:jumped';
+      from: number;
+      wave: number;
+      skipped: number;
+      credits: number;
+    }
 
   // ==================== Game State Events ====================
   | {
@@ -377,6 +390,14 @@ export type GameEvent =
       // back. Sent deferred, so it lands in a gameplay sub-step.
       type: 'debug:ready-ability';
       abilityId: AbilityId;
+    }
+  | {
+      // The next wave to start is `wave`, the ones before it are skipped.
+      // Between waves only, see GameStateManager.jumpToWave.
+      type: 'debug:jump-to-wave';
+      wave: number;
+      /** Pay what the skipped waves would have paid, see skippedWavesGold */
+      grantGold: boolean;
     }
   | {
       type: 'debug:remove-enemy';

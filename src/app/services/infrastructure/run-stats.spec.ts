@@ -68,6 +68,20 @@ describe('RunStatsTracker', () => {
     expect(s.goldSpent).toBe(150 - 85);
   });
 
+  it('books the gold of a dev wave jump as cheat gold and zero-fills the skipped waves', () => {
+    bus.emit({ type: 'credits:changed', credits: 0, delta: 30 }); // kill rewards
+    bus.emit({ type: 'wave:jumped', from: 0, wave: 35, skipped: 34, credits: 5000 });
+    bus.emit({ type: 'credits:changed', credits: 0, delta: 5000 });
+    startWave(35);
+    leak(3);
+
+    const s = tracker.summary(0);
+    expect(s.goldEarned).toBe(30);
+    expect(s.waveReached).toBe(35);
+    expect(s.leaksPerWave).toHaveLength(35);
+    expect(s.leaksPerWave[34]).toBe(1);
+  });
+
   it('ranks towers by damage dealt, sold ones with their numbers at the sale, at most three', () => {
     const a = tower('a', 'Archer Tower', 500, 4);
     const b = tower('b', 'Cannon Tower', 2000, 9);

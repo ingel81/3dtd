@@ -85,7 +85,7 @@ export class AbilityManager implements IGameManager {
     // Deferred event: delivered in the next sub-step's processQueue, at the
     // same sub-step at every timescale.
     this.subs.add(this.eventBus.on('wave:completed', () => {
-      this.onWaveCompleted();
+      this.advanceWaves(1);
     }));
   }
 
@@ -270,20 +270,21 @@ export class AbilityManager implements IGameManager {
   }
 
   /**
-   * One completed wave toward the next charge of every ability that is not
-   * full. Full abilities bank nothing, there is no hoarding: after a use the
-   * charge needs `rechargeWaves` completed waves, the wave of the use counted.
+   * `waves` completed waves toward the next charge of every ability that is
+   * not full: one per `wave:completed`, the skipped ones on a wave jump
+   * (GameStateManager.jumpToWave). Full abilities bank nothing, there is no
+   * hoarding: after a use the charge needs `rechargeWaves` completed waves,
+   * the wave of the use counted.
    */
-  private onWaveCompleted(): void {
+  advanceWaves(waves: number): void {
+    if (waves <= 0) return;
     let changed = false;
     for (const [id, state] of this.states) {
       const config = ABILITIES[id];
       if (!state.unlocked || state.charges >= config.maxCharges) continue;
-      state.wavesTowardCharge++;
-      if (state.wavesTowardCharge >= config.rechargeWaves) {
-        state.charges++;
-        state.wavesTowardCharge = 0;
-      }
+      const toward = state.wavesTowardCharge + waves;
+      state.charges = Math.min(config.maxCharges, state.charges + Math.floor(toward / config.rechargeWaves));
+      state.wavesTowardCharge = state.charges >= config.maxCharges ? 0 : toward % config.rechargeWaves;
       changed = true;
     }
     if (changed) this.emitStateSnapshot();

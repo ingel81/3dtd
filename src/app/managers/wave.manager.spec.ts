@@ -280,6 +280,33 @@ describe('WaveManager', () => {
     });
   });
 
+  describe('jumpTo() (dev wave jump)', () => {
+    it('sets the counter between waves, the next start is the wave after it', () => {
+      wm.jumpTo(34);
+      expect(wm.waveNumber()).toBe(34);
+      expect(wm.phase()).toBe('setup');
+      wm.startWave(makeWaveConfig());
+      expect(wm.waveNumber()).toBe(35);
+    });
+
+    it('spawns nothing and sends no wave event', () => {
+      const events = vi.fn();
+      bus.on('wave:started', events);
+      bus.on('wave:completed', events);
+      wm.jumpTo(10);
+      wm.tickSpawn(1000);
+      bus.processQueue();
+      expect(events).not.toHaveBeenCalled();
+      expect(enemyManager.spawn).not.toHaveBeenCalled();
+    });
+
+    it('leaves a running wave alone', () => {
+      wm.startWave(makeWaveConfig());
+      wm.jumpTo(20);
+      expect(wm.waveNumber()).toBe(1);
+    });
+  });
+
   describe('reset()', () => {
     it('resets phase to setup', () => {
       wm.startWave(makeWaveConfig());
