@@ -129,7 +129,7 @@ export interface AbilityImpactSound {
   rolloffFactor: number;
   volume: number;
   maxInstances?: number;
-  /** Played again after each delay (wall-clock ms) at that share of the volume */
+  /** Played again after each delay (game-time ms, AudioService.update) at that share of the volume */
   tail: readonly { readonly delayMs: number; readonly volume: number }[];
 }
 

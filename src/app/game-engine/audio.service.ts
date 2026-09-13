@@ -2,6 +2,17 @@ import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 import { ABILITY_IMPACT_SOUNDS } from '../configs/audio.config';
 
+/** A repeat of an impact sound still to come (AbilityImpactSound.tail) */
+interface PendingRepeat {
+  sound: string;
+  /** Game time (ms) until it plays */
+  remainingMs: number;
+  volume: number;
+  lat: number;
+  lon: number;
+  height: number;
+}
+
 /**
  * Audio Service - Handles spatial audio via events
  *
@@ -9,12 +20,12 @@ import { ABILITY_IMPACT_SOUNDS } from '../configs/audio.config';
  * and plays sounds using ThreeTilesEngine's SpatialAudioManager.
  *
  * Event-driven: Subscribes to `audio:play` events from GameEventBus, and
- * plays each ability's impact sound (ABILITY_IMPACT_SOUNDS) on `ability:impact`
+ * plays each ability's impact sound (ABILITY_IMPACT_SOUNDS) on
+ * `ability:impact`, its tail in game time (update())
  */
 export class AudioService {
   private readonly subs = new SubscriptionBag();
-  /** Repeats of impact sounds still to come (AbilityImpactSound.tail) */
-  private readonly tailTimers = new Set<ReturnType<typeof setTimeout>>();
+  private readonly pendingTail: PendingRepeat[] = [];
 
   constructor(
     private eventBus: GameEventBus,
@@ -42,28 +53,43 @@ export class AudioService {
     }));
 
     // The ability's own impact sound at the impact point, then its tail of
-    // quieter repeats (the nuclear strike rumbles)
+    // quieter repeats (the nuclear strike rumbles), see update()
     this.subs.add(this.eventBus.on('ability:impact', ({ abilityId, target }) => {
       const sound = ABILITY_IMPACT_SOUNDS[abilityId];
       if (!sound) return;
-      const play = (volume: number) =>
-        this.handleAudioPlay({ sound: sound.id, lat: target.lat, lon: target.lon, height: target.height ?? 0, volume });
-      play(1);
+      const { lat, lon } = target;
+      const height = target.height ?? 0;
+      this.handleAudioPlay({ sound: sound.id, lat, lon, height, volume: 1 });
       for (const { delayMs, volume } of sound.tail) {
-        const timer = setTimeout(() => {
-          this.tailTimers.delete(timer);
-          play(volume);
-        }, delayMs);
-        this.tailTimers.add(timer);
+        this.pendingTail.push({ sound: sound.id, remainingMs: delayMs, volume, lat, lon, height });
       }
     }));
     // A restart drops the repeats still to come
     this.subs.add(this.eventBus.on('game:reset', () => this.clearTail()));
   }
 
+  /**
+   * One gameplay sub-step (GameStateManager.runSubStep): plays the repeats
+   * of impact sounds whose time has come. In game time like the ability
+   * itself, so a pause holds the tail and a higher game speed shortens it.
+   */
+  update(stepMs: number): void {
+    if (this.pendingTail.length === 0) return;
+    let kept = 0;
+    for (const repeat of this.pendingTail) {
+      repeat.remainingMs -= stepMs;
+      if (repeat.remainingMs <= 0) {
+        const { sound, lat, lon, height, volume } = repeat;
+        this.handleAudioPlay({ sound, lat, lon, height, volume });
+      } else {
+        this.pendingTail[kept++] = repeat;
+      }
+    }
+    this.pendingTail.length = kept;
+  }
+
   private clearTail(): void {
-    for (const timer of this.tailTimers) clearTimeout(timer);
-    this.tailTimers.clear();
+    this.pendingTail.length = 0;
   }
 
   /**
