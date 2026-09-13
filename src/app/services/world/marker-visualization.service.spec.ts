@@ -226,7 +226,7 @@ describe('MarkerVisualizationService', () => {
         service.removeSpawnMarker('s1');
         service.clearSpawnMarkers();
         service.updateMarkerHeights();
-        service.animateMarkers(16);
+        service.animateMarkers(16, 0);
         service.addHeightDebugMarker(new Vector3(), 1, true);
         service.clearHeightDebugMarkers();
         service.toggleHeightDebug(true);
@@ -526,10 +526,28 @@ describe('MarkerVisualizationService', () => {
       init();
       service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000);
 
-      service.animateMarkers(16);
-      service.animateMarkers(16);
+      service.animateMarkers(16, 0);
+      service.animateMarkers(16, 0);
 
       expect(labelFake.instances[0].frames).toBe(2);
+    });
+
+    it('hands the portals the game time for their sigils, the wall time for the rest', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(4000);
+      init();
+      service.addSpawnMarker('s1', 'S1', BASE.lat, BASE.lon, 0xff0000);
+      const uniforms = () => (portalFrames().material as ShaderMaterial).uniforms;
+
+      service.animateMarkers(16, 2500);
+      expect(uniforms()['uGlyphTime'].value).toBe(2.5);
+      expect(uniforms()['uTime'].value).toBe(4);
+
+      // Paused: the wall clock runs on, the game time stands
+      now.mockReturnValue(9000);
+      service.animateMarkers(16, 2500);
+      expect(uniforms()['uGlyphTime'].value).toBe(2.5);
+      expect(uniforms()['uTime'].value).toBe(9);
+      now.mockRestore();
     });
   });
 
@@ -543,17 +561,17 @@ describe('MarkerVisualizationService', () => {
       service.subscribeToEventBus(bus);
       const energy = () => (portalFrames().material as ShaderMaterial).uniforms['uEnergy'].value as number;
 
-      service.animateMarkers(16);
+      service.animateMarkers(16, 0);
       expect(energy()).toBeCloseTo(L.idleEnergy);
 
       bus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
-      service.animateMarkers(16);
+      service.animateMarkers(16, 0);
       expect(energy()).toBeGreaterThan(L.idleEnergy + 0.9 * L.surge);
 
       bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
       for (let t = 1000; t <= 20_000; t += 16) {
         now.mockReturnValue(t);
-        service.animateMarkers(16);
+        service.animateMarkers(16, 0);
       }
       expect(energy()).toBeCloseTo(L.idleEnergy, 2);
     });

@@ -514,7 +514,7 @@ export class GameLoopFacadeService {
     this.keyboardPan.update(dtSec);
     // Quick jumps (Home, N) add to what keyboard pan did this frame
     this.cameraControl.update(deltaTime);
-    this.markerViz.animateMarkers(deltaTime);
+    this.markerViz.animateMarkers(deltaTime, this.gameState.gameTimeMs);
     this.routeAnimation.update(deltaTime);
     // After keyboardPan so a scripted flight wins the frame if both run.
     this.introFlight.update(deltaTime);

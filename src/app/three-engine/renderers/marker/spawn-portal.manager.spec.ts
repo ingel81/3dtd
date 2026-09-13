@@ -1,15 +1,19 @@
 import { describe, it, expect, vi } from 'vitest';
-import { BoxGeometry, Color, Float32BufferAttribute, Group, InstancedMesh, ShaderMaterial, Texture } from 'three';
+import { BoxGeometry, Color, Float32BufferAttribute, Group, InstancedMesh, ShaderMaterial, Texture, Vector3 } from 'three';
 import { SpawnPortalManager } from './spawn-portal.manager';
+import { portalGlyphDrive } from './marker-shaders';
 import type { SpawnPortalFrame } from './spawn-portal-frame';
 import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
 
 const POSE = { x: 0, y: 0, z: 0, heading: 0, scale: 1 };
 const FRAME_MS = 1000 / 60;
 
-/** `seconds` of frames at 60 fps from `t`, returns the end time. */
+/** `seconds` of frames at 60 fps from `t`, game time running with it, returns the end time. */
 function run(portals: SpawnPortalManager, t: number, seconds: number): number {
-  for (let i = 0; i < seconds * 60; i++) portals.update((t += FRAME_MS));
+  for (let i = 0; i < seconds * 60; i++) {
+    t += FRAME_MS;
+    portals.update(t, t);
+  }
   return t;
 }
 
@@ -20,11 +24,11 @@ describe('SpawnPortalManager: Energie', () => {
     portals.add('s1', POSE, 0xef4444);
 
     let t = 1000;
-    portals.update(t);
+    portals.update(t, t);
     expect(portals.energyLevel).toBeCloseTo(L.idleEnergy);
 
     portals.startWave(t);
-    portals.update(t);
+    portals.update(t, t);
     expect(portals.energyLevel).toBeGreaterThan(L.idleEnergy + 0.9 * L.surge);
 
     t = run(portals, t, 10);
@@ -42,9 +46,9 @@ describe('SpawnPortalManager: Energie', () => {
   it('springt nach einer langen Pause des Tabs nicht auf das Ziel', () => {
     const L = SPAWN_PORTAL_LOOK;
     const portals = new SpawnPortalManager(new Group());
-    portals.update(0);
+    portals.update(0, 0);
     portals.startWave(0);
-    portals.update(60_000);
+    portals.update(60_000, 0);
     // Ein Schritt zählt höchstens 250 ms
     expect(portals.energyLevel).toBeLessThan(L.waveEnergy);
   });
@@ -105,20 +109,100 @@ describe('SpawnPortalManager: Stein', () => {
 });
 
 describe('SpawnPortalManager: Sigillen', () => {
-  it('gibt dem Tor den Rhythmus der Sigillen und die Energiestufen aus dem Look', () => {
+  const gateMaterial = (group: Group) =>
+    (group.children.find((o) => o.name === 'spawnPortalGates') as InstancedMesh).material as ShaderMaterial;
+
+  it('gibt dem Tor Atem, Glühen und Erwachen der Sigillen aus dem Look', () => {
     const group = new Group();
     new SpawnPortalManager(group);
-    const gate = group.children.find((o) => o.name === 'spawnPortalGates') as InstancedMesh;
-    const material = gate.material as ShaderMaterial;
+    const material = gateMaterial(group);
     const L = SPAWN_PORTAL_LOOK;
     const G = L.glyphs;
     expect(material.uniforms['uGlyphWake'].value.toArray()).toEqual([G.wakePeriod, G.rise, G.hold, G.fade]);
-    expect(material.uniforms['uGlyphMix'].value.toArray()).toEqual([G.wakeChance[0], G.wakeChance[1], G.shimmer, G.crawl]);
-    expect(material.uniforms['uEnergyRange'].value.toArray()).toEqual([L.idleEnergy, L.waveEnergy, L.surge]);
+    expect(material.uniforms['uGlyphBreath'].value.toArray()).toEqual([G.breath[0], G.breath[1], G.breathDepth, G.gain]);
+    expect(material.uniforms['uGlyphFlow'].value.toArray()).toEqual([G.crawl, G.shimmer, G.wakeGain]);
+    // Vor dem ersten Update: ruhend wie zwischen den Wellen
+    expect(material.uniforms['uGlyphDrive'].value.toArray()).toEqual([G.dormant, G.wakeChance[0], 0]);
     expect(material.uniforms['uEnergy'].value).toBe(L.idleEnergy);
-    // Jede Sigille nach ihrer Zelle, aufwachend mit einem Glimmen entlang der Striche
+    // Jede Sigille aus ihrem Distanzfeld nach ihrer Zelle, aufwachend mit
+    // einem Glimmen entlang der Striche, in Spielzeit
     expect(material.fragmentShader).toContain('portalGlyphCell(p, uOpening, centre)');
-    expect(material.fragmentShader).toContain('e.g * 6.0 - uTime * uGlyphMix.w');
+    expect(material.fragmentShader).toContain('portalGlyphInk(p.xy, cell, centre, wobble, stroke)');
+    expect(material.fragmentShader).toContain('e.g * 6.0 - uGlyphTime * uGlyphFlow.x');
+  });
+
+  it('läuft mit der Spielzeit: in der Pause steht das Leben der Sigillen, der Wirbel nicht', () => {
+    const group = new Group();
+    const portals = new SpawnPortalManager(group);
+    portals.add('s1', POSE, 0xef4444);
+    const uniforms = gateMaterial(group).uniforms;
+
+    portals.update(10_000, 3_000);
+    expect(uniforms['uGlyphTime'].value).toBe(3);
+    expect(uniforms['uTime'].value).toBe(10);
+
+    portals.update(15_000, 3_000);
+    expect(uniforms['uGlyphTime'].value).toBe(3);
+    expect(uniforms['uTime'].value).toBe(15);
+  });
+
+  it('glüht zwischen den Wellen schwächer als in einer, am stärksten beim Wellenstart', () => {
+    const L = SPAWN_PORTAL_LOOK;
+    const group = new Group();
+    const portals = new SpawnPortalManager(group);
+    portals.add('s1', POSE, 0xef4444);
+    const drive = () => (gateMaterial(group).uniforms['uGlyphDrive'].value as Vector3).clone();
+
+    const t = 1000;
+    portals.update(t, t);
+    const idle = drive();
+    expect(idle.x).toBeCloseTo(L.glyphs.dormant);
+    expect(idle.y).toBeCloseTo(L.glyphs.wakeChance[0]);
+
+    portals.startWave(t);
+    portals.update(t, t);
+    const surge = drive();
+    expect(surge.x).toBeGreaterThan(L.glyphs.active);
+    expect(surge.z).toBeGreaterThan(0);
+
+    run(portals, t, 10);
+    const wave = drive();
+    expect(wave.x).toBeCloseTo(L.glyphs.active, 2);
+    expect(wave.y).toBeCloseTo(L.glyphs.wakeChance[1], 2);
+    expect(wave.z).toBe(0);
+  });
+});
+
+describe('portalGlyphDrive', () => {
+  const L = SPAWN_PORTAL_LOOK;
+  const G = L.glyphs;
+
+  it('ruht zwischen den Wellen auf einer lesbaren Glut, in der Welle deutlich stärker', () => {
+    const idle = portalGlyphDrive(L.idleEnergy, L, G);
+    const wave = portalGlyphDrive(L.waveEnergy, L, G);
+    expect(idle).toEqual({ level: G.dormant, wakeChance: G.wakeChance[0], surge: 0 });
+    expect(wave).toEqual({ level: G.active, wakeChance: G.wakeChance[1], surge: 0 });
+    expect(G.dormant).toBeGreaterThan(0.3 * G.active);
+    expect(G.active).toBeGreaterThan(1.5 * G.dormant);
+  });
+
+  it('legt den Schub eines Wellenstarts obendrauf, höchstens um flare', () => {
+    const peak = portalGlyphDrive(L.waveEnergy + L.surge, L, G);
+    expect(peak.level).toBeCloseTo(G.active + G.flare);
+    expect(peak.surge).toBe(1);
+    expect(portalGlyphDrive(L.waveEnergy + 10 * L.surge, L, G)).toEqual(peak);
+    expect(portalGlyphDrive(0, L, G)).toEqual(portalGlyphDrive(L.idleEnergy, L, G));
+  });
+
+  it('steigt mit der Energie, ohne Sprung', () => {
+    let last = portalGlyphDrive(0, L, G);
+    for (let energy = 0.01; energy <= L.waveEnergy + L.surge + 0.2; energy += 0.01) {
+      const next = portalGlyphDrive(energy, L, G);
+      expect(next.level).toBeGreaterThanOrEqual(last.level);
+      expect(next.level - last.level).toBeLessThan(0.05);
+      expect(next.wakeChance).toBeGreaterThanOrEqual(last.wakeChance);
+      last = next;
+    }
   });
 });
 

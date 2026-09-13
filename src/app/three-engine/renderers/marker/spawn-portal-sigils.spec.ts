@@ -8,8 +8,10 @@ import {
   SIGIL_CELLS,
   SIGIL_LAYOUT,
   SIGIL_REACH,
+  SIGIL_STRIDE,
   SIGIL_STROKE,
   frameSigilCells,
+  sigilBreathForCell,
   sigilForCell,
   type Sigil,
   type SigilPart,
@@ -244,5 +246,73 @@ describe('Portal-Sigillen: Auswahl und Platz auf dem Rahmen', () => {
     expect(PORTAL_SIGIL_GLSL.match(/index < /g)).toHaveLength(PORTAL_SIGILS.length - 1);
     expect(PORTAL_SIGIL_GLSL).toContain('sigilCrescent(p, ');
     expect(PORTAL_SIGIL_GLSL).not.toContain('NaN');
+  });
+
+  it('schreibt Pose und Atem jeder Zelle in den Shader, in der Reihenfolge der Zellen', () => {
+    const f = (v: number) => (v.toFixed(4) === '-0.0000' ? '0.0000' : v.toFixed(4));
+    expect(PORTAL_GLYPH_CELL_GLSL).toContain(`const vec4 GLYPH_POSE[${SIGIL_CELLS}]`);
+    expect(PORTAL_GLYPH_CELL_GLSL).toContain(`const vec4 GLYPH_BREATH[${SIGIL_CELLS}]`);
+    const poses = PORTAL_GLYPH_CELL_GLSL.split('GLYPH_POSE[')[1];
+    let at = 0;
+    for (const c of frameSigilCells()) {
+      const row = `vec4(${[c.turn, c.scale, c.dx, c.dy].map(f).join(', ')})`;
+      const found = poses.indexOf(row, at);
+      expect(found, `Zelle ${c.cell}`).toBeGreaterThanOrEqual(at);
+      at = found + row.length;
+    }
+    const b = sigilBreathForCell(7);
+    expect(PORTAL_GLYPH_CELL_GLSL).toContain(`vec4(${[...b.rate, ...b.phase].map(f).join(', ')})`);
+    expect(PORTAL_GLYPH_CELL_GLSL).toContain(`GLYPH_STRIDE = ${f(SIGIL_STRIDE)}`);
+    expect(PORTAL_GLYPH_CELL_GLSL).not.toContain('NaN');
+  });
+});
+
+describe('Portal-Sigillen: Atem je Zelle', () => {
+  const cells = [...Array(SIGIL_CELLS).keys()];
+  const turn = 2 * Math.PI;
+  /** Abstand zweier Phasen auf dem Kreis (rad). */
+  const apart = (a: number, b: number) => Math.min(Math.abs(a - b) % turn, turn - (Math.abs(a - b) % turn));
+  /** Größte Lücke zwischen sortierten Werten auf einem Kreis des Umfangs `span`. */
+  const widestGap = (values: number[], span: number) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    let gap = sorted[0] + span - sorted[sorted.length - 1];
+    for (let i = 1; i < sorted.length; i++) gap = Math.max(gap, sorted[i] - sorted[i - 1]);
+    return gap;
+  };
+
+  it('ist fest: dieselbe Zelle atmet bei jedem Aufruf gleich', () => {
+    for (const cell of cells) expect(sigilBreathForCell(cell)).toEqual(sigilBreathForCell(cell));
+  });
+
+  it('hält die Raten zwischen 0 und 1 und die Phasen in einer Umdrehung', () => {
+    for (const cell of cells) {
+      const { rate, phase } = sigilBreathForCell(cell);
+      for (const r of rate) {
+        expect(r).toBeGreaterThanOrEqual(0);
+        expect(r).toBeLessThan(1);
+      }
+      for (const p of phase) {
+        expect(p).toBeGreaterThanOrEqual(0);
+        expect(p).toBeLessThan(turn);
+      }
+    }
+  });
+
+  it('lässt keine zwei Nachbarn am Fries im Takt atmen', () => {
+    for (let cell = 1; cell < SIGIL_CELLS; cell++) {
+      const a = sigilBreathForCell(cell - 1);
+      const b = sigilBreathForCell(cell);
+      expect(apart(a.phase[0], b.phase[0]), `Zellen ${cell - 1} und ${cell}`).toBeGreaterThan(Math.PI / 4);
+      expect(Math.abs(a.rate[0] - b.rate[0]), `Zellen ${cell - 1} und ${cell}`).toBeGreaterThan(0.1);
+    }
+  });
+
+  it('verteilt Raten und Phasen über den ganzen Bereich, ohne Häufung', () => {
+    const breaths = cells.map(sigilBreathForCell);
+    for (const k of [0, 1]) {
+      expect(widestGap(breaths.map((b) => b.phase[k]), turn)).toBeLessThan((2.5 * turn) / SIGIL_CELLS);
+      expect(widestGap(breaths.map((b) => b.rate[k]), 1)).toBeLessThan(2.5 / SIGIL_CELLS);
+      expect(new Set(breaths.map((b) => b.rate[k].toFixed(3))).size).toBe(SIGIL_CELLS);
+    }
   });
 });
