@@ -23,7 +23,7 @@ export interface CorridorMeasurement {
   cancel(reason: string): void;
 }
 
-/** What CorridorRefit needs from the game; VisualizationFacadeService wires it. */
+/** What CorridorRefit needs from the game; CorridorController wires it. */
 export interface CorridorRefitHost {
   /** A location is loaded: there are routes and cells to rebuild. */
   ready(): boolean;
@@ -211,7 +211,7 @@ export class CorridorRefit {
     if (running.measurement.commit(reason)) this.host.rebuild();
   }
 
-  /** Stop for good, from the facade's dispose(). */
+  /** Stop for good, from CorridorController.dispose(). */
   dispose(): void {
     this.pendingRetry?.();
     this.pendingRetry = null;

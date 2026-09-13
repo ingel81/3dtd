@@ -49,7 +49,7 @@ import {
   resetCorridorConfig,
   setCorridorConfig,
 } from '../../utils/route-corridor';
-import { CorridorRefit } from '../world/corridor-refit';
+import { CorridorController } from '../world/corridor-controller';
 import { cameraTimeline } from '../../utils/camera-timeline';
 
 /**
@@ -122,6 +122,16 @@ export class VisualizationFacadeService {
   private readonly store = inject(TowerDefenseStore);
   private readonly engineStore = inject(EngineStore);
 
+  /** When the route corridor is measured and rebuilt (CorridorRefit). */
+  private readonly corridor = new CorridorController({
+    gameState: () => this.gameState,
+    engineInit: this.engineInit,
+    introFlight: this.introFlight,
+    pathRoute: this.pathRoute,
+    routeAnimation: this.routeAnimation,
+    store: this.store,
+  });
+
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
 
@@ -149,17 +159,16 @@ export class VisualizationFacadeService {
     this.gameState = gameState;
     this.initialized = true;
 
-    // A tower or a wave freezes the corridor: a measurement still under way
-    // finishes first instead of being dropped (CorridorRefit.flush).
-    gameState.setBeforeCorridorLock((reason) => this.corridorRefit.flush(reason));
+    // A tower or a wave finishes a corridor measurement under way first.
+    this.corridor.attach();
 
     // Korridor-API für Playtests, analog zu `__rg` und `__routes`, in
     // DevTools: `__corridor.get()`, `__corridor.set({ maxHalfWidth: 8 })`,
     // `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`.
     (globalThis as Record<string, unknown>)['__corridor'] = {
       get: () => ({ ...corridorConfig, highwayWidths: { ...corridorConfig.highwayWidths } }),
-      set: (patch: Partial<CorridorConfig>) => this.corridorRefit.change(() => setCorridorConfig(patch)),
-      reset: () => this.corridorRefit.change(() => {
+      set: (patch: Partial<CorridorConfig>) => this.corridor.change(() => setCorridorConfig(patch)),
+      reset: () => this.corridor.change(() => {
         resetCorridorConfig();
         return [];
       }),
@@ -206,39 +215,6 @@ export class VisualizationFacadeService {
     });
     return `Click the map (left button): the grid within ${radius} m of the click and how the corridor width comes about there are printed here.`;
   }
-
-  /**
-   * When the route corridor is measured and routes and cells are rebuilt
-   * with it: after the height update (scheduleOverlayHeightUpdate), after
-   * each settled tile batch (scheduleRouteGridConvergence) and from
-   * `__corridor.set()` / `reset()`. The rules live in CorridorRefit, which
-   * measures a slice per animation frame, like the terrain sweep.
-   */
-  private readonly corridorRefit = new CorridorRefit({
-    ready: () => this.engineInit.getEngine() !== null,
-    towerCount: () => this.gameState.towerCount(),
-    enemyCount: () => this.gameState.enemyManager.getAliveCount(),
-    waveRunning: () => this.gameState.waveManager.phase() === 'wave',
-    introRunning: () => this.introFlight.isRunning(),
-    beginMeasurement: () => this.pathRoute.beginClearanceMeasurement(),
-    hasUnmeasured: () => this.pathRoute.hasUnmeasuredStations(),
-    clearMeasurements: () => this.pathRoute.clearCorridorMeasurements(),
-    rebuild: () => this.rebuildCorridors(),
-    cellCount: () => this.gameState.getGlobalRouteGrid().getStats().totalCells,
-    now: () => performance.now(),
-    eachFrame: (tick) => {
-      let frame = 0;
-      const step = () => {
-        if (tick()) frame = requestAnimationFrame(step);
-      };
-      frame = requestAnimationFrame(step);
-      return () => cancelAnimationFrame(frame);
-    },
-    after: (ms, callback) => {
-      const timer = setTimeout(callback, ms);
-      return () => clearTimeout(timer);
-    },
-  });
 
   /**
    * What the grid holds in a tower's range and what its LOS display draws
@@ -309,8 +285,7 @@ export class VisualizationFacadeService {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
-    if (this.initialized) this.gameState.setBeforeCorridorLock(null);
-    this.corridorRefit.dispose();
+    this.corridor.dispose();
     this.cellsChangedOff?.();
     this.cellsChangedOff = null;
     if (this.routeGridConvergenceRaf !== null) {
@@ -683,7 +658,7 @@ export class VisualizationFacadeService {
     await this.heightUpdate.scheduleOverlayHeightUpdate();
     // First fit of the corridors to the tiles, measured over the next frames
     // (CorridorRefit); does not hold the location change up.
-    this.corridorRefit.fitToTiles();
+    this.corridor.fitToTiles();
   }
 
   /**
@@ -693,46 +668,7 @@ export class VisualizationFacadeService {
    * same locks as the first fit (CorridorRefit.fitToTiles).
    */
   fitCorridorToTiles(): void {
-    this.corridorRefit.fitToTiles();
-  }
-
-  /**
-   * Rebuild the routes with the corridor widths as measured and configured
-   * now, their cells and the route line, all in one frame. Logs how long
-   * each part took (`[Corridor] rebuild:`): routes (pathfinding, corridor
-   * fit, route line), grid (the cells and their first sample), heights (the
-   * full terrain sweep), lines (pathfinding and route line again, on the new
-   * cells' heights) and overlays (debug layers, route animation).
-   */
-  private rebuildCorridors(): void {
-    // Routes with the new widths first, then the cells built from them,
-    // then the route line on the new cells' heights.
-    const t0 = performance.now();
-    const spawns = this.store.spawnPoints();
-    const grid = this.gameState.getGlobalRouteGrid();
-    this.pathRoute.refreshRouteLines(spawns);
-    const tRoutes = performance.now();
-    grid.clear();
-    this.gameState.initializeGlobalRouteGrid();
-    const tGrid = performance.now();
-    grid.updateTerrainHeights();
-    const tHeights = performance.now();
-    this.pathRoute.refreshRouteLines(spawns);
-    const tLines = performance.now();
-    grid.initSpatialGridVisualizationIfEnabled();
-    grid.initAirSpatialGridVisualizationIfEnabled();
-    grid.initAirRouteLayerIfEnabled();
-    if (this.routeAnimation.isRunning()) {
-      this.routeAnimation.startAnimation(this.pathRoute.getCachedPaths(), spawns);
-    }
-    const tEnd = performance.now();
-
-    const ms = (from: number, to: number) => (to - from).toFixed(1);
-    console.warn(
-      `[Corridor] rebuild: routes=${ms(t0, tRoutes)} grid=${ms(tRoutes, tGrid)} heights=${ms(tGrid, tHeights)} ` +
-      `lines=${ms(tHeights, tLines)} overlays=${ms(tLines, tEnd)} total=${ms(t0, tEnd)}ms ` +
-      `spawns=${spawns.length} cells=${grid.getStats().totalCells}`,
-    );
+    this.corridor.fitToTiles();
   }
 
   /**
@@ -1135,7 +1071,7 @@ export class VisualizationFacadeService {
       }
       // The batch has settled: corridor stations that were still on coarse
       // tiles may have fine ones now (CorridorRefit.remeasure).
-      this.corridorRefit.remeasure();
+      this.corridor.remeasure();
     };
 
     const tick = () => {
