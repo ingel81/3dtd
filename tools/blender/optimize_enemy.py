@@ -45,9 +45,11 @@ ENEMIES = 'public/assets/models/enemies'
 #               for meshes the importer leaves as a triangle soup because the
 #               normals differ slightly across UV seams
 #   normals     'keep' (default), 'smooth' or a smoothing angle in degrees
-#   rebake      {'size', 'supersample'}: after decimating, new UVs and the base
-#               colour taken from the undecimated mesh (see rebake_base_color); for
+#   rebake      {'size', 'supersample', 'uv_angle'}: after decimating, new UVs and the
+#               base colour taken from the undecimated mesh (see rebake_base_color); for
 #               atlases whose seams the decimator cannot keep
+#   rigid_to_skin    join the rigid meshes that hang on bones into one skinned mesh
+#               before anything else (see rigid_to_skin)
 #   merge       merge co-located vertices with equal normals on import (glTF
 #               importer option), also without decimating
 #   texture     longest side of every image left in the model
@@ -220,9 +222,24 @@ RECIPES = {
         'src': f'{ENEMIES}/tank.glb',
         'merge': True,
     },
-    # No mech recipe: its round trip is exact only without the bind pose guess,
-    # and decimating the 34 hard-surface parts to 12 % (6,739 VAT vertices, not
-    # 5,000) left shards and texture seams; mech_army stays at 4.2 million.
+    # 34 rigid parts, each under an empty on a bone (object animation VAT
+    # path). Joined into one skinned mesh (rigid_to_skin), the decimator and
+    # the rebake work on one surface and one UV layout, and the parts move as
+    # before. Decimating the parts in place to 12 % (Night 1: 6,739 VAT
+    # vertices) left texture seams on the old atlas; rebaked onto new UVs the
+    # seams go. Normals split over 60 degrees. The round trip is exact only
+    # without the bind pose guess. The config plays Walk only.
+    'mech': {
+        'src': f'{ENEMIES}/mech.glb',
+        'guess_bind_pose': False,
+        'actions': {'Armature|Walk': 'Armature|Walk'},
+        'rigid_to_skin': True,
+        'decimate': 0.12,
+        'normals': 60,
+        'rebake': {'size': 1024, 'supersample': 2, 'uv_angle': 89},
+        'base_color_only': True,
+        'image_format': 'JPEG',
+    },
 }
 
 
@@ -271,6 +288,55 @@ def keep_actions(mapping):
     missing = set(mapping.values()) - {a.name for a in bpy.data.actions}
     if missing:
         raise RuntimeError(f'actions not found: {sorted(missing)}')
+
+
+def rigid_to_skin(weld_distance=1e-6):
+    """The meshes that hang on bones (through empties parented to a bone, the
+    mech's 34 parts) as one skinned mesh, every part weighted fully to its
+    bone, so the Skinning VAT path moves the parts as the node animation did.
+    Each part is welded on its own first, so no vertex joins two bones. Only
+    the active UV layer stays. The empties that held the parts go."""
+    scene = bpy.context.scene
+    arm = next(o for o in scene.objects if o.type == 'ARMATURE')
+    if arm.animation_data:
+        arm.animation_data.action = None
+    for pb in arm.pose.bones:
+        pb.matrix_basis.identity()
+    bpy.context.view_layer.update()
+    to_arm = arm.matrix_world.inverted()
+    parts, holders = [], set()
+    for obj in [o for o in scene.objects if o.type == 'MESH']:
+        holder = obj
+        while holder is not None and not (holder.parent == arm and holder.parent_type == 'BONE'):
+            holder = holder.parent
+        if holder is None:
+            raise RuntimeError(f'{obj.name} hangs on no bone')
+        me = obj.data.copy()
+        me.transform(to_arm @ obj.matrix_world)
+        for layer in [l for l in me.uv_layers if l != me.uv_layers.active]:
+            me.uv_layers.remove(layer)
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=weld_distance)
+        bm.to_mesh(me)
+        bm.free()
+        part = bpy.data.objects.new(obj.name, me)
+        scene.collection.objects.link(part)
+        part.parent = arm
+        part.vertex_groups.new(name=holder.parent_bone).add(list(range(len(me.vertices))), 1.0, 'REPLACE')
+        parts.append(part)
+        if holder != obj:
+            holders.add(holder)
+        bpy.data.objects.remove(obj, do_unlink=True)
+    for holder in holders:
+        bpy.data.objects.remove(holder, do_unlink=True)
+    with bpy.context.temp_override(active_object=parts[0], object=parts[0], selected_objects=parts,
+                                   selected_editable_objects=parts):
+        bpy.ops.object.join()
+    skin = parts[0]
+    skin.name = 'Skin'
+    skin.modifiers.new('Armature', 'ARMATURE').object = arm
+    return skin
 
 
 def trim_action(act, start, end, blend=0):
@@ -457,6 +523,11 @@ def strip_to_base_color(mat):
         # The importer writes a glTF factor as Math(multiply) with the texture, or
         # leaves it out at 1.0. Unlinked, the socket gets factor x texture mean.
         value = channel_mean(sock) if sock.name in ('Metallic', 'Roughness') else None
+        # Unlinked, the emission colour would stand at the importer's white
+        # (the mech glowed white in the sidebar preview); the VAT shader takes
+        # the glow from the config.
+        if sock.name == 'Emission Color':
+            value = (0.0, 0.0, 0.0, 1.0)
         for link in list(sock.links):
             nt.links.remove(link)
         if value is not None:
@@ -640,9 +711,11 @@ def dilate(img, filled, steps):
     return img
 
 
-def rebake_base_color(low, high, size=1024, supersample=2, margin=16):
+def rebake_base_color(low, high, size=1024, supersample=2, margin=16, uv_angle=66):
     """New UVs for `low` and its base colour taken from `high`, so the decimated
-    mesh no longer samples the old atlas across its seams.
+    mesh no longer samples the old atlas across its seams. With several
+    materials (the mech's two) each triangle of `high` gives the colour of
+    its own material's atlas, and `low` keeps the first material only.
 
     Each texel of the new layout (supersample x supersample samples) is placed
     on `low` in rest pose, moved to the closest point of `high` and takes the
@@ -662,7 +735,7 @@ def rebake_base_color(low, high, size=1024, supersample=2, margin=16):
     with view3d_override(object=low, active_object=low):
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.003)
+        bpy.ops.uv.smart_project(angle_limit=math.radians(uv_angle), island_margin=0.003)
         # Packed by shape, the islands cover 51 % of the image instead of 37 %.
         bpy.ops.uv.select_all(action='SELECT')
         bpy.ops.uv.pack_islands(rotate=True, margin=0.002, shape_method='CONCAVE', margin_method='FRACTION')
@@ -671,16 +744,22 @@ def rebake_base_color(low, high, size=1024, supersample=2, margin=16):
     mat = low.data.materials[0]
     nt = mat.node_tree
     bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    # The atlas of each material slot of `high`
+    slot_atlases = []
+    for slot in high.data.materials:
+        images = {n.image for n in base_color_images(slot)}
+        if len(images) != 1:
+            raise RuntimeError(f'rebake expects one base colour image in {slot.name}, found {len(images)}')
+        slot_atlases.append(images.pop())
     # Every image node that shows the old atlas (the wraith has a second one for emission).
-    atlases = {n.image for n in base_color_images(mat)}
-    if len(atlases) != 1:
-        raise RuntimeError(f'rebake expects one base colour image, found {len(atlases)}')
-    old = {n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.image in atlases}
+    old = {n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.image == slot_atlases[0]}
     targets = [link.to_socket for link in nt.links
                if link.from_node in old and link.to_node == bsdf and link.to_socket.name != 'Alpha']
 
     res = size * supersample
     hco, htri, huv = mesh_triangles(high.data)
+    hslot = np.empty(len(htri), dtype=np.int32)
+    high.data.loop_triangles.foreach_get('material_index', hslot)
     tree = BVHTree.FromPolygons([Vector(v) for v in hco], htri.tolist(), all_triangles=True)
     lco, ltri, luv = mesh_triangles(low.data)
     pix, tri, bary = raster_uv_triangles(luv, res)
@@ -693,7 +772,16 @@ def rebake_base_color(low, high, size=1024, supersample=2, margin=16):
         nearest_tri[i] = k
     w = np.clip(barycentric(nearest, *(hco[htri[nearest_tri][:, j]] for j in range(3))), 0, None)
     w /= w.sum(-1, keepdims=True)
-    colour = sample_image(next(iter(atlases)), (huv[nearest_tri] * w[..., None]).sum(1))
+    uv_at = (huv[nearest_tri] * w[..., None]).sum(1)
+    colour = np.zeros((len(uv_at), 3), dtype=np.float32)
+    for s, atlas in enumerate(slot_atlases):
+        hit = hslot[nearest_tri] == s
+        if hit.any():
+            colour[hit] = sample_image(atlas, uv_at[hit])[:, :3]
+    if len(low.data.materials) > 1:
+        low.data.polygons.foreach_set('material_index', np.zeros(len(low.data.polygons), dtype=np.int32))
+        while len(low.data.materials) > 1:
+            low.data.materials.pop(index=len(low.data.materials) - 1)
 
     out = np.zeros((res * res, 4), dtype=np.float32)
     out[pix, :3] = colour[:, :3]
@@ -769,6 +857,8 @@ def run(name):
             keep_actions(recipe['actions'])
         for action_name, window in recipe.get('trim', {}).items():
             trim_action(bpy.data.actions[action_name], *window)
+        if recipe.get('rigid_to_skin'):
+            rigid_to_skin()
 
         meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
         for obj in meshes:
