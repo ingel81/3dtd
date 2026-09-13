@@ -293,7 +293,7 @@ colorMultiplier: 1.3,  // Gesamt-Helligkeit (Default 1.0; 1.3 = +30% heller)
 ```typescript
 immunityPercent: 100,        // derzeit von keinem Spielcode gelesen (keine Anzeige, keine Schadensreduktion)
 healthBarColor: '#ff0000',   // Optional: feste Health-Bar-Farbe (z.B. Boss)
-bossName: 'Boss',            // Optional: nur der Screen-Shake liest es (Preset bossDeath beim Tod), kein Name über der Health-Bar
+isBoss: true,                // Boss-Leiste oben mittig (Label: name), Screen-Shake beim Tod (Preset bossDeath), kleinerer Anteil bei Abilities
 ```
 
 ### Blood Effects
@@ -629,7 +629,7 @@ wallsmasher: {
 - [ ] Bei Air Unit: `isAirUnit: true` gesetzt
 - [ ] Bei Run-Animation: `animationVariation: true` und `runSpeedMultiplier` gesetzt
 - [ ] Todes-Clip liegt innerhalb von `animationSpeed` × 2 s Clip-Zeit am Boden
-- [ ] Bei Boss: `healthBarColor` und `bossName` gesetzt (`immunityPercent` wird derzeit nicht ausgewertet)
+- [ ] Bei Boss: `isBoss: true`, nur wenn der Typ in keiner normalen Welle vorkommt (das Flag gilt pro Typ); optional `healthBarColor` (`immunityPercent` wird derzeit nicht ausgewertet)
 - [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu gross/klein
 - [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse
 - [ ] Bei `splitOnDeath`: Kind-Typ in `ENEMY_TYPES`, kein Zyklus, `countRange` der Templates an die HP der ganzen Linie angepasst, `npm run ai-schema` gelaufen (`lineageHp`, `bodies`, `maxLeaks`)

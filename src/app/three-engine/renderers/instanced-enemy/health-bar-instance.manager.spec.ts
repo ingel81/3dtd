@@ -14,7 +14,7 @@ describe('HealthBarInstanceManager', () => {
   let bars: HealthBarInstanceManager;
   let meshes: Mesh[];
 
-  const add = (id: string) => bars.add(id, new Vector3(), 2, false, null, 6, 1);
+  const add = (id: string) => bars.add(id, new Vector3(), 2, null, 6, 1);
   const attribute = (name: string) =>
     meshes[0].geometry.getAttribute(name) as InstancedBufferAttribute;
   /** Instances each of the two passes draws. */
@@ -62,7 +62,7 @@ describe('HealthBarInstanceManager', () => {
       bars.hide(`e${i}`);
       if (i >= 10) bars.remove(`e${i - 10}`);
     }
-    for (const name of ['aCenter', 'aSize', 'aHealth', 'aBarColor', 'aIsBoss']) {
+    for (const name of ['aCenter', 'aSize', 'aHealth', 'aBarColor']) {
       expect(attribute(name).updateRanges.length).toBeLessThanOrEqual(64);
     }
   });

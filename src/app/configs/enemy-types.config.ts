@@ -84,12 +84,12 @@ export interface EnemyTypeConfig {
 
   // Boss / Special
   healthBarColor?: string; // Fixed health bar color as hex (e.g. '#ff0000' for boss)
-  bossName?: string; // Name above health bar (e.g. 'Boss')
   immunityPercent?: number; // Damage immunity in % (0-100, displayed as "Immune X%")
   /**
-   * A boss unit. Abilities take a smaller share of its max HP
-   * (bossMaxHpFraction in abilities.config.ts). Per type, so only types that
-   * appear as the boss and nowhere else carry it.
+   * A boss unit: the boss bar at the top centre shows it under its `name`,
+   * its death shakes the screen (bossDeath preset), and abilities take a
+   * smaller share of its max HP (bossMaxHpFraction in abilities.config.ts).
+   * Per type, so only types that appear as the boss and nowhere else carry it.
    */
   isBoss?: boolean;
 

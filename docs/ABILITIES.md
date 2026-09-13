@@ -221,5 +221,3 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
   wenn der Rest der Welle in den 1,5 s der Vorwarnung stirbt oder durchläuft.
 - Der Event-Debugger hat keine eigene Kategorie für `ability:*`; die Events
   stehen unter "All".
-- Der Boss-Shake beim Tod (`ScreenShakeService`) prüft weiter `bossName`, das
-  kein Gegner setzt; `isBoss` wird dort nicht gelesen.
