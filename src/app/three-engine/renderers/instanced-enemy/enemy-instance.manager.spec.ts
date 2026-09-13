@@ -21,7 +21,8 @@ import {
 import { EnemyInstanceManager, type TypePool } from './enemy-instance.manager';
 import { InstancedEnemyRenderer } from './instanced-enemy.renderer';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
-import type { VATData, VATAnimationEntry } from './vat-baker';
+import type { VATData } from './vat-baker';
+import type { VATAnimationEntry } from './vat-clips';
 
 /** Minimal VAT data with the given clips: enough for a pool, nothing is drawn. */
 function fakeVat(clips: string[]): VATData {

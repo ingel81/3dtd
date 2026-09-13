@@ -3,7 +3,8 @@ import {
   Color,
   Vector3,
 } from 'three';
-import { VATData, type VATAlphaMode } from './vat-baker';
+import { VATData } from './vat-baker';
+import type { VATAlphaMode } from './vat-surface';
 
 /** Shader switch per VAT alpha mode. */
 const ALPHA_DEFINES: Record<VATAlphaMode, Record<string, string>> = {
@@ -112,7 +113,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         vec4 vatPos = texture2D(vatTexture, vatUV);
 
         // Use VAT position instead of geometry position. Half-float VATs store
-        // it relative to their bounding box (vatEncoding in vat-baker.ts),
+        // it relative to their bounding box (vatEncoding in vat-encoding.ts),
         // float VATs as it is (extent 1, origin 0).
         vec3 animatedPosition = vatPos.xyz * vatExtent + vatOrigin;
 
@@ -163,7 +164,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
           baseAlpha = vVertexAlpha;
         }
 
-        // Alpha as the model's materials use it (vatAlpha in vat-baker.ts)
+        // Alpha as the model's materials use it (vatAlpha in vat-surface.ts)
         #if defined( VAT_ALPHA_BLEND )
           if (baseAlpha < 0.05) discard; // nearly transparent, before lighting
         #elif defined( VAT_ALPHA_MASK )

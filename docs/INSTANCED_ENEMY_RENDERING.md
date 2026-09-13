@@ -27,7 +27,10 @@ src/app/three-engine/renderers/instanced-enemy/
 ├── instanced-enemy.renderer.ts   # Orchestrator: Bake, Pools, Health-Bars (`tilesEngine.enemies`)
 ├── enemy-instance.manager.ts     # Per-Typ InstancedMesh Pools + Animation State
 ├── health-bar-instance.manager.ts # Instanzierte Health Bars (1 Draw Call, Two-Pass)
-├── vat-baker.ts                  # VAT Baking (Skinning, Node-Animation, statisch) + Clip-/Layout-Helfer
+├── vat-baker.ts                  # VAT Baking (Skinning, Node-Animation, statisch), VATData
+├── vat-clips.ts                  # Welche Clips wie weit gebacken werden, Frame-Zahlen, Bake-FPS
+├── vat-encoding.ts               # Layout (MAX_VAT_WIDTH), RGBA16F oder RGBA32F, Positionstextur
+├── vat-surface.ts                # Seiten, Alpha-Modus und Texturpixel der gebackenen Meshes
 └── vat-material.ts               # VAT ShaderMaterial (Vertex + Fragment Shader)
 ```
 
@@ -44,7 +47,7 @@ Model laden → VAT baken → InstancedMesh Pool erstellen → Pro Frame: Animat
 
 ---
 
-## VAT Baking (vat-baker.ts)
+## VAT Baking (vat-baker.ts, vat-clips.ts, vat-encoding.ts)
 
 ### Konzept
 
@@ -529,7 +532,7 @@ Nach dem Bake überschreibt `config.unlit` den erkannten `isUnlit`-Wert, und
 |-----------|------|-------|
 | `MAX_INSTANCES_PER_TYPE` | 20.000 | enemy-instance.manager.ts |
 | `MAX_HEALTH_BARS` | 20.000 | health-bar-instance.manager.ts |
-| `MAX_VAT_WIDTH` | 8.192 | vat-baker.ts |
+| `MAX_VAT_WIDTH` | 8.192 | vat-encoding.ts |
 
 ---
 

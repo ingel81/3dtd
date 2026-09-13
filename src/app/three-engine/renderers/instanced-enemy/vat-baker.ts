@@ -2,10 +2,6 @@ import {
   AnimationClip,
   AnimationMixer,
   DataTexture,
-  FloatType,
-  HalfFloatType,
-  NearestFilter,
-  RGBAFormat,
   SkinnedMesh,
   Vector3,
   Matrix4,
@@ -13,27 +9,25 @@ import {
   Object3D,
   BufferGeometry,
   Texture,
-  Material,
   MeshStandardMaterial,
   MeshBasicMaterial,
   Mesh,
   BufferAttribute,
   LoopOnce,
-  FrontSide,
-  DoubleSide,
   type Side,
 } from 'three';
 import type { EnemyTypeConfig } from '../../../configs/enemy-types.config';
-import { TIMING } from '../../../configs/timing.config';
-
-/** Registry entry for one animation clip within the VAT */
-export interface VATAnimationEntry {
-  name: string;
-  frameStart: number;
-  frameCount: number;
-  duration: number; // seconds
-  totalTime: number; // pre-computed: frameCount / fps (for animation loop)
-}
+import { DEFAULT_BAKE_FPS, vatClips, vatFrameCount, type VATAnimationEntry, type VATClip } from './vat-clips';
+import {
+  createPositionTexture,
+  emptyBounds,
+  growBounds,
+  modelHeightRange,
+  vatEncoding,
+  vatLayout,
+  type VATEncoding,
+} from './vat-encoding';
+import { texturePixels, vatAlpha, vatSide, type TexturePixels, type VATAlpha } from './vat-surface';
 
 /** Result of VAT baking for one enemy type */
 export interface VATData {
@@ -69,210 +63,6 @@ export interface VATData {
   modelMinY: number;
   /** Highest baked vertex Y across all frames (unscaled bake/root space). */
   modelMaxY: number;
-}
-
-export const DEFAULT_BAKE_FPS = 30;
-export const MAX_VAT_WIDTH = 8192;
-
-/**
- * Faces the VAT material draws, from the materials of the baked meshes
- * (glTF doubleSided is DoubleSide). A type has one material, so when its
- * meshes disagree it draws both sides: a missing face shows, an extra back
- * face mostly stays behind the front one.
- */
-export function vatSide(materials: (Material | Material[])[]): Side {
-  const sides = new Set(materials.flat().map((material) => material.side));
-  if (sides.size > 1) return DoubleSide;
-  return sides.values().next().value ?? FrontSide;
-}
-
-/** One clip to bake. */
-export interface VATClip {
-  name: string;
-  /** Clip time the game can show (s); the bake stops there. Infinity for looping clips. */
-  seconds: number;
-}
-
-type VATClipConfig = Pick<
-  EnemyTypeConfig,
-  'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'animationSpeed'
->;
-
-/**
- * Clip time a death animation is on screen. It plays at animationSpeed until
- * EnemyManager removes the enemy, TIMING.deathAnimationDuration after the kill.
- */
-export function vatDeathSeconds(config: Pick<EnemyTypeConfig, 'animationSpeed'>): number {
-  return (TIMING.deathAnimationDuration / 1000) * (config.animationSpeed ?? 1);
-}
-
-/**
- * Clips baked for an enemy type, in bake order. Walk and run loop and are
- * baked whole; death clips only up to vatDeathSeconds(), the rest of the clip
- * would never be on screen.
- */
-export function vatClips(config: VATClipConfig): VATClip[] {
-  const clips: VATClip[] = [];
-  const add = (name: string | undefined, seconds: number): void => {
-    if (!name) return;
-    const known = clips.find((c) => c.name === name);
-    if (known) known.seconds = Math.max(known.seconds, seconds);
-    else clips.push({ name, seconds });
-  };
-  add(config.walkAnimation, Infinity);
-  add(config.runAnimation, Infinity);
-  const deathSeconds = vatDeathSeconds(config);
-  add(config.deathAnimation, deathSeconds);
-  for (const name of config.deathAnimations ?? []) add(name, deathSeconds);
-  return clips;
-}
-
-/**
- * Frames by which a clip duration may run past a whole frame count: the
- * loaders keep key times in float32, so 4/3 s reads as 1.3333334 s, which is
- * 40.0000012 frames at 30 fps.
- */
-const FRAME_EPSILON = 1e-3;
-
-/**
- * VAT frames one clip takes. A loop needs the frames before its end, since
- * the frame at the end is frame 0 again: ceil(duration × fps). A clip that
- * stops (death) shows frame floor(t × fps) at clip time t and holds the last
- * one, so it needs frames 0 to floor(min(seconds, duration) × fps), its end
- * pose included when it ends before the cut. `seconds` is Infinity for loops.
- */
-export function vatFrameCount(duration: number, fps: number, seconds = Infinity): number {
-  if (seconds === Infinity) return Math.max(1, Math.ceil(duration * fps - FRAME_EPSILON));
-  return Math.floor(Math.min(seconds, duration) * fps + FRAME_EPSILON) + 1;
-}
-
-/** Texture width and rows per frame; past MAX_VAT_WIDTH vertices a frame spans several rows. */
-export function vatLayout(vertexCount: number): { texWidth: number; rowsPerFrame: number } {
-  const texWidth = Math.min(vertexCount, MAX_VAT_WIDTH);
-  return { texWidth, rowsPerFrame: Math.ceil(vertexCount / texWidth) };
-}
-
-/**
- * Largest error (m, in game) half-float texels may add to a baked position.
- * The camera stops 5 m from its orbit target (CameraRig minDistance) with a
- * 60° vertical fov. A pixel there covers 5.3 mm at 1080 and 4.0 mm at 1440
- * screen lines, so 2 mm stays within half a pixel up to 1440p.
- */
-export const VAT_HALF_FLOAT_MAX_ERROR = 0.002;
-
-/** Texel type of a VAT and how a texel maps back to a position: texel.xyz × extent + origin. */
-export interface VATEncoding {
-  /** HalfFloatType (RGBA16F, 8 bytes per texel) or FloatType (RGBA32F, 16 bytes). */
-  type: typeof HalfFloatType | typeof FloatType;
-  origin: [number, number, number];
-  extent: [number, number, number];
-  /** Largest position error half-float texels add (m, in game), whichever type was picked. */
-  halfFloatError: number;
-}
-
-/** Per-axis bounds of baked positions (root space). */
-export interface VATBounds {
-  min: [number, number, number];
-  max: [number, number, number];
-}
-
-function emptyBounds(): VATBounds {
-  return { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
-}
-
-function growBounds(bounds: VATBounds, v: Vector3): void {
-  const { min, max } = bounds;
-  if (v.x < min[0]) min[0] = v.x;
-  if (v.x > max[0]) max[0] = v.x;
-  if (v.y < min[1]) min[1] = v.y;
-  if (v.y > max[1]) max[1] = v.y;
-  if (v.z < min[2]) min[2] = v.z;
-  if (v.z > max[2]) max[2] = v.z;
-}
-
-/** Lowest and highest baked Y, 0 and 0 when nothing finite was baked. */
-function modelHeightRange(bounds: VATBounds): { modelMinY: number; modelMaxY: number } {
-  return Number.isFinite(bounds.min[1])
-    ? { modelMinY: bounds.min[1], modelMaxY: bounds.max[1] }
-    : { modelMinY: 0, modelMaxY: 0 };
-}
-
-/**
- * Texel type and mapping for positions within `bounds`, shown at `worldScale`.
- *
- * Half floats keep 11 significant bits, so their error grows with the value.
- * The positions are stored relative to the centre of their bounding box and
- * divided by its half extent: every value lies in [-1, 1], where rounding to
- * nearest is off by at most 2^-12 of the half extent. Within
- * VAT_HALF_FLOAT_MAX_ERROR in game the VAT is RGBA16F, otherwise RGBA32F with
- * the positions as they are.
- */
-export function vatEncoding(bounds: VATBounds, worldScale: number): VATEncoding {
-  const { min, max } = bounds;
-  const half = [0, 1, 2].map((a) => (max[a] - min[a]) / 2);
-  const halfFloatError = Math.max(...half) * 2 ** -12 * worldScale;
-  if (Number.isFinite(halfFloatError) && halfFloatError <= VAT_HALF_FLOAT_MAX_ERROR) {
-    return {
-      type: HalfFloatType,
-      origin: [0, 1, 2].map((a) => (min[a] + max[a]) / 2) as [number, number, number],
-      // A flat axis stores 0 everywhere; any non-zero extent decodes it.
-      extent: half.map((h) => h || 1) as [number, number, number],
-      halfFloatError,
-    };
-  }
-  return { type: FloatType, origin: [0, 0, 0], extent: [1, 1, 1], halfFloatError };
-}
-
-const halfScratch = new Float32Array(1);
-const halfScratchBits = new Uint32Array(halfScratch.buffer);
-
-/**
- * Half-float bits of `value`, rounded to nearest. DataUtils.toHalfFloat cuts
- * the mantissa off, which doubles the error. Covers the range the VAT stores
- * ([-1, 1]); past 65504 the result is wrong.
- */
-export function toHalfFloatRounded(value: number): number {
-  halfScratch[0] = value;
-  const bits = halfScratchBits[0];
-  const sign = (bits >>> 16) & 0x8000;
-  const exponent = ((bits >>> 23) & 0xff) - 112; // float bias 127, half bias 15
-  const mantissa = bits & 0x7fffff;
-  if (exponent <= 0) {
-    // Subnormal half; below 2^-25 it rounds to zero.
-    if (exponent < -10) return sign;
-    const shift = 14 - exponent;
-    return sign | (((mantissa | 0x800000) + (1 << (shift - 1))) >>> shift);
-  }
-  // A carry out of the mantissa moves on to the next exponent, as it should.
-  return sign | (((exponent << 10) | (mantissa >>> 13)) + ((mantissa >>> 12) & 1));
-}
-
-const HALF_FLOAT_ONE = 0x3c00;
-
-/** The VAT texture for positions baked into `data` (xyz + padding per texel), stored as `encoding` says. */
-function createPositionTexture(data: Float32Array, width: number, height: number, encoding: VATEncoding): DataTexture {
-  let texture: DataTexture;
-  if (encoding.type === HalfFloatType) {
-    const [ox, oy, oz] = encoding.origin;
-    const [ex, ey, ez] = encoding.extent;
-    // Clamped: texels past the last vertex of a tiled frame are unused zeros
-    // and may lie outside the bounding box.
-    const clamp = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
-    const texels = new Uint16Array(data.length);
-    for (let i = 0; i < data.length; i += 4) {
-      texels[i] = toHalfFloatRounded(clamp((data[i] - ox) / ex));
-      texels[i + 1] = toHalfFloatRounded(clamp((data[i + 1] - oy) / ey));
-      texels[i + 2] = toHalfFloatRounded(clamp((data[i + 2] - oz) / ez));
-      texels[i + 3] = HALF_FLOAT_ONE;
-    }
-    texture = new DataTexture(texels, width, height, RGBAFormat, HalfFloatType);
-  } else {
-    texture = new DataTexture(data, width, height, RGBAFormat, FloatType);
-  }
-  texture.minFilter = NearestFilter;
-  texture.magFilter = NearestFilter;
-  texture.needsUpdate = true;
-  return texture;
 }
 
 /**
@@ -1126,89 +916,4 @@ export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData 
     fps: DEFAULT_BAKE_FPS,
     ...modelHeightRange(bounds),
   };
-}
-
-/** RGBA bytes of a texture's image, read through a 2D canvas or as the image holds them. */
-export interface TexturePixels {
-  data: Uint8ClampedArray;
-  width: number;
-  height: number;
-}
-
-/**
- * The pixels of `tex`, read once per cache. An image that already holds RGBA
- * bytes (DataTexture, the PNGs the model-budget generator decodes in Node) is
- * taken as it is, any other goes through a 2D canvas. Null when the texture
- * has no decoded image or no 2D canvas is available.
- */
-export function texturePixels(tex: Texture, cache: Map<Texture, TexturePixels | null>): TexturePixels | null {
-  if (cache.has(tex)) return cache.get(tex) ?? null;
-  let pixels: TexturePixels | null = null;
-  try {
-    const img = tex.image as HTMLImageElement | ImageBitmap | HTMLCanvasElement;
-    const width = (img as HTMLImageElement).naturalWidth || img.width || 0;
-    const height = (img as HTMLImageElement).naturalHeight || img.height || 0;
-    const bytes = (img as { data?: unknown }).data;
-    if (ArrayBuffer.isView(bytes) && width > 0 && height > 0 && bytes.byteLength === width * height * 4) {
-      pixels = { data: new Uint8ClampedArray(bytes.buffer, bytes.byteOffset, bytes.byteLength), width, height };
-    } else if (width > 0 && height > 0) {
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img as CanvasImageSource, 0, 0);
-      pixels = { data: ctx.getImageData(0, 0, width, height).data, width, height };
-    }
-  } catch {
-    pixels = null;
-  }
-  cache.set(tex, pixels);
-  return pixels;
-}
-
-/**
- * How the VAT shader treats alpha: 'opaque' ignores it and draws in the
- * opaque pass, 'mask' discards below the cutoff, 'blend' is transparent.
- */
-export type VATAlphaMode = 'opaque' | 'mask' | 'blend';
-
-export interface VATAlpha {
-  mode: VATAlphaMode;
-  /** Alpha below which 'mask' discards a fragment (0 for the other modes). */
-  cutoff: number;
-}
-
-/**
- * The alpha mode of a type from the materials of its baked meshes, the way
- * three.js draws them: a transparent material blends (glTF BLEND), one with
- * alphaTest cuts out below it (glTF MASK), any other ignores alpha. A
- * transparent material without alpha below 1 (opacity 1, no translucent
- * texel in its map) draws opaque. A type has one material, so one blending
- * mesh makes all of it blend; among masks the lowest cutoff wins.
- * `pixels` reads a map; a map it cannot read counts as translucent.
- */
-export function vatAlpha(
-  materials: (Material | Material[])[],
-  pixels: (map: Texture) => TexturePixels | null,
-): VATAlpha {
-  let cutoff = Infinity;
-  for (const material of materials.flat()) {
-    if (material.transparent) {
-      const map = (material as MeshStandardMaterial).map;
-      if (material.opacity < 1 || (map && !isOpaque(pixels(map)))) return { mode: 'blend', cutoff: 0 };
-    } else if (material.alphaTest > 0) {
-      cutoff = Math.min(cutoff, material.alphaTest);
-    }
-  }
-  return cutoff < Infinity ? { mode: 'mask', cutoff } : { mode: 'opaque', cutoff: 0 };
-}
-
-/** Every texel fully opaque; unknown pixels count as translucent. */
-function isOpaque(pixels: TexturePixels | null): boolean {
-  if (!pixels) return false;
-  const { data } = pixels;
-  for (let i = 3; i < data.length; i += 4) {
-    if (data[i] < 255) return false;
-  }
-  return true;
 }

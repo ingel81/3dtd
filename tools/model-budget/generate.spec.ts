@@ -36,17 +36,14 @@ import { ENEMY_TYPES, type EnemyTypeConfig } from '../../src/app/configs/enemy-t
 import { TEMPLATES } from '../../src/app/ai/core/templates';
 import { WAVE_CURRICULUM, STATIC_WAVE_PROFILES } from '../../src/app/configs/wave-curriculum.config';
 import { TIMING } from '../../src/app/configs/timing.config';
+import { bakeEnemyVAT, type VATData } from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
+import { DEFAULT_BAKE_FPS, vatClips, vatFrameCount } from '../../src/app/three-engine/renderers/instanced-enemy/vat-clips';
 import {
-  bakeEnemyVAT,
-  DEFAULT_BAKE_FPS,
   VAT_HALF_FLOAT_MAX_ERROR,
-  vatClips,
-  vatFrameCount,
   vatLayout,
-  type VATAlpha,
-  type VATData,
   type VATEncoding,
-} from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
+} from '../../src/app/three-engine/renderers/instanced-enemy/vat-encoding';
+import type { VATAlpha } from '../../src/app/three-engine/renderers/instanced-enemy/vat-surface';
 import { writeGeneratedFile } from '../generated-file';
 import {
   decodePng,
