@@ -199,6 +199,18 @@ RECIPES = {
         'trim': {'Casual_Walk': (50, 90, 7.5)},
         'texture': 1024,
     },
+    # `Take 001` (6.67 s) runs a 3.5 s float cycle about twice: frames 13-118
+    # differ by 0.49 % of the height, eased over the last 4 frames. Geometry,
+    # normals and textures stay: 1,487 of 7,773 triangles repeat another one
+    # with reversed winding (coincident layers under a double-sided, blended
+    # material), but welding them away turned the normals of 777 vertices by
+    # more than 5 degrees, and removing only the repeats saved 233 vertices.
+    # Exact only with the file's node pose.
+    'ghost': {
+        'src': f'{ENEMIES}/ghost.glb',
+        'rest_from_file': True,
+        'trim': {'Take 001': (13, 118, 4)},
+    },
     # Static, seven material colours, no texture. The file stores 319
     # vertices twice (same position, normal and UV); merged on import they
     # are written once, positions and normals as before (the faceted look
