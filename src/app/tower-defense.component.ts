@@ -439,6 +439,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    // Photo mode keeps Tab in its bar
+    this.photoMode.trapTab(event);
     this.inputHandler.handleKeyDown(event);
     // Game hotkeys take what the input handler left alone (not defaultPrevented)
     this.hotkeys.handleKeyDown(event);

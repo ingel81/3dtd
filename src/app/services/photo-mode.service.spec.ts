@@ -112,6 +112,43 @@ describe('PhotoModeService focus', () => {
     ]);
   });
 
+  describe('Tab', () => {
+    const tab = (shiftKey = false) => {
+      const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey, cancelable: true });
+      service.trapTab(event);
+      return event;
+    };
+    const exit = () => host.querySelectorAll('button')[1];
+
+    it('stays in the bar: from the last button to the first and back', () => {
+      service.enter();
+      drawFrame();
+      expect(tab().defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(exit());
+      tab();
+      expect(document.activeElement).toBe(save);
+      tab(true);
+      expect(document.activeElement).toBe(exit());
+    });
+
+    it('brings the focus back into the bar from elsewhere on the page', () => {
+      service.enter();
+      drawFrame();
+      trigger.focus();
+      tab();
+      expect(document.activeElement).toBe(save);
+      trigger.focus();
+      tab(true);
+      expect(document.activeElement).toBe(exit());
+    });
+
+    it('is left alone outside photo mode', () => {
+      trigger.focus();
+      expect(tab().defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(trigger);
+    });
+  });
+
   it('leaves the focus where it is when the element it came from is gone', () => {
     trigger.focus();
     service.enter();

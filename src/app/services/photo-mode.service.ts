@@ -25,7 +25,7 @@ const CESIUM_LOGO = 'assets/images/ui/cesium-ion-logo.svg';
  *
  * The focused control goes with the HUD, so the bar takes the focus, and
  * leaving gives it back together with the quick menu that was open; a screen
- * reader hears both changes.
+ * reader hears both changes. While it is on, Tab stays in the bar (trapTab).
  */
 @Injectable()
 export class PhotoModeService {
@@ -65,7 +65,7 @@ export class PhotoModeService {
     this.uiStore.openMenu.set(null);
     this.active.set(true);
     this.announcer.announce('Photo mode. Esc leaves it.');
-    this.afterLayout(() => this.host.nativeElement.querySelector<HTMLElement>('.td-photo-bar button')?.focus());
+    this.afterLayout(() => this.barControls()[0]?.focus());
   }
 
   exit(): void {
@@ -83,6 +83,30 @@ export class PhotoModeService {
   toggle(): void {
     if (this.active()) this.exit();
     else this.enter();
+  }
+
+  /**
+   * Window keydown while photo mode is on: Tab and Shift+Tab go round the
+   * bar's buttons and nowhere else. Header, sidebar and overlays are gone,
+   * and what is left of the page (the map attribution) is no stop of photo
+   * mode. From anywhere outside the bar, Tab comes back into it; Esc leaves.
+   */
+  trapTab(event: KeyboardEvent): void {
+    if (!this.active() || event.key !== 'Tab' || event.defaultPrevented) return;
+    const controls = this.barControls();
+    if (controls.length === 0) return;
+    const at = controls.indexOf(document.activeElement as HTMLElement);
+    const last = controls.length - 1;
+    const next = event.shiftKey
+      ? controls[at <= 0 ? last : at - 1]
+      : controls[at < 0 || at === last ? 0 : at + 1];
+    event.preventDefault();
+    next.focus();
+  }
+
+  /** The bar's buttons that can take the focus, in tab order */
+  private barControls(): HTMLElement[] {
+    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('.td-photo-bar button:not(:disabled)'));
   }
 
   /** Next drawn frame as PNG download, with the map attribution stamped in. */
