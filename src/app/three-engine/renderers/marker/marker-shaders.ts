@@ -875,15 +875,25 @@ export interface PortalSurge {
 const CIRCLE_CENTRE_SIGIL = PORTAL_SIGILS.findIndex((s) => s.name === 'haloed moon');
 
 /**
+ * Display value of the street the summoning circle is matched on. Additive
+ * light adds in display values on the canvas and in linear light through
+ * the post-processing target, so no one amount looks alike on both over
+ * every street. Through the target the circle adds the light that raises a
+ * street this bright by what it adds on the canvas: alike there, somewhat
+ * brighter over a darker street, dimmer over a lighter one.
+ */
+export const CIRCLE_STREET = 0.3;
+
+/**
  * Light of the spawn portals on the street in front of them, a dim dark
  * red tinted with the spawn's colour, additive, in one draw call. aRipple
  * is the wall time (s) of the portal's last spawn burst: a ring runs out
  * from the portal's foot over the street. A summoning circle lies on the
  * street ahead of the front surface, drawn in the frame's sigils
  * (portalCircle): dim, turning very slowly, flaring with the surge of a
- * wave start. The circle is encoded for its target like the gate, so over
- * a dark street it shows alike with and without post-processing; the
- * street light is still written as it is.
+ * wave start. The circle is written for its target (CIRCLE_STREET), so
+ * over a street of that brightness it shows alike with and without
+ * post-processing; the street light is still written as it is.
  */
 export function createPortalGlowMaterial(
   layout: PortalShaderLayout,
@@ -1023,10 +1033,15 @@ export function createPortalGlowMaterial(
         float level = uCircle.w * breathe * (0.6 + 0.8 * uEnergy) + uFlare.z * surge;
         vec3 tint = mix(mix(uViolet, uEmber, 0.55 + 0.45 * surge), vColor, 0.15);
         vec3 circle = tint * (ink + 0.35 * halo) * level * sharp;
-        // The circle is drawn in display values, like the gate's void:
-        // decoded, then encoded for the target, it shows as it is on the
-        // canvas and as linear light through the post-processing target
-        light += linearToOutputTexel(sRGBTransferEOTF(vec4(circle, 1.0))).rgb;
+        // The circle is designed in display values added over the street.
+        // Encoded for the target as the step from a street of CIRCLE_STREET
+        // to that street plus the circle: on the canvas exactly the circle,
+        // through the linear post-processing target the light that raises
+        // such a street by as much. The circle decoded alone added a
+        // fraction of that over a sunlit street (playtest 248).
+        const vec3 street = vec3(${CIRCLE_STREET.toFixed(2)});
+        light += linearToOutputTexel(sRGBTransferEOTF(vec4(street + circle, 1.0))).rgb
+          - linearToOutputTexel(sRGBTransferEOTF(vec4(street, 1.0))).rgb;
         gl_FragColor = vec4(light, 1.0);
       }
     `,
