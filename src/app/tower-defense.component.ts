@@ -627,19 +627,17 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Enable StrategyBot for automated training, delegates to TrainingClientService
-   * Arrow function to provide stable reference for template binding (avoids .bind(this))
    */
-  readonly enableBot = (skillLevel: BotSkillLevel): void => {
+  enableBot(skillLevel: BotSkillLevel): void {
     this.trainingClient.enableBot(skillLevel);
-  };
+  }
 
   /**
    * Disable StrategyBot, delegates to TrainingClientService
-   * Arrow function to provide stable reference for template binding (avoids .bind(this))
    */
-  readonly disableBot = (): void => {
+  disableBot(): void {
     this.trainingClient.disableBot();
-  };
+  }
 
   /**
    * Reset camera - delegates to CameraControlService

@@ -121,8 +121,8 @@
             [botEnabled]="botEnabled()"
             [botSkillLevel]="botSkillLevel()"
             [botStats]="botStats()"
-            [onEnableBot]="enableBot"
-            [onDisableBot]="disableBot"
+            (botEnableRequested)="enableBot($event)"
+            (botDisableRequested)="disableBot()"
             (dpsBinsToggled)="onDpsBinsToggled($event)"
           />
           <app-tower-debugger />
