@@ -30,6 +30,7 @@ import { MapPlacementService } from '../world/map-placement.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
+import { LOCATION_DIALOG_LOAD_FAILED, LocationDialogLoadError } from '../../components/location-dialog/open-location-dialog';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
@@ -126,6 +127,8 @@ describe('LocationFacadeService', () => {
     updateStepMeta: vi.fn(),
     getEngine: vi.fn((): unknown => null),
     stopTileStatsPolling: vi.fn(),
+    setError: vi.fn(),
+    setLoading: vi.fn(),
   };
   const geolocation = { onStepDetail: null as ((d: string) => void) | null, detectLocation: vi.fn() };
   const urlLocation = { parseFromUrl: vi.fn(), updateUrl: vi.fn() };
@@ -374,10 +377,23 @@ describe('LocationFacadeService', () => {
       const done = facade.initializeLocation();
       await dialogOpened();
       destroyCallbacks.forEach((cb) => cb());
-      await done;
+      expect(await done).toBe(false);
 
       expect(engineInit.setStepDone).not.toHaveBeenCalled();
+      expect(engineInit.setError).not.toHaveBeenCalled();
       expect(urlLocation.updateUrl).not.toHaveBeenCalled();
+    });
+
+    it('shows the error screen and stops the boot when the dialog does not load', async () => {
+      geolocation.detectLocation.mockResolvedValue(null);
+      dialog.open.mockImplementation(() => { throw new Error('Failed to fetch dynamically imported module'); });
+
+      const done = facade.initializeLocation();
+      await vi.waitFor(() => expect(engineInit.setError).toHaveBeenCalledWith(LOCATION_DIALOG_LOAD_FAILED));
+
+      expect(await done).toBe(false);
+      expect(engineInit.setLoading).toHaveBeenCalledWith(false);
+      expect(engineInit.setStepDone).not.toHaveBeenCalled();
     });
   });
 
@@ -414,6 +430,11 @@ describe('LocationFacadeService', () => {
       dialogClosed.next(null);
       await expect(done).resolves.toBeUndefined();
       expect(locationMgmt.setLocation).not.toHaveBeenCalled();
+    });
+
+    it('rejects with a load error when the dialog chunk does not load', async () => {
+      dialog.open.mockImplementation(() => { throw new Error('Failed to fetch dynamically imported module'); });
+      await expect(facade.waitForLocationFromDialog()).rejects.toBeInstanceOf(LocationDialogLoadError);
     });
 
     it('rejects when the component is destroyed first and closes the dialog that opens late', async () => {

@@ -156,6 +156,9 @@ export class UIStore {
   /** Photo mode: HUD hidden, camera free, screenshot bar on top. Not persisted. */
   readonly photoMode = signal<boolean>(false);
 
+  /** Message in the banner over the game until closed, null for none. Not persisted. */
+  readonly notice = signal<string | null>(null);
+
   constructor() {
     this.loadPersistedState();
     this.setupPersistence();

@@ -7,6 +7,12 @@
       <button type="button" (click)="store.aiError.set(null)" aria-label="Close">×</button>
     </div>
   }
+  @if (uiStore.notice(); as notice) {
+    <div class="ai-error-banner" role="alert">
+      <span>{{ notice }}</span>
+      <button type="button" (click)="uiStore.notice.set(null)" aria-label="Close">×</button>
+    </div>
+  }
 
   <!-- Info Header -->
   <app-game-header
@@ -42,6 +48,15 @@
       @if (awaitingCredentials() || configService.credentialsRejected() || configService.setupRequested()) {
         @defer (on immediate) {
           <td-token-setup (tokenSaved)="onCredentialsSaved()" />
+        } @error {
+          <div class="td-error-overlay" role="alert">
+            <td-icon class="td-error-icon" name="warn" [size]="64"></td-icon>
+            <h3>Setup screen did not load</h3>
+            <p>The screen for the map credentials could not be loaded. Check the connection and reload the page.</p>
+            <div class="td-error-actions">
+              <button class="td-btn td-btn-gold" (click)="reloadPage()">Reload</button>
+            </div>
+          </div>
         }
       }
 

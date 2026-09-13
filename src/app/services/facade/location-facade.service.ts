@@ -14,7 +14,7 @@ import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { WaveDebugService } from '../debug/wave-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
-import { openLocationDialog } from '../../components/location-dialog/open-location-dialog';
+import { LocationDialogLoadError, openLocationDialog } from '../../components/location-dialog/open-location-dialog';
 import { LocationDialogData, LocationDialogResult } from '../../models/location.types';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
@@ -181,9 +181,11 @@ export class LocationFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   /**
-   * Initialize location from URL or geolocation cascade.
+   * Initialize location from URL or geolocation cascade. False when the boot
+   * cannot go on: the component went away while the location dialog was
+   * open, or the dialog did not load (then the error screen says so).
    */
-  async initializeLocation(): Promise<void> {
+  async initializeLocation(): Promise<boolean> {
     await this.engineInit.setStepCurrent('location');
 
     // DevWorld mode: Use fake origin, skip real location
@@ -195,7 +197,7 @@ export class LocationFacadeService {
       this.store.baseCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon });
       this.store.centerCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon, height: 400 });
       await this.engineInit.setStepDone('location', 'DevWorld');
-      return;
+      return true;
     }
 
     // URL is source of truth
@@ -216,9 +218,13 @@ export class LocationFacadeService {
         this.engineInit.updateStepMeta('location', 'Select location...');
         try {
           await this.waitForLocationFromDialog();
-        } catch {
-          // Component destroyed before dialog closed — abort initialization gracefully
-          return;
+        } catch (err) {
+          if (err instanceof LocationDialogLoadError) {
+            this.engineInit.setError(err.message);
+            this.engineInit.setLoading(false);
+          }
+          // Otherwise the component was destroyed before the dialog closed
+          return false;
         }
         await this.engineInit.setStepDone('location', 'manually selected');
       }
@@ -231,12 +237,14 @@ export class LocationFacadeService {
       this.store.baseCoords.set({ lat: hq.lat, lon: hq.lon });
       this.store.centerCoords.set({ lat: hq.lat, lon: hq.lon, height: 400 });
     }
+    return true;
   }
 
   /**
    * Open location dialog and wait for user to select a location.
    * Rejects if component is destroyed before dialog closes, or if there is
-   * no component to begin with.
+   * no component to begin with, and with a LocationDialogLoadError when the
+   * dialog's chunk does not load.
    */
   waitForLocationFromDialog(): Promise<void> {
     const ctx = this.ctx;
@@ -281,6 +289,10 @@ export class LocationFacadeService {
             }
             resolve();
           });
+      }).catch((err: unknown) => {
+        if (settled) return;
+        settled = true;
+        reject(new LocationDialogLoadError(err));
       });
     });
   }
