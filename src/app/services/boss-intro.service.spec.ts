@@ -70,6 +70,7 @@ describe('BossIntroService', () => {
   let startPosition: Vector3;
   let startQuaternion: Quaternion;
   let announce: ReturnType<typeof vi.fn>;
+  let paused: ReturnType<typeof signal<boolean>>;
 
   const spawn = (boss: FakeBoss, viaPortal = true) => bus.emit({ type: 'enemy:spawned', enemy: boss.enemy, viaPortal });
   const frame = (ms = 16) => service.update(ms);
@@ -90,6 +91,7 @@ describe('BossIntroService', () => {
     controls = { enabled: true };
     photoMode = signal(false);
     announce = vi.fn();
+    paused = signal(false);
     const engine = {
       getCamera: () => camera,
       getControls: () => controls,
@@ -103,7 +105,7 @@ describe('BossIntroService', () => {
     injector = Injector.create({
       providers: [
         { provide: GameStateManager, useValue: { getEventBus: () => bus, waveNumber: () => wave } },
-        { provide: GameStore, useValue: { trainingTimescale: signal(1), renderingEnabled: signal(true) } },
+        { provide: GameStore, useValue: { trainingTimescale: signal(1), renderingEnabled: signal(true), paused } },
         { provide: UIStore, useValue: { photoMode } },
         { provide: TrainingClientService, useValue: { botEnabled: signal(false), isConnected: signal(false) } },
         { provide: EngineInitializationService, useValue: { getEngine: () => engine } },
@@ -157,7 +159,7 @@ describe('BossIntroService', () => {
     spawn(boss);
     frame();
     expect(service.card()).toEqual({ name: 'Herbert', wave: 10 });
-    expect(announce).toHaveBeenCalledWith('Boss: Herbert, wave 10.');
+    expect(announce).toHaveBeenCalledWith('Boss: Herbert, wave 10. Escape skips.');
 
     play(bossIntroReturnMs() + BOSS_INTRO_TIMING.revealMs);
     expect(service.card()).toBeNull();
@@ -228,5 +230,85 @@ describe('BossIntroService', () => {
     expect(controls.enabled).toBe(true);
     frame();
     expect(service.stage()).toBeNull();
+  });
+
+  it('pauses the game for the intro and lets it run on with the view', () => {
+    const boss = fakeBoss();
+    boss.walked = 20;
+    spawn(boss);
+    frame();
+    expect(paused()).toBe(true);
+    play(bossIntroReturnMs());
+    expect(service.stage()).toBe('reveal');
+    expect(paused()).toBe(false);
+  });
+
+  it('leaves a game the player had paused paused', () => {
+    paused.set(true);
+    const boss = fakeBoss();
+    boss.walked = 20;
+    spawn(boss);
+    frame();
+    play(bossIntroReturnMs());
+    expect(service.stage()).toBe('reveal');
+    expect(paused()).toBe(true);
+  });
+
+  it('Esc skips: view and game back at once, the veil fades out', () => {
+    const boss = fakeBoss();
+    boss.walked = 20;
+    spawn(boss);
+    frame();
+    play(bossIntroCutMs() + 500);
+    expect(camera.position.equals(startPosition)).toBe(false);
+
+    const esc = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    expect(service.handleKeyDown(esc)).toBe(true);
+    expect(esc.defaultPrevented).toBe(true);
+    expect(service.stage()).toBe('reveal');
+    expect(camera.position.distanceTo(startPosition)).toBeLessThan(1e-9);
+    expect(paused()).toBe(false);
+    expect(controls.enabled).toBe(true);
+
+    play(BOSS_INTRO_TIMING.revealMs);
+    expect(service.stage()).toBeNull();
+  });
+
+  it('a click during the first fade skips before the cut', () => {
+    const boss = fakeBoss();
+    boss.walked = 20;
+    spawn(boss);
+    frame();
+    service.skip();
+    play(BOSS_INTRO_TIMING.revealMs);
+    expect(service.stage()).toBeNull();
+    expect(camera.position.equals(startPosition)).toBe(true);
+    expect(paused()).toBe(false);
+  });
+
+  it('holds the other game keys back until the view is back, not typing', () => {
+    const key = (name: string, target?: EventTarget) => {
+      const event = new KeyboardEvent('keydown', { key: name, cancelable: true });
+      if (target) Object.defineProperty(event, 'target', { value: target });
+      return event;
+    };
+    expect(service.handleKeyDown(key('p'))).toBe(false);
+
+    const boss = fakeBoss();
+    boss.walked = 20;
+    spawn(boss);
+    frame();
+    expect(service.handleKeyDown(key('p'))).toBe(true);
+    expect(service.handleKeyDown(key(' '))).toBe(true);
+    expect(service.stage()).toBe('dip-in');
+    expect(service.handleKeyDown(key('p', document.createElement('input')))).toBe(false);
+    // Esc a dialog has already taken
+    const taken = key('Escape');
+    taken.preventDefault();
+    expect(service.handleKeyDown(taken)).toBe(false);
+    expect(service.stage()).toBe('dip-in');
+
+    play(bossIntroReturnMs());
+    expect(service.handleKeyDown(key('p'))).toBe(false);
   });
 });

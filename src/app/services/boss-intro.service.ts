@@ -15,6 +15,7 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
 import { routePathToLocalPoints } from '../utils/route-path.util';
 import { cameraTimeline } from '../utils/camera-timeline';
+import { ownsKey } from '../utils/keyboard-target';
 import {
   BOSS_INTRO_TIMING,
   BOSS_SHOT,
@@ -22,6 +23,7 @@ import {
   bossClearDistance,
   bossIntroBlock,
   bossIntroCutMs,
+  bossIntroReturnMs,
   bossIntroStage,
   portalShot,
   type BossIntroBlock,
@@ -53,9 +55,11 @@ interface IntroRun {
   boss: WaitingBoss;
   shot: PortalShot;
   elapsedMs: number;
-  /** The player's view is back (reveal) */
+  /** The player's view and the game are back (reveal) */
   returned: boolean;
   controlsWereEnabled: boolean;
+  /** The player had paused the game before the intro did */
+  pausedBefore: boolean;
 }
 
 /**
@@ -66,9 +70,13 @@ interface IntroRun {
  * wave (BossIntroGate), none in photo mode, training runs or above 4x
  * (bossIntroBlock).
  *
- * Presentation only: it moves the camera and nothing in the simulation.
- * The camera controls are off while it runs; a running quick jump (Home, N)
- * ends. Ticked per frame from GameLoopFacadeService.onEngineUpdate, after
+ * Presentation only: it moves the camera and pauses the game the way the
+ * pause button does (GameStore.paused), nothing in the simulation changes.
+ * The player's own pause survives it: paused before, paused after. A click
+ * on the veil (BossIntroComponent) or Esc skips straight back. The camera
+ * controls are off while it runs; a running quick jump (Home, N) ends, the
+ * game keys wait (handleKeyDown). Ticked per frame from
+ * GameLoopFacadeService.onEngineUpdate, after
  * the game's sub-steps, so a boss that clears its portal in a frame cuts in
  * that frame. Provided by the game component: it listens on the
  * component-scoped GameStateManager's bus.
@@ -179,13 +187,23 @@ export class BossIntroService {
     this.cameraControl.stopJump();
     this.keyboardPan.clearKeys();
     const controls = engine.getControls();
-    this.run = { boss, shot, elapsedMs: 0, returned: false, controlsWereEnabled: controls?.enabled ?? false };
+    this.run = {
+      boss,
+      shot,
+      elapsedMs: 0,
+      returned: false,
+      controlsWereEnabled: controls?.enabled ?? false,
+      pausedBefore: this.gameStore.paused(),
+    };
     if (controls) controls.enabled = false;
     cameraTimeline.record('bossIntro.start', { boss: boss.enemy.typeConfig.id, wave: boss.wave }, true);
     const name = boss.enemy.typeConfig.name;
-    this.ngZone.run(() => this.card.set({ name, wave: boss.wave }));
+    this.ngZone.run(() => {
+      this.card.set({ name, wave: boss.wave });
+      this.gameStore.paused.set(true);
+    });
     this.setStage('dip-in');
-    this.announcer.announce(`Boss: ${name}, wave ${boss.wave}.`);
+    this.announcer.announce(`Boss: ${name}, wave ${boss.wave}. Escape skips.`);
     return true;
   }
 
@@ -226,7 +244,7 @@ export class BossIntroService {
     camera.lookAt(target.x, target.y, target.z);
   }
 
-  /** The player's pose back and the controls with it. */
+  /** The player's pose back, the controls with it, and the game as it was. */
   private returnCamera(engine: ThreeTilesEngine, run: IntroRun): void {
     run.returned = true;
     const camera = engine.getCamera();
@@ -235,7 +253,38 @@ export class BossIntroService {
     camera.updateMatrixWorld();
     const controls = engine.getControls();
     if (controls) controls.enabled = run.controlsWereEnabled;
+    this.ngZone.run(() => this.gameStore.paused.set(run.pausedBefore));
     cameraTimeline.record('bossIntro.return', { boss: run.boss.enemy.typeConfig.id }, true);
+  }
+
+  /**
+   * Click on the veil or Esc: the player's view and the game come back at
+   * once, the veil fades out from wherever it is.
+   */
+  skip(): void {
+    const run = this.run;
+    if (!run || run.returned) return;
+    cameraTimeline.record('bossIntro.skipped', { stage: this.stage() });
+    run.elapsedMs = bossIntroReturnMs();
+    this.advance(0);
+  }
+
+  /**
+   * Window keydown, before the game's own handlers. Until the view is back,
+   * Esc skips and every other game key waits: the camera and the pause
+   * belong to the intro. Typing in a field and a key a dialog took (Esc
+   * closing it) stay theirs.
+   *
+   * @returns true when the game must leave the key alone
+   */
+  handleKeyDown(event: KeyboardEvent): boolean {
+    if (!this.run || this.run.returned) return false;
+    if (event.defaultPrevented || ownsKey(event.target, event.key)) return false;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.skip();
+    }
+    return true;
   }
 
   /** Restart or location change: waiting bosses go, a running intro ends where it is. */
@@ -247,7 +296,7 @@ export class BossIntroService {
 
   /**
    * End a running intro without cutting back: the reset that calls it moves
-   * the camera itself. The controls come back.
+   * the camera itself and lifts the pause. The controls come back.
    */
   private abort(): void {
     const run = this.run;

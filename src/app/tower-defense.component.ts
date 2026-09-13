@@ -452,6 +452,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    // A running boss intro takes Esc (skip) and holds the other game keys back
+    if (this.bossIntro.handleKeyDown(event)) return;
     // Photo mode keeps Tab in its bar
     this.photoMode.trapTab(event);
     this.inputHandler.handleKeyDown(event);
