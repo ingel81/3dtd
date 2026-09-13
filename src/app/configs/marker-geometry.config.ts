@@ -56,10 +56,13 @@ export const PORTAL_MIN_SCALE = 0.75;
 export const PORTAL_MAX_SCALE = 1.75;
 
 /**
- * Portal plane ahead of the route start (m): the enemies appear behind the
- * surface and step out through it.
+ * Portal plane ahead of the route start (m). The enemies appear on the
+ * route start, so a body starts just behind the opaque surface and steps
+ * out through it. Small enough that the spawn lies within the frame's
+ * depth even for the smallest portal: the pillars and the lintel hide it
+ * from the sides and from above (spawn-portal-geometry.spec.ts).
  */
-export const PORTAL_SETBACK = 2;
+export const PORTAL_SETBACK = 0.8;
 
 /** Gap between the frame top and the spawn label's centre (m). */
 export const PORTAL_LABEL_GAP = 4;

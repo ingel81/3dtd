@@ -7,11 +7,11 @@ import {
   Color,
   Group,
 } from 'three';
-import { createPortalEnergyMaterial, createPortalFrameMaterial } from './marker-shaders';
+import { createPortalGateMaterial, createPortalGlowMaterial } from './marker-shaders';
 import {
-  createPortalEnergyGeometry,
-  createPortalFrameGeometry,
-  PORTAL_ENERGY_LAYOUT,
+  createPortalGateGeometry,
+  createPortalGlowGeometry,
+  PORTAL_SHADER_LAYOUT,
 } from './spawn-portal-geometry';
 import type { SpawnPortalPose } from './spawn-portal-pose';
 import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
@@ -32,10 +32,11 @@ interface PortalEntry {
  * GPU-instanced spawn portals: a stone gate on the route start, facing the
  * way the enemies walk, with a swirling surface in the spawn's colour.
  * Two draw calls for all portals:
- * - frame: opaque blocks with emissive runes and the portal's light on
- *   the faces around the opening
- * - energy: the swirling surface, whose dark void hides the street behind
- *   the portal, and the light it throws on the street in front
+ * - gate: the opaque stone blocks, with emissive runes and the portal's
+ *   light on the faces around the opening, and the void in the opening.
+ *   The void writes depth: the enemies appear just behind it and stay
+ *   hidden until they step out through it.
+ * - glow: the light the portal throws on the street in front
  *
  * The energy (glow, swirl speed) follows the waves: idle between them, a
  * surge at wave start, the wave's level while it runs (startWave/endWave).
@@ -46,15 +47,15 @@ interface PortalEntry {
  * no scene light.
  */
 export class SpawnPortalManager {
-  private readonly frameMesh: InstancedMesh;
-  private readonly energyMesh: InstancedMesh;
-  private readonly frameMat: ShaderMaterial;
-  private readonly energyMat: ShaderMaterial;
+  private readonly gateMesh: InstancedMesh;
+  private readonly glowMesh: InstancedMesh;
+  private readonly gateMat: ShaderMaterial;
+  private readonly glowMat: ShaderMaterial;
 
-  // Per-instance attributes, colour and phase shared by both meshes
+  // Per-instance attributes, shared by both meshes
   private readonly colorAttr: InstancedBufferAttribute;
   private readonly phaseAttr: InstancedBufferAttribute;
-  /** Wall time (s) of each portal's last spawn burst (energy mesh only) */
+  /** Wall time (s) of each portal's last spawn burst */
   private readonly rippleAttr: InstancedBufferAttribute;
 
   private readonly portals = new Map<string, PortalEntry>();
@@ -77,34 +78,32 @@ export class SpawnPortalManager {
     this.phaseAttr = new InstancedBufferAttribute(new Float32Array(MAX_PORTALS), 1);
     this.rippleAttr = new InstancedBufferAttribute(new Float32Array(MAX_PORTALS).fill(NO_RIPPLE), 1);
 
-    const frameGeom = createPortalFrameGeometry();
-    frameGeom.setAttribute('aColor', this.colorAttr);
-    frameGeom.setAttribute('aPhase', this.phaseAttr);
-    this.frameMat = createPortalFrameMaterial(PORTAL_ENERGY_LAYOUT, SPAWN_PORTAL_LOOK.idleEnergy);
-    this.frameMesh = new InstancedMesh(frameGeom, this.frameMat, MAX_PORTALS);
-    this.frameMesh.count = 0;
-    this.frameMesh.frustumCulled = false;
-    this.frameMesh.name = 'spawnPortalFrames';
+    const look = SPAWN_PORTAL_LOOK;
+    const gateGeom = createPortalGateGeometry();
+    gateGeom.setAttribute('aColor', this.colorAttr);
+    gateGeom.setAttribute('aPhase', this.phaseAttr);
+    gateGeom.setAttribute('aRipple', this.rippleAttr);
+    this.gateMat = createPortalGateMaterial(PORTAL_SHADER_LAYOUT, look.idleEnergy, look.rippleLife);
+    this.gateMesh = new InstancedMesh(gateGeom, this.gateMat, MAX_PORTALS);
+    this.gateMesh.count = 0;
+    this.gateMesh.frustumCulled = false;
+    this.gateMesh.name = 'spawnPortalGates';
 
-    const energyGeom = createPortalEnergyGeometry();
-    energyGeom.setAttribute('aColor', this.colorAttr);
-    energyGeom.setAttribute('aPhase', this.phaseAttr);
-    energyGeom.setAttribute('aRipple', this.rippleAttr);
-    this.energyMat = createPortalEnergyMaterial(
-      PORTAL_ENERGY_LAYOUT,
-      SPAWN_PORTAL_LOOK.idleEnergy,
-      SPAWN_PORTAL_LOOK.rippleLife,
-    );
-    this.energyMesh = new InstancedMesh(energyGeom, this.energyMat, MAX_PORTALS);
-    this.energyMesh.count = 0;
-    this.energyMesh.frustumCulled = false;
-    this.energyMesh.renderOrder = 5;
-    this.energyMesh.name = 'spawnPortalEnergy';
+    const glowGeom = createPortalGlowGeometry();
+    glowGeom.setAttribute('aColor', this.colorAttr);
+    glowGeom.setAttribute('aPhase', this.phaseAttr);
+    glowGeom.setAttribute('aRipple', this.rippleAttr);
+    this.glowMat = createPortalGlowMaterial(PORTAL_SHADER_LAYOUT, look.idleEnergy, look.rippleLife);
+    this.glowMesh = new InstancedMesh(glowGeom, this.glowMat, MAX_PORTALS);
+    this.glowMesh.count = 0;
+    this.glowMesh.frustumCulled = false;
+    this.glowMesh.renderOrder = 5;
+    this.glowMesh.name = 'spawnPortalGlow';
 
     for (let i = MAX_PORTALS - 1; i >= 0; i--) this.freeIndices.push(i);
 
-    overlayGroup.add(this.frameMesh);
-    overlayGroup.add(this.energyMesh);
+    overlayGroup.add(this.gateMesh);
+    overlayGroup.add(this.glowMesh);
   }
 
   /** Add a portal, or replace the one with the same id. */
@@ -157,10 +156,10 @@ export class SpawnPortalManager {
     const entry = this.portals.get(id);
     if (!entry) return;
     this.tmpMatrix.makeTranslation(0, -99999, 0);
-    this.frameMesh.setMatrixAt(entry.index, this.tmpMatrix);
-    this.energyMesh.setMatrixAt(entry.index, this.tmpMatrix);
-    this.frameMesh.instanceMatrix.needsUpdate = true;
-    this.energyMesh.instanceMatrix.needsUpdate = true;
+    this.gateMesh.setMatrixAt(entry.index, this.tmpMatrix);
+    this.glowMesh.setMatrixAt(entry.index, this.tmpMatrix);
+    this.gateMesh.instanceMatrix.needsUpdate = true;
+    this.glowMesh.instanceMatrix.needsUpdate = true;
     this.freeIndices.push(entry.index);
     this.portals.delete(id);
     this.recount();
@@ -241,30 +240,30 @@ export class SpawnPortalManager {
 
     if (this.portals.size === 0) return;
     const time = nowMs / 1000;
-    this.frameMat.uniforms['uTime'].value = time;
-    this.frameMat.uniforms['uEnergy'].value = this.energy;
-    this.energyMat.uniforms['uTime'].value = time;
-    this.energyMat.uniforms['uEnergy'].value = this.energy;
+    this.gateMat.uniforms['uTime'].value = time;
+    this.gateMat.uniforms['uEnergy'].value = this.energy;
+    this.glowMat.uniforms['uTime'].value = time;
+    this.glowMat.uniforms['uEnergy'].value = this.energy;
   }
 
   dispose(): void {
     this.clear();
-    this.overlayGroup.remove(this.frameMesh);
-    this.overlayGroup.remove(this.energyMesh);
-    this.frameMesh.geometry.dispose();
-    this.energyMesh.geometry.dispose();
-    this.frameMat.dispose();
-    this.energyMat.dispose();
+    this.overlayGroup.remove(this.gateMesh);
+    this.overlayGroup.remove(this.glowMesh);
+    this.gateMesh.geometry.dispose();
+    this.glowMesh.geometry.dispose();
+    this.gateMat.dispose();
+    this.glowMat.dispose();
   }
 
   private writeMatrix(index: number, pose: SpawnPortalPose): void {
     this.tmpMatrix.makeRotationY(pose.heading);
     this.tmpMatrix.scale(this.tmpScale.setScalar(pose.scale));
     this.tmpMatrix.setPosition(pose.x, pose.y, pose.z);
-    this.frameMesh.setMatrixAt(index, this.tmpMatrix);
-    this.energyMesh.setMatrixAt(index, this.tmpMatrix);
-    this.frameMesh.instanceMatrix.needsUpdate = true;
-    this.energyMesh.instanceMatrix.needsUpdate = true;
+    this.gateMesh.setMatrixAt(index, this.tmpMatrix);
+    this.glowMesh.setMatrixAt(index, this.tmpMatrix);
+    this.gateMesh.instanceMatrix.needsUpdate = true;
+    this.glowMesh.instanceMatrix.needsUpdate = true;
   }
 
   private updateBurstReady(): void {
@@ -276,7 +275,7 @@ export class SpawnPortalManager {
   private recount(): void {
     let count = 0;
     for (const entry of this.portals.values()) count = Math.max(count, entry.index + 1);
-    this.frameMesh.count = count;
-    this.energyMesh.count = count;
+    this.gateMesh.count = count;
+    this.glowMesh.count = count;
   }
 }

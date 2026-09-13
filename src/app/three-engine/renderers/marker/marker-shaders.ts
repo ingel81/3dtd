@@ -9,7 +9,6 @@ import {
   CustomBlending,
   AddEquation,
   OneFactor,
-  OneMinusSrcAlphaFactor,
 } from 'three';
 
 // ============================================================
@@ -372,7 +371,7 @@ const PORTAL_NOISE_GLSL = /* glsl */ `
   }
 `;
 
-/** Opening of the portal at scale 1 (m), see PORTAL_ENERGY_LAYOUT. */
+/** Opening of the portal at scale 1 (m), see PORTAL_SHADER_LAYOUT. */
 export interface PortalShaderLayout {
   halfOpening: number;
   openingHeight: number;
@@ -382,28 +381,41 @@ export interface PortalShaderLayout {
 }
 
 /**
- * Stone frame of the spawn portals. Unlit like every marker shader: a
- * fixed key light shapes the blocks, the portal's own light falls on the
- * faces around the opening, and runes down the pillars and along the
- * lintel glow in the spawn's colour. The Photorealistic Tiles around it
- * take no scene light either way.
+ * Gate of the spawn portals: the stone frame (aPart 0) and the void in the
+ * opening (aPart 1), opaque, in one draw call. Unlit like every marker
+ * shader: a fixed key light shapes the blocks, the portal's own light
+ * falls on the faces around the opening, and runes down the pillars and
+ * along the lintel glow in the spawn's colour. The void is a swirl around
+ * an eye on a dark ground; it writes depth, so whatever stands behind it
+ * (the enemies on the route start) stays hidden. aRipple is the wall time
+ * (s) of the portal's last spawn burst: a ring runs out from the eye. The
+ * Photorealistic Tiles around it take no scene light either way.
  */
-export function createPortalFrameMaterial(layout: PortalShaderLayout, energy: number): ShaderMaterial {
+export function createPortalGateMaterial(
+  layout: PortalShaderLayout,
+  energy: number,
+  rippleLife: number,
+): ShaderMaterial {
   return new ShaderMaterial({
     uniforms: {
       uTime: { value: 0 },
       uEnergy: { value: energy },
+      uRippleLife: { value: rippleLife },
       uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
     },
     vertexShader: /* glsl */ `
       attribute vec3 aColor;
       attribute float aPhase;
+      attribute float aRipple;
+      attribute float aPart;
 
       varying vec3 vLocalPos;
       varying vec3 vLocalNormal;
       varying vec3 vNormal;
       varying vec3 vColor;
       varying float vPhase;
+      varying float vRipple;
+      varying float vPart;
 
       #include <common>
       #include <logdepthbuf_pars_vertex>
@@ -414,6 +426,8 @@ export function createPortalFrameMaterial(layout: PortalShaderLayout, energy: nu
         vNormal = normalize(mat3(instanceMatrix) * normal);
         vColor = aColor;
         vPhase = aPhase;
+        vRipple = aRipple;
+        vPart = aPart;
 
         vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mvPosition;
@@ -426,6 +440,7 @@ export function createPortalFrameMaterial(layout: PortalShaderLayout, energy: nu
 
       uniform float uTime;
       uniform float uEnergy;
+      uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height
 
       varying vec3 vLocalPos;
@@ -433,10 +448,43 @@ export function createPortalFrameMaterial(layout: PortalShaderLayout, energy: nu
       varying vec3 vNormal;
       varying vec3 vColor;
       varying float vPhase;
+      varying float vRipple;
+      varying float vPart;
 
       #include <logdepthbuf_pars_fragment>
 
       ${PORTAL_NOISE_GLSL}
+
+      // The void in the opening: a swirl around an eye a little below the
+      // middle, tighter toward the eye, faster with more energy, on a dark
+      // ground, the rim burning brightest; a ring runs out from the eye
+      // after a spawn burst.
+      vec3 portalVoid() {
+        vec3 hot = mix(vColor, vec3(1.0, 0.93, 0.75), 0.6);
+        float age = uTime - vRipple;
+        float ripple = age >= 0.0 && age < uRippleLife ? 1.0 - age / uRippleLife : 0.0;
+        float progress = 1.0 - ripple;
+
+        vec2 m = vec2(vLocalPos.x, vLocalPos.y - uOpening.y * 0.45) / uOpening.x;
+        float r = length(m);
+        float a = atan(m.y, m.x);
+        float t = uTime * (0.3 + 0.25 * uEnergy) + vPhase;
+        float swirl = a + 2.4 / (r + 0.45) - t * 2.0;
+        vec2 q = vec2(cos(swirl), sin(swirl)) * r;
+        float n = portalFbm(q * 1.7 + vec2(0.0, t * 0.6));
+        float bands = 0.5 + 0.5 * sin(swirl * 3.0 + n * 5.0 - r * 4.0);
+        float glow = n * (0.3 + 0.7 * bands);
+
+        // Metres to the nearest edge of the opening
+        float edge = min(uOpening.x - abs(vLocalPos.x), min(vLocalPos.y, uOpening.y - vLocalPos.y));
+        float rim = exp(-max(edge, 0.0) * 1.2);
+        float wave = ripple * exp(-pow((r - progress * 2.2) * 5.0, 2.0));
+
+        return vColor * 0.03
+          + mix(vColor * 0.7, hot, bands * n) * glow * (0.5 + uEnergy)
+          + hot * rim * (0.3 + 0.6 * uEnergy)
+          + hot * wave * 1.6;
+      }
 
       // Glyph of one rune cell: a stem, up to three bars and two diagonals,
       // picked by the cell's hash. p in cell units.
@@ -460,6 +508,11 @@ export function createPortalFrameMaterial(layout: PortalShaderLayout, energy: nu
 
       void main() {
         #include <logdepthbuf_fragment>
+
+        if (vPart > 0.5) {
+          gl_FragColor = vec4(portalVoid(), 1.0);
+          return;
+        }
 
         vec3 p = vLocalPos;
         vec3 ln = vLocalNormal;
@@ -503,15 +556,11 @@ export function createPortalFrameMaterial(layout: PortalShaderLayout, energy: nu
 }
 
 /**
- * Energy of the spawn portals: the swirling surface in the opening and the
- * light it throws on the street, in one draw call. Premultiplied alpha
- * (ONE, ONE_MINUS_SRC_ALPHA): the surface's dark void covers the street
- * behind the portal and its swirl adds light on top, the ground patch
- * writes alpha 0 and is purely additive. aRipple is the wall time (s) of
- * the portal's last spawn burst: a ring runs out from the eye over the
- * surface and from the portal's foot over the street.
+ * Light of the spawn portals on the street in front of them, additive,
+ * in one draw call. aRipple is the wall time (s) of the portal's last
+ * spawn burst: a ring runs out from the portal's foot over the street.
  */
-export function createPortalEnergyMaterial(
+export function createPortalGlowMaterial(
   layout: PortalShaderLayout,
   energy: number,
   rippleLife: number,
@@ -528,13 +577,11 @@ export function createPortalEnergyMaterial(
       attribute vec3 aColor;
       attribute float aPhase;
       attribute float aRipple;
-      attribute float aPart;
 
       varying vec3 vLocal;
       varying vec3 vColor;
       varying float vPhase;
       varying float vRipple;
-      varying float vPart;
 
       #include <common>
       #include <logdepthbuf_pars_vertex>
@@ -544,7 +591,6 @@ export function createPortalEnergyMaterial(
         vColor = aColor;
         vPhase = aPhase;
         vRipple = aRipple;
-        vPart = aPart;
 
         vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mvPosition;
@@ -565,7 +611,6 @@ export function createPortalEnergyMaterial(
       varying vec3 vColor;
       varying float vPhase;
       varying float vRipple;
-      varying float vPart;
 
       #include <logdepthbuf_pars_fragment>
 
@@ -581,46 +626,20 @@ export function createPortalEnergyMaterial(
         float ripple = age >= 0.0 && age < uRippleLife ? 1.0 - age / uRippleLife : 0.0;
         float progress = 1.0 - ripple;
 
-        if (vPart < 0.5) {
-          // Surface: a swirl around an eye a little below the middle,
-          // tighter toward the eye, faster with more energy
-          vec2 m = vec2(vLocal.x, vLocal.y - uOpening.y * 0.45) / uOpening.x;
-          float r = length(m);
-          float a = atan(m.y, m.x);
-          float t = uTime * (0.3 + 0.25 * uEnergy) + vPhase;
-          float swirl = a + 2.4 / (r + 0.45) - t * 2.0;
-          vec2 q = vec2(cos(swirl), sin(swirl)) * r;
-          float n = portalFbm(q * 1.7 + vec2(0.0, t * 0.6));
-          float bands = 0.5 + 0.5 * sin(swirl * 3.0 + n * 5.0 - r * 4.0);
-          float glow = n * (0.3 + 0.7 * bands);
-
-          // Metres to the nearest edge of the opening: the rim burns brightest
-          float edge = min(uOpening.x - abs(vLocal.x), min(vLocal.y, uOpening.y - vLocal.y));
-          float rim = exp(-max(edge, 0.0) * 1.2);
-          // Ring running out from the eye past the frame
-          float wave = ripple * exp(-pow((r - progress * 2.2) * 5.0, 2.0));
-
-          vec3 light = mix(vColor * 0.7, hot, bands * n) * glow * (0.5 + uEnergy)
-            + hot * rim * (0.3 + 0.6 * uEnergy)
-            + hot * wave * 1.6;
-          const float VOID = 0.82;
-          gl_FragColor = vec4(vColor * 0.03 * VOID + light, VOID);
-        } else {
-          // Street patch: strongest at the portal's foot, fading to the
-          // patch's edges, weaker behind the portal
-          float dx = max(abs(vLocal.x) - uOpening.x, 0.0);
-          float d = length(vec2(dx, vLocal.z));
-          float side = 1.0 - smoothstep(0.55, 1.0, abs(vLocal.x) / uGround.x);
-          float along = vLocal.z >= 0.0
-            ? 1.0 - smoothstep(0.35, 1.0, vLocal.z / uGround.z)
-            : (1.0 - smoothstep(0.2, 1.0, -vLocal.z / uGround.y)) * 0.45;
-          float flicker = 0.85 + 0.15 * portalNoise(vec2(uTime * 2.3 + vPhase, d * 0.3));
-          // Ring running out from the portal's foot over the street
-          float ring = ripple * exp(-pow(d - progress * uGround.z, 2.0) * 0.6);
-          vec3 light = vColor * exp(-d * 0.25) * side * along * (0.25 + 0.45 * uEnergy) * flicker
-            + hot * ring * side * along * 0.9;
-          gl_FragColor = vec4(light, 0.0);
-        }
+        // Strongest at the portal's foot, fading to the patch's edges,
+        // weaker behind the portal
+        float dx = max(abs(vLocal.x) - uOpening.x, 0.0);
+        float d = length(vec2(dx, vLocal.z));
+        float side = 1.0 - smoothstep(0.55, 1.0, abs(vLocal.x) / uGround.x);
+        float along = vLocal.z >= 0.0
+          ? 1.0 - smoothstep(0.35, 1.0, vLocal.z / uGround.z)
+          : (1.0 - smoothstep(0.2, 1.0, -vLocal.z / uGround.y)) * 0.45;
+        float flicker = 0.85 + 0.15 * portalNoise(vec2(uTime * 2.3 + vPhase, d * 0.3));
+        // Ring running out from the portal's foot over the street
+        float ring = ripple * exp(-pow(d - progress * uGround.z, 2.0) * 0.6);
+        vec3 light = vColor * exp(-d * 0.25) * side * along * (0.25 + 0.45 * uEnergy) * flicker
+          + hot * ring * side * along * 0.9;
+        gl_FragColor = vec4(light, 1.0);
       }
     `,
     transparent: true,
@@ -629,7 +648,7 @@ export function createPortalEnergyMaterial(
     blending: CustomBlending,
     blendEquation: AddEquation,
     blendSrc: OneFactor,
-    blendDst: OneMinusSrcAlphaFactor,
+    blendDst: OneFactor,
   });
 }
 
