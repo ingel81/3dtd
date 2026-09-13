@@ -107,7 +107,7 @@ export class TowerCombatService {
       // (terrainHeight already lifted to skyline + clearance for air enemies),
       // ground targets at eye height.
       const targetLocalY = isAir
-        ? pos.y + (enemy.typeConfig.heightOffset ?? 0)
+        ? pos.y + enemy.heightOffset
         : pos.y + 1.5;
       return engine.towers.hasLineOfSight(
         tower.id,
@@ -405,7 +405,7 @@ export class TowerCombatService {
         const targetLocalPos = this.tilesEngine.sync.geoToLocalSimple(
           target.position.lat,
           target.position.lon,
-          target.transform.terrainHeight + (target.typeConfig.heightOffset ?? 0)
+          target.transform.terrainHeight + target.heightOffset
         );
         targetLocalPos.y += getEnemyAimOffsetY(target); // aim at the model's visual centre
 
@@ -540,7 +540,7 @@ export class TowerCombatService {
       const enemyLocalPos = this.tilesEngine.sync.geoToLocalSimpleInto(
         enemy.position.lat,
         enemy.position.lon,
-        enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0),
+        enemy.transform.terrainHeight + enemy.heightOffset,
         this._coneEnemyPos
       );
       enemyLocalPos.y += getEnemyAimOffsetY(enemy); // model's visual centre
@@ -644,7 +644,7 @@ export class TowerCombatService {
           const targetLocalPos = this.tilesEngine.sync.geoToLocalSimple(
             target.position.lat,
             target.position.lon,
-            target.transform.terrainHeight + (target.typeConfig.heightOffset ?? 0),
+            target.transform.terrainHeight + target.heightOffset,
           );
           targetLocalPos.y += getEnemyAimOffsetY(target); // model's visual centre
           this.tilesEngine.tentacles?.startStrike(tower.id, targetLocalPos);
@@ -803,7 +803,7 @@ export class TowerCombatService {
       const p = this.tilesEngine.sync.geoToLocalSimple(
         e.position.lat,
         e.position.lon,
-        e.transform.terrainHeight + (e.typeConfig.heightOffset ?? 0),
+        e.transform.terrainHeight + e.heightOffset,
       );
       points.push({ x: p.x, y: p.y + getEnemyAimOffsetY(e), z: p.z });
     }

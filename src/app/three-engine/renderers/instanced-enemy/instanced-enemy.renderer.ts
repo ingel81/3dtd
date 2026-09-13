@@ -176,6 +176,11 @@ export class InstancedEnemyRenderer {
   // CREATE / REMOVE
   // =====================================================
 
+  /**
+   * @param height Geo height of the model origin: the enemy's ground plus
+   *   its height offset (Enemy.heightOffset), as EnemyManager.presentFrame()
+   *   pushes it afterwards
+   */
   async create(
     id: string,
     typeId: EnemyTypeId,
@@ -197,7 +202,7 @@ export class InstancedEnemyRenderer {
     }
 
     // Convert geo to local position
-    const localPos = this.sync.geoToLocal(lat, lon, height + config.heightOffset);
+    const localPos = this.sync.geoToLocal(lat, lon, height);
 
     // Add to instance pool
     const state = this.instanceManager.addEnemy(id, typeId, localPos, 0);

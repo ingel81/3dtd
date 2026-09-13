@@ -233,6 +233,7 @@ describe('TowerCombatService', () => {
         alive: true,
         position: { lat: towerPos.lat + meters / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
         typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1 },
+        heightOffset: 0,
         transform: { terrainHeight: 0 },
         movement: { getPathProgress: () => 0.5 },
       };

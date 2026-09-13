@@ -242,7 +242,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Create 3D model and start animation. `position` is path[0], or the
     // split start on the centre line; the first step adds the lane offset.
     this.tilesEngine.enemies
-      .create(enemy.id, typeId, enemy.position.lat, enemy.position.lon, geoHeight)
+      .create(enemy.id, typeId, enemy.position.lat, enemy.position.lon, geoHeight + enemy.heightOffset)
       .then((renderData) => {
         if (renderData && !paused) {
           this.tilesEngine!.enemies.startWalkAnimation(enemy.id);
@@ -703,16 +703,15 @@ export class EnemyManager extends EntityManager<Enemy> {
         slot = enemy.renderSlot = engine.enemies.resolveSlot(enemy.id);
       }
 
-      const geoHeight = enemy.transform.terrainHeight;
-      const heightOffset = slot !== null ? slot.config.heightOffset : 0;
-
       // Air units fly at fixed altitude over local terrain — `terrainHeight
       // + heightOffset` (air-unit configs set heightOffset to ≈15-20m).
       // Single-source-of-truth: matches `getAirTargetY(cell)` from the LOS
       // pipeline. Caveat (Option B): in dense skyscraper scenes, air units
       // may clip through facades — accepted trade-off for predictable
       // coverage visualization.
-      this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
+      this._tempLocalPos.y = origin
+        ? (enemy.transform.terrainHeight + enemy.heightOffset) - origin.height
+        : 0;
 
       const currentSpeed =
         enemy.movement.speedMps *

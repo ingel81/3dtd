@@ -20,7 +20,8 @@ interface EnemyStub {
   id: string;
   position: { lat: number; lon: number };
   transform: { terrainHeight: number };
-  typeConfig: { canBleed: boolean; heightOffset: number; armorType: ArmorType };
+  heightOffset: number;
+  typeConfig: { canBleed: boolean; armorType: ArmorType };
   health: { takeDamage: (n: number) => boolean; hp: number; maxHp: number };
   getEffectiveArmorType: () => ArmorType;
 }
@@ -38,9 +39,9 @@ function makeEnemy(opts: {
     id: opts.id ?? 'e1',
     position: { lat: 48.0, lon: 9.0 },
     transform: { terrainHeight: 0 },
+    heightOffset: 0,
     typeConfig: {
       canBleed: opts.canBleed ?? true,
-      heightOffset: 0,
       armorType: armor,
     },
     health: {

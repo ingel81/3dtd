@@ -293,7 +293,7 @@ export class CombatEffectService {
       `-${rounded}`,
       enemy.position.lat,
       enemy.position.lon,
-      enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 5,
+      enemy.transform.terrainHeight + enemy.heightOffset + 5,
       {
         color,
         duration: TIMING.damagePopupDuration,
@@ -336,7 +336,7 @@ export class CombatEffectService {
         `-${rounded}`,
         enemy.position.lat,
         enemy.position.lon,
-        enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 5,
+        enemy.transform.terrainHeight + enemy.heightOffset + 5,
         {
           color: effectType === 'burn' ? '#FF8C1A' : '#44CC22',
           duration: TIMING.damagePopupDuration,

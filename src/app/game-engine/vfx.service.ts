@@ -59,7 +59,7 @@ export class VFXService {
     // Bone burst a metre above the body a split came from. The impact bursts'
     // pool and switch: nothing while impact effects are off (VFX settings).
     this.subs.add(this.eventBus.on('enemy:split', ({ enemy }) => {
-      const height = enemy.transform.terrainHeight + enemy.typeConfig.heightOffset + 1;
+      const height = enemy.transform.terrainHeight + enemy.heightOffset + 1;
       this.tilesEngine.effects.spawnBurstAtGeo(
         enemy.position.lat,
         enemy.position.lon,

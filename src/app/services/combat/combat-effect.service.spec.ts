@@ -32,6 +32,7 @@ describe('CombatEffectService splash', () => {
       alive: true,
       position: { lat: origin.lat + metersNorth / METERS_PER_DEGREE_LAT, lon: origin.lon },
       typeConfig: { id, isAirUnit, heightOffset: isAirUnit ? 15 : 0 },
+      heightOffset: isAirUnit ? 15 : 0,
       transform: { terrainHeight: 0 },
     };
   }

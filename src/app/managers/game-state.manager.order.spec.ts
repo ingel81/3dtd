@@ -515,7 +515,7 @@ describe('GameStateManager order of operations (characterization)', () => {
           id: 'e1',
           position: { lat: 48.77, lon: 9.18, height: 0 },
           transform: { terrainHeight: 0 },
-          typeConfig: { heightOffset: 0 },
+          heightOffset: 0,
         } as never,
         credits: 5,
       });

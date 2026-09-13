@@ -43,7 +43,7 @@ export class CombatVfxService {
    */
   emitHitBlood(enemy: Enemy, isSplashDamage: boolean): void {
     if (!enemy.typeConfig.canBleed) return;
-    const splatterHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 1;
+    const splatterHeight = enemy.transform.terrainHeight + enemy.heightOffset + 1;
     const intensity = isSplashDamage ? 8 : 15;
     this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, intensity, !!enemy.typeConfig.isAirUnit);
   }
@@ -53,7 +53,7 @@ export class CombatVfxService {
    */
   emitDeathBlood(enemy: Enemy): void {
     if (!enemy.typeConfig.canBleed || !this.tilesEngine) return;
-    const splatterHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 1;
+    const splatterHeight = enemy.transform.terrainHeight + enemy.heightOffset + 1;
     this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 40, !!enemy.typeConfig.isAirUnit);
   }
 
@@ -68,7 +68,7 @@ export class CombatVfxService {
     if (!this.tilesEngine) return;
 
     const groundOffset = enemy.typeConfig.isAirUnit ? 0 : 2;
-    const explosionHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + groundOffset;
+    const explosionHeight = enemy.transform.terrainHeight + enemy.heightOffset + groundOffset;
 
     this.tilesEngine.effects.spawnIceExplosionAtGeo(
       enemy.position.lat,

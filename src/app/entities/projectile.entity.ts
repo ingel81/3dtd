@@ -396,7 +396,6 @@ export class Projectile extends GameObject {
   private getTargetHeight(): number {
     const enemyTerrainHeight = this.targetEnemy.transform.terrainHeight ?? 0;
     // Include enemy's heightOffset (e.g., 15m for flying units like bats)
-    const heightOffset = this.targetEnemy.typeConfig.heightOffset ?? 0;
-    return enemyTerrainHeight + heightOffset + getEnemyAimOffsetY(this.targetEnemy);
+    return enemyTerrainHeight + this.targetEnemy.heightOffset + getEnemyAimOffsetY(this.targetEnemy);
   }
 }

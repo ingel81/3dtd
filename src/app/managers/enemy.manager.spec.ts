@@ -362,7 +362,7 @@ describe('EnemyManager', () => {
 
     it('shows a switch in the present pass, once', () => {
       const enemy = manager.spawn(path, 'wallsmasher');
-      const slot = { released: false, isWalking: true, config: { heightOffset: 0 } };
+      const slot = { released: false, isWalking: true };
       tilesEngine.enemies.resolveSlot.mockReturnValue(slot);
       tilesEngine.enemies.startRunAnimation.mockImplementation(() => { slot.isWalking = false; });
 
@@ -425,7 +425,7 @@ describe('EnemyManager', () => {
     });
 
     it('resolves the render slot once, and again after the renderer released it', () => {
-      const slot = { released: false, config: { heightOffset: 0.5 } };
+      const slot = { released: false };
       tilesEngine.enemies.resolveSlot.mockReturnValue(slot);
       manager.spawn(path, 'zombie');
 
