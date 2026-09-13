@@ -80,6 +80,9 @@ export class TowerDefenseStore {
   /** Player abilities by id (charges, recharge, strike on its way) */
   readonly abilities = this.gameStore.abilities;
 
+  /** The hero (unlocked, hired, level, kills, ammo) */
+  readonly hero = this.gameStore.hero;
+
   /** Currently selected tower (for info panel / upgrades) */
   readonly selectedTower = this.gameStore.selectedTower;
 

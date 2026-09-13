@@ -28,6 +28,14 @@ import { DAMAGE_MATRIX } from '../../../../configs/combat/damage-matrix.config';
 import { TowerTypeId, TOWER_TYPES } from '../../../../configs/tower-types.config';
 import { templateObjectForWave } from '../../../../configs/wave-curriculum.config';
 import { ENEMY_TYPES, EnemyTypeId } from '../../../../configs/enemy-types.config';
+import { HERO } from '../../../../configs/hero.config';
+
+/**
+ * Researches no bot starts. The mercenary: bots never hire the hero, so the
+ * research would spend their gold on nothing and shift the baselines the
+ * wave director is measured against (docs/HERO.md).
+ */
+export const BOT_SKIPPED_RESEARCH: ReadonlySet<ResearchId> = new Set([HERO.researchId]);
 
 export class ResearchPickStrategy extends BaseStrategy {
   constructor(private config: BotConfig) {
@@ -119,6 +127,7 @@ export class ResearchPickStrategy extends BaseStrategy {
     // Fallback: skill-order list
     const list = this.researchOrderBySkill[skill];
     return list.find(id =>
+      !BOT_SKIPPED_RESEARCH.has(id) &&
       !r.completedIds.includes(id) &&
       !this.isActive(id, state) &&
       this.prereqsMet(id, state)
@@ -147,6 +156,7 @@ export class ResearchPickStrategy extends BaseStrategy {
     let bestScore = -Infinity;
 
     for (const id of getAllResearchIds()) {
+      if (BOT_SKIPPED_RESEARCH.has(id)) continue;
       if (r.completedIds.includes(id)) continue;
       if (this.isActive(id, state)) continue;
       if (!this.prereqsMet(id, state)) continue;

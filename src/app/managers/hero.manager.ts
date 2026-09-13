@@ -153,15 +153,17 @@ export class HeroManager implements IGameManager {
    * Hire him: the research is done, he is not hired yet, a route exists to
    * stand on, the credits are there. He appears on the route point nearest
    * to the HQ and holds there.
+   *
+   * @param price what the hire costs; the dev cheat (debug:ready-hero) passes 0
    */
-  hire(): boolean {
+  hire(price: number = HERO.cost): boolean {
     const refused = this.checkHire();
     if (refused) return this.reject(refused);
     const graph = this.ensureGraph();
     const base = this.world.base();
     const start = graph && base ? graph.nearestPoint(base.lat, base.lon) : null;
     if (!graph || !start) return this.reject('no-route');
-    if (!this.world.spend(HERO.cost)) return this.reject('credits');
+    if (!this.world.spend(price)) return this.reject('credits');
 
     this.hero = new Hero(graph.pointGeo(start));
     this.anchor = { edge: start.edge, t: start.t };

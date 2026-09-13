@@ -2,6 +2,7 @@ import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { GameStateManager } from './game-state.manager';
 import { getResearch } from '../configs/research/research-tree.config';
 import { ABILITIES } from '../configs/abilities.config';
+import { HERO } from '../configs/hero.config';
 
 /**
  * GameCommandsHandler — Command-Bus-Adapter für GameStateManager.
@@ -158,6 +159,13 @@ export class GameCommandsHandler {
     // Between waves only; refused otherwise, see GameStateManager.jumpToWave
     this.subs.add(this.eventBus.on('debug:jump-to-wave', (event) => {
       this.gsm.jumpToWave(event.wave, event.grantGold);
+    }));
+
+    // The hero's research with its prerequisites, then the hire for free;
+    // once he is hired a further click changes nothing
+    this.subs.add(this.eventBus.on('debug:ready-hero', () => {
+      this.gsm.researchManager.completeResearch(HERO.researchId);
+      if (this.gsm.heroManager.checkHire() === null) this.gsm.heroManager.hire(0);
     }));
   }
 }

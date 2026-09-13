@@ -105,6 +105,7 @@ export class QuickActionsComponent {
   readonly completeAllResearch = output<void>();
   readonly maxUpgradeAllTowers = output<void>();
   readonly readyNuke = output<void>();
+  readonly readyHero = output<void>();
   readonly photoModeRequested = output<void>();
 
   // Audio outputs

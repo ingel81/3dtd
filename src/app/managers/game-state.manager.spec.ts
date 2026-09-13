@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 
 // Mock three.js
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
@@ -571,6 +571,42 @@ describe('GameStateManager', () => {
         gsm.reset();
         gsm.beginWave();
         expect(started).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe('debug:ready-hero (Hero ready)', () => {
+      const paths = () => mockServices['PathAndRouteService'] as { getCachedPaths: ReturnType<typeof vi.fn> };
+
+      beforeEach(() => {
+        paths().getCachedPaths.mockReturnValue(new Map([['sp-1', [
+          { lat: BASE_POSITION.lat + 0.001, lon: BASE_POSITION.lon },
+          { lat: BASE_POSITION.lat, lon: BASE_POSITION.lon },
+        ]]]));
+      });
+
+      afterEach(() => {
+        paths().getCachedPaths.mockReturnValue(new Map());
+      });
+
+      it('lands with the sub-step\'s event queue: the research with its prerequisites, then the hire for free', () => {
+        const credits = gsm.credits();
+        const completed: string[] = [];
+        bus.on('research:completed', (event) => completed.push(event.researchId));
+
+        bus.emitDeferred({ type: 'debug:ready-hero' });
+        expect(gsm.heroManager.getHero()).toBeNull();
+
+        bus.processQueue();
+        expect(completed).toEqual(['gatling-tech', 'siege-engineering', 'mercenary-contract']);
+        expect(gsm.heroManager.getStatus()).toMatchObject({ unlocked: true, hired: true });
+        expect(gsm.credits()).toBe(credits);
+      });
+
+      it('changes nothing once he is hired', () => {
+        bus.emit({ type: 'debug:ready-hero' });
+        const hero = gsm.heroManager.getHero();
+        bus.emit({ type: 'debug:ready-hero' });
+        expect(gsm.heroManager.getHero()).toBe(hero);
       });
     });
 

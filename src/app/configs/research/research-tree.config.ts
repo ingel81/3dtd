@@ -8,6 +8,7 @@
  */
 
 import { ResearchConfig, ResearchId } from './research.types';
+import { HERO } from '../hero.config';
 
 /**
  * Complete tech tree — all available researches.
@@ -182,6 +183,26 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
       kind: 'global-perk',
       perkId: 'nuclear-strike',
       description: 'Nuclear Strike ability: one charge, a new one every 3 completed waves',
+    }],
+  },
+
+  'mercenary-contract': {
+    id: HERO.researchId,
+    name: 'Mercenary Contract',
+    description:
+      `Lets you hire the ${HERO.name} once for ${HERO.cost} credits: a soldier you send along the enemy route. `
+      + `He fights on his own within ${HERO.rangeM} m and levels up through his kills`,
+    category: 'global-perk',
+    icon: 'user',
+    cost: 600,
+    duration: 30,
+    // After the cannon, about when the first air waves come (W7/W8); the
+    // numbers are derived in docs/HERO.md
+    prerequisites: ['siege-engineering'],
+    effects: [{
+      kind: 'global-perk',
+      perkId: HERO.perkId,
+      description: `${HERO.name} can be hired (${HERO.cost} credits, once)`,
     }],
   },
 

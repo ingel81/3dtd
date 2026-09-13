@@ -10,6 +10,7 @@ import {
   AbilityStatus,
   lockedAbilityStatus,
 } from '../configs/abilities.config';
+import { HeroStatus, initialHeroStatus } from '../configs/hero.config';
 
 /** Every ability locked, as at the start of a run. */
 function lockedAbilities(): Record<AbilityId, AbilityStatus> {
@@ -53,6 +54,12 @@ export class GameStore {
    * its way. Written from the AbilityManager's `ability:state-changed`.
    */
   readonly abilities = signal<Record<AbilityId, AbilityStatus>>(lockedAbilities());
+
+  /**
+   * The hero: unlocked, hired, level, kills, ammo. Written from the
+   * HeroManager's `hero:state-changed`.
+   */
+  readonly hero = signal<HeroStatus>(initialHeroStatus());
 
   /** Currently selected tower (for info panel / upgrades) */
   readonly selectedTower = signal<Tower | null>(null);
@@ -167,6 +174,7 @@ export class GameStore {
     this.waveEnemyTotal.set(0);
     this.waveEnemiesLeft.set(0);
     this.abilities.set(lockedAbilities());
+    this.hero.set(initialHeroStatus());
     this.selectedTower.set(null);
     this.towerCount.set(0);
     this.showGameOverScreen.set(false);
