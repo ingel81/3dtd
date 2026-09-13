@@ -74,6 +74,13 @@ Gründe für `ability:rejected`: `unknown`, `locked`, `no-charge`, `no-wave`,
   nächsten Sub-Step und wird pro Sub-Step um 16,667 ms verringert.
 - Kein Zufall. Die Radius-Abfrage liefert die Gegner in Zellen-Reihenfolge; das
   Ergebnis hängt davon nicht ab, jeder Gegner verliert seinen eigenen Anteil.
+- Die Welle endet nicht, solange ein Schlag unterwegs ist
+  (`AbilityManager.hasPendingStrikes()` in der Sub-Step-Schleife vor
+  `checkWaveComplete()`). Stirbt oder leakt der Rest der Welle in der
+  Vorwarnung, bleibt die Welle bis zum Einschlag offen, höchstens 1,5 s
+  Spielzeit, und endet im Sub-Step des Einschlags. Der Schlag landet damit immer
+  in seiner Welle: nie in der Aufbauphase und mit Auto-Start nie in der nächsten
+  Welle, deren Kills und `abilityKills` er sonst verfälschte.
 - Nachweis: `integration/ability-strike.spec.ts` schickt den Befehl über den
   echten Sub-Step-Loop des GameStateManager mit echten Gegnern und dem echten
   Schadensweg. Der Einschlag liegt auf Sub-Step 90 nach dem Befehl, und HP,
@@ -210,8 +217,8 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
 ## Bewusst nicht gemacht
 
 - Keine Warnsirene.
-- Sterben alle Gegner in den 1,5 s der Vorwarnung, endet die Welle vor dem
-  Einschlag: die Ladung ist verbraucht, der Einschlag trifft niemanden.
+- Keine Rückgabe der Ladung, wenn der Einschlag niemanden trifft, auch nicht,
+  wenn der Rest der Welle in den 1,5 s der Vorwarnung stirbt oder durchläuft.
 - Der Event-Debugger hat keine eigene Kategorie für `ability:*`; die Events
   stehen unter "All".
 - Der Boss-Shake beim Tod (`ScreenShakeService`) prüft weiter `bossName`, das

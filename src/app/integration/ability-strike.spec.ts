@@ -115,11 +115,8 @@ interface Outcome {
   credits: number;
 }
 
-/**
- * @param pauseFrames frames the game stays paused at PAUSE_STEP, 0 for none
- * @param roster      enemies spawned at the wave start
- */
-function run(timescale: number, pauseFrames = 0, roster = ROSTER): Outcome {
+/** A game in setup with the strike researched, the grid stubbed and the real damage path. */
+function createGame(timescale: number) {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
   GameObject.resetIdCounter();
 
@@ -149,12 +146,21 @@ function run(timescale: number, pauseFrames = 0, roster = ROSTER): Outcome {
   gsm.initialize(createEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.trainingTimescale.set(timescale);
 
-  const bus = gsm.getEventBus();
-  bus.emit({
+  gsm.getEventBus().emit({
     type: 'research:completed',
     researchId: NUKE.researchId,
     effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
   });
+  return { gsm, strike };
+}
+
+/**
+ * @param pauseFrames frames the game stays paused at PAUSE_STEP, 0 for none
+ * @param roster      enemies spawned at the wave start
+ */
+function run(timescale: number, pauseFrames = 0, roster = ROSTER): Outcome {
+  const { gsm, strike } = createGame(timescale);
+  const bus = gsm.getEventBus();
   let kills = 0;
   bus.on('enemy:died', () => kills++);
   let abilityKills = 0;
@@ -260,5 +266,34 @@ describe('Nuclear strike through the sub-step loop', () => {
     const paused = run(1, 600);
     expect(paused.impactStep).toBe(COMMAND_STEP + WARNING_STEPS);
     expect(paused).toEqual(straight);
+  });
+
+  it('keeps the wave open until a pending strike has landed', () => {
+    // Nothing on the route, as right after the last leak: without the wait
+    // the wave ends on the first sub-step, and the impact lands in the setup
+    // phase, or with auto-start in the next wave and books its kills there.
+    const phases = (timescale: number) => {
+      const { gsm } = createGame(timescale);
+      const impactPhases: string[] = [];
+      gsm.getEventBus().on('ability:impact', () => impactPhases.push(gsm.waveManager.phase()));
+      gsm.beginWave();
+      expect(gsm.abilityManager.use('nuclear-strike', TARGET).ok).toBe(true);
+
+      // The phase each sub-step leaves to the next, its completion check included
+      const seen: string[] = [];
+      let now = 1000;
+      while (seen.length < WARNING_STEPS + 5) {
+        now += 16;
+        gsm.update(now, () => seen.push(gsm.waveManager.phase()));
+      }
+      return { impactPhases, seen: seen.slice(0, WARNING_STEPS + 5) };
+    };
+
+    const single = phases(1);
+    expect(single.impactPhases).toEqual(['wave']);
+    expect(single.seen.slice(0, WARNING_STEPS)).toEqual(Array(WARNING_STEPS).fill('wave'));
+    // Ends on the impact sub-step, not later
+    expect(single.seen[WARNING_STEPS]).toBe('setup');
+    expect(phases(10)).toEqual(single);
   });
 });

@@ -132,6 +132,15 @@ describe('AbilityManager', () => {
       expect(strikes).toEqual([{ ids: ['z1', 'boss', 'bat1'], fractions: [0.6, 0.2, 0.6] }]);
     });
 
+    it('reports a strike as pending from the command until it lands', () => {
+      expect(manager.hasPendingStrikes()).toBe(false);
+      manager.use('nuclear-strike', TARGET);
+      tick(89);
+      expect(manager.hasPendingStrikes()).toBe(true);
+      tick(1);
+      expect(manager.hasPendingStrikes()).toBe(false);
+    });
+
     it('spends the charge even when the strike finds nobody', () => {
       manager.use('nuclear-strike', TARGET);
       tick(90);

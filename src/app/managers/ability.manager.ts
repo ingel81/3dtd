@@ -136,6 +136,11 @@ export class AbilityManager implements IGameManager {
     return this.pending;
   }
 
+  /** A strike is counting down. The wave does not end before it lands. */
+  hasPendingStrikes(): boolean {
+    return this.pending.length > 0;
+  }
+
   // ==================== Actions ====================
 
   /**
