@@ -24,6 +24,7 @@ import { CameraRig } from './camera-rig';
 import { TileLoadingTracker, type TileStats } from './tile-loading-tracker';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { RenderLoop } from './render-loop';
+import { CanvasSizeFollower } from './canvas-size-follower';
 import { TerrainQueries } from './terrain-queries';
 import { SkyBackground, addSceneLights } from './scene-environment';
 import { ScreenPicker } from './screen-picker';
@@ -186,6 +187,9 @@ export class ThreeTilesEngine {
     isRendering: () => this._renderingEnabled,
   });
 
+  /** Resizes the drawing buffer with the canvas, see fitToCanvas() */
+  private readonly canvasSize: CanvasSizeFollower;
+
   // Tile provider credentials
   private cesiumIonToken: string;
   private cesiumAssetId: string;
@@ -332,6 +336,9 @@ export class ThreeTilesEngine {
 
     // Setup post-processing pipeline (bloom off by default)
     this.setupPostProcessing();
+
+    // The drawing buffer follows the canvas' CSS size from here on
+    this.canvasSize = new CanvasSizeFollower(canvas, () => this.fitToCanvas());
   }
 
   /**
@@ -646,8 +653,9 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Match the drawing buffer to the canvas' current CSS size, after a layout
-   * change such as photo mode hiding header and sidebar.
+   * Match the drawing buffer to the canvas' current CSS size. CanvasSizeFollower
+   * calls it for every change of that size: the window, photo mode hiding
+   * header and sidebar.
    */
   fitToCanvas(): void {
     const canvas = this.renderer.domElement;
@@ -1148,6 +1156,7 @@ export class ThreeTilesEngine {
   dispose(): void {
     this.disposed = true;
     this.renderLoop.dispose();
+    this.canvasSize.dispose();
 
     // DevWorld owns a generation Web Worker and a set of raycast-only building
     // meshes that live outside the scene graph. Nothing else disposes them, so
