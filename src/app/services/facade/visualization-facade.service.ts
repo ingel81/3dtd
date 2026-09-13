@@ -45,6 +45,7 @@ import {
 } from '../../utils/flight-gate';
 import { CorridorController } from '../world/corridor-controller';
 import { CorridorConsole } from '../debug/corridor-console';
+import { RouteGridConvergence } from '../world/route-grid-convergence';
 import { cameraTimeline } from '../../utils/camera-timeline';
 
 /**
@@ -92,12 +93,6 @@ export class VisualizationFacadeService {
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly introFlight = inject(IntroCameraFlightService);
 
-  /** rAF debounce for {@link scheduleBakedHeightRefresh}. */
-  private bakedRefreshScheduled = false;
-  /** A refresh was requested while a budgeted sweep was in flight. */
-  private bakedRefreshPending = false;
-  /** Unsubscribe for the cells-changed listener registered on init. */
-  private cellsChangedOff: (() => void) | null = null;
   /** Intro boot gate, see holdForIntroFlight(): pending frame, deadline, passed. */
   private introGateRaf: number | null = null;
   private introGateDeadline: number | null = null;
@@ -134,6 +129,16 @@ export class VisualizationFacadeService {
     inputHandler: this.inputHandler,
     pathRoute: this.pathRoute,
     change: (apply) => this.corridor.change(apply),
+  });
+
+  /** Cell refresh after tile loads and the heights baked off the cells, see RouteGridConvergence. */
+  private readonly convergence = new RouteGridConvergence({
+    grid: () => this.gameState.getGlobalRouteGrid(),
+    store: this.store,
+    pathRoute: this.pathRoute,
+    markerViz: this.markerViz,
+    routeAnimation: this.routeAnimation,
+    settled: () => this.corridor.remeasure(),
   });
 
   /** Component bridge — set via initialize() */
@@ -174,14 +179,7 @@ export class VisualizationFacadeService {
   dispose(): void {
     this.eventBusSubs.disposeAll();
     this.corridor.dispose();
-    this.cellsChangedOff?.();
-    this.cellsChangedOff = null;
-    if (this.routeGridConvergenceRaf !== null) {
-      cancelAnimationFrame(this.routeGridConvergenceRaf);
-      this.routeGridConvergenceRaf = null;
-    }
-    this.routeGridConvergenceScheduled = false;
-    this.bakedRefreshPending = false;
+    this.convergence.dispose();
     if (this.introGateRaf !== null) {
       cancelAnimationFrame(this.introGateRaf);
       this.introGateRaf = null;
@@ -297,13 +295,7 @@ export class VisualizationFacadeService {
     this.introFlight.initialize(engine);
 
     // Anything baked off cell heights has to follow the cells as they heal.
-    // This runs again on every location change and the grid is a root
-    // singleton, so drop the previous subscription instead of stacking a
-    // second (third, fourth…) rebuild onto every emit.
-    this.cellsChangedOff?.();
-    this.cellsChangedOff = this.gameState.getGlobalRouteGrid().addCellsChangedListener(() =>
-      this.scheduleBakedHeightRefresh(),
-    );
+    this.convergence.followCells();
 
     // Initialize keyboard panning service
     this.keyboardPan.initialize(engine);
@@ -560,51 +552,6 @@ export class VisualizationFacadeService {
   }
 
   /**
-   * Rebuild everything that was baked off cell heights, once a streaming
-   * batch has settled.
-   *
-   * The route line and the markers copy cell / terrain heights at build
-   * time. Cells self-heal as tiles refine, but the copies did not: the only
-   * thing that rebuilt them was the tile-load callback, which used to fire
-   * solely when the terrain column under the HQ moved by more than 2 m.
-   * Refinement out along the corridor never moves that column, so a route
-   * baked during the coarse phase stayed baked — the line, the spawn marker
-   * and the enemies walking that path all stuck at the height the coarse
-   * tiles reported, which in a dense city is roof level.
-   *
-   * Driven by the grid itself now, and debounced through rAF so a burst of
-   * promotions collapses into one rebuild.
-   *
-   * A rebuild is NOT cheap — it re-runs pathfinding per spawn, reallocates the
-   * Line2 geometry and restarts the route animation (which resets its dash
-   * offset). While the budgeted sweep is in flight it emits changed cells
-   * every single frame, so doing this per slice would both dwarf the sweep's
-   * own 5 ms budget and freeze the dash animation at offset 0 for the whole
-   * sweep. Requests during a sweep are therefore coalesced into one rebuild
-   * once it converges (see `scheduleRouteGridConvergence`).
-   */
-  private scheduleBakedHeightRefresh(): void {
-    if (this.gameState.getGlobalRouteGrid().isTerrainRefreshActive()) {
-      this.bakedRefreshPending = true;
-      return;
-    }
-    if (this.bakedRefreshScheduled) return;
-    this.bakedRefreshScheduled = true;
-    requestAnimationFrame(() => {
-      this.bakedRefreshScheduled = false;
-      const spawns = this.store.spawnPoints();
-      this.pathRoute.refreshRouteLines(spawns);
-      this.markerViz.updateMarkerHeights();
-      if (this.routeAnimation.isRunning()) {
-        const cachedPaths = this.pathRoute.getCachedPaths();
-        if (cachedPaths.size > 0) {
-          this.routeAnimation.startAnimation(cachedPaths, spawns);
-        }
-      }
-    });
-  }
-
-  /**
    * Intro boot gate (utils/flight-gate.ts). Once tiles, streets and heights
    * are done, the loading screen stays up until the intro flight has reliable
    * heights along INTRO_GATE_MIN_READY of its route, or until
@@ -847,7 +794,7 @@ export class VisualizationFacadeService {
     // Kick off a FRAME-BUDGETED refresh instead of the old synchronous full
     // sweep. The sweep used to raycast all ~3600 cells in one blocking call
     // (~900ms main-thread freeze on every tile-load = the pan/zoom stutter).
-    // `scheduleRouteGridConvergence` below now drives the sweep across rAF
+    // `RouteGridConvergence.schedule` below now drives the sweep across rAF
     // ticks at ~5ms/frame, then falls back to unsampled self-heal. The route
     // lines / animation below read the current (for refresh-cases already
     // usable) cell heights; the small LOD deltas snap in over the next frames.
@@ -864,7 +811,7 @@ export class VisualizationFacadeService {
     // still gets its refresh: its heights come from the generated heightmap in
     // one shot rather than converging over several tile loads, so it never
     // emits a cells-changed event.
-    this.scheduleBakedHeightRefresh();
+    this.convergence.scheduleBakedHeightRefresh();
     const tRoutes = performance.now();
     const tRouteAnim = performance.now();
 
@@ -878,7 +825,7 @@ export class VisualizationFacadeService {
     // ticks until two consecutive frames promote nothing (= converged)
     // or a safety cap is hit. No magic-number timeout — the loop
     // self-adjusts to hardware and cache state.
-    this.scheduleRouteGridConvergence();
+    this.convergence.schedule();
     const tConvergence = performance.now();
 
     // Per-tower LOS is no longer re-resolved here. It used to run a full
@@ -911,95 +858,6 @@ export class VisualizationFacadeService {
   // ══════════════════════════════════════════════════════════════
   // Private Helpers (deduplication)
   // ══════════════════════════════════════════════════════════════
-
-  private routeGridConvergenceScheduled = false;
-  /** rAF handle for the convergence loop — cancelled in dispose(). */
-  private routeGridConvergenceRaf: number | null = null;
-
-  /** Per-frame time budget (ms) for the budgeted terrain-refresh sweep.
-   * ~5ms keeps frames at ~55fps while ~1300 raycasts converge over ~1.5–2s
-   * in the background, instead of one ~900ms blocking sweep. Central tuning
-   * knob: smaller = smoother but slower convergence. */
-  private readonly TERRAIN_REFRESH_BUDGET_MS = 5;
-
-  /**
-   * Unified rAF refresh loop. Each tick first advances the frame-budgeted
-   * terrain-refresh sweep (kicked off by `beginTerrainHeightRefresh` in
-   * `onTilesLoaded`); once that sweep is done it falls back to
-   * `retryUnsampledCells` self-heal until convergence — i.e. two consecutive
-   * frames promote zero cells, or the safety cap is hit.
-   *
-   * A single loop (rather than two competing rAF loops) avoids two raycast
-   * passes racing each frame. The retry phase handles cells whose tile mesh
-   * decodes asynchronously AFTER the budgeted sweep already passed them
-   * (tile-mesh decoding is async to the tile-load-end event; cf. cases
-   * 2/5/6/10/12/14 in the bug hunt).
-   *
-   * `MAX_FRAMES = 120` (~2s at 60fps) is purely a safety guard against
-   * pathological loops; on normal hardware the loop exits within a
-   * handful of frames once the engine has decoded the mesh.
-   */
-  private scheduleRouteGridConvergence(): void {
-    if (this.routeGridConvergenceScheduled) return;
-    this.routeGridConvergenceScheduled = true;
-    const MAX_FRAMES = 120;
-    const grid = this.gameState.getGlobalRouteGrid();
-    let frames = 0;
-    let zeroFrames = 0;
-
-    // The grid emits cells-changed for every slice that moved a cell, but
-    // `scheduleBakedHeightRefresh` defers while the sweep is active — so the
-    // whole sweep collapses into the single rebuild fired here. Same one
-    // implementation, just triggered once instead of per frame.
-    const finish = () => {
-      this.routeGridConvergenceScheduled = false;
-      if (this.bakedRefreshPending) {
-        this.bakedRefreshPending = false;
-        this.scheduleBakedHeightRefresh();
-      }
-      // The batch has settled: corridor stations that were still on coarse
-      // tiles may have fine ones now (CorridorRefit.remeasure).
-      this.corridor.remeasure();
-    };
-
-    const tick = () => {
-      this.routeGridConvergenceRaf = null;
-      // dispose() may have torn down the engine/grid between frames.
-      if (!this.routeGridConvergenceScheduled) return;
-      if (frames++ >= MAX_FRAMES) {
-        finish();
-        return;
-      }
-
-      // Phase 1: advance the budgeted terrain-refresh sweep. While it's in
-      // flight, keep ticking and skip the unsampled-retry (the sweep already
-      // covers promotion + refresh for every cell).
-      if (grid.isTerrainRefreshActive()) {
-        grid.stepTerrainHeightRefresh(this.TERRAIN_REFRESH_BUDGET_MS);
-        // The MAX_FRAMES cap guards the unsampled-retry tail only — don't let
-        // it abandon an in-flight (or panning-restarted) sweep.
-        frames = 0;
-        zeroFrames = 0;
-        this.routeGridConvergenceRaf = requestAnimationFrame(tick);
-        return;
-      }
-
-      // Phase 2: self-heal cells whose mesh decoded after the sweep passed.
-      const { promoted } = grid.retryUnsampledCells();
-      if (promoted > 0) {
-        zeroFrames = 0;
-        this.routeGridConvergenceRaf = requestAnimationFrame(tick);
-      } else if (zeroFrames < 1) {
-        // One empty frame may just be the gap between tile-decode bursts —
-        // give it one more chance before declaring convergence.
-        zeroFrames++;
-        this.routeGridConvergenceRaf = requestAnimationFrame(tick);
-      } else {
-        finish();
-      }
-    };
-    this.routeGridConvergenceRaf = requestAnimationFrame(tick);
-  }
 
   /**
    * Collect all route points from cached paths as GeoPoints.
