@@ -13,6 +13,8 @@ import { GAME_SOUNDS } from '../configs/audio.config';
  */
 export class AudioService {
   private readonly subs = new SubscriptionBag();
+  /** Repeats of the strike sound still to come (GAME_SOUNDS.nuclearStrike.tail) */
+  private readonly tailTimers = new Set<ReturnType<typeof setTimeout>>();
 
   constructor(
     private eventBus: GameEventBus,
@@ -24,8 +26,8 @@ export class AudioService {
 
   /** Sounds this service plays for game events of its own */
   private registerSounds(): void {
-    const { id, url, refDistance, rolloffFactor, volume } = GAME_SOUNDS.nuclearStrike;
-    this.tilesEngine.spatialAudio?.registerSound(id, url, { refDistance, rolloffFactor, volume });
+    const { id, url, refDistance, rolloffFactor, volume, maxInstances } = GAME_SOUNDS.nuclearStrike;
+    this.tilesEngine.spatialAudio?.registerSound(id, url, { refDistance, rolloffFactor, volume, maxInstances });
   }
 
   /**
@@ -36,15 +38,27 @@ export class AudioService {
       this.handleAudioPlay(event);
     }));
 
-    // Nuclear strike, at the impact point
-    this.subs.add(this.eventBus.on('ability:impact', (event) => {
-      this.handleAudioPlay({
-        sound: GAME_SOUNDS.nuclearStrike.id,
-        lat: event.target.lat,
-        lon: event.target.lon,
-        height: event.target.height ?? 0,
-      });
+    // Nuclear strike, at the impact point, with a rumbling tail of quieter repeats
+    this.subs.add(this.eventBus.on('ability:impact', ({ target }) => {
+      const { id, tail } = GAME_SOUNDS.nuclearStrike;
+      const play = (volume: number) =>
+        this.handleAudioPlay({ sound: id, lat: target.lat, lon: target.lon, height: target.height ?? 0, volume });
+      play(1);
+      for (const { delayMs, volume } of tail) {
+        const timer = setTimeout(() => {
+          this.tailTimers.delete(timer);
+          play(volume);
+        }, delayMs);
+        this.tailTimers.add(timer);
+      }
     }));
+    // A restart drops the repeats still to come
+    this.subs.add(this.eventBus.on('game:reset', () => this.clearTail()));
+  }
+
+  private clearTail(): void {
+    for (const timer of this.tailTimers) clearTimeout(timer);
+    this.tailTimers.clear();
   }
 
   /**
@@ -76,5 +90,6 @@ export class AudioService {
    */
   destroy(): void {
     this.subs.disposeAll();
+    this.clearTail();
   }
 }

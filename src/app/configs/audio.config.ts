@@ -96,12 +96,25 @@ export const GAME_SOUNDS = {
     rolloffFactor: 1,
     volume: 1.4,
   },
-  /** Nuclear strike impact: the same sample, louder and audible from further away */
+  /**
+   * Nuclear strike impact: the same sample, louder and audible from further
+   * away. Played again after each `tail` delay at that share of the volume,
+   * a rumbling tail (wall-clock ms, like the sample itself; AudioService).
+   * The 1.3 s sample then plays up to three times at once. `maxInstances`
+   * pins the four the playback derives for a sample of that length, so a
+   * longer sample would not drop the repeats. Every play of explosion.mp3,
+   * HQ damage included, counts against it.
+   */
   nuclearStrike: {
     id: 'nuclear_strike',
     url: 'assets/sounds/effects/explosion.mp3',
     refDistance: 150,
     rolloffFactor: 0.6,
     volume: 1.6,
+    maxInstances: 4,
+    tail: [
+      { delayMs: 350, volume: 0.55 },
+      { delayMs: 900, volume: 0.35 },
+    ],
   },
 } as const;
