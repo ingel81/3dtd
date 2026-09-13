@@ -1185,6 +1185,56 @@ Feuer-Explosionen mit setTimeout sind weg.
 214. Tempo schneller: der Pilz läuft entsprechend schneller ab.
 215. VFX-Preset Low (wie Punkt 197): nur Blitz, Feuerball und Ring.
 
+### Atompilz, mehr Wumms (mushroom2, `f77cae2` bis `840b1d7`)
+
+Befund aus dem Playtest: "Atompilz muss noch gewaltiger sein, es fehlt an
+optischem Wumms und Explosion." Richtung und Spielzeit bleiben, der Moment
+schlägt härter ein. Nur Bild und Ton, am Schaden ändert sich nichts.
+
+- `f77cae2` Detonation: weißglühender Kern; Feuerball in 0,15 s auf 18 m,
+  sein Zentrum schießt in der ersten halben Sekunde 14 m hoch, bis 0,7 s
+  von weiß zu orange; zweite Feuerfront bis 38 m; Schockkuppel bis 46 m;
+  Druckwellenring bis 70 m (vorher 36 m) mit einer Staubwand auf der Front;
+  48 Glutschweife fliegen nach außen und oben und verlöschen am Boden;
+  Bodenfeuer bis 7,5 s. Blitz-Sprite 150 m, Aufhellung des Bildes mit
+  Spitze 0,65 für 0,55 s (vorher 0,3 für 0,3 s).
+- `526123d` Pilz: schießt in der ersten Sekunde auf gut 55 m, bei 5 s knapp
+  100 m, beim Auflösen über 110 m (vorher knapp 60 m). Kappe und Stamm
+  breiter und dichter, oben dunkel, unten länger glühend, mit Wülsten, die
+  um den Stamm wandern; Kondensationsring um den Stamm von 0,5 bis 3,8 s.
+  Steht 14 s (vorher 10 s).
+- `2a46f62` Bloom-Kick, nur mit Bloom an: 0,9 s lang Stärke bis 1,4 und
+  Schwelle bis 0,55, danach genau die alten Werte.
+- `8500ea6` Shake 0,014 für 1600 ms (vorher 0,008 für 700 ms), voll bis
+  350 m Kameraabstand, keiner ab 1500 m; aus der Übersicht gut 90 %.
+- `3e42592` Ton: `explosion.mp3` nach 350 und 900 ms noch zweimal leiser
+  (55 und 35 %).
+- `840b1d7`: ABILITIES.md, PARTICLE_SYSTEM.md.
+- Budget je Pilz 432 Glut- und 546 Rauchpartikel (vorher 106 und 270), zwei
+  Pilze gleichzeitig, ohne Pilz kein Draw Call.
+
+216. Schlag setzen (wie Punkt 114 bis 116), Kamera in der Übersicht (Reset
+     Camera): das ganze Bild blitzt hell auf, ein weißglühender Feuerball
+     schießt hoch und wird orange, eine helle Kuppel und der Ring laufen
+     über den Boden, am Ring steht eine Staubwand, Glutschweife fliegen
+     nach außen. Das Bild wackelt deutlich länger als bei Raketen.
+217. Weiter zusehen: die Kappe schießt hoch und steigt dann langsam, kurz
+     steht ein weißer Ring um den Stamm, die Unterseite der Kappe glüht
+     orange, oben ist sie dunkel, die Wülste rollen sichtbar. Der Pilz
+     beherrscht die Übersicht und steht rund 14 s. Am Boden brennt es
+     einige Sekunden.
+218. Ton: auf den Knall folgen zwei leisere Nachschläge, zusammen gut 2 s.
+219. P direkt nach dem Einschlag: Blitz und Pilz frieren ein, nach P geht es
+     weiter. Tempo schneller: alles läuft entsprechend schneller ab.
+220. Display-Menü (Augen-Button), Bloom an, Schlag setzen: helle Flächen
+     glühen kurz stark nach, nach etwa einer Sekunde sieht Bloom aus wie
+     vorher. Bloom wieder aus.
+221. Display-Menü, Screen Shake aus, Schlag setzen: kein Wackeln.
+222. VFX-Preset Low (wie Punkt 197): Blitz, Feuerball, Feuerfront, Kuppel und
+     Ring, kein Rauch, keine Glutschweife, kein Bodenfeuer.
+223. Kamera nah an den Einschlag (unter 100 m): Feuerball und Glut sind
+     nicht abgeschnitten und zeigen keine harten Kanten.
+
 ## TODO-Stand
 
 Jeder dieser Einträge hat in TODO.md eine Zeile "Stand 2026-09-13 (Nacht)".
