@@ -14,6 +14,7 @@ import {
   Points,
   RGBAFormat,
   ShaderMaterial,
+  SphereGeometry,
   Sprite,
   SpriteMaterial,
   Uniform,
@@ -27,13 +28,29 @@ import { PARTICLE_POINT_SCALE, type ParticleShaderMaterials } from './particle-s
 
 const GLOW = LOOK.glowParticles;
 const SMOKE = LOOK.smokeParticles;
-const GLOW_PER_CLOUD = GLOW.fireball + GLOW.stemFire + GLOW.rim;
-const SMOKE_PER_CLOUD = SMOKE.cap + SMOKE.dome + SMOKE.stem + SMOKE.dust + SMOKE.skirt;
+/** Points of all ember streaks of one cloud */
+const EMBER_POINTS = GLOW.embers * LOOK.embers.trail;
+const GLOW_PER_CLOUD =
+  GLOW.core + GLOW.fireball + GLOW.shell + EMBER_POINTS + GLOW.groundFire + GLOW.stemFire + GLOW.rim;
+const SMOKE_PER_CLOUD = SMOKE.cap + SMOKE.dome + SMOKE.stem + SMOKE.dust + SMOKE.skirt + SMOKE.wall;
 /** Random numbers per particle, drawn once per strike */
 const SEEDS = 4;
 /** Staged smoke values per particle: x, y, z, size, r, g, b, frame */
 const STAGE = 8;
 const TAU = Math.PI * 2;
+
+// Where each glow group's random numbers start within a cloud's block
+const CORE_SEEDS = 0;
+const BALL_SEEDS = CORE_SEEDS + GLOW.core * SEEDS;
+const SHELL_SEEDS = BALL_SEEDS + GLOW.fireball * SEEDS;
+const EMBER_SEEDS = SHELL_SEEDS + GLOW.shell * SEEDS;
+const GROUND_FIRE_SEEDS = EMBER_SEEDS + EMBER_POINTS * SEEDS;
+const STEM_FIRE_SEEDS = GROUND_FIRE_SEEDS + GLOW.groundFire * SEEDS;
+const RIM_SEEDS = STEM_FIRE_SEEDS + GLOW.stemFire * SEEDS;
+/** Embers launch within this many seconds of the impact */
+const EMBER_LAUNCH = 0.12;
+/** The last ember streak point is gone after this many game seconds */
+const EMBERS_END = EMBER_LAUNCH + LOOK.embers.life[1] + (LOOK.embers.trail - 1) * LOOK.embers.trailStep;
 
 /** Frames of the 4x4 sprite atlases */
 const ATLAS_FRAMES = 16;
@@ -45,6 +62,8 @@ const ATLAS_FRAMES = 16;
 const SMOKE_ALPHA = 0.51;
 /** A puff fainter than this is left out */
 const MIN_ALPHA = 0.015;
+/** A glow particle darker than this is left out */
+const MIN_LIGHT = 0.01;
 /** Share of the sprite the glow of an explosion-atlas frame covers */
 const GLOW_COVERAGE = 0.6;
 
@@ -53,10 +72,13 @@ const GLOW_ORDER = 996;
 const SMOKE_ORDER = 997;
 /** Above the strike marker (950), under the particle pools (999) */
 const RING_ORDER = 951;
+const DOME_ORDER = 952;
 const FLASH_ORDER = 1002;
 const SCREEN_ORDER = 1003;
 /** Shockwave ring above the ground point, m */
 const RING_LIFT = 0.6;
+/** Height of the shock dome over its radius */
+const DOME_FLATTEN = 0.8;
 
 /** A quad over the whole screen, additive: the screen part of the flash. */
 const SCREEN_VERTEX_SHADER = /* glsl */ `
@@ -81,6 +103,39 @@ const SCREEN_FRAGMENT_SHADER = /* glsl */ `
   }
 `;
 
+/** Shock dome: additive, faint where it faces the camera, bright along its outline. */
+const DOME_VERTEX_SHADER = /* glsl */ `
+  varying vec3 vNormal;
+  varying vec3 vView;
+
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
+
+  void main() {
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vNormal = normalize(normalMatrix * normal);
+    vView = -mvPosition.xyz;
+    gl_Position = projectionMatrix * mvPosition;
+    #include <logdepthbuf_vertex>
+  }
+`;
+
+const DOME_FRAGMENT_SHADER = /* glsl */ `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying vec3 vNormal;
+  varying vec3 vView;
+
+  #include <logdepthbuf_pars_fragment>
+
+  void main() {
+    float facing = abs(dot(normalize(vNormal), normalize(vView)));
+    float outline = pow(1.0 - facing, 2.5);
+    gl_FragColor = vec4(uColor, uOpacity * (0.15 + 0.85 * outline));
+    #include <logdepthbuf_fragment>
+  }
+`;
+
 interface Cloud {
   active: boolean;
   /** Game seconds since the impact */
@@ -91,7 +146,7 @@ interface Cloud {
   z: number;
   /** Strike radius over LOOK.referenceRadius */
   scale: number;
-  /** Everything, or flash, fireball and shockwave only (impact effects off) */
+  /** Everything, or the detonation only (impact effects off) */
   full: boolean;
   /** Wind direction, unit vector on the ground */
   windX: number;
@@ -124,6 +179,14 @@ function smokeCoverage(frame: number): number {
 
 function fract(x: number): number {
   return x - Math.floor(x);
+}
+
+/**
+ * Share of its final radius a front running out with time constant `k`
+ * has reached at `t`: fast at first, all of it at `duration`.
+ */
+function reach(t: number, duration: number, k: number): number {
+  return (1 - Math.exp(-Math.min(t, duration) / k)) / (1 - Math.exp(-duration / k));
 }
 
 /** White square texture whose alpha runs over the distance r (0 centre, 1 edge) from its centre. */
@@ -184,7 +247,8 @@ function particleBuffer(scene: Scene, capacity: number, material: ShaderMaterial
  * and the shockwave ring have depth test off, like the strike marker: the
  * flash lights up what stands in front, and the ring has to stay readable
  * between buildings. Built-in materials, so they get logarithmic depth;
- * the screen quad includes the chunks.
+ * the screen quad and the shock dome include the chunks. The dome keeps
+ * its depth test, the buildings in front of it hide it.
  *
  * Fixed buffers, nothing allocated per frame.
  */
@@ -192,7 +256,7 @@ export class MushroomCloudRenderer {
   private readonly clouds: Cloud[] = [];
   private activeCount = 0;
   private sequence = 0;
-  /** Smoke, stem fire and rim glow (VFX settings: impact effects) */
+  /** Smoke, embers, ground fire, stem fire and rim glow (VFX settings: impact effects) */
   private full = true;
 
   private readonly glowSeeds = new Float32Array(LOOK.clouds * GLOW_PER_CLOUD * SEEDS);
@@ -210,9 +274,13 @@ export class MushroomCloudRenderer {
   private readonly ringTexture: DataTexture;
   private readonly flashTexture: DataTexture;
   private readonly ringGeometry = new PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
+  /** Upper half of a unit sphere */
+  private readonly domeGeometry = new SphereGeometry(1, 32, 10, 0, TAU, 0, Math.PI / 2);
   private readonly rings: Mesh<PlaneGeometry, MeshBasicMaterial>[] = [];
+  private readonly domes: Mesh<SphereGeometry, ShaderMaterial>[] = [];
   private readonly flashes: Sprite[] = [];
   private readonly ringGates: DrawGate[] = [];
+  private readonly domeGates: DrawGate[] = [];
   private readonly flashGates: DrawGate[] = [];
   private readonly screen: Mesh<PlaneGeometry, ShaderMaterial>;
   private readonly screenGate: DrawGate;
@@ -251,7 +319,7 @@ export class MushroomCloudRenderer {
       Math.exp(-(((r - 0.9) / 0.045) ** 2)) + (r < 0.9 ? 0.18 * MathUtils.smoothstep(r, 0.2, 0.9) : 0));
     this.flashTexture = radialTexture(64, (r) => (1 - r) ** 2);
 
-    const { flash, shockwave } = LOOK.colors;
+    const { flash, shockwave, shockDome } = LOOK.colors;
     const intensity = LOOK.flash.intensity;
     for (let i = 0; i < LOOK.clouds; i++) {
       const ringMaterial = new MeshBasicMaterial({
@@ -270,6 +338,24 @@ export class MushroomCloudRenderer {
       scene.add(ring);
       this.rings.push(ring);
       this.ringGates.push(new DrawGate([ring]));
+
+      const domeMaterial = new ShaderMaterial({
+        vertexShader: DOME_VERTEX_SHADER,
+        fragmentShader: DOME_FRAGMENT_SHADER,
+        uniforms: {
+          uColor: new Uniform(new Vector3(shockDome.r, shockDome.g, shockDome.b)),
+          uOpacity: new Uniform(0),
+        },
+        transparent: true,
+        blending: AdditiveBlending,
+        depthWrite: false,
+      });
+      const dome = new Mesh(this.domeGeometry, domeMaterial);
+      dome.frustumCulled = false;
+      dome.renderOrder = DOME_ORDER;
+      scene.add(dome);
+      this.domes.push(dome);
+      this.domeGates.push(new DrawGate([dome]));
 
       const flashMaterial = new SpriteMaterial({
         map: this.flashTexture,
@@ -313,8 +399,9 @@ export class MushroomCloudRenderer {
   }
 
   /**
-   * Flash, fireball and shockwave only, or the whole cloud (VFX settings:
-   * impact effects). Takes hold with the next strike.
+   * The whole cloud, or the detonation only: flash, fireball, fire shell,
+   * shock dome and shockwave (VFX settings: impact effects). Takes hold
+   * with the next strike.
    */
   setFullCloud(full: boolean): void {
     this.full = full;
@@ -380,6 +467,7 @@ export class MushroomCloudRenderer {
       if (!cloud.active) {
         this.hideSmoke(slot);
         this.ringGates[slot].setCount(0);
+        this.domeGates[slot].setCount(0);
         this.flashGates[slot].setCount(0);
         continue;
       }
@@ -391,6 +479,7 @@ export class MushroomCloudRenderer {
         this.hideSmoke(slot);
       }
       this.updateRing(cloud, slot);
+      this.updateDome(cloud, slot);
       this.updateFlash(cloud, slot);
       const { screenPeak, screenDuration } = LOOK.flash;
       if (cloud.t < screenDuration) {
@@ -412,6 +501,7 @@ export class MushroomCloudRenderer {
     this.commit(this.glow, 0);
     this.commit(this.smoke, 0);
     for (const gate of this.ringGates) gate.setCount(0);
+    for (const gate of this.domeGates) gate.setCount(0);
     for (const gate of this.flashGates) gate.setCount(0);
     this.screenGate.setCount(0);
   }
@@ -427,6 +517,10 @@ export class MushroomCloudRenderer {
       this.scene.remove(ring);
       ring.material.dispose();
     }
+    for (const dome of this.domes) {
+      this.scene.remove(dome);
+      dome.material.dispose();
+    }
     for (const sprite of this.flashes) {
       this.scene.remove(sprite);
       sprite.material.dispose();
@@ -435,6 +529,7 @@ export class MushroomCloudRenderer {
     this.screen.geometry.dispose();
     this.screen.material.dispose();
     this.ringGeometry.dispose();
+    this.domeGeometry.dispose();
     this.ringTexture.dispose();
     this.flashTexture.dispose();
   }
@@ -488,79 +583,223 @@ export class MushroomCloudRenderer {
     this.pz += this.windZ * share;
   }
 
-  /** Fireball, stem fire and rim glow of one cloud into the glow buffer from index `n`; returns the next index. */
+  /**
+   * The glow of one cloud into the glow buffer from index `n`; returns the
+   * next index. The detonation always, the rest with the full cloud.
+   */
   private writeGlow(cloud: Cloud, slot: number, n: number): number {
-    const { fireball, stem, colors } = LOOK;
+    const seeds = slot * GLOW_PER_CLOUD * SEEDS;
+    n = this.writeFireball(cloud, seeds, n);
+    n = this.writeShell(cloud, seeds + SHELL_SEEDS, n);
+    if (!cloud.full) return n;
+    n = this.writeEmbers(cloud, seeds + EMBER_SEEDS, n);
+    n = this.writeGroundFire(cloud, seeds + GROUND_FIRE_SEEDS, n);
+    n = this.writeStemFire(cloud, seeds + STEM_FIRE_SEEDS, n);
+    return this.writeRim(cloud, seeds + RIM_SEEDS, n);
+  }
+
+  /**
+   * The white-hot core and the fireball: a hemisphere on the ground whose
+   * centre punches up, white-hot turning orange, then the glowing core of
+   * the cap. `seeds` is the cloud's block.
+   */
+  private writeFireball(cloud: Cloud, seeds: number, n: number): number {
+    const { core, fireball, colors } = LOOK;
     const t = cloud.t;
     const s = cloud.scale;
-    const seeds = this.glowSeeds;
-    const ballSeeds = slot * GLOW_PER_CLOUD * SEEDS;
-    const stemSeeds = ballSeeds + GLOW.fireball * SEEDS;
-    const rimSeeds = stemSeeds + GLOW.stemFire * SEEDS;
+    const r = this.glowSeeds;
+    const punch = fireball.punch * (1 - Math.exp(-t / fireball.punchTime)) * s;
+    const radius = (2 + (fireball.radius - 2) * (1 - Math.exp(-t / fireball.growTime))) * s;
 
-    // Fireball: a hemisphere on the ground, then the glowing core of the cap
+    // Core: a white-hot knot in the middle of the fireball, burnt out after core.duration
+    const coreLight = core.intensity * (1 - MathUtils.smoothstep(t, 0.1, core.duration));
+    if (coreLight > MIN_LIGHT) {
+      const centre = radius * 0.5 + punch;
+      const grow = 0.6 + 0.4 * MathUtils.smoothstep(t, 0, 0.15);
+      for (let i = 0, seed = seeds + CORE_SEEDS; i < GLOW.core; i++, seed += SEEDS) {
+        const a = r[seed] * TAU;
+        const up = r[seed + 1] * 2 - 1;
+        const k = core.radius * s * Math.cbrt(r[seed + 2]);
+        const out = Math.sqrt(1 - up * up) * k;
+        this.px = Math.cos(a) * out;
+        this.py = centre + up * k;
+        this.pz = Math.sin(a) * out;
+        const diameter = MathUtils.lerp(core.size[0], core.size[1], r[seed + 3]) * s * grow;
+        this.putGlow(n++, cloud, diameter, 0, colors.core, coreLight);
+      }
+    }
+
     const ballLight =
-      1.3 * (1 - MathUtils.smoothstep(t, fireball.fadeStart, fireball.fadeEnd)) * (0.45 + 0.55 * Math.exp(-t / 0.6));
-    if (ballLight > 0.01) {
-      const radius = (2 + (fireball.radius - 2) * (1 - Math.exp(-t / fireball.growTime))) * s;
-      const lift = MathUtils.smoothstep(t, fireball.liftStart, fireball.liftEnd);
-      const grow = 0.5 + 0.5 * MathUtils.smoothstep(t, 0, 0.4);
-      // Flash white to fireball orange to dark red (explosion atlas)
-      const frame = Math.round(1 + 9 * Math.min(1, t / fireball.fadeEnd));
-      for (let i = 0, seed = ballSeeds; i < GLOW.fireball; i++, seed += SEEDS) {
-        const azimuth = seeds[seed] * TAU;
-        const up = seeds[seed + 1];
-        const depth = seeds[seed + 2];
-        const out = Math.sqrt(1 - up * up);
-        const k = 0.25 + 0.75 * Math.cbrt(depth);
-        const bx = Math.cos(azimuth) * out * radius * k;
-        const by = radius * (0.35 + up * k);
-        const bz = Math.sin(azimuth) * out * radius * k;
-        this.torusPoint(azimuth, (up * 2 - 1) * Math.PI - this.roll, 0.2 + 0.4 * depth);
-        this.px = MathUtils.lerp(bx, this.px, lift);
-        this.py = MathUtils.lerp(by, this.py, lift);
-        this.pz = MathUtils.lerp(bz, this.pz, lift);
-        this.drift();
-        const diameter = MathUtils.lerp(fireball.size[0], fireball.size[1], seeds[seed + 3]) * s * grow;
-        this.putGlow(n++, cloud, diameter, frame, colors.fireball, ballLight);
-      }
+      1.6 * (1 - MathUtils.smoothstep(t, fireball.fadeStart, fireball.fadeEnd)) * (0.45 + 0.55 * Math.exp(-t / 0.6));
+    if (ballLight <= MIN_LIGHT) return n;
+    const lift = MathUtils.smoothstep(t, fireball.liftStart, fireball.liftEnd);
+    const grow = 0.5 + 0.5 * MathUtils.smoothstep(t, 0, 0.25);
+    // Flash white to fireball orange to dark red (explosion atlas)
+    const frame = Math.round(1 + 9 * Math.min(1, t / fireball.fadeEnd));
+    const hot = 1 - MathUtils.smoothstep(t, 0.1, fireball.hotEnd);
+    const { fireballHot, fireball: orange } = colors;
+    const red = MathUtils.lerp(orange.r, fireballHot.r, hot) * ballLight;
+    const green = MathUtils.lerp(orange.g, fireballHot.g, hot) * ballLight;
+    const blue = MathUtils.lerp(orange.b, fireballHot.b, hot) * ballLight;
+    for (let i = 0, seed = seeds + BALL_SEEDS; i < GLOW.fireball; i++, seed += SEEDS) {
+      const azimuth = r[seed] * TAU;
+      const up = r[seed + 1];
+      const depth = r[seed + 2];
+      const out = Math.sqrt(1 - up * up);
+      const k = 0.25 + 0.75 * Math.cbrt(depth);
+      const bx = Math.cos(azimuth) * out * radius * k;
+      const by = radius * (0.35 + up * k) + punch;
+      const bz = Math.sin(azimuth) * out * radius * k;
+      this.torusPoint(azimuth, (up * 2 - 1) * Math.PI - this.roll, 0.2 + 0.4 * depth);
+      this.px = MathUtils.lerp(bx, this.px, lift);
+      this.py = MathUtils.lerp(by, this.py, lift);
+      this.pz = MathUtils.lerp(bz, this.pz, lift);
+      this.drift();
+      const diameter = MathUtils.lerp(fireball.size[0], fireball.size[1], r[seed + 3]) * s * grow;
+      this.putGlowRgb(n++, cloud, diameter, frame, red, green, blue);
     }
-    if (!cloud.full) return n;
+    return n;
+  }
 
-    // Stem fire: rising through the core of the stem, darker the higher it gets
-    const fireLight = 1.1 * MathUtils.smoothstep(t, 0.25, 0.5) * (1 - MathUtils.smoothstep(t, 1.4, 3));
-    if (fireLight > 0.01) {
-      const width = stem.width * s * 0.55;
-      for (let i = 0, seed = stemSeeds; i < GLOW.stemFire; i++, seed += SEEDS) {
-        const climb = fract(seeds[seed] + 0.9 * (t - 0.25));
-        const light = fireLight * (1 - 0.65 * climb) * MathUtils.smoothstep(climb, 0, 0.1);
-        if (light <= 0.01) continue;
-        const r = width * Math.sqrt(seeds[seed + 1]);
-        const a = seeds[seed + 2] * TAU + 0.7 * t;
-        this.px = Math.cos(a) * r;
-        this.py = this.stemTop * climb * 0.9;
-        this.pz = Math.sin(a) * r;
-        this.drift();
-        this.putGlow(n++, cloud, (4 + 3 * seeds[seed + 3]) * s, Math.round(4 + 5 * climb), colors.stemFire, light);
-      }
+  /** Second fire front: a flattened shell running out over the ground and fading. */
+  private writeShell(cloud: Cloud, seeds: number, n: number): number {
+    const { shell, colors } = LOOK;
+    const age = cloud.t - shell.start;
+    if (age <= 0 || age >= shell.duration) return n;
+    const share = age / shell.duration;
+    const light = 1.5 * (1 - share) ** 1.5 * MathUtils.smoothstep(age, 0, 0.06);
+    if (light <= MIN_LIGHT) return n;
+    const s = cloud.scale;
+    const out = reach(age, shell.duration, shell.timeConstant);
+    const radius = shell.radius * s * out;
+    const frame = Math.round(3 + 6 * share);
+    const r = this.glowSeeds;
+    for (let i = 0, seed = seeds; i < GLOW.shell; i++, seed += SEEDS) {
+      const a = r[seed] * TAU;
+      // Mostly low over the ground, a few up the side
+      const elevation = r[seed + 1] ** 1.5 * 1.3;
+      const k = radius * (0.85 + 0.15 * r[seed + 2]);
+      this.px = Math.cos(a) * Math.cos(elevation) * k;
+      this.py = Math.sin(elevation) * k * 0.7 + s;
+      this.pz = Math.sin(a) * Math.cos(elevation) * k;
+      const diameter = MathUtils.lerp(shell.size[0], shell.size[1], r[seed + 3]) * s * (0.6 + 0.6 * out);
+      this.putGlow(n++, cloud, diameter, frame, colors.shell, light);
     }
+    return n;
+  }
 
-    // Rim glow: the underside of the cap, lit by the fire in the stem
-    const rimLight = 0.9 * MathUtils.smoothstep(t, 0.7, 1.4) * (1 - MathUtils.smoothstep(t, 2.4, 5.2));
-    if (rimLight > 0.01) {
-      for (let i = 0, seed = rimSeeds; i < GLOW.rim; i++, seed += SEEDS) {
-        const u = seeds[seed + 3];
-        this.torusPoint(seeds[seed] * TAU + 0.1 * t, -Math.PI / 2 + (seeds[seed + 1] - 0.5) * 1.9, 0.8 + 0.2 * seeds[seed + 2]);
-        this.drift();
-        this.putGlow(n++, cloud, this.tubeR * 0.8 * (0.8 + 0.4 * u), 5 + Math.round(2 * u), colors.rim, rimLight);
+  /**
+   * Glowing debris thrown out and up, slowed by the air and falling back,
+   * each a streak of its last few positions. A point that has reached the
+   * ground is left out.
+   */
+  private writeEmbers(cloud: Cloud, seeds: number, n: number): number {
+    const { embers, colors } = LOOK;
+    const t = cloud.t;
+    if (t >= EMBERS_END) return n;
+    const s = cloud.scale;
+    const r = this.glowSeeds;
+    const drag = embers.drag;
+    const gravity = embers.gravity * s;
+    for (let e = 0, seed = seeds; e < GLOW.embers; e++, seed += embers.trail * SEEDS) {
+      const azimuth = r[seed] * TAU;
+      const elevation = 0.25 + 1.1 * r[seed + 1];
+      const speed = MathUtils.lerp(embers.speed[0], embers.speed[1], r[seed + 2]) * s;
+      const life = MathUtils.lerp(embers.life[0], embers.life[1], r[seed + 3]);
+      const start = EMBER_LAUNCH * r[seed + 4];
+      const size = MathUtils.lerp(embers.size[0], embers.size[1], r[seed + 5]) * s;
+      const out = Math.cos(elevation) * speed;
+      const up = Math.sin(elevation) * speed;
+      const cos = Math.cos(azimuth);
+      const sin = Math.sin(azimuth);
+      for (let j = 0; j < embers.trail; j++) {
+        const age = t - start - j * embers.trailStep;
+        if (age <= 0 || age >= life) continue;
+        // Linear drag: the speed falls off with the time constant, gravity pulls against it
+        const covered = drag * (1 - Math.exp(-age / drag));
+        const y = 2 * s + up * covered - gravity * drag * (age - covered);
+        if (y < 0) continue;
+        const h = 3 * s + out * covered;
+        this.px = cos * h;
+        this.py = y;
+        this.pz = sin * h;
+        const fade = (1 - age / life) ** 1.5 * (1 - 0.22 * j);
+        this.putGlow(n++, cloud, size * (1 - 0.18 * j), 1 + Math.round((6 * age) / life), colors.ember, 1.4 * fade);
       }
     }
     return n;
   }
 
-  /** Cap, dome, stem, dust surge and skirt of one cloud into the stage. */
+  /** Burning ground around the foot of the stem, flickering in game time. */
+  private writeGroundFire(cloud: Cloud, seeds: number, n: number): number {
+    const { groundFire, colors } = LOOK;
+    const t = cloud.t;
+    const light =
+      1.1 *
+      MathUtils.smoothstep(t, groundFire.start, groundFire.start + 0.4) *
+      (1 - MathUtils.smoothstep(t, groundFire.fadeStart, groundFire.fadeEnd));
+    if (light <= MIN_LIGHT) return n;
+    const s = cloud.scale;
+    const r = this.glowSeeds;
+    for (let i = 0, seed = seeds; i < GLOW.groundFire; i++, seed += SEEDS) {
+      const a = r[seed] * TAU;
+      const d = MathUtils.lerp(groundFire.radius[0], groundFire.radius[1], Math.sqrt(r[seed + 1])) * s;
+      const phase = r[seed + 2] * TAU;
+      const flicker = (0.7 + 0.3 * Math.sin(9 * t + phase)) * (0.85 + 0.15 * Math.sin(23 * t + 3 * phase));
+      const diameter =
+        MathUtils.lerp(groundFire.size[0], groundFire.size[1], r[seed + 3]) * s * (0.9 + 0.2 * Math.sin(6 * t + 2 * phase));
+      this.px = Math.cos(a) * d;
+      this.py = diameter * 0.35;
+      this.pz = Math.sin(a) * d;
+      // Cycles through the fireball frames of the atlas
+      const frame = 4 + (Math.floor(8 * t + 16 * r[seed + 2]) % 4);
+      this.putGlow(n++, cloud, diameter, frame, colors.groundFire, light * flicker);
+    }
+    return n;
+  }
+
+  /** Stem fire: rising through the core of the stem, darker the higher it gets. */
+  private writeStemFire(cloud: Cloud, seeds: number, n: number): number {
+    const { stem, colors } = LOOK;
+    const t = cloud.t;
+    const fireLight = 1.1 * MathUtils.smoothstep(t, 0.25, 0.5) * (1 - MathUtils.smoothstep(t, 1.4, 3));
+    if (fireLight <= MIN_LIGHT) return n;
+    const s = cloud.scale;
+    const r = this.glowSeeds;
+    const width = stem.width * s * 0.55;
+    for (let i = 0, seed = seeds; i < GLOW.stemFire; i++, seed += SEEDS) {
+      const climb = fract(r[seed] + 0.9 * (t - 0.25));
+      const light = fireLight * (1 - 0.65 * climb) * MathUtils.smoothstep(climb, 0, 0.1);
+      if (light <= MIN_LIGHT) continue;
+      const radius = width * Math.sqrt(r[seed + 1]);
+      const a = r[seed + 2] * TAU + 0.7 * t;
+      this.px = Math.cos(a) * radius;
+      this.py = this.stemTop * climb * 0.9;
+      this.pz = Math.sin(a) * radius;
+      this.drift();
+      this.putGlow(n++, cloud, (4 + 3 * r[seed + 3]) * s, Math.round(4 + 5 * climb), colors.stemFire, light);
+    }
+    return n;
+  }
+
+  /** Rim glow: the underside of the cap, lit by the fire in the stem. */
+  private writeRim(cloud: Cloud, seeds: number, n: number): number {
+    const t = cloud.t;
+    const rimLight = 0.9 * MathUtils.smoothstep(t, 0.7, 1.4) * (1 - MathUtils.smoothstep(t, 2.4, 5.2));
+    if (rimLight <= MIN_LIGHT) return n;
+    const r = this.glowSeeds;
+    for (let i = 0, seed = seeds; i < GLOW.rim; i++, seed += SEEDS) {
+      const u = r[seed + 3];
+      this.torusPoint(r[seed] * TAU + 0.1 * t, -Math.PI / 2 + (r[seed + 1] - 0.5) * 1.9, 0.8 + 0.2 * r[seed + 2]);
+      this.drift();
+      this.putGlow(n++, cloud, this.tubeR * 0.8 * (0.8 + 0.4 * u), 5 + Math.round(2 * u), LOOK.colors.rim, rimLight);
+    }
+    return n;
+  }
+
+  /** Cap, dome, stem, dust surge, skirt and dust wall of one cloud into the stage. */
   private stageSmoke(cloud: Cloud, slot: number): void {
-    const { cap, stem, dust, colors } = LOOK;
+    const { cap, stem, dust, shockwave, colors } = LOOK;
     const t = cloud.t;
     const s = cloud.scale;
     const seeds = this.smokeSeeds;
@@ -656,18 +895,40 @@ export class MushroomCloudRenderer {
       this.pz = Math.sin(phi) * r;
       this.putSmoke(i, cloud, (6 + 3 * seeds[seed + 3]) * s * skirtGrowth, skirtAlpha, colors.dust, 0.7, 0);
     }
+
+    // Dust wall: thrown up on the shockwave's front and left standing where
+    // the front stops, creeping on a little
+    const wallAlpha = 0.45 * MathUtils.smoothstep(t, 0.03, 0.2) * (1 - MathUtils.smoothstep(t, 1.2, 3.2));
+    const front =
+      shockwave.radius * s * reach(t, shockwave.duration, shockwave.timeConstant) +
+      1.5 * s * Math.max(0, t - shockwave.duration);
+    const wallWarm = 0.45 * (1 - MathUtils.smoothstep(t, 0.1, 0.6));
+    const wallRise = MathUtils.smoothstep(t, 0, 0.5);
+    for (let p = 0; p < SMOKE.wall; p++, i++, seed += SEEDS) {
+      const phi = seeds[seed] * TAU;
+      const r = front * (0.9 + 0.12 * seeds[seed + 1]);
+      const diameter = (6 + 5 * seeds[seed + 3]) * s * (0.6 + 0.4 * wallRise);
+      this.px = Math.cos(phi) * r;
+      this.py = diameter * 0.3 + 4 * s * seeds[seed + 2] * wallRise;
+      this.pz = Math.sin(phi) * r;
+      this.putSmoke(i, cloud, diameter, wallAlpha, colors.dust, 1, wallWarm);
+    }
   }
 
   /** The point px/py/pz as glow particle `n`: `diameter` in metres, colour times `light`. */
   private putGlow(n: number, cloud: Cloud, diameter: number, frame: number, color: EffectRgb, light: number): void {
+    this.putGlowRgb(n, cloud, diameter, frame, color.r * light, color.g * light, color.b * light);
+  }
+
+  private putGlowRgb(n: number, cloud: Cloud, diameter: number, frame: number, r: number, g: number, b: number): void {
     const position = this.glow.position.array as Float32Array;
     const rgb = this.glow.color.array as Float32Array;
     position[n * 3] = cloud.x + this.px;
     position[n * 3 + 1] = cloud.y + this.py;
     position[n * 3 + 2] = cloud.z + this.pz;
-    rgb[n * 3] = color.r * light;
-    rgb[n * 3 + 1] = color.g * light;
-    rgb[n * 3 + 2] = color.b * light;
+    rgb[n * 3] = r;
+    rgb[n * 3 + 1] = g;
+    rgb[n * 3 + 2] = b;
     (this.glow.size.array as Float32Array)[n] = (diameter / GLOW_COVERAGE) * this.sizePerMetre;
     (this.glow.frame.array as Float32Array)[n] = frame;
   }
@@ -774,13 +1035,27 @@ export class MushroomCloudRenderer {
       gate.setCount(0);
       return;
     }
-    const reach =
-      (1 - Math.exp(-cloud.t / shockwave.timeConstant)) / (1 - Math.exp(-shockwave.duration / shockwave.timeConstant));
-    const radius = Math.max(0.01, shockwave.radius * cloud.scale * reach);
+    const radius = Math.max(0.01, shockwave.radius * cloud.scale * reach(cloud.t, shockwave.duration, shockwave.timeConstant));
     const ring = this.rings[slot];
     ring.position.set(cloud.x, cloud.y + RING_LIFT, cloud.z);
     ring.scale.set(radius, 1, radius);
     ring.material.opacity = shockwave.opacity * (1 - cloud.t / shockwave.duration) ** 1.3;
+    gate.setCount(1);
+  }
+
+  /** Shock dome: a hemisphere out over the ground point, faster than the ring and gone sooner. */
+  private updateDome(cloud: Cloud, slot: number): void {
+    const { shockDome } = LOOK;
+    const gate = this.domeGates[slot];
+    if (cloud.t >= shockDome.duration) {
+      gate.setCount(0);
+      return;
+    }
+    const radius = Math.max(0.01, shockDome.radius * cloud.scale * reach(cloud.t, shockDome.duration, shockDome.timeConstant));
+    const dome = this.domes[slot];
+    dome.position.set(cloud.x, cloud.y, cloud.z);
+    dome.scale.set(radius, radius * DOME_FLATTEN, radius);
+    dome.material.uniforms['uOpacity'].value = shockDome.opacity * (1 - cloud.t / shockDome.duration) ** 1.5;
     gate.setCount(1);
   }
 

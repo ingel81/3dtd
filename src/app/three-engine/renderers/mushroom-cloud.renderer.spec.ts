@@ -1,13 +1,28 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { Mesh, PerspectiveCamera, Points, Scene, ShaderMaterial, Sprite, Vector3 } from 'three';
+import {
+  AdditiveBlending,
+  Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
+  PlaneGeometry,
+  Points,
+  Scene,
+  ShaderMaterial,
+  SphereGeometry,
+  Sprite,
+  Vector3,
+} from 'three';
 import { MushroomCloudRenderer } from './mushroom-cloud.renderer';
 import { MUSHROOM_CLOUD_LOOK } from '../../configs/visual-effects.config';
 
 const GROUND = new Vector3(100, 20, -50);
 const RADIUS = 25;
-const { glowParticles, smokeParticles } = MUSHROOM_CLOUD_LOOK;
-const GLOW_PER_CLOUD = glowParticles.fireball + glowParticles.stemFire + glowParticles.rim;
+const { glowParticles, smokeParticles, embers, shockwave, shockDome, fireball, groundFire } = MUSHROOM_CLOUD_LOOK;
+const GLOW_PER_CLOUD = Object.values(glowParticles).reduce((n, count) => n + count, 0)
+  + glowParticles.embers * (embers.trail - 1);
 const SMOKE_PER_CLOUD = Object.values(smokeParticles).reduce((n, count) => n + count, 0);
+/** Glow particles of the detonation, drawn with impact effects off as well */
+const DETONATION_GLOW = glowParticles.core + glowParticles.fireball + glowParticles.shell;
 
 /** Math.random with a fixed sequence, so two clouds draw the same particles. */
 function seededRandom(seed = 1): void {
@@ -29,11 +44,11 @@ function setup() {
   const points = scene.children.filter((c): c is Points => c instanceof Points);
   const glow = points.find((p) => p.material === materials.additive)!;
   const smoke = points.find((p) => p.material === materials.normal)!;
-  const rings = scene.children.filter(
-    (c): c is Mesh => c instanceof Mesh && !(c.material instanceof ShaderMaterial),
-  );
+  const meshes = scene.children.filter((c): c is Mesh => c instanceof Mesh);
+  const rings = meshes.filter((m) => m.material instanceof MeshBasicMaterial);
+  const domes = meshes.filter((m) => m.geometry instanceof SphereGeometry);
   const flashes = scene.children.filter((c): c is Sprite => c instanceof Sprite);
-  const screen = scene.children.find((c): c is Mesh => c instanceof Mesh && c.material instanceof ShaderMaterial)!;
+  const screen = meshes.find((m) => m.material instanceof ShaderMaterial && m.geometry instanceof PlaneGeometry)!;
 
   /** `ms` of game time in frames of `step` ms, as the engine hands them over */
   const run = (ms: number, step = ms) => {
@@ -41,7 +56,7 @@ function setup() {
       clouds.update(Math.min(step, ms - done), camera, 1080);
     }
   };
-  return { scene, materials, clouds, camera, glow, smoke, rings, flashes, screen, run };
+  return { scene, materials, clouds, camera, glow, smoke, rings, domes, flashes, screen, run };
 }
 
 const drawn = (points: Points) => (points.visible ? points.geometry.drawRange.count : 0);
@@ -55,6 +70,7 @@ function positions(points: Points): number[][] {
 }
 
 const highest = (points: Points) => Math.max(...positions(points).map(([, y]) => y - GROUND.y));
+const lowest = (points: Points) => Math.min(...positions(points).map(([, y]) => y - GROUND.y));
 const widest = (points: Points) =>
   Math.max(...positions(points).map(([x, , z]) => Math.hypot(x - GROUND.x, z - GROUND.z)));
 
@@ -76,28 +92,82 @@ describe('MushroomCloudRenderer', () => {
     expect(smoke.material).toBe(materials.normal);
     expect(glow.geometry.getAttribute('position').count).toBe(MUSHROOM_CLOUD_LOOK.clouds * GLOW_PER_CLOUD);
     expect(smoke.geometry.getAttribute('position').count).toBe(MUSHROOM_CLOUD_LOOK.clouds * SMOKE_PER_CLOUD);
-    expect(GLOW_PER_CLOUD).toBe(106);
-    expect(SMOKE_PER_CLOUD).toBe(270);
+    expect(GLOW_PER_CLOUD).toBe(410);
+    expect(SMOKE_PER_CLOUD).toBe(326);
   });
 
-  it('opens with a flash, the fireball and the shockwave ring', () => {
-    const { clouds, glow, rings, flashes, screen, run } = setup();
+  it('opens with the flash, the fireball, the shock dome and the shockwave ring', () => {
+    const { clouds, glow, rings, domes, flashes, screen, run } = setup();
     clouds.detonate(GROUND, RADIUS);
     run(50);
     expect(flashes.filter((f) => f.visible)).toHaveLength(1);
     expect(screen.visible).toBe(true);
     expect(rings.filter((r) => r.visible)).toHaveLength(1);
-    expect(drawn(glow)).toBe(glowParticles.fireball);
+    expect(domes.filter((d) => d.visible)).toHaveLength(1);
+    expect(drawn(glow)).toBeGreaterThanOrEqual(glowParticles.core + glowParticles.fireball);
 
     run(950, 50);
     const ring = rings.find((r) => r.visible)!;
-    expect(ring.scale.x).toBeGreaterThan(30);
-    expect(ring.scale.x).toBeLessThanOrEqual(36);
+    expect(ring.scale.x).toBeGreaterThan(shockwave.radius * 0.8);
+    expect(ring.scale.x).toBeLessThanOrEqual(shockwave.radius);
     expect(flashes.some((f) => f.visible)).toBe(false);
+    expect(domes.some((d) => d.visible)).toBe(false);
     expect(screen.visible).toBe(false);
 
-    run(200, 50);
+    run(shockwave.duration * 1000 - 900, 50);
     expect(rings.some((r) => r.visible)).toBe(false);
+  });
+
+  it('punches the fireball up within the first half second', () => {
+    const { clouds, glow, run } = setup();
+    clouds.setFullCloud(false);
+    clouds.detonate(GROUND, RADIUS);
+    run(50);
+    const early = highest(glow);
+    run(450, 50);
+    expect(highest(glow)).toBeGreaterThan(early + fireball.punch * 0.8);
+  });
+
+  it('draws the shock dome additive, with the log-depth chunks, hidden by what stands in front', () => {
+    const { clouds, domes, run } = setup();
+    clouds.detonate(GROUND, RADIUS);
+    run(200);
+    const dome = domes.find((d) => d.visible)!;
+    const material = dome.material as ShaderMaterial;
+    expect(material.vertexShader).toContain('#include <logdepthbuf_vertex>');
+    expect(material.fragmentShader).toContain('#include <logdepthbuf_fragment>');
+    expect(material.blending).toBe(AdditiveBlending);
+    expect(material.depthTest).toBe(true);
+    expect(material.depthWrite).toBe(false);
+    expect(dome.position.toArray()).toEqual(GROUND.toArray());
+    expect(dome.scale.x).toBeGreaterThan(shockDome.radius * 0.5);
+    expect(dome.scale.x).toBeLessThan(shockDome.radius);
+  });
+
+  it('throws embers out beyond the fire on the ground, none below the ground, gone after their life', () => {
+    seededRandom();
+    const { clouds, glow, run } = setup();
+    clouds.detonate(GROUND, RADIUS);
+    for (let t = 0; t < 1600; t += 100) {
+      run(100, 20);
+      expect(lowest(glow)).toBeGreaterThanOrEqual(0);
+    }
+    expect(widest(glow)).toBeGreaterThan(groundFire.radius[1] * 1.1);
+
+    run((embers.life[1] + 0.5) * 1000 - 1600, 20);
+    expect(widest(glow)).toBeLessThan(fireball.radius * 1.5);
+  });
+
+  it('leaves the ground burning for a few seconds', () => {
+    const { clouds, glow, run } = setup();
+    clouds.detonate(GROUND, RADIUS);
+    run(6000, 50);
+    expect(drawn(glow)).toBe(glowParticles.groundFire);
+    expect(widest(glow)).toBeLessThanOrEqual(groundFire.radius[1]);
+    expect(highest(glow)).toBeLessThan(groundFire.size[1]);
+
+    run((groundFire.fadeEnd - 6) * 1000 + 50, 50);
+    expect(drawn(glow)).toBe(0);
   });
 
   it('rises tens of metres over the strike point, the dust surging out along the ground', () => {
@@ -165,19 +235,22 @@ describe('MushroomCloudRenderer', () => {
     }
   });
 
-  it('reduces to flash, fireball and shockwave with impact effects off (Low preset)', () => {
-    const { clouds, glow, smoke, rings, flashes, run } = setup();
+  it('reduces to the detonation with impact effects off (Low preset)', () => {
+    const { clouds, glow, smoke, rings, domes, flashes, run } = setup();
     clouds.setFullCloud(false);
     clouds.detonate(GROUND, RADIUS);
     run(100);
     expect(flashes.some((f) => f.visible)).toBe(true);
     expect(rings.some((r) => r.visible)).toBe(true);
+    expect(domes.some((d) => d.visible)).toBe(true);
+    expect(drawn(glow)).toBeGreaterThan(glowParticles.core);
 
-    for (let t = 100; t < 3000; t += 100) {
+    for (let t = 100; t < fireball.fadeEnd * 1000; t += 100) {
       run(100);
       expect(drawn(smoke)).toBe(0);
-      expect(drawn(glow)).toBeLessThanOrEqual(glowParticles.fireball);
+      expect(drawn(glow)).toBeLessThanOrEqual(DETONATION_GLOW);
     }
+    run(100);
     expect(drawn(glow)).toBe(0);
 
     // The next strike after switching back is whole again
@@ -185,7 +258,7 @@ describe('MushroomCloudRenderer', () => {
     clouds.detonate(GROUND, RADIUS);
     run(1500, 16);
     expect(drawn(smoke)).toBeGreaterThan(0);
-    expect(drawn(glow)).toBeGreaterThan(glowParticles.fireball);
+    expect(drawn(glow)).toBeGreaterThan(DETONATION_GLOW);
   });
 
   it('fades out and leaves nothing drawn after its duration', () => {
