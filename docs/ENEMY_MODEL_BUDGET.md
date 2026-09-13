@@ -14,17 +14,18 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
 
 - Die Blender-Runde vom 2026-09-13 hat zwölf Modelle geändert (`tools/blender/optimize_enemy.py`,
   ein Rezept je Modell, siehe [Empfehlungen](#empfehlungen-je-modell)). Alle 20 Typen werden
-  beim Start gebacken (`preloadAllModels`); ihre VATs belegen zusammen 101,4 MB GPU-Speicher,
-  19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in RGBA32F wären 181,3 MB).
+  beim Start gebacken (`preloadAllModels`); ihre VATs belegen zusammen 88,1 MB GPU-Speicher,
+  19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in RGBA32F wären 154,6 MB).
   Vor der Runde waren es 264,2 MB, bis 2026-09-12 (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
-  Die Runde vom 2026-09-14 (Tank, Ghost) steht unter
+  Die Runde vom 2026-09-14 (Tank, Ghost, Mech) steht unter
   [Runde vom 2026-09-14](#runde-vom-2026-09-14).
-- Die teuersten Wellen nach Vertex-Last sind jetzt `rat_tide` (5,0 Mio.), `mech_army` (4,2),
-  `zombie_horde` (3,6), `skeleton_swarm` (3,3), `armor_gauntlet` (2,5) und `wraith_storm`
-  (2,4). Vorher führten `hornet_strike` (14,9) und `zombie_horde` (14,4). Kein Template liegt
-  mehr über dem Richtwert von 5 Mio.
-- Über dem Budget je Modell liegen noch Mech (42.455 VAT-Vertices, nicht geändert), Herbert
-  (30.831, höchstens drei pro Welle), Wraith (8.126), Ghost, Bat, Spider und Penguin.
+- Die teuersten Wellen nach Vertex-Last sind jetzt `rat_tide` (5,0 Mio.), `zombie_horde`
+  (3,6), `skeleton_swarm` (3,3), `armor_gauntlet` (2,4), `wraith_storm` (2,4) und `bat_swarm`
+  (2,1); `mech_army` fiel mit der Runde vom 2026-09-14 von 4,2 auf 0,5. Vorher führten
+  `hornet_strike` (14,9) und `zombie_horde` (14,4). Kein Template liegt über dem Richtwert von
+  5 Mio.
+- Über dem Budget je Modell liegen noch Herbert (30.831 VAT-Vertices, höchstens drei pro
+  Welle), Wraith (8.126), Mech (5.416), Ghost (5.248), Bat, Spider und Penguin.
 - Die Ratten-Animation ist seit der Runde nicht mehr exakt (siehe Rat). Bei den anderen
   geänderten Modellen backt three.js dieselben Posen wie vorher; sie weichen nur durch das
   Decimate ab und bei Dragon und Golem in den Blend-Frames am Loop-Ende.
@@ -145,9 +146,6 @@ geratene Bind-Pose exakt, bei der Ratte mit keiner Einstellung.
 
 Offen:
 
-- **Mech** (42.455, `mech_army` 4,2 Mio.): nicht geändert. 12 % Decimate ergab 6.739
-  VAT-Vertices und hinterließ Splitter und Texturnähte an den 34 Hard-Surface-Teilen. Unter
-  5.000 bräuchte es eine Retopologie.
 - **Ghost** (5.248, drei 1024²-Bilder) liegt knapp über dem Budget, seine Wellen unter
   1,5 Mio. 1.487 der 7.773 Dreiecke wiederholen ein anderes mit umgekehrter Windung,
   1.301 davon in den Schleiern (Material_26, Opacity 0,403): zwei deckungsgleiche Lagen
@@ -172,6 +170,21 @@ Vergleich mit `bake-compare.mjs`; Normalen zusätzlich Vertex für Vertex vergli
   Posen dort liegen 0,49 % auseinander, die letzten 4 Frames gleiten in die erste. Geometrie,
   Normalen (höchstens 0,03° verschieden) und Texturen bleiben, die Vertex-Last auch. Exakt nur
   mit `rest_from_file`; zu den doppelten Lagen siehe Offen.
+- **Mech** 42.455 → 5.416, 15,0 → 1,7 MB, 6,3 → 0,6 MB, `mech_army` 4,2 → 0,5 Mio.: Die 34
+  starren Teile hingen je an einem Empty auf einem Knochen (Objekt-Anim.-Pfad).
+  `rigid_to_skin` fügt sie zu einem geskinnten Mesh zusammen, jedes Teil voll auf seinem
+  Knochen, jedes vorher für sich geschweißt; der Baker nimmt jetzt den Skinning-Pfad. Dann
+  Decimate auf 12 % (3.457 Dreiecke), Normalen ab 60° getrennt, neue UVs und die Basisfarbe
+  aus dem unveränderten Mesh neu gebacken (eine 1024²-JPEG für beide alten Materialien), nur
+  Walk. Ohne geratene Bind-Pose wie in der Runde davor. Vergleich über den Walk-Clip:
+  Bounding-Box höchstens 1,2 % verschieden, jeder neue Vertex im Mittel 0,28 % (p99 1,32 %)
+  vom nächsten alten, in allen geprüften Frames gleich; der Vertex-Schwerpunkt liegt bis 4,2 %
+  daneben, weil das Decimate die Vertices anders verteilt. Aus der Nähe ist die Textur
+  weicher, Kolben und Füße sind vereinfacht, Splitter oder Löcher waren in Blender nicht zu
+  sehen. Über dem Normal-Richtwert: Die neuen UV-Nähte trennen die 2.009 Positionen in 4.919
+  Vertices, die harten Kanten in 5.416. Die Emissions-Textur fällt weg (im Spiel kommt das
+  Leuchten aus der Config); `strip_to_base_color` setzt die Emission dafür auf Schwarz, sonst
+  hätte die Sidebar-Vorschau den Mech weiß gezeigt.
 
 ### Ausgangslage (2026-09-12)
 
@@ -411,12 +424,12 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 
 | Gegner | Klasse | max./Welle | VAT-Vertices | Dreiecke | Mio. Vertices | Bake-Pfad | VAT-Frames | VAT-Textur | Format | Half-Fehler mm | VAT-MB | Diffuse |
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
-| Mech (`mech`) | Normal | 100 | 42.455 | 28.850 | 4,2 | Objekt-Anim. | 40 | 8192×240 | RGBA16F | 1,45 | 15,0 | 1024² |
 | Herbert (`herbert`) | Elite/Boss | 3 | 30.831 | 31.949 | 0,1 | Skinning | 32 | 8192×128 | RGBA16F | 0,56 | 8,0 | 512² |
 | Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 86 | 8192×172 | RGBA32F | 2,64 | 21,5 | 1024² |
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.272 | 19.541 | 0,7 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
 | Wraith (`wraith`) | Normal | 300 | 8.126 | 6.790 | 2,4 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
 | Mammoth (`mammoth`) | Normal | 150 | 5.557 | 8.685 | 0,8 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
+| Mech (`mech`) | Normal | 100 | 5.416 | 3.457 | 0,5 | Skinning | 40 | 5416×40 | RGBA16F | 1,44 | 1,7 | 1024² |
 | Ghost (`ghost`) | Normal | 280 | 5.248 | 7.773 | 1,5 | Skinning | 105 | 5248×105 | RGBA16F | 0,46 | 4,2 | 1024² |
 | Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 4.870 | 3.704 | 1,0 | Skinning | 272 | 4870×272 | RGBA16F | 1,08 | 10,1 | 1024² |
@@ -432,7 +445,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 | Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 
-VAT-Speicher aller Typen zusammen: **101,4 MB** (30 fps), alles in RGBA32F wären **181,3 MB**.
+VAT-Speicher aller Typen zusammen: **88,1 MB** (30 fps), alles in RGBA32F wären **154,6 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **8,6 MB** dazu.
 
 ### Alpha
@@ -450,7 +463,7 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 | Hornet | Blend | 0 |
 | Bear | Blend | 33.852 (3,2 %) |
 
-Opak ohne Texel unter 0,05 (16): Mech, Herbert, Stone Golem, Wraith, Mammoth, Zombie v2, Tank, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Zombie, Skeleton, Skeleton Minion, Rat.
+Opak ohne Texel unter 0,05 (16): Herbert, Stone Golem, Wraith, Mammoth, Mech, Zombie v2, Tank, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Zombie, Skeleton, Skeleton Minion, Rat.
 Texel unter 0,05, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis 0,05): **keine**.
 
 ### Modellinhalt
@@ -461,12 +474,12 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 
 | Gegner | Datei | MB | Meshes (skinned) | Knochen | Morph | Materialien | Bilder im Modell | Clips | Weld |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
-| Mech | `mech.glb` | 6,3 | 34 (0) | 62 | 0 | 2 | 8× 1024² | 6 | 42.455 / 28.395 / 15.041 |
 | Herbert | `herbert_optimized.glb` | 2,1 | 1 (1) | 24 | 0 | 1 | 512² | 1 | 30.831 / 30.208 / 26.048 |
 | Stone Golem | `stone_golem.glb` | 3,1 | 1 (1) | 24 | 0 | 1 | 1024² | 2 | 13.612 / 13.415 / 5.205 |
 | Dragon | `dragon.glb` | 5,9 | 1 (1) | 220 | 0 | 1 | 4× 1024² | 1 | 12.082 / 11.868 / 10.208 |
 | Wraith | `wraith.glb` | 1,8 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
 | Mammoth | `mammoth.glb` | 2,6 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 2 | 5.557 / 5.541 / 5.121 |
+| Mech | `mech.glb` | 0,6 | 1 (1) | 62 | 0 | 1 | 1024² | 1 | 5.416 / 4.919 / 2.009 |
 | Ghost | `ghost.glb` | 2,5 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 5.248 / 3.894 / 3.467 |
 | Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.915 / 4.913 / 3.370 |
 | Zombie v2 | `zombie_v2.glb` | 1,9 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 4.870 / 4.870 / 1.827 |
@@ -490,7 +503,6 @@ die weggelassenen Frames.
 
 | Gegner | Clip | Rolle | Dauer s | Frames | gekürzt |
 | --- | --- | --- | ---: | ---: | ---: |
-| Mech | `Armature\|Walk` | walk | 1,33 | 40 | – |
 | Herbert | `Armature\|walking_man\|baselayer` | walk | 1,04 | 32 | – |
 | Stone Golem | `Casual_Walk` | walk | 1,33 | 40 | – |
 | Stone Golem | `dying_backwards` | death | 2,21 | 46 | 21 |
@@ -498,6 +510,7 @@ die weggelassenen Frames.
 | Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
 | Mammoth | `Walk` | walk | 4,97 | 149 | – |
 | Mammoth | `Die` | death | 6,00 | 172 | 9 |
+| Mech | `Armature\|Walk` | walk | 1,33 | 40 | – |
 | Ghost | `Take 001` | walk | 3,50 | 105 | – |
 | Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
@@ -531,7 +544,6 @@ mit allem, was ein Kill abspaltet.
 | Template | Kurrikulum | max. Anzahl | Mischung | Mio. Vertices |
 | --- | --- | ---: | --- | ---: |
 | `rat_tide` | W2 | 5.000 | rat 100 % | 5,0 |
-| `mech_army` | W28 | 100 | mech 100 % | 4,2 |
 | `zombie_horde` | W1 | 2.000 | zombie 90 %, zombie-v2 10 % | 3,6 |
 | `skeleton_swarm` | W19 | 940 | skeleton 100 % (je Kill +2 skeleton-minion) | 3,3 |
 | `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,4 |
@@ -550,6 +562,7 @@ mit allem, was ein Kill abspaltet.
 | `tank_column` | W9, W22 | 150 | tank 60 %, zombie-soldier 40 % | 0,7 |
 | `boss_golem` | – | 80 | stone-golem 30 %, mammoth 70 % | 0,6 |
 | `mammoth_siege` | W14, W25 | 120 | mammoth 70 %, wallsmasher 30 % | 0,6 |
+| `mech_army` | W28 | 100 | mech 100 % | 0,5 |
 | `bear_pack` | W11 | 120 | bear 100 % | 0,5 |
 | `boss_herbert` | W10, W20, W30 | 100 | herbert 3 %, tank 48 %, zombie 48 % | 0,4 |
 
