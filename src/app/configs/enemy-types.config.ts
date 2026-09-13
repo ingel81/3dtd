@@ -965,10 +965,48 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     lateralSpread: 0,
     // 80 m of body at the HQ cost ten leaks of the wave, 0.125 leaks a metre
     ooze: { maxLengthM: 80, leakDamageFactor: 10 },
+    // A kill (not a leak) breaks it into clumps along its body, one per 8 m
+    // of body left (OozeBodies.splitCount)
+    splitOnDeath: { type: 'slime-clump', count: 10, spread: 0.8 },
     previewScale: 1.4,
     previewCameraDistance: 6,
     previewCameraAngle: 0.35,
     previewOffsetY: 0.6,
+  },
+
+  'slime-clump': {
+    id: 'slime-clump',
+    name: 'Slime Clump',
+    // What a killed ooze breaks into (splitOnDeath): the procedural slime
+    // blob (tools/slime-model) hopping along, about 1.2 m tall at scale 0.9.
+    modelUrl: 'assets/models/enemies/slime.glb',
+    scale: 0.9,
+    minimumPixelSize: 0,
+    armorType: 'unarmored',
+    // Ten of them hold a tenth of the ooze's HP; the split scales them by its
+    // HP multiplier. No template, not in AI_ENEMY_ORDER, no split of its own.
+    baseHp: 30,
+    baseSpeed: 4.5,
+    reward: 1,
+    hasAnimations: true,
+    walkAnimation: 'Wobble',
+    // 0.45 s, it lies flat until the removal after 2 s
+    deathAnimation: 'Splat',
+    // One hop per 0.8 s Wobble cycle: 3.6 m a hop at 4.5 m/s
+    animationSpeed: 1.0,
+    heightOffset: 0,
+    healthBarOffset: 2.2,
+    canBleed: true,
+    bloodColor: '#6fe021',
+    headingOffset: 0,
+    emissiveIntensity: 0.3,
+    emissiveColor: '#66ff22',
+    randomAnimationStart: true,
+    lateralSpread: 1.0,
+    previewScale: 1.2,
+    previewCameraDistance: 5,
+    previewCameraAngle: 0.3,
+    previewOffsetY: 0.5,
   },
 };
 

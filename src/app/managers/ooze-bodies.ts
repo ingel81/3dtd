@@ -80,6 +80,41 @@ export class OozeBodies {
     }
   }
 
+  /**
+   * How many of `count` split children a killed ooze breaks into: one per
+   * maxLengthM / count metres of body it still has, at least one. A body
+   * killed young near the portal or half into the HQ breaks into fewer
+   * clumps; the kill-gold slots of the others stay unpaid, as for a leak.
+   */
+  splitCount(enemy: Enemy, count: number): number {
+    const entry = this.oozes.find((o) => o.enemy === enemy);
+    if (!entry) return count;
+    const share = entry.body.lengthM / entry.config.maxLengthM;
+    return Math.max(1, Math.min(count, Math.round(count * share)));
+  }
+
+  /**
+   * Where split child `i` of `n` of a killed ooze starts: at the middle of
+   * its share of the body, on the path there and on the route grid's ground
+   * (the tip's ground where the grid has none). Writes segment, progress
+   * and ground into `start`; lane and altitude are the caller's.
+   */
+  placeSplitChild(
+    enemy: Enemy,
+    i: number,
+    n: number,
+    start: { segmentIndex: number; segmentProgress: number; groundHeight: number },
+  ): void {
+    const body = enemy.body;
+    if (!body) return;
+    const s = body.tailM + ((i + 0.5) / n) * body.lengthM;
+    const st = body.stations;
+    st.locate(s, start);
+    const k = st.nearestIndex(s);
+    const groundY = this.grid.getGroundLocalYAt(st.x[k], st.z[k]);
+    start.groundHeight = groundY !== null ? groundY + st.originHeight : enemy.transform.terrainHeight;
+  }
+
   /** Once per render frame: each body's stretch, HP and status effects to its band. */
   present(engine: ThreeTilesEngine, gameTimeMs: number): void {
     for (const { enemy, body } of this.oozes) {

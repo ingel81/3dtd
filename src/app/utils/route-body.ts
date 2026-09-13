@@ -126,6 +126,22 @@ export class RouteBodyStations {
     }
   }
 
+  /** Segment of the path and progress on it at `s` metres along the route, into `out` (MovementComponent.setPath). */
+  locate(s: number, out: { segmentIndex: number; segmentProgress: number }): void {
+    const { cumulativeLength, segmentLengths } = getRouteProfile(this.path);
+    const at = Math.max(0, Math.min(this.length, s));
+    let lo = 0;
+    let hi = Math.max(0, segmentLengths.length - 1);
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (cumulativeLength[mid] <= at) lo = mid;
+      else hi = mid - 1;
+    }
+    const length = segmentLengths[lo] ?? 0;
+    out.segmentIndex = lo;
+    out.segmentProgress = length > 0 ? Math.min(1, (at - cumulativeLength[lo]) / length) : 0;
+  }
+
   /** The station nearest to `s` metres along the route. */
   nearestIndex(s: number): number {
     return Math.max(0, Math.min(this.count - 1, Math.round(s / ROUTE_BODY_STATION_M)));

@@ -51,6 +51,7 @@ const createGlobalRouteGrid = () => ({
   removeEnemy: vi.fn(),
   addBodyEnemy: vi.fn(),
   removeBodyEnemy: vi.fn(),
+  getGroundLocalYAt: vi.fn((): number | null => null),
   getStats: vi.fn(() => ({ trackedEnemies: 0, occupiedCells: 0 })),
 });
 
@@ -855,6 +856,38 @@ describe('EnemyManager', () => {
       ooze.stopMoving();
       manager.update(100, t + 100);
       expect(length - ooze.body!.lengthM).toBeCloseTo(0.15, 6);
+    });
+
+    it('breaks into slime clumps along its body when killed, one per 8 m of it', () => {
+      const splits: number[] = [];
+      eventBus.on('enemy:split', (e) => splits.push(e.children.length));
+      const ooze = manager.spawn(route, 'ooze', undefined, false, 6000); // HP multiplier 2
+      walk(ooze, 40); // tip at 120 m, tail at 40 m
+      manager.kill(ooze);
+
+      const clumps = manager.getAlive().filter((e) => e.typeConfig.id === 'slime-clump');
+      expect(splits).toEqual([10]);
+      expect(clumps).toHaveLength(10);
+      const along = clumps.map((c) => c.movement.getDistanceAlongPath()).sort((a, b) => a - b);
+      expect(along[0]).toBeCloseTo(44, 6);
+      expect(along[9]).toBeCloseTo(116, 6);
+      expect(clumps.every((c) => c.health.maxHp === 60)).toBe(true);
+      // Lanes scattered across the corridor, not one line
+      expect(new Set(clumps.map((c) => c.movement.getLateralFactor().toFixed(3))).size).toBe(10);
+    });
+
+    it('breaks a short body into fewer clumps', () => {
+      const ooze = manager.spawn(route, 'ooze');
+      walk(ooze, 8); // 24 m
+      manager.kill(ooze);
+      expect(manager.getAlive().filter((e) => e.typeConfig.id === 'slime-clump')).toHaveLength(3);
+    });
+
+    it('leaves nothing behind on a debug kill', () => {
+      const ooze = manager.spawn(route, 'ooze');
+      walk(ooze, 20);
+      manager.kill(ooze, 'debug');
+      expect(manager.getAll()).toHaveLength(0);
     });
 
     it('lets go of the body when it is removed', () => {

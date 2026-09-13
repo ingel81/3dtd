@@ -532,11 +532,18 @@ export class EnemyManager extends EntityManager<Enemy> {
     start.heightVariation = pm.getHeightVariation();
     start.groundHeight = parent.transform.terrainHeight - start.heightVariation;
 
+    // An ooze breaks up along its body, into as many clumps as its length
+    // holds, their lanes scattered by index (OozeBodies)
+    const body = parent.body !== null;
+    const count = body ? this.oozes.splitCount(parent, split.count) : split.count;
     const children: Enemy[] = [];
-    for (let i = 0; i < split.count; i++) {
+    for (let i = 0; i < count; i++) {
       // -1 .. 1 across the children, 0 for a single one
-      const side = split.count > 1 ? (2 * i) / (split.count - 1) - 1 : 0;
+      const side = body
+        ? ((i * 0.618034) % 1) * 2 - 1
+        : count > 1 ? (2 * i) / (count - 1) - 1 : 0;
       start.lateralFactor = centre + side * spread;
+      if (body) this.oozes.placeSplitChild(parent, i, count, start);
       children.push(this.spawn(
         pm.path,
         split.type,
