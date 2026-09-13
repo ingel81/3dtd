@@ -294,19 +294,13 @@ export class SpatialAudioManager {
     if (cached.buffer) {
       sound.buffer = cached.buffer;
     } else if (cached.loading) {
-      // A file that failed all retries leaves the sound without a buffer;
-      // every player of it already treats a null buffer as "cannot play".
-      sound.loading = cached.loading.then(
-        (buffer) => {
-          sound.buffer = buffer;
-          sound.loading = null;
-          return buffer;
-        },
-        () => {
-          sound.loading = null;
-          return null;
-        },
-      );
+      // A file that failed all retries loads as null and leaves the sound
+      // without a buffer; every player of it treats that as "cannot play".
+      sound.loading = cached.loading.then((buffer) => {
+        sound.buffer = buffer;
+        sound.loading = null;
+        return buffer;
+      });
     }
   }
 
