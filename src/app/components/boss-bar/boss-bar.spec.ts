@@ -1,5 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { bossBarView, MAX_SMALL_BARS, sameBossBar } from './boss-bar';
+import { bossBarView, MAX_SMALL_BARS, sameBossBar, wormBossSample } from './boss-bar';
+
+describe('wormBossSample', () => {
+  it('is one bar for the whole worm, saying how many parts it is in', () => {
+    expect(wormBossSample('Chitin Worm', 1, 6000, 8000)).toEqual({ name: 'Chitin Worm', hp: 6000, maxHp: 8000 });
+    expect(wormBossSample('Chitin Worm', 3, 4500, 8000).name).toBe('Chitin Worm ×3');
+    expect(bossBarView([wormBossSample('Chitin Worm', 2, 2000, 8000)])).toMatchObject({
+      name: 'Chitin Worm ×2',
+      percent: 25,
+      hpText: '2,000 / 8,000',
+    });
+  });
+});
 
 describe('bossBarView', () => {
   it('shows nothing without a boss', () => {

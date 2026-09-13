@@ -95,7 +95,14 @@ export class WormChains {
     this.groups.length = write;
   }
 
+  /**
+   * Forget every worm (EnemyManager.clear: wave end, reset). The segments
+   * still in the portal will not come out; the ones on the route go with
+   * their enemies. Nothing that still holds a group (the boss bar) sees a
+   * worm left afterwards.
+   */
   clear(): void {
+    for (const group of this.groups) group.dropPending();
     this.groups.length = 0;
     this.tails.clear();
   }

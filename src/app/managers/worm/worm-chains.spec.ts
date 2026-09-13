@@ -239,6 +239,16 @@ describe('Worm chains', () => {
     expect(distance(first)).toBeCloseTo(SPEED * 12, 6);
   });
 
+  it('leaves nothing of a worm after a clear, the segments in the portal included', () => {
+    const group = m.enemyManager.spawn(straightPath(300), 'worm').worm!.group;
+    tickEngine(m, 5_000);
+    m.enemyManager.clear();
+    expect(group.remaining).toBe(0);
+    expect(m.enemyManager.getPendingSpawnCount()).toBe(0);
+    tickEngine(m, 5_000);
+    expect(m.enemyManager.getAll()).toHaveLength(0);
+  });
+
   it('goes into the HQ one segment after another', () => {
     const reached = vi.fn();
     m.eventBus.on('enemy:reached-base', reached);
