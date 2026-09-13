@@ -76,9 +76,10 @@ describe('Worm chains', () => {
     const head = m.enemyManager.spawn(straightPath(400), 'worm');
     const group = head.worm!.group;
 
-    tickEngine(m, 10_000);
+    // Not a whole number of spacings, so no slot sits exactly at the start
+    tickEngine(m, 10_500);
 
-    const front = SPEED * 10;
+    const front = SPEED * 10.5;
     const segments = out(group);
     expect(segments.length).toBe(Math.floor(front / chain.spacing) + 1);
     for (const e of segments) {
@@ -103,12 +104,12 @@ describe('Worm chains', () => {
   it('keeps the chain exact with the longest sub-steps', () => {
     const path = straightPath(400);
     const fine = m.enemyManager.spawn(path, 'worm');
-    tickEngine(m, 10_000);
+    tickEngine(m, 10_500);
     const fineDistances = out(fine.worm!.group).map(distance);
 
     const coarse = createTestManagers();
     const head = coarse.enemyManager.spawn(path, 'worm');
-    for (let t = 100; t <= 10_000; t += 100) coarse.enemyManager.update(100, t);
+    for (let t = 100; t <= 10_500; t += 100) coarse.enemyManager.update(100, t);
     const coarseDistances = out(head.worm!.group).map(distance);
 
     expect(coarseDistances.length).toBe(fineDistances.length);
@@ -121,13 +122,16 @@ describe('Worm chains', () => {
     const head = m.enemyManager.spawn(straightPath(400), 'worm');
     const group = head.worm!.group;
     tickEngine(m, 10_000, clock);
-    head.movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 60_000, startTime: clock.now });
+    // The first five of the 19 segments out: the mean pace drops to about 0.87
+    for (let slot = 0; slot < 5; slot++) {
+      group.segments[slot]!.movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 60_000, startTime: clock.now });
+    }
 
     tickEngine(m, 10_000, clock);
 
     const front = distance(head);
     expect(front).toBeGreaterThan(SPEED * 10 + SPEED * 10 * 0.5);
-    expect(front).toBeLessThan(SPEED * 20 - 1);
+    expect(front).toBeLessThan(SPEED * 20 - 2);
     for (const e of out(group)) {
       expect(distance(e)).toBeCloseTo(front - e.worm!.slot * chain.spacing, 6);
     }
@@ -148,7 +152,7 @@ describe('Worm chains', () => {
   });
 
   describe('a destroyed segment', () => {
-    /** A worm 20 s out: 26 segments on the route */
+    /** A worm 20 s out: its front at 90 m, the first 37 segments on the route */
     const wormOut = (): WormGroup => {
       const group = m.enemyManager.spawn(straightPath(400), 'worm').worm!.group;
       tickEngine(m, 20_000);
@@ -211,7 +215,7 @@ describe('Worm chains', () => {
     it('sends the rest out of the portal behind a gap, led by a head', () => {
       const head = m.enemyManager.spawn(straightPath(400), 'worm');
       const group = head.worm!.group;
-      tickEngine(m, 1_000); // slot 0 at 4.5 m, slot 1 at 0.9 m, the rest inside
+      tickEngine(m, 1_000); // slot 0 at 4.5 m, slot 1 at 2.0 m, the rest inside
       m.enemyManager.kill(group.segments[1]!);
       expect(group.isPending(2)).toBe(true);
 
