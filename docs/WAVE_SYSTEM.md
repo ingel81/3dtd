@@ -678,6 +678,48 @@ Template, der Collector speichert die Welle, die läuft. Templates, Curriculum, 
 ersetzt. COMING UP im Wave-Panel zeigt eine Varianten-Welle vorab mit Namen, Rüstung und
 „weak to“.
 
+#### Boss-Intro
+
+Tritt ein Boss einer Welle aus seinem Spawn-Portal (`EnemyTypeConfig.isBoss`,
+`enemy:spawned` mit `viaPortal`), schneidet die Kamera hinter einem kurzen
+dunklen Schleier aufs Portal, zeigt Namen (`EnemyTypeConfig.name`) und Welle
+und kehrt danach in die Pose zurück, die sie vorher hatte. Ablauf in
+`BossIntroService` (`services/boss-intro.service.ts`), Regeln, Zeitplan und
+Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
+`components/boss-intro/` (Gestaltung: [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#boss-intro-canvas)).
+
+- **Einmal pro Bosstyp und Welle** (`BossIntroGate`): mehrere Bosse eines Typs
+  in einer Welle (fünf Herberts einer Custom Wave, die Segmente eines Wurms)
+  bekommen eines, zwei Typen je eines, nacheinander. `game:reset` setzt das
+  Tor zurück, der nächste Lauf zählt wieder ab Welle 1.
+- **Nur Wellen-Spawns**, Custom Wave eingeschlossen. Per Enemy Debug gesetzte
+  Bosse stehen irgendwo auf der Route, ein Schnitt aufs Portal zeigte nichts.
+- **Der Schnitt wartet, bis der Boss draußen ist**: Routendistanz
+  `bossClearDistance` = halbe Portaltiefe (`PORTAL_DEPTH`, mit
+  `portalDepthScale`) plus 3 m. Vorher steckt er im Portalvolumen und ist von
+  keiner Seite zu sehen. Bei Herbert (4 m/s) knapp 2 s nach dem Spawn.
+- **Keins** bei ausgeschaltetem Schalter "Boss Intro" im Display-Menü, im Photo
+  Mode, mit Trainings-Bot oder verbundenem Trainings-Backend, über 4x (nur
+  Trainingsläufe kommen darüber), ohne Rendering und während des Intro-Flugs
+  (`bossIntroBlock`). Ein so übergangener Boss bekommt später keins mehr.
+- **Pause**: das Intro setzt `GameStore.paused` wie der Pause-Knopf und gibt am
+  Ende zurück, was der Spieler hatte; hatte er pausiert, bleibt es pausiert.
+  An der Simulation ändert sich nichts, die Sub-Steps laufen nur nicht.
+- **Zeitplan** in Wanduhr (`BOSS_INTRO_TIMING`): Schleier 220 ms, 60 ms dunkel,
+  Schnitt aufs Portal, Einstellung 2,8 s (der Schleier weicht in 320 ms),
+  Schleier, Schnitt zurück, Schleier weicht; zusammen rund 3,7 s. Ein Frame
+  zählt höchstens 100 ms, ein Ruckler frisst die Einstellung nicht. Klick
+  oder Esc springt sofort zur Rückkehr.
+- **Einstellung** (`portalShot`): die Kamera steht über der Route jenseits
+  des Bosses und folgt der Straße um Kurven, damit sie über der Fahrbahn und
+  nicht in einer Fassade steht. Das Portal füllt 55 % der vertikalen Bildhöhe,
+  14° Neigung auf einen Punkt zwischen Portal und Boss, über die Einstellung
+  8 % Heranfahrt (keine bei `prefers-reduced-motion`). Ist die Route kürzer,
+  steht die Kamera an ihrem Ende.
+- Solange es läuft: Kamera-Controls aus, ein laufender Schnellsprung (Pos1, N)
+  und gehaltene Pan-Tasten enden, die Spieltasten warten. Die obere HUD-Spalte
+  blendet aus, die Boss-Leiste bleibt dabei bestehen.
+
 ---
 
 ## Mixed Waves (Multi-Type)

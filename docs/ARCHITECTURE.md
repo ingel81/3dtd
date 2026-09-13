@@ -182,10 +182,11 @@ src/app/services/
 
 | Service | Verantwortung |
 |---------|---------------|
-| **CameraControlService** | Start- und Übersichtsansicht merken, Kamera-Reset, Heading und Debug-Info für Kompass und Engine-Store, Schnellsprung `focusGeo` (Home/N): Blickrichtung bleibt, die Position gleitet 600 ms additiv zu Keyboard-Pan und Controls |
+| **CameraControlService** | Start- und Übersichtsansicht merken, Kamera-Reset, Heading und Debug-Info für Kompass und Engine-Store, Schnellsprung `focusGeo` (Home/N): Blickrichtung bleibt, die Position gleitet 600 ms additiv zu Keyboard-Pan und Controls; `stopJump()` beendet ihn, wenn eine geskriptete Einstellung die Kamera nimmt (Boss-Intro) |
 | **CameraFramingService** | Viewport-basierte Kamera-Positionierung |
 | **InputHandlerService** | Click/Pan Detection, Terrain Raycasting, Kamera-, Build- und Debug-Tasten. Außerhalb von Build- und Platzierungsmodus zeigt der Tower unter dem Zeiger seine Reichweite (Scheibe und Auswahlring des Renderers, `ThreeTowerRenderer.setHovered`): höchstens ein Tower-Pick alle 100 ms mit Nachzügler für die Endposition, keiner bei gedrückter Maustaste |
 | **HotkeyService** | Spieltasten (1-9, U, Entf, Leertaste, P, +/-, H, Esc, Pos1, N) nach dem InputHandler; Provider der Spielkomponente, weil er die Facade braucht. Zuordnung in `hotkey-map.ts` |
+| **BossIntroService** | Boss-Intro: tritt ein Boss einer Welle aus seinem Portal, Kameraschnitt aufs Portal mit Titelkarte, das Spiel pausiert, Klick oder Esc überspringt. Provider der Spielkomponente (hört am Bus des GameStateManager), getickt aus `GameLoopFacadeService.onEngineUpdate` nach den Sub-Steps; bekommt jede Taste vor InputHandler und HotkeyService. Regeln, Zeitplan und Einstellung in `utils/boss-intro.ts`, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-intro) |
 | **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
 | **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh, refineCellsInRadius vor LOS-Reg. Tastet die Grundfläche ab (`resolveFootprint`): auf unebenem Grund Fuß auf dem höchsten Punkt, Sockel bis zum tiefsten, schon in der Vorschau |
 | **EconomyService** | Wave-Completion-Bonus + Perfect-Streak (extrahiert aus GameStateManager, 2026-05-10) |
@@ -1267,7 +1268,8 @@ function onEngineUpdate(deltaTime: number) {
     tilesEngine.towers.advanceTurretAim(stepMs);             // pro Sub-Step, Spielzeit
     if (botEnabled) trainingClient.updateBot(snapshot, stepMs);
   });
-  // danach: Profiler, Route-Grid-Viz, LOS-Viz-Puls, UI-Stats (~10 Hz)
+  bossIntro.update(deltaTime);  // Boss aus dem Portal: Kameraschnitt, Wanduhr, siehe WAVE_SYSTEM.md
+  // danach: Auto-Wave-Countdown, Profiler, Route-Grid-Viz, LOS-Viz-Puls, UI-Stats (~10 Hz)
 }
 ```
 

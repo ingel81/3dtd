@@ -192,7 +192,7 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 | **Canvas** | 3D-Spielfeld mit Google Photorealistic Tiles |
 | **Sidebar** | Rechte Sidebar: WAVE-Panel, darunter BUILD, Tower-Detail oder Research (siehe [Sidebar-Panels](#sidebar-panels)) |
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets |
-| **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): Pause-Button und ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft. Pausiert zeigt der Pause-Button das Play-Icon eingelassen in `--td-gold-light` mit `--td-gold-dark`-Rand, darunter ein Glas-Chip "PAUSED" (10px Mono-Versalien). In derselben Spalte (`.td-hud-top`) darunter die Boss-Leiste, siehe [Boss-Leiste](#boss-leiste) |
+| **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): Pause-Button und ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft. Pausiert zeigt der Pause-Button das Play-Icon eingelassen in `--td-gold-light` mit `--td-gold-dark`-Rand, darunter ein Glas-Chip "PAUSED" (10px Mono-Versalien). In derselben Spalte (`.td-hud-top`) darunter die Boss-Leiste, siehe [Boss-Leiste](#boss-leiste). Während eines [Boss-Intros](#boss-intro-canvas) blendet die Spalte aus (`.td-hud-muted`, 200 ms), ihre Komponenten bleiben bestehen |
 | **Kompass** | Oben rechts, Klick setzt die Kamera zurück |
 | **Fähigkeitenleiste** | Linker Rand, senkrecht mittig: Held (sobald es einen gibt) und ein Knopf je Fähigkeit, siehe [Fähigkeitenleiste](#fähigkeitenleiste-canvas) |
 | **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move, H: Shortcuts), verschwindet nach 15 s oder per Klick. Solange ein [First-Run-Tipp](#first-run-tipps) steht, bleibt er weg: der erste Tipp trägt dieselben Tasten |
@@ -241,7 +241,7 @@ Das Display-Menü ist ein Panel über seinem Toggle (`.td-display-panel`, 212px 
 | Bereich | Inhalt |
 |---------|--------|
 | Effects | Preset-Leiste Low / Medium / High, darunter die Schalter, die ein Preset setzt (Muzzle Flash, Projectile Trails, Impact Effects, Ground Marks, Bloom) und Color Grading als Select. Passt kein Preset, steht "Custom" rechts im Kopf. |
-| General | Freeze Tint, Screen Shake, Health Bars, Damage Numbers, Frame Limit (Off / 60 / 30) |
+| General | Freeze Tint, Screen Shake, Boss Intro (siehe [Boss-Intro](#boss-intro-canvas)), Health Bars, Damage Numbers, Frame Limit (Off / 60 / 30) |
 | View | Photo Mode (Taste O), siehe [Photo Mode](#photo-mode) |
 
 Zeilen sind Checkbox-Labels wie im Display-Debugfenster (Akzent `--td-teal`), Kopfzeilen 10px Versalien in `--td-text-tertiary`, Schrift `--td-font-mono` 12px. Preset und Frame Limit sind Segmente: `--td-panel-secondary`, 1px `--td-frame-dark`, aktiv im Teal-Verlauf der aktiven Quick-Buttons, `aria-pressed`. Jede Effektzeile sagt im Tooltip, was sie abschaltet. Was die Schalter technisch tun: [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#vfx-einstellungen).
@@ -251,6 +251,16 @@ Zeilen sind Checkbox-Labels wie im Display-Debugfenster (Akzent `--td-teal`), Ko
 Solange ein Boss lebt (`EnemyTypeConfig.isBoss`, derzeit nur Herbert), steht oben mittig unter Game Speed und PAUSED-Chip `app-boss-bar` (`components/boss-bar/`): Glas-Panel (Mixin `bevel-glass`), `min(420px, 56vw)` breit, links der Name des Typs (12px/600 `--td-font-body`, Versalien, `--td-text-primary`), rechts die HP ("12,340 / 40,000", 10px Mono, `--td-text-muted`), darunter ein 8px-Balken als vertiefte Fläche mit Füllung in `--td-health-red`. Bei mehreren Bossen zeigt der große Balken den mit den meisten HP, die übrigen stehen als 3px-Balken darunter, höchstens vier, danach "+N" (Auswahl in `boss-bar.ts`). `pointer-events: none`.
 
 Bosse kommen über `enemy:spawned` in eine kurze Liste; ein 8-Hz-Timer außerhalb von Angular liest ihre HP und wirft die heraus, die gestorben, durchgekommen oder entfernt sind (ein Reset und das Debug-Fenster senden kein `enemy:died`, geprüft wird `active && alive`). Das Signal ändert sich nur, wenn sich die Leiste ändert; pausiert bleibt es also stehen.
+
+### Boss-Intro (Canvas)
+
+Tritt ein Boss einer Welle aus seinem Portal, schneidet die Kamera aufs Portal und `app-boss-intro` (`components/boss-intro/`) zeigt seinen Namen; Auslöser, Pause und Zeitplan in [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-intro). Die Komponente liegt immer über dem Canvas-Bereich (`z-index` 25, über der oberen HUD-Spalte und dem Game-Over-Overlay mit 20) und ist ohne Intro durchsichtig und klickdurchlässig; so hat die erste Blende eine Deckkraft, von der sie ausgeht.
+
+- Schleier: ganze Fläche in `--td-panel-shadow`, blendet vor jedem Schnitt in 220 ms ein (ease-in) und danach in 320 ms aus (ease-out); die Dauern kommen aus `BOSS_INTRO_TIMING`, damit Blende und Schnitt zusammenpassen
+- Titelkarte im unteren Drittel, zentriert, nur während der Portal-Einstellung, über einer weichen Abdunklung der unteren 45 % (`rgba(8,11,9,0.72)` nach transparent): oben "BOSS · WAVE n" (11px/700 Mono-Versalien, Laufweite 0.32em, `--td-gold`, als Trenner eine 4px-Raute in `--td-gold-dark`), darunter der Name des Typs (`EnemyTypeConfig.name`, Inter Tight 700, `clamp(30px, 4.6vw, 54px)`, Versalien per CSS, Laufweite 0.16em, `--td-text-primary` mit Textschatten), eine 88px-Haarlinie im Gold-Verlauf und der Hinweis "Esc or click to skip" (10px Mono, `--td-text-muted`, Tastenkappe wie in der Photo-Leiste). Cinzel (`--td-font-display`) wird nicht geladen, deshalb Inter Tight
+- Die Karte steigt 8px auf und blendet ein, 140 ms nachdem der Schleier zu weichen beginnt; die Laufweite des Namens setzt sich in 0,9 s von 0.3em auf 0.16em. Bei `prefers-reduced-motion` nur Deckkraft, keine Bewegung (auch die Kamera fährt dann nicht heran)
+- Bis die Sicht zurück ist, liegt ein durchsichtiger Knopf über der ganzen Fläche ("Skip the boss intro"): ein Klick überspringt und erreicht weder Karte noch HUD noch den Pause-Knopf darunter. Während der Schleier danach weicht, nimmt die Karte wieder Klicks
+- Die Karte ist `aria-hidden`; der `LiveAnnouncer` sagt beim Start "Boss: <Name>, wave <n>. Escape skips."
 
 ---
 
@@ -504,6 +514,8 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |
 | Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Tower abwählen | |
 
+Während eines [Boss-Intros](#boss-intro-canvas) fragt die Spielkomponente vor InputHandler und HotkeyService den `BossIntroService`: Esc überspringt das Intro (vor Build- und Zielmodus), alle anderen Spieltasten warten, bis die Sicht zurück ist. Tippen in einem Feld und ein Esc, das ein Dialog schon genommen hat, bleiben unberührt.
+
 S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint.
 
 ### First-Run-Tipps
@@ -603,6 +615,7 @@ Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().ki
 | `components/info-overlay/` | FPS / Tile-Stats Overlay (toggle ueber Caret) |
 | `components/quick-actions/` | Quick Actions: Route-Animation, Display-, Audio-, Layer- und Dev-Menü, Kamera-Reset |
 | `components/game-speed/` | Pause und Game-Speed (1x/2x/4x), Bauphase und Welle |
+| `components/boss-intro/` | Schleier und Titelkarte des Boss-Intros |
 | `components/debug-window/` | Debug-Panel Container + alle Debug-Ansichten (Wave, Camera, Event, Performance, …) |
 | `components/context-hint/` | Wiederverwendbare Kontext-Hinweis-Box |
 | `components/attributions-dialog/` | Attributions & Lizenzen Dialog |
