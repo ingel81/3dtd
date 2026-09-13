@@ -104,6 +104,29 @@ describe('EnemyManager', () => {
     expect(viaPortal).toEqual([true, false]);
   });
 
+  it('marks a wave worm on worm:spawned, not its head segment, and a placed worm not', () => {
+    const segments: (boolean | undefined)[] = [];
+    const worms: (boolean | undefined)[] = [];
+    eventBus.on('enemy:spawned', (event) => segments.push(event.viaPortal));
+    eventBus.on('worm:spawned', (event) => worms.push(event.viaPortal));
+    const path: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 2 },
+      { lat: 0.001, lon: 0, height: 2 },
+    ];
+
+    manager.spawn(path, 'worm', undefined, false, undefined, 'portal');
+    manager.spawn(path, 'worm', undefined, false, undefined, {
+      segmentIndex: 0,
+      segmentProgress: 0.5,
+      lateralFactor: 0,
+      heightVariation: 0,
+      groundHeight: 2,
+    });
+
+    expect(worms).toEqual([true, false]);
+    expect(segments).toEqual([false, false]);
+  });
+
   it('applies health override on spawn', () => {
     const path: GeoPosition[] = [
       { lat: 0, lon: 0, height: 2 },
