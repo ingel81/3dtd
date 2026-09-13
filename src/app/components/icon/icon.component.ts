@@ -30,7 +30,9 @@ export type TdIconName =
   | 'externalLink' | 'shuffle' | 'arrowUp' | 'walk' | 'run'
   | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir' | 'radiation' | 'plane' | 'camera'
   // damage types without an icon of their own (DAMAGE_TYPE_ICON)
-  | 'sparkle' | 'snowflake' | 'burst';
+  | 'sparkle' | 'snowflake' | 'burst'
+  // world map
+  | 'globe';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -129,6 +131,8 @@ const ICONS: Record<TdIconName, IconDef> = {
   snowflake: { body: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5" />' },
   // Eight-point burst, siege damage.
   burst: { body: '<path d="M12 3l1.8 4.6 4.6-2-2 4.6L21 12l-4.6 1.8 2 4.6-4.6-2L12 21l-1.8-4.6-4.6 2 2-4.6L3 12l4.6-1.8-2-4.6 4.6 2L12 3Z" />' },
+  // Globe with equator and one meridian, for the world map.
+  globe: { body: '<circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9s1.3-6.4 3.8-9Z" />' },
 };
 
 @Component({

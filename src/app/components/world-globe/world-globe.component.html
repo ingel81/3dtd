@@ -1,0 +1,12 @@
+<div class="globe" [style.width.px]="size()" [style.height.px]="size()">
+  <canvas #canvas role="img" [attr.aria-label]="ariaLabel()"></canvas>
+  @if (hover(); as h) {
+    <div class="globe-tip" [class.below]="h.below" [style.left.px]="h.x" [style.top.px]="h.y">
+      <span class="tip-name">{{ h.record.name }}</span>
+      @if (h.record.detail !== h.record.name) {
+        <span class="tip-detail">{{ h.record.detail }}</span>
+      }
+      <span class="tip-wave">Best wave {{ h.record.bestWave }}@if (h.isCurrent) {<span class="tip-current"> · playing now</span>}</span>
+    </div>
+  }
+</div>
