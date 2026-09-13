@@ -221,6 +221,7 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 | 97 | NuclearStrike | ✓ | ✓ | ✓ | ✓ |
 | 96 | FrostBomb | ✓ | ✓ | ✓ | ✓ |
 | 94 | Emp | ✓ | ✓ | ✓ | ✓ |
+| 93 | OrbitalLaser | ✓ | ✓ | ✓ | ✓ |
 | 95 | ResearchCenterPlacement | ✓ | ✓ | ✓ | ✓ |
 | 90 | AntiAirPlacement | | ✓ | ✓ | ✓ |
 | 88 | AntiEtherealPlacement | | ✓ | ✓ | ✓ |
@@ -236,7 +237,8 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 
 NuclearStrike steht in jedem Set, feuert aber nur mit erforschtem
 `nuclear-strike`, und das erforschen nur strategist und meta (ResearchPick).
-Dasselbe gilt für FrostBomb und `frost-bomb`, Emp und `emp`.
+Dasselbe gilt für FrostBomb und `frost-bomb`, Emp und `emp`, OrbitalLaser und
+`orbital-laser`.
 
 **casual und meta haben dasselbe Strategie-Set**; sie unterscheiden sich nur in
 Reaktionszeit (1500 vs. 400 ms) und Turm-Cap (15 vs. 20).
@@ -694,9 +696,27 @@ den meisten anderen (`densestCenter`).
 **Vergleichbarkeit:** strategist und meta erforschen `emp` direkt nach
 `storm-mastery` (800 Gold). Beginner und casual spielen unverändert.
 
+### OrbitalLaser (93)
+
+Ruft den Orbitallaser ([ABILITIES.md](ABILITIES.md#orbitallaser-in-zahlen)):
+während einer Welle, sobald er bereit ist, wenn ein Gegner ab Pfadfortschritt
+0,5 auf derselben Route mindestens 10 Gegner hinter sich hat, höchstens 72 m
+zurück (so weit brennt der Strahl Richtung Spawn). Ziel ist der Gegner mit den
+meisten dahinter; geprüft werden höchstens 48 Kandidaten. Die Zählung nimmt
+die Strecke auf der Mittellinie und prüft nicht, ob ein Gegner seitlich
+außerhalb der 5 m des Strahls läuft.
+
+**Vergleichbarkeit:** strategist und meta erforschen `orbital-laser` direkt
+nach `master-engineering` (1.500 Gold). Beginner und casual spielen
+unverändert.
+
 ---
 
 ## Changelog
+
+### 2026-09-14: Orbitallaser
+- Neue Strategie OrbitalLaser (93) in allen Skill-Stufen; `orbital-laser` in
+  den Forschungslisten von strategist und meta nach `master-engineering`.
 
 ### 2026-09-14: EMP
 - Neue Strategie Emp (94) in allen Skill-Stufen; `emp` in den Forschungslisten
