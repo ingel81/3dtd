@@ -211,7 +211,6 @@ describe('ThreeTowerRenderer hover range', () => {
   const assetManager = {
     loadModel: async () => ({ animations: [] }),
     cloneModel: () => new Group(),
-    isFbxModel: () => false,
   };
   const sync = {
     geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
