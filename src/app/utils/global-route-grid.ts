@@ -23,6 +23,7 @@ import {
   summarizeTowerRange,
 } from './route-grid-diagnostics';
 import { RouteGridAggregateViz } from './route-grid-aggregate-viz';
+import { RouteGridHeightSweep } from './route-grid-height-sweep';
 import { RouteCellSampler } from './route-cell-sampler';
 import { logGrid } from './route-grid-log';
 
@@ -126,19 +127,15 @@ export class GlobalRouteGrid {
   /** Terrain-Sampling der Cells (`sampleCellY`) mit Proben und Sweep-Zählern. */
   private readonly sampler = new RouteCellSampler((cell) => this.medianOfStableNeighbourY(cell));
 
-  // ── Frame-budgeted terrain-refresh sweep state ──────────────────────
-  // `beginTerrainHeightRefresh` snapshots the cell set into this queue;
-  // `stepTerrainHeightRefresh` chews through it across rAF ticks within a
-  // per-frame time budget. The only sweep implementation there is —
-  // `updateTerrainHeights` drains this same queue with an infinite budget.
-  // `null` queue = no sweep in flight.
-  private terrainSweepQueue: RouteCell[] | null = null;
-  private terrainSweepIndex = 0;
-  private terrainSweepChanged: RouteCell[] = [];
-  private terrainSweepPromoted = 0;
-  private terrainSweepRefreshed = 0;
-  private terrainSweepSlices = 0;
-  private terrainSweepStart = 0;
+  /**
+   * Frame-budgeted terrain-refresh sweep, see RouteGridHeightSweep. A slice
+   * that moved cells snaps the aggregate viz and tells the cells-changed
+   * listeners about them.
+   */
+  private readonly heightSweep = new RouteGridHeightSweep(this.sampler, (changed) => {
+    this.aggregateViz.refreshPositions();
+    this.emitCellsChanged(changed);
+  });
 
   /** Coordinate sync for geo <-> local conversions */
   private coordinateSync: CoordinateSync | null = null;
@@ -320,18 +317,7 @@ export class GlobalRouteGrid {
    * restarting is not wasteful.
    */
   beginTerrainHeightRefresh(): void {
-    if (!this.sampler.columnSampler) return;
-    this.terrainSweepQueue = Array.from(this.cells.values());
-    this.terrainSweepIndex = 0;
-    this.terrainSweepChanged.length = 0;
-    this.terrainSweepPromoted = 0;
-    this.terrainSweepRefreshed = 0;
-    this.terrainSweepSlices = 0;
-    this.terrainSweepStart = performance.now();
-    // Reset the skip/raycast diagnostic counters so the aggregated
-    // PerfTrace logged at `done` reflects this sweep only.
-    this.sampler.peekSkipCount = 0;
-    this.sampler.raycastCount = 0;
+    this.heightSweep.begin(this.cells.values());
   }
 
   /**
@@ -348,87 +334,12 @@ export class GlobalRouteGrid {
    * in flight) — at which point the aggregated `[PerfTrace]` line is logged.
    */
   stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number; changed: number } {
-    const queue = this.terrainSweepQueue;
-    if (!this.sampler.columnSampler || queue === null) {
-      return { done: true, processed: 0, changed: 0 };
-    }
-
-    const t0 = performance.now();
-    let processed = 0;
-    this.terrainSweepSlices++;
-
-    while (this.terrainSweepIndex < queue.length) {
-      const cell = queue[this.terrainSweepIndex++];
-      const wasUnsampled = !cell.heightSampled;
-      if (this.sampler.sampleCellY(cell)) {
-        this.terrainSweepChanged.push(cell);
-        if (wasUnsampled) {
-          this.terrainSweepPromoted++;
-        } else {
-          this.terrainSweepRefreshed++;
-        }
-      }
-      processed++;
-      // Budget check only every 32 cells — peek-skipped cells are so cheap
-      // that a per-cell performance.now() would dominate their cost.
-      if ((processed & 31) === 0 && performance.now() - t0 >= budgetMs) break;
-    }
-
-    const done = this.terrainSweepIndex >= queue.length;
-
-    // Snap viz + drive LOS for this slice's changes, then clear the buffer.
-    // `changedThisSlice` is reported back purely as caller diagnostics — the
-    // route line / animation subscribe to cells-changed like everyone else
-    // and coalesce their (expensive) rebuild to the end of the sweep
-    // themselves; nothing here needs to re-snap them.
-    const changedThisSlice = this.terrainSweepChanged.length;
-    if (changedThisSlice > 0) {
-      this.aggregateViz.refreshPositions();
-      this.emitCellsChanged(this.terrainSweepChanged.slice());
-      this.terrainSweepChanged.length = 0;
-    }
-
-    if (done) {
-      const total = queue.length;
-      const skipped = this.sampler.peekSkipCount;
-      const raycasted = this.sampler.raycastCount;
-      const skipRatio = total > 0 ? ((skipped / total) * 100).toFixed(1) : '0.0';
-      const spanMs = performance.now() - this.terrainSweepStart;
-      console.warn(
-        `[PerfTrace] updateTerrainHeights: spanMs=${spanMs.toFixed(1)} ` +
-        `slices=${this.terrainSweepSlices} | ` +
-        `cells=${total} ` +
-        `peekSkipped=${skipped} (${skipRatio}%) ` +
-        `raycasted=${raycasted} ` +
-        `promoted=${this.terrainSweepPromoted} ` +
-        `refreshed=${this.terrainSweepRefreshed} ` +
-        `peekAvailable=${this.sampler.terrainPeekLOD !== null}`
-      );
-      logGrid(
-        'HEIGHT_UPDATE',
-        `cells=${total} promoted=${this.terrainSweepPromoted} ` +
-        `refreshed=${this.terrainSweepRefreshed} skipped=${skipped} slices=${this.terrainSweepSlices}`,
-      );
-      this.terrainSweepQueue = null;
-    }
-
-    return { done, processed, changed: changedThisSlice };
+    return this.heightSweep.step(budgetMs);
   }
 
   /** True while a budgeted terrain-refresh sweep is in flight. */
   isTerrainRefreshActive(): boolean {
-    return this.terrainSweepQueue !== null;
-  }
-
-  /**
-   * Drop an in-flight sweep without running its remaining cells. Used by
-   * `clear()` on a location change — the queued cells belong to the grid that
-   * is being torn down.
-   */
-  private abortTerrainHeightRefresh(): void {
-    this.terrainSweepQueue = null;
-    this.terrainSweepIndex = 0;
-    this.terrainSweepChanged.length = 0;
+    return this.heightSweep.active;
   }
 
   /**
@@ -1345,7 +1256,7 @@ export class GlobalRouteGrid {
     // cells we just dropped, and a driver that keeps stepping would raycast
     // those orphans with the NEW location's sampler and emit cells-changed
     // for cells that are no longer in the grid.
-    this.abortTerrainHeightRefresh();
+    this.heightSweep.abort();
     this.disposeVisualization();
     this.disposeAirVisualization();
   }
