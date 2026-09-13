@@ -94,11 +94,12 @@
 /* The stat bar sits right above the sidebar content: same width and outer
    edges as the next-wave button and the tower grid. Sidebar width minus
    both gutters minus the sidebar's 1px border-left; the header's right
-   padding supplies the right gutter. Three equal columns, so a growing
-   value never shifts its neighbours. */
+   padding supplies the right gutter. Three equal columns that never grow
+   past their share (minmax(0, 1fr)), so a growing value never shifts or
+   overlaps its neighbours. */
 .header-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   flex-shrink: 0;
   box-sizing: border-box;
   width: calc(var(--td-sidebar-width) - 2 * var(--td-sidebar-gutter) - 1px);
@@ -142,10 +143,35 @@
   color: var(--td-text-muted);
 }
 
+/* One line: the value and, in the HQ cell, the max. What does not fit
+   wraps onto a second line that the fixed height hides, so "/100" drops
+   out whole before the value is cut; a value too long for the cell on
+   its own ends in an ellipsis. */
 .stat-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  height: 17px;
+  overflow: hidden;
   font-size: 15px;
   line-height: 17px;
   font-weight: 700;
+}
+
+.stat-num {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .enemies-chip {
@@ -169,6 +195,7 @@
 }
 
 .stat-max {
+  white-space: nowrap;
   font-size: 10px;
   font-weight: 400;
   color: var(--td-text-muted);

@@ -20,6 +20,7 @@ import { DevWorldService } from '../../devworld/devworld.service';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { PulseThrottle } from '../../utils/pulse-throttle';
 import { TdIconComponent } from '../icon/icon.component';
+import { COUNT_EXACT_BELOW, CREDITS_EXACT_BELOW, hqReadout, statReadout } from './header-stats';
 
 /** Flash of the HQ bar when the HQ loses health */
 const HQ_BAR_PULSE: Keyframe[] = [
@@ -101,12 +102,13 @@ export class GameHeaderComponent {
   readonly shareConfirmed = signal(false);
 
   /** HQ health at the start of a run. Nothing heals in play; the +HP cheat can go past it. */
-  readonly maxHealth = GAME_BALANCE.player.startHealth;
+  private readonly maxHealth = GAME_BALANCE.player.startHealth;
 
-  /** Fill of the HQ bar, 0-100 */
-  readonly healthPercent = computed(() =>
-    Math.max(0, Math.min(100, (this.baseHealth() / this.maxHealth) * 100))
-  );
+  // Figures of the stat bar and the enemies chip, short enough for their cells
+  readonly hq = computed(() => hqReadout(this.baseHealth(), this.maxHealth));
+  readonly creditsStat = computed(() => statReadout(this.credits(), CREDITS_EXACT_BELOW));
+  readonly waveStat = computed(() => statReadout(this.waveNumber(), COUNT_EXACT_BELOW));
+  readonly enemiesStat = computed(() => statReadout(this.enemiesAlive(), COUNT_EXACT_BELOW));
 
   private readonly hpBar = viewChild<ElementRef<HTMLElement>>('hpBar');
   private readonly hpPulse = new PulseThrottle(HQ_BAR_PULSE_MIN_INTERVAL_MS);
