@@ -21,7 +21,6 @@ import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
-import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import type { Enemy } from '../entities/enemy.entity';
@@ -37,6 +36,8 @@ import { ResearchManager } from './research.manager';
 import { AbilityManager } from './ability.manager';
 import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
+import { CreditsLedger } from './game-state/credits-ledger';
+import { BaseHealthLedger } from './game-state/base-health-ledger';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -111,11 +112,11 @@ export class GameStateManager {
     this.abilityManager,
   ];
 
-  // Game state signals
-  readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
-  /** HP already lost to leaks in the current wave; capped per wave. */
-  private waveLeakDamage = 0;
-  readonly credits = signal<number>(GAME_BALANCE.player.startCredits);
+  // Game state signals, owned by their ledgers
+  private readonly healthLedger = new BaseHealthLedger(this.eventBus);
+  readonly baseHealth = this.healthLedger.baseHealth;
+  private readonly creditsLedger = new CreditsLedger(this.eventBus);
+  readonly credits = this.creditsLedger.credits;
   /** Game over screen signal - delegated to HQDamageService */
   readonly showGameOverScreen = computed(() => this.hqDamage.showGameOverScreen());
 
@@ -184,7 +185,7 @@ export class GameStateManager {
 
   /** Bound once for the research queue, which runs every sub-step (ResearchManager.startQueued) */
   private readonly creditsNow = (): number => this.credits();
-  private readonly spendForResearch = (cost: number): boolean => this.spendCredits(cost);
+  private readonly spendForResearch = (cost: number): boolean => this.creditsLedger.spend(cost);
 
   /**
    * Set performance profiler for frame timing instrumentation.
@@ -277,28 +278,9 @@ export class GameStateManager {
     this.backgroundMusic = new BackgroundMusicService(this.eventBus, tilesEngine);
 
     // Register event handlers (tracked via SubscriptionBag for cleanup in reset())
+    // Leaks cost HP, capped per wave; emits health:changed (HQDamageService)
     this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => {
-      // Cap the damage a single wave can do. See `maxLeakDamagePerWave`:
-      // late-game leaks cost 10 HP each and nothing heals, so one wave with a
-      // missing counter could otherwise erase half a run in ninety seconds.
-      const budgetLeft = Math.max(
-        0,
-        GAME_BALANCE.combat.maxLeakDamagePerWave - this.waveLeakDamage,
-      );
-      const applied = Math.min(event.damage, budgetLeft);
-      this.waveLeakDamage += applied;
-      if (applied <= 0) return;
-
-      const oldHealth = this.baseHealth();
-      const newHealth = Math.max(0, oldHealth - applied);
-      this.baseHealth.set(newHealth);
-
-      // Emit health:changed - HQDamageService subscribes
-      this.eventBus.emit({
-        type: 'health:changed',
-        health: newHealth,
-        delta: newHealth - oldHealth,
-      });
+      this.healthLedger.applyLeak(event.damage);
     }));
 
 
@@ -357,7 +339,7 @@ export class GameStateManager {
 
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
-        this.updateCredits(event.credits);
+        this.creditsLedger.add(event.credits);
 
         // Show reward popup with actual dynamic credits (not static typeConfig.reward)
         if (this.tilesEngine) {
@@ -651,8 +633,7 @@ export class GameStateManager {
       this.eventBus.emit({ type: 'game:started' });
     }
 
-    // Fresh leak budget for the new wave (see maxLeakDamagePerWave).
-    this.waveLeakDamage = 0;
+    this.healthLedger.refillLeakBudget();
     this.waveManager.startWave(config);
   }
 
@@ -678,9 +659,13 @@ export class GameStateManager {
    * Heal base to full health
    */
   healBase(): void {
-    this.baseHealth.set(GAME_BALANCE.player.startHealth);
-    this.waveLeakDamage = 0;
+    this.healthLedger.resetToStart();
     this.hqDamage.healBase();
+  }
+
+  /** Debug: add (or take) base HP outside the leak budget, emits health:changed. */
+  adjustBaseHealth(amount: number): void {
+    this.healthLedger.adjust(amount);
   }
 
   /**
@@ -746,9 +731,8 @@ export class GameStateManager {
       this.tilesEngine.effects.clear();
     }
 
-    this.baseHealth.set(GAME_BALANCE.player.startHealth);
-    this.waveLeakDamage = 0;
-    this.updateCredits(GAME_BALANCE.player.startCredits - this.credits());
+    this.healthLedger.resetToStart();
+    this.creditsLedger.reset();
     this.clock.reset();
     this.economy.reset();
 
@@ -758,25 +742,15 @@ export class GameStateManager {
     this.eventBus.emit({ type: 'game:reset' });
   }
 
-  private updateCredits(delta: number): void {
-    const newCredits = this.credits() + delta;
-    this.credits.set(newCredits);
-    this.eventBus.emit({
-      type: 'credits:changed',
-      credits: newCredits,
-      delta,
-    });
-  }
-
   /** Apply Wave-Completion-Bonus via EconomyService (delegates the math). */
   private applyWaveCompletionBonus(result: { wave: number; perfect: boolean; closeCall: boolean; hpLost: number }): void {
     const total = this.economy.computeWaveCompletionBonus(result);
-    this.updateCredits(total);
+    this.creditsLedger.add(total);
   }
 
   /** Add credits to the player account (delta). Public for GameCommandsHandler. */
   addCredits(amount: number): void {
-    this.updateCredits(amount);
+    this.creditsLedger.add(amount);
   }
 
   /**
@@ -835,7 +809,7 @@ export class GameStateManager {
 
     // Sell tower (emits tower:sold event, returns refund)
     const refund = this.towerManager.sell(tower);
-    this.updateCredits(refund);
+    this.creditsLedger.add(refund);
     return refund;
   }
 
@@ -844,9 +818,7 @@ export class GameStateManager {
    * @returns true if credits were spent, false if not enough
    */
   spendCredits(amount: number): boolean {
-    if (this.credits() < amount) return false;
-    this.updateCredits(-amount);
-    return true;
+    return this.creditsLedger.spend(amount);
   }
 
   /**
@@ -884,7 +856,7 @@ export class GameStateManager {
 
     if (tower) {
       // Deduct cost
-      this.updateCredits(-config.cost);
+      this.creditsLedger.add(-config.cost);
 
       // Register tower on grid (LOS raycasting + grid registration + visualization)
       // Skip grid registration for passive buildings (no targeting/LOS needed)

@@ -152,14 +152,7 @@ export class GameCommandsHandler {
     }));
 
     this.subs.add(this.eventBus.on('debug:add-health', (event) => {
-      const oldHealth = this.gsm.baseHealth();
-      const newHealth = Math.max(0, oldHealth + event.amount);
-      this.gsm.baseHealth.set(newHealth);
-      this.eventBus.emit({
-        type: 'health:changed',
-        health: newHealth,
-        delta: newHealth - oldHealth,
-      });
+      this.gsm.adjustBaseHealth(event.amount);
     }));
 
     this.subs.add(this.eventBus.on('debug:complete-all-research', () => {
