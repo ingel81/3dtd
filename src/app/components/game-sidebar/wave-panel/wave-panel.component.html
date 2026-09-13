@@ -21,7 +21,10 @@
                 <span class="td-group-stat">{{ group.actualSpeed.toFixed(1) }}m/s</span>
               </div>
               <div class="td-group-armor">
-                <span>{{ getArmorIcon(group.enemyType) }} {{ getArmorLabel(group.enemyType) }}</span>
+                <span class="td-group-armor-type">
+                  <td-icon name="shield" [size]="10"></td-icon>
+                  {{ getArmorLabel(group.enemyType) }}
+                </span>
                 <span class="td-group-weak">{{ getArmorWeakTo(group.enemyType) }}</span>
               </div>
               @if (splitTrait(group.enemyType); as split) {
