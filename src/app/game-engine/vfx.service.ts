@@ -62,6 +62,11 @@ export class VFXService {
       used: (event) => this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs),
       impact: (event) => this.handleEmpImpact(event.strikeId, event.target, event.radiusM),
     },
+    // Target marker and the band of the route it will burn along, then the beam
+    'orbital-laser': {
+      used: (event) => this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs, event.path),
+      impact: (event) => this.handleBeamImpact(event.strikeId, event.path ?? [event.target], event.radiusM),
+    },
   };
 
   constructor(
@@ -147,9 +152,24 @@ export class VFXService {
     });
   }
 
-  private handleStrikeUsed(strikeId: number, target: GeoPosition, radiusM: number, warningMs: number): void {
+  private handleStrikeUsed(
+    strikeId: number,
+    target: GeoPosition,
+    radiusM: number,
+    warningMs: number,
+    path?: readonly GeoPosition[],
+  ): void {
     const center = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpA);
-    this.tilesEngine.abilityMarkers.showStrike(strikeId, center, radiusM, warningMs);
+    if (path) {
+      this.tilesEngine.abilityMarkers.showStrike(strikeId, center, radiusM, warningMs, this.localPath(path));
+    } else {
+      this.tilesEngine.abilityMarkers.showStrike(strikeId, center, radiusM, warningMs);
+    }
+  }
+
+  /** `path` in local coordinates, a new array (a beam's handful of points, once per use). */
+  private localPath(path: readonly GeoPosition[]): Vector3[] {
+    return path.map((p) => this.tilesEngine.sync.geoToLocalSimpleInto(p.lat, p.lon, p.height ?? 0, new Vector3()));
   }
 
   /**
@@ -210,6 +230,25 @@ export class VFXService {
     });
   }
 
+  /**
+   * The marker goes and the beam comes down on the start of `path` and runs
+   * along it (ORBITAL_BEAM_LOOK, in game time, at the ability's speed for
+   * its duration), leaving scorch marks on the route cells it passes.
+   */
+  private handleBeamImpact(strikeId: number, path: readonly GeoPosition[], radiusM: number): void {
+    this.tilesEngine.abilityMarkers.removeStrike(strikeId);
+    const effect = ABILITIES['orbital-laser'].effect;
+    if (effect.kind !== 'beam') return;
+    const effects = this.tilesEngine.effects;
+    this.tilesEngine.orbitalBeams.fire(
+      this.localPath(path),
+      radiusM,
+      effect.speedMps,
+      effect.durationMs / 1000,
+      (x, y, z) => effects.markScorch(x, y, z, 'rocket'),
+    );
+  }
+
   /** The marker goes and the EMP pulse runs out from the ground point (EMP_PULSE_LOOK, in game time). */
   private handleEmpImpact(strikeId: number, target: GeoPosition, radiusM: number): void {
     this.tilesEngine.abilityMarkers.removeStrike(strikeId);
@@ -222,6 +261,7 @@ export class VFXService {
     this.tilesEngine.mushroomClouds.clear();
     this.tilesEngine.frostBursts.clear();
     this.tilesEngine.empPulses.clear();
+    this.tilesEngine.orbitalBeams.clear();
   }
 
   /**

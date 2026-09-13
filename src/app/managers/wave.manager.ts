@@ -178,6 +178,11 @@ export class WaveManager implements IGameManager {
     this.cachedPaths = cachedPaths;
   }
 
+  /** The routes the enemies walk, one per spawn point, in spawn order. */
+  getPaths(): Iterable<GeoPosition[]> {
+    return this.cachedPaths.values();
+  }
+
   /**
    * Begin wave phase (for manual enemy spawning)
    */

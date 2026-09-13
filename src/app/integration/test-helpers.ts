@@ -209,6 +209,7 @@ export function createMockTilesEngine() {
       groundMarksEnabled: true,
       clear: vi.fn(),
     },
+    orbitalBeams: { setGround: vi.fn(), fire: vi.fn(), clear: vi.fn() },
     triggerScreenShake: vi.fn(),
   };
 }

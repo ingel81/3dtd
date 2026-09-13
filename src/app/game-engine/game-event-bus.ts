@@ -245,14 +245,19 @@ export type GameEvent =
       target: GeoPosition;
       radiusM: number;
       warningMs: number;
+      /** A beam: the route stretch it will burn along, from `target` toward the spawn */
+      path?: readonly GeoPosition[];
     }
   | {
-      // The strike landed: drives its effects, sound and screen shake.
+      // The strike landed: drives its effects, sound and screen shake. A
+      // beam starts burning here and resolves when it is done.
       type: 'ability:impact';
       abilityId: AbilityId;
       strikeId: number;
       target: GeoPosition;
       radiusM: number;
+      /** A beam: the route stretch it burns along, as in ability:used */
+      path?: readonly GeoPosition[];
     }
   | {
       // The strike is over, it hits and kills nothing more. `kills` count

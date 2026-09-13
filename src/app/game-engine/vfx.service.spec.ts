@@ -217,6 +217,7 @@ describe('VFXService nuclear strike', () => {
       mushroomClouds: { detonate: vi.fn(), clear: vi.fn() },
       frostBursts: { burst: vi.fn(), clear: vi.fn() },
       empPulses: { pulse: vi.fn(), clear: vi.fn() },
+      orbitalBeams: { fire: vi.fn(), clear: vi.fn() },
     };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
     const used = () => eventBus.emit({
@@ -283,6 +284,26 @@ describe('VFXService nuclear strike', () => {
     expect(tilesEngine.mushroomClouds.clear).toHaveBeenCalled();
     expect(tilesEngine.frostBursts.clear).toHaveBeenCalled();
     expect(tilesEngine.empPulses.clear).toHaveBeenCalled();
+    expect(tilesEngine.orbitalBeams.clear).toHaveBeenCalled();
+    service.destroy();
+  });
+
+  it('orbital laser: the marker with the band of its path, then the beam along it, scorching as it goes', () => {
+    const { eventBus, tilesEngine, service } = strikeSetup();
+    const path = [TARGET, { lat: TARGET.lat - 0.0005, lon: TARGET.lon, height: TARGET.height }];
+    eventBus.emit({ type: 'ability:used', abilityId: 'orbital-laser', strikeId: 7, target: TARGET, radiusM: 5, warningMs: 1000, path });
+    const [, center, radius, warning, band] = tilesEngine.abilityMarkers.showStrike.mock.calls[0];
+    expect(center).toEqual(expect.objectContaining({ x: 7, y: 8, z: 9 }));
+    expect([radius, warning]).toEqual([5, 1000]);
+    expect(band).toHaveLength(2);
+
+    eventBus.emit({ type: 'ability:impact', abilityId: 'orbital-laser', strikeId: 7, target: TARGET, radiusM: 5, path });
+    expect(tilesEngine.abilityMarkers.removeStrike).toHaveBeenCalledWith(7);
+    const [beamPath, beamRadius, speed, burnS, scorch] = tilesEngine.orbitalBeams.fire.mock.calls[0];
+    expect(beamPath).toHaveLength(2);
+    expect([beamRadius, speed, burnS]).toEqual([5, 18, 4]);
+    scorch(1, 2, 3);
+    expect(tilesEngine.effects.markScorch).toHaveBeenCalledWith(1, 2, 3, 'rocket');
     service.destroy();
   });
 

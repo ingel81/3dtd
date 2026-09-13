@@ -175,6 +175,7 @@ function createDeepMock(): never {
       trailStreaks: autoProxy(),
       tentacles: autoProxy(),
       hero: autoProxy(),
+      orbitalBeams: autoProxy(),
       triggerScreenShake: noopFn,
     } as Record<string, unknown>,
     handler
