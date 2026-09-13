@@ -387,6 +387,39 @@
       Callbacks als Funktions-`@Input` statt als Outputs. Von hygiene nicht
       umgestellt, weil das die API der Komponente ändert.
 
+- [ ] **Eigene Shader ohne Ausgabe-Kodierung** (laut portal4, ungesehen)
+      Diese `ShaderMaterial`s schreiben ohne `colorspace_fragment` bzw.
+      `linearToOutputTexel` und sehen darum mit Bloom oder Grading anders aus
+      als ohne (Bloom ist standardmäßig aus, dann geht das Bild direkt auf den
+      sRGB-Canvas). Das Tor und der Beschwörungskreis sind seit `0be611c` und
+      `f3f7238` kodiert. Offen in `three-engine/renderers/`:
+      Straßenlicht des Portals und HQ-Diamant, -Ringe, -Bodenglühen, Labels
+      (`marker/marker-shaders.ts:896, 25, 159, 271, 1048`; bei Labels eventuell
+      gewollt), VAT-Gegner (`instanced-enemy/vat-material.ts:63`), Healthbars
+      (`instanced-enemy/health-bar-instance.manager.ts:425`), Partikel
+      (`particle-shaders.ts:156, 169`), Decals (`decal-shaders.ts:112, 218,
+      325`), Projektile (`three-projectile.renderer.ts:395, 418, 469, 494`),
+      Trails (`trail-streak.renderer.ts:447`), Tentakel
+      (`three-tentacle.renderer.ts:148`), Blitz
+      (`lightning-bolt.renderer.ts:235`), Atompilz
+      (`mushroom-cloud.renderer.ts:362, 397`), Schadenszahlen
+      (`floating-text/floating-text-material.ts:18`); dazu
+      `utils/route-altitude-tubes.ts:45`. Additives Licht lässt sich zwischen
+      Canvas und linearem Composer-Target nicht exakt angleichen.
+
+- [ ] **Luftgegner am Portal: Reste** (laut airgate, ungesehen)
+      Die Air-LOS der Tower ist für 15 m über der Zelle vorberechnet
+      (`getAirTargetY`); auf den ersten 43 bis 47 m nach dem Tor fliegen
+      Luftgegner tiefer und werden nach dieser Sicht gewählt. Der Drache
+      (14,5 m Spannweite) ist breiter als jede Toröffnung, die Fledermaus
+      breiter als die kleinste (`configs/marker-geometry.config.ts`,
+      `AIR_PORTAL_EXIT`).
+
+- [ ] **Kamera fährt in Tower-Modelle** (seit `bac034a2`)
+      Zoom, Pan und Mindestabstand der GlobeControls treffen nur noch die
+      Tiles (`three-engine/ground-pick-root.ts`); Tower zählen nicht als
+      Hindernis, sonst hoben sie Zoom-Halt und Pivot wieder an.
+
 ---
 
 # PRIO 2 — Balance & Phase-5.16-Followups
