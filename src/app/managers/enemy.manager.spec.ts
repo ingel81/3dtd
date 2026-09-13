@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 
 vi.mock('three', async () => {
   const mod = await import('@/test/mocks/three.mock');
@@ -9,11 +9,14 @@ vi.mock('three', async () => {
 
 import { EnemyManager } from './enemy.manager';
 import { GameEventBus } from '../game-engine';
-import type { GeoPosition } from '../models/game.types';
+import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import type { ThreeTilesEngine } from '../three-engine';
+import type { Enemy } from '../entities/enemy.entity';
 import { goldBudgetForWave } from '../configs/wave-curriculum.config';
+import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
+import { registerEnemyModelRangeY } from '../utils/enemy-aim.util';
 
 const createMockTilesEngine = () => ({
   enemies: {
@@ -530,6 +533,114 @@ describe('EnemyManager', () => {
       expect(dots).toEqual([
         expect.objectContaining({ effectType: 'poison', damageType: 'poison', damage: 6, sourceId: 'p-2' }),
       ]);
+    });
+  });
+
+  describe('air units out of the spawn portal', () => {
+    // 111 m north; an 8 m corridor at the start stands a portal of scale 1
+    const route: RouteWaypoint[] = [
+      { lat: 0, lon: 0, height: 0, corridorLeft: 4, corridorRight: 4 },
+      { lat: 0.0004, lon: 0, height: 0 },
+      { lat: 0.001, lon: 0, height: 0 },
+    ];
+    /** Model origin above the ground: the grid is off here, the ground stays at 0. */
+    const altitude = (e: Enemy) => e.transform.terrainHeight + e.heightOffset;
+    const fromPortal = (typeId: string) =>
+      manager.spawn(route, typeId as never, undefined, false, undefined, 'portal');
+    let random: MockInstance;
+
+    beforeEach(() => {
+      // Centre lane, no altitude spread, unless a test says otherwise
+      random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    });
+    afterEach(() => random.mockRestore());
+
+    it('comes out of a wave spawn through the middle of the opening, created there', () => {
+      const bat = fromPortal('bat');
+      expect(bat.portalExit).not.toBeNull();
+      expect(altitude(bat)).toBeCloseTo(PORTAL_OPENING_HEIGHT / 2, 12);
+      // Not at cruise altitude for the frames before the first present pass
+      expect(tilesEngine.enemies.create).toHaveBeenCalledWith(bat.id, 'bat', 0, 0, altitude(bat));
+    });
+
+    it('comes through the same height whatever its altitude spread', () => {
+      random.mockReturnValue(0.9); // +2.4 m of the bat's ±3
+      const bat = fromPortal('bat');
+      expect(bat.movement.getHeightVariation()).toBeCloseTo(2.4, 12);
+      expect(altitude(bat)).toBeCloseTo(PORTAL_OPENING_HEIGHT / 2, 12);
+    });
+
+    it('stands a dragon taller than the opening on the ground, from the baked range', () => {
+      // The dragon model's range as the VAT bake measures it, unscaled (scale 2.5)
+      registerEnemyModelRangeY('dragon', 0.292, 4.864);
+      const dragon = fromPortal('dragon');
+      expect(altitude(dragon) + 0.292 * dragon.typeConfig.scale).toBeCloseTo(0, 12);
+    });
+
+    it('holds the opening height out of the gate, then climbs to exactly its cruise height', () => {
+      const bat = fromPortal('bat');
+      const exit = bat.portalExit!;
+      let previous = bat.heightOffset;
+      for (let s = 1; bat.portalExit !== null; s++) {
+        expect(s).toBeLessThan(1000);
+        manager.update(16.667, s * 16.667);
+        if (bat.movement.getDistanceAlongPath() <= exit.climbStart) expect(bat.heightOffset).toBe(exit.from);
+        expect(bat.heightOffset).toBeGreaterThanOrEqual(previous);
+        previous = bat.heightOffset;
+      }
+      expect(bat.movement.getDistanceAlongPath()).toBeGreaterThanOrEqual(exit.climbEnd);
+      expect(bat.heightOffset).toBe(bat.typeConfig.heightOffset);
+    });
+
+    it('climbs the same at every sub-step size', () => {
+      // 4.8 s of game time: the bat is 38 m along, in the middle of its climb
+      const heightAfter = (step: number) => {
+        const m = new EnemyManager(
+          eventBus,
+          globalRouteGrid as unknown as GlobalRouteGridService,
+          new SpatialGridService(),
+        );
+        m.initialize(createMockTilesEngine() as unknown as ThreeTilesEngine);
+        const bat = m.spawn(route, 'bat', undefined, false, undefined, 'portal');
+        for (let i = 1; i * step <= 4800; i++) m.update(step, i * step);
+        expect(bat.portalExit).not.toBeNull();
+        return bat.heightOffset;
+      };
+      const reference = heightAfter(16);
+      expect(reference).toBeGreaterThan(PORTAL_OPENING_HEIGHT / 2);
+      expect(reference).toBeLessThan(15);
+      expect(heightAfter(8)).toBeCloseTo(reference, 9);
+      expect(heightAfter(32)).toBeCloseTo(reference, 9);
+    });
+
+    it('shows the model at its real height in the present pass', () => {
+      const bat = fromPortal('bat');
+      tilesEngine.enemies.resolveSlot.mockReturnValue({ released: false });
+      manager.presentFrame(0);
+      const pushed = (tilesEngine.enemies.updateSlot.mock.calls[0] as unknown[])[1] as { y: number };
+      expect(pushed.y).toBeCloseTo(altitude(bat), 12);
+    });
+
+    it('gives the way out of the portal to wave spawns of air units only', () => {
+      // Debug spawn from the event, and spawn() without an entry
+      eventBus.emit({ type: 'debug:spawn-enemy', enemyType: 'bat', path: route });
+      const debugBat = manager.getAll()[0];
+      const plainBat = manager.spawn(route, 'bat');
+      // Split child: joins part-way along the path, where its parent was
+      const child = manager.spawn(route, 'bat', undefined, false, undefined, {
+        segmentIndex: 0,
+        segmentProgress: 0.5,
+        lateralFactor: 0,
+        heightVariation: 0,
+        groundHeight: 0,
+      });
+      const zombie = fromPortal('zombie');
+
+      for (const e of [debugBat, plainBat, child, zombie]) {
+        expect(e.portalExit).toBeNull();
+        expect(e.heightOffset).toBe(e.typeConfig.heightOffset);
+      }
+      expect(debugBat.typeConfig.id).toBe('bat');
     });
   });
 

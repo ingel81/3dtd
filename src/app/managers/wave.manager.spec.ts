@@ -184,6 +184,7 @@ describe('WaveManager', () => {
         expect.anything(),
         false,
         undefined,
+        'portal',
       );
 
       wm.tickSpawn(50);
@@ -193,6 +194,7 @@ describe('WaveManager', () => {
         expect.anything(),
         false,
         undefined,
+        'portal',
       );
     });
 
@@ -411,10 +413,12 @@ describe('WaveManager', () => {
       wm.tickSpawn(50);
       const calls = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls;
       expect(calls.length).toBe(2);
-      // spawn signature: (path, enemyType, speed, false, health)
+      // spawn signature: (path, enemyType, speed, false, health, 'portal')
       expect(calls[0][1]).toBe('a');
       expect(calls[0][2]).toBe(5);
       expect(calls[0][4]).toBe(100);
+      // Wave spawns come out of the spawn portal (air units climb out of it)
+      expect(calls[0][5]).toBe('portal');
       expect(calls[1][1]).toBe('b');
       expect(calls[1][2]).toBe(6);
       expect(calls[1][4]).toBe(200);

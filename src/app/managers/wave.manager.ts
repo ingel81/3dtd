@@ -253,7 +253,7 @@ export class WaveManager implements IGameManager {
       const spawn = this.selectSpawnPoint(spawnMode, spawnIndex);
       const path = this.cachedPaths.get(spawn.id);
       if (path && path.length > 1) {
-        this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health);
+        this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health, 'portal');
         spawnIndex++;
         this.spawnedEnemyCount++;
         consecutiveFailures = 0;

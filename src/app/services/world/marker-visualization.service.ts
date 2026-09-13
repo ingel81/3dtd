@@ -29,6 +29,7 @@ import {
 } from '../../three-engine/renderers/marker/spawn-portal-frame';
 import {
   type SpawnPortalPose,
+  portalCorridorWidth,
   provisionalPortalPose,
   spawnPortalPose,
 } from '../../three-engine/renderers/marker/spawn-portal-pose';
@@ -43,7 +44,6 @@ import {
   portalLabelHeight,
 } from '../../configs/marker-geometry.config';
 import { SPAWN_PORTAL_LOOK, type BurstPalette } from '../../configs/visual-effects.config';
-import { corridorConfig } from '../../utils/route-corridor';
 
 /** Waypoints from the route start read for a portal's heading, see spawnPortalPose. */
 const PORTAL_POSE_WAYPOINTS = 16;
@@ -376,12 +376,8 @@ export class MarkerVisualizationService {
     }
 
     const start = route[0];
-    const halfWidth = Math.max(
-      start.corridorLeft ?? corridorConfig.defaultHalfWidth,
-      start.corridorRight ?? corridorConfig.defaultHalfWidth,
-    );
     const groundY = startGroundY ?? engine.getTerrainHeightAtGeo(start.lat, start.lon) ?? current.y;
-    const pose = spawnPortalPose(points, groundY, 2 * halfWidth);
+    const pose = spawnPortalPose(points, groundY, portalCorridorWidth(start));
     if (!pose) return;
 
     portals.setPose(id, pose);

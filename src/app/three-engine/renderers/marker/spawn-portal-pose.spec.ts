@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { Matrix4, Vector3 } from 'three';
 import {
   PORTAL_HEADING_RUN,
+  portalCorridorWidth,
   portalScaleForWidth,
   provisionalPortalPose,
   spawnPortalPose,
 } from './spawn-portal-pose';
+import { corridorConfig } from '../../../utils/route-corridor';
 import {
   PORTAL_MAX_SCALE,
   PORTAL_MIN_SCALE,
@@ -49,6 +51,12 @@ describe('spawnPortalPose', () => {
     expect(spawnPortalPose(route, 0, 2)!.scale).toBe(PORTAL_MIN_SCALE);
     expect(spawnPortalPose(route, 0, 40)!.scale).toBe(PORTAL_MAX_SCALE);
     expect(portalScaleForWidth(PORTAL_OPENING_WIDTH)).toBe(1);
+  });
+
+  it('spannt die Öffnung über die breitere Seite des Korridors am Routenstart', () => {
+    expect(portalCorridorWidth({ lat: 0, lon: 0, corridorLeft: 3, corridorRight: 5 })).toBe(10);
+    expect(portalCorridorWidth({ lat: 0, lon: 0, corridorLeft: 6 })).toBe(12);
+    expect(portalCorridorWidth({ lat: 0, lon: 0 })).toBe(2 * corridorConfig.defaultHalfWidth);
   });
 
   it('gibt ohne Richtung keine Pose', () => {

@@ -11,6 +11,7 @@ import { GeoPosition } from '../models/game.types';
 import { EnemyTypeId, getEnemyType, EnemyTypeConfig } from '../configs/enemy-types.config';
 import { ArmorType } from '../configs/combat/combat.types';
 import type { RouteCell } from '../utils/route-cell';
+import type { AirPortalExit } from '../utils/air-portal-exit';
 import type { SpatialEntry } from '../services/world/spatial-grid.service';
 import type { EnemyInstanceState } from '../three-engine/renderers/instanced-enemy/enemy-instance.manager';
 import { EnemyRush } from './enemy-rush';
@@ -68,10 +69,17 @@ export class Enemy extends GameObject {
 
   /**
    * Height of the model origin above `transform.terrainHeight` (m): the
-   * type's `heightOffset`. Everything placed on or aimed at the model reads
-   * this, not the config, so an enemy can fly lower than its type.
+   * type's `heightOffset`, lower while an air unit climbs out of its spawn
+   * portal (`portalExit`). Everything placed on or aimed at the model reads
+   * this, not the config.
    */
   heightOffset: number;
+  /**
+   * An air unit's way out of its spawn portal, null once it cruises and for
+   * every other enemy. Written only by EnemyManager, which sets
+   * `heightOffset` from it every sub-step.
+   */
+  portalExit: AirPortalExit | null = null;
 
   /**
    * `startIndex` and `startProgress` start the enemy part-way along `path`

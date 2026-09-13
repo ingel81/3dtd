@@ -11,12 +11,13 @@ import type { Enemy } from '../entities/enemy.entity';
  * and too low for large ones.
  *
  * The VAT baker measures each model's true vertical extent across all
- * animation frames (see vat-baker.ts) and registers the geometric centre
- * here. Combat code reads it via getEnemyAimOffsetY().
+ * animation frames (see vat-baker.ts) and registers it here. Combat code
+ * reads its centre via getEnemyAimOffsetY(); an air unit coming out of a
+ * spawn portal centres the whole extent in the opening (EnemyManager).
  */
 
-/** typeId → vertical model centre in unscaled bake/root space. */
-const modelCenterY = new Map<string, number>();
+/** typeId → vertical extent of the model in unscaled bake/root space. */
+const modelRangeY = new Map<string, { min: number; max: number }>();
 
 /**
  * Fallback aim offset (world metres above the model origin) used only
@@ -26,24 +27,32 @@ const modelCenterY = new Map<string, number>();
 export const DEFAULT_AIM_OFFSET_Y = 2;
 
 /**
- * Register the measured vertical centre of an enemy model. Called once
- * per type by the VAT baker pipeline. `centerY` is in the same unscaled
- * model/root space as the baked VAT positions.
+ * Register the measured vertical extent of an enemy model. Called once
+ * per type by the VAT baker pipeline. `minY` and `maxY` are in the same
+ * unscaled model/root space as the baked VAT positions.
  */
-export function registerEnemyModelCenterY(typeId: string, centerY: number): void {
-  modelCenterY.set(typeId, centerY);
+export function registerEnemyModelRangeY(typeId: string, minY: number, maxY: number): void {
+  modelRangeY.set(typeId, { min: minY, max: maxY });
+}
+
+/**
+ * Vertical extent of a type's model (unscaled, see
+ * registerEnemyModelRangeY), undefined before its bake.
+ */
+export function getEnemyModelRangeY(typeId: string): Readonly<{ min: number; max: number }> | undefined {
+  return modelRangeY.get(typeId);
 }
 
 /**
  * Vertical offset (world metres) from an enemy's model origin to its
  * visual centre — where projectiles, beams and chain bolts should aim.
  *
- * The per-type centre is measured unscaled, so multiplying by the enemy's
+ * The per-type extent is measured unscaled, so multiplying by the enemy's
  * scale keeps the aim point correct even if enemies of one type ever vary
  * in size.
  */
 export function getEnemyAimOffsetY(enemy: Enemy): number {
-  const centerY = modelCenterY.get(enemy.typeConfig.id);
-  if (centerY === undefined) return DEFAULT_AIM_OFFSET_Y;
-  return centerY * enemy.typeConfig.scale;
+  const range = modelRangeY.get(enemy.typeConfig.id);
+  if (range === undefined) return DEFAULT_AIM_OFFSET_Y;
+  return ((range.min + range.max) / 2) * enemy.typeConfig.scale;
 }
