@@ -497,8 +497,9 @@ export function setPortalGateTextures(
  * lights do not reach it. The carved sigils glow from inside their
  * grooves, drawn from their distance fields (portalGlyphInk) so they stay
  * sharp near and read far, where a stroke is thinner than a pixel. Each
- * breathes at its own slow, uneven pace in game time (uGlyphTime, standing
- * while the game is paused), a low ember between waves, stronger in one
+ * breathes at its own slow, uneven pace on the sigils' clock (uGlyphTime:
+ * wall time that stands while the game is paused, never hurried by the
+ * timescale), a low ember between waves, stronger in one
  * (uGlyphDrive, portalGlyphDrive); now and then one wakes in an uneven
  * glimmer crawling along its strokes, tinted with the spawn's colour.
  * `exposure` is the gain on the stone's base colour, `glints` the strength
@@ -588,7 +589,7 @@ export function createPortalGateMaterial(
       precision highp float;
 
       uniform float uTime;      // wall time (s): the void, the core's flicker
-      uniform float uGlyphTime; // game time (s): the sigils' life, standing while the game is paused
+      uniform float uGlyphTime; // the sigils' clock (s): wall time, standing while the game is paused
       uniform float uEnergy;
       uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height

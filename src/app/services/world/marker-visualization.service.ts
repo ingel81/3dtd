@@ -491,13 +491,13 @@ export class MarkerVisualizationService {
   /**
    * Animate markers (the shaders do the motion; this feeds their clocks).
    * Wall time: the markers keep moving while the game is paused; only the
-   * portals' sigils take the game time (ms) and stand with it.
+   * portals' sigils stand while it is `paused`.
    */
-  animateMarkers(_deltaTime: number, gameTimeMs: number): void {
+  animateMarkers(_deltaTime: number, paused: boolean): void {
     if (!this.engine || !this.markerManager || !this.portalManager || !this.labelManager) return;
 
     this.markerManager.update(this.engine.getCamera());
-    this.portalManager.update(performance.now(), gameTimeMs);
+    this.portalManager.update(performance.now(), paused);
     this.labelManager.update();
   }
 

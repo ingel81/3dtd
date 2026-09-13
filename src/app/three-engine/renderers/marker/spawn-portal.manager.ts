@@ -56,9 +56,9 @@ interface PortalEntry {
  * When enemies step through, a ripple runs over the surface and the
  * street, at most once per burst interval per portal (tryBurst).
  * Runs on wall time like the HQ marker, so the portal keeps swirling while
- * the game is paused; only the carved sigils' breathing and waking follow
- * game time and stand with it. The energy sets how strongly they glow
- * (portalGlyphDrive). All glow is emissive: the Photorealistic Tiles take
+ * the game is paused; only the carved sigils' breathing and waking stand
+ * while it is paused, and at any timescale they keep the wall time's pace.
+ * The energy sets how strongly they glow (portalGlyphDrive). All glow is emissive: the Photorealistic Tiles take
  * no scene light.
  */
 export class SpawnPortalManager {
@@ -83,6 +83,8 @@ export class SpawnPortalManager {
   private energy: number = SPAWN_PORTAL_LOOK.idleEnergy;
   private surgeAtMs = -Infinity;
   private lastUpdateMs: number | null = null;
+  /** The sigils' clock (s): wall time that stands while the game is paused */
+  private glyphClock = 0;
 
   private readonly tmpMatrix = new Matrix4();
   private readonly tmpScale = new Vector3();
@@ -261,15 +263,17 @@ export class SpawnPortalManager {
   }
 
   /**
-   * Per-frame update of the energy and the shader clocks: wall time (ms)
-   * for the energy, the void and the street, game time (ms) for the
-   * sigils' life, which stands while the game is paused.
+   * Per-frame update of the energy and the shader clocks, from the wall
+   * time (ms): the energy, the void and the street run on it; the sigils'
+   * clock runs with it too but stands while the game is `paused`, so the
+   * pause freezes their breathing and the timescale does not hurry it.
    */
-  update(nowMs: number, gameTimeMs: number): void {
+  update(nowMs: number, paused: boolean): void {
     const look = SPAWN_PORTAL_LOOK;
     // A hitch or a hidden tab must not jump the settling
     const dt = this.lastUpdateMs === null ? 0 : Math.min(Math.max(nowMs - this.lastUpdateMs, 0), 250) / 1000;
     this.lastUpdateMs = nowMs;
+    if (!paused) this.glyphClock += dt;
     const target = this.waveActive ? look.waveEnergy : look.idleEnergy;
     this.settledEnergy += (target - this.settledEnergy) * (1 - Math.exp(-dt / look.settle));
     const sinceSurge = (nowMs - this.surgeAtMs) / 1000;
@@ -279,7 +283,7 @@ export class SpawnPortalManager {
     if (this.portals.size === 0) return;
     const time = nowMs / 1000;
     this.gateMat.uniforms['uTime'].value = time;
-    this.gateMat.uniforms['uGlyphTime'].value = gameTimeMs / 1000;
+    this.gateMat.uniforms['uGlyphTime'].value = this.glyphClock;
     this.gateMat.uniforms['uEnergy'].value = this.energy;
     const drive = portalGlyphDrive(this.energy, look, look.glyphs);
     (this.gateMat.uniforms['uGlyphDrive'].value as Vector3).set(drive.level, drive.wakeChance, drive.surge);
