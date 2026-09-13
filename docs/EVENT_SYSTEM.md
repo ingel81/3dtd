@@ -1,6 +1,6 @@
 # Event System - Framework-Agnostic Event Bus
 
-**Stand:** 2026-09-13 (`wave:completed`-Semantik: 2026-09-07)
+**Stand:** 2026-09-14 (`wave:completed`-Semantik: 2026-09-07)
 
 Das Event-System ermoeglicht lose Kopplung zwischen Game-Engine Komponenten. Alle Manager kommunizieren ueber Events statt direkter Methodenaufrufe oder Callbacks.
 
@@ -34,10 +34,11 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
-| `enemy:spawned` | EnemyManager | GameStateSyncService, AIDataCollector, EnemyDebugService, BossBarComponent (merkt sich Bosse) | Enemy gespawnt (`enemy`) |
+| `enemy:spawned` | EnemyManager | GameStateSyncService, AIDataCollector, EnemyDebugService, BossBarComponent (merkt sich Bosse, außer Wurm-Segmenten) | Enemy gespawnt (`enemy`); bei einem Wurm jedes Segment, wenn es aus dem Portal kommt |
 | `enemy:died` | EnemyManager (`kill()`, u.a. aus DamageApplicationService) | GameStateManager (Credits; außerhalb einer Welle Tower in Wachrichtung), GameStateSyncService, WaveManager, ScreenShakeService (Boss), AIDataCollector | Enemy gestorben (`enemy`, `credits`) |
 | `enemy:reached-base` | EnemyManager | GameStateManager (Schaden, gedeckelt durch `maxLeakDamagePerWave`), WaveManager, GameStateSyncService, AIDataCollector, LeakVignetteComponent (roter Rand, gedrosselt) | Enemy am Ziel (`enemy`, `damage`) |
 | `enemy:split` | EnemyManager (`kill()` mit Ursache `combat`, Typ mit `splitOnDeath`) | GameStateSyncService (Rest und Gesamtzahl der Welle), AIDataCollector (`enemiesSpawned`), VFXService (Knochen-Burst), EnemyDebugService (Kinder eines Debug-Gegners) | Getöteter Enemy hat sich geteilt (`enemy`, `children`); kommt nach seinem `enemy:died` und den `enemy:spawned` der Kinder |
+| `worm:spawned` | EnemyManager (`spawn()` eines Typs mit `chain`) | GameStateSyncService (Rest und Gesamtzahl der Welle um `size - 1`), AIDataCollector (`enemiesSpawned`), BossBarComponent (ein Balken für den ganzen Wurm) | Ein Wurm wurde gespawnt (`head`, `group`); kommt nach dem `enemy:spawned` des Kopfes, die übrigen Segmente folgen mit eigenem `enemy:spawned` |
 | `projectile:hit` | ProjectileManager | CombatEffectService | Projektil trifft (`projectile`, `target`, `damage`, `damageType`) |
 | `dot:damage` | EnemyManager (`tickDamageOverTime()`) | CombatEffectService → DamageApplicationService | DOT-Tick (Poison, Burn) (`enemy`, `damage`, `sourceId`, `effectType`, `damageType`) |
 | `tower:placed` | TowerManager | GameStateSyncService, VisualizationFacade, AIDataCollector | Tower gebaut (`tower`, `position`, `cost`). Die Kosten zieht `GameStateManager.placeTower()` (`TowerLifecycle.place()`) direkt ab |
@@ -252,7 +253,7 @@ function gameLoop(deltaTime: number) {
 | **ScreenShakeService** | Nein | Subscriber | Reagiert auf `vfx:projectile-impact`, `health:changed`, `enemy:died` (Boss) |
 | **BackgroundMusicService** | Nein | Subscriber | Reagiert auf `wave:started`, `wave:completed`, `game:over`, `game:reset` |
 | **ProjectileManager** | Nein | Producer | Emittiert `projectile:hit`, `vfx:*`, `audio:play` |
-| **EnemyManager** | Nein | Mixed | Emittiert `enemy:spawned`, `enemy:died`, `enemy:reached-base`, `enemy:split`, `dot:damage`; reagiert auf `debug:*` (Spawn, Entfernen, Bewegung) |
+| **EnemyManager** | Nein | Mixed | Emittiert `enemy:spawned`, `enemy:died`, `enemy:reached-base`, `enemy:split`, `worm:spawned`, `dot:damage`; reagiert auf `debug:*` (Spawn, Entfernen, Bewegung) |
 | **WaveManager** | Nein | Mixed | Emittiert `wave:started`, `wave:completed`; reagiert auf `enemy:died`, `enemy:reached-base`, `debug:kill-all` |
 | **TowerManager** | Nein | Producer | Emittiert `tower:placed`, `tower:sold`, `tower:selected`, `tower:deselected`, `audio:play` |
 | **ResearchManager** | Nein | Producer | Emittiert `research:*` |
