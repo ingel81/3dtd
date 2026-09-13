@@ -1,7 +1,7 @@
 import { Injectable, inject, Injector, effect } from '@angular/core';
 import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
-import { CameraControlService, type CameraView } from '../camera-control.service';
+import { CameraControlService } from '../camera-control.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { InputHandlerService } from '../input-handler.service';
@@ -11,7 +11,7 @@ import { MapPlacementService } from '../world/map-placement.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
-import { CameraFramingService, GeoPoint, type CameraFrame } from '../camera-framing.service';
+import { CameraFramingService } from '../camera-framing.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
@@ -36,26 +36,13 @@ import { Vector3 } from 'three';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { EngineStore } from '../../store/engine.store';
-import { STREET_FILTER_RADIUS, CAMERA_PADDING, CAMERA_ANGLE, CAMERA_MARKER_RADIUS } from '../../configs/map-constants.config';
+import { STREET_FILTER_RADIUS } from '../../configs/map-constants.config';
 import { CorridorController } from '../world/corridor-controller';
 import { CorridorConsole } from '../debug/corridor-console';
 import { RouteGridConvergence } from '../world/route-grid-convergence';
 import { IntroLoadingGate } from '../world/intro-loading-gate';
+import { CameraOverview } from '../camera-overview';
 import { cameraTimeline } from '../../utils/camera-timeline';
-
-/**
- * Cells from tiles up to this geometric error (m) count as reliable ground
- * for the overview frame, the same bound the intro flight uses
- * (IntroCameraFlightService maxSampleError).
- */
-const OVERVIEW_MAX_TILE_ERROR = 20;
-
-function frameToView(frame: CameraFrame): CameraView {
-  return {
-    position: { x: frame.camX, y: frame.camY, z: frame.camZ },
-    target: { x: frame.lookAtX, y: frame.lookAtY, z: frame.lookAtZ },
-  };
-}
 
 /**
  * Sub-facade for visualization, camera, rendering, and height updates.
@@ -139,6 +126,17 @@ export class VisualizationFacadeService {
     pathRoute: this.pathRoute,
     introFlight: this.introFlight,
     recheck: () => this.checkAllLoaded(),
+  });
+
+  /** Overview frame and camera debug toggles, see CameraOverview. */
+  private readonly overview = new CameraOverview({
+    store: this.store,
+    engineStore: this.engineStore,
+    cameraControl: this.cameraControl,
+    cameraFraming: this.cameraFraming,
+    pathRoute: this.pathRoute,
+    introFlight: this.introFlight,
+    grid: () => this.gameState.getGlobalRouteGrid(),
   });
 
   /** Component bridge — set via initialize() */
@@ -272,16 +270,9 @@ export class VisualizationFacadeService {
 
     // Initialize camera control service
     this.cameraControl.initialize(engine, { lat: baseCoords.lat, lon: baseCoords.lon });
-    // The overview frame needs the camera's real lens and the terrain from the
-    // first reframe on; without the engine it fell back to a 75° default lens
-    // and could not apply the frame at all.
-    this.cameraFraming.setEngine(engine);
-    // Reset Camera, intro cancel and the intro's landing compute the
-    // overview fresh, see CameraControlService.setOverviewProvider().
-    this.cameraControl.setOverviewProvider(() => {
-      const frame = this.computeOverviewFrame();
-      return frame ? frameToView(frame) : null;
-    });
+    // Overview frame on the camera's real lens, computed fresh for Reset
+    // Camera and the intro (CameraOverview).
+    this.overview.initialize(engine);
 
     // Initialize route animation service
     this.routeAnimation.initialize(engine);
@@ -592,63 +583,24 @@ export class VisualizationFacadeService {
 
   /**
    * Store the last computed overview frame as the initial view (intro
-   * landing, Reset Camera, intro cancel). The frame, not the live camera: by
-   * now the camera may be anywhere, mid-intro or panned.
+   * landing, Reset Camera, intro cancel), see CameraOverview.
    */
   saveInitialCameraPosition(): void {
-    const hq = this.store.baseCoords();
-    const spawns = this.store.spawnPoints();
-
-    const routePoints = this.collectRoutePoints();
-
-    if (spawns.length > 0) {
-      const hqCoord = { lat: hq.lat, lon: hq.lon };
-      const spawnCoords = spawns.map(s => ({ lat: s.lat, lon: s.lon }));
-      this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, CAMERA_PADDING, routePoints);
-    }
-
-    // Without a frame (no ground known yet) nothing is stored: the camera's
-    // start pose is no overview. Reset and intro compute one when needed.
-    const frame = this.cameraFraming.getLastFrame();
-    if (frame) this.cameraControl.saveInitialPosition(frameToView(frame));
+    this.overview.saveInitialPosition();
   }
 
   /**
    * Toggle camera framing debug visualization.
    */
   toggleCameraFramingDebug(): void {
-    const enabled = this.cameraControl.toggleDebugFraming();
-    this.store.cameraFramingDebug.set(enabled);
-
-    if (enabled) {
-      const hq = this.store.baseCoords();
-      const spawns = this.store.spawnPoints();
-
-      const routePoints = this.collectRoutePoints();
-
-      if (spawns.length > 0) {
-        this.cameraControl.showDebugVisualization(
-          { lat: hq.lat, lon: hq.lon },
-          spawns.map(s => ({ lat: s.lat, lon: s.lon })),
-          CAMERA_PADDING,
-          routePoints
-        );
-      }
-    }
+    this.overview.toggleFramingDebug();
   }
 
   /**
    * Toggle camera debug overlay.
    */
   toggleCameraDebug(): void {
-    const enabled = !this.engineStore.cameraDebugEnabled();
-    this.engineStore.cameraDebugEnabled.set(enabled);
-
-    if (enabled) {
-      this.engineStore.cameraDebugInfo.set(this.cameraControl.getCameraDebugInfo());
-    } else {
-      this.engineStore.cameraDebugInfo.set(null);
-    }
+    this.overview.toggleCameraDebug();
   }
 
   /**
@@ -657,42 +609,7 @@ export class VisualizationFacadeService {
    * overview anyway.
    */
   reframeCameraWithRoutes(): void {
-    const frame = this.computeOverviewFrame();
-    if (frame && !this.introFlight.isRunning()) {
-      this.cameraFraming.applyFrame(frame);
-    }
-  }
-
-  /**
-   * The overview frame around HQ, spawns and all routes, on the ground of
-   * the route cells; null without routes or without any ground yet.
-   */
-  private computeOverviewFrame(): CameraFrame | null {
-    const base = this.store.baseCoords();
-    const hq: GeoPoint = { lat: base.lat, lon: base.lon };
-
-    const spawns: GeoPoint[] = this.store.spawnPoints().map(sp => ({
-      lat: sp.lat,
-      lon: sp.lon,
-    }));
-
-    const routePoints = this.collectRoutePoints();
-    if (routePoints.length === 0) return null;
-
-    const routeGrid = this.gameState.getGlobalRouteGrid();
-    const cells = routeGrid.isInitialized() ? routeGrid.getGrid() : null;
-    return this.cameraFraming.computeFrameWithEngine(hq, spawns, {
-      padding: CAMERA_PADDING,
-      angle: CAMERA_ANGLE,
-      markerRadius: CAMERA_MARKER_RADIUS,
-      routePoints,
-      groundAt: cells
-        ? (x, z) => {
-            const sample = cells.getGroundSampleAt(x, z);
-            return sample && { y: sample.y, reliable: sample.tileError <= OVERVIEW_MAX_TILE_ERROR };
-          }
-        : undefined,
-    });
+    this.overview.reframe();
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -801,24 +718,6 @@ export class VisualizationFacadeService {
       `convergence=${(tConvergence - tGameState).toFixed(1)} ` +
       `debugViz=${(tDebugViz - tConvergence).toFixed(1)}ms`
     );
-  }
-
-  // ══════════════════════════════════════════════════════════════
-  // Private Helpers (deduplication)
-  // ══════════════════════════════════════════════════════════════
-
-  /**
-   * Collect all route points from cached paths as GeoPoints.
-   */
-  private collectRoutePoints(): GeoPoint[] {
-    const routePoints: GeoPoint[] = [];
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    cachedPaths.forEach((path) => {
-      for (const pos of path) {
-        routePoints.push({ lat: pos.lat, lon: pos.lon });
-      }
-    });
-    return routePoints;
   }
 
   // ══════════════════════════════════════════════════════════════
