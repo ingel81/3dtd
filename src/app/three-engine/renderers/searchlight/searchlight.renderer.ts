@@ -170,7 +170,8 @@ function noRaycast(): void {
  * (BLOOD_MOON_LOOK.searchlights). All beams are one mesh over an
  * InstancedBufferGeometry, one draw call. The sweep runs in the vertex
  * shader from the uniform uTime and each beam's own phase and speed, so a
- * frame costs two uniform writes and no buffer upload.
+ * frame costs one uniform write (two while the fade runs) and no buffer
+ * upload.
  *
  * Kept apart from ThreeTowerRenderer, like the plinths: TowerManager adds a
  * light when it places a tower and removes it with the tower. The lamp

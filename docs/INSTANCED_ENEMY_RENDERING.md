@@ -1,6 +1,6 @@
 # Instanced Enemy Rendering (VAT System)
 
-**Stand:** 2026-09-14
+**Stand:** 2026-09-14 (Blutmond-Uniforms)
 
 GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert Draw Calls von ~2 pro Enemy auf ~1 pro Enemy-Typ.
 
@@ -227,6 +227,9 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 | `emissiveColor` | vec3 | Emissive-Farbe (default weiss) |
 | `colorMultiplier` | float | Helligkeitsfaktor vor dem Emissive (aus EnemyTypeConfig, default 1.0) |
 | `alphaCutoff` | float | Alpha-Grenze im Modus Maske (siehe Alpha) |
+| `bloodMoonGlow` | float | Blutmond-Glühen 0..1, ein Objekt für alle Typen (siehe Blutmond) |
+| `bloodMoonTint` | vec3 | Faktor der Blutmond-Stimmung, nur für blendende Typen, ein Objekt für alle Typen |
+| `bloodMoonGlowColor`, `bloodMoonRim`, `bloodMoonBase` | vec3, float, float | Farbe und Stärke des Glühens aus `BLOOD_MOON_LOOK.glow` |
 
 ### Per-Vertex Attribute
 
@@ -279,8 +282,24 @@ Ambient: neutral,               Intensitaet 0.5
 
 **Wichtig:** Normalen werden in World-Space transformiert (`mat3(instanceMatrix) * normal`), NICHT View-Space. Die Lichtrichtungen sind hardcodiert in World-Space.
 
-Danach rechnet der Fragment-Shader `colorMultiplier`, das additive Emissive, den Tint und ein
-ACES-Filmic-Tonemapping ein. Lichter der Szene wirken nicht auf die Gegner.
+Danach rechnet der Fragment-Shader `colorMultiplier`, das additive Emissive, das
+Blutmond-Glühen, den Tint und ein ACES-Filmic-Tonemapping ein. Lichter der Szene wirken
+nicht auf die Gegner.
+
+### Blutmond
+
+Auf Blutmond-Wellen ([WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen)) glühen die Gegner:
+`bloodMoonGlowColor` mal `bloodMoonRim` mal (1 − N·V)² am Rand, wo die Fläche sich von
+der Kamera abwendet, plus `bloodMoonBase` überall, skaliert mit `bloodMoonGlow`, addiert
+vor dem Tonemapping. `EnemyInstanceManager` legt `bloodMoonGlow` und `bloodMoonTint` einmal
+an (`createVATBloodMoonUniforms()`) und gibt dieselben Objekte jedem Pool-Material, auch
+später erzeugten; `setBloodMoon(amount, linearOutput)` sind zwei Schreibvorgänge für alle
+Typen, ohne Material-Klone. Bei 0 überspringt der Shader den Zweig.
+
+Die opaken und maskierten Typen zeichnen vor dem Stimmungs-Quad und bekommen dessen
+Tönung dort. Die blendenden (Bear, Ghost, Hornet) sind transparent und zeichnen danach;
+sie multiplizieren im Shader mit `bloodMoonTint`, dem Faktor des Quads in den Werten des
+Ziels (1 außerhalb eines Blutmonds).
 
 ### Seiten
 
