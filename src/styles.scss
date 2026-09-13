@@ -6,7 +6,7 @@
 @use '@angular/material' as mat;
 
 // Self-hosted fonts (no Google Fonts CDN)
-@import '@fontsource/roboto/300.css';
+// Roboto is Material's typography; its M3 tokens use only 400 and 500
 @import '@fontsource/roboto/400.css';
 @import '@fontsource/roboto/500.css';
 
