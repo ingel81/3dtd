@@ -4,6 +4,8 @@ import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 // Only its DI token is needed; the real module pulls in the game state manager.
 vi.mock('../boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
 import { BossIntroService } from '../boss-intro.service';
+// Only its DI token is needed; the real module pulls in services that need the JIT compiler
+vi.mock('../replay.service', () => ({ ReplayService: class ReplayService {} }));
 
 import { GameLoopFacadeService } from './game-loop-facade.service';
 import { EngineStore } from '../../store/engine.store';
@@ -24,6 +26,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { UIStore } from '../../store/ui.store';
+import { ReplayService } from '../replay.service';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { WaveConfig } from '../../ai/core/models/wave-config';
@@ -63,7 +66,7 @@ const UNUSED = [
   EngineStore, CameraControlService, TowerPlacementService, KeyboardPanService,
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   SoundDebugService, DebugWindowService, EnemyDebugService, NgZone,
-  PerformanceProfilerService, StreetRenderingService, UIStore, BossIntroService,
+  PerformanceProfilerService, StreetRenderingService, UIStore, BossIntroService, ReplayService,
 ];
 
 describe('GameLoopFacadeService: aiExplanation', () => {

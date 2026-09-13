@@ -4,6 +4,8 @@ import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 // Only its DI token is needed; the real module pulls in the game state manager.
 vi.mock('../boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
 import { BossIntroService } from '../boss-intro.service';
+// Only its DI token is needed; the real module pulls in services that need the JIT compiler
+vi.mock('../replay.service', () => ({ ReplayService: class ReplayService {} }));
 
 import { GameLoopFacadeService } from './game-loop-facade.service';
 import { EngineStore } from '../../store/engine.store';
@@ -26,6 +28,7 @@ import { StreetRenderingService } from '../world/street-rendering.service';
 import { UIStore } from '../../store/ui.store';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { AUTO_WAVE_DELAY_MS } from '../../utils/auto-wave-countdown';
+import { ReplayService } from '../replay.service';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 
@@ -35,7 +38,7 @@ const UNUSED = [
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
   WaveDirectorService, AIDataCollectorService, PerformanceProfilerService,
-  StreetRenderingService, BossIntroService,
+  StreetRenderingService, BossIntroService, ReplayService,
 ];
 
 const WAVE_DONE = { type: 'wave:completed', wave: 3, credits: 0, perfect: true, closeCall: false, hpLost: 0 } as const;

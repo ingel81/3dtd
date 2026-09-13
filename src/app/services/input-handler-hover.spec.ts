@@ -51,7 +51,8 @@ describe('InputHandlerService tower hover', () => {
     const injector = Injector.create({
       providers: [
         { provide: TowerDefenseStore, useValue: {} },
-        { provide: UIStore, useValue: { photoMode } },
+        // Photo mode is one of the view-only modes (UIStore.viewOnly)
+        { provide: UIStore, useValue: { viewOnly: photoMode } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         { provide: KeyboardPanService, useValue: {} },
         { provide: TowerPlacementService, useValue: {} },

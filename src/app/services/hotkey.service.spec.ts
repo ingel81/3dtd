@@ -22,6 +22,7 @@ vi.mock('./ability-targeting.service', () => ({
 }));
 vi.mock('./photo-mode.service', () => ({ PhotoModeService: class PhotoModeService {} }));
 vi.mock('./hero-control.service', () => ({ HeroControlService: class HeroControlService {} }));
+vi.mock('./replay.service', () => ({ ReplayService: class ReplayService {} }));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -39,6 +40,7 @@ import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { AbilityTargetingService } from './ability-targeting.service';
 import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
+import { ReplayService } from './replay.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 
 function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
@@ -82,6 +84,13 @@ describe('HotkeyService', () => {
     summon: vi.fn(() => heroHired),
     deselect: vi.fn(() => heroControl.selected.set(false)),
     cycleAmmo: vi.fn(() => heroHired),
+  };
+  const replayActive = signal(false);
+  const replay = {
+    active: replayActive,
+    togglePlay: vi.fn(),
+    stepSpeed: vi.fn(),
+    exit: vi.fn(() => replayActive.set(false)),
   };
 
   const tower = {
@@ -146,6 +155,10 @@ describe('HotkeyService', () => {
     heroControl.summon.mockClear();
     heroControl.deselect.mockClear();
     heroControl.cycleAmmo.mockClear();
+    replayActive.set(false);
+    replay.togglePlay.mockClear();
+    replay.stepSpeed.mockClear();
+    replay.exit.mockClear();
 
     const injector = Injector.create({
       providers: [
@@ -163,9 +176,57 @@ describe('HotkeyService', () => {
         { provide: AbilityTargetingService, useValue: abilityTargeting },
         { provide: PhotoModeService, useValue: photoMode },
         { provide: HeroControlService, useValue: heroControl },
+        { provide: ReplayService, useValue: replay },
       ],
     });
     service = runInInjectionContext(injector, () => new HotkeyService());
+  });
+
+  describe('during the replay of the last wave', () => {
+    beforeEach(() => replayActive.set(true));
+
+    it('Space and P pause and play the replay instead of the game', () => {
+      const space = press(' ');
+      service.handleKeyDown(space);
+      service.handleKeyDown(press('p'));
+      expect(replay.togglePlay).toHaveBeenCalledTimes(2);
+      expect(space.defaultPrevented).toBe(true);
+      expect(facade.startWave).not.toHaveBeenCalled();
+      expect(gameStore.paused()).toBe(false);
+    });
+
+    it('+ and - step the replay speed, not the game speed', () => {
+      service.handleKeyDown(press('+'));
+      service.handleKeyDown(press('-'));
+      expect(replay.stepSpeed.mock.calls).toEqual([[1], [-1]]);
+      expect(gameStore.trainingTimescale()).toBe(1);
+    });
+
+    it('Esc leaves the replay', () => {
+      service.handleKeyDown(press('Escape'));
+      expect(replay.exit).toHaveBeenCalledTimes(1);
+    });
+
+    it('builds, upgrades, sells, aims and photographs nothing', () => {
+      store.selectedTower.set(tower);
+      for (const key of ['1', 'u', 'Delete', 'k', 'o']) {
+        const event = press(key);
+        service.handleKeyDown(event);
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(selectTowerType).not.toHaveBeenCalled();
+      expect(facade.upgradeTower).not.toHaveBeenCalled();
+      expect(facade.sellSelectedTower).not.toHaveBeenCalled();
+      expect(abilityTargeting.start).not.toHaveBeenCalled();
+      expect(photoMode.toggle).not.toHaveBeenCalled();
+    });
+
+    it('keeps the camera keys and the help', () => {
+      service.handleKeyDown(press('Home'));
+      service.handleKeyDown(press('h'));
+      expect(focusGeo).toHaveBeenCalledWith(48.7, 9.1);
+      expect(openDialog).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('when keys reach the game', () => {

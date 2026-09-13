@@ -1,0 +1,52 @@
+<div class="td-replay-bar" role="toolbar" aria-label="Replay of the last wave">
+  <div class="td-replay-row">
+    <span class="td-replay-title">Replay <span class="td-replay-wave">Wave {{ replay.wave() }}</span></span>
+    <span class="td-replay-stats">
+      <span class="td-replay-stat" matTooltip="HQ health at this moment" matTooltipPosition="above">
+        <td-icon name="heart" [size]="12" ariaLabel="HQ health"></td-icon>{{ replay.baseHealth() }}
+      </span>
+      <span class="td-replay-stat" matTooltip="Enemies on the route at this moment" matTooltipPosition="above">
+        <td-icon name="skull" [size]="12" ariaLabel="Enemies on the route"></td-icon>{{ replay.enemiesAlive() }}
+      </span>
+    </span>
+    <button type="button" class="td-replay-btn" (click)="replay.exit()">
+      <span>Exit</span>
+      <kbd class="td-replay-key">Esc</kbd>
+    </button>
+  </div>
+
+  <div class="td-replay-row td-replay-controls">
+    <button type="button" class="td-replay-btn td-replay-play"
+            [attr.aria-label]="playLabel()" aria-keyshortcuts="Space"
+            (click)="replay.togglePlay()">
+      <td-icon [name]="playIcon()" [size]="14"></td-icon>
+    </button>
+
+    <!-- Progress, to scrub. The ticks under it mark the player's commands -->
+    <div class="td-replay-track" [style.--td-replay-done]="progress() + '%'"
+         matTooltip="Drag to jump. Ticks mark your builds, sales, upgrades and abilities"
+         matTooltipPosition="above">
+      @for (marker of replay.markers(); track $index) {
+        <span class="td-replay-mark" [style.left.%]="marker.percent" aria-hidden="true"></span>
+      }
+      <input type="range" class="td-replay-scrub"
+             min="0" [max]="replay.durationMs()" step="1" [value]="replay.timeMs()"
+             aria-label="Replay position"
+             [attr.aria-valuetext]="time() + ' of ' + duration()"
+             (pointerdown)="replay.beginScrub()"
+             (input)="onScrub($event)"
+             (change)="replay.endScrub()">
+    </div>
+
+    <span class="td-replay-time">{{ time() }} / {{ duration() }}</span>
+
+    <div class="td-replay-speeds" role="group" aria-label="Replay speed" aria-keyshortcuts="+ -">
+      @for (s of replay.speeds; track s) {
+        <button type="button" class="td-replay-speed"
+                [class.td-replay-speed-on]="s === replay.speed()"
+                [attr.aria-pressed]="s === replay.speed()"
+                (click)="replay.setSpeed(s)">{{ speedLabel(s) }}</button>
+      }
+    </div>
+  </div>
+</div>

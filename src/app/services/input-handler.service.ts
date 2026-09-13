@@ -73,7 +73,7 @@ export class InputHandlerService {
   /** Reference to game state manager */
   private readonly store = inject(TowerDefenseStore);
 
-  /** Photo mode flag: clicks and hover select nothing, the camera still moves */
+  /** Photo mode and replay (viewOnly): clicks and hover select nothing, the camera still moves */
   private readonly uiStore = inject(UIStore);
 
   /** Open dialogs own Escape, see isEscapeForDialog */
@@ -329,8 +329,8 @@ export class InputHandlerService {
       }
     }
 
-    // Photo mode: a click selects nothing, a selection would draw range and LOS into the picture
-    if (this.uiStore.photoMode()) return;
+    // Photo mode and replay: a click selects nothing, a selection would draw range and LOS into the picture
+    if (this.uiStore.viewOnly()) return;
 
     // A debug pick takes this click and nothing else: the selected tower
     // and its LOS display stay as they are.
@@ -511,8 +511,8 @@ export class InputHandlerService {
    * stopped, and none when the pointer has not moved since the last.
    */
   private scheduleHoverPick(event: PointerEvent): void {
-    // Photo mode: no range ring in the picture
-    if (this.uiStore.photoMode()) {
+    // Photo mode and replay: no range ring in the picture
+    if (this.uiStore.viewOnly()) {
       if (this.hoveredTowerId) this.setHoveredTower(null);
       return;
     }
@@ -532,8 +532,8 @@ export class InputHandlerService {
 
   private pickHoveredTower(): void {
     if (!this.engine) return;
-    // Build, placement or photo mode may have started since the move
-    if (this.buildModeSignal?.() || this.mapPlacementModeSignal?.() || this.uiStore.photoMode()) return;
+    // Build, placement, photo mode or the replay may have started since the move
+    if (this.buildModeSignal?.() || this.mapPlacementModeSignal?.() || this.uiStore.viewOnly()) return;
     if (this.hoverX === this.lastHoverPickX && this.hoverY === this.lastHoverPickY) return;
     this.lastHoverPickTime = performance.now();
     this.lastHoverPickX = this.hoverX;

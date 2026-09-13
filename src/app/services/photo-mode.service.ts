@@ -11,6 +11,7 @@ import { MapPlacementService } from './world/map-placement.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { AbilityTargetingService } from './ability-targeting.service';
 import { downloadCanvasPng, loadImage, screenshotFileName, stampAttribution } from '../utils/screenshot';
+import { cycleTab, focusedElement } from '../utils/focus-cycle';
 
 const GOOGLE_LOGO = 'assets/images/ui/google-maps-logo.svg';
 const CESIUM_LOGO = 'assets/images/ui/cesium-ion-logo.svg';
@@ -95,16 +96,8 @@ export class PhotoModeService {
    * mode. From anywhere outside the bar, Tab comes back into it; Esc leaves.
    */
   trapTab(event: KeyboardEvent): void {
-    if (!this.active() || event.key !== 'Tab' || event.defaultPrevented) return;
-    const controls = this.barControls();
-    if (controls.length === 0) return;
-    const at = controls.indexOf(document.activeElement as HTMLElement);
-    const last = controls.length - 1;
-    const next = event.shiftKey
-      ? controls[at <= 0 ? last : at - 1]
-      : controls[at < 0 || at === last ? 0 : at + 1];
-    event.preventDefault();
-    next.focus();
+    if (!this.active()) return;
+    cycleTab(event, this.barControls());
   }
 
   /** The bar's buttons that can take the focus, in tab order */
@@ -143,10 +136,4 @@ export class PhotoModeService {
   private afterLayout(then: () => void): void {
     afterNextRender(then, { injector: this.injector });
   }
-}
-
-/** The focused element, null when nothing but the page has the focus. */
-function focusedElement(): HTMLElement | null {
-  const el = document.activeElement;
-  return el instanceof HTMLElement && el !== document.body ? el : null;
 }

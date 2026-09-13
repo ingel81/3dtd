@@ -94,6 +94,11 @@ export class CameraControlService {
   private jump: { dx: number; dy: number; dz: number; elapsedMs: number; applied: number } | null = null;
   private readonly jumpDirection = new Vector3();
 
+  /** Stop a quick jump under way where it is (the replay puts the camera back). */
+  cancelJump(): void {
+    this.jump = null;
+  }
+
   // ========================================
   // INITIALIZATION
   // ========================================
