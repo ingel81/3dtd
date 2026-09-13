@@ -658,6 +658,10 @@ class Enemy extends GameObject {
   get position(): GeoPosition;
   startMoving(): void;
   stopMoving(): void;
+
+  // Körper entlang der Route (Ooze), sonst null; Treffer, Umkreis-Abfragen
+  // und Renderer nehmen ihn statt `position`, siehe ENEMY_CREATION.md
+  body: RouteBody | null;
 }
 ```
 
@@ -770,6 +774,11 @@ Sub-Step vor der Enemy-Schleife vor, lässt Segmente aus dem Portal kommen und g
 Segment sein Ziel; `stepWormSegment()` ersetzt für sie `MovementComponent.move()`. Ein Spawn
 eines Wurms liefert den Kopf und emittiert `worm:spawned`. Details in
 [ENEMY_CREATION.md](ENEMY_CREATION.md#kette-chain-der-wurm).
+
+Oozes führt `OozeBodies` (`managers/ooze-bodies.ts`), damit die Schleife pro Gegner
+für alle anderen nur `enemy.body` prüft: Körper anlegen beim Spawn, wachsen und in die
+HQ fließen im Sub-Step (`enemy:leaking`, am Ende einmal `enemy:reached-base`), Split
+entlang des Körpers, Frame an `tilesEngine.oozes` in `presentFrame`.
 
 ### 4.3 TowerManager (Framework-agnostic)
 
@@ -1010,6 +1019,7 @@ Neben Tower-, Projektil- und Effects-Renderer gibt es mehrere spezialisierte Ren
 | Renderer | Datei | Zweck |
 |----------|-------|-------|
 | **InstancedEnemyRenderer** | `renderers/instanced-enemy/` | GPU-instancing fuer Enemies via VAT (Vertex Animation Textures) — siehe [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
+| **OozeBandRenderer** | `renderers/ooze/` | Körper der Ooze als Schleimband entlang der Route: Geometrie einmal pro Pfad, pro Frame nur Uniforms (`OOZE_LOOK`), siehe [ENEMY_CREATION.md](ENEMY_CREATION.md#körper-entlang-der-route-ooze) |
 | **DecalInstanceManager** | `renderers/decal-instance.manager.ts` | Blut-, Eis- und Scorch-Decals (`scorch-marks.ts`) als InstancedMesh mit Free-List-Pool |
 | **ThreeFlameBeamRenderer** | `renderers/three-flame-beam.renderer.ts` | Fire-Tower-Beam (animierter Flammen-Kegel) |
 | **ThreeTentacleRenderer** | `renderers/three-tentacle.renderer.ts` | Bezier-basierte Tentakel fuer Tentacle-Tower |
@@ -1868,6 +1878,9 @@ class GlobalRouteGrid {
   Cell-Shader: jede Zelle, auch ohne Höhenprobe, Fläche nach Coverage, Kontur nach Zustand
   (normal, Dach-Check, Brückendeck, ohne Höhenprobe), Farben in `LOS_VIZ_CONFIG.gridOverlay`
 - `route-grid-diagnostics.ts`: `__rg.*`-Dumps; `route-grid-log.ts`: `[CELL-GRID]`-Log
+- Körperliste (`addBodyEnemy`, `getBodyEnemies`, `hasBodyWithin`): Gegner mit einem Körper
+  entlang der Route (Ooze, `route-body.ts`) stehen in keiner Zelle. `getEnemiesInRadius`
+  nimmt einen Körper auf, den der Kreis erreicht, und legt seinen Treffer an diesen Punkt
 
 **Zellengenerierung:**
 - Korridor pro Routensegment und Seite so breit wie der Freiraum, den die Tiles zeigen

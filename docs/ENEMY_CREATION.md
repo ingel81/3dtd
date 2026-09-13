@@ -18,7 +18,8 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 - **Damage/Armor-Matrix** (`armorType` Pflichtfeld, Phase 5.x)
 - Lateral Spread und Height Variation für Bewegungsvariation
 - Boss-Enemies mit Custom Health Bar
-- Bluteffekte (`canBleed`), Emissive Glow, Color Multiplier, Unlit Rendering
+- Ein Körper entlang der Route statt eines Modells (`ooze`, siehe [Körper entlang der Route](#körper-entlang-der-route-ooze))
+- Bluteffekte (`canBleed`, Farbe `bloodColor`), Emissive Glow, Color Multiplier, Unlit Rendering
 - Konfigurierbare Sidebar-Preview (Camera Distance / Angle / Offset)
 
 ---
@@ -49,6 +50,8 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
 | **worm** | heavy | 35 je Segment | 4.5 | – | Boss, Kette aus Segmenten (`chain`, siehe [Kette](#kette-chain-der-wurm)), jedes Segment ein eigener Gegner; Endlos-Rotation ab W35, kein Template |
 | worm-segment | heavy | 35 | 4.5 | – | Modell der Wurm-Segmente (eigener VAT-Pool, statisch). Einzeln gespawnt ein einzelner Ring mit den Werten des Wurms |
+| **ooze** | unarmored | 3000 | 3 | – | Boss (2026-09-14), `isBoss`, ein Körper entlang der Route statt eines Modells ([Körper entlang der Route](#körper-entlang-der-route-ooze)), fließt an der HQ Meter für Meter hinein, zerfällt beim Kill in Slime Clumps. Boss-Variante der Endlos-Rotation, kein Template |
+| slime-clump | unarmored | 30 | 4.5 | – | Nur aus dem Split der Ooze, kein Template. `slime.glb` bei `scale: 0.9` (Hüpfer `Wobble`, Tod `Splat`), grünes Blut (`bloodColor`) |
 
 > **Wave-Director:** Stone Golem ist seit 2026-08-27 angebunden — Template
 > `golem_squad` (`src/app/ai/core/templates.ts`, `minWave: 14`) steht auf Wave 15
@@ -301,10 +304,14 @@ isBoss: true,                // Boss-Leiste oben mittig (Label: name), Screen-Sh
 ### Blood Effects
 
 ```typescript
-canBleed: true,  // Blutpartikel + Decals bei Treffer/Tod
+canBleed: true,         // Blutpartikel + Decals bei Treffer/Tod
+bloodColor: '#6fe021',  // Optional: Farbe von Partikeln und Decals, sonst Dunkelrot
 ```
 
 **WICHTIG:** Nur für organische Gegner (Zombies, Menschen). `false` für Roboter, Panzer, etc.
+`bloodColor` läuft über `vfx:blood` (`color`) bis in Splatter und Decal; Ooze und Slime Clump
+bluten Schleimgrün. Ein blutender Gegner, der sich teilt, spritzt zusätzlich an jedem Kind in
+seiner Farbe (VFXService, `enemy:split`).
 
 ---
 
@@ -387,8 +394,9 @@ splitOnDeath: { type: 'skeleton-minion', count: 2, spread: 0.3 },
 
 Ein Kill durch Tower oder Damage-over-Time teilt den Gegner in `count` Gegner vom
 Typ `type`. Ein Leck an der Basis teilt nicht, `debug:kill-all` auch nicht
-(Ursache `'debug'` in `EnemyManager.kill()`). Umgesetzt für den Skeleton; der
-Slime aus dem Game Design kann denselben Mechanismus nutzen.
+(Ursache `'debug'` in `EnemyManager.kill()`). Umgesetzt für den Skeleton und die
+Ooze; die Ooze teilt sich entlang ihres Körpers statt an einer Stelle (siehe
+[Körper entlang der Route](#körper-entlang-der-route-ooze)).
 
 - **Wo:** Die Kinder starten auf dem Pfad des getöteten Gegners, auf seinem
   Segment und Fortschritt (`MovementComponent.setPath(path, index, progress)`,
@@ -487,6 +495,53 @@ Umgesetzt für den Chitin-Wurm (`worm`).
   Lücke aufgehen (nicht im Browser geprüft).
 - **Kein Sound:** Alle Segmente sind vom Typ `worm`, ein Loop-Sound liefe auf jedem Segment
   und belegte das Budget von 12 Gegner-Sounds.
+
+---
+
+## Körper entlang der Route (`ooze`)
+
+Die Ooze (Gallert-Boss, 2026-09-14) steht nicht als Modell auf der Route, ihr
+Körper ist ein Stück der Route selbst: von der Spitze, die wie jeder Gegner den
+Pfad entlangläuft, zurück bis zum Schwanz. Ein Gegner, ein HP-Pool. Ein Typ
+bekommt das über `ooze: OozeConfig`:
+
+```typescript
+ooze: {
+  // ...
+  isBoss: true,
+  lateralSpread: 0,   // die Spitze bleibt auf der Mittellinie, der Körper füllt den Korridor
+  ooze: { maxLengthM: 80, leakDamageFactor: 10 },
+  splitOnDeath: { type: 'slime-clump', count: 10, spread: 0.8 },
+  bloodColor: '#6fe021',
+}
+```
+
+| Punkt | Regel | Code |
+|---|---|---|
+| Wachstum | Der Schwanz bleibt, wo die Ooze den Pfad betritt (bei einer Wellen-Ooze am Portal), bis der Körper `maxLengthM` lang ist (80 m); danach folgt er der Spitze im selben Abstand. Bei 3 m/s ist der Körper nach knapp 27 s voll | `OozeBody.grow` (`entities/ooze-body.ts`), im Enemy-Sub-Step über `OozeBodies.update` (`managers/ooze-bodies.ts`) |
+| Stationen | Je Pfad einmal: alle 2 m ein Punkt der Mittellinie mit lokaler und Geo-Position, Richtung quer, Korridor-Halbbreiten, Segment und Fortschritt | `RouteBodyStations` (`utils/route-body.ts`) |
+| Zielen | Jeder Tower zielt auf den nächsten Punkt des Körpers in Reichweite und Sicht. Je Tower und Pfad sind die Punkte einmal sortiert (Station, quer zum Tower verschoben bis zur seitlichen Grenze, damit der Punkt in einer Route-Zelle liegt); je Tower-Zug gilt der nächste Punkt zwischen Schwanz und Spitze, dessen Zelle der Tower am Boden sieht, ohne Antwort der Zelle ein Raycast (höchstens 4 je Auflösung) | `BodyAim` (`services/combat/body-aim.ts`), `Tower.findTarget(…, bodyDistSq)` |
+| Treffpunkt | Projektile fliegen zum Zielpunkt (`Projectile.aimPoint`), auch wenn die Ooze unterwegs stirbt; Flammenkegel, Tentakel und Blitz treffen dort. Blut, Schadenszahlen, Eis und DoT-Zahlen erscheinen am Punkt des letzten Treffers | `RouteBody.hit`, `enemyHitSpot` (`utils/enemy-hit-spot.ts`) |
+| Umkreis | Splash und Nuklearschlag nehmen den Körper einmal auf, sobald ihr Kreis einen Punkt des Bands erreicht (0,9 der Halbbreite je Seite); die Splash-Abnahme rechnet mit dem Abstand zu diesem Punkt | `GlobalRouteGrid.getEnemiesInRadius` |
+| Grid | Die Ooze steht in keiner Zelle und nicht im Spatial-Grid, sondern in der Körperliste des Route-Grids. Tower bekommen sie als Kandidat dazu, der Weckcheck schlafender Tower fragt `hasBodyWithin` | `getBodyEnemies`, `tower-combat.service.ts` |
+| Status-Effekte | Wirken auf das Ganze: Slow verlangsamt die Spitze, der Schwanz folgt; Poison und Burn ticken auf den einen Pool. Das Band tönt sich (Slow blau, Poison dunkler, Burn glüht) | wie jeder Gegner, `OozeBandRenderer.setFrame` |
+| Leck | An der HQ bleibt die Spitze stehen, der Körper fließt mit dem Tempo der Spitze hinein (Slow wirkt, pausiert fließt nichts). Jeder Meter kostet `leakDamageFactor × enemyBaseDamageForWave(welle) / maxLengthM`, bei 10 und 80 m 0,125 Lecks, abgerechnet in ganzen Punkten als `enemy:leaking` und gedeckelt durch `maxLeakDamagePerWave` wie jedes Leck. Die HP sinken mit der verbleibenden Länge, die Ooze bleibt tötbar. Ist alles drin, kommt einmal `enemy:reached-base` mit dem Rest | `OozeBodies.update`, `OozeBody.flowIn`, `owe`, `settle` |
+| Tod | Ein Kill teilt sie über `splitOnDeath` in `slime-clump`s entlang des Körpers, je Kind die Mitte seines Anteils, einer je 8 m verbleibender Körper (`maxLengthM / count`), mindestens einer. Die Gold-Slots fehlender Clumps bleiben unbezahlt wie bei einem Leck | `EnemyManager.splitOnDeath`, `OozeBodies.splitCount`, `placeSplitChild` |
+| Darstellung | `OozeBandRenderer` (`tilesEngine.oozes`): ein Band pro Ooze. Die Geometrie deckt die ganze Route, wird einmal pro Pfad gebaut und geteilt; pro Frame setzt `presentFrame` nur Uniforms. Den Boden unter dem Körper liest der Renderer einmal je Spielsekunde neu. Aussehen in `OOZE_LOOK` | `three-engine/renderers/ooze/` |
+| Vorschau | `slime.glb` (Generator `tools/slime-model/build-slime-glb.mjs`) zeigt die Sidebar; für die Ooze bäckt der Instanz-Renderer keinen Pool | `InstancedEnemyRenderer.preloadAllModels` |
+
+Wave-Director: Ooze und Slime Clump stehen in keinem Template und nicht in
+`AI_ENEMY_ORDER`; Schema, Encoder (208 Werte) und Templates bleiben gleich. In
+die Wellen kommt die Ooze als Boss-Gast ab W35 (WAVE_SYSTEM.md, Boss Waves),
+außerdem über Custom Wave und das Enemy-Debug-Fenster.
+
+Grenzen:
+
+- Zielpunkte liegen auf den 2-m-Stationen, die Spitze wird auf die nächste Station gerundet.
+- Der Fairness-Gate dimensioniert eine Boss-Welle ohne den Gast.
+- Die Länge entlang der Route rechnen die Stationen wie die Bewegung mit Haversine, quer im
+  lokalen Rahmen; Unterschiede im Zentimeterbereich.
+- Die Balance (3000 HP, Leck-Faktor 10, 80 m) ist nicht im Spiel getestet.
 
 ---
 
@@ -716,6 +771,7 @@ wallsmasher: {
 - [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse
 - [ ] Bei `splitOnDeath`: Kind-Typ in `ENEMY_TYPES`, kein Zyklus, `countRange` der Templates an die HP der ganzen Linie angepasst, `npm run ai-schema` gelaufen (`lineageHp`, `bodies`, `maxLeaks`)
 - [ ] Bei `chain`: `segmentModel` als eigener Typ in `ENEMY_TYPES` (gleiche Werte, nur das Modell), `spacing` passend zur Segmentlänge, `maxSegments` im Blick auf Gegnerzahl und Wellendauer
+- [ ] Bei `ooze`: `lateralSpread: 0`, `modelUrl` nur für die Sidebar-Vorschau, `isBoss` nur ohne Template
 
 ---
 
