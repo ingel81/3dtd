@@ -46,7 +46,12 @@ export const HERO = {
 
 // ==================== Ammo ====================
 
-export type HeroAmmoId = 'standard';
+/**
+ * Ammo is his damage type: standard rounds physical, explosive rounds siege,
+ * rune rounds magic. Every kind does the same damage per second before the
+ * matrix; the choice is which armor it works against.
+ */
+export type HeroAmmoId = 'standard' | 'explosive' | 'rune';
 
 export interface HeroAmmoConfig {
   id: HeroAmmoId;
@@ -70,10 +75,32 @@ export const HERO_AMMO: Record<HeroAmmoId, HeroAmmoConfig> = {
     fireRate: 3,
     projectileType: 'hero-round',
   },
+  explosive: {
+    id: 'explosive',
+    name: 'Explosive rounds',
+    damageType: 'siege',
+    damage: 32,
+    fireRate: 1.5,
+    projectileType: 'hero-shell',
+  },
+  rune: {
+    id: 'rune',
+    name: 'Rune rounds',
+    damageType: 'magic',
+    damage: 24,
+    fireRate: 2,
+    projectileType: 'hero-rune',
+  },
 };
 
 /** Ammo in the order the switch runs through it */
-export const HERO_AMMO_ORDER: readonly HeroAmmoId[] = ['standard'];
+export const HERO_AMMO_ORDER: readonly HeroAmmoId[] = ['standard', 'explosive', 'rune'];
+
+/** The ammo after `ammo` in HERO_AMMO_ORDER, round the list. */
+export function nextHeroAmmo(ammo: HeroAmmoId): HeroAmmoId {
+  const i = HERO_AMMO_ORDER.indexOf(ammo);
+  return HERO_AMMO_ORDER[(i + 1) % HERO_AMMO_ORDER.length];
+}
 
 // ==================== Levels ====================
 
@@ -126,7 +153,7 @@ export interface HeroStatus {
 }
 
 /** Why a hero command was refused. */
-export type HeroRejectReason = 'locked' | 'hired' | 'credits' | 'no-hero' | 'no-route';
+export type HeroRejectReason = 'locked' | 'hired' | 'credits' | 'no-hero' | 'no-route' | 'unknown-ammo';
 
 /** Status before the research, as at the start of a run. */
 export function initialHeroStatus(): HeroStatus {

@@ -61,6 +61,8 @@ export const PROJECTILE_SOUND_IDS = [
   'chaos-orb',
   'poison-glob',
   'hero-round',
+  'hero-shell',
+  'hero-rune',
 ] as const;
 
 /** Default spatial audio settings */

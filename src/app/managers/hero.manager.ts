@@ -218,6 +218,17 @@ export class HeroManager implements IGameManager {
     return true;
   }
 
+  /** Load `ammo`: his damage type, tracer and shot sound change with the next shot. */
+  setAmmo(ammo: HeroAmmoId): boolean {
+    if (!Object.prototype.hasOwnProperty.call(HERO_AMMO, ammo)) return this.reject('unknown-ammo');
+    if (!this.hero) return this.reject('no-hero');
+    if (ammo === this.ammo) return true;
+    this.ammo = ammo;
+    this.applyStats();
+    this.emitState();
+    return true;
+  }
+
   // ==================== Rendering ====================
 
   /** Where he is shown (the engine's HeroRenderer), null headless. */

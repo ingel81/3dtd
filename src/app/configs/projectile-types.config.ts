@@ -3,7 +3,10 @@ import { ProjectileTypeId } from './tower-types.config';
 // Re-export ProjectileTypeId for convenience
 export type { ProjectileTypeId } from './tower-types.config';
 
-export type ProjectileVisualType = 'arrow' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket' | 'poison' | 'chaos';
+export type ProjectileVisualType =
+  | 'arrow' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket' | 'poison' | 'chaos'
+  // The hero's explosive rounds: a bullet-shaped tracer in orange-red
+  | 'shell';
 
 /**
  * Trail particle configuration for projectiles
@@ -287,6 +290,55 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
       spawnOffset: 0.1,
     },
   },
+  // Explosive rounds (HERO_AMMO.explosive): an orange-red tracer with a
+  // little smoke, a small burst on impact (VFXService). Half the rate of the
+  // standard rounds, so the smoke stays thin.
+  'hero-shell': {
+    id: 'hero-shell',
+    speed: 140,
+    visualType: 'shell',
+    scale: 0.15,
+    trailParticles: {
+      enabled: true,
+      spawnChance: 0.5,
+      countPerSpawn: 1,
+      colorMin: { r: 0.3, g: 0.22, b: 0.18 },
+      colorMax: { r: 0.55, g: 0.4, b: 0.3 },
+      sizeMin: 0.35,
+      sizeMax: 0.7,
+      lifetimeMin: 0.15,
+      lifetimeMax: 0.35,
+      velocityX: { min: -0.3, max: 0.3 },
+      velocityY: { min: 0.0, max: 0.5 },
+      velocityZ: { min: -0.3, max: 0.3 },
+      spawnOffset: 0.15,
+      blending: 'normal',
+    },
+  },
+  // Rune rounds (HERO_AMMO.rune): a small plasma orb in the arcane orb's
+  // violet and cyan, sparks without the magic tower's wide spiral.
+  'hero-rune': {
+    id: 'hero-rune',
+    speed: 120,
+    visualType: 'magic',
+    scale: 0.16,
+    trailParticles: {
+      enabled: true,
+      spawnChance: 0.7,
+      countPerSpawn: 1,
+      colorMin: { r: 0.45, g: 0.15, b: 1.0 },
+      colorMax: { r: 0.6, g: 0.9, b: 1.0 },
+      sizeMin: 0.25,
+      sizeMax: 0.55,
+      lifetimeMin: 0.1,
+      lifetimeMax: 0.25,
+      velocityX: { min: -0.4, max: 0.4 },
+      velocityY: { min: -0.4, max: 0.4 },
+      velocityZ: { min: -0.4, max: 0.4 },
+      spawnOffset: 0.1,
+      blending: 'additive',
+    },
+  },
 };
 
 export function getProjectileType(id: ProjectileTypeId): ProjectileTypeConfig {
@@ -360,5 +412,19 @@ export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> 
     refDistance: 35,
     rolloffFactor: 1.2,
     volume: 0.22,
+  },
+  // Explosive rounds: the cannon's thump, well below the cannon's own volume
+  'hero-shell': {
+    url: 'assets/sounds/towers/cannon/shoot.mp3',
+    refDistance: 40,
+    rolloffFactor: 1.2,
+    volume: 0.3,
+  },
+  // Rune rounds: the magic cast, quieter than the magic tower
+  'hero-rune': {
+    url: 'assets/sounds/towers/magic/cast.mp3',
+    refDistance: 40,
+    rolloffFactor: 1.2,
+    volume: 0.3,
   },
 } as const;

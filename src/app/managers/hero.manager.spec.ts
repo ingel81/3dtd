@@ -324,6 +324,52 @@ describe('HeroManager', () => {
     });
   });
 
+  describe('ammo', () => {
+    beforeEach(hired);
+
+    it('switches his damage type, projectile and rate with the ammo', () => {
+      enemies.push(enemyAt('target', 0, 290));
+      expect(manager.setAmmo('explosive')).toBe(true);
+      expect(manager.getStatus().ammo).toBe('explosive');
+      expect(events.at(-1)).toMatchObject({ type: 'hero:state-changed', hero: { ammo: 'explosive' } });
+
+      tick(120); // 2 s at 1.5 shots a second
+      expect(shots).toHaveLength(3);
+      expect(shots[0].ammo).toBe(HERO_AMMO.explosive);
+      expect(shots[0].ammo.damageType).toBe('siege');
+      expect(shots[0].ammo.projectileType).toBe('hero-shell');
+      expect(shots[0].damage).toBe(HERO_AMMO.explosive.damage);
+
+      manager.setAmmo('rune');
+      shots.length = 0;
+      tick(120); // 2 s at 2 shots a second, the explosive cooldown runs out first
+      expect(shots.every((s) => s.ammo.damageType === 'magic')).toBe(true);
+      expect(shots.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('keeps his level bonus across ammo', () => {
+      for (let i = 0; i < 30; i++) bus.emit({ type: 'hero:kill', enemy: {} as Enemy });
+      manager.setAmmo('rune');
+      enemies.push(enemyAt('target', 0, 290));
+      tick(1);
+      expect(shots[0].damage).toBeCloseTo(HERO_AMMO.rune.damage * 1.15, 6);
+    });
+
+    it('refuses an unknown ammo and a switch before the hire', () => {
+      expect(manager.setAmmo('laser' as never)).toBe(false);
+      expect(events.at(-1)).toEqual({ type: 'hero:rejected', reason: 'unknown-ammo' });
+      manager.reset();
+      expect(manager.setAmmo('rune')).toBe(false);
+      expect(events.at(-1)).toEqual({ type: 'hero:rejected', reason: 'no-hero' });
+    });
+
+    it('starts the next run with standard rounds', () => {
+      manager.setAmmo('explosive');
+      manager.reset();
+      expect(manager.getStatus().ammo).toBe('standard');
+    });
+  });
+
   describe('levels', () => {
     beforeEach(hired);
 

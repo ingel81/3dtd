@@ -116,6 +116,10 @@ export class GameCommandsHandler {
         height: event.target.height,
       });
     }));
+
+    this.subs.add(this.eventBus.on('command:hero-ammo', (event) => {
+      this.gsm.heroManager.setAmmo(event.ammo);
+    }));
   }
 
   private attachWaveCommands(): void {

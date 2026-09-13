@@ -7,6 +7,7 @@ import {
   heroLevelFor,
   heroStatus,
   initialHeroStatus,
+  nextHeroAmmo,
 } from './hero.config';
 import { getResearch } from './research/research-tree.config';
 import { PROJECTILE_SOUNDS, PROJECTILE_TYPES } from './projectile-types.config';
@@ -36,6 +37,15 @@ describe('hero config', () => {
       expect(PROJECTILE_TYPES[ammo.projectileType]).toBeDefined();
       expect(PROJECTILE_SOUNDS[ammo.projectileType]).toBeDefined();
     }
+  });
+
+  it('switches between physical, siege and magic at the same damage per second', () => {
+    expect(HERO_AMMO_ORDER.map((id) => HERO_AMMO[id].damageType)).toEqual(['physical', 'siege', 'magic']);
+    const dps = HERO_AMMO_ORDER.map((id) => HERO_AMMO[id].damage * HERO_AMMO[id].fireRate);
+    expect(new Set(dps).size).toBe(1);
+    expect(nextHeroAmmo('standard')).toBe('explosive');
+    expect(nextHeroAmmo('explosive')).toBe('rune');
+    expect(nextHeroAmmo('rune')).toBe('standard');
   });
 
   it('levels up at rising kill counts with rising damage', () => {

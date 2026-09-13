@@ -176,6 +176,10 @@ export const EXPLOSION_PRESETS = {
   chaos:    { particles: 14 },
   // Where a skeleton splits into its minions (enemy:split, BURST_PALETTES.bone)
   bone:     { particles: 12 },
+  // The hero's explosive rounds (no splash, the radius is visual) and rune
+  // rounds (BURST_PALETTES.arcane). Small: he fires up to twice a second
+  heroShell: { particles: 12, radius: 2.5, smokePuffs: 1 },
+  heroRune:  { particles: 8 },
 } as const;
 
 /**

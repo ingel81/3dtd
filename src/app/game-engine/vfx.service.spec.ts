@@ -70,6 +70,29 @@ describe('VFXService muzzle flash', () => {
   });
 });
 
+describe('VFXService hero ammo impacts', () => {
+  const impact = (projectileType: string) => {
+    const { eventBus, tilesEngine, service } = setup();
+    eventBus.emit({ type: 'vfx:projectile-impact', lat: 1, lon: 2, height: 3, projectileType, targetLost: false });
+    service.destroy();
+    return tilesEngine.effects;
+  };
+
+  it('puffs like a bullet for standard rounds', () => {
+    expect(impact('hero-round').spawnExplosionAtGeo).toHaveBeenCalledWith(1, 2, 3, EXPLOSION_PRESETS.bullet.particles);
+  });
+
+  it('bursts small for explosive rounds', () => {
+    const { particles, radius, smokePuffs } = EXPLOSION_PRESETS.heroShell;
+    expect(impact('hero-shell').spawnExplosionAtGeo).toHaveBeenCalledWith(1, 2, 3, particles, radius, smokePuffs);
+  });
+
+  it('sparks in arcane colours for rune rounds', () => {
+    expect(impact('hero-rune').spawnBurstAtGeo)
+      .toHaveBeenCalledWith(1, 2, 3, EXPLOSION_PRESETS.heroRune.particles, BURST_PALETTES.arcane);
+  });
+});
+
 describe('VFXService hero level-up', () => {
   it('raises "LEVEL N" in gold from his head', () => {
     const eventBus = new GameEventBus();
