@@ -50,22 +50,29 @@ export class HotkeyService {
   /** Spawn point N flew to last, -1 before the first press */
   private spawnIndex = -1;
 
+  /** The Space press that is down started the wave (handleKeyUp) */
+  private spaceStartedWave = false;
+
   handleKeyDown(event: KeyboardEvent): void {
+    // Held Space repeats its keydown; the first one decides
+    if (event.key === ' ' && !event.repeat) this.spaceStartedWave = false;
     if (!this.acceptsKey(event)) return;
     const action = resolveHotkey(event);
     if (action && this.run(action)) {
       event.preventDefault();
+      if (action.kind === 'start-wave') this.spaceStartedWave = true;
     }
   }
 
   /**
-   * A focused button fires its click on the keyup of Space. The keydown
-   * already stood for "start the wave", so the button must not act on it too.
+   * A focused button fires its click on the keyup of Space. When the keydown
+   * started the wave, the button must not act on it too (an upgrade bought
+   * by accident). Any other Space press clicks the focused button as usual.
    */
   handleKeyUp(event: KeyboardEvent): void {
-    if (event.key === ' ' && this.acceptsKey(event)) {
-      event.preventDefault();
-    }
+    if (event.key !== ' ' || !this.spaceStartedWave) return;
+    this.spaceStartedWave = false;
+    event.preventDefault();
   }
 
   private acceptsKey(event: KeyboardEvent): boolean {
