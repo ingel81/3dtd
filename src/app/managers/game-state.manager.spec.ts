@@ -381,6 +381,18 @@ describe('GameStateManager', () => {
           expect(gsm.credits()).toBeLessThan(initial);
         }
       });
+
+      it('hands the plinth height of a place command to the tower manager', () => {
+        const place = vi.spyOn(gsm.towerManager, 'placeTower').mockReturnValue(null);
+        const position = { ...BASE_POSITION, height: 7 };
+        bus.emit({ type: 'command:place-tower', position, typeId: 'archer', rotation: 0.5, plinthHeight: 1.5 });
+        bus.emit({ type: 'command:place-tower', position, typeId: 'archer' });
+
+        expect(place.mock.calls).toEqual([
+          [position, 'archer', 0.5, 1.5],
+          [position, 'archer', 0, 0],
+        ]);
+      });
     });
 
     describe('corridor measurement under way (setBeforeCorridorLock)', () => {

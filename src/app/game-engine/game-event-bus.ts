@@ -295,9 +295,12 @@ export type GameEvent =
   // ==================== Command Events (UI → Game Engine) ====================
   | {
       type: 'command:place-tower';
+      /** height: the tower's foot, on uneven ground the top of its plinth */
       position: { lat: number; lon: number; height?: number };
       typeId: TowerTypeId;
       rotation?: number;
+      /** Stone plinth below the foot, from the lowest point of the footprint (m); 0 or missing = none */
+      plinthHeight?: number;
     }
   | {
       type: 'command:sell-tower';

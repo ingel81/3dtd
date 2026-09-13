@@ -48,8 +48,9 @@ export class TowerLifecycle {
    * @param position Geo position
    * @param typeId Tower type ID
    * @param customRotation Custom rotation set by user (radians)
+   * @param plinthHeight Stone plinth below position.height (m), 0 = none
    */
-  place(position: GeoPosition, typeId: TowerTypeId, customRotation: number): Tower | null {
+  place(position: GeoPosition, typeId: TowerTypeId, customRotation: number, plinthHeight = 0): Tower | null {
     const config = TOWER_TYPES[typeId];
     if (!config) return null;
 
@@ -74,7 +75,7 @@ export class TowerLifecycle {
     // stands on the cells it rebuilds.
     this.beforePlace();
 
-    const tower = this.towerManager.placeTower(position, typeId, customRotation);
+    const tower = this.towerManager.placeTower(position, typeId, customRotation, plinthHeight);
 
     if (tower) {
       // Deduct cost

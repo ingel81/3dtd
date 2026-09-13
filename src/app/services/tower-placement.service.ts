@@ -17,6 +17,7 @@ import { ResearchStore } from '../store/research.store';
 import { TowerLosRegistry } from './tower-los-registry';
 import { BuildPreviewLos } from './build-preview-los';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
+import { TowerFootprint, footprintSampleOffsets, resolveTowerFootprint } from '../utils/tower-footprint';
 
 /**
  * TowerPlacementService
@@ -100,8 +101,8 @@ export class TowerPlacementService {
   /** Queued position update while model was loading */
   private queuedPosition: { lat: number; lon: number; height: number } | null = null;
 
-  /** Current preview position */
-  private currentPosition: { lat: number; lon: number; height: number } | null = null;
+  /** Current preview position: height is the tower's foot, with the plinth below it */
+  private currentPosition: { lat: number; lon: number; height: number; plinthHeight: number } | null = null;
 
   /** Rotation speed (radians per second when holding R) */
   private readonly ROTATION_SPEED = Math.PI; // 180 degrees per second
@@ -109,9 +110,9 @@ export class TowerPlacementService {
   /** Is currently rotating (R key held) */
   private isRotating = false;
 
-  /** Last validated position (with cached resolvedHeight + validation result) */
+  /** Last validated position (with cached footprint + validation result) */
   private lastValidation:
-    | { lat: number; lon: number; resolvedHeight: number; valid: boolean; reason: string | null }
+    | { lat: number; lon: number; footprint: TowerFootprint; valid: boolean; reason: string | null }
     | null = null;
 
   /** Distance (m) the cursor must travel before validation re-runs */
@@ -296,6 +297,31 @@ export class TowerPlacementService {
   }
 
   /**
+   * Where a tower of `typeId` stands at (lat, lon) when the surface under the
+   * cursor is at `surfaceY`: on the highest point under its footprint
+   * (`footprintRadius`), with a plinth down to the lowest one, see
+   * resolveTowerFootprint. Each probe asks for the highest surface of its
+   * column: on the 3D tiles `raycastSurfaceTop`, in DevWorld the same
+   * raycastDown as the cursor surface. Shared by preview, click and bot.
+   */
+  resolveFootprint(lat: number, lon: number, typeId: TowerTypeId, surfaceY: number): TowerFootprint {
+    const engine = this.engine;
+    const config = TOWER_TYPES[typeId];
+    if (!engine || !config) return { footY: surfaceY, plinthHeight: 0 };
+
+    const center = engine.sync.geoToLocalSimple(lat, lon, 0);
+    const devProvider = engine.getDevTerrainProvider();
+    const samples = footprintSampleOffsets(config.footprintRadius).map(([dx, dz]) => {
+      const x = center.x + dx;
+      const z = center.z + dz;
+      return devProvider
+        ? (devProvider.raycastDown(x, z, 10000)?.y ?? null)
+        : engine.terrain.raycastSurfaceTop(x, z, 'towerFootprint');
+    });
+    return resolveTowerFootprint(surfaceY, samples);
+  }
+
+  /**
    * Update preview position - called on mouse move
    * In normal mode: tower follows cursor with validation coloring
    * In rotation mode: tower stays fixed, only rotation updates
@@ -311,11 +337,13 @@ export class TowerPlacementService {
       return;
     }
 
-    // Skip the expensive raycast + validation if the cursor barely moved.
+    const typeId = this.selectedTowerType();
+
+    // Skip the expensive raycasts + validation if the cursor barely moved.
     // Distance approximation (good for <100m at typical latitudes): treat
     // lat-lon deltas as metric via 111320 m/deg and a cos(lat) longitude
     // scale. Cheaper than haversine and allocation-free.
-    let resolvedHeight: number;
+    let footprint: TowerFootprint;
     let validValid: boolean;
     let validReason: string | null;
 
@@ -323,16 +351,19 @@ export class TowerPlacementService {
       && this.metersFromLastValidated(lat, lon) < TowerPlacementService.VALIDATION_MOVEMENT_THRESHOLD_M;
 
     if (reuseCache && this.lastValidation) {
-      resolvedHeight = this.lastValidation.resolvedHeight;
+      footprint = this.lastValidation.footprint;
       validValid = this.lastValidation.valid;
       validReason = this.lastValidation.reason;
     } else {
-      resolvedHeight = this.resolvePlacementHeight(lat, lon, terrainHeight);
+      const surfaceY = this.resolvePlacementHeight(lat, lon, terrainHeight);
+      footprint = typeId
+        ? this.resolveFootprint(lat, lon, typeId, surfaceY)
+        : { footY: surfaceY, plinthHeight: 0 };
       const validation = this.validateTowerPosition(lat, lon);
       validValid = validation.valid;
       validReason = validation.valid ? null : (validation.reason ?? 'Invalid position');
       const previousValid = this.lastValidation?.valid ?? null;
-      this.lastValidation = { lat, lon, resolvedHeight, valid: validValid, reason: validReason };
+      this.lastValidation = { lat, lon, footprint, valid: validValid, reason: validReason };
       // Material tint only flips when the valid/invalid result changes.
       if (previousValid === null || previousValid !== validValid) {
         tintPreviewModel(this.previewTowerMesh, validValid);
@@ -341,10 +372,11 @@ export class TowerPlacementService {
 
     this.validationReason.set(validValid ? null : (validReason ?? 'Invalid position'));
 
-    // Store current position for placement
-    this.currentPosition = { lat, lon, height: resolvedHeight };
+    // Store current position for placement: the foot on the highest point
+    // of the footprint, the plinth below it
+    const resolvedHeight = footprint.footY;
+    this.currentPosition = { lat, lon, height: resolvedHeight, plinthHeight: footprint.plinthHeight };
 
-    const typeId = this.selectedTowerType();
     if (!typeId) return;
     const config = TOWER_TYPES[typeId];
     if (!config) return;
@@ -463,6 +495,7 @@ export class TowerPlacementService {
       },
       typeId,
       rotation: this.currentRotation(),
+      plinthHeight: this.currentPosition.plinthHeight,
     });
 
     // Exit build mode (placement handled by GSM via event)

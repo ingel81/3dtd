@@ -38,6 +38,7 @@ export class GameCommandsHandler {
         { lat: event.position.lat, lon: event.position.lon, height: event.position.height },
         event.typeId,
         event.rotation ?? 0,
+        event.plinthHeight ?? 0,
       );
     }));
 

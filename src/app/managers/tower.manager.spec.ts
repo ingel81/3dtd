@@ -103,6 +103,15 @@ describe('TowerManager', () => {
     );
   });
 
+  it('keeps the plinth height the tower was placed with, 0 without one', () => {
+    const onPlinth = manager.placeTower({ lat: 1, lon: 2, height: 7 }, 'archer', 0, 2.5) as Tower;
+    const flat = manager.placeTower({ lat: 1.001, lon: 2, height: 5 }, 'archer') as Tower;
+
+    expect(onPlinth.plinthHeight).toBe(2.5);
+    expect(onPlinth.position.height).toBe(7);
+    expect(flat.plinthHeight).toBe(0);
+  });
+
   describe('guard heading', () => {
     // North to south, about 5.6 m east of a tower at (1, 2).
     const southbound = [{ lat: 1.01, lon: 2.00005 }, { lat: 0.99, lon: 2.00005 }];

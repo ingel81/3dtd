@@ -422,6 +422,20 @@ export class TerrainQueries {
   }
 
   /**
+   * Highest surface at a local position: roof, deck or crown where there is
+   * one, else the ground (`ColumnSample.topY`). What a tower's footprint
+   * stands on. Thin read of {@link sampleColumn}, booked on `caller`.
+   */
+  raycastSurfaceTop(localX: number, localZ: number, caller: string): number | null {
+    const scope = raycastStats.enter(caller);
+    try {
+      return this.sampleColumn(localX, localZ)?.topY ?? null;
+    } finally {
+      raycastStats.exit(scope);
+    }
+  }
+
+  /**
    * Called on every settled tile-load-end. Bumps {@link lodVersion}, which
    * invalidates cached column samples one entry at a time instead of by a
    * global cache wipe, and drops the lazily computed tile AABBs.
