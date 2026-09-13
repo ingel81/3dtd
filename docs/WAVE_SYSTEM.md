@@ -665,8 +665,9 @@ zu, an allen anderen sperrt sie sie; Details unter
 **Boss-Varianten** (`configs/boss-variants.config.ts`): Bosse, die kein Template des
 Directors sind, kommen über eine Rotation über die Boss-Wellen nach dem Curriculum.
 `BOSS_VARIANT_ROTATION` läuft über W35, W40, W45, ... und nennt je Welle eine Variante oder
-`null` für das Boss-Template des Directors; derzeit `['worm', null]`: W35, W45, W55, ...
-bringen den Chitin-Wurm, W40, W50, ... die Director-Bosse. Der Director plant auch diese
+`null` für das Boss-Template des Directors; derzeit `['worm', null, 'ooze', null]`: W35,
+W55, W75, ... bringen den Chitin-Wurm, W45, W65, W85, ... die Ooze (ENEMY_CREATION.md,
+Körper entlang der Route), W40, W50, W60, ... die Director-Bosse. Der Director plant auch diese
 Wellen wie bisher. `GameLoopFacadeService.startWaveWithAI()` ersetzt danach seine Welle durch
 `bossVariantWave()`: ein Gegner des Varianten-Typs (ein Wurm, also ein Enemy je Segment) mit
 dem HP-Multiplikator, den der Director für diese Welle gerechnet hat (Template-Range,

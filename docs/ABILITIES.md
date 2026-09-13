@@ -28,7 +28,7 @@ Alle Werte stehen in `configs/abilities.config.ts` (`ABILITIES['nuclear-strike']
 | Gold | jeder Kill zahlt seinen Anteil am Kill-Budget der Welle wie jeder andere; kein Tower bekommt ihn gutgeschrieben. Ein getötetes Skeleton splittet wie bei jedem Kill |
 | Wave-Director | Kills zählen im Fairness-Gate als Leck (siehe unten) |
 
-Bosse: `isBoss` tragen `herbert` und die Ooze (Boss-Gast ab W35). Steingolem und
+Bosse: `isBoss` tragen `herbert`, der Wurm und die Ooze (Boss-Varianten ab W35). Steingolem und
 Drache führen die späteren Boss-Wellen an, laufen aber auch in `golem_squad` und
 `dragon_elite` mit, und das Flag gilt pro Typ.
 

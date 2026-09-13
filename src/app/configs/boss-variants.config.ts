@@ -19,7 +19,7 @@ import {
   isBossWave,
 } from './wave-curriculum.config';
 
-export type BossVariantId = 'worm';
+export type BossVariantId = 'worm' | 'ooze';
 
 export interface BossVariant {
   id: BossVariantId;
@@ -39,14 +39,23 @@ export const BOSS_VARIANTS: Record<BossVariantId, BossVariant> = {
       'A chitin worm as long as the route. Every segment is a target of its own; '
       + 'destroying one splits the worm in two.',
   },
+  ooze: {
+    id: 'ooze',
+    name: 'Boss: Ooze',
+    enemyType: 'ooze',
+    description:
+      'A mass of slime that grows along the route from the portal. Every tower along it hits it; '
+      + 'at the HQ it flows in metre by metre, and a kill breaks it into slime clumps.',
+  },
 };
 
 /**
  * The boss waves past the curriculum in order, W35, W40, W45, ...: the
  * variant that takes the wave, or null for the director's own boss template.
- * Repeats from the start once through.
+ * Repeats from the start once through: W35 the worm, W45 the ooze, W55 the
+ * worm again, the waves between them the director's.
  */
-export const BOSS_VARIANT_ROTATION: readonly (BossVariantId | null)[] = ['worm', null];
+export const BOSS_VARIANT_ROTATION: readonly (BossVariantId | null)[] = ['worm', null, 'ooze', null];
 
 /** The variant that takes wave `wave`, null on every other wave. */
 export function bossVariantForWave(wave: number): BossVariant | null {
