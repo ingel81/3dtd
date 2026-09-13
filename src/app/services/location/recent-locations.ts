@@ -32,7 +32,7 @@ export function addRecentLocation(list: readonly RecentLocation[], entry: Recent
   return [entry, ...others].slice(0, MAX_RECENT_LOCATIONS);
 }
 
-function isPoint(v: unknown): v is { lat: number; lon: number } {
+export function isPoint(v: unknown): v is { lat: number; lon: number } {
   const p = v as { lat?: unknown; lon?: unknown } | null;
   return !!p && Number.isFinite(p.lat) && Number.isFinite(p.lon);
 }

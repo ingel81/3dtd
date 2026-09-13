@@ -17,6 +17,7 @@ import { TrainingClientService } from '../../ai/training/training-client.service
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { GameStateSyncService } from '../infrastructure/game-state-sync.service';
 import { OnboardingService } from '../onboarding/onboarding.service';
+import { BestWaveService } from '../location/best-wave.service';
 import { ThreeTilesEngine } from '../../three-engine';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
@@ -100,6 +101,7 @@ export class TowerDefenseFacadeService {
   private readonly trainingClient = inject(TrainingClientService);
   private readonly gameStateSync = inject(GameStateSyncService);
   private readonly onboarding = inject(OnboardingService);
+  private readonly bestWaves = inject(BestWaveService);
 
   /** Component bridge - set via initialize(). Non-null after initEffects(). */
   private bridge!: FacadeComponentBridge;
@@ -223,6 +225,7 @@ export class TowerDefenseFacadeService {
     this.eventBusSubs.disposeAll();
     this.gameStateSync.dispose();
     this.onboarding.disconnect();
+    this.bestWaves.disconnect();
     this.gameState.dispose();
     this.gameLoopFacade.dispose();
     this.locationFacade.dispose();
@@ -366,6 +369,8 @@ export class TowerDefenseFacadeService {
     this.gameStateSync.initialize(this.gameState.getEventBus(), () => this.gameState.gameTimeMs);
     // First-run tips follow the same events
     this.onboarding.connect(this.gameState.getEventBus());
+    // Best wave per place for the world map; runs the bot plays do not count
+    this.bestWaves.connect(this.gameState.getEventBus(), () => !this.trainingClient.botEnabled());
 
     // Let sub-facades subscribe to their own EventBus events
     this.vizFacade.subscribeToEventBus();
