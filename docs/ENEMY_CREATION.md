@@ -336,6 +336,13 @@ heightVariation: 3,      // ±3m Variation zwischen Enemies
 - Enemy B: 15 - 1.5 = 13.5m
 - Enemy C: 15 + 0.8 = 15.8m
 
+**Aus dem Spawn-Portal:** Lufteinheiten einer Welle sind am Spawn noch nicht auf dieser Höhe.
+Sie kommen durch die Mitte der Portalöffnung, fliegen bis 8 m hinter die vordere Fläche
+waagrecht und steigen dann über 30 m Route auf `heightOffset` plus Variation (`AIR_PORTAL_EXIT`
+in `configs/marker-geometry.config.ts`). Die aktuelle Höhe über `terrainHeight` steht je Gegner
+in `Enemy.heightOffset`: Wer etwas am Modell platziert oder darauf zielt, liest diesen Wert,
+nicht `typeConfig.heightOffset`. Debug-Spawns und Split-Kinder starten auf Flughöhe.
+
 ---
 
 ## Movement Variation

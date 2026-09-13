@@ -1684,7 +1684,14 @@ zwei instanzierte Draw Calls für alle Portale:
   das am echten Asset mit Strahlen rundum von den gemessenen Körpern aller Bodengegner (Bounding Box mal
   Skala, Mech und Tank bis 9,3 m lang): bei Skala 1 und 1,75 alle verdeckt, bei Skala 0,75
   (Gasse) sind Mammoth, Mech, Stone Golem und Wallsmasher breiter oder höher als das Tor.
-  Lufteinheiten fliegen am Spawn 15 bis 20 m hoch (±3 bis 4 m) und damit über dem Tor.
+  Lufteinheiten einer Welle kommen ebenso heraus (`utils/air-portal-exit.ts`, `AIR_PORTAL_EXIT`):
+  Körpermitte auf der Mitte der Öffnung (`PORTAL_OPENING_HEIGHT` × Skala / 2 über dem Boden,
+  Körper aus der VAT-Messung; höher als die Öffnung: auf dem Boden), waagrecht bis 8 m hinter
+  die vordere Fläche, dann über 30 m Route mit Smoothstep auf ihre Flughöhe. Die Höhe folgt der
+  geflogenen Strecke, bei jeder Timescale gleich; sie steht je Gegner in `Enemy.heightOffset`,
+  das alle Leser nehmen. Debug-Spawns und Split-Kinder starten auf Flughöhe. Die Air-LOS der
+  Tower tastet weiter nur die Flughöhe ab (`getAirTargetY`), auf den ersten 43 bis 47 m liegt die
+  echte Höhe darunter. Der Drache ist breiter als jede Öffnung und bis Skala 1 höher.
 - **Glow** (additiv): das Licht auf der Straße vor der vorderen und hinter der hinteren Fläche,
   dazu der Beschwörungskreis vor dem Portal.
 

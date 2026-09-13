@@ -1326,6 +1326,85 @@ flach. Und: Gegner waren vor dem Heraustreten zu sehen.
 231. Standort wechseln: die Portale stehen sofort mit Rahmen da, die
      Konsole zeigt keinen Fehler zum Portal.
 
+### Luftgegner aus dem Tor (airgate, `eaf1a12`, `bd7ec68`)
+
+Befund aus dem Playtest: "Luftgegner kommen in der Mitte des Tores
+durch.. fliegen wenige Meter und steigen dann auf ihre korrekte Höhe?"
+Bisher erschienen Luftgegner einer Welle auf Flughöhe, 15 bis 20 m über
+dem Portal.
+
+- `eaf1a12` Alles, was etwas am Modell platziert oder darauf zielt, liest
+  die Höhe über dem Boden je Gegner (`Enemy.heightOffset`) statt aus der
+  Config: gerenderte Position, Projektilziel, Flammenstrahl, Kegel,
+  Tentakel, Kettenblitz, Raycast-Fallback der Air-LOS, Schadenszahlen,
+  Blut, Eis, Knochen-Puff, Credit-Popup. `create()` des Renderers bekommt
+  die Höhe des Modellursprungs. Keine Verhaltensänderung.
+- `bd7ec68` Luftgegner einer Welle starten wie Bodengegner auf `path[0]`
+  im Volumen des Portals. Ihre Körpermitte liegt auf der Mitte der
+  Öffnung, `PORTAL_OPENING_HEIGHT` (11 m) × Skala / 2 über dem Boden:
+  4,1 m bei Skala 0,75, 5,5 m bei 1, 9,6 m bei 1,75. Die Skala kommt wie
+  beim Portal aus dem Korridor am Routenstart (`portalCorridorWidth`),
+  den Körper misst der VAT-Bake (`enemy-aim.util` hält jetzt min und
+  max). Ein Körper, der höher ist als die Öffnung, steht auf dem Boden.
+  Alle Gegner eines Typs kommen auf derselben Höhe durch, ihre Streuung
+  (±3 bis 4 m) setzt beim Steigen ein.
+- Danach waagrecht bis `AIR_PORTAL_EXIT.holdPastFront` (8 m) hinter die
+  vordere Fläche, die 5,25 m vor `path[0]` steht (über Skala 1 mal
+  Skala), dann über `climbDistance` (30 m) Route mit Smoothstep auf die
+  Flughöhe, ohne Sprung in Höhe oder Steigrate. 8 m, weil der Drache
+  7,8 m Schwanz hinter seinem Ursprung hat. Steilste Stelle etwa 35°
+  (Bat), 40° (Hornet), 50° (Drache oben in seiner Streuung). Die tiefe
+  Strecke endet 43 m nach `path[0]`, bei Skala 1,75 nach 47 m.
+- Die Höhe folgt der geflogenen Routenstrecke
+  (`MovementComponent.getDistanceAlongPath`) und wird in jedem Sub-Step
+  gesetzt, bei jeder Timescale gleich (Spec mit 8, 16 und 32 ms).
+- Nur Wellen-Spawns, auch die Custom Wave aus dem Wave-Fenster:
+  `WaveManager` übergibt `'portal'`. Debug-Spawns aus dem Enemy-Fenster
+  und Split-Kinder starten auf Flughöhe.
+- Wer die Höhe liest, in der tiefen Phase:
+  - Modell, Healthbar (hängt am Modell), Projektile, Strahlen, Effekte,
+    Popups: die echte Höhe.
+  - Zielwahl der Tower: Das Grid liefert die Air-Sicht, vorab gerechnet
+    auf 15 m über der Zelle (`getAirTargetY`). Auf den ersten 43 bis
+    47 m kann ein Tower einen Luftgegner beschießen, den er auf 15 m
+    sieht, in 4 bis 10 m Höhe aber nicht (etwa hinter einer Mauer), und
+    einen nicht wählen, den er nur tief sähe. Treffer rechnet das Spiel
+    waagrecht, der Schuss trifft. Nur der Raycast-Fallback (Tower ohne
+    Grid-Daten) nimmt die echte Höhe. Die LOS-Pipeline ist nicht
+    umgebaut.
+  - Offscreen-Pfeile lesen wie bisher die Bodenhöhe, der Air-Alarm hängt
+    an der Wellenvorschau, die Kamera folgt keinem Gegner, Schatten unter
+    Gegnern gibt es nicht: unberührt.
+- Offen: Der Drache ist 14,5 m breit und 11,4 m hoch (gemessen über
+  seinen Flugclip), breiter als jede Öffnung (höchstens 14 m) und bis
+  Skala 1 höher; er ragt seitlich und oben aus dem Tor. Die
+  Fledermaus ist mit 7,8 m Spannweite breiter als die kleinste Öffnung
+  (6 m). Mit `lateralSpread` (Drache 1,0, Bat 0,65) kommen beide auch
+  außermittig heraus, die Flügel können durch die Pfeiler ragen. Die
+  Healthbar des Drachen sitzt 14 m über seinem Ursprung, im Tor etwa
+  13 m über dem Boden, über der Öffnung; ob der Rahmen sie verdeckt, ist
+  nicht geprüft. Nicht im Browser gesehen.
+
+232. Neues Spiel, Dev-Menü, Waves & Inspect, Waves: Type Bat, Count 10,
+     Start Custom Wave. Kamera nah ans Portal, schräg von vorn: jede
+     Fledermaus kommt durch die Mitte der Öffnung aus der Fläche, keine
+     erscheint über dem Tor.
+233. Weiter zusehen: gut eine Sekunde waagrecht vor dem Tor, dann steigen
+     sie weich auf ihre Höhe, ohne Ruck am Anfang oder oben; beim Steigen
+     fächern sich die Höhen auf.
+234. Tempo schneller (wie Punkt 214), noch eine Welle: der Steigflug
+     beginnt und endet an denselben Stellen der Route, nur schneller.
+235. Dasselbe mit Hornet: wie die Fledermaus. Mit Dragon: steht bei
+     normalen Portalen auf der Straße, ragt oben und seitlich aus dem Tor
+     (bekannt), steigt dann.
+236. Ein Tower, der Luft angreift, nah am Portal: er beschießt die tiefen
+     Fledermäuse, die Schüsse fliegen auf den Körper, Schadenszahlen und
+     Blut erscheinen am Körper, nicht 10 m darüber.
+237. Enemies (Enemy inspector), Bat wählen, Place, auf die Route klicken:
+     die Fledermaus steht dort auf Flughöhe, ohne Tor-Phase.
+238. Regulär bis W7 (bat_swarm) und W8 (hornet_strike) spielen: an jedem
+     Portal wie 232 und 233.
+
 ## TODO-Stand
 
 Jeder dieser Einträge hat in TODO.md eine Zeile "Stand 2026-09-13 (Nacht)".
