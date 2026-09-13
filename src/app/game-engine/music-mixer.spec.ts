@@ -110,6 +110,23 @@ describe('MusicMixer', () => {
     expect(first.isPlaying).toBe(true);
   });
 
+  it('crossfades on when the audio context refuses to resume, and warns once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { mixer, first, second, context } = setup({ suspended: true });
+    context.resume.mockRejectedValue(new Error('not allowed'));
+
+    await mixer.crossfadeTo(track(), 0.4, 1000, noLoop);
+    expect(first.isPlaying).toBe(true);
+    await mixer.crossfadeTo(track(), 0.2, 1000, noLoop);
+    frame(NOW + 1000);
+
+    expect(first.isPlaying).toBe(false);
+    expect(second.isPlaying).toBe(true);
+    expect(second.volume).toBeCloseTo(0.2);
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
   it('fades the active track out to silence, and reports when nothing plays', async () => {
     const { mixer, first } = setup();
     expect(mixer.fadeOut(1000)).toBe(false);
