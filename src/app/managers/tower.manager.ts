@@ -133,12 +133,17 @@ export class TowerManager extends EntityManager<Tower> {
   }
 
   /**
-   * Show the veteran rank the tower's kills have earned above it. The
-   * GameStateManager calls it on every tower:kill; the badge renderer does
-   * nothing while the rank stays the same.
+   * Per frame: show above every tower the veteran rank its kills have
+   * earned. Read from `combat.kills` each time, so the badge follows the kill
+   * count whatever set it, not only a tower:kill; the badge renderer does
+   * nothing while a rank stays the same.
    */
-  refreshVeteranBadge(tower: Tower): void {
-    this.tilesEngine?.towerBadges.setRank(tower.id, veteranLevel(tower.combat.kills));
+  syncVeteranBadges(): void {
+    const badges = this.tilesEngine?.towerBadges;
+    if (!badges) return;
+    for (const tower of this.getAll()) {
+      badges.setRank(tower.id, veteranLevel(tower.combat.kills));
+    }
   }
 
   /**

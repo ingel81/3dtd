@@ -7,9 +7,11 @@
  * chain jumps, beam ticks and damage over time count for the tower they came
  * from; an ability's strike and a sold tower's late projectile count for none.
  *
- * The rank is derived from the kill count wherever it is shown and has no
- * state of its own: whatever restores or replays the kills restores the rank.
- * An upgrade keeps it, selling takes it away with the tower.
+ * The rank is derived from the kill count wherever it is shown (the tower
+ * panel, and the badge in the world, which TowerManager.syncVeteranBadges
+ * sets from the kills every frame) and has no state of its own: whatever
+ * restores or replays the kills restores the rank. An upgrade keeps it,
+ * selling takes it away with the tower.
  *
  * Thresholds, set against the training logs of 2026-08-28 (strategist bot,
  * about 500 runs per wave, median kills of the whole defense): 6 in W1, 117

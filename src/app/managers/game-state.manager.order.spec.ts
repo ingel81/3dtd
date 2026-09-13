@@ -495,9 +495,9 @@ describe('GameStateManager order of operations (characterization)', () => {
         'vfx:projectile-impact', 'health:changed', 'ability:impact', 'enemy:died',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
-        // GameStateManager: leak budget, AA retrofit, guard turns, veteran badge, kill reward
+        // GameStateManager: leak budget, AA retrofit, guard turns, kill reward
         'enemy:reached-base', 'enemy:leaking', 'research:completed', 'wave:completed',
-        'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'tower:kill', 'enemy:died',
+        'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'enemy:died',
         // GameCommandsHandler
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower',
         'command:start-research', 'command:cancel-research', 'command:queue-research', 'command:unqueue-research',

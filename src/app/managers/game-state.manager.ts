@@ -379,9 +379,6 @@ export class GameStateManager {
     // WaveManager subscribed first and has killed them all by now, splitting types included
     this.eventBusSubs.add(this.eventBus.on('debug:kill-all', () => this.towerLifecycle.turnToGuardIfClear()));
 
-    // The veteran badge above a tower follows its killing blows (cosmetic)
-    this.eventBusSubs.add(this.eventBus.on('tower:kill', (event) => this.towerManager.refreshVeteranBadge(event.tower)));
-
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
         this.creditsLedger.add(event.credits);

@@ -155,14 +155,24 @@ describe('TowerManager', () => {
     expect(tilesEngine.plinths.clear).toHaveBeenCalled();
   });
 
-  it('shows the veteran rank its kills have earned above a tower', () => {
-    const tower = manager.placeTower({ lat: 1, lon: 2, height: 5 }, 'archer') as Tower;
-    tower.combat.kills = 9;
-    manager.refreshVeteranBadge(tower);
-    tower.combat.kills = 50;
-    manager.refreshVeteranBadge(tower);
+  it('shows above every tower the veteran rank its kills have earned', () => {
+    const recruit = manager.placeTower({ lat: 1, lon: 2, height: 5 }, 'archer') as Tower;
+    const veteran = manager.placeTower({ lat: 1.001, lon: 2, height: 5 }, 'archer') as Tower;
+    recruit.combat.kills = 9;
+    veteran.combat.kills = 50;
 
-    expect(tilesEngine.towerBadges.setRank.mock.calls).toEqual([[tower.id, 0], [tower.id, 2]]);
+    manager.syncVeteranBadges();
+
+    expect(tilesEngine.towerBadges.setRank.mock.calls).toEqual([[recruit.id, 0], [veteran.id, 2]]);
+  });
+
+  it('follows kills set without a tower:kill, as a restore would set them', () => {
+    const tower = manager.placeTower({ lat: 1, lon: 2, height: 5 }, 'archer') as Tower;
+    manager.syncVeteranBadges();
+    tower.combat.kills = 400;
+    manager.syncVeteranBadges();
+
+    expect(tilesEngine.towerBadges.setRank).toHaveBeenLastCalledWith(tower.id, 4);
   });
 
   it('takes the veteran badge down with its tower', () => {
