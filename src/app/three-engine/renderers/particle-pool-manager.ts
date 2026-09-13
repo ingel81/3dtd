@@ -13,7 +13,7 @@ import {
 } from 'three';
 import { PARTICLE_LIMITS } from '../../configs/visual-effects.config';
 import { generateExplosionAtlas, generateSmokeAtlas } from './sprite-atlas-generator';
-import { createParticleShaderMaterials } from './particle-shaders';
+import { createParticleShaderMaterials, type ParticleShaderMaterials } from './particle-shaders';
 import { DrawGate } from './draw-gate';
 
 // Pool size constants derived from config
@@ -411,6 +411,15 @@ export class ParticlePoolManager {
    */
   isUsingShaderMaterial(): boolean {
     return this.useShaderMaterial;
+  }
+
+  /**
+   * The trail pools' ShaderMaterials (atlases, log depth), for a renderer
+   * that draws Points of its own with them. They stay owned here and are
+   * disposed with the pools.
+   */
+  get shaderMaterials(): ParticleShaderMaterials {
+    return { additive: this.trailShaderMaterialAdditive!, normal: this.trailShaderMaterialNormal! };
   }
 
   /**

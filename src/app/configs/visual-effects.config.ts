@@ -234,6 +234,87 @@ export const EXPLOSION_LOOK = {
 } as const;
 
 /**
+ * Mushroom cloud of the nuclear strike (MushroomCloudRenderer). Times are
+ * game seconds after the impact, so a pause freezes the cloud and the
+ * timescale runs it faster; lengths are metres at `referenceRadius` and
+ * scale with the strike radius.
+ *
+ * 0 to 1 s: a white flash (over the ground point and, faint, over the whole
+ * screen), a fireball on the ground and a shockwave ring running out over
+ * the ground to 36 m, dust surging out behind it.
+ * 0.3 to 5 s: the fireball lifts and turns into the cap, a torus of smoke
+ * that rolls outward over the top and back in underneath, lit orange from
+ * below; a stem of fire turning into smoke flows up into it.
+ * 5.5 to 10 s: the cloud spreads, rises, drifts with the wind and fades.
+ *
+ * With impact effects off (VFX settings, the Low preset) the flash, the
+ * shockwave and the fireball's `glowParticles.fireball` only: no smoke.
+ *
+ * Budget: 106 glow and 270 smoke particles per cloud, in buffers of the
+ * renderer's own (2 clouds: 212 and 540), not in the trail pools, which a
+ * big wave keeps busy. While a cloud is up: two Points draw calls, for the
+ * first second also the ring and the flash sprite, for 0.3 s a screen quad.
+ */
+export const MUSHROOM_CLOUD_LOOK = {
+  referenceRadius: 25,
+  /** Until the last smoke is gone */
+  duration: 10,
+  /** Clouds drawn at once; another strike takes the place of the oldest */
+  clouds: 2,
+  /** Additive particles from the explosion atlas, per cloud */
+  glowParticles: { fireball: 40, stemFire: 30, rim: 36 },
+  /** Normal-blended particles from the smoke atlas, per cloud */
+  smokeParticles: { cap: 110, dome: 40, stem: 60, dust: 40, skirt: 20 },
+  /**
+   * Sprite of `size` metres `height` above the ground point, additive at
+   * `intensity`, and a screen-wide brightening of `screenPeak`, both fading
+   * out quadratically. screenPeak 0 turns the screen flash off.
+   */
+  flash: { duration: 0.4, size: 80, height: 6, intensity: 2, screenPeak: 0.3, screenDuration: 0.3 },
+  /** Ring on the ground, its radius closing in on `radius` with the time constant */
+  shockwave: { duration: 1.1, radius: 36, timeConstant: 0.3, opacity: 0.9 },
+  /**
+   * Hemisphere on the ground growing to `radius`, lifting into the cap
+   * between liftStart and liftEnd, gone by fadeEnd. Particle diameters m.
+   */
+  fireball: { radius: 12, growTime: 0.25, liftStart: 0.35, liftEnd: 1.4, fadeStart: 1.6, fadeEnd: 2.8, size: [7, 12] },
+  /**
+   * The cap from `start` on: its centre rises from startHeight towards
+   * height (time constant riseTime), ring and tube radius grow from the
+   * first to the second value. `flatten` squashes the tube; the roll turns
+   * it at rollSpeed rad/s, slowing with the time constant rollTime.
+   */
+  cap: {
+    start: 0.4,
+    startHeight: 8,
+    height: 58,
+    riseTime: 1.5,
+    ringRadius: [3, 13],
+    tubeRadius: [4, 9],
+    flatten: 0.75,
+    rollSpeed: 1.3,
+    rollTime: 3.5,
+  },
+  /** Stem radius at mid height; `flow` is the share of the stem its smoke climbs per second */
+  stem: { start: 0.3, width: 3.2, flow: 0.3 },
+  /** Base surge: dust out to `radius`, time constant `time` */
+  dust: { radius: 34, time: 0.8 },
+  /** From `start` on the cloud spreads and rises (m/s), drifts with the wind (m/s) and fades out by `duration` */
+  disperse: { start: 5.5, spread: 1, rise: 0.8, wind: 0.8 },
+  /** Particle tints, linear. The smoke ones go over the light grey smoke atlas. */
+  colors: {
+    smoke: { r: 0.34, g: 0.31, b: 0.29 },
+    fireLit: { r: 1.5, g: 0.78, b: 0.36 },
+    dust: { r: 0.74, g: 0.66, b: 0.54 },
+    fireball: { r: 1, g: 0.85, b: 0.6 },
+    stemFire: { r: 1, g: 0.62, b: 0.3 },
+    rim: { r: 1, g: 0.5, b: 0.18 },
+    flash: { r: 1, g: 0.95, b: 0.85 },
+    shockwave: { r: 1, g: 0.86, b: 0.62 },
+  },
+} as const;
+
+/**
  * Spawn portals (SpawnPortalManager). Energy is a factor on the glow of the
  * surface, the runes and the light on the street, and on the swirl's speed.
  * Times in seconds of wall time: the portal keeps moving while the game is
