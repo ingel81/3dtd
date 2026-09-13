@@ -1073,6 +1073,118 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      Funkeln oder Moiré.
 204. Space: bei Wellenstart glimmen die Risse an der Öffnung auf.
 
+## Nachtrag: Playtest 2026-09-13 vormittags
+
+### Korridor an einer Tile-Naht (gapfix, `512674e` bis `a899b1f`)
+
+Befund (echter Ort, Wohnstraße, Route Grid Overlay an): eine Querreihe Zellen
+mit anderer Kontur, dort, wo früher eine Lücke im Korridor war (Punkt 43 in
+REVIEW_SPRINT_2026-09-12), und in der Welle eine Taille im Gegnerstrom.
+`__corridor.pick()` an der Stelle:
+
+- Nächste Station `7:3/32` (Route spawn-1, Way 89873545 residential, alongM
+  230,2): `unmeasured: 'no tile'`, links und rechts 2,75 m, rule
+  `unmeasured: street width`. Die Stationen um sie herum (alongM 222,2 bis
+  238,1) haben alle 7 m.
+- Zellen im Umkreis von 4 m: die Spalte x=113 (z=157, 155, 153, 151) ist
+  `unsampled`, drei mit heightM 243,19, eine (113,151) mit -3542,17. Alle
+  anderen sind stabil bei 242,7 bis 243,1.
+
+Ursache, aus dem Code abgeleitet und im Spiel nicht nachgestellt: Die Säule
+unter der Station und die Säulen der Zellreihe finden kein Tile, am
+wahrscheinlichsten eine Naht zwischen zwei Tile-Meshes.
+
+- Die Station bekam die OSM-Breite. Jede Station wird ein Waypoint, Zellen
+  und Seitenversatz lesen dieselbe Breite, und über den taper von 0,5 m/m
+  wird aus einer 2 m schmalen Stelle eine Taille von etwa 19 m.
+- Die Zellen blieben ohne Höhenprobe (rosa Kontur). Eine erste Höhenprobe
+  wurde bisher ungeprüft übernommen. Die -3542 m sind der Routenanker der
+  Zelle, der vermutlich aus so einer Probe stammt; belegt ist das nicht.
+
+Änderungen:
+
+- `512674e`: Kurze Messlücken (bis etwa `dipLength`) nehmen den kleineren
+  gemessenen Freiraum ihrer Nachbarn, rule `unmeasured: from neighbours, ...`.
+- `f8bb554`: Eine Station ohne Tile misst von der Säule 0,5 m voraus oder
+  zurück, `pick()` zeigt `shiftM`.
+- `24e0099`: Eine Zelle ohne Treffer probt die Säulen 0,5 m daneben.
+- `8fc2da3`: Der 50-m-Ausreißertest gilt auch für erste Proben und Upgrades
+  (nur Nachbarn derselben Fläche aus mindestens so tiefen Tiles).
+- `a7a69ec`: Eine Zelle zwischen stabilen Zellen bekommt deren Mittel,
+  Zustand `filled`: Sie hat eine Höhe, das Overlay zeigt sie ohne rosa
+  Kontur, das Sampling versucht sie weiter.
+- `d0d3bbf`: Kurze Engstellen in den fertigen Stücken jeder Route werden
+  geschlossen, auch vor der ersten Messung; Tunnel und Routenenden nicht.
+- `a899b1f`: Die `[Corridor] clearance`-Zeile nennt Stationen, die auch
+  daneben kein Tile fanden (`noTile=x,z;...`).
+- `834cb40`: ROUTE_CORRIDOR.md.
+
+Grenzen: Bei einer Lücke breiter als 0,5 m hilft die Verschiebung nicht, eine
+Zell-Lücke breiter als eine Zelle bleibt rosa. Liegt ein Zellmittelpunkt in
+keiner Bounding Box eines Tiles, probt der Sweep ihn nicht, dann greift nur
+das Füllen. Gefüllte Zellen sind im Overlay nicht von gesampelten zu
+unterscheiden, nur in `pick()` und `__rg.dumpStats()`.
+
+205. Gleicher Ort, noch ohne Tower und Welle (die sperren den Neuaufbau),
+     Layers, Route Grid Overlay an, warten, bis `[Corridor] clearance` in der
+     Konsole steht. Endet die Zeile mit `noTile=`, sind das die Stationen,
+     die auch daneben kein Tile fanden.
+206. `__corridor.pick()`, Klick auf die alte Stelle: Station `7:3/32` hat auf
+     beiden Seiten `halfWidthM` 7, entweder gemessen (`unmeasured` null,
+     `shiftM` 0.5 oder -0.5) oder mit rule `unmeasured: from neighbours, no
+     wall within the maximum`. In der Nearby-Tabelle keine 2.75.
+207. In derselben Ausgabe die Zellen x=113: `state` stable oder filled,
+     `heightM` um 243, kein -3542. Im Overlay keine abweichende Querreihe.
+208. `__routes.describe()`: Way 89873545 zeigt in leftM und rightM keine
+     2.75 mehr, solange `noTile` dort keine weiteren Stationen nennt.
+209. Welle starten: an der Stelle keine Taille im Gegnerstrom.
+
+### Header-Zahlen (hqfix, `8dfe042`)
+
+Nach +HP stand im HQ-Feld "101100/100", und die rote Zahl lief ins
+CREDITS-Feld. Jetzt bleibt jede Zahl in ihrem Feld:
+
+- Credits sind exakt bis 999.999, Welle und Gegnerzahl bis 99.999,
+  HQ-Leben bis 9.999; darüber kompakt ("101k", "1.2M").
+- Über dem Maximum, was nur +HP schafft, steht der Wert ohne "/100", der
+  Balken ist voll.
+- Zeigt ein Feld weniger als die genaue Zahl, steht sie im Tooltip ("101,100
+  / 100"). Screenreader lesen die genaue Zahl.
+- Eine Zahl, die allein nicht passt, endet mit Auslassungspunkten statt
+  überzulaufen. Schriften, Farben und Balkenhöhe sind unverändert.
+
+210. Dev-Menü, Cheats, +HP mehrfach, dann mit Shift (+100k): HQ-Feld ab
+     10.000 kompakt, ohne "/100", voller Balken, Tooltip mit der genauen
+     Zahl; nichts ragt ins CREDITS-Feld.
+211. Credits mehrfach, dann mit Shift: exakt bis 999.999, darüber kompakt,
+     Tooltip mit der genauen Zahl; nichts ragt in die Nachbarfelder.
+
+### Atompilz (mushroom, `fea8f42` bis `7bcbfd4`)
+
+Der Nuklearschlag geht als Atompilz hoch. Die gestaffelten
+Feuer-Explosionen mit setTimeout sind weg.
+
+- Ablauf: Blitz über dem Einschlag und schwach über dem Bild, Feuerball am
+  Boden, Druckwellenring bis 36 m. Der Feuerball steigt zu einer Kappe auf,
+  die über einem Stamm aus Feuer und Rauch rollt, am Boden eine Staubwalze.
+  Ab 5,5 s breitet sich die Wolke aus, driftet und verblasst, nach 10 s ist
+  sie weg. Beim Radius von 25 m ist sie gut 60 m hoch und skaliert mit dem
+  Radius.
+- Alles läuft in Spielzeit: Pause hält die Wolke an, höheres Tempo spielt sie
+  schneller ab.
+- Der Schaden bleibt im Sub-Step des Einschlags. Die Brandflecken haben das
+  alte Muster, liegen jetzt aber alle schon beim Einschlag.
+- Low-Preset (Impact Effects aus): Blitz, Feuerball und Druckwelle, vorher
+  gar keine Explosion.
+- Budget: 106 Glut- und 270 Rauchpartikel je Wolke, zwei Wolken gleichzeitig,
+  nichts wird pro Frame alloziert.
+
+212. Schlag setzen (wie Punkt 114 bis 116): Blitz, Feuerball, Ring, dann der
+     Pilz. Ist er aus der Übersicht (Reset Camera) lesbar?
+213. P, während der Pilz steht: er friert ein, nach P geht es weiter.
+214. Tempo schneller: der Pilz läuft entsprechend schneller ab.
+215. VFX-Preset Low (wie Punkt 197): nur Blitz, Feuerball und Ring.
+
 ## TODO-Stand
 
 Jeder dieser Einträge hat in TODO.md eine Zeile "Stand 2026-09-13 (Nacht)".
