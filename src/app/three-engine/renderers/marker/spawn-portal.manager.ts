@@ -8,12 +8,8 @@ import {
   Color,
   Group,
 } from 'three';
-import {
-  createPortalGateMaterial,
-  createPortalGlowMaterial,
-  portalGlyphDrive,
-  setPortalGateTextures,
-} from './marker-shaders';
+import { createPortalGateMaterial, portalGlyphDrive, setPortalGateTextures } from './spawn-portal-gate-material';
+import { createPortalGlowMaterial } from './spawn-portal-glow-material';
 import {
   createPortalGateGeometry,
   createPortalGlowGeometry,

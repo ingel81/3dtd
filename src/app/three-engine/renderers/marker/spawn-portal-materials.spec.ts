@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { CIRCLE_STREET, createPortalGateMaterial, createPortalGlowMaterial } from './marker-shaders';
+import { createPortalGateMaterial } from './spawn-portal-gate-material';
+import { CIRCLE_STREET, createPortalGlowMaterial } from './spawn-portal-glow-material';
 import { PORTAL_SHADER_LAYOUT } from './spawn-portal-geometry';
 import { SPAWN_PORTAL_LOOK as L } from '../../../configs/visual-effects.config';
 

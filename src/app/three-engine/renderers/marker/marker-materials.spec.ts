@@ -1,16 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
 import { Texture, type ShaderMaterial } from 'three';
-import {
-  CIRCLE_STREET,
-  createDiamondMaterial,
-  createGroundGlowMaterial,
-  createLabelMaterial,
-  createPortalGateMaterial,
-  createPortalGlowMaterial,
-  createRingMaterial,
-  setPortalGateTextures,
-} from './marker-shaders';
+import { createDiamondMaterial, createGroundGlowMaterial, createLabelMaterial, createRingMaterial } from './marker-shaders';
+import { createPortalGateMaterial, setPortalGateTextures } from './spawn-portal-gate-material';
+import { CIRCLE_STREET, createPortalGlowMaterial } from './spawn-portal-glow-material';
 import { PORTAL_SHADER_LAYOUT } from './spawn-portal-geometry';
 import { SPAWN_PORTAL_LOOK as L } from '../../../configs/visual-effects.config';
 
