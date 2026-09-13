@@ -5,12 +5,13 @@ import { PORTAL_OPENING_HEIGHT, PORTAL_OPENING_WIDTH } from '../../../configs/ma
  * fictional occult seals, drawn as signed distances by the gate shader
  * (marker-shaders.ts, PORTAL_SIGIL_GLSL). They replace random glyphs of a
  * stem, bars and diagonals, which came out as shapes like 千, キ, ス or
- * Latin letters, and a set of centred seals in perfect rings, which read
- * like buttons or dials.
+ * Latin letters, and two sets of seals in rings round the cell's centre,
+ * closed and then broken, which both read like buttons, dials or grilles.
  *
- * Built only from curves and dots, in loose, lopsided groups: broken and
- * offset rings, orbits with nodes on them, fragments of spirals, crescents,
- * dots linked by bowed arcs. No sigil sits in a closed ring round its cell,
+ * Built only from curves and dots, in loose, lopsided groups off the
+ * cell's centre: small broken rings, orbits with nodes on them, fragments
+ * of spirals, crescents, dots linked by bowed arcs. No sigil has a rim,
+ * no large curve bends round the cell's centre,
  * none is mirror-symmetric or repeats itself under a third of a turn, and
  * every cell turns and sizes its sigil a little differently
  * (sigilPoseForCell). spawn-portal-sigils.spec.ts checks that
@@ -123,93 +124,96 @@ const seg = (r: number, fromDeg: number, toDeg: number, x = 0, y = 0): SigilPart
   arc(r, (fromDeg + toDeg) / 2, toDeg - fromDeg, x, y);
 
 /**
- * Every sigil stands in a broken, uneven rim of two or three pieces, their
- * radii and centres a little apart, nodes in some of the gaps: no closed
- * frame, and an open curve inside never reads as a letter. Inside, off the
- * centre, an orbit, a spiral, crescents, a constellation or nested breaks.
+ * No sigil stands in a rim or fills a round badge: each is a loose group
+ * pulled off the cell's centre, its curves bent round points away from the
+ * centre, so it never reads as a dial, a grille or a button. One large mark
+ * (a crescent, an orbit, a sweep, a spiral fragment) and smaller ones
+ * trailing from it: nodes, dots of falling size, small open rings.
  */
 export const PORTAL_SIGILS: readonly Sigil[] = [
   {
-    name: 'fractured orbit',
+    name: 'falling moon',
     parts: [
-      seg(0.4, 20, 150), seg(0.38, 175, 290, 0.01, -0.01), seg(0.405, 305, 355),
-      node(0.05, on(0, 0, 0.4, 162)),
-      ring(0.085, 0.16, 0.16), node(0.03, on(0.16, 0.16, 0.085, 210)), crescent(0.08, 250, -0.18, -0.2),
+      crescent(0.16, 160, -0.17, 0.19),
+      link(-0.34, -0.02, 0.19, -0.245, -0.09), dot(0.045, -0.34, -0.02), ring(0.055, 0.22, -0.27),
+      dot(0.035, 0.1, 0.08), dot(0.028, 0.22, 0.16), dot(0.02, 0.33, 0.22),
     ],
   },
   {
-    name: 'spiral seal',
+    name: 'wandering orbit',
     parts: [
-      seg(0.39, 60, 200), seg(0.4, 230, 330),
-      ...spiral(0.02, -0.03, 0.25, 120, [100, 110, 110], 0.66),
-      node(0.045, on(0, 0, 0.33, 350)), node(0.035, on(0, 0, 0.35, 15)), node(0.025, on(0, 0, 0.37, 38)),
+      seg(0.3, 115, 245, 0.2, 0.06),
+      node(0.05, on(0.2, 0.06, 0.3, 150)), node(0.035, on(0.2, 0.06, 0.3, 205)), ring(0.05, ...on(0.2, 0.06, 0.3, 275)),
+      crescent(0.1, 90, 0.24, 0.24),
+      dot(0.025, 0.34, -0.08), dot(0.02, 0.38, 0.04),
     ],
   },
   {
-    name: 'crescent cradle',
+    name: 'spiral shard',
     parts: [
-      seg(0.4, 100, 250), seg(0.37, 280, 400, 0.02, 0),
-      node(0.04, on(0, 0, 0.39, 265)),
-      crescent(0.19, 30, -0.08, -0.12), dot(0.045, -0.22, 0.16), dot(0.03, -0.06, 0.26), dot(0.02, 0.06, 0.31),
+      // The spiral runs on in dots where its curve ends
+      ...spiral(-0.08, 0.02, 0.3, 20, [100, 90], 0.62),
+      dot(0.035, -0.237, -0.024), dot(0.028, -0.159, -0.024), dot(0.022, -0.098, 0.027),
+      crescent(0.13, 70, 0.2, -0.22),
+      dot(0.03, -0.1, -0.3), dot(0.02, -0.22, -0.34),
     ],
   },
   {
-    name: 'nested fractures',
+    name: 'crescents in tow',
     parts: [
-      seg(0.4, 200, 450), seg(0.27, 20, 250, 0.05, 0.03), seg(0.14, 240, 470, -0.02, 0.06),
-      dot(0.045, 0.13, -0.14), node(0.035, on(0, 0, 0.4, 170)),
+      crescent(0.17, 200, 0.14, 0.17), crescent(0.1, 170, -0.08, -0.12), crescent(0.065, 140, -0.26, -0.28),
+      link(0.3, -0.05, 0.08, -0.33, -0.06), dot(0.03, 0.3, -0.05), ring(0.06, -0.2, 0.28),
     ],
   },
   {
-    name: 'constellation',
+    name: 'chained nodes',
     parts: [
-      seg(0.4, 250, 470),
-      dot(0.045, -0.2, 0.05), dot(0.03, 0.02, 0.18), dot(0.05, 0.18, 0.02), dot(0.035, 0.05, -0.2),
-      link(-0.2, 0.05, 0.02, 0.18, 0.04), link(0.02, 0.18, 0.18, 0.02, -0.04), link(0.18, 0.02, 0.05, -0.2, 0.05),
-      node(0.04, on(0, 0, 0.36, 150)), node(0.025, on(0, 0, 0.33, 200)),
+      dot(0.045, -0.34, 0.22), dot(0.03, -0.12, 0.3), dot(0.055, 0.05, 0.08), dot(0.028, 0.3, 0.12),
+      dot(0.04, 0.22, -0.2), dot(0.025, -0.02, -0.34),
+      link(-0.34, 0.22, -0.12, 0.3, 0.05), link(-0.12, 0.3, 0.05, 0.08, -0.06), link(0.05, 0.08, 0.3, 0.12, 0.04),
+      link(0.05, 0.08, 0.22, -0.2, -0.07), link(0.22, -0.2, -0.02, -0.34, -0.05),
+      crescent(0.08, 230, -0.28, -0.12),
     ],
   },
   {
-    name: 'eclipse seal',
+    name: 'broken moonring',
     parts: [
-      seg(0.4, 0, 120), seg(0.39, 150, 230, -0.01, 0.01), seg(0.4, 255, 330),
-      node(0.04, on(0, 0, 0.4, 137)),
-      ring(0.12, -0.1, 0.1), crescent(0.13, 210, 0.14, -0.12),
+      seg(0.15, 35, 125, -0.12, -0.1), seg(0.14, 215, 305, -0.13, -0.11), node(0.035, on(-0.12, -0.1, 0.15, 170)),
+      seg(0.62, 200, 250, 0.45, 0.62), dot(0.04, 0.34, 0.12),
+      crescent(0.09, 20, 0.24, -0.26),
     ],
   },
   {
-    name: 'dotted spiral',
+    name: 'eclipse trail',
     parts: [
-      seg(0.41, 150, 330),
-      ...[[20, 0.32, 0.05], [70, 0.27, 0.045], [120, 0.22, 0.04], [170, 0.18, 0.035], [220, 0.14, 0.03], [270, 0.1, 0.025]]
-        .map(([deg, r, size]) => node(size, on(0, 0, r, deg))),
-      crescent(0.07, 300, 0.1, -0.12),
+      ring(0.14, -0.08, 0.08), dot(0.09, 0.03, 0),
+      dot(0.04, 0.18, -0.16), dot(0.03, 0.27, -0.23), dot(0.02, 0.32, -0.28),
+      crescent(0.1, 150, -0.22, 0.27),
     ],
   },
   {
-    name: 'moon over nodes',
+    name: 'dotted whorl',
     parts: [
-      seg(0.4, 40, 180), seg(0.38, 210, 320),
-      crescent(0.12, 300, 0.12, 0.1),
-      dot(0.045, -0.25, 0.14), dot(0.035, -0.27, -0.06), dot(0.04, -0.14, -0.22),
-      link(-0.25, 0.14, -0.27, -0.06, 0.04), link(-0.27, -0.06, -0.14, -0.22, 0.04),
+      ...[[200, 0.3, 0.05], [250, 0.25, 0.045], [300, 0.2, 0.038], [350, 0.16, 0.032], [40, 0.12, 0.026], [90, 0.09, 0.02]]
+        .map(([deg, r, size]) => node(size, on(0.12, 0.1, r, deg))),
+      ring(0.045, -0.28, 0.24),
+      crescent(0.08, 240, -0.28, -0.25),
     ],
   },
   {
-    name: 'crescent pair',
+    name: 'haloed moon',
     parts: [
-      seg(0.4, 280, 380), seg(0.39, 70, 220, -0.01, 0),
-      crescent(0.15, 160, 0.1, 0.05), crescent(0.1, 180, -0.15, -0.1),
-      dot(0.03, 0.2, -0.22), node(0.04, on(0, 0, 0.395, 245)),
+      crescent(0.17, 60, -0.1, -0.1),
+      seg(0.3, 110, 200, -0.06, -0.08), seg(0.28, 250, 300, -0.08, -0.06),
+      dot(0.04, 0.26, 0.26), dot(0.028, 0.34, 0.05), dot(0.02, 0.3, -0.2),
     ],
   },
   {
     name: 'star chart',
     parts: [
-      seg(0.4, 280, 350), seg(0.39, 20, 110, 0.01, 0),
-      ...[[100, 0.055], [135, 0.045], [170, 0.04], [205, 0.03], [240, 0.025]].map(([deg, size]) => node(size, on(0.05, 0.05, 0.3, deg))),
-      ...[[300, 0.04], [340, 0.03], [20, 0.025]].map(([deg, size]) => node(size, on(-0.05, -0.1, 0.2, deg))),
-      ring(0.06, 0.16, 0.18),
+      ring(0.08, -0.2, 0.15), ring(0.045, 0.22, -0.18),
+      dot(0.04, 0.05, 0.25), dot(0.025, 0.18, 0.12), dot(0.05, -0.05, -0.05), dot(0.03, -0.28, -0.22), dot(0.022, 0.34, 0.1),
+      link(-0.14, 0.09, -0.05, -0.05, 0.04), link(-0.05, -0.05, 0.18, -0.15, -0.05),
     ],
   },
 ];
@@ -248,13 +252,21 @@ export function sigilForCell(cell: number): number {
   return (cell * SIGIL_STRIDE) % PORTAL_SIGILS.length;
 }
 
+/** How far a sigil's ink reaches from its centre at most (cell units, scale 1). */
+export const SIGIL_REACH = 0.46;
+
 /**
  * How the sigil in frame cell `cell` is carved: turned by `turn` (rad,
- * -30° to 30°) and sized by `scale` (0.8 to 1), a little differently in
- * every cell, the same on every portal.
+ * -30° to 30°), sized by `scale` (0.72 to 1) and moved off the cell's
+ * centre by (dx, dy) (cell units) as far as its size leaves room, a
+ * little differently in every cell, the same on every portal.
  */
-export function sigilPoseForCell(cell: number): { turn: number; scale: number } {
-  return { turn: (((cell * 7) % 11) - 5) * 6 * DEG, scale: 0.8 + 0.05 * ((cell * 3) % 5) };
+export function sigilPoseForCell(cell: number): { turn: number; scale: number; dx: number; dy: number } {
+  const scale = 0.72 + 0.07 * ((cell * 3) % 5);
+  const room = 0.49 - SIGIL_REACH * scale;
+  // The golden angle spreads the shifts' directions
+  const a = cell * 2.39996;
+  return { turn: (((cell * 7) % 11) - 5) * 6 * DEG, scale, dx: room * Math.cos(a), dy: room * Math.sin(a) };
 }
 
 /** A frame cell: its number (sigilForCell), the centre of its square in portal space (m, scale 1), its pose. */
@@ -264,6 +276,8 @@ export interface SigilCell {
   y: number;
   turn: number;
   scale: number;
+  dx: number;
+  dy: number;
 }
 
 /** The frame's cells in order: up the left pillar, along the lintel, down the right pillar. */
@@ -272,7 +286,7 @@ export function frameSigilCells(): SigilCell[] {
   const pillarX = PORTAL_OPENING_WIDTH / 2 + L.pillarInset;
   const pillarY = (row: number) => L.pillarBottom + (row + 0.5) * L.pillarPitch;
   const lintelHalf = (L.lintelColumns * L.lintelPitch) / 2;
-  const cells: Omit<SigilCell, 'turn' | 'scale'>[] = [];
+  const cells: Pick<SigilCell, 'cell' | 'x' | 'y'>[] = [];
   for (let row = 0; row < L.pillarRows; row++) cells.push({ cell: row, x: -pillarX, y: pillarY(row) });
   for (let column = 0; column < L.lintelColumns; column++) {
     cells.push({
@@ -331,7 +345,7 @@ const CELL_POSES = [...Array(SIGIL_CELLS).keys()].map(sigilPoseForCell);
  * GLSL of the sigils, generated from PORTAL_SIGILS and SIGIL_LAYOUT:
  * portalFrameSigils(p, opening, fade) gives the distance (cell units) from
  * a point of the frame (portal space, front or back face) to the ink of
- * its cell's sigil, turned and sized as sigilPoseForCell says, 1.0 off the
+ * its cell's sigil, posed as sigilPoseForCell says, 1.0 off the
  * cells, and in `fade` a weight that falls to 0 at the cell's border, for
  * a glow round the ink.
  */
@@ -349,6 +363,7 @@ export const PORTAL_SIGIL_GLSL = /* glsl */ `
   const float SIGIL_LINTEL_COLUMNS = ${glslFloat(SIGIL_LAYOUT.lintelColumns)};
   const float SIGIL_TURNS[${SIGIL_CELLS}] = ${glslArray(CELL_POSES.map((pose) => pose.turn))};
   const float SIGIL_SCALES[${SIGIL_CELLS}] = ${glslArray(CELL_POSES.map((pose) => pose.scale))};
+  const vec2 SIGIL_SHIFTS[${SIGIL_CELLS}] = vec2[${SIGIL_CELLS}](${CELL_POSES.map((pose) => `vec2(${glslFloat(pose.dx)}, ${glslFloat(pose.dy)})`).join(', ')});
 
   float sigilRing(vec2 p, vec2 c, float r) {
     return abs(length(p - c) - r) - SIGIL_STROKE;
@@ -386,13 +401,13 @@ export const PORTAL_SIGIL_GLSL = /* glsl */ `
   }
 
   // Distance to the ink of frame cell 'cell' from q (cell units from the
-  // cell's centre), its sigil turned and sized as sigilPoseForCell says
+  // cell's centre), its sigil turned, sized and moved as sigilPoseForCell says
   float portalCellSigil(vec2 q, float cell) {
     int i = int(cell + 0.5);
     float c = cos(SIGIL_TURNS[i]);
     float s = sin(SIGIL_TURNS[i]);
     float scale = SIGIL_SCALES[i];
-    return portalSigil(mat2(c, -s, s, c) * q / scale, portalSigilIndex(cell)) * scale;
+    return portalSigil(mat2(c, -s, s, c) * (q - SIGIL_SHIFTS[i]) / scale, portalSigilIndex(cell)) * scale;
   }
 
   float portalFrameSigils(vec3 p, vec2 opening, out float fade) {
