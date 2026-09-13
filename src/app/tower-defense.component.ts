@@ -83,6 +83,7 @@ import type { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
 import { TdIconComponent } from './components/icon/icon.component';
 import { LosLegendComponent } from './components/los-legend/los-legend.component';
 import { IntroSkipComponent } from './components/intro-skip/intro-skip.component';
+// Deferred in the template, loaded the first time the screen shows
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
