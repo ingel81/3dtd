@@ -430,6 +430,13 @@ export const SPAWN_PORTAL_LOOK = {
   burstParticles: 10,
   /** Life of the ripple (s) */
   rippleLife: 0.9,
+  /**
+   * Summoning circle on the street ahead of the portal, drawn in the
+   * frame's sigils (marker-shaders.ts, portalCircle): centre ahead of the
+   * front surface and outer radius (m, scale 1), turn (rad/s), glow between
+   * and during waves, and on top of it at the peak of a wave start's surge.
+   */
+  circle: { centre: 4.6, radius: 3.9, spin: 0.02, glow: 0.12, flare: 0.8 },
 } as const;
 
 /** RGB colour, channels 0-1 (linear, as the particle pools store it). */

@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three';
 import {
+  PORTAL_SHADER_LAYOUT,
   createPortalFrameGeometry,
   createPortalGateGeometry,
   createPortalGlowGeometry,
 } from './spawn-portal-geometry';
+import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
 import {
   PORTAL_DEPTH,
   PORTAL_FRAME_TOP,
@@ -172,6 +174,17 @@ describe('Spawn-Portal-Geometrie', () => {
     }
     expect(maxZ).toBeGreaterThan(PORTAL_DEPTH / 2 + 5);
     expect(minZ).toBeLessThan(-PORTAL_DEPTH / 2 - 2);
+  });
+
+  it('legt den Beschwörungskreis ganz in das Bodenlicht vor der vorderen Fläche', () => {
+    // Der Kreis misst ab der vorderen Fläche; die Tiefe wächst nie
+    // langsamer als die Breite (portalDepthScale), so bleibt er auf jeder
+    // Skala im Fleck
+    const L = PORTAL_SHADER_LAYOUT;
+    const C = SPAWN_PORTAL_LOOK.circle;
+    expect(C.centre - C.radius).toBeGreaterThan(0);
+    expect(C.centre + C.radius).toBeLessThan(L.groundFront);
+    expect(C.radius).toBeLessThan(L.groundHalfWidth);
   });
 });
 
