@@ -82,7 +82,7 @@ prüfen, etwa mit der GPU-Zeit bei 2.000 Gegnern je Budgetstufe.
 | Elite/Boss | ≤ 15.000 | ≤ 2048² | ≤ 90 Frames |
 
 Todes-Clips brauchen kein eigenes Budget: Sie laufen mit `animationSpeed`, der Gegner
-verschwindet nach `TIMING.deathAnimationDuration` (2 s), und `vatClips` in `vat-baker.ts`
+verschwindet nach `TIMING.deathAnimationDuration` (2 s), und `vatClips` in `vat-clips.ts`
 backt nur bis dahin. Idle backt der Baker nicht.
 
 Mit diesem Budget läge die teuerste Welle (`rat_tide`, 5.000 Ratten) bei 5,0 Mio. und
@@ -293,7 +293,7 @@ höchstens dreimal pro Welle. Bear und Zombie Soldier liegen im Budget.
 ## Stellschrauben ohne Modelländerung
 
 Die Config hat keine VAT-Stellschraube pro Typ; Bake-fps und VAT-Breite sind Konstanten in
-`vat-baker.ts`. In der Config lassen sich nur Clips weglassen; das spart Speicher und
+`vat-clips.ts` (`DEFAULT_BAKE_FPS`) und `vat-encoding.ts` (`MAX_VAT_WIDTH`). In der Config lassen sich nur Clips weglassen; das spart Speicher und
 Bake-Zeit, keine Frame-Zeit. Die Swarm-Gegner mit der größten Vertex-Last (Ratte, Spinne)
 backen je nur einen Clip mit 11 bzw. 25 Frames, da gibt es nichts wegzulassen.
 
@@ -308,12 +308,12 @@ Code-seitig umgesetzt (2026-09-12):
 
 Code-seitig umgesetzt (2026-09-13):
 
-- **VAT als RGBA16F** (`vatEncoding` in `vat-baker.ts`): Positionen relativ zur
+- **VAT als RGBA16F** (`vatEncoding` in `vat-encoding.ts`): Positionen relativ zur
   Bounding-Box, je Typ RGBA16F, wenn der Rundungsfehler im Spiel höchstens 2 mm beträgt,
   sonst RGBA32F. VAT gesamt 486,6 → 264,7 MB, halb so viele Bytes pro VAT-Zugriff. RGBA32F
   bleibt nur der Stone Golem (2,64 mm). Begründung der 2 mm in
   [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#texelformat-rgba16f-oder-rgba32f).
-- **Opake VAT-Materialien** (`vatAlpha` in `vat-baker.ts`): Transparent sind nur noch Typen,
+- **Opake VAT-Materialien** (`vatAlpha` in `vat-surface.ts`): Transparent sind nur noch Typen,
   deren Materialien Alpha brauchen. Bear (Alpha in der Textur), Ghost und Hornet (Opacity
   unter 1, beim Hornet die Flügel) blenden, Dragon schneidet mit `alphaTest` 0,5 aus
   (glTF MASK), die übrigen 16 Typen zeichnen opak. `aOpacity` ist entfernt, es war immer 1.
@@ -390,7 +390,7 @@ sind statisch (ein VAT-Frame) und belegen zusammen unter 0,1 MB VAT-Speicher.
   den Loadern.
 - `tools/model-budget/generate.spec.ts` wählt den Bake-Pfad wie
   `InstancedEnemyRenderer.bakeAndCreatePool` und rechnet Clips und VAT-Maße mit
-  `vatClips`, `vatFrameCount` und `vatLayout` aus `vat-baker.ts`. Der Test schlägt fehl,
+  `vatClips`, `vatFrameCount` (`vat-clips.ts`) und `vatLayout` (`vat-encoding.ts`). Der Test schlägt fehl,
   wenn ein Typ nicht backbar ist oder ein konfigurierter Clip im Modell fehlt.
 - Für Format, Half-Fehler und Alpha-Modus lädt `generate.spec.ts` jedes Modell zusätzlich
   mit GLTFLoader und backt es mit `bakeEnemyVAT` wie das Spiel. Von den Texturen kommen nur
@@ -428,7 +428,7 @@ macht; was ein Kill abspaltet (`splitOnDeath`), zählt mit. „Mio. Vertices“ 
 max./Welle, also die Vertex-Shader-Last, wenn alle Gegner der größten Welle gleichzeitig
 leben. Für abgespaltene Gegner ist das eine Obergrenze: Sie entstehen erst, wenn der
 Gegner stirbt, der sie abspaltet. „Half-Fehler“ ist der größte Fehler, den
-RGBA16F einer Position im Spiel zufügt (`vatEncoding` in `vat-baker.ts`, aus den gebackenen
+RGBA16F einer Position im Spiel zufügt (`vatEncoding` in `vat-encoding.ts`, aus den gebackenen
 Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (16 Byte).
 
 | Gegner | Klasse | max./Welle | VAT-Vertices | Dreiecke | Mio. Vertices | Bake-Pfad | VAT-Frames | VAT-Textur | Format | Half-Fehler mm | VAT-MB | Diffuse |
@@ -463,7 +463,7 @@ Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **8,6 MB
 
 ### Alpha
 
-Wie der VAT-Shader Alpha behandelt (`vatAlpha` in `vat-baker.ts`, aus den Materialien der
+Wie der VAT-Shader Alpha behandelt (`vatAlpha` in `vat-surface.ts`, aus den Materialien der
 gebackenen Meshes und dem Alpha ihrer Basisfarb-Texturen): opak ignoriert Alpha, Maske verwirft
 unter dem Cutoff, Blend ist transparent und verwirft unter 0,05. „Texel unter 0,05“ zählt in den
 Basisfarb-Texturen der gebackenen Meshes alle Texel mit Alpha darunter, auch solche, die kein UV
@@ -515,7 +515,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 ### Gebackene Clips
 
 Todes-Clips laufen mit `animationSpeed`, bis der Gegner nach 2.000 ms
-entfernt wird. Gebacken wird nur dieser Teil (`vatClips` in `vat-baker.ts`), „gekürzt“ zählt
+entfernt wird. Gebacken wird nur dieser Teil (`vatClips` in `vat-clips.ts`), „gekürzt“ zählt
 die weggelassenen Frames.
 
 | Gegner | Clip | Rolle | Dauer s | Frames | gekürzt |
