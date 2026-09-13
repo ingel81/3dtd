@@ -89,6 +89,29 @@ describe('Spawn-Portal-Geometrie', () => {
     expect(innerSides).toBe(4);
   });
 
+  it('kennt an jeder Ecke ihren Platz auf der Fläche, für die Kantenabnutzung', () => {
+    const geometry = createPortalFrameGeometry();
+    const face = geometry.getAttribute('aFace');
+    const width = geometry.getAttribute('aWidth');
+    expect(face.count).toBe(geometry.getAttribute('position').count);
+    expect(width.count).toBe(face.count);
+    /** Abstand zum Rand der Fläche aus aFace und aWidth, wie im Shader */
+    const edge = (across: number, up: number, height: number, w0: number, w1: number) =>
+      Math.min(0.5 * (w0 + (w1 - w0) * (up / height)) - Math.abs(across), up, height - up);
+    for (let i = 0; i < face.count; i += 3) {
+      // Jede Ecke liegt auf dem Rand ihrer Fläche ...
+      let across = 0, up = 0;
+      for (let k = i; k < i + 3; k++) {
+        expect(face.getZ(k)).toBeGreaterThan(0);
+        expect(Math.abs(edge(face.getX(k), face.getY(k), face.getZ(k), width.getX(k), width.getY(k)))).toBeLessThan(1e-4);
+        across += face.getX(k) / 3;
+        up += face.getY(k) / 3;
+      }
+      // ... und der Schwerpunkt jedes Dreiecks in ihr
+      expect(edge(across, up, face.getZ(i), width.getX(i), width.getY(i))).toBeGreaterThan(1e-3);
+    }
+  });
+
   it('füllt die Öffnung mit der Leere (aPart 1), nach beiden Seiten, bis in den Stein', () => {
     const geometry = createPortalGateGeometry();
     const position = geometry.getAttribute('position');

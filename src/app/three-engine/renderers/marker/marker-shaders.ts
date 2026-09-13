@@ -12,6 +12,7 @@ import {
 } from 'three';
 import type { EffectRgb } from '../../../configs/visual-effects.config';
 import { PORTAL_SIGIL_GLSL } from './spawn-portal-sigils';
+import { PORTAL_STONE_GLSL } from './spawn-portal-stone';
 
 // ============================================================
 // DIAMOND BODY SHADER
@@ -411,9 +412,10 @@ const PORTAL_PALETTE_GLSL = /* glsl */ `
 /**
  * Gate of the spawn portals: the stone frame (aPart 0) and the void in the
  * opening (aPart 1), opaque, in one draw call. Unlit like every marker
- * shader: a fixed key light shapes the dark weathered blocks, the portal's
- * dim red light falls on the faces around the opening and glows in seams
- * of the stone, and a fixed set of sigils up the pillars and along the
+ * shader: the stone is procedural (spawn-portal-stone.ts: ashlars and
+ * joints, worn and chipped edges, cracks, soot, relief) under faked light,
+ * a fixed key light and the core's dim red light from the opening, and a
+ * fixed set of sigils up the pillars and along the
  * lintel (spawn-portal-sigils.ts) glows in a dark red tinted with the
  * spawn's colour. The void is a slow, smouldering
  * swirl around a black eye; it writes depth, so whatever stands behind it
@@ -440,10 +442,14 @@ export function createPortalGateMaterial(
       attribute float aPhase;
       attribute float aRipple;
       attribute float aPart;
+      attribute vec3 aFace;
+      attribute vec2 aWidth;
 
       varying vec3 vLocalPos;
       varying vec3 vLocalNormal;
-      varying vec3 vNormal;
+      varying vec3 vLight;
+      varying vec3 vFace;
+      varying vec2 vWidth;
       varying vec3 vColor;
       varying float vPhase;
       varying float vRipple;
@@ -455,7 +461,11 @@ export function createPortalGateMaterial(
       void main() {
         vLocalPos = position;
         vLocalNormal = normal;
-        vNormal = normalize(mat3(instanceMatrix) * normal);
+        vFace = aFace;
+        vWidth = aWidth;
+        // The fixed key light in portal space, so the shading turns with the portal
+        vec3 key = normalize(vec3(0.4, 0.8, 0.45));
+        vLight = vec3(dot(key, normalize(instanceMatrix[0].xyz)), key.y, dot(key, normalize(instanceMatrix[2].xyz)));
         vColor = aColor;
         vPhase = aPhase;
         vRipple = aRipple;
@@ -478,7 +488,9 @@ export function createPortalGateMaterial(
 
       varying vec3 vLocalPos;
       varying vec3 vLocalNormal;
-      varying vec3 vNormal;
+      varying vec3 vLight;
+      varying vec3 vFace;
+      varying vec2 vWidth;
       varying vec3 vColor;
       varying float vPhase;
       varying float vRipple;
@@ -487,6 +499,8 @@ export function createPortalGateMaterial(
       #include <logdepthbuf_pars_fragment>
 
       ${PORTAL_NOISE_GLSL}
+
+      ${PORTAL_STONE_GLSL}
 
       // Embers rising through the void: a speck in some cells of a grid
       // that drifts up, each flickering at its own pace. p in metres.
@@ -544,6 +558,10 @@ export function createPortalGateMaterial(
       void main() {
         #include <logdepthbuf_fragment>
 
+        // Metres of the frame per pixel; derivatives before any branch, as
+        // they need uniform control flow
+        float footprint = length(fwidth(vLocalPos));
+
         if (vPart > 0.5) {
           gl_FragColor = vec4(portalVoid(), 1.0);
           return;
@@ -551,33 +569,11 @@ export function createPortalGateMaterial(
 
         vec3 p = vLocalPos;
         vec3 ln = vLocalNormal;
-        float ax = abs(p.x);
-
-        // Dark weathered basalt: grain, streaks run down by the rain, grime
-        // toward the foot
-        float grain = portalNoise(p.xy * 1.9 + p.z * 0.7) * 0.6 + portalNoise(p.zy * 6.1 + p.x) * 0.4;
-        float streaks = portalNoise(vec2(p.x * 2.3 + p.z * 1.7, p.y * 0.22));
-        float grime = 1.0 - smoothstep(-0.5, 3.5, p.y);
-        vec3 stone = vec3(0.052, 0.046, 0.048) * (0.65 + 0.6 * grain) * (1.0 - 0.45 * streaks) * (1.0 - 0.4 * grime);
-        vec3 n = normalize(vNormal);
-        float key = max(dot(n, normalize(vec3(0.4, 0.8, 0.45))), 0.0);
-        vec3 col = stone * (0.45 + 0.75 * key + 0.25 * n.y);
-
         float flicker = 0.8 + 0.2 * portalNoise(vec2(uTime * 1.7 + vPhase, p.y * 0.4));
 
-        // The portal's dark red light on the pillars' inner sides, the
-        // lintel's underside and the front edges next to the opening
-        float inner = clamp(-sign(p.x) * ln.x, 0.0, 1.0);
-        float under = clamp(-ln.y, 0.0, 1.0) * step(ax, uOpening.x + 0.6);
-        float edge = abs(ln.z) * exp(-max(ax - uOpening.x, 0.0) * 1.6);
-        float near = step(p.y, uOpening.y + 0.4) * smoothstep(-0.5, 1.0, p.y);
-        col += uEmber * (inner * 0.8 + under * 0.6 + edge * 0.4) * near * (0.3 + 0.55 * uEnergy) * flicker;
-
-        // Seams glowing from within, most near the opening
-        float seamNoise = portalNoise(p.xy * 0.45 + p.z * 0.9 + vec2(3.1, 7.7));
-        float seam = 1.0 - smoothstep(0.02, 0.05, abs(seamNoise - 0.5));
-        float nearOpening = exp(-max(ax - uOpening.x, 0.0) * 0.7) * (1.0 - smoothstep(uOpening.y, uOpening.y + 4.0, p.y));
-        col += mix(uEmber, uHot, 0.3) * seam * nearOpening * (0.2 + 0.45 * uEnergy) * flicker;
+        // Hewn, worn, cracked and sooted stone (spawn-portal-stone.ts)
+        vec3 col = portalStone(p, ln, vFace, vWidth, normalize(vLight), footprint,
+          uOpening, uEnergy, flicker, uEmber, uHot);
 
         // Sigils in a frieze round the opening (spawn-portal-sigils.ts), on
         // the front and the back, with a faint glow round the ink, lit in a

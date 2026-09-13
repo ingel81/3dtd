@@ -1682,12 +1682,22 @@ zwei instanzierte Draw Calls für alle Portale:
   zu Kameras vor und über dem Portal. Von hinten ist der Gegner zu sehen, bis er eingetreten ist.
 - **Glow** (additiv): das Licht auf der Straße vor dem Portal.
 
-Look: dunkler, verwitterter Stein mit glimmenden Fugen; die Leere ist ein langsamer Wirbel
-auf fast schwarzem Grund, dunkelrot glimmend, violett in den Tälern, stumpfes Orange nur an
-den heißesten Stellen, das Auge in der Mitte schwarz. Glutpunkte steigen im Shader auf, ohne
-Partikel. Die Spawnfarbe tönt nur den Rand, die Sigillen und das Straßenlicht. Farben in
-`SPAWN_PORTAL_LOOK.palette`, Maße in `configs/marker-geometry.config.ts` (Intro-Flug und
-Totale lesen sie von dort).
+Look: die Leere ist ein langsamer Wirbel auf fast schwarzem Grund, dunkelrot glimmend,
+violett in den Tälern, stumpfes Orange nur an den heißesten Stellen, das Auge in der Mitte
+schwarz. Glutpunkte steigen im Shader auf, ohne Partikel. Die Spawnfarbe tönt nur den Rand,
+die Sigillen und das Straßenlicht. Farben in `SPAWN_PORTAL_LOOK.palette`, Maße in
+`configs/marker-geometry.config.ts` (Intro-Flug und Totale lesen sie von dort).
+
+**Stein** (`spawn-portal-stone.ts`), prozedural, ohne Texturen: behauene Quader mit Fugen
+(Lagen und Blocklängen je Höhenband in `PORTAL_MASONRY`; Pfeilerlagen so hoch wie eine
+Sigillen-Zelle, Sturzfugen zwischen den Sigillen, ein Spec hält das fest), abgefaste und
+abgenutzte Kanten mit Abplatzern, Worley-Risse, Ruß und Brandspuren um die Öffnung, Maserung.
+Relief über geneigte Normalen (Fasen an Fugen und Blockkanten, Noise-Bump). Die Blockkanten
+kennt der Shader aus zwei Vertex-Attributen (`aFace`, `aWidth`: Lage auf der Fläche). Licht
+gefakt: feste Hauptlichtrichtung im Portalraum, Himmel, das dunkelrote Licht des Kerns aus der
+Öffnung, Verdeckung in Fugen, Rissen und an Kontaktkanten. Feinstruktur blendet über
+`fwidth` in der Ferne aus. Kosten je Rahmenpixel etwa 17 Value-Noise-Abfragen und eine
+Worley-Abfrage, keine Texturen, kein zusätzlicher Draw Call.
 
 **Sigillen** (`spawn-portal-sigils.ts`): ein fester, von Hand gesetzter Satz von zehn
 fiktiven Siegeln aus Kreisen, Bögen und Punkten. Jedes sitzt in einem Siegelring und trägt
