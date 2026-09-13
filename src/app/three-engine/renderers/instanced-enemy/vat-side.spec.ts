@@ -11,7 +11,8 @@ import {
   RGBAFormat,
   type Side,
 } from 'three';
-import { vatSide, type VATData } from './vat-baker';
+import type { VATData } from './vat-baker';
+import { vatSide } from './vat-surface';
 import { createVATMaterial } from './vat-material';
 
 const withSide = (side: Side) => new MeshStandardMaterial({ side });

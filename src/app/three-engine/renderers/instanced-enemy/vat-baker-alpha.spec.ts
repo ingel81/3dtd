@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DataTexture, MeshBasicMaterial, MeshStandardMaterial, Texture } from 'three';
-import { texturePixels, vatAlpha, type TexturePixels } from './vat-baker';
+import { texturePixels, vatAlpha, type TexturePixels } from './vat-surface';
 
 describe('vatAlpha', () => {
   const pixels = (...alphas: number[]) => (): TexturePixels => ({

@@ -14,16 +14,9 @@ import {
   Uint16BufferAttribute,
   VectorKeyframeTrack,
 } from 'three';
-import {
-  bakeVAT,
-  toHalfFloatRounded,
-  VAT_HALF_FLOAT_MAX_ERROR,
-  vatClips,
-  vatDeathSeconds,
-  vatEncoding,
-  vatFrameCount,
-  type VATData,
-} from './vat-baker';
+import { bakeVAT, type VATData } from './vat-baker';
+import { vatClips, vatDeathSeconds, vatFrameCount } from './vat-clips';
+import { toHalfFloatRounded, VAT_HALF_FLOAT_MAX_ERROR, vatEncoding } from './vat-encoding';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { TIMING } from '../../../configs/timing.config';
 

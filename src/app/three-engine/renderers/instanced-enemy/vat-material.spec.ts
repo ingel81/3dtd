@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { BufferGeometry, DataTexture, FloatType, FrontSide, RGBAFormat } from 'three';
 import { createVATMaterial } from './vat-material';
-import type { VATAlpha, VATData } from './vat-baker';
+import type { VATData } from './vat-baker';
+import type { VATAlpha } from './vat-surface';
 
 /** A one-texel VAT with the given alpha mode; nothing is drawn. */
 function vatWith(alpha: VATAlpha): VATData {
