@@ -164,6 +164,18 @@ export class TowerManager extends EntityManager<Tower> {
       tower.guardHeading,
     );
 
+    // Stone plinth from the lowest point of the footprint up to the foot
+    if (tower.plinthHeight > 0) {
+      this.tilesEngine.plinths.create(
+        tower.id,
+        position.lat,
+        position.lon,
+        terrainHeight,
+        tower.plinthHeight,
+        tower.typeConfig.footprintRadius,
+      );
+    }
+
     // Create tentacle visual for Tentacle Towers
     if (typeId === 'tentacle') {
       const localPos = this.tilesEngine.sync.geoToLocalSimple(
@@ -461,6 +473,9 @@ export class TowerManager extends EntityManager<Tower> {
     if (entity.typeConfig.id === 'lightning') {
       this.tilesEngine?.lightningBolts.deregisterIdleCrackle(entity.id);
     }
+    if (entity.plinthHeight > 0) {
+      this.tilesEngine?.plinths.remove(entity.id);
+    }
     this.tilesEngine?.towers.remove(entity.id);
     super.remove(entity);
   }
@@ -473,6 +488,7 @@ export class TowerManager extends EntityManager<Tower> {
     this.tilesEngine?.effects.stopAllTowerFires();
     // Clear all tentacle visuals
     this.tilesEngine?.tentacles.clear();
+    this.tilesEngine?.plinths.clear();
     this.tilesEngine?.towers.clear();
     this._selectedTowerId.set(null);
     super.clear();

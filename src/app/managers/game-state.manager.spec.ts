@@ -166,6 +166,7 @@ function createDeepMock(): never {
       effects: autoProxy(),
       enemies: autoProxy(),
       towers: autoProxy(),
+      plinths: autoProxy(),
       projectiles: autoProxy(),
       trailStreaks: autoProxy(),
       tentacles: autoProxy(),

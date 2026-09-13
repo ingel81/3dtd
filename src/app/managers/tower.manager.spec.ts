@@ -24,6 +24,16 @@ const createMockTilesEngine = () => ({
     remove: vi.fn(),
     clear: vi.fn(),
   },
+  plinths: {
+    create: vi.fn(),
+    remove: vi.fn(),
+    clear: vi.fn(),
+  },
+  tentacles: {
+    create: vi.fn(),
+    remove: vi.fn(),
+    clear: vi.fn(),
+  },
   effects: {
     spawnTowerInnerFire: vi.fn(),
     stopTowerInnerFire: vi.fn(),
@@ -110,6 +120,29 @@ describe('TowerManager', () => {
     expect(onPlinth.plinthHeight).toBe(2.5);
     expect(onPlinth.position.height).toBe(7);
     expect(flat.plinthHeight).toBe(0);
+  });
+
+  it('puts a plinth under a tower that has one, sized by its footprint', () => {
+    const tower = manager.placeTower({ lat: 1, lon: 2, height: 7 }, 'cannon', 0, 2.5) as Tower;
+    manager.placeTower({ lat: 1.001, lon: 2, height: 5 }, 'archer');
+
+    expect(tilesEngine.plinths.create).toHaveBeenCalledTimes(1);
+    expect(tilesEngine.plinths.create).toHaveBeenCalledWith(
+      tower.id, 1, 2, 7, 2.5, tower.typeConfig.footprintRadius,
+    );
+  });
+
+  it('takes the plinth down with its tower', () => {
+    const onPlinth = manager.placeTower({ lat: 1, lon: 2, height: 7 }, 'cannon', 0, 2.5) as Tower;
+    const flat = manager.placeTower({ lat: 1.001, lon: 2, height: 5 }, 'archer') as Tower;
+
+    manager.sell(flat);
+    expect(tilesEngine.plinths.remove).not.toHaveBeenCalled();
+    manager.sell(onPlinth);
+    expect(tilesEngine.plinths.remove).toHaveBeenCalledWith(onPlinth.id);
+
+    manager.clear();
+    expect(tilesEngine.plinths.clear).toHaveBeenCalled();
   });
 
   describe('guard heading', () => {
