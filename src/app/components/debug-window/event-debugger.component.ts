@@ -166,6 +166,8 @@ export class EventDebuggerComponent implements OnDestroy {
         return `+${event.credits} credits`;
       case 'enemy:reached-base':
         return `-${event.damage} HP`;
+      case 'enemy:leaking':
+        return `-${event.damage} HP, flowing in`;
       case 'tower:placed':
         return `-${event.cost} credits`;
       case 'tower:sold':

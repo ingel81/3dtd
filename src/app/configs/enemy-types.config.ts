@@ -52,6 +52,13 @@ export interface EnemyChain {
 export interface OozeConfig {
   /** Longest the body grows along the route (m) */
   maxLengthM: number;
+  /**
+   * What a whole body costs flowing into the HQ, in leaks of the wave
+   * (enemyBaseDamageForWave), spread over maxLengthM: each metre that
+   * enters costs its share, so a shorter body costs less. Capped per wave
+   * like every leak (maxLeakDamagePerWave).
+   */
+  leakDamageFactor: number;
 }
 
 export interface EnemyTypeConfig {
@@ -956,7 +963,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     isBoss: true,
     // The tip keeps to the centre line; the body fills the corridor
     lateralSpread: 0,
-    ooze: { maxLengthM: 80 },
+    // 80 m of body at the HQ cost ten leaks of the wave, 0.125 leaks a metre
+    ooze: { maxLengthM: 80, leakDamageFactor: 10 },
     previewScale: 1.4,
     previewCameraDistance: 6,
     previewCameraAngle: 0.35,

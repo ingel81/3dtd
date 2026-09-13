@@ -479,7 +479,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       expect(subscriptions).toEqual([
         // EnemyManager, WaveManager, AbilityManager (constructors)
         'debug:remove-enemy', 'debug:spawn-enemy',
-        'debug:kill-all', 'enemy:reached-base', 'enemy:died',
+        'debug:kill-all', 'enemy:reached-base', 'enemy:leaking', 'enemy:died',
         'research:completed', 'wave:completed',
         // VFXService, AudioService, ScreenShakeService, BackgroundMusicService
         'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
@@ -488,7 +488,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'vfx:projectile-impact', 'health:changed', 'ability:impact', 'enemy:died',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         // GameStateManager: leak budget, AA retrofit, guard turns, veteran badge, kill reward
-        'enemy:reached-base', 'research:completed', 'wave:completed',
+        'enemy:reached-base', 'enemy:leaking', 'research:completed', 'wave:completed',
         'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'tower:kill', 'enemy:died',
         // GameCommandsHandler
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower',

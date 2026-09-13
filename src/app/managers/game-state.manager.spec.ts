@@ -287,6 +287,16 @@ describe('GameStateManager', () => {
         expect(gsm.baseHealth()).toBe(initialHealth - 10);
       });
 
+      it('an ooze flowing in costs HP inside the same leak budget', () => {
+        const cap = GAME_BALANCE.combat.maxLeakDamagePerWave;
+        const before = gsm.baseHealth();
+        bus.emit({ type: 'enemy:leaking', enemy: { id: 'ooze' } as never, damage: 2 });
+        expect(gsm.baseHealth()).toBe(before - 2);
+        bus.emit({ type: 'enemy:leaking', enemy: { id: 'ooze' } as never, damage: 9999 });
+        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'ooze' } as never, damage: 1 });
+        expect(gsm.baseHealth()).toBe(before - cap);
+      });
+
       it('a single wave cannot cost more than the leak budget', () => {
         // Late-game leaks are 10 HP each and nothing heals, so one wave with a
         // missing counter could otherwise erase half a run. See

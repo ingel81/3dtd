@@ -14,6 +14,7 @@ import type { GlobalRouteGridService } from '../services/world/global-route-grid
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { Enemy } from '../entities/enemy.entity';
+import type { OozeBody } from '../entities/ooze-body';
 import { goldBudgetForWave } from '../configs/wave-curriculum.config';
 import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
 import { registerEnemyModelRangeY } from '../utils/enemy-aim.util';
@@ -806,6 +807,54 @@ describe('EnemyManager', () => {
       walk(ooze, 10);
       expect(ooze.body!.tipM).toBeCloseTo(90, 6);
       expect(ooze.body!.tailM).toBeCloseTo(10, 6);
+    });
+
+    it('flows into the base metre by metre, its HP with it, and leaks once when all is in', () => {
+      manager.setWaveNumberProvider(() => 1); // one point per leak
+      const leaking: number[] = [];
+      const reached: number[] = [];
+      eventBus.on('enemy:leaking', (e) => leaking.push(e.damage));
+      eventBus.on('enemy:reached-base', (e) => reached.push(e.damage));
+
+      const ooze = manager.spawn(route, 'ooze');
+      const body = ooze.body as OozeBody;
+      let t = 0;
+      const step = () => manager.update(100, (t += 100));
+      while (!body.arrived) step();
+      // The sub-step of the arrival already flows 0.3 m in
+      expect(body.tipM).toBe(body.stations.length);
+      expect(body.lengthM).toBeCloseTo(79.7, 6);
+      expect(leaking).toEqual([]);
+      expect(manager.getById(ooze.id)).toBe(ooze);
+
+      // Another 40 m in at 3 m/s: half the body and half the HP gone,
+      // 0.125 points a metre charged in whole points
+      for (let i = 0; i < 133; i++) step();
+      expect(body.lengthM).toBeCloseTo(79.7 - 39.9, 6);
+      expect(ooze.health.hp / ooze.health.maxHp).toBeCloseTo(body.lengthM / 80, 6);
+      expect(leaking.every((d) => d === 1)).toBe(true);
+      expect(leaking).toHaveLength(Math.floor((80 - body.lengthM) * 0.125));
+
+      while (manager.getById(ooze.id)) step();
+      expect(leaking.reduce((a, b) => a + b, 0) + reached[0]).toBe(10);
+      expect(reached).toHaveLength(1);
+      expect(manager.getAliveCount()).toBe(0);
+      expect(tilesEngine.oozes.remove).toHaveBeenCalledWith(ooze.id);
+    });
+
+    it('flows in slower when slowed and not at all when idle', () => {
+      const ooze = manager.spawn(route, 'ooze');
+      let t = 0;
+      while (!(ooze.body as OozeBody).arrived) manager.update(100, (t += 100));
+      const length = ooze.body!.lengthM;
+
+      ooze.movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 60_000, startTime: t, sourceId: 'ice' });
+      manager.update(100, (t += 100));
+      expect(length - ooze.body!.lengthM).toBeCloseTo(0.15, 6);
+
+      ooze.stopMoving();
+      manager.update(100, t + 100);
+      expect(length - ooze.body!.lengthM).toBeCloseTo(0.15, 6);
     });
 
     it('lets go of the body when it is removed', () => {
