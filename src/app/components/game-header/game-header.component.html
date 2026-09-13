@@ -88,36 +88,51 @@
     <!-- Only during a wave. Sits left of the stat bar so the bar keeps
          its width and stays lined up with the sidebar. -->
     @if (waveActive()) {
-      <div class="stat enemies enemies-chip">
+      <div class="stat enemies enemies-chip" [matTooltip]="enemiesStat().tooltip">
         <td-icon name="bug" [size]="16" ariaLabel="Enemies"></td-icon>
-        <span>{{ enemiesAlive() }}</span>
+        <span class="stat-num" aria-hidden="true">{{ enemiesStat().text }}</span>
+        <span class="sr-only">{{ enemiesStat().exact }}</span>
       </div>
     }
-    <!-- The visible labels name the values, the icons are decoration -->
+    <!-- The visible labels name the values, the icons are decoration.
+         Large figures show short ("101k"); screen readers get the exact
+         figure, the tooltip too once the cell shows less than that. -->
     <div class="header-stats">
-      <div class="stat hp">
+      <div class="stat hp" [matTooltip]="hq().tooltip">
         <td-icon name="heart" [size]="16"></td-icon>
         <div class="stat-text">
           <span class="stat-label">HQ</span>
-          <span class="stat-value">{{ baseHealth() }}<span class="stat-max">/{{ maxHealth }}</span></span>
+          <span class="stat-value" aria-hidden="true">
+            <span class="stat-num">{{ hq().text }}</span>
+            @if (hq().max; as max) {
+              <span class="stat-max">/{{ max }}</span>
+            }
+          </span>
+          <span class="sr-only">{{ hq().exact }}</span>
         </div>
         <!-- The value above names it; the bar only shows it -->
         <span class="hp-bar" #hpBar aria-hidden="true">
-          <span class="hp-bar-fill" [style.width.%]="healthPercent()"></span>
+          <span class="hp-bar-fill" [style.width.%]="hq().percent"></span>
         </span>
       </div>
-      <div class="stat credits">
+      <div class="stat credits" [matTooltip]="creditsStat().tooltip">
         <td-icon name="coin" [size]="16"></td-icon>
         <div class="stat-text">
           <span class="stat-label">CREDITS</span>
-          <span class="stat-value">{{ credits() }}</span>
+          <span class="stat-value" aria-hidden="true">
+            <span class="stat-num">{{ creditsStat().text }}</span>
+          </span>
+          <span class="sr-only">{{ creditsStat().exact }}</span>
         </div>
       </div>
-      <div class="stat wave">
+      <div class="stat wave" [matTooltip]="waveStat().tooltip">
         <td-icon name="wave" [size]="16"></td-icon>
         <div class="stat-text">
           <span class="stat-label">WAVE</span>
-          <span class="stat-value">{{ waveNumber() }}</span>
+          <span class="stat-value" aria-hidden="true">
+            <span class="stat-num">{{ waveStat().text }}</span>
+          </span>
+          <span class="sr-only">{{ waveStat().exact }}</span>
         </div>
       </div>
     </div>
