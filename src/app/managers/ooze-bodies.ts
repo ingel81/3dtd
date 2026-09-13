@@ -1,8 +1,11 @@
+import { Vector3 } from 'three';
 import type { Enemy } from '../entities/enemy.entity';
 import { OozeBody } from '../entities/ooze-body';
 import type { OozeConfig } from '../configs/enemy-types.config';
 import { enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
-import { routeBodyStations } from '../utils/route-body';
+import { OOZE_SOUNDS } from '../configs/audio.config';
+import { routeBodyStations, type RouteBody, type RouteBodyContact } from '../utils/route-body';
+import { OozeSounds } from './ooze-sounds';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { GameEventBus } from '../game-engine';
 import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
@@ -17,18 +20,30 @@ import type { GlobalRouteGridService } from '../services/world/global-route-grid
  * A body is in no route cell; the route grid keeps it in its body list
  * instead (GlobalRouteGrid.getBodyEnemies), where towers and radius queries
  * find it.
+ *
+ * Each ooze is heard where its body is nearest the listener (OozeSounds):
+ * the bubbling loop moves there once per frame, the splat of a kill plays
+ * there.
  */
 export class OozeBodies {
-  private readonly oozes: { enemy: Enemy; body: OozeBody; config: OozeConfig }[] = [];
+  private readonly oozes: { enemy: Enemy; body: OozeBody; config: OozeConfig; slurpM: number }[] = [];
+  private readonly sounds: OozeSounds;
 
   /** The route grid's ground for the renderer's band */
   private readonly groundAt = (x: number, z: number): number | null => this.grid.getGroundLocalYAt(x, z);
+
+  /** The listener, local; the body point nearest it (hear) */
+  private readonly listener = new Vector3();
+  private readonly contact: RouteBodyContact = { station: 0, offset: 0, distance: 0 };
+  private readonly heard = new Vector3();
 
   constructor(
     private readonly grid: GlobalRouteGridService,
     private readonly eventBus: GameEventBus,
     private readonly waveNumber: () => number,
-  ) {}
+  ) {
+    this.sounds = new OozeSounds(eventBus);
+  }
 
   /** Gives a freshly spawned ooze its body, starting where it joins its path. */
   attach(enemy: Enemy, engine: ThreeTilesEngine): void {
@@ -37,9 +52,11 @@ export class OozeBodies {
     const stations = routeBodyStations(enemy.movement.path, engine.sync, engine.sync.getOrigin().height);
     const body = new OozeBody(stations, config.maxLengthM, enemy.movement.getDistanceAlongPath());
     enemy.body = body;
-    this.oozes.push({ enemy, body, config });
+    // The first metre that flows in slurps at once
+    this.oozes.push({ enemy, body, config, slurpM: OOZE_SOUNDS.slurp.everyM });
     this.grid.addBodyEnemy(enemy);
     engine.oozes.add(enemy.id, stations, this.groundAt);
+    if (engine.spatialAudio) this.sounds.register(engine.spatialAudio);
   }
 
   /**
@@ -48,12 +65,13 @@ export class OozeBodies {
    * speed, slow included, nothing while it is paused: each metre that enters
    * costs its share of the leak (OozeConfig.leakDamageFactor), charged in
    * whole points as enemy:leaking, and takes its share of the ooze's HP
-   * with it. Once the whole body is in, the ooze reaches the base with the
-   * rest of what it owes (enemy:reached-base) and goes into `leaked` for
-   * removal.
+   * with it. Every OOZE_SOUNDS.slurp.everyM metres it slurps at the HQ.
+   * Once the whole body is in, the ooze reaches the base with the rest of
+   * what it owes (enemy:reached-base) and goes into `leaked` for removal.
    */
   update(deltaMs: number, gameTimeMs: number, leaked: Enemy[]): void {
-    for (const { enemy, body, config } of this.oozes) {
+    for (const entry of this.oozes) {
+      const { enemy, body, config } = entry;
       if (!enemy.alive) continue;
       const movement = enemy.movement;
       body.grow(movement.getDistanceAlongPath());
@@ -72,6 +90,11 @@ export class OozeBodies {
         if (damage > 0) this.eventBus.emit({ type: 'enemy:leaking', enemy, damage });
         // The mass that went in takes its share of the one HP pool with it
         if (!body.flowedIn) enemy.health.setHp(enemy.health.hp * (body.lengthM / lengthBefore));
+        entry.slurpM += entered;
+        if (entry.slurpM >= OOZE_SOUNDS.slurp.everyM) {
+          entry.slurpM -= OOZE_SOUNDS.slurp.everyM;
+          this.sounds.slurp(enemy.position.lat, enemy.position.lon, enemy.transform.terrainHeight);
+        }
       }
       if (body.flowedIn) {
         this.eventBus.emit({ type: 'enemy:reached-base', enemy, damage: body.settle() });
@@ -115,8 +138,13 @@ export class OozeBodies {
     start.groundHeight = groundY !== null ? groundY + st.originHeight : enemy.transform.terrainHeight;
   }
 
-  /** Once per render frame: each body's stretch, HP and status effects to its band. */
+  /**
+   * Once per render frame: each body's stretch, HP and status effects to its
+   * band, and its bubbling loop to the body point nearest the listener.
+   */
   present(engine: ThreeTilesEngine, gameTimeMs: number): void {
+    const audio = engine.spatialAudio ?? null;
+    let listening = false;
     for (const { enemy, body } of this.oozes) {
       if (!enemy.alive) continue;
       const movement = enemy.movement;
@@ -130,16 +158,46 @@ export class OozeBodies {
         effects && movement.isPoisoned(gameTimeMs),
         effects && movement.isBurning(gameTimeMs),
       );
+      if (audio === null) continue;
+      if (!listening) {
+        audio.getListener().getWorldPosition(this.listener);
+        listening = true;
+      }
+      this.hear(enemy, body);
+      this.sounds.follow(enemy.id, audio, this.heard.x, this.heard.y, this.heard.z);
     }
   }
 
-  /** The ooze left the map; its band sinks away. */
+  /** A killed ooze breaks up: its loop ends in a splat at the body point nearest the listener. */
+  died(enemy: Enemy, engine: ThreeTilesEngine | null): void {
+    const body = enemy.body;
+    const audio = engine?.spatialAudio ?? null;
+    if (body === null || audio === null) return;
+    this.sounds.stop(enemy.id, audio);
+    audio.getListener().getWorldPosition(this.listener);
+    const k = this.hear(enemy, body);
+    const st = body.stations;
+    const offset = this.contact.offset;
+    this.sounds.splat(
+      st.lat[k] + st.latPerRight[k] * offset,
+      st.lon[k] + st.lonPerRight[k] * offset,
+      this.heard.y + st.originHeight,
+    );
+  }
+
+  /** The game paused (true) or went on: the bubbling stands and goes with the game time. */
+  hold(held: boolean, engine: ThreeTilesEngine | null): void {
+    this.sounds.hold(held, engine?.spatialAudio ?? null);
+  }
+
+  /** The ooze left the map; its band sinks away and its loop ends. */
   detach(enemy: Enemy, engine: ThreeTilesEngine | null): void {
     const i = this.oozes.findIndex((o) => o.enemy === enemy);
     if (i < 0) return;
     this.oozes.splice(i, 1);
     this.grid.removeBodyEnemy(enemy);
     engine?.oozes.remove(enemy.id);
+    this.sounds.stop(enemy.id, engine?.spatialAudio ?? null);
   }
 
   /** Every ooze gone at once (reset, game over); a band still sinking after a removal finishes on its own. */
@@ -148,5 +206,22 @@ export class OozeBodies {
     for (const { enemy } of this.oozes) this.grid.removeBodyEnemy(enemy);
     this.oozes.length = 0;
     engine?.oozes.clear();
+    this.sounds.clear(engine?.spatialAudio ?? null);
+  }
+
+  /**
+   * The body point nearest the listener (`listener`, local, read by the
+   * caller): its station, returned, the contact in `contact` and the local
+   * position on the ground in `heard`.
+   */
+  private hear(enemy: Enemy, body: RouteBody): number {
+    const c = body.nearest(this.listener.x, this.listener.z, this.contact);
+    const st = body.stations;
+    const k = c.station;
+    const x = st.x[k] + st.rightX[k] * c.offset;
+    const z = st.z[k] + st.rightZ[k] * c.offset;
+    const groundY = this.grid.getGroundLocalYAt(x, z);
+    this.heard.set(x, groundY ?? enemy.transform.terrainHeight - st.originHeight, z);
+    return k;
   }
 }

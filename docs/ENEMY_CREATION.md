@@ -264,6 +264,10 @@ spawnSoundRefDistance: 40,
 | `randomSounds` | Variierte Sounds (Pool) | Herbert Voice Lines |
 | `spawnSound` | Einmaliger Spawn-Sound | Boss Spawn Roar |
 
+Die Ooze nutzt keines dieser Felder: Ihr Körper liegt entlang der Route, ihre
+Sounds (Blubber-Loop am nächsten Körperpunkt, Splat, Schlürfen) spielt
+`OozeSounds`, siehe [Körper entlang der Route](#körper-entlang-der-route-ooze).
+
 ---
 
 ## Visual Konfiguration
@@ -527,6 +531,7 @@ ooze: {
 | Status-Effekte | Wirken auf das Ganze: Slow verlangsamt die Spitze, der Schwanz folgt; Poison und Burn ticken auf den einen Pool. Das Band tönt sich (Slow blau, Poison dunkler, Burn glüht) | wie jeder Gegner, `OozeBandRenderer.setFrame` |
 | Leck | An der HQ bleibt die Spitze stehen, der Körper fließt mit dem Tempo der Spitze hinein (Slow wirkt, pausiert fließt nichts). Jeder Meter kostet `leakDamageFactor × enemyBaseDamageForWave(welle) / maxLengthM`, bei 10 und 80 m 0,125 Lecks, abgerechnet in ganzen Punkten als `enemy:leaking` und gedeckelt durch `maxLeakDamagePerWave` wie jedes Leck. Die HP sinken mit der verbleibenden Länge, die Ooze bleibt tötbar. Ist alles drin, kommt einmal `enemy:reached-base` mit dem Rest | `OozeBodies.update`, `OozeBody.flowIn`, `owe`, `settle` |
 | Tod | Ein Kill teilt sie über `splitOnDeath` in `slime-clump`s entlang des Körpers, je Kind die Mitte seines Anteils, einer je 8 m verbleibender Körper (`maxLengthM / count`), mindestens einer. Die Gold-Slots fehlender Clumps bleiben unbezahlt wie bei einem Leck | `EnemyManager.splitOnDeath`, `OozeBodies.splitCount`, `placeSplitChild` |
+| Klang | Im Code synthetisiert, kein Asset (`utils/ooze-sound.ts`). Ein Blubber-Loop je Ooze sitzt am Punkt des Körpers, der dem Hörer am nächsten ist, und rückt einmal pro Frame nach; er zählt nicht zum Enemy-Sound-Budget. Beim Kill endet er in einem Splat an diesem Punkt. Fließt die Ooze in die HQ, schlürft es alle 3 m, in Spielzeit. In der Pause steht der Loop | `OozeSounds` (`managers/ooze-sounds.ts`), `OOZE_SOUNDS` (`configs/audio.config.ts`), SPATIAL_AUDIO.md |
 | Darstellung | `OozeBandRenderer` (`tilesEngine.oozes`): ein Band pro Ooze. Die Geometrie deckt die ganze Route, wird einmal pro Pfad gebaut und geteilt; pro Frame setzt `presentFrame` nur Uniforms. Den Boden unter dem Körper liest der Renderer einmal je Spielsekunde neu. Aussehen in `OOZE_LOOK` | `three-engine/renderers/ooze/` |
 | Vorschau | `slime.glb` (Generator `tools/slime-model/build-slime-glb.mjs`) zeigt die Sidebar; für die Ooze bäckt der Instanz-Renderer keinen Pool | `InstancedEnemyRenderer.preloadAllModels` |
 
@@ -543,6 +548,7 @@ Grenzen:
 - Die Länge entlang der Route rechnen die Stationen wie die Bewegung mit Haversine, quer im
   lokalen Rahmen; Unterschiede im Zentimeterbereich.
 - Die Balance (3000 HP, Leck-Faktor 10, 80 m) ist nicht im Spiel getestet.
+- Die Sounds sind nur per Test geprüft (Länge, Pegel, nahtloser Loop), nicht im Browser angehört.
 
 ---
 

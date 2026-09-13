@@ -127,6 +127,13 @@ export function createMockTilesEngine() {
       createLoop: vi.fn(() => Promise.resolve({ stop: vi.fn() })),
       playOneShot: vi.fn(() => Promise.resolve()),
       stopLoop: vi.fn(),
+      updateLoopPosition: vi.fn(),
+      pauseLoop: vi.fn(),
+      resumeLoop: vi.fn(),
+      isWithinAudibleDistance: vi.fn(() => true),
+      getListener: vi.fn(() => ({
+        getWorldPosition: (target: { set: (x: number, y: number, z: number) => unknown }) => target.set(0, 0, 0),
+      })),
     },
     trailStreaks: {
       create: vi.fn(),

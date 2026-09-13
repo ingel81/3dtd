@@ -75,6 +75,33 @@ describe('Ooze integration', () => {
     expect(one.done).toBe(true);
   });
 
+  describe('sounds', () => {
+    const played = (m: TestManagers, sound: string) =>
+      vi.mocked(m.eventBus.emitDeferred).mock.calls.filter(([e]) => e.type === 'audio:play' && e.sound === sound);
+
+    it('slurps every 3 m of body that flow into the base, the first metre at once', () => {
+      const m = createWiredManagers();
+      vi.spyOn(m.eventBus, 'emitDeferred');
+      m.waveManager.startWave(makeSingleTypeWaveConfig({ count: 1, type: 'ooze' }));
+      tickEngine(m, 36_000); // the tip 1 m before the HQ
+      expect(played(m, 'ooze_slurp')).toHaveLength(0);
+      tickEngine(m, 40_000); // the 80 m body flows in
+      expect(played(m, 'ooze_slurp')).toHaveLength(Math.floor(80 / 3) + 1);
+      vi.restoreAllMocks();
+    });
+
+    it('splats once when the ooze is killed', () => {
+      const m = createWiredManagers();
+      vi.spyOn(m.eventBus, 'emitDeferred');
+      m.waveManager.startWave(makeSingleTypeWaveConfig({ count: 1, type: 'ooze' }));
+      tickEngine(m, 5_000);
+      m.enemyManager.kill(m.enemyManager.getAlive()[0]);
+      expect(played(m, 'ooze_splat')).toHaveLength(1);
+      m.enemyManager.clear();
+      vi.restoreAllMocks();
+    });
+  });
+
   describe('kill gold', () => {
     const CLUMP = 'slime-clump';
     let m: TestManagers;
