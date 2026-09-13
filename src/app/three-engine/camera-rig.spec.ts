@@ -1,7 +1,8 @@
-import { Group, PerspectiveCamera, Scene, Vector3 } from 'three';
+import { Group, PerspectiveCamera, Raycaster, Scene, Vector3 } from 'three';
 import { EnvironmentControls, GlobeControls, type TilesRenderer } from '3d-tiles-renderer';
 import type { Mock } from 'vitest';
 import { CameraRig } from './camera-rig';
+import { GroundPickRoot } from './ground-pick-root';
 
 // Controls brauchen DOM-Pointer-Events und ein echtes Tileset. Die Fakes halten nur
 // fest, wie der Rig sie konfiguriert.
@@ -72,7 +73,7 @@ describe('CameraRig', () => {
   });
 
   describe('Tiles-Pfad (GlobeControls)', () => {
-    it('baut GlobeControls auf Szene, Kamera und Canvas und hängt sie ans Ellipsoid der Tiles-Gruppe', () => {
+    it('baut GlobeControls auf Boden-Wurzel, Kamera und Canvas und hängt sie ans Ellipsoid der Tiles-Gruppe', () => {
       const { camera, canvas, rig, controls } = setup();
       const scene = new Scene();
       const tiles = fakeTilesRenderer();
@@ -81,11 +82,27 @@ describe('CameraRig', () => {
 
       expect(rig.getControls()).toBeInstanceOf(GlobeControls);
       const [ctorScene, ctorCamera, ctorCanvas] = controls().ctorArgs;
-      expect(ctorScene).toBe(scene);
+      // Raycast-Ziel ist nicht die ganze Szene, sondern die Wurzel darin
+      expect(ctorScene).toBeInstanceOf(GroundPickRoot);
+      expect((ctorScene as GroundPickRoot).parent).toBe(scene);
       expect(ctorCamera).toBe(camera);
       expect(ctorCanvas).toBe(canvas);
-      expect(controls().setScene).toHaveBeenCalledWith(scene);
+      expect(controls().setScene).not.toHaveBeenCalled();
       expect(controls().setEllipsoid).toHaveBeenCalledWith(tiles.ellipsoid, tiles.group);
+    });
+
+    it('die Boden-Wurzel beantwortet Strahlen mit der Tiles-Gruppe', () => {
+      const { rig, controls } = setup();
+      const scene = new Scene();
+      const tiles = fakeTilesRenderer();
+      scene.add(tiles.group);
+      const tilesRaycast = vi.spyOn(tiles.group, 'raycast');
+      rig.setupGlobeControls(scene, tiles);
+
+      const root = controls().ctorArgs[0] as GroundPickRoot;
+      new Raycaster(new Vector3(0, 50, 0), new Vector3(0, -1, 0)).intersectObject(root);
+
+      expect(tilesRaycast).toHaveBeenCalledTimes(1);
     });
 
     it('dämpft, schaltet den Double-Tap-Zoom ab und nimmt dem Canvas den Fokus', () => {
@@ -164,8 +181,10 @@ describe('CameraRig', () => {
   describe('dispose()', () => {
     it('gibt die Controls frei und macht update() danach zum No-op', () => {
       const { rig, controls } = setup();
-      rig.setupGlobeControls(new Scene(), fakeTilesRenderer());
+      const scene = new Scene();
+      rig.setupGlobeControls(scene, fakeTilesRenderer());
       const disposed = controls();
+      const root = disposed.ctorArgs[0] as GroundPickRoot;
 
       rig.dispose();
       rig.update();
@@ -174,6 +193,8 @@ describe('CameraRig', () => {
       expect(disposed.dispose).toHaveBeenCalledTimes(1);
       expect(disposed.update).not.toHaveBeenCalled();
       expect(rig.getControls()).toBeNull();
+      expect(root.parent).toBeNull();
+      expect(scene.children).not.toContain(root);
     });
   });
 });

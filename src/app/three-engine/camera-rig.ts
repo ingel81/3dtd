@@ -1,6 +1,7 @@
 import { Object3D, PerspectiveCamera, Scene } from 'three';
 import { GlobeControls, EnvironmentControls, type TilesRenderer } from '3d-tiles-renderer';
 import { cameraTimeline } from '../utils/camera-timeline';
+import { GroundPickRoot } from './ground-pick-root';
 
 /**
  * CameraRig: Controls und Startposition der Engine-Kamera.
@@ -11,7 +12,8 @@ import { cameraTimeline } from '../utils/camera-timeline';
  * Startposition ein. Das eigentliche Framing setzt danach CameraFramingService über
  * `setLocalCameraPosition()`.
  *
- * - Tiles-Pfad: GlobeControls über dem Ellipsoid der TilesRenderer-Gruppe
+ * - Tiles-Pfad: GlobeControls über dem Ellipsoid der TilesRenderer-Gruppe, ihre
+ *   Raycasts treffen nur die Tiles ({@link GroundPickRoot})
  * - DevWorld: EnvironmentControls über der flachen devWorldGroup
  *
  * Vom Engine besessen: `update()` pro Frame vor dem Tiles-Update, `dispose()` aus dem
@@ -19,6 +21,8 @@ import { cameraTimeline } from '../utils/camera-timeline';
  */
 export class CameraRig {
   private controls: GlobeControls | null = null;
+  /** Szene der GlobeControls, hängt in der Engine-Szene; null in DevWorld */
+  private groundPick: GroundPickRoot | null = null;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -32,9 +36,15 @@ export class CameraRig {
    * TilesRenderer-Gruppe in der Szene hängt und bevor der Renderer die Kamera bekommt.
    */
   setupGlobeControls(scene: Scene, tilesRenderer: TilesRenderer): void {
+    // Zoom, pan, pivot and ground clearance raycast the tiles only, not the
+    // overlays, towers and enemies in the scene (see GroundPickRoot)
+    const groundPick = new GroundPickRoot(tilesRenderer.group);
+    scene.add(groundPick);
+    this.groundPick = groundPick;
+
     // GlobeControls for earth-like navigation
-    // Don't pass tilesRenderer to constructor (deprecated), use setScene/setEllipsoid instead
-    const controls = new GlobeControls(scene, this.camera, this.canvas);
+    // Don't pass tilesRenderer to constructor (deprecated), use setEllipsoid instead
+    const controls = new GlobeControls(groundPick, this.camera, this.canvas);
     this.controls = controls;
     controls.enableDamping = true;
     // Library default since 0.5. A double click would start a zoom animation
@@ -42,8 +52,6 @@ export class CameraRig {
     controls.enableDoubleTapZoom = false;
     this.preventControlsFocus();
 
-    // Set scene and ellipsoid for controls (new API)
-    controls.setScene(scene);
     controls.setEllipsoid(tilesRenderer.ellipsoid, tilesRenderer.group);
 
     this.applyStartPosition();
@@ -145,6 +153,10 @@ export class CameraRig {
     if (this.controls) {
       this.controls.dispose();
       this.controls = null;
+    }
+    if (this.groundPick) {
+      this.groundPick.removeFromParent();
+      this.groundPick = null;
     }
   }
 }
