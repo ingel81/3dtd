@@ -1,7 +1,12 @@
 /** What the wave button shows, derived from the store outside the template. */
 export interface WaveButtonView {
-  /** "Start Wave N" when idle or locked, "Wave N" while the wave runs */
+  /** "Wave N": the upcoming wave when idle or locked, the running one during a wave */
   label: string;
+  /**
+   * Accessible name when the visible text does not say what a press does:
+   * "Start wave N" idle, with the countdown while it runs; null during a wave
+   */
+  ariaLabel: string | null;
   /** "{n} left" while a wave of known size runs, otherwise null */
   left: string | null;
   /**
@@ -14,8 +19,7 @@ export interface WaveButtonView {
 }
 
 /**
- * @param wave    number the panel header shows: the upcoming wave when idle,
- *                the running one during a wave
+ * @param wave    the upcoming wave when idle, the running one during a wave
  * @param running whether a wave is running
  * @param total   enemies the running wave brings in total, 0 = not announced
  *                (manual debug waves)
@@ -31,24 +35,28 @@ export function waveButtonView(
   countdownSeconds: number | null = null,
   countdownTotal = 0,
 ): WaveButtonView {
+  const label = `Wave ${wave}`;
   if (!running) {
+    const start = `Start wave ${wave}`;
     if (countdownSeconds === null || countdownTotal <= 0) {
-      return { label: `Start Wave ${wave}`, left: null, barPercent: 0, countdown: null };
+      return { label, ariaLabel: start, left: null, barPercent: 0, countdown: null };
     }
     const seconds = Math.min(Math.max(countdownSeconds, 0), countdownTotal);
     return {
-      label: `Start Wave ${wave}`,
+      label,
+      ariaLabel: `${start} now, starts by itself in ${seconds}s`,
       left: null,
       barPercent: (seconds / countdownTotal) * 100,
       countdown: `${seconds}s`,
     };
   }
   if (total <= 0) {
-    return { label: `Wave ${wave}`, left: null, barPercent: 0, countdown: null };
+    return { label, ariaLabel: null, left: null, barPercent: 0, countdown: null };
   }
   const remaining = Math.min(Math.max(left, 0), total);
   return {
-    label: `Wave ${wave}`,
+    label,
+    ariaLabel: null,
     left: `${remaining} left`,
     barPercent: (remaining / total) * 100,
     countdown: null,

@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { waveButtonView } from './wave-button';
 
 describe('waveButtonView', () => {
-  it('idle: "Start Wave N" with the upcoming wave, no count, no bar', () => {
+  it('idle: "Wave N" with the upcoming wave, named as the action, no count, no bar', () => {
     expect(waveButtonView(7, false, 0, 0)).toEqual({
-      label: 'Start Wave 7',
+      label: 'Wave 7',
+      ariaLabel: 'Start wave 7',
       left: null,
       barPercent: 0,
       countdown: null,
@@ -18,6 +19,7 @@ describe('waveButtonView', () => {
   it('running: "Wave N", enemies left and the bar at their share', () => {
     expect(waveButtonView(7, true, 40, 18)).toEqual({
       label: 'Wave 7',
+      ariaLabel: null,
       left: '18 left',
       barPercent: 45,
       countdown: null,
@@ -35,13 +37,16 @@ describe('waveButtonView', () => {
   });
 
   it('a manual debug wave without a known size shows no count and no bar', () => {
-    expect(waveButtonView(5, true, 0, 0)).toEqual({ label: 'Wave 5', left: null, barPercent: 0, countdown: null });
+    expect(waveButtonView(5, true, 0, 0)).toEqual({
+      label: 'Wave 5', ariaLabel: null, left: null, barPercent: 0, countdown: null,
+    });
   });
 
   describe('auto-start countdown', () => {
     it('idle: the seconds left and the bar at the share of time left', () => {
       expect(waveButtonView(6, false, 0, 0, 7, 10)).toEqual({
-        label: 'Start Wave 6',
+        label: 'Wave 6',
+        ariaLabel: 'Start wave 6 now, starts by itself in 7s',
         left: null,
         barPercent: 70,
         countdown: '7s',

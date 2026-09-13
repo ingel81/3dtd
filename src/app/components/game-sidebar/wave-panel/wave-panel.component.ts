@@ -94,16 +94,11 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   // so we don't need curriculum-derived or debug-panel fallbacks. The COMING UP
   // panel handles the setup-phase preview separately.
   readonly currentWaveGroups = this.waveDebug.currentWaveGroups;
-  readonly isMixedWave = this.waveDebug.isMixedWave;
-  readonly mixedTotalCount = computed(() =>
-    this.currentWaveGroups().reduce((sum, g) => sum + g.count, 0)
-  );
 
   /**
-   * Wave-number shown in the panel header. During an active wave it's the
-   * running wave; during build/setup it's the UPCOMING wave (waveNumber+1)
-   * so the panel content (enemy preview, "Start Wave N") matches the label.
-   * Avoids the meaningless "WAVE 0" header at game start.
+   * Wave the button names. During an active wave it's the running wave;
+   * during build/setup it's the UPCOMING wave (waveNumber+1), the one a
+   * press starts. Avoids a meaningless "WAVE 0" at game start.
    */
   readonly displayedWaveNumber = computed(() => {
     const n = this.store.waveNumber();
@@ -114,7 +109,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   readonly autoStart = this.uiStore.autoStartWaves;
   readonly autoStartSeconds = AUTO_WAVE_DELAY_MS / 1000;
 
-  /** Label, "N left", countdown and bar width of the wave button. */
+  /** Label, accessible name, "N left", countdown and bar width of the wave button. */
   readonly waveButton = computed(() =>
     waveButtonView(
       this.displayedWaveNumber(),
@@ -125,12 +120,6 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       this.autoStartSeconds,
     )
   );
-
-  /** While it counts down, the button still starts the wave at once. */
-  readonly waveButtonAriaLabel = computed(() => {
-    const view = this.waveButton();
-    return view.countdown ? `${view.label} now, starts by itself in ${view.countdown}` : null;
-  });
 
   toggleAutoStart(): void {
     this.uiStore.autoStartWaves.update(on => !on);

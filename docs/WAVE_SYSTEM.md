@@ -616,13 +616,13 @@ berechnet `waveButtonView()` in `wave-button.ts`:
 
 | Zustand | Label | rechts | Balken |
 |---|---|---|---|
-| keine Welle | `Start Wave N` | | |
+| keine Welle | `Wave N` (Name für Screenreader `Start wave N`) | Taste `Space`, mit Auto-Start `{n}s` | mit Auto-Start die Restzeit |
 | Welle mit bekannter Größe | `Wave N` | `{n} left` | `waveEnemiesLeft / waveEnemyTotal` |
 | manuelle Welle (Total 0) | `Wave N` | | |
 
 ### Auto-Start der nächsten Welle
 
-Optional (Checkbox unter dem Wave-Button, Standard aus, `UIStore.autoStartWaves`). Nach `wave:completed` zählt `AutoWaveCountdown` (`utils/auto-wave-countdown.ts`) `AUTO_WAVE_DELAY_MS` = 10 s **Spielzeit** herunter, danach ruft `GameLoopFacadeService.tickAutoWave()` (pro Frame) `startWave()` auf, denselben Weg wie der Button. Spielzeit, weil die Pause zwischen den Wellen dann der gewählten Geschwindigkeit folgt wie die Forschung, und weil eine Pause (`GameStore.paused`, kein Sub-Step, die Game-Clock steht) den Countdown ohne Sonderfall anhält. Jedes `wave:started` (auch das eigene), `game:over` und `game:reset` beenden ihn; mit aktivem Bot startet er nicht, der Bot startet seine Wellen selbst.
+Optional (Schalter "auto 10s" unter dem Wave-Button, Standard aus, `UIStore.autoStartWaves`). Nach `wave:completed` zählt `AutoWaveCountdown` (`utils/auto-wave-countdown.ts`) `AUTO_WAVE_DELAY_MS` = 10 s **Spielzeit** herunter, danach ruft `GameLoopFacadeService.tickAutoWave()` (pro Frame) `startWave()` auf, denselben Weg wie der Button. Spielzeit, weil die Pause zwischen den Wellen dann der gewählten Geschwindigkeit folgt wie die Forschung, und weil eine Pause (`GameStore.paused`, kein Sub-Step, die Game-Clock steht) den Countdown ohne Sonderfall anhält. Jedes `wave:started` (auch das eigene), `game:over` und `game:reset` beenden ihn; mit aktivem Bot startet er nicht, der Bot startet seine Wellen selbst.
 
 ---
 

@@ -41,7 +41,7 @@ export const ONBOARDING_TIPS: Record<OnboardingStep, OnboardingTip> = {
   },
   'start-wave': {
     title: 'Start the first wave',
-    text: 'Press Start Wave in the sidebar, or Space, once your defense stands.',
+    text: 'Press the wave button in the sidebar, or Space, once your defense stands.',
     keys: [],
   },
   'open-research': {
