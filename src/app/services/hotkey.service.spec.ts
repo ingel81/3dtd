@@ -174,6 +174,21 @@ describe('HotkeyService', () => {
       expect(event.defaultPrevented).toBe(true);
     });
 
+    it('leaves Home to a focused slider and still starts the wave on Space', () => {
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      const home = press('Home');
+      Object.defineProperty(home, 'target', { value: slider });
+      service.handleKeyDown(home);
+      expect(focusGeo).not.toHaveBeenCalled();
+      expect(home.defaultPrevented).toBe(false);
+
+      const space = press(' ');
+      Object.defineProperty(space, 'target', { value: slider });
+      service.handleKeyDown(space);
+      expect(facade.startWave).toHaveBeenCalledTimes(1);
+    });
+
     it('ignores keys while a dialog is open and while loading', () => {
       openDialogs = [{}];
       service.handleKeyDown(press(' '));

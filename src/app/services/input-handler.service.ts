@@ -7,7 +7,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { isEscapeForDialog } from '../utils/dialog-key-guard';
-import { isTypingTarget } from '../utils/keyboard-target';
+import { ownsKey } from '../utils/keyboard-target';
 import type { AbilityId } from '../configs/abilities.config';
 
 /**
@@ -502,7 +502,7 @@ export class InputHandlerService {
    * after this, takes only the keys left alone.
    */
   handleKeyDown(event: KeyboardEvent): void {
-    if (isTypingTarget(event.target)) {
+    if (ownsKey(event.target, event.key)) {
       return;
     }
 
@@ -567,7 +567,7 @@ export class InputHandlerService {
    * Handle keyup events delegated from the component's @HostListener.
    */
   handleKeyUp(event: KeyboardEvent): void {
-    if (isTypingTarget(event.target)) {
+    if (ownsKey(event.target, event.key)) {
       return;
     }
 
