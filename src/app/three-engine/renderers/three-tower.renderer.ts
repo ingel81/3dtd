@@ -34,7 +34,6 @@ import type { ColumnSample } from '../column-sample';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
-import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 
 /**
  * Tower render data - stored per tower
@@ -241,32 +240,6 @@ export class ThreeTowerRenderer {
    */
   setLineOfSightRaycaster(raycaster: LineOfSightRaycaster): void {
     this.losRaycaster = raycaster;
-  }
-
-  /**
-   * Make tower model brighter by increasing emissive intensity
-   * Used to enhance visibility of darker models like the rocket tower
-   */
-  private makeTowerBrighter(model: Object3D, intensityFactor = 2.0): void {
-    model.traverse((child) => {
-      if ((child as Mesh).isMesh) {
-        const mesh = child as Mesh;
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-
-        materials.forEach((mat) => {
-          const stdMat = mat as MeshStandardMaterial;
-          if (stdMat.color) {
-            // Increase emissive intensity for better visibility
-            if ('emissive' in stdMat) {
-              stdMat.emissive = stdMat.color.clone();
-              stdMat.emissiveIntensity = intensityFactor;
-            }
-            // Also brighten the base color slightly
-            stdMat.color.multiplyScalar(1.3);
-          }
-        });
-      }
-    });
   }
 
   /**
@@ -1116,147 +1089,6 @@ export class ThreeTowerRenderer {
     }
 
     return group;
-  }
-
-  /**
-   * Create terrain-following edge points for a circle at given radius
-   */
-  private createTerrainEdgePoints(
-    centerLat: number,
-    centerLon: number,
-    centerHeight: number,
-    radius: number,
-    localCenter: Vector3
-  ): Vector3[] {
-    if (!this.terrainHeightSampler) return [];
-
-    const EDGE_OFFSET = 2.0; // Slightly higher than disc for visibility
-
-    const points: Vector3[] = [];
-    const metersPerDegreeLat = METERS_PER_DEGREE_LAT;
-    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(centerLat * DEG_TO_RAD);
-
-    const centerTerrainHeight = this.terrainHeightSampler(centerLat, centerLon);
-    const baseCenterY = centerTerrainHeight !== null ? centerTerrainHeight : centerHeight;
-
-    for (let seg = 0; seg < this.RANGE_SEGMENTS; seg++) {
-      const angle = (seg / this.RANGE_SEGMENTS) * Math.PI * 2;
-
-      const localX = Math.cos(angle) * radius;
-      const localZ = Math.sin(angle) * radius;
-
-      const sampleLat = centerLat + (localZ / metersPerDegreeLat);
-      const sampleLon = centerLon + (localX / metersPerDegreeLon);
-
-      const terrainHeight = this.terrainHeightSampler(sampleLat, sampleLon);
-      const sampleY = terrainHeight !== null ? terrainHeight : baseCenterY;
-
-      const worldX = localCenter.x + localX;
-      const worldZ = localCenter.z - localZ;
-      const worldY = (sampleY - baseCenterY) + localCenter.y + EDGE_OFFSET;
-
-      points.push(new Vector3(worldX, worldY, worldZ));
-    }
-
-    return points;
-  }
-
-  /**
-   * Create disc geometry that conforms to terrain
-   * Samples terrain heights at multiple points and creates triangulated mesh
-   */
-  private createTerrainDiscGeometry(
-    centerLat: number,
-    centerLon: number,
-    centerHeight: number,
-    range: number,
-    localCenter: Vector3
-  ): BufferGeometry {
-    if (!this.terrainHeightSampler) {
-      return new CircleGeometry(range, this.RANGE_SEGMENTS);
-    }
-
-    const vertices: number[] = [];
-    const indices: number[] = [];
-
-    // Small offset above terrain for visibility
-    const TERRAIN_OFFSET = 1.5;
-
-    // Meters per degree (approximate at this latitude)
-    const metersPerDegreeLat = METERS_PER_DEGREE_LAT;
-    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(centerLat * DEG_TO_RAD);
-
-    // Get center terrain height as reference for relative calculations
-    const centerTerrainHeight = this.terrainHeightSampler(centerLat, centerLon);
-    const baseCenterY = centerTerrainHeight !== null ? centerTerrainHeight : centerHeight;
-
-    // Add center vertex - use localCenter.y as base (which is at terrain level)
-    // localCenter already accounts for terrain height via geoToLocal
-    vertices.push(localCenter.x, localCenter.y + TERRAIN_OFFSET, localCenter.z);
-
-    // Sample points in concentric rings
-    for (let ring = 1; ring <= this.RANGE_RINGS; ring++) {
-      const ringRadius = (range * ring) / this.RANGE_RINGS;
-
-      for (let seg = 0; seg < this.RANGE_SEGMENTS; seg++) {
-        const angle = (seg / this.RANGE_SEGMENTS) * Math.PI * 2;
-
-        // Local offset from center
-        const localX = Math.cos(angle) * ringRadius;
-        const localZ = Math.sin(angle) * ringRadius;
-
-        // Convert to geo coordinates
-        const sampleLat = centerLat + (localZ / metersPerDegreeLat);
-        const sampleLon = centerLon + (localX / metersPerDegreeLon);
-
-        // Sample terrain height at this point
-        const terrainHeight = this.terrainHeightSampler(sampleLat, sampleLon);
-        const sampleY = terrainHeight !== null ? terrainHeight : baseCenterY;
-
-        // World coordinates - use height difference from center + localCenter.y
-        const worldX = localCenter.x + localX;
-        const worldZ = localCenter.z - localZ; // Note: Z is flipped in local coords
-        const worldY = (sampleY - baseCenterY) + localCenter.y + TERRAIN_OFFSET;
-
-        vertices.push(worldX, worldY, worldZ);
-      }
-    }
-
-    // Create triangles
-    // Center to first ring
-    for (let seg = 0; seg < this.RANGE_SEGMENTS; seg++) {
-      const next = (seg + 1) % this.RANGE_SEGMENTS;
-      indices.push(0, 1 + seg, 1 + next);
-    }
-
-    // Between rings
-    for (let ring = 1; ring < this.RANGE_RINGS; ring++) {
-      const innerOffset = 1 + (ring - 1) * this.RANGE_SEGMENTS;
-      const outerOffset = 1 + ring * this.RANGE_SEGMENTS;
-
-      for (let seg = 0; seg < this.RANGE_SEGMENTS; seg++) {
-        const nextSeg = (seg + 1) % this.RANGE_SEGMENTS;
-
-        // Two triangles per quad
-        indices.push(
-          innerOffset + seg,
-          outerOffset + seg,
-          outerOffset + nextSeg
-        );
-        indices.push(
-          innerOffset + seg,
-          outerOffset + nextSeg,
-          innerOffset + nextSeg
-        );
-      }
-    }
-
-    const geometry = new BufferGeometry();
-    geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-
-    return geometry;
   }
 
   /**
