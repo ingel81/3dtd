@@ -109,15 +109,12 @@ export class PhotoModeService {
   }
 
   /**
-   * Header and sidebar leave or come back, so the canvas changes size. Its
-   * drawing buffer follows once the DOM has, otherwise the picture stretches.
-   * `then` runs after it: focus can only go to what is on screen.
+   * Header and sidebar leave or come back. `then` runs once the DOM has
+   * followed: focus can only go to what is on screen. The drawing buffer
+   * follows the canvas' new size by itself (CanvasSizeFollower).
    */
   private afterLayout(then: () => void): void {
-    afterNextRender(() => {
-      this.engineInit.getEngine()?.fitToCanvas();
-      then();
-    }, { injector: this.injector });
+    afterNextRender(then, { injector: this.injector });
   }
 }
 
