@@ -249,8 +249,8 @@ Stelle, auf der Seite, auf der der Gegner läuft (`movement.component.ts:406-427
 
 | Auslöser | Wann | Bedingung |
 |---|---|---|
-| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:660-662`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:23-26`) | neu gebaut wird nur, wenn die Messung einen Korridor ändert |
-| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`visualization-facade.service.ts:1112-1114`) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
+| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:664-666`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:23-26`) | neu gebaut wird nur, wenn die Messung einen Korridor ändert |
+| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`visualization-facade.service.ts:1116-1118`), und von selbst noch einmal, wenn ihn einer der letzten drei Punkte rechts aufhielt (siehe unten) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
 | `change()` | `__corridor.set()` und `__corridor.reset()` | ein Ort ist geladen; bei geänderten `MEASUREMENT_KEYS` werden alle Messungen verworfen. Misst am Stück und baut immer neu |
 
 Für alle drei gilt die Sperre `rebuildBlocker()`: kein Neuaufbau, solange Tower
@@ -264,6 +264,15 @@ mit der OSM-Breite, bis `remeasure()` sie nach einem späteren Tile-Schub
 nachholt. Ob sich etwas geändert hat, vergleicht `storeClearance` an den
 fertigen Korridorstücken aller Routen vor und nach dem Speichern
 (`path-route.service.ts:741-744`, `:982-992`).
+
+Hält der Intro-Flug, ein offener Lauf oder die 3 s `remeasure()` auf, ruft es
+sich selbst wieder auf (`retryRemeasure`, `corridor-refit.ts:192-198`): bei
+den 3 s, sobald sie um sind, sonst alle 3 s, bis es misst; unter Tower,
+Gegner oder Welle nicht. Vorher geschah nach einem aufgehaltenen Aufruf nichts
+mehr bis zum nächsten Tile-Schub. Setzte sich der letzte Schub eines Orts
+während des Intro-Flugs (der den Korridor lädt) oder kurz nach einem Lauf,
+blieben die Stationen bei der OSM-Breite, bis die Kamera neue Tiles lud
+(Befund 2 in REVIEW_SPRINT_2026-09-12).
 
 Wird der Spawn oder das HQ ohne Neuladen des Orts umgesetzt
 (`LocationFacadeService.applySpawnInPlace`, `applyHqInPlace`), entsteht die

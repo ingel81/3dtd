@@ -74,7 +74,15 @@ describe('CorridorRefit', () => {
           frame.stopped = true;
         };
       }),
+      after: vi.fn((ms: number, callback: () => void) => {
+        const timer = { at: state.clock + ms, callback, cancelled: false };
+        timers.push(timer);
+        return () => {
+          timer.cancelled = true;
+        };
+      }),
     };
+    let timers: { at: number; callback: () => void; cancelled: boolean }[] = [];
     /** Run the frames that are due; a tick that wants another frame waits for the next call. */
     const runFrames = (times = 1) => {
       for (let i = 0; i < times; i++) {
@@ -84,7 +92,17 @@ describe('CorridorRefit', () => {
       }
     };
     const pendingFrames = () => frames.filter((frame) => !frame.stopped).length;
-    return { state, host, calls, runs, runFrames, pendingFrames, refit: new CorridorRefit(host) };
+    /** Move the clock to `to` and fire the timers due by then. */
+    const advance = (to: number) => {
+      state.clock = to;
+      const due = timers.filter((timer) => !timer.cancelled && timer.at <= to);
+      timers = timers.filter((timer) => !due.includes(timer));
+      for (const timer of due) timer.callback();
+    };
+    const pendingTimers = () => timers.filter((timer) => !timer.cancelled).length;
+    return {
+      state, host, calls, runs, runFrames, pendingFrames, advance, pendingTimers, refit: new CorridorRefit(host),
+    };
   }
 
   afterEach(() => resetCorridorConfig());
@@ -240,6 +258,76 @@ describe('CorridorRefit', () => {
       refit.remeasure();
       expect(host.beginMeasurement).toHaveBeenCalledTimes(1);
       expect(calls).toEqual(['measure', 'commit', 'rebuild']);
+    });
+
+    it('tries again by itself once the interval is up, without another tile batch', () => {
+      const { refit, state, host, advance, pendingTimers } = setup();
+      state.changed = false;
+      refit.remeasure();
+      state.clock = 2000;
+      refit.remeasure();
+      expect(host.beginMeasurement).toHaveBeenCalledTimes(1);
+      expect(pendingTimers()).toBe(1);
+
+      advance(CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(host.beginMeasurement).toHaveBeenCalledTimes(2);
+      expect(pendingTimers()).toBe(0);
+    });
+
+    it('tries again every interval while the intro flight runs and measures once it has landed', () => {
+      const { refit, state, calls, advance, pendingTimers } = setup();
+      state.intro = true;
+      refit.remeasure();
+      advance(CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(calls).toEqual([]);
+      expect(pendingTimers()).toBe(1);
+
+      state.intro = false;
+      advance(2 * CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(calls).toEqual(['measure', 'commit', 'rebuild']);
+      expect(pendingTimers()).toBe(0);
+    });
+
+    it('tries again after a run under way, for the stations it passed before their tiles came', () => {
+      const { refit, state, host, runFrames, advance } = setup();
+      state.slices = 3;
+      refit.fitToTiles();
+      refit.remeasure();
+      runFrames(2);
+      expect(host.beginMeasurement).toHaveBeenCalledTimes(1);
+
+      advance(CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(host.beginMeasurement).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not try again under a tower, an enemy or a wave', () => {
+      for (const block of ['towers', 'enemies', 'wave'] as const) {
+        const { refit, state, pendingTimers } = setup();
+        if (block === 'wave') state.wave = true;
+        else state[block] = 1;
+        refit.remeasure();
+        expect(pendingTimers(), block).toBe(0);
+      }
+    });
+
+    it('keeps one retry waiting however many batches settle meanwhile', () => {
+      const { refit, state, host } = setup();
+      state.intro = true;
+      refit.remeasure();
+      refit.remeasure();
+      refit.remeasure();
+      expect(host.after).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops a waiting retry on dispose', () => {
+      const { refit, state, calls, advance, pendingTimers } = setup();
+      state.intro = true;
+      refit.remeasure();
+      refit.dispose();
+      state.intro = false;
+      advance(CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(pendingTimers()).toBe(0);
+      expect(calls).toEqual([]);
     });
   });
 

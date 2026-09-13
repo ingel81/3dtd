@@ -230,6 +230,10 @@ export class VisualizationFacadeService {
       frame = requestAnimationFrame(step);
       return () => cancelAnimationFrame(frame);
     },
+    after: (ms, callback) => {
+      const timer = setTimeout(callback, ms);
+      return () => clearTimeout(timer);
+    },
   });
 
   /**
