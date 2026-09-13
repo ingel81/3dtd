@@ -6,6 +6,7 @@ import { GameStore } from '../store/game.store';
 import { UIStore } from '../store/ui.store';
 import { TrainingClientService } from '../ai/training/training-client.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
+import { DebugFacadeService } from './debug/debug-facade.service';
 import { CameraControlService } from './camera-control.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
@@ -88,6 +89,8 @@ export class BossIntroService {
   private readonly uiStore = inject(UIStore);
   private readonly trainingClient = inject(TrainingClientService);
   private readonly engineInit = inject(EngineInitializationService);
+  /** Holds the display option (Display menu, "Boss Intro") */
+  private readonly displayOptions = inject(DebugFacadeService);
   private readonly cameraControl = inject(CameraControlService);
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly introFlight = inject(IntroCameraFlightService);
@@ -149,7 +152,7 @@ export class BossIntroService {
   /** Why an intro would not play now, null when it would. */
   blocked(): BossIntroBlock | null {
     return bossIntroBlock({
-      enabled: true,
+      enabled: this.displayOptions.bossIntroEnabled(),
       photoMode: this.uiStore.photoMode(),
       botEnabled: this.trainingClient.botEnabled(),
       trainingConnected: this.trainingClient.isConnected(),

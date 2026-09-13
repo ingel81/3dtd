@@ -107,6 +107,17 @@ describe('DebugFacadeService display options', () => {
     expect(facade.screenShakeEnabled()).toBe(false);
     expect(facade.damageNumbersVisible()).toBe(true);
   });
+
+  it('has the boss intro on unless it was switched off, and keeps the switch', () => {
+    expect(createFacade().bossIntroEnabled()).toBe(true);
+    store({ bossIntro: false, screenShake: false });
+    const facade = createFacade();
+    expect(facade.bossIntroEnabled()).toBe(false);
+
+    facade.onBossIntroToggled(true);
+    expect(facade.bossIntroEnabled()).toBe(true);
+    expect(stored()).toEqual({ bossIntro: true, screenShake: false });
+  });
 });
 
 describe('DebugFacadeService VFX settings', () => {

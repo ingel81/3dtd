@@ -28,6 +28,8 @@ export interface StoredDisplayOptions extends Partial<VfxSettings> {
   healthBars?: boolean;
   damageNumbers?: boolean;
   screenShake?: boolean;
+  /** Camera cut to a wave's boss with its name (BossIntroService) */
+  bossIntro?: boolean;
   /** Frame cap in fps, 0 = unlimited */
   fpsLimit?: number;
 }

@@ -47,6 +47,8 @@ export class DebugFacadeService {
   readonly healthBarsVisible = signal(this.stored.healthBars !== false);
   readonly screenShakeEnabled = signal(this.stored.screenShake !== false);
   readonly damageNumbersVisible = signal(this.stored.damageNumbers !== false);
+  /** Boss intro on, read by BossIntroService when a boss steps out of its portal. */
+  readonly bossIntroEnabled = signal(this.stored.bossIntro !== false);
   /** Render-loop frame cap, see RenderLoop.setFpsLimit. */
   readonly fpsLimit = signal<FpsLimit>(toFpsLimit(this.stored.fpsLimit));
   /** Visual effects switched on or off, see VfxSettings. */
@@ -276,6 +278,15 @@ export class DebugFacadeService {
       }
     }
     persistDisplayOptions({ screenShake: enabled });
+  }
+
+  /**
+   * Toggle the boss intro and persist. Nothing to apply: the intro reads the
+   * signal when the next boss steps out of its portal.
+   */
+  onBossIntroToggled(enabled: boolean): void {
+    this.bossIntroEnabled.set(enabled);
+    persistDisplayOptions({ bossIntro: enabled });
   }
 
   /**
