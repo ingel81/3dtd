@@ -14,8 +14,10 @@
       (cancelBuild)="cancelBuild.emit()"
     />
 
-    <!-- TOWER Section (only when tower selected) -->
-    @if (store.selectedTower(); as tower) {
+    <!-- HERO Section while he is selected, else TOWER Section (only when tower selected) -->
+    @if (heroSelected()) {
+      <app-sidebar-hero-panel />
+    } @else if (store.selectedTower(); as tower) {
       @if (isResearchCenter()) {
         <app-sidebar-research-panel
           [tower]="tower"

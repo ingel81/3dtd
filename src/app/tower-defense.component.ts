@@ -53,6 +53,7 @@ import { InputHandlerService } from './services/input-handler.service';
 import { HotkeyService } from './services/hotkey.service';
 import { TowerPlacementService } from './services/tower-placement.service';
 import { AbilityTargetingService } from './services/ability-targeting.service';
+import { HeroControlService } from './services/hero-control.service';
 import { MapPlacementService } from './services/world/map-placement.service';
 import { LocationManagementService } from './services/location/location-management.service';
 import { HeightUpdateService } from './services/world/height-update.service';
@@ -357,6 +358,17 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     { key: 'ESC', description: 'Cancel' },
   ];
   readonly abilityTargetingWarning = this.abilityTargeting.warning;
+
+  // Hero selected: the next click on the route sends him
+  private readonly heroControl = inject(HeroControlService);
+  readonly heroSelected = this.heroControl.selected;
+  readonly heroHints: HintItem[] = [
+    { key: 'Click', description: 'Send' },
+    { key: 'V', description: 'Ammo' },
+    { key: 'G', description: 'Camera' },
+    { key: 'ESC', description: 'Let go' },
+  ];
+  readonly heroWarning = this.heroControl.warning;
 
   // First-run tips share the context hint box; build, placement and targeting hints come first
   private readonly onboarding = inject(OnboardingService);

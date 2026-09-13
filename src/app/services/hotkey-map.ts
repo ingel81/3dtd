@@ -22,6 +22,10 @@ export type HotkeyAction =
   | { kind: 'cancel' }
   /** Arm the ability's targeting mode, or leave it */
   | { kind: 'ability'; abilityId: AbilityId }
+  /** Select the hero, or fly the camera to him while he is selected */
+  | { kind: 'hero' }
+  /** The hero's next ammo */
+  | { kind: 'hero-ammo' }
   | { kind: 'camera-hq' }
   /** Fly to the next spawn point, round the list */
   | { kind: 'camera-spawn' }
@@ -78,6 +82,10 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
       return e.shiftKey ? null : { kind: 'pause' };
     case 'h':
       return { kind: 'help' };
+    case 'g':
+      return { kind: 'hero' };
+    case 'v':
+      return { kind: 'hero-ammo' };
     case 'n':
       return { kind: 'camera-spawn' };
     case 'o':
@@ -122,6 +130,13 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['U'], label: 'Upgrade the selected tower: the first upgrade you can afford' },
       { keys: ['Del'], label: 'Sell the selected tower, press twice' },
       { keys: ['Esc'], label: 'Cancel building, close a menu, deselect' },
+    ],
+  },
+  {
+    title: 'Hero',
+    rows: [
+      { keys: ['G'], label: 'Select the Mercenary once hired, click the route to send him; again to fly to him' },
+      { keys: ['V'], label: 'Switch his ammo: standard, explosive, rune' },
     ],
   },
   {

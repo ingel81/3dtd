@@ -1,0 +1,206 @@
+@use '../sidebar-panel' as panel;
+
+:host {
+  display: contents;
+}
+
+@include panel.section;
+
+@include panel.fill;
+
+@include panel.header;
+
+@include panel.content;
+
+/* === Hero ===
+ * Kopf wie das Tower-Detail, Name in --td-text-primary, die Stufe in Gold.
+ * Darunter keine Kacheln: der Weg zur nächsten Stufe als 4px-Balken, die
+ * Kennzahlen in einer Zeile mit Haarlinien wie die Game-Over-Bilanz, die
+ * Munition als Segmente wie im Display-Panel (aktiv im Teal-Verlauf), unten
+ * der Hinweis. */
+.td-hero-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.td-hero-name {
+  color: var(--td-text-primary);
+}
+
+.td-hero-level {
+  color: var(--td-gold-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.td-hero-level-max {
+  color: var(--td-text-muted);
+  font-weight: 400;
+}
+
+.td-hero-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: var(--td-font-mono);
+}
+
+.td-hero-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.td-hero-xp {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.td-hero-xp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.td-hero-xp-value {
+  font-size: 11px;
+  color: var(--td-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Vertiefte Fläche mit Gold-Füllung */
+.td-hero-xp-bar {
+  position: relative;
+  height: 4px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.td-hero-xp-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--td-gold);
+  transition: width 0.3s ease;
+}
+
+.td-hero-figures {
+  display: flex;
+  font-size: 12px;
+  color: var(--td-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.td-hero-figures > span {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 0 8px;
+  border-left: 1px solid var(--td-frame-dark);
+}
+
+.td-hero-figures > span:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.td-hero-ammo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: -4px;
+}
+
+.td-hero-ammo {
+  display: flex;
+  gap: 4px;
+}
+
+.td-hero-ammo-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 7px;
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2);
+  color: var(--td-text-secondary);
+  font-family: var(--td-font-mono);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.18s;
+}
+
+.td-hero-ammo-btn:hover {
+  border-color: var(--td-frame-mid);
+  color: var(--td-text-primary);
+}
+
+.td-hero-ammo-btn.active {
+  background: linear-gradient(180deg, rgba(107, 182, 164, 0.24) 0%, rgba(31, 135, 114, 0.18) 100%);
+  border-color: var(--td-teal-dark);
+  color: var(--td-text-primary);
+  box-shadow: var(--td-teal-glow);
+}
+
+.td-hero-ammo-btn:focus-visible {
+  outline: 1px solid var(--td-teal-light);
+  outline-offset: 2px;
+}
+
+.td-hero-ammo-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.td-hero-ammo-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.td-hero-ammo-type {
+  font-size: 9px;
+  color: var(--td-text-muted);
+}
+
+/* Tastenkappe wie in der Kontext-Hinweis-Box, kleiner */
+.td-hero-key {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--td-panel-shadow);
+  border-radius: 3px;
+  color: var(--td-gold-light);
+  font-family: var(--td-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 12px;
+}
+
+.td-hero-hint {
+  margin: 0;
+  font-family: var(--td-font-body);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--td-text-secondary);
+}
+
+.td-hero-status {
+  color: var(--td-text-primary);
+}

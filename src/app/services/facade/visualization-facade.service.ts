@@ -7,6 +7,7 @@ import { PathAndRouteService } from '../world/path-route.service';
 import { InputHandlerService } from '../input-handler.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
+import { HeroControlService } from '../hero-control.service';
 import { MapPlacementService } from '../world/map-placement.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
@@ -74,6 +75,7 @@ export class VisualizationFacadeService {
   private readonly inputHandler = inject(InputHandlerService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly abilityTargeting = inject(AbilityTargetingService);
+  private readonly heroControl = inject(HeroControlService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly devWorld = inject(DevWorldService);
@@ -343,6 +345,15 @@ export class VisualizationFacadeService {
       () => this.abilityTargeting.cancel(),
     );
 
+    this.inputHandler.setHeroCallbacks({
+      selected: () => this.heroControl.selected(),
+      pick: (screenX: number, screenY: number) => this.heroControl.pick(screenX, screenY),
+      toggle: () => this.heroControl.toggle(),
+      click: (lat: number, lon: number, height: number) => this.heroControl.click(lat, lon, height),
+      move: (lat: number, lon: number, hitPoint: Vector3) => this.heroControl.hover(lat, lon, hitPoint),
+      cancel: () => this.heroControl.deselect(),
+    });
+
     this.inputHandler.initKeyboard({
       exitBuildMode: () => this.bridge.exitBuildMode(),
       exitMapPlacement: () => this.bridge.exitMapPlacement(),
@@ -435,6 +446,9 @@ export class VisualizationFacadeService {
 
     // Ability targeting (Nuclear Strike): aims with the engine, fires through the game state
     this.abilityTargeting.initialize(engine, this.gameState);
+
+    // Hero: selection rings and the move preview with the engine, orders through the game state
+    this.heroControl.initialize(engine, this.gameState);
 
     // LOS-Debug-Panel — beobachtet TowerManager-Selection + Cubemap
     this.losDebug.initialize(

@@ -21,6 +21,7 @@ vi.mock('./ability-targeting.service', () => ({
   AbilityTargetingService: class AbilityTargetingService {},
 }));
 vi.mock('./photo-mode.service', () => ({ PhotoModeService: class PhotoModeService {} }));
+vi.mock('./hero-control.service', () => ({ HeroControlService: class HeroControlService {} }));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -37,6 +38,7 @@ import { CameraControlService } from './camera-control.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { AbilityTargetingService } from './ability-targeting.service';
 import { PhotoModeService } from './photo-mode.service';
+import { HeroControlService } from './hero-control.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 
 function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
@@ -72,6 +74,18 @@ describe('HotkeyService', () => {
     active: photoActive,
     toggle: vi.fn(() => photoActive.update((on) => !on)),
     exit: vi.fn(() => photoActive.set(false)),
+  };
+  /** Whether the hero is hired, HeroControlService.select checks it */
+  let heroHired: boolean;
+  const heroControl = {
+    selected: signal(false),
+    select: vi.fn(() => {
+      if (heroHired) heroControl.selected.set(true);
+      return heroHired;
+    }),
+    deselect: vi.fn(() => heroControl.selected.set(false)),
+    position: () => ({ lat: 48.75, lon: 9.15 }),
+    cycleAmmo: vi.fn(() => heroHired),
   };
 
   const tower = {
@@ -131,6 +145,11 @@ describe('HotkeyService', () => {
     abilityTargeting.start.mockClear();
     abilityTargeting.cancel.mockClear();
     photoActive.set(false);
+    heroHired = true;
+    heroControl.selected.set(false);
+    heroControl.select.mockClear();
+    heroControl.deselect.mockClear();
+    heroControl.cycleAmmo.mockClear();
 
     const injector = Injector.create({
       providers: [
@@ -147,6 +166,7 @@ describe('HotkeyService', () => {
         { provide: IntroCameraFlightService, useValue: { active: introActive } },
         { provide: AbilityTargetingService, useValue: abilityTargeting },
         { provide: PhotoModeService, useValue: photoMode },
+        { provide: HeroControlService, useValue: heroControl },
       ],
     });
     service = runInInjectionContext(injector, () => new HotkeyService());
@@ -341,6 +361,51 @@ describe('HotkeyService', () => {
       service.handleKeyDown(event);
       expect(abilityTargeting.targeting()).toBeNull();
       expect(event.defaultPrevented).toBe(false);
+    });
+  });
+
+  describe('hero keys', () => {
+    it('G selects him, a second G flies the camera to him', () => {
+      const first = press('g');
+      service.handleKeyDown(first);
+      expect(heroControl.select).toHaveBeenCalledTimes(1);
+      expect(first.defaultPrevented).toBe(true);
+      expect(focusGeo).not.toHaveBeenCalled();
+
+      service.handleKeyDown(press('g'));
+      expect(focusGeo).toHaveBeenCalledWith(48.75, 9.15);
+    });
+
+    it('G leaves the key alone before the hire and in photo mode', () => {
+      heroHired = false;
+      const event = press('g');
+      service.handleKeyDown(event);
+      expect(event.defaultPrevented).toBe(false);
+
+      heroHired = true;
+      photoActive.set(true);
+      service.handleKeyDown(press('g'));
+      expect(heroControl.selected()).toBe(false);
+    });
+
+    it('V switches his ammo once he is hired', () => {
+      const event = press('v');
+      service.handleKeyDown(event);
+      expect(heroControl.cycleAmmo).toHaveBeenCalledTimes(1);
+      expect(event.defaultPrevented).toBe(true);
+
+      heroHired = false;
+      const refused = press('v');
+      service.handleKeyDown(refused);
+      expect(refused.defaultPrevented).toBe(false);
+    });
+
+    it('Esc lets him go before it deselects a tower', () => {
+      heroControl.selected.set(true);
+      store.selectedTower.set(tower);
+      service.handleKeyDown(press('Escape'));
+      expect(heroControl.deselect).toHaveBeenCalledTimes(1);
+      expect(selectTower).not.toHaveBeenCalled();
     });
   });
 

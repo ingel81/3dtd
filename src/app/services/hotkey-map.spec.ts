@@ -60,6 +60,25 @@ describe('resolveHotkey', () => {
     }
   });
 
+  it('keeps G and V for the hero, no ability takes them', () => {
+    for (const id of ABILITY_IDS) {
+      expect(['g', 'v']).not.toContain(ABILITIES[id].hotkey.toLowerCase());
+    }
+  });
+
+  it('selects the hero on G and switches his ammo on V', () => {
+    expect(resolveHotkey(key('g'))).toEqual({ kind: 'hero' });
+    expect(resolveHotkey(key('G', { shiftKey: true }))).toEqual({ kind: 'hero' });
+    expect(resolveHotkey(key('v'))).toEqual({ kind: 'hero-ammo' });
+    expect(resolveHotkey(key('V'))).toEqual({ kind: 'hero-ammo' });
+    expect(resolveHotkey(key('g', { ctrlKey: true }))).toBeNull();
+  });
+
+  it('lists G and V in the overview', () => {
+    const hero = HOTKEY_HELP.find((g) => g.title === 'Hero')!;
+    expect(hero.rows.map((r) => r.keys)).toEqual([['G'], ['V']]);
+  });
+
   it('toggles photo mode on O, also with Caps Lock or Shift', () => {
     expect(resolveHotkey(key('o'))).toEqual({ kind: 'photo-mode' });
     expect(resolveHotkey(key('O', { shiftKey: true }))).toEqual({ kind: 'photo-mode' });
