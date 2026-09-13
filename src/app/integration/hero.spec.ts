@@ -56,6 +56,7 @@ function createEngine(): never {
     engine[key] = withAutoStubs(engine[key]);
   }
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
+  engine['hero'] = withAutoStubs({});
   engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
   // Headless, like a training tab: no presentFrame
   (engine as Record<string, unknown>)['renderingEnabled'] = false;

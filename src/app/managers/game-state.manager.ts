@@ -308,6 +308,9 @@ export class GameStateManager {
     this.vfxService = new VFXService(this.eventBus, tilesEngine);
     // Scorch marks sit on route cells, one per cell, at the grid's ground height
     tilesEngine.effects.setScorchGround(this.globalRouteGrid);
+    // The hero stands on the route grid's ground like the enemies
+    tilesEngine.hero.setGround(this.globalRouteGrid);
+    this.heroManager.setView(tilesEngine.hero);
 
     // Initialize Audio service (subscribes to audio events)
     this.audioService = new AudioService(this.eventBus, tilesEngine);
@@ -492,6 +495,7 @@ export class GameStateManager {
     if (stepsExecuted > 0 && this.tilesEngine?.renderingEnabled) {
       this.enemyManager.presentFrame(this.clock.gameTimeMs);
       this.projectileManager.presentFrame();
+      this.heroManager.presentFrame();
     }
 
     // Sync active research progress to store for UI (cheap, batched once/frame)

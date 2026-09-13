@@ -24,6 +24,9 @@ interface AbilityVfx {
   impact(event: Extract<GameEvent, { type: 'ability:impact' }>): void;
 }
 
+/** The hero's level-up text: --td-gold-light, larger and longer than a reward popup. */
+const HERO_LEVEL_UP_TEXT = { color: '#D9BC68', durationMs: 2200, floatSpeed: 1.4, scale: 1.1 } as const;
+
 /**
  * VFX Service - Handles visual effects via events
  *
@@ -115,6 +118,21 @@ export class VFXService {
     }));
     // A restart drops the markers and the clouds
     this.subs.add(this.eventBus.on('game:reset', () => this.clearStrikes()));
+
+    // Hero level-up: "LEVEL N" in gold rising from his head
+    this.subs.add(this.eventBus.on('hero:level-up', (event) => this.handleHeroLevelUp(event.level)));
+  }
+
+  private handleHeroLevelUp(level: number): void {
+    const head = this.tilesEngine.hero.headPosition(this.tmpA);
+    if (!head) return;
+    const { lat, lon, height } = this.tilesEngine.sync.localToGeo(head);
+    this.tilesEngine.effects.spawnFloatingText(`LEVEL ${level}`, lat, lon, height, {
+      color: HERO_LEVEL_UP_TEXT.color,
+      duration: HERO_LEVEL_UP_TEXT.durationMs,
+      floatSpeed: HERO_LEVEL_UP_TEXT.floatSpeed,
+      scale: HERO_LEVEL_UP_TEXT.scale,
+    });
   }
 
   private handleStrikeUsed(strikeId: number, target: GeoPosition, radiusM: number, warningMs: number): void {

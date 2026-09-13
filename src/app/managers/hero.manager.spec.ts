@@ -357,6 +357,36 @@ describe('HeroManager', () => {
     });
   });
 
+  describe('rendering', () => {
+    it('hands the renderer where he stands, where he looks, what he does and his post', () => {
+      const shown: { pose: string; x: number; z: number; post: { x: number; z: number } }[] = [];
+      let cleared = 0;
+      manager.setView({
+        present: (h) => shown.push({ pose: h.pose, ...local(h), post: local(h.anchor) }),
+        clear: () => cleared++,
+      });
+      manager.presentFrame();
+      expect(shown).toHaveLength(0); // not hired
+
+      hired();
+      manager.presentFrame();
+      expect(shown.at(-1)).toEqual({ pose: 'idle', x: 0, z: 300, post: { x: 0, z: 300 } });
+
+      manager.moveTo(at(0, 200));
+      tick(10);
+      manager.presentFrame();
+      expect(shown.at(-1)).toMatchObject({ pose: 'run', post: { x: 0, z: 200 } });
+
+      enemies.push(enemyAt('close', 0, 285));
+      tick(1);
+      manager.presentFrame();
+      expect(shown.at(-1)!.pose).toBe('shoot');
+
+      manager.reset();
+      expect(cleared).toBe(1);
+    });
+  });
+
   it('starts over on reset: gone, locked, no kills', () => {
     hired();
     bus.emit({ type: 'hero:kill', enemy: {} as Enemy });

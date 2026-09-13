@@ -68,6 +68,24 @@ export interface HeroWorld {
   spend(cost: number): boolean;
 }
 
+/** The hero as the renderer shows him, once per rendered frame. */
+export interface HeroPresentation {
+  lat: number;
+  lon: number;
+  /** Heading in radians, TransformComponent's convention (0 north, PI/2 east) */
+  heading: number;
+  pose: 'idle' | 'run' | 'shoot';
+  /** The spot he holds */
+  anchor: GeoPosition;
+}
+
+/** Where the manager shows the hero: HeroRenderer. */
+export interface HeroView {
+  present(hero: HeroPresentation): void;
+  /** No hero any more (restart) */
+  clear(): void;
+}
+
 /** Closer than this to where he is going, he is there, metres. */
 const ARRIVED_M = 0.5;
 
@@ -94,6 +112,11 @@ export class HeroManager implements IGameManager {
 
   // Reused per query, see acquireTarget() and pickChase()
   private readonly scratch: Enemy[] = [];
+
+  private view: HeroView | null = null;
+  private readonly presentation: HeroPresentation = {
+    lat: 0, lon: 0, heading: 0, pose: 'idle', anchor: { lat: 0, lon: 0 },
+  };
 
   private readonly subs = new SubscriptionBag();
 
@@ -193,6 +216,29 @@ export class HeroManager implements IGameManager {
     this.replanMs = 0;
     this.emitState();
     return true;
+  }
+
+  // ==================== Rendering ====================
+
+  /** Where he is shown (the engine's HeroRenderer), null headless. */
+  setView(view: HeroView | null): void {
+    this.view = view;
+  }
+
+  /**
+   * Hand him to the renderer. Once per rendered frame after the sub-steps,
+   * like EnemyManager.presentFrame; reads the simulation, changes nothing.
+   */
+  presentFrame(): void {
+    const hero = this.hero;
+    if (!hero || !this.view) return;
+    const p = this.presentation;
+    p.lat = hero.position.lat;
+    p.lon = hero.position.lon;
+    p.heading = hero.transform.rotation;
+    p.pose = this.target ? 'shoot' : this.goal ? 'run' : 'idle';
+    p.anchor = this.getAnchor() ?? p.anchor;
+    this.view.present(p);
   }
 
   // ==================== Update Loop ====================
@@ -403,6 +449,7 @@ export class HeroManager implements IGameManager {
   reset(): void {
     this.hero?.destroy();
     this.hero = null;
+    this.view?.clear();
     this.unlocked = false;
     this.ammo = 'standard';
     this.kills = 0;
