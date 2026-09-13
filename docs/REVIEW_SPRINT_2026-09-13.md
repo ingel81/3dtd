@@ -1389,19 +1389,28 @@ dem Portal.
      Start Custom Wave. Kamera nah ans Portal, schräg von vorn: jede
      Fledermaus kommt durch die Mitte der Öffnung aus der Fläche, keine
      erscheint über dem Tor.
+     **ok** (Playtest 2026-09-13)
 233. Weiter zusehen: gut eine Sekunde waagrecht vor dem Tor, dann steigen
      sie weich auf ihre Höhe, ohne Ruck am Anfang oder oben; beim Steigen
      fächern sich die Höhen auf.
+     **ok** (Playtest 2026-09-13)
 234. Tempo schneller (wie Punkt 214), noch eine Welle: der Steigflug
      beginnt und endet an denselben Stellen der Route, nur schneller.
+     **ok** (Playtest 2026-09-13)
 235. Dasselbe mit Hornet: wie die Fledermaus. Mit Dragon: steht bei
      normalen Portalen auf der Straße, ragt oben und seitlich aus dem Tor
      (bekannt), steigt dann.
+     **ok** (Playtest 2026-09-13). **Befund** nebenbei: der Drache macht
+     keinen Sound mehr. Ursache offen, auf Wunsch nur notiert (TODO 1.8).
 236. Ein Tower, der Luft angreift, nah am Portal: er beschießt die tiefen
      Fledermäuse, die Schüsse fliegen auf den Körper, Schadenszahlen und
      Blut erscheinen am Körper, nicht 10 m darüber.
+     **ok** (Playtest 2026-09-13, Archer am Portal)
 237. Enemies (Enemy inspector), Bat wählen, Place, auf die Route klicken:
      die Fledermaus steht dort auf Flughöhe, ohne Tor-Phase.
+     **ok** (Playtest 2026-09-13). **Befund** nebenbei: ein per Debug
+     gesetzter Gegner schaut anfangs in eine falsche Richtung und dreht sich
+     erst beim Loslaufen Richtung HQ. Auf Wunsch nur notiert (TODO 1.8).
 238. Regulär bis W7 (bat_swarm) und W8 (hornet_strike) spielen: an jedem
      Portal wie 232 und 233.
 
@@ -1497,34 +1506,50 @@ Ursache:
 239. Neues Spiel, N zum Portal, auf 30 bis 40 m herauszoomen: der Stein ist
      dunkel graubraun, nicht schwarz; Quaderfugen dunkel, Kanten heller,
      Risse sichtbar.
+     **ok** (Playtest 2026-09-13, Screenshot in der Innenstadt bei Tag:
+     "portal sieht gut aus")
 240. Display-Menü (Augen-Button), Bloom an und wieder aus: Stein und Leere
      gleich hell, nur die Glut der Sigillen strahlt mit Bloom etwas mehr.
+     **ok** (Playtest 2026-09-13)
 241. Vor der ersten Welle: alle Sigillen der Stirnseiten lesbar als
      blutrote Glut in den Rillen, heißerer Kern, dunklerer Rand. Reset
      Camera (Übersicht): noch als Zeichen zu erkennen.
+     **ok** (Playtest 2026-09-13, aus der Nähe mit laufender Welle und in
+     der Übersicht nach Reset Camera)
 242. Eine Minute zusehen: jede Sigille atmet langsam für sich, nie alle im
      Gleichtakt; entlang der Striche Stellen heller und dunkler.
+     **ok** (Playtest 2026-09-13)
 243. P (Pause): das Atmen der Sigillen steht, der Wirbel der Leere läuft
      weiter; P wieder: es geht ohne Sprung weiter.
+     **ok** (Playtest 2026-09-13)
 244. Space (Welle): die Sigillen flammen auf, der Kern wird orange-rot,
      während der Welle deutlich heller als davor; nach der Welle zurück auf
      die Glut.
+     **ok** (Playtest 2026-09-13)
 245. Nah an eine Sigille: scharfe Linien, kein Kasten und kein Schein über
      der ganzen Zelle; abgewitterte oder verrußte Stellen glühen schwächer.
      Keine Sigille wie ein Prozentzeichen; die neue ("averted moon", große
      Sichel, gebrochener Ring dahinter, Punktbogen darunter) erinnert an
      kein bekanntes Symbol.
+     **ok** (Playtest 2026-09-13)
 246. Ort mit hellen Tiles bei Tag (etwa ein Showcase-Ort): der Rahmen hebt
      sich als dunkler Stein ab, die Glut bleibt lesbar.
+     **ok** (Playtest 2026-09-13, Innenstadt mit hellen Fassaden bei Tag)
 247. Tempo 10x, dann (in der Bauphase oder mit Custom Wave) höchstes Tempo:
      die Sigillen atmen so langsam wie bei 1x, kein Flackern.
+     **ok** (Playtest 2026-09-13)
 248. Beschwörungskreis vor dem Portal (Straße vor der vorderen Fläche), Bloom
      im Display-Menü an und aus: der Kreis bleibt gleich hell, nur bei
      Wellenstart blüht er mit Bloom etwas.
+     **Befund** (Playtest 2026-09-13): mit Bloom ist der Kreis nicht mehr
+     sichtbar, ohne Bloom schon. Vermutlich aus `f3f7238` (Kodierung des
+     Kreises für das Composer-Target). Auf Wunsch nur notiert, Fix später
+     (TODO 1.8).
 249. Nah an die Sigillen: keine liest sich als Triskele (drei Arme um einen
      Knoten); die neue ("tethered seeds": zwei Bögen mit Knoten an beiden
      Enden, abgewandte Sichel, kleiner Ring) erinnert an kein bekanntes
      Symbol.
+     **ok** (Playtest 2026-09-13)
 
 ### Kamera an der Route und nach dem Atomschlag (camnear, `bac034a`, `a7cdcf4`, `aef9d9e`)
 
@@ -1607,27 +1632,62 @@ co treffen irgendwas was in der luft verbleibt".
      zum Anschlag hineinzoomen und die Nähe zum Boden merken. Dasselbe
      über der Straße zwischen den Towern: Der Anschlag liegt genauso nah
      am Boden, nicht höher, und der Zoom wird davor nicht zäher.
+     **ok** (Playtest 2026-09-13)
 251. Über der Route zwischen den Towern mit der linken Taste ziehen: Der
      Boden unter dem Zeiger bleibt unter dem Zeiger, wie abseits der
      Route.
+     **ok** (Playtest 2026-09-13)
 252. Rechte Taste über der Route halten und drehen: Der Pivot-Kreis
      liegt auf der Straße, nicht in der Luft darüber.
+     **ok** (Playtest 2026-09-13)
 253. Mit dem Mausrad direkt auf einen Tower zoomen: Die Kamera fährt bis
      nah an den Boden am Tower und kann dabei ins Modell geraten
      (bekannt, siehe Offen).
+     **ok** (Playtest 2026-09-13, das Hineinfahren stört nicht)
 254. Konsole: `__raycastStats(true)`, 10 s über der Route zoomen und
      ziehen, dann `__raycastStats()`: Zeile `cameraControls`, bei ruhender
      Kamera etwa 2 Aufrufe pro Frame.
+     **Teilweise** (Playtest 2026-09-13): Zeile `cameraControls` da, 10752
+     Aufrufe in 37 s, 4238 ms gesamt, 0,39 ms je Aufruf, maxBurst 2,4 ms,
+     1 Treffer je Aufruf. Das sind im Schnitt 290 Aufrufe und 115 ms pro
+     Sekunde (etwa 11 % der Laufzeit, bei 60 fps rund 1,9 ms je Frame),
+     gemittelt über Ruhe und 10 s Zoomen und Ziehen. Die Rate in Ruhe ist
+     daraus nicht zu trennen, siehe Nachmessung. Kostenpunkt in TODO 1.8.
+     Nachmessung ohne Kameraberührung: 5010 Aufrufe, 1355 ms, 0,27 ms je
+     Aufruf, maxBurst 1,5 ms. Die Dauer seit dem Reset ist nicht notiert;
+     bei etwa 10 s wären das rund 500 Aufrufe und 135 ms pro Sekunde. Die
+     Controls raycasten also auch in Ruhe spürbar.
 255. DevWorld (`?devworld`): Zoom, Ziehen und Drehen wie bisher.
+     **ok** (Playtest 2026-09-13)
 256. Neues Spiel, Dev-Menü, Cheats, Nuke, Schlag auf die Route setzen
      (wie Punkt 224), den Pilz ganz ablaufen lassen (14 s). Dann über dem
      Einschlag mit dem Mausrad bis zum Anschlag zoomen: Die Kamera kommt
      so nah an den Boden wie an jeder anderen Stelle, kein Halt in der
      Luft.
+     **ok** (Playtest 2026-09-13)
 257. Gleiche Stelle, links ziehen und rechts drehen: Der Boden bleibt
      unter dem Zeiger, der Pivot-Kreis liegt auf dem Boden.
+     **ok** (Playtest 2026-09-13)
 258. Während der Pilz steht, über ihm zoomen und ziehen: Die Kamera geht
      durch Pilz und Kuppel hindurch, nichts bremst.
+     **ok** (Playtest 2026-09-13)
+
+## Zwischenstand Playtest 2026-09-13 abends
+
+Getestet auf `sprint/night-2026-09-13` bei Head `e586f437`, Ergebnisse stehen
+an den Punkten.
+
+- Hier ok: 232 bis 237, 239 bis 247, 249 bis 253, 255 bis 258.
+  **Befund**: 248 (Beschwörungskreis mit Bloom unsichtbar). Teilweise: 254
+  (die Kamera-Raycasts kosten auch in Ruhe Zeit). Nebenbei notiert: der
+  Drache hat keinen Sound (bei 235), per Debug gesetzte Gegner schauen
+  anfangs falsch (bei 237), Tower versinken auf schrägen Dächern (Wunsch:
+  automatischer Steinsockel). Alles in TODO 1.8.
+- Alte Liste (`REVIEW_SPRINT_2026-09-12.md`) ok: 6, 7, 8, 11, 12, 13, 15, 20,
+  21, 22, 25, 28, 31.
+- Weiter beim nächsten Mal: alte Liste 34 und 36 (Rückfrage offen), dann 4,
+  5, 9, 14, 16, 27, 29, 33, 38, 41 bis 44, 53, 54; aus dieser Liste 238 und
+  die Punkte ab 101 ohne Ergebnis.
 
 ## TODO-Stand
 
