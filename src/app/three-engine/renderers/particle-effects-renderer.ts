@@ -104,8 +104,9 @@ export class ParticleEffectsRenderer {
    * @param lon - Longitude
    * @param height - Height above ground
    * @param count - Number of particles (default 20)
+   * @param color - Colour as hex (EnemyTypeConfig.bloodColor), red when unset
    */
-  spawnBloodSplatter(lat: number, lon: number, height: number, count = 20): string {
+  spawnBloodSplatter(lat: number, lon: number, height: number, count = 20, color?: number): string {
     if (!this.impacts) return '';
     const localPos = this.sync.geoToLocal(lat, lon, height);
     const id = `blood_${this.effectIdCounter++}`;
@@ -138,8 +139,9 @@ export class ParticleEffectsRenderer {
       particle.size = 0.2 + Math.random() * 0.3;
 
       // Vary blood color slightly
-      const r = 0.7 + Math.random() * 0.3;
-      particle.color.setRGB(r, 0, 0);
+      const shade = 0.7 + Math.random() * 0.3;
+      if (color === undefined) particle.color.setRGB(shade, 0, 0);
+      else particle.color.setHex(color).multiplyScalar(shade);
 
       effect.particles.push(particle);
     }
@@ -157,11 +159,12 @@ export class ParticleEffectsRenderer {
    * @param lon - Longitude
    * @param height - Height (terrain height)
    * @param size - Diameter of the round decal in meters, ±20 % (default 2.0)
+   * @param color - Colour as hex (EnemyTypeConfig.bloodColor), dark red when unset
    * @returns Decal ID
    */
-  spawnBloodDecal(lat: number, lon: number, height: number, size = 2.0): string {
+  spawnBloodDecal(lat: number, lon: number, height: number, size = 2.0, color?: number): string {
     if (!this.groundMarks) return '';
-    return this.decals.layBlood(this.sync.geoToLocal(lat, lon, height), size);
+    return this.decals.layBlood(this.sync.geoToLocal(lat, lon, height), size, color);
   }
 
   /**

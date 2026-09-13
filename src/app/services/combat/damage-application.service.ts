@@ -6,6 +6,7 @@ import { CombatVfxService } from './combat-vfx.service';
 import { DamageType, DamageResult } from '../../configs/combat/combat.types';
 import { calculateDamage } from '../../utils/damage-calculator';
 import { GameEventBus } from '../../game-engine/game-event-bus';
+import { enemyBloodColor, enemyHitSpot } from '../../utils/enemy-hit-spot';
 
 /**
  * DamageApplicationService - Applies damage to enemies and handles kills
@@ -102,8 +103,8 @@ export class DamageApplicationService {
     const result = calculateDamage(damage, damageType, armorType);
 
     if (showBloodEffects && enemy.typeConfig.canBleed) {
-      const splatterHeight = enemy.transform.terrainHeight + enemy.heightOffset + 1;
-      vfx.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 5);
+      const spot = enemyHitSpot(enemy);
+      vfx.emitBloodEffect(spot.lat, spot.lon, spot.height + 1, 5, false, enemyBloodColor(enemy));
     }
 
     const hpBefore = enemy.health.hp;

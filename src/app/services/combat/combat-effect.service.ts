@@ -19,6 +19,8 @@ import { GameEventBus, SubscriptionBag } from '../../game-engine';
 import { DamageType, DamageResult } from '../../configs/combat/combat.types';
 import { EFFECTIVENESS_COLORS, EFFECTIVENESS_SCALES } from '../../configs/combat/damage-matrix.config';
 import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
+import { enemyHitSpot } from '../../utils/enemy-hit-spot';
+import { ROUTE_BODY_AIM_HEIGHT_M } from '../../utils/route-body';
 
 /**
  * CombatEffectService - Orchestrates projectile hits
@@ -109,6 +111,16 @@ export class CombatEffectService {
       this.vfx.emitIceExplosion(enemy);
     }
 
+    // A body along the route: the hit lands where the shot does (its aim point)
+    const body = enemy.body;
+    if (!targetLost && body) {
+      body.setHitGeo(
+        projectile.position.lat,
+        projectile.position.lon,
+        (projectile.aimPoint?.height ?? projectile.flightHeight) - ROUTE_BODY_AIM_HEIGHT_M,
+      );
+    }
+
     if (!targetLost) {
       // Apply damage to primary target (suppress blood for ice and poison)
       const suppressBlood = isIceShard || isPoisonGlob;
@@ -150,9 +162,10 @@ export class CombatEffectService {
 
     // Apply splash damage to nearby enemies. When the primary target is gone,
     // centre the splash on the projectile's actual impact position instead of
-    // the (now stale) target, and don't exclude any enemy.
+    // the (now stale) target, and don't exclude any enemy. On a body along
+    // the route the impact is the aim point, not the body's tip.
     if (hasSplash) {
-      const originPos = targetLost ? projectile.position : enemy.position;
+      const originPos = targetLost || body ? projectile.position : enemy.position;
       const excludeId = targetLost ? undefined : enemy.id;
       this.applySplashDamage(projectile, originPos, excludeId, splashRadius, damageType, isIceShard, isPoisonGlob);
     }
@@ -186,14 +199,16 @@ export class CombatEffectService {
     const hitsAir = canTargetAirEffective(sourceType, this.researchStore.airTargetingUnlocked());
     const hitsGround = TOWER_TYPES[sourceType].canTargetGround ?? true;
 
-    // Treffbare Ziele samt Abstand nach vorne kompaktieren.
+    // Treffbare Ziele samt Abstand nach vorne kompaktieren. Ein Körper entlang
+    // der Route zählt mit dem Abstand zu seinem nächsten Punkt, den die
+    // Umkreissuche gerade gemessen hat (RouteBody.hitDistanceM).
     const dists = this._splashDistScratch;
     let count = 0;
     // Schreibt nur auf Indizes, die die Schleife schon hinter sich hat.
     for (const enemy of candidates) {
       if (enemy.typeConfig.isAirUnit ? !hitsAir : !hitsGround) continue;
       candidates[count] = enemy;
-      dists[count] = geoDistanceFast(originPos, enemy.position);
+      dists[count] = enemy.body ? enemy.body.hitDistanceM : geoDistanceFast(originPos, enemy.position);
       count++;
     }
 
@@ -289,11 +304,12 @@ export class CombatEffectService {
     const t = Math.min(rounded / 80, 1);
     const baseScale = 0.25 + t * 0.3; // 0.25 (low dmg) → 0.55 (high dmg)
     const scale = baseScale * effectivenessScale;
+    const spot = enemyHitSpot(enemy);
     this.tilesEngine.effects.spawnFloatingText(
       `-${rounded}`,
-      enemy.position.lat,
-      enemy.position.lon,
-      enemy.transform.terrainHeight + enemy.heightOffset + 5,
+      spot.lat,
+      spot.lon,
+      spot.height + 5,
       {
         color,
         duration: TIMING.damagePopupDuration,
@@ -332,11 +348,12 @@ export class CombatEffectService {
     // Green for poison, orange for burn (regardless of effectiveness)
     if (this.damageNumbersEnabled && result) {
       const rounded = Math.round(result.finalDamage);
+      const spot = enemyHitSpot(enemy);
       this.tilesEngine.effects.spawnFloatingText(
         `-${rounded}`,
-        enemy.position.lat,
-        enemy.position.lon,
-        enemy.transform.terrainHeight + enemy.heightOffset + 5,
+        spot.lat,
+        spot.lon,
+        spot.height + 5,
         {
           color: effectType === 'burn' ? '#FF8C1A' : '#44CC22',
           duration: TIMING.damagePopupDuration,

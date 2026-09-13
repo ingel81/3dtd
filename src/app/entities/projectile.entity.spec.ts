@@ -75,6 +75,39 @@ describe('Projectile entity', () => {
     expect(-dx / dz).toBeCloseTo(1, 3);
   });
 
+  describe('with an aim point (a body along the route)', () => {
+    // 20 m east of the start, the target's tip 111 m north
+    const aimPoint = { lat: 0, lon: 20 / METERS_PER_DEGREE_LAT, height: 7 };
+    const fly = (projectile: Projectile): void => {
+      for (let i = 0; i < 1000 && !projectile.updateTowardsTarget(16); i++);
+    };
+
+    it('flies to the aim point, not to the target, and hits at its height', () => {
+      const enemy = new Enemy('ooze', targetPath);
+      const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 't-1', 'archer', 'physical', aimPoint);
+      expect(projectile.direction.dx).toBeLessThan(0); // east is -X
+      expect(Math.abs(projectile.direction.dz)).toBeLessThan(1e-9);
+
+      fly(projectile);
+      expect(projectile.position.lat).toBeCloseTo(aimPoint.lat, 12);
+      expect(projectile.position.lon).toBeCloseTo(aimPoint.lon, 12);
+      expect(projectile.flightHeight).toBe(7);
+      expect(projectile.targetLost).toBe(false);
+    });
+
+    it('keeps flying to the aim point when the target dies on the way', () => {
+      const enemy = new Enemy('ooze', targetPath);
+      const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 't-1', 'archer', 'physical', aimPoint);
+      projectile.updateTowardsTarget(16);
+      enemy.health.takeDamage(enemy.health.hp);
+
+      fly(projectile);
+      expect(projectile.targetLost).toBe(true);
+      expect(projectile.position.lon).toBeCloseTo(aimPoint.lon, 12);
+      expect(projectile.flightHeight).toBe(7);
+    });
+  });
+
   it('reflects splash configuration for AoE projectiles', () => {
     const enemy = new Enemy('zombie', targetPath);
     const cannonball = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'cannonball', 10, 1, 'tower-1', 'archer');

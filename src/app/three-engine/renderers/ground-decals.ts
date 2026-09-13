@@ -36,10 +36,11 @@ export class GroundDecals {
 
   /**
    * A persistent blood decal at a local ground position, round, `size`
-   * across ±20 %. The oldest one goes when the pool is full.
+   * across ±20 %, in `color` (hex) or the configured dark red. The oldest
+   * one goes when the pool is full.
    * @returns Decal ID
    */
-  layBlood(localPos: Vector3, size: number): string {
+  layBlood(localPos: Vector3, size: number, color?: number): string {
     localPos.y += BLOOD_DECAL_CONFIG.heightOffset;
 
     const id = `blood_decal_${this.decalIdCounter++}`;
@@ -51,13 +52,16 @@ export class GroundDecals {
     // Round, `size` across with some randomness
     const radius = (size * (0.8 + Math.random() * 0.4)) / 2;
 
-    // Randomize color slightly (dark red variations) - from config
+    // Randomize color slightly (dark red variations) - from config; a given
+    // colour is darkened as far as the red varies
     const colorVariation = Math.random() * BLOOD_DECAL_CONFIG.colorVariation;
-    const color = new Color(
-      BLOOD_DECAL_CONFIG.baseColor.r + colorVariation,
-      BLOOD_DECAL_CONFIG.baseColor.g,
-      BLOOD_DECAL_CONFIG.baseColor.b
-    );
+    const decalColor = color === undefined
+      ? new Color(
+        BLOOD_DECAL_CONFIG.baseColor.r + colorVariation,
+        BLOOD_DECAL_CONFIG.baseColor.g,
+        BLOOD_DECAL_CONFIG.baseColor.b
+      )
+      : new Color(color).multiplyScalar(1 - colorVariation);
 
     // If pool is full, remove oldest decal
     if (this.blood.count >= BLOOD_DECAL_CONFIG.maxDecals) {
@@ -70,7 +74,7 @@ export class GroundDecals {
       localPos,
       radius,
       rotation,
-      color,
+      decalColor,
       BLOOD_DECAL_CONFIG.baseOpacity,
       now,
       BLOOD_DECAL_CONFIG.fadeDelay,

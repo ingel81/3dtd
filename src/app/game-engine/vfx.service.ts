@@ -63,7 +63,7 @@ export class VFXService {
 
     // Blood effects
     this.subs.add(this.eventBus.on('vfx:blood', (event) => {
-      this.handleBloodEffect(event.position, event.intensity, event.skipGroundDecal);
+      this.handleBloodEffect(event.position, event.intensity, event.skipGroundDecal, event.color);
     }));
 
     // Muzzle flash on tower fire (projectile towers only)
@@ -160,11 +160,11 @@ export class VFXService {
     }
   }
 
-  private handleBloodEffect(position: Vector3, intensity: number, skipGroundDecal?: boolean): void {
+  private handleBloodEffect(position: Vector3, intensity: number, skipGroundDecal?: boolean, color?: number): void {
     const { lat, lon, height } = this.tilesEngine.sync.localToGeo(position);
     const count = Math.max(1, Math.round(intensity));
 
-    this.tilesEngine.effects.spawnBloodSplatter(lat, lon, height, count);
+    this.tilesEngine.effects.spawnBloodSplatter(lat, lon, height, count, color);
 
     // With ground marks off there is no decal, and no terrain raycast for one
     if (!skipGroundDecal && this.tilesEngine.effects.groundMarksEnabled) {
@@ -172,7 +172,7 @@ export class VFXService {
       if (decalSize > 0) {
         const terrainHeight = this.tilesEngine.getTerrainHeightAtGeo(lat, lon);
         const decalHeight = terrainHeight !== null ? terrainHeight : height;
-        this.tilesEngine.effects.spawnBloodDecal(lat, lon, decalHeight, decalSize);
+        this.tilesEngine.effects.spawnBloodDecal(lat, lon, decalHeight, decalSize, color);
       }
     }
   }

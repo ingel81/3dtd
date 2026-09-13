@@ -5,6 +5,84 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
 import { corridorConfig, lateralLimit, resetCorridorConfig } from './route-corridor';
 import { overlayCellKind } from './route-grid-aggregate-viz';
+import { Vector3 } from 'three';
+import { METERS_PER_DEGREE_LAT } from './geo-utils';
+import { ROUTE_BODY_COVER, RouteBody, RouteBodyStations } from './route-body';
+
+describe('GlobalRouteGrid bodies along the route', () => {
+  // At the equator a degree of longitude is as long as one of latitude
+  const flatSync = {
+    geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3): Vector3 =>
+      target.set(lon * METERS_PER_DEGREE_LAT, height, -lat * METERS_PER_DEGREE_LAT),
+  };
+  // 100 m north, 3 m of corridor to each side
+  const stations = new RouteBodyStations(
+    [
+      { lat: 0, lon: 0, corridorLeft: 3, corridorRight: 3 },
+      { lat: 100 / METERS_PER_DEGREE_LAT, lon: 0, corridorLeft: 3, corridorRight: 3 },
+    ],
+    flatSync,
+    200,
+  );
+
+  function oozeBetween(id: string, tail: number, tip: number): Enemy {
+    const body = new RouteBody(stations);
+    body.tailM = tail;
+    body.tipM = tip;
+    return { id, alive: true, body, transform: { terrainHeight: 203 } } as unknown as Enemy;
+  }
+
+  let grid: GlobalRouteGrid;
+  beforeEach(() => {
+    grid = new GlobalRouteGrid();
+    grid.initialize((() => null) as never, { geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }) } as never);
+  });
+
+  it('takes a body into a radius query once the circle reaches it, with the hit where it does', () => {
+    const ooze = oozeBetween('ooze', 10, 30);
+    grid.addBodyEnemy(ooze);
+    grid.addBodyEnemy(ooze);
+
+    const found = grid.getEnemiesInRadius(10, -20, 8);
+    expect(found).toEqual([ooze]);
+    const edge = 3 * ROUTE_BODY_COVER;
+    expect(ooze.body!.hitDistanceM).toBeCloseTo(10 - edge, 1);
+    expect(ooze.body!.hit.lon * METERS_PER_DEGREE_LAT).toBeCloseTo(edge, 3);
+    // No cell under it: the ground of its tip
+    expect(ooze.body!.hit.height).toBe(203);
+  });
+
+  it('leaves out a body the circle misses, a dead one and the excluded one', () => {
+    const ooze = oozeBetween('ooze', 10, 30);
+    const dead = oozeBetween('dead', 10, 30);
+    (dead as unknown as { alive: boolean }).alive = false;
+    grid.addBodyEnemy(ooze);
+    grid.addBodyEnemy(dead);
+
+    expect(grid.getEnemiesInRadius(10, -20, 6)).toEqual([]);
+    expect(grid.getEnemiesInRadius(0, -20, 6, 'ooze')).toEqual([]);
+    expect(grid.getEnemiesInRadius(0, -20, 6)).toEqual([ooze]);
+  });
+
+  it('answers whether a living body is near, for the wake check', () => {
+    grid.addBodyEnemy(oozeBetween('ooze', 10, 30));
+    expect(grid.hasBodyWithin(0, -50, 25)).toBe(true);
+    expect(grid.hasBodyWithin(0, -50, 15)).toBe(false);
+  });
+
+  it('forgets a body when it is removed and all of them on clear', () => {
+    const a = oozeBetween('a', 10, 30);
+    const b = oozeBetween('b', 10, 30);
+    grid.addBodyEnemy(a);
+    grid.addBodyEnemy(b);
+    grid.removeBodyEnemy(a);
+    expect(grid.getBodyEnemies()).toEqual([b]);
+    const generation = grid.getGeneration();
+    grid.clear();
+    expect(grid.getBodyEnemies()).toEqual([]);
+    expect(grid.getGeneration()).not.toBe(generation);
+  });
+});
 
 // Stand-in for the cubemap: a wall at 10 m, so a cell's visibility follows
 // its height. Targets below it are visible, targets above it are not.

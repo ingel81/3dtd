@@ -135,9 +135,10 @@ export class ThreeEffectsRenderer {
    * @param lon - Longitude
    * @param height - Height above ground
    * @param count - Number of particles (default 20)
+   * @param color - Colour as hex (EnemyTypeConfig.bloodColor), red when unset
    */
-  spawnBloodSplatter(lat: number, lon: number, height: number, count = 20): string {
-    return this.particleEffects.spawnBloodSplatter(lat, lon, height, count);
+  spawnBloodSplatter(lat: number, lon: number, height: number, count = 20, color?: number): string {
+    return this.particleEffects.spawnBloodSplatter(lat, lon, height, count, color);
   }
 
   /**
@@ -149,10 +150,11 @@ export class ThreeEffectsRenderer {
    * @param height - Height (terrain height)
    * @param size - Diameter of the round decal in meters, ±20 %
    *   (ParticleEffectsRenderer default 2.0)
+   * @param color - Colour as hex, dark red when unset
    * @returns Decal ID
    */
-  spawnBloodDecal(lat: number, lon: number, height: number, size?: number): string {
-    return this.particleEffects.spawnBloodDecal(lat, lon, height, size);
+  spawnBloodDecal(lat: number, lon: number, height: number, size?: number, color?: number): string {
+    return this.particleEffects.spawnBloodDecal(lat, lon, height, size, color);
   }
 
   /**

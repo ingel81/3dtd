@@ -106,7 +106,7 @@ export class EnemyManager extends EntityManager<Enemy> {
   private _tempLocalPos = new Vector3();
 
   /** Bodies of the oozes along their routes (OozeConfig) */
-  private readonly oozes = new OozeBodies();
+  private readonly oozes: OozeBodies;
 
   // Reactive signal for alive count (for UI bindings)
   readonly aliveCount = signal(0);
@@ -147,6 +147,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     private spatialGrid: SpatialGridService
   ) {
     super();
+    this.oozes = new OozeBodies(globalRouteGrid);
     this.registerDebugHandlers();
   }
 
@@ -672,16 +673,19 @@ export class EnemyManager extends EntityManager<Enemy> {
         // skip their string-keyed lookups while it holds (see
         // GlobalRouteGrid.updateEnemyPosition and SpatialGrid.updateTracked).
         // The spatial entry still gets the exact x/z every sub-step, since
-        // proximity queries filter on them.
-        if (this.globalRouteGrid.isInitialized()) {
-          this.globalRouteGrid.updateEnemyPosition(enemy, this._tempLocalPos.x, this._tempLocalPos.z);
+        // proximity queries filter on them. A body along the route (ooze) is
+        // in neither: the route grid keeps it in its body list.
+        if (enemy.body === null) {
+          if (this.globalRouteGrid.isInitialized()) {
+            this.globalRouteGrid.updateEnemyPosition(enemy, this._tempLocalPos.x, this._tempLocalPos.z);
+          }
+          enemy.spatialEntry = this.spatialGrid.updateEnemyTracked(
+            enemy.spatialEntry,
+            enemy.id,
+            this._tempLocalPos.x,
+            this._tempLocalPos.z,
+          );
         }
-        enemy.spatialEntry = this.spatialGrid.updateEnemyTracked(
-          enemy.spatialEntry,
-          enemy.id,
-          this._tempLocalPos.x,
-          this._tempLocalPos.z,
-        );
       }
       if (sample) tGrid += performance.now() - t0;
 

@@ -109,6 +109,7 @@ export interface EnemyTypeConfig {
   heightOffset: number; // Model height above ground
   healthBarOffset: number; // Health bar height above model
   canBleed: boolean; // Whether blood effects are shown
+  bloodColor?: string; // Colour of its blood and blood decals as hex (default: dark red)
   headingOffset?: number; // Rotation offset in radians (correct model orientation)
   emissiveIntensity?: number; // Glow effect strength (0 = off, 0.1-0.5 = subtle, 1+ = strong)
   emissiveColor?: string; // Glow color as hex (default: '#ffffff')
@@ -947,6 +948,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     heightOffset: 0,
     healthBarOffset: 3,
     canBleed: true,
+    bloodColor: '#6fe021', // Slime, not blood
     headingOffset: 0,
     emissiveIntensity: 0.25,
     emissiveColor: '#66ff22',

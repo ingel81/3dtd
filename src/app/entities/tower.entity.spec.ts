@@ -20,6 +20,56 @@ import { Enemy } from './enemy.entity';
 
 const position = { lat: 10, lon: 20, height: 5 };
 
+describe('Tower.findTarget with a body along the route', () => {
+  const tower = () => new Tower(position, 'archer');
+  /** An ooze whose tip is far away: only bodyDistSq can bring it in range. */
+  const ooze = (): Enemy => {
+    const enemy = new Enemy('ooze', [{ lat: 11, lon: 20 }, { lat: 12, lon: 20 }]);
+    enemy.body = {} as never;
+    return enemy;
+  };
+  /** A zombie `metres` north of the tower. */
+  const zombieAt = (metres: number): Enemy =>
+    new Enemy('zombie', [
+      { lat: position.lat + metres / 111320, lon: position.lon },
+      { lat: position.lat + 1, lon: position.lon },
+    ]);
+
+  it('measures the body at its aim point and does not ask the LOS predicate', () => {
+    const t = tower();
+    const target = ooze();
+    const losCheck = vi.fn(() => false);
+    expect(t.findTarget([target], false, losCheck, () => 100)).toBe(target);
+    expect(losCheck).not.toHaveBeenCalled();
+  });
+
+  it('is out of reach without an aim point in range and sight', () => {
+    const t = tower();
+    expect(t.findTarget([ooze()], false, undefined, () => Infinity)).toBeNull();
+    expect(t.findTarget([ooze()], false)).toBeNull();
+    const far = t.combat.range + 1;
+    expect(t.findTarget([ooze()], false, undefined, () => far * far)).toBeNull();
+  });
+
+  it('picks the nearer of a body and another enemy by the aim point', () => {
+    const t = tower();
+    t.targetingStrategy = 'closest';
+    const body = ooze();
+    const zombie = zombieAt(8);
+    expect(t.findTarget([zombie, body], false, undefined, () => 5 * 5)).toBe(body);
+    t.clearTarget();
+    expect(t.findTarget([zombie, body], false, undefined, () => 12 * 12)).toBe(zombie);
+  });
+
+  it('keeps a body target while its aim point stays in range', () => {
+    const t = tower();
+    const body = ooze();
+    expect(t.findTarget([body], false, undefined, () => 25)).toBe(body);
+    expect(t.findTarget([], false, undefined, () => 25)).toBe(body);
+    expect(t.findTarget([], false, undefined, () => Infinity)).toBeNull();
+  });
+});
+
 describe('Tower entity', () => {
   it('constructs a tower with correct type and position', () => {
     const tower = new Tower(position, 'archer');

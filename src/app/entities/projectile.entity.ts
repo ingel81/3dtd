@@ -66,6 +66,14 @@ export class Projectile extends GameObject {
   private _lastTargetPosition: GeoPosition | null = null;
   private _lastTargetTerrainHeight = 0;
 
+  /**
+   * A fixed point the shot flies to instead of the target's position, with
+   * its geo height: the tower's aim point on a body along the route (the
+   * ooze, BodyAim). The hit still counts on `targetEnemy`. Null for a shot
+   * at any other enemy.
+   */
+  readonly aimPoint: Readonly<GeoPosition> | null;
+
   constructor(
     startPosition: GeoPosition,
     targetEnemy: Enemy,
@@ -75,12 +83,14 @@ export class Projectile extends GameObject {
     sourceTowerId: string,
     /** Tower type that fired the shot. Splash reads its air/ground targeting from it. */
     public readonly sourceTowerType: TowerTypeId,
-    public readonly damageType: import('../configs/combat/combat.types').DamageType = 'physical'
+    public readonly damageType: import('../configs/combat/combat.types').DamageType = 'physical',
+    aimPoint?: GeoPosition,
   ) {
     super('projectile');
     this.typeConfig = getProjectileType(typeId);
     this.targetEnemy = targetEnemy;
     this.sourceTowerId = sourceTowerId;
+    this.aimPoint = aimPoint ? { lat: aimPoint.lat, lon: aimPoint.lon, height: aimPoint.height ?? 0 } : null;
     this._startHeight = startHeight;
     this._flightHeight = startHeight;
 
@@ -110,7 +120,7 @@ export class Projectile extends GameObject {
     this._movement.speedMps = this.typeConfig.speed;
 
     // Calculate total distance to target for progress tracking (fast approx, <200m)
-    this._totalDistance = geoDistanceFast(startPosition, targetEnemy.position);
+    this._totalDistance = geoDistanceFast(startPosition, this.aimPoint ?? targetEnemy.position);
 
     // Calculate initial direction vector
     this._direction = this.calculateDirectionVector(startPosition, startHeight);
@@ -127,7 +137,7 @@ export class Projectile extends GameObject {
     startPos: GeoPosition,
     startHeight: number
   ): { dx: number; dy: number; dz: number } {
-    const targetPos = this.targetEnemy.position;
+    const targetPos = this.aimPoint ?? this.targetEnemy.position;
     const targetHeight = this.getTargetHeight(); // Includes heightOffset for air units
 
     // Calculate horizontal deltas (in geo coords, convert to local direction)
@@ -231,17 +241,23 @@ export class Projectile extends GameObject {
    * @returns true if hit target (or ground if target lost), false otherwise
    */
   updateTowardsTarget(deltaTime: number): boolean {
-    // Check if target just died - capture last position
+    // Check if target just died - capture last position (a shot at a fixed
+    // aim point keeps flying there)
     if (!this.targetEnemy.alive && !this._targetLost) {
       this._targetLost = true;
-      this._lastTargetPosition = { ...this.targetEnemy.position };
-      this._lastTargetTerrainHeight = this.targetEnemy.transform.terrainHeight;
+      if (this.aimPoint) {
+        this._lastTargetPosition = { lat: this.aimPoint.lat, lon: this.aimPoint.lon };
+        this._lastTargetTerrainHeight = (this.aimPoint.height ?? 0) - 1;
+      } else {
+        this._lastTargetPosition = { ...this.targetEnemy.position };
+        this._lastTargetTerrainHeight = this.targetEnemy.transform.terrainHeight;
+      }
     }
 
     // Determine target position (live enemy or last known position)
     const targetPos = this._targetLost
       ? this._lastTargetPosition!
-      : this.targetEnemy.position;
+      : this.aimPoint ?? this.targetEnemy.position;
     const distSq = geoDistanceFastSq(this.position, targetPos);
     const moveDistance = (this.movement.speedMps * deltaTime) / 1000;
 
@@ -300,7 +316,7 @@ export class Projectile extends GameObject {
     // Use last known position if target was lost
     const targetPos = this._targetLost
       ? this._lastTargetPosition!
-      : this.targetEnemy.position;
+      : this.aimPoint ?? this.targetEnemy.position;
     const progress = this.flightProgress;
 
     // Horizontal direction (unchanged - always points towards target), in
@@ -394,6 +410,7 @@ export class Projectile extends GameObject {
    * that overshoots small models and undershoots large ones.
    */
   private getTargetHeight(): number {
+    if (this.aimPoint) return this.aimPoint.height ?? 0;
     const enemyTerrainHeight = this.targetEnemy.transform.terrainHeight ?? 0;
     // Include enemy's heightOffset (e.g., 15m for flying units like bats)
     return enemyTerrainHeight + this.targetEnemy.heightOffset + getEnemyAimOffsetY(this.targetEnemy);

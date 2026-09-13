@@ -85,6 +85,9 @@ export class Tower extends GameObject {
   /** Cached current target - avoid re-searching every frame */
   private _currentTarget: Enemy | null = null;
 
+  /** Distance to a body enemy during findTarget(), see its `bodyDistSq` */
+  private _bodyDistSq: ((enemy: Enemy) => number) | null = null;
+
   /** Last time LOS was verified for current target */
   private _lastLosCheckTime = 0;
 
@@ -188,16 +191,22 @@ export class Tower extends GameObject {
    * OPTIMIZED: Caches target to avoid expensive LOS checks every frame.
    * @param enemies List of potential targets
    * @param losCheck Optional line-of-sight check function (only called on target change)
+   * @param bodyDistSq Squared distance to an enemy whose body lies along the
+   *   route (Enemy.body, the ooze): to the tower's aim point on it, Infinity
+   *   when no point is in range and sight (BodyAim). Such an enemy is out of
+   *   reach without it; `losCheck` is not asked about it.
    * @returns Best enemy based on targeting strategy that is in range and visible, or null
    */
   findTarget(
     enemies: Enemy[],
     airTargetingUnlocked: boolean,
     losCheck?: (enemy: Enemy) => boolean,
+    bodyDistSq?: (enemy: Enemy) => number,
   ): Enemy | null {
     // Squared range for all distance comparisons below (range is stable within
     // a frame; comparisons against distance² avoid sqrt in the hot path).
     const rangeSq = this.combat.range * this.combat.range;
+    this._bodyDistSq = bodyDistSq ?? null;
 
     // Fast path: Check if current target is still valid (no LOS check needed)
     if (this._currentTarget) {
@@ -209,7 +218,7 @@ export class Tower extends GameObject {
         const typeValid = (isAirEnemy && canTargetAir) || (!isAirEnemy && canTargetGround);
 
         if (typeValid) {
-          const distSq = this.calculateDistanceFastSq(this._currentTarget.position);
+          const distSq = this.targetDistSq(this._currentTarget);
           if (distSq <= rangeSq) {
             // Target still valid - keep it without expensive LOS recheck
             return this._currentTarget;
@@ -238,7 +247,7 @@ export class Tower extends GameObject {
 
       // Range is intentionally HORIZONTAL coverage (flat-earth distance²);
       // air units' flight height does not shrink a tower's reach.
-      const distSq = this.calculateDistanceFastSq(enemy.position);
+      const distSq = this.targetDistSq(enemy);
       if (distSq > rangeSq) continue;
 
       // LOS check only when selecting NEW target. The predicate dispatches
@@ -247,7 +256,8 @@ export class Tower extends GameObject {
       // exempt: tall buildings break air LOS too, and the periodic recheck in
       // updateTowerShooting drops air targets that lose it — checking at
       // acquisition keeps both paths consistent (no acquire-then-drop loop).
-      if (losCheck && !losCheck(enemy)) continue;
+      // A body's distance already counts only points in sight.
+      if (!enemy.body && losCheck && !losCheck(enemy)) continue;
 
       candidates.push(enemy);
     }
@@ -274,7 +284,7 @@ export class Tower extends GameObject {
         let best: Enemy | null = null;
         let bestDistSq = Infinity;
         for (const enemy of candidates) {
-          const distSq = this.calculateDistanceFastSq(enemy.position);
+          const distSq = this.targetDistSq(enemy);
           if (distSq < bestDistSq) {
             bestDistSq = distSq;
             best = enemy;
@@ -367,7 +377,7 @@ export class Tower extends GameObject {
         let best: Enemy | null = null;
         let bestDistSq = Infinity;
         for (const enemy of pool) {
-          const distSq = this.calculateDistanceFastSq(enemy.position);
+          const distSq = this.targetDistSq(enemy);
           if (distSq < bestDistSq) {
             bestDistSq = distSq;
             best = enemy;
@@ -505,6 +515,16 @@ export class Tower extends GameObject {
    */
   getSellValue(): number {
     return calculateSellValue(this.typeConfig.cost, this.getTotalUpgradeCost());
+  }
+
+  /**
+   * Squared distance (m²) to what this tower would hit of `enemy`: its
+   * position, or for a body along the route the aim point findTarget() was
+   * handed (Infinity without one).
+   */
+  private targetDistSq(enemy: Enemy): number {
+    if (enemy.body) return this._bodyDistSq ? this._bodyDistSq(enemy) : Infinity;
+    return this.calculateDistanceFastSq(enemy.position);
   }
 
   /**

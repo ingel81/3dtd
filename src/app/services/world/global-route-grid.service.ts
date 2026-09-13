@@ -232,6 +232,30 @@ export class GlobalRouteGridService {
     return this.grid.getEnemiesForTower(visibleCells, out);
   }
 
+  /** Track an enemy whose body lies along the route (the ooze), see GlobalRouteGrid.getBodyEnemies. */
+  addBodyEnemy(enemy: Enemy): void {
+    this.grid.addBodyEnemy(enemy);
+  }
+
+  removeBodyEnemy(enemy: Enemy): void {
+    this.grid.removeBodyEnemy(enemy);
+  }
+
+  /** Enemies whose body lies along the route; they are in no cell. */
+  getBodyEnemies(): readonly Enemy[] {
+    return this.grid.getBodyEnemies();
+  }
+
+  /** Whether a living body reaches within `radius` of local (x, z). */
+  hasBodyWithin(x: number, z: number, radius: number): boolean {
+    return this.grid.hasBodyWithin(x, z, radius);
+  }
+
+  /** Bumped whenever the cells are rebuilt or dropped. */
+  getGeneration(): number {
+    return this.grid.getGeneration();
+  }
+
   /**
    * Get cell at local coordinates
    */
