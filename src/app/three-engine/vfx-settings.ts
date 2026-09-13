@@ -21,6 +21,8 @@ export interface VfxSettings {
   bloom: boolean;
   /** LUT color grading pass (post-processing), 'none' = off */
   colorGrading: ColorGradingPreset;
+  /** Red mood, glowing enemies and searchlights on blood moon waves (BloodMoonLook) */
+  bloodMoon: boolean;
 }
 
 /** The look of the game before the settings existed. */
@@ -32,17 +34,19 @@ export const DEFAULT_VFX_SETTINGS: Readonly<VfxSettings> = {
   freezeTint: true,
   bloom: false,
   colorGrading: 'none',
+  bloodMoon: true,
 };
 
 /** Effect quality presets over the switches that cost frame time. */
 export type VfxPreset = 'low' | 'medium' | 'high';
 
 /**
- * What a preset sets: everything but the freeze tint, which costs next to
- * nothing and is a matter of taste. The screen shake is no VFX setting at
- * all, a preset never turns it back on for a player who switched it off.
+ * What a preset sets: everything but the freeze tint and the blood moon,
+ * which cost next to nothing and are a matter of taste. The screen shake
+ * is no VFX setting at all, a preset never turns it back on for a player
+ * who switched it off.
  */
-export type VfxPresetSettings = Omit<VfxSettings, 'freezeTint'>;
+export type VfxPresetSettings = Omit<VfxSettings, 'freezeTint' | 'bloodMoon'>;
 
 export const VFX_PRESETS: Readonly<Record<VfxPreset, Readonly<VfxPresetSettings>>> = {
   // Nothing that is decoration only
@@ -77,7 +81,7 @@ export const VFX_PRESETS: Readonly<Record<VfxPreset, Readonly<VfxPresetSettings>
 
 const PRESET_ORDER: readonly VfxPreset[] = ['low', 'medium', 'high'];
 
-/** The settings with a preset applied; the freeze tint keeps its value. */
+/** The settings with a preset applied; the freeze tint and the blood moon keep their values. */
 export function withVfxPreset(settings: VfxSettings, preset: VfxPreset): VfxSettings {
   return { ...settings, ...VFX_PRESETS[preset] };
 }
@@ -109,5 +113,6 @@ export function readVfxSettings(stored: Partial<Record<keyof VfxSettings, unknow
     freezeTint: flag('freezeTint'),
     bloom: flag('bloom'),
     colorGrading: grading?.id ?? DEFAULT_VFX_SETTINGS.colorGrading,
+    bloodMoon: flag('bloodMoon'),
   };
 }

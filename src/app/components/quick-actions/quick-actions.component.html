@@ -48,6 +48,12 @@
         <input type="checkbox" [checked]="vfx().freezeTint" (change)="toggleVfx('freezeTint')">
         <span>Freeze Tint</span>
       </label>
+      <label class="td-setting-row"
+             matTooltip="Every 7th wave from wave 14: red night, glowing enemies, searchlights on the towers. Looks only"
+             matTooltipPosition="left">
+        <input type="checkbox" [checked]="vfx().bloodMoon" (change)="toggleVfx('bloodMoon')">
+        <span>Blood Moon</span>
+      </label>
       <label class="td-setting-row" matTooltip="Nearby explosions, HQ damage and boss deaths shake the view"
              matTooltipPosition="left">
         <input type="checkbox" [checked]="screenShakeEnabled()"

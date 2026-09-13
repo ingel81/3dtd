@@ -1142,6 +1142,7 @@ export class ThreeTilesEngine {
     this.enemies.setFreezeTintEnabled(settings.freezeTint);
     this.postProcessing?.setBloomEnabled(settings.bloom);
     this.postProcessing?.setColorGradingPreset(settings.colorGrading);
+    this.bloodMoon.setEnabled(settings.bloodMoon);
   }
 
   // ---- Color Grading (LUT) ----
