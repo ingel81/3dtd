@@ -14,9 +14,11 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
 
 - Die Blender-Runde vom 2026-09-13 hat zwölf Modelle geändert (`tools/blender/optimize_enemy.py`,
   ein Rezept je Modell, siehe [Empfehlungen](#empfehlungen-je-modell)). Alle 20 Typen werden
-  beim Start gebacken (`preloadAllModels`); ihre VATs belegen zusammen 105,2 MB GPU-Speicher,
-  19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in RGBA32F wären 188,9 MB).
+  beim Start gebacken (`preloadAllModels`); ihre VATs belegen zusammen 101,4 MB GPU-Speicher,
+  19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in RGBA32F wären 181,3 MB).
   Vor der Runde waren es 264,2 MB, bis 2026-09-12 (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
+  Die Runde vom 2026-09-14 (Tank, Ghost) steht unter
+  [Runde vom 2026-09-14](#runde-vom-2026-09-14).
 - Die teuersten Wellen nach Vertex-Last sind jetzt `rat_tide` (5,0 Mio.), `mech_army` (4,2),
   `zombie_horde` (3,6), `skeleton_swarm` (3,3), `armor_gauntlet` (2,5) und `wraith_storm`
   (2,4). Vorher führten `hornet_strike` (14,9) und `zombie_horde` (14,4). Kein Template liegt
@@ -146,8 +148,14 @@ Offen:
 - **Mech** (42.455, `mech_army` 4,2 Mio.): nicht geändert. 12 % Decimate ergab 6.739
   VAT-Vertices und hinterließ Splitter und Texturnähte an den 34 Hard-Surface-Teilen. Unter
   5.000 bräuchte es eine Retopologie.
-- **Ghost** (5.245, drei 1024²-Bilder) liegt knapp über dem Budget, seine Wellen unter
-  1,5 Mio.
+- **Ghost** (5.248, drei 1024²-Bilder) liegt knapp über dem Budget, seine Wellen unter
+  1,5 Mio. 1.487 der 7.773 Dreiecke wiederholen ein anderes mit umgekehrter Windung,
+  1.301 davon in den Schleiern (Material_26, Opacity 0,403): zwei deckungsgleiche Lagen
+  unter einem doppelseitigen, blendenden Material. Nach Position geschweißt wären es 4.212
+  Vertices, dabei drehten sich aber die Normalen von 777 Vertices um mehr als 5°; nur die
+  Wiederholungen entfernt, sparte es 233. Ohne die zweite Lage blendeten die Schleier
+  schwächer (eine Lage 0,403 statt zwei, zusammen 0,644), das bräuchte eine angepasste
+  Opacity.
 
 ### Runde vom 2026-09-14
 
@@ -159,6 +167,11 @@ Vergleich mit `bake-compare.mjs`; Normalen zusätzlich Vertex für Vertex vergli
   einmal. Positionen gleich, Normalen höchstens 0,02° verschieden, der facettierte Look
   bleibt. Nach Position geschweißt wären es 4.466, dabei drehten sich die Normalen von 12
   Vertices um bis zu 47°. Geglättet wären es 2.269, eine Look-Änderung.
+- **Ghost** 5.245 → 5.248, 8,0 → 4,2 MB, 2,7 → 2,5 MB: `Take 001` (6,67 s) läuft einen
+  Schwebezyklus von 3,5 s knapp zweimal; geschnitten auf Frame 13 bis 118 (105 Frames), die
+  Posen dort liegen 0,49 % auseinander, die letzten 4 Frames gleiten in die erste. Geometrie,
+  Normalen (höchstens 0,03° verschieden) und Texturen bleiben, die Vertex-Last auch. Exakt nur
+  mit `rest_from_file`; zu den doppelten Lagen siehe Offen.
 
 ### Ausgangslage (2026-09-12)
 
@@ -404,7 +417,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.272 | 19.541 | 0,7 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
 | Wraith (`wraith`) | Normal | 300 | 8.126 | 6.790 | 2,4 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
 | Mammoth (`mammoth`) | Normal | 150 | 5.557 | 8.685 | 0,8 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
-| Ghost (`ghost`) | Normal | 280 | 5.245 | 7.773 | 1,5 | Skinning | 200 | 5245×200 | RGBA16F | 0,46 | 8,0 | 1024² |
+| Ghost (`ghost`) | Normal | 280 | 5.248 | 7.773 | 1,5 | Skinning | 105 | 5248×105 | RGBA16F | 0,46 | 4,2 | 1024² |
 | Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 4.870 | 3.704 | 1,0 | Skinning | 272 | 4870×272 | RGBA16F | 1,08 | 10,1 | 1024² |
 | Tank (`tank`) | Normal | 150 | 4.477 | 2.796 | 0,7 | statisch | 1 | 4477×1 | RGBA16F | 1,12 | 0,0 | – |
@@ -419,7 +432,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 | Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 
-VAT-Speicher aller Typen zusammen: **105,2 MB** (30 fps), alles in RGBA32F wären **188,9 MB**.
+VAT-Speicher aller Typen zusammen: **101,4 MB** (30 fps), alles in RGBA32F wären **181,3 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **8,6 MB** dazu.
 
 ### Alpha
@@ -454,7 +467,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Dragon | `dragon.glb` | 5,9 | 1 (1) | 220 | 0 | 1 | 4× 1024² | 1 | 12.082 / 11.868 / 10.208 |
 | Wraith | `wraith.glb` | 1,8 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
 | Mammoth | `mammoth.glb` | 2,6 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 2 | 5.557 / 5.541 / 5.121 |
-| Ghost | `ghost.glb` | 2,7 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 5.245 / 3.894 / 3.467 |
+| Ghost | `ghost.glb` | 2,5 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 5.248 / 3.894 / 3.467 |
 | Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.915 / 4.913 / 3.370 |
 | Zombie v2 | `zombie_v2.glb` | 1,9 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 4.870 / 4.870 / 1.827 |
 | Tank | `tank.glb` | 0,2 | 7 (0) | 0 | 0 | 7 | – | 0 | 4.469 / 2.269 / 1.676 |
@@ -485,7 +498,7 @@ die weggelassenen Frames.
 | Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
 | Mammoth | `Walk` | walk | 4,97 | 149 | – |
 | Mammoth | `Die` | death | 6,00 | 172 | 9 |
-| Ghost | `Take 001` | walk | 6,67 | 200 | – |
+| Ghost | `Take 001` | walk | 3,50 | 105 | – |
 | Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
 | Zombie v2 | `Dead` | death | 2,96 | 61 | 28 |
