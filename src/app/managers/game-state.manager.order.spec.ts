@@ -144,6 +144,7 @@ function createEngine(): never {
     }),
     plinths: auto(),
     towerBadges: auto(),
+    bloodMoon: auto(),
     enemies: auto(),
     projectiles: auto(),
     trailStreaks: auto(),
@@ -481,11 +482,12 @@ describe('GameStateManager order of operations (characterization)', () => {
         'debug:remove-enemy', 'debug:spawn-enemy',
         'debug:kill-all', 'enemy:reached-base', 'enemy:leaking', 'enemy:died',
         'research:completed', 'wave:completed',
-        // VFXService, AudioService, ScreenShakeService, BackgroundMusicService
+        // VFXService, AudioService, ScreenShakeService, BackgroundMusicService, BloodMoonService
         'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
         'enemy:split', 'ability:used', 'ability:impact', 'game:reset',
         'audio:play', 'ability:impact', 'game:reset',
         'vfx:projectile-impact', 'health:changed', 'ability:impact', 'enemy:died',
+        'wave:started', 'wave:completed', 'game:over', 'game:reset',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         // GameStateManager: leak budget, AA retrofit, guard turns, veteran badge, kill reward
         'enemy:reached-base', 'enemy:leaking', 'research:completed', 'wave:completed',

@@ -45,6 +45,7 @@ import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
 import { OozeBandRenderer } from './renderers/ooze/ooze-band.renderer';
+import { BloodMoonLook } from './blood-moon/blood-moon-look';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -146,6 +147,8 @@ export class ThreeTilesEngine {
   readonly mushroomClouds: MushroomCloudRenderer;
   /** Bodies of the oozes along the route, see OozeBodies */
   readonly oozes: OozeBandRenderer;
+  /** Look of the blood moon waves, switched by BloodMoonService */
+  readonly bloodMoon = new BloodMoonLook();
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -972,6 +975,9 @@ export class ThreeTilesEngine {
 
     // The oozes' slime wobbles and sinks away in game time
     this.oozes.animate(gameDeltaSeconds * 1000);
+
+    // Blood moon on wall time while the game runs; a pause holds it
+    this.bloodMoon.update(deltaTime, this.gameTimescale > 0);
 
     // Screen shake is applied in render() (drawFrame), not to the camera
   }
