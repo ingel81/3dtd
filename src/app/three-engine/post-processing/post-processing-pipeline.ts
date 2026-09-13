@@ -4,6 +4,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createColorGradingPass, ColorGradingPreset } from './color-grading';
+import { BloomKick, type BloomValues } from './bloom-kick';
 
 /**
  * PostProcessingPipeline — kapselt EffectComposer + Render-/Bloom-/ColorGrading-/Output-Pass.
@@ -19,6 +20,7 @@ import { createColorGradingPass, ColorGradingPreset } from './color-grading';
 export class PostProcessingPipeline {
   private readonly composer: EffectComposer;
   private readonly bloomPass: UnrealBloomPass;
+  private readonly bloomKick: BloomKick;
   private readonly colorGrading: ReturnType<typeof createColorGradingPass>;
 
   private bloomEnabled = false;
@@ -50,6 +52,7 @@ export class PostProcessingPipeline {
     // active (the bloomEnabled flag was previously not wired to pass.enabled).
     this.bloomPass.enabled = false;
     this.composer.addPass(this.bloomPass);
+    this.bloomKick = new BloomKick(this.bloomPass);
 
     // Color grading LUT pass (inserted before output, disabled by default)
     this.colorGrading = createColorGradingPass();
@@ -78,6 +81,20 @@ export class PostProcessingPipeline {
   setBloomEnabled(enabled: boolean): void {
     this.bloomEnabled = enabled;
     this.bloomPass.enabled = enabled;
+    if (!enabled) this.bloomKick.reset();
+  }
+
+  /**
+   * Brighter bloom for a moment: `amount` 0..1 of the way from the set-up
+   * strength and threshold to `peak`, 0 puts them back exactly. Only while
+   * bloom is on (VFX settings); a kick never turns the pass on.
+   */
+  setBloomKick(amount: number, peak: BloomValues): void {
+    if (this.bloomEnabled) {
+      this.bloomKick.set(amount, peak);
+    } else {
+      this.bloomKick.reset();
+    }
   }
 
   // ── Color Grading ────────────────────────────────────────────────

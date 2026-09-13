@@ -53,7 +53,7 @@ import { logTileMaterialTypes } from './tile-material-log';
 import { instrumentRaycasts } from '../utils/raycast-stats';
 import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
-import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import type { GeoPosition } from '../models/game.types';
 
 /**
@@ -939,6 +939,8 @@ export class ThreeTilesEngine {
 
     // Mushroom clouds run in game time: a pause (timescale 0) holds them
     this.mushroomClouds.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
+    // Their flash kicks the bloom, where bloom is on
+    this.postProcessing?.setBloomKick(this.mushroomClouds.bloomKick, MUSHROOM_CLOUD_LOOK.bloomKick);
 
     // Screen shake is applied in render() (drawFrame), not to the camera
   }

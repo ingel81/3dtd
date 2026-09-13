@@ -274,6 +274,12 @@ export const MUSHROOM_CLOUD_LOOK = {
    * out quadratically. screenPeak 0 turns the screen flash off.
    */
   flash: { duration: 0.5, size: 150, height: 10, intensity: 3, screenPeak: 0.65, screenDuration: 0.55 },
+  /**
+   * Bloom kick with the flash: strength and threshold of the bloom pass
+   * jump to these values at the impact and fall back to their own over
+   * `duration`, quadratically. Only while bloom is on (VFX settings).
+   */
+  bloomKick: { duration: 0.9, strength: 1.4, threshold: 0.55 },
   /** Ring on the ground, its radius closing in on `radius` with the time constant */
   shockwave: { duration: 1.6, radius: 70, timeConstant: 0.35, opacity: 1 },
   /**

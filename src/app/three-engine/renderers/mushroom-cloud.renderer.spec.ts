@@ -17,7 +17,8 @@ import { MUSHROOM_CLOUD_LOOK } from '../../configs/visual-effects.config';
 
 const GROUND = new Vector3(100, 20, -50);
 const RADIUS = 25;
-const { glowParticles, smokeParticles, embers, shockwave, shockDome, fireball, groundFire } = MUSHROOM_CLOUD_LOOK;
+const { glowParticles, smokeParticles, embers, shockwave, shockDome, fireball, groundFire, bloomKick } =
+  MUSHROOM_CLOUD_LOOK;
 const GLOW_PER_CLOUD = Object.values(glowParticles).reduce((n, count) => n + count, 0)
   + glowParticles.embers * (embers.trail - 1);
 const SMOKE_PER_CLOUD = Object.values(smokeParticles).reduce((n, count) => n + count, 0);
@@ -116,6 +117,28 @@ describe('MushroomCloudRenderer', () => {
 
     run(shockwave.duration * 1000 - 900, 50);
     expect(rings.some((r) => r.visible)).toBe(false);
+  });
+
+  it('kicks the bloom with the flash, in game time', () => {
+    const { clouds, run } = setup();
+    expect(clouds.bloomKick).toBe(0);
+    clouds.detonate(GROUND, RADIUS);
+    run(16);
+    expect(clouds.bloomKick).toBeGreaterThan(0.9);
+
+    run(200, 16);
+    const kick = clouds.bloomKick;
+    expect(kick).toBeLessThan(0.9);
+    for (let i = 0; i < 30; i++) run(0);
+    expect(clouds.bloomKick).toBe(kick);
+
+    run(bloomKick.duration * 1000, 16);
+    expect(clouds.bloomKick).toBe(0);
+
+    clouds.detonate(GROUND, RADIUS);
+    run(16);
+    clouds.clear();
+    expect(clouds.bloomKick).toBe(0);
   });
 
   it('punches the fireball up within the first half second', () => {

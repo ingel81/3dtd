@@ -257,6 +257,8 @@ export class MushroomCloudRenderer {
   private readonly clouds: Cloud[] = [];
   private activeCount = 0;
   private sequence = 0;
+  /** See bloomKick */
+  private kick = 0;
   /** Smoke, embers, ground fire, stem fire and rim glow (VFX settings: impact effects) */
   private full = true;
 
@@ -400,6 +402,15 @@ export class MushroomCloudRenderer {
   }
 
   /**
+   * How far the bloom kick of the newest flash is up, 0 to 1: 1 at the
+   * impact, falling off quadratically over LOOK.bloomKick.duration of game
+   * time (for PostProcessingPipeline.setBloomKick).
+   */
+  get bloomKick(): number {
+    return this.kick;
+  }
+
+  /**
    * The whole cloud, or the detonation only: flash, fireball, fire shell,
    * shock dome and shockwave (VFX settings: impact effects). Takes hold
    * with the next strike.
@@ -463,6 +474,7 @@ export class MushroomCloudRenderer {
 
     let glowCount = 0;
     let screen = 0;
+    let kick = 0;
     for (let slot = 0; slot < this.clouds.length; slot++) {
       const cloud = this.clouds[slot];
       if (!cloud.active) {
@@ -487,7 +499,12 @@ export class MushroomCloudRenderer {
         const fade = 1 - cloud.t / screenDuration;
         screen = Math.max(screen, screenPeak * fade * fade);
       }
+      if (cloud.t < LOOK.bloomKick.duration) {
+        const fade = 1 - cloud.t / LOOK.bloomKick.duration;
+        kick = Math.max(kick, fade * fade);
+      }
     }
+    this.kick = kick;
     this.commit(this.glow, glowCount);
     this.commit(this.smoke, this.writeSortedSmoke());
     this.screen.material.uniforms['uOpacity'].value = screen;
@@ -498,6 +515,7 @@ export class MushroomCloudRenderer {
   clear(): void {
     for (const cloud of this.clouds) cloud.active = false;
     this.activeCount = 0;
+    this.kick = 0;
     this.depth.fill(-1);
     this.commit(this.glow, 0);
     this.commit(this.smoke, 0);
