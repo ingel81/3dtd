@@ -163,12 +163,16 @@
            overlap. Game Speed: build phase and waves; between waves it speeds
            up research, which runs in game time. Boss bar: while a boss lives. -->
       @if (!loading() && !error()) {
-        <div class="td-hud-top">
+        <div class="td-hud-top" [class.td-hud-muted]="bossIntro.active()">
           @if (!isGameOver()) {
             <app-game-speed />
           }
           <app-boss-bar />
         </div>
+
+        <!-- Boss intro: dark veil around the camera cuts, the boss's name
+             while the portal shot holds. Transparent otherwise. -->
+        <app-boss-intro />
       }
 
       <!-- Controls Hint (auto-hides after 15s, click to dismiss). Not while a

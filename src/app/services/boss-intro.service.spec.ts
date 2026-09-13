@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Only their DI tokens are needed; the real modules pull in the engine.
+// Only their DI tokens are needed; the real modules pull in the engine, and
+// the partially compiled CDK needs the JIT compiler under vitest.
+vi.mock('@angular/cdk/a11y', () => ({ LiveAnnouncer: class LiveAnnouncer {} }));
 vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
 vi.mock('../ai/training/training-client.service', () => ({ TrainingClientService: class TrainingClientService {} }));
 vi.mock('./infrastructure/engine-initialization.service', () => ({
@@ -13,6 +15,7 @@ vi.mock('../store/ui.store', () => ({ UIStore: class UIStore {} }));
 vi.mock('../store/game.store', () => ({ GameStore: class GameStore {} }));
 
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { BossIntroService } from './boss-intro.service';
 import { GameStateManager } from '../managers/game-state.manager';
@@ -66,6 +69,7 @@ describe('BossIntroService', () => {
   let service: BossIntroService;
   let startPosition: Vector3;
   let startQuaternion: Quaternion;
+  let announce: ReturnType<typeof vi.fn>;
 
   const spawn = (boss: FakeBoss, viaPortal = true) => bus.emit({ type: 'enemy:spawned', enemy: boss.enemy, viaPortal });
   const frame = (ms = 16) => service.update(ms);
@@ -85,6 +89,7 @@ describe('BossIntroService', () => {
     startQuaternion = camera.quaternion.clone();
     controls = { enabled: true };
     photoMode = signal(false);
+    announce = vi.fn();
     const engine = {
       getCamera: () => camera,
       getControls: () => controls,
@@ -106,6 +111,7 @@ describe('BossIntroService', () => {
         { provide: KeyboardPanService, useValue: { clearKeys: vi.fn() } },
         { provide: IntroCameraFlightService, useValue: { active: signal(false) } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
+        { provide: LiveAnnouncer, useValue: { announce } },
       ],
     });
     service = runInInjectionContext(injector, () => new BossIntroService());
@@ -143,6 +149,18 @@ describe('BossIntroService', () => {
     play(BOSS_INTRO_TIMING.revealMs);
     expect(service.stage()).toBeNull();
     expect(service.active()).toBe(false);
+  });
+
+  it('names the boss and its wave on the card and to a screen reader', () => {
+    const boss = fakeBoss();
+    boss.walked = 20;
+    spawn(boss);
+    frame();
+    expect(service.card()).toEqual({ name: 'Herbert', wave: 10 });
+    expect(announce).toHaveBeenCalledWith('Boss: Herbert, wave 10.');
+
+    play(bossIntroReturnMs() + BOSS_INTRO_TIMING.revealMs);
+    expect(service.card()).toBeNull();
   });
 
   it('a stalled frame does not eat the hold', () => {
