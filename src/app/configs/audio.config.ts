@@ -138,6 +138,22 @@ export const GAME_SOUNDS = {
       { delayMs: 260, volume: 0.35 },
     ],
   },
+  /**
+   * EMP pulse: the lightning tower's chain crack (1.2 s), louder and
+   * further, with two quieter repeats as the fronts run out.
+   */
+  emp: {
+    id: 'emp',
+    url: 'assets/sounds/towers/lightning/lightning_chain.mp3',
+    refDistance: 110,
+    rolloffFactor: 0.7,
+    volume: 1.5,
+    maxInstances: 4,
+    tail: [
+      { delayMs: 180, volume: 0.5 },
+      { delayMs: 420, volume: 0.3 },
+    ],
+  },
 } as const;
 
 /**
@@ -175,4 +191,5 @@ export interface AbilityImpactSound {
 export const ABILITY_IMPACT_SOUNDS: Record<AbilityId, AbilityImpactSound | null> = {
   'nuclear-strike': GAME_SOUNDS.nuclearStrike,
   'frost-bomb': GAME_SOUNDS.frostBomb,
+  emp: GAME_SOUNDS.emp,
 };

@@ -216,6 +216,7 @@ describe('VFXService nuclear strike', () => {
       abilityMarkers: { showStrike: vi.fn(), removeStrike: vi.fn(), clear: vi.fn() },
       mushroomClouds: { detonate: vi.fn(), clear: vi.fn() },
       frostBursts: { burst: vi.fn(), clear: vi.fn() },
+      empPulses: { pulse: vi.fn(), clear: vi.fn() },
     };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
     const used = () => eventBus.emit({
@@ -281,6 +282,20 @@ describe('VFXService nuclear strike', () => {
     expect(tilesEngine.abilityMarkers.clear).toHaveBeenCalled();
     expect(tilesEngine.mushroomClouds.clear).toHaveBeenCalled();
     expect(tilesEngine.frostBursts.clear).toHaveBeenCalled();
+    expect(tilesEngine.empPulses.clear).toHaveBeenCalled();
+    service.destroy();
+  });
+
+  it('EMP: the marker, then the pulse on the ground point, no ground marks', () => {
+    const { eventBus, tilesEngine, service } = strikeSetup();
+    eventBus.emit({ type: 'ability:used', abilityId: 'emp', strikeId: 6, target: TARGET, radiusM: 30, warningMs: 500 });
+    expect(tilesEngine.abilityMarkers.showStrike).toHaveBeenCalledWith(6, expect.objectContaining({ x: 7, y: 8, z: 9 }), 30, 500);
+
+    eventBus.emit({ type: 'ability:impact', abilityId: 'emp', strikeId: 6, target: TARGET, radiusM: 30 });
+    expect(tilesEngine.abilityMarkers.removeStrike).toHaveBeenCalledWith(6);
+    expect(tilesEngine.empPulses.pulse).toHaveBeenCalledWith(expect.objectContaining({ x: 7, y: 8, z: 9 }), 30);
+    expect(tilesEngine.effects.markScorch).not.toHaveBeenCalled();
+    expect(tilesEngine.effects.spawnIceDecal).not.toHaveBeenCalled();
     service.destroy();
   });
 

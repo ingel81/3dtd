@@ -227,6 +227,26 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     }],
   },
 
+  emp: {
+    id: 'emp',
+    name: 'EMP',
+    description:
+      'Unlocks the EMP: aim at the route, 0.5 s later machines within 30 m stop for 6 s, '
+      + 'everything else for 1.5 s (bosses 0.75 s). One charge, a new one every 3 waves',
+    category: 'global-perk',
+    icon: 'bolt',
+    cost: 800,
+    duration: 30,
+    // Out of the lightning research: comes with Storm Mastery's chain
+    // lightning, before the tank column of W22 and the mech army of W28
+    prerequisites: ['storm-mastery'],
+    effects: [{
+      kind: 'global-perk',
+      perkId: 'emp',
+      description: 'EMP ability: one charge, a new one every 3 completed waves',
+    }],
+  },
+
   // ==================== Upgrade Tiers ====================
 
   'advanced-weaponry': {
