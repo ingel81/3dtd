@@ -30,6 +30,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | Aktuell | Wave-Management, Sub-Step-Spawner, Mixed Waves, Game Phases |
 | [ABILITIES.md](ABILITIES.md) | Aktuell | Spieler-Fähigkeiten (Nuklearschlag, Frostbombe, EMP, Orbitallaser), Fähigkeitenleiste: Ladungen, Zielmodus, Einschlag in Sub-Steps, Leck-Buchung im Gate, Bot-Strategie |
 | [HERO.md](HERO.md) | Aktuell | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition als Schadensart, Stufen, virtueller Tower im Fairness-Gate, Modell-Naht, Bedienung (G, V) |
+| [REPLAY.md](REPLAY.md) | Aktuell | Replay der letzten Welle: warum Präsentations-Aufnahme statt Re-Simulation, Aufnahme in Typed Arrays mit Speichergrenze, Player über die Live-Renderer, Bedienung, Grenzen |
 | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) | Aktuell | Debug-Pfad ohne Director: `STATIC_WAVE_PROFILES`, UI-Toggle, Post-W30-Loop |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
 | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) | Aktuell | Breite des Routenkorridors: Freiraum je Seite aus den Tiles, OSM-Breite als Rückfall, Dach-Check, Brücken, Tunnel, Nachmessen (`CorridorRefit`), Seitenversatz der Gegner, `__corridor.*`, `__routes.describe()` |
