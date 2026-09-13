@@ -17,7 +17,12 @@ import { ResearchStore } from '../store/research.store';
 import { TowerLosRegistry } from './tower-los-registry';
 import { BuildPreviewLos } from './build-preview-los';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
-import { TowerFootprint, footprintSampleOffsets, resolveTowerFootprint } from '../utils/tower-footprint';
+import {
+  FootprintColumn,
+  TowerFootprint,
+  footprintSampleOffsets,
+  resolveTowerFootprint,
+} from '../utils/tower-footprint';
 import { TowerPlinthPreview } from './tower-plinth-preview';
 
 /**
@@ -303,11 +308,9 @@ export class TowerPlacementService {
 
   /**
    * Where a tower of `typeId` stands at (lat, lon) when the surface under the
-   * cursor is at `surfaceY`: on the highest point under its footprint
-   * (`footprintRadius`), with a plinth down to the lowest one, see
-   * resolveTowerFootprint. Each probe asks for the highest surface of its
-   * column: on the 3D tiles `raycastSurfaceTop`, in DevWorld the same
-   * raycastDown as the cursor surface. Shared by preview, click and bot.
+   * cursor is at `surfaceY`: on the highest point of the ground under its
+   * footprint (`footprintRadius`), with a plinth down to the lowest one, see
+   * resolveTowerFootprint. Shared by preview, click and bot.
    */
   resolveFootprint(lat: number, lon: number, typeId: TowerTypeId, surfaceY: number): TowerFootprint {
     const engine = this.engine;
@@ -315,15 +318,24 @@ export class TowerPlacementService {
     if (!engine || !config) return { footY: surfaceY, plinthHeight: 0 };
 
     const center = engine.sync.geoToLocalSimple(lat, lon, 0);
+    const columns = footprintSampleOffsets(config.footprintRadius).map(([dx, dz]) =>
+      this.footprintColumn(engine, center.x + dx, center.z + dz),
+    );
+    return resolveTowerFootprint(surfaceY, config.footprintRadius, columns);
+  }
+
+  /**
+   * Ground and highest surface of the column at a local position, null where
+   * nothing is there: on the 3D tiles `raycastColumnSample`, in DevWorld the
+   * same raycastDown as the cursor surface for the top and the terrain height
+   * for the ground.
+   */
+  private footprintColumn(engine: ThreeTilesEngine, x: number, z: number): FootprintColumn | null {
     const devProvider = engine.getDevTerrainProvider();
-    const samples = footprintSampleOffsets(config.footprintRadius).map(([dx, dz]) => {
-      const x = center.x + dx;
-      const z = center.z + dz;
-      return devProvider
-        ? (devProvider.raycastDown(x, z, 10000)?.y ?? null)
-        : engine.terrain.raycastSurfaceTop(x, z, 'towerFootprint');
-    });
-    return resolveTowerFootprint(surfaceY, samples);
+    if (!devProvider) return engine.terrain.raycastColumnSample(x, z, 'towerFootprint');
+    const top = devProvider.raycastDown(x, z, 10000);
+    if (!top) return null;
+    return { groundY: devProvider.getHeightAtLocal(x, z) ?? top.y, topY: top.y };
   }
 
   /**

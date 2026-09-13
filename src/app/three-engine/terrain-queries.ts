@@ -422,14 +422,15 @@ export class TerrainQueries {
   }
 
   /**
-   * Highest surface at a local position: roof, deck or crown where there is
-   * one, else the ground (`ColumnSample.topY`). What a tower's footprint
-   * stands on. Thin read of {@link sampleColumn}, booked on `caller`.
+   * The column at a local position: its ground and its highest surface, roof,
+   * deck, car or crown where there is one (`ColumnSample`). What a tower's
+   * footprint is judged by. Thin read of {@link sampleColumn}, booked on
+   * `caller`.
    */
-  raycastSurfaceTop(localX: number, localZ: number, caller: string): number | null {
+  raycastColumnSample(localX: number, localZ: number, caller: string): ColumnSample | null {
     const scope = raycastStats.enter(caller);
     try {
-      return this.sampleColumn(localX, localZ)?.topY ?? null;
+      return this.sampleColumn(localX, localZ);
     } finally {
       raycastStats.exit(scope);
     }

@@ -75,6 +75,13 @@ describe('TowerPlacementService', () => {
       z: (lat - HQ.lat) * METERS_PER_DEGREE_LAT,
     }),
   };
+  /** DevWorld terrain whose surface and ground both follow `height`: no buildings. */
+  const devWorld = (height: (x: number) => number) => ({
+    raycastDown: vi.fn((x: number): { y: number } | null => ({ y: height(x) })),
+    getHeightAtLocal: vi.fn((x: number) => height(x)),
+  });
+  /** A tile column with nothing over its ground. */
+  const column = (y: number) => ({ groundY: y, topY: y });
 
   const bounds = { minLat: 47.99, maxLat: 48.02, minLon: 8.99, maxLon: 9.02 };
   /** Spawn 1 km north, route straight down 100 m east of the HQ. */
@@ -116,8 +123,8 @@ describe('TowerPlacementService', () => {
   let overlay: Group;
   let scene: object;
   let blockerGroup: object | null;
-  let devTerrain: { raycastDown: ReturnType<typeof vi.fn> } | null;
-  let terrain: { raycastSurfaceTop: ReturnType<typeof vi.fn> };
+  let devTerrain: ReturnType<typeof devWorld> | null;
+  let terrain: { raycastColumnSample: ReturnType<typeof vi.fn> };
   let mapper: {
     invalidate: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -230,7 +237,7 @@ describe('TowerPlacementService', () => {
     blockerGroup = {};
     devTerrain = null;
     // The tiles have no surface under the footprint unless a test gives them one.
-    terrain = { raycastSurfaceTop: vi.fn(() => null) };
+    terrain = { raycastColumnSample: vi.fn(() => null) };
     const referencePos = new Vector3(1, 2, 3);
     mapper = {
       invalidate: vi.fn(),
@@ -493,7 +500,7 @@ describe('TowerPlacementService', () => {
     });
 
     it('stands the preview on the DevWorld surface below the cursor', async () => {
-      devTerrain = { raycastDown: vi.fn(() => ({ y: 42 })) };
+      devTerrain = devWorld(() => 42);
       init();
       await enterBuild();
       hover(FREE, 5);
@@ -518,7 +525,7 @@ describe('TowerPlacementService', () => {
     const slope = (x: number) => 10 + x * 0.5;
 
     it('stands the preview on the highest point of the footprint in DevWorld', async () => {
-      devTerrain = { raycastDown: vi.fn((x: number) => ({ y: slope(x) })) };
+      devTerrain = devWorld(slope);
       init();
       await enterBuild('archer');
       hover(FREE, 5);
@@ -529,23 +536,23 @@ describe('TowerPlacementService', () => {
       // The LOS preview starts at the raised foot as well.
       const tip = losViz.instances[0].opts['towerTip'] as Vector3;
       expect(tip.y).toBeCloseTo(foot + heightOffset + shootHeight);
-      expect(terrain.raycastSurfaceTop).not.toHaveBeenCalled();
+      expect(terrain.raycastColumnSample).not.toHaveBeenCalled();
     });
 
-    it('probes the highest tile surface of each column on the 3D tiles', async () => {
-      terrain.raycastSurfaceTop.mockImplementation((x: number) => 3 + x * 0.25);
+    it('reads the tile column under each probe on the 3D tiles', async () => {
+      terrain.raycastColumnSample.mockImplementation((x: number) => column(3 + x * 0.25));
       init();
       await enterBuild('cannon');
       hover(FREE, 3);
 
       const { footprintRadius, heightOffset } = TOWER_TYPES.cannon;
-      expect(terrain.raycastSurfaceTop).toHaveBeenCalledTimes(19);
-      expect(terrain.raycastSurfaceTop).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), 'towerFootprint');
+      expect(terrain.raycastColumnSample).toHaveBeenCalledTimes(19);
+      expect(terrain.raycastColumnSample).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), 'towerFootprint');
       expect(preview()!.position.y).toBeCloseTo(3 + footprintRadius * 0.25 + heightOffset);
     });
 
     it('places the tower at the raised foot with the plinth down to the lowest point', async () => {
-      devTerrain = { raycastDown: vi.fn((x: number) => ({ y: slope(x) })) };
+      devTerrain = devWorld(slope);
       init();
       await enterBuild('archer');
       hover(FREE, 5);
@@ -559,7 +566,7 @@ describe('TowerPlacementService', () => {
     });
 
     it('registers the LOS of such a tower from the top of its plinth', async () => {
-      devTerrain = { raycastDown: vi.fn((x: number) => ({ y: slope(x) })) };
+      devTerrain = devWorld(slope);
       init();
       await enterBuild('archer');
       hover(FREE, 5);
@@ -575,19 +582,19 @@ describe('TowerPlacementService', () => {
     });
 
     it('re-probes only after the cursor moved a meter', async () => {
-      terrain.raycastSurfaceTop.mockImplementation(() => 3);
+      terrain.raycastColumnSample.mockImplementation(() => column(3));
       init();
       await enterBuild('archer');
       hover(FREE, 3);
       hover(at(0, 300.4), 3);
-      expect(terrain.raycastSurfaceTop).toHaveBeenCalledTimes(19);
+      expect(terrain.raycastColumnSample).toHaveBeenCalledTimes(19);
 
       hover(at(0, 310), 3);
-      expect(terrain.raycastSurfaceTop).toHaveBeenCalledTimes(38);
+      expect(terrain.raycastColumnSample).toHaveBeenCalledTimes(38);
     });
 
     it('shows the plinth under the preview, down to the lowest point', async () => {
-      devTerrain = { raycastDown: vi.fn((x: number) => ({ y: slope(x) })) };
+      devTerrain = devWorld(slope);
       init();
       await enterBuild('archer');
       hover(FREE, 5);
@@ -609,7 +616,7 @@ describe('TowerPlacementService', () => {
     });
 
     it('keeps the cursor surface on even ground', async () => {
-      terrain.raycastSurfaceTop.mockImplementation(() => 3.05);
+      terrain.raycastColumnSample.mockImplementation(() => column(3.05));
       init();
       await enterBuild('archer');
       hover(FREE, 3);
@@ -617,6 +624,31 @@ describe('TowerPlacementService', () => {
 
       expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 3 }, plinthHeight: 0 });
       expect(overlay.children.some((child) => child.name === 'tower-plinth')).toBe(false);
+    });
+
+    it('does not lift the tower onto a car parked beside it', async () => {
+      const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+      // 1.5 m high, 2.2 to 4.4 m east of the tower
+      const onCar = (x: number, z: number) => x - local.x >= 2.2 && x - local.x <= 4.4 && Math.abs(z - local.z) <= 2.3;
+      terrain.raycastColumnSample.mockImplementation((x: number, z: number) => column(onCar(x, z) ? 4.5 : 3));
+      init();
+      await enterBuild('archer');
+      hover(FREE, 3);
+      service.handleBuildClick();
+
+      expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 3 }, plinthHeight: 0 });
+    });
+
+    it('on a roof, stands on its higher part with the plinth down to the lower', async () => {
+      const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+      // Flat roof at 20 m over a street at 5 m, 1.5 m higher from 1 m east of the tower on
+      terrain.raycastColumnSample.mockImplementation((x: number) => ({ groundY: 5, topY: x - local.x > 1 ? 21.5 : 20 }));
+      init();
+      await enterBuild('archer');
+      hover(FREE, 20);
+      service.handleBuildClick();
+
+      expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 21.5 }, plinthHeight: 1.5 });
     });
   });
 
@@ -628,7 +660,7 @@ describe('TowerPlacementService', () => {
     });
 
     it('returns the DevWorld hit, or the fallback where the ray hits nothing', () => {
-      devTerrain = { raycastDown: vi.fn(() => ({ y: 42 })) };
+      devTerrain = devWorld(() => 42);
       init();
       expect(service.getSurfaceHeightAt(FREE.lat, FREE.lon, 7)).toBe(42);
 
@@ -790,7 +822,7 @@ describe('TowerPlacementService', () => {
 
   describe('click', () => {
     it('asks the game state to place the tower and leaves build mode', async () => {
-      devTerrain = { raycastDown: vi.fn(() => ({ y: 42 })) };
+      devTerrain = devWorld(() => 42);
       init();
       await enterBuild('cannon');
       service.startRotating();
