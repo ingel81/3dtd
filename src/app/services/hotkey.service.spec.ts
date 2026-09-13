@@ -42,6 +42,10 @@ function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
   return event;
 }
 
+function release(key: string): KeyboardEvent {
+  return new KeyboardEvent('keyup', { key, cancelable: true });
+}
+
 describe('HotkeyService', () => {
   let service: HotkeyService;
   let facade: { startWave: ReturnType<typeof vi.fn>; upgradeTower: ReturnType<typeof vi.fn>; sellSelectedTower: ReturnType<typeof vi.fn> };
@@ -179,10 +183,32 @@ describe('HotkeyService', () => {
       expect(facade.startWave).not.toHaveBeenCalled();
     });
 
-    it('keeps a focused button from clicking on the keyup of Space', () => {
-      const up = new KeyboardEvent('keyup', { key: ' ', cancelable: true });
+    it('keeps a focused button from clicking on the keyup of the Space that started the wave', () => {
+      service.handleKeyDown(press(' '));
+      // Held key: the repeats find the wave running and do nothing
+      store.canStartWave.set(false);
+      service.handleKeyDown(press(' ', { repeat: true }));
+      const up = release(' ');
       service.handleKeyUp(up);
       expect(up.defaultPrevented).toBe(true);
+    });
+
+    it('lets Space click a focused button when it started no wave', () => {
+      store.canStartWave.set(false);
+      service.handleKeyDown(press(' '));
+      const up = release(' ');
+      service.handleKeyUp(up);
+      expect(up.defaultPrevented).toBe(false);
+    });
+
+    it('leaves the next Space alone once the wave-starting one is released', () => {
+      service.handleKeyDown(press(' '));
+      service.handleKeyUp(release(' '));
+      store.canStartWave.set(false);
+      service.handleKeyDown(press(' '));
+      const up = release(' ');
+      service.handleKeyUp(up);
+      expect(up.defaultPrevented).toBe(false);
     });
   });
 
