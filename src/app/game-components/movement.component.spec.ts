@@ -41,6 +41,35 @@ describe('MovementComponent', () => {
     expect(transform?.terrainHeight).toBe(3);
   });
 
+  it('faces along its segment right after setPath, before any step', () => {
+    const transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+    // Due east, not the default heading 0 (north)
+    movement.setPath([
+      { lat: 0, lon: 0, height: 0 },
+      { lat: 0, lon: 0.001, height: 0 },
+    ]);
+    const facing = transform.rotation;
+    expect(Math.abs(facing)).toBeCloseTo(Math.PI / 2, 6);
+    // It is the heading it walks with, on its lane: no turn once it starts
+    movement.setLateralFactor(0.5);
+    movement.speedMps = 5;
+    for (let i = 0; i < 10; i++) {
+      movement.move(16.667, 0);
+      transform.update(16.667);
+    }
+    expect(transform.rotation).toBeCloseTo(facing, 6);
+
+    // Part-way along a later segment (a split child), heading south
+    const other = new TestGameObject();
+    const late = new MovementComponent(other);
+    late.setPath([
+      { lat: 0, lon: 0, height: 0 },
+      { lat: 0, lon: 0.001, height: 0 },
+      { lat: -0.001, lon: 0.001, height: 0 },
+    ], 1, 0.5);
+    expect(Math.abs(other.getComponent<TransformComponent>(ComponentType.TRANSFORM)!.rotation)).toBeCloseTo(Math.PI, 6);
+  });
+
   it('uses speedMps from constructor defaults and setter', () => {
     expect(movement.speedMps).toBe(0);
     movement.speedMps = 7.5;
@@ -290,11 +319,11 @@ describe('MovementComponent', () => {
       const cross = steps.findIndex((s) => s.crossed);
       expect(cross).toBeGreaterThan(2);
 
-      // First step (faces the waypoint), second step (first movement
-      // direction), the crossing step (chord) and the first step that stays
-      // on the new segment.
+      // Second step (first movement direction; setPath already faced the
+      // waypoint, so the first step does not), the crossing step (chord)
+      // and the first step that stays on the new segment.
       const looked = steps.flatMap((s, i) => (s.looked ? [i] : []));
-      expect(looked).toEqual([0, 1, cross, cross + 1]);
+      expect(looked).toEqual([1, cross, cross + 1]);
     });
 
     it('holds what a per-step derivation gives, up to lat/lon rounding', () => {
