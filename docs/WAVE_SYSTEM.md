@@ -605,7 +605,7 @@ Quelle `GameStore`). `GameStateSyncService` füllt ihn aus den Events:
 
 | Store-Signal | gesetzt bei |
 |---|---|
-| `phase`, `waveNumber` | `wave:started` (Phase `wave`), `wave:completed` (Phase `setup`), `game:over` (Phase `gameover`) |
+| `phase`, `waveNumber` | `wave:started` (Phase `wave`), `wave:completed` (Phase `setup`), `game:over` (Phase `gameover`); `waveNumber` auch bei `wave:jumped` (Dev-Cheat, siehe [Jump to Wave](#jump-to-wave)) |
 | `waveEnemyTotal` | `wave:started` (`enemyCount`), + Kinder je `enemy:split` in der Welle, 0 bei `wave:completed` |
 | `waveEnemiesLeft` | `wave:started`, -1 je `enemy:died` und `enemy:reached-base`, + Kinder je `enemy:split` in der Welle, 0 bei `wave:completed` und `debug:kill-all` |
 
@@ -936,6 +936,34 @@ die Welle kommt aus `WaveDebugService.toAIWaveConfig()` (siehe
 
 `debug:kill-all` stoppt den Spawner (`stopSpawning()`) und tötet alle lebenden
 Enemies ohne Credits. Die Welle endet danach regulär über `checkWaveComplete()`.
+
+### Jump to Wave
+
+Dev-Cheat, um späte Wellen ohne 30 gespielte Wellen davor zu testen
+(Boss-Rotation W35 Wurm, W45 Ooze, Nachladen der Fähigkeiten). Im
+Wave-Debug-Fenster (Dev-Menü, Gruppe "Waves & Inspect", Kachel "Waves"),
+Abschnitt "Jump to wave": Wellennummer N (Standard 35), daneben was Welle N
+ist (Boss-Variante, Curriculum-Template, Boss-Welle oder Director-Welle),
+Schalter "Gold of the skipped waves" (Standard an), Knopf.
+
+Weg: `debug:jump-to-wave` (`wave`, `grantGold`) → `GameCommandsHandler` →
+`GameStateManager.jumpToWave()`. Sofort, nicht deferred, wie
+`debug:add-credits`: der Sprung gilt nur in Phase `setup`, und ein
+Wellenstart direkt danach muss den neuen Zähler schon sehen.
+
+| Was | Verhalten |
+|---|---|
+| Zähler | `WaveManager.jumpTo(N - 1)`: Welle N - 1 gilt als gespielt, der nächste Start ist Welle N. Nichts spawnt, kein `wave:started` und kein `wave:completed` |
+| Erlaubt | nur in Phase `setup` (nicht während einer Welle, nicht nach Game Over), nur vorwärts und nur, wenn mindestens eine Welle übersprungen wird (N ab aktueller Welle + 2). Sonst `false`, kein Event |
+| Gold | mit Schalter `skippedWavesGold(from + 1, N - 1)` (`services/economy.service.ts`): Kill-Budget, Basis-Abschlussbonus und Meilenstein-Boni jeder übersprungenen Welle, also was ein Spieler bekommt, der jede Welle ganz abräumt. Keine Skill-Boni (Perfect, Close Call, Combo, Comeback); der Perfect-Streak bleibt, wie er war |
+| Fähigkeiten | laden nach, als wären die übersprungenen Wellen abgeschlossen (`AbilityManager.advanceWaves`, derselbe Pfad wie bei `wave:completed`), höchstens bis voll |
+| Forschung, Auto-Start-Countdown | bleiben, wie sie sind: sie laufen auf Spielzeit, und der Sprung verbraucht keine |
+| Wave-Director | behält Gate-Fenster, Multiplikator und Template-Historie. Übersprungene Wellen liefern keine Leck-Evidenz, und die Verteidigung ist dieselbe. Er plant aus dem Zähler (`waveNumber + 1` im Snapshot), Curriculum-Pin, Boss-Takt, DPS-Rampe, Endgame-HP und Boss-Rotation folgen also Welle N |
+| `game:started` | geht weiter genau einmal vor der ersten Welle eines Laufs raus. Der GameStateManager merkt sich das in einem Flag (`runStarted`, in `reset()` zurückgesetzt) statt an Welle 0, damit ein Sprung vor Welle 1 es nicht verschluckt |
+| Ankündigung | `wave:jumped` (`from`, `wave`, `skipped`, `credits`): der Store setzt `waveNumber` auf N - 1, die Game-Over-Bilanz bucht `credits` als Cheat-Gold (nicht unter Earned), `BestWaveService` schreibt für diesen Lauf keinen Rekord mehr und meldet keinen neuen ([LOCATION_SYSTEM.md](LOCATION_SYSTEM.md)) |
+
+Balance-Configs (Curriculum W1 bis W30, Gold-Budget, Boss-Rotation) ändert der
+Cheat nicht.
 
 ---
 
