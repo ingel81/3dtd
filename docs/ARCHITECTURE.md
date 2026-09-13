@@ -2162,3 +2162,19 @@ const material = new THREE.ShaderMaterial({
 ```
 
 **Regel:** Für flache Overlays auf Terrain (LOS-Grid, Markers, etc.) immer `depthTest: false` und `depthWrite: false` setzen.
+
+### Shader-Compile-Check ohne Browser
+
+**Problem:** Ein GLSL-Fehler in einem eigenen Material zeigt sich nur in der Browser-Konsole, das Material bleibt dann unsichtbar. Specs, die nur den Shader-Text prüfen, finden keine Tippfehler, reservierten Wörter (`flat`, `sample`, ...) oder Typfehler.
+
+**Lösung:** `npm run shader-check` (läuft auch mit `npm test`), Code in `tools/shader-check/`:
+
+- `capture-renderer.ts`: der echte `WebGLRenderer` von three über einem Ersatz-WebGL2-Kontext, der nur die Quelltexte aus `shaderSource()` aufhebt. `renderer.compile()` nimmt den Weg wie im Spiel: Parameter aus `WebGLPrograms` (Instancing, Nebel, Lichter, Log-Depth, Ausgabe-Farbraum), `onBeforeCompile`, Chunks, entrollte Schleifen, WebGL2-Prefix. Szene wie im Spiel: Lichter aus `addSceneLights` plus ein Punktlicht (Mündungsfeuer), Nebel, `logarithmicDepthBuffer: true`. Drei Aufbauten: sRGB-Canvas mit Nebel, lineares Half-Float-Ziel des Composers, Canvas ohne Nebel. Tone Mapping bleibt aus, wie im Spiel.
+- `glslang.ts`: `glslangValidator` (Khronos-Referenz-Frontend) prüft beide Stufen als GLSL ES 3.00 und linkt sie (`-l`: Uniform- und Varying-Typen zwischen den Stufen). Dazu ein eigener Test: jedes benutzte Fragment-`in` braucht ein Vertex-`out`, sonst scheitert der Link in WebGL.
+- `shader-check.spec.ts`: ein Fall je Material, gebaut wie in seinem Renderer. Die Quelltexte des letzten Laufs liegen im Temp-Ordner unter `3dtd-shader-check`, Fehler mit den Zeilen drumherum.
+
+**glslangValidator besorgen:** keine Abhängigkeit des Projekts, einmal von Hand. Offizielle Builds unter [github.com/KhronosGroup/glslang/releases](https://github.com/KhronosGroup/glslang/releases): das Archiv `glslang-<version>-windows-x86_64-release.zip` (Linux `...-linux-x86_64-release`, macOS `...-macos-universal-release`) entpacken, das Programm liegt in `bin/`. Das Vulkan SDK bringt es ebenfalls mit. Dann entweder den Pfad setzen (Git Bash: `export GLSLANG_VALIDATOR=/c/tools/glslang/bin/glslangValidator.exe`, PowerShell: `$env:GLSLANG_VALIDATOR = 'C:\tools\glslang\bin\glslangValidator.exe'`) oder `bin/` in den PATH legen. Der Check nimmt `GLSLANG_VALIDATOR` und sonst `glslangValidator` aus dem PATH. Ohne beides überspringt die Spec die Compile-Tests: `npm run shader-check` sagt dann, warum und woher, in `npm test` stehen sie nur als übersprungen in der Zusammenfassung. Der GLSL-Aufbau (Chunks, `onBeforeCompile`, Log-Depth) wird trotzdem geprüft.
+
+**Nicht geprüft:** Treiber- und ANGLE-Eigenheiten, Grenzen der echten GPU (Uniform- und Varying-Anzahl), Extensions (der Ersatz-Kontext meldet nur Float-Farbpuffer für das Composer-Ziel). glslang kennt in GLSL ES ein eingebautes `average()`, das WebGL nicht hat; three definiert es in `common` selbst, darum benennt der Check es nur für glslang um.
+
+**Regel:** Ein neues eigenes Material (`ShaderMaterial`, `RawShaderMaterial`, `onBeforeCompile`) bekommt einen Fall in `CASES`, gebaut wie im Spiel (InstancedMesh, wenn es instanziert gezeichnet wird). Ein `onBeforeCompile`-Patch nennt in `marks` eine Zeile, die im Programm stehen muss: sonst fällt er bei einem umbenannten Chunk still weg.
