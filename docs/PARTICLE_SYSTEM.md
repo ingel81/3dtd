@@ -22,11 +22,13 @@ ueber fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
   Floating Damage Numbers ueber Gegnern. 1 Draw Call fuer alle Texts.
 - **Frost-/Poison-Auren**: Pro-Enemy orbitierende Partikel-Cluster (Tracking
   ueber Maps mit `localPosition` und `orbitAngle`).
+- **Atompilz** (`MushroomCloudRenderer`): eigene Points mit den ShaderMaterials
+  der Trail-Pools, in Spielzeit, siehe [Atompilz](#atompilz-nuklearschlag).
 
 Pool-Limits und Effektwerte in `configs/visual-effects.config.ts` (`PARTICLE_LIMITS`,
 `BLOOD_DECAL_CONFIG`, `ICE_DECAL_CONFIG`, `SCORCH_DECAL_CONFIG`, `EXPLOSION_PRESETS`,
-`EXPLOSION_LOOK`, `BURST_PALETTES`, `MUZZLE_FLASH_PROFILES`, `SCREEN_SHAKE_CONFIG`,
-`FIRE_INTENSITY` mit Anzahl und Radius für `spawnFire*`).
+`EXPLOSION_LOOK`, `MUSHROOM_CLOUD_LOOK`, `BURST_PALETTES`, `MUZZLE_FLASH_PROFILES`,
+`SCREEN_SHAKE_CONFIG`, `FIRE_INTENSITY` mit Anzahl und Radius für `spawnFire*`).
 Der Tower-Fire-Pool (800) ist `MAX_TOWER_FIRE_PARTICLES` in `particle-pool-manager.ts`.
 
 ---
@@ -477,6 +479,48 @@ Zurück zum alten Bild: `EXPLOSION_LOOK.fire.sizeEnd = 0` und `smokePuffs = 0` i
 
 ---
 
+## Atompilz (Nuklearschlag)
+
+`MushroomCloudRenderer` (`three-engine/renderers/mushroom-cloud.renderer.ts`), Werte in
+`MUSHROOM_CLOUD_LOOK`, seit 2026-09-13. `VFXService` ruft `engine.mushroomClouds.detonate`
+beim `ability:impact`; die Phasen stehen in [ABILITIES.md](ABILITIES.md#darstellung).
+
+- **Spielzeit:** `ThreeTilesEngine.update` reicht den Frame in Spielzeit weiter
+  (Wanduhr mal Timescale, in der Pause 0). Jedes Partikel ist eine Funktion aus dem
+  Alter des Pilzes und vier Zufallszahlen vom Einschlag, jeden Frame neu berechnet:
+  Pause hält den Pilz an, ein langer Frame bei hohem Timescale endet im selben Bild
+  wie viele kurze. Die Trail-Pools dagegen altern in Wanduhrzeit.
+- **Eigene Puffer, geteilte Materialien:** zwei `Points` (additiv mit dem
+  Explosions-Atlas, normal mit dem Rauch-Atlas) mit den ShaderMaterials der
+  Trail-Pools (`ParticlePoolManager.shaderMaterials`), also Log-Depth und Atlas wie
+  dort. Nicht aus den Pools, weil ein Schlag auf eine große Welle trifft, die sie
+  füllt. Budget pro Pilz 106 Glut- und 270 Rauchpartikel, Puffer für zwei
+  gleichzeitige Pilze (212 und 540); ein dritter nimmt den Platz des ältesten.
+  Pro Frame keine Allokation.
+- **Deckkraft über den Frame:** Der Normal-Shader kennt kein Alpha pro Partikel. Der
+  Rauch-Atlas wird von Frame zu Frame breiter und blasser; der Renderer wählt den
+  Frame nach der gewünschten Deckkraft und gleicht die Größe über den Anteil aus, den
+  der Puff im Frame bedeckt.
+- **Größe in Metern:** Der Partikel-Shader rechnet in Pixeln
+  (`PARTICLE_POINT_SCALE`, `size * 3000 / Tiefe`). Der Pilz rechnet Meter über die
+  Höhe des Zeichenpuffers und das FOV um, damit er auf jeder Auflösung gleich groß
+  ist. Die übrigen Effekte tun das nicht.
+- **Sortierung:** Rauch blendet normal und schreibt keine Tiefe, er wird jeden Frame
+  von hinten nach vorn geschrieben (Insertion Sort über die Reihenfolge des
+  Vorframes). Die Glut zeichnet vorher (`renderOrder` 996 vor 997), damit Rauch davor
+  sie dämpft.
+- **Blitz, Druckwelle, Bildschirm:** Sprite und Ring mit eingebauten Materialien und
+  prozeduralen `DataTexture`s, Tiefentest aus wie beim Zielmarker; ein
+  Vollbild-Quad (ShaderMaterial mit Log-Depth-Chunks) hellt das Bild 0,3 s lang
+  additiv auf (`flash.screenPeak`, 0 schaltet ihn ab). Alle Objekte hängen an
+  `DrawGate`s, ohne Pilz steht nichts in der Render-Liste.
+- **VFX-Einstellungen:** Impact Effects aus (`setFullCloud(false)` aus
+  `applyVfxSettings`) lässt den nächsten Pilz auf Blitz, Feuerball und Druckwelle
+  schrumpfen.
+- **Reset:** `game:reset` leert die Pilze (`VFXService`).
+
+---
+
 ## Kampfspuren (Scorch-Decals)
 
 Schicht 1 aus `docs/game-design/COMBAT_HEATMAP_STUDY.md`, seit 2026-09-12. Dunkle
@@ -564,7 +608,7 @@ Status-Effekte und Events laufen gleich, Training und Headless-Betrieb auch.
 |----------|---------|-----------|
 | Muzzle Flash | an | `spawnMuzzleFlash` erzeugt keine Partikel, `ThreeTowerRenderer.triggerMuzzleFlash` zündet das Licht nicht. Das PointLight bleibt dunkel in der Szene, sonst bräuchten alle beleuchteten Materialien ein neues Shader-Programm. |
 | Projectile Trails | an | `TrailStreakRenderer.create` vergibt keinen Streak, laufende fallen weg (je Projektil ein eigenes Mesh mit eigenem Draw Call, Geometrie jeden Frame neu). `spawnConfigurableTrail` erzeugt keine Trail-Partikel. |
-| Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch (die einzigen Sprite-Sheet-Partikel), keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. |
+| Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch, keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. Der Atompilz des Nuklearschlags schrumpft auf Blitz, Feuerball und Druckwelle. |
 | Ground Marks | an | Keine Blut-, Eis- und Brand-Decals. Beim Ausschalten werden die liegenden gelöscht, die leeren Pools fallen per `DrawGate` aus der Render-Liste. `VFXService` und `CombatVfxService` sparen die Terrain-Raycasts für ein Decal (einer pro Blut-Decal, bis zu vier pro Eis-Explosion). |
 | Bloom | aus | `UnrealBloomPass` aus. Sind Bloom und Color Grading beide aus, zeichnet die Engine ohne Composer. |
 | Color Grading | None | LUT-Pass aus. |
@@ -635,6 +679,7 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/floating-text/floating-text-material.ts` | Custom ShaderMaterial fuer Text-Atlas |
 | `three-engine/renderers/floating-text/floating-text-atlas.ts` | Prozedurale Text-Atlas-Generierung |
 | `three-engine/renderers/sprite-atlas-generator.ts` | Sprite-Sheet-Atlanten (Explosion 4×4, Smoke 4×4) |
+| `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Nuklearschlags, in Spielzeit |
 | `configs/projectile-types.config.ts` | Trail-Partikel Konfiguration (TrailParticleConfig) |
 | `configs/visual-effects.config.ts` | Partikel-Limits, Decal-Configs, Explosion-Presets, Farben |
 | `game-engine/vfx.service.ts` | VFX Event Handler (Blood, Explosion, Muzzle-Flash, Projectile Impact) |
