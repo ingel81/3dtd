@@ -79,6 +79,21 @@ describe('DpsBinsOverlay', () => {
     expect(bus.getListenerCount()).toBe(0);
   });
 
+  it('follows tower changes once when shown twice, and not at all once hidden', () => {
+    overlay.setVisible(true, engine);
+    overlay.setVisible(true, engine);
+    const [viz] = dpsViz.instances;
+    expect(bus.getListenerCount()).toBe(3);
+
+    emit('tower:placed');
+    expect(viz.updates).toHaveLength(3);
+
+    overlay.setVisible(false, engine);
+    emit('tower:placed');
+    expect(viz.visible).toBe(false);
+    expect(bus.getListenerCount()).toBe(0);
+  });
+
   it('keeps the visualizer when shown again', () => {
     overlay.setVisible(true, engine);
     overlay.setVisible(false, engine);
