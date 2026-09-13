@@ -1,65 +1,97 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { BloodMoonLook } from './blood-moon-look';
 import { BLOOD_MOON_LOOK } from '../../configs/blood-moon.config';
 
 const { fadeInMs, fadeOutMs } = BLOOD_MOON_LOOK;
 
+function setup() {
+  const mood = { setAmount: vi.fn(), dispose: vi.fn() };
+  const look = new BloodMoonLook({ mood });
+  return { look, mood };
+}
+
 describe('BloodMoonLook', () => {
   it('fades in over the fade-in time once a blood moon wave runs, and out after it', () => {
-    const look = new BloodMoonLook();
+    const { look } = setup();
     look.setActive(true);
     expect(look.isActive).toBe(true);
-    look.update(fadeInMs / 2, true);
+    look.update(fadeInMs / 2, true, false);
     expect(look.amount).toBeCloseTo(0.5);
-    look.update(fadeInMs / 2, true);
+    look.update(fadeInMs / 2, true, false);
     expect(look.amount).toBe(1);
 
     look.setActive(false);
-    look.update(fadeOutMs, true);
+    look.update(fadeOutMs, true, false);
     expect(look.amount).toBe(0);
   });
 
   it('holds while the game is paused and goes on without a jump', () => {
-    const look = new BloodMoonLook();
+    const { look } = setup();
     look.setActive(true);
-    look.update(fadeInMs / 4, true);
+    look.update(fadeInMs / 4, true, false);
     const before = look.amount;
-    look.update(10_000, false);
+    look.update(10_000, false, false);
     expect(look.amount).toBe(before);
-    look.update(16, true);
+    look.update(16, true, false);
     expect(look.amount).toBeGreaterThan(before);
     expect(look.amount).toBeLessThan(1);
   });
 
   it('drops the look at once on a reset', () => {
-    const look = new BloodMoonLook();
+    const { look } = setup();
     look.setActive(true);
-    look.update(fadeInMs, true);
+    look.update(fadeInMs, true, false);
     look.setActive(false, true);
     expect(look.amount).toBe(0);
   });
 
   it('shows nothing while the display option is off, and fades back in when it is turned on mid-wave', () => {
-    const look = new BloodMoonLook();
+    const { look } = setup();
     look.setActive(true);
-    look.update(fadeInMs, true);
+    look.update(fadeInMs, true, false);
     look.setEnabled(false);
     expect(look.amount).toBe(0);
-    look.update(fadeInMs, true);
+    look.update(fadeInMs, true, false);
     expect(look.amount).toBe(0);
     expect(look.isActive).toBe(true);
 
     look.setEnabled(true);
     expect(look.amount).toBe(0);
-    look.update(fadeInMs, true);
+    look.update(fadeInMs, true, false);
     expect(look.amount).toBe(1);
   });
 
   it('stays off when the option is turned on outside a blood moon wave', () => {
-    const look = new BloodMoonLook();
+    const { look } = setup();
     look.setEnabled(false);
     look.setEnabled(true);
-    look.update(fadeInMs, true);
+    look.update(fadeInMs, true, false);
     expect(look.amount).toBe(0);
+  });
+
+  it('hands the amount to the mood only when it or the output target changes', () => {
+    const { look, mood } = setup();
+    look.update(16, true, false);
+    expect(mood.setAmount).not.toHaveBeenCalled();
+
+    look.setActive(true);
+    look.update(fadeInMs, true, false);
+    expect(mood.setAmount).toHaveBeenLastCalledWith(1, false);
+    look.update(16, true, false);
+    expect(mood.setAmount).toHaveBeenCalledTimes(1);
+
+    look.update(16, true, true);
+    expect(mood.setAmount).toHaveBeenLastCalledWith(1, true);
+    expect(mood.setAmount).toHaveBeenCalledTimes(2);
+
+    look.setActive(false, true);
+    look.update(16, false, true);
+    expect(mood.setAmount).toHaveBeenLastCalledWith(0, true);
+  });
+
+  it('disposes its parts', () => {
+    const { look, mood } = setup();
+    look.dispose();
+    expect(mood.dispose).toHaveBeenCalled();
   });
 });

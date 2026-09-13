@@ -33,4 +33,17 @@ export const BLOOD_MOON_LOOK = {
   fadeInMs: 3000,
   /** And back once the wave is over */
   fadeOutMs: 4500,
+  /**
+   * Red, dark mood over the whole picture (BloodMoonMood): the frame is
+   * multiplied by `tint` in display values, so red keeps most of its
+   * strength while green and blue drop; the corners darken by `vignette`
+   * on top. The sky dims to `skyIntensity` first, the distance fog turns
+   * to `fogColor` (sRGB).
+   */
+  mood: {
+    tint: { r: 0.84, g: 0.38, b: 0.34 },
+    vignette: 0.4,
+    skyIntensity: 0.6,
+    fogColor: 0x2b1311,
+  },
 } as const;
