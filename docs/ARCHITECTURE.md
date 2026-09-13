@@ -1669,6 +1669,44 @@ spawnFireAtLocalY(lat, lon, localY, 'medium');
 **Konfiguration:** `FIRE_INTENSITY` in `configs/visual-effects.config.ts` (Tabelle oben);
 der Typ `FireIntensityLevel` ist aus seinen Schlüsseln abgeleitet.
 
+### Spawn-Portal
+
+Ein Steintor auf dem Routenstart jedes Spawns (`SpawnPortalManager`, `renderers/marker/`),
+zwei instanzierte Draw Calls für alle Portale:
+
+- **Tor** (opak): Steinblöcke und die Leere in der Öffnung, zwei Quads Rücken an Rücken.
+  Die Leere schreibt Tiefe. Die Portalfläche steht `PORTAL_SETBACK` (0,8 m) vor dem
+  Routenstart, der Spawn liegt damit in der Tiefe des Rahmens: ein Gegner erscheint knapp
+  hinter der Fläche, Leere, Pfeiler und Sturz verdecken ihn samt Healthbar, bis er
+  heraustritt. Ein Spec prüft das mit Strahlen von einem Körper am Spawn (bis 2,2 m hoch)
+  zu Kameras vor und über dem Portal. Von hinten ist der Gegner zu sehen, bis er eingetreten ist.
+- **Glow** (additiv): das Licht auf der Straße vor dem Portal.
+
+Look: dunkler, verwitterter Stein mit glimmenden Fugen; die Leere ist ein langsamer Wirbel
+auf fast schwarzem Grund, dunkelrot glimmend, violett in den Tälern, stumpfes Orange nur an
+den heißesten Stellen, das Auge in der Mitte schwarz. Glutpunkte steigen im Shader auf, ohne
+Partikel. Die Spawnfarbe tönt nur den Rand, die Sigillen und das Straßenlicht. Farben in
+`SPAWN_PORTAL_LOOK.palette`, Maße in `configs/marker-geometry.config.ts` (Intro-Flug und
+Totale lesen sie von dort).
+
+**Sigillen** (`spawn-portal-sigils.ts`): ein fester, von Hand gesetzter Satz von zehn
+fiktiven Siegeln aus Kreisen, Bögen und Punkten. Jedes sitzt in einem Siegelring und trägt
+mindestens zwei weitere Zeichen, eins davon außerhalb der Mitte; jedes ist spiegelsymmetrisch
+zur Senkrechten. Sie laufen als Fries um die Öffnung (links hinauf, über den Sturz, rechts
+hinab, vorn und hinten); Zelle k zeigt Sigille `(3 k) mod 10`, benachbarte Zellen sind
+verschieden, jede Sigille kommt auf einem Rahmen vor. Der Shader-Code wird aus der Tabelle
+erzeugt. Ausgeschlossen sind:
+
+- gerade Striche: keine Kreuze, keine Haken- oder gedrehten Kreuze, keine Blitz- oder
+  Zickzackstriche, nichts wie Runen des älteren Futhark (Sowilo, Othala, Algiz)
+- Buchstaben, Ziffern und alles, was wie eine echte Schrift wirkt: kein einzelner Kreis
+  (O, 0), kein Kreis mit Mittelpunkt (ʘ), keine bloßen konzentrischen Kreise (◎), keine
+  offene Einzelkurve (C, U), keine Punkte im Raster zwei mal drei (Braille)
+
+Der Spec prüft den Aufbau (nur Kreise, Bögen und Punkte, Siegelring plus zwei Zeichen,
+Symmetrie, Platz auf den Stirnseiten); die Ausschlüsse folgen daraus oder sind beim Entwurf
+von Hand geprüft. Neue Sigillen müssen dieselben Regeln einhalten.
+
 ### Route Animation (Knight Rider Effekt)
 
 Animierte Routen-Visualisierung:

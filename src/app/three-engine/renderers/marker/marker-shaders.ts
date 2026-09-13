@@ -11,6 +11,7 @@ import {
   OneFactor,
 } from 'three';
 import type { EffectRgb } from '../../../configs/visual-effects.config';
+import { PORTAL_SIGIL_GLSL } from './spawn-portal-sigils';
 
 // ============================================================
 // DIAMOND BODY SHADER
@@ -412,8 +413,9 @@ const PORTAL_PALETTE_GLSL = /* glsl */ `
  * opening (aPart 1), opaque, in one draw call. Unlit like every marker
  * shader: a fixed key light shapes the dark weathered blocks, the portal's
  * dim red light falls on the faces around the opening and glows in seams
- * of the stone, and runes down the pillars and along the lintel glow in a
- * dark red tinted with the spawn's colour. The void is a slow, smouldering
+ * of the stone, and a fixed set of sigils up the pillars and along the
+ * lintel (spawn-portal-sigils.ts) glows in a dark red tinted with the
+ * spawn's colour. The void is a slow, smouldering
  * swirl around a black eye; it writes depth, so whatever stands behind it
  * (the enemies on the route start) stays hidden. aRipple is the wall time
  * (s) of the portal's last spawn burst: a ring runs out from the eye. The
@@ -537,25 +539,7 @@ export function createPortalGateMaterial(
         return col;
       }
 
-      // Glyph of one rune cell: a stem, up to three bars and two diagonals,
-      // picked by the cell's hash. p in cell units.
-      float portalRune(vec2 p) {
-        vec2 cell = floor(p);
-        vec2 f = fract(p) - 0.5;
-        float h = portalHash(cell);
-        float h2 = portalHash(cell + 17.0);
-        const float STROKE = 0.075;
-        const float AA = 0.035;
-        float m = (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.x))) * step(abs(f.y), 0.36) * step(0.25, h);
-        float bar = step(abs(f.x), 0.26);
-        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.y - 0.28))) * bar * step(0.5, fract(h * 7.0)));
-        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.y))) * bar * step(0.55, fract(h * 13.0)));
-        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.y + 0.28))) * bar * step(0.5, fract(h * 29.0)));
-        float diag = bar * step(abs(f.y), 0.3);
-        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.x - f.y) * 0.7071)) * diag * step(0.6, h2));
-        m = max(m, (1.0 - smoothstep(STROKE, STROKE + AA, abs(f.x + f.y) * 0.7071)) * diag * step(0.75, fract(h2 * 5.0)));
-        return m;
-      }
+      ${PORTAL_SIGIL_GLSL}
 
       void main() {
         #include <logdepthbuf_fragment>
@@ -595,17 +579,16 @@ export function createPortalGateMaterial(
         float nearOpening = exp(-max(ax - uOpening.x, 0.0) * 0.7) * (1.0 - smoothstep(uOpening.y, uOpening.y + 4.0, p.y));
         col += mix(uEmber, uHot, 0.3) * seam * nearOpening * (0.2 + 0.45 * uEnergy) * flicker;
 
-        // Runes down the front and back of the pillars and along the
-        // lintel, lit in a wave that climbs the frame
+        // Sigils in a frieze round the opening (spawn-portal-sigils.ts), on
+        // the front and the back, with a faint glow round the ink, lit in a
+        // wave that climbs the frame
         float face = step(0.6, abs(ln.z));
-        float pillarBand = step(uOpening.x + 0.45, ax) * step(ax, uOpening.x + 1.45)
-          * step(2.6, p.y) * step(p.y, uOpening.y - 0.4);
-        float lintelBand = step(ax, uOpening.x - 0.2) * step(uOpening.y + 0.6, p.y) * step(p.y, uOpening.y + 2.4);
-        vec2 pillarCell = vec2(ax - uOpening.x - 0.45, p.y - 2.6);
-        vec2 lintelCell = vec2(p.x + uOpening.x, (p.y - uOpening.y - 0.6) / 1.8);
-        float rune = face * (pillarBand * portalRune(pillarCell) + lintelBand * portalRune(lintelCell));
+        float fade;
+        float ink = portalFrameSigils(p, uOpening, fade);
+        float sigil = 1.0 - smoothstep(0.0, 0.04, ink);
+        float halo = exp(-max(ink, 0.0) * 25.0) * fade;
         float climb = 0.55 + 0.45 * sin(uTime * 1.4 - p.y * 0.6 + vPhase);
-        col += mix(uEmber, vColor, 0.4) * rune * climb * (0.5 + 0.7 * uEnergy);
+        col += mix(uEmber, vColor, 0.4) * face * (sigil + 0.3 * halo) * climb * (0.5 + 0.7 * uEnergy);
 
         gl_FragColor = vec4(col, 1.0);
       }
