@@ -441,6 +441,34 @@ describe('GameStateManager', () => {
       });
     });
 
+    describe('debug:ready-ability (Nuke ready)', () => {
+      it('lands with the sub-step\'s event queue, not at the click', () => {
+        bus.emitDeferred({ type: 'debug:ready-ability', abilityId: 'nuclear-strike' });
+        expect(gsm.abilityManager.getStatus('nuclear-strike').unlocked).toBe(false);
+
+        bus.processQueue();
+        const status = gsm.abilityManager.getStatus('nuclear-strike');
+        expect(status.unlocked).toBe(true);
+        expect(status.charges).toBe(status.maxCharges);
+      });
+
+      it('researches the strike with its prerequisites once, then refills on every click', () => {
+        const completed: string[] = [];
+        bus.on('research:completed', (event) => completed.push(event.researchId));
+        const refill = vi.spyOn(gsm.abilityManager, 'refillCharges');
+
+        bus.emit({ type: 'debug:ready-ability', abilityId: 'nuclear-strike' });
+        expect(completed).toContain('advanced-weaponry');
+        expect(completed[completed.length - 1]).toBe('nuclear-strike');
+
+        completed.length = 0;
+        bus.emit({ type: 'debug:ready-ability', abilityId: 'nuclear-strike' });
+        expect(completed).toEqual([]);
+        expect(refill).toHaveBeenCalledTimes(2);
+        expect(refill).toHaveBeenCalledWith('nuclear-strike');
+      });
+    });
+
     describe('research:completed', () => {
       it('queues an LOS recompute for the towers the AA retrofit gives air targeting', () => {
         gsm.addCredits(1000);

@@ -168,6 +168,18 @@ export class AbilityManager implements IGameManager {
     return result;
   }
 
+  /**
+   * Debug: every charge of `id` back, if it is unlocked (the dev cheat,
+   * debug:ready-ability, completes the research first, which unlocks it).
+   */
+  refillCharges(id: AbilityId): void {
+    const state = this.states.get(id);
+    if (!state?.unlocked) return;
+    state.charges = ABILITIES[id].maxCharges;
+    state.wavesTowardCharge = 0;
+    this.emitStateSnapshot();
+  }
+
   private tryUse(id: AbilityId, target: GeoPosition): AbilityUseResult {
     const reason = this.checkUse(id);
     if (reason) return { ok: false, reason };

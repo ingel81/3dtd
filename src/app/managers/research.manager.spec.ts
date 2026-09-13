@@ -432,6 +432,45 @@ describe('ResearchManager', () => {
   });
 
   // -------------------------------------------------------------------------
+  // completeResearch() (debug cheat, Nuke ready)
+  // -------------------------------------------------------------------------
+  describe('completeResearch()', () => {
+    it('completes the research and its prerequisites, each before what needs it, each once', () => {
+      const completed: string[] = [];
+      bus.on('research:completed', (event) => completed.push(event.researchId));
+      rm.completeResearch('nuclear-strike');
+
+      expect(completed).toContain('advanced-weaponry');
+      expect(completed[completed.length - 1]).toBe('nuclear-strike');
+      expect(new Set(completed).size).toBe(completed.length);
+      for (const id of completed) {
+        for (const prerequisite of getResearch(id)!.prerequisites) {
+          expect(completed.indexOf(prerequisite)).toBeGreaterThanOrEqual(0);
+          expect(completed.indexOf(prerequisite)).toBeLessThan(completed.indexOf(id));
+        }
+      }
+    });
+
+    it('stops a running prerequisite, sends one snapshot and leaves what is done alone', () => {
+      rm.onCenterPlaced();
+      rm.startResearch(NO_PREREQ_ID);
+      const snapshots = vi.fn();
+      const completed = vi.fn();
+      bus.on('research:state-changed', snapshots);
+      bus.on('research:completed', completed);
+
+      rm.completeResearch(WITH_PREREQ_ID);
+      expect(rm.usedSlots).toBe(0);
+      expect(completed).toHaveBeenCalledTimes(2);
+      expect(snapshots).toHaveBeenCalledTimes(1);
+
+      rm.completeResearch(WITH_PREREQ_ID);
+      expect(completed).toHaveBeenCalledTimes(2);
+      expect(snapshots).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // getMaxUpgradeTier()
   // -------------------------------------------------------------------------
   describe('getMaxUpgradeTier()', () => {

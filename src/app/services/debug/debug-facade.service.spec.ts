@@ -8,11 +8,13 @@ import { CombatEffectService } from '../combat/combat-effect.service';
 import type { ThreeTilesEngine } from '../../three-engine';
 import { DEFAULT_VFX_SETTINGS, matchingVfxPreset } from '../../three-engine/vfx-settings';
 import { LEGACY_FPS_LIMIT_KEY, STORAGE_KEY } from '../../utils/display-options.storage';
+import { GameEventBus } from '../../game-engine/game-event-bus';
+import type { GameStateManager } from '../../managers/game-state.manager';
 
-function createFacade(): DebugFacadeService {
+function createFacade(uiStore: object = {}): DebugFacadeService {
   const injector = Injector.create({
     providers: [
-      { provide: UIStore, useValue: {} },
+      { provide: UIStore, useValue: uiStore },
       { provide: EnemyDebugService, useValue: {} },
       { provide: MarkerVisualizationService, useValue: {} },
       { provide: CombatEffectService, useValue: {} },
@@ -33,6 +35,22 @@ function store(options: object): void {
 function stored(): Record<string, unknown> {
   return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
 }
+
+describe('DebugFacadeService cheats', () => {
+  it('readies the Nuclear Strike through a deferred debug event, for the next sub-step', () => {
+    const appendDebugLog = vi.fn();
+    const facade = createFacade({ appendDebugLog });
+    const bus = new GameEventBus();
+    const received = vi.fn();
+    bus.on('debug:ready-ability', received);
+
+    facade.readyNuclearStrike({ getEventBus: () => bus } as unknown as GameStateManager);
+    expect(received).not.toHaveBeenCalled();
+    bus.processQueue();
+    expect(received).toHaveBeenCalledWith({ type: 'debug:ready-ability', abilityId: 'nuclear-strike' });
+    expect(appendDebugLog).toHaveBeenCalledWith('Nuclear Strike ready (Debug)');
+  });
+});
 
 describe('DebugFacadeService frame cap', () => {
   beforeEach(() => localStorage.clear());

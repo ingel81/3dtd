@@ -200,6 +200,14 @@ schaltet den Zielmodus ein (`UIStore.abilityTargeting`, geführt vom
   `HotkeyService`): schaltet den Modus an, wenn der Schlag feuern kann, ein
   zweites K schaltet ihn ab. Die Tastenübersicht (H) führt die Taste auf.
 
+Zum Testen: Cheat "Nuke" im Dev-Menü (Gruppe Cheats). Er schließt die
+Forschung `nuclear-strike` samt Voraussetzungen ab (`ResearchManager.completeResearch`,
+je Forschung ein `research:completed`) und füllt die Ladungen auf
+(`AbilityManager.refillCharges`), beliebig oft hintereinander. Die UI schickt
+`debug:ready-ability` verzögert (`emitDeferred`), der `GameCommandsHandler`
+setzt es im nächsten Sub-Step um; in der Pause erst beim Weiterlaufen. Feuern
+geht weiter nur während einer Welle.
+
 ---
 
 ## Bot
@@ -223,7 +231,7 @@ schaltet den Zielmodus ein (`UIStore.abilityTargeting`, geführt vom
 |---|---|
 | `configs/abilities.config.ts` | Werte, `AbilityStatus`, Ablehnungsgründe |
 | `managers/ability.manager.ts` | Ladungen, Nachladen, Zeitplan und Auflösung der Einschläge |
-| `managers/game-commands.handler.ts` | `command:use-ability` |
+| `managers/game-commands.handler.ts` | `command:use-ability`, Cheat `debug:ready-ability` |
 | `services/combat/damage-application.service.ts` | `applyMaxHpFraction`, der matrixfreie Schadensweg |
 | `services/world/global-route-grid.service.ts`, `utils/global-route-grid.ts` | `snapToRouteCell`, `findNearestCell` |
 | `ai/core/gate-controller.ts` | `gateLeakRatio` |

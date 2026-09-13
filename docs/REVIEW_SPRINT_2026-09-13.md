@@ -1235,6 +1235,18 @@ schlägt härter ein. Nur Bild und Ton, am Schaden ändert sich nichts.
 223. Kamera nah an den Einschlag (unter 100 m): Feuerball und Glut sind
      nicht abgeschnitten und zeigen keine harten Kanten.
 
+Cheat "Nuke" im Dev-Menü (Gruppe Cheats, orange Kachel mit
+Strahlungssymbol, Tooltip "Nuke ready"): schließt die Forschung Nuclear
+Strike samt Voraussetzungen ab und füllt die Ladung auf, beliebig oft. Läuft
+als verzögertes `debug:ready-ability` über den `GameCommandsHandler` und
+greift im nächsten Sub-Step, in der Pause also erst beim Weiterlaufen.
+
+224. Neues Spiel, Dev-Menü, Cheats, Nuke: der Strike-Knopf neben START WAVE
+     erscheint geladen, im Forschungsbaum sind Nuclear Strike und seine
+     Voraussetzungen (Advanced Weaponry und darunter) fertig. Welle starten,
+     Schlag setzen, sofort wieder Nuke: der Knopf ist wieder geladen, ein
+     zweiter Schlag geht noch in derselben Welle.
+
 ## TODO-Stand
 
 Jeder dieser Einträge hat in TODO.md eine Zeile "Stand 2026-09-13 (Nacht)".

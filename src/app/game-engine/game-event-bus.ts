@@ -332,6 +332,12 @@ export type GameEvent =
       type: 'debug:max-upgrade-all-towers';
     }
   | {
+      // The ability's research with its prerequisites done, every charge
+      // back. Sent deferred, so it lands in a gameplay sub-step.
+      type: 'debug:ready-ability';
+      abilityId: AbilityId;
+    }
+  | {
       type: 'debug:remove-enemy';
       enemyId: string;
     };
