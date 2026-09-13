@@ -174,6 +174,7 @@ describe('VisualizationFacadeService', () => {
     onTilesLoaded: vi.fn(),
     backgroundMusic: music,
     towerManager,
+    setBeforeCorridorLock: vi.fn(),
   };
 
   const osm = {
@@ -738,6 +739,20 @@ describe('VisualizationFacadeService', () => {
       towerCount = 1;
       facade.fitCorridorToTiles();
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets the game state finish a measurement under way before a tower or a wave', async () => {
+      corridor.slices = 3;
+      corridor.changed = true;
+      await facade.scheduleOverlayHeightUpdate();
+      const beforeLock = gameState.setBeforeCorridorLock.mock.calls[0][0] as (reason: string) => void;
+
+      beforeLock('tower');
+
+      expect(corridor.runs[0].step).toHaveBeenLastCalledWith(Infinity);
+      expect(corridor.runs[0].commit).toHaveBeenCalledWith('tower');
+      expect(grid.clear).toHaveBeenCalledTimes(1);
+      expect(frames.size).toBe(0);
     });
   });
 

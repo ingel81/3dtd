@@ -149,6 +149,10 @@ export class VisualizationFacadeService {
     this.gameState = gameState;
     this.initialized = true;
 
+    // A tower or a wave freezes the corridor: a measurement still under way
+    // finishes first instead of being dropped (CorridorRefit.flush).
+    gameState.setBeforeCorridorLock((reason) => this.corridorRefit.flush(reason));
+
     // Korridor-API für Playtests, analog zu `__rg` und `__routes`, in
     // DevTools: `__corridor.get()`, `__corridor.set({ maxHalfWidth: 8 })`,
     // `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`.
@@ -305,6 +309,7 @@ export class VisualizationFacadeService {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
+    if (this.initialized) this.gameState.setBeforeCorridorLock(null);
     this.corridorRefit.dispose();
     this.cellsChangedOff?.();
     this.cellsChangedOff = null;

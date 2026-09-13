@@ -47,10 +47,10 @@ describe('CorridorRefit', () => {
             left = budget === Infinity ? 0 : left - 1;
             return left <= 0;
           },
-          commit: () => {
+          commit: (flushedBy?: string) => {
             if (!run.open) return false;
             run.open = false;
-            calls.push('commit');
+            calls.push(flushedBy ? `commit flushed=${flushedBy}` : 'commit');
             return state.changed;
           },
           cancel: (reason: string) => {
@@ -193,6 +193,50 @@ describe('CorridorRefit', () => {
       refit.dispose();
       runFrames(3);
       expect(calls).toEqual(['measure', 'cancel: disposed']);
+      expect(pendingFrames()).toBe(0);
+    });
+  });
+
+  describe('flush, right before a tower is placed or a wave starts', () => {
+    it('measures the rest in one go and rebuilds, so the tower stands on the new cells', () => {
+      const { refit, state, calls, runs, runFrames, pendingFrames } = setup();
+      state.slices = 5;
+      refit.fitToTiles();
+      runFrames();
+
+      refit.flush('tower');
+      expect(calls).toEqual(['measure', 'commit flushed=tower', 'rebuild']);
+      expect(runs[0].budgets).toEqual([BUDGET, BUDGET, Infinity]);
+      expect(pendingFrames()).toBe(0);
+
+      // The tower stands now; nothing follows.
+      state.towers = 1;
+      runFrames(3);
+      expect(calls).toHaveLength(3);
+    });
+
+    it('does nothing without a run under way', () => {
+      const { refit, calls } = setup();
+      refit.flush('wave');
+      expect(calls).toEqual([]);
+    });
+
+    it('does not rebuild when the rest changed nothing', () => {
+      const { refit, state, calls } = setup();
+      state.slices = 3;
+      state.changed = false;
+      refit.fitToTiles();
+      refit.flush('wave');
+      expect(calls).toEqual(['measure', 'commit flushed=wave']);
+    });
+
+    it('cancels instead when enemies are already on the map', () => {
+      const { refit, state, calls, pendingFrames } = setup();
+      state.slices = 3;
+      refit.fitToTiles();
+      state.enemies = 1;
+      refit.flush('tower');
+      expect(calls).toEqual(['measure', 'cancel: enemies are on the map']);
       expect(pendingFrames()).toBe(0);
     });
   });

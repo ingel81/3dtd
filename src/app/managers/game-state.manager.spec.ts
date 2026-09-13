@@ -373,6 +373,41 @@ describe('GameStateManager', () => {
       });
     });
 
+    describe('corridor measurement under way (setBeforeCorridorLock)', () => {
+      it('finishes before the tower is placed', () => {
+        const order: string[] = [];
+        gsm.setBeforeCorridorLock((reason) => order.push(`corridor ${reason}`));
+        vi.spyOn(gsm.towerManager, 'placeTower').mockImplementation(() => {
+          order.push('place');
+          return null;
+        });
+        gsm.placeTower(BASE_POSITION, 'archer');
+        expect(order).toEqual(['corridor tower', 'place']);
+      });
+
+      it('is left alone when the placement is refused', () => {
+        const lock = vi.fn();
+        gsm.setBeforeCorridorLock(lock);
+        gsm.spendCredits(gsm.credits());
+        gsm.placeTower(BASE_POSITION, 'archer');
+        expect(lock).not.toHaveBeenCalled();
+      });
+
+      it('finishes before a wave starts, with or without a config', () => {
+        const order: string[] = [];
+        gsm.setBeforeCorridorLock((reason) => order.push(`corridor ${reason}`));
+        vi.spyOn(gsm.waveManager, 'startWave').mockImplementation(() => {
+          order.push('start');
+        });
+        vi.spyOn(gsm.waveManager, 'beginWave').mockImplementation(() => {
+          order.push('begin');
+        });
+        gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
+        gsm.beginWave();
+        expect(order).toEqual(['corridor wave', 'start', 'corridor wave', 'begin']);
+      });
+    });
+
     describe('command:use-ability', () => {
       it('hands the ability and the target to the AbilityManager', () => {
         const use = vi.spyOn(gsm.abilityManager, 'use');

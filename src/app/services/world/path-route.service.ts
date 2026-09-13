@@ -1625,7 +1625,7 @@ class ClearanceRun implements CorridorMeasurement {
     return this.next() === null;
   }
 
-  commit(): boolean {
+  commit(flushedBy?: string): boolean {
     if (!this.isOpen) return false;
     this.isOpen = false;
     const start = performance.now();
@@ -1635,7 +1635,8 @@ class ClearanceRun implements CorridorMeasurement {
       console.warn(
         `[Corridor] clearance: segments=${this.segments.length} stations=${this.probed} unmeasured=${this.unmeasured} ` +
         `(coarse tile ${this.coarse}) rays=${this.raysPerStation * (this.probed - this.unmeasured)} changed=${changed} ` +
-        `in ${this.busyMs.toFixed(1)}ms slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms`,
+        `in ${this.busyMs.toFixed(1)}ms slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms` +
+        (flushedBy ? ` flushed=${flushedBy}` : ''),
       );
     }
     return changed;

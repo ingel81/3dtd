@@ -203,6 +203,13 @@ export class GameStateManager {
   // Performance profiler (optional, set via setProfiler())
   private profiler: PerformanceProfilerService | null = null;
 
+  /**
+   * Called right before a tower is placed or a wave starts, both of which
+   * freeze the route corridor: a corridor measurement still under way
+   * finishes first (VisualizationFacadeService, CorridorRefit.flush).
+   */
+  private beforeCorridorLock: ((reason: 'tower' | 'wave') => void) | null = null;
+
   /** EventBus subscription bag — cleaned up in initialize() (re-init) and dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
 
@@ -215,6 +222,11 @@ export class GameStateManager {
    */
   setProfiler(profiler: PerformanceProfilerService | null): void {
     this.profiler = profiler;
+  }
+
+  /** See beforeCorridorLock. */
+  setBeforeCorridorLock(hook: ((reason: 'tower' | 'wave') => void) | null): void {
+    this.beforeCorridorLock = hook;
   }
 
   /**
@@ -655,6 +667,9 @@ export class GameStateManager {
    * Start a new wave with config
    */
   startWave(config: WaveConfig): void {
+    // A corridor measurement still under way finishes first.
+    this.beforeCorridorLock?.('wave');
+
     // Update wave preview in sidebar with actual values (NOT timescaled).
     // Aggregate schedule entries by enemy type so the sidebar shows the
     // composition the player is about to face.
@@ -710,6 +725,9 @@ export class GameStateManager {
    * Begin wave phase without auto-spawning
    */
   beginWave(): void {
+    // A corridor measurement still under way finishes first.
+    this.beforeCorridorLock?.('wave');
+
     const isFirstWave = this.waveManager.waveNumber() === 0;
 
     // Emit lifecycle event BEFORE beginWave() so that AIDataCollector.clearHistory()
@@ -924,6 +942,10 @@ export class GameStateManager {
     if (this.credits() < config.cost) {
       return null;
     }
+
+    // A corridor measurement still under way finishes first: the tower
+    // stands on the cells it rebuilds.
+    this.beforeCorridorLock?.('tower');
 
     const tower = this.towerManager.placeTower(position, typeId, customRotation);
 
