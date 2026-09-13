@@ -48,6 +48,8 @@ ENEMIES = 'public/assets/models/enemies'
 #   rebake      {'size', 'supersample'}: after decimating, new UVs and the base
 #               colour taken from the undecimated mesh (see rebake_base_color); for
 #               atlases whose seams the decimator cannot keep
+#   merge       merge co-located vertices with equal normals on import (glTF
+#               importer option), also without decimating
 #   texture     longest side of every image left in the model
 #   base_color_only  drop every other texture (the VAT shader only samples base colour)
 #   image_format     'AUTO' (default) or 'JPEG'
@@ -196,6 +198,15 @@ RECIPES = {
         'actions': {'Casual_Walk': 'Casual_Walk', 'dying_backwards': 'dying_backwards'},
         'trim': {'Casual_Walk': (50, 90, 7.5)},
         'texture': 1024,
+    },
+    # Static, seven material colours, no texture. The file stores 319
+    # vertices twice (same position, normal and UV); merged on import they
+    # are written once, positions and normals as before (the faceted look
+    # stays). Welding by position instead changed the normals of 12 vertices
+    # by up to 47 degrees.
+    'tank': {
+        'src': f'{ENEMIES}/tank.glb',
+        'merge': True,
     },
     # No mech recipe: its round trip is exact only without the bind pose guess,
     # and decimating the 34 hard-surface parts to 12 % (6,739 VAT vertices, not
@@ -739,7 +750,7 @@ def run(name):
         bpy.context.scene.render.fps = 30
         bpy.context.scene.render.fps_base = 1.0
         # Merged vertices let the decimator collapse across UV seams without tearing them open.
-        import_model(src, merge_vertices=decim is not None,
+        import_model(src, merge_vertices=decim is not None or recipe.get('merge', False),
                      guess_bind_pose=recipe.get('guess_bind_pose', True))
 
         if 'actions' in recipe:
