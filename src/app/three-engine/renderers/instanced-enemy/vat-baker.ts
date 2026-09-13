@@ -1128,7 +1128,7 @@ export function bakeStaticVAT(modelRoot: Object3D, worldScale: number): VATData 
   };
 }
 
-/** RGBA bytes of a texture's image, read through a 2D canvas. */
+/** RGBA bytes of a texture's image, read through a 2D canvas or as the image holds them. */
 export interface TexturePixels {
   data: Uint8ClampedArray;
   width: number;
@@ -1136,17 +1136,22 @@ export interface TexturePixels {
 }
 
 /**
- * The pixels of `tex`, read once per cache. Null when the texture has no
- * decoded image or no 2D canvas is available.
+ * The pixels of `tex`, read once per cache. An image that already holds RGBA
+ * bytes (DataTexture, the PNGs the model-budget generator decodes in Node) is
+ * taken as it is, any other goes through a 2D canvas. Null when the texture
+ * has no decoded image or no 2D canvas is available.
  */
-function texturePixels(tex: Texture, cache: Map<Texture, TexturePixels | null>): TexturePixels | null {
+export function texturePixels(tex: Texture, cache: Map<Texture, TexturePixels | null>): TexturePixels | null {
   if (cache.has(tex)) return cache.get(tex) ?? null;
   let pixels: TexturePixels | null = null;
   try {
     const img = tex.image as HTMLImageElement | ImageBitmap | HTMLCanvasElement;
     const width = (img as HTMLImageElement).naturalWidth || img.width || 0;
     const height = (img as HTMLImageElement).naturalHeight || img.height || 0;
-    if (width > 0 && height > 0) {
+    const bytes = (img as { data?: unknown }).data;
+    if (ArrayBuffer.isView(bytes) && width > 0 && height > 0 && bytes.byteLength === width * height * 4) {
+      pixels = { data: new Uint8ClampedArray(bytes.buffer, bytes.byteOffset, bytes.byteLength), width, height };
+    } else if (width > 0 && height > 0) {
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
