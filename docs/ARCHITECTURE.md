@@ -1531,10 +1531,12 @@ Blutflecken auf dem Boden nach Enemy-Deaths. Verwendet **Instanced Rendering** f
 #### Technische Implementierung
 
 ```typescript
-// ParticleEffectsRenderer: je ein DecalInstanceManager (InstancedMesh + Custom Shader)
-private bloodDecalManager: DecalInstanceManager;
-private iceDecalManager: DecalInstanceManager;
+// GroundDecals (ground-decals.ts), gehört ParticleEffectsRenderer:
+// je ein DecalInstanceManager (InstancedMesh + Custom Shader)
+readonly blood: DecalInstanceManager;
+readonly ice: DecalInstanceManager;
 // dazu ScorchMarks (scorch-marks.ts), höchstens eine Marke pro Route-Cell
+readonly scorch: ScorchMarks;
 
 spawnBloodDecal(lat: number, lon: number, height: number, size?: number): string;
 spawnIceDecal(lat: number, lon: number, height: number, size?: number): string;
