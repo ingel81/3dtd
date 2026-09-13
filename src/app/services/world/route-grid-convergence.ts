@@ -32,8 +32,8 @@ export class RouteGridConvergence {
    * knob: smaller = smoother but slower convergence. */
   static readonly TERRAIN_REFRESH_BUDGET_MS = 5;
 
-  /** rAF debounce for {@link scheduleBakedHeightRefresh}. */
-  private bakedRefreshScheduled = false;
+  /** rAF handle of the debounced {@link scheduleBakedHeightRefresh}, cancelled in dispose(). */
+  private bakedRefreshRaf: number | null = null;
   /** A refresh was requested while a budgeted sweep was in flight. */
   private bakedRefreshPending = false;
   /** Unsubscribe for the cells-changed listener, see followCells(). */
@@ -87,10 +87,9 @@ export class RouteGridConvergence {
       this.bakedRefreshPending = true;
       return;
     }
-    if (this.bakedRefreshScheduled) return;
-    this.bakedRefreshScheduled = true;
-    requestAnimationFrame(() => {
-      this.bakedRefreshScheduled = false;
+    if (this.bakedRefreshRaf !== null) return;
+    this.bakedRefreshRaf = requestAnimationFrame(() => {
+      this.bakedRefreshRaf = null;
       const spawns = this.deps.store.spawnPoints();
       this.deps.pathRoute.refreshRouteLines(spawns);
       this.deps.markerViz.updateMarkerHeights();
@@ -183,8 +182,8 @@ export class RouteGridConvergence {
   }
 
   /**
-   * Drop the cells listener, stop the loop and forget a refresh the sweep
-   * held back. A baked refresh already waiting for its frame still runs.
+   * Drop the cells listener, stop the loop, cancel a baked refresh waiting
+   * for its frame and forget one the sweep held back.
    */
   dispose(): void {
     this.cellsChangedOff?.();
@@ -192,6 +191,10 @@ export class RouteGridConvergence {
     if (this.routeGridConvergenceRaf !== null) {
       cancelAnimationFrame(this.routeGridConvergenceRaf);
       this.routeGridConvergenceRaf = null;
+    }
+    if (this.bakedRefreshRaf !== null) {
+      cancelAnimationFrame(this.bakedRefreshRaf);
+      this.bakedRefreshRaf = null;
     }
     this.routeGridConvergenceScheduled = false;
     this.bakedRefreshPending = false;

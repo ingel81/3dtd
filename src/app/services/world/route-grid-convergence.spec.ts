@@ -186,5 +186,17 @@ describe('RouteGridConvergence', () => {
       expect(deps.pathRoute.refreshRouteLines).not.toHaveBeenCalled();
       expect(frames.size).toBe(0);
     });
+
+    it('cancels a rebuild waiting for its frame, and rebuilds again after it', () => {
+      convergence.scheduleBakedHeightRefresh();
+      convergence.dispose();
+      runFrames();
+      expect(deps.pathRoute.refreshRouteLines).not.toHaveBeenCalled();
+      expect(frames.size).toBe(0);
+
+      convergence.scheduleBakedHeightRefresh();
+      runFrames();
+      expect(deps.pathRoute.refreshRouteLines).toHaveBeenCalledTimes(1);
+    });
   });
 });
