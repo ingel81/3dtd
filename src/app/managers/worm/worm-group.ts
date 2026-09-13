@@ -72,6 +72,8 @@ export class WormGroup {
   readonly segments: (Enemy | null)[];
   /** The worms of this group, front to back */
   readonly chains: WormChain[];
+  /** Id of the head it was spawned with, the one Enemy Debug lists */
+  spawnedHeadId = '';
   private readonly state: Uint8Array;
   private aliveSlots = 0;
   private pendingSlots: number;

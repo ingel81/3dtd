@@ -16,7 +16,7 @@ import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils
 import { getEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
 import { WormChains, stepWormSegment } from './worm/worm-chains';
-import type { WormLink } from './worm/worm-group';
+import type { WormGroup, WormLink } from './worm/worm-group';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -148,6 +148,10 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   private registerDebugHandlers(): void {
     this.subs.add(this.eventBus.on('debug:remove-enemy', (event) => {
+      // A debug worm goes as a whole, the segments still in the portal with
+      // it, also when the head Enemy Debug lists is dead already
+      const worm = this.worms.groupSpawnedWith(event.enemyId);
+      if (worm) this.removeWorm(worm);
       const enemy = this.getAll().find(e => e.id === event.enemyId);
       if (enemy) {
         this.remove(enemy);
@@ -177,6 +181,14 @@ export class EnemyManager extends EntityManager<Enemy> {
         );
       }
     }));
+  }
+
+  /** Remove every segment of `group` on the route; none comes out of the portal any more. */
+  private removeWorm(group: WormGroup): void {
+    group.dropPending();
+    for (const segment of group.segments) {
+      if (segment !== null) this.remove(segment);
+    }
   }
 
   /**
