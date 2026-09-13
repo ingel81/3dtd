@@ -481,7 +481,8 @@ export class WaveManager implements IGameManager {
   destroy(): void {
     this.subs.disposeAll();
     this.reset();
-    this.cachedPaths.clear();
+    // Drops the reference only: the map is PathAndRouteService's route cache
+    this.cachedPaths = new Map();
     this.spawnPoints = [];
   }
 }

@@ -78,8 +78,7 @@ describe('WaveManager', () => {
     bus = new GameEventBus();
     enemyManager = createMockEnemyManager();
     wm = new WaveManager(bus, enemyManager);
-    // Clone the shared maps so destroy() in one test cannot mutate state for
-    // the next test (destroy() calls cachedPaths.clear()).
+    // Clone the shared maps so no test can mutate state for the next one
     wm.initialize([...SPAWN_POINTS], new Map(CACHED_PATHS));
   });
 
@@ -339,6 +338,14 @@ describe('WaveManager', () => {
 
       expect(wm.spawnPoints).toEqual([]);
       expect(wm.phase()).toBe('setup');
+    });
+
+    it('leaves the route cache it was handed alone', () => {
+      // The map is PathAndRouteService's; its hasRoutes signal says it is filled
+      const shared = new Map(CACHED_PATHS);
+      wm.initialize([...SPAWN_POINTS], shared);
+      wm.destroy();
+      expect(shared.size).toBe(CACHED_PATHS.size);
     });
   });
 

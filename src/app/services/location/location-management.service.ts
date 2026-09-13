@@ -3,6 +3,7 @@ import { SpawnLocationConfig, FavoriteLocation } from '../../models/location.typ
 import { GeocodingService, NominatimAddress } from './geocoding.service';
 import { MissionInfo } from '../../components/loading-screen/boot-step.model';
 import { DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
+import { PathAndRouteService } from '../world/path-route.service';
 import {
   RecentLocation,
   addRecentLocation,
@@ -29,6 +30,7 @@ const LOADING_NAME = 'Loading...';
 @Injectable({ providedIn: 'root' })
 export class LocationManagementService {
   private readonly geocoding = inject(GeocodingService);
+  private readonly pathRoute = inject(PathAndRouteService);
 
   // Current location (just coordinates) - null means no location set
   readonly hq = signal<{ lat: number; lon: number } | null>(null);
@@ -209,19 +211,32 @@ export class LocationManagementService {
   // ==================== RECENT LOCATIONS ====================
 
   /**
-   * Remember every location once it is complete: HQ, a spawn and a resolved
-   * name. That covers every way in (URL, geolocation, dialog, favorite, World
-   * Dice, moving the HQ) without hooking each one. A new spawn at the same HQ
-   * updates that entry, see addRecentLocation().
+   * The location as it goes on the recent list, once it is playable: HQ, a
+   * spawn, a resolved name, and a route between spawn and HQ. A place whose
+   * route fails stays off the list. Null until then.
+   */
+  readonly recentCandidate = computed(() => {
+    const hq = this.hq();
+    const spawns = this.spawns();
+    const name = this.displayName();
+    if (!hq || spawns.length === 0 || name === NO_LOCATION_NAME || name === LOADING_NAME) return null;
+    if (!this.pathRoute.hasRoutes()) return null;
+    return { hq, spawns, name };
+  });
+
+  /**
+   * Remember every location once it is playable (recentCandidate). That covers
+   * every way in (URL, geolocation, dialog, favorite, World Dice, moving the
+   * HQ) without hooking each one: each clears the old routes before it sets
+   * the new place. A new spawn at the same HQ updates that entry, see
+   * addRecentLocation().
    */
   private trackRecents(): void {
     try {
       effect(() => {
-        const hq = this.hq();
-        const spawns = this.spawns();
-        const name = this.displayName();
-        if (!hq || spawns.length === 0 || name === NO_LOCATION_NAME || name === LOADING_NAME) return;
-        untracked(() => this.recordRecent(hq, spawns, name));
+        const candidate = this.recentCandidate();
+        if (!candidate) return;
+        untracked(() => this.recordRecent(candidate.hq, candidate.spawns, candidate.name));
       });
     } catch {
       // Outside an injection context (unit tests): not tracked
