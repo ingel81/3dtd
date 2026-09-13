@@ -17,7 +17,6 @@ import { RouteAnimationService } from '../world/route-animation.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { BuildingRenderingService } from '../world/building-rendering.service';
-import { BuildingFootprint } from '../location/osm-street.service';
 import { StrategicPlacementService } from '../world/strategic-placement.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { TowerDebugService } from '../debug/tower-debug.service';
@@ -41,6 +40,7 @@ import { RouteGridConvergence } from '../world/route-grid-convergence';
 import { IntroLoadingGate } from '../world/intro-loading-gate';
 import { CameraOverview } from '../camera-overview';
 import { DpsBinsOverlay } from '../debug/dps-bins-overlay';
+import { BuildingOverlay } from '../world/building-overlay';
 import { cameraTimeline } from '../../utils/camera-timeline';
 
 /**
@@ -48,14 +48,21 @@ import { cameraTimeline } from '../../utils/camera-timeline';
  *
  * Responsibilities:
  * - Visualization service initialization
- * - DPS profile visualization
  * - Street rendering and filtering
  * - Height update scheduling
- * - Camera management (save, debug, reframe)
  * - Route animations
  * - Tiles loaded handling
  * - Click handler setup
  * - Game state initialization (routes, tower placement)
+ *
+ * Owned helpers (plain classes, built in the field initializers below):
+ * - CorridorController: when the route corridor is measured and rebuilt
+ * - CorridorConsole: `__corridor` in DevTools
+ * - RouteGridConvergence: cell refresh after tile loads, baked heights
+ * - IntroLoadingGate: loading screen held for the intro flight
+ * - CameraOverview: overview frame, initial view, camera debug toggles
+ * - DpsBinsOverlay: DPS profile bins
+ * - BuildingOverlay: OSM building footprints
  */
 @Injectable()
 export class VisualizationFacadeService {
@@ -144,6 +151,16 @@ export class VisualizationFacadeService {
     aiDataCollector: this.aiDataCollector,
   });
 
+  /** OSM building footprints near the routes, see BuildingOverlay. */
+  private readonly buildings = new BuildingOverlay({
+    osm: this.osmService,
+    pathRoute: this.pathRoute,
+    buildingRendering: this.buildingRendering,
+    uiStore: this.uiStore,
+    store: this.store,
+    engine: () => this.bridge.getEngine() || this.engineInit.getEngine(),
+  });
+
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
 
@@ -155,9 +172,6 @@ export class VisualizationFacadeService {
 
   /** EventBus subscription bag — cleaned up in dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
-
-  /** Cached building footprints (filtered to route corridor) */
-  private cachedBuildings: BuildingFootprint[] | null = null;
 
   /**
    * Initialize sub-facade with bridge and game state.
@@ -182,8 +196,7 @@ export class VisualizationFacadeService {
     this.introGate.dispose();
     const engine = this.initialized ? this.bridge.getEngine() : null;
     this.dpsBins.dispose(engine);
-    this.cachedBuildings = null;
-    this.buildingRendering.reset();
+    this.buildings.reset();
     this.initialized = false;
   }
 
@@ -630,15 +643,7 @@ export class VisualizationFacadeService {
     const tStreets = performance.now();
 
     // Re-render buildings if loaded
-    if (this.cachedBuildings && this.uiStore.buildingsVisible()) {
-      const base = this.store.baseCoords();
-      this.buildingRendering.renderBuildings(
-        engine,
-        this.cachedBuildings,
-        { lat: base.lat, lon: base.lon },
-        true
-      );
-    }
+    this.buildings.rerender(engine);
     const tBuildings = performance.now();
 
     this.markerViz.updateMarkerHeights();
@@ -737,49 +742,7 @@ export class VisualizationFacadeService {
    * Loads buildings on first toggle-on.
    */
   onBuildingsToggled(): void {
-    const visible = this.uiStore.buildingsVisible();
-
-    if (visible && !this.cachedBuildings) {
-      // First time: load and render buildings
-      this.loadAndRenderBuildings();
-    } else {
-      this.buildingRendering.toggleVisibility();
-    }
-  }
-
-  /**
-   * Load building footprints from OSM and render them.
-   */
-  private async loadAndRenderBuildings(): Promise<void> {
-    const engine = this.bridge.getEngine() || this.engineInit.getEngine();
-    if (!engine) return;
-
-    const base = this.store.baseCoords();
-    const center = this.store.centerCoords();
-
-    try {
-      const buildingData = await this.osmService.loadBuildings(center.lat, center.lon);
-
-      // Filter to route corridor
-      const cachedPaths = this.pathRoute.getCachedPaths();
-      const routes: { lat: number; lon: number }[][] = [];
-      cachedPaths.forEach((path) => {
-        routes.push(path.map(p => ({ lat: p.lat, lon: p.lon })));
-      });
-
-      this.cachedBuildings = routes.length > 0
-        ? this.osmService.filterBuildingsNearRoutes(buildingData.buildings, routes, STREET_FILTER_RADIUS)
-        : buildingData.buildings;
-
-      this.buildingRendering.renderBuildings(
-        engine,
-        this.cachedBuildings,
-        { lat: base.lat, lon: base.lon },
-        this.uiStore.buildingsVisible()
-      );
-    } catch (err) {
-      console.error('[Buildings] Failed to load:', err);
-    }
+    this.buildings.toggled();
   }
 
   /**
