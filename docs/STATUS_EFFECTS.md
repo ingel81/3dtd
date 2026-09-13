@@ -406,12 +406,28 @@ effects: {
 - Oranger Tint auf der Instanz (`setBurnVisual`, Priorität: Hit-Flash > Freeze (Stopp) > Stun > Slow > Burn > Poison), flankengesteuert in `EnemyManager.presentFrame()`
 - Orange Schadenszahlen pro Tick
 
+### Wurm (Kette aus Segmenten)
+
+Jedes Segment ist ein Gegner mit eigenen Effekten. Die Kette geht im Mittel der
+Slow-Multiplikatoren ihrer Segmente (`WormChains`). Freeze und Stun gehen bewusst
+nicht in dieses Mittel ein: Ist ein Segment eingefroren oder betäubt, steht der
+ganze Wurm, bis es wieder frei ist, wie beim Halt aus dem Enemy Debug. Ein
+angehaltenes Segment darf sich nicht bewegen, und die Kette kann es nicht
+zurücklassen, ohne zu reißen; über das Mittel bräuchte eine Frostbombe, die 16
+von 240 Segmenten trifft, die Kette um 7 % langsamer für eine Sekunde, und die
+vereisten Segmente rutschten sichtbar mit. Die Segmente tragen `isBoss`, halten
+also 1 s (Freeze) beziehungsweise 0,75 s (Stun). Tint, Eiskristalle und Funken
+zeigen die betroffenen Segmente wie jeder Gegner.
+
 ### Ooze (Körper entlang der Route)
 
 Die Ooze ist ein Gegner mit einem HP-Pool; jeder Effekt wirkt auf das Ganze. Slow
 verlangsamt die Spitze, der Schwanz folgt ihr, und an der HQ fließt der Körper
-langsamer hinein. Statt Instanz-Tint und Aura tönt `OozeBandRenderer` das Band: Slow
-blau, Poison dunkler, Burn glüht orange (`OOZE_LOOK`). DoT-Zahlen erscheinen am Punkt
+langsamer hinein. Freeze und Stun halten die Spitze an, und an der HQ fließt nichts
+hinein, solange sie wirken (`getSlowMultiplier` 0). Statt Instanz-Tint und Aura tönt
+`OozeBandRenderer` das Band: Freeze weiß-cyan, Stun violett, Slow blau, Poison
+dunkler, je nur einer in dieser Reihenfolge; Burn glüht orange darüber (`OOZE_LOOK`).
+Eiskristalle und Stun-Funken gibt es am Band nicht. DoT-Zahlen erscheinen am Punkt
 des letzten Treffers (ENEMY_CREATION.md, Körper entlang der Route).
 
 **Geplant:**

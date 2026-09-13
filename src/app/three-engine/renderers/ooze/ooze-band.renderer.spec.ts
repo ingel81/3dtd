@@ -113,6 +113,22 @@ describe('OozeBandRenderer', () => {
     expect(u['uBurn'].value).toBe(0);
   });
 
+  it('tints a frozen body icy and a stunned one violet, over the slow', () => {
+    const scene = new Scene();
+    const renderer = new OozeBandRenderer(scene);
+    renderer.add('ooze-1', stations, () => 0);
+    const u = uniforms(scene);
+    const tint = () => (u['uTint'].value as { toArray(): number[] }).toArray();
+    renderer.setFrame('ooze-1', 0, 20, 1, true, false, false, true, true);
+    expect(u['uTintAmount'].value).toBe(OOZE_LOOK.iceAmount);
+    expect(tint()).toEqual([...OOZE_LOOK.iceTint]);
+    renderer.setFrame('ooze-1', 0, 20, 1, true, false, false, false, true);
+    expect(u['uTintAmount'].value).toBe(OOZE_LOOK.stunAmount);
+    expect(tint()).toEqual([...OOZE_LOOK.stunTint]);
+    renderer.setFrame('ooze-1', 0, 20, 1, true, false, false);
+    expect(u['uTintAmount'].value).toBe(OOZE_LOOK.slowAmount);
+  });
+
   it('shares the geometry of a path and lets a removed band sink away before it goes', () => {
     const scene = new Scene();
     const renderer = new OozeBandRenderer(scene);

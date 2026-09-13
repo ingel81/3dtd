@@ -73,7 +73,8 @@ export class OozeBandRenderer {
 
   /**
    * The body of `id` this frame: its stretch along the route (m), its HP
-   * share, which thins it, and the status effects on it.
+   * share, which thins it, and the status effects on it. One tint at a time:
+   * frozen, stunned, slowed, poisoned; burn glows on top.
    */
   setFrame(
     id: string,
@@ -83,6 +84,8 @@ export class OozeBandRenderer {
     slowed: boolean,
     poisoned: boolean,
     burning: boolean,
+    frozen = false,
+    stunned = false,
   ): void {
     const band = this.bands.get(id);
     if (!band || band.dissolve !== null) return;
@@ -95,7 +98,13 @@ export class OozeBandRenderer {
     u['uWidth'].value = OOZE_LOOK.minWidth + (1 - OOZE_LOOK.minWidth) * hp;
     u['uHeight'].value = OOZE_LOOK.height * (OOZE_LOOK.minHeight + (1 - OOZE_LOOK.minHeight) * hp);
     const tint = u['uTint'].value as Vector3;
-    if (slowed) {
+    if (frozen) {
+      tint.set(...OOZE_LOOK.iceTint);
+      u['uTintAmount'].value = OOZE_LOOK.iceAmount;
+    } else if (stunned) {
+      tint.set(...OOZE_LOOK.stunTint);
+      u['uTintAmount'].value = OOZE_LOOK.stunAmount;
+    } else if (slowed) {
       tint.set(...OOZE_LOOK.slowTint);
       u['uTintAmount'].value = OOZE_LOOK.slowAmount;
     } else if (poisoned) {

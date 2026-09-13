@@ -331,6 +331,11 @@ export const OOZE_LOOK = {
   slowAmount: 0.4,
   poisonTint: [0.18, 0.02, 0.22] as const,
   poisonAmount: 0.3,
+  /** Frozen solid (freeze) and stunned (stun), over the slow and the poison */
+  iceTint: [0.85, 0.95, 1.0] as const,
+  iceAmount: 0.55,
+  stunTint: [0.55, 0.45, 1.0] as const,
+  stunAmount: 0.45,
   burnGlow: [1.0, 0.45, 0.08] as const,
 };
 
