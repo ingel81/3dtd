@@ -252,24 +252,45 @@ vorhandenen Specs.
 - Als Block verwerfen; `c395b95` (Pfad mittendrin starten) ändert allein
   nichts.
 
-#### Spawn-Portal (portal, `a214973` bis `cc8da0f`)
+#### Spawn-Portal (portal, `a214973` bis `cc8da0f`; Nacharbeit portal2, `cfb85a8` bis `5bb5073`)
 
 - Der schwebende Diamant am Spawn ist ein Steintor am Anfang der Route, mit
   Blick entlang des ersten Segments. Die Öffnung folgt der Korridorbreite
-  (0,75- bis 1,75-fach einer 8-m-Öffnung). Gegner erscheinen 2 m hinter der
-  Portalfläche und treten hindurch. Wirbel, Runen und Funken in der Farbe des
-  Spawns. Das HQ behält seinen Diamanten.
-- Zwei instanzierte Draw Calls für alle Portale, eigene Shader mit
-  logdepthbuf, alles Leuchten emissiv.
+  (0,75- bis 1,75-fach einer 8 m breiten, 11 m hohen Öffnung). Das HQ behält
+  seinen Diamanten.
+- Heraustreten (`cfb85a8`): Die Portalfläche steht 0,8 m vor dem Routenstart
+  (vorher 2 m, der Spawn lag damit hinter dem Rahmen). Der Spawn liegt jetzt
+  in der Tiefe des Rahmens. Die Leere in der Öffnung ist opak und schreibt
+  Tiefe (vorher 82 % deckend, ohne Tiefe): ein Gegner erscheint knapp hinter
+  der Fläche, bleibt samt Healthbar verdeckt und tritt aus ihr heraus. Ein
+  Spec schießt Strahlen von einem Körper am Spawn (bis 2,2 m hoch) zu Kameras
+  vor und über dem Portal bei drei Skalen. Von hinten ist der Gegner zu
+  sehen, bis er eingetreten ist.
+- Zwei instanzierte Draw Calls für alle Portale: Tor (Stein und Leere, opak)
+  und Straßenlicht (additiv), eigene Shader mit logdepthbuf, alles Leuchten
+  emissiv.
+- Look (`0916712`, `5bb5073`): schwerer Rahmen mit gestuften Plinthen, Sturz
+  und Gesims, Krone, gezackten Spitzen und Hörnern, Oberkante 19,5 m bei
+  Skala 1. Die Leere glimmt dunkelrot bis schwarz mit etwas Violett,
+  Glutpunkte steigen im Shader auf. Stein prozedural: Quader mit Fugen,
+  abgenutzte Kanten mit Abplatzern, Risse, Ruß und Brandspuren, Relief,
+  gefaktes Licht mit dem Kernlicht aus der Öffnung; etwa 17 Noise-Abfragen
+  und eine Worley-Abfrage pro Rahmenpixel, keine Texturen.
+- Siegel (`634e4b6`): ein fester Satz von zehn fiktiven Siegeln aus Kreisen,
+  Bögen und Punkten statt zufälliger Runen, die wie Kana, Kanji oder
+  Buchstaben aussahen. Keine Fuge läuft durch ein Siegel.
 - Aufflammen bei Wellenstart, heller während der Welle, danach Ruhe. Wirbel
   und Aufflammen laufen in Echtzeit, auch in der Pause.
-- Burst beim Durchtreten: Ring und 10 Funken, höchstens 4 pro Sekunde und
-  Portal, aus mit Impact Effects (Preset Low).
+- Burst beim Durchtreten: Ring und 10 Funken in Glutfarben, höchstens 4 pro
+  Sekunde und Portal, aus mit Impact Effects (Preset Low).
 - Die Platzier-Vorschau eines Spawns ist ein Portal.
-- Intro und Totale lesen die Portalmaße. Der höchste Punkt am Spawn sinkt von
-  52,5 auf 33,6 m, die Totale kann etwas enger ausfallen.
+- Intro und Totale lesen die Portalmaße. Der höchste Punkt am Spawn (Label
+  des größten Portals) sinkt von 52,5 m (Diamant) auf 40,6 m (vor der
+  Nacharbeit 33,6 m); das Intro hält etwas weiter weg als mit dem ersten
+  Portal.
 - Grundlage ist `a214973`, die vier Folge-Commits (drei Features, eine Doku)
-  bauen darauf auf.
+  bauen darauf auf. Die vier Commits der Nacharbeit bauen jeder auf dem
+  vorigen auf und lassen sich nur von oben her einzeln verwerfen.
 
 #### Steuerung (controls, `c9880fe` bis `b48d2ac`; Fixes `3adfe31`, `c2f4877`, `4923c7d`)
 
@@ -601,8 +622,9 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
    7 cm im Spiel). Code und GLB einzeln zurückzunehmen, danach
    `npm run model-budget`; eine reine Texturänderung behielte die 2 150
    VAT-Vertices.
-9. **Portalfarbe gleich Spawnfarbe**: Wirbel, Runen und Funken nehmen die
-   Farbe des Spawns.
+9. **Portalfarbe nur als Akzent**: Seit der Nacharbeit glimmt jedes Portal
+   dunkelrot (`SPAWN_PORTAL_LOOK.palette`); die Spawnfarbe tönt nur den Rand
+   der Leere, die Siegel und das Straßenlicht, die Funken sind Glut.
 10. **Log-Zeilen entfernt** (`1f7c867`): "3D Tiles visible/hidden" und die
     Kamera-Position des Camera-Rigs; am Head konfliktfrei zurückzunehmen.
 11. **Slider behalten ihre Tasten** (`4923c7d`): Auf einem fokussierten Slider
@@ -697,8 +719,12 @@ steht unter "Bugfixes".
    (`vfx.service.ts:108`), also in Echtzeit; pausiert man kurz nach dem
    Einschlag, gehen die restlichen Stufen trotzdem los. VFX, Audio und Shake
    unterscheiden noch keine Fähigkeiten. Keine Warnsirene.
-4. **Portal**: Pfeiler können in Gassen in Fassaden ragen, der Lichtfleck
-   liegt am Hang eventuell schief, von hinten ploppen Gegner auf (laut Worker).
+4. **Portal**: Pfeiler und Hörner können in Gassen in Fassaden ragen (der
+   Rahmen ist seit der Nacharbeit größer), der Lichtfleck liegt am Hang
+   eventuell schief. Von hinten sieht man Gegner, bis sie in die Fläche
+   getreten sind. Große Gegner ragen beim Spawn teils vor die Fläche,
+   Lufteinheiten sind nicht geprüft. Farben und Stein sind ohne Browser
+   abgestimmt, die Shader nur gegengelesen (laut Worker).
 5. **Korridor**: Der Neuaufbau (etwa 40 ms) landet meist mitten im Intro, die
    Routen-Animation startet dann neu. Eine Welle nach einem Flush nutzt die
    vorher berechnete Director-Konfiguration.
@@ -819,8 +845,8 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
 **Spawn-Portal**
 
 128. `?devworld`: am Routenanfang ein Steintor (zwei Pfeiler, Sturz, Krone,
-     Hörner), Wirbel und Runen in der Spawnfarbe, Lichtfleck, Label. Das HQ
-     ist weiter ein Diamant.
+     Hörner), Wirbel, Siegel, Lichtfleck, Label. Das HQ ist weiter ein
+     Diamant. Look und Heraustreten der Nacharbeit: Punkte 192 bis 204.
 129. Intro: hält am Spawn mit dem Portal im Bild, kein Flug durch das Tor.
      Reset Camera: HQ, Portal und Route im Bild.
 130. N zum Portal, von vorn und von hinten: Wirbel sichtbar, keine Lücke unter
@@ -1010,6 +1036,43 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      not load..." und in der Konsole "[LocationCoordinator] Location dialog
      did not load:".
 
+**Spawn-Portal, Nacharbeit (portal2, `cfb85a8` bis `5bb5073`)**
+
+192. `?devworld`: das Portal ist deutlich höher und schwerer (gestufte
+     Plinthen, dicker Sturz mit Gesims, Hörner, gezackte Krone), der Stein
+     fast schwarz, die Leere dunkel mit trägem dunkelrotem Wirbel, schwarzem
+     Auge und einzelnen aufsteigenden Glutpunkten. Kein heller pink-oranger
+     Diskus mehr.
+193. Intro: hält am Spawn mit dem ganzen Portal samt Label im Bild, kein Flug
+     durch das Tor. Reset Camera: HQ, Portal und Route im Bild.
+194. N zum Portal, Space: die Gegner treten aus der Fläche heraus. Von vorn,
+     schräg vorn links und rechts (etwa 45° und 80°) und steil von oben: kein
+     Gegner und keine Healthbar hinter dem Tor, bevor er aus der Fläche kommt.
+195. Kamera hinter das Portal: dort sind Gegner kurz hinter dem Tor zu sehen,
+     bis sie eingetreten sind; wer vorn herausgetreten ist, verschwindet von
+     hinten gesehen hinter der Leere.
+196. Nah an einen Pfeiler: 5 Siegel je Pfeiler, 6 auf dem Sturz, nur Kreise,
+     Bögen und Punkte in einem Ring; keine Kreuze, Striche, Buchstaben- oder
+     Kana-Formen; vorn und hinten gleich.
+197. Wellenstart: das Portal glimmt 1 bis 3 s auf (heißere Stellen, Rand,
+     Siegel), danach ruhiger; Burst-Ring und Funken in Glutfarben. VFX-Preset
+     Low: keine Funken, Portal und Glutpunkte bleiben.
+198. Spawn neu setzen: die Vorschau ist das neue, größere Portal.
+199. Echter Ort, breite Straße und Gasse: das Portal skaliert. Ragen Pfeiler
+     oder Hörner in Fassaden? Treten die Gegner an beiden Orten aus der Fläche?
+200. Mehrere Spawns (rot, orange, cyan, magenta): unterscheidbar am Rand der
+     Leere, an den Siegeln und am Straßenlicht.
+201. Nah an einen Pfeiler (N, dann heranzoomen): Quaderlagen mit dunklen
+     Fugen, je Siegel ein Quader, keine Fuge durch ein Siegel; Kanten gefast,
+     heller abgerieben, einzelne Abplatzer; Risse; Ruß und Brandflecken rund
+     um die Öffnung, schwarze Schlieren über dem Sturz.
+202. Kamera um das Portal drehen: das rote Kernlicht fällt auf die
+     Innenseiten und die Fasen nahe der Öffnung; keine flimmernden Flächen an
+     den Pfeilerfüßen innen.
+203. Weit herauszoomen: der Stein wird ruhig, die Details blenden aus, kein
+     Funkeln oder Moiré.
+204. Space: bei Wellenstart glimmen die Risse an der Öffnung auf.
+
 ## TODO-Stand
 
 Jeder dieser Einträge hat in TODO.md eine Zeile "Stand 2026-09-13 (Nacht)".
@@ -1024,7 +1087,7 @@ Nach DONE.md verschoben ist nichts, das passiert nach deinem OK:
 | 1.7 Bot-Läufe mit den neuen Inhalten | weiter offen, dazu Split und Nuklearschlag | |
 | Performance: zombie_v2 und alle Gegnermodelle | VAT als Half Float, opak wo möglich, nur auf der GPU; zombie_v2 in Blender 31 342 auf 4 870 VAT-Vertices; VAT gesamt 105,2 MB | `e948529`, `eb3b7da`, `ec878b6`, `4c8d21c`, `b09d24d` |
 | Performance: BVH für Terrain-Raycasts | der größte gemessene Brocken, die Korridor-Messung, läuft in Scheiben; Entscheidung weiter nach dem Playtest | `879ad8b` |
-| Visual Effects: Spawn-Portal | umgesetzt | `a214973` bis `cc8da0f` |
+| Visual Effects: Spawn-Portal | umgesetzt, nach dem Playtest nachgearbeitet (Heraustreten, Look, Siegel, Stein) | `a214973` bis `cc8da0f`, `cfb85a8` bis `5bb5073` |
 | Gameplay-Konzept: Spieler aktiver einbinden | Nuklearschlag gebaut, der Held ist offen | `94213b0` bis `44b8741`, `cf6b6ee` |
 | Enemy-Ideen: Skeleton | Split dazu | `99178cd` bis `0557aba` |
 
