@@ -569,6 +569,24 @@ Effects aus (VFX-Einstellungen) nur Blitz, Ring und Reif. `game:reset` leert sie
 
 ---
 
+## EMP
+
+`EmpPulseRenderer` (`three-engine/renderers/emp-pulse.renderer.ts`), Werte in
+`EMP_PULSE_LOOK`, seit 2026-09-14, in Spielzeit wie Atompilz und Frostbombe.
+
+| Teil | Darstellung |
+|---|---|
+| Blitz | additiver Sprite, blau-weiß, 0,25 s |
+| Fronten | zwei elektrische Ringe am Boden, eigene ShaderMaterials (Log-Depth-Chunks, `colorspace_fragment`, additiv, Tiefentest aus): ein schmales Band am Rand des Quads, rundherum von Rauschen gezackt, das mit dem Alter des Pulses wandert und knistert; die Bandbreite bleibt in Metern gleich, während die Front wächst. Die erste bis 1,05 × Radius in 0,75 s, die zweite 0,14 s später bis 0,85 × |
+| Hülle | Halbkugel, flach (0,55), am Umriss am hellsten, 0,45 s |
+| Funken | 96 runde additive Partikel, entstehen auf der ersten Front, wo sie gerade steht, bis 0,7 s, und knistern 0,12 bis 0,35 s an ihrem Platz |
+
+Zwei Pulse gleichzeitig. Mit Impact Effects aus keine Funken. `game:reset` leert sie.
+An den betäubten Gegnern selbst: Tint und Funken des Stun
+([STATUS_EFFECTS.md](STATUS_EFFECTS.md#stun-effect)).
+
+---
+
 ## Kampfspuren (Scorch-Decals)
 
 Schicht 1 aus `docs/game-design/COMBAT_HEATMAP_STUDY.md`, seit 2026-09-12. Dunkle

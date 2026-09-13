@@ -520,6 +520,52 @@ export const FROST_BURST_LOOK = {
 } as const;
 
 /**
+ * Pulse of the EMP (EmpPulseRenderer). Times are game seconds after the
+ * impact, so a pause holds the pulse and the timescale plays it faster;
+ * radii are shares of the ability's radius, sizes metres at
+ * `referenceRadius`.
+ *
+ * 0 to 0.25 s a blue-white flash; two electric fronts run out over the
+ * ground, jagged and crackling, the first to 1.05 times the radius in
+ * 0.75 s, the second 0.14 s later to 0.85 times; a faint shell over the
+ * radius, brightest along its outline, 0.45 s; sparks crackle along the
+ * first front where it passes, born until 0.7 s, each for 0.12 to 0.35 s.
+ *
+ * With impact effects off (VFX settings) no sparks. Budget: 96 sparks per
+ * pulse, two pulses at once, in a buffer of the renderer's own; while a
+ * pulse is up four draw calls more (two fronts, shell, flash).
+ */
+export const EMP_PULSE_LOOK = {
+  referenceRadius: 30,
+  /** Pulses drawn at once; another takes the place of the oldest */
+  pulses: 2,
+  /** Sprite of `size` metres `height` above the ground point, additive at `intensity` */
+  flash: { duration: 0.25, size: 90, height: 6, intensity: 2.6 },
+  /**
+   * Electric fronts: from `delay` on, out to `radius` times the ability
+   * radius with time constant `timeConstant`, gone by `delay + duration`.
+   * `width` is the band's half width as a share of the ability radius.
+   */
+  rings: [
+    { delay: 0, duration: 0.75, radius: 1.05, timeConstant: 0.14, width: 0.05, opacity: 1 },
+    { delay: 0.14, duration: 0.8, radius: 0.85, timeConstant: 0.2, width: 0.035, opacity: 0.7 },
+  ],
+  /** Shell out to `radius` times the ability radius, `flatten` its height over its radius */
+  dome: { duration: 0.45, radius: 0.95, timeConstant: 0.12, opacity: 0.5, flatten: 0.55 },
+  /** Sparks on the first front: born until `until` s, `lift` m above the ground, diameters m */
+  sparks: { count: 96, until: 0.7, life: [0.12, 0.35], size: [0.8, 2.0], lift: [0.2, 3.5] },
+  /** Tints, linear */
+  colors: {
+    flash: { r: 0.8, g: 0.88, b: 1.0 },
+    ring: { r: 0.35, g: 0.45, b: 1.0 },
+    ringCore: { r: 0.85, g: 0.92, b: 1.0 },
+    dome: { r: 0.45, g: 0.5, b: 1.0 },
+    spark: { r: 0.55, g: 0.5, b: 1.0 },
+    sparkCore: { r: 0.9, g: 0.95, b: 1.0 },
+  },
+} as const;
+
+/**
  * Spawn portals (SpawnPortalManager). Energy is a factor on the glow of the
  * surface, the sigils and the light on the street, and on the swirl's
  * speed. Times in seconds of wall time, the portal keeps moving while the
