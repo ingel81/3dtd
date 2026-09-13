@@ -3,7 +3,7 @@ import { Enemy } from '../../entities/enemy.entity';
 import { StatusEffectType } from '../../models/status-effects';
 
 /**
- * StatusEffectService — applies slow / poison / burn / freeze / stun effects to enemies.
+ * StatusEffectService: applies slow / poison / burn / freeze / stun effects to enemies.
  *
  * `effect.startTime` is stored in **game-time ms** via an injected clock
  * provider (set once by GameStateManager on initialization). Using a provider

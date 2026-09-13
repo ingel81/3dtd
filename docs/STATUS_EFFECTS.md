@@ -14,8 +14,8 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 - **Slow** (Verlangsamung) — Ice Tower, Splash
 - **Poison** (DoT) — Poison Tower, Splash
 - **Burn** (DoT) — Fire Tower, jeder Gegner im Flammenkegel
-- **Freeze** (Stopp) — Frostbombe (Fähigkeit, [ABILITIES.md](ABILITIES.md))
-- **Stun** (Stopp, elektrisch) — EMP (Fähigkeit, [ABILITIES.md](ABILITIES.md))
+- **Freeze** (Stopp): Frostbombe (Fähigkeit, [ABILITIES.md](ABILITIES.md))
+- **Stun** (Stopp, elektrisch): EMP (Fähigkeit, [ABILITIES.md](ABILITIES.md))
 
 Status-Effekte hängen am Projektiltyp (`ice-shard`, `poison-glob`) bzw. am Fire-Beam, nicht am
 Schadenstyp. Der Chaos Tower (Schadenstyp `chaos`, 1,0 gegen jede Rüstung) legt keinen Effekt.
