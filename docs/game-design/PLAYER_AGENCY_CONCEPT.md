@@ -2,6 +2,8 @@
 
 **Status:** Entschieden am 2026-09-12 (Abschnitt 7). MVP Nuklearschlag gebaut
 am 2026-09-13 (Abschnitt 8, Dokumentation in [ABILITIES.md](../ABILITIES.md)).
+Held Stufe 1 gebaut am 2026-09-14 (Abschnitt 9, Dokumentation in
+[HERO.md](../HERO.md)).
 **Stand:** 2026-09-11 (Abschnitte 0 bis 6, Code-Stand `3338f4b`), 2026-09-12
 (Abschnitt 7), 2026-09-13 (Abschnitt 8).
 **Bezug:** TODO.md, Backlog „Gameplay-Konzepte: Spieler aktiver ins Geschehen
@@ -356,3 +358,24 @@ nichts sagen:
 | Bots | Strategie ab 10 Gegnern mit Pfadfortschritt ab 0,8. In allen Skill-Stufen eingehängt, erforscht wird die Fähigkeit nur von strategist und meta. Deren Baselines sind mit Läufen vor der Umsetzung nicht direkt vergleichbar, beginner und casual spielen unverändert |
 
 Taste K schaltet den Zielmodus wie der Knopf. Nicht gebaut: Warnsirene, weitere Fähigkeiten, Pickups.
+
+---
+
+## 9. Umsetzung Held (2026-09-14)
+
+Gebaut wie in 3.2 (Stufe 1) beschrieben; Aufbau, Zahlen und Dateien in
+[HERO.md](../HERO.md). Vom Nutzer vorgegeben: moderner Söldner, Munition als
+Schadensart (Physical, Siege, Magic), Freischaltung per Forschung und
+einmaliger Kauf, Tasten G und V, Präsenzfaktor 0,5, Kills füttern den
+Leck-Regler normal, Bots kaufen nie. Beim Bau festgelegt:
+
+| Punkt | Umsetzung |
+|---|---|
+| Forschung | `mercenary-contract`, 600 Credits, 30 s, nach `siege-engineering` |
+| Preis | 1000 Credits, einmal |
+| Tempo, Reichweite, Leine | 8 m/s, 18 m, 20 m entlang der Route; ein Befehl snappt im Umkreis von 30 m |
+| Posten | steht, solange er ein Ziel hat; verfolgt sonst den Gegner mit dem größten Pfadfortschritt im Umkreis von 38 m um den Posten, geht ohne Gegner zurück; unterwegs schießt er, bleibt aber nicht stehen |
+| Munition | alle drei 48 DPS vor der Matrix; Explosive rounds ohne Splash |
+| Stufen | 5, bei 0/30/100/250/500 Kills, +15 % Schaden je Stufe |
+| Gate | je Rüstung seine beste Munition, weil der Spieler jederzeit wechselt; nicht in `totalDPS`, Fähigkeiten, AoE-Anteil |
+| Commands | `command:hire-hero`, `command:hero-move`, `command:hero-ammo` statt des Arbeitstitels `command:hero-stance` |

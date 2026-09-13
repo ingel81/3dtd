@@ -221,7 +221,7 @@ Das Dev-Menü (`.td-dev-menu`) ist ein Glas-Panel (Mixin `bevel-glass`) über de
 |--------|---------|
 | Map | Height, Points, Recast, Dump |
 | View & Panels | Camera, Frame, Display, Perf, LOS, Audio, DevWorld (nur mit `?devworld`) |
-| Cheats | Kill, Credits, +HP, Research, Max Up, Nuke |
+| Cheats | Kill, Credits, +HP, Research, Max Up, Nuke, Hero |
 | Waves & Inspect | Waves, Static, AI, Towers, Enemies, Events |
 
 Kachel (`.td-dev-tile`): 44px hoch, Icon 18px über einer Beschriftung in 8px Versalien (`letter-spacing: 0.06em`), Fläche `rgba(11,15,12,0.6)`, Rahmen `--td-frame-dark`.
@@ -230,7 +230,7 @@ Kachel (`.td-dev-tile`): 44px hoch, Icon 18px über einer Beschriftung in 8px Ve
 |---------|-------------|
 | Hover | Rahmen `--td-frame-mid`, Text `--td-text-primary` |
 | Aktiv (Fenster offen, Schalter an) | Fläche `rgba(194,160,85,0.16)`, Rahmen `--td-gold-dark`, Inset `rgba(217,188,104,0.18)`, Text `--td-gold-light` |
-| Cheat (`.td-dev-cheat`) | kein Aktiv-Zustand; Icon und Text in der Farbe der Wirkung (Kill und +HP `--td-health-red`, Credits `--td-gold`, Research und Max Up `--td-teal`, Nuke `--td-warn-orange`), beim Hover nur der Rahmen in dieser Farbe |
+| Cheat (`.td-dev-cheat`) | kein Aktiv-Zustand; Icon und Text in der Farbe der Wirkung (Kill und +HP `--td-health-red`, Credits `--td-gold`, Research und Max Up `--td-teal`, Nuke `--td-warn-orange`, Hero `--td-green`), beim Hover nur der Rahmen in dieser Farbe |
 
 Die Tooltips nennen die volle Funktion (z. B. "+1000 Credits (Shift+Click: +100k)"), die `aria-label`s ebenso. Beschriftungen kurz halten: in der Mono-Ersatzschrift (Consolas) sind 8 Zeichen bei 8px rund 39px breit, die Kachel innen 44,5px. Der Dev-Toggle zeigt geöffnet das Gold-Rezept mit `--td-gold-glow`, wie der Layers-Toggle.
 
@@ -294,6 +294,7 @@ Die Sidebar (`components/game-sidebar/`) liefert Rahmen, Footer und die Wahl des
 | `wave-panel/` | WAVE: Gegnergruppen der laufenden Welle mit Preview, Next-Wave-Button mit Auto-Start-Schalter, NEXT-Zeitleiste |
 | `build-panel/` | BUILD: Tower-Karten mit Preview, Build-Mode-Hinweis und Cancel |
 | `tower-panel/` | Detail des gewählten Towers: Stats, Targeting, Upgrades, Verkauf |
+| `hero-panel/` | Held, solange er gewählt ist, an der Stelle des Tower-Details, siehe [Helden-Panel](#helden-panel-sidebar) |
 | `research-panel/` | Research Center: laufende Forschungen, Warteschlange, Forschungsbaum, Upgrades, Verkauf. Ein verfügbarer Knoten startet mit freiem Slot und genug Gold, sonst reiht er sich ein ("· queue" in Teal in der Meta-Zeile); ein gesperrter reiht sich mit seinen fehlenden Voraussetzungen davor ein (ebenfalls "· queue"); eingereihte Knoten gestrichelt in `--td-teal-dark`, die Schlange als gestrichelte Zeilen unter den laufenden mit Position, Name, Kosten (grau, solange das Gold fehlt) und Entfernen-Button, darüber "Queued · credits are paid when it starts" |
 
 Die Host-Elemente haben `display: contents`, die `<section class="td-panel">` bleibt damit Flex-Item der Sidebar-Spalte. Regeln, die mehrere Panels brauchen (Section, Header, Content, Scroll-Fläche, Tower-Header mit Sell-Button, `i`-Button, Upgrade-Kacheln), stehen einmal als Mixins in `_sidebar-panel.scss`; ein Panel bindet per `@include panel.<name>` ein, was sein Template nutzt. Die 1px-Trennlinie trägt nur das WAVE-Panel, die übrigen sind immer die letzte sichtbare Sektion. Tooltip-Aufbereitung (Tower-Karten, Gegnergruppen) liegt als reine Funktionen in `sidebar-tooltips.ts`.
@@ -334,6 +335,20 @@ Unter der Linie steht eine Detailzeile für eine Marke (`shownPeek`): die unter 
 - Anzahl: vom Minimum des Templates bis zum Höchstwert, den der Director bei der aktuellen Tower-DPS schicken kann (`dpsScaledCountMax` in `templates.ts`, dieselbe Funktion, die `WaveDirectorService` nutzt; ab 500 DPS die volle Spanne). Das Fairness-Gate kann darunter bleiben, nie darüber; der Tooltip sagt beides. Die DPS (`calculateTotalDPS`, dieselbe Zahl, die der Director liest) wird neu gerechnet, wenn Tower gebaut oder verkauft werden, der gewählte Tower ein Upgrade bekommt oder eine Forschung fertig wird.
 - Weak to: die Schadensarten mit dem besten Multiplikator gegen die HP der Welle, nach Rüstung gewichtet (Template-Anteil × Basis-HP, `bestDamageTypesAgainst` in `damage-matrix.config.ts`): alle ab `strong` (1,2), höchstens drei; erreicht keine 1,2, die besten über 1,0, höchstens zwei. Bei einer Rüstung ergibt das dieselbe Liste wie der frühere handgepflegte `weakTo`-Text in `ARMOR_TYPE_UI`, der entfernt ist; die Gegnergruppen der laufenden Welle lesen jetzt ebenfalls aus der Matrix. Bei mehreren Rüstungen nennt der Tooltip die Konter je Rüstung.
 - Nach W30 wählt der Director das Template beim Wellenstart. Die Detailzeile zeigt dort "Director's pick" oder auf Boss-Wellen (ab W31 jede fünfte) "Boss wave", dazu "Template picked at wave start" (`--td-text-muted`, kursiv). Die nächste Boss-Welle steht als Totenkopf auf der Leiste: fünf Marken hintereinander enthalten nach W30 immer eine Boss-Welle; ihre Nummer nennt auch der Tooltip.
+
+### Helden-Panel (Sidebar)
+
+`hero-panel/` steht, solange der Held gewählt ist, an der Stelle des Tower-Details. Keine Kacheln:
+
+- Kopf wie das Tower-Detail: Name in `--td-text-primary`, rechts "LV N" in `--td-gold-light` mit "/5" in `--td-text-muted`
+- "Next level" mit "12 / 70 kills" (oben "Top level"), darunter ein 4px-Balken als vertiefte Fläche mit Füllung in `--td-gold`
+- Kills, DPS (geladene Munition mit Stufe, vor der Matrix) und Range in einer Zeile mit Haarlinien (`--td-frame-dark`), Labels 9px Versalien in `--td-text-muted`
+- "Ammo" mit Tastenkappe V, darunter drei Segmente (Standard, Explosive, Rune): Name 11px/700 Versalien mit 6px-Punkt in der Farbe der Schadensart (`DAMAGE_TYPE_UI`), darunter die Schadensart 9px; aktiv im Teal-Verlauf mit `--td-teal-glow`, `role="radio"`; der Tooltip nennt, wogegen die Munition von seinen drei am besten ist (aus `DAMAGE_MATRIX`)
+- Hinweis in `--td-font-body` 11px: Zustand ("Holding his post" / "On his way"), wie man ihn schickt, Tastenkappen G und Esc
+
+Die Werte liefert `heroPanelView()` (`hero-panel/hero-panel.ts`).
+
+Solange der Held gewählt ist, zeigt die Kontext-Hinweis-Box "Click Send", "V Ammo", "G Camera", "ESC Let go" und die Warnung "No route within 30 m", solange unter dem Cursor keine Route in Reichweite ist. Auf der Karte: goldener Ring unter ihm, kleinerer auf seinem Posten, Bewegungsring unter dem Cursor gold (`--td-gold`) auf dem Routenpunkt, rot (`--td-health-red`) ohne.
 
 ### Header (mit Stein-Textur)
 
@@ -497,7 +512,7 @@ Verwendung:
 />
 ```
 
-Optional: `title` (mit `counter` rechts daneben), `message` darunter, `actions` als Textbuttons unten (Output `actionClicked` mit der Id). Mit Actions nimmt die Box Klicks an (`pointer-events: auto`), sonst lässt sie sie durch. Das Spiel zeigt immer nur eine Box: Build-Modus vor Platzierungsmodus vor Zielmodus einer Fähigkeit vor First-Run-Tipp.
+Optional: `title` (mit `counter` rechts daneben), `message` darunter, `actions` als Textbuttons unten (Output `actionClicked` mit der Id). Mit Actions nimmt die Box Klicks an (`pointer-events: auto`), sonst lässt sie sie durch. Das Spiel zeigt immer nur eine Box: Build-Modus vor Platzierungsmodus vor Zielmodus einer Fähigkeit vor gewähltem Helden vor First-Run-Tipp.
 
 ### Tastenkürzel
 
@@ -515,12 +530,14 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | Pos1 (Home) | Kamera gleitet zum HQ | nicht während des Intro-Flugs |
 | N | Kamera gleitet zum nächsten Spawnpunkt, reihum | nicht während des Intro-Flugs |
 | K (je Fähigkeit `AbilityConfig.hotkey`) | Zielmodus des Nuclear Strike an, nochmal drücken schaltet ihn ab (nicht im Photo Mode) | Knopf in der Fähigkeitenleiste (`AbilityTargetingService.start`) |
+| G | Held wählen; ist er gewählt, gleitet die Kamera zu ihm (nicht im Photo Mode, nicht während des Intro-Flugs) | Klick auf den Helden (`HeroControlService.select`) |
+| V | Nächste Munition des Helden, reihum (auch ohne ihn zu wählen) | Segmente im Helden-Panel (`HeroControlService.cycleAmmo`) |
 | O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |
-| Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Tower abwählen | |
+| Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Held loslassen, sonst Tower abwählen | |
 
 Während eines [Boss-Intros](#boss-intro-canvas) fragt die Spielkomponente vor InputHandler und HotkeyService den `BossIntroService`: Esc überspringt das Intro (vor Build- und Zielmodus), alle anderen Spieltasten warten, bis die Sicht zurück ist. Tippen in einem Feld und ein Esc, das ein Dialog schon genommen hat, bleiben unberührt.
 
-S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint.
+S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint. Das Helden-Panel zeigt V, G und Esc als Tastenkappen, seine Munitionswahl trägt `aria-keyshortcuts`.
 
 ### First-Run-Tipps
 

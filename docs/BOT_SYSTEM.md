@@ -310,6 +310,11 @@ ist und ihre Prereqs erfüllt sind.
   advanced-engineering → transcendent-tech`), die am Wave-Curriculum ausgerichtet ist: AA fertig vor
   `bat_swarm` (W7), Cannon vor `boss_herbert` (W10), Magic vor `ghost_surge`
   (W13).
+- **Keine Stufe** erforscht `mercenary-contract` (Held, [HERO.md](HERO.md)):
+  `BOT_SKIPPED_RESEARCH` nimmt die Node aus der adaptiven Wahl und der Liste.
+  Bots heuern den Helden nie an, eine Aktion dafür gibt es nicht; ohne den
+  Ausschluss hätte die adaptive Wahl den Global-Perk wie jeden anderen
+  bewertet und 600 Credits ausgegeben.
 
 Zwei Sonderregeln, beide aus konkreten Fehlern:
 

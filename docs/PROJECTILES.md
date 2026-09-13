@@ -103,6 +103,9 @@ Instanz-Matrizen hoch (`addUpdateRange(0, activeCount * 16)`), nicht den ganzen 
 | rocket | 120 m/s | 1.0 | rocket (Merged Mesh) | - | Dünne graue Rauchspur (normal blending), Düsenglühen als kurzer Streak |
 | poison-glob | 70 m/s | 0.5 | poison (Shader Orb) | 8m | Grüne Partikel (additive) |
 | chaos-orb | 90 m/s | 0.4 | chaos (Shader Orb) | - | Schwarz-violette Rauchspur (normal blending), kein Streak |
+| hero-round | 180 m/s | 0.12 | bullet (Cylinder) | - | Goldener Tracer, ein Partikel je Tor (additive). Standard rounds des Helden |
+| hero-shell | 140 m/s | 0.15 | shell (Cylinder) | - (Explosion nur Optik) | Orange-roter Tracer, dünner Rauch (normal blending). Explosive rounds des Helden |
+| hero-rune | 120 m/s | 0.16 | magic (Shader Orb) | - | Violett-Cyan-Funken ohne Spirale (additive). Rune rounds des Helden |
 
 **Visuelle Typen** (`ProjectileVisualType`):
 - `arrow` - GLB-Modell aus `/assets/models/projectiles/arrow.glb`
@@ -113,16 +116,23 @@ Instanz-Matrizen hoch (`addUpdateRange(0, activeCount * 16)`), nicht den ganzen 
 - `rocket` - `createRocketGeometry()`: Düse, Körper, Nasenkegel und 4 Finnen zu einer Geometrie gemergt, Teilfarben als Vertex-Farben (weißer Körper, rote Nase und Finnen, dunkle Düse). 4,2 m lang, 1,6 m Finnenspannweite, zentriert auf die Projektilposition, weiterhin 1 Draw Call für alle Raketen
 - `poison` - SphereGeometry mit ShaderMaterial (grün)
 - `chaos` - SphereGeometry mit dem Orb-Shader, fast schwarzer Kern mit violetten und magenta Highlights (additive: der dunkle Kern fällt weg, das Schwarz kommt aus der Rauchspur)
+- `shell` - CylinderGeometry wie `bullet`, orange-rot leuchtend; die Explosive rounds des Helden ([HERO.md](HERO.md))
+
+Die Schüsse des Helden sind Projektile ohne Tower: `ProjectileManager.spawnShot`,
+`sourceTowerType` ist `null`, `sourceTowerId` ist `hero`. Splash eines solchen Schusses
+träfe Boden und Luft; seine drei Typen haben keinen.
 
 **Schweif-Ansatz** (`tailOffset`, optional): Meter hinter der Mesh-Mitte, an denen Trail-Partikel
 und Trail-Streak ansetzen. Rakete: 2,1 m, also die Düse. Nur Optik, Default 0 (Mitte).
 
 **Trail-Streak-Länge** (`length` in `TRAIL_STYLES`, `trail-streak.renderer.ts`): Meter hinter
 dem Kopf, dort wird der Streak abgeschnitten. Rakete 6 m, Pfeil 17 m, Bullet 17,5 m, Arcane Orb
-32 m, Ice Shard 25,5 m, Kanonenkugel 9 m. Bis 2026-09-12 bestand er aus einer festen Zahl von
-Positionen, eine pro gerendertem Frame, und wurde bei 30 FPS oder 2x-Spielgeschwindigkeit doppelt,
-bei 4x viermal so lang. Poison-Glob und Chaos-Orb haben keinen Streak: `TrailStreakRenderer.initPools()`
-legt nur für `rocket`, `arrow`, `magic`, `ice`, `cannonball` und `bullet` einen Pool an.
+32 m, Ice Shard 25,5 m, Kanonenkugel 9 m, Shell (Explosive rounds des Helden) 14 m; Standard und
+Rune rounds des Helden nehmen die Streaks von `bullet` und `magic`. Bis 2026-09-12 bestand er aus
+einer festen Zahl von Positionen, eine pro gerendertem Frame, und wurde bei 30 FPS oder
+2x-Spielgeschwindigkeit doppelt, bei 4x viermal so lang. Poison-Glob und Chaos-Orb haben keinen
+Streak: `TrailStreakRenderer.initPools()` legt nur für `rocket`, `arrow`, `magic`, `ice`,
+`cannonball`, `bullet` und `shell` einen Pool an.
 
 **Splash-Damage-Konfiguration:**
 ```typescript
@@ -184,6 +194,9 @@ Jeder Projektiltyp hat eigene Sound-Konfiguration in `PROJECTILE_SOUNDS`:
 | rocket | `assets/sounds/towers/rocket/launch.mp3` | 0.7 | 60 |
 | poison-glob | `assets/sounds/towers/poison/poison_spit.mp3` | 0.4 | 50 |
 | chaos-orb | `assets/sounds/towers/magic/cast.mp3` (bis Chaos einen eigenen hat) | 0.5 | 55 |
+| hero-round | `assets/sounds/towers/gatling/shoot.mp3` | 0.22 | 35 |
+| hero-shell | `assets/sounds/towers/cannon/shoot.mp3` | 0.3 | 40 |
+| hero-rune | `assets/sounds/towers/magic/cast.mp3` | 0.3 | 40 |
 
 Sounds werden als Events ueber den `GameEventBus` emittiert (`audio:play`), nicht direkt abgespielt.
 
