@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy, input } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, input, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
@@ -6,6 +6,8 @@ import { WaveDebugService } from '../../services/debug/wave-debug.service';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { EnemyTypeId } from '../../configs/enemy-types.config';
+import { isBossWave, templateObjectForWave } from '../../configs/wave-curriculum.config';
+import { bossVariantForWave } from '../../configs/boss-variants.config';
 import { SpawnPattern } from '../../ai/core/spawn-schedule-builder';
 import { TdIconComponent } from '../icon/icon.component';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -30,6 +32,9 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
   'wave-in-wave': 'wave',
 };
 
+/** Highest wave the jump field takes */
+const MAX_JUMP_WAVE = 999;
+
 @Component({
   selector: 'app-wave-debugger',
   standalone: true,
@@ -46,18 +51,58 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
 export class WaveDebuggerComponent {
   readonly windowService = inject(DebugWindowService);
   readonly waveDebug = inject(WaveDebugService);
+  private readonly store = inject(TowerDefenseStore);
   /** Director's reasons for the wave in play; null for waves it did not plan. */
-  readonly explanation = inject(TowerDefenseStore).aiExplanation;
+  readonly explanation = this.store.aiExplanation;
 
   readonly eventBus = input<GameEventBus>();
 
   readonly patternLabels = PATTERN_LABELS;
   readonly patternIcons = PATTERN_ICONS;
+
+  // === Jump to wave (dev cheat, GameStateManager.jumpToWave) ===
+
+  readonly maxJumpWave = MAX_JUMP_WAVE;
+  /** The wave the next start should be */
+  readonly jumpWave = signal(35);
+  /** Pay what the skipped waves would have paid */
+  readonly jumpGrantGold = signal(true);
+  /** A jump skips at least one wave */
+  readonly minJumpWave = computed(() => this.store.waveNumber() + 2);
+  readonly canJump = computed(() => this.store.phase() === 'setup' && this.jumpWave() >= this.minJumpWave());
+  /** What that wave is, to check W35 is the worm before jumping */
+  readonly jumpWaveName = computed(() => {
+    const wave = this.jumpWave();
+    return bossVariantForWave(wave)?.name
+      ?? templateObjectForWave(wave)?.name
+      ?? (isBossWave(wave) ? 'Boss wave' : 'Director wave');
+  });
+  readonly jumpLabel = computed(() => {
+    if (this.store.phase() !== 'setup') return 'Between waves only';
+    if (this.jumpWave() < this.minJumpWave()) return `Wave ${this.minJumpWave()} or later`;
+    return `Jump: next start Wave ${this.jumpWave()}`;
+  });
+
   onStartCustomWave(): void {
     const bus = this.eventBus();
     if (bus) {
       bus.emit({ type: 'debug:start-custom-wave' });
     }
+  }
+
+  onJumpWaveChange(event: Event): void {
+    const value = parseInt((event.target as HTMLInputElement).value, 10);
+    if (Number.isFinite(value)) this.jumpWave.set(Math.min(MAX_JUMP_WAVE, Math.max(2, value)));
+  }
+
+  onJumpGrantGoldChange(event: Event): void {
+    this.jumpGrantGold.set((event.target as HTMLInputElement).checked);
+  }
+
+  onJumpToWave(): void {
+    const bus = this.eventBus();
+    if (!bus || !this.canJump()) return;
+    bus.emit({ type: 'debug:jump-to-wave', wave: this.jumpWave(), grantGold: this.jumpGrantGold() });
   }
 
   // === Single Mode Handlers ===
