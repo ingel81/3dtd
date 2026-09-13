@@ -6,6 +6,7 @@ import { GeoPosition } from '../models/game.types';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import type { AbilityId, AbilityRejectReason, AbilityStatus } from '../configs/abilities.config';
 import { WaveConfig } from '../managers/wave.manager';
+import type { SpawnStart } from '../managers/enemy.manager';
 
 /**
  * Game Event Type Definitions
@@ -285,6 +286,8 @@ export type GameEvent =
       enemyType: string;
       count?: number;
       path?: GeoPosition[];
+      /** Part-way along `path` instead of on path[0] (enemy debugger placement) */
+      start?: SpawnStart;
       speed?: number;
       paused?: boolean;
       health?: number;
