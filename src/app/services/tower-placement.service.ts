@@ -18,6 +18,7 @@ import { TowerLosRegistry } from './tower-los-registry';
 import { BuildPreviewLos } from './build-preview-los';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 import { TowerFootprint, footprintSampleOffsets, resolveTowerFootprint } from '../utils/tower-footprint';
+import { TowerPlinthPreview } from './tower-plinth-preview';
 
 /**
  * TowerPlacementService
@@ -77,6 +78,9 @@ export class TowerPlacementService {
 
   /** Single preview tower mesh - used throughout placement */
   private previewTowerMesh: Object3D | null = null;
+
+  /** Plinth under the preview tower on uneven ground */
+  private readonly plinthPreview = new TowerPlinthPreview();
 
   /**
    * Reactive sync: jedes Mal wenn der User `perTowerLosFilter` im
@@ -266,6 +270,7 @@ export class TowerPlacementService {
       this.engine.getOverlayGroup().remove(this.previewTowerMesh);
       this.previewTowerMesh = null;
     }
+    this.plinthPreview.dispose();
   }
 
   // ========================================
@@ -399,6 +404,17 @@ export class TowerPlacementService {
     this.previewTowerMesh.rotation.y = baseRotation + this.currentRotation();
     this.previewTowerMesh.visible = true;
 
+    // The plinth the tower will get, hidden on even ground
+    this.plinthPreview.show(
+      this.engine.getOverlayGroup(),
+      local.x,
+      resolvedHeight,
+      local.z,
+      config.footprintRadius,
+      footprint.plinthHeight,
+      validValid,
+    );
+
     // Update LoS preview only for valid positions (skip calculation for invalid spots)
     if (validValid) {
       this.buildPreviewLos.update(
@@ -462,6 +478,7 @@ export class TowerPlacementService {
     if (this.previewTowerMesh) {
       this.previewTowerMesh.visible = false;
     }
+    this.plinthPreview.hide();
   }
 
   // ========================================
