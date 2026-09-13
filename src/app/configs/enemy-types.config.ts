@@ -152,59 +152,67 @@ interface WormModels {
 }
 
 /**
- * Stand-ins until the chitin head and segment GLBs arrive: the spider as the
- * head, the tank (static, one VAT frame) as the armoured ring.
+ * Metres per model unit of the worm: 7.2 m wide with the legs, 4.5 m high
+ * with the dorsal spikes, one ring every 2.5 m.
  */
-const PLACEHOLDER_WORM_MODELS: WormModels = {
+const WORM_SCALE = 2.5;
+
+/**
+ * The chitin head and ring (tools/blender/worm_boss.py): static meshes with
+ * one 512² base colour each, looking along +z, pivot on the ground under the
+ * ring centre. The rings follow each other at 1.0 model units (0.10 of
+ * overlap); the head sits on the front node of the chain like a ring, its
+ * collar over the first ring behind it. Everything that depends on the
+ * models is here.
+ */
+const WORM_MODELS: WormModels = {
   head: {
-    modelUrl: 'assets/models/enemies/spider.glb',
-    scale: 3,
-    hasAnimations: true,
-    walkAnimation: 'Armature|Walk-Cycle-Basic',
-    animationSpeed: 1.2,
+    modelUrl: 'assets/models/enemies/worm_head.glb',
+    scale: WORM_SCALE,
+    hasAnimations: false,
     headingOffset: 0,
     heightOffset: 0,
+    // Top of the head at 2.02 units, 5.05 m
     healthBarOffset: 6,
-    previewScale: 1.9,
+    previewScale: 2,
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
     previewOffsetY: 1,
   },
   segment: {
-    // The tank is about 4.6 units long: 3.7 m at 0.8
-    modelUrl: 'assets/models/enemies/tank.glb',
-    scale: 0.8,
+    modelUrl: 'assets/models/enemies/worm_segment.glb',
+    scale: WORM_SCALE,
     hasAnimations: false,
-    headingOffset: -0.122,
+    headingOffset: 0,
     heightOffset: 0,
-    healthBarOffset: 4,
-    previewScale: 1.073,
+    // Dorsal spikes up to 1.78 units, 4.45 m
+    healthBarOffset: 5.5,
+    previewScale: 2,
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
-    previewOffsetY: 0,
+    previewOffsetY: 1,
   },
-  spacing: 3.6,
+  // PITCH in worm_boss.py, 1.0 model units
+  spacing: WORM_SCALE,
 };
 
-/** The worm's models: swapping in the chitin GLBs is this line. */
-const WORM_MODELS: WormModels = PLACEHOLDER_WORM_MODELS;
-
 /**
- * Most segments one worm has. At 3.6 m that is 576 m of worm, which fills a
+ * Most segments one worm has. At 2.5 m that is 600 m of worm, which fills a
  * route up to that length; a longer route gets a worm of this length. Each
- * segment is a whole enemy (targeting, health bar, kill-gold slot, VAT
- * instance) and the worm takes 160 × 3.6 m / 4.5 m/s = 128 s to come out of
- * the portal, near the director's 3-minute cap on a wave's spawn window.
+ * segment is a whole enemy (targeting, health bar, kill-gold slot, a VAT
+ * instance of 634 vertices) and the worm takes 240 × 2.5 m / 4.5 m/s = 133 s
+ * to come out of the portal, near the director's 3-minute cap on a wave's
+ * spawn window.
  */
-export const WORM_MAX_SEGMENTS = 160;
+export const WORM_MAX_SEGMENTS = 240;
 
 /** Stats every worm segment has, head or body: one enemy type ('worm') for all of them. */
 const WORM_STATS = {
   minimumPixelSize: 0,
   // Chitin: siege, lightning and magic get through, arrows and fire much less
   armorType: 'heavy',
-  // Per segment; a worm of 160 is 8,000 HP at HP multiplier 1
-  baseHp: 50,
+  // Per segment, 14 HP per metre of worm; 240 segments are 8,400 HP at HP multiplier 1
+  baseHp: 35,
   baseSpeed: 4.5,
   reward: 1,
   canBleed: true,
@@ -887,8 +895,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
       spacing: WORM_MODELS.spacing,
       minSegments: 16,
       maxSegments: WORM_MAX_SEGMENTS,
-      sway: 0.45,
-      swayWavelength: 32,
+      // Gentle: the rings keep overlapping at the body on the sway. Sharp
+      // route corners can still open gaps on the outer side.
+      sway: 0.35,
+      swayWavelength: 40,
     },
   },
 

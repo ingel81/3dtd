@@ -69,7 +69,8 @@ describe('bossVariantWave', () => {
 
     const entries = adaptAIWaveConfig(wave).schedule.entries;
     expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ enemyType: 'worm', health: ENEMY_TYPES['worm'].baseHp * 3.5 });
+    // The schedule rounds each entry's HP
+    expect(entries[0]).toMatchObject({ enemyType: 'worm', health: Math.round(ENEMY_TYPES['worm'].baseHp * 3.5) });
   });
 
   it('says why in place of the director explanation', () => {

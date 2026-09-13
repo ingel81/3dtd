@@ -47,8 +47,8 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | **stone-golem** | fortified | 480 | 2.5 | – | Neuer Fortified-Gegner (2026-05-12), `canBleed: false`, `randomAnimationStart: true`, `lateralSpread: 0.65`, `spawnStartDelay: 1200` |
 | ghost | ethereal | 120 | 5 | – | Nur magic/chaos wirkt voll |
 | wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
-| **worm** | heavy | 50 je Segment | 4.5 | – | Boss, Kette aus Segmenten (`chain`, siehe [Kette](#kette-chain-der-wurm)), jedes Segment ein eigener Gegner; Endlos-Rotation ab W35, kein Template |
-| worm-segment | heavy | 50 | 4.5 | – | Modell der Wurm-Segmente (eigener VAT-Pool, statisch). Einzeln gespawnt ein einzelner Ring mit den Werten des Wurms |
+| **worm** | heavy | 35 je Segment | 4.5 | – | Boss, Kette aus Segmenten (`chain`, siehe [Kette](#kette-chain-der-wurm)), jedes Segment ein eigener Gegner; Endlos-Rotation ab W35, kein Template |
+| worm-segment | heavy | 35 | 4.5 | – | Modell der Wurm-Segmente (eigener VAT-Pool, statisch). Einzeln gespawnt ein einzelner Ring mit den Werten des Wurms |
 
 > **Wave-Director:** Stone Golem ist seit 2026-08-27 angebunden — Template
 > `golem_squad` (`src/app/ai/core/templates.ts`, `minWave: 14`) steht auf Wave 15
@@ -420,11 +420,11 @@ Slime aus dem Game Design kann denselben Mechanismus nutzen.
 ```typescript
 chain: {
   segmentModel: 'worm-segment', // VAT-Pool der Körpersegmente
-  spacing: 3.6,                 // Abstand der Segmente auf der Routenmitte (m)
+  spacing: 2.5,                 // Abstand der Segmente auf der Routenmitte (m)
   minSegments: 16,
-  maxSegments: WORM_MAX_SEGMENTS, // 160
-  sway: 0.45,                   // Schlängeln, Anteil des Korridors
-  swayWavelength: 32,           // Länge einer Schlängelwelle (m)
+  maxSegments: WORM_MAX_SEGMENTS, // 240
+  sway: 0.35,                   // Schlängeln, Anteil des Korridors
+  swayWavelength: 40,           // Länge einer Schlängelwelle (m)
 },
 ```
 
@@ -433,9 +433,9 @@ Umgesetzt für den Chitin-Wurm (`worm`).
 
 - **Länge:** so viele Segmente, dass der Kopf das HQ erreicht, wenn das letzte Segment den
   Start verlässt (`floor(Routenlänge / spacing) + 1`), mindestens `minSegments`, höchstens
-  `maxSegments`. Die Obergrenze `WORM_MAX_SEGMENTS` = 160 (576 m) ist eine Leistungsgrenze:
+  `maxSegments`. Die Obergrenze `WORM_MAX_SEGMENTS` = 240 (600 m) ist eine Leistungsgrenze:
   Jedes Segment ist ein ganzer Gegner (Targeting, Health-Bar, Kill-Gold-Slot, VAT-Instanz),
-  und 160 × 3,6 m brauchen bei 4,5 m/s 128 s, bis sie aus dem Portal sind. Längere Routen
+  und 240 × 2,5 m brauchen bei 4,5 m/s 133 s, bis sie aus dem Portal sind. Längere Routen
   bekommen einen Wurm dieser Länge.
 - **Segmente:** Jedes Segment ist ein `Enemy` des Typs `worm` mit eigener HP; `healthOverride`
   gilt je Segment (Custom Wave: „Health“ ist die HP eines Segments). Der Kopf nutzt das Modell
@@ -470,9 +470,14 @@ Umgesetzt für den Chitin-Wurm (`worm`).
   `ai-schema.json` und Encoder bleiben gleich. In Wellen kommt der Wurm über die
   Boss-Rotation ab W35 (`configs/boss-variants.config.ts`, siehe
   [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-waves)).
-- **Modelle:** `WORM_MODELS` in `enemy-types.config.ts` fasst alles Modellabhängige zusammen
-  (URL, Skala, Clips, Offsets, Abstand); bis die Chitin-GLBs da sind, stehen Spider (Kopf) und
-  Tank (Ring) als Platzhalter dort.
+- **Modelle:** `worm_head.glb` und `worm_segment.glb` (`tools/blender/worm_boss.py`),
+  statisch, je eine 512²-Basisfarbe, Blick nach +z, Pivot am Boden unter der Ringmitte.
+  `WORM_MODELS` in `enemy-types.config.ts` fasst alles Modellabhängige zusammen (URL, Skala,
+  Offsets, Abstand). Skala 2,5: 7,2 m breit mit Beinen, 4,5 m hoch, ein Ring alle 2,5 m (der
+  `PITCH` des Skripts, 1,0 Einheiten, mit 0,10 Überlappung). Der Kopf sitzt wie ein Ring auf
+  dem vordersten Knoten der Kette, sein Kragen deckt den Ring dahinter. Das Schlängeln ist so
+  flach, dass die Ringe am Körper geschlossen bleiben; an scharfen Routenecken kann außen eine
+  Lücke aufgehen (nicht im Browser geprüft).
 - **Kein Sound:** Alle Segmente sind vom Typ `worm`, ein Loop-Sound liefe auf jedem Segment
   und belegte das Budget von 12 Gegner-Sounds.
 
