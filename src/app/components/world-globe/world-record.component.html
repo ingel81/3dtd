@@ -1,0 +1,11 @@
+<div class="record">
+  <app-world-globe [records]="records()" [highlight]="record().hq" [size]="112" [selectable]="false" />
+  <div class="record-text" role="status">
+    <span class="record-kicker">World map</span>
+    <span class="record-title">New record for {{ record().name }}: wave {{ record().wave }}</span>
+    <span class="record-detail">
+      {{ record().previous > 0 ? 'Best before: wave ' + record().previous : 'First run here' }}
+    </span>
+  </div>
+  <button type="button" class="record-skip" (click)="dismissed.emit()" aria-label="Hide the new record">Skip</button>
+</div>

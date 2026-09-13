@@ -271,6 +271,17 @@
               <td-icon name="refresh" [size]="18"></td-icon>
               RESTART
             </button>
+            <!-- New record of this place: under Restart, fades in after a moment, Skip hides it.
+                 on immediate like the other @defer blocks; a timer trigger would add core code to the initial bundle. -->
+            @if (bestWaves.newRecord(); as record) {
+              @defer (on immediate) {
+                <app-world-record
+                  [record]="record"
+                  [records]="bestWaves.records()"
+                  (dismissed)="bestWaves.dismissRecord()"
+                />
+              }
+            }
           </div>
         </div>
       }

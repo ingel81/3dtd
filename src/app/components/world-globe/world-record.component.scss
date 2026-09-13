@@ -1,0 +1,78 @@
+/* Under the Restart button, set off by a hairline; it fades in after the
+   game-over screen has landed, so Restart never moves under the pointer. */
+.record {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--td-frame-dark);
+  text-align: left;
+  animation: record-in 400ms ease-out 1200ms both;
+}
+
+@keyframes record-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record {
+    animation: none;
+  }
+}
+
+.record-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.record-kicker {
+  font-family: var(--td-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.record-title {
+  font-family: var(--td-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--td-gold-light);
+}
+
+.record-detail {
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  color: var(--td-text-muted);
+}
+
+.record-skip {
+  align-self: flex-start;
+  padding: 2px 4px;
+  background: none;
+  border: none;
+  color: var(--td-text-muted);
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.record-skip:hover {
+  color: var(--td-text-secondary);
+}
+
+.record-skip:focus-visible {
+  outline: 1px solid var(--td-gold-light);
+  outline-offset: 2px;
+}
