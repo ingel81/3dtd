@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { AnimationClip, Box3, BoxGeometry, Group, Mesh, MeshStandardMaterial, Scene, Vector3 } from 'three';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { AnimationClip, Box3, BoxGeometry, Group, Mesh, MeshStandardMaterial, Object3D, Scene, Vector3 } from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { HeroRenderer, type HeroCoordinates } from './hero.renderer';
 import { HERO_MODEL, loadHeroModel, type HeroModelConfig } from './hero-model';
+import { HERO } from '../../configs/hero.config';
 import type { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import type { HeroPresentation } from '../../managers/hero.manager';
 
@@ -14,11 +19,11 @@ const hero = (patch: Partial<HeroPresentation> = {}): HeroPresentation => ({
   lat: 0.01, lon: 0.02, heading: 0.5, pose: 'idle', anchor: { lat: 0.03, lon: 0.02 }, ...patch,
 });
 
-/** A GLB stand-in: one box two metres tall, centred on the origin, and three clips. */
+/** A GLB stand-in: one box two metres tall, centred on the origin, and the clips of mercenary.glb. */
 function fakeAssets(fail = false) {
   const scene = new Group();
   scene.add(new Mesh(new BoxGeometry(1, 2, 1), new MeshStandardMaterial()));
-  const animations = ['Idle', 'Run_Rifle', 'Shoot'].map((name) => new AnimationClip(name, 1, []));
+  const animations = ['idle', 'run', 'aim', 'run_shoot'].map((name) => new AnimationClip(name, 1, []));
   const assets = {
     loadModel: vi.fn(async () => {
       if (fail) throw new Error('404');
@@ -51,15 +56,6 @@ describe('HeroRenderer', () => {
     expect(root.visible).toBe(true);
     expect(root.position.toArray()).toEqual([20, 2, 10]);
     expect(root.rotation.y).toBeCloseTo(0.5);
-    expect(root.getObjectByName('hero-placeholder')).toBeDefined();
-  });
-
-  it('draws the placeholder about as tall as configured', () => {
-    const { renderer } = setup();
-    renderer.present(hero());
-    const box = new Box3().setFromObject(renderer.pickTarget()!);
-    expect(box.max.y - box.min.y).toBeGreaterThan(HERO_MODEL.heightM * 0.9);
-    expect(box.max.y - box.min.y).toBeLessThan(HERO_MODEL.heightM * 1.1);
   });
 
   it('shows the rings under him and on his post only while he is selected', () => {
@@ -89,22 +85,25 @@ describe('HeroRenderer', () => {
     expect(renderer.headPosition(new Vector3())).toBeNull();
   });
 
-  it('swaps the placeholder for the GLB once it has loaded', async () => {
+  it('loads the GLB once on his first frame and shows it when it arrives', async () => {
     const assets = fakeAssets();
     const { renderer } = setup(withGlb, assets);
     renderer.present(hero());
-    expect(renderer.pickTarget()!.getObjectByName('hero-placeholder')).toBeDefined();
+    renderer.present(hero());
+    expect(renderer.pickTarget()!.children).toHaveLength(0);
 
     await vi.waitFor(() => expect(renderer.pickTarget()!.getObjectByName('hero-model')).toBeDefined());
-    expect(renderer.pickTarget()!.getObjectByName('hero-placeholder')).toBeUndefined();
+    expect(assets.loadModel).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the placeholder when the GLB does not load', async () => {
+  it('shows only his rings when the GLB does not load', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { renderer } = setup(withGlb, fakeAssets(true));
     renderer.present(hero());
     await vi.waitFor(() => expect(warn).toHaveBeenCalled());
-    expect(renderer.pickTarget()!.getObjectByName('hero-placeholder')).toBeDefined();
+    expect(renderer.pickTarget()!.children).toHaveLength(0);
+    renderer.setSelected(true);
+    expect(() => renderer.update(16, 16)).not.toThrow();
   });
 });
 
@@ -123,9 +122,46 @@ describe('loadHeroModel', () => {
       model.setPose('idle');
       model.setPose('run');
       model.setPose('shoot');
+      model.setPose('run-shoot');
       model.update(16);
     }).not.toThrow();
     model.dispose();
     expect(assets.releaseModel).toHaveBeenCalledWith('soldier.glb');
+  });
+});
+
+describe('mercenary.glb', () => {
+  /** The file as the game serves it, through loadHeroModel like the renderer. */
+  async function loadMercenary() {
+    // A copy made here: GLTFLoader checks `instanceof ArrayBuffer`, and a Node Buffer's is another realm's under jsdom
+    const data = new Uint8Array(readFileSync(resolve('public', HERO_MODEL.url!))).buffer;
+    const gltf = await new Promise<{ scene: Object3D; animations: AnimationClip[] }>((done, fail) => {
+      new GLTFLoader().parse(data, '', done, fail);
+    });
+    const assets = {
+      loadModel: async () => ({ scene: gltf.scene, animations: gltf.animations }),
+      cloneModel: () => SkeletonUtils.clone(gltf.scene),
+      releaseModel: () => undefined,
+    };
+    const model = await loadHeroModel(assets as unknown as AssetManagerService, HERO_MODEL);
+    return { gltf, model };
+  }
+
+  it('has a clip for every pose', async () => {
+    const { gltf } = await loadMercenary();
+    const names = gltf.animations.map((clip) => clip.name);
+    for (const clip of Object.values(HERO_MODEL.clips)) expect(names).toContain(clip);
+  });
+
+  it('holds its muzzle where HERO.muzzle starts his shots, in the aim pose', async () => {
+    const { model } = await loadMercenary();
+    model.setPose('shoot');
+    model.update(0);
+    model.root.updateMatrixWorld(true);
+    const muzzle = model.root.getObjectByName('Muzzle')!.getWorldPosition(new Vector3());
+    // Front +Z, right hand -X; within 5 cm
+    expect(muzzle.z).toBeCloseTo(HERO.muzzle.forwardM, 1);
+    expect(-muzzle.x).toBeCloseTo(HERO.muzzle.rightM, 1);
+    expect(muzzle.y).toBeCloseTo(HERO.muzzle.upM, 1);
   });
 });

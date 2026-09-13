@@ -33,6 +33,7 @@ import {
   HeroStatus,
   heroDefenseProfile,
   heroLevelFor,
+  heroMuzzleOffset,
   heroStatus,
 } from '../configs/hero.config';
 import type { ResearchEffect } from '../configs/research/research.types';
@@ -40,11 +41,11 @@ import type { GeoPosition } from '../models/game.types';
 import type { Enemy } from '../entities/enemy.entity';
 import { Hero } from '../entities/hero.entity';
 import { GraphPoint, RouteGraph } from '../utils/route-graph';
-import { geoDistanceFastSq } from '../utils/geo-utils';
+import { DEG_TO_RAD, METERS_PER_DEGREE_LAT, geoDistanceFastSq } from '../utils/geo-utils';
 
 /** One shot of the hero, for HeroWorld.fire. */
 export interface HeroShot {
-  /** Where he stands */
+  /** The muzzle: his position plus HERO.muzzle turned by his heading */
   origin: GeoPosition;
   /** Geo height of the muzzle */
   originHeight: number;
@@ -74,9 +75,10 @@ export interface HeroWorld {
 export interface HeroPresentation {
   lat: number;
   lon: number;
-  /** Heading in radians, TransformComponent's convention (0 north, PI/2 east) */
+  /** Heading in radians, TransformComponent's convention (scene rotation.y: 0 north, PI/2 west) */
   heading: number;
-  pose: 'idle' | 'run' | 'shoot';
+  /** 'run-shoot' while he fires on his way to a new spot */
+  pose: 'idle' | 'run' | 'shoot' | 'run-shoot';
   /** The spot he holds */
   anchor: GeoPosition;
 }
@@ -254,7 +256,8 @@ export class HeroManager implements IGameManager {
     p.lat = hero.position.lat;
     p.lon = hero.position.lon;
     p.heading = hero.transform.rotation;
-    p.pose = this.target ? 'shoot' : this.goal ? 'run' : 'idle';
+    if (this.target) p.pose = this.goal ? 'run-shoot' : 'shoot';
+    else p.pose = this.goal ? 'run' : 'idle';
     p.anchor = this.getAnchor() ?? p.anchor;
     this.view.present(p);
   }
@@ -370,9 +373,13 @@ export class HeroManager implements IGameManager {
 
   private fire(hero: Hero, target: Enemy): void {
     const { lat, lon } = hero.position;
+    const muzzle = heroMuzzleOffset(hero.transform.rotation);
     this.world.fire({
-      origin: { lat, lon },
-      originHeight: this.world.groundHeight(lat, lon) + HERO.shotHeightM,
+      origin: {
+        lat: lat + muzzle.northM / METERS_PER_DEGREE_LAT,
+        lon: lon + muzzle.eastM / (METERS_PER_DEGREE_LAT * Math.cos(lat * DEG_TO_RAD)),
+      },
+      originHeight: this.world.groundHeight(lat, lon) + HERO.muzzle.upM,
       target,
       ammo: HERO_AMMO[this.ammo],
       damage: hero.combat.damage,

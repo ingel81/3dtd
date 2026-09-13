@@ -7,6 +7,7 @@ import {
   heroLevelFor,
   heroStatus,
   heroDefenseProfile,
+  heroMuzzleOffset,
   initialHeroStatus,
   nextHeroAmmo,
 } from './hero.config';
@@ -14,6 +15,17 @@ import { getResearch } from './research/research-tree.config';
 import { PROJECTILE_SOUNDS, PROJECTILE_TYPES } from './projectile-types.config';
 
 describe('hero config', () => {
+  it('puts the muzzle ahead of him and to his right, whichever way he faces', () => {
+    const { forwardM, rightM } = HERO.muzzle;
+    const north = heroMuzzleOffset(0);
+    expect(north.northM).toBeCloseTo(forwardM);
+    expect(north.eastM).toBeCloseTo(rightM);
+    // PI/2 faces west (scene +X), his right hand points north
+    const west = heroMuzzleOffset(Math.PI / 2);
+    expect(west.eastM).toBeCloseTo(-forwardM);
+    expect(west.northM).toBeCloseTo(rightM);
+  });
+
   it('is unlocked by a global-perk research whose prerequisites exist', () => {
     const research = getResearch(HERO.researchId)!;
     expect(research).toBeDefined();

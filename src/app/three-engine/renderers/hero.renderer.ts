@@ -10,7 +10,7 @@ import {
 } from 'three';
 import type { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import type { HeroPresentation, HeroView } from '../../managers/hero.manager';
-import { HERO_MODEL, HeroModel, HeroModelConfig, createPlaceholderHero, loadHeroModel } from './hero-model';
+import { HERO_MODEL, HeroModel, HeroModelConfig, loadHeroModel } from './hero-model';
 
 /** Ground under a local position: the route grid, like the enemies' feet. */
 export interface HeroGround {
@@ -37,7 +37,8 @@ const RENDER_ORDER = 950;
 const HEAD_CLEARANCE_M = 1.5;
 
 /**
- * The hero on the map: his model (placeholder or GLB, see hero-model.ts),
+ * The hero on the map: his model (the GLB, see hero-model.ts; none until it
+ * has loaded or when it fails),
  * and while he is selected a gold ring under his feet, a smaller one on the
  * spot he holds and the move ring under the cursor.
  *
@@ -50,6 +51,7 @@ const HEAD_CLEARANCE_M = 1.5;
 export class HeroRenderer implements HeroView {
   private readonly root = new Group();
   private model: HeroModel | null = null;
+  private loading = false;
   private disposed = false;
   private ground: HeroGround | null = null;
   private groundY = 0;
@@ -90,14 +92,14 @@ export class HeroRenderer implements HeroView {
 
   present(hero: HeroPresentation): void {
     if (this.disposed) return;
-    if (!this.model) this.createModel();
+    if (!this.loading) this.loadModel();
 
     const at = this.onGround(hero.lat, hero.lon);
     this.root.position.copy(at);
     this.root.rotation.y = hero.heading + this.config.yawOffset;
     this.root.visible = true;
     this.visible = true;
-    this.model!.setPose(hero.pose);
+    this.model?.setPose(hero.pose);
 
     this.selectionRing.position.set(at.x, at.y + LIFT_M, at.z);
     const post = this.onGround(hero.anchor.lat, hero.anchor.lon);
@@ -139,8 +141,8 @@ export class HeroRenderer implements HeroView {
 
   /** Scene position a little above his head, null while he is not on the map. */
   headPosition(out: Vector3): Vector3 | null {
-    if (!this.visible || !this.model) return null;
-    return out.copy(this.root.position).setY(this.root.position.y + this.model.heightM + HEAD_CLEARANCE_M);
+    if (!this.visible) return null;
+    return out.copy(this.root.position).setY(this.root.position.y + this.config.heightM + HEAD_CLEARANCE_M);
   }
 
   // ==================== Frame ====================
@@ -151,8 +153,8 @@ export class HeroRenderer implements HeroView {
    * @param gameDeltaMs - the same frame in game time, drives the animation
    */
   update(realDeltaMs: number, gameDeltaMs: number): void {
-    if (!this.visible || !this.model) return;
-    this.model.update(gameDeltaMs);
+    if (!this.visible) return;
+    this.model?.update(gameDeltaMs);
     if (this.selected) {
       this.pulseMs += realDeltaMs;
       const pulse = 1 + 0.06 * Math.sin(this.pulseMs * 0.008);
@@ -173,26 +175,21 @@ export class HeroRenderer implements HeroView {
 
   // ==================== Internals ====================
 
-  /** The placeholder right away; the GLB replaces it once loaded, if one is configured. */
-  private createModel(): void {
-    this.model = createPlaceholderHero(this.config);
-    this.root.add(this.model.root);
-    if (!this.config.url || !this.assets) return;
-
-    const placeholder = this.model;
+  /** Load the GLB once, on his first frame. Until it arrives, and if it fails, only his rings show. */
+  private loadModel(): void {
+    this.loading = true;
+    if (!this.assets) return;
     loadHeroModel(this.assets, this.config)
-      .then((glb) => {
-        if (this.disposed || this.model !== placeholder) {
-          glb.dispose();
+      .then((model) => {
+        if (this.disposed) {
+          model.dispose();
           return;
         }
-        this.root.remove(placeholder.root);
-        placeholder.dispose();
-        this.model = glb;
-        this.root.add(glb.root);
+        this.model = model;
+        this.root.add(model.root);
       })
       .catch((error: unknown) => {
-        console.warn('[HeroRenderer] Hero model did not load, keeping the placeholder', error);
+        console.warn('[HeroRenderer] Hero model did not load', error);
       });
   }
 

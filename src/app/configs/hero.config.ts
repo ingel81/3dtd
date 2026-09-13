@@ -35,14 +35,32 @@ export const HERO = {
   orderSnapM: 30,
   /** While he holds a spot, how often he picks what to chase, game-time ms */
   pursuitReplanMs: 250,
-  /** Height of the muzzle above the ground, where his shots start; visual only */
-  shotHeightM: 2.4,
+  /**
+   * Muzzle relative to his feet as he faces forward, metres: where his shots
+   * start. Measured on mercenary.glb at HERO_MODEL.heightM in the aim pose
+   * (hero.renderer.spec.ts checks it against the file). The sim uses these
+   * numbers, never the rendered model, so a shot leaves the same way at
+   * every timescale and headless.
+   */
+  muzzle: { forwardM: 2.4, rightM: 0.36, upM: 3.45 },
   /**
    * Share of his damage the fairness gate counts: he is one unit and cannot
    * be everywhere on the route at once (PLAYER_AGENCY_CONCEPT.md 3.2).
    */
   gatePresence: 0.5,
 } as const;
+
+/**
+ * Muzzle offset east and north of his feet, metres, for a heading in
+ * TransformComponent's convention (scene rotation.y: 0 north, PI/2 west).
+ * The model faces +Z, its right hand is -X.
+ */
+export function heroMuzzleOffset(heading: number): { eastM: number; northM: number } {
+  const { forwardM, rightM } = HERO.muzzle;
+  const sin = Math.sin(heading);
+  const cos = Math.cos(heading);
+  return { eastM: rightM * cos - forwardM * sin, northM: rightM * sin + forwardM * cos };
+}
 
 // ==================== Ammo ====================
 

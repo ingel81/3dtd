@@ -190,15 +190,25 @@ Folgerung 1). `analyzeDefense(towers, airUnlocked, hero)` bekommt sein Profil
 
 ## Darstellung
 
-**Modell** (`three-engine/renderers/hero-model.ts`): `HERO_MODEL.url` ist
-`null`, bis das Soldaten-GLB im Repo liegt. So lange steht eine einfache
-Figur da: olivgrüne Beine und Helm, khakifarbene Weste, ein dunkles Gewehr
-nach vorn, die Beine schwingen beim Laufen. Lichtbeschattete Standard-
-Materialien, 4,5 m hoch wie die überhöhten Gegnermodelle. Wird `url` auf ein
-GLB gesetzt, lädt der Renderer es über den AssetManager, skaliert es auf
-4,5 m, setzt die Füße auf den Boden und blendet die Clips `idle`, `run` und
-`shoot` je nach Zustand über (Namen ohne Groß-/Kleinschreibung, ein
-enthaltener Name reicht). Lädt es nicht, bleibt die Figur.
+**Modell** (`three-engine/renderers/hero-model.ts`): `HERO_MODEL.url` zeigt
+auf `assets/models/hero/mercenary.glb` (Quaternius SWAT, oliv umgefärbt, mit
+Gewehr, CC0, Credits in `attributions.config.ts`; 1,82 Einheiten hoch, Blick
++Z). Der Renderer lädt es über den AssetManager, skaliert es auf 4,5 m wie
+die menschengroßen Gegner (1,78-m-Modell mit Skala 2,5, siehe
+ENEMY_MODEL_BUDGET.md), setzt die Füße auf den Boden und blendet die Clips
+je Zustand über:
+
+| Zustand (`HeroPresentation.pose`) | Clip |
+|---|---|
+| `idle`: steht ohne Ziel | `idle` |
+| `run`: läuft ohne Ziel | `run` |
+| `shoot`: steht und feuert | `aim` (Schleife, für Dauerfeuer) |
+| `run-shoot`: feuert auf dem Weg zu einem neuen Posten | `run_shoot` |
+
+Den Clip `shoot` des GLB (ein Schuss mit starkem Rückstoß) nutzt er nicht.
+Der Renderer lädt das GLB einmal, beim ersten Frame des Helden. Bis es da
+ist, und wenn es nicht lädt (Warnung in der Konsole), zeigt er nur die Ringe;
+eine Ersatzfigur gibt es nicht.
 
 **Renderer** (`three-engine/renderers/hero.renderer.ts`, `engine.hero`): das
 Modell auf dem Boden des Route-Grids wie die Füße der Gegner, Blickrichtung
@@ -212,6 +222,15 @@ abgeschaltetem Tiefentest wie die Fähigkeits-Marker. Animation in Spielzeit
 dieselben Tracer, Partikelspuren, Streaks, Einschläge, Schadenszahlen und
 Projektil-Sounds wie bei den Towern. Kein Mündungsfeuer, das hängt an
 Tower-Modellen.
+
+**Mündung**: ein Schuss startet an der Mündung des Gewehrs. Das GLB hat dafür
+den Knoten `Muzzle` unter dem Knochen `WristR`. Die Simulation liest ihn nicht
+zur Laufzeit, denn Renderzustand in der Simulation wäre je Timescale und ohne
+Renderer (Bots, Tests) anders. Sie nimmt `HERO.muzzle` (2,4 m vor ihm, 0,36 m
+rechts, 3,45 m hoch), gedreht um seine Blickrichtung (`heroMuzzleOffset`).
+Die Werte sind am GLB in der Zielpose bei 4,5 m gemessen; `hero.renderer.spec.ts`
+lädt die Datei und prüft sie auf 5 cm. In der Laufpose mit Feuer liegt die
+Mündung bis zu 0,2 m anders, dort startet der Tracer entsprechend neben dem Lauf.
 
 **Stufenaufstieg**: "LEVEL N" in `--td-gold-light` steigt über seinem Kopf auf.
 
@@ -278,7 +297,7 @@ vergleichbar.
 | `services/hotkey-map.ts`, `services/hotkey.service.ts` | G, V, Esc |
 | `components/game-sidebar/hero-panel/` | Helden-Panel |
 | `components/ability-bar/hero-bar.ts` | Held-Knopf der Fähigkeitenleiste: Angebot, Held, was ein Druck tut |
-| `three-engine/renderers/hero-model.ts` | Modell-Naht, Platzhalter, GLB-Lader |
+| `three-engine/renderers/hero-model.ts` | Modell-Config, GLB-Lader |
 | `three-engine/renderers/hero.renderer.ts` | Modell auf der Karte, Ringe |
 
 Tests: `route-graph.spec.ts`, `hero.manager.spec.ts`,
@@ -303,8 +322,6 @@ Tests: `route-graph.spec.ts`, `hero.manager.spec.ts`,
 - Nicht in `totalDPS`: DPS-Rampe und COMING UP sehen ihn nicht.
 - Stufe 2 aus dem Konzept (ganzes Straßennetz) nicht gebaut; er bleibt auf
   den Gegnerrouten.
-- Kein eigenes Soldaten-Modell im Repo; der Tausch ist eine Zeile in
-  `hero-model.ts`.
 - Die Bewegung misst Segmente auf der Kugel, der Graph auf der flachen
   Projektion; auf 250 m liegen die Längen etwa 0,1 % auseinander. Ankunft
   und Leine vertragen das.
