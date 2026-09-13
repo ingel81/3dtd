@@ -42,6 +42,8 @@ export interface CorridorRefitHost {
   now(): number;
   /** Call `tick` once per frame for as long as it returns true; the function returned stops it. */
   eachFrame(tick: () => boolean): () => void;
+  /** Call `callback` once, `ms` from now; the function returned cancels it. */
+  after(ms: number, callback: () => void): () => void;
 }
 
 /**
@@ -87,6 +89,9 @@ export class CorridorRefit {
   /** The measurement under way and what stops its frames. */
   private running: { measurement: CorridorMeasurement; stop: () => void } | null = null;
 
+  /** Cancels the call of `remeasure` it waits for, see retryRemeasure. */
+  private pendingRetry: (() => void) | null = null;
+
   constructor(private readonly host: CorridorRefitHost) {}
 
   /** Why routes and cells must not be rebuilt now, null if they may. */
@@ -125,14 +130,24 @@ export class CorridorRefit {
    * Measure again the stations that had no fine tile at the last run and
    * rebuild where that changes the corridor. The first measurement does not
    * wait for the corridor tiles, which keep streaming in after it.
+   *
+   * Held back by the intro flight, a run under way or the interval, it
+   * calls itself again later: the last tile batch often settles right then
+   * (the intro flight streams the corridor), and nothing else would call it
+   * before the camera loads new tiles. Not under a tower, an enemy or a
+   * wave: the corridor stays as it is while they are there.
    */
   remeasure(): void {
     if (!this.host.hasUnmeasured()) return;
-    // The run under way takes those stations.
-    if (this.running?.measurement.open) return;
-    if (this.rebuildBlocker() || this.host.introRunning()) return;
+    if (this.rebuildBlocker()) return;
     const now = this.host.now();
-    if (now - this.lastRemeasure < CorridorRefit.REMEASURE_INTERVAL_MS) return;
+    const wait = this.running?.measurement.open || this.host.introRunning()
+      ? CorridorRefit.REMEASURE_INTERVAL_MS
+      : this.lastRemeasure + CorridorRefit.REMEASURE_INTERVAL_MS - now;
+    if (wait > 0) {
+      this.retryRemeasure(wait);
+      return;
+    }
     this.lastRemeasure = now;
     this.fitToTiles();
   }
@@ -168,7 +183,18 @@ export class CorridorRefit {
 
   /** Stop for good, from the facade's dispose(). */
   dispose(): void {
+    this.pendingRetry?.();
+    this.pendingRetry = null;
     this.cancel('disposed');
+  }
+
+  /** Call remeasure again in `ms`; one call waits at a time. */
+  private retryRemeasure(ms: number): void {
+    if (this.pendingRetry) return;
+    this.pendingRetry = this.host.after(ms, () => {
+      this.pendingRetry = null;
+      this.remeasure();
+    });
   }
 
   /** Drop the measurement under way; the corridor stays as it was. */
