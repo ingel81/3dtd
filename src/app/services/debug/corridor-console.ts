@@ -26,11 +26,14 @@ export interface CorridorConsoleDeps {
  * `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`.
  */
 export class CorridorConsole {
+  /** The `__corridor` this instance registered, see uninstall(). */
+  private api: object | null = null;
+
   constructor(private readonly deps: CorridorConsoleDeps) {}
 
   /** Register `__corridor` on globalThis, replacing the one of a previous location. */
   install(): void {
-    (globalThis as Record<string, unknown>)['__corridor'] = {
+    this.api = {
       get: () => ({ ...corridorConfig, highwayWidths: { ...corridorConfig.highwayWidths } }),
       set: (patch: Partial<CorridorConfig>) => this.deps.change(() => setCorridorConfig(patch)),
       reset: () => this.deps.change(() => {
@@ -40,6 +43,17 @@ export class CorridorConsole {
       towerCells: (towerId?: string) => this.describeTowerCells(towerId),
       pick: (radius = 4) => this.armCellPick(radius),
     };
+    (globalThis as Record<string, unknown>)['__corridor'] = this.api;
+  }
+
+  /**
+   * Remove `__corridor` from globalThis, unless another instance has
+   * registered its own since: that one belongs to the live game.
+   */
+  uninstall(): void {
+    const global = globalThis as Record<string, unknown>;
+    if (this.api && global['__corridor'] === this.api) delete global['__corridor'];
+    this.api = null;
   }
 
   /**

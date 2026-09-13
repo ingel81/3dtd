@@ -1192,5 +1192,10 @@ describe('VisualizationFacadeService', () => {
     it('asks for a tower when none is selected', () => {
       expect(api().towerCells()).toBe('No tower: select one or pass its id.');
     });
+
+    it('is gone after dispose', () => {
+      facade.dispose();
+      expect('__corridor' in globalThis).toBe(false);
+    });
   });
 });
