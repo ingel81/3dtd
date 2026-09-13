@@ -635,6 +635,24 @@ describe('GameStateManager', () => {
           bus.emit({ type: 'enemy:died', enemy: enemy('a'), credits: 0 });
           expect(combat()['turnTowersToGuard']).not.toHaveBeenCalled();
         });
+
+        it('waits for the children of an enemy that splits', () => {
+          // A debug skeleton: its minions spawn right after its enemy:died
+          vi.spyOn(gsm.enemyManager, 'getAlive').mockReturnValue([]);
+          const skeleton = {
+            ...(enemy('s') as object),
+            alive: false,
+            typeConfig: { splitOnDeath: { type: 'skeleton-minion', count: 2, spread: 0.3 } },
+          } as never;
+          bus.emit({ type: 'enemy:died', enemy: skeleton, credits: 0 });
+          expect(combat()['turnTowersToGuard']).not.toHaveBeenCalled();
+        });
+
+        it('turns them after a kill-all, which splits nothing', () => {
+          vi.spyOn(gsm.enemyManager, 'getAlive').mockReturnValue([]);
+          bus.emit({ type: 'debug:kill-all' });
+          expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
+        });
       });
     });
 

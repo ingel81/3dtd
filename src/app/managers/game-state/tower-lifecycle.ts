@@ -261,9 +261,15 @@ export class TowerLifecycle {
    * outside a wave, turn them as the wave end would. `leaving` is the
    * enemy of the event: one that reaches the base is still alive while
    * the event runs and removed after it.
+   *
+   * A killed enemy of a splitting type (splitOnDeath) is followed by its
+   * children in the same EnemyManager.kill(), right after its enemy:died:
+   * they are not alive yet, but the route is not clear. Kill-all is the one
+   * death without a split, and debug:kill-all checks again once all died.
    */
   turnToGuardIfClear(leaving?: Enemy): void {
     if (this.waveManager.phase() === 'wave') return;
+    if (leaving?.alive === false && leaving.typeConfig.splitOnDeath) return;
     for (const enemy of this.enemyManager.getAlive()) {
       if (enemy !== leaving) return;
     }

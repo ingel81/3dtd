@@ -315,6 +315,8 @@ export class GameStateManager {
     this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => this.towerLifecycle.turnToGuardIfClear(event.enemy)));
     // EnemyManager subscribed first and has removed the enemy by now
     this.eventBusSubs.add(this.eventBus.on('debug:remove-enemy', () => this.towerLifecycle.turnToGuardIfClear()));
+    // WaveManager subscribed first and has killed them all by now, splitting types included
+    this.eventBusSubs.add(this.eventBus.on('debug:kill-all', () => this.towerLifecycle.turnToGuardIfClear()));
 
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
