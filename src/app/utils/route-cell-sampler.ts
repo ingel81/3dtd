@@ -1,5 +1,4 @@
-import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
-import { ColumnSample, isBetterLod } from '../three-engine/column-sample';
+import { ColumnSample, ColumnSampler, TerrainPeekLOD, isBetterLod } from '../three-engine/column-sample';
 import { RouteCell, TunnelSpan } from './route-cell';
 import { corridorConfig } from './route-corridor';
 import { logGrid } from './route-grid-log';

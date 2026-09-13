@@ -11,7 +11,8 @@ export interface CoordinateSync {
 }
 
 export { type EnemyRenderData, type EnemyDebugOverrides } from './instanced-enemy/instanced-enemy.renderer';
-export { ThreeTowerRenderer, type TowerRenderData, type TerrainHeightSampler, type ColumnSampler, type LineOfSightRaycaster } from './three-tower.renderer';
+export { ThreeTowerRenderer, type TowerRenderData, type TerrainHeightSampler, type LineOfSightRaycaster } from './three-tower.renderer';
+export { type ColumnSampler } from '../column-sample';
 export { type TerrainRaycaster } from './tower-overlays';
 export { ThreeProjectileRenderer, type ProjectileRenderData } from './three-projectile.renderer';
 export { ThreeEffectsRenderer } from './three-effects.renderer';
