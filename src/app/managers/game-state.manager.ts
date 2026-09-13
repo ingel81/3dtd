@@ -150,7 +150,10 @@ export class GameStateManager {
 
   /** Sync pause from GameStore (UI source of truth) → local signal */
   private readonly pauseSyncEffect = effect(() => {
-    this.paused.set(this.gameStore.paused());
+    const paused = this.gameStore.paused();
+    this.paused.set(paused);
+    // No frame presents enemies while paused; the ooze's bubbling stands with them
+    this.enemyManager.holdSounds(paused);
   });
 
   /** Phase 5.14: sync renderingEnabled signal → ThreeTilesEngine. Gameplay

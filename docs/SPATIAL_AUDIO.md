@@ -321,6 +321,28 @@ zombie: {
 this.audio.play('moving', true);
 ```
 
+### Ooze-Sounds (Loop am Körper, One-Shots in Spielzeit)
+Die Ooze hat kein Modell und keinen `movingSound`. Ihre Sounds spielt `OozeSounds`
+(`managers/ooze-sounds.ts`), angetrieben von `OozeBodies`; Werte in `OOZE_SOUNDS`
+(`audio.config.ts`).
+
+- **Synthese:** `utils/ooze-sound.ts` erzeugt Blubber-Loop (3 s, Ende läuft nahtlos in den
+  Anfang), Splat (0,9 s) und Schlürfen (1,1 s) mit festem Seed als WAV-Data-URL
+  (`utils/pcm-wav.ts`, derselbe Schreiber wie die UI-Töne in `alert-tone.ts`). Erzeugt und
+  registriert beim ersten Spawn einer Ooze, danach gecacht.
+- **Loop:** `createLoop('ooze_bubble', …)` je Ooze. `presentFrame` setzt ihn einmal pro Frame
+  auf den Punkt des Körpers, der dem Listener am nächsten ist (`RouteBody.nearest`), am
+  Boden. Liegt der Punkt beim Start weiter als 500 m weg, startet der Loop erst, wenn er in
+  Hörweite kommt. Die ID passt auf kein `ENEMY_SOUND_PATTERNS`: Der Loop zählt nicht zum
+  Enemy-Budget, zwölf Zombies können den Boss nicht stumm schalten.
+- **Pause:** `GameStateManager` meldet Pause und Weiterspielen über
+  `EnemyManager.holdSounds()`; die Ooze-Loops pausieren und laufen danach weiter. Die Loops
+  anderer Gegner und der Flammen laufen in der Pause weiter wie bisher.
+- **One-Shots:** Splat beim Kill am Körperpunkt nächst dem Listener, Schlürfen alle 3 m
+  Körper, die in die HQ fließen (der erste Meter sofort). Beide gehen als `audio:play`
+  (deferred) aus dem Sub-Step, also in Spielzeit: In der Pause kommt nichts, bei hoher
+  Spielgeschwindigkeit begrenzt `minIntervalMs: 600` (Wandzeit) das Schlürfen.
+
 ### HQ Damage Sound
 `HQDamageService.initialize()` registriert `GAME_SOUNDS.hqDamage` (`audio.config.ts`)
 und emittiert bei `health:changed` mit negativem `delta` ein `audio:play`-Event an der
@@ -420,6 +442,9 @@ public/assets/sounds/
     ├── building_placed.mp3            # Tower-Platziert-Sound
     └── building_selled.mp3            # Tower-Verkauft-Sound
 ```
+
+Ohne Datei, im Code synthetisiert: die UI-Töne (`utils/alert-tone.ts`) und die Ooze-Sounds
+(`utils/ooze-sound.ts`), beide als WAV-Data-URL über `utils/pcm-wav.ts`.
 
 ## Beispiel: Neuen Sound hinzufügen
 

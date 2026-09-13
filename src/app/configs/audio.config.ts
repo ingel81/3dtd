@@ -121,6 +121,21 @@ export const GAME_SOUNDS = {
   },
 } as const;
 
+/**
+ * The ooze's sounds (managers/ooze-sounds.ts), synthesised in code
+ * (utils/ooze-sound.ts), no asset behind them. The bubbling loop sits on the
+ * body point nearest the listener and stands while the game is paused; its id
+ * matches no ENEMY_SOUND_PATTERNS entry, so twelve zombies cannot silence the
+ * boss (one loop per ooze). The slurp plays every `everyM` metres of body
+ * that flow into the HQ, in game time; `minIntervalMs` (wall clock) keeps a
+ * fast game speed from stacking them.
+ */
+export const OOZE_SOUNDS = {
+  bubble: { id: 'ooze_bubble', refDistance: 35, rolloffFactor: 1, volume: 0.6 },
+  splat: { id: 'ooze_splat', refDistance: 45, rolloffFactor: 1, volume: 1 },
+  slurp: { id: 'ooze_slurp', refDistance: 40, rolloffFactor: 1, volume: 0.8, everyM: 3, minIntervalMs: 600 },
+} as const;
+
 /** A sound an ability plays where it lands */
 export interface AbilityImpactSound {
   id: string;

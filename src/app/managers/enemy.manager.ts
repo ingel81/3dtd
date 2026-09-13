@@ -402,6 +402,14 @@ export class EnemyManager extends EntityManager<Enemy> {
   private getWaveSize: () => number = () => 1;
 
   /**
+   * The game paused (true) or went on. Enemy sounds that keep to game time
+   * hold with it: the ooze's bubbling (OozeBodies.hold).
+   */
+  holdSounds(held: boolean): void {
+    this.oozes.hold(held, this.tilesEngine);
+  }
+
+  /**
    * Calculate kill reward from the wave's deterministic kill-budget
    * (Phase 5.16): the curriculum pins a total per-wave gold amount which
    * we split deterministically across the expected bodies. Effect:
@@ -477,6 +485,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
     const credits = combat ? this.calculateDynamicReward(enemy) : 0;
     this.eventBus.emit({ type: 'enemy:died', enemy, credits });
+    // A dying ooze stops bubbling and splats (OozeBodies)
+    if (enemy.body !== null) this.oozes.died(enemy, this.tilesEngine);
 
     // Before the removal below: the children start from the parent's place
     const split = enemy.typeConfig.splitOnDeath;
