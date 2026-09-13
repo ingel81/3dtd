@@ -468,6 +468,49 @@ h2 {
   font-size: 10px;
 }
 
+/* World tab: the globe above the list of defended places. The slot keeps the
+   globe's height while its chunk loads (no @placeholder: its timing code
+   would land in the initial bundle's core chunk). */
+.world-globe-slot {
+  display: flex;
+  justify-content: center;
+  min-height: 260px;
+  padding: 10px 12px 6px;
+}
+
+.world-globe-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 260px;
+  height: 260px;
+  padding: 0 24px;
+  box-sizing: border-box;
+  font-size: 10px;
+  text-align: center;
+  color: var(--td-text-muted);
+}
+
+.world-list {
+  max-height: 132px;
+  border-top: 1px solid var(--td-frame-dark);
+}
+
+/* The place being played stays in the list, greyed out */
+.quick-item:disabled {
+  cursor: default;
+  background: transparent;
+  color: var(--td-text-muted);
+}
+
+.world-empty {
+  margin: 0;
+  padding: 0 16px 12px;
+  font-size: 10px;
+  text-align: center;
+  color: var(--td-text-muted);
+}
+
 /* Current HQ Info (spawn-only mode) */
 .current-hq-info {
   display: flex;

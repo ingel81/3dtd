@@ -24,12 +24,20 @@
       <td-icon name="flag" [size]="16"></td-icon>
       <span>Spawn Only</span>
     </button>
+    <button
+      class="mode-tab"
+      [class.active]="editMode() === 'world'"
+      (click)="setEditMode('world')"
+    >
+      <td-icon name="globe" [size]="16"></td-icon>
+      <span>World</span>
+    </button>
   </div>
 
   <!-- Content -->
   <div class="dialog-content">
-    <!-- Warning box (only for full mode with game in progress) -->
-    @if (data.isGameInProgress && editMode() === 'full') {
+    <!-- Warning box (a new place, from the form or the world map, with a game in progress) -->
+    @if (data.isGameInProgress && editMode() !== 'spawn-only') {
       <div class="warning-box">
         <td-icon name="warn" [size]="16"></td-icon>
         <div class="warning-text">
@@ -197,6 +205,53 @@
       </div>
     }
 
+    <!-- WORLD MODE: defended places with their best wave, one click loads -->
+    @if (editMode() === 'world') {
+      <div class="section world-section">
+        <div class="section-header">
+          <td-icon name="globe" [size]="14"></td-icon>
+          <span class="section-title">Defended places</span>
+          <span class="section-hint">{{ worldRecords().length > 0 ? 'Best wave · click to load' : 'None yet' }}</span>
+        </div>
+        <div class="world-globe-slot">
+          @defer (on immediate) {
+            <app-world-globe
+              [records]="worldRecords()"
+              [current]="worldCurrent"
+              [highlight]="worldHover()?.hq ?? null"
+              [size]="260"
+              (picked)="loadRecord($event)"
+            />
+          } @error {
+            <div class="world-globe-placeholder">The map did not load. Check the connection and reload the page.</div>
+          }
+        </div>
+        @if (worldRecords().length > 0) {
+          <ul class="quick-list world-list">
+            @for (record of worldRecords(); track record) {
+              <li>
+                <button
+                  type="button"
+                  class="quick-item"
+                  [disabled]="isCurrentPlace(record)"
+                  (mouseenter)="worldHover.set(record)"
+                  (mouseleave)="worldHover.set(null)"
+                  (focus)="worldHover.set(record)"
+                  (blur)="worldHover.set(null)"
+                  (click)="loadRecord(record)"
+                >
+                  <span class="quick-name">{{ record.name }}</span>
+                  <span class="quick-hint">{{ isCurrentPlace(record) ? 'playing now · ' : '' }}wave {{ record.bestWave }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="world-empty">Every place you defend shows up here with the best wave you reached.</p>
+        }
+      </div>
+    }
+
     <!-- SPAWN-ONLY MODE -->
     @if (editMode() === 'spawn-only') {
       <!-- Current HQ (readonly) -->
@@ -243,10 +298,12 @@
 
   <!-- Actions -->
   <div class="dialog-actions">
-    <button class="cancel-btn" (click)="cancel()">Cancel</button>
-    <button class="confirm-btn" [disabled]="!canConfirm()" (click)="confirm()">
-      <td-icon name="check" [size]="12"></td-icon>
-      {{ editMode() === 'spawn-only' ? 'Change Spawn' : 'Change Location' }}
-    </button>
+    <button class="cancel-btn" (click)="cancel()">{{ editMode() === 'world' ? 'Close' : 'Cancel' }}</button>
+    @if (editMode() !== 'world') {
+      <button class="confirm-btn" [disabled]="!canConfirm()" (click)="confirm()">
+        <td-icon name="check" [size]="12"></td-icon>
+        {{ editMode() === 'spawn-only' ? 'Change Spawn' : 'Change Location' }}
+      </button>
+    }
   </div>
 </div>

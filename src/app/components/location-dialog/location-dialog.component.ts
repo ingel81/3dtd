@@ -9,10 +9,14 @@ import { AddressAutocompleteComponent } from '../address-autocomplete.component'
 import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from '../../services/location/geocoding.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { RecentLocation, formatVisitAge, isSamePlace } from '../../services/location/recent-locations';
+import { BestWaveService } from '../../services/location/best-wave.service';
+import { BestWave, byBestWave } from '../../services/location/best-waves';
 import { SHOWCASE_LOCATIONS, ShowcaseLocation } from '../../configs/showcase-locations.config';
 import { TdIconComponent } from '../icon/icon.component';
+import { WorldGlobeComponent } from '../world-globe/world-globe.component';
 import {
   LocationDialogData,
+  LocationDialogMode,
   LocationDialogResult,
   LocationInfo,
   SpawnLocationConfig,
@@ -21,7 +25,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 import { haversineDistance } from '../../utils/geo-utils';
 
 type SpawnMode = 'random' | 'manual';
-type EditMode = 'full' | 'spawn-only';
 
 @Component({
   selector: 'app-td-location-dialog',
@@ -35,6 +38,8 @@ type EditMode = 'full' | 'spawn-only';
     MatTooltipModule,
     AddressAutocompleteComponent,
     TdIconComponent,
+    // Used only inside @defer on the World tab, so the globe and its outlines load as a chunk of their own
+    WorldGlobeComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './location-dialog.component.html',
@@ -49,6 +54,7 @@ export class LocationDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<LocationDialogComponent>);
   private readonly geocodingService = inject(GeocodingService);
   private readonly locationMgmt = inject(LocationManagementService);
+  private readonly bestWaves = inject(BestWaveService);
   readonly data: LocationDialogData = inject(MAT_DIALOG_DATA);
 
   /** Recent places except the one being played, which would only restart it. */
@@ -65,11 +71,19 @@ export class LocationDialogComponent {
     this.recentLocations().length > 0 ? this.quickTab() : 'showcase',
   );
 
+  /** World tab: defended places, highest wave first */
+  readonly worldRecords = computed(() => [...this.bestWaves.records()].sort(byBestWave));
+  /** Row under the pointer or the focus; the globe turns to it */
+  readonly worldHover = signal<BestWave | null>(null);
+  readonly worldCurrent = this.data.currentLocation
+    ? { lat: this.data.currentLocation.lat, lon: this.data.currentLocation.lon }
+    : null;
+
   // State
-  readonly editMode = signal<EditMode>('full');
+  readonly editMode = signal<LocationDialogMode>(this.data.initialMode ?? 'full');
   readonly selectedHQ = signal<{ lat: number; lon: number; name?: string; address?: NominatimAddress } | null>(null);
   readonly selectedSpawn = signal<{ lat: number; lon: number; name?: string } | null>(null);
-  readonly spawnMode = signal<SpawnMode>('random');
+  readonly spawnMode = signal<SpawnMode>(this.data.initialMode === 'spawn-only' ? 'manual' : 'random');
   readonly showCoordinates = signal(false);
   readonly isLoadingCoords = signal(false);
 
@@ -130,7 +144,7 @@ export class LocationDialogComponent {
     return hasHQ && hasSpawn;
   });
 
-  setEditMode(mode: EditMode): void {
+  setEditMode(mode: LocationDialogMode): void {
     this.editMode.set(mode);
     if (mode === 'spawn-only') {
       // In spawn-only mode, default to manual spawn selection
@@ -307,11 +321,32 @@ export class LocationDialogComponent {
 
   /** One click loads a recent place with the spawn it was played with. */
   loadRecent(recent: RecentLocation): void {
-    const spawn = recent.spawns[0];
+    this.closeWithPlace(recent.hq, recent.name, recent.name, recent.spawns[0], 'spawn_recent');
+  }
+
+  /** The place being played: loading it again would only restart it. */
+  isCurrentPlace(record: BestWave): boolean {
+    return !!this.worldCurrent && isSamePlace(record.hq, this.worldCurrent);
+  }
+
+  /** One click on the globe or the list loads a defended place with the spawn of its record run. */
+  loadRecord(record: BestWave): void {
+    if (this.isCurrentPlace(record)) return;
+    this.closeWithPlace(record.hq, record.name, record.detail, record.spawns[0], 'spawn_world');
+  }
+
+  /** Close with a place picked from a list: no confirm step, a random spawn when none is stored. */
+  private closeWithPlace(
+    hq: { lat: number; lon: number },
+    name: string,
+    displayName: string,
+    spawn: { lat: number; lon: number } | undefined,
+    spawnId: string,
+  ): void {
     this.dialogRef.close({
-      hq: { lat: recent.hq.lat, lon: recent.hq.lon, name: recent.name, displayName: recent.name },
+      hq: { lat: hq.lat, lon: hq.lon, name, displayName },
       spawn: spawn
-        ? { id: 'spawn_recent', lat: spawn.lat, lon: spawn.lon, isRandom: false }
+        ? { id: spawnId, lat: spawn.lat, lon: spawn.lon, isRandom: false }
         : { id: 'spawn_random', lat: 0, lon: 0, isRandom: true },
       confirmed: true,
     } satisfies LocationDialogResult);
