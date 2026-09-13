@@ -329,6 +329,52 @@ describe('InstancedEnemyRenderer slots', () => {
     renderer.updateAnimations(0.016, new PerspectiveCamera());
     expect([tint.getX(slot.index), tint.getY(slot.index), tint.getZ(slot.index)]).toEqual([0, 0, 0]);
   });
+
+  describe('setRenderType (a worm segment becoming a head)', () => {
+    const withSecondPool = (): InstancedEnemyRenderer => {
+      const renderer = rendererWithPool();
+      (renderer as unknown as { instanceManager: EnemyInstanceManager }).instanceManager.createPool(
+        'zombie',
+        fakeVat(CLIPS),
+        ENEMY_TYPES['zombie'],
+      );
+      return renderer;
+    };
+
+    it('moves the enemy into the other pool with its place, health bar and tints', async () => {
+      const renderer = withSecondPool();
+      await renderer.create('b', 'wallsmasher', 0, 0, 0);
+      await renderer.create('a', 'wallsmasher', 0, 0, 0);
+      const old = renderer.resolveSlot('a')!;
+      renderer.updateSlot(old, new Vector3(5, 1, 7), 0.5, 1, CONFIG.baseSpeed);
+      renderer.setPoisonVisual('a', true);
+      const before = new Matrix4();
+      old.pool.instancedMesh.getMatrixAt(old.index, before);
+
+      renderer.setRenderType('a', 'zombie');
+
+      const moved = renderer.resolveSlot('a')!;
+      expect(old.released).toBe(true);
+      expect(old.pool.instances.has('a')).toBe(false);
+      expect(moved.typeId).toBe('zombie');
+      expect(moved.healthBarIndex).toBe(old.healthBarIndex);
+      expect(moved.poisoned).toBe(true);
+      expect(moved.pool.tintColorAttr.getY(moved.index)).toBe(Math.fround(0.8));
+      const after = new Matrix4();
+      moved.pool.instancedMesh.getMatrixAt(moved.index, after);
+      expect(after.elements).toEqual(before.elements);
+      expect(renderer.count).toBe(2);
+    });
+
+    it('leaves the enemy where it is without a pool for the type', async () => {
+      const renderer = rendererWithPool();
+      await renderer.create('a', 'wallsmasher', 0, 0, 0);
+      const slot = renderer.resolveSlot('a')!;
+      renderer.setRenderType('a', 'mech');
+      expect(renderer.resolveSlot('a')).toBe(slot);
+      expect(slot.released).toBe(false);
+    });
+  });
 });
 
 describe('EnemyInstanceManager pool visibility', () => {

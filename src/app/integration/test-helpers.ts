@@ -158,6 +158,7 @@ export function createMockTilesEngine() {
       resolveSlot: vi.fn(() => null),
       updateSlot: vi.fn(),
       setFreezeVisual: vi.fn(),
+      setRenderType: vi.fn(),
     },
     projectiles: {
       create: vi.fn(),

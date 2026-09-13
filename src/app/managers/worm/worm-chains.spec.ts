@@ -147,17 +147,82 @@ describe('Worm chains', () => {
     expect(out(group).length).toBeGreaterThan(1);
   });
 
-  it('leaves a gap where a segment was destroyed, the rest keep their places', () => {
-    const head = m.enemyManager.spawn(straightPath(400), 'worm');
-    const group = head.worm!.group;
-    tickEngine(m, 20_000);
+  describe('a destroyed segment', () => {
+    /** A worm 20 s out: 26 segments on the route */
+    const wormOut = (): WormGroup => {
+      const group = m.enemyManager.spawn(straightPath(400), 'worm').worm!.group;
+      tickEngine(m, 20_000);
+      return group;
+    };
+    const slowAll = (group: WormGroup, first: number, last: number, now: number): void => {
+      for (let slot = first; slot <= last; slot++) {
+        group.segments[slot]!.movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 60_000, startTime: now });
+      }
+    };
 
-    m.enemyManager.kill(group.segments[5]!);
-    expect(group.remaining).toBe(group.size - 1);
-    tickEngine(m, 5_000);
+    it('splits the worm in two, the first segment behind the gap as the new head', () => {
+      const group = wormOut();
+      const rear = group.segments[6]!;
+      m.enemyManager.kill(group.segments[5]!);
+      expect(group.remaining).toBe(group.size - 1);
+      tickEngine(m, 5_000);
 
-    expect(group.segments[5]).toBeNull();
-    expect(distance(group.segments[4]!) - distance(group.segments[6]!)).toBeCloseTo(2 * chain.spacing, 6);
+      expect(group.chains.map((c) => c.first)).toEqual([0, 6]);
+      expect(rear.worm!.head).toBe(true);
+      expect(group.segments[4]!.worm!.head).toBe(false);
+      expect(m.tilesEngine.enemies.setRenderType).toHaveBeenCalledWith(rear.id, 'worm');
+      expect(distance(group.segments[4]!) - distance(rear)).toBeCloseTo(2 * chain.spacing, 6);
+    });
+
+    it('lets the next segment lead when the head goes', () => {
+      const group = wormOut();
+      m.enemyManager.kill(group.segments[0]!);
+      tickEngine(m, 16);
+      expect(group.chains[0].first).toBe(1);
+      expect(group.segments[1]!.worm!.head).toBe(true);
+    });
+
+    it('lets the rear worm queue behind a slowed front one, never closer than the gap', () => {
+      const clock = { now: 20_000 };
+      const group = wormOut();
+      m.enemyManager.kill(group.segments[5]!);
+      slowAll(group, 0, 4, clock.now);
+      tickEngine(m, 10_000, clock);
+
+      expect(distance(group.segments[0]!)).toBeCloseTo(SPEED * 20 + SPEED * 0.5 * 10, 3);
+      expect(distance(group.segments[4]!) - distance(group.segments[6]!)).toBeCloseTo(2 * chain.spacing, 3);
+    });
+
+    it('lets a slowed rear worm fall behind while the front one walks on', () => {
+      const clock = { now: 20_000 };
+      const group = wormOut();
+      m.enemyManager.kill(group.segments[5]!);
+      slowAll(group, 6, 25, clock.now);
+      tickEngine(m, 10_000, clock);
+
+      expect(distance(group.segments[0]!)).toBeCloseTo(SPEED * 30, 3);
+      const gap = distance(group.segments[4]!) - distance(group.segments[6]!);
+      expect(gap).toBeGreaterThan(2 * chain.spacing + 10);
+      for (let slot = 7; slot <= 25; slot++) {
+        expect(distance(group.segments[slot - 1]!) - distance(group.segments[slot]!)).toBeCloseTo(chain.spacing, 6);
+      }
+    });
+
+    it('sends the rest out of the portal behind a gap, led by a head', () => {
+      const head = m.enemyManager.spawn(straightPath(400), 'worm');
+      const group = head.worm!.group;
+      tickEngine(m, 1_000); // slot 0 at 4.5 m, slot 1 at 0.9 m, the rest inside
+      m.enemyManager.kill(group.segments[1]!);
+      expect(group.isPending(2)).toBe(true);
+
+      tickEngine(m, 3_000);
+
+      const lead = group.segments[2]!;
+      expect(lead.worm!.head).toBe(true);
+      expect(m.tilesEngine.enemies.create).toHaveBeenCalledWith(lead.id, 'worm', expect.anything(), expect.anything(), expect.anything());
+      expect(m.tilesEngine.enemies.setRenderType).not.toHaveBeenCalled();
+      expect(distance(head) - distance(lead)).toBeCloseTo(2 * chain.spacing, 6);
+    });
   });
 
   it('waits in the portal behind a worm still coming out on the same path', () => {

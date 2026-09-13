@@ -90,6 +90,47 @@ describe('WormGroup', () => {
     expect(g.hp()).toBe(50);
   });
 
+  describe('losing a segment', () => {
+    const s = chain.spacing;
+
+    it('splits the worm into the part in front and the part behind', () => {
+      const g = group(10, 30);
+      g.lose(4);
+      expect(g.chains).toEqual([
+        { first: 0, last: 3, front: 30 },
+        { first: 5, last: 9, front: 30 - 5 * s },
+      ]);
+    });
+
+    it('shortens the worm at either end', () => {
+      const g = group(10, 30);
+      g.lose(0);
+      g.lose(9);
+      expect(g.chains).toEqual([{ first: 1, last: 8, front: 30 - s }]);
+    });
+
+    it('splits the worm the slot is in and keeps the order front to back', () => {
+      const g = group(10, 30);
+      g.lose(4);
+      g.lose(7);
+      g.lose(6);
+      expect(g.chains).toEqual([
+        { first: 0, last: 3, front: 30 },
+        { first: 5, last: 5, front: 30 - 5 * s },
+        { first: 8, last: 9, front: 30 - 5 * s - 3 * s },
+      ]);
+      g.lose(5);
+      expect(g.chains.map((c) => [c.first, c.last])).toEqual([[0, 3], [8, 9]]);
+    });
+
+    it('leaves no worm once every slot is gone', () => {
+      const g = group(3, 5);
+      g.dropPending();
+      expect(g.chains).toEqual([]);
+      expect(g.remaining).toBe(0);
+    });
+  });
+
   it('does not bring a lost slot back', () => {
     const g = group(3);
     g.lose(2);

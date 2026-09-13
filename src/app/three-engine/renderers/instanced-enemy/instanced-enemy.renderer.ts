@@ -250,6 +250,15 @@ export class InstancedEnemyRenderer {
     };
   }
 
+  /**
+   * Draw enemy `id` from the pool of `typeId` from now on, at the same place,
+   * with its tints and health bar: a worm segment that becomes the head of
+   * its worm. Its old slot is released (EnemyInstanceState.released).
+   */
+  setRenderType(id: string, typeId: EnemyTypeId): void {
+    if (this.instancedEnemies.has(id)) this.instanceManager.changeType(id, typeId);
+  }
+
   remove(id: string): void {
     if (this.instancedEnemies.has(id)) {
       this.instanceManager.removeEnemy(id);
