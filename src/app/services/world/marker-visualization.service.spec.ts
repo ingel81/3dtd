@@ -1,21 +1,26 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal, type WritableSignal } from '@angular/core';
 import {
+  BoxGeometry,
   BufferGeometry,
+  Float32BufferAttribute,
   Group,
   InstancedMesh,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
   MeshPhongMaterial,
+  MeshStandardMaterial,
   OctahedronGeometry,
   PerspectiveCamera,
   Quaternion,
   ShaderMaterial,
+  Texture,
   Vector3,
 } from 'three';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { HQDamageService } from '../combat/hq-damage.service';
+import { AssetManagerService } from '../infrastructure/asset-manager.service';
 import { UIStore } from '../../store/ui.store';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { SPAWN_PORTAL_LOOK } from '../../configs/visual-effects.config';
@@ -125,6 +130,21 @@ function fakeEngine() {
   return { engine, overlay, terrain, asEngine: engine as unknown as ThreeTilesEngine };
 }
 
+/** Vertices of the stand-in frame (a box). */
+const FRAME_VERTICES = 24;
+
+/** A stand-in for the portal frame's GLB: a box with tangents and the four textures. */
+function fakeFrameScene(): Group {
+  const geometry = new BoxGeometry(2, 2, 2);
+  geometry.setAttribute('tangent', new Float32BufferAttribute(new Float32Array(FRAME_VERTICES * 4), 4));
+  const material = new MeshStandardMaterial({
+    map: new Texture(), normalMap: new Texture(), aoMap: new Texture(), emissiveMap: new Texture(),
+  });
+  const scene = new Group();
+  scene.add(new Mesh(geometry, material));
+  return scene;
+}
+
 function createService() {
   const uiStore = {
     specialPointsDebugVisible: signal(false),
@@ -133,15 +153,23 @@ function createService() {
     },
   };
   const hqDamage = { spawnDebugPoint: vi.fn() };
+  const frameScene = fakeFrameScene();
+  const assets = {
+    loadModel: vi.fn(async (url: string) => ({ scene: frameScene, animations: [], refCount: 1, url })),
+  };
   const injector = Injector.create({
     providers: [
       { provide: UIStore, useValue: uiStore },
       { provide: HQDamageService, useValue: hqDamage },
+      { provide: AssetManagerService, useValue: assets },
     ],
   });
   const service = runInInjectionContext(injector, () => new MarkerVisualizationService());
-  return { service, uiStore, hqDamage };
+  return { service, uiStore, hqDamage, assets, frameScene };
 }
+
+/** Let pending promises (the frame's load) settle. */
+const settle = () => new Promise<void>((done) => setTimeout(done, 0));
 
 function labels() {
   return labelFake.instances[labelFake.instances.length - 1].labels;
@@ -154,12 +182,14 @@ describe('MarkerVisualizationService', () => {
   let service: MarkerVisualizationService;
   let uiStore: ReturnType<typeof createService>['uiStore'];
   let hqDamage: ReturnType<typeof createService>['hqDamage'];
+  let assets: ReturnType<typeof createService>['assets'];
+  let frameScene: Group;
   let fake: ReturnType<typeof fakeEngine>;
   let heightDebugVisible: WritableSignal<boolean>;
 
   beforeEach(() => {
     labelFake.instances.length = 0;
-    ({ service, uiStore, hqDamage } = createService());
+    ({ service, uiStore, hqDamage, assets, frameScene } = createService());
     fake = fakeEngine();
     heightDebugVisible = signal(false);
   });
@@ -700,12 +730,18 @@ describe('MarkerVisualizationService', () => {
       expect(coreRadius(big)).toBe(2 * coreRadius(small));
     });
 
-    it('builds the spawn preview as a portal standing on its origin, in tintable materials', () => {
+    it('builds the spawn preview as a portal standing on its origin, in tintable materials', async () => {
+      init();
+      await settle();
       const preview = service.createPortalPreview(0xef4444);
 
       expect(preview.children).toHaveLength(2);
       const [frame, surface] = preview.children as Mesh[];
       expect(frame.material).toBeInstanceOf(MeshPhongMaterial);
+      // A copy of the asset's geometry: disposing the preview leaves the asset alone
+      const asset = (frameScene.children[0] as Mesh).geometry;
+      expect(frame.geometry).not.toBe(asset);
+      expect(frame.geometry.getAttribute('position').count).toBe(FRAME_VERTICES);
       expect(surface.material).toBeInstanceOf(MeshBasicMaterial);
       surface.geometry.computeBoundingBox();
       const box = surface.geometry.boundingBox!;
@@ -714,9 +750,12 @@ describe('MarkerVisualizationService', () => {
       expect(box.max.x).toBeCloseTo(PORTAL_OPENING_WIDTH / 2);
     });
 
-    it('works without initialize and disposes every geometry and material', () => {
+    it('works without initialize and disposes every geometry and material', async () => {
+      const previews = [service.createDiamondMarker({ color: 0x00ff00 }), service.createPortalPreview(0x00ff00)];
+      // The portal's frame joins its preview once the asset has loaded
+      await settle();
       const disposed = vi.fn();
-      for (const preview of [service.createDiamondMarker({ color: 0x00ff00 }), service.createPortalPreview(0x00ff00)]) {
+      for (const preview of previews) {
         for (const child of preview.children as Mesh[]) {
           child.geometry.addEventListener('dispose', disposed);
           (child.material as MeshBasicMaterial).addEventListener('dispose', disposed);
@@ -726,6 +765,41 @@ describe('MarkerVisualizationService', () => {
 
       // Diamond 5 meshes, portal 2, a geometry and a material each
       expect(disposed).toHaveBeenCalledTimes(14);
+    });
+
+    it('keeps a frame that loads after the preview is gone out of it', async () => {
+      const preview = service.createPortalPreview(0x00ff00);
+      service.disposePreviewMarker(preview);
+      await settle();
+      expect(preview.children).toHaveLength(1);
+    });
+  });
+
+  describe('spawn portal frame', () => {
+    const gateVertices = () => portalFrames().geometry.getAttribute('position').count;
+
+    it('gives the portals the stone frame from its asset, loaded once across location changes', async () => {
+      init();
+      // The two void surfaces until the asset is there
+      expect(gateVertices()).toBe(12);
+      await settle();
+      expect(gateVertices()).toBe(FRAME_VERTICES + 12);
+      const material = portalFrames().material as ShaderMaterial;
+      expect(material.uniforms['uBaseMap'].value).toBe(((frameScene.children[0] as Mesh).material as MeshStandardMaterial).map);
+
+      // A location change builds new managers, which take the frame at once
+      init();
+      expect(gateVertices()).toBe(FRAME_VERTICES + 12);
+      expect(assets.loadModel).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the two void surfaces, which still hide the enemies, when the asset does not load', async () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      assets.loadModel.mockRejectedValueOnce(new Error('404'));
+      init();
+      await settle();
+      expect(gateVertices()).toBe(12);
+      expect(error).toHaveBeenCalled();
     });
   });
 

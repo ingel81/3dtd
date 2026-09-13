@@ -406,11 +406,14 @@ export const SPAWN_PORTAL_LOOK = {
     violet: { r: 0.15, g: 0.035, b: 0.2 },
   },
   /**
-   * Gain on the lit stone of the frame: dark and threatening against the
-   * tiles, but no black silhouette, the relief and the joints readable from
-   * the overview. Leaves the glow alone.
+   * The frame's stone (baked textures, spawn-portal-frame.ts): gain on its
+   * base colour under the faked light, dark and threatening against the
+   * tiles but no black silhouette, the relief and the joints readable from
+   * the overview; and the strength of the key light's glints on the glossy
+   * obsidian and the iron. Leave the glow alone.
    */
-  frameExposure: 2,
+  frameExposure: 1.4,
+  frameGlints: 0.35,
   /** Between waves */
   idleEnergy: 0.45,
   /** While a wave runs */

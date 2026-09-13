@@ -17,11 +17,16 @@ import { ThreeTilesEngine } from '../../three-engine';
 import { GameEventBus, SubscriptionBag } from '../../game-engine';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { HQDamageService } from '../combat/hq-damage.service';
+import { AssetManagerService } from '../infrastructure/asset-manager.service';
 import { UIStore } from '../../store/ui.store';
 import { MarkerInstanceManager } from '../../three-engine/renderers/marker/marker-instance.manager';
 import { MarkerLabelManager } from '../../three-engine/renderers/marker/marker-label.manager';
 import { SpawnPortalManager } from '../../three-engine/renderers/marker/spawn-portal.manager';
-import { createPortalFrameGeometry } from '../../three-engine/renderers/marker/spawn-portal-geometry';
+import {
+  SPAWN_PORTAL_FRAME_URL,
+  frameFromGltf,
+  type SpawnPortalFrame,
+} from '../../three-engine/renderers/marker/spawn-portal-frame';
 import {
   type SpawnPortalPose,
   provisionalPortalPose,
@@ -49,6 +54,9 @@ const PORTAL_POSE_WAYPOINTS = 16;
  * corridor's lateral limit off it (under 6 m, route-corridor.ts).
  */
 const SPAWN_MATCH_RADIUS = 7;
+
+/** Set on a disposed placement preview: a frame that loads later stays out of it. */
+const PREVIEW_DISPOSED = 'previewDisposed';
 
 /**
  * Spark colours of a portal: embers from its palette (dull orange with a
@@ -88,7 +96,8 @@ export interface DiamondMarkerOptions {
  * Manages the 3D markers: the HQ diamond, a portal on the start of every
  * spawn's route, their labels, and debug markers. GPU-instanced: 3 draw
  * calls for the HQ diamond (body, rings, ground glow), 2 for all spawn
- * portals (frame, energy), 1 for all labels.
+ * portals (gate: frame and void; glow), 1 for all labels. The portals'
+ * stone frame is an asset (spawn-portal-frame.ts), loaded once.
  */
 @Injectable({ providedIn: 'root' })
 export class MarkerVisualizationService {
@@ -98,6 +107,7 @@ export class MarkerVisualizationService {
 
   private readonly hqDamage = inject(HQDamageService);
   private readonly uiStore = inject(UIStore);
+  private readonly assetManager = inject(AssetManagerService);
 
   // ========================================
   // STATE
@@ -106,8 +116,16 @@ export class MarkerVisualizationService {
   /** GPU-instanced HQ diamond renderer (body, rings, ground glow) */
   private markerManager: MarkerInstanceManager | null = null;
 
-  /** GPU-instanced spawn portal renderer (frame, energy) */
+  /** GPU-instanced spawn portal renderer (gate, glow) */
   private portalManager: SpawnPortalManager | null = null;
+
+  /**
+   * The portals' stone frame once its asset has loaded. Loaded once and
+   * kept for the service's life: a location change builds new managers,
+   * which take the same frame.
+   */
+  private portalFrame: SpawnPortalFrame | null = null;
+  private portalFrameLoad: Promise<SpawnPortalFrame | null> | null = null;
 
   /** GPU-instanced label renderer (billboard text) */
   private labelManager: MarkerLabelManager | null = null;
@@ -165,6 +183,34 @@ export class MarkerVisualizationService {
     this.markerManager = new MarkerInstanceManager(overlayGroup);
     this.portalManager = new SpawnPortalManager(overlayGroup);
     this.labelManager = new MarkerLabelManager(overlayGroup);
+    this.frameTo(this.portalManager);
+  }
+
+  /**
+   * Load the portals' stone frame, once. A failed load leaves the portals
+   * without their frame: the two void surfaces still close the volume and
+   * hide the enemies until they step out.
+   */
+  private loadPortalFrame(): Promise<SpawnPortalFrame | null> {
+    this.portalFrameLoad ??= this.assetManager
+      .loadModel(SPAWN_PORTAL_FRAME_URL)
+      .then((model) => (this.portalFrame = frameFromGltf(model.scene)))
+      .catch((error: unknown) => {
+        console.error('[MarkerVisualization] The spawn portal frame did not load:', error);
+        return null;
+      });
+    return this.portalFrameLoad;
+  }
+
+  /** Give `portals` the stone frame, now or once it has loaded, unless they are replaced by then. */
+  private frameTo(portals: SpawnPortalManager): void {
+    if (this.portalFrame) {
+      portals.setFrame(this.portalFrame);
+      return;
+    }
+    void this.loadPortalFrame().then((frame) => {
+      if (frame && this.portalManager === portals) portals.setFrame(frame);
+    });
   }
 
   /**
@@ -607,16 +653,29 @@ export class MarkerVisualizationService {
    * Create a spawn portal Group for the spawn placement preview
    * (non-instanced): the frame and a flat surface in the opening, at
    * scale 1, standing on its origin and facing +z. Plain Phong/Basic
-   * materials, so MapPlacementService can tint and fade it.
+   * materials, so MapPlacementService can tint and fade it. The frame is
+   * a copy of the asset's geometry, so disposing the preview leaves the
+   * asset alone; while the asset still loads, the frame joins the group
+   * when it arrives.
    */
   createPortalPreview(color: number): Group {
     const group = new Group();
     const emissive = new Color(color).multiplyScalar(0.3);
 
     const frameMat = new MeshPhongMaterial({ color, emissive, flatShading: true });
-    const frame = new Mesh(createPortalFrameGeometry(), frameMat);
-    frame.renderOrder = 3;
-    group.add(frame);
+    const addFrame = (frame: SpawnPortalFrame) => {
+      const mesh = new Mesh(frame.geometry.clone(), frameMat);
+      mesh.renderOrder = 3;
+      group.add(mesh);
+    };
+    if (this.portalFrame) {
+      addFrame(this.portalFrame);
+    } else {
+      void this.loadPortalFrame().then((frame) => {
+        if (frame && !group.userData[PREVIEW_DISPOSED]) addFrame(frame);
+        else frameMat.dispose();
+      });
+    }
 
     const surfaceGeom = new PlaneGeometry(PORTAL_OPENING_WIDTH, PORTAL_OPENING_HEIGHT);
     surfaceGeom.translate(0, PORTAL_OPENING_HEIGHT / 2, 0);
@@ -632,6 +691,7 @@ export class MarkerVisualizationService {
    * Dispose a placement preview group (diamond or portal).
    */
   disposePreviewMarker(marker: Group): void {
+    marker.userData[PREVIEW_DISPOSED] = true;
     marker.traverse((obj) => {
       if ((obj as Mesh).isMesh) {
         (obj as Mesh).geometry.dispose();

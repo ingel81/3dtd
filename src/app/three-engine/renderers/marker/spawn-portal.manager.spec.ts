@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { Group, InstancedMesh, ShaderMaterial } from 'three';
+import { describe, it, expect, vi } from 'vitest';
+import { BoxGeometry, Color, Float32BufferAttribute, Group, InstancedMesh, ShaderMaterial, Texture } from 'three';
 import { SpawnPortalManager } from './spawn-portal.manager';
+import type { SpawnPortalFrame } from './spawn-portal-frame';
 import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
 
 const POSE = { x: 0, y: 0, z: 0, heading: 0, scale: 1 };
@@ -92,13 +93,67 @@ describe('SpawnPortalManager: Spawn-Effekt', () => {
 });
 
 describe('SpawnPortalManager: Stein', () => {
-  it('gibt dem Tor die Belichtung des Steins aus dem Look', () => {
+  it('gibt dem Tor die Belichtung und die Glanzlichter des Steins aus dem Look', () => {
     const group = new Group();
     new SpawnPortalManager(group);
     const gate = group.children.find((o) => o.name === 'spawnPortalGates') as InstancedMesh;
     const material = gate.material as ShaderMaterial;
     expect(material.uniforms['uExposure'].value).toBe(SPAWN_PORTAL_LOOK.frameExposure);
-    expect(material.fragmentShader).toContain('uExposure, uEnergy');
+    expect(material.uniforms['uGlints'].value).toBe(SPAWN_PORTAL_LOOK.frameGlints);
+    expect(material.fragmentShader).toContain('base * uExposure');
+  });
+});
+
+describe('SpawnPortalManager: Rahmen', () => {
+  /** Ein Kasten mit Tangenten und den vier Texturen anstelle des GLB. */
+  function fakeFrame(): SpawnPortalFrame {
+    const geometry = new BoxGeometry(2, 2, 2);
+    const vertices = geometry.getAttribute('position').count;
+    geometry.setAttribute('tangent', new Float32BufferAttribute(new Float32Array(vertices * 4), 4));
+    return { geometry, baseColor: new Texture(), normal: new Texture(), orm: new Texture(), emissive: new Texture() };
+  }
+
+  const gateOf = (group: Group) => group.children.find((o) => o.name === 'spawnPortalGates') as InstancedMesh;
+
+  it('steht vor dem Laden als die zwei Flächen der Leere und nimmt dann den Rahmen mit seinen Texturen', () => {
+    const group = new Group();
+    const portals = new SpawnPortalManager(group);
+    portals.add('s1', POSE, 0xef4444);
+    const gate = gateOf(group);
+    expect(gate.geometry.getAttribute('position').count).toBe(12);
+
+    const frame = fakeFrame();
+    portals.setFrame(frame);
+    expect(gate.geometry.getAttribute('position').count).toBe(frame.geometry.getAttribute('position').count + 12);
+    // Die Instanzattribute ziehen mit auf die neue Geometrie
+    expect(gate.geometry.getAttribute('aColor').getX(0)).toBeCloseTo(new Color(0xef4444).r);
+    const uniforms = (gate.material as ShaderMaterial).uniforms;
+    expect(uniforms['uBaseMap'].value).toBe(frame.baseColor);
+    expect(uniforms['uNormalMap'].value).toBe(frame.normal);
+    expect(uniforms['uOrmMap'].value).toBe(frame.orm);
+    expect(uniforms['uEmissiveMap'].value).toBe(frame.emissive);
+  });
+
+  it('gibt nur die eigene Geometrie frei, nicht die geteilten Instanzattribute und nicht den Rahmen', () => {
+    const group = new Group();
+    const portals = new SpawnPortalManager(group);
+    const bare = gateOf(group).geometry;
+    const bareDisposed = vi.fn();
+    bare.addEventListener('dispose', bareDisposed);
+    const frame = fakeFrame();
+    const frameDisposed = vi.fn();
+    frame.geometry.addEventListener('dispose', frameDisposed);
+
+    portals.setFrame(frame);
+    expect(bareDisposed).toHaveBeenCalledTimes(1);
+    // Beim Freigeben trug die alte Geometrie die geteilten Attribute nicht
+    // mehr; das Straßenlicht zeichnet weiter mit ihnen
+    expect(bare.getAttribute('aColor')).toBeUndefined();
+    const glow = group.children.find((o) => o.name === 'spawnPortalGlow') as InstancedMesh;
+    expect(glow.geometry.getAttribute('aColor')).toBe(gateOf(group).geometry.getAttribute('aColor'));
+
+    portals.dispose();
+    expect(frameDisposed).not.toHaveBeenCalled();
   });
 });
 
