@@ -14,9 +14,9 @@ import {
 const FAVORITES_KEY = 'td_favorites_v2';
 const MAX_FAVORITES = 10;
 /** Header text while no location is set */
-const NO_LOCATION_NAME = 'No location';
+export const NO_LOCATION_NAME = 'No location';
 /** Header text while the reverse geocode of a new HQ runs */
-const LOADING_NAME = 'Loading...';
+export const LOADING_NAME = 'Loading...';
 
 /**
  * LocationManagementService - Simplified
