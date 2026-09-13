@@ -1,31 +1,31 @@
 import {
   AdditiveBlending,
-  BufferAttribute,
-  BufferGeometry,
   DataTexture,
   DoubleSide,
-  DynamicDrawUsage,
-  LinearFilter,
-  LinearMipmapLinearFilter,
   MathUtils,
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
-  Points,
-  RGBAFormat,
   ShaderMaterial,
   SphereGeometry,
   Sprite,
   SpriteMaterial,
   Uniform,
   Vector3,
-  type Object3D,
   type PerspectiveCamera,
   type Scene,
 } from 'three';
 import { MUSHROOM_CLOUD_LOOK as LOOK, type EffectRgb } from '../../configs/visual-effects.config';
 import { DrawGate } from './draw-gate';
 import { PARTICLE_POINT_SCALE, type ParticleShaderMaterials } from './particle-shaders';
+import {
+  commitParticles,
+  particleBuffer,
+  radialTexture,
+  reach,
+  unpickable,
+  type ParticleBuffer,
+} from './effect-buffers';
 
 const GLOW = LOOK.glowParticles;
 const SMOKE = LOOK.smokeParticles;
@@ -81,22 +81,6 @@ const SCREEN_ORDER = 1003;
 const RING_LIFT = 0.6;
 /** Height of the shock dome over its radius */
 const DOME_FLATTEN = 0.8;
-
-function noRaycast(): void {
-  // an effect, nothing to pick
-}
-
-/**
- * Keeps an object of the cloud out of every raycast. The gates only hide
- * them, and three's raycast skips no hidden object: after a strike the
- * shock dome (46 m, 37 m high), the flash sprite and the ring stayed over
- * the impact in their last pose, and the camera controls zoomed onto them,
- * pivoted on them and kept their ground clearance above them.
- */
-function unpickable<T extends Object3D>(object: T): T {
-  object.raycast = noRaycast;
-  return object;
-}
 
 /** A quad over the whole screen, additive: the screen part of the flash. */
 const SCREEN_VERTEX_SHADER = /* glsl */ `
@@ -173,17 +157,6 @@ interface Cloud {
   born: number;
 }
 
-interface ParticleBuffer {
-  points: Points;
-  gate: DrawGate;
-  position: BufferAttribute;
-  size: BufferAttribute;
-  color: BufferAttribute;
-  frame: BufferAttribute;
-  /** Particles drawn last frame */
-  drawn: number;
-}
-
 /** Smoke-atlas frame whose centre alpha comes closest to `alpha`; the empty last frame is never picked. */
 function smokeFrameFor(alpha: number): number {
   const frame = Math.round((ATLAS_FRAMES - 1) * (1 - alpha / SMOKE_ALPHA));
@@ -197,57 +170,6 @@ function smokeCoverage(frame: number): number {
 
 function fract(x: number): number {
   return x - Math.floor(x);
-}
-
-/**
- * Share of its final radius a front running out with time constant `k`
- * has reached at `t`: fast at first, all of it at `duration`.
- */
-function reach(t: number, duration: number, k: number): number {
-  return (1 - Math.exp(-Math.min(t, duration) / k)) / (1 - Math.exp(-duration / k));
-}
-
-/** White square texture whose alpha runs over the distance r (0 centre, 1 edge) from its centre. */
-function radialTexture(size: number, alphaAt: (r: number) => number): DataTexture {
-  const data = new Uint8Array(size * size * 4);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const dx = ((x + 0.5) / size) * 2 - 1;
-      const dy = ((y + 0.5) / size) * 2 - 1;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      const alpha = r >= 1 ? 0 : Math.min(1, Math.max(0, alphaAt(r)));
-      const i = (y * size + x) * 4;
-      data[i] = data[i + 1] = data[i + 2] = 255;
-      data[i + 3] = Math.round(alpha * 255);
-    }
-  }
-  const texture = new DataTexture(data, size, size, RGBAFormat);
-  texture.magFilter = LinearFilter;
-  texture.minFilter = LinearMipmapLinearFilter;
-  texture.generateMipmaps = true;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function particleBuffer(scene: Scene, capacity: number, material: ShaderMaterial, renderOrder: number): ParticleBuffer {
-  const attribute = (itemSize: number) =>
-    new BufferAttribute(new Float32Array(capacity * itemSize), itemSize).setUsage(DynamicDrawUsage);
-  const geometry = new BufferGeometry();
-  const position = attribute(3);
-  const size = attribute(1);
-  const color = attribute(3);
-  const frame = attribute(1);
-  geometry.setAttribute('position', position);
-  geometry.setAttribute('size', size);
-  geometry.setAttribute('color', color);
-  geometry.setAttribute('frameIndex', frame);
-  geometry.setDrawRange(0, 0);
-
-  const points = unpickable(new Points(geometry, material));
-  points.frustumCulled = false;
-  points.renderOrder = renderOrder;
-  scene.add(points);
-  return { points, gate: new DrawGate([points]), position, size, color, frame, drawn: 0 };
 }
 
 /**
@@ -522,8 +444,8 @@ export class MushroomCloudRenderer {
       }
     }
     this.kick = kick;
-    this.commit(this.glow, glowCount);
-    this.commit(this.smoke, this.writeSortedSmoke());
+    commitParticles(this.glow, glowCount);
+    commitParticles(this.smoke, this.writeSortedSmoke());
     this.screen.material.uniforms['uOpacity'].value = screen;
     this.screenGate.setCount(screen > 0 ? 1 : 0);
   }
@@ -534,8 +456,8 @@ export class MushroomCloudRenderer {
     this.activeCount = 0;
     this.kick = 0;
     this.depth.fill(-1);
-    this.commit(this.glow, 0);
-    this.commit(this.smoke, 0);
+    commitParticles(this.glow, 0);
+    commitParticles(this.smoke, 0);
     for (const gate of this.ringGates) gate.setCount(0);
     for (const gate of this.domeGates) gate.setCount(0);
     for (const gate of this.flashGates) gate.setCount(0);
@@ -1078,17 +1000,6 @@ export class MushroomCloudRenderer {
     return n;
   }
 
-  private commit(buffer: ParticleBuffer, count: number): void {
-    if (count > 0 || buffer.drawn > 0) {
-      buffer.position.needsUpdate = true;
-      buffer.size.needsUpdate = true;
-      buffer.color.needsUpdate = true;
-      buffer.frame.needsUpdate = true;
-    }
-    buffer.points.geometry.setDrawRange(0, count);
-    buffer.gate.setCount(count);
-    buffer.drawn = count;
-  }
 
   /** Shockwave: out over the ground, fast at first, fading as it goes. */
   private updateRing(cloud: Cloud, slot: number): void {
