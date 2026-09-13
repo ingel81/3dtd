@@ -133,11 +133,14 @@ describe('AudioBufferCache', () => {
     let failingLoader: { load: ReturnType<typeof vi.fn> };
     let failingCache: AudioBufferCache;
 
-    /** Register the URL and let the round run to its end; the outcome of its load. */
+    /**
+     * Register the URL and let the round run to its end; the outcome of its
+     * load. A failed load answers null, it must not reject.
+     */
     async function round(url = 'x.mp3'): Promise<string | null> {
       const entry = failingCache.getOrLoad(url);
       if (!entry.loading) return null;
-      const outcome = entry.loading.then(() => 'loaded', () => 'failed');
+      const outcome = entry.loading.then((buffer) => (buffer ? 'loaded' : 'failed'), () => 'rejected');
       await vi.advanceTimersByTimeAsync(ROUND_MS);
       return outcome;
     }

@@ -8,7 +8,7 @@ export class AudioBufferCache {
   private loader: AudioLoader;
 
   /** URL → cached buffer + loading promise */
-  private bufferCache = new Map<string, { buffer: AudioBuffer | null; loading: Promise<AudioBuffer> | null }>();
+  private bufferCache = new Map<string, { buffer: AudioBuffer | null; loading: Promise<AudioBuffer | null> | null }>();
 
   /** LRU tracking: maps URL → access counter (higher = more recent) */
   private accessTimestamps = new Map<string, number>();
@@ -32,7 +32,8 @@ export class AudioBufferCache {
 
   /**
    * Get or start loading a buffer for the given URL.
-   * Returns the cache entry (buffer may still be loading).
+   * Returns the cache entry (buffer may still be loading). Its load answers
+   * null for a file that failed all retries, it does not reject.
    *
    * A load that fails all retries leaves no entry behind, so a later
    * registration loads the file again. Enemies register their sounds on
@@ -40,12 +41,12 @@ export class AudioBufferCache {
    * MAX_LOAD_ROUNDS times per URL; until then the entry has neither buffer
    * nor load, which every player treats as "cannot play".
    */
-  getOrLoad(url: string): { buffer: AudioBuffer | null; loading: Promise<AudioBuffer> | null } {
+  getOrLoad(url: string): { buffer: AudioBuffer | null; loading: Promise<AudioBuffer | null> | null } {
     let cached = this.bufferCache.get(url);
 
     if (!cached) {
       if (this.isFailed(url)) return { buffer: null, loading: null };
-      const entry: { buffer: AudioBuffer | null; loading: Promise<AudioBuffer> | null } = { buffer: null, loading: null };
+      const entry: { buffer: AudioBuffer | null; loading: Promise<AudioBuffer | null> | null } = { buffer: null, loading: null };
       entry.loading = this.loadBuffer(url).then(
         (buffer) => {
           entry.buffer = buffer;
@@ -54,14 +55,14 @@ export class AudioBufferCache {
           this.evictOldestBuffers();
           return buffer;
         },
-        (error) => {
+        () => {
           if (this.bufferCache.get(url) === entry) {
             this.bufferCache.delete(url);
             this.accessTimestamps.delete(url);
           }
           const rounds = (this.failures.get(url)?.rounds ?? 0) + 1;
           this.failures.set(url, { rounds, retryAt: Date.now() + this.RETRY_COOLDOWN_MS });
-          throw error;
+          return null;
         },
       );
       cached = entry;
