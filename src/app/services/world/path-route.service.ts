@@ -9,6 +9,7 @@ import {
   CorridorPiece,
   CorridorStations,
   StationProbe,
+  closeShortNarrowings,
   corridorConfig,
   estimateStreetWidth,
   fitCorridorPieces,
@@ -19,6 +20,7 @@ import {
   segmentLeft,
   segmentRight,
 } from '../../utils/route-corridor';
+import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { extendPathToOptimalTurnoff, leavePathForBase, subdivideGeoPath } from '../../utils/route-geometry';
@@ -538,18 +540,14 @@ export class PathAndRouteService {
   }
 
   /**
-   * Split each segment into the pieces the tiles gave it
-   * (fitCorridorPieces), with the half width left and right of the
-   * direction of travel per piece. Each piece keeps its segment's bridge
-   * and tunnel flags. Before anything was measured, every segment runs at
-   * its street's half width on both sides.
+   * Split each segment into the pieces the tiles gave it (fitRoute), with
+   * the half width left and right of the direction of travel per piece.
+   * Each piece keeps its segment's bridge and tunnel flags.
    */
   private applyClearance(
     route: StreetRoute,
   ): { points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[] } {
-    const { points, halfWidths, onBridge, inTunnel } = route;
-    if (this.clearanceBySegment.size === 0) return { points, left: halfWidths, right: halfWidths, onBridge, inTunnel };
-
+    const { points, onBridge, inTunnel } = route;
     const fitted = this.fitRoute(route);
     const fittedPoints: LatLon[] = [];
     const left: number[] = [];
@@ -571,9 +569,19 @@ export class PathAndRouteService {
     return { points: fittedPoints, left, right, onBridge: fittedBridges, inTunnel: fittedTunnels };
   }
 
-  /** The corridor pieces of each segment of `route`, from what the tiles showed. */
+  /**
+   * The corridor pieces of each segment of `route`: from what the tiles
+   * showed (fitCorridorPieces), before anything was measured at the
+   * street's half width on both sides, then with short narrowings closed
+   * along the whole route (closeShortNarrowings).
+   */
   private fitRoute(route: StreetRoute): CorridorPiece[][] {
-    return fitCorridorPieces(this.corridorStationsOf(route));
+    const pieces = this.clearanceBySegment.size === 0
+      ? route.halfWidths.map((h) => [{ t: 0, left: h, right: h }])
+      : fitCorridorPieces(this.corridorStationsOf(route));
+    const { points } = route;
+    const lengths = points.slice(1).map((b, i) => haversineDistance(points[i].lat, points[i].lon, b.lat, b.lon));
+    return closeShortNarrowings(pieces, lengths, route.inTunnel);
   }
 
   /** The segments of `route` as the corridor fitting sees them. */
@@ -667,9 +675,23 @@ export class PathAndRouteService {
     const estimate = way ? estimateStreetWidth(way) : null;
     const inUse = this.corridorInUse(routeId, best.x, best.z);
 
+    // The pieces the route gets: the stations' half widths with short
+    // narrowings closed over the whole route.
+    const pieces = this.fitRoute(route);
+    const pieceAt = (j: number, t: number): CorridorPiece => {
+      let found = pieces[j][0];
+      for (const piece of pieces[j]) if (piece.t <= t) found = piece;
+      return found;
+    };
+
     const sideRow = (side: 'left' | 'right'): CorridorSideRow => {
       const station = fit[side][i][k];
       const hits = probe && probe.unmeasured === null ? probe[side] : null;
+      const own = station ? station.halfWidth : route.halfWidths[i];
+      const rule = station ? station.rule
+        : route.inTunnel[i] ? 'tunnel or covered: street width'
+        : 'not measured yet: street width';
+      const halfWidth = pieceAt(i, (k + 0.5) / n)[side];
       return {
         side,
         streetHalfWidthM: route.halfWidths[i],
@@ -678,11 +700,9 @@ export class PathAndRouteService {
         wall: hits ? hits.every((d) => d < corridorConfig.maxHalfWidth) : null,
         freeM: station ? round1(station.free) : null,
         smoothedM: station ? round1(station.smoothed) : null,
-        halfWidthM: station ? station.halfWidth : route.halfWidths[i],
+        halfWidthM: halfWidth,
         inUseM: inUse ? inUse[side] : null,
-        rule: station ? station.rule
-          : route.inTunnel[i] ? 'tunnel or covered: street width'
-          : 'not measured yet: street width',
+        rule: halfWidth > own ? `${rule}, short narrowing closed` : rule,
       };
     };
 
@@ -704,9 +724,9 @@ export class PathAndRouteService {
         station: `${s.i}:${s.k + 1}/${s.n}`,
         alongM: round1(s.alongM),
         leftFreeM: round1(fit.left[s.i][s.k].free),
-        leftM: fit.left[s.i][s.k].halfWidth,
+        leftM: pieceAt(s.i, (s.k + 0.5) / s.n).left,
         rightFreeM: round1(fit.right[s.i][s.k].free),
-        rightM: fit.right[s.i][s.k].halfWidth,
+        rightM: pieceAt(s.i, (s.k + 0.5) / s.n).right,
         unmeasured: near ? near.unmeasured : 'no probe',
         here: s.i === i && s.k === k,
       };

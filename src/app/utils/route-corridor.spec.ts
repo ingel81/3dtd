@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  CorridorPiece,
   CorridorStations,
+  closeShortNarrowings,
   corridorConfig,
   corridorHalfWidth,
   estimateStreetWidth,
@@ -235,6 +237,41 @@ describe('fitCorridorStations', () => {
     const fit = fitCorridorStations(segments);
     expect(fit.left[0].map((s) => s.halfWidth)).toEqual([2.5, 2.5, 2.5, 2.5, 2.5, 5.5, 5.5, 5.5, 5.5, 5.5]);
     expect(fitCorridorPieces(segments)).toEqual([[{ t: 0, left: 2.5, right: 3.5 }, { t: 0.5, left: 5.5, right: 3.5 }]]);
+  });
+});
+
+describe('closeShortNarrowings', () => {
+  const piece = (t: number, left: number, right = left): CorridorPiece => ({ t, left, right });
+
+  it('widens a stretch narrower than both sides for up to dipLength to the narrower side', () => {
+    // A 2 m piece at the street width inside a 20 m segment the tiles show open.
+    const pieces = [[piece(0, 7), piece(0.5, 2.75), piece(0.6, 7)]];
+    expect(closeShortNarrowings(pieces, [20], [false])).toEqual([[piece(0, 7)]]);
+    // Open on one side, a wall on the other.
+    expect(closeShortNarrowings([[piece(0, 7), piece(0.5, 2.75), piece(0.6, 4.5)]], [20], [false]))
+      .toEqual([[piece(0, 7), piece(0.5, 4.5)]]);
+  });
+
+  it('widens a short segment between wider ones, each side on its own', () => {
+    const pieces = [[piece(0, 2.75)], [piece(0, 1, 2.75)], [piece(0, 2.75)]];
+    expect(closeShortNarrowings(pieces, [50, 3, 50], [false, false, false]))
+      .toEqual([[piece(0, 2.75)], [piece(0, 2.75)], [piece(0, 2.75)]]);
+  });
+
+  it('keeps a longer narrowing, one at an end of the route and a tunnel', () => {
+    const long = [[piece(0, 7), piece(0.4, 2, 7), piece(0.6, 7)]];
+    expect(closeShortNarrowings(long, [30], [false])).toEqual(long);
+    const atEnd = [[piece(0, 7)], [piece(0, 1)]];
+    expect(closeShortNarrowings(atEnd, [50, 3], [false, false])).toEqual(atEnd);
+    const tunnel = [[piece(0, 7)], [piece(0, 1)], [piece(0, 7)]];
+    expect(closeShortNarrowings(tunnel, [50, 3, 50], [false, true, false])).toEqual(tunnel);
+  });
+
+  it('follows dipLength', () => {
+    const pieces = [[piece(0, 7), piece(0.4, 2), piece(0.6, 7)]];
+    expect(closeShortNarrowings(pieces, [30], [false])).toEqual(pieces);
+    corridorConfig.dipLength = 6;
+    expect(closeShortNarrowings(pieces, [30], [false])).toEqual([[piece(0, 7)]]);
   });
 });
 
