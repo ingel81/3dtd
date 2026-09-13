@@ -18,7 +18,8 @@
     "economy-chart": "vitest run tools/economy-chart/generate.spec.ts",
     "tower-stats-chart": "vitest run tools/tower-stats-chart/generate.spec.ts",
     "wave-planner": "vitest run tools/wave-planner/generate.spec.ts",
-    "model-budget": "vitest run tools/model-budget/generate.spec.ts"
+    "model-budget": "vitest run tools/model-budget/generate.spec.ts",
+    "shader-check": "vitest run tools/shader-check/shader-check.spec.ts --reporter=verbose"
   },
   "prettier": {
     "printWidth": 100,
