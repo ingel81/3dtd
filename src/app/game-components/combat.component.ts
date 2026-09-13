@@ -22,7 +22,11 @@ export class CombatComponent extends Component {
   range: number;
   fireRate: number;
 
-  /** Number of kills this unit has made */
+  /**
+   * Killing blows: enemies whose last HP a hit of this unit took, counted by
+   * DamageApplicationService. The veteran rank derives from it
+   * (veteran-ranks.config.ts).
+   */
   kills = 0;
 
   /**
