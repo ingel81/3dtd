@@ -22,7 +22,7 @@ Route (vom Spawn zum HQ).
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts:312`) | 2-m-Zellen im Korridor |
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`) | Boden, Brückendeck, Tunnelsohle, Dach-Check |
 | Gegner | `MovementComponent` (`movement.component.ts:379-428`), `getRouteProfile` (`route-corridor.ts:559`) | Seitenversatz innerhalb der Zellen |
-| Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `visualization-facade.service.ts:217-241` | Wann gemessen und neu gebaut wird |
+| Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `CorridorController` (`services/world/corridor-controller.ts:42-66`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
 
 ## Einstellungen
 
@@ -249,8 +249,8 @@ Stelle, auf der Seite, auf der der Gegner läuft (`movement.component.ts:406-427
 
 | Auslöser | Wann | Bedingung |
 |---|---|---|
-| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:684-686`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:23-26`) | neu gebaut wird nur, wenn die Messung einen Korridor ändert |
-| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`visualization-facade.service.ts:1136-1138`), und von selbst noch einmal, wenn ihn einer der letzten drei Punkte rechts aufhielt (siehe unten) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
+| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:539-541`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:23-26`) | neu gebaut wird nur, wenn die Messung einen Korridor ändert |
+| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`RouteGridConvergence`, `route-grid-convergence.ts:141-143`), und von selbst noch einmal, wenn ihn einer der letzten drei Punkte rechts aufhielt (siehe unten) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
 | `change()` | `__corridor.set()` und `__corridor.reset()` | ein Ort ist geladen; bei geänderten `MEASUREMENT_KEYS` werden alle Messungen verworfen. Misst am Stück und baut immer neu |
 
 Für alle drei gilt die Sperre `rebuildBlocker()`: kein Neuaufbau, solange Tower
@@ -292,7 +292,7 @@ Route zählen für `hasUnmeasuredStations` nicht mehr.
 viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
 `corridor-refit.ts:89`, Ablauf `:115-131`). Die Frames kommen aus
 `requestAnimationFrame` wie beim Höhen-Sweep
-(`visualization-facade.service.ts:229-235`).
+(`CorridorController`, `corridor-controller.ts:54-61`).
 
 - **Budget:** Eine Station (Säule und vier Strahlen) kostete im Playtest vom
   2026-09-12 in der Innenstadt etwa 1,7 ms (533 ms für 316 Stationen); 4 ms
@@ -317,8 +317,8 @@ viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
   `CorridorRefit.flush` (`corridor-refit.ts:200`) den Rest sofort am Stück,
   speichert und baut neu; erst dann steht der Tower oder startet die Welle.
   Der Haken sitzt in `GameStateManager.placeTower`, `startWave` und
-  `beginWave` (`setBeforeCorridorLock`, gesetzt von
-  `VisualizationFacadeService.initialize`) und gilt damit für Klick, Hotkey,
+  `beginWave` (`setBeforeCorridorLock`, gesetzt von `CorridorController.attach`
+  aus `VisualizationFacadeService.initialize`) und gilt damit für Klick, Hotkey,
   Auto-Start, KI-Director und den Trainings-Bot, der `placeTower` direkt
   aufruft. Im schlimmsten Fall ist das der eine Hänger des früheren Laufs am
   Stück, mit demselben Ergebnis, und der Tower steht auf den neuen Zellen.
@@ -342,7 +342,7 @@ viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
 
 ### Neuaufbau
 
-`rebuildCorridors` (`visualization-facade.service.ts:707-736`) läuft synchron in
+`CorridorController.rebuildCorridors` (`corridor-controller.ts:108-138`) läuft synchron in
 einem Frame:
 
 1. `routes`: `refreshRouteLines`, also Wegsuche je Spawn, Korridoranpassung
@@ -401,7 +401,8 @@ als 20 m neben der Route gibt es keine garantiert feinen Tiles.
 
 ### `__corridor` (DevTools)
 
-Registriert in `visualization-facade.service.ts:159-168`.
+Registriert in `CorridorConsole.install` (`services/debug/corridor-console.ts:32-43`),
+aufgerufen aus `VisualizationFacadeService.initialize`.
 
 ```js
 __corridor.get()                                        // alle Werte
@@ -422,7 +423,7 @@ __corridor.pick(6)
   zurück (`corridor-refit.ts:169-187`).
   - Die Werte gelten bis zum Neuladen der Seite; dauerhaft heißt
     `CORRIDOR_DEFAULTS` im Code ändern.
-- **`towerCells`** gibt eine Tabelle zum Tower zurück (`visualization-facade.service.ts:252-305`):
+- **`towerCells`** gibt eine Tabelle zum Tower zurück (`corridor-console.ts:94-148`):
   - Zellen in Reichweite: `cells`, `unsampled`.
   - Antworten des Towers: `groundVisible`/`Blocked`/`Missing`, dasselbe für
     `air`.

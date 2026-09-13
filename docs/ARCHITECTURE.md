@@ -99,6 +99,7 @@ src/app/services/
 ├── (Root)
 │   ├── camera-control.service.ts
 │   ├── camera-framing.service.ts
+│   ├── camera-overview.ts          ← Hilfsklasse der VisualizationFacade (unten)
 │   ├── economy.service.ts          ← Wave-Completion-Bonus, Perfect-Streak (extrahiert aus GSM, 2026-05-10)
 │   ├── input-handler.service.ts
 │   ├── keyboard-pan.service.ts
@@ -111,9 +112,11 @@ src/app/services/
 │   ├── status-effect.service.ts
 │   └── tower-combat.service.ts
 ├── debug/
+│   ├── corridor-console.ts           ← `__corridor`, Hilfsklasse der VisualizationFacade
 │   ├── debug-facade.service.ts
 │   ├── debug-state-dump.service.ts
 │   ├── debug-window.service.ts
+│   ├── dps-bins-overlay.ts           ← Hilfsklasse der VisualizationFacade
 │   ├── enemy-debug.service.ts
 │   ├── los-debug.service.ts
 │   ├── performance-profiler.service.ts
@@ -141,15 +144,19 @@ src/app/services/
 │   ├── url-location.service.ts
 │   └── world-dice.service.ts
 └── world/
+    ├── building-overlay.ts           ← Hilfsklasse der VisualizationFacade
     ├── building-rendering.service.ts
+    ├── corridor-controller.ts        ← Hilfsklasse der VisualizationFacade, siehe ROUTE_CORRIDOR.md
     ├── corridor-refit.ts             ← CorridorRefit, siehe ROUTE_CORRIDOR.md
     ├── global-route-grid.service.ts
     ├── height-update.service.ts
     ├── intro-camera-flight.service.ts
+    ├── intro-loading-gate.ts         ← Hilfsklasse der VisualizationFacade
     ├── map-placement.service.ts
     ├── marker-visualization.service.ts
     ├── path-route.service.ts
     ├── route-animation.service.ts
+    ├── route-grid-convergence.ts     ← Hilfsklasse der VisualizationFacade
     ├── spatial-grid.service.ts
     ├── strategic-placement.service.ts
     └── street-rendering.service.ts
@@ -243,9 +250,23 @@ Vier davon liegen in `services/facade/`, der Debug-Facade in `services/debug/`.
 |--------|-------|---------------|
 | **TowerDefenseFacadeService** | `facade/tower-defense-facade.service.ts` | Haupt-Orchestrator: Initialisierung, Service-Wiring, Lifecycle |
 | **GameLoopFacadeService** | `facade/game-loop-facade.service.ts` | Wave-Management, Game Loop, Upgrades, AI-Integration |
-| **VisualizationFacadeService** | `facade/visualization-facade.service.ts` | Rendering, Kamera, Toggle-Steuerung, DPS-Visualisierung |
+| **VisualizationFacadeService** | `facade/visualization-facade.service.ts` | Rendering, Kamera, Toggle-Steuerung, Height-Updates; Teilaufgaben in eigenen Klassen (unten) |
 | **LocationFacadeService** | `facade/location-facade.service.ts` | Location Detection, DevWorld, Spawn-Management |
 | **DebugFacadeService** | `debug/debug-facade.service.ts` | Debug Log, Height Debug, Display Options, Enemy Debug |
+
+`VisualizationFacadeService` bleibt der Einstieg für seine Aufrufer. Sieben Teilaufgaben
+liegen in kleinen Klassen ohne DI, die er in seinen Feld-Initialisierern mit den Services
+baut, die sie brauchen, und an denselben Stellen aufruft wie vorher den eigenen Code:
+
+| Klasse | Datei | Aufgabe |
+|--------|-------|---------|
+| **CorridorController** | `world/corridor-controller.ts` | `CorridorRefit` verdrahten (Frames, Timer, Sperren), Neuaufbau von Routen, Zellen und Routenlinie, Flush-Haken am `GameStateManager` |
+| **CorridorConsole** | `debug/corridor-console.ts` | `__corridor.get/set/reset/towerCells/pick` |
+| **RouteGridConvergence** | `world/route-grid-convergence.ts` | rAF-Schleife nach Tile-Loads (Höhen-Sweep, Retry), Routenlinie, Marker und Animation neu, wenn sich Zellen ändern |
+| **IntroLoadingGate** | `world/intro-loading-gate.ts` | Ladescreen beim ersten Laden halten, bis die Intro-Fahrt Höhen hat |
+| **CameraOverview** | `camera-overview.ts` | Übersichts-Frame, Startansicht, Kamera-Debug-Toggles |
+| **DpsBinsOverlay** | `debug/dps-bins-overlay.ts` | DPS-Profil-Bins entlang der Route |
+| **BuildingOverlay** | `world/building-overlay.ts` | OSM-Gebäudegrundrisse nahe der Routen |
 
 ### Service-Architektur
 
@@ -514,9 +535,9 @@ Tower-LOS und Air-Routing bedienen.
    `globalRouteGrid.beginTerrainHeightRefresh()`, ein Sweep über alle Cells mit
    Frame-Budget statt eines blockierenden Voll-Durchlaufs; stabile Cells werden nur bei
    besserem LOD neu gesampelt
-3. `scheduleBakedHeightRefresh()` merkt den Neuaufbau von Route-Linien, Markern und
+3. `RouteGridConvergence.scheduleBakedHeightRefresh()` merkt den Neuaufbau von Route-Linien, Markern und
    Animation vor; er läuft einmal, wenn der Sweep fertig ist
-4. `scheduleRouteGridConvergence()`: rAF-Schleife, erst `stepTerrainHeightRefresh()` mit
+4. `RouteGridConvergence.schedule()`: rAF-Schleife, erst `stepTerrainHeightRefresh()` mit
    5 ms pro Frame, danach `retryUnsampledCells()` für Cells, deren Tile-Mesh später
    dekodiert wurde, bis zwei Frames nacheinander nichts mehr befördern (Sicherheitsgrenze
    120 Frames). Am Ende laufen der Baked-Refresh und `CorridorRefit.remeasure()`

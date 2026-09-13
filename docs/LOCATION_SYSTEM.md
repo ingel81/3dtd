@@ -379,7 +379,8 @@ und rechts (`corridorLeft`/`corridorRight`). Woher die Breite kommt:
 ### Ladescreen und Intro-Kamerafahrt
 
 Beim ersten Laden bleibt der Ladescreen nach Tiles, Straßen und Höhen noch stehen
-(`VisualizationFacadeService.holdForIntroFlight()`, Boot-Step "Preparing Intro Flight"):
+(`IntroLoadingGate.hold()`, `services/world/intro-loading-gate.ts`, aufgerufen aus
+`VisualizationFacadeService.checkAllLoaded()`, Boot-Step "Preparing Intro Flight"):
 `IntroCameraFlightService.prepare()` legt die Flugbahn an, `prepareTick()` sampelt die
 Route (8 Samples pro Frame). Der Screen schließt, sobald 90 % der Route verlässliche
 Höhen haben (`INTRO_GATE_MIN_READY`) oder 8 s nach dem ersten Tile-Load
