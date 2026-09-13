@@ -23,7 +23,6 @@ import {
   Texture,
   WebGLRenderer,
 } from 'three';
-import type { ColumnSample } from '../column-sample';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
@@ -75,23 +74,6 @@ export interface TowerRenderData {
  * @deprecated Use TerrainRaycaster instead for accurate terrain-conforming meshes
  */
 export type TerrainHeightSampler = (lat: number, lon: number) => number | null;
-
-/**
- * Vertical terrain probe: ground plus the tile LOD it came from. Injected
- * into the route-cell grid, which uses the LOD for quality-versioned
- * idempotency so a coarse streaming pass cannot overwrite a finer sample.
- */
-export type ColumnSampler = (localX: number, localZ: number) => ColumnSample | null;
-
-/**
- * Cheap LOD-probe at a local (x,z) position WITHOUT raycasting. Returns the
- * best (deepest depth / lowest geometric error) tile that horizontally
- * contains (x,z), based on the persistent tile-info map. Used by
- * `sampleCellY` to skip stable cells whose tile LOD has NOT improved since
- * the last sample — eliminates the per-cell raycast in the full-sweep
- * triggered by `updateTerrainHeights`.
- */
-export type TerrainPeekLOD = (localX: number, localZ: number) => { depth: number; geometricError: number } | null;
 
 /**
  * Function type for Line-of-Sight raycasting between two 3D points

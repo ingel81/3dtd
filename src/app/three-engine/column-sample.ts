@@ -95,3 +95,20 @@ export function isBetterLod(
   if (peek.depth > sample.tileDepth) return true;
   return peek.depth === sample.tileDepth && peek.geometricError < sample.tileGeometricError;
 }
+
+/**
+ * Vertical terrain probe: ground plus the tile LOD it came from. Injected
+ * into the route-cell grid, which uses the LOD for quality-versioned
+ * idempotency so a coarse streaming pass cannot overwrite a finer sample.
+ */
+export type ColumnSampler = (localX: number, localZ: number) => ColumnSample | null;
+
+/**
+ * Cheap LOD-probe at a local (x,z) position WITHOUT raycasting. Returns the
+ * best (deepest depth / lowest geometric error) tile that horizontally
+ * contains (x,z), based on the persistent tile-info map. Used by
+ * `sampleCellY` to skip stable cells whose tile LOD has NOT improved since
+ * the last sample, which saves the per-cell raycast in the full sweep
+ * triggered by `updateTerrainHeights`.
+ */
+export type TerrainPeekLOD = (localX: number, localZ: number) => { depth: number; geometricError: number } | null;

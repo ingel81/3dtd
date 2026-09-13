@@ -5,7 +5,7 @@ import { buildRouteAltitudeTubes, disposeRouteAltitudeTubes } from '../../utils/
 import { Enemy } from '../../entities/enemy.entity';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
-import { ColumnSampler, TerrainPeekLOD } from '../../three-engine/renderers/three-tower.renderer';
+import type { ColumnSampler, TerrainPeekLOD } from '../../three-engine/column-sample';
 import { LosResolveContext } from '../../utils/gpu-cube-resolve';
 import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry, Vector3 } from 'three';
 import { UIStore } from '../../store/ui.store';

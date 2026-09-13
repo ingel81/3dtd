@@ -2,7 +2,7 @@ import { InstancedMesh, Vector3 } from 'three';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
-import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
+import type { ColumnSampler, TerrainPeekLOD } from '../three-engine/column-sample';
 import { LosResolveContext } from './gpu-cube-resolve';
 import { RouteCell } from './route-cell';
 import { resolveTowerLos, resolveTowerLosIncremental } from './route-grid-los';
