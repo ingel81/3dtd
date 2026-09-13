@@ -462,6 +462,22 @@ describe('TowerCombatService', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
+  // Chain jumps and bodies along the route
+  // ────────────────────────────────────────────────────────────────
+  describe('chain jumps', () => {
+    it('do not reach a body the tower has no aim point on, however near its tip', () => {
+      const find = (service as unknown as {
+        findNearestUnhit: (from: unknown, candidates: unknown[], hit: Set<string>, max: number) => unknown;
+      }).findNearestUnhit.bind(service);
+      const from = { lat: 48.0, lon: 9.0 };
+      const ooze = { id: 'ooze', alive: true, body: {}, position: { lat: 48.0, lon: 9.0 } };
+      const zombie = { id: 'z', alive: true, body: null, position: { lat: 48.0 + 5 / METERS_PER_DEGREE_LAT, lon: 9.0 } };
+      // No tower turn has begun in BodyAim: no aim point on the ooze
+      expect(find(from, [ooze, zombie], new Set(), 15)).toBe(zombie);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
   // Sanity: combat-tuning constants are read into hot-path readonlies
   // ────────────────────────────────────────────────────────────────
   describe('config wiring', () => {

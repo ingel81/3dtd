@@ -855,7 +855,12 @@ export class TowerCombatService {
     let bestSq = maxDist * maxDist;
     for (const e of candidates) {
       if (hitIds.has(e.id) || !e.alive) continue;
-      const p = this.targetPoint(e);
+      // A body the tower has no point of in range and sight is not jumped to
+      let p: { lat: number; lon: number } = e.position;
+      if (e.body) {
+        if (!this.bodyAim.aim(e, this._aimPoint)) continue;
+        p = this._aimPoint;
+      }
       const dx = (p.lat - from.lat) * mPerDegLat;
       const dy = (p.lon - from.lon) * mPerDegLon;
       const dSq = dx * dx + dy * dy;
