@@ -40,6 +40,13 @@ interface TentacleState {
   idleTipPos: Vector3;      // Where the tip rests during idle
 }
 
+/** A tentacle's strike as it stands, see ThreeTentacleRenderer.captureStrike() */
+export interface TentacleStrike {
+  state: 'idle' | 'striking' | 'retracting';
+  target: Vector3;
+  progress: number;
+}
+
 /**
  * ThreeTentacleRenderer — GPU Bezier tentacles for melee towers
  *
@@ -195,6 +202,29 @@ export class ThreeTentacleRenderer {
   getStrikeTarget(towerId: string): Vector3 | null {
     const s = this.tentacles.get(towerId);
     return s && s.state !== 'idle' ? s.strikeTarget : null;
+  }
+
+  /** Show or hide the tentacle of a tower (wave replay). */
+  setVisible(towerId: string, visible: boolean): void {
+    const s = this.tentacles.get(towerId);
+    if (s) s.mesh.visible = visible;
+  }
+
+  /**
+   * The strike of a tower's tentacle as it stands, null without a tentacle.
+   * restoreStrike() puts it back; the wave replay does that on exit.
+   */
+  captureStrike(towerId: string): TentacleStrike | null {
+    const s = this.tentacles.get(towerId);
+    return s ? { state: s.state, target: s.strikeTarget.clone(), progress: s.strikeProgress } : null;
+  }
+
+  restoreStrike(towerId: string, strike: TentacleStrike): void {
+    const s = this.tentacles.get(towerId);
+    if (!s) return;
+    s.state = strike.state;
+    s.strikeTarget.copy(strike.target);
+    s.strikeProgress = strike.progress;
   }
 
   /**
