@@ -28,6 +28,7 @@ import { TowerTypeId } from '../../../configs/tower-types.config';
 import { ModelPreviewService } from '../../../services/infrastructure/model-preview.service';
 import { WaveDebugService } from '../../../services/debug/wave-debug.service';
 import { EnemyDebugService } from '../../../services/debug/enemy-debug.service';
+import { DebugFacadeService } from '../../../services/debug/debug-facade.service';
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { enemyGroupTooltip, splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
@@ -60,6 +61,8 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
+  /** Display options; the blood moon marks follow its switch */
+  private readonly vfx = inject(DebugFacadeService).vfx;
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
@@ -140,9 +143,12 @@ export class SidebarWavePanelComponent implements AfterViewInit {
     return calculateTotalDPS(this.gameState.towerManager.getAll());
   });
 
-  /** NEXT: die nächsten fünf Wellen, nach W30 das, was davon bekannt ist. */
+  /**
+   * NEXT: die nächsten fünf Wellen, nach W30 das, was davon bekannt ist.
+   * Blutmond-Wellen tragen den Mond, solange der Look an ist.
+   */
   readonly upcomingWaves = computed(() =>
-    peekUpcomingWaves(this.store.waveNumber(), this.towerDps(), NEXT_WAVE_MARKS)
+    peekUpcomingWaves(this.store.waveNumber(), this.towerDps(), NEXT_WAVE_MARKS, this.vfx().bloodMoon)
   );
 
   /**

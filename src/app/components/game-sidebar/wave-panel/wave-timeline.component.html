@@ -19,6 +19,9 @@
         @if (peek.air) {
           <td-icon class="td-next-air" name="plane" [size]="10"></td-icon>
         }
+        @if (peek.bloodMoon) {
+          <td-icon class="td-next-moon" name="moon" [size]="10"></td-icon>
+        }
       </span>
       <span class="td-next-dot" aria-hidden="true"></span>
       <span class="td-next-num" aria-hidden="true">{{ peek.wave }}</span>

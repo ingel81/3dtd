@@ -10,7 +10,12 @@ import {
   templateObjectForWave,
 } from '../../../configs/wave-curriculum.config';
 import { bossVariantForWave, type BossVariant } from '../../../configs/boss-variants.config';
+import { BLOOD_MOON_INTERVAL, isBloodMoonWave } from '../../../configs/blood-moon.config';
 import { splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
+
+/** Tooltip sentence of a blood moon wave */
+export const BLOOD_MOON_NOTE =
+  `Blood moon (every ${BLOOD_MOON_INTERVAL}th wave): red night, glowing enemies, searchlights on the towers. Looks only, the wave is the same.`;
 
 /**
  * Marks on the NEXT timeline of the WAVE panel. Five consecutive waves hold
@@ -34,6 +39,8 @@ export interface WavePeek {
   armorLabel: string;
   /** Air units in the wave */
   air: boolean;
+  /** A blood moon wave (look only), false while the display option is off */
+  bloodMoon: boolean;
   /** Best damage types against the wave's HP, none when unknown */
   weakToTypes: DamageType[];
   /** The same as text, "Fire, Poison, Pierce"; "" when unknown */
@@ -46,16 +53,23 @@ export interface WavePeek {
 /**
  * NEXT: the `count` waves after `currentWave`, so the player can prepare
  * (anti-air before W7 bat_swarm, siege before a heavy wave). `towerDps` is
- * the defense the director would size the wave by now.
+ * the defense the director would size the wave by now. `bloodMoon`: the
+ * blood moon look is on (display option), so its waves get their mark.
  */
-export function peekUpcomingWaves(currentWave: number, towerDps: number, count: number): WavePeek[] {
+export function peekUpcomingWaves(currentWave: number, towerDps: number, count: number, bloodMoon = true): WavePeek[] {
   const peeks: WavePeek[] = [];
   for (let wave = currentWave + 1; wave <= currentWave + count; wave++) {
     const template = templateObjectForWave(wave);
     const variant = template ? null : bossVariantForWave(wave);
-    peeks.push(
-      template ? knownPeek(wave, template, towerDps) : variant ? variantPeek(wave, variant) : unknownPeek(wave),
-    );
+    const peek = template
+      ? knownPeek(wave, template, towerDps)
+      : variant ? variantPeek(wave, variant) : unknownPeek(wave);
+    // A blood moon falls on any kind of wave, a boss variant's included (W35: the worm)
+    if (bloodMoon && isBloodMoonWave(wave)) {
+      peek.bloodMoon = true;
+      peek.tooltip = `${peek.tooltip} ${BLOOD_MOON_NOTE}`;
+    }
+    peeks.push(peek);
   }
   return peeks;
 }
@@ -84,6 +98,7 @@ function variantPeek(wave: number, variant: BossVariant): WavePeek {
     armors: [armor],
     armorLabel: armor,
     air: cfg.isAirUnit === true,
+    bloodMoon: false,
     weakToTypes: bestDamageTypesAgainst(weights),
     weakTo,
     note: '',
@@ -132,6 +147,7 @@ function knownPeek(wave: number, template: Template, towerDps: number): WavePeek
     armors,
     armorLabel: armors.length > 1 ? `${armors[0]} +${armors.length - 1}` : (armors[0] ?? ''),
     air,
+    bloodMoon: false,
     weakToTypes: bestDamageTypesAgainst(weights),
     weakTo,
     note: '',
@@ -152,6 +168,7 @@ function unknownPeek(wave: number): WavePeek {
     armors: [],
     armorLabel: '',
     air: false,
+    bloodMoon: false,
     weakToTypes: [],
     weakTo: '',
     note: 'Template picked at wave start',

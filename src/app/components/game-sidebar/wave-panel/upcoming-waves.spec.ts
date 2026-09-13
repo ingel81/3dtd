@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { NEXT_WAVE_MARKS, peekUpcomingWaves, shownPeek } from './upcoming-waves';
+import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, peekUpcomingWaves, shownPeek } from './upcoming-waves';
 import { CURRICULUM_FORCED_THROUGH_WAVE, isBossWave, templateObjectForWave } from '../../../configs/wave-curriculum.config';
 import { DPS_RAMP_COUNT } from '../../../ai/core/templates';
 
@@ -91,6 +91,26 @@ describe('peekUpcomingWaves', () => {
     expect(w35.weakToTypes.length).toBeGreaterThan(0);
     expect(w35.tooltip).toContain('splits the worm in two');
     expect(w35.tooltip).toContain(`Weak to ${w35.weakTo}.`);
+  });
+
+  it('marks the blood moon waves, W14 and every seventh after, and says in the tooltip that they only look different', () => {
+    const peeks = peekUpcomingWaves(12, 0, NEXT_WAVE_MARKS);
+    expect(peeks.filter((p) => p.bloodMoon).map((p) => p.wave)).toEqual([14]);
+    const w14 = peeks.find((p) => p.wave === 14)!;
+    expect(w14.tooltip).toContain(BLOOD_MOON_NOTE);
+    expect(peeks.find((p) => p.wave === 13)!.tooltip).not.toContain(BLOOD_MOON_NOTE);
+
+    // Past the curriculum as well: W35 is the worm's boss wave and a blood moon at once
+    const [, w35] = peekUpcomingWaves(33, 0, 2);
+    expect(w35).toMatchObject({ wave: 35, name: 'Boss: Chitin Worm', boss: true, bloodMoon: true });
+    expect(w35.tooltip).toContain('splits the worm in two');
+    expect(w35.tooltip).toContain(BLOOD_MOON_NOTE);
+  });
+
+  it('leaves the blood moon off the line while its look is switched off', () => {
+    const w14 = peekUpcomingWaves(13, 0, 1, false)[0];
+    expect(w14.bloodMoon).toBe(false);
+    expect(w14.tooltip).not.toContain(BLOOD_MOON_NOTE);
   });
 
   it('always has the next boss wave on the line past the curriculum', () => {
