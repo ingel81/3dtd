@@ -27,6 +27,14 @@ describe('VFX presets', () => {
     }
   });
 
+  it('never touches the blood moon either, and the match ignores it', () => {
+    for (const preset of PRESETS) {
+      const settings = withVfxPreset({ ...DEFAULT_VFX_SETTINGS, bloodMoon: false }, preset);
+      expect(settings.bloodMoon).toBe(false);
+      expect(matchingVfxPreset(settings)).toBe(preset);
+    }
+  });
+
   it('reads a changed switch as a custom mix', () => {
     expect(matchingVfxPreset({ ...DEFAULT_VFX_SETTINGS, bloom: true })).toBeNull();
     expect(matchingVfxPreset({ ...DEFAULT_VFX_SETTINGS, colorGrading: 'noir' })).toBeNull();
@@ -49,5 +57,11 @@ describe('readVfxSettings', () => {
       colorGrading: 'noir',
     });
     expect(readVfxSettings({ colorGrading: 'sepia' }).colorGrading).toBe('none');
+  });
+
+  it('has the blood moon on unless it was switched off', () => {
+    expect(readVfxSettings({}).bloodMoon).toBe(true);
+    expect(readVfxSettings({ bloodMoon: false }).bloodMoon).toBe(false);
+    expect(readVfxSettings({ bloodMoon: 'no' }).bloodMoon).toBe(true);
   });
 });
