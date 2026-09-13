@@ -49,7 +49,8 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `tower:deselected` | TowerManager | GameStateSyncService, LosDebugService | Tower-Auswahl aufgehoben |
 | `tower:kill` | DamageApplicationService | GameStateManager, GameStateSyncService | Kill einem Tower gutgeschrieben, `combat.kills` ist schon erhöht (`tower`). Der GameStateManager gibt den Veteranen-Rang an `TowerManager.refreshVeteranBadge` (Abzeichen über dem Tower). Beim gewählten Tower zählt `selectedTowerRevision` hoch, daraus leitet die Sidebar Kills, Stats und Rang ab |
 | `wave:started` | WaveManager | GameStateSyncService, AIDataCollector, BackgroundMusicService, BloodMoonService, BloodMoonBannerComponent | Welle gestartet (`wave`, `enemyCount`). Manuelle Debug-Wellen (`beginWave()`) melden `enemyCount: 0` |
-| `game:started` | GameStateManager (vor der ersten Welle) | AIDataCollector | Spiel gestartet |
+| `wave:jumped` | GameStateManager (`jumpToWave()`, Dev-Cheat) | GameStateSyncService (`waveNumber`), RunStatsTracker (Cheat-Gold), BestWaveService (Lauf zählt nicht mehr) | Zähler zwischen zwei Wellen vorgesetzt (`from` zuletzt gespielte Welle, `wave` nächster Start, `skipped`, `credits` Gold der übersprungenen Wellen, 0 ohne). Siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#jump-to-wave) |
+| `game:started` | GameStateManager (vor der ersten Welle eines Laufs, auch nach einem Wellensprung) | AIDataCollector | Spiel gestartet |
 | `game:over` | GameStateManager (`triggerGameOver()`) | GameStateSyncService, GameLoopFacade, AIDataCollector, BackgroundMusicService, BloodMoonService, TrainingSession | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`; emittiert wird nur `'base-destroyed'`) |
 | `game:reset` | GameStateManager (`reset()`) | GameStateSyncService, BackgroundMusicService, BloodMoonService, BossIntroService (bricht ein laufendes Intro ab, vergisst wartende Bosse) | Spiel zurückgesetzt |
 | `credits:changed` | GameStateManager (`CreditsLedger`) | GameStateSyncService | Credits geändert (`credits`, `delta`) |
@@ -103,6 +104,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `debug:complete-all-research` | DebugFacadeService | GameCommandsHandler → ResearchManager | Alle Forschungen sofort abschließen |
 | `debug:max-upgrade-all-towers` | DebugFacadeService | GameCommandsHandler → GameStateManager.maxUpgradeAllTowers() | Alle Tower auf Max-Level setzen, emittiert je Tower `tower:upgraded` |
 | `debug:ready-ability` | DebugFacadeService (Cheat "Nuke", **deferred**) | GameCommandsHandler → ResearchManager.completeResearch() (Forschung samt Voraussetzungen, je `research:completed`), dann AbilityManager.refillCharges() | Fähigkeit sofort bereit (`abilityId`): freigeschaltet, alle Ladungen. Deferred, damit es im nächsten Sub-Step greift; in der Pause erst beim Weiterlaufen |
+| `debug:jump-to-wave` | WaveDebuggerComponent (Abschnitt "Jump to wave") | GameCommandsHandler → GameStateManager.jumpToWave() (emittiert `wave:jumped`) | Nächster Start ist Welle `wave`, die Wellen davor übersprungen, mit `grantGold` samt ihrem Gold. Nur in Phase `setup`, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#jump-to-wave) |
 | `debug:remove-enemy` | EnemyDebugService (Enemy-Debug-Fenster: Entfernen-Knopf, „Clear All“ je Debug-Enemy) | EnemyManager, GameStateManager (Tower in Wachrichtung) | Einzelnen Enemy entfernen (`enemyId`) |
 | `debug:start-custom-wave` | WaveDebuggerComponent | GameLoopFacade (`startCustomWave()`) | Custom Wave starten |
 | `debug:spawn-enemy` | EnemyDebugService | EnemyManager | Enemy manuell spawnen (`enemyType`, `count?`, `path?`, `speed?`, `paused?`, `health?`) |
@@ -112,7 +114,8 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 
 > **Routing (2026-05-10):** Alle `command:*`-Subscriptions und die Cheat-Events
 > `debug:add-credits`, `debug:add-health`, `debug:complete-all-research`,
-> `debug:max-upgrade-all-towers` (seit 2026-09-13 auch `debug:ready-ability`) liegen in
+> `debug:max-upgrade-all-towers` (seit 2026-09-13 auch `debug:ready-ability`, seit 2026-09-14
+> `debug:jump-to-wave`) liegen in
 > `GameCommandsHandler` (`managers/game-commands.handler.ts`).
 > Vorher hingen die 11 Listener direkt am `GameStateManager`. Der Handler hält keinen State
 > und delegiert an den GameStateManager bzw. dessen `towerManager` und `researchManager`.
@@ -259,7 +262,7 @@ function gameLoop(deltaTime: number) {
 | **WaveManager** | Nein | Mixed | Emittiert `wave:started`, `wave:completed`; reagiert auf `enemy:died`, `enemy:reached-base`, `enemy:leaking`, `debug:kill-all` |
 | **TowerManager** | Nein | Producer | Emittiert `tower:placed`, `tower:sold`, `tower:selected`, `tower:deselected`, `audio:play` |
 | **ResearchManager** | Nein | Producer | Emittiert `research:*` |
-| **GameCommandsHandler** | Nein | Subscriber | Reagiert auf `command:*` und vier `debug:*`-Cheats, sucht den Tower heraus und ruft den GameStateManager; emittiert selbst nichts |
+| **GameCommandsHandler** | Nein | Subscriber | Reagiert auf `command:*` und die `debug:*`-Cheats (Credits, Health, Research, Max Up, Nuke, Wellensprung), sucht den Tower heraus und ruft den GameStateManager; emittiert selbst nichts |
 | **CombatEffectService** | Ja | Mixed | Reagiert auf `projectile:hit`, `dot:damage`, emittiert `vfx:chain-lightning` |
 | **DamageApplicationService** | Ja | Producer | Emittiert `tower:kill` |
 | **HQDamageService** | Ja | Mixed | Reagiert auf `health:changed`, emittiert `audio:play` |
