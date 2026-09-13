@@ -69,7 +69,7 @@
               [class.td-research-active]="getResearchStatus(research.id) === 'active'"
               [class.td-research-queued-node]="getResearchStatus(research.id) === 'queued'"
               [class.td-research-locked]="getResearchStatus(research.id) === 'locked'"
-              [disabled]="getResearchStatus(research.id) !== 'available'"
+              [disabled]="!canClick(research)"
               (click)="onResearchClick(research)"
               [matTooltip]="nodeTooltip(research)"
               matTooltipPosition="left">
@@ -86,7 +86,9 @@
                 {{ research.cost }} · {{ research.duration }}s
                 @if (!canStartNow(research)) { <span class="td-research-queue-hint">· queue</span> }
               }
-              @default { {{ research.cost }} · {{ research.duration }}s }
+              @case ('locked') {
+                {{ research.cost }} · {{ research.duration }}s <span class="td-research-queue-hint">· queue</span>
+              }
             }
           </span>
         </div>
