@@ -656,8 +656,8 @@ export class VisualizationFacadeService {
     // enemy feet, tower-LOS), so the line snap-up after a tile-load
     // depends on this refresh happening first.
     //
-    // This also drives per-tower LOS: updateTerrainHeights fires the
-    // cells-changed listener for every promoted/refreshed cell, and the
+    // This also drives per-tower LOS: each slice of the sweep fires the
+    // cells-changed listener for the cells it promoted or refreshed, and the
     // tower-placement handler re-resolves LOS for just those cells on the
     // towers that cover them. When no cell changed LOD (the common
     // pan/zoom case) the listener never fires — so the cost shown in the
@@ -704,8 +704,8 @@ export class VisualizationFacadeService {
     // sweep (clear every tower's visibility cache, then re-raycast every
     // in-range cell via per-cell GPU readPixels) on every tile-load — a
     // multi-second main-thread stall even when no cell had actually
-    // changed LOD. The cells-changed listener wired up in updateTerrainHeights
-    // now covers both promoted and refreshed cells incrementally, so a
+    // changed LOD. The cells-changed listener, fired by each slice of the
+    // sweep, now covers both promoted and refreshed cells incrementally, so a
     // tile-load with no LOD change costs nothing.
 
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
