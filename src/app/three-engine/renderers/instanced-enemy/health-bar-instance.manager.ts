@@ -26,14 +26,12 @@ const HEALTH_BAR_VERTEX = /* glsl */ `
   attribute vec2 aSize;     // bar width / height; aSize.x <= 0 → hidden slot
   attribute float aHealth;
   attribute vec3 aBarColor;
-  attribute float aIsBoss;
 
   uniform vec3 uCameraRight;
   uniform vec3 uCameraUp;
 
   varying float vHealth;
   varying vec3 vBarColor;
-  varying float vIsBoss;
   varying vec2 vUv;
 
   #include <common>
@@ -46,14 +44,12 @@ const HEALTH_BAR_VERTEX = /* glsl */ `
       vUv = vec2(0.0);
       vHealth = 0.0;
       vBarColor = vec3(0.0);
-      vIsBoss = 0.0;
       return;
     }
 
     vUv = uv;
     vHealth = aHealth;
     vBarColor = aBarColor;
-    vIsBoss = aIsBoss;
 
     // Billboard: offset the unit-quad vertex (position.xy ∈ [-0.5, 0.5] from
     // PlaneGeometry(1,1)) along the camera-aligned axes. The mesh root sits
@@ -158,7 +154,6 @@ export class HealthBarInstanceManager {
   private sizeAttribute: InstancedBufferAttribute;   // width, height (0 = hidden)
   private healthAttribute: InstancedBufferAttribute;
   private barColorAttribute: InstancedBufferAttribute; // fixed color override (boss etc.)
-  private isBossAttribute: InstancedBufferAttribute;
 
   // Billboard axes, shared by reference with both materials' uniforms so a
   // single set per frame updates both passes.
@@ -192,19 +187,16 @@ export class HealthBarInstanceManager {
     const sizeData = new Float32Array(MAX_HEALTH_BARS * 2); // 0 → hidden by default
     const healthData = new Float32Array(MAX_HEALTH_BARS);
     const barColorData = new Float32Array(MAX_HEALTH_BARS * 3);
-    const isBossData = new Float32Array(MAX_HEALTH_BARS);
 
     this.centerAttribute = new InstancedBufferAttribute(centerData, 3);
     this.sizeAttribute = new InstancedBufferAttribute(sizeData, 2);
     this.healthAttribute = new InstancedBufferAttribute(healthData, 1);
     this.barColorAttribute = new InstancedBufferAttribute(barColorData, 3);
-    this.isBossAttribute = new InstancedBufferAttribute(isBossData, 1);
 
     geometry.setAttribute('aCenter', this.centerAttribute);
     geometry.setAttribute('aSize', this.sizeAttribute);
     geometry.setAttribute('aHealth', this.healthAttribute);
     geometry.setAttribute('aBarColor', this.barColorAttribute);
-    geometry.setAttribute('aIsBoss', this.isBossAttribute);
 
     // Pass 1: Background — all bars, depth tested (occluded by terrain normally)
     // frustumCulled stays off on both passes: the geometry's bounding sphere
@@ -244,7 +236,6 @@ export class HealthBarInstanceManager {
     enemyId: string,
     position: Vector3,
     yOffset: number,
-    isBoss: boolean,
     fixedColor: { r: number; g: number; b: number } | null,
     barWidth: number,
     barHeight: number,
@@ -265,7 +256,6 @@ export class HealthBarInstanceManager {
 
     // Health + color
     this.healthAttribute.setX(index, 1.0);
-    this.isBossAttribute.setX(index, isBoss ? 1.0 : 0.0);
     if (fixedColor) {
       this.barColorAttribute.setXYZ(index, fixedColor.r, fixedColor.g, fixedColor.b);
     } else {
@@ -280,7 +270,6 @@ export class HealthBarInstanceManager {
     this.healthDirty = true;
     this.slots.uploadSlot(this.sizeAttribute, index);
     this.slots.uploadSlot(this.barColorAttribute, index);
-    this.slots.uploadSlot(this.isBossAttribute, index);
     return index;
   }
 
@@ -445,7 +434,6 @@ export class HealthBarInstanceManager {
 
         varying float vHealth;
         varying vec3 vBarColor;
-        varying float vIsBoss;
         varying vec2 vUv;
 
         #include <logdepthbuf_pars_fragment>

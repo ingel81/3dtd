@@ -58,7 +58,8 @@ describe('ScreenShakeService', () => {
     const { eventBus, engine, service } = setup();
     eventBus.emit({ type: 'health:changed', health: 90, delta: -10 });
     eventBus.emit({ type: 'health:changed', health: 95, delta: 5 });
-    eventBus.emit({ type: 'enemy:died', enemy: { typeConfig: { bossName: 'Boss' } } as never, credits: 0 });
+    eventBus.emit({ type: 'enemy:died', enemy: { typeConfig: { isBoss: false } } as never, credits: 0 });
+    eventBus.emit({ type: 'enemy:died', enemy: { typeConfig: { isBoss: true } } as never, credits: 0 });
     expect(engine.triggerScreenShake.mock.calls).toEqual([
       [presets.hqDamage.amplitude, presets.hqDamage.duration],
       [presets.bossDeath.amplitude, presets.bossDeath.duration],

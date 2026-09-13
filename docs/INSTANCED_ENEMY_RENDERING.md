@@ -354,7 +354,7 @@ kein Einzelpfad unbegrenzt Ranges anhängen:
   flusht einmal pro Frame), Lightning-Bolt-Instanzdaten (`aStart`/`aEnd`/`aTiming`/
   `aShape` in einem Interleaved-Buffer, Flush am Ende von
   `LightningBoltRenderer.update()`, nur in Frames mit Spawns).
-- Attribute ohne Frame-Flush (Health-Bar `aSize`, `aBarColor`, `aIsBoss`) laufen über
+- Attribute ohne Frame-Flush (Health-Bar `aSize`, `aBarColor`) laufen über
   `InstanceSlotAllocator.uploadSlot()`: eine Range pro Slot, ab 64 wartenden Ranges
   zusammengefasst zu einer über die gezeichneten Slots.
 
@@ -415,7 +415,7 @@ zwei `Mesh`-Passes:
 - Einheits-Quad aus `PlaneGeometry(1, 1)` mit prozeduralem Shader
 - Billboard im Vertex-Shader über die Uniforms `uCameraRight`/`uCameraUp`
 - Per-Instance: `aCenter` (Weltposition), `aSize` (0 = versteckt), `aHealth` (0-1),
-  `aBarColor` (RGB), `aIsBoss` (float)
+  `aBarColor` (RGB)
 - `geometry.instanceCount` ist der Draw-Count beider Passes
 - Kein `InstancedMesh`: der Shader liest `instanceMatrix` nicht, ein
   `InstancedMesh` legt es trotzdem an und lädt es hoch (2 × 20.000 × 16 Floats =

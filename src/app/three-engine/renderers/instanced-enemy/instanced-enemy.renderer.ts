@@ -223,7 +223,6 @@ export class InstancedEnemyRenderer {
       id,
       localPos,
       config.healthBarOffset,
-      false, // isBoss
       fixedColor,
       6, // barWidth (matches original Sprite scale)
       1, // barHeight
