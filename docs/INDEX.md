@@ -79,7 +79,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) | Bericht (Playtest läuft) | Zweite Sprint-Runde auf `sprint/todo-2026-09-11`: Änderungen, Review-Befunde, nummerierte Playtest-Liste mit Ergebnissen |
 | [REVIEW_SPRINT_2026-09-11.md](REVIEW_SPRINT_2026-09-11.md) | Bericht | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand. TODO.md 1.6 verweist darauf |
 | [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md) | Bericht | Route vs. Straße (Playtest 2026-09-10): Kette Overpass bis Zelle, Herleitung des Korridors, Lücken in der LOS-Anzeige. Der aktuelle Stand des Korridors steht in ROUTE_CORRIDOR.md |
-| [PERF_BUG_ANALYSIS_2026-05-28.md](PERF_BUG_ANALYSIS_2026-05-28.md) | Bericht | Performance- und Bug-Deep-Dive: Render-Loop, Instancing, VFX, Game-Loop, Leaks |
+| [PERF_BUG_ANALYSIS_2026-05-28.md](PERF_BUG_ANALYSIS_2026-05-28.md) | Bericht | Performance- und Bug-Deep-Dive: Render-Loop, Instancing, VFX, Game-Loop, Leaks. Nachträge: Raycast-Messung, Kamera-Raycast-Cache, Benchmarks (`npm run bench`) |
 
 ## Pläne (nicht umgesetzt)
 
