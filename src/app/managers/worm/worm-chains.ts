@@ -41,7 +41,8 @@ interface ChainRef {
  *
  * The pace is the mean slow over the chain's segments on the route: a slowed
  * segment drags the rest along. A chain stands while one of its segments is
- * held (Enemy Debug stop).
+ * held (Enemy Debug stop) or halted (freeze, stun): a halted segment must
+ * not move, and the chain cannot leave it behind without tearing apart.
  *
  * A segment comes out when its slot reaches the group's origin: the route
  * start inside the spawn portal for a wave worm, so the worm leaves the portal
@@ -170,11 +171,14 @@ export class WormChains {
     let slowSum = 0;
     let walking = 0;
     let held = false;
+    let halted = false;
     for (let slot = chain.first; slot <= chain.last; slot++) {
       const enemy = group.segments[slot];
       if (enemy === null) continue;
       if (enemy.movement.paused) held = true;
-      slowSum += enemy.movement.getSlowMultiplier(gameTimeMs);
+      const movement = enemy.movement;
+      if (movement.statusEffects.length !== 0 && movement.isHalted(gameTimeMs)) halted = true;
+      slowSum += movement.getSlowMultiplier(gameTimeMs);
       walking++;
     }
     // An idle worm (debug placement) starts once one of its segments walks
@@ -187,7 +191,7 @@ export class WormChains {
       this.host.showAsHead(group.segments[chain.first]!);
     }
 
-    if (!held && !group.idle) {
+    if (!held && !halted && !group.idle) {
       const pace = walking > 0 ? slowSum / walking : 1;
       // Never backwards: a chain that is already closer only waits
       chain.front = Math.max(chain.front, Math.min(chain.front + group.speedMps * pace * seconds, limit));

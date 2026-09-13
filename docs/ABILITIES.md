@@ -45,6 +45,21 @@ trifft sie, sobald sein Radius irgendeinen Punkt ihres Körpers erreicht
 (`GlobalRouteGrid.getEnemiesInRadius`), einmal und mit dem Boss-Anteil; ihr
 Todesblut liegt an dem Punkt, den der Kreis erreicht.
 
+Frostbombe, EMP und Orbitallaser fragen dieselbe Radiusabfrage und behandeln
+Ooze und Wurm damit ohne eigenen Zweig:
+
+- **Ooze:** Frostbombe und EMP halten die ganze Ooze an, sobald ihr Radius den
+  Körper berührt, als Boss 1 s beziehungsweise 0,75 s; Spitze und Hineinfließen
+  an der HQ stehen so lange. Der Laser trifft sie in jedem Sub-Step, in dem
+  der Kreis um den Strahl (5 m) den Körper berührt, und zählt sie einmal; die
+  Kappe von 20 % begrenzt den Schaden, auch wenn der Strahl über viele Meter
+  Körper läuft.
+- **Wurm:** Jedes Segment ist ein eigener Gegner mit eigener HP. Frostbombe
+  und EMP treffen die Segmente im Radius; ist eines angehalten, steht der
+  ganze Wurm (siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md#wurm-kette-aus-segmenten)).
+  Der Laser brennt die Segmente unter sich, jedes bis zu seiner eigenen Kappe
+  von 20 %. Maschinen sind beide nicht, das EMP hält sie nur als Boss.
+
 ---
 
 ## Frostbombe in Zahlen

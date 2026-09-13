@@ -157,6 +157,8 @@ export class OozeBodies {
         effects && movement.isSlowed(gameTimeMs),
         effects && movement.isPoisoned(gameTimeMs),
         effects && movement.isBurning(gameTimeMs),
+        effects && movement.isFrozen(gameTimeMs),
+        effects && movement.isStunned(gameTimeMs),
       );
       if (audio === null) continue;
       if (!listening) {
