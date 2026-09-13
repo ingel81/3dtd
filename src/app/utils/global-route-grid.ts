@@ -14,10 +14,13 @@ import {
   RouteCellProbe,
   RouteCellSpot,
   RouteGridSampleStats,
+  RouteGridView,
   TowerRangeReport,
   collectCellsInBox,
+  collectCentreLineCells,
   collectHeightOutliers,
-  probeRouteCell,
+  findCorridorHoles,
+  probeCellsAround,
   resetFallbackHeights,
   summarizeCellSamples,
   summarizeTowerRange,
@@ -952,18 +955,7 @@ export class GlobalRouteGrid {
    * segment claims a convex region of cells, so there should be none.
    */
   findHolesInRange(x: number, z: number, range: number): RouteCellSpot[] {
-    const holes: RouteCellSpot[] = [];
-    const rangeSq = range * range;
-    const has = (gx: number, gz: number) => this.cells.has(this.intCellKey(gx, gz));
-    for (let gx = this.cellIndex(x - range); gx <= this.cellIndex(x + range); gx++) {
-      const cx = (gx + 0.5) * this.CELL_SIZE;
-      for (let gz = this.cellIndex(z - range); gz <= this.cellIndex(z + range); gz++) {
-        const cz = (gz + 0.5) * this.CELL_SIZE;
-        if ((cx - x) ** 2 + (cz - z) ** 2 > rangeSq || has(gx, gz)) continue;
-        if (has(gx - 1, gz) && has(gx + 1, gz) && has(gx, gz - 1) && has(gx, gz + 1)) holes.push({ x: cx, z: cz });
-      }
-    }
-    return holes;
+    return findCorridorHoles(this.view, x, z, range);
   }
 
   /** What the grid holds in a tower's range, see `summarizeTowerRange`. */
@@ -984,19 +976,7 @@ export class GlobalRouteGrid {
    * line without a cell. A row missing along the red line shows up here.
    */
   centreLineCells(x: number, z: number, range: number): { cells: RouteCell[]; missing: RouteCellSpot[] } {
-    const cells = new Map<number, RouteCell>();
-    const missing = new Map<number, RouteCellSpot>();
-    const rangeSq = range * range;
-    this.forEachCentreSpot((px, pz) => {
-      if ((px - x) ** 2 + (pz - z) ** 2 > rangeSq) return;
-      const gx = this.cellIndex(px);
-      const gz = this.cellIndex(pz);
-      const key = this.intCellKey(gx, gz);
-      const cell = this.cells.get(key);
-      if (cell) cells.set(key, cell);
-      else missing.set(key, { x: (gx + 0.5) * this.CELL_SIZE, z: (gz + 0.5) * this.CELL_SIZE });
-    });
-    return { cells: [...cells.values()], missing: [...missing.values()] };
+    return collectCentreLineCells(this.view, x, z, range);
   }
 
   /** `describeTowerRange` for the centre line cells only; `holes` lists every centre spot without a cell. */
@@ -1011,53 +991,12 @@ export class GlobalRouteGrid {
    * adds that tower's answers.
    */
   describeCellsAround(x: number, z: number, radius: number, towerId: string | null): RouteCellProbe[] {
-    const rows: RouteCellProbe[] = [];
-    const radiusSq = radius * radius;
-    for (let gx = this.cellIndex(x - radius); gx <= this.cellIndex(x + radius); gx++) {
-      const cx = (gx + 0.5) * this.CELL_SIZE;
-      for (let gz = this.cellIndex(z - radius); gz <= this.cellIndex(z + radius); gz++) {
-        const cz = (gz + 0.5) * this.CELL_SIZE;
-        if ((cx - x) ** 2 + (cz - z) ** 2 > radiusSq) continue;
-        rows.push(probeRouteCell(
-          this.cells.get(this.intCellKey(gx, gz)), cx, cz, this.distanceToRoutes(cx, cz), towerId,
-          (cell) => this.medianOfStableNeighbourY(cell),
-        ));
-      }
-    }
-    return rows.sort((a, b) => a.routeM - b.routeM);
+    return probeCellsAround(this.view, x, z, radius, towerId, (cell) => this.medianOfStableNeighbourY(cell));
   }
 
-  /** Walk the centre lines of the cached routes in half-metre steps (local x, z). Diagnostics only. */
-  private forEachCentreSpot(visit: (x: number, z: number) => void): void {
-    const sync = this.coordinateSync;
-    if (!sync) return;
-    for (const route of this.cachedRoutes) {
-      for (let i = 0; i < route.length - 1; i++) {
-        const a = sync.geoToLocalSimple(route[i].lat, route[i].lon, 0);
-        const b = sync.geoToLocalSimple(route[i + 1].lat, route[i + 1].lon, 0);
-        const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5));
-        for (let s = 0; s <= steps; s++) visit(a.x + ((b.x - a.x) * s) / steps, a.z + ((b.z - a.z) * s) / steps);
-      }
-    }
-  }
-
-  /** Distance from (x, z) to the nearest centre line of the cached routes. Diagnostics only. */
-  private distanceToRoutes(x: number, z: number): number {
-    const sync = this.coordinateSync;
-    let best = Infinity;
-    if (!sync) return best;
-    for (const route of this.cachedRoutes) {
-      for (let i = 0; i < route.length - 1; i++) {
-        const a = sync.geoToLocalSimple(route[i].lat, route[i].lon, 0);
-        const b = sync.geoToLocalSimple(route[i + 1].lat, route[i + 1].lon, 0);
-        const dx = b.x - a.x;
-        const dz = b.z - a.z;
-        const lenSq = dx * dx + dz * dz;
-        const t = lenSq > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / lenSq)) : 0;
-        best = Math.min(best, Math.hypot(a.x + dx * t - x, a.z + dz * t - z));
-      }
-    }
-    return best;
+  /** The grid as the spatial probes in route-grid-diagnostics read it. Diagnostics only. */
+  private get view(): RouteGridView {
+    return { cells: this.cells, lattice: this.lattice, routes: this.cachedRoutes, sync: this.coordinateSync };
   }
 
   // ========================================
