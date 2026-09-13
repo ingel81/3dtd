@@ -75,6 +75,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
+| [REVIEW_SPRINT_2026-09-13.md](REVIEW_SPRINT_2026-09-13.md) | Bericht (Playtest offen) | Nachtschicht auf `sprint/night-2026-09-13`: Änderungen, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 101 |
 | [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) | Bericht (Playtest läuft) | Zweite Sprint-Runde auf `sprint/todo-2026-09-11`: Änderungen, Review-Befunde, nummerierte Playtest-Liste mit Ergebnissen |
 | [REVIEW_SPRINT_2026-09-11.md](REVIEW_SPRINT_2026-09-11.md) | Bericht | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand. TODO.md 1.6 verweist darauf |
 | [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md) | Bericht | Route vs. Straße (Playtest 2026-09-10): Kette Overpass bis Zelle, Herleitung des Korridors, Lücken in der LOS-Anzeige. Der aktuelle Stand des Korridors steht in ROUTE_CORRIDOR.md |
@@ -121,7 +122,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...das UI stylen | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | ...einen Bug fixen | [TODO.md](../TODO.md) |
 | ...wissen, was schon fertig ist | [DONE.md](../DONE.md) |
-| ...den laufenden Playtest-Stand sehen | [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) → Playtest-Liste |
+| ...den laufenden Playtest-Stand sehen | [REVIEW_SPRINT_2026-09-13.md](REVIEW_SPRINT_2026-09-13.md) → Playtest-Liste, offene alte Punkte in [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) |
 | ...einen neuen Tower erstellen | [TOWER_CREATION.md](TOWER_CREATION.md) |
 | ...einen neuen Enemy erstellen | [ENEMY_CREATION.md](ENEMY_CREATION.md) |
 | ...wissen, wie teuer ein Gegnermodell ist | [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) |

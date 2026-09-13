@@ -115,6 +115,7 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 | [MULTIPLAYER_CONCEPT.md](docs/MULTIPLAYER_CONCEPT.md) | _Plan:_ PvE-Coop & PvP - Determinismus-Blocker, Server-Entwurf, zwei Zielmodi. Kein Code |
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](docs/ROUTE_ALIGNED_CELLS_CONCEPT.md) | _Konzept:_ Zellen parallel zur Route statt Nord-Ost-Raster. Kein Code |
 | **Analysen & Berichte** | |
+| [REVIEW_SPRINT_2026-09-13.md](docs/REVIEW_SPRINT_2026-09-13.md) | Handover der Nachtschicht 2026-09-13: Änderungen, Entscheidungen, Review, Playtest-Liste ab 101 |
 | [REVIEW_SPRINT_2026-09-12.md](docs/REVIEW_SPRINT_2026-09-12.md) | Letzter Sprint-Handover: Änderungen, Review-Befunde, Playtest-Liste mit Ergebnissen |
 | [ROUTE_GEOMETRY_ANALYSIS.md](docs/ROUTE_GEOMETRY_ANALYSIS.md) | Route vs. Straße: Herleitung des Korridors, Lücken in der LOS-Anzeige |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](docs/PERF_BUG_ANALYSIS_2026-05-28.md) | Performance- und Bug-Deep-Dive (Render-Loop, Instancing, VFX, Leaks) |
