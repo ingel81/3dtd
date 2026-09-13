@@ -28,36 +28,50 @@ interface Block {
   x1: number; y1: number; z1: number; w1: number; d1: number;
 }
 
-/** Top of the lintel and of the cornice slab on it, above the ground (m). */
-const LINTEL_TOP = OPENING_HEIGHT + 3;
-const CORNICE_TOP = LINTEL_TOP + 0.7;
+/** Tops of the upper plinth step, the lintel and the cornice slab above the ground (m). */
+export const PORTAL_PLINTH_TOP = 1.9;
+export const PORTAL_LINTEL_TOP = OPENING_HEIGHT + 3;
+export const PORTAL_CORNICE_TOP = PORTAL_LINTEL_TOP + 0.7;
+
+/**
+ * The plinths' inner faces stand this far back from the opening's edge
+ * (m): flush with the pillar's inner face they would share its plane and
+ * flicker against it.
+ */
+const PLINTH_SETBACK = 0.05;
 
 /** Blocks on the +x side; the frame mirrors them to -x. */
 const SIDE_BLOCKS: readonly Block[] = [
-  // Plinth under the pillar in two steps, flush with the opening's edge
-  { x0: HALF_OPENING + 1.9, y0: -BURY, z0: 0, w0: 3.8, d0: 5.2, x1: HALF_OPENING + 1.9, y1: 0.8, z1: 0, w1: 3.8, d1: 5 },
-  { x0: HALF_OPENING + 1.6, y0: 0.8, z0: 0, w0: 3.2, d0: 4.5, x1: HALF_OPENING + 1.65, y1: 1.9, z1: 0, w1: 3.1, d1: 4.2 },
+  // Plinth under the pillar in two steps, just back from the opening's edge
+  {
+    x0: HALF_OPENING + PLINTH_SETBACK + 1.875, y0: -BURY, z0: 0, w0: 3.75, d0: 5.2,
+    x1: HALF_OPENING + PLINTH_SETBACK + 1.875, y1: 0.8, z1: 0, w1: 3.75, d1: 5,
+  },
+  {
+    x0: HALF_OPENING + PLINTH_SETBACK + 1.6, y0: 0.8, z0: 0, w0: 3.2, d0: 4.5,
+    x1: HALF_OPENING + PLINTH_SETBACK + 1.65, y1: PORTAL_PLINTH_TOP, z1: 0, w1: 3.1, d1: 4.2,
+  },
   // Pillar: the inner face stands plumb on the opening's edge, the outer
   // one leans in; it ends inside the lintel
-  { x0: HALF_OPENING + 1.4, y0: -BURY, z0: 0, w0: 2.8, d0: 4, x1: HALF_OPENING + 1, y1: LINTEL_TOP - 0.2, z1: 0, w1: 2, d1: 3.4 },
+  { x0: HALF_OPENING + 1.4, y0: -BURY, z0: 0, w0: 2.8, d0: 4, x1: HALF_OPENING + 1, y1: PORTAL_LINTEL_TOP - 0.2, z1: 0, w1: 2, d1: 3.4 },
   // Horn out of the cornice's end: out, up, and curling back in at the tip
-  { x0: HALF_OPENING + 2.5, y0: CORNICE_TOP, z0: 0, w0: 1.8, d0: 2.1, x1: HALF_OPENING + 3.4, y1: CORNICE_TOP + 1.9, z1: 0, w1: 1.4, d1: 1.6 },
-  { x0: HALF_OPENING + 3.4, y0: CORNICE_TOP + 1.9, z0: 0, w0: 1.4, d0: 1.6, x1: HALF_OPENING + 3.7, y1: CORNICE_TOP + 3.3, z1: 0, w1: 0.8, d1: 0.9 },
-  { x0: HALF_OPENING + 3.7, y0: CORNICE_TOP + 3.3, z0: 0, w0: 0.8, d0: 0.9, x1: HALF_OPENING + 3.2, y1: CORNICE_TOP + 4.5, z1: 0, w1: 0, d1: 0 },
+  { x0: HALF_OPENING + 2.5, y0: PORTAL_CORNICE_TOP, z0: 0, w0: 1.8, d0: 2.1, x1: HALF_OPENING + 3.4, y1: PORTAL_CORNICE_TOP + 1.9, z1: 0, w1: 1.4, d1: 1.6 },
+  { x0: HALF_OPENING + 3.4, y0: PORTAL_CORNICE_TOP + 1.9, z0: 0, w0: 1.4, d0: 1.6, x1: HALF_OPENING + 3.7, y1: PORTAL_CORNICE_TOP + 3.3, z1: 0, w1: 0.8, d1: 0.9 },
+  { x0: HALF_OPENING + 3.7, y0: PORTAL_CORNICE_TOP + 3.3, z0: 0, w0: 0.8, d0: 0.9, x1: HALF_OPENING + 3.2, y1: PORTAL_CORNICE_TOP + 4.5, z1: 0, w1: 0, d1: 0 },
   // Jagged spike beside the crown, leaning outward
-  { x0: 2.4, y0: CORNICE_TOP, z0: 0, w0: 1.5, d0: 1.8, x1: 3.2, y1: CORNICE_TOP + 2.7, z1: 0, w1: 0, d1: 0 },
+  { x0: 2.4, y0: PORTAL_CORNICE_TOP, z0: 0, w0: 1.5, d0: 1.8, x1: 3.2, y1: PORTAL_CORNICE_TOP + 2.7, z1: 0, w1: 0, d1: 0 },
 ];
 
 /** Blocks on the centre line. */
 const CENTRE_BLOCKS: readonly Block[] = [
   // Lintel across both pillars, wider at the top, deep enough to cover the
   // spawn behind the surface from above
-  { x0: 0, y0: OPENING_HEIGHT, z0: 0, w0: 13.2, d0: 4, x1: 0, y1: LINTEL_TOP, z1: 0, w1: 14, d1: 4.2 },
+  { x0: 0, y0: OPENING_HEIGHT, z0: 0, w0: 13.2, d0: 4, x1: 0, y1: PORTAL_LINTEL_TOP, z1: 0, w1: 14, d1: 4.2 },
   // Cornice slab overhanging the lintel
-  { x0: 0, y0: LINTEL_TOP, z0: 0, w0: 15.4, d0: 4.8, x1: 0, y1: CORNICE_TOP, z1: 0, w1: 15, d1: 4.6 },
+  { x0: 0, y0: PORTAL_LINTEL_TOP, z0: 0, w0: 15.4, d0: 4.8, x1: 0, y1: PORTAL_CORNICE_TOP, z1: 0, w1: 15, d1: 4.6 },
   // Crown: a base on the cornice and a spike on it, the top of the frame
-  { x0: 0, y0: CORNICE_TOP, z0: 0, w0: 4.2, d0: 3, x1: 0, y1: CORNICE_TOP + 1.1, z1: 0, w1: 3.2, d1: 2.4 },
-  { x0: 0, y0: CORNICE_TOP + 1.1, z0: 0, w0: 3.2, d0: 2.4, x1: 0, y1: PORTAL_FRAME_TOP, z1: 0, w1: 0, d1: 0 },
+  { x0: 0, y0: PORTAL_CORNICE_TOP, z0: 0, w0: 4.2, d0: 3, x1: 0, y1: PORTAL_CORNICE_TOP + 1.1, z1: 0, w1: 3.2, d1: 2.4 },
+  { x0: 0, y0: PORTAL_CORNICE_TOP + 1.1, z0: 0, w0: 3.2, d0: 2.4, x1: 0, y1: PORTAL_FRAME_TOP, z1: 0, w1: 0, d1: 0 },
 ];
 
 const FRAME_BLOCKS: readonly Block[] = [
@@ -66,19 +80,62 @@ const FRAME_BLOCKS: readonly Block[] = [
   ...CENTRE_BLOCKS,
 ];
 
+/**
+ * Vertex data of the frame. Besides its position every vertex knows where
+ * it lies on its face, for the worn edges in the gate shader: `face` holds
+ * (across the face from its centre line, along x, or along z on the ±x
+ * sides; up the face from its lower edge, along z on tops and bottoms; the
+ * face's height), `width` the face's width at its lower and upper edge, all
+ * in metres. Both are affine over a face, so they interpolate exactly.
+ */
+interface FrameBuffers {
+  positions: number[];
+  face: number[];
+  width: number[];
+}
+
 type Corner = readonly [number, number, number];
 
-/** Push a triangle unless it has no area (the top of a spike). */
-function pushTriangle(out: number[], a: Corner, b: Corner, c: Corner): void {
+/** Twice the area of a triangle, squared. */
+function areaSq(a: Corner, b: Corner, c: Corner): number {
   const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
   const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
   const cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
-  if (cx * cx + cy * cy + cz * cz < 1e-12) return;
-  out.push(...a, ...b, ...c);
+  return cx * cx + cy * cy + cz * cz;
+}
+
+/**
+ * Push a planar face with corners p0 to p3, counter-clockwise seen from
+ * outside: p0 to p1 is its lower edge, p3 to p2 its upper edge, both along
+ * the axis `across` (0 = x, 2 = z). A triangle without area (the top of a
+ * spike) is left out.
+ */
+function pushFace(out: FrameBuffers, p0: Corner, p1: Corner, p2: Corner, p3: Corner, across: 0 | 2): void {
+  const mid = (a: Corner, b: Corner): Corner => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+  const lower = mid(p0, p1);
+  const upper = mid(p2, p3);
+  const height = Math.hypot(upper[0] - lower[0], upper[1] - lower[1], upper[2] - lower[2]);
+  const w0 = Math.abs(p1[across] - p0[across]);
+  const w1 = Math.abs(p2[across] - p3[across]);
+  const corners = [
+    { at: p0, place: [p0[across] - lower[across], 0, height] },
+    { at: p1, place: [p1[across] - lower[across], 0, height] },
+    { at: p2, place: [p2[across] - upper[across], height, height] },
+    { at: p3, place: [p3[across] - upper[across], height, height] },
+  ];
+  for (const triangle of [[0, 1, 2], [0, 2, 3]]) {
+    const [a, b, c] = triangle.map((i) => corners[i]);
+    if (areaSq(a.at, b.at, c.at) < 1e-12) continue;
+    for (const corner of [a, b, c]) {
+      out.positions.push(...corner.at);
+      out.face.push(...corner.place);
+      out.width.push(w0, w1);
+    }
+  }
 }
 
 /** Six faces of a block, wound counter-clockwise seen from outside. */
-function pushBlock(out: number[], b: Block): void {
+function pushBlock(out: FrameBuffers, b: Block): void {
   // Corners: 0 = (-x, -z), 1 = (+x, -z), 2 = (+x, +z), 3 = (-x, +z)
   const corner = (x: number, y: number, z: number, w: number, d: number, i: number): Corner => [
     x + (i === 1 || i === 2 ? w / 2 : -w / 2),
@@ -87,30 +144,38 @@ function pushBlock(out: number[], b: Block): void {
   ];
   const [b0, b1, b2, b3] = [0, 1, 2, 3].map((i) => corner(b.x0, b.y0, b.z0, b.w0, b.d0, i));
   const [t0, t1, t2, t3] = [0, 1, 2, 3].map((i) => corner(b.x1, b.y1, b.z1, b.w1, b.d1, i));
-  pushTriangle(out, b0, b1, b2); pushTriangle(out, b0, b2, b3); // bottom
-  pushTriangle(out, t0, t2, t1); pushTriangle(out, t0, t3, t2); // top
-  pushTriangle(out, b3, b2, t2); pushTriangle(out, b3, t2, t3); // +z
-  pushTriangle(out, b1, b0, t0); pushTriangle(out, b1, t0, t1); // -z
-  pushTriangle(out, b2, b1, t1); pushTriangle(out, b2, t1, t2); // +x
-  pushTriangle(out, b0, b3, t3); pushTriangle(out, b0, t3, t0); // -x
+  pushFace(out, b0, b1, b2, b3, 0); // bottom
+  pushFace(out, t1, t0, t3, t2, 0); // top
+  pushFace(out, b3, b2, t2, t3, 0); // +z
+  pushFace(out, b1, b0, t0, t1, 0); // -z
+  pushFace(out, b2, b1, t1, t2, 2); // +x
+  pushFace(out, b0, b3, t3, t0, 2); // -x
 }
 
-/** Triangles of all frame blocks. */
-function framePositions(): number[] {
-  const positions: number[] = [];
-  for (const block of FRAME_BLOCKS) pushBlock(positions, block);
-  return positions;
+/** Vertex data of all frame blocks. */
+function frameBuffers(): FrameBuffers {
+  const out: FrameBuffers = { positions: [], face: [], width: [] };
+  for (const block of FRAME_BLOCKS) pushBlock(out, block);
+  return out;
+}
+
+function toGeometry(buffers: FrameBuffers): BufferGeometry {
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(buffers.positions, 3));
+  geometry.setAttribute('aFace', new Float32BufferAttribute(buffers.face, 3));
+  geometry.setAttribute('aWidth', new Float32BufferAttribute(buffers.width, 2));
+  return geometry;
 }
 
 /**
  * Stone frame: stepped plinths, two pillars, lintel and cornice, a crown
  * between two jagged spikes, two horns. Not indexed, so the normals come
- * out flat per face. The placement preview
- * draws it; the portal manager draws the gate (createPortalGateGeometry).
+ * out flat per face; aFace and aWidth place each vertex on its face (see
+ * FrameBuffers). The placement preview draws it; the portal manager draws
+ * the gate (createPortalGateGeometry).
  */
 export function createPortalFrameGeometry(): BufferGeometry {
-  const geometry = new BufferGeometry();
-  geometry.setAttribute('position', new Float32BufferAttribute(framePositions(), 3));
+  const geometry = toGeometry(frameBuffers());
   geometry.computeVertexNormals();
   return geometry;
 }
@@ -130,12 +195,12 @@ const VOID_BOTTOM = -0.6;
  * does not show through.
  */
 export function createPortalGateGeometry(): BufferGeometry {
-  const positions = framePositions();
-  const stoneVertices = positions.length / 3;
+  const buffers = frameBuffers();
+  const stoneVertices = buffers.positions.length / 3;
   const sx = HALF_OPENING + VOID_OVERLAP;
   const sy0 = VOID_BOTTOM;
   const sy1 = OPENING_HEIGHT + VOID_OVERLAP;
-  positions.push(
+  buffers.positions.push(
     // Facing +z, the way the enemies walk out
     -sx, sy0, 0, sx, sy0, 0, sx, sy1, 0,
     -sx, sy0, 0, sx, sy1, 0, -sx, sy1, 0,
@@ -143,10 +208,13 @@ export function createPortalGateGeometry(): BufferGeometry {
     -sx, sy0, 0, sx, sy1, 0, sx, sy0, 0,
     -sx, sy0, 0, -sx, sy1, 0, sx, sy1, 0,
   );
-  const parts = new Float32Array(positions.length / 3).fill(1, stoneVertices);
-  const geometry = new BufferGeometry();
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('aPart', new Float32BufferAttribute(parts, 1));
+  const vertices = buffers.positions.length / 3;
+  for (let i = stoneVertices; i < vertices; i++) {
+    buffers.face.push(0, 0, 0);
+    buffers.width.push(0, 0);
+  }
+  const geometry = toGeometry(buffers);
+  geometry.setAttribute('aPart', new Float32BufferAttribute(new Float32Array(vertices).fill(1, stoneVertices), 1));
   geometry.computeVertexNormals();
   return geometry;
 }
