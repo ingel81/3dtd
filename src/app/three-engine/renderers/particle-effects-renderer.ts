@@ -13,6 +13,7 @@ import type { ScorchSource } from '../../configs/visual-effects.config';
 import type { VfxSettings } from '../vfx-settings';
 import type { ScorchGround } from './scorch-marks';
 import { GroundDecals } from './ground-decals';
+import { igniteFireParticle, setFireColor } from './fire-particles';
 import { ParticlePoolManager, type Particle } from './particle-pool-manager';
 import {
   emitColorBurst,
@@ -33,6 +34,8 @@ interface EffectInstance {
   startTime: number;
   duration: number;
   localPosition: Vector3;
+  /** Fires: radius the particles are lit in, kept for the respawns. */
+  radius?: number;
 }
 
 // Note: Blood and Ice decal instances are now managed by DecalInstanceManager
@@ -176,58 +179,8 @@ export class ParticleEffectsRenderer {
     intensity: FireIntensityLevel = 'medium'
   ): string {
     const localPos = this.sync.geoToLocal(lat, lon, height);
-    const id = `fire_${this.effectIdCounter++}`;
-
-    const config = FIRE_INTENSITY[intensity];
-
-    const effect: EffectInstance = {
-      id,
-      type: 'fire',
-      particles: [],
-      startTime: performance.now(),
-      duration: -1, // All fires are now persistent until stopped
-      localPosition: localPos.clone(),
-    };
-
-    // Store radius in effect for respawning
-    (effect as EffectInstance & { radius: number }).radius = config.radius;
-
-    // Use trailPoolAdditive for better visuals (per-particle colors, shader support)
-    for (let i = 0; i < config.count; i++) {
-      const particle = this.pools.getInactiveParticle('trailAdditive');
-      if (!particle) break;
-
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * config.radius;
-
-      particle.position.copy(localPos);
-      particle.position.x += Math.cos(angle) * radius;
-      particle.position.z += Math.sin(angle) * radius;
-
-      particle.velocity.set(
-        (Math.random() - 0.5) * 4,
-        6 + Math.random() * 10, // Upward (FIRE_TEMPO note at the top)
-        (Math.random() - 0.5) * 4
-      );
-      particle.life = 1.0;
-      particle.maxLife = 0.2 + Math.random() * 0.4;
-      particle.size = 1.5 + Math.random() * 2.5; // Bigger particles
-
-      // Fire colors - yellow core, orange mid, red edges
-      const t = Math.random();
-      if (t < 0.3) {
-        particle.color.setRGB(1, 0.9, 0.3); // Yellow core
-      } else if (t < 0.7) {
-        particle.color.setRGB(1, 0.5, 0.1); // Orange
-      } else {
-        particle.color.setRGB(1, 0.2, 0.05); // Red edges
-      }
-
-      effect.particles.push(particle);
-    }
-
-    this.activeEffects.set(id, effect);
-    return id;
+    const { count, radius } = FIRE_INTENSITY[intensity];
+    return this.startFire(localPos, count, radius, 0);
   }
 
   /**
@@ -269,10 +222,18 @@ export class ParticleEffectsRenderer {
     // Get X/Z from geo, but use provided localY directly
     const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
     const localPos = new Vector3(localXZ.x, localY, localXZ.z);
+    const { count, radius } = FIRE_INTENSITY[intensity];
+    return this.startFire(localPos, count, radius, 0);
+  }
 
+  /**
+   * Start a fire at a local position: `count` particles from the additive
+   * pool (per-particle colours, shader support), lit within `radius`, each
+   * `sizeBonus` bigger than a plain fire's. It burns (duration -1) until
+   * stopFire() gives it a duration, relighting its burnt-out particles.
+   */
+  private startFire(localPos: Vector3, count: number, radius: number, sizeBonus: number): string {
     const id = `fire_${this.effectIdCounter++}`;
-
-    const config = FIRE_INTENSITY[intensity];
 
     const effect: EffectInstance = {
       id,
@@ -281,42 +242,13 @@ export class ParticleEffectsRenderer {
       startTime: performance.now(),
       duration: -1, // All fires are now persistent until stopped
       localPosition: localPos.clone(),
+      radius, // For respawning
     };
 
-    // Store radius in effect for respawning (using a custom property)
-    (effect as EffectInstance & { radius: number }).radius = config.radius;
-
-    // Use trailPoolAdditive for better visuals (per-particle colors, shader support)
-    for (let i = 0; i < config.count; i++) {
+    for (let i = 0; i < count; i++) {
       const particle = this.pools.getInactiveParticle('trailAdditive');
       if (!particle) break;
-
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * config.radius;
-
-      particle.position.copy(localPos);
-      particle.position.x += Math.cos(angle) * radius;
-      particle.position.z += Math.sin(angle) * radius;
-
-      particle.velocity.set(
-        (Math.random() - 0.5) * 4,
-        6 + Math.random() * 10, // Upward (FIRE_TEMPO note at the top)
-        (Math.random() - 0.5) * 4
-      );
-      particle.life = 1.0;
-      particle.maxLife = 0.2 + Math.random() * 0.4;
-      particle.size = 1.5 + Math.random() * 2.5; // Bigger particles
-
-      // Fire colors - yellow core, orange mid, red edges
-      const t = Math.random();
-      if (t < 0.3) {
-        particle.color.setRGB(1, 0.9, 0.3); // Yellow core
-      } else if (t < 0.7) {
-        particle.color.setRGB(1, 0.5, 0.1); // Orange
-      } else {
-        particle.color.setRGB(1, 0.2, 0.05); // Red edges
-      }
-
+      igniteFireParticle(particle, localPos, radius, sizeBonus);
       effect.particles.push(particle);
     }
 
@@ -400,59 +332,12 @@ export class ParticleEffectsRenderer {
     const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
     const localPos = new Vector3(localXZ.x, localY, localXZ.z);
 
-    const id = `fire_${this.effectIdCounter++}`;
-
     // Scale parameters: small fire at scale=0, massive inferno at scale=1
     const clampedScale = Math.max(0, Math.min(1, scale));
     const particleCount = Math.floor(30 + clampedScale * 200); // 30-230 particles
     const fireRadius = 1.5 + clampedScale * 10; // 1.5-11.5 meters
-
-    const effect: EffectInstance = {
-      id,
-      type: 'fire',
-      particles: [],
-      startTime: performance.now(),
-      duration: -1, // Persistent
-      localPosition: localPos.clone(),
-    };
-
-    (effect as EffectInstance & { radius: number }).radius = fireRadius;
-
-    for (let i = 0; i < particleCount; i++) {
-      const particle = this.pools.getInactiveParticle('trailAdditive');
-      if (!particle) break;
-
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * fireRadius;
-
-      particle.position.copy(localPos);
-      particle.position.x += Math.cos(angle) * radius;
-      particle.position.z += Math.sin(angle) * radius;
-
-      particle.velocity.set(
-        (Math.random() - 0.5) * 4,
-        6 + Math.random() * 10, // FIRE_TEMPO note at the top
-        (Math.random() - 0.5) * 4
-      );
-      particle.life = 1.0;
-      particle.maxLife = 0.2 + Math.random() * 0.4;
-      particle.size = 1.5 + Math.random() * 2.5 + clampedScale * 1.5; // Bigger at higher scale
-
-      // Fire colors
-      const t = Math.random();
-      if (t < 0.3) {
-        particle.color.setRGB(1, 0.9, 0.3);
-      } else if (t < 0.7) {
-        particle.color.setRGB(1, 0.5, 0.1);
-      } else {
-        particle.color.setRGB(1, 0.2, 0.05);
-      }
-
-      effect.particles.push(particle);
-    }
-
-    this.activeEffects.set(id, effect);
-    return id;
+    // Bigger particles at higher scale
+    return this.startFire(localPos, particleCount, fireRadius, clampedScale * 1.5);
   }
 
   /**
@@ -467,11 +352,11 @@ export class ParticleEffectsRenderer {
     }
 
     const localPos = effect.localPosition;
-    const currentRadius = (effect as EffectInstance & { radius: number }).radius || 5;
+    const currentRadius = effect.radius || 5;
 
     // Increase radius to inferno level
     const infernoRadius = Math.max(currentRadius, 15);
-    (effect as EffectInstance & { radius: number }).radius = infernoRadius;
+    effect.radius = infernoRadius;
 
     // Add more particles to reach inferno level (~300 total)
     const currentCount = effect.particles.length;
@@ -498,14 +383,7 @@ export class ParticleEffectsRenderer {
       particle.maxLife = 0.25 + Math.random() * 0.5;
       particle.size = 2.5 + Math.random() * 4.0;
 
-      const t = Math.random();
-      if (t < 0.3) {
-        particle.color.setRGB(1, 0.9, 0.3);
-      } else if (t < 0.7) {
-        particle.color.setRGB(1, 0.5, 0.1);
-      } else {
-        particle.color.setRGB(1, 0.2, 0.05);
-      }
+      setFireColor(particle);
 
       effect.particles.push(particle);
     }
@@ -792,36 +670,11 @@ export class ParticleEffectsRenderer {
 
   /** Light a burnt-out particle of a burning fire again, somewhere in its radius. */
   private respawnFireParticle(particle: Particle, effect: EffectInstance): void {
-    // Use stored radius or default to 5
-    const fireRadius = (effect as EffectInstance & { radius?: number }).radius ?? 5;
-    const angle = Math.random() * Math.PI * 2;
-    const radius = Math.random() * fireRadius;
-
-    particle.position.copy(effect.localPosition);
-    particle.position.x += Math.cos(angle) * radius;
-    particle.position.z += Math.sin(angle) * radius;
-
-    // Speeds and life as in the spawn methods (FIRE_TEMPO note at the top)
-    particle.velocity.set(
-      (Math.random() - 0.5) * 4,
-      6 + Math.random() * 10,
-      (Math.random() - 0.5) * 4
-    );
-    particle.life = 1.0;
-    particle.maxLife = 0.2 + Math.random() * 0.4;
-    particle.size = 1.5 + Math.random() * 2.5;
+    // Use stored radius or default to 5; speeds and life as in the spawn
+    // methods (FIRE_TEMPO note at the top)
+    igniteFireParticle(particle, effect.localPosition, effect.radius ?? 5);
     particle.frameIndex = -1; // Fire uses circular particles
     particle.totalFrames = 0;
-
-    // Fire colors on respawn
-    const t = Math.random();
-    if (t < 0.3) {
-      particle.color.setRGB(1, 0.9, 0.3);
-    } else if (t < 0.7) {
-      particle.color.setRGB(1, 0.5, 0.1);
-    } else {
-      particle.color.setRGB(1, 0.2, 0.05);
-    }
   }
 
   /**
