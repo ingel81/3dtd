@@ -38,6 +38,8 @@ export interface VizCallbacks {
   reframeCameraWithRoutes: () => void;
   renderStreets: () => void;
   saveInitialCameraPosition: () => void;
+  /** Fit the route corridor to the tiles, over the next frames (CorridorRefit.fitToTiles). */
+  fitCorridorToTiles: () => void;
 }
 
 /**
@@ -555,6 +557,10 @@ export class LocationFacadeService {
 
     // 15. Update map placement dependencies
     this.mapPlacement.updateDependencies(streetNetwork, { lat, lon });
+
+    // 16. Fit the corridor to the tiles: the route service started over at
+    // step 6, the routes run with the street widths until it is measured.
+    this.vizCallbacks.fitCorridorToTiles();
   }
 
   /**
@@ -631,6 +637,10 @@ export class LocationFacadeService {
     if (cachedPaths.size > 0) {
       this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
     }
+
+    // 9. Fit the corridor of the new route to the tiles: its new segments
+    // run with the street widths until they are measured.
+    this.vizCallbacks?.fitCorridorToTiles();
   }
 
   /**

@@ -678,6 +678,16 @@ export class VisualizationFacadeService {
   }
 
   /**
+   * Fit the route corridor to the tiles after the routes were rebuilt
+   * without a location load (spawn or HQ moved in place), whose new
+   * segments have no measurement yet. Over the next frames and under the
+   * same locks as the first fit (CorridorRefit.fitToTiles).
+   */
+  fitCorridorToTiles(): void {
+    this.corridorRefit.fitToTiles();
+  }
+
+  /**
    * Rebuild the routes with the corridor widths as measured and configured
    * now, their cells and the route line, all in one frame. Logs how long
    * each part took (`[Corridor] rebuild:`): routes (pathfinding, corridor

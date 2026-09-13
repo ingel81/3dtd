@@ -159,6 +159,7 @@ export class TowerDefenseFacadeService {
       reframeCameraWithRoutes: () => this.vizFacade.reframeCameraWithRoutes(),
       renderStreets: () => this.vizFacade.renderStreets(),
       saveInitialCameraPosition: () => this.vizFacade.saveInitialCameraPosition(),
+      fitCorridorToTiles: () => this.vizFacade.fitCorridorToTiles(),
     });
 
     // Initialize training client

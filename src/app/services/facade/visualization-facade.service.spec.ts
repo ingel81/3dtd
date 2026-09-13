@@ -725,6 +725,20 @@ describe('VisualizationFacadeService', () => {
       expect(grid.clear).not.toHaveBeenCalled();
       expect(frames.size).toBe(0);
     });
+
+    it('fits routes rebuilt in place the same way, under the same locks', () => {
+      corridor.slices = 2;
+      corridor.changed = true;
+
+      facade.fitCorridorToTiles();
+      runFrames();
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+      expect(grid.clear).toHaveBeenCalledTimes(1);
+
+      towerCount = 1;
+      facade.fitCorridorToTiles();
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('checkAllLoaded', () => {

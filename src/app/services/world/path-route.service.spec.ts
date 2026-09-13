@@ -570,6 +570,49 @@ describe('PathAndRouteService route geometry', () => {
           }
         });
       });
+
+      describe('after the routes were replaced', () => {
+        // A spawn moved in place (LocationFacadeService.applySpawnInPlace):
+        // the cache is cleared and the route built again from the new spawn.
+
+        it('measures the new route only, and only its stations count as waiting', () => {
+          // Way 400 runs on east of n30; the new spawn stands at its end.
+          const n40 = { id: 40, lat: 48.001, lon: 9.0045 };
+          network = makeNetwork([
+            { id: 100, nodes: [n10, n1] },
+            { id: 200, type: 'primary', width: 12, nodes: [n1, n2, n3] },
+            { id: 300, nodes: [n3, n30] },
+            { id: 400, nodes: [n30, n40] },
+          ]);
+          // Way 200 from 60 to 110 m north of n1 is still on coarse tiles.
+          clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 60 && northOfN1(z) < 110 ? null : max);
+          const service = buildRouteService(network, spawn, hq);
+          measure(service);
+          expect(service.hasUnmeasuredStations()).toBe(true);
+
+          service.clearCache();
+          service.showPathFromSpawn(spawnPointAt({ lat: n40.lat, lon: n40.lon }));
+          // The stations still waiting belong to the route that is gone.
+          expect(service.hasUnmeasuredStations()).toBe(false);
+
+          probeCalls.length = 0;
+          expect(measure(service)).toBe(true);
+          // The new route runs east of way 200 (x up to 112 m) all the way.
+          expect(probeCalls.length).toBeGreaterThan(0);
+          expect(probeCalls.every(([x]) => (x as number) > 150)).toBe(true);
+        });
+
+        it('keeps what was measured for the segments a new route shares', () => {
+          const service = buildRouteService(network, spawn, hq);
+          measure(service);
+
+          service.clearCache();
+          service.showPathFromSpawn(spawnPointAt(spawn));
+          probeCalls.length = 0;
+          expect(measure(service)).toBe(false);
+          expect(probeCalls).toEqual([]);
+        });
+      });
     });
   });
 

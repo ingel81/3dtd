@@ -332,11 +332,14 @@ export class PathAndRouteService {
   }
 
   /**
-   * Clear all cached paths. The routes are about to be replaced, so a
-   * clearance measurement of the old ones is cancelled.
+   * Clear all cached paths and the street routes behind them. The routes
+   * are about to be replaced, so a clearance measurement of the old ones is
+   * cancelled. What was measured stays, by segment: a segment the new
+   * routes share keeps its measurement.
    */
   clearCache(): void {
     this.cachedPaths.clear();
+    this.streetRoutes.clear();
     this.cancelClearanceRun('routes replaced');
   }
 
@@ -753,13 +756,18 @@ export class PathAndRouteService {
   }
 
   /**
-   * Stations the last measurement could not take because their tile was
-   * missing or still coarser than `maxTileError`, which a later run may.
-   * DevWorld has none: there is nothing to measure there.
+   * Stations of the routes in use that the last measurement could not take
+   * because their tile was missing or still coarser than `maxTileError`,
+   * which a later run may. Segments of a route that was replaced (a spawn
+   * moved) do not count. DevWorld has none: there is nothing to measure
+   * there.
    */
   hasUnmeasuredStations(): boolean {
-    for (const { probes } of this.clearanceBySegment.values()) {
-      if (probes.some((probe) => probe !== null && probe.unmeasured !== null)) return true;
+    for (const { points } of this.streetRoutes.values()) {
+      for (let i = 0; i < points.length - 1; i++) {
+        const probes = this.clearanceBySegment.get(segmentKey(points[i], points[i + 1]))?.probes;
+        if (probes?.some((probe) => probe !== null && probe.unmeasured !== null)) return true;
+      }
     }
     return false;
   }

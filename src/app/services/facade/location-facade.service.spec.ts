@@ -209,6 +209,7 @@ describe('LocationFacadeService', () => {
       reframeCameraWithRoutes: vi.fn(),
       renderStreets: vi.fn(),
       saveInitialCameraPosition: vi.fn(),
+      fitCorridorToTiles: vi.fn(),
     };
 
     const injector = Injector.create({
@@ -640,6 +641,13 @@ describe('LocationFacadeService', () => {
         await click('hq', INSIDE);
         expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
       });
+
+      it('fits the corridor of the rebuilt routes once their grid stands', async () => {
+        await click('hq', INSIDE);
+        expect(vizCallbacks.fitCorridorToTiles).toHaveBeenCalledTimes(1);
+        expect(gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0])
+          .toBeLessThan(vizCallbacks.fitCorridorToTiles.mock.invocationCallOrder[0]);
+      });
     });
 
     it('moves nothing in place before the coordinator was initialised', async () => {
@@ -711,6 +719,17 @@ describe('LocationFacadeService', () => {
     });
 
     describe('spawn', () => {
+      it('fits the corridor of the new route once its grid stands', async () => {
+        facade.initializeCoordinator(vizCallbacks as unknown as VizCallbacks);
+        store.spawnPoints.set([OLD_SPAWN]);
+
+        await click('spawn', INSIDE);
+
+        expect(vizCallbacks.fitCorridorToTiles).toHaveBeenCalledTimes(1);
+        expect(gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0])
+          .toBeLessThan(vizCallbacks.fitCorridorToTiles.mock.invocationCallOrder[0]);
+      });
+
       it('replaces the spawn in place when it has a route to the HQ', async () => {
         store.spawnPoints.set([OLD_SPAWN]);
 
