@@ -186,6 +186,62 @@ export class GlobalRouteGrid {
     return samples[Math.floor(samples.length / 2)];
   }
 
+  /** Opposite neighbours fillGaps interpolates between: west-east, south-north and the two diagonals. */
+  private static readonly FILL_PAIRS: readonly (readonly [number, number])[] = [[1, 0], [0, 1], [1, 1], [1, -1]];
+
+  /**
+   * Heights for the cells among `cells` without a usable sample of their
+   * own: an unsampled cell, or a stable one more than
+   * RouteCellSampler.OUTLIER_M off the median of its neighbours sampled at
+   * least as deep (a hit that got in before those neighbours had one).
+   *
+   * - Between stable cells of its surface on opposite sides, such a cell
+   *   takes the mean over those pairs and is `filled`
+   *   (RouteCellSampler.fill): a seam between two tile meshes that no
+   *   column near the cell got past. Only stable cells count, so a fill
+   *   never spreads from one filled cell to the next.
+   * - A stable one without such a pair loses its sample.
+   * - Tunnel cells take their height from the portals and are left alone.
+   *
+   * O(cells given), eight neighbour lookups each.
+   * @returns the cells whose height changed
+   */
+  private fillGaps(cells: Iterable<RouteCell>): RouteCell[] {
+    const changed: RouteCell[] = [];
+    for (const cell of cells) {
+      if (cell.surface === 'tunnel') continue;
+      if (cell.sample.state === 'stable') {
+        const median = this.medianOfStableNeighbourY(cell, cell.sample.tileDepth);
+        if (median === null || Math.abs(cell.terrainHeight - median) <= RouteCellSampler.OUTLIER_M) continue;
+      }
+      const y = this.heightBetweenNeighbours(cell);
+      if (y !== null) {
+        if (this.sampler.fill(cell, y)) changed.push(cell);
+      } else if (cell.sample.state === 'stable') {
+        this.sampler.resetToUnsampled(cell);
+        changed.push(cell);
+      }
+    }
+    return changed;
+  }
+
+  /** Mean over the opposite pairs of stable neighbours of `cell`'s surface around it, null without such a pair. */
+  private heightBetweenNeighbours(cell: RouteCell): number | null {
+    const gx = this.cellIndex(cell.x);
+    const gz = this.cellIndex(cell.z);
+    let sum = 0;
+    let pairs = 0;
+    for (const [dx, dz] of GlobalRouteGrid.FILL_PAIRS) {
+      const a = this.cells.get(this.intCellKey(gx + dx, gz + dz));
+      const b = this.cells.get(this.intCellKey(gx - dx, gz - dz));
+      if (!a || !b || a.sample.state !== 'stable' || b.sample.state !== 'stable') continue;
+      if (a.surface !== cell.surface || b.surface !== cell.surface) continue;
+      sum += (a.terrainHeight + b.terrainHeight) / 2;
+      pairs++;
+    }
+    return pairs > 0 ? sum / pairs : null;
+  }
+
   /**
    * Best-effort terrain-Y estimate at an arbitrary local (x, z) using
    * the nearest sampled cells. Falls back through 3×3 then 5×5 ring
@@ -287,8 +343,10 @@ export class GlobalRouteGrid {
     }
 
     // Sampled only once every segment has claimed its cells: which surface
-    // a cell samples depends on all segments that reach it.
+    // a cell samples depends on all segments that reach it. Then the gaps
+    // between sampled cells, see fillGaps.
     for (const cell of this.cells.values()) this.sampler.sampleCellY(cell);
+    this.fillGaps(this.cells.values());
   }
 
   /**
@@ -345,7 +403,17 @@ export class GlobalRouteGrid {
    * in flight) — at which point the aggregated `[PerfTrace]` line is logged.
    */
   stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number; changed: number } {
-    return this.heightSweep.step(budgetMs);
+    const wasActive = this.heightSweep.active;
+    const result = this.heightSweep.step(budgetMs);
+    // Once the sweep is through, the gaps between the cells it sampled.
+    if (wasActive && result.done) {
+      const filled = this.fillGaps(this.cells.values());
+      if (filled.length > 0) {
+        this.aggregateViz.refreshPositions();
+        this.emitCellsChanged(filled);
+      }
+    }
+    return result;
   }
 
   /** True while a budgeted terrain-refresh sweep is in flight. */
@@ -379,8 +447,9 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Retry sampling for cells that have never had a real raycast hit
-   * (`state === 'unsampled'`). Cheap — only walks the unsampled subset.
+   * Retry sampling for cells that have no sample of their own
+   * (`unsampled` or `filled`). Cheap: only walks that subset. A promotion
+   * may close a gap next to a cell still waiting, see fillGaps.
    *
    * Intended to be called from tile-load-end callbacks so cells self-heal
    * as tiles stream in, without re-sampling already-stable cells.
@@ -394,15 +463,17 @@ export class GlobalRouteGrid {
     }
 
     const promoted: RouteCell[] = [];
+    const waiting: RouteCell[] = [];
     let totalUnsampled = 0;
 
     for (const cell of this.cells.values()) {
-      // tiles stream after ground tiles). Retry it for any cell that needs it.
-
-      if (cell.sample.state !== 'unsampled') continue;
+      // A filled cell has a height but no sample of its own: retried as well.
+      if (cell.sample.state === 'stable') continue;
       totalUnsampled++;
       if (this.sampler.sampleCellY(cell)) {
         promoted.push(cell);
+      } else {
+        waiting.push(cell);
       }
     }
 
@@ -413,8 +484,10 @@ export class GlobalRouteGrid {
 
     if (promoted.length === 0) return { promoted: 0 };
 
+    // The new samples may close gaps around the cells still waiting.
+    const changed = promoted.concat(this.fillGaps(waiting));
     this.aggregateViz.refreshPositions();
-    this.emitCellsChanged(promoted);
+    this.emitCellsChanged(changed);
     return { promoted: promoted.length };
   }
 
@@ -483,7 +556,8 @@ export class GlobalRouteGrid {
       const distSq = (cell.x - x) ** 2 + (cell.z - z) ** 2;
       if (distSq > rangeSq) continue;
       inRange++;
-      const wasUnsampled = !cell.heightSampled;
+      // A filled cell's first sample of its own is a promotion too.
+      const wasUnsampled = cell.sample.state !== 'stable';
       if (this.sampler.sampleCellY(cell)) {
         changed.push(cell);
         if (wasUnsampled) promoted++;

@@ -77,7 +77,8 @@ export class RouteGridHeightSweep {
 
     while (this.index < queue.length) {
       const cell = queue[this.index++];
-      const wasUnsampled = !cell.heightSampled;
+      // A filled cell has a height but no sample of its own: its first one is a promotion too.
+      const wasUnsampled = cell.sample.state !== 'stable';
       if (this.sampler.sampleCellY(cell)) {
         this.changed.push(cell);
         if (wasUnsampled) {

@@ -326,6 +326,30 @@ export class RouteCellSampler {
   }
 
   /**
+   * Gives a cell without a usable sample of its own the height its grid
+   * interpolated between stable neighbours (GlobalRouteGrid.fillGaps). The
+   * state is `filled`, not `stable`: sampleCellY keeps trying the cell like
+   * an unsampled one and replaces the height with the first sample it
+   * accepts. No tile LOD: the height is the neighbours', not a column's.
+   *
+   * @returns true when the height or the state changed.
+   */
+  fill(cell: RouteCell, y: number): boolean {
+    if (cell.sample.state === 'filled' && Math.abs(cell.terrainHeight - y) < 0.01) return false;
+    cell.terrainHeight = y;
+    cell.sample = {
+      state: 'filled',
+      sampledAt: cell.sample.sampledAt,
+      tileDepth: 0,
+      tileGeometricError: Infinity,
+      clamped: false,
+    };
+    cell.heightSampled = true;
+    logGrid('SAMPLE', `fill key=${cell.key} y=${y.toFixed(2)}`);
+    return true;
+  }
+
+  /**
    * Setzt eine Cell auf `unsampled` zurück, die Höhe fällt auf den
    * Route-Anker. Nur für den Debug-Reset `__rg.resetHeightsAndRetry`; der
    * nächste `sampleCellY` promotet die Cell wieder, sobald die Probe trifft.
