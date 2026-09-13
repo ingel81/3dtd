@@ -23,7 +23,10 @@ export class DpsBinsOverlay {
 
   /**
    * Show the bins and follow tower changes, or hide them and stop
-   * following. The visualizer is built on first show and kept.
+   * following. The visualizer is built on first show and kept. Showing
+   * them again while shown follows once, not twice: a second set of
+   * listeners would outlive the hide and show the bins again on the next
+   * tower change.
    */
   setVisible(visible: boolean, engine: ThreeTilesEngine): void {
     if (visible) {
@@ -37,6 +40,7 @@ export class DpsBinsOverlay {
 
       this.updateDpsViz(engine);
 
+      this.dpsVizUnsubscribes.forEach(fn => fn());
       const eventBus = this.deps.gameState().getEventBus();
       const updateHandler = () => this.updateDpsViz(engine);
       const sub1 = eventBus.on('tower:placed', updateHandler);
