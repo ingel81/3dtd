@@ -105,7 +105,8 @@ export class AIDataCollectorService {
   getStateSnapshot(): GameStateSnapshot {
     const towers = this.gameState.towerManager.getAll();
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
-    const defense = analyzeDefense(towers, airTargetingUnlocked);
+    // The hired hero counts as a virtual tower at half presence (docs/HERO.md)
+    const defense = analyzeDefense(towers, airTargetingUnlocked, this.gameState.heroManager.getDefenseProfile());
 
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path

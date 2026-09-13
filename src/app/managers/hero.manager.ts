@@ -28,8 +28,10 @@ import {
   HERO_AMMO,
   HeroAmmoConfig,
   HeroAmmoId,
+  HeroDefenseProfile,
   HeroRejectReason,
   HeroStatus,
+  heroDefenseProfile,
   heroLevelFor,
   heroStatus,
 } from '../configs/hero.config';
@@ -154,6 +156,11 @@ export class HeroManager implements IGameManager {
   /** He follows a path (to an ordered spot, after an enemy or back). */
   isWalking(): boolean {
     return this.goal !== null;
+  }
+
+  /** The hero for the fairness gate (analyzeDefense), null until hired. */
+  getDefenseProfile(): HeroDefenseProfile | null {
+    return this.hero ? heroDefenseProfile(this.kills) : null;
   }
 
   /** Why a hire would be refused now, null when it would go through. hire() checks the credits on top. */

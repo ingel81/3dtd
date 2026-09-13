@@ -21,6 +21,7 @@ import {
 import { computeTowerDPS, canTargetAirEffective, armorMultipliersFor } from './tower-dps.util';
 import { FAIRNESS_MATCHUP_FLOOR } from './templates';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+import type { HeroDefenseProfile } from '../../configs/hero.config';
 
 /**
  * Tower capabilities mapping
@@ -57,10 +58,19 @@ const TOWER_CAPABILITIES: Record<
 };
 
 /**
- * Analyze a list of towers and return defense metrics
+ * Analyze a list of towers and return defense metrics.
+ *
+ * @param hero the hired hero (HeroManager.getDefenseProfile), null without.
+ *   He counts as a virtual tower at his presence factor in the armor-weighted
+ *   DPS (effective and gate) and in the kill throughput, nowhere else: not in
+ *   totalDPS, the capabilities or the AoE share (docs/HERO.md).
  */
-export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): DefenseAnalysis {
-  if (towers.length === 0) {
+export function analyzeDefense(
+  towers: Tower[],
+  airTargetingUnlocked: boolean,
+  hero: HeroDefenseProfile | null = null,
+): DefenseAnalysis {
+  if (towers.length === 0 && !hero) {
     return createEmptyDefenseAnalysis();
   }
 
@@ -74,6 +84,7 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
     calculateDPSPerArmor(towers, airTargetingUnlocked);
   const aoeDpsShare = calculateAoeDpsShare(towers, airTargetingUnlocked);
   const killThroughput = calculateKillThroughput(towers, airTargetingUnlocked);
+  if (hero) addHero(hero, effectiveDPSPerArmor, gateDpsPerArmor, killThroughput);
 
   return {
     towerCount: towers.length,
@@ -91,6 +102,42 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
     aoeDpsShare,
     killThroughput,
   };
+}
+
+/**
+ * The hero as a virtual tower, counted at his presence factor: he is one
+ * unit and cannot be everywhere on the route (PLAYER_AGENCY_CONCEPT.md 3.2).
+ *
+ * Against each armor the gate credits his best ammo, since the player can
+ * switch it at any time: judged by the ammo loaded when the wave is planned,
+ * loading a bad one before the start would shrink the wave and switching
+ * afterwards would beat it. He hits ground and air alike, so both sides get
+ * the same numbers. The gate view floors bad ground matchups like a tower's.
+ * Kill throughput: his fastest ammo's shots per second.
+ */
+function addHero(
+  hero: HeroDefenseProfile,
+  effective: EffectiveDPSPerArmor,
+  gate: EffectiveDPSPerArmor,
+  killThroughput: { ground: number; air: number },
+): void {
+  for (const armor of ARMOR_TYPES) {
+    let best = 0;
+    let bestFloored = 0;
+    for (const ammo of hero.ammo) {
+      const mult = armorMultipliersFor(ammo.damageType)[armor];
+      best = Math.max(best, ammo.dps * mult);
+      bestFloored = Math.max(bestFloored, ammo.dps * Math.max(mult, FAIRNESS_MATCHUP_FLOOR));
+    }
+    const dps = best * hero.presence;
+    effective.ground[armor] += dps;
+    effective.air[armor] += dps;
+    gate.ground[armor] += armor === 'ethereal' ? dps : bestFloored * hero.presence;
+    gate.air[armor] += dps;
+  }
+  const shots = hero.ammo.reduce((max, ammo) => Math.max(max, ammo.shotsPerSecond), 0) * hero.presence;
+  killThroughput.ground += shots;
+  killThroughput.air += shots;
 }
 
 /**
