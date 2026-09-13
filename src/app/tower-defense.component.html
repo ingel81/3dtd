@@ -36,9 +36,12 @@
   <div class="td-main">
     <!-- Canvas Area -->
     <div class="td-canvas-area">
-      <!-- Tile credentials missing or rejected: everything else waits. -->
+      <!-- Tile credentials missing or rejected: everything else waits.
+           The screen is a lazy chunk, loaded the first time it shows. -->
       @if (awaitingCredentials() || configService.credentialsRejected() || configService.setupRequested()) {
-        <td-token-setup (tokenSaved)="onCredentialsSaved()" />
+        @defer (on immediate) {
+          <td-token-setup (tokenSaved)="onCredentialsSaved()" />
+        }
       }
 
       @if (loading() && !error()) {
