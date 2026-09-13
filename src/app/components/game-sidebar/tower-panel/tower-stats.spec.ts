@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
+  VETERAN_TOOLTIP,
   targetingStrategiesFor,
   towerDps,
   towerStats,
   upgradeTierLockReason,
+  veteranView,
 } from './tower-stats';
 import { TOWER_TYPES, TowerTypeId } from '../../../configs/tower-types.config';
 
@@ -52,5 +54,29 @@ describe('upgradeTierLockReason', () => {
     expect(upgradeTierLockReason(3, 2)).toBe('Requires: Master Engineering');
     expect(upgradeTierLockReason(4, 1)).toBe('Requires: Advanced Engineering');
     expect(upgradeTierLockReason(5, 4)).toBe('Requires: Transcendent Tech');
+  });
+});
+
+describe('veteranView', () => {
+  it('shows a new tower as recruit on its way to the first rank', () => {
+    expect(veteranView(3)).toEqual({
+      level: 0, name: 'Recruit', icon: 'caretU', gold: false, kills: 3, nextAt: 10, progress: 0.3,
+    });
+  });
+
+  it('measures the way from the current rank to the next', () => {
+    expect(veteranView(100)).toMatchObject({ level: 2, name: 'Veteran', icon: 'chevrons2', nextAt: 150 });
+    expect(veteranView(100).progress).toBeCloseTo(0.5, 6);
+  });
+
+  it('turns gold at Champion and ends at the star', () => {
+    expect(veteranView(400)).toMatchObject({ name: 'Champion', icon: 'chevrons3', gold: true, nextAt: 1000, progress: 0 });
+    expect(veteranView(5000)).toMatchObject({ name: 'Legend', icon: 'star', gold: true, nextAt: null, progress: 1 });
+  });
+
+  it('names every rank with its threshold in the tooltip', () => {
+    expect(VETERAN_TOOLTIP).toBe(
+      'Rank from killing blows, cosmetic only: Blooded 10 · Veteran 50 · Elite 150 · Champion 400 · Legend 1000',
+    );
   });
 });

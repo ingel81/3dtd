@@ -32,7 +32,9 @@ export type TdIconName =
   // damage types without an icon of their own (DAMAGE_TYPE_ICON)
   | 'sparkle' | 'snowflake' | 'burst'
   // world map
-  | 'globe';
+  | 'globe'
+  // veteran rank insignia
+  | 'chevrons2' | 'chevrons3' | 'star';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -133,6 +135,11 @@ const ICONS: Record<TdIconName, IconDef> = {
   burst: { body: '<path d="M12 3l1.8 4.6 4.6-2-2 4.6L21 12l-4.6 1.8 2 4.6-4.6-2L12 21l-1.8-4.6-4.6 2 2-4.6L3 12l4.6-1.8-2-4.6 4.6 2L12 3Z" />' },
   // Globe with equator and one meridian, for the world map.
   globe: { body: '<circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9s1.3-6.4 3.8-9Z" />' },
+  // Veteran rank insignia (tower panel): two and three chevrons stacked,
+  // caretU is the single one. The star is filled.
+  chevrons2: { body: '<path d="M6 13l6-5 6 5M6 18l6-5 6 5" />' },
+  chevrons3: { body: '<path d="M6 9l6-5 6 5M6 14l6-5 6 5M6 19l6-5 6 5" />' },
+  star: { body: '<path d="M12 3l2.3 5.8 6.3.4-4.9 4 1.6 6.1L12 15.9l-5.3 3.4 1.6-6.1-4.9-4 6.3-.4L12 3Z" />', fill: 'currentColor' },
 };
 
 @Component({

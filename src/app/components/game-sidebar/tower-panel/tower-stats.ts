@@ -3,6 +3,8 @@ import {
   TargetingStrategyConfig,
   TowerTypeConfig,
 } from '../../../configs/tower-types.config';
+import { RECRUIT_NAME, VETERAN_RANKS, veteranLevel, veteranRank } from '../../../configs/veteran-ranks.config';
+import type { TdIconName } from '../../icon/icon.component';
 
 /**
  * Compute effective DPS for the tower-detail tile. Beam towers (Fire) use
@@ -43,6 +45,49 @@ export function towerStats(tower: {
     sellValue: tower.getSellValue(),
   };
 }
+
+/** Rank row of the tower detail: insignia, name and the way to the next rank. */
+export interface VeteranView {
+  level: number;
+  name: string;
+  icon: TdIconName;
+  gold: boolean;
+  kills: number;
+  /** Kills the next rank needs, null at the top */
+  nextAt: number | null;
+  /** Share of the way from this rank to the next, 0 to 1; 1 at the top */
+  progress: number;
+}
+
+/** The insignia of a rank as a td-icon, drawn like the badge over the tower. */
+function veteranIcon(chevrons: number, star: boolean): TdIconName {
+  if (star) return 'star';
+  if (chevrons >= 3) return 'chevrons3';
+  if (chevrons === 2) return 'chevrons2';
+  return 'caretU';
+}
+
+/** Rank row for a kill count. Below the first rank the single chevron stands for the one to come. */
+export function veteranView(kills: number): VeteranView {
+  const level = veteranLevel(kills);
+  const rank = veteranRank(level);
+  const next = veteranRank(level + 1);
+  const from = rank?.minKills ?? 0;
+  return {
+    level,
+    name: rank?.name ?? RECRUIT_NAME,
+    icon: rank ? veteranIcon(rank.chevrons, rank.star) : 'caretU',
+    gold: rank?.metal === 'gold',
+    kills,
+    nextAt: next?.minKills ?? null,
+    progress: next ? (kills - from) / (next.minKills - from) : 1,
+  };
+}
+
+/** Tooltip of the rank row: the ladder, and that it changes nothing in combat. */
+export const VETERAN_TOOLTIP =
+  'Rank from killing blows, cosmetic only: ' +
+  VETERAN_RANKS.map((rank) => `${rank.name} ${rank.minKills}`).join(' · ');
 
 /**
  * Targeting-Buttons eines Towers. Air-Priorität gibt es nur für Tower, die

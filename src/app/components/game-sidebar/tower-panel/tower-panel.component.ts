@@ -27,7 +27,13 @@ import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-matrix-dialog';
 import { TdIconComponent } from '../../icon/icon.component';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
-import { targetingStrategiesFor, towerStats, upgradeTierLockReason } from './tower-stats';
+import {
+  VETERAN_TOOLTIP,
+  targetingStrategiesFor,
+  towerStats,
+  upgradeTierLockReason,
+  veteranView,
+} from './tower-stats';
 import { formatCompact } from '../../../utils/format-compact';
 
 /**
@@ -79,6 +85,10 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
     this.store.selectedTowerRevision();
     return towerStats(this.tower());
   });
+
+  /** Veteran rank from the kills, follows the same revision as the stats */
+  readonly veteran = computed(() => veteranView(this.stats().kills));
+  readonly veteranTooltip = VETERAN_TOOLTIP;
 
   /** Ticks every DAMAGE_DEALT_REFRESH_MS while the panel is open */
   private readonly dealtTick = signal(0);
