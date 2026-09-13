@@ -98,6 +98,15 @@ describe('StatusEffectService', () => {
       });
     });
 
+    it('applyStun forwards a stun of the given length', () => {
+      service.setGameClockProvider(() => clock);
+      clock = 400;
+      service.applyStun(enemy as never, 1500, 'ability:emp');
+      expect(enemy.movement.statusEffects[0]).toEqual({
+        type: 'stun', value: 1, duration: 1500, startTime: 400, sourceId: 'ability:emp',
+      });
+    });
+
     it('applyEffect forwards an arbitrary effect type verbatim', () => {
       service.applyEffect(enemy as never, 'freeze' as StatusEffectType, 1, 800, 'src');
       expect(enemy.movement.statusEffects[0]).toMatchObject({

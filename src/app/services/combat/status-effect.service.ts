@@ -3,7 +3,7 @@ import { Enemy } from '../../entities/enemy.entity';
 import { StatusEffectType } from '../../models/status-effects';
 
 /**
- * StatusEffectService — applies slow / poison / burn / freeze effects to enemies.
+ * StatusEffectService — applies slow / poison / burn / freeze / stun effects to enemies.
  *
  * `effect.startTime` is stored in **game-time ms** via an injected clock
  * provider (set once by GameStateManager on initialization). Using a provider
@@ -47,6 +47,20 @@ export class StatusEffectService {
   applyFreeze(enemy: Enemy, duration: number, sourceId: string): void {
     enemy.movement.applyStatusEffect({
       type: 'freeze',
+      value: 1,
+      duration,
+      startTime: this.gameClockProvider(),
+      sourceId,
+    });
+  }
+
+  /**
+   * Stun: the electric halt, the same stop as a freeze with a look of its
+   * own. Kept per source as well.
+   */
+  applyStun(enemy: Enemy, duration: number, sourceId: string): void {
+    enemy.movement.applyStatusEffect({
+      type: 'stun',
       value: 1,
       duration,
       startTime: this.gameClockProvider(),

@@ -15,6 +15,7 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 - **Poison** (DoT) — Poison Tower, Splash
 - **Burn** (DoT) — Fire Tower, jeder Gegner im Flammenkegel
 - **Freeze** (Stopp) — Mechanik und Darstellung fertig, noch ohne Quelle
+- **Stun** (Stopp, elektrisch) — wie Freeze mit eigener Darstellung, noch ohne Quelle
 
 Status-Effekte hängen am Projektiltyp (`ice-shard`, `poison-glob`) bzw. am Fire-Beam, nicht am
 Schadenstyp. Der Chaos Tower (Schadenstyp `chaos`, 1,0 gegen jede Rüstung) legt keinen Effekt.
@@ -56,6 +57,7 @@ export class StatusEffectService {
   applyPoison(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void;
   applyBurn(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void; // In-place-Refresh
   applyFreeze(enemy: Enemy, duration: number, sourceId: string): void;
+  applyStun(enemy: Enemy, duration: number, sourceId: string): void;
   applyEffect(enemy: Enemy, type: StatusEffectType, value: number, duration: number, sourceId: string): void;
   removeExpired(enemy: Enemy): void;
   hasActiveEffect(enemy: Enemy, type: StatusEffectType): boolean;
@@ -80,14 +82,15 @@ export class MovementComponent extends Component {
   /** Single-Pass Update: entfernt abgelaufene Effekte + gibt aktive Flags zurück. */
   updateStatusEffects(gameTimeMs: number): {
     isSlowed: boolean; isPoisoned: boolean; isBurning: boolean;
-    isFrozen: boolean; isHalted: boolean; slowMultiplier: number;
+    isFrozen: boolean; isStunned: boolean; isHalted: boolean; slowMultiplier: number;
   };
   removeExpiredEffects(gameTimeMs: number): void;
   getSlowMultiplier(gameTimeMs: number): number;
   getEffectiveSpeed(gameTimeMs: number): number;
   isSlowed(gameTimeMs: number): boolean;   // nur Slow, ein Freeze zählt nicht
   isFrozen(gameTimeMs: number): boolean;
-  isHalted(gameTimeMs: number): boolean;   // Freeze
+  isStunned(gameTimeMs: number): boolean;
+  isHalted(gameTimeMs: number): boolean;   // Freeze oder Stun
   isPoisoned(gameTimeMs: number): boolean;
   isBurning(gameTimeMs: number): boolean;
 }
@@ -305,6 +308,12 @@ Ein eingefrorener Gegner **hält an**, solange der Effekt läuft (`MovementCompo
 this.statusEffectService.applyFreeze(enemy, 3000, 'ability:frost-bomb');
 ```
 
+## Stun (Stopp, elektrisch)
+
+**Status:** seit 2026-09-14, eine Quelle gibt es noch nicht.
+
+Derselbe Stopp wie Freeze (`isHalted()`, Multiplikator 0, kein Laufzyklus, kein Gehen/Rennen-Wechsel), als eigener Typ, damit Darstellung und Quelle ihn auseinanderhalten: `isStunned()`, `applyStun(enemy, durationMs, sourceId)`, pro Quelle geführt. Ein Gegner kann gleichzeitig eingefroren und betäubt sein; er steht, bis beides abgelaufen ist.
+
 ---
 
 ## Ice Tower Integration (Slow Example)
@@ -379,6 +388,12 @@ effects: {
 - Vier stille Eiskristalle um den Körper (`spawnIceCrystals` im `AuraRenderer`, additive Partikel aus dem Trail-Pool, feste Plätze, keine Bahn), höchstens auf `ICE_CRYSTAL_CAP` (48) Gegnern gleichzeitig; darüber nur der Tint.
 - Der Laufzyklus steht (siehe oben).
 
+### Stun Effect
+
+**Aktuell implementiert** (in `EnemyManager.presentFrame()`):
+- Violett-blauer Tint (`setStunVisual`, `0.6, 0.5, 1.0`), Priorität nach dem Eis-Tint.
+- Funken: ein Spark-Burst (`BURST_PALETTES.stun`, 5 Partikel, 1,6 m über den Füßen) je betäubtem Gegner alle 400 ms Spielzeit (`STUN_SPARKS`), höchstens 8 Bursts pro gerendertem Frame, die übrigen im nächsten. In der Pause kommen keine neuen dazu. Pool und Schalter der Impact-Bursts: mit Impact Effects aus keine Funken.
+
 ### Poison Effect
 
 **Aktuell implementiert:**
@@ -388,7 +403,7 @@ effects: {
 ### Burn Effect
 
 **Aktuell implementiert:**
-- Oranger Tint auf der Instanz (`setBurnVisual`, Priorität: Hit-Flash > Freeze (Stopp) > Slow > Burn > Poison), flankengesteuert in `EnemyManager.presentFrame()`
+- Oranger Tint auf der Instanz (`setBurnVisual`, Priorität: Hit-Flash > Freeze (Stopp) > Stun > Slow > Burn > Poison), flankengesteuert in `EnemyManager.presentFrame()`
 - Orange Schadenszahlen pro Tick
 
 ### Ooze (Körper entlang der Route)

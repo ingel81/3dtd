@@ -66,6 +66,7 @@ export class MovementComponent extends Component {
     isPoisoned: false,
     isBurning: false,
     isFrozen: false,
+    isStunned: false,
     isHalted: false,
     slowMultiplier: 1.0,
   };
@@ -267,8 +268,8 @@ export class MovementComponent extends Component {
 
   /**
    * Single-pass status effect update: removes expired effects in-place
-   * and returns the active flags + slow multiplier. A halt (freeze) sets the
-   * multiplier to 0 whatever else is active and in whatever order.
+   * and returns the active flags + slow multiplier. A halt (freeze, stun)
+   * sets the multiplier to 0 whatever else is active and in whatever order.
    *
    * `gameTimeMs` is the engine's monotonic game-clock (NOT performance.now()).
    * `effect.startTime` is also stored as game-time ms — effect duration is
@@ -280,6 +281,7 @@ export class MovementComponent extends Component {
     isPoisoned: boolean;
     isBurning: boolean;
     isFrozen: boolean;
+    isStunned: boolean;
     /** No movement, no walk cycle, no walk/run switch this sub-step */
     isHalted: boolean;
     slowMultiplier: number;
@@ -290,6 +292,7 @@ export class MovementComponent extends Component {
     result.isPoisoned = false;
     result.isBurning = false;
     result.isFrozen = false;
+    result.isStunned = false;
     result.isHalted = false;
     result.slowMultiplier = 1.0;
 
@@ -304,6 +307,9 @@ export class MovementComponent extends Component {
           result.slowMultiplier = 1 - effect.value;
         } else if (effect.type === 'freeze') {
           result.isFrozen = true;
+          result.isHalted = true;
+        } else if (effect.type === 'stun') {
+          result.isStunned = true;
           result.isHalted = true;
         } else if (effect.type === 'poison') {
           result.isPoisoned = true;
@@ -342,7 +348,7 @@ export class MovementComponent extends Component {
     let multiplier = 1.0;
     for (const effect of this.statusEffects) {
       if (gameTimeMs - effect.startTime >= effect.duration) continue;
-      if (effect.type === 'freeze') return 0;
+      if (effect.type === 'freeze' || effect.type === 'stun') return 0;
       if (effect.type === 'slow') multiplier = 1 - effect.value;
     }
     return multiplier;
@@ -362,12 +368,23 @@ export class MovementComponent extends Component {
     );
   }
 
+  /** Whether enemy is stunned (stun). */
+  isStunned(gameTimeMs: number): boolean {
+    return this.statusEffects.some(
+      (effect) => effect.type === 'stun' && gameTimeMs - effect.startTime < effect.duration,
+    );
+  }
+
   /**
-   * Whether enemy is halted: no movement, no walk cycle, no walk/run switch.
-   * An enemy that could attack would not attack either.
+   * Whether enemy is halted (freeze or stun): no movement, no walk cycle, no
+   * walk/run switch. An enemy that could attack would not attack either.
    */
   isHalted(gameTimeMs: number): boolean {
-    return this.isFrozen(gameTimeMs);
+    return this.statusEffects.some(
+      (effect) =>
+        (effect.type === 'freeze' || effect.type === 'stun') &&
+        gameTimeMs - effect.startTime < effect.duration,
+    );
   }
 
   /** Whether enemy has an active poison effect. */

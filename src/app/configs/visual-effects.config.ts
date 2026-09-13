@@ -536,7 +536,16 @@ export interface EffectRgb {
 /** Spark-burst palette: 40 % of the particles get the first colour, 30 % each the other two. */
 export type BurstPalette = readonly [EffectRgb, EffectRgb, EffectRgb];
 
-/** Palettes for the round-particle spark bursts (ice, arcane orb, chaos orb and poison glob hits, a skeleton's split). */
+/**
+ * Sparks on a stunned enemy (stun status, EnemyManager.presentFrame): a
+ * burst of `particles` sparks `height` metres above its feet every
+ * `intervalMs` of game time, so the pause holds them and the timescale
+ * speeds them up; at most `perFrame` bursts per rendered frame, the others
+ * wait for the next. The impact bursts' pool and switch, BURST_PALETTES.stun.
+ */
+export const STUN_SPARKS = { intervalMs: 400, particles: 5, perFrame: 8, height: 1.6 } as const;
+
+/** Palettes for the round-particle spark bursts (ice, arcane orb, chaos orb and poison glob hits, a skeleton's split, stun sparks). */
 export const BURST_PALETTES = {
   // Bone white to dust grey. The pool blends additively, so the colours stay
   // dim: a bone-white core at full value would flash like the ice burst.
@@ -564,6 +573,12 @@ export const BURST_PALETTES = {
     { r: 1.0, g: 0.6, b: 1.0 },   // Pale magenta core
     { r: 0.6, g: 0.0, b: 1.0 },   // Violet
     { r: 0.95, g: 0.1, b: 0.65 }, // Magenta
+  ],
+  // Electric: blue-white core, the stun tint's violet-blue, a deep blue
+  stun: [
+    { r: 0.85, g: 0.92, b: 1.0 }, // Blue-white core
+    { r: 0.55, g: 0.5, b: 1.0 },  // Violet-blue
+    { r: 0.2, g: 0.35, b: 1.0 },  // Deep blue
   ],
 } as const satisfies Record<string, BurstPalette>;
 

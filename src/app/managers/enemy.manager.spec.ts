@@ -18,6 +18,7 @@ import type { OozeBody } from '../entities/ooze-body';
 import { goldBudgetForWave } from '../configs/wave-curriculum.config';
 import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
 import { registerEnemyModelRangeY } from '../utils/enemy-aim.util';
+import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
 
 const createMockTilesEngine = () => ({
   enemies: {
@@ -443,6 +444,33 @@ describe('EnemyManager', () => {
       manager.presentFrame(1000);
       expect(setIcedVisual.mock.calls).toEqual([[enemy.id, true], [enemy.id, false]]);
       expect(effects['stopIceCrystals']).toHaveBeenCalledWith(enemy.id);
+    });
+
+    it('sparks a stunned enemy every interval of game time, a few bursts per frame at most', () => {
+      const engine = tilesEngine as unknown as Record<string, Record<string, unknown>>;
+      engine['enemies']['setStunVisual'] = vi.fn();
+      engine['effects'] = { spawnBurstAtGeo: vi.fn() };
+      const { setStunVisual } = engine['enemies'] as { setStunVisual: MockInstance };
+      const { spawnBurstAtGeo } = engine['effects'] as { spawnBurstAtGeo: MockInstance };
+      const enemies = Array.from({ length: STUN_SPARKS.perFrame + 2 }, () => manager.spawn(path, 'tank'));
+      for (const enemy of enemies) {
+        enemy.movement.applyStatusEffect({ type: 'stun', value: 1, duration: 1000, startTime: 0, sourceId: 'emp' });
+      }
+
+      manager.presentFrame(16);
+      expect(setStunVisual).toHaveBeenCalledTimes(enemies.length);
+      expect(spawnBurstAtGeo).toHaveBeenCalledTimes(STUN_SPARKS.perFrame);
+      expect(spawnBurstAtGeo.mock.calls[0][4]).toBe(BURST_PALETTES.stun);
+
+      manager.presentFrame(32); // the two left over
+      expect(spawnBurstAtGeo).toHaveBeenCalledTimes(enemies.length);
+      manager.presentFrame(32 + STUN_SPARKS.intervalMs / 2); // nobody is due
+      expect(spawnBurstAtGeo).toHaveBeenCalledTimes(enemies.length);
+
+      manager.presentFrame(1000);
+      expect(setStunVisual).toHaveBeenCalledTimes(enemies.length * 2);
+      expect(setStunVisual).toHaveBeenLastCalledWith(enemies[enemies.length - 1].id, false);
+      expect(spawnBurstAtGeo).toHaveBeenCalledTimes(enemies.length);
     });
 
     it('shows a switch in the present pass, once', () => {
