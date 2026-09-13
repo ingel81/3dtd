@@ -85,6 +85,8 @@ export class RunStatsTracker {
     }));
     bag.add(bus.on('research:cancelled', (e) => { this.refunds += e.refund; }));
     bag.add(bus.on('debug:add-credits', (e) => { this.cheatCredits += Math.max(0, e.amount); }));
+    // The gold of the waves a dev jump skipped is cheat gold as well
+    bag.add(bus.on('wave:jumped', (e) => { this.cheatCredits += e.credits; }));
     bag.add(bus.on('tower:placed', (e) => { this.liveTowers.set(e.tower.id, e.tower); }));
     bag.add(bus.on('tower:sold', (e) => {
       this.refunds += e.refund;

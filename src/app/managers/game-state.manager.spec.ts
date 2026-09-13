@@ -119,6 +119,7 @@ import { GameStateManager } from './game-state.manager';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { getResearch } from '../configs/research/research-tree.config';
 import { GameEventBus } from '../game-engine';
+import { skippedWavesGold } from '../services/economy.service';
 
 function getEventBus(gsm: GameStateManager): GameEventBus {
   return gsm.getEventBus();
@@ -504,6 +505,72 @@ describe('GameStateManager', () => {
         expect(completed).toEqual([]);
         expect(refill).toHaveBeenCalledTimes(2);
         expect(refill).toHaveBeenCalledWith('nuclear-strike');
+      });
+    });
+
+    describe('jumpToWave() (dev cheat)', () => {
+      it('sets the counter so the next start is the given wave, and pays the skipped waves', () => {
+        const jumped = vi.fn();
+        bus.on('wave:jumped', jumped);
+        const credits = gsm.credits();
+
+        expect(gsm.jumpToWave(35, true)).toBe(true);
+
+        const gold = skippedWavesGold(1, 34);
+        expect(gsm.waveNumber()).toBe(34);
+        expect(gsm.phase()).toBe('setup');
+        expect(gsm.credits()).toBe(credits + gold);
+        expect(jumped).toHaveBeenCalledWith({ type: 'wave:jumped', from: 0, wave: 35, skipped: 34, credits: gold });
+        expect(gsm.enemyManager.getAll()).toEqual([]);
+      });
+
+      it('pays nothing without the gold grant', () => {
+        const credits = gsm.credits();
+        gsm.jumpToWave(14, false);
+        expect(gsm.waveNumber()).toBe(13);
+        expect(gsm.credits()).toBe(credits);
+      });
+
+      it('recharges the abilities by the skipped waves and leaves research alone', () => {
+        const advance = vi.spyOn(gsm.abilityManager, 'advanceWaves');
+        const research = vi.spyOn(gsm.researchManager, 'update');
+        gsm.jumpToWave(10, true);
+        expect(advance).toHaveBeenCalledWith(9);
+        expect(research).not.toHaveBeenCalled();
+      });
+
+      it('refuses during a wave, backwards and onto the next wave', () => {
+        const jumped = vi.fn();
+        bus.on('wave:jumped', jumped);
+        gsm.jumpToWave(20, false);
+        expect(gsm.jumpToWave(15, false)).toBe(false);
+        expect(gsm.jumpToWave(20, false)).toBe(false);
+        expect(gsm.jumpToWave(20.5, false)).toBe(false);
+
+        gsm.waveManager.phase.set('wave');
+        expect(gsm.jumpToWave(40, false)).toBe(false);
+        expect(gsm.waveNumber()).toBe(19);
+        expect(jumped).toHaveBeenCalledTimes(1);
+      });
+
+      it('runs through the command pipeline as debug:jump-to-wave', () => {
+        bus.emit({ type: 'debug:jump-to-wave', wave: 45, grantGold: false });
+        expect(gsm.waveNumber()).toBe(44);
+      });
+
+      it('still sends game:started once, before the first wave of the run', () => {
+        const started = vi.fn();
+        bus.on('game:started', started);
+        vi.spyOn(gsm.waveManager, 'beginWave').mockImplementation(() => undefined);
+
+        gsm.jumpToWave(35, false);
+        gsm.beginWave();
+        gsm.beginWave();
+        expect(started).toHaveBeenCalledTimes(1);
+
+        gsm.reset();
+        gsm.beginWave();
+        expect(started).toHaveBeenCalledTimes(2);
       });
     });
 

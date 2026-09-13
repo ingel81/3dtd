@@ -461,6 +461,16 @@ export class WaveManager implements IGameManager {
   }
 
   /**
+   * Debug: set the counter to `lastWave` as if it had just been played, so
+   * the next start is wave lastWave + 1. Between waves only. Nothing spawns
+   * and no wave event goes out, GameStateManager.jumpToWave announces it.
+   */
+  jumpTo(lastWave: number): void {
+    if (this.phase() !== 'setup') return;
+    this.waveNumber.set(lastWave);
+  }
+
+  /**
    * Reset wave manager
    */
   reset(): void {

@@ -58,6 +58,12 @@ export class GameStateSyncService {
       this.store.waveEnemiesLeft.set(0);
     }));
 
+    // The dev jump moves the counter between waves (GameStateManager.jumpToWave):
+    // the last wave counts as played, the wave button shows the next one
+    this.subs.add(eventBus.on('wave:jumped', (event) => {
+      this.store.waveNumber.set(event.wave - 1);
+    }));
+
     // Kill-all also drops the enemies still to spawn (WaveManager.stopSpawning),
     // so nothing of the wave is left. The deaths it causes clamp at 0.
     this.subs.add(eventBus.on('debug:kill-all', () => {

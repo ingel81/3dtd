@@ -87,6 +87,12 @@ describe('GameStateSyncService (real service)', () => {
       expect(store.phase()).toBe('setup');
       expect(store.enemiesAlive()).toBe(0);
     });
+
+    it('wave:jumped → waveNumber = the wave before the next one, phase stays setup', () => {
+      eventBus.emit({ type: 'wave:jumped', from: 3, wave: 35, skipped: 31, credits: 0 });
+      expect(store.waveNumber()).toBe(34);
+      expect(store.phase()).toBe('setup');
+    });
   });
 
   // ── Enemies left in the running wave (wave button bar) ─────────

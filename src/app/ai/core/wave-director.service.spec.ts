@@ -210,6 +210,21 @@ describe('WaveDirectorService', () => {
       expect(director.aiMode()).toBe('rules');
     });
 
+    it('plans from the counter alone: after a dev jump to W35 a boss wave, gate and history kept', async () => {
+      // The jump only moves the counter (snapshot waveNumber 34, next wave 35).
+      // The gate's leak window and the template history stay as they were.
+      director.onWaveCompleted(waveResult({ enemyProgressValues: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0], playerSurvived: true }));
+      overwhelmingDefense(collector.snapshot, 12);
+      const before = (await director.getNextWave()).templateIdx!;
+      const gateBefore = director.gate.status;
+
+      overwhelmingDefense(collector.snapshot, 34);
+      const config = await director.getNextWave();
+      expect(TEMPLATES[config.templateIdx!].bossOnly).toBe(true);
+      expect(config.templateIdx).not.toBe(before);
+      expect(director.gate.status).toEqual(gateBefore);
+    });
+
     it('does not log wave decisions outside debug mode', async () => {
       await director.getNextWave();
       expect(console.log).not.toHaveBeenCalled();

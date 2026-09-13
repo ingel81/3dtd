@@ -3,6 +3,23 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 import { goldBudgetForWave } from '../configs/wave-curriculum.config';
 
 /**
+ * Gold that waves `first`..`last` pay a player who kills every enemy: the
+ * kill budget, the base completion bonus and the milestone bonuses. No skill
+ * bonuses (perfect, close call, combo, comeback), those depend on how a wave
+ * was played. The dev wave jump grants it for the waves it skips
+ * (GameStateManager.jumpToWave); 0 for an empty range.
+ */
+export function skippedWavesGold(first: number, last: number): number {
+  const milestones = GAME_BALANCE.economy.milestoneBonuses;
+  let total = 0;
+  for (let wave = Math.max(1, first); wave <= last; wave++) {
+    const budget = goldBudgetForWave(wave);
+    total += budget.kill + budget.complete + (milestones[wave] ?? 0);
+  }
+  return total;
+}
+
+/**
  * EconomyService — Wave-Completion-Bonus + Perfect-Streak-Tracking.
  *
  * Vorher inline in GameStateManager (`applyWaveCompletionBonus` + `_perfectStreak`).
