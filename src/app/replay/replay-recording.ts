@@ -447,9 +447,9 @@ export class ReplayRecording {
    * when not even that fits.
    */
   private makeRoom(enemies: number, projectiles: number, towers: number): boolean {
-    let eCap = this.eIndex.length;
-    let pCap = this.pIndex.length;
-    let tCap = this.tIndex.length;
+    const eCap = this.eIndex.length;
+    const pCap = this.pIndex.length;
+    const tCap = this.tIndex.length;
     if (enemies <= eCap && projectiles <= pCap && towers <= tCap) return true;
 
     const budget = REPLAY_CONFIG.sampleBudgetBytes;
@@ -470,19 +470,16 @@ export class ReplayRecording {
       this.eSpeed = withLength(this.eSpeed, e);
       this.eHp = withLength(this.eHp, e);
       this.eFlags = withLength(this.eFlags, e);
-      eCap = e;
     }
     if (p > pCap) {
       this.pIndex = withLength(this.pIndex, p);
       this.pPos = withLength(this.pPos, p * 3);
-      pCap = p;
     }
     if (t > tCap) {
       this.tIndex = withLength(this.tIndex, t);
       this.tRot = withLength(this.tRot, t);
       this.tFlags = withLength(this.tFlags, t);
       this.tAux = withLength(this.tAux, t * 4);
-      tCap = t;
     }
     return true;
   }

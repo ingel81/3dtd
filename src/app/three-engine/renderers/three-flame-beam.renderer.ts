@@ -109,6 +109,11 @@ export class ThreeFlameBeamRenderer {
     return this.activeBeams.has(towerId);
   }
 
+  /** Target and width of a tower's beam, null without one. Read by the replay recorder. */
+  getBeam(towerId: string): Readonly<Pick<ActiveBeam, 'targetPosition' | 'beamWidth'>> | null {
+    return this.activeBeams.get(towerId) ?? null;
+  }
+
   /**
    * Update - spawn particles for all active beams
    */

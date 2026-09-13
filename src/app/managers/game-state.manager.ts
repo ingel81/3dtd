@@ -41,6 +41,7 @@ import { BaseHealthLedger } from './game-state/base-health-ledger';
 import { TowerLifecycle } from './game-state/tower-lifecycle';
 import { summarizeWaveGroups } from './game-state/wave-preview';
 import { routeSweepToward } from '../utils/route-sweep';
+import { ReplayRecorder } from '../replay/replay-recorder';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -121,6 +122,21 @@ export class GameStateManager {
       );
     },
     spend: (cost) => this.creditsLedger.spend(cost),
+  });
+
+  /**
+   * Records the running wave for the replay (docs/REPLAY.md). Starts on
+   * wave:started by itself; update() hands it the sub-steps, the wave end
+   * and game over close it.
+   */
+  readonly replayRecorder = new ReplayRecorder(this.eventBus, {
+    enemies: () => this.enemyManager.getAllActive(),
+    projectiles: () => this.projectileManager.getAllActive(),
+    towers: () => this.towerManager.getAll(),
+    engine: () => this.tilesEngine,
+    gameTimeMs: () => this.clock.gameTimeMs,
+    baseHealth: () => this.baseHealth(),
+    credits: () => this.credits(),
   });
 
   /**
@@ -288,6 +304,9 @@ export class GameStateManager {
     // placeTower call.
     this.commandsHandler?.dispose();
 
+    // A replay of the previous place is in the previous place's coordinates
+    this.replayRecorder.clear();
+
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
 
@@ -427,6 +446,8 @@ export class GameStateManager {
    */
   reseatWavePipeline(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
     this.waveManager.initialize(spawnPoints, cachedPaths);
+    // The last wave ran through the previous world
+    this.replayRecorder.clear();
   }
 
   /**
@@ -480,6 +501,9 @@ export class GameStateManager {
       // Notify per-sub-step listeners (AI bot, etc.)
       onSubStep?.(stepMs);
 
+      // After the turret aim above, so a frame shows where the turrets point
+      this.replayRecorder.onSubStep();
+
       // Wave-completion / game-over checks belong INSIDE the sub-step loop
       // so they catch state transitions mid-frame (otherwise a wave might
       // visibly run for "one extra frame" at high timescales).
@@ -487,6 +511,7 @@ export class GameStateManager {
       // A pending strike lands in its own wave, never in the setup or the next one
       if (isWavePhase && !this.abilityManager.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
         const result = this.waveManager.endWave();
+        this.replayRecorder.finish('completed');
         this.towerCombat.stopAllBeams();
         this.towerCombat.stopAllMelee();
         this.enemyDebug.clearDebugEnemies();
@@ -618,6 +643,8 @@ export class GameStateManager {
    * Trigger game over state
    */
   private triggerGameOver(): void {
+    // The last frame of the replay still has the enemies that broke through
+    this.replayRecorder.finish('gameover');
     this.waveManager.phase.set('gameover');
     this.enemyManager.clear();
     this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
@@ -724,6 +751,7 @@ export class GameStateManager {
     this.eventBusSubs.disposeAll();
     this.commandsHandler?.dispose();
     this.commandsHandler = null;
+    this.replayRecorder.dispose();
 
     // Destroy game-engine service instances (they hold EventBus subscriptions)
     this.combatEffect.destroy();
@@ -773,6 +801,7 @@ export class GameStateManager {
     this.researchManager.reset();
     this.abilityManager.reset();
     this.heroManager.reset();
+    this.replayRecorder.clear();
 
     // NOTE: Do NOT clear GlobalRouteGrid here — it's bound to the location
     // and won't be re-initialized on a game-over restart. Tower visibility
