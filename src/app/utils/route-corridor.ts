@@ -360,6 +360,36 @@ export function cutShortBulges(values: readonly number[], radius = stationRadius
 }
 
 /**
+ * A gap of unmeasured stations up to about `dipLength` long takes the
+ * smaller free space of the measured stations either side of it, or of the
+ * one there is at an end of the route. The column under a station on a
+ * seam between two tile meshes can find no tile while the stations around
+ * it measure the street; the gap would otherwise narrow the corridor to the
+ * street width for that one station. Longer gaps stay NaN.
+ */
+function fillShortGaps(values: readonly number[]): number[] {
+  const maxStations = Math.floor(corridorConfig.dipLength / corridorConfig.stationSpacing);
+  const filled = [...values];
+  let k = 0;
+  while (k < values.length) {
+    if (!Number.isNaN(values[k])) {
+      k++;
+      continue;
+    }
+    let end = k;
+    while (end < values.length && Number.isNaN(values[end])) end++;
+    const before = k > 0 ? values[k - 1] : NaN;
+    const after = end < values.length ? values[end] : NaN;
+    if (end - k <= maxStations && !(Number.isNaN(before) && Number.isNaN(after))) {
+      const value = Number.isNaN(before) ? after : Number.isNaN(after) ? before : Math.min(before, after);
+      filled.fill(value, k, end);
+    }
+    k = end;
+  }
+  return filled;
+}
+
+/**
  * A stretch of a segment, from `t` (0-1 along the segment) to the next
  * piece, with its half width left and right of the direction of travel.
  */
@@ -423,7 +453,7 @@ export function probeFreeSpace(probe: StationProbe | null, side: 'left' | 'right
 export interface StationFit {
   /** Measured free space, NaN where the station could not be measured. */
   free: number;
-  /** After closing short dips and cutting short bulges along the route. */
+  /** After filling short gaps, closing short dips and cutting short bulges along the route. */
   smoothed: number;
   halfWidth: number;
   /** What set the half width, e.g. "bulge cut, wall less margin". For `__corridor.pick()`. */
@@ -437,10 +467,12 @@ export interface StationFit {
  * The measured free space on each side, less `wallMargin` where the rays
  * found a wall, is the half width on that side, clamped to
  * [minHalfWidth, maxHalfWidth]. Along the whole route, across its
- * waypoints, short dips are closed (closeShortDips) and short bulges cut
- * (cutShortBulges), each side on its own, then the value is rounded down
- * to `widthStep`. A station the tiles could not measure gets the street's
- * half width; off the network the street's half width is the cap.
+ * waypoints, a short gap of unmeasured stations takes the free space
+ * measured around it (fillShortGaps), short dips are closed
+ * (closeShortDips) and short bulges cut (cutShortBulges), each side on its
+ * own, then the value is rounded down to `widthStep`. A station the tiles
+ * could not measure in a longer gap gets the street's half width; off the
+ * network the street's half width is the cap.
  */
 export function fitCorridorStations(
   segments: readonly CorridorStations[],
@@ -449,16 +481,19 @@ export function fitCorridorStations(
 
   const fitSide = (side: 'left' | 'right'): StationFit[][] => {
     const free = segments.flatMap((s) => s[side]);
-    const smoothed = cutShortBulges(closeShortDips(free));
+    const filled = fillShortGaps(free);
+    const smoothed = cutShortBulges(closeShortDips(filled));
     let offset = 0;
     return segments.map((segment) => {
       const fits = segment[side].map((_, k): StationFit => {
         const f = free[offset + k];
+        const g = filled[offset + k];
         const s = smoothed[offset + k];
         if (Number.isNaN(s)) return { free: f, smoothed: s, halfWidth: segment.fallback, rule: 'unmeasured: street width' };
         const rules: string[] = [];
-        if (s > f) rules.push('dip closed');
-        else if (s < f) rules.push('bulge cut');
+        if (Number.isNaN(f)) rules.push('unmeasured: from neighbours');
+        if (s > g) rules.push('dip closed');
+        else if (s < g) rules.push('bulge cut');
         // A ray that hit nothing reports its full length, the maximum; a
         // wall keeps `wallMargin` off.
         let halfWidth: number;

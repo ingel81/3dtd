@@ -202,6 +202,34 @@ describe('fitCorridorStations', () => {
       .toEqual({ free: 1, smoothed: 7, halfWidth: 7, rule: 'dip closed, no wall within the maximum' });
   });
 
+  it('gives a short unmeasured gap the free space measured around it', () => {
+    // A seam between two tile meshes: the column under one station finds no tile.
+    expect(leftAt(measured([7, 7, NaN, 7, 7], [7, 7, NaN, 7, 7]), 2)).toEqual({
+      free: NaN, smoothed: 7, halfWidth: 7, rule: 'unmeasured: from neighbours, no wall within the maximum',
+    });
+    // The narrower side of the gap, two stations long.
+    expect(leftAt(measured([7, 7, NaN, NaN, 5.2, 5.2, 5.2], [7, 7, 7, 7, 7, 7, 7]), 3))
+      .toMatchObject({ smoothed: 5.2, halfWidth: 4.5, rule: 'unmeasured: from neighbours, wall less margin' });
+    // At an end of the route, the one measured side.
+    expect(leftAt(measured([NaN, 5.2, 5.2, 5.2], [7, 7, 7, 7]), 0)).toMatchObject({ halfWidth: 4.5 });
+  });
+
+  it('keeps the street width in a longer unmeasured gap', () => {
+    const segment = measured([7, NaN, NaN, NaN, 7], [7, NaN, NaN, NaN, 7], 2.75);
+    expect(fitCorridorStations([segment]).left[0].map((s) => s.halfWidth)).toEqual([7, 2.75, 2.75, 2.75, 7]);
+    expect(leftAt(segment, 2).rule).toBe('unmeasured: street width');
+    // The gap length follows dipLength.
+    corridorConfig.dipLength = 6;
+    expect(fitCorridorStations([segment]).left[0].map((s) => s.halfWidth)).toEqual([7, 7, 7, 7, 7]);
+  });
+
+  it('fills a gap across waypoints', () => {
+    const fit = fitCorridorStations([measured([7, 7, NaN], [7, 7, NaN]), measured([7, 7], [7, 7])]);
+    expect(fit.left[0][2]).toMatchObject({ halfWidth: 7, rule: 'unmeasured: from neighbours, no wall within the maximum' });
+    expect(fitCorridorPieces([measured([7, 7, NaN], [7, 7, NaN]), measured([7, 7], [7, 7])]))
+      .toEqual([[{ t: 0, left: 7, right: 7 }], [{ t: 0, left: 7, right: 7 }]]);
+  });
+
   it('gives the same half widths the pieces are made of', () => {
     const segments = [measured([3, 3, 3, 3, 3, 6, 6, 6, 6, 6], [4, 4, 4, 4, 4, 4, 4, 4, 4, 4])];
     const fit = fitCorridorStations(segments);
