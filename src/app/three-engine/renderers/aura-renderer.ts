@@ -23,7 +23,7 @@ interface AuraInstance {
 }
 
 /**
- * AuraRenderer — status-effect particle auras: orbiting frost and poison,
+ * AuraRenderer: status-effect particle auras, orbiting frost and poison
  * and the still ice crystals of a frozen enemy.
  *
  * Split out of three-effects.renderer.ts. Each aura borrows a few particles

@@ -340,7 +340,7 @@ export class MovementComponent extends Component {
   /**
    * Get current slow multiplier (1.0 = no slow, 0 = halted).
    *
-   * Mirrors `updateStatusEffects` — the two must not disagree, or the
+   * Mirrors `updateStatusEffects`: the two must not disagree, or the
    * simulation stops the enemy while the renderer keeps its walk cycle
    * running at full speed. A halt wins over a slow in any order.
    */
