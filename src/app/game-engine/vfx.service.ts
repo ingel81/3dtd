@@ -4,13 +4,15 @@ import { ThreeTilesEngine } from '../three-engine';
 import {
   BURST_PALETTES,
   EXPLOSION_PRESETS,
+  FROST_BOMB_ICE_RINGS,
   MUZZLE_FLASH_PROFILES,
   NUCLEAR_STRIKE_SCORCH_RINGS,
   type ScorchSource,
 } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
-import type { AbilityId } from '../configs/abilities.config';
+import { ABILITIES, type AbilityId } from '../configs/abilities.config';
+import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { GeoPosition } from '../models/game.types';
 import type { GameEvent } from './game-event-bus';
 import { enemyBloodColor } from '../utils/enemy-hit-spot';
@@ -49,6 +51,11 @@ export class VFXService {
     'nuclear-strike': {
       used: (event) => this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs),
       impact: (event) => this.handleStrikeImpact(event.strikeId, event.target, event.radiusM),
+    },
+    // Target marker while the bomb is on its way, frost burst and frost patches where it bursts
+    'frost-bomb': {
+      used: (event) => this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs),
+      impact: (event) => this.handleFrostImpact(event.strikeId, event.target, event.radiusM),
     },
   };
 
@@ -165,9 +172,43 @@ export class VFXService {
     });
   }
 
+  /**
+   * The marker goes, the frost burst goes off on the ground point
+   * (FROST_BURST_LOOK, in game time) with its rime held as long as the
+   * freeze, and frost patches settle on the centre and on
+   * FROST_BOMB_ICE_RINGS (ice decals, with ground marks on only).
+   */
+  private handleFrostImpact(strikeId: number, target: GeoPosition, radiusM: number): void {
+    this.tilesEngine.abilityMarkers.removeStrike(strikeId);
+
+    const ground = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpA);
+    const effect = ABILITIES['frost-bomb'].effect;
+    const holdS = effect.kind === 'freeze' ? effect.durationMs / 1000 : 0;
+    this.tilesEngine.frostBursts.burst(ground, radiusM, holdS);
+
+    const effects = this.tilesEngine.effects;
+    if (!effects.groundMarksEnabled) return;
+    const height = target.height ?? 0;
+    const lonPerM = 1 / (METERS_PER_DEGREE_LAT * Math.cos(target.lat * DEG_TO_RAD));
+    effects.spawnIceDecal(target.lat, target.lon, height, FROST_BOMB_ICE_RINGS[0].size);
+    FROST_BOMB_ICE_RINGS.forEach((ring, ringIndex) => {
+      const distance = ring.distance * radiusM;
+      for (let i = 0; i < ring.count; i++) {
+        const angle = ((i + ringIndex * 0.5) / ring.count) * Math.PI * 2;
+        effects.spawnIceDecal(
+          target.lat + (Math.sin(angle) * distance) / METERS_PER_DEGREE_LAT,
+          target.lon + Math.cos(angle) * distance * lonPerM,
+          height,
+          ring.size,
+        );
+      }
+    });
+  }
+
   private clearStrikes(): void {
     this.tilesEngine.abilityMarkers.clear();
     this.tilesEngine.mushroomClouds.clear();
+    this.tilesEngine.frostBursts.clear();
   }
 
   /**

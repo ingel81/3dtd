@@ -103,6 +103,26 @@ describe('ScreenShakeService', () => {
     service.destroy();
   });
 
+  it('shakes a little for a frost bomb, fading over the ability range', () => {
+    const { eventBus, engine, service } = setup();
+    const { abilityNearDistance, abilityFarDistance } = SCREEN_SHAKE_CONFIG;
+    expect(ABILITY_IMPACT_SHAKE['frost-bomb']).toEqual({
+      preset: presets.frostBomb,
+      nearDistance: abilityNearDistance,
+      farDistance: abilityFarDistance,
+    });
+    const frost = (distance: number) => eventBus.emit({
+      type: 'ability:impact', abilityId: 'frost-bomb', strikeId: 1,
+      target: { lat: distance, lon: 0 }, radiusM: 20,
+    });
+    frost(abilityNearDistance);
+    frost(abilityFarDistance + 10);
+    expect(engine.triggerScreenShake.mock.calls).toEqual([[presets.frostBomb.amplitude, presets.frostBomb.duration]]);
+    // The overview camera stands about 425 m away and gets about half
+    expect(shakeFalloff(425, abilityNearDistance, abilityFarDistance)).toBeCloseTo(0.5, 1);
+    service.destroy();
+  });
+
   it('shakes by the ability that landed: one without an entry does not shake', () => {
     const { eventBus, engine, service } = setup();
     expect(ABILITY_IMPACT_SHAKE['nuclear-strike']).toEqual({

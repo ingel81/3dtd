@@ -1,9 +1,15 @@
 # Fähigkeiten (Player Abilities)
 
-**Stand:** 2026-09-14. Erste und bisher einzige Fähigkeit: der Nuklearschlag
-(im Spiel "Nuclear Strike"). Konzept und Entscheidungen:
+**Stand:** 2026-09-14. Konzept und Entscheidungen zum Nuklearschlag:
 [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md), Abschnitte 5,
-7 und 8.
+7 und 8. Die weiteren Fähigkeiten folgen seinem Muster: eigene Forschung, eine
+Ladung, eine neue nach je 3 abgeschlossenen Wellen, eigene Taste, Knopf in der
+Fähigkeitenleiste, Befehl über `command:use-ability`, Kills zählen als Leck.
+
+| Fähigkeit | Im Spiel | Taste | Wirkung |
+|---|---|---|---|
+| Nuklearschlag | Nuclear Strike | K | Max-HP-Anteil im Radius |
+| Frostbombe | Frost Bomb | F | Freeze im Radius |
 
 Eine Fähigkeit ist eine Aktion des Spielers während einer Welle, im Gegensatz
 zum Tower, der von selbst handelt. Sie wird per Forschung freigeschaltet, hat
@@ -39,6 +45,32 @@ Todesblut liegt an dem Punkt, den der Kreis erreicht.
 
 ---
 
+## Frostbombe in Zahlen
+
+`ABILITIES['frost-bomb']`, Wirkung `freeze` (Status Freeze, siehe
+[STATUS_EFFECTS.md](STATUS_EFFECTS.md#freeze-stopp)).
+
+| Punkt | Wert |
+|---|---|
+| Freischaltung | Forschung `frost-bomb`: 700 Gold, 25 s, Voraussetzung `arcane-studies` |
+| Ladungen | wie der Nuklearschlag: 1, eine neue nach je 3 abgeschlossenen Wellen |
+| Ziel | Klick, Route-Zelle im Umkreis von 30 m |
+| Vorwarnung | 500 ms Spielzeit, 30 Sub-Steps |
+| Wirkung | Radius 20 m in 2D, Boden und Luft: Freeze für 3000 ms, Bosse 1000 ms. Kein Schaden. Eingefrorene Luftgegner hängen still in der Luft |
+| Wave-Director | `hits` sind die Eingefrorenen, `kills` 0; was die Tower währenddessen töten, sind normale Kills |
+
+**Warum diese Zahlen.** Der Ice Tower bremst auf die Hälfte für 3 s; die
+Frostbombe hält 3 s ganz an, einmal alle 3 Wellen. Ein Zombie (5 m/s) verliert
+15 m Weg, ein Tank (3 m/s) 9 m, das ist ein Moment mehr Feuer auf eine Gruppe,
+kein Wellengewinn. Der Radius liegt unter dem des Nuklearschlags (20 statt
+25 m). Die Forschung setzt Arcane Studies voraus: Mit Ice Magic (400) und
+Arcane Studies (650) kostet der Weg dahin 1.750 Gold Forschung, frühestens um
+W5 bis W6, praktisch nach dem ersten Luftangriff (W7), also nicht in den
+ersten Wellen, die das Curriculum ohne Fähigkeiten austariert. Bosse bleiben
+nur 1 s stehen, damit ein Boss-Lauf nicht mit einer Taste halbiert wird.
+
+---
+
 ## Ablauf
 
 ```
@@ -65,7 +97,7 @@ GameStateManager.runSubStep
 | Event | Abnehmer |
 |---|---|
 | `ability:used` | VFXService (Zielmarker), je `abilityId` |
-| `ability:impact` | VFXService (Atompilz, Brandflecken), AudioService, ScreenShakeService, je `abilityId` |
+| `ability:impact` | VFXService, AudioService, ScreenShakeService, je `abilityId` (siehe [Darstellung](#darstellung)) |
 | `ability:resolved` | AIDataCollectorService (`abilityKills`, alle Fähigkeiten). Beim Nuklearschlag im selben Sub-Step direkt nach `ability:impact` |
 | `ability:rejected` | niemand fest; die UI prüft vor dem Klick selbst |
 | `ability:state-changed` | GameStateSyncService → `GameStore.abilities` |
@@ -188,6 +220,21 @@ den Display Options gilt auch hier. Sound `nuclear_strike`: das vorhandene
 verkürzt sie, `game:reset` verwirft ausstehende. Eine
 Warnsirene gibt es nicht, im Repo liegt kein passendes Sample.
 
+**Frostbombe:** derselbe Zielmarker in 20 m. Beim Einschlag der Frostausbruch
+(`FrostBurstRenderer`, `FROST_BURST_LOOK`, in Spielzeit wie der Atompilz):
+weiß-cyaner Blitz, Kältering bis 1,15 × Radius, Reif über dem Radius, der
+genau so lange hält wie der Freeze (3 s) und dann in 1 s ausblendet, 64
+Eissplitter, die liegen bleiben, bis sie verlöschen, und ein niedriger
+Nebelring. Mit Impact Effects aus nur Blitz, Ring und Reif. Dazu Frostflecken
+(die Eis-Decals des Ice Towers) auf dem Einschlag und auf zwei Ringen, 6 bei
+0,45 und 10 bei 0,85 des Radius (`FROST_BOMB_ICE_RINGS`), nur mit Ground Marks
+an. An den Gegnern der Eis-Tint und die Eiskristalle des Freeze. Ton
+`frost_bomb`: der Cast des Ice Towers, lauter und weiter hörbar, mit zwei
+schnellen leiseren Wiederholungen nach 110 und 260 ms als Knistern. Shake
+`frostBomb` 0,004 für 350 ms, voll bis 150 m, keiner ab 700 m
+(`abilityNearDistance`, `abilityFarDistance`); aus der Übersichtskamera
+bleibt etwa die Hälfte.
+
 **Je Fähigkeit:** VFX, Ton und Shake wählen nach der `abilityId` im Event aus
 je einer Tabelle: `abilityVfx` im VFXService (was `ability:used` und
 `ability:impact` zeigen), `ABILITY_IMPACT_SOUNDS` in `audio.config.ts` und
@@ -217,7 +264,7 @@ geführt vom `AbilityTargetingService`):
   Build-Mode und Kartenplatzierung beenden den Modus ebenfalls.
 - Die Taste der Fähigkeit (Nuklearschlag: K) wirkt wie ein Klick auf den Knopf (`AbilityConfig.hotkey`, aufgelöst in
   `services/hotkey-map.ts`, ausgeführt vom `HotkeyService`): schaltet den
-  Modus an, wenn der Schlag feuern kann, ein zweites K schaltet ihn ab. Die
+  Modus an, wenn der Schlag feuern kann, ein zweiter Druck schaltet ihn ab. Die
   Tastenübersicht (H) führt die Taste auf.
 
 ### Fähigkeitenleiste
@@ -296,6 +343,8 @@ während einer Welle.
 | `services/hotkey-map.ts` | Taste je Fähigkeit aus `AbilityConfig.hotkey` |
 | `three-engine/renderers/ability-marker.renderer.ts` | Zielmarker und Zielring |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
+| `three-engine/renderers/frost-burst.renderer.ts` | Frostausbruch der Frostbombe |
+| `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze über den `StatusEffectService`) |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 
@@ -304,6 +353,7 @@ Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `gate-wiring.spec.ts`, `ai-data-collector.ability-kills.spec.ts`,
 `vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `screen-shake.service.spec.ts`,
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
+`integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `ability-button.spec.ts`, `nuclear-strike.strategy.spec.ts`,
 `strategy-bot.factory.spec.ts`, Backend `tests/test_gate_loop.py`.
 

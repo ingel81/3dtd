@@ -21,6 +21,7 @@ import { EFFECTIVENESS_COLORS, EFFECTIVENESS_SCALES } from '../../configs/combat
 import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
 import { enemyHitSpot } from '../../utils/enemy-hit-spot';
 import { ROUTE_BODY_AIM_HEIGHT_M } from '../../utils/route-body';
+import type { AbilityHaltStatus } from '../../configs/abilities.config';
 
 /**
  * CombatEffectService - Orchestrates projectile hits
@@ -448,6 +449,27 @@ export class CombatEffectService {
       }
     }
     return kills;
+  }
+
+  /**
+   * Ability halt: every living target halts with `status` for
+   * `durationMsOf(enemy)` game ms (StatusEffectService), the effect kept
+   * under the ability's `sourceId`, so a second strike of it refreshes.
+   */
+  applyAbilityHalt(
+    targets: readonly Enemy[],
+    status: AbilityHaltStatus,
+    durationMsOf: (enemy: Enemy) => number,
+    sourceId: string,
+  ): void {
+    for (const enemy of targets) {
+      if (!enemy.alive) continue;
+      switch (status) {
+        case 'freeze':
+          this.statusEffectService.applyFreeze(enemy, durationMsOf(enemy), sourceId);
+          break;
+      }
+    }
   }
 
   /**

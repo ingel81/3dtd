@@ -7,10 +7,12 @@ import {
   ABILITY_DEATH_BLOOD_CAP,
   BURST_PALETTES,
   EXPLOSION_PRESETS,
+  FROST_BOMB_ICE_RINGS,
   MUZZLE_FLASH_PROFILES,
   NUCLEAR_STRIKE_SCORCH_RINGS,
   PARTICLE_LIMITS,
 } from '../configs/visual-effects.config';
+import { geoDistanceFast } from '../utils/geo-utils';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 
@@ -210,9 +212,10 @@ describe('VFXService nuclear strike', () => {
       sync: {
         geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: Vector3) => target.set(7, 8, 9)),
       },
-      effects: { spawnExplosion: vi.fn(), markScorch: vi.fn() },
+      effects: { spawnExplosion: vi.fn(), markScorch: vi.fn(), spawnIceDecal: vi.fn(), groundMarksEnabled: true },
       abilityMarkers: { showStrike: vi.fn(), removeStrike: vi.fn(), clear: vi.fn() },
       mushroomClouds: { detonate: vi.fn(), clear: vi.fn() },
+      frostBursts: { burst: vi.fn(), clear: vi.fn() },
     };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
     const used = () => eventBus.emit({
@@ -277,6 +280,38 @@ describe('VFXService nuclear strike', () => {
     eventBus.emit({ type: 'game:reset' });
     expect(tilesEngine.abilityMarkers.clear).toHaveBeenCalled();
     expect(tilesEngine.mushroomClouds.clear).toHaveBeenCalled();
+    expect(tilesEngine.frostBursts.clear).toHaveBeenCalled();
+    service.destroy();
+  });
+
+  it('frost bomb: the marker, then the burst with its rime held for the freeze and frost patches', () => {
+    const { eventBus, tilesEngine, service } = strikeSetup();
+    eventBus.emit({ type: 'ability:used', abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20, warningMs: 500 });
+    expect(tilesEngine.abilityMarkers.showStrike).toHaveBeenCalledWith(5, expect.objectContaining({ x: 7, y: 8, z: 9 }), 20, 500);
+
+    eventBus.emit({ type: 'ability:impact', abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20 });
+    expect(tilesEngine.abilityMarkers.removeStrike).toHaveBeenCalledWith(5);
+    expect(tilesEngine.frostBursts.burst).toHaveBeenCalledWith(expect.objectContaining({ x: 7, y: 8, z: 9 }), 20, 3);
+    expect(tilesEngine.mushroomClouds.detonate).not.toHaveBeenCalled();
+    expect(tilesEngine.effects.markScorch).not.toHaveBeenCalled();
+
+    const patches = tilesEngine.effects.spawnIceDecal.mock.calls;
+    expect(patches).toHaveLength(1 + FROST_BOMB_ICE_RINGS.reduce((n, ring) => n + ring.count, 0));
+    expect(patches[0]).toEqual([TARGET.lat, TARGET.lon, TARGET.height, FROST_BOMB_ICE_RINGS[0].size]);
+    // The outer ring at its share of the 20 m radius, on the ground height
+    const [lat, lon, height] = patches[patches.length - 1];
+    const outer = FROST_BOMB_ICE_RINGS[FROST_BOMB_ICE_RINGS.length - 1].distance * 20;
+    expect(geoDistanceFast(TARGET, { lat, lon })).toBeCloseTo(outer, 1);
+    expect(height).toBe(TARGET.height);
+    service.destroy();
+  });
+
+  it('frost bomb: no frost patches while ground marks are off', () => {
+    const { eventBus, tilesEngine, service } = strikeSetup();
+    tilesEngine.effects.groundMarksEnabled = false;
+    eventBus.emit({ type: 'ability:impact', abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20 });
+    expect(tilesEngine.frostBursts.burst).toHaveBeenCalled();
+    expect(tilesEngine.effects.spawnIceDecal).not.toHaveBeenCalled();
     service.destroy();
   });
 });

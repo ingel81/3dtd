@@ -2,6 +2,7 @@ import {
   ABILITIES,
   ABILITY_IDS,
   abilityDamageFraction,
+  abilityFreezeMs,
   lockedAbilityStatus,
 } from './abilities.config';
 import type { AbilityEffect } from './abilities.config';
@@ -34,6 +35,38 @@ describe('abilities config', () => {
     });
     expect(research.effects).toContainEqual(
       expect.objectContaining({ kind: 'global-perk', perkId: nuke.perkId }),
+    );
+  });
+
+  it('holds the frost bomb: 20 m, 0.5 s, 3 s of freeze, bosses 1 s, key F', () => {
+    const frost = ABILITIES['frost-bomb'];
+    expect(frost).toMatchObject({
+      maxCharges: 1,
+      rechargeWaves: 3,
+      radiusM: 20,
+      warningMs: 500,
+      snapRadiusM: 30,
+      icon: 'snowflake',
+      hotkey: 'F',
+      effect: { kind: 'freeze', durationMs: 3000, bossDurationMs: 1000 },
+    });
+    const effect = frost.effect as Extract<typeof frost.effect, { kind: 'freeze' }>;
+    expect(abilityFreezeMs(effect, ENEMY_TYPES['zombie'])).toBe(3000);
+    expect(abilityFreezeMs(effect, ENEMY_TYPES['herbert'])).toBe(1000);
+  });
+
+  it('unlocks the frost bomb by its research: 700 gold, 25 s, after Arcane Studies', () => {
+    const frost = ABILITIES['frost-bomb'];
+    const research = getResearch(frost.researchId)!;
+    expect(research).toMatchObject({
+      category: 'global-perk',
+      icon: 'snowflake',
+      cost: 700,
+      duration: 25,
+      prerequisites: ['arcane-studies'],
+    });
+    expect(research.effects).toContainEqual(
+      expect.objectContaining({ kind: 'global-perk', perkId: frost.perkId }),
     );
   });
 
