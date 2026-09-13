@@ -34,7 +34,7 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
-| `enemy:spawned` | EnemyManager | GameStateSyncService, AIDataCollector, EnemyDebugService, BossBarComponent (merkt sich Bosse, außer Wurm-Segmenten) | Enemy gespawnt (`enemy`); bei einem Wurm jedes Segment, wenn es aus dem Portal kommt |
+| `enemy:spawned` | EnemyManager | GameStateSyncService, AIDataCollector, EnemyDebugService, BossBarComponent (merkt sich Bosse, außer Wurm-Segmenten), BossIntroService (Boss aus dem Portal) | Enemy gespawnt (`enemy`; `viaPortal` true für einen Wellen-Spawn aus dem Spawn-Portal, `spawn(..., 'portal')`, bei Debug-Platzierungen und Split-Kindern false oder nicht gesetzt); bei einem Wurm jedes Segment, wenn es aus dem Portal kommt |
 | `enemy:died` | EnemyManager (`kill()`, u.a. aus DamageApplicationService) | GameStateManager (Credits; außerhalb einer Welle Tower in Wachrichtung), GameStateSyncService, WaveManager, ScreenShakeService (Boss), AIDataCollector | Enemy gestorben (`enemy`, `credits`) |
 | `enemy:reached-base` | EnemyManager | GameStateManager (Schaden, gedeckelt durch `maxLeakDamagePerWave`), WaveManager, GameStateSyncService, AIDataCollector, LeakVignetteComponent (roter Rand, gedrosselt) | Enemy am Ziel (`enemy`, `damage`) |
 | `enemy:leaking` | EnemyManager (`OozeBodies.update`) | GameStateManager (Schaden, im selben Leck-Budget), WaveManager (`hpLost`), LeakVignetteComponent | Eine Ooze fließt in die HQ: Schaden für die Meter, die hineingingen, in ganzen Punkten (`enemy`, `damage`). Ihr eines `enemy:reached-base` folgt, wenn der ganze Körper drin ist |
@@ -51,7 +51,7 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `wave:started` | WaveManager | GameStateSyncService, AIDataCollector, BackgroundMusicService | Welle gestartet (`wave`, `enemyCount`). Manuelle Debug-Wellen (`beginWave()`) melden `enemyCount: 0` |
 | `game:started` | GameStateManager (vor der ersten Welle) | AIDataCollector | Spiel gestartet |
 | `game:over` | GameStateManager (`triggerGameOver()`) | GameStateSyncService, GameLoopFacade, AIDataCollector, BackgroundMusicService, TrainingSession | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`; emittiert wird nur `'base-destroyed'`) |
-| `game:reset` | GameStateManager (`reset()`) | GameStateSyncService, BackgroundMusicService | Spiel zurückgesetzt |
+| `game:reset` | GameStateManager (`reset()`) | GameStateSyncService, BackgroundMusicService, BossIntroService (bricht ein laufendes Intro ab, vergisst wartende Bosse) | Spiel zurückgesetzt |
 | `credits:changed` | GameStateManager (`CreditsLedger`) | GameStateSyncService | Credits geändert (`credits`, `delta`) |
 | `health:changed` | GameStateManager (`BaseHealthLedger`: Leaks und `debug:add-health`) | HQDamageService, ScreenShakeService, GameStateSyncService, AIDataCollector | Base Health geändert (`health`, `delta`) |
 | `research:started` | ResearchManager | kein Listener (nur Event-Debugger über `onAny`) | Forschung gestartet (`researchId`, `cost`, `duration`) |
