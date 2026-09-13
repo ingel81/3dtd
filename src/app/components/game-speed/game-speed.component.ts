@@ -39,12 +39,8 @@ import { TdIconComponent } from '../icon/icon.component';
     }
   `,
   styles: `
+    /* Placed by .td-hud-top in the game component, with the boss bar under it */
     :host {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
       display: flex;
       flex-direction: column;
       align-items: center;

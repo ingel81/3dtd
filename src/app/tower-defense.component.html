@@ -138,10 +138,16 @@
         />
       }
 
-      <!-- Game Speed: build phase and waves. Between waves it speeds up
-           research, which runs in game time. -->
-      @if (!loading() && !error() && !isGameOver()) {
-        <app-game-speed />
+      <!-- Top centre, one column so the PAUSED chip and the boss bar never
+           overlap. Game Speed: build phase and waves; between waves it speeds
+           up research, which runs in game time. Boss bar: while a boss lives. -->
+      @if (!loading() && !error()) {
+        <div class="td-hud-top">
+          @if (!isGameOver()) {
+            <app-game-speed />
+          }
+          <app-boss-bar />
+        </div>
       }
 
       <!-- Controls Hint (auto-hides after 15s, click to dismiss) -->
