@@ -88,6 +88,25 @@ describe('EnemyInstanceManager', () => {
     expect(state.currentAnim).toBe(CONFIG.walkAnimation);
   });
 
+  it('glows every type through one shared uniform, pools created later included', () => {
+    manager.createPool('zombie', fakeVat(CLIPS), ENEMY_TYPES['zombie']);
+    manager.setBloodMoon(1, false);
+    manager.createPool('bat', fakeVat(CLIPS), ENEMY_TYPES['bat']);
+    const uniforms = ['wallsmasher', 'zombie', 'bat'].map((typeId) =>
+      ((manager as unknown as { pools: Map<string, TypePool> }).pools.get(typeId)!.instancedMesh.material as ShaderMaterial).uniforms,
+    );
+    for (const u of uniforms) {
+      expect(u['bloodMoonGlow']).toBe(uniforms[0]['bloodMoonGlow']);
+      expect(u['bloodMoonGlow'].value).toBe(1);
+    }
+    const tint = uniforms[0]['bloodMoonTint'].value as Vector3;
+    expect(tint.x).toBeLessThan(1);
+
+    manager.setBloodMoon(0, false);
+    expect(uniforms[2]['bloodMoonGlow'].value).toBe(0);
+    expect(tint.toArray()).toEqual([1, 1, 1]);
+  });
+
   it('ignores a run request on a dying instance', () => {
     const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     manager.playDeathAnimation('a');
