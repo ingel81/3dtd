@@ -1,0 +1,269 @@
+import { DestroyRef, Injectable, NgZone, computed, inject, signal } from '@angular/core';
+import { Quaternion, Vector3, type PerspectiveCamera } from 'three';
+import { GameStateManager } from '../managers/game-state.manager';
+import { GameStore } from '../store/game.store';
+import { UIStore } from '../store/ui.store';
+import { TrainingClientService } from '../ai/training/training-client.service';
+import { EngineInitializationService } from './infrastructure/engine-initialization.service';
+import { CameraControlService } from './camera-control.service';
+import { KeyboardPanService } from './keyboard-pan.service';
+import { IntroCameraFlightService } from './world/intro-camera-flight.service';
+import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
+import type { ThreeTilesEngine } from '../three-engine';
+import type { Enemy } from '../entities/enemy.entity';
+import type { RouteWaypoint } from '../models/game.types';
+import { routePathToLocalPoints } from '../utils/route-path.util';
+import { cameraTimeline } from '../utils/camera-timeline';
+import {
+  BOSS_INTRO_TIMING,
+  BOSS_SHOT,
+  BossIntroGate,
+  bossClearDistance,
+  bossIntroBlock,
+  bossIntroCutMs,
+  bossIntroStage,
+  portalShot,
+  type BossIntroBlock,
+  type BossIntroStage,
+  type PortalShot,
+} from '../utils/boss-intro';
+
+/** Route the shot may stand on, from the portal (m); the framing needs about 60 at most. */
+const SHOT_ROUTE_M = 150;
+/** Longest frame the timeline advances by, so a stall does not eat the hold (ms). */
+const MAX_FRAME_MS = 100;
+
+/** A boss the gate let through, until it has stepped out of its portal. */
+interface WaitingBoss {
+  enemy: Enemy;
+  wave: number;
+  portalScale: number;
+  /** Route distance at which it stands in front of the portal (m) */
+  clearDistance: number;
+}
+
+interface IntroRun {
+  boss: WaitingBoss;
+  shot: PortalShot;
+  elapsedMs: number;
+  /** The player's view is back (reveal) */
+  returned: boolean;
+  controlsWereEnabled: boolean;
+}
+
+/**
+ * Boss intro: when a wave's boss (EnemyTypeConfig.isBoss, enemy:spawned with
+ * viaPortal) has stepped out of its spawn portal, the camera cuts to the
+ * portal behind a short dark veil, holds on the boss, and cuts back to the
+ * pose it had. Rules in utils/boss-intro.ts: one intro per boss type and
+ * wave (BossIntroGate), none in photo mode, training runs or above 4x
+ * (bossIntroBlock).
+ *
+ * Presentation only: it moves the camera and nothing in the simulation.
+ * The camera controls are off while it runs; a running quick jump (Home, N)
+ * ends. Ticked per frame from GameLoopFacadeService.onEngineUpdate, after
+ * the game's sub-steps, so a boss that clears its portal in a frame cuts in
+ * that frame. Provided by the game component: it listens on the
+ * component-scoped GameStateManager's bus.
+ */
+@Injectable()
+export class BossIntroService {
+  private readonly gameState = inject(GameStateManager);
+  private readonly gameStore = inject(GameStore);
+  private readonly uiStore = inject(UIStore);
+  private readonly trainingClient = inject(TrainingClientService);
+  private readonly engineInit = inject(EngineInitializationService);
+  private readonly cameraControl = inject(CameraControlService);
+  private readonly keyboardPan = inject(KeyboardPanService);
+  private readonly introFlight = inject(IntroCameraFlightService);
+  private readonly ngZone = inject(NgZone);
+
+  /** Stage of the running intro, null while none runs. */
+  readonly stage = signal<BossIntroStage | null>(null);
+  readonly active = computed(() => this.stage() !== null);
+
+  private readonly gate = new BossIntroGate();
+  private readonly waiting: WaitingBoss[] = [];
+  private run: IntroRun | null = null;
+
+  /** The player's camera pose before the cut */
+  private readonly savedPosition = new Vector3();
+  private readonly savedQuaternion = new Quaternion();
+  private readonly dollyPosition = new Vector3();
+
+  /** A still shot for players who asked the system for less motion */
+  private readonly dolly =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : BOSS_SHOT.dolly;
+
+  constructor() {
+    const bus = this.gameState.getEventBus();
+    const subs = [
+      bus.on('enemy:spawned', (event) => this.onSpawned(event.enemy, event.viaPortal === true)),
+      bus.on('game:reset', () => this.reset()),
+    ];
+    inject(DestroyRef).onDestroy(() => {
+      for (const sub of subs) sub.dispose();
+      this.abort();
+    });
+  }
+
+  /**
+   * Per frame, wall-clock ms: advance the running intro, else start the
+   * first waiting boss once it is out of its portal.
+   */
+  update(deltaMs: number): void {
+    if (this.run) {
+      this.advance(Math.min(deltaMs, MAX_FRAME_MS));
+      return;
+    }
+    while (this.waiting.length > 0) {
+      const boss = this.waiting[0];
+      if (!boss.enemy.active || !boss.enemy.alive) {
+        this.waiting.shift();
+        continue;
+      }
+      if (boss.enemy.movement.getDistanceAlongPath() < boss.clearDistance) return;
+      this.waiting.shift();
+      if (this.start(boss)) return;
+    }
+  }
+
+  /** Why an intro would not play now, null when it would. */
+  blocked(): BossIntroBlock | null {
+    return bossIntroBlock({
+      enabled: true,
+      photoMode: this.uiStore.photoMode(),
+      botEnabled: this.trainingClient.botEnabled(),
+      trainingConnected: this.trainingClient.isConnected(),
+      timescale: this.gameStore.trainingTimescale(),
+      renderingEnabled: this.gameStore.renderingEnabled(),
+      introFlight: this.introFlight.active(),
+    });
+  }
+
+  /** Inside a sub-step: only note the boss, update() decides once it is out. */
+  private onSpawned(enemy: Enemy, viaPortal: boolean): void {
+    if (!viaPortal || !enemy.typeConfig.isBoss) return;
+    const wave = this.gameState.waveNumber();
+    if (!this.gate.admit(enemy.typeConfig.id, wave)) return;
+    const start = enemy.movement.path[0];
+    if (!start) return;
+    const portalScale = portalScaleForWidth(portalCorridorWidth(start));
+    this.waiting.push({ enemy, wave, portalScale, clearDistance: bossClearDistance(portalScale) });
+  }
+
+  private start(boss: WaitingBoss): boolean {
+    const engine = this.engineInit.getEngine();
+    const block = this.blocked();
+    if (!engine || block) {
+      cameraTimeline.record('bossIntro.skip', { boss: boss.enemy.typeConfig.id, reason: block ?? 'no-engine' });
+      return false;
+    }
+    const camera = engine.getCamera();
+    const route = this.shotRoute(engine, boss.enemy.movement.path);
+    const shot = portalShot(route, camera.fov, boss.portalScale, boss.clearDistance, this.dolly);
+    if (!shot) return false;
+
+    this.savedPosition.copy(camera.position);
+    this.savedQuaternion.copy(camera.quaternion);
+    this.cameraControl.stopJump();
+    this.keyboardPan.clearKeys();
+    const controls = engine.getControls();
+    this.run = { boss, shot, elapsedMs: 0, returned: false, controlsWereEnabled: controls?.enabled ?? false };
+    if (controls) controls.enabled = false;
+    cameraTimeline.record('bossIntro.start', { boss: boss.enemy.typeConfig.id, wave: boss.wave }, true);
+    this.setStage('dip-in');
+    return true;
+  }
+
+  private advance(deltaMs: number): void {
+    const run = this.run!;
+    const engine = this.engineInit.getEngine();
+    if (!engine) {
+      this.abort();
+      return;
+    }
+    run.elapsedMs += deltaMs;
+    const stage = bossIntroStage(run.elapsedMs);
+
+    if (stage === 'hold' || stage === 'dip-out') {
+      this.frameShot(engine.getCamera(), run);
+    } else if (stage === 'reveal' || stage === null) {
+      if (!run.returned) this.returnCamera(engine, run);
+    }
+
+    if (stage === null) this.run = null;
+    if (stage !== this.stage()) this.setStage(stage);
+  }
+
+  /**
+   * The portal shot, pushed in by how far the hold has run. Written every
+   * frame: nothing else may move the camera meanwhile.
+   */
+  private frameShot(camera: PerspectiveCamera, run: IntroRun): void {
+    const { position, dollyTo, target } = run.shot;
+    const raw = Math.min(1, Math.max(0, (run.elapsedMs - bossIntroCutMs()) / BOSS_INTRO_TIMING.holdMs));
+    const eased = raw * raw * (3 - 2 * raw);
+    this.dollyPosition.set(
+      position.x + (dollyTo.x - position.x) * eased,
+      position.y + (dollyTo.y - position.y) * eased,
+      position.z + (dollyTo.z - position.z) * eased,
+    );
+    camera.position.copy(this.dollyPosition);
+    camera.lookAt(target.x, target.y, target.z);
+  }
+
+  /** The player's pose back and the controls with it. */
+  private returnCamera(engine: ThreeTilesEngine, run: IntroRun): void {
+    run.returned = true;
+    const camera = engine.getCamera();
+    camera.position.copy(this.savedPosition);
+    camera.quaternion.copy(this.savedQuaternion);
+    camera.updateMatrixWorld();
+    const controls = engine.getControls();
+    if (controls) controls.enabled = run.controlsWereEnabled;
+    cameraTimeline.record('bossIntro.return', { boss: run.boss.enemy.typeConfig.id }, true);
+  }
+
+  /** Restart or location change: waiting bosses go, a running intro ends where it is. */
+  private reset(): void {
+    this.gate.reset();
+    this.waiting.length = 0;
+    this.abort();
+  }
+
+  /**
+   * End a running intro without cutting back: the reset that calls it moves
+   * the camera itself. The controls come back.
+   */
+  private abort(): void {
+    const run = this.run;
+    if (!run) return;
+    this.run = null;
+    if (!run.returned) {
+      const controls = this.engineInit.getEngine()?.getControls();
+      if (controls) controls.enabled = run.controlsWereEnabled;
+    }
+    cameraTimeline.record('bossIntro.abort', { boss: run.boss.enemy.typeConfig.id });
+    this.setStage(null);
+  }
+
+  /** The route from the portal on as local ground points, as far as the shot can reach. */
+  private shotRoute(engine: ThreeTilesEngine, path: readonly RouteWaypoint[]): Vector3[] {
+    const points: Vector3[] = [];
+    let length = 0;
+    for (const waypoint of path) {
+      const [point] = routePathToLocalPoints(engine, [waypoint], 0);
+      const last = points[points.length - 1];
+      if (last) length += Math.hypot(point.x - last.x, point.z - last.z);
+      points.push(point);
+      if (length >= SHOT_ROUTE_M) break;
+    }
+    return points;
+  }
+
+  /** The render loop runs outside Angular; the veil and the card follow this signal. */
+  private setStage(stage: BossIntroStage | null): void {
+    this.ngZone.run(() => this.stage.set(stage));
+  }
+}

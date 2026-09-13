@@ -93,6 +93,7 @@ import { RunSummaryComponent } from './components/run-summary/run-summary.compon
 import { WorldRecordComponent } from './components/world-globe/world-record.component';
 import { BestWaveService } from './services/location/best-wave.service';
 import { PhotoModeService } from './services/photo-mode.service';
+import { BossIntroService } from './services/boss-intro.service';
 import { OnboardingService } from './services/onboarding/onboarding.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
@@ -154,6 +155,8 @@ import { isLocationDialogFailure } from './components/location-dialog/open-locat
     HotkeyService,
     // Deselects through the component-scoped GameStateManager
     PhotoModeService,
+    // Listens on the component-scoped GameStateManager's bus, ticked by the game loop
+    BossIntroService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',

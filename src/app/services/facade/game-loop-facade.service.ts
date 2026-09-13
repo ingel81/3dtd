@@ -28,6 +28,7 @@ import { PerformanceProfilerService } from '../debug/performance-profiler.servic
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { UIStore } from '../../store/ui.store';
 import { AutoWaveCountdown } from '../../utils/auto-wave-countdown';
+import { BossIntroService } from '../boss-intro.service';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
@@ -61,6 +62,7 @@ export class GameLoopFacadeService {
   private readonly profiler = inject(PerformanceProfilerService);
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly uiStore = inject(UIStore);
+  private readonly bossIntro = inject(BossIntroService);
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -552,6 +554,10 @@ export class GameLoopFacadeService {
         );
       }
     });
+
+    // After the sub-steps: a boss that stepped out of its portal in them
+    // cuts the camera in this frame. Its pose wins over pan and jumps above.
+    this.bossIntro.update(deltaTime);
 
     this.tickAutoWave();
 
