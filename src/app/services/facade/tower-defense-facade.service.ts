@@ -204,8 +204,9 @@ export class TowerDefenseFacadeService {
     // Start main theme music as early as possible (uses HTMLAudioElement, no engine needed)
     BackgroundMusicService.playMainTheme();
 
-    // Location detection (delegated to LocationFacade)
-    await this.locationFacade.initializeLocation();
+    // Location detection (delegated to LocationFacade). Without a location
+    // (component gone, location dialog did not load) there is nothing to start.
+    if (!(await this.locationFacade.initializeLocation())) return;
 
     // Engine initialization
     await this.initEngineSequence(canvas);

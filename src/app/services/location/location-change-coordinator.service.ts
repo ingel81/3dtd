@@ -7,7 +7,8 @@ import { HeightUpdateService } from '../world/height-update.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
 import { WorldDiceService } from './world-dice.service';
-import { openLocationDialog } from '../../components/location-dialog/open-location-dialog';
+import { LOCATION_DIALOG_LOAD_FAILED, openLocationDialog } from '../../components/location-dialog/open-location-dialog';
+import { UIStore } from '../../store/ui.store';
 import { LocationConfig, LocationDialogData, LocationDialogResult, FavoriteLocation } from '../../models/location.types';
 import {
   LocationChangeExecutorService,
@@ -50,6 +51,7 @@ export class LocationChangeCoordinatorService {
   private readonly urlLocation = inject(UrlLocationService);
   private readonly worldDice = inject(WorldDiceService);
   private readonly executor = inject(LocationChangeExecutorService);
+  private readonly uiStore = inject(UIStore);
 
   /** Favorite display names (resolved via geocoding) */
   readonly favoriteNamesMap = signal<Record<string, string>>({});
@@ -72,7 +74,8 @@ export class LocationChangeCoordinatorService {
 
   /**
    * Open location dialog to change HQ and spawn point. Resolves once the
-   * dialog is open; the first call loads its chunk.
+   * dialog is open; the first call loads its chunk. When the chunk does not
+   * load, a notice over the game says so and the game goes on.
    */
   async openLocationDialog(): Promise<void> {
     if (!this.delegate) {
@@ -103,11 +106,18 @@ export class LocationChangeCoordinatorService {
       isGameInProgress: this.delegate.isGameInProgress(),
     };
 
-    const dialogRef = await openLocationDialog(this.dialog, {
-      data: dialogData,
-      panelClass: 'td-dialog-panel',
-      disableClose: false,
-    });
+    let dialogRef: Awaited<ReturnType<typeof openLocationDialog>>;
+    try {
+      dialogRef = await openLocationDialog(this.dialog, {
+        data: dialogData,
+        panelClass: 'td-dialog-panel',
+        disableClose: false,
+      });
+    } catch (err) {
+      console.error('[LocationCoordinator] Location dialog did not load:', err);
+      this.uiStore.notice.set(LOCATION_DIALOG_LOAD_FAILED);
+      return;
+    }
 
     dialogRef.afterClosed()
       .pipe(take(1))

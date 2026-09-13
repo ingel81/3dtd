@@ -163,7 +163,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   readonly gameState = inject(GameStateManager);
-  private readonly uiStore = inject(UIStore);
+  protected readonly uiStore = inject(UIStore);
   readonly configService = inject(ConfigService);
 
   /** True while the token screen is up instead of the game. */
@@ -406,6 +406,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     }
 
     await this.startGameSequence();
+  }
+
+  /** The token screen's chunk did not load (@error of its @defer): a reload fetches it again. */
+  reloadPage(): void {
+    window.location.reload();
   }
 
   private async startGameSequence(): Promise<void> {

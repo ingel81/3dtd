@@ -31,6 +31,7 @@ import { UrlLocationService } from './url-location.service';
 import { WorldDiceService } from './world-dice.service';
 import { UIStore } from '../../store/ui.store';
 import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
+import { LOCATION_DIALOG_LOAD_FAILED } from '../../components/location-dialog/open-location-dialog';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { FavoriteLocation, LocationDialogResult } from '../../models/location.types';
 import type { StreetNetwork } from './osm-street.service';
@@ -150,7 +151,7 @@ describe('LocationChangeCoordinatorService', () => {
     rollRandomCity: vi.fn(),
     error: signal<string | null>(null),
   };
-  const uiStore = { routesVisible: signal(true) };
+  const uiStore = { routesVisible: signal(true), notice: signal<string | null>(null) };
   const gameState = { reset: vi.fn(), initialize: vi.fn(), initializeGlobalRouteGrid: vi.fn() };
 
   beforeEach(() => {
@@ -170,6 +171,7 @@ describe('LocationChangeCoordinatorService', () => {
     osm.findRandomStreetPoint.mockReturnValue(null);
     worldDice.onStepDetail = null;
     worldDice.error.set(null);
+    uiStore.notice.set(null);
     routeAnimation.isRunning.mockReturnValue(false);
     introFlight.isRunning.mockReturnValue(false);
 
@@ -522,6 +524,16 @@ describe('LocationChangeCoordinatorService', () => {
       const { data } = dialog.open.mock.calls[0][1];
       expect(data.currentLocation).toBeNull();
       expect(data.currentSpawn).toBeNull();
+    });
+
+    it('says so over the game when the dialog does not load', async () => {
+      dialog.open.mockImplementation(() => { throw new Error('Failed to fetch dynamically imported module'); });
+      coordinator.initializeFlow(delegate);
+
+      await coordinator.openLocationDialog();
+
+      expect(uiStore.notice()).toBe(LOCATION_DIALOG_LOAD_FAILED);
+      expect(engineInit.loading()).toBe(false);
     });
 
     it('does nothing when the dialog is dismissed', async () => {
