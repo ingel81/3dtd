@@ -3,23 +3,6 @@ import {
   TargetingStrategyConfig,
   TowerTypeConfig,
 } from '../../../configs/tower-types.config';
-import type { TdIconName } from '../../icon/icon.component';
-
-/** Map a damage-type to its td-icon name (config holds an emoji glyph). */
-const DAMAGE_TYPE_ICON: Record<string, TdIconName> = {
-  physical: 'sword',
-  pierce: 'target',
-  siege: 'bolt',
-  magic: 'bolt',
-  fire: 'flame',
-  ice: 'splash',
-  poison: 'skull',
-  chaos: 'shuffle',
-};
-
-export function damageTypeIcon(type: string): TdIconName {
-  return DAMAGE_TYPE_ICON[type] ?? 'sword';
-}
 
 /**
  * Compute effective DPS for the tower-detail tile. Beam towers (Fire) use

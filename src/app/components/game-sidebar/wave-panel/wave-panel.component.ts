@@ -33,19 +33,21 @@ import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive'
 import { enemyGroupTooltip, splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
 import { calculateTotalDPS } from '../../../ai/core/defense-analyzer';
 import { AirAlertAnnouncer, airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
-import { peekUpcomingWaves } from './upcoming-waves';
+import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
+import { WaveTimelineComponent } from './wave-timeline.component';
 
 /**
  * WAVE-Sektion der Sidebar: Gegnergruppen der laufenden Welle mit 3D-Preview,
- * Next-Wave-Button und COMING UP aus dem Curriculum. Meldet die Enemy-Previews
- * beim ModelPreviewService an und wieder ab. Die Fähigkeiten stehen in der
- * Leiste am linken Rand des Spielfelds (app-ability-bar).
+ * Next-Wave-Button mit Auto-Start-Schalter und NEXT als Zeitleiste aus dem
+ * Curriculum. Meldet die Enemy-Previews beim ModelPreviewService an und wieder
+ * ab. Die Fähigkeiten stehen in der Leiste am linken Rand des Spielfelds
+ * (app-ability-bar).
  */
 @Component({
   selector: 'app-sidebar-wave-panel',
   standalone: true,
-  imports: [MatTooltipModule, TdIconComponent, TdRichTooltipDirective],
+  imports: [MatTooltipModule, TdIconComponent, TdRichTooltipDirective, WaveTimelineComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wave-panel.component.html',
   styleUrl: './wave-panel.component.scss',
@@ -91,8 +93,8 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   readonly startWave = output<void>();
 
   // Wave group display, only consumed by the template while a wave is active,
-  // so we don't need curriculum-derived or debug-panel fallbacks. The COMING UP
-  // panel handles the setup-phase preview separately.
+  // so we don't need curriculum-derived or debug-panel fallbacks. The NEXT
+  // timeline handles the preview of the coming waves separately.
   readonly currentWaveGroups = this.waveDebug.currentWaveGroups;
 
   /**
@@ -138,8 +140,10 @@ export class SidebarWavePanelComponent implements AfterViewInit {
     return calculateTotalDPS(this.gameState.towerManager.getAll());
   });
 
-  /** COMING UP: die nächsten zwei Wellen, nach W30 das, was davon bekannt ist. */
-  readonly upcomingWaves = computed(() => peekUpcomingWaves(this.store.waveNumber(), this.towerDps()));
+  /** NEXT: die nächsten fünf Wellen, nach W30 das, was davon bekannt ist. */
+  readonly upcomingWaves = computed(() =>
+    peekUpcomingWaves(this.store.waveNumber(), this.towerDps(), NEXT_WAVE_MARKS)
+  );
 
   /**
    * Placed towers that hit air. Tower entities carry no signals: the tower

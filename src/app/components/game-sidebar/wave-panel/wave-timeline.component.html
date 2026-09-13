@@ -1,0 +1,51 @@
+<div class="td-next-label">NEXT</div>
+
+<div class="td-next-line" role="group" aria-label="Next waves">
+  @for (peek of peeks(); track peek.wave; let first = $first) {
+    <button type="button" class="td-next-mark"
+            [class.td-next-mark-first]="first"
+            [class.td-next-mark-shown]="peek.wave === shown()?.wave"
+            [attr.aria-pressed]="peek.wave === shown()?.wave"
+            [attr.aria-label]="markLabel(peek)"
+            (mouseenter)="hovered.set(peek.wave)"
+            (mouseleave)="hovered.set(null)"
+            (focus)="hovered.set(peek.wave)"
+            (blur)="hovered.set(null)"
+            (click)="picked.set(peek.wave)">
+      <span class="td-next-icons" aria-hidden="true">
+        @if (peek.boss) {
+          <td-icon class="td-next-boss" name="skull" [size]="10"></td-icon>
+        }
+        @if (peek.air) {
+          <td-icon class="td-next-air" name="plane" [size]="10"></td-icon>
+        }
+      </span>
+      <span class="td-next-dot" aria-hidden="true"></span>
+      <span class="td-next-num" aria-hidden="true">{{ peek.wave }}</span>
+    </button>
+  }
+</div>
+
+@if (shown(); as peek) {
+  <div class="td-next-detail" [matTooltip]="peek.tooltip" matTooltipPosition="left">
+    <span class="td-next-name" [class.td-next-name-boss]="peek.boss">{{ peek.name }}</span>
+    @if (peek.known) {
+      @if (peek.count; as count) {
+        <span class="td-next-count">{{ count }}</span>
+      }
+      <span class="td-next-armor">
+        <td-icon name="shield" [size]="10"></td-icon>
+        <span>{{ peek.armorLabel }}</span>
+      </span>
+      @if (peek.weakToTypes.length > 0) {
+        <span class="td-next-weak" role="img" [attr.aria-label]="'Weak to ' + peek.weakTo">
+          @for (type of peek.weakToTypes; track type) {
+            <td-icon [name]="damageTypeIcon(type)" [size]="11"></td-icon>
+          }
+        </span>
+      }
+    } @else {
+      <span class="td-next-note">{{ peek.note }}</span>
+    }
+  </div>
+}

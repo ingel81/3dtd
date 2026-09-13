@@ -28,7 +28,9 @@ export type TdIconName =
   | 'lock' | 'bookmark' | 'plus' | 'minus' | 'terrain' | 'copyright'
   | 'vibration' | 'fastForward' | 'gamepad' | 'trash' | 'copy' | 'dragHandle'
   | 'externalLink' | 'shuffle' | 'arrowUp' | 'walk' | 'run'
-  | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir' | 'radiation' | 'plane' | 'camera';
+  | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir' | 'radiation' | 'plane' | 'camera'
+  // damage types without an icon of their own (DAMAGE_TYPE_ICON)
+  | 'sparkle' | 'snowflake' | 'burst';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -121,6 +123,12 @@ const ICONS: Record<TdIconName, IconDef> = {
   plane: { body: '<path d="M12 3c.9 0 1.5.9 1.5 2v4.5L21 14v2l-7.5-2.5V18l2 1.5V21L12 20l-3.5 1v-1.5l2-1.5v-4.5L3 16v-2l7.5-4.5V5c0-1.1.6-2 1.5-2Z" />' },
   // Camera body with lens, for photo mode and screenshots.
   camera: { body: '<path d="M3 8h4l2-3h6l2 3h4v11H3V8Z" /><circle cx="12" cy="13" r="3.5" />' },
+  // Four-point star, magic damage.
+  sparkle: { body: '<path d="M12 3 13.8 10.2 21 12l-7.2 1.8L12 21l-1.8-7.2L3 12l7.2-1.8L12 3Z" />' },
+  // Three crossed arms with a chevron at each end of the upright one, ice damage.
+  snowflake: { body: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9M9.5 4.5 12 7l2.5-2.5M9.5 19.5 12 17l2.5 2.5" />' },
+  // Eight-point burst, siege damage.
+  burst: { body: '<path d="M12 3l1.8 4.6 4.6-2-2 4.6L21 12l-4.6 1.8 2 4.6-4.6-2L12 21l-1.8-4.6-4.6 2 2-4.6L3 12l4.6-1.8-2-4.6 4.6 2L12 3Z" />' },
 };
 
 @Component({

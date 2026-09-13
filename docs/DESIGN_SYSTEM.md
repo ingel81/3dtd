@@ -281,7 +281,7 @@ Die Sidebar (`components/game-sidebar/`) liefert Rahmen, Footer und die Wahl des
 
 | Component | Inhalt |
 |-----------|--------|
-| `wave-panel/` | WAVE: Gegnergruppen der laufenden Welle mit Preview, Next-Wave-Button, COMING UP |
+| `wave-panel/` | WAVE: Gegnergruppen der laufenden Welle mit Preview, Next-Wave-Button mit Auto-Start-Schalter, NEXT-Zeitleiste |
 | `build-panel/` | BUILD: Tower-Karten mit Preview, Build-Mode-Hinweis und Cancel |
 | `tower-panel/` | Detail des gewählten Towers: Stats, Targeting, Upgrades, Verkauf |
 | `research-panel/` | Research Center: laufende Forschungen, Warteschlange, Forschungsbaum, Upgrades, Verkauf. Ein verfügbarer Knoten startet mit freiem Slot und genug Gold, sonst reiht er sich ein ("· queue" in Teal in der Meta-Zeile); eingereihte Knoten gestrichelt in `--td-teal-dark`, die Schlange als gestrichelte Zeilen unter den laufenden mit Position, Name, Kosten (grau, solange das Gold fehlt) und Entfernen-Button, darüber "Queued · credits are paid when it starts" |
@@ -315,13 +315,15 @@ Beim ersten Erscheinen für eine Luftwelle spielt ein kurzer Ton (zwei fallende 
 
 Beschriftung, Restzahl und Balkenbreite liefert `waveButtonView()` (`wave-panel/wave-button.ts`) aus zwei Store-Werten: `waveEnemyTotal` (von `wave:started` angekündigte Größe) und `waveEnemiesLeft` (lebende plus noch nicht gespawnte Gegner). Beide pflegt `GameStateSyncService` aus `wave:started`, `enemy:died`, `enemy:reached-base` und `debug:kill-all`. Manuelle Debug-Wellen kündigen keine Größe an, dann fehlen Zahl und Balken.
 
-### COMING UP (WAVE-Panel)
+### NEXT (WAVE-Panel)
 
-Unter dem Auto-Start die nächsten zwei Wellen (`wave-panel/upcoming-waves.ts`). Je Welle eine Kopfzeile mit Nummer (`--td-rune-amber`), Template-Name und rechts der Anzahl (10px, `--td-text-muted`), darunter eingerückt unter dem Namen (34px, 9px) die Rüstungen als Icon und Name, "✈️ Air" bei Lufteinheiten und "Weak to …" in `--td-gold-dark` kursiv wie bei den Gegnergruppen der laufenden Welle. Boss-Templates stehen im Namen in `--td-text-primary`, fett.
+Unter dem Auto-Start-Schalter die nächsten fünf Wellen als Zeitleiste (`wave-panel/wave-timeline.component.*`, Daten aus `wave-panel/upcoming-waves.ts`, `NEXT_WAVE_MARKS`), darüber das Label "NEXT" (9px Mono, `letter-spacing: 0.18em`, `--td-text-muted`). Eine 1px-Linie in `--td-frame-mid` läuft durch die Marken: je Welle eine 7px-Raute (Fläche `--td-bg-dark`, Rand `--td-frame-light`), darunter die Nummer (9px Mono, `--td-text-muted`), darüber kleine Icons (10px), `skull` in `--td-gold` für Boss-Wellen, `plane` in `--td-text-muted` für Lufteinheiten. Die erste Marke ist die Welle, die der Button als Nächstes startet (Rand `--td-gold-dark`, Nummer `--td-text-secondary`); während einer Welle ist das die folgende.
+
+Unter der Linie steht eine Detailzeile für eine Marke (`shownPeek`): die unter dem Mauszeiger oder mit dem Tastaturfokus, sonst die zuletzt geklickte, solange sie noch kommt, sonst die erste. Diese Marke ist gefüllt (`--td-gold`, Rand `--td-gold-light`, Nummer fett in `--td-gold-light`, `aria-pressed`). Die Zeile (10px Mono, einzeilig, der Name kürzt zuerst mit Ellipse): Name (`--td-text-secondary`, Boss-Templates `--td-text-primary` fett), Anzahl (`--td-text-muted`), Rüstung als `shield` in `--td-text-muted` mit Namen, bei mehreren die erste und "+N", rechtsbündig die Schwächen als Icons der Schadensarten in `--td-gold` (`DAMAGE_TYPE_ICON` in `components/icon/damage-type-icon.ts`, ein eigenes Icon je Art; Name für Screenreader "Weak to …"). Der Tooltip der Zeile nennt Beschreibung, Split, Anzahl, "Weak to …" in Worten und bei mehreren Rüstungen die Konter je Rüstung. Emojis gibt es im Panel nicht.
 
 - Anzahl: vom Minimum des Templates bis zum Höchstwert, den der Director bei der aktuellen Tower-DPS schicken kann (`dpsScaledCountMax` in `templates.ts`, dieselbe Funktion, die `WaveDirectorService` nutzt; ab 500 DPS die volle Spanne). Das Fairness-Gate kann darunter bleiben, nie darüber; der Tooltip sagt beides. Die DPS (`calculateTotalDPS`, dieselbe Zahl, die der Director liest) wird neu gerechnet, wenn Tower gebaut oder verkauft werden, der gewählte Tower ein Upgrade bekommt oder eine Forschung fertig wird.
 - Weak to: die Schadensarten mit dem besten Multiplikator gegen die HP der Welle, nach Rüstung gewichtet (Template-Anteil × Basis-HP, `bestDamageTypesAgainst` in `damage-matrix.config.ts`): alle ab `strong` (1,2), höchstens drei; erreicht keine 1,2, die besten über 1,0, höchstens zwei. Bei einer Rüstung ergibt das dieselbe Liste wie der frühere handgepflegte `weakTo`-Text in `ARMOR_TYPE_UI`, der entfernt ist; die Gegnergruppen der laufenden Welle lesen jetzt ebenfalls aus der Matrix. Bei mehreren Rüstungen nennt der Tooltip die Konter je Rüstung.
-- Nach W30 wählt der Director das Template beim Wellenstart. Statt einer leeren Liste steht dort "Director's pick" mit "Template picked at wave start · boss W35" (`--td-text-muted`, kursiv), auf Boss-Wellen (ab W31 jede fünfte) "Boss wave".
+- Nach W30 wählt der Director das Template beim Wellenstart. Die Detailzeile zeigt dort "Director's pick" oder auf Boss-Wellen (ab W31 jede fünfte) "Boss wave", dazu "Template picked at wave start" (`--td-text-muted`, kursiv). Die nächste Boss-Welle steht als Totenkopf auf der Leiste: fünf Marken hintereinander enthalten nach W30 immer eine Boss-Welle; ihre Nummer nennt auch der Tooltip.
 
 ### Header (mit Stein-Textur)
 

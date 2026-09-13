@@ -321,7 +321,7 @@ export function isAntiEtherealTower(typeId: TowerTypeId): boolean {
 
 /**
  * Calculate total DPS across all towers. The director sizes waves by it;
- * COMING UP in the WAVE panel reads the same number.
+ * NEXT in the WAVE panel reads the same number.
  */
 export function calculateTotalDPS(towers: Tower[]): number {
   return towers.reduce((sum, tower) => sum + computeTowerDPS(tower), 0);

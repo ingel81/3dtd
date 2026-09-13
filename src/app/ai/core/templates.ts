@@ -613,7 +613,7 @@ export function lerpRange(range: NumberRange, t: number): number {
  * Top of the count range a defense of `totalDps` opens up (the DPS ramp): a
  * weak defense gets DPS_RAMP_FLOOR of the range, DPS_RAMP_COUNT DPS and more
  * the whole of it. The director never sends more, the fairness gate only
- * lowers it; COMING UP in the WAVE panel shows it as the top of its range.
+ * lowers it; NEXT in the WAVE panel shows it as the top of its range.
  */
 export function dpsScaledCountMax(countRange: NumberRange, totalDps: number): number {
   const frac = Math.max(DPS_RAMP_FLOOR, Math.min(1.0, totalDps / DPS_RAMP_COUNT));
