@@ -95,7 +95,8 @@
       "isAir": false,
       "threat": 1,
       "lineageHp": 80,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "rat",
@@ -105,7 +106,8 @@
       "isAir": false,
       "threat": 0.5,
       "lineageHp": 5,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "penguin",
@@ -115,7 +117,8 @@
       "isAir": false,
       "threat": 0.8,
       "lineageHp": 30,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "wallsmasher",
@@ -125,7 +128,8 @@
       "isAir": false,
       "threat": 3.5,
       "lineageHp": 200,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "bat",
@@ -135,7 +139,8 @@
       "isAir": true,
       "threat": 1.5,
       "lineageHp": 25,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "hornet",
@@ -145,7 +150,8 @@
       "isAir": true,
       "threat": 2,
       "lineageHp": 80,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "spider",
@@ -155,7 +161,8 @@
       "isAir": false,
       "threat": 2,
       "lineageHp": 60,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "zombie-soldier",
@@ -165,7 +172,8 @@
       "isAir": false,
       "threat": 3,
       "lineageHp": 160,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "tank",
@@ -175,7 +183,8 @@
       "isAir": false,
       "threat": 4,
       "lineageHp": 250,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "bear",
@@ -185,7 +194,8 @@
       "isAir": false,
       "threat": 3.5,
       "lineageHp": 300,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "dragon",
@@ -195,7 +205,8 @@
       "isAir": true,
       "threat": 8,
       "lineageHp": 450,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "mech",
@@ -205,7 +216,8 @@
       "isAir": false,
       "threat": 6,
       "lineageHp": 500,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "mammoth",
@@ -215,7 +227,8 @@
       "isAir": false,
       "threat": 5,
       "lineageHp": 400,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "herbert",
@@ -225,7 +238,8 @@
       "isAir": false,
       "threat": 50,
       "lineageHp": 500,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "ghost",
@@ -235,7 +249,8 @@
       "isAir": false,
       "threat": 6,
       "lineageHp": 120,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "wraith",
@@ -245,7 +260,8 @@
       "isAir": false,
       "threat": 7,
       "lineageHp": 100,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "zombie-v2",
@@ -255,7 +271,8 @@
       "isAir": false,
       "threat": 0.9,
       "lineageHp": 80,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "stone-golem",
@@ -265,7 +282,8 @@
       "isAir": false,
       "threat": 5.5,
       "lineageHp": 480,
-      "bodies": 1
+      "bodies": 1,
+      "maxLeaks": 1
     },
     {
       "id": "skeleton",
@@ -275,7 +293,8 @@
       "isAir": false,
       "threat": 0.7,
       "lineageHp": 32,
-      "bodies": 3
+      "bodies": 3,
+      "maxLeaks": 2
     }
   ],
   "templates": {
