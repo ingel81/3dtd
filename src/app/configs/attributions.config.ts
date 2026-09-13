@@ -24,6 +24,12 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         sourceUrl: 'https://poly.pizza/m/hNO9XvjlKa',
       },
       {
+        name: 'SWAT (Hero, recoloured, gun added)',
+        author: 'Quaternius',
+        license: 'CC0',
+        sourceUrl: 'https://poly.pizza/m/Btfn3G5Xv4',
+      },
+      {
         name: 'Big Arm (Wallsmasher)',
         author: 'Quaternius',
         license: 'CC-BY 3.0',

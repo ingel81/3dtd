@@ -315,6 +315,18 @@ höchstens 1.500 auf 940 Skeletons (2.820 Körper, 3,3 Mio. VAT-Vertices; ungek�
 5,2 Mio. gewesen). Die Tabellen zählen die Minions, als lebten alle Körper gleichzeitig;
 tatsächlich entstehen sie erst beim Tod ihres Skeletons.
 
+## Modelle außerhalb der Tabellen
+
+Nicht in der Gegner-Config, deshalb nicht in den Tabellen unten; von Hand gemessen mit
+`model-inspect.ts`.
+
+- **Held** (`public/assets/models/hero/mercenary.glb`, `tools/blender/hero_mercenary.py`,
+  Lizenz in `public/assets/models/hero/LICENSES.md`): 14.665 Vertices, 7.892 Dreiecke,
+  62 Knochen, keine Texturen, 1,1 MB. Eine Einheit auf dem Feld, kein VAT; das Budget für
+  eine einzelne Einheit (≤ 10.000 Dreiecke, Texturen ≤ 1024²) hält es ein. Höhe 1,82
+  Modelleinheiten, Blick nach +z. Der Knoten `Muzzle` hängt am Handknochen `Wrist.R`
+  (three.js: `WristR`) an der Mündung.
+
 ## Werkzeug
 
 - `npm run model-budget` schreibt die Tabellen zwischen den Markern unten; der Test läuft
