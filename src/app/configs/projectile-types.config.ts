@@ -262,6 +262,31 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
       blending: 'normal',
     },
   },
+  // The hero's standard rounds (HERO_AMMO.standard): a slimmer, faster
+  // tracer than the gatling's, one puff per gate instead of two. At 180 m/s
+  // and 3 shots a second over at most 18 m there is rarely more than one in
+  // the air.
+  'hero-round': {
+    id: 'hero-round',
+    speed: 180,
+    visualType: 'bullet',
+    scale: 0.12,
+    trailParticles: {
+      enabled: true,
+      spawnChance: 0.5,
+      countPerSpawn: 1,
+      colorMin: { r: 1.0, g: 0.75, b: 0.1 },
+      colorMax: { r: 1.0, g: 0.9, b: 0.35 },
+      sizeMin: 0.3,
+      sizeMax: 0.6,
+      lifetimeMin: 0.06,
+      lifetimeMax: 0.15,
+      velocityX: { min: -0.3, max: 0.3 },
+      velocityY: { min: -0.3, max: 0.3 },
+      velocityZ: { min: -0.3, max: 0.3 },
+      spawnOffset: 0.1,
+    },
+  },
 };
 
 export function getProjectileType(id: ProjectileTypeId): ProjectileTypeConfig {
@@ -328,5 +353,12 @@ export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> 
     refDistance: 55,
     rolloffFactor: 1.1,
     volume: 0.5,
+  },
+  // The hero's rifle: the gatling sample, quieter, it fires three times a second
+  'hero-round': {
+    url: 'assets/sounds/towers/gatling/shoot.mp3',
+    refDistance: 35,
+    rolloffFactor: 1.2,
+    volume: 0.22,
   },
 } as const;

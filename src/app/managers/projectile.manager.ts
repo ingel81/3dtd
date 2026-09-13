@@ -4,10 +4,12 @@ import { Projectile } from '../entities/projectile.entity';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
 import { ThreeTilesEngine } from '../three-engine';
-import { PROJECTILE_SOUNDS } from '../configs/projectile-types.config';
+import { PROJECTILE_SOUNDS, ProjectileTypeId } from '../configs/projectile-types.config';
+import type { TowerTypeId } from '../configs/tower-types.config';
+import type { DamageType } from '../configs/combat/combat.types';
+import type { GeoPosition } from '../models/game.types';
 import { GameEventBus } from '../game-engine';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
-import type { GeoPosition } from '../models/game.types';
 
 /**
  * Manages all projectile entities - spawning, updating, and collision
@@ -70,10 +72,6 @@ export class ProjectileManager extends EntityManager<Projectile> {
    *   (a body along the route, see Projectile.aimPoint)
    */
   spawn(tower: Tower, targetEnemy: Enemy, heading?: number, aimPoint?: GeoPosition): Projectile {
-    if (!this.tilesEngine) {
-      throw new Error('ProjectileManager not initialized');
-    }
-
     // Calculate spawn height: tower terrain height + tower model offset + shooting position
     const terrainHeight = tower.position.height ?? 0;
     const spawnHeight = terrainHeight + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
@@ -92,26 +90,89 @@ export class ProjectileManager extends EntityManager<Projectile> {
       spawnLon += (firePoint.x * cosH + firePoint.z * sinH) / metersPerDegreeLon;
     }
 
-    const spawnPosition = { lat: spawnLat, lon: spawnLon, height: tower.position.height };
-
-    const projectile = new Projectile(
-      spawnPosition,
+    const projectile = this.launch(
+      { lat: spawnLat, lon: spawnLon, height: tower.position.height },
+      spawnHeight,
       targetEnemy,
       tower.typeConfig.projectileType,
       tower.combat.damage,
-      spawnHeight,
+      tower.typeConfig.damageType,
       tower.id,
       tower.typeConfig.id,
-      tower.typeConfig.damageType,
+      // Sound at the tower's position, on its model
+      { lat: tower.position.lat, lon: tower.position.lon, height: (tower.position.height ?? 0) + tower.typeConfig.heightOffset },
+      aimPoint,
+    );
+
+    // Muzzle flash VFX (deferred — handled by VFXService)
+    this.eventBus.emitDeferred({
+      type: 'vfx:muzzle-flash',
+      towerId: tower.id,
+      towerTypeId: tower.typeConfig.id,
+    });
+
+    return projectile;
+  }
+
+  /**
+   * Fire a shot no tower fires: the hero's (HeroManager). The same flight,
+   * hit path, trail and sound as a tower's projectile of that type, with the
+   * sound where the shot starts; no muzzle flash, which is per tower model.
+   *
+   * @param origin      where the shot starts, on the ground
+   * @param originHeight geo height of the muzzle
+   * @param sourceId    id the damage path credits, HERO_SOURCE_ID for the hero
+   */
+  spawnShot(
+    origin: GeoPosition,
+    originHeight: number,
+    targetEnemy: Enemy,
+    typeId: ProjectileTypeId,
+    damage: number,
+    damageType: DamageType,
+    sourceId: string,
+  ): Projectile {
+    return this.launch(
+      origin, originHeight, targetEnemy, typeId, damage, damageType, sourceId, null,
+      { lat: origin.lat, lon: origin.lon, height: originHeight },
+    );
+  }
+
+  /** Create the projectile, its instance and trail streak, and play its sound. */
+  private launch(
+    start: GeoPosition,
+    startHeight: number,
+    targetEnemy: Enemy,
+    typeId: ProjectileTypeId,
+    damage: number,
+    damageType: DamageType,
+    sourceId: string,
+    sourceTowerType: TowerTypeId | null,
+    sound: { lat: number; lon: number; height: number },
+    aimPoint?: GeoPosition,
+  ): Projectile {
+    if (!this.tilesEngine) {
+      throw new Error('ProjectileManager not initialized');
+    }
+
+    const projectile = new Projectile(
+      start,
+      targetEnemy,
+      typeId,
+      damage,
+      startHeight,
+      sourceId,
+      sourceTowerType,
+      damageType,
       aimPoint,
     );
 
     this.tilesEngine.projectiles.create(
       projectile.id,
       projectile.typeConfig.id,
-      spawnLat,
-      spawnLon,
-      spawnHeight,
+      start.lat,
+      start.lon,
+      startHeight,
       projectile.direction
     );
 
@@ -123,15 +184,8 @@ export class ProjectileManager extends EntityManager<Projectile> {
 
     this.add(projectile);
 
-    // Play spatial sound at tower position (fire-and-forget, errors logged)
-    this.playProjectileSound(tower, projectile.typeConfig.id);
-
-    // Muzzle flash VFX (deferred — handled by VFXService)
-    this.eventBus.emitDeferred({
-      type: 'vfx:muzzle-flash',
-      towerId: tower.id,
-      towerTypeId: tower.typeConfig.id,
-    });
+    // Play spatial sound (fire-and-forget, errors logged)
+    this.playProjectileSound(projectile.typeConfig.id, sound.lat, sound.lon, sound.height);
 
     return projectile;
   }
@@ -269,22 +323,19 @@ export class ProjectileManager extends EntityManager<Projectile> {
   }
 
   /**
-   * Emit audio event for projectile sound at the tower's position
+   * Emit audio event for projectile sound at the given position
    * Uses deferred events (processed at frame end)
    */
-  private playProjectileSound(tower: Tower, projectileType: string): void {
+  private playProjectileSound(projectileType: string, lat: number, lon: number, height: number): void {
     // Map projectile types to sound IDs
     const soundId = projectileType in PROJECTILE_SOUNDS ? projectileType : 'arrow'; // Fallback to arrow sound
-
-    const pos = tower.position;
-    const height = (pos.height ?? 0) + tower.typeConfig.heightOffset;
 
     // Emit audio event (deferred, not critical)
     this.eventBus.emitDeferred({
       type: 'audio:play',
       sound: soundId,
-      lat: pos.lat,
-      lon: pos.lon,
+      lat,
+      lon,
       height,
     });
   }

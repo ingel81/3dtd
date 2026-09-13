@@ -30,6 +30,8 @@ import { GameEventBus, IGameManager, VFXService, AudioService, ScreenShakeServic
 import { PerformanceProfilerService } from '../services/debug/performance-profiler.service';
 import { ResearchManager } from './research.manager';
 import { AbilityManager } from './ability.manager';
+import { HeroManager } from './hero.manager';
+import { HERO_SOURCE_ID } from '../configs/hero.config';
 import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
 import { CreditsLedger } from './game-state/credits-ledger';
@@ -85,6 +87,20 @@ export class GameStateManager {
       this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
     strike: (targets, fractionOf) => this.combatEffect.applyAbilityStrike(targets, fractionOf),
   });
+  readonly heroManager = new HeroManager(this.eventBus, {
+    routes: () => this.pathRouteService.getCachedPaths(),
+    base: () => this.basePosition,
+    enemiesInRadius: (center, radiusM, out) =>
+      this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
+    groundHeight: (lat, lon) => this.groundHeightAt(lat, lon),
+    fire: (shot) => {
+      this.projectileManager.spawnShot(
+        shot.origin, shot.originHeight, shot.target,
+        shot.ammo.projectileType, shot.damage, shot.ammo.damageType, HERO_SOURCE_ID,
+      );
+    },
+    spend: (cost) => this.creditsLedger.spend(cost),
+  });
 
   /**
    * Canonical list of sub-managers that implement IGameManager. Used for the
@@ -109,6 +125,7 @@ export class GameStateManager {
     this.waveManager,
     this.researchManager,
     this.abilityManager,
+    this.heroManager,
   ];
 
   // Game state signals, owned by their ledgers
@@ -559,6 +576,18 @@ export class GameStateManager {
       );
       if (profiling) timings.tCombat += performance.now() - t0;
     }
+
+    // Hero: walks and fires in game time, after the enemies moved
+    this.heroManager.update(stepMs);
+  }
+
+  /** Geo height of the ground under a position, from the route grid like the enemies' feet; 0 without it. */
+  private groundHeightAt(lat: number, lon: number): number {
+    const engine = this.tilesEngine;
+    if (!engine || !this.globalRouteGrid.isInitialized()) return 0;
+    const local = engine.sync.geoToLocalSimple(lat, lon, 0);
+    const y = this.globalRouteGrid.getGroundLocalYAt(local.x, local.z);
+    return y === null ? 0 : y + engine.sync.getOrigin().height;
   }
 
   /**
@@ -719,6 +748,7 @@ export class GameStateManager {
     this.waveManager.reset();
     this.researchManager.reset();
     this.abilityManager.reset();
+    this.heroManager.reset();
 
     // NOTE: Do NOT clear GlobalRouteGrid here — it's bound to the location
     // and won't be re-initialized on a game-over restart. Tower visibility

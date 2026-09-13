@@ -10,7 +10,10 @@ import { PROJECTILE_SOUND_IDS } from './audio.config';
 import { TOWER_TYPES } from './tower-types.config';
 
 describe('projectile types config', () => {
-  const allIds: ProjectileTypeId[] = ['arrow', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob', 'chaos-orb'];
+  const allIds: ProjectileTypeId[] = [
+    'arrow', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob', 'chaos-orb',
+    'hero-round',
+  ];
 
   const expectValidTrail = (trail: TrailParticleConfig) => {
     expect(typeof trail.enabled).toBe('boolean');
@@ -67,8 +70,8 @@ describe('projectile types config', () => {
     });
   });
 
-  it('has exactly 8 projectile types', () => {
-    expect(Object.values(PROJECTILE_TYPES)).toHaveLength(8);
+  it('has exactly the listed projectile types', () => {
+    expect(Object.values(PROJECTILE_TYPES)).toHaveLength(allIds.length);
   });
 
   it('has a sound for every projectile type and budgets exactly those sounds', () => {

@@ -14,6 +14,7 @@ vi.mock('@angular/core', async () => {
 import { DamageApplicationService } from './damage-application.service';
 import { ArmorType, DamageType } from '../../configs/combat/combat.types';
 import { GameEventBus } from '../../game-engine/game-event-bus';
+import { HERO_SOURCE_ID } from '../../configs/hero.config';
 
 /** Minimal Enemy stub — only the fields/methods DamageApplicationService touches. */
 interface EnemyStub {
@@ -207,6 +208,26 @@ describe('DamageApplicationService', () => {
       expect(() =>
         service.applyDamage(vfx as never, enemy as never, 100, 'physical' as DamageType, 'missing', false, false),
       ).not.toThrow();
+    });
+
+    it('announces a kill by the hero as hero:kill and credits no tower', () => {
+      const enemy = makeEnemy({ id: 'shot', hp: 1 });
+      const heroKill = vi.fn();
+      const towerKill = vi.fn();
+      bus.on('hero:kill', heroKill);
+      bus.on('tower:kill', towerKill);
+      service.applyDamage(vfx as never, enemy as never, 100, 'physical' as DamageType, HERO_SOURCE_ID, false, false);
+      expect(killedEnemyIds).toContain('shot');
+      expect(heroKill).toHaveBeenCalledWith({ type: 'hero:kill', enemy });
+      expect(towerKill).not.toHaveBeenCalled();
+    });
+
+    it('announces no hero kill for an enemy that is already dying', () => {
+      dyingIds.add('dying');
+      const heroKill = vi.fn();
+      bus.on('hero:kill', heroKill);
+      service.applyDamage(vfx as never, makeEnemy({ id: 'dying', hp: 1 }) as never, 100, 'physical' as DamageType, HERO_SOURCE_ID, false, false);
+      expect(heroKill).not.toHaveBeenCalled();
     });
 
     it('credits no kill when the manager rejects it (enemy already dying)', () => {

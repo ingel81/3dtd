@@ -7,13 +7,15 @@ import { DamageType, DamageResult } from '../../configs/combat/combat.types';
 import { calculateDamage } from '../../utils/damage-calculator';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { enemyBloodColor, enemyHitSpot } from '../../utils/enemy-hit-spot';
+import { HERO_SOURCE_ID } from '../../configs/hero.config';
 
 /**
  * DamageApplicationService - Applies damage to enemies and handles kills
  *
  * Extracted from CombatEffectService for Single Responsibility.
  * Pure damage logic — applies HP reduction, triggers death, tracks tower kills
- * and announces them as `tower:kill`.
+ * and announces them as `tower:kill`; a kill by the hero's shots (source
+ * HERO_SOURCE_ID) as `hero:kill`.
  * Delegates visual effects to CombatVfxService.
  */
 @Injectable({ providedIn: 'root' })
@@ -40,7 +42,7 @@ export class DamageApplicationService {
    * @param enemy - Target enemy
    * @param damage - Raw damage amount (before matrix multiplier)
    * @param damageType - Type of damage being dealt
-   * @param sourceTowerId - Tower that dealt the damage
+   * @param sourceTowerId - Tower that dealt the damage, or HERO_SOURCE_ID
    * @param isSplashDamage - Whether this is splash (lower blood intensity)
    * @param skipBloodEffects - Skip blood (e.g. ice projectiles)
    * @returns DamageResult with effective damage info, or null if not initialized
@@ -162,13 +164,19 @@ export class DamageApplicationService {
   }
 
   /**
-   * Handle enemy death — kill + track on source tower.
+   * Handle enemy death — kill + track on source tower, or on the hero.
    */
   private killEnemy(enemy: Enemy, sourceTowerId: string): void {
     if (!this.towerManager || !this.enemyManager) return;
 
     // kill() ignores an enemy that is already dying; only credit real kills
     if (!this.enemyManager.kill(enemy)) return;
+
+    // The hero's shots: HeroManager counts the kill toward his levels
+    if (sourceTowerId === HERO_SOURCE_ID) {
+      this.eventBus?.emit({ type: 'hero:kill', enemy });
+      return;
+    }
 
     // Track kill on source tower
     const sourceTower = this.towerManager.getById(sourceTowerId);

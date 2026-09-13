@@ -24,6 +24,7 @@ export class GameCommandsHandler {
     this.attachTowerCommands();
     this.attachResearchCommands();
     this.attachAbilityCommands();
+    this.attachHeroCommands();
     this.attachWaveCommands();
     this.attachDebugCommands();
   }
@@ -92,6 +93,23 @@ export class GameCommandsHandler {
     // answers with ability:used or ability:rejected.
     this.subs.add(this.eventBus.on('command:use-ability', (event) => {
       this.gsm.abilityManager.use(event.abilityId, {
+        lat: event.target.lat,
+        lon: event.target.lon,
+        height: event.target.height,
+      });
+    }));
+  }
+
+  private attachHeroCommands(): void {
+    // The manager validates (research, credits, route in reach) and answers
+    // with hero:state-changed or hero:rejected. The way to a move target is
+    // computed here, inside the command, from the routes alone.
+    this.subs.add(this.eventBus.on('command:hire-hero', () => {
+      this.gsm.heroManager.hire();
+    }));
+
+    this.subs.add(this.eventBus.on('command:hero-move', (event) => {
+      this.gsm.heroManager.moveTo({
         lat: event.target.lat,
         lon: event.target.lon,
         height: event.target.height,

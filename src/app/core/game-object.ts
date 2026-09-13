@@ -3,7 +3,7 @@ import { Component, ComponentType } from './component';
 /**
  * GameObject types for type discrimination
  */
-export type GameObjectType = 'enemy' | 'tower' | 'projectile';
+export type GameObjectType = 'enemy' | 'tower' | 'projectile' | 'hero';
 
 /**
  * Abstract base class for all game entities.

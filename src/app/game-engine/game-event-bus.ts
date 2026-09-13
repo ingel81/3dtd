@@ -5,6 +5,7 @@ import { Projectile } from '../entities/projectile.entity';
 import { GeoPosition } from '../models/game.types';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import type { AbilityId, AbilityRejectReason, AbilityStatus } from '../configs/abilities.config';
+import type { HeroRejectReason, HeroStatus } from '../configs/hero.config';
 import { WaveConfig } from '../managers/wave.manager';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { WormGroup } from '../managers/worm/worm-group';
@@ -274,6 +275,45 @@ export type GameEvent =
       // answers with ability:used or ability:rejected.
       type: 'command:use-ability';
       abilityId: AbilityId;
+      target: { lat: number; lon: number; height?: number };
+    }
+
+  // ==================== Hero Events ====================
+  | {
+      // A shot of the hero killed `enemy` (DamageApplicationService, after
+      // the enemy:died of that kill). Counts toward his levels. For the
+      // fairness gate it is a kill like a tower's, not a leak.
+      type: 'hero:kill';
+      enemy: Enemy;
+    }
+  | {
+      // His kills took him to `level`
+      type: 'hero:level-up';
+      level: number;
+      position: GeoPosition;
+    }
+  | {
+      type: 'hero:rejected';
+      reason: HeroRejectReason;
+    }
+  | {
+      // Snapshot after every HeroManager mutation the UI shows (unlock, hire,
+      // order, arrival, kill, ammo). GameStateSyncService writes it into
+      // GameStore.hero.
+      type: 'hero:state-changed';
+      hero: HeroStatus;
+    }
+
+  // ==================== Hero Commands ====================
+  | {
+      // Hire the hero. The HeroManager checks research and credits and
+      // answers with hero:state-changed or hero:rejected.
+      type: 'command:hire-hero';
+    }
+  | {
+      // Send the hero to the route point nearest to `target`; the HeroManager
+      // snaps it (within 30 m) and walks him there along the routes.
+      type: 'command:hero-move';
       target: { lat: number; lon: number; height?: number };
     }
 

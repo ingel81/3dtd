@@ -195,9 +195,11 @@ export class CombatEffectService {
     // Splash trifft nur, was der Quell-Tower auch anvisieren darf. Die
     // Umkreissuche kennt nur den 2D-Abstand, ohne diesen Filter traf die
     // Cannon Fledermäuse 15 m über dem Boden, obwohl sie nicht auf Luft zielt.
+    // Ein Schuss ohne Tower (der Held) zielt auf Boden und Luft.
     const sourceType = projectile.sourceTowerType;
-    const hitsAir = canTargetAirEffective(sourceType, this.researchStore.airTargetingUnlocked());
-    const hitsGround = TOWER_TYPES[sourceType].canTargetGround ?? true;
+    const hitsAir = sourceType === null
+      || canTargetAirEffective(sourceType, this.researchStore.airTargetingUnlocked());
+    const hitsGround = sourceType === null || (TOWER_TYPES[sourceType].canTargetGround ?? true);
 
     // Treffbare Ziele samt Abstand nach vorne kompaktieren. Ein Körper entlang
     // der Route zählt mit dem Abstand zu seinem nächsten Punkt, den die
