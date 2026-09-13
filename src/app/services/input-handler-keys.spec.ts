@@ -53,7 +53,14 @@ describe('InputHandlerService keys on a focused slider', () => {
       service.handleKeyUp(keyOn('keyup', key, slider));
     }
     expect(pan.onKeyDown).not.toHaveBeenCalled();
-    expect(pan.onKeyUp).not.toHaveBeenCalled();
+  });
+
+  it('stops a pan whose arrow is released on a slider that took the focus meanwhile', () => {
+    service.handleKeyDown(keyOn('keydown', 'ArrowLeft', document.createElement('canvas')));
+    const up = keyOn('keyup', 'ArrowLeft', slider);
+    service.handleKeyUp(up);
+    expect(pan.onKeyUp).toHaveBeenCalledWith(up);
+    expect(up.defaultPrevented).toBe(false);
   });
 
   it('still pans with WASD', () => {
