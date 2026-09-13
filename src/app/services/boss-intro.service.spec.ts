@@ -13,6 +13,7 @@ vi.mock('./keyboard-pan.service', () => ({ KeyboardPanService: class KeyboardPan
 vi.mock('./world/intro-camera-flight.service', () => ({ IntroCameraFlightService: class IntroCameraFlightService {} }));
 vi.mock('../store/ui.store', () => ({ UIStore: class UIStore {} }));
 vi.mock('../store/game.store', () => ({ GameStore: class GameStore {} }));
+vi.mock('./debug/debug-facade.service', () => ({ DebugFacadeService: class DebugFacadeService {} }));
 
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
@@ -26,6 +27,7 @@ import { KeyboardPanService } from './keyboard-pan.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { UIStore } from '../store/ui.store';
 import { GameStore } from '../store/game.store';
+import { DebugFacadeService } from './debug/debug-facade.service';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { BOSS_INTRO_TIMING, bossIntroCutMs, bossIntroReturnMs } from '../utils/boss-intro';
 import type { Enemy } from '../entities/enemy.entity';
@@ -71,6 +73,7 @@ describe('BossIntroService', () => {
   let startQuaternion: Quaternion;
   let announce: ReturnType<typeof vi.fn>;
   let paused: ReturnType<typeof signal<boolean>>;
+  let bossIntroEnabled: ReturnType<typeof signal<boolean>>;
 
   const spawn = (boss: FakeBoss, viaPortal = true) => bus.emit({ type: 'enemy:spawned', enemy: boss.enemy, viaPortal });
   const frame = (ms = 16) => service.update(ms);
@@ -92,6 +95,7 @@ describe('BossIntroService', () => {
     photoMode = signal(false);
     announce = vi.fn();
     paused = signal(false);
+    bossIntroEnabled = signal(true);
     const engine = {
       getCamera: () => camera,
       getControls: () => controls,
@@ -114,6 +118,7 @@ describe('BossIntroService', () => {
         { provide: IntroCameraFlightService, useValue: { active: signal(false) } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: LiveAnnouncer, useValue: { announce } },
+        { provide: DebugFacadeService, useValue: { bossIntroEnabled } },
       ],
     });
     service = runInInjectionContext(injector, () => new BossIntroService());
@@ -204,6 +209,17 @@ describe('BossIntroService', () => {
     spawn(next);
     frame();
     expect(service.stage()).toBe('dip-in');
+  });
+
+  it('stays out when switched off in the display menu', () => {
+    bossIntroEnabled.set(false);
+    const boss = fakeBoss();
+    boss.walked = 20;
+    spawn(boss);
+    frame();
+    expect(service.stage()).toBeNull();
+    expect(paused()).toBe(false);
+    expect(camera.position.equals(startPosition)).toBe(true);
   });
 
   it('keeps the view in photo mode', () => {

@@ -60,6 +60,7 @@ export class QuickActionsComponent {
   readonly screenShakeEnabled = this.debugFacade.screenShakeEnabled;
   readonly healthBarsVisible = this.debugFacade.healthBarsVisible;
   readonly damageNumbersVisible = this.debugFacade.damageNumbersVisible;
+  readonly bossIntroEnabled = this.debugFacade.bossIntroEnabled;
   readonly fpsLimit = this.debugFacade.fpsLimit;
   readonly vfx = this.debugFacade.vfx;
   /** Preset the effect switches match, null for a mix of the player's own. */

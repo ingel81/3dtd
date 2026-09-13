@@ -54,6 +54,13 @@
                (change)="debugFacade.onScreenShakeToggled(!screenShakeEnabled())">
         <span>Screen Shake</span>
       </label>
+      <label class="td-setting-row"
+             matTooltip="Camera cut to a boss as it steps out of its portal, with its name. The game pauses meanwhile; click or Esc skips"
+             matTooltipPosition="left">
+        <input type="checkbox" [checked]="bossIntroEnabled()"
+               (change)="debugFacade.onBossIntroToggled(!bossIntroEnabled())">
+        <span>Boss Intro</span>
+      </label>
       <label class="td-setting-row">
         <input type="checkbox" [checked]="healthBarsVisible()"
                (change)="debugFacade.onHealthBarsToggled(!healthBarsVisible())">
