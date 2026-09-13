@@ -1,5 +1,9 @@
 /**
- * Status effect types that can be applied to enemies
+ * Status effect types that can be applied to enemies.
+ *
+ * freeze: frozen solid, the enemy halts (no movement, no walk cycle, no
+ * walk/run switch) for its duration; `value` is unused. Slow and freeze on
+ * the same enemy: freeze wins.
  */
 export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'poison';
 

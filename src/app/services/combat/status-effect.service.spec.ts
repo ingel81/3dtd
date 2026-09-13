@@ -89,6 +89,15 @@ describe('StatusEffectService', () => {
       });
     });
 
+    it('applyFreeze forwards a freeze of the given length', () => {
+      service.setGameClockProvider(() => clock);
+      clock = 250;
+      service.applyFreeze(enemy as never, 3000, 'ability:frost');
+      expect(enemy.movement.statusEffects[0]).toEqual({
+        type: 'freeze', value: 1, duration: 3000, startTime: 250, sourceId: 'ability:frost',
+      });
+    });
+
     it('applyEffect forwards an arbitrary effect type verbatim', () => {
       service.applyEffect(enemy as never, 'freeze' as StatusEffectType, 1, 800, 'src');
       expect(enemy.movement.statusEffects[0]).toMatchObject({

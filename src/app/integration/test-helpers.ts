@@ -171,6 +171,7 @@ export function createMockTilesEngine() {
       updateSlot: vi.fn(),
       setFreezeVisual: vi.fn(),
       setRenderType: vi.fn(),
+      setIcedVisual: vi.fn(),
     },
     oozes: {
       add: vi.fn(),
@@ -197,6 +198,9 @@ export function createMockTilesEngine() {
       updateFrostAuraPosition: vi.fn(),
       stopFrostAura: vi.fn(),
       hasFrostAura: vi.fn(() => false),
+      spawnIceCrystals: vi.fn(),
+      updateIceCrystalsPosition: vi.fn(),
+      stopIceCrystals: vi.fn(),
       spawnMuzzleFlash: vi.fn(),
       setScorchGround: vi.fn(),
       markScorch: vi.fn(),

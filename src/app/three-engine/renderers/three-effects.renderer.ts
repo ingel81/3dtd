@@ -296,6 +296,19 @@ export class ThreeEffectsRenderer {
     return this.auras.hasFrostAura(enemyId);
   }
 
+  /** Still ice crystals around a frozen enemy (freeze), capped, see AuraRenderer. */
+  spawnIceCrystals(enemyId: string, localPosition: Vector3): void {
+    this.auras.spawnIceCrystals(enemyId, localPosition);
+  }
+
+  updateIceCrystalsPosition(enemyId: string, localPosition: Vector3): void {
+    this.auras.updateIceCrystalsPosition(enemyId, localPosition);
+  }
+
+  stopIceCrystals(enemyId: string): void {
+    this.auras.stopIceCrystals(enemyId);
+  }
+
   /** Spawn orbiting green poison particles around a poisoned enemy. */
   spawnPoisonAura(enemyId: string, localPosition: Vector3): string {
     return this.auras.spawnPoisonAura(enemyId, localPosition);

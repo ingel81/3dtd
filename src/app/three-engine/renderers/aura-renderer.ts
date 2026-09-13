@@ -1,6 +1,20 @@
 import { Vector3 } from 'three';
 import { ParticlePoolManager, Particle } from './particle-pool-manager';
 
+/**
+ * Ice crystals on at most this many frozen enemies at once (4 particles each
+ * from the additive trail pool); the ones past it show the iced tint only.
+ */
+export const ICE_CRYSTAL_CAP = 48;
+
+/** Crystals around a frozen enemy: angle (rad), distance and height (m), size, whiteness 0-1 */
+const ICE_CRYSTALS = [
+  { angle: 0.4, distance: 1.1, height: 0.5, size: 2.2, white: 1 },
+  { angle: 2.2, distance: 1.3, height: 1.5, size: 1.7, white: 0.4 },
+  { angle: 3.9, distance: 1.0, height: 0.9, size: 2.0, white: 0.7 },
+  { angle: 5.3, distance: 1.2, height: 2.2, size: 1.5, white: 0.2 },
+] as const;
+
 /** One orbiting status-effect aura (frost or poison) tracked per enemy. */
 interface AuraInstance {
   particles: Particle[];
@@ -9,7 +23,8 @@ interface AuraInstance {
 }
 
 /**
- * AuraRenderer — orbiting status-effect particle auras (frost + poison).
+ * AuraRenderer — status-effect particle auras: orbiting frost and poison,
+ * and the still ice crystals of a frozen enemy.
  *
  * Split out of three-effects.renderer.ts. Each aura borrows a few particles
  * from the additive trail pool and orbits them around a tracked enemy until
@@ -21,6 +36,8 @@ export class AuraRenderer {
   private activeFrostAuras = new Map<string, AuraInstance>();
   // Poison aura tracking (orbiting green particles per enemy)
   private activePoisonAuras = new Map<string, AuraInstance>();
+  // Ice crystals of frozen enemies (still particles, see ICE_CRYSTALS)
+  private activeIceCrystals = new Map<string, AuraInstance>();
 
   /** VFX setting freezeTint; while off the frost auras are tracked without particles. */
   private frostShown = true;
@@ -134,6 +151,69 @@ export class AuraRenderer {
   }
 
   /**
+   * Ice crystals around a frozen enemy: still, white to pale cyan. Past
+   * ICE_CRYSTAL_CAP frozen enemies nothing is spawned; the enemy shows the
+   * iced tint only, and the update and stop calls for it do nothing.
+   */
+  spawnIceCrystals(enemyId: string, localPosition: Vector3): void {
+    if (this.activeIceCrystals.has(enemyId) || this.activeIceCrystals.size >= ICE_CRYSTAL_CAP) return;
+
+    const particles: Particle[] = [];
+    for (const crystal of ICE_CRYSTALS) {
+      const particle = this.pools.getInactiveParticle('trailAdditive');
+      if (!particle) break;
+      particle.velocity.set(0, 0, 0);
+      particle.life = 1.0;
+      particle.maxLife = 999; // Kept alive until explicitly stopped
+      particle.size = crystal.size;
+      particle.frameIndex = -1;
+      particle.totalFrames = 0;
+      particle.color.setRGB(0.55 + 0.4 * crystal.white, 0.85 + 0.12 * crystal.white, 1.0);
+      particles.push(particle);
+    }
+    const aura: AuraInstance = { particles, localPosition: localPosition.clone(), orbitAngle: 0 };
+    this.placeIceCrystals(aura);
+    this.activeIceCrystals.set(enemyId, aura);
+  }
+
+  /** Move the crystals with their enemy (an air unit settles, the ground height eases). */
+  updateIceCrystalsPosition(enemyId: string, localPosition: Vector3): void {
+    const aura = this.activeIceCrystals.get(enemyId);
+    if (!aura) return;
+    aura.localPosition.copy(localPosition);
+  }
+
+  /** The enemy thawed or is gone. */
+  stopIceCrystals(enemyId: string): void {
+    const aura = this.activeIceCrystals.get(enemyId);
+    if (!aura) return;
+    for (const p of aura.particles) {
+      p.life = 0;
+    }
+    this.activeIceCrystals.delete(enemyId);
+  }
+
+  hasIceCrystals(enemyId: string): boolean {
+    return this.activeIceCrystals.has(enemyId);
+  }
+
+  /** Crystals at their fixed places around the enemy, alive for another frame. */
+  private placeIceCrystals(aura: AuraInstance): void {
+    const center = aura.localPosition;
+    for (let i = 0; i < aura.particles.length; i++) {
+      const p = aura.particles[i];
+      if (p.life <= 0) continue;
+      const crystal = ICE_CRYSTALS[i];
+      p.position.set(
+        center.x + Math.cos(crystal.angle) * crystal.distance,
+        center.y + crystal.height,
+        center.z + Math.sin(crystal.angle) * crystal.distance,
+      );
+      p.life = 1.0;
+    }
+  }
+
+  /**
    * Spawn orbiting green poison particles around a poisoned enemy.
    */
   spawnPoisonAura(enemyId: string, localPosition: Vector3): string {
@@ -213,10 +293,15 @@ export class AuraRenderer {
   }
 
   /**
-   * Per-frame orbit update for all active frost + poison auras.
+   * Per-frame orbit update for all active frost + poison auras; the ice
+   * crystals stay where they are.
    * @param dt delta time in seconds
    */
   update(dt: number): void {
+    for (const aura of this.activeIceCrystals.values()) {
+      this.placeIceCrystals(aura);
+    }
+
     // Update frost aura particles (orbiting around slowed enemies)
     for (const [, aura] of this.activeFrostAuras) {
       aura.orbitAngle += dt * 3.0; // ~3 rad/s orbit speed
@@ -285,5 +370,12 @@ export class AuraRenderer {
       }
     }
     this.activePoisonAuras.clear();
+
+    for (const aura of this.activeIceCrystals.values()) {
+      for (const p of aura.particles) {
+        p.life = 0;
+      }
+    }
+    this.activeIceCrystals.clear();
   }
 }
