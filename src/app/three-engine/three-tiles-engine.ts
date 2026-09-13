@@ -46,6 +46,7 @@ import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
 import { OozeBandRenderer } from './renderers/ooze/ooze-band.renderer';
 import { BloodMoonLook } from './blood-moon/blood-moon-look';
+import { BloodMoonMood } from './blood-moon/blood-moon-mood';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -148,7 +149,7 @@ export class ThreeTilesEngine {
   /** Bodies of the oozes along the route, see OozeBodies */
   readonly oozes: OozeBandRenderer;
   /** Look of the blood moon waves, switched by BloodMoonService */
-  readonly bloodMoon = new BloodMoonLook();
+  readonly bloodMoon: BloodMoonLook;
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -328,6 +329,10 @@ export class ThreeTilesEngine {
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
     this.mushroomClouds = new MushroomCloudRenderer(this.scene, this.effects.particleShaderMaterials);
     this.oozes = new OozeBandRenderer(this.scene);
+    // Takes the fog colour set above as the one to return to
+    this.bloodMoon = new BloodMoonLook({
+      mood: new BloodMoonMood(this.scene),
+    });
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -977,7 +982,7 @@ export class ThreeTilesEngine {
     this.oozes.animate(gameDeltaSeconds * 1000);
 
     // Blood moon on wall time while the game runs; a pause holds it
-    this.bloodMoon.update(deltaTime, this.gameTimescale > 0);
+    this.bloodMoon.update(deltaTime, this.gameTimescale > 0, this.postProcessing?.needsRender() ?? false);
 
     // Screen shake is applied in render() (drawFrame), not to the camera
   }
@@ -1208,6 +1213,7 @@ export class ThreeTilesEngine {
     this.abilityMarkers.dispose();
     this.mushroomClouds.dispose();
     this.oozes.dispose();
+    this.bloodMoon.dispose();
 
     // Dispose spatial audio
     this.spatialAudio.dispose();
