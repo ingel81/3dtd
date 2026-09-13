@@ -19,7 +19,6 @@ import { MarkerVisualizationService } from '../services/world/marker-visualizati
 import { TowerPlacementService } from '../services/tower-placement.service';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GameObject } from '../core/game-object';
-import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
@@ -36,6 +35,7 @@ import { GameClock } from './game-state/game-clock';
 import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
 import { TowerLifecycle } from './game-state/tower-lifecycle';
+import { summarizeWaveGroups } from './game-state/wave-preview';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -566,41 +566,9 @@ export class GameStateManager {
     // A corridor measurement still under way finishes first.
     this.beforeCorridorLock?.('wave');
 
-    // Update wave preview in sidebar with actual values (NOT timescaled).
-    // Aggregate schedule entries by enemy type so the sidebar shows the
-    // composition the player is about to face.
-    const entries = config.schedule.entries;
-    if (entries.length > 0) {
-      const groupMap = new Map<string, { count: number; health: number; speed: number }>();
-      for (const e of entries) {
-        const existing = groupMap.get(e.enemyType);
-        if (existing) {
-          existing.count++;
-        } else {
-          groupMap.set(e.enemyType, { count: 1, health: e.health ?? 0, speed: e.speed });
-        }
-      }
-
-      const groups = Array.from(groupMap.entries()).map(([typeId, data]) => {
-        const enemyConfig = ENEMY_TYPES[typeId as keyof typeof ENEMY_TYPES];
-        const baseHp = enemyConfig.baseHp;
-        const baseSpeed = enemyConfig.baseSpeed;
-        const actualHp = data.health || baseHp;
-        const actualSpeed = data.speed;
-        return {
-          enemyType: typeId as keyof typeof ENEMY_TYPES,
-          name: enemyConfig.name,
-          count: data.count,
-          baseHp,
-          actualHp,
-          baseSpeed,
-          actualSpeed,
-          healthMultiplier: actualHp / baseHp,
-          speedMultiplier: actualSpeed / baseSpeed,
-          spawnDelay: config.schedule.baseDelay,
-        };
-      });
-
+    // Wave preview in the sidebar, see summarizeWaveGroups()
+    const groups = summarizeWaveGroups(config);
+    if (groups.length > 0) {
       this.waveDebug.setCurrentWaveGroups(groups);
     }
 
