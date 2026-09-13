@@ -34,12 +34,20 @@ export interface SpawnLocationConfig extends GeoPosition {
 }
 
 /**
+ * Tabs of the location dialog: a new HQ and spawn, a new spawn only, or the
+ * world map of defended places
+ */
+export type LocationDialogMode = 'full' | 'spawn-only' | 'world';
+
+/**
  * Data passed to location dialog
  */
 export interface LocationDialogData {
   currentLocation: LocationInfo | null;
   currentSpawn: SpawnLocationConfig | null;
   isGameInProgress: boolean;
+  /** Tab the dialog opens on, 'full' when not given */
+  initialMode?: LocationDialogMode;
 }
 
 /**
