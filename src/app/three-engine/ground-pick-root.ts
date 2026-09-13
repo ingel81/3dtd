@@ -1,4 +1,5 @@
 import { Group, type Intersection, type Object3D, type Raycaster } from 'three';
+import { raycastStats } from '../utils/raycast-stats';
 
 /**
  * GroundPickRoot: was die GlobeControls als ihre Szene sehen, nur der Boden.
@@ -26,7 +27,13 @@ export class GroundPickRoot extends Group {
 
   override raycast(raycaster: Raycaster, intersects: Intersection[]): boolean {
     if (this.ground.parent) {
-      raycaster.intersectObject(this.ground, true, intersects);
+      // In `__raycastStats()` unter `cameraControls` statt `unscoped`
+      const scope = raycastStats.enter('cameraControls');
+      try {
+        raycaster.intersectObject(this.ground, true, intersects);
+      } finally {
+        raycastStats.exit(scope);
+      }
     }
     // false: three soll nicht in die Kinder (das Pivot-Mesh) weitergehen
     return false;

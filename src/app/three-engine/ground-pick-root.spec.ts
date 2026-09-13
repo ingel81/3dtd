@@ -11,6 +11,7 @@ import {
   Vector3,
 } from 'three';
 import { EnvironmentControls } from '3d-tiles-renderer';
+import { instrumentRaycasts, raycastStats } from '../utils/raycast-stats';
 import { GroundPickRoot } from './ground-pick-root';
 
 /**
@@ -63,6 +64,19 @@ describe('GroundPickRoot', () => {
     expect(hits.length).toBeGreaterThan(0);
     expect(hits.every((hit) => hit.object === groundMesh)).toBe(true);
     expect(hits[0].point.y).toBeCloseTo(0, 6);
+  });
+
+  it('bucht die Strahlen in den Raycast-Stats als cameraControls', () => {
+    const { ground, root } = routeScene();
+    instrumentRaycasts(ground);
+    raycastStats.reset();
+
+    downRay(0, 50, 0).intersectObject(root);
+    downRay(10, 50, 10).intersectObject(root);
+
+    const row = raycastStats.rows().find((r) => r.caller === 'cameraControls');
+    expect(row?.calls).toBe(2);
+    raycastStats.reset();
   });
 
   it('trifft nichts, solange der Boden nicht in der Szene hängt', () => {
