@@ -25,6 +25,33 @@
         }
       </div>
 
+      <!-- Dev cheat: the next start is wave N, the waves before it skipped
+           (GameStateManager.jumpToWave) -->
+      <div class="section jump">
+        <div class="section-title">Jump to wave</div>
+        <div class="slider-row">
+          <span class="label">Wave</span>
+          <input type="number" class="number-input" step="1"
+                 [min]="minJumpWave()" [max]="maxJumpWave"
+                 [value]="jumpWave()"
+                 (change)="onJumpWaveChange($event)"
+                 aria-label="Wave the next start should be" />
+          <span class="jump-name">{{ jumpWaveName() }}</span>
+        </div>
+        <label class="check-row">
+          <input type="checkbox"
+                 [checked]="jumpGrantGold()"
+                 (change)="onJumpGrantGoldChange($event)" />
+          <span>Gold of the skipped waves</span>
+        </label>
+        <button class="start-wave-btn jump-btn"
+                [disabled]="!canJump()"
+                (click)="onJumpToWave()">
+          <td-icon name="fastForward" [size]="14"></td-icon>
+          {{ jumpLabel() }}
+        </button>
+      </div>
+
       <!-- Mode Toggle -->
       <div class="mode-toggle">
         <button class="mode-btn" [class.active]="!waveDebug.mixedMode()" (click)="waveDebug.mixedMode() && waveDebug.toggleMixedMode()">

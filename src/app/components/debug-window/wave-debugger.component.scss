@@ -285,6 +285,35 @@
   padding-right: 24px;
 }
 
+/* Jump to wave (dev cheat) */
+.jump-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--td-text-secondary);
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+}
+
+.check-row input {
+  margin: 0;
+  accent-color: var(--td-teal);
+  cursor: pointer;
+}
+
+.start-wave-btn.jump-btn {
+  margin-top: 8px;
+}
+
 /* Start Wave Button */
 .start-wave-btn {
   display: flex;
