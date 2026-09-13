@@ -67,8 +67,10 @@ export class RouteCellSampler {
    * what-when across the grid / tower-reg / viz pathways.
    *
    * Phase 1 semantics:
-   *  - If raycast misses: `cell.sample.state` stays `unsampled`,
-   *    `cell.terrainHeight` keeps its previous value (anchor fallback).
+   *  - If raycast misses, here and half a metre beside the cell centre
+   *    (a seam between two tile meshes, see columnNear): `cell.sample.state`
+   *    stays `unsampled`, `cell.terrainHeight` keeps its previous value
+   *    (anchor fallback).
    *  - If raycast hits: `cell.terrainHeight` and `cell.sample` are updated,
    *    `cell.heightSampled` mirrors `state === 'stable'`.
    *
@@ -125,7 +127,7 @@ export class RouteCellSampler {
 
     const column = cell.surface === 'tunnel' && cell.tunnelSpan
       ? this.tunnelColumn(cell.tunnelSpan)
-      : this.columnSampler(cell.x, cell.z);
+      : this.columnNear(cell.x, cell.z);
     if (column === null) {
       logGrid('SAMPLE', `miss key=${cell.key}`);
       return false;
@@ -146,7 +148,7 @@ export class RouteCellSampler {
     // cached by the engine.
     let clamped = false;
     if (cell.surface === 'ground' && (cell.axisX !== cell.x || cell.axisZ !== cell.z)) {
-      const axis = this.columnSampler(cell.axisX, cell.axisZ);
+      const axis = this.columnNear(cell.axisX, cell.axisZ);
       if (axis !== null && hit.y - axis.groundY > corridorConfig.roofRise) {
         hit.y = axis.groundY;
         clamped = true;
@@ -228,15 +230,40 @@ export class RouteCellSampler {
   }
 
   /**
+   * Where a probe looks, one after the other, when the column at its point
+   * finds no tile: half a metre either way along each axis. A seam between
+   * two tile meshes is far thinner; the engine caches columns in 0.5 m
+   * buckets, so each is a column of its own.
+   */
+  private static readonly SEAM_OFFSETS_M: readonly (readonly [number, number])[] = [[0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]];
+
+  /**
+   * The column at (x, z), or, where that finds no tile (a seam between two
+   * tile meshes), the first column half a metre beside it that does. At
+   * most four more column probes, only where the one at (x, z) comes back
+   * empty.
+   */
+  private columnNear(x: number, z: number): ColumnSample | null {
+    const sampler = this.columnSampler;
+    if (sampler === null) return null;
+    const column = sampler(x, z);
+    if (column !== null) return column;
+    for (const [dx, dz] of RouteCellSampler.SEAM_OFFSETS_M) {
+      const beside = sampler(x + dx, z + dz);
+      if (beside !== null) return beside;
+    }
+    return null;
+  }
+
+  /**
    * The column a tunnel cell stands on. Its own column sees only the ground
    * or roof above the tunnel, so: the ground at the two portals of its
    * stretch, interpolated along it, with the coarser of the two LODs.
    * Null until both portals have a tile.
    */
   private tunnelColumn(span: TunnelSpan): ColumnSample | null {
-    if (this.columnSampler === null) return null;
-    const a = this.columnSampler(span.ax, span.az);
-    const b = this.columnSampler(span.bx, span.bz);
+    const a = this.columnNear(span.ax, span.az);
+    const b = this.columnNear(span.bx, span.bz);
     if (a === null || b === null) return null;
     const y = a.groundY + (b.groundY - a.groundY) * span.f;
     return {

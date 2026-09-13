@@ -173,6 +173,32 @@ describe('GlobalRouteGrid terrain sampling', () => {
 });
 
 /**
+ * Playtest 2026-09-13: a row of cells across a street stayed without a
+ * height sample. A seam between two tile meshes ran through their centres,
+ * and a column in the seam finds no tile.
+ */
+describe('GlobalRouteGrid tile seams', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+  /** Ground rising 0.1 m per metre east, with a 10 cm seam at x = 21 (the centres of grid column 10). */
+  const seam = (x: number): ColumnSample | null =>
+    Math.abs(x - 21) < 0.05 ? null : { groundY: x * 0.1, topY: x * 0.1, tileDepth: 20, tileGeometricError: 2 };
+
+  it('samples a cell on the seam from half a metre beside it', () => {
+    const grid = new GlobalRouteGrid();
+    grid.initialize(seam as never, coordinateSync);
+    grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4 }, { lat: 1, lon: 40 }]]);
+
+    for (const z of [-1, 1, 3]) {
+      const cell = grid.getCellAt(21, z)!;
+      expect(cell.heightSampled, `z=${z}`).toBe(true);
+      expect(cell.terrainHeight).toBeCloseTo(2.15, 6);
+    }
+  });
+});
+
+/**
  * updateEnemyPosition() keeps a memo of the last evaluated cell on the enemy
  * and skips its Map work while the enemy stays in that cell. These pin down
  * that the memo never lets membership drift from what the full lookup gives.
