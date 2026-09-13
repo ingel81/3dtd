@@ -139,6 +139,16 @@ describe('ScreenShakeService', () => {
     service.destroy();
   });
 
+  it('rumbles long and low for the orbital laser, over the ability range', () => {
+    expect(ABILITY_IMPACT_SHAKE['orbital-laser']).toEqual({
+      preset: presets.orbitalLaser,
+      nearDistance: SCREEN_SHAKE_CONFIG.abilityNearDistance,
+      farDistance: SCREEN_SHAKE_CONFIG.abilityFarDistance,
+    });
+    expect(presets.orbitalLaser.amplitude).toBeLessThan(presets.emp.amplitude);
+    expect(presets.orbitalLaser.duration).toBeGreaterThan(presets.emp.duration);
+  });
+
   it('shakes by the ability that landed: one without an entry does not shake', () => {
     const { eventBus, engine, service } = setup();
     expect(ABILITY_IMPACT_SHAKE['nuclear-strike']).toEqual({

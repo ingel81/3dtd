@@ -11,6 +11,7 @@ Fähigkeitenleiste, Befehl über `command:use-ability`, Kills zählen als Leck.
 | Nuklearschlag | Nuclear Strike | K | Max-HP-Anteil im Radius |
 | Frostbombe | Frost Bomb | F | Freeze im Radius |
 | EMP | EMP | E | Stun im Radius, Maschinen länger |
+| Orbitallaser | Orbital Laser | L | Strahl läuft die Route entlang Richtung Spawn, Feuerschaden |
 
 Eine Fähigkeit ist eine Aktion des Spielers während einer Welle, im Gegensatz
 zum Tower, der von selbst handelt. Sie wird per Forschung freigeschaltet, hat
@@ -98,6 +99,42 @@ nach den ersten Wellen. Im Curriculum laufen Maschinen sicher in W9 und W22
 
 ---
 
+## Orbitallaser in Zahlen
+
+`ABILITIES['orbital-laser']`, Wirkung `beam`.
+
+| Punkt | Wert |
+|---|---|
+| Freischaltung | Forschung `orbital-laser`: 1.500 Gold, 45 s, Voraussetzung `master-engineering` |
+| Ladungen | wie der Nuklearschlag: 1, eine neue nach je 3 abgeschlossenen Wellen |
+| Ziel | Klick; der Strahl setzt auf dem Punkt der Gegnerroute auf, der dem Klick am nächsten liegt (Route-Polylinie, nicht Route-Zelle), im Umkreis von 30 m, sonst abgelehnt. Bei mehreren Routen die nächste, bei Gleichstand die erste in Spawn-Reihenfolge |
+| Vorwarnung | 1000 ms Spielzeit, 60 Sub-Steps |
+| Weg | vom Aufsetzpunkt die Route zurück Richtung Spawn-Portal, 18 m/s für 4000 ms, also höchstens 72 m (`abilityBeamReachM`). Beginnt die Route früher, endet der Strahl dort früher |
+| Wirkung | Radius 5 m um den Strahl in 2D, Boden und Luft. Je Sub-Step verliert jeder Gegner darunter 100 % seiner Max-HP pro Sekunde mal Sub-Step-Länge, mal dem Multiplikator von `fire` gegen seine Rüstung (Schadensmatrix), Bosse 30 % pro Sekunde; über den ganzen Strahl höchstens 60 %, Bosse 20 % (`abilityBeamFraction`, `abilityBeamCap`). Der Schaden läuft über `DamageApplicationService.applyMaxHpFraction` wie beim Nuklearschlag, kein Tower bekommt Kill oder Schaden gutgeschrieben |
+| Wave-Director | `ability:resolved` kommt nach dem letzten Tick: `hits` sind die Gegner, die der Strahl getroffen hat, `kills` alle seine Kills. Sie zählen als Leck wie beim Nuklearschlag |
+
+**Richtung.** Der Strahl läuft gegen den Strom, vom Klick Richtung Spawn:
+Er trifft die Kolonne frontal, jeden Gegner des Abschnitts einmal, und ein
+Klick vor die Spitze einer Gruppe brennt sich durch die Gruppe dahinter. Mit
+dem Strom Richtung HQ hätte ein Strahl in Gegnertempo dieselben wenigen
+Gegner lange getroffen und wäre auf das HQ zugelaufen.
+
+**Warum diese Zahlen.** Ein Gegner steht frontal etwa 10 m / (18 + v) m/s
+unter dem Strahl: ein Zombie (5 m/s) 0,43 s, ein Tank (3 m/s) 0,48 s. Mit
+Feuer 1,5 gegen ungepanzert erreicht ein Zombie in 0,4 s die 60 %-Kappe, ein
+leichter Gegner (1,2) knapp, ein Tank (schwer, 0,6) verliert gut 25 %, ein
+Golem oder Mammut (befestigt, 0,25) um 10 %, Geister (ätherisch, 0,1) kaum
+etwas; Bosse (Herbert, befestigt) um 3 %. Die Kappe ist die des
+Nuklearschlags: Der Laser nimmt keinem Gegner mehr als der Schlag, reicht
+aber 72 m die Route entlang statt 25 m um einen Punkt und zeigt über die
+Schadensart, wogegen er taugt (die Schwächen stehen in der NEXT-Zeile des
+WAVE-Panels). Die Kappe hält auch einen eingefrorenen oder langen Gegner (der
+Gallert-Boss, der eine Strecke der Route einnimmt) bei 60 % beziehungsweise
+20 %. Die Forschung hängt an Master Engineering (T3-Upgrades, laut
+Bot-Planung W15 bis W18), hinter dem Nuklearschlag.
+
+---
+
 ## Ablauf
 
 ```
@@ -140,9 +177,16 @@ Gründe für `ability:rejected`: `unknown`, `locked`, `no-charge`, `no-wave`,
   nächsten Sub-Step und wird pro Sub-Step um 16,667 ms verringert.
 - Kein Zufall. Die Radius-Abfrage liefert die Gegner in Zellen-Reihenfolge; das
   Ergebnis hängt davon nicht ab, jeder Gegner verliert seinen eigenen Anteil.
-- Die Welle endet nicht, solange ein Schlag unterwegs ist
-  (`AbilityManager.hasPendingStrikes()` in der Sub-Step-Schleife vor
-  `checkWaveComplete()`). Stirbt oder leakt der Rest der Welle in der
+- Ein Strahl (Orbitallaser) brennt nach dem Einschlag Sub-Step für Sub-Step
+  weiter: Er steht nach verbrannter Zeit mal 18 m/s auf dem Weg, den der
+  Manager beim Befehl gefegt hat (`routeSweepToward` in
+  `utils/route-sweep.ts`, reine Geometrie auf den Routen des WaveManager), und
+  trifft dort, was im Radius steht. Der Einschlag-Sub-Step brennt den ersten
+  Tick; 4000 ms sind 240 Ticks, `ability:resolved` kommt im Sub-Step des
+  letzten.
+- Die Welle endet nicht, solange ein Schlag unterwegs ist oder ein Strahl
+  brennt (`AbilityManager.hasPendingStrikes()` in der Sub-Step-Schleife vor
+  `checkWaveComplete()`); beim Orbitallaser höchstens 5 s nach dem Befehl. Stirbt oder leakt der Rest der Welle in der
   Vorwarnung, bleibt die Welle bis zum Einschlag offen, höchstens 1,5 s
   Spielzeit, und endet im Sub-Step des Einschlags. Der Schlag landet damit immer
   in seiner Welle: nie in der Aufbauphase und mit Auto-Start nie in der nächsten
@@ -270,6 +314,19 @@ Tint und Funken des Stun. Ton `emp`: der Kettenblitz des Lightning Towers,
 lauter, mit zwei leiseren Wiederholungen nach 180 und 420 ms. Shake `emp`
 0,005 für 450 ms, dieselbe Reichweite wie die Frostbombe. Keine Bodenspuren.
 
+**Orbitallaser:** während der Vorwarnung der Zielmarker im Strahlradius
+(5 m) und ein orangefarbenes Band so breit wie der Strahl über den Weg, den er
+nehmen wird (`ability:used` trägt ihn als `path`). Beim Einschlag verschwindet
+beides und der Strahl kommt herunter (`OrbitalBeamRenderer`,
+`ORBITAL_BEAM_LOOK`, in Spielzeit): eine Lichtsäule 320 m hoch, weißglühender
+Kern, orange Glut, mit Tiefentest, sodass Gebäude davor sie verdecken; am Fuß
+ein Glühen, ein Ring im Strahlradius, Funken und alle 3 m des Wegs ein
+Brandfleck (Quelle `rocket`, mit Ground Marks an). Der Fuß läuft mit 18 m/s
+die Route entlang wie in der Simulation und endet mit ihr. Ton
+`orbital_laser`: der Blitz des Lightning Towers, nach 1,3 und 2,5 s noch
+zweimal leiser, damit das Knistern etwa so lange dauert wie der Strahl. Shake
+`orbitalLaser` 0,003 für 1200 ms, dieselbe Reichweite wie Frostbombe und EMP.
+
 **Je Fähigkeit:** VFX, Ton und Shake wählen nach der `abilityId` im Event aus
 je einer Tabelle: `abilityVfx` im VFXService (was `ability:used` und
 `ability:impact` zeigen), `ABILITY_IMPACT_SOUNDS` in `audio.config.ts` und
@@ -292,7 +349,9 @@ geführt vom `AbilityTargetingService`):
 
 - Ein Ring im Strike-Radius folgt dem Cursor, gesnappt auf die Route-Zelle, auf
   der der Schlag landen würde: gold, wo er landet, rot mit dem Hinweis
-  "No route within 30 m", wo keine Zelle in Reichweite ist.
+  "No route within 30 m", wo keine Zelle in Reichweite ist. Beim Orbitallaser
+  sitzt der Ring, wo der Strahl aufsetzen würde, und ein goldenes Band zeigt
+  den Weg, den er brennen würde (`AbilityManager.previewSweep`).
 - Linksklick feuert und verlässt den Modus; auf einem ungültigen Punkt bleibt
   der Modus an. Tower-Auswahl und Bauen sind im Modus aus.
 - Esc und ein kurzer Rechtsklick brechen ab. Wellenende, verbrauchte Ladung,
@@ -386,6 +445,8 @@ während einer Welle.
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
 | `three-engine/renderers/frost-burst.renderer.ts` | Frostausbruch der Frostbombe |
 | `three-engine/renderers/emp-pulse.renderer.ts` | Puls des EMP |
+| `three-engine/renderers/orbital-beam.renderer.ts` | Strahl des Orbitallasers |
+| `utils/route-sweep.ts` | Weg des Strahls: Routenabschnitt vom Aufsetzpunkt Richtung Spawn, Punkt nach Metern |
 | `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze und Stun über den `StatusEffectService`) |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
@@ -399,6 +460,8 @@ Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,
+`integration/ability-laser.spec.ts`, `orbital-beam.renderer.spec.ts`,
+`route-sweep.spec.ts`, `ability-marker.renderer.spec.ts`,
 `ability-button.spec.ts`, `nuclear-strike.strategy.spec.ts`,
 `strategy-bot.factory.spec.ts`, Backend `tests/test_gate_loop.py`.
 

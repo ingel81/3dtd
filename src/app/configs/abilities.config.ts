@@ -12,9 +12,11 @@
 
 import type { ResearchId } from './research/research.types';
 import type { EnemyTypeConfig } from './enemy-types.config';
+import type { ArmorType, DamageType } from './combat/combat.types';
+import { DAMAGE_MATRIX } from './combat/damage-matrix.config';
 import type { TdIconName } from '../components/icon/icon.component';
 
-export type AbilityId = 'nuclear-strike' | 'frost-bomb' | 'emp';
+export type AbilityId = 'nuclear-strike' | 'frost-bomb' | 'emp' | 'orbital-laser';
 
 /**
  * What an ability does where it lands. AbilityManager.resolve() has one
@@ -29,11 +31,29 @@ export type AbilityId = 'nuclear-strike' | 'frost-bomb' | 'emp';
  * stun: every enemy in the radius is stunned (stun status, it halts):
  * machines (`mechanical`) for `mechanicalDurationMs`, bosses for
  * `bossDurationMs`, everything else for `durationMs`.
+ *
+ * beam: a beam `radiusM` wide comes down on the route and runs along it
+ * toward the spawn at `speedMps` for `durationMs`, less where the route
+ * begins sooner. Every sub-step each enemy under it loses
+ * `fractionPerSecond` of its max HP per second (bosses
+ * `bossFractionPerSecond`), times the damage matrix of `damageType`
+ * against its armor, at most `maxFraction` (bosses `bossMaxFraction`) over
+ * the whole beam.
  */
 export type AbilityEffect =
   | { kind: 'max-hp-fraction'; fraction: number; bossFraction: number }
   | { kind: 'freeze'; durationMs: number; bossDurationMs: number }
-  | { kind: 'stun'; durationMs: number; mechanicalDurationMs: number; bossDurationMs: number };
+  | { kind: 'stun'; durationMs: number; mechanicalDurationMs: number; bossDurationMs: number }
+  | {
+      kind: 'beam';
+      damageType: DamageType;
+      speedMps: number;
+      durationMs: number;
+      fractionPerSecond: number;
+      bossFractionPerSecond: number;
+      maxFraction: number;
+      bossMaxFraction: number;
+    };
 
 /** Status an ability halts its targets with (AbilityWorld.halt). */
 export type AbilityHaltStatus = 'freeze' | 'stun';
@@ -135,6 +155,33 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
     effect: { kind: 'stun', durationMs: 1500, mechanicalDurationMs: 6000, bossDurationMs: 750 },
     snapRadiusM: 30,
   },
+  'orbital-laser': {
+    id: 'orbital-laser',
+    name: 'Orbital Laser',
+    description:
+      'Call a laser down from orbit: 1 s later its beam burns for 4 s along the route toward the spawn, 72 m at most. '
+      + 'Fire damage scaled by armor, up to 60% of an enemy\'s max HP, bosses 20%. One charge, a new one every 3 waves.',
+    icon: 'laser',
+    aimHint: 'Fire',
+    hotkey: 'L',
+    researchId: 'orbital-laser',
+    perkId: 'orbital-laser',
+    maxCharges: 1,
+    rechargeWaves: 3,
+    radiusM: 5,
+    warningMs: 1000,
+    effect: {
+      kind: 'beam',
+      damageType: 'fire',
+      speedMps: 18,
+      durationMs: 4000,
+      fractionPerSecond: 1.0,
+      bossFractionPerSecond: 0.3,
+      maxFraction: 0.6,
+      bossMaxFraction: 0.2,
+    },
+    snapRadiusM: 30,
+  },
 };
 
 export const ABILITY_IDS = Object.keys(ABILITIES) as AbilityId[];
@@ -162,6 +209,32 @@ export function abilityStunMs(
 ): number {
   if (enemyType.isBoss) return effect.bossDurationMs;
   return enemyType.mechanical ? effect.mechanicalDurationMs : effect.durationMs;
+}
+
+type BeamEffect = Extract<AbilityEffect, { kind: 'beam' }>;
+
+/** Metres of route a beam covers when nothing cuts it short. */
+export function abilityBeamReachM(effect: BeamEffect): number {
+  return (effect.speedMps * effect.durationMs) / 1000;
+}
+
+/**
+ * Share of its max HP an enemy of `enemyType` wearing `armor` loses to a
+ * beam in `stepMs` of game time, before the cap (abilityBeamCap).
+ */
+export function abilityBeamFraction(
+  effect: BeamEffect,
+  enemyType: Pick<EnemyTypeConfig, 'isBoss'>,
+  armor: ArmorType,
+  stepMs: number,
+): number {
+  const perSecond = enemyType.isBoss ? effect.bossFractionPerSecond : effect.fractionPerSecond;
+  return (perSecond * DAMAGE_MATRIX[effect.damageType][armor] * stepMs) / 1000;
+}
+
+/** Most of its max HP an enemy of `enemyType` loses to one beam. */
+export function abilityBeamCap(effect: BeamEffect, enemyType: Pick<EnemyTypeConfig, 'isBoss'>): number {
+  return enemyType.isBoss ? effect.bossMaxFraction : effect.maxFraction;
 }
 
 /** One ability as the UI and the bot see it: the AbilityManager's snapshot. */

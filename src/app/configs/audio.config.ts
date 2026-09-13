@@ -154,6 +154,23 @@ export const GAME_SOUNDS = {
       { delayMs: 420, volume: 0.3 },
     ],
   },
+  /**
+   * Orbital laser: the lightning tower's bolt (2.3 s) where the beam comes
+   * down, played again twice more quietly so the crackle lasts about as
+   * long as the beam burns (4 s).
+   */
+  orbitalLaser: {
+    id: 'orbital_laser',
+    url: 'assets/sounds/towers/lightning/bolt.mp3',
+    refDistance: 130,
+    rolloffFactor: 0.7,
+    volume: 1.4,
+    maxInstances: 3,
+    tail: [
+      { delayMs: 1300, volume: 0.7 },
+      { delayMs: 2500, volume: 0.45 },
+    ],
+  },
 } as const;
 
 /**
@@ -192,4 +209,5 @@ export const ABILITY_IMPACT_SOUNDS: Record<AbilityId, AbilityImpactSound | null>
   'nuclear-strike': GAME_SOUNDS.nuclearStrike,
   'frost-bomb': GAME_SOUNDS.frostBomb,
   emp: GAME_SOUNDS.emp,
+  'orbital-laser': GAME_SOUNDS.orbitalLaser,
 };

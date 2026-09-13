@@ -116,6 +116,7 @@ export const SCREEN_SHAKE_CONFIG = {
     nuclearStrike: { amplitude: 0.014, duration: 1600 },
     frostBomb: { amplitude: 0.004, duration: 350 },
     emp: { amplitude: 0.005, duration: 450 },
+    orbitalLaser: { amplitude: 0.003, duration: 1200 },
   },
 } as const satisfies {
   nearDistance: number;
@@ -154,6 +155,11 @@ export const ABILITY_IMPACT_SHAKE: Record<AbilityId, AbilityImpactShake | null> 
   },
   emp: {
     preset: SCREEN_SHAKE_CONFIG.presets.emp,
+    nearDistance: SCREEN_SHAKE_CONFIG.abilityNearDistance,
+    farDistance: SCREEN_SHAKE_CONFIG.abilityFarDistance,
+  },
+  'orbital-laser': {
+    preset: SCREEN_SHAKE_CONFIG.presets.orbitalLaser,
     nearDistance: SCREEN_SHAKE_CONFIG.abilityNearDistance,
     farDistance: SCREEN_SHAKE_CONFIG.abilityFarDistance,
   },

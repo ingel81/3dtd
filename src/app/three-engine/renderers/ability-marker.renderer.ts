@@ -1,4 +1,6 @@
 import {
+  BufferAttribute,
+  BufferGeometry,
   CircleGeometry,
   DoubleSide,
   Group,
@@ -6,7 +8,6 @@ import {
   MeshBasicMaterial,
   RingGeometry,
   Scene,
-  type BufferGeometry,
   type Vector3,
 } from 'three';
 
@@ -20,6 +21,8 @@ const REFUSED_COLOR = 0xb83e32;   // --td-health-red: no route cell in reach
 const LIFT_M = 0.4;
 /** Drawn after the tiles and the rest of the overlay */
 const RENDER_ORDER = 950;
+/** Points of a path strip at most; a longer path is cut off (a beam's sweep is some 70 m) */
+const MAX_PATH_POINTS = 256;
 
 interface StrikeMarker {
   group: Group;
@@ -28,6 +31,8 @@ interface StrikeMarker {
   radiusM: number;
   warningMs: number;
   remainingMs: number;
+  /** The route stretch a beam will burn along, if it is one */
+  path: PathStrip | null;
 }
 
 interface AimRing {
@@ -38,14 +43,86 @@ interface AimRing {
 }
 
 /**
+ * A flat band along a path on the ground, `width` metres across, drawn in
+ * one mesh. The geometry holds MAX_PATH_POINTS points and is rewritten in
+ * place; the draw range covers the points in use.
+ */
+class PathStrip {
+  readonly mesh: Mesh<BufferGeometry, MeshBasicMaterial>;
+  private readonly position = new BufferAttribute(new Float32Array(MAX_PATH_POINTS * 2 * 3), 3);
+
+  constructor(color: number, opacity: number) {
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', this.position);
+    const index: number[] = [];
+    for (let i = 0; i < MAX_PATH_POINTS - 1; i++) {
+      const a = i * 2;
+      index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+    geometry.setIndex(index);
+    geometry.setDrawRange(0, 0);
+    this.mesh = new Mesh(geometry, new MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      side: DoubleSide,
+      depthTest: false,
+      depthWrite: false,
+    }));
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = RENDER_ORDER;
+  }
+
+  /** Lay the band along `points` (local coordinates, on the ground). */
+  set(points: readonly Vector3[], width: number): void {
+    const count = Math.min(points.length, MAX_PATH_POINTS);
+    const array = this.position.array as Float32Array;
+    const half = width / 2;
+    for (let i = 0; i < count; i++) {
+      // Across the band: perpendicular to the path in the ground plane,
+      // along the mean of the segments meeting at the point
+      const before = points[Math.max(0, i - 1)];
+      const after = points[Math.min(count - 1, i + 1)];
+      let dx = after.x - before.x;
+      let dz = after.z - before.z;
+      const length = Math.hypot(dx, dz);
+      if (length > 0) {
+        dx /= length;
+        dz /= length;
+      } else {
+        dx = 1;
+        dz = 0;
+      }
+      const p = points[i];
+      const o = i * 6;
+      array[o] = p.x - dz * half;
+      array[o + 1] = p.y + LIFT_M;
+      array[o + 2] = p.z + dx * half;
+      array[o + 3] = p.x + dz * half;
+      array[o + 4] = p.y + LIFT_M;
+      array[o + 5] = p.z - dx * half;
+    }
+    this.position.needsUpdate = true;
+    this.mesh.geometry.setDrawRange(0, count >= 2 ? (count - 1) * 6 : 0);
+    this.mesh.visible = count >= 2;
+  }
+
+  dispose(): void {
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+  }
+}
+
+/**
  * Ground markers of player abilities.
  *
  * The strike marker stands on the impact point while a strike is on its way:
  * the strike radius as an orange ring over a faint pulsing disc, and a gold
  * ring that closes from the radius onto the centre as the warning runs out,
- * in game time, so it lands with the impact at every timescale. The aiming
+ * in game time, so it lands with the impact at every timescale. A beam also
+ * shows the route stretch it will burn along as an orange band. The aiming
  * ring follows the cursor in the targeting mode: gold where a strike would
- * land, red where it would be refused.
+ * land, red where it would be refused; for a beam with its band in gold.
  *
  * Flat meshes with built-in materials (logarithmic depth comes with them),
  * depth test off: the markers have to stay readable between buildings, and
@@ -62,11 +139,16 @@ export class AbilityMarkerRenderer {
   private clockMs = 0;
 
   private aim: AimRing | null = null;
+  private aimPath: PathStrip | null = null;
 
   constructor(private readonly scene: Scene) {}
 
-  /** Mark the impact point of strike `id`: `center` in local coordinates, on the ground. */
-  showStrike(id: number, center: Vector3, radiusM: number, warningMs: number): void {
+  /**
+   * Mark the impact point of strike `id`: `center` in local coordinates, on
+   * the ground. `path` (local, on the ground) is the stretch a beam will
+   * burn along, drawn as a band as wide as the beam.
+   */
+  showStrike(id: number, center: Vector3, radiusM: number, warningMs: number, path?: readonly Vector3[]): void {
     this.removeStrike(id);
 
     const fill = this.material(STRIKE_COLOR, 0.12);
@@ -79,7 +161,14 @@ export class AbilityMarkerRenderer {
     group.position.set(center.x, center.y + LIFT_M, center.z);
     this.scene.add(group);
 
-    this.strikes.set(id, { group, fill, countdown, radiusM, warningMs, remainingMs: warningMs });
+    let strip: PathStrip | null = null;
+    if (path && path.length >= 2) {
+      strip = new PathStrip(STRIKE_COLOR, 0.22);
+      strip.set(path, radiusM * 2);
+      this.scene.add(strip.mesh);
+    }
+
+    this.strikes.set(id, { group, fill, countdown, radiusM, warningMs, remainingMs: warningMs, path: strip });
   }
 
   removeStrike(id: number): void {
@@ -89,15 +178,20 @@ export class AbilityMarkerRenderer {
     for (const child of marker.group.children) {
       ((child as Mesh).material as MeshBasicMaterial).dispose();
     }
+    if (marker.path) {
+      this.scene.remove(marker.path.mesh);
+      marker.path.dispose();
+    }
     this.strikes.delete(id);
   }
 
   /**
    * Aiming ring of the targeting mode: the strike radius around `center`
    * (local coordinates, on the ground), gold where a strike would land, red
-   * where it would be refused.
+   * where it would be refused. `path` is a beam's stretch, drawn as a gold
+   * band; without one the band hides.
    */
-  showAim(center: Vector3, radiusM: number, valid: boolean): void {
+  showAim(center: Vector3, radiusM: number, valid: boolean, path?: readonly Vector3[]): void {
     if (this.aim?.radiusM !== radiusM) {
       this.disposeAim();
       const fill = this.material(AIM_COLOR, 0.08);
@@ -115,10 +209,21 @@ export class AbilityMarkerRenderer {
     aim.fill.color.setHex(color);
     aim.group.position.set(center.x, center.y + LIFT_M, center.z);
     aim.group.visible = true;
+
+    if (path && path.length >= 2) {
+      if (!this.aimPath) {
+        this.aimPath = new PathStrip(AIM_COLOR, 0.2);
+        this.scene.add(this.aimPath.mesh);
+      }
+      this.aimPath.set(path, radiusM * 2);
+    } else if (this.aimPath) {
+      this.aimPath.mesh.visible = false;
+    }
   }
 
   hideAim(): void {
     if (this.aim) this.aim.group.visible = false;
+    if (this.aimPath) this.aimPath.mesh.visible = false;
   }
 
   /**
@@ -156,11 +261,12 @@ export class AbilityMarkerRenderer {
   }
 
   private disposeAim(): void {
-    if (!this.aim) return;
-    this.scene.remove(this.aim.group);
-    this.aim.edge.dispose();
-    this.aim.fill.dispose();
-    this.aim = null;
+    if (this.aim) {
+      this.scene.remove(this.aim.group);
+      this.aim.edge.dispose();
+      this.aim.fill.dispose();
+      this.aim = null;
+    }
   }
 
   /** The shapes lie in the XY plane; the group turns them flat onto the ground. */

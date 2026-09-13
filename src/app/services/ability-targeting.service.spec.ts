@@ -20,6 +20,7 @@ vi.mock('./world/map-placement.service', () => ({ MapPlacementService: class Map
 
 import { AbilityTargetingService } from './ability-targeting.service';
 import { lockedAbilityStatus, type AbilityRejectReason, type AbilityStatus } from '../configs/abilities.config';
+import type { RouteSweep } from '../utils/route-sweep';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import type { GeoPosition } from '../models/game.types';
 
@@ -33,13 +34,17 @@ describe('AbilityTargetingService', () => {
   let exitBuildMode: ReturnType<typeof vi.fn>;
   let useCheck: AbilityRejectReason | null;
   let snapTo: GeoPosition | null;
+  let sweep: RouteSweep | null;
   let sent: GameEvent[];
   let markers: { showAim: ReturnType<typeof vi.fn>; hideAim: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     effects.length = 0;
     ui = { buildMode: signal(false), mapPlacementMode: signal(null), abilityTargeting: signal(null) };
-    store = { waveActive: signal(true), abilities: signal({ 'nuclear-strike': CHARGED }) };
+    store = {
+      waveActive: signal(true),
+      abilities: signal({ 'nuclear-strike': CHARGED, 'orbital-laser': { ...CHARGED, id: 'orbital-laser' } }),
+    };
     exitBuildMode = vi.fn(() => ui.buildMode.set(false));
     injections['UIStore'] = ui;
     injections['TowerDefenseStore'] = store;
@@ -47,6 +52,7 @@ describe('AbilityTargetingService', () => {
     injections['MapPlacementService'] = { exitPlacementMode: vi.fn() };
     useCheck = null;
     snapTo = { lat: 48.10001, lon: 9.10001, height: 301 };
+    sweep = null;
     sent = [];
     markers = { showAim: vi.fn(), hideAim: vi.fn() };
 
@@ -56,7 +62,7 @@ describe('AbilityTargetingService', () => {
       sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, out: Vector3) => out.set(1, 2, 3) },
     };
     const gameState = {
-      abilityManager: { checkUse: () => useCheck, resolveTarget: () => snapTo },
+      abilityManager: { checkUse: () => useCheck, resolveTarget: () => snapTo, previewSweep: () => sweep },
       getEventBus: () => ({ emit: (e: GameEvent) => sent.push(e) }),
     };
     service.initialize(engine as never, gameState as never);
@@ -94,6 +100,23 @@ describe('AbilityTargetingService', () => {
     const cursor = new Vector3(9, 9, 9);
     service.hover(48.1, 9.1, cursor);
     expect(markers.showAim).toHaveBeenCalledWith(cursor, 25, false);
+    expect(service.warning()).toBe('No route within 30 m');
+  });
+
+  it('shows a beam the ring where its sweep starts and the band of the stretch it would burn', () => {
+    sweep = { points: [{ lat: 48.1, lon: 9.1 }, { lat: 48.0995, lon: 9.1 }], cumulative: [0, 55], length: 55 };
+    service.start('orbital-laser');
+    service.hover(48.1, 9.1, new Vector3(9, 9, 9));
+    expect(markers.showAim).toHaveBeenCalledWith(expect.objectContaining({ x: 1, y: 2, z: 3 }), 5, true, [
+      expect.objectContaining({ x: 1, y: 2, z: 3 }),
+      expect.objectContaining({ x: 1, y: 2, z: 3 }),
+    ]);
+    expect(service.warning()).toBeNull();
+
+    sweep = null;
+    const cursor = new Vector3(9, 9, 9);
+    service.hover(48.2, 9.2, cursor);
+    expect(markers.showAim).toHaveBeenLastCalledWith(cursor, 5, false);
     expect(service.warning()).toBe('No route within 30 m');
   });
 

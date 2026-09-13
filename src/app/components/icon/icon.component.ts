@@ -34,7 +34,9 @@ export type TdIconName =
   // world map
   | 'globe'
   // veteran rank insignia
-  | 'chevrons2' | 'chevrons3' | 'star';
+  | 'chevrons2' | 'chevrons3' | 'star'
+  // orbital laser ability
+  | 'laser';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -142,6 +144,8 @@ const ICONS: Record<TdIconName, IconDef> = {
   chevrons2: { body: '<path d="M6 13l6-5 6 5M6 18l6-5 6 5" />' },
   chevrons3: { body: '<path d="M6 9l6-5 6 5M6 14l6-5 6 5M6 19l6-5 6 5" />' },
   star: { body: '<path d="M12 3l2.3 5.8 6.3.4-4.9 4 1.6 6.1L12 15.9l-5.3 3.4 1.6-6.1-4.9-4 6.3-.4L12 3Z" />', fill: 'currentColor' },
+  // Satellite with two panels, its beam straight down onto a splash on the ground. Orbital laser.
+  laser: { body: '<rect x="9.5" y="2.5" width="5" height="4" rx="0.5" /><path d="M3.5 4.5h6M14.5 4.5h6M12 6.5V18M8 21l2-3h4l2 3M6.5 19.5l2-1M17.5 19.5l-2-1" />' },
 };
 
 @Component({

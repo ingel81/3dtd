@@ -5,12 +5,15 @@ import { ABILITIES } from '../configs/abilities.config';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GamePhase, GeoPosition } from '../models/game.types';
+import { routeSweepToward, type RouteSweep } from '../utils/route-sweep';
+import { METERS_PER_DEGREE_LAT, geoDistanceFast } from '../utils/geo-utils';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
 const NUKE = ABILITIES['nuclear-strike'];
 const FROST = ABILITIES['frost-bomb'];
 const EMP = ABILITIES['emp'];
+const LASER = ABILITIES['orbital-laser'];
 const TARGET: GeoPosition = { lat: 48.1, lon: 9.1, height: 0 };
 
 function enemyOf(id: string, type: string): Enemy {
@@ -25,6 +28,7 @@ describe('AbilityManager', () => {
   let inRadius: Enemy[];
   let strikes: { ids: string[]; fractions: number[] }[];
   let halts: { ids: string[]; status: string; durations: number[]; sourceId: string }[];
+  let sweep: RouteSweep | null;
   let strikeKills: number;
   let world: AbilityWorld;
 
@@ -47,6 +51,7 @@ describe('AbilityManager', () => {
     inRadius = [];
     strikes = [];
     halts = [];
+    sweep = null;
     strikeKills = 0;
     world = {
       snapToRoute: vi.fn((target: GeoPosition) => (routeInReach ? { ...target, height: 5 } : null)),
@@ -62,6 +67,7 @@ describe('AbilityManager', () => {
       halt: vi.fn((targets: readonly Enemy[], status: string, durationOf: (enemy: Enemy) => number, sourceId: string) => {
         halts.push({ ids: targets.map((t) => t.id), status, durations: targets.map(durationOf), sourceId });
       }),
+      routeSweep: vi.fn(() => sweep),
     };
     manager = new AbilityManager(bus, world);
     manager.setPhaseProvider(() => phase);
@@ -210,6 +216,106 @@ describe('AbilityManager', () => {
         sourceId: 'ability:emp',
       }]);
       expect(world.strike).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('orbital laser', () => {
+    /** 100 m of route straight north from the target: the whole 72 m of reach fit */
+    const ROUTE = [{ lat: TARGET.lat + 100 / METERS_PER_DEGREE_LAT, lon: TARGET.lon }, { ...TARGET, height: 5 }];
+    /** An enemy the beam can burn: alive, with its armor */
+    const beamEnemy = (id: string, type: string) =>
+      ({ id, typeConfig: ENEMY_TYPES[type], alive: true, getEffectiveArmorType: () => ENEMY_TYPES[type].armorType }) as unknown as Enemy;
+    /** Sub-steps of 16.667 ms in the 4 s burn */
+    const BURN_STEPS = 240;
+
+    beforeEach(() => {
+      unlock(LASER.perkId);
+      sweep = routeSweepToward([ROUTE], TARGET, LASER.snapRadiusM, 72);
+    });
+
+    it('aims at the route stretch from the target toward the spawn', () => {
+      expect(manager.previewSweep('orbital-laser', TARGET)).toBe(sweep);
+      expect(world.routeSweep).toHaveBeenCalledWith(TARGET, 30, 72);
+      expect(manager.resolveTarget('orbital-laser', TARGET)).toBe(sweep!.points[0]);
+      expect(manager.previewSweep('nuclear-strike', TARGET)).toBeNull();
+    });
+
+    it('refuses where no route is in reach and keeps the charge', () => {
+      sweep = null;
+      expect(manager.use('orbital-laser', TARGET)).toEqual({ ok: false, reason: 'no-route' });
+      expect(manager.getStatus('orbital-laser').charges).toBe(1);
+    });
+
+    it('announces the sweep with the use and the impact', () => {
+      const events: GameEvent[] = [];
+      bus.onAny((e) => events.push(e));
+      manager.use('orbital-laser', TARGET);
+      tick(60);
+      const used = events.find((e) => e.type === 'ability:used') as Extract<GameEvent, { type: 'ability:used' }>;
+      const impact = events.find((e) => e.type === 'ability:impact') as Extract<GameEvent, { type: 'ability:impact' }>;
+      expect(used.path).toBe(sweep!.points);
+      expect(used.radiusM).toBe(5);
+      expect(used.warningMs).toBe(1000);
+      expect(impact.path).toBe(sweep!.points);
+    });
+
+    it('lands on the 60th sub-step and then runs 18 m/s along the stretch, one tick per sub-step', () => {
+      manager.use('orbital-laser', TARGET);
+      tick(59);
+      expect(world.enemiesInRadius).not.toHaveBeenCalled();
+      tick(1);
+      const centres = () => (world.enemiesInRadius as ReturnType<typeof vi.fn>).mock.calls.map(([c]) => ({ ...c }));
+      expect(centres()).toHaveLength(1);
+      expect(geoDistanceFast(centres()[0], TARGET)).toBeLessThan(0.01);
+
+      tick(100);
+      const walked = geoDistanceFast(centres()[100], TARGET);
+      expect(walked).toBeCloseTo(18 * 100 * STEP_MS / 1000, 1);
+      expect(world.enemiesInRadius).toHaveBeenLastCalledWith(expect.anything(), LASER.radiusM, expect.any(Array));
+    });
+
+    it('burns every enemy under it by its fire share, up to the cap, and resolves after 4 s', () => {
+      const resolved: GameEvent[] = [];
+      bus.on('ability:resolved', (e) => resolved.push(e));
+      inRadius = [beamEnemy('z1', 'zombie'), beamEnemy('t1', 'tank'), beamEnemy('boss', 'herbert')];
+      strikeKills = 0;
+      manager.use('orbital-laser', TARGET);
+      // The landing sub-step burns the first tick: the last is the 239th after it
+      tick(60 + BURN_STEPS - 2);
+      expect(resolved).toEqual([]);
+      expect(manager.hasPendingStrikes()).toBe(true);
+      expect(manager.getStatus('orbital-laser').pending).toBe(true);
+      tick(1);
+      expect(resolved).toEqual([{ type: 'ability:resolved', abilityId: 'orbital-laser', strikeId: 1, hits: 3, kills: 0 }]);
+      expect(manager.hasPendingStrikes()).toBe(false);
+
+      const total = (id: string) => strikes.reduce((sum, s) => sum + (s.fractions[s.ids.indexOf(id)] ?? 0), 0);
+      // Unarmored: 1.5 x 100 % per second, at the cap after 24 sub-steps
+      expect(total('z1')).toBeCloseTo(0.6, 6);
+      expect(strikes.filter((s) => s.ids.includes('z1'))).toHaveLength(24);
+      // Heavy: 0.6 x 100 % per second, 0.01 a sub-step, at the cap as well
+      expect(total('t1')).toBeCloseTo(0.6, 6);
+      // Fortified boss: 0.25 x 30 % per second for 4 s = 0.3, capped at 0.2
+      expect(total('boss')).toBeCloseTo(0.2, 6);
+      expect(strikes.every((s) => s.fractions.every((f) => f > 0))).toBe(true);
+    });
+
+    it('adds up the kills of every tick', () => {
+      const resolved: GameEvent[] = [];
+      bus.on('ability:resolved', (e) => resolved.push(e));
+      inRadius = [beamEnemy('z1', 'zombie')];
+      strikeKills = 1; // what the damage path reports for each tick with a target
+      manager.use('orbital-laser', TARGET);
+      tick(60 + BURN_STEPS);
+      expect(resolved).toEqual([expect.objectContaining({ hits: 1, kills: 24 })]);
+    });
+
+    it('ends where the stretch ends before its time is up', () => {
+      sweep = routeSweepToward([ROUTE], TARGET, LASER.snapRadiusM, 36); // 2 s of burn
+      manager.use('orbital-laser', TARGET);
+      tick(60 + 120);
+      expect(manager.hasPendingStrikes()).toBe(false);
+      expect(world.enemiesInRadius).toHaveBeenCalledTimes(120);
     });
   });
 

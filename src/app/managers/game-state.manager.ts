@@ -40,6 +40,7 @@ import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
 import { TowerLifecycle } from './game-state/tower-lifecycle';
 import { summarizeWaveGroups } from './game-state/wave-preview';
+import { routeSweepToward } from '../utils/route-sweep';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -90,6 +91,8 @@ export class GameStateManager {
     strike: (targets, fractionOf) => this.combatEffect.applyAbilityStrike(targets, fractionOf),
     halt: (targets, status, durationMsOf, sourceId) =>
       this.combatEffect.applyAbilityHalt(targets, status, durationMsOf, sourceId),
+    routeSweep: (target, maxDistanceM, lengthM) =>
+      routeSweepToward(this.waveManager.getPaths(), target, maxDistanceM, lengthM),
   });
   // The hero's measure on bodies along the route (HeroWorld.bodyContact)
   private readonly heroLocal = new Vector3();
@@ -329,6 +332,8 @@ export class GameStateManager {
     // The hero stands on the route grid's ground like the enemies
     tilesEngine.hero.setGround(this.globalRouteGrid);
     this.heroManager.setView(tilesEngine.hero);
+    // The foot of the orbital laser's beam as well
+    tilesEngine.orbitalBeams.setGround(this.globalRouteGrid);
 
     // Initialize Audio service (subscribes to audio events)
     this.audioService = new AudioService(this.eventBus, tilesEngine);

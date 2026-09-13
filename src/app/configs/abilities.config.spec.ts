@@ -2,6 +2,9 @@ import {
   ABILITIES,
   ABILITY_IDS,
   abilityDamageFraction,
+  abilityBeamCap,
+  abilityBeamFraction,
+  abilityBeamReachM,
   abilityFreezeMs,
   abilityStunMs,
   lockedAbilityStatus,
@@ -104,6 +107,52 @@ describe('abilities config', () => {
     });
     expect(research.effects).toContainEqual(
       expect.objectContaining({ kind: 'global-perk', perkId: emp.perkId }),
+    );
+  });
+
+  it('holds the orbital laser: a 5 m fire beam, 18 m/s for 4 s after 1 s, capped at 60 %, bosses 20 %, key L', () => {
+    const laser = ABILITIES['orbital-laser'];
+    expect(laser).toMatchObject({
+      maxCharges: 1,
+      rechargeWaves: 3,
+      radiusM: 5,
+      warningMs: 1000,
+      snapRadiusM: 30,
+      icon: 'laser',
+      hotkey: 'L',
+      effect: {
+        kind: 'beam',
+        damageType: 'fire',
+        speedMps: 18,
+        durationMs: 4000,
+        fractionPerSecond: 1,
+        bossFractionPerSecond: 0.3,
+        maxFraction: 0.6,
+        bossMaxFraction: 0.2,
+      },
+    });
+    const effect = laser.effect as Extract<typeof laser.effect, { kind: 'beam' }>;
+    expect(abilityBeamReachM(effect)).toBe(72);
+    // One sub-step: the share per second times the fire multiplier against the armor
+    expect(abilityBeamFraction(effect, ENEMY_TYPES['zombie'], 'unarmored', 1000)).toBeCloseTo(1.5);
+    expect(abilityBeamFraction(effect, ENEMY_TYPES['tank'], 'heavy', 500)).toBeCloseTo(0.3);
+    expect(abilityBeamFraction(effect, ENEMY_TYPES['herbert'], 'fortified', 1000)).toBeCloseTo(0.075);
+    expect(abilityBeamCap(effect, ENEMY_TYPES['zombie'])).toBe(0.6);
+    expect(abilityBeamCap(effect, ENEMY_TYPES['herbert'])).toBe(0.2);
+  });
+
+  it('unlocks the orbital laser by its research: 1,500 gold, 45 s, after Master Engineering', () => {
+    const laser = ABILITIES['orbital-laser'];
+    const research = getResearch(laser.researchId)!;
+    expect(research).toMatchObject({
+      category: 'global-perk',
+      icon: 'laser',
+      cost: 1500,
+      duration: 45,
+      prerequisites: ['master-engineering'],
+    });
+    expect(research.effects).toContainEqual(
+      expect.objectContaining({ kind: 'global-perk', perkId: laser.perkId }),
     );
   });
 

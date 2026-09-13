@@ -247,6 +247,26 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     }],
   },
 
+  'orbital-laser': {
+    id: 'orbital-laser',
+    name: 'Orbital Laser',
+    description:
+      'Unlocks the Orbital Laser: aim at the route, 1 s later a beam burns 4 s along it toward the spawn, '
+      + 'fire damage up to 60% of max HP (bosses 20%). One charge, a new one every 3 waves',
+    category: 'global-perk',
+    icon: 'laser',
+    cost: 1500,
+    duration: 45,
+    // The late damage ability: after Master Engineering (T3 upgrades,
+    // about W15 to W18), beyond the nuclear strike's Advanced Weaponry
+    prerequisites: ['master-engineering'],
+    effects: [{
+      kind: 'global-perk',
+      perkId: 'orbital-laser',
+      description: 'Orbital Laser ability: one charge, a new one every 3 completed waves',
+    }],
+  },
+
   // ==================== Upgrade Tiers ====================
 
   'advanced-weaponry': {
