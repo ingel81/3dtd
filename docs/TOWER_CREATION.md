@@ -504,8 +504,9 @@ tower.getSellValue(): number                     // SELL_RATIO × (cost + Upgrad
 ### Range-Upgrade Spezialfall
 
 Die sichtbaren Zellen eines Towers hängen an seiner Reichweite. Nach einem Range-Upgrade (auch
-beim Debug-Max-Upgrade) ruft der `GameCommandsHandler` deshalb
-`GameStateManager.recomputeTowerRangeAfterUpgrade(tower)` auf:
+beim Debug-Max-Upgrade) ruft `TowerLifecycle` (`managers/game-state/tower-lifecycle.ts`) deshalb
+`recomputeRangeAfterUpgrade(tower)` auf, von außen erreichbar als
+`GameStateManager.recomputeTowerRangeAfterUpgrade(tower)`:
 
 - `TowerPlacementService.recomputeTowerLOS(tower)` berechnet die LOS-Zellen neu
 - `tower.rangeSquaredGeo` (Sleep-/Wake-Checks) und der Reichweitenring (`updateRangeIndicatorTerrain`) folgen

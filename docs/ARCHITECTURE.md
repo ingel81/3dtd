@@ -299,8 +299,9 @@ tower-defense.component.ts
     │   └── ModelPreviewService ───────── 3D Previews
     │
     ├── Managers (event-driven)
-    │   ├── GameStateManager ──────────── Game-Logic-Orchestrator + Sub-Manager-Lifecycle
-    │   ├── GameCommandsHandler ───────── Bündelt 11 `command:*`/`debug:*` Subscriptions (2026-05-10)
+    │   ├── GameStateManager ──────────── Game-Loop, Event-Wiring, Sub-Manager-Lifecycle, Fassade für UI und Bots
+    │   │   └── game-state/ ───────────── GameClock, CreditsLedger, BaseHealthLedger, TowerLifecycle (2026-09-13)
+    │   ├── GameCommandsHandler ───────── Routing der `command:*`- und vier `debug:*`-Events (2026-05-10)
     │   ├── EconomyService ────────────── Wave-Completion-Bonus + Streak (extrahiert aus GSM)
     │   ├── EnemyManager / TowerManager / ProjectileManager / WaveManager / ResearchManager
     │   └── EntityManager ─────────────── Generischer Entity-Container
@@ -688,9 +689,9 @@ class GameStateManager {
   // Event Bus
   private readonly eventBus = new GameEventBus();
 
-  // Game State (Angular Signals fuer UI-Bindings)
-  readonly baseHealth = signal(GAME_BALANCE.player.startHealth);
-  readonly credits = signal(GAME_BALANCE.player.startCredits);
+  // Game State (Angular Signals fuer UI-Bindings, gehalten von BaseHealthLedger / CreditsLedger)
+  readonly baseHealth: WritableSignal<number>;
+  readonly credits: WritableSignal<number>;
 
   initialize(engine: ThreeTilesEngine, basePosition, spawnPoints, cachedPaths): void;
   update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void): void;  // Sub-Step-Loop, siehe Abschnitt 9
@@ -700,8 +701,24 @@ class GameStateManager {
 }
 ```
 
-Die `command:*`- und einige `debug:*`-Subscriptions liegen in `GameCommandsHandler`
-(`managers/game-commands.handler.ts`, 11 Subscriptions).
+Die `command:*`- und vier `debug:*`-Subscriptions liegen in `GameCommandsHandler`
+(`managers/game-commands.handler.ts`). Der Handler sucht nur den Tower heraus und ruft die
+öffentliche API des GameStateManager.
+
+Seit 2026-09-13 hält der GameStateManager vier kleine Klassen aus `managers/game-state/`,
+ohne Angular-DI, und delegiert an sie. Seine öffentliche API (`placeTower`, `sellTower`,
+`spendCredits`, `credits`, `baseHealth` usw.) bleibt dieselbe:
+
+| Klasse | Aufgabe |
+|--------|---------|
+| `GameClock` | Sub-Step-Takt: Wanduhr-Delta begrenzen, mit dem Timescale multiplizieren, Rest übertragen, Spielzeit führen (`FIXED_STEP_MS` und die Deckel) |
+| `CreditsLedger` | `credits`-Signal; einzige Stelle, die bucht und `credits:changed` emittiert |
+| `BaseHealthLedger` | `baseHealth`-Signal und Leck-Budget pro Welle; emittiert `health:changed` |
+| `TowerLifecycle` | Bauen, Verkaufen, Upgraden (Prüfungen, Kosten, Tier-Gating, `tower:upgraded`), Range-Refresh, AA-Retrofit, Wachrichtung |
+
+`update()`/`runSubStep()` und das Event-Wiring in `initialize()` bleiben im GameStateManager,
+damit die Reihenfolge an einer Stelle steht. `game-state.manager.order.spec.ts` hält sie fest:
+Aufrufe pro Sub-Step und pro Frame, Pause, Timescale 1 und 10, Listener-Reihenfolge, Tower-Befehle, `reset()`.
 
 ### 4.2 EnemyManager (Framework-agnostic)
 
@@ -1210,11 +1227,12 @@ function onEngineUpdate(deltaTime: number) {
 (Headless-Training); Enemy-Animation, Tower-Visuals, Projektil-Upload und Effekte laufen
 danach nur mit Rendering.
 
-**Sub-Steps:** `GameStateManager.update()` begrenzt das Wanduhr-Delta auf `MAX_CATCHUP_MS`
-(50), multipliziert es mit dem Training-Timescale und arbeitet die Spielzeit in festen
-Sub-Steps von `FIXED_STEP_MS` (16,667 ms) ab, höchstens `MAX_SUBSTEPS_PER_FRAME` (600) pro
-Frame. Der Rest bleibt in `subStepRemainderMs` für den nächsten Frame, gedeckelt auf 600
-Sub-Steps plus `MAX_REMAINDER_MS` (2000). Jeder Sub-Step läuft durch `runSubStep()`
+**Sub-Steps:** `GameStateManager.update()` überlässt die Zeitrechnung `GameClock`
+(`managers/game-state/game-clock.ts`): `beginFrame()` begrenzt das Wanduhr-Delta auf
+`MAX_CATCHUP_MS` (50) und multipliziert es mit dem Training-Timescale, `nextSubStep()` gibt
+die Spielzeit in festen Sub-Steps von `FIXED_STEP_MS` (16,667 ms) frei, höchstens
+`MAX_SUBSTEPS_PER_FRAME` (600) pro Frame, und `endFrame()` trägt den Rest in den nächsten
+Frame, gedeckelt auf 600 Sub-Steps plus `MAX_REMAINDER_MS` (2000). Jeder Sub-Step läuft durch `runSubStep()`
 (Reihenfolge in Abschnitt 5), danach prüft die Schleife Wave-Ende und Game Over. Nach der
 Schleife gibt `presentFrame()` den Enemy- und Projektil-Zustand einmal an den Renderer, wenn
 mindestens ein Sub-Step lief und Rendering an ist. Oberhalb von 60 fps läuft deshalb nicht
@@ -1240,7 +1258,7 @@ Tab-Wechsel), setzt die Phase 3/8 Intervall vor sich neu; bei Refreshraten vom
 Ein- bis Vierfachen des Caps liegt dann kein Vsync auf der Schwelle, sonst
 würde Jitter kurze und lange Abstände abwechseln lassen. Die
 Simulation rechnet mit dem Wanduhr-Delta zwischen den gelaufenen Frames: bei
-30 fps sind das ~33 ms, unter `MAX_CATCHUP_MS` (50) im `GameStateManager`,
+30 fps sind das ~33 ms, unter `MAX_CATCHUP_MS` (50) in `GameClock`,
 also volle Spielgeschwindigkeit, auch bei Training-Timescales. Standard ist
 unbegrenzt, der Loop verhält sich dann wie ohne Cap.
 
@@ -1301,8 +1319,9 @@ src/app/
 │
 ├── managers/                     # Manager-Dateien (event-driven, Angular-frei)
 │   ├── entity-manager.ts         # Base class
-│   ├── game-state.manager.ts     # Orchestrator + subManagers[] + dispose()
-│   ├── game-commands.handler.ts  # 11 `command:*`/`debug:*` Subscriptions (extrahiert aus GSM, 2026-05-10)
+│   ├── game-state.manager.ts     # Orchestrator: Game-Loop, Event-Wiring, subManagers[] + dispose()
+│   ├── game-state/               # Vom GSM gehalten: GameClock, CreditsLedger, BaseHealthLedger, TowerLifecycle, summarizeWaveGroups
+│   ├── game-commands.handler.ts  # Routing der `command:*`- und vier `debug:*`-Events (extrahiert aus GSM, 2026-05-10)
 │   ├── enemy.manager.ts          # Enemy Lifecycle
 │   ├── tower.manager.ts          # Tower Lifecycle
 │   ├── projectile.manager.ts     # Projectile Lifecycle
