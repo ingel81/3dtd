@@ -354,6 +354,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.eventBus.emit({
       type: 'enemy:spawned',
       enemy,
+      viaPortal: entry === 'portal',
     });
 
     return enemy;

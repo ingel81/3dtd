@@ -21,6 +21,11 @@ export type GameEvent =
   | {
       type: 'enemy:spawned';
       enemy: Enemy;
+      /**
+       * Came out of its spawn portal: a wave spawn (EnemyManager.spawn with
+       * 'portal'). Unset for debug placements and split children.
+       */
+      viaPortal?: boolean;
     }
   | {
       type: 'enemy:died';

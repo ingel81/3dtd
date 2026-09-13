@@ -90,6 +90,20 @@ describe('EnemyManager', () => {
     expect(spawnedSpy).toHaveBeenCalledWith(expect.objectContaining({ enemy }));
   });
 
+  it('marks a wave spawn out of the portal in enemy:spawned, a placed one not', () => {
+    const viaPortal: (boolean | undefined)[] = [];
+    eventBus.on('enemy:spawned', (event) => viaPortal.push(event.viaPortal));
+    const path: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 2 },
+      { lat: 0.001, lon: 0, height: 2 },
+    ];
+
+    manager.spawn(path, 'zombie', undefined, false, undefined, 'portal');
+    manager.spawn(path, 'zombie');
+
+    expect(viaPortal).toEqual([true, false]);
+  });
+
   it('applies health override on spawn', () => {
     const path: GeoPosition[] = [
       { lat: 0, lon: 0, height: 2 },
