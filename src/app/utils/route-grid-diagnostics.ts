@@ -1,5 +1,8 @@
+import type { RouteWaypoint } from '../models/game.types';
+import type { CoordinateSync } from '../three-engine/renderers';
 import { CellSample, RouteCell } from './route-cell';
 import type { RouteCellSampler } from './route-cell-sampler';
+import type { RouteCellLattice } from './route-grid-builder';
 
 /**
  * DIAGNOSTICS — temporary debug API for the route-grid height-anomaly hunt
@@ -385,4 +388,128 @@ export function resetFallbackHeights(
     maxAbsYDelta: maxAbs,
     topMoves: moves.slice(0, 10),
   };
+}
+
+// ========================================
+// Spatial probes on the cell lattice, for `__corridor.towerCells()` / `pick()`
+// ========================================
+
+/** What the spatial probes read off the grid: its cells, their lattice and the routes it was built from. */
+export interface RouteGridView {
+  cells: ReadonlyMap<number, RouteCell>;
+  lattice: RouteCellLattice;
+  routes: readonly (readonly RouteWaypoint[])[];
+  /** Null before the grid is initialized; the route probes then find nothing. */
+  sync: CoordinateSync | null;
+}
+
+/**
+ * Grid positions within `range` of (x, z) that have no cell while the four
+ * positions next to them along the axes all have one: holes in the
+ * corridor, which the LOS display would show as gaps in the street. Every
+ * segment claims a convex region of cells, so there should be none.
+ */
+export function findCorridorHoles(view: RouteGridView, x: number, z: number, range: number): RouteCellSpot[] {
+  const { cells, lattice } = view;
+  const holes: RouteCellSpot[] = [];
+  const rangeSq = range * range;
+  const has = (gx: number, gz: number) => cells.has(lattice.key(gx, gz));
+  for (let gx = lattice.index(x - range); gx <= lattice.index(x + range); gx++) {
+    const cx = (gx + 0.5) * lattice.cellSize;
+    for (let gz = lattice.index(z - range); gz <= lattice.index(z + range); gz++) {
+      const cz = (gz + 0.5) * lattice.cellSize;
+      if ((cx - x) ** 2 + (cz - z) ** 2 > rangeSq || has(gx, gz)) continue;
+      if (has(gx - 1, gz) && has(gx + 1, gz) && has(gx, gz - 1) && has(gx, gz + 1)) holes.push({ x: cx, z: cz });
+    }
+  }
+  return holes;
+}
+
+/**
+ * The cells the route centre lines run through within `range` of (x, z),
+ * probed every half metre along each segment, and the spots on a centre
+ * line without a cell. A row missing along the red line shows up here.
+ */
+export function collectCentreLineCells(
+  view: RouteGridView,
+  x: number,
+  z: number,
+  range: number,
+): { cells: RouteCell[]; missing: RouteCellSpot[] } {
+  const { lattice } = view;
+  const cells = new Map<number, RouteCell>();
+  const missing = new Map<number, RouteCellSpot>();
+  const rangeSq = range * range;
+  forEachCentreSpot(view, (px, pz) => {
+    if ((px - x) ** 2 + (pz - z) ** 2 > rangeSq) return;
+    const gx = lattice.index(px);
+    const gz = lattice.index(pz);
+    const key = lattice.key(gx, gz);
+    const cell = view.cells.get(key);
+    if (cell) cells.set(key, cell);
+    else missing.set(key, { x: (gx + 0.5) * lattice.cellSize, z: (gz + 0.5) * lattice.cellSize });
+  });
+  return { cells: [...cells.values()], missing: [...missing.values()] };
+}
+
+/**
+ * Every grid spot within `radius` of (x, z) and what the grid holds there,
+ * nearest to the route line first, for `__corridor.pick()`. `towerId`
+ * adds that tower's answers.
+ */
+export function probeCellsAround(
+  view: RouteGridView,
+  x: number,
+  z: number,
+  radius: number,
+  towerId: string | null,
+  neighbourMedian: (cell: RouteCell) => number | null,
+): RouteCellProbe[] {
+  const { cells, lattice } = view;
+  const rows: RouteCellProbe[] = [];
+  const radiusSq = radius * radius;
+  for (let gx = lattice.index(x - radius); gx <= lattice.index(x + radius); gx++) {
+    const cx = (gx + 0.5) * lattice.cellSize;
+    for (let gz = lattice.index(z - radius); gz <= lattice.index(z + radius); gz++) {
+      const cz = (gz + 0.5) * lattice.cellSize;
+      if ((cx - x) ** 2 + (cz - z) ** 2 > radiusSq) continue;
+      rows.push(probeRouteCell(
+        cells.get(lattice.key(gx, gz)), cx, cz, distanceToRoutes(view, cx, cz), towerId, neighbourMedian,
+      ));
+    }
+  }
+  return rows.sort((a, b) => a.routeM - b.routeM);
+}
+
+/** Walk the centre lines of the routes in half-metre steps (local x, z). */
+function forEachCentreSpot(view: RouteGridView, visit: (x: number, z: number) => void): void {
+  const sync = view.sync;
+  if (!sync) return;
+  for (const route of view.routes) {
+    for (let i = 0; i < route.length - 1; i++) {
+      const a = sync.geoToLocalSimple(route[i].lat, route[i].lon, 0);
+      const b = sync.geoToLocalSimple(route[i + 1].lat, route[i + 1].lon, 0);
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5));
+      for (let s = 0; s <= steps; s++) visit(a.x + ((b.x - a.x) * s) / steps, a.z + ((b.z - a.z) * s) / steps);
+    }
+  }
+}
+
+/** Distance from (x, z) to the nearest centre line of the routes. */
+function distanceToRoutes(view: RouteGridView, x: number, z: number): number {
+  const sync = view.sync;
+  let best = Infinity;
+  if (!sync) return best;
+  for (const route of view.routes) {
+    for (let i = 0; i < route.length - 1; i++) {
+      const a = sync.geoToLocalSimple(route[i].lat, route[i].lon, 0);
+      const b = sync.geoToLocalSimple(route[i + 1].lat, route[i + 1].lon, 0);
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const lenSq = dx * dx + dz * dz;
+      const t = lenSq > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / lenSq)) : 0;
+      best = Math.min(best, Math.hypot(a.x + dx * t - x, a.z + dz * t - z));
+    }
+  }
+  return best;
 }
