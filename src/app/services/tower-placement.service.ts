@@ -20,7 +20,9 @@ import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 import {
   FootprintColumn,
   TowerFootprint,
+  footprintInnerCount,
   footprintSampleOffsets,
+  levelWithCursor,
   resolveTowerFootprint,
 } from '../utils/tower-footprint';
 import { TowerPlinthPreview } from './tower-plinth-preview';
@@ -119,10 +121,25 @@ export class TowerPlacementService {
   /** Is currently rotating (R key held) */
   private isRotating = false;
 
-  /** Last validated position (with cached footprint + validation result) */
+  /**
+   * Last validated position, with its cursor surface, footprint and
+   * validation result. `partial`: the centre and inner-ring columns while the
+   * outer ring waits (probeFootprint), and the frame they were probed in.
+   */
   private lastValidation:
-    | { lat: number; lon: number; footprint: TowerFootprint; valid: boolean; reason: string | null }
+    | {
+        lat: number;
+        lon: number;
+        surfaceY: number;
+        footprint: TowerFootprint;
+        valid: boolean;
+        reason: string | null;
+        partial: { columns: (FootprintColumn | null)[]; frame: number } | null;
+      }
     | null = null;
+
+  /** Frames counted by tickBuildPreviewViz, see settleFootprint */
+  private previewFrame = 0;
 
   /** Distance (m) the cursor must travel before validation re-runs */
   private static readonly VALIDATION_MOVEMENT_THRESHOLD_M = 1.0;
@@ -313,15 +330,75 @@ export class TowerPlacementService {
    * resolveTowerFootprint. Shared by preview, click and bot.
    */
   resolveFootprint(lat: number, lon: number, typeId: TowerTypeId, surfaceY: number): TowerFootprint {
-    const engine = this.engine;
-    const config = TOWER_TYPES[typeId];
-    if (!engine || !config) return { footY: surfaceY, plinthHeight: 0 };
+    const radius = TOWER_TYPES[typeId]?.footprintRadius;
+    if (!this.engine || radius === undefined) return { footY: surfaceY, plinthHeight: 0 };
+    return resolveTowerFootprint(surfaceY, radius, this.footprintColumns(lat, lon, radius, 0));
+  }
 
+  /**
+   * resolveFootprint for the build preview, with the outer ring put off where
+   * it rarely changes anything: the centre and the inner ring come first, and
+   * when they lie level with the cursor surface (levelWithCursor) the preview
+   * takes the even-ground answer and leaves the outer ring to settleFootprint.
+   * Sweeping over level ground then costs the inner probes per validation
+   * instead of all of them. Uneven ground is probed whole at once.
+   * `partial` holds the probed columns while the outer ring waits.
+   */
+  private probeFootprint(
+    lat: number,
+    lon: number,
+    typeId: TowerTypeId,
+    surfaceY: number,
+  ): { footprint: TowerFootprint; partial: (FootprintColumn | null)[] | null } {
+    const even = { footY: surfaceY, plinthHeight: 0 };
+    const radius = TOWER_TYPES[typeId]?.footprintRadius;
+    if (!this.engine || radius === undefined) return { footprint: even, partial: null };
+
+    const inner = this.footprintColumns(lat, lon, radius, 0, footprintInnerCount(radius));
+    if (levelWithCursor(surfaceY, inner)) return { footprint: even, partial: inner };
+    const columns = inner.concat(this.footprintColumns(lat, lon, radius, inner.length));
+    return { footprint: resolveTowerFootprint(surfaceY, radius, columns), partial: null };
+  }
+
+  /**
+   * Probe the outer ring probeFootprint put off for the last validation and
+   * keep the whole footprint there, the same resolveFootprint gives. From the
+   * frame tick (`now` false) only on a frame after the one it was put off
+   * in: a cursor that moves on by a metre every frame never pays for it, one
+   * that stays within the metre for a frame does. The click settles it at
+   * once. Returns the footprint when it differs from the provisional one.
+   */
+  private settleFootprint(now: boolean): TowerFootprint | null {
+    const validation = this.lastValidation;
+    const partial = validation?.partial;
+    const typeId = this.selectedTowerType();
+    if (!validation || !partial || !typeId) return null;
+    if (!now && partial.frame >= this.previewFrame - 1) return null;
+    validation.partial = null;
+
+    const radius = TOWER_TYPES[typeId].footprintRadius;
+    const outer = this.footprintColumns(validation.lat, validation.lon, radius, partial.columns.length);
+    const footprint = resolveTowerFootprint(validation.surfaceY, radius, partial.columns.concat(outer));
+    const provisional = validation.footprint;
+    validation.footprint = footprint;
+    const same = footprint.footY === provisional.footY && footprint.plinthHeight === provisional.plinthHeight;
+    return same ? null : footprint;
+  }
+
+  /** Columns of the footprint probes `from` up to `to` (default: all the rest) around (lat, lon). */
+  private footprintColumns(
+    lat: number,
+    lon: number,
+    radius: number,
+    from: number,
+    to?: number,
+  ): (FootprintColumn | null)[] {
+    const engine = this.engine;
+    if (!engine) return [];
     const center = engine.sync.geoToLocalSimple(lat, lon, 0);
-    const columns = footprintSampleOffsets(config.footprintRadius).map(([dx, dz]) =>
-      this.footprintColumn(engine, center.x + dx, center.z + dz),
-    );
-    return resolveTowerFootprint(surfaceY, config.footprintRadius, columns);
+    return footprintSampleOffsets(radius)
+      .slice(from, to)
+      .map(([dx, dz]) => this.footprintColumn(engine, center.x + dx, center.z + dz));
   }
 
   /**
@@ -373,14 +450,23 @@ export class TowerPlacementService {
       validReason = this.lastValidation.reason;
     } else {
       const surfaceY = this.resolvePlacementHeight(lat, lon, terrainHeight);
-      footprint = typeId
-        ? this.resolveFootprint(lat, lon, typeId, surfaceY)
-        : { footY: surfaceY, plinthHeight: 0 };
+      const probe = typeId
+        ? this.probeFootprint(lat, lon, typeId, surfaceY)
+        : { footprint: { footY: surfaceY, plinthHeight: 0 }, partial: null };
+      footprint = probe.footprint;
       const validation = this.validateTowerPosition(lat, lon);
       validValid = validation.valid;
       validReason = validation.valid ? null : (validation.reason ?? 'Invalid position');
       const previousValid = this.lastValidation?.valid ?? null;
-      this.lastValidation = { lat, lon, footprint, valid: validValid, reason: validReason };
+      this.lastValidation = {
+        lat,
+        lon,
+        surfaceY,
+        footprint,
+        valid: validValid,
+        reason: validReason,
+        partial: probe.partial ? { columns: probe.partial, frame: this.previewFrame } : null,
+      };
       // Material tint only flips when the valid/invalid result changes.
       if (previousValid === null || previousValid !== validValid) {
         tintPreviewModel(this.previewTowerMesh, validValid);
@@ -446,8 +532,18 @@ export class TowerPlacementService {
     return Math.sqrt(dLat * dLat + dLon * dLon);
   }
 
-  /** Per-Frame-Tick für die GPU-LOS-Preview-Pulse-Animation. */
+  /**
+   * Per-Frame-Tick der Bauvorschau: Pulse-Animation der GPU-LOS-Preview und
+   * der äußere Ring des Footprints, den probeFootprint aufgeschoben hat
+   * (settleFootprint). Ändert er Fuß oder Sockel, steht die Vorschau neu.
+   */
   tickBuildPreviewViz(timeSeconds: number): void {
+    this.previewFrame++;
+    const position = this.currentPosition;
+    if (this.settleFootprint(false) && position) {
+      // Within the metre of the last validation: takes its footprint, validates nothing
+      this.updatePreviewPosition(position.lat, position.lon, position.height);
+    }
     this.buildPreviewLos.tick(timeSeconds);
   }
 
@@ -513,6 +609,13 @@ export class TowerPlacementService {
 
     const typeId = this.selectedTowerType();
     if (!typeId) return false;
+
+    // The outer ring of the footprint, if the preview put it off
+    const settled = this.settleFootprint(true);
+    if (settled) {
+      this.currentPosition.height = settled.footY;
+      this.currentPosition.plinthHeight = settled.plinthHeight;
+    }
 
     // Emit command event — GSM handler places the tower
     this.gameState.getEventBus().emit({
