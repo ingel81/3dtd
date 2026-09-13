@@ -466,7 +466,8 @@ endWave(): { wave: number; perfect: boolean; closeCall: boolean; hpLost: number 
 }
 ```
 
-`hpLost` summiert den Schaden aus `enemy:reached-base` während der Welle,
+`hpLost` summiert den Schaden aus `enemy:reached-base` und `enemy:leaking` (die
+Ooze fließt Meter für Meter in die HQ, ENEMY_CREATION.md) während der Welle,
 `closeCallHpThreshold` steht in `GAME_BALANCE.economy` (25). Den Rückgabewert
 reicht der `GameStateManager` an `applyWaveCompletionBonus()`.
 

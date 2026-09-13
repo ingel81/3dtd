@@ -37,7 +37,8 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `enemy:spawned` | EnemyManager | GameStateSyncService, AIDataCollector, EnemyDebugService, BossBarComponent (merkt sich Bosse, außer Wurm-Segmenten) | Enemy gespawnt (`enemy`); bei einem Wurm jedes Segment, wenn es aus dem Portal kommt |
 | `enemy:died` | EnemyManager (`kill()`, u.a. aus DamageApplicationService) | GameStateManager (Credits; außerhalb einer Welle Tower in Wachrichtung), GameStateSyncService, WaveManager, ScreenShakeService (Boss), AIDataCollector | Enemy gestorben (`enemy`, `credits`) |
 | `enemy:reached-base` | EnemyManager | GameStateManager (Schaden, gedeckelt durch `maxLeakDamagePerWave`), WaveManager, GameStateSyncService, AIDataCollector, LeakVignetteComponent (roter Rand, gedrosselt) | Enemy am Ziel (`enemy`, `damage`) |
-| `enemy:split` | EnemyManager (`kill()` mit Ursache `combat`, Typ mit `splitOnDeath`) | GameStateSyncService (Rest und Gesamtzahl der Welle), AIDataCollector (`enemiesSpawned`), VFXService (Knochen-Burst), EnemyDebugService (Kinder eines Debug-Gegners) | Getöteter Enemy hat sich geteilt (`enemy`, `children`); kommt nach seinem `enemy:died` und den `enemy:spawned` der Kinder |
+| `enemy:leaking` | EnemyManager (`OozeBodies.update`) | GameStateManager (Schaden, im selben Leck-Budget), WaveManager (`hpLost`), LeakVignetteComponent | Eine Ooze fließt in die HQ: Schaden für die Meter, die hineingingen, in ganzen Punkten (`enemy`, `damage`). Ihr eines `enemy:reached-base` folgt, wenn der ganze Körper drin ist |
+| `enemy:split` | EnemyManager (`kill()` mit Ursache `combat`, Typ mit `splitOnDeath`) | GameStateSyncService (Rest und Gesamtzahl der Welle), AIDataCollector (`enemiesSpawned`), VFXService (Knochen-Burst, bei blutenden Eltern ein Spritzer je Kind), EnemyDebugService (Kinder eines Debug-Gegners) | Getöteter Enemy hat sich geteilt (`enemy`, `children`); kommt nach seinem `enemy:died` und den `enemy:spawned` der Kinder |
 | `worm:spawned` | EnemyManager (`spawn()` eines Typs mit `chain`) | GameStateSyncService (Rest und Gesamtzahl der Welle um `size - 1`), AIDataCollector (`enemiesSpawned`), BossBarComponent (ein Balken für den ganzen Wurm) | Ein Wurm wurde gespawnt (`head`, `group`); kommt nach dem `enemy:spawned` des Kopfes, die übrigen Segmente folgen mit eigenem `enemy:spawned` |
 | `projectile:hit` | ProjectileManager | CombatEffectService | Projektil trifft (`projectile`, `target`, `damage`, `damageType`) |
 | `dot:damage` | EnemyManager (`tickDamageOverTime()`) | CombatEffectService → DamageApplicationService | DOT-Tick (Poison, Burn) (`enemy`, `damage`, `sourceId`, `effectType`, `damageType`) |
@@ -253,8 +254,8 @@ function gameLoop(deltaTime: number) {
 | **ScreenShakeService** | Nein | Subscriber | Reagiert auf `vfx:projectile-impact`, `health:changed`, `enemy:died` (Boss) |
 | **BackgroundMusicService** | Nein | Subscriber | Reagiert auf `wave:started`, `wave:completed`, `game:over`, `game:reset` |
 | **ProjectileManager** | Nein | Producer | Emittiert `projectile:hit`, `vfx:*`, `audio:play` |
-| **EnemyManager** | Nein | Mixed | Emittiert `enemy:spawned`, `enemy:died`, `enemy:reached-base`, `enemy:split`, `worm:spawned`, `dot:damage`; reagiert auf `debug:*` (Spawn, Entfernen, Bewegung) |
-| **WaveManager** | Nein | Mixed | Emittiert `wave:started`, `wave:completed`; reagiert auf `enemy:died`, `enemy:reached-base`, `debug:kill-all` |
+| **EnemyManager** | Nein | Mixed | Emittiert `enemy:spawned`, `enemy:died`, `enemy:reached-base`, `enemy:leaking`, `enemy:split`, `worm:spawned`, `dot:damage`; reagiert auf `debug:*` (Spawn, Entfernen, Bewegung) |
+| **WaveManager** | Nein | Mixed | Emittiert `wave:started`, `wave:completed`; reagiert auf `enemy:died`, `enemy:reached-base`, `enemy:leaking`, `debug:kill-all` |
 | **TowerManager** | Nein | Producer | Emittiert `tower:placed`, `tower:sold`, `tower:selected`, `tower:deselected`, `audio:play` |
 | **ResearchManager** | Nein | Producer | Emittiert `research:*` |
 | **GameCommandsHandler** | Nein | Subscriber | Reagiert auf `command:*` und vier `debug:*`-Cheats, sucht den Tower heraus und ruft den GameStateManager; emittiert selbst nichts |

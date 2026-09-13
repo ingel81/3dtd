@@ -375,6 +375,14 @@ effects: {
 - Oranger Tint auf der Instanz (`setBurnVisual`, Priorität: Hit-Flash > Freeze > Burn > Poison), flankengesteuert in `EnemyManager.presentFrame()`
 - Orange Schadenszahlen pro Tick
 
+### Ooze (Körper entlang der Route)
+
+Die Ooze ist ein Gegner mit einem HP-Pool; jeder Effekt wirkt auf das Ganze. Slow
+verlangsamt die Spitze, der Schwanz folgt ihr, und an der HQ fließt der Körper
+langsamer hinein. Statt Instanz-Tint und Aura tönt `OozeBandRenderer` das Band: Slow
+blau, Poison dunkler, Burn glüht orange (`OOZE_LOOK`). DoT-Zahlen erscheinen am Punkt
+des letzten Treffers (ENEMY_CREATION.md, Körper entlang der Route).
+
 **Geplant:**
 - Feuer-Partikel am brennenden Gegner (ähnlich wie HQ Fire)
 - Rauch-Partikel
