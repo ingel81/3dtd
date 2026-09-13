@@ -75,7 +75,9 @@ import {
   enemyBaseDamageForWave,
   isBossWave,
 } from '../../src/app/configs/wave-curriculum.config';
-import { ENEMY_TYPES, lineageHp, splitBodyCount, type EnemyTypeId } from '../../src/app/configs/enemy-types.config';
+import {
+  ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
+} from '../../src/app/configs/enemy-types.config';
 import { GAME_BALANCE } from '../../src/app/configs/game-balance.config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -101,10 +103,12 @@ function buildEnemies() {
       armor: cfg.armorType,
       isAir: cfg.isAirUnit === true,
       threat: ENEMY_THREAT_RATING[id] ?? 1.0,
-      // HP and kills to clear one enemy with what it splits into, read by
-      // schema.fair_max_count like fairMaxCount reads them
+      // HP and kills to clear one enemy with what it splits into, and the
+      // most leaks it can cost, read by schema.fair_max_count like
+      // fairMaxCount reads them
       lineageHp: lineageHp(id),
       bodies: splitBodyCount(id),
+      maxLeaks: splitLeafCount(id),
     };
   });
 }

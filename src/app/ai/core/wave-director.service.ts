@@ -42,7 +42,9 @@ import {
 import { buildWaveContext, type WaveContext } from './wave-context';
 import { RuleDirector, type DirectorDecision } from './rule-director';
 import { GateController, gateLeakRatio } from './gate-controller';
-import { ENEMY_TYPES, lineageHp, splitBodyCount, type EnemyTypeId } from '../../configs/enemy-types.config';
+import {
+  ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
+} from '../../configs/enemy-types.config';
 import { endgameHpMultiplier, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
 import type { InferenceSession } from 'onnxruntime-web';
 
@@ -447,6 +449,7 @@ export class WaveDirectorService {
         (id) => lineageHp(id as EnemyTypeId),
         (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
         (id) => splitBodyCount(id as EnemyTypeId),
+        (id) => splitLeafCount(id as EnemyTypeId),
         state.player?.lives ?? 100,
         enemyBaseDamageForWave(upcomingWave),
         // Closed-loop correction. FAIRNESS_KILL_REALISM was measured on waves

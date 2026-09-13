@@ -483,7 +483,7 @@ export const FAIRNESS_MATCHUP_FLOOR = 0.6;
  * Closed form, since the wave's duration depends on the count itself:
  *
  *     killable = dps * (count * delaySeconds + ENGAGEMENT) * KILL_REALISM
- *     allowed  = killable + (leak HP budget / damage per leak)
+ *     allowed  = killable + (leak HP budget / damage per leak / leaks per enemy)
  *
  * A non-positive denominator means the defense out-damages the spawn rate, so
  * nothing needs capping.
@@ -501,6 +501,8 @@ export function fairMaxCount(
   enemyBaseSpeed: (enemyId: string) => number,
   /** Kills one enemy takes: itself and everything it splits into (splitBodyCount). */
   enemyBodies: (enemyId: string) => number,
+  /** Most leaks one enemy can cost: the ends of its split tree (splitLeafCount). */
+  enemyMaxLeaks: (enemyId: string) => number,
   /** Player HP still on the clock, in HP points (not a fraction). */
   hpRemaining: number,
   /** HP the player loses per enemy that reaches the base, at this wave. */
@@ -529,6 +531,7 @@ export function fairMaxCount(
   let weightedThroughput = 0;
   let weightedSpeed = 0;
   let weightedBodies = 0;
+  let weightedLeaks = 0;
   for (const [enemy, share] of template.enemies) {
     if (share <= 0) continue;
     const isAir = enemyIsAir(enemy);
@@ -538,6 +541,7 @@ export function fairMaxCount(
     weightedHp += share * enemyBaseHp(enemy) * hpMult;
     weightedSpeed += share * Math.max(0.1, enemyBaseSpeed(enemy));
     weightedBodies += share * Math.max(1, enemyBodies(enemy));
+    weightedLeaks += share * Math.max(1, enemyMaxLeaks(enemy));
     totalShare += share;
   }
   if (totalShare <= 0) return null;
@@ -546,6 +550,7 @@ export function fairMaxCount(
   const hpPerEnemy = weightedHp / totalShare;
   const throughput = weightedThroughput / totalShare;
   const bodiesPerEnemy = weightedBodies / totalShare;
+  const leaksPerEnemy = weightedLeaks / totalShare;
   // No effective damage against this wave at all — a curriculum-forced air wave
   // against a ground-only defense, say, since forcing bypasses the capability
   // mask. Every enemy will leak and leak damage scales with the count, so the
@@ -586,8 +591,10 @@ export function fairMaxCount(
 
   // Allow an overshoot priced in HP rather than assumed away. The leaks are
   // what make a wave dramatic; the budget is what stops them ending the run.
+  // An enemy that splits can cost a leak per end of its split tree: a
+  // skeleton killed just before the base sends both minions on.
   const leakHpBudget = Math.max(FAIRNESS_MIN_LEAK_HP, hpRemaining * FAIRNESS_WAVE_HP_BUDGET);
-  const allowedLeaks = leakDamage > 0 ? leakHpBudget / leakDamage : leakHpBudget;
+  const allowedLeaks = (leakDamage > 0 ? leakHpBudget / leakDamage : leakHpBudget) / leaksPerEnemy;
 
   return Math.max(FAIRNESS_MIN_COUNT, Math.floor(killable + allowedLeaks));
 }

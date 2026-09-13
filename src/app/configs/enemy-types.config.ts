@@ -804,6 +804,18 @@ export function splitBodyCount(id: EnemyTypeId, depth = 0): number {
 }
 
 /**
+ * Most bodies one enemy of `id` can put through the base: the ends of its
+ * split tree. A skeleton killed just before the HQ sends both minions on,
+ * and each leaks for the full wave damage, so it can cost two leaks where
+ * an unsplit one costs one. 1 for a type without splitOnDeath.
+ */
+export function splitLeafCount(id: EnemyTypeId, depth = 0): number {
+  const split = ENEMY_TYPES[id]?.splitOnDeath;
+  if (!split || depth >= MAX_SPLIT_DEPTH) return 1;
+  return split.count * splitLeafCount(split.type, depth + 1);
+}
+
+/**
  * HP it takes to clear one enemy of `id` and everything a kill splits it
  * into, at HP multiplier 1. Split children scale with their parent's
  * multiplier, so the whole lineage scales with it. 80 for an unknown id,

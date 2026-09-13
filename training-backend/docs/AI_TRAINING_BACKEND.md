@@ -160,8 +160,8 @@ Gegner-Reihenfolge an (+1 Feature in der Typ-History).
 
 Der Skeleton-Split (2026-09-13) ändert am Layout nichts und bleibt v5:
 `skeleton-minion` steht in keinem Template und damit nicht in der
-Gegner-Reihenfolge. Neu sind die Felder `lineageHp` und `bodies` je Gegner, die
-`schema.fair_max_count` liest (siehe Fairness-Gate). Anders sieht das Netz nur
+Gegner-Reihenfolge. Neu sind die Felder `lineageHp`, `bodies` und `maxLeaks` je
+Gegner, die `schema.fair_max_count` liest (siehe Fairness-Gate). Anders sieht das Netz nur
 `skeleton_swarm`: dessen Count-Range (jetzt 25–940) und den Fairness-Headroom.
 
 Layout: `server.py::_encode_state`. Frontend-Pendant:
@@ -220,8 +220,11 @@ korrigiert ihn aus dem einzigen belastbaren Signal: was tatsächlich die Basis
 erreicht hat.
 
 Ein Gegner, der sich beim Tod teilt (Skeleton), zählt wie im Spiel mit seinen
-Kindern: HP der ganzen Linie (`lineageHp`) und ein Kill pro Körper (`bodies`).
-Die Leck-Quote zählt die Kinder als eigene Körper, weil `enemyProgressValues`
+Kindern: HP der ganzen Linie (`lineageHp`), ein Kill pro Körper (`bodies`) und
+bis zu ein Leck pro Ende des Split-Baums (`maxLeaks`, Skeleton: 2), denn ein
+kurz vor der Basis getötetes Skeleton schickt beide Minions durch, und jedes
+kostet den vollen Leck-Schaden. Das HP-Budget des Gates kauft entsprechend
+weniger Überschuss-Gegner. Die Leck-Quote zählt die Kinder als eigene Körper, weil `enemyProgressValues`
 jeden Gegner einzeln führt.
 
 ```python
@@ -755,5 +758,6 @@ Kurz-Timeline:
   als Tower und als Schadenstyp
 - **Skeleton (2026-09-12)** Schema v4 → v5 (207 → 208 Features): `skeleton`
   als Gegner, Template `skeleton_swarm` auf W19
-- **Skeleton-Split (2026-09-13)** bleibt v5 (208 Features): `lineageHp` und
-  `bodies` je Gegner für `fair_max_count`, `skeleton_swarm` 25–940 statt 40–1500
+- **Skeleton-Split (2026-09-13)** bleibt v5 (208 Features): `lineageHp`,
+  `bodies` und `maxLeaks` je Gegner für `fair_max_count`, `skeleton_swarm`
+  25–940 statt 40–1500
