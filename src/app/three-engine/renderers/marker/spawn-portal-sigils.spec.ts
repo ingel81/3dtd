@@ -161,6 +161,18 @@ describe('Portal-Sigillen: der Satz', () => {
     }
   });
 
+  it('stellt keine Sichel neben genau einen freistehenden Punkt (Halbmond und Stern)', () => {
+    for (const sigil of PORTAL_SIGILS) {
+      const strokes = sigil.parts.filter((p) => p.kind === 'arc' || p.kind === 'ring');
+      // Frei steht ein Punkt, an dem kein Strich ansetzt
+      const free = sigil.parts.filter((p) => p.kind === 'dot' && !strokes.some((s) => distance(s, p.x, p.y) < p.r + 0.01));
+      for (const moon of sigil.parts.filter((p) => p.kind === 'crescent')) {
+        const near = free.filter((d) => Math.hypot(d.x - moon.x, d.y - moon.y) < 0.4);
+        expect(near.length, `${sigil.name}: Sichel mit einem freien Punkt`).not.toBe(1);
+      }
+    }
+  });
+
   it('ist schief: weder spiegelsymmetrisch noch gleich nach einer Dritteldrehung', () => {
     const third = (2 * Math.PI) / 3;
     for (const sigil of PORTAL_SIGILS) {
