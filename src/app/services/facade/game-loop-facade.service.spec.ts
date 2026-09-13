@@ -50,6 +50,7 @@ function makeStore() {
     useAIDirector: signal(true),
     aiExplanation: signal<DecisionExplanation | null>(null),
     aiError: signal<string | null>(null),
+    paused: signal(false),
   };
 }
 
@@ -130,5 +131,57 @@ describe('GameLoopFacadeService: aiExplanation', () => {
     await settle();
     expect(backend.requestWaveConfig).toHaveBeenCalled();
     expect(store.aiExplanation()).toBeNull();
+  });
+});
+
+/**
+ * A wave start lifts the pause. The start button, the hotkey and the
+ * auto-start all go through startWave(), the debug window through
+ * startCustomWave().
+ */
+describe('GameLoopFacadeService: pause', () => {
+  let facade: GameLoopFacadeService;
+  let store: ReturnType<typeof makeStore>;
+  let emitted: { type: string }[];
+
+  beforeEach(() => {
+    emitted = [];
+    store = makeStore();
+    store.useAIDirector.set(false);
+    store.paused.set(true);
+    const injector = Injector.create({
+      providers: [
+        ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: TowerDefenseStore, useValue: store },
+        { provide: WaveDirectorService, useValue: {} },
+        { provide: TrainingClientService, useValue: {} },
+        { provide: AIDataCollectorService, useValue: {} },
+        { provide: WaveDebugService, useValue: { toAIWaveConfig: () => wave() } },
+      ],
+    });
+    facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
+    facade.initialize(
+      { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
+      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }) } as unknown as GameStateManager,
+    );
+  });
+
+  it('is lifted by a wave start', () => {
+    facade.startWave();
+    expect(store.paused()).toBe(false);
+    expect(emitted.map((e) => e.type)).toEqual(['command:start-wave']);
+  });
+
+  it('is lifted by a custom wave from the debug window', () => {
+    facade.startCustomWave();
+    expect(store.paused()).toBe(false);
+  });
+
+  it('stays while no wave can start', () => {
+    store.phase.set('wave');
+    facade.startWave();
+    facade.startCustomWave();
+    expect(store.paused()).toBe(true);
+    expect(emitted).toEqual([]);
   });
 });

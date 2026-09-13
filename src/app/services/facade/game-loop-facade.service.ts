@@ -288,12 +288,14 @@ export class GameLoopFacadeService {
   }
 
   /**
-   * Start a new wave (manual or AI-directed).
+   * Start a new wave (manual or AI-directed). The start button, the hotkey
+   * and the auto-start come here; each lifts the pause.
    */
   startWave(): void {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
+    this.store.paused.set(false);
 
     // Source priority for the wave config:
     //   1. Static curriculum toggle (explicit debug override — beats AI even
@@ -379,12 +381,14 @@ export class GameLoopFacadeService {
   }
 
   /**
-   * Start a custom wave using debug panel settings only.
+   * Start a custom wave using debug panel settings only. Lifts the pause
+   * like startWave().
    */
   startCustomWave(): void {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
+    this.store.paused.set(false);
 
     const waveConfig = this.buildWaveConfig();
 
