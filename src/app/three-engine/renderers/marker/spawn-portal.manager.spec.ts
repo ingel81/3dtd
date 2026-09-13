@@ -118,7 +118,7 @@ describe('SpawnPortalManager: Sigillen', () => {
     expect(material.uniforms['uEnergy'].value).toBe(L.idleEnergy);
     // Jede Sigille nach ihrer Zelle, aufwachend mit einem Glimmen entlang der Striche
     expect(material.fragmentShader).toContain('portalGlyphCell(p, uOpening, centre)');
-    expect(material.fragmentShader).toContain('e.g * 16.0 - uTime * uGlyphMix.w');
+    expect(material.fragmentShader).toContain('e.g * 6.0 - uTime * uGlyphMix.w');
   });
 });
 
