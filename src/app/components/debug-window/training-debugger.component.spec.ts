@@ -102,4 +102,16 @@ describe('TrainingDebuggerComponent', () => {
     expect(trainingClient.enableBot).not.toHaveBeenCalled();
     expect(trainingClient.disableBot).not.toHaveBeenCalled();
   });
+
+  it('hands the bot buttons to the parent as outputs', () => {
+    const { panel, trainingClient } = setup();
+    const requests: string[] = [];
+    panel.botEnableRequested.subscribe((skill) => requests.push(skill));
+    panel.botDisableRequested.subscribe(() => requests.push('off'));
+    panel.enableBot('casual');
+    panel.enableBot('meta');
+    panel.disableBot();
+    expect(requests).toEqual(['casual', 'meta', 'off']);
+    expect(trainingClient.enableBot).not.toHaveBeenCalled();
+  });
 });

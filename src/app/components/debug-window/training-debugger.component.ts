@@ -26,10 +26,9 @@ export class TrainingDebuggerComponent {
   readonly botEnabled = input<boolean>(false);
   readonly botSkillLevel = input<BotSkillLevel>('strategist');
   readonly botStats = input<{ towersPlaced: number; goldSpent: number }>({ towersPlaced: 0, goldSpent: 0 });
-  // eslint-disable-next-line @typescript-eslint/no-empty-function -- no-op until the parent binds a handler
-  readonly onEnableBot = input<(skillLevel: BotSkillLevel) => void>(() => {});
-  // eslint-disable-next-line @typescript-eslint/no-empty-function -- no-op until the parent binds a handler
-  readonly onDisableBot = input<() => void>(() => {});
+  // Bot buttons, handled by the parent
+  readonly botEnableRequested = output<BotSkillLevel>();
+  readonly botDisableRequested = output<void>();
 
   // DPS Bins visualization toggle
   readonly showDpsBins = signal(false);
@@ -94,10 +93,10 @@ export class TrainingDebuggerComponent {
   }
 
   enableBot(skillLevel: BotSkillLevel): void {
-    this.onEnableBot()(skillLevel);
+    this.botEnableRequested.emit(skillLevel);
   }
 
   disableBot(): void {
-    this.onDisableBot()();
+    this.botDisableRequested.emit();
   }
 }
