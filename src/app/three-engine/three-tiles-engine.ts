@@ -338,6 +338,7 @@ export class ThreeTilesEngine {
       mood: new BloodMoonMood(this.scene),
       enemies: this.enemies,
       searchlights: this.searchlights,
+      oozes: this.oozes,
     });
 
     // Initialize spatial audio with camera listener

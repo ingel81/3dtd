@@ -1,6 +1,7 @@
-import { Mesh, type BufferGeometry, type Scene, type ShaderMaterial, type Vector3 } from 'three';
+import { Mesh, Vector3, type BufferGeometry, type IUniform, type Scene, type ShaderMaterial } from 'three';
 import { OOZE_LOOK } from '../../../configs/visual-effects.config';
 import { ROUTE_BODY_COVER, type RouteBodyStations } from '../../../utils/route-body';
+import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
 import { buildOozeBandGeometry, refreshOozeBandHeights, type OozeGround } from './ooze-band-geometry';
 import { createOozeBandMaterial } from './ooze-band-material';
 
@@ -34,6 +35,9 @@ export class OozeBandRenderer {
   private readonly bands = new Map<string, OozeBand>();
   private readonly geometries = new Map<RouteBodyStations, { geometry: BufferGeometry; users: number }>();
   private readonly baseMaterial = createOozeBandMaterial();
+  /** Blood moon uniforms every band shares, see setBloodMoon() */
+  private readonly bloodMoonGlow: IUniform<number> = { value: 0 };
+  private readonly bloodMoonTint: IUniform<Vector3> = { value: new Vector3(1, 1, 1) };
   private time = 0;
   private sinceRefresh = 0;
 
@@ -58,6 +62,9 @@ export class OozeBandRenderer {
     shared.users++;
     const material = this.baseMaterial.clone();
     material.uniforms['uTime'].value = this.time;
+    // clone() copied the uniforms; the blood moon ones are shared again
+    material.uniforms['uBloodMoonGlow'] = this.bloodMoonGlow;
+    material.uniforms['uBloodMoonTint'] = this.bloodMoonTint;
     const mesh = new Mesh(shared.geometry, material);
     mesh.name = `ooze-${id}`;
     this.scene.add(mesh);
@@ -98,6 +105,17 @@ export class OozeBandRenderer {
       u['uTintAmount'].value = 0;
     }
     u['uBurn'].value = burning ? 1 : 0;
+  }
+
+  /**
+   * Blood moon look at `amount` (0..1, BloodMoonLook): the red edge glow of
+   * every band, and the mood's tint, which the transparent band draws after.
+   * The band encodes its output itself, so the tint is the linear one on
+   * the canvas too. Two uniform writes for all bands, later ones included.
+   */
+  setBloodMoon(amount: number): void {
+    this.bloodMoonGlow.value = amount;
+    bloodMoonMultiplier(amount, true, this.bloodMoonTint.value);
   }
 
   /** The ooze is gone (killed, leaked or removed): its band sinks away. */

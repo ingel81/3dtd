@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { BufferAttribute, Scene, Vector3, type Mesh, type ShaderMaterial } from 'three';
 import { OOZE_LOOK } from '../../../configs/visual-effects.config';
+import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
 import { METERS_PER_DEGREE_LAT } from '../../../utils/geo-utils';
 import { ROUTE_BODY_COVER, RouteBodyStations } from '../../../utils/route-body';
 import { buildOozeBandGeometry, refreshOozeBandHeights } from './ooze-band-geometry';
@@ -71,6 +72,15 @@ describe('ooze band material', () => {
     expect(material.transparent).toBe(true);
     expect(material.depthWrite).toBe(false);
   });
+
+  it('adds the blood moon glow and then the tint before its output encoding', () => {
+    const shader = createOozeBandMaterial().fragmentShader;
+    const glow = shader.indexOf('uBloodMoonGlow;\n', shader.indexOf('void main'));
+    const tint = shader.indexOf('col *= uBloodMoonTint;');
+    expect(glow).toBeGreaterThan(0);
+    expect(tint).toBeGreaterThan(glow);
+    expect(tint).toBeLessThan(shader.indexOf('#include <colorspace_fragment>'));
+  });
 });
 
 describe('OozeBandRenderer', () => {
@@ -123,6 +133,28 @@ describe('OozeBandRenderer', () => {
     renderer.clear();
     expect(scene.children).toHaveLength(0);
     expect(dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('glows and tints every band through shared blood moon uniforms, bands added later included', () => {
+    const scene = new Scene();
+    const renderer = new OozeBandRenderer(scene);
+    renderer.add('a', stations, () => 0);
+    expect(uniforms(scene)['uBloodMoonGlow'].value).toBe(0);
+    expect((uniforms(scene)['uBloodMoonTint'].value as Vector3).toArray()).toEqual([1, 1, 1]);
+
+    renderer.setBloodMoon(1);
+    renderer.add('b', stations, () => 0);
+    for (const i of [0, 1]) {
+      expect(uniforms(scene, i)['uBloodMoonGlow'].value).toBe(1);
+      expect(uniforms(scene, i)['uBloodMoonTint']).toBe(uniforms(scene, 0)['uBloodMoonTint']);
+    }
+    // Linear tint: the band encodes its own output, so the mood's factor to the 2.2
+    const tint = uniforms(scene)['uBloodMoonTint'].value as Vector3;
+    expect(tint.y).toBeCloseTo(BLOOD_MOON_LOOK.mood.tint.g ** 2.2, 6);
+
+    renderer.setBloodMoon(0);
+    expect(uniforms(scene, 1)['uBloodMoonGlow'].value).toBe(0);
+    expect(tint.toArray()).toEqual([1, 1, 1]);
   });
 
   it('reads the ground under the body again every refresh interval, only there', () => {
