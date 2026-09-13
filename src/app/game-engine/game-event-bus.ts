@@ -3,7 +3,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
 import { Projectile } from '../entities/projectile.entity';
 import { GeoPosition } from '../models/game.types';
-import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
+import { AirSubStrategy, TargetingStrategy, TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import type { AbilityId, AbilityRejectReason, AbilityStatus } from '../configs/abilities.config';
 import type { HeroAmmoId, HeroRejectReason, HeroStatus } from '../configs/hero.config';
 import { WaveConfig } from '../managers/wave.manager';
@@ -419,6 +419,13 @@ export type GameEvent =
       type: 'command:upgrade-tower';
       towerId: string;
       upgradeId: UpgradeId;
+    }
+  | {
+      /** Targeting of a tower; a field left out keeps its value */
+      type: 'command:set-targeting';
+      towerId: string;
+      strategy?: TargetingStrategy;
+      airSubStrategy?: AirSubStrategy;
     }
   | {
       type: 'command:start-wave';

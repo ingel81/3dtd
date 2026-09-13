@@ -597,17 +597,18 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Change tower targeting strategy, direct property set
+   * Change tower targeting strategy, through the command bus like every
+   * other player action (the replay records it)
    */
   changeTargeting(tower: Tower, strategy: TargetingStrategy): void {
-    tower.targetingStrategy = strategy;
+    this.facade.emitCommand({ type: 'command:set-targeting', towerId: tower.id, strategy });
   }
 
   /**
-   * Change air-priority sub-strategy, direct property set
+   * Change air-priority sub-strategy, through the command bus
    */
   changeAirSubStrategy(tower: Tower, strategy: AirSubStrategy): void {
-    tower.airSubStrategy = strategy;
+    this.facade.emitCommand({ type: 'command:set-targeting', towerId: tower.id, airSubStrategy: strategy });
   }
 
   onStartResearch(researchId: string): void {

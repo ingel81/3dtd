@@ -58,6 +58,13 @@ export class GameCommandsHandler {
         this.gsm.upgradeTower(tower, event.upgradeId);
       }
     }));
+
+    this.subs.add(this.eventBus.on('command:set-targeting', (event) => {
+      const tower = this.gsm.towerManager.getById(event.towerId);
+      if (!tower) return;
+      if (event.strategy) tower.targetingStrategy = event.strategy;
+      if (event.airSubStrategy) tower.airSubStrategy = event.airSubStrategy;
+    }));
   }
 
   private attachResearchCommands(): void {
