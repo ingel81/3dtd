@@ -1,0 +1,54 @@
+.globe {
+  position: relative;
+  margin: 0 auto;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+/* Hover tip: glass chip above the marker, under it near the top edge */
+.globe-tip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px;
+  transform: translate(-50%, calc(-100% - 10px));
+  white-space: nowrap;
+  pointer-events: none;
+  background: var(--td-glass-tint);
+  border: 1px solid var(--td-frame-mid);
+  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2), var(--td-shadow-soft);
+  font-family: var(--td-font-body);
+}
+
+.globe-tip.below {
+  transform: translate(-50%, 10px);
+}
+
+.tip-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--td-text-primary);
+}
+
+.tip-detail {
+  font-size: 10px;
+  color: var(--td-text-muted);
+}
+
+.tip-wave {
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  color: var(--td-gold-light);
+}
+
+.tip-current {
+  color: var(--td-text-muted);
+}

@@ -175,6 +175,19 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
     ],
   },
   {
+    title: 'Map Data',
+    icon: 'globe',
+    items: [
+      {
+        name: 'World map outlines (1:110m coastline and land borders)',
+        author: 'Natural Earth',
+        license: 'Public Domain',
+        licenseUrl: 'https://www.naturalearthdata.com/about/terms-of-use/',
+        sourceUrl: 'https://www.naturalearthdata.com',
+      },
+    ],
+  },
+  {
     title: 'Open Source',
     icon: 'filing',
     items: [
