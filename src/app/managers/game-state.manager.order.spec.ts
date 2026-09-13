@@ -234,6 +234,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     bus.onAny((event) => {
       if (event.type !== 'research:progress') log.push(`event:${event.type}`);
     });
+    gsm.setBeforeCorridorLock((reason) => log.push(`corridorLock(${reason})`));
     log.length = 0;
   });
 
@@ -530,6 +531,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       expect(archer).toBeDefined();
       expect(log).toEqual([
         'event:command:place-tower',
+        'corridorLock(tower)',
         'tower.placeTower',
         'tower.refreshGuardHeading',
         'event:tower:placed',
@@ -585,6 +587,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       const center = gsm.towerManager.getAll().find((t) => t.typeConfig.id === 'research-center')!;
       expect(log).toEqual([
         'event:command:place-tower',
+        'corridorLock(tower)',
         'tower.placeTower',
         'tower.refreshGuardHeading',
         'event:tower:placed',
@@ -625,7 +628,7 @@ describe('GameStateManager order of operations (characterization)', () => {
   });
 
   describe('lifecycle', () => {
-    it('starts the first wave: preview, game:started, then the wave', () => {
+    it('starts the first wave: corridor lock, preview, game:started, then the wave', () => {
       gsm.startWave({
         schedule: {
           entries: [
@@ -637,11 +640,18 @@ describe('GameStateManager order of operations (characterization)', () => {
       } as never);
 
       expect(log).toEqual([
+        'corridorLock(wave)',
         'waveDebug.setCurrentWaveGroups',
         'event:game:started',
         'wave.startWave',
         'event:wave:started',
       ]);
+    });
+
+    it('begins a manual wave: corridor lock, game:started, then the wave', () => {
+      gsm.beginWave();
+
+      expect(log).toEqual(['corridorLock(wave)', 'event:game:started', 'wave.beginWave', 'event:wave:started']);
     });
 
     it('resets in this order', () => {
