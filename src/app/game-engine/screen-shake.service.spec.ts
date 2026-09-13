@@ -67,6 +67,18 @@ describe('ScreenShakeService', () => {
     service.destroy();
   });
 
+  it('shakes once for a worm, when its last segment dies', () => {
+    const { eventBus, engine, service } = setup();
+    const segment = (remaining: number) =>
+      ({ typeConfig: { isBoss: true }, worm: { group: { remaining } } }) as never;
+    eventBus.emit({ type: 'enemy:died', enemy: segment(40), credits: 0 });
+    eventBus.emit({ type: 'enemy:died', enemy: segment(1), credits: 0 });
+    expect(engine.triggerScreenShake).not.toHaveBeenCalled();
+    eventBus.emit({ type: 'enemy:died', enemy: segment(0), credits: 0 });
+    expect(engine.triggerScreenShake.mock.calls).toEqual([[presets.bossDeath.amplitude, presets.bossDeath.duration]]);
+    service.destroy();
+  });
+
   it('shakes hardest and longest for a nuclear strike, fading over a range of its own', () => {
     const { eventBus, engine, service } = setup();
     const { strikeNearDistance, strikeFarDistance } = SCREEN_SHAKE_CONFIG;

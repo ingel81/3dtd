@@ -102,10 +102,11 @@ export class ScreenShakeService {
       }),
     );
 
-    // Enemy died → extra shake for bosses
+    // Enemy died → extra shake for bosses; a worm shakes once, with its last segment
     this.subs.add(
       this.eventBus.on('enemy:died', (event) => {
-        if (event.enemy?.typeConfig?.isBoss) {
+        const worm = event.enemy?.worm;
+        if (event.enemy?.typeConfig?.isBoss && (!worm || worm.group.remaining === 0)) {
           this.shake(presets.bossDeath.amplitude, presets.bossDeath.duration);
         }
       }),

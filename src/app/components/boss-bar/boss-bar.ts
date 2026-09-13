@@ -25,6 +25,15 @@ export interface BossBarView {
   more: number;
 }
 
+/**
+ * A worm's sample: the HP left over all its parts, the segments still in the
+ * portal at full HP, against the whole worm's. Split into several worms it
+ * says how many ("Chitin Worm ×3").
+ */
+export function wormBossSample(name: string, parts: number, hp: number, maxHp: number): BossSample {
+  return { name: parts > 1 ? `${name} ×${parts}` : name, hp, maxHp };
+}
+
 function percentOf(boss: BossSample): number {
   if (boss.maxHp <= 0) return 0;
   return Math.max(0, Math.min(100, Math.round((boss.hp / boss.maxHp) * 1000) / 10));
