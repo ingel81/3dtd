@@ -579,6 +579,9 @@ export class GameLoopFacadeService {
     this.towerPlacement.tickBuildPreviewViz(losTimeSec);
     this.gameState.towerManager.tickSelectionViz(losTimeSec);
 
+    // Veteran badges follow the towers' kill counts (cosmetic)
+    this.gameState.towerManager.syncVeteranBadges();
+
     // Throttled UI stats (~10Hz)
     const now = performance.now();
     if (now - this.lastStatsUpdate < GameLoopFacadeService.STATS_THROTTLE_MS) return;

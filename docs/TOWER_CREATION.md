@@ -609,8 +609,9 @@ sie nicht. Jeder Tower-Typ bekommt sie ohne eigene Config.
   Champion und Legend nur für die Tower, die die Schwärme tragen. W19 war damals `rat_tide`, heute
   ist es `skeleton_swarm` (bis 940 Skelette, mit den Minions bis 2.820 Körper).
 - **Kein eigener Zustand:** Der Rang wird aus `kills` abgeleitet, wo er gebraucht wird
-  (`veteranLevel`). Ein Upgrade behält ihn, Verkaufen nimmt ihn mit dem Tower weg. Was die Kills
-  wiederherstellt oder nachspielt, stellt auch den Rang wieder her.
+  (`veteranLevel`): im Tower-Panel und jeden Frame für das Abzeichen in der Welt. Ein Upgrade
+  behält ihn, Verkaufen nimmt ihn mit dem Tower weg. Was die Kills wiederherstellt oder
+  nachspielt, stellt auch den Rang wieder her, das Abzeichen eingeschlossen.
 - **Abzeichen in der Welt:** `TowerBadgeRenderer` (`engine.towerBadges`,
   `three-engine/renderers/tower-badge/`), alle Abzeichen in einem Draw Call, gebaut wie die
   Lebensbalken der Gegner: eine `InstancedBufferGeometry` unter einem Mesh, Billboard im
@@ -621,9 +622,10 @@ sie nicht. Jeder Tower-Typ bekommt sie ohne eigene Config.
   zuerst erscheint; lädt das Modell noch, misst ein späterer Frame. 24 CSS-Pixel groß, in der Welt
   zwischen 1,4 und 9 m gehalten, zwischen 700 und 1.100 m Kameraabstand ausgeblendet
   (`tower-badge-shaders.ts`). Der Tiefentest lässt Gebäude davor das Abzeichen verdecken.
-- **Weg:** Der `GameStateManager` reicht jedes `tower:kill` an `TowerManager.refreshVeteranBadge`,
-  der den Rang an `towerBadges.setRank` gibt; gleicher Rang ändert nichts. Ein Tower unter dem
-  ersten Rang belegt keinen Slot. `TowerManager.remove` und `clear` nehmen die Abzeichen weg, der
+- **Weg:** Die `GameLoopFacadeService` ruft jeden Frame `TowerManager.syncVeteranBadges`, der
+  für jeden Tower den Rang aus `combat.kills` an `towerBadges.setRank` gibt; gleicher Rang ändert
+  nichts. Das Abzeichen folgt damit den Kills, auch wenn sie ohne `tower:kill` gesetzt werden.
+  Ein Tower unter dem ersten Rang belegt keinen Slot. `TowerManager.remove` und `clear` nehmen die Abzeichen weg, der
   Photo Mode blendet sie aus.
 - **Tower-Panel:** Rangzeile unter den Stat-Kacheln, siehe
   [DESIGN_SYSTEM.md → Veteranen-Rang](DESIGN_SYSTEM.md#veteranen-rang).

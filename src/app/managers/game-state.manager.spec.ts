@@ -230,18 +230,6 @@ describe('GameStateManager', () => {
     });
   });
 
-  describe('veteran badges', () => {
-    it('sets the rank above a tower after each of its kills', () => {
-      const engine = createMockEngine() as { towerBadges: { setRank: ReturnType<typeof vi.fn> } };
-      gsm.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-
-      const tower = { id: 't-vet', combat: { kills: 10 } };
-      getEventBus(gsm).emit({ type: 'tower:kill', tower: tower as never });
-
-      expect(engine.towerBadges.setRank).toHaveBeenCalledWith('t-vet', 1);
-    });
-  });
-
   describe('after initialize()', () => {
     let bus: GameEventBus;
 
