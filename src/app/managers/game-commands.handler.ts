@@ -1,5 +1,4 @@
 import { GameEventBus, SubscriptionBag } from '../game-engine';
-import { requiredUpgradeTier } from '../configs/tower-types.config';
 import { GameStateManager } from './game-state.manager';
 import { getResearch } from '../configs/research/research-tree.config';
 
@@ -48,45 +47,11 @@ export class GameCommandsHandler {
       }
     }));
 
+    // Kosten, Tier-Gating und tower:upgraded: TowerLifecycle.upgrade()
     this.subs.add(this.eventBus.on('command:upgrade-tower', (event) => {
       const tower = this.gsm.towerManager.getAll().find(t => t.id === event.towerId);
-      if (!tower) return;
-
-      const upgradeId = event.upgradeId;
-      const cost = tower.getNextUpgradeCost(upgradeId);
-      if (cost <= 0 || !tower.canUpgrade(upgradeId)) return;
-
-      // Tier-Gating: research-slots (Research Center) ist immer erlaubt.
-      // Reguläre Tower-Upgrades brauchen ein passendes Upgrade-Tier-Research.
-      // Die Bandregel lebt in requiredUpgradeTier() — Sidebar und Trainings-Bot
-      // nutzen dieselbe Funktion, damit die drei nicht auseinanderlaufen.
-      if (upgradeId !== 'research-slots') {
-        const requiredTier = requiredUpgradeTier(tower.getUpgradeLevel(upgradeId));
-        if (this.gsm.researchManager.getMaxUpgradeTier() < requiredTier) return;
-      }
-
-      if (this.gsm.spendCredits(cost)) {
-        const upgrade = tower.typeConfig.upgrades.find(u => u.id === upgradeId);
-        const previousLevel = tower.getUpgradeLevel(upgradeId);
-        tower.applyUpgrade(upgradeId);
-
-        // Research-Center-Slot-Upgrade
-        if (upgrade?.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
-          this.gsm.researchManager.upgradeCenter();
-        }
-
-        // Range-Änderung → LOS-Cells neu berechnen, damit Targeting den neuen
-        // Range nutzt; rangeSquaredGeo für Sleep-/Wake-Checks aktualisieren.
-        if (upgrade?.effect.stat === 'range') {
-          this.gsm.recomputeTowerRangeAfterUpgrade(tower);
-        }
-
-        this.eventBus.emit({
-          type: 'tower:upgraded',
-          tower,
-          level: previousLevel + 1,
-          cost,
-        });
+      if (tower) {
+        this.gsm.upgradeTower(tower, event.upgradeId);
       }
     }));
   }
@@ -160,22 +125,7 @@ export class GameCommandsHandler {
     }));
 
     this.subs.add(this.eventBus.on('debug:max-upgrade-all-towers', () => {
-      for (const tower of this.gsm.towerManager.getAll()) {
-        let rangeChanged = false;
-        for (const upgrade of tower.typeConfig.upgrades) {
-          while (tower.canUpgrade(upgrade.id)) {
-            if (!tower.applyUpgrade(upgrade.id)) break;
-            if (upgrade.effect.stat === 'range') rangeChanged = true;
-            if (upgrade.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
-              this.gsm.researchManager.upgradeCenter();
-            }
-          }
-        }
-        if (rangeChanged) {
-          this.gsm.recomputeTowerRangeAfterUpgrade(tower);
-        }
-        this.eventBus.emit({ type: 'tower:upgraded', tower, level: 0, cost: 0 });
-      }
+      this.gsm.maxUpgradeAllTowers();
     }));
   }
 }
