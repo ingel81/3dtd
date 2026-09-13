@@ -205,6 +205,18 @@ describe('PathAndRouteService route geometry', () => {
     expect(distToSegmentM(spawn, route[0], route[0])).toBeGreaterThan(1);
   });
 
+  it('says whether a route is cached (hasRoutes, gates the recent-locations list)', () => {
+    const service = new PathAndRouteService();
+    service.initialize(
+      makeEngine(), network, { lat: 48.0011, lon: 9.0025 }, (() => false) as never, new OsmStreetService(), null,
+    );
+    expect(service.hasRoutes()).toBe(false);
+    service.showPathFromSpawn(spawnPointAt({ lat: 47.9993, lon: 9.0 }));
+    expect(service.hasRoutes()).toBe(true);
+    service.clearCache();
+    expect(service.hasRoutes()).toBe(false);
+  });
+
   it('keeps the corner shape node in the cached route', () => {
     // HQ gut 10 m nördlich von Way 300.
     const route = buildRoute(network, { lat: 47.9995, lon: 9.0 }, { lat: 48.0011, lon: 9.0025 });

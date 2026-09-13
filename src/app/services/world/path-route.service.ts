@@ -1,4 +1,4 @@
-import { Injectable, WritableSignal, inject } from '@angular/core';
+import { Injectable, WritableSignal, inject, signal } from '@angular/core';
 import { Vector3 } from 'three';
 import type { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { ThreeTilesEngine } from '../../three-engine';
@@ -156,6 +156,8 @@ export class PathAndRouteService {
 
   /** Cached paths from spawn to base (key: spawnId) */
   private cachedPaths = new Map<string, RouteWaypoint[]>();
+  /** At least one spawn has a route to the HQ, i.e. `cachedPaths` is not empty */
+  readonly hasRoutes = signal(false);
 
   /** Street lookup for route segments, built on first use per street network. */
   private edgeIndex: StreetEdgeIndex | null = null;
@@ -276,6 +278,7 @@ export class PathAndRouteService {
    */
   cachePath(spawnId: string, path: RouteWaypoint[]): void {
     this.cachedPaths.set(spawnId, path);
+    this.hasRoutes.set(true);
   }
 
   /**
@@ -286,6 +289,7 @@ export class PathAndRouteService {
    */
   clearCache(): void {
     this.cachedPaths.clear();
+    this.hasRoutes.set(false);
     this.streetRoutes.clear();
     this.cancelClearanceRun('routes replaced');
   }
@@ -532,6 +536,7 @@ export class PathAndRouteService {
     }
 
     this.cachedPaths.set(spawn.id, pathWithHeights);
+    this.hasRoutes.set(true);
 
     // The spawn portal stands on the route's first cell, facing along it
     this.onRouteBuilt?.(spawn.id, pathWithHeights, startCellY);
