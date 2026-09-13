@@ -17,7 +17,7 @@ Route (vom Spawn zum HQ).
 |---|---|---|
 | Straßenbreite je Segment | `utils/route-corridor.ts` (`estimateStreetWidth`, `routeHalfWidths`), Zuordnung Segment zu OSM-Way in `path-route.service.ts:460-468` | Halbbreite aus OSM, Rückfall für alles, was die Tiles nicht messen |
 | Messung | `PathAndRouteService.beginClearanceMeasurement` (`path-route.service.ts:778`) und der Lauf `ClearanceRun` (`:949`), Strahlen in `TerrainQueries.measureStreetClearance` (`three-engine/terrain-queries.ts:324`, als `engine.terrain` erreichbar) | Freiraum je Station und Seite |
-| Anpassung | `fitCorridorStations`, `fitCorridorPieces` (`route-corridor.ts:445`, `:496`), `applyClearance` (`path-route.service.ts:542`) | Segmente geteilt, wo sich eine Seite ändert; Halbbreite links und rechts je Stück |
+| Anpassung | `fitCorridorStations`, `fitCorridorPieces`, `closeShortNarrowings` (`route-corridor.ts`), `fitRoute`, `applyClearance` (`path-route.service.ts`) | Segmente geteilt, wo sich eine Seite ändert; Halbbreite links und rechts je Stück; kurze Engstellen geschlossen |
 | Waypoints | `path-route.service.ts:518-523` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts:262`) | 2-m-Zellen im Korridor |
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`) | Boden, Brückendeck, Tunnelsohle, Dach-Check |
@@ -66,9 +66,14 @@ einmal gemessen.
 
 Je Station (`TerrainQueries.measureStreetClearance`, `terrain-queries.ts:324-378`):
 
-1. Eine Säulenprobe unter der Station. Ohne Tile ist die Station
-   `unmeasured: 'no tile'`, mit einem Tile gröber als `maxTileError` ist sie
-   `unmeasured: 'coarse tile'`.
+1. Eine Säulenprobe unter der Station. Findet sie gar kein Tile, steht die
+   Station womöglich auf einer Naht zwischen zwei Tile-Meshes; dann versucht
+   sie die Säulen 0,5 m voraus und 0,5 m zurück entlang der Route
+   (`SEAM_SHIFTS_M`, `terrain-queries.ts`) und misst von der ersten, die ein
+   Tile findet. Das kostet höchstens zwei weitere Säulen, nur für solche
+   Stationen; `__corridor.pick()` zeigt die Verschiebung als `shiftM`. Ohne
+   Tile auch dort ist die Station `unmeasured: 'no tile'`, mit einem Tile
+   gröber als `maxTileError` ist sie `unmeasured: 'coarse tile'`.
 2. Je Strahlhöhe ein waagrechter Strahl nach links und einer nach rechts, in
    1 m und 3,5 m über dem Boden der Säule (auf einer Brücke über ihrer
    Oberkante `topY`), jeder `maxHalfWidth` lang.
@@ -92,9 +97,16 @@ und Durchgangssegmente werden übersprungen (`:792`).
 
 ### Glättung und Halbbreite
 
-`fitCorridorStations` (`route-corridor.ts:445-488`) arbeitet je Seite über die
+`fitCorridorStations` (`route-corridor.ts`) arbeitet je Seite über die
 ganze Route, über Waypoints hinweg:
 
+0. **Kurze Messlücken füllen** (`fillShortGaps`): Eine Folge ungemessener
+   Stationen bis etwa `dipLength` lang (bei den Vorgaben eine oder zwei
+   Stationen) bekommt den kleineren Freiraum der gemessenen Stationen davor
+   und danach, am Routenende den der einen. So engt eine Station auf einer
+   Naht zwischen zwei Tile-Meshes, deren Säule kein Tile findet, den
+   Korridor nicht für 2 m auf die Straßenbreite ein (Playtest 2026-09-13,
+   Station `7:3/32`). Längere Lücken behalten die Straßenbreite.
 1. **Einbrüche schließen** (`closeShortDips`, morphologisches Closing): Ein
    schmalerer Abschnitt bis etwa `dipLength` (Laterne, Schild, Transporter,
    einzelner Stamm) verschwindet, ein längerer bleibt in voller Länge.
@@ -113,14 +125,31 @@ ganze Route, über Waypoints hinweg:
    Endstück läuft oft durch Gebäude und Höfe, und ein Strahl, der in einem
    Gebäude beginnt, findet dort keine Wand.
 
-Stationen ohne Messung bekommen die Halbbreite der Straße
+Stationen ohne Messung in einer kurzen Lücke durchlaufen die Schritte 1 bis 4
+mit dem Freiraum ihrer Nachbarn (`rule: 'unmeasured: from neighbours, ...'`),
+die übrigen bekommen die Halbbreite der Straße
 (`rule: 'unmeasured: street width'`).
 
-`fitCorridorPieces` (`:496-510`) fasst Stationen mit gleicher Halbbreite links
-und rechts zu einem Stück zusammen. `applyClearance`
-(`path-route.service.ts:542-567`) teilt jedes Segment an den Stückgrenzen; jedes
-Stück wird ein eigener Waypoint mit `corridorLeft` und `corridorRight`. Solange
-noch gar nichts gemessen ist, laufen beide Seiten mit der Straßenbreite.
+`fitCorridorPieces` (`route-corridor.ts`) fasst Stationen mit gleicher
+Halbbreite links und rechts zu einem Stück zusammen. Solange noch gar nichts
+gemessen ist, ist jedes Segment ein Stück mit der Straßenbreite auf beiden
+Seiten.
+
+**Kurze Engstellen schließen** (`closeShortNarrowings`, aufgerufen in
+`PathAndRouteService.fitRoute`): Ein Stück oder eine Folge von Stücken, auf
+einer Seite schmaler als das Stück davor und danach und zusammen höchstens
+etwa `dipLength` lang, bekommt die schmalere der beiden Nachbarbreiten. Das
+ist das Schließen der Einbrüche aus Schritt 1 noch einmal, über die fertigen
+Stücke, egal welche Regel ihre Breite gesetzt hat: etwa die Straßenbreite
+eines kurzen Segments, das noch nicht gemessen ist, oder eines kurzen
+Fußweg-Stücks zwischen zwei Straßen. Längere Engstellen, eine Engstelle am
+Anfang oder Ende der Route und Tunnel bleiben. `__corridor.pick()` nennt es
+mit `short narrowing closed` in `rule`.
+
+`applyClearance` (`path-route.service.ts`) teilt jedes Segment an den
+Stückgrenzen; jedes Stück wird ein eigener Waypoint mit `corridorLeft` und
+`corridorRight`. Zellen und Seitenversatz der Gegner lesen beide diese
+Waypoints, eine geschlossene Engstelle gilt also für beide.
 
 ## OSM-Breite als Rückfall und Deckel
 
@@ -179,7 +208,39 @@ erreichen.
 ## Zellhöhe
 
 Die Höhe einer Zelle kommt aus der Säulenprobe an ihrem Mittelpunkt: der
-unterste Treffer der feinsten LOD (`column-sample.ts`). Ausnahmen:
+unterste Treffer der feinsten LOD (`column-sample.ts`).
+
+- **Naht zwischen zwei Tile-Meshes** (`RouteCellSampler.sampleCellY`,
+  `CELL_PROBES_M`): Findet die Säule am Mittelpunkt kein Tile oder nur einen
+  Treffer, den die Nachbarn ablehnen (unten), versucht die Zelle die Säulen
+  0,5 m daneben in x und z und nimmt die erste, die einen annehmbaren
+  Treffer gibt. Höchstens vier weitere Säulen, nur für solche Zellen. Die
+  Probe auf der Mittellinie für den Dach-Check und die Portalproben eines
+  Tunnels machen es ebenso. Liegt der Mittelpunkt in keiner Bounding Box
+  eines Tiles, überspringt der Sweep die Zelle wie bisher ohne Probe.
+- **Ausreißer** (`plausible`): Ein Treffer mehr als 50 m (`OUTLIER_M`) vom
+  Median der stabilen Nachbarn derselben Fläche entfernt zählt nicht. Für
+  die erste Probe einer Zelle und für ein LOD-Upgrade zählen nur Nachbarn
+  aus mindestens so tiefen Tiles, damit eine grobe Hülle ringsum ein
+  feineres Sample nicht verhindert. Vorher lief der Test nur für stabile
+  Zellen ohne Upgrade; im Playtest 2026-09-13 stand eine Zelle so auf
+  -3542 m zwischen Zellen auf 243 m. Der Dach-Check übergeht einen Boden
+  auf der Mittellinie mehr als 50 m unter der Zelle.
+- **Lücken füllen** (`GlobalRouteGrid.fillGaps`, nach dem Erzeugen, am Ende
+  jedes Sweeps und nach einem Retry mit Promotion): Eine Zelle ohne
+  annehmbares eigenes Sample, zwischen stabilen Zellen derselben Fläche auf
+  gegenüberliegenden Seiten (west-ost, süd-nord, die zwei Diagonalen),
+  bekommt den Mittelwert dieser Paare und den Zustand `filled`. Sie zählt
+  als Zelle mit Höhe (`heightSampled`: LOS-Anzeige, Gegner, Overlay ohne
+  rosa Kontur), das Sampling versucht sie weiter wie eine ungesampelte und
+  ersetzt die Füllung durch das erste Sample, das es annimmt. Gefüllt wird
+  nur aus stabilen Zellen, eine Füllung breitet sich also nicht aus; eine
+  Lücke breiter als eine Zelle bleibt ohne Höhe. Eine stabile Zelle mehr als
+  50 m neben ihren Nachbarn aus mindestens so tiefen Tiles (ein Treffer, der
+  vor ihnen kam) wird ebenso gefüllt oder, ohne Paar, wieder `unsampled`.
+  Tunnelzellen bleiben, wie sie sind.
+
+Ausnahmen:
 
 - **Dach-Check** (`route-cell-sampler.ts:141-155`): Liegt die Probe einer
   Zelle neben der Mittellinie mehr als `roofRise` (2,5 m) über dem Boden der
@@ -452,17 +513,22 @@ __corridor.pick(6)
      nächsten Station kommt (`explainCorridorAt`,
      `path-route.service.ts:629-729`).
      - Die Station: Way, `streetWidthM`, `widthSource`, `onStreet`,
-       `inTunnel`, `unmeasured`, `tileError`.
+       `inTunnel`, `unmeasured`, `tileError`, am Ende `shiftM` (wie weit
+       entlang der Route die Station neben einer Naht gemessen wurde, sonst
+       null).
      - Je Seite eine Zeile: `lowHitM`, `highHitM`, `wall`, `freeM`,
        `smoothedM`, `halfWidthM`, `inUseM` und `rule`.
-     - Eine Tabelle mit den vier Stationen davor und danach.
+     - Eine Tabelle mit den vier Stationen davor und danach; `leftM` und
+       `rightM` sind die Halbbreiten der Stücke dort.
 
   `rule` nennt die Regeln, die gegriffen haben, auch mehrere
   (`bulge cut, wall less margin`):
   - aus der Messung: `dip closed`, `bulge cut`, `wall less margin`,
     `no wall within the maximum`, `minimum`, `leg to the HQ: street width`;
-  - ohne Messung: `unmeasured: street width`,
-    `tunnel or covered: street width`, `not measured yet: street width`.
+  - ohne Messung: `unmeasured: from neighbours` (kurze Lücke, gefolgt von
+    den Regeln oben), `unmeasured: street width`,
+    `tunnel or covered: street width`, `not measured yet: street width`;
+  - danach, über die fertigen Stücke: `short narrowing closed`.
 
 ### `__routes.describe()`
 
@@ -494,7 +560,7 @@ Die Kontur zeigt den Zustand, in dieser Rangfolge (`overlayCellKind`,
 
 | Kontur | Zustand |
 |---|---|
-| rosa | ohne Höhenprobe; die LOS-Anzeige eines Towers lässt die Zelle aus |
+| rosa | ohne Höhenprobe; die LOS-Anzeige eines Towers lässt die Zelle aus. Eine gefüllte Zelle (`filled`, siehe Zellhöhe) hat eine Höhe und die Kontur ihrer Fläche; `__corridor.pick()` zeigt sie als `state: 'filled'`, `__rg.dumpStats()` zählt sie unter `filled` |
 | blau | Brückendeck |
 | gelb | Tunnel oder überdachter Durchgang |
 | orange | vom Dach-Check auf den Boden gesetzt (`clamped`) |
@@ -522,6 +588,15 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
 - Der Dach-Check vergleicht mit der Mittellinien-Zelle daneben. Steht dort
   selbst eine Krone, greift er nicht; eine Probe auf einem Autodach unter
   2,5 m über der Mittellinie greift er ebenfalls nicht.
+- Nähte zwischen Tile-Meshes: Stationen und Zellen versuchen Säulen 0,5 m
+  daneben, Lücken füllt der Grid aus den Nachbarn. Eine Lücke breiter als
+  eine Zelle bleibt ohne Höhe (rosa), eine Messlücke länger als etwa
+  `dipLength` bei der Straßenbreite. Liegt der Mittelpunkt einer Zelle in
+  keiner Bounding Box eines Tiles, probt der Sweep sie gar nicht; dann greift
+  nur das Füllen. Der Ausreißer-Test braucht mindestens drei stabile
+  Nachbarn derselben Fläche; für eine erste Probe oder ein Upgrade zählen
+  nur Nachbarn aus mindestens so tiefen Tiles. Ein Treffer aus einem
+  feineren Tile als alle Nachbarn wird dort also nicht geprüft.
 - Die Portalprobe eines Tunnels kann auf einem Überhang oder Hang landen, dann
   steht das ganze Tunnelstück schief. Eine Kuppe oder Senke im Tunnel wird als
   Gerade zwischen den Portalen angenähert.
