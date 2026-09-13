@@ -91,6 +91,7 @@ import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/
 import { AbilityBarComponent } from './components/ability-bar/ability-bar.component';
 import { RunSummaryComponent } from './components/run-summary/run-summary.component';
 import { WorldRecordComponent } from './components/world-globe/world-record.component';
+import { BossIntroComponent } from './components/boss-intro/boss-intro.component';
 import { BestWaveService } from './services/location/best-wave.service';
 import { PhotoModeService } from './services/photo-mode.service';
 import { BossIntroService } from './services/boss-intro.service';
@@ -137,6 +138,7 @@ import { isLocationDialogFailure } from './components/location-dialog/open-locat
     OffscreenIndicatorsComponent,
     AbilityBarComponent,
     RunSummaryComponent,
+    BossIntroComponent,
     // Used only inside @defer on the game-over screen, so it loads with the globe as a lazy chunk
     WorldRecordComponent,
   ],
@@ -200,6 +202,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly bestWaves = inject(BestWaveService);
   /** HUD hidden, screenshot bar on top */
   readonly photoMode = inject(PhotoModeService);
+  /** Camera cut to a wave's boss with its title card */
+  readonly bossIntro = inject(BossIntroService);
 
   // Build / tiles version chips shown in the loading screen corners.
   readonly buildVersion = BUILD_VERSION;

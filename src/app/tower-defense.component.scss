@@ -86,6 +86,14 @@
   pointer-events: auto;
 }
 
+/* The boss intro holds the screen: the column steps back, its components
+   stay alive (the boss bar keeps the boss it has just seen) */
+.td-hud-top.td-hud-muted {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+
 /* Logo Attribution (bottom left) */
 .td-logo-attribution {
   position: absolute;

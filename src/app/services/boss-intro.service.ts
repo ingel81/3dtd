@@ -1,4 +1,5 @@
 import { DestroyRef, Injectable, NgZone, computed, inject, signal } from '@angular/core';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Quaternion, Vector3, type PerspectiveCamera } from 'three';
 import { GameStateManager } from '../managers/game-state.manager';
 import { GameStore } from '../store/game.store';
@@ -32,6 +33,12 @@ import {
 const SHOT_ROUTE_M = 150;
 /** Longest frame the timeline advances by, so a stall does not eat the hold (ms). */
 const MAX_FRAME_MS = 100;
+
+/** What the title card shows: the type's display name and the wave. */
+export interface BossIntroCard {
+  name: string;
+  wave: number;
+}
 
 /** A boss the gate let through, until it has stepped out of its portal. */
 interface WaitingBoss {
@@ -77,10 +84,13 @@ export class BossIntroService {
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly introFlight = inject(IntroCameraFlightService);
   private readonly ngZone = inject(NgZone);
+  private readonly announcer = inject(LiveAnnouncer);
 
   /** Stage of the running intro, null while none runs. */
   readonly stage = signal<BossIntroStage | null>(null);
   readonly active = computed(() => this.stage() !== null);
+  /** Title card of the running intro, shown while the portal shot holds (BossIntroComponent) */
+  readonly card = signal<BossIntroCard | null>(null);
 
   private readonly gate = new BossIntroGate();
   private readonly waiting: WaitingBoss[] = [];
@@ -172,7 +182,10 @@ export class BossIntroService {
     this.run = { boss, shot, elapsedMs: 0, returned: false, controlsWereEnabled: controls?.enabled ?? false };
     if (controls) controls.enabled = false;
     cameraTimeline.record('bossIntro.start', { boss: boss.enemy.typeConfig.id, wave: boss.wave }, true);
+    const name = boss.enemy.typeConfig.name;
+    this.ngZone.run(() => this.card.set({ name, wave: boss.wave }));
     this.setStage('dip-in');
+    this.announcer.announce(`Boss: ${name}, wave ${boss.wave}.`);
     return true;
   }
 
@@ -264,6 +277,9 @@ export class BossIntroService {
 
   /** The render loop runs outside Angular; the veil and the card follow this signal. */
   private setStage(stage: BossIntroStage | null): void {
-    this.ngZone.run(() => this.stage.set(stage));
+    this.ngZone.run(() => {
+      this.stage.set(stage);
+      if (stage === null) this.card.set(null);
+    });
   }
 }
