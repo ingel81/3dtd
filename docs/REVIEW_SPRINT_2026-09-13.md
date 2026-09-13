@@ -1405,11 +1405,23 @@ dem Portal.
 238. Regulär bis W7 (bat_swarm) und W8 (hornet_strike) spielen: an jedem
      Portal wie 232 und 233.
 
-### Kamera an der Route (camnear, `bac034a`, `a7cdcf4`)
+### Kamera an der Route und nach dem Atomschlag (camnear, `bac034a`, `a7cdcf4`, `aef9d9e`)
 
 Befund aus dem Playtest: "irgendwas beeinflusst das zoom und pan
 verhalten wenn man in der nähe der route unterwegs ist ... zäher und
 träger und lässt mich auch nich so nahe heran oder so geschmeidig panen".
+Nachgereicht: "tritt vermutlich erst nach einem atomschlag auf", "pan und
+co treffen irgendwas was in der luft verbleibt".
+
+- Nach dem Atomschlag: Die Draw-Gates des Atompilzes stellen seine
+  Objekte nach dem Effekt nur unsichtbar. Schockkuppel, Flash-Sprite und
+  Schockwellen-Ring bleiben in ihrer letzten Lage in der Szene: die
+  Kuppel mit 46 m Radius und 36,8 m Höhe über dem Einschlag, der Sprite
+  150 m groß 10 m über dem Boden, der Ring 70 m auf 0,6 m (Schlag mit
+  25 m Radius). Ein senkrechter Strahl 5 m neben dem Einschlag traf nach
+  dem Ende des Pilzes die versteckte Kuppel in 36 m Höhe, 30 m daneben in
+  27 m. Die Kamera zoomte also auf eine unsichtbare Kuppel, hielt 10 m
+  davor, pivotierte auf ihr und hielt 5 m Abstand über ihr.
 
 - Ursache: Die GlobeControls raycasten gegen die Szene, die sie
   bekommen, und `CameraRig` gab ihnen die ganze Szene. Ihre Strahlen:
@@ -1435,9 +1447,18 @@ träger und lässt mich auch nich so nahe heran oder so geschmeidig panen".
   m/s × dt. Keine Kamera-Höhenklemme liest `TerrainQueries`. Der
   Hover-Pick der Tower (`bf414ab`) läuft höchstens alle 100 ms und nie
   bei gedrückter Taste.
-- Nicht aus der Nachtschicht: In `39fbb18` stehen `setScene(scene)` und
-  die versteckten Scheiben genauso. DevWorld raycastete schon nur gegen
-  ihre Terrain-Gruppe.
+- Herkunft: Die ganze Szene als Raycast-Ziel ist älter als die
+  Nachtschicht; in `39fbb18` stehen `setScene(scene)` und die versteckten
+  Scheiben genauso, vor `04ca3d7` stand es im Engine. Die Kuppel in der
+  Luft kam mit dem Atompilz dieser Nacht (`327cc62`). DevWorld raycastete
+  schon nur gegen ihre Terrain-Gruppe.
+- Geprüft am Atomschlag, unauffällig: Der Screen Shake verschiebt nur die
+  Projektion für den einen Draw und stellt sie danach zurück
+  (`drawFrame()`), Kamera und Controls sieht er nicht; er fällt nach
+  1,6 s auf 0. Der Bloom-Kick fällt nach 0,9 s Spielzeit auf 0 und setzt
+  dann die Werte des Passes exakt zurück. Der Schlag ändert weder
+  Zeitskala noch Kamera-Einstellungen. Pilz-Partikel mit leerem
+  Draw-Range sind weder gezeichnet noch treffbar.
 - `bac034a` Die Controls bekommen eine `GroundPickRoot`: eine Gruppe
   ohne Transform in der Szene, die Strahlen nur mit der Tiles-Gruppe
   beantwortet und das Pivot-Mesh trägt. Tiles per Debug ausgeblendet:
@@ -1449,6 +1470,11 @@ träger und lässt mich auch nich so nahe heran oder so geschmeidig panen".
   dem Boden.
 - `a7cdcf4` Die Strahlen der Controls stehen in `__raycastStats()` unter
   `cameraControls` statt `unscoped`.
+- `aef9d9e` Alle Objekte des Atompilzes (Partikel, Ringe, Kuppeln,
+  Flash-Sprites, Bildschirm-Quad) haben einen leeren `raycast()`, auch
+  für andere Raycaster als die Kamera. Sie bleiben für Gates und
+  Shader-Warm-up in der Szene. Spec: Ein Strahl durch den Einschlag
+  trifft während und nach dem Pilz nichts.
 - Offen: Nah an einem Tower kann die Kamera jetzt in sein Modell fahren,
   der Mindestabstand gilt nur zu den Tiles. Tower als Hindernis wieder
   aufzunehmen, würde Zoom-Halt und Pivot an ihnen wieder anheben; nicht
@@ -1472,6 +1498,15 @@ träger und lässt mich auch nich so nahe heran oder so geschmeidig panen".
      ziehen, dann `__raycastStats()`: Zeile `cameraControls`, bei ruhender
      Kamera etwa 2 Aufrufe pro Frame.
 255. DevWorld (`?devworld`): Zoom, Ziehen und Drehen wie bisher.
+256. Neues Spiel, Dev-Menü, Cheats, Nuke, Schlag auf die Route setzen
+     (wie Punkt 224), den Pilz ganz ablaufen lassen (14 s). Dann über dem
+     Einschlag mit dem Mausrad bis zum Anschlag zoomen: Die Kamera kommt
+     so nah an den Boden wie an jeder anderen Stelle, kein Halt in der
+     Luft.
+257. Gleiche Stelle, links ziehen und rechts drehen: Der Boden bleibt
+     unter dem Zeiger, der Pivot-Kreis liegt auf dem Boden.
+258. Während der Pilz steht, über ihm zoomen und ziehen: Die Kamera geht
+     durch Pilz und Kuppel hindurch, nichts bremst.
 
 ## TODO-Stand
 
