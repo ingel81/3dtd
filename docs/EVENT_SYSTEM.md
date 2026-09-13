@@ -45,7 +45,7 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `tower:sold` | TowerManager | GameStateSyncService, VisualizationFacade, LosDebugService, AIDataCollector | Tower verkauft (`tower`, `refund`). Die Gutschrift macht `GameStateManager.sellTower()` (`TowerLifecycle.sell()`) direkt |
 | `tower:selected` | TowerManager | GameStateSyncService, VisualizationFacade, LosDebugService | Tower ausgewählt (`tower`) |
 | `tower:deselected` | TowerManager | GameStateSyncService, LosDebugService | Tower-Auswahl aufgehoben |
-| `tower:kill` | DamageApplicationService | GameStateSyncService | Kill einem Tower gutgeschrieben, `combat.kills` ist schon erhöht (`tower`). Zählt beim gewählten Tower `selectedTowerRevision` hoch, daraus leitet die Sidebar Kills und Stats ab |
+| `tower:kill` | DamageApplicationService | GameStateManager, GameStateSyncService | Kill einem Tower gutgeschrieben, `combat.kills` ist schon erhöht (`tower`). Der GameStateManager gibt den Veteranen-Rang an `TowerManager.refreshVeteranBadge` (Abzeichen über dem Tower). Beim gewählten Tower zählt `selectedTowerRevision` hoch, daraus leitet die Sidebar Kills, Stats und Rang ab |
 | `wave:started` | WaveManager | GameStateSyncService, AIDataCollector, BackgroundMusicService | Welle gestartet (`wave`, `enemyCount`). Manuelle Debug-Wellen (`beginWave()`) melden `enemyCount: 0` |
 | `game:started` | GameStateManager (vor der ersten Welle) | AIDataCollector | Spiel gestartet |
 | `game:over` | GameStateManager (`triggerGameOver()`) | GameStateSyncService, GameLoopFacade, AIDataCollector, BackgroundMusicService, TrainingSession | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`; emittiert wird nur `'base-destroyed'`) |
