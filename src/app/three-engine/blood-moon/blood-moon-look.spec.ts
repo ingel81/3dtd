@@ -7,8 +7,9 @@ const { fadeInMs, fadeOutMs } = BLOOD_MOON_LOOK;
 function setup() {
   const mood = { setAmount: vi.fn(), dispose: vi.fn() };
   const enemies = { setBloodMoon: vi.fn() };
-  const look = new BloodMoonLook({ mood, enemies });
-  return { look, mood, enemies };
+  const searchlights = { setAmount: vi.fn(), advance: vi.fn() };
+  const look = new BloodMoonLook({ mood, enemies, searchlights });
+  return { look, mood, enemies, searchlights };
 }
 
 describe('BloodMoonLook', () => {
@@ -98,6 +99,26 @@ describe('BloodMoonLook', () => {
     look.setActive(false, true);
     look.update(16, true, false);
     expect(enemies.setBloodMoon).toHaveBeenLastCalledWith(0, false);
+  });
+
+  it('lights the searchlights with the fade and sweeps them only while they show and the game runs', () => {
+    const { look, searchlights } = setup();
+    look.update(16, true, false);
+    expect(searchlights.advance).not.toHaveBeenCalled();
+
+    look.setActive(true);
+    look.update(fadeInMs, true, false);
+    expect(searchlights.setAmount).toHaveBeenLastCalledWith(1);
+    expect(searchlights.advance).toHaveBeenLastCalledWith(fadeInMs);
+
+    searchlights.advance.mockClear();
+    look.update(500, false, false);
+    expect(searchlights.advance).not.toHaveBeenCalled();
+
+    look.setActive(false, true);
+    look.update(16, true, false);
+    expect(searchlights.setAmount).toHaveBeenLastCalledWith(0);
+    expect(searchlights.advance).not.toHaveBeenCalled();
   });
 
   it('disposes its parts', () => {

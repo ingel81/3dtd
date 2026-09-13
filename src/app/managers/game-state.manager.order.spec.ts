@@ -145,6 +145,7 @@ function createEngine(): never {
     plinths: auto(),
     towerBadges: auto(),
     bloodMoon: auto(),
+    searchlights: auto(),
     enemies: auto(),
     projectiles: auto(),
     trailStreaks: auto(),

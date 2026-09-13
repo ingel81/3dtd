@@ -34,6 +34,11 @@ const createMockTilesEngine = () => ({
     remove: vi.fn(),
     clear: vi.fn(),
   },
+  searchlights: {
+    add: vi.fn(),
+    remove: vi.fn(),
+    clear: vi.fn(),
+  },
   tentacles: {
     create: vi.fn(),
     remove: vi.fn(),
@@ -167,6 +172,17 @@ describe('TowerManager', () => {
 
     manager.clear();
     expect(tilesEngine.towerBadges.clear).toHaveBeenCalled();
+  });
+
+  it('hands every tower to the searchlights on its foot, and takes the light down with it', () => {
+    const tower = manager.placeTower({ lat: 1, lon: 2, height: 7 }, 'cannon', 0, 2.5) as Tower;
+    // The foot is the plinth's top, position.height; the renderer skips passive buildings
+    expect(tilesEngine.searchlights.add).toHaveBeenCalledWith(tower.id, 1, 2, 7, tower.typeConfig, null);
+
+    manager.sell(tower);
+    expect(tilesEngine.searchlights.remove).toHaveBeenCalledWith(tower.id);
+    manager.clear();
+    expect(tilesEngine.searchlights.clear).toHaveBeenCalled();
   });
 
   describe('guard heading', () => {

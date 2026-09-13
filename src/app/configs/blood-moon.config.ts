@@ -57,4 +57,29 @@ export const BLOOD_MOON_LOOK = {
     rim: 2.4,
     base: 0.12,
   },
+  /**
+   * Searchlights on the towers (SearchlightRenderer): an additive cone from
+   * a lamp on top of each tower, tipped `pitchDeg` below the horizontal,
+   * sweeping `sweepArcDeg` to each side of the tower's guard heading. Each
+   * tower takes a random sweep period in `sweepPeriodS` and a random phase,
+   * so the beams never move in step. Passive buildings get none.
+   */
+  searchlights: {
+    /** Warm white in display values, against the red night */
+    color: { r: 1.0, g: 0.9, b: 0.72 },
+    /** Light one wall of the cone adds at the lamp, display values; fades to 0 at the far end */
+    intensity: 0.32,
+    /** Beam length, m */
+    length: 34,
+    /** Half the opening angle, degrees */
+    halfAngleDeg: 7,
+    pitchDeg: 18,
+    sweepArcDeg: 60,
+    /** One sweep there and back, s */
+    sweepPeriodS: [10, 16],
+    /** Lamp above the tower's shoot height, m */
+    lampLift: 0.8,
+    /** Lowest lamp above the tower's foot, m, for models that shoot from low down */
+    minLampHeight: 3,
+  },
 } as const;

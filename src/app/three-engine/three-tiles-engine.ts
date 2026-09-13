@@ -47,6 +47,7 @@ import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
 import { OozeBandRenderer } from './renderers/ooze/ooze-band.renderer';
 import { BloodMoonLook } from './blood-moon/blood-moon-look';
 import { BloodMoonMood } from './blood-moon/blood-moon-mood';
+import { SearchlightRenderer } from './renderers/searchlight/searchlight.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -148,6 +149,8 @@ export class ThreeTilesEngine {
   readonly mushroomClouds: MushroomCloudRenderer;
   /** Bodies of the oozes along the route, see OozeBodies */
   readonly oozes: OozeBandRenderer;
+  /** Searchlights on the towers, lit by the blood moon */
+  readonly searchlights: SearchlightRenderer;
   /** Look of the blood moon waves, switched by BloodMoonService */
   readonly bloodMoon: BloodMoonLook;
 
@@ -329,10 +332,12 @@ export class ThreeTilesEngine {
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
     this.mushroomClouds = new MushroomCloudRenderer(this.scene, this.effects.particleShaderMaterials);
     this.oozes = new OozeBandRenderer(this.scene);
+    this.searchlights = new SearchlightRenderer(this.scene, coordinateSync);
     // Takes the fog colour set above as the one to return to
     this.bloodMoon = new BloodMoonLook({
       mood: new BloodMoonMood(this.scene),
       enemies: this.enemies,
+      searchlights: this.searchlights,
     });
 
     // Initialize spatial audio with camera listener
@@ -1214,6 +1219,7 @@ export class ThreeTilesEngine {
     this.abilityMarkers.dispose();
     this.mushroomClouds.dispose();
     this.oozes.dispose();
+    this.searchlights.dispose();
     this.bloodMoon.dispose();
 
     // Dispose spatial audio
