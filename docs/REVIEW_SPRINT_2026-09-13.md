@@ -1247,6 +1247,85 @@ greift im nächsten Sub-Step, in der Pause also erst beim Weiterlaufen.
      Schlag setzen, sofort wieder Nuke: der Knopf ist wieder geladen, ein
      zweiter Schlag geht noch in derselben Welle.
 
+### Spawn-Portal, Runde 3 (portal3, `186474e` bis `329c4d0`)
+
+Befund aus dem Playtest: "portal sieht besser aus..aber die glyphen sind
+nicht düster un mysterisch genug...da geht noch wesentlich mehr. auch
+textur geht noch merh". Dazu aus dem Screenshot: Glyphen wie helle runde
+UI-Knöpfe, darunter Auge und Tomoe; Stein fast schwarz; Krone und Hörner
+flach. Und: Gegner waren vor dem Heraustreten zu sehen.
+
+- `186474e` Volumen statt einer Fläche: eine Fläche der Leere vor und eine
+  hinter dem Portal, 10,5 m auseinander, Pfeiler und Sturz schließen es;
+  die Gegner starten in der Mitte (`path[0]`, dieselbe Route wie das
+  Portal) und bleiben verdeckt, bis sie vorn heraustreten. Kein
+  Setback mehr, kein Clipping im VAT-Shader.
+- `2d85efa` `SPAWN_PORTAL_LOOK.frameExposure`: Regler für die Helligkeit
+  des Steins.
+- `5aac6f7`, `ba1bbc5` Sigillen neu, zweimal: das erste Set mit gebrochenem
+  Rand las sich weiter als Drehregler, das zweite hat keinen Rand mehr,
+  lose schiefe Gruppen, je Zelle gedreht, skaliert und aus der Mitte
+  gerückt.
+- `c418c1e` Asset neu gebacken: so tief wie das Volumen, Steine in der
+  Tiefe versetzt gefugt, Stein dunkel graubraun mit Ton je Block, helleren
+  Kanten, Verwitterung, Glyphen abgewittert, gerissen, teils unter Ruß,
+  Kronenspitzen mit Rillen, Brüchen und Segmenten. 6 589 Dreiecke, 2,4 MB.
+- `cde6bad` Beschwörungskreis auf der Straße vor der vorderen Fläche,
+  flammt beim Wellenstart auf.
+- `1a65874` Rahmen im Spiel aus dem Asset, der prozedurale Stein ist weg.
+  Bis das Asset geladen ist, stehen nur die zwei Flächen der Leere.
+- `482b727` Sigillen ruhen, flackern schwach tief in der Rille, erwachen ab
+  und zu mit einem ungleichmäßigen Glimmen entlang der Linien, ohne
+  umlaufenden Schreibring.
+- `f68cb2e` Sigillen nach dem Render-Review nachgeschärft: das Siegel, das wie
+  das Steam-Logo las, ist ersetzt; keine Sichel mehr mit genau einem
+  freistehenden Punkt daneben (Halbmond und Stern), der Spec prüft das.
+- `c73e684` Silhouette als Doppeltor: vorn und hinten je ein Tor mit Pfeilern,
+  Sturz, Gesims und Krone, dazwischen niedrigere Seitenwände und ein
+  Satteldach mit glühender Rinne unter eisernen Gittern, Spitzen entlang
+  First und Traufecken, Hörner vorn größer, Krone größer mit Spitzen
+  entlang der Gesimskante. 7 151 Dreiecke, 2,5 MB. Wände und Traufe sind
+  so bemessen, dass der Stone Golem darin verschwindet; im ersten,
+  schmaleren Entwurf ragte er seitlich heraus, die Volumen-Spec hat das
+  gefangen.
+- `329c4d0` Das Glimmen entlang der Linien liest die Strichfolge langsamer und
+  weicher: im Render zeigten ihre 8-Bit-Stufen Streifen.
+- Kosten: weiter zwei Draw Calls für alle Portale; je Rahmenpixel vier
+  Texturzugriffe statt 17 Noise- und einer Worley-Abfrage; Texturen etwa
+  53 MB GPU-Speicher mit Mipmaps; einmal 2,5 MB Download.
+- Offen: das Bild im Spiel habe ich nicht gesehen (kein Browser), nur die
+  Blender-Renders. Helligkeit (`frameExposure` 1,4) und Stärke des
+  Glimmens sind daraus abgeleitet und im Playtest zu prüfen. Bei der
+  kleinsten Portalskala (Gasse) ragen Mammoth, Mech, Stone Golem und
+  Wallsmasher über oder neben das Tor. Lufteinheiten fliegen über dem Tor.
+
+225. Neues Spiel an einem Ort mit Spawns, Kamera in der Übersicht (Reset
+     Camera): jedes Portal ist ein Doppeltor, vorn Pfeiler, Sturz, Krone
+     mit Spitzen und zwei große Hörner mit Eisenringen, dahinter ein
+     niedrigeres Satteldach mit einer glühenden Rinne unter Gittern, hinten
+     ein zweites, kleineres Tor. Der Stein ist dunkel graubraun, nicht
+     schwarz, die Blöcke unterschiedlich hell, Kanten heller, Fugen und
+     Risse aus der Übersicht zu erkennen.
+226. Nah an ein Portal zoomen: die Sigillen in den Stirnseiten sind keine
+     runden Knöpfe, Drehregler oder Gitter, kein Auge, kein Komma, keine
+     Buchstaben. Sie sind teils abgewittert, von Rissen durchlaufen, teils
+     unter Ruß. Das Glühen sitzt nur tief in der Rille, dunkelrot bis
+     violett, schwach und flackernd.
+227. Eine halbe Minute zusehen: ab und zu erwacht eine Sigille, ein
+     unregelmäßiges Glimmen kriecht an ihren Linien entlang, kein Ring,
+     der umläuft, danach sinkt sie zurück; darüber steigt Glut auf.
+228. Welle starten: die Portale schwellen an, alle Sigillen glimmen kurz,
+     der Kreis auf der Straße vor dem Portal flammt auf und wird wieder
+     dunkel. Während der Welle erwachen die Sigillen öfter.
+229. Gegner erscheinen: keiner ist zu sehen, bevor er vorn aus der Fläche
+     tritt, auch nicht von hinten oder schräg von oben (Kamera um das
+     Portal kreisen), auch große wie Mammoth und Golem bei normaler
+     Portalgröße.
+230. Setup, Spawn setzen: die Vorschau zeigt den Steinrahmen in der
+     Spawnfarbe.
+231. Standort wechseln: die Portale stehen sofort mit Rahmen da, die
+     Konsole zeigt keinen Fehler zum Portal.
+
 ## TODO-Stand
 
 Jeder dieser Einträge hat in TODO.md eine Zeile "Stand 2026-09-13 (Nacht)".
@@ -1261,7 +1340,7 @@ Nach DONE.md verschoben ist nichts, das passiert nach deinem OK:
 | 1.7 Bot-Läufe mit den neuen Inhalten | weiter offen, dazu Split und Nuklearschlag | |
 | Performance: zombie_v2 und alle Gegnermodelle | VAT als Half Float, opak wo möglich, nur auf der GPU; zombie_v2 in Blender 31 342 auf 4 870 VAT-Vertices; VAT gesamt 105,2 MB | `e948529`, `eb3b7da`, `ec878b6`, `4c8d21c`, `b09d24d` |
 | Performance: BVH für Terrain-Raycasts | der größte gemessene Brocken, die Korridor-Messung, läuft in Scheiben; Entscheidung weiter nach dem Playtest | `879ad8b` |
-| Visual Effects: Spawn-Portal | umgesetzt, nach dem Playtest nachgearbeitet (Heraustreten, Look, Siegel, Stein) | `a214973` bis `cc8da0f`, `cfb85a8` bis `5bb5073` |
+| Visual Effects: Spawn-Portal | umgesetzt, nach dem Playtest nachgearbeitet (Heraustreten, Look, Siegel, Stein); Runde 3: Volumen, Doppeltor als Asset, neue Sigillen, Beschwörungskreis | `a214973` bis `cc8da0f`, `cfb85a8` bis `5bb5073`, `186474e` bis `329c4d0` |
 | Gameplay-Konzept: Spieler aktiver einbinden | Nuklearschlag gebaut, der Held ist offen | `94213b0` bis `44b8741`, `cf6b6ee` |
 | Enemy-Ideen: Skeleton | Split dazu | `99178cd` bis `0557aba` |
 
