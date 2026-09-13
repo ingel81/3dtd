@@ -321,6 +321,14 @@ Quadrat (`.td-strike-btn`, 44 × 44px) rechts neben dem Next-Wave-Button, sichtb
 
 Ohne Wirkung bleibt der Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht ("Nuclear Strike: recharges in 2 waves (K)"). K wirkt wie ein Klick (siehe Tastenkürzel). Zustand, Striche und Text liefert `abilityButtonView()` (`wave-panel/ability-button.ts`) aus `GameStore.abilities`.
 
+### COMING UP (WAVE-Panel)
+
+Unter dem Auto-Start die nächsten zwei Wellen (`wave-panel/upcoming-waves.ts`). Je Welle eine Kopfzeile mit Nummer (`--td-rune-amber`), Template-Name und rechts der Anzahl (10px, `--td-text-muted`), darunter eingerückt unter dem Namen (34px, 9px) die Rüstungen als Icon und Name, "✈️ Air" bei Lufteinheiten und "Weak to …" in `--td-gold-dark` kursiv wie bei den Gegnergruppen der laufenden Welle. Boss-Templates stehen im Namen in `--td-text-primary`, fett.
+
+- Anzahl: vom Minimum des Templates bis zum Höchstwert, den der Director bei der aktuellen Tower-DPS schicken kann (`dpsScaledCountMax` in `templates.ts`, dieselbe Funktion, die `WaveDirectorService` nutzt; ab 500 DPS die volle Spanne). Das Fairness-Gate kann darunter bleiben, nie darüber; der Tooltip sagt beides. Die DPS (`calculateTotalDPS`, dieselbe Zahl, die der Director liest) wird neu gerechnet, wenn Tower gebaut oder verkauft werden, der gewählte Tower ein Upgrade bekommt oder eine Forschung fertig wird.
+- Weak to: die Schadensarten mit dem besten Multiplikator gegen die HP der Welle, nach Rüstung gewichtet (Template-Anteil × Basis-HP, `bestDamageTypesAgainst` in `damage-matrix.config.ts`): alle ab `strong` (1,2), höchstens drei; erreicht keine 1,2, die besten über 1,0, höchstens zwei. Bei einer Rüstung ergibt das dieselbe Liste wie der frühere handgepflegte `weakTo`-Text in `ARMOR_TYPE_UI`, der entfernt ist; die Gegnergruppen der laufenden Welle lesen jetzt ebenfalls aus der Matrix. Bei mehreren Rüstungen nennt der Tooltip die Konter je Rüstung.
+- Nach W30 wählt der Director das Template beim Wellenstart. Statt einer leeren Liste steht dort "Director's pick" mit "Template picked at wave start · boss W35" (`--td-text-muted`, kursiv), auf Boss-Wellen (ab W31 jede fünfte) "Boss wave".
+
 Im Zielmodus zeigt die Kontext-Hinweis-Box "Click Strike" und "ESC Cancel", dazu die Warnung "No route within 30 m", solange keine Route-Zelle in Reichweite ist. Auf der Karte ist der Zielring gold (`--td-gold`), wo der Schlag landen würde, und rot (`--td-health-red`), wo er abgelehnt würde; der Marker während der Vorwarnung ist orange (`--td-warn-orange`) mit goldenem Countdown-Ring (`--td-gold-light`).
 
 ### Header (mit Stein-Textur)

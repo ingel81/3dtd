@@ -1,5 +1,5 @@
 import { ARMOR_TYPE_UI, DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
-import { DAMAGE_MATRIX, EFFECTIVENESS_THRESHOLDS } from '../../configs/combat/damage-matrix.config';
+import { bestDamageTypesAgainst, DAMAGE_MATRIX, EFFECTIVENESS_THRESHOLDS } from '../../configs/combat/damage-matrix.config';
 import { ARMOR_TYPES, ArmorType, DamageType } from '../../configs/combat/combat.types';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { TowerTypeConfig } from '../../configs/tower-types.config';
@@ -116,6 +116,14 @@ export function towerCardTooltip(
     armorTitle: 'vs Armor',
     armor,
   };
+}
+
+/**
+ * "Fire, Poison, Pierce": the best damage types against these armors,
+ * weighted, see bestDamageTypesAgainst. One armor: `[[armor, 1]]`.
+ */
+export function weakToLabel(weights: readonly (readonly [ArmorType, number])[]): string {
+  return bestDamageTypesAgainst(weights).map((dt) => DAMAGE_TYPE_UI[dt].label).join(', ');
 }
 
 /**

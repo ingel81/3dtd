@@ -30,7 +30,8 @@ import { WaveDebugService } from '../../../services/debug/wave-debug.service';
 import { EnemyDebugService } from '../../../services/debug/enemy-debug.service';
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
-import { enemyGroupTooltip, splitTraitLabel } from '../sidebar-tooltips';
+import { enemyGroupTooltip, splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
+import { calculateTotalDPS } from '../../../ai/core/defense-analyzer';
 import { airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
 import { peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
@@ -161,8 +162,21 @@ export class SidebarWavePanelComponent implements AfterViewInit {
     this.abilityTargeting.toggle(NUKE.id);
   }
 
-  /** COMING UP: die nächsten zwei Curriculum-Wellen. */
-  readonly upcomingWaves = computed(() => peekUpcomingWaves(this.store.waveNumber()));
+  /**
+   * Tower DPS the director sizes a wave by (calculateTotalDPS). Tower
+   * entities carry no signals: building and selling, an upgrade of the
+   * selected tower (upgrades go through it) and finished research tell when
+   * to recount. An unchanged value changes nothing downstream.
+   */
+  private readonly towerDps = computed(() => {
+    this.store.towerCount();
+    this.store.selectedTowerRevision();
+    this.researchStore.completedResearches();
+    return calculateTotalDPS(this.gameState.towerManager.getAll());
+  });
+
+  /** COMING UP: die nächsten zwei Wellen, nach W30 das, was davon bekannt ist. */
+  readonly upcomingWaves = computed(() => peekUpcomingWaves(this.store.waveNumber(), this.towerDps()));
 
   /**
    * Placed towers that hit air. Tower entities carry no signals: the tower
@@ -232,7 +246,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
 
   getArmorWeakTo(enemyType: EnemyTypeId): string {
     const config = ENEMY_TYPES[enemyType];
-    return config?.armorType ? ARMOR_TYPE_UI[config.armorType].weakTo : '';
+    return config?.armorType ? weakToLabel([[config.armorType, 1]]) : '';
   }
 
   private initMixedEnemyPreviews(): void {
