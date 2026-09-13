@@ -643,12 +643,13 @@ Status-Effekte und Events laufen gleich, Training und Headless-Betrieb auch.
 | Bloom | aus | `UnrealBloomPass` aus. Sind Bloom und Color Grading beide aus, zeichnet die Engine ohne Composer. |
 | Color Grading | None | LUT-Pass aus. |
 | Freeze Tint | an | Kein blauer Tint und keine Frost-Aura auf verlangsamten Gegnern. Der Slow bleibt vermerkt, beim Einschalten kommen Tint und Aura sofort zurück. |
+| Blood Moon | an | Kein Look auf Blutmond-Wellen: keine Tönung, kein Glühen, keine Suchscheinwerfer, kein Banner, kein Mond auf NEXT. Ausschalten nimmt den Look sofort weg, Einschalten während einer Blutmond-Welle blendet ihn ein. Siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen). |
 
 Die Presets `Low`, `Medium` und `High` (`VFX_PRESETS`) setzen die ersten sechs
 Schalter; die Einzelschalter bleiben einstellbar, weicht einer ab, steht "Custom"
-im Kopf. Freeze Tint und Screen Shake setzt kein Preset: der Tint kostet so gut wie
-nichts, und wer den Shake wegen Übelkeit aus hat, bekommt ihn durch einen Klick auf
-High nicht zurück.
+im Kopf. Freeze Tint, Blood Moon und Screen Shake setzt kein Preset: Tint und
+Blutmond kosten wenig und sind Geschmackssache, und wer den Shake wegen Übelkeit aus
+hat, bekommt ihn durch einen Klick auf High nicht zurück.
 
 - **Low:** Muzzle Flash, Trails, Impact Effects und Ground Marks aus, Bloom aus, Grading None.
 - **Medium:** nur die Projectile Trails aus.

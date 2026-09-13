@@ -1,6 +1,6 @@
 # Wave System
 
-**Stand:** 2026-09-14
+**Stand:** 2026-09-14 (Blutmond-Wellen)
 
 Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen.
 
@@ -725,6 +725,54 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
 - Solange es läuft: Kamera-Controls aus, ein laufender Schnellsprung (Pos1, N)
   und gehaltene Pan-Tasten enden, die Spieltasten warten. Die obere HUD-Spalte
   blendet aus, die Boss-Leiste bleibt dabei bestehen.
+
+---
+
+## Blutmond-Wellen
+
+Nur Optik. Stats, Spawns und Gold der Welle bleiben, wie sie sind, und keine
+Spiel-Logik liest etwas davon.
+
+- **Welche Wellen:** `isBloodMoonWave()` in `configs/blood-moon.config.ts`: ab
+  W14 jede siebte (W14, W21, W28, W35, …), ohne Ende, also auch im Endlosspiel.
+  W35, W70, … sind zugleich Boss-Wellen. Es zählt nur die Wellennummer, eine
+  Custom-Welle aus dem Debug-Fenster auf W14 bekommt den Look ebenso.
+- **An und aus:** `BloodMoonService` (`game-engine/`) hört auf den Event-Bus.
+  `wave:started` einer Blutmond-Welle schaltet den Look an, `wave:completed` und
+  `game:over` blenden ihn aus, `game:reset` nimmt ihn ohne Blende weg.
+- **Blende:** `BloodMoonLook` (`engine.bloodMoon`, `three-engine/blood-moon/`)
+  blendet in 3 s ein und in 4,5 s aus (Smoothstep). Sie läuft auf der Wanduhrzeit
+  zwischen den Frames, solange das Spiel läuft (Timescale über 0), und steht in der
+  Pause. Bei 4x dauert sie so lang wie bei 1x, ein pausiertes Bild bleibt stehen.
+  Die Teile bekommen den Wert nur, wenn er sich ändert; außerhalb einer Blutmond-Welle
+  bleibt es bei einem Vergleich pro Frame.
+
+| Teil | Datei | Wirkung |
+|---|---|---|
+| Stimmung | `three-engine/blood-moon/blood-moon-mood.ts` | Ein Bildschirm-Quad am Ende des Opaque-Pass (`renderOrder` 900, Blend-Faktoren Null und Quellfarbe) multipliziert das Bild mit einem Rotton in Anzeigewerten, die Ecken dunkler. Der Himmel dimmt über `scene.backgroundIntensity`, der Distanznebel wird dunkelrot. Alles Transparente zeichnet danach und behält seine Farben: Feuer, Mündungsfeuer, Projektile, Suchscheinwerfer, Health-Bars, Reichweite, LOS-Zellen. Ausnahme sind die blendenden Gegnertypen, sie übernehmen die Tönung im Shader |
+| Gegner | `renderers/instanced-enemy/vat-material.ts` | Randleuchten im VAT-Shader über einen Uniform, den alle Typen teilen ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#blutmond)) |
+| Suchscheinwerfer | `renderers/searchlight/searchlight.renderer.ts` | Ein additiver Lichtkegel je Tower, alle in einem Draw Call. Schwenkt ±60° um die Wachrichtung des Towers, 18° unter der Waagerechten, Periode zufällig 10 bis 16 s. Die Lampe steht auf dem Fuß des Towers (`position.height`, also auf dem Sockel), 0,8 m über der Schusshöhe, mindestens 3,8 m über dem Fuß. Das Research Center bekommt keinen |
+| Banner, NEXT | `components/blood-moon-banner/`, `game-sidebar/wave-panel/upcoming-waves.ts` | Siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#blutmond-banner-canvas) |
+
+- **Warum kein Post-Processing-Pass:** Der Composer läuft nur mit Bloom oder Color
+  Grading. Ihn zum Wellenstart einzuschalten, würde die Custom-Shader, die
+  Anzeigewerte schreiben (darunter die Gegner), sichtbar springen lassen. Das Quad
+  wirkt auf dem Canvas und im Composer-Target gleich; ins lineare Target geht seine
+  Farbe hoch 2,2. Entsättigen kann eine Multiplikation nicht, der Look ist ein
+  Rotstich mit dunkleren Ecken.
+- **Display-Option:** "Blood Moon" im Display-Menü (`VfxSettings.bloodMoon`,
+  Default an, von keinem Preset gesetzt). Aus nimmt den Look sofort weg, Mond auf
+  NEXT und Banner entfallen. An während einer Blutmond-Welle blendet ihn ein.
+- **Photo Mode:** Der Look gehört zur Szene und bleibt, auch im Screenshot. Das
+  Banner geht mit dem HUD.
+- **Werte:** `BLOOD_MOON_LOOK` in `configs/blood-moon.config.ts` (Blende, Tönung,
+  Glühen, Suchscheinwerfer). Stand 2026-09-14 per Überlegung gesetzt, nicht am
+  Bildschirm abgestimmt.
+- **Kosten während einer Blutmond-Welle:** ein Vollbild-Quad mit Multiplikation, ein
+  Draw Call für alle Kegel (24 Dreiecke je Tower), ein Uniform pro Frame für den
+  Schwenk (während der Blende dazu Helligkeit, Tönung, Nebel und Himmel), ein Zweig im
+  Fragment-Shader der Gegner. Kein Buffer-Upload und keine Allokation pro Frame.
+  Gemessen ist das nicht.
 
 ---
 

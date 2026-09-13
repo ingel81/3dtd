@@ -51,6 +51,7 @@ src/app/game-engine/
 ├── music-mixer.ts             # Two-Channel A/B Crossfade (Fades, Loop vor Track-Ende)
 ├── music-buffer-loader.ts     # Laden + Cache der Musik-Buffer
 ├── screen-shake.service.ts    # Screen-Shake-Effekte
+├── blood-moon.service.ts      # Blutmond-Look an/aus nach Wellen-Events
 ├── index.ts                   # Barrel exports
 └── README.md                  # Diese Datei
 ```
@@ -66,6 +67,7 @@ src/app/game-engine/
 | AudioService | Subscriber: `audio:play` |
 | BackgroundMusicService | Phasen-getriggerter Track-Wechsel mit Crossfade |
 | ScreenShakeService | Subscriber: `vfx:projectile-impact` (nur nahe Einschläge), `health:changed`, `enemy:died` (Boss) |
+| BloodMoonService | Subscriber: `wave:started`, `wave:completed`, `game:over`, `game:reset` (Blutmond-Look) |
 | ProjectileManager | Producer: `projectile:hit`, `vfx:*`, `audio:play` |
 | EnemyManager | Producer: `enemy:died`, `enemy:reached-base`, `dot:damage` |
 | WaveManager | Producer: `wave:started`, `wave:completed` |

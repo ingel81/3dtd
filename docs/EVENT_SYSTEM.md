@@ -48,10 +48,10 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `tower:selected` | TowerManager | GameStateSyncService, VisualizationFacade, LosDebugService | Tower ausgewählt (`tower`) |
 | `tower:deselected` | TowerManager | GameStateSyncService, LosDebugService | Tower-Auswahl aufgehoben |
 | `tower:kill` | DamageApplicationService | GameStateManager, GameStateSyncService | Kill einem Tower gutgeschrieben, `combat.kills` ist schon erhöht (`tower`). Der GameStateManager gibt den Veteranen-Rang an `TowerManager.refreshVeteranBadge` (Abzeichen über dem Tower). Beim gewählten Tower zählt `selectedTowerRevision` hoch, daraus leitet die Sidebar Kills, Stats und Rang ab |
-| `wave:started` | WaveManager | GameStateSyncService, AIDataCollector, BackgroundMusicService | Welle gestartet (`wave`, `enemyCount`). Manuelle Debug-Wellen (`beginWave()`) melden `enemyCount: 0` |
+| `wave:started` | WaveManager | GameStateSyncService, AIDataCollector, BackgroundMusicService, BloodMoonService, BloodMoonBannerComponent | Welle gestartet (`wave`, `enemyCount`). Manuelle Debug-Wellen (`beginWave()`) melden `enemyCount: 0` |
 | `game:started` | GameStateManager (vor der ersten Welle) | AIDataCollector | Spiel gestartet |
-| `game:over` | GameStateManager (`triggerGameOver()`) | GameStateSyncService, GameLoopFacade, AIDataCollector, BackgroundMusicService, TrainingSession | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`; emittiert wird nur `'base-destroyed'`) |
-| `game:reset` | GameStateManager (`reset()`) | GameStateSyncService, BackgroundMusicService, BossIntroService (bricht ein laufendes Intro ab, vergisst wartende Bosse) | Spiel zurückgesetzt |
+| `game:over` | GameStateManager (`triggerGameOver()`) | GameStateSyncService, GameLoopFacade, AIDataCollector, BackgroundMusicService, BloodMoonService, TrainingSession | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`; emittiert wird nur `'base-destroyed'`) |
+| `game:reset` | GameStateManager (`reset()`) | GameStateSyncService, BackgroundMusicService, BloodMoonService, BossIntroService (bricht ein laufendes Intro ab, vergisst wartende Bosse) | Spiel zurückgesetzt |
 | `credits:changed` | GameStateManager (`CreditsLedger`) | GameStateSyncService | Credits geändert (`credits`, `delta`) |
 | `health:changed` | GameStateManager (`BaseHealthLedger`: Leaks und `debug:add-health`) | HQDamageService, ScreenShakeService, GameStateSyncService, AIDataCollector | Base Health geändert (`health`, `delta`) |
 | `research:started` | ResearchManager | kein Listener (nur Event-Debugger über `onAny`) | Forschung gestartet (`researchId`, `cost`, `duration`) |
@@ -75,7 +75,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `vfx:muzzle-flash` | ProjectileManager (beim Abschuss) | VFXService | Muzzle-Flash VFX am Tower spawnen (`towerId`, `towerTypeId`) |
 | `vfx:chain-lightning` | CombatEffectService (`emitChainLightningVfx()`, aufgerufen von TowerCombatService für den Lightning Tower) | VFXService → LightningBoltRenderer | Chain-Polyline rendern (`points` = Tip → primary → jumpN, `sourceTowerId`). Triggert pro Segment einen Bolt + lokalen Aufhell-Halo. |
 | `audio:play` | ProjectileManager, TowerManager (Bau, Verkauf), HQDamageService | AudioService | 3D Sound abspielen (`sound`, `lat`, `lon`, `height`, `volume?`) |
-| `wave:completed` | WaveManager (`endWave()`) | GameStateSyncService, GameStateManager (Tower in Wachrichtung drehen), AIDataCollector, BackgroundMusicService, TrainingSession | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`). Den Wave-Bonus bucht der GameStateManager im Update-Loop, nicht über dieses Event. Siehe Warnung unten. |
+| `wave:completed` | WaveManager (`endWave()`) | GameStateSyncService, GameStateManager (Tower in Wachrichtung drehen), AIDataCollector, BackgroundMusicService, BloodMoonService, TrainingSession | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`). Den Wave-Bonus bucht der GameStateManager im Update-Loop, nicht über dieses Event. Siehe Warnung unten. |
 
 > **`wave:completed` ist kein verlaesslicher „jede Welle"-Hook.**
 >
@@ -253,6 +253,7 @@ function gameLoop(deltaTime: number) {
 | **AudioService** | Nein | Subscriber | Reagiert auf `audio:play` |
 | **ScreenShakeService** | Nein | Subscriber | Reagiert auf `vfx:projectile-impact`, `health:changed`, `enemy:died` (Boss) |
 | **BackgroundMusicService** | Nein | Subscriber | Reagiert auf `wave:started`, `wave:completed`, `game:over`, `game:reset` |
+| **BloodMoonService** | Nein | Subscriber | Reagiert auf `wave:started`, `wave:completed`, `game:over`, `game:reset`; schaltet den Blutmond-Look (`engine.bloodMoon`) |
 | **ProjectileManager** | Nein | Producer | Emittiert `projectile:hit`, `vfx:*`, `audio:play` |
 | **EnemyManager** | Nein | Mixed | Emittiert `enemy:spawned`, `enemy:died`, `enemy:reached-base`, `enemy:leaking`, `enemy:split`, `worm:spawned`, `dot:damage`; reagiert auf `debug:*` (Spawn, Entfernen, Bewegung) |
 | **WaveManager** | Nein | Mixed | Emittiert `wave:started`, `wave:completed`; reagiert auf `enemy:died`, `enemy:reached-base`, `enemy:leaking`, `debug:kill-all` |
