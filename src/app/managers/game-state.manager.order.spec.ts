@@ -147,6 +147,7 @@ function createEngine(): never {
     trailStreaks: auto(),
     tentacles: auto(),
     abilityMarkers: auto(),
+    mushroomClouds: auto(),
   };
   return auto(engine) as never;
 }

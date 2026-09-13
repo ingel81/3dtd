@@ -145,25 +145,17 @@ export const EXPLOSION_PRESETS = {
 } as const;
 
 /**
- * Nuclear strike (abilities.config.ts): a staged explosion built from the
- * pooled fire-atlas explosions. The core goes off on the impact, then two
- * rings of smaller explosions around it, each later and further out.
- * `distance` is a share of the strike radius, `delayMs` wall clock (the
- * damage is dealt in the sub-step of the impact; the stages are only looks).
- *
- * Pool load of one strike: 140 + 6 x 40 + 9 x 22 = 578 fireball particles in
- * the additive pool (3000), 16 + 6 x 5 + 9 x 3 = 73 smoke puffs in the normal
- * pool (4000), which also takes the death blood (ABILITY_DEATH_BLOOD_CAP).
+ * Scorch marks of a nuclear strike (abilities.config.ts), besides the one on
+ * the impact point: rings of `count` marks at `distance` times the strike
+ * radius. Only where they meet route cells, only with ground marks on. The
+ * cloud itself is MUSHROOM_CLOUD_LOOK. Until 2026-09-13 an explosion from
+ * the fire-atlas pools went off at every mark, the rings 120 and 260 ms
+ * after the impact on wall-clock timers.
  */
-export const NUCLEAR_STRIKE_VFX = {
-  core: { particles: 140, radius: 16, smokePuffs: 16 },
-  rings: [
-    { delayMs: 120, count: 6, distance: 0.45, particles: 40, radius: 8, smokePuffs: 5 },
-    { delayMs: 260, count: 9, distance: 0.85, particles: 22, radius: 6, smokePuffs: 3 },
-  ],
-  /** The explosions sit this far above the impact point on the ground, m */
-  heightM: 2,
-} as const;
+export const NUCLEAR_STRIKE_SCORCH_RINGS = [
+  { count: 6, distance: 0.45 },
+  { count: 9, distance: 0.85 },
+] as const;
 
 /**
  * Death blood for at most this many kills of one ability strike, the first

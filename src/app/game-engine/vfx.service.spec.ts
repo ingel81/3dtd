@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { Vector3 } from 'three';
 import { GameEventBus } from './game-event-bus';
 import { VFXService } from './vfx.service';
@@ -8,7 +8,7 @@ import {
   BURST_PALETTES,
   EXPLOSION_PRESETS,
   MUZZLE_FLASH_PROFILES,
-  NUCLEAR_STRIKE_VFX,
+  NUCLEAR_STRIKE_SCORCH_RINGS,
   PARTICLE_LIMITS,
 } from '../configs/visual-effects.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
@@ -134,7 +134,6 @@ describe('VFXService nuclear strike', () => {
   const TARGET = { lat: 48, lon: 9, height: 300 };
 
   function strikeSetup() {
-    vi.useFakeTimers();
     const eventBus = new GameEventBus();
     const tilesEngine = {
       sync: {
@@ -142,6 +141,7 @@ describe('VFXService nuclear strike', () => {
       },
       effects: { spawnExplosion: vi.fn(), markScorch: vi.fn() },
       abilityMarkers: { showStrike: vi.fn(), removeStrike: vi.fn(), clear: vi.fn() },
+      mushroomClouds: { detonate: vi.fn(), clear: vi.fn() },
     };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
     const used = () => eventBus.emit({
@@ -152,11 +152,6 @@ describe('VFXService nuclear strike', () => {
     });
     return { eventBus, tilesEngine, service, used, impact };
   }
-  const explosionCount = 1 + NUCLEAR_STRIKE_VFX.rings.reduce((n, r) => n + r.count, 0);
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
 
   it('marks the target on the ground while the strike is on its way', () => {
     const { tilesEngine, service, used } = strikeSetup();
@@ -165,41 +160,39 @@ describe('VFXService nuclear strike', () => {
     service.destroy();
   });
 
-  it('removes the marker and stages the explosion: the core first, the rings after', () => {
+  it('removes the marker and sends the mushroom cloud up on the ground point, no pooled explosions', () => {
     const { tilesEngine, service, impact } = strikeSetup();
     impact();
     expect(tilesEngine.abilityMarkers.removeStrike).toHaveBeenCalledWith(3);
-    const { core, heightM } = NUCLEAR_STRIKE_VFX;
-    expect(tilesEngine.effects.spawnExplosion.mock.calls).toEqual([
-      [7, 8 + heightM, 9, core.particles, core.radius, core.smokePuffs],
-    ]);
-
-    vi.advanceTimersByTime(1000);
-    expect(tilesEngine.effects.spawnExplosion).toHaveBeenCalledTimes(explosionCount);
-    expect(tilesEngine.effects.markScorch).toHaveBeenCalledTimes(explosionCount);
+    expect(tilesEngine.mushroomClouds.detonate).toHaveBeenCalledWith(expect.objectContaining({ x: 7, y: 8, z: 9 }), 25);
+    expect(tilesEngine.effects.spawnExplosion).not.toHaveBeenCalled();
     service.destroy();
   });
 
-  it('stays within the particle pools, death blood included', () => {
+  it('burns scorch marks on the ground: the centre and the rings, all on impact', () => {
     const { tilesEngine, service, impact } = strikeSetup();
     impact();
-    vi.advanceTimersByTime(1000);
-    const calls = tilesEngine.effects.spawnExplosion.mock.calls;
-    const fireball = calls.reduce((n, c) => n + (c[3] as number), 0);
-    const smoke = calls.reduce((n, c) => n + (c[5] as number), 0);
-    expect(fireball).toBeLessThanOrEqual(PARTICLE_LIMITS.maxTrailParticlesPerPool / 4);
-    // A death splatter is 40 particles in the normal pool (CombatVfxService.emitDeathBlood)
-    expect(smoke + ABILITY_DEATH_BLOOD_CAP * 40).toBeLessThanOrEqual(PARTICLE_LIMITS.maxTrailNormalParticlesPerPool / 3);
+    const calls = tilesEngine.effects.markScorch.mock.calls;
+    expect(calls).toHaveLength(1 + NUCLEAR_STRIKE_SCORCH_RINGS.reduce((n, ring) => n + ring.count, 0));
+    expect(calls[0]).toEqual([7, 8, 9, 'rocket']);
+    // Ground height, the outer ring at its share of the 25 m radius
+    expect(calls.every(([, y]) => y === 8)).toBe(true);
+    const outer = NUCLEAR_STRIKE_SCORCH_RINGS[NUCLEAR_STRIKE_SCORCH_RINGS.length - 1].distance * 25;
+    expect(Math.hypot(calls[calls.length - 1][0] - 7, calls[calls.length - 1][2] - 9)).toBeCloseTo(outer, 6);
     service.destroy();
   });
 
-  it('drops the rings still to go off and the markers on a restart', () => {
+  it('keeps the death blood of a strike within a third of the normal pool', () => {
+    // A death splatter is 40 particles in the normal pool (CombatVfxService.emitDeathBlood)
+    expect(ABILITY_DEATH_BLOOD_CAP * 40).toBeLessThanOrEqual(PARTICLE_LIMITS.maxTrailNormalParticlesPerPool / 3);
+  });
+
+  it('drops the markers and the clouds on a restart', () => {
     const { eventBus, tilesEngine, service, impact } = strikeSetup();
     impact();
     eventBus.emit({ type: 'game:reset' });
-    vi.advanceTimersByTime(1000);
-    expect(tilesEngine.effects.spawnExplosion).toHaveBeenCalledTimes(1);
     expect(tilesEngine.abilityMarkers.clear).toHaveBeenCalled();
+    expect(tilesEngine.mushroomClouds.clear).toHaveBeenCalled();
     service.destroy();
   });
 });
