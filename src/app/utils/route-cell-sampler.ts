@@ -3,6 +3,15 @@ import { RouteCell, TunnelSpan } from './route-cell';
 import { corridorConfig } from './route-corridor';
 import { logGrid } from './route-grid-log';
 
+/** What one column gives a cell, see RouteCellSampler.hitOf. */
+interface CellHit {
+  y: number;
+  tileDepth: number;
+  tileGeometricError: number;
+  /** The roof check put the cell on the ground beside the route. */
+  clamped: boolean;
+}
+
 /**
  * Terrain-Sampling einer einzelnen Route-Cell. Einzige Stelle, die
  * `cell.terrainHeight` und `cell.sample` schreibt, nachdem die Cell im
@@ -42,14 +51,23 @@ export class RouteCellSampler {
   /** Monotonic counter incremented on each successful sample (debug only). */
   sampleFrame = 0;
 
-  /** Median der stabilen Nachbar-Cells, `null` bei zu wenig Nachbarn. */
-  private readonly neighbourMedian: (cell: RouteCell) => number | null;
+  /**
+   * A hit further than this from the median of its comparable stable
+   * neighbours is no ground, see sampleCellY.
+   */
+  static readonly OUTLIER_M = 50;
+
+  /**
+   * Median der stabilen Nachbar-Cells aus Tiles mindestens `minDepth` tief,
+   * `null` bei zu wenig Nachbarn.
+   */
+  private readonly neighbourMedian: (cell: RouteCell, minDepth: number) => number | null;
 
   /**
    * @param neighbourMedian `GlobalRouteGrid.medianOfStableNeighbourY`.
-   *   Läuft nur, wenn ein Treffer kein LOD-Upgrade ist.
+   *   Läuft nur, wenn die Säule getroffen hat.
    */
-  constructor(neighbourMedian: (cell: RouteCell) => number | null) {
+  constructor(neighbourMedian: (cell: RouteCell, minDepth: number) => number | null) {
     this.neighbourMedian = neighbourMedian;
   }
 
@@ -67,10 +85,10 @@ export class RouteCellSampler {
    * what-when across the grid / tower-reg / viz pathways.
    *
    * Phase 1 semantics:
-   *  - If raycast misses, here and half a metre beside the cell centre
-   *    (a seam between two tile meshes, see columnNear): `cell.sample.state`
-   *    stays `unsampled`, `cell.terrainHeight` keeps its previous value
-   *    (anchor fallback).
+   *  - If no column at the cell centre or half a metre beside it (a seam
+   *    between two tile meshes) gives a hit its neighbours accept
+   *    (plausible): `cell.sample` and `cell.terrainHeight` keep what they
+   *    had (anchor fallback for an unsampled cell).
    *  - If raycast hits: `cell.terrainHeight` and `cell.sample` are updated,
    *    `cell.heightSampled` mirrors `state === 'stable'`.
    *
@@ -118,71 +136,38 @@ export class RouteCellSampler {
       }
     }
 
-    // One column probe. It already discards hits without usable LOD info
-    // (undecoded tile meshes) and resolves ground against the finest LOD in
-    // the column, so there is nothing left here to second-guess about which
-    // hit to take.
+    // The column at the cell centre, or, where that finds no tile or only a
+    // hit its neighbours refuse (plausible), the first column half a metre
+    // beside it that gives one: a seam between two tile meshes lets the
+    // centre column find nothing or come down on something far below. At
+    // most four more column probes, only for such a cell. A column already
+    // discards hits without usable LOD info (undecoded tile meshes) and
+    // resolves ground against the finest LOD in it. A tunnel cell takes its
+    // portals instead.
     this.raycastCount++;
-    if (this.columnSampler === null) return false;
+    const sampler = this.columnSampler;
+    if (sampler === null) return false;
 
-    const column = cell.surface === 'tunnel' && cell.tunnelSpan
-      ? this.tunnelColumn(cell.tunnelSpan)
-      : this.columnNear(cell.x, cell.z);
-    if (column === null) {
-      logGrid('SAMPLE', `miss key=${cell.key}`);
+    let hit: CellHit | null = null;
+    let found = false;
+    if (cell.surface === 'tunnel' && cell.tunnelSpan) {
+      const column = this.tunnelColumn(cell.tunnelSpan);
+      found = column !== null;
+      if (column !== null) hit = this.plausible(cell, this.hitOf(cell, column));
+    } else {
+      for (const [dx, dz] of RouteCellSampler.CELL_PROBES_M) {
+        const column = sampler(cell.x + dx, cell.z + dz);
+        if (column === null) continue;
+        found = true;
+        hit = this.plausible(cell, this.hitOf(cell, column));
+        if (hit !== null) break;
+      }
+    }
+    if (hit === null) {
+      if (!found) logGrid('SAMPLE', `miss key=${cell.key}`);
       return false;
     }
-    const hit = {
-      // A bridge deck is the top of its column, the ground is the bottom.
-      y: cell.surface === 'deck' ? column.topY : column.groundY,
-      tileDepth: column.tileDepth,
-      tileGeometricError: column.tileGeometricError,
-    };
-
-    // A column at the corridor edge can come down on a roof, an eave or a
-    // tree crown reaching over the street: the photogrammetry has no ground
-    // under them, so the lowest hit is their top. Far above the ground on
-    // the route centre line beside it, the cell takes that ground instead.
-    // Only ever lowered, and never on a bridge deck, which is meant to be
-    // high. The probe on the centre line is the centre cell's own column,
-    // cached by the engine.
-    let clamped = false;
-    if (cell.surface === 'ground' && (cell.axisX !== cell.x || cell.axisZ !== cell.z)) {
-      const axis = this.columnNear(cell.axisX, cell.axisZ);
-      if (axis !== null && hit.y - axis.groundY > corridorConfig.roofRise) {
-        hit.y = axis.groundY;
-        clamped = true;
-      }
-    }
-
-    // Reject hits that diverge >50m from the local stable-neighbour median.
-    // Catches localised outlier clusters where the tile engine returns a
-    // bad hit (BBox / backface / water) for one region while surrounding
-    // cells are correct. 50m is comfortable above realistic slopes
-    // (Salzburg case: max 63m at a tunnel, which we want to reject).
-    //
-    // Skipped when this sample comes from a strictly better tile than the
-    // cell already had. The neighbours were sampled from the same coarse
-    // tiles as this cell, so their median agrees with the old wrong value —
-    // letting it veto an upgrade is how a whole corridor stays pinned to the
-    // block-level hull it was first sampled from. The guard is there to catch
-    // a bad hit among comparable ones, not to defend a coarse consensus.
-    const isUpgrade =
-      cell.sample.state !== 'stable' ||
-      isBetterLod(
-        { depth: hit.tileDepth, geometricError: hit.tileGeometricError },
-        cell.sample,
-      );
-    if (!isUpgrade) {
-      const neighbourMedian = this.neighbourMedian(cell);
-      if (neighbourMedian !== null && Math.abs(hit.y - neighbourMedian) > 50) {
-        logGrid(
-          'SAMPLE',
-          `reject reason=outlier key=${cell.key} y=${hit.y.toFixed(2)} medianN=${neighbourMedian.toFixed(2)}`,
-        );
-        return false;
-      }
-    }
+    const clamped = hit.clamped;
 
     // Quality-versioned idempotency: if the cell already has a stable sample
     // from a strictly better tile (deeper LOD), refuse to overwrite with
@@ -230,12 +215,14 @@ export class RouteCellSampler {
   }
 
   /**
-   * Where a probe looks, one after the other, when the column at its point
-   * finds no tile: half a metre either way along each axis. A seam between
-   * two tile meshes is far thinner; the engine caches columns in 0.5 m
-   * buckets, so each is a column of its own.
+   * Where a probe looks, one after the other: the point itself, then half a
+   * metre either way along each axis. A seam between two tile meshes is far
+   * thinner; the engine caches columns in 0.5 m buckets, so each is a
+   * column of its own.
    */
-  private static readonly SEAM_OFFSETS_M: readonly (readonly [number, number])[] = [[0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]];
+  private static readonly CELL_PROBES_M: readonly (readonly [number, number])[] = [
+    [0, 0], [0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5],
+  ];
 
   /**
    * The column at (x, z), or, where that finds no tile (a seam between two
@@ -246,13 +233,77 @@ export class RouteCellSampler {
   private columnNear(x: number, z: number): ColumnSample | null {
     const sampler = this.columnSampler;
     if (sampler === null) return null;
-    const column = sampler(x, z);
-    if (column !== null) return column;
-    for (const [dx, dz] of RouteCellSampler.SEAM_OFFSETS_M) {
-      const beside = sampler(x + dx, z + dz);
-      if (beside !== null) return beside;
+    for (const [dx, dz] of RouteCellSampler.CELL_PROBES_M) {
+      const column = sampler(x + dx, z + dz);
+      if (column !== null) return column;
     }
     return null;
+  }
+
+  /**
+   * The height `column` gives `cell`: a bridge deck is the top of its
+   * column, the ground is the bottom.
+   *
+   * A column at the corridor edge can come down on a roof, an eave or a
+   * tree crown reaching over the street: the photogrammetry has no ground
+   * under them, so the lowest hit is their top. Far above the ground on the
+   * route centre line beside it, the cell takes that ground instead. Only
+   * ever lowered, and never on a bridge deck, which is meant to be high.
+   * The probe on the centre line is the centre cell's own column, cached by
+   * the engine. A centre line ground more than OUTLIER_M below is none
+   * either: its column went through a seam (plausible).
+   */
+  private hitOf(cell: RouteCell, column: ColumnSample): CellHit {
+    const hit: CellHit = {
+      y: cell.surface === 'deck' ? column.topY : column.groundY,
+      tileDepth: column.tileDepth,
+      tileGeometricError: column.tileGeometricError,
+      clamped: false,
+    };
+    if (cell.surface === 'ground' && (cell.axisX !== cell.x || cell.axisZ !== cell.z)) {
+      const axis = this.columnNear(cell.axisX, cell.axisZ);
+      const rise = axis === null ? 0 : hit.y - axis.groundY;
+      if (axis !== null && rise > corridorConfig.roofRise && rise <= RouteCellSampler.OUTLIER_M) {
+        hit.y = axis.groundY;
+        hit.clamped = true;
+      }
+    }
+    return hit;
+  }
+
+  /**
+   * `hit`, or null where it diverges more than OUTLIER_M from the local
+   * stable-neighbour median. Catches localised outlier clusters where the
+   * tile engine returns a bad hit (BBox / backface / water) for one region
+   * while surrounding cells are correct, and a column that went through a
+   * seam and came down far below (playtest 2026-09-13: -3542 m among cells
+   * at 243 m). 50m is comfortable above realistic slopes (Salzburg case:
+   * max 63m at a tunnel, which we want to reject).
+   *
+   * For a first sample, or one from a strictly better tile than the cell
+   * already had, only neighbours sampled from tiles at least as deep as
+   * this hit count. Neighbours sampled from coarser tiles agree with the
+   * coarse hull, and letting them veto an upgrade is how a whole corridor
+   * stays pinned to the block-level hull it was first sampled from. The
+   * guard is there to catch a bad hit among comparable ones, not to defend
+   * a coarse consensus.
+   */
+  private plausible(cell: RouteCell, hit: CellHit): CellHit | null {
+    const isUpgrade =
+      cell.sample.state !== 'stable' ||
+      isBetterLod(
+        { depth: hit.tileDepth, geometricError: hit.tileGeometricError },
+        cell.sample,
+      );
+    const neighbourMedian = this.neighbourMedian(cell, isUpgrade ? hit.tileDepth : 0);
+    if (neighbourMedian !== null && Math.abs(hit.y - neighbourMedian) > RouteCellSampler.OUTLIER_M) {
+      logGrid(
+        'SAMPLE',
+        `reject reason=outlier key=${cell.key} y=${hit.y.toFixed(2)} medianN=${neighbourMedian.toFixed(2)}`,
+      );
+      return null;
+    }
+    return hit;
   }
 
   /**
