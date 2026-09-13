@@ -735,7 +735,8 @@ Spiel-Logik liest etwas davon.
 
 - **Welche Wellen:** `isBloodMoonWave()` in `configs/blood-moon.config.ts`: ab
   W14 jede siebte (W14, W21, W28, W35, …), ohne Ende, also auch im Endlosspiel.
-  W35, W70, … sind zugleich Boss-Wellen. Es zählt nur die Wellennummer, eine
+  Jede fünfte davon ist zugleich eine Boss-Welle: W35 die des Chitin-Wurms, W70 eine
+  des Directors, W105 die der Ooze (Rotation siehe oben). Es zählt nur die Wellennummer, eine
   Custom-Welle aus dem Debug-Fenster auf W14 bekommt den Look ebenso.
 - **An und aus:** `BloodMoonService` (`game-engine/`) hört auf den Event-Bus.
   `wave:started` einer Blutmond-Welle schaltet den Look an, `wave:completed` und
@@ -749,8 +750,9 @@ Spiel-Logik liest etwas davon.
 
 | Teil | Datei | Wirkung |
 |---|---|---|
-| Stimmung | `three-engine/blood-moon/blood-moon-mood.ts` | Ein Bildschirm-Quad am Ende des Opaque-Pass (`renderOrder` 900, Blend-Faktoren Null und Quellfarbe) multipliziert das Bild mit einem Rotton in Anzeigewerten, die Ecken dunkler. Der Himmel dimmt über `scene.backgroundIntensity`, der Distanznebel wird dunkelrot. Alles Transparente zeichnet danach und behält seine Farben: Feuer, Mündungsfeuer, Projektile, Suchscheinwerfer, Health-Bars, Reichweite, LOS-Zellen. Ausnahme sind die blendenden Gegnertypen, sie übernehmen die Tönung im Shader |
-| Gegner | `renderers/instanced-enemy/vat-material.ts` | Randleuchten im VAT-Shader über einen Uniform, den alle Typen teilen ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#blutmond)) |
+| Stimmung | `three-engine/blood-moon/blood-moon-mood.ts` | Ein Bildschirm-Quad am Ende des Opaque-Pass (`renderOrder` 900, Blend-Faktoren Null und Quellfarbe) multipliziert das Bild mit einem Rotton in Anzeigewerten, die Ecken dunkler. Der Himmel dimmt über `scene.backgroundIntensity`, der Distanznebel wird dunkelrot. Alles Transparente zeichnet danach und behält seine Farben: Feuer, Mündungsfeuer, Projektile, Suchscheinwerfer, Health-Bars, Reichweite, LOS-Zellen. Ausnahme sind die blendenden Gegnertypen und die Ooze, sie übernehmen die Tönung im Shader |
+| Gegner | `renderers/instanced-enemy/vat-material.ts` | Randleuchten im VAT-Shader über einen Uniform, den alle Typen teilen, Kopf und Segmente des Wurms eingeschlossen ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#blutmond)) |
+| Ooze | `renderers/ooze/ooze-band-material.ts` | Dasselbe Randleuchten im eigenen Band-Shader, danach die Tönung der Stimmung (linear, das Band kodiert seine Ausgabe selbst). Zwei Uniform-Objekte, die `OozeBandRenderer` allen Bändern gibt |
 | Suchscheinwerfer | `renderers/searchlight/searchlight.renderer.ts` | Ein additiver Lichtkegel je Tower, alle in einem Draw Call. Schwenkt ±60° um die Wachrichtung des Towers, 18° unter der Waagerechten, Periode zufällig 10 bis 16 s. Die Lampe steht auf dem Fuß des Towers (`position.height`, also auf dem Sockel), 0,8 m über der Schusshöhe, mindestens 3,8 m über dem Fuß. Das Research Center bekommt keinen |
 | Banner, NEXT | `components/blood-moon-banner/`, `game-sidebar/wave-panel/upcoming-waves.ts` | Siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#blutmond-banner-canvas) |
 

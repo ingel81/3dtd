@@ -301,6 +301,11 @@ Tönung dort. Die blendenden (Bear, Ghost, Hornet) sind transparent und zeichnen
 sie multiplizieren im Shader mit `bloodMoonTint`, dem Faktor des Quads in den Werten des
 Ziels (1 außerhalb eines Blutmonds).
 
+Kopf und Segmente des Wurms (`worm`, `worm-segment`) sind statische VAT-Pools wie alle
+anderen und bekommen dieselben Uniforms. Die Ooze zeichnet ihren Körper nicht aus einem
+Pool, sondern als Band mit eigenem Shader (`renderers/ooze/`); dort sitzen Glühen und
+Tönung eigens, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen).
+
 ### Seiten
 
 `vatSide()` übernimmt die Seite aus den Materialien der gebackenen Meshes (glTF
