@@ -16,6 +16,8 @@ const CHAIN_GAP_SPACINGS = 2;
 export interface WormHost {
   /** Spawn the enemy of a segment on the group's path start, linked to its slot. */
   spawnSegment(group: WormGroup, link: WormLink, paused: boolean): Enemy;
+  /** Draw a body segment with the head model from now on: it leads a worm now. */
+  showAsHead(enemy: Enemy): void;
 }
 
 /**
@@ -36,6 +38,11 @@ export interface WormHost {
  * route start, so the worm leaves the spawn portal one segment after another.
  * A worm spawned while another is still coming out on the same path waits
  * behind it inside the portal.
+ *
+ * A destroyed segment splits its worm in two (WormGroup.lose). Both walk on
+ * at their own pace, the first segment behind the gap as the new head; a
+ * chain never closes in on the one ahead on its path to less than the gap
+ * one lost segment leaves, so a faster rear worm queues behind a slowed one.
  */
 export class WormChains {
   private readonly groups: WormGroup[] = [];
@@ -106,6 +113,13 @@ export class WormChains {
     }
     // An idle worm (debug placement) starts once one of its segments walks
     if (walking > 0 && !held) group.idle = false;
+
+    // The first segment behind a gap leads a worm of its own now
+    const lead = group.segments[chain.first]?.worm;
+    if (lead && !lead.head) {
+      lead.head = true;
+      this.host.showAsHead(group.segments[chain.first]!);
+    }
 
     const ahead = this.tails.get(group.path);
     if (!held && !group.idle) {

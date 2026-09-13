@@ -151,6 +151,8 @@ export class EnemyInstanceManager {
   // Reusable temp objects
   private readonly matrix = new Matrix4();
   private static readonly _tempQuat = new Quaternion();
+  private static readonly _tempPos = new Vector3();
+  private static readonly _carriedMatrix = new Matrix4();
 
   constructor(private readonly scene: Scene) {}
 
@@ -526,6 +528,43 @@ export class EnemyInstanceManager {
     this.enemyToType.delete(id);
     this.cachedAllIds = null;
     state.released = true;
+  }
+
+  /**
+   * Move an enemy's instance into the pool of `typeId`: a worm segment that
+   * becomes a head. Place, heading and tints go along, and so does the
+   * health bar slot; the animation starts over in the new pool. The old
+   * state is released, holders resolve the new one by id. Until the next
+   * updateEnemyState() the new slot keeps the old matrix, so the new model
+   * shows at the old one's scale for at most that frame. Null without a pool
+   * for `typeId` (the enemy stays where it was).
+   */
+  changeType(id: string, typeId: string): EnemyInstanceState | null {
+    const old = this.getState(id);
+    if (!old || old.typeId === typeId) return old;
+    const pool = this.pools.get(typeId);
+    if (!pool) return old;
+
+    // Own matrix: removeEnemy() and addEnemy() write this.matrix
+    const carried = EnemyInstanceManager._carriedMatrix;
+    old.pool.instancedMesh.getMatrixAt(old.index, carried);
+    this.removeEnemy(id);
+    const state = this.addEnemy(id, typeId, EnemyInstanceManager._tempPos.setFromMatrixPosition(carried), 0);
+    if (!state) return null;
+    pool.instancedMesh.setMatrixAt(state.index, carried);
+    pool.matrixDirty = true;
+
+    state.healthBarIndex = old.healthBarIndex;
+    state.isDead = old.isDead;
+    state.frozen = old.frozen;
+    state.poisoned = old.poisoned;
+    state.burning = old.burning;
+    state.debugScale = old.debugScale;
+    state.debugHeightOffset = old.debugHeightOffset;
+    state.debugRotation = old.debugRotation;
+    state.debugHealthBarOffset = old.debugHealthBarOffset;
+    this.applyTint(state, pool);
+    return state;
   }
 
   /**

@@ -149,8 +149,10 @@ export class WormGroup {
 
   /**
    * The segment of `slot` was killed, reached the HQ or was removed, or a
-   * pending slot will never come out. The slot stays a gap: the segments
-   * around it keep their places in the chain.
+   * pending slot will never come out. Its chain falls apart into two
+   * independent worms: the part in front keeps its front, the part behind
+   * starts at its first slot's distance, and that slot is its head
+   * (WormChains draws it with the head model). Either part may be empty.
    */
   lose(slot: number): void {
     const state = this.state[slot];
@@ -159,6 +161,16 @@ export class WormGroup {
     else this.aliveSlots--;
     this.state[slot] = GONE;
     this.segments[slot] = null;
+
+    const i = this.chains.findIndex((c) => c.first <= slot && slot <= c.last);
+    if (i < 0) return;
+    const chain = this.chains[i];
+    const parts: WormChain[] = [];
+    if (slot > chain.first) parts.push({ first: chain.first, last: slot - 1, front: chain.front });
+    if (slot < chain.last) {
+      parts.push({ first: slot + 1, last: chain.last, front: this.distanceOf(chain, slot + 1) });
+    }
+    this.chains.splice(i, 1, ...parts);
   }
 
   /** Nothing more comes out of the portal (debug kill-all, removal). */
