@@ -203,18 +203,18 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly airAlertAnnouncer = new AirAlertAnnouncer();
 
   /**
-   * Global one-shot at the SFX volume, registered on first use. False when
-   * there is no audio yet, so the wave stays unannounced.
+   * Global one-shot at the SFX volume, registered on first use. Answers
+   * whether it came out: false when there is no audio yet or the tone has
+   * no buffer, so the wave stays unannounced.
    */
-  private playAirAlertTone(): boolean {
+  private async playAirAlertTone(): Promise<boolean> {
     const audio = this.gameState.tilesEngine?.spatialAudio;
     if (!audio) return false;
     const { id, notes, volume } = UI_SOUNDS.airAlert;
     if (!audio.getSoundConfig(id)) {
       audio.registerSound(id, toneWavDataUrl(notes), { volume });
     }
-    void audio.playGlobal(id);
-    return true;
+    return (await audio.playGlobal(id)) !== null;
   }
 
   readonly groupTooltip = enemyGroupTooltip;

@@ -54,19 +54,39 @@ export function upcomingAirAlert(lastWave: number, antiAirTowers: number): AirAl
 /**
  * When the alert tone plays: once per air wave, when the alert first names
  * it, and again in a new run (restart or new location, the wave number falls
- * back). A wave counts as announced only once the tone actually played.
+ * back). A wave counts as announced only once the tone actually came out.
  */
 export class AirAlertAnnouncer {
   /** Air wave the tone last played for */
   private announcedWave = 0;
+  /** Air wave whose tone was asked for and has not answered yet */
+  private pendingWave = 0;
   private lastWaveNumber = 0;
+  /** Counts the runs, so a tone that answers late is not credited to the next one */
+  private run = 0;
 
-  /** `play` plays the tone and answers whether it did. */
-  update(waveNumber: number, alert: AirAlert | null, play: () => boolean): void {
-    if (waveNumber < this.lastWaveNumber) this.announcedWave = 0;
+  /**
+   * `play` plays the tone and answers whether it came out; a rejection
+   * counts as silent. Until it answers, the same wave is not asked again.
+   */
+  update(waveNumber: number, alert: AirAlert | null, play: () => Promise<boolean>): void {
+    if (waveNumber < this.lastWaveNumber) {
+      this.run++;
+      this.announcedWave = 0;
+      this.pendingWave = 0;
+    }
     this.lastWaveNumber = waveNumber;
-    if (!alert || alert.wave === this.announcedWave) return;
-    if (play()) this.announcedWave = alert.wave;
+    if (!alert || alert.wave === this.announcedWave || alert.wave === this.pendingWave) return;
+
+    const { wave } = alert;
+    const run = this.run;
+    this.pendingWave = wave;
+    const settle = (played: boolean) => {
+      if (run !== this.run || this.pendingWave !== wave) return;
+      this.pendingWave = 0;
+      if (played) this.announcedWave = wave;
+    };
+    void play().then(settle, () => settle(false));
   }
 }
 

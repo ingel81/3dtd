@@ -37,11 +37,20 @@ describe('upcomingAirAlert', () => {
 
 describe('AirAlertAnnouncer', () => {
   const alertFor = (wave: number) => ({ wave, wavesAhead: 2, antiAirTowers: 0 });
+  /** Let the tone's answer reach the announcer. */
+  const answered = () => new Promise((resolve) => setTimeout(resolve, 0));
+  /** A tone that answers when the test says so. */
+  function pendingTone() {
+    let answer!: (played: boolean) => void;
+    const tone = new Promise<boolean>((resolve) => { answer = resolve; });
+    return { tone, answer };
+  }
 
-  it('plays once per air wave, also when the alert is shown again', () => {
+  it('plays once per air wave, also when the alert is shown again', async () => {
     const announcer = new AirAlertAnnouncer();
-    const play = vi.fn(() => true);
+    const play = vi.fn(async () => true);
     announcer.update(5, alertFor(7), play);
+    await answered();
     announcer.update(5, null, play); // the wave runs
     announcer.update(6, alertFor(7), play);
     expect(play).toHaveBeenCalledTimes(1);
@@ -50,23 +59,59 @@ describe('AirAlertAnnouncer', () => {
     expect(play).toHaveBeenCalledTimes(2);
   });
 
-  it('plays again for the same wave in a new run', () => {
+  it('plays again for the same wave in a new run', async () => {
     const announcer = new AirAlertAnnouncer();
-    const play = vi.fn(() => true);
+    const play = vi.fn(async () => true);
     announcer.update(5, alertFor(7), play);
+    await answered();
     announcer.update(0, null, play); // restart or new location
     announcer.update(5, alertFor(7), play);
     expect(play).toHaveBeenCalledTimes(2);
   });
 
-  it('counts a wave as announced only once the tone played', () => {
+  it('counts a wave as announced only once the tone came out', async () => {
     const announcer = new AirAlertAnnouncer();
-    const play = vi.fn(() => false); // no audio yet
+    const play = vi.fn(async () => false); // no audio yet, or its buffer is missing
     announcer.update(5, alertFor(7), play);
-    play.mockReturnValue(true);
+    await answered();
+    play.mockRejectedValueOnce(new Error('audio failed'));
     announcer.update(5, alertFor(7), play);
+    await answered();
+    play.mockResolvedValue(true);
     announcer.update(5, alertFor(7), play);
-    expect(play).toHaveBeenCalledTimes(2);
+    await answered();
+    announcer.update(5, alertFor(7), play);
+    expect(play).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not ask again while the tone has not answered', async () => {
+    const announcer = new AirAlertAnnouncer();
+    const { tone, answer } = pendingTone();
+    const play = vi.fn(() => tone);
+    announcer.update(5, alertFor(7), play);
+    announcer.update(5, alertFor(7), play); // e.g. a tower was placed meanwhile
+    expect(play).toHaveBeenCalledTimes(1);
+
+    answer(true);
+    await answered();
+    announcer.update(5, alertFor(7), play);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not credit a tone that answers after a new run started to that run', async () => {
+    const announcer = new AirAlertAnnouncer();
+    const first = pendingTone();
+    const play = vi.fn(() => first.tone);
+    announcer.update(5, alertFor(7), play);
+    announcer.update(0, null, play); // restart before the tone answered
+    play.mockResolvedValueOnce(false);
+    announcer.update(5, alertFor(7), play);
+    first.answer(true);
+    await answered();
+
+    play.mockResolvedValue(true);
+    announcer.update(5, alertFor(7), play);
+    expect(play).toHaveBeenCalledTimes(3);
   });
 });
 
