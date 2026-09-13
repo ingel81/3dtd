@@ -29,6 +29,7 @@ import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import { TerrainRaycaster, createLosRing, createRangeIndicator, createTipMarker } from './tower-overlays';
+import { headingToLocalRotation, stepTurretAim, turretAimError } from './tower-turret-aim';
 
 /**
  * Tower render data - stored per tower
@@ -375,7 +376,7 @@ export class ThreeTowerRenderer {
     // heading at aiming speed. Without one it keeps the model's pose.
     const initialLocalRotation = initialHeading === null
       ? turretOriginalRotationY
-      : this.headingToLocalRotation(config, mesh.rotation.y, initialHeading);
+      : headingToLocalRotation(config, mesh.rotation.y, initialHeading);
 
     // Position in local coordinates - terrain level (without height offset)
     const terrainPos = this.sync.geoToLocal(lat, lon, height);
@@ -570,37 +571,6 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Geo heading to the turret's rotation relative to the tower mesh.
-   *
-   * Coordinate system mapping:
-   * - Geo: North (+lat), East (+lon)
-   * - Three.js local: North → -Z, East → +X
-   * - geoHeading = atan2(dLon·cos(lat), dLat): 0=North, π/2=East
-   * - Three.js rotation.y: 0 faces -Z (North), -π/2 faces +X (East)
-   * - Conversion: threeJsRotation = -geoHeading
-   */
-  private headingToLocalRotation(
-    typeConfig: TowerTypeConfig,
-    parentRotation: number,
-    heading: number,
-  ): number {
-    // Turret barrel offset: compensates for models where barrels don't point -Z
-    // For dual-gatling: barrels point +X in model space, so turretBarrelOffset = -π/2
-    // Most towers have barrels pointing -Z, so turretBarrelOffset = 0 (default)
-    const turretBarrelOffset = typeConfig.turretBarrelOffset ?? 0;
-    const turretModelOffset = -turretBarrelOffset;
-
-    // Convert geo heading to Three.js target rotation for the turret
-    // geoHeading 0 = North = -Z = Three.js rotation 0
-    // But if model barrels are offset, add that offset
-    const threeJsTargetRotation = -heading + turretModelOffset;
-
-    // Convert to local space: subtract the parent's rotation
-    // (config.rotationY + customRotation)
-    return threeJsTargetRotation - parentRotation;
-  }
-
-  /**
    * Aim the turret at a target. Only affects turrets (turret_top); the actual
    * rotation is interpolated in advanceTurretAim().
    */
@@ -608,7 +578,7 @@ export class ThreeTowerRenderer {
     const data = this.towers.get(id);
     if (!data || !data.turretPart) return;
 
-    data.targetLocalRotation = this.headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
+    data.targetLocalRotation = headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
     data.hasTarget = true;
   }
 
@@ -620,7 +590,7 @@ export class ThreeTowerRenderer {
     const data = this.towers.get(id);
     if (!data || !data.turretPart) return;
 
-    data.targetLocalRotation = this.headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
+    data.targetLocalRotation = headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
     data.hasTarget = false;
   }
 
@@ -840,60 +810,8 @@ export class ThreeTowerRenderer {
    * provides the "more ticks per real-frame" at high speeds).
    */
   advanceTurretAim(gameTimeStepMs: number): void {
-    const turretRotationSpeed = Math.PI; // rad/s game-time
-    const maxRotationThisStep = turretRotationSpeed * (gameTimeStepMs / 1000);
-
     for (const data of this.towers.values()) {
-      if (!data.turretPart) continue;
-
-      // Cancel scan if tower acquires a target
-      if (data.scanPhase > 0 && data.hasTarget) {
-        data.scanPhase = 0;
-        data.scanDelayRemaining = 0;
-      }
-
-      // Tick scan delay in game-time
-      if (data.scanDelayRemaining > 0) {
-        data.scanDelayRemaining -= gameTimeStepMs;
-      }
-
-      const scanAngle = 1.309; // 75° in radians
-      if (data.scanPhase > 0 && !data.hasTarget && data.scanDelayRemaining <= 0) {
-        let scanTarget: number;
-        if (data.scanPhase === 1) {
-          scanTarget = data.scanStartRotation - scanAngle;
-        } else if (data.scanPhase === 2) {
-          scanTarget = data.scanStartRotation + scanAngle;
-        } else {
-          scanTarget = data.scanStartRotation;
-        }
-        let diff = scanTarget - data.currentLocalRotation;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        if (Math.abs(diff) < 0.02) {
-          data.currentLocalRotation = scanTarget;
-          data.scanPhase++;
-          if (data.scanPhase > 3) data.scanPhase = 0;
-        } else {
-          const scanSpeed = maxRotationThisStep * 0.7;
-          const rotation = Math.sign(diff) * Math.min(Math.abs(diff), scanSpeed);
-          data.currentLocalRotation += rotation;
-        }
-        data.turretPart.rotation.y = data.currentLocalRotation;
-      } else if (data.scanPhase === 0) {
-        const current = data.currentLocalRotation;
-        const target = data.targetLocalRotation;
-        let diff = target - current;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        if (Math.abs(diff) < 0.01) {
-          data.currentLocalRotation = target;
-        } else {
-          const rotation = Math.sign(diff) * Math.min(Math.abs(diff), maxRotationThisStep);
-          data.currentLocalRotation += rotation;
-        }
-        data.turretPart.rotation.y = data.currentLocalRotation;
-      }
+      stepTurretAim(data, gameTimeStepMs);
     }
   }
 
@@ -940,12 +858,8 @@ export class ThreeTowerRenderer {
     if (!data) return true; // Unknown tower, assume aligned
     if (!data.turretPart) return true; // No turret, always aligned
 
-    // Calculate shortest angle difference
-    let diff = data.targetLocalRotation - data.currentLocalRotation;
-    while (diff > Math.PI) diff -= Math.PI * 2;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-
-    return Math.abs(diff) <= toleranceRadians;
+    // Shortest angle difference
+    return turretAimError(data) <= toleranceRadians;
   }
 
   /**
