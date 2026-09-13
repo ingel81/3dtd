@@ -144,6 +144,12 @@ export interface EnemyTypeConfig {
   // Air Unit
   isAirUnit?: boolean; // true = air unit, only attackable by air towers
 
+  /**
+   * A machine, not a creature: electric effects that knock out machines
+   * (an EMP) hit it harder. Per type, like isBoss.
+   */
+  mechanical?: boolean;
+
   // Spawning
   spawnStartDelay?: number; // Delay in ms between spawning enemies of this type (default: 300)
   splitOnDeath?: SplitOnDeath; // What a kill splits this enemy into (none on a leak)
@@ -324,6 +330,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     healthBarOffset: 5.5,
     canBleed: false, // Tanks don't bleed
     headingOffset: -0.122, // ~-7° rotation offset
+    mechanical: true,
     randomSoundStart: true, // Start sound at random position
     lateralSpread: 0.85,
     spawnStartDelay: 800, // Larger gap between tanks (800ms instead of 300ms)
@@ -869,6 +876,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     healthBarOffset: 14,
     canBleed: false,
     headingOffset: 0,
+    mechanical: true,
     emissiveIntensity: 0.1,
     emissiveColor: '#ffaa44',
     randomAnimationStart: true,

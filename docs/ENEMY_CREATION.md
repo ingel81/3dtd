@@ -312,6 +312,14 @@ canBleed: true,         // Blutpartikel + Decals bei Treffer/Tod
 bloodColor: '#6fe021',  // Optional: Farbe von Partikeln und Decals, sonst Dunkelrot
 ```
 
+### Maschinen
+
+```typescript
+mechanical: true,  // Eine Maschine, kein Lebewesen: Tank und Mech (Stand 2026-09-14)
+```
+
+Elektrische Wirkungen, die Maschinen lahmlegen, treffen sie härter (EMP, siehe [ABILITIES.md](ABILITIES.md)). Gilt pro Typ wie `isBoss`. Nicht dasselbe wie `canBleed: false`: Skelett, Geist und Golem bluten nicht und sind trotzdem keine Maschinen.
+
 **WICHTIG:** Nur für organische Gegner (Zombies, Menschen). `false` für Roboter, Panzer, etc.
 `bloodColor` läuft über `vfx:blood` (`color`) bis in Splatter und Decal; Ooze und Slime Clump
 bluten Schleimgrün. Ein blutender Gegner, der sich teilt, spritzt zusätzlich an jedem Kind in

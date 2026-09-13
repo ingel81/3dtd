@@ -24,6 +24,11 @@ describe('enemy types config', () => {
     }
   });
 
+  it('flags the machines as mechanical: tank and mech', () => {
+    const machines = getAllEnemyTypes().filter((e) => e.mechanical).map((e) => e.id);
+    expect(machines).toEqual(['tank', 'mech']);
+  });
+
   it('counts a skeleton with its two minions: three bodies, 20 + 2 × 6 HP', () => {
     expect(splitBodyCount('skeleton')).toBe(3);
     expect(lineageHp('skeleton')).toBe(32);
