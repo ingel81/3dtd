@@ -221,7 +221,7 @@ Das Dev-Menü (`.td-dev-menu`) ist ein Glas-Panel (Mixin `bevel-glass`) über de
 |--------|---------|
 | Map | Height, Points, Recast, Dump |
 | View & Panels | Camera, Frame, Display, Perf, LOS, Audio, DevWorld (nur mit `?devworld`) |
-| Cheats | Kill, Credits, +HP, Research, Max Up, Nuke, Hero |
+| Cheats | Kill, Credits, +HP, Research, Max Up, Abilities, Hero |
 | Waves & Inspect | Waves, Static, AI, Towers, Enemies, Events |
 
 Kachel (`.td-dev-tile`): 44px hoch, Icon 18px über einer Beschriftung in 8px Versalien (`letter-spacing: 0.06em`), Fläche `rgba(11,15,12,0.6)`, Rahmen `--td-frame-dark`.
@@ -230,7 +230,7 @@ Kachel (`.td-dev-tile`): 44px hoch, Icon 18px über einer Beschriftung in 8px Ve
 |---------|-------------|
 | Hover | Rahmen `--td-frame-mid`, Text `--td-text-primary` |
 | Aktiv (Fenster offen, Schalter an) | Fläche `rgba(194,160,85,0.16)`, Rahmen `--td-gold-dark`, Inset `rgba(217,188,104,0.18)`, Text `--td-gold-light` |
-| Cheat (`.td-dev-cheat`) | kein Aktiv-Zustand; Icon und Text in der Farbe der Wirkung (Kill und +HP `--td-health-red`, Credits `--td-gold`, Research und Max Up `--td-teal`, Nuke `--td-warn-orange`, Hero `--td-green`), beim Hover nur der Rahmen in dieser Farbe |
+| Cheat (`.td-dev-cheat`) | kein Aktiv-Zustand; Icon und Text in der Farbe der Wirkung (Kill und +HP `--td-health-red`, Credits `--td-gold`, Research und Max Up `--td-teal`, Abilities `--td-warn-orange`, Hero `--td-green`), beim Hover nur der Rahmen in dieser Farbe |
 
 Die Tooltips nennen die volle Funktion (z. B. "+1000 Credits (Shift+Click: +100k)"), die `aria-label`s ebenso. Beschriftungen kurz halten: in der Mono-Ersatzschrift (Consolas) sind 8 Zeichen bei 8px rund 39px breit, die Kachel innen 44,5px. Der Dev-Toggle zeigt geöffnet das Gold-Rezept mit `--td-gold-glow`, wie der Layers-Toggle.
 

@@ -370,13 +370,13 @@
         <td-icon name="arrowUp" [size]="18"></td-icon>
         <span>Max Up</span>
       </button>
-      <button class="td-dev-tile td-dev-cheat td-dev-cheat-nuke"
-              (click)="readyNuke.emit()"
-              matTooltip="Nuke ready: Nuclear Strike researched, all charges back"
+      <button class="td-dev-tile td-dev-cheat td-dev-cheat-ability"
+              (click)="readyAbilities.emit()"
+              matTooltip="Abilities ready: every ability researched, all charges back"
               matTooltipPosition="left"
-              aria-label="Nuke ready: Nuclear Strike researched, all charges back">
+              aria-label="Abilities ready: every ability researched, all charges back">
         <td-icon name="radiation" [size]="18"></td-icon>
-        <span>Nuke</span>
+        <span>Abilities</span>
       </button>
       <button class="td-dev-tile td-dev-cheat td-dev-cheat-hero"
               (click)="readyHero.emit()"

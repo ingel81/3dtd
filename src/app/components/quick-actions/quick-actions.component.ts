@@ -104,7 +104,7 @@ export class QuickActionsComponent {
   readonly addHealth = output<MouseEvent>();
   readonly completeAllResearch = output<void>();
   readonly maxUpgradeAllTowers = output<void>();
-  readonly readyNuke = output<void>();
+  readonly readyAbilities = output<void>();
   readonly readyHero = output<void>();
   readonly photoModeRequested = output<void>();
 
