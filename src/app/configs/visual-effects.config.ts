@@ -446,6 +446,55 @@ export const MUSHROOM_CLOUD_LOOK = {
 } as const;
 
 /**
+ * Frost burst of the frost bomb (FrostBurstRenderer). Times are game
+ * seconds after the impact, so a pause holds the burst and the timescale
+ * plays it faster; lengths are metres at `referenceRadius` and scale with
+ * the ability's radius (the ring and the rime take the radius itself).
+ *
+ * 0 to 0.35 s a white-cyan flash over the ground point; to 1.2 s a ring of
+ * cold running out to 1.15 times the radius; ice shards thrown out and up,
+ * resting on the ground until they fade (up to 1.3 s); a low mist rolling
+ * out over the radius (to about 3.2 s). Rime on the ground over the whole
+ * radius comes up in 0.12 s, holds as long as the freeze (the VFXService
+ * passes it) and fades out over `rime.fade`.
+ *
+ * With impact effects off (VFX settings) flash, ring and rime only.
+ * Budget: 64 shards and 28 mist puffs per burst, two bursts at once, in
+ * buffers of the renderer's own.
+ */
+export const FROST_BURST_LOOK = {
+  referenceRadius: 20,
+  /** Bursts drawn at once; another takes the place of the oldest */
+  bursts: 2,
+  /** Sprite of `size` metres `height` above the ground point, additive at `intensity` */
+  flash: { duration: 0.35, size: 70, height: 4, intensity: 2.2 },
+  /** Ring out to `radius` times the ability radius, time constant `timeConstant` */
+  ring: { duration: 1.2, radius: 1.15, timeConstant: 0.16, opacity: 0.95 },
+  /** Rime over the radius: up in `rise` s, held for the freeze, gone `fade` s later */
+  rime: { rise: 0.12, fade: 1.0, opacity: 0.45 },
+  /**
+   * Shards thrown out at `speed` and up at `lift` (m/s), slowed by air drag
+   * (time constant `drag`, s) and pulled down by `gravity`; each lives
+   * `life` seconds. Diameters in metres.
+   */
+  shards: { count: 64, speed: [9, 26], lift: [3, 13], drag: 1.2, gravity: 16, life: [0.55, 1.3], size: [0.9, 2.1] },
+  /**
+   * Mist puffs from `start` on, in a ring at `radius` times the ability
+   * radius, rolling out at `spread` and rising at `rise` (m/s). Diameters m.
+   */
+  mist: { count: 28, start: 0.04, radius: [0.35, 1.0], rise: 0.9, spread: 1.2, life: [1.6, 3.0], size: [6, 11] },
+  /** Tints, linear. Mist goes over the light grey smoke atlas. */
+  colors: {
+    flash: { r: 0.85, g: 0.95, b: 1.0 },
+    ring: { r: 0.6, g: 0.88, b: 1.0 },
+    rime: { r: 0.55, g: 0.8, b: 1.0 },
+    shard: { r: 0.8, g: 0.95, b: 1.0 },
+    shardDeep: { r: 0.35, g: 0.7, b: 1.0 },
+    mist: { r: 0.86, g: 0.93, b: 1.0 },
+  },
+} as const;
+
+/**
  * Spawn portals (SpawnPortalManager). Energy is a factor on the glow of the
  * surface, the sigils and the light on the street, and on the swirl's
  * speed. Times in seconds of wall time, the portal keeps moving while the

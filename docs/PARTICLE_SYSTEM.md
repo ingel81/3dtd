@@ -548,6 +548,27 @@ beim `ability:impact`; die Phasen stehen in [ABILITIES.md](ABILITIES.md#darstell
 
 ---
 
+## Frostbombe
+
+`FrostBurstRenderer` (`three-engine/renderers/frost-burst.renderer.ts`), Werte in
+`FROST_BURST_LOOK`, seit 2026-09-14. Gebaut wie der Atompilz: jedes Partikel ist eine
+Funktion aus dem Alter des Ausbruchs (Spielzeit, Pause hält ihn an) und fünf
+Zufallszahlen vom Einschlag, eigene Puffer mit den Materialien der Trail-Pools
+(Hilfsfunktionen in `effect-buffers.ts`, geteilt mit dem Atompilz).
+
+| Teil | Darstellung |
+|---|---|
+| Blitz | additiver Sprite, weiß-cyan, 0,35 s |
+| Ring | Kältefront am Boden bis 1,15 × Radius, 1,2 s, Tiefentest aus |
+| Reif | Fläche über dem ganzen Radius mit Eiskristall-Muster (Wertrauschen aus einem Hash, jedes Mal gleich), hält so lange wie der Freeze und blendet in 1 s aus, Tiefentest aus |
+| Eissplitter | 64 runde additive Partikel, nach außen und oben geworfen, Luftwiderstand und Schwerkraft, bleiben am Boden liegen, bis 1,3 s |
+| Nebel | 28 Puffs aus dem Rauch-Atlas (Normal-Blending), Ring über dem Radius, rollt aus und steigt leicht, bis etwa 3,2 s |
+
+Zwei Ausbrüche gleichzeitig, ein dritter nimmt den Platz des ältesten. Mit Impact
+Effects aus (VFX-Einstellungen) nur Blitz, Ring und Reif. `game:reset` leert sie.
+
+---
+
 ## Kampfspuren (Scorch-Decals)
 
 Schicht 1 aus `docs/game-design/COMBAT_HEATMAP_STUDY.md`, seit 2026-09-12. Dunkle
