@@ -550,6 +550,76 @@ export function fitCorridorPieces(segments: readonly CorridorStations[]): Corrid
   });
 }
 
+/**
+ * Widen every stretch of the corridor that is narrower on one side than
+ * the stretches right before and after it, and together at most about
+ * `dipLength` long, to the narrower of those two: the short-dip closing of
+ * fitCorridorStations once more, over the pieces a route ends up with,
+ * whatever set their widths. A stretch narrowed by a rule that does not
+ * look along the route (the street width of a station or a short segment
+ * the tiles did not measure) would otherwise pinch the cells and, with
+ * the taper, the enemy stream for many metres around it. A narrowing that
+ * runs longer, such as walls on both sides over a few metres, stays; so
+ * does one at either end of the route.
+ *
+ * `pieces` per segment as fitCorridorPieces gives them, `lengths` the
+ * segment lengths in metres, `fixed` the segments whose width must not
+ * change: tunnels and covered passages, which the rays do not measure and
+ * where more width would put cells into the walls. Returns new pieces,
+ * equal neighbours within a segment merged.
+ */
+export function closeShortNarrowings(
+  pieces: readonly (readonly CorridorPiece[])[],
+  lengths: readonly number[],
+  fixed: readonly boolean[],
+): CorridorPiece[][] {
+  const stretches: { segment: number; t: number; length: number; left: number; right: number; fixed: boolean }[] = [];
+  pieces.forEach((own, i) => {
+    own.forEach((piece, k) => {
+      const end = k + 1 < own.length ? own[k + 1].t : 1;
+      stretches.push({ segment: i, t: piece.t, length: (end - piece.t) * lengths[i], left: piece.left, right: piece.right, fixed: fixed[i] });
+    });
+  });
+
+  // Station lengths do not add up to dipLength exactly.
+  const maxLength = corridorConfig.dipLength + 1e-6;
+  for (const side of ['left', 'right'] as const) {
+    // Raising one run can make it part of a wider run that is a short dip
+    // itself, so go again until nothing changes.
+    let changed = true;
+    while (changed) {
+      changed = false;
+      let a = 0;
+      while (a < stretches.length) {
+        if (stretches[a].fixed) {
+          a++;
+          continue;
+        }
+        const width = stretches[a][side];
+        let b = a;
+        let length = 0;
+        while (b < stretches.length && !stretches[b].fixed && stretches[b][side] === width) length += stretches[b++].length;
+        const before = a > 0 ? stretches[a - 1][side] : -Infinity;
+        const after = b < stretches.length ? stretches[b][side] : -Infinity;
+        if (before > width && after > width && length <= maxLength) {
+          const to = Math.min(before, after);
+          for (let k = a; k < b; k++) stretches[k][side] = to;
+          changed = true;
+        }
+        a = b;
+      }
+    }
+  }
+
+  const result: CorridorPiece[][] = pieces.map(() => []);
+  for (const { segment, t, left, right } of stretches) {
+    const own = result[segment];
+    const last = own[own.length - 1];
+    if (!last || last.left !== left || last.right !== right) own.push({ t, left, right });
+  }
+  return result;
+}
+
 /** Half width left of the direction of travel on the segment that starts at `waypoint`. */
 export function segmentLeft(waypoint: RouteWaypoint): number {
   return waypoint.corridorLeft ?? corridorConfig.defaultHalfWidth;

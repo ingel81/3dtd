@@ -272,6 +272,26 @@ describe('PathAndRouteService route geometry', () => {
       expect(route.map((p) => p.onBridge === true)).toEqual([false, true, true, false, false, false]);
     });
 
+    it('widens a short narrow stretch between wider ones', () => {
+      // A 3.3 m footway link (1 m half width) between two residential ways.
+      const n1b = { id: 5, lat: 48.00003, lon: 9.0 };
+      network = makeNetwork([
+        { id: 100, nodes: [n10, n1] },
+        { id: 150, type: 'footway', nodes: [n1, n1b] },
+        { id: 200, nodes: [n1b, n2, n3] },
+        { id: 300, nodes: [n3, n30] },
+      ]);
+      const service = buildRouteService(network, { lat: 47.9995, lon: 9.0 }, hq);
+      expect(service.getCachedPath('s1')!.map((p) => p.corridorLeft)).toEqual([2.75, 2.75, 2.75, 2.75, 2.75, 2.75, undefined]);
+
+      const n1Local = toMeters(n1);
+      const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 1.5))!;
+      expect(why).toMatchObject({ way: 150, unmeasured: 'not measured yet' });
+      expect(why.sides[0]).toMatchObject({
+        streetHalfWidthM: 1, halfWidthM: 2.75, inUseM: 2.75, rule: 'not measured yet: street width, short narrowing closed',
+      });
+    });
+
     describe('fitted to the tiles', () => {
       const spawn = { lat: 47.9995, lon: 9.0 };
       /** Metres north of n1 at a local position (local z points south). */
