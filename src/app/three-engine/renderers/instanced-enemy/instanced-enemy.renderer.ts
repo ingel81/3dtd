@@ -363,6 +363,11 @@ export class InstancedEnemyRenderer {
     this.instanceManager.setIcedVisual(id, active);
   }
 
+  /** Stunned (stun status), see EnemyInstanceManager.setStunVisual. */
+  setStunVisual(id: string, active: boolean): void {
+    this.instanceManager.setStunVisual(id, active);
+  }
+
   /** VFX setting freezeTint, see EnemyInstanceManager.setFreezeTintEnabled. */
   setFreezeTintEnabled(enabled: boolean): void {
     this.instanceManager.setFreezeTintEnabled(enabled);

@@ -288,6 +288,20 @@ describe('MovementComponent', () => {
       expect(movement.getSlowMultiplier(1000)).toBe(0.5);
     });
 
+    it('stun halts like a freeze and says so apart from it', () => {
+      movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 5000, startTime: 0 });
+      movement.applyStatusEffect({ type: 'stun', value: 1, duration: 1000, startTime: 0, sourceId: 'emp' });
+      expect(movement.updateStatusEffects(500)).toMatchObject({
+        isStunned: true, isFrozen: false, isHalted: true, slowMultiplier: 0,
+      });
+      expect(movement.isStunned(500)).toBe(true);
+      expect(movement.isFrozen(500)).toBe(false);
+      expect(movement.isHalted(500)).toBe(true);
+      expect(movement.getSlowMultiplier(500)).toBe(0);
+      expect(movement.isHalted(1000)).toBe(false);
+      expect(movement.getSlowMultiplier(1000)).toBe(0.5);
+    });
+
     it('a frozen enemy stays where it is', () => {
       movement.setPath([{ lat: 0, lon: 0 }, { lat: 0.001, lon: 0 }]);
       movement.speedMps = 5;

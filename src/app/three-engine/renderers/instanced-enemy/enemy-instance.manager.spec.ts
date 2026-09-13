@@ -254,6 +254,11 @@ describe('EnemyInstanceManager', () => {
 
     manager.setIcedVisual('a', false);
     expect(tintOf(a)).toEqual([1.0, 0.45, 0.05].map(Math.fround)); // back to the burn
+
+    manager.setStunVisual('a', true);
+    expect(tintOf(a)).toEqual([0.6, 0.5, 1.0].map(Math.fround));
+    manager.setIcedVisual('a', true); // frozen and stunned: the ice shows
+    expect(tintOf(a)).toEqual(iced);
   });
 
   it('hides the freeze tint while it is off and brings it back on the enemies still slowed', () => {

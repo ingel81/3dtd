@@ -4,8 +4,10 @@
  * freeze: frozen solid, the enemy halts (no movement, no walk cycle, no
  * walk/run switch) for its duration; `value` is unused. Slow and freeze on
  * the same enemy: freeze wins.
+ * stun: the same halt, electric: its own look (sparks), and a source can
+ * tell the two apart.
  */
-export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'poison';
+export type StatusEffectType = 'slow' | 'freeze' | 'stun' | 'burn' | 'poison';
 
 /**
  * Represents an active status effect on an enemy

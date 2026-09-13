@@ -11,6 +11,7 @@ import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
+import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
 import type { DamageType } from '../configs/combat/combat.types';
 import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
 import { getEnemyModelRangeY } from '../utils/enemy-aim.util';
@@ -98,6 +99,9 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   // Track enemies frozen solid (freeze): icy tint and ice crystals
   private icedVisualEnemies = new Set<string>();
+
+  // Stunned enemies (stun): game time of their next spark burst
+  private stunSparkAt = new Map<string, number>();
 
   // Track enemies with active poison visual
   private poisonVisualEnemies = new Set<string>();
@@ -844,6 +848,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     const profiling = this.onPresentTiming !== null;
     const t0 = profiling ? performance.now() : 0;
     const origin = engine.sync.getOrigin();
+    let sparkBursts = 0;
 
     for (const enemy of this.getAllActive()) {
       if (!enemy.alive) continue;
@@ -939,6 +944,32 @@ export class EnemyManager extends EntityManager<Enemy> {
         engine.enemies.setIcedVisual(enemy.id, false);
         engine.effects.stopIceCrystals(enemy.id);
         this.icedVisualEnemies.delete(enemy.id);
+      }
+
+      // Stunned: violet-blue tint and a burst of sparks every STUN_SPARKS.intervalMs
+      // of game time, at most perFrame bursts per frame
+      const isStunned =
+        enemy.movement.statusEffects.length !== 0 && enemy.movement.isStunned(gameTimeMs);
+      const sparkAt = this.stunSparkAt.size !== 0 ? this.stunSparkAt.get(enemy.id) : undefined;
+      if (isStunned) {
+        if (sparkAt === undefined) engine.enemies.setStunVisual(enemy.id, true);
+        if ((sparkAt === undefined || gameTimeMs >= sparkAt) && sparkBursts < STUN_SPARKS.perFrame) {
+          sparkBursts++;
+          engine.effects.spawnBurstAtGeo(
+            enemy.position.lat,
+            enemy.position.lon,
+            enemy.transform.terrainHeight + enemy.heightOffset + STUN_SPARKS.height,
+            STUN_SPARKS.particles,
+            BURST_PALETTES.stun,
+          );
+          this.stunSparkAt.set(enemy.id, gameTimeMs + STUN_SPARKS.intervalMs);
+        } else if (sparkAt === undefined) {
+          // Over the frame's budget: sparks from the next frame on
+          this.stunSparkAt.set(enemy.id, gameTimeMs);
+        }
+      } else if (sparkAt !== undefined) {
+        engine.enemies.setStunVisual(enemy.id, false);
+        this.stunSparkAt.delete(enemy.id);
       }
 
       const isPoisoned =
@@ -1056,8 +1087,9 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.tilesEngine?.effects.stopPoisonAura(entity.id);
       this.poisonVisualEnemies.delete(entity.id);
     }
-    // The burn tint lives on the render slot, which goes with the enemy
+    // The burn and stun tints live on the render slot, which goes with the enemy
     this.burnVisualEnemies.delete(entity.id);
+    this.stunSparkAt.delete(entity.id);
     // Remove from global route grid and spatial grid
     this.globalRouteGrid.removeEnemy(entity);
     this.spatialGrid.removeEnemy(entity.id);
@@ -1111,6 +1143,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
     this.poisonVisualEnemies.clear();
     this.burnVisualEnemies.clear();
+    this.stunSparkAt.clear();
     super.clear();
     this.aliveCount.set(0);
     this.cachedAliveEnemies = null; // Invalidate cache
