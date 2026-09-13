@@ -17,6 +17,7 @@ import { adaptAIWaveConfig } from '../../ai/core/wave-config-adapter';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { WaveConfig } from '../../managers/wave.manager';
 import { staticWaveResolvedFor } from '../../configs/wave-curriculum.config';
+import { bossVariantForWave, bossVariantWave } from '../../configs/boss-variants.config';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
@@ -353,6 +354,15 @@ export class GameLoopFacadeService {
         aiConfig = await this.trainingClient.requestWaveConfig(state);
       } else {
         aiConfig = await this.waveDirector.getNextWave();
+        // Past the curriculum some boss waves go to bosses that are no
+        // director template (boss-variants.config.ts). Training waves come
+        // from the backend above and never do.
+        const wave = this.store.waveNumber() + 1;
+        const variant = bossVariantForWave(wave);
+        if (variant) {
+          aiConfig = bossVariantWave(variant, aiConfig, wave);
+          this.aiDataCollector.setCurrentWaveConfig(aiConfig);
+        }
       }
 
       this.store.aiExplanation.set(aiConfig.explanation ?? null);

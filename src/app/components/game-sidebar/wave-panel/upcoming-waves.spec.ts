@@ -76,9 +76,21 @@ describe('peekUpcomingWaves', () => {
   });
 
   it('marks the boss waves past the curriculum, every fifth from W31', () => {
-    const [w34, w35] = peekUpcomingWaves(33, 0, 2);
+    const [w34] = peekUpcomingWaves(33, 0, 1);
     expect(w34).toMatchObject({ boss: false, note: 'Template picked at wave start' });
-    expect(w35).toMatchObject({ wave: 35, name: 'Boss wave', boss: true, known: false });
+    const [, w40] = peekUpcomingWaves(38, 0, 2);
+    expect(w40).toMatchObject({ wave: 40, name: 'Boss wave', boss: true, known: false });
+  });
+
+  it('names a boss wave the rotation gives to a boss variant ahead (W35: the worm)', () => {
+    const [, w35] = peekUpcomingWaves(33, 0, 2);
+    expect(w35).toMatchObject({
+      wave: 35, name: 'Boss: Chitin Worm', boss: true, known: true, count: null,
+      armors: ['Heavy'], armorLabel: 'Heavy',
+    });
+    expect(w35.weakToTypes.length).toBeGreaterThan(0);
+    expect(w35.tooltip).toContain('splits the worm in two');
+    expect(w35.tooltip).toContain(`Weak to ${w35.weakTo}.`);
   });
 
   it('always has the next boss wave on the line past the curriculum', () => {

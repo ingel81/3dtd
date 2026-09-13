@@ -9,6 +9,7 @@ import {
   isBossWave,
   templateObjectForWave,
 } from '../../../configs/wave-curriculum.config';
+import { bossVariantForWave, type BossVariant } from '../../../configs/boss-variants.config';
 import { splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
 
 /**
@@ -51,7 +52,10 @@ export function peekUpcomingWaves(currentWave: number, towerDps: number, count: 
   const peeks: WavePeek[] = [];
   for (let wave = currentWave + 1; wave <= currentWave + count; wave++) {
     const template = templateObjectForWave(wave);
-    peeks.push(template ? knownPeek(wave, template, towerDps) : unknownPeek(wave));
+    const variant = template ? null : bossVariantForWave(wave);
+    peeks.push(
+      template ? knownPeek(wave, template, towerDps) : variant ? variantPeek(wave, variant) : unknownPeek(wave),
+    );
   }
   return peeks;
 }
@@ -63,6 +67,32 @@ export function peekUpcomingWaves(currentWave: number, towerDps: number, count: 
  */
 export function shownPeek(peeks: readonly WavePeek[], hovered: number | null, picked: number | null): WavePeek | null {
   return peeks.find((p) => p.wave === hovered) ?? peeks.find((p) => p.wave === picked) ?? peeks[0] ?? null;
+}
+
+/** A boss wave the rotation gives to a boss variant: known ahead, unlike the director's picks. */
+function variantPeek(wave: number, variant: BossVariant): WavePeek {
+  const cfg = ENEMY_TYPES[variant.enemyType];
+  const weights: [ArmorType, number][] = [[cfg.armorType, 1]];
+  const armor = ARMOR_TYPE_UI[cfg.armorType].label;
+  const weakTo = weakToLabel(weights);
+  return {
+    wave,
+    name: variant.name,
+    known: true,
+    boss: true,
+    count: null,
+    armors: [armor],
+    armorLabel: armor,
+    air: cfg.isAirUnit === true,
+    weakToTypes: bestDamageTypesAgainst(weights),
+    weakTo,
+    note: '',
+    tooltip: [
+      variant.description,
+      ...(weakTo ? [`Weak to ${weakTo}.`] : []),
+      `Past W${CURRICULUM_FORCED_THROUGH_WAVE} some boss waves go to bosses the director does not pick.`,
+    ].join(' '),
+  };
 }
 
 function knownPeek(wave: number, template: Template, towerDps: number): WavePeek {
