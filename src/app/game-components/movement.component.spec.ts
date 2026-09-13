@@ -558,4 +558,51 @@ describe('MovementComponent', () => {
       expect(movement.getLateralFactor()).toBe(1);
     });
   });
+
+  describe('advance by a given distance', () => {
+    // Three 100 m segments going north
+    const LAT = 48.776;
+    const path: RouteWaypoint[] = [0, 1, 2, 3].map((i) => ({
+      lat: LAT + (i * 100) / METERS_PER_DEGREE_LAT,
+      lon: 9.183,
+      height: 0,
+    }));
+
+    it('goes exactly that far along the centre line, across waypoints', () => {
+      movement.setPath(path);
+      expect(movement.advance(40)).toBe('moving');
+      expect(movement.getDistanceAlongPath()).toBeCloseTo(40, 6);
+      expect(movement.advance(135.5)).toBe('moving');
+      expect(movement.currentIndex).toBe(1);
+      expect(movement.getDistanceAlongPath()).toBeCloseTo(175.5, 6);
+    });
+
+    it('reports the end of the path like move()', () => {
+      movement.setPath(path);
+      expect(movement.advance(299)).toBe('moving');
+      expect(movement.advance(2)).toBe('reached_end');
+    });
+
+    it('is what move() does with its own speed', () => {
+      const other = new MovementComponent(new TestGameObject());
+      movement.setPath(path);
+      other.setPath(path);
+      movement.speedMps = 7;
+      for (let i = 0; i < 50; i++) {
+        movement.move(16, 0);
+        other.advance(7 * 0.016);
+      }
+      expect(movement.getDistanceAlongPath()).toBeCloseTo(other.getDistanceAlongPath(), 9);
+    });
+
+    it('leaves the pause to the caller: move() holds, advance() still goes', () => {
+      movement.setPath(path);
+      movement.speedMps = 10;
+      movement.pause();
+      movement.move(100, 0);
+      expect(movement.getDistanceAlongPath()).toBe(0);
+      movement.advance(5);
+      expect(movement.getDistanceAlongPath()).toBeCloseTo(5, 6);
+    });
+  });
 });

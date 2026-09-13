@@ -372,10 +372,7 @@ export class MovementComponent extends Component {
    * updateStatusEffects + move within the same sub-step (1 iteration).
    */
   move(deltaTime: number, gameTimeMs: number, cachedSlowMult?: number): 'moving' | 'reached_end' {
-    if (this.paused || this.path.length < 2) return 'moving';
-
-    const transform = this.transformRef;
-    if (!transform) return 'moving';
+    if (this.paused) return 'moving';
 
     // Sub-step is fixed (~16.67ms game-time), so a small constant cap is safe.
     const maxDelta = 100;
@@ -384,13 +381,26 @@ export class MovementComponent extends Component {
 
     // Use cached slow multiplier from updateStatusEffects if provided
     const slowMult = cachedSlowMult ?? this.getSlowMultiplier(gameTimeMs);
-    const metersThisFrame = this.speedMps * this.speedMultiplier * slowMult * deltaSeconds;
+    return this.advance(this.speedMps * this.speedMultiplier * slowMult * deltaSeconds);
+  }
+
+  /**
+   * Go `meters` further along the path centre line and place the enemy there,
+   * lateral offset and heading included. move() calls it with the distance of
+   * one sub-step at the enemy's own speed; a worm segment with the distance
+   * its chain puts it at (managers/worm).
+   */
+  advance(meters: number): 'moving' | 'reached_end' {
+    if (this.path.length < 2) return 'moving';
+
+    const transform = this.transformRef;
+    if (!transform) return 'moving';
 
     // Current segment length
     const segmentLength = this.profile.segmentLengths[this.currentIndex] || 1;
 
     // Update progress based on actual segment length
-    this.progress += metersThisFrame / segmentLength;
+    this.progress += meters / segmentLength;
 
     // Handle segment transitions, keeping overflow for smooth movement
     while (this.progress >= 1) {
