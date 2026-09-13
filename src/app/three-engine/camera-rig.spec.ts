@@ -1,4 +1,4 @@
-import { Group, PerspectiveCamera, Raycaster, Scene, Vector3 } from 'three';
+import { EventDispatcher, Group, PerspectiveCamera, Raycaster, Scene, Vector3 } from 'three';
 import { EnvironmentControls, GlobeControls, type TilesRenderer } from '3d-tiles-renderer';
 import type { Mock } from 'vitest';
 import { CameraRig } from './camera-rig';
@@ -55,8 +55,12 @@ function setup() {
   return { camera, canvas, rig, controls };
 }
 
+/** Ellipsoid, Gruppe und die Events, an denen der Raycast-Cache der Boden-Wurzel hängt. */
 function fakeTilesRenderer(): TilesRenderer {
-  return { ellipsoid: { name: 'ellipsoid' }, group: new Group() } as unknown as TilesRenderer;
+  return Object.assign(new EventDispatcher(), {
+    ellipsoid: { name: 'ellipsoid' },
+    group: new Group(),
+  }) as unknown as TilesRenderer;
 }
 
 function expectLookingAlong(camera: PerspectiveCamera, x: number, y: number, z: number): void {

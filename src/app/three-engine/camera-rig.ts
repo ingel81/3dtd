@@ -1,7 +1,7 @@
 import { Object3D, PerspectiveCamera, Scene } from 'three';
 import { GlobeControls, EnvironmentControls, type TilesRenderer } from '3d-tiles-renderer';
 import { cameraTimeline } from '../utils/camera-timeline';
-import { GroundPickRoot } from './ground-pick-root';
+import { GroundPickRoot, TileSetVersion } from './ground-pick-root';
 
 /**
  * CameraRig: Controls und Startposition der Engine-Kamera.
@@ -23,6 +23,8 @@ export class CameraRig {
   private controls: GlobeControls | null = null;
   /** Szene der GlobeControls, hängt in der Engine-Szene; null in DevWorld */
   private groundPick: GroundPickRoot | null = null;
+  /** Leert den Raycast-Cache von groundPick, sobald sich die Tiles ändern */
+  private tileSetVersion: TileSetVersion | null = null;
 
   constructor(
     private readonly camera: PerspectiveCamera,
@@ -37,8 +39,10 @@ export class CameraRig {
    */
   setupGlobeControls(scene: Scene, tilesRenderer: TilesRenderer): void {
     // Zoom, pan, pivot and ground clearance raycast the tiles only, not the
-    // overlays, towers and enemies in the scene (see GroundPickRoot)
-    const groundPick = new GroundPickRoot(tilesRenderer.group);
+    // overlays, towers and enemies in the scene (see GroundPickRoot). A ray
+    // repeats from the cache until the tile set changes.
+    this.tileSetVersion = new TileSetVersion(tilesRenderer);
+    const groundPick = new GroundPickRoot(tilesRenderer.group, this.tileSetVersion);
     scene.add(groundPick);
     this.groundPick = groundPick;
 
@@ -157,6 +161,10 @@ export class CameraRig {
     if (this.groundPick) {
       this.groundPick.removeFromParent();
       this.groundPick = null;
+    }
+    if (this.tileSetVersion) {
+      this.tileSetVersion.dispose();
+      this.tileSetVersion = null;
     }
   }
 }
