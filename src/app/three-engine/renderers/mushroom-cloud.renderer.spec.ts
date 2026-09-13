@@ -92,8 +92,8 @@ describe('MushroomCloudRenderer', () => {
     expect(smoke.material).toBe(materials.normal);
     expect(glow.geometry.getAttribute('position').count).toBe(MUSHROOM_CLOUD_LOOK.clouds * GLOW_PER_CLOUD);
     expect(smoke.geometry.getAttribute('position').count).toBe(MUSHROOM_CLOUD_LOOK.clouds * SMOKE_PER_CLOUD);
-    expect(GLOW_PER_CLOUD).toBe(410);
-    expect(SMOKE_PER_CLOUD).toBe(326);
+    expect(GLOW_PER_CLOUD).toBe(432);
+    expect(SMOKE_PER_CLOUD).toBe(546);
   });
 
   it('opens with the flash, the fireball, the shock dome and the shockwave ring', () => {
@@ -152,33 +152,44 @@ describe('MushroomCloudRenderer', () => {
       run(100, 20);
       expect(lowest(glow)).toBeGreaterThanOrEqual(0);
     }
-    expect(widest(glow)).toBeGreaterThan(groundFire.radius[1] * 1.1);
+    // The rim glow under the cap reaches about 26 m at 1.6 s, 31 m at 3.1 s
+    const thrownOut = 35;
+    expect(widest(glow)).toBeGreaterThan(thrownOut);
 
     run((embers.life[1] + 0.5) * 1000 - 1600, 20);
-    expect(widest(glow)).toBeLessThan(fireball.radius * 1.5);
+    expect(widest(glow)).toBeLessThan(thrownOut);
   });
 
   it('leaves the ground burning for a few seconds', () => {
     const { clouds, glow, run } = setup();
     clouds.detonate(GROUND, RADIUS);
     run(6000, 50);
-    expect(drawn(glow)).toBe(glowParticles.groundFire);
-    expect(widest(glow)).toBeLessThanOrEqual(groundFire.radius[1]);
-    expect(highest(glow)).toBeLessThan(groundFire.size[1]);
+    // The rim glow under the cap is still up there
+    const onGround = positions(glow).filter(([, y]) => y - GROUND.y < groundFire.size[1]);
+    expect(onGround).toHaveLength(glowParticles.groundFire);
+    for (const [x, , z] of onGround) {
+      expect(Math.hypot(x - GROUND.x, z - GROUND.z)).toBeLessThanOrEqual(groundFire.radius[1]);
+    }
 
     run((groundFire.fadeEnd - 6) * 1000 + 50, 50);
     expect(drawn(glow)).toBe(0);
   });
 
-  it('rises tens of metres over the strike point, the dust surging out along the ground', () => {
+  it('punches up fast, then climbs slowly to about 110 m, the dust surging out along the ground', () => {
     const { clouds, smoke, run } = setup();
     clouds.detonate(GROUND, RADIUS);
-    run(3000, 20);
-    expect(widest(smoke)).toBeGreaterThan(25);
+    run(1000, 20);
+    const punched = highest(smoke);
+    expect(punched).toBeGreaterThan(50);
 
     run(2000, 20);
-    expect(highest(smoke)).toBeGreaterThan(50);
-    expect(highest(smoke)).toBeLessThan(80);
+    expect(widest(smoke)).toBeGreaterThan(40);
+
+    run(2000, 20);
+    expect(highest(smoke)).toBeGreaterThan(90);
+    expect(highest(smoke)).toBeLessThan(140);
+    // Less in the four seconds after the first than in the first
+    expect(highest(smoke) - punched).toBeLessThan(punched);
   });
 
   it('scales with the strike radius', () => {

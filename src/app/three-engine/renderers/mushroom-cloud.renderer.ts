@@ -32,7 +32,8 @@ const SMOKE = LOOK.smokeParticles;
 const EMBER_POINTS = GLOW.embers * LOOK.embers.trail;
 const GLOW_PER_CLOUD =
   GLOW.core + GLOW.fireball + GLOW.shell + EMBER_POINTS + GLOW.groundFire + GLOW.stemFire + GLOW.rim;
-const SMOKE_PER_CLOUD = SMOKE.cap + SMOKE.dome + SMOKE.stem + SMOKE.dust + SMOKE.skirt + SMOKE.wall;
+const SMOKE_PER_CLOUD =
+  SMOKE.cap + SMOKE.dome + SMOKE.stem + SMOKE.dust + SMOKE.skirt + SMOKE.wall + SMOKE.condensation;
 /** Random numbers per particle, drawn once per strike */
 const SEEDS = 4;
 /** Staged smoke values per particle: x, y, z, size, r, g, b, frame */
@@ -540,10 +541,15 @@ export class MushroomCloudRenderer {
     const t = cloud.t;
     const s = cloud.scale;
     const tau = Math.max(0, t - cap.start);
-    const rise = 1 - Math.exp(-tau / cap.riseTime);
+    // A fast punch, then the slow climb
+    const height =
+      cap.startHeight +
+      cap.punchHeight * (1 - Math.exp(-tau / cap.punchTime)) +
+      (cap.height - cap.startHeight - cap.punchHeight) * (1 - Math.exp(-tau / cap.riseTime));
+    const rise = (height - cap.startHeight) / (cap.height - cap.startHeight);
     const late = Math.max(0, t - disperse.start);
     this.spread = MathUtils.smoothstep(t, disperse.start, LOOK.duration);
-    this.capY = (MathUtils.lerp(cap.startHeight, cap.height, rise) + disperse.rise * late) * s;
+    this.capY = (height + disperse.rise * late) * s;
     this.ringR = (MathUtils.lerp(cap.ringRadius[0], cap.ringRadius[1], rise) + disperse.spread * late) * s;
     this.tubeR = (MathUtils.lerp(cap.tubeRadius[0], cap.tubeRadius[1], rise) + disperse.spread * 0.6 * late) * s;
     // Turned so far: rollSpeed at first, slowing down
@@ -570,10 +576,10 @@ export class MushroomCloudRenderer {
   /** Push the point out and up as the cloud spreads. */
   private spreadOut(phi: number, u: number, v: number, s: number): void {
     if (this.spread <= 0) return;
-    const out = this.spread * 5 * s * (0.5 + u);
+    const out = this.spread * 8 * s * (0.5 + u);
     this.px += Math.cos(phi) * out;
     this.pz += Math.sin(phi) * out;
-    this.py += this.spread * 3 * s * v;
+    this.py += this.spread * 5 * s * v;
   }
 
   /** Wind drift, full at the cap's height and none on the ground. */
@@ -762,7 +768,7 @@ export class MushroomCloudRenderer {
   private writeStemFire(cloud: Cloud, seeds: number, n: number): number {
     const { stem, colors } = LOOK;
     const t = cloud.t;
-    const fireLight = 1.1 * MathUtils.smoothstep(t, 0.25, 0.5) * (1 - MathUtils.smoothstep(t, 1.4, 3));
+    const fireLight = 1.3 * MathUtils.smoothstep(t, 0.25, 0.5) * (1 - MathUtils.smoothstep(t, 1.6, 3.8));
     if (fireLight <= MIN_LIGHT) return n;
     const s = cloud.scale;
     const r = this.glowSeeds;
@@ -785,7 +791,7 @@ export class MushroomCloudRenderer {
   /** Rim glow: the underside of the cap, lit by the fire in the stem. */
   private writeRim(cloud: Cloud, seeds: number, n: number): number {
     const t = cloud.t;
-    const rimLight = 0.9 * MathUtils.smoothstep(t, 0.7, 1.4) * (1 - MathUtils.smoothstep(t, 2.4, 5.2));
+    const rimLight = 1.2 * MathUtils.smoothstep(t, 0.7, 1.4) * (1 - MathUtils.smoothstep(t, 3.5, 7.5));
     if (rimLight <= MIN_LIGHT) return n;
     const r = this.glowSeeds;
     for (let i = 0, seed = seeds; i < GLOW.rim; i++, seed += SEEDS) {
@@ -797,40 +803,43 @@ export class MushroomCloudRenderer {
     return n;
   }
 
-  /** Cap, dome, stem, dust surge, skirt and dust wall of one cloud into the stage. */
+  /** Cap, dome, stem, dust surge, skirt, dust wall and condensation ring of one cloud into the stage. */
   private stageSmoke(cloud: Cloud, slot: number): void {
-    const { cap, stem, dust, shockwave, colors } = LOOK;
+    const { cap, stem, dust, shockwave, condensation, colors } = LOOK;
     const t = cloud.t;
     const s = cloud.scale;
     const seeds = this.smokeSeeds;
     let i = slot * SMOKE_PER_CLOUD;
     let seed = i * SEEDS;
 
-    // Cap: a torus rolling out over the top and in underneath. Lit orange by
-    // the fireball at first, its underside for longer; the top catches the
-    // light, the outer side is darker.
-    const capAlpha = 0.46 * MathUtils.smoothstep(t, cap.start, cap.start + 0.7) * (1 - this.spread);
-    const capWarm = 1 - MathUtils.smoothstep(t, 0.8, 3.2);
-    const rimWarm = 1 - MathUtils.smoothstep(t, 1.8, 4.6);
+    // Cap: a torus rolling out over the top and in underneath, bulging in
+    // lobes around the stem that shift as it boils, so the rolling reads from
+    // afar. Lit orange by the fireball at first, its underside glowing for
+    // longer; dark on top.
+    const capAlpha = 0.5 * MathUtils.smoothstep(t, cap.start, cap.start + 0.7) * (1 - this.spread);
+    const capWarm = 1 - MathUtils.smoothstep(t, 1, 3.6);
+    const rimWarm = 1 - MathUtils.smoothstep(t, 2.5, 7.5);
     const puffGrowth = 1 + 0.5 * this.spread;
     for (let p = 0; p < SMOKE.cap; p++, i++, seed += SEEDS) {
       const phi = seeds[seed] * TAU;
       const theta = seeds[seed + 1] * TAU - this.roll;
       const u = seeds[seed + 2];
       const v = seeds[seed + 3];
-      const k = 0.45 + 0.55 * u;
+      const lobe = 1 + cap.lobes * (Math.sin(3 * phi + 0.35 * t + 2) + 0.6 * Math.sin(5 * phi - 0.25 * t));
+      const k = (0.45 + 0.55 * u) * lobe;
       this.torusPoint(phi, theta, k);
       this.spreadOut(phi, u, v, s);
       this.drift();
       const sin = Math.sin(theta);
-      const lum = 0.78 + 0.3 * sin - 0.12 * Math.max(0, Math.cos(theta)) * k;
-      const warm = Math.max(capWarm, rimWarm * Math.max(0, -sin));
-      this.putSmoke(i, cloud, this.tubeR * (0.95 + 0.4 * v) * puffGrowth, capAlpha, colors.smoke, lum, warm);
+      const lum = 0.62 + 0.14 * sin - 0.12 * Math.max(0, Math.cos(theta)) * k;
+      const warm = Math.max(capWarm, rimWarm * Math.max(0, -sin) ** 0.6);
+      const boil = 1 + 0.15 * Math.sin(1.1 * t + TAU * v);
+      this.putSmoke(i, cloud, this.tubeR * (0.95 + 0.4 * v) * puffGrowth * boil, capAlpha, colors.smoke, lum, warm);
     }
 
     // Dome: covers the middle of the cap, welling up at the centre and
     // flowing out to the torus
-    const domeAlpha = 0.44 * MathUtils.smoothstep(t, cap.start + 0.2, cap.start + 1) * (1 - this.spread);
+    const domeAlpha = 0.5 * MathUtils.smoothstep(t, cap.start + 0.2, cap.start + 1) * (1 - this.spread);
     const domeR = this.ringR + 0.25 * this.tubeR;
     for (let p = 0; p < SMOKE.dome; p++, i++, seed += SEEDS) {
       const out = fract(seeds[seed] + 0.1 * t);
@@ -843,14 +852,14 @@ export class MushroomCloudRenderer {
       this.drift();
       const edges = MathUtils.smoothstep(out, 0, 0.12) * (1 - MathUtils.smoothstep(out, 0.85, 1));
       const diameter = this.tubeR * (1 + 0.3 * seeds[seed + 3]) * puffGrowth;
-      this.putSmoke(i, cloud, diameter, domeAlpha * edges, colors.smoke, 1.05, capWarm);
+      this.putSmoke(i, cloud, diameter, domeAlpha * edges, colors.smoke, 0.85, capWarm);
     }
 
     // Stem: smoke climbing into the cap, wide at the foot, flaring into the
     // cap at the top, fire-lit at the bottom at first. Thins out before the cap.
     const stemAlpha =
-      0.42 * MathUtils.smoothstep(t, stem.start, stem.start + 0.5) * (1 - MathUtils.smoothstep(t, 4.5, 8.5));
-    const stemWarm = 1 - MathUtils.smoothstep(t, 0.6, 2.8);
+      0.45 * MathUtils.smoothstep(t, stem.start, stem.start + 0.5) * (1 - MathUtils.smoothstep(t, 6, 11));
+    const stemWarm = 1 - MathUtils.smoothstep(t, 0.6, 3.2);
     const climbed = stem.flow * Math.max(0, t - stem.start);
     for (let p = 0; p < SMOKE.stem; p++, i++, seed += SEEDS) {
       const climb = fract(seeds[seed] + climbed);
@@ -868,32 +877,32 @@ export class MushroomCloudRenderer {
     }
 
     // Base surge: dust thrown out along the ground behind the shockwave
-    const dustAlpha = 0.4 * MathUtils.smoothstep(t, 0.05, 0.3) * (1 - MathUtils.smoothstep(t, 3, 8.5));
+    const dustAlpha = 0.42 * MathUtils.smoothstep(t, 0.05, 0.3) * (1 - MathUtils.smoothstep(t, 3.5, 10));
     const dustOut = 1 - Math.exp(-t / dust.time);
     const dustWarm = 0.5 * (1 - MathUtils.smoothstep(t, 0.1, 0.9));
     const dustRise = MathUtils.smoothstep(t, 0, 2.5);
     const dustGrowth = 1 + 0.2 * Math.min(t, 5);
     for (let p = 0; p < SMOKE.dust; p++, i++, seed += SEEDS) {
       const phi = seeds[seed] * TAU + 0.03 * t;
-      const r = (dust.radius * (0.75 + 0.25 * seeds[seed + 1]) * dustOut + 0.4 * t) * s;
+      const r = (dust.radius * (0.75 + 0.25 * seeds[seed + 1]) * dustOut + 0.5 * t) * s;
       this.px = Math.cos(phi) * r;
-      this.py = (0.8 + (1.5 + 3.5 * seeds[seed + 2]) * dustRise + 0.25 * t) * s;
+      this.py = (1 + (2 + 5 * seeds[seed + 2]) * dustRise + 0.3 * t) * s;
       this.pz = Math.sin(phi) * r;
-      this.putSmoke(i, cloud, (5 + 3 * seeds[seed + 3]) * s * dustGrowth, dustAlpha, colors.dust, 0.95, dustWarm);
+      this.putSmoke(i, cloud, (7 + 4 * seeds[seed + 3]) * s * dustGrowth, dustAlpha, colors.dust, 0.95, dustWarm);
     }
 
     // Skirt: darker dust drawn in around the foot of the stem
-    const skirtAlpha = 0.38 * MathUtils.smoothstep(t, 0.5, 1.4) * (1 - MathUtils.smoothstep(t, 5, 9.5));
+    const skirtAlpha = 0.4 * MathUtils.smoothstep(t, 0.5, 1.4) * (1 - MathUtils.smoothstep(t, 6, 12));
     const skirtOut = 1 - Math.exp(-t / 1.2);
     const skirtRise = MathUtils.smoothstep(t, 0.5, 3);
     const skirtGrowth = 1 + 0.1 * Math.min(t, 5);
     for (let p = 0; p < SMOKE.skirt; p++, i++, seed += SEEDS) {
       const phi = seeds[seed] * TAU + 0.2 * t;
-      const r = (4 + 9 * seeds[seed + 1] * skirtOut) * s;
+      const r = (6 + 15 * seeds[seed + 1] * skirtOut) * s;
       this.px = Math.cos(phi) * r;
-      this.py = (1 + 5 * seeds[seed + 2] * skirtRise) * s;
+      this.py = (1 + 8 * seeds[seed + 2] * skirtRise) * s;
       this.pz = Math.sin(phi) * r;
-      this.putSmoke(i, cloud, (6 + 3 * seeds[seed + 3]) * s * skirtGrowth, skirtAlpha, colors.dust, 0.7, 0);
+      this.putSmoke(i, cloud, (8 + 4 * seeds[seed + 3]) * s * skirtGrowth, skirtAlpha, colors.dust, 0.7, 0);
     }
 
     // Dust wall: thrown up on the shockwave's front and left standing where
@@ -912,6 +921,25 @@ export class MushroomCloudRenderer {
       this.py = diameter * 0.3 + 4 * s * seeds[seed + 2] * wallRise;
       this.pz = Math.sin(phi) * r;
       this.putSmoke(i, cloud, diameter, wallAlpha, colors.dust, 1, wallWarm);
+    }
+
+    // Condensation ring: a white ring around the stem at mid height, early
+    // on, spreading out and gone before the cap is up
+    const ringAlpha =
+      0.36 *
+      MathUtils.smoothstep(t, condensation.start, condensation.start + 0.4) *
+      (1 - MathUtils.smoothstep(t, condensation.end - 1.4, condensation.end));
+    const ringOut = 1 - Math.exp(-Math.max(0, t - condensation.start) / condensation.time);
+    const ringRadius = MathUtils.lerp(condensation.radius[0], condensation.radius[1], ringOut) * s;
+    const ringY = this.capY * 0.45;
+    for (let p = 0; p < SMOKE.condensation; p++, i++, seed += SEEDS) {
+      const phi = seeds[seed] * TAU + 0.05 * t;
+      const r = ringRadius * (0.85 + 0.3 * seeds[seed + 1]);
+      this.px = Math.cos(phi) * r;
+      this.py = ringY + (seeds[seed + 2] - 0.5) * 3 * s;
+      this.pz = Math.sin(phi) * r;
+      this.drift();
+      this.putSmoke(i, cloud, (7 + 5 * seeds[seed + 3]) * s, ringAlpha, colors.condensation, 1.15, 0);
     }
   }
 
