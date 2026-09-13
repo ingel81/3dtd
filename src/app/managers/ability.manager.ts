@@ -373,7 +373,10 @@ export class AbilityManager implements IGameManager {
     shares.clear();
 
     strike.burntMs += stepMs;
-    const burnMs = Math.min(effect.durationMs, (sweep.length / effect.speedMps) * 1000);
+    // The sweep may end sooner than the time is up; a beam without speed stands for its time
+    const burnMs = effect.speedMps > 0
+      ? Math.min(effect.durationMs, (sweep.length / effect.speedMps) * 1000)
+      : effect.durationMs;
     if (strike.burntMs >= burnMs) this.finish(strike, dealt.size);
   }
 
