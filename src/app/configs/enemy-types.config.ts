@@ -129,7 +129,8 @@ export interface EnemyTypeConfig {
   /**
    * A boss unit: the boss bar at the top centre shows it under its `name`,
    * its death shakes the screen (bossDeath preset), and abilities take a
-   * smaller share of its max HP (bossMaxHpFraction in abilities.config.ts).
+   * smaller share of its max HP (the bossFraction of an effect in
+   * abilities.config.ts).
    * Per type, so only types that appear as the boss and nowhere else carry it.
    */
   isBoss?: boolean;

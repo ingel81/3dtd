@@ -104,6 +104,7 @@ import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
 import { BUILD_VERSION } from './configs/build-info.config';
 import { isLocationDialogFailure } from './components/location-dialog/open-location-dialog';
+import { ABILITIES } from './configs/abilities.config';
 
 @Component({
   selector: 'app-tower-defense',
@@ -352,12 +353,15 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   ];
   readonly placementModeWarning = computed(() => this.mapPlacement.validationReason());
 
-  // Ability targeting hints (Nuclear Strike) for context hint box
+  // Ability targeting hints for context hint box: what a click does comes from the ability
   readonly abilityTargetingActive = computed(() => this.abilityTargeting.targeting() !== null);
-  readonly abilityTargetingHints: HintItem[] = [
-    { key: 'Click', description: 'Strike' },
-    { key: 'ESC', description: 'Cancel' },
-  ];
+  readonly abilityTargetingHints = computed((): HintItem[] => {
+    const id = this.abilityTargeting.targeting();
+    return [
+      { key: 'Click', description: id ? ABILITIES[id].aimHint : '' },
+      { key: 'ESC', description: 'Cancel' },
+    ];
+  });
   readonly abilityTargetingWarning = this.abilityTargeting.warning;
 
   // Hero selected: the next click on the route sends him

@@ -232,11 +232,17 @@ export class AbilityManager implements IGameManager {
 
   private resolve(strike: PendingStrike): void {
     const config = ABILITIES[strike.abilityId];
+    const effect = config.effect;
     const targets = this.world.enemiesInRadius(strike.target, config.radiusM, this.targetScratch);
     const hits = targets.length;
-    const kills = hits > 0
-      ? this.world.strike(targets, (enemy) => abilityDamageFraction(config, enemy.typeConfig))
-      : 0;
+    let kills = 0;
+    if (hits > 0) {
+      switch (effect.kind) {
+        case 'max-hp-fraction':
+          kills = this.world.strike(targets, (enemy) => abilityDamageFraction(effect, enemy.typeConfig));
+          break;
+      }
+    }
     this.targetScratch.length = 0;
 
     this.eventBus.emit({
