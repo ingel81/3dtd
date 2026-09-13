@@ -236,18 +236,21 @@ export const EXPLOSION_LOOK = {
  * turns orange, a second fire front running out over the ground, a bright
  * shock dome, a shockwave ring out to 70 m with a wall of dust on its
  * front, embers thrown out and up.
- * 0.3 to 5 s: the fireball lifts and turns into the cap, a torus of smoke
- * that rolls outward over the top and back in underneath, lit orange from
- * below; a stem of fire turning into smoke flows up into it. The ground
- * at its foot burns until 7.5 s.
- * 5.5 to 10 s: the cloud spreads, rises, drifts with the wind and fades.
+ * 0.35 to 8 s: the fireball lifts and turns into the cap, a torus of
+ * smoke in shifting lobes that rolls outward over the top and back in
+ * underneath, dark on top and glowing orange underneath; it punches up to
+ * about 55 m within the first second, then climbs slowly to about 110 m. A
+ * stem of fire turning into smoke flows up into it, a white condensation
+ * ring stands around the stem until 3.8 s, the ground at its foot burns
+ * until 7.5 s.
+ * 8 to 14 s: the cloud spreads, rises, drifts with the wind and fades.
  *
  * With impact effects off (VFX settings, the Low preset) the detonation
  * only: flash, core, fireball, fire front, shock dome and shockwave; no
  * smoke, no embers, no ground fire.
  *
- * Budget: 410 glow and 326 smoke particles per cloud, in buffers of the
- * renderer's own (2 clouds: 820 and 652), not in the trail pools, which a
+ * Budget: 432 glow and 546 smoke particles per cloud, in buffers of the
+ * renderer's own (2 clouds: 864 and 1092), not in the trail pools, which a
  * big wave keeps busy. While a cloud is up: two Points draw calls, for the
  * first 1.6 s the ring, 0.75 s the dome, 0.5 s the flash sprite and 0.55 s
  * a screen quad on top.
@@ -255,16 +258,16 @@ export const EXPLOSION_LOOK = {
 export const MUSHROOM_CLOUD_LOOK = {
   referenceRadius: 25,
   /** Until the last smoke is gone */
-  duration: 10,
+  duration: 14,
   /** Clouds drawn at once; another strike takes the place of the oldest */
   clouds: 2,
   /**
    * Additive particles from the explosion atlas, per cloud. `embers` counts
    * streaks of `embers.trail` points each.
    */
-  glowParticles: { core: 16, fireball: 56, shell: 48, embers: 48, groundFire: 32, stemFire: 30, rim: 36 },
+  glowParticles: { core: 16, fireball: 56, shell: 48, embers: 48, groundFire: 32, stemFire: 40, rim: 48 },
   /** Normal-blended particles from the smoke atlas, per cloud */
-  smokeParticles: { cap: 110, dome: 40, stem: 60, dust: 40, skirt: 20, wall: 56 },
+  smokeParticles: { cap: 190, dome: 64, stem: 100, dust: 60, skirt: 36, wall: 56, condensation: 40 },
   /**
    * Sprite of `size` metres `height` above the ground point, additive at
    * `intensity`, and a screen-wide brightening of `screenPeak`, both fading
@@ -310,33 +313,45 @@ export const MUSHROOM_CLOUD_LOOK = {
   /** Burning ground between `radius` metres from the centre, flickering, out by fadeEnd */
   groundFire: { start: 0.35, fadeStart: 4.5, fadeEnd: 7.5, radius: [5, 24], size: [3, 6] },
   /**
-   * The cap from `start` on: its centre rises from startHeight towards
-   * height (time constant riseTime), ring and tube radius grow from the
-   * first to the second value. `flatten` squashes the tube; the roll turns
-   * it at rollSpeed rad/s, slowing with the time constant rollTime.
+   * The cap from `start` on: its centre punches up from startHeight by
+   * punchHeight (time constant punchTime), then climbs on slowly towards
+   * height (time constant riseTime); ring and tube radius grow from the
+   * first to the second value with it. `flatten` squashes the tube; the
+   * roll turns it at rollSpeed rad/s, slowing with the time constant
+   * rollTime. `lobes` bulges the tube around the stem in shifting lobes.
    */
   cap: {
-    start: 0.4,
-    startHeight: 8,
-    height: 58,
-    riseTime: 1.5,
-    ringRadius: [3, 13],
-    tubeRadius: [4, 9],
-    flatten: 0.75,
-    rollSpeed: 1.3,
-    rollTime: 3.5,
+    start: 0.35,
+    startHeight: 10,
+    punchHeight: 50,
+    punchTime: 0.45,
+    height: 110,
+    riseTime: 3.5,
+    ringRadius: [5, 24],
+    tubeRadius: [7, 16],
+    flatten: 0.72,
+    rollSpeed: 1.5,
+    rollTime: 4,
+    lobes: 0.16,
   },
   /** Stem radius at mid height; `flow` is the share of the stem its smoke climbs per second */
-  stem: { start: 0.3, width: 3.2, flow: 0.3 },
+  stem: { start: 0.3, width: 5.5, flow: 0.28 },
   /** Base surge: dust out to `radius`, time constant `time` */
-  dust: { radius: 34, time: 0.8 },
+  dust: { radius: 50, time: 0.9 },
+  /**
+   * Condensation ring (Wilson cloud): a white ring around the stem at
+   * mid height, from `start` to `end`, spreading between the two radii
+   * with the time constant `time`
+   */
+  condensation: { start: 0.5, end: 3.8, radius: [8, 42], time: 1.2 },
   /** From `start` on the cloud spreads and rises (m/s), drifts with the wind (m/s) and fades out by `duration` */
-  disperse: { start: 5.5, spread: 1, rise: 0.8, wind: 0.8 },
+  disperse: { start: 8, spread: 1.2, rise: 1, wind: 1 },
   /** Particle tints, linear. The smoke ones go over the light grey smoke atlas. */
   colors: {
-    smoke: { r: 0.34, g: 0.31, b: 0.29 },
-    fireLit: { r: 1.5, g: 0.78, b: 0.36 },
+    smoke: { r: 0.27, g: 0.245, b: 0.23 },
+    fireLit: { r: 1.7, g: 0.82, b: 0.34 },
     dust: { r: 0.74, g: 0.66, b: 0.54 },
+    condensation: { r: 0.92, g: 0.93, b: 0.95 },
     core: { r: 1, g: 0.98, b: 0.92 },
     /** The fireball runs from fireballHot to fireball */
     fireballHot: { r: 1, g: 0.93, b: 0.8 },
