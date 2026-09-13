@@ -234,6 +234,28 @@ describe('EnemyInstanceManager', () => {
     );
   });
 
+  it('tints a frozen enemy white-cyan over the slow, burn and poison tints, the switch aside', () => {
+    type State = NonNullable<ReturnType<EnemyInstanceManager['addEnemy']>>;
+    const tintOf = (s: State) => [
+      s.pool.tintColorAttr.getX(s.index),
+      s.pool.tintColorAttr.getY(s.index),
+      s.pool.tintColorAttr.getZ(s.index),
+    ];
+    const iced = [0.9, 0.97, 1.0].map(Math.fround);
+    const a = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    manager.setFreezeVisual('a', true);
+    manager.setBurnVisual('a', true);
+    manager.setPoisonVisual('a', true);
+    manager.setIcedVisual('a', true);
+    expect(tintOf(a)).toEqual(iced);
+
+    manager.setFreezeTintEnabled(false); // the switch is about the slow
+    expect(tintOf(a)).toEqual(iced);
+
+    manager.setIcedVisual('a', false);
+    expect(tintOf(a)).toEqual([1.0, 0.45, 0.05].map(Math.fround)); // back to the burn
+  });
+
   it('hides the freeze tint while it is off and brings it back on the enemies still slowed', () => {
     type State = NonNullable<ReturnType<EnemyInstanceManager['addEnemy']>>;
     const tintOf = (s: State) => [

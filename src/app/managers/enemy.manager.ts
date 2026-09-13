@@ -96,6 +96,9 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Track enemies with active frost visual (for state-change detection)
   private frozenVisualEnemies = new Set<string>();
 
+  // Track enemies frozen solid (freeze): icy tint and ice crystals
+  private icedVisualEnemies = new Set<string>();
+
   // Track enemies with active poison visual
   private poisonVisualEnemies = new Set<string>();
 
@@ -641,15 +644,16 @@ export class EnemyManager extends EntityManager<Enemy> {
       // share the enemy-sound budget, so the order of updateLoopPosition()
       // calls decides which paused loop gets to resume.
       if (enemy.hasAudioLoops && enemy.audio.enabled) enemy.audio.update(deltaTime);
+      // Single-pass: remove expired effects + get the status flags (game-time)
+      const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
       // Walk/run alternation (wallsmasher). Ticked before move() so the
       // multiplier takes effect in the sub-step that sets it. Only enemies
       // that carry the state pay for it; everyone else keeps multiplier 1.
-      // Paused enemies (pending start, debug, dying) do not advance it.
-      if (enemy.rush !== null && !enemy.movement.paused) {
+      // Paused enemies (pending start, debug, dying) and halted ones (freeze)
+      // do not advance it.
+      if (enemy.rush !== null && !enemy.movement.paused && !statusFlags.isHalted) {
         enemy.movement.speedMultiplier = enemy.rush.tick(deltaTime);
       }
-      // Single-pass: remove expired effects + get slow/poison/burn flags (game-time)
-      const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
       // A worm segment goes where its chain put it (worms.tick above)
       const moveResult = enemy.worm === null
         ? enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier)
@@ -920,6 +924,23 @@ export class EnemyManager extends EntityManager<Enemy> {
         this.frozenVisualEnemies.delete(enemy.id);
       }
 
+      // Frozen solid: icy tint and ice crystals, over the slow look if both are on
+      const isFrozen =
+        enemy.movement.statusEffects.length !== 0 && enemy.movement.isFrozen(gameTimeMs);
+      const hasIce =
+        this.icedVisualEnemies.size !== 0 && this.icedVisualEnemies.has(enemy.id);
+      if (isFrozen && !hasIce) {
+        engine.enemies.setIcedVisual(enemy.id, true);
+        engine.effects.spawnIceCrystals(enemy.id, this._tempLocalPos);
+        this.icedVisualEnemies.add(enemy.id);
+      } else if (isFrozen && hasIce) {
+        engine.effects.updateIceCrystalsPosition(enemy.id, this._tempLocalPos);
+      } else if (!isFrozen && hasIce) {
+        engine.enemies.setIcedVisual(enemy.id, false);
+        engine.effects.stopIceCrystals(enemy.id);
+        this.icedVisualEnemies.delete(enemy.id);
+      }
+
       const isPoisoned =
         enemy.movement.statusEffects.length !== 0 && enemy.movement.isPoisoned(gameTimeMs);
       const hasPoison =
@@ -1025,6 +1046,11 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.tilesEngine?.effects.stopFrostAura(entity.id);
       this.frozenVisualEnemies.delete(entity.id);
     }
+    // Ice crystals of a frozen enemy; its tint goes with the render slot
+    if (this.icedVisualEnemies.has(entity.id)) {
+      this.tilesEngine?.effects.stopIceCrystals(entity.id);
+      this.icedVisualEnemies.delete(entity.id);
+    }
     // Cleanup poison visual if active
     if (this.poisonVisualEnemies.has(entity.id)) {
       this.tilesEngine?.effects.stopPoisonAura(entity.id);
@@ -1073,6 +1099,11 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.tilesEngine?.effects.stopFrostAura(enemyId);
     }
     this.frozenVisualEnemies.clear();
+
+    for (const enemyId of this.icedVisualEnemies) {
+      this.tilesEngine?.effects.stopIceCrystals(enemyId);
+    }
+    this.icedVisualEnemies.clear();
 
     // Stop poison auras before clearing
     for (const enemyId of this.poisonVisualEnemies) {

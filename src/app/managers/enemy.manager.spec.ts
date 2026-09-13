@@ -410,6 +410,41 @@ describe('EnemyManager', () => {
       expect(enemy.movement.speedMultiplier).toBe(1);
     });
 
+    it('halts a frozen enemy and its walk/run switch until the freeze runs out', () => {
+      const zombie = manager.spawn(path, 'zombie');
+      const smasher = manager.spawn(path, 'wallsmasher');
+      for (const enemy of [zombie, smasher]) {
+        enemy.movement.applyStatusEffect({ type: 'freeze', value: 1, duration: 9600, startTime: 0, sourceId: 'frost' });
+      }
+      for (let s = 1; s < 600; s++) manager.update(16, s * 16); // 9.6 s > any first rush phase
+      expect(zombie.movement.progress).toBe(0);
+      expect(smasher.movement.progress).toBe(0);
+      expect(smasher.rush!.running).toBe(false);
+
+      manager.update(16, 9600);
+      expect(zombie.movement.progress).toBeGreaterThan(0);
+    });
+
+    it('ices a frozen enemy on the change only, and thaws it', () => {
+      const engine = tilesEngine as unknown as Record<string, Record<string, unknown>>;
+      engine['enemies']['setIcedVisual'] = vi.fn();
+      engine['effects'] = { spawnIceCrystals: vi.fn(), updateIceCrystalsPosition: vi.fn(), stopIceCrystals: vi.fn() };
+      const { setIcedVisual } = engine['enemies'] as { setIcedVisual: MockInstance };
+      const effects = engine['effects'] as Record<string, MockInstance>;
+      const enemy = manager.spawn(path, 'zombie');
+      enemy.movement.applyStatusEffect({ type: 'freeze', value: 1, duration: 1000, startTime: 0, sourceId: 'frost' });
+
+      manager.presentFrame(16);
+      manager.presentFrame(32);
+      expect(setIcedVisual.mock.calls).toEqual([[enemy.id, true]]);
+      expect(effects['spawnIceCrystals']).toHaveBeenCalledTimes(1);
+      expect(effects['updateIceCrystalsPosition']).toHaveBeenCalledTimes(1);
+
+      manager.presentFrame(1000);
+      expect(setIcedVisual.mock.calls).toEqual([[enemy.id, true], [enemy.id, false]]);
+      expect(effects['stopIceCrystals']).toHaveBeenCalledWith(enemy.id);
+    });
+
     it('shows a switch in the present pass, once', () => {
       const enemy = manager.spawn(path, 'wallsmasher');
       const slot = { released: false, isWalking: true };

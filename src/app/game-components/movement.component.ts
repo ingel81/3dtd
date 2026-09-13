@@ -65,6 +65,8 @@ export class MovementComponent extends Component {
     isSlowed: false,
     isPoisoned: false,
     isBurning: false,
+    isFrozen: false,
+    isHalted: false,
     slowMultiplier: 1.0,
   };
 
@@ -265,7 +267,8 @@ export class MovementComponent extends Component {
 
   /**
    * Single-pass status effect update: removes expired effects in-place
-   * and returns active slow/poison/burn flags + slow multiplier.
+   * and returns the active flags + slow multiplier. A halt (freeze) sets the
+   * multiplier to 0 whatever else is active and in whatever order.
    *
    * `gameTimeMs` is the engine's monotonic game-clock (NOT performance.now()).
    * `effect.startTime` is also stored as game-time ms — effect duration is
@@ -276,6 +279,9 @@ export class MovementComponent extends Component {
     isSlowed: boolean;
     isPoisoned: boolean;
     isBurning: boolean;
+    isFrozen: boolean;
+    /** No movement, no walk cycle, no walk/run switch this sub-step */
+    isHalted: boolean;
     slowMultiplier: number;
   } {
     let writeIdx = 0;
@@ -283,6 +289,8 @@ export class MovementComponent extends Component {
     result.isSlowed = false;
     result.isPoisoned = false;
     result.isBurning = false;
+    result.isFrozen = false;
+    result.isHalted = false;
     result.slowMultiplier = 1.0;
 
     // eslint-disable-next-line @typescript-eslint/prefer-for-of -- in-place compact needs indexed write
@@ -295,12 +303,8 @@ export class MovementComponent extends Component {
           result.isSlowed = true;
           result.slowMultiplier = 1 - effect.value;
         } else if (effect.type === 'freeze') {
-          // Freeze = full stop. Currently RESERVED/unused (no tower applies it),
-          // but set the multiplier to 0 so the reserved effect is correct by
-          // construction if it's ever enabled — previously it only tinted the
-          // enemy blue while letting it move at full speed.
-          result.isSlowed = true;
-          result.slowMultiplier = 0;
+          result.isFrozen = true;
+          result.isHalted = true;
         } else if (effect.type === 'poison') {
           result.isPoisoned = true;
         } else if (effect.type === 'burn') {
@@ -310,6 +314,7 @@ export class MovementComponent extends Component {
     }
     this.statusEffects.length = writeIdx; // In-place compact, no allocation
 
+    if (result.isHalted) result.slowMultiplier = 0;
     return result;
   }
 
@@ -327,28 +332,42 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Get current slow multiplier (1.0 = no slow, 0 = frozen solid).
+   * Get current slow multiplier (1.0 = no slow, 0 = halted).
    *
-   * Mirrors the 'slow'/'freeze' handling of `updateStatusEffects` — the two
-   * must not disagree, or the simulation stops the enemy while the renderer
-   * keeps its walk cycle running at full speed.
+   * Mirrors `updateStatusEffects` — the two must not disagree, or the
+   * simulation stops the enemy while the renderer keeps its walk cycle
+   * running at full speed. A halt wins over a slow in any order.
    */
   getSlowMultiplier(gameTimeMs: number): number {
+    let multiplier = 1.0;
     for (const effect of this.statusEffects) {
       if (gameTimeMs - effect.startTime >= effect.duration) continue;
       if (effect.type === 'freeze') return 0;
-      if (effect.type === 'slow') return 1 - effect.value;
+      if (effect.type === 'slow') multiplier = 1 - effect.value;
     }
-    return 1.0;
+    return multiplier;
   }
 
-  /** Whether enemy has an active slow or freeze effect. */
+  /** Whether enemy has an active slow effect (the ice tower's; a freeze is no slow). */
   isSlowed(gameTimeMs: number): boolean {
     return this.statusEffects.some(
-      (effect) =>
-        (effect.type === 'slow' || effect.type === 'freeze') &&
-        gameTimeMs - effect.startTime < effect.duration,
+      (effect) => effect.type === 'slow' && gameTimeMs - effect.startTime < effect.duration,
     );
+  }
+
+  /** Whether enemy is frozen solid (freeze). */
+  isFrozen(gameTimeMs: number): boolean {
+    return this.statusEffects.some(
+      (effect) => effect.type === 'freeze' && gameTimeMs - effect.startTime < effect.duration,
+    );
+  }
+
+  /**
+   * Whether enemy is halted: no movement, no walk cycle, no walk/run switch.
+   * An enemy that could attack would not attack either.
+   */
+  isHalted(gameTimeMs: number): boolean {
+    return this.isFrozen(gameTimeMs);
   }
 
   /** Whether enemy has an active poison effect. */

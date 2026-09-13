@@ -30,7 +30,10 @@ export interface EnemyInstanceState {
   speedMultiplier: number; // From movement (walk/run speed ratio)
   isWalking: boolean;
   isDead: boolean;
+  /** Slowed (ice tower): the freeze tint, unless switched off */
   frozen: boolean;
+  /** Frozen solid (freeze status): the iced tint, always shown */
+  iced: boolean;
   poisoned: boolean;
   burning: boolean;
   /** performance.now() timestamp when an active hit-flash expires (0 = no flash). */
@@ -85,6 +88,11 @@ export interface TypePool {
 const FREEZE_TINT_R = 0.4;
 const FREEZE_TINT_G = 0.8;
 const FREEZE_TINT_B = 1.0;
+
+// Iced tint color (white-cyan): frozen solid, reads apart from the slow's blue
+const ICED_TINT_R = 0.9;
+const ICED_TINT_G = 0.97;
+const ICED_TINT_B = 1.0;
 
 // Poison tint color (green)
 const POISON_TINT_R = 0.2;
@@ -258,6 +266,7 @@ export class EnemyInstanceManager {
       isWalking: true,
       isDead: false,
       frozen: false,
+      iced: false,
       poisoned: false,
       burning: false,
       hitFlashEnd: 0,
@@ -369,6 +378,16 @@ export class EnemyInstanceManager {
     this.applyTint(state, pool);
   }
 
+  /** Frozen solid (freeze status): the iced tint, over every tint but the hit flash */
+  setIcedVisual(id: string, active: boolean): void {
+    const state = this.getState(id);
+    if (!state) return;
+    state.iced = active;
+    const pool = this.pools.get(state.typeId);
+    if (!pool) return;
+    this.applyTint(state, pool);
+  }
+
   setPoisonVisual(id: string, active: boolean): void {
     const state = this.getState(id);
     if (!state) return;
@@ -449,12 +468,14 @@ export class EnemyInstanceManager {
 
   /**
    * Compute the correct tint colour for an enemy given its state and write
-   * it into the instance attribute. Priority: hit-flash > freeze (unless
-   * switched off) > burn > poison > none.
+   * it into the instance attribute. Priority: hit-flash > iced > freeze
+   * (unless switched off) > burn > poison > none.
    */
   private applyTint(state: EnemyInstanceState, pool: TypePool): void {
     if (state.hitFlashEnd > performance.now()) {
       pool.tintColorAttr.setXYZ(state.index, HIT_FLASH_R, HIT_FLASH_G, HIT_FLASH_B);
+    } else if (state.iced) {
+      pool.tintColorAttr.setXYZ(state.index, ICED_TINT_R, ICED_TINT_G, ICED_TINT_B);
     } else if (state.frozen && this.freezeTint) {
       pool.tintColorAttr.setXYZ(state.index, FREEZE_TINT_R, FREEZE_TINT_G, FREEZE_TINT_B);
     } else if (state.burning) {

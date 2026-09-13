@@ -258,12 +258,43 @@ describe('MovementComponent', () => {
       expect(movement.statusEffects).toHaveLength(0);
     });
 
-    it('freeze counts as slowed for movement purposes', () => {
+    it('freeze halts: multiplier 0 until it runs out, and it is no slow', () => {
       movement.applyStatusEffect({
         type: 'freeze', value: 1.0, duration: 1000, startTime: 0, sourceId: 'ice',
       });
       const result = movement.updateStatusEffects(500);
-      expect(result.isSlowed).toBe(true);
+      expect(result).toMatchObject({ isFrozen: true, isHalted: true, isSlowed: false, slowMultiplier: 0 });
+      expect(movement.isFrozen(500)).toBe(true);
+      expect(movement.isHalted(500)).toBe(true);
+      expect(movement.isSlowed(500)).toBe(false);
+      expect(movement.getSlowMultiplier(500)).toBe(0);
+
+      expect(movement.updateStatusEffects(1000)).toMatchObject({ isFrozen: false, isHalted: false, slowMultiplier: 1 });
+      expect(movement.isHalted(1000)).toBe(false);
+    });
+
+    it('freeze wins over a slow in either order', () => {
+      movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 5000, startTime: 0 });
+      movement.applyStatusEffect({ type: 'freeze', value: 1, duration: 1000, startTime: 0, sourceId: 'a' });
+      expect(movement.updateStatusEffects(100).slowMultiplier).toBe(0);
+      expect(movement.getSlowMultiplier(100)).toBe(0);
+
+      movement.statusEffects.reverse();
+      expect(movement.updateStatusEffects(100).slowMultiplier).toBe(0);
+      expect(movement.getSlowMultiplier(100)).toBe(0);
+
+      // Thaws into the slow that is still on
+      expect(movement.updateStatusEffects(1000)).toMatchObject({ isSlowed: true, isHalted: false, slowMultiplier: 0.5 });
+      expect(movement.getSlowMultiplier(1000)).toBe(0.5);
+    });
+
+    it('a frozen enemy stays where it is', () => {
+      movement.setPath([{ lat: 0, lon: 0 }, { lat: 0.001, lon: 0 }]);
+      movement.speedMps = 5;
+      movement.applyStatusEffect({ type: 'freeze', value: 1, duration: 1000, startTime: 0, sourceId: 'a' });
+      const status = movement.updateStatusEffects(0);
+      movement.move(16.667, 0, status.slowMultiplier);
+      expect(movement.progress).toBe(0);
     });
   });
 

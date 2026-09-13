@@ -1,6 +1,6 @@
 # Status Effects System
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-14
 
 Dokumentation des Status-Effekt-Systems für Debuffs und Buffs auf Enemies.
 
@@ -14,9 +14,7 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 - **Slow** (Verlangsamung) — Ice Tower, Splash
 - **Poison** (DoT) — Poison Tower, Splash
 - **Burn** (DoT) — Fire Tower, jeder Gegner im Flammenkegel
-
-**Reserviert (im `StatusEffectType` definiert, aber aktuell nicht aktiv genutzt):**
-- Freeze
+- **Freeze** (Stopp) — Mechanik und Darstellung fertig, noch ohne Quelle
 
 Status-Effekte hängen am Projektiltyp (`ice-shard`, `poison-glob`) bzw. am Fire-Beam, nicht am
 Schadenstyp. Der Chaos Tower (Schadenstyp `chaos`, 1,0 gegen jede Rüstung) legt keinen Effekt.
@@ -57,6 +55,7 @@ export class StatusEffectService {
   applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void;
   applyPoison(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void;
   applyBurn(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void; // In-place-Refresh
+  applyFreeze(enemy: Enemy, duration: number, sourceId: string): void;
   applyEffect(enemy: Enemy, type: StatusEffectType, value: number, duration: number, sourceId: string): void;
   removeExpired(enemy: Enemy): void;
   hasActiveEffect(enemy: Enemy, type: StatusEffectType): boolean;
@@ -80,12 +79,15 @@ export class MovementComponent extends Component {
   refreshStatusEffect(type, value, duration, startTime, sourceId): void;
   /** Single-Pass Update: entfernt abgelaufene Effekte + gibt aktive Flags zurück. */
   updateStatusEffects(gameTimeMs: number): {
-    isSlowed: boolean; isPoisoned: boolean; isBurning: boolean; slowMultiplier: number;
+    isSlowed: boolean; isPoisoned: boolean; isBurning: boolean;
+    isFrozen: boolean; isHalted: boolean; slowMultiplier: number;
   };
   removeExpiredEffects(gameTimeMs: number): void;
   getSlowMultiplier(gameTimeMs: number): number;
   getEffectiveSpeed(gameTimeMs: number): number;
-  isSlowed(gameTimeMs: number): boolean;
+  isSlowed(gameTimeMs: number): boolean;   // nur Slow, ein Freeze zählt nicht
+  isFrozen(gameTimeMs: number): boolean;
+  isHalted(gameTimeMs: number): boolean;   // Freeze
   isPoisoned(gameTimeMs: number): boolean;
   isBurning(gameTimeMs: number): boolean;
 }
@@ -285,9 +287,23 @@ Wie Poison im Enemy-Sub-Step (`EnemyManager.tickDamageOverTime`), aber je Burn-E
 
 ---
 
-## Freeze (Reserviert)
+## Freeze (Stopp)
 
-`freeze` ist als `StatusEffectType` definiert; im Update-Pfad behandelt `updateStatusEffects()` `freeze` als `isSlowed = true` mit `slowMultiplier = 0` (voller Stopp, `getSlowMultiplier()` ebenso), aber es gibt aktuell keinen Tower, der ihn ausspielt. Designs werden in [TODO.md](../TODO.md) und [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) verfolgt.
+**Status:** Mechanik und Darstellung seit 2026-09-14; eine Quelle gibt es noch nicht.
+
+Ein eingefrorener Gegner **hält an**, solange der Effekt läuft (`MovementComponent.isHalted()`):
+
+- keine Bewegung: `slowMultiplier` 0, in `updateStatusEffects()` und `getSlowMultiplier()` gleich und unabhängig von der Reihenfolge der Einträge. Ein gleichzeitiger Slow ist wirkungslos, nach dem Auftauen gilt sein Rest wieder.
+- kein Laufzyklus: das Renderer-Tempo folgt der Geschwindigkeit, bei 0 steht die VAT-Animation.
+- kein Wechsel zwischen Gehen und Rennen: `EnemyManager.update` tickt `enemy.rush` nicht, solange `isHalted` gilt.
+- Gegner greifen im Spiel nichts an. Ein späteres Angriffssystem fragt `isHalted()`.
+- Schaden über Zeit läuft weiter, Tower zielen und treffen wie sonst. Ein Freeze ist kein Slow: `isSlowed()` meldet nur den Slow des Ice Towers.
+
+`value` wird nicht gelesen (der Service schreibt 1). Freeze wird pro Quelle geführt wie Burn: dieselbe Quelle erneuert ihren Eintrag, und damit ihre Dauer ab jetzt. Die Dauer läuft in Spielzeit, der Timer steht in der Pause.
+
+```typescript
+this.statusEffectService.applyFreeze(enemy, 3000, 'ability:frost-bomb');
+```
 
 ---
 
@@ -358,10 +374,10 @@ effects: {
 
 ### Freeze Effect
 
-**Geplant:**
-- Eis-Overlay auf Model (Material-Ersatz)
-- Blauer Glow (emissive)
-- Einfrieren-Partikel
+**Aktuell implementiert** (flankengesteuert in `EnemyManager.presentFrame()`, wie Slow):
+- Weiß-cyaner Tint (`setIcedVisual`, Tint `0.9, 0.97, 1.0`), Priorität direkt nach dem Hit-Flash und vor dem Slow-Tint. Er gilt auch mit ausgeschaltetem Freeze Tint (VFX-Einstellung): der Schalter betrifft den Slow, der Stopp soll lesbar bleiben.
+- Vier stille Eiskristalle um den Körper (`spawnIceCrystals` im `AuraRenderer`, additive Partikel aus dem Trail-Pool, feste Plätze, keine Bahn), höchstens auf `ICE_CRYSTAL_CAP` (48) Gegnern gleichzeitig; darüber nur der Tint.
+- Der Laufzyklus steht (siehe oben).
 
 ### Poison Effect
 
@@ -372,7 +388,7 @@ effects: {
 ### Burn Effect
 
 **Aktuell implementiert:**
-- Oranger Tint auf der Instanz (`setBurnVisual`, Priorität: Hit-Flash > Freeze > Burn > Poison), flankengesteuert in `EnemyManager.presentFrame()`
+- Oranger Tint auf der Instanz (`setBurnVisual`, Priorität: Hit-Flash > Freeze (Stopp) > Slow > Burn > Poison), flankengesteuert in `EnemyManager.presentFrame()`
 - Orange Schadenszahlen pro Tick
 
 ### Ooze (Körper entlang der Route)
