@@ -14,7 +14,13 @@ import {
   openLocationDialog,
 } from '../../components/location-dialog/open-location-dialog';
 import { UIStore } from '../../store/ui.store';
-import { LocationConfig, LocationDialogData, LocationDialogResult, FavoriteLocation } from '../../models/location.types';
+import {
+  LocationConfig,
+  LocationDialogData,
+  LocationDialogMode,
+  LocationDialogResult,
+  FavoriteLocation,
+} from '../../models/location.types';
 import {
   LocationChangeExecutorService,
   LocationChangeCallbacks,
@@ -82,8 +88,10 @@ export class LocationChangeCoordinatorService {
    * dialog is open; the first call loads its chunk. When the chunk does not
    * load or the dialog fails to open, a notice over the game says which and
    * the game goes on.
+   *
+   * @param initialMode tab to open on; the sidebar's World button opens the world map
    */
-  async openLocationDialog(): Promise<void> {
+  async openLocationDialog(initialMode?: LocationDialogMode): Promise<void> {
     if (!this.delegate) {
       console.error('[LocationCoordinator] No delegate registered');
       return;
@@ -110,6 +118,7 @@ export class LocationChangeCoordinatorService {
           }
         : null,
       isGameInProgress: this.delegate.isGameInProgress(),
+      ...(initialMode ? { initialMode } : {}),
     };
 
     let dialogRef: Awaited<ReturnType<typeof openLocationDialog>>;

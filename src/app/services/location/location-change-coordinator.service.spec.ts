@@ -528,6 +528,14 @@ describe('LocationChangeCoordinatorService', () => {
       });
     });
 
+    it('opens on the tab it is asked for, and on the default tab otherwise', async () => {
+      coordinator.initializeFlow(delegate);
+      await coordinator.openLocationDialog('world');
+      await coordinator.openLocationDialog();
+      expect(dialog.open.mock.calls[0][1].data.initialMode).toBe('world');
+      expect(dialog.open.mock.calls[1][1].data).not.toHaveProperty('initialMode');
+    });
+
     it('passes null locations when none is set yet', async () => {
       coordinator.initializeFlow(delegate);
       await coordinator.openLocationDialog();
