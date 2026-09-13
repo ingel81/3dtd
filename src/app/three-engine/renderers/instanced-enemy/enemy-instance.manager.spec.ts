@@ -107,6 +107,16 @@ describe('EnemyInstanceManager', () => {
     expect(tint.toArray()).toEqual([1, 1, 1]);
   });
 
+  it('glows the worm too: head and segments are pools like any other type', () => {
+    manager.createPool('worm', fakeVat([]), ENEMY_TYPES['worm']);
+    manager.createPool('worm-segment', fakeVat([]), ENEMY_TYPES['worm-segment']);
+    manager.setBloodMoon(1, false);
+    for (const typeId of ['worm', 'worm-segment']) {
+      const pool = (manager as unknown as { pools: Map<string, TypePool> }).pools.get(typeId)!;
+      expect((pool.instancedMesh.material as ShaderMaterial).uniforms['bloodMoonGlow'].value).toBe(1);
+    }
+  });
+
   it('ignores a run request on a dying instance', () => {
     const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     manager.playDeathAnimation('a');
