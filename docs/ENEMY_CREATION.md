@@ -463,9 +463,16 @@ Umgesetzt für den Chitin-Wurm (`worm`).
 - **Boss:** `isBoss` steht auf beiden Typen, also bekommt jedes Segment den Boss-Anteil der
   Fähigkeiten. Die Boss-Leiste zeigt einen Balken für den ganzen Wurm (HP aller Teile,
   „Chitin Worm ×3“ nach zwei Splits), der Screen-Shake kommt einmal, mit dem letzten Segment.
-- **Enemy Debug:** Die Liste zeigt den Kopf. Entfernen nimmt den ganzen Wurm samt Segmenten
-  im Portal mit. Ein platzierter (pausierter) Wurm steht, bis sein Kopf gestartet wird; ist
-  kein Segment mehr draußen, kommt der Rest von selbst heraus.
+- **Enemy Debug:** Ein platzierter Wurm sitzt auf der Route selbst (`SpawnStart` der
+  Platzierung) und kommt dort heraus statt aus dem Portal: Seine Segmente erscheinen an dieser
+  Stelle (`WormGroup.origin`), er ist so lang wie die Route ab dort, das Schlängeln setzt ab
+  dort ein. Die Liste zeigt den Kopf. Entfernen nimmt den ganzen Wurm samt Segmenten, die noch
+  nicht draußen sind, mit. Ein platzierter (pausierter) Wurm steht, bis sein Kopf gestartet
+  wird; ist kein Segment mehr draußen, kommt der Rest von selbst heraus.
+- **Reihenfolge auf einer Route:** Die Ketten eines Pfads laufen pro Sub-Step von vorn nach
+  hinten (Front, bei gleicher Stelle der ältere Wurm zuerst). Eine Kette, die noch Segmente
+  herausbringen muss, endet für die dahinter an ihrem Ursprung: Ein Wurm aus dem Portal wartet
+  hinter einem platzierten, bis der ganz draußen ist.
 - **Director:** kein Template, kein Curriculum-Slot, nicht in `AI_ENEMY_ORDER`;
   `ai-schema.json` und Encoder bleiben gleich. In Wellen kommt der Wurm über die
   Boss-Rotation ab W35 (`configs/boss-variants.config.ts`, siehe

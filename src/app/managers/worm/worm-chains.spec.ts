@@ -244,6 +244,47 @@ describe('Worm chains', () => {
   });
 
   describe('placed in Enemy Debug', () => {
+    /** Halfway along the third 50 m segment: 125 m along the route */
+    const placement = () => ({ segmentIndex: 2, segmentProgress: 0.5, lateralFactor: 0, heightVariation: 0, groundHeight: 300 });
+
+    it('comes out where it was placed and walks the route itself', () => {
+      const path = straightPath(400);
+      const profile = getRouteProfile(path);
+      const origin = profile.cumulativeLength[2] + profile.segmentLengths[2] * 0.5;
+      const head = m.enemyManager.spawn(path, 'worm', undefined, true, undefined, placement());
+      const group = head.worm!.group;
+      expect(group.origin).toBeCloseTo(origin, 9);
+      expect(distance(head)).toBeCloseTo(origin, 6);
+      expect(head.movement.path).toBe(path);
+      expect(group.size).toBe(wormSegmentCount(chain, profile.totalLength - origin));
+
+      head.startMoving();
+      tickEngine(m, 5_500);
+
+      // 24.75 m, not a whole number of spacings
+      const walked = SPEED * 5.5;
+      const segments = out(group);
+      expect(segments.length).toBe(Math.floor(walked / chain.spacing) + 1);
+      for (const e of segments) {
+        expect(distance(e)).toBeCloseTo(origin + walked - e.worm!.slot * chain.spacing, 6);
+        expect(e.movement.getLateralFactor()).toBeCloseTo(wormSway(chain, distance(e), origin), 9);
+      }
+      expect(m.enemyManager.getPendingSpawnCount()).toBe(group.size - segments.length);
+    });
+
+    it('holds a worm from the portal behind it until it is out', () => {
+      const path = straightPath(400);
+      const placed = m.enemyManager.spawn(path, 'worm', undefined, false, undefined, placement());
+      const origin = placed.worm!.group.origin;
+      const fromPortal = m.enemyManager.spawn(path, 'worm');
+
+      // Unhindered its head would be at 180 m; the placed worm is still coming out
+      tickEngine(m, 40_000);
+
+      expect(placed.worm!.group.pending).toBeGreaterThan(0);
+      expect(distance(fromPortal)).toBeCloseTo(origin - 2 * chain.spacing, 6);
+    });
+
     it('is removed as a whole with the head the debug list shows', () => {
       const head = m.enemyManager.spawn(straightPath(300), 'worm', undefined, true);
       const group = head.worm!.group;

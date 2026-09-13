@@ -1,6 +1,7 @@
 import type { Enemy } from '../../entities/enemy.entity';
 import type { EnemyChain, EnemyTypeConfig } from '../../configs/enemy-types.config';
 import type { GeoPosition } from '../../models/game.types';
+import type { SpawnStart } from '../enemy.manager';
 import { PORTAL_DEPTH } from '../../configs/marker-geometry.config';
 
 /** A slot not out of the portal yet, walking, or killed, through or removed. */
@@ -10,16 +11,17 @@ const GONE = 2;
 
 /**
  * Metres over which the sway fades in after the portal's front face
- * (PORTAL_DEPTH / 2 from the route start at scale 1): the worm comes out
- * straight and starts to snake once clear of the gate.
+ * (PORTAL_DEPTH / 2 past where the worm comes out, at scale 1): the worm
+ * comes out straight and starts to snake once clear of the gate.
  */
 export const WORM_SWAY_RAMP_M = 12;
 
 /**
  * One worm of a group: a run of segment slots that walk together. `front` is
  * the route distance (m, centre line) of slot `first`, and each further slot
- * trails it by the spacing. A slot below distance 0 is still inside the spawn
- * portal and has no enemy yet.
+ * trails it by the spacing. A slot short of the group's origin (0, the route
+ * start in the spawn portal, for a wave worm) has not come out yet and has no
+ * enemy.
  */
 export interface WormChain {
   first: number;
@@ -50,13 +52,13 @@ export function wormSegmentCount(chain: EnemyChain, routeLength: number): number
 }
 
 /**
- * Place across the corridor of the segment `distance` m along the route. A
- * function of the distance alone, so every segment passes a point of the
- * route where the head passed it: the body follows the head's S-curve, at any
- * timescale.
+ * Place across the corridor of the segment `distance` m along the route, for a
+ * worm that comes out at route distance `origin`. A function of the distance
+ * alone, so every segment passes a point of the route where the head passed
+ * it: the body follows the head's S-curve, at any timescale.
  */
-export function wormSway(chain: EnemyChain, distance: number): number {
-  const t = (distance - PORTAL_DEPTH / 2) / WORM_SWAY_RAMP_M;
+export function wormSway(chain: EnemyChain, distance: number, origin = 0): number {
+  const t = (distance - origin - PORTAL_DEPTH / 2) / WORM_SWAY_RAMP_M;
   if (t <= 0) return 0;
   const ramp = t >= 1 ? 1 : t * t * (3 - 2 * t);
   return chain.sway * ramp * Math.sin((2 * Math.PI * distance) / chain.swayWavelength);
@@ -74,6 +76,9 @@ export class WormGroup {
   readonly chains: WormChain[];
   /** Id of the head it was spawned with, the one Enemy Debug lists */
   spawnedHeadId = '';
+  /** Spawn order and path, the order WormChains ticks chains on one path in */
+  seq = 0;
+  pathId = 0;
   private readonly state: Uint8Array;
   private aliveSlots = 0;
   private pendingSlots: number;
@@ -92,6 +97,14 @@ export class WormGroup {
      * is started, see WormChains.tick().
      */
     public idle: boolean,
+    /**
+     * Route distance where its segments come out: 0, the route start inside
+     * the spawn portal, for a wave worm; where Enemy Debug placed it, for a
+     * placed one.
+     */
+    readonly origin = 0,
+    /** Where its segment enemies are spawned: null on path[0], else part-way (placement) */
+    readonly start: SpawnStart | null = null,
   ) {
     this.segments = new Array<Enemy | null>(size).fill(null);
     this.state = new Uint8Array(size);
