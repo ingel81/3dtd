@@ -223,7 +223,7 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 | `src/app/utils/route-grid-diagnostics.ts` | `__rg`-Dumps (Höhen-Histogramm, Outlier, Fallback-Reset) |
 | `src/app/services/tower-placement.service.ts` | `buildLosResolveContext` (private), `registerTowerOnGrid`, `recomputeTowerLOS`, `onCellsChanged` + `drainLosRefresh` (private: sammeln geänderte Cells pro Tower, Recompute nach dem Sweep) |
 | `src/app/services/world/global-route-grid.service.ts` | Angular-Wrapper-Service |
-| `src/app/services/facade/visualization-facade.service.ts` | `onTilesLoaded` (`updateTerrainHeights` + `scheduleRouteGridConvergence`), initialisiert `LosDebugService` |
+| `src/app/services/facade/visualization-facade.service.ts` | `onTilesLoaded` (`updateTerrainHeights` + `RouteGridConvergence.schedule`, `services/world/route-grid-convergence.ts`), initialisiert `LosDebugService` |
 | `src/app/managers/tower.manager.ts` | Selection-Viz-Owner, `refreshSelectionViz`, `applyLosFilter`, `getSelectionViz()` |
 | `src/app/managers/enemy.manager.ts` | Air-Enemy-Flughöhe — Skyline-Block entfernt 2026-05-14 |
 | `src/app/configs/los-viz.config.ts` | Single-Source-of-Truth-Magic-Numbers |
@@ -313,7 +313,7 @@ Tuning-Werkzeug bewusst so gelassen.
       cells-changed-Listener mit beiden Listen.
    c. pathRoute.refreshRouteLines() — liest die frischen Cell-Heights
    d. gameState.onTilesLoaded()
-   e. scheduleRouteGridConvergence()
+   e. RouteGridConvergence.schedule()
       — rAF-getakteter retryUnsampledCells()-Loop; stoppt nach 2
       Frames ohne Promotion oder bei 120-Frame-Safety-Cap. Jede
       Promotion feuert erneut den cells-changed-Listener.

@@ -55,7 +55,7 @@ Die Zuordnung Gegner zu Zelle bräuchte also keinen Raster-Lookup.
 | Kampfspuren | `three-engine/renderers/scorch-marks.ts:52` (eine Brandspur je Zellschlüssel) | pro Treffer | Schlüssel pro Ort |
 | Verteidigungsreichweite, KI | `services/world/global-route-grid.service.ts:633` (`getDefenseReachPercent`), `ai/core/dps-profile.ts:123` (Bins für den KI-Encoder) | KI-Schnappschuss | Punkt ergibt eine Zelle |
 | Platzierungsregeln | `utils/tower-placement-rules.ts:68` misst den Abstand zur Routenlinie | pro Platzierung | nicht zellbasiert, bleibt |
-| Diagnose | `__rg` (`global-route-grid.service.ts:66`), `__corridor.towerCells()` (`services/facade/visualization-facade.service.ts:196`, Lochsuche `global-route-grid.ts:1169`), `services/debug/enemy-debug.service.ts:397` | Debug | Raster, Nachbarn über Achsen |
+| Diagnose | `__rg` (`global-route-grid.service.ts:66`), `__corridor.towerCells()` (`services/debug/corridor-console.ts:94`, Lochsuche `global-route-grid.ts:1169`), `services/debug/enemy-debug.service.ts:397` | Debug | Raster, Nachbarn über Achsen |
 | Mehrere Routen | `generateSegmentCells` vereinigt über den Schlüssel (`global-route-grid.ts:302`), eine Zelle kennt keine Route | pro Routenbau | ein Ort, eine Zelle |
 | Tests | `utils/global-route-grid.spec.ts` (Zellen quer zählen, Schlüssel um den Ursprung, Lochtest), `integration/route-corridor-coverage.spec.ts`, `three-engine/renderers/scorch-marks.spec.ts`, `services/tower-placement-los.spec.ts`, `utils/tower-los-layer-builder.spec.ts` | | Raster |
 
