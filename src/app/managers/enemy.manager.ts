@@ -822,6 +822,8 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     for (const enemy of this.getAllActive()) {
       if (!enemy.alive) continue;
+      // An ooze has no instance: its body goes to the ooze renderer below
+      if (enemy.body !== null) continue;
 
       // X/Z is re-derived rather than carried over from the sub-step: one
       // conversion per enemy per frame, against the whole visual push per
@@ -924,6 +926,8 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
     }
 
+    this.oozes.present(engine, gameTimeMs);
+
     if (profiling) this.onPresentTiming!(performance.now() - t0);
   }
 
@@ -1011,7 +1015,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.globalRouteGrid.removeEnemy(entity);
     this.spatialGrid.removeEnemy(entity.id);
     this.tilesEngine?.enemies.remove(entity.id);
-    if (entity.body !== null) this.oozes.detach(entity);
+    if (entity.body !== null) this.oozes.detach(entity, this.tilesEngine);
     super.remove(entity);
   }
 
@@ -1040,7 +1044,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.spatialGrid.clear();
 
     this.tilesEngine?.enemies.clear();
-    this.oozes.clear();
+    this.oozes.clear(this.tilesEngine);
     this.killingEnemies.clear();
 
     // Stop frost auras before clearing the tracking set
