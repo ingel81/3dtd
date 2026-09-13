@@ -3,6 +3,7 @@ import { BloodMoonFade } from './blood-moon-fade';
 import type { BloodMoonMood } from './blood-moon-mood';
 import type { InstancedEnemyRenderer } from '../renderers/instanced-enemy/instanced-enemy.renderer';
 import type { SearchlightRenderer } from '../renderers/searchlight/searchlight.renderer';
+import type { OozeBandRenderer } from '../renderers/ooze/ooze-band.renderer';
 
 /** What follows the blood moon fade; each part is optional. */
 export interface BloodMoonParts {
@@ -12,6 +13,8 @@ export interface BloodMoonParts {
   enemies?: Pick<InstancedEnemyRenderer, 'setBloodMoon'>;
   /** Sweeping searchlights on the towers */
   searchlights?: Pick<SearchlightRenderer, 'setAmount' | 'advance'>;
+  /** The oozes' slime bands: glow and tint like the enemies */
+  oozes?: Pick<OozeBandRenderer, 'setBloodMoon'>;
 }
 
 /**
@@ -77,6 +80,7 @@ export class BloodMoonLook {
     this.appliedLinear = linearOutput;
     this.parts.mood?.setAmount(amount, linearOutput);
     this.parts.enemies?.setBloodMoon(amount, linearOutput);
+    this.parts.oozes?.setBloodMoon(amount);
     this.parts.searchlights?.setAmount(amount);
   }
 

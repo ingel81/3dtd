@@ -1,5 +1,6 @@
 import { DoubleSide, ShaderMaterial, Vector3 } from 'three';
 import { OOZE_LOOK } from '../../../configs/visual-effects.config';
+import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
 
 /**
  * Material of an ooze's body (OozeBandRenderer), on the band geometry of
@@ -15,6 +16,8 @@ import { OOZE_LOOK } from '../../../configs/visual-effects.config';
  * - uTime: game seconds, for the wobble, the swirl and the bubbles.
  * - uTint, uTintAmount, uBurn: slow or poison tint, burn glow.
  * - uDissolve: 0 alive, 1 sunk away.
+ * - uBloodMoonGlow, uBloodMoonTint: the blood moon look, see
+ *   OozeBandRenderer.setBloodMoon; 0 and 1 outside it.
  *
  * Toxic green and translucent, deeper where it is thick, a slow swirl of
  * lighter slime, bubbles rising and popping, bone remnants blurred inside,
@@ -26,6 +29,7 @@ import { OOZE_LOOK } from '../../../configs/visual-effects.config';
  */
 export function createOozeBandMaterial(): ShaderMaterial {
   const vec = (c: readonly [number, number, number]) => new Vector3(c[0], c[1], c[2]);
+  const glow = BLOOD_MOON_LOOK.glow;
   return new ShaderMaterial({
     uniforms: {
       uTail: { value: 0 },
@@ -43,6 +47,13 @@ export function createOozeBandMaterial(): ShaderMaterial {
       uBone: { value: vec(OOZE_LOOK.bone) },
       uGlow: { value: vec(OOZE_LOOK.glow) },
       uBurnGlow: { value: vec(OOZE_LOOK.burnGlow) },
+      // Blood moon: OozeBandRenderer puts one shared object for all bands in
+      // place of glow and tint (clone() copies uniforms)
+      uBloodMoonGlow: { value: 0 },
+      uBloodMoonTint: { value: new Vector3(1, 1, 1) },
+      uBloodMoonGlowColor: { value: new Vector3(glow.color.r, glow.color.g, glow.color.b) },
+      uBloodMoonRim: { value: glow.rim },
+      uBloodMoonBase: { value: glow.base },
     },
     vertexShader: /* glsl */ `
       attribute vec3 aSide;
@@ -116,6 +127,11 @@ export function createOozeBandMaterial(): ShaderMaterial {
       uniform vec3 uBone;
       uniform vec3 uGlow;
       uniform vec3 uBurnGlow;
+      uniform float uBloodMoonGlow;
+      uniform vec3 uBloodMoonTint;
+      uniform vec3 uBloodMoonGlowColor;
+      uniform float uBloodMoonRim;
+      uniform float uBloodMoonBase;
 
       varying float vS;
       varying float vA;
@@ -217,6 +233,11 @@ export function createOozeBandMaterial(): ShaderMaterial {
         col = col * diffuse + uGlow * (bubble * 0.5 + rim * 0.35) + vec3(gloss);
         col = mix(col, uTint, uTintAmount);
         col += uBurnGlow * uBurn * (0.35 + 0.25 * sin(uTime * 13.0 + vS * 1.7));
+        // Blood moon: a red glow at the edges like the other enemies, then
+        // the mood's tint, which the transparent band draws after (linear,
+        // 1 outside a blood moon)
+        col += uBloodMoonGlowColor * (uBloodMoonRim * rim + uBloodMoonBase) * uBloodMoonGlow;
+        col *= uBloodMoonTint;
 
         float alpha = clamp(0.6 + 0.25 * vDome + 0.3 * rim + 0.3 * bone + 0.2 * gloss, 0.0, 0.96);
         gl_FragColor = vec4(col, alpha * (1.0 - uDissolve));
