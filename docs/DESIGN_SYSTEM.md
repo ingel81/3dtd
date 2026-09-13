@@ -344,6 +344,8 @@ HQ, Credits und Wave stehen in einer Leiste fester Breite (`.header-stats` in `g
 
 Jede Zelle: Icon 16px, daneben eine kleine Spalte mit Label (`HQ`, `CREDITS`, `WAVE`; 8px, `line-height: 9px`, `letter-spacing: 0.16em`, `--td-text-muted`) über der Zahl (15px, `line-height: 17px`, 700). Zell-Padding 3px 8px, Abstand 7px. Mit diesen Zeilenhöhen bleibt die Leiste 34px und der Header 46px hoch. Die Labels benennen die Werte, die Icons sind Deko und tragen kein `aria-label`.
 
+Die HQ-Zelle zeigt hinter der Zahl das Maximum (`/100`, 10px, `--td-text-muted`, aus `GAME_BALANCE.player.startHealth`) und an ihrer Unterkante einen 2px-Balken in `--td-health-red` auf `rgba(184,62,50,0.18)`, so breit wie der Anteil der HQ-Gesundheit (`aria-hidden`, die Zahl benennt den Wert). Verliert das HQ Gesundheit, blitzt der Balken 450 ms auf (Web Animations, höchstens alle 300 ms); ein Reset oder der +HP-Cheat füllen ihn ohne Blitz.
+
 Grundlage sind zwei Layout-Tokens aus `TD_LAYOUT` (`td-theme.ts`), die Header und Sidebar gemeinsam nutzen:
 
 | Variable | Wert | Verwendung |
@@ -383,6 +385,10 @@ Elemente auf der Stein-Textur benoetigen einen dunklen Hintergrund fuer Lesbarke
 ```
 
 Der Standort-Button hat dieselbe Fläche mit 1px `--td-frame-dark` und heller Oberkante (`--td-frame-mid`).
+
+### Leak-Vignette (Canvas)
+
+Erreicht ein Gegner das HQ (`enemy:reached-base`), blendet `app-leak-vignette` (`components/leak-vignette/`) einen roten Rand über dem Canvas ein und wieder aus: radialer Verlauf von transparent (58 %) zu `rgba(184,62,50,0.42)` an den Rändern, 650 ms, `pointer-events: none`, `z-index` 4 unter den HUD-Elementen. Ein neuer Puls startet höchstens alle 900 ms (`PulseThrottle`, Wanduhr); ein Schwarm, der auf einmal durchbricht, pulsiert also etwa im Sekundentakt, statt dauerhaft zu glühen. Der Handler läuft im Game-Loop außerhalb von Angular und macht pro Leak nur einen Zeitvergleich. Er reagiert auch, wenn der Leak-Deckel der Welle (`maxLeakDamagePerWave`) erreicht ist und das HQ nichts mehr verliert.
 
 ### Debug-Panels
 

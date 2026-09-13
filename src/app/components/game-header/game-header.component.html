@@ -99,8 +99,12 @@
         <td-icon name="heart" [size]="16"></td-icon>
         <div class="stat-text">
           <span class="stat-label">HQ</span>
-          <span class="stat-value">{{ baseHealth() }}</span>
+          <span class="stat-value">{{ baseHealth() }}<span class="stat-max">/{{ maxHealth }}</span></span>
         </div>
+        <!-- The value above names it; the bar only shows it -->
+        <span class="hp-bar" #hpBar aria-hidden="true">
+          <span class="hp-bar-fill" [style.width.%]="healthPercent()"></span>
+        </span>
       </div>
       <div class="stat credits">
         <td-icon name="coin" [size]="16"></td-icon>

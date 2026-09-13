@@ -72,6 +72,9 @@
 
       <!-- Google Attribution (required) -->
       @if (!loading() && !error()) {
+        <!-- Red edge when an enemy reaches the HQ -->
+        <app-leak-vignette />
+
         <div class="td-logo-attribution">
           <img src="assets/images/ui/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
           @if (configService.tileProvider() === 'cesium') {
