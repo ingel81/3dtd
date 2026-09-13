@@ -407,6 +407,33 @@
       `utils/route-altitude-tubes.ts:45`. Additives Licht lässt sich zwischen
       Canvas und linearem Composer-Target nicht exakt angleichen.
 
+- [ ] **Beschwörungskreis mit Bloom unsichtbar** (Playtest 2026-09-13, Punkt 248)
+      Ohne Bloom sichtbar, mit Bloom weg. Kam vermutlich mit `f3f7238`, das
+      den Kreis per `linearToOutputTexel(sRGBTransferEOTF(...))` für sein Ziel
+      kodiert (`three-engine/renderers/marker/marker-shaders.ts`, Kreis im
+      Straßenlicht-Shader).
+
+- [ ] **Tower auf schrägen Dächern: automatischer Steinsockel** (Playtest 2026-09-13)
+      Auf einem Satteldach versinkt ein Teil des Towers in der Schräge
+      (Screenshot: Plant- und Cannon-Tower auf Steildächern). Wunsch: vor dem
+      Setzen prüfen, ob der Untergrund unter der Grundfläche halbwegs eben
+      ist; wenn nicht, sitzt der Tower an der höchsten Stelle und darunter
+      entsteht automatisch ein gemauerter Steinsockel bis zur tiefsten Stelle.
+      Der Sockel ist schon in der Bauvorschau zu sehen. Zu klären: Abtastung
+      der Grundfläche (`three-engine/terrain-queries.ts`), Toleranz und
+      maximale Sockelhöhe, Schusshöhe und LOS mit angehobenem Fuß
+      (`services/tower-los-registry.ts`, `heightOffset` + `shootHeight`),
+      Sockel-Mesh (instanziert, Steinmaterial, eventuell aus Blender).
+
+- [ ] **Drache ohne Sound** (Playtest 2026-09-13, bei Punkt 235)
+      Der Drache macht keinen Sound mehr. Ursache offen; zu prüfen, seit wann
+      (etwa seit airgate `bd7ec68` oder der Blender-Runde).
+
+- [ ] **Debug-Gegner: falsche Anfangsrichtung** (Playtest 2026-09-13, bei Punkt 237)
+      Ein im Enemy-Inspector per Place gesetzter Gegner schaut zuerst in eine
+      falsche Richtung und dreht sich erst beim Loslaufen zur Route Richtung
+      HQ.
+
 - [ ] **Luftgegner am Portal: Reste** (laut airgate, ungesehen)
       Die Air-LOS der Tower ist für 15 m über der Zelle vorberechnet
       (`getAirTargetY`); auf den ersten 43 bis 47 m nach dem Tor fliegen
@@ -414,6 +441,16 @@
       (14,5 m Spannweite) ist breiter als jede Toröffnung, die Fledermaus
       breiter als die kleinste (`configs/marker-geometry.config.ts`,
       `AIR_PORTAL_EXIT`).
+
+- [ ] **Kamera-Raycasts gegen die Tiles kosten Zeit** (Playtest 2026-09-13, Punkt 254)
+      `__raycastStats()` über 37 s: `cameraControls` 10752 Aufrufe, 4238 ms,
+      0,39 ms je Aufruf, im Schnitt etwa 11 % der Laufzeit (Ruhe plus 10 s
+      Zoomen und Ziehen gemischt); ohne Kameraberührung 5010 Aufrufe und
+      1355 ms (0,27 ms je Aufruf, Dauer nicht notiert, bei etwa 10 s rund
+      13 %). Die GlobeControls raycasten jeden Frame
+      den Punkt unter der Kamera, auch in Ruhe. Hebel: Strahl nur bei
+      Kamerabewegung oder Tile-Wechsel, oder BVH für die Tile-Meshes (siehe
+      alte Playtest-Frage 27 in `docs/REVIEW_SPRINT_2026-09-12.md`).
 
 - [ ] **Kamera fährt in Tower-Modelle** (seit `bac034a2`)
       Zoom, Pan und Mindestabstand der GlobeControls treffen nur noch die

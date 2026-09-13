@@ -303,9 +303,13 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
 5. Gift bei Timescale 1× und 10×: gleiche Tick-Zahl und gleicher
    Gesamtschaden in Spielzeit.
 6. Frost-Aura, Todesanimation und Health-Bars bei niedriger Framerate.
+   **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`, FPS 30)
 7. Luft-Einheiten auf richtiger Flughöhe.
+   **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`, Custom Wave Bat
+   über flachem Gelände und Hügel, nach dem Steigflug aus dem Tor)
 8. Terrain-Höhen an einem flachen Ort und in einer Großstadt: Straßen,
    Marker, Route-Linie, Tower-Vorschau sitzen richtig.
+   **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 
 **Routenkorridor**
 
@@ -321,12 +325,16 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
     gemessene Freiraum mit Deckel 7 m je Seite)
 11. Debug-Toggle `grid`: in Gassen 2 bis 3 Zellen quer, auf Hauptstraßen
     breiter, deutlich weniger Zellen auf Dächern und Fassaden.
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 12. Welle: Gegner in Gassen nah an der Mitte, auf Hauptstraßen verteilt, vor
     Engstellen sanftes Einrücken ohne Sprünge.
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 13. Tower schießen auch in engen Straßen und am HQ-Endstück ohne Aussetzer.
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 14. Route über eine Brücke: Linie und Gegner auf dem Deck,
     `__rg.dumpCellsInBox` zeigt dort `surface: 'deck'`.
 15. DevWorld: Straßen in drei Breiten, Korridor passt dazu.
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 16. 20k-Benchmark gegen den Stand vor der Runde (`02278dc`).
 
 **Tower**
@@ -346,13 +354,16 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
     **ok** (Playtest 2026-09-12)
 20. Diagonal stehende Gegner: Läufe zeigen genau aufs Ziel, Fire-Tower in
     Flammenrichtung.
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 21. Bots (DevWorld): keine Warnungen "Outside play area".
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 
 **Director**
 
 22. Wave-Debug-Fenster: W1 bis W30 "Curriculum: wave N is always X", ab W31
     "Oldest of N allowed templates", Boss ab W35 "Boss wave", ohne Anti-Air
     "Held back, no anti-air", nach einer Custom-Welle der Platzhalter.
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 
 **Rendern und Laden**
 
@@ -365,12 +376,14 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
     `MeshStandardMaterial` lit; Anteil unbekannt, R10-Entscheidung offen)
 25. Erste Welle: kein Ruckler und alles sichtbar beim ersten Spawn je Typ,
     ersten Pfeil, Raketen- und Magie-Schuss, ersten Decal, ersten Blitz.
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 26. Debug-Schalter "Gegner" und "Health-Bars" an und aus, auch mit Gegnern.
     **ok** (Playtest 2026-09-12)
 27. `__raycastStats(true)` nach dem Laden, dann eine Welle mit Platzieren,
     dann `__raycastStats()`: Werte für die BVH-Entscheidung.
 28. Gegner sterben lassen (W1 zombie_v2, Penguin, Zombie Soldier, Mammoth,
     Stone Golem): kein Sprung auf Frame 0, zombie_v2 verschwindet liegend.
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 29. Optional: Ladezeit und GPU-Speicher gegen `412cbff`.
 
 **Effekte**
@@ -383,6 +396,7 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
     schrumpfen. Kompakter über `EXPLOSION_LOOK.fire.speedMax` bzw. `sizeEnd`.
 31. Kampfspuren unter Einschlägen und Flammenzielen, nicht auf Dächern oder
     unter Fliegern, Blut darüber, kein Z-Fighting.
+    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 32. Screen Shake nah ja, fern nein, Platzier-Cursor wackelt nicht; vertikales
     Zittern angenehm?
     **ok** (Playtest 2026-09-12), Wunsch: Wackeln soll viel früher
