@@ -36,7 +36,9 @@ export type TdIconName =
   // veteran rank insignia
   | 'chevrons2' | 'chevrons3' | 'star'
   // orbital laser ability
-  | 'laser';
+  | 'laser'
+  // replay of the last wave
+  | 'replay';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -146,6 +148,8 @@ const ICONS: Record<TdIconName, IconDef> = {
   star: { body: '<path d="M12 3l2.3 5.8 6.3.4-4.9 4 1.6 6.1L12 15.9l-5.3 3.4 1.6-6.1-4.9-4 6.3-.4L12 3Z" />', fill: 'currentColor' },
   // Satellite with two panels, its beam straight down onto a splash on the ground. Orbital laser.
   laser: { body: '<rect x="9.5" y="2.5" width="5" height="4" rx="0.5" /><path d="M3.5 4.5h6M14.5 4.5h6M12 6.5V18M8 21l2-3h4l2 3M6.5 19.5l2-1M17.5 19.5l-2-1" />' },
+  // A circle turning back round a play triangle: replay of the last wave.
+  replay: { body: '<path d="M4 12a8 8 0 1 0 2.3-5.7L4 9M4 4v5h5" /><path d="M10 9v6l5-3-5-3Z" />' },
 };
 
 @Component({

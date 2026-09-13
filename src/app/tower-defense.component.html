@@ -285,6 +285,13 @@
               <td-icon name="refresh" [size]="18"></td-icon>
               RESTART
             </button>
+            <!-- The wave that broke the HQ, once more -->
+            @if (replay.available()) {
+              <button type="button" class="td-gameover-replay" (click)="replay.enter()">
+                <td-icon name="replay" [size]="14"></td-icon>
+                <span>Replay wave {{ replay.recordedWave() }}</span>
+              </button>
+            }
             <!-- New record of this place: under Restart, fades in after a moment, Skip hides it.
                  on immediate like the other @defer blocks; a timer trigger would add core code to the initial bundle. -->
             @if (bestWaves.newRecord(); as record) {
