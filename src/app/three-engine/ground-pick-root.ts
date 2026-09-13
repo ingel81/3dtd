@@ -21,8 +21,13 @@ const TILE_SET_EVENTS = ['load-tileset', 'load-model', 'dispose-model', 'tile-vi
  * ändert nur die Traversierung in `tilesRenderer.update()`, und die zählt
  * `frameCount` hoch; der UpdateOnChangePlugin überspringt sie, solange Kamera und
  * Tiles ruhen. Dazu kommen Laden und Entladen von Modellen, Sichtbarkeitswechsel
- * und `needs-update` (Plugins und Engine melden damit Änderungen, die Fade-Animation
- * etwa jeden Frame). Jedes davon zählt `value` hoch.
+ * und `needs-update` (der Renderer nach einem geladenen Modell oder Root-Tileset,
+ * der Engine für Routenregionen und LOD-Debug). Jedes davon zählt `value` hoch.
+ *
+ * Der Fade-Plugin sendet nur `fade-change`, `fade-start`, `fade-end` und
+ * `needs-render`, keines davon ändert, was ein Strahl trifft: Ein Fade läuft in
+ * `update-after` (neuer `frameCount`), das Ende eines Fade-outs nimmt das Tile über
+ * `setTileVisible` aus der Gruppe, und das sendet `tile-visibility-change`.
  */
 export class TileSetVersion {
   private _value = 0;
