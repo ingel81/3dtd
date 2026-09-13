@@ -38,7 +38,8 @@ interface PortalEntry {
  *   front of the portal's volume and one behind it. The void writes depth:
  *   the enemies appear between the two and stay hidden until they step
  *   out through the front.
- * - glow: the light the portal throws on the street in front
+ * - glow: the light the portal throws on the street in front, and the
+ *   summoning circle on it
  *
  * The energy (glow, swirl speed) follows the waves: idle between them, a
  * surge at wave start, the wave's level while it runs (startWave/endWave).
@@ -97,7 +98,9 @@ export class SpawnPortalManager {
     glowGeom.setAttribute('aColor', this.colorAttr);
     glowGeom.setAttribute('aPhase', this.phaseAttr);
     glowGeom.setAttribute('aRipple', this.rippleAttr);
-    this.glowMat = createPortalGlowMaterial(PORTAL_SHADER_LAYOUT, look.palette, look.idleEnergy, look.rippleLife);
+    this.glowMat = createPortalGlowMaterial(
+      PORTAL_SHADER_LAYOUT, look.palette, look.idleEnergy, look.rippleLife, look.circle, look,
+    );
     this.glowMesh = new InstancedMesh(glowGeom, this.glowMat, MAX_PORTALS);
     this.glowMesh.count = 0;
     this.glowMesh.frustumCulled = false;

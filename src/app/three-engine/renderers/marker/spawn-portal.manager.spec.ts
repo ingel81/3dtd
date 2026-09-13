@@ -101,3 +101,21 @@ describe('SpawnPortalManager: Stein', () => {
     expect(material.fragmentShader).toContain('uExposure, uEnergy');
   });
 });
+
+describe('SpawnPortalManager: Beschwörungskreis', () => {
+  it('legt den Kreis aus dem Look auf das Straßenlicht, aufflammend mit dem Wellenstart', () => {
+    const group = new Group();
+    new SpawnPortalManager(group);
+    const glow = group.children.find((o) => o.name === 'spawnPortalGlow') as InstancedMesh;
+    const material = glow.material as ShaderMaterial;
+    const L = SPAWN_PORTAL_LOOK;
+    expect(material.uniforms['uCircle'].value.toArray()).toEqual([
+      L.circle.centre, L.circle.radius, L.circle.spin, L.circle.glow,
+    ]);
+    expect(material.uniforms['uFlare'].value.toArray()).toEqual([L.waveEnergy, L.surge, L.circle.flare]);
+    // Aus den Sigillen des Rahmens gezeichnet, vor der vorderen Fläche
+    expect(material.fragmentShader).toContain('portalSigil(q, mod(sector, CIRCLE_SIGILS))');
+    expect(material.fragmentShader).toContain('(vLocal.z - uHalfDepth) * vDepthRatio - uCircle.x');
+    expect(material.fragmentShader).toContain('#include <logdepthbuf_fragment>');
+  });
+});
