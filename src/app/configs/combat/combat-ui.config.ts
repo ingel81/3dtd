@@ -17,7 +17,6 @@ export interface DamageTypeUIMeta {
   label: string;
   icon: string;
   color: string;
-  shortLabel: string;
   description: string;
 }
 
@@ -28,7 +27,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     label: 'Physical',
     icon: '\u2694\uFE0F',
     color: '#B0B0B0',
-    shortLabel: 'PHYS',
     description: 'Solid allrounder, falls off vs armor',
   },
   pierce: {
@@ -36,7 +34,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     label: 'Pierce',
     icon: '\uD83C\uDFAF',
     color: '#FFD700',
-    shortLabel: 'PIRC',
     description: 'High fire rate, anti-swarm',
   },
   siege: {
@@ -44,7 +41,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     label: 'Siege',
     icon: '\uD83D\uDCA5',
     color: '#FF6600',
-    shortLabel: 'SIEG',
     description: 'Slow AoE, anti-heavy/fortified',
   },
   magic: {
@@ -52,7 +48,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     label: 'Magic',
     icon: '\u2728',
     color: '#9B59B6',
-    shortLabel: 'MAGI',
     description: 'Ethereal counter, utility',
   },
   fire: {
@@ -60,7 +55,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     label: 'Fire',
     icon: '\uD83D\uDD25',
     color: '#FF4400',
-    shortLabel: 'FIRE',
     description: 'DoT/Burn, anti-regen',
   },
   ice: {
@@ -68,7 +62,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     label: 'Ice',
     icon: '\u2744\uFE0F',
     color: '#00BFFF',
-    shortLabel: 'ICE',
     description: 'Low DPS, strong slow/CC',
   },
   poison: {
@@ -76,7 +69,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     label: 'Poison',
     icon: '\u2620\uFE0F',
     color: '#44CC22',
-    shortLabel: 'POIS',
     description: 'DoT specialist, anti-regen',
   },
   lightning: {
@@ -84,7 +76,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     label: 'Lightning',
     icon: '\u26A1',
     color: '#7DD3FC',
-    shortLabel: 'LTNG',
     description: 'Chain hitscan, anti-swarm/air',
   },
   chaos: {
@@ -92,7 +83,6 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     label: 'Chaos',
     icon: '🌀',
     color: '#D946EF',
-    shortLabel: 'CHAO',
     description: 'Full damage vs every armor, no weak spot',
   },
 };

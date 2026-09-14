@@ -57,7 +57,7 @@ export function upgradeFactor(upgrade: TowerUpgrade, level: number): number {
  * Sell-back ratio applied to (baseCost + totalUpgradeCost).
  * Players recover 75% of total credits invested into a tower when selling it.
  */
-export const SELL_RATIO = 0.75;
+const SELL_RATIO = 0.75;
 
 /**
  * Compute the sell value for a tower given its base cost and total credits
@@ -85,7 +85,7 @@ export function calculateSellValue(baseCost: number, totalUpgradeCost: number): 
 // read the live values instead of duplicating them.
 export const UPGRADE_BASE_COST = 50;
 export const UPGRADE_COST_SCALING = 1.25;
-export const UPGRADE_MAX_LEVEL = 25;
+const UPGRADE_MAX_LEVEL = 25;
 
 /** Letzte Stufe, auf der Damage und Fire Rate den vollen Multiplikator bekommen. */
 export const UPGRADE_LATE_FROM_LEVEL = 15;
@@ -94,7 +94,7 @@ export const UPGRADE_LATE_GAIN_SHARE = 0.4;
 
 export const UPGRADE_RANGE_MULTIPLIER = 1.03;
 export const UPGRADE_RANGE_MAX_LEVEL = 10;
-export const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.03; // Fire only
+const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.03; // Fire only
 
 /**
  * Research tier required to push an upgrade past its current level.
@@ -226,9 +226,6 @@ export interface TowerTypeConfig {
 
   /** Fire point offsets in turret-local space (x=lateral meters, z=forward meters). Alternates per shot. */
   firePoints?: { x: number; z: number }[];
-
-  // Melee attack settings (for tentacle-type towers)
-  meleeStrikeDuration?: number; // Strike animation duration in ms (default: 250)
 
   // Chain attack settings (for lightning-type towers — hitscan chain)
   maxJumps?: number;      // Number of additional targets after the primary (e.g. 2 = 3 total hits)
@@ -438,7 +435,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 25, // Short range like Fire Tower
     fireRate: 1.5, // 1.5 hits/sec
     projectileType: 'arrow', // Fallback, not used
-    meleeStrikeDuration: 250, // 250ms strike animation
 
     cost: 80,
     upgrades: combatUpgrades({ damage: 1.07, rate: 1.03 }), // Nahkampf, wenige harte Schläge
