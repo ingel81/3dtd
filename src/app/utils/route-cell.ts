@@ -34,7 +34,9 @@ export interface CellSample {
   /**
    * The column came down on something far above the ground on the route
    * centre line beside the cell (a roof, an eave, a tree crown over the
-   * street), and `terrainHeight` is that ground instead. See `sampleCellY`.
+   * street) or on something the ground steps up onto abruptly (a parked car,
+   * a van, a hedge), and `terrainHeight` is the ground beside it instead.
+   * See `sampleCellY`.
    */
   clamped: boolean;
 }

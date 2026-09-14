@@ -63,12 +63,17 @@ export class RouteCellSampler {
    */
   private readonly neighbourMedian: (cell: RouteCell, minDepth: number) => number | null;
 
+  /** Spacing of the grid spots, metres: the step of the walk in groundInFront. */
+  private readonly cellSize: number;
+
   /**
    * @param neighbourMedian `GlobalRouteGrid.medianOfStableNeighbourY`.
    *   Läuft nur, wenn die Säule getroffen hat.
+   * @param cellSize Kantenlänge der Cells des Grids.
    */
-  constructor(neighbourMedian: (cell: RouteCell, minDepth: number) => number | null) {
+  constructor(neighbourMedian: (cell: RouteCell, minDepth: number) => number | null, cellSize: number) {
     this.neighbourMedian = neighbourMedian;
+    this.cellSize = cellSize;
   }
 
   // ========================================
@@ -247,11 +252,16 @@ export class RouteCellSampler {
    * A column at the corridor edge can come down on a roof, an eave or a
    * tree crown reaching over the street: the photogrammetry has no ground
    * under them, so the lowest hit is their top. Far above the ground on the
-   * route centre line beside it, the cell takes that ground instead. Only
-   * ever lowered, and never on a bridge deck, which is meant to be high.
-   * The probe on the centre line is the centre cell's own column, cached by
-   * the engine. A centre line ground more than OUTLIER_M below is none
-   * either: its column went through a seam (plausible).
+   * route centre line beside it, the cell takes that ground instead (roof
+   * check, `roofRise`). Nor under a parked car, a van or a hedge, which the
+   * clearance rays let the corridor reach over: a column that comes down
+   * more than `stepRise` above the ground the walk out from the centre line
+   * reached takes the ground right in front of it (step check,
+   * groundInFront). Only ever lowered, and never on a bridge deck, which is meant to
+   * be high. The probes on the centre line and on the way out are the
+   * columns of the cells there, cached by the engine. A centre line ground
+   * more than OUTLIER_M below is none either: its column went through a
+   * seam (plausible).
    */
   private hitOf(cell: RouteCell, column: ColumnSample): CellHit {
     const hit: CellHit = {
@@ -266,9 +276,74 @@ export class RouteCellSampler {
       if (axis !== null && rise > corridorConfig.roofRise && rise <= RouteCellSampler.OUTLIER_M) {
         hit.y = axis.groundY;
         hit.clamped = true;
+      } else if (axis !== null && rise <= RouteCellSampler.OUTLIER_M) {
+        const inFront = this.groundInFront(cell, axis.groundY, hit.y);
+        if (inFront !== null) {
+          hit.y = inFront;
+          hit.clamped = true;
+        }
       }
     }
     return hit;
+  }
+
+  /**
+   * Where a walk from the centre line out to `cell`, grid spot by grid spot,
+   * cannot climb onto the cell's ground `y`: the ground of the last spot it
+   * reached, right in front of the cell. Null where it can.
+   *
+   * The walk starts on the centre line (`axisY`). A spot counts as reached
+   * where its ground lies at most `stepRise` above the highest ground
+   * reached so far, or above the last one plus the cross slope for every
+   * spot since (crossSlope). So it goes down a ditch or a drop (up to
+   * OUTLIER_M, deeper is a seam), up a kerb, a step or a slope, but not onto
+   * a car, a van or a hedge; the ground beyond one of those counts again,
+   * the pavement behind a row of parked cars.
+   */
+  private groundInFront(cell: RouteCell, axisY: number, y: number): number | null {
+    const size = this.cellSize;
+    const gx = Math.round((cell.x - cell.axisX) / size);
+    const gz = Math.round((cell.z - cell.axisZ) / size);
+    const steps = Math.max(Math.abs(gx), Math.abs(gz));
+    if (steps === 0) return null;
+    // Rounded away from the centre line either way, so spot(-k) mirrors spot(k).
+    const along = (g: number, k: number) => Math.sign(g * k) * Math.round(Math.abs((g * k) / steps)) * size;
+    const spot = (k: number) => this.columnNear(cell.axisX + along(gx, k), cell.axisZ + along(gz, k));
+    const slope = this.crossSlope(axisY, spot(1), spot(-1));
+
+    let top = axisY;
+    let last = axisY;
+    let lastK = 0;
+    const reaches = (ground: number, k: number) =>
+      ground <= Math.max(top, last + slope * (k - lastK)) + corridorConfig.stepRise;
+    for (let k = 1; k < steps; k++) {
+      const column = spot(k);
+      if (column === null) continue;
+      const ground = column.groundY;
+      if (!reaches(ground, k) || ground < top - RouteCellSampler.OUTLIER_M) continue;
+      last = ground;
+      lastK = k;
+      if (ground > top) top = ground;
+    }
+    return reaches(y, steps) ? null : last;
+  }
+
+  /**
+   * Rise per grid spot of the ground across the street, from the first spot
+   * on the way out (`up`) and its mirror on the other side of the centre
+   * line (`down`): where the ground rises towards the cell about as much as
+   * it falls on the other side (the two within `stepRise`), the smaller of
+   * the two, else 0. A car or a hedge rises on one side only, a quay wall
+   * falls far more than a car rises; a hillside street tilts both ways
+   * alike (DevWorld's terrain as well). As the tower footprint's cursorSlope
+   * does it.
+   */
+  private crossSlope(axisY: number, up: ColumnSample | null, down: ColumnSample | null): number {
+    if (up === null || down === null) return 0;
+    const rise = up.groundY - axisY;
+    const fall = axisY - down.groundY;
+    if (rise <= 0 || fall <= 0 || Math.abs(rise - fall) > corridorConfig.stepRise) return 0;
+    return Math.min(rise, fall);
   }
 
   /**
