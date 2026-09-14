@@ -424,9 +424,10 @@ export class GameLoopFacadeService {
   }
 
   /**
-   * Toggle static-curriculum fallback (debug). When ON and `useAIDirector`
-   * is OFF, waves spawn from `STATIC_WAVE_PROFILES` instead of the debug
-   * panel's custom-wave settings.
+   * Toggle static-curriculum fallback (debug). When ON, `startWave()` spawns
+   * from `STATIC_WAVE_PROFILES` unconditionally, ahead of the AI Director
+   * and the debug panel's custom-wave settings (docs/STATIC_WAVE_FALLBACK.md);
+   * `useAIDirector` does not need to be off.
    */
   toggleStaticCurriculum(): void {
     const newValue = !this.store.useStaticCurriculum();
