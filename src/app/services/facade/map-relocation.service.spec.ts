@@ -289,6 +289,15 @@ describe('MapRelocationService', () => {
     expect(gameState.reset).toHaveBeenCalledTimes(1);
   });
 
+  it('replaces a spawn outside the loaded box in place too, on the way reaching out of it', async () => {
+    await click('spawn', OUTSIDE);
+
+    expect(osm.findPath).toHaveBeenCalledWith(expect.anything(), OUTSIDE.lat, OUTSIDE.lon, HQ.lat, HQ.lon);
+    expect(host.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', OUTSIDE.lat, OUTSIDE.lon, SPAWN_COLORS[0]);
+    expect(osm.loadStreets).not.toHaveBeenCalled();
+    expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
+  });
+
   it("turns the new spawn's portal the way the player turned it, and leaves it to the route otherwise", async () => {
     placementClick = { mode: 'spawn', ...INSIDE, heading: 1.5 };
     await relocation.applyPlacementClick(host);

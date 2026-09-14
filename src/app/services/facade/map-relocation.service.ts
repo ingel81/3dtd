@@ -32,8 +32,9 @@ const MOVING_HQ = 'Moving HQ';
 /**
  * Moves the HQ or the spawn to where the player clicked in map placement
  * mode. Inside the loaded street network the world is rebuilt in place (no
- * loading screen, no street reload); outside it the move becomes a full
- * location change through the coordinator.
+ * loading screen, no street reload); an HQ outside it becomes a full
+ * location change through the coordinator. A spawn always moves in place:
+ * MapPlacementService only takes one on a loaded way.
  */
 @Injectable({ providedIn: 'root' })
 export class MapRelocationService {
@@ -60,7 +61,7 @@ export class MapRelocationService {
     if (result.mode === 'hq') {
       await this.applyNewHqPosition(result.lat, result.lon, host);
     } else {
-      await this.applyNewSpawnPosition(result.lat, result.lon, host, result.heading);
+      await this.applySpawnInPlace(result.lat, result.lon, host, result.heading);
     }
   }
 
@@ -338,33 +339,11 @@ export class MapRelocationService {
   }
 
   /**
-   * Apply a new spawn position.
-   * If within loaded street bounds, does a fast in-place update.
-   * Otherwise triggers a full location change.
+   * Replace the spawn on the loaded street network, also where the click
+   * lies outside its box (on a way reaching out of it): no street reload,
+   * only paths and game state are rebuilt.
    * @param heading Portal heading the player turned the spawn to, see
-   *   PlacementResult; kept by the in-place update only
-   */
-  private async applyNewSpawnPosition(lat: number, lon: number, host: RelocationHost, heading?: number): Promise<void> {
-    const ctx = host.context();
-    if (!ctx) return;
-    const streetNetwork = ctx.bridge.getStreetNetwork();
-    const hq = this.store.baseCoords();
-
-    if (streetNetwork && this.isWithinBounds(streetNetwork.bounds, lat, lon)) {
-      // Fast in-place update (no street reload)
-      await this.applySpawnInPlace(lat, lon, host, heading);
-    } else {
-      // Outside bounds — full location change
-      await this.locationCoordinator.applyNewLocation({
-        hq: { lat: hq.lat, lon: hq.lon, name: 'Loading...' },
-        spawn: { lat, lon, name: 'Spawn' },
-      });
-    }
-  }
-
-  /**
-   * Fast spawn replacement within loaded street network bounds.
-   * Avoids reloading streets — only recalculates paths and game state.
+   *   PlacementResult
    */
   private async applySpawnInPlace(lat: number, lon: number, host: RelocationHost, heading?: number): Promise<void> {
     const ctx = host.context();

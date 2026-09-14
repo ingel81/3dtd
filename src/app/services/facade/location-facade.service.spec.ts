@@ -828,14 +828,15 @@ describe('LocationFacadeService', () => {
         expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
       });
 
-      it('runs a full location change for a spawn outside the loaded streets', async () => {
+      it('replaces a spawn outside the loaded box in place as well, without reloading the streets', async () => {
         await click('spawn', OUTSIDE);
 
-        expect(osm.findPath).not.toHaveBeenCalled();
-        expect(coordinator.applyNewLocation).toHaveBeenCalledWith({
-          hq: { ...HQ, name: 'Loading...' },
-          spawn: { ...OUTSIDE, name: 'Spawn' },
-        });
+        expect(osm.findPath).toHaveBeenCalledWith(streetNetwork, OUTSIDE.lat, OUTSIDE.lon, HQ.lat, HQ.lon);
+        expect(store.spawnPoints()).toEqual([
+          { id: 'spawn-1', name: 'Spawn', ...OUTSIDE, color: SPAWN_COLORS[0] },
+        ]);
+        expect(osm.loadStreets).not.toHaveBeenCalled();
+        expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
       });
     });
   });
