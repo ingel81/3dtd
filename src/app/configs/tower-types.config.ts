@@ -195,7 +195,7 @@ export interface TowerTypeConfig {
    */
   footprintRadius: number;
   rotationY?: number; // Initial Y rotation in radians for visual alignment (default: 0)
-  turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point -Z/North)
+  turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point +Z)
   turretNode?: string; // Node that turns to the target. Replaces turret_top/tower_top/top, no fallback to them
 
   damageType: DamageType; // Damage type for the damage matrix
@@ -284,7 +284,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 2.1,
     footprintRadius: 3.1,
     rotationY: -1.5708, // -90° visual alignment (barrels face North in idle)
-    turretBarrelOffset: -1.5708, // Barrels point +X in model space (-90° from -Z)
+    turretBarrelOffset: -1.5708, // Barrels point -X in model space (-90° from +Z)
     firePoints: [
       { x: -0.9, z: 0 }, // Left barrel cluster
       { x: 0.9, z: 0 },  // Right barrel cluster
@@ -370,7 +370,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 3.4,
     footprintRadius: 2.4,
     rotationY: 3.1416, // 180°
-    turretBarrelOffset: 1.047, // Barrels point ~60° from -Z in model space
+    turretBarrelOffset: 1.047, // Barrels point ~60° from +Z in model space
     damageType: 'ice',
     damage: 5, // Phase 5.16: small damage so Ice isn't pure utility
     range: 60,

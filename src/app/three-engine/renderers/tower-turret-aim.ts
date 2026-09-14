@@ -30,24 +30,24 @@ function wrapAngle(diff: number): number {
  *
  * Coordinate system mapping:
  * - Geo: North (+lat), East (+lon)
- * - Three.js local: North → -Z, East → +X
+ * - Scene (EllipsoidSync.geoToLocalSimple): North → +Z, East → -X
  * - geoHeading = atan2(dLon·cos(lat), dLat): 0=North, π/2=East
- * - Three.js rotation.y: 0 faces -Z (North), -π/2 faces +X (East)
- * - Conversion: threeJsRotation = -geoHeading
+ * - Three.js rotation.y: 0 turns a model's +Z to North, -π/2 turns it to East (-X)
+ * - Conversion: threeJsRotation = -geoHeading (the blood moon searchlight takes the same turn)
  */
 export function headingToLocalRotation(
   typeConfig: TowerTypeConfig,
   parentRotation: number,
   heading: number,
 ): number {
-  // Turret barrel offset: compensates for models where barrels don't point -Z
-  // For dual-gatling: barrels point +X in model space, so turretBarrelOffset = -π/2
-  // Most towers have barrels pointing -Z, so turretBarrelOffset = 0 (default)
+  // Turret barrel offset: compensates for models where barrels don't point +Z
+  // For dual-gatling: barrels point -X in model space, so turretBarrelOffset = -π/2
+  // Most towers have barrels pointing +Z, so turretBarrelOffset = 0 (default)
   const turretBarrelOffset = typeConfig.turretBarrelOffset ?? 0;
   const turretModelOffset = -turretBarrelOffset;
 
   // Convert geo heading to Three.js target rotation for the turret
-  // geoHeading 0 = North = -Z = Three.js rotation 0
+  // geoHeading 0 = North = +Z = Three.js rotation 0
   // But if model barrels are offset, add that offset
   const threeJsTargetRotation = -heading + turretModelOffset;
 
