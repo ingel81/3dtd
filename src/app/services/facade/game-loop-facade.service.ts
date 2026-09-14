@@ -530,7 +530,7 @@ export class GameLoopFacadeService {
 
     // Per-frame delegation calls
     this.towerPlacement.updateRotation(dtSec);
-    this.mapPlacement.updateRotation(dtSec);
+    this.mapPlacement.updatePreview(dtSec);
     this.streetRendering.continueStreetRender();
     this.keyboardPan.update(dtSec);
     // Quick jumps (Home, N) add to what keyboard pan did this frame
