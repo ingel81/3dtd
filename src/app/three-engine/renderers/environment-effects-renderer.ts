@@ -39,14 +39,6 @@ export class EnvironmentEffectsRenderer {
     const centerY = localY + 8; // Above ground (raised for larger explosion)
     const centerZ = localXZ.z;
 
-    // Count available particles
-    let availableParticles = 0;
-    for (const p of this.pools.getPool('trailAdditive')) {
-      if (p.life <= 0) availableParticles++;
-    }
-
-    void availableParticles;
-
     // Phase 1: Central bright flash - reduced count, larger size to compensate
     for (let i = 0; i < 150; i++) {
       const particle = this.pools.getInactiveParticle('trailAdditive');

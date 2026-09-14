@@ -263,8 +263,6 @@ export class ThreeProjectileRenderer {
   // Track which manager owns each projectile
   private projectileTypes = new Map<string, ProjectileVisualType>();
 
-  // Model loading state
-  private arrowModelLoaded = false;
   /** Settles once the arrow pool exists, from the model or the fallback. */
   private readonly arrowLoad: Promise<void>;
 
@@ -341,7 +339,6 @@ export class ThreeProjectileRenderer {
 
         this.arrowManager = new ProjectileInstanceManager(arrowGeometry, material, 500);
         this.scene.add(this.arrowManager.instancedMesh);
-        this.arrowModelLoaded = true;
       } else {
         console.warn('[ThreeProjectileRenderer] No mesh in arrow model, using fallback');
         this.createFallbackArrow();
@@ -364,7 +361,6 @@ export class ThreeProjectileRenderer {
     });
     this.arrowManager = new ProjectileInstanceManager(geometry, material, 500);
     this.scene.add(this.arrowManager.instancedMesh);
-    this.arrowModelLoaded = true;
   }
 
   private createCannonballManager(): ProjectileInstanceManager {

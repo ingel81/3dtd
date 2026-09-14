@@ -37,7 +37,6 @@ export class ThreeFlameBeamRenderer {
    */
   private readonly MAX_PARTICLES_PER_FRAME = 5;
   private readonly PARTICLE_SPEED = 45; // Meters per second toward target
-  private readonly PARTICLE_SPREAD = 0.8; // Random spread perpendicular to beam
   private readonly PARTICLE_LIFE_MIN = 0.15; // Minimum lifetime in seconds
   private readonly PARTICLE_LIFE_MAX = 0.35; // Maximum lifetime in seconds
   private readonly PARTICLE_SIZE_MIN = 1.5;
@@ -55,7 +54,6 @@ export class ThreeFlameBeamRenderer {
 
   // Reusable vectors
   private readonly tempDirection = new Vector3();
-  private readonly tempPerpendicular = new Vector3();
   private readonly tempSpawnPos = new Vector3();
   private readonly tempVelocity = new Vector3();
 
