@@ -38,6 +38,10 @@
   position: relative;
   background: var(--td-panel-shadow);
   overflow: visible; /* Allow quick-actions to extend beyond bounds */
+  /* Logo row at the bottom left (.td-logo-attribution): its offset from the
+   * bottom edge and its height. The ability bar keeps above it. */
+  --td-logo-bottom: 5px;
+  --td-logo-height: 16px;
 }
 
 .td-canvas {
@@ -97,7 +101,7 @@
 /* Logo Attribution (bottom left) */
 .td-logo-attribution {
   position: absolute;
-  bottom: 5px;
+  bottom: var(--td-logo-bottom);
   left: 10px;
   z-index: 5;
   display: flex;
@@ -106,13 +110,13 @@
 }
 
 .td-google-logo {
-  height: 16px;
+  height: var(--td-logo-height);
   width: auto;
   display: block;
 }
 
 .td-cesium-logo {
-  height: 16px;
+  height: var(--td-logo-height);
   width: auto;
   display: block;
   opacity: 0.85;

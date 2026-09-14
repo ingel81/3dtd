@@ -1,22 +1,55 @@
 @use '../../styles/td-mixins' as td;
 
-/* Left edge of the canvas, vertically centred. Above the leak vignette (4)
- * and the off-screen arrows (5), below the game-over overlay (20). `left`,
- * the border, the padding and the button size come from ABILITY_BAR_PX in
+/* Left edge of the canvas. Above the leak vignette (4) and the off-screen
+ * arrows (5), below the game-over overlay (20). `left`, the border, the
+ * padding, the button size and `clear` come from ABILITY_BAR_PX in
  * ability-button.ts (host bindings of the component), the numbers
  * ABILITY_BAR_EDGE_PX is summed from; the off-screen arrows keep clear of
- * that edge. */
+ * that edge.
+ *
+ * The host spans the height of the canvas area; the room above and below
+ * the bar (the two pseudo-elements) splits what the bar leaves, so it sits
+ * vertically centred. Each keeps a least height: above down to
+ * --td-bar-top (the info overlay's measured bottom plus `clear`), below up
+ * to the logo row's top plus `clear` (--td-logo-bottom and --td-logo-height
+ * of the game component). Where the centre would break one of them, the bar
+ * moves off the centre; on a canvas too low for all of it, it shrinks and
+ * scrolls. */
 :host {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  bottom: 0;
   z-index: 6;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
 }
 
+:host::before,
+:host::after {
+  content: '';
+  flex: 1 1 0;
+}
+
+:host::before {
+  min-height: var(--td-bar-top);
+}
+
+:host::after {
+  min-height: calc(var(--td-logo-bottom, 0px) + var(--td-logo-height, 0px) + var(--td-bar-clear));
+}
+
+/* Scrolls only when squeezed, by wheel or keyboard focus, without a
+ * scrollbar: one would widen the bar past ABILITY_BAR_EDGE_PX */
 .td-ability-bar {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  pointer-events: auto;
   padding: var(--td-bar-pad);
   border-radius: 4px;
   @include td.bevel-glass;
@@ -25,6 +58,7 @@
 
 /* Hairline between the hero and the abilities */
 .td-bar-rule {
+  flex-shrink: 0;
   height: 1px;
   margin: 0 4px;
   background: var(--td-frame-dark);
@@ -45,6 +79,7 @@
  * shows. */
 .td-bar-btn {
   position: relative;
+  flex-shrink: 0;
   width: var(--td-bar-btn);
   height: var(--td-bar-btn);
   display: flex;

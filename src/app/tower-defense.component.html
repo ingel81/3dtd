@@ -226,8 +226,8 @@
         />
 
         <!-- Ability bar (left edge): the hero on top once there is one, then
-             one button per ability -->
-        <app-ability-bar [hero]="heroBar()" (heroPressed)="onHeroBarPressed()" />
+             one button per ability; below the info overlay -->
+        <app-ability-bar [hero]="heroBar()" [topInset]="uiStore.infoOverlayBottom()" (heroPressed)="onHeroBarPressed()" />
       }
 
       <!-- Intro camera flight skip control -->
