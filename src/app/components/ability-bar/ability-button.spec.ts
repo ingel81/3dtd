@@ -1,26 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { abilityButtonView, abilityTooltip, heroTooltip } from './ability-button';
-import { ABILITIES, lockedAbilityStatus, type AbilityStatus } from '../../configs/abilities.config';
-import { getResearch } from '../../configs/research/research-tree.config';
+import { abilityBarIds, abilityButtonView, abilityTooltip, heroTooltip } from './ability-button';
+import { ABILITIES, ABILITY_IDS, lockedAbilityStatus, type AbilityId, type AbilityStatus } from '../../configs/abilities.config';
 
 const NUKE = ABILITIES['nuclear-strike'];
-const LOCKED = lockedAbilityStatus('nuclear-strike');
-const CHARGED: AbilityStatus = { ...LOCKED, unlocked: true, charges: 1 };
+const CHARGED: AbilityStatus = { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1 };
 const view = (status: AbilityStatus, waveActive = true, targeting = false) =>
   abilityButtonView(NUKE, status, waveActive, targeting);
 
-describe('abilityButtonView', () => {
-  it('locked until the research is done: no pips, a press does nothing', () => {
-    expect(view(LOCKED)).toEqual({
-      state: 'locked',
-      enabled: false,
-      pips: [],
-      charges: null,
-      status: 'locked until researched',
-      label: 'Nuclear Strike: locked until researched',
-    });
+describe('abilityBarIds', () => {
+  const statuses = (researched: AbilityId[]) => Object.fromEntries(ABILITY_IDS.map((id) => [
+    id,
+    { ...lockedAbilityStatus(id), unlocked: researched.includes(id) },
+  ])) as Record<AbilityId, AbilityStatus>;
+
+  it('has no button before any research', () => {
+    expect(abilityBarIds(statuses([]))).toEqual([]);
   });
 
+  it('adds a button once its research is done, in ABILITIES order', () => {
+    expect(abilityBarIds(statuses(['orbital-laser', 'nuclear-strike']))).toEqual(['nuclear-strike', 'orbital-laser']);
+    expect(abilityBarIds(statuses([...ABILITY_IDS]))).toEqual(ABILITY_IDS);
+  });
+});
+
+describe('abilityButtonView', () => {
   it('ready in a wave: a press arms, every pip lit', () => {
     expect(view(CHARGED)).toEqual({
       state: 'ready',
@@ -63,21 +66,14 @@ describe('abilityButtonView', () => {
     const twoCharges = { ...NUKE, maxCharges: 2 };
     expect(abilityButtonView(twoCharges, { ...CHARGED, maxCharges: 2, charges: 1, wavesUntilCharge: 2 }, true, false))
       .toMatchObject({ state: 'ready', charges: 1 });
-    expect(abilityButtonView(twoCharges, { ...LOCKED, maxCharges: 2 }, true, false).charges).toBeNull();
+    expect(view(CHARGED).charges).toBeNull();
   });
 });
 
 describe('abilityTooltip', () => {
-  it('names the research that unlocks a locked ability', () => {
-    const tooltip = abilityTooltip(NUKE, LOCKED, view(LOCKED), getResearch(NUKE.researchId));
-    expect(tooltip).toMatchObject({ title: 'Nuclear Strike', category: 'LOCKED', hotkey: 'K' });
-    expect(tooltip.flavor).toContain('research Nuclear Strike in the Research Center, 1,000 credits.');
-    expect(tooltip.stats).toBeUndefined();
-  });
-
-  it('shows state, charges and recharge once researched', () => {
+  it('shows state, charges and recharge', () => {
     const recharging = { ...CHARGED, charges: 0, wavesUntilCharge: 2 };
-    expect(abilityTooltip(NUKE, recharging, view(recharging), getResearch(NUKE.researchId))).toEqual({
+    expect(abilityTooltip(NUKE, recharging, view(recharging))).toEqual({
       title: 'Nuclear Strike',
       category: 'RECHARGES IN 2 WAVES',
       hotkey: 'K',

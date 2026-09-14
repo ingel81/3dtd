@@ -1,25 +1,28 @@
-import type { AbilityConfig, AbilityStatus } from '../../configs/abilities.config';
-import type { ResearchConfig } from '../../configs/research/research.types';
+import { ABILITY_IDS, type AbilityConfig, type AbilityId, type AbilityStatus } from '../../configs/abilities.config';
 import type { TdIconName } from '../icon/icon.component';
 import type { TdTooltipData } from '../tooltip/tooltip-data.types';
+
+/**
+ * The abilities the bar has a button for: those whose research is done, in
+ * ABILITIES order. Until then an ability has no button at all.
+ */
+export function abilityBarIds(statuses: Readonly<Record<AbilityId, AbilityStatus>>): AbilityId[] {
+  return ABILITY_IDS.filter((id) => statuses[id].unlocked);
+}
 
 /** What an ability button in the ability bar shows, derived outside the template. */
 export interface AbilityButtonView {
   /**
-   *   locked      the research is not done yet
    *   ready       charged and a wave runs: a press arms the targeting mode
    *   armed       the targeting mode is on: a press leaves it
    *   waiting     charged, but no wave runs
    *   pending     the strike is on its way
    *   recharging  waiting for completed waves
    */
-  state: 'locked' | 'ready' | 'armed' | 'waiting' | 'pending' | 'recharging';
+  state: 'ready' | 'armed' | 'waiting' | 'pending' | 'recharging';
   /** A press does something (arm or leave the targeting mode) */
   enabled: boolean;
-  /**
-   * One per completed wave the charge needs, true once done; all true while
-   * charged, none while locked
-   */
+  /** One per completed wave the charge needs, true once done; all true while charged */
   pips: boolean[];
   /** Charges on hand for an ability that holds more than one, else null */
   charges: number | null;
@@ -31,7 +34,7 @@ export interface AbilityButtonView {
 
 /**
  * @param config     the ability's entry in ABILITIES
- * @param status     the ability's snapshot (GameStore.abilities)
+ * @param status     the ability's snapshot (GameStore.abilities), researched (abilityBarIds)
  * @param waveActive whether a wave runs
  * @param targeting  whether the targeting mode is on for this ability
  */
@@ -44,12 +47,11 @@ export function abilityButtonView(
   const { name, rechargeWaves, maxCharges } = config;
   const charged = status.charges > 0;
   const done = charged ? rechargeWaves : rechargeWaves - status.wavesUntilCharge;
-  const pips = status.unlocked ? Array.from({ length: rechargeWaves }, (_, i) => i < done) : [];
-  const charges = status.unlocked && maxCharges > 1 ? status.charges : null;
+  const pips = Array.from({ length: rechargeWaves }, (_, i) => i < done);
+  const charges = maxCharges > 1 ? status.charges : null;
   const view = (state: AbilityButtonView['state'], enabled: boolean, text: string): AbilityButtonView =>
     ({ state, enabled, pips, charges, status: text, label: `${name}: ${text}` });
 
-  if (!status.unlocked) return view('locked', false, 'locked until researched');
   if (status.pending) return view('pending', false, 'incoming');
   if (charged && targeting) return view('armed', true, 'pick a spot on the route, Esc cancels');
   if (charged && waveActive) return view('ready', true, 'ready');
@@ -60,27 +62,18 @@ export function abilityButtonView(
 
 /**
  * Rich tooltip of an ability button: name, state and key in the head, the
- * charges and the recharge, the description. A locked ability names the
- * research that unlocks it.
+ * charges and the recharge, the description.
  */
 export function abilityTooltip(
   config: Pick<AbilityConfig, 'name' | 'description' | 'hotkey' | 'maxCharges' | 'rechargeWaves'>,
   status: AbilityStatus,
   view: AbilityButtonView,
-  research: Pick<ResearchConfig, 'name' | 'cost'> | undefined,
 ): TdTooltipData {
-  const hotkey = config.hotkey.toUpperCase();
-  if (view.state === 'locked') {
-    const unlock = research
-      ? `Unlocked by the research ${research.name} in the Research Center, ${research.cost.toLocaleString('en-US')} credits.`
-      : 'Unlocked by research.';
-    return { title: config.name, category: 'LOCKED', hotkey, accent: 'neutral', flavor: `${unlock} ${config.description}` };
-  }
   const waves = config.rechargeWaves;
   return {
     title: config.name,
     category: view.status.toUpperCase(),
-    hotkey,
+    hotkey: config.hotkey.toUpperCase(),
     accent: view.state === 'recharging' ? 'neutral' : 'gold',
     stats: [
       { label: 'CHARGES', value: `${status.charges}/${config.maxCharges}` },

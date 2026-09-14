@@ -357,9 +357,10 @@ Fähigkeiten.
 ## Bedienung
 
 Knopf in der Fähigkeitenleiste am linken Rand des Spielfelds (siehe unten,
-Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#fähigkeitenleiste-canvas)). Bis
-zur fertigen Forschung steht er gesperrt da, sein Tooltip nennt die Forschung
-und ihren Preis. Ein Druck schaltet den Zielmodus ein (`UIStore.abilityTargeting`,
+Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#fähigkeitenleiste-canvas)). Er
+erscheint erst mit der fertigen Forschung, vorher hat die Fähigkeit keinen
+Knopf (Entscheidung des Users 2026-09-14; bis dahin stand sie gesperrt mit
+Schloss in der Leiste). Ein Druck schaltet den Zielmodus ein (`UIStore.abilityTargeting`,
 geführt vom `AbilityTargetingService`):
 
 - Ein Ring im Strike-Radius folgt dem Cursor, gesnappt auf die Route-Zelle, auf
@@ -378,23 +379,25 @@ geführt vom `AbilityTargetingService`):
 
 ### Fähigkeitenleiste
 
-`app-ability-bar` (`components/ability-bar/`) zeigt jede Fähigkeit aus
-`ABILITIES`, in der Reihenfolge der Einträge, und liest ihren Zustand aus
+`app-ability-bar` (`components/ability-bar/`) zeigt jede erforschte Fähigkeit
+aus `ABILITIES`, in der Reihenfolge der Einträge, und liest ihren Zustand aus
 `GameStore.abilities`. Was ein Knopf zeigt, kommt aus dem Eintrag und dem
 Snapshot des `AbilityManager`:
 
 | Anzeige | Quelle |
 |---|---|
+| Knopf da, sobald die Forschung fertig ist | `AbilityStatus.unlocked` (`abilityBarIds`) |
 | Icon | `AbilityConfig.icon` (td-icon) |
 | Taste oben rechts, Tastenkappe im Tooltip | `AbilityConfig.hotkey` |
-| gesperrt, Forschung und Preis im Tooltip | `AbilityStatus.unlocked`, `AbilityConfig.researchId` |
 | Ladungen (als Zahl nur ab `maxCharges` 2) | `AbilityStatus.charges` |
 | ein Strich je Welle bis zur nächsten Ladung | `AbilityConfig.rechargeWaves`, `AbilityStatus.wavesUntilCharge` |
 | Schlag unterwegs | `AbilityStatus.pending` |
 | Zielmodus an | `AbilityTargetingService.targeting()` |
 
-Zustand und Texte berechnen `abilityButtonView()` und `abilityTooltip()`
-(`ability-bar/ability-button.ts`), reine Funktionen mit Spec.
+Welche Knöpfe es gibt, Zustand und Texte berechnen `abilityBarIds()`,
+`abilityButtonView()` und `abilityTooltip()` (`ability-bar/ability-button.ts`),
+reine Funktionen mit Spec. Ohne Held und ohne erforschte Fähigkeit fehlt die
+Leiste ganz.
 
 **Held.** Über den Fähigkeiten ist Platz für den Knopf des Helden. Die Leiste
 kennt den Helden nicht, sie bekommt ihn als Eingang und meldet den Druck:
@@ -405,7 +408,8 @@ kennt den Helden nicht, sie bekommt ihn als Eingang und meldet den Druck:
 
 `hero` ist ein `AbilityBarHero` (`icon`, `name`, `hotkey` oder null,
 `selected`, optional `detail` als Tooltip-Zeile) oder `null`, der Standard;
-dann fehlen Knopf und Trennlinie. Was ein Druck tut (auswählen, Kamera
+dann fehlt sein Knopf. Die Trennlinie steht nur zwischen Held und erforschten
+Fähigkeiten. Was ein Druck tut (auswählen, Kamera
 hinfahren), entscheidet der Aufrufer. Im Spiel füllt ihn `heroBarView()`
 (`ability-bar/hero-bar.ts`): erst das Anheuern, dann der Held, siehe
 [HERO.md](HERO.md#bedienung).
@@ -498,7 +502,8 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
    kommen aus diesem Eintrag; `hotkey-map.spec.ts` prüft, dass die Taste frei
    ist (vergeben: siehe Tastenkürzel in DESIGN_SYSTEM.md).
 2. Eine Forschung mit einem `global-perk`, dessen `perkId` dem Eintrag
-   entspricht, und `researchId` im Eintrag; der gesperrte Knopf nennt sie.
+   entspricht, und `researchId` im Eintrag; ist sie fertig, erscheint der
+   Knopf in der Leiste.
 3. Die Wirkung: `AbilityConfig.effect`, eine Art aus `AbilityEffect`;
    `AbilityManager.resolve` hat je Art einen Zweig. Eine neue Art kommt mit
    ihrem Zweig.

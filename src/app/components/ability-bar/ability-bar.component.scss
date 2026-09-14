@@ -32,9 +32,9 @@
  * 44px squares, sunk into the bar like the running wave button (vertiefte
  * Fläche, DESIGN_SYSTEM.md). Key cap top right, a stroke per wave to the
  * next charge at the bottom. Gold only while an ability is ready, the full
- * gold gradient of the wave button while it aims.
- *   locked      icon dimmed, a small lock instead of the strokes
- *   ready       rim --td-gold-dark, icon --td-gold-light, hover glow
+ * gold gradient of the wave button while it aims. A button appears once
+ * its research is done.
+ *   ready      rim --td-gold-dark, icon --td-gold-light, hover glow
  *   armed       gold gradient, icon, key and strokes dark, glow
  *   waiting     charged, no wave: icon --td-text-muted
  *   pending     strike on its way: icon --td-warn-orange
@@ -72,22 +72,6 @@
   font: 600 8px/1 var(--td-font-mono);
   letter-spacing: 0.04em;
   color: var(--td-text-muted);
-}
-
-.td-ability-btn[data-state='locked'] td-icon:first-child {
-  opacity: 0.5;
-}
-
-.td-ability-btn[data-state='locked'] .td-bar-key {
-  color: var(--td-text-disabled);
-}
-
-.td-ability-lock {
-  position: absolute;
-  left: 50%;
-  bottom: 3px;
-  transform: translateX(-50%);
-  color: var(--td-text-disabled);
 }
 
 .td-ability-btn[data-state='ready'] {

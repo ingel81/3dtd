@@ -194,7 +194,7 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets |
 | **Game Speed** | Oben mittig, in Bauphase und Welle (ausgeblendet beim Laden und nach Game Over): Pause-Button und ein Button, der 1x, 2x und 4x durchschaltet. In der Bauphase beschleunigt er die Forschung, die in Spielzeit läuft. Pausiert zeigt der Pause-Button das Play-Icon eingelassen in `--td-gold-light` mit `--td-gold-dark`-Rand, darunter ein Glas-Chip "PAUSED" (10px Mono-Versalien). In derselben Spalte (`.td-hud-top`) darunter die Boss-Leiste, siehe [Boss-Leiste](#boss-leiste). Während eines [Boss-Intros](#boss-intro-canvas) blendet die Spalte aus (`.td-hud-muted`, 200 ms), ihre Komponenten bleiben bestehen |
 | **Kompass** | Oben rechts, Klick setzt die Kamera zurück |
-| **Fähigkeitenleiste** | Linker Rand, senkrecht mittig: Held (sobald es einen gibt) und ein Knopf je Fähigkeit, siehe [Fähigkeitenleiste](#fähigkeitenleiste-canvas) |
+| **Fähigkeitenleiste** | Linker Rand, senkrecht mittig: Held (sobald es einen gibt) und ein Knopf je erforschter Fähigkeit, siehe [Fähigkeitenleiste](#fähigkeitenleiste-canvas) |
 | **Controls Hint** | Unten links neben den Logos (LMB: Pan, RMB: Rotate, Scroll: Zoom, WASD/Pfeile: Move, H: Shortcuts), verschwindet nach 15 s oder per Klick. Solange ein [First-Run-Tipp](#first-run-tipps) steht, bleibt er weg: der erste Tipp trägt dieselben Tasten |
 | **Quick Actions** | Sechs Icon-Buttons unten rechts, siehe unten |
 
@@ -425,13 +425,12 @@ Startet eine Blutmond-Welle ([WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen)), 
 
 ### Fähigkeitenleiste (Canvas)
 
-`app-ability-bar` (`components/ability-bar/`) steht am linken Rand des Spielfelds, senkrecht mittig: ein Glas-Panel (Mixin `bevel-glass`, Innenabstand und `gap` 5px, Ecken 4px), `left` 12px wie das Info-Overlay, zusammen 56px breit. Oben der Knopf des Helden, sobald es einen gibt, darunter eine Haarlinie in `--td-frame-dark`, dann ein Knopf je Fähigkeit in der Reihenfolge von `ABILITIES` (Aufbau und Held-Schnittstelle in [ABILITIES.md](ABILITIES.md#fähigkeitenleiste)). Ohne Held fehlen Knopf und Linie. `z-index` 6: über der Leck-Vignette (4) und den Off-Screen-Pfeilen (5), unter dem Game-Over-Overlay (20). Im Photo Mode verschwindet sie mit dem übrigen HUD, beim Laden und bei Fehlern fehlt sie.
+`app-ability-bar` (`components/ability-bar/`) steht am linken Rand des Spielfelds, senkrecht mittig: ein Glas-Panel (Mixin `bevel-glass`, Innenabstand und `gap` 5px, Ecken 4px), `left` 12px wie das Info-Overlay, zusammen 56px breit. Oben der Knopf des Helden, sobald es einen gibt, darunter eine Haarlinie in `--td-frame-dark`, dann ein Knopf je Fähigkeit, deren Forschung fertig ist, in der Reihenfolge von `ABILITIES` (Aufbau und Held-Schnittstelle in [ABILITIES.md](ABILITIES.md#fähigkeitenleiste)). Vor der Forschung hat eine Fähigkeit keinen Knopf. Die Linie steht nur zwischen Held und Fähigkeiten; ohne Held und ohne erforschte Fähigkeit fehlt die Leiste. `z-index` 6: über der Leck-Vignette (4) und den Off-Screen-Pfeilen (5), unter dem Game-Over-Overlay (20). Im Photo Mode verschwindet sie mit dem übrigen HUD, beim Laden und bei Fehlern fehlt sie.
 
 Knopf: Quadrat 44 × 44px, Fläche und Kanten wie die laufende Welle (`--td-panel-shadow`, vertiefte Kanten, Ecken 3px), Icon aus der Config (20px, Held 22px). Oben rechts die Taste (8px Mono, `--td-text-muted`), unten ein 2px-Strich je Welle bis zur nächsten Ladung: `--td-gold`, sobald die Welle geschafft ist, sonst `--td-frame-mid`; solange die Ladung steht, sind alle hell. Hält eine Fähigkeit mehr als eine Ladung, steht die Zahl oben links (8px, `--td-gold-light`); der Nuklearschlag hält eine.
 
 | Zustand | Auslöser | Darstellung |
 |---------|----------|-------------|
-| Gesperrt | Forschung fehlt | Icon `--td-text-disabled` bei 50 % Deckkraft, Taste ebenso, statt der Striche ein Schloss (9px) |
 | Bereit | geladen, Welle läuft | Rand `--td-gold-dark`, Icon `--td-gold-light`, Hover `--td-gold-glow` |
 | Zielt | Zielmodus an | Gold-Verlauf wie der Next-Wave-Button, Icon, Taste und Striche `#1A140A`, `--td-gold-glow`, `aria-pressed` |
 | Wartet | geladen, keine Welle | Icon `--td-text-muted` |
@@ -440,7 +439,7 @@ Knopf: Quadrat 44 × 44px, Fläche und Kanten wie die laufende Welle (`--td-pane
 
 Der Held-Knopf ist ein Schalter: Icon `--td-text-secondary`, Hover `--td-text-primary`, ausgewählt im Aktiv-Rezept der Dev-Kacheln (Fläche `rgba(194,160,85,0.16)`, Rand `--td-gold-dark`, Icon `--td-gold-light`, `aria-pressed`). Er erscheint mit der fertigen Forschung `mercenary-contract`: bis zum Anheuern als Münze (`coin`) ohne Taste, der Tooltip nennt Preis und fehlende Credits; danach der Held (`user`) mit G, Tooltip mit Stufe und Munition. Inhalt aus `heroBarView()` (`ability-bar/hero-bar.ts`).
 
-Ohne Wirkung bleibt ein Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht. Der Tooltip (`tdRichTooltip`, rechts daneben) trägt im Kopf Name, Zustand in Versalien ("RECHARGES IN 2 WAVES") und die Tastenkappe, darunter CHARGES und RECHARGE, dann die Beschreibung; gesperrt statt der Zahlen die Forschung, die freischaltet, mit Preis. Zustand, Striche und Texte liefern `abilityButtonView()` und `abilityTooltip()` (`ability-bar/ability-button.ts`) aus `GameStore.abilities`.
+Ohne Wirkung bleibt ein Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht. Der Tooltip (`tdRichTooltip`, rechts daneben) trägt im Kopf Name, Zustand in Versalien ("RECHARGES IN 2 WAVES") und die Tastenkappe, darunter CHARGES und RECHARGE, dann die Beschreibung. Welche Knöpfe es gibt, Zustand, Striche und Texte liefern `abilityBarIds()`, `abilityButtonView()` und `abilityTooltip()` (`ability-bar/ability-button.ts`) aus `GameStore.abilities`.
 
 Im Zielmodus zeigt die Kontext-Hinweis-Box "Click" mit dem `aimHint` der Fähigkeit (Nuklearschlag: "Strike") und "ESC Cancel", dazu die Warnung "No route within 30 m", solange keine Route-Zelle in Reichweite ist. Auf der Karte ist der Zielring gold (`--td-gold`), wo der Schlag landen würde, und rot (`--td-health-red`), wo er abgelehnt würde; der Marker während der Vorwarnung ist orange (`--td-warn-orange`) mit goldenem Countdown-Ring (`--td-gold-light`). Beim Orbitallaser zeigt ein Band so breit wie der Strahl den Weg, den er brennen würde: im Zielmodus in `--td-gold` (20 % Deckkraft), während der Vorwarnung in `--td-warn-orange` (22 %).
 
