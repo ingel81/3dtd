@@ -229,6 +229,7 @@ gezeigten Moment, Tab bleibt in ihr.
 - Eine Todesanimation, in deren Mitte gesprungen wird, beginnt von vorn. Zielmarker einer Fähigkeit erscheinen nur, wenn das `ability:used` abgespielt wurde, nicht nach einem Sprung; ebenso Atompilz, Frost-Explosion, EMP-Welle und Laser nur, wenn ihr `ability:impact` abgespielt wurde
 - Landet im Replay eine Fähigkeit, räumen jeder Sprung und `exit()` alle Atompilze, Frost-Explosionen, EMP-Wellen und Orbitallaser ab, auch einen, der im Spiel noch lief
 - Ein Sprung in das Absinken eines Ooze-Bandes zeigt kein Absinken, das Band fehlt dann; das Blubbern der Oozes fehlt (ein Loop an der Entity, kein Event)
+- Ein Sprung räumt die Trümmer einer getöteten Ooze nicht ab (`seek()` ruft kein `oozes.clear()`); läuft das Replay wieder über den Kill, kommt ein neuer Satz dazu. Wiederholtes Springen kann die Trümmer-Pools füllen, danach fallen Stücke still weg. `exit()` räumt alles ab
 - Die Ringe des Helden (Auswahl, Posten, Laufziel) gibt es im Replay nicht, er ist dort nicht auswählbar
 
 ---
