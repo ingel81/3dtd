@@ -96,12 +96,13 @@ interface RandomSpawnCandidate extends GeoPosition {
   nodeId?: number;
 }
 
-// Favoriten-Location (nur Koordinaten, Namen via Geocoding Cache)
+// Favoriten-Location; ohne eigenen Namen kommt er aus dem Geocoding-Cache
 interface FavoriteLocation {
   id: string;
   hq: GeoPosition;
   spawns: GeoPosition[];
   createdAt: number;
+  name?: string;              // vom Spieler, beim Speichern vorgeschlagen
 }
 ```
 
@@ -159,7 +160,9 @@ getLocationDisplayName(): string
 setGeneratedSpawns(spawns: { lat: number; lon: number }[]): void
 
 // Favorites
-saveFavorite(): void          // Aktuelle Location als Favorit speichern (max 10)
+saveFavorite(name?: string): void          // Aktuelle Location ans Ende der Liste, ohne Obergrenze
+renameFavorite(id: string, name: string): void  // leerer Name: zurück zum Geocoding-Namen
+moveFavorite(id: string, offset: number): void  // -1 hoch, 1 runter, an den Enden Schluss
 deleteFavorite(id: string): void
 getFavoriteDisplayName(fav: FavoriteLocation): Promise<string>
 loadFavorites(): void         // Aus localStorage laden (Key: td_favorites_v2)
@@ -173,10 +176,21 @@ initializeEditableLocations(), saveLocationsToStorage(), clearLocationsFromStora
 
 ### Favorites-System
 
-- Max 10 Favoriten (`MAX_FAVORITES`)
-- Gespeichert in `localStorage` unter Key `td_favorites_v2`
-- Jeder Favorit hat `id` (crypto.randomUUID), `hq`, `spawns`, `createdAt`
-- Namen werden nicht gespeichert, sondern via `GeocodingService.reverseGeocodeWithCache()` aufgeloest
+- Keine Obergrenze (bis 2026-09-14 waren es 10, danach verschwand "Save location" ohne Hinweis); die Liste im Header scrollt
+- Gespeichert in `localStorage` unter Key `td_favorites_v2`, in der Reihenfolge des Spielers; Laden, Speichern, Umbenennen und Verschieben als reine Funktionen in `favorite-locations.ts`
+- Jeder Favorit hat `id` (crypto.randomUUID), `hq`, `spawns`, `createdAt`, optional `name`
+- Einträge von vor dem 2026-09-14 haben keinen `name` und lesen sich unverändert; defekte Einträge werden beim Laden übersprungen
+- Namen: der eigene (`name`, getrimmt, höchstens 80 Zeichen), sonst via `GeocodingService.reverseGeocodeWithCache()` aufgeloest (`favoriteNamesMap`, nur für Favoriten ohne eigenen Namen)
+
+Bedienung im Header (Lesezeichen-Knopf):
+
+| Aktion | Ablauf |
+|--------|--------|
+| Anlegen | "Save location" öffnet an seiner Stelle ein Namensfeld, vorbefüllt mit dem Header-Namen ("DEFEND …"; leer, solange er lädt) und markiert. Enter oder der Haken speichert, Esc oder das Kreuz bricht ab. Ein leeres Feld speichert ohne Namen |
+| Umbenennen | Stift je Zeile, dasselbe Namensfeld an Stelle der Zeile, vorbefüllt mit dem angezeigten Namen |
+| Ordnen | Pfeil hoch und runter je Zeile; am Anfang bzw. Ende gesperrt |
+| Löschen | Kreuz je Zeile |
+| Laden | Klick auf Name oder Koordinaten |
 
 ### Zuletzt gespielt (Recent)
 
@@ -459,10 +473,12 @@ Der Coordinator bietet auch UI-Flow-Methoden:
 openLocationDialog(initialMode?): void  // Dialog oeffnen (optional auf einem Tab), bei Bestaetigung applyNewLocation()
 onShareLocation(): void          // URL in Clipboard kopieren
 onWorldDice(): Promise<void>     // Zufaellige Stadt via Wikidata, URL-Reload
-onAddFavorite(): void            // Aktuelle Location als Favorit
+onAddFavorite(name?): void       // Aktuelle Location als Favorit
+onRenameFavorite(id, name): void // Favorit umbenennen
+onMoveFavorite(id, offset): void // Favorit hoch (-1) oder runter (1)
 onSelectFavorite(fav): void      // Favorit laden und anwenden
 onDeleteFavorite(id): void       // Favorit loeschen
-resolveFavoriteNames(): void     // Display-Namen fuer alle Favoriten aufloesen
+resolveFavoriteNames(): void     // Geocoding-Namen fuer die Favoriten ohne eigenen Namen
 ```
 
 ## LocationFacadeService

@@ -23,30 +23,66 @@
           <td-icon name="bookmark" [size]="22"></td-icon>
         </button>
         <div class="fav-dropdown" [class.expanded]="favMenuExpanded()">
-          @if (canAddFavorite()) {
-            <button class="fav-item fav-add" (click)="onAddFavorite()">
+          <!-- Name field: saving the current location, or renaming a favorite.
+               Enter or the check saves, Esc or the cross cancels. -->
+          <ng-template #favNameField let-label="label">
+            <div class="fav-item fav-edit">
+              <input #favInput class="fav-input" type="text" [value]="favDraftName()"
+                     [attr.maxlength]="favNameMaxLength" placeholder="Name"
+                     [attr.aria-label]="label"
+                     (keydown.enter)="commitFavoriteName()"
+                     (keydown.escape)="cancelFavoriteName($event)">
+              <button class="fav-tool fav-confirm" (click)="commitFavoriteName()" matTooltip="Save"
+                      aria-label="Save name">
+                <td-icon name="check" [size]="14"></td-icon>
+              </button>
+              <button class="fav-tool" (click)="cancelFavoriteName($event)" matTooltip="Cancel"
+                      aria-label="Cancel">
+                <td-icon name="cross" [size]="14"></td-icon>
+              </button>
+            </div>
+          </ng-template>
+
+          @if (favEditing() === 'new') {
+            <ng-container *ngTemplateOutlet="favNameField; context: { label: 'Name of the new favorite' }" />
+          } @else {
+            <button class="fav-item fav-add" (click)="startAddFavorite()">
               <td-icon name="plus" [size]="14"></td-icon>
               <span>Save location</span>
             </button>
           }
-          @for (fav of favorites(); track fav.id) {
-            <div class="fav-item">
-              <button class="fav-select" (click)="onSelectFavorite(fav)">
-                <span class="fav-name">{{ favoriteNames()[fav.id] || 'Loading...' }}</span>
-                <span class="fav-coords">{{ fav.hq.lat.toFixed(4) }}, {{ fav.hq.lon.toFixed(4) }}</span>
-              </button>
-              <button class="fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Delete"
-                      [attr.aria-label]="'Delete ' + (favoriteNames()[fav.id] || 'favorite')">
-                <td-icon name="cross" [size]="14"></td-icon>
-              </button>
-            </div>
-          } @empty {
-            @if (!canAddFavorite()) {
-              <div class="fav-empty">Max favorites reached</div>
-            } @else {
+          <div class="fav-list">
+            @for (fav of favorites(); track fav.id; let first = $first, last = $last) {
+              @if (favEditing() === fav.id) {
+                <ng-container *ngTemplateOutlet="favNameField; context: { label: 'New name for ' + favoriteName(fav) }" />
+              } @else {
+                <div class="fav-item">
+                  <button class="fav-select" (click)="onSelectFavorite(fav)">
+                    <span class="fav-name">{{ favoriteName(fav) }}</span>
+                    <span class="fav-coords">{{ fav.hq.lat.toFixed(4) }}, {{ fav.hq.lon.toFixed(4) }}</span>
+                  </button>
+                  <button class="fav-tool" (click)="onMoveFavorite(fav.id, -1)" [disabled]="first"
+                          matTooltip="Move up" [attr.aria-label]="'Move ' + favoriteName(fav) + ' up'">
+                    <td-icon name="caretU" [size]="14"></td-icon>
+                  </button>
+                  <button class="fav-tool" (click)="onMoveFavorite(fav.id, 1)" [disabled]="last"
+                          matTooltip="Move down" [attr.aria-label]="'Move ' + favoriteName(fav) + ' down'">
+                    <td-icon name="caret" [size]="14"></td-icon>
+                  </button>
+                  <button class="fav-tool" (click)="startRenameFavorite(fav)" matTooltip="Rename"
+                          [attr.aria-label]="'Rename ' + favoriteName(fav)">
+                    <td-icon name="edit" [size]="14"></td-icon>
+                  </button>
+                  <button class="fav-tool fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Delete"
+                          [attr.aria-label]="'Delete ' + favoriteName(fav)">
+                    <td-icon name="cross" [size]="14"></td-icon>
+                  </button>
+                </div>
+              }
+            } @empty {
               <div class="fav-empty">No favorites</div>
             }
-          }
+          </div>
         </div>
       </div>
 

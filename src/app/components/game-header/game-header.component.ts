@@ -5,6 +5,7 @@ import {
   signal,
   computed,
   effect,
+  afterRenderEffect,
   viewChild,
   HostListener,
   ElementRef,
@@ -15,6 +16,8 @@ import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { FavoriteLocation } from '../../models/location.types';
+import { LOADING_NAME, NO_LOCATION_NAME } from '../../services/location/location-management.service';
+import { FAVORITE_NAME_MAX_LENGTH } from '../../services/location/favorite-locations';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
@@ -59,16 +62,17 @@ export class GameHeaderComponent {
     this.store.renderingEnabled.update((v) => !v);
   }
 
-  // Close favorites menu when clicking outside
+  // Close favorites menu when clicking outside. The path is taken at dispatch:
+  // a button in the menu that a click swaps for the name field still counts
+  // as inside.
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     if (!this.favMenuExpanded()) return;
 
-    const target = event.target as HTMLElement;
     const favWrapper = this.elementRef.nativeElement.querySelector('.fav-wrapper');
 
-    if (favWrapper && !favWrapper.contains(target)) {
-      this.favMenuExpanded.set(false);
+    if (favWrapper && !event.composedPath().includes(favWrapper)) {
+      this.closeFavMenu();
     }
   }
 
@@ -81,8 +85,8 @@ export class GameHeaderComponent {
   readonly waveActive = input.required<boolean>();
   readonly isDialog = input<boolean>(false);
   readonly favorites = input<FavoriteLocation[]>([]);
+  /** Geocoded names of the favorites without a name of their own */
   readonly favoriteNames = input<Record<string, string>>({});
-  readonly canAddFavorite = input<boolean>(true);
   readonly placementMode = input<'hq' | 'spawn' | null>(null);
   readonly canPlace = input<boolean>(true);
 
@@ -91,7 +95,11 @@ export class GameHeaderComponent {
   readonly closeClick = output<void>();
   readonly shareClick = output<void>();
   readonly diceClick = output<void>();
-  readonly addFavoriteClick = output<void>();
+  /** Save the current location, with the name from the field (may be empty) */
+  readonly addFavoriteClick = output<string>();
+  readonly renameFavoriteClick = output<{ id: string; name: string }>();
+  /** Move a favorite up (-1) or down (1) */
+  readonly moveFavoriteClick = output<{ id: string; offset: number }>();
   readonly selectFavoriteClick = output<FavoriteLocation>();
   readonly deleteFavoriteClick = output<string>();
   readonly placeHqClick = output<void>();
@@ -100,6 +108,16 @@ export class GameHeaderComponent {
   // Internal state
   readonly favMenuExpanded = signal(false);
   readonly shareConfirmed = signal(false);
+
+  /**
+   * The favorite whose name is being edited, 'new' while the current
+   * location is being saved; null when no name field is open. One at a time.
+   */
+  readonly favEditing = signal<string | null>(null);
+  /** What the name field starts with */
+  readonly favDraftName = signal('');
+  readonly favNameMaxLength = FAVORITE_NAME_MAX_LENGTH;
+  private readonly favInput = viewChild<ElementRef<HTMLInputElement>>('favInput');
 
   /** HQ health at the start of a run. Nothing heals in play; the +HP cheat can go past it. */
   private readonly maxHealth = GAME_BALANCE.player.startHealth;
@@ -127,13 +145,68 @@ export class GameHeaderComponent {
         bar.animate(HQ_BAR_PULSE, { duration: HQ_BAR_PULSE_MS, easing: 'ease-out' });
       }
     });
+
+    // A name field that opens takes the focus with its text selected, so
+    // typing replaces the suggestion and Enter keeps it
+    afterRenderEffect(() => {
+      const field = this.favInput()?.nativeElement;
+      if (!field) return;
+      field.focus();
+      field.select();
+    });
   }
 
   /**
    * Toggle favorites menu
    */
   toggleFavMenu(): void {
-    this.favMenuExpanded.update((v) => !v);
+    if (this.favMenuExpanded()) this.closeFavMenu();
+    else this.favMenuExpanded.set(true);
+  }
+
+  /** Close the menu; a name field left open is dropped */
+  private closeFavMenu(): void {
+    this.favMenuExpanded.set(false);
+    this.favEditing.set(null);
+  }
+
+  /** Name shown for a favorite: its own, else the geocoded one */
+  favoriteName(fav: FavoriteLocation): string {
+    return fav.name || this.favoriteNames()[fav.id] || 'Loading...';
+  }
+
+  /** Open the name field for the current location, prefilled with the header's name */
+  startAddFavorite(): void {
+    const name = this.locationName();
+    this.favDraftName.set(name === NO_LOCATION_NAME || name === LOADING_NAME ? '' : name);
+    this.favEditing.set('new');
+  }
+
+  /** Open the name field for a favorite, prefilled with the name it shows */
+  startRenameFavorite(fav: FavoriteLocation): void {
+    this.favDraftName.set(fav.name || this.favoriteNames()[fav.id] || '');
+    this.favEditing.set(fav.id);
+  }
+
+  /** Save what the name field holds (Enter or the check button) */
+  commitFavoriteName(): void {
+    const editing = this.favEditing();
+    if (editing === null) return;
+    const name = this.favInput()?.nativeElement.value ?? this.favDraftName();
+    if (editing === 'new') this.addFavoriteClick.emit(name);
+    else this.renameFavoriteClick.emit({ id: editing, name });
+    this.favEditing.set(null);
+  }
+
+  /** Close the name field without saving (Esc or the cross); Esc goes no further */
+  cancelFavoriteName(event?: Event): void {
+    event?.stopPropagation();
+    this.favEditing.set(null);
+  }
+
+  /** Move a favorite one place up (-1) or down (1) */
+  onMoveFavorite(id: string, offset: number): void {
+    this.moveFavoriteClick.emit({ id, offset });
   }
 
   /**
@@ -147,19 +220,11 @@ export class GameHeaderComponent {
   }
 
   /**
-   * Handle add favorite click
-   */
-  onAddFavorite(): void {
-    this.addFavoriteClick.emit();
-    this.favMenuExpanded.set(false);
-  }
-
-  /**
    * Handle favorite selection
    */
   onSelectFavorite(fav: FavoriteLocation): void {
     this.selectFavoriteClick.emit(fav);
-    this.favMenuExpanded.set(false);
+    this.closeFavMenu();
   }
 
   /**

@@ -10,9 +10,14 @@ import {
   loadRecentLocations,
   saveRecentLocations,
 } from './recent-locations';
+import {
+  loadFavoriteLocations,
+  moveFavoriteLocation,
+  normalizeFavoriteName,
+  renameFavoriteLocation,
+  saveFavoriteLocations,
+} from './favorite-locations';
 
-const FAVORITES_KEY = 'td_favorites_v2';
-const MAX_FAVORITES = 10;
 /** Header text while no location is set */
 export const NO_LOCATION_NAME = 'No location';
 /** Header text while the reverse geocode of a new HQ runs */
@@ -154,34 +159,43 @@ export class LocationManagementService {
   // ==================== FAVORITES ====================
 
   /**
-   * Load favorites from localStorage
+   * Load favorites from localStorage (td_favorites_v2), see loadFavoriteLocations
    */
   loadFavorites(): void {
-    try {
-      const data = localStorage.getItem(FAVORITES_KEY);
-      if (data) {
-        this.favorites.set(JSON.parse(data));
-      }
-    } catch {
-      // Ignore
-    }
+    this.favorites.set(loadFavoriteLocations());
   }
 
   /**
-   * Save current location as favorite
+   * Save the current location as a favorite at the end of the list. There
+   * is no limit; the list in the header scrolls.
+   * @param name Name for it; empty leaves the name to the geocoding cache
    */
-  saveFavorite(): void {
+  saveFavorite(name?: string): void {
     const hq = this.hq();
-    if (!hq || this.favorites().length >= MAX_FAVORITES) return;
+    if (!hq) return;
 
+    const normalized = normalizeFavoriteName(name);
     const fav: FavoriteLocation = {
       id: crypto.randomUUID(),
       hq: { ...hq },
       spawns: this.spawns().map(s => ({ ...s })),
       createdAt: Date.now(),
+      ...(normalized ? { name: normalized } : {}),
     };
 
     this.favorites.update(favs => [...favs, fav]);
+    this.persistFavorites();
+  }
+
+  /** Rename a favorite; an empty name falls back to the geocoded one. */
+  renameFavorite(id: string, name: string): void {
+    this.favorites.update(favs => renameFavoriteLocation(favs, id, name));
+    this.persistFavorites();
+  }
+
+  /** Move a favorite `offset` places in the list (-1 up, 1 down), stopped at either end. */
+  moveFavorite(id: string, offset: number): void {
+    this.favorites.update(favs => moveFavoriteLocation(favs, id, offset));
     this.persistFavorites();
   }
 
@@ -201,11 +215,7 @@ export class LocationManagementService {
   }
 
   private persistFavorites(): void {
-    try {
-      localStorage.setItem(FAVORITES_KEY, JSON.stringify(this.favorites()));
-    } catch {
-      // Ignore
-    }
+    saveFavoriteLocations(this.favorites());
   }
 
   // ==================== RECENT LOCATIONS ====================

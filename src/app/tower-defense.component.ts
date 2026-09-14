@@ -886,9 +886,19 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.locationCoordinator.onWorldDice();
   }
 
-  /** Save current location as favorite */
-  onAddFavorite(): void {
-    this.locationCoordinator.onAddFavorite();
+  /** Save current location as favorite, under the name from the header's field */
+  onAddFavorite(name: string): void {
+    this.locationCoordinator.onAddFavorite(name);
+  }
+
+  /** Rename a favorite; an empty name goes back to the geocoded one */
+  onRenameFavorite(id: string, name: string): void {
+    this.locationCoordinator.onRenameFavorite(id, name);
+  }
+
+  /** Move a favorite up (-1) or down (1) in the list */
+  onMoveFavorite(id: string, offset: number): void {
+    this.locationCoordinator.onMoveFavorite(id, offset);
   }
 
   /** Apply a favorite location */

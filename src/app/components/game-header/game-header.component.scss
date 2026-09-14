@@ -1,3 +1,5 @@
+@use '../../styles/td-mixins' as td;
+
 :host {
   display: block;
 }
@@ -302,7 +304,7 @@
   top: 100%;
   left: 0;
   margin-top: 4px;
-  min-width: 200px;
+  width: 300px;
   background: var(--td-panel-main);
   border: 1px solid var(--td-frame-dark);
   box-shadow:
@@ -322,6 +324,18 @@
   transform: translateY(0);
 }
 
+/* No limit on the favorites: the list scrolls, "Save location" stays on top */
+.fav-list {
+  max-height: min(60vh, 440px);
+  overflow-y: auto;
+  @include td.scrollbar;
+}
+
+.fav-list::-webkit-scrollbar { @include td.webkit-scrollbar; }
+.fav-list::-webkit-scrollbar-track { @include td.webkit-scrollbar-track; }
+.fav-list::-webkit-scrollbar-thumb { @include td.webkit-scrollbar-thumb; }
+.fav-list::-webkit-scrollbar-thumb:hover { @include td.webkit-scrollbar-thumb-hover; }
+
 .fav-item {
   display: flex;
   align-items: center;
@@ -334,6 +348,7 @@
 
 .fav-select {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -353,6 +368,10 @@
 }
 
 .fav-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 11px;
   font-weight: 500;
 }
@@ -362,8 +381,12 @@
   opacity: 0.6;
 }
 
-.fav-delete {
-  padding: 8px;
+/* Move up, move down, rename, delete; and save or cancel next to the name field */
+.fav-tool {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 8px 4px;
   background: transparent;
   border: none;
   color: var(--td-text-secondary);
@@ -371,15 +394,46 @@
   opacity: 0.5;
 }
 
-.fav-delete:hover {
-  color: var(--td-health-red);
+.fav-tool:last-child {
+  padding-right: 8px;
+}
+
+.fav-tool:hover:not(:disabled) {
+  color: var(--td-gold);
   opacity: 1;
 }
 
-.fav-delete mat-icon {
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
+.fav-tool:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.fav-delete:hover:not(:disabled) {
+  color: var(--td-health-red);
+}
+
+/* Name field: the inset recipe for inputs */
+.fav-edit {
+  gap: 2px;
+  padding: 5px 0 5px 8px;
+}
+
+.fav-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(74, 84, 77, 0.13);
+  color: var(--td-text-primary);
+  font: 11px var(--td-font-mono);
+}
+
+.fav-input:focus {
+  outline: 1px solid var(--td-gold-dark);
+  outline-offset: 0;
 }
 
 .fav-add, .fav-empty {

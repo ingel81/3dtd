@@ -69,12 +69,18 @@ export interface RandomSpawnCandidate extends GeoPosition {
 }
 
 /**
- * Favorite location for quick access
- * Only stores coordinates - names are resolved via geocoding cache
+ * Favorite location for quick access. The list keeps the order the player
+ * gave it.
  */
 export interface FavoriteLocation {
   id: string;
   hq: GeoPosition;
   spawns: GeoPosition[];
   createdAt: number;
+  /**
+   * Name the player gave it, suggested from the header when saved. Without
+   * one (favorites saved before names existed, or a name cleared) the name
+   * is resolved via the geocoding cache.
+   */
+  name?: string;
 }
