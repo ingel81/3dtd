@@ -185,7 +185,10 @@ export class PathAndRouteService {
    */
   private clearanceBySegment = new Map<string, { left: number[]; right: number[]; probes: (StationProbe | null)[] }>();
 
-  /** The clearance measurement under way, see beginClearanceMeasurement. */
+  /**
+   * The latest clearance measurement, see beginClearanceMeasurement: under
+   * way while it is open, kept once it ended so clearanceEnding() can tell how.
+   */
   private clearanceRun: ClearanceRun | null = null;
 
   /** 3D route lines for visualization */
@@ -855,20 +858,19 @@ export class PathAndRouteService {
       }
     }
 
-    const run: ClearanceRun = new ClearanceRun(
+    const run = new ClearanceRun(
       segments,
       2 * rayHeights.length,
       (x, z, acrossX, acrossZ, onDeck) =>
         engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck) ?? null,
-      (measured) => this.storeClearance(run, measured),
+      (measured) => this.storeClearance(measured),
     );
     this.clearanceRun = run;
     return run;
   }
 
   /** Hand what a finished run measured to the corridor; true when that changes one. */
-  private storeClearance(run: ClearanceRun, segments: readonly ClearanceSegment[]): boolean {
-    if (this.clearanceRun === run) this.clearanceRun = null;
+  private storeClearance(segments: readonly ClearanceSegment[]): boolean {
     const before = this.fittedCorridors();
     // Stored with their unmeasured stations as well: they keep their
     // place, so the smoothing along the route does not join what lies
@@ -882,7 +884,6 @@ export class PathAndRouteService {
   /** Cancel the clearance measurement under way, if any; nothing of it is stored. */
   private cancelClearanceRun(reason: string): void {
     this.clearanceRun?.cancel(reason);
-    this.clearanceRun = null;
   }
 
   /**
@@ -894,6 +895,17 @@ export class PathAndRouteService {
   clearanceProgress(): { done: number; total: number } | null {
     const run = this.clearanceRun;
     return run?.open ? run.progress : null;
+  }
+
+  /**
+   * How the latest clearance measurement ended: 'commit' when it handed its
+   * stations to the corridor, 'cancel' when it was dropped (routes
+   * replaced, location changed, a blocker in CorridorRefit). Null while it
+   * is open and before the first. For the log of a move
+   * (MapRelocationService).
+   */
+  clearanceEnding(): ClearanceEnding | null {
+    return this.clearanceRun?.ending ?? null;
   }
 
   /**
@@ -974,6 +986,9 @@ export class PathAndRouteService {
   }
 }
 
+/** How a clearance measurement ended, see PathAndRouteService.clearanceEnding. */
+export type ClearanceEnding = 'commit' | 'cancel';
+
 /** A segment a clearance run measures: where its stations stand and what they found. */
 interface ClearanceSegment {
   key: string;
@@ -1011,7 +1026,8 @@ class ClearanceRun implements CorridorMeasurement {
   /** Main-thread time in step() and commit(). */
   private busyMs = 0;
   private readonly startedAt = performance.now();
-  private isOpen = true;
+  /** How the run ended; null while it is open. */
+  private end: ClearanceEnding | null = null;
   /** Local "x,z" of the stations that found no tile, not even beside themselves, for the log. */
   private readonly noTile: string[] = [];
   /** Positions of stations without a tile the log names; the rest it counts. */
@@ -1033,7 +1049,11 @@ class ClearanceRun implements CorridorMeasurement {
   }
 
   get open(): boolean {
-    return this.isOpen;
+    return this.end === null;
+  }
+
+  get ending(): ClearanceEnding | null {
+    return this.end;
   }
 
   /** Stations tried so far and the stations the run set out to measure. */
@@ -1042,7 +1062,7 @@ class ClearanceRun implements CorridorMeasurement {
   }
 
   step(budgetMs: number): boolean {
-    if (!this.isOpen) return true;
+    if (this.end) return true;
     const start = performance.now();
     this.slices++;
     let here = 0;
@@ -1059,8 +1079,8 @@ class ClearanceRun implements CorridorMeasurement {
   }
 
   commit(flushedBy?: string): boolean {
-    if (!this.isOpen) return false;
-    this.isOpen = false;
+    if (this.end) return false;
+    this.end = 'commit';
     const start = performance.now();
     const changed = this.store(this.segments);
     this.busyMs += performance.now() - start;
@@ -1077,8 +1097,8 @@ class ClearanceRun implements CorridorMeasurement {
   }
 
   cancel(reason: string): void {
-    if (!this.isOpen) return;
-    this.isOpen = false;
+    if (this.end) return;
+    this.end = 'cancel';
     if (this.segments.length === 0) return;
     console.warn(
       `[Corridor] clearance cancelled (${reason}): stations=${this.probed} of ${this.planned} in ${this.busyMs.toFixed(1)}ms ` +

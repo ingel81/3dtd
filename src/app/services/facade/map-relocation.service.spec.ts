@@ -70,6 +70,7 @@ describe('MapRelocationService', () => {
     followCorridor: vi.fn(),
   };
   const clearanceProgress = vi.fn((): { done: number; total: number } | null => null);
+  const clearanceEnding = vi.fn((): 'commit' | 'cancel' | null => 'commit');
 
   const click = async (mode: 'hq' | 'spawn', at: { lat: number; lon: number }) => {
     placementClick = { mode, ...at };
@@ -114,7 +115,7 @@ describe('MapRelocationService', () => {
         { provide: MarkerVisualizationService, useValue: markerViz },
         {
           provide: PathAndRouteService,
-          useValue: { clearAllRoutes: vi.fn(), clearCachedPaths: vi.fn(), getCachedPaths: () => cachedPaths, clearanceProgress },
+          useValue: { clearAllRoutes: vi.fn(), clearCachedPaths: vi.fn(), getCachedPaths: () => cachedPaths, clearanceProgress, clearanceEnding },
         },
         { provide: LocationManagementService, useValue: { setLocation: vi.fn() } },
         { provide: HeightUpdateService, useValue: { stopHeightUpdates: vi.fn() } },
@@ -178,14 +179,28 @@ describe('MapRelocationService', () => {
     expect(viz.fitCorridorToTiles.mock.invocationCallOrder[0])
       .toBeLessThan(relocationStatus.followCorridor.mock.invocationCallOrder[0]);
 
-    // It follows the route service's measurement and sums up the wait at its end.
+    // It follows the route service's measurement and sums up the wait at its
+    // end, with how the measurement ended.
     const [progress, done] = relocationStatus.followCorridor.mock.calls[0] as unknown as [() => unknown, () => void];
     clearanceProgress.mockReturnValueOnce({ done: 3, total: 12 });
     expect(progress()).toEqual({ done: 3, total: 12 });
     done();
     expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(
-      /^\[Relocation\] HQ done: paint=\d+\.\d work=\d+\.\d corridor=\d+\.\d total=\d+\.\dms$/,
+      /^\[Relocation\] HQ done: paint=\d+\.\d work=\d+\.\d corridor=\d+\.\d total=\d+\.\dms ended=commit$/,
     );
+  });
+
+  it('logs a cancelled measurement as such, and none when no run was begun', async () => {
+    await click('hq', INSIDE);
+    const [, done] = relocationStatus.followCorridor.mock.calls[0] as unknown as [() => unknown, () => void];
+
+    clearanceEnding.mockReturnValueOnce('cancel');
+    done();
+    expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(/ ended=cancel$/);
+
+    clearanceEnding.mockReturnValueOnce(null);
+    done();
+    expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(/ ended=none$/);
   });
 
   it('takes the hint back and passes the error on when the rebuild throws', async () => {
