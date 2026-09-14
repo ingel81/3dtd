@@ -659,6 +659,31 @@ describe('PathAndRouteService route geometry', () => {
           expect(other.clearanceProgress()).toBeNull();
         });
 
+        it('tells how the latest run ended: committed, or cancelled by its owner or by the routes going away', () => {
+          vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          clearanceAt = () => 5.2;
+          const service = buildRouteService(network, spawn, hq);
+          expect(service.clearanceEnding()).toBeNull();
+
+          const run = service.beginClearanceMeasurement();
+          run.step(0);
+          expect(service.clearanceEnding()).toBeNull();
+          run.step(Infinity);
+          run.commit();
+          expect(service.clearanceEnding()).toBe('commit');
+
+          // CorridorRefit drops it for a blocker (enemies from the debug panel)
+          service.beginClearanceMeasurement().cancel('enemies are on the map');
+          expect(service.clearanceEnding()).toBe('cancel');
+
+          // The spawn moved: the routes it measured are replaced
+          const replaced = buildRouteService(network, spawn, hq);
+          replaced.beginClearanceMeasurement().step(0);
+          replaced.clearCache();
+          expect(replaced.clearanceEnding()).toBe('cancel');
+          expect(replaced.clearanceProgress()).toBeNull();
+        });
+
         it('gives the same corridor as one go when a tower or a wave has it finish at once', () => {
           const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
           clearanceAt = facades;

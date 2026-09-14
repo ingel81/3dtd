@@ -597,11 +597,11 @@ Jede Zeile nennt die Zeit je Schritt in ms (`StepTimes` in `map-relocation.servi
 
 ```
 [Relocation] HQ in place: reset= clear= services= paths= route= random= state= grid= placement= streets= camera= rest= corridor= total=ms spawnFrom=old|random|none spawns=
-[Relocation] HQ done: paint= work= corridor= total=ms
+[Relocation] HQ done: paint= work= corridor= total=ms ended=commit|cancel|none
 [Relocation] HQ outside the streets: streets= spawn= total=ms spawnFrom=old|random|fallback
 ```
 
-- **`HQ done`** (Fast Path, wenn der Hinweis verschwindet): `paint` = Klick bis Beginn des Umbaus (die zwei Frames für den Hinweis), `work` = der Umbau am Stück (wie `total` der Zeile davor), `corridor` = Rest der Messung samt Neuaufbau, `total` = Klick bis der Hinweis weg ist, also die ganze Wartezeit
+- **`HQ done`** (Fast Path, wenn der Hinweis verschwindet): `paint` = Klick bis Beginn des Umbaus (die zwei Frames für den Hinweis), `work` = der Umbau am Stück (wie `total` der Zeile davor), `corridor` = Rest der Messung samt Neuaufbau, `total` = Klick bis der Hinweis weg ist, also die ganze Wartezeit. `ended` sagt, wie die Messung endete (`PathAndRouteService.clearanceEnding()`): `commit` = gemessen und gespeichert, neu aufgebaut nur bei geänderter Breite (`changed=` in `[Corridor] clearance`); `cancel` = abgebrochen (Spawn umgesetzt, Ortswechsel, Gegner aus dem Debug-Panel), dann ohne Neuaufbau, und `corridor` ist nur die Zeit bis zum Abbruch; `none` = es lief nie eine Messung
 
 - **Fast Path** (`HQ in place`): alles bis `corridor` läuft am Stück im Hauptthread, `total` ist also die Zeit, in der das Spiel steht
   - `reset`: Animation und Höhen-Updates stoppen, `gameState.reset()`

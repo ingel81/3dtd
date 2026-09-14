@@ -169,8 +169,9 @@ export class MapRelocationService {
    *
    * A hint over the map says so (RelocationStatusService): shown and
    * painted before the work, then the corridor measurement in percent
-   * until it is done; `[Relocation] HQ done:` sums up the whole wait. A
-   * step that throws takes the hint away and passes the error on.
+   * until it is done; `[Relocation] HQ done:` sums up the whole wait and
+   * says how the measurement ended (`ended=commit|cancel`). A step that
+   * throws takes the hint away and passes the error on.
    */
   private async applyHqInPlace(lat: number, lon: number, host: RelocationHost): Promise<void> {
     if (!this.inPlaceContext(host)) return;
@@ -320,7 +321,7 @@ export class MapRelocationService {
         const ms = (from: number, to: number) => (to - from).toFixed(1);
         console.warn(
           `[Relocation] HQ done: paint=${ms(clickedAt, workStart)} work=${ms(workStart, workEnd)} ` +
-          `corridor=${ms(workEnd, end)} total=${ms(clickedAt, end)}ms`,
+          `corridor=${ms(workEnd, end)} total=${ms(clickedAt, end)}ms ended=${this.pathRoute.clearanceEnding() ?? 'none'}`,
         );
       },
     );
