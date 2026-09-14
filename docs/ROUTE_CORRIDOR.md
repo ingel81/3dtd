@@ -280,6 +280,23 @@ Ausnahmen:
   Treffer ihrer Säule, auch wo er auf deren Oberseite liegt, weil die
   Photogrammetrie darunter keinen Boden hat. Gegner laufen dort nicht: Der
   Korridor endet vor einer solchen Zelle (siehe Laufweg).
+- **Mittellinie unter einer Auskragung oder an einer Dachecke:** Eine
+  Zelle, durch die eine Mittellinie läuft, nimmt statt eines Treffers mehr
+  als `roofRise` über der Höhe der Mittellinie ringsum (`centreLineGround`,
+  siehe Laufweg) diese Höhe, mit dem LOD des Treffers (`streetUnderRoof` in
+  `corridor-walk.ts`, angewandt in `RouteCellSampler.sampleCellY`). Solche
+  Zellen kann der Korridor nicht weglassen, er nimmt sie bei jeder Breite,
+  und Gegner nehmen ihre Höhe aus der Zelle, in der sie stehen. In
+  Rothenburg (Retest 560 bis 563) lag so eine Zelle unter einer Auskragung
+  5,7 m über der Straße (Pick C) und eine an einer Dachecke, die die Linie
+  anschneidet, 7,6 m (Pick B); beide weiß im Overlay, die Gegner stiegen
+  hinauf. Eine Steigung entlang der Linie steigt von Stelle zu Stelle weit
+  weniger als `roofRise`, und der Median lässt die Zelle selbst als einzige
+  hohe Stelle aus dem Bezug heraus. `__corridor.pick()` zeigt sie mit
+  `walkCheck: 'centre line on a roof'`, `heightM` auf der Straße und
+  `columnBottomM` auf der Auskragung. Eine Urteilsfrage: Die
+  Nutzerentscheidung vom 2026-09-14 ("Orange Zellen weglassen") galt
+  Randzellen, die wegfallen können; diese Zellen können es nicht.
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
   (`path-route.service.ts:519`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
@@ -733,7 +750,8 @@ __corridor.pick(6)
      - Lage und Zelle: `routeM`, `cell`, `state`, `heightM`, `walkable`
        (`cellWalkable`; `false`: kein Gegner kann dorthin laufen, der Korridor
        hält die Zelle trotzdem), `walkCheck` (warum: `walkable`, `roof`,
-       `step`, `centre line`, `coarse tile`, `no sample`, `deck or tunnel`,
+       `step`, `centre line`, `centre line on a roof` (auf die Straße gesetzt,
+       siehe Zellhöhe), `coarse tile`, `no sample`, `deck or tunnel`,
        `no centre line ground`, `seam`), `overLineM` (Höhe über der
        Mittellinie, gegen die der Check misst; bei einer Zelle der
        Mittellinie über der Mittellinie ringsum), `aboveNeighboursM`,
@@ -891,11 +909,10 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Median über die Stelle daneben und ihre Nachbarn auf der Linie. Stehen
   dort mehrere Stellen auf einer Krone oder einem Auto (OSM-Linie über dem
   Parkstreifen), greift er nicht. Zellen, durch die eine Mittellinie läuft,
-  prüft er nicht: Kommt ihre Säule auf einer Auskragung, einem Erker oder
-  einer Dachecke herunter, bleibt die Zelle auf dieser Höhe, und Gegner auf
-  ihr steigen hinauf (Rothenburg, Pick C 5,7 m, Pick B 7,6 m).
-  `__corridor.pick()` zeigt es mit `walkCheck: 'centre line'` und
-  `overLineM`.
+  prüft er nicht. Liegt ihr Treffer mehr als `roofRise` über der
+  Mittellinie ringsum, nehmen sie deren Höhe (siehe Zellhöhe); ein Auto
+  oder eine Hecke auf der Mittellinie, niedriger als `roofRise`, bleibt,
+  und Gegner steigen darüber.
 - Ein Auto oder eine Hecke am Rand nimmt den Korridor dahinter mit, den
   Gehweg hinter einer Autoreihe eingeschlossen: Der Korridor ist je Seite
   ein Band. Genau dieses Einengen hatte der Playtest vom 2026-09-12 bei den

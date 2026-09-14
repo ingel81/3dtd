@@ -128,5 +128,9 @@ describe('cellWalkable', () => {
     expect(judgeWalk(cell({ terrainHeight: 0.2 }), ground(flat), 2)).toEqual({ walkable: true, check: 'walkable', overLine: 0.2 });
     expect(judgeWalk(cell(), ground(flat, true), 2)).toEqual({ walkable: null, check: 'centre line', overLine: 3 });
     expect(judgeWalk(cell(), ground(() => null), 2).check).toBe('no centre line ground');
+    // A centre line cell whose own column is 3 m up, put on the street by the grid.
+    const roof = (x: number, z: number): ColumnSample => ({ ...flat(), groundY: x === 1 && z === 5 ? 3 : 0 });
+    expect(judgeWalk(cell({ terrainHeight: 0 }), ground(roof, true), 2))
+      .toEqual({ walkable: null, check: 'centre line on a roof', overLine: 0 });
   });
 });

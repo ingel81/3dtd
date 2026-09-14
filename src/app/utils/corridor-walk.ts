@@ -48,6 +48,7 @@ export type WalkCheck =
   | 'roof'
   | 'step'
   | 'centre line'
+  | 'centre line on a roof'
   | 'deck or tunnel'
   | 'no sample'
   | 'coarse tile'
@@ -110,7 +111,11 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround, cellSize: number,
   if (cell.sample.state !== 'stable') return unjudged('no sample');
   if (ground.lineSurface(cell.x, cell.z) !== null) {
     const lineY = lineGround(cell.x, cell.z);
-    return unjudged('centre line', lineY === null ? null : cell.terrainHeight - lineY);
+    if (lineY === null) return unjudged('centre line');
+    // Its own column on a roof over the line: the grid put it on the street.
+    const own = ground.column(cell.x, cell.z);
+    const lifted = own !== null && own.groundY - lineY > corridorConfig.roofRise;
+    return unjudged(lifted ? 'centre line on a roof' : 'centre line', cell.terrainHeight - lineY);
   }
   if (cell.sample.tileGeometricError > corridorConfig.maxTileError) return unjudged('coarse tile');
   const axisY = lineGround(cell.axisX, cell.axisZ);
@@ -163,6 +168,28 @@ export function centreLineKeys(routes: readonly (readonly { x: number; z: number
     }
   }
   return keys;
+}
+
+/**
+ * The height a cell a route centre line runs through takes instead of the
+ * hit `y` of its column (RouteCellSampler.sampleCellY): the ground of the
+ * line around it (centreLineGround) where `y` lies more than `roofRise`
+ * above that; null for any other cell or hit, which keeps the hit.
+ *
+ * Such a column came down on a jetty, an oriel or a roof corner the line
+ * passes under or clips, with no street under it in the photogrammetry
+ * (playtest 2026-09-14, Rothenburg: 5.7 m and 7.6 m over the street). An
+ * edge cell like that leaves the corridor (cellWalkable), but the
+ * corridor keeps a cell the line runs through at any width, and enemies
+ * take their height from the cell they are in: they climbed onto the
+ * roof and the cell stood there in the Route Grid Overlay. A slope along
+ * the line rises far less than `roofRise` from one spot to the next; the
+ * median keeps one raised spot, the cell itself, out of the reference.
+ */
+export function streetUnderRoof(cell: RouteCell, y: number, ground: WalkGround, cellSize: number): number | null {
+  if (cell.surface !== 'ground' || ground.lineSurface(cell.x, cell.z) === null) return null;
+  const lineY = centreLineGround(cell.x, cell.z, ground, cellSize);
+  return lineY !== null && y - lineY > corridorConfig.roofRise ? lineY : null;
 }
 
 /** The cells among `cells` an enemy could not walk to (cellWalkable false). */

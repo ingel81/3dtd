@@ -28,7 +28,7 @@ import {
 import { RouteGridAggregateViz } from './route-grid-aggregate-viz';
 import { RouteGridHeightSweep } from './route-grid-height-sweep';
 import { RouteCellSampler } from './route-cell-sampler';
-import { WalkGround, cellWalkable, centreLineKeys, judgeWalk, unwalkableCells } from './corridor-walk';
+import { WalkGround, cellWalkable, centreLineKeys, judgeWalk, streetUnderRoof, unwalkableCells } from './corridor-walk';
 import { logGrid } from './route-grid-log';
 import type { RouteBodyContact } from './route-body';
 
@@ -129,8 +129,15 @@ export class GlobalRouteGrid {
     return Math.floor(v * this.INV_CELL_SIZE);
   }
 
-  /** Terrain-Sampling der Cells (`sampleCellY`) mit Proben und Sweep-Zählern. */
-  private readonly sampler = new RouteCellSampler((cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth));
+  /**
+   * Terrain-Sampling der Cells (`sampleCellY`) mit Proben und Sweep-Zählern.
+   * A cell a centre line runs through takes the street instead of a hit on
+   * a roof over the line (streetUnderRoof).
+   */
+  private readonly sampler = new RouteCellSampler(
+    (cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth),
+    (cell, y) => streetUnderRoof(cell, y, this.walkGround, this.CELL_SIZE),
+  );
 
   /** Keys of the cells a route centre line runs through (centreLineKeys), set by generateFromRoutes. */
   private centreLine = new Set<number>();
