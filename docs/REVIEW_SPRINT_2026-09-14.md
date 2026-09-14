@@ -16,22 +16,21 @@ offen (REVIEW_SPRINT_2026-09-13.md, Abschnitt "Zwischenstand Playtest
 Ergebnis). Wo diese Nacht an einem alten Punkt etwas geändert hat, steht es
 am Anfang der Playtest-Liste unten. Danach die neuen Punkte ab Nummer 301.
 
-**Stand dieses Dokuments:** dritter Durchgang, Teil 2. Code-Stand
-`a26cd7dd` (fix4), Branch-Head `5e1de3f2` mit den Handover-Commits.
-Eingearbeitet sind Replay, fix2, fix3, fix4 und die Korrekturen des
-Faktenchecks (geprüft am `1fe62ebc`, Delta bis `5e1de3f2`). review5
-(Replay) liegt vor, die Behebung seiner Befunde läuft (replay2), die Hashes
-folgen.
+**Stand dieses Dokuments:** letzter Durchgang. Code-Stand `f786f805`
+(replay2), darüber die Handover-Commits. Eingearbeitet sind alle Features,
+die Review-Fixes fix1 bis fix4 und replay2 und die Korrekturen des
+Faktenchecks (geprüft am `1fe62ebc`, Delta bis `5e1de3f2`). Das Gate am
+`f786f805` ist grün (Zahlen unter "Stand").
 
 ## Stand
 
 | | |
 |---|---|
-| Branch | `sprint/night-2026-09-14`, Head `5e1de3f2`, letzter Code-Commit `a26cd7dd` |
-| Diese Nacht | 186 Commits `1ca6713a..5e1de3f2`, davon 9 Handover-Commits; 422 Dateien, +43 105 / -4 243 Zeilen |
-| Gesamt vor `main` | 674 Commits (bis `5e1de3f2`) |
-| Tests | Gate am `a26cd7dd`: vitest 312 Testdateien, 3862 Tests grün, 27 übersprungen (die Shader-Compile-Tests, im Gate ohne `glslangValidator`); Nachtbeginn 241 Dateien mit 3034 Tests. Shader-Check mit glslang 11.7 am `a26cd7dd` (Lead): 57 von 57 grün. pytest 101 (zuletzt fix3), `training-backend/` hat in der Nacht keinen Diff |
-| Prüfung | Gate am `a26cd7dd`: beide tsc, ESLint und Production-Build grün; Initial-Bundle 357,21 kB (Nachtbeginn 357,18 kB) |
+| Branch | `sprint/night-2026-09-14`, letzter Code-Commit `f786f805` |
+| Diese Nacht | 198 Commits `1ca6713a..f786f805`, davon 13 Handover-Commits; 423 Dateien, +43 572 / -4 254 Zeilen |
+| Gesamt vor `main` | 686 Commits (bis `f786f805`) |
+| Tests | Gate am `f786f805`: vitest 312 Testdateien, 3876 Tests grün, 27 übersprungen (die Shader-Compile-Tests, im Gate ohne `glslangValidator`); Nachtbeginn 241 Dateien mit 3034 Tests. Shader-Check mit glslang 11.7 am `f786f805` (Lead): 57 von 57 grün. pytest 101 (zuletzt fix3), `training-backend/` hat in der Nacht keinen Diff |
+| Prüfung | Gate am `f786f805`: beide tsc, ESLint und Production-Build grün; Initial-Bundle 357,21 kB (Nachtbeginn 357,18 kB) |
 
 Nichts davon lief im Browser. Optik, Laufzeiten, Klang und Speicher sind per
 Code-Review, Tests und Rechnung geprüft, nicht angesehen, angehört oder
@@ -41,8 +40,8 @@ Ooze-Band, Blutmond-Stimmung, Suchscheinwerfer, VAT-Gegner mit Glühen,
 Portal, HQ-Marker, Frost, EMP, Orbitalstrahl, Pilzwolke) und 14 ältere,
 kompilieren und linken als GLSL ES 3.00 mit glslang 11.7.0, so wie three
 r186 sie zusammensetzt. Im Gate laufen diese Compile-Tests nicht, dort
-fehlt das Binary; der Lead hat den Check am `a26cd7dd` mit glslang 11.7
-laufen lassen, 57 von 57 Tests grün. Nicht geprüft sind
+fehlt das Binary; der Lead hat den Check am `a26cd7dd` und am `f786f805`
+mit glslang 11.7 laufen lassen, jeweils 57 von 57 Tests grün. Nicht geprüft sind
 Treiber- und ANGLE-Eigenheiten und GPU-Grenzen (Zahl der Uniforms und
 Varyings). Deshalb steht die Konsole weiter als erster Playtest-Punkt (301).
 
@@ -52,7 +51,7 @@ Varyings). Deshalb steht die Konsole weiter als erster Playtest-Punkt (301).
 gezählt), je ein Thema: assets (Blender), perf,
 sockel, abilitybar, quickfix, worldmap, veterans, worm, blob (dazu blob2),
 refactor, bossintro, bloodmoon, wavejump, hero, abilities, replay,
-shadercheck, fix1, fix2, fix3 und fix4. Vor jedem Merge hat der Lead den Diff gelesen, bei Bedarf
+shadercheck, fix1, fix2, fix3 und fix4 (replay2 als Fortsetzung von replay). Vor jedem Merge hat der Lead den Diff gelesen, bei Bedarf
 Nacharbeit angefordert, die Worker haben selbst auf den Nacht-Head rebased,
 übernommen wurde per Fast-Forward (Teile per Cherry-Pick: `e92575f4`,
 `ae5fe4f8`, die vat-Zerlegung). Nach jedem Merge lief das Gate: vitest,
@@ -500,8 +499,9 @@ stehen die Hashes des Branches.
   Gegner, die zwischen zwei Frames spawnen und sterben, fehlen. Landet im
   Replay eine Fähigkeit, räumt das Verlassen auch deren Effekte im
   Live-Spiel ab.
-- Nicht im Browser gesehen; der Player ist mit Fake-Renderern getestet. Die
-  Nacharbeit hatte noch keinen eigenen Review, review5 liest sie.
+- Nicht im Browser gesehen; der Player ist mit Fake-Renderern getestet.
+  review5 hat das Replay samt Nacharbeit gelesen, replay2 seine Befunde
+  behoben (Abschnitt "Review-Fixes (replay2)").
 
 ### Review-Fixes (fix1, `2b7da859` bis `5744bcce`, 5 Commits)
 
@@ -658,6 +658,42 @@ Behebt die vier Befunde von review4 (Abschnitt "Review", Befunde 20 bis 23).
   Debug-Quad. Nicht erfasst: `/engine-test` (nicht Teil des Spiels). Mit
   Binary laufen jetzt 57 Tests im Check, ohne sind 27 übersprungen.
 
+### Review-Fixes (replay2, `b7f974da` bis `f786f805`, 8 Commits)
+
+Behebt die sieben Befunde von review5 (Abschnitt "Review", Befunde 24 bis
+30), per Cherry-Pick übernommen; je Befund ein Commit, dazu die Doku in
+`f786f805` (REPLAY.md, EVENT_SYSTEM, ARCHITECTURE).
+
+- `b7f974da` (24): Nahe der Grenze wachsen die Spalten, die wachsen müssen,
+  um bis zur Hälfte ihres Bedarfs mehr, soweit das Budget reicht: ein bis
+  zwei Kopien vor dem Ausdünnen statt einer je Frame (Spec mit kleinem
+  Budget: vorher fünf, jetzt höchstens zwei).
+- `7474bcd2` (25): Der AudioService des Players hört auf einem eigenen Bus,
+  der Töne und Einschläge nur bei einem Tempo mit Ton bekommt; über 1x und
+  nach einem Sprung fällt der ausstehende Nachhall weg.
+- `b74352a0` (26): Jeder Sprung räumt wartende Zielmarker ab und, wenn im
+  Replay eine Fähigkeit gelandet ist, Pilze, Frost, EMP und Laser, wie beim
+  Verlassen auch die des Live-Spiels.
+- `ec10db08` (27): `pointerup` und `pointercancel` beenden das Ziehen am
+  Balken ebenfalls. Ohne Spec (kein Komponenten-Harness), nicht im Browser
+  geprüft.
+- `28ea36d0` (28): Suchscheinwerfer lassen sich je Tower ausblenden und
+  folgen der Sichtbarkeit im Replay; ein in der Welle verkaufter Tower
+  bekommt im Replay einen eigenen Kegel, der um eine zufällige Richtung
+  schwenkt (seine Wachrichtung steht nicht in der Aufnahme).
+- `4ae0f3be` (29): Der Recorder hört Wellenstart, Startbefehl und
+  Wellensprung über normale Listener und hängt nur während einer
+  aufgezeichneten Welle am Catch-all-Pfad; jeder Schritt ist geschützt, ein
+  Fehler verwirft die Aufnahme. Der `GameEventBus` führt Catch-all-Listener
+  jetzt isoliert wie die übrigen. Folge: Zwischen den Wellen und im Training
+  behält der Bus seinen schnellen Pfad, während einer aufgezeichneten Welle
+  nicht.
+- `cd4036d9` (30): Das Replay nimmt je Frame höchstens 50 ms Wanduhr, wie
+  die Spieluhr; unter 20 Bildern je Sekunde läuft es langsamer als sein
+  Tempo.
+- Bewusst nicht behoben: die zwei Hinweise von review5 ("Befunde, offen"
+  17).
+
 ## Revert: Abhängigkeiten und Probe
 
 Jeder Bereich wurde probeweise mit `git revert --no-commit` zurückgenommen
@@ -695,6 +731,7 @@ nicht mehr geprüft. "Doku" heißt: der Konflikt liegt nur in einem Dokument.
 | Replay `a4d8c839` bis `4d415013` | am `4d415013`: ganzer Bereich konfliktfrei; einzeln konfliktfrei auch `a4d8c839`, `360f5c82`, `d9b0d17e` und die Nacharbeit `5c17dc88` bis `4d415013` für sich | `a4d8c839` entbehrlich (dann fehlt nur die Zielwahl im Befehlslog); die Nacharbeit liest Held, Ooze, Freeze und Stun, Blutmond, Boss-Intro und Sprung-Cheat |
 | fix2 `bea17437` bis `913a66ee` | am `4d415013` einzeln konfliktfrei: `bea17437`, `188bacc2`, `684993d6`, `96715cb0`, `f68a1553`, `913a66ee`; Doku-Konflikt: `ee4a3722` (`WAVE_SYSTEM.md`), `dfcf1d5c` und `15a1778f` (gemeinsame Zeile in `ENEMY_CREATION.md`); Code-Konflikt: `3f1f5fdc` in `three-effects.renderer.ts` (das Replay hängt daneben an) | `913a66ee` beschreibt `bea17437` |
 | fix3 `d597329f` bis `8d34c49e` | am `4d415013` einzeln konfliktfrei außer `900cadff` (`hero.manager.ts` und Spec, die Replay-Nacharbeit liegt daneben) | sonst voneinander unabhängig |
+| replay2 `b7f974da` bis `f786f805` | am `f786f805`: ganzer Bereich konfliktfrei, zusammen mit dem Replay ebenfalls; einzeln konfliktfrei außer `cd4036d9` (Spec) und `7474bcd2` (`replay-player.ts` und Spec), auf die spätere Commits aufbauen | alle bauen auf dem Replay auf; `4ae0f3be` ändert auch den `GameEventBus` |
 | fix4 `4bf9ade9` bis `a26cd7dd` | am `94d9b012`: `a26cd7dd` und `0ae09431` einzeln konfliktfrei, die drei Shader-Commits zusammen konfliktfrei; `4bf9ade9` und `d4ae0f6b` allein nicht (dieselbe Spec, die späteren bauen darauf) | `a26cd7dd` baut auf fix1 (`f500aaaf`) auf; `0ae09431` braucht `4bf9ade9` und `d4ae0f6b` |
 
 Am Head wiederholt: Ground-Pick-Cache, Sockel, Veteranen, Fähigkeiten, Held,
@@ -820,8 +857,8 @@ Bei 14 und 17 ist ein Teil bewusst offen (siehe dort), ob die Behebung von
 21 trägt, klärt Playtest 429; die übrigen 20 sind vollständig behoben.
 Behoben haben sie fix1 bis fix4 (Abschnitte "Review-Fixes"). Was die
 Fix-Worker bewusst ausgelassen haben, steht bei den Befunden und unter
-"Befunde, offen". Die Befunde 24 bis 30 von review5 (Replay) werden gerade
-behoben.
+"Befunde, offen". Die sieben Befunde von review5 (Replay, 24 bis 30) hat
+replay2 behoben, die zwei Hinweise nicht.
 
 **review1**, `1ca6713a..bffae869` (54 Commits: Assets, perf, Sockel, Leiste,
 Wellen-Panel, Quickfix, Weltkarte, Veteranen, Wurm): 1 mittel, 4 niedrig,
@@ -928,8 +965,8 @@ einem Binary aus dem Scratchpad geprüft.
 `a4d8c839` bis `4d415013`): 1 mittel, 6 niedrig, 2 Hinweise. Der Kern hält:
 Das Live-Spiel bleibt während des Replays unverändert, das Verlassen stellt
 Kamera, Pause, Timescale, Tower, Held und Blutmond zurück, die Spielbefehle
-sind gesperrt, die Determinismus-Prüfung fand nichts. Behebung läuft
-(replay2), die Hashes folgen.
+sind gesperrt, die Determinismus-Prüfung fand nichts. Alle sieben Befunde
+sind behoben (replay2), die zwei Hinweise nicht.
 
 24. **Nahe der Speichergrenze wachsen die Stichproben-Spalten in jedem
     Frame neu** (mittel, Kosten): Würde das Verdoppeln einer Spalte das
@@ -939,26 +976,30 @@ sind gesperrt, die Determinismus-Prüfung fand nichts. Behebung läuft
     Wellen mit mehr als 2^21 Gegner-Stichproben (etwa 500 Gegner über rund
     7 Minuten oder 2 800 über rund 75 s), bei 500 Gegnern rund 380 Frames
     in Folge. Belegt mit einer Probe-Spec (Budget 1 MB, 54 Neuanlagen in
-    Folge); Hänger im Browser nicht gemessen.
+    Folge); Hänger im Browser nicht gemessen. Behoben `b7f974da`.
 25. **Einschlagsounds der Fähigkeiten laufen auch über 1x** (niedrig),
-    obwohl das Replay dort sonst stumm ist.
+    obwohl das Replay dort sonst stumm ist. Behoben `7474bcd2`.
 26. **Zielmarker bleibt nach einem Sprung über den Einschlag bis zum
     Verlassen stehen** (niedrig, nur Darstellung); nach einem Sprung zurück
-    vor den Einschlag kommen Pilz, Frost, EMP und Laser doppelt.
+    vor den Einschlag kommen Pilz, Frost, EMP und Laser doppelt. Behoben
+    `b74352a0`.
 27. **Ein Klick auf den Regler ohne Wertänderung lässt das Replay
     pausiert** (niedrig; `change` feuert dann nicht, im Browser nicht
-    geprüft).
+    geprüft). Behoben `ec10db08`, ohne Spec (kein Komponenten-Harness).
 28. **Suchscheinwerfer ausgeblendeter Tower leuchten im Replay einer
     Blutmond-Welle** (niedrig): Kegel an den leeren Stellen später gebauter
-    Tower.
+    Tower. Behoben `28ea36d0`.
 29. **Der Recorder hängt ungeschützt am Debug-Listener-Pfad des Busses**
     (niedrig): Würfe er bei einem Event, bekäme kein normaler Listener das
     Event; einen konkreten Wurf gibt es nicht. Die Abkürzung für einen Bus
-    ohne Debug-Listener greift nie mehr, auch nicht im Training.
+    ohne Debug-Listener greift nie mehr, auch nicht im Training. Behoben
+    `4ae0f3be`; der Bus behält den schnellen Pfad jetzt zwischen den Wellen
+    und im Training, während einer aufgezeichneten Welle nicht.
 30. **Das Replay läuft mit ungedeckeltem Frame-Delta** (niedrig): Ein
-    langer Frame spielt bei 4x und 500 ms 2 s Events auf einmal ab.
+    langer Frame spielt bei 4x und 500 ms 2 s Events auf einmal ab. Behoben
+    `cd4036d9` (höchstens 50 ms je Frame).
 
-Hinweise ohne Defekt: Ein Replay-Tower-Modell, das beim Verlassen noch
+Hinweise ohne Defekt, bewusst nicht behoben: Ein Replay-Tower-Modell, das beim Verlassen noch
 lädt, bliebe danach stehen (praktisch nicht erreichbar, das Modell liegt im
 Cache); die Leiste stößt die Change Detection mit 20 Hz an, nicht gemessen.
 
@@ -966,7 +1007,7 @@ Cache); die Leiste stößt die Change Detection mit 20 Hz an, nicht gemessen.
 
 In TODO.md unter 1.9 eingetragen. Die Befunde von review1 bis review4 sind
 bearbeitet; was die Fix-Worker bewusst ausgelassen haben, steht unter 16.
-Die Befunde von review5 sind offen, bis replay2 gemergt ist (17).
+Von review5 sind die zwei Hinweise offen (17).
 
 1. **Pause**: Nur der Ooze-Loop hält an; Loops von Zombies und Flammen laufen
    in der Pause weiter.
@@ -1013,7 +1054,11 @@ Die Befunde von review5 sind offen, bis replay2 gemergt ist (17).
     normalen Ablauf nicht möglich); HQ-Shake-Drossel auf der Wanduhr;
     Flammenkegel mit zwei Stichproben; Neubau des Routengraphen in der
     Pause; weitere Eingangsverschiebungen des ONNX-Modells nicht untersucht.
-17. **review5 (Replay)**: Befunde 24 bis 30, Behebung läuft (replay2).
+17. **Replay-Hinweise aus review5**: Ein Replay-Tower-Modell, das beim
+    Verlassen noch lädt, bliebe danach stehen (praktisch nicht erreichbar);
+    die Replay-Leiste stößt die Change Detection mit 20 Hz an, nicht
+    gemessen. Seit `cd4036d9` läuft das Replay unter 20 Bildern je Sekunde
+    langsamer als sein Tempo.
 
 ## Playtest-Liste
 
@@ -1537,6 +1582,27 @@ Punkte beginnen bei 301.
      ansehen.
 434. Optional, mit `glslangValidator` wie in 406: `npm run shader-check`
      meldet "57 passed (57)"; ohne Binary sind 27 Tests übersprungen.
+
+**Review-Fixes replay2 (letzter Durchgang)**
+
+435. Welle mit Atomschlag oder Frostbombe, dann Replay bei 2x oder 4x: kein
+     Einschlagston und kein Nachhall; bei 1x wie im Spiel. Bei 1x mitten im
+     Nachhall springen: der Rest des Nachhalls fällt weg.
+436. Replay mit Atomschlag: Zielmarker sichtbar, dann hinter den Einschlag
+     springen: der Marker ist weg. Zurück vor den Einschlag springen und
+     weiterspielen: der Pilz kommt einmal, nicht doppelt.
+437. Replay läuft, auf den Knopf des Fortschrittsbalkens klicken und ohne
+     Bewegung loslassen: das Replay spielt weiter. Aus der Pause heraus
+     ziehen und loslassen: es bleibt pausiert.
+438. Auf 14 springen, W14 mit Towern spielen, nach der Welle einen weiteren
+     Tower bauen, dann "replay W14": an der Stelle des neuen Towers steht
+     kein Lichtkegel; ein in der Welle verkaufter Tower hat im Replay seinen
+     Kegel. Nach Esc: Kegel wie vorher.
+439. Große Welle über mehrere Minuten aufnehmen (W19 oder viele Gegner per
+     Wave Debug) und abspielen: kein Ruckeln gegen Ende der Welle. Event
+     Debugger während einer Welle offen: zeigt die Events wie vorher.
+440. Replay bei 4x, kurz den Browser-Tab wechseln und zurückkommen: das
+     Replay springt nicht um Sekunden, Einschläge kommen nicht gebündelt.
 
 ## TODO-Stand
 
