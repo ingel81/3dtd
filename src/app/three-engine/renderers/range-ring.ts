@@ -64,7 +64,17 @@ const BAND_MIN_M = 0.75;
 const BAND_MAX_M = 6;
 
 const RING_COLOR = 0xc9a44c; // TD gold
-const RING_OPACITY = 0.85;
+/**
+ * Where a tree stands on the ring, the cylinder cuts its crown and the band
+ * runs round it as a loop. That is where the crown is at the range, but at
+ * 0.85 it was too much gold (playtest 2026-09-14). The band cannot tell a
+ * crown from a roof or a facade: every pass sees only whether the surface
+ * point lies in the volume, never how the surface turns (that needs the
+ * depth of the neighbouring pixels, which no pass here reads). A lower
+ * opacity tones every surface down alike; the long, unbroken line on the
+ * ground stays easy to follow, the short loops on the crowns recede.
+ */
+const RING_OPACITY = 0.6;
 
 /** Draw order of the first pass, the others follow it: after the other transparent overlays, before the debug markers (999). */
 const PASS_ORDER = 900;
