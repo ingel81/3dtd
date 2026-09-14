@@ -205,9 +205,13 @@ export class OozeBodies {
     this.sounds.stop(enemy.id, engine?.spatialAudio ?? null);
   }
 
-  /** Every ooze gone at once (reset, game over); a band still sinking after a removal finishes on its own. */
+  /**
+   * Every ooze gone at once (reset, game over, location change): every body
+   * still tracked here, and the renderer's bands and debris regardless,
+   * so a kill just before this (already off this list, still collapsing
+   * or lying as debris in the renderer) doesn't outlive the reset.
+   */
   clear(engine: ThreeTilesEngine | null): void {
-    if (this.oozes.length === 0) return;
     for (const { enemy } of this.oozes) this.grid.removeBodyEnemy(enemy);
     this.oozes.length = 0;
     engine?.oozes.clear();
