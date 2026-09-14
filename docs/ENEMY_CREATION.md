@@ -909,6 +909,8 @@ npx gltf-transform inspect model.glb
 - Check Sound-Datei existiert
 - Check `movingSoundVolume` > 0
 - Check `startMoving()` wurde aufgerufen
+- Der Lauf-Loop ist nur bis 500 m um die Kamera zu hören und solange das Budget von 12
+  Gegner-Loops reicht (`AUDIO_LIMITS`); ein Gegner außerhalb setzt ein, sobald beides erfüllt ist
 
 ### Enemy läuft zu weit seitlich
 - Reduziere `lateralSpread` (z.B. von 1.0 auf 0.5). Läuft er auf Fassaden, ist der Korridor zu breit: `__routes.describe()` zeigt Breite und Quelle je Abschnitt

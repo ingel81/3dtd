@@ -51,7 +51,7 @@ describe('AudioComponent loop flag', () => {
     expect(spatial.updateLoopPosition).toHaveBeenCalledTimes(1);
   });
 
-  it('stays down when no loop could be created (budget, distance)', async () => {
+  it('stays down when no loop could be created (unknown sound, no buffer)', async () => {
     const { audio, sink } = createAudio(null);
     await audio.play('moving', true);
     expect(sink.hasAudioLoops).toBe(false);

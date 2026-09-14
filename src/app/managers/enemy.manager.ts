@@ -632,13 +632,14 @@ export class EnemyManager extends EntityManager<Enemy> {
       // the early-out update() would take. Movement holds the heading per
       // segment, so this is true only for a few sub-steps after a corner.
       if (enemy.isTurning && enemy.transform.enabled) enemy.transform.update(deltaTime);
-      // Audio's only per-tick work is moving loops, and few enemies hold a
-      // loop handle (playing or paused). `hasAudioLoops` mirrors
+      // Audio's only per-tick work is moving loops, and only enemies with a
+      // moving sound hold a loop handle (playing, paused or waiting to join
+      // in earshot, see SpatialAudioLoops). `hasAudioLoops` mirrors
       // `loopHandles.size > 0`, so skipping on it is exactly the early-out
       // update() takes, without loading the component. The call stays here
       // rather than in a separate pass over the looping enemies: the loops
       // share the enemy-sound budget, so the order of updateLoopPosition()
-      // calls decides which paused loop gets to resume.
+      // calls decides which paused or waiting loop gets a free slot.
       if (enemy.hasAudioLoops && enemy.audio.enabled) enemy.audio.update(deltaTime);
       // Single-pass: remove expired effects + get the status flags (game-time)
       const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);

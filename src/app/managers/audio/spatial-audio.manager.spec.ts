@@ -4,6 +4,10 @@ import { SpatialAudioManager } from './spatial-audio.manager';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { AUDIO_LIMITS, OOZE_SOUNDS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
 import { OozeSounds } from '../ooze-sounds';
+import { AudioComponent, LoopFlagSink } from '../../game-components/audio.component';
+import { TransformComponent } from '../../game-components/transform.component';
+import { GameObject } from '../../core/game-object';
+import { ComponentType } from '../../core/component';
 
 /**
  * Characterization of the spatial audio facade: registration and buffer
@@ -154,6 +158,15 @@ function setup() {
 
 function lastPositional(): FakeAudio {
   return reg.positional[reg.positional.length - 1];
+}
+
+/** A game object with a geo position, to carry an AudioComponent. */
+class Walker extends GameObject {
+  readonly transform: TransformComponent;
+  constructor() {
+    super('enemy');
+    this.transform = this.addComponent(new TransformComponent(this), ComponentType.TRANSFORM);
+  }
 }
 
 beforeEach(() => {
@@ -592,18 +605,26 @@ describe('SpatialAudioManager', () => {
       expect(lastPositional().offset).toBe(1);
     });
 
-    it('returns null for unknown sounds and out-of-range positions', async () => {
+    it('returns null for an unknown sound; one out of range waits without audio and joins in earshot', async () => {
       vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       const { manager, ready } = setup();
       await ready('zombie_walk', 'walk.mp3');
 
       expect(await manager.createLoop('nope', NEAR)).toBeNull();
-      expect(await manager.createLoop('zombie_walk', FAR)).toBeNull();
+      const far = await manager.createLoop('zombie_walk', FAR);
+      expect(far).not.toBeNull();
+      expect(manager.isLoopPaused(far!)).toBe(true);
+      expect(reg.positional).toHaveLength(0);
       expect(manager.getEnemySoundStats().current).toBe(0);
-      expect(manager.getActiveSoundCount()).toBe(0);
+      expect(manager.getActiveSoundCount()).toBe(1);
+
+      manager.updateLoopPosition(far!, NEAR);
+      expect(lastPositional().isPlaying).toBe(true);
+      expect(lastPositional().parent?.position.equals(NEAR)).toBe(true);
+      expect(manager.getEnemySoundStats().current).toBe(1);
     });
 
-    it('reserves the enemy budget per enemy loop and refuses once it is full', async () => {
+    it('reserves the enemy budget per enemy loop; one beyond it waits until a slot frees', async () => {
       const { manager, ready } = setup();
       expect(manager.isEnemySound('Zombie_Walk')).toBe(true);
       expect(manager.isEnemySound('arrow')).toBe(false);
@@ -615,11 +636,16 @@ describe('SpatialAudioManager', () => {
       }
       expect(handles.every((h) => h !== null)).toBe(true);
       expect(manager.canPlayEnemySound()).toBe(false);
-      expect(await manager.createLoop('zombie_walk', NEAR)).toBeNull();
+      const late = (await manager.createLoop('zombie_walk', NEAR))!;
+      expect(manager.isLoopPaused(late)).toBe(true);
+      expect(reg.positional).toHaveLength(AUDIO_LIMITS.maxEnemySounds);
 
       manager.stopLoop(handles[0]!);
       expect(manager.getEnemySoundStats().current).toBe(AUDIO_LIMITS.maxEnemySounds - 1);
-      expect(await manager.createLoop('zombie_walk', NEAR)).not.toBeNull();
+      manager.updateLoopPosition(late, NEAR);
+      expect(manager.isLoopPaused(late)).toBe(false);
+      expect(lastPositional().isPlaying).toBe(true);
+      expect(manager.getEnemySoundStats().current).toBe(AUDIO_LIMITS.maxEnemySounds);
     });
 
     it('pauses a loop that leaves the audible range and resumes it on return', async () => {
@@ -723,19 +749,18 @@ describe('SpatialAudioManager', () => {
       expect(audio.isPlaying).toBe(true);
     });
 
-    it('starts a loop created while held paused, without an enemy-budget slot', async () => {
+    it('lets a loop created while held wait, without audio or an enemy-budget slot', async () => {
       const { manager, ready } = setup();
       await ready('zombie_walk', 'walk.mp3');
       manager.holdLoops(true);
 
       const handle = (await manager.createLoop('zombie_walk', NEAR))!;
-      const audio = lastPositional();
       expect(manager.isLoopPaused(handle)).toBe(true);
-      expect(audio.isPlaying).toBe(false);
+      expect(reg.positional).toHaveLength(0);
       expect(manager.getEnemySoundStats().current).toBe(0);
 
       manager.holdLoops(false);
-      expect(audio.isPlaying).toBe(true);
+      expect(lastPositional().isPlaying).toBe(true);
       expect(manager.getEnemySoundStats().current).toBe(1);
       manager.stopLoop(handle);
       expect(manager.getEnemySoundStats().current).toBe(0);
@@ -878,16 +903,44 @@ describe('SpatialAudioManager around the pause (playtest 546, 548)', () => {
     expect(here.isPlaying).toBe(false);
   });
 
-  it('546: a zombie that started walking out of earshot has no loop that could come back', async () => {
+  it('546: a zombie that started walking out of earshot joins once the camera is near and the game goes on', async () => {
     const { camera, manager, ready } = setup();
     await ready('zombie_walk', 'walk.mp3');
-    // EnemyEntity.startMoving plays its walk loop once (AudioComponent.play); out of earshot there is none
-    expect(await manager.createLoop('zombie_walk', new Vector3(3 * D, 0, 0))).toBeNull();
+    const there = new Vector3(3 * D, 0, 0);
+    // EnemyEntity.startMoving plays its walk loop once (AudioComponent.play); out of earshot it waits
+    const walker = (await manager.createLoop('zombie_walk', there))!;
+    expect(reg.positional).toHaveLength(0);
 
     manager.holdLoops(true);
     flyTo(camera, 3 * D - 10);
-    manager.holdLoops(false);
+    manager.updateLoopPosition(walker, there);
     expect(reg.positional).toHaveLength(0);
+
+    manager.holdLoops(false);
+    expect(manager.isLoopPaused(walker)).toBe(false);
+    expect(lastPositional().isPlaying).toBe(true);
+  });
+
+  it('546: an enemy whose walk loop began out of earshot is heard once the camera flies to it', async () => {
+    const { camera, manager } = setup();
+    manager.setGeoToLocal((lat, lon, height, target) => target.set(lat, height, lon));
+    const zombie = new Walker();
+    zombie.transform.setPosition(3 * D, 0, 0);
+    const sink: LoopFlagSink = { hasAudioLoops: false };
+    const audio = new AudioComponent(zombie, sink);
+    audio.registerSound('moving', 'walk.mp3', { loop: true });
+    audio.initialize(manager);
+    await manager.getBuffer(`${zombie.id}_moving`);
+
+    await audio.play('moving', true);
+    expect(sink.hasAudioLoops).toBe(true);
+    audio.update(16);
+    expect(reg.positional).toHaveLength(0);
+
+    flyTo(camera, 3 * D - 10);
+    audio.update(16);
+    expect(lastPositional().isPlaying).toBe(true);
+    expect(lastPositional().parent?.position.x).toBe(3 * D);
   });
 
   it('546: walk and flame loops come back at the SFX volume set in the pause', async () => {
@@ -923,15 +976,15 @@ describe('SpatialAudioManager around the pause (playtest 546, 548)', () => {
 
     // The camera flies to a second ooze. OozeBodies.present runs only in
     // frames with a sub-step, none in the pause (GameStateManager spec); were
-    // it called, the loop would start held.
+    // it called, the loop would wait without audio until the game goes on.
     flyTo(camera, 3 * D);
     sounds.follow('ooze-2', manager, 3 * D + 5, 0, 0);
     await settle();
-    const second = lastPositional();
-    expect(second).not.toBe(first);
-    expect(second.isPlaying).toBe(false);
+    expect(reg.positional).toHaveLength(1);
 
     manager.holdLoops(false);
+    const second = lastPositional();
+    expect(second).not.toBe(first);
     expect(second.isPlaying).toBe(true);
     // Left behind, out of earshot
     expect(first.isPlaying).toBe(false);

@@ -34,7 +34,7 @@ Facade-Klasse fuer 3D-Audio. Delegiert an fünf Helper:
   `playGlobal`, One-Shot-Verwaltung, Anti-Flood-Fenster, Polyphony-Caps,
   Projektil-Budget, Voice-Stealing.
 - `SpatialAudioLoops` (`spatial-audio-loops.ts`): Loops per Handle, Pausieren
-  außerhalb der Hörweite, Enemy-Budget pro Loop.
+  außerhalb der Hörweite, späterer Einstieg wartender Loops, Enemy-Budget pro Loop.
 - `EnemySoundBudget` (`enemy-sound-budget.ts`): Obergrenze gleichzeitig hörbarer
   Enemy-Sounds.
 
@@ -79,20 +79,20 @@ spatialAudio.playGlobal('music');
 
 **Loop Sounds (zentral verwaltet):**
 ```typescript
-// Loop erstellen - gibt Handle zurück
+// Loop erstellen - gibt Handle zurück, auch außer Hörweite oder bei vollem Budget (wartet dann)
 const handle = await spatialAudio.createLoop('zombie_walk', position, {
   volumeMultiplier: 1.0,
   randomStart: true,
 });
 
-// Position aktualisieren (inkl. automatisches Distance-Culling)
+// Position aktualisieren (inkl. Distance-Culling; ein wartender Loop steigt hier ein)
 spatialAudio.updateLoopPosition(handle, newPosition);
 
 // Manuell pausieren/fortsetzen
 spatialAudio.pauseLoop(handle);
 spatialAudio.resumeLoop(handle);  // false wenn Budget erschöpft oder das Spiel pausiert
 
-// Spielpause (GameStateManager): alle Loops stehen, neue starten pausiert
+// Spielpause (GameStateManager): alle Loops stehen, neue warten
 spatialAudio.holdLoops(true);
 spatialAudio.holdLoops(false);    // Loops in Hörweite laufen weiter
 
@@ -194,11 +194,17 @@ getSoundPoolStats(): SoundPoolStats    // Gesamtstatistik (Debug)
 ```
 
 **Automatisches Budget-Management:**
-- Bei `createLoop()`: Budget wird sofort reserviert (Race-Condition-sicher). Liegt der
-  Punkt schon beim Anlegen jenseits von 500 m, gibt `createLoop()` `null` zurück und
-  es entsteht kein Loop.
+- Bei `createLoop()`: Liegt der Punkt in Hörweite, läuft das Spiel und ist ein Slot frei,
+  nimmt der Loop ihn und startet. Sonst gibt `createLoop()` trotzdem ein Handle zurück: Der
+  Loop wartet pausiert, ohne Slot und ohne `PositionalAudio`, und steigt beim ersten
+  `updateLoopPosition()` ein, das ihn in Hörweite findet, während ein Slot frei ist, oder beim
+  Fortsetzen (`holdLoops(false)`). `null` gibt es nur für einen unbekannten Sound oder einen
+  ohne Buffer.
 - Bei Distance-Culling Pause: Budget wird freigegeben
-- Bei Resume: Budget wird erneut angefragt (kann fehlschlagen)
+- Bei Resume: Budget wird erneut angefragt (kann fehlschlagen, dann beim nächsten
+  Positions-Update wieder). Einen Vorrang für nahe Gegner gibt es nicht: Den freien Slot
+  bekommt der Loop, dessen Positions-Update zuerst kommt, bei Gegnern also in der
+  Reihenfolge des `EnemyManager`.
 - Bei `stopLoop()`: Budget wird freigegeben, sofern der Loop nicht pausiert war
 
 ## LRU Buffer Cache
@@ -325,6 +331,11 @@ zombie: {
 this.audio.play('moving', true);
 ```
 
+`play('moving', true)` läuft einmal pro Gegner. Liegt der Gegner dann außer Hörweite oder ist das
+Budget voll, wartet sein Loop; `AudioComponent.update()` führt ihn jeden Sub-Step nach, und er
+setzt ein, sobald die Kamera in Hörweite ist und ein Slot frei ist. Vorher blieb so ein Gegner
+sein ganzes Leben stumm.
+
 ### Ooze-Sounds (Loop am Körper, One-Shots in Spielzeit)
 Die Ooze hat kein Modell und keinen `movingSound`. Ihre Sounds spielt `OozeSounds`
 (`managers/ooze-sounds.ts`), angetrieben von `OozeBodies`; Werte in `OOZE_SOUNDS`
@@ -345,7 +356,7 @@ Die Ooze hat kein Modell und keinen `movingSound`. Ihre Sounds spielt `OozeSound
   dort noch kein Loop: `presentFrame` und damit `OozeSounds.follow` laufen nur in Frames mit
   mindestens einem Sub-Step (`GameStateManager.update`), in der Pause also nicht. Der Loop entsteht
   mit dem ersten Frame nach dem Fortsetzen. Ein `createLoop`, das erst in der Pause fertig wird (etwa
-  weil es beim Pausieren noch lud), startet pausiert. Beim Weiterspielen laufen die Loops in Hörweite
+  weil es beim Pausieren noch lud), wartet ohne Ton bis zum Fortsetzen. Beim Weiterspielen laufen die Loops in Hörweite
   weiter, Gegner-Loops soweit das Budget reicht; die übrigen beim nächsten Positions-Update wie gehabt.
   Boss-Intro und Replay pausieren über denselben Weg (`GameStore.paused`).
 - **One-Shots:** Splat beim Kill am Körperpunkt nächst dem Listener, Schlürfen alle 3 m
@@ -385,6 +396,8 @@ eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height
 - Sounds jenseits von 500m werden automatisch pausiert
 - Bei Pause: Enemy-Budget wird freigegeben
 - Bei Resume: Budget wird erneut angefragt
+- Ein wartender Loop hat noch kein `PositionalAudio`, es entsteht erst beim Einstieg. Solange
+  das Enemy-Budget voll ist, prüft ein wartender oder pausierter Gegner-Loop die Distanz nicht
 
 ### Memory Leak Prevention
 - **setTimeout-Referenzen**: Alle Timer werden getrackt und bei Cleanup gecleaned
@@ -393,8 +406,10 @@ eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height
 - **Audio-Cleanup**: PositionalAudio wird bei Rückgabe gestoppt, aus Parent entfernt und disconnected
 
 ### Race Condition Fix
-- Enemy-Sound-Budget wird SOFORT in `createLoop()` reserviert (vor await-Calls)
-- Verhindert Budget-Überschreitung bei parallelen Sound-Anfragen
+- `createLoop()` nimmt den Enemy-Slot erst nach seinen awaits, im selben synchronen Schritt
+  wie die Prüfung und den Start. Parallele Anfragen können das Budget so nicht überbuchen
+- `createLoop()` kopiert die Position vor den awaits; der Aufrufer darf seinen Vektor
+  weiterverwenden
 - `AudioComponent.play()` hält pro Loop-ID ein Token, solange `createLoop()`
   noch läuft. `stop()`, `stopAll()`, `onDestroy()` und ein neueres `play()`
   derselben ID machen es ungültig; ein Loop, der danach ankommt, wird sofort
