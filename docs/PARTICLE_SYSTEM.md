@@ -484,6 +484,10 @@ Zurück zum alten Bild: `EXPLOSION_LOOK.fire.sizeEnd = 0` und `smokePuffs = 0` i
 `MushroomCloudRenderer` (`three-engine/renderers/mushroom-cloud.renderer.ts`), Werte in
 `MUSHROOM_CLOUD_LOOK`, seit 2026-09-13. `VFXService` ruft `engine.mushroomClouds.detonate`
 beim `ability:impact`; die Phasen stehen in [ABILITIES.md](ABILITIES.md#darstellung).
+Die Glut schreibt `CloudGlow` (`mushroom-cloud-glow.ts`), den Rauch samt Sortierung
+`CloudSmoke` (`mushroom-cloud-smoke.ts`), beide aus der Form von `CloudShape`
+(`mushroom-cloud-shape.ts`); Ring, Dom, Blitz und Bildschirmblitz stehen in `CloudBlast`
+(`mushroom-cloud-blast.ts`), die Puffer-Helfer in `effect-buffers.ts`.
 
 - **Spielzeit:** `ThreeTilesEngine.update` reicht den Frame in Spielzeit weiter
   (Wanduhr mal Timescale, in der Pause 0). Jedes Partikel ist eine Funktion aus dem
@@ -772,6 +776,7 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/floating-text/floating-text-atlas.ts` | Prozedurale Text-Atlas-Generierung |
 | `three-engine/renderers/sprite-atlas-generator.ts` | Sprite-Sheet-Atlanten (Explosion 4×4, Smoke 4×4) |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Nuklearschlags, in Spielzeit |
+| `three-engine/renderers/mushroom-cloud-shape.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Teile des Atompilzes: Form, Glut, Rauch, Ring/Dom/Blitz |
 | `configs/projectile-types.config.ts` | Trail-Partikel Konfiguration (TrailParticleConfig) |
 | `configs/visual-effects.config.ts` | Partikel-Limits, Decal-Configs, Explosion-Presets, Farben |
 | `game-engine/vfx.service.ts` | VFX Event Handler (Blood, Explosion, Muzzle-Flash, Projectile Impact) |
