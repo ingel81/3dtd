@@ -64,7 +64,7 @@ describe('A cell under an eave in __corridor (playtest 567, orange cells left ou
       },
       getTowerShadowMapper: () => ({ getReferencePos: () => ({ x: 20, z: -6 }) }),
       getCamera: () => ({ position: { x: 20, y: 60, z: -40 } }),
-      terrain: { raycastColumnSample: street, raycastLineOfSight: () => false },
+      terrain: { raycastColumnSample: street, raycastLineOfSight: () => false, inspectColumn: () => null },
     };
     const towerManager = { getSelected: () => TOWER, getById: () => TOWER, getSelectionViz: () => null };
     corridor = new CorridorConsole({

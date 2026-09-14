@@ -790,7 +790,7 @@ __corridor.pick(6)
   LOS-Anzeige".
 - **`pick`** nimmt den nächsten Linksklick auf die Karte, ohne etwas auszuwählen
   oder zu bauen (`InputHandlerService.armPick`, `input-handler.service.ts:239`).
-  Danach stehen zwei Ausgaben in der Konsole.
+  Danach stehen drei Ausgaben in der Konsole.
   1. `[Corridor] pick at x,z: N spots within r m`: je Rasterstelle im Umkreis,
      die nächste zur Mittellinie zuerst (`RouteCellProbe`,
      `route-grid-diagnostics.ts:101-118`).
@@ -817,7 +817,15 @@ __corridor.pick(6)
        liegt nur auf der Mittellinie, daneben steht der Punkt für die
        Gegner auf der Zelle. `false` heißt: Linie und Gegner auf dieser
        Zelle sind von hier aus verdeckt.
-  2. `[Corridor] width at the nearest route station`: woher die Breite an der
+  2. `[Corridor] column at the click` (`TerrainQueries.inspectColumn`, nicht
+     in DevWorld): die Säule an der Klickstelle, `cached` wie der
+     Säulen-Cache sie hält (das lesen Zellen und Overlay), `fresh` aus einem
+     neuen Strahl, und unter `hits` jeder Treffer dieses Strahls als
+     Höhe@Tiefe/geometricError, von oben. Unterscheidet eine Straße unter
+     einem Deck, die kein Treffer zeigt, eine nur in einem gröberen Tile
+     (verworfen) und eine, die der Cache noch nicht kennt (siehe Befund
+     Erlenbach).
+  3. `[Corridor] width at the nearest route station`: woher die Breite an der
      nächsten Station kommt (`explainCorridorAt`,
      `path-route.service.ts:776-889`).
      - Die Station: Way, `tags` (`width`, `lanes`, `bridge`, `tunnel`,
@@ -935,6 +943,36 @@ Was der Code dazu sagt:
   Oberkante 79,8 bis 80,2 m, nächste Station auf Way 1423074549 (2 m, ohne
   `bridge`). Seitdem tragen solche Ways das Deck weiter (siehe Zellhöhe,
   Fortsetzung des Decks).
+
+**Befund Erlenbach** (Playtest 2026-09-14, offen): Route `spawn-1` auf der
+Weinsberger Straße (Way 31361736, ohne Tags) unter einer Autobahnbrücke,
+die kein Way der Route ist. Zellen und Gegner lagen auf dem Deck,
+`maxCellAboveStreetM` 10,1. Keine Regel der Zellen hebt sie dorthin: Der
+Way ist weder Brücke noch Fortsetzung, das Lückenfüllen greift nur bei
+Zellen ohne eigene Probe oder mehr als 50 m neben den Nachbarn, Dach- und
+Stufen-Check ändern keine Höhen. Die Zellen nehmen den untersten Treffer der
+feinsten LOD ihrer Säule; dort war also beim Sampling keine Straße. Drei
+mögliche Ursachen, alle in der Säulenprobe (`column-sample.ts`,
+`terrain-queries.ts`), die ersten beiden in `terrain-queries.spec.ts`
+(`inspectColumn()`) mit Fake-Tiles nachgestellt:
+
+- a) Das Deck liegt in einem tiefer verfeinerten Tile als die Straße
+  darunter. `selectColumnSample` behält nur die feinste LOD (gegen die
+  grobe Hülle) und verwirft die Straße.
+- b) Das Tile der Straße kam mit gleicher Tiefe nach dem des Decks. Der
+  Säulen-Cache (`sampleColumn`) und der LOD-Peek einer stabilen Zelle
+  (`sampleCellY`) proben nur neu, wenn ein besseres LOD da ist, und bleiben
+  beim Deck: der Cache bis `clearHeightCache` (Höhen-Update beim Laden,
+  Ortswechsel), die Zelle bis zum nächsten Neuaufbau.
+- c) Die Photogrammetrie hat unter dem Deck keine Straße.
+
+`__routes.describe()` fand die Straße über die Querproben 3 und 6 m neben
+der Mittellinie. Welche Ursache greift, zeigt `pick()` mit
+"[Corridor] column at the click" (siehe Diagnose): a) `fresh` auf dem Deck,
+unter `hits` ein Treffer auf Straßenhöhe mit kleinerer Tiefe; b) `fresh` auf
+der Straße, `cached` auf dem Deck; c) kein Treffer auf Straßenhöhe. Nicht
+geändert: Jede Änderung dort trifft jede Säulenprobe (Zellen, Tower,
+Overlay).
 
 Ein `__corridor.pick()` je Stelle trennt die Fälle:
 
