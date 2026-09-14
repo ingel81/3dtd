@@ -13,6 +13,7 @@ import {
   Vector3,
 } from 'three';
 import { LightningBoltRenderer, type BoltOptions } from './lightning-bolt.renderer';
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 describe('LightningBoltRenderer', () => {
   let scene: Scene;
@@ -61,6 +62,9 @@ describe('LightningBoltRenderer', () => {
     expect(material.side).toBe(DoubleSide);
     expect(material.vertexShader).toContain('#include <logdepthbuf_vertex>');
     expect(material.fragmentShader).toContain('#include <logdepthbuf_fragment>');
+    // Additive light in display values, written for the target
+    expect(material.fragmentShader).toContain(DISPLAY_OUTPUT_GLSL);
+    expect(material.fragmentShader).toContain('gl_FragColor = displayLight(vec4(col * vIntensity, alpha));');
 
     // One GPU buffer carries all per-instance data.
     for (const name of ['aEnd', 'aTiming', 'aShape']) {

@@ -6,7 +6,11 @@
  * - Swirling Voronoi-like patterns
  * - Pulsating glow effect
  * - Additive blending for glowing magic
+ * - Light in display values, written for the target (displayLight,
+ *   display-output.ts)
  */
+
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 export const MAGIC_ORB_VERTEX = /* glsl */ `
   #include <common>
@@ -35,6 +39,8 @@ export const MAGIC_ORB_VERTEX = /* glsl */ `
 export const MAGIC_ORB_FRAGMENT = /* glsl */ `
   precision highp float;
   #include <logdepthbuf_pars_fragment>
+
+  ${DISPLAY_OUTPUT_GLSL}
 
   uniform float uTime;
   uniform vec3 uColor1;      // Base color (e.g., deep purple)
@@ -132,8 +138,8 @@ export const MAGIC_ORB_FRAGMENT = /* glsl */ `
     // === Sphere fade at edges for soft appearance ===
     float sphereFade = 1.0 - sqrt(fresnel);
 
-    // Output with additive-friendly alpha
-    gl_FragColor = vec4(finalColor, sphereFade * 0.9);
+    // Additive light with additive-friendly alpha, written for the target
+    gl_FragColor = displayLight(vec4(finalColor, sphereFade * 0.9));
 
     #include <logdepthbuf_fragment>
   }

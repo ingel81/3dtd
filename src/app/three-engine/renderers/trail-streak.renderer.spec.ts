@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { BufferAttribute, Mesh, Scene, Vector3 } from 'three';
+import { AdditiveBlending, BufferAttribute, Mesh, Scene, ShaderMaterial, Vector3 } from 'three';
 import { TrailStreakRenderer, getTrailStyle } from './trail-streak.renderer';
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 /**
  * Flies a rocket straight along +x, `step` metres between two pushes (one
@@ -34,6 +35,21 @@ function rocketStreak(step: number, pushes: number): { length: number; head: Vec
 }
 
 describe('TrailStreakRenderer', () => {
+  it('writes every trail as additive light for the target, with log depth', () => {
+    const trails = new TrailStreakRenderer(new Scene());
+    const materials = new Set(
+      (trails as unknown as { materials: Map<string, ShaderMaterial> }).materials.values(),
+    );
+    expect(materials.size).toBeGreaterThan(0);
+    for (const material of materials) {
+      expect(material.blending).toBe(AdditiveBlending);
+      expect(material.fragmentShader).toContain(DISPLAY_OUTPUT_GLSL);
+      expect(material.fragmentShader).toContain('gl_FragColor = displayLight(vec4(vColor * uEmissiveIntensity, vAlpha));');
+      expect(material.fragmentShader).toContain('#include <logdepthbuf_fragment>');
+    }
+    trails.dispose();
+  });
+
   it('draws the rocket glow equally long at any frame rate and game speed', () => {
     const { length } = getTrailStyle('rocket');
     // A rocket (120 m/s) flies 2 m per frame at 60 FPS, 4 m at 30 FPS or
