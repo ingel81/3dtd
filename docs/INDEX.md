@@ -74,6 +74,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
+| [PLAYTEST.md](PLAYTEST.md) | Aktuell (laufende Liste) | Offene Playtest-Punkte, Datenpunkte und Entscheidungen für die nächste Session; die alten Playtest-Listen der Reviews verweisen hierher |
 | [REVIEW_FIX_2026-09-14.md](REVIEW_FIX_2026-09-14.md) | Bericht (Playtest offen) | Fix-Session nach dem Playtest 2026-09-14 auf `sprint/night-2026-09-14`: Änderungen je Thema mit Revert-Probe, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 501 |
 | [REVIEW_SPRINT_2026-09-14.md](REVIEW_SPRINT_2026-09-14.md) | Bericht (Playtest offen) | Nachtschicht 2 auf `sprint/night-2026-09-14`: Änderungen je Feature mit Commit-Bereichen und Revert-Probe, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 301 |
 | [REVIEW_SPRINT_2026-09-13.md](REVIEW_SPRINT_2026-09-13.md) | Bericht (Playtest offen) | Nachtschicht auf `sprint/night-2026-09-13`: Änderungen, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 101 |
@@ -128,7 +129,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...das UI stylen | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | ...einen Bug fixen | [TODO.md](../TODO.md) |
 | ...wissen, was schon fertig ist | [DONE.md](../DONE.md) |
-| ...den laufenden Playtest-Stand sehen | [REVIEW_FIX_2026-09-14.md](REVIEW_FIX_2026-09-14.md) → Playtest-Liste ab 501 zuerst, dann [REVIEW_SPRINT_2026-09-14.md](REVIEW_SPRINT_2026-09-14.md) → Playtest-Liste ab 301, offene Punkte der Nacht 1 in [REVIEW_SPRINT_2026-09-13.md](REVIEW_SPRINT_2026-09-13.md) und [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) |
+| ...den laufenden Playtest-Stand sehen | [PLAYTEST.md](PLAYTEST.md) |
 | ...einen neuen Tower erstellen | [TOWER_CREATION.md](TOWER_CREATION.md) |
 | ...einen neuen Enemy erstellen | [ENEMY_CREATION.md](ENEMY_CREATION.md) |
 | ...wissen, wie teuer ein Gegnermodell ist | [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) |
