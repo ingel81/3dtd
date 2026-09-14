@@ -143,6 +143,18 @@
         Reichweiten-Eintritt, Gift-Ticks, Event-Reihenfolge).
       SoA siehe Backlog, verworfen.
 
+- [ ] **20k-Benchmark gegen den Stand vor dem Terrain-/Performance-Umbau**
+      Aus der Playtest-Liste verschoben (REVIEW_SPRINT_2026-09-12.md, alte Liste
+      16, Playtest 2026-09-14): Messaufgabe, kein Klicktest. 20k Gegner auf
+      demselben Ort und derselben Kamera einmal auf `02278dc` und einmal auf dem
+      aktuellen Stand messen (FPS, Frame-Zeit, Chrome-Trace je Sub-Step), damit
+      belegt ist, dass der Umbau nicht langsamer ist. Vergleichsstand in einem
+      eigenen Worktree bauen.
+      Dazu aus der Nacht-1-Liste 157 (REVIEW_SPRINT_2026-09-13.md): derselbe
+      20k-Lauf gegen `39fbb18` (vor der Nachtschicht 1) mit FPS, GPU-Speicher
+      und Tab-Speicher, um die VAT-Umstellung (Half Float, opak, nur GPU) zu
+      belegen.
+
 ## 1.5 Render-/GPU-Hebel aus Deep-Dive 2026-05 (verschoben, messgestützt)
 
 > Aus PR #5 / [PERF_BUG_ANALYSIS_2026-05-28.md](docs/PERF_BUG_ANALYSIS_2026-05-28.md).
@@ -175,6 +187,13 @@
       (unlit) und `MeshStandardMaterial` (lit). Ein Teil der Tiles rechnet die
       Szenenlichter also doch; der Anteil ist nicht gemessen. Offen: Anteil
       messen, dann Lichter reduzieren oder die Tiles einheitlich unlit machen.
+
+- [ ] **Ladezeit und GPU-Speicher gegen `412cbff` messen**
+      Aus der Playtest-Liste verschoben (REVIEW_SPRINT_2026-09-12.md, alte Liste
+      29, Playtest 2026-09-14): Messaufgabe gegen einen alten Stand, kein
+      Klicktest. Gleicher Ort, kalter und warmer Cache, jeweils Zeit bis
+      spielbar und GPU-Speicher (Chrome Task-Manager bzw. `__perf.stats`),
+      alter Stand in einem eigenen Worktree.
 
 ## 1.6 Befunde aus dem Sprint 2026-09-11 (nicht behoben)
 
@@ -250,6 +269,24 @@
       zurückgehaltene Nachmessungen kommen nach etwa 3 s (`9a6aa37`). Offen:
       gemeinsame Zellen zweier Routen auf verschiedenen Ebenen, Neuaufbau
       synchron. Playtest steht aus.
+      **Playtest 2026-09-14** (alte Liste 41): Die Breite folgt Parkstreifen,
+      Vorgärten und Fassaden, schmale Gassen entstehen, wo die Häuser es
+      vorgeben. Aber parkende Autos (etwas höher als die Straße) und Vorgärten
+      zählen noch zu sehr als begehbare Zellen, obwohl der Höhenunterschied sie
+      vermutlich trennen würde; Screenshots zeigen Zellen auf einem geparkten
+      Transporter in einer Gasse, daneben orange (vom Dach-Check auf den Boden
+      gesetzte) Zellen. Ansatz prüfen: Zellen, die deutlich über ihren
+      Nachbarn in Straßenmitte liegen, aus dem Laufweg nehmen oder auf den
+      Boden setzen, ohne echte Stufen und Rampen zu verlieren. Verwandt: die
+      Sockel-Boden-Regel aus fix1/fix4 (Autos erkennen) in
+      `utils/tower-footprint.ts`.
+      **Playtest 2026-09-14** (alte Liste 44, Rothenburg): Viele orange,
+      also vom Dach-Check auf den Boden gesetzte Zellen (`clamped`) liegen in
+      der Draufsicht im Haus oder unter dem Dach statt auf der Straße. User:
+      solche Zellen sollten meist gar nicht nutzbar sein. Prüfen, ob der
+      Dach-Check sie weglassen statt auf den Boden setzen soll, und wie weit
+      sie heute Laufweg (seitlicher Versatz im Korridor), Zielwahl und LOS
+      beeinflussen.
 
 - [ ] **Gegnermodelle: Blender-Runde**
       Reihenfolge laut `docs/ENEMY_MODEL_BUDGET.md`: Hornet (69 297
@@ -612,6 +649,10 @@
       bleibt der alte Wert bis zum nächsten Leeren (ungeprüft, ob das
       vorkommt). Research-Queue: Wer auf eine Voraussetzung wartet, lässt
       spätere Einträge vor (neue Regel, mit Frost, EMP und Laser ungetestet).
+      Entscheidung offen (User, Playtest 2026-09-14 zu alter Liste 36): ob ein
+      gesperrter Knoten überhaupt anklickbar sein und seine fehlenden
+      Voraussetzungen mit einreihen soll (`7914062f`), oder wie vorher gesperrt
+      bleibt.
       Der Beschwörungskreis ist mit Bloom exakt gleich hell nur über einer
       Straße der Helligkeit 0,3 (`CIRCLE_STREET` in
       `three-engine/renderers/marker/spawn-portal-glow-material.ts`).
@@ -674,6 +715,83 @@
       untersucht.
 
 ---
+
+## 1.10 Befunde aus dem Playtest 2026-09-14 (gesammelt, nicht behoben)
+
+> Gesammelt beim Durchgehen der offenen Playtest-Listen auf
+> `sprint/night-2026-09-14`; gefixt wird in einer eigenen Session. Weitere
+> Befunde dieses Playtests stehen bei ihren Themen: Korridor (Autos und
+> Vorgärten, orange Zellen im Haus) in 1.7 "Routenkorridor: Restpunkte",
+> Run-Dump und zurückgestellte Balance-Punkte in 2.2.
+
+- [ ] **Route unter einer Brücke: Gegner, Zellen und Linie verschwinden**
+      Paris, Brücke vor dem Eiffelturm (alte Liste 14): Die Route läuft am Quai
+      an den Brückenköpfen vorbei, an zwei größeren Stellen verschwinden dort
+      Gegner, Zellen und Routenlinie. Vermutung (unbelegt): die Straße führt
+      unter den Brückenrampen durch, OSM markiert das nicht als Tunnel, die
+      Tiles verdecken alles darunter. Diagnose: `__corridor.pick()` an der
+      Stelle, `__routes.describe()` (Tags), `__rg.dumpCellsInBox` um die
+      Pick-Koordinaten.
+- [ ] **Upgrade per U ohne sichtbares Feedback** (Nacht-1-Liste 105): Beim
+      Drücken von U mehr sichtbare Rückmeldung (Aufblitzen des Towers, Zahl,
+      Panel-Hinweis), auch wenn nichts bezahlbar ist.
+- [ ] **Tastenübersicht prominenter öffnen** (105): Sie geht mit H oder ?,
+      braucht aber einen sichtbaren Knopf in der Oberfläche.
+- [ ] **Intro-Flug: nur Esc und Maus brechen ab** (106): Heute bricht jede
+      Taste das Intro ab, und der Sprung (Pos1, N) folgt nicht. Wunsch: nur Esc
+      und Mausklick brechen ab, andere Tasten wirken erst nach dem Intro oder
+      gar nicht.
+- [ ] **Hover-Reichweite beim Ziehen auf dem Tower** (107): Drückt man die
+      Maustaste auf dem Tower, um die Kamera zu ziehen, erscheint die
+      Reichweite trotzdem; sie soll bei gedrückter Taste ausbleiben.
+- [ ] **Screenshot: Logo als Wasserzeichen und URL** (Nacht-1-Liste 145):
+      Beim "Save screenshot" im Photo Mode zusätzlich das Logo als
+      Wasserzeichen und unten links dezent `https://3dtd.sgeht.net`
+      einbacken.
+- [ ] **Onboarding-Tipps überarbeiten** (146): Die Funktion geht, aber der
+      frühe Tipp zum Research Center ist unsinnig; Reihenfolge und Inhalt der
+      Tipps neu festlegen.
+- [ ] **Fähigkeiten erst nach der Forschung in der linken Leiste** (User):
+      Heute stehen gesperrte Fähigkeiten gedimmt mit Schloss von Anfang an in
+      der Leiste (Entscheidung der Nachtschicht 2, `3769d8e3`). Wunsch: ein
+      Knopf erscheint erst, wenn seine Forschung fertig ist.
+- [ ] **Blutmond-Scheinwerfer an die Turmdrehung koppeln** (User): Der Kegel
+      soll in Schuss- bzw. Blickrichtung des Turms zeigen und mit ihm drehen,
+      statt unabhängig um die Wachrichtung zu schwenken
+      (`three-engine/renderers/searchlight/`).
+- [ ] **HQ umsetzen in dichter Stadt: lange Bedenkzeit ohne Rückmeldung**
+      (User, z. B. Paris): Nach dem Umplatzieren des HQ vergeht spürbar Zeit
+      (Route, Korridor-Messung, Grid-Neubau), ohne dass die Oberfläche etwas
+      zeigt. Fortschritt oder zumindest einen Hinweis anzeigen; vorher messen,
+      welcher Schritt die Zeit kostet (`[Corridor] clearance`/`rebuild`,
+      Routensuche).
+- [ ] **Beim Ortswechsel bleibt der alte Korridor sichtbar** (User): Während
+      ein neuer Ort lädt, sieht man noch den Korridor bzw. die Zellen (falls
+      das Overlay an ist) des alten Orts. Beim Start des Ladens abräumen.
+- [ ] **Portal an einer Kurve falsch ausgerichtet; Spawn drehbar machen**
+      (User, Screenshots `C:\Users\joerg\Pictures\Screenshots\Screenshot
+      2026-09-14 105455.png` und `105627.png`): Beginnt die Route an einer
+      Kurve (Kreisverkehr), steht das Tor quer zur Route; die Route verlässt es
+      seitlich am Pfeiler, die Gegner laufen durch die Wand des Portals.
+      Ausrichtung am tatsächlichen Routenverlauf der ersten Meter statt am
+      ersten Segment prüfen. Dazu: beim manuellen Setzen oder Verschieben des
+      Spawns soll man ihn drehen können (etwa mit R wie beim Tower).
+- [ ] **Favoriten: Knopf weg bei 10 Einträgen, volles CRUD** (User): Mit 10
+      Favoriten verschwindet das Speichern, weil `canAddFavorite` fest
+      `favorites().length < 10` ist (`tower-defense.component.html:29`); die
+      Oberfläche sagt nicht, warum. Wunsch: Favoriten anlegen, umbenennen,
+      löschen (gibt es), ordnen; beim Speichern nur ein vorbefüllter,
+      änderbarer Namensvorschlag. Grenze klären (höher, weg oder mit Hinweis
+      "Liste voll").
+- [ ] **zombie_v2 ohne bewegte Vorschau** (User): In der Modellvorschau
+      (docs/MODEL_PREVIEW.md) steht zombie_v2 still, statt animiert zu laufen.
+- [ ] **Spawn-Vorschau immer rot** (Nacht-1-Liste 132): Beim Umsetzen des
+      Spawns ist die Portal-Vorschau am Cursor auch an gültigen Stellen rot;
+      das Setzen klappt und die Karte unten zeigt die Gültigkeit richtig.
+- [ ] **Einstellung "Impact Effects" ohne Wirkung** (Nacht-1-Liste 126): Der
+      Knochen-Puff beim Skeleton-Split bleibt auch ausgeschaltet. Prüfen,
+      welche Effekte die Einstellung abdecken soll und ob sie überhaupt noch
+      irgendwo gelesen wird.
 
 # PRIO 2 — Balance & Phase-5.16-Followups
 
@@ -747,6 +865,134 @@
       **Stand 2026-09-12:** Nach dem Balance-Umbau steigt der Puffer bis W30 von
       25 % auf 83 %. Wer W30 mit mehr als 150k Gold oder über 20 Towern
       erreicht: Gold für W16 bis W30 um 20 % kürzen (Vorschlag §2.5).
+
+- [ ] **Run-Dump je Welle als Feedbackschleife fürs Balancing**
+      Playtest 2026-09-14 (alte Liste 4, Balance bis W30): Ohne Daten je Welle
+      lässt sich die Balance nicht sinnvoll prüfen. Gewünscht ist ein
+      vollständiger Dump des ganzen Laufs von Welle 1 bis Game Over, als Datei
+      exportierbar, damit Claude beim Balancing und Feintuning die Sachlage
+      und den Verlauf auswerten kann. Nicht nur Einzelwellen, sondern der
+      komplette Verlauf:
+      - eine Zeitleiste aller Ereignisse mit Spielzeit und Welle (Bau, Upgrade,
+        Verkauf, Forschung, Fähigkeit, Held-Befehl, Leck, Boss-Spawn, Tod),
+      - Stichproben im Takt (etwa jede Sekunde Spielzeit: Gold, HQ-HP, lebende
+        Gegner, Gesamt-DPS der Verteidigung), damit Kurven über den ganzen Lauf
+        entstehen,
+      - dazu je Welle ein Abschluss-Datensatz:
+        - Gold: Stand zu Wellenstart und -ende, Einnahmen nach Quelle
+          (Kill-Gold, Abschlussbonus, Meilensteine, Cheat-Gold), Ausgaben nach
+          Zweck (Bau, Upgrade, Forschung, Fähigkeiten, Held), Verkäufe.
+        - Welle: Nummer, Template und Zusammensetzung, Director-Entscheidung
+          und Fairness-Gate-Werte, Boss-Variante (Wurm, Ooze), Blutmond, Dauer
+          in Spiel- und Wanduhrzeit, Tempo.
+        - Gegner: gespawnt, getötet (nach Quelle: Tower, Held, Fähigkeit),
+          Lecks, HQ-HP vorher und nachher.
+        - Tower: Typ, Position, Stufe und Upgrades, Schaden und Kills in dieser
+          Welle, Zielwahl; Forschung, Fähigkeiten (Einsatz, Wirkung), Held
+          (Stufe, Munition, Kills).
+      - ein Lauf-Kopf: Ort, Route, Build/Commit, Director-Modus, Cheats und
+        Wellensprünge (damit solche Läufe erkennbar sind), am Ende das
+        Ergebnis (erreichte Welle, Grund des Endes).
+      Dasselbe Format auch für Bot-/Trainingsläufe, damit Menschen- und Bot-Läufe
+      vergleichbar sind. Vorher prüfen, was schon erfasst wird (RunStats und
+      Game-Over-Übersicht, AIDataCollector und Snapshot-Teile des Encoders,
+      JSONL-Logs des Trainings-Backends) und darauf aufbauen statt ein zweites
+      System daneben zu stellen.
+      Richtung laut User (2026-09-14):
+      - Transport vermutlich über das Trainings-Backend (WebSocket :3001), das
+        die Läufe als Dateien in einen Ordner schreibt, den Claude lesen kann.
+      - Muss in echten Welten (Google 3D Tiles, beliebiger Ort) genauso gehen
+        wie in DevWorld, mit allen Inhalten (Held, Fähigkeiten, Bosse,
+        Blutmond, Forschung).
+      - Drei Datenquellen fürs Balancing: menschliche Spieler, die
+        Strategie-Bots und der Regel-Director. Das soll reichen; das
+        PPO/ONNX-Training ist vermutlich endgültig obsolet.
+      - Deshalb zuerst sichten, was aus der Trainings-Infrastruktur verwertbar
+        ist (WebSocket-Client, Server, Logger, AIDataCollector, Snapshot-Teile,
+        Bot-System, Training-Session, Dashboard) und was mit dem ONNX-Pfad
+        wegfallen kann (siehe "Re-Training auswerten": Entscheidung, ob der
+        ONNX-Pfad entfällt).
+      Bestand (Sichtung 2026-09-14, Pfade unter `src/app/`):
+      - `ai/core/ai-data-collector.service.ts:348` `onWaveResult()` meldet jede
+        Welle, auch die tödliche (bei `game:over` schließt der Collector sie
+        selbst ab, `:317`): bester Einhängepunkt. `WaveOutcome`
+        (`ai/core/models/wave-result.ts:37`) hat Spawns, Kills, Lecks,
+        Fähigkeits-Kills, HQ-Schaden, Fortschritt, Gegner je Typ; Lücken:
+        `towerPerformance` wird nie gefüllt, `enemyPerformance.totalDamageDealt`
+        bleibt 0, `preWaveSnapshot` wird nie gesetzt, Zeiten sind Wanduhr durch
+        Trainings-Tempo statt Spielzeit.
+      - `GameStateSnapshot` (`ai/core/models/game-state-snapshot.ts:15`) liefert
+        Gold, HP, Verteidigung (DPS je Rüstung, Abdeckung, Tower-Verteilung),
+        Lücken, DPS-Profil entlang der Route, Forschung.
+      - `services/infrastructure/run-stats.ts` (`RunStatsTracker`): nur
+        Run-Summen und Lecks/HQ-Schaden je Welle, nur im Speicher.
+      - Gold: jede Buchung sendet nur `credits:changed{credits, delta}` ohne
+        Quelle; die Aufteilung des Wellenbonus (Basis, Perfect, CloseCall,
+        Milestone, Comeback, Combo, `services/economy.service.ts:48`) wird nicht
+        gesendet, `wave:completed.credits` ist immer 0 (`managers/wave.manager.ts:449`).
+      - Director: `WaveConfig` mit Zusammensetzung kommt über
+        `command:start-wave`; die strukturierte Begründung
+        (`ai/core/decision-explainer.ts:39-66`) wird nicht gespeichert;
+        Fairness-Gate über `gate.status` (`ai/core/gate-controller.ts:88`).
+      - Backend: `training-backend/utils/logger.py:32` schreibt
+        `logs/training_*.jsonl` mit `wave_state`, `wave_generated`,
+        `wave_result`, nur wenn ein Trainingslauf verbunden ist. Fehler dabei:
+        `server.py:449` liest `outcome.perfect`, das Feld gibt es in
+        `WaveOutcome` nicht, im Log steht immer `None`.
+      - Download im Browser nur privat in `services/debug/debug-state-dump.service.ts:99`
+        (Dev-Knopf "Dump", ohne Spieldaten); keine gemeinsame Hilfe.
+      - Replay-Recorder (`replay/replay-recorder.ts`) sieht über `onAny` alle
+        Events der letzten Welle, speichert aber nichts dauerhaft.
+      **Anforderung (User 2026-09-14): alle Lücken schließen, "wirklich
+      perfekt".** Konkret heißt das:
+      - Jede Lücke oben ist behoben, nicht umgangen: Speicherung auch ohne
+        Trainingslauf, `towerPerformance` und Schaden je Gegnertyp gefüllt,
+        `preWaveSnapshot` gesetzt, Zeiten in Spielzeit, Gold-Buchungen mit
+        Quelle, Aufteilung des Wellenbonus gesendet, `wave:completed.credits`
+        korrekt, Director-Begründung strukturiert gespeichert,
+        `server.py`-Feld `perfect` repariert, eine gemeinsame Download-Hilfe.
+      - Die Daten gehen auf: Startgold + Summe der Einnahmen − Summe der
+        Ausgaben = Endgold je Welle und über den Lauf; gespawnt = getötet +
+        geleckt + noch lebend; Schaden und Kills je Tower summieren sich zu den
+        Wellensummen. Diese Abgleiche laufen als Specs und im Dump selbst als
+        Prüffelder.
+      - Gleiche Daten in DevWorld und echten Welten, bei 1x bis 75x, mit
+        Menschen, Bots und Director, mit allen Inhalten (Held, Fähigkeiten,
+        Wurm, Ooze, Blutmond, Wellensprung, Cheats markiert).
+      - Versioniertes, dokumentiertes Format (eigene Doku, z. B.
+        `docs/RUN_LOG.md`) und ein Auswerte-Skript, das einen oder viele Läufe
+        zu Kurven und Kennzahlen je Welle zusammenfasst.
+      - Kein spürbarer Laufzeit-Preis im Spiel (Budget festlegen und messen),
+        keine Allokationen im Sub-Step.
+      - Spielstand im Lauf-Kopf, damit nach einer Änderung nie ein Log eines
+        alten Stands mit einem neuen verglichen wird: Spielversion
+        (`BUILD_VERSION` aus `configs/build-info.config.ts`, heute `v0.2.0`,
+        per Hand mit `package.json` synchron), Git-Commit und Dirty-Flag (beim
+        Build eingebettet), ein Fingerabdruck (Hash) aller
+        balance-relevanten Configs (Curriculum, Tower, Gegner, Schadensmatrix,
+        Forschung, Fähigkeiten, Held, Boss-Varianten, Economy) und die
+        Format-Version des Dumps. Das Auswerte-Skript gruppiert nach
+        Fingerabdruck und warnt, wenn Läufe verschiedener Stände gemischt
+        werden. Nebenbefund: `ai/training/training-session.ts:502` meldet dem
+        Backend fest `gameVersion: '1.0.0'` statt der echten Version.
+      Balance-Fragen, die auf den Run-Dump warten (aus den Playtest-Listen
+      zurückgestellt oder offen als Entscheidung):
+      - REVIEW_SPRINT_2026-09-12.md: alte Liste 4 (Matrix, Boss-Takt, Gold bei
+        W30), 38 (Chaos an W16/W18), Entscheidung 2 (Chaos-Preis 200, Vorschlag
+        220 bis 250).
+      - REVIEW_SPRINT_2026-09-13.md: Entscheidung 1 (Atomschlag gegen Golem und
+        Dragon 60 statt 20 %), Befund 6 (Skeleton-Split ungespielt).
+      - Playtest-Eindruck des Users 2026-09-14: Ooze eher zu schwach, Chitin
+        Worm eher zu stark (Worm erst in einem vollständigen Durchlauf
+        bewerten).
+      - REVIEW_SPRINT_2026-09-14.md: Entscheidungen 2 (Held-Preise), 6 (Wurm
+        35 HP je Segment, bis 240), 8 (Ooze-Werte), 9 (Boss-Rotation), 12
+        (Veteranen-Schwellen aus Bot-Logs), 14 (Sprung-Gold), Befund 4
+        (Boss-Varianten ohne Fairness-Gate), Freischaltzeitpunkte der
+        Fähigkeiten nur geschätzt.
+      Verwandt: Live-Playtest Phase-5.16-Balance, Gold-Budget feinjustieren (oben),
+      1.7 "Bot-Läufe mit den neuen Inhalten", Backlog "Training Backend
+      Refactoring".
 
 - [x] **Stone Golem ins Wave-Curriculum aufnehmen** — erledigt 2026-08-27.
       `golem_squad` hat `minWave: 14`, steht auf W15 im Curriculum und ist über
@@ -982,6 +1228,12 @@
 
 ---
 
+- [ ] **Idee: Forschung als eigener Dialog mit echtem Forschungsbaum**
+      (User, 2026-09-14): statt der heutigen Liste ein eigener Dialog, der den
+      Baum visuell zeigt (Knoten, Voraussetzungen als Kanten, Fortschritt,
+      Queue). Verwandt: offene Entscheidung zur Queue mit Voraussetzungen
+      (1.9, Quickfix-Reste) und die neuen Knoten für Held und Fähigkeiten.
+
 # BACKLOG
 
 > Langfristig, bei Bedarf.
@@ -1048,6 +1300,19 @@
       **Stand 2026-09-13 (Nacht):** Der größte gemessene Brocken, die
       Korridor-Messung (520 ms am Stück), läuft in 4-ms-Scheiben (`879ad8b`).
       Entscheidung weiter nach dem Playtest.
+      **Messung Playtest 2026-09-14** (alte Liste 27, Details in
+      REVIEW_SPRINT_2026-09-12.md): Ein Strahl kostet 0,1 bis 0,45 ms. Beim
+      Laden eines echten Orts laufen gut 6 s Raycasts (`streets` 3,2 s mit
+      einem Burst von 502 ms, `routeGrid` 1,9 s mit 696 ms, `routeCorridor`
+      0,9 s). In einer Welle mit Platzieren 4,2 s in 101 s, davon
+      `towerFootprint` 1,6 s und `towerRange` 1,0 s; `towerRange` und
+      `routeGrid` haben dort Bursts von je 110 ms, also sichtbare Hänger beim
+      Setzen eines Towers. In Ruhe spielt die Kamera dank Cache kaum noch eine
+      Rolle (`cameraControls` 454 Aufrufe in 101 s).
+      Einschätzung: BVH lohnt sich für Laden und Platzieren, die Bursts beim
+      Setzen und die Sockel-Abtastung würden am meisten gewinnen; für die FPS
+      in einer ruhigen Welle bringt es wenig. Offen: Entscheidung, dann
+      Speicher und Aufbauzeit je Tile messen.
 - [ ] **Web Worker Offloading** - weitere rechenintensive Logik
       Pathfinding läuft bereits im Worker (`pathfinding-worker.service.ts`).
       Übrige Kandidaten (Collision-Checks, Wave-Director-Inference,

@@ -297,11 +297,16 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
    **ok** (Playtest 2026-09-12)
 4. Balance: Spreizung der Matrix spürbar, ab W31 jede fünfte Welle ein Boss,
    Gold bei W30 (über 150k oder mehr als 20 Tower: Gold W16 bis W30 kürzen).
+   **Zurückgestellt** (Playtest 2026-09-14): erst mit einem Run-Dump je Welle
+   sinnvoll prüfbar, siehe TODO 2.2 "Run-Dump je Welle als Feedbackschleife
+   fürs Balancing".
 
 **Verhaltensprüfung Terrain- und Performance-Umbau (TODO 1.1)**
 
 5. Gift bei Timescale 1× und 10×: gleiche Tick-Zahl und gleicher
    Gesamtschaden in Spielzeit.
+   **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`: Custom Wave 1
+   Tank, Poison-Tower, "Damage dealt" bei 1× und 10× genau gleich, je 186)
 6. Frost-Aura, Todesanimation und Health-Bars bei niedriger Framerate.
    **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`, FPS 30)
 7. Luft-Einheiten auf richtiger Flughöhe.
@@ -318,6 +323,16 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
    Zeilenende notieren (nur die Strahlen; `rays=` zählt zwei pro Station, die
    Säulen-Probe nicht) und bei langen Routen, ob die Karte kurz nach dem Laden
    hängt (Review-Befund 1).
+   **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, kein Hänger
+   gemeldet). Erste Messung vor den feinen Tiles misst nichts (`unmeasured`
+   = alle Stationen, `rays=0`), die zweite misst:
+   - Dorf: 58 Segmente, 484 Stationen, `unmeasured=2`, `rays=1928`,
+     `changed=true`, 796,5 ms in 242 Scheiben, Wanduhr 1684,6 ms.
+   - Größere Stadt: 79 Segmente, 742 Stationen, `unmeasured=1`, `rays=2964`,
+     1254,5 ms in 385 Scheiben, Wanduhr 2770,8 ms.
+   - Chiyoda (Tokio): 49 Segmente, 604 Stationen, `unmeasured=2`,
+     `rays=2408`, 1164,2 ms in 455 Scheiben, Wanduhr 3570,9 ms.
+   Die 1 bis 2 übrigen Stationen stehen jeweils als `noTile=` in der Zeile.
 10. `__routes.describe()`: residential 5.5, primary 8, `lanes`-Ways mit Quelle
     `lanes`, verengte Abschnitte mit `corridorM` als Spanne.
     **ok** (Playtest 2026-09-12: residential 5,5, `lanes` × 3 + 1, `width`-Tags
@@ -333,9 +348,23 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
     **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 14. Route über eine Brücke: Linie und Gegner auf dem Deck,
     `__rg.dumpCellsInBox` zeigt dort `surface: 'deck'`.
+    **Befund, Diagnose offen** (Playtest 2026-09-14 auf
+    `sprint/night-2026-09-14`): Paris, Brücke vor dem Eiffelturm. Die Route
+    läuft hier nicht über das Deck, sondern am Quai entlang an den
+    Brückenköpfen vorbei; an zwei größeren Stellen dort verschwinden Gegner,
+    Zellen und Routenlinie. Vermutung (unbelegt): Die Straße führt unter den
+    Brückenrampen durch, OSM markiert das nicht als Tunnel, und die
+    Tile-Geometrie verdeckt alles darunter. Nächster Schritt: an beiden Stellen
+    `__corridor.pick()` (Klick auf die Stelle), `__routes.describe()` (Tags
+    `bridge`, `tunnel`, `covered`, `layer`) und
+    `__rg.dumpCellsInBox({xMin, xMax, zMin, zMax})` um die Pick-Koordinaten.
+    Ein Ort mit einer Route über ein Brückendeck steht für den eigentlichen
+    Punkt noch aus.
 15. DevWorld: Straßen in drei Breiten, Korridor passt dazu.
     **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 16. 20k-Benchmark gegen den Stand vor der Runde (`02278dc`).
+    **Nach TODO verschoben** (Playtest 2026-09-14): Messaufgabe gegen einen
+    alten Stand, kein Klicktest; steht in TODO 1.4.
 
 **Tower**
 
@@ -381,10 +410,21 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
     **ok** (Playtest 2026-09-12)
 27. `__raycastStats(true)` nach dem Laden, dann eine Welle mit Platzieren,
     dann `__raycastStats()`: Werte für die BVH-Entscheidung.
+    **ok, gemessen** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`).
+    Laden (156 s ab Reset): `streets` 24 406 Aufrufe / 3209 ms (Burst 502 ms),
+    `routeGrid` 22 516 / 1924 ms (Burst 696 ms), `routeCorridor` 4078 / 935 ms,
+    `cameraControls` 3117 / 448 ms. Welle mit Platzieren (101 s):
+    `towerFootprint` 6055 / 1606 ms (0,265 ms je Strahl, Burst 11,5 ms),
+    `towerRange` 3440 / 963 ms (Burst 110,8 ms), `heightAtGeo` 1693 / 498 ms,
+    `streets` 1895 / 468 ms, `screenPick` 613 / 274 ms, `routeGrid` 1335 /
+    246 ms (Burst 110,1 ms), `cameraControls` 454 / 143 ms. Auswertung in TODO
+    "Performance: BVH für Terrain-Raycasts".
 28. Gegner sterben lassen (W1 zombie_v2, Penguin, Zombie Soldier, Mammoth,
     Stone Golem): kein Sprung auf Frame 0, zombie_v2 verschwindet liegend.
     **ok** (Playtest 2026-09-13 auf `sprint/night-2026-09-13`)
 29. Optional: Ladezeit und GPU-Speicher gegen `412cbff`.
+    **Nach TODO verschoben** (Playtest 2026-09-14): Messaufgabe gegen einen
+    alten Stand, kein Klicktest; steht in TODO 1.5.
 
 **Effekte**
 
@@ -404,18 +444,31 @@ Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
     150 m, keins ab 100 m statt 450 m (`SCREEN_SHAKE_CONFIG`).
 33. `await __perf.shakeBench(5)` (echte Tiles, Pause, Kamera still): `shake`
     sieht bei `traversals` und `tilesUpdateMs` aus wie `off`.
+    **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`): `off` 719
+    Frames, 6,95 ms, P95 7,6 ms, `tilesUpdateMs` 0,01, 0 Traversierungen;
+    `shake` 720 Frames, 6,95 ms, P95 7,7 ms, 0,01, 0; zum Vergleich
+    `camera-move` 1,75 ms Render, 0,74 ms Tiles-Update, 720 Traversierungen.
 34. HQ unter halbe HP: Feuer bleibt dicht; Game-Over-Inferno voll, nicht zu
     hell.
+    **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`; HP per
+    Rechtsklick auf den Cheat +HP gesenkt)
 35. Blut- und Eisflecken rund, etwa so groß wie vorher.
     **ok** (Playtest 2026-09-12)
 
 **Neue Inhalte**
 
 36. Chaos Rift erscheint nach Siege Engineering und Storm Mastery.
+    **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`). Offen als
+    Entscheidung: ob ein gesperrter Knoten anklickbar sein und seine fehlenden
+    Voraussetzungen mit einreihen soll (Nachtschicht 2, Commit `7914062f`),
+    entscheidet der User später; steht in TODO 1.9.
 37. Chaos Tower: Kristallturm in Welt und Build-Menü, Größe passt, der
     mittlere Kristall dreht sich, der Orb kommt aus der Spitze.
     **ok** (Playtest 2026-09-12; ein eigenes Modell kommt später)
 38. Chaos-Balance an W16 und W18: nur noch Chaos oder gar nicht?
+    **Zurückgestellt** (Playtest 2026-09-14): Balance erst mit dem Run-Dump je
+    Welle bewertbar, siehe TODO 2.2 "Run-Dump je Welle als Feedbackschleife
+    fürs Balancing".
 39. Skeleton auf W19: läuft vorwärts, Beine passen zum Tempo, Größe lesbar,
     liegt nach dem Tod kurz und verschwindet.
     **Befund** (Playtest 2026-09-12): sonst ok, Beine deutlich zu schnell.
@@ -584,13 +637,33 @@ Auch hier lief nichts im Browser.
 
 41. Korridor an einer Wohnstraße mit Parkstreifen: die Seite mit Parkstreifen
     oder Vorgärten breiter als die an einer Fassade; in Gassen eine Zellreihe.
+    **ok mit Befund** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`):
+    Grundsätzlich ja, schmale Gassen entstehen, wo die Häuser es vorgeben.
+    Parkende Autos (etwas höher als die Straße) und Vorgärten zählen aber noch
+    zu sehr als begehbare Zellen, obwohl der Höhenunterschied sie vermutlich
+    trennen würde (Screenshots: Zellen auf einem geparkten Transporter in einer
+    Gasse). Steht in TODO 1.7 (Routenkorridor).
 42. Die schmale Abzweigung: ein paar Sekunden ohne Tower warten, im Log
     `[Corridor] clearance` erscheint `changed=true`, der Korridor wird
     breiter. Sonst `__corridor.pick()` und Klick darauf, Ausgabe schicken.
+    **ok, über 9 belegt** (Playtest 2026-09-14): Die konkrete Abzweigung vom
+    12. September war nicht mehr nachstellbar. Der Mechanismus dahinter, das
+    Nachmessen nach dem Tile-Schub, greift laut Punkt 9 an drei Orten (erste
+    Messung auf groben Tiles ohne Strahlen, zweite mit `changed=true` und 1
+    bis 2 übrigen Stationen). Fällt wieder eine zu schmale Stelle auf:
+    `__corridor.pick()` dort, als neuer Befund.
 43. Die fehlende Mittelreihe: Route Grid Overlay an. Fehlt die Zelle dort,
     gibt es sie nicht; ist sie rosa, fehlt ihr die Höhenprobe; ist sie weiß,
     zeichnet nur die Tower-Anzeige sie nicht.
+    **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`): keine
+    fehlende Mittelreihe, nur weiße und orange Zellen gesehen.
 44. Straßenkante mit Traufe: Randzellen am Boden (orange Kontur im Overlay).
+    **Befund** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, Rothenburg
+    ob der Tauber): Es gibt viele orange Zellen, sie liegen aber in der
+    Draufsicht oft im Haus oder unter dem Dach statt auf der Straße. Der
+    Dach-Check setzt sie auf den Boden, statt sie wegzulassen; laut User
+    sollten solche Zellen meist gar nicht nutzbar sein. Offen, wie weit sie
+    Laufweg, Zielwahl und LOS beeinflussen. Steht in TODO 1.7 (Routenkorridor).
 45. `__corridor.set({ maxHalfWidth: 5 })` ohne Tower, dann `__corridor.reset()`.
     **ok** (Playtest 2026-09-12)
 46. Header: Labels, goldene Kante, Höhe unverändert.
@@ -625,6 +698,7 @@ Auch hier lief nichts im Browser.
     `__corridor.pick()` zeigt `surface tunnel`.
 54. Raketen bei Frame Limit 30 und bei 4x: das Düsenglühen bleibt etwa 6 m
     lang wie bei 60 FPS; die anderen Streaks ebenfalls unverändert lang.
+    **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 55. Explosion aus der Nähe: kein dunkler Punkt vor dem Rauch, der Rauch kommt
     weiter.
     **ok** (Playtest 2026-09-12)

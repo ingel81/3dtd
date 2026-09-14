@@ -780,83 +780,139 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
 101. Welle starten, P oder Pause-Knopf: Gegner, Projektile und Forschung
      stehen, Chip "PAUSED"; Partikel und HQ-Feuer laufen weiter. P setzt ohne
      Sprung fort.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 102. Vor W1: Tempo-Knopf sichtbar, + und - schalten 1x, 2x, 4x.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 103. Tower wählen, Sell: Knopf rot, "CLICK AGAIN TO SELL", zweiter Klick
      innerhalb 2,5 s verkauft, sonst zurück. Entf zweimal: ebenso.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 104. Tower-Karte gewählt (Build-Mode), START WAVE: Welle startet, Vorschau
      bleibt, Bauen geht weiter.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, mit dem neuen
+     Knopf "▶ WAVE N" und Space)
 105. Hotkeys: 1 wählt Archer, U kauft das erste bezahlbare Upgrade, Space
      startet die Welle, H oder ? zeigt die Übersicht, Esc schließt der Reihe
      nach Menü, Verkauf, Auswahl. Tippen im Ortsdialog löst nichts aus.
      Shift+P schaltet den Debug-Shader. Tastenkappe im Karten-Tooltip.
+     **ok mit Wünschen** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`):
+     U braucht mehr sichtbares Feedback beim Drücken; die Tastenübersicht geht,
+     sollte aber prominenter zu öffnen sein (eigener Knopf); Shift+P nicht
+     geprüft, weil unklar war, was man sieht. Wünsche in TODO 1.10.
 106. Pos1: Kamera gleitet in 0,6 s zum HQ; N reihum zu den Spawns; im Intro
      passiert nichts.
+     **ok mit Befund** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`):
+     Pos1 und N gleiten. Im Intro-Flug bricht aber jede Taste das Intro ab,
+     ohne dass der Sprung folgt; Wunsch: nur Esc und Maus brechen das Intro
+     ab. Steht in TODO 1.10.
 107. Maus über einen Tower ohne Build-Mode: Reichweite erscheint; nicht,
      während die Maustaste gedrückt ist.
+     **ok mit Befund** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`):
+     Hover zeigt die Reichweite. Drückt man die Maustaste aber auf dem Tower
+     selbst, um die Kamera zu ziehen, erscheint sie trotzdem. Steht in TODO
+     1.10.
 108. Tower-Panel, Targeting "Last": der Turm zielt auf den hintersten Gegner.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 109. Alle Research-Slots belegt, weitere Forschung klicken: "Queued · credits
      are paid when it starts", startet von selbst; X entfernt ohne
      Erstattung.
+     **Ersetzt** durch Nacht 2 (Queue nimmt Ketten, `7914062f`): siehe
+     REVIEW_SPRINT_2026-09-14.md Punkt 339.
 110. Checkbox "Auto-start" an: nach Wellenende 10 s Countdown mit Balken, P
      hält ihn an, nach einem Reload noch an; mit Bot bleibt er aus.
+     **Ersetzt** durch Nacht 2 (Auto-Start ist jetzt der Schalter "auto 10s"
+     unter dem Wellenknopf): siehe REVIEW_SPRINT_2026-09-14.md Punkt 324.
 111. Checkbox anklicken, dann Space: Welle startet, Checkbox kippt nicht;
      danach gehen WASD, P, + und -.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, mit dem
+     Schalter "auto 10s" statt der Checkbox)
 112. In der Welle mit Tab auf einen Upgrade-Button, Space: Upgrade gekauft.
      Nach der Welle Fokus auf Upgrade, Space: Welle startet, kein Kauf.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 113. Slider fokussiert (Enemy-Debugger, Audio): Pfeile und Pos1 ändern den
      Wert, die Kamera steht; W pannt, Space startet die Welle, 1 wählt eine
      Karte.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 
 **Nuklearschlag**
 
 114. Dev-Menü, Cheats, Credits (Shift+Klick +100k), Forschung "Nuclear
      Strike" nach Advanced Weaponry: Knopf mit Strahlungssymbol neben START
      WAVE; zwischen den Wellen grau, Tooltip "ready, fires during a wave".
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`; der Knopf
+     sitzt seit Nacht 2 in der linken Fähigkeitsleiste)
 115. In der Welle Knopf oder K: goldener Ring folgt dem Cursor auf der Route,
      abseits rot mit "NO ROUTE WITHIN 30 M"; ein Klick dort tut nichts.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 116. Klick auf die Route: Marker und schrumpfender Ring, nach 1,5 s
      Explosion, Shake, Sound. Gegner im Radius verlieren 60 % der Max-HP,
      Fledermäuse auch. Bei 4x kommt der Einschlag nach etwa 0,4 s (1,5 s
      Spielzeit), der Ring schrumpft entsprechend schneller.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 117. Herbert (W10) im Radius: verliert nur 20 %.
 118. Nach dem Schlag drei Striche am Knopf, einer je fertige Welle; Tooltip
      nennt die Restwellen und (K).
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, mit der
+     Ladeanzeige der neuen linken Leiste)
 119. Esc, Rechtsklick, zweites K oder Build-Mode brechen den Zielmodus ab;
      die Übersicht (H) listet K.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 120. P während der Vorwarnung: der Einschlag wartet.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 121. Kleine Welle (3 Zombies), der letzte kurz vor dem HQ, K und Klick hinter
      ihn: die Welle bleibt laufend bis zur Explosion, Auto-Start erst danach.
 122. W19: Skeletons, die der Schlag tötet (vorher unter 60 % HP), spalten
      sich; die Minions bleiben unbeschädigt.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, W19 per Jump
+     to wave)
 123. `?devworld`, Bot strategist: er nutzt den Schlag.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 
 **Skeleton-Split**
 
 124. Enemy Debugger: Skeleton setzen, Archer daneben: nach dem Kill zwei
      Minions an der Todesstelle, Knochen-Puff. Skeleton Minion allein setzen,
      Walk: Füße rutschen nicht.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 125. Wave Debugger, Single Skeleton 20: Zeile "Splits into 2 minions on
      death", "N left" steigt je Skeleton-Kill um 1 (ein Toter weniger, zwei
      Minions mehr), die Welle endet nach dem letzten Minion.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 126. Skeleton erreicht das HQ: keine Minions. Impact Effects aus: kein Puff,
      Minions trotzdem.
+     **HQ ok, Befund Impact Effects** (Playtest 2026-09-14 auf
+     `sprint/night-2026-09-14`): Am HQ entstehen keine Minions. Die Einstellung
+     "Impact Effects" hat aber keine sichtbare Wirkung: Der Knochen-Puff beim
+     Zerfall (siehe 124) bleibt auch ausgeschaltet. Steht in TODO 1.10.
 127. COMING UP an W19: der Tooltip nennt den Split.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, in der
+     NEXT-Zeitleiste)
 
 **Spawn-Portal**
 
 128. `?devworld`: am Routenanfang ein Steintor (zwei Pfeiler, Sturz, Krone,
      Hörner), Wirbel, Siegel, Lichtfleck, Label. Das HQ ist weiter ein
      Diamant. Look und Heraustreten der Nacharbeit: Punkte 192 bis 204.
+     **Ersetzt** (Playtest 2026-09-14): Das Steintor gibt es so nicht mehr, das
+     Portal ist seit den Nacharbeits-Runden das Doppeltor-Asset mit neuen
+     Sigillen; geprüft über 192 bis 249 (Zwischenstand abends: 239 bis 247 ok).
 129. Intro: hält am Spawn mit dem Portal im Bild, kein Flug durch das Tor.
      Reset Camera: HQ, Portal und Route im Bild.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 130. N zum Portal, von vorn und von hinten: Wirbel sichtbar, keine Lücke unter
      den Pfeilern. P: der Wirbel dreht weiter.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 131. Space: das Portal flammt 1 bis 3 s auf, während der Welle heller;
      Gegner treten mit Ring und Funken durch; bei großen Wellen höchstens 4
      Bursts pro Sekunde. VFX-Preset Low: keine Bursts, das Portal bleibt.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 132. Spawn neu setzen: die Vorschau ist ein Portal, grün oder rot.
+     **Befund** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`): Die
+     Vorschau ist ein Portal und das Setzen klappt, sie ist aber immer rot,
+     auch an gültigen Stellen; die Karte unten zeigt es richtig. Steht in
+     TODO 1.10.
 133. Echter Ort, breite Straße gegen Gasse: das Portal ist sichtbar
      unterschiedlich groß. Ragen Pfeiler in Fassaden?
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 
 **HUD**
 
@@ -864,34 +920,55 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      ein Ton kommt; nach W6 kündigt die Zeile W8 an, wieder mit Ton. Mit
      Archer "1 tower hits air", ohne orange "No tower hits air yet". SFX
      stumm: kein Ton.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 135. W1 ohne Tower: roter Rand bei Lecks, höchstens etwa einmal pro Sekunde;
      Header "HQ 99/100", der Balken blitzt. Passt "100/100" in die Zelle?
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 136. Kamera weg vom HQ-Ende: rote Pfeile mit Zahl am Rand, Herbert gold. P
      und Kamera drehen: die Pfeile folgen.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`). Rückfrage
+     "nur für den Boss?": Pfeile bekommen Bosse immer und alle anderen Gegner
+     auf den letzten 15 % der Route vor dem HQ (`NEAR_HQ_PROGRESS = 0.85`,
+     `utils/offscreen-indicators.ts:11`).
 137. COMING UP: etwa "W1 Zombie Horde 20-218", Unarmored, "Weak to Fire,
      Poison, Pierce"; die obere Zahl steigt mit mehr DPS; W7 zeigt Air.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, in der
+     NEXT-Zeitleiste)
 138. W10: Leiste "HERBERT" oben mittig, mit P keine Überlappung mit PAUSED.
      W30: eine große und zwei dünne Leisten.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`). Rückfrage
+     "warum drei bei W30?": W30 bringt laut Curriculum 3 Herberts
+     (`configs/wave-curriculum.config.ts:315`), je einer eine Leiste.
 139. Herbert stirbt: Boss-Shake (gab es vorher nie).
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 
 **Meta**
 
 140. Sidebar-Fuß zeigt "v0.2.0".
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 141. Zwei Orte laden, Ortsname im Header: Tab Recent mit "just now", ein
      Klick lädt den Ort mit seinem Spawn.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 142. Tab Showcase, drei bis vier Orte (etwa Tokyo Shibuya): Route ok, HQ
      nicht im Gebäude.
 143. Tower-Panel: die Kachel "Dealt" wächst in der Welle.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 144. Game Over: Wave, Kills, Time, Earned, Spent, Leck-Balken je Welle,
      Top-3-Tower; Restart leert alles.
 145. Photo Mode (O oder Display, View): HUD weg, Kamera frei, Klicks wählen
      nichts; "Save screenshot" speichert ein unverzerrtes PNG mit Logo und
      Attribution; Esc zurück. K, dann O: der Zielmodus endet. W10 mit
      Herbert, O: Boss-Leiste, Pfeile und roter Rand sind ebenfalls weg.
+     **ok mit Wunsch** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`):
+     Im Screenshot zusätzlich das Logo als Wasserzeichen und unten links
+     dezent `https://3dtd.sgeht.net` einbacken. Steht in TODO 1.10.
 146. Konsole `localStorage.removeItem('td_onboarding_v1')`, Reload: "1/4
      Place the research center"; die Tipps gehen mit der Aktion weg, Skip und
      Hide gehen; "Tips" im Sidebar-Fuß startet neu. Stehen Offscreen-Pfeile
      unten mittig, liegt die Tipp-Box darüber.
+     **ok mit Befund** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`):
+     Die Funktion geht. Der frühe Tipp zum Research Center ist aber unsinnig;
+     Reihenfolge und Inhalt der Tipps überarbeiten. Steht in TODO 1.10.
 
 **Korridor**
 
@@ -899,14 +976,34 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      Hänger von einer halben Sekunde; die Zeile "... in ~500ms slices=...
      wall=...ms" (slices etwa Stationen durch 2, wall etwa 2,5 s bei 60 fps).
      `__raycastStats()`: `routeCorridor` maxBurstMs etwa 4 statt 500.
+     **ok mit Anmerkung** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`,
+     Daten aus alter Liste 9 und 27): kein Hänger gemeldet. Slices: Dorf 484
+     Stationen / 242 Scheiben, Stadt 742 / 385, Chiyoda 604 / 455; Wanduhr 1,7
+     bis 3,6 s. `routeCorridor` maxBurstMs beim Laden 36,2 ms statt der
+     erwarteten etwa 4 (weit unter den früheren 500, aber etwa zwei Frames).
 148. Spawn versetzen und sofort einen Tower setzen: kurzer Hänger, die Zeile
      endet mit `flushed=tower`, der Tower steht auf dem neuen Korridor.
      Dasselbe mit Space: `flushed=wave`.
+     **Nicht provozierbar** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`):
+     Die Messung nach dem Versetzen ist fertig, bevor ein Tower oder eine Welle
+     sie abbrechen kann. Log: 29 Segmente, 176 Stationen, `rays=704`,
+     `changed=true` in 251,6 ms, 82 Scheiben, Wanduhr 563,6 ms, danach
+     `rebuild` 84,4 ms; ein zweiter Lauf 173 Stationen, 292,6 ms, Wanduhr
+     727,6 ms, `rebuild` 99,3 ms. Der Flush-Pfad ist damit im Spiel kaum zu
+     treffen, bleibt aber für lange Routen relevant.
 149. Spawn versetzen ohne Tower: die clearance-Zeile kommt gleich, der
      Korridor passt sich an, `__corridor.pick()` meldet nicht "not measured
      yet". HQ versetzen: die ganze Route wird gemessen.
+     **ok, nach Augenschein** (Playtest 2026-09-14 auf
+     `sprint/night-2026-09-14`): Die clearance-Zeile kommt direkt nach dem
+     Versetzen (Log bei 148), der Korridor sieht passend aus; `pick()` und
+     die HQ-Messung im Detail waren schwer zu prüfen.
 150. Zeigt die clearance-Zeile `unmeasured` über 0: wenige Sekunden nach der
      Intro-Landung folgt eine weitere.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, Logs aus alter
+     Liste 9): an allen drei Orten folgt auf die erste Zeile mit allen
+     Stationen `unmeasured` eine zweite mit Messung und nur 1 bis 2 übrigen
+     Stationen.
 
 **Gegner-Rendering**
 
@@ -914,15 +1011,20 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      weichen Kanten, Ghost und Hornet durchscheinend, Penguin wie vorher.
 152. Nahzoom Dragon, Mammoth, Mech, Wallsmasher, zombie_v2: kein Flirren (der
      Stone Golem ist die Float32-Referenz).
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`, Mech schon in
+     der dezimierten Fassung aus Nacht 2)
 153. Bat, Hornet, Dragon, Ghost, Mech, Spider, Skeleton, Penguin, Herbert,
      Mammoth, Wraith rundum: Flügel und Rückseiten auch von hinten sichtbar
      und hell.
+     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 154. Mech, Wallsmasher, Mammoth, Zombie Soldier, Bear laufen ohne Stocken im
      Loop; der Wallsmasher hält im Tod die Endpose.
 155. Ghost und Zombie gemischt: Verdeckung stimmt.
 156. Konsole `__perf.loseContext(2000)`: "Baked N VATs again", die Gegner
      kollabieren nicht; zweimal wiederholen.
 157. 20k-Benchmark gegen `39fbb18`: FPS, GPU-Speicher, Tab-Speicher.
+     **Nach TODO verschoben** (Playtest 2026-09-14): Messaufgabe gegen einen
+     alten Stand, zusammen mit alter Liste 16 in TODO 1.4.
 
 **Laden und Dialoge**
 
