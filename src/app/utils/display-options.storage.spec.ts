@@ -11,9 +11,6 @@ const PANEL_OPTIONS = {
   enemies: true,
   animations: true,
   movement: true,
-  textures: true,
-  skeletonCloning: true,
-  alphaBlend: true,
 };
 
 function stored(): Record<string, unknown> {

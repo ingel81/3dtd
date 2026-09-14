@@ -443,11 +443,6 @@ export class InstancedEnemyRenderer {
     return this._showEnemies;
   }
 
-  // Legacy display toggles — no-ops for instanced rendering, kept for API compat
-  setTexturesEnabled(_enabled: boolean): void { /* no-op */ }
-  setSkeletonCloningEnabled(_enabled: boolean): void { /* no-op */ }
-  setAlphaBlendEnabled(_enabled: boolean): void { /* no-op */ }
-
   // =====================================================
   // DEBUG OVERRIDES (native instanced support)
   // =====================================================
