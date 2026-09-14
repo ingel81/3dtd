@@ -4,6 +4,8 @@ import {
   targetingStrategiesFor,
   towerDps,
   towerStats,
+  upgradeKeyView,
+  upgradeRefusalText,
   upgradeTierLockReason,
   veteranView,
 } from './tower-stats';
@@ -54,6 +56,44 @@ describe('upgradeTierLockReason', () => {
     expect(upgradeTierLockReason(3, 2)).toBe('Requires: Master Engineering');
     expect(upgradeTierLockReason(4, 1)).toBe('Requires: Advanced Engineering');
     expect(upgradeTierLockReason(5, 4)).toBe('Requires: Transcendent Tech');
+  });
+});
+
+describe('upgradeRefusalText', () => {
+  const name = () => 'Damage';
+
+  it('says how many credits the cheapest track lacks', () => {
+    expect(upgradeRefusalText({ kind: 'credits', upgradeId: 'damage', cost: 300, missing: 120 }, name))
+      .toBe('Need 120 more credits for Damage');
+  });
+
+  it('names the research of the missing tier, and says when all is done', () => {
+    expect(upgradeRefusalText({ kind: 'tier', tier: 2 }, name)).toBe('Research Advanced Weaponry for the next levels');
+    expect(upgradeRefusalText({ kind: 'maxed' }, name)).toBe('Fully upgraded');
+  });
+});
+
+describe('upgradeKeyView', () => {
+  const tower = { id: 't1', typeConfig: TOWER_TYPES.archer };
+
+  it('flashes the tile U bought, alternating the class per press', () => {
+    const first = upgradeKeyView({ towerId: 't1', seq: 1, upgradeId: 'damage', refusal: null }, tower);
+    const second = upgradeKeyView({ towerId: 't1', seq: 2, upgradeId: 'damage', refusal: null }, tower);
+    expect(first).toEqual({ flashId: 'damage', flashAlt: false, refusalText: null });
+    expect(second.flashAlt).toBe(true);
+  });
+
+  it('turns a refusal into its line with the track name from the config', () => {
+    const view = upgradeKeyView(
+      { towerId: 't1', seq: 3, upgradeId: null, refusal: { kind: 'credits', upgradeId: 'range', cost: 90, missing: 40 } },
+      tower,
+    );
+    expect(view).toEqual({ flashId: null, flashAlt: false, refusalText: 'Need 40 more credits for Range' });
+  });
+
+  it('shows nothing of a press on another tower or without one', () => {
+    expect(upgradeKeyView({ towerId: 't2', seq: 1, upgradeId: 'damage', refusal: null }, tower).flashId).toBeNull();
+    expect(upgradeKeyView(null, tower).refusalText).toBeNull();
   });
 });
 

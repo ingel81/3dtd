@@ -259,4 +259,50 @@
     font-weight: 700;
     border-radius: 3px;
   }
+
+  /* Why U bought nothing (UpgradeHintService), above the tiles for 2.5 s */
+  .td-upgrade-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    background: var(--td-panel-secondary);
+    border: 1px solid var(--td-warn-orange);
+    border-radius: 3px;
+    color: var(--td-text-primary);
+    font-family: var(--td-font-mono);
+    font-size: 10px;
+  }
+
+  .td-upgrade-hint td-icon {
+    flex-shrink: 0;
+    color: var(--td-warn-orange);
+  }
+
+  /* The tile U bought flashes once. Two classes with the same keyframes: the
+     next press swaps the class, which restarts the animation. From full
+     opacity, so a tile the next level makes unaffordable flashes too. */
+  .td-upgrade-tile.td-upgrade-flash {
+    animation: td-upgrade-flash 700ms ease-out;
+  }
+
+  .td-upgrade-tile.td-upgrade-flash-alt {
+    animation: td-upgrade-flash-alt 700ms ease-out;
+  }
+
+  @keyframes td-upgrade-flash {
+    from {
+      opacity: 1;
+      border-color: var(--td-gold-light);
+      box-shadow: var(--td-gold-glow);
+    }
+  }
+
+  @keyframes td-upgrade-flash-alt {
+    from {
+      opacity: 1;
+      border-color: var(--td-gold-light);
+      box-shadow: var(--td-gold-glow);
+    }
+  }
 }

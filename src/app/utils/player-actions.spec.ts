@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TOWER_TYPES, TowerTypeId, UpgradeId, requiredUpgradeTier } from '../configs/tower-types.config';
-import { canPickTowerCard, firstAffordableUpgrade, TowerCardContext } from './player-actions';
+import { canPickTowerCard, firstAffordableUpgrade, TowerCardContext, upgradeRefusal } from './player-actions';
 
 const ctx = (over: Partial<TowerCardContext> = {}): TowerCardContext => ({
   credits: 10_000,
@@ -58,5 +58,32 @@ describe('firstAffordableUpgrade', () => {
   it('is null when nothing is affordable', () => {
     expect(firstAffordableUpgrade(tower([{ id: 'damage', cost: 500 }]), 100, 1)).toBeNull();
     expect(firstAffordableUpgrade(tower([]), 100, 1)).toBeNull();
+  });
+
+  describe('upgradeRefusal', () => {
+    it('is null while firstAffordableUpgrade finds one', () => {
+      const t = tower([{ id: 'damage', cost: 500 }, { id: 'speed', cost: 30 }]);
+      expect(upgradeRefusal(t, 100, 1)).toBeNull();
+    });
+
+    it('names the cheapest track within the unlocked tiers and the credits it lacks', () => {
+      const t = tower([{ id: 'damage', cost: 500 }, { id: 'speed', cost: 300 }, { id: 'range', cost: 10, level: lockedLevel }]);
+      expect(upgradeRefusal(t, 120, 1)).toEqual({ kind: 'credits', upgradeId: 'speed', cost: 300, missing: 180 });
+    });
+
+    it('names the lowest missing tier when every open track is tier-locked', () => {
+      const t = tower([{ id: 'damage', cost: 10, level: lockedLevel }, { id: 'speed', cost: 0 }]);
+      expect(upgradeRefusal(t, 100, 1)).toEqual({ kind: 'tier', tier: requiredUpgradeTier(lockedLevel) });
+    });
+
+    it('says maxed when every track is at its last level or there is none', () => {
+      expect(upgradeRefusal(tower([{ id: 'damage', cost: 0 }]), 100, 1)).toEqual({ kind: 'maxed' });
+      expect(upgradeRefusal(tower([]), 100, 1)).toEqual({ kind: 'maxed' });
+    });
+
+    it('never tier-gates the Research Center slot track', () => {
+      const t = tower([{ id: 'research-slots', cost: 200, level: lockedLevel }]);
+      expect(upgradeRefusal(t, 50, 1)).toEqual({ kind: 'credits', upgradeId: 'research-slots', cost: 200, missing: 150 });
+    });
   });
 });

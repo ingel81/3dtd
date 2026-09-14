@@ -521,7 +521,7 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | Taste | Aktion | Prüfung wie |
 |-------|--------|-------------|
 | 1 bis 9 | Karte an dieser Stelle im BUILD-Panel wählen | Karten-Button (`canPickTowerCard`) |
-| U | Erstes Upgrade des gewählten Towers, das bezahlbar und freigeschaltet ist | Upgrade-Kacheln (`firstAffordableUpgrade`) |
+| U | Erstes Upgrade des gewählten Towers, das bezahlbar und freigeschaltet ist. Über dem Tower steigt der Track mit neuer Stufe auf ("SPEED LV 4", `--td-gold-light`), die Kachel blitzt. Kauft U nichts, steigt dort der Grund auf (`--td-warn-orange`: "NEED 120 CREDITS", "NEEDS RESEARCH", "FULLY UPGRADED"), und über den Kacheln steht 2,5 s eine Zeile mit Rand in `--td-warn-orange` ("Need 120 more credits for Damage", "Research Advanced Weaponry for the next levels", "Fully upgraded"). Ohne gewählten Tower tut U nichts | Upgrade-Kacheln (`firstAffordableUpgrade`, Grund aus `upgradeRefusal`, Anzeige über `UpgradeHintService`) |
 | Entf / Backspace | Verkaufen, zweimal drücken | Sell-Button (`SellConfirmService`) |
 | Leertaste | Nächste Welle | `store.canStartWave` |
 | P | Pause | Pause-Button |

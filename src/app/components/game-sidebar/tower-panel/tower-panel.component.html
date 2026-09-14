@@ -113,12 +113,20 @@
 
     <!-- Upgrades Section -->
     <div class="td-upgrades-section">
+      @if (keyView().refusalText; as reason) {
+        <div class="td-upgrade-hint" role="status">
+          <td-icon name="warn" [size]="12"></td-icon>
+          <span>{{ reason }}</span>
+        </div>
+      }
       @if (tower().getAvailableUpgrades().length > 0) {
         @for (upgrade of tower().getAvailableUpgrades(); track upgrade.id) {
           <button
             class="td-upgrade-tile"
             [class.td-upgrade-affordable]="store.credits() >= tower().getNextUpgradeCost(upgrade.id) && isUpgradeTierUnlocked(upgrade.id)"
             [class.td-upgrade-tier-locked]="!isUpgradeTierUnlocked(upgrade.id)"
+            [class.td-upgrade-flash]="keyView().flashId === upgrade.id && !keyView().flashAlt"
+            [class.td-upgrade-flash-alt]="keyView().flashId === upgrade.id && keyView().flashAlt"
             [disabled]="store.credits() < tower().getNextUpgradeCost(upgrade.id) || !isUpgradeTierUnlocked(upgrade.id)"
             (click)="onUpgradeTower(upgrade.id)"
             [matTooltip]="getUpgradeTierLockReason(upgrade.id) ?? upgrade.description"
