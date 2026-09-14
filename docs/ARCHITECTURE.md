@@ -907,17 +907,8 @@ Services und Manager sammeln ihre Subscriptions in einer `SubscriptionBag`
 
 ### Event-Typen
 
-| Kategorie | Events |
-|-----------|--------|
-| Enemy | `enemy:died`, `enemy:reached-base`, `enemy:spawned` |
-| Tower | `tower:placed`, `tower:sold`, `tower:upgraded`, `tower:selected`, `tower:deselected`, `tower:kill` |
-| Combat | `projectile:hit`, `dot:damage` |
-| Wave | `wave:started`, `wave:completed` (mit `perfect`, `closeCall`, `hpLost`) |
-| Game | `game:started`, `game:over`, `game:reset`, `health:changed`, `credits:changed` |
-| Research | `research:started`, `research:progress`, `research:completed`, `research:cancelled`, `research:state-changed` |
-| Effects | `vfx:blood`, `vfx:projectile-impact`, `vfx:muzzle-flash`, `vfx:chain-lightning`, `audio:play` |
-| Debug | `debug:sound`, `debug:spawn-enemy`, `debug:kill-all`, `debug:start-custom-wave`, `debug:complete-all-research`, `debug:max-upgrade-all-towers`, `debug:ready-ability`, `debug:add-credits`, `debug:add-health`, `debug:remove-enemy` |
-| Commands | `command:place-tower`, `command:sell-tower`, `command:upgrade-tower`, `command:start-wave`, `command:restart-game`, `command:start-research`, `command:cancel-research` |
+Alle Event-Typen (Enemy, Tower, Combat, Wave, Game, Research, Ability, Hero, Effects, Debug,
+Commands) mit Producer, Listener und Payload stehen in [EVENT_SYSTEM.md](EVENT_SYSTEM.md#event-typen).
 
 ### Immediate vs Deferred
 
@@ -970,36 +961,12 @@ class InstancedEnemyRenderer {
 }
 ```
 
-#### Animation Speed Coupling
-
-Gegner-Animationen sind automatisch an ihre Bewegungsgeschwindigkeit gekoppelt:
-
-```typescript
-// EnemyInstanceManager.updateEnemyState() (instanced-enemy/enemy-instance.manager.ts)
-let effectiveBaseSpeed = config.baseSpeed;
-if (!state.isWalking && config.runSpeedMultiplier) effectiveBaseSpeed *= config.runSpeedMultiplier;
-state.speedMultiplier = currentSpeed / effectiveBaseSpeed;
-
-// beim Animations-Update
-state.animTime += deltaTime * state.animSpeed * state.speedMultiplier;
-```
-
-**Effekt:** Schnellere Bewegung → Schnellere Animation (natürliche Laufbewegung)
-
-**Details:** Siehe [ENEMY_CREATION.md → Animation Speed Coupling](ENEMY_CREATION.md#animation-speed-coupling)
-
-#### Run Animation System
-
-Manche Enemies wechseln zwischen Walk- und Run-Animation:
-
-```typescript
-animationVariation: true,     // Walk/Run Variation aktiviert
-runSpeedMultiplier: 2.5,      // 2.5× Speed bei Run-Animation
-```
-
-**Effekt:** Alle 3-8 s Spielzeit Wechsel zwischen Gehen und Rennen; rennend bewegt sich der Enemy 2.5× schneller (Animation bleibt gleich schnell, da Run-Animation bereits schneller im Modell ist). Der Wechsel ist Simulationszustand (`Enemy.rush`, Sub-Step, deterministisch aus der Enemy-ID), der Renderer zeigt nur den Clip.
-
-**Details:** Siehe [ENEMY_CREATION.md → Run-Animation-System](ENEMY_CREATION.md#run-animation-system-animation-variation)
+Die Animationen laufen an die Bewegung gekoppelt (`EnemyInstanceManager.updateEnemyState`:
+schneller laufen heißt schneller animieren), manche Gegner wechseln in Spielzeit zwischen Gehen
+und Rennen (`Enemy.rush`, Simulationszustand, der Renderer zeigt nur den Clip). Beides steht in
+[ENEMY_CREATION.md → Animation Speed Coupling](ENEMY_CREATION.md#animation-speed-coupling) und
+[Run-Animation-System](ENEMY_CREATION.md#run-animation-system-animation-variation), die Technik
+in [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md).
 
 ### 6.2 ThreeTowerRenderer
 
