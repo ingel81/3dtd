@@ -186,7 +186,16 @@ export class BossIntroService {
     }
     const camera = engine.getCamera();
     const route = this.shotRoute(engine, boss.enemy.movement.path);
-    const shot = portalShot(route, camera.fov, boss.portalScale, boss.clearDistance, this.dolly);
+    const { heightOffset, healthBarOffset } = boss.enemy.typeConfig;
+    // Up to its health bar, the top of what the shot shows of it
+    const shot = portalShot(
+      route,
+      camera.fov,
+      boss.portalScale,
+      boss.clearDistance,
+      heightOffset + healthBarOffset,
+      this.dolly,
+    );
     if (!shot) return false;
 
     // Instead of a second intro right after this one, which would cut to a

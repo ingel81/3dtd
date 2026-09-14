@@ -145,8 +145,8 @@ export interface ShotPoint {
 
 /**
  * The portal shot: the camera stands over the route in front of the portal,
- * looking back at it and at the boss that just stepped out, and pushes in a
- * little over the hold (`position` to `dollyTo`).
+ * looking back at the boss that just stepped out and at the portal behind
+ * it, and pushes in a little over the hold (`position` to `dollyTo`).
  */
 export interface PortalShot {
   position: ShotPoint;
@@ -155,15 +155,20 @@ export interface PortalShot {
 }
 
 export const BOSS_SHOT = {
-  /** Share of the vertical frame the portal fills */
-  fill: 0.55,
-  /** The camera looks down at the aim point by this much (degrees) */
+  /** Horizontal distance from the camera to the boss, in heights of the boss */
+  bossHeights: 2.5,
+  /**
+   * The boss's feet below the centre of the frame, share of the half field
+   * of view: about 27 % up from the bottom edge, above the title card
+   */
+  feet: 0.5,
+  /** Highest the portal's crown may reach, share of the half field of view above the centre */
+  crown: 0.95,
+  /** The camera looks down by this much (degrees) */
   pitchDeg: 14,
-  /** Aim point up the portal frame, share of its height */
-  aimHeight: 0.4,
   /** Least height of the camera over the route under it (m) */
   minClearance: 6,
-  /** Share of the way to the aim point the camera pushes in over the hold */
+  /** Share of the way to the target the camera pushes in over the hold */
   dolly: 0.08,
 } as const;
 
@@ -196,16 +201,20 @@ export function pointAlongRoute(route: readonly ShotPoint[], distance: number, o
 /**
  * The portal shot for a boss `bossDistance` metres out of its portal.
  *
- * It aims halfway between the portal and the boss, up the frame by
- * `aimHeight`. The camera stands on the route beyond that point, following
- * the street rather than a straight line, so it sits over the road and not
- * in a facade; its distance frames the portal to `fill` of the vertical
- * field of view, its height gives `pitchDeg` down to the aim point. A route
- * shorter than that holds the camera at its end.
+ * The camera stands on the route beyond the boss, following the street
+ * rather than a straight line, so it sits over the road and not in a
+ * facade. It stands `bossHeights` heights of the boss away, but at least so
+ * far that the portal's crown stays under `crown` of the upper half of the
+ * frame, which keeps the whole portal readable behind the boss. It looks
+ * down by `pitchDeg` and stands so high that the boss's feet sit `feet`
+ * down the lower half, above the title card; the target is on that line of
+ * sight above the boss. The crown's room is worked out along the route, as
+ * if it ran straight. A route shorter than that holds the camera at its end.
  *
  * @param route Route from its start (the portal) on, local points on the ground
  * @param fovDeg Vertical field of view of the camera
  * @param portalScale Scale of the portal, see portalScaleForWidth
+ * @param bossHeight Height of the boss over the ground (m)
  * @param dolly Push-in over the hold, 0 for a still shot
  * @returns null for a route without length
  */
@@ -214,25 +223,30 @@ export function portalShot(
   fovDeg: number,
   portalScale: number,
   bossDistance: number,
+  bossHeight: number,
   dolly: number = BOSS_SHOT.dolly,
 ): PortalShot | null {
   if (route.length < 2) return null;
-  const frameHeight = PORTAL_FRAME_TOP * portalScale;
-  const aimDistance = bossDistance / 2;
-  const aim = pointAlongRoute(route, aimDistance, { x: 0, y: 0, z: 0 });
-  const target = { x: aim.x, y: aim.y + frameHeight * BOSS_SHOT.aimHeight, z: aim.z };
+  const halfFov = (fovDeg * Math.PI) / 360;
+  const pitch = (BOSS_SHOT.pitchDeg * Math.PI) / 180;
+  // Height of the camera over the boss's feet per metre away, and of the
+  // highest point the crown may reach over the camera per metre to the portal
+  const rise = Math.tan(pitch + BOSS_SHOT.feet * halfFov);
+  const crownSlope = Math.tan(BOSS_SHOT.crown * halfFov - pitch);
+  const boss = pointAlongRoute(route, bossDistance, { x: 0, y: 0, z: 0 });
+  const crown = route[0].y + PORTAL_FRAME_TOP * portalScale - boss.y;
+  const away = Math.max(
+    bossHeight * BOSS_SHOT.bossHeights,
+    (crown - crownSlope * bossDistance) / (rise + crownSlope),
+  );
 
-  const halfAngle = (BOSS_SHOT.fill * fovDeg * Math.PI) / 360;
-  const framing = frameHeight / 2 / Math.tan(Math.max(0.01, halfAngle));
-  const ground = pointAlongRoute(route, aimDistance + framing, { x: 0, y: 0, z: 0 });
-  const across = Math.hypot(ground.x - target.x, ground.z - target.z);
+  const ground = pointAlongRoute(route, bossDistance + away, { x: 0, y: 0, z: 0 });
+  const across = Math.hypot(ground.x - boss.x, ground.z - boss.z);
   if (across < 1) return null;
 
-  const y = Math.max(
-    target.y + across * Math.tan((BOSS_SHOT.pitchDeg * Math.PI) / 180),
-    ground.y + BOSS_SHOT.minClearance,
-  );
+  const y = Math.max(boss.y + across * rise, ground.y + BOSS_SHOT.minClearance);
   const position = { x: ground.x, y, z: ground.z };
+  const target = { x: boss.x, y: y - across * Math.tan(pitch), z: boss.z };
   return {
     position,
     target,
