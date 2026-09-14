@@ -39,8 +39,18 @@ describe('favorite locations', () => {
       expect(loadFavoriteLocations()).toEqual([fav('b', 'Home'), fav('a')]);
     });
 
+    it('keeps the bearing of a turned portal through a save, next to spawns without one', () => {
+      const turned: FavoriteLocation = { ...fav('t'), spawns: [{ lat: 48.805, lon: 2.3, portalBearing: 187.5 }] };
+      saveFavoriteLocations([turned, fav('a')]);
+
+      const loaded = loadFavoriteLocations();
+      expect(loaded).toEqual([turned, fav('a')]);
+      expect(loaded[1].spawns[0]).not.toHaveProperty('portalBearing');
+    });
+
     it('skips malformed entries and reads a broken value as an empty list', () => {
-      localStorage.setItem(FAVORITES_KEY, JSON.stringify([fav('a'), { id: 'x' }, null, { ...fav('n'), name: 7 }]));
+      const badBearing = { ...fav('b'), spawns: [{ lat: 48.805, lon: 2.3, portalBearing: 'north' }] };
+      localStorage.setItem(FAVORITES_KEY, JSON.stringify([fav('a'), { id: 'x' }, null, { ...fav('n'), name: 7 }, badBearing]));
       expect(ids(loadFavoriteLocations())).toEqual(['a']);
       localStorage.setItem(FAVORITES_KEY, '{nope');
       expect(loadFavoriteLocations()).toEqual([]);

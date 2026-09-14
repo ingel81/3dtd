@@ -1,4 +1,4 @@
-import { FavoriteLocation } from '../../models/location.types';
+import { FavoriteLocation, SavedSpawn } from '../../models/location.types';
 import { isPoint } from './recent-locations';
 
 /** localStorage key of the favorites, separate from the recent list (td_recent_locations_v1) */
@@ -13,19 +13,26 @@ export function normalizeFavoriteName(name: string | undefined): string | undefi
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function isSavedSpawn(v: unknown): v is SavedSpawn {
+  const bearing = (v as Partial<SavedSpawn> | null)?.portalBearing;
+  return isPoint(v) && (bearing === undefined || Number.isFinite(bearing));
+}
+
 function isFavoriteLocation(v: unknown): v is FavoriteLocation {
   const f = v as Partial<FavoriteLocation> | null;
   return !!f
     && typeof f.id === 'string'
     && isPoint(f.hq)
-    && Array.isArray(f.spawns) && f.spawns.every(isPoint)
+    && Array.isArray(f.spawns) && f.spawns.every(isSavedSpawn)
     && (f.name === undefined || typeof f.name === 'string');
 }
 
 /**
  * Stored list in the order the player gave it, empty when missing,
  * unreadable or blocked. Malformed entries are skipped; entries saved
- * before names existed have none and read as they are.
+ * before names existed have none, spawns saved before the portal bearing
+ * have none either (their portal faces along its route), and both read as
+ * they are.
  */
 export function loadFavoriteLocations(): FavoriteLocation[] {
   try {

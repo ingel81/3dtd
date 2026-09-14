@@ -247,6 +247,23 @@ export function clampPortalHeading(
 }
 
 /**
+ * Compass bearing of a portal `heading` (rotation about +Y, rad): degrees
+ * clockwise from north, 0 up to 360. The scene's +z is north and -x east,
+ * so heading 0 faces north and -PI/2 east, wherever the origin lies. How a
+ * spawn keeps the player's turn in the URL and in favorites
+ * (SavedSpawn.portalBearing).
+ */
+export function portalHeadingToBearing(heading: number): number {
+  const degrees = (-heading * 180) / Math.PI;
+  return ((degrees % 360) + 360) % 360;
+}
+
+/** Portal heading (rotation about +Y, rad) facing the compass `bearing` (degrees), see portalHeadingToBearing. */
+export function bearingToPortalHeading(bearing: number): number {
+  return (-bearing * Math.PI) / 180;
+}
+
+/**
  * Pose of a portal whose route is not built yet: on the spawn point,
  * facing the point (towardX, towardZ), the HQ.
  */

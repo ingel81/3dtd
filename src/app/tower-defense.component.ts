@@ -46,7 +46,8 @@ import { WaveDebugService } from './services/debug/wave-debug.service';
 import { EnemyDebugService } from './services/debug/enemy-debug.service';
 import { DebugFacadeService } from './services/debug/debug-facade.service';
 import { DebugWindowService } from './services/debug/debug-window.service';
-import { LocationConfig, FavoriteLocation } from './models/location.types';
+import { FavoriteLocation } from './models/location.types';
+import type { LocationChangeInput } from './services/location/location-change-executor.service';
 // Refactoring services
 import { CameraControlService } from './services/camera-control.service';
 import { InputHandlerService } from './services/input-handler.service';
@@ -859,10 +860,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     const spawn = this.editableSpawnLocations()[0];
 
     if (hq && spawn) {
-      // Retry with current location
+      // Retry with current location, the spawn's portal turned as before
       this.onApplyNewLocation({
         hq: { lat: hq.lat, lon: hq.lon, name: hq.name },
-        spawn: { lat: spawn.lat, lon: spawn.lon, name: spawn.name },
+        spawn: { lat: spawn.lat, lon: spawn.lon, name: spawn.name, portalBearing: spawn.portalBearing },
       });
     } else {
       // No location - open location dialog
@@ -873,7 +874,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // ==================== Location Settings Methods (delegates to LocationChangeCoordinatorService) ====================
 
   /** Apply new location - delegates to coordinator */
-  async onApplyNewLocation(data: { hq: LocationConfig; spawn: LocationConfig }): Promise<void> {
+  async onApplyNewLocation(data: LocationChangeInput): Promise<void> {
     this.locationCoordinator.applyNewLocation(data);
   }
 

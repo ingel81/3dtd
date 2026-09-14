@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { Matrix4, Vector3 } from 'three';
 import {
+  bearingToPortalHeading,
   clampPortalHeading,
   portalCorridorWidth,
+  portalHeadingToBearing,
   portalFrontDistance,
   portalLaneOffset,
   portalScaleForWidth,
@@ -274,5 +276,26 @@ describe('provisionalPortalPose', () => {
     expect(f.x).toBeCloseTo(-1);
     expect(pose.scale).toBe(1);
     expect(pose.y).toBe(5);
+  });
+});
+
+describe('portal bearing', () => {
+  it('reads a heading as a compass bearing: +z north, -x east, clockwise', () => {
+    expect(portalHeadingToBearing(0)).toBe(0);
+    expect(portalHeadingToBearing(-Math.PI / 2)).toBeCloseTo(90, 9);
+    expect(portalHeadingToBearing(Math.PI)).toBeCloseTo(180, 9);
+    expect(portalHeadingToBearing(Math.PI / 2)).toBeCloseTo(270, 9);
+    expect(facing(bearingToPortalHeading(90)).x).toBeCloseTo(-1, 9);
+  });
+
+  it('stays in 0 up to 360 and turns back into the same direction', () => {
+    for (const heading of [-7, -3, -1, 0.2, 2.5, 3.1, 9]) {
+      const bearing = portalHeadingToBearing(heading);
+      expect(bearing).toBeGreaterThanOrEqual(0);
+      expect(bearing).toBeLessThan(360);
+      const back = bearingToPortalHeading(bearing);
+      expect(Math.cos(back - heading)).toBeCloseTo(1, 12);
+      expect(Math.sin(back - heading)).toBeCloseTo(0, 12);
+    }
   });
 });

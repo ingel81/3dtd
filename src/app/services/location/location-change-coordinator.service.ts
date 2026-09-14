@@ -15,11 +15,11 @@ import {
 } from '../../components/location-dialog/open-location-dialog';
 import { UIStore } from '../../store/ui.store';
 import {
-  LocationConfig,
   LocationDialogData,
   LocationDialogMode,
   LocationDialogResult,
   FavoriteLocation,
+  SavedSpawn,
 } from '../../models/location.types';
 import {
   LocationChangeExecutorService,
@@ -277,16 +277,16 @@ export class LocationChangeCoordinatorService {
    * Apply a favorite location
    */
   async onSelectFavorite(fav: FavoriteLocation): Promise<void> {
-    const spawn = fav.spawns[0] || { lat: fav.hq.lat + 0.005, lon: fav.hq.lon };
+    const spawn: SavedSpawn = fav.spawns[0] || { lat: fav.hq.lat + 0.005, lon: fav.hq.lon };
 
     // Update service and URL
     this.locationMgmt.setLocation(fav.hq, fav.spawns);
     this.delegate?.getChangeCallbacks().syncUrlWithLocation();
 
-    // Apply to game
+    // Apply to game; a portal the player turned faces the way it was saved
     await this.applyNewLocation({
       hq: { lat: fav.hq.lat, lon: fav.hq.lon, name: 'Loading...' },
-      spawn: { lat: spawn.lat, lon: spawn.lon, name: 'Spawn' },
+      spawn: { lat: spawn.lat, lon: spawn.lon, name: 'Spawn', portalBearing: spawn.portalBearing },
     });
   }
 
@@ -324,7 +324,7 @@ export class LocationChangeCoordinatorService {
   /**
    * Apply new location - builds context from delegate and executes change
    */
-  async applyNewLocation(data: { hq: LocationConfig; spawn: LocationConfig }): Promise<void> {
+  async applyNewLocation(data: LocationChangeInput): Promise<void> {
     // Prevent concurrent location changes (guard against rapid clicks)
     if (this.locationMgmt.isApplyingLocation()) {
       console.warn('[LocationCoordinator] Location change already in progress, ignoring');

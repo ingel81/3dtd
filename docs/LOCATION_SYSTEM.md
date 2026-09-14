@@ -68,8 +68,13 @@ interface LocationInfo extends GeoPosition {
   address?: NominatimAddress;
 }
 
+// Spawn, wie der Ort ihn hält (LocationManagementService.spawns, URL, Favoriten)
+interface SavedSpawn extends GeoPosition {
+  portalBearing?: number;     // Kompasskurs des Portals, wenn der Spieler es mit R gedreht hat
+}
+
 // Spawn-Punkt Konfiguration
-interface SpawnLocationConfig extends GeoPosition {
+interface SpawnLocationConfig extends SavedSpawn {
   id: string;
   name?: string;
   isRandom?: boolean;
@@ -100,7 +105,7 @@ interface RandomSpawnCandidate extends GeoPosition {
 interface FavoriteLocation {
   id: string;
   hq: GeoPosition;
-  spawns: GeoPosition[];
+  spawns: SavedSpawn[];       // mit portalBearing, wo das Portal gedreht war
   createdAt: number;
   name?: string;              // vom Spieler, beim Speichern vorgeschlagen
 }
@@ -134,7 +139,7 @@ Verwaltet den aktuellen Location-State und Favorites. Ein Favorit speichert Koor
 
 ```typescript
 readonly hq = signal<{ lat: number; lon: number } | null>(null);
-readonly spawns = signal<{ lat: number; lon: number }[]>([]);
+readonly spawns = signal<SavedSpawn[]>([]);                // mit portalBearing, wo das Portal gedreht ist
 readonly needsRandomSpawn = signal<boolean>(false);
 readonly displayName = signal<string>(NO_LOCATION_NAME);   // 'No location', auch nach reset()
 readonly address = signal<NominatimAddress | null>(null);  // Adresse aus dem Reverse Geocoding
@@ -150,8 +155,9 @@ readonly editableSpawnLocations = computed(() => { ... });    // SpawnLocationCo
 
 ```typescript
 // Location setzen und Display-Name via Reverse Geocoding aufloesen
-setLocation(hq: { lat: number; lon: number }, spawns: { lat: number; lon: number }[]): void
+setLocation(hq: { lat: number; lon: number }, spawns: SavedSpawn[]): void
 // Wenn spawns leer → needsRandomSpawn = true (wird spaeter generiert)
+// URL und Favoriten nehmen die Spawns samt portalBearing von hier
 
 // Display-Name abfragen
 getLocationDisplayName(): string
@@ -179,7 +185,8 @@ initializeEditableLocations(), saveLocationsToStorage(), clearLocationsFromStora
 - Keine Obergrenze (bis 2026-09-14 waren es 10, danach verschwand "Save location" ohne Hinweis); die Liste im Header scrollt
 - Gespeichert in `localStorage` unter Key `td_favorites_v2`, in der Reihenfolge des Spielers; Laden, Speichern, Umbenennen und Verschieben als reine Funktionen in `favorite-locations.ts`
 - Jeder Favorit hat `id` (crypto.randomUUID), `hq`, `spawns`, `createdAt`, optional `name`
-- Einträge von vor dem 2026-09-14 haben keinen `name` und lesen sich unverändert; defekte Einträge werden beim Laden übersprungen
+- Ein Spawn trägt `portalBearing`, wenn sein Portal beim Speichern gedreht war (siehe [UrlLocationService](#urllocationservice)); Laden dreht es wieder so
+- Einträge von vor dem 2026-09-14 haben keinen `name` und keinen `portalBearing` und lesen sich unverändert (das Portal folgt der Route); defekte Einträge (auch ein `portalBearing`, der keine Zahl ist) werden beim Laden übersprungen
 - Namen: der eigene (`name`, getrimmt, höchstens 80 Zeichen), sonst via `GeocodingService.reverseGeocodeWithCache()` aufgeloest (`favoriteNamesMap`, nur für Favoriten ohne eigenen Namen)
 
 Bedienung im Header (Lesezeichen-Knopf):
@@ -246,17 +253,30 @@ Quelle: Natural Earth 1:110m, Version 5.1.2, `ne_110m_coastline` und `ne_110m_ad
 URL ist die Single Source of Truth. Format:
 
 ```
-?l=49.17327,9.26859&s=49.17555,9.26387;49.18000,9.27000
+?l=49.17327,9.26859&s=49.17555,9.26387,187.5;49.18000,9.27000
 ```
 
 - `l` = HQ (lat,lon) - 5 Dezimalstellen
-- `s` = Spawns (Semikolon-getrennt), optional
+- `s` = Spawns (Semikolon-getrennt), optional; je Spawn `lat,lon` und, wenn der Spieler sein Portal beim Setzen mit R gedreht hat, der Kompasskurs des Portals in Grad (im Uhrzeigersinn ab Nord, 1 Dezimalstelle, `SavedSpawn.portalBearing`)
 - Kein `s`-Parameter = Random Spawn wird generiert
+- Ein Spawn ohne Kurs (auch in allen URLs von vor 2026-09-14) folgt mit seinem Portal der Route. Ein Kurs, der keine Zahl ist, fällt weg, der Spawn bleibt
 - In DevWorld schreibt `LocationFacadeService.syncUrlWithLocation()` nichts in die URL
+
+Die Drehung des Spawn-Portals:
+
+| Weg | Kurs |
+|-----|------|
+| Spawn setzen mit R-Drehung (`MapRelocationService.applySpawnInPlace`) | `portalHeadingToBearing` der Drehung, in `LocationManagementService.spawns`, von dort in die URL und in einen danach gespeicherten Favoriten |
+| Reload, geteilter Link | aus `s`, `addPredefinedSpawns` → `addSpawnPoint(…, portalBearing)` |
+| Favorit laden | aus `FavoriteLocation.spawns[0]`, über `applyNewLocation` (Schritt 2 schreibt ihn in Ort und URL, Schritt 5 an den Spawn) |
+| Erneuter Versuch nach Ladefehler (`retryLoading`) | bleibt |
+| HQ versetzen (in place und außerhalb der Straßen), Standort-Dialog, Zuletzt gespielt, Weltkarte, World Dice | keiner, das Portal folgt der Route |
+
+`LocationFacadeService.addSpawnPoint` dreht das Portal nach dem Bau der Route (`MarkerVisualizationService.setPortalHeading`); jeder Bau der Route hält den Kurs im Drehbereich dieser Route (`clampPortalHeading`). Hat sich die Route seit dem Speichern geändert, steht das Portal an der Grenze; im Ort, in der URL und im Favoriten bleibt der Kurs, wie er gegeben wurde. Mehr zum Drehbereich in [ARCHITECTURE.md](ARCHITECTURE.md#spawn-portal).
 
 ```typescript
 parseFromUrl(): { hq, spawns } | null   // URL parsen
-updateUrl(hq, spawns): void              // URL ohne Reload aktualisieren (replaceState)
+updateUrl(hq, spawns): void              // URL ohne Reload aktualisieren (replaceState), Spawns samt Kurs
 getShareUrl(): string                    // Aktuelle URL fuer Sharing
 hasLocationParams(): boolean             // Prueft ob l= Parameter vorhanden
 ```

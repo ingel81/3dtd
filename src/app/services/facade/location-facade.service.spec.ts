@@ -110,6 +110,7 @@ describe('LocationFacadeService', () => {
     clearSpawnMarkers: vi.fn(),
     addBaseMarker: vi.fn(),
     updateMarkerHeights: vi.fn(),
+    setPortalHeading: vi.fn(),
   };
   const pathRoute = {
     showPathFromSpawn: vi.fn(),
@@ -122,7 +123,7 @@ describe('LocationFacadeService', () => {
     hq: signal<Spawn | null>(null),
     spawns: signal<Spawn[]>([]),
     needsRandomSpawn: signal(false),
-    editableSpawnLocations: signal<{ id: string; name: string; lat: number; lon: number }[]>([]),
+    editableSpawnLocations: signal<{ id: string; name: string; lat: number; lon: number; portalBearing?: number }[]>([]),
     setLocation: vi.fn((hq: Spawn, spawns: Spawn[]) => {
       locationMgmt.hq.set(hq);
       locationMgmt.spawns.set(spawns);
@@ -517,6 +518,18 @@ describe('LocationFacadeService', () => {
       expect(spawnIds()).toEqual(['s1']);
     });
 
+    it('turns the portal to a bearing it brought along once its route stands, and leaves it to the route otherwise', () => {
+      facade.addSpawnPoint('s1', 'North', 48.8, 9.2, 1, 90);
+      // Bearing 90 is east, -x: heading -PI/2
+      expect(markerViz.setPortalHeading).toHaveBeenCalledWith('s1', expect.closeTo(-Math.PI / 2, 9));
+      expect(pathRoute.showPathFromSpawn.mock.invocationCallOrder[0])
+        .toBeLessThan(markerViz.setPortalHeading.mock.invocationCallOrder[0]);
+
+      markerViz.setPortalHeading.mockClear();
+      facade.addSpawnPoint('s2', 'South', 48.7, 9.2, 1);
+      expect(markerViz.setPortalHeading).not.toHaveBeenCalled();
+    });
+
     it('does nothing without an engine or without streets', () => {
       bridge.getEngine.mockReturnValue(null);
       facade.addSpawnPoint('s1', 'North', 48.8, 9.2, 1);
@@ -547,6 +560,18 @@ describe('LocationFacadeService', () => {
         ['a', 'Alpha', SPAWN_COLORS[0]],
         ['b', 'Spawn 2', SPAWN_COLORS[1]],
       ]);
+    });
+
+    it('turns a spawn from the URL the way its portal was saved', () => {
+      locationMgmt.setLocation(HQ, []);
+      locationMgmt.editableSpawnLocations.set([
+        { id: 'spawn-1', name: '', lat: 48.8, lon: 9.2, portalBearing: 180 },
+        { id: 'spawn-2', name: '', lat: 48.81, lon: 9.21 },
+      ]);
+
+      expect(facade.addPredefinedSpawns()).toBe(2);
+      expect(markerViz.setPortalHeading).toHaveBeenCalledTimes(1);
+      expect(markerViz.setPortalHeading).toHaveBeenCalledWith('spawn-1', expect.closeTo(-Math.PI, 9));
     });
 
     it('creates none when a stored spawn sits at 0/0', () => {

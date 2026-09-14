@@ -137,7 +137,7 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
       NgZone: { runOutsideAngular: (fn: () => unknown) => fn() },
       // MapRelocationService's
       OsmStreetService: { findPath: () => [SPAWN, HQ], findRandomStreetPoint: () => null, haversineDistance: () => 0 },
-      MarkerVisualizationService: { clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn(), setPortalHeading: vi.fn() },
+      MarkerVisualizationService: { clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn() },
       LocationManagementService: { setLocation: vi.fn() },
       HeightUpdateService: { stopHeightUpdates: vi.fn() },
       RouteAnimationService: { stopAnimation: vi.fn(), startAnimation: vi.fn() },
