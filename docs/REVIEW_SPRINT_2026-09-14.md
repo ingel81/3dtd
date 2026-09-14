@@ -16,20 +16,21 @@ offen (REVIEW_SPRINT_2026-09-13.md, Abschnitt "Zwischenstand Playtest
 Ergebnis). Wo diese Nacht an einem alten Punkt etwas geändert hat, steht es
 am Anfang der Playtest-Liste unten. Danach die neuen Punkte ab Nummer 301.
 
-**Stand dieses Dokuments:** dritter Durchgang, Teil 1, auf Head `4d415013`:
-dazu gekommen sind das Replay und die Behebung der Befunde von review2 (fix2)
-und review3 (fix3). Die Zahlen unter "Stand" sind noch die vom `292d788f`;
-fix4, review5, der Faktencheck und die Endzahlen folgen in Teil 2.
+**Stand dieses Dokuments:** dritter Durchgang, Teil 2. Code-Stand
+`a26cd7dd` (fix4), Branch-Head `5e1de3f2` mit den Handover-Commits.
+Eingearbeitet sind Replay, fix2, fix3, fix4 und die Korrekturen des
+Faktenchecks (geprüft am `1fe62ebc`). Offen ist nur noch review5 (Replay),
+sein Abschnitt unter "Review" folgt.
 
 ## Stand
 
 | | |
 |---|---|
-| Branch | `sprint/night-2026-09-14`, Head `292d788f` (ohne die Handover-Commits) |
-| Diese Nacht | 146 Commits `1ca6713a..292d788f`, 386 Dateien, +34 448 / -4 169 Zeilen |
-| Gesamt vor `main` | 634 Commits |
-| Tests | vitest 303 Testdateien mit 3732 Tests (Nachtbeginn 241 mit 3034); im Gate davon 13 übersprungen, die Shader-Compile-Tests ohne `glslangValidator`; pytest 101 laut blob-Worker, `training-backend/` hat in der Nacht keinen Diff |
-| Prüfung | Gate am Head: beide tsc, ESLint und Production-Build grün; Initial-Bundle 357,18 kB wie zu Nachtbeginn |
+| Branch | `sprint/night-2026-09-14`, Head `5e1de3f2`, letzter Code-Commit `a26cd7dd` |
+| Diese Nacht | 186 Commits `1ca6713a..5e1de3f2`, davon 9 Handover-Commits; 422 Dateien, +43 105 / -4 243 Zeilen |
+| Gesamt vor `main` | 674 Commits (bis `5e1de3f2`) |
+| Tests | Gate am `a26cd7dd`: vitest 312 Testdateien, 3862 Tests grün, 27 übersprungen (die Shader-Compile-Tests, im Gate ohne `glslangValidator`); Nachtbeginn 241 Dateien mit 3034 Tests. Shader-Check mit glslang 11.7 am `a26cd7dd` (Lead): 57 von 57 grün. pytest 101 (zuletzt fix3), `training-backend/` hat in der Nacht keinen Diff |
+| Prüfung | Gate am `a26cd7dd`: beide tsc, ESLint und Production-Build grün; Initial-Bundle 357,21 kB (Nachtbeginn 357,18 kB) |
 
 Nichts davon lief im Browser. Optik, Laufzeiten, Klang und Speicher sind per
 Code-Review, Tests und Rechnung geprüft, nicht angesehen, angehört oder
@@ -39,21 +40,25 @@ Ooze-Band, Blutmond-Stimmung, Suchscheinwerfer, VAT-Gegner mit Glühen,
 Portal, HQ-Marker, Frost, EMP, Orbitalstrahl, Pilzwolke) und 14 ältere,
 kompilieren und linken als GLSL ES 3.00 mit glslang 11.7.0, so wie three
 r186 sie zusammensetzt. Im Gate laufen diese Compile-Tests nicht, dort
-fehlt das Binary. Nicht geprüft sind
+fehlt das Binary; der Lead hat den Check am `a26cd7dd` mit glslang 11.7
+laufen lassen, 57 von 57 Tests grün. Nicht geprüft sind
 Treiber- und ANGLE-Eigenheiten und GPU-Grenzen (Zahl der Uniforms und
 Varyings). Deshalb steht die Konsole weiter als erster Playtest-Punkt (301).
 
 ## Vorgehen
 
-20 Worker in eigenen Git-Worktrees, je ein Thema: assets (Blender), perf,
+21 Worker in eigenen Git-Worktrees (blob2 als Fortsetzung von blob
+gezählt), je ein Thema: assets (Blender), perf,
 sockel, abilitybar, quickfix, worldmap, veterans, worm, blob (dazu blob2),
 refactor, bossintro, bloodmoon, wavejump, hero, abilities, replay,
-shadercheck, fix1, fix2 und fix3. Vor jedem Merge hat der Lead den Diff gelesen, bei Bedarf
+shadercheck, fix1, fix2, fix3 und fix4. Vor jedem Merge hat der Lead den Diff gelesen, bei Bedarf
 Nacharbeit angefordert, die Worker haben selbst auf den Nacht-Head rebased,
 übernommen wurde per Fast-Forward (Teile per Cherry-Pick: `e92575f4`,
 `ae5fe4f8`, die vat-Zerlegung). Nach jedem Merge lief das Gate: vitest,
-beide tsc, ESLint, Production-Build. Drei Review-Agents haben den gemergten
-Stand gelesen (Abschnitt "Review").
+beide tsc, ESLint, Production-Build. Vier Review-Agents haben den gemergten
+Stand gelesen, ein fünfter liest das Replay (Abschnitt "Review"). Ein
+Faktencheck hat dieses Dokument am `1fe62ebc` gegen Code, Configs und
+Commits geprüft; seine Korrekturen sind eingearbeitet.
 
 Die Worker-Berichte nennen oft Hashes von vor dem Rebase. In diesem Dokument
 stehen die Hashes des Branches.
@@ -108,9 +113,11 @@ stehen die Hashes des Branches.
 
 - **Keine neuen Sperren**: `checkTowerPlacement` ist unverändert. Die
   Grundfläche entscheidet nur über Höhe und Sockel. Abgetastet werden 19
-  Punkte (Research Center 49) in Mitte und zwei Ringen. Ab 0,2 m Unebenheit
-  steht der Tower auf der höchsten Probe, ein Sockel reicht bis zur
-  tiefsten. Proben mehr als 5 m über der Fläche unter dem Cursor (Fassade,
+  bis 27 Punkte je nach Tower (Fire 27, Research Center 49) in Mitte und
+  zwei Ringen. Ab 0,2 m Unebenheit stand der Tower mit `7185812f` auf der
+  höchsten Probe, ein Sockel reicht bis zur tiefsten; seit fix1 hebt auf
+  dem Boden nur, was der Boden allmählich erreicht, seit fix4 erkennt der
+  Sockel Dächer am Boden rundherum (Abschnitte "Review-Fixes"). Proben mehr als 5 m über der Fläche unter dem Cursor (Fassade,
   Traufe) oder mehr als 30 m darunter zählen nicht.
 - `footprintRadius` je Tower-Typ, am Modell gemessen: 2,4 m (Ice) bis 5,3 m
   (Fire), Research Center 10 m.
@@ -123,7 +130,8 @@ stehen die Hashes des Branches.
   `onBeforeCompile` (logdepthbuf und Farbraum bleiben erhalten). Ein Draw
   Call je Sockel. In der Bauvorschau durchscheinend und grün oder rot
   getönt wie der Vorschau-Tower. Verkaufen entfernt den Sockel.
-- Review-Befund M1 (Autos, Hecken heben den Tower an) siehe "Review".
+- Review-Befund 1 (Autos, Hecken heben den Tower an) und seine Behebung:
+  Abschnitt "Review-Fixes (fix1)".
 
 ### Linke Fähigkeitsleiste und Tabellen je Fähigkeit (abilitybar, `d697e4e7`, `3769d8e3`, `4479bc9f`)
 
@@ -146,7 +154,7 @@ stehen die Hashes des Branches.
 ### Wellen-Panel neu (abilitybar, `ecbf9a71` bis `dffae174`, 3 Commits)
 
 - Die Kopfzeile "WAVE N" ist weg. Der Knopf heißt "▶ WAVE N", rechts die
-  Tastenkappe SPACE; während einer Welle wie bisher Restzahl und Balken.
+  Tastenkappe Space; während einer Welle wie bisher Restzahl und Balken.
   Auto-Start als kleiner Schalter "auto 10s" unter dem Knopf statt der
   Checkbox; der Countdown ersetzt die Kappe. Das MIX-Badge entfällt.
 - NEXT als Zeitleiste: fünf Marken (vorher zwei Zeilen), Totenkopf für
@@ -155,8 +163,9 @@ stehen die Hashes des Branches.
   Icons). Hover oder Fokus zeigt, Klick hält, Standard ist die nächste
   Welle.
 - Emojis raus: Rüstung als graues Schild auch in der Gegnergruppen-Liste.
-  Neue gemeinsame Zuordnung `DAMAGE_TYPE_ICON` mit eigenem Icon je
-  Schadensart (neu: sparkle, snowflake, burst). Nebeneffekt: Das
+  `DAMAGE_TYPE_ICON` zieht aus `tower-stats.ts` nach `components/icon` und
+  hat jetzt ein eigenes Icon je Schadensart (neu: sparkle, snowflake,
+  burst). Nebeneffekt: Das
   Tower-Panel zeigt dieselben neuen Icons.
 
 ### Quickfix-Paket (quickfix, `7414ee13` bis `7914062f`, 12 Commits für 10 Punkte aus TODO 1.8)
@@ -174,8 +183,8 @@ stehen die Hashes des Branches.
    aus `package.json` und Lockfile (`node_modules` bleibt bis zum nächsten
    `npm install` gleich, der Build beweist die Abwesenheit also nicht; per
    Grep importiert nichts das Paket).
-6. `46a096d2`: Der Nachhall einer Fähigkeit (0,35 und 0,9 s) läuft in
-   Spielzeit: die Pause hält ihn an, höheres Tempo verkürzt ihn.
+6. `46a096d2`: Der Nachhall der Fähigkeiten (beim Atomschlag 0,35 und
+   0,9 s) läuft in Spielzeit: die Pause hält ihn an, höheres Tempo verkürzt ihn.
 7. `dde04a9c`: Stirbt ein Debug-Skeleton außerhalb einer Welle, zielen die
    Tower weiter auf die Minions statt kurz zur Wache zu drehen.
    `cbd01d10`: Enemy Debug setzt Gegner auf die Route selbst (Mittellinie,
@@ -201,7 +210,7 @@ stehen die Hashes des Branches.
   Debug-Wellen schon (Ausnahme: Sprung zu Welle N).
 - Globus als 2D-Canvas (kein zweiter WebGL-Kontext), orthografisch, nur
   Linien: Küsten, Grenzen, 30°-Gradnetz aus Natural Earth 1:110m (Public
-  Domain), eingebettet mit 20 kB, als Lazy-Chunk von 32,4 kB. Credits
+  Domain), eingebettet mit 20 kB, als Lazy-Chunk von etwa 32 kB. Credits
   "Map Data".
 - Drei Einstiege: Tab "World" im Ortsdialog, Knopf "World" im Sidebar-Fuß,
   Rekord-Hinweis 1,2 s nach Game Over unter Restart ("Skip" blendet aus).
@@ -282,8 +291,8 @@ stehen die Hashes des Branches.
   synthetisiert (fester Seed, kein Asset). Der Loop sitzt am Körperpunkt,
   der dem Hörer am nächsten ist, zählt nicht zum Budget von 12
   Gegner-Sounds und hält in der Pause an.
-- Das Band lief nur durch den NVIDIA-Desktop-Compiler (GLSL 330), nicht
-  durch ANGLE oder einen Browser.
+- Das Band ist offline geprüft (NVIDIA-Treiber als GLSL 330, dazu der
+  Shader-Check mit glslang), nicht mit ANGLE oder im Browser.
 
 ### Code-Zerlegungen (refactor)
 
@@ -294,9 +303,10 @@ stehen die Hashes des Branches.
   (dort auch `CIRCLE_STREET`). Ein Fingerprint-Spec vor dem Split, danach
   entfernt; ein Laufzeitvergleich alt gegen neu (review2) fand keinen
   Unterschied.
-- **Training-Debugger** (`321edf85`, `ca88d039`): `onEnableBot` und
-  `onDisableBot` sind jetzt Outputs, dazu die erste Komponenten-Spec unter
-  `components/`.
+- **Training-Debugger** (`321edf85`, `ca88d039`): Die Funktions-Inputs
+  `onEnableBot` und `onDisableBot` sind durch die Outputs
+  `botEnableRequested` (mit Skill-Level) und `botDisableRequested` ersetzt,
+  dazu die erste Spec unter `components/`, die eine Komponente selbst baut.
 - **vat-baker** (`3ec7e210` bis `9e8393f1`, 5 Commits): 1 214 auf 447 Zeilen,
   Helfer in `vat-clips.ts`, `vat-encoding.ts`, `vat-surface.ts`; eine
   Merge-Funktion statt drei Kopien, eine Clip-Registry statt zwei. Nachweis
@@ -412,7 +422,7 @@ stehen die Hashes des Branches.
 |---|---|---|---|
 | Forschung | 700 Gold, 25 s, nach Arcane Studies | 800 Gold, 30 s, nach Storm Mastery | 1 500 Gold, 45 s, nach Master Engineering |
 | Vorwarnung | 0,5 s | 0,5 s | 1 s |
-| Fläche | 20 m Radius, Boden und Luft | 30 m Radius | Strahl 5 m breit, läuft vom Klick die Route zurück Richtung Spawn, 18 m/s, 4 s, höchstens 72 m |
+| Fläche | 20 m Radius, Boden und Luft | 30 m Radius | Strahl mit 5 m Radius (etwa 10 m breit), läuft vom Klick die Route zurück Richtung Spawn, 18 m/s, 4 s, höchstens 72 m |
 | Wirkung | Freeze 3 s, Bosse 1 s | Stun: Tank und Mech 6 s, Bosse 0,75 s, andere 1,5 s | Feuer 100 % der Max-HP je Sekunde (Bosse 30 %) mal Matrix `fire`, Kappe 60 % (Bosse 20 %) je Gegner und Strahl |
 
 - Grundlagen: Freeze ist jetzt ein echter Halt (Bewegung und Laufzyklus
@@ -671,7 +681,7 @@ nicht mehr geprüft. "Doku" heißt: der Konflikt liegt nur in einem Dokument.
 | Blutmond `626f0581` bis `fe69ba4c` | Doku `1aa13049`; ohne Doku Konflikt in `three-tiles-engine.ts` (Held daneben) | `1b4311d6` (Ooze) und `74e0c8f3` (Wurm) allein konfliktfrei |
 | Sprung zu Welle `f334663e` bis `b63f4320` | am `fcc543fa` allein Konflikt (`game-event-bus.ts`, `game-commands.handler.ts`, GSM-Specs), nach Fähigkeiten und Held konfliktfrei; am Head stoppt diese Kette schon beim Held (siehe dort) | braucht den `BestWaveService` der Weltkarte |
 | Held `9741ffb6` bis `46c300ac` | am `fcc543fa` allein Konflikt (Doku `613af403`, `hero-control.service.ts`, `hotkey.service.ts`, `tower-defense.component.ts`), nach den Fähigkeiten konfliktfrei; am Head nach Pilzwolke und Fähigkeiten nur noch in `docs/INDEX.md` (`90938f8b`, die Nachbarzeile hat dieses Handover geändert), dahinter nicht geprüft | `613af403` braucht die Leiste, `9b802416` das Held-GLB, `46c300ac` die Ooze |
-| Fähigkeiten `eaf8d5f2` bis `fcc543fa`, dazu `9d6d2d15` | am Head Konflikt in `docs/ABILITIES.md` (`0db2d032`; die Zerlegung der Pilzwolke nennt dort ihre Dateien); mit der Pilzwolke zuerst konfliktfrei. Einzeln konfliktfrei: `fcc543fa`, `4234de2e`, `9d6d2d15`. Laser (`8fc55ae8`, `a25e0260`, `0db2d032`, `1f92f349`, `538ddf87`, `2cfb850f`) nur noch Doku `ABILITIES.md`. Frost oder EMP allein: Konflikt in `strategy-bot.factory.ts`, `research-pick.strategy.ts`, `ABILITIES.md`, `BOT_SYSTEM.md` | brauchen Leiste und Tabellen; EMP nutzt den Halt-Weg aus `325512de` (Frost); die Pilzwolke nutzt `effect-buffers.ts` aus `459235bd` |
+| Fähigkeiten `eaf8d5f2` bis `fcc543fa`, dazu `9d6d2d15` | am Head allein Konflikt in `docs/ABILITIES.md` (die Zerlegung der Pilzwolke nennt dort ihre Dateien; der Faktencheck fand am `1fe62ebc` in Einzelschritten den ersten Stopp bei `325512de`), mit der Pilzwolke zuerst konfliktfrei. Am `5e1de3f2` nicht mehr am Stück: mit der Pilzwolke zuerst Stopp bei `1f92f349` (Laser-Bot, danach von fix3 `ede0b617` geändert); mit fix3 zuerst Stopp bei `0db2d032` (`icon.component.ts`, `game-state.manager.ts`); mit Replay und fix3 zuerst Stopp bei `325512de` (`visual-effects.config.ts`, `combat-effect.service.ts`). Am Head einzeln konfliktfrei: `fcc543fa`, `4234de2e`, `9d6d2d15`; Laser (`8fc55ae8`, `a25e0260`, `0db2d032`, `1f92f349`, `538ddf87`, `2cfb850f`) nur Doku `ABILITIES.md`. Frost oder EMP allein: Konflikt in `strategy-bot.factory.ts`, `research-pick.strategy.ts`, `ABILITIES.md`, `BOT_SYSTEM.md` | brauchen Leiste und Tabellen; EMP nutzt den Halt-Weg aus `325512de` (Frost); die Pilzwolke nutzt `effect-buffers.ts` aus `459235bd`; Replay, fix2 und fix3 ändern dieselben Dateien |
 | Pilzwolke `8ca1c4bf` bis `ac10bed9` | konfliktfrei | `66a94828` baut auf `459235bd` (Fähigkeiten) auf |
 | fix1 `2b7da859` bis `5744bcce` | `2b7da859`, `386a17c1`, `bf573095`, `5744bcce` einzeln konfliktfrei; `f500aaaf` nur zusammen mit `5744bcce`. Am `94d9b012` kollidiert das Paar in `tower-footprint.ts` und `tower-placement.service.ts`; mit `a26cd7dd` (fix4) zuerst konfliktfrei | `5744bcce` baut auf `f500aaaf` auf; beide auf dem Sockel, `bf573095` auf dem Abzeichen |
 | Shader-Check `795f9cef` bis `292d788f` | am `292d788f` konfliktfrei; am `94d9b012` allein Doku-Konflikt in `ARCHITECTURE.md` (`88523460`), mit den drei Shader-Commits von fix4 zuerst konfliktfrei | nur Test, Doku und Kommentare |
@@ -688,9 +698,12 @@ Bereiche. Die übrigen Angaben (Assets, Leiste, Tabellen, Wellen-Panel, die
 übrigen Quickfixes, Weltkarte, Wurm, Ooze und Blutmond als Ganzes, vat)
 stammen aus der Probe am `fcc543fa`.
 
-Kurz: Pilzwolke und Fähigkeiten gehen zusammen sauber zurück, danach der
-Held (bis auf eine Doku-Zeile). Perf (mit `2b7da859`), Boss-Intro (ohne
-Doku), fix1, der Shader-Check und die meisten Quickfixes gehen einzeln.
+Kurz: Am `292d788f` gingen Pilzwolke und Fähigkeiten zusammen sauber
+zurück, danach der Held (bis auf eine Doku-Zeile); seit Replay, fix2 und
+fix3 braucht der Fähigkeiten-Block Handarbeit. Perf (mit `2b7da859`), Boss-Intro (ohne
+Doku), fix1 (die Placement-Fixes mit `a26cd7dd` zuerst), der Shader-Check (mit den
+Shader-Commits von fix4 zuerst), fix2 und fix3 bis auf je einen Commit und
+die meisten Quickfixes gehen einzeln.
 Alles, was die Engine-Felder, `tower.manager.ts` oder
 `tower-defense.component.ts` teilt (Sockel, Veteranen, Blutmond, Ooze, Held,
 Leiste), braucht Handarbeit an Nachbarzeilen.
@@ -720,7 +733,7 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
    der Cursorfläche, runder Sockel (steht bei eckigen Basen seitlich über),
    kein LOS-Blocker für andere Tower.
 6. **Wurm-Maße**: Skala 2,5 statt 3,6 (bei 3,6 wäre er 10,4 m breit, die
-   Portalöffnung hat 8 m), 35 HP je Segment, höchstens 240 Segmente, weil
+   Portalöffnung hat bei Skala 1 8 m und folgt sonst der Korridorbreite), 35 HP je Segment, höchstens 240 Segmente, weil
    jedes Segment ein ganzer Gegner ist und 240 Segmente 133 s aus dem Portal
    brauchen.
 7. **Frost und EMP halten den ganzen Wurm** an, sobald ein Segment steht
@@ -797,7 +810,7 @@ der Schwere hoch. Alle 23 Befunde sind behoben: die von review1 durch fix1,
 review2 durch fix2, review3 durch fix3, review4 durch fix4 (Abschnitte
 "Review-Fixes"). Was die Fix-Worker bewusst ausgelassen haben, steht bei den
 Befunden und unter "Befunde, offen". Die Befunde von review5 (Replay)
-folgen in Teil 2.
+folgen.
 
 **review1**, `1ca6713a..bffae869` (54 Commits: Assets, perf, Sockel, Leiste,
 Wellen-Panel, Quickfix, Weltkarte, Veteranen, Wurm): 1 mittel, 4 niedrig,
@@ -820,7 +833,7 @@ alle behoben.
    Ein Wiederherstellen, das `kills` setzt, ohne das Event zu senden, hätte
    den Rang im Panel, aber kein Abzeichen gezeigt. Behoben `bf573095`.
 
-**review2**, `bffae869..fe69ba4c` (42 Commits: Ooze, Boss-Intro, Blutmond,
+**review2**, `bffae869..fe69ba4c` (40 Commits: Ooze, Boss-Intro, Blutmond,
 Zerlegungen): 1 mittel, 8 niedrig, alle behoben (fix2). Ohne Fehler im
 Spielablauf (Targeting, Splash, Kettenblitz, Status-Effekte, Atomschlag,
 Leck, Reset, Pause).
@@ -897,7 +910,11 @@ Determinismus der Platzierung, die Zahlen der Boden-Regel.
 
 Hinweis aus review4, kein Defekt: Auf dem Rechner der Nacht gibt es kein
 `glslangValidator`, das Gate-Grün schließt den Compile-Schritt also nicht
-ein; die Fix-Worker haben mit einem Binary aus dem Scratchpad geprüft.
+ein; die Fix-Worker und der Lead (57 von 57 am `a26cd7dd`) haben mit
+einem Binary aus dem Scratchpad geprüft.
+
+**review5** (Replay, `a4d8c839` bis `4d415013`): läuft, der Abschnitt
+folgt.
 
 ## Befunde, offen
 
@@ -1071,8 +1088,8 @@ Punkte beginnen bei 301.
 **Wellen-Panel**
 
 324. Neues Spiel: keine Kopfzeile, goldener Knopf "▶ WAVE 1" mit Kappe
-     SPACE, darunter der Schalter "auto 10s". Schalter an: Spur teal; nach
-     einer Welle zählt der Knopf "10s" bis "0s" statt SPACE, ein dünner
+     Space, darunter der Schalter "auto 10s". Schalter an: Spur teal; nach
+     einer Welle zählt der Knopf "10s" bis "0s" statt Space, ein dünner
      Balken läuft ab, dann startet die nächste Welle. Nach Reload noch an.
 325. In der Welle: Knopf eingelassen, "WAVE 1" in Teal, rechts "N left",
      Teal-Balken; die Gegnergruppen zeigen die Rüstung als graues Schild,
@@ -1120,8 +1137,9 @@ Punkte beginnen bei 301.
 339. Research Center, gesperrten Knoten "Advanced Weaponry" klicken: die
      Queue zeigt Gatling Technology, Siege Engineering, Ice Magic, Arcane
      Studies, Advanced Weaponry; Gold geht erst beim jeweiligen Start ab.
-     Gatling aus der Queue nehmen: Siege Engineering und Advanced Weaponry
-     fallen mit heraus.
+     Mit weniger als 400 Credits (sonst startet Gatling sofort) Gatling aus
+     der Queue nehmen: Siege Engineering und Advanced Weaponry fallen mit
+     heraus.
 
 **Weltkarte**
 
@@ -1182,8 +1200,8 @@ Punkte beginnen bei 301.
      Schlängeln wie bei 1x.
 357. Bis W34 spielen oder auf 35 springen: NEXT zeigt W35 "Boss:
      Chitin Worm" mit Totenkopf, Rüstung Heavy; W35 bringt den Wurm, "Why
-     this wave" nennt den ersetzten Boss; ganz getötet steigt das Gold über
-     die Welle um 12 000. W40 ist wieder ein Director-Boss.
+     this wave" nennt den ersetzten Boss; ganz getötet bringt die Welle
+     12 000 Kill-Gold, mit Abschlussbonus 18 000 (Skill-Boni extra). W40 ist wieder ein Director-Boss.
 
 **Ooze**
 
@@ -1248,7 +1266,9 @@ Punkte beginnen bei 301.
      Screenshot. Display, General, "Blood Moon" aus: Look und Mond sofort
      weg. Restart in W14: Look sofort aus.
 376. Bloom an in W14: Tönung etwa gleich, Kegel über hellem Boden
-     schwächer. Ghost oder Bear in W21: getönt wie die anderen. Sprung auf
+     schwächer. Fledermäuse in W21 getönt wie die anderen (W21 ist
+     `bat_swarm`); Ghost oder Bear per Custom Wave, wenn die nächste Welle
+     14, 21 oder 28 ist. Sprung auf
      35: Wurmringe glühen rot (auch ein neuer Kopf nach einem Split); Ooze
      auf einer Blutmond-Welle: Band dunkler, roter Rand.
 377. Perf-Fenster W14 gegen W13: etwa ein Vollbild-Durchgang und ein Draw
@@ -1324,7 +1344,7 @@ Punkte beginnen bei 301.
 397. L: Ring 5 m und ein goldenes Band Richtung Spawn, "Click Fire";
      abseits rot "No route within 30 m". Klick vor eine Gruppe: 1 s oranges
      Band, dann eine Lichtsäule, deren Fuß 4 s Richtung Portal läuft,
-     Funken, Brandspur; Ungepanzerte bis etwa 40 % HP, Tanks weniger,
+     Funken, Brandspur; Ungepanzerte bis 60 % (Kappe), Tanks gut 25 %,
      Geister kaum; die Welle endet erst, wenn der Strahl aus ist.
 398. Wurm: F auf einen Teil: betroffene Ringe vereist, der ganze Wurm steht
      1 s; E ebenso 0,75 s; L brennt die Ringe unter dem Strahl.
@@ -1471,8 +1491,10 @@ Punkte beginnen bei 301.
 Nach DONE.md verschoben ist nichts, das passiert nach deinem OK. In 1.8 hat
 kein Eintrag eine Stand-Zeile bekommen; die Einleitung des neuen Abschnitts
 1.9 nennt, was die Nacht dort bearbeitet hat. Nur die Dateiverweise im
-Eintrag "Eigene Shader ohne Ausgabe-Kodierung" sind auf die neuen Dateien
-nachgezogen.
+Eintrag "Eigene Shader ohne Ausgabe-Kodierung" sind nachgezogen: Portal und
+HQ-Marker auf die Dateien nach der Zerlegung, der Atompilz auf
+`mushroom-cloud-blast.ts`, die VAT-Gegner auf die Ausgabezeilen in
+`vat-material.ts`.
 
 | TODO-Eintrag (1.8) | Stand | Commits |
 |---|---|---|
