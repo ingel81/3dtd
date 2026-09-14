@@ -869,10 +869,12 @@ describe('GlobalRouteGrid bridges', () => {
 
   let grid: GlobalRouteGrid;
 
+  /** A deck at 8 m over water at 0 m from x = 30 to 60, as far as the columns are concerned; solid ground at 0 m either side. */
+  const deck = (x: number): ColumnSample => ({ groundY: 0, topY: x >= 30 && x < 60 ? 8 : 0, tileDepth: 20, tileGeometricError: 2 });
+
   beforeEach(() => {
-    // A deck at 8 m over water at 0 m, as far as the columns are concerned.
     grid = new GlobalRouteGrid();
-    grid.initialize((() => ({ groundY: 0, topY: 8, tileDepth: 20, tileGeometricError: 2 })) as never, coordinateSync);
+    grid.initialize(deck as never, coordinateSync);
   });
 
   it('puts the cells of a bridge segment on the deck and the rest on the ground', () => {
@@ -883,12 +885,16 @@ describe('GlobalRouteGrid bridges', () => {
   });
 
   it('keeps the deck where the approach reaches it with its round end, and the approach where the bridge does', () => {
-    grid.generateFromRoutes([[at(0, 0), at(30, 0, true), at(60, 0)]]);
+    // A gantry 12 m up over the approach just before the bridge: a cell of
+    // the approach stays under it, a deck cell would take its top.
+    const gantry = new GlobalRouteGrid();
+    gantry.initialize(((x: number) => (x > 26 && x < 30 ? { ...deck(x), topY: 12 } : deck(x))) as never, coordinateSync);
+    gantry.generateFromRoutes([[at(0, 0), at(30, 0, true), at(60, 0)]]);
     // Centre (31, 1) lies along the bridge, 1.4 m from the approach's end;
     // (29, 1) along the approach, 1.4 m from the bridge's start.
-    expect(grid.getGroundLocalYAt(31, 0.5)).toBe(8);
-    expect(grid.getGroundLocalYAt(29, 0.5)).toBe(0);
-    expect(grid.getGroundLocalYAt(35, 0.5)).toBe(8);
+    expect(gantry.getGroundLocalYAt(31, 0.5)).toBe(8);
+    expect(gantry.getGroundLocalYAt(29, 0.5)).toBe(0);
+    expect(gantry.getGroundLocalYAt(35, 0.5)).toBe(8);
   });
 
   /**
@@ -916,6 +922,80 @@ describe('GlobalRouteGrid bridges', () => {
     for (const x of [31, 33, 35, 37, 83, 85, 87, 89]) {
       for (const z of [-5, -1, 1, 5]) expect(quay.getGroundLocalYAt(x, z), `${x}, ${z}`).toBe(80);
     }
+  });
+
+  /**
+   * Playtest 2026-09-14, retest of item 564, Paris, Pont d'Iéna: the deck
+   * reaches past both ends of the OSM bridge way, and the short ways that
+   * continue it there (7 and 2 m at one head, 31 m at the other) carry no
+   * bridge tag. Their cells, the red line and the enemies were on the quay
+   * 8 to 9.5 m under the deck.
+   */
+  describe('past the ends of the bridge way', () => {
+    /** Deck at 80 m from x = 18 to 104, 18 m wide, over a quay at 70 m; solid ground at 80 m round it. */
+    const head = (x: number, z: number): ColumnSample => (x > 18 && x < 104 && Math.abs(z) < 9
+      ? { groundY: 70, topY: 80, tileDepth: 20, tileGeometricError: 2 }
+      : x > 18 && x < 104
+        ? { groundY: 70, topY: 70, tileDepth: 20, tileGeometricError: 2 }
+        : { groundY: 80, topY: 80, tileDepth: 20, tileGeometricError: 2 });
+    const wide = (x: number, onBridge?: boolean): RouteWaypoint =>
+      ({ lat: 0, lon: x, corridorLeft: 7, corridorRight: 7, onBridge });
+    /** A road, ways of 8 and 6 m, the bridge way 30 to 90, ways of 6 and 34 m, a road. */
+    const route = [wide(0), wide(16), wide(24), wide(30, true), wide(90), wide(96), wide(130), wide(150)];
+
+    function build(column: (x: number, z: number) => ColumnSample, routes: RouteWaypoint[][]): GlobalRouteGrid {
+      const built = new GlobalRouteGrid();
+      built.initialize(column as never, coordinateSync);
+      built.generateFromRoutes(routes);
+      return built;
+    }
+
+    it('keeps the cells, the red line and the enemies on the deck over the ways off it', () => {
+      const bridge = build(head, [route]);
+      for (const x of [19, 21, 23, 25, 27, 29, 91, 93, 95, 97, 99, 101, 103]) {
+        for (const z of [-5, -1, 1, 5]) expect(bridge.getGroundLocalYAt(x, z), `${x}, ${z}`).toBe(80);
+      }
+      // The red line takes its heights at the waypoints, the enemies from the cells.
+      for (const x of [24, 30, 90, 96]) expect(bridge.getGroundLocalYAt(x, 0), `waypoint ${x}`).toBe(80);
+      expect(bridge.getCellAt(25, 5)).toMatchObject({ surface: 'approach', deckEnd: { x: 30, z: 0 } });
+      // The walk check judges them from the centre line on the deck.
+      expect(bridge.unwalkableCells()).toEqual([]);
+      // Beside the deck, over the open quay, the ground.
+      expect(build(head, [route.map((w) => ({ ...w, corridorLeft: 11, corridorRight: 11 }))]).getGroundLocalYAt(25, 10)).toBe(70);
+    });
+
+    it('carries the deck no further than DECK_APPROACH_M past the end of the bridge way', () => {
+      // The deck on to x = 150 this time.
+      const long = (x: number, z: number) => head(Math.min(x, 100), z);
+      const bridge = build(long, [route]);
+      expect(bridge.getGroundLocalYAt(127, 1)).toBe(80);
+      // Centre (133, 1): 43 m past the end at x = 90.
+      expect(bridge.getGroundLocalYAt(133, 1)).toBe(70);
+    });
+
+    it('leaves a street under the deck on the ground', () => {
+      // A street along x = 99, 3 m either side, under the way off the east end.
+      const under = [{ lat: -30, lon: 99, corridorLeft: 3, corridorRight: 3 }, { lat: 30, lon: 99 }];
+      for (const routes of [[route, under], [under, route]]) {
+        const grid2 = build(head, routes);
+        expect(grid2.getGroundLocalYAt(99, 1)).toBe(70);
+        expect(grid2.getGroundLocalYAt(99, 5)).toBe(70);
+        expect(grid2.getGroundLocalYAt(99, 20)).toBe(70);
+        expect(grid2.getGroundLocalYAt(93, 1)).toBe(80);
+      }
+    });
+
+    it('keeps a street by a tree crown or a statue on its ground, off the bridge and past its end', () => {
+      // A crown 8 m and a statue 5 m high over solid ground at 80 m, at x = 121 (way off the bridge) and 41 m south of it.
+      const objects = (x: number, z: number): ColumnSample =>
+        Math.abs(x - 121) < 1 && z > 4 && z < 6 ? { groundY: 80, topY: 88, tileDepth: 20, tileGeometricError: 2 }
+          : Math.abs(x - 121) < 1 && z > 44 && z < 46 ? { groundY: 80, topY: 85, tileDepth: 20, tileGeometricError: 2 }
+            : head(x, z);
+      const street = [{ lat: 45, lon: 100, corridorLeft: 3, corridorRight: 3 }, { lat: 45, lon: 140 }];
+      const grid2 = build(objects, [route, street]);
+      expect(grid2.getCellAt(121, 5)).toMatchObject({ surface: 'approach', terrainHeight: 80 });
+      expect(grid2.getCellAt(121, 45)).toMatchObject({ surface: 'ground', terrainHeight: 80 });
+    });
   });
 
   it('decides the surface before sampling, whichever route comes first', () => {

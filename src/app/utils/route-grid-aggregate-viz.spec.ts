@@ -21,6 +21,7 @@ function cell(
     terrainHeight: sampled ? 5 : 0,
     surface: opts.surface ?? 'ground',
     tunnelSpan: null,
+    deckEnd: null,
     routeAnchorY: 0,
     sample: {
       state: sampled ? 'stable' : 'unsampled',
@@ -98,6 +99,7 @@ describe('overlayCellKind', () => {
     expect(overlayCellKind(cell(1, 0, { sampled: false, surface: 'deck' }))).toBe(2);
     expect(overlayCellKind(cell(1, 0, { sampled: false, surface: 'tunnel' }))).toBe(2);
     expect(overlayCellKind(cell(1, 0, { surface: 'deck' }))).toBe(1);
+    expect(overlayCellKind(cell(1, 0, { surface: 'approach' }))).toBe(1);
     expect(overlayCellKind(cell(1, 0, { surface: 'tunnel' }))).toBe(3);
     expect(overlayCellKind(cell(1, 0))).toBe(0);
   });

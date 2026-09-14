@@ -20,6 +20,7 @@ const cellOn = (gx: number, gz: number): RouteCell => ({
   terrainHeight: 0,
   surface: 'ground',
   tunnelSpan: null,
+  deckEnd: null,
   routeAnchorY: 0,
   sample: { state: 'stable', sampledAt: 0, tileDepth: 20, tileGeometricError: 2 },
   heightSampled: true,
