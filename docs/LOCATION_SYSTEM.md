@@ -177,9 +177,6 @@ loadFavorites(): void         // Aus localStorage laden (Key: td_favorites_v2)
 
 // Zuruecksetzen
 reset(): void                 // Alle Signals auf Defaults
-
-// Legacy, No-ops (die URL ist Source of Truth)
-initializeEditableLocations(), saveLocationsToStorage(), clearLocationsFromStorage()
 ```
 
 ### Favorites-System
@@ -478,7 +475,6 @@ STEP 6: Calculate Routes
 STEP 7: Finalize
   - Höhen-Updates durchführen (await); danach erste Anpassung des
     Korridors an die Tiles, siehe ROUTE_CORRIDOR.md
-  - saveLocationsToStorage() (No-op, die URL ist schon aktuell)
   - isApplyingLocation = false
   - Route-Animation starten
   - Intro-Kamerafahrt starten (IntroCameraFlightService.start())
