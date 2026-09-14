@@ -1,6 +1,6 @@
 # Static Wave Fallback
 
-**Stand:** 2026-09-07 (Prioritätskette und Begründung gegen den Code geprüft)
+**Stand:** 2026-09-15 (Prioritätskette, Loop und Gold gegen den Code geprüft)
 
 Static-Wave-Fallback ist ein Debug-/Playtest-Modus, der Wellen aus einer
 festen Per-Wave-Tabelle spawnt — als Alternative zum Wave Director.
@@ -126,9 +126,10 @@ single-group.
 healthMultiplier(group) = group.hpMult × endgameHpMultiplier(waveNum)
 ```
 
-Der `endgameHpMultiplier` (auch in `wave-curriculum.config.ts`) rampt ab
-W20 mit +5%/Welle hoch und cappt bei 4× (W80). So bleiben spätere Loop-
-Iterationen herausfordernd, obwohl das Template wieder vorne anfängt.
+Der `endgameHpMultiplier` (auch in `wave-curriculum.config.ts`) steht bis
+W20 auf 1, steigt ab W21 um 0,05 je Welle und cappt bei 4× (W80). So bleiben
+spätere Loop-Iterationen herausfordernd, obwohl das Profil wieder vorne
+anfängt.
 Der Ramp wird beim Resolven pro Gruppe in `healthMultiplier` gebaken —
 der WaveManager bekommt fertige Per-Enemy-HPs.
 
@@ -172,7 +173,9 @@ er früher im Lockstep lief, tun das nicht mehr:
   noch, der Loop laufe „alongside `templateForWave`"; das stimmt nicht mehr.
 - **`goldBudgetForWave` loopt nicht.** Ab W31 **verfällt** das Budget
   geometrisch: `×0.5` je Welle, mit Boden bei 5 % der W30-Werte (6000 Kill /
-  3000 Complete, erreicht ab ~W35). Der frühere mod-30-Loop ließ Welle 31 von
+  3000 Complete, erreicht ab W35). Boss-Wellen (ab W35 jede fünfte) zahlen
+  das Doppelte (`BOSS_GOLD_MULTIPLIER = 2`). Das Gold richtet sich nach der
+  Wellennummer, nicht nach dem Static-Profil, das gerade läuft. Der frühere mod-30-Loop ließ Welle 31 von
   180 000 auf 200 Gold fallen und wieder hochklettern, und zahlte über 100 Wellen
   2,64 M aus — gegen ein Design-Roster von 1,39 M. Der Trainings-Bot erreichte
   damit ~6700 DPS über die ganze Route und tötete ab Welle 11 100 % jeder Welle.
@@ -247,42 +250,23 @@ wirft (dann läuft der Debug-Panel-Pfad, und `aiError` trägt die Meldung).
 
 ---
 
-## Arbeitsverlauf
+## Herkunft (Mai 2026)
 
-Chronologisch (Mai 2026):
+Der Modus entstand, um das Curriculum ohne geladenes ONNX-Modell
+durchzuspielen; AI aus hieß damals Debug-Panel mit manuellen Slidern. Erste
+Fassung: 30 Einträge mit einem Gegnertyp je Welle, bemessen am geplanten
+Spieler-DPS aus dem Wave-Planner. Unterwegs kamen dazu:
 
-1. **Konzept & Design.** Idee aus der Wave-Planner-Diskussion: man will
-   das Curriculum komplett spielen können *ohne* das AI-Modell laden zu
-   müssen. Bisher führte AI-aus zum Debug-Panel-Pfad (manuelle Slider),
-   was für „durchspielen und schauen" unbrauchbar war.
-
-2. **Initial-Implementierung.** `STATIC_WAVE_PROFILES` (30 Einträge,
-   single-type pro Welle) + `useStaticCurriculum` Signal + UI-Toggle in
-   Quick-Actions. Erste Sizing-Pass anhand des geplanten Player-DPS aus
-   dem Wave-Planner.
-
-3. **Stone Golem als Welle.** Neues Template `golem_squad` in
-   `templates.ts` (`minWave: 999` blockt die heutige untrainierte AI),
-   Slot in W15 (vorher `mech_army`). Gate-Tag `fortified` ergänzt im
-   Wave-Planner-Mapping.
-
-4. **Prioritäts-Bug entdeckt + behoben.** Erste Version hatte den
-   AI-Check vor dem Static-Check → der Toggle wirkte nicht, weil das
-   Modell sich beim Laden auto-aktiviert. Static-Check zieht jetzt vor.
-
-5. **Playtest W1–W42 (Benutzer).** Mitschnitt der Gold-Reserven pro
-   Welle deckte zwei Probleme auf:
-   - Late-Game-Gold explodiert (W42 → 3.16 M Surplus). Ursache: lineare
-     `+20k/+10k`-Extrapolation in `goldBudgetForWave` nach W30.
-   - Post-W30 spawnten nur noch Herberts. Ursache: gleiche Mechanik in
-     `staticWaveProfileForWave` (skalierte den letzten Eintrag = Boss).
-   Beide Funktionen jetzt **modulo 30 loopend** in Lockstep mit
-   `templateForWave`.
-
-6. **Poison-DoT-Bug (parallel)** gefunden während dieser Playtests:
-   `deltaTime * 1000` in `enemy.manager.ts` Poison-Tick-Akku → ~1000×
-   inflated DPS. Fix dokumentiert in
-   [Commit 68b18c6](../../../commits/68b18c6).
+- `golem_squad` als Template, damals mit `minWave: 999` für die AI gesperrt,
+  heute `minWave: 14`.
+- Der Prioritäts-Bug: der AI-Check lief vor dem Static-Check, der Toggle
+  wirkte nicht (siehe oben).
+- Aus einem Playtest W1 bis W42 zwei Fehler nach W30: Gold und Static-Profile
+  extrapolierten linear (W42 mit 3,16 M Gold Überschuss, danach nur noch
+  Herberts). Beide loopten danach modulo 30. Heute loopt nur noch der
+  Static-Pfad, das Gold verfällt (siehe [Post-W30 Loop](#post-w30-loop)).
+- Nebenbei ein Poison-DoT-Fehler (`deltaTime * 1000` im Tick-Akku von
+  `enemy.manager.ts`, rund tausendfache DPS), behoben in `68b18c6`.
 
 ---
 
@@ -307,7 +291,7 @@ Single-Group-Wellen sind einfach Schedules mit 1 Group → N SpawnEntries
 desselben Typs. Funktional identisch zum alten Single-Type-Pfad, aber
 keine zweite Code-Welt mehr.
 
-## Bekannte Limitationen (= aktuelle TODOs)
+## Bekannte Limitationen
 
 1. ~~**Golem-Template ist AI-unsichtbar.**~~ **Erledigt.** `golem_squad` hat
    jetzt `minWave: 14` und steht dem Wave Director offen. Ein Python-Mirror ist
@@ -359,4 +343,5 @@ Wenn sich beim Static-Spiel etwas falsch anfühlt:
 - [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) —
   _historisch:_ Curriculum- und Gold-Stand vom Mai 2026, Gold-Zahlen dort
   überholt.
-- [TODO.md](../TODO.md) §2.2 — offene Static-Fallback-Erweiterungen.
+- Offene Erweiterungen stehen oben unter [Bekannte Limitationen](#bekannte-limitationen);
+  in [TODO.md](../TODO.md) gibt es dazu keinen Eintrag.
