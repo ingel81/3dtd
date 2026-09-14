@@ -87,11 +87,12 @@ export class AbilityBarComponent {
   readonly visible = computed(() => this.hero() !== null || this.buttons().length > 0);
 
   /**
-   * Targeting mode on or off. A button without effect stays clickable
-   * (aria-disabled instead of disabled), so its tooltip still shows.
+   * Targeting mode on or off, like the ability's key. A button without
+   * effect stays clickable (aria-disabled instead of disabled), so its
+   * tooltip still shows; its press arms nothing and the context hint box
+   * says why (AbilityTargetingService.start).
    */
-  press(id: AbilityId, enabled: boolean): void {
-    if (!enabled) return;
+  press(id: AbilityId): void {
     this.abilityTargeting.toggle(id);
   }
 }

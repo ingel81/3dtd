@@ -111,7 +111,7 @@ GameStateManager.runSubStep
 | `hero:state-changed` | GameStateSyncService → `GameStore.hero` |
 | `hero:kill` | HeroManager (Kills, Stufe) |
 | `hero:level-up` | VFXService ("LEVEL N" über seinem Kopf) |
-| `hero:rejected` | niemand fest; die UI prüft vor dem Befehl selbst |
+| `hero:rejected` | RefusalHintService: Grund in der Kontext-Hinweis-Box, nicht für Befehle des Bots ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#context-hint-box)) |
 
 Gründe für `hero:rejected`: `locked`, `hired`, `credits`, `no-hero`,
 `no-route`, `unknown-ammo`.
@@ -243,7 +243,9 @@ Mündung bis zu 0,2 m anders, dort startet der Tracer entsprechend neben dem Lau
   sichtbar ab der fertigen Forschung. Vor dem Anheuern zeigt er eine Münze
   ohne Taste, sein Tooltip den Preis und die fehlenden Credits; ein Druck
   schickt `command:hire-hero` (`HeroControlService.hire`), der HeroManager
-  prüft Forschung und Credits. Danach zeigt der Knopf den Helden mit G, im
+  prüft Forschung und Credits. Fehlen Credits, steht 2,5 s in der
+  Kontext-Hinweis-Box "Hire Mercenary" über "Need 600 credits"
+  (`RefusalHintService`). Danach zeigt der Knopf den Helden mit G, im
   Tooltip Stufe und Munition (`heroBarView()` in `ability-bar/hero-bar.ts`,
   Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#fähigkeitenleiste-canvas)).
 - **Wählen:** Klick auf ihn, Taste G oder sein Knopf in der Leiste
@@ -252,7 +254,9 @@ Mündung bis zu 0,2 m anders, dort startet der Tracer entsprechend neben dem Lau
 - **Schicken:** gewählt schickt ein Linksklick auf den Boden ihn zum
   nächsten Routenpunkt; ein Klick auf einen Tower wählt weiter den Tower.
   Er bleibt gewählt. Ohne Route in 30 m warnt die Kontext-Hinweis-Box "No
-  route within 30 m".
+  route within 30 m". Lehnt der HeroManager den Befehl trotzdem mit
+  `no-route` ab (ein Routenteil ohne Verbindung zu seinem), steht dort 2,5 s
+  "Mercenary" über "No way there along the routes".
 - **Kamera:** G oder sein Knopf, während er gewählt ist, fliegt zu ihm.
 - **Munition:** V schaltet reihum, auch ohne ihn zu wählen; im Helden-Panel
   die drei Segmente.

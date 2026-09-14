@@ -1,4 +1,5 @@
-<div class="context-hint-container" [class.has-warning]="warning()" [class.interactive]="actions().length > 0">
+<div class="context-hint-container" [class.has-warning]="warning()" [class.interactive]="actions().length > 0"
+     [attr.role]="live() ? 'status' : null">
   @if (title()) {
     <div class="title-row">
       <span class="hint-title">{{ title() }}</span>

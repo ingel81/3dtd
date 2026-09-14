@@ -63,6 +63,9 @@ export class ContextHintComponent {
   /** Text buttons at the bottom; with any, the box takes pointer input */
   actions = input<HintAction[]>([]);
 
+  /** A status message screen readers read out (role="status"), e.g. why a press did nothing */
+  live = input(false);
+
   /** Id of the action button clicked */
   readonly actionClicked = output<string>();
 }

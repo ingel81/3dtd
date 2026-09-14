@@ -110,7 +110,10 @@ export class HeroControlService {
     return this.cameraControl.focusGeo(at.lat, at.lon);
   }
 
-  /** His bar button before the hire. The HeroManager checks research and credits. */
+  /**
+   * His bar button before the hire. The HeroManager checks research and
+   * credits; its refusal shows in the context hint box (RefusalHintService).
+   */
   hire(): boolean {
     if (!this.gameState) return false;
     this.gameState.getEventBus().emit({ type: 'command:hire-hero' });

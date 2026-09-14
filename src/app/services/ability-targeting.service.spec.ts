@@ -37,6 +37,7 @@ describe('AbilityTargetingService', () => {
   let sweep: RouteSweep | null;
   let sent: GameEvent[];
   let markers: { showAim: ReturnType<typeof vi.fn>; hideAim: ReturnType<typeof vi.fn> };
+  let refuse: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     effects.length = 0;
@@ -50,6 +51,8 @@ describe('AbilityTargetingService', () => {
     injections['TowerDefenseStore'] = store;
     injections['TowerPlacementService'] = { exitBuildMode };
     injections['MapPlacementService'] = { exitPlacementMode: vi.fn() };
+    refuse = vi.fn();
+    injections['RefusalHintService'] = { ability: refuse };
     useCheck = null;
     snapTo = { lat: 48.10001, lon: 9.10001, height: 301 };
     sweep = null;
@@ -72,12 +75,15 @@ describe('AbilityTargetingService', () => {
     useCheck = 'no-wave';
     service.start('nuclear-strike');
     expect(service.targeting()).toBeNull();
+    // The manager's reason goes to the context hint box
+    expect(refuse).toHaveBeenCalledWith('nuclear-strike', 'no-wave');
 
     useCheck = null;
     ui.buildMode.set(true);
     service.start('nuclear-strike');
     expect(exitBuildMode).toHaveBeenCalled();
     expect(service.targeting()).toBe('nuclear-strike');
+    expect(refuse).toHaveBeenCalledTimes(1);
   });
 
   it('toggles: a second press leaves the mode and hides the ring', () => {

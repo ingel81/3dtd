@@ -17,6 +17,7 @@ vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class Tower
 vi.mock('./world/map-placement.service', () => ({ MapPlacementService: class MapPlacementService {} }));
 
 import { AbilityTargetingService } from './ability-targeting.service';
+import { RefusalHintService } from './refusal-hint.service';
 import { AbilityManager, type AbilityWorld } from '../managers/ability.manager';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { resolveHotkey } from './hotkey-map';
@@ -32,6 +33,7 @@ describe('Ability keys before their research, playtest 510 replayed', () => {
   let bus: GameEventBus;
   let abilities: AbilityManager;
   let service: AbilityTargetingService;
+  let refusals: RefusalHintService;
   const targeting = signal<AbilityId | null>(null);
 
   beforeEach(() => {
@@ -50,6 +52,8 @@ describe('Ability keys before their research, playtest 510 replayed', () => {
     injections['TowerDefenseStore'] = { waveActive: signal(true), abilities: signal({}) };
     injections['TowerPlacementService'] = { exitBuildMode: vi.fn() };
     injections['MapPlacementService'] = { exitPlacementMode: vi.fn() };
+    refusals = new RefusalHintService();
+    injections['RefusalHintService'] = refusals;
     service = new AbilityTargetingService();
     service.initialize(
       { abilityMarkers: { hideAim: vi.fn(), showAim: vi.fn() } } as never,
@@ -70,6 +74,9 @@ describe('Ability keys before their research, playtest 510 replayed', () => {
       // What HotkeyService.toggleAbility does; it takes the key only when this armed
       service.start(id);
       expect(service.targeting(), key).toBeNull();
+      // Nor does the context hint box say anything: before its research the
+      // ability is not the player's yet (RefusalHintService, reason 'locked')
+      expect(refusals.refusal(), key).toBeNull();
     }
   });
 

@@ -8,16 +8,14 @@ import { MapPlacementService } from './world/map-placement.service';
 import { ABILITIES, AbilityId } from '../configs/abilities.config';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { GameStateManager } from '../managers/game-state.manager';
-
-/** Warning while no route cell is in reach of the cursor */
-function noRouteWarning(id: AbilityId): string {
-  return `No route within ${ABILITIES[id].snapRadiusM} m`;
-}
+import { RefusalHintService, abilityNoRouteText } from './refusal-hint.service';
 
 /**
  * Targeting mode of the player abilities: the ability's button in the
  * ability bar or its key arms it, the next click on the map fires, Escape or a short right
  * click cancels. InputHandlerService routes the pointer here while it is on.
+ * When the ability cannot fire now, the press arms nothing and the context
+ * hint box says why (RefusalHintService).
  *
  * While aiming, a ring of the strike radius follows the cursor, snapped to
  * the route cell the strike would land on: gold where it lands, red with a
@@ -32,6 +30,7 @@ export class AbilityTargetingService {
   private readonly store = inject(TowerDefenseStore);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
+  private readonly refusals = inject(RefusalHintService);
 
   private engine: ThreeTilesEngine | null = null;
   private gameState: GameStateManager | null = null;
@@ -73,9 +72,14 @@ export class AbilityTargetingService {
     }
   }
 
-  /** Arm the targeting mode, if `id` can fire now. One pointer mode at a time. */
+  /** Arm the targeting mode, if `id` can fire now, else say why not. One pointer mode at a time. */
   start(id: AbilityId): void {
-    if (!this.gameState || this.gameState.abilityManager.checkUse(id) !== null) return;
+    if (!this.gameState) return;
+    const refused = this.gameState.abilityManager.checkUse(id);
+    if (refused) {
+      this.refusals.ability(id, refused);
+      return;
+    }
     if (this.uiStore.buildMode()) this.towerPlacement.exitBuildMode();
     if (this.uiStore.mapPlacementMode()) this.mapPlacement.exitPlacementMode();
     this.warning.set(null);
@@ -108,7 +112,7 @@ export class AbilityTargetingService {
       this.warning.set(null);
     } else {
       this.engine.abilityMarkers.showAim(hitPoint, radiusM, false);
-      this.warning.set(noRouteWarning(id));
+      this.warning.set(abilityNoRouteText(id));
     }
   }
 
@@ -123,7 +127,7 @@ export class AbilityTargetingService {
     if (!id || !this.gameState) return;
 
     if (!this.gameState.abilityManager.resolveTarget(id, { lat, lon, height })) {
-      this.warning.set(noRouteWarning(id));
+      this.warning.set(abilityNoRouteText(id));
       return;
     }
     this.gameState.getEventBus().emit({

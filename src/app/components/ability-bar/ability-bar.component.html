@@ -28,7 +28,7 @@
               [attr.aria-keyshortcuts]="button.hotkey"
               [tdRichTooltip]="button.tooltip"
               tdRichTooltipPosition="right"
-              (click)="press(button.id, button.view.enabled)">
+              (click)="press(button.id)">
         <td-icon [name]="button.icon" [size]="20"></td-icon>
         <span class="td-bar-key" aria-hidden="true">{{ button.hotkey }}</span>
         @if (button.view.charges !== null) {
