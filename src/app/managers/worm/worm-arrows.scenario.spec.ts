@@ -14,21 +14,10 @@ vi.mock('three', async () => {
 
 import { createTestManagers, TestManagers, tickEngine } from '../../integration/test-helpers';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
-import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { isArrowBoss, isOffscreenThreat, NEAR_HQ_PROGRESS, OffscreenClusterer } from '../../utils/offscreen-indicators';
-import type { GeoPosition } from '../../models/game.types';
+import { straightPath } from '../../../test/worm-test-helpers';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { WormGroup } from './worm-group';
-
-/** Straight route north, a waypoint every 50 m */
-function straightPath(meters: number): GeoPosition[] {
-  const points: GeoPosition[] = [];
-  for (let m = 0; m < meters; m += 50) {
-    points.push({ lat: 48.776 + m / METERS_PER_DEGREE_LAT, lon: 9.183, height: 300 });
-  }
-  points.push({ lat: 48.776 + meters / METERS_PER_DEGREE_LAT, lon: 9.183, height: 300 });
-  return points;
-}
 
 /** The enemies the component would give an arrow, as its scan() picks them. */
 function threats(m: TestManagers): Enemy[] {

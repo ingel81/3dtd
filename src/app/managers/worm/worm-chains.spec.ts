@@ -19,27 +19,12 @@ import {
 } from '../../integration/test-helpers';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { goldBudgetForWave } from '../../configs/wave-curriculum.config';
-import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { getRouteProfile } from '../../utils/route-corridor';
-import type { GeoPosition } from '../../models/game.types';
-import type { Enemy } from '../../entities/enemy.entity';
 import { wormSegmentCount, wormSway, type WormGroup } from './worm-group';
+import { straightPath, out, distance } from '../../../test/worm-test-helpers';
 
 const chain = ENEMY_TYPES['worm'].chain!;
 const SPEED = ENEMY_TYPES['worm'].baseSpeed;
-
-/** Straight route north, a waypoint every 50 m */
-function straightPath(meters: number): GeoPosition[] {
-  const points: GeoPosition[] = [];
-  for (let m = 0; m < meters; m += 50) {
-    points.push({ lat: 48.776 + m / METERS_PER_DEGREE_LAT, lon: 9.183, height: 300 });
-  }
-  points.push({ lat: 48.776 + meters / METERS_PER_DEGREE_LAT, lon: 9.183, height: 300 });
-  return points;
-}
-
-const out = (group: WormGroup): Enemy[] => group.segments.filter((e): e is Enemy => e !== null);
-const distance = (e: Enemy): number => e.movement.getDistanceAlongPath();
 
 describe('Worm chains', () => {
   let m: TestManagers;

@@ -39,21 +39,12 @@ import { LocationStore } from '../../store/location.store';
 import type { GeoPosition } from '../../models/game.types';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { WormGroup } from './worm-group';
+import { northPath, distance, out } from '../../../test/worm-test-helpers';
 
 const chain = ENEMY_TYPES['worm'].chain!;
 const SPEED = ENEMY_TYPES['worm'].baseSpeed;
 /** DebugStore.waveSpawnDelay, the Custom Wave's delay between two entries */
 const CUSTOM_WAVE_DELAY_MS = 1500;
-
-/** Straight route north, a waypoint every 50 m */
-function northPath(meters: number): GeoPosition[] {
-  const points: GeoPosition[] = [];
-  for (let m = 0; m < meters; m += 50) {
-    points.push({ lat: 48.776 + m / METERS_PER_DEGREE_LAT, lon: 9.183, height: 300 });
-  }
-  points.push({ lat: 48.776 + meters / METERS_PER_DEGREE_LAT, lon: 9.183, height: 300 });
-  return points;
-}
 
 /** Straight route east, a waypoint every 50 m */
 function eastPath(meters: number): GeoPosition[] {
@@ -62,9 +53,6 @@ function eastPath(meters: number): GeoPosition[] {
   for (let m = 0; m <= meters; m += 50) points.push({ lat: 48.776, lon: 9.183 + m / perDegree, height: 300 });
   return points;
 }
-
-const distance = (e: Enemy): number => e.movement.getDistanceAlongPath();
-const out = (group: WormGroup): Enemy[] => group.segments.filter((e): e is Enemy => e !== null);
 
 describe('Worm in a Custom Wave and in Enemy Debug (playtest 354, 355)', () => {
   let m: TestManagers;
