@@ -27,60 +27,71 @@ export interface UpgradableTower {
   getUpgradeLevel(upgradeId: UpgradeId): number;
 }
 
+/** Why an upgrade cannot be bought, see upgradeTrackRefusal() and upgradeRefusal(). */
+export type UpgradeRefusal =
+  /** The track (for upgradeRefusal() every track) is at its last level */
+  | { kind: 'maxed' }
+  /** The track (the cheapest within the unlocked tiers) costs more than the credits */
+  | { kind: 'credits'; upgradeId: UpgradeId; cost: number; missing: number }
+  /** The track's next level (of all that are left, the lowest) needs an upgrade tier not researched yet */
+  | { kind: 'tier'; tier: number };
+
 /**
- * First upgrade in panel order the player could click right now: affordable
- * and, except the Research Center's slot track, within the unlocked upgrade
- * tier. The same rules as the upgrade tiles and `command:upgrade-tower`.
+ * Why this track cannot be bought right now, null when it can: its last
+ * level is reached, its next level needs an upgrade tier not researched yet
+ * (the Research Center's slot track has no tiers), or the credits are
+ * short. A tier-locked track names the tier even when the credits are short
+ * as well, credits alone would not buy it. The same rules as the upgrade
+ * tiles and `command:upgrade-tower`.
  */
+export function upgradeTrackRefusal(
+  tower: UpgradableTower,
+  upgradeId: UpgradeId,
+  credits: number,
+  maxUpgradeTier: number,
+): UpgradeRefusal | null {
+  if (!tower.getAvailableUpgrades().some((u) => u.id === upgradeId)) return { kind: 'maxed' };
+  const cost = tower.getNextUpgradeCost(upgradeId);
+  if (cost <= 0) return { kind: 'maxed' };
+  const tier = upgradeId === 'research-slots' ? 0 : requiredUpgradeTier(tower.getUpgradeLevel(upgradeId));
+  if (maxUpgradeTier < tier) return { kind: 'tier', tier };
+  if (credits < cost) return { kind: 'credits', upgradeId, cost, missing: cost - credits };
+  return null;
+}
+
+/** First upgrade in panel order the player could buy right now, see upgradeTrackRefusal(). */
 export function firstAffordableUpgrade(
   tower: UpgradableTower,
   credits: number,
   maxUpgradeTier: number,
 ): UpgradeId | null {
-  for (const upgrade of tower.getAvailableUpgrades()) {
-    const cost = tower.getNextUpgradeCost(upgrade.id);
-    if (cost <= 0 || credits < cost) continue;
-    if (upgrade.id !== 'research-slots'
-      && maxUpgradeTier < requiredUpgradeTier(tower.getUpgradeLevel(upgrade.id))) continue;
-    return upgrade.id;
-  }
-  return null;
+  const upgrade = tower.getAvailableUpgrades()
+    .find((u) => upgradeTrackRefusal(tower, u.id, credits, maxUpgradeTier) === null);
+  return upgrade?.id ?? null;
 }
-
-/** Why firstAffordableUpgrade() found nothing, see upgradeRefusal(). */
-export type UpgradeRefusal =
-  /** Every track is at its last level */
-  | { kind: 'maxed' }
-  /** The cheapest track within the unlocked tiers costs more than the credits */
-  | { kind: 'credits'; upgradeId: UpgradeId; cost: number; missing: number }
-  /** What is left needs an upgrade tier not researched yet, the lowest of them */
-  | { kind: 'tier'; tier: number };
 
 /**
  * Why firstAffordableUpgrade() finds nothing for this tower, null when it
  * finds one. Short credits come before a missing tier: the upgrade the
- * player can reach soonest is the one worth naming. Same rules as
- * firstAffordableUpgrade().
+ * player can reach soonest is the one worth naming.
  */
 export function upgradeRefusal(
   tower: UpgradableTower,
   credits: number,
   maxUpgradeTier: number,
 ): UpgradeRefusal | null {
-  let cheapest: { upgradeId: UpgradeId; cost: number } | null = null;
+  let cheapest: Extract<UpgradeRefusal, { kind: 'credits' }> | null = null;
   let lowestLockedTier = Infinity;
   for (const upgrade of tower.getAvailableUpgrades()) {
-    const cost = tower.getNextUpgradeCost(upgrade.id);
-    if (cost <= 0) continue;
-    const tier = upgrade.id === 'research-slots' ? 0 : requiredUpgradeTier(tower.getUpgradeLevel(upgrade.id));
-    if (maxUpgradeTier < tier) {
-      lowestLockedTier = Math.min(lowestLockedTier, tier);
-      continue;
+    const refusal = upgradeTrackRefusal(tower, upgrade.id, credits, maxUpgradeTier);
+    if (!refusal) return null;
+    if (refusal.kind === 'tier') {
+      lowestLockedTier = Math.min(lowestLockedTier, refusal.tier);
+    } else if (refusal.kind === 'credits' && (!cheapest || refusal.cost < cheapest.cost)) {
+      cheapest = refusal;
     }
-    if (credits >= cost) return null;
-    if (!cheapest || cost < cheapest.cost) cheapest = { upgradeId: upgrade.id, cost };
   }
-  if (cheapest) return { kind: 'credits', ...cheapest, missing: cheapest.cost - credits };
+  if (cheapest) return cheapest;
   if (lowestLockedTier !== Infinity) return { kind: 'tier', tier: lowestLockedTier };
   return { kind: 'maxed' };
 }
