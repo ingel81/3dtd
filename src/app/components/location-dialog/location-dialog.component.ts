@@ -19,6 +19,7 @@ import {
   LocationDialogMode,
   LocationDialogResult,
   LocationInfo,
+  SavedSpawn,
   SpawnLocationConfig,
 } from '../../models/location.types';
 import { TD_CSS_VARS } from '../../styles/td-theme';
@@ -340,25 +341,21 @@ export class LocationDialogComponent {
     hq: { lat: number; lon: number },
     name: string,
     displayName: string,
-    spawn: { lat: number; lon: number } | undefined,
+    spawn: SavedSpawn | undefined,
     spawnId: string,
   ): void {
     this.dialogRef.close({
       hq: { lat: hq.lat, lon: hq.lon, name, displayName },
       spawn: spawn
-        ? { id: spawnId, lat: spawn.lat, lon: spawn.lon, isRandom: false }
+        ? { id: spawnId, lat: spawn.lat, lon: spawn.lon, portalBearing: spawn.portalBearing, isRandom: false }
         : { id: 'spawn_random', lat: 0, lon: 0, isRandom: true },
       confirmed: true,
     } satisfies LocationDialogResult);
   }
 
-  /** One click loads a showcase place; the spawn is placed at random like the Random mode. */
+  /** One click loads a showcase place, with its fixed spawn if it has one, otherwise random like the Random mode. */
   loadShowcase(place: ShowcaseLocation): void {
-    this.dialogRef.close({
-      hq: { lat: place.lat, lon: place.lon, name: place.name, displayName: place.name },
-      spawn: { id: 'spawn_random', lat: 0, lon: 0, isRandom: true },
-      confirmed: true,
-    } satisfies LocationDialogResult);
+    this.closeWithPlace(place, place.name, place.name, place.spawn, 'spawn_showcase');
   }
 
   confirm(): void {
