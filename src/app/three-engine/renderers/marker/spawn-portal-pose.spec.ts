@@ -1,20 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { Matrix4, Vector3 } from 'three';
 import {
+  clampPortalHeading,
   portalCorridorWidth,
   portalFrontDistance,
+  portalLaneOffset,
   portalScaleForWidth,
+  portalTurnRange,
   provisionalPortalPose,
   routeExitPoint,
+  routeLeavesThroughOpening,
   spawnPortalPose,
   type SpawnPortalPose,
 } from './spawn-portal-pose';
-import { corridorConfig } from '../../../utils/route-corridor';
+import { corridorConfig, lateralLimit } from '../../../utils/route-corridor';
 import {
   PORTAL_DEPTH,
   PORTAL_MAX_SCALE,
   PORTAL_MIN_SCALE,
   PORTAL_OPENING_WIDTH,
+  PORTAL_TURN_CLEARANCE,
 } from '../../../configs/marker-geometry.config';
 
 /** Where the portal's +z points after its heading. */
@@ -150,6 +155,115 @@ describe('routeExitPoint', () => {
     expect(portalFrontDistance(1)).toBe(PORTAL_DEPTH / 2);
     expect(portalFrontDistance(PORTAL_MIN_SCALE)).toBe(PORTAL_DEPTH / 2);
     expect(portalFrontDistance(PORTAL_MAX_SCALE)).toBeCloseTo((PORTAL_DEPTH / 2) * PORTAL_MAX_SCALE);
+  });
+});
+
+/**
+ * The route shifted `offset` metres square to itself, each vertex along the
+ * mean of the segments meeting there: an enemy's lane, built another way
+ * than routeLeavesThroughOpening builds it.
+ */
+function laneOf(points: readonly Point[], offset: number): Point[] {
+  return points.map((p, i) => {
+    const before = points[Math.max(0, i - 1)];
+    const after = points[Math.min(points.length - 1, i + 1)];
+    const length = Math.hypot(after.x - before.x, after.z - before.z);
+    return { x: p.x + ((after.z - before.z) / length) * offset, z: p.z - ((after.x - before.x) / length) * offset };
+  });
+}
+
+/** The portal turned by `offset` from its route's heading. */
+function turned(pose: SpawnPortalPose, offset: number): SpawnPortalPose {
+  return { ...pose, heading: pose.heading + offset };
+}
+
+describe('portal turn range', () => {
+  /** Opening half width less the clearance, for a portal of `scale` */
+  const room = (scale: number) => (PORTAL_OPENING_WIDTH / 2) * scale - PORTAL_TURN_CLEARANCE;
+
+  it('lässt auf einer geraden Straße so weit drehen, wie die äußeren Gegner noch zwischen den Pfeilern hinausgehen', () => {
+    // Nach Westen (+x), Korridor 9 m: Skala 1,125, Gegner bis 3 m neben der Mitte
+    const street = [{ x: 0, z: 0 }, { x: 60, z: 0 }];
+    const start = { lat: 0, lon: 0, corridorLeft: 4.5, corridorRight: 4.5 };
+    const pose = spawnPortalPose(street, 0, portalCorridorWidth(start))!;
+    const lane = portalLaneOffset(start);
+    expect(lane).toBeCloseTo(lateralLimit(4.5));
+
+    const range = portalTurnRange(street, pose, lane);
+    // Gerade Straße: zu beiden Seiten gleich weit
+    expect(range.max).toBeCloseTo(-range.min, 3);
+    // An der Grenze trifft die äußere Spur die Vorderfläche am Rand der
+    // Öffnung: f tan(t) + lane / cos(t) = halbe Öffnung weniger Abstand
+    const f = portalFrontDistance(pose.scale);
+    const t = range.max;
+    expect(f * Math.tan(t) + lane / Math.cos(t)).toBeCloseTo(room(pose.scale), 2);
+    expect(t).toBeGreaterThan((5 * Math.PI) / 180);
+    expect(t).toBeLessThan((15 * Math.PI) / 180);
+
+    // Die äußere Spur, anders gebaut, geht an der Grenze noch durch, dahinter nicht
+    for (const side of [-1, 1]) {
+      const run = throughPortal(turned(pose, range.max), laneOf(street, side * lane));
+      expect(Math.abs(run.atFront)).toBeLessThanOrEqual(room(pose.scale) + 0.01);
+    }
+    expect(routeLeavesThroughOpening(street, pose, pose.heading + range.max + 0.01, lane)).toBe(false);
+  });
+
+  it('hält eine Drehung durch einen Pfeiler oder die Rückwand an der Grenze an', () => {
+    const street = [{ x: 0, z: 0 }, { x: 60, z: 0 }];
+    const pose = spawnPortalPose(street, 0, 9)!;
+    const lane = lateralLimit(4.5);
+    const range = portalTurnRange(street, pose, lane);
+
+    // Quer: durch den Pfeiler
+    expect(clampPortalHeading(street, pose, pose.heading + Math.PI / 2, lane)).toBeCloseTo(pose.heading + range.max, 6);
+    expect(clampPortalHeading(street, pose, pose.heading - Math.PI / 2, lane)).toBeCloseTo(pose.heading + range.min, 6);
+    // Fast rückwärts: durch die Rückwand, zur näheren Grenze
+    expect(clampPortalHeading(street, pose, pose.heading + 3, lane)).toBeCloseTo(pose.heading + range.max, 6);
+    expect(clampPortalHeading(street, pose, pose.heading - 3, lane)).toBeCloseTo(pose.heading + range.min, 6);
+    // Innerhalb bleibt die Drehung, auch eine volle Umdrehung weiter
+    const small = range.max / 2;
+    expect(clampPortalHeading(street, pose, pose.heading + small + 2 * Math.PI, lane)).toBeCloseTo(pose.heading + small, 6);
+  });
+
+  it('dreht in einer Gasse, wo die Öffnung nicht mit dem Korridor schrumpft, weiter als auf einer Allee', () => {
+    const street = [{ x: 0, z: 0 }, { x: 0, z: 60 }];
+    const alley = spawnPortalPose(street, 0, 6)!;
+    const avenue = spawnPortalPose(street, 0, 12)!;
+    expect(alley.scale).toBe(PORTAL_MIN_SCALE);
+    const alleyRange = portalTurnRange(street, alley, lateralLimit(3));
+    const avenueRange = portalTurnRange(street, avenue, lateralLimit(6));
+    expect(alleyRange.max).toBeGreaterThan(avenueRange.max);
+    expect(avenueRange.max).toBeGreaterThan(0);
+  });
+
+  it('folgt auf dem Kreisverkehr dem Bogen: jede erlaubte Drehung lässt alle Spuren durch die Öffnung', () => {
+    // Kreisverkehr mit 15 m Radius, Knoten alle 5°, eine Viertelrunde; Korridor 9 m
+    const ring = arc(0, -15, 15, 0, 5, 19);
+    const pose = spawnPortalPose(ring, 0, 9)!;
+    const lane = lateralLimit(4.5);
+    const range = portalTurnRange(ring, pose, lane);
+    expect(range.min).toBeLessThan(0);
+    expect(range.max).toBeGreaterThan(0);
+
+    for (const offset of [range.min, range.min / 2, 0, range.max / 2, range.max]) {
+      for (const side of [-1, 0, 1]) {
+        const run = throughPortal(turned(pose, offset), laneOf(ring, side * lane));
+        expect(run.widest, `Drehung ${offset.toFixed(3)}, Spur ${side}`).toBeLessThanOrEqual(room(pose.scale) + 0.05);
+      }
+    }
+    // Jenseits der Grenzen läuft eine Spur in einen Pfeiler
+    expect(routeLeavesThroughOpening(ring, pose, pose.heading + range.max + 0.02, lane)).toBe(false);
+    expect(routeLeavesThroughOpening(ring, pose, pose.heading + range.min - 0.02, lane)).toBe(false);
+  });
+
+  it('lässt einen Korridor, der breiter ist als die größte Öffnung, nicht drehen', () => {
+    // 20 m: Skala am Maximum, Öffnung 14 m, Gegner bis 8,5 m neben der Mitte
+    const street = [{ x: 0, z: 0 }, { x: 0, z: 60 }];
+    const pose = spawnPortalPose(street, 0, 20)!;
+    expect(pose.scale).toBe(PORTAL_MAX_SCALE);
+    const lane = lateralLimit(10);
+    expect(portalTurnRange(street, pose, lane)).toEqual({ min: 0, max: 0 });
+    expect(clampPortalHeading(street, pose, pose.heading + 0.3, lane)).toBeCloseTo(pose.heading, 9);
   });
 });
 

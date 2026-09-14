@@ -34,6 +34,7 @@ import {
   portalDepthScale,
   portalLabelHeight,
 } from '../../configs/marker-geometry.config';
+import { portalLaneOffset, portalTurnRange } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { MovementComponent } from '../../game-components/movement.component';
 import { TransformComponent } from '../../game-components/transform.component';
 import { GameObject } from '../../core/game-object';
@@ -486,13 +487,26 @@ describe('MarkerVisualizationService', () => {
       init();
       service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);
       service.placeSpawnPortal('s1', route, 12);
-      // Turned to face east (-x), across the route running south
-      service.setPortalHeading('s1', -Math.PI / 2);
-      expect(portal().forward.x).toBeCloseTo(-1, 4);
+      // A small turn off the route running south holds
+      service.setPortalHeading('s1', Math.PI + 0.05);
+      expect(portal().forward.x).toBeCloseTo(Math.sin(Math.PI + 0.05), 4);
 
       service.placeSpawnPortal('s1', route, 14);
-      expect(portal().forward.x).toBeCloseTo(-1, 4);
+      expect(portal().forward.x).toBeCloseTo(Math.sin(Math.PI + 0.05), 4);
       expect(portal().position.y).toBe(14);
+
+      // Turned to face east (-x), across the route: it stops where the
+      // outermost enemies still get out between the pillars, turned east
+      service.setPortalHeading('s1', -Math.PI / 2);
+      const range = portalTurnRange(
+        [{ x: 0, z: 200 }, { x: 0, z: 100 }], { x: 0, y: 0, z: 200, heading: Math.PI, scale: 12 / PORTAL_OPENING_WIDTH },
+        portalLaneOffset(route[0]),
+      );
+      expect(range.max).toBeGreaterThan(0.05);
+      expect(portal().forward.x).toBeCloseTo(Math.sin(Math.PI + range.max), 3);
+      expect(portal().forward.z).toBeLessThan(-0.95);
+      service.placeSpawnPortal('s1', route, 14);
+      expect(portal().forward.x).toBeCloseTo(Math.sin(Math.PI + range.max), 3);
 
       // Placed again: the portal follows its route
       service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);

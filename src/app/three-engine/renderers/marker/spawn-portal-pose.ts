@@ -3,10 +3,20 @@ import {
   PORTAL_MAX_SCALE,
   PORTAL_MIN_SCALE,
   PORTAL_OPENING_WIDTH,
+  PORTAL_TURN_CLEARANCE,
   portalDepthScale,
 } from '../../../configs/marker-geometry.config';
 import type { RouteWaypoint } from '../../../models/game.types';
-import { corridorConfig } from '../../../utils/route-corridor';
+import { corridorConfig, lateralLimit } from '../../../utils/route-corridor';
+
+/** Waypoints from the route start read for a portal's heading and its turn range. */
+export const PORTAL_POSE_WAYPOINTS = 16;
+
+/** Turn range search: step and the farthest turn either way from the route's heading (rad). */
+const TURN_STEP = Math.PI / 360;
+const TURN_MAX = Math.PI / 2;
+/** Halvings that settle a limit of the turn range between two steps */
+const TURN_REFINE = 12;
 
 /** Where a spawn portal stands, in scene space. */
 export interface SpawnPortalPose {
@@ -120,6 +130,120 @@ export function spawnPortalPose(
     heading: Math.atan2(exit.x - start.x, exit.z - start.z),
     scale,
   };
+}
+
+/**
+ * How far off the route the outermost enemies walk at the route start
+ * `start`, on either side (m): the lateral limit of the wider side, which
+ * also sets the opening (portalCorridorWidth).
+ */
+export function portalLaneOffset(start: RouteWaypoint): number {
+  return lateralLimit(portalCorridorWidth(start) / 2);
+}
+
+/**
+ * Whether the enemies leave a portal turned to `heading` through its
+ * opening: the route and the lanes `lane` metres either side of it
+ * (portalLaneOffset) each stay between the pillars, less
+ * PORTAL_TURN_CLEARANCE, and in front of the back surface until they cross
+ * the front surface. A lane is every segment shifted square to itself, as
+ * MovementComponent shifts an enemy. A route that never gets as far as the
+ * front surface only has to stay inside.
+ *
+ * @param points Route waypoints in scene space, from the start on
+ * @param pose Where the portal stands and its scale; its heading is not read
+ */
+export function routeLeavesThroughOpening(
+  points: readonly { x: number; z: number }[],
+  pose: { x: number; z: number; scale: number },
+  heading: number,
+  lane: number,
+): boolean {
+  const halfOpening = (PORTAL_OPENING_WIDTH / 2) * pose.scale - PORTAL_TURN_CLEARANCE;
+  const front = portalFrontDistance(pose.scale);
+  // Portal space: `ahead` along the facing, `across` to its side
+  const fx = Math.sin(heading);
+  const fz = Math.cos(heading);
+  const ahead = (x: number, z: number) => (x - pose.x) * fx + (z - pose.z) * fz;
+  const across = (x: number, z: number) => (x - pose.x) * fz - (z - pose.z) * fx;
+
+  const laneLeaves = (offset: number): boolean => {
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1];
+      const b = points[i];
+      const length = Math.hypot(b.x - a.x, b.z - a.z);
+      if (length === 0) continue;
+      const ox = ((b.z - a.z) / length) * offset;
+      const oz = (-(b.x - a.x) / length) * offset;
+      const aAhead = ahead(a.x + ox, a.z + oz);
+      const aAcross = across(a.x + ox, a.z + oz);
+      const bAhead = ahead(b.x + ox, b.z + oz);
+      const bAcross = across(b.x + ox, b.z + oz);
+      if (Math.abs(aAcross) > halfOpening || aAhead < -front) return false;
+      if (bAhead >= front) {
+        const t = aAhead >= front ? 0 : (front - aAhead) / (bAhead - aAhead);
+        return Math.abs(aAcross + (bAcross - aAcross) * t) <= halfOpening;
+      }
+      if (Math.abs(bAcross) > halfOpening || bAhead < -front) return false;
+    }
+    return true;
+  };
+
+  return laneLeaves(0) && (lane <= 0 || (laneLeaves(-lane) && laneLeaves(lane)));
+}
+
+/**
+ * How far the player may turn a portal standing on `pose` from its route's
+ * heading and still have the enemies leave through the opening
+ * (routeLeavesThroughOpening): the offsets from `pose.heading` either way
+ * (rad), min <= 0 <= max. Both 0 where even the route's heading does not
+ * let the outermost lanes through, as on a corridor wider than the widest
+ * opening. Searched from the route's heading outwards, so the range is the
+ * one around it.
+ */
+export function portalTurnRange(
+  points: readonly { x: number; z: number }[],
+  pose: SpawnPortalPose,
+  lane: number,
+): { min: number; max: number } {
+  const leaves = (offset: number) => routeLeavesThroughOpening(points, pose, pose.heading + offset, lane);
+  if (!leaves(0)) return { min: 0, max: 0 };
+
+  const limit = (sign: 1 | -1): number => {
+    let inside = 0;
+    for (let turn = TURN_STEP; turn <= TURN_MAX + 1e-9; turn += TURN_STEP) {
+      if (!leaves(sign * turn)) {
+        let outside = turn;
+        for (let i = 0; i < TURN_REFINE; i++) {
+          const mid = (inside + outside) / 2;
+          if (leaves(sign * mid)) inside = mid;
+          else outside = mid;
+        }
+        return inside;
+      }
+      inside = turn;
+    }
+    return inside;
+  };
+
+  // `|| 0`: no turn to the left is 0, not -0
+  return { min: -limit(-1) || 0, max: limit(1) };
+}
+
+/**
+ * The heading closest to `heading` in the portal's turn range
+ * (portalTurnRange): a turn through a pillar or the back surface stops
+ * where the outermost enemies still get out.
+ */
+export function clampPortalHeading(
+  points: readonly { x: number; z: number }[],
+  pose: SpawnPortalPose,
+  heading: number,
+  lane: number,
+): number {
+  const range = portalTurnRange(points, pose, lane);
+  const offset = Math.atan2(Math.sin(heading - pose.heading), Math.cos(heading - pose.heading));
+  return pose.heading + Math.min(range.max, Math.max(range.min, offset));
 }
 
 /**
