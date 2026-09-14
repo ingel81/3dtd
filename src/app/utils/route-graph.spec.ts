@@ -1,25 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { MERGE_RADIUS_M, RouteGraph } from './route-graph';
-import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
+import { METERS_PER_DEGREE_LAT } from './geo-utils';
+import { LAT0, LON0, COS, at, line } from '../../test/geo-test-points';
 import type { GeoPosition } from '../models/game.types';
-
-const LAT0 = 48.7758;
-const LON0 = 9.1829;
-const COS = Math.cos(LAT0 * DEG_TO_RAD);
-
-/** Geo position `x` metres east and `z` metres north of the origin. */
-const at = (x: number, z: number): GeoPosition => ({
-  lat: LAT0 + z / METERS_PER_DEGREE_LAT,
-  lon: LON0 + x / (METERS_PER_DEGREE_LAT * COS),
-});
 
 /** Metres east and north of the origin, rounded to centimetres. */
 const local = (p: GeoPosition) => ({
   x: Math.round((p.lon - LON0) * METERS_PER_DEGREE_LAT * COS * 100) / 100,
   z: Math.round((p.lat - LAT0) * METERS_PER_DEGREE_LAT * 100) / 100,
 });
-
-const line = (...points: [number, number][]): GeoPosition[] => points.map(([x, z]) => at(x, z));
 
 /**
  * Two spawns joining at (0, 100) and walking north together to the HQ at
