@@ -72,9 +72,10 @@ export function createDiamondMaterial(): ShaderMaterial {
         vGlowIntensity = aGlowIntensity;
         vPhase = phase;
 
-        // Pre-compute Fresnel
+        // Pre-compute Fresnel; |dot| of two unit vectors can round past 1,
+        // and pow() of a negative base is NaN (see the ring shader)
         vec3 viewDir = normalize(uCameraPos - vWorldPos);
-        vFresnel = 1.0 - abs(dot(viewDir, vWorldNormal));
+        vFresnel = clamp(1.0 - abs(dot(viewDir, vWorldNormal)), 0.0, 1.0);
         vFresnel = pow(vFresnel, 2.0);
 
         vec4 mvPosition = modelViewMatrix * worldPos4;
@@ -119,8 +120,11 @@ export function createDiamondMaterial(): ShaderMaterial {
         vec3 botColor = vColor * 0.4;                         // darker at bottom
         vec3 baseColor = mix(botColor, topColor, vHeightGrad) * pulse;
 
-        // Fresnel edge glow
-        vec3 edgeGlow = mix(vColor * 1.5, vec3(1.0), 0.5) * vFresnel * vGlowIntensity * 0.7;
+        // Fresnel edge glow. With MSAA an edge pixel is shaded outside its
+        // triangle, where the varying is extrapolated below 0: clamped, or
+        // the glow turns into a negative colour
+        float fresnel = clamp(vFresnel, 0.0, 1.0);
+        vec3 edgeGlow = mix(vColor * 1.5, vec3(1.0), 0.5) * fresnel * vGlowIntensity * 0.7;
 
         // Scan lines (more visible in mid-section)
         float scanMask = 1.0 - abs(vHeightGrad - 0.5) * 2.0; // strongest at equator
@@ -129,7 +133,7 @@ export function createDiamondMaterial(): ShaderMaterial {
         vec3 finalColor = baseColor * 0.8 + edgeGlow + scanHighlight;
 
         // Alpha: much more opaque overall, slight edge glow
-        float alpha = mix(0.92, 1.0, vFresnel * vGlowIntensity * 0.5) * pulse;
+        float alpha = mix(0.92, 1.0, fresnel * vGlowIntensity * 0.5) * pulse;
 
         gl_FragColor = vec4(finalColor, alpha);
       }
@@ -232,9 +236,16 @@ export function createRingMaterial(): ShaderMaterial {
       void main() {
         #include <logdepthbuf_fragment>
 
-        // Fresnel for ring glow
+        // Fresnel for ring glow. vWorldNormal is interpolated, not unit
+        // length: inside a triangle it is 1 or shorter, but with MSAA a
+        // pixel on the thin tube's edge is shaded at its centre outside the
+        // triangle, where the normal is extrapolated past 1. Facing the
+        // camera, 1 - |dot| then turns negative, and pow() of a negative
+        // base is NaN, which the bloom spread into a black block whenever
+        // the HQ was in view (playtest 2026-09-14). Inside a triangle the
+        // clamp changes nothing.
         vec3 viewDir = normalize(uCameraPos - vWorldPos);
-        float fresnel = 1.0 - abs(dot(viewDir, vWorldNormal));
+        float fresnel = clamp(1.0 - abs(dot(viewDir, vWorldNormal)), 0.0, 1.0);
         fresnel = pow(fresnel, 1.5);
 
         // Pulse
