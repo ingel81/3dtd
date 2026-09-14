@@ -2,31 +2,31 @@ import { Injectable, signal } from '@angular/core';
 import type { UpgradeId } from '../configs/tower-types.config';
 import type { UpgradeRefusal } from '../utils/player-actions';
 
-/** How long the tower panel shows what the last U press did (ms). */
+/** How long the tower panel shows what the last U press or tile click did (ms). */
 export const UPGRADE_HINT_MS = 2500;
 
-/** What the last U press did to a tower. */
+/** What the last U press or tile click did to a tower. */
 export interface UpgradeHint {
   towerId: string;
-  /** Counts up with every press, so a second U on the same tile flashes it again */
+  /** Counts up with every purchase, so a second one on the same tile flashes it again */
   seq: number;
-  /** The track U bought, null when it bought nothing */
+  /** The track bought, null when nothing was */
   upgradeId: UpgradeId | null;
-  /** Why it bought nothing, null when it bought */
+  /** Why nothing was bought, null when it was */
   refusal: UpgradeRefusal | null;
 }
 
 /**
- * Feedback of the U key in the tower and research panels (TowerUpgradeService
- * writes it): the tile it bought flashes, or a line says why it bought
- * nothing. A click on a tile needs neither, the player is looking at it.
+ * Feedback of an upgrade purchase in the tower and research panels, from U
+ * or a click on a tile (TowerUpgradeService writes it): the tile it bought
+ * flashes, or a line says why it bought nothing.
  *
  * Wall clock, like SellConfirmService: it times a UI gesture and has to run
  * out while the game is paused as well.
  */
 @Injectable({ providedIn: 'root' })
 export class UpgradeHintService {
-  /** The last press, null once UPGRADE_HINT_MS have passed. */
+  /** The last purchase or refusal, null once UPGRADE_HINT_MS have passed. */
   readonly hint = signal<UpgradeHint | null>(null);
 
   private seq = 0;

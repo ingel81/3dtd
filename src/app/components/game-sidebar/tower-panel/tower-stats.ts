@@ -123,24 +123,24 @@ export function upgradeTierLockReason(requiredTier: number, maxUnlockedTier: num
   return research ? `Requires: ${research}` : null;
 }
 
-/** What the upgrade section shows of the last U press (UpgradeHintService). */
-export interface UpgradeKeyView {
-  /** The tile U bought, it flashes; null for none */
+/** What the upgrade section shows of the last U press or tile click (UpgradeHintService). */
+export interface UpgradeHintView {
+  /** The tile that was bought, it flashes; null for none */
   flashId: UpgradeId | null;
-  /** Alternates per press: two classes with the same animation restart it */
+  /** Alternates per purchase: two classes with the same animation restart it */
   flashAlt: boolean;
-  /** Why U bought nothing, null when it bought or shows nothing for this tower */
+  /** Why nothing was bought, null when it was or when it shows nothing for this tower */
   refusalText: string | null;
 }
 
-const NO_KEY_VIEW: UpgradeKeyView = { flashId: null, flashAlt: false, refusalText: null };
+const NO_HINT_VIEW: UpgradeHintView = { flashId: null, flashAlt: false, refusalText: null };
 
-/** The last U press as the panel of `tower` shows it; nothing when it was another tower. */
-export function upgradeKeyView(
+/** The last U press or tile click as the panel of `tower` shows it; nothing when it was another tower. */
+export function upgradeHintView(
   hint: UpgradeHint | null,
   tower: { id: string; typeConfig: { upgrades: readonly { id: UpgradeId; name: string }[] } },
-): UpgradeKeyView {
-  if (!hint || hint.towerId !== tower.id) return NO_KEY_VIEW;
+): UpgradeHintView {
+  if (!hint || hint.towerId !== tower.id) return NO_HINT_VIEW;
   const name = (id: UpgradeId) => tower.typeConfig.upgrades.find((u) => u.id === id)?.name ?? id;
   return {
     flashId: hint.upgradeId,
@@ -149,7 +149,7 @@ export function upgradeKeyView(
   };
 }
 
-/** The line in the upgrade section when U bought nothing. */
+/** The line in the upgrade section when U or a tile click bought nothing. */
 export function upgradeRefusalText(refusal: UpgradeRefusal, upgradeName: (id: UpgradeId) => string): string {
   switch (refusal.kind) {
     case 'credits':

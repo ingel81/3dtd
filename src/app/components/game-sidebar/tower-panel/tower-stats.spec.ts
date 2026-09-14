@@ -4,7 +4,7 @@ import {
   targetingStrategiesFor,
   towerDps,
   towerStats,
-  upgradeKeyView,
+  upgradeHintView,
   upgradeRefusalText,
   upgradeTierLockReason,
   veteranView,
@@ -73,18 +73,18 @@ describe('upgradeRefusalText', () => {
   });
 });
 
-describe('upgradeKeyView', () => {
+describe('upgradeHintView', () => {
   const tower = { id: 't1', typeConfig: TOWER_TYPES.archer };
 
   it('flashes the tile U bought, alternating the class per press', () => {
-    const first = upgradeKeyView({ towerId: 't1', seq: 1, upgradeId: 'damage', refusal: null }, tower);
-    const second = upgradeKeyView({ towerId: 't1', seq: 2, upgradeId: 'damage', refusal: null }, tower);
+    const first = upgradeHintView({ towerId: 't1', seq: 1, upgradeId: 'damage', refusal: null }, tower);
+    const second = upgradeHintView({ towerId: 't1', seq: 2, upgradeId: 'damage', refusal: null }, tower);
     expect(first).toEqual({ flashId: 'damage', flashAlt: false, refusalText: null });
     expect(second.flashAlt).toBe(true);
   });
 
   it('turns a refusal into its line with the track name from the config', () => {
-    const view = upgradeKeyView(
+    const view = upgradeHintView(
       { towerId: 't1', seq: 3, upgradeId: null, refusal: { kind: 'credits', upgradeId: 'range', cost: 90, missing: 40 } },
       tower,
     );
@@ -92,8 +92,8 @@ describe('upgradeKeyView', () => {
   });
 
   it('shows nothing of a press on another tower or without one', () => {
-    expect(upgradeKeyView({ towerId: 't2', seq: 1, upgradeId: 'damage', refusal: null }, tower).flashId).toBeNull();
-    expect(upgradeKeyView(null, tower).refusalText).toBeNull();
+    expect(upgradeHintView({ towerId: 't2', seq: 1, upgradeId: 'damage', refusal: null }, tower).flashId).toBeNull();
+    expect(upgradeHintView(null, tower).refusalText).toBeNull();
   });
 });
 
