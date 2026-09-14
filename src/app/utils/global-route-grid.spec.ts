@@ -964,6 +964,28 @@ describe('GlobalRouteGrid bridges', () => {
       expect(build(head, [route.map((w) => ({ ...w, corridorLeft: 11, corridorRight: 11 }))]).getGroundLocalYAt(25, 10)).toBe(70);
     });
 
+    /**
+     * Playtest 2026-09-14, Erlenbach: Weinsberger Straße runs under an
+     * Autobahn bridge that is no way of the route. With its street in the
+     * columns, a way under a deck of no route way keeps its ground, also
+     * right past the end of a bridge of its own route.
+     */
+    it('leaves a street under a deck of no route way on its ground', () => {
+      // A deck 10 m up from x = 110 to 125 over solid ground at 80 m, 30 m wide.
+      const overpass = (x: number, z: number): ColumnSample => (x > 110 && x < 125 && Math.abs(z) < 15
+        ? { groundY: 80, topY: 90, tileDepth: 20, tileGeometricError: 2 }
+        : head(x, z));
+      const bridge = build(overpass, [route]);
+      // Past the east end of the route's bridge (x = 90): approach cells, on their ground.
+      expect(bridge.getCellAt(117, 1)).toMatchObject({ surface: 'approach', terrainHeight: 80 });
+      expect(bridge.getCellAt(117, 5)).toMatchObject({ surface: 'approach', terrainHeight: 80 });
+      // A street of its own under it, far from any bridge of the route.
+      const street = [{ lat: -40, lon: 117, corridorLeft: 5, corridorRight: 5 }, { lat: 40, lon: 117 }];
+      const under = build((x, z) => (Math.abs(z) < 15 ? overpass(x, z) : { groundY: 80, topY: 80, tileDepth: 20, tileGeometricError: 2 }), [street]);
+      for (const z of [-11, -1, 1, 11]) expect(under.getCellAt(117, z)).toMatchObject({ surface: 'ground', terrainHeight: 80 });
+      expect(under.unwalkableCells()).toEqual([]);
+    });
+
     it('carries the deck no further than DECK_APPROACH_M past the end of the bridge way', () => {
       // The deck on to x = 150 this time.
       const long = (x: number, z: number) => head(Math.min(x, 100), z);
