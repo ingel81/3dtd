@@ -550,6 +550,8 @@ Konflikt an.
 
 ## Offene Punkte und Entscheidungen für dich
 
+**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+
 **Stand 2026-09-14 abends** (User: "Alles, was du ohne mich machen kannst,
 bitte klären"; Lead-Entscheidungen sind revertierbar):
 - **1, 3, 5 Korridor:** ersetzt durch die User-Entscheidung "orange Zellen
@@ -774,6 +776,8 @@ behoben (fixrev2).
   `d8298b31`.
 
 ## Playtest-Liste
+
+**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
 
 Nummeriert, damit du mit "505 ok, 512 kaputt" antworten kannst. Punkte mit
 gleichem Aufbau stehen hintereinander, so lassen sich vier je Runde

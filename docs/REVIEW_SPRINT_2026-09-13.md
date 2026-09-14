@@ -756,6 +756,8 @@ steht unter "Bugfixes".
 
 ## Playtest-Liste
 
+**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+
 **Stand 2026-09-14 (nach der Fix-Session):** Die offenen Punkte 117, 121,
 142, 144, 151, 154 bis 231 und 238, dazu die alten Punkte 53 und 14, sind
 vorsortiert in
