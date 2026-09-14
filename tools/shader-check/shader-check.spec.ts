@@ -57,6 +57,7 @@ import { compileProgram, findGlslang, preprocess, unmatchedFragmentInputs } from
 import { createPlinthMaterial } from '../../src/app/three-engine/renderers/tower-plinth/plinth-material';
 import { createPlinthMesh } from '../../src/app/three-engine/renderers/tower-plinth/tower-plinth.renderer';
 import { makeModelTransparent, tintPreviewModel } from '../../src/app/services/tower-preview-model';
+import { RangeRingKit } from '../../src/app/three-engine/renderers/range-ring';
 import { TowerBadgeRenderer } from '../../src/app/three-engine/renderers/tower-badge/tower-badge.renderer';
 import { createOozeBandMaterial } from '../../src/app/three-engine/renderers/ooze/ooze-band-material';
 import { BloodMoonMood } from '../../src/app/three-engine/blood-moon/blood-moon-mood';
@@ -209,6 +210,16 @@ const CASES: ShaderCase[] = [
       scene.add(mesh);
     },
     marks: PLINTH_MARKS,
+  },
+  {
+    name: 'tower range ring (stencil marks and paint)',
+    file: 'three-engine/renderers/range-ring.ts',
+    // compile() draws only what is visible; the three passes share one program
+    build: (scene) => {
+      const ring = new RangeRingKit().create();
+      ring.visible = true;
+      scene.add(ring);
+    },
   },
   {
     name: 'veteran badges',

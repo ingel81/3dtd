@@ -29,11 +29,14 @@ export class PostProcessingPipeline {
   constructor(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera) {
     // The composer's default target has no MSAA, so the canvas antialiasing
     // was lost as soon as a pass was on. Four samples on the scene target.
+    // A stencil buffer like the canvas: the tower range rings need it
+    // (range-ring.ts); the composer's second target is a clone of this one.
     const size = renderer.getSize(new Vector2());
     const pixelRatio = renderer.getPixelRatio();
     const target = new WebGLRenderTarget(size.width * pixelRatio, size.height * pixelRatio, {
       type: HalfFloatType,
       samples: 4,
+      stencilBuffer: true,
     });
     this.composer = new EffectComposer(renderer, target);
     // A supplied target sets the composer's logical size to its pixel size.

@@ -26,7 +26,8 @@ import {
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
-import { TerrainRaycaster, createLosRing, createRangeIndicator, createTipMarker } from './tower-overlays';
+import { createLosRing, createTipMarker } from './tower-overlays';
+import { RangeRingKit, placeRangeRing } from './range-ring';
 import { headingToLocalRotation, localRotationToHeading, stepTurretAim, turretAimError } from './tower-turret-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 
@@ -38,7 +39,7 @@ export interface TowerRenderData {
   mesh: Object3D;
   turretPart: Object3D | null; // Rotating turret part (e.g., turret_top)
   aimArrow: ArrowHelper | null; // Debug arrow showing aim direction
-  rangeIndicator: Mesh | null;
+  rangeIndicator: Group | null; // Range ring, see range-ring.ts
   selectionRing: Mesh | null;
   tipMarker: Mesh | null; // Debug marker showing LoS origin point
   losRing: LineLoop | null; // Debug ring showing LOS origin circle
@@ -71,12 +72,6 @@ export interface TowerRenderData {
 }
 
 /**
- * Function type for terrain height sampling (geo coordinates)
- * @deprecated Use TerrainRaycaster instead for accurate terrain-conforming meshes
- */
-export type TerrainHeightSampler = (lat: number, lon: number) => number | null;
-
-/**
  * Function type for Line-of-Sight raycasting between two 3D points
  * Returns true if line of sight is BLOCKED (ray hits something before target)
  */
@@ -90,7 +85,7 @@ export type LineOfSightRaycaster = (
  *
  * Features:
  * - GLB model loading with caching
- * - Range indicator (circle on ground)
+ * - Range ring on whatever surface lies at the range (range-ring.ts)
  * - Selection highlight ring
  */
 export class ThreeTowerRenderer {
@@ -110,8 +105,8 @@ export class ThreeTowerRenderer {
   /** Tower under the pointer, shows its range like a selected one, see setHovered */
   private hoveredId: string | null = null;
 
-  // Shared materials and geometry
-  private rangeMaterial: MeshBasicMaterial;
+  /** Geometry and materials every range ring shares */
+  private readonly rangeRings = new RangeRingKit();
 
   // Static shared selection ring geometry + material (created once, reused across all instances)
   private static sharedSelectionMaterial: MeshBasicMaterial | null = null;
@@ -120,12 +115,6 @@ export class ThreeTowerRenderer {
 
   // Muzzle flash (pooled - single reusable light)
   private readonly muzzleFlash: TowerMuzzleFlash;
-
-  // Terrain height sampler (optional - for terrain-conforming range indicators)
-  private terrainHeightSampler: TerrainHeightSampler | null = null;
-
-  // Direct terrain raycaster for accurate terrain-conforming meshes
-  private terrainRaycaster: TerrainRaycaster | null = null;
 
   // Line-of-Sight raycaster for visibility checks
   private losRaycaster: LineOfSightRaycaster | null = null;
@@ -157,16 +146,6 @@ export class ThreeTowerRenderer {
     // (see TowerMuzzleFlash).
     this.muzzleFlash = new TowerMuzzleFlash(this.scene);
 
-    // Range indicator material (invisible - hex cells show visibility now)
-    this.rangeMaterial = new MeshBasicMaterial({
-      color: 0x22c55e,
-      transparent: true,
-      opacity: 0, // Hidden - green/red hex hatching shows visibility instead
-      side: DoubleSide,
-      depthWrite: false,
-      depthTest: false,
-    });
-
     // Static shared selection ring geometry + material (created once, reused across all instances)
     if (!ThreeTowerRenderer.sharedSelectionMaterial) {
       ThreeTowerRenderer.sharedSelectionMaterial = new MeshBasicMaterial({
@@ -182,22 +161,6 @@ export class ThreeTowerRenderer {
       ThreeTowerRenderer.sharedSelectionGeometry = new RingGeometry(8, 12, 48);
     }
     ThreeTowerRenderer.sharedRefCount++;
-  }
-
-  /**
-   * Set terrain height sampler for terrain-conforming range indicators
-   * @deprecated Use setTerrainRaycaster instead for accurate terrain-conforming meshes
-   */
-  setTerrainHeightSampler(sampler: TerrainHeightSampler): void {
-    this.terrainHeightSampler = sampler;
-  }
-
-  /**
-   * Set direct terrain raycaster for accurate terrain-conforming range indicators
-   * This raycaster takes local X,Z coordinates and returns the terrain Y at that position
-   */
-  setTerrainRaycaster(raycaster: TerrainRaycaster): void {
-    this.terrainRaycaster = raycaster;
   }
 
   /**
@@ -362,9 +325,10 @@ export class ThreeTowerRenderer {
     // Add to scene
     this.scene.add(mesh);
 
-    // Create range indicator at TERRAIN level (not tower level)
-    const rangeIndicator = createRangeIndicator(config.range, terrainPos, this.rangeMaterial, this.terrainRaycaster);
-    rangeIndicator.visible = false;
+    // Range ring around the foot (terrain level, not tower level), hidden
+    // until hovered or selected
+    const rangeIndicator = this.rangeRings.create();
+    placeRangeRing(rangeIndicator, terrainPos.x, terrainPos.y, terrainPos.z, config.range);
     this.scene.add(rangeIndicator);
 
     // Create selection ring at terrain level (shared geometry + material)
@@ -485,12 +449,8 @@ export class ThreeTowerRenderer {
     localPos.y += data.typeConfig.heightOffset;
     data.mesh.position.copy(localPos);
 
-    // Range indicator stays at terrain level (for terrain-conforming geometry, position is 0,0,0)
-    // Only set position for simple flat geometry which doesn't use world coords
-    if (data.rangeIndicator && !this.terrainHeightSampler) {
-      data.rangeIndicator.position.copy(terrainPos);
-      data.rangeIndicator.position.y += 0.5;
-    }
+    // Range ring around the foot, same range
+    data.rangeIndicator?.position.copy(terrainPos);
 
     // Selection ring at terrain level
     if (data.selectionRing) {
@@ -589,7 +549,7 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Show the range disc and selection ring of the tower under the pointer
+   * Show the range ring and selection ring of the tower under the pointer
    * (InputHandlerService), or of none. The selected tower keeps its own, a
    * hover only adds a second one; the LOS view stays with the selection.
    */
@@ -695,10 +655,9 @@ export class ThreeTowerRenderer {
     this.scene.remove(data.mesh);
     this.disposeObject(data.mesh);
 
-    // Remove range indicator (may be a Group with children)
+    // Remove range ring (geometry and materials are shared, see rangeRings)
     if (data.rangeIndicator) {
       this.scene.remove(data.rangeIndicator);
-      this.disposeObject(data.rangeIndicator);
     }
 
     // Remove selection ring (geometry and material are shared — do NOT dispose)
@@ -875,30 +834,16 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Rebuild the range indicator (filled disc + gold edge ring) for this
-   * tower. Call when the tower's effective range changes (range upgrade)
-   * or when terrain data has changed under the disc. Pass `range` to use
-   * the current runtime range; without it, the base config range is used.
-   *
-   * The indicator is a Group of two child meshes/lines, so we can't
-   * just swap one geometry — we tear it down and rebuild via
-   * createRangeIndicator() to keep the construction logic in one place.
+   * Set the range ring of this tower to `range`, the runtime range after a
+   * range upgrade; without it the base range of its type. The ring finds
+   * the surface under it every frame, a changed tile needs no call.
    */
-  updateRangeIndicatorTerrain(id: string, range?: number): void {
+  updateRangeIndicator(id: string, range?: number): void {
     const data = this.towers.get(id);
     if (!data || !data.rangeIndicator) return;
 
-    const wasVisible = data.rangeIndicator.visible;
-    const effectiveRange = range ?? data.typeConfig.range;
     const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
-
-    this.scene.remove(data.rangeIndicator);
-    this.disposeObject(data.rangeIndicator);
-
-    const fresh = createRangeIndicator(effectiveRange, terrainPos, this.rangeMaterial, this.terrainRaycaster);
-    fresh.visible = wasVisible;
-    this.scene.add(fresh);
-    data.rangeIndicator = fresh;
+    placeRangeRing(data.rangeIndicator, terrainPos.x, terrainPos.y, terrainPos.z, range ?? data.typeConfig.range);
   }
 
   /**
@@ -1000,7 +945,7 @@ export class ThreeTowerRenderer {
     this.loadedModelUrls.clear();
 
     // Dispose shared geometry and materials
-    this.rangeMaterial.dispose();
+    this.rangeRings.dispose();
 
     // Only dispose static selection resources when last instance is destroyed
     ThreeTowerRenderer.sharedRefCount--;
