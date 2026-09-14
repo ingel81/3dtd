@@ -42,6 +42,7 @@ import {
   RGBAFormat,
   ShaderMaterial,
   Texture,
+  Vector2,
   Vector3,
   WebGLCubeRenderTarget,
   type Scene,
@@ -68,6 +69,7 @@ import {
 import type { VATData } from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
 import type { VATAlphaMode } from '../../src/app/three-engine/renderers/instanced-enemy/vat-surface';
 import { SpawnPortalManager } from '../../src/app/three-engine/renderers/marker/spawn-portal.manager';
+import { SpawnDistanceRings } from '../../src/app/three-engine/renderers/spawn-distance-rings';
 import {
   createDiamondMaterial,
   createGroundGlowMaterial,
@@ -246,6 +248,18 @@ const CASES: ShaderCase[] = [
       const overlay = new Group();
       scene.add(overlay);
       new SpawnPortalManager(overlay);
+    },
+  },
+  {
+    name: 'spawn distance rings (halo and dashed line, LineMaterial)',
+    file: 'three-engine/renderers/spawn-distance-rings.ts',
+    // three's LineMaterial, as MapPlacementService shows the rings while a spawn is placed
+    build: (scene) => {
+      const ground = {
+        sync: { geoToLocalSimple: (lat: number, lon: number, height: number) => new Vector3(lon * 1e5, height, -lat * 1e5) },
+        getTerrainHeightAtGeo: () => 0,
+      };
+      scene.add(new SpawnDistanceRings(ground, { lat: 0, lon: 0 }, [{ radiusM: 200, color: 0xc96a3a }], new Vector2(800, 600)).group);
     },
   },
   {

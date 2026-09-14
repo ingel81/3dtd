@@ -1,13 +1,10 @@
 import { Injectable, inject, signal } from '@angular/core';
-import {
-  Group, Mesh, MeshPhongMaterial, MeshBasicMaterial, Color,
-  BufferGeometry, Vector3, LineLoop, LineDashedMaterial, Line,
-} from 'three';
+import { Group, Mesh, MeshPhongMaterial, MeshBasicMaterial, Color, Vector2 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { provisionalPortalPose } from '../../three-engine/renderers/marker/spawn-portal-pose';
+import { SpawnDistanceRings } from '../../three-engine/renderers/spawn-distance-rings';
 import { OsmStreetService, Street, StreetNetwork } from '../location/osm-street.service';
-import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { UIStore } from '../../store/ui.store';
 import { GeoPosition } from '../../models/game.types';
 import {
@@ -42,6 +39,12 @@ const VALID_COLOR = 0x22c55e;
 const INVALID_COLOR = 0xff0000;
 const HEIGHT_ABOVE_GROUND = 30;
 
+// Rings around the HQ while a spawn is placed: the inner one where "Too
+// close to HQ" ends in --td-warn-orange, the outer one where "Too far from
+// HQ" begins in the preview's valid green
+const MIN_RING_COLOR = 0xc96a3a;
+const MAX_RING_COLOR = VALID_COLOR;
+
 /**
  * MapPlacementService
  *
@@ -62,7 +65,7 @@ export class MapPlacementService {
   private previewMarker: Group | null = null;
 
   // Distance rings (min/max spawn distance from HQ)
-  private distanceRings: Line[] = [];
+  private distanceRings: SpawnDistanceRings | null = null;
 
   // Current validated position (set on mouse move)
   private currentPosition: { lat: number; lon: number; height: number } | null = null;
@@ -394,92 +397,27 @@ export class MapPlacementService {
   // ========================================
 
   /**
-   * Create min/max distance rings around HQ for spawn placement feedback.
+   * Show the min/max distance rings around the HQ for spawn placement
+   * feedback, on the ground (SpawnDistanceRings).
    */
   private createDistanceRings(): void {
     if (!this.engine || !this.baseCoords) return;
 
-    const overlayGroup = this.engine.getOverlayGroup();
-
-    // HQ position in local coordinates
-    const hqLocal = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-    const hqTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
-    const ringY = hqTerrainY + HEIGHT_ABOVE_GROUND;
-
-    // Inner ring (min distance) — red/orange, shows "too close" boundary
-    const minRadius = this.metersToLocalRadius(MIN_MANUAL_SPAWN_DISTANCE);
-    const innerRing = this.createRingLine(minRadius, 0xff6633, 8, 6);
-    innerRing.position.set(hqLocal.x, ringY, hqLocal.z);
-    overlayGroup.add(innerRing);
-    this.distanceRings.push(innerRing);
-
-    // Outer ring (max distance) — green, shows "too far" boundary
-    const maxRadius = this.metersToLocalRadius(MAX_MANUAL_SPAWN_DISTANCE);
-    const outerRing = this.createRingLine(maxRadius, 0x22c55e, 20, 15);
-    outerRing.position.set(hqLocal.x, ringY, hqLocal.z);
-    overlayGroup.add(outerRing);
-    this.distanceRings.push(outerRing);
+    const resolution = this.engine.getRenderer().getSize(new Vector2());
+    this.distanceRings = new SpawnDistanceRings(this.engine, this.baseCoords, [
+      { radiusM: MIN_MANUAL_SPAWN_DISTANCE, color: MIN_RING_COLOR },
+      { radiusM: MAX_MANUAL_SPAWN_DISTANCE, color: MAX_RING_COLOR },
+    ], resolution);
+    this.engine.getOverlayGroup().add(this.distanceRings.group);
   }
 
   /**
    * Remove distance rings from the scene and dispose resources.
    */
   private removeDistanceRings(): void {
-    if (!this.engine) return;
-    const overlayGroup = this.engine.getOverlayGroup();
-
-    for (const ring of this.distanceRings) {
-      overlayGroup.remove(ring);
-      ring.geometry.dispose();
-      (ring.material as LineDashedMaterial).dispose();
-    }
-    this.distanceRings = [];
-  }
-
-  /**
-   * Create a single dashed circle line at a given radius.
-   */
-  private createRingLine(radius: number, color: number, dashSize: number, gapSize: number): Line {
-    const segments = 128;
-    const points: Vector3[] = [];
-    for (let i = 0; i <= segments; i++) {
-      const angle = (i / segments) * Math.PI * 2;
-      points.push(new Vector3(
-        Math.cos(angle) * radius,
-        0,
-        Math.sin(angle) * radius,
-      ));
-    }
-
-    const geometry = new BufferGeometry().setFromPoints(points);
-    const material = new LineDashedMaterial({
-      color,
-      dashSize,
-      gapSize,
-      transparent: true,
-      opacity: 0.6,
-      depthTest: false,
-    });
-
-    const line = new LineLoop(geometry, material);
-    line.computeLineDistances(); // Required for dashed lines
-    line.renderOrder = 998;
-    return line;
-  }
-
-  /**
-   * Convert a distance in meters to local 3D coordinate radius.
-   */
-  private metersToLocalRadius(meters: number): number {
-    if (!this.engine || !this.baseCoords) return 0;
-
-    const deltaLat = meters / METERS_PER_DEGREE_LAT;
-    const hqLocal = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-    const offsetLocal = this.engine.sync.geoToLocalSimple(
-      this.baseCoords.lat + deltaLat, this.baseCoords.lon, 0,
-    );
-    return Math.sqrt(
-      (offsetLocal.x - hqLocal.x) ** 2 + (offsetLocal.z - hqLocal.z) ** 2,
-    );
+    if (!this.distanceRings) return;
+    this.distanceRings.group.removeFromParent();
+    this.distanceRings.dispose();
+    this.distanceRings = null;
   }
 }

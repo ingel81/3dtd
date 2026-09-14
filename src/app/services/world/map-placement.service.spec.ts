@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
-import { Color, Group, Mesh, MeshBasicMaterial, MeshPhongMaterial, PlaneGeometry, Vector3 } from 'three';
+import { Color, Group, Mesh, MeshBasicMaterial, MeshPhongMaterial, PlaneGeometry, Vector2, Vector3 } from 'three';
 import { MapPlacementService } from './map-placement.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { OsmStreetService } from '../location/osm-street.service';
@@ -77,6 +77,7 @@ describe('MapPlacementService', () => {
     const engine = {
       getOverlayGroup: () => overlay,
       getTerrainHeightAtGeo: () => 0,
+      getRenderer: () => ({ getSize: (target: Vector2) => target.set(1600, 900) }),
       sync: { geoToLocalSimple: geoToLocal },
     };
     service.initialize(engine as unknown as ThreeTilesEngine, { bounds: BOUNDS } as unknown as StreetNetwork, { ...HQ });
@@ -179,6 +180,24 @@ describe('MapPlacementService', () => {
     it('keeps the wider tolerance for the HQ, which needs no street to start on', () => {
       distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
       expect(service.validatePosition('hq', inside.lat, inside.lon)).toEqual({ valid: true });
+    });
+  });
+
+  describe('distance rings', () => {
+    const rings = () => overlay.children.find((o) => o.name === 'spawnDistanceRings');
+
+    it('shows the two rings around the HQ while a spawn is placed and takes them away after', () => {
+      service.startPlacement('spawn');
+      // A halo and a dashed line per ring
+      expect(rings()?.children).toHaveLength(4);
+
+      service.exitPlacementMode();
+      expect(rings()).toBeUndefined();
+    });
+
+    it('shows no rings while the HQ moves', () => {
+      service.startPlacement('hq');
+      expect(rings()).toBeUndefined();
     });
   });
 
