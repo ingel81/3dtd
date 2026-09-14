@@ -617,6 +617,43 @@ describe('PathAndRouteService route geometry', () => {
         expect(onDeck.every((call) => call[7] === null)).toBe(true);
       });
 
+      it('measures a segment two routes share off a bridge only where both come off it, whichever is first', () => {
+        // Way 250 bridges n1 to nm, way 260 runs straight on north to n2 and
+        // n3; way 270 comes in from the west and turns north at nm.
+        const nm = { id: 4, lat: 48.0005, lon: 9.0 };
+        const nw = { id: 5, lat: 48.0005, lon: 8.9993 };
+        network = makeNetwork([
+          { id: 100, nodes: [n10, n1] },
+          { id: 250, bridge: 'yes', nodes: [n1, nm] },
+          { id: 260, nodes: [nm, n2, n3] },
+          { id: 270, nodes: [nw, nm] },
+          { id: 300, nodes: [n3, n30] },
+        ]);
+        const south = spawnPointAt(spawn);
+        const west: SpawnPoint = { id: 's2', name: 'West', color: 0x00ff00, lat: 48.0005, lon: 8.9995 };
+        /** The bridge ends of the stations from 57 to 90 m north of n1, with the routes shown in this order. */
+        const deckEnds = (...spawns: SpawnPoint[]): unknown[] => {
+          const service = new PathAndRouteService();
+          service.initialize(makeEngine(), network, hq, (() => false) as never, new OsmStreetService(), null);
+          for (const s of spawns) service.showPathFromSpawn(s);
+          probeCalls.length = 0;
+          measure(service);
+          return probeCalls
+            .filter(([x, z]) => Math.abs(x as number) < 1 && northOfN1(z as number) > 57 && northOfN1(z as number) < 90)
+            .map((call) => call[7]);
+        };
+
+        // The route off the bridge alone: they measure against its end.
+        const alone = deckEnds(south);
+        expect(alone.length).toBeGreaterThan(5);
+        expect(alone.every((end) => end !== null)).toBe(true);
+        // With the route from the west the cells there take the ground, and so do the stations.
+        const shared = deckEnds(south, west);
+        expect(shared).toHaveLength(alone.length);
+        expect(shared.every((end) => end === null)).toBe(true);
+        expect(deckEnds(west, south)).toEqual(shared);
+      });
+
       it('says why a station has no measurement', () => {
         clearanceAt = () => null;
         const service = buildRouteService(network, spawn, hq);

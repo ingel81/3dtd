@@ -89,7 +89,10 @@ Je Station (`TerrainQueries.measureStreetClearance`):
    Säule an diesem Brückenende dazu, bei einer Naht mit denselben
    Verschiebungen. Hat diese Säule kein Tile bis `maxTileError`, ist die
    Station `unmeasured: 'no bridge end'` und kommt beim nächsten Lauf
-   wieder dran. Bis 2026-09-15 gingen die Strahlen dort vom untersten
+   wieder dran. Teilen sich Routen ein Segment, liegt eine Station nur
+   dann auf der Fortsetzung, wenn jede von ihnen sie dort hat, wie bei den
+   Zellen (die tiefere Fläche gewinnt, `stationApproach`). Bis 2026-09-15
+   gingen die Strahlen dort vom untersten
    Treffer aus, am Brückenkopf also unter dem Deck (review-f M2).
 3. Ein Treffer zählt nur auf einem Tile mit höchstens `maxTileError`
    geometricError und nicht auf dem Wurzel-Tile (`TerrainQueries.clearanceRay`). Ohne Treffer
