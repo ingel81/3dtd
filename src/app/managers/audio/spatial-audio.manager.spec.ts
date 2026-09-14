@@ -990,3 +990,59 @@ describe('SpatialAudioManager around the pause (playtest 546, 548)', () => {
     expect(first.isPlaying).toBe(false);
   });
 });
+
+/**
+ * Every enemy with a walk sound holds a loop, also out of earshot
+ * (AudioComponent.update() each sub-step, EnemyManager). With enemy slots
+ * free, each position update of a waiting loop checks its distance to the
+ * camera. That check reads the camera's world matrix as the last drawn frame
+ * left it (ThreeTilesEngine.render()), and asks the camera nothing.
+ */
+describe('SpatialAudioManager: waiting enemy loops each sub-step', () => {
+  const D = AUDIO_LIMITS.maxAudibleDistance;
+  const ENEMIES = 50;
+  const SUB_STEPS = 4;
+  const THERE = new Vector3(3 * D, 0, 0);
+
+  async function waitingZombies() {
+    const context = setup();
+    await context.ready('zombie_walk', 'walk.mp3');
+    const handles: string[] = [];
+    for (let i = 0; i < ENEMIES; i++) handles.push((await context.manager.createLoop('zombie_walk', THERE))!);
+    const subStep = () => {
+      for (const handle of handles) context.manager.updateLoopPosition(handle, THERE);
+    };
+    return { ...context, subStep };
+  }
+
+  it('checks the distance of every waiting loop each sub-step without asking the camera for its position', async () => {
+    const { camera, manager, subStep } = await waitingZombies();
+    const checks = vi.spyOn(manager['playback'], 'isWithinAudibleDistance');
+    const worldPosition = vi.spyOn(camera, 'getWorldPosition');
+    const updateWorldMatrix = vi.spyOn(camera, 'updateWorldMatrix');
+    const updateMatrixWorld = vi.spyOn(camera, 'updateMatrixWorld');
+
+    for (let i = 0; i < SUB_STEPS; i++) subStep();
+
+    expect(checks).toHaveBeenCalledTimes(ENEMIES * SUB_STEPS);
+    expect(worldPosition).toHaveBeenCalledTimes(0);
+    expect(updateWorldMatrix).toHaveBeenCalledTimes(0);
+    expect(updateMatrixWorld).toHaveBeenCalledTimes(0);
+    expect(reg.positional).toHaveLength(0);
+    expect(manager.getEnemySoundStats().current).toBe(0);
+  });
+
+  it('hears from where the camera stood at the last drawn frame; the next frame lets the loops join', async () => {
+    const { camera, manager, subStep } = await waitingZombies();
+
+    // The controls moved the camera; render() updates its matrix
+    camera.position.set(3 * D - 10, 0, 0);
+    subStep();
+    expect(reg.positional).toHaveLength(0);
+
+    camera.updateMatrixWorld();
+    subStep();
+    expect(reg.positional).toHaveLength(AUDIO_LIMITS.maxEnemySounds);
+    expect(manager.getEnemySoundStats().current).toBe(AUDIO_LIMITS.maxEnemySounds);
+  });
+});

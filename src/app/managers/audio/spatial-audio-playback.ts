@@ -1,11 +1,11 @@
-import { Audio, Object3D, PositionalAudio, Vector3 } from 'three';
+import { Audio, Matrix4, Object3D, PositionalAudio, Vector3 } from 'three';
 import { AUDIO_LIMITS, PROJECTILE_SOUND_IDS } from '../../configs/audio.config';
 import { GameEventBus } from '../../game-engine';
 import { AudioPoolManager } from './audio-pool.manager';
 import { SpatialSoundConfig } from './spatial-audio.manager';
 
-/** Reusable Vector3 for distance calculations (avoid GC pressure) */
-const _tempVec3 = new Vector3();
+/** AUDIO_LIMITS.maxAudibleDistance squared, for the distance checks */
+const MAX_AUDIBLE_DISTANCE_SQ = AUDIO_LIMITS.maxAudibleDistance ** 2;
 
 /**
  * Active sound instance (one-shot)
@@ -70,13 +70,14 @@ export class SpatialAudioPlayback {
    */
   private activeCountByBuffer = new WeakMap<AudioBuffer, number>();
   private geoToLocal: ((lat: number, lon: number, height: number, target: Vector3) => Vector3) | null = null;
-  private camera: { getWorldPosition: (target: Vector3) => Vector3 };
+  /** The camera, which carries the AudioListener; see distanceSqToListener() */
+  private camera: { readonly matrixWorld: Matrix4 };
   private _masterVolume = 1.0;
 
   constructor(
     pool: AudioPoolManager,
     sounds: Map<string, RegisteredSound>,
-    camera: { getWorldPosition: (target: Vector3) => Vector3 }
+    camera: { readonly matrixWorld: Matrix4 }
   ) {
     this.pool = pool;
     this.sounds = sounds;
@@ -121,14 +122,32 @@ export class SpatialAudioPlayback {
   // --- Distance helpers ---
 
   isWithinAudibleDistance(position: Vector3): boolean {
-    this.camera.getWorldPosition(_tempVec3);
-    const distance = _tempVec3.distanceTo(position);
-    return distance <= AUDIO_LIMITS.maxAudibleDistance;
+    return this.distanceSqToListener(position) <= MAX_AUDIBLE_DISTANCE_SQ;
   }
 
   getDistanceToCamera(position: Vector3): number {
-    this.camera.getWorldPosition(_tempVec3);
-    return _tempVec3.distanceTo(position);
+    return Math.sqrt(this.distanceSqToListener(position));
+  }
+
+  /**
+   * Squared distance from the camera, which carries the listener, to
+   * `position`. Reads the translation of the camera's world matrix as the
+   * engine last updated it: once per drawn frame, in ThreeTilesEngine.render()
+   * after the controls moved the camera, the same update that places the Web
+   * Audio listener. While nothing draws (headless training) both stand.
+   *
+   * Not getWorldPosition(): that updates the world matrices of the camera
+   * and its parents and, for a camera, decomposes and inverts the matrix on
+   * every call. A waiting enemy loop checks each sub-step
+   * (SpatialAudioLoops.updatePosition), so that was work per enemy per
+   * sub-step for a position that changes once a frame.
+   */
+  private distanceSqToListener(position: Vector3): number {
+    const e = this.camera.matrixWorld.elements;
+    const dx = position.x - e[12];
+    const dy = position.y - e[13];
+    const dz = position.z - e[14];
+    return dx * dx + dy * dy + dz * dz;
   }
 
   // --- Projectile budget ---
