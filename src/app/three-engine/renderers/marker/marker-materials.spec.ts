@@ -30,6 +30,13 @@ describe('Marker- und Portal-Materialien', () => {
     }
   });
 
+  it('hält die Fresnel-Basis des HQ vor pow() in 0..1: mit MSAA wird die Normale über 1 hinaus extrapoliert, pow() einer negativen Basis ist NaN', () => {
+    const { diamond, ring } = materials();
+    expect(ring.fragmentShader).toContain('float fresnel = clamp(1.0 - abs(dot(viewDir, vWorldNormal)), 0.0, 1.0);');
+    expect(diamond.vertexShader).toContain('vFresnel = clamp(1.0 - abs(dot(viewDir, vWorldNormal)), 0.0, 1.0);');
+    expect(diamond.fragmentShader).toContain('float fresnel = clamp(vFresnel, 0.0, 1.0);');
+  });
+
   it('gibt dem Tor die gebackenen Texturen des Rahmens', () => {
     const gate = materials()['portalGate'];
     const [baseColor, normal, orm, emissive] = [new Texture(), new Texture(), new Texture(), new Texture()];
