@@ -2221,6 +2221,16 @@ const material = new THREE.ShaderMaterial({
 
 **Regel:** Canvas (`stencil: true`, `three-tiles-engine.ts`) und Composer-Ziel (`stencilBuffer: true`, `post-processing-pipeline.ts`) brauchen einen Stencil-Puffer. Fehlt er, besteht der Stencil-Test überall und der dritte Draw malt das ganze Volumen. Nach dem Ring steht der Stencil überall wieder auf 0; ein anderes Material, das ihn benutzt, darf sich nur darauf verlassen.
 
+### Bloom: ein NaN-Pixel wird zum schwarzen Block
+
+**Problem:** Playtest 2026-09-14 (Paris, Kamera auf dem HQ): mit Bloom an deckte ein schwarzer, flackernder Block mehr als die rechte Bildhälfte ab, ohne Bloom war alles normal, keine Konsolenfehler.
+
+**Ursache (Mechanismus aus dem Code, die Quelle des Pixels ist im Browser zu bestimmen):** Der Composer rendert in ein Half-Float-Ziel. Schreibt irgendein Shader dort NaN oder Unendlich (Division durch 0, `pow` mit negativer Basis, `normalize` eines Nullvektors, eine additive Mischung über 65504), bleibt das ohne Bloom ein einzelner schwarzer Pixel. Mit Bloom lässt der Hochpass von three (`LuminosityHighPassShader`, `mix(outputColor, texel, alpha)`) NaN durch und macht aus Unendlich mal 0 ein NaN; die fünf Blur-Stufen (bis 1/32 Auflösung, Kernel bis 22 Texel) tragen es rund 1150 px weit in jede Richtung, der Composite addiert es auf das Bild, der Output-Pass zeigt NaN schwarz. Ein Pixel reicht für einen Block von über 2000 px Seitenlänge; er flackert, wenn der Pixel nur in manchen Frames entsteht.
+
+**Lösung:** `post-processing/bloom-guard.ts` ersetzt den Fragment-Shader des Hochpasses: ein Pixel mit NaN oder Unendlich in einem Kanal trägt nichts zum Bloom bei, negative Kanäle zählen als 0. Der Test ist ein Bit-Test auf den Exponenten (`floatBitsToUint`), weil `isnan()` unter Fast-Math wegoptimiert werden darf. Das Bild selbst bleibt unverändert, der kaputte Pixel ist mit und ohne Bloom derselbe eine Pixel.
+
+**Regel:** Der Hochpass ist die einzige Stelle, an der ein einzelner Pixel großflächig wirkt. Wer einen weiteren Pass einbaut, der Nachbarn über große Radien mischt, muss dieselbe Prüfung vorschalten.
+
 ### Shader-Compile-Check ohne Browser
 
 **Problem:** Ein GLSL-Fehler in einem eigenen Material zeigt sich nur in der Browser-Konsole, das Material bleibt dann unsichtbar. Specs, die nur den Shader-Text prüfen, finden keine Tippfehler, reservierten Wörter (`flat`, `sample`, ...) oder Typfehler.
