@@ -359,8 +359,8 @@ export class ThreeTilesEngine {
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
-    this.spatialAudio.setGeoToLocal((lat, lon, height) =>
-      this.sync.geoToLocalSimple(lat, lon, height)
+    this.spatialAudio.setGeoToLocal((lat, lon, height, target) =>
+      this.sync.geoToLocalSimpleInto(lat, lon, height, target)
     );
 
     // Screen picking against the tiles (DevWorld: its terrain) and the tower

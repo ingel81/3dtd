@@ -69,7 +69,7 @@ export class SpatialAudioPlayback {
    * triggered repeatedly within their own duration.
    */
   private activeCountByBuffer = new WeakMap<AudioBuffer, number>();
-  private geoToLocal: ((lat: number, lon: number, height: number) => Vector3) | null = null;
+  private geoToLocal: ((lat: number, lon: number, height: number, target: Vector3) => Vector3) | null = null;
   private camera: { getWorldPosition: (target: Vector3) => Vector3 };
   private _masterVolume = 1.0;
 
@@ -107,13 +107,15 @@ export class SpatialAudioPlayback {
 
   // --- Geo converter ---
 
-  setGeoToLocal(fn: (lat: number, lon: number, height: number) => Vector3): void {
+  /** `fn` writes the local position into `target` and returns it. */
+  setGeoToLocal(fn: (lat: number, lon: number, height: number, target: Vector3) => Vector3): void {
     this.geoToLocal = fn;
   }
 
-  geoToLocalPosition(lat: number, lon: number, height: number): Vector3 | null {
+  /** Into `target` when given (a caller that runs every sub-step), else a new vector. */
+  geoToLocalPosition(lat: number, lon: number, height: number, target = new Vector3()): Vector3 | null {
     if (!this.geoToLocal) return null;
-    return this.geoToLocal(lat, lon, height);
+    return this.geoToLocal(lat, lon, height, target);
   }
 
   // --- Distance helpers ---
@@ -327,7 +329,7 @@ export class SpatialAudioPlayback {
       console.warn('[SpatialAudio] geoToLocal not set - use setGeoToLocal() first');
       return null;
     }
-    const position = this.geoToLocal(lat, lon, height);
+    const position = this.geoToLocal(lat, lon, height, new Vector3());
     return this.playAt(soundId, position, volumeMultiplier);
   }
 
