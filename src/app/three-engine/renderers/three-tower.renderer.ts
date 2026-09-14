@@ -1,7 +1,6 @@
 import {
   Scene,
   Object3D,
-  ArrowHelper,
   Mesh,
   LineLoop,
   AnimationMixer,
@@ -38,7 +37,6 @@ export interface TowerRenderData {
   id: string;
   mesh: Object3D;
   turretPart: Object3D | null; // Rotating turret part (e.g., turret_top)
-  aimArrow: ArrowHelper | null; // Debug arrow showing aim direction
   rangeIndicator: Group | null; // Range ring, see range-ring.ts
   selectionRing: Mesh | null;
   tipMarker: Mesh | null; // Debug marker showing LoS origin point
@@ -130,8 +128,6 @@ export class ThreeTowerRenderer {
 
   // Animation time accumulator for frame-independent animations
   private animationTime = 0;
-  /** Reused scratch for the debug aim-arrow direction (avoids per-frame alloc). */
-  private readonly _aimDir = new Vector3();
   private frustum = new Frustum();
   private projScreenMatrix = new Matrix4();
   private boundingSphere = new Sphere();
@@ -367,19 +363,6 @@ export class ThreeTowerRenderer {
       this.scene.add(losRing);
     }
 
-    // Create aim direction arrow for turrets (debug visualization)
-    // DISABLED: Causing NaN errors in render loop
-    const aimArrow: ArrowHelper | null = null;
-    // if (turretPart) {
-    //   const arrowDir = new Vector3(0, 0, -1);
-    //   const arrowOrigin = new Vector3(terrainPos.x, tipY, terrainPos.z);
-    //   const arrowLength = 15;
-    //   const arrowColor = 0x00ff00;
-    //   aimArrow = new ArrowHelper(arrowDir, arrowOrigin, arrowLength, arrowColor, 3, 2);
-    //   aimArrow.visible = this.debugMode;
-    //   this.scene.add(aimArrow);
-    // }
-
     // Setup animation mixer if model has animations AND config allows it
     let mixer: AnimationMixer | null = null;
     const animations = new Map<string, AnimationClip>();
@@ -410,7 +393,6 @@ export class ThreeTowerRenderer {
       id,
       mesh,
       turretPart,
-      aimArrow,
       rangeIndicator,
       selectionRing,
       tipMarker,
@@ -623,9 +605,6 @@ export class ThreeTowerRenderer {
       if (data.losRing) {
         data.losRing.visible = enabled;
       }
-      if (data.aimArrow) {
-        data.aimArrow.visible = enabled;
-      }
     }
   }
 
@@ -683,12 +662,6 @@ export class ThreeTowerRenderer {
       this.scene.remove(data.losRing);
       data.losRing.geometry.dispose();
       (data.losRing.material as Material).dispose();
-    }
-
-    // Remove aim arrow
-    if (data.aimArrow) {
-      this.scene.remove(data.aimArrow);
-      data.aimArrow.dispose();
     }
 
     // Clean up animation mixer
@@ -775,14 +748,6 @@ export class ThreeTowerRenderer {
         const hoverSpeed = 0.6;
         const phase = this.animationTime * hoverSpeed * Math.PI * 2 + data.hoverPhaseOffset;
         data.turretPart.position.y = data.turretBaseY + Math.sin(phase) * hoverAmplitude;
-      }
-
-      // Debug aim arrow (world-space direction)
-      if (data.aimArrow) {
-        const parentRotation = data.mesh.rotation.y;
-        const worldRot = data.currentLocalRotation + parentRotation;
-        const dir = this._aimDir.set(Math.sin(worldRot), 0, Math.cos(worldRot));
-        data.aimArrow.setDirection(dir);
       }
     }
   }
