@@ -23,7 +23,7 @@ Das Projektil-Entity verwaltet Position, Bewegung und Flugbahn.
 - `calculateArcTangentDirection()` - Berechnet Tangentenrichtung entlang der Parabel für Arc-Projektile
 
 **Distanzberechnung:**
-Verwendet `geoDistanceFast()` aus `utils/geo-utils.ts` (schnelle Approximation fuer kurze Distanzen < 200m).
+Verwendet `geoDistanceFast()` aus `utils/geo-utils.ts` (schnelle Approximation für kurze Distanzen < 200m).
 
 **Flugbahn-Berechnung:**
 ```typescript
@@ -113,7 +113,7 @@ Instanz-Matrizen hoch (`addUpdateRange(0, activeCount * 16)`), nicht den ganzen 
 - `arrow` - GLB-Modell aus `/assets/models/projectiles/arrow.glb`
 - `cannonball` - SphereGeometry, dunkelgrau metallisch
 - `magic` - SphereGeometry mit ShaderMaterial (Arcane Orb: violetter Körper, cyanfarbene Zellen und Rand, Custom GLSL Shader)
-- `ice` - SphereGeometry mit ShaderMaterial (blau/cyan/weiss Orb, gleicher Shader wie magic mit anderen Farben)
+- `ice` - SphereGeometry mit ShaderMaterial (blau/cyan/weiß Orb, gleicher Shader wie magic mit anderen Farben)
 - `bullet` - CylinderGeometry, gelb/golden leuchtend
 - `rocket` - `createRocketGeometry()`: Düse, Körper, Nasenkegel und 4 Finnen zu einer Geometrie gemergt, Teilfarben als Vertex-Farben (weißer Körper, rote Nase und Finnen, dunkle Düse). 4,2 m lang, 1,6 m Finnenspannweite, zentriert auf die Projektilposition, weiterhin 1 Draw Call für alle Raketen
 - `poison` - SphereGeometry mit ShaderMaterial (grün)
@@ -155,12 +155,12 @@ Poison-Splash lassen Flieger also aus, Ice-Splash trifft beide Ebenen.
 | `enabled` | Trail aktiv |
 | `spawnChance` | 0–1 Wahrscheinlichkeit pro Frame |
 | `countPerSpawn` | Partikel pro Spawn-Event |
-| `colorMin` / `colorMax` | RGB 0–1 — random in dem Bereich |
+| `colorMin` / `colorMax` | RGB 0–1, zufällig in diesem Bereich |
 | `sizeMin` / `sizeMax` | Größenbereich |
 | `lifetimeMin` / `lifetimeMax` | Lebensdauer in Sekunden |
 | `velocityX/Y/Z` | Geschwindigkeitsbereich pro Achse |
 | `spawnOffset` | Verteilungsradius um Projektil-Mitte |
-| `blending` | `'additive'` (Default — Feuer/Glow) oder `'normal'` (Rauch) |
+| `blending` | `'additive'` (Default, Feuer/Glow) oder `'normal'` (Rauch) |
 | `trailType` | `'default'` oder `'spiral'` (rotierende Bahn, Arcane Orb) |
 | `spiralRadius` / `spiralSpeed` | nur für `'spiral'` |
 
