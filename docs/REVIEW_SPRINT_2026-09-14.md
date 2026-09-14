@@ -33,11 +33,13 @@ fix4, review5, der Faktencheck und die Endzahlen folgen in Teil 2.
 
 Nichts davon lief im Browser. Optik, Laufzeiten, Klang und Speicher sind per
 Code-Review, Tests und Rechnung geprüft, nicht angesehen, angehört oder
-gemessen. Die Shader hat der Worker shadercheck offline geprüft: Alle 13
-Fälle (Sockel, Sockel-Vorschau, Abzeichen, Ooze-Band, Blutmond-Stimmung,
-Suchscheinwerfer, VAT-Gegner mit Glühen, Portal, HQ-Marker, Frost, EMP,
-Orbitalstrahl, Pilzwolke) kompilieren und linken als GLSL ES 3.00 mit
-glslang 11.7.0, so wie three r186 sie zusammensetzt. Nicht geprüft sind
+gemessen. Die Shader haben shadercheck und fix4 offline geprüft: Alle 27
+Fälle, die 13 Materialien dieser Nacht (Sockel, Sockel-Vorschau, Abzeichen,
+Ooze-Band, Blutmond-Stimmung, Suchscheinwerfer, VAT-Gegner mit Glühen,
+Portal, HQ-Marker, Frost, EMP, Orbitalstrahl, Pilzwolke) und 14 ältere,
+kompilieren und linken als GLSL ES 3.00 mit glslang 11.7.0, so wie three
+r186 sie zusammensetzt. Im Gate laufen diese Compile-Tests nicht, dort
+fehlt das Binary. Nicht geprüft sind
 Treiber- und ANGLE-Eigenheiten und GPU-Grenzen (Zahl der Uniforms und
 Varyings). Deshalb steht die Konsole weiter als erster Playtest-Punkt (301).
 
@@ -593,15 +595,51 @@ Behebt die fünf Befunde von review3 (Befunde 15 bis 19).
   Stufen als `#version 300 es`; ein eigener Test prüft, dass jedes benutzte
   Fragment-`in` ein Vertex-`out` hat.
 - Ergebnis: 13 Fälle, alle grün, kein Fix nötig. Den Stand vor `2cfb850f`
-  (`flat` im Strahl-Shader) erkennt der Check (`unexpected FLAT`).
+  (`flat` im Strahl-Shader) erkennt der Check (`unexpected FLAT`). fix4 hat
+  14 ältere Materialien dazugenommen, seitdem 27 Fälle.
 - Das Binary gehört nicht zum Repo: `GLSLANG_VALIDATOR` oder
   `glslangValidator` im PATH, Bezugsquelle in ARCHITECTURE.md §13. Ohne
-  Binary laufen nur die Aufbau-Tests, die 13 Compile-Tests stehen als
+  Binary laufen nur die Aufbau-Tests, die Compile-Tests stehen als
   übersprungen da (so im Gate). Gelaufen mit 11.7.0, die dort genannte
   16.6.0 ist nicht getestet.
 - `292d788f`: Kommentar zu `forceSinglePass` in `vat-material.ts` und die
   Gotcha zu `USE_INSTANCING` in ARCHITECTURE.md §13 richtiggestellt (three
   setzt das Define für jedes Material auf einem InstancedMesh selbst).
+
+### Review-Fixes (fix4, `4bf9ade9` bis `a26cd7dd`, 4 Commits)
+
+Behebt die vier Befunde von review4 (Abschnitt "Review", Befunde 20 bis 23).
+
+- **Dach erkannt am Boden rundherum** (`a26cd7dd`, Befund 21): Geben Dach-
+  und Boden-Regel verschiedene Füße und zeigt die eigene Säule keinen Boden
+  mehr als 2,5 m tiefer, werden 8 Säulen rund um die Grundfläche geprobt,
+  8 m jenseits davon (`ROOF_PROBE_REACH`). Zeigen beide Säulen eines
+  gegenüberliegenden Paars Boden mehr als 2,5 m unter der Cursor-Fläche,
+  gilt die Dach-Regel. Ein Hang fällt nur zu einer Seite ab und bleibt
+  Boden; ein Auto neben dem Gehweg hebt weiter nicht (die Specs von fix1
+  unverändert grün). Ein gestuftes Dach ohne Boden unter den Säulen ergibt
+  jetzt Fuß 12 m mit 2 m Sockel statt 10 m ohne. Wo die Regeln einig sind,
+  wird nichts zusätzlich geprobt, sonst 8 Säulen mehr je Validierung (nicht
+  gemessen). In Dev-Builds gibt `__footprintDebug()` für die letzte
+  Vorschau Cursor-Fläche, `centreGroundY` und `centreTopY` der
+  Cursor-Säule, Regel, Fuß, Sockel und den Boden der 8 Umgebungsproben aus;
+  damit lässt sich im Playtest klären, ob die Tiles unter Dächern Boden
+  zeigen (die Kommentare im Code widersprechen sich dazu).
+- **Log-Depth-Prüfung liest die Zuweisungen** (`4bf9ade9`, Befund 20): statt
+  der Defines, die three in jedes ShaderMaterial schreibt, `vFragDepth =` im
+  Vertex und `gl_FragDepth =` im Fragment. Ein Material ohne die Chunks
+  fällt jetzt durch (Negativtest).
+- **Eigener Temp-Ordner je Lauf** (`d4ae0f6b`, Befund 22): Parallele Läufe
+  stören sich nicht mehr; scheitert `glslangValidator -E`, bricht der Test
+  ab, statt still zu bestehen.
+- **14 ältere Materialien als Fälle** (`0ae09431`, Befund 23): Lebensbalken,
+  Boden-Decals, Floating Text, Blitze, Projektil-Orbs und -Trails, Tentakel,
+  DevWorld-Terrain, LOS-Cube-Material (Mesh und InstancedMesh), Debug-Quad
+  der Cube-Faces, Tower-LOS-Layer, Routenraster-Overlay, Luftrouten-Röhren,
+  Farbkorrektur-Pass. Alle kompilieren mit glslang 11.7, kein Fix nötig.
+  Ohne Log-Depth, im Fall begründet: Farbkorrektur-Pass, Luftrouten-Röhren,
+  Debug-Quad. Nicht erfasst: `/engine-test` (nicht Teil des Spiels). Mit
+  Binary laufen jetzt 57 Tests im Check, ohne sind 27 übersprungen.
 
 ## Revert: Abhängigkeiten und Probe
 
@@ -635,11 +673,12 @@ nicht mehr geprüft. "Doku" heißt: der Konflikt liegt nur in einem Dokument.
 | Held `9741ffb6` bis `46c300ac` | am `fcc543fa` allein Konflikt (Doku `613af403`, `hero-control.service.ts`, `hotkey.service.ts`, `tower-defense.component.ts`), nach den Fähigkeiten konfliktfrei; am Head nach Pilzwolke und Fähigkeiten nur noch in `docs/INDEX.md` (`90938f8b`, die Nachbarzeile hat dieses Handover geändert), dahinter nicht geprüft | `613af403` braucht die Leiste, `9b802416` das Held-GLB, `46c300ac` die Ooze |
 | Fähigkeiten `eaf8d5f2` bis `fcc543fa`, dazu `9d6d2d15` | am Head Konflikt in `docs/ABILITIES.md` (`0db2d032`; die Zerlegung der Pilzwolke nennt dort ihre Dateien); mit der Pilzwolke zuerst konfliktfrei. Einzeln konfliktfrei: `fcc543fa`, `4234de2e`, `9d6d2d15`. Laser (`8fc55ae8`, `a25e0260`, `0db2d032`, `1f92f349`, `538ddf87`, `2cfb850f`) nur noch Doku `ABILITIES.md`. Frost oder EMP allein: Konflikt in `strategy-bot.factory.ts`, `research-pick.strategy.ts`, `ABILITIES.md`, `BOT_SYSTEM.md` | brauchen Leiste und Tabellen; EMP nutzt den Halt-Weg aus `325512de` (Frost); die Pilzwolke nutzt `effect-buffers.ts` aus `459235bd` |
 | Pilzwolke `8ca1c4bf` bis `ac10bed9` | konfliktfrei | `66a94828` baut auf `459235bd` (Fähigkeiten) auf |
-| fix1 `2b7da859` bis `5744bcce` | `2b7da859`, `386a17c1`, `bf573095`, `5744bcce` einzeln konfliktfrei; `f500aaaf` nur zusammen mit `5744bcce` | `5744bcce` baut auf `f500aaaf` auf; beide auf dem Sockel, `bf573095` auf dem Abzeichen |
-| Shader-Check `795f9cef` bis `292d788f` | konfliktfrei | nur Test, Doku und Kommentare |
+| fix1 `2b7da859` bis `5744bcce` | `2b7da859`, `386a17c1`, `bf573095`, `5744bcce` einzeln konfliktfrei; `f500aaaf` nur zusammen mit `5744bcce`. Am `94d9b012` kollidiert das Paar in `tower-footprint.ts` und `tower-placement.service.ts`; mit `a26cd7dd` (fix4) zuerst konfliktfrei | `5744bcce` baut auf `f500aaaf` auf; beide auf dem Sockel, `bf573095` auf dem Abzeichen |
+| Shader-Check `795f9cef` bis `292d788f` | am `292d788f` konfliktfrei; am `94d9b012` allein Doku-Konflikt in `ARCHITECTURE.md` (`88523460`), mit den drei Shader-Commits von fix4 zuerst konfliktfrei | nur Test, Doku und Kommentare |
 | Replay `a4d8c839` bis `4d415013` | am `4d415013`: ganzer Bereich konfliktfrei; einzeln konfliktfrei auch `a4d8c839`, `360f5c82`, `d9b0d17e` und die Nacharbeit `5c17dc88` bis `4d415013` für sich | `a4d8c839` entbehrlich (dann fehlt nur die Zielwahl im Befehlslog); die Nacharbeit liest Held, Ooze, Freeze und Stun, Blutmond, Boss-Intro und Sprung-Cheat |
 | fix2 `bea17437` bis `913a66ee` | am `4d415013` einzeln konfliktfrei: `bea17437`, `188bacc2`, `684993d6`, `96715cb0`, `f68a1553`, `913a66ee`; Doku-Konflikt: `ee4a3722` (`WAVE_SYSTEM.md`), `dfcf1d5c` und `15a1778f` (gemeinsame Zeile in `ENEMY_CREATION.md`); Code-Konflikt: `3f1f5fdc` in `three-effects.renderer.ts` (das Replay hängt daneben an) | `913a66ee` beschreibt `bea17437` |
 | fix3 `d597329f` bis `8d34c49e` | am `4d415013` einzeln konfliktfrei außer `900cadff` (`hero.manager.ts` und Spec, die Replay-Nacharbeit liegt daneben) | sonst voneinander unabhängig |
+| fix4 `4bf9ade9` bis `a26cd7dd` | am `94d9b012`: `a26cd7dd` und `0ae09431` einzeln konfliktfrei, die drei Shader-Commits zusammen konfliktfrei; `4bf9ade9` und `d4ae0f6b` allein nicht (dieselbe Spec, die späteren bauen darauf) | `a26cd7dd` baut auf fix1 (`f500aaaf`) auf; `0ae09431` braucht `4bf9ade9` und `d4ae0f6b` |
 
 Am Head wiederholt: Ground-Pick-Cache, Sockel, Veteranen, Fähigkeiten, Held,
 Sprung, die Boss-Intro-Code-Commits, die einzelnen Ooze- und
@@ -745,15 +784,20 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
 27. **Replay ohne Re-Simulation** (`91346c78` bis `acded7cb`): Es zeigt, was
     die Renderer gezeigt haben; ein Sprung zu Welle N verwirft die Aufnahme
     (`360f5c82`).
+28. **Dach am Boden rundherum erkannt** (`a26cd7dd`): 8 zusätzliche
+    Säulenproben, wo Dach- und Boden-Regel uneinig sind, statt eine
+    Annahme über die Tiles zu treffen, die niemand geprüft hat. Grenzen:
+    Damm oder Kuppe mit Abfall zu zwei Seiten gilt als Dach, die Mitte sehr
+    großer Dächer ohne Boden unter der Säule als Boden.
 
 ## Review
 
-Drei Review-Agents haben gelesen, alle nur lesend. Keiner fand einen Befund
-der Schwere hoch. Alle 19 Befunde sind behoben: die von review1 durch fix1,
-die von review2 durch fix2, die von review3 durch fix3 (Abschnitte
+Vier Review-Agents haben gelesen, alle nur lesend. Keiner fand einen Befund
+der Schwere hoch. Alle 23 Befunde sind behoben: die von review1 durch fix1,
+review2 durch fix2, review3 durch fix3, review4 durch fix4 (Abschnitte
 "Review-Fixes"). Was die Fix-Worker bewusst ausgelassen haben, steht bei den
-Befunden und unter "Befunde, offen". Die Befunde von review4 (fix4) und
-review5 (Replay) folgen in Teil 2.
+Befunden und unter "Befunde, offen". Die Befunde von review5 (Replay)
+folgen in Teil 2.
 
 **review1**, `1ca6713a..bffae869` (54 Commits: Assets, perf, Sockel, Leiste,
 Wellen-Panel, Quickfix, Weltkarte, Veteranen, Wurm): 1 mittel, 4 niedrig,
@@ -830,6 +874,31 @@ Tasten, Shader, Aufräumen bei Restart und Ortswechsel.
 19. **Zielsuche der drei neuen Bot-Strategien lief je Entscheidung
     doppelt** (niedrig, nur Bots). Behoben `ede0b617`.
 
+**review4**, `fcc543fa..292d788f` (12 Commits: Ooze-Spec, fix1, Pilzwolke,
+Shader-Check, Doku): 1 mittel, 3 niedrig, alle behoben (fix4). Geprüft
+ohne Befund: der Pilzwolken-Split (die Charakterisierungs-Spec läuft
+unverändert gegen den neuen Code), die Abzeichen je Frame, der
+Determinismus der Platzierung, die Zahlen der Boden-Regel.
+
+20. **Log-Depth-Prüfung im Shader-Check griff bei `ShaderMaterial` ins
+    Leere** (mittel): Sie suchte Defines, die three in jedes Programm
+    schreibt; ein Material ohne logdepthbuf-Chunks bestand. Kein heutiges
+    Material war betroffen. Behoben `4bf9ade9`.
+21. **Dach-Regel las nur den Boden der eigenen Säule** (niedrig, mittel,
+    falls die Tiles unter Dächern keinen Boden zeigen): Ohne Boden unter
+    der Säule gab ein gestuftes Dach keinen Sockel, am Steildach steckte der
+    Tower bis 0,5 m im Dach. Behoben `a26cd7dd` (Boden rundherum); ob die
+    Voraussetzung auf echten Tiles zutrifft, klärt Playtest 429.
+22. **Fester, geteilter Temp-Ordner im Shader-Check** (niedrig): Parallele
+    Läufe konnten sich die Quellen löschen, ein gescheitertes Präprozessieren
+    bestand still. Behoben `d4ae0f6b`.
+23. **"Ein Fall je Material" galt nur für die Materialien dieser Nacht**
+    (niedrig, Doku). Behoben `0ae09431` (14 ältere Materialien als Fälle).
+
+Hinweis aus review4, kein Defekt: Auf dem Rechner der Nacht gibt es kein
+`glslangValidator`, das Gate-Grün schließt den Compile-Schritt also nicht
+ein; die Fix-Worker haben mit einem Binary aus dem Scratchpad geprüft.
+
 ## Befunde, offen
 
 In TODO.md unter 1.9 eingetragen. Die Review-Befunde oben sind behoben; was
@@ -860,12 +929,15 @@ die Fix-Worker bewusst ausgelassen haben, steht unter 16.
     nachgestellt).
 12. **Boss-Intro** ohne Hindernis-Check; die Tastenübersicht nennt Esc zum
     Überspringen nicht.
-13. **Sockel nach fix1**: Die Boden-Regel stützt sich auf Annahmen über die
-    Photogrammetrie (unter Autos kein Boden-Treffer, unter Dächern schon),
-    im Browser nicht geprüft; eine Probe auf einer Autoflanke kann bis
-    0,5 m heben.
+13. **Sockel nach fix1 und fix4**: Ob die Tiles unter Dächern Boden zeigen,
+    ist unbelegt (Playtest 429). Auf Damm, Kuppe oder Terrasse, die zu zwei
+    Seiten stark abfällt, gilt fälschlich die Dach-Regel; in der Mitte sehr
+    großer Dächer ohne Boden unter der Säule die Boden-Regel. Neben Autos,
+    Mauern und an Dachkanten 8 Säulenproben mehr je Validierung, nicht
+    gemessen; eine Probe auf einer Autoflanke kann bis 0,5 m heben.
 14. **Shader-Check** braucht `glslangValidator` von Hand; ohne ihn prüft
-    `npm test` nur den Aufbau, nicht das Kompilieren.
+    `npm test` nur den Aufbau, nicht das Kompilieren (27 Compile-Tests
+    übersprungen).
 15. **Replay**: keine Re-Simulation, solange die Determinismus-Blocker
     bestehen (ungeseedeter Zufall beim Spawn, GPU-LOS, Turmdrehung im
     Renderer, Singleton-Dienste); nicht wiedergegeben werden unter anderem
@@ -1285,9 +1357,9 @@ Punkte beginnen bei 301.
 406. Optional: `glslangValidator` von
      https://github.com/KhronosGroup/glslang/releases holen, in Git Bash
      `export GLSLANG_VALIDATOR=<pfad>/bin/glslangValidator.exe`, dann
-     `npm run shader-check`: "Tests 27 passed (27)". Ohne die Variable: die
-     Warnung "[shader-check] glslangValidator not found, compile tests
-     skipped", 13 Tests übersprungen.
+     `npm run shader-check`: seit fix4 "57 passed (57)" (vorher 27). Ohne
+     die Variable: die Warnung "[shader-check] glslangValidator not found,
+     compile tests skipped", seit fix4 27 Tests übersprungen (vorher 13).
 
 **Replay (dritter Durchgang)**
 
@@ -1370,6 +1442,29 @@ Punkte beginnen bei 301.
 428. Optional: im Debug-Fenster das ONNX-Modell einschalten, drei Wellen
      spielen: Wellen wie gewohnt, keine Konsolenfehler; im
      Trainings-Dashboard steht bei Research "Completed x/11".
+
+**Review-Fixes fix4 (dritter Durchgang)**
+
+429. Echter Ort im Dev-Build, Archer wählen, Cursor auf das Flachdach eines
+     mehrstöckigen Hauses, Konsole `__footprintDebug()`: eine Zeile mit
+     Regel, Fuß und Sockel. `centreGroundY` und `centreTopY` notieren und
+     melden (gleich: die Tiles zeigen unter dem Dach keinen Boden; deutlich
+     kleiner: Boden darunter). Dasselbe mit dem Cursor auf der Straße.
+430. Gestuftes Dach, Cursor auf den niedrigeren Teil 1 bis 2 m vor der
+     Stufe: die Vorschau steht auf dem höheren Teil, der Sockel reicht zum
+     niedrigeren; `__footprintDebug()` zeigt `roof-column` oder
+     `roof-surroundings`. Zeigt es `ground`, die Zeile melden.
+431. Steiles Satteldach, Cursor knapp unter dem First: der Tower steht auf
+     Firsthöhe mit Sockel und steckt nicht im Dach.
+432. Gehweg 2 bis 3 m neben einem parkenden Auto: kein Sockel, Regel
+     `ground`, `agree` oder `even`. Straße am Hang mit Hecke oder Mauer
+     daneben: der Tower folgt dem Hang und steigt nicht auf die Hecke.
+433. Mitte eines großen Flachdachs neben einem Aufbau: bei `centreGroundY`
+     gleich `centreTopY` Regel `ground`, der Aufbau hebt nicht (bekannte
+     Grenze). Optional danach `__raycastStats()`, Zeile `towerFootprint`
+     ansehen.
+434. Optional, mit `glslangValidator` wie in 406: `npm run shader-check`
+     meldet "57 passed (57)"; ohne Binary sind 27 Tests übersprungen.
 
 ## TODO-Stand
 
