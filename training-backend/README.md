@@ -157,4 +157,4 @@ JSONL-Logs in `logs/training_*.jsonl` für Post-hoc-Analyse via
 | `PHASE5.5_TRAINING_RUNBOOK.md` | Historisches Runbook für Phase-5.5-Restart |
 
 Frontend-seitige Architektur: `docs/AI_WAVE_DIRECTOR_PLAN.md` im Projekt-Root
-(`docs/PHASE_5.11_RANGES.md` ist historisch).
+(`docs/archive/PHASE_5.11_RANGES.md` ist historisch).

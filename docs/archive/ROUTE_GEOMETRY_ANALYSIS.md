@@ -5,7 +5,7 @@ Stand 2026-09-11, Branch `wt/route-investigate`. Bezieht sich auf TODO 1.1
 
 > **Bericht.** Hält die Herleitung vom 2026-09-10 bis 2026-09-12 fest; Konstanten
 > und Stellen in den Tabellen gelten für diesen Stand. Den laufenden Stand des
-> Korridors beschreibt [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md), die
+> Korridors beschreibt [ROUTE_CORRIDOR.md](../ROUTE_CORRIDOR.md), die
 > Offenen Punkte am Ende sind vom 2026-09-15.
 
 ## Befund
@@ -113,7 +113,7 @@ diagonal street at the point closest to the HQ", auf dem alten Code rot.
 In DevTools `__routes.describe()` aufrufen (registriert im
 `PathAndRouteService`, Tabelle aus `route-way-report.ts`). Eine Zeile je
 Abschnitt einer Route über einen OSM-Way, alle Spalten in
-[ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#__routesdescribe); für die Fälle hier:
+[ROUTE_CORRIDOR.md](../ROUTE_CORRIDOR.md#__routesdescribe); für die Fälle hier:
 
 | Spalte | Bedeutung |
 |---|---|
@@ -151,7 +151,7 @@ wurde in mehreren Schritten, die Commits stehen unten:
   (`CorridorRefit`), Stellschrauben in `corridorConfig` mit `__corridor.set()`.
 
 Den laufenden Stand mit Datenfluss, Einstellungen, Grenzen und Diagnose
-beschreibt [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md). Seit 2026-09-14 setzt der
+beschreibt [ROUTE_CORRIDOR.md](../ROUTE_CORRIDOR.md). Seit 2026-09-14 setzt der
 Dach-Check keine Zelle mehr auf den Boden, der Korridor endet vor ihr
 (ROUTE_CORRIDOR.md, Laufweg).
 
@@ -192,7 +192,7 @@ Frame zurück.
 **Diagnose im Spiel.** Tower auswählen, in DevTools `__corridor.towerCells()`
 aufrufen; ohne Koordinaten `__corridor.pick()` und dann auf die Stelle
 klicken; dazu der Layer "Route Grid Overlay". Felder, Deutung und Konturen
-stehen heute in [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md), Abschnitt Diagnose.
+stehen heute in [ROUTE_CORRIDOR.md](../ROUTE_CORRIDOR.md), Abschnitt Diagnose.
 Zu den Hypothesen oben: `unsampled` und `notDisplayed` zeigen Fall (e),
 `raised` Fall (d), `holes` widerspräche dem Test zu (a).
 

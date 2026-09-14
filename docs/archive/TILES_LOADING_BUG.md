@@ -7,7 +7,7 @@
 > ab 2026-02-27 eine *Tile-Quality-Aware Route Protection* (DONE.md 2026-02-27). Ihre
 > Bezeichner `tileQualityTracker` und `tileSceneMap` gibt es nicht mehr. Heute nehmen die
 > Route-Cells die Höhe aus den feinsten Tiles über die Tile-Tiefe (`three-engine/column-sample.ts`,
-> `utils/route-cell-sampler.ts`, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md)). Mit dem hier
+> `utils/route-cell-sampler.ts`, siehe [ROUTE_CORRIDOR.md](../ROUTE_CORRIDOR.md)). Mit dem hier
 > beschriebenen 0-Kacheln-Hänger hat das nichts zu tun.
 
 ## Problem

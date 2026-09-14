@@ -109,7 +109,6 @@ training-backend/               # Python Training Backend (nur für Trainingslä
 | [PROJECTILES.md](docs/PROJECTILES.md) | Projektil-System |
 | [MODEL_PREVIEW.md](docs/MODEL_PREVIEW.md) | 3D Model Preview |
 | [PARTICLE_SYSTEM.md](docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
-| [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
 | [DEVWORLD.md](docs/DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung |
 | [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md) | Routenkorridor: Breite je Seite aus den Tiles, OSM-Rückfall, Dach-Check, Brücken/Tunnel, CorridorRefit, `__corridor.*` |
 | [SPAWN_PORTAL.md](docs/SPAWN_PORTAL.md) | Spawn-Portal: Ausrichtung, Vorschau, Drehen mit R, Drehbereich, Asset, Sigillen, Beschwörungskreis |
@@ -127,9 +126,7 @@ training-backend/               # Python Training Backend (nur für Trainingslä
 | [REVIEW_SPRINT_2026-09-14.md](docs/REVIEW_SPRINT_2026-09-14.md) | Handover der Nachtschicht 2026-09-14: Änderungen je Feature mit Revert-Hinweisen, Entscheidungen, Review, Playtest-Liste ab 301 |
 | [REVIEW_SPRINT_2026-09-13.md](docs/REVIEW_SPRINT_2026-09-13.md) | Handover der Nachtschicht 2026-09-13: Änderungen, Entscheidungen, Review, Playtest-Liste ab 101 |
 | [REVIEW_SPRINT_2026-09-12.md](docs/REVIEW_SPRINT_2026-09-12.md) | Letzter Sprint-Handover: Änderungen, Review-Befunde, Playtest-Liste mit Ergebnissen |
-| [ROUTE_GEOMETRY_ANALYSIS.md](docs/ROUTE_GEOMETRY_ANALYSIS.md) | Route vs. Straße: Herleitung des Korridors, Lücken in der LOS-Anzeige |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](docs/PERF_BUG_ANALYSIS_2026-05-28.md) | Performance- und Bug-Deep-Dive (Render-Loop, Instancing, VFX, Leaks) |
-| [HANDOVER_ROUTE_GRID_GPU_LOS.md](docs/HANDOVER_ROUTE_GRID_GPU_LOS.md) | GPU-LOS-Handover vom 2026-05-15: Sackgassen, Diagnose-Werkzeuge, GPU-Probe |
 | **Architektur & Store** | |
 | [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) | Signal Store Architektur (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug) |
 | [LOS_PIPELINE.md](docs/LOS_PIPELINE.md) | Sichtlinien der Tower: GPU-Cubemap je Tower-Tip, Kampf-Cache in den Zellen, Regeln für den Cube |
@@ -137,10 +134,8 @@ training-backend/               # Python Training Backend (nur für Trainingslä
 | **[AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)** | **Einstieg:** Regel-Director + Gate-Controller, warum das ONNX-Modell ersetzt wurde |
 | [HANDOVER_RULE_DIRECTOR.md](docs/HANDOVER_RULE_DIRECTOR.md) | Umstellung auf den Regel-Director (2026-09-07), Messreihe, Einstieg für späteres Training |
 | [BOT_SYSTEM.md](docs/BOT_SYSTEM.md) | Strategy-Based Bot System (Gegenspieler im Training) |
-| [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md) | _Historisch:_ Balance-Stand von Phase 5.16, überholt durch HANDOVER_TRAINING_REFRESH |
-| [PHASE_5.11_RANGES.md](docs/PHASE_5.11_RANGES.md) | Range-Templates + Decoder-Constraints (Mechanik gilt; Modell-als-Director ist überholt) |
 | [STATIC_WAVE_FALLBACK.md](docs/STATIC_WAVE_FALLBACK.md) | Debug-Pfad ohne Director (STATIC_WAVE_PROFILES) |
-| [PHASE_5.10_TEMPLATES.md](docs/archive/PHASE_5.10_TEMPLATES.md) | _Historisch:_ superseded by 5.11 (weitere überholte Docs in `docs/archive/`) |
+| [archive/](docs/archive/) | _Historisch:_ überholte Docs, die Liste steht in INDEX.md unter Archiv |
 | **Training Backend** (`training-backend/`, nur für Trainingsläufe) | |
 | [AI_TRAINING_BACKEND.md](training-backend/docs/AI_TRAINING_BACKEND.md) | PPO, State-Encoder, Reward, Decoder-Constraints, A/B-Directors |
 | [HANDOVER_TRAINING_REFRESH.md](docs/HANDOVER_TRAINING_REFRESH.md) | Backend-Refresh: Befunde + Grundsatzentscheidungen |

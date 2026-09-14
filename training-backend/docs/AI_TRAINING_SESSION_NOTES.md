@@ -163,8 +163,8 @@ behandelt werden:
 |---|---|---|
 | 5.5 | `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | State 74→93, Multi-Group-Decoder, Reward-Restart |
 | 5.10 | `docs/archive/PHASE_5.10_TEMPLATES.md` | Template-basiert, State 156, 4-Term-Reward, 18 Templates |
-| 5.11 | `docs/PHASE_5.11_RANGES.md` | Range-Based-Templates, 4 Continuous-Params, Wave-Duration-Cap |
-| 5.16 | `docs/HANDOVER_PLAYTEST_PHASE5.16.md` | Wave-Curriculum-Override |
+| 5.11 | `docs/archive/PHASE_5.11_RANGES.md` | Range-Based-Templates, 4 Continuous-Params, Wave-Duration-Cap |
+| 5.16 | `docs/archive/HANDOVER_PLAYTEST_PHASE5.16.md` | Wave-Curriculum-Override |
 
 Die Versionen unten (v1 → v3.5) sind aus archivarischen Gründen erhalten;
 die dort beschriebene Architektur ist nicht mehr in Kraft. Lessons Learned

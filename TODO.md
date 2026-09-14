@@ -42,7 +42,7 @@
       - Zusammen mit den **Brücken- und Tunnel-Tags** angehen: Auf Brücken
         die Oberkante statt des Bodens darunter nehmen (Tags liegen seit
         `03ffd7b` vor; "Korrektur überspringen" reicht nicht, siehe
-        `docs/ROUTE_GEOMETRY_ANALYSIS.md`).
+        `docs/archive/ROUTE_GEOMETRY_ANALYSIS.md`).
       Folgen: Zellzuordnung, LOS-Registrierung, Targeting und Bodenhöhe der
       Gegner ändern sich; Hot Path (20k Gegner) nicht verlangsamen.
       **Stand 2026-09-12 (Runde 2):** umgesetzt auf dem Sprint-Branch
@@ -108,7 +108,7 @@
       (`fcbe1d8`), der HQ-Abzweig ist korrigiert (`4ad010a`); die Ursache des
       ursprünglichen Befunds ist aber nicht belegt. Offen lassen, bei
       Wiederauftreten `__routes.describe()` aufrufen (Fälle A bis D in
-      `docs/ROUTE_GEOMETRY_ANALYSIS.md`).
+      `docs/archive/ROUTE_GEOMETRY_ANALYSIS.md`).
 
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
@@ -1022,7 +1022,7 @@
 >
 > **Ältere Notiz (2026-05-11):** Checkpoint ep 7350 wurde gegen das alte
 > Reward-System trainiert; Schema v2 (162 Features) macht ihn ohnehin unladbar.
-> Kontext: [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md).
+> Kontext: [HANDOVER_PLAYTEST_PHASE5.16.md](docs/archive/HANDOVER_PLAYTEST_PHASE5.16.md).
 >
 > **Architektur-Status:** Phase 5.10 hat das Template-System geshipped (18 Templates,
 > 4 Reward-Terme, State 156, Hard-Constraints im Decoder). Bei Tuning gilt:
@@ -1305,7 +1305,7 @@
       (`updateTowerIdleRotations` → `resetRotation` in
       `tower-combat.service.ts`); das kostet bis 1 s bis zum nächsten Schuss,
       weil ein Tower erst schießt, wenn er ausgerichtet ist
-      (`docs/game-design/UX_DISCUSSION_NOTES.md`).
+      (`docs/archive/UX_DISCUSSION_NOTES.md`).
       **Entscheidung 2026-09-12:** Während der Welle in der letzten Richtung
       stehen bleiben; nach der Welle zur Stelle drehen, an der die Route in die
       Reichweite eintritt (Wachrichtung).

@@ -337,10 +337,10 @@ Wenn sich beim Static-Spiel etwas falsch anfühlt:
   Mixed Waves, Phasen, Sub-Step-Spawner.
 - [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md): die Director-Seite, die
   der Static-Fallback ersetzt (heute regelbasiert, kein Modell).
-- [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md): _historisch:_ das
+- [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md): _historisch:_ das
   Range-Template-System, das die Static-Profiles spiegeln. Templates, Maske und
   Ranges gelten weiter, die NN-Teile nicht.
-- [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md):
+- [HANDOVER_PLAYTEST_PHASE5.16.md](archive/HANDOVER_PLAYTEST_PHASE5.16.md):
   _historisch:_ Curriculum- und Gold-Stand vom Mai 2026, Gold-Zahlen dort
   überholt.
 - Offene Erweiterungen stehen oben unter [Bekannte Limitationen](#bekannte-limitationen);

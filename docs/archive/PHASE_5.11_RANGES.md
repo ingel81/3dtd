@@ -36,8 +36,8 @@
 > Regelkreis korrigiert (`src/app/ai/core/gate-controller.ts`), den es in 5.11
 > nur serverseitig gab.
 >
-> **Aktueller Stand:** [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) und
-> [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).
+> **Aktueller Stand:** [AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md) und
+> [HANDOVER_TRAINING_REFRESH.md](../HANDOVER_TRAINING_REFRESH.md).
 > Dieses Dokument bleibt als Protokoll der Architekturstufe stehen.
 
 ## Kontext
