@@ -1,6 +1,6 @@
 # AI Training Backend
 
-**Stand:** 2026-09-13 (Skeleton-Split), Schema v5 (208 Features), Reward v4, A/B-Director-Roster.
+**Stand:** 2026-09-15, Schema v5 (208 Features), Reward v4, A/B-Director-Roster.
 
 > **Das Backend ist ein Messinstrument, keine Produktionsabhängigkeit.**
 > Seit `3875d61` entscheidet im Spiel ein Regel-Director im Client
@@ -9,7 +9,8 @@
 > existiert, um Wave-Designs gegen Bots über hunderte Runs zu vergleichen — das
 > ist die einzige Umgebung im Projekt, in der das geht.
 >
-> Warum der Wechsel stattfand: [../../docs/HANDOVER_RULE_DIRECTOR.md](../../docs/HANDOVER_RULE_DIRECTOR.md).
+> Einstieg in den Wave Director: [AI_WAVE_DIRECTOR_PLAN.md](../../docs/AI_WAVE_DIRECTOR_PLAN.md).
+> Die Messreihe hinter dem Wechsel: [HANDOVER_RULE_DIRECTOR.md](../../docs/HANDOVER_RULE_DIRECTOR.md).
 
 ## Überblick
 
@@ -18,7 +19,7 @@ WebSocket-Server (Port 3001), PPO-Trainer und Web-Dashboard (Port 3002) für
 Live-Monitoring.
 
 **Stack:**
-- Python 3.8+ / PyTorch 2.0+
+- Python 3.9+ (Annotationen wie `tuple[float, dict]` in `core/reward.py`; die venv läuft auf 3.11) / PyTorch 2.0+
 - WebSocket-Server (`websockets`)
 - FastAPI + Chart.js Dashboard
 - ONNX (Browser-Export, Opt-in im Spiel)
@@ -111,12 +112,13 @@ training-backend/
 │   ├── analyze_log.py     # Post-hoc JSONL-Analyse
 │   └── inspect_training.py  # Snapshot aus Dashboard-API, JSONL-Logs, Checkpoints
 │
-├── tests/                 # pytest-Suite (96 Tests, Stand 2026-09-07)
+├── tests/                 # pytest-Suite
 │   ├── test_gate_loop.py  #   Fairness-Gate-Regelkreis
 │   ├── test_directors.py  #   Decoder-Contract aller Directors
 │   ├── test_encoder.py    #   Feature-Layout gegen das Schema
 │   ├── test_reward_v2.py  #   Reward-Terme
-│   └── test_schema.py     #   Schema-Loader
+│   ├── test_schema.py     #   Schema-Loader
+│   └── test_training_log.py # JSONL: Build-Version, Perfect-Flag je Welle
 ├── requirements.txt
 ├── start.bat / start.sh
 ├── checkpoints/           # checkpoint_*.pt (alle 10 Episoden) + checkpoint_latest.pt
@@ -573,7 +575,7 @@ Ratio-Werte für Templates, die es nie hätte wählen können.
 - **Near-Miss-Chart:** Path-Progress + Target-Linie
 - **Damage-Distribution:** Boring / Sweet / Hard / Game-Over
 - **Modell-Metriken:** Policy-Loss, Entropy, Grad-Norm, Batch-Reward
-- **DPS-Profile:** Per-Client Ground/Air-Profil (20 Bins)
+- **DPS-Profile:** Per-Client Ground/Air-Profil (20 Bins); die Endpunkte liefern seit Phase 5.10 leere Arrays
 - **Template-Histogramm**
 - **Wave-Log + Training-Log**
 
@@ -590,9 +592,11 @@ Ratio-Werte für Templates, die es nie hätte wählen können.
 | `/` | GET | Dashboard-HTML |
 | `/api/stats` | GET | Aktuelle Trainings-Stats |
 | `/api/history` | GET | Reward/Damage/Progress-History |
-| `/api/clients` | GET | Verbundene Clients + DPS-Profile |
-| `/api/profile/{id}` | GET | DPS-Profil eines Clients |
+| `/api/clients` | GET | Verbundene Clients (Welle, Bot, letzte Fortschritte); die DPS-Arrays sind seit Phase 5.10 leer |
+| `/api/clients/summary` | GET | Kompakter Stand je Client: Wellen, Game-Overs, Mittel der letzten 50 Wellen (Reward, Fortschritt, Schaden), Verteilung |
+| `/api/profile/{id}` | GET | früher das DPS-Profil eines Clients, seit Phase 5.10 leere Arrays |
 | `/api/config` | GET | Reward-Schwellwerte (Frontend liest diese dynamisch) |
+| `/api/control/{cmd}` | POST | Kommando an alle Trainings-Clients: `start`, `stop`, `reload`, `set_timescale`, `set_rendering` (Body `{"value": …}`) |
 | `/ws/live` | WebSocket | Real-Time-Event-Stream |
 
 ### WebSocket-Events
@@ -653,6 +657,16 @@ python server.py
 ```
 
 `DASHBOARD=0 python server.py` startet ohne Dashboard (CI/Headless).
+
+### Als Hintergrundprozess
+
+```bash
+cd training-backend
+python manage_server.py start     # auch: stop, restart, status, tail
+```
+
+`manage_server.py` führt PID- und Logdatei. So startet auch der
+Trainings-Workflow in [AI_WAVE_DIRECTOR_PLAN.md](../../docs/AI_WAVE_DIRECTOR_PLAN.md).
 `python server.py --fresh` archiviert vorhandene Checkpoints nach
 `checkpoints/archive-<datum>/`.
 
@@ -701,7 +715,7 @@ alle Clients; für den A/B nach `director` gruppieren).
 
 ```bash
 cd training-backend
-python -m pytest tests -q          # 96 Tests, Stand 2026-09-07
+python -m pytest tests -q
 ```
 
 Zwei Suiten decken die Stellen ab, an denen bereits stille Fehler geschifft
