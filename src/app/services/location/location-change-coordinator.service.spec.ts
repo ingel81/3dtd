@@ -627,6 +627,20 @@ describe('LocationChangeCoordinatorService', () => {
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Königstraße', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], undefined);
     });
 
+    it('carries a portal bearing the dialog result brought along (a showcase spawn with one)', async () => {
+      coordinator.initializeFlow(delegate);
+      await coordinator.openLocationDialog();
+
+      dialogClosed.next({
+        confirmed: true,
+        hq: { ...HQ, displayName: 'Rio de Janeiro' },
+        spawn: { ...SPAWN, name: 'Spawn', isRandom: false, portalBearing: 187.5 },
+      } as unknown as LocationDialogResult);
+      await settle();
+
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], 187.5);
+    });
+
     it('draws a random street spawn 500 to 1000 m away and shares the loaded streets', async () => {
       const loaded = network();
       osm.loadStreets.mockResolvedValue(loaded);
