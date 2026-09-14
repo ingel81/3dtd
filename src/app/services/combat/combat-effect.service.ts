@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { Vector3 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { StatusEffectService } from './status-effect.service';
@@ -20,7 +21,7 @@ import { DamageType, DamageResult } from '../../configs/combat/combat.types';
 import { EFFECTIVENESS_COLORS, EFFECTIVENESS_SCALES } from '../../configs/combat/damage-matrix.config';
 import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
 import { enemyHitSpot } from '../../utils/enemy-hit-spot';
-import { ROUTE_BODY_AIM_HEIGHT_M } from '../../utils/route-body';
+import { ROUTE_BODY_AIM_HEIGHT_M, type RouteBodyContact } from '../../utils/route-body';
 import type { AbilityHaltStatus } from '../../configs/abilities.config';
 
 /**
@@ -48,6 +49,9 @@ export class CombatEffectService {
   // neu befüllt. Schadensanwendung löst keinen weiteren Splash synchron aus.
   private readonly _splashScratch: Enemy[] = [];
   private readonly _splashDistScratch: number[] = [];
+  // Scratch für keepHitOnBody
+  private readonly _hitLocal = new Vector3();
+  private readonly _hitContact: RouteBodyContact = { station: 0, offset: 0, distance: 0 };
 
   /** Whether damage numbers are shown on hits (toggled via display options) */
   damageNumbersEnabled = true;
@@ -337,6 +341,7 @@ export class CombatEffectService {
     sourceTowerId: string,
   ): void {
     if (!enemy.alive || !this.tilesEngine) return;
+    if (enemy.body) this.keepHitOnBody(enemy);
 
     const result = this.damageService.applyDamage(
       this.vfx,
@@ -367,6 +372,23 @@ export class CombatEffectService {
         }
       );
     }
+  }
+
+  /**
+   * A DoT tick on a body along the route (the ooze) brings no hit of its
+   * own: its number goes where the last hit landed, or where a radius query
+   * last touched the body. The tail may have moved up past that point since,
+   * so the hit moves to the point of the body nearest to it.
+   */
+  private keepHitOnBody(enemy: Enemy): void {
+    const body = enemy.body!;
+    const hit = body.hit;
+    const st = body.stations;
+    const local = this.tilesEngine!.sync.geoToLocalSimpleInto(hit.lat, hit.lon, 0, this._hitLocal);
+    const { station: k, offset } = body.nearest(local.x, local.z, this._hitContact);
+    const groundY = this.globalRouteGrid.getGroundLocalYAt(st.x[k] + st.rightX[k] * offset, st.z[k] + st.rightZ[k] * offset)
+      ?? hit.height - st.originHeight;
+    body.setHit(k, offset, groundY);
   }
 
   // =====================================================
