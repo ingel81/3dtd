@@ -900,6 +900,11 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   Regel (`even`, `agree`: beide Regeln ergeben denselben Fuß, `roof-column`, `roof-surroundings`,
   `ground`, `level-inner-ring`: der äußere Ring ist noch nicht geprobt), Fuß, Sockel, tiefste und
   höchste Probe, die höchste, die die Boden-Regel erreicht, und den Boden der acht Säulen rundherum.
+  Ohne Tippen während des Zielens: `__footprintDebug.watch()` einmal aufrufen, danach schreibt die
+  Konsole eine Zeile, sobald der Cursor 0,3 s auf einer neu geprüften Stelle ruht (neu geprüft
+  wird nach mehr als 1 m Weg), und eine bei jeder Platzierung: `rest` bzw. `placed`, Tower,
+  `rule`, `centreGroundY`, `centreTopY`, `plinthHeight`, `footY`, `surfaceY` und Position.
+  `__footprintDebug.watch(false)` beendet das; aus kostet es einen Null-Vergleich pro Frame.
 - **Weg ins Spiel:** `command:place-tower` trägt `position.height` = Fuß (Oberkante des Sockels)
   und `plinthHeight`. Beides landet im `Tower` (`position.height`, `plinthHeight`). Alles, was
   von `position.height` ausgeht, beginnt damit am angehobenen Fuß: LOS-Registrierung

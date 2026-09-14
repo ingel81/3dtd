@@ -52,11 +52,38 @@ export interface FootprintDebugRow {
   surroundingsGroundY: string;
 }
 
+/** `__footprintDebug`: the table for the last preview validation, and the watch. */
+export interface FootprintDebugHook {
+  (): FootprintDebugRow | null;
+  /**
+   * From now on one console line per preview spot the cursor rests on and
+   * per placement click; `false` stops.
+   */
+  watch(on?: boolean): void;
+}
+
 declare global {
   interface Window {
     /** Dev builds: how the footprint of the last build preview validation was decided. */
-    __footprintDebug?: () => FootprintDebugRow | null;
+    __footprintDebug?: FootprintDebugHook;
   }
+}
+
+/** How the footprint of a validation was decided, see TowerPlacementService.footprintNote */
+interface FootprintNote {
+  typeId: TowerTypeId;
+  lat: number;
+  lon: number;
+  surfaceY: number;
+  centre: FootprintColumn | null;
+  decision: FootprintDecision | null;
+}
+
+/** `__footprintDebug.watch()`: the note waiting for the cursor to rest since `since` (tick seconds), the last one logged */
+interface FootprintWatch {
+  pending: FootprintNote | null;
+  since: number;
+  logged: FootprintNote | null;
 }
 
 /**
@@ -178,17 +205,18 @@ export class TowerPlacementService {
    * `__footprintDebug()`. `decision` null: the inner ring lay level and the
    * outer ring waits (probeFootprint).
    */
-  private footprintNote: {
-    typeId: TowerTypeId;
-    lat: number;
-    lon: number;
-    surfaceY: number;
-    centre: FootprintColumn | null;
-    decision: FootprintDecision | null;
-  } | null = null;
+  private footprintNote: FootprintNote | null = null;
 
   /** The console hook this service put on window, see initialize */
-  private readonly footprintDebugHook = () => this.footprintDebug();
+  private readonly footprintDebugHook: FootprintDebugHook = Object.assign(() => this.footprintDebug(), {
+    watch: (on = true) => this.watchFootprint(on),
+  });
+
+  /** `__footprintDebug.watch()`, null while off */
+  private footprintWatch: FootprintWatch | null = null;
+
+  /** Seconds the footprint note has to stay the same before the watch logs it */
+  private static readonly FOOTPRINT_WATCH_REST_S = 0.3;
 
   /** Distance (m) the cursor must travel before validation re-runs */
   private static readonly VALIDATION_MOVEMENT_THRESHOLD_M = 1.0;
@@ -494,10 +522,57 @@ export class TowerPlacementService {
       console.log('[Footprint] no preview validation yet: enter build mode and point at the ground');
       return null;
     }
+    const row = this.footprintRow(note);
+    console.log(`[Footprint] ${row.tower}: rule ${row.rule}, foot ${row.footY} m, plinth ${row.plinthHeight} m`);
+    console.table(row);
+    return row;
+  }
+
+  /**
+   * `__footprintDebug.watch()`: the same numbers as one line per spot, so
+   * the cursor can stay in the game. See tickFootprintWatch and
+   * handleBuildClick for when a line comes.
+   */
+  private watchFootprint(on: boolean): void {
+    this.footprintWatch = on ? (this.footprintWatch ?? { pending: null, since: 0, logged: null }) : null;
+    console.log(on
+      ? '[Footprint] watch on: a line per preview spot the cursor rests on and per placement, __footprintDebug.watch(false) stops'
+      : '[Footprint] watch off');
+  }
+
+  /**
+   * Log the footprint note once it stayed the same for
+   * FOOTPRINT_WATCH_REST_S, i.e. the cursor rests on a spot: a new
+   * validation or the settled outer ring replaces the note and starts the
+   * wait again. Allocates only for the line it logs.
+   */
+  private tickFootprintWatch(watch: FootprintWatch, timeSeconds: number): void {
+    const note = this.lastValidation ? this.footprintNote : null;
+    if (note !== watch.pending) {
+      watch.pending = note;
+      watch.since = timeSeconds;
+      return;
+    }
+    if (!note || note === watch.logged) return;
+    if (timeSeconds - watch.since < TowerPlacementService.FOOTPRINT_WATCH_REST_S) return;
+    watch.logged = note;
+    console.log(this.footprintLine(note, 'rest'));
+  }
+
+  /** One watch line: rule, the cursor's column, plinth, foot and where. */
+  private footprintLine(note: FootprintNote, event: 'rest' | 'placed'): string {
+    const row = this.footprintRow(note);
+    return `[Footprint] ${event} ${row.tower} rule=${row.rule} centreGroundY=${row.centreGroundY} `
+      + `centreTopY=${row.centreTopY} plinthHeight=${row.plinthHeight} footY=${row.footY} `
+      + `surfaceY=${row.surfaceY} at ${row.lat.toFixed(6)},${row.lon.toFixed(6)}`;
+  }
+
+  /** The note as a row, heights rounded to the centimetre. */
+  private footprintRow(note: FootprintNote): FootprintDebugRow {
     const round = (y: number | null | undefined) => (y === null || y === undefined ? null : Math.round(y * 100) / 100);
     const decision = note.decision;
     const surroundings = decision?.surroundings;
-    const row: FootprintDebugRow = {
+    return {
       tower: note.typeId,
       lat: note.lat,
       lon: note.lon,
@@ -514,9 +589,6 @@ export class TowerPlacementService {
         ? surroundings.map((column) => (column ? round(column.groundY)!.toFixed(2) : '-')).join(' ')
         : 'not probed',
     };
-    console.log(`[Footprint] ${row.tower}: rule ${row.rule}, foot ${row.footY} m, plinth ${row.plinthHeight} m`);
-    console.table(row);
-    return row;
   }
 
   /**
@@ -665,6 +737,7 @@ export class TowerPlacementService {
       // Within the metre of the last validation: takes its footprint, validates nothing
       this.updatePreviewPosition(position.lat, position.lon, position.height);
     }
+    if (this.footprintWatch) this.tickFootprintWatch(this.footprintWatch, timeSeconds);
     this.buildPreviewLos.tick(timeSeconds);
   }
 
@@ -737,6 +810,11 @@ export class TowerPlacementService {
     if (settled) {
       this.currentPosition.height = settled.footY;
       this.currentPosition.plinthHeight = settled.plinthHeight;
+    }
+    const watch = this.footprintWatch;
+    if (watch && this.footprintNote) {
+      watch.logged = this.footprintNote;
+      console.log(this.footprintLine(this.footprintNote, 'placed'));
     }
 
     // Emit command event — GSM handler places the tower
@@ -869,6 +947,7 @@ export class TowerPlacementService {
     this.exitBuildMode();
     this.losRegistry.detach();
     this.footprintNote = null;
+    this.footprintWatch = null;
     if (typeof window !== 'undefined' && window.__footprintDebug === this.footprintDebugHook) {
       delete window.__footprintDebug;
     }
