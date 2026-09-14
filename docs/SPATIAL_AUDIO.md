@@ -27,7 +27,7 @@ GameObject (Enemy, Tower, ...)
 
 ### SpatialAudioManager (`managers/audio/spatial-audio.manager.ts`)
 
-Facade-Klasse fuer 3D-Audio. Delegiert an fünf Helper:
+Facade-Klasse für 3D-Audio. Delegiert an fünf Helper:
 
 - `AudioBufferCache` (`audio-buffer-cache.ts`): LRU-Cache, Buffer-Loading.
 - `AudioPoolManager` (`audio-pool.manager.ts`): `PositionalAudio` erzeugen und
@@ -152,8 +152,8 @@ gleichzeitiger Enemy-Loops, Projektil-One-Shots und One-Shots insgesamt (`playAt
 **Konstanten (`configs/audio.config.ts`):**
 ```typescript
 export const AUDIO_LIMITS = {
-  maxEnemySounds: 12,           // Loop-only Budget fuer Enemy-Ambient (walk/roar)
-  maxProjectileSounds: 25,      // Per-Kategorie-Cap fuer Projektil-Class One-Shots
+  maxEnemySounds: 12,           // Loop-only Budget für Enemy-Ambient (walk/roar)
+  maxProjectileSounds: 25,      // Per-Kategorie-Cap für Projektil-Class One-Shots
   maxConcurrentOneShots: 30,    // Cap über alle One-Shots. Bei Überschreitung stoppt
                                 // Voice-Stealing den ältesten One-Shot ohne `priority`
                                 // (weicher als Reject).
@@ -242,10 +242,10 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
 
 ## Hintergrundmusik (BackgroundMusicService)
 
-Hintergrundmusik laeuft separat zu Spatial Audio und ist **nicht-positional**
-(globale Lautstaerke), siehe `game-engine/background-music.service.ts`. Details:
+Hintergrundmusik läuft separat zu Spatial Audio und ist **nicht-positional**
+(globale Lautstärke), siehe `game-engine/background-music.service.ts`. Details:
 
-- **Two-Channel A/B Crossfade-System** (zwei `THREE.Audio` Kanaele) fuer
+- **Two-Channel A/B Crossfade-System** (zwei `THREE.Audio` Kanäle) für
   Build- und Wave-Musik, in `MusicMixer` (`game-engine/music-mixer.ts`);
   Laden und Cache der Tracks in `MusicBufferLoader` (`music-buffer-loader.ts`).
   Der Service selbst entscheidet nur, was wann läuft.
@@ -262,8 +262,8 @@ Hintergrundmusik laeuft separat zu Spatial Audio und ist **nicht-positional**
   (`mainThemeFadeOutDuration`, 3 s) → Stille (`mainThemeGapDuration`, 0,6 s) →
   Build-Musik einfaden, ohne überlappenden Crossfade. Ist das Main Theme schon zu Ende
   (es läuft mit `loop: false`), folgt nach der Stille direkt die Build-Musik.
-- **Track-Auswahl**: `pickRandom()` schliesst den zuletzt gespielten Track aus,
-  sodass beim Wechsel ein neuer Track gewaehlt wird.
+- **Track-Auswahl**: `pickRandom()` schließt den zuletzt gespielten Track aus,
+  sodass beim Wechsel ein neuer Track gewählt wird.
 - **Persistenz**: `td_music_enabled` (localStorage) merkt User-Toggle.
 - **Tracks**: `configs/background-music.config.ts` (1 Main, 1 Build, 4 Wave).
   Lautstärke = Track-`volume` (Default 0,5) × `masterVolume` 0,4 × Nutzer-Lautstärke
@@ -493,8 +493,8 @@ Ohne `priority` und mit der Standard-Hörweite (500 m). `refDistance`, `rolloffF
 
 ## Assets
 
-Sound-Dateien befinden sich unter `public/assets/sounds/` (Auszug — nicht
-vollstaendig). Hintergrundmusik liegt separat unter `public/assets/music/`:
+Sound-Dateien befinden sich unter `public/assets/sounds/` (Auszug, nicht
+vollständig). Hintergrundmusik liegt separat unter `public/assets/music/`:
 ```
 public/assets/sounds/
 ├── towers/
