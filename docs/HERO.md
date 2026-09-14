@@ -1,6 +1,6 @@
 # Held (Söldner)
 
-**Stand:** 2026-09-14. Stufe 1 des Helden aus
+**Stand:** 2026-09-14, Zahlen abgeglichen am 2026-09-15. Stufe 1 des Helden aus
 [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md), Abschnitt 3.2
 und 7: nur auf den Gegnerrouten, unverwundbar. Im Spiel heißt er "Mercenary".
 
@@ -49,8 +49,8 @@ Ein Lauf beginnt mit Standard rounds. Der Stufenbonus gilt für jede Munition.
 
 ## Herleitung von Preis und Forschung
 
-Einkommen laut Curriculum (`goldKill + goldComplete`, ohne Skill-Boni, dazu
-100 Start-Credits), kumuliert: W5 2.300, W6 3.000, W7 3.800, W8 4.700,
+Einkommen laut Curriculum (`goldKill + goldComplete`, ohne Skill-Boni und ohne
+die 100 Start-Credits), kumuliert: W5 2.300, W6 3.000, W7 3.800, W8 4.700,
 W9 5.800, W10 7.200, W12 11.500.
 
 - **Weg zum Helden von null:** `gatling-tech` 400 + `siege-engineering` 500 +
@@ -71,9 +71,11 @@ W9 5.800, W10 7.200, W12 11.500.
   wechselt und dorthin geht, wo die Welle durchbricht; das Gate rechnet ihn
   deshalb nur zur Hälfte.
 - **Economy-Roster:** `tools/economy-chart` zählt das Anheuern einmal zum
-  Design-Roster, die Forschung kommt über `RESEARCH_TREE`. Das Roster wächst
-  von 469.702 auf 471.302 Credits, der Puffer des Curriculums bleibt gerundet
-  bei 68 %. W1 bis W30 sind nicht verändert.
+  Design-Roster, die Forschung kommt über `RESEARCH_TREE`. Mit dem Helden wuchs
+  das Roster von 469.702 auf 471.302 Credits, der Puffer des Curriculums blieb
+  gerundet bei 68 %; W1 bis W30 sind nicht verändert. Mit den Forschungen für
+  Frostbombe, EMP und Orbitallaser steht es heute bei 474.302 Credits und
+  67 % Puffer (`docs/economy-chart.html`).
 
 **Stufenkurve:** 30, 100, 250, 500 Kills. Wie viele Gegner er pro Welle
 tötet, hängt am Posten und ist nicht gemessen. Gedacht ist Stufe 2 nach
