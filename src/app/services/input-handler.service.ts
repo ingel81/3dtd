@@ -126,9 +126,13 @@ export class InputHandlerService {
   private pointerMoveHandler: ((event: PointerEvent) => void) | null = null;
   private contextMenuHandler: ((event: MouseEvent) => void) | null = null;
 
-  /** Throttle state for pointer move */
-  private lastPointerMoveTime = 0;
+  /** Throttle state for pointer move, see handlePointerMove */
+  private lastPointerMoveTime = -Infinity;
   private readonly POINTER_MOVE_THROTTLE_MS = 16; // ~60fps max
+  /** Trailing move for the last pointer position a throttled move left behind */
+  private pointerMoveTimer: ReturnType<typeof setTimeout> | null = null;
+  private pointerX = 0;
+  private pointerY = 0;
 
   /** Tower under the pointer outside build and placement mode; its range shows */
   private hoveredTowerId: string | null = null;
@@ -474,19 +478,39 @@ export class InputHandlerService {
     }
     if (this.hoveredTowerId) this.setHoveredTower(null);
 
+    // Throttle to prevent excessive raycasts. A move inside the window is not
+    // dropped but comes through at its end, at the last pointer position: a
+    // preview ends where the pointer stopped, and moves a frame apart that
+    // come in a little early are not skipped for the next frame's.
+    this.pointerX = event.clientX;
+    this.pointerY = event.clientY;
+    const wait = this.lastPointerMoveTime + this.POINTER_MOVE_THROTTLE_MS - performance.now();
+    if (wait > 0) {
+      this.pointerMoveTimer ??= setTimeout(() => {
+        this.pointerMoveTimer = null;
+        this.movePointer();
+      }, wait);
+      return;
+    }
+    this.movePointer();
+  }
+
+  /** Hand the last pointer position to the move callback of the mode that owns the pointer. */
+  private movePointer(): void {
+    if (this.pointerMoveTimer !== null) {
+      clearTimeout(this.pointerMoveTimer);
+      this.pointerMoveTimer = null;
+    }
+    // The mode may have ended while a trailing move waited
+    if (!this.engine || !this.pointerOwnedByMode()) return;
+    this.lastPointerMoveTime = performance.now();
+
     const inBuildMode = this.buildModeSignal?.() ?? false;
     const inPlacementMode = !!this.mapPlacementModeSignal?.();
     const inTargeting = !!this.abilityTargetingSignal?.();
     const heroSelected = !!this.heroInput?.selected();
 
-    // Throttle to prevent excessive raycasts
-    const now = performance.now();
-    if (now - this.lastPointerMoveTime < this.POINTER_MOVE_THROTTLE_MS) {
-      return;
-    }
-    this.lastPointerMoveTime = now;
-
-    const hitPoint = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
+    const hitPoint = this.engine.picker.raycastTerrain(this.pointerX, this.pointerY);
 
     if (!hitPoint) {
       return;
@@ -725,6 +749,10 @@ export class InputHandlerService {
     if (this.hoverPickTimer !== null) {
       clearTimeout(this.hoverPickTimer);
       this.hoverPickTimer = null;
+    }
+    if (this.pointerMoveTimer !== null) {
+      clearTimeout(this.pointerMoveTimer);
+      this.pointerMoveTimer = null;
     }
     this.setHoveredTower(null);
     this.lastHoverPickX = NaN;
