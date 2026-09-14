@@ -359,6 +359,15 @@ describe('ReplayRecorder', () => {
     expect(h.recorder.recording!.bloodMoon).toBe(false);
   });
 
+  it('drops the recording on a jump to a later wave', () => {
+    const h = new Harness();
+    h.startWave(4);
+    h.recorder.finish('completed');
+    h.emit({ type: 'wave:jumped', from: 4, wave: 10, skipped: 5, credits: 0 });
+    expect(h.recorder.readyWave()).toBeNull();
+    expect(h.recorder.recording).toBeNull();
+  });
+
   it('keeps effect events and HQ health changes with their time', () => {
     const h = new Harness();
     h.startWave();
