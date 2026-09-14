@@ -29,9 +29,10 @@ vi.mock('@angular/core', async () => {
 });
 
 import { PathAndRouteService } from '../world/path-route.service';
-import { OsmStreetService, StreetNetwork, StreetNode } from '../location/osm-street.service';
+import { OsmStreetService } from '../location/osm-street.service';
 import { CorridorConsole, type CorridorConsoleDeps } from './corridor-console';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+import { makeNetwork } from '../../../test/route-network-fixture';
 import type { ThreeTilesEngine } from '../../three-engine';
 
 /** Cell heights: a slope rising 5 cm per metre northwards (local z runs south). */
@@ -54,27 +55,6 @@ function makeEngine(): ThreeTilesEngine {
         new Vector3((lon - ORIGIN.lon) * M_PER_DEG_LON, h, -(lat - ORIGIN.lat) * METERS_PER_DEGREE_LAT),
     },
   } as unknown as ThreeTilesEngine;
-}
-
-/** The L-shaped street of path-route.service.spec: south to north, then east. */
-function makeNetwork(): StreetNetwork {
-  const n10 = { id: 10, lat: 47.999, lon: 9.0 };
-  const n1 = { id: 1, lat: 48.0, lon: 9.0 };
-  const n2 = { id: 2, lat: 48.001, lon: 9.0 };
-  const n3 = { id: 3, lat: 48.001, lon: 9.0015 };
-  const n30 = { id: 30, lat: 48.001, lon: 9.003 };
-  const streets = [
-    { id: 100, nodes: [n10, n1] },
-    { id: 200, nodes: [n1, n2, n3] },
-    { id: 300, nodes: [n3, n30] },
-  ];
-  const nodes = new Map<number, StreetNode>();
-  for (const s of streets) for (const n of s.nodes) nodes.set(n.id, n);
-  return {
-    streets: streets.map((s) => ({ ...s, name: `Way ${s.id}`, type: 'residential' })),
-    nodes,
-    bounds: { minLat: 47.99, maxLat: 48.01, minLon: 8.99, maxLon: 9.01 },
-  } as StreetNetwork;
 }
 
 /** The red line of a route from the spawn to the HQ, as the service draws it. */

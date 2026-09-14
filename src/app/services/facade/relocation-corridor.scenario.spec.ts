@@ -30,9 +30,10 @@ import { MapRelocationService, type RelocationHost } from './map-relocation.serv
 import { PathAndRouteService } from '../world/path-route.service';
 import { RelocationStatusService, MEASURING_STEP } from '../world/relocation-status.service';
 import { CorridorController, type CorridorControllerDeps } from '../world/corridor-controller';
-import { OsmStreetService, StreetNetwork, StreetNode } from '../location/osm-street.service';
+import { OsmStreetService } from '../location/osm-street.service';
 import type { SpawnPoint } from '../world/marker-visualization.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+import { makeNetwork } from '../../../test/route-network-fixture';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { StationProbe } from '../../utils/route-corridor';
 
@@ -40,27 +41,6 @@ const ORIGIN = { lat: 48.0, lon: 9.0 };
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
 const HQ = { lat: 48.0011, lon: 9.0025 };
 const SPAWN: SpawnPoint = { id: 'spawn-1', name: 'Spawn', color: 0xff0000, lat: 47.9993, lon: 9.0 };
-
-/** The L-shaped street of path-route.service.spec: south to north, then east. */
-function makeNetwork(): StreetNetwork {
-  const n10 = { id: 10, lat: 47.999, lon: 9.0 };
-  const n1 = { id: 1, lat: 48.0, lon: 9.0 };
-  const n2 = { id: 2, lat: 48.001, lon: 9.0 };
-  const n3 = { id: 3, lat: 48.001, lon: 9.0015 };
-  const n30 = { id: 30, lat: 48.001, lon: 9.003 };
-  const streets = [
-    { id: 100, nodes: [n10, n1] },
-    { id: 200, nodes: [n1, n2, n3] },
-    { id: 300, nodes: [n3, n30] },
-  ];
-  const nodes = new Map<number, StreetNode>();
-  for (const s of streets) for (const n of s.nodes) nodes.set(n.id, n);
-  return {
-    streets: streets.map((s) => ({ ...s, name: `Way ${s.id}`, type: 'residential' })),
-    nodes,
-    bounds: { minLat: 47.99, maxLat: 48.01, minLon: 8.99, maxLon: 9.01 },
-  } as StreetNetwork;
-}
 
 describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
   let clock: number;
