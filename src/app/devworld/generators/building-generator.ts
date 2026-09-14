@@ -149,14 +149,6 @@ function lerp(a: Vec2, b: Vec2, t: number): Vec2 {
   };
 }
 
-function _perpendicular(a: Vec2, b: Vec2): Vec2 {
-  const dx = b.x - a.x;
-  const dz = b.z - a.z;
-  const len = Math.sqrt(dx * dx + dz * dz);
-  if (len < 0.001) return { x: 1, z: 0 };
-  return { x: -dz / len, z: dx / len };
-}
-
 /**
  * Calculate minimum distance from point to line segment
  */
