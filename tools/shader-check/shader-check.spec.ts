@@ -38,6 +38,7 @@ import {
   InstancedMesh,
   Mesh,
   RGBAFormat,
+  ShaderMaterial,
   Texture,
   type Scene,
   type Side,
@@ -236,6 +237,19 @@ const CASES: ShaderCase[] = [
   },
 ];
 
+/**
+ * What a program lacks for logarithmic depth, empty when it has it. three's
+ * prefix defines USE_LOGARITHMIC_DEPTH_BUFFER and maps gl_FragDepthEXT to
+ * gl_FragDepth for every ShaderMaterial, with the chunks or without, so only
+ * the writes of logdepthbuf_vertex and logdepthbuf_fragment tell.
+ */
+function logDepthGaps(program: CapturedProgram): string[] {
+  const gaps: string[] = [];
+  if (!/\bvFragDepth\s*=/.test(program.vertex)) gaps.push('vertex stage writes no vFragDepth (logdepthbuf_vertex)');
+  if (!/\bgl_FragDepth\s*=/.test(program.fragment)) gaps.push('fragment stage writes no gl_FragDepth (logdepthbuf_fragment)');
+  return gaps;
+}
+
 /** The distinct programs of a case over all game setups, with the setups that gave each. */
 function programsOf(shaderCase: ShaderCase): { program: CapturedProgram; setups: string[] }[] {
   const bySource = new Map<string, { program: CapturedProgram; setups: string[] }>();
@@ -269,6 +283,37 @@ describe('shader compile check', () => {
     );
   });
 
+  describe('the log depth check', () => {
+    /** A ShaderMaterial on a plain mesh, with the logdepthbuf chunks or without */
+    const programOf = (chunks: boolean): CapturedProgram => {
+      const include = (chunk: string) => (chunks ? `#include <${chunk}>` : '');
+      const material = new ShaderMaterial({
+        vertexShader: `${include('common')}\n${include('logdepthbuf_pars_vertex')}
+          void main() {
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            ${include('logdepthbuf_vertex')}
+          }`,
+        fragmentShader: `${include('logdepthbuf_pars_fragment')}
+          void main() {
+            ${include('logdepthbuf_fragment')}
+            gl_FragColor = vec4(1.0);
+          }`,
+      });
+      const [program] = capturePrograms((scene) => scene.add(new Mesh(geometryWith({ position: 3 }), material)), GAME_SETUPS[0]);
+      return program;
+    };
+
+    it('fails a ShaderMaterial without the logdepthbuf chunks, though three defines log depth for it', () => {
+      const program = programOf(false);
+      expect(program.fragment).toContain('#define USE_LOGARITHMIC_DEPTH_BUFFER');
+      expect(logDepthGaps(program)).toHaveLength(2);
+    });
+
+    it('passes the same material with them', () => {
+      expect(logDepthGaps(programOf(true))).toEqual([]);
+    });
+  });
+
   describe.each(CASES)('$name', (shaderCase) => {
     const stemBase = shaderCase.name.replace(/[^a-z0-9]+/gi, '-').replace(/-+$/, '').toLowerCase();
 
@@ -281,8 +326,7 @@ describe('shader compile check', () => {
         expect(program.vertex).not.toContain('#include');
         expect(program.fragment).not.toContain('#include');
         // Over the tiles every material writes logarithmic depth (logdepthbuf chunks)
-        expect(program.fragment).toContain('#define USE_LOGARITHMIC_DEPTH_BUFFER');
-        expect(program.fragment).toContain('gl_FragDepth');
+        expect(logDepthGaps(program), program.name).toEqual([]);
         for (const mark of shaderCase.marks ?? []) {
           expect(`${program.vertex}\n${program.fragment}`).toContain(mark);
         }
