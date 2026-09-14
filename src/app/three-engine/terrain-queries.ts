@@ -316,7 +316,9 @@ export class TerrainQueries {
    * (over its top `onDeck`, for a bridge). Only what blocks the rays at all
    * heights counts as a wall (a facade, a wall, a trunk), so the free space
    * on a side is the farthest of the first hits: a parked van stops the
-   * low ray, an eave or a tree crown the high one, neither the corridor.
+   * low ray, an eave or a tree crown the high one, neither the corridor
+   * (probeFreeSpace, which makes an exception for a jetty right in front of
+   * its facade).
    * Capped at `maxDistance`. `acrossX, acrossZ` points to the right of the
    * direction of travel.
    *

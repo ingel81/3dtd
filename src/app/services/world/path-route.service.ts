@@ -699,7 +699,9 @@ export class PathAndRouteService {
       const station = fit[side][i][k];
       const hits = probe && probe.unmeasured === null ? probe[side] : null;
       const own = station ? station.halfWidth : route.halfWidths[i];
-      const rule = station ? station.rule
+      // The free space is the high ray's hit, nearer than the low one: probeFreeSpace took the outer face of an overhang.
+      const overhang = hits !== null && station !== undefined && station.free === hits[hits.length - 1] && hits[hits.length - 1] < hits[0];
+      const rule = station ? (overhang ? `${station.rule}, overhang: outer face` : station.rule)
         : route.inTunnel[i] ? 'tunnel or covered: street width'
         : 'not measured yet: street width';
       const halfWidth = pieceAt(i, (k + 0.5) / n)[side];
