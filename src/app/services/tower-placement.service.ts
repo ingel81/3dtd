@@ -341,6 +341,8 @@ export class TowerPlacementService {
   private cleanupPreviewTower(): void {
     if (this.previewTowerMesh && this.engine) {
       this.engine.getOverlayGroup().remove(this.previewTowerMesh);
+      // Shown only with a preview model (updatePreviewPosition)
+      this.engine.towers.hidePreviewRange();
       this.previewTowerMesh = null;
     }
     this.plinthPreview.dispose();
@@ -629,6 +631,9 @@ export class TowerPlacementService {
       validValid,
     );
 
+    // Its range ring around the foot, on valid and invalid spots alike
+    this.engine.towers.showPreviewRange(local.x, resolvedHeight, local.z, config.range);
+
     // Update LoS preview only for valid positions (skip calculation for invalid spots)
     if (validValid) {
       this.buildPreviewLos.update(
@@ -701,6 +706,7 @@ export class TowerPlacementService {
   hidePreview(): void {
     if (this.previewTowerMesh) {
       this.previewTowerMesh.visible = false;
+      this.engine?.towers.hidePreviewRange();
     }
     this.plinthPreview.hide();
   }

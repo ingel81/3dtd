@@ -318,6 +318,7 @@ describe('ThreeTowerRenderer range ring', () => {
   const assetManager = {
     loadModel: async () => ({ animations: [] }),
     cloneModel: () => new Group(),
+    releaseModel: () => undefined,
   };
   const sync = {
     geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
@@ -359,5 +360,27 @@ describe('ThreeTowerRenderer range ring', () => {
     renderer.remove('a');
     expect(a.parent).toBeNull();
     expect(dispose).not.toHaveBeenCalled();
+  });
+
+  it('shows one ring for the build preview, built like a tower ring', async () => {
+    const towerRing = (await renderer.create('a', 'archer', 0, 0, 0, 0, null))!.rangeIndicator!;
+    const previewRings = scene.children.filter((child) => child.name === 'range-ring' && child !== towerRing);
+    expect(previewRings).toHaveLength(1);
+    const [previewRing] = previewRings;
+    expect(previewRing.visible).toBe(false);
+    expect((previewRing.children as Mesh[]).map((mesh) => mesh.material))
+      .toEqual((towerRing.children as Mesh[]).map((mesh) => mesh.material));
+
+    renderer.showPreviewRange(1, 2, 3, 55);
+    renderer.showPreviewRange(4, 5, 6, 60);
+    expect(previewRing.visible).toBe(true);
+    expect(previewRing.position.toArray()).toEqual([4, 5, 6]);
+    expect(previewRing.scale.toArray()).toEqual([60, 1, 60]);
+
+    renderer.hidePreviewRange();
+    expect(previewRing.visible).toBe(false);
+
+    renderer.dispose();
+    expect(scene.children.some((child) => child.name === 'range-ring')).toBe(false);
   });
 });
