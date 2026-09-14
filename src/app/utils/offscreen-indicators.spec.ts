@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { isOffscreenThreat, NEAR_HQ_PROGRESS, OffscreenClusterer, sameArrows } from './offscreen-indicators';
+import { isArrowBoss, isOffscreenThreat, NEAR_HQ_PROGRESS, OffscreenClusterer, sameArrows } from './offscreen-indicators';
 
 describe('isOffscreenThreat', () => {
   it('takes bosses anywhere on the route', () => {
@@ -9,6 +9,18 @@ describe('isOffscreenThreat', () => {
   it('takes other enemies on the last stretch only', () => {
     expect(isOffscreenThreat(false, NEAR_HQ_PROGRESS - 0.01)).toBe(false);
     expect(isOffscreenThreat(false, NEAR_HQ_PROGRESS)).toBe(true);
+  });
+});
+
+describe('isArrowBoss', () => {
+  it('takes a boss type without a worm link', () => {
+    expect(isArrowBoss(true, null)).toBe(true);
+    expect(isArrowBoss(false, null)).toBe(false);
+  });
+
+  it('takes of a worm only the head of each piece, not the rings behind it', () => {
+    expect(isArrowBoss(true, { head: true })).toBe(true);
+    expect(isArrowBoss(true, { head: false })).toBe(false);
   });
 });
 

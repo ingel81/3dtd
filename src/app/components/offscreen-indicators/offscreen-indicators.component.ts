@@ -4,6 +4,7 @@ import { GameStateManager } from '../../managers/game-state.manager';
 import { GameStore } from '../../store/game.store';
 import type { Enemy } from '../../entities/enemy.entity';
 import {
+  isArrowBoss,
   isOffscreenThreat,
   OffscreenArrow,
   OffscreenClusterer,
@@ -79,7 +80,7 @@ export class OffscreenIndicatorsComponent {
       const behind = p.z > 0;
       p.applyMatrix4(camera.projectionMatrix);
       // Behind the camera the perspective divide mirrors the point, undo that
-      this.clusterer.add(behind ? -p.x : p.x, behind ? -p.y : p.y, behind, enemy.typeConfig.isBoss === true);
+      this.clusterer.add(behind ? -p.x : p.x, behind ? -p.y : p.y, behind, isArrowBoss(enemy.typeConfig.isBoss === true, enemy.worm));
     }
     this.publish(this.clusterer.build(MAX_ARROWS));
   }
@@ -89,7 +90,7 @@ export class OffscreenIndicatorsComponent {
     const threats = this.threats;
     threats.length = 0;
     for (const enemy of this.gameState.enemyManager.getAlive()) {
-      if (isOffscreenThreat(enemy.typeConfig.isBoss === true, enemy.movement.getPathProgress())) {
+      if (isOffscreenThreat(isArrowBoss(enemy.typeConfig.isBoss === true, enemy.worm), enemy.movement.getPathProgress())) {
         threats.push(enemy);
       }
     }

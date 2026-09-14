@@ -457,7 +457,7 @@ Im Zielmodus zeigt die Kontext-Hinweis-Box "Click" mit dem `aimHint` der Fähigk
 
 ### Off-Screen-Pfeile (Canvas)
 
-Während einer Welle zeigt `app-offscreen-indicators` (`components/offscreen-indicators/`) am Rand des Canvas Pfeile zu Gegnern, die die Kamera nicht zeigt: Bosse (`isBoss`) überall auf der Route, alle anderen erst auf den letzten 15 % ihres Wegs (`NEAR_HQ_PROGRESS`, `utils/offscreen-indicators.ts`). Die Richtungen fallen in acht Sektoren um die Bildmitte, je Sektor ein Pfeil mit Anzahl, höchstens sechs; Sektoren mit Boss zuerst, dann die volleren.
+Während einer Welle zeigt `app-offscreen-indicators` (`components/offscreen-indicators/`) am Rand des Canvas Pfeile zu Gegnern, die die Kamera nicht zeigt: Bosse (`isBoss`) überall auf der Route, vom Wurm nur der Kopf jedes Stücks (`isArrowBoss`), alle anderen erst auf den letzten 15 % ihres Wegs (`NEAR_HQ_PROGRESS`, `utils/offscreen-indicators.ts`). Die Richtungen fallen in acht Sektoren um die Bildmitte, je Sektor ein Pfeil mit Anzahl, höchstens sechs; Sektoren mit Boss zuerst, dann die volleren.
 
 Pfeil: Glas-Chip 22px (`--td-glass-tint`, `--td-shadow-soft`), 1px Rand und Chevron (`caretR`, 14px) in `--td-health-red`; mit Boss 26px, Rand `--td-gold`, Chevron `--td-gold-light`. Er sitzt 26px innerhalb des Rands, dort, wo der Strahl von der Bildmitte in seine Richtung den Rand trifft; am linken Rand 26px rechts der Außenkante der [Fähigkeitenleiste](#fähigkeitenleiste-canvas) (`ABILITY_BAR_EDGE_PX` 68px, zusammen 94px), auf der ganzen Höhe. Ab zwei Gegnern steht die Zahl (10px Mono, `--td-text-primary` mit Schatten) 20px zur Bildmitte hin. `pointer-events: none`, `z-index` 5, `aria-hidden`.
 
