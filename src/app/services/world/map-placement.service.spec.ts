@@ -12,12 +12,27 @@ import {
   MAX_SPAWN_STREET_DISTANCE,
   MIN_MANUAL_SPAWN_DISTANCE,
 } from '../../configs/map-constants.config';
+import {
+  portalCorridorWidth,
+  portalLaneOffset,
+  portalTurnRange,
+  spawnPortalPose,
+} from '../../three-engine/renderers/marker/spawn-portal-pose';
 
 const HQ = { lat: 48.9, lon: 9.2 };
 /** The box the streets were loaded for: 0.01 degree around the HQ. */
 const BOUNDS = { minLat: HQ.lat - 0.01, maxLat: HQ.lat + 0.01, minLon: HQ.lon - 0.01, maxLon: HQ.lon + 0.01 };
 const GREEN = new Color(0x22c55e);
 const RED = new Color(0xff0000);
+
+/** Where the cursor points: 500 m north of the HQ. */
+const CURSOR = { lat: HQ.lat + 0.005, lon: HQ.lon };
+/** The route a spawn there gets: from a node 20 m east of the cursor west (+x) along a straight street. */
+const STREET = [
+  { id: 1, lat: CURSOR.lat, lon: HQ.lon + 0.0002 },
+  { id: 2, lat: CURSOR.lat, lon: HQ.lon - 0.0005 },
+  { id: 3, lat: CURSOR.lat, lon: HQ.lon - 0.001 },
+];
 
 /** 0.001 degree = 100 m, +X west, +Z north, like the engine's frame. */
 function geoToLocal(lat: number, lon: number, height: number): Vector3 {
@@ -31,6 +46,14 @@ function fakePortalPreview(color: number): Group {
   group.add(new Mesh(new PlaneGeometry(), new MeshBasicMaterial({ color })));
   return group;
 }
+
+/** The portal on STREET as MarkerVisualizationService would stand it, and its turn range. */
+const STREET_POINTS = STREET.map((node) => {
+  const p = geoToLocal(node.lat, node.lon, 0);
+  return { x: p.x, z: p.z };
+});
+const STREET_POSE = spawnPortalPose(STREET_POINTS, 0, portalCorridorWidth(STREET[0]))!;
+const STREET_TURN = portalTurnRange(STREET_POINTS, STREET_POSE, portalLaneOffset(STREET[0]));
 
 describe('MapPlacementService', () => {
   let service: MapPlacementService;
@@ -60,7 +83,7 @@ describe('MapPlacementService', () => {
       disposePreviewMarker: vi.fn(),
     };
     startNode = 1;
-    route = [{}, {}];
+    route = STREET;
     osm = {
       findNearestStreetPoint: vi.fn(() => ({ distance: distanceToStreet, street: { nodes: [{ id: startNode }] }, nodeIndex: 0 })),
       haversineDistance: vi.fn(() => distanceToHq),
@@ -93,12 +116,14 @@ describe('MapPlacementService', () => {
     });
     return color!;
   };
+  /** How far the preview is turned from its route's heading. */
+  const turned = () => preview().rotation.y - STREET_POSE.heading;
 
   describe('preview colour', () => {
     it('shows a spawn portal green where it may stand and red where not, as the hint and the click decide', () => {
       service.startPlacement('spawn');
 
-      service.updatePreviewPosition(HQ.lat + 0.005, HQ.lon, 0);
+      service.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
       expect(service.validationReason()).toBeNull();
       expect(frameColor().equals(GREEN)).toBe(true);
 
@@ -109,9 +134,9 @@ describe('MapPlacementService', () => {
       expect(service.handlePlacementClick()).toBeNull();
 
       distanceToHq = MIN_MANUAL_SPAWN_DISTANCE * 2;
-      service.updatePreviewPosition(HQ.lat + 0.005, HQ.lon, 0);
+      service.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
       expect(frameColor().equals(GREEN)).toBe(true);
-      expect(service.handlePlacementClick()).toMatchObject({ mode: 'spawn', lat: HQ.lat + 0.005 });
+      expect(service.handlePlacementClick()).toMatchObject({ mode: 'spawn', lat: CURSOR.lat });
     });
 
     it('shows the HQ preview in the same green', () => {
@@ -122,7 +147,7 @@ describe('MapPlacementService', () => {
   });
 
   describe('where a spawn may stand', () => {
-    const inside = { lat: HQ.lat + 0.005, lon: HQ.lon };
+    const inside = CURSOR;
     const outside = { lat: BOUNDS.maxLat + 0.001, lon: HQ.lon };
 
     it('takes a spot on a street of the loaded network, up to the tolerance', () => {
@@ -164,7 +189,7 @@ describe('MapPlacementService', () => {
 
       // The next segment starts on another node: searched again
       startNode = 2;
-      route = [{}, {}];
+      route = STREET;
       expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: true });
       expect(osm.findPath).toHaveBeenCalledTimes(2);
     });
@@ -172,7 +197,7 @@ describe('MapPlacementService', () => {
     it('asks again once the HQ or the streets changed', () => {
       route = [];
       service.validatePosition('spawn', inside.lat, inside.lon);
-      route = [{}, {}];
+      route = STREET;
       service.updateDependencies({ bounds: BOUNDS } as unknown as StreetNetwork, { ...HQ });
       expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: true });
     });
@@ -201,32 +226,106 @@ describe('MapPlacementService', () => {
     });
   });
 
-  describe('rotation with R', () => {
-    // North of the HQ: the preview faces south to it, heading pi
-    const spawnAt = { lat: HQ.lat + 0.005, lon: HQ.lon };
-
-    it('turns the spawn preview while R is held and hands the heading to the click', () => {
+  describe('spawn preview on its route', () => {
+    it('stands where and as its portal will: on the route start, facing along the route', () => {
       service.startPlacement('spawn');
-      service.updatePreviewPosition(spawnAt.lat, spawnAt.lon, 0);
+      service.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
+
+      const start = geoToLocal(STREET[0].lat, STREET[0].lon, 0);
+      expect(preview().position.x).toBeCloseTo(start.x, 6);
+      expect(preview().position.z).toBeCloseTo(start.z, 6);
+      // West along the street: +x
+      expect(preview().rotation.y).toBeCloseTo(Math.PI / 2, 6);
+      expect(preview().scale.x).toBeCloseTo(STREET_POSE.scale, 6);
+    });
+
+    it('stands at the cursor facing the HQ where no spawn may stand', () => {
+      distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
+      service.startPlacement('spawn');
+      service.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
+
+      const cursor = geoToLocal(CURSOR.lat, CURSOR.lon, 0);
+      expect(preview().position.x).toBeCloseTo(cursor.x, 6);
+      expect(preview().position.z).toBeCloseTo(cursor.z, 6);
+      // North of the HQ: facing south to it
       expect(preview().rotation.y).toBeCloseTo(Math.PI, 6);
+      expect(preview().scale.x).toBe(1);
+    });
+  });
+
+  describe('rotation with R', () => {
+    const placeAtCursor = () => {
+      service.startPlacement('spawn');
+      service.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
+    };
+
+    it('turns within the opening while R is held and stops at the limit', () => {
+      placeAtCursor();
+      expect(STREET_TURN.max).toBeGreaterThan(0.1);
 
       expect(service.startRotating()).toBe(true);
-      service.updateRotation(0.25);
-      service.stopRotating();
-      service.updateRotation(1);
-      const turned = Math.PI + Math.PI / 4;
-      expect(preview().rotation.y).toBeCloseTo(turned, 6);
+      service.updateRotation(0.1);
+      expect(turned()).toBeGreaterThan(0);
+      expect(turned()).toBeLessThan(STREET_TURN.max);
 
-      // The cursor moves on: the preview keeps the player's heading
-      service.updatePreviewPosition(spawnAt.lat + 0.0005, spawnAt.lon, 0);
-      expect(preview().rotation.y).toBeCloseTo(turned, 6);
-      expect(service.handlePlacementClick()!.heading).toBeCloseTo(turned, 6);
+      // Held on: it stops where the outermost enemies still get out
+      service.updateRotation(5);
+      expect(turned()).toBeCloseTo(STREET_TURN.max, 6);
+      service.updateRotation(1);
+      expect(turned()).toBeCloseTo(STREET_TURN.max, 6);
+    });
+
+    it('turns back with the next press once it stopped at a limit, not with the auto-repeat of the held key', () => {
+      placeAtCursor();
+      service.startRotating();
+      service.updateRotation(5);
+      service.stopRotating();
+
+      service.startRotating();
+      service.updateRotation(0.1);
+      const back = turned();
+      expect(back).toBeLessThan(STREET_TURN.max);
+
+      // Auto-repeat while held: the same way on
+      service.startRotating();
+      service.updateRotation(0.1);
+      expect(turned()).toBeLessThan(back);
+      service.updateRotation(5);
+      expect(turned()).toBeCloseTo(STREET_TURN.min, 6);
+    });
+
+    it('hands the turned heading to the click', () => {
+      placeAtCursor();
+      service.startRotating();
+      service.updateRotation(0.1);
+      service.stopRotating();
+      const heading = preview().rotation.y;
+
+      expect(service.handlePlacementClick()!.heading).toBeCloseTo(heading, 6);
+    });
+
+    it('keeps the turn on the route while the cursor moves along it', () => {
+      placeAtCursor();
+      service.startRotating();
+      service.updateRotation(0.1);
+      service.stopRotating();
+      const turn = turned();
+
+      service.updatePreviewPosition(CURSOR.lat + 0.00005, CURSOR.lon, 0);
+      expect(turned()).toBeCloseTo(turn, 6);
     });
 
     it('leaves the heading to the route when the player does not turn the portal', () => {
-      service.startPlacement('spawn');
-      service.updatePreviewPosition(spawnAt.lat, spawnAt.lon, 0);
+      placeAtCursor();
       expect(service.handlePlacementClick()!.heading).toBeUndefined();
+    });
+
+    it('turns nothing where no spawn may stand', () => {
+      distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
+      placeAtCursor();
+      service.startRotating();
+      service.updateRotation(1);
+      expect(preview().rotation.y).toBeCloseTo(Math.PI, 6);
     });
 
     it('does not turn the HQ preview', () => {
@@ -239,16 +338,14 @@ describe('MapPlacementService', () => {
     });
 
     it('forgets a turn and a held R when the placement ends', () => {
-      service.startPlacement('spawn');
-      service.updatePreviewPosition(spawnAt.lat, spawnAt.lon, 0);
+      placeAtCursor();
       service.startRotating();
       service.updateRotation(0.5);
       service.exitPlacementMode();
 
-      service.startPlacement('spawn');
-      service.updatePreviewPosition(spawnAt.lat, spawnAt.lon, 0);
+      placeAtCursor();
       service.updateRotation(1);
-      expect(preview().rotation.y).toBeCloseTo(Math.PI, 6);
+      expect(preview().rotation.y).toBeCloseTo(STREET_POSE.heading, 6);
       expect(service.handlePlacementClick()!.heading).toBeUndefined();
     });
   });
