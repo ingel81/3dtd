@@ -11,7 +11,7 @@
  */
 
 /** Earth radius in meters (WGS84) */
-export const EARTH_RADIUS = 6371000;
+const EARTH_RADIUS = 6371000;
 
 /** Meters per degree latitude (constant). 1° latitude ≈ 111.32 km. */
 export const METERS_PER_DEGREE_LAT = 111320;
@@ -69,17 +69,6 @@ export function fastDistance(
   const dx = dLon * metersPerDegreeLon;
   const dy = dLat * METERS_PER_DEGREE_LAT;
   return Math.sqrt(dx * dx + dy * dy);
-}
-
-/**
- * Distance calculation with GeoPosition-like objects
- * Convenience wrapper for haversineDistance
- */
-export function geoDistance(
-  pos1: { lat: number; lon: number },
-  pos2: { lat: number; lon: number }
-): number {
-  return haversineDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
 }
 
 /**
