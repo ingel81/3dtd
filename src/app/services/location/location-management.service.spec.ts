@@ -33,6 +33,15 @@ describe('LocationManagementService', () => {
     expect(service.hasLocation()).toBe(false);
   });
 
+  it('hands the portal bearing of each spawn on to the spawns the game creates from them', () => {
+    service.spawns.set([{ lat: 48.86, lon: 2.29, portalBearing: 12 }, { lat: 48.87, lon: 2.3 }]);
+    expect(service.editableSpawnLocations()).toEqual([
+      { id: 'spawn-1', lat: 48.86, lon: 2.29, portalBearing: 12 },
+      { id: 'spawn-2', lat: 48.87, lon: 2.3 },
+    ]);
+    expect(service.editableSpawnLocations()[1].portalBearing).toBeUndefined();
+  });
+
   it('reset() restores the same name it starts with', () => {
     service.displayName.set('Erlenbach');
     service.reset();
@@ -61,6 +70,15 @@ describe('LocationManagementService', () => {
       service.hq.set(PARIS);
       service.saveFavorite('  ');
       expect(service.favorites()[0]).not.toHaveProperty('name');
+    });
+
+    it('saves the bearing of a turned portal with its spawn and has it at the next start', () => {
+      service.hq.set(PARIS);
+      service.spawns.set([{ lat: 48.862, lon: 2.2945, portalBearing: 93.5 }]);
+      service.saveFavorite('Turned');
+
+      expect(stored()[0].spawns).toEqual([{ lat: 48.862, lon: 2.2945, portalBearing: 93.5 }]);
+      expect(create().favorites()[0].spawns).toEqual([{ lat: 48.862, lon: 2.2945, portalBearing: 93.5 }]);
     });
 
     it('renames, reorders and deletes, and keeps each change for the next start', () => {

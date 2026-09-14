@@ -514,6 +514,34 @@ describe('MarkerVisualizationService', () => {
       expect(portal().forward.z).toBeCloseTo(-1, 4);
     });
 
+    it('holds a heading a spawn brought along (URL, favorite) in the range of the route it stands on now', () => {
+      init();
+      // Saved on a route running south, a little off it; the spawn comes
+      // back on a route running east (-x), across the saved heading
+      const east = [
+        { lat, lon: BASE.lon, corridorLeft: 6, corridorRight: 3 },
+        { lat, lon: BASE.lon + 0.001 },
+      ];
+      service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);
+      // Before its route is built, as a restore may come
+      service.setPortalHeading('s1', Math.PI - 0.05);
+      service.placeSpawnPortal('s1', east, 12);
+
+      const range = portalTurnRange(
+        [{ x: 0, z: 200 }, { x: -100, z: 200 }], { x: 0, y: 0, z: 200, heading: -Math.PI / 2, scale: 12 / PORTAL_OPENING_WIDTH },
+        portalLaneOffset(east[0]),
+      );
+      expect(range.min).toBeLessThan(-0.05);
+      // PI - 0.05 lies 3PI/2 - 0.05, i.e. -PI/2 - 0.05, from the route's -PI/2: the limit on that side
+      const held = -Math.PI / 2 + range.min;
+      expect(portal().forward.x).toBeCloseTo(Math.sin(held), 3);
+      expect(portal().forward.z).toBeCloseTo(Math.cos(held), 3);
+
+      // A heading inside the range stands as it is
+      service.setPortalHeading('s1', -Math.PI / 2 - 0.03);
+      expect(portal().forward.z).toBeCloseTo(Math.cos(-Math.PI / 2 - 0.03), 4);
+    });
+
     it('turns no portal that is not there', () => {
       init();
       service.setPortalHeading('ghost', 1);

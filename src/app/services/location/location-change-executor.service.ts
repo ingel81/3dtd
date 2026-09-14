@@ -15,7 +15,7 @@ import { RouteAnimationService } from '../world/route-animation.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { LocationManagementService } from './location-management.service';
 import { UIStore } from '../../store/ui.store';
-import { LocationConfig } from '../../models/location.types';
+import { LocationConfig, SavedSpawn } from '../../models/location.types';
 import { GeoPosition } from '../../models/game.types';
 
 /**
@@ -23,7 +23,8 @@ import { GeoPosition } from '../../models/game.types';
  */
 export interface LocationChangeInput {
   hq: LocationConfig;
-  spawn: LocationConfig;
+  /** With the bearing of its portal where the player turned it (a favorite, a retry), see SavedSpawn */
+  spawn: LocationConfig & Pick<SavedSpawn, 'portalBearing'>;
 }
 
 /**
@@ -46,7 +47,8 @@ export interface LocationChangeCallbacks {
   setBaseCoords(coords: GeoPosition): void;
   setCenterCoords(coords: GeoPosition & { height: number }): void; // height required for camera
   setSpawnPoints(points: SpawnPoint[]): void;
-  addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number): void;
+  /** @param portalBearing Which way its portal faces, see SavedSpawn; along its route without one */
+  addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number, portalBearing?: number): void;
   setStreetCount(count: number): void;
   setStreetNetwork(network: StreetNetwork | null): void;
   setStreetNetworkLocation(loc: GeoPosition | null): void;
@@ -171,10 +173,10 @@ export class LocationChangeExecutorService {
     callbacks.setBaseCoords({ lat: input.hq.lat, lon: input.hq.lon });
     callbacks.setCenterCoords({ lat: input.hq.lat, lon: input.hq.lon, height: 400 });
 
-    // Update location service and URL
+    // Update location service and URL, the bearing of the spawn's portal with it
     this.locationMgmt.setLocation(
       { lat: input.hq.lat, lon: input.hq.lon },
-      [{ lat: input.spawn.lat, lon: input.spawn.lon }]
+      [{ lat: input.spawn.lat, lon: input.spawn.lon, portalBearing: input.spawn.portalBearing }]
     );
     callbacks.syncUrlWithLocation();
 
@@ -305,7 +307,9 @@ export class LocationChangeExecutorService {
 
     // Add spawn point (component handles signal update and visualization)
     const spawnName = input.spawn.name?.split(',')[0] || 'Spawn';
-    callbacks.addSpawnPoint('spawn-1', spawnName, input.spawn.lat, input.spawn.lon, SPAWN_COLORS[0]);
+    callbacks.addSpawnPoint(
+      'spawn-1', spawnName, input.spawn.lat, input.spawn.lon, SPAWN_COLORS[0], input.spawn.portalBearing,
+    );
 
     await this.engineInit.setStepDone('spawns', '1 point');
   }

@@ -30,6 +30,7 @@ import { MapPlacementService } from '../world/map-placement.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { MapRelocationService, RelocationHost } from './map-relocation.service';
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
+import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
 
 /**
  * Callbacks to visualization sub-facade methods,
@@ -108,7 +109,7 @@ export class LocationFacadeService {
   private readonly relocationHost: RelocationHost = {
     context: () => this.ctx,
     vizCallbacks: () => this.vizCallbacks,
-    addSpawnPoint: (id, name, lat, lon, color) => this.addSpawnPoint(id, name, lat, lon, color),
+    addSpawnPoint: (id, name, lat, lon, color, portalBearing) => this.addSpawnPoint(id, name, lat, lon, color, portalBearing),
     syncUrlWithLocation: () => this.syncUrlWithLocation(),
   };
 
@@ -165,7 +166,7 @@ export class LocationFacadeService {
         setBaseCoords: (c) => this.store.baseCoords.set(c),
         setCenterCoords: (c) => this.store.centerCoords.set(c),
         setSpawnPoints: (p) => this.store.spawnPoints.set(p),
-        addSpawnPoint: (id, name, lat, lon, color) => this.addSpawnPoint(id, name, lat, lon, color),
+        addSpawnPoint: (id, name, lat, lon, color, portalBearing) => this.addSpawnPoint(id, name, lat, lon, color, portalBearing),
         setStreetCount: (c) => this.store.streetCount.set(c),
         setStreetNetwork: (n) => this.ctx?.bridge.setStreetNetwork(n),
         setStreetNetworkLocation: (l) => this.ctx?.bridge.setStreetNetworkLocation(l),
@@ -385,12 +386,15 @@ export class LocationFacadeService {
       }
     }
 
-    // Use spawn locations from URL/service
+    // Use spawn locations from URL/service, each portal turned the way it was saved
     const spawns = this.locationMgmt.editableSpawnLocations();
     let count = 0;
     if (spawns.length > 0 && spawns.every(s => s.lat !== 0 && s.lon !== 0)) {
       spawns.forEach((spawn, index) => {
-        this.addSpawnPoint(spawn.id, spawn.name || `Spawn ${index + 1}`, spawn.lat, spawn.lon, SPAWN_COLORS[index % SPAWN_COLORS.length]);
+        this.addSpawnPoint(
+          spawn.id, spawn.name || `Spawn ${index + 1}`, spawn.lat, spawn.lon,
+          SPAWN_COLORS[index % SPAWN_COLORS.length], spawn.portalBearing,
+        );
         count++;
       });
     }
@@ -399,8 +403,10 @@ export class LocationFacadeService {
 
   /**
    * Add a spawn point (delegates to services).
+   * @param portalBearing Compass bearing the player turned its portal to
+   *   (SavedSpawn); without one the portal faces along its route
    */
-  addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number): void {
+  addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number, portalBearing?: number): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const engine = ctx.bridge.getEngine() || this.engineInit.getEngine();
@@ -412,6 +418,8 @@ export class LocationFacadeService {
 
     this.markerViz.addSpawnMarker(id, name, lat, lon, color);
     this.pathRoute.showPathFromSpawn(spawn);
+    // After the route: the turn is held in the range the enemies still get out through
+    if (portalBearing !== undefined) this.markerViz.setPortalHeading(id, bearingToPortalHeading(portalBearing));
   }
 
   // ══════════════════════════════════════════════════════════════

@@ -1,5 +1,5 @@
 import { Injectable, signal, inject, computed, effect, untracked } from '@angular/core';
-import { SpawnLocationConfig, FavoriteLocation } from '../../models/location.types';
+import { SpawnLocationConfig, FavoriteLocation, SavedSpawn } from '../../models/location.types';
 import { GeocodingService, NominatimAddress } from './geocoding.service';
 import { MissionInfo } from '../../components/loading-screen/boot-step.model';
 import { DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
@@ -39,7 +39,8 @@ export class LocationManagementService {
 
   // Current location (just coordinates) - null means no location set
   readonly hq = signal<{ lat: number; lon: number } | null>(null);
-  readonly spawns = signal<{ lat: number; lon: number }[]>([]);
+  /** With the bearing of each portal the player turned, see SavedSpawn */
+  readonly spawns = signal<SavedSpawn[]>([]);
 
   // Flag: true if no spawn was provided and random spawn should be generated
   readonly needsRandomSpawn = signal<boolean>(false);
@@ -95,6 +96,7 @@ export class LocationManagementService {
       id: `spawn-${i + 1}`,
       lat: s.lat,
       lon: s.lon,
+      portalBearing: s.portalBearing,
     } as SpawnLocationConfig));
   });
 
@@ -108,8 +110,9 @@ export class LocationManagementService {
 
   /**
    * Set current location and resolve display name
+   * @param spawns With the bearing of each portal the player turned (SavedSpawn); URL and favorites take it from here
    */
-  setLocation(hq: { lat: number; lon: number }, spawns: { lat: number; lon: number }[]): void {
+  setLocation(hq: { lat: number; lon: number }, spawns: SavedSpawn[]): void {
 
     this.hq.set(hq);
 

@@ -13,6 +13,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, SPAWN_DISCARD_DISTANCE } from '../../configs/map-constants.config';
+import { portalHeadingToBearing } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { VizCallbacks } from './location-facade.service';
 
@@ -22,7 +23,8 @@ export interface RelocationHost {
   context(): { bridge: FacadeComponentBridge; gameState: GameStateManager } | null;
   /** Viz callbacks for the in-place rebuild; null before the coordinator flow is set up. */
   vizCallbacks(): VizCallbacks | null;
-  addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number): void;
+  /** @param portalBearing Which way its portal faces, see SavedSpawn; along its route without one */
+  addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number, portalBearing?: number): void;
   syncUrlWithLocation(): void;
 }
 
@@ -372,12 +374,13 @@ export class MapRelocationService {
     gameState.reset();
 
     // 4. Add new spawn point; its portal faces along the route unless the
-    // player turned it
-    host.addSpawnPoint('spawn-1', 'Spawn', lat, lon, SPAWN_COLORS[0]);
-    if (heading !== undefined) this.markerViz.setPortalHeading('spawn-1', heading);
+    // player turned it. The turn is kept as a compass bearing, in the
+    // location and so in the URL and in favorites saved from here.
+    const portalBearing = heading === undefined ? undefined : portalHeadingToBearing(heading);
+    host.addSpawnPoint('spawn-1', 'Spawn', lat, lon, SPAWN_COLORS[0], portalBearing);
 
     // 5. Update location service + URL
-    this.locationMgmt.setLocation(hq, [{ lat, lon }]);
+    this.locationMgmt.setLocation(hq, [{ lat, lon, portalBearing }]);
     host.syncUrlWithLocation();
 
     // 6. Re-initialize game state with new routes

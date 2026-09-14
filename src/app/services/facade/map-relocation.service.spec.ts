@@ -60,9 +60,10 @@ describe('MapRelocationService', () => {
   const coordinator = { applyNewLocation: vi.fn(async () => undefined) };
   const mapPlacement = { handlePlacementClick: vi.fn(() => placementClick), updateDependencies: vi.fn() };
   const noop = () => ({
-    clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn(), setPortalHeading: vi.fn(),
+    clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn(),
   });
   let markerViz: ReturnType<typeof noop>;
+  const locationMgmt = { setLocation: vi.fn() };
   const relocationStatus = {
     show: vi.fn(),
     clear: vi.fn(),
@@ -117,7 +118,7 @@ describe('MapRelocationService', () => {
           provide: PathAndRouteService,
           useValue: { clearAllRoutes: vi.fn(), clearCachedPaths: vi.fn(), getCachedPaths: () => cachedPaths, clearanceProgress, clearanceEnding },
         },
-        { provide: LocationManagementService, useValue: { setLocation: vi.fn() } },
+        { provide: LocationManagementService, useValue: locationMgmt },
         { provide: HeightUpdateService, useValue: { stopHeightUpdates: vi.fn() } },
         { provide: RouteAnimationService, useValue: { stopAnimation: vi.fn(), startAnimation: vi.fn() } },
         { provide: StreetRenderingService, useValue: { dispose: vi.fn() } },
@@ -280,7 +281,7 @@ describe('MapRelocationService', () => {
 
   it('replaces the spawn in place when it has a route to the HQ, and refuses one without', async () => {
     await click('spawn', INSIDE);
-    expect(host.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', INSIDE.lat, INSIDE.lon, SPAWN_COLORS[0]);
+    expect(host.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', INSIDE.lat, INSIDE.lon, SPAWN_COLORS[0], undefined);
     expect(gameState.reset).toHaveBeenCalledTimes(1);
     expect(viz.fitCorridorToTiles).toHaveBeenCalledTimes(1);
 
@@ -293,21 +294,33 @@ describe('MapRelocationService', () => {
     await click('spawn', OUTSIDE);
 
     expect(osm.findPath).toHaveBeenCalledWith(expect.anything(), OUTSIDE.lat, OUTSIDE.lon, HQ.lat, HQ.lon);
-    expect(host.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', OUTSIDE.lat, OUTSIDE.lon, SPAWN_COLORS[0]);
+    expect(host.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', OUTSIDE.lat, OUTSIDE.lon, SPAWN_COLORS[0], undefined);
     expect(osm.loadStreets).not.toHaveBeenCalled();
     expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
   });
 
-  it("turns the new spawn's portal the way the player turned it, and leaves it to the route otherwise", async () => {
-    placementClick = { mode: 'spawn', ...INSIDE, heading: 1.5 };
+  it("keeps the turn the player gave the new spawn's portal as a compass bearing, and none otherwise", async () => {
+    // Heading -PI/2 faces -x, east: bearing 90
+    placementClick = { mode: 'spawn', ...INSIDE, heading: -Math.PI / 2 };
     await relocation.applyPlacementClick(host);
-    expect(markerViz.setPortalHeading).toHaveBeenCalledWith('spawn-1', 1.5);
-    expect(host.addSpawnPoint.mock.invocationCallOrder[0])
-      .toBeLessThan(markerViz.setPortalHeading.mock.invocationCallOrder[0]);
+    expect(host.addSpawnPoint).toHaveBeenCalledWith(
+      'spawn-1', 'Spawn', INSIDE.lat, INSIDE.lon, SPAWN_COLORS[0], expect.closeTo(90, 9),
+    );
+    // Into the location before the URL is written from it
+    expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [{ ...INSIDE, portalBearing: expect.closeTo(90, 9) }]);
+    expect(locationMgmt.setLocation.mock.invocationCallOrder[0])
+      .toBeLessThan(host.syncUrlWithLocation.mock.invocationCallOrder[0]);
 
-    markerViz.setPortalHeading.mockClear();
     await click('spawn', INSIDE);
-    expect(markerViz.setPortalHeading).not.toHaveBeenCalled();
+    expect(host.addSpawnPoint).toHaveBeenLastCalledWith('spawn-1', 'Spawn', INSIDE.lat, INSIDE.lon, SPAWN_COLORS[0], undefined);
+    expect(locationMgmt.setLocation.mock.lastCall![1][0].portalBearing).toBeUndefined();
+  });
+
+  it('drops the turn when the HQ moves: the kept spawn gets a new route', async () => {
+    await click('hq', INSIDE);
+    expect(host.addSpawnPoint).toHaveBeenCalledWith(OLD_SPAWN.id, OLD_SPAWN.name, OLD_SPAWN.lat, OLD_SPAWN.lon, OLD_SPAWN.color);
+    expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [{ lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }]);
+    expect(locationMgmt.setLocation.mock.lastCall![1][0]).not.toHaveProperty('portalBearing');
   });
 
   it('moves nothing without a component, and nothing in place without the viz callbacks', async () => {

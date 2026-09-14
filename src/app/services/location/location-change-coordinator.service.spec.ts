@@ -371,12 +371,20 @@ describe('LocationChangeCoordinatorService', () => {
 
     it('adds one spawn named after the part before the first comma', async () => {
       await executor.executeLocationChange(input(), ctx, callbacks);
-      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Main Street', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0]);
+      // Without a portal bearing: the portal faces along its route
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Main Street', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], undefined);
     });
 
     it('names the spawn "Spawn" when it has no name', async () => {
       await executor.executeLocationChange({ hq: HQ, spawn: { ...SPAWN, name: '' } }, ctx, callbacks);
-      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0]);
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], undefined);
+    });
+
+    it('turns the spawn by the bearing it brought along and keeps it in location and URL', async () => {
+      await executor.executeLocationChange({ hq: HQ, spawn: { ...SPAWN, name: 'Spawn', portalBearing: 187.5 } }, ctx, callbacks);
+      expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [{ ...SPAWN, portalBearing: 187.5 }]);
+      expect(callbacks.syncUrlWithLocation).toHaveBeenCalled();
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], 187.5);
     });
 
     it('starts the game state on the spawns without their colour and builds the grid', async () => {
@@ -616,7 +624,7 @@ describe('LocationChangeCoordinatorService', () => {
 
       expect(osm.findRandomStreetPoint).not.toHaveBeenCalled();
       expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
-      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Königstraße', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0]);
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Königstraße', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], undefined);
     });
 
     it('draws a random street spawn 500 to 1000 m away and shares the loaded streets', async () => {
@@ -637,7 +645,7 @@ describe('LocationChangeCoordinatorService', () => {
       expect(callbacks.setStreetNetwork).toHaveBeenCalledWith(loaded);
       expect(callbacks.setStreetNetworkLocation).toHaveBeenCalledWith(HQ);
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('Random spawn: 742m away');
-      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Hauptstätter Str.', 48.781, 9.191, SPAWN_COLORS[0]);
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Hauptstätter Str.', 48.781, 9.191, SPAWN_COLORS[0], undefined);
     });
 
     it('falls back to a spawn about 700 m north when no street point is found', async () => {
@@ -653,7 +661,7 @@ describe('LocationChangeCoordinatorService', () => {
 
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('No valid spawn found, using fallback');
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith(
-        'spawn-1', 'Fallback Spawn', HQ.lat + 0.0063, HQ.lon, SPAWN_COLORS[0],
+        'spawn-1', 'Fallback Spawn', HQ.lat + 0.0063, HQ.lon, SPAWN_COLORS[0], undefined,
       );
     });
   });
@@ -724,14 +732,25 @@ describe('LocationChangeCoordinatorService', () => {
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('Favorite deleted');
     });
 
-    it('applies a favorite with its first spawn', async () => {
+    it('applies a favorite with its first spawn, one saved without a bearing facing along its route', async () => {
       coordinator.initializeFlow(delegate);
       await coordinator.onSelectFavorite(favA);
 
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [SPAWN]);
       expect(callbacks.syncUrlWithLocation).toHaveBeenCalled();
       expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
-      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0]);
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], undefined);
+    });
+
+    it('turns the spawn of a favorite the way its portal was saved, in the URL as well', async () => {
+      const turned = { id: 't', hq: HQ, spawns: [{ ...SPAWN, portalBearing: 93.5 }] } as unknown as FavoriteLocation;
+      coordinator.initializeFlow(delegate);
+      await coordinator.onSelectFavorite(turned);
+
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], 93.5);
+      // The change sets location and URL again: the bearing stays in both
+      expect(locationMgmt.setLocation).toHaveBeenLastCalledWith(HQ, [{ ...SPAWN, portalBearing: 93.5 }]);
+      expect(callbacks.syncUrlWithLocation).toHaveBeenCalledTimes(2);
     });
 
     it('puts the spawn 0.005 degrees north of a favorite that has none', async () => {
@@ -739,7 +758,7 @@ describe('LocationChangeCoordinatorService', () => {
       await coordinator.onSelectFavorite(favB);
 
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith(
-        'spawn-1', 'Spawn', SPAWN.lat + 0.005, SPAWN.lon, SPAWN_COLORS[0],
+        'spawn-1', 'Spawn', SPAWN.lat + 0.005, SPAWN.lon, SPAWN_COLORS[0], undefined,
       );
     });
   });

@@ -140,9 +140,10 @@ export class MarkerVisualizationService {
   private readonly portalPalettes = new Map<string, BurstPalette>();
 
   /**
-   * Headings the player turned portals to while placing their spawn (scene
-   * rotation about +Y, rad), see setPortalHeading. They win over the
-   * route's direction until the spawn is added again or cleared.
+   * Headings the player turned portals to while placing their spawn, or that
+   * a spawn brought along from the URL or a favorite (scene rotation about
+   * +Y, rad), see setPortalHeading. They win over the route's direction
+   * until the spawn is added again or cleared.
    */
   private readonly manualHeadings = new Map<string, number>();
 
@@ -407,10 +408,12 @@ export class MarkerVisualizationService {
 
   /**
    * Turn a spawn portal to `heading` (scene rotation about +Y, rad), the way
-   * the player turned it while placing the spawn (MapPlacementService). It
-   * keeps that heading through every rebuild of its route
-   * (placeSpawnPortal) until the spawn is added again (a new placement, an
-   * HQ move, a location change) or removed.
+   * the player turned it while placing the spawn (MapPlacementService) or
+   * as the URL or a favorite kept it (LocationFacadeService.addSpawnPoint).
+   * It keeps that heading through every rebuild of its route
+   * (placeSpawnPortal), each held against the route it stands on then,
+   * until the spawn is added again (a new placement, an HQ move, a location
+   * change) or removed.
    */
   setPortalHeading(id: string, heading: number): void {
     const portals = this.portalManager;

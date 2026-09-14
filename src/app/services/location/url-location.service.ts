@@ -1,21 +1,26 @@
 import { Injectable } from '@angular/core';
+import type { SavedSpawn } from '../../models/location.types';
 
 /**
  * URL Location Service
  *
  * URL is the single source of truth for location.
- * Format: ?l=49.17327,9.26859&s=49.17555,9.26387;49.18000,9.27000
+ * Format: ?l=49.17327,9.26859&s=49.17555,9.26387,187.5;49.18000,9.27000
  * - l = HQ (lat,lon) - 5 decimal places
- * - s = Spawns (semicolon-separated)
+ * - s = Spawns (semicolon-separated): lat,lon and, for a portal the player
+ *   turned, its compass bearing in degrees (SavedSpawn.portalBearing, 1
+ *   decimal place). A spawn without one faces along its route, as every
+ *   spawn in URLs from before the bearing.
  */
 @Injectable({ providedIn: 'root' })
 export class UrlLocationService {
   private readonly PRECISION = 5;
+  private readonly BEARING_PRECISION = 1;
 
   /**
    * Parse location from current URL
    */
-  parseFromUrl(): { hq: { lat: number; lon: number }; spawns: { lat: number; lon: number }[] } | null {
+  parseFromUrl(): { hq: { lat: number; lon: number }; spawns: SavedSpawn[] } | null {
     const params = new URLSearchParams(window.location.search);
     const hqParam = params.get('l');
     const spawnsParam = params.get('s');
@@ -29,10 +34,10 @@ export class UrlLocationService {
       return null;
     }
 
-    const spawns: { lat: number; lon: number }[] = [];
+    const spawns: SavedSpawn[] = [];
     if (spawnsParam) {
       for (const part of spawnsParam.split(';')) {
-        const spawn = this.parseCoordPair(part);
+        const spawn = this.parseSpawn(part);
         if (spawn) spawns.push(spawn);
       }
     }
@@ -43,14 +48,13 @@ export class UrlLocationService {
   /**
    * Update browser URL without reload (replaceState)
    */
-  updateUrl(hq: { lat: number; lon: number }, spawns: { lat: number; lon: number }[]): void {
+  updateUrl(hq: { lat: number; lon: number }, spawns: readonly SavedSpawn[]): void {
     const hqStr = `${hq.lat.toFixed(this.PRECISION)},${hq.lon.toFixed(this.PRECISION)}`;
 
     let url = `${window.location.pathname}?l=${hqStr}`;
 
     if (spawns.length > 0) {
-      const spawnStrs = spawns.map(s => `${s.lat.toFixed(this.PRECISION)},${s.lon.toFixed(this.PRECISION)}`);
-      url += `&s=${spawnStrs.join(';')}`;
+      url += `&s=${spawns.map((s) => this.formatSpawn(s)).join(';')}`;
     }
 
     window.history.replaceState({}, '', url);
@@ -68,6 +72,25 @@ export class UrlLocationService {
    */
   hasLocationParams(): boolean {
     return new URLSearchParams(window.location.search).has('l');
+  }
+
+  private formatSpawn(spawn: SavedSpawn): string {
+    const at = `${spawn.lat.toFixed(this.PRECISION)},${spawn.lon.toFixed(this.PRECISION)}`;
+    return spawn.portalBearing === undefined ? at : `${at},${spawn.portalBearing.toFixed(this.BEARING_PRECISION)}`;
+  }
+
+  /**
+   * A spawn from "lat,lon" or "lat,lon,bearing". A bearing that is no number
+   * is left out: the spawn stays and faces along its route.
+   */
+  private parseSpawn(str: string): SavedSpawn | null {
+    const parts = str.split(',');
+    if (parts.length !== 3) return this.parseCoordPair(str);
+
+    const at = this.parseCoordPair(`${parts[0]},${parts[1]}`);
+    if (!at) return null;
+    const portalBearing = parseFloat(parts[2].trim());
+    return Number.isFinite(portalBearing) ? { ...at, portalBearing } : at;
   }
 
   private parseCoordPair(str: string): { lat: number; lon: number } | null {

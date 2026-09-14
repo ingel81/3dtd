@@ -1787,13 +1787,22 @@ zwei instanzierte Draw Calls für alle Portale:
   Wer gedreht hat, dessen Richtung gilt (`MarkerVisualizationService.setPortalHeading`), auch
   über jeden Neubau der Route, bis der Spawn wieder hinzugefügt wird: neu gesetzt, HQ umgesetzt,
   Ort gewechselt. Ohne Drehen folgt das Portal der Route. Die Drehung ändert nur das Portal,
-  nicht den Weg der Gegner, und steht weder in der URL noch in den Favoriten. Sie reicht nur so
+  nicht den Weg der Gegner. Sie steht als Kompasskurs am Spawn (Grad im Uhrzeigersinn ab Nord,
+  `SavedSpawn.portalBearing`, umgerechnet mit `portalHeadingToBearing`) in der URL
+  (`s=lat,lon,kurs`) und in Favoriten, die danach gespeichert werden. Reload, geteilter Link und
+  Favorit drehen das Portal wieder so (`LocationFacadeService.addSpawnPoint`, nach dem Bau der
+  Route). URLs und Favoriten ohne Kurs (auch alle von vor 2026-09-14) folgen der Route. Ein
+  HQ-Umzug verwirft den Kurs, die Route entsteht neu; Zuletzt gespielt und die Weltkarte speichern
+  nur Koordinaten, ein Ort von dort folgt ebenfalls der Route. Siehe
+  [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md#urllocationservice). Sie reicht nur so
   weit, wie die Gegner noch durch die Öffnung hinausgehen (`portalTurnRange`,
   `clampPortalHeading`, Playtest 529): die Route und die äußersten Spuren
   (`portalLaneOffset`, so weit neben der Route, wie der Korridor am Start einen Gegner laufen
   lässt, `lateralLimit`) bleiben bis zur vorderen Fläche zwischen den Pfeilern, mindestens
   `PORTAL_TURN_CLEARANCE` (0,5 m) von ihnen entfernt, und vor der hinteren Fläche. Eine Drehung
-  darüber hinaus steht an der Grenze, bei jedem Neubau der Route neu gegen sie geprüft. Auf
+  darüber hinaus steht an der Grenze, bei jedem Neubau der Route neu gegen sie geprüft, auch ein
+  Kurs aus URL oder Favorit, dessen Route sich seither geändert hat; gespeichert bleibt der Kurs,
+  wie er gegeben wurde. Auf
   einer geraden Straße sind das 10,5° zu jeder Seite bei 6 bis 8 m Korridor, 7° bei 12 m, 6° bei
   14 m; ab 16 m (breiter als die größte Öffnung samt Abstand) keine. Auf einem Kreisverkehr
   (15 m Radius, 9 m Korridor) ungleich, 7,4° zur einen und 9,6° zur anderen Seite.
