@@ -11,16 +11,16 @@ Dokumentation des Status-Effekt-Systems für Debuffs und Buffs auf Enemies.
 Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies anzuwenden (Verlangsamung, DoT, etc.). Effekte werden auf der `MovementComponent` jedes Enemies gespeichert und vom `StatusEffectService` (Angular `@Injectable`, in `services/combat/status-effect.service.ts`) angewendet.
 
 **Aktuell implementiert:**
-- **Slow** (Verlangsamung) — Ice Tower, Splash
-- **Poison** (DoT) — Poison Tower, Splash
-- **Burn** (DoT) — Fire Tower, jeder Gegner im Flammenkegel
+- **Slow** (Verlangsamung): Ice Tower, Splash
+- **Poison** (DoT): Poison Tower, Splash
+- **Burn** (DoT): Fire Tower, jeder Gegner im Flammenkegel
 - **Freeze** (Stopp): Frostbombe (Fähigkeit, [ABILITIES.md](ABILITIES.md))
 - **Stun** (Stopp, elektrisch): EMP (Fähigkeit, [ABILITIES.md](ABILITIES.md))
 
 Status-Effekte hängen am Projektiltyp (`ice-shard`, `poison-glob`) bzw. am Fire-Beam, nicht am
 Schadenstyp. Der Chaos Tower (Schadenstyp `chaos`, 1,0 gegen jede Rüstung) legt keinen Effekt.
 
-> **Wichtig — Game-Time statt Wall-Clock:** Seit dem Sub-Step-Refactor laufen Status-Effekt-Timer **in Game-Time-Millisekunden** (deterministisch, unabhängig vom Speed-Multiplier). `effect.startTime` wird über einen `gameClockProvider` aus dem `GameStateManager` bezogen — kein `performance.now()` mehr.
+> **Wichtig, Game-Time statt Wall-Clock:** Seit dem Sub-Step-Refactor laufen Status-Effekt-Timer **in Game-Time-Millisekunden** (deterministisch, unabhängig vom Speed-Multiplier). `effect.startTime` wird über einen `gameClockProvider` aus dem `GameStateManager` bezogen, kein `performance.now()` mehr.
 
 ---
 
@@ -165,7 +165,7 @@ applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string):
 
 ### Refresh-Logik
 
-`slow` und `poison` werden **immer ersetzt** — es gibt kein Stacking. Jeder neue Effekt dieses Typs ersetzt den vorherigen, unabhängig von der Source.
+`slow` und `poison` werden **immer ersetzt**, es gibt kein Stacking. Jeder neue Effekt dieses Typs ersetzt den vorherigen, unabhängig von der Source.
 Andere Effekttypen (`burn`, `freeze`, `stun`) werden pro `(type, sourceId)` deduplikiert (gleiche Quelle = Refresh, andere Quelle = neuer Eintrag).
 Ein ersetzter Eintrag gibt seine DoT-Tick-Phase (`tickAccumMs`) an den neuen weiter.
 
@@ -193,7 +193,7 @@ private findEffectSlot(type, sourceId): number { /* ... */ }
 
 ### Cleanup
 
-Abgelaufene Effekte werden im Single-Pass `updateStatusEffects(gameTimeMs)` entfernt (in-place Compact, keine Array-Allokation). Game-Time skaliert automatisch mit dem Timescale-Multiplier — bei 2× Speed läuft die Game-Clock doppelt so schnell, also auch die Effekt-Timer:
+Abgelaufene Effekte werden im Single-Pass `updateStatusEffects(gameTimeMs)` entfernt (in-place Compact, keine Array-Allokation). Game-Time skaliert automatisch mit dem Timescale-Multiplier: bei 2× Speed läuft die Game-Clock doppelt so schnell, also auch die Effekt-Timer:
 
 ```typescript
 // In EnemyManager (Sub-Step Loop)
@@ -218,7 +218,7 @@ removeExpiredEffects(gameTimeMs: number): void {
 
 ## Poison Effect (DoT)
 
-**Status:** Aktiv — vom Poison Tower und dessen Splash angewendet.
+**Status:** Aktiv, vom Poison Tower und dessen Splash angewendet.
 
 ### Funktionsweise
 
@@ -238,7 +238,7 @@ Hauptziel und Splash-Opfer bekommen denselben Wert.
 
 **Implementierung:**
 - DoT-Tick im Enemy-Sub-Step-Loop (`EnemyManager.tickDamageOverTime`): Game-Time-Akkumulator `tickAccumMs` auf dem Effekt, alle `COMBAT_TUNING.poisonTickIntervalMs` (500 ms) ein `dot:damage` mit `value × 0,5`.
-- Kein Stacking — neuer Poison ersetzt den vorherigen (Timer-Refresh, Tick-Phase bleibt).
+- Kein Stacking: neuer Poison ersetzt den vorherigen (Timer-Refresh, Tick-Phase bleibt).
 - `updateStatusEffects()` setzt `isPoisoned: true` als aktiver Flag.
 - Tötet ein Tick, bekommt der Quell-Tower den Kill gutgeschrieben (`sourceId`).
 
@@ -260,7 +260,7 @@ applyPoison(enemy: Enemy, dotDps: number, duration: number, sourceId: string): v
 
 ## Burn Effect (DoT)
 
-**Status:** Aktiv — vom Fire Tower auf jeden Gegner im Flammenkegel angewendet (seit 2026-09-11).
+**Status:** Aktiv, vom Fire Tower auf jeden Gegner im Flammenkegel angewendet (seit 2026-09-11).
 
 Design-Vorgabe ([MASTER_GAME_DESIGN.md §2.4](game-design/MASTER_GAME_DESIGN.md)): „X DPS, verhindert Regen, 3 s, Gegenmittel `immuneToBurn`". Umgesetzt ist der DoT. Regen gibt es im Spiel nicht, `immuneToBurn` ist noch nicht umgesetzt.
 
