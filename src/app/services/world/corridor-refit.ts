@@ -32,6 +32,8 @@ export interface CorridorRefitHost {
   waveRunning(): boolean;
   /** The intro camera flight is running. */
   introRunning(): boolean;
+  /** The player waits for the measurement: the hint over the map while the HQ moves (RelocationStatusService). */
+  hurried(): boolean;
   /** Start measuring the stations without a measurement (PathAndRouteService.beginClearanceMeasurement). */
   beginMeasurement(): CorridorMeasurement;
   /** Stations waiting for finer tiles (PathAndRouteService.hasUnmeasuredStations). */
@@ -66,7 +68,8 @@ export interface CorridorRefitHost {
  * their cell and their route.
  *
  * `fitToTiles` and `remeasure` measure in slices of MEASURE_BUDGET_MS, one
- * per frame, instead of blocking the main thread for the whole run. Routes
+ * per frame, instead of blocking the main thread for the whole run; of
+ * HURRIED_BUDGET_MS while the player waits for it (hurried). Routes
  * and cells keep the corridor they have until the run is done; then it is
  * stored and, where it changes a corridor, rebuilt in the same frame. A
  * tower or a wave about to arrive finishes the run first (flush), enemies
@@ -87,6 +90,18 @@ export class CorridorRefit {
    * in use holds until it is done.
    */
   static readonly MEASURE_BUDGET_MS = 4;
+
+  /**
+   * Main-thread time per frame while the player waits for the measurement,
+   * with the hint over the map while the HQ moves. In the Paris playtest of
+   * 2026-09-14 a move measured 358 stations in 465 ms of 144 slices over
+   * 5.3 s: each frame took about 33 ms besides its 4 ms slice. In slices of
+   * 32 ms the same run takes about 15 frames of 65 ms, about 1 s. The hint
+   * stands and nothing else waits for the frames, so 15 frames a second are
+   * fine there; the slices still let the percentage move. Read per slice, so
+   * a run the hint goes away under drops back to MEASURE_BUDGET_MS.
+   */
+  static readonly HURRIED_BUDGET_MS = 32;
 
   /** When `remeasure` last measured, `now()` ms. */
   private lastRemeasure = -Infinity;
@@ -122,7 +137,7 @@ export class CorridorRefit {
     const measurement = this.host.beginMeasurement();
     const slice = (): boolean => {
       const blocker = this.rebuildBlocker();
-      if (!blocker && !measurement.step(CorridorRefit.MEASURE_BUDGET_MS)) return true;
+      if (!blocker && !measurement.step(this.budget())) return true;
       if (this.running?.measurement === measurement) this.running = null;
       if (blocker) measurement.cancel(blocker);
       else if (measurement.commit()) this.host.rebuild();
@@ -216,6 +231,11 @@ export class CorridorRefit {
     this.pendingRetry?.();
     this.pendingRetry = null;
     this.cancel('disposed');
+  }
+
+  /** Main-thread time for the next slice of a run. */
+  private budget(): number {
+    return this.host.hurried() ? CorridorRefit.HURRIED_BUDGET_MS : CorridorRefit.MEASURE_BUDGET_MS;
   }
 
   /** Call remeasure again in `ms`; one call waits at a time. */

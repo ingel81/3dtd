@@ -33,6 +33,7 @@ vi.mock('../../ai/core/dps-profile-visualizer', () => ({
 }));
 
 import { VisualizationFacadeService } from './visualization-facade.service';
+import { CorridorRefit } from '../world/corridor-refit';
 import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
 import { CameraControlService, type CameraView } from '../camera-control.service';
@@ -43,6 +44,7 @@ import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
 import { HeroControlService } from '../hero-control.service';
 import { MapPlacementService } from '../world/map-placement.service';
+import { RelocationStatusService } from '../world/relocation-status.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -278,6 +280,7 @@ describe('VisualizationFacadeService', () => {
   const aiDataCollector = { getCurrentDPSProfile: vi.fn(() => ({ profile: 1 })) };
   const mapPlacement = { initialize: vi.fn(), placementMode: vi.fn(() => null) };
   const engineStore = { cameraDebugEnabled: signal(false), cameraDebugInfo: signal<unknown>(null) };
+  const relocationStatus = { status: signal<{ title: string; step: string; percent: number | null } | null>(null) };
   let store: {
     baseCoords: ReturnType<typeof signal<{ lat: number; lon: number }>>;
     centerCoords: ReturnType<typeof signal<{ lat: number; lon: number; height: number }>>;
@@ -329,6 +332,7 @@ describe('VisualizationFacadeService', () => {
         { provide: MapPlacementService, useValue: mapPlacement },
         { provide: TowerDefenseStore, useValue: store },
         { provide: EngineStore, useValue: engineStore },
+        { provide: RelocationStatusService, useValue: relocationStatus },
       ],
     });
     return runInInjectionContext(injector, () => new VisualizationFacadeService());
@@ -369,6 +373,7 @@ describe('VisualizationFacadeService', () => {
     uiStore.buildingsVisible.set(false);
     engineStore.cameraDebugEnabled.set(false);
     engineStore.cameraDebugInfo.set(null);
+    relocationStatus.status.set(null);
     grid.isInitialized.mockReturnValue(false);
     grid.getCoordinateSync.mockReturnValue({ sync: true });
     grid.retryUnsampledCells.mockReturnValue({ promoted: 0 });
@@ -765,6 +770,15 @@ describe('VisualizationFacadeService', () => {
       towerCount = 1;
       facade.fitCorridorToTiles();
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+    });
+
+    it('measures in the larger slices while the hint of a moving HQ stands', () => {
+      corridor.slices = 2;
+      relocationStatus.status.set({ title: 'Moving HQ', step: 'Finding the route', percent: null });
+
+      facade.fitCorridorToTiles();
+
+      expect(corridor.runs[0].step).toHaveBeenCalledWith(CorridorRefit.HURRIED_BUDGET_MS);
     });
 
     it('lets the game state finish a measurement under way before a tower or a wave', async () => {

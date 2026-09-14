@@ -2,6 +2,7 @@ import { CorridorRefit } from './corridor-refit';
 import type { PathAndRouteService } from './path-route.service';
 import type { RouteAnimationService } from './route-animation.service';
 import type { IntroCameraFlightService } from './intro-camera-flight.service';
+import type { RelocationStatusService } from './relocation-status.service';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { TowerDefenseStore } from '../../store/tower-defense.store';
 import type { GameStateManager } from '../../managers/game-state.manager';
@@ -21,6 +22,8 @@ export interface CorridorControllerDeps {
   >;
   routeAnimation: Pick<RouteAnimationService, 'isRunning' | 'startAnimation'>;
   store: Pick<TowerDefenseStore, 'spawnPoints'>;
+  /** The hint while the HQ moves: the player waits for the measurement then. */
+  relocationStatus: Pick<RelocationStatusService, 'status'>;
 }
 
 /**
@@ -45,6 +48,7 @@ export class CorridorController {
       enemyCount: () => deps.gameState().enemyManager.getAliveCount(),
       waveRunning: () => deps.gameState().waveManager.phase() === 'wave',
       introRunning: () => deps.introFlight.isRunning(),
+      hurried: () => deps.relocationStatus.status() !== null,
       beginMeasurement: () => deps.pathRoute.beginClearanceMeasurement(),
       hasUnmeasured: () => deps.pathRoute.hasUnmeasuredStations(),
       clearMeasurements: () => deps.pathRoute.clearCorridorMeasurements(),

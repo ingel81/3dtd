@@ -15,7 +15,15 @@ describe('CorridorController', () => {
 
   let frames: Map<number, FrameRequestCallback>;
   let nextFrameId: number;
-  let state: { towers: number; engine: object | null; intro: boolean; unmeasured: boolean; changed: boolean; slices: number };
+  let state: {
+    towers: number;
+    engine: object | null;
+    intro: boolean;
+    unmeasured: boolean;
+    changed: boolean;
+    slices: number;
+    hint: object | null;
+  };
   let calls: string[];
   let runs: { open: boolean; step: ReturnType<typeof vi.fn>; commit: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }[];
   let gameState: ReturnType<typeof fakeGameState>;
@@ -83,6 +91,7 @@ describe('CorridorController', () => {
       pathRoute,
       routeAnimation,
       store: { spawnPoints: () => SPAWNS },
+      relocationStatus: { status: () => state.hint },
     };
     return new CorridorController(deps as unknown as CorridorControllerDeps);
   }
@@ -105,7 +114,7 @@ describe('CorridorController', () => {
       return id;
     });
     vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
-    state = { towers: 0, engine: {}, intro: false, unmeasured: true, changed: true, slices: 1 };
+    state = { towers: 0, engine: {}, intro: false, unmeasured: true, changed: true, slices: 1, hint: null };
     calls = [];
     runs = [];
     gameState = fakeGameState();
@@ -173,6 +182,17 @@ describe('CorridorController', () => {
       expect(runs[0].step).toHaveBeenCalledTimes(3);
       expect(calls.filter((call) => call === 'clear')).toHaveLength(1);
       expect(frames.size).toBe(0);
+    });
+
+    it('measures in the larger slices while the hint of a moving HQ stands', () => {
+      state.slices = 3;
+      state.hint = { title: 'Moving HQ', step: 'Finding the route', percent: null };
+      create().fitToTiles();
+      expect(runs[0].step).toHaveBeenLastCalledWith(CorridorRefit.HURRIED_BUDGET_MS);
+
+      state.hint = null;
+      runFrames();
+      expect(runs[0].step).toHaveBeenLastCalledWith(CorridorRefit.MEASURE_BUDGET_MS);
     });
 
     it('measures again after the interval when the intro flight held it back', () => {
