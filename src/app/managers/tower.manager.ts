@@ -4,7 +4,6 @@ import { EntityManager } from './entity-manager';
 import { Tower } from '../entities/tower.entity';
 import { TowerTypeId } from '../configs/tower-types.config';
 import { GeoPosition } from '../models/game.types';
-import { OsmStreetService } from '../services/location/osm-street.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
@@ -27,7 +26,6 @@ import { veteranLevel } from '../configs/veteran-ranks.config';
 export class TowerManager extends EntityManager<Tower> {
   constructor(
     private eventBus: GameEventBus,
-    private osmService: OsmStreetService,
     private researchStore: ResearchStore,
   ) {
     super();

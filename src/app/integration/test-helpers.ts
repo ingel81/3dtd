@@ -12,7 +12,6 @@ import { TowerManager } from '../managers/tower.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig, SpawnEntry } from '../managers/wave.manager';
 import { EnemyTypeId, ENEMY_TYPES } from '../configs/enemy-types.config';
-import { OsmStreetService } from '../services/location/osm-street.service';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
@@ -220,13 +219,6 @@ export type MockTilesEngine = ReturnType<typeof createMockTilesEngine>;
 
 // ─── Mock Angular Services ────────────────────────────────────────
 
-/** Creates a mock OsmStreetService */
-export function createMockOsmService(): OsmStreetService {
-  return {
-    findNearestStreetPoint: vi.fn(() => ({ distance: 20, lat: 0, lon: 0 })),
-  } as unknown as OsmStreetService;
-}
-
 /** Creates a mock GlobalRouteGridService */
 export function createMockGlobalRouteGrid(): GlobalRouteGridService {
   return {
@@ -270,12 +262,11 @@ export function createTestManagers(): TestManagers {
   GameObject.resetIdCounter();
 
   const eventBus = new GameEventBus();
-  const osmService = createMockOsmService();
   const globalRouteGrid = createMockGlobalRouteGrid();
   const spatialGrid = new SpatialGridService();
 
   const enemyManager = new EnemyManager(eventBus, globalRouteGrid, spatialGrid);
-  const towerManager = new TowerManager(eventBus, osmService, createMockResearchStore());
+  const towerManager = new TowerManager(eventBus, createMockResearchStore());
   const projectileManager = new ProjectileManager(eventBus);
   const waveManager = new WaveManager(eventBus, enemyManager);
 
