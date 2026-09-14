@@ -1,10 +1,13 @@
 import { ShaderMaterial, DoubleSide, Vector3, Texture } from 'three';
+import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 
 /**
  * Create a ShaderMaterial for instanced floating text rendering.
  *
  * Vertex shader: billboard orientation via camera vectors, float-up + scale animation
- * Fragment shader: atlas texture sampling with fade-out
+ * Fragment shader: atlas texture sampling with fade-out; the atlas holds the
+ * canvas-drawn display values, written for the target (displayOutput,
+ * display-output.ts), so the text looks as drawn with and without bloom
  * Includes logdepthbuf for correct 3D Tiles occlusion.
  *
  * Per-instance attributes:
@@ -109,6 +112,8 @@ export function createFloatingTextMaterial(atlasTexture: Texture): ShaderMateria
 
       #include <logdepthbuf_pars_fragment>
 
+      ${DISPLAY_OUTPUT_GLSL}
+
       void main() {
         if (vOpacity < 0.01) discard;
 
@@ -117,7 +122,7 @@ export function createFloatingTextMaterial(atlasTexture: Texture): ShaderMateria
         vec4 texColor = texture2D(uAtlas, vUv);
         if (texColor.a < 0.01) discard;
 
-        gl_FragColor = vec4(texColor.rgb, texColor.a * vOpacity);
+        gl_FragColor = displayOutput(vec4(texColor.rgb, texColor.a * vOpacity));
       }
     `,
     transparent: true,
