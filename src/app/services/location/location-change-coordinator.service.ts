@@ -190,6 +190,7 @@ export class LocationChangeCoordinatorService {
           lat: spawnLat,
           lon: spawnLon,
           name: spawnName,
+          portalBearing: result.spawn.portalBearing,
         },
       });
     });
