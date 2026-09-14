@@ -537,6 +537,8 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 
 Während eines [Boss-Intros](#boss-intro-canvas) fragt die Spielkomponente vor InputHandler und HotkeyService den `BossIntroService`: Esc überspringt das Intro (vor Build- und Zielmodus), alle anderen Spieltasten warten, bis die Sicht zurück ist. Tippen in einem Feld und ein Esc, das ein Dialog schon genommen hat, bleiben unberührt.
 
+Während des Intro-Flugs nach dem Laden gilt dasselbe über `IntroCameraFlightService.handleKeyDown`: Esc überspringt ihn wie "Skip Intro" und ein Klick oder das Mausrad auf der Karte, alle anderen Spieltasten wirken während des Flugs nicht, auch Pos1, N und WASD.
+
 Während des Replays der letzten Welle steuern Leertaste und P dessen Pause, + und - dessen Geschwindigkeit, Esc führt zurück ins Spiel; Kamera-Tasten und H bleiben, alles andere ruht (`HotkeyService.runInReplay`, siehe [Replay der letzten Welle](#replay-der-letzten-welle)).
 
 S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint. Dauerhaft sichtbar öffnet "Keys" im Sidebar-Footer (Icon `keyboard`, rechts neben "Tips") dieselbe Übersicht. Das Helden-Panel zeigt V, G und Esc als Tastenkappen, seine Munitionswahl trägt `aria-keyshortcuts`.

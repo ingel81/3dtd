@@ -317,8 +317,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // AA-Retrofit-Research im Air-Bit (mixed Tower wie dual-gatling
   // werden erst nach Research zu canTargetAir=true).
   private readonly researchStore = inject(ResearchStore);
+  /** Intro camera flight: takes Esc (skip) and holds the other game keys back, see onKeyDown */
+  private readonly introFlight = inject(IntroCameraFlightService);
   /** Intro camera flight is playing, gates the Skip control. */
-  readonly introFlightActive = inject(IntroCameraFlightService).active;
+  readonly introFlightActive = this.introFlight.active;
 
   readonly losLegendVisible = computed(() => {
     if (this.buildMode() && this.store.selectedTowerType()) return true;
@@ -489,6 +491,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   onKeyDown(event: KeyboardEvent): void {
     // A running boss intro takes Esc (skip) and holds the other game keys back
     if (this.bossIntro.handleKeyDown(event)) return;
+    // So does the intro flight
+    if (this.introFlight.handleKeyDown(event)) return;
     // Photo mode and the replay keep Tab in their bar
     this.photoMode.trapTab(event);
     this.replay.trapTab(event);
