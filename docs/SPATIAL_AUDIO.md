@@ -398,6 +398,11 @@ eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height
 - Bei Resume: Budget wird erneut angefragt
 - Ein wartender Loop hat noch kein `PositionalAudio`, es entsteht erst beim Einstieg. Solange
   das Enemy-Budget voll ist, prüft ein wartender oder pausierter Gegner-Loop die Distanz nicht
+- Die Distanz misst `SpatialAudioPlayback` zur Translation der Weltmatrix der Kamera (sie trägt
+  den Listener), wie `ThreeTilesEngine.render()` sie im letzten gezeichneten Frame gesetzt hat;
+  im selben Schritt setzt three den Web-Audio-Listener. Kein `getWorldPosition()` je Prüfung:
+  Das aktualisiert die Matrizen von Kamera und Eltern und zerlegt und invertiert die Kameramatrix.
+  Bei freiem Budget prüft jeder wartende Gegner-Loop jeden Sub-Step
 
 ### Memory Leak Prevention
 - **setTimeout-Referenzen**: Alle Timer werden getrackt und bei Cleanup gecleaned
