@@ -27,4 +27,17 @@ describe('SHOWCASE_LOCATIONS', () => {
       expect(p.hint.includes('\n'), p.id).toBe(false);
     }
   });
+
+  it('holds a valid spawn where one is given, not on the HQ itself', () => {
+    for (const p of SHOWCASE_LOCATIONS) {
+      if (!p.spawn) continue;
+      expect(Math.abs(p.spawn.lat), p.id).toBeLessThanOrEqual(90);
+      expect(Math.abs(p.spawn.lon), p.id).toBeLessThanOrEqual(180);
+      expect(p.spawn.lat === p.lat && p.spawn.lon === p.lon, p.id).toBe(false);
+    }
+  });
+
+  it('no longer lists Dubai, Marina Walk: no photorealistic 3D tiles there', () => {
+    expect(SHOWCASE_LOCATIONS.find((p) => p.id === 'dubai-marina')).toBeUndefined();
+  });
 });

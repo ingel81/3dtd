@@ -1,12 +1,16 @@
+import { SavedSpawn } from '../models/location.types';
+
 /**
  * Places that show off Google Photorealistic 3D Tiles and have a dense street
  * network for the routes. Listed in the location dialog under "Showcase";
- * one click loads the place with a random spawn.
+ * one click loads the place, with its fixed spawn if it has one, otherwise a
+ * random spawn like the Random mode.
  *
  * Coordinates: checked against OpenStreetMap (Nominatim) on 2026-09-13, each
  * on a pedestrian way, a road or a square, not on a building or water. Not
  * played in the game one by one: whether a spawn and a route come out is up to
- * the street data around each point.
+ * the street data around each point (unless a fixed spawn is given, then that
+ * place has been played).
  */
 export interface ShowcaseLocation {
   id: string;
@@ -16,6 +20,8 @@ export interface ShowcaseLocation {
   hint: string;
   lat: number;
   lon: number;
+  /** A spawn the player picked, loaded the same way as a URL or favorite spawn. Without one the spawn is random. */
+  spawn?: SavedSpawn;
 }
 
 export const SHOWCASE_LOCATIONS: readonly ShowcaseLocation[] = [
@@ -30,6 +36,8 @@ export const SHOWCASE_LOCATIONS: readonly ShowcaseLocation[] = [
   { id: 'amsterdam-dam', name: 'Amsterdam, Dam Square', hint: 'Old centre, the canal ring starts to the west', lat: 52.37312, lon: 4.89235 },
   { id: 'tokyo-shibuya', name: 'Tokyo, Shibuya Crossing', hint: 'Scramble crossing, dense side streets', lat: 35.65950, lon: 139.70050 },
   { id: 'sydney-martin-place', name: 'Sydney, Martin Place', hint: 'Pedestrian mall in the CBD grid', lat: -33.86773, lon: 151.20914 },
-  { id: 'dubai-marina', name: 'Dubai, Marina Walk', hint: 'High-rise towers along the marina', lat: 25.07172, lon: 55.13259 },
-  { id: 'rio-copacabana', name: 'Rio de Janeiro, Copacabana', hint: 'Beachfront avenue with the grid behind it', lat: -22.96889, lon: -43.18085 },
+  {
+    id: 'rio-copacabana', name: 'Rio de Janeiro, Copacabana', hint: 'Beachfront avenue with the grid behind it',
+    lat: -22.96889, lon: -43.18085, spawn: { lat: -22.96421, lon: -43.17463 },
+  },
 ];
