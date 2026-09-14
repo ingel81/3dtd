@@ -587,7 +587,7 @@ bitte klären"; Lead-Entscheidungen sind revertierbar):
   Rückmeldung; umgesetzt in `0961846d` (Grund 2,5 s in der Hinweis-Box,
   z. B. "Only during a wave", "No charges, recharges in N waves", "Need N
   credits"; vor der Forschung bleiben die Tasten still). Ersatzmodell für
-  den Held bleibt offen. **Nachtest ok (Playtest 2, 2026-09-14)**: alle
+  den Held: **User (Playtest 2): passt erstmal**, kein Ersatzmodell. **Nachtest ok (Playtest 2, 2026-09-14)**: alle
   drei Texte, Zeigermodus beendet die Box, das Überdecken aktiver
   Modus-Hinweise bis 2,5 s stört nicht.
 - **14 Boss-Intro bei offenem Dialog:** Lead-Entscheidung: das Intro fällt

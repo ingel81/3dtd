@@ -1377,6 +1377,10 @@ schlägt härter ein. Nur Bild und Ton, am Schaden ändert sich nichts.
      Ring, kein Rauch, keine Glutschweife, kein Bodenfeuer.
 223. Kamera nah an den Einschlag (unter 100 m): Feuerball und Glut sind
      nicht abgeschnitten und zeigen keine harten Kanten.
+     **Befund 216 bis 223 (Playtest 2, 2026-09-14):** optisch und klanglich
+     noch nicht gut, zu wenig Wumms, nicht typisch genug; soll deutlich mehr
+     nach krassem Atompilz aussehen. **Entscheidung User:** Überarbeitung in
+     der Nachtschicht (Worker nuke, eigener Branch), erneut prüfen.
 
 Cheat "Nuke" im Dev-Menü (Gruppe Cheats, orange Kachel mit
 Strahlungssymbol, Tooltip "Nuke ready"): schließt die Forschung Nuclear
