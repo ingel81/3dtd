@@ -182,9 +182,11 @@ export function centreLineKeys(routes: readonly (readonly { x: number; z: number
  * edge cell like that leaves the corridor (cellWalkable), but the
  * corridor keeps a cell the line runs through at any width, and enemies
  * take their height from the cell they are in: they climbed onto the
- * roof and the cell stood there in the Route Grid Overlay. A slope along
+ * roof and the cell stood there in the Route Grid Overlay. Tree crowns
+ * over the street are the same case (playtest Erlenbach). A slope along
  * the line rises far less than `roofRise` from one spot to the next; the
- * median keeps one raised spot, the cell itself, out of the reference.
+ * median keeps up to two raised spots in a row, the cell and one beside
+ * it, out of the reference.
  */
 export function streetUnderRoof(cell: RouteCell, y: number, ground: WalkGround, cellSize: number): number | null {
   if (cell.surface !== 'ground' || ground.lineSurface(cell.x, cell.z) === null) return null;
@@ -204,11 +206,17 @@ export function unwalkableCells(cells: Iterable<RouteCell>, ground: WalkGround, 
 
 const ascending = (a: number, b: number) => a - b;
 
+/** Grid steps either way along the centre line that centreLineGround takes in. */
+const LINE_REACH = 2;
+
 /**
  * Ground of the route centre line at the grid spot (x, z): the median of
- * the heights of the centre line spots among it and its eight neighbours,
- * the lower of the middle two for an even count. On a line those are the
- * spot and the spots before and after it. A spot counts with the surface
+ * the heights of the centre line spots within LINE_REACH grid steps of it
+ * (5 by 5), the lower of the middle two for an even count. On a line those
+ * are the spot and two before and after it, so two raised spots in a row
+ * do not tip it; with one either way, a tree crown over two spots of the
+ * street did (playtest Erlenbach: cells in crowns beside the street). Three
+ * in a row, 6 m of crown over the line, still do. A spot counts with the surface
  * its cell stands on, as RouteCellSampler.hitOf takes it: the lowest hit of
  * its column, the highest on a bridge deck; a tunnel spot not at all. With
  * the lowest hit of the deck spots, the water under the deck, the edge
@@ -224,8 +232,8 @@ const ascending = (a: number, b: number) => a - b;
  */
 export function centreLineGround(x: number, z: number, ground: WalkGround, cellSize: number): number | null {
   const heights: number[] = [];
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dz = -1; dz <= 1; dz++) {
+  for (let dx = -LINE_REACH; dx <= LINE_REACH; dx++) {
+    for (let dz = -LINE_REACH; dz <= LINE_REACH; dz++) {
       const sx = x + dx * cellSize;
       const sz = z + dz * cellSize;
       const surface = ground.lineSurface(sx, sz);

@@ -291,8 +291,10 @@ Ausnahmen:
   5,7 m über der Straße (Pick C) und eine an einer Dachecke, die die Linie
   anschneidet, 7,6 m (Pick B); beide weiß im Overlay, die Gegner stiegen
   hinauf. Eine Steigung entlang der Linie steigt von Stelle zu Stelle weit
-  weniger als `roofRise`, und der Median lässt die Zelle selbst als einzige
-  hohe Stelle aus dem Bezug heraus. `__corridor.pick()` zeigt sie mit
+  weniger als `roofRise`, und der Median über je zwei Stellen davor und
+  danach lässt bis zu zwei hohe Stellen in Folge aus dem Bezug heraus, die
+  Zelle und eine Nachbarin. Eine Baumkrone über der Straße ist derselbe
+  Fall (Playtest Erlenbach). `__corridor.pick()` zeigt sie mit
   `walkCheck: 'centre line on a roof'`, `heightM` auf der Straße und
   `columnBottomM` auf der Auskragung. Eine Urteilsfrage: Die
   Nutzerentscheidung vom 2026-09-14 ("Orange Zellen weglassen") galt
@@ -343,9 +345,15 @@ jede Zelle mit Fläche `ground` und einer eigenen Probe aus einem Tile bis
 `maxTileError`, durch die keine Mittellinie läuft. Bezug ist die Höhe der
 Mittellinie neben der Zelle (`centreLineGround`): der Median über die
 Mittellinien-Stelle daneben (`axisX`, `axisZ`, beim Anlegen festgelegt) und
-die Mittellinien-Stellen unter ihren acht Nachbarn, bei gerader Anzahl der
-untere der beiden mittleren. Auf einer Linie sind das die Stelle und die
-davor und danach. Jede Stelle zählt mit der Fläche ihrer Zelle wie beim
+die Mittellinien-Stellen bis zwei Rasterschritte um sie (5×5), bei gerader
+Anzahl der untere der beiden mittleren. Auf einer Linie sind das die Stelle
+und je zwei davor und danach. Mit nur je einer (3×3) kippte der Median, wo
+eine Baumkrone über der Straße zwei Stellen in Folge abdeckt: Randzellen
+in der Krone lagen unter dem Bezug und blieben (Playtest Erlenbach,
+Weinstraße und Erlenweg, einzelne weiße Zellen in Kronen neben der Straße;
+nachgestellt in `integration/corridor-walk.spec.ts`). Drei hohe Stellen in
+Folge, etwa 6 m Krone über der Linie, kippen ihn weiter. Jede Stelle zählt
+mit der Fläche ihrer Zelle wie beim
 Sampeln: der unterste Treffer, auf einem Brückendeck der oberste; eine
 Tunnelstelle zählt nicht. Mit dem untersten Treffer auch der Deck-Stellen
 lagen an einem Brückenkopf auf einer schrägen Linie Randzellen 8 m über dem
@@ -466,10 +474,11 @@ Gegner halten sich an die schmalere Breite wie an jede andere
 Seite, 3714 Zellen, ein Auto alle 12 m, Median aus 7 Läufen) kostete die
 Prüfung aller Zellen 1,2 ms und die Kappen 0,1 ms; Grid erzeugen und
 voller Höhen-Sweep in derselben Spec 6 und 5 ms. Mit dem Median über die
-Mittellinie (bis zu neun Säulen je Achsstelle, je Durchgang einmal je
+Mittellinie (bis zu 25 Säulen je Achsstelle, je Durchgang einmal je
 Stelle gemerkt) kostete die Prüfung in einer ähnlichen Spec (3714 Zellen,
-227 nicht begehbar, Median aus 9 Läufen, nicht committet) 0,8 ms statt
-0,45 ms mit der einen Stelle; ohne das Merken waren es 1,8 ms. Im Spiel liest die Prüfung
+227 nicht begehbar, Median aus 9 Läufen, nicht committet) 1,1 ms, mit dem
+3×3 0,8 bis 0,9 ms, mit der einen Stelle 0,45 ms; ohne das Merken waren es
+mit dem 3×3 1,8 ms. Im Spiel liest die Prüfung
 die Säulen aus dem Cache der Engine, den das Grid im selben Frame gefüllt
 hat; nicht gemessen. Teuer ist ein zusätzlicher Bau: nach den Zahlen vom
 2026-09-12 (routes 14, grid 10, heights 4 bis 6 ms) etwa 30 ms, synchron im
@@ -906,9 +915,9 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Vorgärten mit niedriger Hecke oder Mauer) ist der Korridor auf dieser Seite
   7 m breit.
 - Der Laufweg-Check geht von der Mittellinie neben der Zelle aus, dem
-  Median über die Stelle daneben und ihre Nachbarn auf der Linie. Stehen
-  dort mehrere Stellen auf einer Krone oder einem Auto (OSM-Linie über dem
-  Parkstreifen), greift er nicht. Zellen, durch die eine Mittellinie läuft,
+  Median über die Stelle daneben und je zwei Nachbarn auf der Linie.
+  Stehen dort drei und mehr Stellen in Folge auf einer Krone oder einem
+  Auto (OSM-Linie über dem Parkstreifen), greift er nicht. Zellen, durch die eine Mittellinie läuft,
   prüft er nicht. Liegt ihr Treffer mehr als `roofRise` über der
   Mittellinie ringsum, nehmen sie deren Höhe (siehe Zellhöhe); ein Auto
   oder eine Hecke auf der Mittellinie, niedriger als `roofRise`, bleibt,
@@ -918,8 +927,15 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   ein Band. Genau dieses Einengen hatte der Playtest vom 2026-09-12 bei den
   Strahlen verworfen (Transporterreihe, `8910463`); nach dem Playtest
   2026-09-14 hat der Nutzer entschieden, die orangen Zellen wegzulassen.
-  Ein Vorgarten auf Straßenhöhe hinter Zaun oder Hecke bleibt im Korridor,
-  ein erhöhter fällt weg.
+  Ein Vorgarten auf Straßenhöhe ohne Wand bleibt im Korridor, bis
+  `maxHalfWidth`, auch hinter einem Zaun oder einer schmalen Hecke, die
+  zwischen zwei Zellmitten liegt. Kommt eine Zelle auf die Hecke (mehr als
+  `stepRise` über dem Weg davor), fällt der Garten dahinter mit weg; ein
+  erhöhter Garten fällt weg.
+- Eine Hecke, eine Krone oder ein erhöhter Garten, den die
+  Photogrammetrie zu einer Böschung verschmilzt, die je Rasterschritt
+  höchstens `stepRise` steigt und unter `roofRise` bleibt, ist vom Hang nicht
+  zu unterscheiden und bleibt im Korridor.
 - Steht an einem Hang zur Zelle hin ein Auto und fällt die andere Seite
   ähnlich stark, nimmt der Stufen-Check die Neigung für den Hang und lässt
   die Zelle im Korridor, auf dem Autodach. Liegt eine Randzelle am Hang
