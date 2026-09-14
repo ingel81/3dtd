@@ -121,15 +121,18 @@ kein Eingriff in den Angular-Code noetig.
 Szenario: Die App ohne Cesium-Ion-Token ausliefern; jeder Nutzer traegt seinen
 **eigenen** Token ein.
 
-**Aktueller Stand:** Der Token steht in `environment.prod.ts` und wird beim
-Angular-Build **fest ins JS-Bundle inlinet**. Fuer "ship ohne Token" muss er stattdessen
-zur **Laufzeit** geladen werden.
+**Stand 2026-09-15: in der Web-App umgesetzt.** Der `ConfigService`
+(`src/app/core/services/config.service.ts`) liest die Zugangsdaten zur Laufzeit
+aus drei Quellen, die spaetere gewinnt: `environment.ts` (in Production-Builds
+leer, siehe `environment.template.ts`), `runtime-config.json` neben der
+`index.html` (per `fetch` in `load()`, danach `loaded`) und der localStorage
+(`3dtd-tile-credentials`), in den der Token-Dialog (`components/token-setup/`)
+schreibt. Kein Token steht mehr im Bundle.
 
-**Gute Nachricht — der Konsum ist bereits zentralisiert.** In
-`src/app/core/services/config.service.ts` liegt der `ConfigService`, der die Werte
-als **Signals** exponiert (`cesiumIonToken`, `cesiumAssetId`, `tileProvider`, …).
-Die gesamte App liest aus diesem einen Service. Es existiert sogar schon ein
-`loaded`-Signal — asynchrones Laden ist architektonisch vorgesehen.
+Fuer den Desktop-Build bleibt davon nur die Bridge: der `app://`-Handler liefert
+`runtime-config.json` aus `userData` aus (siehe Tabelle unten), oder die App
+verlaesst sich auf den Token-Dialog. Der Rest dieses Abschnitts ist der Plan von
+2026-05-16, nach dem das umgesetzt wurde.
 
 ### Loesung in 3 Schichten
 
@@ -139,18 +142,13 @@ Die gesamte App liest aus diesem einen Service. Es existiert sogar schon ein
 | **Bridge** | `app://`-Handler **oder** preload | Empfehlung: Handler faengt `app://app/runtime-config.json` ab und liefert `{ cesiumIonToken }` dynamisch aus `userData`. App macht nur `fetch('/runtime-config.json')` — identisch fuer Web (statische Datei) und Desktop, **ohne `if (electron)`-Branching** |
 | **Eingabe-UI** | In-App-Overlay (Angular) **oder** Mini-Setup-Fenster (`desktop/setup.html`) | Beim ersten Start "Cesium-Token eingeben" mit Link zu `cesium.com/ion`. Speichern via preload → IPC → `config.json` |
 
-### Der eine unvermeidbare Angular-Eingriff
+### Der Angular-Eingriff (erledigt)
 
-`config.service.ts` — **eine Datei**: statt synchron aus `environment` zu
-initialisieren, laedt der Service die Config zur Laufzeit, `.set()`-et die Signals
-und flippt `loaded` auf `true`. App-Init wartet ggf. auf `loaded`. ~15 Zeilen.
-Diese Aenderung ist **generisch** (Runtime-Config statt Build-Time-Inlining —
-verbessert auch den Web-Build), kein Electron-spezifischer Code.
-
-Zusaetzlich: `environment.prod.ts` shippt mit **leerem** `cesiumIonToken`
-(lokales `environment.ts` behaelt den Token fuer die Dev-Arbeit).
-`cesiumAssetId` (`2275207`, Google Photorealistic Tiles) ist nicht geheim und
-bleibt als Default.
+Geplant war genau eine Datei, `config.service.ts`: Config zur Laufzeit laden,
+die Signals setzen, `loaded` auf `true`. So ist es umgesetzt, generisch fuer Web
+und Desktop, ohne Electron-spezifischen Code. `environment.prod.ts` bleibt ohne
+Token; `cesiumAssetId` (`2275207`, Google Photorealistic Tiles) ist nicht geheim
+und bleibt als Default.
 
 ## Code-Signing (Kostenuebersicht)
 
@@ -202,8 +200,7 @@ unproblematisch — nur in stark gesandboxten Umgebungen relevant.
 
 - **`backgroundThrottling`**: Soll das Spiel im Hintergrund weiterlaufen (`false`)
   oder pausieren (`true`)?
-- **Token-Eingabe-UI**: In-App-Overlay (Angular, schoenere UX) oder separates
-  `desktop/setup.html`-Fenster (100 % in `desktop/`)?
-- **Auslieferung ohne Cesium-Token** ja/nein — falls ja, greift der Abschnitt
-  "Cesium-Token zur Laufzeit".
+- **Token-Eingabe-UI**: Das In-App-Overlay gibt es inzwischen
+  (`components/token-setup/`). Offen ist nur, ob der Desktop-Build zusaetzlich
+  eine `runtime-config.json` aus `userData` ausliefert.
 - **Code-Signing** — erst relevant beim breiten Vertrieb.
