@@ -76,10 +76,12 @@ export class MapRelocationService {
 
     // Slow path: outside bounds → full 7-step location change
     // Check if old spawn is still usable or needs to be regenerated
+    const times = new StepTimes(['streets', 'spawn']);
     const existingSpawns = this.store.spawnPoints();
     let spawnLat: number;
     let spawnLon: number;
     let spawnName: string;
+    let spawnFrom: 'old' | 'random' | 'fallback';
 
     const oldSpawn = existingSpawns.length > 0 ? existingSpawns[0] : null;
     const spawnTooFar = oldSpawn
@@ -91,11 +93,13 @@ export class MapRelocationService {
       spawnLat = oldSpawn.lat;
       spawnLon = oldSpawn.lon;
       spawnName = oldSpawn.name;
+      spawnFrom = 'old';
     } else {
       // Old spawn too far or none exists — pre-load streets and find a random spawn
       // (same pattern as the location dialog's isRandom flow)
       try {
         const newNetwork = await this.osmService.loadStreets(lat, lon, 2000);
+        times.lap('streets');
 
         // Cache in bridge so coordinator's step3 reuses it (avoids double-load).
         // The component may have gone away during the load.
@@ -106,23 +110,32 @@ export class MapRelocationService {
         const randomSpawn = this.osmService.findRandomStreetPoint(
           newNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE,
         );
+        times.lap('spawn');
         if (randomSpawn) {
           spawnLat = randomSpawn.lat;
           spawnLon = randomSpawn.lon;
           spawnName = randomSpawn.streetName || 'Spawn';
+          spawnFrom = 'random';
         } else {
           // Fallback: ~700m north (coordinator will attempt pathfinding)
           spawnLat = lat + 0.0063;
           spawnLon = lon;
           spawnName = 'Fallback Spawn';
+          spawnFrom = 'fallback';
         }
       } catch {
         // Street loading failed — use fallback offset
+        times.lap('streets');
         spawnLat = lat + 0.0063;
         spawnLon = lon;
         spawnName = 'Spawn';
+        spawnFrom = 'fallback';
       }
     }
+
+    // Before the loading screen of the location change: what the player
+    // waited for without one. The change itself reports its steps there.
+    console.warn(`[Relocation] HQ outside the streets: ${times} spawnFrom=${spawnFrom}`);
 
     await this.locationCoordinator.applyNewLocation({
       hq: { lat, lon, name: 'Loading...' },
@@ -134,6 +147,16 @@ export class MapRelocationService {
    * Fast HQ repositioning within loaded street network bounds.
    * Calls engine.setOrigin() to update coordinate system, then rebuilds
    * markers, paths, and game state without loading screen or street reload.
+   *
+   * Everything up to the corridor fit runs in one go on the main thread;
+   * `[Relocation] HQ in place:` logs how long each step took (StepTimes):
+   * reset, clear, services, paths (A* from the kept spawn to the new HQ),
+   * route (the spawn's route: A* again, turn-off, corridor fit, line),
+   * random (a new spawn when none is kept: up to 50 A* runs, and its
+   * route), state, grid (cells and their first height sample), placement,
+   * streets, camera, rest, corridor (the first slice of the measurement,
+   * whose remainder runs over the next frames and logs `[Corridor]
+   * clearance`).
    */
   private async applyHqInPlace(lat: number, lon: number, host: RelocationHost): Promise<void> {
     const ctx = host.context();
@@ -142,6 +165,11 @@ export class MapRelocationService {
     const streetNetwork = ctx?.bridge.getStreetNetwork();
     if (!ctx || !engine || !streetNetwork || !vizCallbacks) return;
     const { bridge, gameState } = ctx;
+    const times = new StepTimes([
+      'reset', 'clear', 'services', 'paths', 'route', 'random', 'state', 'grid',
+      'placement', 'streets', 'camera', 'rest', 'corridor',
+    ]);
+    let spawnFrom: 'old' | 'random' | 'none' = 'none';
 
     // Save existing spawns before clearing
     const existingSpawns = this.store.spawnPoints().map(sp => ({
@@ -154,6 +182,7 @@ export class MapRelocationService {
 
     // 2. Reset game state (towers, enemies, etc.)
     gameState.reset();
+    times.lap('reset');
 
     // 3. Targeted cleanup — keep street network + street network location
     this.markerViz.clearAllMarkers();
@@ -169,20 +198,25 @@ export class MapRelocationService {
     // 5. Update store signals
     this.store.baseCoords.set({ lat, lon });
     this.store.centerCoords.set({ lat, lon, height: 400 });
+    times.lap('clear');
 
     // 6. Re-initialize visualization services (markerViz + pathRoute with new baseCoords)
     vizCallbacks.initializeVisualizationServices();
 
     // 7. Re-add HQ marker
     this.markerViz.addBaseMarker();
+    times.lap('services');
 
     // 8. Re-add existing spawns — validate paths to new HQ
     let hasValidSpawn = false;
     for (const spawn of existingSpawns) {
       const path = this.osmService.findPath(streetNetwork, spawn.lat, spawn.lon, lat, lon);
+      times.lap('paths');
       if (path && path.length >= 2) {
         host.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, spawn.color);
+        times.lap('route');
         hasValidSpawn = true;
+        spawnFrom = 'old';
         break; // Only 1 spawn supported
       }
     }
@@ -194,7 +228,9 @@ export class MapRelocationService {
       );
       if (randomSpawn) {
         host.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, SPAWN_COLORS[0]);
+        spawnFrom = 'random';
       }
+      times.lap('random');
     }
 
     // 10. Re-initialize game state with new routes
@@ -204,16 +240,21 @@ export class MapRelocationService {
     gameState.initialize(
       engine, { lat, lon }, waveSpawns, this.pathRoute.getCachedPaths(),
     );
+    times.lap('state');
     gameState.initializeGlobalRouteGrid();
+    times.lap('grid');
 
     // 11. Re-initialize tower placement + street filter + rendering
     vizCallbacks.initializeTowerPlacement();
+    times.lap('placement');
     vizCallbacks.filterStreetNetworkToRoutes();
     vizCallbacks.renderStreets();
+    times.lap('streets');
 
     // 12. Camera reframe
     vizCallbacks.reframeCameraWithRoutes();
     vizCallbacks.saveInitialCameraPosition();
+    times.lap('camera');
 
     // 13. Update location service + URL
     const spawns = this.store.spawnPoints();
@@ -231,10 +272,14 @@ export class MapRelocationService {
 
     // 15. Update map placement dependencies
     this.mapPlacement.updateDependencies(streetNetwork, { lat, lon });
+    times.lap('rest');
 
     // 16. Fit the corridor to the tiles: the route service started over at
     // step 6, the routes run with the street widths until it is measured.
     vizCallbacks.fitCorridorToTiles();
+    times.lap('corridor');
+
+    console.warn(`[Relocation] HQ in place: ${times} spawnFrom=${spawnFrom} spawns=${spawns.length}`);
   }
 
   /**
@@ -335,5 +380,32 @@ export class MapRelocationService {
   ): boolean {
     return lat >= bounds.minLat && lat <= bounds.maxLat
       && lon >= bounds.minLon && lon <= bounds.maxLon;
+  }
+}
+
+/**
+ * Time per step of a move, for the `[Relocation]` log: "reset=1.2 clear=0.4
+ * ... total=812.3ms". Every step named up front is printed, 0.0 when it did
+ * not run; a step lapped twice adds up.
+ */
+class StepTimes {
+  private readonly start = performance.now();
+  private last = this.start;
+  private readonly ms: Map<string, number>;
+
+  constructor(steps: readonly string[]) {
+    this.ms = new Map(steps.map((step) => [step, 0]));
+  }
+
+  /** Book the time since the previous lap (or the start) to `step`. */
+  lap(step: string): void {
+    const now = performance.now();
+    this.ms.set(step, (this.ms.get(step) ?? 0) + now - this.last);
+    this.last = now;
+  }
+
+  toString(): string {
+    const parts = [...this.ms].map(([step, ms]) => `${step}=${ms.toFixed(1)}`);
+    return `${parts.join(' ')} total=${(this.last - this.start).toFixed(1)}ms`;
   }
 }

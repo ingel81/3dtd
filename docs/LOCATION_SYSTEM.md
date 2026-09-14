@@ -583,6 +583,31 @@ Wenn das HQ ausserhalb der Bounds platziert wird (z.B. 10km entfernt):
 - Street-Network wird gecached → Coordinator reused es in Step 3 (kein doppeltes Laden)
 - Tiles-Wait ist schnell (~500ms) wenn der Spieler bereits dorthin gescrollt hat
 
+### Zeiten (`[Relocation]` in der Konsole)
+
+Jede Zeile nennt die Zeit je Schritt in ms (`StepTimes` in `map-relocation.service.ts`), einen Schritt, der nicht lief, mit 0.0:
+
+```
+[Relocation] HQ in place: reset= clear= services= paths= route= random= state= grid= placement= streets= camera= rest= corridor= total=ms spawnFrom=old|random|none spawns=
+[Relocation] HQ outside the streets: streets= spawn= total=ms spawnFrom=old|random|fallback
+```
+
+- **Fast Path** (`HQ in place`): alles bis `corridor` läuft am Stück im Hauptthread, `total` ist also die Zeit, in der das Spiel steht
+  - `reset`: Animation und Höhen-Updates stoppen, `gameState.reset()`
+  - `clear`: Marker, Routen, Straßen, Origin, Store
+  - `services`: Visualisierungsdienste neu, HQ-Marker
+  - `paths`: A* vom alten Spawn zum neuen HQ (Prüfung, ob er bleibt)
+  - `route`: dessen Route (A* noch einmal, Abzweig zum HQ, Korridor, Linie)
+  - `random`: nur ohne gültigen alten Spawn, Suche nach einem neuen (bis zu 50 A*-Läufe) samt seiner Route
+  - `state`: `gameState.initialize()`
+  - `grid`: Zellen samt erster Höhenprobe je Zelle
+  - `placement`: Tower-, Karten-, Fähigkeiten-, Helden-Platzierung neu
+  - `streets`: Straßen filtern und zeichnen (das Zeichnen selbst läuft danach in Scheiben)
+  - `camera`: Übersicht neu
+  - `rest`: Standort, URL, Routenanimation
+  - `corridor`: erste Scheibe der Korridor-Messung. Den Rest der Messung meldet danach `[Corridor] clearance` (`in` = Rechenzeit, `wall` = Dauer bis zum Ende), einen Neuaufbau `[Corridor] rebuild`, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#logs)
+- **Slow Path** (`HQ outside the streets`): die Zeit vor dem Ladescreen, `streets` = Overpass bzw. Straßen-Cache, `spawn` = Suche nach einem Zufalls-Spawn. Bleibt der alte Spawn, sind beide 0.0. Den Ortswechsel danach zeigt der Ladescreen
+
 ### HQ-Placement-Validierung (`MapPlacementService`)
 
 | Modus | Innerhalb Bounds | Ausserhalb Bounds |
