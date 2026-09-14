@@ -484,8 +484,8 @@
 
 - [ ] **Sockel: Dach oder Boden, Annahmen ungeprüft** (laut fix1 und fix4)
       Ob die Tiles unter einem Dach Boden zeigen, ist unbelegt; die
-      Kommentare in `utils/route-cell-sampler.ts:246` und
-      `tower-defense.component.ts:525` widersprechen sich. Im Playtest mit
+      Kommentare in `utils/route-cell-sampler.ts:248` und
+      `tower-defense.component.ts:541` widersprechen sich. Im Playtest mit
       `__footprintDebug()` auf Dach und Straße klären (`centreGroundY` gegen
       `centreTopY`). Grenzen der Regel (`a26cd7dd`, `utils/tower-footprint.ts`):
       Auf einem Damm, einer Kuppe oder Terrasse, die binnen Radius plus 8 m zu
@@ -504,8 +504,8 @@
 - [ ] **Shader-Compile-Check braucht glslangValidator von Hand** (laut shadercheck und fix4)
       `npm run shader-check` (läuft auch in `npm test`) kompiliert die
       eigenen Shader nur, wenn `GLSLANG_VALIDATOR` gesetzt oder
-      `glslangValidator` im PATH ist; sonst stehen die 27 Compile-Tests als
-      übersprungen in der Zusammenfassung. Getestet mit 11.7.0, die in
+      `glslangValidator` im PATH ist; sonst meldet er "30 passed | 27 skipped
+      (57)", mit Binary "57 passed (57)". Getestet mit 11.7.0, die in
       ARCHITECTURE.md §13 genannte 16.6.0 nicht. Treiber, ANGLE und
       GPU-Grenzen prüft er nicht; `/engine-test` hat keinen Fall. Drei Fälle
       greifen per Cast auf private Member zu und scheitern bei einer
@@ -637,8 +637,9 @@
       aus GPU-Readbacks gegen gestreamte Tiles (`losReady`, Zellhöhen beim
       Nachladen); der Turmdrehung, die das Feuern freigibt, im Renderer
       (`advanceTurretAim`); den Simulationsdiensten als Singletons des
-      laufenden Spiels. Dieselben Blocker wie in
-      `docs/MULTIPLAYER_CONCEPT.md`, Abschnitt 2. Die Befehle der Welle stehen
+      laufenden Spiels. Zufall, GPU-LOS und Zellhöhen stehen auch in
+      `docs/MULTIPLAYER_CONCEPT.md`, Abschnitt 2; Turmdrehung im Renderer und
+      Singleton-Dienste kommen dazu. Die Befehle der Welle stehen
       schon als Klartext im Log, darauf kann eine Re-Simulation aufsetzen.
 
 - [ ] **Replay: Lücken und ungemessene Kosten** (laut replay, ungesehen)
