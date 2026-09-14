@@ -10,9 +10,11 @@ import { LocationManagementService } from './location/location-management.servic
 import { MapPlacementService } from './world/map-placement.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { AbilityTargetingService } from './ability-targeting.service';
-import { downloadCanvasPng, loadImage, screenshotFileName, stampAttribution } from '../utils/screenshot';
+import { SCREENSHOT_URL, downloadCanvasPng, loadImage, screenshotFileName, stampScreenshot } from '../utils/screenshot';
 import { cycleTab, focusedElement } from '../utils/focus-cycle';
 
+/** The game's logo, the watermark of a saved picture */
+const BRAND_LOGO = 'assets/images/logo/logo.png';
 const GOOGLE_LOGO = 'assets/images/ui/google-maps-logo.svg';
 const CESIUM_LOGO = 'assets/images/ui/cesium-ion-logo.svg';
 
@@ -105,17 +107,20 @@ export class PhotoModeService {
     return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('.td-photo-bar button:not(:disabled)'));
   }
 
-  /** Next drawn frame as PNG download, with the map attribution stamped in. */
+  /**
+   * Next drawn frame as PNG download, with the map attribution, the game's
+   * logo as a watermark and its address stamped in.
+   */
   async saveScreenshot(): Promise<void> {
     const engine = this.engineInit.getEngine();
     if (!engine || this.saving()) return;
     this.saving.set(true);
     try {
-      const logos = (await Promise.all(this.logoSources().map(loadImage)))
-        .filter((logo): logo is HTMLImageElement => logo !== null);
+      const [brandLogo, ...providerLogos] = await Promise.all([BRAND_LOGO, ...this.logoSources()].map(loadImage));
+      const logos = providerLogos.filter((logo): logo is HTMLImageElement => logo !== null);
       const frame = await engine.captureFrame();
       if (!frame) return;
-      stampAttribution(frame, this.store.mapAttribution(), logos);
+      stampScreenshot(frame, this.store.mapAttribution(), logos, { logo: brandLogo, url: SCREENSHOT_URL });
       await downloadCanvasPng(frame, screenshotFileName(this.locationMgmt.displayName(), new Date()));
     } finally {
       this.saving.set(false);
