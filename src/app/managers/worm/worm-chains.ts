@@ -1,6 +1,5 @@
 import type { Enemy } from '../../entities/enemy.entity';
 import type { EnemyChain, EnemyTypeConfig } from '../../configs/enemy-types.config';
-import type { MovementComponent } from '../../game-components/movement.component';
 import type { GeoPosition } from '../../models/game.types';
 import type { SpawnStart } from '../enemy.manager';
 import { getRouteProfile } from '../../utils/route-corridor';
@@ -223,6 +222,9 @@ export class WormChains {
     };
     const enemy = this.host.spawnSegment(group, link, paused);
     group.emerge(slot, enemy);
+    // On the curve where it comes out, in case it does not move this sub-step
+    const at = enemy.movement.getDistanceAlongPath();
+    placeWormSegment(enemy, group, at, wormSway(group.chain, at, group.origin));
     return enemy;
   }
 
@@ -271,14 +273,31 @@ function endOf(group: WormGroup, chain: WormChain): number {
 
 /**
  * Move a worm segment to where its chain puts it (WormChains.tick), in place
- * of MovementComponent.move(). A held segment stays, and so does one whose
- * target is not ahead of it: a head waiting where its worm comes out, or a
- * chain that stands.
+ * of MovementComponent.move(): its distance along the route, and where it
+ * stands and faces on its worm's curve (WormPath). A held segment stays, and
+ * so does one whose target is not ahead of it: a head waiting where its worm
+ * comes out, or a chain that stands.
  */
-export function stepWormSegment(movement: MovementComponent, link: WormLink): 'moving' | 'reached_end' {
+export function stepWormSegment(enemy: Enemy, link: WormLink): 'moving' | 'reached_end' {
+  const movement = enemy.movement;
   if (movement.paused) return 'moving';
-  const meters = link.target - movement.getDistanceAlongPath();
-  if (meters <= 0) return 'moving';
+  if (link.target <= movement.getDistanceAlongPath()) return 'moving';
   movement.setLateralFactor(link.lateral);
-  return movement.advance(meters);
+  if (movement.seekDistance(link.target) === 'reached_end') return 'reached_end';
+  placeWormSegment(enemy, link.group, link.target, link.lateral);
+  return 'moving';
+}
+
+/** Put a segment of `group` on its curve `distance` m along the route, `lateral` across it. */
+function placeWormSegment(enemy: Enemy, group: WormGroup, distance: number, lateral: number): void {
+  const half = group.chain.spacing / 2;
+  group.bend.place(
+    enemy.movement,
+    enemy.transform,
+    distance,
+    lateral,
+    wormSway(group.chain, distance - half, group.origin),
+    wormSway(group.chain, distance + half, group.origin),
+    half,
+  );
 }

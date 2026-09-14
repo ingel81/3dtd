@@ -3,6 +3,7 @@ import type { EnemyChain, EnemyTypeConfig } from '../../configs/enemy-types.conf
 import type { GeoPosition } from '../../models/game.types';
 import type { SpawnStart } from '../enemy.manager';
 import { PORTAL_DEPTH } from '../../configs/marker-geometry.config';
+import { WormPath, wormPathOf } from './worm-path';
 
 /** A slot not out of the portal yet, walking, or killed, through or removed. */
 const PENDING = 0;
@@ -74,6 +75,8 @@ export class WormGroup {
   readonly segments: (Enemy | null)[];
   /** The worms of this group, front to back */
   readonly chains: WormChain[];
+  /** The curve its segments stand on, the route with its corners rounded */
+  readonly bend: WormPath;
   /** Id of the head it was spawned with, the one Enemy Debug lists */
   spawnedHeadId = '';
   /** Spawn order and path, the order WormChains ticks chains on one path in */
@@ -110,6 +113,7 @@ export class WormGroup {
     this.state = new Uint8Array(size);
     this.pendingSlots = size;
     this.chains = [{ first: 0, last: size - 1, front }];
+    this.bend = wormPathOf(path);
   }
 
   /** Slots still inside the portal */
