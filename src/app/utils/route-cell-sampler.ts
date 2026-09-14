@@ -1,6 +1,5 @@
 import { ColumnSample, ColumnSampler, TerrainPeekLOD, isBetterLod } from '../three-engine/column-sample';
 import { RouteCell, TunnelSpan } from './route-cell';
-import { corridorConfig } from './route-corridor';
 import { logGrid } from './route-grid-log';
 
 /** What one column gives a cell, see RouteCellSampler.hitOf. */
@@ -8,10 +7,6 @@ interface CellHit {
   y: number;
   tileDepth: number;
   tileGeometricError: number;
-  /** The roof or the step check put the cell on the ground beside the route. */
-  clamped: boolean;
-  /** The height the step check took the cell down from, see CellSample.stepTop. */
-  stepTop: number | null;
 }
 
 /**
@@ -65,17 +60,12 @@ export class RouteCellSampler {
    */
   private readonly neighbourMedian: (cell: RouteCell, minDepth: number) => number | null;
 
-  /** Spacing of the grid spots, metres: the step of the walk in groundInFront. */
-  private readonly cellSize: number;
-
   /**
    * @param neighbourMedian `GlobalRouteGrid.medianOfStableNeighbourY`.
    *   Läuft nur, wenn die Säule getroffen hat.
-   * @param cellSize Kantenlänge der Cells des Grids.
    */
-  constructor(neighbourMedian: (cell: RouteCell, minDepth: number) => number | null, cellSize: number) {
+  constructor(neighbourMedian: (cell: RouteCell, minDepth: number) => number | null) {
     this.neighbourMedian = neighbourMedian;
-    this.cellSize = cellSize;
   }
 
   // ========================================
@@ -174,7 +164,6 @@ export class RouteCellSampler {
       if (!found) logGrid('SAMPLE', `miss key=${cell.key}`);
       return false;
     }
-    const clamped = hit.clamped;
 
     // Quality-versioned idempotency: if the cell already has a stable sample
     // from a strictly better tile (deeper LOD), refuse to overwrite with
@@ -194,13 +183,8 @@ export class RouteCellSampler {
         );
         return false;
       }
-      // Same Y, same LOD and the same LOS probe height: nothing to do.
-      if (
-        Math.abs(hit.y - cell.terrainHeight) < 0.01 &&
-        Math.abs((hit.stepTop ?? hit.y) - (cell.sample.stepTop ?? cell.terrainHeight)) < 0.01 &&
-        newDepth === oldDepth &&
-        clamped === cell.sample.clamped
-      ) {
+      // Same Y and same LOD: nothing to do.
+      if (Math.abs(hit.y - cell.terrainHeight) < 0.01 && newDepth === oldDepth) {
         return false;
       }
     }
@@ -212,13 +196,11 @@ export class RouteCellSampler {
       sampledAt: ++this.sampleFrame,
       tileDepth: hit.tileDepth,
       tileGeometricError: hit.tileGeometricError,
-      clamped,
-      stepTop: hit.stepTop,
     };
     cell.heightSampled = true;
     logGrid(
       'SAMPLE',
-      `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.y.toFixed(2)} depth=${hit.tileDepth} err=${hit.tileGeometricError.toFixed(2)}${clamped ? ' clamped' : ''}`,
+      `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.y.toFixed(2)} depth=${hit.tileDepth} err=${hit.tileGeometricError.toFixed(2)}`,
     );
     return true;
   }
@@ -237,9 +219,10 @@ export class RouteCellSampler {
    * The column at (x, z), or, where that finds no tile (a seam between two
    * tile meshes), the first column half a metre beside it that does. At
    * most four more column probes, only where the one at (x, z) comes back
-   * empty.
+   * empty. The portals of a tunnel take theirs from here, and so does the
+   * walk check of the corridor (corridor-walk.ts).
    */
-  private columnNear(x: number, z: number): ColumnSample | null {
+  columnNear(x: number, z: number): ColumnSample | null {
     const sampler = this.columnSampler;
     if (sampler === null) return null;
     for (const [dx, dz] of RouteCellSampler.CELL_PROBES_M) {
@@ -251,111 +234,17 @@ export class RouteCellSampler {
 
   /**
    * The height `column` gives `cell`: a bridge deck is the top of its
-   * column, the ground is the bottom.
-   *
-   * A column at the corridor edge can come down on a roof, an eave or a
-   * tree crown reaching over the street: the photogrammetry has no ground
-   * under them, so the lowest hit is their top. Far above the ground on the
-   * route centre line beside it, the cell takes that ground instead (roof
-   * check, `roofRise`). Nor under a parked car, a van or a hedge, which the
-   * clearance rays let the corridor reach over: a column that comes down
-   * more than `stepRise` above the ground the walk out from the centre line
-   * reached takes the ground right in front of it (step check,
-   * groundInFront). Only ever lowered, and never on a bridge deck, which is
-   * meant to be high. A cell the step check lowered keeps the height it
-   * came down from as `stepTop` for its LOS probe (getGroundTargetY). The
-   * probes on the centre line and on the way out are the
-   * columns of the cells there, cached by the engine. A centre line ground
-   * more than OUTLIER_M below is none either: its column went through a
-   * seam (plausible).
+   * column, the ground is the bottom. A column at the corridor edge can
+   * come down on a roof, an eave, a crown or a parked car, which the
+   * photogrammetry has no ground under; the cell keeps that height, and the
+   * corridor ends before such a cell instead (corridor-walk.ts).
    */
   private hitOf(cell: RouteCell, column: ColumnSample): CellHit {
-    const hit: CellHit = {
+    return {
       y: cell.surface === 'deck' ? column.topY : column.groundY,
       tileDepth: column.tileDepth,
       tileGeometricError: column.tileGeometricError,
-      clamped: false,
-      stepTop: null,
     };
-    if (cell.surface === 'ground' && (cell.axisX !== cell.x || cell.axisZ !== cell.z)) {
-      const axis = this.columnNear(cell.axisX, cell.axisZ);
-      const rise = axis === null ? 0 : hit.y - axis.groundY;
-      if (axis !== null && rise > corridorConfig.roofRise && rise <= RouteCellSampler.OUTLIER_M) {
-        hit.y = axis.groundY;
-        hit.clamped = true;
-      } else if (axis !== null && rise <= RouteCellSampler.OUTLIER_M) {
-        const inFront = this.groundInFront(cell, axis.groundY, hit.y);
-        if (inFront !== null) {
-          hit.stepTop = hit.y;
-          hit.y = inFront;
-          hit.clamped = true;
-        }
-      }
-    }
-    return hit;
-  }
-
-  /**
-   * Where a walk from the centre line out to `cell`, grid spot by grid spot,
-   * cannot climb onto the cell's ground `y`: the ground of the last spot it
-   * reached, right in front of the cell. Null where it can.
-   *
-   * The walk starts on the centre line (`axisY`). A spot counts as reached
-   * where its ground lies at most `stepRise` above the highest ground
-   * reached so far, or above the last one plus the cross slope for every
-   * spot since (crossSlope). So it goes down a ditch or a drop (up to
-   * OUTLIER_M, deeper is a seam), up a kerb, a step or a slope, but not onto
-   * a car, a van or a hedge; the ground beyond one of those counts again,
-   * the pavement behind a row of parked cars.
-   */
-  private groundInFront(cell: RouteCell, axisY: number, y: number): number | null {
-    // The walk never reaches less than the centre line, so a cell at most
-    // one step above it is reached whatever lies in between: no probes on
-    // the way out for the edge cells of a level street.
-    if (y <= axisY + corridorConfig.stepRise) return null;
-    const size = this.cellSize;
-    const gx = Math.round((cell.x - cell.axisX) / size);
-    const gz = Math.round((cell.z - cell.axisZ) / size);
-    const steps = Math.max(Math.abs(gx), Math.abs(gz));
-    if (steps === 0) return null;
-    // Rounded away from the centre line either way, so spot(-k) mirrors spot(k).
-    const along = (g: number, k: number) => Math.sign(g * k) * Math.round(Math.abs((g * k) / steps)) * size;
-    const spot = (k: number) => this.columnNear(cell.axisX + along(gx, k), cell.axisZ + along(gz, k));
-    const slope = this.crossSlope(axisY, spot(1), spot(-1));
-
-    let top = axisY;
-    let last = axisY;
-    let lastK = 0;
-    const reaches = (ground: number, k: number) =>
-      ground <= Math.max(top, last + slope * (k - lastK)) + corridorConfig.stepRise;
-    for (let k = 1; k < steps; k++) {
-      const column = spot(k);
-      if (column === null) continue;
-      const ground = column.groundY;
-      if (!reaches(ground, k) || ground < top - RouteCellSampler.OUTLIER_M) continue;
-      last = ground;
-      lastK = k;
-      if (ground > top) top = ground;
-    }
-    return reaches(y, steps) ? null : last;
-  }
-
-  /**
-   * Rise per grid spot of the ground across the street, from the first spot
-   * on the way out (`up`) and its mirror on the other side of the centre
-   * line (`down`): where the ground rises towards the cell about as much as
-   * it falls on the other side (the two within `stepRise`), the smaller of
-   * the two, else 0. A car or a hedge rises on one side only, a quay wall
-   * falls far more than a car rises; a hillside street tilts both ways
-   * alike (DevWorld's terrain as well). As the tower footprint's cursorSlope
-   * does it.
-   */
-  private crossSlope(axisY: number, up: ColumnSample | null, down: ColumnSample | null): number {
-    if (up === null || down === null) return 0;
-    const rise = up.groundY - axisY;
-    const fall = axisY - down.groundY;
-    if (rise <= 0 || fall <= 0 || Math.abs(rise - fall) > corridorConfig.stepRise) return 0;
-    return Math.min(rise, fall);
   }
 
   /**
@@ -429,8 +318,6 @@ export class RouteCellSampler {
       sampledAt: cell.sample.sampledAt,
       tileDepth: 0,
       tileGeometricError: Infinity,
-      clamped: false,
-      stepTop: null,
     };
     cell.heightSampled = true;
     logGrid('SAMPLE', `fill key=${cell.key} y=${y.toFixed(2)}`);
@@ -448,8 +335,6 @@ export class RouteCellSampler {
       sampledAt: 0,
       tileDepth: 0,
       tileGeometricError: Infinity,
-      clamped: false,
-      stepTop: null,
     };
     cell.heightSampled = false;
     cell.terrainHeight = cell.routeAnchorY;

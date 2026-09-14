@@ -1958,7 +1958,9 @@ class GlobalRouteGrid {
 - `route-cell-sampler.ts`: `sampleCellY`, einziger Schreiber von `cell.terrainHeight`
 - `route-grid-aggregate-viz.ts`: Aggregat-Debug-Mesh (`grid`/`gridAir`, "Route Grid Overlay") mit
   Cell-Shader: jede Zelle, auch ohne Höhenprobe, Fläche nach Coverage, Kontur nach Zustand
-  (normal, Dach-Check, Brückendeck, ohne Höhenprobe), Farben in `LOS_VIZ_CONFIG.gridOverlay`
+  (normal, Brückendeck, ohne Höhenprobe, Tunnel), Farben in `LOS_VIZ_CONFIG.gridOverlay`
+- `corridor-walk.ts`: Laufweg-Check (`cellWalkable`, Dach- und Stufen-Check) und `walkCaps`, die
+  Kappen je Station, mit denen der Korridor vor Zellen endet, zu denen kein Gegner laufen kann
 - `route-grid-diagnostics.ts`: `__rg.*`-Dumps; `route-grid-log.ts`: `[CELL-GRID]`-Log
 - Körperliste (`addBodyEnemy`, `getBodyEnemies`, `hasBodyWithin`): Gegner mit einem Körper
   entlang der Route (Ooze, `route-body.ts`) stehen in keiner Zelle. `getEnemiesInRadius`
@@ -1971,8 +1973,9 @@ class GlobalRouteGrid {
 - Eine Zelle gehört dazu, wenn ihr Mittelpunkt auf seiner Seite höchstens die Halbbreite vom
   Segment entfernt ist, außerdem jede Zelle, durch die die Mittellinie läuft (Engstelle: eine
   Zellreihe)
-- Randzellen, deren Säule ein Dach oder eine Krone trifft, nehmen den Boden der Mittellinie
-  daneben (`roofRise`, `CellSample.clamped`)
+- Randzellen, deren Säule ein Dach, eine Krone, ein Auto oder eine Hecke trifft, sind nicht
+  begehbar; der Korridor endet vor ihnen, Routen und Grid werden neu gebaut (`roofRise`,
+  `stepRise`, `corridor-walk.ts`, ROUTE_CORRIDOR.md, Laufweg)
 - Gegner-Seitenversatz auf die Halbbreite der Seite minus 1,5 m begrenzt, damit jeder Gegner
   in einer Zelle steht (Details: [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md))
 - 2m Zellenauflösung für präzise LOS-Prüfung

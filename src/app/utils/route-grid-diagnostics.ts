@@ -107,8 +107,15 @@ export interface RouteCellProbe {
   cell: boolean;
   state: CellSample['state'] | '-';
   heightM: number | null;
-  /** The column found a roof or crown there and the cell stands on the ground beside the route instead. */
-  clamped: boolean | null;
+  /**
+   * An enemy could walk there from the route centre line (cellWalkable,
+   * corridor-walk.ts). False on a cell the corridor keeps although no enemy
+   * could walk to it: a finer tile showed it only once towers stood, or the
+   * centre line runs through the cell beside it. Null where that cannot be
+   * told (no sample of its own, a coarse tile, a centre line, deck or tunnel
+   * cell) or without a cell.
+   */
+  walkable: boolean | null;
   /** Height above the median of the sampled neighbours. */
   aboveNeighboursM: number | null;
   surface: RouteCell['surface'] | '-';
@@ -129,6 +136,7 @@ export function probeRouteCell(
   routeM: number,
   towerId: string | null,
   neighbourMedian: (cell: RouteCell) => number | null,
+  walkable: (cell: RouteCell) => boolean | null,
 ): RouteCellProbe {
   const median = cell?.heightSampled ? neighbourMedian(cell) : null;
   return {
@@ -138,7 +146,7 @@ export function probeRouteCell(
     cell: cell !== undefined,
     state: cell?.sample.state ?? '-',
     heightM: cell ? round(cell.terrainHeight, 2) : null,
-    clamped: cell ? cell.sample.clamped : null,
+    walkable: cell ? walkable(cell) : null,
     aboveNeighboursM: cell && median !== null ? round(cell.terrainHeight - median, 2) : null,
     surface: cell?.surface ?? '-',
     ground: cell && towerId ? answer(cell.towerVisibility.get(towerId)) : '-',
@@ -167,8 +175,11 @@ export interface TowerRangeReport {
   holes: RouteCellSpot[];
   /** Sampled cells more than 1 m above the median of their sampled neighbours. */
   raised: (RouteCellSpot & { aboveM: number })[];
-  /** Sampled cells put back on the ground beside the route: their column found a roof, an eave or a crown. */
-  clamped: number;
+  /**
+   * Cells an enemy could not walk to that the corridor still holds (a car or
+   * an eave a finer tile showed only once towers stood), see RouteCellProbe.walkable.
+   */
+  unwalkable: number;
 }
 
 /**
@@ -177,12 +188,14 @@ export interface TowerRangeReport {
  * @param inRange Every cell whose centre lies within the range, sampled or not.
  * @param holes Grid positions in range without a cell, see `GlobalRouteGrid.findHolesInRange`.
  * @param neighbourMedian Median height of a cell's stable neighbours, null with fewer than three.
+ * @param walkable Whether an enemy could walk to a cell (cellWalkable), null where that cannot be told.
  */
 export function summarizeTowerRange(
   inRange: readonly RouteCell[],
   towerId: string,
   holes: RouteCellSpot[],
   neighbourMedian: (cell: RouteCell) => number | null,
+  walkable: (cell: RouteCell) => boolean | null,
 ): TowerRangeReport {
   const report: TowerRangeReport = {
     cells: inRange.length,
@@ -195,11 +208,11 @@ export function summarizeTowerRange(
     airMissing: 0,
     holes,
     raised: [],
-    clamped: 0,
+    unwalkable: 0,
   };
   for (const cell of inRange) {
     if (!cell.heightSampled) report.unsampled++;
-    if (cell.sample.clamped) report.clamped++;
+    if (walkable(cell) === false) report.unwalkable++;
     const ground = cell.towerVisibility.get(towerId);
     if (ground === undefined) report.groundMissing++;
     else if (ground) report.groundVisible++;
@@ -470,6 +483,7 @@ export function probeCellsAround(
   radius: number,
   towerId: string | null,
   neighbourMedian: (cell: RouteCell) => number | null,
+  walkable: (cell: RouteCell) => boolean | null,
 ): RouteCellProbe[] {
   const { cells, lattice } = view;
   const rows: RouteCellProbe[] = [];
@@ -480,7 +494,7 @@ export function probeCellsAround(
       const cz = (gz + 0.5) * lattice.cellSize;
       if ((cx - x) ** 2 + (cz - z) ** 2 > radiusSq) continue;
       rows.push(probeRouteCell(
-        cells.get(lattice.key(gx, gz)), cx, cz, distanceToRoutes(view, cx, cz), towerId, neighbourMedian,
+        cells.get(lattice.key(gx, gz)), cx, cz, distanceToRoutes(view, cx, cz), towerId, neighbourMedian, walkable,
       ));
     }
   }

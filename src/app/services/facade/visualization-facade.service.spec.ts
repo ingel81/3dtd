@@ -210,6 +210,8 @@ describe('VisualizationFacadeService', () => {
     toggleRouteLinesVisibility: vi.fn(),
     beginClearanceMeasurement: vi.fn(() => corridorRun()),
     hasUnmeasuredStations: vi.fn(() => false),
+    hasUnwalkableCells: vi.fn(() => false),
+    narrowToWalkable: vi.fn(() => false),
     clearCorridorMeasurements: vi.fn(),
     explainCorridorAt: vi.fn(() => null),
   };

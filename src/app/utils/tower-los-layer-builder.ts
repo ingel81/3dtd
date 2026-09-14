@@ -299,8 +299,7 @@ export class TowerLosLayerBuilder {
       matrix.setPosition(cell.x, airMeshY, cell.z);
       airMesh.setMatrixAt(i, matrix);
 
-      // Die Ground-Plate liegt auf der Zelle, gesampelt wird wie im
-      // LOS-Resolve (getGroundTargetY, über einem Auto über dessen Dach).
+      // Gesampelt wird wie im LOS-Resolve (getGroundTargetY).
       groundSampleYArr[i] = getGroundTargetY(cell);
       airSampleYArr[i]    = airMeshY;
     }

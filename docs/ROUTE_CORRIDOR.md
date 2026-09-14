@@ -15,19 +15,20 @@ Route (vom Spawn zum HQ).
 
 | Schritt | Code | Ergebnis |
 |---|---|---|
-| Straßenbreite je Segment | `utils/route-corridor.ts` (`estimateStreetWidth`, `routeHalfWidths`), Zuordnung Segment zu OSM-Way in `path-route.service.ts:489-496` | Halbbreite aus OSM, Rückfall für alles, was die Tiles nicht messen |
-| Messung | `PathAndRouteService.beginClearanceMeasurement` (`path-route.service.ts:829`) und der Lauf `ClearanceRun` (`:1023`), Strahlen in `TerrainQueries.measureStreetClearance` (`three-engine/terrain-queries.ts:340`, als `engine.terrain` erreichbar) | Freiraum je Station und Seite |
+| Straßenbreite je Segment | `utils/route-corridor.ts` (`estimateStreetWidth`, `routeHalfWidths`), Zuordnung Segment zu OSM-Way in `path-route.service.ts:515-522` | Halbbreite aus OSM, Rückfall für alles, was die Tiles nicht messen |
+| Messung | `PathAndRouteService.beginClearanceMeasurement` (`path-route.service.ts:938`) und der Lauf `ClearanceRun` (`:1023`), Strahlen in `TerrainQueries.measureStreetClearance` (`three-engine/terrain-queries.ts:340`, als `engine.terrain` erreichbar) | Freiraum je Station und Seite |
 | Anpassung | `fitCorridorStations`, `fitCorridorPieces`, `closeShortNarrowings` (`route-corridor.ts`), `fitRoute`, `applyClearance` (`path-route.service.ts`) | Segmente geteilt, wo sich eine Seite ändert; Halbbreite links und rechts je Stück; kurze Engstellen geschlossen |
-| Waypoints | `path-route.service.ts:546-551` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
-| Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts:330`) | 2-m-Zellen im Korridor |
-| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`) | Boden, Brückendeck, Tunnelsohle, Dach- und Stufen-Check |
-| Gegner | `MovementComponent.advance` (`movement.component.ts:460-509`), `getRouteProfile` (`route-corridor.ts:703`) | Seitenversatz innerhalb der Zellen |
+| Waypoints | `path-route.service.ts:572-577` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
+| Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts:336`) | 2-m-Zellen im Korridor |
+| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`) | Boden, Brückendeck, Tunnelsohle |
+| Laufweg | `cellWalkable`, `walkCaps` (`utils/corridor-walk.ts`), `PathAndRouteService.narrowToWalkable`, `CorridorController.rebuildCorridors` | Zellen, zu denen kein Gegner laufen kann (Auto, Traufe, Hecke), fallen weg; die Halbbreite endet davor |
+| Gegner | `MovementComponent.advance` (`movement.component.ts:460-509`), `getRouteProfile` (`route-corridor.ts:762`) | Seitenversatz innerhalb der Zellen |
 | Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `CorridorController` (`services/world/corridor-controller.ts:42-66`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
 
 ## Einstellungen
 
 Alle Werte stehen in `corridorConfig`, die Vorgaben in `CORRIDOR_DEFAULTS`
-(`route-corridor.ts:137-182`), die erlaubten Bereiche in `SETTING_RANGES`
+(`route-corridor.ts:138-183`), die erlaubten Bereiche in `SETTING_RANGES`
 (`:211-234`). Routen und Grid lesen die Werte beim Bauen; eine Änderung wirkt
 erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 
@@ -46,29 +47,30 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 | `widthStep` | 0,5 | 0,1 bis 2 | Rundung der gemessenen Breite nach unten |
 | `dipLength` | 4 | 0 bis 100 | Einbrüche bis etwa so lang werden geschlossen |
 | `bulgeLength` | 8 | 0 bis 100 | Ausbuchtungen bis etwa so lang werden abgeschnitten |
-| `roofRise` | 2,5 | 0,5 bis 50 | Schwelle des Dach-Checks |
-| `stepRise` | 0,75 | 0,1 bis 50 | Schwelle des Stufen-Checks je Rasterschritt (2 m) |
+| `roofRise` | 2,5 | 0,5 bis 50 | Dach-Check: so weit über der Mittellinie daneben ist eine Zelle nicht begehbar (siehe Laufweg) |
+| `stepRise` | 0,75 | 0,1 bis 50 | Stufen-Check: höchste Stufe je Rasterschritt (2 m) auf dem Weg zur Zelle (siehe Laufweg) |
 | `highwayWidths` | Tabelle unten | je bis 50 | Straßenbreite je `highway`-Klasse |
 | `unknownHighwayWidth`, `laneWidth`, `laneExtra` | 5, 3, 1 | 1 bis 50, 1 bis 10, 0 bis 10 | Breite unbekannter Klassen, Spurbreite, Zuschlag bei `lanes` |
 
-`MEASUREMENT_KEYS` (`route-corridor.ts:201-208`) sind die Werte, deren Änderung
+`MEASUREMENT_KEYS` (`route-corridor.ts:204-213`) sind die Werte, deren Änderung
 eine neue Messung braucht: `stationSpacing`, `rayHeightLow`, `rayHeightHigh`,
 `maxHalfWidth`, `maxTileError`, `overhangDepth` (der gespeicherte Freiraum
-entsteht beim Messen aus den Treffern). Die übrigen formen nur das Gemessene
-um.
+entsteht beim Messen aus den Treffern), `roofRise` und `stepRise` (die
+gespeicherten Kappen des Laufwegs entstehen aus den Zellen, siehe Laufweg).
+Die übrigen formen nur das Gemessene um.
 
 ## Breite aus dem Freiraum, je Seite
 
 ### Messung
 
-`PathAndRouteService.beginClearanceMeasurement` (`path-route.service.ts:829-878`)
+`PathAndRouteService.beginClearanceMeasurement` (`path-route.service.ts:938-987`)
 geht jedes Segment jeder Route durch und legt einen Lauf an (`ClearanceRun`,
 `:1023`). Ein Segment der Länge `L` bekommt
 `n = max(1, round(L / stationSpacing))` Stationen, Station `k` steht bei
 `(k + 0,5) / n` des Segments. Segmente, die mehrere Routen teilen, werden
 einmal gemessen.
 
-Je Station (`TerrainQueries.measureStreetClearance`, `terrain-queries.ts:340-390`):
+Je Station (`TerrainQueries.measureStreetClearance`, `terrain-queries.ts:341-391`):
 
 1. Eine Säulenprobe unter der Station. Findet sie gar kein Tile, steht die
    Station womöglich auf einer Naht zwischen zwei Tile-Meshes; dann versucht
@@ -86,7 +88,7 @@ Je Station (`TerrainQueries.measureStreetClearance`, `terrain-queries.ts:340-390
    meldet der Strahl seine volle Länge.
 
 Der Freiraum einer Seite ist der weitere der beiden ersten Treffer
-(`probeFreeSpace`, `route-corridor.ts:481`). Eine Wand ist also nur, was beide
+(`probeFreeSpace`, `route-corridor.ts:502`). Eine Wand ist also nur, was beide
 Strahlen stoppt: Fassade, Mauer, Stamm. Ein parkendes Auto, ein Transporter,
 eine Hecke oder ein Zaun stoppt nur den unteren, eine Baumkrone, Traufe oder ein
 Balkon nur den oberen; beides engt den Korridor nicht ein.
@@ -104,7 +106,7 @@ Ausnahme mit `overhang: outer face` in `rule`. Eine Urteilsfrage, abschaltbar
 mit `__corridor.set({ overhangDepth: 0 })` (misst neu).
 
 Gespeichert wird der Freiraum je Segment, Station und Seite in
-`clearanceBySegment` (`path-route.service.ts:186`), NaN für ungemessene
+`clearanceBySegment` (`path-route.service.ts:200`), NaN für ungemessene
 Stationen, dazu die Rohwerte je Station für `__corridor.pick()`. Der Lauf hält
 seine Ergebnisse bei sich und übergibt sie erst an seinem Ende
 (`storeClearance`, `:881-890`); bis dahin baut jede Route mit dem Korridor von
@@ -169,7 +171,7 @@ Waypoints, eine geschlossene Engstelle gilt also für beide.
 
 ## OSM-Breite als Rückfall und Deckel
 
-`estimateStreetWidth` (`route-corridor.ts:296-307`): der `width`-Tag, sonst
+`estimateStreetWidth` (`route-corridor.ts:301-312`): der `width`-Tag, sonst
 `lanes` × `laneWidth` + `laneExtra` (3 m je Spur plus 1 m), sonst die Tabelle je
 `highway`-Klasse, sonst `unknownHighwayWidth`. Die Halbbreite ist die halbe
 Breite, geklemmt auf [`minHalfWidth`, `maxHalfWidth`] (`corridorHalfWidth`).
@@ -198,20 +200,20 @@ Die OSM-Breite gilt:
 - an Stationen ohne Messung (kein oder zu grobes Tile),
 - in Tunneln und Durchgängen,
 - als Obergrenze auf dem Endstück zum HQ,
-- in DevWorld. Dort liefert `TerrainQueries` keine Probe (`terrain-queries.ts:350`), und die
+- in DevWorld. Dort liefert `TerrainQueries` keine Probe (`terrain-queries.ts:351`), und die
   Straßen werden in der Breite gezeichnet, die der Korridor ohnehin nimmt
   (siehe [DEVWORLD.md](DEVWORLD.md)).
 
 ## Zellen und Engstellen
 
-Die Route-Zellen sind 2 m groß (`global-route-grid.ts:95`).
-`claimSegmentCells` (`route-grid-builder.ts:174-236`) nimmt eine Zelle in den
+Die Route-Zellen sind 2 m groß (`global-route-grid.ts:96`).
+`claimSegmentCells` (`route-grid-builder.ts:190-269`) nimmt eine Zelle in den
 Korridor auf, wenn
 
 - ihr Mittelpunkt höchstens die Halbbreite ihrer Seite vom Segment entfernt
   liegt, oder
 - das Segment ihr Quadrat berührt (`segmentTouchesCell`, Liang-Barsky,
-  `route-grid-builder.ts:242-269`).
+  `route-grid-builder.ts:275-302`).
 
 Die zweite Regel sorgt dafür, dass die Zellen, durch die die Mittellinie läuft,
 bei jeder Breite dazugehören. Eine Engstelle schmaler als eine Zelle bleibt so
@@ -234,7 +236,7 @@ Rothenburg). Gegner standen dort nie, ihre Grenze am Waypoint ist die
 kleinere.
 
 Zellen werden erst gesampelt, wenn alle Segmente ihre Zellen beansprucht haben
-(`global-route-grid.ts:352`), weil die Fläche einer Zelle von allen Segmenten abhängt, die sie
+(`global-route-grid.ts:359`), weil die Fläche einer Zelle von allen Segmenten abhängt, die sie
 erreichen.
 
 ## Zellhöhe
@@ -247,8 +249,8 @@ unterste Treffer der feinsten LOD (`column-sample.ts`).
   Treffer, den die Nachbarn ablehnen (unten), versucht die Zelle die Säulen
   0,5 m daneben in x und z und nimmt die erste, die einen annehmbaren
   Treffer gibt. Höchstens vier weitere Säulen, nur für solche Zellen. Die
-  Probe auf der Mittellinie für den Dach-Check und die Portalproben eines
-  Tunnels machen es ebenso. Liegt der Mittelpunkt in keiner Bounding Box
+  Säulen des Laufweg-Checks und die Portalproben eines Tunnels machen es
+  ebenso. Liegt der Mittelpunkt in keiner Bounding Box
   eines Tiles, überspringt der Sweep die Zelle wie bisher ohne Probe.
 - **Ausreißer** (`plausible`): Ein Treffer mehr als 50 m (`OUTLIER_M`) vom
   Median der stabilen Nachbarn derselben Fläche entfernt zählt nicht. Für
@@ -256,8 +258,8 @@ unterste Treffer der feinsten LOD (`column-sample.ts`).
   aus mindestens so tiefen Tiles, damit eine grobe Hülle ringsum ein
   feineres Sample nicht verhindert. Vorher lief der Test nur für stabile
   Zellen ohne Upgrade; im Playtest 2026-09-13 stand eine Zelle so auf
-  -3542 m zwischen Zellen auf 243 m. Der Dach-Check übergeht einen Boden
-  auf der Mittellinie mehr als 50 m unter der Zelle.
+  -3542 m zwischen Zellen auf 243 m. Der Laufweg-Check urteilt nicht über
+  eine Zelle mehr als 50 m über oder unter der Mittellinie daneben.
 - **Lücken füllen** (`GlobalRouteGrid.fillGaps`, nach dem Erzeugen, am Ende
   jedes Sweeps und nach einem Retry mit Promotion): Eine Zelle ohne
   annehmbares eigenes Sample, zwischen stabilen Zellen derselben Fläche auf
@@ -274,54 +276,14 @@ unterste Treffer der feinsten LOD (`column-sample.ts`).
 
 Ausnahmen:
 
-- **Dach-Check** (`hitOf`, `route-cell-sampler.ts:280-285`): Liegt die Probe einer
-  Zelle neben der Mittellinie mehr als `roofRise` (2,5 m) über dem Boden der
-  Mittellinien-Zelle daneben, nimmt die Zelle diesen Boden und trägt
-  `sample.clamped = true`. Die Säule hat dann ein Dach, eine Traufe oder eine
-  Krone getroffen, unter der die Photogrammetrie keinen Boden hat. Der Check
-  senkt nur ab, gilt nur für Zellen mit Fläche `ground` und nicht für die
-  Mittellinien-Zellen selbst. Welche Mittellinien-Zelle daneben liegt, legt
-  `claimSegmentCells` beim Anlegen fest (`axisX`, `axisZ`,
-  `route-grid-builder.ts:228-230`).
-- **Stufen-Check** (`groundInFront`, `crossSlope` in
-  `route-cell-sampler.ts`): Greift der Dach-Check nicht, geht die Zelle den
-  Weg von der Mittellinien-Zelle zu sich Rasterstelle für Rasterstelle ab
-  (Säulen der Zellen dort, aus dem Cache). Eine Stelle gilt als erreicht,
-  wenn ihr Boden höchstens `stepRise` (0,75 m) über dem höchsten bisher
-  erreichten Boden liegt oder über dem zuletzt erreichten plus der
-  Querneigung je Stelle seitdem. Liegt die Zelle selbst höher, nimmt sie den
-  Boden der letzten erreichten Stelle vor ihr und trägt ebenfalls
-  `clamped = true`. Das trifft Zellen auf einem geparkten Auto, einem
-  Transporter oder einer Hecke: Die Strahlen lassen den Korridor darüber
-  reichen (nur der untere Strahl stoppt), und die Photogrammetrie hat unter
-  einem Auto keinen Boden (Playtest 2026-09-14). Der Gehweg hinter einer
-  Reihe Autos bleibt, wie er ist, abwärts geht es beliebig weit (bis
-  `OUTLIER_M`).
-  - **Querneigung:** Steigt der Boden an der ersten Stelle zur Zelle hin
-    um etwa so viel, wie er an der gespiegelten Stelle auf der anderen
-    Seite der Mittellinie fällt (beide höchstens `stepRise` auseinander),
-    darf der Weg je Stelle um das Kleinere der beiden mehr steigen. Eine
-    Straße quer am Hang (auch DevWorld) behält so ihre Randzellen; ein Auto
-    steigt nur auf einer Seite, eine Kaimauer fällt viel tiefer, als ein
-    Auto hoch ist.
-  - **Kosten:** eine Säule je Rasterstelle auf dem Weg und eine
-    gespiegelte, meist Zellen, deren Säulen der Engine schon im Cache hat.
-  - **Sichtlinie der Tower:** Die Zelle merkt sich die Höhe, von der der
-    Stufen-Check sie heruntergesetzt hat, als `sample.stepTop` (das Dach
-    des Autos). Die Boden-Probe der Tower-LOS liegt 1,5 m darüber
-    (`getGroundTargetY`, `route-cell.ts`), wie vor dem Stufen-Check; die
-    Zelle selbst, die Gegner darauf und die Platte der LOS-Anzeige bleiben
-    auf Straßenhöhe. Auf Straßenhöhe plus 1,5 m läge die Probe bei einem
-    Transporter oder einer Hecke im Objekt, der Cube sähe dessen
-    Oberfläche vor der Probe, und die Zelle wäre für jeden Tower
-    `blocked`: Gegner dort fände kein Tower (Review 2026-09-14, C1). Die
-    Air-Probe bleibt `getAirTargetY` über der Zellhöhe, dort fliegen die
-    Luftgegner. Eine Zelle, die der Dach-Check geklemmt hat, probt wie
-    bisher über ihrer Zellhöhe.
+- **Dach, Traufe, Krone, Auto, Hecke:** Die Zelle behält den untersten
+  Treffer ihrer Säule, auch wo er auf deren Oberseite liegt, weil die
+  Photogrammetrie darunter keinen Boden hat. Gegner laufen dort nicht: Der
+  Korridor endet vor einer solchen Zelle (siehe Laufweg).
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
-  (`path-route.service.ts:493`) tragen `onBridge`, ihre Zellen die Fläche
+  (`path-route.service.ts:519`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
-  (`route-cell-sampler.ts:274`). Wo Brücke und Zufahrt aneinanderstoßen,
+  (`route-cell-sampler.ts:244`). Wo Brücke und Zufahrt aneinanderstoßen,
   nimmt eine Zelle die Fläche des Segments, entlang dessen Länge sie liegt;
   das runde Ende des anderen ändert sie nicht (`claimSegmentCells`,
   `alongClaims`). Erreichen zwei Segmente eine Zelle beide entlang ihrer
@@ -332,20 +294,124 @@ Ausnahmen:
   unter dem Deck (Playtest 2026-09-14, Paris, siehe "Linie, Zellen und
   Gegner verschwinden").
 - **Tunnel und überdachte Durchgänge:** `runsUnderCover`
-  (`route-corridor.ts:341`) gilt für `tunnel=*` außer `no` (also auch
+  (`route-corridor.ts:346`) gilt für `tunnel=*` außer `no` (also auch
   `building_passage`) und für `covered=yes`. Solche Segmente tragen `inTunnel`
   und werden nicht vermessen, es gilt die OSM-Breite. Ihre Zellen haben die
   Fläche `tunnel`.
   - **Höhe:** linear zwischen dem Boden an zwei Portalen, je 2 m vor den
     Mündungen des ganzen Tunnelstücks (`TUNNEL_PORTAL_OFFSET_M`,
     `tunnelSegments`, `route-grid-builder.ts:12-89`). Die Höhe hat die gröbere
-    LOD der beiden Portale (`tunnelColumn`, `route-cell-sampler.ts:402-413`).
+    LOD der beiden Portale (`tunnelColumn`, `route-cell-sampler.ts:291-302`).
   - **Ohne Portal-Tile:** Solange an einem der beiden Portale kein Tile
     liegt, bleibt die Zelle ohne Höhenprobe.
   - **Geteilte Zellen:** Erreicht ein Tunnelsegment eine Zelle, ist sie
     Tunnelzelle, auch wenn ein anderes Segment sie ebenfalls erreicht
-    (`route-grid-builder.ts:220-222`).
-  - Kein Dach-Check.
+    (`route-grid-builder.ts:245-249`).
+  - Kein Laufweg-Check.
+
+## Laufweg: Zellen, zu denen kein Gegner laufen kann
+
+Die Strahlen lassen den Korridor über alles reichen, was nur einen von
+ihnen stoppt: ein parkendes Auto, einen Transporter oder eine Hecke unter
+dem oberen Strahl, eine Traufe oder Krone über dem unteren. Die
+Photogrammetrie hat unter keinem davon Boden, die Säule einer Zelle dort
+trifft dessen Oberseite. Seit der Nutzerentscheidung nach dem Playtest
+2026-09-14 ("Orange Zellen weglassen") endet der Korridor vor einer solchen
+Zelle. Vorher blieb sie im Korridor und wurde auf den Boden daneben gesetzt
+(orange Kontur, `clamped`): Gegner liefen dort durch das Auto oder standen
+unter dem Dach.
+
+**Prüfung** (`cellWalkable`, `utils/corridor-walk.ts`): für jede Zelle
+neben der Mittellinie mit Fläche `ground` und einer eigenen Probe aus einem
+Tile bis `maxTileError`. Bezug ist die Mittellinien-Stelle daneben (`axisX`,
+`axisZ`, beim Anlegen festgelegt).
+
+- **Dach-Check:** Liegt die Zelle mehr als `roofRise` (2,5 m) über dem
+  Boden der Mittellinie daneben, ist sie nicht begehbar: Dach, Traufe,
+  Krone.
+- **Stufen-Check:** Sonst geht die Prüfung den Weg von der Mittellinie zur
+  Zelle Rasterstelle für Rasterstelle ab (Säulen der Zellen dort, aus dem
+  Cache der Engine). Eine Stelle gilt als erreicht, wenn ihr Boden
+  höchstens `stepRise` (0,75 m) über dem höchsten bisher erreichten Boden
+  liegt oder über dem zuletzt erreichten plus der Querneigung je Stelle
+  seitdem. Erreicht der Weg die Zelle nicht, ist sie nicht begehbar: Auto,
+  Transporter, Hecke, erhöhter Garten. Abwärts geht es beliebig weit (bis
+  `OUTLIER_M`, tiefer ist eine Naht).
+  - **Querneigung:** Steigt der Boden einen Schritt von der Mittellinie
+    entlang der geraden Linie zur Zelle um etwa so viel, wie er gespiegelt
+    auf der anderen Seite fällt (beide höchstens `stepRise` auseinander),
+    darf der Weg je Stelle um das Kleinere der beiden mehr steigen. Eine
+    Straße quer am Hang (auch DevWorld) behält so ihre Randzellen, solange
+    sie höchstens `roofRise` über der Mittellinie liegen (Playtest 563).
+    Gemessen auf der geraden Linie, nicht auf den Rasterstellen: Auf einer
+    Linie, die weder achsparallel noch diagonal läuft (Zellen um das Ende
+    eines Segments), steigt der Boden über die Rasterstellen in ungleichen
+    Stufen, oft beim ersten Schritt gar nicht.
+- **Kein Urteil** (`null`): Zellen der Mittellinie, Deck und Tunnel,
+  gefüllte und ungesampelte Zellen, Zellen aus Tiles gröber als
+  `maxTileError` (ein grober Klumpen engt nichts ein; sie kommen dran,
+  sobald ein feineres Tile da ist), eine Zelle ohne Säule an der
+  Mittellinie oder mehr als `OUTLIER_M` von ihr entfernt (Naht).
+
+Die Zelle selbst behält ihre Höhe (`sampleCellY` nimmt den untersten
+Treffer). `clamped`, `stepTop` und die orange Kontur gibt es nicht mehr;
+die Boden-Probe der Tower-LOS liegt wie überall 1,5 m über der Zelle
+(`getGroundTargetY`).
+
+**Vom Grid auf die Breite** (`walkCaps`,
+`PathAndRouteService.walkCapsWithGrid`): Jede nicht begehbare Zelle kappt
+auf ihrer Seite die Station, deren Stück sie beansprucht: entlang eines
+Segments die Station dort, hinter einem Segmentende die Station an diesem
+Ende, wenn dessen rundes Ende (`jointCap`, mit den Breiten in Gebrauch) die
+Zelle erreicht; an einer Ecke, deren runde Enden sie beide erreichen, nur
+das frühere Segment. Die Kappe ist der Abstand der Zelle zur Mittellinie
+(hinter einem Ende zum Endpunkt) weniger 0,09 m: So weit reicht das runde
+Ende eines Nachbarstücks über dessen Halbbreite hinaus (halbe
+Zelldiagonale mal `hypot(1, taper)` weniger `edgeMargin`), dazu 1 cm. Eine
+Zelle, durch die die Mittellinie läuft, bleibt; der Korridor nimmt sie bei
+jeder Breite. Gespeichert je Segment, Station und Seite in
+`walkBySegment`, nur je schmaler, vergessen mit den Messungen
+(Ortswechsel, `clearCorridorMeasurements`, `__corridor.set()` mit einem
+der `MEASUREMENT_KEYS`).
+
+**In der Anpassung** (`fitCorridorStations`): Die Kappe gilt nach allen
+anderen Regeln, abgerundet auf `widthStep`, auch unter `minHalfWidth`, und
+ohne Glättung: Ein Auto engt den Korridor auf seiner Länge ein, auch unter
+`dipLength`. `closeShortNarrowings` weitet ein Stück höchstens bis zu seiner
+Kappe (`maxLeft`, `maxRight`). Weil der Korridor je Seite ein Band ist,
+fällt alles dahinter mit weg, auch der Gehweg hinter einer Autoreihe.
+Gegner halten sich an die schmalere Breite wie an jede andere
+(`lateralLimit`; `route-corridor-coverage.spec.ts`,
+`integration/corridor-walk.spec.ts`).
+
+**Wann** (Rückkopplung Messung, Grid, Breite, Neubau):
+
+- Am Ende jedes Messlaufs (`storeClearance`), mit dem Grid, das gerade
+  steht.
+- Nach jedem Neuaufbau (`CorridorController.rebuildCorridors`, Schritt
+  `walk`): Die neuen Zellen können weiter reichen als die alten, etwa wenn
+  die erste Messung über die OSM-Breite hinaus verbreitert. Dann Routen,
+  Grid und Höhen noch einmal, bis sich kein Korridor mehr ändert, höchstens
+  `MAX_WALK_PASSES` (2) weitere Male. Die Kappen werden nur schmaler, ein
+  weiterer Bau hat also nur Zellen des vorherigen.
+- Nach einem Tile-Schub (`remeasure()`): Zeigt ein feineres Tile Zellen, zu
+  denen kein Gegner laufen kann und die ein schmalerer Korridor wegnähme
+  (`hasUnwalkableCells`), misst `remeasure()` wie bei ungemessenen
+  Stationen; der dann leere Lauf speichert die Kappen, der Neuaufbau folgt.
+- Nicht unter Tower, Welle oder Gegnern (`rebuildBlocker`). Was ein
+  feineres Tile erst dann zeigt, bleibt im Korridor, auf seiner Höhe
+  (Autodach, Traufe), bis zum nächsten Neuaufbau. `__corridor.towerCells()`
+  zählt es unter `unwalkable`, `pick()` zeigt `walkable: false`.
+
+**Kosten:** In einer Spec ohne Engine (1 km Route mit Knicken, 7 m je
+Seite, 3714 Zellen, ein Auto alle 12 m, Median aus 7 Läufen) kostete die
+Prüfung aller Zellen 1,2 ms und die Kappen 0,1 ms; Grid erzeugen und
+voller Höhen-Sweep in derselben Spec 6 und 5 ms. Im Spiel liest die Prüfung
+die Säulen aus dem Cache der Engine, den das Grid im selben Frame gefüllt
+hat; nicht gemessen. Teuer ist ein zusätzlicher Bau: nach den Zahlen vom
+2026-09-12 (routes 14, grid 10, heights 4 bis 6 ms) etwa 30 ms, synchron im
+selben Frame, und nur, wenn eine nicht begehbare Zelle einen Korridor
+ändert. `[Corridor] rebuild` nennt ihn mit `walk=` und `narrowed=`.
 
 ## Seitenversatz der Gegner
 
@@ -358,17 +424,17 @@ Der Versatz in Metern ist Faktor mal die seitliche Grenze an der aktuellen
 Stelle, auf der Seite, auf der der Gegner läuft (`movement.component.ts:487-508`).
 
 - **Grenze eines Segments:** `lateralLimit(H) = max(0, H - edgeMargin)`
-  (`route-corridor.ts:667`). `edgeMargin` ist mindestens die halbe Diagonale
+  (`route-corridor.ts:726`). `edgeMargin` ist mindestens die halbe Diagonale
   einer 2-m-Zelle (1,41 m). Ein Gegner innerhalb der Grenze steht deshalb
   in einer Zelle, deren Mittelpunkt innerhalb `H` liegt, also in einer Zelle,
   die das Grid angelegt hat (`route-corridor.ts:37-44`).
   - **Warum das zählt:** Außerhalb der Zellen findet `getEnemiesForTower`
-    den Gegner nicht (`global-route-grid.ts:826`).
+    den Gegner nicht (`global-route-grid.ts:833`).
   - **Test:** `integration/route-corridor-coverage.spec.ts` läuft das über
     Engstellen und Ecken ab.
 - **Übergänge:** Die Grenze an einem Waypoint ist die kleinere der beiden
   angrenzenden Segmente. Danach darf sie entlang der Route höchstens um
-  `taper` (0,5 m pro m) steigen (`buildSideLimits`, `route-corridor.ts:736-766`).
+  `taper` (0,5 m pro m) steigen (`buildSideLimits`, `route-corridor.ts:795-825`).
   Vor einer Engstelle rücken Gegner so allmählich ein, statt am ersten
   schmalen Waypoint seitlich zu springen.
 - **Mittellinie:** Unter 1,5 m Halbbreite ist die Grenze 0. An einer
@@ -386,8 +452,8 @@ Stelle, auf der Seite, auf der der Gegner läuft (`movement.component.ts:487-508
 
 | Auslöser | Wann | Bedingung |
 |---|---|---|
-| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:553-556`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:21-25`) | kein Intro-Flug (siehe unten); neu gebaut wird nur, wenn die Messung einen Korridor ändert |
-| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`RouteGridConvergence`, `route-grid-convergence.ts:140-142`), und von selbst noch einmal, wenn ihn einer der letzten drei Punkte rechts aufhielt (siehe unten) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
+| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:556-559`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:21-25`) | kein Intro-Flug (siehe unten); neu gebaut wird nur, wenn die Messung einen Korridor ändert |
+| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`RouteGridConvergence`, `route-grid-convergence.ts:140-142`), und von selbst noch einmal, wenn ihn einer der letzten drei Punkte rechts aufhielt (siehe unten) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`) oder Zellen, zu denen kein Gegner laufen kann und die ein schmalerer Korridor wegnähme (`hasUnwalkableCells`, siehe Laufweg), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
 | `change()` | `__corridor.set()` und `__corridor.reset()` | ein Ort ist geladen; bei geänderten `MEASUREMENT_KEYS` werden alle Messungen verworfen. Misst am Stück und baut immer neu |
 
 Für alle drei gilt die Sperre `rebuildBlocker()`: kein Neuaufbau, solange Tower
@@ -410,10 +476,10 @@ danach weiter. Stationen, die dann noch auf groben Tiles stehen, laufen
 mit der OSM-Breite, bis `remeasure()` sie nach einem späteren Tile-Schub
 nachholt. Ob sich etwas geändert hat, vergleicht `storeClearance` an den
 fertigen Korridorstücken aller Routen vor und nach dem Speichern
-(`fittedCorridors`, `path-route.service.ts:625-627`, `:881-890`).
+(`fittedCorridors`, `path-route.service.ts:655-657`, `:881-890`).
 
 Hält der Intro-Flug, ein offener Lauf oder die 3 s `remeasure()` auf, ruft es
-sich selbst wieder auf (`retryRemeasure`, `corridor-refit.ts:222-228`): bei
+sich selbst wieder auf (`retryRemeasure`, `corridor-refit.ts:287-293`): bei
 den 3 s, sobald sie um sind, sonst alle 3 s, bis es misst; unter Tower,
 Gegner oder Welle nicht. Vorher geschah nach einem aufgehaltenen Aufruf nichts
 mehr bis zum nächsten Tile-Schub. Setzte sich der letzte Schub eines Orts
@@ -437,9 +503,9 @@ Route zählen für `hasUnmeasuredStations` nicht mehr.
 
 `fitToTiles()` und `remeasure()` messen nicht am Stück, sondern je Frame so
 viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
-`corridor-refit.ts:89`, Ablauf `:115-131`). Die Frames kommen aus
+`corridor-refit.ts:96`, Ablauf `:115-131`). Die Frames kommen aus
 `requestAnimationFrame` wie beim Höhen-Sweep
-(`CorridorController`, `corridor-controller.ts:54-61`).
+(`CorridorController`, `corridor-controller.ts:70-77`).
 
 - **Budget:** Eine Station (Säule und vier Strahlen) kostete im Playtest vom
   2026-09-12 in der Innenstadt etwa 1,7 ms (533 ms für 316 Stationen); 4 ms
@@ -470,7 +536,7 @@ viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
   ein Korridor ändert, im selben Frame neu gebaut.
 - **Tower und Welle bringen den Lauf zu Ende:** Soll ein Tower gesetzt werden
   oder eine Welle starten, solange ein Lauf offen ist, misst
-  `CorridorRefit.flush` (`corridor-refit.ts:200`) den Rest sofort am Stück,
+  `CorridorRefit.flush` (`corridor-refit.ts:250`) den Rest sofort am Stück,
   speichert und baut neu; erst dann steht der Tower oder startet die Welle.
   Dasselbe gilt für eine erste Messung, die auf das Ende des Intro-Flugs
   wartet.
@@ -501,25 +567,28 @@ viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
 
 ### Neuaufbau
 
-`CorridorController.rebuildCorridors` (`corridor-controller.ts:108-138`) läuft synchron in
+`CorridorController.rebuildCorridors` (`corridor-controller.ts:126-168`) läuft synchron in
 einem Frame:
 
 1. `routes`: `refreshRouteLines`, also Wegsuche je Spawn, Korridoranpassung
    und rote Linie.
 2. `grid`: Grid leeren und neu erzeugen, samt erster Höhenprobe je Zelle.
 3. `heights`: voller Höhen-Sweep (`updateTerrainHeights`).
-4. `lines`: `refreshRouteLines` ein zweites Mal, auf den neuen Zellhöhen.
-5. `overlays`: Debug-Layer neu, laufende Routen-Animation neu gestartet.
+4. `walk`: Zellen, zu denen kein Gegner laufen kann, kappen den Korridor
+   (`narrowToWalkable`); wo das einen Korridor ändert, die Schritte 1 bis 3
+   noch einmal, höchstens `MAX_WALK_PASSES` (2) Mal (siehe Laufweg).
+5. `lines`: `refreshRouteLines` ein zweites Mal, auf den neuen Zellhöhen.
+6. `overlays`: Debug-Layer neu, laufende Routen-Animation neu gestartet.
 
 ### Logs
 
 ```
 [Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms [flushed=tower|wave] [noTile=x,z;x,z;...]
 [Corridor] clearance cancelled (Grund): stations=N of M in X ms slices= wall= ms, corridor unchanged
-[Corridor] rebuild: routes= grid= heights= lines= overlays= total= ms spawns= cells=
+[Corridor] rebuild: routes= grid= heights= walk= narrowed= lines= overlays= total= ms spawns= cells=
 ```
 
-- **`clearance`** (`ClearanceRun.commit`, `path-route.service.ts:1096-1102`):
+- **`clearance`** (`ClearanceRun.commit`, `path-route.service.ts:1211-1217`):
   erscheint am Ende eines Laufs, der mindestens ein Segment angefasst hat.
   - `stations`: die in diesem Lauf versuchten Stationen.
   - `rays`: 2 Strahlhöhen × 2 Seiten × gemessene Stationen; die Säulenprobe
@@ -537,7 +606,7 @@ einem Frame:
     getrennt, höchstens zehn, dahinter `;+N` für den Rest. Dort lohnt
     `__corridor.pick()`.
   - `__raycastStats()` bucht die Strahlen und die Säulenprobe unter
-    `routeCorridor` (`terrain-queries.ts:352`).
+    `routeCorridor` (`terrain-queries.ts:353`).
 - **`clearance cancelled`** (`:1111-1114`): Ein Lauf wurde verworfen, der
   Korridor bleibt, wie er war. Der Grund ist einer der Sperrgründe
   (`enemies are on the map`, sonst `towers stand on the map, sell them first`
@@ -546,7 +615,9 @@ einem Frame:
   `intro flight`.
   `stations=N of M`: so weit kam er.
 - **`rebuild`**: erscheint nur bei einem Neuaufbau, also nach `changed=true`
-  oder nach `__corridor.set()`/`reset()`.
+  oder nach `__corridor.set()`/`reset()`. `walk` ist die Zeit der
+  Laufweg-Runden samt ihrer Bauten, `narrowed` deren Zahl (0 bis
+  `MAX_WALK_PASSES`).
 - **Gemessen** (Playtest 2026-09-12, Innenstadt, eine Route, Punkt 52 in
   REVIEW_SPRINT_2026-09-12, noch am Stück): Neuaufbau 39,5 bis 41,7 ms; die
   Messung davor mit 1260 Strahlen 520 bis 533 ms. Weitere Orte sind nicht
@@ -584,17 +655,18 @@ __corridor.pick(6)
   ist, die Sperre greift oder ein Wert abgelehnt wird (unbekannter Name, Wert
   außerhalb des Bereichs, Minimum über Maximum). Sonst kommt
   `Corridor rebuilt[, measured again]: N cells. Widths per stretch: __routes.describe()`
-  zurück (`corridor-refit.ts:169-187`).
+  zurück (`corridor-refit.ts:216-234`).
   - Die Werte gelten bis zum Neuladen der Seite; dauerhaft heißt
     `CORRIDOR_DEFAULTS` im Code ändern.
-- **`towerCells`** gibt eine Tabelle zum Tower zurück (`corridor-console.ts:149-203`):
+- **`towerCells`** gibt eine Tabelle zum Tower zurück (`corridor-console.ts:150-203`):
   - Zellen in Reichweite: `cells`, `unsampled`.
   - Antworten des Towers: `groundVisible`/`Blocked`/`Missing`, dasselbe für
     `air`.
   - Auffällige Zellen: `holes`, `raised` (mehr als 1 m über dem Median der
-    Nachbarn), `clamped`.
+    Nachbarn), `unwalkable` (Zellen, zu denen kein Gegner laufen kann und die
+    der Korridor trotzdem hält, siehe Laufweg).
   - Die Mittellinie für sich: `centreCells`, `centreMissing`,
-    `centreUnsampled`, `centreBlocked`, `centreRaised`, `centreClamped`,
+    `centreUnsampled`, `centreBlocked`, `centreRaised`,
     `centreNotDisplayed`.
   - Die LOS-Anzeige: `displayed`, `displayOutdated`, `notDisplayed`,
     `cubeFromTower`.
@@ -607,8 +679,9 @@ __corridor.pick(6)
   1. `[Corridor] pick at x,z: N spots within r m`: je Rasterstelle im Umkreis,
      die nächste zur Mittellinie zuerst (`RouteCellProbe`,
      `route-grid-diagnostics.ts:101-118`).
-     - Lage und Zelle: `routeM`, `cell`, `state`, `heightM`, `clamped`,
-       `aboveNeighboursM`, `surface`.
+     - Lage und Zelle: `routeM`, `cell`, `state`, `heightM`, `walkable`
+       (`cellWalkable`; `false`: kein Gegner kann dorthin laufen, der Korridor
+       hält die Zelle trotzdem), `aboveNeighboursM`, `surface`.
      - Antworten und Anzeige des ausgewählten Towers: `ground`, `air`,
        `displayed`.
      - Was über der Stelle liegt und ob die Kamera sie sieht (`coverAt`,
@@ -624,14 +697,15 @@ __corridor.pick(6)
        Zelle sind von hier aus verdeckt.
   2. `[Corridor] width at the nearest route station`: woher die Breite an der
      nächsten Station kommt (`explainCorridorAt`,
-     `path-route.service.ts:664-780`).
+     `path-route.service.ts:776-889`).
      - Die Station: Way, `tags` (`width`, `lanes`, `bridge`, `tunnel`,
        `covered`, `layer` wie in `__routes.describe()`), `streetWidthM`, `widthSource`, `onStreet`,
        `inTunnel`, `unmeasured`, `tileError`, am Ende `shiftM` (wie weit
        entlang der Route die Station neben einer Naht gemessen wurde, sonst
        null).
      - Je Seite eine Zeile: `lowHitM`, `highHitM`, `wall`, `freeM`,
-       `smoothedM`, `halfWidthM`, `inUseM` und `rule`.
+       `smoothedM`, `halfWidthM`, `inUseM`, `walkableM` (die Kappe des
+       Laufwegs, sonst null) und `rule`.
      - Eine Tabelle mit den vier Stationen davor und danach; `leftM` und
        `rightM` sind die Halbbreiten der Stücke dort.
 
@@ -643,6 +717,7 @@ __corridor.pick(6)
   - ohne Messung: `unmeasured: from neighbours` (kurze Lücke, gefolgt von
     den Regeln oben), `unmeasured: street width`,
     `tunnel or covered: street width`, `not measured yet: street width`;
+  - zuletzt je Station, wo die Kappe des Laufwegs greift: `unwalkable cell beyond`;
   - danach, über die fertigen Stücke: `short narrowing closed`.
 
 ### `__routes.describe()`
@@ -727,15 +802,14 @@ ohne Höhenprobe. Die Fläche ist grau ohne Tower-Abdeckung und grün mit, Zelle
 der Mittellinie sind etwas kräftiger.
 
 Die Kontur zeigt den Zustand, in dieser Rangfolge (`overlayCellKind`,
-`route-grid-aggregate-viz.ts:30-37`; Farben in `LOS_VIZ_CONFIG.gridOverlay`,
-`los-viz.config.ts:113-137`):
+`route-grid-aggregate-viz.ts:29-35`; Farben in `LOS_VIZ_CONFIG.gridOverlay`,
+`los-viz.config.ts:112-134`):
 
 | Kontur | Zustand |
 |---|---|
 | rosa | ohne Höhenprobe; die LOS-Anzeige eines Towers lässt die Zelle aus. Eine gefüllte Zelle (`filled`, siehe Zellhöhe) hat eine Höhe und die Kontur ihrer Fläche; `__corridor.pick()` zeigt sie als `state: 'filled'`, `__rg.dumpStats()` zählt sie unter `filled` |
 | blau | Brückendeck |
 | gelb | Tunnel oder überdachter Durchgang |
-| orange | vom Dach- oder Stufen-Check auf den Boden gesetzt (`clamped`) |
 | weiß | normal |
 
 Das "Air Route Grid Overlay" zeigt dieselben Konturen, die Fläche blau für
@@ -757,20 +831,24 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
 - Auf freien Flächen ohne Wand innerhalb von `maxHalfWidth` (Platz, Park,
   Vorgärten mit niedriger Hecke oder Mauer) ist der Korridor auf dieser Seite
   7 m breit.
-- Dach- und Stufen-Check gehen von der Mittellinien-Zelle daneben aus.
-  Steht dort selbst eine Krone oder ein Auto (OSM-Linie über dem
-  Parkstreifen), greifen sie nicht. Eine Zelle auf einem Auto oder einer
-  Hecke bleibt begehbar, nur auf Straßenhöhe: Gegner laufen dort durch das
-  Auto. Die Tower-LOS probt dort weiter über dem Objekt (siehe
-  Stufen-Check, Sichtlinie); ob ein Tower die Zelle sieht, hängt also wie
-  vorher davon ab, was zwischen ihm und dem Objekt steht, nicht davon, dass
-  der Gegner darin gezeichnet wird. Den Korridor am Auto enden zu lassen hieße, einen Strahl allein als
-  Wand zu werten, genau das hat der Playtest vom 2026-09-12 verworfen
-  (Transporterreihe engte die Straße ein, `8910463`). Vorgärten auf
-  Straßenhöhe hinter Zaun oder Hecke bleiben aus demselben Grund im
-  Korridor. Steht an einem Hang zur Zelle hin ein Auto und fällt die andere
-  Seite ähnlich stark, nimmt der Stufen-Check die Neigung für den Hang und
-  lässt die Zelle auf dem Auto.
+- Der Laufweg-Check geht von der Mittellinien-Stelle daneben aus. Steht
+  dort selbst eine Krone oder ein Auto (OSM-Linie über dem Parkstreifen),
+  greift er nicht, und die Zellen der Mittellinie selbst prüft er nie.
+- Ein Auto oder eine Hecke am Rand nimmt den Korridor dahinter mit, den
+  Gehweg hinter einer Autoreihe eingeschlossen: Der Korridor ist je Seite
+  ein Band. Genau dieses Einengen hatte der Playtest vom 2026-09-12 bei den
+  Strahlen verworfen (Transporterreihe, `8910463`); nach dem Playtest
+  2026-09-14 hat der Nutzer entschieden, die orangen Zellen wegzulassen.
+  Ein Vorgarten auf Straßenhöhe hinter Zaun oder Hecke bleibt im Korridor,
+  ein erhöhter fällt weg.
+- Steht an einem Hang zur Zelle hin ein Auto und fällt die andere Seite
+  ähnlich stark, nimmt der Stufen-Check die Neigung für den Hang und lässt
+  die Zelle im Korridor, auf dem Autodach. Liegt eine Randzelle am Hang
+  mehr als `roofRise` über der Mittellinie, endet der Korridor bergseitig
+  vor ihr.
+- Was ein feineres Tile erst zeigt, während Tower stehen, eine Welle läuft
+  oder Gegner da sind, bleibt im Korridor, auf seiner Höhe, bis zum
+  nächsten Neuaufbau (siehe Laufweg).
 - Nähte zwischen Tile-Meshes: Stationen und Zellen versuchen Säulen 0,5 m
   daneben, Lücken füllt der Grid aus den Nachbarn. Eine Lücke breiter als
   eine Zelle bleibt ohne Höhe (rosa), eine Messlücke länger als etwa
@@ -786,7 +864,9 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
 - Zwei Routen auf verschiedenen Ebenen, die sich Zellen teilen: bei einer
   Brücke gilt der Boden, bei einem Tunnel die Tunnelsohle.
 - Der Neuaufbau läuft weiter synchron in einem Frame, im Playtest etwa 40 ms
-  (routes 14, lines 11, grid 10, heights 4 bis 6 ms). Routen und Zellen
+  (routes 14, lines 11, grid 10, heights 4 bis 6 ms), mit dem Laufweg bis
+  zu zwei weitere Bauten von Routen, Grid und Höhen, nach diesen Zahlen je
+  etwa 30 ms (nicht gemessen). Routen und Zellen
   müssen im selben Frame wechseln: Eine Welle, die dazwischen startet, liefe
   sonst mit den neuen Breiten der Routen auf den alten Zellen. Übrig bliebe
   der Höhen-Sweep (4 bis 6 ms), der auf den Sweep mit Frame-Budget könnte;

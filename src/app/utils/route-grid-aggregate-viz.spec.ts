@@ -8,7 +8,7 @@ import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 function cell(
   key: number,
   x: number,
-  opts: { sampled?: boolean; surface?: RouteCell['surface']; clamped?: boolean; centre?: boolean } = {},
+  opts: { sampled?: boolean; surface?: RouteCell['surface']; centre?: boolean } = {},
 ): RouteCell {
   const sampled = opts.sampled ?? true;
   return {
@@ -27,8 +27,6 @@ function cell(
       sampledAt: 0,
       tileDepth: sampled ? 20 : 0,
       tileGeometricError: sampled ? 2 : Infinity,
-      clamped: opts.clamped ?? false,
-      stepTop: null,
     },
     heightSampled: sampled,
     enemies: new Set(),
@@ -45,7 +43,7 @@ function cell(
 describe('RouteGridAggregateViz', () => {
   const cells = new Map<number, RouteCell>([
     [1, cell(1, 1, { centre: true })],
-    [2, cell(2, 3, { clamped: true })],
+    [2, cell(2, 3, { surface: 'tunnel' })],
     [3, cell(3, 5, { surface: 'deck' })],
     [4, cell(4, 7, { sampled: false })],
   ]);
@@ -73,8 +71,8 @@ describe('RouteGridAggregateViz', () => {
   });
 
   it('marks the state of each cell for its outline', () => {
-    // Centre line + sampled, clamped, deck, unsampled.
-    expect(attribute(viz().createVisualization(), 'aCellKind')).toEqual([8, 1, 2, 3]);
+    // Centre line + sampled, tunnel, deck, unsampled.
+    expect(attribute(viz().createVisualization(), 'aCellKind')).toEqual([8, 3, 1, 2]);
   });
 
   it('keeps the coverage buffer aligned with every cell', () => {
@@ -96,17 +94,16 @@ describe('RouteGridAggregateViz', () => {
 });
 
 describe('overlayCellKind', () => {
-  it('puts a missing sample before anything else, then deck or tunnel, then clamped', () => {
-    expect(overlayCellKind(cell(1, 0, { sampled: false, surface: 'deck' }))).toBe(3);
-    expect(overlayCellKind(cell(1, 0, { sampled: false, surface: 'tunnel' }))).toBe(3);
-    expect(overlayCellKind(cell(1, 0, { surface: 'deck' }))).toBe(2);
-    expect(overlayCellKind(cell(1, 0, { surface: 'tunnel' }))).toBe(4);
-    expect(overlayCellKind(cell(1, 0, { clamped: true }))).toBe(1);
+  it('puts a missing sample before anything else, then deck or tunnel', () => {
+    expect(overlayCellKind(cell(1, 0, { sampled: false, surface: 'deck' }))).toBe(2);
+    expect(overlayCellKind(cell(1, 0, { sampled: false, surface: 'tunnel' }))).toBe(2);
+    expect(overlayCellKind(cell(1, 0, { surface: 'deck' }))).toBe(1);
+    expect(overlayCellKind(cell(1, 0, { surface: 'tunnel' }))).toBe(3);
     expect(overlayCellKind(cell(1, 0))).toBe(0);
   });
 
   it('adds 8 on the centre line, which the shader takes off again', () => {
-    expect(overlayCellKind(cell(1, 0, { clamped: true, centre: true }))).toBe(9);
-    expect(overlayCellKind(cell(1, 0, { surface: 'tunnel', centre: true }))).toBe(12);
+    expect(overlayCellKind(cell(1, 0, { surface: 'deck', centre: true }))).toBe(9);
+    expect(overlayCellKind(cell(1, 0, { surface: 'tunnel', centre: true }))).toBe(11);
   });
 });

@@ -23,6 +23,9 @@ describe('CorridorController', () => {
     changed: boolean;
     slices: number;
     hint: object | null;
+    /** hasUnwalkableCells answers this; narrowToWalkable is true this many times more. */
+    unwalkable: boolean;
+    narrow: number;
   };
   let calls: string[];
   let runs: { open: boolean; step: ReturnType<typeof vi.fn>; commit: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }[];
@@ -74,6 +77,11 @@ describe('CorridorController', () => {
         return run;
       }),
       hasUnmeasuredStations: () => state.unmeasured,
+      hasUnwalkableCells: vi.fn(() => state.unwalkable),
+      narrowToWalkable: vi.fn(() => {
+        calls.push('narrow');
+        return state.narrow-- > 0;
+      }),
       clearCorridorMeasurements: record('clearCorridorMeasurements'),
       refreshRouteLines: vi.fn((spawns: unknown) => {
         expect(spawns).toBe(SPAWNS);
@@ -114,7 +122,9 @@ describe('CorridorController', () => {
       return id;
     });
     vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
-    state = { towers: 0, engine: {}, intro: false, unmeasured: true, changed: true, slices: 1, hint: null };
+    state = {
+      towers: 0, engine: {}, intro: false, unmeasured: true, changed: true, slices: 1, hint: null, unwalkable: false, narrow: 0,
+    };
     calls = [];
     runs = [];
     gameState = fakeGameState();
@@ -138,6 +148,7 @@ describe('CorridorController', () => {
         'clear',
         'initializeGlobalRouteGrid',
         'updateTerrainHeights',
+        'narrow',
         'refreshRouteLines',
         'initSpatialGridVisualization',
         'initAirSpatialGridVisualization',
@@ -151,8 +162,33 @@ describe('CorridorController', () => {
 
       expect(console.warn).toHaveBeenCalledTimes(1);
       expect(vi.mocked(console.warn).mock.calls[0][0]).toMatch(
-        /^\[Corridor\] rebuild: routes=\d+\.\d grid=\d+\.\d heights=\d+\.\d lines=\d+\.\d overlays=\d+\.\d total=\d+\.\dms spawns=1 cells=42$/,
+        /^\[Corridor\] rebuild: routes=\d+\.\d grid=\d+\.\d heights=\d+\.\d walk=\d+\.\d narrowed=0 lines=\d+\.\d overlays=\d+\.\d total=\d+\.\dms spawns=1 cells=42$/,
       );
+    });
+
+    it('builds routes, cells and heights again where the new cells narrow the corridor', () => {
+      state.narrow = 1;
+      create().fitToTiles();
+
+      expect(calls).toEqual([
+        'measure',
+        'refreshRouteLines', 'clear', 'initializeGlobalRouteGrid', 'updateTerrainHeights',
+        'narrow',
+        'refreshRouteLines', 'clear', 'initializeGlobalRouteGrid', 'updateTerrainHeights',
+        'narrow',
+        'refreshRouteLines',
+        'initSpatialGridVisualization',
+        'initAirSpatialGridVisualization',
+        'initAirRouteLayer',
+      ]);
+      expect(vi.mocked(console.warn).mock.calls[0][0]).toMatch(/ narrowed=1 /);
+    });
+
+    it('builds again at most MAX_WALK_PASSES times', () => {
+      state.narrow = 100;
+      create().fitToTiles();
+      expect(calls.filter((call) => call === 'clear')).toHaveLength(1 + CorridorController.MAX_WALK_PASSES);
+      expect(calls.filter((call) => call === 'narrow')).toHaveLength(CorridorController.MAX_WALK_PASSES);
     });
 
     it('restarts a running route animation on the rebuilt routes', () => {
@@ -205,6 +241,21 @@ describe('CorridorController', () => {
 
       state.intro = false;
       vi.advanceTimersByTime(CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+      controller.dispose();
+    });
+
+    it('measures again where finer tiles showed cells no enemy could walk to, not under a tower', () => {
+      state.unmeasured = false;
+      state.unwalkable = true;
+      state.towers = 1;
+      const controller = create();
+      controller.remeasure();
+      expect(pathRoute.hasUnwalkableCells).not.toHaveBeenCalled();
+      expect(pathRoute.beginClearanceMeasurement).not.toHaveBeenCalled();
+
+      state.towers = 0;
+      controller.remeasure();
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
       controller.dispose();
     });

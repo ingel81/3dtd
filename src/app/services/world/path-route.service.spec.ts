@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Group, Vector3 } from 'three';
 
-// Zellen-Stub, pro Test steuerbar: `ready` = Grid initialisiert, `cellY` = Zellhöhe.
+// Zellen-Stub, pro Test steuerbar: `ready` = Grid initialisiert, `cellY` = Zellhöhe,
+// `unwalkable` = Mittelpunkte der Zellen, zu denen kein Gegner laufen kann.
 const grid = vi.hoisted(() => ({
   ready: false,
   cellY: (_x: number, _z: number): number | null => null,
+  unwalkable: [] as { x: number; z: number }[],
 }));
 
 // inject() liefert pro Service-Klasse einen Stub. PathAndRouteService braucht
@@ -18,6 +20,7 @@ vi.mock('@angular/core', async () => {
     GlobalRouteGridService: {
       isInitialized: () => grid.ready,
       getGroundLocalYAt: (x: number, z: number) => grid.cellY(x, z),
+      getGrid: () => ({ unwalkableCells: () => grid.unwalkable, getCellSize: () => 2 }),
     },
   };
   return {
@@ -177,6 +180,7 @@ describe('PathAndRouteService route geometry', () => {
   beforeEach(() => {
     grid.ready = false;
     grid.cellY = () => null;
+    grid.unwalkable = [];
     clearanceAt = (_x, _z, max) => max;
     network = makeNetwork([
       { id: 100, nodes: [n10, n1] },
@@ -386,6 +390,41 @@ describe('PathAndRouteService route geometry', () => {
         measure(service);
         service.showPathFromSpawn(spawnPointAt(spawn));
         expect(service.getCachedPath('s1')!.map((p) => p.corridorLeft)).toEqual([7, 7, 7, 7, 2.75, undefined]);
+      });
+
+      it('ends the corridor before a cell no enemy could walk to, and keeps it there', () => {
+        // Open on both sides; the grid in use has a van 3 m right of the
+        // centre line, 50 m north of n1 (local z points south).
+        const service = buildRouteService(network, spawn, hq);
+        measure(service);
+        const n1Local = toMeters(n1);
+        grid.ready = true;
+        grid.unwalkable = [{ x: n1Local.x + 3, z: -(n1Local.z + 50) }];
+
+        expect(service.narrowToWalkable()).toBe(true);
+        // The same cell again narrows nothing more.
+        expect(service.hasUnwalkableCells()).toBe(false);
+        expect(service.narrowToWalkable()).toBe(false);
+
+        service.showPathFromSpawn(spawnPointAt(spawn));
+        const narrow = service.getCachedPath('s1')!.filter((p) => p.corridorRight === 2.5);
+        // One station, 2.9 m short of the van rounded down; closing short narrowings keeps it.
+        expect(narrow).toHaveLength(1);
+        expect(narrow[0].corridorLeft).toBe(7);
+        expect(northOfN1(-toMeters(narrow[0]).z)).toBeCloseTo(50, -1);
+
+        const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
+        expect(why.sides[1]).toMatchObject({
+          side: 'right', halfWidthM: 2.5, walkableM: 2.9, rule: 'no wall within the maximum, unwalkable cell beyond',
+        });
+        expect(why.sides[0]).toMatchObject({ side: 'left', halfWidthM: 7, walkableM: null });
+
+        // Forgotten with the measurements.
+        service.clearCorridorMeasurements();
+        grid.unwalkable = [];
+        measure(service);
+        service.showPathFromSpawn(spawnPointAt(spawn));
+        expect(service.getCachedPath('s1')!.some((p) => p.corridorRight === 2.5)).toBe(false);
       });
 
       it('gives a station without a tile between measured ones their width, not the street width', () => {

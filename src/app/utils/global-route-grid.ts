@@ -28,6 +28,7 @@ import {
 import { RouteGridAggregateViz } from './route-grid-aggregate-viz';
 import { RouteGridHeightSweep } from './route-grid-height-sweep';
 import { RouteCellSampler } from './route-cell-sampler';
+import { cellWalkable, unwalkableCells } from './corridor-walk';
 import { logGrid } from './route-grid-log';
 import type { RouteBodyContact } from './route-body';
 
@@ -129,10 +130,13 @@ export class GlobalRouteGrid {
   }
 
   /** Terrain-Sampling der Cells (`sampleCellY`) mit Proben und Sweep-Zählern. */
-  private readonly sampler = new RouteCellSampler(
-    (cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth),
-    this.CELL_SIZE,
-  );
+  private readonly sampler = new RouteCellSampler((cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth));
+
+  /** The column probe the walk check reads (corridor-walk.ts): the sampler's, beside a seam as well. */
+  private readonly columnAt = (x: number, z: number) => this.sampler.columnNear(x, z);
+
+  /** cellWalkable for one cell of this grid, for the diagnostics. */
+  private readonly walkable = (cell: RouteCell) => cellWalkable(cell, this.columnAt, this.CELL_SIZE);
 
   /**
    * Frame-budgeted terrain-refresh sweep, see RouteGridHeightSweep. A slice
@@ -1117,8 +1121,8 @@ export class GlobalRouteGrid {
     for (const cell of this.cellsInRange(x, z, range)) {
       if ((cell.x - x) ** 2 + (cell.z - z) ** 2 <= rangeSq) inRange.push(cell);
     }
-    return summarizeTowerRange(inRange, towerId, this.findHolesInRange(x, z, range), (cell) =>
-      this.medianOfStableNeighbourY(cell),
+    return summarizeTowerRange(
+      inRange, towerId, this.findHolesInRange(x, z, range), (cell) => this.medianOfStableNeighbourY(cell), this.walkable,
     );
   }
 
@@ -1134,7 +1138,7 @@ export class GlobalRouteGrid {
   /** `describeTowerRange` for the centre line cells only; `holes` lists every centre spot without a cell. */
   describeCentreLine(towerId: string, x: number, z: number, range: number): TowerRangeReport {
     const { cells, missing } = this.centreLineCells(x, z, range);
-    return summarizeTowerRange(cells, towerId, missing, (cell) => this.medianOfStableNeighbourY(cell));
+    return summarizeTowerRange(cells, towerId, missing, (cell) => this.medianOfStableNeighbourY(cell), this.walkable);
   }
 
   /**
@@ -1143,7 +1147,18 @@ export class GlobalRouteGrid {
    * adds that tower's answers.
    */
   describeCellsAround(x: number, z: number, radius: number, towerId: string | null): RouteCellProbe[] {
-    return probeCellsAround(this.view, x, z, radius, towerId, (cell) => this.medianOfStableNeighbourY(cell));
+    return probeCellsAround(this.view, x, z, radius, towerId, (cell) => this.medianOfStableNeighbourY(cell), this.walkable);
+  }
+
+  /**
+   * The cells an enemy could not walk to from the route centre line: on a
+   * car, a van or a hedge, under an eave or a crown at the corridor edge
+   * (corridor-walk.ts). The route service narrows the corridor short of
+   * them (PathAndRouteService.narrowToWalkable). One pass over the cells,
+   * the columns from the engine's cache.
+   */
+  unwalkableCells(): RouteCell[] {
+    return unwalkableCells(this.cells.values(), this.columnAt, this.CELL_SIZE);
   }
 
   /** The grid as the spatial probes in route-grid-diagnostics read it. Diagnostics only. */

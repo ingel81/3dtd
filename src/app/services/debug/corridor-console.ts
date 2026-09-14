@@ -142,7 +142,8 @@ export class CorridorConsole {
    * of it, for a gap in the display: a cell missing from the grid (`holes`),
    * a cell without a terrain sample (`unsampled`, the display leaves those
    * out), a cell sampled on a car roof or tree crown (`raised`, its plate
-   * floats), a display built before the cells changed (`displayOutdated`,
+   * floats; `unwalkable` when the corridor could no longer drop it), a
+   * display built before the cells changed (`displayOutdated`,
    * `notDisplayed`) or a cube rendered from another tower (`cubeFromTower`
    * false). The selected tower unless an id is given.
    */
@@ -179,7 +180,7 @@ export class CorridorConsole {
       airMissing: report.airMissing,
       holes: report.holes.length,
       raised: report.raised.length,
-      clamped: report.clamped,
+      unwalkable: report.unwalkable,
       displayed: drawn?.size ?? null,
       displayOutdated: layer ? layer.cells.filter((c) => grid.getCellAt(c.x, c.z) !== c).length : null,
       notDisplayed: drawn ? grid.getCellsInRange(local.x, local.z, range).filter((c) => !drawn.has(c)).length : null,
@@ -190,7 +191,6 @@ export class CorridorConsole {
       centreUnsampled: centre.unsampled,
       centreBlocked: centre.groundBlocked,
       centreRaised: centre.raised.length,
-      centreClamped: centre.clamped,
       centreNotDisplayed: drawn ? centreLine.cells.filter((c) => c.heightSampled && !drawn.has(c)).length : null,
     };
     console.table(summary);
