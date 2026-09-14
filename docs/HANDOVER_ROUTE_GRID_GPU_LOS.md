@@ -2,7 +2,7 @@
 
 > **Status (2026-05-15):** Ground-LOS UND Air-LOS produktiv und visuell
 > verifiziert. Lesson 11 (scene.background / scene.environment save+restore
-> während des Cube-Renders) war die fehlende Zutat — Skybox-Texture leakte
+> während des Cube-Renders) war die fehlende Zutat: Skybox-Texture leakte
 > als false-Blocker in jede Cube-Face. War die eigentliche Ursache der
 > 2-Tage-Air-Falschspur, sichtbar gemacht durch das neue LOS-Debug-Panel.
 >
@@ -28,7 +28,7 @@ jener Sitzungen und das Muster für eine GPU-Probe.
 
 > **Diese Lessons stammen aus drei missgelaufenen Anläufen (v1, v2,
 > verworfene Session 2026-05-13).** Sie sind hier nur soweit gekürzt
-> wie nötig — wer den Branch in ein Jahr nochmal aufmacht, soll
+> wie nötig: wer den Branch in ein Jahr nochmal aufmacht, soll
 > sehen warum bestimmte Sachen NICHT versucht werden sollten.
 
 ### ⚠️ SACKGASSE: drei parallele Viz-Pfade (v1)
@@ -39,7 +39,7 @@ oder CPU-LOS-Logik. Resultat: jedes neue Feature musste dreimal gebaut
 werden, jedes Debug-Tool zeigte für drei verschiedene Daten-Quellen
 drei verschiedene Ergebnisse. **Branch versandet im Chaos.** Aktuelle
 Architektur konsolidiert auf eine geteilte Mapper-Engine + getrennte
-semantische Konsumenten — bewusst KEINE Mesh- oder Shader-Konsolidierung
+semantische Konsumenten, bewusst KEINE Mesh- oder Shader-Konsolidierung
 (siehe Session-2026-05-13-Sackgasse).
 
 ### ⚠️ SACKGASSE: skyline-adaptive Air-Höhe
@@ -55,13 +55,13 @@ v1 und v2 hatten Air-Sample-Y auf `cell.skylineHeight + AIR_CLEARANCE_M
   bestimmt werden (Skyline-Cache, mehrfach refactored)
 
 2026-05-13 ersetzt durch fixe Höhe `terrain + 15 m` (Option B
-aus dem drei-Optionen-Vergleich A/B/C — Skyline-adaptiv / fest /
+aus dem drei-Optionen-Vergleich A/B/C: Skyline-adaptiv / fest /
 Max-of-both). Trade-off: in echten Manhattan-Szenen fliegen Air-
 Enemies durch Wände. Bewusst akzeptiert.
 
 `AIR_CLEARANCE_M`, `cell.skylineHeight`, `cell.skylineSampled`,
 `sampleCellSkyline` und `getSkylineHeightAtLocal` sind 2026-08-22 mit der
-Terrain-Konsolidierung entfernt worden — sie hatten seit Option B keinen
+Terrain-Konsolidierung entfernt worden: sie hatten seit Option B keinen
 produktiven Leser mehr und kosteten fünf von sechs Raycasts pro Zelle im
 Grid-Sweep. Der Intro-Kameraflug, der als einziger noch eine
 Oberkanten-Höhe brauchte, liest sie aus `sampleColumn(...).topY` derselben
@@ -75,8 +75,8 @@ einen separaten `skylineCache` ersetzte. **Ist abgelöst.** Mit der
 fixen Air-Höhe (Option B) braucht es keine Skyline-Daten mehr, und seit
 der Terrain-Konsolidierung existiert das Feld nicht mehr. Falls
 in einem späteren Versuch wieder skyline-adaptiv: `sampleColumn` liefert
-mit `topY` bereits die Oberkante derselben Säule, aus der der Boden kommt
-— eine getrennte Skyline-Datenstruktur braucht es dafür nicht.
+mit `topY` bereits die Oberkante derselben Säule, aus der der Boden kommt;
+eine getrennte Skyline-Datenstruktur braucht es dafür nicht.
 
 ### ⚠️ SACKGASSE: Pipeline-Konsolidierung (verworfene Session 2026-05-13)
 
@@ -97,7 +97,7 @@ Gründe:
    kann nicht beides korrekt rendern.
 2. **Aggregate hat zusätzliche Enemy-Overlay-States** (state 4
    enemyHidden, state 5 enemyVisible) die im Per-Tower-Mode nicht
-   existieren. Mode-Switch im Shader rettet das nicht — die
+   existieren. Mode-Switch im Shader rettet das nicht: die
    Compute-Logik unterscheidet sich strukturell.
 3. **Mode-Mutex bricht den User-Workflow** "Aggregate + Selection
    gleichzeitig sehen". Beide konkurrieren um denselben State-Buffer
@@ -116,7 +116,7 @@ Gründe:
 - **Build-Preview MUSS Live-Cube-Sample im Shader nutzen.** Cache-
   Fill ist nur für one-shot-Build-Operationen gerechtfertigt, nicht
   per-Mouse-Move.
-- **TowerLosViz / TowerLosLayerBuilder NIEMALS löschen** — sie sind
+- **TowerLosViz / TowerLosLayerBuilder NIEMALS löschen**: sie sind
   die Live-Viz-Pipeline und brauchen keinen Migrations-Touch.
 
 ### ⚠️ SACKGASSE: y-Flip in der Direction-zu-Pixel-Math (H5)
@@ -130,7 +130,7 @@ const py = size - 1 - Math.floor(t * size);
 Aus der Annahme dass Cube-Faces image-Konvention (top-left=0,0)
 brauchen und Framebuffer-readPixels bottom-up liefert. Eine
 "Verify"-Methode in v2 lieferte angeblich `match=428, mismatch=0`
-gegen den Live-Shader — daraus wurde geschlossen die Formel sei
+gegen den Live-Shader: daraus wurde geschlossen die Formel sei
 korrekt.
 
 **FALSCH.** Der Verify-Test verglich zwei Aufrufe **derselben
@@ -150,7 +150,7 @@ cpuMoreVisible:     7
 
 Bytes-Patterns waren komplett unterschiedlich (z.B. CPU
 `[178,162,126,255]` = 42 m Blocker, GPU `[255,255,255,255]` = 60 m
-keine Blocker — beide für **dieselbe** Direction). Lesen
+keine Blocker; beide für **dieselbe** Direction). Lesen
 verschiedener Texel.
 
 **Fix in `gpu-cube-resolve.ts`:**
@@ -166,15 +166,15 @@ const py = Math.min(size - 1, Math.max(0, Math.floor(t * size)));
 Three.js' CubeCamera rendert die 6 Faces so dass `textureCube` direkt
 mit framebuffer-Y-Konvention sampeln kann. Kein zusätzlicher CPU-Flip.
 
-**Lesson — extrem wichtig für künftige Diagnose-Sessions:**
+**Lesson, extrem wichtig für künftige Diagnose-Sessions:**
 Verify-Tests müssen den Pfad gegen einen *unabhängigen* Pfad benchen,
 nicht gegen einen zweiten Aufruf desselben Pfads. Das `1×1-RT-Quad-
 Shader-Pattern` aus `losDiagProbeGpuVsCpu` (in der 2026-05-14-Diagnose
 gebaut, danach mit dem Rest der Diagnostik entfernt) ist das saubere
-Tool — wenn du es nochmal brauchst: Code aus dem Git-Log
+Tool: wenn du es nochmal brauchst: Code aus dem Git-Log
 zurückholen (Diagnose-Reste sind in einem ge-`reset`-ten oder
 git-stash-bar separaten Commit), oder via `tower-shadow-mapper.ts`
-neu aufsetzen — wenige Dutzend Zeilen.
+neu aufsetzen, wenige Dutzend Zeilen.
 
 ### ⚠️ SACKGASSE: Bias-Asymmetrie (war nie produktionsrelevant, aber dokumentationswürdig)
 
@@ -182,7 +182,7 @@ Verworfene Session: zwischen CPU-`raycaster.far = dist - 0.5` (stoppt
 0.5 m **vor** Ziel) und GPU-`cellDist < blockerDist - 0.5` (Blocker
 muss 0.5 m **hinter** Cell sein) gab es 1 m breites Toleranz-Band
 an Wand-Kanten. Beim Migrations-Versuch wurden 60–80% Mismatch im
-Parallel-Verify gemessen — die hießen aber zum Großteil "CPU lenient,
+Parallel-Verify gemessen: die hießen aber zum Großteil "CPU lenient,
 GPU strict". User-Entscheidung: strict (Combat schießt nicht halb
 durch Wand). Bias bleibt strict, war keine Bug-Quelle.
 
@@ -201,7 +201,7 @@ dem Air-Layer, bis Air bewiesen sauber ist.
 falsch interpretieren lassen.**
 
 Wir hatten Lesson 4 (Material-Swap pro Mesh), Lesson 7 (ClearColor
-save/restore) und Lesson 8 (`includeOnly`) — alle drei dazu da
+save/restore) und Lesson 8 (`includeOnly`), alle drei dazu da
 Phantom-Blocker aus dem Cube herauszuhalten. Trotzdem zeigte das
 +Y-Face dauerhaft "Wolken"-Muster, die Air-Cells unter diesen
 Wolken-Pixeln wurden als blocked markiert.
@@ -249,7 +249,7 @@ Drei Zeilen. Lesson 11.
 **Was zum Fund geführt hat:**
 Das neue LOS-Debug-Panel (2026-05-15). Beim Hover über einen "Wolken"-
 Pixel im +Y-Face zeigte das Panel saubere RGB-Werte mit decodierter
-Distance — und der User erkannte sofort dass das Skybox-Pattern war,
+Distance, und der User erkannte sofort dass das Skybox-Pattern war,
 nicht echte Geometrie. Ohne das Visualisierungs-Tool hätten wir mit
 hoher Wahrscheinlichkeit noch eine weitere Session über Skyline-
 Adaptive-Sample-Y, Cube-Near-Adjustments oder neue Y-Flip-Konventionen
@@ -282,7 +282,7 @@ Air-LOS funktioniert wie Ground-LOS. Beweis war eine direkte Inspektion
 im Debug-Panel: zwei Nachbar-Cells an derselben Air-Höhe, eine als
 `visible` (Blocker 19.3m, Cell-Distanz 17m), eine als `blocked` (Blocker
 12.9m, Cell-Distanz 18.7m). Die Sample-Direction der blockierten Cell
-projizierte auf eine Wolken-Region des Skybox-Hintergrundbilds — kein
+projizierte auf eine Wolken-Region des Skybox-Hintergrundbilds, kein
 echter Blocker. Lesson 11 entfernt diese false-Blocker; danach Air-Cells
 in clear airspace alle visible, Cells hinter echten Bäumen/Gebäuden
 weiterhin blocked. Aggregate-`gridAir`-Toggle und Per-Tower-Filter='air'
@@ -291,12 +291,12 @@ zeigen ab Fix identische Cell-Sets.
 ### Was strukturell passt (unverändert seit 2026-05-14)
 
 - Single-Source-of-Truth-Helper `getAirTargetY(cell)` ist überall im
-  Spiel — Combat, Per-Tower-Viz Air-Mesh-Position, Per-Tower-Viz
+  Spiel: Combat, Per-Tower-Viz Air-Mesh-Position, Per-Tower-Viz
   Sample-Y im Shader (per-instance `aAirSampleY`), Aggregate-Air-Plate-
   Position, Air-Route-Tube.
 - Combat-Cache und Live-Shader sampeln nach H5-Fix bit-konsistent.
 - Air-Enemy-Flughöhe ist auf `geoHeight + heightOffset` (heightOffset
-  per Type-Config 15–20m) — passt zum Sample-Y bei flachen Cells.
+  per Type-Config 15–20m), passt zum Sample-Y bei flachen Cells.
 
 
 ---
@@ -318,7 +318,7 @@ Fix: `attackType`-Filter VOR `combat.update` in allen drei Methoden.
 Beam-Pfad ist nicht betroffen (continuous damage, kein
 `combat.update`-Call).
 
-Dieser Bug war alt — vermutlich aus einem früheren Branch mitgenommen.
+Dieser Bug war alt, vermutlich aus einem früheren Branch mitgenommen.
 LOS-Migration hat ihn nur sichtbarer gemacht weil im Smoke-Test
 gegen die Tower-Card-Anzeige verglichen wurde.
 
@@ -328,19 +328,19 @@ Während der Air- und H5-Hunt-Session 2026-05-14 wurden ad-hoc-Tools
 eingebaut und nach Verifikation wieder entfernt:
 
 - `[LOS-DIAG] cube-render`-Logs mit `callerLabel`
-- `losDiagProbeTower(towerId)` — Cache-vs-CPU-readPixels-Check
+- `losDiagProbeTower(towerId)`: Cache-vs-CPU-readPixels-Check
   (tautologisch, weil Cache MIT CPU-readPixels gefüllt wird)
-- `losDiagDumpAggregate()` — Cache vs. State-Buffer
-- `losDiagProbeGpuVsCpu(towerId)` — der **eigentliche** H5-Test:
+- `losDiagDumpAggregate()`: Cache vs. State-Buffer
+- `losDiagProbeGpuVsCpu(towerId)`: der **eigentliche** H5-Test:
   1×1-RT mit Quad-Shader `textureCube(map, dir)` vs.
   `sampleCubeAtPoint` für identische Direction-Vektoren
-- `losDiagDumpSelectionState()` — Filter-Bridge-Check
+- `losDiagDumpSelectionState()`: Filter-Bridge-Check
 
-**Seit 2026-05-15 obsolet** — das permanente LOS-Debug-Panel liefert
+**Seit 2026-05-15 obsolet**: das permanente LOS-Debug-Panel liefert
 alles davon visuell:
 
 - **6-Face-Cubemap-View** ersetzt das Mental-Modell-Raten "was sieht der
-  Cube eigentlich" — der Skybox-Leak war im Panel auf einen Blick als
+  Cube eigentlich": der Skybox-Leak war im Panel auf einen Blick als
   Wolken-Muster erkennbar.
 - **Pixel-Hover mit RGB-Readout + decoded Distance + Zoom-Viewport**
   ersetzt `losDiagDumpAggregate` für ad-hoc Cell-Inspektion.
@@ -360,7 +360,7 @@ nochmal nötig:
   anhängen (~30 Zeilen), siehe Sackgasse "y-Flip in der Direction-zu-
   Pixel-Math (H5)" oben für die Vorlage.
 - **Cache-vs-Live-Diff über alle Cells** für Drift-Diagnose nach Tile-
-  Streaming — könnte als One-Click-Button im Panel ergänzt werden.
+  Streaming, könnte als One-Click-Button im Panel ergänzt werden.
 
 ### Sonstiges
 
@@ -372,7 +372,7 @@ nochmal nötig:
   noch eine Safety-Obergrenze; die InstancedMesh-Capacity wird dynamisch
   als `min(cells.size, hardlimit)` allokiert. Test-Szene mit 1763 Cells
   bekommt 1763 Slots, eine Manhattan-große Karte würde bis 50k mitwachsen.
-  InstancedMesh-Capacity ist nicht runtime-growable — wenn das Grid sich
+  InstancedMesh-Capacity ist nicht runtime-growable: wenn das Grid sich
   nachträglich vergrößert (Location-Switch / Route-Regen), läuft
   `clear()` → `disposeVisualization` → frischer Build beim nächsten
   Toggle.
@@ -384,7 +384,7 @@ nochmal nötig:
 Hatte hier in alten Versionen Code-Snippets für Phase 1-9-Plan,
 v1-Code-Pfad-Inventur, Distance-Material-Source mit allen Lessons-
 Kommentaren, AbStract-Description-of-State-Codes. Stehen alle im
-Code selbst — `tower-shadow-mapper.ts` und `tower-los-layer-builder.ts`
+Code selbst: `tower-shadow-mapper.ts` und `tower-los-layer-builder.ts`
 haben Lesson-Nummerierung in Kommentaren. Dieses Doc ist Higher-Order-
 Kontext und Sackgassen-Mahnmal, nicht API-Reference.
 
@@ -397,7 +397,7 @@ nachvollziehbar (Branch `feat/route-grid-gpu-los-v3`, History).
 
 Falls in einer künftigen Session wieder ein direkter GPU-vs-CPU-Vergleich
 über viele Cells gebraucht wird (über die per-Pixel-Inspection im
-Debug-Panel hinaus), das alte H5-Pattern reinbringen — ~30 Zeilen in
+Debug-Panel hinaus), das alte H5-Pattern reinbringen, ~30 Zeilen in
 `tower-shadow-mapper.ts`:
 
 ```ts
