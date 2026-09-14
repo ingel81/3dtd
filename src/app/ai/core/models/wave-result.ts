@@ -84,6 +84,12 @@ export interface WaveOutcome {
   /** Player survived the wave */
   playerSurvived: boolean;
 
+  /**
+   * No HP lost to leaks this wave: the game's own flag (wave:completed.perfect,
+   * the PerfectBonus). False for the wave that destroyed the base.
+   */
+  perfect: boolean;
+
   // === PER-ENEMY PROGRESS DISTRIBUTION ===
 
   /** Raw path progress values for each enemy (0-1, where 1 = reached base) */

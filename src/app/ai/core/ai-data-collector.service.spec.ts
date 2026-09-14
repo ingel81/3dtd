@@ -230,6 +230,7 @@ describe('AIDataCollectorService', () => {
         lowestPlayerHealth: 75,
         wasCloseCall: false,
         playerSurvived: true,
+        perfect: false,                        // wave:completed says 5 HP were lost
         waveDurationMs: 3000,
         enemyProgressValues: [0.4, 0.9, 1],     // tank d never reported progress
       });
@@ -259,6 +260,12 @@ describe('AIDataCollectorService', () => {
       expect(outcome.enemyProgressValues).toEqual([]);
       expect(outcome.avgPathProgressPercent).toBe(0);
       expect(outcome.avgEnemyLifetimeMs).toBe(0);
+    });
+
+    it('takes perfect from wave:completed, the flag the PerfectBonus pays on', () => {
+      playWave(1);
+      playWave(2, { hpLost: 3 });
+      expect(collector.getWaveHistory().map((r) => r.outcome.perfect)).toEqual([true, false]);
     });
 
     it('calls a wave a close call below 30% of start health', () => {
@@ -343,6 +350,7 @@ describe('AIDataCollectorService', () => {
       expect(heard[0].waveNumber).toBe(5);
       expect(heard[0].outcome).toMatchObject({
         playerSurvived: false,
+        perfect: false,
         wasCloseCall: true,
         lowestPlayerHealth: 0,
         waveDurationMs: 2000,

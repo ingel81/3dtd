@@ -49,6 +49,8 @@ export class WaveOutcomeTracker {
       lowestPlayerHealth: this.lowestHealth,
       wasCloseCall: false,
       playerSurvived: true,
+      // Set from wave:completed by the collector; the fatal wave keeps false
+      perfect: false,
       enemyPerformance: {},
     };
 
