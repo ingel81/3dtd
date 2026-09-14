@@ -66,6 +66,7 @@ describe('bossIntroBlock', () => {
     timescale: 1,
     renderingEnabled: true,
     introFlight: false,
+    dialogOpen: false,
   };
 
   it('lets a normal game through, at every HUD speed', () => {
@@ -81,6 +82,8 @@ describe('bossIntroBlock', () => {
     expect(bossIntroBlock({ ...play, timescale: 10 })).toBe('timescale');
     expect(bossIntroBlock({ ...play, renderingEnabled: false })).toBe('no-rendering');
     expect(bossIntroBlock({ ...play, introFlight: true })).toBe('intro-flight');
+    // A player in the location dialog or the key overview keeps the view behind it
+    expect(bossIntroBlock({ ...play, dialogOpen: true })).toBe('dialog');
   });
 });
 

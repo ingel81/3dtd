@@ -713,8 +713,17 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
   keiner Seite zu sehen. Bei Herbert (4 m/s) knapp 2 s nach dem Spawn.
 - **Keins** bei ausgeschaltetem Schalter "Boss Intro" im Display-Menü, im Photo
   Mode, mit Trainings-Bot oder verbundenem Trainings-Backend, über 4x (nur
-  Trainingsläufe kommen darüber), ohne Rendering und während des Intro-Flugs
-  (`bossIntroBlock`). Ein so übergangener Boss bekommt später keins mehr.
+  Trainingsläufe kommen darüber), ohne Rendering, während des Intro-Flugs und
+  solange ein Dialog offen ist (`bossIntroBlock`). Ein so übergangener Boss
+  bekommt später keins mehr.
+- **Dialog offen** (entschieden 2026-09-14): Tritt ein Boss aus dem Portal,
+  während ein Dialog offen ist (Standort-Dialog, Tastenübersicht, jeder andere
+  `MatDialog`, gezählt über `MatDialog.openDialogs`), fällt sein Intro aus:
+  kein Kameraschnitt und keine Pause hinter dem Dialog. Nach dem Schließen
+  kommt es nicht nach; ein Boss eines anderen Typs oder der nächsten Welle
+  bekommt seins. Ein Dialog, der erst während eines laufenden Intros aufgeht
+  (Klick in Sidebar oder Header, die der Schleier nicht deckt), hält es nicht
+  an.
 - **Pause**: das Intro setzt `GameStore.paused` wie der Pause-Knopf und gibt am
   Ende zurück, was der Spieler hatte; hatte er pausiert, bleibt es pausiert.
   An der Simulation ändert sich nichts, die Sub-Steps laufen nur nicht.

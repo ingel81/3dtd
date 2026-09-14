@@ -15,9 +15,11 @@ vi.mock('./world/intro-camera-flight.service', () => ({ IntroCameraFlightService
 vi.mock('../store/ui.store', () => ({ UIStore: class UIStore {} }));
 vi.mock('../store/game.store', () => ({ GameStore: class GameStore {} }));
 vi.mock('./debug/debug-facade.service', () => ({ DebugFacadeService: class DebugFacadeService {} }));
+vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
 
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { MatDialog } from '@angular/material/dialog';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { BossIntroService } from './boss-intro.service';
 import { BossIntroComponent } from '../components/boss-intro/boss-intro.component';
@@ -81,6 +83,8 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
   let paused: ReturnType<typeof signal<boolean>>;
   let timescale: ReturnType<typeof signal<number>>;
   let bossIntroEnabled: ReturnType<typeof signal<boolean>>;
+  /** MatDialog.openDialogs: the location dialog, the key overview */
+  let openDialogs: unknown[];
   let injector: Injector;
   let service: BossIntroService;
   let startPosition: Vector3;
@@ -114,6 +118,7 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
     paused = signal(false);
     timescale = signal(1);
     bossIntroEnabled = signal(true);
+    openDialogs = [];
     const engine = {
       getCamera: () => camera,
       getControls: () => controls,
@@ -136,12 +141,38 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: LiveAnnouncer, useValue: { announce: vi.fn() } },
         { provide: DebugFacadeService, useValue: { bossIntroEnabled } },
+        { provide: MatDialog, useValue: { openDialogs } },
       ],
     });
     service = runInInjectionContext(injector, () => new BossIntroService());
   });
 
   afterEach(() => (injector as unknown as { destroy(): void }).destroy());
+
+  it('open point 14: Herbert clears his portal while the key overview is open: no cut, no pause, none later; the next wave gives his', () => {
+    const herbert = boss('herbert');
+    spawn(herbert);
+    // H: the key overview is a MatDialog (openHotkeyHelpDialog), as is the location dialog
+    openDialogs.push({});
+    herbert.walked = OUT_M;
+    frame();
+    expect(service.active()).toBe(false);
+    expect(paused()).toBe(false);
+    expect(controls.enabled).toBe(true);
+    viewIsBack();
+
+    // Closed again: the intro does not come late
+    openDialogs.length = 0;
+    play(1000);
+    expect(service.active()).toBe(false);
+
+    wave = 11;
+    const next = boss('herbert');
+    spawn(next);
+    next.walked = OUT_M;
+    frame();
+    expect(service.active()).toBe(true);
+  });
 
   it('366: Herbert out of the portal: dark, the card, 2.8 s on the portal, then exactly the view before and the game running', () => {
     const herbert = boss('herbert');

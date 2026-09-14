@@ -14,9 +14,11 @@ vi.mock('./world/intro-camera-flight.service', () => ({ IntroCameraFlightService
 vi.mock('../store/ui.store', () => ({ UIStore: class UIStore {} }));
 vi.mock('../store/game.store', () => ({ GameStore: class GameStore {} }));
 vi.mock('./debug/debug-facade.service', () => ({ DebugFacadeService: class DebugFacadeService {} }));
+vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
 
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { MatDialog } from '@angular/material/dialog';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { BossIntroService } from './boss-intro.service';
 import { GameStateManager } from '../managers/game-state.manager';
@@ -74,8 +76,10 @@ describe('BossIntroService', () => {
   let announce: ReturnType<typeof vi.fn>;
   let paused: ReturnType<typeof signal<boolean>>;
   let bossIntroEnabled: ReturnType<typeof signal<boolean>>;
+  /** MatDialog.openDialogs */
+  let openDialogs: unknown[];
 
-  const spawn = (boss: FakeBoss, viaPortal = true) => bus.emit({ type: 'enemy:spawned', enemy: boss.enemy, viaPortal });
+  const spawn =(boss: FakeBoss, viaPortal = true) => bus.emit({ type: 'enemy:spawned', enemy: boss.enemy, viaPortal });
   const frame = (ms = 16) => service.update(ms);
   /** `ms` of wall clock in 16 ms frames */
   const play = (ms: number) => {
@@ -96,6 +100,7 @@ describe('BossIntroService', () => {
     announce = vi.fn();
     paused = signal(false);
     bossIntroEnabled = signal(true);
+    openDialogs = [];
     const engine = {
       getCamera: () => camera,
       getControls: () => controls,
@@ -119,6 +124,7 @@ describe('BossIntroService', () => {
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: LiveAnnouncer, useValue: { announce } },
         { provide: DebugFacadeService, useValue: { bossIntroEnabled } },
+        { provide: MatDialog, useValue: { openDialogs } },
       ],
     });
     service = runInInjectionContext(injector, () => new BossIntroService());
@@ -155,6 +161,25 @@ describe('BossIntroService', () => {
 
     play(BOSS_INTRO_TIMING.revealMs);
     expect(service.stage()).toBeNull();
+    expect(service.active()).toBe(false);
+  });
+
+  it('skips a boss that clears its portal while a dialog is open, and gives it none once the dialog closes', () => {
+    const boss = fakeBoss();
+    spawn(boss);
+    openDialogs.push({});
+    expect(service.blocked()).toBe('dialog');
+
+    boss.walked = 20;
+    frame();
+    expect(service.stage()).toBeNull();
+    expect(controls.enabled).toBe(true);
+    expect(paused()).toBe(false);
+    expect(camera.position.equals(startPosition)).toBe(true);
+
+    openDialogs.length = 0;
+    expect(service.blocked()).toBeNull();
+    play(1000);
     expect(service.active()).toBe(false);
   });
 

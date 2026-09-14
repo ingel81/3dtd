@@ -1,5 +1,6 @@
 import { DestroyRef, Injectable, NgZone, computed, inject, signal } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
+import { MatDialog } from '@angular/material/dialog';
 import { Quaternion, Vector3, type PerspectiveCamera } from 'three';
 import { GameStateManager } from '../managers/game-state.manager';
 import { GameStore } from '../store/game.store';
@@ -68,8 +69,8 @@ interface IntroRun {
  * viaPortal) has stepped out of its spawn portal, the camera cuts to the
  * portal behind a short dark veil, holds on the boss, and cuts back to the
  * pose it had. Rules in utils/boss-intro.ts: one intro per boss type and
- * wave (BossIntroGate), none in photo mode, training runs or above 4x
- * (bossIntroBlock). Bosses of the wave still waiting when an intro starts
+ * wave (BossIntroGate), none in photo mode, training runs, above 4x or
+ * while a dialog is open (bossIntroBlock). Bosses of the wave still waiting when an intro starts
  * (two types out of the portals at once, a Custom Wave) share it: the card
  * names them all, the shot stays on the first.
  *
@@ -98,6 +99,7 @@ export class BossIntroService {
   private readonly introFlight = inject(IntroCameraFlightService);
   private readonly ngZone = inject(NgZone);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly dialog = inject(MatDialog);
 
   /** Stage of the running intro, null while none runs. */
   readonly stage = signal<BossIntroStage | null>(null);
@@ -163,6 +165,7 @@ export class BossIntroService {
       timescale: this.gameStore.trainingTimescale(),
       renderingEnabled: this.gameStore.renderingEnabled(),
       introFlight: this.introFlight.active(),
+      dialogOpen: this.dialog.openDialogs.length > 0,
     });
   }
 
