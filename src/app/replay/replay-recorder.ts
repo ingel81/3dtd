@@ -3,7 +3,9 @@ import { Vector3 } from 'three';
 import type { EventSubscription, GameEvent, GameEventBus } from '../game-engine/game-event-bus';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { WaveConfig } from '../managers/wave.manager';
-import { ENEMY_END, ENEMY_FLAG, ReplayRecording, TOWER_FLAG } from './replay-recording';
+import type { RouteBodyStations } from '../utils/route-body';
+import { isBloodMoonWave } from '../configs/blood-moon.config';
+import { ENEMY_END, ENEMY_FLAG, ReplayRecording, TOWER_FLAG, heroPoseCode, type ReplayHeroPose } from './replay-recording';
 import { isPresentationEvent, presentationEvent, toPlainData } from './replay-events';
 
 /** What the recorder reads of an enemy; Enemy has all of it. */
@@ -22,8 +24,20 @@ export interface RecordableEnemy {
     isSlowed(gameTimeMs: number): boolean;
     isPoisoned(gameTimeMs: number): boolean;
     isBurning(gameTimeMs: number): boolean;
+    isFrozen(gameTimeMs: number): boolean;
+    isStunned(gameTimeMs: number): boolean;
   };
   readonly rush: { readonly running: boolean } | null;
+  /** A body along the route (the oozes): its stretch, tailM to tipM on its stations */
+  readonly body: { readonly stations: RouteBodyStations; readonly tailM: number; readonly tipM: number } | null;
+}
+
+/** What the recorder reads of the hero; HeroManager.getPresentation() gives it. */
+export interface RecordableHero {
+  readonly lat: number;
+  readonly lon: number;
+  readonly heading: number;
+  readonly pose: ReplayHeroPose;
 }
 
 /** What the recorder reads of a projectile; Projectile has all of it. */
@@ -64,6 +78,8 @@ export interface ReplaySources {
   enemies(): readonly RecordableEnemy[];
   projectiles(): readonly RecordableProjectile[];
   towers(): readonly RecordableTower[];
+  /** The hero as shown this frame, null while none is hired */
+  hero(): RecordableHero | null;
   engine(): ReplayRecorderEngine | null;
   gameTimeMs(): number;
   baseHealth(): number;
@@ -208,6 +224,7 @@ export class ReplayRecorder {
     const config = this.pendingConfig;
     this.pendingConfig = null;
     this.rec.reset(wave, this.sources.gameTimeMs(), this.sources.baseHealth(), this.sources.credits(), config);
+    this.rec.bloodMoon = isBloodMoonWave(wave);
 
     // Headless training draws nothing, and nobody watches a replay of it
     const engine = this.sources.engine();
@@ -245,7 +262,11 @@ export class ReplayRecorder {
     const enemies = this.sources.enemies();
     const projectiles = this.sources.projectiles();
     const towers = this.sources.towers();
-    const fit = rec.reserveFrame(enemies.length, projectiles.length, towers.length);
+    let bodies = 0;
+    for (const enemy of enemies) {
+      if (enemy.body !== null && enemy.alive) bodies++;
+    }
+    const fit = rec.reserveFrame(enemies.length, projectiles.length, towers.length, bodies);
     if (fit === 'full') return;
     // The spacing just doubled: a frame between two of the new grid waits
     if (fit === 'thinned' && !final && this.stepIndex % rec.stepsPerFrame !== 0) return;
@@ -254,7 +275,16 @@ export class ReplayRecorder {
     this.sampleEnemies(enemies, engine, ms);
     this.sampleProjectiles(projectiles, engine, ms);
     this.sampleTowers(towers, engine);
+    this.sampleHero(engine);
     rec.endFrame();
+  }
+
+  /** The hero on the route grid's ground, so his local x and z are all there is to keep. */
+  private sampleHero(engine: ReplayRecorderEngine): void {
+    const hero = this.sources.hero();
+    if (!hero) return;
+    const local = engine.sync.geoToLocalSimpleInto(hero.lat, hero.lon, 0, this.local);
+    this.rec.pushHero(local.x, local.z, hero.heading, heroPoseCode(hero.pose));
   }
 
   private sampleEnemies(enemies: readonly RecordableEnemy[], engine: ReplayRecorderEngine, ms: number): void {
@@ -280,8 +310,13 @@ export class ReplayRecorder {
         if (movement.isSlowed(now)) flags |= ENEMY_FLAG.SLOWED;
         if (movement.isPoisoned(now)) flags |= ENEMY_FLAG.POISONED;
         if (movement.isBurning(now)) flags |= ENEMY_FLAG.BURNING;
+        if (movement.isFrozen(now)) flags |= ENEMY_FLAG.FROZEN;
+        if (movement.isStunned(now)) flags |= ENEMY_FLAG.STUNNED;
       }
       if (enemy.rush !== null && enemy.rush.running) flags |= ENEMY_FLAG.RUNNING;
+      // An ooze's sample is its tip, health and status; the body adds its stretch
+      const body = enemy.body;
+      if (body !== null) rec.pushBody(index, body.stations, body.tailM, body.tipM);
       rec.pushEnemy(
         index,
         local.x,
