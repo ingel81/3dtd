@@ -1,4 +1,4 @@
-# AI Wave Director — Training Backend
+# AI Wave Director: Training Backend
 
 Python-Trainings- und Messserver für den Wave Director mit Live-Web-Dashboard.
 
@@ -6,7 +6,7 @@ Python-Trainings- und Messserver für den Wave Director mit Live-Web-Dashboard.
 
 > **Das Backend ist ein Messinstrument, keine Produktionsabhängigkeit.** Im
 > Spiel entscheidet ein Regel-Director im Client
-> (`src/app/ai/core/rule-director.ts`) — kein Server, kein Modell, keine
+> (`src/app/ai/core/rule-director.ts`), kein Server, kein Modell, keine
 > ONNX-Runtime. Einstieg: [`../docs/AI_WAVE_DIRECTOR_PLAN.md`](../docs/AI_WAVE_DIRECTOR_PLAN.md),
 > die Messreihe dahinter: [`../docs/HANDOVER_RULE_DIRECTOR.md`](../docs/HANDOVER_RULE_DIRECTOR.md).
 
@@ -44,8 +44,8 @@ Dashboard wird automatisch mitgestartet (kann via `DASHBOARD=0` deaktiviert werd
 |------|---------|
 | `server.py` | WebSocket-Server, State-Encoding, Range-Based Action-Decoding, Fairness-Gate-Regelkreis (`steer_gate`) |
 | `manage_server.py` | Start/Stop/Status des Servers als Hintergrundprozess (PID- und Log-Datei) |
-| `directors.py` | A/B-Roster: `model` / `rules` / `random` / `maxgate` — gleichzeitig gegen dieselben Bots |
-| `schema.py` | Lädt `generated/ai-schema.json`: Enemy-Tabellen, Templates, Curriculum, Feature-Layout, Decoder-Konstanten. Erzeugt aus den TS-Configs via `npm run ai-schema` — nicht von Hand pflegen. |
+| `directors.py` | A/B-Roster: `model` / `rules` / `random` / `maxgate`, gleichzeitig gegen dieselben Bots |
+| `schema.py` | Lädt `generated/ai-schema.json`: Enemy-Tabellen, Templates, Curriculum, Feature-Layout, Decoder-Konstanten. Erzeugt aus den TS-Configs via `npm run ai-schema`, nicht von Hand pflegen. |
 | `config.py` | Trainings-Entscheidungen: Hyperparameter, Reward-Shaping, Gate-Regelparameter, Director-Roster |
 | `core/model.py` | Conv1D + Dense-Netz, Template-Head + 4 Continuous-Params + Value-Head |
 | `core/trainer.py` | PPO-Training-Algorithmus (GAE, Mask-Aware-Reevaluation, Advantage-Clipping) |
@@ -58,7 +58,7 @@ Dashboard wird automatisch mitgestartet (kann via `DASHBOARD=0` deaktiviert werd
 
 ## Web-Dashboard
 
-`http://localhost:3002` — Live-Visualisierung:
+Live-Visualisierung unter `http://localhost:3002`:
 
 - Reward, Damage-Sweet, Near-Miss-Charts mit Trendlinien
 - Modell-Metriken (Policy-Loss, Entropy, Grad-Norm)
@@ -71,7 +71,7 @@ Dashboard wird automatisch mitgestartet (kann via `DASHBOARD=0` deaktiviert werd
 
 1. Backend starten: `start.bat` (oder `python server.py`)
 2. Frontend starten: `npm start` im Projekt-Root
-3. Spiel öffnen, Training-Client im Debug-Fenster einschalten — verbindet sich zu `:3001`
+3. Spiel öffnen, Training-Client im Debug-Fenster einschalten, verbindet sich zu `:3001`
 4. Bot platziert Tower, der Server generiert Wellen über Template-Auswahl
 5. Monitoring im Dashboard `:3002`
 
@@ -81,7 +81,7 @@ Beim Game-Over fordert der Server einen Reset an, der Bot startet eine neue Epis
 **A/B-Lauf:** Mit dem Default-Roster fahren vier verbundene Clients vier
 verschiedene Wave-Designer gegen dieselben Bots, dasselbe Curriculum und
 denselben Gate. Der Director steht in `logs/training_*.jsonl` an `wave_result`
-und `episode_end` im Feld `director` — `scripts/analyze_log.py` gruppiert nicht
+und `episode_end` im Feld `director`; `scripts/analyze_log.py` gruppiert nicht
 danach, die Auswertung ist selbst zu schreiben.
 
 ## Tests
