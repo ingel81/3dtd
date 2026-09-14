@@ -3,9 +3,14 @@
 **Status:** Entschieden am 2026-09-12 (Abschnitt 7). MVP Nuklearschlag gebaut
 am 2026-09-13 (Abschnitt 8, Dokumentation in [ABILITIES.md](../ABILITIES.md)).
 Held Stufe 1 gebaut am 2026-09-14 (Abschnitt 9, Dokumentation in
-[HERO.md](../HERO.md)).
+[HERO.md](../HERO.md)). Frostbombe, EMP und Orbitallaser gebaut am 2026-09-14,
+beschrieben nur in [ABILITIES.md](../ABILITIES.md).
 **Stand:** 2026-09-11 (Abschnitte 0 bis 6, Code-Stand `3338f4b`), 2026-09-12
-(Abschnitt 7), 2026-09-13 (Abschnitt 8).
+(Abschnitt 7), 2026-09-13 (Abschnitt 8), 2026-09-14 (Abschnitt 9).
+Abschnitte 0 bis 6 sind das Konzept und beschreiben den Code von damals, etwa
+„sieben Commands“ (heute 14 `command:*`-Events). Was heute gilt, steht in
+ABILITIES.md und HERO.md; die Tabellen in 8 und 9 halten fest, was beim Bau
+entschieden wurde.
 **Bezug:** TODO.md, Backlog „Gameplay-Konzepte: Spieler aktiver ins Geschehen
 einbinden“.
 
@@ -352,12 +357,14 @@ nichts sagen:
 | Einsatz | nur während einer Welle; außerhalb lehnt der Manager mit `no-wave` ab |
 | Nachladen | die Welle des Einsatzes zählt mit (Einsatz in W12, wieder bereit ab W15); solange die Ladung steht, sammeln Wellen nichts an |
 | Ladung | wird mit dem Befehl verbraucht. Stirbt der Rest der Welle in den 1,5 s, trifft der Einschlag niemanden |
-| Bosse | `isBoss` nur bei Herbert. Golem und Drache kommen auch in normalen Wellen vor, das Flag gilt pro Typ |
+| Bosse | `isBoss` beim Bau nur bei Herbert, heute auch bei Skarnax und der Ooze. Golem und Drache kommen auch in normalen Wellen vor, das Flag gilt pro Typ |
 | Name im Spiel | "Nuclear Strike" (Knopf mit Symbol, Tooltip, Forschung) |
 | Leck-Buchung im Training | das Backend-Gate zählt die Fähigkeits-Kills genauso (`gate_leak_share`), der Reward nicht |
 | Bots | Strategie ab 10 Gegnern mit Pfadfortschritt ab 0,8. In allen Skill-Stufen eingehängt, erforscht wird die Fähigkeit nur von strategist und meta. Deren Baselines sind mit Läufen vor der Umsetzung nicht direkt vergleichbar, beginner und casual spielen unverändert |
 
-Taste K schaltet den Zielmodus wie der Knopf. Nicht gebaut: Warnsirene, weitere Fähigkeiten, Pickups.
+Taste K schaltet den Zielmodus wie der Knopf. Nicht gebaut: Warnsirene, Pickups.
+Weitere Fähigkeiten kamen am 2026-09-14 dazu: Frostbombe, EMP und Orbitallaser
+mit den Tasten F, E und L ([ABILITIES.md](../ABILITIES.md)).
 
 ---
 
@@ -373,9 +380,5 @@ Leck-Regler normal, Bots kaufen nie. Beim Bau festgelegt:
 |---|---|
 | Forschung | `mercenary-contract`, 600 Credits, 30 s, nach `siege-engineering` |
 | Preis | 1000 Credits, einmal |
-| Tempo, Reichweite, Leine | 8 m/s, 18 m, 20 m entlang der Route; ein Befehl snappt im Umkreis von 30 m |
-| Posten | steht, solange er ein Ziel hat; verfolgt sonst den Gegner mit dem größten Pfadfortschritt im Umkreis von 38 m um den Posten, geht ohne Gegner zurück; unterwegs schießt er, bleibt aber nicht stehen |
-| Munition | alle drei 48 DPS vor der Matrix; Explosive rounds ohne Splash |
-| Stufen | 5, bei 0/30/100/250/500 Kills, +15 % Schaden je Stufe |
-| Gate | je Rüstung seine beste Munition, weil der Spieler jederzeit wechselt; nicht in `totalDPS`, Fähigkeiten, AoE-Anteil |
+| Tempo, Reichweite, Leine, Posten, Munition, Stufen, Gate | beim Bau festgelegt, die Werte stehen in [HERO.md](../HERO.md) |
 | Commands | `command:hire-hero`, `command:hero-move`, `command:hero-ammo` statt des Arbeitstitels `command:hero-stance` |
