@@ -1163,6 +1163,9 @@ Punkte beginnen bei 301.
      nicht weiß.
 304. Tank (W9): unverändert facettiert. Ghost (W13): gleiches Schweben und
      gleiche Schleier, der Zyklus wiederholt sich nach 3,5 s statt 6,7 s.
+     **Nachtest Tank-Höhe ok (Playtest 2, 2026-09-14,** nach tweaks2
+     `heightOffset` 1): Ketten auf der Straße, kein Schweben, Balken über
+     dem Turm.
 
 **Kamera-Cache**
 
@@ -1288,6 +1291,8 @@ Punkte beginnen bei 301.
 338. Nacht 1, 248 wiederholen: Kamera auf die Straße vor dem Portal, Bloom
      an und aus: der Kreis ist beide Male sichtbar und etwa gleich hell;
      beim Wellenstart blüht er etwas auf.
+     **ok (Playtest 2, 2026-09-14)**, geprüft mit dem Bloom-Nachtest in
+     REVIEW_FIX_2026-09-14.
 339. Research Center, gesperrten Knoten "Advanced Weaponry" klicken: die
      Queue zeigt Gatling Technology, Siege Engineering, Ice Magic, Arcane
      Studies, Advanced Weaponry; Gold geht erst beim jeweiligen Start ab.
@@ -1304,6 +1309,8 @@ Punkte beginnen bei 301.
      Sidebar-Fuß "World": Ortsdialog auf Tab World, Globus zum Ort gedreht,
      goldener Marker mit "2" und grauem Ring; Liste "playing now · wave 2"
      ausgegraut; ein Klick darauf tut nichts.
+     **ok (Playtest 2, 2026-09-14)**, der Klick auf die graue Zeile war
+     nicht abgefragt.
 341. Weiter bis Game Over: nach etwa 1,2 s unter Restart ein kleiner Globus,
      "New record for <Ort>: wave N", "First run here"; Restart verschiebt
      sich nicht; "Skip" blendet aus.
@@ -1313,9 +1320,11 @@ Punkte beginnen bei 301.
      höchste Welle zuerst; Hover über eine Zeile dreht den Globus hin;
      Warnung "The current game will be ended"; Klick lädt den Ort mit dem
      Spawn des Rekordlaufs.
+     **ok (Playtest 2, 2026-09-14)** für Reihenfolge und Hover; Warnung
+     und Laden per Klick waren nicht abgefragt.
 344. Globus ziehen, auch über den Pazifik: kein Sprung; Mausrad bis 8x;
      Beschriftungen überlappen nicht; Küsten enden sauber am Rand, kein
-     Strich quer über die Scheibe.
+     Strich quer über die Scheibe. **ok (Playtest 2, 2026-09-14)**
 345. Bis Welle 5, F5 ohne Game Over, Tab World: Welle 5 für den Ort.
 346. Sidebar-Fuß: World, Tips, Map Key, Attributions in einer Zeile.
      `td_best_waves_v1` löschen, neu laden: Tab World zeigt "None yet".
@@ -1344,9 +1353,14 @@ Punkte beginnen bei 301.
      ohne Lücken; dunkelbraunes Chitin mit hellen Rändern (nicht weiß), Kopf
      mit Mandibeln und roten Augen schaut nach vorn, alles sitzt auf der
      Straße; Boss-Leiste "Chitin Worm".
+     **Playtest 2 (2026-09-14): im Prinzip gut.** Textur noch nicht
+     optimal, die Beine bewegen sich nicht (Asset-Punkte, REVIEW_FIX Offene
+     Punkte 18); an einer 90°-Kurve knickt er (siehe 356).
 353. Tower mit Ziel Strongest oder Closest an die Wurmmitte: nach einem
      zerstörten Ring laufen zwei Würmer, der Ring hinter der Lücke hat das
      Kopfmodell (ohne Aufblitzen), Leiste "Chitin Worm ×2".
+     **ok (Playtest 2, 2026-09-14)**, in Rio geprüft (Screenshot: zwei
+     Würmer mit Kopf).
 354. Count 2: der zweite kommt erst, wenn der erste ganz draußen ist; die
      Welle endet nach dem letzten Ring, der Zähler zählt jeden Ring. Kill,
      während er noch herauskommt: nichts kommt nach, die Welle endet.
@@ -1355,6 +1369,10 @@ Punkte beginnen bei 301.
      dort heraus; das Kreuz entfernt den ganzen Wurm.
 356. Wurm um eine scharfe Ecke: gehen außen Lücken auf? Bei 4x: Abstände und
      Schlängeln wie bei 1x.
+     **Befund (Playtest 2, 2026-09-14):** an einer 90°-Ecke knickt der
+     Wurm, zwei Ringe bilden ein spitzes V mit Lücke außen (Screenshot).
+     **Entscheidung User:** die Ecken stören, Fix wormcorner, erneut prüfen
+     (auch bei 4x).
 357. Bis W34 spielen oder auf 35 springen: NEXT zeigt W35 "Boss:
      Chitin Worm" mit Totenkopf, Rüstung Heavy; W35 bringt den Wurm, "Why
      this wave" nennt den ersetzten Boss; ganz getötet bringt die Welle
@@ -1376,6 +1394,8 @@ Punkte beginnen bei 301.
      punktweise, roter Rand, die Leiste leert sich; die Welle endet, wenn
      alles drin ist. In W1 kostet eine volle Ooze 10 HP. Schüttelt der
      Bildschirm bei jedem Punkt (Review-Befund 8)?
+     **ok (Playtest 2, 2026-09-14)**, mit 419 und 421 geprüft; auch die
+     Ooze-Spitze im Boss-Intro vor dem Tor.
 363. Kill: das Band sinkt in etwa 0,6 s weg, bis zu 10 hüpfende Klumpen mit
      grünen Spritzern, Knochen-Burst an der Spitze; die Welle endet nach dem
      letzten Klumpen. Kurz nach dem Spawn getötet: 1 bis 3 Klumpen. Bei 4x
@@ -1396,6 +1416,14 @@ Punkte beginnen bei 301.
      "Esc or click to skip", langsame Heranfahrt, obere HUD-Spalte weg; nach
      etwa 2,8 s dunkel, exakt die vorherige Ansicht, das Spiel läuft,
      Boss-Leiste da.
+     **Nachtest (Playtest 2, 2026-09-14, nach tweaks2 21,4 m): Befund.**
+     Steht das Portal in einer engen Straße zwischen Häusern, schaut die
+     Kamera von der Seite: Dächer füllen das Bild, Herbert verdeckt
+     (Screenshot); an einem anderen Spawn verdecken Büsche die untere
+     Bildhälfte. An offener Stelle passt die Einstellung. **Entscheidung
+     User:** Blickwinkel dynamisch wählen und gegen Hindernisse absichern
+     (bisher offen, kein Hindernis-Check). Umsetzung bossshot, erneut
+     prüfen; die Abstandsfrage 21,4 gegen 15,5 m danach.
 367. Während der Karte: Gegner stehen, Tower schießen nicht, P und WASD tun
      nichts. Esc: sofort zurück (im Build-Modus bleibt der an). Klick auf
      die Karte: zurück, nichts gewählt oder gebaut.
@@ -1509,6 +1537,7 @@ Punkte beginnen bei 301.
 396. Welle mit Tanks oder Mechs (W9, W22, W28 oder Custom Wave), E: Ring
      30 m, "Click Pulse"; blaue Fronten, Funken; Maschinen 6 s still
      (violett-blau), andere 1,5 s, Bosse 0,75 s.
+     **ok (Playtest 2, 2026-09-14)**, mit 5 Tanks.
 397. L: Ring 5 m und ein goldenes Band Richtung Spawn, "Click Fire";
      abseits rot "No route within 30 m". Klick vor eine Gruppe: 1 s oranges
      Band, dann eine Lichtsäule, deren Fuß 4 s Richtung Portal läuft,
@@ -1604,12 +1633,16 @@ Punkte beginnen bei 301.
 419. Auf 45 springen, einen Tower seitlich an den Rand der Ooze-Route
      stellen, 4x: das Spiel läuft flüssig (optional im Chrome-Profil:
      `raycastLineOfSight` aus `BodyAim` nur in den ersten Zügen).
+     **ok (Playtest 2, 2026-09-14)**
 420. W45: die Ooze teilweise ins HQ fließen lassen, dann töten; später Game
      Over: die Übersicht zeigt für W45 ein Leck, die Ooze fehlt bei den
      Kills.
 421. W45 bei 4x, die Ooze fließt voll ins HQ: der Bildschirm wackelt etwa
      einmal je Sekunde im Takt des roten Rands, nicht durchgehend; ein
      Zombie-Leck mit 10 HP dazwischen wackelt sofort.
+     **Nachtest ok (Playtest 2, 2026-09-14,** nach `d48b5c87`): Schlürfen
+     etwa jede Sekunde, Wackeln nur am Anfang, das Zombie-Leck wackelt
+     sofort.
 422. Auf 14 springen, Archer mit der Straße seitlich, Welle starten,
      Reichweite upgraden: der Lichtkegel schwenkt sofort um die neue
      Wachrichtung. In W14 einen Ice Tower Zombies töten lassen: Eis- und
@@ -1640,6 +1673,14 @@ Punkte beginnen bei 301.
      Regel, Fuß und Sockel. `centreGroundY` und `centreTopY` notieren und
      melden (gleich: die Tiles zeigen unter dem Dach keinen Boden; deutlich
      kleiner: Boden darunter). Dasselbe mit dem Cursor auf der Straße.
+     **Ergebnis (Playtest 2, 2026-09-14, Tokyo, `__footprintDebug.watch()`):**
+     auf Flachdächern `centreGroundY` 39,5 bis 39,9 bei `centreTopY` 70,5
+     bis 99,3, also deutlich kleiner: die Tiles zeigen dort Boden unter dem
+     Dach (Straße etwa 39,5). Regeln `agree` und `roof-column`, Sockel bis
+     3,25 m. Nebenbefund: an einer Dachkante gebaut (`placed archer
+     rule=agree centreGroundY=39.58 centreTopY=80.4 plinthHeight=3.25
+     footY=80.4 surfaceY=79.22`), der Sockel ragt über die Kante ins Leere
+     (Screenshot); Entscheidung beim User.
 430. Gestuftes Dach, Cursor auf den niedrigeren Teil 1 bis 2 m vor der
      Stufe: die Vorschau steht auf dem höheren Teil, der Sockel reicht zum
      niedrigeren; `__footprintDebug()` zeigt `roof-column` oder
@@ -1653,6 +1694,10 @@ Punkte beginnen bei 301.
      gleich `centreTopY` Regel `ground`, der Aufbau hebt nicht (bekannte
      Grenze). Optional danach `__raycastStats()`, Zeile `towerFootprint`
      ansehen.
+     **Nicht erreicht (Playtest 2, 2026-09-14):** in Tokyo kein Dach mit
+     `centreGroundY` gleich `centreTopY`. Eine Zeile `rule=even
+     centreTopY=80.4 plinthHeight=0 footY=71.19` zeigt die bekannte Grenze:
+     der 9 m höhere Aufbau in der Mitte hebt den Tower nicht.
 434. Optional, mit `glslangValidator` wie in 406: `npm run shader-check`
      meldet "57 passed (57)"; ohne Binary sind 27 Tests übersprungen.
 

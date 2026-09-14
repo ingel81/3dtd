@@ -548,6 +548,15 @@
 > `docs/REVIEW_FIX_2026-09-14.md`. Die Queue-Ketten (`7914062f`) sind dort
 > zurückgenommen (`a1bcb3d5`).
 
+- [ ] **Idee: Tower an der Dachkante mit Schrägstütze** (Playtest 2, 2026-09-14, bei 429)
+      An einer Dachkante ragt der runde Sockel über den Abgrund (Tokyo,
+      `plinthHeight` 3,25). Vorschlag des Users: statt des runden Sockels
+      eine eckige, schräge Abstützung gegen die Fassade, die einen Überstand
+      bis etwa 49 % der Standfläche erlaubt; darüber ablehnen. Die Seite,
+      deren Proben ins Leere fallen, gibt die Richtung zur Fassade
+      (`utils/tower-footprint.ts`). Vorerst bleibt das Bauen an der Kante wie
+      es ist (User).
+
 - [ ] **Sockel: Dach oder Boden, Annahmen ungeprüft** (laut fix1 und fix4)
       Ob die Tiles unter einem Dach Boden zeigen, ist unbelegt; die
       Kommentare in `utils/route-cell-sampler.ts:248` und

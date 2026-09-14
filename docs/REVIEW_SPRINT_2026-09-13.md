@@ -972,6 +972,13 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 142. Tab Showcase, drei bis vier Orte (etwa Tokyo Shibuya): Route ok, HQ
      nicht im Gebäude.
+     **Playtest 2 (2026-09-14):** London ok, Prag gut, Tokyo "komisch"
+     (Screenshot: die Route macht eine unnötige Schlaufe um einen Block,
+     "sah kaputt aus"; URL und `__routes.describe()` angefragt).
+     Showcases haben nur feste HQ-Koordinaten, der Spawn wird bei jedem
+     Laden neu gewürfelt. **Entscheidung User:** Showcases bekommen feste
+     Spawns, die der User selbst wählt (Rio schon geschickt); Dubai fliegt
+     raus (dort keine 3D-Tiles). Umsetzung showcase.
 143. Tower-Panel: die Kachel "Dealt" wächst in der Welle.
      **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
 144. Game Over: Wave, Kills, Time, Earned, Spent, Leck-Balken je Welle,
@@ -1081,7 +1088,7 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      Lecks gedeckelt; Dev-Cheats Credits, Health, Max-Upgrade, Research
      komplett.
 166. Build-Mode: der Hinweis zeigt "Hover" und "Line of Sight", die LOS
-     erscheint sofort.
+     erscheint sofort. **ok (Playtest 2, 2026-09-14)**
 167. Magic Tower setzen: nach 0,8 s Sweep um 75°, dann zur Wachrichtung, die
      Kugel wippt ohne Drehen; in der Welle hält er die letzte Richtung.
 168. Enemy Debug, zwei Gegner, X und Clear All: die Tower drehen danach zur
@@ -1094,7 +1101,7 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      anderer Typ folgt dem Cursor. Schnell Archer, dann Cannon: nur die
      Cannon-Vorschau.
 171. Tower setzen, heranzoomen: die LOS-Anzeige folgt dem Nachladen der
-     Tiles.
+     Tiles. **ok (Playtest 2, 2026-09-14)**, auch "LOD Colors" an und aus.
 172. Etwa 10 Archer oder Gatling, große Welle bei 1x, 2 Minuten: die
      Schuss-Sounds bleiben hörbar.
 173. Musik: Main Theme, dann Build, Crossfades, Ausblenden bei Game Over;
@@ -1189,15 +1196,19 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      oder Hörner in Fassaden? Treten die Gegner an beiden Orten aus der Fläche?
 200. Mehrere Spawns (rot, orange, cyan, magenta): unterscheidbar am Rand der
      Leere, an den Siegeln und am Straßenlicht.
+     **Entfällt (Playtest 2, 2026-09-14):** per UI gibt es nur einen Spawn
+     ("Set spawn" ersetzt `spawn-1`); mehrere Portale nur über eine URL mit
+     mehreren Spawns (`editableSpawnLocations`), Vorarbeit für
+     Multi-Lane/Multiplayer.
 201. Nah an einen Pfeiler (N, dann heranzoomen): Quaderlagen mit dunklen
      Fugen, je Siegel ein Quader, keine Fuge durch ein Siegel; Kanten gefast,
      heller abgerieben, einzelne Abplatzer; Risse; Ruß und Brandflecken rund
      um die Öffnung, schwarze Schlieren über dem Sturz.
 202. Kamera um das Portal drehen: das rote Kernlicht fällt auf die
      Innenseiten und die Fasen nahe der Öffnung; keine flimmernden Flächen an
-     den Pfeilerfüßen innen.
+     den Pfeilerfüßen innen. **ok (Playtest 2, 2026-09-14)**
 203. Weit herauszoomen: der Stein wird ruhig, die Details blenden aus, kein
-     Funkeln oder Moiré.
+     Funkeln oder Moiré. **ok (Playtest 2, 2026-09-14)**
 204. Space: bei Wellenstart glimmen die Risse an der Öffnung auf.
 
 ## Nachtrag: Playtest 2026-09-13 vormittags
@@ -1265,6 +1276,11 @@ unterscheiden, nur in `pick()` und `__rg.dumpStats()`.
 208. `__routes.describe()`: Way 89873545 zeigt in leftM und rightM keine
      2.75 mehr, solange `noTile` dort keine weiteren Stationen nennt.
 209. Welle starten: an der Stelle keine Taille im Gegnerstrom.
+     **Playtest 2 (2026-09-14), 205 bis 209:** Erlenbach, Clearance ohne
+     `noTile` (`stations=236 unmeasured=0 rays=944 changed=true in
+     373.6ms`), Zellen bis auf einzelne Ausreißer in Bäumen und Hecken gut
+     (an corridor3). Die Route lief nicht über den Schießmauerweg (Way
+     89873545), die alte Stelle ist also nicht nachgeprüft.
 
 ### Header-Zahlen (hqfix, `8dfe042`)
 
@@ -1447,7 +1463,7 @@ flach. Und: Gegner waren vor dem Heraustreten zu sehen.
 229. Gegner erscheinen: keiner ist zu sehen, bevor er vorn aus der Fläche
      tritt, auch nicht von hinten oder schräg von oben (Kamera um das
      Portal kreisen), auch große wie Mammoth und Golem bei normaler
-     Portalgröße.
+     Portalgröße. **ok (Playtest 2, 2026-09-14**, mit Mammoth)
 230. Setup, Spawn setzen: die Vorschau zeigt den Steinrahmen in der
      Spawnfarbe.
 231. Standort wechseln: die Portale stehen sofort mit Rahmen da, die

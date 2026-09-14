@@ -565,6 +565,8 @@ bitte klären"; Lead-Entscheidungen sind revertierbar):
   umgesetzt in `d48dc0b7` (die Leiste bleibt unter der gemessenen
   Unterkante des Overlays und über den Logos, scrollt bei zu niedrigem
   Spielfeld; der Gold-Glow endet dadurch am Innenrand der Leiste).
+  **Nachtest ok (Playtest 2, 2026-09-14)**, der Glow am Innenrand stört
+  nicht.
 - **9 HQ umsetzen:** jetzt schneller, 541 in Paris 2,5 s statt 6,1 s
   (relocspeed).
 - **10 Spawn-Drehung:** Lead-Entscheidung: in URL und Favoriten speichern;
@@ -575,21 +577,31 @@ bitte klären"; Lead-Entscheidungen sind revertierbar):
   Weltkarte laden ohne Drehung. Ein alter, gecachter Build verwirft eine
   neue URL mit Kurs und würfelt den Spawn neu. **Nachtest:** Spawn mit R
   drehen, F5: gleiche Drehung; als Favorit speichern, anderen Ort laden,
-  Favorit laden: gleiche Drehung.
+  Favorit laden: gleiche Drehung. **ok (Playtest 2, 2026-09-14)**
 - **11 Center-Tipp nach Welle 2:** Lead-Entscheidung: bleibt (503, 504 ok).
 - **12 Wurm-Ecken:** bleibt für die User-Runde mit 356.
+  **Entscheidung User (Playtest 2, 2026-09-14):** die Ecken stören
+  (Screenshot: zwei Ringe bilden an einer 90°-Ecke ein spitzes V mit
+  Lücke außen). Fix wormcorner.
 - **13 `hero:rejected`, `ability:rejected`:** Lead-Entscheidung: sichtbare
   Rückmeldung; umgesetzt in `0961846d` (Grund 2,5 s in der Hinweis-Box,
   z. B. "Only during a wave", "No charges, recharges in N waves", "Need N
   credits"; vor der Forschung bleiben die Tasten still). Ersatzmodell für
-  den Held bleibt offen.
+  den Held bleibt offen. **Nachtest ok (Playtest 2, 2026-09-14)**: alle
+  drei Texte, Zeigermodus beendet die Box, das Überdecken aktiver
+  Modus-Hinweise bis 2,5 s stört nicht.
 - **14 Boss-Intro bei offenem Dialog:** Lead-Entscheidung: das Intro fällt
   dann aus; umgesetzt in `77fb07b4` (gilt für den Start; ein Dialog, der
-  erst während des Intros aufgeht, hält es nicht an). Hindernis-Check
-  bleibt offen.
+  erst während des Intros aufgeht, hält es nicht an). **Nachtest ok
+  (Playtest 2, 2026-09-14)**, auch das Weiterlaufen bei später geöffnetem
+  Dialog passt. Hindernis-Check: User-Entscheidung im Nachtest 366
+  (REVIEW_SPRINT_2026-09-14), dynamischer Blickwinkel, Umsetzung bossshot.
 - **15 Laser-Bot-Zählung:** Lead-Entscheidung: bleibt als Näherung (nur
   Training).
 - **16 Sockel-Widerspruch:** klärt 429 mit `__footprintDebug.watch()`.
+  **Ergebnis 429 (Playtest 2, 2026-09-14):** in Tokyo zeigen die Tiles
+  unter Flachdächern Boden (`centreGroundY` 39,5 gegen `centreTopY` bis
+  99); die beiden Kommentare werden danach angeglichen.
 - **17 Boss-Varianten:** Lead-Entscheidung: bleibt bis zum Run-Dump.
 - **18 Assets:** später, eigenes Thema. **19 Tooling:** bleibt ohne
   npm-Abhängigkeit (User-Entscheidung Nacht 2).
@@ -608,6 +620,12 @@ bitte klären"; Lead-Entscheidungen sind revertierbar):
    dahinter erhöht ist (dann engen Autos und Transporter wieder ein), (b)
    OSM-Flächen (Gebäude, Gärten) als Grenze, nicht geprüft, ob sie für den
    Korridor verfügbar sind, (c) so lassen.
+   **Entscheidung User (Playtest 2, 2026-09-14): (a).** Autos und
+   Transporter sollen den Korridor einengen, das war nie anders gewünscht
+   (alte 41); der Nachteil im Optionstext ist damit keiner. Kurze
+   Einbrüche durch Autos oder Transporter schließt `closeShortDips` nicht
+   mehr, dünne Hindernisse weiter. Umsetzung corridor4. Grenze: ein
+   Vorgarten bündig auf Gehweghöhe bleibt ununterscheidbar.
 2. **Auskragung** (`a8866f4d`) ist eine Urteilsfrage: weniger orange Zellen
    unter Obergeschossen gegen bis 1 m weniger Korridor an Erkern, Balkonen
    und Kronen. Playtest 561 vergleicht beides; `__corridor.set({
@@ -861,6 +879,11 @@ abarbeiten.
   zeigt am HQ keine magenta Quadrate. Zurück mit `__bloom.guard()` und
   `__bloom.marks(false)`. Reichweitenband auf Bäumen: Deckkraft 0,85 auf 0,6
   (Normalenfilter geht mit dem Stencil-Verfahren nicht).
+  **Nachtest ok (Playtest 2, 2026-09-14):** kein Block, auch nicht mit
+  `__bloom.guard(false)`, keine Marken am HQ; der Beschwörungskreis vor dem
+  Portal ist mit Bloom sichtbar (Nacht 2, 338). Reichweitenband mit
+  Deckkraft 0,6 **ok** (Playtest 2): auf Kronen zurückhaltender, am Boden
+  lesbar.
 - **Korridor (corridor2):** Paris-Brückenköpfe: das runde Ende der Zufahrt
   zog die ersten Meter des Decks auf den Kai (8 bis 9,5 m tiefer), die
   Linie lief dort unter das Deck; jetzt behält ein Segment, das eine Zelle
@@ -908,9 +931,16 @@ Spawn-Ringe folgt einem Resize schon, weil three sie vor jedem Zeichnen
 setzt (nur Spec). Offen als Messung: "Set spawn" fragt für die Ringe 194
 Säulen synchron ab; **Nachtest:** Konsole `__raycastStats(true)`, "Set
 spawn" (erstes Mal nach dem Laden), `__raycastStats()`, Zeile `spawnRings`
-lesen (`totalMs`, `maxBurstMs`). Ein Hänger beim ersten Tower oder
+lesen (`totalMs`, `maxBurstMs`). **Ergebnis (Playtest 2, 2026-09-14):**
+`spawnRings` 192 Aufrufe, `totalMs` 23,6, `maxBurstMs` 23,6 (also ein Frame
+von etwa 24 ms), beim Setzen kein spürbares Ruckeln. Ein Hänger beim ersten Tower oder
 Wellenstart im Intro-Flug (volle Erstmessung am Stück) ist als Messpunkt
 vermerkt (`flushed=tower` im Log).
+**Nachtest (Playtest 2, 2026-09-14):** Paris, Place de l'Opéra, Intro mit Esc beendet, sofort ein Tower: kein
+`flushed=tower`, weil die Messung nach dem Abbruch schon fertig war
+(`[Corridor] clearance: segments=40 stations=281 unmeasured=0 rays=1124
+changed=true in 245.1ms slices=71 wall=682.2ms`), bevor der Tower stand.
+Kein spürbarer Hänger (User: "absolut i.O.").
 
 **Vorab**
 
@@ -954,6 +984,9 @@ vermerkt (`flushed=tower` im Log).
      alle sieben getan, kommt die ganze Runde ab 1/7. Erneut prüfen: Key
      löschen, Archer, Welle 1, U, Welle 2: "4/7"; "Hide tips", dann "Tips":
      wieder "4/7", nicht "1/7". Reload: kein "1/7".
+     **Nachtest ok (Playtest 2, 2026-09-14):** 4/7 nach "Hide tips" und
+     "Tips", 6/7 nach dem Research-Cheat, nach 7/7 ganze Runde ab 1/7,
+     nach Reload kein 1/7.
 506. Key löschen und Reload wie in 502. Archer bauen, Cheat Credits,
      Welle 1 starten und darin ein Research Center bauen: noch in Welle 1
      erscheint "Start a research", "5/7" (bereit, sobald ein Center steht).
@@ -1092,6 +1125,9 @@ vermerkt (`flushed=tower` im Log).
      schon nach der Straße aus (WYSIWYG); R verstellt nur im zulässigen
      Rahmen, in dem die Route noch durch die Öffnung läuft. Umsetzung
      folgt (portal2), erneut prüfen.
+     **Nachtest ok (Playtest 2, 2026-09-14, nach pathstart):** die
+     Vorschau gleitet langsam und schnell ohne Springen, das Portal steht
+     am Klickpunkt (User: "fühlt sich alles richtig und gut an").
 530. "Set spawn" mitten auf eine gerade Straße: das Portal steht längs der
      Straße wie bisher. **ok**
 531. "Set spawn", Cursor auf eine Straße zwischen den beiden gestrichelten
@@ -1184,6 +1220,16 @@ vermerkt (`flushed=tower` im Log).
      `[OSM]`-Zeilen). **Entscheidung User:** beides beschleunigen (Messung
      während des Umzugs mit mehr Budget je Frame, Straßen-Nachladen
      untersuchen); Umsetzung relocspeed, danach 541 und 544 erneut messen.
+     **Nachtest ok (Playtest 2, 2026-09-14):** `[OSM] streets: 2.0 of
+     16.0km² from the streets loaded before, fetching 14.0km² in 2 boxes`;
+     `[OSM] streets from overpass-api.de: headers=580 body=298ms size=5.4MB
+     ways=9013 nodes=30691`; `HQ outside the streets: streets=4914,4
+     spawn=17,5 total=4931,9 ms spawnFrom=random` (vorher 16 997 ms). Im
+     Intro-Flug nur `clearance cancelled (intro flight): stations=3 of 281`.
+     Die Messung nach der Landung ist nicht festgehalten. Nebenbefund:
+     `WARNING: sanitizing HTML stripped some content` aus
+     `loading-screen.component.html:124` (Field Tips mit `<b style=...>`,
+     Angular entfernt das `style`); Fix tipstyle.
 
 **Pause und Ton**
 
@@ -1265,6 +1311,18 @@ vermerkt (`flushed=tower` im Log).
      Viertelkreis bis 7 m ins Haus zu reichen.
      **Befund (2026-09-14):** im Prinzip wie vorher, orange Zellen in
      Häusern, Höfen und Gärten neben der Route (Screenshot des Users).
+     **Nachtest 560 bis 563 (Playtest 2, 2026-09-14): deutlich besser,
+     weiter Befund.** Keine orangen Zellen mehr, die Schmalheit passt im
+     Groben, aber einzelne weiße Zellen auf einem Auto, an einer
+     Dachecke und auf einer Gaube (Screenshots des Users). Picks: Autozellen
+     `aboveNeighboursM` 0,58 und 0,59, `walkable: true` (unter `stepRise`
+     0,75; Station `11:6/19`, Way 1131624596); eine Zelle `heightM` 480,57,
+     `aboveNeighboursM` 7,62, `walkable: false`, steht aber noch (Station
+     `9:5/7`, Way 1219843523); eine Zelle `aboveNeighboursM` 5,71 mit
+     `walkable: null`, also nie beurteilt, dazu eine unter der Traufe mit
+     `overM` 3,3, `cameraSees: false`, `walkable: true` (Station `7:5/12`,
+     Way 24249273). Gelbe Zellen im Torbogen sind die Markierung für
+     überdeckte Straße (so gebaut). Fix corridor3, erneut prüfen.
 561. Rothenburg, Fachwerkfassaden: `__corridor.pick()`, Linksklick auf eine
      orange Randzelle an einer Fassade; in der Tabelle nach "[Corridor] width
      at the nearest route station" die Spalte `rule` lesen (wo die neue Regel
@@ -1311,6 +1369,14 @@ vermerkt (`flushed=tower` im Log).
      **Entscheidung User zum Korridor:** orange (geklemmte) Zellen
      weglassen, der Korridor wird dort schmaler (corridor2); 560 bis 562
      danach erneut prüfen.
+     **Nachtest (Playtest 2, 2026-09-14): weiter Befund.** Das Deck selbst
+     ist durchgehend blau, an beiden Köpfen liegen weiße Zellen tiefer
+     neben der Brücke, teils im Boden; die gelben Straßen fallen dort früh
+     auf Wasserniveau. Pick bei (162,0 / 171,3): nächste Station `8:1/1`
+     auf Way 1423074549 (`service`, `lanes=1`, Name "Pont d'Iéna", ohne
+     `bridge`), 8,3 m entfernt; Säulen dort `columnBottomM` 71,4 bis 79,1,
+     `columnTopM` etwa 80. Das ist H2 aus corridor2 (kurze Zufahrt ohne
+     Brücken-Tag über dem Kai). Fix bridge3, erneut prüfen.
 
 **Optional: Training**
 

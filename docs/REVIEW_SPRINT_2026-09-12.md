@@ -696,6 +696,11 @@ Auch hier lief nichts im Browser.
     Overlay-Zellen dort gelb und auf der Straße im Tunnel, nicht auf dem Hang,
     sofern an beiden Mündungen Tiles liegen (sonst rosa);
     `__corridor.pick()` zeigt `surface tunnel`.
+    **Nicht erreicht (Playtest 2, 2026-09-14):** am getesteten Ort
+    (Erlenbach, Weinsberger Straße unter einer Autobahnbrücke) steht kein
+    `tunnel`/`covered` in `tags`, der Route-Way unter der Brücke trägt hier
+    keinen solchen Tag. Befund dabei: Zellen und Gegner liegen auf dem
+    Autobahndeck (Way 31361736, `maxCellAboveStreetM` 10,1); Fix bridge3.
 54. Raketen bei Frame Limit 30 und bei 4x: das Düsenglühen bleibt etwa 6 m
     lang wie bei 60 FPS; die anderen Streaks ebenfalls unverändert lang.
     **ok** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`)
