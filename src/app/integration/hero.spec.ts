@@ -30,25 +30,11 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { createMockTilesEngine, createTestCachedPaths, TEST_PATH, TEST_SPAWN_POINTS } from './test-helpers';
-import { GameStateManager } from '../managers/game-state.manager';
-import { CombatEffectService } from '../services/combat/combat-effect.service';
-import { DamageApplicationService } from '../services/combat/damage-application.service';
-import { GameObject } from '../core/game-object';
+import { createMockTilesEngine, withAutoStubs, TEST_PATH, TEST_SPAWN_POINTS } from './test-helpers';
+import { createHeroTestGame } from './hero-test-helpers';
 import { HERO } from '../configs/hero.config';
 import { geoDistanceFast } from '../utils/geo-utils';
-import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-
-/** Any property the test does not set is a vi.fn(). */
-function withAutoStubs<T extends object>(target: T): T {
-  return new Proxy(target, {
-    get(obj, prop, receiver) {
-      if (!(prop in obj)) Reflect.set(obj, prop, vi.fn());
-      return Reflect.get(obj, prop, receiver);
-    },
-  });
-}
 
 function createEngine(): never {
   const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
@@ -63,8 +49,6 @@ function createEngine(): never {
   return withAutoStubs(engine) as never;
 }
 
-/** HQ at the north end of the 111 m path */
-const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 const HIRE_STEP = 5;
 const MOVE_STEP = 10;
 /** 44 m south of the HQ: he walks there in about 5.5 s */
@@ -90,45 +74,8 @@ interface Outcome {
   shots: number;
 }
 
-function createGame(timescale: number) {
-  for (const key of Object.keys(mockServices)) delete mockServices[key];
-  GameObject.resetIdCounter();
-
-  const ref: { gsm?: GameStateManager } = {};
-  mockServices['GlobalRouteGridService'] = withAutoStubs({
-    isInitialized: () => false,
-    getEnemiesInRadiusGeo: (center: GeoPosition, radiusM: number, _exclude: unknown, out: Enemy[]) => {
-      out.length = 0;
-      for (const enemy of ref.gsm!.enemyManager.getAlive()) {
-        if (geoDistanceFast(center, enemy.position) <= radiusM) out.push(enemy);
-      }
-      return out;
-    },
-  });
-  const paths = createTestCachedPaths();
-  mockServices['PathAndRouteService'] = withAutoStubs({ getCachedPaths: () => paths });
-  mockServices['SpatialGridService'] = withAutoStubs({ updateEnemyTracked: () => null });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
-  mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
-  mockServices['DamageApplicationService'] = new DamageApplicationService();
-  mockServices['CombatEffectService'] = new CombatEffectService();
-
-  const gsm = new GameStateManager();
-  ref.gsm = gsm;
-  gsm.initialize(createEngine(), BASE_POSITION, TEST_SPAWN_POINTS, paths);
-  gsm.trainingTimescale.set(timescale);
-
-  gsm.getEventBus().emit({
-    type: 'research:completed',
-    researchId: HERO.researchId,
-    effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
-  });
-  gsm.addCredits(HERO.cost);
-  return gsm;
-}
-
 function run(timescale: number): Outcome {
-  const gsm = createGame(timescale);
+  const gsm = createHeroTestGame(timescale, mockServices, createEngine());
   const bus = gsm.getEventBus();
   let heroKillEvents = 0;
   bus.on('hero:kill', () => heroKillEvents++);
@@ -194,7 +141,7 @@ describe('Hero through the sub-step loop', () => {
 
   it('walks to the post along the route', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
-    const gsm = createGame(1);
+    const gsm = createHeroTestGame(1, mockServices, createEngine());
     const bus = gsm.getEventBus();
     const before = gsm.credits();
     bus.emit({ type: 'command:hire-hero' });

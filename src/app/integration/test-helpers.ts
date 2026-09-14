@@ -18,6 +18,18 @@ import { GameObject } from '../core/game-object';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { ResearchStore } from '../store/research.store';
 
+// ─── vi.mock('@angular/core') helper ───────────────────────────────
+
+/** Any property the test does not set is a vi.fn(). */
+export function withAutoStubs<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get(obj, prop, receiver) {
+      if (!(prop in obj)) Reflect.set(obj, prop, vi.fn());
+      return Reflect.get(obj, prop, receiver);
+    },
+  });
+}
+
 // ─── Test Path Data ───────────────────────────────────────────────
 
 /** Simple straight-line path for testing (≈111m long, ~1 second at 100 m/s) */
