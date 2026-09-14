@@ -128,9 +128,10 @@ training-backend/               # Python Training Backend (nur für Trainingslä
 | [REVIEW_SPRINT_2026-09-12.md](docs/REVIEW_SPRINT_2026-09-12.md) | Letzter Sprint-Handover: Änderungen, Review-Befunde, Playtest-Liste mit Ergebnissen |
 | [ROUTE_GEOMETRY_ANALYSIS.md](docs/ROUTE_GEOMETRY_ANALYSIS.md) | Route vs. Straße: Herleitung des Korridors, Lücken in der LOS-Anzeige |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](docs/PERF_BUG_ANALYSIS_2026-05-28.md) | Performance- und Bug-Deep-Dive (Render-Loop, Instancing, VFX, Leaks) |
+| [HANDOVER_ROUTE_GRID_GPU_LOS.md](docs/HANDOVER_ROUTE_GRID_GPU_LOS.md) | GPU-LOS-Handover vom 2026-05-15: Sackgassen, Diagnose-Werkzeuge, GPU-Probe |
 | **Architektur & Store** | |
 | [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) | Signal Store Architektur (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug) |
-| [HANDOVER_ROUTE_GRID_GPU_LOS.md](docs/HANDOVER_ROUTE_GRID_GPU_LOS.md) | GPU-Cubemap-LOS-Pipeline (Ground + Air produktiv) |
+| [LOS_PIPELINE.md](docs/LOS_PIPELINE.md) | Sichtlinien der Tower: GPU-Cubemap je Tower-Tip, Kampf-Cache in den Zellen, Regeln für den Cube |
 | **Wave Director & AI** | |
 | **[AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)** | **Einstieg:** Regel-Director + Gate-Controller, warum das ONNX-Modell ersetzt wurde |
 | [HANDOVER_RULE_DIRECTOR.md](docs/HANDOVER_RULE_DIRECTOR.md) | Umstellung auf den Regel-Director (2026-09-07), Messreihe, Einstieg für späteres Training |
