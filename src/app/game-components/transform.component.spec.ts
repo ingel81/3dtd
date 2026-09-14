@@ -62,6 +62,17 @@ describe('TransformComponent', () => {
       expect(sink.isTurning).toBe(false);
     });
 
+    it('stays clear when setHeading faces a heading at once', () => {
+      const { transform, sink, internals } = make();
+      transform.lookAt({ lat: 1, lon: 0 }); // north, initializes
+      transform.setHeading(-1.2);
+      expect(transform.rotation).toBe(-1.2);
+      expect(internals.targetRotation).toBe(-1.2);
+      expect(sink.isTurning).toBe(false);
+      transform.update(16.667);
+      expect(transform.rotation).toBe(-1.2);
+    });
+
     it('is set when lookAt moves the target away and cleared once update reaches it', () => {
       const { transform, sink, internals } = make();
       transform.lookAt({ lat: 1, lon: 0 }); // north, initializes

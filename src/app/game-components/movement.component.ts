@@ -423,8 +423,7 @@ export class MovementComponent extends Component {
   /**
    * Go `meters` further along the path centre line and place the enemy there,
    * lateral offset and heading included. move() calls it with the distance of
-   * one sub-step at the enemy's own speed; a worm segment with the distance
-   * its chain puts it at (managers/worm).
+   * one sub-step at the enemy's own speed.
    */
   advance(meters: number): 'moving' | 'reached_end' {
     if (this.path.length < 2) return 'moving';
@@ -563,6 +562,29 @@ export class MovementComponent extends Component {
       this.previousPiece = piece;
     }
 
+    return 'moving';
+  }
+
+  /**
+   * Put the enemy `distance` m along the path centre line, forward from where
+   * it is: segment and progress only, nothing is placed. For an enemy its
+   * owner places itself, a worm segment (managers/worm/worm-path.ts). Unlike
+   * advance() the progress is measured on the segment it ends on, so the
+   * distance comes out exact across waypoints of any length.
+   */
+  seekDistance(distance: number): 'moving' | 'reached_end' {
+    const { segmentLengths, cumulativeLength } = this.profile;
+    const segCount = segmentLengths.length;
+    if (segCount === 0) return 'moving';
+    let i = this.currentIndex;
+    while (i < segCount && distance >= cumulativeLength[i + 1]) i++;
+    if (i !== this.currentIndex) this.cachedPerpValid = false;
+    this.currentIndex = i;
+    if (i >= segCount) {
+      this.progress = 0;
+      return 'reached_end';
+    }
+    this.progress = segmentLengths[i] > 0 ? (distance - cumulativeLength[i]) / segmentLengths[i] : 0;
     return 'moving';
   }
 

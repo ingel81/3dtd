@@ -95,6 +95,18 @@ export class TransformComponent extends Component {
     return true;
   }
 
+  /**
+   * Face `heading` (radians, as lookAt measures it) at once, without easing
+   * towards it: for an enemy whose heading follows from where it stands, a
+   * worm segment (managers/worm/worm-path.ts).
+   */
+  setHeading(heading: number): void {
+    this.targetRotation = heading;
+    this._rotation = heading;
+    this.rotationInitialized = true;
+    this.syncTurningFlag();
+  }
+
   update(deltaTime: number): void {
     // Smoothly interpolate rotation towards target
     if (this.rotationInitialized && this._rotation !== this.targetRotation) {
