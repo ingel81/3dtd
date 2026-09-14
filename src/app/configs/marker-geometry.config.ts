@@ -33,7 +33,7 @@ export const MARKER_LABEL_TOP = MARKER_LABEL_OFFSET + MARKER_LABEL_SIZE / 2;
 
 // ── Spawn portal ──
 // Portal space: x across the street, y up from the ground at the route
-// start, z along the first route segment (the way the enemies walk out).
+// start, z the way the enemies walk out (spawnPortalPose).
 
 /** Opening between the pillars at scale 1 (m), and its height up to the lintel. */
 export const PORTAL_OPENING_WIDTH = 8;

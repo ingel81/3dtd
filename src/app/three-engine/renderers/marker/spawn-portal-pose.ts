@@ -1,7 +1,9 @@
 import {
+  PORTAL_DEPTH,
   PORTAL_MAX_SCALE,
   PORTAL_MIN_SCALE,
   PORTAL_OPENING_WIDTH,
+  portalDepthScale,
 } from '../../../configs/marker-geometry.config';
 import type { RouteWaypoint } from '../../../models/game.types';
 import { corridorConfig } from '../../../utils/route-corridor';
@@ -17,9 +19,6 @@ export interface SpawnPortalPose {
   /** Size relative to the frame at scale 1, see PORTAL_OPENING_WIDTH. */
   scale: number;
 }
-
-/** The heading points at the first route point at least this far from the start (m). */
-export const PORTAL_HEADING_RUN = 4;
 
 /** Portal scale for a corridor `width` metres wide at the route start. */
 export function portalScaleForWidth(width: number): number {
@@ -38,15 +37,65 @@ export function portalCorridorWidth(start: RouteWaypoint): number {
   );
 }
 
+/** Distance from a portal's centre to its front surface, for a portal of `scale` (m). */
+export function portalFrontDistance(scale: number): number {
+  return (PORTAL_DEPTH / 2) * portalDepthScale(scale);
+}
+
+/**
+ * Where the polyline `points` first gets `radius` from its start, on the
+ * segment that crosses that circle. A route shorter than that gives its
+ * farthest point from the start.
+ *
+ * @returns null if every point lies on the start
+ */
+export function routeExitPoint(
+  points: readonly { x: number; z: number }[],
+  radius: number,
+): { x: number; z: number } | null {
+  const start = points[0];
+  let farthest: { x: number; z: number } | null = null;
+  let farthestSq = 1e-6;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const bx = b.x - start.x;
+    const bz = b.z - start.z;
+    const bSq = bx * bx + bz * bz;
+    if (bSq >= radius * radius) {
+      // a lies inside the circle, b on or outside it: the one root of
+      // |a + t (b - a) - start| = radius in [0, 1]
+      const ax = a.x - start.x;
+      const az = a.z - start.z;
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const qa = dx * dx + dz * dz;
+      const qb = 2 * (ax * dx + az * dz);
+      const qc = ax * ax + az * az - radius * radius;
+      const t = (-qb + Math.sqrt(qb * qb - 4 * qa * qc)) / (2 * qa);
+      return { x: a.x + dx * t, z: a.z + dz * t };
+    }
+    if (bSq > farthestSq) {
+      farthest = b;
+      farthestSq = bSq;
+    }
+  }
+  return farthest;
+}
+
 /**
  * Pose of a spawn portal from the start of its route: centred on the first
  * waypoint, on the ground, where the enemies appear. They start inside the
  * portal's volume (PORTAL_DEPTH) and step out through its front surface.
- * It faces along the route, the opening as wide as the corridor there.
+ * The opening is as wide as the corridor there.
  *
- * The heading points at the first waypoint PORTAL_HEADING_RUN or more from
- * the start: a route can open with a stub of a metre before its first
- * bend, and the portal should face where the street goes.
+ * It faces where the route leaves its volume: the point where the route
+ * first gets as far from the start as the front surface
+ * (portalFrontDistance), so the route runs out through the middle of the
+ * opening. A route that opens on a bend (on a roundabout, a stub of a metre
+ * before a corner) runs sideways inside the portal; facing along its first
+ * segment, or at a waypoint beyond the bend, put the enemies through a
+ * pillar.
  *
  * @param points Route waypoints in scene space, from the start on
  * @param groundY Ground height at the route start (scene Y)
@@ -59,26 +108,17 @@ export function spawnPortalPose(
   corridorWidth: number,
 ): SpawnPortalPose | null {
   if (points.length < 2) return null;
-  const start = points[0];
-  let dx = 0;
-  let dz = 0;
-  let length = 0;
-  for (let i = 1; i < points.length; i++) {
-    dx = points[i].x - start.x;
-    dz = points[i].z - start.z;
-    length = Math.hypot(dx, dz);
-    if (length >= PORTAL_HEADING_RUN) break;
-  }
-  if (length < 1e-3) return null;
+  const scale = portalScaleForWidth(corridorWidth);
+  const exit = routeExitPoint(points, portalFrontDistance(scale));
+  if (!exit) return null;
 
-  const fx = dx / length;
-  const fz = dz / length;
+  const start = points[0];
   return {
     x: start.x,
     y: groundY,
     z: start.z,
-    heading: Math.atan2(fx, fz),
-    scale: portalScaleForWidth(corridorWidth),
+    heading: Math.atan2(exit.x - start.x, exit.z - start.z),
+    scale,
   };
 }
 
