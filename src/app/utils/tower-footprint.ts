@@ -21,6 +21,33 @@ export interface FootprintColumn {
   topY: number;
 }
 
+/** Which rule set the foot, see resolveTowerFootprint. */
+export type FootprintRule =
+  /** The probes lie within MIN_UNEVENNESS: the cursor surface, no plinth */
+  | 'even'
+  /** The ground rule reaches the highest probe: roof or ground gives the same */
+  | 'agree'
+  /** On a roof: the cursor's own column shows the ground below */
+  | 'roof-column'
+  /** On a roof: the ground lies below on two opposite sides of the footprint */
+  | 'roof-surroundings'
+  /** On the ground: only what the ground climbs to gradually lifts the tower */
+  | 'ground';
+
+/** The footprint with the numbers it was decided by (decideTowerFootprint). */
+export interface FootprintDecision {
+  footprint: TowerFootprint;
+  rule: FootprintRule;
+  /** The cursor's column (the centre probe), null where it hit nothing */
+  centre: FootprintColumn | null;
+  /** Lowest and highest counted probe, and the highest the ground rule reaches */
+  bottom: number;
+  roofTop: number;
+  groundTop: number;
+  /** The surroundings probes where the decision needed them, else null */
+  surroundings: readonly (FootprintColumn | null)[] | null;
+}
+
 /** Largest gap (m) between two probes on a ring. */
 const RING_SPACING_M = 2;
 
@@ -128,6 +155,30 @@ export function footprintInnerCount(radius: number): number {
   return footprintPattern(radius).innerCount;
 }
 
+/** Directions of the surroundings probes; entry k lies opposite entry k + half of them. */
+const SURROUNDING_DIRECTIONS = 8;
+
+const surroundingsByRadius = new Map<number, readonly (readonly [number, number])[]>();
+
+/**
+ * Horizontal offsets (dx, dz) at which the ground around a footprint of
+ * `radius` is probed to tell a roof from the ground: eight directions,
+ * PLINTH_CONFIG.ROOF_PROBE_REACH beyond the footprint, entry k opposite
+ * entry k + 4. The list is shared.
+ */
+export function footprintSurroundingOffsets(radius: number): readonly (readonly [number, number])[] {
+  let offsets = surroundingsByRadius.get(radius);
+  if (!offsets) {
+    const distance = radius + PLINTH_CONFIG.ROOF_PROBE_REACH;
+    offsets = Array.from({ length: SURROUNDING_DIRECTIONS }, (_, k) => {
+      const angle = (k / SURROUNDING_DIRECTIONS) * Math.PI * 2;
+      return [Math.cos(angle) * distance, Math.sin(angle) * distance] as const;
+    });
+    surroundingsByRadius.set(radius, offsets);
+  }
+  return offsets;
+}
+
 /**
  * True while every column that hit something tops out less than
  * PLINTH_CONFIG.MIN_UNEVENNESS from the cursor surface and from each other:
@@ -157,9 +208,14 @@ export function levelWithCursor(surfaceY: number, columns: readonly (FootprintCo
  * MIN_UNEVENNESS the tower keeps the cursor surface and gets no plinth.
  *
  * What may lift the tower depends on where the cursor is:
- * - On a roof or a deck (the cursor surface more than ROOF_ABOVE_GROUND over
- *   the ground of its column): every probe, so the tower stands on the ridge
- *   of a pitched roof or the higher part of a stepped one.
+ * - On a roof, a deck or a bridge: every probe, so the tower stands on the
+ *   ridge of a pitched roof or the higher part of a stepped one. That is
+ *   where the cursor surface lies more than ROOF_ABOVE_GROUND over the
+ *   ground of its own column, or, where the photogrammetry shows no ground
+ *   under a roof, over the ground on two opposite sides of the footprint:
+ *   the columns `surroundings` gives for footprintSurroundingOffsets(radius),
+ *   asked for only when the two rules give different feet. A slope falls on
+ *   one side only and stays ground.
  * - On the ground: only probes the ground climbs to gradually, see
  *   groundTop. A car, a hedge, a wall or a crown beside the tower rises
  *   steeply out of the ground and does not lift it; the tower clips into it
@@ -171,7 +227,18 @@ export function resolveTowerFootprint(
   surfaceY: number,
   radius: number,
   columns: readonly (FootprintColumn | null)[],
+  surroundings?: () => readonly (FootprintColumn | null)[],
 ): TowerFootprint {
+  return decideTowerFootprint(surfaceY, radius, columns, surroundings).footprint;
+}
+
+/** resolveTowerFootprint, with the rule and the numbers behind it. */
+export function decideTowerFootprint(
+  surfaceY: number,
+  radius: number,
+  columns: readonly (FootprintColumn | null)[],
+  surroundings?: () => readonly (FootprintColumn | null)[],
+): FootprintDecision {
   const heights = columns.map((column) => {
     if (column === null) return null;
     const y = column.topY;
@@ -179,25 +246,57 @@ export function resolveTowerFootprint(
   });
 
   let bottom = surfaceY;
+  let roofTop = surfaceY;
   for (const y of heights) {
-    if (y !== null && y < bottom) bottom = y;
+    if (y === null) continue;
+    if (y < bottom) bottom = y;
+    if (y > roofTop) roofTop = y;
   }
-
+  const groundTopY = groundTop(surfaceY, heights, footprintPattern(radius));
   const centre = columns[0] ?? null;
-  const onRoof = centre !== null && surfaceY - centre.groundY > PLINTH_CONFIG.ROOF_ABOVE_GROUND;
-  let top = surfaceY;
-  if (onRoof) {
-    for (const y of heights) {
-      if (y !== null && y > top) top = y;
-    }
-  } else {
-    top = groundTop(surfaceY, heights, footprintPattern(radius));
-  }
 
-  if (top - bottom < PLINTH_CONFIG.MIN_UNEVENNESS) {
-    return { footY: surfaceY, plinthHeight: 0 };
+  const decided = (
+    rule: FootprintRule,
+    top: number,
+    probed: readonly (FootprintColumn | null)[] | null = null,
+  ): FootprintDecision => ({
+    footprint: top - bottom < PLINTH_CONFIG.MIN_UNEVENNESS
+      ? { footY: surfaceY, plinthHeight: 0 }
+      : { footY: top, plinthHeight: top - bottom },
+    rule,
+    centre,
+    bottom,
+    roofTop,
+    groundTop: groundTopY,
+    surroundings: probed,
+  });
+
+  if (roofTop - bottom < PLINTH_CONFIG.MIN_UNEVENNESS) return decided('even', surfaceY);
+  if (groundTopY === roofTop) return decided('agree', roofTop);
+  if (groundFarBelow(surfaceY, centre)) return decided('roof-column', roofTop);
+  const around = surroundings?.() ?? null;
+  if (around !== null && groundFarBelowOnBothSides(surfaceY, around)) {
+    return decided('roof-surroundings', roofTop, around);
   }
-  return { footY: top, plinthHeight: top - bottom };
+  return decided('ground', groundTopY, around);
+}
+
+/** True where `column` shows ground more than ROOF_ABOVE_GROUND below `surfaceY`. */
+function groundFarBelow(surfaceY: number, column: FootprintColumn | null | undefined): boolean {
+  return column != null && surfaceY - column.groundY > PLINTH_CONFIG.ROOF_ABOVE_GROUND;
+}
+
+/**
+ * True where both columns of an opposite pair of surroundings probes show
+ * ground far below `surfaceY` (groundFarBelow): the cursor on a building
+ * with lower ground on either side of it.
+ */
+function groundFarBelowOnBothSides(surfaceY: number, around: readonly (FootprintColumn | null)[]): boolean {
+  const half = around.length / 2;
+  for (let k = 0; k < half; k++) {
+    if (groundFarBelow(surfaceY, around[k]) && groundFarBelow(surfaceY, around[k + half])) return true;
+  }
+  return false;
 }
 
 /**
