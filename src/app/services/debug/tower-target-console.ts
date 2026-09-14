@@ -108,14 +108,16 @@ export interface TowerTargetConsoleDeps {
  * `__towerTargets.watch()` logs one line per tower near the clumps each
  * second, for WATCH_SECONDS after each ooze breaks up, the first a second
  * after the split (the clumps join the route cells in the next sub-step);
- * `__towerTargets.watch(false)` stops. Reads only. Off it holds no
- * subscription and no timer.
+ * two oozes breaking up within that time are followed side by side, each
+ * second's head line names the ooze. `__towerTargets.watch(false)` stops.
+ * Reads only. Off it holds no subscription and no timer.
  */
 export class TowerTargetConsole {
   /** The `__towerTargets` this instance registered, see uninstall(). */
   private api: object | null = null;
   private splitSub: { dispose(): void } | null = null;
-  private timer: ReturnType<typeof setInterval> | null = null;
+  /** One timer per ooze followed, see follow(). */
+  private readonly timers = new Set<ReturnType<typeof setInterval>>();
 
   constructor(private readonly deps: TowerTargetConsoleDeps) {}
 
@@ -177,33 +179,35 @@ export class TowerTargetConsole {
       return 'Not watching.';
     }
     this.splitSub ??= this.deps.gameState().getEventBus().on('enemy:split', (event) => {
-      if (event.enemy.body !== null) this.follow(event.children);
+      if (event.enemy.body !== null) this.follow(event.enemy, event.children);
     });
     return `Watching: after each ooze breaks up, a line per tower near its clumps every second for ${WATCH_SECONDS} s.`;
   }
 
-  private follow(clumps: readonly Enemy[]): void {
-    this.stopFollowing();
+  /** The towers near the clumps `ooze` broke into, each second, beside any ooze still followed. */
+  private follow(ooze: Enemy, clumps: readonly Enemy[]): void {
     let second = 0;
-    this.timer = setInterval(() => {
+    const timer = setInterval(() => {
       second++;
       const lookup = this.lookup();
       const alive = clumps.filter((clump) => clump.alive);
       if (lookup === null || alive.length === 0 || second > WATCH_SECONDS) {
-        if (alive.length === 0) console.log('[TowerTargets] all clumps gone');
-        this.stopFollowing();
+        if (alive.length === 0) console.log(`[TowerTargets] ${ooze.id}: all clumps gone`);
+        clearInterval(timer);
+        this.timers.delete(timer);
         return;
       }
-      console.log(`[TowerTargets] +${second} s, ${alive.length} clump(s)`);
+      console.log(`[TowerTargets] ${ooze.id} +${second} s, ${alive.length} clump(s)`);
       for (const tower of this.deps.gameState().towerManager.getAllActive()) {
         const line = explainTowerTarget(tower, alive, lookup);
         if (line !== null) console.log(`[TowerTargets] ${line}`);
       }
     }, 1000);
+    this.timers.add(timer);
   }
 
   private stopFollowing(): void {
-    if (this.timer !== null) clearInterval(this.timer);
-    this.timer = null;
+    for (const timer of this.timers) clearInterval(timer);
+    this.timers.clear();
   }
 }
