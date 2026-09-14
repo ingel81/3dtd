@@ -8,6 +8,10 @@ import {
 } from '../interfaces/street-network-provider.interface';
 import { DevWorldService, DEV_WORLD_SIZE } from './devworld.service';
 import { StreetSegment, SpawnPoint, DEV_STREET_WIDTHS } from './generators/street-generator';
+import {
+  haversineDistance as sharedHaversineDistance,
+  distanceToSegment as sharedDistanceToSegment,
+} from '../utils/street-astar';
 
 /**
  * Street type weights for A* pathfinding
@@ -328,30 +332,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
     bLat: number,
     bLon: number
   ): number {
-    // Scale longitude by cos(latitude) to get approximately equal-distance units
-    const midLat = (aLat + bLat) * 0.5;
-    const lonScale = Math.cos((midLat * Math.PI) / 180);
-
-    const dxSeg = (bLon - aLon) * lonScale;
-    const dySeg = bLat - aLat;
-    const lengthSq = dxSeg * dxSeg + dySeg * dySeg;
-
-    if (lengthSq === 0) {
-      return this.haversineDistance(pLat, pLon, aLat, aLon);
-    }
-
-    const dxPoint = (pLon - aLon) * lonScale;
-    const dyPoint = pLat - aLat;
-
-    // Parameter t represents position along segment (0 = at A, 1 = at B)
-    let t = (dxPoint * dxSeg + dyPoint * dySeg) / lengthSq;
-    t = Math.max(0, Math.min(1, t)); // Clamp to segment
-
-    // Interpolate in original coordinates for haversine
-    const closestLat = aLat + t * (bLat - aLat);
-    const closestLon = aLon + t * (bLon - aLon);
-
-    return this.haversineDistance(pLat, pLon, closestLat, closestLon);
+    return sharedDistanceToSegment(pLat, pLon, aLat, aLon, bLat, bLon);
   }
 
   findPath(
@@ -534,17 +515,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
   }
 
   haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371000; // Earth radius in meters
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    return sharedHaversineDistance(lat1, lon1, lat2, lon2);
   }
 
   clearCache(): void {
