@@ -27,7 +27,7 @@ import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import { TerrainRaycaster, createLosRing, createRangeIndicator, createTipMarker } from './tower-overlays';
-import { headingToLocalRotation, stepTurretAim, turretAimError } from './tower-turret-aim';
+import { headingToLocalRotation, localRotationToHeading, stepTurretAim, turretAimError } from './tower-turret-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 
 /**
@@ -52,7 +52,8 @@ export interface TowerRenderData {
   tipY: number;
   // Custom rotation set by user during placement (radians)
   customRotation: number;
-  // Turret rotation animation
+  // Turret rotation animation; a tower without a turret part turns the aim
+  // all the same, nothing in the model shows it (see tower-turret-aim.ts)
   currentLocalRotation: number; // Current turret rotation (local space)
   targetLocalRotation: number; // Target turret rotation (local space)
   // Turret hover animation (e.g., magic tower orb)
@@ -543,12 +544,12 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Aim the turret at a target. Only affects turrets (turret_top); the actual
-   * rotation is interpolated in advanceTurretAim().
+   * Aim the turret at a target. The node (turret_top) turns only on towers
+   * that have one; the actual rotation is interpolated in advanceTurretAim().
    */
   updateRotation(id: string, heading: number): void {
     const data = this.towers.get(id);
-    if (!data || !data.turretPart) return;
+    if (!data) return;
 
     data.targetLocalRotation = headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
     data.hasTarget = true;
@@ -560,10 +561,21 @@ export class ThreeTowerRenderer {
    */
   setIdleHeading(id: string, heading: number): void {
     const data = this.towers.get(id);
-    if (!data || !data.turretPart) return;
+    if (!data) return;
 
     data.targetLocalRotation = headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
     data.hasTarget = false;
+  }
+
+  /**
+   * Geo heading tower `id` aims at right now: where its turret points, for a
+   * tower without one where its aim has turned to. null while its model is
+   * still loading. The blood moon searchlight follows it.
+   */
+  aimHeading(id: string): number | null {
+    const data = this.towers.get(id);
+    if (!data) return null;
+    return localRotationToHeading(data.typeConfig, data.mesh.rotation.y, data.currentLocalRotation);
   }
 
   /**

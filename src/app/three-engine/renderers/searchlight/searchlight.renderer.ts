@@ -34,6 +34,14 @@ const DEG = Math.PI / 180;
 export type SearchlightTowerConfig = Pick<TowerTypeConfig, 'attackType' | 'heightOffset' | 'shootHeight'>;
 
 /**
+ * Where the towers aim (ThreeTowerRenderer.aimHeading): the geo heading of
+ * tower `id`'s turret, null while its model is still loading.
+ */
+export interface SearchlightAim {
+  aimHeading(id: string): number | null;
+}
+
+/**
  * Height of the lamp above the tower's foot (m): just over its shoot
  * height, at least minLampHeight. null for a passive building (the Research
  * Center), which gets no searchlight.
@@ -91,10 +99,8 @@ export function createSearchlightConeGeometry(halfAngleRad: number, segments = C
 
 const SEARCHLIGHT_VERTEX_SHADER = /* glsl */ `
   attribute vec3 aLamp;   // lamp, scene coordinates
-  attribute vec4 aSweep;  // centre yaw, phase, angular speed (rad/s), length (0 = free slot)
+  attribute vec2 aBeam;   // yaw, length (0 = free or hidden slot)
 
-  uniform float uTime;
-  uniform float uSweepArc;
   uniform float uPitch;
 
   varying vec3 vWorldPosition;
@@ -112,20 +118,19 @@ const SEARCHLIGHT_VERTEX_SHADER = /* glsl */ `
 
   void main() {
     // A free slot collapses to a clipped vertex and never rasterizes
-    if (aSweep.w <= 0.0) {
+    if (aBeam.y <= 0.0) {
       gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
       vWorldPosition = vec3(0.0);
       vNormal = vec3(0.0, 1.0, 0.0);
       vAlong = 1.0;
       return;
     }
-    float yaw = aSweep.x + uSweepArc * sin(uTime * aSweep.z + aSweep.y);
     float cp = cos(uPitch);
     float sp = sin(uPitch);
-    float cy = cos(yaw);
-    float sy = sin(yaw);
+    float cy = cos(aBeam.x);
+    float sy = sin(aBeam.x);
 
-    vec3 world = aLamp + aim(position * aSweep.w, cp, sp, cy, sy);
+    vec3 world = aLamp + aim(position * aBeam.y, cp, sp, cy, sy);
     vWorldPosition = world;
     vNormal = aim(normal, cp, sp, cy, sy);
     vAlong = position.z;
@@ -165,13 +170,26 @@ function noRaycast(): void {
   // light, nothing to pick
 }
 
+/** One tower's light. */
+interface Searchlight {
+  index: number;
+  /** false while the wave replay hides the tower */
+  visible: boolean;
+  /** Yaw last written to the slot, NaN until the tower's aim is known */
+  yaw: number;
+}
+
 /**
  * SearchlightRenderer: searchlights on the towers under the blood moon
  * (BLOOD_MOON_LOOK.searchlights). All beams are one mesh over an
- * InstancedBufferGeometry, one draw call. The sweep runs in the vertex
- * shader from the uniform uTime and each beam's own phase and speed, so a
- * frame costs one uniform write (two while the fade runs) and no buffer
- * upload.
+ * InstancedBufferGeometry, one draw call.
+ *
+ * A beam points where its tower aims (SearchlightAim): along the turret, so
+ * it swings onto each target with it and holds the heading the turret
+ * holds; for a tower without a turret part along the aim that tower turns
+ * all the same. BloodMoonLook calls aim() every frame the beams show; only
+ * the slots whose tower turned get written, and a frame without a turn
+ * uploads nothing.
  *
  * Kept apart from ThreeTowerRenderer, like the plinths: TowerManager adds a
  * light when it places a tower and removes it with the tower. The lamp
@@ -185,16 +203,15 @@ export class SearchlightRenderer {
   private readonly mesh: Mesh;
   private readonly gate: DrawGate;
   private readonly slots = new InstanceSlotAllocator(MAX_SEARCHLIGHTS);
-  private readonly lights = new Map<string, number>();
+  private readonly lights = new Map<string, Searchlight>();
   private readonly lampAttribute: InstancedBufferAttribute;
-  private readonly sweepAttribute: InstancedBufferAttribute;
+  private readonly beamAttribute: InstancedBufferAttribute;
   private readonly lamp = new Vector3();
-  /** Sweep clock, s */
-  private time = 0;
 
   constructor(
     private readonly scene: Scene,
     private readonly sync: CoordinateSync,
+    private readonly towerAim: SearchlightAim,
   ) {
     const look = BLOOD_MOON_LOOK.searchlights;
     const cone = createSearchlightConeGeometry(look.halfAngleDeg * DEG);
@@ -204,17 +221,15 @@ export class SearchlightRenderer {
     geometry.setAttribute('normal', cone.getAttribute('normal'));
     geometry.instanceCount = 0;
     this.lampAttribute = new InstancedBufferAttribute(new Float32Array(MAX_SEARCHLIGHTS * 3), 3);
-    this.sweepAttribute = new InstancedBufferAttribute(new Float32Array(MAX_SEARCHLIGHTS * 4), 4);
+    this.beamAttribute = new InstancedBufferAttribute(new Float32Array(MAX_SEARCHLIGHTS * 2), 2);
     geometry.setAttribute('aLamp', this.lampAttribute);
-    geometry.setAttribute('aSweep', this.sweepAttribute);
+    geometry.setAttribute('aBeam', this.beamAttribute);
     this.geometry = geometry;
 
     this.material = new ShaderMaterial({
       vertexShader: SEARCHLIGHT_VERTEX_SHADER,
       fragmentShader: SEARCHLIGHT_FRAGMENT_SHADER,
       uniforms: {
-        uTime: new Uniform(0),
-        uSweepArc: new Uniform(look.sweepArcDeg * DEG),
         uPitch: new Uniform(look.pitchDeg * DEG),
         uColor: new Uniform(new Vector3(look.color.r, look.color.g, look.color.b)),
         uIntensity: new Uniform(0),
@@ -244,52 +259,44 @@ export class SearchlightRenderer {
 
   /**
    * Searchlight on tower `id`, its foot at `footHeight` (the tower's
-   * position.height). The beam sweeps around `guardHeading` (geo heading
-   * to where the route enters the tower's range), around a random heading
-   * without one. A passive building gets none. Replaces an earlier light.
+   * position.height), pointing where the tower aims. It stays dark until
+   * that aim is known (the tower's model still loading). A passive building
+   * gets none. Replaces an earlier light.
    */
-  add(
-    id: string,
-    lat: number,
-    lon: number,
-    footHeight: number,
-    config: SearchlightTowerConfig,
-    guardHeading: number | null,
-  ): void {
+  add(id: string, lat: number, lon: number, footHeight: number, config: SearchlightTowerConfig): void {
     this.remove(id);
     const lampHeight = searchlightLampHeight(config);
     if (lampHeight === null) return;
     const index = this.slots.alloc();
     if (index < 0) return;
-    this.lights.set(id, index);
+    const light: Searchlight = { index, visible: true, yaw: NaN };
+    this.lights.set(id, light);
     this.syncDrawCount();
 
-    const { length, sweepPeriodS: [minPeriod, maxPeriod] } = BLOOD_MOON_LOOK.searchlights;
     const lamp = this.sync.geoToLocalSimpleInto(lat, lon, footHeight + lampHeight, this.lamp);
-    const heading = guardHeading ?? Math.random() * Math.PI * 2;
-    const period = minPeriod + Math.random() * (maxPeriod - minPeriod);
     this.lampAttribute.setXYZ(index, lamp.x, lamp.y, lamp.z);
-    this.sweepAttribute.setXYZW(
-      index,
-      headingToSearchlightYaw(heading),
-      Math.random() * Math.PI * 2,
-      (Math.PI * 2) / period,
-      length,
-    );
     this.slots.uploadSlot(this.lampAttribute, index);
-    this.slots.uploadSlot(this.sweepAttribute, index);
+    this.aimLight(id, light);
+    this.writeBeam(light);
+    this.slots.uploadSlot(this.beamAttribute, index);
   }
 
   /**
-   * The beam of tower `id` sweeps around `guardHeading` from now on (its
-   * range changed, or the routes). Null keeps the heading it has; a tower
-   * without a light is left alone.
+   * Point every beam where its tower aims now. Per frame while the beams
+   * show; uploads the drawn slots once if any tower turned, else nothing.
    */
-  setHeading(id: string, guardHeading: number | null): void {
-    const index = this.lights.get(id);
-    if (index === undefined || guardHeading === null) return;
-    this.sweepAttribute.setX(index, headingToSearchlightYaw(guardHeading));
-    this.slots.uploadSlot(this.sweepAttribute, index);
+  aim(): void {
+    let turned = false;
+    for (const [id, light] of this.lights) {
+      if (this.aimLight(id, light)) {
+        this.writeBeam(light);
+        turned = true;
+      }
+    }
+    if (!turned) return;
+    this.beamAttribute.clearUpdateRanges();
+    this.beamAttribute.addUpdateRange(0, this.slots.activeCount * 2);
+    this.beamAttribute.needsUpdate = true;
   }
 
   /**
@@ -298,22 +305,22 @@ export class SearchlightRenderer {
    * without a light is left alone.
    */
   setVisible(id: string, visible: boolean): void {
-    const index = this.lights.get(id);
-    if (index === undefined) return;
-    // Length 0 collapses the slot in the shader, as for a removed light
-    this.sweepAttribute.setW(index, visible ? BLOOD_MOON_LOOK.searchlights.length : 0);
-    this.slots.uploadSlot(this.sweepAttribute, index);
+    const light = this.lights.get(id);
+    if (!light) return;
+    light.visible = visible;
+    this.writeBeam(light);
+    this.slots.uploadSlot(this.beamAttribute, light.index);
   }
 
   /** Take the searchlight of tower `id` away, if it has one. */
   remove(id: string): void {
-    const index = this.lights.get(id);
-    if (index === undefined) return;
+    const light = this.lights.get(id);
+    if (!light) return;
     // Length 0: the shader collapses the slot until it is handed out again
-    this.sweepAttribute.setW(index, 0);
-    this.slots.uploadSlot(this.sweepAttribute, index);
+    this.beamAttribute.setY(light.index, 0);
+    this.slots.uploadSlot(this.beamAttribute, light.index);
     this.lights.delete(id);
-    this.slots.release(index);
+    this.slots.release(light.index);
     this.syncDrawCount();
   }
 
@@ -322,9 +329,9 @@ export class SearchlightRenderer {
     this.lights.clear();
     this.slots.reset();
     this.syncDrawCount();
-    (this.sweepAttribute.array as Float32Array).fill(0);
-    this.sweepAttribute.clearUpdateRanges();
-    this.sweepAttribute.needsUpdate = true;
+    (this.beamAttribute.array as Float32Array).fill(0);
+    this.beamAttribute.clearUpdateRanges();
+    this.beamAttribute.needsUpdate = true;
   }
 
   /** Brightness of every beam, 0..1 (the blood moon fade); at 0 the mesh leaves the render list. */
@@ -332,13 +339,6 @@ export class SearchlightRenderer {
     const k = Math.min(1, Math.max(0, amount));
     this.material.uniforms['uIntensity'].value = BLOOD_MOON_LOOK.searchlights.intensity * k;
     this.gate.setShown(k > 0);
-  }
-
-  /** Run the sweep on by `deltaMs`. */
-  advance(deltaMs: number): void {
-    if (!(deltaMs > 0)) return;
-    this.time += deltaMs / 1000;
-    this.material.uniforms['uTime'].value = this.time;
   }
 
   get count(): number {
@@ -350,6 +350,22 @@ export class SearchlightRenderer {
     this.scene.remove(this.mesh);
     this.geometry.dispose();
     this.material.dispose();
+  }
+
+  /** Take over where tower `id` aims. @returns true when the yaw changed */
+  private aimLight(id: string, light: Searchlight): boolean {
+    const heading = this.towerAim.aimHeading(id);
+    if (heading === null) return false;
+    const yaw = headingToSearchlightYaw(heading);
+    if (yaw === light.yaw) return false;
+    light.yaw = yaw;
+    return true;
+  }
+
+  /** Yaw and length into the slot; length 0 while hidden or not aimed yet */
+  private writeBeam(light: Searchlight): void {
+    const shown = light.visible && !Number.isNaN(light.yaw);
+    this.beamAttribute.setXY(light.index, shown ? light.yaw : 0, shown ? BLOOD_MOON_LOOK.searchlights.length : 0);
   }
 
   /** Draw count follows the slot allocator; the gate hides the mesh while no slot is drawn. */

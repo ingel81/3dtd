@@ -1,8 +1,8 @@
 /**
  * Blood moon waves: a look and nothing else. Every seventh wave from W14 the
- * night turns red, enemies glow and the towers sweep searchlights over the
- * ground. Stats, spawns and gold of the wave stay exactly as they are; no
- * game logic reads anything in here.
+ * night turns red, enemies glow and searchlights on the towers point where
+ * the towers aim. Stats, spawns and gold of the wave stay exactly as they
+ * are; no game logic reads anything in here.
  */
 
 /** First blood moon wave */
@@ -59,10 +59,9 @@ export const BLOOD_MOON_LOOK = {
   },
   /**
    * Searchlights on the towers (SearchlightRenderer): an additive cone from
-   * a lamp on top of each tower, tipped `pitchDeg` below the horizontal,
-   * sweeping `sweepArcDeg` to each side of the tower's guard heading. Each
-   * tower takes a random sweep period in `sweepPeriodS` and a random phase,
-   * so the beams never move in step. Passive buildings get none.
+   * a lamp on top of each tower, tipped `pitchDeg` below the horizontal and
+   * turned with the tower's turret, onto each target and to the guard
+   * heading between waves. Passive buildings get none.
    */
   searchlights: {
     /** Warm white in display values, against the red night */
@@ -74,9 +73,6 @@ export const BLOOD_MOON_LOOK = {
     /** Half the opening angle, degrees */
     halfAngleDeg: 7,
     pitchDeg: 18,
-    sweepArcDeg: 60,
-    /** One sweep there and back, s */
-    sweepPeriodS: [10, 16],
     /** Lamp above the tower's shoot height, m */
     lampLift: 0.8,
     /** Lowest lamp above the tower's foot, m, for models that shoot from low down */

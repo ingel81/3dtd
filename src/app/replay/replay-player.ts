@@ -831,9 +831,10 @@ export class ReplayPlayer {
       const n = this.towerNextStamp[i] === stamp ? this.towerNext[i] : s;
       const rotation = lerpAngle(rec.tRot[s], rec.tRot[n], alpha);
       const data = engine.towers.get(view.renderId);
-      if (data?.turretPart) {
+      if (data) {
+        // Also on a tower without a turret part: its searchlight follows the aim
         data.currentLocalRotation = rotation;
-        data.turretPart.rotation.y = rotation;
+        if (data.turretPart) data.turretPart.rotation.y = rotation;
       }
 
       const flags = rec.tFlags[s];
@@ -897,9 +898,8 @@ export class ReplayPlayer {
         engine.plinths.create(renderId, tower.lat, tower.lon, tower.height, tower.plinthHeight, config.footprintRadius);
       }
       if (tower.typeId === 'tentacle') engine.tentacles.create(renderId, tip);
-      // Its blood moon searchlight; the live tower's guard heading is not in
-      // the recording, so it sweeps around a random one
-      if (config) engine.searchlights.add(renderId, tower.lat, tower.lon, tower.height, config, null);
+      // Its blood moon searchlight, turned with the recorded turret
+      if (config) engine.searchlights.add(renderId, tower.lat, tower.lon, tower.height, config);
     }
     return {
       tower,

@@ -36,7 +36,6 @@ const createMockTilesEngine = () => ({
   },
   searchlights: {
     add: vi.fn(),
-    setHeading: vi.fn(),
     remove: vi.fn(),
     clear: vi.fn(),
   },
@@ -188,7 +187,7 @@ describe('TowerManager', () => {
   it('hands every tower to the searchlights on its foot, and takes the light down with it', () => {
     const tower = manager.placeTower({ lat: 1, lon: 2, height: 7 }, 'cannon', 0, 2.5) as Tower;
     // The foot is the plinth's top, position.height; the renderer skips passive buildings
-    expect(tilesEngine.searchlights.add).toHaveBeenCalledWith(tower.id, 1, 2, 7, tower.typeConfig, null);
+    expect(tilesEngine.searchlights.add).toHaveBeenCalledWith(tower.id, 1, 2, 7, tower.typeConfig);
 
     manager.sell(tower);
     expect(tilesEngine.searchlights.remove).toHaveBeenCalledWith(tower.id);
@@ -229,8 +228,6 @@ describe('TowerManager', () => {
       // The wider circle meets the route further north.
       expect(tower.guardHeading!).toBeGreaterThan(0);
       expect(tower.guardHeading!).toBeLessThan(before);
-      // The searchlight sweeps around the new heading
-      expect(tilesEngine.searchlights.setHeading).toHaveBeenLastCalledWith(tower.id, tower.guardHeading);
     });
 
     it('follows a route change', () => {
@@ -243,7 +240,6 @@ describe('TowerManager', () => {
 
       // Same street walked northwards: the tower now watches the south.
       expect(Math.abs(tower.guardHeading!)).toBeGreaterThan((3 * Math.PI) / 4);
-      expect(tilesEngine.searchlights.setHeading).toHaveBeenLastCalledWith(tower.id, tower.guardHeading);
     });
   });
 

@@ -376,6 +376,13 @@ describe('ReplayPlayer', () => {
       expect(fake.towers.get('archer-1')!.turretPart.rotation.y).toBeCloseTo(1.5);
     });
 
+    it('turns the aim of a tower without a turret part as well, for its searchlight', () => {
+      const archer = fake.towers.get('archer-1')! as { turretPart: unknown; currentLocalRotation: number };
+      archer.turretPart = null;
+      advance(player, 150);
+      expect(archer.currentLocalRotation).toBeCloseTo(1.5);
+    });
+
     it('shows a tower from its placement and a sold one until it was sold', () => {
       advance(player, 150);
       expect(fake.towers.get('late-1')!.mesh.visible).toBe(true);
@@ -398,8 +405,8 @@ describe('ReplayPlayer', () => {
       const lights = fake.engine.searchlights as Record<string, Spy>;
       expect(lights['setVisible']).toHaveBeenCalledWith('after-1', false);
       expect(lights['setVisible']).toHaveBeenCalledWith('late-1', false);
-      // A tower sold during the wave gets a light of its own, around no known heading
-      expect(lights['add']).toHaveBeenCalledWith('replay-tower-2', 48, 9, 200, expect.any(Object), null);
+      // A tower sold during the wave gets a light of its own, turned with its recorded turret
+      expect(lights['add']).toHaveBeenCalledWith('replay-tower-2', 48, 9, 200, expect.any(Object));
       advance(player, 150);
       expect(lights['setVisible']).toHaveBeenCalledWith('late-1', true);
       player.exit();

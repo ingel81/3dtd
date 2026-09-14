@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Object3D } from 'three';
 import type { TowerTypeConfig } from '../../configs/tower-types.config';
 import type { TowerRenderData } from './three-tower.renderer';
-import { headingToLocalRotation, stepTurretAim, turretAimError } from './tower-turret-aim';
+import { headingToLocalRotation, localRotationToHeading, stepTurretAim, turretAimError } from './tower-turret-aim';
 
 const STEP_MS = 1000 / 60;
 
@@ -79,10 +79,20 @@ describe('stepTurretAim', () => {
     expect(magic.currentLocalRotation).toBe(1);
   });
 
-  it('leaves a tower without a turret part alone', () => {
+  it('turns the aim of a tower without a turret part, no node', () => {
     const bare = turret({ turretPart: null, targetLocalRotation: 1 });
     run(bare, 500);
-    expect(bare.currentLocalRotation).toBe(0);
+    expect(bare.currentLocalRotation).toBe(1);
+  });
+});
+
+describe('localRotationToHeading', () => {
+  it('reverses headingToLocalRotation, barrel offset included', () => {
+    const config = { turretBarrelOffset: 1.047 } as TowerTypeConfig;
+    const local = headingToLocalRotation(config, 0.4, 2.2);
+    expect(localRotationToHeading(config, 0.4, local)).toBeCloseTo(2.2, 12);
+    expect(localRotationToHeading({} as TowerTypeConfig, 0.4, headingToLocalRotation({} as TowerTypeConfig, 0.4, -1)))
+      .toBeCloseTo(-1, 12);
   });
 });
 

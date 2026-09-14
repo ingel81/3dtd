@@ -12,8 +12,8 @@ export interface BloodMoonParts {
   mood?: Pick<BloodMoonMood, 'setAmount' | 'dispose'>;
   /** Glowing enemies */
   enemies?: Pick<InstancedEnemyRenderer, 'setBloodMoon'>;
-  /** Sweeping searchlights on the towers */
-  searchlights?: Pick<SearchlightRenderer, 'setAmount' | 'advance'>;
+  /** Searchlights on the towers, turned with the turrets */
+  searchlights?: Pick<SearchlightRenderer, 'setAmount' | 'aim'>;
   /** The oozes' slime bands: glow and tint like the enemies */
   oozes?: Pick<OozeBandRenderer, 'setBloodMoon'>;
   /** Blood, slime, ice and scorch decals: the mood's tint, as on the ground */
@@ -72,12 +72,11 @@ export class BloodMoonLook {
    * post-processing target (bloom or colour grading on).
    */
   update(deltaMs: number, running: boolean, linearOutput: boolean): void {
-    if (running) {
-      this.fade.step(deltaMs);
-      // The beams sweep only while they show, on the same clock as the fade
-      if (this.fade.amount > 0) this.parts.searchlights?.advance(deltaMs);
-    }
+    if (running) this.fade.step(deltaMs);
     const amount = this.fade.amount;
+    // The beams follow the turrets while they show, paused as well: a paused
+    // wave replay still jumps the turrets, a tower placed in the pause aims
+    if (amount > 0) this.parts.searchlights?.aim();
     if (amount === this.appliedAmount && linearOutput === this.appliedLinear) return;
     this.appliedAmount = amount;
     this.appliedLinear = linearOutput;

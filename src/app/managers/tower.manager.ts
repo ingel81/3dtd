@@ -128,10 +128,8 @@ export class TowerManager extends EntityManager<Tower> {
     }
   }
 
-  /** The blood moon searchlight sweeps around the new heading; placement lights it afterwards. */
   private updateGuardHeading(tower: Tower, routes: GeoPosition[][]): void {
     tower.guardHeading = computeGuardHeading(tower.position, tower.combat.range, routes);
-    this.tilesEngine?.searchlights.setHeading(tower.id, tower.guardHeading);
   }
 
   /**
@@ -193,15 +191,14 @@ export class TowerManager extends EntityManager<Tower> {
       );
     }
 
-    // Searchlight for the blood moon, on the tower's foot (the plinth's top);
-    // passive buildings get none
+    // Searchlight for the blood moon, on the tower's foot (the plinth's top),
+    // turning with the turret; passive buildings get none
     this.tilesEngine.searchlights.add(
       tower.id,
       position.lat,
       position.lon,
       terrainHeight,
       tower.typeConfig,
-      tower.guardHeading,
     );
 
     // Create tentacle visual for Tentacle Towers
