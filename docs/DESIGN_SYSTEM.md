@@ -2,9 +2,9 @@
 
 **Stand:** 2026-09-14
 
-## Uebersicht
+## Übersicht
 
-Das Tower Defense UI basiert auf einem **WC3/Ancient Command** inspirierten Design mit Stein-, Metall- und Magie-Aesthetik. Das System verwendet CSS Custom Properties fuer zentrale Farbverwaltung.
+Das Tower Defense UI basiert auf einem **WC3/Ancient Command** inspirierten Design mit Stein-, Metall- und Magie-Ästhetik. Das System verwendet CSS Custom Properties für zentrale Farbverwaltung.
 
 **Inspiration:** Warcraft III UI (siehe `public/assets/mocks/ui_mock.png`)
 
@@ -54,15 +54,15 @@ Angular setzt die Regeln aus `styleUrl` vor die Inline-`styles`. Der `:host`-Blo
 
 Maßgeblich sind die Werte in `td-theme.ts` (`TD_THEME`), die Tabellen geben sie wieder. Seit den Design Refinements (2026-05) sind die Flächen und Rahmen um etwa eine Helligkeitsstufe gespreizt, Gold ist zu antikem Messing entsättigt, Teal kühler. Die Werte davor stehen in `td-theme.ts` als Kommentar `(was …)`.
 
-### Basisflaechen
+### Basisflächen
 
 | Variable | Hex | Verwendung |
 |----------|-----|------------|
 | `--td-bg-dark` | `#111613` | Haupt-Sidebar, dunkler Stein |
-| `--td-bg-surface` | `#1A201C` | Allgemeine Oberflaeche (Overlay, Loading) |
+| `--td-bg-surface` | `#1A201C` | Allgemeine Oberfläche (Overlay, Loading) |
 | `--td-panel-dark` | `#181D19` | Dark Panel Sections (Debugger Selected States) |
-| `--td-panel-primary` | `#222A24` | Alias fuer `--td-panel-main` |
-| `--td-panel-main` | `#222A24` | Primaere Panel-Flaeche |
+| `--td-panel-primary` | `#222A24` | Alias für `--td-panel-main` |
+| `--td-panel-main` | `#222A24` | Primäre Panel-Fläche |
 | `--td-panel-secondary` | `#1A1F1B` | Unterpanels, Slots |
 | `--td-panel-shadow` | `#0B0F0C` | Inset-Schatten, Tiefe |
 
@@ -85,12 +85,12 @@ Maßgeblich sind die Werte in `td-theme.ts` (`TD_THEME`), die Tabellen geben sie
 |----------|-----|------------|
 | `--td-gold` | `#C2A055` | Wichtiges, Buttons, Titel |
 | `--td-gold-light` | `#D9BC68` | Button Highlight (Hover, Top-Border) |
-| `--td-gold-dark` | `#8E7228` | Gedrueckt, Inaktiv |
+| `--td-gold-dark` | `#8E7228` | Gedrückt, Inaktiv |
 | `--td-teal` | `#6BB6A4` | Magische Akzente |
 | `--td-teal-light` | `#8FD9C6` | Button Highlight (Hover, Top-Border) |
 | `--td-teal-dark` | `#1F8772` | Button Shadow (Bottom-Border) |
 | `--td-green` | `#9ED6A0` | Buffs, Positiv |
-| `--td-green-dark` | `#6AAB6C` | Gedrueckt, Button-Schatten |
+| `--td-green-dark` | `#6AAB6C` | Gedrückt, Button-Schatten |
 
 ### Runen-Akzente
 
@@ -103,7 +103,7 @@ Maßgeblich sind die Werte in `td-theme.ts` (`TD_THEME`), die Tabellen geben sie
 
 | Variable | Hex | Verwendung |
 |----------|-----|------------|
-| `--td-red` | `#B83E32` | Alias fuer `--td-health-red` (allgemeines Rot) |
+| `--td-red` | `#B83E32` | Alias für `--td-health-red` (allgemeines Rot) |
 | `--td-health-red` | `#B83E32` | Health, Danger |
 | `--td-health-bg` | `#2E1614` | Dunkelrote Fläche für Fehler und Gefahr (Warnbox im Standort-Dialog, Danger-Button im Training-Debugger) |
 | `--td-warn-orange` | `#C96A3A` | Warnungen |
@@ -123,14 +123,14 @@ Titel-Akzent der Tower-Tooltips (`DAMAGE_ACCENT` in `sidebar-tooltips.ts`), dazu
 
 ### Textfarben
 
-**Regel:** Nie reines Weiss verwenden!
+**Regel:** Nie reines Weiß verwenden!
 
 | Variable | Hex | Verwendung |
 |----------|-----|------------|
 | `--td-text-primary` | `#EEF1EB` | Haupttext |
-| `--td-text-secondary` | `#B6C0B3` | Sekundaertext |
-| `--td-text-muted` | `#8E988C` | Gedaempfter Text |
-| `--td-text-tertiary` | `#7A837A` | Zwischen muted/disabled, fuer pending/inactive Elemente |
+| `--td-text-secondary` | `#B6C0B3` | Sekundärtext |
+| `--td-text-muted` | `#8E988C` | Gedämpfter Text |
+| `--td-text-tertiary` | `#7A837A` | Zwischen muted/disabled, für pending/inactive Elemente |
 | `--td-text-disabled` | `#6A726A` | Deaktivierter Text |
 
 ### Glas, Schatten, Glow
@@ -400,7 +400,7 @@ Im Dialog-Modus (`isDialog`) sitzt rechts noch der Close-Button, dort gilt die A
 
 ### Text auf Stein-Textur (Lesbarkeit)
 
-Elemente auf der Stein-Textur benoetigen einen dunklen Hintergrund fuer Lesbarkeit. Im Header tragen ihn die Stat-Leiste (`.header-stats`), der Gegner-Chip (`.enemies-chip`) und der Standort-Button (`.location-btn`):
+Elemente auf der Stein-Textur benötigen einen dunklen Hintergrund für Lesbarkeit. Im Header tragen ihn die Stat-Leiste (`.header-stats`), der Gegner-Chip (`.enemies-chip`) und der Standort-Button (`.location-btn`):
 
 ```css
 .header-stats,
@@ -476,7 +476,7 @@ Alle Debug-Fenster nutzen `app-draggable-debug-panel` (`components/debug-window/
 
 ### Context-Hint-Box
 
-Wiederverwendbare Hinweis-Box fuer kontextabhaengige Aktionen (z.B. Build-Modus):
+Wiederverwendbare Hinweis-Box für kontextabhängige Aktionen (z.B. Build-Modus):
 
 ```css
 .context-hint-container {
@@ -637,9 +637,9 @@ Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().ki
 ## WC3-Design-Regeln
 
 1. **Max. 3 Akzentfarben gleichzeitig sichtbar**
-2. **Gold nur fuer wichtige Elemente** (Buttons, Titel)
+2. **Gold nur für wichtige Elemente** (Buttons, Titel)
 3. **Keine weichen Gradients** - Farbstufen bevorzugen
-4. **Kontrast ueber Material & Rahmen**, nicht ueber Saettigung
+4. **Kontrast über Material & Rahmen**, nicht über Sättigung
 5. **UI immer dunkler & schwerer als das Spielfeld**
 6. **Rahmen: hell oben, dunkel unten** (klassischer 3D-Effekt)
 
@@ -668,7 +668,7 @@ Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().ki
 | `components/game-sidebar/` | Rechte Sidebar mit Aktionen, Tower-Slots, Wave-Preview (Panels siehe [Sidebar-Panels](#sidebar-panels)) |
 | `components/compass/` | Kompass-Anzeige |
 | `components/ability-bar/` | Fähigkeitenleiste am linken Rand (Held, Fähigkeiten) |
-| `components/info-overlay/` | FPS / Tile-Stats Overlay (toggle ueber Caret) |
+| `components/info-overlay/` | FPS / Tile-Stats Overlay (toggle über Caret) |
 | `components/quick-actions/` | Quick Actions: Route-Animation, Display-, Audio-, Layer- und Dev-Menü, Kamera-Reset |
 | `components/game-speed/` | Pause und Game-Speed (1x/2x/4x), Bauphase und Welle |
 | `components/boss-intro/` | Schleier und Titelkarte des Boss-Intros |
