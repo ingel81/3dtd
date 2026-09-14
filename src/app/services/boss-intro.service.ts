@@ -18,19 +18,22 @@ import type { RouteWaypoint } from '../models/game.types';
 import { routePathToLocalPoints } from '../utils/route-path.util';
 import { cameraTimeline } from '../utils/camera-timeline';
 import { ownsKey } from '../utils/keyboard-target';
+import { raycastStats } from '../utils/raycast-stats';
 import {
   BOSS_INTRO_TIMING,
   BOSS_SHOT,
+  BOSS_SHOT_RAYS,
   BossIntroGate,
+  PortalShotSearch,
   bossClearDistance,
   bossIntroBlock,
   bossIntroCutMs,
   bossIntroReturnMs,
   bossIntroStage,
-  portalShot,
   type BossIntroBlock,
   type BossIntroStage,
   type PortalShot,
+  type ShotProbe,
 } from '../utils/boss-intro';
 
 /** Route the shot may stand on, from the portal (m); the framing needs about 60 at most. */
@@ -55,7 +58,10 @@ interface WaitingBoss {
 
 interface IntroRun {
   boss: WaitingBoss;
-  shot: PortalShot;
+  /** Looks for a shot with a clear view while the veil comes down */
+  search: PortalShotSearch;
+  /** Its pick, taken at the cut */
+  shot: PortalShot | null;
   elapsedMs: number;
   /** The player's view and the game are back (reveal) */
   returned: boolean;
@@ -72,7 +78,10 @@ interface IntroRun {
  * wave (BossIntroGate), none in photo mode, training runs, above 4x or
  * while a dialog is open (bossIntroBlock). Bosses of the wave still waiting when an intro starts
  * (two types out of the portals at once, a Custom Wave) share it: the card
- * names them all, the shot stays on the first.
+ * names them all, the shot stays on the first. The shot comes from
+ * PortalShotSearch: while the first veil comes down it checks its
+ * candidates against the tiles, a few rays a frame, and the cut takes its
+ * pick (`bossShot` in `__raycastStats()`).
  *
  * Presentation only: it moves the camera and pauses the game the way the
  * pause button does (GameStore.paused), nothing in the simulation changes.
@@ -191,15 +200,16 @@ export class BossIntroService {
     const route = this.shotRoute(engine, boss.enemy.movement.path);
     const { heightOffset, healthBarOffset } = boss.enemy.typeConfig;
     // Up to its health bar, the top of what the shot shows of it
-    const shot = portalShot(
+    const search = PortalShotSearch.create(
       route,
       camera.fov,
       boss.portalScale,
       boss.clearDistance,
       heightOffset + healthBarOffset,
+      this.shotProbe(engine),
       this.dolly,
     );
-    if (!shot) return false;
+    if (!search) return false;
 
     // Instead of a second intro right after this one, which would cut to a
     // boss that walked on during the reveal
@@ -212,7 +222,8 @@ export class BossIntroService {
     const controls = engine.getControls();
     this.run = {
       boss,
-      shot,
+      search,
+      shot: null,
       elapsedMs: 0,
       returned: false,
       controlsWereEnabled: controls?.enabled ?? false,
@@ -252,7 +263,9 @@ export class BossIntroService {
     run.elapsedMs += deltaMs;
     const stage = bossIntroStage(run.elapsedMs);
 
-    if (stage === 'hold' || stage === 'dip-out') {
+    if (stage === 'dip-in') {
+      this.searchShot(run, BOSS_SHOT_RAYS.perFrame);
+    } else if (stage === 'hold' || stage === 'dip-out') {
       this.frameShot(engine.getCamera(), run);
     } else if (stage === 'reveal' || stage === null) {
       if (!run.returned) this.returnCamera(engine, run);
@@ -263,11 +276,50 @@ export class BossIntroService {
   }
 
   /**
+   * Candidates for the shot while the veil comes down, `rays` of them a
+   * frame (PortalShotSearch); Infinity finishes the search. Booked as
+   * `bossShot` in `__raycastStats()`.
+   */
+  private searchShot(run: IntroRun, rays: number): void {
+    const scope = raycastStats.enter('bossShot');
+    try {
+      run.search.step(rays);
+    } finally {
+      raycastStats.exit(scope);
+    }
+  }
+
+  /** At the cut: what the search has not looked at yet within its budget, then its pick. */
+  private pickShot(run: IntroRun): PortalShot {
+    this.searchShot(run, Infinity);
+    const choice = run.search.result();
+    run.shot = choice.shot;
+    cameraTimeline.record('bossIntro.shot', {
+      boss: run.boss.enemy.typeConfig.id,
+      shot: choice.label,
+      clear: choice.clear,
+      score: choice.score,
+      rays: choice.rays,
+      tried: choice.tried,
+    });
+    return choice.shot;
+  }
+
+  /** The tile rays of the shot search: TerrainQueries, in DevWorld its terrain and buildings. */
+  private shotProbe(engine: ThreeTilesEngine): ShotProbe {
+    const terrain = engine.terrain;
+    return {
+      blocked: (from, to) => terrain.raycastLineOfSight(from.x, from.y, from.z, to.x, to.y, to.z),
+      column: (x, z) => terrain.sampleColumn(x, z),
+    };
+  }
+
+  /**
    * The portal shot, pushed in by how far the hold has run. Written every
    * frame: nothing else may move the camera meanwhile.
    */
   private frameShot(camera: PerspectiveCamera, run: IntroRun): void {
-    const { position, dollyTo, target } = run.shot;
+    const { position, dollyTo, target } = run.shot ?? this.pickShot(run);
     const raw = Math.min(1, Math.max(0, (run.elapsedMs - bossIntroCutMs()) / BOSS_INTRO_TIMING.holdMs));
     const eased = raw * raw * (3 - 2 * raw);
     this.dollyPosition.set(
