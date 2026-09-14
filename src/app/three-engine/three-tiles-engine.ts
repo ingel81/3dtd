@@ -1159,6 +1159,22 @@ export class ThreeTilesEngine {
     this.bloodMoon.setEnabled(settings.bloodMoon);
   }
 
+  // ---- Render diagnostics (__bloom, PerformanceProfilerService) ----
+
+  /** Mark NaN and infinite pixels of the frame (PostProcessingPipeline.setPixelMarks). false without the pipeline. */
+  setPixelMarks(on: boolean): boolean {
+    if (!this.postProcessing) return false;
+    this.postProcessing.setPixelMarks(on);
+    return true;
+  }
+
+  /** The bloom's NaN guard on or off (PostProcessingPipeline.setBloomGuard). false without the pipeline. */
+  setBloomGuard(on: boolean): boolean {
+    if (!this.postProcessing) return false;
+    this.postProcessing.setBloomGuard(on);
+    return true;
+  }
+
   // ---- Color Grading (LUT) ----
 
   setColorGradingPreset(preset: ColorGradingPreset): void {

@@ -6,6 +6,8 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createColorGradingPass, ColorGradingPreset } from './color-grading';
 import { BloomKick, type BloomValues } from './bloom-kick';
 import { guardBloomHighPass } from './bloom-guard';
+import { createPixelMarksPass } from './pixel-marks';
+import type { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 
 /**
  * PostProcessingPipeline — kapselt EffectComposer + Render-/Bloom-/ColorGrading-/Output-Pass.
@@ -23,6 +25,7 @@ export class PostProcessingPipeline {
   private readonly bloomPass: UnrealBloomPass;
   private readonly bloomKick: BloomKick;
   private readonly colorGrading: ReturnType<typeof createColorGradingPass>;
+  private readonly pixelMarks: ShaderPass;
 
   private bloomEnabled = false;
   private colorGradingPreset: ColorGradingPreset = 'none';
@@ -44,6 +47,10 @@ export class PostProcessingPipeline {
     this.composer.setSize(size.width, size.height);
 
     this.composer.addPass(new RenderPass(scene, camera));
+
+    // Diagnostic, off: marks what the scene wrote, before the bloom reads it
+    this.pixelMarks = createPixelMarksPass();
+    this.composer.addPass(this.pixelMarks);
 
     this.bloomPass = new UnrealBloomPass(
       new Vector2(window.innerWidth, window.innerHeight),
@@ -71,7 +78,7 @@ export class PostProcessingPipeline {
 
   /** Whether at least one post-processing pass is active. */
   needsRender(): boolean {
-    return this.bloomEnabled || this.colorGradingPreset !== 'none';
+    return this.bloomEnabled || this.colorGradingPreset !== 'none' || this.pixelMarks.enabled;
   }
 
   /** Render the scene through the composer. */
@@ -102,6 +109,22 @@ export class PostProcessingPipeline {
     } else {
       this.bloomKick.reset();
     }
+  }
+
+  // ── Diagnostics (__bloom) ────────────────────────────────────────
+  /**
+   * Mark NaN pixels of the frame magenta and infinite ones cyan
+   * (pixel-marks.ts). While on, the frame goes through the composer with
+   * bloom off as well, and the marks replace the bad pixels, so the bloom
+   * no longer sees them.
+   */
+  setPixelMarks(on: boolean): void {
+    this.pixelMarks.enabled = on;
+  }
+
+  /** The bloom's guard against NaN and infinite pixels (bloom-guard.ts); off only to compare. */
+  setBloomGuard(on: boolean): void {
+    guardBloomHighPass(this.bloomPass, on);
   }
 
   // ── Color Grading ────────────────────────────────────────────────
