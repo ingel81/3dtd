@@ -399,7 +399,9 @@ STEP 3: Load Streets
   - Cache-Check: Wenn gleiche Location (~100m), Cache wiederverwenden
   - Sonst OsmStreetService.loadStreets(): erst IndexedDB (StreetCacheService,
     Key v2_<lat>_<lon>_<radius>, max. 5 Orte, LRU), dann Overpass mit drei
-    Servern nacheinander (je 15 s Timeout)
+    Servern nacheinander (je 15 s bis zu den Headern, der Body danach ohne
+    Grenze; jeder Versuch steht als `[OSM] streets from ...` in der Konsole,
+    siehe "Zeiten" unten)
   - Street-Count aktualisieren
   - Street-Rendering laeuft progressiv (50 Nodes/Frame, alte Strassen
     bleiben sichtbar bis neue fertig sind — `street-rendering.service.ts`)
@@ -621,7 +623,19 @@ Jede Zeile nennt die Zeit je Schritt in ms (`StepTimes` in `map-relocation.servi
   - `camera`: Übersicht neu
   - `rest`: Standort, URL, Routenanimation
   - `corridor`: erste Scheibe der Korridor-Messung. Den Rest der Messung meldet danach `[Corridor] clearance` (`in` = Rechenzeit, `wall` = Dauer bis zum Ende), einen Neuaufbau `[Corridor] rebuild`, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#logs)
-- **Slow Path** (`HQ outside the streets`): die Zeit vor dem Ladescreen, `streets` = Overpass bzw. Straßen-Cache, `spawn` = Suche nach einem Zufalls-Spawn. Bleibt der alte Spawn, sind beide 0.0. Den Ortswechsel danach zeigt der Ladescreen
+- **Slow Path** (`HQ outside the streets`): die Zeit vor dem Ladescreen, `streets` = Overpass bzw. Straßen-Cache, `spawn` = Suche nach einem Zufalls-Spawn. Bleibt der alte Spawn, sind beide 0.0. Den Ortswechsel danach zeigt der Ladescreen. Wohin die Zeit von `streets` ging, sagen die `[OSM]`-Zeilen davor
+
+Jeder Versuch bei einem Overpass-Server (`OsmStreetService.fetchOverpass`, für Straßen und Gebäude) steht mit eigener Zeile in der Konsole:
+
+```
+[OSM] streets from <host>: headers= body=ms size=MB ways= nodes= [remark="..."]
+[OSM] streets from <host> failed after ms: <Grund>
+```
+
+- `headers` = Anfrage bis zu den Headern, also bis der Server zu antworten beginnt; bis dahin wartet der Versuch höchstens 15 s (`OVERPASS_HEADER_TIMEOUT_MS`, Grund dann `no answer within 15000ms`). `body` = von dort bis zum Ende der Antwort, ohne Grenze
+- `size` = Länge des JSON-Texts in Millionen Zeichen, bei OSM-Daten etwa die Bytes entpackt. `ways`/`nodes` = was kam, vor dem Filter auf die Routen (`[OSM] Filtered: ...`)
+- `remark` nur, wenn der Server an eine Grenze stieß (Speicher `maxsize` 4 MB, Zeit 25 s); die Antwort kann dann unvollständig sein und wird trotzdem genommen, sobald sie Straßen enthält
+- Gründe beim Scheitern: `OSM API error: <Status>` (z. B. 429, 504), `no answer within 15000ms`, `No streets found ...` (Antwort ohne Straßen, der nächste Server wird gefragt) oder der Netzwerkfehler des Browsers
 
 ### HQ-Placement-Validierung (`MapPlacementService`)
 
