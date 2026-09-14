@@ -9,10 +9,13 @@ import type { ThreeTilesEngine } from '../../three-engine';
 import type { StreetNetwork } from '../location/osm-street.service';
 import {
   MAX_MANUAL_SPAWN_DISTANCE,
+  MAX_SPAWN_STREET_DISTANCE,
   MIN_MANUAL_SPAWN_DISTANCE,
 } from '../../configs/map-constants.config';
 
 const HQ = { lat: 48.9, lon: 9.2 };
+/** The box the streets were loaded for: 0.01 degree around the HQ. */
+const BOUNDS = { minLat: HQ.lat - 0.01, maxLat: HQ.lat + 0.01, minLon: HQ.lon - 0.01, maxLon: HQ.lon + 0.01 };
 const GREEN = new Color(0x22c55e);
 const RED = new Color(0xff0000);
 
@@ -33,19 +36,22 @@ describe('MapPlacementService', () => {
   let service: MapPlacementService;
   let overlay: Group;
   let distanceToHq: number;
+  /** Distance from the cursor to the nearest street of the loaded network, m */
+  let distanceToStreet: number;
   const mapPlacementMode = signal<'hq' | 'spawn' | null>(null);
 
   beforeEach(() => {
     mapPlacementMode.set(null);
     overlay = new Group();
     distanceToHq = (MIN_MANUAL_SPAWN_DISTANCE + MAX_MANUAL_SPAWN_DISTANCE) / 2;
+    distanceToStreet = 1;
     const markerViz = {
       createPortalPreview: vi.fn(fakePortalPreview),
       createDiamondMarker: vi.fn(({ color }: { color: number }) => fakePortalPreview(color)),
       disposePreviewMarker: vi.fn(),
     };
     const osm = {
-      findNearestStreetPoint: vi.fn(() => ({ distance: 1 })),
+      findNearestStreetPoint: vi.fn(() => ({ distance: distanceToStreet })),
       haversineDistance: vi.fn(() => distanceToHq),
     };
     const injector = Injector.create({
@@ -61,7 +67,7 @@ describe('MapPlacementService', () => {
       getTerrainHeightAtGeo: () => 0,
       sync: { geoToLocalSimple: geoToLocal },
     };
-    service.initialize(engine as unknown as ThreeTilesEngine, { bounds: {} } as unknown as StreetNetwork, { ...HQ });
+    service.initialize(engine as unknown as ThreeTilesEngine, { bounds: BOUNDS } as unknown as StreetNetwork, { ...HQ });
   });
 
   const preview = () => overlay.children.find((o) => o.name === 'placementPreview')!;
@@ -99,6 +105,44 @@ describe('MapPlacementService', () => {
       service.startPlacement('hq');
       service.updatePreviewPosition(HQ.lat, HQ.lon, 0);
       expect(frameColor().equals(GREEN)).toBe(true);
+    });
+  });
+
+  describe('where a spawn may stand', () => {
+    const inside = { lat: HQ.lat + 0.005, lon: HQ.lon };
+    const outside = { lat: BOUNDS.maxLat + 0.001, lon: HQ.lon };
+
+    it('takes a spot on a street of the loaded network, up to the tolerance', () => {
+      distanceToStreet = MAX_SPAWN_STREET_DISTANCE;
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: true });
+    });
+
+    it('refuses a spot off the streets, as close as a courtyard behind the houses', () => {
+      distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'Too far from streets' });
+    });
+
+    it('says the streets are not loaded where the cursor is outside their box', () => {
+      distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
+      expect(service.validatePosition('spawn', outside.lat, outside.lon))
+        .toEqual({ valid: false, reason: 'Streets not loaded here' });
+
+      // A way reaching out of the box is loaded: a spawn may stand on it
+      distanceToStreet = 1;
+      expect(service.validatePosition('spawn', outside.lat, outside.lon)).toEqual({ valid: true });
+    });
+
+    it('goes by the rings before the streets: beyond the outer one it is too far from the HQ', () => {
+      distanceToStreet = 500;
+      distanceToHq = MAX_MANUAL_SPAWN_DISTANCE + 1;
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'Too far from HQ' });
+      distanceToHq = MIN_MANUAL_SPAWN_DISTANCE - 1;
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'Too close to HQ' });
+    });
+
+    it('keeps the wider tolerance for the HQ, which needs no street to start on', () => {
+      distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
+      expect(service.validatePosition('hq', inside.lat, inside.lon)).toEqual({ valid: true });
     });
   });
 

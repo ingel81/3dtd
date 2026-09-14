@@ -39,8 +39,17 @@ export const MIN_MANUAL_SPAWN_DISTANCE = 200;
 /** Max distance (meters) from HQ for manual spawn placement */
 export const MAX_MANUAL_SPAWN_DISTANCE = 1500;
 
-/** Max distance from a street for HQ/spawn placement (meters) */
-export const MAX_PLACEMENT_STREET_DISTANCE = 150;
+/** Max distance from a street for HQ placement inside the loaded streets (meters) */
+export const MAX_HQ_STREET_DISTANCE = 150;
+
+/**
+ * Max distance from a street of the loaded network for manual spawn
+ * placement (meters). The route starts on the street nearest to the click,
+ * so the portal lands on the street the player points at: road, sidewalk and
+ * the offset between OSM centre line and tiles fit, a courtyard or a block
+ * interior does not. The hero's move ring allows the same 30 m.
+ */
+export const MAX_SPAWN_STREET_DISTANCE = 30;
 
 /** Max distance (meters) from new HQ before old spawn is discarded during HQ relocation */
 export const SPAWN_DISCARD_DISTANCE = 1500;

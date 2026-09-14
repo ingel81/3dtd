@@ -13,7 +13,8 @@ import { GeoPosition } from '../../models/game.types';
 import {
   MIN_MANUAL_SPAWN_DISTANCE,
   MAX_MANUAL_SPAWN_DISTANCE,
-  MAX_PLACEMENT_STREET_DISTANCE,
+  MAX_HQ_STREET_DISTANCE,
+  MAX_SPAWN_STREET_DISTANCE,
 } from '../../configs/map-constants.config';
 
 /**
@@ -253,18 +254,23 @@ export class MapPlacementService {
 
   /**
    * Validate a position for the given placement mode.
+   *
+   * A spawn stands between the two rings around the HQ and on a street of
+   * the loaded network (MAX_SPAWN_STREET_DISTANCE): its route starts on the
+   * street nearest to the click. The rings come first, so beyond the outer
+   * one the hint says "Too far from HQ" wherever the cursor is. Outside the
+   * loaded streets' box only the ways reaching out of it are known; there
+   * the hint says the streets are not loaded rather than that there are none.
    */
   validatePosition(mode: 'hq' | 'spawn', lat: number, lon: number): { valid: boolean; reason?: string } {
     // HQ can be placed anywhere — streets will be loaded afterwards via the slow path
-    // in LocationFacadeService.applyNewHqPosition()
+    // in MapRelocationService.applyNewHqPosition()
     if (mode === 'hq') {
       if (this.streetNetwork) {
         // If we have a street network, validate proximity only within loaded bounds
-        const b = this.streetNetwork.bounds;
-        const inBounds = lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon;
-        if (inBounds) {
+        if (this.isInsideStreets(lat, lon)) {
           const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, lat, lon);
-          if (!nearest || nearest.distance > MAX_PLACEMENT_STREET_DISTANCE) {
+          if (!nearest || nearest.distance > MAX_HQ_STREET_DISTANCE) {
             return { valid: false, reason: 'Too far from streets' };
           }
         }
@@ -278,34 +284,33 @@ export class MapPlacementService {
     if (!this.streetNetwork) {
       return { valid: false, reason: 'No street network loaded' };
     }
-
-    // Check proximity to a street
-    const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, lat, lon);
-    if (!nearest || nearest.distance > MAX_PLACEMENT_STREET_DISTANCE) {
-      return { valid: false, reason: 'Too far from streets' };
+    if (!this.baseCoords) {
+      return { valid: false, reason: 'No HQ placed' };
     }
 
-    if (mode === 'spawn') {
-      // Spawn-specific validation
-      if (!this.baseCoords) {
-        return { valid: false, reason: 'No HQ placed' };
-      }
+    const distToHq = this.osmService.haversineDistance(
+      lat, lon,
+      this.baseCoords.lat, this.baseCoords.lon,
+    );
+    if (distToHq < MIN_MANUAL_SPAWN_DISTANCE) {
+      return { valid: false, reason: 'Too close to HQ' };
+    }
+    if (distToHq > MAX_MANUAL_SPAWN_DISTANCE) {
+      return { valid: false, reason: 'Too far from HQ' };
+    }
 
-      const distToHq = this.osmService.haversineDistance(
-        lat, lon,
-        this.baseCoords.lat, this.baseCoords.lon,
-      );
-
-      if (distToHq < MIN_MANUAL_SPAWN_DISTANCE) {
-        return { valid: false, reason: 'Too close to HQ' };
-      }
-
-      if (distToHq > MAX_MANUAL_SPAWN_DISTANCE) {
-        return { valid: false, reason: 'Too far from HQ' };
-      }
+    const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, lat, lon);
+    if (!nearest || nearest.distance > MAX_SPAWN_STREET_DISTANCE) {
+      return { valid: false, reason: this.isInsideStreets(lat, lon) ? 'Too far from streets' : 'Streets not loaded here' };
     }
 
     return { valid: true };
+  }
+
+  /** Whether the position lies inside the box the street network was loaded for. */
+  private isInsideStreets(lat: number, lon: number): boolean {
+    const b = this.streetNetwork!.bounds;
+    return lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon;
   }
 
   /**

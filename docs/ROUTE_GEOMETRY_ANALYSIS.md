@@ -90,7 +90,7 @@ bei gleichverteilt bis 3 m) läuft dort und nimmt deren Höhe. Das passiert
 auch bei richtiger Route und richtigem Eckknoten.
 
 **D. HQ-Endstück.** Vom Abzweig geht es gerade zum HQ, bis zu 150 m weit
-(`MAX_PLACEMENT_STREET_DISTANCE`, `map-constants.config.ts:36`), quer durch
+(`MAX_HQ_STREET_DISTANCE`, `map-constants.config.ts`), quer durch
 alles, was dazwischen steht. Betrifft nur das Routenende.
 
 ## Nebenbefund, behoben
