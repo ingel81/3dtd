@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
-import { LocationManagementService } from './location-management.service';
+import { LocationManagementService, formatShowcaseLine } from './location-management.service';
 import { GeocodingService } from './geocoding.service';
 import { PathAndRouteService } from '../world/path-route.service';
 
@@ -141,5 +141,45 @@ describe('LocationManagementService', () => {
       service.spawns.set([]);
       expect(service.recentCandidate()).toBeNull();
     });
+  });
+
+  describe('formatShowcaseLine (__showcase.line())', () => {
+    it('says so without a location', () => {
+      expect(formatShowcaseLine(null, undefined)).toBe('No location loaded.');
+    });
+
+    it('prints HQ only without a spawn', () => {
+      expect(formatShowcaseLine({ lat: 49.17327, lon: 9.26859 }, undefined)).toBe(
+        "{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.17327, lon: 9.26859 }",
+      );
+    });
+
+    it('adds the spawn, and its bearing when the portal was turned', () => {
+      const hq = { lat: 49.17327, lon: 9.26859 };
+      expect(formatShowcaseLine(hq, { lat: 49.17555, lon: 9.26387 })).toBe(
+        "{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.17327, lon: 9.26859, spawn: { lat: 49.17555, lon: 9.26387 } }",
+      );
+      expect(formatShowcaseLine(hq, { lat: 49.17555, lon: 9.26387, portalBearing: 187.46 })).toBe(
+        "{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.17327, lon: 9.26859, spawn: { lat: 49.17555, lon: 9.26387, portalBearing: 187.5 } }",
+      );
+    });
+
+    it('registers __showcase.line() on globalThis for playtests, dev only', () => {
+      const api = (globalThis as Record<string, unknown>)['__showcase'] as { line(): string };
+      expect(api).toBeDefined();
+
+      service.hq.set({ lat: 49.17327, lon: 9.26859 });
+      service.spawns.set([{ lat: 49.17555, lon: 9.26387 }]);
+      const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      const line = api.line();
+
+      expect(line).toBe("{ id: 'TODO', name: 'TODO', hint: 'TODO', lat: 49.17327, lon: 9.26859, spawn: { lat: 49.17555, lon: 9.26387 } }");
+      expect(log).toHaveBeenCalledWith(line);
+      log.mockRestore();
+    });
+  });
+
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>)['__showcase'];
   });
 });

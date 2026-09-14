@@ -1,4 +1,4 @@
-import { Injectable, signal, inject, computed, effect, untracked } from '@angular/core';
+import { Injectable, signal, inject, computed, effect, untracked, isDevMode } from '@angular/core';
 import { SpawnLocationConfig, FavoriteLocation, SavedSpawn } from '../../models/location.types';
 import { GeocodingService, NominatimAddress } from './geocoding.service';
 import { MissionInfo } from '../../components/loading-screen/boot-step.model';
@@ -22,6 +22,20 @@ import {
 export const NO_LOCATION_NAME = 'No location';
 /** Header text while the reverse geocode of a new HQ runs */
 export const LOADING_NAME = 'Loading...';
+
+/**
+ * `__showcase.line()`'s output: a ready-to-paste ShowcaseLocation snippet
+ * (id/name/hint left as 'TODO') for the current HQ and its first spawn, in
+ * the format showcase-locations.config.ts uses. `null` hq (no location
+ * loaded) prints a message instead.
+ */
+export function formatShowcaseLine(hq: { lat: number; lon: number } | null, spawn: SavedSpawn | undefined): string {
+  if (!hq) return 'No location loaded.';
+  const at = (p: { lat: number; lon: number }) => `lat: ${p.lat.toFixed(5)}, lon: ${p.lon.toFixed(5)}`;
+  const bearing = spawn?.portalBearing === undefined ? '' : `, portalBearing: ${spawn.portalBearing.toFixed(1)}`;
+  const spawnPart = spawn ? `, spawn: { ${at(spawn)}${bearing} }` : '';
+  return `{ id: 'TODO', name: 'TODO', hint: 'TODO', ${at(hq)}${spawnPart} }`;
+}
 
 /**
  * LocationManagementService - Simplified
@@ -104,6 +118,24 @@ export class LocationManagementService {
     this.loadFavorites();
     this.recents.set(loadRecentLocations());
     this.trackRecents();
+    this.installShowcaseConsole();
+  }
+
+  /**
+   * `__showcase.line()` in DevTools: prints and returns a ready-to-paste
+   * snippet for the current place, so a playtester can hand over new
+   * showcase entries without typing coordinates by hand. Dev only, like
+   * `__footprintDebug` (TowerPlacementService).
+   */
+  private installShowcaseConsole(): void {
+    if (!isDevMode() || typeof window === 'undefined') return;
+    (globalThis as Record<string, unknown>)['__showcase'] = {
+      line: (): string => {
+        const line = formatShowcaseLine(this.hq(), this.spawns()[0]);
+        console.log(line);
+        return line;
+      },
+    };
   }
 
   // ==================== LOCATION ====================
