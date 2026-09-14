@@ -189,17 +189,33 @@ Die OSM-Breite gilt:
 ## Zellen und Engstellen
 
 Die Route-Zellen sind 2 m groß (`global-route-grid.ts:94`).
-`claimSegmentCells` (`route-grid-builder.ts:123-182`) nimmt eine Zelle in den
+`claimSegmentCells` (`route-grid-builder.ts:174-236`) nimmt eine Zelle in den
 Korridor auf, wenn
 
 - ihr Mittelpunkt höchstens die Halbbreite ihrer Seite vom Segment entfernt
   liegt, oder
 - das Segment ihr Quadrat berührt (`segmentTouchesCell`, Liang-Barsky,
-  `route-grid-builder.ts:188-215`).
+  `route-grid-builder.ts:242-269`).
 
 Die zweite Regel sorgt dafür, dass die Zellen, durch die die Mittellinie läuft,
 bei jeder Breite dazugehören. Eine Engstelle schmaler als eine Zelle bleibt so
 eine Zellreihe, auf einer Diagonale eine Treppe.
+
+**Enden der Segmente** (`jointCap`, `claimRouteCells`): Hinter dem Anfang
+und dem Ende eines Segments gilt der Abstand zum Endpunkt, das Segment hat
+also runde Enden. An einem Waypoint zwischen zwei Segmenten ist der Radius
+je Seite höchstens die seitliche Grenze des schmaleren der beiden
+(`lateralLimit`) plus eine halbe Zelldiagonale mal `hypot(1, taper)`: So
+weit reichen Zellen, in denen Gegner an dieser Stelle stehen können (siehe
+"Seitenversatz der Gegner"). Weiter hinaus gehören die Zellen dem anderen
+Segment. Die beiden Enden der Route behalten ihre volle Halbbreite.
+Vorher hatte jedes Ende die volle Halbbreite seines Segments. Wo der
+Korridor schmaler wird (Vorgarten endet am Haus, Parkbucht an einer
+Fassade, Kreuzung an einer Gasse), griff das breitere Stück so rund um sein
+Ende bis zu seiner Halbbreite weit in das schmalere hinein: Zellen im Haus,
+die der Dach-Check dann orange auf den Boden setzte (Playtest 2026-09-14,
+Rothenburg). Gegner standen dort nie, ihre Grenze am Waypoint ist die
+kleinere.
 
 Zellen werden erst gesampelt, wenn alle Segmente ihre Zellen beansprucht haben
 (`global-route-grid.ts:283`), weil die Fläche einer Zelle von allen Segmenten abhängt, die sie
@@ -250,12 +266,12 @@ Ausnahmen:
   senkt nur ab, gilt nur für Zellen mit Fläche `ground` und nicht für die
   Mittellinien-Zellen selbst. Welche Mittellinien-Zelle daneben liegt, legt
   `claimSegmentCells` beim Anlegen fest (`axisX`, `axisZ`,
-  `route-grid-builder.ts:174-176`).
+  `route-grid-builder.ts:228-230`).
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
   (`path-route.service.ts:464`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
   (`route-cell-sampler.ts:136`). Erreicht auch ein Segment ohne Brücke dieselbe
-  Zelle, bleibt sie am Boden (`route-grid-builder.ts:169-171`).
+  Zelle, bleibt sie am Boden (`route-grid-builder.ts:223-225`).
 - **Tunnel und überdachte Durchgänge:** `runsUnderCover`
   (`route-corridor.ts:316`) gilt für `tunnel=*` außer `no` (also auch
   `building_passage`) und für `covered=yes`. Solche Segmente tragen `inTunnel`
@@ -269,7 +285,7 @@ Ausnahmen:
     liegt, bleibt die Zelle ohne Höhenprobe.
   - **Geteilte Zellen:** Erreicht ein Tunnelsegment eine Zelle, ist sie
     Tunnelzelle, auch wenn ein anderes Segment sie ebenfalls erreicht
-    (`route-grid-builder.ts:166-168`).
+    (`route-grid-builder.ts:220-222`).
   - Kein Dach-Check.
 
 ## Seitenversatz der Gegner

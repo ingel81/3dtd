@@ -1,5 +1,5 @@
 import { RouteWaypoint } from '../models/game.types';
-import { segmentLeft, segmentRight } from './route-corridor';
+import { corridorConfig, lateralLimit, segmentLeft, segmentRight } from './route-corridor';
 import { RouteCell, TunnelSpan } from './route-cell';
 
 /**
@@ -89,10 +89,48 @@ export function tunnelSegments(route: readonly RouteWaypoint[], points: readonly
 }
 
 /**
+ * How far past its start and its end a segment claims cells, left and right
+ * of its direction of travel: the radius of its round ends, see
+ * claimSegmentCells and jointCap.
+ */
+export interface SegmentCaps {
+  startLeft: number;
+  startRight: number;
+  endLeft: number;
+  endRight: number;
+}
+
+/**
+ * Radius of the round end a segment of half width `own` gets on one side of
+ * a joint with a segment of half width `other` on that side.
+ *
+ * Enemies near the joint keep within the lateral limit of the narrower of
+ * the two, which rises by `taper` per metre away from it (buildSideLimits
+ * in route-corridor.ts). A cell holding such an enemy has its centre at
+ * most half a cell diagonal away from it, and past the end of the enemy's
+ * segment that is never further from the joint than the limit there plus
+ * half a cell diagonal times hypot(1, taper). Those cells need the round
+ * end, the rest past the joint is the other segment's.
+ *
+ * At most `own`, the radius every end had before. With `own` at a joint
+ * where the corridor narrows (a front garden ends at a house, a parking bay
+ * at a facade, a crossing at a narrow street), the wider piece spilled its
+ * width round its end into the narrower one for up to its half width along
+ * the route: cells inside the house, which the roof check then put on the
+ * ground (playtest 2026-09-14, orange cells in houses in Rothenburg).
+ */
+export function jointCap(own: number, other: number, cellSize: number): number {
+  const reach = cellSize * Math.SQRT1_2 * Math.hypot(1, corridorConfig.taper);
+  return Math.min(own, lateralLimit(Math.min(own, other)) + reach);
+}
+
+/**
  * Claim the cells of every segment of one route in `cells`, see
  * claimSegmentCells. `points` are the route's local positions. Which
  * surface a cell samples depends on all segments that reach it, so the
- * caller samples only once every route has claimed its cells.
+ * caller samples only once every route has claimed its cells. At a joint
+ * of two segments each one's round end is cut to jointCap; the two ends of
+ * the route keep their half widths.
  */
 export function claimRouteCells(
   cells: Map<number, RouteCell>,
@@ -101,10 +139,21 @@ export function claimRouteCells(
   points: readonly LocalPoint[],
 ): void {
   const tunnels = tunnelSegments(route, points);
-  for (let i = 0; i < route.length - 1; i++) {
-    claimSegmentCells(
-      cells, lattice, points[i], points[i + 1], segmentLeft(route[i]), segmentRight(route[i]), route[i].onBridge === true, tunnels[i],
-    );
+  const segments = route.length - 1;
+  const cap = (own: number, neighbour: RouteWaypoint | undefined, side: (w: RouteWaypoint) => number) =>
+    neighbour ? jointCap(own, side(neighbour), lattice.cellSize) : own;
+  for (let i = 0; i < segments; i++) {
+    const left = segmentLeft(route[i]);
+    const right = segmentRight(route[i]);
+    const before = i > 0 ? route[i - 1] : undefined;
+    const after = i + 1 < segments ? route[i + 1] : undefined;
+    const caps: SegmentCaps = {
+      startLeft: cap(left, before, segmentLeft),
+      startRight: cap(right, before, segmentRight),
+      endLeft: cap(left, after, segmentLeft),
+      endRight: cap(right, after, segmentRight),
+    };
+    claimSegmentCells(cells, lattice, points[i], points[i + 1], left, right, route[i].onBridge === true, tunnels[i], caps);
   }
 }
 
@@ -112,7 +161,9 @@ export function claimRouteCells(
  * Claim the cells whose centre lies within the half width of the segment
  * `start`-`end`, `left` or `right` of its direction by the side the
  * centre is on, and every cell the segment runs through, creating the
- * missing ones. The second rule makes a bottleneck narrower than a cell a
+ * missing ones. Past the start or the end of the segment the half width is
+ * that of `caps` (default: the segment's own, a round end). The second rule
+ * makes a bottleneck narrower than a cell a
  * single file of cells, a staircase on a diagonal, in which enemies walk
  * the centre line (lateral limit 0). Local coordinates; y is the smoothed
  * route height, stored on each new cell as its `routeAnchorY` and as
@@ -129,13 +180,12 @@ export function claimSegmentCells(
   right: number,
   onBridge: boolean,
   tunnel: SegmentTunnel | null,
+  caps: SegmentCaps = { startLeft: left, startRight: right, endLeft: left, endRight: right },
 ): void {
   const cellSize = lattice.cellSize;
   const dx = end.x - start.x;
   const dz = end.z - start.z;
   const lenSq = dx * dx + dz * dz;
-  const leftSq = left * left;
-  const rightSq = right * right;
   const reach = Math.max(left, right);
   const gx0 = lattice.index(Math.min(start.x, end.x) - reach);
   const gx1 = lattice.index(Math.max(start.x, end.x) + reach);
@@ -147,12 +197,16 @@ export function claimSegmentCells(
     for (let gz = gz0; gz <= gz1; gz++) {
       // Closest point of the segment to the cell centre.
       const cz = (gz + 0.5) * cellSize;
-      const t = lenSq > 0 ? Math.max(0, Math.min(1, ((cx - start.x) * dx + (cz - start.z) * dz) / lenSq)) : 0;
+      const along = lenSq > 0 ? ((cx - start.x) * dx + (cz - start.z) * dz) / lenSq : 0;
+      const t = Math.max(0, Math.min(1, along));
       const ox = start.x + dx * t - cx;
       const oz = start.z + dz * t - cz;
       // (-dz, dx) points right of the direction of travel (x east, z south).
       const rightOfLine = (cz - start.z) * dx - (cx - start.x) * dz >= 0;
-      if (ox * ox + oz * oz > (rightOfLine ? rightSq : leftSq) && !segmentTouchesCell(cellSize, start, end, gx, gz)) continue;
+      const halfWidth = along < 0 ? (rightOfLine ? caps.startRight : caps.startLeft)
+        : along > 1 ? (rightOfLine ? caps.endRight : caps.endLeft)
+        : rightOfLine ? right : left;
+      if (ox * ox + oz * oz > halfWidth * halfWidth && !segmentTouchesCell(cellSize, start, end, gx, gz)) continue;
 
       const key = lattice.key(gx, gz);
       const existing = cells.get(key);
