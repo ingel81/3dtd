@@ -20,6 +20,7 @@ import {
 } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { haversineDistance } from '../../utils/geo-utils';
 import { SegmentRoutes } from '../../utils/route-start';
+import { raycastStats } from '../../utils/raycast-stats';
 
 const HQ = { lat: 48.9, lon: 9.2 };
 /** The box the streets were loaded for: 0.01 degree around the HQ. */
@@ -233,6 +234,25 @@ describe('MapPlacementService', () => {
     it('shows no rings while the HQ moves', () => {
       service.startPlacement('hq');
       expect(rings()).toBeUndefined();
+    });
+
+    it('books the column samples of the rings as spawnRings in __raycastStats: two rings of 96 points and their centre', () => {
+      raycastStats.reset();
+      // Each sample stands in for a ray into the tiles
+      vi.spyOn(service['engine']!, 'getTerrainHeightAtGeo').mockImplementation(() => {
+        raycastStats.record(0, 0.3, 1);
+        return 0;
+      });
+      const calls = () => Object.fromEntries(raycastStats.rows().map(({ caller, calls }) => [caller, calls]));
+
+      service.startPlacement('spawn');
+      expect(calls()).toEqual({ spawnRings: 194 });
+
+      // The preview's samples on a mouse move are not the rings'
+      service.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
+      expect(calls()['spawnRings']).toBe(194);
+      expect(calls()['unscoped']).toBeGreaterThan(0);
+      raycastStats.reset();
     });
   });
 
