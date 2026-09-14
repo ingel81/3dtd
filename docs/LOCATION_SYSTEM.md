@@ -636,6 +636,8 @@ Geladen werden alle Ways der Overpass-Abfrage (auch Fuß-, Rad- und Feldwege, Se
 
 Der Kasten folgt dem HQ nur beim Ortswechsel, nicht beim Versetzen in place. Liegt das HQ danach mehr als 500 m von der Mitte des Kastens entfernt, reicht der äußere Ring über den Kasten hinaus; dort kennt das Spiel nur die hinausreichenden Ways.
 
+Ein angenommener Spawn wird immer in place umgesetzt (`MapRelocationService.applySpawnInPlace`), auch außerhalb des Kastens: er liegt auf einem geladenen Way, `findPath()` findet ihn im geladenen Netz. Früher lief ein Spawn außerhalb des Kastens über einen vollen Ortswechsel mit Ladescreen, der die Straßen um dasselbe HQ neu lud und die Drehung mit R verwarf.
+
 ### Relevante Konstanten (`map-constants.config.ts`)
 
 ```typescript
