@@ -1081,7 +1081,8 @@ Punkte beginnen bei 301.
   betroffene Objekt fehlt.
 - Dev-Menü: Quick Actions unten rechts, ganz rechts der Knopf "Developer
   options". Gruppe **Cheats**: Kill (alle Gegner tot, gibt keinen
-  Tower-Kill), Credits (+1 000, Shift+Klick +100 000), +HP, Research (alle
+  Tower-Kill), Credits (+1 000, Shift+Klick +100 000), +HP (+1 000, Shift+Klick
+  +100 000; Rechtsklick -10, Shift+Rechtsklick -50 für die HQ-Feuerstufen), Research (alle
   Forschungen fertig), Max Up, **Abilities** (alle vier Fähigkeiten
   erforscht und geladen), **Hero** (Forschung fertig, Söldner kostenlos
   angeheuert). Gruppe **Waves & Inspect**: Waves öffnet Wave Debug (Single,
