@@ -259,8 +259,10 @@ export class RouteCellSampler {
    * (`deck`, the column at that end) the top where it carries on the deck,
    * else the bottom (deckApproachY), with the coarser LOD of the two
    * columns, so the cell is sampled again once the bridge end has a finer
-   * tile. A column at the corridor edge can come down on a roof, an eave, a
-   * crown or a parked car, which the photogrammetry has no ground under;
+   * tile. Under a flat roof the bottom is usually the street: playtest
+   * 2026-09-14 (Tokyo), roofs at 70.5 to 99.3 m had their column's ground at
+   * 39.5 to 39.9 m. A column at the corridor edge can still come down on a
+   * roof, an eave, a crown or a parked car with no ground showing under it;
    * the cell keeps that height, and the corridor ends before such a cell
    * instead (corridor-walk.ts).
    */
