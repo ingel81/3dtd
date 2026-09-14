@@ -208,6 +208,47 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(positionsOutside(grid, route)).toEqual([]);
   });
 
+  /**
+   * Pick A of the same playtest: two cells on a car 0.6 m above the street
+   * (473.99 m over street cells at 473.37 to 473.42 m, 0.57 m over the one
+   * in front of it). A stepRise of 0.75 m let the walk climb onto it.
+   */
+  it('ends the corridor before a low car blob, 0.6 m over the street', () => {
+    const ground = bySpot({ '21,5': 473.99, '23,5': 473.99, '21,3': 473.42, '23,3': 473.37 }, 473.4);
+    const { grid, route, builds } = narrowed(ground);
+
+    expect(builds).toBe(1);
+    expect(grid.getCellAt(21, 5)).toBeUndefined();
+    expect(grid.getCellAt(23, 5)).toBeUndefined();
+    expect(grid.getCellAt(21, 3)).toBeDefined();
+    expect(grid.getCellAt(11, 5)).toBeDefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
+  it('keeps a kerb, photogrammetry noise and a bank rising 20 % on one side walkable', () => {
+    // Right: a kerb 0.2 m up from 2 m off the centre line, then a bank
+    // rising 0.2 m per metre, with nothing falling on the other side to
+    // count as a cross slope. Left: 0.1 m up or down from cell to cell.
+    const noise = (x: number, z: number) => ((Math.floor(x / CELL) + Math.floor(z / CELL)) % 2 === 0 ? 0.1 : -0.1);
+    const { grid, builds } = narrowed((x, z) => (z > 2 ? 0.2 + Math.max(0, z - 3) * 0.2 : noise(x, z)));
+
+    expect(builds).toBe(0);
+    expect(grid.unwalkableCells()).toEqual([]);
+    expect(grid.getCellAt(31, 7)).toBeDefined();
+    expect(grid.getCellAt(31, -5)).toBeDefined();
+  });
+
+  it('keeps a bank rising 15 % on one side of a diagonal street walkable', () => {
+    // South-east along x = z: the walk out crosses the grid diagonally,
+    // 0.42 m per spot on the bank right of travel (south-west).
+    const diagonal: Street = { a: { x: 0, z: 0 }, b: { x: 40, z: 40 }, left: 7, right: 7 };
+    const { grid, builds } = narrowed((x, z) => Math.max(0, (z - x) / Math.SQRT2) * 0.15, diagonal);
+
+    expect(builds).toBe(0);
+    expect(grid.unwalkableCells()).toEqual([]);
+    expect(grid.getCellAt(15, 23)).toBeDefined();
+  });
+
   it('keeps the full corridor across a slope', () => {
     // Rising 0.4 m per metre southwards: 0.8 m from one cell to the next, more
     // than stepRise, and 2.4 m at the edge cells, less than roofRise.

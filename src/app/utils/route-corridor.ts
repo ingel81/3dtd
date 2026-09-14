@@ -116,7 +116,12 @@ export interface CorridorConfig {
    * much: the column hit a parked car, a van or a hedge, which the
    * photogrammetry has no ground under either. A kerb, a step and a slope
    * that climbs a little from spot to spot stay walkable. The corridor ends
-   * before such a cell (cellWalkable in corridor-walk.ts).
+   * before such a cell (cellWalkable in corridor-walk.ts). 0.5 m: in the
+   * Rothenburg playtest of 2026-09-14 a car stood 0.57 m over the street
+   * cell in front of it and passed 0.75 m, while the steps between ground
+   * cells there were at most 0.24 m. A bank on one side only (nothing to
+   * mirror, see crossSlope) stays walkable up to 25 % across the grid axes,
+   * about 17 % on a diagonal.
    */
   stepRise: number;
   /**
@@ -151,7 +156,7 @@ export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
   dipLength: 4,
   bulgeLength: 8,
   roofRise: 2.5,
-  stepRise: 0.75,
+  stepRise: 0.5,
   highwayWidths: Object.freeze({
     motorway: 11,
     trunk: 9,
