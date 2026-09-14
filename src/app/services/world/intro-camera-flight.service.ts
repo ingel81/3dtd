@@ -16,6 +16,7 @@ import {
   PORTAL_MAX_TOP,
 } from '../../configs/marker-geometry.config';
 import { cameraTimeline } from '../../utils/camera-timeline';
+import { ownsKey } from '../../utils/keyboard-target';
 import { raycastStats } from '../../utils/raycast-stats';
 import { routePathToLocalPoints } from '../../utils/route-path.util';
 import {
@@ -602,15 +603,35 @@ export class IntroCameraFlightService {
   /**
    * Skip the intro: stop and jump straight to the final game view.
    *
-   * Called by the Skip button and by the canvas input handlers — in both
-   * cases the player asked for control, so hand it over immediately rather
-   * than playing out the remaining phases.
+   * Called by the Skip button, by the canvas input handlers and by Esc
+   * (handleKeyDown) — in each case the player asked for control, so hand it
+   * over immediately rather than playing out the remaining phases.
    */
   cancel(reason = 'api'): void {
     if (!this.running) return;
     cameraTimeline.record('intro.cancel', { reason, phase: this.phase, phaseElapsed: +this.phaseElapsed.toFixed(2) });
     this.stop();
     this.cameraControl.resetCamera();
+  }
+
+  /**
+   * Window keydown, asked by the game component before its own handlers.
+   * While the flight plays, Esc skips it and every other game key is held
+   * back: the camera belongs to the flight, so a jump (Home, N) could not
+   * follow, and a key that cut the flight short without doing its own job
+   * read as broken. Typing in a field (the header's location search works
+   * during the intro) and an Esc a dialog already took stay theirs.
+   *
+   * @returns true when the game must leave the key alone
+   */
+  handleKeyDown(event: KeyboardEvent): boolean {
+    if (!this.running) return false;
+    if (event.defaultPrevented || ownsKey(event.target, event.key)) return false;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancel('key Escape');
+    }
+    return true;
   }
 
   /**
@@ -1129,33 +1150,23 @@ export class IntroCameraFlightService {
   // ========================================
 
   /**
-   * Any deliberate camera input cancels the flight. The controls are disabled
-   * during the flight, so their own 'start' event never fires — listen on the
-   * canvas directly.
+   * A click or the wheel on the canvas cancels the flight. The controls are
+   * disabled during the flight, so their own 'start' event never fires —
+   * listen on the canvas directly. Of the keys only Esc cancels, see
+   * handleKeyDown.
    */
   private attachCancelHandlers(): void {
     const dom = this.engine?.getRenderer().domElement;
     if (!dom || this.cancelHandler) return;
 
     const onInput = (e: Event) => this.cancel(e.type);
-    // Any key skips, except while the user is typing somewhere (the header's
-    // location field is editable during the intro).
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (t?.isContentEditable || t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) {
-        return;
-      }
-      this.cancel(`key ${e.key}`);
-    };
 
     dom.addEventListener('pointerdown', onInput);
     dom.addEventListener('wheel', onInput, { passive: true });
-    window.addEventListener('keydown', onKey);
 
     this.cancelHandler = () => {
       dom.removeEventListener('pointerdown', onInput);
       dom.removeEventListener('wheel', onInput);
-      window.removeEventListener('keydown', onKey);
     };
   }
 

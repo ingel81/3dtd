@@ -210,7 +210,7 @@ src/app/services/
 | **PathAndRouteService** (`path-route.service.ts`) | Pfad-Caching, Route-Visualisierung, Height Smoothing |
 | **RouteAnimationService** | Knight Rider Routen-Animation |
 | **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup, Tower-Registrierung. Die Per-Tower-Viz (`TowerLosViz`, `utils/tower-los-viz.ts`) halten TowerManager (Auswahl) und TowerPlacementService (Build-Preview) |
-| **IntroCameraFlightService** | Intro-Kamerafahrt entlang der Route, lädt dabei die Tiles des Korridors vor |
+| **IntroCameraFlightService** | Intro-Kamerafahrt entlang der Route, lädt dabei die Tiles des Korridors vor. Abbruch per Klick oder Mausrad auf dem Canvas, "Skip Intro" oder Esc; die übrigen Spieltasten wirken während des Flugs nicht (`handleKeyDown`, von der Spielkomponente nach dem Boss-Intro und vor InputHandler und HotkeyService gefragt) |
 | **CorridorRefit** (`corridor-refit.ts`) | Korridor-Messung nach Tile-Loads nachziehen, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | **SpatialGridService** | Generischer Spatial Hash fuer Tower/Enemy Range-Queries |
 | **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
