@@ -1,6 +1,6 @@
 # Tower Creation Guide
 
-**Stand:** 2026-09-14
+**Stand:** 2026-09-15
 
 Anleitung zum Erstellen neuer Tower-Typen mit optionalen rotierenden Teilen.
 
@@ -10,7 +10,7 @@ Anleitung zum Erstellen neuer Tower-Typen mit optionalen rotierenden Teilen.
 
 Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` definiert. Das System unterstützt:
 
-- Verschiedene 3D-Modelle (GLB, FBX)
+- Verschiedene 3D-Modelle (GLB; einen FBX-Ladepfad gibt es nicht mehr)
 - Rotierende Turret-Teile (z.B. Geschütztürme)
 - Eigene Projektiltypen
 - **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x, 9 Schadenstypen: physical, pierce, siege, magic, fire, ice, poison, lightning, chaos)
@@ -187,7 +187,8 @@ case 'new-visual':
 Den Manager außerdem im Konstruktor mit `scene.add(...)` einhängen und in `count`, `commitToGPU()`,
 `clear()` und `dispose()` aufnehmen, bei einem ShaderMaterial mit `uTime` auch in
 `updateShaderUniforms()`. Einen Trail-Streak bekommt nur ein Visual Type mit Pool in
-`TrailStreakRenderer.initPools()` (heute `rocket`, `arrow`, `magic`, `ice`, `cannonball`, `bullet`),
+`TrailStreakRenderer.initPools()` (heute `rocket`, `arrow`, `magic`, `ice`, `cannonball`, `bullet`,
+`shell`),
 den Stil liefert `TRAIL_STYLES`.
 
 ---
@@ -304,30 +305,11 @@ if (target) {
 
 ### Projektil-Sounds registrieren
 
-In `configs/projectile-types.config.ts`:
-
-```typescript
-export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> = {
-  arrow: {
-    url: 'assets/sounds/towers/archer/shoot.mp3',
-    refDistance: 50,
-    rolloffFactor: 1,
-    volume: 0.5,
-  },
-  bullet: {
-    url: 'assets/sounds/towers/gatling/shoot.mp3',
-    refDistance: 40,
-    rolloffFactor: 1.2,
-    volume: 0.25,  // Niedriger bei hoher Feuerrate
-  },
-  // ...
-} as const;
-```
-
-Jeder Projektiltyp braucht einen Eintrag (`Record<ProjectileTypeId, …>`). Der `ProjectileManager`
-registriert alle Einträge in `initialize()` und spielt sie über `playProjectileSound()` als
-deferred `audio:play`-Event an der Tower-Position ab. Beam-, Melee- und Chain-Tower haben kein
-Projektil, ihre Sounds registriert der `TowerManager` in `initialize()`.
+Jeder Projektiltyp braucht einen Eintrag in `PROJECTILE_SOUNDS`
+(`configs/projectile-types.config.ts`, `Record<ProjectileTypeId, …>`, der Compiler meldet
+fehlende). Liste, Werte, Registrierung und Budget stehen in
+[PROJECTILES.md](PROJECTILES.md#sound). Beam-, Melee- und Chain-Tower haben kein Projektil,
+ihre Sounds registriert der `TowerManager` in `initialize()`.
 
 ---
 
@@ -703,6 +685,7 @@ Vollständiges Beispiel eines Towers mit rotierendem Turret:
   previewScale: 5.5,
   heightOffset: 2.4,
   shootHeight: 2.1,
+  footprintRadius: 3.1,
   rotationY: -1.5708,            // -90° visuelles Alignment
   turretBarrelOffset: -1.5708,   // Barrels zeigen -X im Model Space
   firePoints: [
@@ -738,6 +721,7 @@ fire: {
   previewScale: 9.8,
   heightOffset: 3.8,
   shootHeight: 1.25,
+  footprintRadius: 5.3,
   rotationY: 3.0892,             // ~177°
   turretBarrelOffset: 0.436,     // ~25° Barrel-Korrektur
 
@@ -766,8 +750,8 @@ Vollständiges Beispiel eines `chain`-Towers — Hitscan-Kette zwischen mehreren
 gerendert über den dedizierten `LightningBoltRenderer` (bis zu 192 Bolts als Instanzen
 eines Quad-Strips, ein Mesh und ein Draw Call; der Vertex-Shader erzeugt die
 Jagged-Polyline aus Endpunkten und Seed pro Instanz) plus additive Aufhell-Halos pro Hit
-(Workaround weil Photorealistic 3D Tiles dynamische Lichter ignorieren — siehe
-[[feedback_tiles_dynamic_lights]] im Memory).
+(Workaround, weil die Photorealistic 3D Tiles dynamische Lichter nicht annehmen: Wer die
+Umgebung aufhellen will, nimmt additive Sprites oder Decals, kein PointLight).
 
 ```typescript
 lightning: {
@@ -778,6 +762,7 @@ lightning: {
   previewScale: 14,
   heightOffset: 0,
   shootHeight: 9.65,
+  footprintRadius: 3.7,
   rotationY: 0,
 
   attackType: 'chain',          // Hitscan, kein Projektil
