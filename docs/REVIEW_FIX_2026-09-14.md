@@ -751,6 +751,9 @@ abarbeiten.
      Wave Debug "Jump to wave" 14, Space: Kegel sichtbar, keine Zeile
      `Shader Error` (der Scheinwerfer-Shader ist neu). O, "Save screenshot":
      kein Fehler.
+     **Befund (2026-09-14):** keine Fehler, aber der Scheinwerfer zeigt um
+     180° verkehrt (entgegen der Zielrichtung des Turrets). Fix folgt,
+     erneut prüfen.
 
 **Tipps und Forschung** (neues Spiel)
 
@@ -758,18 +761,21 @@ abarbeiten.
      wählen, Intro abwarten: Box unten mittig "Build a tower", rechts "1/7",
      Tastenkappen LMB, RMB, Wheel, WASD, H. Taste 1, Archer neben die Route:
      "Start the first wave", "2/7", Kappen Space, P, +/-. Space: die Box
-     verschwindet und bleibt während Welle 1 weg.
+     verschwindet und bleibt während Welle 1 weg. **ok**
 503. Welle 1 zu Ende: "Upgrade a tower", "3/7", Kappen U und Del. Archer
      anklicken, U: der Tipp ist weg, bis Welle 2 vorbei ist kommt keiner.
-     Welle 2 spielen: "Build a research center", "4/7".
+     Welle 2 spielen: "Build a research center", "4/7". **ok**
 504. Research Center bauen: sofort "Start a research", "5/7". Center
      anklicken, nichts starten: der Tipp bleibt. Eine verfügbare Forschung
-     starten (notfalls vorher Cheat Credits): der Tipp ist weg.
+     starten (notfalls vorher Cheat Credits): der Tipp ist weg. **ok**
 505. Cheat Research (steht "Start a research" noch: Skip): "Use an
      ability", "6/7", Kappen K Nuclear Strike, F Frost Bomb, E EMP, L Orbital
      Laser. Welle starten, K, auf die Route klicken: "Hire the Mercenary",
      "7/7", Kappen G und V. Oberer Knopf der Leiste (Münze), 1 000 Credits:
      keine Tipps mehr. Sidebar-Fuß "Tips": wieder "Build a tower", "1/7".
+     **Befund (2026-09-14):** der Ablauf klappt, aber der Wiedereinstieg
+     beginnt immer bei "1/7", egal wie weit man war. Fix folgt, erneut
+     prüfen.
 506. Key löschen und Reload wie in 502. Archer bauen, Cheat Credits,
      Welle 1 starten und darin ein Research Center bauen: noch in Welle 1
      erscheint "Start a research", "5/7" (bereit, sobald ein Center steht).
@@ -777,14 +783,17 @@ abarbeiten.
      Solange er steht, am Center "Research Wing" kaufen: der Tipp bleibt.
      Dann den Archer upgraden: wieder "Start a research", "5/7"; "Build a
      research center" erscheint auch nach Welle 2 nicht.
+     **Per Test verifiziert statt geklickt** (User-Wunsch 2026-09-14),
+     Ergebnis folgt.
 507. Bei einem beliebigen Tipp "Hide tips": keine Tipps mehr, auch nicht
-     nach Welle 2 oder nach dem Research-Cheat.
+     nach Welle 2 oder nach dem Research-Cheat. **Per Test verifiziert
+     statt geklickt** (User-Wunsch 2026-09-14), Ergebnis folgt.
 508. Neues Spiel, Cheat Credits, Research Center bauen und anklicken. Über
      "Siege Engineering" hovern und klicken: gesperrt, nicht klickbar,
      Tooltip nur "Requires: Gatling Technology", kein "· queue", keine Zeile
      in der Warteschlange. "Gatling Technology" klicken (startet), dann "Ice
      Magic": gestrichelte Zeile "1 Ice Magic" in der Schlange; Siege
-     Engineering bleibt gesperrt.
+     Engineering bleibt gesperrt. **ok**
 509. Warten, bis Gatling fertig ist (15 s Spielzeit, mit + schneller): Ice
      Magic startet von selbst und wird erst jetzt bezahlt, Siege Engineering
      ist klickbar. Bei belegtem Slot "Tentacle Biology" und "Toxic
