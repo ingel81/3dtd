@@ -163,7 +163,17 @@ describe('LocationChangeCoordinatorService', () => {
     error: signal<string | null>(null),
   };
   const uiStore = { routesVisible: signal(true), notice: signal<string | null>(null) };
-  const gameState = { reset: vi.fn(), initialize: vi.fn(), initializeGlobalRouteGrid: vi.fn() };
+  const routeGrid = {
+    initSpatialGridVisualizationIfEnabled: vi.fn(),
+    initAirSpatialGridVisualizationIfEnabled: vi.fn(),
+    initAirRouteLayerIfEnabled: vi.fn(),
+  };
+  const gameState = {
+    reset: vi.fn(),
+    initialize: vi.fn(),
+    initializeGlobalRouteGrid: vi.fn(),
+    getGlobalRouteGrid: () => routeGrid,
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -379,6 +389,17 @@ describe('LocationChangeCoordinatorService', () => {
       const gridOrder = gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0];
       expect(callbacks.initializeTowerPlacement.mock.invocationCallOrder[0]).toBeGreaterThan(gridOrder);
       expect(callbacks.filterStreetNetworkToRoutes.mock.invocationCallOrder[0]).toBeGreaterThan(gridOrder);
+    });
+
+    it('draws the route overlays that are on onto the new cells right after the grid', async () => {
+      await executor.executeLocationChange(input(), ctx, callbacks);
+
+      // Step 2 took them away with the old cells (clearMapEntities)
+      const gridOrder = gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0];
+      for (const init of Object.values(routeGrid)) {
+        expect(init).toHaveBeenCalledTimes(1);
+        expect(init.mock.invocationCallOrder[0]).toBeGreaterThan(gridOrder);
+      }
     });
 
     it('throws when no route connects HQ and spawn, before the grid is built', async () => {
