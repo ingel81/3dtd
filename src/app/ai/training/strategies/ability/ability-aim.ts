@@ -6,7 +6,34 @@
 
 import type { GameStateManager } from '../../../../managers/game-state.manager';
 import type { Enemy } from '../../../../entities/enemy.entity';
+import type { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { geoDistanceFast } from '../../../../utils/geo-utils';
+
+/**
+ * The aim of one bot decision. StrategyBot.decideAction calls canExecute and
+ * then execute with the same snapshot, and the aim is the costly part of
+ * both: canExecute keeps it, execute takes it. Another snapshot (a later
+ * decision) aims anew, and execute uses the kept aim up either way.
+ */
+export class DecisionAim<T> {
+  private state: GameStateSnapshot | null = null;
+  private aim: T | null = null;
+
+  /** canExecute: aim for `state` and keep the result. */
+  find(state: GameStateSnapshot, aim: () => T | null): T | null {
+    this.state = state;
+    this.aim = aim();
+    return this.aim;
+  }
+
+  /** execute: the aim kept for `state`, else a fresh one. */
+  take(state: GameStateSnapshot, aim: () => T | null): T | null {
+    const found = this.state === state ? this.aim : aim();
+    this.state = null;
+    this.aim = null;
+    return found;
+  }
+}
 
 /**
  * Candidate centres per decision, spread evenly over the enemies. Counting

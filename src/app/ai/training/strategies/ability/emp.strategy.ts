@@ -19,7 +19,7 @@ import { TowerAction } from '../../bots/tower-bot.interface';
 import { GameStateManager } from '../../../../managers/game-state.manager';
 import { ABILITIES } from '../../../../configs/abilities.config';
 import type { Enemy } from '../../../../entities/enemy.entity';
-import { densestCenter, enemiesFromProgress } from './ability-aim';
+import { DecisionAim, densestCenter, enemiesFromProgress } from './ability-aim';
 
 const EMP = ABILITIES['emp'];
 
@@ -39,6 +39,8 @@ export class EmpStrategy extends BaseStrategy {
   /** Enemies within the radius of one spot that are worth the charge without machines */
   static readonly MIN_CROWD = 12;
 
+  private readonly decision = new DecisionAim<EmpAim>();
+
   constructor(private readonly gameState: GameStateManager) {
     super('Emp', 94);
   }
@@ -46,11 +48,11 @@ export class EmpStrategy extends BaseStrategy {
   canExecute(state: GameStateSnapshot): boolean {
     if (state.phase !== 'wave') return false;
     if (this.gameState.abilityManager.checkUse(EMP.id) !== null) return false;
-    return this.aim() !== null;
+    return this.decision.find(state, () => this.aim()) !== null;
   }
 
-  execute(_state: GameStateSnapshot): TowerAction | null {
-    const aim = this.aim();
+  execute(state: GameStateSnapshot): TowerAction | null {
+    const aim = this.decision.take(state, () => this.aim());
     if (!aim) return null;
     return {
       type: 'use-ability',

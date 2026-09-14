@@ -18,6 +18,8 @@ describe('FrostBombStrategy', () => {
   let enemies: ReturnType<typeof enemyAt>[];
   let useCheck: AbilityRejectReason | null;
   let checked: AbilityId[];
+  /** Reads of the enemy list: one per aim */
+  let scans: number;
   let strategy: FrostBombStrategy;
   const inWave = { phase: 'wave' } as GameStateSnapshot;
 
@@ -25,9 +27,10 @@ describe('FrostBombStrategy', () => {
     enemies = [];
     useCheck = null;
     checked = [];
+    scans = 0;
     const gameState = {
       abilityManager: { checkUse: (id: AbilityId) => (checked.push(id), useCheck) },
-      enemyManager: { getAlive: () => enemies },
+      enemyManager: { getAlive: () => (scans++, enemies) },
     };
     strategy = new FrostBombStrategy(gameState as never);
   });
@@ -65,5 +68,21 @@ describe('FrostBombStrategy', () => {
     const aimedNorth = (action.position!.z - ORIGIN.lat) * METERS_PER_DEGREE_LAT;
     expect(aimedNorth).toBeLessThan(10);
     expect(action.reason).toContain('10 enemies');
+  });
+
+  it('aims once per decision: execute takes the aim canExecute found for the same snapshot', () => {
+    packedGroup();
+    const decision = { phase: 'wave' } as GameStateSnapshot;
+    expect(strategy.canExecute(decision)).toBe(true);
+    expect(scans).toBe(1);
+    expect(strategy.execute(decision)).not.toBeNull();
+    expect(scans).toBe(1);
+
+    // Used up: the next decision, or the same snapshot again, aims anew
+    strategy.execute(decision);
+    expect(scans).toBe(2);
+    strategy.canExecute(decision);
+    strategy.execute({ phase: 'wave' } as GameStateSnapshot);
+    expect(scans).toBe(4);
   });
 });

@@ -24,15 +24,18 @@ function enemyOn(route: typeof ROUTE_A, metres: number) {
 describe('OrbitalLaserStrategy', () => {
   let enemies: ReturnType<typeof enemyOn>[];
   let useCheck: AbilityRejectReason | null;
+  /** Reads of the enemy list: two per aim, the leaders and the columns behind them */
+  let scans: number;
   let strategy: OrbitalLaserStrategy;
   const inWave = { phase: 'wave' } as GameStateSnapshot;
 
   beforeEach(() => {
     enemies = [];
     useCheck = null;
+    scans = 0;
     const gameState = {
       abilityManager: { checkUse: () => useCheck },
-      enemyManager: { getAlive: () => enemies },
+      enemyManager: { getAlive: () => (scans++, enemies) },
     };
     strategy = new OrbitalLaserStrategy(gameState as never);
   });
@@ -63,5 +66,17 @@ describe('OrbitalLaserStrategy', () => {
     for (let i = 0; i < 6; i++) enemies.push(enemyOn(ROUTE_A, 200 - i * 5)); // 100 m further back
     for (let i = 0; i < 6; i++) enemies.push(enemyOn(ROUTE_B, 295 - i * 5)); // another route
     expect(strategy.canExecute(inWave)).toBe(false);
+  });
+
+  it('aims once per decision: execute takes the aim canExecute found for the same snapshot', () => {
+    for (let i = 0; i < 12; i++) enemies.push(enemyOn(ROUTE_A, 300 - i * 5));
+    const decision = { phase: 'wave' } as GameStateSnapshot;
+    expect(strategy.canExecute(decision)).toBe(true);
+    expect(scans).toBe(2);
+    expect(strategy.execute(decision)!.reason).toContain('12 enemies');
+    expect(scans).toBe(2);
+
+    strategy.execute({ phase: 'wave' } as GameStateSnapshot); // the next decision aims anew
+    expect(scans).toBe(4);
   });
 });

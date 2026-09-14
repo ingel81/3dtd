@@ -19,16 +19,23 @@ import { TowerAction } from '../../bots/tower-bot.interface';
 import { GameStateManager } from '../../../../managers/game-state.manager';
 import { ABILITIES, abilityBeamReachM } from '../../../../configs/abilities.config';
 import type { Enemy } from '../../../../entities/enemy.entity';
-import { MAX_AIM_CANDIDATES, enemiesFromProgress } from './ability-aim';
+import { DecisionAim, MAX_AIM_CANDIDATES, enemiesFromProgress } from './ability-aim';
 
 const LASER = ABILITIES['orbital-laser'];
 const REACH_M = LASER.effect.kind === 'beam' ? abilityBeamReachM(LASER.effect) : 0;
+
+interface LaserAim {
+  leader: Enemy;
+  covered: number;
+}
 
 export class OrbitalLaserStrategy extends BaseStrategy {
   /** Leaders count from this path progress on */
   static readonly FROM_PROGRESS = 0.5;
   /** Fewer enemies than this on the stretch the beam would burn and the charge is kept */
   static readonly MIN_COVERED = 10;
+
+  private readonly decision = new DecisionAim<LaserAim>();
 
   constructor(private readonly gameState: GameStateManager) {
     super('OrbitalLaser', 93);
@@ -37,11 +44,11 @@ export class OrbitalLaserStrategy extends BaseStrategy {
   canExecute(state: GameStateSnapshot): boolean {
     if (state.phase !== 'wave') return false;
     if (this.gameState.abilityManager.checkUse(LASER.id) !== null) return false;
-    return this.aim() !== null;
+    return this.decision.find(state, () => this.aim()) !== null;
   }
 
-  execute(_state: GameStateSnapshot): TowerAction | null {
-    const aim = this.aim();
+  execute(state: GameStateSnapshot): TowerAction | null {
+    const aim = this.decision.take(state, () => this.aim());
     if (!aim) return null;
     return {
       type: 'use-ability',
@@ -53,12 +60,12 @@ export class OrbitalLaserStrategy extends BaseStrategy {
   }
 
   /** The leader with the most enemies on the stretch behind it, or null while none has enough. */
-  private aim(): { leader: Enemy; covered: number } | null {
+  private aim(): LaserAim | null {
     const leaders = enemiesFromProgress(this.gameState, OrbitalLaserStrategy.FROM_PROGRESS);
     if (leaders.length === 0) return null;
     const alive = this.gameState.enemyManager.getAlive();
     const stride = Math.ceil(leaders.length / MAX_AIM_CANDIDATES);
-    let best: { leader: Enemy; covered: number } | null = null;
+    let best: LaserAim | null = null;
     for (let i = 0; i < leaders.length; i += stride) {
       const leader = leaders[i];
       const path = leader.movement.path;
