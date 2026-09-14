@@ -5,7 +5,7 @@
 Wie breit der Korridor aus Route-Zellen links und rechts der Mittellinie einer
 Route ist, woher die Breite kommt, wann sie gemessen und neu gebaut wird und
 wie man sie im Spiel prüft. Die Herleitung und die Playtest-Befunde stehen in
-[ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md) und
+[ROUTE_GEOMETRY_ANALYSIS.md](archive/ROUTE_GEOMETRY_ANALYSIS.md) und
 [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md).
 
 Längen in Metern. "Links" und "rechts" meinen immer die Fahrtrichtung der
@@ -852,7 +852,7 @@ __corridor.pick(6)
 
   Die Koordinaten aus `holeCells` und `raisedCells` zeigt
   `__rg.dumpCellsInBox({ xMin, xMax, zMin, zMax })` genauer. Herkunft der
-  Felder: Playtest 2026-09-12, [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md).
+  Felder: Playtest 2026-09-12, [ROUTE_GEOMETRY_ANALYSIS.md](archive/ROUTE_GEOMETRY_ANALYSIS.md).
 - **`pick`** nimmt den nächsten Linksklick auf die Karte, ohne etwas auszuwählen
   oder zu bauen (`InputHandlerService.armPick`).
   Danach stehen drei Ausgaben in der Konsole.

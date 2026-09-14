@@ -564,8 +564,8 @@ sichtbaren Tabs, die Läufe stehen dann still und melden trotzdem „gesund".
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy-Pattern-Bots, die als Gegenspieler im Training laufen |
 | [HANDOVER_RULE_DIRECTOR.md](HANDOVER_RULE_DIRECTOR.md) | _Bericht 2026-09-07:_ die Messreihe hinter dem Wechsel auf Regeln, Einstieg für ein späteres Training |
 | [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md) | _Bericht, abgeschlossen 2026-09-07:_ Refresh des Trainings-Backends, Befunde und Grundsatzentscheidungen |
-| [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) | _Historisch:_ Range-Templates, Decoder, Reward-Tuning; die Mechanik unterhalb der Entscheidung gilt weiter |
-| [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) | _Historisch:_ Balance-Pass Mai 2026 (Curriculum, Endgame-Knobs, Gold-Budget); die Gold-Zahlen dort sind überholt |
+| [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md) | _Historisch:_ Range-Templates, Decoder, Reward-Tuning; die Mechanik unterhalb der Entscheidung gilt weiter |
+| [HANDOVER_PLAYTEST_PHASE5.16.md](archive/HANDOVER_PLAYTEST_PHASE5.16.md) | _Historisch:_ Balance-Pass Mai 2026 (Curriculum, Endgame-Knobs, Gold-Budget); die Gold-Zahlen dort sind überholt |
 | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) | Debug-Pfad ohne Director: `STATIC_WAVE_PROFILES` |
 | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Backend-Details |
 | [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte |

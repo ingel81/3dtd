@@ -52,7 +52,6 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md) | Bericht | Balance-Vorschlag vom 2026-09-11: Upgrade-Kurven, Cannon, Matrix-Spreizung, Boss-Takt ab W31, mit Rechenwegen. Im Sprint 2026-09-11 umgesetzt; die offenen Fragen stehen am Ende |
 | [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) | Konzept (Teil umgesetzt) | Spieler aktiver einbinden: Fähigkeiten, Held, Varianten mit Aufwand. Abschnitt 7 hält die Entscheidung vom 2026-09-12 fest (Nuklearschlag zuerst), Abschnitt 8 die Umsetzung vom 2026-09-13 |
 | [COMBAT_HEATMAP_STUDY.md](game-design/COMBAT_HEATMAP_STUDY.md) | Bericht | Machbarkeitsstudie Kampfzonen. Schicht 1 (Kampfspuren) ist umgesetzt, siehe PARTICLE_SYSTEM.md; Schicht 2 (Heatmap) nicht |
-| [UX_DISCUSSION_NOTES.md](game-design/UX_DISCUSSION_NOTES.md) | Bericht | Diskussionsnotizen: Turmdrehung nach Wegfall des Ziels, Color Grading |
 
 ## Wave Director & AI
 
@@ -65,8 +64,6 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | **[AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md)** | **Aktuell** | **Einstiegspunkt:** Regel-Director, Gate-Controller, warum das Modell ersetzt wurde, was vom RL-Aufbau bleibt |
 | [HANDOVER_RULE_DIRECTOR.md](HANDOVER_RULE_DIRECTOR.md) | Bericht | Umstellung vom ONNX-Netz auf den Regel-Director (2026-09-07): die Messreihe dahinter, Einstieg für ein späteres Training |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Gegenspieler im Training |
-| [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) | Historisch | Balance-Stand von Phase 5.16 (Wave-Curriculum, Endgame-Knobs, Gold-Budget); nennt sich selbst überholt durch HANDOVER_TRAINING_REFRESH |
-| [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) | Historisch (Teil gilt) | Range-Templates, Decoder-Constraints, Reward-Tuning. Die Template-/Decoder-Mechanik gilt weiter; die Aussagen zum Modell als Director sind überholt |
 | [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md) | Bericht | Refresh des Trainings-Backends (Stand 2026-09-07, abgeschlossen): Befunde, Grundsatzentscheidungen, Messbetrieb |
 | [training-backend/README.md](../training-backend/README.md) | Aktuell | Backend starten, Ordner, Befehle |
 | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Aktuell | Python Training Backend: PPO, State-Encoder, Reward, Decoder-Constraints, A/B-Directors |
@@ -82,10 +79,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [REVIEW_SPRINT_2026-09-13.md](REVIEW_SPRINT_2026-09-13.md) | Bericht (Playtest offen) | Nachtschicht auf `sprint/night-2026-09-13`: Änderungen, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 101 |
 | [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) | Bericht (Playtest läuft) | Zweite Sprint-Runde auf `sprint/todo-2026-09-11`: Änderungen, Review-Befunde, nummerierte Playtest-Liste mit Ergebnissen |
 | [REVIEW_SPRINT_2026-09-11.md](REVIEW_SPRINT_2026-09-11.md) | Bericht | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand. TODO.md 1.6 verweist darauf |
-| [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md) | Bericht | Route vs. Straße (Playtest 2026-09-10): Kette Overpass bis Zelle, Herleitung des Korridors, Lücken in der LOS-Anzeige. Der aktuelle Stand des Korridors steht in ROUTE_CORRIDOR.md |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](PERF_BUG_ANALYSIS_2026-05-28.md) | Bericht | Performance- und Bug-Deep-Dive: Render-Loop, Instancing, VFX, Game-Loop, Leaks. Nachträge: Raycast-Messung, Kamera-Raycast-Cache, Benchmarks (`npm run bench`) |
-| [HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md) | Bericht | Handover der GPU-LOS-Pipeline vom 2026-05-15: Sackgassen der drei Anläufe, Diagnose-Werkzeuge, GPU-Probe. Der laufende Stand steht in LOS_PIPELINE.md |
-| [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) | Bericht | Untersuchung der Tile-Ladefehler (Stand 2026-05-08). Die dort beschriebene "Tile-Quality-Aware Route Protection" gibt es nicht mehr; die Zellhöhe hängt heute an der Tile-Tiefe (ROUTE_CORRIDOR.md, Zellhöhe) |
 
 ## Pläne (nicht umgesetzt)
 
@@ -102,7 +96,13 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 
 | Dokument | Ersetzt durch / Anlass |
 |----------|------------------------|
-| [PHASE_5.10_TEMPLATES.md](archive/PHASE_5.10_TEMPLATES.md) | [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md), Übergang von 16-Softmax zu Templates |
+| [PHASE_5.10_TEMPLATES.md](archive/PHASE_5.10_TEMPLATES.md) | [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md), Übergang von 16-Softmax zu Templates |
+| [ROUTE_GEOMETRY_ANALYSIS.md](archive/ROUTE_GEOMETRY_ANALYSIS.md) | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md); Herleitung des Korridors aus den Playtests 2026-09-10 bis -12 |
+| [HANDOVER_ROUTE_GRID_GPU_LOS.md](archive/HANDOVER_ROUTE_GRID_GPU_LOS.md) | [LOS_PIPELINE.md](LOS_PIPELINE.md); Sackgassen, Diagnose-Werkzeuge und GPU-Probe der LOS-Anläufe (2026-05-15) |
+| [TILES_LOADING_BUG.md](archive/TILES_LOADING_BUG.md) | Untersuchung der Tile-Ladefehler (2026-05-08); der Ablauf heute steht in ARCHITECTURE.md (`tile-loading-tracker.ts`) |
+| [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md) | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md); Range-Templates und Decoder, die Mechanik gilt weiter |
+| [HANDOVER_PLAYTEST_PHASE5.16.md](archive/HANDOVER_PLAYTEST_PHASE5.16.md) | [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md); Balance-Pass von Phase 5.16 |
+| [UX_DISCUSSION_NOTES.md](archive/UX_DISCUSSION_NOTES.md) | Diskussionsnotizen zu Turmdrehung und Color Grading, beide entschieden |
 | [ENGINE_DEEP_REVIEW_2026-05-16.md](archive/ENGINE_DEEP_REVIEW_2026-05-16.md) | Engine-Review über `src/app/`, Dependencies, Tests (Stand 2026-05-16) |
 | [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](archive/HANDOVER_MERGE_LOCAL_VS_ORIGIN.md) | Merge-Divergenz lokal ↔ origin/main (2026-08-23) |
 | `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md), historisches Restart-Runbook, liegt bewusst unter `training-backend/` |

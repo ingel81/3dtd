@@ -5,7 +5,7 @@
 Wie ein Tower weiß, welche Route-Zellen er sieht: eine Cubemap je Tower-Tip auf
 der GPU, drei Leser derselben Cubemap und ein Cache in den Zellen, den der
 Kampf nachschlägt. Herausgelöst aus dem Handover vom 2026-05-15
-([HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md)); dort
+([HANDOVER_ROUTE_GRID_GPU_LOS.md](archive/HANDOVER_ROUTE_GRID_GPU_LOS.md)); dort
 bleiben die Sackgassen der drei Anläufe, die Diagnose-Geschichte und das
 Muster für eine GPU-Probe. Wie breit der Korridor aus Zellen ist und woher
 ihre Höhe kommt: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md).

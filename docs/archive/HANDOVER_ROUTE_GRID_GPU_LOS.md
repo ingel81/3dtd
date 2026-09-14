@@ -9,7 +9,7 @@
 > Branch: `feat/route-grid-gpu-los-v3` · letzte Sitzung 2026-05-15.
 >
 > **Seit 2026-09-15 Bericht:** den laufenden Stand beschreibt
-> [LOS_PIPELINE.md](LOS_PIPELINE.md).
+> [LOS_PIPELINE.md](../LOS_PIPELINE.md).
 
 ---
 
@@ -18,7 +18,7 @@
 Überblick, Aufbau, Farben der Zellplatten, die Regeln für jeden Eingriff am
 Cube (hier früher "Lessons" 1 bis 12), Dateien und Abläufe (Tower bauen,
 Upgrade, Luftziele durch Forschung, Tile-Schub, Kampf je Sub-Step) stehen seit
-2026-09-15 in [LOS_PIPELINE.md](LOS_PIPELINE.md) und werden dort nachgeführt.
+2026-09-15 in [LOS_PIPELINE.md](../LOS_PIPELINE.md) und werden dort nachgeführt.
 Dieses Handover behält, was nur als Herkunft zählt: die Sackgassen der drei
 Anläufe, den Stand der Air-Pipeline vom 2026-05-15, die Diagnose-Werkzeuge
 jener Sitzungen und das Muster für eine GPU-Probe.

@@ -39,7 +39,7 @@ const TILE_STATS_CACHE_MS = 500;
  *
  * Vorher inline in `three-tiles-engine.ts` (`onTilesLoadEnd`, `scheduleFirstTilesRetry`,
  * `getTileStats`, die Auth-Fehler-Erkennung und ihre Felder). Warum es Retry und
- * Nudge gibt: docs/TILES_LOADING_BUG.md.
+ * Nudge gibt: docs/archive/TILES_LOADING_BUG.md.
  *
  * Ablauf:
  * 1. `tiles-load-end` startet einen Debounce von 500 ms, jeder weitere setzt ihn neu.

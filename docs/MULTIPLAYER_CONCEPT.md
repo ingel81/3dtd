@@ -314,7 +314,7 @@ Angriffsbudget Gegnergruppen, wählt Zusammensetzung, Spawn-Punkt und Timing.
 
 Der Clou: **Die Action-Space dafür existiert bereits.** Der Wave-Director
 arbeitet in `ai/core/` (`rule-director.ts`, Templates, `spawn-schedule-builder.ts`) genau mit diesen Größen (Range-Based Templates,
-Spawn-Schedules, Constraints, siehe `docs/PHASE_5.11_RANGES.md`). Ein
+Spawn-Schedules, Constraints, siehe `docs/archive/PHASE_5.11_RANGES.md`). Ein
 Angreifer-UI ist im Kern ein Human-Frontend für die gleiche Action-Space, mit
 den gleichen Constraints als Balance-Leitplanke.
 
