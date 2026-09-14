@@ -47,7 +47,7 @@ function makeEngine(): ThreeTilesEngine {
   return {
     getOverlayGroup: () => overlay,
     getTerrainHeightAtGeo: () => 0,
-    terrain: { getGroundHeightEstimate: () => 0 },
+    terrain: {},
     sync: {
       getOrigin: () => ({ ...ORIGIN, height: 0 }),
       geoToLocalSimple: (lat: number, lon: number, h: number) =>

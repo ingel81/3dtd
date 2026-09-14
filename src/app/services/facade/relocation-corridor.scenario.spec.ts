@@ -108,7 +108,6 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
       getOverlayGroup: () => overlay,
       getTerrainHeightAtGeo: () => 0,
       terrain: {
-        getGroundHeightEstimate: () => 0,
         measureStreetClearance: (_x: number, _z: number, _ax: number, _az: number, heights: readonly number[]): StationProbe => {
           clock += 1.7;
           const free = heights.map(() => 5.2);
