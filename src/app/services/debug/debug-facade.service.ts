@@ -1,6 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { UIStore } from '../../store/ui.store';
-import { EnemyDebugService } from './enemy-debug.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { CombatEffectService } from '../combat/combat-effect.service';
 import { GameStateManager } from '../../managers/game-state.manager';
@@ -24,7 +23,6 @@ function toFpsLimit(value: unknown): FpsLimit {
  * Thin orchestrator that consolidates all debug-related operations
  * from TowerDefenseComponent. Delegates to specialized services:
  * - UIStore: debug log, height debug toggle
- * - EnemyDebugService: enemy debug operations
  * - MarkerVisualizationService: height debug marker visualization
  * - GameStateManager: game state cheats (credits, health)
  *
@@ -34,7 +32,6 @@ function toFpsLimit(value: unknown): FpsLimit {
 @Injectable({ providedIn: 'root' })
 export class DebugFacadeService {
   private readonly uiStore = inject(UIStore);
-  private readonly enemyDebug = inject(EnemyDebugService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly combatEffect = inject(CombatEffectService);
 
