@@ -132,11 +132,21 @@ export class RouteCellSampler {
       }
 
       // Stable cell + peek LOD not better than what we have → would be rejected.
+      // A cell off a bridge end keeps the coarser LOD of its column and the
+      // bridge end's (hitOf), so the peek there counts the same way; no tile
+      // there, no column there either.
       if (cell.sample.state === 'stable') {
+        let depth = peek.depth;
+        let geometricError = peek.geometricError;
+        if (cell.surface === 'approach' && cell.deckEnd !== null) {
+          const deck = this.terrainPeekLOD(cell.deckEnd.x, cell.deckEnd.z);
+          depth = Math.min(depth, deck?.depth ?? 0);
+          geometricError = Math.max(geometricError, deck?.geometricError ?? Infinity);
+        }
         const peekIsBetter =
-          peek.depth > cell.sample.tileDepth ||
-          (peek.depth === cell.sample.tileDepth &&
-            peek.geometricError < cell.sample.tileGeometricError);
+          depth > cell.sample.tileDepth ||
+          (depth === cell.sample.tileDepth &&
+            geometricError < cell.sample.tileGeometricError);
         if (!peekIsBetter) {
           this.peekSkipCount++;
           return false;
