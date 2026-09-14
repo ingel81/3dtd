@@ -99,6 +99,11 @@ export interface ScreenShakePreset {
  * The other abilities are aimed and watched the same way but shake far
  * less: full up to abilityNearDistance, none from abilityFarDistance on,
  * so the overview camera (about 425 m) keeps about half.
+ *
+ * HQ damage shakes at most once per hqDamageMinIntervalMs of wall time,
+ * unless a harder hit comes in: an ooze flowing in loses HP point by point,
+ * at 4x about seven times a second, and shook the screen without a pause.
+ * The same interval as the red leak edge (LeakVignetteComponent).
  */
 export const SCREEN_SHAKE_CONFIG = {
   nearDistance: 40,  // m, camera to impact
@@ -107,6 +112,7 @@ export const SCREEN_SHAKE_CONFIG = {
   strikeFarDistance: 1500,  // m
   abilityNearDistance: 150,  // m
   abilityFarDistance: 700,  // m
+  hqDamageMinIntervalMs: 900,
   presets: {
     cannon:    { amplitude: 0.0025, duration: 150 },
     rocket:    { amplitude: 0.005,  duration: 200 },
@@ -125,6 +131,7 @@ export const SCREEN_SHAKE_CONFIG = {
   strikeFarDistance: number;
   abilityNearDistance: number;
   abilityFarDistance: number;
+  hqDamageMinIntervalMs: number;
   presets: Record<string, ScreenShakePreset>;
 };
 

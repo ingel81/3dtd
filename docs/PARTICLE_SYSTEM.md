@@ -665,6 +665,10 @@ zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG`, Stand 2026-09-12:
   300 ms, Boss-Tod 0,004 / 400 ms, Nuklearschlag 0,014 / 1600 ms (seit 2026-09-13).
   Kalibriert auf den alten Meter-Shake: Einschläge wie aus 150 m Kameraabstand
   gesehen, HQ und Boss wie aus 425 m (Startkamera).
+- **HQ-Schaden gedrosselt:** höchstens ein Shake je `hqDamageMinIntervalMs` (900 ms
+  Wanduhr, wie der rote Leck-Rand), außer ein härterer Treffer kommt dazwischen. Ein
+  einfließendes Ooze verliert HP Punkt für Punkt, bei 4x etwa siebenmal pro Sekunde,
+  und schüttelte bis 2026-09-14 ohne Pause.
 - **Nur nahe Einschläge:** volle Stärke bis 40 m Abstand zwischen Kamera und
   Einschlag (`nearDistance`), dann linear weniger bis 0 ab 100 m (`farDistance`,
   `shakeFalloff`). Es schütteln nur Cannon- und Rocket-Einschläge (auch `homing`-Typen).
