@@ -59,7 +59,6 @@ import { HeroControlService } from './services/hero-control.service';
 import { heroBarView } from './components/ability-bar/hero-bar';
 import { MapPlacementService } from './services/world/map-placement.service';
 import { LocationManagementService } from './services/location/location-management.service';
-import { HeightUpdateService } from './services/world/height-update.service';
 import { EngineInitializationService } from './services/infrastructure/engine-initialization.service';
 import { DevStreetProvider } from './devworld/dev-street.provider';
 import { LocationChangeCoordinatorService } from './services/location/location-change-coordinator.service';
@@ -209,7 +208,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly abilityTargeting = inject(AbilityTargetingService);
   private readonly locationMgmt = inject(LocationManagementService);
-  private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly devWorld = inject(DevWorldService);
