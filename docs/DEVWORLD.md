@@ -2,14 +2,14 @@
 
 **Status:** Implementiert
 **Zugriff:** `?devworld` URL-Parameter
-**Stand:** 2026-09-13
+**Stand:** 2026-09-15
 
 ---
 
 ## Uebersicht
 
 DevWorld ist eine alternative Spielwelt die ohne Google 3D Tiles funktioniert. Sie ermoeglicht:
-- **Sofortiges Laden** (<100ms statt 3-8s)
+- **Schnelles Laden** (keine Tiles, kein Netzwerk)
 - **Offline-Development** (kein Netzwerk noetig)
 - **Deterministische Welten** (Seed-basiert reproduzierbar)
 - **AI Training** (schnelle Iterationen ohne API-Kosten)
