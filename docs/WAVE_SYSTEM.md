@@ -2,11 +2,11 @@
 
 **Stand:** 2026-09-15
 
-Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen.
+Dokumentation des Wave-Systems für automatisches Enemy-Spawning und Spielphasen.
 
 ---
 
-## Uebersicht
+## Übersicht
 
 Das Wave-System (`WaveManager`) steuert:
 - Spielphasen (Setup, Wave, Game Over)
@@ -45,7 +45,7 @@ export class WaveManager implements IGameManager {
   getExpectedBodyCount(): number; // dazu die Split-Kinder: Kill-Gold-Slots des EnemyManager
   beginWave(): void;
   startWave(config: WaveConfig): void;
-  /** Sub-step-driven spawner — called per sub-step from GameStateManager */
+  /** Sub-step-driven spawner, called per sub-step from GameStateManager */
   tickSpawn(gameTimeDeltaMs: number): void;
   checkWaveComplete(): boolean;
   endWave(): { wave: number; perfect: boolean; closeCall: boolean; hpLost: number };
@@ -57,7 +57,7 @@ export class WaveManager implements IGameManager {
 }
 ```
 
-**Hinweis:** `WaveManager` ist KEIN Angular `@Injectable()`. Es ist eine framework-agnostische Klasse, die `IGameManager` implementiert und per Constructor Injection `GameEventBus` und `EnemyManager` erhaelt.
+**Hinweis:** `WaveManager` ist KEIN Angular `@Injectable()`. Es ist eine framework-agnostische Klasse, die `IGameManager` implementiert und per Constructor Injection `GameEventBus` und `EnemyManager` erhält.
 
 ### Game Phases
 
@@ -68,14 +68,14 @@ export type GamePhase = 'setup' | 'wave' | 'gameover';
 | Phase | Beschreibung |
 |-------|--------------|
 | `setup` | Initialer Zustand, User kann Tower platzieren |
-| `wave` | Wave laeuft, Enemies spawnen und bewegen sich |
-| `gameover` | Basis zerstoert, keine Interaktion mehr |
+| `wave` | Wave läuft, Enemies spawnen und bewegen sich |
+| `gameover` | Basis zerstört, keine Interaktion mehr |
 
 ### Events
 
 | Event | Emitted von | Beschreibung |
 |-------|-------------|--------------|
-| `wave:started` | `beginWave()`, `startWave()` | Wave beginnt, enthaelt `wave` (Nummer) und `enemyCount` |
+| `wave:started` | `beginWave()`, `startWave()` | Wave beginnt, enthält `wave` (Nummer) und `enemyCount` |
 | `wave:completed` | `endWave()` | Wave abgeschlossen, emitted via `emitDeferred()`, mit `perfect`, `closeCall` und `hpLost`. **Nicht** emittiert, wenn die Basis fällt, siehe [Game Over Integration](#base-destroyed). |
 
 ---
@@ -84,7 +84,7 @@ export type GamePhase = 'setup' | 'wave' | 'gameover';
 
 ### WaveConfig Interface (Schedule-only seit 2026-05-23)
 
-`WaveConfig` ist schedule-only — der WaveManager hat genau einen
+`WaveConfig` ist schedule-only: der WaveManager hat genau einen
 Spawn-Pfad. Single-Enemy-Wellen sind Schedules mit einer Gruppe → N
 Entries desselben Typs; Mixed-Wellen interleaven mehrere Gruppen per
 Spawn-Pattern (siehe unten).
@@ -105,18 +105,18 @@ export interface SpawnEntry {
   enemyType: EnemyTypeId;
   speed: number;                        // m/s
   health?: number;                      // Per-Enemy-HP-Override
-  delay?: number;                       // ms — Gap VOR dem nächsten Spawn (überschreibt baseDelay)
-  pauseAfter?: number;                  // ms — Extra-Pause NACH diesem Spawn (wave-in-wave)
+  delay?: number;                       // ms: Gap VOR dem nächsten Spawn (überschreibt baseDelay)
+  pauseAfter?: number;                  // ms: Extra-Pause NACH diesem Spawn (wave-in-wave)
 }
 ```
 
-**Producer:** Niemand baut `WaveConfig` direkt — alle gehen durch
+**Producer:** Niemand baut `WaveConfig` direkt, alle gehen durch
 `adaptAIWaveConfig(AIWaveConfig)` in
 `src/app/ai/core/wave-config-adapter.ts`. Quellen für die `AIWaveConfig`:
 
 | Quelle | Funktion |
 |---|---|
-| Wave Director (Default) | `WaveDirectorService.getNextWave()` — regelbasiert, siehe unten |
+| Wave Director (Default) | `WaveDirectorService.getNextWave()`, regelbasiert, siehe unten |
 | Training-Backend | `trainingClient.requestWaveConfig()`, solange die WebSocket-Verbindung steht |
 | Static Curriculum | `staticWaveResolvedFor(waveNum)` (siehe [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md)) |
 | Debug-Panel | `WaveDebugService.toAIWaveConfig()` |
@@ -147,11 +147,11 @@ Spawn Point B: Enemy 2, 5, 8, 11, ...
 Spawn Point C: Enemy 3, 6, 9, 12, ...
 ```
 
-**Verwendung:** Gleichmaessige Verteilung, vorhersehbar
+**Verwendung:** Gleichmäßige Verteilung, vorhersehbar
 
-#### 'random' - Zufaellig
+#### 'random' - Zufällig
 
-Jeder Enemy spawnt an einem zufaelligen Spawn-Point:
+Jeder Enemy spawnt an einem zufälligen Spawn-Point:
 
 ```
 Spawn Point A: Enemy 1, 3, 7, 9, ...
@@ -204,7 +204,7 @@ Für den WaveManager zählt davon:
 
 ### beginWave()
 
-Startet eine Wave OHNE Auto-Spawning (manueller Modus). Enemies muessen extern gespawnt werden.
+Startet eine Wave OHNE Auto-Spawning (manueller Modus). Enemies müssen extern gespawnt werden.
 
 ```typescript
 beginWave(): void {
@@ -245,7 +245,7 @@ this.waveManager.startWave(waveConfig);
 1. Empty-Schedule (`entries.length === 0`) → early-return, kein Event
 2. Wave-Nummer erhöht sich
 3. Phase wechselt zu `'wave'`
-4. Emitted `wave:started` Event mit tatsaechlicher Enemy-Anzahl (`entries.length`)
+4. Emitted `wave:started` Event mit tatsächlicher Enemy-Anzahl (`entries.length`)
 5. Legt den Sub-Step-Spawner an; der erste Enemy spawnt beim ersten `tickSpawn()`, die weiteren im konfigurierten Abstand
 6. Jeder Enemy beginnt sofort zu laufen (`enemyManager.spawn(..., paused = false, ...)`)
 
@@ -265,7 +265,7 @@ Split-Kinder leben, also wartet die Wave-Completion ohne eigenen Zähler auf sie
 
 ### stopSpawning()
 
-Beendet den aktiven Sub-Step-Spawner sofort und passt `expectedEnemyCount` an die tatsaechlich gespawnten Enemies an, sodass `checkWaveComplete()` greift sobald die bereits gespawnten Enemies tot sind.
+Beendet den aktiven Sub-Step-Spawner sofort und passt `expectedEnemyCount` an die tatsächlich gespawnten Enemies an, sodass `checkWaveComplete()` greift sobald die bereits gespawnten Enemies tot sind.
 
 ```typescript
 stopSpawning(): void {
@@ -278,7 +278,7 @@ stopSpawning(): void {
 
 ### checkWaveComplete()
 
-Prueft ob die Wave abgeschlossen ist.
+Prüft ob die Wave abgeschlossen ist.
 
 ```typescript
 checkWaveComplete(): boolean {
@@ -302,7 +302,7 @@ checkWaveComplete(): boolean {
 **Logik:**
 - Wave ist komplett wenn ALLE Enemies gespawnt UND ALLE gespawnten Enemies tot sind; Enemies in der Todesanimation (`getKillingCount()`) zählen noch mit, ebenso Wurm-Segmente, die noch im Portal stecken (`getPendingSpawnCount()`)
 - Im manuellen Modus (`expectedEnemyCount === 0`): Nur `allEnemiesDead` relevant
-- Verhindert vorzeitige Wave-Completion waehrend Enemies noch spawnen
+- Verhindert vorzeitige Wave-Completion während Enemies noch spawnen
 - Gecacht wird nur ein positives Ergebnis; `enemy:died`, `enemy:reached-base` und Spawn-Fortschritt setzen das Dirty-Flag
 
 **Aufruf:** Vom `GameStateManager` in jedem Sub-Step der `wave`-Phase
@@ -340,14 +340,14 @@ reicht der `GameStateManager` an `applyWaveCompletionBonus()`.
 
 **Effekt:**
 - Alle restlichen Enemies entfernt
-- Phase zurueck zu `'setup'`
-- Wave-Nummer bleibt erhoet
+- Phase zurück zu `'setup'`
+- Wave-Nummer bleibt erhöht
 - `wave:completed` Event wird deferred emitted
 - User kann neue Tower platzieren
 
 ### reset()
 
-Setzt den WaveManager komplett zurueck.
+Setzt den WaveManager komplett zurück.
 
 ```typescript
 reset(): void {
@@ -358,7 +358,7 @@ reset(): void {
   this.phase.set('setup');
   this.waveNumber.set(0);
 
-  // Spawn-Tracking zuruecksetzen
+  // Spawn-Tracking zurücksetzen
   this.expectedEnemyCount = 0;
   this.spawnedEnemyCount = 0;
 }
@@ -366,7 +366,7 @@ reset(): void {
 
 ### update(dt)
 
-Per-Frame Update. Aktuell no-op — `tickSpawn(gameTimeDeltaMs)` wird stattdessen pro Sub-Step vom `GameStateManager` aufgerufen.
+Per-Frame Update. Aktuell no-op: `tickSpawn(gameTimeDeltaMs)` wird stattdessen pro Sub-Step vom `GameStateManager` aufgerufen.
 
 ### destroy()
 
@@ -407,9 +407,9 @@ tickSpawn(gameTimeDeltaMs: number): void {
 ```
 
 Vorteile:
-- **Deterministisch** — jeder Sub-Step ist ~16 ms Game-Time, unabhängig vom Timescale-Multiplier
-- **Korrektes Verhalten bei x75-Training** — keine setTimeout-Drift bei extremen Geschwindigkeiten
-- **Saubere Pause-Semantik** — pausiertes Spiel = kein Tick = keine Spawns
+- **Deterministisch:** jeder Sub-Step ist ~16 ms Game-Time, unabhängig vom Timescale-Multiplier
+- **Korrektes Verhalten bei x75-Training:** keine setTimeout-Drift bei extremen Geschwindigkeiten
+- **Saubere Pause-Semantik:** pausiertes Spiel = kein Tick = keine Spawns
 
 Pro Tick spawnen höchstens `maxSpawnsPerFrame` (Default 3) Enemies; ein Delay
 von 0 spawnt ohne Warten bis zu diesem Limit. Die `spawnAndAdvance`-Closure
@@ -503,7 +503,7 @@ Optional (Schalter "auto 10s" unter dem Wave-Button, Standard aus, `UIStore.auto
 
 ### Konzept
 
-Der `WaveManager` kennt **keine** Schwierigkeitskurve — er spielt einen fertigen
+Der `WaveManager` kennt **keine** Schwierigkeitskurve, er spielt einen fertigen
 `SpawnSchedule` ab. Die Kurve entsteht an vier Stellen weiter oben und
 multipliziert sich:
 
@@ -517,7 +517,7 @@ multipliziert sich:
 Nach oben gedeckelt wird die Kurve durch den Fairness-Cap und den
 Gate-Controller (siehe [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md),
 Abschnitte 5 und 6)
-sowie durch `GAME_BALANCE.combat.maxLeakDamagePerWave` — eine einzelne Welle
+sowie durch `GAME_BALANCE.combat.maxLeakDamagePerWave`: eine einzelne Welle
 kann den Spieler nie mehr als 18 HP kosten.
 
 ### Boss Waves
@@ -709,7 +709,7 @@ Mixed Waves erlauben mehrere Enemy-Typen in einer Wave mit konfigurierbaren Spaw
 
 ### Architektur
 
-Die Mixed-Wave-Logik basiert auf einem **SpawnSchedule** — einer vorab berechneten, flachen Liste von `SpawnEntry`-Objekten. Alle Pattern-Logik wird zur Build-Time aufgeloest, der WaveManager spielt den Schedule nur noch sequentiell ab.
+Die Mixed-Wave-Logik basiert auf einem **SpawnSchedule**, einer vorab berechneten, flachen Liste von `SpawnEntry`-Objekten. Alle Pattern-Logik wird zur Build-Time aufgelöst, der WaveManager spielt den Schedule nur noch sequentiell ab.
 
 ```
 ┌─────────────────┐    ┌──────────────────────┐    ┌─────────────┐
@@ -735,16 +735,16 @@ nur wenn gesetzt), `delay` aus dem `spawnDelay` der Gruppe und bei
 
 ### Spawn-Patterns
 
-7 Patterns stehen zur Verfuegung (`src/app/ai/core/spawn-schedule-builder.ts`):
+7 Patterns stehen zur Verfügung (`src/app/ai/core/spawn-schedule-builder.ts`):
 
 | Pattern | Verhalten | Beispiel (8Z, 4B, 2T) |
 |---------|-----------|------------------------|
 | `interleaved` | Round-Robin, pro Durchgang einer je Gruppe | Z B T Z B T Z B Z B Z Z Z Z |
-| `sequential` | Alle einer Gruppe, dann naechste | ZZZZZZZZ BBBB TT |
+| `sequential` | Alle einer Gruppe, dann nächste | ZZZZZZZZ BBBB TT |
 | `clustered` | Cluster von N (Default 3), dann Wechsel | ZZZ BBB TT ZZZ B ZZ |
-| `random` | Fisher-Yates Shuffle | Zufaellig durchmischt |
-| `front-loaded` | Staerkste zuerst (HP desc) | TT ZZZZZZZZ BBBB |
-| `back-loaded` | Schwaechste zuerst (HP asc) | BBBB ZZZZZZZZ TT |
+| `random` | Fisher-Yates Shuffle | Zufällig durchmischt |
+| `front-loaded` | Stärkste zuerst (HP desc) | TT ZZZZZZZZ BBBB |
+| `back-loaded` | Schwächste zuerst (HP asc) | BBBB ZZZZZZZZ TT |
 | `wave-in-wave` | Sub-Waves mit Pausen | ZZZZZZZZ [Pause] BBBB [Pause] TT |
 
 ### SpawnScheduleBuilder
@@ -761,8 +761,8 @@ const schedule = buildSpawnSchedule({
   pattern: 'interleaved',
   baseDelay: 800,
   delayVariation: 0.2,      // +/- 20% Zufallsvariation
-  clusterSize: 3,            // Nur fuer 'clustered'
-  subWavePause: 3000,        // Nur fuer 'wave-in-wave' (ms)
+  clusterSize: 3,            // Nur für 'clustered'
+  subWavePause: 3000,        // Nur für 'wave-in-wave' (ms)
 });
 ```
 
@@ -782,8 +782,8 @@ jede Welle gleich.
 ### Director Integration
 
 `adaptAIWaveConfig()` (`src/app/ai/core/wave-config-adapter.ts`) ist der einzige
-Adapter — seit dem Schedule-only-Umbau (2026-05-23) gibt es keine
-Single/Mixed-Weiche mehr. Er baut aus den Enemy-Gruppen ueber
+Adapter; seit dem Schedule-only-Umbau (2026-05-23) gibt es keine
+Single/Mixed-Weiche mehr. Er baut aus den Enemy-Gruppen über
 `buildSpawnSchedule()` immer einen `SpawnSchedule`; eine Single-Type-Welle ist
 dabei schlicht ein Schedule mit einer Gruppe.
 
@@ -839,7 +839,7 @@ toAIWaveConfig(): AIWaveConfig { ... }
 |-------|-------|
 | `managers/wave.manager.ts` | `SpawnEntry`, `SpawnSchedule`, `WaveConfig`, `startWave()`, `tickSpawn()` |
 | `ai/core/spawn-schedule-builder.ts` | 7 Pattern-Builder, `buildSpawnSchedule()`, `ALL_SPAWN_PATTERNS`, `DEFAULT_SPAWN_PATTERN` |
-| `ai/core/wave-config-adapter.ts` | `adaptAIWaveConfig()` — einziger Konverter AIWaveConfig → WaveManager-Config |
+| `ai/core/wave-config-adapter.ts` | `adaptAIWaveConfig()`, einziger Konverter AIWaveConfig → WaveManager-Config |
 | `ai/core/models/wave-config.ts` | `AIWaveConfig` (dort `WaveConfig`): Gruppen, `spawnDelay`, optional `pattern`, `spawnMode`, `explanation` |
 | `services/debug/wave-debug.service.ts` | Mixed-Mode-Signale, Single-Mode-Werte aus dem `DebugStore`, `toAIWaveConfig()` |
 | `components/debug-window/wave-debugger.component.ts` | „Why this wave", Mixed Wave Designer UI |
@@ -914,18 +914,18 @@ if (this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover') {
 ```
 
 `triggerGameOver()` setzt die Phase auf `gameover`, leert den EnemyManager,
-loest die Tower-Selektion, startet die HQ-Effekte und emittiert `game:over`.
+löst die Tower-Selektion, startet die HQ-Effekte und emittiert `game:over`.
 
-> **`wave:completed` wird beim Game Over NICHT emittiert.** `endWave()` laeuft
-> nur, wenn die Welle regulaer fertig wird; faellt die Basis, wird die Phase
-> direkt auf `gameover` gesetzt. Alles, was **jede** Welle sehen muss — der
-> Gate-Controller ist der Anlassfall — darf deshalb nicht am Event haengen,
-> sondern muss an `AIDataCollectorService.onWaveResult()` haengen. Details:
+> **`wave:completed` wird beim Game Over NICHT emittiert.** `endWave()` läuft
+> nur, wenn die Welle regulär fertig wird; fällt die Basis, wird die Phase
+> direkt auf `gameover` gesetzt. Alles, was **jede** Welle sehen muss (der
+> Gate-Controller ist der Anlassfall), darf deshalb nicht am Event hängen,
+> sondern muss an `AIDataCollectorService.onWaveResult()` hängen. Details:
 > [EVENT_SYSTEM.md](EVENT_SYSTEM.md#event-typen).
 >
-> Der Sonderfall, in dem beides fuer dieselbe Welle feuert: der letzte Leaker
-> zerstoert die Basis. Dann laeuft der Wave-Complete-Check zuerst, aber
-> `wave:completed` ist deferred und `game:over` immediate — der Game-Over-Pfad
+> Der Sonderfall, in dem beides für dieselbe Welle feuert: der letzte Leaker
+> zerstört die Basis. Dann läuft der Wave-Complete-Check zuerst, aber
+> `wave:completed` ist deferred und `game:over` immediate: der Game-Over-Pfad
 > ist also **zuerst** zugestellt. Der Collector merkt sich die bereits
 > finalisierte Wave-Nummer und verwirft das nachlaufende Event.
 
@@ -935,10 +935,10 @@ loest die Tower-Selektion, startet die HQ-Effekte und emittiert `game:over`.
 `GameStateManager.reset()`) und beim Location-Wechsel. Es verwirft den aktiven
 Spawner (`activeSpawner = null`),
 leert den EnemyManager, setzt Phase auf `setup`, `waveNumber` auf 0 und die
-Spawn-Tracking-Zaehler zurueck. Es gibt keine Timeouts mehr zu stoppen — der
-Spawner laeuft seit dem Sub-Step-Refactor ueber `tickSpawn()`.
+Spawn-Tracking-Zähler zurück. Es gibt keine Timeouts mehr zu stoppen, der
+Spawner läuft seit dem Sub-Step-Refactor über `tickSpawn()`.
 
-**WICHTIG:** `tickSpawn()` ist ein No-Op ohne `activeSpawner` und ausserhalb der
+**WICHTIG:** `tickSpawn()` ist ein No-Op ohne `activeSpawner` und außerhalb der
 `wave`-Phase; Reset und Game Over stoppen das Spawning damit sofort.
 
 ---
@@ -1009,8 +1009,8 @@ die Gruppen einer `AIWaveConfig`; die Reihenfolge bestimmt das Spawn-Pattern.
 - Kein Pfad in `cachedPaths` für die Spawn-Points: die Welle bricht nach `spawnPoints.length * 2` Fehlversuchen ab
 
 ### Enemies spawnen an falscher Position
-- Check `cachedPaths` enthaelt richtigen Pfad
-- Check Pfad hat `length > 1` (Minimum fuer gueltige Route)
+- Check `cachedPaths` enthält richtigen Pfad
+- Check Pfad hat `length > 1` (Minimum für gültige Route)
 
 ### Wave endet nicht
 - Check `getAliveCount()` = 0
@@ -1043,5 +1043,5 @@ parallel gibt es nicht: `GameLoopFacadeService.startWave()` startet nur aus
 - [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) - AI-off Debug-Pfad: feste Per-Wave-Profile + UI-Toggle
 - [ENEMY_CREATION.md](ENEMY_CREATION.md) - Enemy-Typen erstellen
 - [STATUS_EFFECTS.md](STATUS_EFFECTS.md) - Status-Effekte
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Manager-System Uebersicht
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Manager-System Übersicht
 - [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) - Spawn-Point Generierung
