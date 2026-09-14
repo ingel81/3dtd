@@ -653,7 +653,11 @@
       Spalten bleiben nach der ersten großen Welle reserviert. Landet im
       Replay eine Fähigkeit, räumt das Verlassen auch deren Effekte im
       Live-Spiel ab. Die Boss-Intro-Sperre in `ReplayService.enter()` hat
-      keinen Test (`services/replay.service.ts`).
+      keinen Test (`services/replay.service.ts`). Aus review5 bewusst offen:
+      Ein Replay-Tower-Modell, das beim Verlassen noch lädt, bliebe danach
+      stehen (praktisch nicht erreichbar); die Replay-Leiste stößt die Change
+      Detection mit 20 Hz an (nicht gemessen). Seit `cd4036d9` läuft das
+      Replay unter 20 Bildern je Sekunde langsamer als sein Tempo.
 
 - [ ] **Review-Fixes: bewusst ausgelassen** (laut fix2 und fix3)
       Die Portal-Shader-Inhalte haben keine eigene Spec (review2, zweiter
