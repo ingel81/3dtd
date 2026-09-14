@@ -303,6 +303,12 @@
       `pick()` mit dem echten Lift der Linie (`d8298b31`), Zeilenverweise
       (`633ec1cf`). Playtest 560 bis 563 und 566 bis 570 in
       `docs/REVIEW_FIX_2026-09-14.md`.
+      Seit `509aaed0` (User-Entscheidung nach Playtest 560 bis 562): keine
+      orangen Zellen mehr, der Korridor endet vor Zellen, zu denen kein
+      Gegner laufen kann (aus Code und Specs, im Browser ungesehen); die
+      `stepTop`-Probe aus `66569eca` ist damit entfallen, Gegner laufen dort
+      nicht mehr durchs Auto. Nachtest 560 bis 564 im Stand-Block von
+      REVIEW_FIX, 566 und 568 entfallen, 567 und 570 überholt.
 
 - [ ] **Gegnermodelle: Blender-Runde**
       Reihenfolge laut `docs/ENEMY_MODEL_BUDGET.md`: Hornet (69 297
@@ -564,7 +570,8 @@
       bestätigt (Doc-Kommentar über `hitOf` in `utils/route-cell-sampler.ts`
       gegen den Kommentar in `onMouseMove` von `tower-defense.component.ts`);
       welche Aussage stimmt, zeigt nur
-      `__footprintDebug()` im Spiel (Nacht-2-Playtest 429).
+      `__footprintDebug()` im Spiel (Nacht-2-Playtest 429); seit `4f4bdb0b`
+      mit `__footprintDebug.watch()` (eine Zeile je Ruhepunkt, 429 erneut).
 
 - [ ] **Shader-Compile-Check braucht glslangValidator von Hand** (laut shadercheck und fix4)
       `npm run shader-check` (läuft auch in `npm test`) kompiliert die
@@ -789,8 +796,8 @@
       **Stand (Fix-Session 2026-09-14):** Die Boss-Intro-Sperre in `enter()`
       hat einen Test (`8404cd10`). Archer, Lightning und Tentacle zeichnen
       ihre Zielrichtung je Frame auf (`18d7cef7`, 23 B je Turm und Frame),
-      ihre Blutmond-Kegel drehen im Replay mit (Playtest 553). Die übrigen
-      Lücken sind nicht geändert.
+      ihre Blutmond-Kegel sollten im Replay mitdrehen (aus dem Code;
+      Playtest 553 zurückgestellt). Die übrigen Lücken sind nicht geändert.
 
 - [ ] **Review-Fixes: bewusst ausgelassen** (laut fix2 und fix3)
       Die Portal-Shader-Inhalte haben keine eigene Spec (review2, zweiter
@@ -826,15 +833,22 @@
       Tiles verdecken alles darunter. Diagnose: `__corridor.pick()` an der
       Stelle, `__routes.describe()` (Tags), `__rg.dumpCellsInBox` um die
       Pick-Koordinaten.
-      **Stand (Fix-Session 2026-09-14):** nur Diagnose, kein Fix ohne Daten.
-      Fünf Hypothesen aus dem Code (H1 bis H5 in
+      **Stand (Fix-Session 2026-09-14):** zuerst nur Diagnose, kein Fix ohne
+      Daten. Fünf Hypothesen aus dem Code (H1 bis H5 in
       `docs/REVIEW_FIX_2026-09-14.md`); `__corridor.pick()` zeigt jetzt Säule,
-      Überbau, Kamerasicht und OSM-Tags (`8f47fc4b`). Playtest 564.
+      Überbau, Kamerasicht und OSM-Tags (`8f47fc4b`). Nach den Paris-Daten
+      aus Playtest 564: die Route liegt auf der Brücke selbst (Way
+      986589650), Ursache aus dem Code: das runde Ende der Zufahrt zog die
+      ersten Meter des Decks auf den Kai. Fix `427443a6`, durch Specs belegt,
+      im Browser ungesehen; offen bleibt H2 (Zufahrt ohne Brücken-Tag noch
+      über dem Kai). Nachtest 564 (Nacht-1-Runde O, alte Liste 14).
 - [ ] **Upgrade per U ohne sichtbares Feedback** (Nacht-1-Liste 105): Beim
       Drücken von U mehr sichtbare Rückmeldung (Aufblitzen des Towers, Zahl,
       Panel-Hinweis), auch wenn nichts bezahlbar ist.
       **Stand (Fix-Session 2026-09-14):** umgesetzt (`68f69772`): Welttext über
       dem Tower, Kachel-Blitz, bei Ablehnung der Grund. Playtest 517 bis 520.
+      Seit `a2198b2a` dieselbe Rückmeldung auch beim Klick auf eine Kachel
+      (Wunsch aus 517, Nachtest ok); 520 ist damit in einem Teil überholt.
 - [ ] **Tastenübersicht prominenter öffnen** (105): Sie geht mit H oder ?,
       braucht aber einen sichtbaren Knopf in der Oberfläche.
       **Stand (Fix-Session 2026-09-14):** Knopf "Keys" im Sidebar-Fuß
@@ -857,13 +871,19 @@
       einbacken.
       **Stand (Fix-Session 2026-09-14):** umgesetzt (`2e2b266c`; wo die
       Attributionsleiste bis unter die Adresse reicht, rückt diese über die
-      Logos, `794415b3`). Playtest 557 bis 559.
+      Logos, `794415b3`). Playtest 557 bis 559. Nach Wunsch aus 557 stehen
+      Logo und Adresse seit `81ad0b9b` als ein Block unten rechts über der
+      ganzen unteren Zeile, die Adresse mit dunkler Kontur; das ersetzt den
+      Rückfall aus `794415b3`. Nachtest 557, 558 ok.
 - [ ] **Onboarding-Tipps überarbeiten** (146): Die Funktion geht, aber der
       frühe Tipp zum Research Center ist unsinnig; Reihenfolge und Inhalt der
       Tipps neu festlegen.
       **Stand (Fix-Session 2026-09-14):** 7 Tipps entlang des Spielablaufs nach
       Vorschlag des Workers (`4a219445`, Key `td_onboarding_v2`), der
-      Center-Tipp kommt nach Welle 2. Playtest 502 bis 507.
+      Center-Tipp kommt nach Welle 2. Playtest 502 bis 507: 502 bis 504 ok,
+      506 und 507 per Test. Befund 505: der Knopf "Tips" beginnt seit
+      `1d8d2aaa` beim ersten offenen Schritt des laufenden Spiels (Deutung,
+      dass 505 den Knopf meinte, vom User nicht bestätigt); Nachtest offen.
 - [ ] **Fähigkeiten erst nach der Forschung in der linken Leiste** (User):
       Heute stehen gesperrte Fähigkeiten gedimmt mit Schloss von Anfang an in
       der Leiste (Entscheidung der Nachtschicht 2, `3769d8e3`). Wunsch: ein
@@ -876,7 +896,9 @@
       (`three-engine/renderers/searchlight/`).
       **Stand (Fix-Session 2026-09-14):** umgesetzt (`6a42d3a5`; die
       Replay-Aufnahme je Frame für Türme ohne Turret-Teil kam mit `18d7cef7`).
-      Playtest 549 bis 553.
+      Playtest 549 bis 553. Der Kegel zeigte bis `a7c29cca` um 180° verkehrt
+      (Befund 501); danach 501 und 549 bis 552 ok, 553 zurückgestellt
+      (Replay als eigenes Thema).
 - [ ] **HQ umsetzen in dichter Stadt: lange Bedenkzeit ohne Rückmeldung**
       (User, z. B. Paris): Nach dem Umplatzieren des HQ vergeht spürbar Zeit
       (Route, Korridor-Messung, Grid-Neubau), ohne dass die Oberfläche etwas
@@ -887,6 +909,14 @@
       Korridor-Prozent (`ac5eafee`), Zeitlogs (`5bdce997`, Ausgang `ended=`
       seit `4044c44a`). Nicht schneller; welcher Schritt dauert, zeigt erst die
       Messung in Paris. Playtest 541 bis 544.
+      Messung Paris (541, 544): die Korridor-Messung war gedrosselt (0,46 s
+      Rechenzeit über 5,3 s), 17 s kostete das Nachladen der Straßen von
+      Overpass. Beschleunigt mit `b8f837fc` (32-ms-Scheiben unter dem
+      Hinweis), `2eb908b4` (erste Messung erst nach dem Intro-Flug),
+      `0bd7cf6d` (nächster Overpass-Server nach 4 s), `3eb5a26e` (nur der
+      fehlende Teil der Box), Log je Versuch `3c472037`. Nachtest 541: 2,5 s
+      statt 6,1 s (Ziel etwa 1 s noch nicht erreicht); 544 nicht erneut
+      gemessen.
 - [ ] **Beim Ortswechsel bleibt der alte Korridor sichtbar** (User): Während
       ein neuer Ort lädt, sieht man noch den Korridor bzw. die Zellen (falls
       das Overlay an ist) des alten Orts. Beim Start des Ladens abräumen.
@@ -904,7 +934,11 @@
       **Stand (Fix-Session 2026-09-14):** Das Portal zielt auf den Punkt, an
       dem die Route die Vorderfläche verlässt (`5a061423`; Ursache aus dem
       Code, der Screenshot-Ort ist nicht nachgestellt); R dreht es beim Setzen
-      (`8e79069f`). Playtest 529 bis 534.
+      (`8e79069f`). Playtest 529 bis 534. Nach Befund 529 (Entscheidung
+      User): R dreht nur im Rahmen, in dem die Route durch die Öffnung läuft
+      (`bfd2d312`), die Vorschau steht und dreht wie das Portal (`71ad5120`),
+      die Route beginnt am Fußpunkt des Spawns auf der Straße (`83565c40`),
+      die Vorschau gleitet (`f6568d7a`, `4e4ace28`); Nachtest 529 offen.
 - [ ] **Favoriten: Knopf weg bei 10 Einträgen, volles CRUD** (User): Mit 10
       Favoriten verschwindet das Speichern, weil `canAddFavorite` fest
       `favorites().length < 10` ist (`tower-defense.component.html:29`); die
@@ -919,6 +953,10 @@
       **Stand (Fix-Session 2026-09-14):** teilweise. Behoben ist die
       Fehlrahmung (`909fba4b`, die Kamera zielte auf die Füße); ein Stillstand
       ist nicht belegt, in jsdom läuft der Clip. Playtest 515.
+      Nach Befund 515 (Rahmung noch falsch, zu dunkel): Rahmung mit den
+      Debugger-Werten des Users (`b2631a18`, ersetzt den Wert aus
+      `909fba4b`), zu dunkel war der fehlende `metallicFactor` im GLB
+      (`814dec34`). Nachtest 515 ok; ein Stillstand war nicht belegt.
 - [ ] **Spawn-Vorschau immer rot** (Nacht-1-Liste 132): Beim Umsetzen des
       Spawns ist die Portal-Vorschau am Cursor auch an gültigen Stellen rot;
       das Setzen klappt und die Karte unten zeigt die Gültigkeit richtig.
