@@ -1,14 +1,14 @@
-# Signal Store Architektur — TowerDefenseStore
+# Signal Store Architektur: TowerDefenseStore
 
 **Stand:** 2026-09-15 (`useAIDirector`-Ownership: 2026-09-07)
 
 ## Überblick
 
-Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentralen Store, aufgeteilt in **6 Sub-Stores** nach Domain. Keine externen Libraries (kein NgRx, kein NGXS) — nur pure Angular `signal()`, `computed()`, `effect()`.
+Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentralen Store, aufgeteilt in **6 Sub-Stores** nach Domain. Keine externen Libraries (kein NgRx, kein NGXS), nur pure Angular `signal()`, `computed()`, `effect()`.
 
 > **Hinweis (2026-05-10):** Der `DebugStore` wurde als 6. Sub-Store eingeführt. Vorher
 > lagen die Debug-Panel-Signals direkt auf `WaveDebugService` / `TowerDebugService` /
-> `EnemyDebugService` — laut Store/Facade-Trennung gehört State in Stores; die Services
+> `EnemyDebugService`. Laut Store/Facade-Trennung gehört State in Stores; die Services
 > bleiben als API-Schicht erhalten und delegieren intern an den `DebugStore`.
 
 ## Aktuelle Struktur
@@ -33,7 +33,7 @@ Alle Sub-Stores sind `@Injectable({ providedIn: 'root' })`. Der Root-Store injiz
 | `LocationFacade` | `services/facade/location-facade.service.ts` | Location-Erkennung, DevWorld, Spawns, Map-Cleanup |
 | `VisualizationFacade` | `services/facade/visualization-facade.service.ts` | Rendering, Kamera, DPS-Viz, Height-Updates, Click-Handler, Toggles |
 | `DebugFacade` | `services/debug/debug-facade.service.ts` | Debug-Log, Height-Debug, Display Options, VFX-Schalter, Enemy-Debug |
-| **`TowerDefenseFacade`** | `services/facade/tower-defense-facade.service.ts` | **Orchestrierung** — Init, Engine-Setup, delegiert an Sub-Facades |
+| **`TowerDefenseFacade`** | `services/facade/tower-defense-facade.service.ts` | **Orchestrierung**: Init, Engine-Setup, delegiert an Sub-Facades |
 
 ### GSM→Store Sync Layer
 | Service | Datei | Verantwortung |
@@ -65,15 +65,15 @@ Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_rece
 ### Was gehört wohin?
 
 **Store (TowerDefenseStore):**
-- ✅ `signal<number>(100)` — WritableSignals
-- ✅ `computed(() => this.phase() === 'wave')` — Computed Values
-- ✅ `resetGameState()` — State-Reset
-- ✅ `updateEngineStats()` — Batch-State-Updates (pure, keine Side-Effects)
-- ✅ `appendDebugLog()` — Convenience-Mutations
-- ❌ `startWave()` — gehört in Facade
-- ❌ Tower bauen — gehört in den `TowerPlacementService`
-- ❌ `upgradeTower()` — gehört in Facade
-- ❌ EventBus-Interaktion — gehört in Facade / SyncService
+- ✅ `signal<number>(100)`: WritableSignals
+- ✅ `computed(() => this.phase() === 'wave')`: Computed Values
+- ✅ `resetGameState()`: State-Reset
+- ✅ `updateEngineStats()`: Batch-State-Updates (pure, keine Side-Effects)
+- ✅ `appendDebugLog()`: Convenience-Mutations
+- ❌ `startWave()`: gehört in Facade
+- ❌ Tower bauen: gehört in den `TowerPlacementService`
+- ❌ `upgradeTower()`: gehört in Facade
+- ❌ EventBus-Interaktion: gehört in Facade / SyncService
 
 **Facade (TowerDefenseFacadeService und Sub-Facades):**
 - ✅ `startWave()` → `EventBus.emit('command:start-wave')`
@@ -81,7 +81,7 @@ Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_rece
 - ✅ `sellTower()` → `EventBus.emit('command:sell-tower')`
 - ✅ EventBus-Subscriptions für UI-State-Sync
 - ✅ Service-Orchestrierung (Camera, Markers, Routes, etc.)
-- ❌ Eigene Signals — benutzt Store-Signals
+- ❌ Eigene Signals: benutzt Store-Signals
 - ❌ Direkte State-Mutations ohne EventBus für Engine-Commands
 
 `command:place-tower` kommt nicht aus einer Facade, sondern aus dem `TowerPlacementService` beim Bau-Klick. Weitere Commands senden `TowerDefenseComponent` (Forschung, Targeting), `AbilityTargetingService` und `HeroControlService`, siehe [EVENT_SYSTEM.md](EVENT_SYSTEM.md#command-events-ui--game-engine).
@@ -109,7 +109,7 @@ Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_rece
                                                   └──────────┘
 ```
 
-**Konkretes Beispiel — Wave starten:**
+**Konkretes Beispiel: Wave starten**
 ```
 Component.startWave()
   → Facade.startWave() → GameLoopFacade.startWave()
@@ -173,19 +173,19 @@ expect(store.canStartWave()).toBe(false);
 
 `useAIDirector` steht seit 2026-09-07 per Default auf `true` (auch in
 `resetAll()`). Der Wave-Director ist regelbasiert und braucht weder Modell noch
-Netzwerk, es gibt also kein Startfenster, in dem er nicht verfuegbar waere.
+Netzwerk, es gibt also kein Startfenster, in dem er nicht verfügbar wäre.
 
 Vorher war der Default `false` und ein `effect()` im `GameLoopFacadeService`
 schaltete ihn ein, sobald das ONNX-Modell geladen war. Dieser Effect ist
-**ersatzlos entfernt** — und zwar nicht nur, weil er ueberfluessig wurde:
+**ersatzlos entfernt**, und zwar nicht nur, weil er überflüssig wurde:
 
 > Ein `effect()`, der ein Signal liest **und** schreibt, das er selbst als
 > Bedingung auswertet, feuert auf den eigenen Schreibvorgang neu. Der Effect las
-> `useAIDirector()` neben dem Modell-Status; mit einem immer verfuegbaren
+> `useAIDirector()` neben dem Modell-Status; mit einem immer verfügbaren
 > Director war die Bedingung permanent wahr und der Effect zwang das Flag
-> zurueck auf `true`. Konsequenz: der UI-Toggle war wirkungslos, der Fehlerpfad
+> zurück auf `true`. Konsequenz: der UI-Toggle war wirkungslos, der Fehlerpfad
 > konnte den Director nicht abschalten, und ein Store-Reset wurde sofort
-> ueberschrieben.
+> überschrieben.
 
 Geschrieben wird das Flag außer von den Store-Resets an drei Stellen, alle in
 den Facades: `GameLoopFacadeService.toggleAIDirector()` (User), der Fehlerpfad
@@ -204,42 +204,42 @@ reduziert. Der `DebugStore` kam am 2026-05-10 als sechster Sub-Store dazu.
 ## Trade-offs
 
 ### Pro
-- **Klarheit** — Wo lebt State? Im Store. Immer.
-- **Testbarkeit** — Store isoliert testbar, kein DOM nötig
-- **Refactoring-sicher** — Services können intern umgebaut werden, solange sie den Store updaten
-- **DevTools** — Ein `console.log(inject(TowerDefenseStore))` zeigt alles
+- **Klarheit**: Wo lebt State? Im Store. Immer.
+- **Testbarkeit**: Store isoliert testbar, kein DOM nötig
+- **Refactoring-sicher**: Services können intern umgebaut werden, solange sie den Store updaten
+- **DevTools**: Ein `console.log(inject(TowerDefenseStore))` zeigt alles
 
 ### Contra
-- **God Object Risiko** — Der Store hatte ~60 Signals in einer Klasse.
+- **God Object Risiko**: Der Store hatte ~60 Signals in einer Klasse.
   - *Gelöst:* Aufgeteilt in 6 Sub-Stores (GameStore, UIStore, EngineStore, LocationStore, ResearchStore, DebugStore). Root-Store aggregiert als Fassade.
-- **Performance** — Mehr Signals = mehr Change Detection?
+- **Performance**: Mehr Signals = mehr Change Detection?
   - *Mitigation:* Angular Signals sind lazy. Computed werden nur evaluiert wenn gelesen.
     OnPush + Signals = optimal. Kein Overhead gegenüber jetzigem Setup.
 
 ## Architektur-Entscheidungen
 
 ### Warum kein NgRx Signal Store?
-- **Overkill** — Wir haben keine komplexen Reducers, keine Actions mit Metadata, kein DevTools-Replay
-- **Lernkurve** — Das Team kennt Angular Signals; NgRx hat eigene Konzepte
-- **Vendor Lock** — Reines Angular bleibt portabler
-- **Performance** — NgRx Signal Store hat overhead für Features die wir nicht brauchen
+- **Overkill**: Wir haben keine komplexen Reducers, keine Actions mit Metadata, kein DevTools-Replay
+- **Lernkurve**: Das Team kennt Angular Signals; NgRx hat eigene Konzepte
+- **Vendor Lock**: Reines Angular bleibt portabler
+- **Performance**: NgRx Signal Store hat overhead für Features die wir nicht brauchen
 
 ### Sub-Store Architektur
 - **6 Sub-Stores:** `GameStore`, `UIStore`, `EngineStore`, `LocationStore`, `ResearchStore`, `DebugStore`
 - **Root-Store als Fassade:** `TowerDefenseStore` injiziert alle Sub-Stores außer dem `DebugStore` und re-exportiert den Großteil ihrer Signals (Ausnahmen siehe [Sub-Stores](#sub-stores))
-- **Cross-Cutting Concerns** bleiben im Root-Store — `canStartWave` braucht Signals aus Game, Engine und Location
-- **Consumer-kompatibel** — Bestehender Code nutzt weiterhin `TowerDefenseStore`
-- **`DebugStore`-Sonderrolle:** Hält ausschließlich Debug-Panel-State (Wave/Tower/Enemy-Overrides). `WaveDebugService` / `TowerDebugService` / `EnemyDebugService` bleiben als Service-Schicht und delegieren ihre Signals an den Store. Konsumenten lesen weiterhin z.B. `waveDebug.enemyCount()` — die Quelle ist transparent verlegt.
+- **Cross-Cutting Concerns** bleiben im Root-Store: `canStartWave` braucht Signals aus Game, Engine und Location
+- **Consumer-kompatibel**: Bestehender Code nutzt weiterhin `TowerDefenseStore`
+- **`DebugStore`-Sonderrolle:** Hält ausschließlich Debug-Panel-State (Wave/Tower/Enemy-Overrides). `WaveDebugService` / `TowerDebugService` / `EnemyDebugService` bleiben als Service-Schicht und delegieren ihre Signals an den Store. Konsumenten lesen weiterhin z.B. `waveDebug.enemyCount()`; die Quelle ist transparent verlegt.
 
 ### GameStateSyncService (EventBus → Store)
-- **Warum nicht direkt im Store?** — Store soll keine EventBus-Dependency haben (pure state)
-- **Warum nicht in der Facade?** — Separation of Concerns. Facade = Commands. SyncService = State-Sync.
+- **Warum nicht direkt im Store?**: Store soll keine EventBus-Dependency haben (pure state)
+- **Warum nicht in der Facade?**: Separation of Concerns. Facade = Commands. SyncService = State-Sync.
 - **Lifecycle:** `initialize(eventBus)` nach GSM.initialize(), `dispose()` bei Game-Dispose
 
 ### Verbleibende Bridge
 - **Interface:** `FacadeComponentBridge` in `tower-defense-facade.service.ts`
 - **Enthält NUR:** Engine-Referenz, StreetNetwork-State, Canvas, Click-Callbacks (Terrain, Build-Mode, Enemy- und Map-Placement)
-- **Warum nicht im Store?** — Mutable Runtime-Objekte (ThreeTilesEngine, HTMLCanvasElement) passen nicht in ein Signal-Store-Pattern
+- **Warum nicht im Store?**: Mutable Runtime-Objekte (ThreeTilesEngine, HTMLCanvasElement) passen nicht in ein Signal-Store-Pattern
 - **Minimal:** 5 getter/setter Paare + 1 getter (Canvas) + 7 Callbacks
 
 ## Datei-Struktur
