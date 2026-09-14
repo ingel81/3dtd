@@ -1767,10 +1767,14 @@ zwei instanzierte Draw Calls für alle Portale:
   Öffnung hinaus, auch wenn sie in einer Kurve beginnt (Kreisverkehr, Stummel vor einer Ecke);
   ein Knick näher als die halbe Tiefe am Start lässt sie im Volumen trotzdem seitlich laufen.
   Beim Setzen des Spawns zeigt die Vorschau das Portal so, wie es stehen wird
-  (`MapPlacementService`): wo ein Spawn stehen darf, auf dem Start der Route, die er bekommt
-  (`findPath` vom Cursor, dessen erster Knoten des nächsten Segments), zu ihr ausgerichtet
-  (`spawnPortalPose`), in der Skala des Standardkorridors, da die Breite dort erst mit der
-  Route gemessen wird. Wo keiner stehen darf, steht sie rot am Cursor und schaut zum HQ. R
+  (`MapPlacementService`): wo ein Spawn stehen darf, auf dem Start der Route, die er bekommt,
+  zu ihr ausgerichtet (`spawnPortalPose`), in der Skala des Standardkorridors, da die Breite
+  dort erst mit der Route gemessen wird. Die Route beginnt am Fußpunkt des Cursors auf dem
+  nächsten Straßensegment, liegt der Fußpunkt keinen Meter vor einem Knoten, auf dem Knoten
+  (`findPath`, `SegmentRoutes` in `utils/route-start.ts`). Die Vorschau folgt dem Cursor so
+  die Straße entlang. Bis 2026-09-14 begann die Route am ersten Knoten des Segments, bis zu
+  eine Segmentlänge vom Klick entfernt. Wo keiner stehen darf, steht sie rot am Cursor und
+  schaut zum HQ. R
   gehalten dreht sie mit 15°/s im Drehbereich (unten), an der Grenze bleibt sie stehen, der
   nächste Druck dreht zurück. Die Drehung zählt ab der Richtung der Route unter dem Cursor.
   Wer gedreht hat, dessen Richtung gilt (`MarkerVisualizationService.setPortalHeading`), auch
