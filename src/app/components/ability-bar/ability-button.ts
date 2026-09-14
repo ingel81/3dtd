@@ -111,9 +111,16 @@ export function heroTooltip(hero: AbilityBarHero): TdTooltipData {
 }
 
 /**
- * Outer right edge of the bar in px from the left edge of the canvas: the
- * bar's `left` plus its width (ability-bar.component.scss: 12px, then 1px
- * border, 5px padding, a 44px button, 5px padding, 1px border). The
+ * Measures of the bar in px: its `left` on the canvas, its border, its
+ * padding and the square buttons. AbilityBarComponent hands them to its
+ * SCSS as custom properties, so the bar is drawn from these numbers.
+ */
+export const ABILITY_BAR_PX = { left: 12, border: 1, padding: 5, button: 44 } as const;
+
+/**
+ * Outer right edge of the bar in px from the left edge of the canvas: its
+ * `left` plus its width (border, padding, a button, padding, border). The
  * off-screen arrows keep clear of it.
  */
-export const ABILITY_BAR_EDGE_PX = 68;
+export const ABILITY_BAR_EDGE_PX =
+  ABILITY_BAR_PX.left + 2 * (ABILITY_BAR_PX.border + ABILITY_BAR_PX.padding) + ABILITY_BAR_PX.button;

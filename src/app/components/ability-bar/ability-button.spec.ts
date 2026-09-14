@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { abilityBarIds, abilityButtonView, abilityTooltip, heroTooltip } from './ability-button';
+import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX, abilityBarIds, abilityButtonView, abilityTooltip, heroTooltip } from './ability-button';
 import { ABILITIES, ABILITY_IDS, lockedAbilityStatus, type AbilityId, type AbilityStatus } from '../../configs/abilities.config';
 
 const NUKE = ABILITIES['nuclear-strike'];
@@ -84,6 +84,13 @@ describe('abilityTooltip', () => {
       ],
       flavor: NUKE.description,
     });
+  });
+});
+
+describe('ABILITY_BAR_EDGE_PX', () => {
+  it('is the bar drawn from ABILITY_BAR_PX: 12 px left, 1 px border, 5 px padding, a 44 px button', () => {
+    expect(ABILITY_BAR_PX).toEqual({ left: 12, border: 1, padding: 5, button: 44 });
+    expect(ABILITY_BAR_EDGE_PX).toBe(68);
   });
 });
 
