@@ -757,6 +757,21 @@ describe('SpatialAudioManager', () => {
       expect(manager.masterVolume).toBe(0);
       expect(runningAudio.volume).toBe(0);
     });
+
+    it('resumes a paused loop at the master volume set meanwhile (volume changed in the pause)', async () => {
+      const { manager, ready } = setup();
+      await ready('fire', 'fire.mp3', { volume: 0.8 });
+      const handle = (await manager.createLoop('fire', NEAR))!;
+      const audio = lastPositional();
+
+      manager.holdLoops(true);
+      manager.setMasterVolume(0.5);
+      expect(audio.volume).toBeCloseTo(0.8);
+
+      manager.holdLoops(false);
+      expect(manager.isLoopPaused(handle)).toBe(false);
+      expect(audio.volume).toBeCloseTo(0.4);
+    });
   });
 
   describe('enemy budget', () => {

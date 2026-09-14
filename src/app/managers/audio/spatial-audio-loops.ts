@@ -235,6 +235,8 @@ export class SpatialAudioLoops {
     try {
       loop.container.updateMatrixWorld(true);
       this.pool.updatePannerPosition(loop.audio);
+      // setMasterVolume() skips paused loops: one changed meanwhile applies now
+      loop.audio.setVolume(loop.baseVolume * this.masterVolume);
 
       loop.audio.play();
       loop.paused = false;
