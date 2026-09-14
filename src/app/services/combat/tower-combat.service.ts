@@ -16,7 +16,8 @@ import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { EnemyManager } from '../../managers/enemy.manager';
 import { ProjectileManager } from '../../managers/projectile.manager';
 import type { GeoPosition } from '../../models/game.types';
-import { ROUTE_BODY_AIM_HEIGHT_M } from '../../utils/route-body';
+import { ROUTE_BODY_AIM_HEIGHT_M, type RouteBodyContact } from '../../utils/route-body';
+import { bodyPointInCone, coneContains, type Cone } from '../../utils/body-cone';
 import { BodyAim, type BodyAimPoint } from './body-aim';
 
 /**
@@ -47,8 +48,10 @@ export class TowerCombatService {
 
   // Reusable vectors for cone collision
   private readonly tempDirection = new Vector3();
-  private readonly tempToEnemy = new Vector3();
   private readonly tempSoundPos = new Vector3();
+  private readonly _cone: Cone = { x: 0, y: 0, z: 0, dirX: 0, dirY: 0, dirZ: 1, length: 0, cosHalfAngle: 1 };
+  private readonly _coneContact: RouteBodyContact = { station: 0, offset: 0, distance: 0 };
+  private readonly groundAt = (x: number, z: number): number | null => this.globalRouteGrid.getGroundLocalYAt(x, z);
 
   // Reused scratch buffers to avoid per-tower / per-sub-step allocations.
   // Safe to share across the four update*Towers methods: each consumes its
@@ -594,14 +597,18 @@ export class TowerCombatService {
   ): Enemy[] {
     if (!this.tilesEngine) return [];
 
-    // Calculate cone direction
-    this.tempDirection.subVectors(target, source).normalize();
-    const coneLength = Math.min(source.distanceTo(target), maxLength);
-
-    // Half-angle of cone (endWidth is diameter, so radius = endWidth/2)
-    // tan(angle) = (endWidth/2) / coneLength
-    const halfAngle = Math.atan2(endWidth / 2, coneLength);
-    const cosHalfAngle = Math.cos(halfAngle);
+    // Cone from the source toward the target. Half-angle: endWidth is the
+    // diameter, tan(angle) = (endWidth/2) / coneLength
+    const dir = this.tempDirection.subVectors(target, source).normalize();
+    const cone = this._cone;
+    cone.x = source.x;
+    cone.y = source.y;
+    cone.z = source.z;
+    cone.dirX = dir.x;
+    cone.dirY = dir.y;
+    cone.dirZ = dir.z;
+    cone.length = Math.min(source.distanceTo(target), maxLength);
+    cone.cosHalfAngle = Math.cos(Math.atan2(endWidth / 2, cone.length));
 
     const result = this._coneScratch;
     result.length = 0;
@@ -611,41 +618,46 @@ export class TowerCombatService {
       if (enemy.typeConfig.isAirUnit) continue;
 
       // Get enemy local position (reuse scratch — runs per candidate per beam)
-      let enemyLocalPos: Vector3;
+      let p: Vector3;
       if (enemy.body) {
         // A body along the route: the point this tower aims at on it, where
         // its hit then lands
         if (!this.bodyAim.aim(enemy, this._aimPoint)) continue;
-        enemyLocalPos = this.tilesEngine.sync.geoToLocalSimpleInto(
+        p = this.tilesEngine.sync.geoToLocalSimpleInto(
           this._aimPoint.lat,
           this._aimPoint.lon,
           this._aimPoint.height + ROUTE_BODY_AIM_HEIGHT_M,
           this._coneEnemyPos
         );
-      } else {
-        enemyLocalPos = this.tilesEngine.sync.geoToLocalSimpleInto(
-          enemy.position.lat,
-          enemy.position.lon,
-          enemy.transform.terrainHeight + enemy.heightOffset,
-          this._coneEnemyPos
+        if (coneContains(cone, p.x, p.y, p.z)) {
+          result.push(enemy);
+          continue;
+        }
+        // The flame is on another target and may still cross the body
+        const body = enemy.body;
+        const groundY = bodyPointInCone(
+          body,
+          cone,
+          this.groundAt,
+          enemy.transform.terrainHeight - body.stations.originHeight,
+          ROUTE_BODY_AIM_HEIGHT_M,
+          this._coneContact,
         );
-        enemyLocalPos.y += getEnemyAimOffsetY(enemy); // model's visual centre
+        if (groundY !== null) {
+          body.setHit(this._coneContact.station, this._coneContact.offset, groundY);
+          result.push(enemy);
+        }
+        continue;
       }
 
-      // Vector from source to enemy
-      this.tempToEnemy.subVectors(enemyLocalPos, source);
-      const distToEnemy = this.tempToEnemy.length();
-
-      // Check if within cone length
-      if (distToEnemy > coneLength + 2) continue; // +2m margin for enemy size
-
-      // Check if within cone angle
-      this.tempToEnemy.normalize();
-      const dot = this.tempDirection.dot(this.tempToEnemy);
-
-      if (dot >= cosHalfAngle) {
-        result.push(enemy);
-      }
+      p = this.tilesEngine.sync.geoToLocalSimpleInto(
+        enemy.position.lat,
+        enemy.position.lon,
+        enemy.transform.terrainHeight + enemy.heightOffset,
+        this._coneEnemyPos
+      );
+      p.y += getEnemyAimOffsetY(enemy); // model's visual centre
+      if (coneContains(cone, p.x, p.y, p.z)) result.push(enemy);
     }
 
     return result;
