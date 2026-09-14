@@ -684,9 +684,9 @@ describe('VisualizationFacadeService', () => {
       await facade.scheduleOverlayHeightUpdate();
 
       expect(heightUpdate.scheduleOverlayHeightUpdate).toHaveBeenCalled();
-      const [engineArg, base, status, onHeights, onStreets, onDone, onMeta, onCheck, onCamera] =
+      const [engineArg, status, onHeights, onStreets, onDone, onMeta, onCheck, onCamera] =
         heightUpdate.initialize.mock.calls[0];
-      expect([engineArg, base, status]).toEqual([engine, HQ, engineInit.loadingStatus]);
+      expect([engineArg, status]).toEqual([engine, engineInit.loadingStatus]);
 
       onHeights();
       expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();

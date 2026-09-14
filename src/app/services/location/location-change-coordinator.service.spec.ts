@@ -92,7 +92,6 @@ function makeLocationMgmt() {
     moveFavorite: vi.fn(),
     deleteFavorite: vi.fn(),
     setLocation: vi.fn(),
-    saveLocationsToStorage: vi.fn(),
   };
 }
 
@@ -419,7 +418,7 @@ describe('LocationChangeCoordinatorService', () => {
       expect(callbacks.initializeTowerPlacement).not.toHaveBeenCalled();
     });
 
-    it('saves the location only after the overlay heights are done', async () => {
+    it('finalizes only after the overlay heights are done', async () => {
       let releaseHeights!: () => void;
       callbacks.scheduleOverlayHeightUpdate.mockImplementation(
         () => new Promise<undefined>((resolve) => { releaseHeights = () => resolve(undefined); }),
@@ -428,12 +427,10 @@ describe('LocationChangeCoordinatorService', () => {
       const done = executor.executeLocationChange(input(), ctx, callbacks);
       await settle();
       expect(callbacks.scheduleOverlayHeightUpdate).toHaveBeenCalled();
-      expect(locationMgmt.saveLocationsToStorage).not.toHaveBeenCalled();
       expect(locationMgmt.isApplyingLocation()).toBe(true);
 
       releaseHeights();
       await done;
-      expect(locationMgmt.saveLocationsToStorage).toHaveBeenCalled();
       expect(locationMgmt.isApplyingLocation()).toBe(false);
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('Loaded: 1 spawn points');
     });

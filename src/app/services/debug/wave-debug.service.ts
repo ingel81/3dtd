@@ -86,19 +86,6 @@ export class WaveDebugService {
   readonly baseHealth = signal(100);
   readonly enemiesAlive = signal(0);
 
-  // Current wave config (from AI backend or manual wave start)
-  readonly currentWaveConfig = signal<{
-    enemyType: EnemyTypeId;
-    count: number;
-    baseHp: number;
-    actualHp: number;
-    baseSpeed: number;
-    actualSpeed: number;
-    spawnDelay: number;
-    healthMultiplier: number;
-    speedMultiplier: number;
-  } | null>(null);
-
   // All enemy groups in the current wave (for mixed wave display)
   readonly currentWaveGroups = signal<WaveGroupDisplay[]>([]);
   readonly isMixedWave = computed(() => this.currentWaveGroups().length > 1);
@@ -250,64 +237,15 @@ export class WaveDebugService {
   }
 
   /**
-   * Set current wave config for a single-type wave.
-   * Also sets currentWaveGroups with one entry.
-   */
-  setCurrentWaveConfig(
-    enemyType: EnemyTypeId,
-    count: number,
-    baseHp: number,
-    actualHp: number,
-    baseSpeed: number,
-    actualSpeed: number,
-    spawnDelay: number,
-    healthMultiplier = 1,
-    speedMultiplier = 1
-  ): void {
-    // Update enemy type so the preview shows the correct model
-    this.enemyType.set(enemyType);
-
-    this.currentWaveConfig.set({
-      enemyType,
-      count,
-      baseHp,
-      actualHp,
-      baseSpeed,
-      actualSpeed,
-      spawnDelay,
-      healthMultiplier,
-      speedMultiplier,
-    });
-
-    const name = ENEMY_TYPES[enemyType]?.name ?? enemyType;
-    this.currentWaveGroups.set([{
-      enemyType, name, count, baseHp, actualHp, baseSpeed, actualSpeed,
-      healthMultiplier, speedMultiplier, spawnDelay,
-    }]);
-  }
-
-  /**
    * Set current wave config for a mixed wave with multiple enemy groups.
-   * Also sets currentWaveConfig to the dominant group for backwards compat.
    */
   setCurrentWaveGroups(groups: WaveGroupDisplay[]): void {
     this.currentWaveGroups.set(groups);
 
-    // Set currentWaveConfig to dominant group (most enemies)
+    // Update enemy type to dominant group (most enemies) so the preview shows the correct model
     if (groups.length > 0) {
       const dominant = groups.reduce((best, g) => g.count > best.count ? g : best);
       this.enemyType.set(dominant.enemyType);
-      this.currentWaveConfig.set({
-        enemyType: dominant.enemyType,
-        count: groups.reduce((sum, g) => sum + g.count, 0),
-        baseHp: dominant.baseHp,
-        actualHp: dominant.actualHp,
-        baseSpeed: dominant.baseSpeed,
-        actualSpeed: dominant.actualSpeed,
-        spawnDelay: dominant.spawnDelay,
-        healthMultiplier: dominant.healthMultiplier,
-        speedMultiplier: dominant.speedMultiplier,
-      });
     }
   }
 

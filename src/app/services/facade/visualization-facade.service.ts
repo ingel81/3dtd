@@ -22,7 +22,6 @@ import { BuildingRenderingService } from '../world/building-rendering.service';
 import { StrategicPlacementService } from '../world/strategic-placement.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { TowerDebugService } from '../debug/tower-debug.service';
-import { DebugFacadeService } from '../debug/debug-facade.service';
 import { LosDebugService } from '../debug/los-debug.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationManagementService } from '../location/location-management.service';
@@ -92,7 +91,6 @@ export class VisualizationFacadeService {
   private readonly strategicPlacement = inject(StrategicPlacementService);
   private readonly enemyDebug = inject(EnemyDebugService);
   private readonly towerDebug = inject(TowerDebugService);
-  private readonly debugFacade = inject(DebugFacadeService);
   private readonly losDebug = inject(LosDebugService);
   private readonly globalRouteGridService = inject(GlobalRouteGridService);
   private readonly locationMgmt = inject(LocationManagementService);
@@ -540,11 +538,8 @@ export class VisualizationFacadeService {
       return;
     }
 
-    const base = this.store.baseCoords();
-
     this.heightUpdate.initialize(
       engine,
-      { lat: base.lat, lon: base.lon },
       this.engineInit.loadingStatus,
       () => {
         this.markerViz.updateMarkerHeights();

@@ -1,7 +1,6 @@
 import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/core';
 import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition } from '../../models/game.types';
-import { CameraFramingService } from '../camera-framing.service';
 import { AssetManagerService } from './asset-manager.service';
 import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -21,7 +20,6 @@ export class EngineInitializationService {
   // ========================================
 
   private readonly ngZone = inject(NgZone);
-  private readonly cameraFraming = inject(CameraFramingService);
   private readonly assetManager = inject(AssetManagerService);
   private readonly osmService = inject(OsmStreetService);
   private readonly devWorld = inject(DevWorldService);
@@ -482,11 +480,9 @@ export class EngineInitializationService {
    * @param heightsLoading Heights loading signal
    */
   checkAllLoaded(heightsLoading: WritableSignal<boolean>): void {
-    const _now = performance.now();
     const tiles = this.tilesLoading();
     const osm = this.osmLoading();
     const heights = heightsLoading();
-
 
     // Manage tile stats polling lifecycle
     if (tiles && !this.tileStatsIntervalId && this.engine) {
@@ -505,8 +501,6 @@ export class EngineInitializationService {
       // Mark tiles step as done before hiding
       void this.setStepDone('tiles');
       this.loading.set(false);
-    } else {
-      const _waiting = [tiles && 'tiles', osm && 'osm', heights && 'heights'].filter(Boolean);
     }
   }
 

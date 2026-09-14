@@ -12,7 +12,6 @@ import { UrlLocationService } from '../location/url-location.service';
 import { DevWorldService, DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
-import { WaveDebugService } from '../debug/wave-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
 import {
   LOCATION_DIALOG_OPEN_FAILED,
@@ -27,7 +26,6 @@ import { LocationChangeCallbacks } from '../location/location-change-executor.se
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { MapPlacementService } from '../world/map-placement.service';
-import { TowerPlacementService } from '../tower-placement.service';
 import { MapRelocationService, RelocationHost } from './map-relocation.service';
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
@@ -84,12 +82,10 @@ export class LocationFacadeService {
   private readonly devWorld = inject(DevWorldService);
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly streetRendering = inject(StreetRenderingService);
-  private readonly waveDebug = inject(WaveDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly mapRelocation = inject(MapRelocationService);
-  private readonly towerPlacement = inject(TowerPlacementService);
   private readonly dialog = inject(MatDialog);
   private readonly store = inject(TowerDefenseStore);
 

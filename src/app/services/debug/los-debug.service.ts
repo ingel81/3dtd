@@ -64,7 +64,6 @@ const HOVER_MARKER_GEOMETRY = new SphereGeometry(0.8, 12, 8);
 export class LosDebugService {
   private engine: ThreeTilesEngine | null = null;
   private towerManager: TowerManager | null = null;
-  private eventBus: GameEventBus | null = null;
   private globalRouteGrid: GlobalRouteGridService | null = null;
 
   /** Currently active tower for inspection. Mirrors TowerManager selection. */
@@ -147,7 +146,6 @@ export class LosDebugService {
 
     this.engine = engine;
     this.towerManager = towerManager;
-    this.eventBus = eventBus;
     this.globalRouteGrid = globalRouteGrid;
 
     this.subs.add(

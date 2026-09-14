@@ -370,7 +370,7 @@ export class LocationChangeExecutorService {
   }
 
   /**
-   * STEP 7: Finalize - height updates, save location, start animation
+   * STEP 7: Finalize - height updates, start animation
    */
   private async step7_Finalize(
     ctx: LocationChangeContext,
@@ -380,9 +380,6 @@ export class LocationChangeExecutorService {
 
     // CRITICAL: Must await height updates to complete
     await callbacks.scheduleOverlayHeightUpdate();
-
-    // Save to localStorage
-    this.locationMgmt.saveLocationsToStorage();
 
     callbacks.appendDebugLog(`Loaded: ${callbacks.getSpawnPoints().length} spawn points`);
 
