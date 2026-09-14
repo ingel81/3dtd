@@ -6,6 +6,7 @@
  */
 
 import type { AbilityId } from './abilities.config';
+import { nukeSoundUrls } from '../utils/nuke-sound';
 
 /** Sound budget limits to prevent audio overload */
 export const AUDIO_LIMITS = {
@@ -92,6 +93,26 @@ export const UI_SOUNDS = {
   },
 } as const;
 
+/**
+ * Spatial settings the pieces of the nuclear strike's sound share: heard as
+ * far as the strike shakes the camera (SCREEN_SHAKE_CONFIG.strikeFarDistance),
+ * where the common limit would cull it at 500 m, and with priority, so the
+ * hits and deaths of the wave it lands on do not steal its voices. Two of
+ * each at once, for two strikes in a row.
+ */
+const NUKE_SPATIAL = {
+  refDistance: 150,
+  rolloffFactor: 0.6,
+  volume: 1.6,
+  maxInstances: 2,
+  priority: true,
+  audibleDistance: 1500,
+} as const;
+
+/** Roll `roll` of the nuclear strike's rumble (utils/nuke-sound.ts) */
+const nukeRumble = (roll: number) =>
+  ({ id: `nuclear_strike_rumble_${roll + 1}`, url: () => nukeSoundUrls().rumble[roll], ...NUKE_SPATIAL }) as const;
+
 /** Game state sounds configuration */
 export const GAME_SOUNDS = {
   hqDamage: {
@@ -102,24 +123,21 @@ export const GAME_SOUNDS = {
     volume: 1.4,
   },
   /**
-   * Nuclear strike impact: the same sample, louder and audible from further
-   * away. Played again after each `tail` delay at that share of the volume,
-   * a rumbling tail (wall-clock ms, like the sample itself; AudioService).
-   * The 1.3 s sample then plays up to three times at once. `maxInstances`
-   * pins the four the playback derives for a sample of that length, so a
-   * longer sample would not drop the repeats. Every play of explosion.mp3,
-   * HQ damage included, counts against it.
+   * Nuclear strike, synthesised (utils/nuke-sound.ts): the blast at the
+   * impact, a crack over a sub-bass boom and the fireball's roar (2.4 s),
+   * then three rolls of rumble (3 s each, fading into one another), about
+   * 8 s in all. Pieces rather than one long sample: they start in game time
+   * (AudioService.update), so a pause holds the rumble still to come and a
+   * higher game speed shortens it; a piece already playing plays out.
    */
   nuclearStrike: {
     id: 'nuclear_strike',
-    url: 'assets/sounds/effects/explosion.mp3',
-    refDistance: 150,
-    rolloffFactor: 0.6,
-    volume: 1.6,
-    maxInstances: 4,
+    url: () => nukeSoundUrls().blast,
+    ...NUKE_SPATIAL,
     tail: [
-      { delayMs: 350, volume: 0.55 },
-      { delayMs: 900, volume: 0.35 },
+      { delayMs: 450, volume: 0.85, sample: nukeRumble(0) },
+      { delayMs: 2600, volume: 0.65, sample: nukeRumble(1) },
+      { delayMs: 4800, volume: 0.45, sample: nukeRumble(2) },
     ],
   },
   /**
@@ -188,16 +206,28 @@ export const OOZE_SOUNDS = {
   slurp: { id: 'ooze_slurp', refDistance: 40, rolloffFactor: 1, volume: 0.8, everyM: 3, minIntervalMs: 600 },
 } as const;
 
-/** A sound an ability plays where it lands */
-export interface AbilityImpactSound {
+/** A sample an ability's impact plays */
+export interface AbilityImpactSample {
   id: string;
-  url: string;
+  /** Asset path, or a function that synthesises the sample as a WAV data URL (called once, on registration) */
+  url: string | (() => string);
   refDistance: number;
   rolloffFactor: number;
   volume: number;
   maxInstances?: number;
-  /** Played again after each delay (game-time ms, AudioService.update) at that share of the volume */
-  tail: readonly { readonly delayMs: number; readonly volume: number }[];
+  /** SpatialSoundConfig.priority */
+  priority?: boolean;
+  /** SpatialSoundConfig.audibleDistance, m */
+  audibleDistance?: number;
+}
+
+/** A sound an ability plays where it lands */
+export interface AbilityImpactSound extends AbilityImpactSample {
+  /**
+   * Played after each delay (game-time ms, AudioService.update) at that
+   * share of the volume: the impact's own sample again, or `sample`
+   */
+  tail: readonly { readonly delayMs: number; readonly volume: number; readonly sample?: AbilityImpactSample }[];
 }
 
 /**

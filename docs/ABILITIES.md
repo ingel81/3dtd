@@ -298,13 +298,19 @@ Limit von 2048 Instanzen.
 wie bei Einschlägen, aber mit eigener Reichweite: voll bis 350 m, keiner mehr
 ab 1500 m (`strikeNearDistance`, `strikeFarDistance`); aus der
 Übersichtskamera (etwa 425 m) bleiben gut 90 %. Der Schalter Screen Shake in
-den Display Options gilt auch hier. Sound `nuclear_strike`: das vorhandene
-`explosion.mp3` (1,3 s), lauter und mit größerer Reichweite, dazu nach 350 und
-900 ms zwei leisere Wiederholungen (55 und 35 % der Lautstärke) als Grollen
-(`GAME_SOUNDS.nuclearStrike.tail`). Die Wiederholungen laufen in Spielzeit
-(`AudioService.update()` je Sub-Step): eine Pause hält sie an, höheres Tempo
-verkürzt sie, `game:reset` verwirft ausstehende. Eine
-Warnsirene gibt es nicht, im Repo liegt kein passendes Sample.
+den Display Options gilt auch hier. Sound: im Code synthetisiert
+(`utils/nuke-sound.ts`, kein Asset). Beim Einschlag der Knall `nuclear_strike`
+(2,4 s): ein scharfer Crack, darunter ein Sub-Bass-Boom, der von 70 auf 28 Hz
+fällt, und das Tosen des Feuerballs. Danach drei Stücke Grollen
+(`nuclear_strike_rumble_1` bis `_3`, je 3 s, ineinander übergeblendet) nach
+450, 2600 und 4800 ms mit 85, 65 und 45 % der Lautstärke
+(`GAME_SOUNDS.nuclearStrike.tail`), zusammen etwa 8 s. Die Stücke starten in
+Spielzeit (`AudioService.update()` je Sub-Step): eine Pause hält das Grollen,
+das noch kommt, höheres Tempo verkürzt es, `game:reset` verwirft ausstehende;
+ein Stück, das schon spielt, spielt zu Ende. Alle Stücke haben Vorrang beim
+Voice-Stealing und sind bis 1500 m zu hören, so weit wie der Shake (Details in
+[SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#nuklearschlag-synthetisiert-nachhall-in-spielzeit)).
+Eine Warnsirene gibt es nicht.
 
 **Frostbombe:** derselbe Zielmarker in 20 m. Beim Einschlag der Frostausbruch
 (`FrostBurstRenderer`, `FROST_BURST_LOOK`, in Spielzeit wie der Atompilz):
@@ -476,6 +482,7 @@ während einer Welle.
 | `utils/route-sweep.ts` | Weg des Strahls: Routenabschnitt vom Aufsetzpunkt Richtung Spawn, Punkt nach Metern |
 | `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze und Stun über den `StatusEffectService`) |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
+| `utils/nuke-sound.ts` | Ton des Nuklearschlags, im Code synthetisiert: Knall und drei Stücke Grollen |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 | `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
 | `ai/training/strategies/ability/emp.strategy.ts` | Bot des EMP |
@@ -484,7 +491,7 @@ während einer Welle.
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,
 `gate-wiring.spec.ts`, `ai-data-collector.ability-kills.spec.ts`,
-`vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `screen-shake.service.spec.ts`,
+`vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`,
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,
@@ -524,9 +531,9 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
 ## Bewusst nicht gemacht
 
 - Keine Warnsirene.
-- Kein eigenes Grollen-Sample und keine tiefere Tonlage: das Grollen sind
-  zwei leisere Wiederholungen von `explosion.mp3`, `SpatialAudioManager` hat
-  keine Option für Tonhöhe oder Abspieltempo.
+- Keine Pause für einen Ton, der schon spielt: One-Shots kennen keine Pause.
+  Ein Stück Grollen, das beim Pausieren läuft, spielt zu Ende, höchstens 3 s;
+  die Stücke danach warten auf das Weiterspielen.
 - Keine Rückgabe der Ladung, wenn der Einschlag niemanden trifft, auch nicht,
   wenn der Rest der Welle in den 1,5 s der Vorwarnung stirbt oder durchläuft.
 - Der Event-Debugger hat keine eigene Kategorie für `ability:*`; die Events

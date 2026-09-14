@@ -2,9 +2,14 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { GameEventBus } from './game-event-bus';
 import { AudioService } from './audio.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import { ABILITY_IMPACT_SOUNDS, GAME_SOUNDS } from '../configs/audio.config';
+import { ABILITY_IMPACT_SOUNDS, GAME_SOUNDS, type AbilityImpactSound } from '../configs/audio.config';
+import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { NUKE_BLAST_S, NUKE_RUMBLE_S, NUKE_RUMBLES } from '../utils/nuke-sound';
 
-const { id, tail } = GAME_SOUNDS.nuclearStrike;
+const nuke: AbilityImpactSound = GAME_SOUNDS.nuclearStrike;
+const { id, tail } = nuke;
+/** The sound a repeat of the tail plays */
+const soundOf = (repeat: AbilityImpactSound['tail'][number]) => (repeat.sample ?? nuke).id;
 const FIRST_TAIL_MS = Math.min(...tail.map((repeat) => repeat.delayMs));
 const LAST_TAIL_MS = Math.max(...tail.map((repeat) => repeat.delayMs));
 /** One gameplay sub-step, see GameClock */
@@ -27,19 +32,43 @@ describe('AudioService nuclear strike', () => {
     const run = (ms: number) => {
       for (let t = 0; t < ms; t += STEP_MS) service.update(STEP_MS);
     };
-    return { eventBus, spatialAudio, service, impact, run };
+    /** What registerSound got for `soundId` */
+    const registered = (soundId: string) => {
+      const call = spatialAudio.registerSound.mock.calls.find((args: unknown[]) => args[0] === soundId);
+      return call as unknown as [string, string, Record<string, unknown>] | undefined;
+    };
+    return { eventBus, spatialAudio, service, impact, run, registered };
   }
 
-  it('registers the strike sound', () => {
-    const { spatialAudio, service } = setup();
-    const { url, refDistance, rolloffFactor, volume, maxInstances } = GAME_SOUNDS.nuclearStrike;
-    expect(spatialAudio.registerSound).toHaveBeenCalledWith(id, url, { refDistance, rolloffFactor, volume, maxInstances });
-    // The impact and every repeat of the tail play at once
-    expect(maxInstances).toBeGreaterThan(tail.length);
+  it('registers the blast and every roll of the rumble once, synthesised, with priority, heard as far as the strike shakes', () => {
+    const { spatialAudio, service, registered } = setup();
+    const ids = spatialAudio.registerSound.mock.calls.map((args: unknown[]) => args[0]);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const soundId of [id, ...tail.map(soundOf)]) {
+      const [, url, config] = registered(soundId)!;
+      expect(url.startsWith('data:audio/wav;base64,')).toBe(true);
+      expect(config).toEqual({
+        refDistance: nuke.refDistance,
+        rolloffFactor: nuke.rolloffFactor,
+        volume: nuke.volume,
+        maxInstances: nuke.maxInstances,
+        priority: true,
+        audibleDistance: SCREEN_SHAKE_CONFIG.strikeFarDistance,
+      });
+    }
     service.destroy();
   });
 
-  it('plays it at the impact point, then quieter repeats for a rumbling tail, in game time', () => {
+  it('leaves priority and audible distance of the other abilities\' sounds to the manager\'s defaults', () => {
+    const { service, registered } = setup();
+    const { url, refDistance, rolloffFactor, volume, maxInstances } = GAME_SOUNDS.frostBomb;
+    expect(registered(GAME_SOUNDS.frostBomb.id)).toEqual([
+      GAME_SOUNDS.frostBomb.id, url, { refDistance, rolloffFactor, volume, maxInstances },
+    ]);
+    service.destroy();
+  });
+
+  it('plays the blast at the impact point, then the rolls of rumble, quieter, in game time', () => {
     const { spatialAudio, service, impact, run } = setup();
     impact();
     expect(spatialAudio.playAtGeo.mock.calls).toEqual([[id, 48, 9, 310, 1]]);
@@ -50,10 +79,21 @@ describe('AudioService nuclear strike', () => {
     run(LAST_TAIL_MS);
     expect(spatialAudio.playAtGeo.mock.calls).toEqual([
       [id, 48, 9, 310, 1],
-      ...tail.map((repeat) => [id, 48, 9, 310, repeat.volume]),
+      ...tail.map((repeat) => [soundOf(repeat), 48, 9, 310, repeat.volume]),
     ]);
     for (const repeat of tail) expect(repeat.volume).toBeLessThan(1);
     service.destroy();
+  });
+
+  it('rumbles for several seconds: the first roll under the boom, each roll into the next, each once', () => {
+    expect(new Set(tail.map(soundOf)).size).toBe(NUKE_RUMBLES);
+    expect(tail).toHaveLength(NUKE_RUMBLES);
+    expect(FIRST_TAIL_MS).toBeLessThan(NUKE_BLAST_S * 1000);
+    for (let k = 1; k < tail.length; k++) {
+      expect(tail[k].delayMs).toBeLessThan(tail[k - 1].delayMs + NUKE_RUMBLE_S * 1000);
+      expect(tail[k].volume).toBeLessThan(tail[k - 1].volume);
+    }
+    expect(LAST_TAIL_MS + NUKE_RUMBLE_S * 1000).toBeGreaterThanOrEqual(7000);
   });
 
   it('plays the sound of the ability that landed: one without an entry stays silent', () => {
