@@ -71,8 +71,10 @@
   border-top: 1px solid var(--td-frame-dark);
 }
 
-/* Widths follow the labels, the rest is shared: four equal cells would cut
-   "Attributions" at 9px mono. */
+/* Widths follow the labels, the rest is shared: five equal cells would cut
+   "Attributions" at 9px mono. The five labels fill about 280 of the 299px
+   with Consolas and 290 with the wider Menlo; a label that still does not
+   fit ends in an ellipsis instead of running into its neighbour. */
 .td-attributions-btn {
   display: flex;
   align-items: center;
@@ -80,7 +82,7 @@
   gap: 5px;
   flex: 1 1 auto;
   min-width: 0;
-  padding: 5px 6px;
+  padding: 5px 4px;
   background: none;
   border: none;
   color: var(--td-text-muted);
@@ -89,6 +91,13 @@
   cursor: pointer;
   opacity: 0.6;
   transition: all 0.15s ease;
+}
+
+.td-attributions-btn span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .td-footer-links .td-attributions-btn + .td-attributions-btn {

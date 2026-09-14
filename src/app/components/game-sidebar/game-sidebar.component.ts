@@ -20,6 +20,7 @@ import { ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
 import { openAttributionsDialog } from '../attributions-dialog/open-attributions-dialog';
+import { openHotkeyHelpDialog } from '../hotkey-help-dialog/open-hotkey-help-dialog';
 import { ConfigService } from '../../core/services/config.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { BUILD_VERSION } from '../../configs/build-info.config';
@@ -115,6 +116,11 @@ export class GameSidebarComponent implements OnDestroy {
   /** Show the first-run tips again from the first. */
   showTips(): void {
     this.onboarding.restart();
+  }
+
+  /** The shortcut overview, the same dialog as H and ?. */
+  openHotkeys(): void {
+    void openHotkeyHelpDialog(this.dialog);
   }
 
   /** Open the tile-credentials screen (swap or clear the stored key). */

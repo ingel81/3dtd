@@ -539,7 +539,7 @@ Während eines [Boss-Intros](#boss-intro-canvas) fragt die Spielkomponente vor I
 
 Während des Replays der letzten Welle steuern Leertaste und P dessen Pause, + und - dessen Geschwindigkeit, Esc führt zurück ins Spiel; Kamera-Tasten und H bleiben, alles andere ruht (`HotkeyService.runInReplay`, siehe [Replay der letzten Welle](#replay-der-letzten-welle)).
 
-S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint. Das Helden-Panel zeigt V, G und Esc als Tastenkappen, seine Munitionswahl trägt `aria-keyshortcuts`.
+S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint. Dauerhaft sichtbar öffnet "Keys" im Sidebar-Footer (Icon `keyboard`, rechts neben "Tips") dieselbe Übersicht. Das Helden-Panel zeigt V, G und Esc als Tastenkappen, seine Munitionswahl trägt `aria-keyshortcuts`.
 
 ### First-Run-Tipps
 

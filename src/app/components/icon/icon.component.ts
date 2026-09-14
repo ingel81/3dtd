@@ -38,7 +38,9 @@ export type TdIconName =
   // orbital laser ability
   | 'laser'
   // replay of the last wave
-  | 'replay';
+  | 'replay'
+  // shortcut overview (sidebar footer)
+  | 'keyboard';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -150,6 +152,8 @@ const ICONS: Record<TdIconName, IconDef> = {
   laser: { body: '<rect x="9.5" y="2.5" width="5" height="4" rx="0.5" /><path d="M3.5 4.5h6M14.5 4.5h6M12 6.5V18M8 21l2-3h4l2 3M6.5 19.5l2-1M17.5 19.5l-2-1" />' },
   // A circle turning back round a play triangle: replay of the last wave.
   replay: { body: '<path d="M4 12a8 8 0 1 0 2.3-5.7L4 9M4 4v5h5" /><path d="M10 9v6l5-3-5-3Z" />' },
+  // Keyboard: a flat case with two rows of keys over a space bar. Shortcut overview.
+  keyboard: { body: '<rect x="2.5" y="6" width="19" height="12" rx="1.5" /><path d="M6 9.5h.01M9 9.5h.01M12 9.5h.01M15 9.5h.01M18 9.5h.01M7.5 12h.01M10.5 12h.01M13.5 12h.01M16.5 12h.01M8 15h8" />' },
 };
 
 @Component({
