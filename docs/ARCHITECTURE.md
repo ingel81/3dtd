@@ -1922,7 +1922,7 @@ class GlobalRouteGrid {
 
 **Shader-Visualisierung:**
 ```typescript
-// USE_INSTANCING define erforderlich für InstancedMesh
+// USE_INSTANCING setzt three für InstancedMesh selbst (Abschnitt 13), hier nur zusätzlich explizit
 const material = new THREE.ShaderMaterial({
   defines: { USE_INSTANCING: '' },
   transparent: true,
@@ -2105,40 +2105,33 @@ raycastTerrain(screenX: number, screenY: number): THREE.Vector3 | null {
 
 **Regel:** Raycaster, die mit `setFromCamera()` arbeiten, sollten nie denselben Instance verwenden wie Raycaster mit manuellem `set(origin, direction)`.
 
-### ShaderMaterial + InstancedMesh = USE_INSTANCING
+### ShaderMaterial + InstancedMesh: instanceMatrix kommt von three
 
-**Problem:** Custom ShaderMaterial mit `THREE.InstancedMesh` rendert nichts - keine Fehler, einfach unsichtbar.
+**Stand three r186:** Für jedes Material auf einem `THREE.InstancedMesh`, ein eigenes `ShaderMaterial` eingeschlossen, setzt three `#define USE_INSTANCING` und deklariert `attribute mat4 instanceMatrix` im Vertex-Prefix (`WebGLPrograms.getParameters`: `instancing` aus `object.isInstancedMesh`, den Prefix baut `WebGLProgram`). Ein eigenes `defines: { USE_INSTANCING: '' }` ist nicht nötig. Auf einem InstancedMesh schadet es auch nicht, die zweite, gleiche Makrodefinition ist gültiges GLSL. VAT-Gegner, Spawn-Portale und HQ-Marker nutzen `instanceMatrix` ohne eigenes Define.
 
-**Ursache:** Three.js injiziert automatisch `#ifdef USE_INSTANCING` Code in Built-in Materials. Bei Custom ShaderMaterial muss man das Define selbst setzen.
+**Die Falle ist die Gegenrichtung:** Ein Shader, der `instanceMatrix` ohne `#ifdef USE_INSTANCING` benutzt, kompiliert auf einem normalen `Mesh` nicht (`'instanceMatrix' : undeclared identifier`). Das Material bleibt unsichtbar, die Meldung steht nur in der Browser-Konsole.
 
 ```typescript
-// ❌ FALSCH - Instancing funktioniert nicht
-const material = new THREE.ShaderMaterial({
-  vertexShader: `
-    void main() {
-      vec4 mvPosition = vec4(position, 1.0);
-      mvPosition = instanceMatrix * mvPosition;  // instanceMatrix ist undefined!
-      gl_Position = projectionMatrix * modelViewMatrix * mvPosition;
-    }
-  `,
-});
+// Nur für InstancedMesh: instanceMatrix kommt aus dem Prefix von three
+vertexShader: `
+  void main() {
+    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  }
+`,
 
-// ✅ RICHTIG - USE_INSTANCING Define setzen
-const material = new THREE.ShaderMaterial({
-  defines: { USE_INSTANCING: '' },  // Aktiviert instanceMatrix
-  vertexShader: `
-    void main() {
-      vec4 mvPosition = vec4(position, 1.0);
-      #ifdef USE_INSTANCING
-        mvPosition = instanceMatrix * mvPosition;
-      #endif
-      gl_Position = projectionMatrix * modelViewMatrix * mvPosition;
-    }
-  `,
-});
+// Für Mesh und InstancedMesh
+vertexShader: `
+  void main() {
+    vec4 local = vec4(position, 1.0);
+    #ifdef USE_INSTANCING
+      local = instanceMatrix * local;
+    #endif
+    gl_Position = projectionMatrix * modelViewMatrix * local;
+  }
+`,
 ```
 
-**Regel:** Bei Custom ShaderMaterial mit InstancedMesh immer `defines: { USE_INSTANCING: '' }` und `#ifdef USE_INSTANCING` im Vertex Shader.
+**Regel:** Ein Shader, der `instanceMatrix` direkt benutzt, gehört auf ein InstancedMesh; soll er auch auf einem Mesh laufen, mit `#ifdef USE_INSTANCING`. Der Shader-Compile-Check (unten) baut jedes Material wie im Spiel und findet die falsche Kombination.
 
 ### depthTest: false für Overlays auf 3D Tiles
 
