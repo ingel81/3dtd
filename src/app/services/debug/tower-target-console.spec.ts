@@ -136,14 +136,14 @@ describe('TowerTargetConsole (__towerTargets)', () => {
     const api = (globalThis as Record<string, unknown>)['__towerTargets'] as (() => string) & { watch: (on?: boolean) => string };
     const ooze = new Enemy('ooze', PATH);
     ooze.body = {} as RouteBody;
-    const split = (): void => bus.emit({ type: 'enemy:split', enemy: ooze, children: [clump] });
-    return { tower, clump, probe, api, split };
+    const split = (enemy = ooze): void => bus.emit({ type: 'enemy:split', enemy, children: [clump] });
+    return { tower, clump, probe, api, split, ooze };
   };
 
   const lines = (): unknown[] => log.mock.calls.map((call: unknown[]) => call[0]);
 
   it('logs nothing unless watching; watching, a line per tower near the clumps each second for 6 s after the split', () => {
-    const { tower, probe, api, split } = setup();
+    const { tower, probe, api, split, ooze } = setup();
     split();
     vi.advanceTimersByTime(3_000);
     expect(log).not.toHaveBeenCalled();
@@ -154,7 +154,7 @@ describe('TowerTargetConsole (__towerTargets)', () => {
     expect(log).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(lines()).toEqual([
-      '[TowerTargets] +1 s, 1 clump(s)',
+      `[TowerTargets] ${ooze.id} +1 s, 1 clump(s)`,
       `[TowerTargets] ${tower.id} ice: no target, 1 candidate(s) in range not taken yet (nearest 15.0 m)`,
     ]);
     vi.advanceTimersByTime(10_000);
@@ -169,12 +169,29 @@ describe('TowerTargetConsole (__towerTargets)', () => {
   });
 
   it('stops once the clumps are gone', () => {
-    const { clump, api, split } = setup();
+    const { clump, api, split, ooze } = setup();
     api.watch();
     split();
     clump.health.takeDamage(clump.health.hp);
     vi.advanceTimersByTime(3_000);
-    expect(lines()).toEqual(['[TowerTargets] all clumps gone']);
+    expect(lines()).toEqual([`[TowerTargets] ${ooze.id}: all clumps gone`]);
+  });
+
+  it('follows each ooze that breaks up for its own 6 s, the one before it included', () => {
+    const { api, split, ooze } = setup();
+    const second = new Enemy('ooze', PATH);
+    second.body = {} as RouteBody;
+    api.watch();
+    split();
+    vi.advanceTimersByTime(3_000);
+    split(second);
+    vi.advanceTimersByTime(3_000);
+    const heads = (enemy: Enemy) => lines().filter((line) => String(line).startsWith(`[TowerTargets] ${enemy.id} +`));
+    expect(heads(ooze)).toHaveLength(6);
+    expect(heads(second)).toHaveLength(3);
+    api.watch(false);
+    vi.advanceTimersByTime(3_000);
+    expect(heads(second)).toHaveLength(3);
   });
 
   it('__towerTargets() prints a table of the towers with an enemy near', () => {
