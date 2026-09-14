@@ -99,7 +99,7 @@ describe('Worm in a Custom Wave and in Enemy Debug (playtest 354, 355)', () => {
   describe('Count 2 (354)', () => {
     const PATH = northPath(150);
 
-    /** Wave Debug, Single, Chitin Worm, Count 2, Start Custom Wave */
+    /** Wave Debug, Single, Skarnax, Count 2, Start Custom Wave */
     const startTwoWorms = (): void => {
       m.waveManager.initialize(TEST_SPAWN_POINTS, new Map([['spawn-1', PATH]]));
       m.enemyManager.setWaveNumberProvider(() => m.waveManager.waveNumber());

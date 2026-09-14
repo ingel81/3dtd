@@ -300,7 +300,7 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
     viewIsBack();
   });
 
-  it('368: the worm: one intro "Chitin Worm" once its head is out, none for its segments or after a split', () => {
+  it('368: the worm: one intro "Skarnax" once its head is out, none for its segments or after a split', () => {
     const head = boss('worm');
     // EnemyManager.spawn: the head segment's enemy:spawned has no viaPortal, worm:spawned has
     spawn(head, false);
@@ -310,7 +310,7 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
 
     head.walked = OUT_M;
     frame();
-    expect(service.card()).toEqual({ name: 'Chitin Worm', wave: 10 });
+    expect(service.card()).toEqual({ name: 'Skarnax', epithet: 'The Thousand-Legged Calamity', wave: 10 });
     wholeIntro();
 
     // The segments behind come out through WormChains without viaPortal; a

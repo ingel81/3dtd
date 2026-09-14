@@ -64,6 +64,12 @@ export interface OozeConfig {
 export interface EnemyTypeConfig {
   id: string;
   name: string;
+  /**
+   * A boss's honorific, shown only on the intro card (smaller, under `name`)
+   * and nowhere `name` alone is already tight on space (boss bar, debug
+   * lists, tooltips, wave preview).
+   */
+  epithet?: string;
   modelUrl: string;
   scale: number;
   minimumPixelSize: number;
@@ -919,7 +925,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   worm: {
     id: 'worm',
-    name: 'Chitin Worm',
+    name: 'Skarnax',
+    epithet: 'The Thousand-Legged Calamity',
     ...WORM_MODELS.head,
     ...WORM_STATS,
     // One spawn puts the whole worm on the route: as long as the route, one
@@ -943,7 +950,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // Debug) it is a single ring with the worm's stats, handy to tune the
     // model.
     id: 'worm-segment',
-    name: 'Chitin Worm Segment',
+    name: 'Skarnax Segment',
     ...WORM_MODELS.segment,
     ...WORM_STATS,
   },

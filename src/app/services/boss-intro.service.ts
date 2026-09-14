@@ -44,6 +44,8 @@ const MAX_FRAME_MS = 100;
 /** What the title card shows: the type's display name and the wave. */
 export interface BossIntroCard {
   name: string;
+  /** The boss's honorific, a smaller line under `name`. Solo bosses only, dropped when combined with others. */
+  epithet?: string;
   wave: number;
 }
 
@@ -231,8 +233,10 @@ export class BossIntroService {
     };
     if (controls) controls.enabled = false;
     cameraTimeline.record('bossIntro.start', { boss: boss.enemy.typeConfig.id, wave: boss.wave }, true);
+    // A combined intro names them all, so no single honorific fits under it
+    const epithet = names.length === 1 ? boss.enemy.typeConfig.epithet : undefined;
     this.ngZone.run(() => {
-      this.card.set({ name: names.join(' & '), wave: boss.wave });
+      this.card.set({ name: names.join(' & '), epithet, wave: boss.wave });
       this.gameStore.paused.set(true);
     });
     this.setStage('dip-in');

@@ -28,7 +28,7 @@ export interface BossBarView {
 /**
  * A worm's sample: the HP left over all its parts, the segments still in the
  * portal at full HP, against the whole worm's. Split into several worms it
- * says how many ("Chitin Worm ×3").
+ * says how many ("Skarnax ×3").
  */
 export function wormBossSample(name: string, parts: number, hp: number, maxHp: number): BossSample {
   return { name: parts > 1 ? `${name} ×${parts}` : name, hp, maxHp };
