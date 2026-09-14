@@ -18,8 +18,9 @@ CPU-Partikel. `ThreeEffectsRenderer` ist seit 2026-05-21 eine Delegations-Facade
 - **GPU-instanzierte Decals** (`DecalInstanceManager`): Blood-Decals (max 100),
   Ice-Decals (max 150), Kampfspuren (max 200, eine pro Route-Zelle, siehe unten),
   1 Draw Call pro Decal-Typ. Ausblenden über das Opacity-Attribut.
-- **GPU-instanzierte Floating Text** (`FloatingTextInstanceManager`):
-  Floating Damage Numbers über Gegnern. 1 Draw Call für alle Texts.
+- **GPU-instanzierte Floating Text** (`FloatingTextInstanceManager`): Schadenszahlen über
+  Gegnern, "+N" in Gold beim Kill, der Upgrade-Text und "LEVEL N" des Helden; steigen auf
+  und blenden aus. 1 Draw Call für alle Texte, höchstens 2048 zugleich (`MAX_INSTANCES`).
 - **Frost-/Poison-Auren**: Pro-Enemy orbitierende Partikel-Cluster (Tracking
   über Maps mit `localPosition` und `orbitAngle`).
 - **Atompilz** (`MushroomCloudRenderer`): eigene instanzierte Billboards mit eigenen
@@ -340,7 +341,8 @@ typischerweise vom `VFXService` über EventBus-Subscriptions aufgerufen:
 | `spawnFloatingText(...)` | GPU-instanced Floating Damage Number |
 
 Decals nutzen Konfigurationen aus `BLOOD_DECAL_CONFIG` / `ICE_DECAL_CONFIG`
-(Fade-Delay, Fade-Duration, Base-Color, Color-Variation, Height-Offset).
+(Fade-Delay, Fade-Duration, Base-Color, Color-Variation, Height-Offset). Blut steht 20 s
+und blendet über 10 s aus, Eis 4 s und 3 s (Wanduhr).
 
 `DecalInstanceManager` vergibt Instanz-Slots über `InstanceSlotAllocator`, die
 Draw-Anzahl folgt dessen `activeCount`. Ist ein Pool voll, entfernt der Aufrufer vorher
