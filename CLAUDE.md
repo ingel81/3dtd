@@ -122,6 +122,7 @@ training-backend/               # Python Training Backend (nur für Trainingslä
 | [MULTIPLAYER_CONCEPT.md](docs/MULTIPLAYER_CONCEPT.md) | _Plan:_ PvE-Coop & PvP - Determinismus-Blocker, Server-Entwurf, zwei Zielmodi. Kein Code |
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](docs/ROUTE_ALIGNED_CELLS_CONCEPT.md) | _Konzept:_ Zellen parallel zur Route statt Nord-Ost-Raster. Kein Code |
 | **Analysen & Berichte** | |
+| [PLAYTEST.md](docs/PLAYTEST.md) | Offene Playtest-Punkte, Datenpunkte und Entscheidungen für die nächste Session |
 | [REVIEW_FIX_2026-09-14.md](docs/REVIEW_FIX_2026-09-14.md) | Handover der Fix-Session nach dem Playtest 2026-09-14: Änderungen je Thema mit Revert-Tabellen, offene Entscheidungen, Review, Playtest-Liste ab 501 |
 | [REVIEW_SPRINT_2026-09-14.md](docs/REVIEW_SPRINT_2026-09-14.md) | Handover der Nachtschicht 2026-09-14: Änderungen je Feature mit Revert-Hinweisen, Entscheidungen, Review, Playtest-Liste ab 301 |
 | [REVIEW_SPRINT_2026-09-13.md](docs/REVIEW_SPRINT_2026-09-13.md) | Handover der Nachtschicht 2026-09-13: Änderungen, Entscheidungen, Review, Playtest-Liste ab 101 |
