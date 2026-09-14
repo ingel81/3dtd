@@ -1,4 +1,4 @@
-# 3DTD — Master Game Design Document
+# 3DTD: Master Game Design Document
 
 **Stand:** 2026-09-15, gegen die Configs geprüft.
 
@@ -36,7 +36,7 @@
 - **Magic (✨)**: bester Ethereal-Counter, zweiter Konter gegen Fortified, flinke Ziele weichen aus.
 - **Fire (🔥)**: DoT/Burn, verbrennt Fleisch, gegen Stein und Geister wirkungslos.
 - **Ice (❄️)**: Low-DPS, starker Slow/CC, Ethereal-Counter.
-- **Poison (☠️)**: DoT-Spezialist gegen Lebendes, eigenstaendiger Schadenstyp.
+- **Poison (☠️)**: DoT-Spezialist gegen Lebendes, eigenständiger Schadenstyp.
 - **Lightning (⚡)**: Hitscan-Chain (Primary + Jumps mit Falloff), stark gegen Light und Ethereal, gut gegen Heavy (Metall leitet), gegen Stein wirkungslos.
 - **Chaos (🌀)**: voller Schaden gegen jede Rüstung, keine Schwäche und keine Stärke. Der Generalist, teuer und spät erforschbar.
 
@@ -71,7 +71,7 @@ Spreizung: unarmored 3,0×, light 3,2×, heavy 5,0×, fortified 6,4×, ethereal 
 Die Chaos-Zeile liegt in jeder Spalte innerhalb dieser Spannen und ändert sie nicht.
 
 > **Quelle der Wahrheit:** `src/app/configs/combat/damage-matrix.config.ts`. Bei
-> Anpassungen dort gilt es, diese Tabelle synchron zu halten — die TypeScript-
+> Anpassungen dort gilt es, diese Tabelle synchron zu halten; die TypeScript-
 > Mapped-Types erzwingen Vollständigkeit auf Code-Seite, nicht in der Doku.
 
 **Regeln** (als Test in `damage-calculator.spec.ts`):
@@ -196,48 +196,48 @@ Andere Upgrade-Pfade als diese Tracks gibt es nicht. Die früher je Tower
 geplanten Pfade (Air-Pfade, Armor Break, Luftflamme, Spezialisierungen) stehen
 in §12.3.
 
-### 3.3 Archer — Physical
+### 3.3 Archer: Physical
 - Starttower, trifft Luft und Boden ab Basis.
 - Der geplante Air-Upgrade-Pfad und die Spezialisierungen sind nicht gebaut (§12.3).
 
-### 3.4 Dual-Gatling — Pierce
+### 3.4 Dual-Gatling: Pierce
 - Trifft Luft erst mit der Forschung AA Retrofit (`aa-retrofit`), die nur die
   Gatling betrifft (`AA_RETROFIT_TOWERS` in `tower-targeting.util.ts`).
 - Der geplante Air-Upgrade-Pfad („AA-Gurt") ist nicht gebaut (§12.3).
 
-### 3.5 Cannon — Siege
+### 3.5 Cannon: Siege
 - Splash 6 m, höchstens 8 Ziele (`splashMaxTargets`), trifft nur Boden.
 - Der geplante Armor-Break-Pfad ist nicht gebaut (§12.3).
 
-### 3.6 Rocket — Siege (Air-Only)
+### 3.6 Rocket: Siege (Air-Only)
 - Trifft nur Luft (`canTargetGround: false`), kein Splash.
 - Die geplante „Bodenfreigabe" ist nicht gebaut (§12.3).
 
-### 3.7 Magic — Magic
+### 3.7 Magic: Magic
 - Stärkster Ethereal-Counter (2.0×), zweiter Konter gegen Fortified (1.3×, Runen gegen Stein).
 - Schwach gegen Light (0.5×): flinke Ziele weichen den Geschossen aus.
 
-### 3.8 Ice — Ice
+### 3.8 Ice: Ice
 - **Air + Ground** ab Basis. Niedriger DPS, starker Slow.
 
-### 3.9 Fire — Fire
+### 3.9 Fire: Fire
 - Flammen-Beam mit Burn (§2.4), trifft nur Boden (`canTargetAir: false`).
 - Die geplante „Luftflamme" ist nicht gebaut (§12.3).
 
-### 3.10 Tentacle — Physical
+### 3.10 Tentacle: Physical
 - Reiner Physical-Schaden. Die früher geplanten 20 % True Damage (Armor-unabhängig)
   sind gestrichen: sie würden die Matrix-Spreizung wieder aufweichen
   (BALANCE_PROPOSAL_2026-09, Entscheidung 7).
 
-### 3.11 Poison — Poison
+### 3.11 Poison: Poison
 - DoT-Spezialist mit Splash-Projektil.
-- Eigenstaendiger Schadenstyp (nicht Fire-Subtyp).
-- Poison-DoT und Burn-DoT sind getrennte Effekte, koennen gleichzeitig wirken.
+- Eigenständiger Schadenstyp (nicht Fire-Subtyp).
+- Poison-DoT und Burn-DoT sind getrennte Effekte, können gleichzeitig wirken.
 
-### 3.12 Lightning — Lightning
+### 3.12 Lightning: Lightning
 - **Chain-Hitscan** (`attackType: 'chain'`): Primary-Treffer + 2 Jumps, je `chainFalloff 0.7` (100% → 70% → 49%), `jumpRange 15m` zwischen Chain-Links.
-- **Air + Ground** ab Basis — Anti-Air ohne Forschungspflicht.
-- **Niche:** zweiter glaubwürdiger Ethereal-Counter (1.5×), stark gegen Light-Swarms (1.5×, profitiert zusätzlich vom Chain-Pattern) und neben der Rocket der zweite Anti-Drachen-Tower (1.2× gegen Heavy, Metall leitet). **Wirkungslos gegen Fortified** (0.3×) — Cannon/Siege oder Magic bleibt der Pflichtbau gegen Mammoth/Stone-Golem.
+- **Air + Ground** ab Basis, Anti-Air ohne Forschungspflicht.
+- **Niche:** zweiter glaubwürdiger Ethereal-Counter (1.5×), stark gegen Light-Swarms (1.5×, profitiert zusätzlich vom Chain-Pattern) und neben der Rocket der zweite Anti-Drachen-Tower (1.2× gegen Heavy, Metall leitet). **Wirkungslos gegen Fortified** (0.3×): Cannon/Siege oder Magic bleibt der Pflichtbau gegen Mammoth/Stone-Golem.
 - Visuell: dauerhaftes Idle-Crackle am Turm-Tip, additive Aufhell-Halos pro Hit (Workaround, weil Photorealistic 3D Tiles dynamische Lichter ignorieren).
 
 ### 3.13 Chaos (seit 2026-09-12)
@@ -321,15 +321,15 @@ ist nicht gebaut; sie steht in §12.5.
 
 ### 5.2 Wave Completion Rewards
 
-> **Superseded seit Phase 5.16.** Die frueher hier stehende Formel
+> **Superseded seit Phase 5.16.** Die früher hier stehende Formel
 > `WaveCompleteBase = 18 + round(2.6 * Wave)` ist **nicht mehr implementiert**.
 > Das Gold pro Wave ist jetzt **deterministisch pro Wave-Nummer** und steht als
 > `WAVE_CURRICULUM` in `src/app/configs/wave-curriculum.config.ts`, abgefragt
-> ueber `goldBudgetForWave()`.
+> über `goldBudgetForWave()`.
 
 Warum: die Formel band das Einkommen an das, was die Wave-Faktoren gerade
 ausspuckten. Mit einem festen Budget pro Wave ist das kumulative Einkommen
-planbar — erst damit lassen sich Tower- und Forschungskosten ueberhaupt
+planbar; erst damit lassen sich Tower- und Forschungskosten überhaupt
 balancen.
 
 ```
@@ -343,13 +343,13 @@ Milestones (Wave 10/20/30/40) = 45 / 80 / 120 / 170
 Nach W30 wählt der Director das Template, und das Gold-Budget wird ab dort
 **getapert**: ×0,5 je Welle (`GOLD_TAPER_PER_WAVE`) bis auf 5 % des
 W30-Budgets (`GOLD_SUSTAIN_FRACTION`), statt neu bei W1 zu beginnen;
-Boss-Wellen zahlen das Doppelte (`BOSS_GOLD_MULTIPLIER = 2`). Ein reiner Loop liess Wave 31 von 180.000 auf 200 Gold fallen und
-zahlte ueber 100 Wellen 2,64 Mio. gegen ein Design-Roster von 1,39 Mio. — die
-Verteidigung erreichte den Vollausbau und toetete ab W11 alles.
+Boss-Wellen zahlen das Doppelte (`BOSS_GOLD_MULTIPLIER = 2`). Ein reiner Loop ließ Wave 31 von 180.000 auf 200 Gold fallen und
+zahlte über 100 Wellen 2,64 Mio. gegen ein Design-Roster von 1,39 Mio., die
+Verteidigung erreichte den Vollausbau und tötete ab W11 alles.
 
 ### 5.3 Beispiel-Kurve (Ist-Werte aus dem Curriculum)
 
-> `goldKill` + `goldComplete` je Wave, ohne Skill-Boni. Vollstaendige Tabelle:
+> `goldKill` + `goldComplete` je Wave, ohne Skill-Boni. Vollständige Tabelle:
 > `WAVE_CURRICULUM` in `configs/wave-curriculum.config.ts`.
 > Visualisierung: `npm run economy-chart` → `docs/economy-chart.html`.
 
@@ -381,29 +381,29 @@ erst nach dem Playtest (BALANCE_PROPOSAL_2026-09 §2.5).
 - **Combo-Bonus max +30%** (+5% pro Perfect-Streak-Wave)
 - **Comeback-Bonus:** `min(15, HP_Lost * 0.3)` pro Wave
 
-### 5.5 Schwierigkeits-Knoepfe (post-Director)
+### 5.5 Schwierigkeits-Knöpfe (post-Director)
 
-Drei Groessen skalieren die Schwierigkeit **nach** der Entscheidung des Wave
+Drei Größen skalieren die Schwierigkeit **nach** der Entscheidung des Wave
 Directors. Sie sind Design-Parameter, keine gelernten Werte:
 
 | Knopf | Wo | Kurve |
 |---|---|---|
 | `endgameHpMultiplier(wave)` | `wave-curriculum.config.ts` | 1.0× bis W20, danach +5%/Wave, Cap 4.0× (W30 ≈ 1.5×, W50 ≈ 2.5×) |
 | `enemyBaseDamageForWave(wave)` | `wave-curriculum.config.ts` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
-| `maxLeakDamagePerWave` | `game-balance.config.ts` | **18** — Obergrenze dessen, was eine einzelne Welle kostet |
+| `maxLeakDamagePerWave` | `game-balance.config.ts` | **18**, Obergrenze dessen, was eine einzelne Welle kostet |
 
 Der Leck-Cap ist die wichtigste der drei. Der Spieler hat 100 Start-HP und
 **heilt nie**; ab W91 kostet ein einzelnes Durchkommen 10 HP. Ohne Cap kann eine
 schlecht gekonterte Welle (Ghost-Swarm gegen ein Roster ohne Magic) 30–50 HP
-nehmen und den Run beenden, ohne dass der Spieler noch etwas haette tun koennen.
-Der Cap macht aus der Todesspirale eine Todesschraege: eine katastrophale Welle
-ist ein schwerer, aber ueberlebbarer Treffer.
+nehmen und den Run beenden, ohne dass der Spieler noch etwas hätte tun können.
+Der Cap macht aus der Todesspirale eine Todesschräge: eine katastrophale Welle
+ist ein schwerer, aber überlebbarer Treffer.
 
 ---
 
 ## 6. Forschungszentrum & Tech-Tree
 
-> **Ersetzt das alte HQ-Level-Konzept.** Das Forschungszentrum ist ein platzierbares Gebaeude
+> **Ersetzt das alte HQ-Level-Konzept.** Das Forschungszentrum ist ein platzierbares Gebäude
 > das als einziges Progressionssystem Tower, Perks und Upgrade-Tiers freischaltet.
 
 ### 6.1 Forschungszentrum (Gebäude)
@@ -506,7 +506,7 @@ Research-Panel:
 
 **Gesperrte Tower im Build-Panel:** Schloss-Icon, Tooltip `Requires: [Forschungsname]`.
 
-### 6.5 Fairness-Regeln fuer den Wave Director
+### 6.5 Fairness-Regeln für den Wave Director
 
 **Regel 1: Mechanik-Gate.** Ab W31 lässt die Template-Maske ein Template mit
 `requiresCapability` nur zu, wenn die Verteidigung die Fähigkeit hat:
@@ -566,25 +566,25 @@ geplanten Luftpfade für Cannon und Fire stehen in §12.3.
 
 > **Stand 2026-09-07:** Der Director ist **regelbasiert und clientseitig**
 > (`ai/core/rule-director.ts`). Das ONNX-Modell ist nicht mehr im Betriebspfad.
-> Grund: gemessen ueber A/B-Runs mit identischen Bots, Curriculum und
+> Grund: gemessen über A/B-Runs mit identischen Bots, Curriculum und
 > Fairness-Gate war das trainierte Netz dreimal statistisch ununterscheidbar
-> von gleichverteiltem Zufall (mittlere Run-Laenge 45,6 gegen 44,7), waehrend
+> von gleichverteiltem Zufall (mittlere Run-Länge 45,6 gegen 44,7), während
 > zwei triviale Heuristiken messbar mehr Spannung erzeugten (Near-Miss 0,067
 > gegen 0,045). Ursache lag vor dem Lernen: das Curriculum pinnt auf 49% der
-> Wellen das Template, der Fairness-Cap bindet auf 63% der Wellen — es gab
+> Wellen das Template, der Fairness-Cap bindet auf 63% der Wellen, es gab
 > kaum etwas zu entscheiden.
 
-### 8.1 Was der Director tatsaechlich entscheidet
+### 8.1 Was der Director tatsächlich entscheidet
 
 Zwei Dinge, beide bewusst ohne Lernen:
 
-- **Abwechslung wird erzwungen:** gewaehlt wird das *aelteste erlaubte*
+- **Abwechslung wird erzwungen:** gewählt wird das *älteste erlaubte*
   Template. Ein Reward-Term und ein Cooldown haben Wiederholung nur teuer
-  gemacht — die Regel macht sie unmoeglich.
-- **Schwierigkeit ist eine geschriebene Kurve** ueber die Wave-Nummer
+  gemacht; die Regel macht sie unmöglich.
+- **Schwierigkeit ist eine geschriebene Kurve** über die Wave-Nummer
   (count/hp hoch, Spawn-Delay runter, voll ab W60). Der Spieler heilt nie,
-  seine HP sind ein Run-Budget — das schreibt man auf, statt es aus einem
-  Skalar-Reward pro Welle zu erschliessen.
+  seine HP sind ein Run-Budget, das schreibt man auf, statt es aus einem
+  Skalar-Reward pro Welle zu erschließen.
 
 ### 8.2 Counter-Logik
 
@@ -599,7 +599,7 @@ Mechanik, Konstanten und Messungen:
 ---
 
 ## 9. Visuelles Feedback
-- **Damage Numbers**: Groesse/Farbe nach Effektivitaet (weak < 0,6 grau, normal rot, strong ≥ 1,2 orange, devastating ≥ 1,5 gold; `EFFECTIVENESS_THRESHOLDS`). Jede Paarung ≤ 0,5 erscheint grau und klein. Chaos (1,0) erscheint immer normal.
+- **Damage Numbers**: Größe/Farbe nach Effektivität (weak < 0,6 grau, normal rot, strong ≥ 1,2 orange, devastating ≥ 1,5 gold; `EFFECTIVENESS_THRESHOLDS`). Jede Paarung ≤ 0,5 erscheint grau und klein. Chaos (1,0) erscheint immer normal.
 - **Schadensart im Tower-Panel:** Icon und Name der Schadensart des gewählten Towers.
 - **Rüstung in NEXT:** das Wave-Panel zeigt Rüstung und „Weak to" der
   kommenden Welle (`wave-timeline.component`).
@@ -639,7 +639,7 @@ Die frühere Wave-für-Wave-Planung aus der Zeit vor dem Curriculum steht in §1
 ## 11. Offene Entscheidungen
 1. **Ghost-Visuals** (Asset final).
 2. **Camo-Detection UI** (Radar-Icon vs. Tower-Halo). Hängt an Camo, das nicht gebaut ist (§12.2).
-3. **Exact DPS-Werte** je Tower fuer TargetCost-Validierung. Das DPS-Modell steht in `ai/core/tower-dps.util.ts`, die Kurven in `docs/tower-stats-chart.html`.
+3. **Exact DPS-Werte** je Tower für TargetCost-Validierung. Das DPS-Modell steht in `ai/core/tower-dps.util.ts`, die Kurven in `docs/tower-stats-chart.html`.
 4. ~~**Poison-Schadenstyp**: eigener Typ oder Fire-Subtyp?~~ → **Entschieden: eigener Typ (Poison).**
 5. **Endless-Scaling** (HP/Speed-Kurven nach Wave 30). Die Mechanik steht (§5.2, §5.5, Boss jede fünfte Welle); die Bewertung ist offen.
 6. **Forschungszeiten balancen:** die Startwerte (15 bis 45 s) sind überholt, heute 12 bis 150 s (§6.3). Die Bewertung ist offen.
@@ -684,13 +684,13 @@ Split stand ebenfalls in dieser Liste; er ist gebaut (§2.5).
 Gebaut sind nur die Tracks aus §3.2. Geplant waren:
 
 - **Archer, Upgrade-Pfad 3 (Air):**
-  - Level 1: „Flak-Pfeile“ — schaltet Air-Targeting frei (kein reines „Priorisieren“)
+  - Level 1: „Flak-Pfeile“: schaltet Air-Targeting frei (kein reines „Priorisieren“)
   - Level 2: +30% Reichweite vs. Air
   - Level 3: +20% Trefferchance auf schnelle Air
   - Spezialisierungen: Falkenauge (Camo-Detection) oder Durchschlagsbolzen.
-- **Dual-Gatling, Air-Path:** L1 „AA-Gurt“ — Air-Targeting frei, L2 Reichweite
+- **Dual-Gatling, Air-Path:** L1 „AA-Gurt“: Air-Targeting frei, L2 Reichweite
   vs Air, L3 Schaden vs Air. Gebaut ist stattdessen die Forschung AA Retrofit.
-- **Cannon, Armor Break Path:** L3 „Risse im Panzer“ — **Armor Break** (4s,
+- **Cannon, Armor Break Path:** L3 „Risse im Panzer“: **Armor Break** (4s,
   Unarmored-Logik). Dazu ein Air-Upgrade-Pfad (aus §7.2).
 - **Rocket:** späterer Pfad „Bodenfreigabe“ erlaubt Ground.
 - **Fire:** Air via Upgrade „Luftflamme“.
@@ -745,7 +745,7 @@ schaut zwei Wellen voraus (§7.1).
 
 | Ebene | Status |
 |---|---|
-| **Soft Counter** (+20–30% Spawn-Rate eines Konters) | **nicht implementiert** — Design-Absicht |
+| **Soft Counter** (+20–30% Spawn-Rate eines Konters) | **nicht implementiert**, Design-Absicht |
 
 | Spieler-Schwäche | AI-Antwort |
 |---|---|
@@ -764,14 +764,14 @@ Die Design-Absicht vom Mai 2026. `WAVE_CURRICULUM` weicht davon ab, unter
 anderem: Luft ab W7, Herbert als Boss auf W10, W20 und W30, kein Lich, keine
 Camo- und Shield-Wellen.
 
-**Wave 1**: Unarmored (Zombie/Rat). Nur Archer verfuegbar. Start-Credits 100.
-**Wave 2**: Swarm-Pressure. Nach Wave 1 reicht es fuer Forschungszentrum (200 Gold aus W1). Erste Forschung starten (z.B. Gatling Tech, 15s).
+**Wave 1**: Unarmored (Zombie/Rat). Nur Archer verfügbar. Start-Credits 100.
+**Wave 2**: Swarm-Pressure. Nach Wave 1 reicht es für Forschungszentrum (200 Gold aus W1). Erste Forschung starten (z.B. Gatling Tech, 15s).
 **Wave 3**: Gatling/Ice sollte erforscht sein. Light Armor-Teaser (Wallsmasher). Zweite Forschung starten.
-**Wave 4**: Mehr Tower verfuegbar. Upgrade-Entscheidungen.
+**Wave 4**: Mehr Tower verfügbar. Upgrade-Entscheidungen.
 **Wave 5**: Light-Wave, Ice-Slow relevant (falls erforscht).
-**Wave 6**: **Teaser Air (1-2 Bats)**. Ice muss erforscht sein fuer Anti-Air. Siege/Magic-Forschung laeuft.
-**Wave 7**: Heavy-Teaser (Zombie Soldier). Cannon/Magic sollte verfuegbar werden.
-**Wave 8**: **Erste reine Air-Wave (fix)**. Anti-Air verfuegbar (Ice oder AA Retrofit).
+**Wave 6**: **Teaser Air (1-2 Bats)**. Ice muss erforscht sein für Anti-Air. Siege/Magic-Forschung läuft.
+**Wave 7**: Heavy-Teaser (Zombie Soldier). Cannon/Magic sollte verfügbar werden.
+**Wave 8**: **Erste reine Air-Wave (fix)**. Anti-Air verfügbar (Ice oder AA Retrofit).
 **Wave 9**: Breather (leichter Ground).
 **Wave 10**: Heavy-Check (Tank). Rocket-Forschung in Reichweite.
 **Wave 11**: Mixed Ground + Air-Teaser.
@@ -783,7 +783,7 @@ Camo- und Shield-Wellen.
 **Wave 17**: Shielded-Teaser (Mech-lite).
 **Wave 18**: Mini-Boss Ground (Herbert lite).
 **Wave 19**: **Fortified-Wave**.
-**Wave 20**: **Air-Elite** (1 Dragon). T2-Upgrades sollten verfuegbar sein.
+**Wave 20**: **Air-Elite** (1 Dragon). T2-Upgrades sollten verfügbar sein.
 **Wave 21**: Ethereal-Teaser (1 Ghost).
 **Wave 22**: **Ethereal-Check** (Ghost-Wave, soft). Magic muss erforscht sein (1.75x vs Ethereal).
 **Wave 23**: Mixed Ground + Ghost Escort.
