@@ -4,6 +4,7 @@ import { GameEventBus } from '../game-engine/game-event-bus';
 import { TIMING } from '../configs/timing.config';
 import { OOZE_LOOK, STUN_SPARKS } from '../configs/visual-effects.config';
 import { GameClock } from '../managers/game-state/game-clock';
+import { ABILITY_IMPACT_SOUNDS } from '../configs/audio.config';
 import type { HeroPresentation } from '../managers/hero.manager';
 import type { RouteBodyStations } from '../utils/route-body';
 import { ENEMY_END, ENEMY_FLAG, ReplayRecording, TOWER_FLAG, heroPoseCode } from './replay-recording';
@@ -525,6 +526,72 @@ describe('ReplayPlayer', () => {
       for (const renderer of ['mushroomClouds', 'frostBursts', 'empPulses', 'orbitalBeams'] as const) {
         expect(fake.engine[renderer]['clear']).toHaveBeenCalled();
       }
+    });
+  });
+
+  describe('sound above 1x', () => {
+    const nuke = ABILITY_IMPACT_SOUNDS['nuclear-strike']!;
+    const tailMs = Math.max(0, ...nuke.tail.map((repeat) => repeat.delayMs));
+    const endMs = 50 + tailMs + 500;
+    let playAtGeo: Spy;
+
+    /** A nuclear strike lands at 50 ms; the recording runs past the end of its rumbling tail */
+    function impactRecording(): ReplayRecording {
+      const rec = new ReplayRecording();
+      rec.reset(5, 0, 100, 0, null);
+      rec.beginFrame(0);
+      rec.endFrame();
+      rec.beginFrame(endMs);
+      rec.endFrame();
+      rec.pushEvent(50, { type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1, target: { lat: 48, lon: 9 }, radiusM: 10 });
+      rec.finish(endMs, 'completed');
+      return rec;
+    }
+
+    function entered(): ReplayPlayer {
+      const p = new ReplayPlayer(impactRecording(), fake.engine as never);
+      p.enter();
+      return p;
+    }
+
+    beforeEach(() => {
+      // The player's own services hear its buses for real here
+      (GameEventBus.prototype.emit as unknown as { mockRestore(): void }).mockRestore();
+      fake = fakeEngine();
+      playAtGeo = vi.fn(() => Promise.resolve());
+      fake.engine.spatialAudio['playAtGeo'] = playAtGeo;
+    });
+
+    it('plays an ability\'s impact sound and its tail at 1x', () => {
+      expect(nuke.tail.length).toBeGreaterThan(0);
+      advance(entered(), endMs);
+      expect(playAtGeo).toHaveBeenCalledTimes(1 + nuke.tail.length);
+    });
+
+    it('plays neither the impact nor its tail above 1x', () => {
+      const p = entered();
+      p.setSpeed(2);
+      advance(p, endMs);
+      expect(playAtGeo).not.toHaveBeenCalled();
+    });
+
+    it('drops a tail still to come when the speed goes above 1x, and on a jump', () => {
+      const p = entered();
+      advance(p, 60);
+      expect(playAtGeo).toHaveBeenCalledTimes(1);
+      p.setSpeed(2);
+      p.update(FRAME_MS);
+      p.setSpeed(1);
+      advance(p, endMs);
+      expect(playAtGeo).toHaveBeenCalledTimes(1);
+
+      p.seek(0);
+      p.play();
+      advance(p, 60);
+      expect(playAtGeo).toHaveBeenCalledTimes(2);
+      p.seek(endMs / 2);
+      advance(p, endMs);
+      expect(playAtGeo).toHaveBeenCalledTimes(2);
     });
   });
 });
