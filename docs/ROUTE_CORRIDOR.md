@@ -48,7 +48,7 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 | `dipLength` | 4 | 0 bis 100 | Einbrüche bis etwa so lang werden geschlossen |
 | `bulgeLength` | 8 | 0 bis 100 | Ausbuchtungen bis etwa so lang werden abgeschnitten |
 | `roofRise` | 2,5 | 0,5 bis 50 | Dach-Check: so weit über der Mittellinie daneben ist eine Zelle nicht begehbar (siehe Laufweg) |
-| `stepRise` | 0,75 | 0,1 bis 50 | Stufen-Check: höchste Stufe je Rasterschritt (2 m) auf dem Weg zur Zelle (siehe Laufweg) |
+| `stepRise` | 0,5 | 0,1 bis 50 | Stufen-Check: höchste Stufe je Rasterschritt (2 m) auf dem Weg zur Zelle (siehe Laufweg; bis 2026-09-14 0,75) |
 | `highwayWidths` | Tabelle unten | je bis 50 | Straßenbreite je `highway`-Klasse |
 | `unknownHighwayWidth`, `laneWidth`, `laneExtra` | 5, 3, 1 | 1 bis 50, 1 bis 10, 0 bis 10 | Breite unbekannter Klassen, Spurbreite, Zuschlag bei `lanes` |
 
@@ -321,18 +321,30 @@ Zelle. Vorher blieb sie im Korridor und wurde auf den Boden daneben gesetzt
 (orange Kontur, `clamped`): Gegner liefen dort durch das Auto oder standen
 unter dem Dach.
 
-**Prüfung** (`cellWalkable`, `utils/corridor-walk.ts`): für jede Zelle
-neben der Mittellinie mit Fläche `ground` und einer eigenen Probe aus einem
-Tile bis `maxTileError`. Bezug ist die Mittellinien-Stelle daneben (`axisX`,
-`axisZ`, beim Anlegen festgelegt).
+**Prüfung** (`judgeWalk`, `cellWalkable`, `utils/corridor-walk.ts`): für
+jede Zelle mit Fläche `ground` und einer eigenen Probe aus einem Tile bis
+`maxTileError`, durch die keine Mittellinie läuft. Bezug ist die Höhe der
+Mittellinie neben der Zelle (`centreLineGround`): der Median über die
+Mittellinien-Stelle daneben (`axisX`, `axisZ`, beim Anlegen festgelegt) und
+die Mittellinien-Stellen unter ihren acht Nachbarn, bei gerader Anzahl der
+untere der beiden mittleren. Auf einer Linie sind das die Stelle und die
+davor und danach. Jede Stelle zählt mit der Fläche ihrer Zelle wie beim
+Sampeln: der unterste Treffer, auf einem Brückendeck der oberste; eine
+Tunnelstelle zählt nicht. Mit dem untersten Treffer auch der Deck-Stellen
+lagen an einem Brückenkopf auf einer schrägen Linie Randzellen 8 m über dem
+Median, dem Wasser unter dem Deck (Spec). Bis 2026-09-14 war es die eine Stelle.
+Lag sie unter einer Auskragung, deren Säule keinen Boden hat, zählte deren
+Unterseite: In Rothenburg (Retest 560 bis 563, Pick C) lag die Stelle 5,7 m
+über der Straße, und eine Zelle 2 m über der Straße unter einer Traufe
+bestand den Check.
 
-- **Dach-Check:** Liegt die Zelle mehr als `roofRise` (2,5 m) über dem
-  Boden der Mittellinie daneben, ist sie nicht begehbar: Dach, Traufe,
+- **Dach-Check:** Liegt die Zelle mehr als `roofRise` (2,5 m) über der
+  Höhe der Mittellinie daneben, ist sie nicht begehbar: Dach, Traufe,
   Krone.
 - **Stufen-Check:** Sonst geht die Prüfung den Weg von der Mittellinie zur
   Zelle Rasterstelle für Rasterstelle ab (Säulen der Zellen dort, aus dem
   Cache der Engine). Eine Stelle gilt als erreicht, wenn ihr Boden
-  höchstens `stepRise` (0,75 m) über dem höchsten bisher erreichten Boden
+  höchstens `stepRise` (0,5 m) über dem höchsten bisher erreichten Boden
   liegt oder über dem zuletzt erreichten plus der Querneigung je Stelle
   seitdem. Erreicht der Weg die Zelle nicht, ist sie nicht begehbar: Auto,
   Transporter, Hecke, erhöhter Garten. Abwärts geht es beliebig weit (bis
@@ -347,11 +359,26 @@ Tile bis `maxTileError`. Bezug ist die Mittellinien-Stelle daneben (`axisX`,
     Linie, die weder achsparallel noch diagonal läuft (Zellen um das Ende
     eines Segments), steigt der Boden über die Rasterstellen in ungleichen
     Stufen, oft beim ersten Schritt gar nicht.
-- **Kein Urteil** (`null`): Zellen der Mittellinie, Deck und Tunnel,
+  - **0,5 m statt 0,75 m** (seit 2026-09-14): In Rothenburg (Pick A) lag
+    ein Auto 0,57 m über der Straßenzelle davor und bestand 0,75 m; die
+    Stufen zwischen Bodenzellen dort waren höchstens 0,24 m, am Hang
+    (Pick B) höchstens 0,2 m je Schritt. Eine Böschung auf nur einer Seite
+    (nichts zu spiegeln) bleibt bis 25 % entlang der Rasterachsen begehbar,
+    diagonal bis etwa 17 %; mit 0,4 m fiel an einer diagonalen Straße eine
+    Böschung mit 15 % schon weg. Ein Auto, das die Photogrammetrie flacher
+    als 0,5 m macht, bleibt im Korridor.
+- **Kein Urteil** (`null`): Zellen, durch die eine Mittellinie läuft,
+  auch wenn sie nur eine Ecke anschneidet (`centreLineKeys`; der Korridor
+  nimmt sie bei jeder Breite, `walkCaps` lässt sie aus), Deck und Tunnel,
   gefüllte und ungesampelte Zellen, Zellen aus Tiles gröber als
   `maxTileError` (ein grober Klumpen engt nichts ein; sie kommen dran,
   sobald ein feineres Tile da ist), eine Zelle ohne Säule an der
-  Mittellinie oder mehr als `OUTLIER_M` von ihr entfernt (Naht).
+  Mittellinie oder mehr als `OUTLIER_M` von ihr entfernt (Naht). Bis
+  2026-09-14 galt nur eine Zelle als Mittellinie, deren `axisX`/`axisZ`
+  sie selbst ist. Schneidet die Linie nur eine Ecke an, liegt der nächste
+  Punkt der Linie oft in der Nachbarstelle: Die Zelle wurde geprüft, als
+  nicht begehbar gemeldet und blieb trotzdem (Rothenburg, Pick B, Dachecke
+  7,6 m über der Straße).
 
 Die Zelle selbst behält ihre Höhe (`sampleCellY` nimmt den untersten
 Treffer). `clamped`, `stepTop` und die orange Kontur gibt es nicht mehr;
@@ -367,9 +394,20 @@ Zelle erreicht; an einer Ecke, deren runde Enden sie beide erreichen, nur
 das frühere Segment. Die Kappe ist der Abstand der Zelle zur Mittellinie
 (hinter einem Ende zum Endpunkt) weniger 0,09 m: So weit reicht das runde
 Ende eines Nachbarstücks über dessen Halbbreite hinaus (halbe
-Zelldiagonale mal `hypot(1, taper)` weniger `edgeMargin`), dazu 1 cm. Eine
-Zelle, durch die die Mittellinie läuft, bleibt; der Korridor nimmt sie bei
-jeder Breite. Gespeichert je Segment, Station und Seite in
+Zelldiagonale mal `hypot(1, taper)` weniger `edgeMargin`), dazu 1 cm. Das
+gilt, solange die Kappe mindestens `edgeMargin` ist. Darunter ist die
+Grenze der Gegner dort 0, und das runde Ende der Nachbarstation reicht
+trotzdem 1,58 m weit (`jointCap`). Darum kappt `walkCaps` danach jede
+Station, deren rundes Ende an einem Stoß (zwei Segmente, oder zwei
+Stationen eines Segments, die auf einer der beiden Seiten verschieden
+breit sind: Ändert sich nur die rechte Seite, reicht das runde Ende links
+so weit, wie die Nachbarstation links erlaubt, auch über ein kurzes Stück
+hinweg in eine links schmale Strecke) oder deren Ende
+genau an der Zelle sie noch erreicht, auf ihren Abstand weniger 1 cm, bis
+sich nichts mehr ändert (`roundEndsOff`). Vorher blieb in einer schmalen
+Gasse eine Autozelle 1,5 m neben der Linie stehen, wo zwei Stationen
+aneinanderstoßen. Eine Zelle, durch die eine Mittellinie läuft, bleibt;
+der Korridor nimmt sie bei jeder Breite. Gespeichert je Segment, Station und Seite in
 `walkBySegment`, nur je schmaler, vergessen mit den Messungen
 (Ortswechsel, `clearCorridorMeasurements`, `__corridor.set()` mit einem
 der `MEASUREMENT_KEYS`).
@@ -393,7 +431,11 @@ Gegner halten sich an die schmalere Breite wie an jede andere
   die erste Messung über die OSM-Breite hinaus verbreitert. Dann Routen,
   Grid und Höhen noch einmal, bis sich kein Korridor mehr ändert, höchstens
   `MAX_WALK_PASSES` (2) weitere Male. Die Kappen werden nur schmaler, ein
-  weiterer Bau hat also nur Zellen des vorherigen.
+  weiterer Bau hat also nur Zellen des vorherigen. Braucht er alle, ruft
+  er `CorridorRefit.remeasureLater` auf: nach 3 s ein `remeasure()`, das
+  nur misst, wo `hasUnwalkableCells` noch eine Zelle findet, die ein
+  schmalerer Korridor wegnähme. Vorher wartete der Rest auf den nächsten
+  Tile-Schub, der bei stehender Kamera nicht kommt.
 - Nach einem Tile-Schub (`remeasure()`): Zeigt ein feineres Tile Zellen, zu
   denen kein Gegner laufen kann und die ein schmalerer Korridor wegnähme
   (`hasUnwalkableCells`), misst `remeasure()` wie bei ungemessenen
@@ -406,7 +448,11 @@ Gegner halten sich an die schmalere Breite wie an jede andere
 **Kosten:** In einer Spec ohne Engine (1 km Route mit Knicken, 7 m je
 Seite, 3714 Zellen, ein Auto alle 12 m, Median aus 7 Läufen) kostete die
 Prüfung aller Zellen 1,2 ms und die Kappen 0,1 ms; Grid erzeugen und
-voller Höhen-Sweep in derselben Spec 6 und 5 ms. Im Spiel liest die Prüfung
+voller Höhen-Sweep in derselben Spec 6 und 5 ms. Mit dem Median über die
+Mittellinie (bis zu neun Säulen je Achsstelle, je Durchgang einmal je
+Stelle gemerkt) kostete die Prüfung in einer ähnlichen Spec (3714 Zellen,
+227 nicht begehbar, Median aus 9 Läufen, nicht committet) 0,8 ms statt
+0,45 ms mit der einen Stelle; ohne das Merken waren es 1,8 ms. Im Spiel liest die Prüfung
 die Säulen aus dem Cache der Engine, den das Grid im selben Frame gefüllt
 hat; nicht gemessen. Teuer ist ein zusätzlicher Bau: nach den Zahlen vom
 2026-09-12 (routes 14, grid 10, heights 4 bis 6 ms) etwa 30 ms, synchron im
@@ -686,7 +732,12 @@ __corridor.pick(6)
      `route-grid-diagnostics.ts:101-118`).
      - Lage und Zelle: `routeM`, `cell`, `state`, `heightM`, `walkable`
        (`cellWalkable`; `false`: kein Gegner kann dorthin laufen, der Korridor
-       hält die Zelle trotzdem), `aboveNeighboursM`, `surface`.
+       hält die Zelle trotzdem), `walkCheck` (warum: `walkable`, `roof`,
+       `step`, `centre line`, `coarse tile`, `no sample`, `deck or tunnel`,
+       `no centre line ground`, `seam`), `overLineM` (Höhe über der
+       Mittellinie, gegen die der Check misst; bei einer Zelle der
+       Mittellinie über der Mittellinie ringsum), `aboveNeighboursM`,
+       `surface`.
      - Antworten und Anzeige des ausgewählten Towers: `ground`, `air`,
        `displayed`.
      - Was über der Stelle liegt und ob die Kamera sie sieht (`coverAt`,
@@ -836,9 +887,15 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
 - Auf freien Flächen ohne Wand innerhalb von `maxHalfWidth` (Platz, Park,
   Vorgärten mit niedriger Hecke oder Mauer) ist der Korridor auf dieser Seite
   7 m breit.
-- Der Laufweg-Check geht von der Mittellinien-Stelle daneben aus. Steht
-  dort selbst eine Krone oder ein Auto (OSM-Linie über dem Parkstreifen),
-  greift er nicht, und die Zellen der Mittellinie selbst prüft er nie.
+- Der Laufweg-Check geht von der Mittellinie neben der Zelle aus, dem
+  Median über die Stelle daneben und ihre Nachbarn auf der Linie. Stehen
+  dort mehrere Stellen auf einer Krone oder einem Auto (OSM-Linie über dem
+  Parkstreifen), greift er nicht. Zellen, durch die eine Mittellinie läuft,
+  prüft er nicht: Kommt ihre Säule auf einer Auskragung, einem Erker oder
+  einer Dachecke herunter, bleibt die Zelle auf dieser Höhe, und Gegner auf
+  ihr steigen hinauf (Rothenburg, Pick C 5,7 m, Pick B 7,6 m).
+  `__corridor.pick()` zeigt es mit `walkCheck: 'centre line'` und
+  `overLineM`.
 - Ein Auto oder eine Hecke am Rand nimmt den Korridor dahinter mit, den
   Gehweg hinter einer Autoreihe eingeschlossen: Der Korridor ist je Seite
   ein Band. Genau dieses Einengen hatte der Playtest vom 2026-09-12 bei den
