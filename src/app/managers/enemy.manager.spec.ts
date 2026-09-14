@@ -35,6 +35,7 @@ const createMockTilesEngine = () => ({
     add: vi.fn(),
     setFrame: vi.fn(),
     remove: vi.fn(),
+    collapse: vi.fn(),
     clear: vi.fn(),
   },
   spatialAudio: null,
@@ -976,6 +977,12 @@ describe('EnemyManager', () => {
       expect(clumps.reduce((sum, c) => sum + c.health.maxHp, 0)).toBe(600);
       // Lanes scattered across the corridor, not one line
       expect(new Set(clumps.map((c) => c.movement.getLateralFactor().toFixed(3))).size).toBe(20);
+      // The band collapses from the body's stretch of the kill's sub-step; the removal after it keeps that
+      expect(tilesEngine.oozes.setFrame).toHaveBeenLastCalledWith(
+        ooze.id, expect.closeTo(40, 6), expect.closeTo(120, 6), 0, false, false, false,
+      );
+      expect(tilesEngine.oozes.collapse).toHaveBeenCalledWith(ooze.id);
+      expect(tilesEngine.oozes.remove).toHaveBeenCalledWith(ooze.id);
     });
 
     it('breaks a short body into fewer clumps', () => {

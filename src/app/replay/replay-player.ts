@@ -529,16 +529,20 @@ export class ReplayPlayer {
   }
 
   /**
-   * A killed or leaked ooze's band sinks away over OOZE_LOOK.dissolve, as
-   * in the live game. @returns true while it sinks at `t`
+   * A killed ooze's band collapses over OOZE_LOOK.collapse, a leaked one's
+   * sinks away over OOZE_LOOK.dissolve, as in the live game. @returns true
+   * while it goes at `t`
    */
   private sinkBody(i: number, t: number): boolean {
     const end = this.rec.enemyEnd[i];
     const endMs = this.rec.enemyEndMs[i];
     if (end !== ENEMY_END.DIED && end !== ENEMY_END.LEAKED) return false;
-    if (t < endMs || t >= endMs + OOZE_LOOK.dissolve * 1000) return false;
+    const killed = end === ENEMY_END.DIED;
+    const seconds = killed ? OOZE_LOOK.collapse : OOZE_LOOK.dissolve;
+    if (t < endMs || t >= endMs + seconds * 1000) return false;
     if (this.enemyShown[i] === SHOWN_ALIVE) {
-      this.engine.oozes.remove(this.enemyId(i));
+      if (killed) this.engine.oozes.collapse(this.enemyId(i));
+      else this.engine.oozes.remove(this.enemyId(i));
       this.enemyShown[i] = SHOWN_DYING;
     }
     return true;

@@ -151,6 +151,34 @@ describe('OozeBandRenderer', () => {
     expect(dispose).toHaveBeenCalledTimes(1);
   });
 
+  it('collapses a killed band over OOZE_LOOK.collapse, about three times as long as a removed one sinks', () => {
+    expect(OOZE_LOOK.collapse).toBeGreaterThanOrEqual(1.5);
+    expect(OOZE_LOOK.collapse).toBeLessThanOrEqual(2.5);
+    expect(OOZE_LOOK.collapse / OOZE_LOOK.dissolve).toBeGreaterThan(3);
+
+    const scene = new Scene();
+    const renderer = new OozeBandRenderer(scene);
+    renderer.add('a', stations, () => 0);
+    renderer.add('b', stations, () => 0);
+    expect(uniforms(scene)['uCollapse'].value).toBe(0);
+    renderer.collapse('a');
+    // The removal that follows the kill keeps the collapse going
+    renderer.remove('a');
+    renderer.remove('b');
+    const u = uniforms(scene);
+    expect(u['uCollapse'].value).toBe(1);
+    expect(uniforms(scene, 1)['uCollapse'].value).toBe(0);
+
+    renderer.animate(OOZE_LOOK.collapse * 500);
+    expect(u['uDissolve'].value).toBeCloseTo(0.5, 9);
+    // b sank away within its 0.6 s, a is half way
+    expect(scene.children).toHaveLength(1);
+    renderer.animate(OOZE_LOOK.collapse * 490);
+    expect(scene.children).toHaveLength(1);
+    renderer.animate(OOZE_LOOK.collapse * 20);
+    expect(scene.children).toHaveLength(0);
+  });
+
   it('glows and tints every band through shared blood moon uniforms, bands added later included', () => {
     const scene = new Scene();
     const renderer = new OozeBandRenderer(scene);

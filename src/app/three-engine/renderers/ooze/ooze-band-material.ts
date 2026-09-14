@@ -16,6 +16,9 @@ import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
  * - uTime: game seconds, for the wobble, the swirl and the bubbles.
  * - uTint, uTintAmount, uBurn: slow or poison tint, burn glow.
  * - uDissolve: 0 alive, 1 sunk away.
+ * - uCollapse: 0 sinks evenly (a leak, a removal), 1 collapses (a kill):
+ *   boils and swells first, then slumps into a spreading puddle and tears
+ *   open, see OOZE_LOOK.collapse.
  * - uBloodMoonGlow, uBloodMoonTint: the blood moon look, see
  *   OozeBandRenderer.setBloodMoon; 0 and 1 outside it.
  *
@@ -39,6 +42,7 @@ export function createOozeBandMaterial(): ShaderMaterial {
       uHeight: { value: OOZE_LOOK.height },
       uCap: { value: OOZE_LOOK.capLength },
       uDissolve: { value: 0 },
+      uCollapse: { value: 0 },
       uTint: { value: new Vector3() },
       uTintAmount: { value: 0 },
       uBurn: { value: 0 },
@@ -66,6 +70,7 @@ export function createOozeBandMaterial(): ShaderMaterial {
       uniform float uHeight;
       uniform float uCap;
       uniform float uDissolve;
+      uniform float uCollapse;
 
       varying float vS;
       varying float vA;
@@ -87,19 +92,29 @@ export function createOozeBandMaterial(): ShaderMaterial {
         float capShape = sqrt(1.0 - (1.0 - cap) * (1.0 - cap));
         // The leading lobe is fatter than the rest
         float lobe = 1.0 + 0.25 * exp(-max(uTip - aS, 0.0) / 6.0);
-        float sink = 1.0 - uDissolve;
+
+        // Going away: a removed body sinks and narrows evenly; a killed one
+        // (uCollapse) swells and boils first, then slumps flat and spreads
+        float d = uDissolve;
+        float slump = smoothstep(0.15, 0.85, d);
+        float swell = uCollapse * smoothstep(0.0, 0.1, d) * (1.0 - smoothstep(0.1, 0.35, d));
+        float boil = uCollapse * (1.0 - smoothstep(0.2, 0.6, d));
+        float sink = mix(1.0 - d, (1.0 - 0.94 * slump) * (1.0 + 0.4 * swell), uCollapse);
+        float spread = mix(1.0 - 0.5 * d, 1.0 + 0.3 * slump, uCollapse);
 
         // Across: the covered half width, less with less HP, swelling slowly
         float wobble = 0.06 * sin(aS * 0.8 - uTime * 1.7) + 0.04 * sin(aS * 2.1 + uTime * 2.6 + a * 2.0);
-        float width = uWidth * capShape * (1.0 - 0.5 * uDissolve) * (1.0 + wobble);
+        wobble += 0.08 * boil * sin(aS * 3.3 - uTime * 11.0 + a * 5.0);
+        float width = uWidth * capShape * spread * (1.0 + wobble);
         vec3 p = position + vec3(aSide.x, 0.0, aSide.y) * a * width;
 
-        // Up: a flat-topped dome across, heaving along the body
+        // Up: a flat-topped dome across, heaving along the body, churning while it boils
         float dome = pow(max(1.0 - a * a, 0.0), 0.55);
-        float heave = 1.0 + 0.18 * sin(aS * 1.3 - uTime * 2.1);
+        float heave = 1.0 + 0.18 * sin(aS * 1.3 - uTime * 2.1)
+          + 0.35 * boil * sin(aS * 2.7 + uTime * 9.0) * sin(a * 3.0 + aS * 0.9);
         float crest = uHeight * capShape * lobe * sink * heave;
         p.y += crest * dome + 0.04;
-        vDome = dome * capShape * sink;
+        vDome = dome * capShape * min(sink, 1.0);
 
         // Normal of the cross section: slope of the dome over the metres across
         float ac = clamp(a, -0.97, 0.97);
@@ -119,6 +134,7 @@ export function createOozeBandMaterial(): ShaderMaterial {
       uniform float uTip;
       uniform float uTime;
       uniform float uDissolve;
+      uniform float uCollapse;
       uniform vec3 uTint;
       uniform float uTintAmount;
       uniform float uBurn;
@@ -187,12 +203,13 @@ export function createOozeBandMaterial(): ShaderMaterial {
         return 1.0 - smoothstep(0.06, 0.16, min(dist, knob));
       }
 
-      // Bubbles rising and popping: a ring per lucky cell, growing until it pops
-      float oozeBubbles(vec2 q, float time) {
+      // Bubbles rising and popping: a ring per lucky cell (hash above rare),
+      // growing until it pops
+      float oozeBubbles(vec2 q, float time, float rare) {
         vec2 cellSize = vec2(1.4, 1.1);
         vec2 cell = floor(q / cellSize);
         float h = oozeHash(cell);
-        if (h < 0.45) return 0.0;
+        if (h < rare) return 0.0;
         vec2 f = q - cell * cellSize;
         vec2 centre = cellSize * vec2(0.3 + 0.4 * fract(h * 17.0), 0.3 + 0.4 * fract(h * 31.0));
         float phase = fract(time * (0.18 + 0.25 * h) + h * 7.0);
@@ -213,6 +230,19 @@ export function createOozeBandMaterial(): ShaderMaterial {
 
         // Patterns ride with the tip: the slime flows forward as it crawls
         vec2 q = vec2(uTip - vS, vA * 3.0);
+
+        // A killed body tears open as it slumps: holes grow out of the noise
+        // until nothing is left, their edges glowing. Only while collapsing.
+        float tornEdge = 0.0;
+        if (uCollapse > 0.5) {
+          float tear = oozeFbm(q * vec2(0.45, 0.8) + vec2(7.3, 1.9));
+          float torn = smoothstep(0.3, 1.0, uDissolve) * 1.1 - 0.05;
+          if (tear < torn) discard;
+          tornEdge = step(0.0, torn) * (1.0 - smoothstep(0.0, 0.06, tear - torn));
+        }
+        // It boils as it breaks up: more bubbles, faster, brighter
+        float boil = uCollapse * (1.0 - smoothstep(0.2, 0.6, uDissolve));
+
         float swirl = oozeFbm(q * vec2(0.3, 0.5) + vec2(uTime * 0.12, -uTime * 0.07));
         vec3 col = mix(uDeep, uBright, 0.3 + 0.55 * swirl);
         col = mix(col, uDeep, vDome * 0.45);
@@ -220,7 +250,7 @@ export function createOozeBandMaterial(): ShaderMaterial {
         float bone = oozeBones(q + vec2(uTime * 0.05, 0.0)) * (0.35 + 0.5 * vDome);
         col = mix(col, uBone * (0.55 + 0.45 * swirl), bone * 0.75);
 
-        float bubble = oozeBubbles(q, uTime);
+        float bubble = oozeBubbles(q, uTime * (1.0 + 2.5 * boil), 0.45 - 0.3 * boil) * (1.0 + 1.5 * boil);
 
         // Wrapped key light from the sun's direction (the tiles take no scene light)
         const vec3 L = vec3(-0.42765, 0.86505, -0.26242);
@@ -230,7 +260,7 @@ export function createOozeBandMaterial(): ShaderMaterial {
         float gloss = pow(nh, 90.0) * 1.6 + pow(nh, 16.0) * 0.15;
         float rim = pow(1.0 - facing, 3.0);
 
-        col = col * diffuse + uGlow * (bubble * 0.5 + rim * 0.35) + vec3(gloss);
+        col = col * diffuse + uGlow * (bubble * 0.5 + rim * 0.35 + tornEdge * 0.6) + vec3(gloss);
         col = mix(col, uTint, uTintAmount);
         col += uBurnGlow * uBurn * (0.35 + 0.25 * sin(uTime * 13.0 + vS * 1.7));
         // Blood moon: a red glow at the edges like the other enemies, then
@@ -240,7 +270,9 @@ export function createOozeBandMaterial(): ShaderMaterial {
         col *= uBloodMoonTint;
 
         float alpha = clamp(0.6 + 0.25 * vDome + 0.3 * rim + 0.3 * bone + 0.2 * gloss, 0.0, 0.96);
-        gl_FragColor = vec4(col, alpha * (1.0 - uDissolve));
+        // A collapsing body keeps its colour until the last of it tears away
+        float fade = mix(1.0 - uDissolve, 1.0 - smoothstep(0.7, 1.0, uDissolve), uCollapse);
+        gl_FragColor = vec4(col, alpha * fade);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }

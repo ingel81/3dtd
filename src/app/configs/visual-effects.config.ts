@@ -327,8 +327,17 @@ export const OOZE_LOOK = {
   across: 9,
   /** Seconds between two ground refreshes of the body's stretch (route cells refine as tiles stream) */
   groundRefresh: 1,
-  /** Seconds the band takes to sink away once the ooze is gone */
+  /** Seconds the band takes to sink away once the ooze is gone (a leak, a removal) */
   dissolve: 0.6,
+  /**
+   * Seconds a killed ooze's band takes to collapse (OozeBandRenderer.collapse):
+   * it boils and swells for a moment, slumps into a puddle that runs past its
+   * edges and tears open until nothing is left. Long enough for the bubbles,
+   * spray and debris to read as a sequence; short enough that the clumps
+   * (4.5 m/s) have hopped about 9 m out of it before it is gone, so the towers
+   * are not seen shooting into a band that is no target any more.
+   */
+  collapse: 2,
   /** Deep and bright slime, bone remnants, the glow of bubbles and rim */
   deep: [0.015, 0.12, 0.008] as const,
   bright: [0.22, 0.8, 0.04] as const,

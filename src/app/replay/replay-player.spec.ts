@@ -482,14 +482,16 @@ describe('ReplayPlayer', () => {
       expect(p.enemiesAlive).toBe(2);
     });
 
-    it('sinks the band of a killed ooze, then drops it; scrubbed back it lies again', () => {
+    it('collapses the band of a killed ooze past the time a removed one sinks; scrubbed back it lies again', () => {
       const oozes = fake.engine.oozes as Record<string, Spy>;
       advance(p, 160);
-      expect(oozes['remove']).toHaveBeenCalledWith('replay-enemy-0');
-      expect(oozes['discard']).not.toHaveBeenCalled();
+      expect(oozes['collapse']).toHaveBeenCalledWith('replay-enemy-0');
+      expect(oozes['remove']).not.toHaveBeenCalled();
+      // The recording ends at 1.1 s, inside the 2 s collapse
       advance(p, OOZE_LOOK.dissolve * 1000);
-      expect(oozes['discard']).toHaveBeenCalledWith('replay-enemy-0');
+      expect(oozes['discard']).not.toHaveBeenCalled();
       p.seek(50);
+      expect(oozes['discard']).toHaveBeenCalledWith('replay-enemy-0');
       expect(oozes['add']).toHaveBeenCalledTimes(2);
     });
 
