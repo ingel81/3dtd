@@ -19,8 +19,9 @@ am Anfang der Playtest-Liste unten. Danach die neuen Punkte ab Nummer 301.
 **Stand dieses Dokuments:** dritter Durchgang, Teil 2. Code-Stand
 `a26cd7dd` (fix4), Branch-Head `5e1de3f2` mit den Handover-Commits.
 Eingearbeitet sind Replay, fix2, fix3, fix4 und die Korrekturen des
-Faktenchecks (geprüft am `1fe62ebc`). Offen ist nur noch review5 (Replay),
-sein Abschnitt unter "Review" folgt.
+Faktenchecks (geprüft am `1fe62ebc`, Delta bis `5e1de3f2`). review5
+(Replay) liegt vor, die Behebung seiner Befunde läuft (replay2), die Hashes
+folgen.
 
 ## Stand
 
@@ -56,9 +57,9 @@ Nacharbeit angefordert, die Worker haben selbst auf den Nacht-Head rebased,
 übernommen wurde per Fast-Forward (Teile per Cherry-Pick: `e92575f4`,
 `ae5fe4f8`, die vat-Zerlegung). Nach jedem Merge lief das Gate: vitest,
 beide tsc, ESLint, Production-Build. Vier Review-Agents haben den gemergten
-Stand gelesen, ein fünfter liest das Replay (Abschnitt "Review"). Ein
-Faktencheck hat dieses Dokument am `1fe62ebc` gegen Code, Configs und
-Commits geprüft; seine Korrekturen sind eingearbeitet.
+Stand gelesen, ein fünfter das Replay (Abschnitt "Review"). Ein Faktencheck
+hat dieses Dokument am `1fe62ebc` gegen Code, Configs und Commits geprüft,
+dazu die Änderungen bis `5e1de3f2`; seine Korrekturen sind eingearbeitet.
 
 Die Worker-Berichte nennen oft Hashes von vor dem Rebase. In diesem Dokument
 stehen die Hashes des Branches.
@@ -461,8 +462,9 @@ stehen die Hashes des Branches.
   Flughöhe, Wahl des Spawnpunkts), die Sichtlinie der Tower kommt aus
   GPU-Readbacks gegen gestreamte Tiles, die Turmdrehung, die das Feuern
   freigibt, lebt im Renderer, und die Simulationsdienste sind Singletons des
-  laufenden Spiels. Belege in [REPLAY.md](REPLAY.md), dieselben Blocker wie
-  in MULTIPLAYER_CONCEPT.md. Alle `command:*` der Welle stehen trotzdem als
+  laufenden Spiels. Belege in [REPLAY.md](REPLAY.md). Zufall, GPU-LOS und
+  Zellhöhen stehen auch in MULTIPLAYER_CONCEPT.md Abschnitt 2, Turmdrehung
+  im Renderer und Singleton-Dienste kommen dazu. Alle `command:*` der Welle stehen trotzdem als
   Klartext im Log, mit der `WaveConfig` des Starts.
 - **Bedienung**: "replay W12" im WAVE-Panel neben "auto 10s" (zwischen den
   Wellen) und "Replay wave N" auf dem Game-Over-Screen. Im Replay ist das HUD
@@ -508,9 +510,11 @@ Behebt die fünf Befunde von review1 (Abschnitt "Review", Befunde 1 bis 5).
 - **Sockel neben Autos** (`f500aaaf`, Befund 1): Was den Tower heben darf,
   hängt jetzt davon ab, wo der Cursor steht. Liegt die Fläche unter dem
   Cursor mehr als 2,5 m über dem Boden ihrer eigenen Säule
-  (`ROOF_ABOVE_GROUND`, wie `roofRise` im Routenraster), gilt die
-  Dach-Regel wie bisher: jede Probe bis 5 m darf heben, First und gestufte
-  Dächer bekommen ihren Sockel. Sonst gilt die Boden-Regel: Nur Proben, die
+  (`ROOF_ABOVE_GROUND`), gilt die Dach-Regel wie bisher: jede Probe bis
+  5 m darf heben, First und gestufte Dächer bekommen ihren Sockel. (Stand
+  `f500aaaf`: Zeigte die Säule unter einem Dach keinen Boden, galt dort die
+  Boden-Regel; seit fix4 erkennt der Sockel Dächer zusätzlich am Boden
+  rundherum, siehe dort.) Sonst gilt die Boden-Regel: Nur Proben, die
   der Boden vom Cursor aus allmählich erreicht, zählen; ein Schritt zur
   Nachbarprobe darf beliebig fallen, aber nur 0,5 m (`MAX_STEP`) plus die
   Steigung unter dem Cursor steigen. Die Steigung kommt aus
@@ -610,7 +614,10 @@ Behebt die fünf Befunde von review3 (Befunde 15 bis 19).
 - Das Binary gehört nicht zum Repo: `GLSLANG_VALIDATOR` oder
   `glslangValidator` im PATH, Bezugsquelle in ARCHITECTURE.md §13. Ohne
   Binary laufen nur die Aufbau-Tests, die Compile-Tests stehen als
-  übersprungen da (so im Gate). Gelaufen mit 11.7.0, die dort genannte
+  übersprungen da (so im Gate; seit fix4 "30 passed | 27 skipped (57)"). Die
+  Log-Depth-Prüfung dieser Aufbau-Tests las bis `4bf9ade9` nur die Defines,
+  die three ohnehin setzt; ein Material ohne die Chunks hätte bestanden
+  (review4, Befund 20). Gelaufen mit 11.7.0, die dort genannte
   16.6.0 ist nicht getestet.
 - `292d788f`: Kommentar zu `forceSinglePass` in `vat-material.ts` und die
   Gotcha zu `USE_INSTANCING` in ARCHITECTURE.md §13 richtiggestellt (three
@@ -771,7 +778,9 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
     Steigung). Folgen: Steht der Cursor auf einem Autodach, kommt der Tower
     dorthin (die Cursor-Fläche zählt); Terrassenmauern und Böschungen, die
     neben ebenem Cursor steiler steigen, heben nicht mehr; auf einem
-    Parkdeck (Dach-Regel) heben Autos weiter.
+    Parkdeck (Dach-Regel) heben Autos weiter. Seit fix4 gilt die Dach-Regel
+    auch, wo die eigene Säule keinen Boden zeigt, der Boden rundherum aber
+    tief liegt (Entscheidung 28).
 21. **Sockel an der Flachdachkante erst im Stillstand** (`5744bcce`): Beim
     schnellen Überfahren fehlt ein Sockel, den nur der äußere Ring
     verlangt; er erscheint einen Frame nach dem Anhalten, der Klick setzt
@@ -780,8 +789,8 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
     Abhängigkeit, die glslang mitbringt, wurde bewusst abgelehnt; das
     Binary kommt über `GLSLANG_VALIDATOR` oder den PATH. Folge: Ohne
     installiertes `glslangValidator` prüft `npm test` nur den Aufbau der
-    Shader, die 13 Compile-Tests stehen als übersprungen da (so auch im
-    Gate).
+    Shader, die Compile-Tests (am `4d415013` 13, seit fix4 27) stehen als
+    übersprungen da (so auch im Gate).
 23. **Forschungsquote des ONNX-Modells über 11 Knoten** (`eea57760`): Die
     Quote zählt nur den Baum, auf dem das Modell trainiert wurde; bei einem
     neuen Training muss die Liste bewusst erweitert werden. Der Held bleibt
@@ -805,12 +814,14 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
 
 ## Review
 
-Vier Review-Agents haben gelesen, alle nur lesend. Keiner fand einen Befund
-der Schwere hoch. Alle 23 Befunde sind behoben: die von review1 durch fix1,
-review2 durch fix2, review3 durch fix3, review4 durch fix4 (Abschnitte
-"Review-Fixes"). Was die Fix-Worker bewusst ausgelassen haben, steht bei den
-Befunden und unter "Befunde, offen". Die Befunde von review5 (Replay)
-folgen.
+Fünf Review-Agents haben gelesen, alle nur lesend. Keiner fand einen Befund
+der Schwere hoch. Die 23 Befunde von review1 bis review4 sind bearbeitet:
+Bei 14 und 17 ist ein Teil bewusst offen (siehe dort), ob die Behebung von
+21 trägt, klärt Playtest 429; die übrigen 20 sind vollständig behoben.
+Behoben haben sie fix1 bis fix4 (Abschnitte "Review-Fixes"). Was die
+Fix-Worker bewusst ausgelassen haben, steht bei den Befunden und unter
+"Befunde, offen". Die Befunde 24 bis 30 von review5 (Replay) werden gerade
+behoben.
 
 **review1**, `1ca6713a..bffae869` (54 Commits: Assets, perf, Sockel, Leiste,
 Wellen-Panel, Quickfix, Weltkarte, Veteranen, Wurm): 1 mittel, 4 niedrig,
@@ -913,13 +924,49 @@ Hinweis aus review4, kein Defekt: Auf dem Rechner der Nacht gibt es kein
 ein; die Fix-Worker und der Lead (57 von 57 am `a26cd7dd`) haben mit
 einem Binary aus dem Scratchpad geprüft.
 
-**review5** (Replay, `a4d8c839` bis `4d415013`): läuft, der Abschnitt
-folgt.
+**review5** (Replay, gelesen am Worker-Branch vor dem Merge, auf dem Branch
+`a4d8c839` bis `4d415013`): 1 mittel, 6 niedrig, 2 Hinweise. Der Kern hält:
+Das Live-Spiel bleibt während des Replays unverändert, das Verlassen stellt
+Kamera, Pause, Timescale, Tower, Held und Blutmond zurück, die Spielbefehle
+sind gesperrt, die Determinismus-Prüfung fand nichts. Behebung läuft
+(replay2), die Hashes folgen.
+
+24. **Nahe der Speichergrenze wachsen die Stichproben-Spalten in jedem
+    Frame neu** (mittel, Kosten): Würde das Verdoppeln einer Spalte das
+    Budget von 48 MB sprengen, wächst sie nur auf genau den Bedarf; bis das
+    Ausdünnen greift, legt dann jedes Frame die betroffenen Spalten neu an
+    und kopiert rund 46 MB, kurz nahe dem doppelten Budget. Betrifft nur
+    Wellen mit mehr als 2^21 Gegner-Stichproben (etwa 500 Gegner über rund
+    7 Minuten oder 2 800 über rund 75 s), bei 500 Gegnern rund 380 Frames
+    in Folge. Belegt mit einer Probe-Spec (Budget 1 MB, 54 Neuanlagen in
+    Folge); Hänger im Browser nicht gemessen.
+25. **Einschlagsounds der Fähigkeiten laufen auch über 1x** (niedrig),
+    obwohl das Replay dort sonst stumm ist.
+26. **Zielmarker bleibt nach einem Sprung über den Einschlag bis zum
+    Verlassen stehen** (niedrig, nur Darstellung); nach einem Sprung zurück
+    vor den Einschlag kommen Pilz, Frost, EMP und Laser doppelt.
+27. **Ein Klick auf den Regler ohne Wertänderung lässt das Replay
+    pausiert** (niedrig; `change` feuert dann nicht, im Browser nicht
+    geprüft).
+28. **Suchscheinwerfer ausgeblendeter Tower leuchten im Replay einer
+    Blutmond-Welle** (niedrig): Kegel an den leeren Stellen später gebauter
+    Tower.
+29. **Der Recorder hängt ungeschützt am Debug-Listener-Pfad des Busses**
+    (niedrig): Würfe er bei einem Event, bekäme kein normaler Listener das
+    Event; einen konkreten Wurf gibt es nicht. Die Abkürzung für einen Bus
+    ohne Debug-Listener greift nie mehr, auch nicht im Training.
+30. **Das Replay läuft mit ungedeckeltem Frame-Delta** (niedrig): Ein
+    langer Frame spielt bei 4x und 500 ms 2 s Events auf einmal ab.
+
+Hinweise ohne Defekt: Ein Replay-Tower-Modell, das beim Verlassen noch
+lädt, bliebe danach stehen (praktisch nicht erreichbar, das Modell liegt im
+Cache); die Leiste stößt die Change Detection mit 20 Hz an, nicht gemessen.
 
 ## Befunde, offen
 
-In TODO.md unter 1.9 eingetragen. Die Review-Befunde oben sind behoben; was
-die Fix-Worker bewusst ausgelassen haben, steht unter 16.
+In TODO.md unter 1.9 eingetragen. Die Befunde von review1 bis review4 sind
+bearbeitet; was die Fix-Worker bewusst ausgelassen haben, steht unter 16.
+Die Befunde von review5 sind offen, bis replay2 gemergt ist (17).
 
 1. **Pause**: Nur der Ooze-Loop hält an; Loops von Zombies und Flammen laufen
    in der Pause weiter.
@@ -966,6 +1013,7 @@ die Fix-Worker bewusst ausgelassen haben, steht unter 16.
     normalen Ablauf nicht möglich); HQ-Shake-Drossel auf der Wanduhr;
     Flammenkegel mit zwei Stichproben; Neubau des Routengraphen in der
     Pause; weitere Eingangsverschiebungen des ONNX-Modells nicht untersucht.
+17. **review5 (Replay)**: Befunde 24 bis 30, Behebung läuft (replay2).
 
 ## Playtest-Liste
 
@@ -1058,6 +1106,8 @@ Punkte beginnen bei 301.
      und platzierter Tower auf Straßenhöhe, kein Sockel, der Fuß darf ins
      Auto ragen. Dasselbe neben einer Hecke, Gartenmauer oder einem kleinen
      Baum. Cursor direkt auf dem Autodach: Tower dort mit Sockel (bewusst).
+     Weicht etwas ab: `__footprintDebug()` (429) ausführen und die Zeile
+     melden.
 316. Research Center auf ein Gefälle: großer runder Sockel (etwa 10 m
      Radius). Tower an einer Flachdachkante, die Grundfläche steht über:
      Tower auf Dachhöhe, Sockel bis zur Straße.
@@ -1364,7 +1414,9 @@ Punkte beginnen bei 301.
      trotzdem.
 402. Hanglage (geneigte Straße oder Wiese abseits der Route): Tower neben
      die geneigte Straße: auf der Bergseite angehoben, Sockel bis zur
-     Talseite. Steildach und Gaube wie in 309: der Tower steigt darauf.
+     Talseite. Steildach und Gaube wie in 309: der Tower steigt darauf,
+     auch wo die Tiles unter dem Dach keinen Boden zeigen (seit fix4, siehe
+     429 bis 431).
 403. F12, `__raycastStats(true)`, Research Center wählen, 10 s zügig über
      einen ebenen Platz ziehen, `__raycastStats()`: Zeile `towerFootprint`
      mit etwa 17 Aufrufen je Validierung statt 49 (grob Weg in Metern mal
@@ -1408,7 +1460,7 @@ Punkte beginnen bei 301.
      Game-Over-Fenster zurück.
 413. Im Replay 1 bis 9, U, Entf, K, O und G: nichts passiert; H zeigt die
      Gruppe "Replay of the last wave". Außerhalb: Targeting im Tower-Panel
-     umschalten (auch "Air priority") wirkt wie bisher.
+     umschalten (auch "Air" und seine Unterauswahl) wirkt wie bisher.
 414. Große Welle (W19 oder viele Gegner per Wave Debug) aufnehmen und
      abspielen: flüssig, Skelette splitten mit Knochen-Burst. Welle mit
      Atomschlag: Zielmarker, Einschlag, Pilz und Shake; nach Esc kein Marker
