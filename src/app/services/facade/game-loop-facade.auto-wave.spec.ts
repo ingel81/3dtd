@@ -11,6 +11,7 @@ import { GameLoopFacadeService } from './game-loop-facade.service';
 import { EngineStore } from '../../store/engine.store';
 import { CameraControlService } from '../camera-control.service';
 import { TowerPlacementService } from '../tower-placement.service';
+import { MapPlacementService } from '../world/map-placement.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { RouteAnimationService } from '../world/route-animation.service';
@@ -34,7 +35,7 @@ import type { GameStateManager } from '../../managers/game-state.manager';
 
 /** Injected by the facade but not touched by the auto-start. */
 const UNUSED = [
-  EngineStore, CameraControlService, TowerPlacementService, KeyboardPanService,
+  EngineStore, CameraControlService, TowerPlacementService, MapPlacementService, KeyboardPanService,
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
   WaveDirectorService, AIDataCollectorService, PerformanceProfilerService,

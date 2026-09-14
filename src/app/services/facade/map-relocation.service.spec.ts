@@ -36,7 +36,7 @@ const OLD_SPAWN: SpawnPoint = { id: 'spawn-1', name: 'Old Spawn', lat: 48.79, lo
 
 describe('MapRelocationService', () => {
   let relocation: MapRelocationService;
-  let placementClick: { mode: 'hq' | 'spawn'; lat: number; lon: number } | null;
+  let placementClick: { mode: 'hq' | 'spawn'; lat: number; lon: number; heading?: number } | null;
   let cachedPaths: Map<string, unknown[]>;
   let store: {
     baseCoords: ReturnType<typeof signal<{ lat: number; lon: number }>>;
@@ -58,7 +58,10 @@ describe('MapRelocationService', () => {
   const osm = { loadStreets: vi.fn(), findRandomStreetPoint: vi.fn(), findPath: vi.fn(), haversineDistance: vi.fn() };
   const coordinator = { applyNewLocation: vi.fn(async () => undefined) };
   const mapPlacement = { handlePlacementClick: vi.fn(() => placementClick), updateDependencies: vi.fn() };
-  const noop = () => ({ clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn() });
+  const noop = () => ({
+    clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn(), setPortalHeading: vi.fn(),
+  });
+  let markerViz: ReturnType<typeof noop>;
 
   const click = async (mode: 'hq' | 'spawn', at: { lat: number; lon: number }) => {
     placementClick = { mode, ...at };
@@ -95,11 +98,12 @@ describe('MapRelocationService', () => {
         store.spawnPoints.update((p) => [...p, { id, name, lat, lon, color }])),
       syncUrlWithLocation: vi.fn(),
     } as unknown as typeof host;
+    markerViz = noop();
 
     const injector = Injector.create({
       providers: [
         { provide: OsmStreetService, useValue: osm },
-        { provide: MarkerVisualizationService, useValue: noop() },
+        { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: PathAndRouteService, useValue: { clearAllRoutes: vi.fn(), clearCachedPaths: vi.fn(), getCachedPaths: () => cachedPaths } },
         { provide: LocationManagementService, useValue: { setLocation: vi.fn() } },
         { provide: HeightUpdateService, useValue: { stopHeightUpdates: vi.fn() } },
@@ -176,6 +180,18 @@ describe('MapRelocationService', () => {
     osm.findPath.mockReturnValue(null);
     await click('spawn', INSIDE);
     expect(gameState.reset).toHaveBeenCalledTimes(1);
+  });
+
+  it("turns the new spawn's portal the way the player turned it, and leaves it to the route otherwise", async () => {
+    placementClick = { mode: 'spawn', ...INSIDE, heading: 1.5 };
+    await relocation.applyPlacementClick(host);
+    expect(markerViz.setPortalHeading).toHaveBeenCalledWith('spawn-1', 1.5);
+    expect(host.addSpawnPoint.mock.invocationCallOrder[0])
+      .toBeLessThan(markerViz.setPortalHeading.mock.invocationCallOrder[0]);
+
+    markerViz.setPortalHeading.mockClear();
+    await click('spawn', INSIDE);
+    expect(markerViz.setPortalHeading).not.toHaveBeenCalled();
   });
 
   it('moves nothing without a component, and nothing in place without the viz callbacks', async () => {

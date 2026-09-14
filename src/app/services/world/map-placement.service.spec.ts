@@ -101,4 +101,56 @@ describe('MapPlacementService', () => {
       expect(frameColor().equals(GREEN)).toBe(true);
     });
   });
+
+  describe('rotation with R', () => {
+    // North of the HQ: the preview faces south to it, heading pi
+    const spawnAt = { lat: HQ.lat + 0.005, lon: HQ.lon };
+
+    it('turns the spawn preview while R is held and hands the heading to the click', () => {
+      service.startPlacement('spawn');
+      service.updatePreviewPosition(spawnAt.lat, spawnAt.lon, 0);
+      expect(preview().rotation.y).toBeCloseTo(Math.PI, 6);
+
+      expect(service.startRotating()).toBe(true);
+      service.updateRotation(0.25);
+      service.stopRotating();
+      service.updateRotation(1);
+      const turned = Math.PI + Math.PI / 4;
+      expect(preview().rotation.y).toBeCloseTo(turned, 6);
+
+      // The cursor moves on: the preview keeps the player's heading
+      service.updatePreviewPosition(spawnAt.lat + 0.0005, spawnAt.lon, 0);
+      expect(preview().rotation.y).toBeCloseTo(turned, 6);
+      expect(service.handlePlacementClick()!.heading).toBeCloseTo(turned, 6);
+    });
+
+    it('leaves the heading to the route when the player does not turn the portal', () => {
+      service.startPlacement('spawn');
+      service.updatePreviewPosition(spawnAt.lat, spawnAt.lon, 0);
+      expect(service.handlePlacementClick()!.heading).toBeUndefined();
+    });
+
+    it('does not turn the HQ preview', () => {
+      service.startPlacement('hq');
+      service.updatePreviewPosition(HQ.lat, HQ.lon, 0);
+      expect(service.startRotating()).toBe(false);
+      service.updateRotation(1);
+      expect(preview().rotation.y).toBe(0);
+      expect(service.handlePlacementClick()!.heading).toBeUndefined();
+    });
+
+    it('forgets a turn and a held R when the placement ends', () => {
+      service.startPlacement('spawn');
+      service.updatePreviewPosition(spawnAt.lat, spawnAt.lon, 0);
+      service.startRotating();
+      service.updateRotation(0.5);
+      service.exitPlacementMode();
+
+      service.startPlacement('spawn');
+      service.updatePreviewPosition(spawnAt.lat, spawnAt.lon, 0);
+      service.updateRotation(1);
+      expect(preview().rotation.y).toBeCloseTo(Math.PI, 6);
+      expect(service.handlePlacementClick()!.heading).toBeUndefined();
+    });
+  });
 });

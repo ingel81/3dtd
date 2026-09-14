@@ -353,11 +353,12 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   ];
   readonly buildModeWarning = computed(() => this.towerPlacement.validationReason());
 
-  // Map placement hints for context hint box
-  readonly placementModeHints: HintItem[] = [
+  // Map placement hints for context hint box: R turns a spawn portal
+  readonly placementModeHints = computed((): HintItem[] => [
+    ...(this.mapPlacementMode() === 'spawn' ? [{ key: 'R', description: 'Rotate' }] : []),
     { key: 'Click', description: 'Place' },
     { key: 'ESC', description: 'Cancel' },
-  ];
+  ]);
   readonly placementModeWarning = computed(() => this.mapPlacement.validationReason());
 
   // Ability targeting hints for context hint box: what a click does comes from the ability

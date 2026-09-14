@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Only their DI tokens are needed. Material's dialog needs the JIT compiler
-// under vitest, the placement service pulls in the whole tower pipeline.
+// under vitest, the placement services pull in the tower pipeline and the markers.
 vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
 vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
+vi.mock('./world/map-placement.service', () => ({ MapPlacementService: class MapPlacementService {} }));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { InputHandlerService } from './input-handler.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
+import { MapPlacementService } from './world/map-placement.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 
@@ -27,11 +29,13 @@ describe('InputHandlerService keys on a focused slider', () => {
   let service: InputHandlerService;
   let slider: HTMLInputElement;
   let pan: { onKeyDown: ReturnType<typeof vi.fn>; onKeyUp: ReturnType<typeof vi.fn> };
+  let mapPlacement: { startRotating: ReturnType<typeof vi.fn>; stopRotating: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     slider = document.createElement('input');
     slider.type = 'range';
     pan = { onKeyDown: vi.fn(() => true), onKeyUp: vi.fn(() => true) };
+    mapPlacement = { startRotating: vi.fn(() => true), stopRotating: vi.fn() };
 
     const injector = Injector.create({
       providers: [
@@ -39,10 +43,28 @@ describe('InputHandlerService keys on a focused slider', () => {
         { provide: UIStore, useValue: { photoMode: signal(false) } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         { provide: KeyboardPanService, useValue: pan },
-        { provide: TowerPlacementService, useValue: {} },
+        { provide: TowerPlacementService, useValue: { buildMode: () => false, stopRotating: vi.fn() } },
+        { provide: MapPlacementService, useValue: mapPlacement },
       ],
     });
     service = runInInjectionContext(injector, () => new InputHandlerService());
+  });
+
+  it('turns the spawn portal while R is held in spawn placement, and leaves R alone outside it', () => {
+    pan.onKeyDown.mockReturnValue(false);
+    const down = keyOn('keydown', 'r', document.body);
+    service.handleKeyDown(down);
+    expect(mapPlacement.startRotating).toHaveBeenCalled();
+    expect(down.defaultPrevented).toBe(true);
+
+    service.handleKeyUp(keyOn('keyup', 'r', document.body));
+    expect(mapPlacement.stopRotating).toHaveBeenCalled();
+
+    // No spawn preview to turn: the key stays free
+    mapPlacement.startRotating.mockReturnValue(false);
+    const other = keyOn('keydown', 'R', document.body);
+    service.handleKeyDown(other);
+    expect(other.defaultPrevented).toBe(false);
   });
 
   it('leaves the arrow keys to the slider, the camera does not pan', () => {

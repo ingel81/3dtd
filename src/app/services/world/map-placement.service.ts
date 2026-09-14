@@ -24,7 +24,16 @@ export interface PlacementResult {
   lat: number;
   lon: number;
   height: number;
+  /**
+   * Heading the player turned the spawn portal to with R (scene rotation
+   * about +Y, rad). Absent if they did not turn it: the portal then faces
+   * along its route.
+   */
+  heading?: number;
 }
+
+/** Turn of the spawn preview while R is held (rad/s), as fast as a tower's */
+const ROTATION_SPEED = Math.PI;
 
 // Colors for valid/invalid preview, the same for the HQ and a spawn: the
 // spawn's own red would not tell a valid place from an invalid one
@@ -57,6 +66,10 @@ export class MapPlacementService {
   // Current validated position (set on mouse move)
   private currentPosition: { lat: number; lon: number; height: number } | null = null;
   private currentValid = false;
+
+  // Heading the player turned the spawn preview to with R, null until they do
+  private manualHeading: number | null = null;
+  private isRotating = false;
 
   // Dependencies (set via initialize)
   private engine: ThreeTilesEngine | null = null;
@@ -143,14 +156,17 @@ export class MapPlacementService {
     this.currentPosition = { lat, lon, height };
 
     // Position the marker: the HQ diamond floats, a spawn portal stands on
-    // the ground facing the HQ, as it will until its route is built
+    // the ground facing the HQ, as it will until its route is built, or the
+    // way the player turned it
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
     const groundY = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
     if (mode === 'hq') {
       this.previewMarker.position.set(local.x, groundY + HEIGHT_ABOVE_GROUND, local.z);
     } else {
       this.previewMarker.position.set(local.x, groundY, local.z);
-      if (this.baseCoords) {
+      if (this.manualHeading !== null) {
+        this.previewMarker.rotation.y = this.manualHeading;
+      } else if (this.baseCoords) {
         const hq = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
         this.previewMarker.rotation.y = provisionalPortalPose(local.x, groundY, local.z, hq.x, hq.z).heading;
       }
@@ -178,6 +194,7 @@ export class MapPlacementService {
       lon: this.currentPosition.lon,
       height: this.currentPosition.height,
     };
+    if (mode === 'spawn' && this.manualHeading !== null) result.heading = this.manualHeading;
 
     this.exitPlacementMode();
     return result;
@@ -196,8 +213,42 @@ export class MapPlacementService {
     this.removeDistanceRings();
     this.currentPosition = null;
     this.currentValid = false;
+    this.manualHeading = null;
+    this.isRotating = false;
     this.validationReason.set(null);
     this.uiStore.mapPlacementMode.set(null);
+  }
+
+  // ========================================
+  // ROTATION (R key hold, spawn only)
+  // ========================================
+
+  /**
+   * Start turning the spawn preview (R down). Once turned, the spawn keeps
+   * the player's heading instead of facing along its route
+   * (handlePlacementClick, MarkerVisualizationService.setPortalHeading).
+   * @returns whether it took the key: only a spawn preview turns
+   */
+  startRotating(): boolean {
+    if (this.uiStore.mapPlacementMode() !== 'spawn' || !this.previewMarker) return false;
+    this.isRotating = true;
+    return true;
+  }
+
+  /** Stop turning (R up). */
+  stopRotating(): void {
+    this.isRotating = false;
+  }
+
+  /**
+   * Turn the spawn preview while R is held; call once per frame.
+   * @param deltaTime Time since the last frame (s)
+   */
+  updateRotation(deltaTime: number): void {
+    if (!this.isRotating || !this.previewMarker) return;
+    const from = this.manualHeading ?? this.previewMarker.rotation.y;
+    this.manualHeading = (from + ROTATION_SPEED * deltaTime) % (Math.PI * 2);
+    this.previewMarker.rotation.y = this.manualHeading;
   }
 
   /**

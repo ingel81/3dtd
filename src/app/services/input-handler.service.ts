@@ -7,6 +7,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
+import { MapPlacementService } from './world/map-placement.service';
 import { isEscapeForDialog } from '../utils/dialog-key-guard';
 import { ownsKey } from '../utils/keyboard-target';
 import type { AbilityId } from '../configs/abilities.config';
@@ -553,6 +554,7 @@ export class InputHandlerService {
 
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly towerPlacement = inject(TowerPlacementService);
+  private readonly mapPlacement = inject(MapPlacementService);
 
   /** Component-provided callbacks for keyboard actions */
   private keyboardCallbacks: KeyboardCallbacks | null = null;
@@ -621,6 +623,12 @@ export class InputHandlerService {
       return;
     }
 
+    // R held turns the spawn portal while it is being placed
+    if ((event.key === 'r' || event.key === 'R') && this.mapPlacement.startRotating()) {
+      event.preventDefault();
+      return;
+    }
+
     // Build mode keys
     if (!this.towerPlacement.buildMode()) return;
 
@@ -646,6 +654,7 @@ export class InputHandlerService {
 
     if (event.key === 'r' || event.key === 'R') {
       this.towerPlacement.stopRotating();
+      this.mapPlacement.stopRotating();
     }
   }
 

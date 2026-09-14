@@ -1762,6 +1762,11 @@ zwei instanzierte Draw Calls für alle Portale:
   die vordere Fläche (`spawnPortalPose`, `routeExitPoint`). Die Route läuft so mittig durch die
   Öffnung hinaus, auch wenn sie in einer Kurve beginnt (Kreisverkehr, Stummel vor einer Ecke);
   ein Knick näher als die halbe Tiefe am Start lässt sie im Volumen trotzdem seitlich laufen.
+  Beim Setzen des Spawns dreht R gehalten die Vorschau (`MapPlacementService`, wie beim Tower).
+  Wer gedreht hat, dessen Richtung gilt (`MarkerVisualizationService.setPortalHeading`), auch
+  über jeden Neubau der Route, bis der Spawn wieder hinzugefügt wird: neu gesetzt, HQ umgesetzt,
+  Ort gewechselt. Ohne Drehen folgt das Portal der Route. Die Drehung ändert nur das Portal,
+  nicht den Weg der Gegner, und steht weder in der URL noch in den Favoriten.
   `spawn-portal-frame.spec.ts` prüft
   das am echten Asset mit Strahlen rundum von den gemessenen Körpern aller Bodengegner (Bounding Box mal
   Skala, Mech und Tank bis 9,3 m lang): bei Skala 1 und 1,75 alle verdeckt, bei Skala 0,75

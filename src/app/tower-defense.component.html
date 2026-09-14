@@ -248,7 +248,7 @@
         />
       } @else if (mapPlacementMode()) {
         <app-context-hint
-          [hints]="placementModeHints"
+          [hints]="placementModeHints()"
           [warning]="placementModeWarning()"
         />
       } @else if (abilityTargetingActive()) {

@@ -481,6 +481,30 @@ describe('MarkerVisualizationService', () => {
       expect(portal().position).toEqual(before.position);
       expect(labels().has('ghost')).toBe(false);
     });
+
+    it('keeps the heading the player turned it to through rebuilds of its route, until the spawn is added again', () => {
+      init();
+      service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);
+      service.placeSpawnPortal('s1', route, 12);
+      // Turned to face east (-x), across the route running south
+      service.setPortalHeading('s1', -Math.PI / 2);
+      expect(portal().forward.x).toBeCloseTo(-1, 4);
+
+      service.placeSpawnPortal('s1', route, 14);
+      expect(portal().forward.x).toBeCloseTo(-1, 4);
+      expect(portal().position.y).toBe(14);
+
+      // Placed again: the portal follows its route
+      service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);
+      service.placeSpawnPortal('s1', route, 12);
+      expect(portal().forward.z).toBeCloseTo(-1, 4);
+    });
+
+    it('turns no portal that is not there', () => {
+      init();
+      service.setPortalHeading('ghost', 1);
+      expect(portalFrames().count).toBe(0);
+    });
   });
 
   describe('updateMarkerHeights', () => {
