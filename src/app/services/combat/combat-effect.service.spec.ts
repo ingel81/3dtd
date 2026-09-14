@@ -195,6 +195,54 @@ describe('CombatEffectService hits on a body along the route', () => {
   });
 });
 
+describe('CombatEffectService DoT ticks on a body along the route', () => {
+  beforeEach(() => {
+    Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
+    mockInjections['StatusEffectService'] = {};
+    mockInjections['CombatVfxService'] = {};
+    mockInjections['ResearchStore'] = {};
+  });
+
+  it('moves the hit onto the body before the tick, where the tail may have moved past it', () => {
+    const order: string[] = [];
+    const body = {
+      // The last hit, 10 m behind the tail by now
+      hit: { lat: 1, lon: 2, height: 105 },
+      stations: { x: [0, 10], z: [0, -20], rightX: [1, 1], rightZ: [0, 0], originHeight: 100 },
+      nearest: vi.fn((_x: number, _z: number, out: { station: number; offset: number; distance: number }) => {
+        Object.assign(out, { station: 1, offset: 0.5, distance: 10 });
+        return out;
+      }),
+      setHit: vi.fn(() => order.push('setHit')),
+    };
+    const enemy = { id: 'ooze', alive: true, body };
+    mockInjections['DamageApplicationService'] = {
+      applyDamage: vi.fn(() => {
+        order.push('damage');
+        return { finalDamage: 7 };
+      }),
+    };
+    const getGroundLocalYAt = vi.fn(() => 3);
+    mockInjections['GlobalRouteGridService'] = { getGroundLocalYAt };
+    const service = new CombatEffectService();
+    // 1 degree = 10 m in the fake sync: x east, z south
+    const sync = {
+      geoToLocalSimpleInto: (lat: number, lon: number, _h: number, target: { x: number; z: number }) =>
+        Object.assign(target, { x: lon * 10, z: -lat * 10 }),
+    };
+    (service as unknown as { tilesEngine: unknown }).tilesEngine = { sync, effects: { spawnFloatingText: vi.fn() } };
+
+    (service as unknown as {
+      handleDotDamage: (e: unknown, d: number, t: string, f: string, s: string) => void;
+    }).handleDotDamage(enemy, 7, 'poison', 'poison', 't-1');
+
+    expect(body.nearest.mock.calls[0].slice(0, 2)).toEqual([20, -10]);
+    expect(getGroundLocalYAt).toHaveBeenCalledWith(10.5, -20);
+    expect(body.setHit).toHaveBeenCalledWith(1, 0.5, 3);
+    expect(order).toEqual(['setHit', 'damage']);
+  });
+});
+
 describe('CombatEffectService ability strike', () => {
   let applyMaxHpFraction: ReturnType<typeof vi.fn>;
 
