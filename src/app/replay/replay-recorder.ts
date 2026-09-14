@@ -96,8 +96,10 @@ export interface ReplaySources {
  * placed and sold, the effect events and every command:*, so a new command
  * is logged without a change here.
  *
- * Only the last wave is kept: the next wave:started overwrites it. Nothing is
- * recorded while the engine does not render (headless training).
+ * Only the last wave is kept: the next wave:started overwrites it, a jump to
+ * a later wave (wave:jumped, dev cheat) drops it: the wave it shows is then
+ * no longer the one before the next. Nothing is recorded while the engine
+ * does not render (headless training).
  *
  * Per frame the cost is one local conversion and a few typed-array writes
  * per body, no allocation; a Map entry per new enemy and projectile.
@@ -181,6 +183,9 @@ export class ReplayRecorder {
         return;
       case 'wave:started':
         this.begin(event.wave);
+        return;
+      case 'wave:jumped':
+        this.clear();
         return;
     }
     if (!this.active) return;
