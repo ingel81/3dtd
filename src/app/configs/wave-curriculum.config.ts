@@ -127,14 +127,15 @@ export const CURRICULUM_FORCED_THROUGH_WAVE = WAVE_CURRICULUM.length;
 /**
  * Curriculum-forced template id for `waveNum` (1-indexed), or null.
  *
- * Returns null past wave {@link CURRICULUM_FORCED_THROUGH_WAVE} — from there
+ * Returns null past wave {@link CURRICULUM_FORCED_THROUGH_WAVE}; from there
  * the Wave Director's template head chooses for itself under the normal
  * availability mask. The designer owns content and pacing through the scripted
  * run; the AI owns the open-ended tail.
  *
- * Note this does NOT loop, unlike {@link goldBudgetForWave} and
- * {@link staticWaveProfileForWave}: those describe the economy and the AI-off
- * fallback, which both still need a defined value at every wave number.
+ * Note this does NOT loop, unlike {@link staticWaveProfileForWave} (the
+ * AI-off fallback, which needs a defined value at every wave number and
+ * loops mod-30). {@link goldBudgetForWave} also stays defined past this
+ * wave, but it tapers rather than loops (docs/STATIC_WAVE_FALLBACK.md).
  */
 export function templateForWave(waveNum: number): string | null {
   if (waveNum < 1 || waveNum > CURRICULUM_FORCED_THROUGH_WAVE) return null;
@@ -321,11 +322,13 @@ export const STATIC_WAVE_PROFILES: readonly StaticWaveProfile[] = [
 ] as const;
 
 /**
- * Get the static wave profile for `waveNum` (1-indexed). Beyond W30 the
- * profile **loops** alongside `templateForWave` (wave 31 = wave 1, etc.) so
- * the static fallback stays in lockstep with the looping enemy templates.
- * Late-game difficulty escalates via `endgameHpMultiplier` (applied at
- * resolve-time), not via runaway count/hp here.
+ * Get the static wave profile for `waveNum` (1-indexed). Beyond
+ * {@link CURRICULUM_FORCED_THROUGH_WAVE} the profile loops on its own
+ * (wave 31 = wave 1, etc.); `templateForWave` does not loop, from there the
+ * Wave Director picks freely under the normal mask
+ * (docs/STATIC_WAVE_FALLBACK.md). Late-game difficulty escalates via
+ * `endgameHpMultiplier` (applied at resolve-time), not via runaway count/hp
+ * here.
  */
 export function staticWaveProfileForWave(waveNum: number): StaticWaveProfile | null {
   if (waveNum < 1) return null;
@@ -335,10 +338,11 @@ export function staticWaveProfileForWave(waveNum: number): StaticWaveProfile | n
 /**
  * Resolve a static profile into an AIWaveConfig (the same shape the AI
  * Director and training-backend emit). The facade pipes the result through
- * `adaptAIWaveConfig` to get the runtime WaveConfig — single spawn pipeline
- * for AI, training, and static fallback. Endgame HP ramp is baked into each
+ * `adaptAIWaveConfig` to get the runtime WaveConfig, one spawn pipeline for
+ * AI, training, and static fallback. Endgame HP ramp is baked into each
  * group's `healthMultiplier` so post-W20 waves keep escalating even while
- * the curriculum loops mod-30.
+ * `STATIC_WAVE_PROFILES` itself loops mod-30; the gold budget does not
+ * loop, it tapers instead (`goldBudgetForWave`, docs/STATIC_WAVE_FALLBACK.md).
  *
  * Returns null for waveNum < 1.
  */
