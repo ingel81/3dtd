@@ -50,7 +50,8 @@ export interface RecordableProjectile {
 /** What the recorder reads of a tower; Tower has all of it. */
 export interface RecordableTower {
   readonly id: string;
-  readonly typeConfig: { readonly id: string };
+  /** attackType 'passive' for a building that aims at nothing (the Research Center) */
+  readonly typeConfig: { readonly id: string; readonly attackType?: string };
   readonly position: { readonly lat: number; readonly lon: number; readonly height?: number };
   readonly customRotation: number;
   readonly plinthHeight: number;
@@ -412,8 +413,14 @@ export class ReplayRecorder {
         rec.pushTower(index, rotation, TOWER_FLAG.STRIKE, strike.x, strike.y, strike.z, 0);
         continue;
       }
-      // A tower without a turret shows nothing a frame could change
-      if (data?.turretPart) rec.pushTower(index, rotation, 0, 0, 0, 0, 0);
+      // A passive building (the Research Center) aims at nothing. Every
+      // other tower turns its aim, a tower without a turret part as well
+      // (its blood moon searchlight follows it), so it gets a sample in
+      // every frame: the player shows the samples of the frame it is at, a
+      // sample only on change would leave a jump back with a later aim.
+      if (data && (data.turretPart || tower.typeConfig.attackType !== 'passive')) {
+        rec.pushTower(index, rotation, 0, 0, 0, 0, 0);
+      }
     }
   }
 

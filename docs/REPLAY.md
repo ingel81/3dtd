@@ -76,13 +76,18 @@ kommt ein Frame dazu, im selben Sub-Step direkt nach dem Turret-Aim:
 |------------|--------|-------|
 | Gegner (lebend) | Tabellenindex, lokale Position mit Höhenversatz, Blickrichtung (16 bit), Bodengeschwindigkeit (cm/s), Leben (0-255), Status (verlangsamt, vergiftet, brennt, rennt, eingefroren, betäubt) | 22 |
 | Projektil | Tabellenindex, lokale Position | 16 |
-| Turm | Tabellenindex, Turret-Drehung, Flammenstrahl oder Tentakelschlag mit Ziel und Breite | 23 |
+| Turm | Tabellenindex, Zielrichtung (Turret-Drehung, auch ohne Turret-Teil), Flammenstrahl oder Tentakelschlag mit Ziel und Breite | 23 |
 | Körper entlang der Route (Ooze) | Tabellenindex, Schwanz und Spitze in Metern ab `path[0]` (`RouteBody.tailM`, `tipM`) | 12 |
 | Held (je Frame, nicht je Körper) | Pose (idle, run, shoot, run-shoot; 0 = kein Held), lokale x und z, Blickrichtung | 13 |
 
-Türme ohne Turret, Strahl und Schlag (etwa das Research Center) bekommen
-keine Stichprobe. Sterbende Gegner stehen nicht in den Frames; ihr Tod steht
-in der Tabelle, der Player spielt die Todesanimation von dort.
+Jeder Turm außer einem passiven Gebäude (dem Research Center) bekommt je
+Frame eine Stichprobe, auch ohne Turret-Teil: Archer, Lightning und Tentacle
+drehen ihre Zielrichtung wie die anderen, nur dreht sich am Modell nichts,
+und ihr Blutmond-Scheinwerfer folgt ihr. Eine Stichprobe nur bei geänderter
+Richtung reicht nicht: der Player zeigt die Stichproben des Frames, in dem
+er steht, ein Sprung zurück behielte die spätere Richtung. Sterbende Gegner
+stehen nicht in den Frames; ihr Tod steht in der Tabelle, der Player spielt
+die Todesanimation von dort.
 
 Ein Ooze hat zusätzlich zur Körper-Stichprobe eine normale Gegner-Stichprobe
 (Spitze, Leben, Status). Die Stationen seiner Route (`RouteBodyStations`)
@@ -136,6 +141,7 @@ Rechnung für den ungünstigsten Fall, 2 800 Körper gleichzeitig auf der Route
 - 48 MB reichen damit für rund 78 s mit 10 Frames/s, danach 5 Frames/s bis rund 156 s, 2,5 bis rund 312 s, 1,25 bis rund 624 s
 - Mit einigen hundert Gegnern gleichzeitig (500 × 22 B × 10 = 110 KB/s) belegt eine dreiminütige Welle rund 20 MB, ohne auszudünnen
 - Ooze-Körper zählen mit ins Budget und dünnen mit aus: 12 B je Ooze und Frame, 20 Oozes also 2,4 KB/s
+- Türme ebenso: 23 B je Turm und Frame, 60 Türme also 13,8 KB/s. `reserveFrame()` rechnet schon mit einer Stichprobe je Turm
 - Der Held und die Frame-Spalten (Zeit 8 B, vier Startindizes 16 B) liegen außerhalb des Budgets: zusammen 37 B je Frame, bei 10 Frames/s 370 B/s, eine zehnminütige Welle rund 222 KB; sie dünnen mit den Frames aus
 
 Dazu kommen die Tabellen (11 B je Gegner, 18 B je Projektil) und die Events,
@@ -242,7 +248,7 @@ gezeigten Moment, Tab bleibt in ihr.
 | Spec | Prüft |
 |------|-------|
 | `replay/replay-recording.spec.ts` | Tabellen, Frames, Quantisierung, Posen des Helden, Wachsen bis zur Grenze (nahe der Grenze höchstens zwei Neuanlagen bis zum Ausdünnen), Ausdünnen mit erhaltenen Stichproben (auch Körper und Held), `truncated`, Event-Grenze |
-| `replay/replay-recorder.spec.ts` | Start und Ende, Frame-Takt, Stichproben mit Eis und Betäubung, Ooze-Körper, Held, Tabellen aus dem Bus, Türme mit Strahl und Schlag, Befehlslog mit den Befehlen des Helden, Effekt-Events mit `hero:level-up`, Blutmond, nur die letzte Welle, Verwerfen beim Wellensprung, kein Rendering keine Aufnahme, Catch-all nur während der Aufnahme, ein Fehler verwirft die Aufnahme; Kostenmessung |
+| `replay/replay-recorder.spec.ts` | Start und Ende, Frame-Takt, Stichproben mit Eis und Betäubung, Ooze-Körper, Held, Tabellen aus dem Bus, Türme mit Strahl und Schlag, Zielrichtung ohne Turret-Teil je Frame, keine Stichprobe für passive Gebäude, Befehlslog mit den Befehlen des Helden, Effekt-Events mit `hero:level-up`, Blutmond, nur die letzte Welle, Verwerfen beim Wellensprung, kein Rendering keine Aufnahme, Catch-all nur während der Aufnahme, ein Fehler verwirft die Aufnahme; Kostenmessung |
 | `game-engine/game-event-bus.spec.ts` | Catch-all-Listener: Wurf gefangen, Zähler, Abmelden während eines Events |
 | `replay/replay-recorder-budget.spec.ts` | Frames bleiben beim Ausdünnen auf dem Raster, Körper und Held gehen mit |
 | `replay/replay-events.spec.ts` | Auswahl der Events, Stummel für `enemy:split`, Klartext der Befehle |

@@ -405,7 +405,7 @@ describe('ReplayPlayer', () => {
       const lights = fake.engine.searchlights as Record<string, Spy>;
       expect(lights['setVisible']).toHaveBeenCalledWith('after-1', false);
       expect(lights['setVisible']).toHaveBeenCalledWith('late-1', false);
-      // A tower sold during the wave gets a light of its own, turned with its recorded turret
+      // A tower sold during the wave gets a light of its own, turned with its recorded aim
       expect(lights['add']).toHaveBeenCalledWith('replay-tower-2', 48, 9, 200, expect.any(Object));
       advance(player, 150);
       expect(lights['setVisible']).toHaveBeenCalledWith('late-1', true);
