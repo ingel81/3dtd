@@ -255,6 +255,7 @@ describe('TowerPlacementService', () => {
       getDevTerrainProvider: () => devTerrain,
       getLosBlockerGroup: () => blockerGroup,
       getTowerShadowMapper: () => mapper,
+      towers: { showPreviewRange: vi.fn(), hidePreviewRange: vi.fn() },
     };
     towers = [];
     towerManager = {
@@ -517,6 +518,28 @@ describe('TowerPlacementService', () => {
       service.hidePreview();
 
       expect(preview()!.visible).toBe(false);
+    });
+
+    it('shows the range ring of the tower to be built at its foot and hides it with the preview', async () => {
+      devTerrain = devWorld(() => 42);
+      init();
+      await enterBuild('cannon');
+      hover(FREE, 5);
+
+      const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+      const { showPreviewRange, hidePreviewRange } = engine['towers'] as Record<string, ReturnType<typeof vi.fn>>;
+      expect(showPreviewRange).toHaveBeenLastCalledWith(local.x, 42, local.z, TOWER_TYPES.cannon.range);
+
+      // Also where the tower may not stand
+      hover(at(0, 10));
+      expect(service.validationReason()).toBe('Too close to HQ');
+      expect(showPreviewRange).toHaveBeenCalledTimes(2);
+
+      hidePreviewRange.mockClear();
+      service.hidePreview();
+      expect(hidePreviewRange).toHaveBeenCalledTimes(1);
+      service.exitBuildMode();
+      expect(hidePreviewRange).toHaveBeenCalledTimes(2);
     });
   });
 

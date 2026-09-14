@@ -108,6 +108,9 @@ export class ThreeTowerRenderer {
   /** Geometry and materials every range ring shares */
   private readonly rangeRings = new RangeRingKit();
 
+  /** Range ring of the tower the build preview shows, see showPreviewRange */
+  private readonly previewRange: Group;
+
   // Static shared selection ring geometry + material (created once, reused across all instances)
   private static sharedSelectionMaterial: MeshBasicMaterial | null = null;
   private static sharedSelectionGeometry: RingGeometry | null = null;
@@ -145,6 +148,9 @@ export class ThreeTowerRenderer {
     // The muzzle flash light lives in the scene for good, dark between shots
     // (see TowerMuzzleFlash).
     this.muzzleFlash = new TowerMuzzleFlash(this.scene);
+
+    this.previewRange = this.rangeRings.create();
+    this.scene.add(this.previewRange);
 
     // Static shared selection ring geometry + material (created once, reused across all instances)
     if (!ThreeTowerRenderer.sharedSelectionMaterial) {
@@ -847,6 +853,20 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Range ring of the tower the build preview stands for, around its foot
+   * at local (x, y, z), `range` m wide. Looks like a placed tower's ring.
+   */
+  showPreviewRange(x: number, y: number, z: number, range: number): void {
+    placeRangeRing(this.previewRange, x, y, z, range);
+    this.previewRange.visible = true;
+  }
+
+  /** Hide the build preview's range ring. */
+  hidePreviewRange(): void {
+    this.previewRange.visible = false;
+  }
+
+  /**
    * Check if there's line of sight from a tower to a specific position
    * Uses runtime raycast (GlobalRouteGrid handles pre-computed LOS)
    */
@@ -945,6 +965,7 @@ export class ThreeTowerRenderer {
     this.loadedModelUrls.clear();
 
     // Dispose shared geometry and materials
+    this.scene.remove(this.previewRange);
     this.rangeRings.dispose();
 
     // Only dispose static selection resources when last instance is destroyed
