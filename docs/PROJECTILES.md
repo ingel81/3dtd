@@ -49,7 +49,7 @@ const projectile = new Projectile(..., spawnHeight);
 **Wichtige Methoden:**
 - `spawn(tower, targetEnemy, heading?, aimPoint?)` - Erstellt das Projektil (bei `firePoints` versetzt und um `heading` gedreht), legt Instanz und Trail-Streak an, spielt den Sound und emittiert `vfx:muzzle-flash`. `aimPoint` ist das Ziel statt der Gegnerposition, bei einem Körper entlang der Route (Ooze) dessen nächster Punkt
 - `spawnShot(origin, originHeight, targetEnemy, typeId, damage, damageType, ...)` - Schuss ohne Tower (der Held, siehe unten): gleiche Flugbahn, Treffer, Trail und Sound, kein Mündungsfeuer
-- `playProjectileSound(tower, projectileType)` - Emittiert Audio-Event an Tower-Position
+- `playProjectileSound(projectileType, lat, lon, height)` (privat) - Emittiert das `audio:play`-Event, beim Tower an seiner Position, beim Held am Startpunkt des Schusses
 
 **Update:**
 - `update(deltaTime)` bewegt die Projektile pro Sub-Step und emittiert bei Treffer `projectile:hit`
