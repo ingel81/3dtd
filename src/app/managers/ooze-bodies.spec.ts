@@ -6,7 +6,7 @@ import type { GlobalRouteGridService } from '../services/world/global-route-grid
 
 function mockEngine() {
   return {
-    oozes: { clear: vi.fn() },
+    oozes: { clear: vi.fn(), discard: vi.fn() },
     spatialAudio: null,
   } as unknown as ThreeTilesEngine;
 }
@@ -20,14 +20,16 @@ function mockGrid() {
 }
 
 describe('OozeBodies.clear', () => {
-  it('clears the renderer\'s bands and debris even without a live ooze tracked here', () => {
+  it('leaves the renderer alone without a live ooze tracked here, so a killed one\'s band and debris run out', () => {
     const engine = mockEngine();
     const bodies = new OozeBodies(mockGrid(), new GameEventBus(), () => 1);
-    // A kill just before this already took the ooze off the internal list
-    // (detach(), called from EnemyManager.remove()), but a collapsing band
-    // or debris it threw can still be sitting in the renderer.
+    // A kill before this already took the ooze off the internal list
+    // (detach(), called from EnemyManager.remove()). Every wave end runs
+    // this; its collapsing band and debris are left to finish, a restart
+    // clears them (GameStateManager.reset).
     bodies.clear(engine);
-    expect(engine.oozes.clear).toHaveBeenCalledTimes(1);
+    expect(engine.oozes.clear).not.toHaveBeenCalled();
+    expect(engine.oozes.discard).not.toHaveBeenCalled();
   });
 
   it('does nothing without an engine', () => {

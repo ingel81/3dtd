@@ -193,7 +193,7 @@ export class OozeBandRenderer {
     }
   }
 
-  /** The band of `id` goes at once, without sinking: the wave replay leaves none behind. */
+  /** The band of `id` goes at once, without sinking: the wave replay leaves none behind, a cleared map neither. */
   discard(id: string): void {
     this.drop(id);
   }

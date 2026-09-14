@@ -206,15 +206,19 @@ export class OozeBodies {
   }
 
   /**
-   * Every ooze gone at once (reset, game over, location change): every body
-   * still tracked here, and the renderer's bands and debris regardless,
-   * so a kill just before this (already off this list, still collapsing
-   * or lying as debris in the renderer) doesn't outlive the reset.
+   * Every ooze gone at once (wave end, game over, reset): every body still
+   * tracked here, its band at once like the other enemies' meshes. What
+   * the renderer still shows of an ooze already off this list (a killed
+   * one's collapsing band and debris, a leaked one's sinking band) runs
+   * out on its own after a wave end; a restart or a location change clears
+   * it (GameStateManager.reset).
    */
   clear(engine: ThreeTilesEngine | null): void {
-    for (const { enemy } of this.oozes) this.grid.removeBodyEnemy(enemy);
+    for (const { enemy } of this.oozes) {
+      this.grid.removeBodyEnemy(enemy);
+      engine?.oozes.discard(enemy.id);
+    }
     this.oozes.length = 0;
-    engine?.oozes.clear();
     this.sounds.clear(engine?.spatialAudio ?? null);
   }
 

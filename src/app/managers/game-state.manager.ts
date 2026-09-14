@@ -811,6 +811,9 @@ export class GameStateManager {
 
     if (this.tilesEngine) {
       this.tilesEngine.effects.clear();
+      // A killed ooze's collapsing band and debris outlive EnemyManager.clear(),
+      // which every wave end runs as well; a restart or location change takes them
+      this.tilesEngine.oozes.clear();
     }
 
     this.healthLedger.resetToStart();
