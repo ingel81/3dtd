@@ -12,6 +12,7 @@ import {
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { GlobalRouteGrid } from './global-route-grid';
 import { getAirTargetY } from './route-cell';
+import { DISPLAY_OUTPUT_GLSL } from '../three-engine/renderers/display-output';
 
 /**
  * Debug overlay: a magenta tube along every enemy route at the air
@@ -70,11 +71,16 @@ export function buildRouteAltitudeTubes(grid: GlobalRouteGrid): Group {
       uniform float uOpacityOn;
       uniform float uOpacityOff;
       varying float vLengthAlong;
+
+      ${DISPLAY_OUTPUT_GLSL}
+
       void main() {
         float phase = fract(vLengthAlong * uFrequency);
         float onMask = step(phase, uDuty);
         float opacity = mix(uOpacityOff, uOpacityOn, onMask);
-        gl_FragColor = vec4(uColor, opacity);
+        // A display colour, written for the target (display-output.ts):
+        // the same magenta with and without bloom
+        gl_FragColor = displayOutput(vec4(uColor, opacity));
       }
     `,
     transparent: true,
