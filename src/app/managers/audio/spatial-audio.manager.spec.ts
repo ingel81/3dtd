@@ -675,6 +675,68 @@ describe('SpatialAudioManager', () => {
       expect(manager.getActiveSoundCount()).toBe(1);
     });
 
+    it('holds every loop while the game is paused, the enemy budget with it', async () => {
+      const { manager, ready } = setup();
+      await ready('zombie_walk', 'walk.mp3');
+      await ready('fire', 'fire.mp3');
+      const walk = (await manager.createLoop('zombie_walk', NEAR))!;
+      const walkAudio = lastPositional();
+      const flame = (await manager.createLoop('fire', NEAR))!;
+      const flameAudio = lastPositional();
+
+      manager.holdLoops(true);
+      expect(manager.isLoopPaused(walk)).toBe(true);
+      expect(manager.isLoopPaused(flame)).toBe(true);
+      expect(walkAudio.isPlaying).toBe(false);
+      expect(flameAudio.isPlaying).toBe(false);
+      expect(manager.getEnemySoundStats().current).toBe(0);
+
+      // Neither a position update in range nor resumeLoop wakes one meanwhile
+      manager.updateLoopPosition(walk, NEAR);
+      expect(manager.resumeLoop(flame)).toBe(false);
+      expect(walkAudio.isPlaying).toBe(false);
+      expect(flameAudio.isPlaying).toBe(false);
+
+      manager.holdLoops(false);
+      expect(walkAudio.isPlaying).toBe(true);
+      expect(flameAudio.isPlaying).toBe(true);
+      expect(manager.getEnemySoundStats().current).toBe(1);
+    });
+
+    it('moves a held loop but leaves one out of earshot paused when the game goes on', async () => {
+      const { manager, ready } = setup();
+      await ready('fire', 'fire.mp3');
+      const handle = (await manager.createLoop('fire', NEAR))!;
+      const audio = lastPositional();
+
+      manager.holdLoops(true);
+      manager.updateLoopPosition(handle, FAR);
+      expect(audio.parent?.position.equals(FAR)).toBe(true);
+
+      manager.holdLoops(false);
+      expect(manager.isLoopPaused(handle)).toBe(true);
+      manager.updateLoopPosition(handle, NEAR);
+      expect(audio.isPlaying).toBe(true);
+    });
+
+    it('starts a loop created while held paused, without an enemy-budget slot', async () => {
+      const { manager, ready } = setup();
+      await ready('zombie_walk', 'walk.mp3');
+      manager.holdLoops(true);
+
+      const handle = (await manager.createLoop('zombie_walk', NEAR))!;
+      const audio = lastPositional();
+      expect(manager.isLoopPaused(handle)).toBe(true);
+      expect(audio.isPlaying).toBe(false);
+      expect(manager.getEnemySoundStats().current).toBe(0);
+
+      manager.holdLoops(false);
+      expect(audio.isPlaying).toBe(true);
+      expect(manager.getEnemySoundStats().current).toBe(1);
+      manager.stopLoop(handle);
+      expect(manager.getEnemySoundStats().current).toBe(0);
+    });
+
     it('applies a master volume change to running loops but not to paused ones', async () => {
       const { manager, ready } = setup();
       await ready('fire', 'fire.mp3', { volume: 0.8 });

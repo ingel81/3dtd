@@ -187,11 +187,6 @@ export class OozeBodies {
     );
   }
 
-  /** The game paused (true) or went on: the bubbling stands and goes with the game time. */
-  hold(held: boolean, engine: ThreeTilesEngine | null): void {
-    this.sounds.hold(held, engine?.spatialAudio ?? null);
-  }
-
   /** The ooze left the map; its band sinks away and its loop ends. */
   detach(enemy: Enemy, engine: ThreeTilesEngine | null): void {
     const i = this.oozes.findIndex((o) => o.enemy === enemy);

@@ -13,8 +13,6 @@ function mockAudio() {
     createLoop: vi.fn(() => new Promise<string | null>((resolve) => { arrive = resolve; })),
     updateLoopPosition: vi.fn(),
     isWithinAudibleDistance: vi.fn(() => true),
-    pauseLoop: vi.fn(),
-    resumeLoop: vi.fn(() => true),
     stopLoop: vi.fn(),
   };
   return {
@@ -84,30 +82,6 @@ describe('OozeSounds', () => {
     await arrive(null);
     sounds.follow('ooze-1', manager, 0, 0, 0);
     expect(audio.createLoop).toHaveBeenCalledTimes(1);
-  });
-
-  it('holds the loops while the game is paused', async () => {
-    const { audio, manager, arrive } = mockAudio();
-    sounds.follow('ooze-1', manager, 0, 0, 0);
-    await arrive('loop_1');
-
-    sounds.hold(true, manager);
-    expect(audio.pauseLoop).toHaveBeenCalledWith('loop_1');
-    sounds.follow('ooze-1', manager, 5, 0, 0);
-    sounds.follow('ooze-2', manager, 5, 0, 0);
-    expect(audio.updateLoopPosition).not.toHaveBeenCalled();
-    expect(audio.createLoop).toHaveBeenCalledTimes(1);
-
-    sounds.hold(false, manager);
-    expect(audio.resumeLoop).toHaveBeenCalledWith('loop_1');
-  });
-
-  it('pauses a loop that arrives while the game is paused', async () => {
-    const { audio, manager, arrive } = mockAudio();
-    sounds.follow('ooze-1', manager, 0, 0, 0);
-    sounds.hold(true, manager);
-    await arrive('loop_1');
-    expect(audio.pauseLoop).toHaveBeenCalledWith('loop_1');
   });
 
   it('ends every loop on clear', async () => {
