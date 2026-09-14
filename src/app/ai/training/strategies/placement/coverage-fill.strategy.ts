@@ -12,6 +12,7 @@ import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { TowerTypeId, TOWER_TYPES } from '../../../../configs/tower-types.config';
 import { StrategicPlacementService } from '../../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../../managers/game-state.manager';
+import { canExecutePlacement } from './placement-budget';
 
 export class CoverageFillStrategy extends BaseStrategy {
   private savingForType: TowerTypeId | null = null;
@@ -25,13 +26,7 @@ export class CoverageFillStrategy extends BaseStrategy {
   }
 
   canExecute(state: GameStateSnapshot): boolean {
-    const notMaxed = this.config.maxTowers <= 0 || state.defense.towerCount < this.config.maxTowers;
-    if (!notMaxed) return false;
-
-    // If saving for a type, stay active even if we can't afford anything yet
-    if (this.savingForType) return true;
-
-    return state.player.credits >= 20;
+    return canExecutePlacement(state, this.config.maxTowers, this.savingForType);
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {
