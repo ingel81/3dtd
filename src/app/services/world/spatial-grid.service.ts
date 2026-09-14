@@ -49,7 +49,7 @@ export class SpatialGrid {
   /** Entries are live only while their `gen` matches; clear() moves on to a new one. */
   private generation = SpatialGrid.nextGeneration++;
 
-  constructor(private readonly cellSize = 50) {
+  constructor(cellSize = 50) {
     this.invCellSize = 1 / cellSize;
   }
 

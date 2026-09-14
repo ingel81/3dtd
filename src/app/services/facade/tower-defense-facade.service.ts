@@ -6,7 +6,6 @@ import { TowerPlacementService } from '../tower-placement.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { ConfigService } from '../../core/services/config.service';
 import { DevWorldService } from '../../devworld/devworld.service';
-import { WaveDebugService } from '../debug/wave-debug.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
@@ -93,7 +92,6 @@ export class TowerDefenseFacadeService {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly configService = inject(ConfigService);
   private readonly devWorld = inject(DevWorldService);
-  private readonly waveDebug = inject(WaveDebugService);
   private readonly soundDebug = inject(SoundDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly profiler = inject(PerformanceProfilerService);

@@ -305,17 +305,6 @@ export class LocationManagementService {
     saveRecentLocations(next);
   }
 
-  // ==================== LEGACY COMPATIBILITY ====================
-
-  getCurrentHqLocation() { return this.editableHqLocation(); }
-  getCurrentSpawnLocations() { return this.editableSpawnLocations(); }
-  setApplyingLocation(v: boolean) { this.isApplyingLocation.set(v); }
-
-  // These are now handled by setLocation()
-  initializeEditableLocations() { /* no-op, handled by component */ }
-  saveLocationsToStorage() { /* no-op, URL is source of truth */ }
-  clearLocationsFromStorage() { /* no-op */ }
-
   /**
    * Set spawns after random generation (clears needsRandomSpawn flag)
    */

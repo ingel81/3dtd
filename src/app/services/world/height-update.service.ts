@@ -1,6 +1,5 @@
 import { Injectable, signal, WritableSignal } from '@angular/core';
 import { ThreeTilesEngine } from '../../three-engine';
-import { GeoPosition } from '../../models/game.types';
 import { cameraTimeline } from '../../utils/camera-timeline';
 
 /**
@@ -41,9 +40,6 @@ export class HeightUpdateService {
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
 
-  /** Base coordinates for height calculations */
-  private baseCoords: GeoPosition | null = null;
-
   /** Height update interval ID */
   private heightUpdateIntervalId: number | null = null;
 
@@ -77,9 +73,6 @@ export class HeightUpdateService {
   /** Callback for camera correction (called BEFORE heightsLoading becomes false) */
   private onCameraCorrectionCallback: (() => void) | null = null;
 
-  /** Previous street line count for stability detection */
-  private previousLineCount = 0;
-
   // ========================================
   // INITIALIZATION
   // ========================================
@@ -87,7 +80,6 @@ export class HeightUpdateService {
   /**
    * Initialize height update service
    * @param engine ThreeTilesEngine instance
-   * @param baseCoords Base/HQ coordinates
    * @param loadingStatusSignal Loading status signal
    * @param onUpdateMarkers Callback to update marker heights
    * @param onRenderStreets Callback to render streets
@@ -98,7 +90,6 @@ export class HeightUpdateService {
    */
   initialize(
     engine: ThreeTilesEngine,
-    baseCoords: GeoPosition,
     loadingStatusSignal: WritableSignal<string>,
     onUpdateMarkers: () => void,
     onRenderStreets: () => void,
@@ -108,7 +99,6 @@ export class HeightUpdateService {
     onCameraCorrection?: () => void
   ): void {
     this.engine = engine;
-    this.baseCoords = baseCoords;
     this.loadingStatusSignal = loadingStatusSignal;
     this.onUpdateMarkersCallback = onUpdateMarkers;
     this.onRenderStreetsCallback = onRenderStreets;
@@ -134,7 +124,6 @@ export class HeightUpdateService {
     this.overlayHeightsUpdated = false;
     this.heightsLoading.set(true);
     this.heightProgress.set(0);
-    this.previousLineCount = 0;
 
     if (this.loadingStatusSignal) {
       this.loadingStatusSignal.set('Waiting for 3D tiles...');
@@ -214,8 +203,6 @@ export class HeightUpdateService {
    * Stop height update interval
    */
   stopHeightUpdates(): void {
-    const _now = performance.now();
-
     // Only run callbacks if there was an active height update cycle
     const hadActiveInterval = this.heightUpdateIntervalId !== null;
     cameraTimeline.record('heights.stop', { hadActiveInterval, attempts: this.heightUpdateAttempts }, true);
@@ -286,7 +273,6 @@ export class HeightUpdateService {
   dispose(): void {
     this.stopHeightUpdates();
     this.engine = null;
-    this.baseCoords = null;
     this.loadingStatusSignal = null;
     this.onUpdateMarkersCallback = null;
     this.onRenderStreetsCallback = null;
@@ -305,6 +291,5 @@ export class HeightUpdateService {
     this.overlayHeightsUpdated = false;
     this.heightsLoading.set(true);
     this.heightProgress.set(0);
-    this.previousLineCount = 0;
   }
 }

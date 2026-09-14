@@ -7,7 +7,6 @@
 
 import { Injectable, inject } from '@angular/core';
 import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
-import { GlobalRouteGridService } from './global-route-grid.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { GeoPosition } from '../../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
@@ -50,7 +49,6 @@ export interface PlacementCandidate {
 @Injectable({ providedIn: 'root' })
 export class StrategicPlacementService {
   private osmService = inject(OsmStreetService);
-  private globalRouteGrid = inject(GlobalRouteGridService);
   /** Source of the placement rules, the same the player's clicks go through. */
   private towerPlacement = inject(TowerPlacementService);
 
