@@ -32,8 +32,8 @@ gemeinsamer Code und identisch, egal wer die fünf Zahlen liefert.
 
 Der Default in `WaveDirectorService` ist `modelState = 'rules'` / `aiMode =
 'rules'`, `GameStore.useAIDirector` steht auf `true`. Beim Start wird **nichts**
-geladen; `loadModel()` läuft nur, wenn man im Debug-Fenster („ONNX-Modell
-laden") ausdrücklich darauf klickt, und `forceRuleMode()` schaltet zurück.
+geladen; `loadModel()` läuft nur, wenn man im Training-Debug-Fenster auf
+„Load ONNX model" klickt, und `forceRuleMode()` („Use rules") schaltet zurück.
 
 Den Zustand `'fallback'` gibt es nicht mehr. Er bedeutete früher „Modell fehlt,
 Fehler" und führte zu einer Exception; heute ist „kein Modell" der Normalfall.
