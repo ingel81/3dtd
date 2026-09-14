@@ -156,7 +156,7 @@
       <button class="td-layer-btn"
               [class.active]="uiStore.spatialGridDebugVisible()"
               (click)="spatialGridDebugToggled.emit()"
-              matTooltip="Route Grid Overlay. Fill: grey no tower, green covered. Outline: white cell, blue bridge deck, yellow tunnel or covered passage, pink no height sample (a tower's LOS view leaves it out). Brighter: centre line"
+              matTooltip="Route Grid Overlay. Fill: grey no tower, green covered. Outline: white cell, blue bridge deck and the way carrying it on past its end, yellow tunnel or covered passage, pink no height sample (a tower's LOS view leaves it out). Brighter: centre line"
               matTooltipPosition="left"
               aria-label="Route Grid Overlay" [attr.aria-pressed]="uiStore.spatialGridDebugVisible()">
         <td-icon name="grid" [size]="18"></td-icon>
