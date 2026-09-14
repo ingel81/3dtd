@@ -88,6 +88,10 @@ class TrainingLogger:
         self._print(f"[+] Client #{client_id % 10000} connected ({total} total)")
         self._log("client_connect", {"client_id": client_id, "total": total})
 
+    def client_session(self, client_id, game_version):
+        """The client's connect message: which game build it runs (BUILD_VERSION)."""
+        self._log("client_session", {"client_id": client_id, "game_version": game_version})
+
     def client_disconnected(self, client_id, total):
         self.update_clients(total)
         self._print(f"[-] Client #{client_id % 10000} disconnected ({total} total)")

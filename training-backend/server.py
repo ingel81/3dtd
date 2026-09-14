@@ -345,6 +345,7 @@ class TrainingServer:
                 "trainingState": self.training_state,
             }))
             logger.debug(f"Session established: #{display_id} ({self.training_state})")
+            logger.client_session(client_id, msg.get("gameVersion"))
 
         elif msg_type == "state":
             # Game state received - generate wave config
