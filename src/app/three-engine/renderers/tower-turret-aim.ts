@@ -6,6 +6,10 @@ import type { TowerRenderData } from './three-tower.renderer';
  * through the reference sweep after placement. Gameplay-affecting, so it
  * runs per sub-step in game-time (ThreeTowerRenderer.advanceTurretAim);
  * the purely visual extras (magic hover, debug arrow) stay in the renderer.
+ *
+ * A tower without a turret part turns its aim all the same, only nothing in
+ * the model shows it: the blood moon searchlight points along it. Firing
+ * never waits for that aim (ThreeTowerRenderer.isTurretAligned).
  */
 
 /** Turret turn rate, rad/s game-time. */
@@ -52,15 +56,23 @@ export function headingToLocalRotation(
   return threeJsTargetRotation - parentRotation;
 }
 
+/** The geo heading a turret rotation relative to the tower mesh points at: headingToLocalRotation reversed. */
+export function localRotationToHeading(
+  typeConfig: TowerTypeConfig,
+  parentRotation: number,
+  localRotation: number,
+): number {
+  return -(localRotation + parentRotation + (typeConfig.turretBarrelOffset ?? 0));
+}
+
 /**
  * Turn one tower's turret for `gameTimeStepMs` of game-time. Rotation speed
  * is a constant ~PI rad/s game-time, so combat alignment advances at the
  * same rate at every training timescale (sub-stepping provides the "more
- * ticks per real-frame" at high speeds). Towers without a turret part are
- * left alone.
+ * ticks per real-frame" at high speeds). A tower without a turret part turns
+ * only its aim, no node.
  */
 export function stepTurretAim(data: TowerRenderData, gameTimeStepMs: number): void {
-  if (!data.turretPart) return;
   const maxRotationThisStep = TURRET_TURN_SPEED * (gameTimeStepMs / 1000);
 
   // Cancel scan if tower acquires a target
@@ -93,7 +105,7 @@ export function stepTurretAim(data: TowerRenderData, gameTimeStepMs: number): vo
       const rotation = Math.sign(diff) * Math.min(Math.abs(diff), scanSpeed);
       data.currentLocalRotation += rotation;
     }
-    data.turretPart.rotation.y = data.currentLocalRotation;
+    if (data.turretPart) data.turretPart.rotation.y = data.currentLocalRotation;
   } else if (data.scanPhase === 0) {
     const current = data.currentLocalRotation;
     const target = data.targetLocalRotation;
@@ -104,7 +116,7 @@ export function stepTurretAim(data: TowerRenderData, gameTimeStepMs: number): vo
       const rotation = Math.sign(diff) * Math.min(Math.abs(diff), maxRotationThisStep);
       data.currentLocalRotation += rotation;
     }
-    data.turretPart.rotation.y = data.currentLocalRotation;
+    if (data.turretPart) data.turretPart.rotation.y = data.currentLocalRotation;
   }
 }
 

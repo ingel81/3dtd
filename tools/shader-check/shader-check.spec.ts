@@ -227,8 +227,8 @@ const CASES: ShaderCase[] = [
   {
     name: 'searchlight cones',
     file: 'three-engine/renderers/searchlight/searchlight.renderer.ts',
-    // The sync only places lamps, which compiling does not need
-    build: (scene) => new SearchlightRenderer(scene, {} as CoordinateSync),
+    // The sync only places lamps and the aim only turns beams, which compiling does not need
+    build: (scene) => new SearchlightRenderer(scene, {} as CoordinateSync, { aimHeading: () => null }),
   },
   {
     name: 'VAT enemies (each alpha mode, front and double side)',

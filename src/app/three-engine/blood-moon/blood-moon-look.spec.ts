@@ -7,7 +7,7 @@ const { fadeInMs, fadeOutMs } = BLOOD_MOON_LOOK;
 function setup() {
   const mood = { setAmount: vi.fn(), dispose: vi.fn() };
   const enemies = { setBloodMoon: vi.fn() };
-  const searchlights = { setAmount: vi.fn(), advance: vi.fn() };
+  const searchlights = { setAmount: vi.fn(), aim: vi.fn() };
   const oozes = { setBloodMoon: vi.fn() };
   const groundMarks = { setBloodMoon: vi.fn() };
   const look = new BloodMoonLook({ mood, enemies, searchlights, oozes, groundMarks });
@@ -117,24 +117,26 @@ describe('BloodMoonLook', () => {
     expect(groundMarks.setBloodMoon).toHaveBeenLastCalledWith(0, true);
   });
 
-  it('lights the searchlights with the fade and sweeps them only while they show and the game runs', () => {
+  it('lights the searchlights with the fade and turns them with the turrets while they show, paused as well', () => {
     const { look, searchlights } = setup();
     look.update(16, true, false);
-    expect(searchlights.advance).not.toHaveBeenCalled();
+    expect(searchlights.aim).not.toHaveBeenCalled();
 
     look.setActive(true);
     look.update(fadeInMs, true, false);
     expect(searchlights.setAmount).toHaveBeenLastCalledWith(1);
-    expect(searchlights.advance).toHaveBeenLastCalledWith(fadeInMs);
+    expect(searchlights.aim).toHaveBeenCalled();
 
-    searchlights.advance.mockClear();
+    // A paused wave replay still moves the turrets
+    searchlights.aim.mockClear();
     look.update(500, false, false);
-    expect(searchlights.advance).not.toHaveBeenCalled();
+    expect(searchlights.aim).toHaveBeenCalledTimes(1);
 
     look.setActive(false, true);
+    searchlights.aim.mockClear();
     look.update(16, true, false);
     expect(searchlights.setAmount).toHaveBeenLastCalledWith(0);
-    expect(searchlights.advance).not.toHaveBeenCalled();
+    expect(searchlights.aim).not.toHaveBeenCalled();
   });
 
   it('disposes its parts', () => {

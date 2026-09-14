@@ -204,6 +204,9 @@ Das 3D-Modell braucht einen benannten Node, der sich dreht:
   der Renderer einmal pro Tower-Typ. Der Turm dreht sich dann nicht, schießt aber weiter:
   `isTurretAligned` gilt ohne Turret-Teil als erfüllt.
 - Dieses Teil rotiert automatisch in Richtung der Feinde
+- Ohne Turret-Teil (Archer, Lightning, Tentacle) dreht `advanceTurretAim()` die Zielrichtung
+  (`currentLocalRotation`) trotzdem mit, nur ohne Node. Ihr folgt der Blutmond-Scheinwerfer
+  (`aimHeading()`), aufs Feuern wartet sie nicht
 
 ### Wie es funktioniert
 

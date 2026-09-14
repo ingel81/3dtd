@@ -107,6 +107,16 @@ describe('ThreeTowerRenderer turret heading', () => {
     expect(angleBetween(turretHeading(data), Math.PI / 2)).toBeLessThan(1e-9);
   });
 
+  it('reports the heading the turret points at, null for a tower it does not know', async () => {
+    const data = await create(0);
+    advance(5000);
+    renderer.updateRotation('t1', 1.2);
+    advance(1000);
+    expect(angleBetween(renderer.aimHeading('t1')!, 1.2)).toBeLessThan(1e-9);
+    expect(renderer.aimHeading('t1')).toBeCloseTo(turretHeading(data), 12);
+    expect(renderer.aimHeading('none')).toBeNull();
+  });
+
   it('turns to the guard heading at the aiming speed', async () => {
     const data = await create(0);
     advance(5000); // placement scan done, facing north
@@ -150,6 +160,48 @@ describe('ThreeTowerRenderer turret heading', () => {
       frames(3000);
       expect(angleBetween(turretHeading(data), Math.PI / 2)).toBeLessThan(1e-9);
     });
+  });
+});
+
+/**
+ * Archer, lightning and tentacle models have no turret node. Their aim turns
+ * all the same (the blood moon searchlight follows it); the model does not
+ * move and firing never waits for it.
+ */
+describe('ThreeTowerRenderer aim without a turret part', () => {
+  const STEP_MS = 1000 / 60;
+  const assetManager = {
+    loadModel: async () => ({ animations: [] }),
+    cloneModel: () => new Group(),
+  };
+  const sync = {
+    geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
+  };
+  const angleBetween = (a: number, b: number) => {
+    const d = (((a - b) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+    return Math.abs(d);
+  };
+
+  it('turns its aim to the guard heading and onto a target, the model stays put and fires at once', async () => {
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    const advance = (ms: number) => {
+      for (let t = 0; t < ms; t += STEP_MS) renderer.advanceTurretAim(STEP_MS);
+    };
+    const data = (await renderer.create('a1', 'archer', 0, 0, 0, 0.4, 1.0))!;
+    expect(data.turretPart).toBeNull();
+    const meshRotation = data.mesh.rotation.y;
+    // Placed facing the way the model faces, no reference sweep
+    expect(angleBetween(renderer.aimHeading('a1')!, -meshRotation)).toBeLessThan(1e-9);
+    expect(data.scanPhase).toBe(0);
+
+    advance(1100);
+    expect(angleBetween(renderer.aimHeading('a1')!, 1.0)).toBeLessThan(1e-9);
+
+    renderer.updateRotation('a1', -1);
+    expect(renderer.isTurretAligned('a1')).toBe(true);
+    advance(1100);
+    expect(angleBetween(renderer.aimHeading('a1')!, -1)).toBeLessThan(1e-9);
+    expect(data.mesh.rotation.y).toBe(meshRotation);
   });
 });
 

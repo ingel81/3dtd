@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { AdditiveBlending, Scene, Vector3, type InstancedBufferGeometry, type Mesh, type ShaderMaterial } from 'three';
+import {
+  AdditiveBlending,
+  Scene,
+  Vector3,
+  type BufferAttribute,
+  type InstancedBufferGeometry,
+  type Mesh,
+  type ShaderMaterial,
+} from 'three';
 import {
   SearchlightRenderer,
   createSearchlightConeGeometry,
@@ -21,11 +29,14 @@ const sync: CoordinateSync = {
 
 function setup() {
   const scene = new Scene();
-  const renderer = new SearchlightRenderer(scene, sync);
+  /** Where each tower aims; a tower missing here has no model yet */
+  const headings = new Map<string, number>();
+  const renderer = new SearchlightRenderer(scene, sync, { aimHeading: (id) => headings.get(id) ?? null });
   const mesh = scene.children.find((child) => child.name === 'searchlights') as Mesh;
   const geometry = mesh.geometry as InstancedBufferGeometry;
   const material = mesh.material as ShaderMaterial;
-  return { scene, renderer, mesh, geometry, material };
+  const beam = geometry.getAttribute('aBeam') as BufferAttribute;
+  return { scene, headings, renderer, mesh, geometry, material, beam };
 }
 
 describe('searchlightLampHeight', () => {
@@ -99,7 +110,7 @@ describe('SearchlightRenderer', () => {
   it('puts the lamp on the foot of the tower, a plinth under it included', () => {
     const { renderer, geometry } = setup();
     // The foot is position.height, the top of the plinth
-    renderer.add('t1', 10, 20, 7.5, TOWER_TYPES.archer, 0);
+    renderer.add('t1', 10, 20, 7.5, TOWER_TYPES.archer);
     expect(renderer.count).toBe(1);
     expect(geometry.instanceCount).toBe(1);
     const lamp = geometry.getAttribute('aLamp');
@@ -108,49 +119,67 @@ describe('SearchlightRenderer', () => {
     ]);
   });
 
-  it('sweeps around the guard heading, with a period in the configured range', () => {
-    const { renderer, geometry } = setup();
-    renderer.add('t1', 0, 0, 0, TOWER_TYPES.cannon, Math.PI / 2);
-    const sweep = geometry.getAttribute('aSweep');
-    expect(sweep.getX(0)).toBeCloseTo(headingToSearchlightYaw(Math.PI / 2));
-    const period = (Math.PI * 2) / sweep.getZ(0);
-    expect(period).toBeGreaterThanOrEqual(LOOK.sweepPeriodS[0] - 1e-3);
-    expect(period).toBeLessThanOrEqual(LOOK.sweepPeriodS[1] + 1e-3);
-    expect(sweep.getW(0)).toBe(LOOK.length);
+  it('points the beam where the tower aims and turns it with the tower', () => {
+    const { renderer, headings, beam } = setup();
+    headings.set('t1', Math.PI / 2);
+    renderer.add('t1', 0, 0, 0, TOWER_TYPES.cannon);
+    expect(beam.getX(0)).toBeCloseTo(headingToSearchlightYaw(Math.PI / 2));
+    expect(beam.getY(0)).toBe(LOOK.length);
+
+    // The turret turns onto a target
+    headings.set('t1', -1);
+    renderer.aim();
+    expect(beam.getX(0)).toBeCloseTo(headingToSearchlightYaw(-1));
+    expect(beam.getY(0)).toBe(LOOK.length);
   });
 
-  it('turns the sweep to a new guard heading and keeps its phase, speed and length', () => {
-    const { renderer, geometry } = setup();
-    renderer.add('t1', 0, 0, 0, TOWER_TYPES.cannon, 0);
-    const sweep = geometry.getAttribute('aSweep');
-    const [phase, speed, length] = [sweep.getY(0), sweep.getZ(0), sweep.getW(0)];
+  it('uploads the beams only in a frame in which a tower turned', () => {
+    const { renderer, headings, beam } = setup();
+    headings.set('a', 0);
+    headings.set('b', 1);
+    renderer.add('a', 0, 0, 0, TOWER_TYPES.archer);
+    renderer.add('b', 1, 0, 0, TOWER_TYPES.archer);
+    const version = beam.version;
+    renderer.aim();
+    expect(beam.version).toBe(version);
 
-    renderer.setHeading('t1', Math.PI / 2);
-    expect(sweep.getX(0)).toBeCloseTo(headingToSearchlightYaw(Math.PI / 2));
-    expect([sweep.getY(0), sweep.getZ(0), sweep.getW(0)]).toEqual([phase, speed, length]);
+    headings.set('b', 1.5);
+    renderer.aim();
+    expect(beam.version).toBe(version + 1);
+    // One range over the drawn slots, not one per slot
+    expect(beam.updateRanges).toEqual([{ start: 0, count: 2 * 2 }]);
+  });
 
-    // No guard heading: the beam stays where it sweeps; no light: nothing happens
-    renderer.setHeading('t1', null);
-    renderer.setHeading('other', 0);
-    expect(sweep.getX(0)).toBeCloseTo(headingToSearchlightYaw(Math.PI / 2));
+  it('keeps the beam dark until the tower\'s model is there to aim', () => {
+    const { renderer, headings, beam } = setup();
+    renderer.add('t1', 0, 0, 0, TOWER_TYPES.archer);
     expect(renderer.count).toBe(1);
+    expect(beam.getY(0)).toBe(0);
+    renderer.aim();
+    expect(beam.getY(0)).toBe(0);
+
+    headings.set('t1', 0.5);
+    renderer.aim();
+    expect(beam.getX(0)).toBeCloseTo(headingToSearchlightYaw(0.5));
+    expect(beam.getY(0)).toBe(LOOK.length);
   });
 
   it('gives the Research Center no light', () => {
     const { renderer, geometry } = setup();
-    renderer.add('lab', 0, 0, 0, TOWER_TYPES['research-center'], null);
+    renderer.add('lab', 0, 0, 0, TOWER_TYPES['research-center']);
     expect(renderer.count).toBe(0);
     expect(geometry.instanceCount).toBe(0);
   });
 
   it('frees the slot of a removed tower and hands it out again', () => {
-    const { renderer, geometry } = setup();
-    renderer.add('a', 0, 0, 0, TOWER_TYPES.archer, 0);
-    renderer.add('b', 1, 0, 0, TOWER_TYPES.archer, 0);
+    const { renderer, headings, geometry, beam } = setup();
+    for (const id of ['a', 'b', 'c']) headings.set(id, 0);
+    renderer.add('a', 0, 0, 0, TOWER_TYPES.archer);
+    renderer.add('b', 1, 0, 0, TOWER_TYPES.archer);
     renderer.remove('a');
     expect(renderer.count).toBe(1);
-    expect(geometry.getAttribute('aSweep').getW(0)).toBe(0);
-    renderer.add('c', 2, 0, 0, TOWER_TYPES.archer, 0);
+    expect(beam.getY(0)).toBe(0);
+    renderer.add('c', 2, 0, 0, TOWER_TYPES.archer);
     expect(geometry.getAttribute('aLamp').getX(0)).toBe(2);
     expect(geometry.instanceCount).toBe(2);
 
@@ -160,16 +189,23 @@ describe('SearchlightRenderer', () => {
   });
 
   it('hides one tower\'s beam and shows it again, the slot kept (wave replay)', () => {
-    const { renderer, geometry } = setup();
-    renderer.add('a', 0, 0, 0, TOWER_TYPES.archer, 0);
-    renderer.add('b', 1, 0, 0, TOWER_TYPES.archer, 0);
-    const sweep = geometry.getAttribute('aSweep');
+    const { renderer, headings, beam } = setup();
+    headings.set('a', 0);
+    headings.set('b', 0);
+    renderer.add('a', 0, 0, 0, TOWER_TYPES.archer);
+    renderer.add('b', 1, 0, 0, TOWER_TYPES.archer);
     renderer.setVisible('a', false);
-    expect(sweep.getW(0)).toBe(0);
-    expect(sweep.getW(1)).toBe(LOOK.length);
+    expect(beam.getY(0)).toBe(0);
+    expect(beam.getY(1)).toBe(LOOK.length);
     expect(renderer.count).toBe(2);
+
+    // A hidden tower that turns stays dark, and shows the new heading once back
+    headings.set('a', 1);
+    renderer.aim();
+    expect(beam.getY(0)).toBe(0);
     renderer.setVisible('a', true);
-    expect(sweep.getW(0)).toBe(LOOK.length);
+    expect(beam.getX(0)).toBeCloseTo(headingToSearchlightYaw(1));
+    expect(beam.getY(0)).toBe(LOOK.length);
     // No light: nothing happens
     renderer.setVisible('none', false);
     expect(renderer.count).toBe(2);
@@ -179,21 +215,13 @@ describe('SearchlightRenderer', () => {
     const { renderer, mesh, material } = setup();
     renderer.setAmount(1);
     expect(mesh.visible).toBe(false);
-    renderer.add('a', 0, 0, 0, TOWER_TYPES.archer, 0);
+    renderer.add('a', 0, 0, 0, TOWER_TYPES.archer);
     expect(mesh.visible).toBe(true);
     expect(material.uniforms['uIntensity'].value).toBeCloseTo(LOOK.intensity);
     renderer.setAmount(0.5);
     expect(material.uniforms['uIntensity'].value).toBeCloseTo(LOOK.intensity / 2);
     renderer.setAmount(0);
     expect(mesh.visible).toBe(false);
-  });
-
-  it('runs the sweep clock on the time it is given, not on a step of zero', () => {
-    const { renderer, material } = setup();
-    renderer.advance(1500);
-    renderer.advance(0);
-    renderer.advance(-20);
-    expect(material.uniforms['uTime'].value).toBeCloseTo(1.5);
   });
 
   it('is never hit by a raycast and leaves the scene on dispose', () => {

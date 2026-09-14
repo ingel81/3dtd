@@ -340,7 +340,7 @@ export class ThreeTilesEngine {
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
     this.mushroomClouds = new MushroomCloudRenderer(this.scene, this.effects.particleShaderMaterials);
     this.oozes = new OozeBandRenderer(this.scene);
-    this.searchlights = new SearchlightRenderer(this.scene, coordinateSync);
+    this.searchlights = new SearchlightRenderer(this.scene, coordinateSync, this.towers);
     // Takes the fog colour set above as the one to return to
     this.bloodMoon = new BloodMoonLook({
       mood: new BloodMoonMood(this.scene),
