@@ -543,10 +543,11 @@ S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotke
 
 ### First-Run-Tipps
 
-Vier kurze Tipps beim ersten Spiel in der Context-Hint-Box: Research Center platzieren, Tower bauen, erste Welle starten, Research öffnen. Zustandsmaschine in `services/onboarding/onboarding.ts`, Zustand in `OnboardingService` (localStorage `td_onboarding_v1`).
+Sieben kurze Tipps in der Context-Hint-Box, entlang des Spielablaufs: Tower bauen, erste Welle starten, Tower upgraden, Research Center bauen, Forschung starten, Fähigkeit einsetzen, Held anheuern. Zustandsmaschine in `services/onboarding/onboarding.ts`, Zustand in `OnboardingService` (localStorage `td_onboarding_v2`).
 
-- Ein Tipp verschwindet, wenn der Spieler tut, was er sagt (Events `tower:placed`, `wave:started`, `tower:selected` auf das Research Center, `research:started`), oder per "Skip"; "Hide tips" beendet alle. Schon erledigte Schritte zählen, bevor ihr Tipp dran ist
-- Kopf "1/4" rechts neben dem Titel; der erste Tipp zeigt die Kamera-Tasten und H (Shortcuts) als Tastenkappen, der Controls Hint wartet so lange
+- Ein Tipp verschwindet, wenn der Spieler tut, was er sagt (Events `tower:placed`, `wave:started`, `tower:upgraded` auf einen Tower außer dem Research Center, `research:started`, `ability:used`, `hero:state-changed` mit `hired`), oder per "Skip"; "Hide tips" beendet alle. Schon erledigte Schritte zählen, bevor ihr Tipp dran ist
+- Die späteren Tipps warten auf ihren Moment im laufenden Spiel (`isReady`): Upgrade nach Welle 1, Research Center nach Welle 2 (`RESEARCH_TIP_AFTER_WAVE`, die billigste Forschung kostet 400, etwa was Welle 2 zahlt), Forschung starten, sobald ein Center steht, Fähigkeit, sobald eine erforscht ist, Held, sobald er angeheuert werden kann. Den Fortschritt liest der Service aus `wave:completed`, `wave:jumped`, `research:state-changed`, `ability:state-changed` und `hero:state-changed`; er wird nicht gespeichert, `game:reset` setzt ihn zurück. Gezeigt wird der erste offene Tipp, dessen Moment gekommen ist, sonst keiner (etwa während Welle 1)
+- Kopf "1/7" rechts neben dem Titel; der erste Tipp zeigt die Kamera-Tasten und H (Shortcuts) als Tastenkappen, der Controls Hint wartet so lange. Der Wellen-Tipp zeigt Space, P und +/-, der Upgrade-Tipp U und Del (Verkauf), der Fähigkeiten-Tipp die Tasten der erforschten Fähigkeiten, der Helden-Tipp G und V
 - Nicht über Ladescreen, Token-Screen, Fehler, Intro-Flug, Game Over, Photo Mode und Replay
 - Die Tipp-Box sitzt 56px über der Unterkante statt 20px wie die Build-Hinweise: oberhalb des Bands der Offscreen-Pfeile (26px vom Rand, Chips bis 26px), damit kein Pfeil darunter verschwindet
 - "Tips" links im Sidebar-Footer startet die Tipps von vorn
