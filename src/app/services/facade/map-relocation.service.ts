@@ -169,7 +169,8 @@ export class MapRelocationService {
    *
    * A hint over the map says so (RelocationStatusService): shown and
    * painted before the work, then the corridor measurement in percent
-   * until it is done; `[Relocation] HQ done:` sums up the whole wait.
+   * until it is done; `[Relocation] HQ done:` sums up the whole wait. A
+   * step that throws takes the hint away and passes the error on.
    */
   private async applyHqInPlace(lat: number, lon: number, host: RelocationHost): Promise<void> {
     if (!this.inPlaceContext(host)) return;
@@ -186,121 +187,128 @@ export class MapRelocationService {
     const { ctx, engine, streetNetwork, vizCallbacks } = context;
     const { bridge, gameState } = ctx;
     const workStart = performance.now();
-    const times = new StepTimes([
-      'reset', 'clear', 'services', 'paths', 'route', 'random', 'state', 'grid',
-      'placement', 'streets', 'camera', 'rest', 'corridor',
-    ]);
-    let spawnFrom: 'old' | 'random' | 'none' = 'none';
+    // A step that throws leaves the world half rebuilt, as it did before
+    // the hint; the hint goes with it instead of standing until the next move.
+    try {
+      const times = new StepTimes([
+        'reset', 'clear', 'services', 'paths', 'route', 'random', 'state', 'grid',
+        'placement', 'streets', 'camera', 'rest', 'corridor',
+      ]);
+      let spawnFrom: 'old' | 'random' | 'none' = 'none';
 
-    // Save existing spawns before clearing
-    const existingSpawns = this.store.spawnPoints().map(sp => ({
-      id: sp.id, name: sp.name, lat: sp.lat, lon: sp.lon, color: sp.color,
-    }));
+      // Save existing spawns before clearing
+      const existingSpawns = this.store.spawnPoints().map(sp => ({
+        id: sp.id, name: sp.name, lat: sp.lat, lon: sp.lon, color: sp.color,
+      }));
 
-    // 1. Stop animations and height updates
-    this.routeAnimation.stopAnimation();
-    this.heightUpdate.stopHeightUpdates();
+      // 1. Stop animations and height updates
+      this.routeAnimation.stopAnimation();
+      this.heightUpdate.stopHeightUpdates();
 
-    // 2. Reset game state (towers, enemies, etc.)
-    gameState.reset();
-    times.lap('reset');
+      // 2. Reset game state (towers, enemies, etc.)
+      gameState.reset();
+      times.lap('reset');
 
-    // 3. Targeted cleanup — keep street network + street network location
-    this.markerViz.clearAllMarkers();
-    this.pathRoute.clearAllRoutes();
-    this.pathRoute.clearCachedPaths();
-    this.streetRendering.dispose(engine.getOverlayGroup());
-    this.store.spawnPoints.set([]);
-    bridge.setFilteredStreetNetwork(null);
+      // 3. Targeted cleanup — keep street network + street network location
+      this.markerViz.clearAllMarkers();
+      this.pathRoute.clearAllRoutes();
+      this.pathRoute.clearCachedPaths();
+      this.streetRendering.dispose(engine.getOverlayGroup());
+      this.store.spawnPoints.set([]);
+      bridge.setFilteredStreetNetwork(null);
 
-    // 4. Update engine coordinate system
-    engine.setOrigin(lat, lon);
+      // 4. Update engine coordinate system
+      engine.setOrigin(lat, lon);
 
-    // 5. Update store signals
-    this.store.baseCoords.set({ lat, lon });
-    this.store.centerCoords.set({ lat, lon, height: 400 });
-    times.lap('clear');
+      // 5. Update store signals
+      this.store.baseCoords.set({ lat, lon });
+      this.store.centerCoords.set({ lat, lon, height: 400 });
+      times.lap('clear');
 
-    // 6. Re-initialize visualization services (markerViz + pathRoute with new baseCoords)
-    vizCallbacks.initializeVisualizationServices();
+      // 6. Re-initialize visualization services (markerViz + pathRoute with new baseCoords)
+      vizCallbacks.initializeVisualizationServices();
 
-    // 7. Re-add HQ marker
-    this.markerViz.addBaseMarker();
-    times.lap('services');
+      // 7. Re-add HQ marker
+      this.markerViz.addBaseMarker();
+      times.lap('services');
 
-    // 8. Re-add existing spawns — validate paths to new HQ
-    let hasValidSpawn = false;
-    for (const spawn of existingSpawns) {
-      const path = this.osmService.findPath(streetNetwork, spawn.lat, spawn.lon, lat, lon);
-      times.lap('paths');
-      if (path && path.length >= 2) {
-        host.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, spawn.color);
-        times.lap('route');
-        hasValidSpawn = true;
-        spawnFrom = 'old';
-        break; // Only 1 spawn supported
+      // 8. Re-add existing spawns — validate paths to new HQ
+      let hasValidSpawn = false;
+      for (const spawn of existingSpawns) {
+        const path = this.osmService.findPath(streetNetwork, spawn.lat, spawn.lon, lat, lon);
+        times.lap('paths');
+        if (path && path.length >= 2) {
+          host.addSpawnPoint(spawn.id, spawn.name, spawn.lat, spawn.lon, spawn.color);
+          times.lap('route');
+          hasValidSpawn = true;
+          spawnFrom = 'old';
+          break; // Only 1 spawn supported
+        }
       }
-    }
 
-    // 9. If no valid spawn, generate a random one
-    if (!hasValidSpawn) {
-      const randomSpawn = this.osmService.findRandomStreetPoint(
-        streetNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE,
+      // 9. If no valid spawn, generate a random one
+      if (!hasValidSpawn) {
+        const randomSpawn = this.osmService.findRandomStreetPoint(
+          streetNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE,
+        );
+        if (randomSpawn) {
+          host.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, SPAWN_COLORS[0]);
+          spawnFrom = 'random';
+        }
+        times.lap('random');
+      }
+
+      // 10. Re-initialize game state with new routes
+      const waveSpawns: WaveSpawnPoint[] = this.store.spawnPoints().map(sp => ({
+        id: sp.id, name: sp.name, lat: sp.lat, lon: sp.lon,
+      }));
+      gameState.initialize(
+        engine, { lat, lon }, waveSpawns, this.pathRoute.getCachedPaths(),
       );
-      if (randomSpawn) {
-        host.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, SPAWN_COLORS[0]);
-        spawnFrom = 'random';
+      times.lap('state');
+      gameState.initializeGlobalRouteGrid();
+      times.lap('grid');
+
+      // 11. Re-initialize tower placement + street filter + rendering
+      vizCallbacks.initializeTowerPlacement();
+      times.lap('placement');
+      vizCallbacks.filterStreetNetworkToRoutes();
+      vizCallbacks.renderStreets();
+      times.lap('streets');
+
+      // 12. Camera reframe
+      vizCallbacks.reframeCameraWithRoutes();
+      vizCallbacks.saveInitialCameraPosition();
+      times.lap('camera');
+
+      // 13. Update location service + URL
+      const spawns = this.store.spawnPoints();
+      this.locationMgmt.setLocation(
+        { lat, lon },
+        spawns.map(s => ({ lat: s.lat, lon: s.lon })),
+      );
+      host.syncUrlWithLocation();
+
+      // 14. Start route animation
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      if (cachedPaths.size > 0) {
+        this.routeAnimation.startAnimation(cachedPaths, spawns);
       }
-      times.lap('random');
+
+      // 15. Update map placement dependencies
+      this.mapPlacement.updateDependencies(streetNetwork, { lat, lon });
+      times.lap('rest');
+
+      // 16. Fit the corridor to the tiles: the route service started over at
+      // step 6, the routes run with the street widths until it is measured.
+      vizCallbacks.fitCorridorToTiles();
+      times.lap('corridor');
+
+      console.warn(`[Relocation] HQ in place: ${times} spawnFrom=${spawnFrom} spawns=${spawns.length}`);
+    } catch (error) {
+      this.relocationStatus.clear();
+      throw error;
     }
-
-    // 10. Re-initialize game state with new routes
-    const waveSpawns: WaveSpawnPoint[] = this.store.spawnPoints().map(sp => ({
-      id: sp.id, name: sp.name, lat: sp.lat, lon: sp.lon,
-    }));
-    gameState.initialize(
-      engine, { lat, lon }, waveSpawns, this.pathRoute.getCachedPaths(),
-    );
-    times.lap('state');
-    gameState.initializeGlobalRouteGrid();
-    times.lap('grid');
-
-    // 11. Re-initialize tower placement + street filter + rendering
-    vizCallbacks.initializeTowerPlacement();
-    times.lap('placement');
-    vizCallbacks.filterStreetNetworkToRoutes();
-    vizCallbacks.renderStreets();
-    times.lap('streets');
-
-    // 12. Camera reframe
-    vizCallbacks.reframeCameraWithRoutes();
-    vizCallbacks.saveInitialCameraPosition();
-    times.lap('camera');
-
-    // 13. Update location service + URL
-    const spawns = this.store.spawnPoints();
-    this.locationMgmt.setLocation(
-      { lat, lon },
-      spawns.map(s => ({ lat: s.lat, lon: s.lon })),
-    );
-    host.syncUrlWithLocation();
-
-    // 14. Start route animation
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, spawns);
-    }
-
-    // 15. Update map placement dependencies
-    this.mapPlacement.updateDependencies(streetNetwork, { lat, lon });
-    times.lap('rest');
-
-    // 16. Fit the corridor to the tiles: the route service started over at
-    // step 6, the routes run with the street widths until it is measured.
-    vizCallbacks.fitCorridorToTiles();
-    times.lap('corridor');
-
-    console.warn(`[Relocation] HQ in place: ${times} spawnFrom=${spawnFrom} spawns=${spawns.length}`);
 
     // The measurement runs over the next frames and rebuilds routes and
     // cells at its end; the hint shows it in percent until then.

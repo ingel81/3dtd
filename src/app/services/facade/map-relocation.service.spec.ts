@@ -188,6 +188,17 @@ describe('MapRelocationService', () => {
     );
   });
 
+  it('takes the hint back and passes the error on when the rebuild throws', async () => {
+    gameState.initialize.mockImplementationOnce(() => {
+      throw new Error('no grid');
+    });
+
+    await expect(click('hq', INSIDE)).rejects.toThrow('no grid');
+
+    expect(relocationStatus.clear).toHaveBeenCalledTimes(1);
+    expect(relocationStatus.followCorridor).not.toHaveBeenCalled();
+  });
+
   it('takes the hint back when the component went away while it painted', async () => {
     relocationStatus.painted.mockImplementationOnce(async () => {
       host.context.mockReturnValue(null);
