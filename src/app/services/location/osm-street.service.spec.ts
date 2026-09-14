@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { OsmStreetService, BuildingFootprint, StreetNetwork } from './osm-street.service';
+import { boxAround } from './street-box';
 
 // Mock Angular DI — OsmStreetService uses inject(StreetCacheService)
 vi.mock('@angular/core', async () => {
@@ -392,6 +393,69 @@ describe('OsmStreetService', () => {
       }
       await expect(loading).rejects.toThrow('No streets found in this area');
       expect(requests).toHaveLength(3);
+    });
+
+    describe('after streets were loaded', () => {
+      const LAT = 48.78;
+      const LON = 9.18;
+      const old = boxAround(LAT, LON, 500);
+      /** One radius east: the new box starts in the middle of the old one. */
+      const EAST = LON + (old.maxLon - old.minLon) / 2;
+      const wayClauses = (query: string) => query.match(/way\[/g)?.length ?? 0;
+
+      /** Load around (LAT, LON) and answer with the ways of the first test below. */
+      const loadFirst = async () => {
+        const loading = service.loadStreets(LAT, LON, 500);
+        await flush();
+        requests[0].answer(overpass(
+          [1, LAT, 9.175, LAT, 9.176], // west half, outside the next box
+          [2, LAT, 9.185, LAT, 9.188], // across the east edge
+          [3, LAT, 9.181, LAT, 9.182], // east half, inside both boxes
+        ));
+        await loading;
+      };
+
+      it('takes the loaded ways inside the new box and asks Overpass only for the rest of it', async () => {
+        await loadFirst();
+
+        const loading = service.loadStreets(LAT, EAST, 500);
+        await flush();
+        const query = requests[1].query;
+        expect(wayClauses(query)).toBe(1);
+        expect(query).toContain(`,${old.maxLon},`);
+        requests[1].answer(overpass(
+          [2, LAT, 9.185, LAT, 9.188],
+          [4, LAT, 9.19, LAT, 9.191], // east strip
+        ));
+        const network = await loading;
+
+        expect(network.streets.map((street) => street.id)).toEqual([2, 3, 4]);
+        expect(network.bounds).toEqual(boxAround(LAT, EAST, 500));
+        expect(logged()).toContainEqual(expect.stringMatching(
+          /^\[OSM\] streets: \d+\.\d of \d+\.\dkm² from the streets loaded before, fetching \d+\.\dkm² in 1 boxes$/,
+        ));
+      });
+
+      it('asks Overpass nothing when the loaded streets cover the new box', async () => {
+        await loadFirst();
+
+        const network = await service.loadStreets(LAT, 9.1815, 50);
+
+        expect(requests).toHaveLength(1);
+        expect(network.streets.map((street) => street.id)).toEqual([3]);
+      });
+
+      it('asks for the whole box when it does not overlap the loaded streets', async () => {
+        await loadFirst();
+
+        const loading = service.loadStreets(LAT + 0.1, LON, 500);
+        await flush();
+        const far = boxAround(LAT + 0.1, LON, 500);
+        expect(wayClauses(requests[1].query)).toBe(1);
+        expect(requests[1].query).toContain(`(${far.minLat},${far.minLon},${far.maxLat},${far.maxLon})`);
+        requests[1].answer(overpass([7, LAT + 0.1, LON, LAT + 0.1, LON + 0.001]));
+        await expect(loading).resolves.toMatchObject({ streets: [{ id: 7 }] });
+      });
     });
 
     it('says the servers are unreachable when all of them fail', async () => {
