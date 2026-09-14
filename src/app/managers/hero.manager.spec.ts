@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HeroManager, type HeroShot, type HeroWorld } from './hero.manager';
+import { RouteGraph } from '../utils/route-graph';
 import { GameEventBus, type GameEvent } from '../game-engine/game-event-bus';
 import { HERO, HERO_AMMO } from '../configs/hero.config';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
@@ -370,6 +371,27 @@ describe('HeroManager', () => {
       expect(heroAt().z).toBeGreaterThanOrEqual(115 + HERO.rangeM - 0.2);
       expect(heroAt().z).toBeLessThan(150);
       expect(shots.length).toBeGreaterThan(0);
+    });
+
+    it('looks the route up once while he stands at his post, and again only after he moved', () => {
+      const lookups = vi.spyOn(RouteGraph.prototype, 'nearestPoint');
+      tick(600); // 10 s at the junction: forty re-plans
+      expect(lookups).toHaveBeenCalledTimes(1);
+      expect(heroAt()).toEqual({ x: 0, z: 150 });
+
+      // A chase moves him: he looks again, comes back and stands again
+      const runner = enemyAt('runner', 30, 130, 0.5);
+      enemies.push(runner);
+      tick(600);
+      expect(heroAt()).toEqual({ x: 0, z: 130 });
+      runner.alive = false;
+      tick(600);
+      expect(heroAt()).toEqual({ x: 0, z: 150 });
+      const settled = lookups.mock.calls.length;
+      expect(settled).toBeGreaterThan(1);
+      tick(600);
+      expect(lookups).toHaveBeenCalledTimes(settled);
+      lookups.mockRestore();
     });
 
     it('ignores enemies beyond leash plus range', () => {
