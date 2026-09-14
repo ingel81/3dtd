@@ -16,6 +16,8 @@ interface OozeBand {
   tipM: number;
   /** Share of the sinking done once the ooze is gone, null while it lives */
   dissolve: number | null;
+  /** Seconds the sinking takes: OOZE_LOOK.dissolve, OOZE_LOOK.collapse for a killed ooze */
+  dissolveS: number;
 }
 
 /**
@@ -26,7 +28,8 @@ interface OozeBand {
  * 80 m long costs no more per frame than a short one. Every
  * OOZE_LOOK.groundRefresh game seconds the ground under the body's
  * stretch is read again from the route grid, which refines as tiles
- * stream in. A removed ooze sinks away over OOZE_LOOK.dissolve.
+ * stream in. A removed ooze sinks away over OOZE_LOOK.dissolve, a killed
+ * one collapses over OOZE_LOOK.collapse (collapse()).
  *
  * Visual only: EnemyManager pushes the frame (OozeBodies.present); nothing
  * here feeds back into the simulation.
@@ -68,7 +71,7 @@ export class OozeBandRenderer {
     const mesh = new Mesh(shared.geometry, material);
     mesh.name = `ooze-${id}`;
     this.scene.add(mesh);
-    this.bands.set(id, { mesh, stations, ground, tailM: 0, tipM: 0, dissolve: null });
+    this.bands.set(id, { mesh, stations, ground, tailM: 0, tipM: 0, dissolve: null, dissolveS: OOZE_LOOK.dissolve });
   }
 
   /**
@@ -127,10 +130,25 @@ export class OozeBandRenderer {
     bloodMoonMultiplier(amount, true, this.bloodMoonTint.value);
   }
 
-  /** The ooze is gone (killed, leaked or removed): its band sinks away. */
+  /** The ooze is gone (leaked or removed): its band sinks away. A collapsing band keeps collapsing. */
   remove(id: string): void {
     const band = this.bands.get(id);
-    if (band && band.dissolve === null) band.dissolve = 0;
+    if (band && band.dissolve === null) {
+      band.dissolve = 0;
+      band.dissolveS = OOZE_LOOK.dissolve;
+    }
+  }
+
+  /**
+   * The ooze was killed: its band collapses over OOZE_LOOK.collapse from
+   * the stretch of its last frame, see the uCollapse uniform.
+   */
+  collapse(id: string): void {
+    const band = this.bands.get(id);
+    if (!band || band.dissolve !== null) return;
+    band.dissolve = 0;
+    band.dissolveS = OOZE_LOOK.collapse;
+    band.mesh.material.uniforms['uCollapse'].value = 1;
   }
 
   /** The band of `id` goes at once, without sinking: the wave replay leaves none behind. */
@@ -151,7 +169,7 @@ export class OozeBandRenderer {
       const u = band.mesh.material.uniforms;
       u['uTime'].value = this.time;
       if (band.dissolve !== null) {
-        band.dissolve = Math.min(1, band.dissolve + dt / OOZE_LOOK.dissolve);
+        band.dissolve = Math.min(1, band.dissolve + dt / band.dissolveS);
         u['uDissolve'].value = band.dissolve;
         if (band.dissolve >= 1) this.drop(id);
         continue;

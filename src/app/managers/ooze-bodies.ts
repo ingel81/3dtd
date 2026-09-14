@@ -170,11 +170,19 @@ export class OozeBodies {
     }
   }
 
-  /** A killed ooze breaks up: its loop ends in a splat at the body point nearest the listener. */
+  /**
+   * A killed ooze breaks up: its band collapses (OozeBandRenderer.collapse)
+   * and its loop ends in a splat at the body point nearest the listener.
+   */
   died(enemy: Enemy, engine: ThreeTilesEngine | null): void {
     const body = enemy.body;
-    const audio = engine?.spatialAudio ?? null;
-    if (body === null || audio === null) return;
+    if (body === null || engine === null) return;
+    // The stretch of this sub-step, with nothing left: a kill between two
+    // frames, or before the first, collapses where the body is
+    engine.oozes.setFrame(enemy.id, body.tailM, body.tipM, 0, false, false, false);
+    engine.oozes.collapse(enemy.id);
+    const audio = engine.spatialAudio ?? null;
+    if (audio === null) return;
     this.sounds.stop(enemy.id, audio);
     audio.getListener().getWorldPosition(this.listener);
     const k = this.hear(enemy, body);

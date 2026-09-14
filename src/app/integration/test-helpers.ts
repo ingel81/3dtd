@@ -179,6 +179,7 @@ export function createMockTilesEngine() {
       add: vi.fn(),
       setFrame: vi.fn(),
       remove: vi.fn(),
+      collapse: vi.fn(),
       clear: vi.fn(),
     },
     projectiles: {
