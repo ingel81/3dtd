@@ -210,8 +210,9 @@ Gründe für `ability:rejected`: `unknown`, `locked`, `no-charge`, `no-wave`,
   echten Sub-Step-Loop des GameStateManager mit echten Gegnern und dem echten
   Schadensweg. Der Einschlag liegt auf Sub-Step 90 nach dem Befehl, und HP,
   Kills und Gold sind bei Timescale 1 und 10 gleich.
-- Im Mehrspielerbetrieb wäre `command:use-ability` der achte Command und liefe
-  über dieselbe Pipeline ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) §4.3).
+- Im Mehrspielerbetrieb liefe `command:use-ability` über dieselbe Pipeline wie
+  die übrigen Commands ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) §4.3;
+  das Konzept zählt sieben, der Bus kennt heute 14 `command:*`).
 
 ---
 
@@ -492,6 +493,7 @@ während einer Welle.
 | `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze und Stun über den `StatusEffectService`) |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `utils/nuke-sound.ts` | Ton des Nuklearschlags, im Code synthetisiert: Knall und drei Stücke Grollen |
+| `utils/synth.ts` | Seed-Zufall, Tiefpass-Koeffizient und Normalisieren, geteilt mit den Ooze-Sounds |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 | `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
 | `ai/training/strategies/ability/emp.strategy.ts` | Bot des EMP |
