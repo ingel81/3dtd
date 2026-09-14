@@ -29,7 +29,10 @@ import {
 } from '../../three-engine/renderers/marker/spawn-portal-frame';
 import {
   type SpawnPortalPose,
+  PORTAL_POSE_WAYPOINTS,
+  clampPortalHeading,
   portalCorridorWidth,
+  portalLaneOffset,
   provisionalPortalPose,
   spawnPortalPose,
 } from '../../three-engine/renderers/marker/spawn-portal-pose';
@@ -44,9 +47,6 @@ import {
   portalLabelHeight,
 } from '../../configs/marker-geometry.config';
 import { SPAWN_PORTAL_LOOK, type BurstPalette } from '../../configs/visual-effects.config';
-
-/** Waypoints from the route start read for a portal's heading, see spawnPortalPose. */
-const PORTAL_POSE_WAYPOINTS = 16;
 
 /**
  * An enemy spawning this close to a portal's centre came out of it (m).
@@ -146,6 +146,9 @@ export class MarkerVisualizationService {
    */
   private readonly manualHeadings = new Map<string, number>();
 
+  /** The route each portal was last stood on (placeSpawnPortal), for a turn that comes after it. */
+  private readonly placedRoutes = new Map<string, { route: readonly RouteWaypoint[]; startGroundY: number | null }>();
+
   /** Height debug markers group (small spheres for terrain height debugging) */
   private heightDebugGroup: Group | null = null;
 
@@ -186,6 +189,7 @@ export class MarkerVisualizationService {
     this.portalsOnCells.clear();
     this.portalPalettes.clear();
     this.manualHeadings.clear();
+    this.placedRoutes.clear();
 
     const overlayGroup = engine.getOverlayGroup();
     this.markerManager = new MarkerInstanceManager(overlayGroup);
@@ -357,6 +361,7 @@ export class MarkerVisualizationService {
     this.portalManager.add(id, pose, color);
     this.portalsOnCells.delete(id);
     this.manualHeadings.delete(id);
+    this.placedRoutes.delete(id);
     this.portalPalettes.set(id, portalPalette(color));
     this.labelManager.addLabel(id, name, this.portalLabelCentre(pose), cssColor, this.getPhaseOffset(id));
   }
@@ -366,7 +371,8 @@ export class MarkerVisualizationService {
    * calls this whenever it builds the route: on the ground at the first
    * waypoint, facing along the route, the opening as wide as the corridor
    * there (spawnPortalPose). A heading the player gave it (setPortalHeading)
-   * wins over the route's.
+   * wins over the route's, as far as the enemies still leave through the
+   * opening (clampPortalHeading).
    *
    * @param startGroundY Route cell height at the start, null while the cells
    *   are not built; the portal then stands on the terrain sample there
@@ -389,8 +395,9 @@ export class MarkerVisualizationService {
     const groundY = startGroundY ?? engine.getTerrainHeightAtGeo(start.lat, start.lon) ?? current.y;
     const pose = spawnPortalPose(points, groundY, portalCorridorWidth(start));
     if (!pose) return;
+    this.placedRoutes.set(id, { route, startGroundY });
     const manual = this.manualHeadings.get(id);
-    if (manual !== undefined) pose.heading = manual;
+    if (manual !== undefined) pose.heading = clampPortalHeading(points, pose, manual, portalLaneOffset(start));
 
     portals.setPose(id, pose);
     if (startGroundY !== null) this.portalsOnCells.add(id);
@@ -410,7 +417,10 @@ export class MarkerVisualizationService {
     const pose = portals?.getPose(id);
     if (!portals || !pose) return;
     this.manualHeadings.set(id, heading);
-    portals.setPose(id, { ...pose, heading });
+    // On its route the turn stays in the range the enemies still get out through
+    const placed = this.placedRoutes.get(id);
+    if (placed) this.placeSpawnPortal(id, placed.route, placed.startGroundY);
+    else portals.setPose(id, { ...pose, heading });
   }
 
   /** Centre of a spawn label above its portal. */
@@ -428,6 +438,7 @@ export class MarkerVisualizationService {
     this.portalsOnCells.delete(spawnId);
     this.portalPalettes.delete(spawnId);
     this.manualHeadings.delete(spawnId);
+    this.placedRoutes.delete(spawnId);
   }
 
   /**
@@ -443,6 +454,7 @@ export class MarkerVisualizationService {
     this.portalsOnCells.clear();
     this.portalPalettes.clear();
     this.manualHeadings.clear();
+    this.placedRoutes.clear();
   }
 
   // ========================================
@@ -566,6 +578,7 @@ export class MarkerVisualizationService {
     this.portalsOnCells.clear();
     this.portalPalettes.clear();
     this.manualHeadings.clear();
+    this.placedRoutes.clear();
   }
 
   // ========================================
@@ -751,6 +764,7 @@ export class MarkerVisualizationService {
     this.portalsOnCells.clear();
     this.portalPalettes.clear();
     this.manualHeadings.clear();
+    this.placedRoutes.clear();
     this.engine = null;
     this.baseCoords = null;
     this.heightDebugVisible = null;

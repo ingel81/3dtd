@@ -68,6 +68,17 @@ export const PORTAL_MAX_SCALE = 1.75;
 export const PORTAL_DEPTH = 10.5;
 
 /**
+ * Room left when the player turns a spawn portal with R (m). The outermost
+ * enemies walk as far off the route as the corridor at the start lets them
+ * (portalLaneOffset); turned, their lanes still cross the front surface at
+ * least this far inside the pillars. At the route's own heading the room is
+ * the corridor's edge margin (1.5 m); half a metre keeps a narrow body's
+ * centre clear of the stone and leaves 6 to 10.5 degrees to turn either way
+ * on a straight street with a corridor up to 14 m wide, none on a wider one.
+ */
+export const PORTAL_TURN_CLEARANCE = 0.5;
+
+/**
  * Scale of the portal's depth for a portal of `scale`: the opening follows
  * the corridor, the volume keeps at least its depth at scale 1, as an enemy
  * is as long in an alley as on an avenue.

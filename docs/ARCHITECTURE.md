@@ -1767,7 +1767,16 @@ zwei instanzierte Draw Calls für alle Portale:
   Wer gedreht hat, dessen Richtung gilt (`MarkerVisualizationService.setPortalHeading`), auch
   über jeden Neubau der Route, bis der Spawn wieder hinzugefügt wird: neu gesetzt, HQ umgesetzt,
   Ort gewechselt. Ohne Drehen folgt das Portal der Route. Die Drehung ändert nur das Portal,
-  nicht den Weg der Gegner, und steht weder in der URL noch in den Favoriten.
+  nicht den Weg der Gegner, und steht weder in der URL noch in den Favoriten. Sie reicht nur so
+  weit, wie die Gegner noch durch die Öffnung hinausgehen (`portalTurnRange`,
+  `clampPortalHeading`, Playtest 529): die Route und die äußersten Spuren
+  (`portalLaneOffset`, so weit neben der Route, wie der Korridor am Start einen Gegner laufen
+  lässt, `lateralLimit`) bleiben bis zur vorderen Fläche zwischen den Pfeilern, mindestens
+  `PORTAL_TURN_CLEARANCE` (0,5 m) von ihnen entfernt, und vor der hinteren Fläche. Eine Drehung
+  darüber hinaus steht an der Grenze, bei jedem Neubau der Route neu gegen sie geprüft. Auf
+  einer geraden Straße sind das 10,5° zu jeder Seite bei 6 bis 8 m Korridor, 7° bei 12 m, 6° bei
+  14 m; ab 16 m (breiter als die größte Öffnung samt Abstand) keine. Auf einem Kreisverkehr
+  (15 m Radius, 9 m Korridor) ungleich, 7,4° zur einen und 9,6° zur anderen Seite.
   `spawn-portal-frame.spec.ts` prüft
   das am echten Asset mit Strahlen rundum von den gemessenen Körpern aller Bodengegner (Bounding Box mal
   Skala, Mech und Tank bis 9,3 m lang): bei Skala 1 und 1,75 alle verdeckt, bei Skala 0,75
