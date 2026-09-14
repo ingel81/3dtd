@@ -30,10 +30,10 @@ function floor(): Mesh {
   return mesh;
 }
 
-/** Tower-Ersatz: 4-m-Würfel bei (x, 2, z). */
-function towerMesh(x: number, z: number): Mesh {
+/** Tower-Ersatz: 4-m-Würfel bei (x, y, z), ohne y auf dem Boden. */
+function towerMesh(x: number, z: number, y = 2): Mesh {
   const mesh = new Mesh(new BoxGeometry(4, 4, 4), material);
-  mesh.position.set(x, 2, z);
+  mesh.position.set(x, y, z);
   mesh.updateMatrixWorld();
   return mesh;
 }
@@ -126,7 +126,20 @@ describe('ScreenPicker', () => {
       expect(picker.raycastTowers(TOP_LEFT.x, TOP_LEFT.y)).toBeNull();
     });
 
-    it('nimmt bei mehreren Treffern den ersten Tower der Liste', () => {
+    it('nimmt bei mehreren Treffern den vordersten Tower, egal wo er in der Liste steht', () => {
+      const { picker, setTowers } = setup();
+      // (0, 10, 5) liegt auf dem Strahl durch die Canvas-Mitte, zwischen Kamera und Origin
+      const back = towerMesh(0, 0);
+      const front = towerMesh(0, 5, 10);
+
+      setTowers([{ id: 'back', mesh: back }, { id: 'front', mesh: front }]);
+      expect(picker.raycastTowers(CENTER.x, CENTER.y)).toBe('front');
+
+      setTowers([{ id: 'front', mesh: front }, { id: 'back', mesh: back }]);
+      expect(picker.raycastTowers(CENTER.x, CENTER.y)).toBe('front');
+    });
+
+    it('nimmt bei gleich weiten Treffern den ersten Tower der Liste', () => {
       const { picker, setTowers } = setup();
       setTowers([
         { id: 'first', mesh: towerMesh(0, 0) },

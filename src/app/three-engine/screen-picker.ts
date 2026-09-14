@@ -35,22 +35,26 @@ export class ScreenPicker {
   ) {}
 
   /**
-   * Raycast against towers at screen coordinates
-   * Returns the tower ID if a tower was hit, null otherwise
+   * Raycast against towers at screen coordinates.
+   * Returns the ID of the frontmost tower hit, null when none is; of two
+   * hits at the same distance the first in the list wins. After a hit the
+   * ray ends there, so a tower behind it drops out at its bounding sphere
+   * instead of being tested triangle by triangle.
    */
   raycastTowers(screenX: number, screenY: number): string | null {
     const raycaster = this.rayAt(screenX, screenY);
 
-    // Test each tower mesh
-    const towerMeshes = this.towers.getAllMeshes();
-    for (const { id, mesh } of towerMeshes) {
-      const intersects = raycaster.intersectObject(mesh, true);
-      if (intersects.length > 0) {
-        return id;
+    let hitId: string | null = null;
+    for (const { id, mesh } of this.towers.getAllMeshes()) {
+      // Sorted by distance, the first is this tower's nearest
+      const hit = raycaster.intersectObject(mesh, true)[0];
+      if (hit && hit.distance < raycaster.far) {
+        hitId = id;
+        raycaster.far = hit.distance;
       }
     }
 
-    return null;
+    return hitId;
   }
 
   /** Whether `object` or one of its children lies under the screen point; false for null. The hero's pick. */
