@@ -301,8 +301,9 @@ Blut-Decal-Pool (100) verdrängt ohnehin seine ältesten Decals. Die
 Gold-Floating-Texts eines Schlags (je bezahltem Kill einer) bleiben unter dem
 Limit von 2048 Instanzen.
 
-**Shake und Sound:** Screen-Shake `nuclearStrike` 0,014 der Bildhöhe für
-1600 ms (vorher 0,008 für 700 ms). Er nimmt mit der Entfernung zur Kamera ab
+**Shake und Sound:** Screen-Shake `nuclearStrike` 0,017 der Bildhöhe für
+2200 ms, etwa so lange wie der Knall (2,4 s); bis Playtest 2 0,014 für
+1600 ms, bis 2026-09-13 0,008 für 700 ms. Er nimmt mit der Entfernung zur Kamera ab
 wie bei Einschlägen, aber mit eigener Reichweite: voll bis 350 m, keiner mehr
 ab 1500 m (`strikeNearDistance`, `strikeFarDistance`); aus der
 Übersichtskamera (etwa 425 m) bleiben gut 90 %. Der Schalter Screen Shake in
