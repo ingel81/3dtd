@@ -464,10 +464,25 @@ Umgesetzt für Skarnax, the Thousand-Legged Calamity (`worm`).
 - **Bewegung:** `WormChains.tick()` läuft pro Sub-Step vor der Enemy-Schleife. Eine Kette
   schiebt eine Front-Distanz vor, im Mittel der Slows ihrer Segmente auf der Route (ein
   verlangsamtes Segment bremst den ganzen Wurm), und gibt jedem Segment Distanz und Platz quer
-  zur Route vor. `stepWormSegment()` bringt es mit `MovementComponent.advance()` dorthin. Pro
-  Segment wird nichts aufintegriert, der Abstand bleibt bei jeder Timescale exakt. Das
-  Schlängeln (`wormSway`) hängt nur von der Routendistanz ab: Der Körper läuft durch die
-  S-Kurve des Kopfes, gerade aus dem Portal und erst nach dessen vorderer Fläche geschlängelt.
+  zur Route vor. `stepWormSegment()` setzt es mit `MovementComponent.seekDistance()` auf diese
+  Distanz, `WormPath.place()` stellt es hin. Pro Segment wird nichts aufintegriert, der Abstand
+  bleibt bei jeder Timescale exakt. Das Schlängeln (`wormSway`) hängt nur von der Routendistanz
+  ab: Der Körper läuft durch die S-Kurve des Kopfes, gerade aus dem Portal und erst nach dessen
+  vorderer Fläche geschlängelt.
+- **Ecken (`managers/worm/worm-path.ts`):** Der Körper läuft nicht über den spitzen Knick eines
+  Wegpunkts, sondern über einen Bogen mit bis zu `WORM_BEND_RADIUS_M` = 20 m. Die Distanzen
+  bleiben die der Routenmitte (Targeting-Reihenfolge, Leck, Abstand, Schlängeln), nur Ort und
+  Blickrichtung kommen vom Bogen. Er wird gleichmäßig durchlaufen und ist kürzer als die beiden
+  Schenkel, die Ringe rücken in der Ecke also etwas zusammen (bei 90° auf 0,79). Die
+  Blickrichtung ist die Sehne von 1,25 m hinter bis 1,25 m vor dem Segment, in Metern gerechnet,
+  direkt gesetzt (`TransformComponent.setHeading()`, ohne Nachlauf). Im Korridor hält den Bogen
+  sein Radius: Die tiefste Stelle, `Radius · (1 − cos(Knick/2))` innen, bleibt über den ganzen
+  Bogen im Lateral-Limit der Innenseite, und zwei Bögen teilen sich das Segment zwischen ihren
+  Wegpunkten. Schlängeln zur Innenseite wird auf den Rest gekürzt. Gemessen
+  (`worm-corner.spec.ts`, Standardkorridor 3 m Limit): Außenspalt bei 90° 0,15 m (Radius dort
+  10,2 m, vom Korridor begrenzt), höchstens 0,36 m zwischen 10° und 90°; vorher 5,2 m bei 90°.
+  Auf einer schmalen Straße (1,25 m Limit) bekommt 90° nur 4,3 m Radius, Spalt 0,8 m. Ohne
+  Innenraum (Halbbreite bis 1,5 m) bleibt die Ecke spitz.
 - **Aus dem Portal:** Ein Segment erscheint, wenn sein Slot am Routenstart Distanz 0
   erreicht, also eins nach dem anderen. Wer noch nicht draußen ist, ist kein Gegner (kein
   Ziel). Ein zweiter Wurm auf demselben Pfad wartet mit dem Kopf im Portal hinter dem ersten.
@@ -503,8 +518,8 @@ Umgesetzt für Skarnax, the Thousand-Legged Calamity (`worm`).
   Offsets, Abstand). Skala 2,5: 7,2 m breit mit Beinen, 4,5 m hoch, ein Ring alle 2,5 m (der
   `PITCH` des Skripts, 1,0 Einheiten, mit 0,10 Überlappung). Der Kopf sitzt wie ein Ring auf
   dem vordersten Knoten der Kette, sein Kragen deckt den Ring dahinter. Das Schlängeln ist so
-  flach, dass die Ringe am Körper geschlossen bleiben; an scharfen Routenecken kann außen eine
-  Lücke aufgehen (nicht im Browser geprüft).
+  flach, dass die Ringe am Körper geschlossen bleiben; Routenecken rundet `WormPath` (siehe
+  Ecken).
 - **Kein Sound:** Alle Segmente sind vom Typ `worm`, ein Loop-Sound liefe auf jedem Segment
   und belegte das Budget von 12 Gegner-Sounds.
 
