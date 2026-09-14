@@ -22,6 +22,7 @@ import {
   segmentRight,
 } from '../../utils/route-corridor';
 import { WalkCapSegment, WalkCaps, walkCaps } from '../../utils/corridor-walk';
+import { DeckApproach, deckApproaches, nearestDeckApproach } from '../../utils/deck-approach';
 import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -959,28 +960,28 @@ export class PathAndRouteService {
 
     for (const { points, onBridge, inTunnel } of this.streetRoutes.values()) {
       if (!engine) break;
+      const local = points.map((p) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0));
+      // The stretches off each bridge end, as the route cells there find them.
+      const approaches = deckApproaches(local, onBridge, inTunnel);
       for (let i = 0; i < points.length - 1; i++) {
         // In a tunnel the rays would hit its walls and the column the ground
         // above: the street width stays.
         if (inTunnel[i]) continue;
-        const a = points[i];
-        const b = points[i + 1];
-        const key = segmentKey(a, b);
+        const key = segmentKey(points[i], points[i + 1]);
         if (seen.has(key)) continue;
         seen.add(key);
         const known = this.clearanceBySegment.get(key);
         if (known && !known.left.some(Number.isNaN)) continue;
 
-        const start = engine.sync.geoToLocalSimple(a.lat, a.lon, 0);
-        const end = engine.sync.geoToLocalSimple(b.lat, b.lon, 0);
-        const dx = end.x - start.x;
-        const dz = end.z - start.z;
+        const start = local[i];
+        const dx = local[i + 1].x - start.x;
+        const dz = local[i + 1].z - start.z;
         const length = Math.hypot(dx, dz);
         if (length < 0.01) continue;
 
         const count = Math.max(1, Math.round(length / corridorConfig.stationSpacing));
         segments.push({
-          key, x: start.x, z: start.z, dx, dz, count, onBridge: onBridge[i],
+          key, x: start.x, z: start.z, dx, dz, count, onBridge: onBridge[i], approaches: approaches[i],
           left: known ? [...known.left] : new Array<number>(count).fill(NaN),
           right: known ? [...known.right] : new Array<number>(count).fill(NaN),
           probes: known ? [...known.probes] : new Array<StationProbe | null>(count).fill(null),
@@ -991,8 +992,8 @@ export class PathAndRouteService {
     const run = new ClearanceRun(
       segments,
       2 * rayHeights.length,
-      (x, z, acrossX, acrossZ, onDeck) =>
-        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck) ?? null,
+      (x, z, acrossX, acrossZ, onDeck, nearDeck) =>
+        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck, nearDeck) ?? null,
       (measured) => this.storeClearance(measured),
     );
     this.clearanceRun = run;
@@ -1136,6 +1137,12 @@ interface ClearanceSegment {
   /** Stations on the segment; station k stands at (k + 0.5) / count of it. */
   count: number;
   onBridge: boolean;
+  /**
+   * The stretches off a bridge end the segment lies on (deckApproaches):
+   * a station within DECK_APPROACH_M of such an end judges no low wall,
+   * as on the deck (TerrainQueries.measureStreetClearance, `nearDeck`).
+   */
+  approaches: DeckApproach[];
   /** Free space per station and side, NaN until measured, and what each station's rays found. */
   left: number[];
   right: number[];
@@ -1173,7 +1180,9 @@ class ClearanceRun implements CorridorMeasurement {
     private readonly segments: ClearanceSegment[],
     /** Rays a measured station casts, for the log. */
     private readonly raysPerStation: number,
-    private readonly probeAt: (x: number, z: number, acrossX: number, acrossZ: number, onDeck: boolean) => StationProbe | null,
+    private readonly probeAt: (
+      x: number, z: number, acrossX: number, acrossZ: number, onDeck: boolean, nearDeck: boolean,
+    ) => StationProbe | null,
     /** Stores what the run measured; true when that changes a corridor. */
     private readonly store: (segments: readonly ClearanceSegment[]) => boolean,
   ) {
@@ -1269,8 +1278,9 @@ class ClearanceRun implements CorridorMeasurement {
     const t = (k + 0.5) / segment.count;
     const x = segment.x + segment.dx * t;
     const z = segment.z + segment.dz * t;
+    const nearDeck = segment.onBridge || nearestDeckApproach(segment.approaches, t) !== null;
     // (-dz, dx) points right of the direction of travel.
-    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge);
+    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, nearDeck);
     segment.probes[k] = probe;
     this.probed++;
     if (probe?.unmeasured === 'coarse tile') this.coarse++;

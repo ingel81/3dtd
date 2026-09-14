@@ -95,9 +95,9 @@ function makeEngine(): ThreeTilesEngine {
       // Höhe des gelben Overlays: flaches Gelände.
       getStreetHeightEstimate: () => 0,
       measureStreetClearance: (
-        x: number, z: number, ax: number, az: number, heights: readonly number[], max: number, onDeck = false,
+        x: number, z: number, ax: number, az: number, heights: readonly number[], max: number, onDeck = false, nearDeck = onDeck,
       ): StationProbe => {
-        probeCalls.push([x, z, ax, az, [...heights], max, onDeck]);
+        probeCalls.push([x, z, ax, az, [...heights], max, onDeck, nearDeck]);
         const free = clearanceAt(x, z, max);
         if (free === null) return { unmeasured: 'coarse tile', tileError: 20, left: [], right: [] };
         if (free === 'no tile') return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
@@ -587,6 +587,30 @@ describe('PathAndRouteService route geometry', () => {
         expect(fence.getCachedPath('s1')!.map((p) => p.corridorRight)).toEqual([7, 7, 7, 7, 2.75, undefined]);
         expect(fence.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!.sides[1])
           .toMatchObject({ lowRiseM: 0.2, wall: false, freeM: 7, rule: 'no wall within the maximum' });
+      });
+
+      it('judges no low wall on a bridge and on the stretch off its end', () => {
+        // Way 200 is a bridge; way 100 runs straight on from its end at n1,
+        // so its last DECK_APPROACH_M (40 m) carry the deck on.
+        network = makeNetwork([
+          { id: 100, nodes: [n10, n1] },
+          { id: 200, type: 'primary', width: 12, bridge: 'yes', nodes: [n1, n2, n3] },
+          { id: 300, nodes: [n3, n30] },
+        ]);
+        const service = buildRouteService(network, spawn, hq);
+        probeCalls.length = 0;
+        measure(service);
+
+        const onWay100 = probeCalls.filter(([x, z]) => Math.abs(x as number) < 1 && northOfN1(z as number) < -1);
+        const near = onWay100.filter(([, z]) => northOfN1(z as number) > -39);
+        const far = onWay100.filter(([, z]) => northOfN1(z as number) < -41);
+        expect(near.length).toBeGreaterThan(10);
+        expect(near.every((call) => call[6] === false && call[7] === true)).toBe(true);
+        expect(far.length).toBeGreaterThan(3);
+        expect(far.every((call) => call[7] === false)).toBe(true);
+        const onDeck = probeCalls.filter((call) => call[6] === true);
+        expect(onDeck.length).toBeGreaterThan(0);
+        expect(onDeck.every((call) => call[7] === true)).toBe(true);
       });
 
       it('says why a station has no measurement', () => {

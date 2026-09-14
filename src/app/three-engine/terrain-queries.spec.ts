@@ -302,6 +302,16 @@ describe('TerrainQueries', () => {
       expect(onDeck.lowRise).toEqual({ left: NaN, right: NaN });
     });
 
+    it('beurteilt nichts auf der Fortsetzung eines Decks (nearDeck), misst aber vom Boden', () => {
+      const car = setup();
+      car.addTile(floor(0, 6), 3, FINE);
+      car.addTile(wall(3, 1.5), 3, FINE);
+      car.addTile(floor(1.5, 2, 4, 0), 3, FINE);
+      const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10, false, true)!;
+      expect(probe.right.map((d) => +d.toFixed(6))).toEqual([3, 10]);
+      expect(probe.lowRise).toEqual({ left: NaN, right: NaN });
+    });
+
     it('kostet für ein Hindernis nur am unteren Strahl eine Säule mehr', () => {
       const { queries, addTile, group } = street();
       addTile(wall(2, 2), 3, FINE);
