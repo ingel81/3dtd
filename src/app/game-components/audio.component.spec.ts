@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { Vector3 } from 'three';
 import { AudioComponent, LoopFlagSink } from './audio.component';
 import { TransformComponent } from './transform.component';
 import { GameObject } from '../core/game-object';
@@ -20,7 +21,7 @@ function createAudio(handle: string | null) {
 function createAudioWith(createLoop: () => Promise<string | null>) {
   const spatial = {
     registerSound: vi.fn(),
-    geoToLocalPosition: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
+    geoToLocalPosition: vi.fn((_lat: number, _lon: number, _h: number, target?: Vector3) => target ?? new Vector3()),
     createLoop: vi.fn(createLoop),
     stopLoop: vi.fn(),
     updateLoopPosition: vi.fn(),
@@ -54,6 +55,17 @@ describe('AudioComponent loop flag', () => {
     const { audio, sink } = createAudio(null);
     await audio.play('moving', true);
     expect(sink.hasAudioLoops).toBe(false);
+  });
+
+  it('moves its loop through one vector of its own, none per update', async () => {
+    const { audio, spatial } = createAudio('loop_1');
+    await audio.play('moving', true);
+    audio.update(16);
+    audio.update(16);
+
+    const [first, second] = spatial.updateLoopPosition.mock.calls.map((call) => call[1]);
+    expect(first).toBeInstanceOf(Vector3);
+    expect(second).toBe(first);
   });
 
   it('falls on stopAll and on destroy', async () => {

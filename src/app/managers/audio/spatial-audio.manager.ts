@@ -158,12 +158,14 @@ export class SpatialAudioManager {
 
   // ─── Geo converter ───────────────────────────────────────
 
-  setGeoToLocal(fn: (lat: number, lon: number, height: number) => Vector3): void {
+  /** `fn` writes the local position into `target` and returns it. */
+  setGeoToLocal(fn: (lat: number, lon: number, height: number, target: Vector3) => Vector3): void {
     this.playback.setGeoToLocal(fn);
   }
 
-  geoToLocalPosition(lat: number, lon: number, height: number): Vector3 | null {
-    return this.playback.geoToLocalPosition(lat, lon, height);
+  /** Into `target` when given (a caller that runs every sub-step), else a new vector. */
+  geoToLocalPosition(lat: number, lon: number, height: number, target?: Vector3): Vector3 | null {
+    return this.playback.geoToLocalPosition(lat, lon, height, target);
   }
 
   // ─── Distance helpers ────────────────────────────────────

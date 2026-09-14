@@ -491,8 +491,11 @@ describe('SpatialAudioManager', () => {
       expect(manager.geoToLocalPosition(1, 2, 3)).toBeNull();
       expect(await manager.playAtGeo('hit', 10, 0, 0)).toBeNull();
 
-      manager.setGeoToLocal((lat, lon, height) => new Vector3(lat, height, lon));
+      manager.setGeoToLocal((lat, lon, height, target) => target.set(lat, height, lon));
       expect(manager.geoToLocalPosition(1, 2, 3)).toEqual(new Vector3(1, 3, 2));
+      const into = new Vector3();
+      expect(manager.geoToLocalPosition(4, 5, 6, into)).toBe(into);
+      expect(into).toEqual(new Vector3(4, 6, 5));
       const audio = (await manager.playAtGeo('hit', 10, 5, 0)) as unknown as FakeAudio;
       expect(audio.parent?.position).toEqual(new Vector3(10, 0, 5));
     });

@@ -1,3 +1,4 @@
+import { Vector3 } from 'three';
 import { Component } from '../core/component';
 import { GameObject } from '../core/game-object';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
@@ -54,6 +55,8 @@ export class AudioComponent extends Component {
   private pendingLoops = new Map<string, number>();
   private loopRequestCounter = 0;
   private destroyed = false;
+  /** Local position for update(), which runs every sub-step: no vector per call */
+  private readonly localPos = new Vector3();
 
   constructor(
     gameObject: GameObject,
@@ -196,7 +199,7 @@ export class AudioComponent extends Component {
     const pos = this.getPosition();
     if (!pos) return;
 
-    const localPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0);
+    const localPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0, this.localPos);
     if (!localPos) return;
 
     // Update position for all active loops (SpatialAudioManager handles pause/resume)
