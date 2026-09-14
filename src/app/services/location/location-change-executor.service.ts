@@ -345,6 +345,13 @@ export class LocationChangeExecutorService {
     await this.engineInit.setStepCurrent('grid');
     this.engineInit.updateStepMeta('grid', 'Calculating grid...');
     ctx.gameState.initializeGlobalRouteGrid();
+    // The overlays that are on (Route Grid, Air Route Grid, air route) went
+    // with the old cells in STEP 2: draw them on the new cells now, as
+    // CorridorController.rebuildCorridors does, not only at the next tile load.
+    const routeGrid = ctx.gameState.getGlobalRouteGrid();
+    routeGrid.initSpatialGridVisualizationIfEnabled();
+    routeGrid.initAirSpatialGridVisualizationIfEnabled();
+    routeGrid.initAirRouteLayerIfEnabled();
     await this.engineInit.setStepDone('grid');
 
     // Re-initialize TowerPlacementService with new location data

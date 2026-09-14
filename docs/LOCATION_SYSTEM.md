@@ -426,6 +426,10 @@ STEP 6: Calculate Routes
   - gameState.initialize() mit Engine, HQ, Spawns und den gecachten Routen
   - Validierung: Mindestens 1 Route muss existieren
   - GlobalRouteGrid initialisieren (eigener Boot-Step "Generating Route Grid")
+  - Eingeschaltete Overlays (Route Grid, Air Route Grid, Flughöhe der
+    Air-Route) gleich auf die neuen Zellen zeichnen (`init…IfEnabled()` wie
+    `CorridorController.rebuildCorridors`); STEP 2 hat sie mit den alten
+    Zellen entsorgt
   - TowerPlacement neu initialisieren
   - Street-Network auf Route-Korridor filtern (nicht in DevWorld)
   - Höhen liegen in den Zellen des GlobalRouteGrid, jede mit Tiefe und
