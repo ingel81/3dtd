@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { TOWER_TYPES, TowerTypeId, UpgradeId, requiredUpgradeTier } from '../configs/tower-types.config';
-import { canPickTowerCard, firstAffordableUpgrade, TowerCardContext, upgradeRefusal } from './player-actions';
+import {
+  canPickTowerCard,
+  firstAffordableUpgrade,
+  TowerCardContext,
+  upgradeRefusal,
+  upgradeTrackRefusal,
+} from './player-actions';
 
 const ctx = (over: Partial<TowerCardContext> = {}): TowerCardContext => ({
   credits: 10_000,
@@ -84,6 +90,34 @@ describe('firstAffordableUpgrade', () => {
     it('never tier-gates the Research Center slot track', () => {
       const t = tower([{ id: 'research-slots', cost: 200, level: lockedLevel }]);
       expect(upgradeRefusal(t, 50, 1)).toEqual({ kind: 'credits', upgradeId: 'research-slots', cost: 200, missing: 150 });
+    });
+  });
+
+  describe('upgradeTrackRefusal', () => {
+    it('is null for a track the player can buy', () => {
+      const t = tower([{ id: 'damage', cost: 500 }, { id: 'speed', cost: 30 }]);
+      expect(upgradeTrackRefusal(t, 'speed', 100, 1)).toBeNull();
+    });
+
+    it('names the credits that track lacks, not the cheapest track', () => {
+      const t = tower([{ id: 'damage', cost: 500 }, { id: 'speed', cost: 300 }]);
+      expect(upgradeTrackRefusal(t, 'damage', 120, 1)).toEqual({ kind: 'credits', upgradeId: 'damage', cost: 500, missing: 380 });
+    });
+
+    it('names the tier of a tier-locked track, even when the credits are short too', () => {
+      const t = tower([{ id: 'damage', cost: 500, level: lockedLevel }]);
+      expect(upgradeTrackRefusal(t, 'damage', 10, 1)).toEqual({ kind: 'tier', tier: requiredUpgradeTier(lockedLevel) });
+    });
+
+    it('says maxed for a track at its last level', () => {
+      const t = tower([{ id: 'damage', cost: 0 }]);
+      expect(upgradeTrackRefusal(t, 'damage', 100, 1)).toEqual({ kind: 'maxed' });
+      expect(upgradeTrackRefusal(tower([]), 'damage', 100, 1)).toEqual({ kind: 'maxed' });
+    });
+
+    it('never tier-gates the Research Center slot track', () => {
+      const t = tower([{ id: 'research-slots', cost: 10, level: lockedLevel }]);
+      expect(upgradeTrackRefusal(t, 'research-slots', 100, 1)).toBeNull();
     });
   });
 });
