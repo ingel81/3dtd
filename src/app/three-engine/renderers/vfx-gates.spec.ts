@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Scene, Texture, Vector3 } from 'three';
 import type { GroundDecals } from './ground-decals';
-import { BURST_PALETTES, MUZZLE_FLASH_PROFILES } from '../../configs/visual-effects.config';
+import { BURST_PALETTES, EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../../configs/visual-effects.config';
+import { GameEventBus } from '../../game-engine/game-event-bus';
+import { VFXService } from '../../game-engine/vfx.service';
+import type { ThreeTilesEngine } from '../three-tiles-engine';
 import type { TrailParticleConfig } from '../../configs/projectile-types.config';
 import { DEFAULT_VFX_SETTINGS, type VfxSettings } from '../vfx-settings';
 import { ParticlePoolManager } from './particle-pool-manager';
@@ -103,6 +106,25 @@ describe('VFX settings in the particle effects', () => {
 
     layMarks();
     expect(decals()).toBe(0);
+  });
+});
+
+describe('VFX settings at a skeleton split', () => {
+  // The whole way of the bone burst: enemy:split, VFXService, the particle
+  // renderer and its impact switch (TODO 1.10, "Impact Effects ohne Wirkung")
+  it.each([true, false])('bursts bone particles where a skeleton splits only while impact effects are on (%s)', (on) => {
+    const { pools, effects } = setup({ impactEffects: on });
+    const bus = new GameEventBus();
+    const vfx = new VFXService(bus, { effects } as unknown as ThreeTilesEngine);
+    const skeleton = {
+      position: { lat: 0, lon: 0 },
+      transform: { terrainHeight: 0 },
+      heightOffset: 0,
+      typeConfig: { id: 'skeleton', canBleed: false },
+    };
+    bus.emit({ type: 'enemy:split', enemy: skeleton as never, children: [skeleton as never, skeleton as never] });
+    expect(alive(pools)).toBe(on ? EXPLOSION_PRESETS.bone.particles : 0);
+    vfx.destroy();
   });
 });
 
