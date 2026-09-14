@@ -51,8 +51,9 @@ export interface ScreenshotBrand {
  * Draw into the picture what the screen shows as HTML over the canvas, which
  * a canvas copy has none of: the map attribution as the game shows it
  * (provider logos bottom left, the data attribution bottom right on a light
- * strip), and the game's mark: its address small after the provider logos,
- * its logo as a faint watermark bottom right above the attribution.
+ * strip), and the game's mark: its address small after the provider logos
+ * (a line above them where the strip reaches that far left), its logo as a
+ * faint watermark bottom right above the attribution.
  */
 export function stampScreenshot(
   canvas: HTMLCanvasElement,
@@ -74,8 +75,23 @@ export function stampScreenshot(
     x += width + margin;
   }
 
+  // The attribution strip bottom right, measured first: the address keeps
+  // clear of it
+  const stripHeight = Math.round(fontPx * 1.5);
+  const stripY = canvas.height - margin - stripHeight;
+  const padX = Math.round(fontPx * 0.5);
+  let textWidth = 0;
+  let stripX = canvas.width;
+  if (attribution) {
+    ctx.font = `${fontPx}px sans-serif`;
+    textWidth = Math.min(ctx.measureText(attribution).width, canvas.width * 0.6);
+    stripX = canvas.width - margin - textWidth - 2 * padX;
+  }
+
   // The address on the logos' middle line, a gap after them; light with a
-  // soft shadow, so it reads over bright facades and dark streets alike
+  // soft shadow, so it reads over bright facades and dark streets alike.
+  // Where it would run under the strip (a narrow picture with a long
+  // attribution), a line up instead, above the logos at the left margin.
   ctx.save();
   ctx.font = `500 ${fontPx}px ${TD_FONTS.body}`;
   ctx.textBaseline = 'middle';
@@ -83,17 +99,17 @@ export function stampScreenshot(
   ctx.fillStyle = TD_THEME.textPrimary;
   ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
   ctx.shadowBlur = Math.round(fontPx * 0.4);
-  ctx.fillText(brand.url, x === margin ? x : x + margin, canvas.height - margin - logoHeight / 2);
+  const urlX = x === margin ? x : x + margin;
+  if (urlX + ctx.measureText(brand.url).width + margin <= stripX) {
+    ctx.fillText(brand.url, urlX, canvas.height - margin - logoHeight / 2);
+  } else {
+    ctx.fillText(brand.url, margin, canvas.height - 2 * margin - logoHeight - fontPx / 2);
+  }
   ctx.restore();
 
-  const stripHeight = Math.round(fontPx * 1.5);
-  const stripY = canvas.height - margin - stripHeight;
   if (attribution) {
     ctx.font = `${fontPx}px sans-serif`;
     ctx.textBaseline = 'middle';
-    const padX = Math.round(fontPx * 0.5);
-    const textWidth = Math.min(ctx.measureText(attribution).width, canvas.width * 0.6);
-    const stripX = canvas.width - margin - textWidth - 2 * padX;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     ctx.fillRect(stripX, stripY, textWidth + 2 * padX, stripHeight);
     ctx.fillStyle = '#444';
