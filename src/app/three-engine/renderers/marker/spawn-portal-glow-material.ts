@@ -8,6 +8,7 @@ import {
   type PortalShaderLayout,
   type PortalSurge,
 } from './spawn-portal-shader-chunks';
+import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 
 /** The summoning circle on the street, see SPAWN_PORTAL_LOOK.circle. */
 export interface PortalCircleLook {
@@ -25,25 +26,16 @@ export interface PortalCircleLook {
 const CIRCLE_CENTRE_SIGIL = PORTAL_SIGILS.findIndex((s) => s.name === 'haloed moon');
 
 /**
- * Display value of the street the summoning circle is matched on. Additive
- * light adds in display values on the canvas and in linear light through
- * the post-processing target, so no one amount looks alike on both over
- * every street. Through the target the circle adds the light that raises a
- * street this bright by what it adds on the canvas: alike there, somewhat
- * brighter over a darker street, dimmer over a lighter one.
- */
-export const CIRCLE_STREET = 0.3;
-
-/**
  * Light of the spawn portals on the street in front of them, a dim dark
  * red tinted with the spawn's colour, additive, in one draw call. aRipple
  * is the wall time (s) of the portal's last spawn burst: a ring runs out
  * from the portal's foot over the street. A summoning circle lies on the
  * street ahead of the front surface, drawn in the frame's sigils
  * (portalCircle): dim, turning very slowly, flaring with the surge of a
- * wave start. The circle is written for its target (CIRCLE_STREET), so
- * over a street of that brightness it shows alike with and without
- * post-processing; the street light is still written as it is.
+ * wave start. Street light and circle are additive light in display values,
+ * written for the target (displayLight, display-output.ts): as before on
+ * the canvas, through the post-processing target alike over a street of
+ * ADDITIVE_GROUND.
  */
 export function createPortalGlowMaterial(
   layout: PortalShaderLayout,
@@ -115,6 +107,8 @@ export function createPortalGlowMaterial(
 
       #include <logdepthbuf_pars_fragment>
 
+      ${DISPLAY_OUTPUT_GLSL}
+
       ${PORTAL_NOISE_GLSL}
 
       ${PORTAL_SIGIL_GLSL}
@@ -183,16 +177,12 @@ export function createPortalGlowMaterial(
         float level = uCircle.w * breathe * (0.6 + 0.8 * uEnergy) + uFlare.z * surge;
         vec3 tint = mix(mix(uViolet, uEmber, 0.55 + 0.45 * surge), vColor, 0.15);
         vec3 circle = tint * (ink + 0.35 * halo) * level * sharp;
-        // The circle is designed in display values added over the street.
-        // Encoded for the target as the step from a street of CIRCLE_STREET
-        // to that street plus the circle: on the canvas exactly the circle,
-        // through the linear post-processing target the light that raises
-        // such a street by as much. The circle decoded alone added a
-        // fraction of that over a sunlit street (playtest 248).
-        const vec3 street = vec3(${CIRCLE_STREET.toFixed(2)});
-        light += linearToOutputTexel(sRGBTransferEOTF(vec4(street + circle, 1.0))).rgb
-          - linearToOutputTexel(sRGBTransferEOTF(vec4(street, 1.0))).rgb;
-        gl_FragColor = vec4(light, 1.0);
+        // Street light and circle are designed in display values added over
+        // the street: on the canvas exactly that, through the linear
+        // post-processing target the light that raises a street of
+        // ADDITIVE_GROUND by as much. The circle decoded alone added a
+        // fraction of that over a sunlit street (playtest 248)
+        gl_FragColor = vec4(displayLight(light + circle), 1.0);
       }
     `,
     transparent: true,

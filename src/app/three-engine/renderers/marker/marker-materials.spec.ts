@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Texture, type ShaderMaterial } from 'three';
 import { createDiamondMaterial, createGroundGlowMaterial, createLabelMaterial, createRingMaterial } from './marker-shaders';
 import { createPortalGateMaterial, setPortalGateTextures } from './spawn-portal-gate-material';
-import { CIRCLE_STREET, createPortalGlowMaterial } from './spawn-portal-glow-material';
+import { createPortalGlowMaterial } from './spawn-portal-glow-material';
 import { PORTAL_SHADER_LAYOUT } from './spawn-portal-geometry';
 import { SPAWN_PORTAL_LOOK as L } from '../../../configs/visual-effects.config';
 import { DISPLAY_OUTPUT_GLSL } from '../display-output';
@@ -57,9 +57,5 @@ describe('Marker- und Portal-Materialien', () => {
     expect(gate.uniforms['uNormalMap'].value).toBe(normal);
     expect(gate.uniforms['uOrmMap'].value).toBe(orm);
     expect(gate.uniforms['uEmissiveMap'].value).toBe(emissive);
-  });
-
-  it('stimmt den Beschwörungskreis auf eine Straße von 0.3 ab', () => {
-    expect(CIRCLE_STREET).toBe(0.3);
   });
 });
