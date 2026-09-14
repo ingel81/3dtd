@@ -6,6 +6,9 @@
  *      frozen or stunned, the whole worm stands, 1 s and 0.75 s as a boss.
  *      The real AbilityManager picks the targets with the route grid's query
  *      for enemies without a body, a 2D distance.
+ *      L: the beam burns the rings it runs over on its way toward the spawn,
+ *      each by at most the boss cap; the stretch from the real route sweep,
+ *      the damage as DamageApplicationService.applyMaxHpFraction takes it.
  * 399: frost bomb and EMP on the ooze: the tip stands, and at the HQ nothing
  *      flows in. The halt is applied as CombatEffectService.applyAbilityHalt
  *      applies it, with the ability's boss durations; that the circle finds
@@ -37,6 +40,7 @@ import { AbilityManager } from '../managers/ability.manager';
 import { StatusEffectService } from '../services/combat/status-effect.service';
 import {
   ABILITIES,
+  abilityBeamCap,
   abilityFreezeMs,
   abilitySourceId,
   abilityStunMs,
@@ -45,6 +49,7 @@ import {
 } from '../configs/abilities.config';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { geoDistanceFast, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { routeSweepToward } from '../utils/route-sweep';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import type { GeoPosition } from '../models/game.types';
@@ -56,6 +61,10 @@ const WARNING_STEPS = 30;
 /** A boss: frozen 1 s, stunned 0.75 s */
 const BOSS_FREEZE_STEPS = 60;
 const BOSS_STUN_STEPS = 45;
+const LASER = ABILITIES['orbital-laser'];
+const BEAM = LASER.effect as Extract<AbilityEffect, { kind: 'beam' }>;
+/** The laser's warning and its burn, and a few sub-steps after */
+const LASER_STEPS = Math.ceil((LASER.warningMs + BEAM.durationMs) / STEP_MS) + 5;
 
 /** Straight route north, a waypoint every 50 m */
 function straightPath(meters: number): GeoPosition[] {
@@ -72,12 +81,15 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
   let clock: number;
   let abilities: AbilityManager;
   let resolved: Extract<GameEvent, { type: 'ability:resolved' }>[];
+  /** The worm's route */
+  let route: GeoPosition[];
 
   beforeEach(() => {
     vi.spyOn(performance, 'now').mockReturnValue(1000);
     m = createTestManagers();
     clock = 0;
     resolved = [];
+    route = [];
     m.eventBus.on('ability:resolved', (event) => resolved.push(event));
     const status = new StatusEffectService();
     status.setGameClockProvider(() => clock);
@@ -91,7 +103,15 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
         }
         return out;
       },
-      strike: () => 0,
+      // As DamageApplicationService.applyMaxHpFraction takes it
+      strike: (targets, fractionOf) => {
+        let kills = 0;
+        for (const enemy of targets) {
+          if (!enemy.alive) continue;
+          if (enemy.health.takeDamage(enemy.health.maxHp * fractionOf(enemy)) && m.enemyManager.kill(enemy)) kills++;
+        }
+        return kills;
+      },
       // As CombatEffectService.applyAbilityHalt applies them
       halt: (targets, kind, durationMsOf, sourceId) => {
         for (const enemy of targets) {
@@ -99,10 +119,11 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
           else status.applyStun(enemy, durationMsOf(enemy), sourceId);
         }
       },
-      routeSweep: () => null,
+      // As GameStateManager asks it, on the worm's route
+      routeSweep: (target, maxDistanceM, lengthM) => routeSweepToward([route], target, maxDistanceM, lengthM),
     });
     abilities.setPhaseProvider(() => 'wave');
-    for (const id of ['frost-bomb', 'emp'] as AbilityId[]) {
+    for (const id of ['frost-bomb', 'emp', 'orbital-laser'] as AbilityId[]) {
       m.eventBus.emit({
         type: 'research:completed',
         researchId: ABILITIES[id].researchId,
@@ -129,13 +150,18 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
     return trace;
   };
   const stillSteps = (trace: number[]) => trace.filter((d, i) => i > 0 && d === trace[i - 1]).length;
+  /** A worm on a straight 400 m route north; its head */
+  const spawnWorm = (): Enemy => {
+    route = straightPath(400);
+    return m.enemyManager.spawn(route, 'worm');
+  };
 
   /**
    * A worm 20 s out of the portal, then `id` on the ring `slot` places behind
    * the head, far enough that the circle does not reach the head.
    */
   const hitWorm = (id: AbilityId) => {
-    const head = m.enemyManager.spawn(straightPath(400), 'worm');
+    const head = spawnWorm();
     const group = head.worm!.group;
     run(1200, head);
     const spacing = ENEMY_TYPES['worm'].chain!.spacing;
@@ -172,6 +198,30 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
     expect([...kinds]).toEqual(['stun']);
     expect(struck).not.toContain(head);
     expect(stillSteps(trace)).toBe(BOSS_STUN_STEPS);
+  });
+
+  it('L: the rings the beam runs over burn, each by at most the boss cap; the head and the rings ahead of the beam do not', () => {
+    const head = spawnWorm();
+    const group = head.worm!.group;
+    run(1200, head);
+    const spacing = ENEMY_TYPES['worm'].chain!.spacing;
+    // The beam lands on the ring 25 m behind the head and runs toward the spawn, away from the head
+    const slot = Math.ceil((LASER.radiusM + 20) / spacing);
+    const aim = group.segments[slot]!.position;
+    expect(abilities.use('orbital-laser', { lat: aim.lat, lon: aim.lon }).ok).toBe(true);
+    run(LASER_STEPS, head);
+
+    expect(resolved).toEqual([expect.objectContaining({ abilityId: 'orbital-laser', kills: 0 })]);
+    const rings = group.segments.filter((e): e is Enemy => e !== null);
+    const burnt = rings.filter((e) => e.health.hp < e.health.maxHp);
+    expect(burnt.length).toBeGreaterThan(1);
+    expect(burnt).toHaveLength(resolved[0].hits);
+    const cap = abilityBeamCap(BEAM, ENEMY_TYPES['worm']);
+    for (const ring of burnt) expect(1 - ring.health.hp / ring.health.maxHp).toBeLessThanOrEqual(cap + 1e-9);
+    // Ahead of the landing point only what its circle reached at the impact
+    expect(burnt).not.toContain(head);
+    const reach = Math.ceil(LASER.radiusM / spacing);
+    for (const ring of burnt) expect(group.segments.indexOf(ring)).toBeGreaterThanOrEqual(slot - reach);
   });
 });
 
