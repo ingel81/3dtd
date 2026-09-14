@@ -39,6 +39,13 @@ export interface CellSample {
    * See `sampleCellY`.
    */
   clamped: boolean;
+  /**
+   * Where the step check clamped the cell: the top of the car, van or
+   * hedge its column came down on, the height the cell had before the
+   * check. The ground LOS probe stays above it (getGroundTargetY). Null on
+   * every other cell, a cell the roof check clamped included.
+   */
+  stepTop: number | null;
 }
 
 /**
@@ -127,4 +134,18 @@ export interface TunnelSpan {
  */
 export function getAirTargetY(cell: RouteCell): number {
   return cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset;
+}
+
+/**
+ * Single-source-of-truth for the LOS ground-sample altitude of a cell:
+ * `groundSampleYOffset` above its ground. Above a cell the step check put
+ * on the street in front of a parked car, a van or a hedge, the probe stays
+ * above the object's top (`sample.stepTop`), where it was before the check:
+ * at street height it lies in the object, and the cube calls the cell
+ * blocked for any tower. Enemies there still walk and are drawn at
+ * `terrainHeight`. A cell the roof check clamped probes above its ground.
+ * Used by the grid's LOS resolve, the layer-builder and the LOS debugger.
+ */
+export function getGroundTargetY(cell: RouteCell): number {
+  return (cell.sample.stepTop ?? cell.terrainHeight) + LOS_VIZ_CONFIG.groundSampleYOffset;
 }

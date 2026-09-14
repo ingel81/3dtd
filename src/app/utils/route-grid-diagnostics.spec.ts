@@ -21,7 +21,7 @@ const cellOn = (gx: number, gz: number): RouteCell => ({
   surface: 'ground',
   tunnelSpan: null,
   routeAnchorY: 0,
-  sample: { state: 'stable', sampledAt: 0, tileDepth: 20, tileGeometricError: 2, clamped: false },
+  sample: { state: 'stable', sampledAt: 0, tileDepth: 20, tileGeometricError: 2, clamped: false, stepTop: null },
   heightSampled: true,
   enemies: new Set(),
   towerVisibility: new Map(),

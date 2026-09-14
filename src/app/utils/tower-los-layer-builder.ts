@@ -12,7 +12,7 @@ import {
 } from 'three';
 import { LOS_VIZ_CONFIG, StateAppearance } from '../configs/los-viz.config';
 import type { RouteCell } from './route-cell';
-import { getAirTargetY } from './route-cell';
+import { getAirTargetY, getGroundTargetY } from './route-cell';
 import { losPerf } from './los-perf';
 
 /**
@@ -299,7 +299,9 @@ export class TowerLosLayerBuilder {
       matrix.setPosition(cell.x, airMeshY, cell.z);
       airMesh.setMatrixAt(i, matrix);
 
-      groundSampleYArr[i] = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+      // Die Ground-Plate liegt auf der Zelle, gesampelt wird wie im
+      // LOS-Resolve (getGroundTargetY, über einem Auto über dessen Dach).
+      groundSampleYArr[i] = getGroundTargetY(cell);
       airSampleYArr[i]    = airMeshY;
     }
 

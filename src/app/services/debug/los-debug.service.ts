@@ -16,7 +16,7 @@ import { TowerManager } from '../../managers/tower.manager';
 import { GameEventBus, SubscriptionBag } from '../../game-engine';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { Tower } from '../../entities/tower.entity';
-import { RouteCell, getAirTargetY } from '../../utils/route-cell';
+import { RouteCell, getAirTargetY, getGroundTargetY } from '../../utils/route-cell';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { LOS_VIZ_CONFIG } from '../../configs/los-viz.config';
 import { directionToFacePixel, FacePixel } from '../../utils/los-debug-pixel-math';
@@ -307,7 +307,7 @@ export class LosDebugService {
     const entries: CellPixelEntry[] = new Array(cells.length);
     for (let i = 0; i < cells.length; i++) {
       const cell = cells[i];
-      const groundY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+      const groundY = getGroundTargetY(cell);
       const airY = getAirTargetY(cell);
       const groundPixel = directionToFacePixel(
         cell.x - tip.x,
@@ -339,7 +339,7 @@ export class LosDebugService {
     this.ensureHoverMarker();
     if (!this.hoverMarker) return;
     const layer = this._activeLayer();
-    const y = layer === 'air' ? getAirTargetY(cell) : cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+    const y = layer === 'air' ? getAirTargetY(cell) : getGroundTargetY(cell);
     this.hoverMarker.position.set(cell.x, y, cell.z);
     this.hoverMarker.visible = true;
   }
