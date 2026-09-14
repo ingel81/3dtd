@@ -62,6 +62,8 @@ export interface BossIntroContext {
   renderingEnabled: boolean;
   /** The intro flight owns the camera */
   introFlight: boolean;
+  /** A dialog is open (MatDialog: the location dialog, the key overview, any other) */
+  dialogOpen: boolean;
 }
 
 export type BossIntroBlock =
@@ -71,7 +73,8 @@ export type BossIntroBlock =
   | 'training'
   | 'timescale'
   | 'no-rendering'
-  | 'intro-flight';
+  | 'intro-flight'
+  | 'dialog';
 
 /** Fastest speed the HUD offers; above it only a training run goes. */
 const MAX_PLAYER_TIMESCALE = Math.max(...GAME_SPEEDS);
@@ -79,7 +82,9 @@ const MAX_PLAYER_TIMESCALE = Math.max(...GAME_SPEEDS);
 /**
  * Why the intro does not play now, null when it may. Photo mode keeps its
  * picture; bots and training runs have nobody watching, and above the HUD's
- * fastest speed the game is a training run too.
+ * fastest speed the game is a training run too. A player in a dialog keeps
+ * the view behind it: no camera cut and no pause they did not ask for
+ * (decided 2026-09-14).
  */
 export function bossIntroBlock(ctx: BossIntroContext): BossIntroBlock | null {
   if (!ctx.enabled) return 'disabled';
@@ -89,6 +94,7 @@ export function bossIntroBlock(ctx: BossIntroContext): BossIntroBlock | null {
   if (ctx.timescale > MAX_PLAYER_TIMESCALE) return 'timescale';
   if (!ctx.renderingEnabled) return 'no-rendering';
   if (ctx.introFlight) return 'intro-flight';
+  if (ctx.dialogOpen) return 'dialog';
   return null;
 }
 
