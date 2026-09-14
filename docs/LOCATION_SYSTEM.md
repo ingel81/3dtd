@@ -399,9 +399,13 @@ STEP 3: Load Streets
   - Cache-Check: Wenn gleiche Location (~100m), Cache wiederverwenden
   - Sonst OsmStreetService.loadStreets(): erst IndexedDB (StreetCacheService,
     Key v2_<lat>_<lon>_<radius>, max. 5 Orte, LRU), dann Overpass mit drei
-    Servern nacheinander (je 15 s bis zu den Headern, der Body danach ohne
-    Grenze; jeder Versuch steht als `[OSM] streets from ...` in der Konsole,
-    siehe "Zeiten" unten)
+    Servern der Reihe nach (`OsmStreetService.fetchOverpass`): Scheitert
+    einer, kommt sofort der nächste dran; hat einer nach 4 s noch nicht zu
+    antworten begonnen (`OVERPASS_HEDGE_MS`, eine Annahme), wird der nächste
+    zusätzlich gefragt. Die erste brauchbare Antwort gewinnt, die anderen
+    Anfragen werden abgebrochen. Jeder Server hat 15 s bis zu den Headern,
+    der Body danach keine Grenze. Jeder Versuch steht als
+    `[OSM] streets from ...` in der Konsole, siehe "Zeiten" unten
   - Street-Count aktualisieren
   - Street-Rendering laeuft progressiv (50 Nodes/Frame, alte Strassen
     bleiben sichtbar bis neue fertig sind — `street-rendering.service.ts`)
@@ -636,6 +640,8 @@ Jeder Versuch bei einem Overpass-Server (`OsmStreetService.fetchOverpass`, für 
 - `size` = Länge des JSON-Texts in Millionen Zeichen, bei OSM-Daten etwa die Bytes entpackt. `ways`/`nodes` = was kam, vor dem Filter auf die Routen (`[OSM] Filtered: ...`)
 - `remark` nur, wenn der Server an eine Grenze stieß (Speicher `maxsize` 4 MB, Zeit 25 s); die Antwort kann dann unvollständig sein und wird trotzdem genommen, sobald sie Straßen enthält
 - Gründe beim Scheitern: `OSM API error: <Status>` (z. B. 429, 504), `no answer within 15000ms`, `No streets found ...` (Antwort ohne Straßen, der nächste Server wird gefragt) oder der Netzwerkfehler des Browsers
+- Ein Server, der abgebrochen wird, weil ein anderer zuerst antwortete, schreibt keine Zeile. Zwei Antwortzeilen zu einer Ladung heißen, dass beide fast gleichzeitig kamen
+- Beginnt ein Server erst nach mehr als 4 s zu antworten (`headers=` über 4000), wurde der nächste schon zusätzlich gefragt
 
 ### HQ-Placement-Validierung (`MapPlacementService`)
 
