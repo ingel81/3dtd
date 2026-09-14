@@ -44,6 +44,8 @@ function registered(volume = 1, buffer: AudioBuffer | null = { duration: 4 } as 
       loop: true,
       minIntervalMs: -1,
       maxInstances: -1,
+      priority: false,
+      audibleDistance: AUDIO_LIMITS.maxAudibleDistance,
     },
   };
 }

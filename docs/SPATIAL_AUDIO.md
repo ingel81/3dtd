@@ -153,9 +153,11 @@ export const AUDIO_LIMITS = {
   maxEnemySounds: 12,           // Loop-only Budget fuer Enemy-Ambient (walk/roar)
   maxProjectileSounds: 25,      // Per-Kategorie-Cap fuer Projektil-Class One-Shots
   maxConcurrentOneShots: 30,    // Cap über alle One-Shots. Bei Überschreitung stoppt
-                                // Voice-Stealing den ältesten One-Shot (weicher als Reject).
+                                // Voice-Stealing den ältesten One-Shot ohne `priority`
+                                // (weicher als Reject).
   maxEffectSounds: 10,          // wird derzeit nirgends gelesen
-  maxAudibleDistance: 500,      // Sounds pausieren jenseits dieser Distanz
+  maxAudibleDistance: 500,      // Loops pausieren jenseits dieser Distanz, One-Shots fallen weg
+                                // (je Sound überschreibbar: `audibleDistance`)
 } as const;
 
 export const ENEMY_SOUND_PATTERNS = [
@@ -177,9 +179,17 @@ etwa 1 s lang sind und die Heuristik sie sonst auf 4 Instanzen begrenzt. Beide G
 zählen pro `AudioBuffer`, nicht pro Sound-ID: eine Datei, die unter vielen IDs
 registriert ist (eine pro Gegner oder Tower), teilt sich ein Limit.
 
-Reihenfolge der Prüfungen in `SpatialAudioPlayback.playAt()`: Distanz (über 500 m
-verworfen), Anti-Flood, Polyphony-Cap, Projektil-Budget (voll: der neue Sound wird
-verworfen), globaler Cap (voll: der älteste One-Shot wird gestoppt).
+Reihenfolge der Prüfungen in `SpatialAudioPlayback.playAt()`: Distanz (über der
+`audibleDistance` des Sounds verworfen, Standard 500 m), Anti-Flood, Polyphony-Cap,
+Projektil-Budget (voll: der neue Sound wird verworfen), globaler Cap (voll: der älteste
+One-Shot ohne `priority` wird gestoppt; haben alle `priority`, der älteste).
+
+**Vorrang und eigene Hörweite.** `priority` ist für die wenigen Sounds, an denen ein
+Moment hängt, Stand heute die Stücke des Nuklearschlags. Er landet auf einer großen
+Welle, deren Treffer und Tode im selben Sub-Step viele One-Shots starten; ohne Vorrang
+wäre sein Knall als ältester One-Shot der erste, den das Voice-Stealing stoppt.
+`audibleDistance` gilt nur für One-Shots: Der Nuklearschlag ist bis 1500 m zu hören, so
+weit wie sein Shake reicht. Loops pausieren weiter ab `maxAudibleDistance`.
 
 **Methoden in SpatialAudioManager:**
 ```typescript
@@ -279,6 +289,8 @@ interface SpatialSoundConfig {
   loop?: boolean;            // Default: false
   minIntervalMs?: number;    // Anti-Flood: -1 = Heuristik aus Buffer-Dauer (5%, 10–80 ms)
   maxInstances?: number;     // Polyphony-Cap: -1 = Heuristik (kurz=8, mittel=4, lang=2)
+  priority?: boolean;        // Default: false. Voice-Stealing nimmt ihn erst, wenn alle ihn haben
+  audibleDistance?: number;  // Default: 500 m (AUDIO_LIMITS.maxAudibleDistance), nur One-Shots
 }
 ```
 
