@@ -777,7 +777,8 @@ class EnemyManager extends EntityManager<Enemy> {
 Würmer (Typen mit `chain`) laufen über `managers/worm/`: `WormGroup` hält die Slots eines
 Wurms (im Portal, auf der Route, weg) und seine Ketten, `WormChains` schiebt jede Kette pro
 Sub-Step vor der Enemy-Schleife vor, lässt Segmente aus dem Portal kommen und gibt jedem
-Segment sein Ziel; `stepWormSegment()` ersetzt für sie `MovementComponent.move()`. Ein Spawn
+Segment sein Ziel; `stepWormSegment()` ersetzt für sie `MovementComponent.move()`, `WormPath`
+stellt sie auf die Route mit gerundeten Ecken (Ort und Blickrichtung). Ein Spawn
 eines Wurms liefert den Kopf und emittiert `worm:spawned`. Details in
 [ENEMY_CREATION.md](ENEMY_CREATION.md#kette-chain-der-wurm).
 
@@ -1432,7 +1433,7 @@ src/app/
 │   ├── tower.manager.ts          # Tower Lifecycle
 │   ├── projectile.manager.ts     # Projectile Lifecycle
 │   ├── wave.manager.ts           # Wave Management (templates, mixed waves)
-│   ├── worm/                     # Wurm-Boss: WormGroup (Slots, Ketten, Split), WormChains (Sub-Step, Portal, Ziele)
+│   ├── worm/                     # Wurm-Boss: WormGroup (Slots, Ketten, Split), WormChains (Sub-Step, Portal, Ziele), WormPath (Bögen an Ecken)
 │   ├── research.manager.ts       # Forschungs-System (Effects, Tick) — emittiert `research:state-changed`
 │   └── audio/                    # Audio-Subsystem
 │       ├── spatial-audio.manager.ts    # 3D Audio Manager
