@@ -25,7 +25,8 @@ export interface AudioConfig {
  * Receives whether an AudioComponent currently holds loop handles. `update()`
  * has nothing to do without one, so an owner that keeps this flag can skip
  * the call without loading the component. EnemyManager would otherwise do
- * that for every enemy every sub-step while only a few carry a loop.
+ * that for every enemy every sub-step while only those with a moving sound
+ * carry a loop.
  */
 export interface LoopFlagSink {
   hasAudioLoops: boolean;
@@ -190,7 +191,8 @@ export class AudioComponent extends Component {
 
   /**
    * Update loop positions to follow the GameObject
-   * Distance culling is handled by SpatialAudioManager.updateLoopPosition()
+   * Distance culling is handled by SpatialAudioManager.updateLoopPosition(),
+   * which also lets a loop that waited out of earshot or for a budget slot join
    * A no-op without loop handles, see LoopFlagSink.
    */
   update(_deltaTime: number): void {

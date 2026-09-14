@@ -41,9 +41,8 @@ export class OozeSounds {
 
   /**
    * Once per render frame: the loop of ooze `id` moves to local (x, y, z).
-   * One that has none yet starts there once the point is within earshot
-   * (createLoop gives nothing beyond it). SpatialAudioLoops pauses it out of
-   * range and resumes it back in range.
+   * One that has none yet asks for it once the point is within earshot.
+   * SpatialAudioLoops pauses it out of range and resumes it back in range.
    */
   follow(id: string, audio: SpatialAudioManager, x: number, y: number, z: number): void {
     this.at.set(x, y, z);

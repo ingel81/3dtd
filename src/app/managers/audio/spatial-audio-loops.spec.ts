@@ -8,7 +8,8 @@ import { AUDIO_LIMITS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config
 
 /**
  * Loops against a fake pool and playback: the enemy-budget bookkeeping
- * across create, pause, resume and stop, and the master volume. The manager
+ * across create, pause, resume and stop, loops that wait out of earshot or
+ * for a slot and join later, and the master volume. The manager
  * spec runs the same paths through the real pool with fake Web Audio.
  */
 
@@ -108,16 +109,81 @@ describe('SpatialAudioLoops', () => {
     expect(pool.cleanupAudio).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses a loop out of range or without a buffer, and returns the slot', async () => {
-    audible = false;
-    expect(await loops.create('zombie_walk', HERE)).toBeNull();
-
-    audible = true;
+  it('refuses a loop without a buffer or registration', async () => {
     sounds.set('zombie_walk', registered(1, null));
     expect(await loops.create('zombie_walk', HERE)).toBeNull();
 
     expect(await loops.create('nope', HERE)).toBeNull();
     expect(budget.stats().current).toBe(0);
+    expect(loops.size).toBe(0);
+    expect(pool.createAudio).not.toHaveBeenCalled();
+  });
+
+  it('lets a loop created out of earshot wait without audio or slot, and join in earshot', async () => {
+    audible = false;
+    const handle = (await loops.create('zombie_walk', HERE))!;
+    expect(loops.isPaused(handle)).toBe(true);
+    expect(budget.stats().current).toBe(0);
+
+    loops.updatePosition(handle, new Vector3(5, 0, 0));
+    expect(pool.createAudio).not.toHaveBeenCalled();
+
+    audible = true;
+    loops.updatePosition(handle, new Vector3(7, 0, 0));
+    expect(loops.isPaused(handle)).toBe(false);
+    expect(audios).toHaveLength(1);
+    expect(audios[0].isPlaying).toBe(true);
+    expect(audios[0].loop).toBe(true);
+    expect(pool.createContainerAtPosition).toHaveBeenCalledWith(audios[0], new Vector3(7, 0, 0));
+    expect(budget.stats().current).toBe(1);
+  });
+
+  it('lets an enemy loop wait while the budget is full and join once a slot frees', async () => {
+    const first = (await loops.create('zombie_walk', HERE))!;
+    for (let i = 1; i < AUDIO_LIMITS.maxEnemySounds; i++) await loops.create('zombie_walk', HERE);
+    const late = (await loops.create('zombie_walk', HERE))!;
+    expect(loops.isPaused(late)).toBe(true);
+    expect(audios).toHaveLength(AUDIO_LIMITS.maxEnemySounds);
+
+    loops.updatePosition(late, HERE);
+    expect(loops.isPaused(late)).toBe(true);
+
+    loops.stop(first);
+    loops.updatePosition(late, HERE);
+    expect(loops.isPaused(late)).toBe(false);
+    expect(audios).toHaveLength(AUDIO_LIMITS.maxEnemySounds + 1);
+    expect(budget.stats().current).toBe(AUDIO_LIMITS.maxEnemySounds);
+  });
+
+  it('joins no loop while held; going on joins those in earshot', async () => {
+    loops.hold(true);
+    const handle = (await loops.create('fire', HERE))!;
+    loops.updatePosition(handle, HERE);
+    expect(loops.resume(handle)).toBe(false);
+    expect(pool.createAudio).not.toHaveBeenCalled();
+
+    loops.hold(false);
+    expect(loops.isPaused(handle)).toBe(false);
+    expect(audios[0].isPlaying).toBe(true);
+  });
+
+  it('keeps its own copy of the position handed in', async () => {
+    const at = new Vector3(3, 0, 0);
+    const created = loops.create('fire', at);
+    at.set(99, 0, 0);
+    await created;
+    expect(pool.createContainerAtPosition).toHaveBeenCalledWith(audios[0], new Vector3(3, 0, 0));
+  });
+
+  it('stops a waiting loop, with no audio to clean up and none made later', async () => {
+    audible = false;
+    const handle = (await loops.create('zombie_walk', HERE))!;
+    loops.stop(handle);
+    expect(loops.size).toBe(0);
+    expect(pool.cleanupAudio).not.toHaveBeenCalled();
+
+    audible = true;
+    loops.updatePosition(handle, HERE);
     expect(pool.createAudio).not.toHaveBeenCalled();
   });
 
@@ -182,6 +248,8 @@ describe('SpatialAudioLoops', () => {
     await loops.create('zombie_walk', HERE);
     await loops.create('zombie_walk', HERE);
     await loops.create('fire', HERE);
+    audible = false;
+    await loops.create('zombie_walk', HERE);
 
     loops.stopAll();
 
