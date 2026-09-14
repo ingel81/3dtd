@@ -102,8 +102,6 @@ describe('Tower → Enemy Combat Integration', () => {
     const enemy = spawnEnemy();
     const projectile = m.projectileManager.spawn(tower, enemy);
 
-    const _initialHp = enemy.health.hp;
-
     // Listen for projectile:hit
     const hitHandler = vi.fn();
     m.eventBus.on('projectile:hit', hitHandler);

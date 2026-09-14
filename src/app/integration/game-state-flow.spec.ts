@@ -53,7 +53,7 @@ describe('Game State Flow Integration', () => {
     m.eventBus.onAny((event) => events.push(event.type));
 
     // 1. Place tower
-    const _tower = m.towerManager.placeTower(TEST_TOWER_POSITION, 'archer', 0)!;
+    m.towerManager.placeTower(TEST_TOWER_POSITION, 'archer', 0);
     expect(events).toContain('tower:placed');
 
     // 2. Start wave
@@ -99,7 +99,7 @@ describe('Game State Flow Integration', () => {
 
     // Place tower (costs credits)
     const archerCost = TOWER_TYPES['archer'].cost;
-    const _tower = m.towerManager.placeTower(TEST_TOWER_POSITION, 'archer', 0)!;
+    m.towerManager.placeTower(TEST_TOWER_POSITION, 'archer', 0);
     totalCredits -= archerCost;
 
     // Simulate earning credits from killing an enemy
