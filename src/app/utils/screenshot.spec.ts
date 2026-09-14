@@ -100,6 +100,35 @@ describe('stampScreenshot', () => {
     expect(texts[1].alpha).toBe(1);
   });
 
+  const LONG_ATTRIBUTION = 'Map data ©2026 Google, Airbus, Landsat / Copernicus, Maxar Technologies';
+
+  it('keeps the address on the logos\' line of a landscape picture with a long attribution', () => {
+    const { canvas, drawn } = fakeCanvas(1920, 1080);
+    stampScreenshot(canvas, LONG_ATTRIBUTION, [google], { logo, url: SCREENSHOT_URL });
+    const url = drawn('fillText').find((call) => call.args[0] === SCREENSHOT_URL)!;
+    expect(url.args[1]).toBe(7 + 76 + 7 + 7);
+    expect(url.args[2]).toBeCloseTo(1054 + 19 / 2);
+  });
+
+  it('moves the address a line up, above the logos, where it would run under the strip (narrow picture)', () => {
+    // 600 x 1300: font 14 px, margin 8 px, provider logo 88 x 22 px. The
+    // strip takes 60 % of the width and starts at x 218; after the logo the
+    // address would run from 112 to 244
+    const { canvas, drawn } = fakeCanvas(600, 1300);
+    stampScreenshot(canvas, LONG_ATTRIBUTION, [google], { logo, url: SCREENSHOT_URL });
+
+    const [stripX, stripY] = drawn('fillRect')[0].args as number[];
+    expect(stripX).toBe(218);
+    expect(8 + 88 + 8 + 8 + SCREENSHOT_URL.length * 6).toBeGreaterThan(stripX);
+    const url = drawn('fillText').find((call) => call.args[0] === SCREENSHOT_URL)!;
+    const [, x, y] = url.args as [string, number, number];
+    expect(x).toBe(8);
+    // Its middle line a margin above the logos' top
+    expect(y).toBe(1300 - 8 - 22 - 8 - 14 / 2);
+    // Its lower edge, half a font size under that, stays above the strip
+    expect(y + 14 / 2).toBeLessThan(stripY);
+  });
+
   it('starts the address at the margin without provider logos (DevWorld), with or without a logo', () => {
     const { canvas, drawn } = fakeCanvas(1280, 720);
     stampScreenshot(canvas, '', [], { logo: null, url: SCREENSHOT_URL });
