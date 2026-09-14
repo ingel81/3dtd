@@ -1,6 +1,6 @@
 # Replay der letzten Welle
 
-**Stand:** 2026-09-14
+**Stand:** 2026-09-15
 
 Nach einer Welle lässt sie sich noch einmal ansehen: freie Kamera, Pause,
 0,25x bis 4x, Sprung an jede Stelle über den Fortschrittsbalken. Nur die
@@ -185,7 +185,7 @@ eigenen Bus des Players, auf dem der `BossIntroService` nicht hört. Dann
 übernimmt der `ReplayPlayer`:
 
 - Gegner und Projektile bekommen eigene Instanzen in den bestehenden Renderern (`replay-enemy-N`, `replay-projectile-N`); Positionen, Blickrichtungen und Turret-Drehungen werden zwischen zwei Frames interpoliert. Status-Tönungen und Auren, Eis (Tönung und Eiskristalle) und Betäubung (Tönung und Funken im Takt des Spiels, `STUN_SPARKS`), Gehen und Rennen, Todesanimationen (ab dem aufgezeichneten Todeszeitpunkt) und Lecks folgen der Aufnahme
-- Ein Ooze bekommt statt einer Instanz ein eigenes Band im `OozeBandRenderer` (unter derselben `replay-enemy-N`-Id), auf denselben Stationen und dem Boden des Route-Grids; Schwanz und Spitze werden interpoliert, Leben und Status kommen aus seiner Gegner-Stichprobe. Stirbt er, kollabiert das Band wie im Spiel (`OozeBandRenderer.collapse`, `OOZE_LOOK.collapse`); leckt er, sinkt es (`OOZE_LOOK.dissolve`); ein Sprung davor legt es neu hin
+- Ein Ooze bekommt statt einer Instanz ein eigenes Band im `OozeBandRenderer` (unter derselben `replay-enemy-N`-Id), auf denselben Stationen und dem Boden des Route-Grids; Schwanz und Spitze werden interpoliert, Leben und Status kommen aus seiner Gegner-Stichprobe. Stirbt er, kollabiert das Band wie im Spiel (`OozeBandRenderer.collapse`, `OOZE_LOOK.collapse`) samt Blasen und Trümmern; die Pfützen fehlen, weil die Bodenmarken angehalten sind ([PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#tod-der-ooze)); leckt er, sinkt es (`OOZE_LOOK.dissolve`); ein Sprung davor legt es neu hin
 - Der Held-Renderer zeigt den aufgezeichneten Helden mit Pose und Blickrichtung, interpoliert. In Frames ohne Helden (vor dem Anheuern) ist er nicht zu sehen; der Live-Held kommt beim Verlassen zurück (`HeroManager.presentFrame()`). Der Blutmond-Look ist der der aufgezeichneten Welle, sofort ohne Überblendung; beim Verlassen kehrt der Live-Zustand zurück
 - Die Live-Türme drehen sich auf die aufgezeichnete Turret-Drehung und sind unsichtbar, bis sie in der Welle gebaut wurden. In der Welle verkaufte Türme kommen als eigene Modelle (`replay-tower-N`) mit Sockel und Tentakel zurück, nach der Welle gebaute sind während des Replays ausgeblendet. Die Blutmond-Scheinwerfer folgen der Sichtbarkeit der Türme und der aufgezeichneten Drehung, auch bei Türmen ohne Turret-Teil; ein verkaufter Turm bekommt einen eigenen. Flammenstrahlen und Tentakelschläge spielen aus den Turm-Stichproben
 - Die Effekt-Events laufen über einen eigenen Bus des Players, auf dem ein eigener `VFXService`, `AudioService` und `ScreenShakeService` hören: dieselben Effekte wie im Spiel. Oberhalb von 1x spielt das Replay keine Sounds, auch keine Einschlagsounds der Fähigkeiten und keinen Nachhall: der `AudioService` des Players hört auf einem eigenen Bus, der dann nichts bekommt, und ein noch ausstehender Nachhall wird verworfen, ebenso bei einem Sprung
