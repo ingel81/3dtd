@@ -7,7 +7,8 @@ Python-Trainings- und Messserver für den Wave Director mit Live-Web-Dashboard.
 > **Das Backend ist ein Messinstrument, keine Produktionsabhängigkeit.** Im
 > Spiel entscheidet ein Regel-Director im Client
 > (`src/app/ai/core/rule-director.ts`) — kein Server, kein Modell, keine
-> ONNX-Runtime. Warum: [`../docs/HANDOVER_RULE_DIRECTOR.md`](../docs/HANDOVER_RULE_DIRECTOR.md).
+> ONNX-Runtime. Einstieg: [`../docs/AI_WAVE_DIRECTOR_PLAN.md`](../docs/AI_WAVE_DIRECTOR_PLAN.md),
+> die Messreihe dahinter: [`../docs/HANDOVER_RULE_DIRECTOR.md`](../docs/HANDOVER_RULE_DIRECTOR.md).
 
 ## Quick Start (Windows)
 
@@ -19,7 +20,9 @@ Startet:
 - **WebSocket-Server** auf `ws://localhost:3001` (Game-Kommunikation)
 - **Web-Dashboard** auf `http://localhost:3002` (Live-Monitoring)
 
-`start.sh` ist das Linux/Mac-Pendant.
+`start.sh` ist das Linux/Mac-Pendant. Als Hintergrundprozess mit PID- und
+Logdatei: `python manage_server.py start` (auch `stop`, `restart`, `status`,
+`tail`).
 
 ## Manuelles Setup
 
@@ -60,7 +63,7 @@ Dashboard wird automatisch mitgestartet (kann via `DASHBOARD=0` deaktiviert werd
 - Reward, Damage-Sweet, Near-Miss-Charts mit Trendlinien
 - Modell-Metriken (Policy-Loss, Entropy, Grad-Norm)
 - Damage-Verteilung (Boring/Sweet/Hard/Game-Over)
-- Per-Client-DPS-Profile (Ground + Air, je 20 Bins)
+- Per-Client-DPS-Profile (Ground + Air, je 20 Bins; die Endpunkte liefern seit Phase 5.10 leere Arrays)
 - Wave-Log + Training-Log
 - Template-Auswahl-Histogramm
 
@@ -84,12 +87,12 @@ danach, die Auswertung ist selbst zu schreiben.
 ## Tests
 
 ```bash
-python -m pytest tests -q          # 96 Tests, Stand 2026-09-07
+python -m pytest tests -q
 ```
 
 ## Anforderungen
 
-- Python 3.8+
+- Python 3.9+ (die venv läuft auf 3.11)
 - PyTorch 2.0+
 - FastAPI + uvicorn
 - websockets
@@ -122,8 +125,12 @@ Editiere `config.py`:
 | `MAX_WAVE_DURATION_MS` | 180_000 | Hard-Cap auf Wave-Dauer, aus dem Schema |
 
 Werte mit „aus dem Schema" stehen in `generated/ai-schema.json` und werden in
-`config.py` nur re-exportiert — sie ändert man in `src/app/ai/core/ai-schema.ts`
-und regeneriert mit `npm run ai-schema`.
+`config.py` nur re-exportiert. Geändert werden sie in den TS-Quellen:
+`EPISODE_LENGTH` als `AI_EPISODE_LENGTH` in `src/app/ai/core/ai-schema.ts`,
+dort ergibt sich auch `INPUT_SIZE` aus dem Feature-Layout
+(`ENCODED_STATE_SIZE`); `MAX_TEMPLATE_SLOTS`, `TEMPLATE_COOLDOWN_WAVES` und
+`MAX_WAVE_DURATION_MS` in `src/app/ai/core/templates.ts`. Danach
+`npm run ai-schema`.
 
 ## Checkpoints
 
@@ -142,11 +149,12 @@ JSONL-Logs in `logs/training_*.jsonl` für Post-hoc-Analyse via
 
 | Doku | Inhalt |
 |---|---|
-| `../docs/HANDOVER_RULE_DIRECTOR.md` | **Einstieg:** warum das Spiel auf Regeln läuft, und was zuerst zu reparieren ist, wenn wieder trainiert werden soll |
+| `../docs/AI_WAVE_DIRECTOR_PLAN.md` | **Einstieg:** Regel-Director, Gate-Controller, Decoder; was vom RL-Aufbau bleibt |
+| `../docs/HANDOVER_RULE_DIRECTOR.md` | Die Messreihe hinter dem Wechsel auf Regeln, und was zuerst zu reparieren ist, wenn wieder trainiert werden soll |
 | `docs/AI_TRAINING_BACKEND.md` | Vollständige technische Dokumentation |
 | `docs/AI_TRAINING_SESSION_NOTES.md` | Entwicklungsgeschichte (neueste zuerst) |
 | `docs/AI_MODEL_EXPORT.md` | ONNX-Export für Browser-Inferenz (Opt-in-Pfad) |
 | `PHASE5.5_TRAINING_RUNBOOK.md` | Historisches Runbook für Phase-5.5-Restart |
 
-Frontend-seitige Architektur: siehe `docs/PHASE_5.11_RANGES.md` und
-`docs/AI_WAVE_DIRECTOR_PLAN.md` im Projekt-Root.
+Frontend-seitige Architektur: `docs/AI_WAVE_DIRECTOR_PLAN.md` im Projekt-Root
+(`docs/PHASE_5.11_RANGES.md` ist historisch).
