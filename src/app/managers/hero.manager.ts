@@ -123,6 +123,14 @@ export class HeroManager implements IGameManager {
   private anchor: GraphPoint | null = null;
   /** Where the path he follows ends, null while he stands */
   private goal: GraphPoint | null = null;
+  /**
+   * The last walkTo, when it found him standing on its goal: the graph, his
+   * position and the goal it was asked with. walkTo reads nothing else, so
+   * the same question has the same answer and is not asked again; holding
+   * his post he re-plans every HERO.pursuitReplanMs, 300 times a real second
+   * at 75x. Any other walkTo drops it.
+   */
+  private standing: { graph: RouteGraph; lat: number; lon: number; edge: number; t: number } | null = null;
   /** Game time until he next picks what to chase, while he holds without a target */
   private replanMs = 0;
   private target: Enemy | null = null;
@@ -355,10 +363,18 @@ export class HeroManager implements IGameManager {
   /** Put him on the way to `goal`; false when no way leads there. Standing on it already is a way. */
   private walkTo(graph: RouteGraph, goal: GraphPoint): boolean {
     const hero = this.hero!;
-    const here = graph.nearestPoint(hero.position.lat, hero.position.lon);
+    const { lat, lon } = hero.position;
+    const s = this.standing;
+    if (s && s.graph === graph && s.lat === lat && s.lon === lon && s.edge === goal.edge && s.t === goal.t) {
+      this.goal = null;
+      return true;
+    }
+    this.standing = null;
+    const here = graph.nearestPoint(lat, lon);
     if (!here) return false;
     if (graph.straightDistance(here, goal) < ARRIVED_M) {
       this.goal = null;
+      this.standing = { graph, lat, lon, edge: goal.edge, t: goal.t };
       return true;
     }
     const path = graph.shortestPath(here, goal);
@@ -522,6 +538,7 @@ export class HeroManager implements IGameManager {
     this.graphRoutes.length = 0;
     this.anchor = null;
     this.goal = null;
+    this.standing = null;
     this.replanMs = 0;
     this.target = null;
     this.clockMs = 0;

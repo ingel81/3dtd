@@ -64,6 +64,15 @@ export interface GraphPath {
 export class RouteGraph {
   private readonly cosLat0: number;
 
+  // Search buffers, sized to the nodes once and reused by every search: the
+  // hero re-plans every HERO.pursuitReplanMs, some 300 times a real second at 75x
+  private readonly dist: Float64Array;
+  private readonly prev: Int32Array;
+  private readonly done: Uint8Array;
+  private readonly heap = new MinHeap();
+  /** Reachable intervals of t on one edge, [lo, hi] pairs, see closestWithinReach() */
+  private readonly intervals = new Float64Array(6);
+
   private constructor(
     readonly nodes: readonly RouteGraphNode[],
     readonly edges: readonly RouteGraphEdge[],
@@ -73,6 +82,9 @@ export class RouteGraph {
     private readonly lon0: number,
   ) {
     this.cosLat0 = Math.cos(lat0 * DEG_TO_RAD);
+    this.dist = new Float64Array(nodes.length);
+    this.prev = new Int32Array(nodes.length);
+    this.done = new Uint8Array(nodes.length);
   }
 
   /** The graph of `routes`, keyed by spawn id. Empty routes give an empty graph. */
@@ -169,8 +181,7 @@ export class RouteGraph {
     let bestSq = Infinity;
     for (let i = 0; i < this.edges.length; i++) {
       const t = this.projectT(i, px, pz);
-      const { x, z } = this.local({ edge: i, t });
-      const d = (x - px) ** 2 + (z - pz) ** 2;
+      const d = this.distanceSqAt(i, t, px, pz);
       if (d < bestSq) {
         bestSq = d;
         bestEdge = i;
@@ -193,9 +204,10 @@ export class RouteGraph {
 
   /** Straight-line distance between two graph points, 2D, metres. */
   straightDistance(p: GraphPoint, q: GraphPoint): number {
-    const a = this.local(p);
-    const b = this.local(q);
-    return Math.hypot(a.x - b.x, a.z - b.z);
+    return Math.hypot(
+      this.localX(p.edge, p.t) - this.localX(q.edge, q.t),
+      this.localZ(p.edge, p.t) - this.localZ(q.edge, q.t),
+    );
   }
 
   /**
@@ -242,48 +254,53 @@ export class RouteGraph {
    */
   closestWithinReach(anchor: GraphPoint, reachM: number, lat: number, lon: number): GraphPoint {
     const anchorEdge = this.edges[anchor.edge];
-    const search = this.dijkstra(
+    const { dist } = this.dijkstra(
       [
         { node: anchorEdge.a, cost: anchor.t * anchorEdge.length },
         { node: anchorEdge.b, cost: (1 - anchor.t) * anchorEdge.length },
       ],
-      (dist) => dist > reachM,
+      (d) => d > reachM,
     );
-    const dist = search.dist;
-
-    // Edges with a reached end, and the anchor's own, in ascending order
-    const candidates = new Set<number>([anchor.edge]);
-    for (let n = 0; n < this.nodes.length; n++) {
-      if (dist[n] <= reachM) for (const e of this.incident[n]) candidates.add(e);
-    }
-    const ordered = [...candidates].sort((p, q) => p - q);
 
     const px = this.x(lon);
     const pz = this.z(lat);
-    let best: GraphPoint = anchor;
+    const intervals = this.intervals;
+    let bestEdge = -1;
+    let bestT = 0;
     let bestSq = Infinity;
-    for (const edge of ordered) {
+    // Edges with a reached end, and the anchor's own, in ascending order
+    for (let edge = 0; edge < this.edges.length; edge++) {
       const e = this.edges[edge];
+      const fromA = dist[e.a] <= reachM;
+      const fromB = dist[e.b] <= reachM;
+      if (!fromA && !fromB && edge !== anchor.edge) continue;
       const len = e.length;
       // Reachable intervals of t on this edge
-      const intervals: [number, number][] = [];
-      if (dist[e.a] <= reachM) intervals.push([0, Math.min(1, (reachM - dist[e.a]) / len)]);
-      if (dist[e.b] <= reachM) intervals.push([Math.max(0, 1 - (reachM - dist[e.b]) / len), 1]);
+      let n = 0;
+      if (fromA) {
+        intervals[n++] = 0;
+        intervals[n++] = Math.min(1, (reachM - dist[e.a]) / len);
+      }
+      if (fromB) {
+        intervals[n++] = Math.max(0, 1 - (reachM - dist[e.b]) / len);
+        intervals[n++] = 1;
+      }
       if (edge === anchor.edge) {
-        intervals.push([Math.max(0, anchor.t - reachM / len), Math.min(1, anchor.t + reachM / len)]);
+        intervals[n++] = Math.max(0, anchor.t - reachM / len);
+        intervals[n++] = Math.min(1, anchor.t + reachM / len);
       }
       const want = this.projectT(edge, px, pz);
-      for (const [lo, hi] of intervals) {
-        const t = Math.min(hi, Math.max(lo, want));
-        const { x, z } = this.local({ edge, t });
-        const d = (x - px) ** 2 + (z - pz) ** 2;
+      for (let k = 0; k < n; k += 2) {
+        const t = Math.min(intervals[k + 1], Math.max(intervals[k], want));
+        const d = this.distanceSqAt(edge, t, px, pz);
         if (d < bestSq) {
           bestSq = d;
-          best = { edge, t };
+          bestEdge = edge;
+          bestT = t;
         }
       }
     }
-    return best;
+    return bestEdge < 0 ? anchor : { edge: bestEdge, t: bestT };
   }
 
   // ==================== Internals ====================
@@ -296,11 +313,23 @@ export class RouteGraph {
     return (lat - this.lat0) * METERS_PER_DEGREE_LAT;
   }
 
-  private local(p: GraphPoint): { x: number; z: number } {
-    const e = this.edges[p.edge];
+  /** East of the origin at share `t` of edge `edge`, metres; interpolated like pointGeo. */
+  private localX(edge: number, t: number): number {
+    const e = this.edges[edge];
     const a = this.nodes[e.a];
-    const b = this.nodes[e.b];
-    return { x: a.x + (b.x - a.x) * p.t, z: a.z + (b.z - a.z) * p.t };
+    return a.x + (this.nodes[e.b].x - a.x) * t;
+  }
+
+  /** North of the origin at share `t` of edge `edge`, metres. */
+  private localZ(edge: number, t: number): number {
+    const e = this.edges[edge];
+    const a = this.nodes[e.a];
+    return a.z + (this.nodes[e.b].z - a.z) * t;
+  }
+
+  /** Squared 2D distance from the local point (px, pz) to share `t` of edge `edge`. */
+  private distanceSqAt(edge: number, t: number, px: number, pz: number): number {
+    return (this.localX(edge, t) - px) ** 2 + (this.localZ(edge, t) - pz) ** 2;
   }
 
   /** Share of edge `edge` nearest to the local point, clamped to the edge. */
@@ -319,17 +348,19 @@ export class RouteGraph {
    * Dijkstra from seeded nodes. Stops once the nearest open node satisfies
    * `stop`, or can no longer improve on the best target. Ties in the queue go
    * to the lower node index, so equal routes always resolve the same way.
+   * `dist` and `prev` are the graph's own buffers: read them before the next
+   * search.
    */
   private dijkstra(
     seeds: { node: number; cost: number }[],
     stop: (dist: number) => boolean,
     targets: { node: number; extra: number }[] = [],
   ): { dist: Float64Array; prev: Int32Array; bestNode: number; bestTotal: number } {
-    const n = this.nodes.length;
-    const dist = new Float64Array(n).fill(Infinity);
-    const prev = new Int32Array(n).fill(-1);
-    const done = new Uint8Array(n);
-    const heap = new MinHeap();
+    const { dist, prev, done, heap } = this;
+    dist.fill(Infinity);
+    prev.fill(-1);
+    done.fill(0);
+    heap.clear();
     for (const { node, cost } of seeds) {
       if (cost < dist[node]) {
         dist[node] = cost;
@@ -337,20 +368,21 @@ export class RouteGraph {
       }
     }
 
-    const extra = new Map<number, number>();
-    for (const { node, extra: e } of targets) {
-      extra.set(node, Math.min(extra.get(node) ?? Infinity, e));
-    }
     let bestNode = -1;
     let bestTotal = Infinity;
 
     while (heap.size > 0) {
-      const [d, u] = heap.pop();
+      const d = heap.topKey;
+      const u = heap.pop();
       if (done[u] || d > dist[u]) continue;
       if (stop(d) || d >= bestTotal) break;
       done[u] = 1;
-      const e = extra.get(u);
-      if (e !== undefined && d + e < bestTotal) {
+      // The cheapest way on from u to the end point, Infinity when u is no end of its edge
+      let e = Infinity;
+      for (const target of targets) {
+        if (target.node === u && target.extra < e) e = target.extra;
+      }
+      if (d + e < bestTotal) {
         bestTotal = d + e;
         bestNode = u;
       }
@@ -444,6 +476,16 @@ class MinHeap {
     return this.keys.length;
   }
 
+  /** Key of the top entry; read it before pop(). */
+  get topKey(): number {
+    return this.keys[0];
+  }
+
+  clear(): void {
+    this.keys.length = 0;
+    this.values.length = 0;
+  }
+
   push(key: number, value: number): void {
     this.keys.push(key);
     this.values.push(value);
@@ -456,8 +498,9 @@ class MinHeap {
     }
   }
 
-  pop(): [number, number] {
-    const top: [number, number] = [this.keys[0], this.values[0]];
+  /** Take the top entry off and return its value. */
+  pop(): number {
+    const top = this.values[0];
     const lastKey = this.keys.pop()!;
     const lastValue = this.values.pop()!;
     if (this.keys.length > 0) {
@@ -483,7 +526,11 @@ class MinHeap {
   }
 
   private swap(i: number, j: number): void {
-    [this.keys[i], this.keys[j]] = [this.keys[j], this.keys[i]];
-    [this.values[i], this.values[j]] = [this.values[j], this.values[i]];
+    const key = this.keys[i];
+    this.keys[i] = this.keys[j];
+    this.keys[j] = key;
+    const value = this.values[i];
+    this.values[i] = this.values[j];
+    this.values[j] = value;
   }
 }
