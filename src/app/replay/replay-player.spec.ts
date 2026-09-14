@@ -550,6 +550,12 @@ describe('ReplayPlayer', () => {
         expect(fake.engine[renderer]['clear']).toHaveBeenCalled();
       }
     });
+
+    it('clears the ooze renderer on exit, a collapsing band and its debris both', () => {
+      advance(p, 160); // the ooze died at 150 ms, its band is mid-collapse
+      p.exit();
+      expect((fake.engine.oozes as Record<string, Spy>)['clear']).toHaveBeenCalled();
+    });
   });
 
   describe('sound above 1x', () => {

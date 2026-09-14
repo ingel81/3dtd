@@ -304,6 +304,8 @@ export class ReplayPlayer {
     }
     this.laterTowers.length = 0;
     this.clearStrikes();
+    // A killed ooze's band, still mid-collapse, and whatever it already threw don't outlive the replay
+    engine.oozes.clear();
     if (this.heroShown) engine.hero.clear();
     this.heroShown = false;
     engine.bloodMoon.setActive(this.bloodMoonBefore, true);
