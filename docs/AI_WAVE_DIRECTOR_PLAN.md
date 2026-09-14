@@ -1,4 +1,4 @@
-# Wave Director — Gesamtübersicht
+# Wave Director: Gesamtübersicht
 
 > **Stand:** 2026-09-15. Regelbasierter Wave-Director + Fairness-Gate-Regelkreis,
 > vollständig clientseitig. Das ONNX-Modell ist **nicht mehr** der Director; es
@@ -19,8 +19,8 @@ dabei ersetzt wurde, und was vom RL-Aufbau übrig bleibt und wofür.
 ## 1. Kurzfassung
 
 Eine Welle entsteht aus fünf Zahlen: einem Template-Index und vier Formfaktoren
-in `[0,1]` (`count`, `spawn`, `hp`, `variation`). Alles danach — Maske, Range-
-Interpolation, DPS-Ramp, Endgame-Multiplikator, Fairness-Cap, Duration-Cap — ist
+in `[0,1]` (`count`, `spawn`, `hp`, `variation`). Alles danach (Maske, Range-
+Interpolation, DPS-Ramp, Endgame-Multiplikator, Fairness-Cap, Duration-Cap) ist
 gemeinsamer Code und identisch, egal wer die fünf Zahlen liefert.
 
 | Rolle | Wer heute | Datei |
@@ -36,7 +36,7 @@ geladen; `loadModel()` läuft nur, wenn man im Debug-Fenster („ONNX-Modell
 laden") ausdrücklich darauf klickt, und `forceRuleMode()` schaltet zurück.
 
 Den Zustand `'fallback'` gibt es nicht mehr. Er bedeutete früher „Modell fehlt,
-Fehler" und führte zu einer Exception — heute ist „kein Modell" der Normalfall.
+Fehler" und führte zu einer Exception; heute ist „kein Modell" der Normalfall.
 
 ---
 
@@ -53,8 +53,8 @@ verbundenen Clients (`config.DIRECTOR_ROSTER = ["model", "rules", "random",
 
 | Director | Verhalten |
 |----------|-----------|
-| `model` | Die trainierte Policy — der Status quo |
-| `random` | Gleichverteilt über die erlaubte Maske, gleichverteilte Faktoren — der ehrliche Boden |
+| `model` | Die trainierte Policy, der Status quo |
+| `random` | Gleichverteilt über die erlaubte Maske, gleichverteilte Faktoren: der ehrliche Boden |
 | `rules` | Ältestes erlaubtes Template, Faktoren aus einer festen Rampe |
 | `maxgate` | Zufälliges Template, aber immer so groß, wie das Gate erlaubt |
 
@@ -84,13 +84,13 @@ Nicht der Optimierer war das Problem, sondern der Entscheidungsraum:
 - Der volle Regelbereich des `count`-Faktors bewegte eine Welle dadurch von 19
   auf 28 Gegner.
 
-Es gab fast nichts zu entscheiden — und damit nichts zu lernen. Jede Verbesserung,
+Es gab fast nichts zu entscheiden und damit nichts zu lernen. Jede Verbesserung,
 die in dieser Zeit gemessen wurde, kam aus deterministischem Code (ein fehlender
 State-Reset, ein korrigiertes Regelsignal), nicht aus dem Training.
 
 **Konsequenz:** Eine Abhängigkeit, die 404 kB ONNX-Runtime, einen Netzwerk-
 Roundtrip und einen Ladefehler-Pfad kostet, muss sich das verdienen. Diese tut es
-derzeit nicht. Der Pfad bleibt trotzdem erreichbar — für einen späteren Lauf, der
+derzeit nicht. Der Pfad bleibt trotzdem erreichbar, für einen späteren Lauf, der
 gegen echte Spielerdaten statt gegen ein Skript-Bot trainiert.
 
 ---
@@ -139,11 +139,11 @@ existiert diese Verbindung nicht.
 
 ## 4. Der Regel-Director
 
-`src/app/ai/core/rule-director.ts` — zwei bewusste Entscheidungen, beide gegen
+`src/app/ai/core/rule-director.ts`: zwei bewusste Entscheidungen, beide gegen
 das, was das RL-Setup versucht hatte:
 
 **Abwechslung wird erzwungen, nicht belohnt.** Die Reward-Funktion hatte einen
-`variation`-Term und die Maske einen Template-Cooldown — die Wellen kamen
+`variation`-Term und die Maske einen Template-Cooldown, die Wellen kamen
 trotzdem repetitiv heraus. Der Regel-Director wählt das **älteste erlaubte
 Template** (Staleness = Abstand zum letzten Vorkommen in der History, unbenutzte
 Templates gelten als am ältesten; Gleichstand wird zufällig gebrochen).
@@ -173,7 +173,7 @@ Director Slot 0 mit festen Mittelwerten `[0.6, 0.4, 0.5, 0.5]`. Über eine Welle
 die niemand ausliefern wollte, ist keine sinnvolle Schwierigkeitsaussage zu
 treffen.
 
-`training-backend/directors.py::RuleDirector` ist dieselbe Logik in Python — die
+`training-backend/directors.py::RuleDirector` ist dieselbe Logik in Python, die
 Referenz, gegen die gemessen wurde. Wer eine Seite ändert, muss die andere
 mitziehen, sonst misst der A/B-Lauf etwas anderes als das Spiel.
 
@@ -181,13 +181,13 @@ mitziehen, sonst misst der A/B-Lauf etwas anderes als das Spiel.
 
 ## 5. Der Gate-Controller
 
-`src/app/ai/core/gate-controller.ts` — ein Regelkreis, der vorher nur im Backend
+`src/app/ai/core/gate-controller.ts`: ein Regelkreis, der vorher nur im Backend
 existierte. Er korrigiert die Kill-Schätzung von `fairMaxCount` über den neuen
 letzten Parameter `budgetMultiplier` (Default 1).
 
 **Warum überhaupt:** `fairMaxCount` schätzt, wie viele Gegner eine Verteidigung
 zerstören kann, abgewertet mit `FAIRNESS_KILL_REALISM = 0.65`. Dieser Abschlag
-wurde auf Waves 1–10 gemessen und ist ab Wave 11 falsch — dort erreichen
+wurde auf Waves 1–10 gemessen und ist ab Wave 11 falsch: dort erreichen
 Verteidigungen praktisch das volle DPS-Modell. Der Cap landet damit auf „genau
 das, was die Türme töten können", was garantiert, dass sie es töten. Gemessen
 über 1834 Waves ohne Korrektur: **70 % der Wellen töteten alles, 80 % machten
@@ -197,13 +197,13 @@ keinen Schaden**, near-miss lag bei 0.03.
 regeln („die Verteidigung hat alles getötet, also mehr erlauben") liest die
 eigene Vorsicht des Reglers als Spielraum: eine kleine Welle wird geräumt, *weil*
 sie klein ist. Das ist einseitiger Druck; im Python-Original pinnte es den
-Multiplikator auf jede gegebene Obergrenze — bei 40 entstanden Caps von 4761
+Multiplikator auf jede gegebene Obergrenze; bei 40 entstanden Caps von 4761
 Gegnern, das Gate war effektiv aus. Leak ist zweiseitig und pendelt sich ein.
 
 **Proportionalregler statt fester Schrittweite.** Der Multiplikator muss ~1.6
 erreichen, nur um den veralteten Realism-Abschlag aufzuheben, und mehr, bevor
 überhaupt etwas durchkommt. Bei 5 % pro Fenster wären das ~170 Waves gegen Runs
-von ~60, die bei 1.0 starten — er kam nie an (gemessener Median 1.28).
+von ~60, die bei 1.0 starten; er kam nie an (gemessener Median 1.28).
 
 ```
 GATE_ADAPT_WINDOW    = 4      // Waves Leak-History, bevor überhaupt geregelt wird
@@ -214,7 +214,7 @@ GATE_MULT_DOWN       = 0.8    // Rückfall bei Run-Ende, bewusst härter als der
 GATE_MULT_MIN / MAX  = 0.5 / 8
 ```
 
-Innerhalb des Bandes wird nicht nachgeregelt — ein wenig kommt durch, der
+Innerhalb des Bandes wird nicht nachgeregelt: ein wenig kommt durch, der
 Spieler lebt, das ist der Zielzustand. Bei einem Run-Ende wird multiplikativ und
 härter zurückgenommen, weil die Kosten einer zu großen Welle asymmetrisch sind.
 
@@ -259,7 +259,7 @@ frische Runs starteten gegen Wellen, die für eine längst abgebaute Verteidigun
 dimensioniert waren.
 
 **Verdrahtung:** Der Controller hängt an `AIDataCollectorService.onWaveResult()`,
-nicht am `wave:completed`-Event — dieses Event wird beim Fall der Basis nicht
+nicht am `wave:completed`-Event: dieses Event wird beim Fall der Basis nicht
 emittiert, der Todes-Rückfall wäre also unerreichbar gewesen. Beim ersten Schreiben
 fehlte die Verdrahtung komplett (`onWaveCompleted` hatte keinen Aufrufer), und
 sämtliche Unit-Tests waren trotzdem grün, weil sie den Controller isoliert
@@ -276,19 +276,19 @@ Game-Over-Pfad beide passieren.
 1. **Template-Lookup.** Ungültiger Index → Fehlerlog und Slot 0, keine Exception.
    Werfen würde bis zur Facade propagieren, dort den Director abschalten und auf
    manuelle Wellen fallen; eine degradierte AI-Welle ist besser als keine.
-2. **Ranges interpolieren** (`lerpRange`) — `spawnDelay`, `hpMult`, `variation`.
+2. **Ranges interpolieren** (`lerpRange`): `spawnDelay`, `hpMult`, `variation`.
 3. **DPS-Ramp** auf die Schwierigkeitsachsen `count` und `hpMult`: Der obere
    Endpunkt wird mit `min(1, totalDPS / DPS_RAMP_*)` skaliert, Floor
    `DPS_RAMP_FLOOR = 0.10` (`DPS_RAMP_COUNT = 500`, `DPS_RAMP_HP_MULT = 1000`). Schwache Verteidigung →
    schmaler Effektivbereich.
-4. **Endgame-Multiplikator**: `hpMult *= endgameHpMultiplier(wave)` —
+4. **Endgame-Multiplikator**: `hpMult *= endgameHpMultiplier(wave)`,
    W1–20 ×1.0, danach +5 %/Wave, Cap ×4.0 ab W80. Compoundet auf den Faktor des
    Directors.
 5. **Fairness-Cap** (`fairMaxCount`, mit `gate.budgetMultiplier`). Das Gate
    **interpoliert, statt zu clampen**: Der Cap wird in die `count`-Range
    hineingefaltet, sodass der Faktor „wie weit in das aktuell Erlaubte" bedeutet.
    Nachträgliches Clampen bildete jeden Faktor oberhalb des Caps auf dieselbe
-   Welle ab — eine flache Region, in der keine Präferenz ausdrückbar ist, und im
+   Welle ab: eine flache Region, in der keine Präferenz ausdrückbar ist, und im
    Training eine gewählte Aktion, die von der ausgeführten abweicht. Liegt der Cap
    *unter* `countRange[0]`, gewinnt der Cap: Die Range kollabiert darauf, statt das
    Template-Minimum trotzdem auszuliefern. Ein Gegner, der sich beim Tod teilt
@@ -344,7 +344,7 @@ Capability-Gates.
 
 - **W1–30** (`forcedThroughWave: 30`): Die Maske kollabiert auf genau das
   Curriculum-Template aus `src/app/configs/wave-curriculum.config.ts`. Das hält
-  das Training ehrlich — gesampelte Aktion == ausgelieferte Welle. Die
+  das Training ehrlich: gesampelte Aktion == ausgelieferte Welle. Die
   Vorgänger-Version maskierte frei und überschrieb die Wahl danach im Decoder,
   trainierte den Template-Head also auf Entscheidungen, die nie stattfanden.
   Der Pin umgeht die Capability-Gates bewusst: eine gepinnte Luftwelle kommt
@@ -446,12 +446,12 @@ sich das Ergebnis. Ein Training auf demselben Raum wäre verlorene Rechenzeit.
 
 ### Aktueller Backend-Stand (Kontext)
 
-Das Backend wurde parallel repariert — Details in
+Das Backend wurde parallel repariert, Details in
 [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) und
 [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md):
 
 - Gate-Multiplikator wurde nie zwischen Episoden zurückgesetzt (Ratsche; mediane
-  Runlänge 6 statt 80 — behoben, danach 62).
+  Runlänge 6 statt 80; behoben, danach 62).
 - Regelsignal von Kill- auf Leak-Quote umgestellt, Proportionalregler statt
   fester Schrittweite. Beides ist in `gate-controller.ts` nachgebaut.
 - Advantage-Clipping im Trainer.
@@ -468,7 +468,7 @@ Ehrlichkeitsabschnitt. Nichts davon ist belegt:
 
 - **`NEAR_MISS_TARGET = 0.20` ist als Designziel nie validiert.** Der Wert ist
   aus der Verteilung *erreichter* Werte abgeleitet (p90 über 4002 gemessene
-  Waves) — das belegt, dass er erreichbar ist, nicht dass er sich für einen
+  Waves). Das belegt, dass er erreichbar ist, nicht dass er sich für einen
   Menschen spannend anfühlt. Zuletzt gemessen (Bot-Läufe nach der
   Platzierungsänderung, [BOT_SYSTEM.md](BOT_SYSTEM.md#das-ergebnis)): ~0.058.
 - **Niemand hat den Regel-Director je selbst gespielt.** Er lief bisher
@@ -537,18 +537,18 @@ Tests: `gate-controller.spec.ts`, `gate-wiring.spec.ts`, `rule-director.spec.ts`
 
 ## 10. Trainings-Workflow
 
-Nur relevant, wenn tatsächlich trainiert oder ein A/B gefahren wird — für das
+Nur relevant, wenn tatsächlich trainiert oder ein A/B gefahren wird; für das
 Spiel wird nichts davon gebraucht.
 
 1. `cd training-backend && python manage_server.py start` (oder `start.bat`)
 2. `npm start`
 3. Mehrere Browser-Tabs öffnen. Bei aktivem `DIRECTOR_ROSTER` bekommt jeder Tab
-   per Round-Robin einen anderen Director — für einen reinen Policy-Lauf
+   per Round-Robin einen anderen Director. Für einen reinen Policy-Lauf
    `DIRECTOR_ROSTER = ["model"]` setzen.
 4. `curl -X POST http://localhost:3002/api/control/start`
 5. Dashboard: `http://localhost:3002`
 6. Checkpoints in `training-backend/checkpoints/`
-7. ONNX-Export: `npm run export-ai` — danach ist der Opt-in-Knopf im
+7. ONNX-Export: `npm run export-ai`, danach ist der Opt-in-Knopf im
    Debug-Fenster funktionsfähig.
 
 Hintergrundtabs frieren ein: Chrome killt `requestAnimationFrame` in nicht
