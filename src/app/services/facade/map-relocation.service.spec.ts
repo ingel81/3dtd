@@ -141,6 +141,32 @@ describe('MapRelocationService', () => {
     expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
   });
 
+  it('logs the time of each step of a move in place, and where the spawn came from', async () => {
+    await click('hq', INSIDE);
+
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(new RegExp(
+      '^\\[Relocation\\] HQ in place: reset=\\d+\\.\\d clear=\\d+\\.\\d services=\\d+\\.\\d paths=\\d+\\.\\d ' +
+      'route=\\d+\\.\\d random=0\\.0 state=\\d+\\.\\d grid=\\d+\\.\\d placement=\\d+\\.\\d streets=\\d+\\.\\d ' +
+      'camera=\\d+\\.\\d rest=\\d+\\.\\d corridor=\\d+\\.\\d total=\\d+\\.\\dms spawnFrom=old spawns=1$',
+    )));
+
+    osm.findPath.mockReturnValue(null);
+    osm.findRandomStreetPoint.mockReturnValue({ lat: 48.785, lon: 9.195, streetName: 'Neckarstraße' });
+    await click('hq', INSIDE);
+    expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(/ route=0\.0 random=\d+\.\d .* spawnFrom=random spawns=1$/);
+  });
+
+  it('logs how long the streets and the spawn took before a full change', async () => {
+    osm.loadStreets.mockResolvedValue({ streets: [{}], bounds: BOUNDS });
+    osm.findRandomStreetPoint.mockReturnValue(null);
+
+    await click('hq', OUTSIDE);
+
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(
+      /^\[Relocation\] HQ outside the streets: streets=\d+\.\d spawn=\d+\.\d total=\d+\.\dms spawnFrom=fallback$/,
+    ));
+  });
+
   it('turns an HQ outside the streets into a full change, with a spawn from the new streets', async () => {
     const loaded = { streets: [{}], bounds: BOUNDS };
     osm.loadStreets.mockResolvedValue(loaded);
