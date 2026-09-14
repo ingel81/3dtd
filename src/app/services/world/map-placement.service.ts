@@ -2,7 +2,15 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Group, Mesh, MeshPhongMaterial, MeshBasicMaterial, Color, Vector2 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { MarkerVisualizationService } from './marker-visualization.service';
-import { provisionalPortalPose } from '../../three-engine/renderers/marker/spawn-portal-pose';
+import {
+  PORTAL_POSE_WAYPOINTS,
+  portalCorridorWidth,
+  portalLaneOffset,
+  portalTurnRange,
+  provisionalPortalPose,
+  spawnPortalPose,
+  type SpawnPortalPose,
+} from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { SpawnDistanceRings } from '../../three-engine/renderers/spawn-distance-rings';
 import { OsmStreetService, Street, StreetNetwork } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
@@ -24,14 +32,27 @@ export interface PlacementResult {
   height: number;
   /**
    * Heading the player turned the spawn portal to with R (scene rotation
-   * about +Y, rad). Absent if they did not turn it: the portal then faces
+   * about +Y, rad), within the range where the enemies still leave through
+   * its opening. Absent if they did not turn it: the portal then faces
    * along its route.
    */
   heading?: number;
 }
 
-/** Turn of the spawn preview while R is held (rad/s), as fast as a tower's */
-const ROTATION_SPEED = Math.PI;
+/** The route a spawn at the cursor would get, as far as its portal needs it. */
+interface PreviewRoute {
+  /** The portal as it will stand on the route start, facing along the route */
+  pose: SpawnPortalPose;
+  /** How far R may turn it from pose.heading either way (rad), see portalTurnRange */
+  turn: { min: number; max: number };
+}
+
+/**
+ * Turn of the spawn preview while R is held (rad/s): 15 degrees a second,
+ * about a second from one limit of the turn range to the other on a
+ * straight street (12 to 21 degrees wide).
+ */
+const TURN_SPEED = Math.PI / 12;
 
 // Colors for valid/invalid preview, the same for the HQ and a spawn: the
 // spawn's own red would not tell a valid place from an invalid one
@@ -71,12 +92,16 @@ export class MapPlacementService {
   private currentPosition: { lat: number; lon: number; height: number } | null = null;
   private currentValid = false;
 
-  // Heading the player turned the spawn preview to with R, null until they do
-  private manualHeading: number | null = null;
+  // Turn the player gave the spawn preview with R, from its route's heading
+  // (rad), null until they do; held within each route's turn range
+  private manualTurn: number | null = null;
+  private turnDirection = 1;
   private isRotating = false;
 
-  // Whether a route runs to the HQ from a street node, see hasRouteToHq()
-  private readonly routeFromNode = new Map<number, boolean>();
+  // The route a spawn would get, per start node, see previewRouteAt(); and
+  // the one under the cursor now, null where no spawn may stand
+  private readonly routeFromNode = new Map<number, PreviewRoute | null>();
+  private currentRoute: PreviewRoute | null = null;
 
   // Dependencies (set via initialize)
   private engine: ThreeTilesEngine | null = null;
@@ -154,6 +179,12 @@ export class MapPlacementService {
   /**
    * Update preview marker position (called on mouse move).
    * Validates position and colorizes green/red.
+   *
+   * A spawn preview where a spawn may stand shows its portal as it will
+   * stand: on the start of the route it gets, facing along it
+   * (spawnPortalPose), turned as far as the player turned it with R within
+   * the opening (portalTurnRange). Elsewhere it stands at the cursor facing
+   * the HQ.
    */
   updatePreviewPosition(lat: number, lon: number, height: number): void {
     if (!this.previewMarker || !this.engine) return;
@@ -164,29 +195,48 @@ export class MapPlacementService {
     // Store current position
     this.currentPosition = { lat, lon, height };
 
-    // Position the marker: the HQ diamond floats, a spawn portal stands on
-    // the ground facing the HQ, as it will until its route is built, or the
-    // way the player turned it
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
     const groundY = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
+    let validation: { valid: boolean; reason?: string };
     if (mode === 'hq') {
+      // The HQ diamond floats above the cursor
       this.previewMarker.position.set(local.x, groundY + HEIGHT_ABOVE_GROUND, local.z);
+      validation = this.validatePosition(mode, lat, lon);
     } else {
-      this.previewMarker.position.set(local.x, groundY, local.z);
-      if (this.manualHeading !== null) {
-        this.previewMarker.rotation.y = this.manualHeading;
-      } else if (this.baseCoords) {
-        const hq = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-        this.previewMarker.rotation.y = provisionalPortalPose(local.x, groundY, local.z, hq.x, hq.z).heading;
-      }
+      const check = this.checkSpawn(lat, lon);
+      this.currentRoute = check.route ?? null;
+      this.standSpawnPreview(local.x, groundY, local.z);
+      validation = check;
     }
     this.previewMarker.visible = true;
 
-    // Validate and colorize
-    const validation = this.validatePosition(mode, lat, lon);
+    // Colorize
     this.currentValid = validation.valid;
     this.validationReason.set(validation.valid ? null : (validation.reason ?? 'Invalid position'));
     this.colorizePreviewMarker(validation.valid);
+  }
+
+  /** Stand the spawn preview on the route under the cursor, without one at (x, y, z) facing the HQ. */
+  private standSpawnPreview(x: number, y: number, z: number): void {
+    const preview = this.previewMarker!;
+    const route = this.currentRoute;
+    if (route) {
+      preview.position.set(route.pose.x, route.pose.y, route.pose.z);
+      preview.rotation.y = route.pose.heading + this.turnOn(route);
+      preview.scale.setScalar(route.pose.scale);
+      return;
+    }
+    preview.position.set(x, y, z);
+    preview.scale.setScalar(1);
+    if (this.baseCoords) {
+      const hq = this.engine!.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
+      preview.rotation.y = provisionalPortalPose(x, y, z, hq.x, hq.z).heading;
+    }
+  }
+
+  /** The player's turn on `route`, held within its turn range. */
+  private turnOn(route: PreviewRoute): number {
+    return Math.min(route.turn.max, Math.max(route.turn.min, this.manualTurn ?? 0));
   }
 
   /**
@@ -203,7 +253,8 @@ export class MapPlacementService {
       lon: this.currentPosition.lon,
       height: this.currentPosition.height,
     };
-    if (mode === 'spawn' && this.manualHeading !== null) result.heading = this.manualHeading;
+    const route = this.currentRoute;
+    if (mode === 'spawn' && this.manualTurn !== null && route) result.heading = route.pose.heading + this.turnOn(route);
 
     this.exitPlacementMode();
     return result;
@@ -222,7 +273,9 @@ export class MapPlacementService {
     this.removeDistanceRings();
     this.currentPosition = null;
     this.currentValid = false;
-    this.manualHeading = null;
+    this.currentRoute = null;
+    this.manualTurn = null;
+    this.turnDirection = 1;
     this.isRotating = false;
     this.validationReason.set(null);
     this.uiStore.mapPlacementMode.set(null);
@@ -235,11 +288,19 @@ export class MapPlacementService {
   /**
    * Start turning the spawn preview (R down). Once turned, the spawn keeps
    * the player's heading instead of facing along its route
-   * (handlePlacementClick, MarkerVisualizationService.setPortalHeading).
+   * (handlePlacementClick, MarkerVisualizationService.setPortalHeading),
+   * within the range where the enemies still leave through the opening
+   * (portalTurnRange). A press that starts at the limit it turns towards
+   * turns the other way; the key's auto-repeat while held changes nothing.
    * @returns whether it took the key: only a spawn preview turns
    */
   startRotating(): boolean {
     if (this.uiStore.mapPlacementMode() !== 'spawn' || !this.previewMarker) return false;
+    const route = this.currentRoute;
+    if (!this.isRotating && route) {
+      const limit = this.turnDirection > 0 ? route.turn.max : route.turn.min;
+      if (this.turnOn(route) === limit) this.turnDirection = -this.turnDirection;
+    }
     this.isRotating = true;
     return true;
   }
@@ -250,14 +311,17 @@ export class MapPlacementService {
   }
 
   /**
-   * Turn the spawn preview while R is held; call once per frame.
+   * Turn the spawn preview while R is held; call once per frame. It turns
+   * on a route only (off the streets it faces the HQ) and stops at the
+   * limit of the route's turn range.
    * @param deltaTime Time since the last frame (s)
    */
   updateRotation(deltaTime: number): void {
-    if (!this.isRotating || !this.previewMarker) return;
-    const from = this.manualHeading ?? this.previewMarker.rotation.y;
-    this.manualHeading = (from + ROTATION_SPEED * deltaTime) % (Math.PI * 2);
-    this.previewMarker.rotation.y = this.manualHeading;
+    const route = this.currentRoute;
+    if (!this.isRotating || !this.previewMarker || !route) return;
+    const turn = this.turnOn(route) + this.turnDirection * TURN_SPEED * deltaTime;
+    this.manualTurn = Math.min(route.turn.max, Math.max(route.turn.min, turn));
+    this.previewMarker.rotation.y = route.pose.heading + this.manualTurn;
   }
 
   /**
@@ -288,6 +352,15 @@ export class MapPlacementService {
       return { valid: true };
     }
 
+    const { valid, reason } = this.checkSpawn(lat, lon);
+    return valid ? { valid } : { valid, reason };
+  }
+
+  /**
+   * Whether a spawn may stand at (lat, lon), see validatePosition(), and
+   * where it may, the route it would get.
+   */
+  private checkSpawn(lat: number, lon: number): { valid: boolean; reason?: string; route?: PreviewRoute } {
     // Spawn mode: requires loaded street network
     if (!this.streetNetwork) {
       return { valid: false, reason: 'No street network loaded' };
@@ -311,30 +384,52 @@ export class MapPlacementService {
     if (!nearest || nearest.distance > MAX_SPAWN_STREET_DISTANCE) {
       return { valid: false, reason: this.isInsideStreets(lat, lon) ? 'Too far from streets' : 'Streets not loaded here' };
     }
-    if (!this.hasRouteToHq(nearest, lat, lon)) {
+    const route = this.previewRouteAt(nearest, lat, lon);
+    if (!route) {
       return { valid: false, reason: 'No route to HQ' };
     }
 
-    return { valid: true };
+    return { valid: true, route };
   }
 
   /**
-   * Whether a route runs from the clicked spot to the HQ, found as the
-   * relocation will find it (findPath from the click), which otherwise
-   * turns the click down without a word after the preview was green. The
-   * route starts on the nearest segment's first node, so the answer is
-   * remembered per node: sliding along a street asks A* once per segment,
-   * not once per mouse move.
+   * The route a spawn at the click would get, found as the relocation will
+   * find it (findPath from the click); null without one, where the
+   * relocation would turn the click down without a word after a green
+   * preview. The route starts on the nearest segment's first node, so it
+   * is remembered per node: sliding along a street asks A* once per
+   * segment, not once per mouse move.
    */
-  private hasRouteToHq(nearest: { street: Street; nodeIndex: number }, lat: number, lon: number): boolean {
+  private previewRouteAt(nearest: { street: Street; nodeIndex: number }, lat: number, lon: number): PreviewRoute | null {
     const startId = nearest.street.nodes[nearest.nodeIndex].id;
     let known = this.routeFromNode.get(startId);
     if (known === undefined) {
-      const hq = this.baseCoords!;
-      known = this.osmService.findPath(this.streetNetwork!, lat, lon, hq.lat, hq.lon).length >= 2;
+      known = this.buildPreviewRoute(lat, lon);
       this.routeFromNode.set(startId, known);
     }
     return known;
+  }
+
+  /**
+   * The portal's pose on the route from (lat, lon) to the HQ, as
+   * MarkerVisualizationService.placeSpawnPortal will stand it, and its turn
+   * range. The corridor there is not measured before the route is built:
+   * the pose takes the default width, the placed portal its own.
+   */
+  private buildPreviewRoute(lat: number, lon: number): PreviewRoute | null {
+    const engine = this.engine;
+    const hq = this.baseCoords!;
+    const path = this.osmService.findPath(this.streetNetwork!, lat, lon, hq.lat, hq.lon);
+    if (!engine || path.length < 2) return null;
+
+    const points = path.slice(0, PORTAL_POSE_WAYPOINTS).map((node) => {
+      const p = engine.sync.geoToLocalSimple(node.lat, node.lon, 0);
+      return { x: p.x, z: p.z };
+    });
+    const start = { lat: path[0].lat, lon: path[0].lon };
+    const groundY = engine.getTerrainHeightAtGeo(start.lat, start.lon) ?? 0;
+    const pose = spawnPortalPose(points, groundY, portalCorridorWidth(start));
+    return pose && { pose, turn: portalTurnRange(points, pose, portalLaneOffset(start)) };
   }
 
   /** Whether the position lies inside the box the street network was loaded for. */
