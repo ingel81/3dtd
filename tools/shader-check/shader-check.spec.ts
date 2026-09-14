@@ -9,8 +9,9 @@
  * builds a material the way its renderer does, three's WebGLRenderer turns
  * it into the program WebGL2 would get (capture-renderer.ts: onBeforeCompile,
  * chunks, prefix, instancing, fog, log depth, output colour space), and
- * glslangValidator compiles both stages and links them (glslang.ts). The
- * sources of the last run stay in the OS temp folder under 3dtd-shader-check.
+ * glslangValidator compiles both stages and links them (glslang.ts). Each
+ * run writes the sources to a folder of its own in the OS temp folder
+ * (3dtd-shader-check-*), kept when a compile fails; the failure names it.
  *
  * glslangValidator is not a project dependency: GLSLANG_VALIDATOR names it,
  * else it is taken from the PATH (docs/ARCHITECTURE.md, Shader-Compile-Check).
@@ -22,8 +23,8 @@
  * A new custom material gets a case in CASES, built as in its renderer.
  */
 
-import { describe, it, expect } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { afterAll, describe, it, expect } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -264,12 +265,18 @@ function programsOf(shaderCase: ShaderCase): { program: CapturedProgram; setups:
   return [...bySource.values()];
 }
 
-const OUT_DIR = join(tmpdir(), '3dtd-shader-check');
 const glslang = findGlslang();
 
 describe('shader compile check', () => {
-  rmSync(OUT_DIR, { recursive: true, force: true });
-  mkdirSync(OUT_DIR, { recursive: true });
+  // A folder of its own per run, so runs side by side (one per worktree)
+  // neither delete nor overwrite each other's sources. Removed after the
+  // run unless a compile test did not get through.
+  const outDir = mkdtempSync(join(tmpdir(), '3dtd-shader-check-'));
+  let compilesStarted = 0;
+  let compilesPassed = 0;
+  afterAll(() => {
+    if (compilesPassed === compilesStarted) rmSync(outDir, { recursive: true, force: true });
+  });
 
   // In a test: vitest shows what a test logs, not what the module logs while it loads
   it('finds glslangValidator, or says where to get it', () => {
@@ -334,26 +341,25 @@ describe('shader compile check', () => {
     });
 
     it.skipIf(!glslang)('compiles and links with glslang (GLSL ES 3.00)', () => {
+      compilesStarted++;
       const failures: string[] = [];
       programsOf(shaderCase).forEach(({ program, setups }, i) => {
-        const stem = `${stemBase}-${i}`;
-        const result = compileProgram(glslang!, program.vertex, program.fragment, OUT_DIR, stem);
+        const stem = join(outDir, `${stemBase}-${i}`);
+        const result = compileProgram(glslang!, program.vertex, program.fragment, outDir, `${stemBase}-${i}`);
         if (!result.ok) {
           failures.push(`${program.name} [${setups.join(', ')}] (${stem}.vert/.frag)\n${result.report}`);
           return;
         }
-        const missing = unmatchedFragmentInputs(
-          preprocess(glslang!, join(OUT_DIR, `${stem}.vert`)),
-          preprocess(glslang!, join(OUT_DIR, `${stem}.frag`)),
-        );
+        const missing = unmatchedFragmentInputs(preprocess(glslang!, `${stem}.vert`), preprocess(glslang!, `${stem}.frag`));
         if (missing.length > 0) {
-          failures.push(`${program.name} [${setups.join(', ')}]: fragment inputs not written by the vertex stage: ${missing.join(', ')}`);
+          failures.push(`${program.name} [${setups.join(', ')}] (${stem}.vert/.frag): fragment inputs not written by the vertex stage: ${missing.join(', ')}`);
         }
       });
       if (failures.length > 0) {
-        writeFileSync(join(OUT_DIR, `${stemBase}.errors.txt`), failures.join('\n\n'));
+        writeFileSync(join(outDir, `${stemBase}.errors.txt`), failures.join('\n\n'));
       }
       expect(failures, `${shaderCase.file}\n\n${failures.join('\n\n')}`).toEqual([]);
+      compilesPassed++;
     });
   });
 });
