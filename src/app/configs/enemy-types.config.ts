@@ -72,7 +72,6 @@ export interface EnemyTypeConfig {
   epithet?: string;
   modelUrl: string;
   scale: number;
-  minimumPixelSize: number;
 
   // Combat
   armorType: ArmorType; // Armor type for the damage matrix
@@ -242,7 +241,6 @@ export const WORM_MAX_SEGMENTS = 240;
 
 /** Stats every worm segment has, head or body: one enemy type ('worm') for all of them. */
 const WORM_STATS = {
-  minimumPixelSize: 0,
   // Chitin: siege, lightning and magic get through, arrows and fire much less
   armorType: 'heavy',
   // Per segment, 14 HP per metre of worm; 240 segments are 8,400 HP at HP multiplier 1
@@ -263,7 +261,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Zombie',
     modelUrl: 'assets/models/enemies/zombie.glb',
     scale: 0.984,
-    minimumPixelSize: 0, // 0 = real size, no pixel clamping when zooming
     armorType: 'unarmored',
     baseHp: 80,
     baseSpeed: 5,
@@ -290,7 +287,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Zombie v2',
     modelUrl: 'assets/models/enemies/zombie_v2.glb',
     scale: 2.432,
-    minimumPixelSize: 0,
     armorType: 'unarmored',
     baseHp: 80,
     baseSpeed: 3,
@@ -327,7 +323,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Tank',
     modelUrl: 'assets/models/enemies/tank.glb',
     scale: 2.009,
-    minimumPixelSize: 0, // 0 = real size, no pixel clamping
     armorType: 'heavy',
     baseHp: 250, // Heavily armored (reduced from 500 for better early game balance)
     baseSpeed: 3,
@@ -357,7 +352,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // GLB in metres (the FBX was in centimetres, scale 0.037), only Walk, Run and Death.
     modelUrl: 'assets/models/enemies/wallsmasher.glb',
     scale: 3.7,
-    minimumPixelSize: 0,
     armorType: 'light',
     baseHp: 200,
     // Walks 4, runs 10 m/s half the time (rush): mean 7 m/s, the speed the
@@ -397,7 +391,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Stone Golem',
     modelUrl: 'assets/models/enemies/stone_golem.glb',
     scale: 7.312,
-    minimumPixelSize: 0,
 
     armorType: 'fortified',
     baseHp: 480,
@@ -434,7 +427,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Bat',
     modelUrl: 'assets/models/enemies/bat.glb',
     scale: 3.958,
-    minimumPixelSize: 0,
     armorType: 'light',
     baseHp: 25,
     baseSpeed: 8,
@@ -461,7 +453,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Penguin',
     modelUrl: 'assets/models/enemies/penguin.glb',
     scale: 0.005,
-    minimumPixelSize: 0,
     armorType: 'unarmored',
     baseHp: 30,
     baseSpeed: 9,
@@ -488,7 +479,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Herbert',
     modelUrl: 'assets/models/enemies/herbert_optimized.glb',
     scale: 2.625,
-    minimumPixelSize: 0,
     armorType: 'fortified',
     baseHp: 500,
     baseSpeed: 4,
@@ -541,7 +531,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Zombie Soldier',
     modelUrl: 'assets/models/enemies/zombie_soldier.glb',
     scale: 2.492,
-    minimumPixelSize: 0,
     armorType: 'heavy',
     baseHp: 160,
     baseSpeed: 6,
@@ -574,7 +563,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Rat',
     modelUrl: 'assets/models/enemies/rat.glb',
     scale: 1.5,
-    minimumPixelSize: 0,
     armorType: 'unarmored',
     baseHp: 5,
     baseSpeed: 10,
@@ -609,7 +597,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // 0.70 units tall, about 2.8 m at scale 4 (the zombie stands about 4.4 m).
     modelUrl: 'assets/models/enemies/skeleton.glb',
     scale: 4,
-    minimumPixelSize: 0,
     armorType: 'unarmored',
     // Swarm between the rat (5 HP, 10 m/s) and the zombie (80 HP, 5 m/s).
     baseHp: 20,
@@ -646,7 +633,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // at 0.6 of its size, about 1.7 m tall, in a VAT pool of its own.
     modelUrl: 'assets/models/enemies/skeleton.glb',
     scale: 2.4,
-    minimumPixelSize: 0,
     armorType: 'unarmored',
     // 30 % of the skeleton's HP and a bit faster. The split scales both by the
     // parent's multipliers, so a wave's hpMult reaches the minions too. No
@@ -678,7 +664,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Spider',
     modelUrl: 'assets/models/enemies/spider.glb',
     scale: 1.5,
-    minimumPixelSize: 0,
     armorType: 'light',
     baseHp: 60,
     baseSpeed: 9,
@@ -705,7 +690,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Mammoth',
     modelUrl: 'assets/models/enemies/mammoth.glb',
     scale: 2.206,
-    minimumPixelSize: 0,
     armorType: 'fortified',
     baseHp: 400,
     baseSpeed: 3,
@@ -740,7 +724,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Bear',
     modelUrl: 'assets/models/enemies/bear.glb',
     scale: 0.1,
-    minimumPixelSize: 0,
     armorType: 'heavy',
     baseHp: 300,
     baseSpeed: 8,
@@ -776,7 +759,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Dragon',
     modelUrl: 'assets/models/enemies/dragon.glb',
     scale: 2.5,
-    minimumPixelSize: 0,
     armorType: 'heavy',
     baseHp: 450,
     baseSpeed: 6,
@@ -814,7 +796,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Ghost',
     modelUrl: 'assets/models/enemies/ghost.glb',
     scale: 0.099,
-    minimumPixelSize: 0,
     armorType: 'ethereal',
     baseHp: 120,
     baseSpeed: 5,
@@ -842,7 +823,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Hornet',
     modelUrl: 'assets/models/enemies/hornet.glb',
     scale: 0.063,
-    minimumPixelSize: 0,
     armorType: 'light',
     baseHp: 80,
     baseSpeed: 9,
@@ -875,7 +855,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Mech',
     modelUrl: 'assets/models/enemies/mech.glb',
     scale: 0.885,
-    minimumPixelSize: 0,
     armorType: 'heavy',
     baseHp: 500,
     baseSpeed: 3,
@@ -900,7 +879,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Wraith',
     modelUrl: 'assets/models/enemies/wraith.glb',
     scale: 2.0,
-    minimumPixelSize: 0,
     armorType: 'ethereal',
     baseHp: 100,
     baseSpeed: 8,
@@ -963,7 +941,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // (tools/slime-model) stands in for it in the sidebar preview.
     modelUrl: 'assets/models/enemies/slime.glb',
     scale: 1.6,
-    minimumPixelSize: 0,
     armorType: 'unarmored',
     // One HP pool for the whole body, and every tower along it hits it at
     // once: six Herberts, pinned by no template (not in AI_ENEMY_ORDER).
@@ -1003,7 +980,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // blob (tools/slime-model) hopping along, about 1.2 m tall at scale 0.9.
     modelUrl: 'assets/models/enemies/slime.glb',
     scale: 0.9,
-    minimumPixelSize: 0,
     armorType: 'unarmored',
     // Twenty of them hold a tenth of the ooze's HP; the split scales them by
     // its HP multiplier. No template, not in AI_ENEMY_ORDER, no split of its own.
