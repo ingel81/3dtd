@@ -23,7 +23,7 @@
  * A new custom material gets a case in CASES, built as in its renderer.
  */
 
-import { afterAll, describe, it, expect } from 'vitest';
+import { afterAll, describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,12 +38,17 @@ import {
   InstancedBufferAttribute,
   InstancedMesh,
   Mesh,
+  PlaneGeometry,
   RGBAFormat,
   ShaderMaterial,
   Texture,
+  Vector3,
+  WebGLCubeRenderTarget,
   type Scene,
   type Side,
+  type WebGLRenderer,
 } from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import { capturePrograms, GAME_SETUPS, type CapturedProgram } from './capture-renderer';
 import { compileProgram, findGlslang, preprocess, unmatchedFragmentInputs } from './glslang';
@@ -77,6 +82,22 @@ import { FrostBurstRenderer } from '../../src/app/three-engine/renderers/frost-b
 import { EmpPulseRenderer } from '../../src/app/three-engine/renderers/emp-pulse.renderer';
 import { OrbitalBeamRenderer } from '../../src/app/three-engine/renderers/orbital-beam.renderer';
 import { MushroomCloudRenderer } from '../../src/app/three-engine/renderers/mushroom-cloud.renderer';
+import { HealthBarInstanceManager } from '../../src/app/three-engine/renderers/instanced-enemy/health-bar-instance.manager';
+import { GroundDecals } from '../../src/app/three-engine/renderers/ground-decals';
+import { FloatingTextInstanceManager } from '../../src/app/three-engine/renderers/floating-text/floating-text-instance.manager';
+import { LightningBoltRenderer } from '../../src/app/three-engine/renderers/lightning-bolt.renderer';
+import { ThreeProjectileRenderer } from '../../src/app/three-engine/renderers/three-projectile.renderer';
+import { TrailStreakRenderer } from '../../src/app/three-engine/renderers/trail-streak.renderer';
+import { ThreeTentacleRenderer } from '../../src/app/three-engine/renderers/three-tentacle.renderer';
+import { TowerShadowMapper } from '../../src/app/three-engine/tower-shadow-mapper';
+import { createColorGradingPass } from '../../src/app/three-engine/post-processing/color-grading';
+import { buildRouteAltitudeTubes } from '../../src/app/utils/route-altitude-tubes';
+import type { GlobalRouteGrid } from '../../src/app/utils/global-route-grid';
+import { RouteGridAggregateViz } from '../../src/app/utils/route-grid-aggregate-viz';
+import { TowerLosLayerBuilder } from '../../src/app/utils/tower-los-layer-builder';
+import type { RouteCell } from '../../src/app/utils/route-cell';
+import { DevTerrainProvider } from '../../src/app/devworld/dev-terrain.provider';
+import type { DevWorldService } from '../../src/app/devworld/devworld.service';
 
 /**
  * The trail pools' particle materials (ParticlePoolManager), which the
@@ -89,7 +110,7 @@ function particleMaterials(): ParticleShaderMaterials {
 
 interface ShaderCase {
   name: string;
-  /** Where the shader lives, below src/app/three-engine/ */
+  /** Where the shader lives, below src/app/ */
   file: string;
   /** Put the material into the scene as its renderer does */
   build: (scene: Scene) => void;
@@ -98,6 +119,30 @@ interface ShaderCase {
    * which a chunk renamed in a three update would silently drop
    */
   marks?: string[];
+  /** Why the material draws without logarithmic depth; unset, it must write it */
+  withoutLogDepth?: string;
+}
+
+/**
+ * Run `build` without a 2D canvas context, which jsdom does not have: the
+ * canvas textures stay blank, the shaders do not read them at compile time.
+ */
+function withoutCanvas2d(build: () => void): void {
+  const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => null);
+  try {
+    build();
+  } finally {
+    getContext.mockRestore();
+  }
+}
+
+/** A sampled ground cell at the origin: one instance of the route grid overlay or a LOS layer. */
+function routeCell(): RouteCell {
+  return {
+    key: 1, x: 0, z: 0, axisX: 0, axisZ: 0, terrainHeight: 0, surface: 'ground', tunnelSpan: null,
+    routeAnchorY: 0, sample: { clamped: false } as RouteCell['sample'], heightSampled: true,
+    enemies: new Set(), towerVisibility: new Map(), airVisibility: new Map(),
+  };
 }
 
 /** A geometry with these attributes, `count` vertices of zeros. */
@@ -148,13 +193,13 @@ const PLINTH_MARKS = [
 const CASES: ShaderCase[] = [
   {
     name: 'tower plinth (MeshStandardMaterial + onBeforeCompile)',
-    file: 'renderers/tower-plinth/plinth-material.ts',
+    file: 'three-engine/renderers/tower-plinth/plinth-material.ts',
     build: (scene) => scene.add(createPlinthMesh(2.5, 1.2, createPlinthMaterial())),
     marks: PLINTH_MARKS,
   },
   {
     name: 'tower plinth build preview (see-through, tinted)',
-    file: 'renderers/tower-plinth/plinth-material.ts',
+    file: 'three-engine/renderers/tower-plinth/plinth-material.ts',
     build: (scene) => {
       const mesh = createPlinthMesh(2.5, 1.2, createPlinthMaterial());
       makeModelTransparent(mesh, 0.7);
@@ -165,29 +210,29 @@ const CASES: ShaderCase[] = [
   },
   {
     name: 'veteran badges',
-    file: 'renderers/tower-badge/tower-badge-shaders.ts',
+    file: 'three-engine/renderers/tower-badge/tower-badge-shaders.ts',
     build: (scene) => new TowerBadgeRenderer(scene, () => null),
   },
   {
     name: 'ooze band',
-    file: 'renderers/ooze/ooze-band-material.ts',
+    file: 'three-engine/renderers/ooze/ooze-band-material.ts',
     // The attributes buildOozeBandGeometry writes
     build: (scene) => scene.add(new Mesh(geometryWith({ position: 3, aSide: 3, aS: 1 }), createOozeBandMaterial())),
   },
   {
     name: 'blood moon mood quad',
-    file: 'blood-moon/blood-moon-mood.ts',
+    file: 'three-engine/blood-moon/blood-moon-mood.ts',
     build: (scene) => new BloodMoonMood(scene),
   },
   {
     name: 'searchlight cones',
-    file: 'renderers/searchlight/searchlight.renderer.ts',
+    file: 'three-engine/renderers/searchlight/searchlight.renderer.ts',
     // The sync only places lamps, which compiling does not need
     build: (scene) => new SearchlightRenderer(scene, {} as CoordinateSync),
   },
   {
     name: 'VAT enemies (each alpha mode, front and double side)',
-    file: 'renderers/instanced-enemy/vat-material.ts',
+    file: 'three-engine/renderers/instanced-enemy/vat-material.ts',
     build: (scene) => {
       for (const mode of ['opaque', 'mask', 'blend'] as const) {
         for (const side of [FrontSide, DoubleSide]) scene.add(vatPool(mode, side));
@@ -196,7 +241,7 @@ const CASES: ShaderCase[] = [
   },
   {
     name: 'spawn portal gate and summoning circle',
-    file: 'renderers/marker/spawn-portal-gate-material.ts, spawn-portal-glow-material.ts',
+    file: 'three-engine/renderers/marker/spawn-portal-gate-material.ts, spawn-portal-glow-material.ts',
     build: (scene) => {
       const overlay = new Group();
       scene.add(overlay);
@@ -205,7 +250,7 @@ const CASES: ShaderCase[] = [
   },
   {
     name: 'HQ markers (diamond, ring, ground glow, label)',
-    file: 'renderers/marker/marker-shaders.ts',
+    file: 'three-engine/renderers/marker/marker-shaders.ts',
     // InstancedMeshes, as MarkerInstanceManager and MarkerLabelManager build them
     build: (scene) => {
       for (const material of [
@@ -218,23 +263,151 @@ const CASES: ShaderCase[] = [
   // The ability effects, each built as ThreeTilesEngine builds it
   {
     name: 'frost burst',
-    file: 'renderers/frost-burst.renderer.ts',
+    file: 'three-engine/renderers/frost-burst.renderer.ts',
     build: (scene) => new FrostBurstRenderer(scene, particleMaterials()),
   },
   {
     name: 'EMP pulse',
-    file: 'renderers/emp-pulse.renderer.ts',
+    file: 'three-engine/renderers/emp-pulse.renderer.ts',
     build: (scene) => new EmpPulseRenderer(scene, particleMaterials()),
   },
   {
     name: 'orbital beam',
-    file: 'renderers/orbital-beam.renderer.ts',
+    file: 'three-engine/renderers/orbital-beam.renderer.ts',
     build: (scene) => new OrbitalBeamRenderer(scene, particleMaterials()),
   },
   {
     name: 'mushroom cloud (shape, glow, smoke, blast)',
-    file: 'renderers/mushroom-cloud.renderer.ts, mushroom-cloud-*.ts',
+    file: 'three-engine/renderers/mushroom-cloud.renderer.ts, mushroom-cloud-*.ts',
     build: (scene) => new MushroomCloudRenderer(scene, particleMaterials()),
+  },
+  // Enemies, projectiles and effects on the tiles
+  {
+    name: 'health bars (background and foreground pass)',
+    file: 'three-engine/renderers/instanced-enemy/health-bar-instance.manager.ts',
+    build: (scene) => new HealthBarInstanceManager(scene),
+  },
+  {
+    name: 'ground decals (blood, ice, scorch)',
+    file: 'three-engine/renderers/decal-shaders.ts',
+    build: (scene) => new GroundDecals(scene),
+  },
+  {
+    name: 'floating text',
+    file: 'three-engine/renderers/floating-text/floating-text-material.ts',
+    build: (scene) => withoutCanvas2d(() => new FloatingTextInstanceManager(scene, {} as CoordinateSync)),
+  },
+  {
+    name: 'lightning bolts',
+    file: 'three-engine/renderers/lightning-bolt.renderer.ts',
+    build: (scene) => withoutCanvas2d(() => new LightningBoltRenderer(scene)),
+  },
+  {
+    name: 'projectiles (orb shader for magic, ice, poison, chaos)',
+    file: 'three-engine/renderers/three-projectile.renderer.ts',
+    build: (scene) => {
+      // The arrow comes from a GLB with its own built-in material: not loaded here
+      const load = vi.spyOn(GLTFLoader.prototype, 'loadAsync').mockImplementation(() => new Promise(() => undefined));
+      try {
+        new ThreeProjectileRenderer(scene, {} as CoordinateSync);
+      } finally {
+        load.mockRestore();
+      }
+    },
+  },
+  {
+    name: 'projectile trails',
+    file: 'three-engine/renderers/trail-streak.renderer.ts',
+    build: (scene) => new TrailStreakRenderer(scene),
+  },
+  {
+    name: 'tentacles',
+    file: 'three-engine/renderers/three-tentacle.renderer.ts',
+    build: (scene) => new ThreeTentacleRenderer(scene).create('tower', new Vector3()),
+  },
+  {
+    name: 'DevWorld terrain',
+    file: 'devworld/dev-terrain.provider.ts',
+    build: (scene) => {
+      // createGridMaterial is private and reads nothing of the provider
+      const provider = new DevTerrainProvider({} as DevWorldService) as unknown as { createGridMaterial(): ShaderMaterial };
+      scene.add(new Mesh(geometryWith({ position: 3, normal: 3 }), provider.createGridMaterial()));
+    },
+  },
+  // Line of sight: the cube render and its overlays
+  {
+    name: 'LOS cube distance material (tile meshes, instanced meshes)',
+    file: 'three-engine/tower-shadow-mapper.ts',
+    // TowerShadowMapper swaps it onto every mesh of the blocker group for the cube render
+    build: (scene) => {
+      const mapper = new TowerShadowMapper({} as WebGLRenderer, scene) as unknown as { distanceMaterial: ShaderMaterial };
+      scene.add(new Mesh(geometryWith({ position: 3 }), mapper.distanceMaterial));
+      scene.add(new InstancedMesh(geometryWith({ position: 3 }), mapper.distanceMaterial, 4));
+    },
+  },
+  {
+    name: 'LOS cube face debug quad',
+    file: 'three-engine/tower-shadow-mapper.ts',
+    build: (scene) => {
+      const mapper = new TowerShadowMapper({} as WebGLRenderer, scene) as unknown as {
+        ensureDebugResources(size: number): void;
+        debugFaceQuad: Mesh;
+      };
+      // jsdom has no ImageData, which only holds the panel's read-back pixels
+      vi.stubGlobal('ImageData', class {
+        constructor(readonly data: Uint8ClampedArray, readonly width: number, readonly height: number) {}
+      });
+      try {
+        mapper.ensureDebugResources(4);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      scene.add(mapper.debugFaceQuad);
+    },
+    withoutLogDepth: 'LOS debug panel only: a quad in clip space into its own target, no depth test or write',
+  },
+  {
+    name: 'tower LOS layers (ground and air)',
+    file: 'utils/tower-los-layer-builder.ts',
+    build: (scene) => {
+      const layer = TowerLosLayerBuilder.build({
+        cells: [routeCell()], towerTip: new Vector3(0, 10, 0), groundRange: 30, airRange: 40,
+        canTargetGround: true, canTargetAir: true, cubemap: new WebGLCubeRenderTarget(4),
+        cubemapFarDistance: 40, gridCellSize: 4,
+      })!;
+      scene.add(layer.groundMesh, layer.airMesh);
+    },
+  },
+  {
+    name: 'route grid overlay (ground and air layer)',
+    file: 'utils/route-grid-aggregate-viz.ts',
+    build: (scene) => {
+      const viz = new RouteGridAggregateViz(new Map([[1, routeCell()]]), 4, (cell) => cell.terrainHeight);
+      scene.add(viz.createVisualization(), viz.createAirVisualization());
+    },
+  },
+  {
+    name: 'air route tubes',
+    file: 'utils/route-altitude-tubes.ts',
+    build: (scene) => {
+      const grid = {
+        getCoordinateSync: () => ({
+          geoToLocalSimple: (lat: number, lon: number, height: number) => new Vector3(lon * 1e5, height, -lat * 1e5),
+        }),
+        getCachedRoutes: () => [[{ lat: 0, lon: 0, height: 0 }, { lat: 0, lon: 0.001, height: 0 }]],
+        getCellAt: () => undefined,
+        estimateTerrainY: () => 0,
+      } as unknown as GlobalRouteGrid;
+      scene.add(buildRouteAltitudeTubes(grid));
+    },
+    withoutLogDepth: 'debug overlay drawn over everything: no depth test, no depth write',
+  },
+  {
+    name: 'colour grading pass',
+    file: 'three-engine/post-processing/color-grading.ts',
+    // The composer draws it on a full-screen quad, the same program
+    build: (scene) => scene.add(new Mesh(new PlaneGeometry(2, 2), createColorGradingPass().pass.material)),
+    withoutLogDepth: 'full-screen pass of the composer: reads the frame, depth plays no part',
   },
 ];
 
@@ -324,7 +497,7 @@ describe('shader compile check', () => {
   describe.each(CASES)('$name', (shaderCase) => {
     const stemBase = shaderCase.name.replace(/[^a-z0-9]+/gi, '-').replace(/-+$/, '').toLowerCase();
 
-    it('three builds its programs as WebGL2 GLSL with log depth', () => {
+    it(`three builds its programs as WebGL2 GLSL${shaderCase.withoutLogDepth ? '' : ' with log depth'}`, () => {
       const programs = programsOf(shaderCase);
       expect(programs.length).toBeGreaterThan(0);
       for (const { program } of programs) {
@@ -333,7 +506,7 @@ describe('shader compile check', () => {
         expect(program.vertex).not.toContain('#include');
         expect(program.fragment).not.toContain('#include');
         // Over the tiles every material writes logarithmic depth (logdepthbuf chunks)
-        expect(logDepthGaps(program), program.name).toEqual([]);
+        if (!shaderCase.withoutLogDepth) expect(logDepthGaps(program), program.name).toEqual([]);
         for (const mark of shaderCase.marks ?? []) {
           expect(`${program.vertex}\n${program.fragment}`).toContain(mark);
         }
