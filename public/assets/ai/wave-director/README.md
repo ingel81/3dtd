@@ -6,7 +6,7 @@ ONNX Model für Browser-Inference via ONNX Runtime Web.
 
 ## Dateien
 
-- `wave-director.onnx` - Das trainierte AI Model (~108 KB)
+- `wave-director.onnx` - Das trainierte AI Model (289.959 Byte)
 - `metadata.json` - Templates, Ranges, Enemy-Base-HP, Decoder-Konstanten
 
 ## Model aktualisieren
@@ -37,7 +37,7 @@ Siehe `training-backend/docs/AI_MODEL_EXPORT.md` für Details (Skript exportiert
 | 0–31 | Template Logits (32 Slots; 18 aktive Templates, Rest reserviert) |
 | 32–35 | Continuous Params: count_factor, spawn_delay_factor, hp_mult_factor, variation |
 
-Die continuous Params werden im Frontend pro gewähltem Template auf die Template-spezifischen Ranges aus `metadata.json` gemappt. Constraints (Curriculum-Gates, Capability-Gates, Boss-Cooldown, DPS-Caps, Wave-Duration-Cap) werden im Decoder angewendet — siehe `docs/PHASE_5.11_RANGES.md`.
+Die continuous Params werden im Frontend pro gewähltem Template auf die Template-spezifischen Ranges aus `metadata.json` gemappt. Constraints (Curriculum-Gates, Capability-Gates, Boss-Cooldown, DPS-Caps, Wave-Duration-Cap) werden im Decoder angewendet — siehe `docs/AI_WAVE_DIRECTOR_PLAN.md`.
 
 ## WASM Runtime
 
@@ -46,5 +46,5 @@ Diese werden automatisch bei `npm install` kopiert (postinstall script).
 
 ## Live-Stand
 
-- **Frontend-Architektur:** Phase 5.11 (Range-Based Templates) + Phase 5.16 (Wave-Curriculum, Endgame-Knobs, Gold-Budget) — siehe `docs/PHASE_5.11_RANGES.md` und `docs/HANDOVER_PLAYTEST_PHASE5.16.md`.
-- **Deployed Modell:** stammt aus Phase 5.10 (vor 5.11/5.16-Erweiterungen). Frontend-Decoder respektiert die zusätzlichen Constraints, das Modell ist zu den Phase-5.11-Schnittstellen rückwärtskompatibel.
+- **Frontend:** Die Wellen wählt ein Regel-Director im Client; dieses Modell ist nur ein Opt-in im Training-Debug-Fenster („Load ONNX model"). Siehe `docs/AI_WAVE_DIRECTOR_PLAN.md`.
+- **Deployed Modell:** stammt aus Phase 5.10 und erwartet 156 Eingänge. Der Encoder liefert seit Schema v5 208; `OnnxPolicy.load()` lehnt das Modell deshalb ab, und das Spiel bleibt auf den Regeln. Details: `training-backend/docs/AI_MODEL_EXPORT.md`.
