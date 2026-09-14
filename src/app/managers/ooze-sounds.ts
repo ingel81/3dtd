@@ -17,13 +17,13 @@ interface OozeLoop {
  * The oozes' sounds, for OozeBodies: a bubbling loop per ooze that the
  * bodies move once per frame to the point nearest the listener, a splat
  * when one breaks up and a slurp while one flows into the HQ (OOZE_SOUNDS).
- * The loops stand while the game is paused (hold); the one-shots go out as
- * audio:play from the sub-step, so they keep to game time as well.
+ * The loops stand while the game is paused like every loop
+ * (SpatialAudioManager.holdLoops); the one-shots go out as audio:play from
+ * the sub-step, so they keep to game time as well.
  */
 export class OozeSounds {
   private registeredWith: SpatialAudioManager | null = null;
   private readonly loops = new Map<string, OozeLoop>();
-  private held = false;
   private readonly at = new Vector3();
 
   constructor(private readonly eventBus: GameEventBus) {}
@@ -46,7 +46,6 @@ export class OozeSounds {
    * range and resumes it back in range.
    */
   follow(id: string, audio: SpatialAudioManager, x: number, y: number, z: number): void {
-    if (this.held) return;
     this.at.set(x, y, z);
     let loop = this.loops.get(id);
     if (loop === undefined) {
@@ -73,20 +72,7 @@ export class OozeSounds {
         return;
       }
       started.handle = handle;
-      if (this.held) audio.pauseLoop(handle);
     });
-  }
-
-  /** The game paused (true) or went on: the loops stand and go with the game time. */
-  hold(held: boolean, audio: SpatialAudioManager | null): void {
-    if (this.held === held) return;
-    this.held = held;
-    if (audio === null) return;
-    for (const loop of this.loops.values()) {
-      if (loop.handle === null) continue;
-      if (held) audio.pauseLoop(loop.handle);
-      else audio.resumeLoop(loop.handle);
-    }
   }
 
   /** The splat of a breaking ooze at a geo point, `height` on the ground. */

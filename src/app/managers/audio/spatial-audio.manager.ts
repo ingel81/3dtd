@@ -361,6 +361,11 @@ export class SpatialAudioManager {
     return this.loops.isPaused(handle);
   }
 
+  /** The game paused (true) or went on: every loop stands with it, see SpatialAudioLoops.hold(). */
+  holdLoops(held: boolean): void {
+    this.loops.hold(held);
+  }
+
   // ─── Stop / cleanup ─────────────────────────────────────
 
   stop(soundId: string): void {

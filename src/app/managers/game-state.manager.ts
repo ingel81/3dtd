@@ -214,8 +214,9 @@ export class GameStateManager {
   private readonly pauseSyncEffect = effect(() => {
     const paused = this.gameStore.paused();
     this.paused.set(paused);
-    // No frame presents enemies while paused; the ooze's bubbling stands with them
-    this.enemyManager.holdSounds(paused);
+    // No sub-step runs while paused; every loop (walk cycles, flames, the
+    // ooze's bubbling) stands with the game
+    this.tilesEngine?.spatialAudio.holdLoops(paused);
   });
 
   /** Phase 5.14: sync renderingEnabled signal → ThreeTilesEngine. Gameplay
@@ -310,6 +311,8 @@ export class GameStateManager {
 
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
+    // The pause sync above only reaches an engine that is already here
+    tilesEngine.spatialAudio.holdLoops(this.paused());
 
     // Initialize defense-reach debug visualization (orange marker)
     this.globalRouteGrid.initDebugViz(tilesEngine.getScene());
