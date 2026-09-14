@@ -89,7 +89,7 @@ function createMockContext(): WebGL2RenderingContext {
       alpha: true,
       antialias: true,
       depth: true,
-      stencil: false,
+      stencil: true,
       premultipliedAlpha: true,
       preserveDrawingBuffer: false,
       powerPreference: 'high-performance',
@@ -152,7 +152,7 @@ export function capturePrograms(build: (scene: Scene) => void, setup: RenderSetu
     context: createMockContext(),
     antialias: true,
     logarithmicDepthBuffer: true,
-    stencil: false,
+    stencil: true,
   });
   renderer.outputColorSpace = SRGBColorSpace;
 

@@ -1044,6 +1044,7 @@ class ThreeTowerRenderer {
   create(id, typeId, lat, lon, height, customRotation?, initialHeading?): Promise<TowerRenderData | null>;
   advanceTurretAim(gameTimeStepMs: number): void;  // pro Sub-Step, aus GameLoopFacadeService
   setIdleHeading(id: string, heading: number): void;  // Guard-Richtung nach der Wave
+  updateRangeIndicator(id: string, range?: number): void;  // Reichweitenring nach Range-Upgrade
   select(id: string): void;
   deselect(id: string): void;
   remove(id: string): void;
@@ -2209,6 +2210,14 @@ const material = new THREE.ShaderMaterial({
 ```
 
 **Regel:** Für flache Overlays auf Terrain (LOS-Grid, Markers, etc.) immer `depthTest: false` und `depthWrite: false` setzen.
+
+### Reichweitenring: Stencil-Volumen statt Raycasts
+
+**Problem:** Der Ring um einen Turm war bis 2026-09-14 eine Linie aus 48 Punkten, 2 m über dem Boden, jede Höhe per Raycast (`raycastTerrainHeight`, also Boden, nicht Dach). Zwischen den Punkten lagen gerade Sehnen von rund 6,5 m (bei 50 m Reichweite), über Gebäuden lief der Ring auf Straßenhöhe durch die Fassaden, und `depthTest: false` zeichnete ihn durch alles hindurch. Dazu kamen 433 Höhenabfragen (`raycastTerrainHeight`) je Turm beim Bauen und bei jedem Range-Upgrade (Linie und eine unsichtbare Scheibe).
+
+**Lösung:** `renderers/range-ring.ts`. Der Ring ist ein geschlossenes Volumen: ein Wandring um den Turmfuß, 100 m darunter bis 250 m darüber, zwischen der Reichweite und einer Bandbreite innen. Drei Draws finden im Stencil-Puffer die Pixel, deren sichtbare Oberfläche im Volumen liegt (Depth-Fail): Rückseiten zählen +1, wo sie hinter der Oberfläche liegen, Vorderseiten -1, dann malt ein dritter Draw ohne Tiefentest, wo der Zähler nicht 0 ist, und setzt ihn auf 0 zurück. Das Band liegt so pixelgenau auf Boden, Dächern, Fassaden und Brücken, ohne Raycast und ohne Geometrie je Turm. Die Reichweite ist horizontal (`Tower.calculateDistanceFastSq`), darum ein senkrechter Zylinder. Die Bandbreite wächst mit dem Kameraabstand (0,5 % davon, 0,75 bis 6 m), damit sie auf dem Schirm etwa gleich breit bleibt. Alle Ringe teilen eine Geometrie und drei Materialien (`RangeRingKit`), ein Ring ist eine Gruppe aus drei Meshes mit Fuß und Reichweite in der Transformation. Was vor dem Ring Tiefe geschrieben hat, bekommt das Band, auch ein Gegner, der den Ring kreuzt.
+
+**Regel:** Canvas (`stencil: true`, `three-tiles-engine.ts`) und Composer-Ziel (`stencilBuffer: true`, `post-processing-pipeline.ts`) brauchen einen Stencil-Puffer. Fehlt er, besteht der Stencil-Test überall und der dritte Draw malt das ganze Volumen. Nach dem Ring steht der Stencil überall wieder auf 0; ein anderes Material, das ihn benutzt, darf sich nur darauf verlassen.
 
 ### Shader-Compile-Check ohne Browser
 

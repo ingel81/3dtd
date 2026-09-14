@@ -185,7 +185,7 @@ export class TowerLifecycle {
 
   /**
    * After a range-stat upgrade (manual or debug-max-upgrade), refresh the
-   * tower's LOS cells, geo-degree-squared range cache, and visual range disc.
+   * tower's LOS cells, geo-degree-squared range cache, and range ring.
    */
   recomputeRangeAfterUpgrade(tower: Tower): void {
     this.placement.recomputeTowerLOS(tower);
@@ -194,7 +194,7 @@ export class TowerLifecycle {
     const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
     const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
     tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
-    this.engine()?.towers.updateRangeIndicatorTerrain(tower.id, tower.combat.range);
+    this.engine()?.towers.updateRangeIndicator(tower.id, tower.combat.range);
 
     // A longer range meets the route earlier. Between waves the tower stands
     // at its guard heading and follows the new one; in a wave it keeps

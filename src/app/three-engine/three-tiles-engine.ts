@@ -253,10 +253,13 @@ export class ThreeTilesEngine {
         canvas,
         antialias: true,
         // Required for the 1m..8000m depth range over the 3D tiles (kept to
-        // avoid far-field z-fighting). The remaining flags are pure wins:
+        // avoid far-field z-fighting).
         logarithmicDepthBuffer: true,
         powerPreference: 'high-performance', // prefer dGPU on hybrid laptops
-        stencil: false, // no stencil buffer in use → save bandwidth
+        // The tower range rings find the surface they lie on with the
+        // stencil buffer; without one they paint their whole volume
+        // (range-ring.ts). The composer target has one as well.
+        stencil: true,
       });
     } catch {
       throw new Error('WebGL is not supported. Enable hardware acceleration in your browser.');
@@ -483,13 +486,6 @@ export class ThreeTilesEngine {
     // Every raycast into the tiles is timed per caller, see `__raycastStats()`.
     instrumentRaycasts(this.tilesRenderer.group);
 
-    // Set up terrain height sampler for tower range indicators (legacy)
-    this.towers.setTerrainHeightSampler((lat, lon) => this.terrain.getTerrainHeightAtGeo(lat, lon));
-
-    // Set up direct terrain raycaster for accurate terrain-conforming range indicators
-    // This raycasts directly at local X,Z coordinates for exact terrain mesh intersection
-    this.towers.setTerrainRaycaster((localX, localZ) => this.terrain.raycastTerrainHeight(localX, localZ, 'towerRange'));
-
     // Set up Line-of-Sight raycaster for visibility checks
     // Returns true if line of sight is BLOCKED
     this.towers.setLineOfSightRaycaster((ox, oy, oz, tx, ty, tz) =>
@@ -528,12 +524,6 @@ export class ThreeTilesEngine {
 
     // Setup EnvironmentControls - works with flat local terrain
     this.cameraRig.setupEnvironmentControls(this.scene, this.devWorldGroup);
-
-    // Set up terrain height sampler for tower range indicators
-    this.towers.setTerrainHeightSampler((lat, lon) => this.terrain.getTerrainHeightAtGeo(lat, lon));
-
-    // Set up direct terrain raycaster
-    this.towers.setTerrainRaycaster((localX, localZ) => this.terrain.raycastTerrainHeight(localX, localZ, 'towerRange'));
 
     // Set up Line-of-Sight raycaster
     this.towers.setLineOfSightRaycaster((ox, oy, oz, tx, ty, tz) =>

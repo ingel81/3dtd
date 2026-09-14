@@ -140,7 +140,7 @@ function createEngine(): never {
       spawnFloatingText: logged('engine.effects.spawnFloatingText'),
     }),
     towers: auto({
-      updateRangeIndicatorTerrain: logged('engine.towers.updateRangeIndicatorTerrain'),
+      updateRangeIndicator: logged('engine.towers.updateRangeIndicator'),
     }),
     plinths: auto(),
     towerBadges: auto(),
@@ -580,7 +580,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       ]);
     });
 
-    it('upgrades range: cost, LOS, range disc, guard heading, then tower:upgraded', () => {
+    it('upgrades range: cost, LOS, range ring, guard heading, then tower:upgraded', () => {
       log.length = 0;
       bus.emit({ type: 'command:upgrade-tower', towerId: archer.id, upgradeId: 'range' });
 
@@ -588,7 +588,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'event:command:upgrade-tower',
         'event:credits:changed',
         'placement.recomputeTowerLOS',
-        'engine.towers.updateRangeIndicatorTerrain',
+        'engine.towers.updateRangeIndicator',
         'tower.refreshGuardHeading',
         'combat.turnToGuardHeading',
         'event:tower:upgraded',
@@ -658,7 +658,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       expect(log).toEqual([
         'event:debug:max-upgrade-all-towers',
         'placement.recomputeTowerLOS',
-        'engine.towers.updateRangeIndicatorTerrain',
+        'engine.towers.updateRangeIndicator',
         'tower.refreshGuardHeading',
         'combat.turnToGuardHeading',
         'event:tower:upgraded',

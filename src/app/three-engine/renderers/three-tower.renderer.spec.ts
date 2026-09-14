@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Group, Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
+import { Group, Mesh, Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
 import { ThreeTowerRenderer, type TowerRenderData } from './three-tower.renderer';
+import { TOWER_TYPES } from '../../configs/tower-types.config';
 
 /**
  * Turret heading without a target. A turret holds its heading when the target
@@ -310,5 +311,53 @@ describe('ThreeTowerRenderer hover range', () => {
     // A new tower with the id of the removed one starts without the hover
     expect(() => renderer.setHovered(null)).not.toThrow();
     expect(shows(b)).toEqual([false, false]);
+  });
+});
+
+describe('ThreeTowerRenderer range ring', () => {
+  const assetManager = {
+    loadModel: async () => ({ animations: [] }),
+    cloneModel: () => new Group(),
+  };
+  const sync = {
+    geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
+  };
+  let scene: Scene;
+  let renderer: ThreeTowerRenderer;
+
+  beforeEach(() => {
+    scene = new Scene();
+    renderer = new ThreeTowerRenderer(scene, sync as never, assetManager as never);
+  });
+
+  it('stands at the tower foot with the range as its radius and follows a range upgrade', async () => {
+    const ring = (await renderer.create('a', 'archer', 3, 4, 12, 0, null))!.rangeIndicator!;
+    expect(ring.parent).toBe(scene);
+    expect(ring.visible).toBe(false);
+    expect(ring.position.toArray()).toEqual([4, 12, 3]);
+    expect(ring.scale.toArray()).toEqual([TOWER_TYPES.archer.range, 1, TOWER_TYPES.archer.range]);
+
+    renderer.updateRangeIndicator('a', 77);
+    expect(ring.scale.toArray()).toEqual([77, 1, 77]);
+    renderer.updateRangeIndicator('a');
+    expect(ring.scale.x).toBe(TOWER_TYPES.archer.range);
+
+    renderer.updatePosition('a', 5, 6, 20);
+    expect(ring.position.toArray()).toEqual([6, 20, 5]);
+    expect(ring.scale.x).toBe(TOWER_TYPES.archer.range);
+  });
+
+  it('shares geometry and materials between the rings and keeps them when a tower goes', async () => {
+    const a = (await renderer.create('a', 'archer', 0, 0, 0, 0, null))!.rangeIndicator!;
+    const b = (await renderer.create('b', 'cannon', 0.001, 0, 0, 0, null))!.rangeIndicator!;
+    const meshesA = a.children as Mesh[];
+    const meshesB = b.children as Mesh[];
+    expect(meshesB.map((mesh) => mesh.geometry)).toEqual(meshesA.map((mesh) => mesh.geometry));
+    expect(meshesB.map((mesh) => mesh.material)).toEqual(meshesA.map((mesh) => mesh.material));
+
+    const dispose = vi.spyOn(meshesA[0].geometry, 'dispose');
+    renderer.remove('a');
+    expect(a.parent).toBeNull();
+    expect(dispose).not.toHaveBeenCalled();
   });
 });

@@ -519,7 +519,7 @@ beim Debug-Max-Upgrade) ruft `TowerLifecycle` (`managers/game-state/tower-lifecy
 `GameStateManager.recomputeTowerRangeAfterUpgrade(tower)`:
 
 - `TowerPlacementService.recomputeTowerLOS(tower)` berechnet die LOS-Zellen neu
-- `tower.rangeSquaredGeo` (Sleep-/Wake-Checks) und der Reichweitenring (`updateRangeIndicatorTerrain`) folgen
+- `tower.rangeSquaredGeo` (Sleep-/Wake-Checks) und der Reichweitenring (`updateRangeIndicator`) folgen
 - `TowerManager.refreshGuardHeading(tower)` rechnet die Wachrichtung neu; zwischen den Wellen
   dreht der Turm sofort dorthin
 
