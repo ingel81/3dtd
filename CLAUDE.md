@@ -2,7 +2,7 @@
 
 ## Projekt
 
-3DTD - Standalone Tower Defense auf Google Maps 3D Tiles
+3DTD - Standalone Tower Defense auf Google Photorealistic 3D Tiles (über Cesium Ion oder die Google Maps API)
 
 ## Befehle
 
@@ -23,7 +23,9 @@ npm run lint
 - **Wave-Director ist regelbasiert** (`ai/core/rule-director.ts` + `gate-controller.ts`),
   laeuft ohne Server, ohne Modell, ohne ONNX-Runtime. Das ONNX-Modell ist Opt-in
   im Debug-Fenster - Begruendung in [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)
-- Google Maps API Key in environment.ts
+- Tile-Zugang: Cesium-Ion-Token (Standard) oder Google-Maps-Key. `ConfigService` liest ihn aus drei Quellen, die
+  spätere gewinnt: `environment.ts` (Vorlage `environment.template.ts`), `public/runtime-config.json`, Token-Dialog
+  (localStorage `3dtd-tile-credentials`)
 
 ## Projektstruktur
 
@@ -37,7 +39,7 @@ src/app/
 │   ├── core/                   # Regel-Director, Gate-Controller, Templates, State-Encoder, Decision-Explainer
 │   └── training/               # Bot System (Strategy Pattern), Training-Session, WebSocket-Client
 │       ├── bots/               # StrategyBot, Factory
-│       └── strategies/         # Placement, Upgrade, Wave, Research Strategies
+│       └── strategies/         # Placement, Upgrade, Wave, Research, Ability Strategies
 ├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic/ScreenShake Services (Three.js-coupled, Angular-frei)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
 ├── configs/                    # Tower/Enemy/Projectile/Combat/Research/Audio + Wave-Curriculum-Configs
@@ -47,9 +49,10 @@ src/app/
 ├── game-components/            # ECS Components (transform, health, movement, combat, etc.)
 ├── integration/                # Cross-System Integration-Tests
 ├── interfaces/                 # Provider-Interfaces (StreetNetwork, Terrain)
-├── managers/                   # Manager (Enemy, Tower, Wave, Research, etc. - event-driven), audio/ (Spatial Audio)
+├── managers/                   # Manager (Enemy, Tower, Wave, Research, Ability, Hero usw., event-driven), game-state/ (Ledger, Lifecycle, Clock), worm/, audio/ (Spatial Audio)
 ├── models/                     # Type Definitions (game.types, location.types, status-effects)
-├── services/                   # Angular Services (Subfolders: combat/, debug/, facade/, infrastructure/, location/, world/)
+├── replay/                     # Replay der letzten Welle: Recorder, Player (docs/REPLAY.md)
+├── services/                   # Angular Services (Subfolders: combat/, debug/, facade/, infrastructure/, location/, onboarding/, world/)
 ├── store/                      # Signal Stores (Game, UI, Engine, Location, Research, Debug)
 ├── styles/                     # Theme-Tokens (td-theme.ts)
 ├── three-engine/               # 3D Rendering: Engine, CameraRig, Tiles, renderers/ (inkl. Shader), post-processing/
@@ -72,8 +75,9 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 │   └── static/                 # Chart.js UI
 ├── generated/ai-schema.json    # Aus den TS-Configs generiert (`npm run ai-schema`)
 ├── scripts/                    # ONNX-Export, Log-Analyse, Training-Inspector
-├── tests/                      # pytest (Schema, Encoder, Reward, Directors, Gate-Loop)
-├── start.bat                   # Windows Start-Script
+├── tests/                      # pytest (Schema, Encoder, Reward, Directors, Gate-Loop, Training-Log)
+├── requirements.txt            # Python-Abhängigkeiten
+├── start.bat / start.sh        # Start-Skripte (Windows, Unix)
 ├── checkpoints/                # Model Checkpoints (+ archive-<datum>/)
 └── docs/                       # Backend-Dokumentation
 ```
@@ -112,6 +116,7 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 | [BALANCE_PROPOSAL_2026-09.md](docs/game-design/BALANCE_PROPOSAL_2026-09.md) | Balance-Vorschlag (Upgrade-Kurven, Cannon, Matrix, Boss-Takt), im Sprint 2026-09-11 umgesetzt, offene Fragen am Ende |
 | [PLAYER_AGENCY_CONCEPT.md](docs/game-design/PLAYER_AGENCY_CONCEPT.md) | _Konzept:_ Spielerfähigkeiten und Held; Entscheidung 2026-09-12 in Abschnitt 7 |
 | [HERO.md](docs/HERO.md) | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition, Fairness-Gate, Bedienung (G, V) |
+| [REPLAY.md](docs/REPLAY.md) | Replay der letzten Welle: Präsentations-Aufnahme statt Re-Simulation, Aufnahme, Player, Grenzen |
 | [INSTANCED_ENEMY_RENDERING.md](docs/INSTANCED_ENEMY_RENDERING.md) | GPU Instancing mit VAT (Draw Call Reduktion) |
 | [ENEMY_MODEL_BUDGET.md](docs/ENEMY_MODEL_BUDGET.md) | Gegnermodelle vermessen, Budget je Klasse (`npm run model-budget`) |
 | [MULTIPLAYER_CONCEPT.md](docs/MULTIPLAYER_CONCEPT.md) | _Plan:_ PvE-Coop & PvP - Determinismus-Blocker, Server-Entwurf, zwei Zielmodi. Kein Code |
@@ -130,7 +135,7 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 | **[AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)** | **Einstieg:** Regel-Director + Gate-Controller, warum das ONNX-Modell ersetzt wurde |
 | [HANDOVER_RULE_DIRECTOR.md](docs/HANDOVER_RULE_DIRECTOR.md) | Umstellung auf den Regel-Director (2026-09-07), Messreihe, Einstieg für späteres Training |
 | [BOT_SYSTEM.md](docs/BOT_SYSTEM.md) | Strategy-Based Bot System (Gegenspieler im Training) |
-| [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md) | Balance-Stand (Wave-Curriculum, Endgame-Knobs, Gold-Budget) |
+| [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md) | _Historisch:_ Balance-Stand von Phase 5.16, überholt durch HANDOVER_TRAINING_REFRESH |
 | [PHASE_5.11_RANGES.md](docs/PHASE_5.11_RANGES.md) | Range-Templates + Decoder-Constraints (Mechanik gilt; Modell-als-Director ist ueberholt) |
 | [STATIC_WAVE_FALLBACK.md](docs/STATIC_WAVE_FALLBACK.md) | Debug-Pfad ohne Director (STATIC_WAVE_PROFILES) |
 | [PHASE_5.10_TEMPLATES.md](docs/archive/PHASE_5.10_TEMPLATES.md) | _Historisch:_ superseded by 5.11 (weitere überholte Docs in `docs/archive/`) |
@@ -157,8 +162,9 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 | 3D Engine | Three.js 0.186 |
 | 3D Tiles | 3DTilesRendererJS 0.5.2 |
 | UI | Angular Material 22 |
-| Maps | Google Maps 3D Tiles API |
+| Maps | Google Photorealistic 3D Tiles über Cesium Ion (Standard) oder die Google Maps API |
+| Straßen | OpenStreetMap über Overpass |
 | Geocoding | OpenStreetMap Nominatim |
-| AI Training | Python 3.8+ + PyTorch 2.0 + WebSockets |
+| AI Training | Python 3.9+ (venv: 3.11) + PyTorch 2.0 + WebSockets |
 | AI Dashboard | FastAPI + Chart.js (http://localhost:3002) |
 | Bot System | TypeScript Strategy Pattern (Browser) |
