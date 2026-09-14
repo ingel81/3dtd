@@ -79,6 +79,11 @@ describe('resolveHotkey', () => {
     expect(hero.rows.map((r) => r.keys)).toEqual([['G'], ['V']]);
   });
 
+  it('names Esc for skipping the boss intro in the overview (BossIntroService.handleKeyDown)', () => {
+    const game = HOTKEY_HELP.find((g) => g.title === 'Game')!;
+    expect(game.rows.find((r) => r.keys.includes('Esc'))?.label).toMatch(/boss intro/i);
+  });
+
   it('toggles photo mode on O, also with Caps Lock or Shift', () => {
     expect(resolveHotkey(key('o'))).toEqual({ kind: 'photo-mode' });
     expect(resolveHotkey(key('O', { shiftKey: true }))).toEqual({ kind: 'photo-mode' });

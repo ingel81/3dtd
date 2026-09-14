@@ -116,6 +116,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['Space'], label: 'Start the next wave' },
       { keys: ['P'], label: 'Pause and resume' },
       { keys: ['+', '-'], label: 'Game speed up and down' },
+      { keys: ['Esc'], label: 'Skip the boss intro' },
       ...ABILITY_IDS.map((id) => ({
         keys: [ABILITIES[id].hotkey.toUpperCase()],
         label: `Aim the ${ABILITIES[id].name} once researched, press again to cancel`,
