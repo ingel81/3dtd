@@ -2,11 +2,11 @@
 
 **Stand:** 2026-09-15, Listener per Grep nachgezogen (`wave:completed`-Semantik: 2026-09-07)
 
-Das Event-System ermoeglicht lose Kopplung zwischen Game-Engine Komponenten. Alle Manager kommunizieren ueber Events statt direkter Methodenaufrufe oder Callbacks.
+Das Event-System ermöglicht lose Kopplung zwischen Game-Engine Komponenten. Alle Manager kommunizieren über Events statt direkter Methodenaufrufe oder Callbacks.
 
 ---
 
-## Uebersicht
+## Übersicht
 
 ### Warum Event-System?
 
@@ -15,14 +15,14 @@ Das Event-System ermoeglicht lose Kopplung zwischen Game-Engine Komponenten. All
 | 5 Manager mit `@Injectable()` | 1 Manager mit `@Injectable()` (GameStateManager) |
 | 40+ Callbacks | 0 Callbacks (alle via Events) |
 | Tight Coupling | Loose Coupling via Events |
-| Angular-abhaengig | Framework-agnostic (React/Vue/Vanilla JS kompatibel) |
+| Angular-abhängig | Framework-agnostic (React/Vue/Vanilla JS kompatibel) |
 
 ### Architektur-Prinzip
 
-- **Angular nur fuer UI** - Services mit `@Injectable()` nur fuer UI-Bindings
+- **Angular nur für UI** - Services mit `@Injectable()` nur für UI-Bindings
 - **Game Engine framework-agnostic** - Alle Manager ohne Angular-Decorator
-- **Events fuer Broadcasts** - `enemy:died`, `projectile:hit`, `wave:completed`
-- **Spatial Grid fuer Queries** - Tower Targeting, AOE Damage
+- **Events für Broadcasts** - `enemy:died`, `projectile:hit`, `wave:completed`
+- **Spatial Grid für Queries** - Tower Targeting, AOE Damage
 
 ---
 
@@ -58,7 +58,7 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `research:started` | ResearchManager | OnboardingService | Forschung gestartet (`researchId`, `cost`, `duration`) |
 | `research:completed` | ResearchManager (auch `completeAllResearch()`) | GameStateSyncService (`applyResearchEffects`), GameStateManager (LOS-Neuberechnung, wenn Air-Targeting frei wird), AbilityManager und HeroManager (Freischaltung) | Forschung fertig (`researchId`, `effects`) |
 | `research:cancelled` | ResearchManager | RunStatsTracker (Erstattung) | Forschung abgebrochen (`researchId`, `refund`) |
-| `research:state-changed` | ResearchManager | GameStateSyncService, OnboardingService | **Snapshot-Event** nach jeder Research-Mutation (`activeResearches`, `completedResearches`, `queuedResearches`, `centerLevel`, `maxSlots`). Single Source of Truth fuer Store-Sync — ersetzt 2026-05-10 das direkte `syncResearchStoreState()`-Polling aus dem GameStateManager. |
+| `research:state-changed` | ResearchManager | GameStateSyncService, OnboardingService | **Snapshot-Event** nach jeder Research-Mutation (`activeResearches`, `completedResearches`, `queuedResearches`, `centerLevel`, `maxSlots`). Single Source of Truth für Store-Sync; ersetzt seit 2026-05-10 das direkte `syncResearchStoreState()`-Polling aus dem GameStateManager |
 | `research:progress` | ResearchManager | GameStateSyncService | Vergangene Spielzeit je laufender Forschung (`elapsed`), höchstens alle 100 ms Wanduhr. Füllt `ResearchStore.researchElapsed`, das den Fortschrittsbalken treibt |
 | `ability:used` | AbilityManager (`use()`) | VFXService (je `abilityId`, etwa der Zielmarker), OnboardingService | Ein Schlag ist unterwegs, die Ladung ist verbraucht (`abilityId`, `strikeId`, `target` auf die Route gesnappt, `radiusM`, `warningMs`; bei einem Strahl `path`, der Weg, den er brennen wird). Siehe [ABILITIES.md](ABILITIES.md) |
 | `ability:impact` | AbilityManager (im Sub-Step des Einschlags) | VFXService, AudioService, ScreenShakeService (je `abilityId` aus einer Tabelle, siehe [ABILITIES.md](ABILITIES.md#darstellung)) | Einschlag (`abilityId`, `strikeId`, `target`, `radiusM`; bei einem Strahl `path`, der Weg, den er brennt) |
@@ -83,20 +83,20 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `audio:play` | ProjectileManager, TowerManager (Bau, Verkauf), HQDamageService, `OozeSounds` (Ooze) | AudioService | 3D Sound abspielen (`sound`, `lat`, `lon`, `height`, `volume?`) |
 | `wave:completed` | WaveManager (`endWave()`) | GameStateSyncService, GameStateManager (Tower in Wachrichtung drehen), AIDataCollector, BackgroundMusicService, BloodMoonService, TrainingSession, AbilityManager (Ladungen je Welle), GameLoopFacade (Auto-Wave-Countdown), OnboardingService, MarkerVisualizationService | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`). Den Wave-Bonus bucht der GameStateManager im Update-Loop, nicht über dieses Event. Siehe Warnung unten. |
 
-> **`wave:completed` ist kein verlaesslicher „jede Welle"-Hook.**
+> **`wave:completed` ist kein verlässlicher „jede Welle"-Hook.**
 >
-> 1. **Beim Game Over wird es nicht emittiert.** `endWave()` laeuft nur, wenn
->    die Welle regulaer fertig wird. Faellt die Basis, setzt
+> 1. **Beim Game Over wird es nicht emittiert.** `endWave()` läuft nur, wenn
+>    die Welle regulär fertig wird. Fällt die Basis, setzt
 >    `GameStateManager.triggerGameOver()` die Phase direkt auf `gameover`. Wer
->    *jede* Welle sehen muss — inklusive der, die den Run beendet hat —, muss
->    an `AIDataCollectorService.onWaveResult()` haengen; das ist der einzige
+>    *jede* Welle sehen muss, auch die, die den Run beendet hat, muss
+>    an `AIDataCollectorService.onWaveResult()` hängen; das ist der einzige
 >    Punkt, den beide Pfade passieren. Der `GateController` ist daran fast
->    gescheitert: sein Death-Backoff war ueber das Event schlicht unerreichbar.
-> 2. **Reihenfolge gegen `game:over`.** Zerstoert der letzte Leaker einer Welle
->    die Basis, feuern beide fuer dieselbe Wave-Nummer. Der Wave-Complete-Check
->    laeuft zwar zuerst, aber `wave:completed` ist **deferred** und `game:over`
->    **immediate** — zugestellt wird der Game-Over-Pfad also zuerst, und das
->    Event kommt fuer eine bereits finalisierte Welle nach. Der Collector
+>    gescheitert: sein Death-Backoff war über das Event schlicht unerreichbar.
+> 2. **Reihenfolge gegen `game:over`.** Zerstört der letzte Leaker einer Welle
+>    die Basis, feuern beide für dieselbe Wave-Nummer. Der Wave-Complete-Check
+>    läuft zwar zuerst, aber `wave:completed` ist **deferred** und `game:over`
+>    **immediate**: zugestellt wird der Game-Over-Pfad also zuerst, und das
+>    Event kommt für eine bereits finalisierte Welle nach. Der Collector
 >    verwirft es anhand der gemerkten Wave-Nummer.
 
 ### Debug Events
@@ -323,14 +323,14 @@ eine gerenderte Welle aufnimmt.
 
 | Verwende Immediate | Verwende Deferred |
 |--------------------|-------------------|
-| Game State Aenderungen | VFX, Audio |
+| Game State Änderungen | VFX, Audio |
 | Damage, Credits | UI Notifications |
 | Kritische Logik | Nicht-kritische Effekte |
 
 ### Subscription Cleanup
 
 ```typescript
-// SubscriptionBag fuer automatisches Cleanup
+// SubscriptionBag für automatisches Cleanup
 const bag = new SubscriptionBag();
 bag.add(eventBus.on('enemy:died', handler1));
 bag.add(eventBus.on('tower:placed', handler2));
