@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, effect } from '@angular/core';
+import { Injectable, inject, signal, effect, isDevMode } from '@angular/core';
 import { Object3D } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './location/osm-street.service';
@@ -19,13 +19,45 @@ import { BuildPreviewLos } from './build-preview-los';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 import {
   FootprintColumn,
+  FootprintDecision,
+  FootprintRule,
   TowerFootprint,
+  decideTowerFootprint,
   footprintInnerCount,
   footprintSampleOffsets,
+  footprintSurroundingOffsets,
   levelWithCursor,
   resolveTowerFootprint,
 } from '../utils/tower-footprint';
 import { TowerPlinthPreview } from './tower-plinth-preview';
+
+/** One row of `__footprintDebug()`: how the last preview footprint was decided, heights in m. */
+export interface FootprintDebugRow {
+  tower: TowerTypeId;
+  lat: number;
+  lon: number;
+  /** Surface under the cursor */
+  surfaceY: number;
+  /** Ground and top of the cursor's column: equal where it shows nothing under a roof */
+  centreGroundY: number | null;
+  centreTopY: number | null;
+  /** `level-inner-ring`: the inner ring lies level, the outer ring is not probed yet */
+  rule: FootprintRule | 'level-inner-ring';
+  footY: number;
+  plinthHeight: number;
+  bottom: number | null;
+  groundTop: number | null;
+  roofTop: number | null;
+  /** Ground of the eight surroundings probes, `-` where one hit nothing */
+  surroundingsGroundY: string;
+}
+
+declare global {
+  interface Window {
+    /** Dev builds: how the footprint of the last build preview validation was decided. */
+    __footprintDebug?: () => FootprintDebugRow | null;
+  }
+}
 
 /**
  * TowerPlacementService
@@ -141,6 +173,23 @@ export class TowerPlacementService {
   /** Frames counted by tickBuildPreviewViz, see settleFootprint */
   private previewFrame = 0;
 
+  /**
+   * How the footprint of the last validation was decided, for
+   * `__footprintDebug()`. `decision` null: the inner ring lay level and the
+   * outer ring waits (probeFootprint).
+   */
+  private footprintNote: {
+    typeId: TowerTypeId;
+    lat: number;
+    lon: number;
+    surfaceY: number;
+    centre: FootprintColumn | null;
+    decision: FootprintDecision | null;
+  } | null = null;
+
+  /** The console hook this service put on window, see initialize */
+  private readonly footprintDebugHook = () => this.footprintDebug();
+
   /** Distance (m) the cursor must travel before validation re-runs */
   private static readonly VALIDATION_MOVEMENT_THRESHOLD_M = 1.0;
 
@@ -174,6 +223,8 @@ export class TowerPlacementService {
     // Runs again on every location change; the registry drops what it
     // queued for the previous one.
     this.losRegistry.attach(engine, gameState);
+
+    if (isDevMode() && typeof window !== 'undefined') window.__footprintDebug = this.footprintDebugHook;
   }
 
   updateStreetNetwork(streetNetwork: StreetNetwork): void {
@@ -332,7 +383,9 @@ export class TowerPlacementService {
   resolveFootprint(lat: number, lon: number, typeId: TowerTypeId, surfaceY: number): TowerFootprint {
     const radius = TOWER_TYPES[typeId]?.footprintRadius;
     if (!this.engine || radius === undefined) return { footY: surfaceY, plinthHeight: 0 };
-    return resolveTowerFootprint(surfaceY, radius, this.footprintColumns(lat, lon, radius, 0));
+    return resolveTowerFootprint(
+      surfaceY, radius, this.footprintColumns(lat, lon, radius, 0), this.surroundingColumns(lat, lon, radius),
+    );
   }
 
   /**
@@ -355,9 +408,15 @@ export class TowerPlacementService {
     if (!this.engine || radius === undefined) return { footprint: even, partial: null };
 
     const inner = this.footprintColumns(lat, lon, radius, 0, footprintInnerCount(radius));
-    if (levelWithCursor(surfaceY, inner)) return { footprint: even, partial: inner };
+    const note = { typeId, lat, lon, surfaceY, centre: inner[0] ?? null };
+    if (levelWithCursor(surfaceY, inner)) {
+      this.footprintNote = { ...note, decision: null };
+      return { footprint: even, partial: inner };
+    }
     const columns = inner.concat(this.footprintColumns(lat, lon, radius, inner.length));
-    return { footprint: resolveTowerFootprint(surfaceY, radius, columns), partial: null };
+    const decision = decideTowerFootprint(surfaceY, radius, columns, this.surroundingColumns(lat, lon, radius));
+    this.footprintNote = { ...note, decision };
+    return { footprint: decision.footprint, partial: null };
   }
 
   /**
@@ -376,9 +435,14 @@ export class TowerPlacementService {
     if (!now && partial.frame >= this.previewFrame - 1) return null;
     validation.partial = null;
 
+    const { lat, lon, surfaceY } = validation;
     const radius = TOWER_TYPES[typeId].footprintRadius;
-    const outer = this.footprintColumns(validation.lat, validation.lon, radius, partial.columns.length);
-    const footprint = resolveTowerFootprint(validation.surfaceY, radius, partial.columns.concat(outer));
+    const outer = this.footprintColumns(lat, lon, radius, partial.columns.length);
+    const decision = decideTowerFootprint(
+      surfaceY, radius, partial.columns.concat(outer), this.surroundingColumns(lat, lon, radius),
+    );
+    this.footprintNote = { typeId, lat, lon, surfaceY, centre: decision.centre, decision };
+    const footprint = decision.footprint;
     const provisional = validation.footprint;
     validation.footprint = footprint;
     const same = footprint.footY === provisional.footY && footprint.plinthHeight === provisional.plinthHeight;
@@ -393,12 +457,64 @@ export class TowerPlacementService {
     from: number,
     to?: number,
   ): (FootprintColumn | null)[] {
+    return this.columnsAround(lat, lon, footprintSampleOffsets(radius).slice(from, to));
+  }
+
+  /**
+   * The surroundings probes resolveTowerFootprint asks for to tell a roof
+   * from the ground, probed only when it calls.
+   */
+  private surroundingColumns(lat: number, lon: number, radius: number): () => (FootprintColumn | null)[] {
+    return () => this.columnsAround(lat, lon, footprintSurroundingOffsets(radius));
+  }
+
+  /** Columns at the offsets (dx, dz) around (lat, lon). */
+  private columnsAround(
+    lat: number,
+    lon: number,
+    offsets: readonly (readonly [number, number])[],
+  ): (FootprintColumn | null)[] {
     const engine = this.engine;
     if (!engine) return [];
     const center = engine.sync.geoToLocalSimple(lat, lon, 0);
-    return footprintSampleOffsets(radius)
-      .slice(from, to)
-      .map(([dx, dz]) => this.footprintColumn(engine, center.x + dx, center.z + dz));
+    return offsets.map(([dx, dz]) => this.footprintColumn(engine, center.x + dx, center.z + dz));
+  }
+
+  /**
+   * `__footprintDebug()` in the console (dev builds): how the footprint of
+   * the last preview validation was decided, as a table. For the roof rule
+   * on real roofs: does the cursor's column show ground under the roof
+   * (centreGroundY below centreTopY), and which rule set the foot.
+   */
+  private footprintDebug(): FootprintDebugRow | null {
+    const note = this.footprintNote;
+    if (!note) {
+      console.log('[Footprint] no preview validation yet: enter build mode and point at the ground');
+      return null;
+    }
+    const round = (y: number | null | undefined) => (y === null || y === undefined ? null : Math.round(y * 100) / 100);
+    const decision = note.decision;
+    const surroundings = decision?.surroundings;
+    const row: FootprintDebugRow = {
+      tower: note.typeId,
+      lat: note.lat,
+      lon: note.lon,
+      surfaceY: round(note.surfaceY)!,
+      centreGroundY: round(note.centre?.groundY),
+      centreTopY: round(note.centre?.topY),
+      rule: decision?.rule ?? 'level-inner-ring',
+      footY: round(decision?.footprint.footY ?? note.surfaceY)!,
+      plinthHeight: round(decision?.footprint.plinthHeight ?? 0)!,
+      bottom: round(decision?.bottom),
+      groundTop: round(decision?.groundTop),
+      roofTop: round(decision?.roofTop),
+      surroundingsGroundY: surroundings
+        ? surroundings.map((column) => (column ? round(column.groundY)!.toFixed(2) : '-')).join(' ')
+        : 'not probed',
+    };
+    console.log(`[Footprint] ${row.tower}: rule ${row.rule}, foot ${row.footY} m, plinth ${row.plinthHeight} m`);
+    console.table(row);
+    return row;
   }
 
   /**
@@ -746,6 +862,10 @@ export class TowerPlacementService {
   dispose(): void {
     this.exitBuildMode();
     this.losRegistry.detach();
+    this.footprintNote = null;
+    if (typeof window !== 'undefined' && window.__footprintDebug === this.footprintDebugHook) {
+      delete window.__footprintDebug;
+    }
 
     // Release model references from AssetManager
     for (const url of this.loadedModelUrls) {

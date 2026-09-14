@@ -651,6 +651,46 @@ describe('TowerPlacementService', () => {
       expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 21.5 }, plinthHeight: 1.5 });
     });
 
+    it('on a roof without ground under it, finds the roof by the street on both sides', async () => {
+      const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+      // Roof at 10 m, 2 m higher from 1 m east of the tower on; the building 16 m across, the street at 0 m
+      terrain.raycastColumnSample.mockImplementation((x: number, z: number) => {
+        const inside = Math.abs(x - local.x) < 8 && Math.abs(z - local.z) < 8;
+        return column(inside ? (x - local.x > 1 ? 12 : 10) : 0);
+      });
+      init();
+      await enterBuild('archer');
+      hover(FREE, 10);
+      service.handleBuildClick();
+
+      expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 12 }, plinthHeight: 2 });
+      // The footprint, and as roof and ground rule disagree, the eight probes around it
+      expect(terrain.raycastColumnSample).toHaveBeenCalledTimes(19 + 8);
+    });
+
+    it('tells in the console how the last footprint was decided', async () => {
+      vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      vi.spyOn(console, 'table').mockImplementation(() => undefined);
+      const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+      terrain.raycastColumnSample.mockImplementation((x: number) => ({ groundY: 5, topY: x - local.x > 1 ? 21.5 : 20 }));
+      init();
+      await enterBuild('archer');
+      hover(FREE, 20);
+
+      expect(window.__footprintDebug!()).toMatchObject({
+        tower: 'archer',
+        surfaceY: 20,
+        centreGroundY: 5,
+        centreTopY: 20,
+        rule: 'roof-column',
+        footY: 21.5,
+        plinthHeight: 1.5,
+        surroundingsGroundY: 'not probed',
+      });
+      service.dispose();
+      expect(window.__footprintDebug).toBeUndefined();
+    });
+
     describe('outer ring on level ground', () => {
       /** Archer: the centre and 6 inner probes, 12 on the outer ring */
       const INNER = 1 + 6;

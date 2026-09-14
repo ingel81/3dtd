@@ -52,13 +52,26 @@ export const PLINTH_CONFIG = {
   MAX_DROP: 30,
 
   /**
-   * The cursor surface this far (m) above the ground of its own column is a
-   * roof, a deck or a bridge. There every probe up to MAX_RISE may lift the
-   * tower: a ridge, the higher part of a stepped roof, also a dormer. Below
-   * it the cursor is on the ground and MAX_STEP applies. 2.5 m as the route
-   * grid's roof check (`roofRise`): a car is lower, a storey higher.
+   * The cursor surface this far (m) above the ground is on a roof, a deck or
+   * a bridge. There every probe up to MAX_RISE may lift the tower: a ridge,
+   * the higher part of a stepped roof, also a dormer. Below it the cursor is
+   * on the ground and MAX_STEP applies. The ground is that of the cursor's
+   * own column, or, where the photogrammetry has none under a roof, the
+   * ground on two opposite sides of the footprint (ROOF_PROBE_REACH).
+   * 2.5 m, the value of the route grid's roof check (`roofRise`): a car is
+   * lower, a storey higher.
    */
   ROOF_ABOVE_GROUND: 2.5,
+
+  /**
+   * How far (m) beyond the footprint the ground around it is probed, in
+   * eight directions, when only the roof rule would lift the tower and the
+   * cursor's column shows no ground below it. From anywhere on its roof the
+   * probes leave a building up to radius + 8 m deep on both sides (11.6 m
+   * for a 3.6 m footprint), from the middle of the roof one up to twice
+   * that. A slope falls on one side only and does not count as a roof.
+   */
+  ROOF_PROBE_REACH: 8,
 
   /**
    * On the ground: how much higher (m) a probe may lie than the neighbouring

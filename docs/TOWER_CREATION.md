@@ -858,10 +858,17 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   Sonst steht sein Fuß auf der höchsten Probe, die ihn heben darf (unten), und ein Sockel reicht
   bis zur tiefsten Probe. Proben mehr als 5 m über der Cursor-Fläche (`MAX_RISE`: Fassade, hohe
   Krone) oder mehr als 30 m darunter (`MAX_DROP`: Abbruch hinter einer Dachkante) zählen nicht.
-- **Dach oder Boden:** Liegt die Cursor-Fläche mehr als 2,5 m über dem Boden ihrer eigenen Säule
-  (`ROOF_ABOVE_GROUND`, wie `roofRise` im Routenraster), steht der Cursor auf einem Dach, Deck
-  oder einer Brücke. Dann hebt jede Probe den Tower: First eines Satteldachs, höherer Teil eines
-  gestuften Dachs, auch Gaube oder Schornstein. Sonst steht der Cursor am Boden, und nur was der
+- **Dach oder Boden:** Liegt die Cursor-Fläche mehr als 2,5 m über dem Boden (`ROOF_ABOVE_GROUND`,
+  derselbe Wert wie `roofRise` im Routenraster), steht der Cursor auf einem Dach, Deck oder einer
+  Brücke. Boden heißt: der Boden der eigenen Säule, oder, wo die Photogrammetrie unter einem Dach
+  keinen Boden hat (`groundY` gleich `topY`), der Boden auf zwei gegenüberliegenden Seiten der
+  Grundfläche. Dafür kommen acht Säulen rundherum dazu, 8 m jenseits der Grundfläche
+  (`ROOF_PROBE_REACH`, `footprintSurroundingOffsets`), geprobt nur, wenn Dach- und Boden-Regel
+  verschiedene Füße ergeben und die eigene Säule keinen Boden tief unten zeigt. Liegt bei einem
+  gegenüberliegenden Paar der Boden beider Säulen mehr als 2,5 m tiefer, ist es ein Dach; ein Hang
+  fällt nur auf einer Seite ab und bleibt Boden. Auf dem Dach hebt jede Probe den Tower: First
+  eines Satteldachs, höherer Teil eines gestuften Dachs, auch Gaube oder Schornstein. Sonst steht
+  der Cursor am Boden, und nur was der
   Boden allmählich erreicht, hebt ihn: Von der Mitte über benachbarte Proben darf jeder Schritt
   beliebig tief fallen, aber nur 0,5 m steigen (`MAX_STEP`), dazu die Steigung, die der Boden
   unter dem Cursor in Schrittrichtung hat. Die Steigung kommt aus gegenüberliegenden Proben des
@@ -873,8 +880,19 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   Tower steht darauf. Eine Böschung oder Terrassenmauer, die erst neben dem Cursor steiler als
   `MAX_STEP` ansteigt, hebt ihn nicht, ebenso wenig die Hänge einer Mulde, in der der Cursor
   liegt (beide Seiten steigen, keine Steigung). Auf einem Parkdeck gilt die Dach-Regel, dort
-  heben auch Autos. Sagt die Säule unter einem Dach keinen Boden darunter, gilt die
-  Boden-Regel; ein gleichmäßig geneigtes Dach hebt ihn dann über die Steigung trotzdem.
+  heben auch Autos. Zeigt die Säule unter einem Dach keinen Boden und erreichen die Säulen
+  rundherum den tieferen Boden auf keinen zwei gegenüberliegenden Seiten (mitten auf einem Dach,
+  das in jeder Richtung weiter als Radius + 8 m reicht), gilt die Boden-Regel: ein gleichmäßig
+  geneigtes Dach hebt ihn über die Steigung trotzdem, ein höherer Dachteil oder Aufbau nicht.
+  Umgekehrt gilt die Dach-Regel auf einem Damm, einer Kuppe oder einer Terrasse, die zu zwei
+  gegenüberliegenden Seiten binnen Radius + 8 m um mehr als 2,5 m abfällt; dort heben auch Autos
+  und Hecken.
+- **Prüfen im Spiel:** `__footprintDebug()` in der Konsole (Dev-Build) zeigt für die letzte
+  Validierung der Bauvorschau Cursor-Fläche, Boden und Oberkante der Cursor-Säule
+  (`centreGroundY`, `centreTopY`: gleich, wo die Säule unter dem Dach keinen Boden zeigt), die
+  Regel (`even`, `agree`: beide Regeln ergeben denselben Fuß, `roof-column`, `roof-surroundings`,
+  `ground`, `level-inner-ring`: der äußere Ring ist noch nicht geprobt), Fuß, Sockel, tiefste und
+  höchste Probe, die höchste, die die Boden-Regel erreicht, und den Boden der acht Säulen rundherum.
 - **Weg ins Spiel:** `command:place-tower` trägt `position.height` = Fuß (Oberkante des Sockels)
   und `plinthHeight`. Beides landet im `Tower` (`position.height`, `plinthHeight`). Alles, was
   von `position.height` ausgeht, beginnt damit am angehobenen Fuß: LOS-Registrierung

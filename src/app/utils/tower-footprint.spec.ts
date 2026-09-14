@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   FootprintColumn,
+  decideTowerFootprint,
   footprintInnerCount,
   footprintSampleOffsets,
+  footprintSurroundingOffsets,
   levelWithCursor,
   resolveTowerFootprint,
 } from './tower-footprint';
@@ -23,6 +25,18 @@ const columns = (top: Surface, ground?: Surface, radius = R): (FootprintColumn |
     const topY = top(x, z);
     return topY === null ? null : { groundY: ground?.(x, z) ?? topY, topY };
   });
+
+/**
+ * The surroundings probes resolveTowerFootprint may ask for, over the same
+ * surfaces as `columns`; a mock, to see whether it asked.
+ */
+const surroundings = (top: Surface, ground?: Surface, radius = R) =>
+  vi.fn(() =>
+    footprintSurroundingOffsets(radius).map(([x, z]): FootprintColumn | null => {
+      const topY = top(x, z);
+      return topY === null ? null : { groundY: ground?.(x, z) ?? topY, topY };
+    }),
+  );
 
 /** Highest and lowest top among the probes where `counts` holds. */
 const extremes = (top: Surface, counts: (x: number, z: number) => boolean = () => true, radius = R) => {
@@ -67,6 +81,20 @@ describe('footprintInnerCount', () => {
     expect(footprintInnerCount(10)).toBe(1 + 16);
     const inner = footprintSampleOffsets(10).slice(1, footprintInnerCount(10));
     expect(inner.every(([x, z]) => Math.abs(Math.hypot(x, z) - 5) < 1e-9)).toBe(true);
+  });
+});
+
+describe('footprintSurroundingOffsets', () => {
+  it('probes eight directions ROOF_PROBE_REACH beyond the footprint, each opposite the one four on', () => {
+    const offsets = footprintSurroundingOffsets(R);
+    expect(offsets).toHaveLength(8);
+    offsets.forEach(([x, z], k) => {
+      expect(Math.hypot(x, z)).toBeCloseTo(R + PLINTH_CONFIG.ROOF_PROBE_REACH, 9);
+      const [ox, oz] = offsets[(k + 4) % 8];
+      expect(x + ox).toBeCloseTo(0, 9);
+      expect(z + oz).toBeCloseTo(0, 9);
+    });
+    expect(footprintSurroundingOffsets(R)).toBe(offsets);
   });
 });
 
@@ -179,6 +207,38 @@ describe('resolveTowerFootprint', () => {
       expect(footprint.footY).toBeCloseTo(5.4, 9);
       expect(footprint.plinthHeight).toBeCloseTo(0.4, 9);
     });
+
+    it('does not climb a car beside the sidewalk, with the street level around', () => {
+      // The cursor on the sidewalk, a kerb above the street that starts 1.5 m east; a car on the street
+      const onCar = car(2.2, 4.4, -2.3, 2.3);
+      const top = (x: number, z: number) => (x < 1.5 ? 12.15 : onCar(x, z) ? 13.5 : 12);
+      const around = surroundings(top);
+      expect(resolveTowerFootprint(12.15, R, columns(top), around)).toEqual({ footY: 12.15, plinthHeight: 0 });
+      // The car makes the rules disagree: the ground around was asked, and it is no lower
+      expect(around).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays on the ground on a hillside, where the ground falls away on one side only', () => {
+      // 30 % up to the east, the ground 3.5 m lower beyond the footprint to the west; a car uphill
+      const onCar = car(2.2, 4.4, -2.3, 2.3);
+      const top = (x: number, z: number) => 10 + 0.3 * x + (onCar(x, z) ? 1.5 : 0);
+      const { max, min } = extremes(top, (x, z) => !onCar(x, z));
+      const around = surroundings(top);
+
+      const footprint = resolveTowerFootprint(10, R, columns(top), around);
+      expect(footprint.footY).toBeCloseTo(max, 9);
+      expect(footprint.plinthHeight).toBeCloseTo(max - min, 9);
+      expect(around).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks for the surroundings only when roof and ground rule give different feet', () => {
+      const around = surroundings(() => 0);
+      resolveTowerFootprint(12, R, columns(() => 12), around);
+      resolveTowerFootprint(10, R, columns((x) => 10 + 0.3 * x), around);
+      // Ground under the cursor's own column already says roof
+      resolveTowerFootprint(20, R, columns((x) => (x > 1 ? 21.5 : 20), () => 5), around);
+      expect(around).not.toHaveBeenCalled();
+    });
   });
 
   describe('on a roof', () => {
@@ -210,6 +270,54 @@ describe('resolveTowerFootprint', () => {
         footY: 13,
         plinthHeight: 1,
       });
+    });
+
+    describe('where the photogrammetry shows no ground under it', () => {
+      /** A building 16 m across around the tower with `roof` on top, the street at 0 m around it */
+      const building = (roof: (x: number, z: number) => number) => (x: number, z: number) =>
+        Math.abs(x) < 8 && Math.abs(z) < 8 ? roof(x, z) : 0;
+
+      it('stands on the higher part of a stepped roof, by the street on both sides', () => {
+        const top = building((x) => (x > 1 ? 12 : 10));
+        expect(resolveTowerFootprint(10, R, columns(top), surroundings(top))).toEqual({ footY: 12, plinthHeight: 2 });
+        // Its own column alone does not tell, the ground rule would keep it on the lower part
+        expect(resolveTowerFootprint(10, R, columns(top))).toEqual({ footY: 10, plinthHeight: 0 });
+      });
+
+      it('stands on the ridge of a gable roof with the cursor just below it', () => {
+        // Ridge 10 m high, 0.9 m from the cursor and turned 30° off the x axis, 56° down to the
+        // eaves at 2.5 m; the house 10 m deep and 16 m long
+        const across = (x: number, z: number) => x * Math.cos(Math.PI / 6) + z * Math.sin(Math.PI / 6) - 0.9;
+        const along = (x: number, z: number) => -x * Math.sin(Math.PI / 6) + z * Math.cos(Math.PI / 6);
+        const top = (x: number, z: number) =>
+          Math.abs(across(x, z)) <= 5 && Math.abs(along(x, z)) < 8 ? 10 - 1.5 * Math.abs(across(x, z)) : 0;
+        const { max, min } = extremes(top);
+
+        const decision = decideTowerFootprint(top(0, 0), R, columns(top), surroundings(top));
+        expect(decision.rule).toBe('roof-surroundings');
+        expect(decision.footprint.footY).toBeCloseTo(max, 9);
+        expect(decision.footprint.plinthHeight).toBeCloseTo(max - min, 9);
+        // The ridge caps the slope the ground rule reads, it would leave the tower in the roof
+        expect(decision.groundTop).toBeLessThan(max);
+      });
+    });
+  });
+
+  describe('decideTowerFootprint', () => {
+    it('names the rule the foot comes from', () => {
+      const street = () => 5;
+      const step = (x: number) => (x > 1 ? 21.5 : 20);
+      const inBuilding = (x: number, z: number) => (Math.abs(x) < 8 && Math.abs(z) < 8 ? step(x) : 5);
+      const onCar = car(2.2, 4.4, -2.3, 2.3);
+      const byCar = (x: number, z: number) => (onCar(x, z) ? 13.5 : 12);
+
+      expect(decideTowerFootprint(12, R, columns(() => 12)).rule).toBe('even');
+      expect(decideTowerFootprint(10, R, columns((x) => 10 + 0.3 * x)).rule).toBe('agree');
+      expect(decideTowerFootprint(20, R, columns(step, street)).rule).toBe('roof-column');
+      expect(decideTowerFootprint(20, R, columns(inBuilding), surroundings(inBuilding)).rule).toBe('roof-surroundings');
+      const onGround = decideTowerFootprint(12, R, columns(byCar), surroundings(byCar));
+      expect(onGround).toMatchObject({ rule: 'ground', bottom: 12, groundTop: 12, roofTop: 13.5 });
+      expect(onGround.surroundings).toHaveLength(8);
     });
   });
 });
