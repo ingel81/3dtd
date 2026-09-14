@@ -93,7 +93,7 @@ function makeEngine(): ThreeTilesEngine {
     getTerrainHeightAtGeo: () => 0,
     terrain: {
       // Höhe des gelben Overlays: flaches Gelände.
-      getGroundHeightEstimate: () => 0,
+      getStreetHeightEstimate: () => 0,
       measureStreetClearance: (
         x: number, z: number, ax: number, az: number, heights: readonly number[], max: number, onDeck = false,
       ): StationProbe => {

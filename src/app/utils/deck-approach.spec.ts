@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import type { Street, StreetNode } from '../interfaces/street-network-provider.interface';
+import { METERS_PER_DEGREE_LAT } from './geo-utils';
 import {
   DECK_APPROACH_M,
   DECK_APPROACH_RISE_M,
@@ -7,6 +9,7 @@ import {
   deckApproachY,
   deckApproaches,
   nearestDeckApproach,
+  streetDeckApproaches,
 } from './deck-approach';
 
 const p = (x: number, z: number) => ({ x, z });
@@ -82,5 +85,51 @@ describe('nearestDeckApproach', () => {
     expect(nearestDeckApproach([far], 0.4)).toBe(far);
     expect(nearestDeckApproach([far], 0.6)).toBeNull();
     expect(nearestDeckApproach([], 0.5)).toBeNull();
+  });
+});
+
+describe('streetDeckApproaches', () => {
+  /** A node `x` metres east and `z` north of (0, 0). */
+  const node = (id: number, x: number, z: number): StreetNode => ({ id, lat: z / METERS_PER_DEGREE_LAT, lon: x / METERS_PER_DEGREE_LAT });
+  const way = (id: number, nodes: StreetNode[], tags: Partial<Street> = {}): Street =>
+    ({ id, name: '', type: 'service', nodes, ...tags });
+
+  // The bridge way east from (0, 0) to (60, 0); past its east end ways of
+  // 7 and 2 m, then a road; stairs off the east end at a right angle; past
+  // its west end a way of 31 m, then a tunnel; a quay road under the bridge.
+  const n = {
+    west: node(1, 0, 0), east: node(2, 60, 0), a: node(3, 67, 0), b: node(4, 69, 0), c: node(5, 99, 0), d: node(6, 130, 0),
+    stairs1: node(7, 60, 15), stairs2: node(8, 60, 30), w: node(11, -31, 0), tunnel: node(12, -50, 0),
+    quay1: node(9, 30, -20), quay2: node(10, 30, 20),
+  };
+  const streets = [
+    way(100, [n.west, n.east], { bridge: 'yes', layer: 1 }),
+    way(200, [n.east, n.a]),
+    way(300, [n.a, n.b]),
+    way(400, [n.b, n.c, n.d], { type: 'secondary' }),
+    way(500, [n.east, n.stairs1, n.stairs2], { type: 'steps' }),
+    way(700, [n.w, n.west]),
+    way(800, [n.w, n.tunnel], { tunnel: 'yes' }),
+    way(600, [n.quay1, n.quay2]),
+  ];
+
+  it('runs from both ends of a bridge way along the ways that go straight on, as far as DECK_APPROACH_M', () => {
+    const found = streetDeckApproaches(streets);
+    const at = (p: StreetNode) => {
+      const hit = found.get(p.id);
+      return hit ? [hit.deckEnd.id, Math.round(hit.distanceM * 10) / 10] : null;
+    };
+    expect(at(n.east)).toEqual([2, 0]);
+    expect(at(n.a)).toEqual([2, 7]);
+    expect(at(n.b)).toEqual([2, 9]);
+    expect(at(n.c)).toEqual([2, 39]);
+    expect(at(n.d)).toBeNull();
+    expect(at(n.west)).toEqual([1, 0]);
+    expect(at(n.w)).toEqual([1, 31]);
+    // Turning off (the stairs down), into a tunnel, not connected (the quay road under the bridge).
+    expect(at(n.stairs1)).toBeNull();
+    expect(at(n.tunnel)).toBeNull();
+    expect(at(n.quay1)).toBeNull();
+    expect(at(n.quay2)).toBeNull();
   });
 });

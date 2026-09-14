@@ -448,6 +448,48 @@ describe('TerrainQueries', () => {
         expect(dev.queries.getGroundHeightEstimate(0, 0, prev.lat, prev.lon, next.lat, next.lon)).toBe(11);
       });
     });
+
+    describe('getStreetHeightEstimate()', () => {
+      // Weg nach Norden, die Querproben liegen auf der X-Achse.
+      const prev = geo(0, -10);
+      const next = geo(0, 10);
+      const at = (x: number, z: number, deck: Parameters<TerrainQueries['getStreetHeightEstimate']>[6]) => {
+        const { lat, lon } = geo(x, z);
+        return (queries: TerrainQueries) => queries.getStreetHeightEstimate(lat, lon, prev.lat, prev.lon, next.lat, next.lon, deck);
+      };
+
+      /** Kai auf 0 m, darüber ein Deck auf 9 m von x -5 bis 5 und z -5 bis 5. */
+      function quay() {
+        const world = setup();
+        world.addTile(floor(0, 40), 3, 2);
+        world.addTile(floor(9, 10), 3, 2);
+        return world;
+      }
+
+      it('nimmt auf einem Brücken-Way das Deck statt des Kais darunter', () => {
+        const { queries } = quay();
+        expect(at(0, 0, 'bridge')(queries)).toBeCloseTo(9, 6);
+        expect(at(0, 0, null)(queries)).toBeCloseTo(0, 6);
+      });
+
+      it('trägt das Deck auf einem Way hinter dem Brückenende weiter, wo die Oberkante zu der dort passt', () => {
+        const { queries } = quay();
+        // Brückenende bei z = -4, der Punkt 7 m weiter nördlich noch über dem Kai.
+        expect(at(0, 3, geo(0, -4))(queries)).toBeCloseTo(9, 6);
+        // Über dem offenen Kai hinter dem Deck: kein Deck, der Boden.
+        expect(at(0, 8, geo(0, -4))(queries)).toBeCloseTo(0, 6);
+        // Ohne Säule am Brückenende: wie überall.
+        expect(at(0, 3, geo(30, 30))(queries)).toBeCloseTo(0, 6);
+      });
+
+      it('lässt eine Straße auf Deckhöhe unter einer Krone am Boden', () => {
+        const { queries, addTile } = setup();
+        addTile(floor(0, 40), 3, 2);
+        // Krone 8 m über der Straße bei x = 10; das Brückenende auf der Straße.
+        addTile(floor(8, 2, 10, 0), 3, 2);
+        expect(at(10, 0, geo(10, -10))(queries)).toBeCloseTo(0, 6);
+      });
+    });
   });
 
   describe('raycastLineOfSight()', () => {

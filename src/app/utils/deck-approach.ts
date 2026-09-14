@@ -1,6 +1,8 @@
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { RouteCell } from './route-cell';
-import { DEG_TO_RAD } from './geo-utils';
+import type { Street, StreetNode } from '../interfaces/street-network-provider.interface';
+import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
+import { runsUnderCover } from './route-corridor';
 
 /**
  * Where a bridge deck carries on past the end of its OSM bridge way.
@@ -23,9 +25,11 @@ import { DEG_TO_RAD } from './geo-utils';
  * a tunnel. Stairs down to a quay road under the bridge, or a quay road at
  * grade, turn off and stay on their ground.
  *
- * Route cells find the stretch along their route (deckApproaches); cells,
- * the centre line ground and the corridor walk check take their heights by
- * the same rule (surfaceY, deckApproachY).
+ * Route cells find the stretch along their route (deckApproaches), the
+ * yellow street overlay along the street network (streetDeckApproaches);
+ * cells, the centre line ground, the corridor walk check and the overlay
+ * take their heights by the same rule (surfaceY, deckApproachY,
+ * continuesDeck).
  */
 
 /**
@@ -164,4 +168,88 @@ export function nearestDeckApproach<T extends { from: number; to: number }>(appr
     }
   }
   return nearest;
+}
+
+/**
+ * What a street point takes its height from (TerrainQueries.getStreetHeightEstimate):
+ * `bridge` on a bridge way, the bridge end on a way off one, null elsewhere.
+ */
+export type StreetDeck = 'bridge' | { lat: number; lon: number };
+
+/** A node of the street network on the stretch off a bridge end. */
+export interface StreetDeckApproach {
+  /** The end node of the bridge way. */
+  deckEnd: StreetNode;
+  /** Along the ways from there, metres. */
+  distanceM: number;
+}
+
+/**
+ * The nodes of `streets` on a stretch off the end of a bridge way, by node
+ * id: from both end nodes of every way with `bridge=*`, along the ways
+ * without, as long as they continue the bridge (continuesBridge), are no
+ * tunnel and the node lies within DECK_APPROACH_M. A node several stretches
+ * reach belongs to the nearest bridge end. The end nodes themselves are in
+ * it at 0 m, as the first node of the way off the bridge.
+ *
+ * The same stretch as deckApproaches along a route over those ways, except
+ * where a route leaves a bridge way at one of its middle nodes: the route
+ * carries the deck on there, the street network does not.
+ */
+export function streetDeckApproaches(streets: readonly Street[]): Map<number, StreetDeckApproach> {
+  const places = new Map<number, { street: Street; index: number }[]>();
+  for (const street of streets) {
+    street.nodes.forEach((node, index) => {
+      const list = places.get(node.id);
+      if (list) list.push({ street, index });
+      else places.set(node.id, [{ street, index }]);
+    });
+  }
+
+  const found = new Map<number, StreetDeckApproach>();
+  const open: { node: StreetNode; dx: number; dz: number; distanceM: number; deckEnd: StreetNode }[] = [];
+  const reach = (node: StreetNode, dx: number, dz: number, distanceM: number, deckEnd: StreetNode) => {
+    const known = found.get(node.id);
+    if (known && known.distanceM <= distanceM) return;
+    found.set(node.id, { deckEnd, distanceM });
+    open.push({ node, dx, dz, distanceM, deckEnd });
+  };
+
+  for (const street of streets) {
+    const nodes = street.nodes;
+    if (street.bridge === undefined || nodes.length < 2) continue;
+    const last = nodes.length - 1;
+    const first = offsetM(nodes[1], nodes[0]);
+    reach(nodes[0], first.x, first.z, 0, nodes[0]);
+    const end = offsetM(nodes[last - 1], nodes[last]);
+    reach(nodes[last], end.x, end.z, 0, nodes[last]);
+  }
+
+  while (open.length > 0) {
+    const { node, dx, dz, distanceM, deckEnd } = open.pop()!;
+    // Reached again from a nearer bridge end since.
+    if (found.get(node.id)!.distanceM < distanceM) continue;
+    for (const { street, index } of places.get(node.id) ?? []) {
+      if (street.bridge !== undefined || runsUnderCover(street)) continue;
+      for (const next of [street.nodes[index - 1], street.nodes[index + 1]]) {
+        if (next === undefined) continue;
+        const edge = offsetM(node, next);
+        if (!continuesBridge(dx, dz, edge.x, edge.z)) continue;
+        const length = Math.hypot(edge.x, edge.z);
+        const distance = distanceM + length;
+        if (distance > DECK_APPROACH_M) continue;
+        if (length > 0) reach(next, edge.x, edge.z, distance, deckEnd);
+        else reach(next, dx, dz, distance, deckEnd);
+      }
+    }
+  }
+  return found;
+}
+
+/** Metres east and north from `a` to `b`, flat around `a`. */
+function offsetM(a: StreetNode, b: StreetNode): { x: number; z: number } {
+  return {
+    x: (b.lon - a.lon) * METERS_PER_DEGREE_LAT * Math.cos(a.lat * DEG_TO_RAD),
+    z: (b.lat - a.lat) * METERS_PER_DEGREE_LAT,
+  };
 }

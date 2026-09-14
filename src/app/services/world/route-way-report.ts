@@ -4,6 +4,7 @@ import type { Street } from '../location/osm-street.service';
 import type { StreetEdgeIndex } from '../../utils/route-ways';
 import type { GeoDistance } from '../../utils/route-geometry';
 import { estimateStreetWidth, segmentLeft, segmentRight } from '../../utils/route-corridor';
+import { StreetDeck, deckApproaches, nearestDeckApproach } from '../../utils/deck-approach';
 import type { GlobalRouteGridService } from './global-route-grid.service';
 
 /** Smallest and largest value seen so far, as `5.0` or `5.0-12.0`, for the diagnostics table. */
@@ -70,7 +71,9 @@ export interface RouteWayRun {
  * Zerlegt jede gecachte Route in die OSM-Ways, über die sie läuft, und
  * vergleicht entlang der Mittellinie (alle 2 m) die Zellhöhe mit der Höhe,
  * die das gelbe Straßen-Overlay an derselben Stelle nimmt
- * (`getGroundHeightEstimate`, seitliches Minimum). Beantwortet am Ort eines
+ * (`getStreetHeightEstimate`: seitliches Minimum, auf einem Brücken-Way und
+ * seiner Fortsetzung das Deck; die Fortsetzung hier entlang der Route wie
+ * bei den Zellen, `deckApproaches`). Beantwortet am Ort eines
  * Routen-Befunds zwei Fragen: Läuft die Route dort über einen anderen Way
  * als die sichtbare Straße (Fußweg, Durchgang, Tunnel)? Und liegen die
  * Zellen dort auf Dach oder Baumkrone, während die Straße darunter liegt?
@@ -97,6 +100,12 @@ export function describeRouteWays(
 
   for (const [routeId, path] of paths) {
     const ways = index.match(path);
+    const flags = path.slice(0, -1);
+    const approaches = deckApproaches(
+      path.map((p) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0)),
+      flags.map((p) => p.onBridge === true),
+      flags.map((p) => p.inTunnel === true),
+    );
     let run: RouteWayRun | null = null;
     let spans = { corridor: new Span(), left: new Span(), right: new Span() };
 
@@ -147,7 +156,9 @@ export function describeRouteWays(
         const lon = a.lon + (b.lon - a.lon) * t;
         const local = engine.sync.geoToLocalSimple(lat, lon, 0);
         const cellY = grid.getGroundLocalYAt(local.x, local.z);
-        const streetY = engine.terrain.getGroundHeightEstimate(lat, lon, a.lat, a.lon, b.lat, b.lon);
+        const approach = a.onBridge ? null : nearestDeckApproach(approaches[i], t);
+        const deck: StreetDeck | null = a.onBridge ? 'bridge' : approach ? path[approach.end] : null;
+        const streetY = engine.terrain.getStreetHeightEstimate(lat, lon, a.lat, a.lon, b.lat, b.lon, deck);
         if (cellY === null || streetY === null) continue;
         const gap = cellY - streetY;
         if (run.maxCellAboveStreetM === null || gap > run.maxCellAboveStreetM) {

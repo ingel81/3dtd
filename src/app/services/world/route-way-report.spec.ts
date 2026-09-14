@@ -33,7 +33,7 @@ const route: RouteWaypoint[] = [
 
 const engine = {
   sync: { geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }) },
-  terrain: { getGroundHeightEstimate: () => 2 },
+  terrain: { getStreetHeightEstimate: () => 2 },
 } as unknown as ThreeTilesEngine;
 
 const describe_ = (cellY: number | null) =>
@@ -70,5 +70,33 @@ describe('describeRouteWays', () => {
     const rows = describe_(5);
     expect(rows.map((r) => r.maxCellAboveStreetM)).toEqual([3, 3, 3]);
     expect(rows[0].at).toBe('48.000000,9.000000');
+  });
+
+  it('compares with the deck on a bridge and on the ways that carry it on, as the overlay draws them', () => {
+    const decks: unknown[] = [];
+    const metric = {
+      sync: {
+        geoToLocalSimple: (lat: number, lon: number) => ({ x: (lon - 9) * M_PER_DEG_LON, y: 0, z: (lat - 48) * METERS_PER_DEGREE_LAT }),
+      },
+      terrain: {
+        getStreetHeightEstimate: (...args: unknown[]) => {
+          decks.push(args[6]);
+          return 2;
+        },
+      },
+    } as unknown as ThreeTilesEngine;
+    // North: 99 m over the bridge, 29 m off its end, 59 m more; samples at most 2 m apart.
+    const north = (m: number) => 48 + m / METERS_PER_DEGREE_LAT;
+    const path: RouteWaypoint[] = [
+      { lat: north(0), lon: 9, onBridge: true }, { lat: north(99), lon: 9 }, { lat: north(128), lon: 9 }, { lat: north(187), lon: 9 },
+    ];
+    describeRouteWays(new Map([['s1', path]]), new StreetEdgeIndex([]), metric, { isInitialized: () => true, getGroundLocalYAt: () => 2 }, flat);
+
+    expect(decks).toHaveLength(51 + 16 + 31);
+    expect(decks.slice(0, 51).every((d) => d === 'bridge')).toBe(true);
+    // The bridge end is the waypoint after the bridge, up to 40 m on: 29 m,
+    // then 6 samples of the last segment (0 to 10 of its 59 m).
+    expect(decks.slice(51, 67 + 6).every((d) => d === path[1])).toBe(true);
+    expect(decks.slice(67 + 6).every((d) => d === null)).toBe(true);
   });
 });
