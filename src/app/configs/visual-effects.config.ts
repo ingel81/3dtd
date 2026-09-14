@@ -101,9 +101,10 @@ export interface ScreenShakePreset {
  * so the overview camera (about 425 m) keeps about half.
  *
  * HQ damage shakes at most once per hqDamageMinIntervalMs of wall time,
- * unless a harder hit comes in: an ooze flowing in loses HP point by point,
- * at 4x about seven times a second, and shook the screen without a pause.
- * The same interval as the red leak edge (LeakVignetteComponent).
+ * unless a hit costing more HP than the last shake's comes in: an ooze
+ * flowing in loses HP point by point, at 4x about seven times a second, and
+ * shook the screen without a pause. The same interval as the red leak edge
+ * (LeakVignetteComponent).
  */
 export const SCREEN_SHAKE_CONFIG = {
   nearDistance: 40,  // m, camera to impact

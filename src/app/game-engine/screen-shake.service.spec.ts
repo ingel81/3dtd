@@ -67,7 +67,7 @@ describe('ScreenShakeService', () => {
     service.destroy();
   });
 
-  it('shakes for HQ damage at most once per interval, unless a harder hit comes in', () => {
+  it('shakes for HQ damage at most once per interval, unless a hit costing more HP comes in', () => {
     const { eventBus, engine, service } = setup();
     const { hqDamageMinIntervalMs } = SCREEN_SHAKE_CONFIG;
     const now = vi.spyOn(performance, 'now');
@@ -89,6 +89,32 @@ describe('ScreenShakeService', () => {
       [amplitude * 0.5, duration],
       [amplitude * 2, duration],
       [amplitude * 0.5, duration],
+    ]);
+    now.mockRestore();
+    service.destroy();
+  });
+
+  it('lets a hit through by the HP it costs, though its amplitude is clamped like the last one', () => {
+    const { eventBus, engine, service } = setup();
+    const now = vi.spyOn(performance, 'now');
+    const hurt = (ms: number, delta: number) => {
+      now.mockReturnValue(ms);
+      eventBus.emit({ type: 'health:changed', health: 50, delta });
+    };
+
+    // 1 HP and 5 HP both shake at the floor of 0.5; the 5 HP one still comes through
+    hurt(1000, -1);
+    hurt(1200, -5);
+    // No more than the last shake's 5 HP: held back
+    hurt(1400, -5);
+    hurt(1500, -3);
+    hurt(1600, -6);
+
+    const { amplitude, duration } = presets.hqDamage;
+    expect(engine.triggerScreenShake.mock.calls).toEqual([
+      [amplitude * 0.5, duration],
+      [amplitude * 0.5, duration],
+      [expect.closeTo(amplitude * 0.6), duration],
     ]);
     now.mockRestore();
     service.destroy();
