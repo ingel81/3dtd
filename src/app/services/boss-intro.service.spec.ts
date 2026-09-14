@@ -105,6 +105,8 @@ describe('BossIntroService', () => {
       getCamera: () => camera,
       getControls: () => controls,
       getTerrainHeightAtGeo: () => 0,
+      // Open ground: nothing in the way of the shot
+      terrain: { raycastLineOfSight: () => false, sampleColumn: () => null },
       sync: {
         getOrigin: () => ({ lat: 0, lon: 0, height: 100 }),
         geoToLocalSimple: (lat: number, lon: number) => new Vector3(lon * 1e5, 0, -lat * 1e5),

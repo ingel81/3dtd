@@ -123,6 +123,8 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
       getCamera: () => camera,
       getControls: () => controls,
       getTerrainHeightAtGeo: () => 0,
+      // Open ground: nothing in the way of the shot (obstacles: boss-intro.obstacles.scenario.spec.ts)
+      terrain: { raycastLineOfSight: () => false, sampleColumn: () => null },
       sync: {
         getOrigin: () => ({ lat: 0, lon: 0, height: 100 }),
         geoToLocalSimple: (lat: number, lon: number) => new Vector3(lon * 1e5, 0, -lat * 1e5),
