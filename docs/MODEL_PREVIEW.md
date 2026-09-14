@@ -77,11 +77,13 @@ interface PreviewConfig {
   Skinning mit veralteten Matrizen: bei zombie_v2 2 cm statt 1,7 m hoch, die
   Kamera zielt dann auf die Füße. Betroffen sind laut Messung (jsdom, alle
   Gegnertypen, 2026-09-14) zombie_v2, stone-golem, penguin, herbert,
-  zombie-soldier, rat, spider, mammoth, bear, dragon, mech und wraith. Ihre
-  `previewOffsetY` in `enemy-types.config.ts` sind gegen diese Messung
-  eingestellt (zombie_v2 seit 2026-09-14 mit 0,85); die Messung zu korrigieren
-  (`model.updateMatrixWorld(true)` vor der Box) verschiebt alle diese
-  Vorschauen und verlangt, ihre Offsets neu einzustellen.
+  zombie-soldier, rat, spider, mammoth, bear, dragon, mech und wraith. Elf
+  davon haben ein `previewOffsetY` in `enemy-types.config.ts`, eingestellt
+  gegen diese Messung (zombie_v2 seit 2026-09-14 mit 0,85); mech hat keine
+  Vorschau-Werte und läuft mit den Vorgaben aus `initEnemyOverrides()`
+  (Offset 0). Die Messung zu korrigieren (`model.updateMatrixWorld(true)` vor
+  der Box) verschiebt alle zwölf Vorschauen und verlangt, die elf Offsets neu
+  einzustellen.
 
 ### Animation & Caching
 - **Alle Modelle**: Werden via `AssetManager.loadModel()` gecached und geklont
