@@ -3,6 +3,7 @@ import type { CoordinateSync } from '../three-engine/renderers';
 import { CellSample, RouteCell } from './route-cell';
 import type { RouteCellSampler } from './route-cell-sampler';
 import type { RouteCellLattice } from './route-grid-builder';
+import type { WalkCheck, WalkJudgement } from './corridor-walk';
 
 /**
  * DIAGNOSTICS — temporary debug API for the route-grid height-anomaly hunt
@@ -110,12 +111,16 @@ export interface RouteCellProbe {
   /**
    * An enemy could walk there from the route centre line (cellWalkable,
    * corridor-walk.ts). False on a cell the corridor keeps although no enemy
-   * could walk to it: a finer tile showed it only once towers stood, or the
-   * centre line runs through the cell beside it. Null where that cannot be
-   * told (no sample of its own, a coarse tile, a centre line, deck or tunnel
+   * could walk to it: a finer tile showed it only once towers stood. Null
+   * where that cannot be told or would change nothing (no sample of its
+   * own, a coarse tile, a cell a centre line runs through, a deck or tunnel
    * cell) or without a cell.
    */
   walkable: boolean | null;
+  /** Why `walkable` is what it is (WalkCheck): `roof`, `step`, `centre line`, `coarse tile` and so on; null without a cell. */
+  walkCheck: WalkCheck | null;
+  /** Height over the ground of the centre line beside the cell that the walk check measures from (centreLineGround). */
+  overLineM: number | null;
   /** Height above the median of the sampled neighbours. */
   aboveNeighboursM: number | null;
   surface: RouteCell['surface'] | '-';
@@ -136,9 +141,10 @@ export function probeRouteCell(
   routeM: number,
   towerId: string | null,
   neighbourMedian: (cell: RouteCell) => number | null,
-  walkable: (cell: RouteCell) => boolean | null,
+  judgeWalk: (cell: RouteCell) => WalkJudgement,
 ): RouteCellProbe {
   const median = cell?.heightSampled ? neighbourMedian(cell) : null;
+  const walk = cell ? judgeWalk(cell) : null;
   return {
     x,
     z,
@@ -146,7 +152,9 @@ export function probeRouteCell(
     cell: cell !== undefined,
     state: cell?.sample.state ?? '-',
     heightM: cell ? round(cell.terrainHeight, 2) : null,
-    walkable: cell ? walkable(cell) : null,
+    walkable: walk?.walkable ?? null,
+    walkCheck: walk?.check ?? null,
+    overLineM: walk?.overLine != null ? round(walk.overLine, 2) : null,
     aboveNeighboursM: cell && median !== null ? round(cell.terrainHeight - median, 2) : null,
     surface: cell?.surface ?? '-',
     ground: cell && towerId ? answer(cell.towerVisibility.get(towerId)) : '-',
@@ -483,7 +491,7 @@ export function probeCellsAround(
   radius: number,
   towerId: string | null,
   neighbourMedian: (cell: RouteCell) => number | null,
-  walkable: (cell: RouteCell) => boolean | null,
+  judgeWalk: (cell: RouteCell) => WalkJudgement,
 ): RouteCellProbe[] {
   const { cells, lattice } = view;
   const rows: RouteCellProbe[] = [];
@@ -494,7 +502,7 @@ export function probeCellsAround(
       const cz = (gz + 0.5) * lattice.cellSize;
       if ((cx - x) ** 2 + (cz - z) ** 2 > radiusSq) continue;
       rows.push(probeRouteCell(
-        cells.get(lattice.key(gx, gz)), cx, cz, distanceToRoutes(view, cx, cz), towerId, neighbourMedian, walkable,
+        cells.get(lattice.key(gx, gz)), cx, cz, distanceToRoutes(view, cx, cz), towerId, neighbourMedian, judgeWalk,
       ));
     }
   }

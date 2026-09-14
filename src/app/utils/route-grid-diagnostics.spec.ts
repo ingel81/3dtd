@@ -67,10 +67,15 @@ describe('collectCentreLineCells', () => {
 describe('probeCellsAround', () => {
   it('lists the spots around a point, nearest to the route line first', () => {
     const route = [{ lat: 1, lon: -10 }, { lat: 1, lon: 10 }];
-    const rows = probeCellsAround(view([[0, 0]], [route]), 1, 3, 2, null, () => null, () => false);
+    const rows = probeCellsAround(
+      view([[0, 0]], [route]), 1, 3, 2, null, () => null, () => ({ walkable: false, check: 'step', overLine: 0.6049 }),
+    );
 
-    expect(rows[0]).toMatchObject({ x: 1, z: 1, routeM: 0, cell: true, state: 'stable', walkable: false });
-    expect(rows.find((r) => r.x === 1 && r.z === 3)).toMatchObject({ routeM: 2, cell: false, walkable: null });
+    expect(rows[0]).toMatchObject({
+      x: 1, z: 1, routeM: 0, cell: true, state: 'stable', walkable: false, walkCheck: 'step', overLineM: 0.6,
+    });
+    expect(rows.find((r) => r.x === 1 && r.z === 3))
+      .toMatchObject({ routeM: 2, cell: false, walkable: null, walkCheck: null, overLineM: null });
     expect(rows.every((r, k) => k === 0 || r.routeM >= rows[k - 1].routeM)).toBe(true);
   });
 });

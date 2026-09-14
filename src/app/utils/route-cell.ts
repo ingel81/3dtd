@@ -53,8 +53,9 @@ export interface RouteCell {
   /**
    * Centre of the grid spot on the route centre line next to the cell: the
    * point of its segment nearest to the cell, snapped to its grid spot.
-   * Equal to x, z for a cell the centre line runs through. The walk check
-   * of the corridor starts there (cellWalkable, corridor-walk.ts).
+   * Equal to x, z for most cells the centre line runs through; where it only
+   * clips a corner, the nearest point can lie in the spot beside it. The
+   * walk check of the corridor starts there (cellWalkable, corridor-walk.ts).
    */
   axisX: number;
   axisZ: number;
