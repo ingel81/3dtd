@@ -26,9 +26,9 @@ export interface PlacementResult {
   height: number;
 }
 
-// Colors for valid/invalid preview
-const HQ_COLOR = 0x22c55e;
-const SPAWN_COLOR = 0xef4444;
+// Colors for valid/invalid preview, the same for the HQ and a spawn: the
+// spawn's own red would not tell a valid place from an invalid one
+const VALID_COLOR = 0x22c55e;
 const INVALID_COLOR = 0xff0000;
 const HEIGHT_ABOVE_GROUND = 30;
 
@@ -62,9 +62,6 @@ export class MapPlacementService {
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
   private baseCoords: GeoPosition | null = null;
-
-  // Original marker color for valid state
-  private validColor = HQ_COLOR;
 
   // ========================================
   // PUBLIC API
@@ -111,13 +108,10 @@ export class MapPlacementService {
     // Set mode signal
     this.uiStore.mapPlacementMode.set(mode);
 
-    // Determine color
-    this.validColor = mode === 'hq' ? HQ_COLOR : SPAWN_COLOR;
-
     // Create preview marker (semi-transparent): the HQ diamond or a spawn portal
     this.previewMarker = mode === 'hq'
-      ? this.markerViz.createDiamondMarker({ color: this.validColor, size: 0.8, glowIntensity: 0.6 })
-      : this.markerViz.createPortalPreview(this.validColor);
+      ? this.markerViz.createDiamondMarker({ color: VALID_COLOR, size: 0.8, glowIntensity: 0.6 })
+      : this.markerViz.createPortalPreview(VALID_COLOR);
     this.previewMarker.name = 'placementPreview';
     this.previewMarker.visible = false;
 
@@ -278,12 +272,12 @@ export class MapPlacementService {
   // ========================================
 
   /**
-   * Colorize preview marker: valid color or red for invalid.
+   * Colorize preview marker: green for valid, red for invalid.
    */
   private colorizePreviewMarker(valid: boolean): void {
     if (!this.previewMarker) return;
 
-    const targetColor = valid ? this.validColor : INVALID_COLOR;
+    const targetColor = valid ? VALID_COLOR : INVALID_COLOR;
     const color = new Color(targetColor);
 
     this.previewMarker.traverse((obj) => {
