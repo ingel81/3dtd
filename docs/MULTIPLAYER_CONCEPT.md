@@ -1,6 +1,6 @@
 # Multiplayer-Konzept: PvE-Coop & PvP
 
-> **Status:** Konzept / Entscheidungsvorlage — noch kein Code.
+> **Status:** Konzept / Entscheidungsvorlage, noch kein Code.
 > **Stand:** 2026-08-26 · Branch `claude/multiplayer-pve-pvp-architecture-amu0x7`;
 > Commands, Korridor und Stellen im Code nachgeführt 2026-09-15
 >
@@ -11,12 +11,12 @@
 
 ## TL;DR
 
-**Empfehlung: Deterministisches Lockstep mit Command-Relay** — nicht State-Replication.
+**Empfehlung: Deterministisches Lockstep mit Command-Relay**, nicht State-Replication.
 Der Grund ist Entity-Scale: bei 10k+ Gegnern ist Zustandsübertragung
 bandbreitentechnisch tot (~3 MB/s), während das gesamte Spieler-Input-Volumen
 aus **14 Command-Events** besteht und pro Match unter 100 KB bleibt.
 
-**Drei harte Blocker** stehen dem heute im Weg — alle lösbar, aber keiner trivial:
+**Drei harte Blocker** stehen dem heute im Weg: alle lösbar, aber keiner trivial:
 
 1. **Tower-LOS kommt aus GPU-Readbacks gegen gestreamte 3D-Tiles.** Zwei Clients
    sind sich nicht einig, was ein Turm sieht. → Host-autoritative LOS-Masken.
@@ -25,12 +25,12 @@ aus **14 Command-Events** besteht und pro Match unter 100 KB bleibt.
 3. **Ungeseedete `Math.random()` in fünf Gameplay-Dateien.** → Seeded RNG.
    *(Der Wave-Director stand hier ursprünglich mit drin. Seit dem Wechsel auf
    `rule-director.ts` ist er reines TypeScript und nimmt seine Zufallsquelle
-   bereits als Parameter — siehe 2.3.)*
+   bereits als Parameter, siehe 2.3.)*
 
 **Günstigster erster Modus ist nicht Coop, sondern "Versus Race"** (beide
 verteidigen die *gleiche* Stadt gegen die *gleiche* Welle in getrennten Sims,
 verglichen wird nur Leak/Score). Der braucht **kein** Lockstep und umgeht damit
-alle drei Blocker — nur World-Snapshot und Wave-Schedule-Sharing.
+alle drei Blocker: nur World-Snapshot und Wave-Schedule-Sharing.
 
 ---
 
@@ -42,12 +42,12 @@ typischen Singleplayer-Codebase.
 | Asset | Fundstelle | Warum es zählt |
 |-------|-----------|-----------------|
 | **Fixed-Timestep-Sub-Step-Loop** | `managers/game-state/game-clock.ts`: `GameClock.FIXED_STEP_MS = 16.667` | Die wichtigste Voraussetzung für Lockstep ist schon da. Gameplay läuft bereits in festen Game-Time-Schritten, unabhängig von der Framerate. |
-| **Command-Bus mit 14 Player-Commands** | `game-event-bus.ts` + `game-commands.handler.ts` | Tower: `place-tower`, `sell-tower`, `upgrade-tower`, `set-targeting`; Welle und Spiel: `start-wave`, `restart-game`; Forschung: `start-research`, `cancel-research`, `queue-research`, `unqueue-research`; Fähigkeiten: `use-ability`; Held: `hire-hero`, `hero-move`, `hero-ammo` (beim Schreiben des Konzepts waren es sieben). Das ist die *komplette* Input-Oberfläche — genau das, was über die Leitung muss. |
+| **Command-Bus mit 14 Player-Commands** | `game-event-bus.ts` + `game-commands.handler.ts` | Tower: `place-tower`, `sell-tower`, `upgrade-tower`, `set-targeting`; Welle und Spiel: `start-wave`, `restart-game`; Forschung: `start-research`, `cancel-research`, `queue-research`, `unqueue-research`; Fähigkeiten: `use-ability`; Held: `hire-hero`, `hero-move`, `hero-ammo` (beim Schreiben des Konzepts waren es sieben). Das ist die *komplette* Input-Oberfläche: genau das, was über die Leitung muss. |
 | **Command-Handler ist bereits vom Game-Loop-Owner getrennt** | `game-commands.handler.ts` | Der Netzwerk-Layer hängt sich zwischen Bus und Handler, ohne Manager anzufassen. |
-| **Serialisierbares Straßennetz** | `pathfinding.worker.ts` — `SerializedStreetNetwork` | Das Format für den World-Snapshot existiert schon, inklusive Tests. |
-| **WebSocket-Client-Präzedenz** | `ai/training/training-session.ts` | Reconnect, Message-Typing, Lifecycle — als Vorlage für den Netzwerk-Client wiederverwendbar. |
+| **Serialisierbares Straßennetz** | `pathfinding.worker.ts`, `SerializedStreetNetwork` | Das Format für den World-Snapshot existiert schon, inklusive Tests. |
+| **WebSocket-Client-Präzedenz** | `ai/training/training-session.ts` | Reconnect, Message-Typing, Lifecycle: als Vorlage für den Netzwerk-Client wiederverwendbar. |
 | **Deterministische Bewegung** | `movement.component.ts` | Gegner folgen vorberechneten Geo-Pfaden mit Prefix-Summen. Gleicher Pfad + gleicher Step = gleiche Position. |
-| **Timescale-Konzept** | `trainingTimescale` | Muss im MP auf 1.0 gepinnt (oder mitsynchronisiert) werden — der Hebel dafür existiert. |
+| **Timescale-Konzept** | `trainingTimescale` | Muss im MP auf 1.0 gepinnt (oder mitsynchronisiert) werden: der Hebel dafür existiert. |
 
 ---
 
@@ -58,7 +58,7 @@ typischen Singleplayer-Codebase.
 `global-route-grid.ts` füllt `cell.towerVisibility` / `cell.airVisibility` über
 einen `readRenderTargetPixels`-Pass gegen die Tower-Shadow-Cubemap
 (`TowerShadowMapper`, gelesen über `sampleCubeAtPoint` in `utils/gpu-cube-resolve.ts`, siehe [LOS_PIPELINE.md](LOS_PIPELINE.md)). Der Combat-Hot-Path liest daraus
-O(1) — also entscheidet ein **GPU-Roundtrip gegen gerade geladene Tile-Geometrie**
+O(1), also entscheidet ein **GPU-Roundtrip gegen gerade geladene Tile-Geometrie**
 darüber, ob ein Turm schießen darf.
 
 Das ist pro Client verschieden: andere GPU, andere Tile-LOD zum Zeitpunkt des
@@ -69,7 +69,7 @@ auseinander.
 Beim `place-tower`-Command rechnet **nur der Host** die Cubemap + Readback und
 schickt die resultierende Maske mit dem bestätigten Command mit. Alle Clients
 übernehmen sie, statt lokal zu samplen. Die lokale Preview beim Bauen bleibt
-erlaubt — sie ist unverbindlich.
+erlaubt: sie ist unverbindlich.
 
 Bandbreite: Ein Turm mit 100 m Range deckt im 2-m-Grid (`CELL_SIZE = 2`,
 Korridor je Seite bis 7 m, `maxHalfWidth`) größenordnungsmäßig ein paar tausend Zellen ab, 2 Bit
@@ -91,7 +91,7 @@ aber nicht mehr die Simulation.
 
 Größe: 3 km Route × bis 14 m Korridor (je Seite bis 7 m, gemessen, siehe
 [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md)) / 4 m² ≈ bis 10k Korridorzellen, plus
-Tower-Radius-Zellen — realistisch 20–50k Zellen. Als Int16-Delta in cm:
+Tower-Radius-Zellen: realistisch 20–50k Zellen. Als Int16-Delta in cm:
 **40–100 KB roh, gzip ~15–30 KB.** Einmaliger Download beim Join.
 
 Netter Nebeneffekt: Das entschärft die in `TODO.md` gelisteten
@@ -101,7 +101,7 @@ Stale-LOS-Bugs, weil Höhen nach dem Seal nicht mehr still wandern.
 
 > **Stand 2026-09-07: Dieser Blocker ist weitgehend entfallen.** Der
 > Wave-Director ist seit dem Wechsel auf `ai/core/rule-director.ts` kein
-> neuronales Netz mehr, sondern eine Regelfunktion — reines TypeScript, keine
+> neuronales Netz mehr, sondern eine Regelfunktion: reines TypeScript, keine
 > WASM-Backends, keine Float-Divergenz zwischen Clients. Der ursprüngliche Text
 > steht darunter, weil die Begründung für den Command-Broadcast weiterhin
 > stichhaltig ist, nur nicht mehr zwingend.
@@ -115,7 +115,7 @@ Gameplay-relevante `Math.random()`-Aufrufe (der Rest ist VFX und darf bleiben):
 | `entities/enemy.entity.ts` | `scheduleNextRandomSound`, `playRandomSound`, `refillRandomSoundsQueue`, `scheduleNextPoolSound` | Audio-Timing, Shuffle |
 | `ai/core/spawn-schedule-builder.ts` | `getDelay` (`delayVariation`), `buildRandom` | Delay-Jitter, Shuffle |
 | `ai/core/rule-director.ts` | `RuleDirector.decide` | Template-Wahl und Faktor-Jitter |
-| `ai/core/gate-controller.ts` | — | keiner: rein arithmetisch, kein RNG |
+| `ai/core/gate-controller.ts` | – | keiner: rein arithmetisch, kein RNG |
 
 **Lösung:** Ein `DeterministicRng` (mulberry32/xorshift128, seed pro Match aus
 dem Room) wird injiziert; VFX/Audio behalten `Math.random()`.
@@ -131,7 +131,7 @@ vergangener Wellen, ist also deterministisch, sobald diese Wellen es sind.
 und wäre tatsächlich nicht synchronisierbar (WASM- vs. WebGPU-Backend liefern
 unterschiedliche Floats). Das ist im Mehrspielerbetrieb kein Problem, sondern
 eine Regel: **Modell im MP gesperrt.** Falls er dort je gebraucht wird, gilt die
-alte Lösung weiter — der Host läuft die Inferenz und broadcastet den fertigen
+alte Lösung weiter: der Host läuft die Inferenz und broadcastet den fertigen
 Spawn-Schedule als Command.
 
 ### 2.4 Restrisiko: Float-Determinismus über Browser hinweg
@@ -144,7 +144,7 @@ Zwei Wege:
 - **Sauber:** Gameplay-Distanzen auf die lokale Ebenen-Projektion umstellen
   (`METERS_PER_DEGREE_LAT` ist teilweise schon da) und Trig aus dem Sim-Pfad
   verbannen.
-- **Pragmatisch (Empfehlung für v1):** "Soft Lockstep" — Divergenz per
+- **Pragmatisch (Empfehlung für v1):** "Soft Lockstep": Divergenz per
   Checksum erkennen und mit einem Host-Snapshot korrigieren, statt sie
   auszuschließen. Bei einem TD fällt eine 5-cm-Abweichung niemandem auf,
   solange sie nicht kumuliert.
@@ -157,7 +157,7 @@ Zwei Wege:
 |---|---|---|
 | Bandbreite bei 10k Gegnern | ~0 (nur bei Spieleraktion) | 10k × 16 B × 20 Hz ≈ **3,2 MB/s** |
 | Latenz-Toleranz | Hoch (TD ist kein Twitch-Game, 150 ms Input-Delay unsichtbar) | Braucht Interpolation/Prediction |
-| Determinismus nötig | **Ja** — die drei Blocker oben | Nein |
+| Determinismus nötig | **Ja**: die drei Blocker oben | Nein |
 | Cheat-Resistenz v1 | Schwach (Divergenz-Detection fängt naive Cheats) | Ebenfalls schwach ohne echten Server |
 | Rejoin | Braucht Full-State-Snapshot | Kommt gratis |
 
@@ -181,7 +181,7 @@ Command von Spieler A zum Zeitpunkt T
   → Ausführung bei allen exakt an netTick T+3   (≈ 200 ms Input-Delay)
 ```
 
-200 ms Verzögerung beim Turmbau ist in einem TD nicht wahrnehmbar — die
+200 ms Verzögerung beim Turmbau ist in einem TD nicht wahrnehmbar: die
 Bauanimation kaschiert es vollständig. Der Delay kann dynamisch an den
 schlechtesten RTT im Raum angepasst werden.
 
@@ -201,7 +201,7 @@ nextSubStep(): boolean {
 
 `mustStallAt` ist `true`, solange nicht alle Peers ihre Inputs (auch leere) für
 den nächsten Net-Tick bestätigt haben. Ein hängender Client bremst damit den
-Raum — deshalb: Host darf nach Schwellwert (z. B. 3 s) droppen, Rejoin über
+Raum: deshalb: Host darf nach Schwellwert (z. B. 3 s) droppen, Rejoin über
 Full-Snapshot.
 
 ### 4.3 Command-Pipeline
@@ -223,12 +223,12 @@ GameCommandsHandler  (unverändert)
 ```
 
 Wichtig: Auch der lokale Spieler geht durch den Relay ("delayed input"). Nur so
-sind alle Clients in derselben Ausführungsreihenfolge — Client-Side-Prediction
+sind alle Clients in derselben Ausführungsreihenfolge: Client-Side-Prediction
 für Bauplatzierung lohnt den Aufwand hier nicht.
 
 ### 4.4 World-Snapshot ("Room-Welt")
 
-Beim Room-Erstellen produziert der Host ein Paket, das alle Joiner laden —
+Beim Room-Erstellen produziert der Host ein Paket, das alle Joiner laden,
 statt selbst Overpass/Nominatim zu fragen (Overpass liefert nicht garantiert
 identische Daten, und die Rate-Limits werden mit mehreren Clients unangenehm):
 
@@ -246,7 +246,7 @@ WorldSnapshot {
 `balanceHash` ist wichtig: Ein Client mit anderer Version der Tower-/Enemy-Configs
 divergiert sofort. Beim Join gegen den Room-Hash prüfen, sonst ablehnen.
 
-Google-3D-Tiles lädt jeder Client selbst — rein visuell, kein Gameplay-Input
+Google-3D-Tiles lädt jeder Client selbst: rein visuell, kein Gameplay-Input
 (nach dem World Seal). API-Key-Nutzung pro Client ist hier der zu klärende
 Kosten-/ToS-Punkt, kein technischer.
 
@@ -261,23 +261,23 @@ hash( gameTick, credits[], baseHealth, towerCount,
 
 Bei Abweichung: Host schickt Full-State-Snapshot, abweichender Client lädt neu.
 Das ist gleichzeitig **das Debug-Werkzeug**, das die ganze Umstellung überhaupt
-handhabbar macht — ohne Checksums sucht man Divergenzen blind.
+handhabbar macht: ohne Checksums sucht man Divergenzen blind.
 
 ---
 
 ## 5. Spielmodi
 
-### Modus A — "Versus Race" (PvP, gespiegelt) · **billigster Einstieg**
+### Modus A: "Versus Race" (PvP, gespiegelt) · **billigster Einstieg**
 
 Beide Spieler verteidigen dieselbe Stadt gegen denselben Wellen-Schedule, aber
 in **getrennten lokalen Simulationen**. Verglichen wird nur: wer hält länger,
 wer leakt weniger, wer hat mehr Score.
 
-- **Kein Lockstep, keine Tick-Barriere, keine Checksums.** Divergenz ist egal —
+- **Kein Lockstep, keine Tick-Barriere, keine Checksums.** Divergenz ist egal:
   niemand sieht die Sim des anderen.
 - Braucht nur: World-Snapshot-Sharing + gemeinsamer Wave-Schedule + Score-Kanal.
 - Umgeht **alle drei Determinismus-Blocker.**
-- Ausbaustufe: **"Send a Rush"** — Gold ausgeben, um eine Extra-Gruppe in die
+- Ausbaustufe: **"Send a Rush"**: Gold ausgeben, um eine Extra-Gruppe in die
   Welle des Gegners zu injizieren (Klassiker aus TD-Wars). Kommt als
   zusätzlicher Command-Typ durch denselben Kanal.
 - Optional: kleines "Ghost"-Overlay mit HQ-HP und Wave des Gegners.
@@ -285,7 +285,7 @@ wer leakt weniger, wer hat mehr Score.
 Das ist der Modus, den man zuerst baut. Er ist spielbar, bevor irgendein
 Determinismus-Umbau angefasst wurde.
 
-### Modus B — Coop-PvE (2–4 Spieler, geteilte Karte)
+### Modus B: Coop-PvE (2–4 Spieler, geteilte Karte)
 
 Alle bauen auf derselben Stadt, gemeinsames HQ.
 
@@ -307,14 +307,14 @@ Großer Refactor-Punkt: `credits` ist heute ein einzelnes Signal in
 Credits bucht. Muss zu `players: Map<PlayerId, PlayerEconomy>`
 werden, wobei Singleplayer schlicht ein Spieler mit `localPlayerId` ist.
 
-### Modus C — Asymmetrisch: Angreifer vs. Verteidiger · **das eigentlich spannende**
+### Modus C: Asymmetrisch: Angreifer vs. Verteidiger · **das eigentlich spannende**
 
 Ein Spieler baut Türme. Der andere **ist der Wave-Director**: kauft von einem
 Angriffsbudget Gegnergruppen, wählt Zusammensetzung, Spawn-Punkt und Timing.
 
 Der Clou: **Die Action-Space dafür existiert bereits.** Der Wave-Director
 arbeitet in `ai/core/` (`rule-director.ts`, Templates, `spawn-schedule-builder.ts`) genau mit diesen Größen (Range-Based Templates,
-Spawn-Schedules, Constraints — siehe `docs/PHASE_5.11_RANGES.md`). Ein
+Spawn-Schedules, Constraints, siehe `docs/PHASE_5.11_RANGES.md`). Ein
 Angreifer-UI ist im Kern ein Human-Frontend für die gleiche Action-Space, mit
 den gleichen Constraints als Balance-Leitplanke.
 
@@ -323,7 +323,7 @@ Balance-Maßstab ("schlägst du die AI auf Level 5?"). Seit 2026-09-07 ist das d
 Regel-Director; das trainierte Modell ist nur noch ein Opt-in im Debug-Fenster
 ([AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md)).
 
-Netzwerktechnisch ist das der einfachste PvP-Modus überhaupt — der Angreifer
+Netzwerktechnisch ist das der einfachste PvP-Modus überhaupt: der Angreifer
 schickt Wave-Schedules, ansonsten läuft eine einzige Sim beim Verteidiger.
 Der Angreifer ist ein Zuschauer mit Kaufmenü. Kein Lockstep nötig, wenn der
 Verteidiger-Client autoritativ ist.
@@ -340,12 +340,12 @@ Das heute gebaute Replay der letzten Welle ist eine Präsentations-Aufnahme, kei
 Re-Simulation, und braucht nichts davon ([REPLAY.md](REPLAY.md)).
 
 1. `DeterministicRng` + Injection in die Gameplay-Dateien aus 2.3
-2. World Seal: `terrainHeight`-Freeze + Serialisierung — `utils/global-route-grid.ts`
-3. Voller Game-State-Serializer (für Rejoin/Resync) — fällt mit Save/Load zusammen
+2. World Seal: `terrainHeight`-Freeze + Serialisierung: `utils/global-route-grid.ts`
+3. Voller Game-State-Serializer (für Rejoin/Resync), fällt mit Save/Load zusammen
 4. Checksum-Funktion + Divergenz-Log
 
 **Netzwerk-Layer (neu, `src/app/net/`)**
-5. `NetworkClient` (WS, Reconnect) — Vorlage: `ai/training/training-session.ts`
+5. `NetworkClient` (WS, Reconnect), Vorlage: `ai/training/training-session.ts`
 6. `NetworkCommandInterceptor` + `NetworkCommandQueue` (Tick-Stempel, stabile Ordnung)
 7. Tick-Barriere in `GameClock.nextSubStep()` (`managers/game-state/game-clock.ts`)
 8. `WorldSnapshot`-Serializer/Loader
@@ -371,13 +371,13 @@ Re-Simulation, und braucht nichts davon ([REPLAY.md](REPLAY.md)).
 
 | Baustein | Empfehlung | Alternative |
 |----------|-----------|-------------|
-| Transport | **WebSocket-Relay** | WebRTC DataChannel: spart Server-Traffic, braucht aber trotzdem Signaling **und** TURN — mehr Teile, nicht weniger |
+| Transport | **WebSocket-Relay** | WebRTC DataChannel: spart Server-Traffic, braucht aber trotzdem Signaling **und** TURN: mehr Teile, nicht weniger |
 | Server | Node/Bun + `ws`, ~500 LOC für v1 | Cloudflare Durable Objects / PartyKit: Room-Modell out of the box, praktisch kostenlos bei kleiner Nutzerzahl |
 | Snapshot-Ablage | Über den Room-Server (ein paar zehn KB) | Object-Storage bei größeren Welten |
 | Identität | **Room-Code, keine Accounts** in v1 | Persistente Profile/Ranglisten brauchen echtes Backend + DSGVO-Betrachtung |
-| Anti-Cheat | v1: Vertrauen + Divergenz-Detection | Echter Schutz erst mit server-autoritativer Sim — bewusst out of scope |
+| Anti-Cheat | v1: Vertrauen + Divergenz-Detection | Echter Schutz erst mit server-autoritativer Sim: bewusst out of scope |
 
-Das kollidiert mit "kein Backend im Spiel-Client" aus `CLAUDE.md` — das ist die
+Das kollidiert mit "kein Backend im Spiel-Client" aus `CLAUDE.md`: das ist die
 grundlegende Architekturentscheidung, die hier bewusst getroffen werden muss.
 Der Relay bleibt aber logikfrei: Das Spiel läuft weiterhin komplett im Client.
 
@@ -389,25 +389,25 @@ Der Relay bleibt aber logikfrei: Das Spiel läuft weiterhin komplett im Client.
 |-------|--------|---------|----------------|
 | **0** | Relay-Server, Lobby, World-Snapshot-Sharing | Zwei Clients in derselben Welt | S–M |
 | **1** | **Versus Race** + Send-a-Rush | Erster spielbarer PvP-Modus, ohne Determinismus-Umbau | S |
-| **2** | Determinismus-Fundament (RNG, World Seal, Serializer, Checksums) | Auch SP-Gewinn: Replays, reproduzierbare Bugs, sauberes AI-Training | **L — das Herzstück** |
+| **2** | Determinismus-Fundament (RNG, World Seal, Serializer, Checksums) | Auch SP-Gewinn: Replays, reproduzierbare Bugs, sauberes AI-Training | **L, das Herzstück** |
 | **3** | Lockstep + Per-Spieler-Ökonomie + Besitz → **Coop-PvE** | Der Modus, den die meisten erwarten | L |
 | **4** | **Angreifer vs. Verteidiger** über die Wave-Director-Action-Space | Der eigenständigste Modus, hohe Wiederverwendung | M |
 
-Phase 2 ist der eigentliche Brocken — und der einzige Teil, der sich auch dann
+Phase 2 ist der eigentliche Brocken, und der einzige Teil, der sich auch dann
 lohnt, wenn Multiplayer nie kommt.
 
 ---
 
 ## 9. Offene Entscheidungen
 
-1. **Backend ja/nein** — kippt eine Kernprämisse des Projekts (siehe 7).
+1. **Backend ja/nein**: kippt eine Kernprämisse des Projekts (siehe 7).
 2. **Google-3D-Tiles-Kosten und ToS** bei mehreren gleichzeitigen Clients pro
    Match. Rein wirtschaftlich/rechtlich, nicht technisch.
 3. **Wie streng?** Hartes Lockstep (Trig aus dem Sim-Pfad verbannen) vs. Soft
    Lockstep mit Resync. Empfehlung: soft starten, bei Bedarf härten.
-4. **Spielerzahl-Obergrenze im Coop** — die Tick-Barriere macht jeden zusätzlichen
+4. **Spielerzahl-Obergrenze im Coop**: die Tick-Barriere macht jeden zusätzlichen
    Spieler zu einem potenziellen Bremsklotz. 4 ist ein vernünftiges Limit.
-5. **Wave-Director im MP:** *entschieden durch den Wechsel auf den Regel-Director* —
+5. **Wave-Director im MP:** *entschieden durch den Wechsel auf den Regel-Director*:
    er läuft auf jedem Client identisch, sobald er die geseedete Zufallsquelle
    bekommt. Der ONNX-Pfad bleibt im MP gesperrt.
 6. **Performance-Budget:** Der Client rendert heute schon am Limit. Ein zweiter
@@ -418,7 +418,7 @@ lohnt, wenn Multiplayer nie kommt.
 
 ## 10. Empfehlung in einem Satz
 
-Mit **Phase 0 + 1 (Versus Race)** anfangen — das ist in überschaubarer Zeit
+Mit **Phase 0 + 1 (Versus Race)** anfangen: das ist in überschaubarer Zeit
 spielbar, beweist die Infrastruktur und braucht keinen der drei
 Determinismus-Blocker gelöst. **Phase 2** danach als eigenständiges
 Engine-Projekt fahren, weil es unabhängig vom Multiplayer wertvoll ist. Coop
@@ -426,35 +426,35 @@ erst, wenn Checksums grün bleiben.
 
 ---
 
-# Teil II — Das volle Programm: echter Server
+# Teil II: Das volle Programm: echter Server
 
 > **Entscheidung gefallen (2026-08-26): Die Simulation bleibt vollständig im
-> Client.** Der Server vermittelt, verwaltet und überwacht — er rechnet nicht.
+> Client.** Der Server vermittelt, verwaltet und überwacht: er rechnet nicht.
 > Damit sind die Stufen S3/S4 aus Abschnitt 13 **verworfen**, und die
 > Occlusion-Grundsatzfrage aus 11.2 ist **nicht mehr blockierend** (siehe
 > Teil III, Abschnitt 21). Teil II bleibt als Bewertung der verworfenen
-> Alternative stehen — die Aufwandsgegenüberstellung ist weiterhin die
+> Alternative stehen: die Aufwandsgegenüberstellung ist weiterhin die
 > Begründung für die Entscheidung.
 
 
 > Nachtrag zur Frage "was bräuchte man für einen richtigen Server?".
-> Abschnitt 7 hatte server-autoritative Simulation bewusst ausgeklammert —
+> Abschnitt 7 hatte server-autoritative Simulation bewusst ausgeklammert:
 > hier steht, was sie tatsächlich kostet.
 
 "Server" meint zwei unabhängige Dinge, die oft vermischt werden:
 
-- **A — Autoritative Simulation:** Der Server rechnet das Spiel und ist die
+- **A, autoritative Simulation:** Der Server rechnet das Spiel und ist die
   Wahrheit. Löst Cheating.
-- **B — Online-Dienst:** Accounts, Matchmaking, Ladder, Replays, Live-Ops,
+- **B, Online-Dienst:** Accounts, Matchmaking, Ladder, Replays, Live-Ops,
   Betrieb. Löst "es fühlt sich nach Produkt an".
 
 Man braucht beides für das volle Programm, aber sie sind getrennt baubar und
-unterschiedlich teuer. B ist mehr Arbeit als A — und vor allem **dauerhafte**
+unterschiedlich teuer. B ist mehr Arbeit als A, und vor allem **dauerhafte**
 Arbeit.
 
 ---
 
-## 11. Teil A — Headless-Simulation
+## 11. Teil A: Headless-Simulation
 
 ### 11.1 Die gute Nachricht
 
@@ -465,7 +465,7 @@ Die Sim ist deutlich näher an lauffähig-in-Node als erwartet:
 | `entities/`, `game-components/` | **keine** Three.js-Importe | läuft sofort in Node |
 | `managers/enemy|tower|projectile` | nur `Vector3` aus three | reine Mathe, kein WebGL nötig |
 | `managers/*` | nur `signal` aus `@angular/core` | funktioniert in Node; sauberer wäre ein 30-Zeilen-Signal-Shim |
-| `game-state.manager.ts` | `Injectable`/`inject`/`effect` | einziger echter DI-Knoten — auf Konstruktor-Injektion umbauen |
+| `game-state.manager.ts` | `Injectable`/`inject`/`effect` | einziger echter DI-Knoten: auf Konstruktor-Injektion umbauen |
 | `utils/global-route-grid.ts` | `CoordinateSync`, `ColumnSampler`, `gpu-cube-resolve` | **die Bruchstelle** |
 
 Es blockieren also drei konkrete Dinge, nicht "das ganze Rendering":
@@ -473,12 +473,12 @@ Es blockieren also drei konkrete Dinge, nicht "das ganze Rendering":
 1. **Angular-DI im `GameStateManager`** → Plain-TS-Konstruktor mit expliziter
    Verdrahtung. Der Client injiziert weiterhin per DI, der Server konstruiert
    direkt.
-2. **`tilesEngine`-Aufrufe** — schon `| null`, aber `advanceTurretAim()` ist
+2. **`tilesEngine`-Aufrufe**: schon `| null`, aber `advanceTurretAim()` ist
    gameplay-relevant (Turret-Alignment gated das Feuern, siehe
    `advanceTurretAim` in `three-tower.renderer.ts`, je Sub-Step aus dem
    `GameLoopFacadeService` aufgerufen). Muss aus dem Renderer in die Sim-Schicht
    wandern; der Renderer liest die Rotation dann nur noch ab.
-3. **Occlusion** — siehe 11.2. Das ist die eigentliche Entscheidung.
+3. **Occlusion**, siehe 11.2. Das ist die eigentliche Entscheidung.
 
 Struktureller Umbau: ein plattformneutrales `src/app/sim/` (oder eigenes
 Workspace-Paket), das Client **und** Server konsumieren. Kein Angular, kein
@@ -489,7 +489,7 @@ Three außer Vektor-Mathe, keine Browser-APIs.
 Der Server hat keine 3D-Tiles und keine GPU. Damit fällt die heutige
 LOS-Pipeline weg. Drei Wege:
 
-**Weg 1 — OSM-Gebäudemodell als Gameplay-Wahrheit** ← Empfehlung
+**Weg 1: OSM-Gebäudemodell als Gameplay-Wahrheit** ← Empfehlung
 
 `BuildingFootprint { id, type, levels, nodes }` wird **bereits geholt**
 (`services/location/osm-street.service.ts`) und gerendert
@@ -500,37 +500,37 @@ Straßennetz interpoliert.
 
 - Deterministisch, serverfähig, versionierbar, klein (ein paar hundert KB pro
   Stadt), CPU-günstig mit einem 2D-Index über die Grundrisse.
-- Löst gleichzeitig **alle drei Determinismus-Blocker aus Teil I** — der
+- Löst gleichzeitig **alle drei Determinismus-Blocker aus Teil I**: der
   World Seal wird zum bloßen Ausliefern des Gebäudemodells.
 - **Preis:** Gameplay-Sichtlinie weicht sichtbar von der Optik ab. Bäume,
   Brückenkonstruktionen, unregelmäßige Dächer, alles was OSM nicht kennt,
-  blockt dann nicht mehr — und `building:levels` fehlt in vielen Gegenden
+  blockt dann nicht mehr, und `building:levels` fehlt in vielen Gegenden
   (Default 2 im Code) und ist ohnehin nur eine Näherung.
 
 Das ist ein **Game-Design-Preis, kein technischer**: Man tauscht "Sichtlinie
 stimmt exakt mit dem Bild" gegen "Sichtlinie ist erklärbar, fair und überall
-gleich". Für kompetitives PvP ist das ohnehin die richtige Richtung — heute
+gleich". Für kompetitives PvP ist das ohnehin die richtige Richtung: heute
 kann derselbe Turm bei zwei Spielern unterschiedlich schießen, je nachdem
 welche Tile-LOD beim Bauen geladen war.
 
-**Weg 2 — Server rendert mit** (Headless-GL, SwiftShader oder GPU-Instanz)
+**Weg 2: Server rendert mit** (Headless-GL, SwiftShader oder GPU-Instanz)
 
 Technisch machbar, aber: Tiles-Traffic pro Match auf Serverseite,
 Google-ToS-Frage, GPU-Instanzen kosten ein Vielfaches, und die
 LOD-Nichtdeterminismus-Frage kommt durch die Hintertür zurück. **Nicht
 empfohlen.**
 
-**Weg 3 — Precompute-Service (Bake-Pipeline)**
+**Weg 3: Precompute-Service (Bake-Pipeline)**
 
 Ein Batch-Job baked pro Stadt einmal ein Höhen- und Occlusion-Feld aus den
 3D-Tiles und legt es in Object Storage. Server und Clients laden dasselbe
 Artefakt. Exakt passend zur Optik, deterministisch, ohne GPU zur Laufzeit.
-Kosten: Bake-Pipeline, Storage, Invalidierung bei Tile-Updates — und ein Match
+Kosten: Bake-Pipeline, Storage, Invalidierung bei Tile-Updates, und ein Match
 in einer ungebakten Stadt muss warten oder auf Weg 1 zurückfallen.
 
 **Realistischer Pfad: Weg 1 jetzt, Weg 3 später für Ranked-Karten.**
 
-### 11.3 Was der Server repliziert — nicht Entities
+### 11.3 Was der Server repliziert, nicht Entities
 
 Volle Entity-Replikation bleibt bei 10k Gegnern tot (Rechnung in Abschnitt 3).
 Der autoritative Server ist deshalb kein State-Broadcaster, sondern ein
@@ -542,13 +542,13 @@ Der autoritative Server ist deshalb kein State-Broadcaster, sondern ein
 - Clients simulieren und rendern weiterhin selbst.
 - Nur bei Divergenz: Full-Snapshot-Korrektur, im Wiederholungsfall Kick.
 
-Cheat-Erkennung heißt dann "Client weicht von der Serverwahrheit ab" — und das
+Cheat-Erkennung heißt dann "Client weicht von der Serverwahrheit ab", und das
 fängt genau die Klasse, die zählt: Gold, Baukosten, Platzierungsregeln,
 Reichweiten, Wellenmanipulation. Was es **nicht** fängt, sind reine
 Informations-Cheats (Wallhack-Äquivalente), weil jeder Client ohnehin den
 vollen Zustand kennt. Bei einem TD ist das akzeptabel.
 
-### 11.4 Serverkosten der Sim — eine Mess-, keine Schätzaufgabe
+### 11.4 Serverkosten der Sim: eine Mess-, keine Schätzaufgabe
 
 Die Sim ist single-threaded und läuft mit 60 Hz Game-Time. Ein Node-
 Worker-Thread pro Match, Matches pro vCPU muss **gemessen** werden. Die
@@ -556,7 +556,7 @@ Werkzeuge dafür existieren bereits im Repo:
 
 - `PerformanceProfilerService` misst die Sub-Step-Anteile getrennt
   (`GameStateManager.stepTimings`: `tProjectile`, `tCombat`, `tEvents`).
-- Der Bot-Modus mit `trainingTimescale` spielt ganze Matches im Zeitraffer —
+- Der Bot-Modus mit `trainingTimescale` spielt ganze Matches im Zeitraffer:
   ein 20-Minuten-Match bei 75× dauert 16 Sekunden.
 - `renderingEnabled = false` (Phase 5.14) trennt Sim-Zeit von Render-Zeit
   bereits sauber.
@@ -567,11 +567,11 @@ Spielgefühl vermuten lässt.
 
 ---
 
-## 12. Teil B — Der Dienst drumherum
+## 12. Teil B: Der Dienst drumherum
 
 | Baustein | Was konkret | Aufwand |
 |----------|-------------|---------|
-| **Identität** | OAuth über Google/Discord statt eigener Passwörter — spart Sicherheits- und DSGVO-Aufwand erheblich | S |
+| **Identität** | OAuth über Google/Discord statt eigener Passwörter: spart Sicherheits- und DSGVO-Aufwand erheblich | S |
 | **Persistenz** | Postgres (Profile, Matches, Ladder, Freunde), Object Storage (Snapshots, Replays) | M |
 | **Matchmaking** | Queue, ELO/Glicko, Regionswahl, Party-Handling | M |
 | **Replays** | Command-Log + Seed + Snapshot-Referenz = vollständiges Replay. **Fällt bei Lockstep gratis ab** und ist gleichzeitig Anti-Cheat-Beweismittel und Balance-Werkzeug | S |
@@ -582,12 +582,12 @@ Spielgefühl vermuten lässt.
 | **Sicherheit** | Token-Rotation, Rate-Limits, serverseitige Input-Validierung, DDoS-Schutz vor dem Room-Server | M |
 | **Recht & Betrieb** | DSGVO (AVV, Löschkonzept, Datenschutzerklärung), ToS, Namens-/Chat-Moderation | M, läuft nie aus |
 | **Google-3D-Tiles** | Kosten pro Client-Session und ToS in einem kommerziellen Multiplayer-Dienst | **größte unbekannte Außenabhängigkeit** |
-| **CI/CD & Lasttest** | Server-Pipeline, Staging, synthetische Last — **der `StrategyBot` ist bereits ein fertiger Lastgenerator** | S–M |
+| **CI/CD & Lasttest** | Server-Pipeline, Staging, synthetische Last: **der `StrategyBot` ist bereits ein fertiger Lastgenerator** | S–M |
 
 ### Der ehrliche Teil
 
 Teil B ist kein Feature, sondern Dauerbetrieb. Nach dem Launch frisst er
-kontinuierlich Zeit — Deploys, Missbrauch, Support, Kostenkontrolle — während
+kontinuierlich Zeit (Deploys, Missbrauch, Support, Kostenkontrolle), während
 am Spiel selbst nichts vorangeht. Das ist die eigentliche Entscheidung, nicht
 die Technikwahl.
 
@@ -597,10 +597,10 @@ die Technikwahl.
 
 | Stufe | Was der Server tut | Cheat-Schutz | Aufwand |
 |-------|--------------------|--------------|---------|
-| **S1 — Relay** (Teil I) | Nur Weiterleiten, Rooms, Tick-Stempel | keiner | S |
-| **S2 — Validierend** | Keine Sim, aber Regelprüfung: Gold, Baukosten, Cooldowns, Platzierungsregeln. Plus Seed, Wave-Schedules, LOS-Masken | **fängt naives Cheating fast vollständig** | M |
-| **S3 — Schatten-Sim** | Volle Sim als Wahrheit, Checksum-Vergleich, Snapshot-Korrektur | echte Autorität | L, **braucht die Occlusion-Entscheidung** |
-| **S4 — Voller Dienst** | Accounts, Ladder, Replays, Live-Ops, Betrieb | — | L, dauerhaft |
+| **S1: Relay** (Teil I) | Nur Weiterleiten, Rooms, Tick-Stempel | keiner | S |
+| **S2: Validierend** | Keine Sim, aber Regelprüfung: Gold, Baukosten, Cooldowns, Platzierungsregeln. Plus Seed, Wave-Schedules, LOS-Masken | **fängt naives Cheating fast vollständig** | M |
+| **S3: Schatten-Sim** | Volle Sim als Wahrheit, Checksum-Vergleich, Snapshot-Korrektur | echte Autorität | L, **braucht die Occlusion-Entscheidung** |
+| **S4: Voller Dienst** | Accounts, Ladder, Replays, Live-Ops, Betrieb | – | L, dauerhaft |
 
 **S2 ist das beste Preis-Leistungs-Verhältnis im ganzen Konzept:** rund
 90 % des realistischen Cheatings zu einem Bruchteil der Kosten einer
@@ -609,21 +609,21 @@ mit Preisgeld plant, kann bei S2 stehenbleiben.
 
 **Der eigentliche Fork im Projekt ist 11.2:** OSM-Gebäudemodell statt
 GPU-Occlusion als Gameplay-Wahrheit. Diese Entscheidung fällt einmal und
-bestimmt danach, ob S3 überhaupt erreichbar ist — sie ist gleichzeitig die
+bestimmt danach, ob S3 überhaupt erreichbar ist: sie ist gleichzeitig die
 Lösung für alle drei Determinismus-Blocker aus Teil I und für die
 Stale-LOS-Bugs in der `TODO.md`. Sie kostet aber die exakte Übereinstimmung
 von Sichtlinie und Stadtbild.
 
 ---
 
-# Teil III — Der Server, den wir tatsächlich bauen
+# Teil III: Der Server, den wir tatsächlich bauen
 
 > **Prämisse:** Die Simulation läuft auf jedem Client. Der Server ist
-> Vermittlung, Matchmaking, Verwaltung und Überwachung — **niemals Rechner**.
+> Vermittlung, Matchmaking, Verwaltung und Überwachung: **niemals Rechner**.
 > Das entspricht S1+S2 aus Abschnitt 13, ohne S3/S4.
 
 Der Leitsatz dahinter: **Der Server ist das Gedächtnis des Matches, nicht sein
-Gehirn.** Er ordnet, speichert und verteilt — und genau daraus ergeben sich
+Gehirn.** Er ordnet, speichert und verteilt, und genau daraus ergeben sich
 Fähigkeiten, die ein reiner Weiterleiter nicht hätte (Host-Migration,
 Rejoin, Replays, Desync-Forensik).
 
@@ -636,18 +636,18 @@ Serverprozess.
 
 | | **Server** | **Host-Client** | **Peer-Client** |
 |---|---|---|---|
-| Simulation | — | ja (wie alle) | ja |
-| Rendering | — | ja | ja |
-| Command-Reihenfolge & Tick-Nummern | **besitzt** | — | — |
-| RNG-Seed, Match-ID | **besitzt** | — | — |
+| Simulation | – | ja (wie alle) | ja |
+| Rendering | – | ja | ja |
+| Command-Reihenfolge & Tick-Nummern | **besitzt** | – | – |
+| RNG-Seed, Match-ID | **besitzt** | – | – |
 | World-Snapshot (Straßen, Routen, World Seal) | speichert & verteilt | **erzeugt** | lädt |
 | LOS-Masken beim Turmbau | speichert & verteilt | **rechnet (GPU)** | übernimmt |
 | Wave-Schedule (Regel-Director oder Curriculum) | speichert & verteilt | **rechnet** | übernimmt |
-| Regelprüfung der Commands | **führt aus** | — | — |
+| Regelprüfung der Commands | **führt aus** | – | – |
 | Checksum-Sammlung & Quorum | **führt aus** | meldet | meldet |
 | Match-Ergebnis, Ladder | **besitzt** | meldet | meldet |
 
-Der Host ist damit die einzige Stelle, an der GPU-abhängige Größen entstehen —
+Der Host ist damit die einzige Stelle, an der GPU-abhängige Größen entstehen,
 und weil der Server **jede** davon zwischenspeichert, sind sie ab dem Moment der
 Verteilung serverseitige Wahrheit. Das ist der Trick, der die
 Determinismus-Blocker aus Teil I entschärft, ohne dass der Server rechnen muss.
@@ -663,7 +663,7 @@ letzten vier machen daraus einen Dienst.
 - Verbindungsannahme, Auth-Token, Heartbeat, Reconnect-Fenster.
 - **Versions-Gate:** Client-Build-Hash **und** `balanceHash` (Fingerprint über
   `configs/`) müssen zum Room passen. Ein Client mit abweichenden
-  Tower-/Enemy-Configs divergiert sofort — hier abzulehnen ist billiger als
+  Tower-/Enemy-Configs divergiert sofort: hier abzulehnen ist billiger als
   jede spätere Desync-Analyse.
 - *Macht nicht:* eigene Passwörter. OAuth (Google/Discord) oder in v1 gar
   nichts außer einem anonymen Gast-Token.
@@ -677,7 +677,7 @@ letzten vier machen daraus einen Dienst.
 ### 15.3 Tick-Relay (Minimum, das Herzstück)
 - Nimmt Commands entgegen, stempelt `(netTick, playerId, seq)`, ordnet
   **deterministisch** (stabil nach `playerId`, dann `seq`) und fächert an alle
-  aus — inklusive an den Absender.
+  aus, inklusive an den Absender.
 - Verwaltet den Input-Delay (Default 3 Net-Ticks ≈ 200 ms) und passt ihn an den
   schlechtesten RTT im Raum an.
 - Sammelt leere Tick-Bestätigungen, erkennt hängende Clients, setzt
@@ -694,7 +694,7 @@ letzten vier machen daraus einen Dienst.
   Objekt von unter einem Megabyte.**
 
 ### 15.5 Validator ("Überwachung", Stufe S2)
-Führt ein **schlankes Spiegelmodell** des Matchzustands — Turmliste mit
+Führt ein **schlankes Spiegelmodell** des Matchzustands: Turmliste mit
 Besitzer und Level, Research-Stand, Gold-Ledger pro Spieler, Wellennummer,
 Phase. Das ist Buchhaltung, keine Simulation: es aktualisiert sich bei
 Command-Events (wenige pro Minute), nicht pro Frame.
@@ -711,7 +711,7 @@ Damit prüfbar:
   (Freischaltung per Forschung, Ladungen je Welle) und die Held-Commands
   (Anheuern gegen Credits, Befehl, Munition). Beide wären ebenso Buchhaltung.
 
-Nicht prüfbar (und das ehrlich benennen): alles, was aus der Sim kommt —
+Nicht prüfbar (und das ehrlich benennen): alles, was aus der Sim kommt:
 Reichweite, Sichtlinie, Schaden, Kill-Zuordnung. **Und damit auch die
 Gold-Einnahmen**, denn die entstehen aus Kills. Der Server kennt Ausgaben
 exakt, Einnahmen nur aus Client-Meldungen. Dagegen hilft nur 15.6.
@@ -719,7 +719,7 @@ exakt, Einnahmen nur aus Client-Meldungen. Dagegen hilft nur 15.6.
 ### 15.6 Desync-Wächter (Überwachung, Teil 2)
 - Sammelt alle 30 Net-Ticks die Client-Checksums (Abschnitt 4.5).
 - **Ab drei Spielern echte Autorität per Quorum:** Wenn 3 von 4 übereinstimmen,
-  ist der Ausreisser falsch — der Server ordnet einen Snapshot-Reload an, im
+  ist der Ausreisser falsch: der Server ordnet einen Snapshot-Reload an, im
   Wiederholungsfall Kick. Damit bekommt Coop echte Cheat-Resistenz, **ohne dass
   der Server simuliert.**
 - Bei zwei Spielern gibt es kein Quorum: dann entscheidet der Host, und das
@@ -738,7 +738,7 @@ exakt, Einnahmen nur aus Client-Meldungen. Dagegen hilft nur 15.6.
 ### 15.8 Telemetrie & Ops (Dienst)
 - Metriken: Ticks/s pro Room, Stall-Häufigkeit, RTT-Verteilung, Desync-Rate
   pro Client-Version, Abbruchgründe.
-- Admin-Sicht auf laufende Rooms — im Kern dasselbe wie das bestehende
+- Admin-Sicht auf laufende Rooms: im Kern dasselbe wie das bestehende
   Training-Dashboard.
 - Alerting auf Desync-Rate: Ein Anstieg nach einem Deploy bedeutet fast immer,
   dass eine Balance- oder Sim-Änderung den Determinismus gebrochen hat.
@@ -747,7 +747,7 @@ exakt, Einnahmen nur aus Client-Meldungen. Dagegen hilft nur 15.6.
 
 ## 16. Protokoll
 
-Ein einziger WebSocket pro Client. JSON reicht — das Volumen ist winzig; Binär
+Ein einziger WebSocket pro Client. JSON reicht: das Volumen ist winzig; Binär
 nur für Masken und Snapshot (als separater HTTP-Download, nicht durch den
 Socket).
 
@@ -792,17 +792,17 @@ UI muss das als "Kauf fehlgeschlagen" darstellen können, nicht als Absturz.
 ## 18. Der Command-Log ist die wichtigste Entscheidung
 
 Command-Log + Seed + Snapshot-Referenz sind zusammen **das vollständige
-Match**. Bei Lockstep fällt das ohne Zusatzaufwand an — es ist derselbe Strom,
+Match**. Bei Lockstep fällt das ohne Zusatzaufwand an: es ist derselbe Strom,
 den das Relay ohnehin durchreicht.
 
 Was daraus wird, kann später entschieden werden:
 - **Replay-Wiedergabe** im Client (kostet nur UI). Das heute gebaute Replay der
   letzten Welle ist eine Präsentations-Aufnahme ohne Nachrechnen
   ([REPLAY.md](REPLAY.md)), keine Wiedergabe aus dem Command-Log.
-- **Zuschauermodus** — ein Client, der den Tick-Strom live mitliest.
+- **Zuschauermodus**: ein Client, der den Tick-Strom live mitliest.
 - **Nachträgliche Verifikation** für Ranked: Ein Verifizierer spielt den Log
   nach und vergleicht das Ergebnis. Das braucht irgendwann doch eine
-  headless-fähige Sim — aber **asynchron, außerhalb des Matches, nur für die
+  headless-fähige Sim, aber **asynchron, außerhalb des Matches, nur für die
   Spitze der Ladder**, und ohne dass ein Live-Server je simulieren müsste.
 - **Balance-Analyse** über echte Matches statt nur über Bot-Läufe.
 
@@ -826,7 +826,7 @@ LOS-Masken, alle Wave-Schedules), ist der Host austauschbar:
 Einschränkung, die man kennen muss: Der neue Host rechnet künftige LOS-Masken
 auf **seiner** GPU mit **seinem** Tile-Ladezustand. Die Masken aus der ersten
 Hälfte des Matches stammen also von einer anderen Maschine als die aus der
-zweiten. Für die Konsistenz zwischen Clients ist das egal — alle bekommen
+zweiten. Für die Konsistenz zwischen Clients ist das egal: alle bekommen
 dieselben Masken. Es kann nur bedeuten, dass zwei baugleiche Türme
 unterschiedlich sehen, je nachdem wann sie gebaut wurden. Für Coop
 verschmerzbar, für Ranked-PvP ein Argument, den Host dort nicht zu wechseln
@@ -838,28 +838,28 @@ sondern das Match abzubrechen.
 
 **Sprache: TypeScript**, obwohl Python im Projekt etabliert ist
 (`training-backend/server.py`, mit Multi-Client-Handling und
-Broadcast — die Vorlage wäre da).
+Broadcast: die Vorlage wäre da).
 
 Der Grund ist nicht Geschmack, sondern **geteilte Typen**: Das Relay muss die
 `GameEvent`-Union und die Config-Werte kennen, um Commands zu validieren
 (15.5). In TypeScript ist das ein Import aus dem bestehenden Code; in Python
 ist es eine handgepflegte Zweitfassung, die bei jeder Balance-Änderung still
-auseinanderläuft — und genau das ist die Fehlerklasse, die Desyncs erzeugt.
+auseinanderläuft, und genau das ist die Fehlerklasse, die Desyncs erzeugt.
 
 | Aspekt | Empfehlung |
 |--------|-----------|
 | Runtime | Node oder Bun + `ws`, ein Prozess, Rooms im Speicher |
-| Alternative | Cloudflare Durable Objects / PartyKit — Room-Modell und Persistenz eingebaut, bei kleiner Nutzerzahl praktisch kostenlos, kein Betrieb |
-| DB | Postgres, erst ab Matchmaking nötig — v1 läuft ohne |
+| Alternative | Cloudflare Durable Objects / PartyKit: Room-Modell und Persistenz eingebaut, bei kleiner Nutzerzahl praktisch kostenlos, kein Betrieb |
+| DB | Postgres, erst ab Matchmaking nötig: v1 läuft ohne |
 | Storage | S3-kompatibel (R2 ist am günstigsten) |
 | Region | EU zuerst; ein zweiter Standort erst bei echtem Bedarf |
 | Deploy | Container, Graceful Drain (laufende Matches nicht mittendrin kappen) |
-| Lasttest | **`StrategyBot` als synthetischer Spieler** — der Lastgenerator existiert bereits |
+| Lasttest | **`StrategyBot` als synthetischer Spieler**: der Lastgenerator existiert bereits |
 
 **Ressourcenbedarf:** Ein Room kostet ein paar Kilobyte Speicher und
 Nachrichten-Fan-out im niedrigen zweistelligen Hertz-Bereich. Kein Rechnen,
 keine GPU, kein Zustand pro Frame. Hunderte gleichzeitige Matches auf einer
-kleinen Instanz sind realistisch — der begrenzende Faktor wird lange die
+kleinen Instanz sind realistisch: der begrenzende Faktor wird lange die
 Anzahl offener Sockets sein, nicht CPU.
 
 ---
@@ -873,13 +873,13 @@ Gegenüber Teil II entfällt ersatzlos:
 - **Der Zwang zum OSM-Gebäudemodell.** Die Occlusion-Frage aus 11.2 war nur
   deshalb blockierend, weil ein Server ohne GPU LOS rechnen müsste. Da der
   Host-Client eine GPU hat, bleibt die bestehende Cubemap-Pipeline die
-  Gameplay-Wahrheit — sie wird nur einmal statt N-mal ausgewertet. Der
+  Gameplay-Wahrheit: sie wird nur einmal statt N-mal ausgewertet. Der
   Design-Preis (Sichtlinie passt nicht mehr zum Stadtbild) entfällt damit.
 - GPU-Instanzen, Sim-Kosten pro Match, Server-Tickrate als Skalierungsgrenze.
 
 Bestehen bleibt aus Teil I unverändert:
-- Seeded RNG (2.3) — der Seed kommt jetzt vom Server statt vom Host.
-- World Seal (2.2) — erzeugt vom Host, verteilt vom Server.
+- Seeded RNG (2.3): der Seed kommt jetzt vom Server statt vom Host.
+- World Seal (2.2): erzeugt vom Host, verteilt vom Server.
 - Tick-Barriere im Sub-Step-Loop (4.2).
 - Per-Spieler-Ökonomie und `Tower.ownerId` (Abschnitt 6, Punkte 10–11).
 
@@ -889,8 +889,8 @@ Bestehen bleibt aus Teil I unverändert:
 
 | Stufe | Server-Umfang | Client-Umfang | Ergebnis |
 |-------|---------------|---------------|----------|
-| **1** | Gateway, Room-Service, Artefakt-Store | Lobby-UI, Snapshot-Publish/Load | Zwei Clients in derselben Welt — **Versus Race spielbar** |
-| **2** | Tick-Relay, Checksum-Sammlung | Netzwerk-Interceptor, Tick-Barriere, seeded RNG | Lockstep läuft — **Coop spielbar** |
+| **1** | Gateway, Room-Service, Artefakt-Store | Lobby-UI, Snapshot-Publish/Load | Zwei Clients in derselben Welt: **Versus Race spielbar** |
+| **2** | Tick-Relay, Checksum-Sammlung | Netzwerk-Interceptor, Tick-Barriere, seeded RNG | Lockstep läuft: **Coop spielbar** |
 | **3** | Validator, Desync-Wächter, Host-Migration | Rejoin-Flow, abgelehnte Commands in der UI | Robust und cheat-resistent genug für Öffentlichkeit |
 | **4** | Matchmaking, Ladder, Persistenz, Telemetrie | Profil, Queue-UI, Replay-Ansicht | Dienst |
 
@@ -900,15 +900,15 @@ PvP-Modus.
 
 ---
 
-# Teil IV — Die zwei Zielmodi
+# Teil IV: Die zwei Zielmodi
 
 > Zwei konkrete Modi, durchentworfen. **Modus B ist netzwerktechnisch fast
-> geschenkt, Modus A ist der teure** — und zwar nicht wegen der Netzwerktechnik,
+> geschenkt, Modus A ist der teure**, und zwar nicht wegen der Netzwerktechnik,
 > sondern wegen der Renderlast.
 
 ---
 
-## 23. Modus A — "Vier Tore": eigene Lane, gemeinsames HQ
+## 23. Modus A: "Vier Tore": eigene Lane, gemeinsames HQ
 
 ### 23.1 Der Kernbefund: die Lane existiert bereits
 
@@ -918,13 +918,13 @@ Das ist kein neues Konzept, sondern eine Zuordnung:
 |---------------------|-----------|---------|
 | `SpawnPoint[]` mit eigener Route je Spawn | `WaveManager.spawnPoints`, Routen-Cache im `PathAndRouteService` | **die Lane** |
 | `selectSpawnPoint('each' \| 'random')` | `WaveManager.selectSpawnPoint` | Verteilung der Welle auf Lanes |
-| `SPAWN_COLORS` — **exakt vier Farben** | `configs/map-constants.config.ts` | Spielerfarben |
+| `SPAWN_COLORS`: **exakt vier Farben** | `configs/map-constants.config.ts` | Spielerfarben |
 | `MIN/MAX_SPAWN_DISTANCE` 500–1000 m | ebenda | Lane-Länge und -Abstand |
 | Route-Berechnung pro Spawn zum HQ | `path-route.service.ts` | Lane-Geometrie |
 
 Die Engine ist also bereits für bis zu vier farblich getrennte Lanes gebaut,
 die alle auf ein HQ zulaufen. **Die Mechanik von Modus A ist im Kern eine
-Zuordnung `playerId ↔ spawnPointId`** — plus die Regeln drumherum.
+Zuordnung `playerId ↔ spawnPointId`**: plus die Regeln drumherum.
 
 ### 23.2 Spielregeln
 
@@ -932,7 +932,7 @@ Zuordnung `playerId ↔ spawnPointId`** — plus die Regeln drumherum.
 |-------|-------------|-------|
 | Lane-Zuweisung | Ein Spawn pro Spieler, Farbe = Spielerfarbe | Bereits im Renderer vorhanden |
 | HQ-Leben | **geteilt** | Der Coop-Kern: dein Leak tut mir weh |
-| Gold | **getrennt** | Siehe unten — das ist die wichtigste Entscheidung |
+| Gold | **getrennt** | Siehe unten: das ist die wichtigste Entscheidung |
 | Bauen in fremder Lane | **erlaubt** | Helfen wird dadurch zum echten Opfer, nicht zur Geste |
 | Turm verkaufen | nur Besitzer | Kein Griefing |
 | Turm upgraden | jeder, mit eigenem Gold | Gemeinsames Aufrüsten eines Schlüsselturms |
@@ -943,15 +943,15 @@ Zuordnung `playerId ↔ spawnPointId`** — plus die Regeln drumherum.
 
 **Getrenntes Gold plus Bauen-überall ist der interessanteste Hebel im ganzen
 Modus.** Es erzeugt Carry-Dynamik ohne eine einzige Sonderregel: Wer gut steht,
-kann sein Gold in die Lane des Schwächsten stecken — und zahlt dafür mit der
+kann sein Gold in die Lane des Schwächsten stecken, und zahlt dafür mit der
 eigenen Verteidigung. Ein geteilter Goldpool hätte diese Entscheidung
 wegoptimiert.
 
-### 23.3 Die konvergierende Zone — bewusst gestalten
+### 23.3 Die konvergierende Zone: bewusst gestalten
 
 Alle Lanes laufen auf dasselbe HQ zu, also überlappen sich die letzten ~100 m.
 Ein Turm dort deckt **alle** Lanes ab. Das ist keine Panne, sondern der
-interessanteste Ort der Karte — aber es braucht eine Regel, sonst baut einer
+interessanteste Ort der Karte, aber es braucht eine Regel, sonst baut einer
 den Kern voll und die anderen fahren Trittbrett:
 
 - **Empfehlung:** Der Kernbereich ist eine ausgewiesene Zone mit eigenem
@@ -962,7 +962,7 @@ den Kern voll und die anderen fahren Trittbrett:
 
 ### 23.4 Skalierung mit der Spielerzahl
 
-Naiv wäre "HQ-HP × Spielerzahl" — das macht das Spiel **leichter**, weil vier
+Naiv wäre "HQ-HP × Spielerzahl": das macht das Spiel **leichter**, weil vier
 Verteidiger mehr leisten als einer. Vorschlag stattdessen:
 
 - HQ-HP bleibt konstant, Leak-Schaden pro Gegner bleibt konstant.
@@ -979,7 +979,7 @@ das HQ. Drei Gegenmittel, alle billig:
 
 1. **Lane-Kollaps statt Matchende beim Disconnect.** Geht ein Spieler,
    wird seine Lane geschlossen (kein Spawn mehr) statt das Match zu beenden.
-   Das ist gleichzeitig die saubere Antwort auf Verbindungsabbrüche — der
+   Das ist gleichzeitig die saubere Antwort auf Verbindungsabbrüche: der
    Rest spielt weiter.
 2. **Gold-Transfer** zwischen Spielern erlauben (eigener Command).
 3. **Lane-Druck-HUD**: Alle sehen die HP-Summe und Leak-Rate jeder Lane. Ein
@@ -996,7 +996,7 @@ Immerhin: **Ab drei Spielern liefert das Quorum aus 15.6 echte Autorität.**
 Modus A ist damit der Modus, der am meisten von der Serverarchitektur
 profitiert.
 
-### 23.7 Performance — der eigentliche Engpass
+### 23.7 Performance: der eigentliche Engpass
 
 **Das ist die zentrale Erkenntnis für Modus A: Die Grenze ist nicht das
 Netzwerk, sondern der Renderer.**
@@ -1008,18 +1008,18 @@ Ist-Stand laut [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md):
 
 Daraus folgt das Budget direkt: **bei vier Spielern rund 1200 Gegner pro Lane**,
 wenn 5000 die Obergrenze bleiben soll. Die JS-Sim-Zeit liegt bei 5000 Gegnern
-schon bei grob 13 ms — also **nicht** vernachlässigbar, die Sim ist bei vier
+schon bei grob 13 ms, also **nicht** vernachlässigbar, die Sim ist bei vier
 Lanes selbst ein Frame-Budget-Posten.
 
 Fünf Hebel, nach Wirkung sortiert:
 
 1. **Hartes Lane-Enemy-Budget.** Bei hoher Spielerzahl setzen die Wellen auf
    Stärke statt Masse. Das ist eine **Balance-Entscheidung, keine
-   Technikaufgabe** — und die Wave-Curriculum-Config ist der richtige Ort dafür.
+   Technikaufgabe**, und die Wave-Curriculum-Config ist der richtige Ort dafür.
 2. **Per-Instance-Culling prüfen.** Die Kamera hängt über der eigenen Lane,
    die anderen sind 500–1000 m entfernt und meist außerhalb des Frustums.
    Aber: `InstancedMesh` mit `frustumCulled = false` rendert trotzdem alles.
-   **Konkreter Prüfpunkt im Instanced-Renderer** — hier liegt vermutlich der
+   **Konkreter Prüfpunkt im Instanced-Renderer**: hier liegt vermutlich der
    größte einzelne Gewinn.
 3. **Distanz-LOD für fremde Lanes.** Jenseits X Meter: VAT-Animation aus,
    Health-Bars aus, Partikel aus. Die Toggles existieren teilweise schon
@@ -1046,7 +1046,7 @@ Auto-Qualitätsstufe.
 
 ---
 
-## 24. Modus B — "Rush": Wellen kaufen, Defense halten
+## 24. Modus B: "Rush": Wellen kaufen, Defense halten
 
 ### 24.1 Der Kernbefund: kostenlos in jeder Hinsicht
 
@@ -1071,8 +1071,8 @@ zusätzlich dafür, dass ein gekaufter Angriff bei beiden gleich ausfällt.
 
 Zwei Währungen, klassisch und erprobt:
 
-- **Gold** — aus Kills, für Türme und für Angriffe.
-- **Einkommen** — passiver Zufluss pro Intervall. **Steigt dauerhaft, wenn man
+- **Gold**: aus Kills, für Türme und für Angriffe.
+- **Einkommen**: passiver Zufluss pro Intervall. **Steigt dauerhaft, wenn man
   Gegner schickt.**
 
 Daraus entsteht die zentrale Spannung des Modus:
@@ -1091,22 +1091,22 @@ Der dritte Pfeil ist der wichtige: **Ein Send gibt dem Gegner Kill-Gold.** Das
 ist der Regler, der "einfach dauernd schicken" ausbalanciert, und er lässt sich
 pro Gegnertyp feinjustieren.
 
-### 24.3 Kaufen und Upgraden — beide Achsen
+### 24.3 Kaufen und Upgraden: beide Achsen
 
 Der Nutzer-Wunsch "kauf- oder upgradebar" wird zu zwei getrennten Systemen:
 
-**Kaufen — der Send-Katalog.** Pro Gegnertyp aus den bestehenden Enemy-Configs:
+**Kaufen: der Send-Katalog.** Pro Gegnertyp aus den bestehenden Enemy-Configs:
 Preis, Einkommens-Ertrag, Kill-Gold für den Gegner, Spawn-Anzahl. Der Katalog
 ist eine Config-Datei, keine Mechanik.
 
-**Upgraden — Tier-Tracks pro Gegnertyp.** Analog zu den Tower-Upgrades
+**Upgraden: Tier-Tracks pro Gegnertyp.** Analog zu den Tower-Upgrades
 (25 Level in 5er-Bändern, durchgesetzt in `TowerLifecycle.upgrade()`). Ein Tier-Upgrade
 verstärkt alle künftigen Sends dieses Typs. Zwei Gründe, das genau so zu
 bauen:
 
 1. Die Mechanik ist im Code etabliert und den Spielern bereits vertraut.
 2. **Die Wave-Curriculum-Config liefert schon Skalierungskurven für
-   Gegnerstärke** — die Tier-Werte müssen nicht neu erfunden werden.
+   Gegnerstärke**: die Tier-Werte müssen nicht neu erfunden werden.
 
 Damit hat der Angreifer dieselbe Entscheidungstiefe wie der Verteidiger:
 Breite (viele Typen) gegen Tiefe (ein Typ hochgezogen), und beides gegen
@@ -1117,20 +1117,20 @@ Einkommen.
 Hier fällt etwas ab, das in einem Client-Sim-Modell sonst unerreichbar ist:
 
 **Der Server sieht jeden Send. Das Einkommen ist eine reine Funktion der
-Sends. Also kann der Server das Einkommen jedes Spielers exakt nachrechnen —
+Sends. Also kann der Server das Einkommen jedes Spielers exakt nachrechnen,
 ohne zu simulieren.**
 
-Und weiter: Kill-Gold entsteht nur aus Gegnern, die geschickt wurden — und die
+Und weiter: Kill-Gold entsteht nur aus Gegnern, die geschickt wurden, und die
 kennt der Server ebenfalls. Er kann damit eine **exakte Obergrenze für das Gold
 jedes Spielers** führen und jeden Kauf dagegen prüfen.
 
 Das ist praktisch vollständiger Wirtschafts-Anti-Cheat ohne eine Zeile
 Simulation auf dem Server. Modus B ist damit **der Modus, der sich am besten
-für Ranked eignet** — und das ist genau umgekehrt zu dem, was man erwarten
+für Ranked eignet**, und das ist genau umgekehrt zu dem, was man erwarten
 würde.
 
 Was offen bleibt: Reichweiten- und Schadensmanipulation auf dem eigenen Brett.
-Dagegen hilft nur der Replay-Log aus Abschnitt 18 — asynchron, später, für die
+Dagegen hilft nur der Replay-Log aus Abschnitt 18: asynchron, später, für die
 Ladder-Spitze.
 
 ### 24.5 Was der Gegner sieht
@@ -1141,7 +1141,7 @@ größten Vorteil des Modus wegwerfen. Stattdessen gestaffelt:
 - **Immer:** HUD mit HQ-HP, Einkommen, Wellennummer, Leaks, Turmzahl. Kostet
   ein paar Byte pro Sekunde.
 - **Auf Wunsch ("Peek"):** Low-Rate-Zustandsschnappschuss, ~5 Hz, ein paar
-  hundert Positionen — grob 20 KB/s, und nur solange jemand hinsieht.
+  hundert Positionen: grob 20 KB/s, und nur solange jemand hinsieht.
 - **Bewusst nicht:** Vollwertiger Zuschauermodus. Der braucht die zweite Sim.
   Für Zuschauer gibt es das Replay.
 
@@ -1154,7 +1154,7 @@ Spieler nie.
 
 ---
 
-## 25. Leichtes Setup — ein eigenes Problem
+## 25. Leichtes Setup: ein eigenes Problem
 
 Die größte UX-Gefahr ist nicht die Netzwerktechnik, sondern die **Ladezeit vor
 dem Match**: Overpass-Abfrage, Routenberechnung, Tile-Streaming,
@@ -1163,15 +1163,15 @@ Höhen-Sampling. Fünf Maßnahmen, in dieser Reihenfolge:
 1. **Kuratierter Kartenpool mit vorgebackenen Snapshots.** Matchmaking wählt
    nur aus geprüften Karten, deren `WorldSnapshot` fertig im Storage liegt.
    Kein Overpass, keine Routenberechnung, kein Warten. **Freie Städte bleiben
-   privaten Räumen vorbehalten** — dort darf es dauern.
+   privaten Räumen vorbehalten**, dort darf es dauern.
 2. **Laden beginnt beim Room-Join, nicht beim Match-Start.** Das Ready-Gate
    greift erst, wenn geladen ist. Die Lobby-Zeit wird zur Ladezeit.
-3. **Snapshot statt Fremd-API** (Abschnitt 4.4) — spart den Overpass-Roundtrip
+3. **Snapshot statt Fremd-API** (Abschnitt 4.4): spart den Overpass-Roundtrip
    und dessen Rate-Limits gleich mit.
 4. **Join per Link:** `?room=ABC123`. Die URL-Location-Mechanik existiert
    bereits (`services/location/url-location.service.ts`).
 5. **Match startet, während Tiles noch streamen.** Tiles sind das langsamste
-   Element und lassen sich nicht vorbacken — aber nach dem World Seal hängt
+   Element und lassen sich nicht vorbacken, aber nach dem World Seal hängt
    **kein Gameplay** mehr an ihnen. Was als Determinismus-Maßnahme gedacht war,
    wird hier zum Ladezeit-Feature.
 
@@ -1184,7 +1184,7 @@ Höhen-Sampling. Fünf Maßnahmen, in dieser Reihenfolge:
 | Serverrolle | Rooms + Send-Relay + Ergebnis | Voller Tick-Relay + Quorum |
 | Nachrichtenrate | ein paar Events pro Minute | 15 Hz Fan-out pro Room |
 | Zustand pro Room | Send-Historie, Gold-Obergrenze | + Command-Log, Checksums, Artefakte |
-| Passende Technik | **Cloudflare Durable Objects / PartyKit** — ein Objekt pro Match, Persistenz eingebaut, bei kleiner Nutzerzahl praktisch kostenlos | **Node/Bun + `ws`** — Tick-Ordnung und Stall-Handling sind in einem klassischen Prozess einfacher zu debuggen |
+| Passende Technik | **Cloudflare Durable Objects / PartyKit**: ein Objekt pro Match, Persistenz eingebaut, bei kleiner Nutzerzahl praktisch kostenlos | **Node/Bun + `ws`**: Tick-Ordnung und Stall-Handling sind in einem klassischen Prozess einfacher zu debuggen |
 | Matchmaking | Glicko-2, Kartenpool, Sekunden | Lobby-Browser + Quick-Join, **kein Rating nötig** |
 
 Beides bleibt **ein TypeScript-Codebase** (Begründung in Abschnitt 20:
@@ -1204,7 +1204,7 @@ Der Teil, der über die zwei Modi hinaus Wert schafft:
 
 1. **Bots füllen leere Plätze.** Der `StrategyBot` existiert und ist
    sofort einsetzbar: leere Lanes im Coop, Trainingsgegner in PvP. Damit
-   funktioniert Modus A auch zu zweit plus zwei Bots — **die wichtigste
+   funktioniert Modus A auch zu zweit plus zwei Bots: **die wichtigste
    einzelne Maßnahme für "leichtes Setup"**, weil sie das
    Vier-Spieler-Problem auflöst.
 2. **Menschliche Sends als Trainingsdaten.** Der Wave-Director trainierte gegen
@@ -1221,9 +1221,9 @@ Der Teil, der über die zwei Modi hinaus Wert schafft:
    Sends sind damit nicht bloß besseres Material, sondern die Vorbedingung
    dafür, dass sich ein gelerntes Modell hier überhaupt lohnt. Siehe
    `docs/HANDOVER_RULE_DIRECTOR.md`.
-3. **Der AI-Director als PvP-Gegner** (Teil I, Modus C) — dieselbe UI, dieselbe
+3. **Der AI-Director als PvP-Gegner** (Teil I, Modus C): dieselbe UI, dieselbe
    Aktionsraum-Anbindung wie der menschliche Angreifer in Modus B.
-4. **Replays** aus dem Command-Log — beide Modi, ohne Zusatzaufwand.
+4. **Replays** aus dem Command-Log: beide Modi, ohne Zusatzaufwand.
 5. **Determinismus-Arbeit zahlt auf Singleplayer ein:** reproduzierbare Bugs,
    deterministisches AI-Training, Save/Load.
 6. **Der Lobby-Benchmark** wird im Singleplayer zur Auto-Qualitätsstufe.
@@ -1236,15 +1236,15 @@ Der Teil, der über die zwei Modi hinaus Wert schafft:
 
 | Schritt | Inhalt | Vorbedingung |
 |---------|--------|--------------|
-| **1** | Server-Stufe 1 (Rooms, Artefakt-Store), Lobby, Join-per-Link | — |
-| **2** | **Modus B komplett** — Send-Katalog, Zwei-Währungs-Ökonomie, Tier-Upgrades, Gegner-HUD | Schritt 1. **Kein Determinismus nötig** |
+| **1** | Server-Stufe 1 (Rooms, Artefakt-Store), Lobby, Join-per-Link | – |
+| **2** | **Modus B komplett**: Send-Katalog, Zwei-Währungs-Ökonomie, Tier-Upgrades, Gegner-HUD | Schritt 1. **Kein Determinismus nötig** |
 | **3** | Gold-Obergrenzen-Validator + Ladder für Modus B | Schritt 2 |
-| **4** | Determinismus-Fundament (seeded RNG, World Seal, Serializer, Checksums) | — |
+| **4** | Determinismus-Fundament (seeded RNG, World Seal, Serializer, Checksums) | – |
 | **5** | Tick-Relay, Tick-Barriere, Per-Spieler-Ökonomie, `Tower.ownerId` | Schritt 4 |
-| **6** | **Modus A** — Lane-Zuweisung, geteiltes HQ, Kernzonen-Regel, Lane-Kollaps | Schritt 5 |
+| **6** | **Modus A**: Lane-Zuweisung, geteiltes HQ, Kernzonen-Regel, Lane-Kollaps | Schritt 5 |
 | **7** | Renderlast-Arbeit: Per-Instance-Culling, Lane-LOD, Lane-Budget, Lobby-Benchmark | parallel zu 6, **bestimmt die Spielerzahl** |
 
-**Modus B kommt zuerst — nicht weil er einfacher zu entwerfen ist, sondern weil
+**Modus B kommt zuerst, nicht weil er einfacher zu entwerfen ist, sondern weil
 er keinen einzigen der Determinismus-Blocker berührt.** Er ist spielbar,
 bevor irgendetwas an der Sim angefasst wurde, und er ist gleichzeitig der
 Modus mit dem besseren Anti-Cheat-Profil.
@@ -1259,7 +1259,7 @@ und damit alle drei Determinismus-Blocker. Modus B teilt nichts außer einem
 Ereignisstrom.
 
 **Wie viele Spieler gehen in Modus A?**
-Vier ist die Obergrenze — und zwar durch drei unabhängige Dinge, die alle bei
+Vier ist die Obergrenze, und zwar durch drei unabhängige Dinge, die alle bei
 vier landen: `SPAWN_COLORS` hat vier Einträge, die Tick-Barriere macht jeden
 weiteren Client zum Risiko, und das Renderbudget von ~5000 Gegnern ergibt bei
 vier Lanes noch spielbare ~1200 pro Lane. Zwei bis drei dürfte der
@@ -1267,11 +1267,11 @@ angenehmere Bereich sein.
 
 **Was passiert, wenn in Modus A jemand rausfliegt?**
 Seine Lane schließt, das Match läuft weiter (23.5). Das ist bewusst kein
-Pausieren und kein Abbruch — bei vier Leuten fällt sonst zu oft jemand aus.
+Pausieren und kein Abbruch: bei vier Leuten fällt sonst zu oft jemand aus.
 
 **Und in Modus B?**
 Verbindungsverlust ist eine Niederlage nach Reconnect-Frist. Weil jeder sein
-eigenes Brett simuliert, gibt es nichts zu synchronisieren — der Rejoin lädt
+eigenes Brett simuliert, gibt es nichts zu synchronisieren: der Rejoin lädt
 den eigenen Zustand aus dem letzten Snapshot plus die verpassten Sends.
 
 **Kann ich in Modus B sehen, was der Gegner baut?**
@@ -1281,7 +1281,7 @@ kostet eine zweite Simulation und damit den Hauptvorteil des Modus.
 **Was hindert jemanden daran, in Modus B sein Gold zu manipulieren?**
 Der Server rechnet die Obergrenze exakt mit (24.4). Manipulation an Reichweite
 oder Schaden auf dem eigenen Brett bleibt möglich und wird erst durch
-nachträgliche Replay-Verifikation gefasst — bewusst nur für die Ladder-Spitze.
+nachträgliche Replay-Verifikation gefasst: bewusst nur für die Ladder-Spitze.
 
 **Brauchen beide Spieler denselben Google-API-Key oder dieselben Tiles?**
 Jeder lädt Tiles selbst; sie sind nach dem World Seal rein optisch. Die
@@ -1289,7 +1289,7 @@ Kostenfrage pro Client-Session bleibt die größte ungeklärte
 Außenabhängigkeit (Abschnitt 9, Punkt 2).
 
 **Muss das Match warten, bis alle Tiles geladen sind?**
-Nein — genau das ist der Nebeneffekt des World Seal (25.5). Gameplay hängt
+Nein, genau das ist der Nebeneffekt des World Seal (25.5). Gameplay hängt
 nach dem Seal nicht mehr an der Optik.
 
 **Kann man Modus A allein oder zu zweit spielen?**
@@ -1297,11 +1297,11 @@ Ja, mit Bots auf den freien Lanes (27.1). Der `StrategyBot` existiert bereits;
 das ist die günstigste Maßnahme im ganzen Konzept.
 
 **Lohnt sich Matchmaking überhaupt bei kleiner Spielerzahl?**
-Für Modus A nein — Lobby-Browser plus Join-Link reicht und ist ein Bruchteil
+Für Modus A nein: Lobby-Browser plus Join-Link reicht und ist ein Bruchteil
 der Arbeit. Für Modus B ja, sobald es eine Ladder gibt, weil ungleiche
 Paarungen dort direkt den Spaß kosten.
 
 **Was ist der größte unterschätzte Aufwandsposten?**
 Die Renderlast in Modus A (23.7). Die Netzwerkarbeit ist absehbar, die
-Balance-Arbeit auch — aber "vier Lanes gleichzeitig flüssig darstellen" ist
+Balance-Arbeit auch, aber "vier Lanes gleichzeitig flüssig darstellen" ist
 eine offene Optimierungsaufgabe, deren Ergebnis die Spielerzahl bestimmt.
