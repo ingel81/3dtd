@@ -102,6 +102,7 @@ src/app/
 ├── store/             signal stores, single source of truth
 ├── services/          Angular side: facades, location, combat, world, debug
 ├── ai/                the wave director and the training bots
+├── replay/            replay of the last wave
 └── devworld/          offline dev environment
 
 training-backend/      optional Python side, PPO training for the wave director
