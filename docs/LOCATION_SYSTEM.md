@@ -583,14 +583,25 @@ Wenn das HQ ausserhalb der Bounds platziert wird (z.B. 10km entfernt):
 - Street-Network wird gecached → Coordinator reused es in Step 3 (kein doppeltes Laden)
 - Tiles-Wait ist schnell (~500ms) wenn der Spieler bereits dorthin gescrollt hat
 
+### Rückmeldung (Hinweis über der Karte)
+
+Solange das HQ umzieht, steht oben mittig ein Hinweis "MOVING HQ" mit dem laufenden Schritt (`RelocationStatusService`, `components/relocation-status/`, Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#umzugs-hinweis-canvas)):
+
+- **Fast Path:** "Finding the route", bevor der Umbau beginnt. Der Umbau blockiert den Hauptthread bis zum Ende, deshalb wartet er zwei Animation-Frames (`painted()`), damit der Browser den Hinweis vorher zeichnet. Danach "Measuring the corridor" mit Prozent und 2px-Balken, solange die Korridor-Messung der neuen Routen läuft (`PathAndRouteService.clearanceProgress()`, je Frame außerhalb von Angular gelesen, das Signal ändert sich nur mit der Prozentzahl). Mit ihrem Ende, samt Neuaufbau von Routen und Zellen, verschwindet der Hinweis. Ein Tower oder Wellenstart während der Messung bringt sie sofort zu Ende (flush, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#in-scheiben)), Gegner aus dem Debug-Panel brechen sie ab; beides beendet auch den Hinweis
+- **Slow Path:** "Loading streets", solange Straßen und Zufalls-Spawn vor dem Ladescreen gesucht werden; bleibt der alte Spawn, erscheint er nicht. Der Ladescreen des Ortswechsels löst ihn ab
+- Spawn umsetzen zeigt keinen Hinweis
+
 ### Zeiten (`[Relocation]` in der Konsole)
 
 Jede Zeile nennt die Zeit je Schritt in ms (`StepTimes` in `map-relocation.service.ts`), einen Schritt, der nicht lief, mit 0.0:
 
 ```
 [Relocation] HQ in place: reset= clear= services= paths= route= random= state= grid= placement= streets= camera= rest= corridor= total=ms spawnFrom=old|random|none spawns=
+[Relocation] HQ done: paint= work= corridor= total=ms
 [Relocation] HQ outside the streets: streets= spawn= total=ms spawnFrom=old|random|fallback
 ```
+
+- **`HQ done`** (Fast Path, wenn der Hinweis verschwindet): `paint` = Klick bis Beginn des Umbaus (die zwei Frames für den Hinweis), `work` = der Umbau am Stück (wie `total` der Zeile davor), `corridor` = Rest der Messung samt Neuaufbau, `total` = Klick bis der Hinweis weg ist, also die ganze Wartezeit
 
 - **Fast Path** (`HQ in place`): alles bis `corridor` läuft am Stück im Hauptthread, `total` ist also die Zeit, in der das Spiel steht
   - `reset`: Animation und Höhen-Updates stoppen, `gameState.reset()`

@@ -8,6 +8,7 @@ import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { LocationChangeCoordinatorService } from '../location/location-change-coordinator.service';
 import { MapPlacementService } from '../world/map-placement.service';
+import { RelocationStatusService } from '../world/relocation-status.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
@@ -24,6 +25,9 @@ export interface RelocationHost {
   addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number): void;
   syncUrlWithLocation(): void;
 }
+
+/** Title of the hint over the map while the HQ moves */
+const MOVING_HQ = 'Moving HQ';
 
 /**
  * Moves the HQ or the spawn to where the player clicked in map placement
@@ -42,6 +46,7 @@ export class MapRelocationService {
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly mapPlacement = inject(MapPlacementService);
+  private readonly relocationStatus = inject(RelocationStatusService);
   private readonly store = inject(TowerDefenseStore);
 
   /**
@@ -96,7 +101,9 @@ export class MapRelocationService {
       spawnFrom = 'old';
     } else {
       // Old spawn too far or none exists — pre-load streets and find a random spawn
-      // (same pattern as the location dialog's isRandom flow)
+      // (same pattern as the location dialog's isRandom flow). Up to three
+      // Overpass servers at 15 s each before the loading screen: say so.
+      this.relocationStatus.show(MOVING_HQ, 'Loading streets');
       try {
         const newNetwork = await this.osmService.loadStreets(lat, lon, 2000);
         times.lap('streets');
@@ -137,6 +144,8 @@ export class MapRelocationService {
     // waited for without one. The change itself reports its steps there.
     console.warn(`[Relocation] HQ outside the streets: ${times} spawnFrom=${spawnFrom}`);
 
+    // The loading screen of the change takes over from the hint
+    this.relocationStatus.clear();
     await this.locationCoordinator.applyNewLocation({
       hq: { lat, lon, name: 'Loading...' },
       spawn: { lat: spawnLat, lon: spawnLon, name: spawnName },
@@ -157,14 +166,26 @@ export class MapRelocationService {
    * streets, camera, rest, corridor (the first slice of the measurement,
    * whose remainder runs over the next frames and logs `[Corridor]
    * clearance`).
+   *
+   * A hint over the map says so (RelocationStatusService): shown and
+   * painted before the work, then the corridor measurement in percent
+   * until it is done; `[Relocation] HQ done:` sums up the whole wait.
    */
   private async applyHqInPlace(lat: number, lon: number, host: RelocationHost): Promise<void> {
-    const ctx = host.context();
-    const vizCallbacks = host.vizCallbacks();
-    const engine = ctx?.bridge.getEngine();
-    const streetNetwork = ctx?.bridge.getStreetNetwork();
-    if (!ctx || !engine || !streetNetwork || !vizCallbacks) return;
+    if (!this.inPlaceContext(host)) return;
+    const clickedAt = performance.now();
+    // Nothing paints while the work below runs: show the hint and let it
+    // paint first. The component may go away meanwhile, so read it again.
+    this.relocationStatus.show(MOVING_HQ, 'Finding the route');
+    await this.relocationStatus.painted();
+    const context = this.inPlaceContext(host);
+    if (!context) {
+      this.relocationStatus.clear();
+      return;
+    }
+    const { ctx, engine, streetNetwork, vizCallbacks } = context;
     const { bridge, gameState } = ctx;
+    const workStart = performance.now();
     const times = new StepTimes([
       'reset', 'clear', 'services', 'paths', 'route', 'random', 'state', 'grid',
       'placement', 'streets', 'camera', 'rest', 'corridor',
@@ -280,6 +301,31 @@ export class MapRelocationService {
     times.lap('corridor');
 
     console.warn(`[Relocation] HQ in place: ${times} spawnFrom=${spawnFrom} spawns=${spawns.length}`);
+
+    // The measurement runs over the next frames and rebuilds routes and
+    // cells at its end; the hint shows it in percent until then.
+    const workEnd = performance.now();
+    this.relocationStatus.followCorridor(
+      () => this.pathRoute.clearanceProgress(),
+      () => {
+        const end = performance.now();
+        const ms = (from: number, to: number) => (to - from).toFixed(1);
+        console.warn(
+          `[Relocation] HQ done: paint=${ms(clickedAt, workStart)} work=${ms(workStart, workEnd)} ` +
+          `corridor=${ms(workEnd, end)} total=${ms(clickedAt, end)}ms`,
+        );
+      },
+    );
+  }
+
+  /** What a move in place needs from the host, null while any of it is missing. */
+  private inPlaceContext(host: RelocationHost) {
+    const ctx = host.context();
+    const vizCallbacks = host.vizCallbacks();
+    const engine = ctx?.bridge.getEngine();
+    const streetNetwork = ctx?.bridge.getStreetNetwork();
+    if (!ctx || !engine || !streetNetwork || !vizCallbacks) return null;
+    return { ctx, engine, streetNetwork, vizCallbacks };
   }
 
   /**

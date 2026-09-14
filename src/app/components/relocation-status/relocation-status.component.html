@@ -1,0 +1,19 @@
+@if (status(); as s) {
+  <div class="rls">
+    <td-icon class="rls-icon" name="pin" [size]="18"></td-icon>
+    <div class="rls-text">
+      <span class="rls-title">{{ s.title }}</span>
+      <span class="rls-step">
+        {{ s.step }}
+        @if (s.percent !== null) {
+          <span class="rls-percent" aria-hidden="true">{{ s.percent }}%</span>
+        }
+      </span>
+    </div>
+    @if (s.percent !== null) {
+      <span class="rls-bar" aria-hidden="true">
+        <span class="rls-bar-fill" [style.width.%]="s.percent"></span>
+      </span>
+    }
+  </div>
+}

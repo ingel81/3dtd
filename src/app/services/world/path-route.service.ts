@@ -877,6 +877,17 @@ export class PathAndRouteService {
   }
 
   /**
+   * How far the clearance measurement under way is: stations tried and
+   * stations it set out to measure. Null when none is open (never begun,
+   * committed, cancelled or replaced). For the hint while the HQ moves
+   * (RelocationStatusService).
+   */
+  clearanceProgress(): { done: number; total: number } | null {
+    const run = this.clearanceRun;
+    return run?.open ? run.progress : null;
+  }
+
+  /**
    * Clear all route lines
    */
   clearRouteLines(): void {
@@ -1014,6 +1025,11 @@ class ClearanceRun implements CorridorMeasurement {
 
   get open(): boolean {
     return this.isOpen;
+  }
+
+  /** Stations tried so far and the stations the run set out to measure. */
+  get progress(): { done: number; total: number } {
+    return { done: this.probed, total: this.planned };
   }
 
   step(budgetMs: number): boolean {
