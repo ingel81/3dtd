@@ -1,4 +1,4 @@
-# Bot System — Dokumentation
+# Bot System: Dokumentation
 
 **Stand:** 2026-09-15
 **Code:** `src/app/ai/training/`
@@ -11,7 +11,7 @@ startet Wellen. Er hat zwei Aufgaben, und die zweite bestimmt sein Design:
 1. Automatisiertes Spielen für Playtests und Headless-Läufe.
 2. **Der Bot ist der Gegner, gegen den der Wave Director bewertet wird.** Alles,
    was der Bot systematisch anders macht als ein Mensch, verschiebt die Messung
-   des Wave-Designs. Das ist kein theoretisches Risiko — genau daran ist eine
+   des Wave-Designs. Das ist kein theoretisches Risiko: genau daran ist eine
    ganze Trainingsgeneration gescheitert (siehe [Warum die Platzierung so
    aussieht](#warum-die-platzierung-so-aussieht)).
 
@@ -39,7 +39,7 @@ Drei Details, die man beim Lesen des Codes sonst falsch erwartet:
   bekommt den Sub-Step-Delta des Fixed-Timestep-Loops. Bei Timescale 75 verhält
   sich der Bot dadurch pro *Spiel*sekunde identisch zu 1×. Vorher lief er über
   `Date.now()` und traf im Schnelldurchlauf ein 75-tel der Entscheidungen pro
-  Spielsekunde — das war die Ursache von „Bot kommt bei 75× bis Welle 6, bei 10×
+  Spielsekunde; das war die Ursache von „Bot kommt bei 75× bis Welle 6, bei 10×
   bis Welle 20".
 - **`tickCooldown` ist von `update` getrennt**, damit der Aufrufer den
   Snapshot-Bau überspringen kann, solange der Bot in Reaktionszeit steht. Der
@@ -51,7 +51,7 @@ Drei Details, die man beim Lesen des Codes sonst falsch erwartet:
 - **`wait`-Actions blockieren nicht.** Gibt eine Strategie `wait` zurück (typisch:
   „ich spare auf einen Turmtyp"), merkt der Bot das als Fallback und probiert
   weiter niedrigere Prioritäten. Erst wenn keine konkrete Action zustande kommt,
-  wird der gemerkte `wait` geliefert. Jede Action — auch `wait` — setzt den
+  wird der gemerkte `wait` geliefert. Jede Action, auch `wait`, setzt den
   Reaktionszeit-Cooldown zurück, damit zufallsbasierte Entscheidungen nicht
   jeden Frame neu gewürfelt werden.
 
@@ -146,7 +146,7 @@ export interface ITowerStrategy {
 | Helfer | Zweck |
 |---|---|
 | `getAffordableTowers(credits, knownTypes, state?)` | filtert nach Kosten, wirft `attackType === 'passive'` (Research-Center) raus und respektiert `state.research.towerUnlocked` |
-| `getTowerValue(type)` | DPS pro Credit über `computeTowerDPSFromLevels` — **nicht** `damage × fireRate`. Die Abkürzung liefert 0 für Beam-Tower (Fire hat `damage: 0` und trägt seinen Output in `damagePerSecond`) und ignoriert Chain-Falloff, Splash und DoT |
+| `getTowerValue(type)` | DPS pro Credit über `computeTowerDPSFromLevels`, **nicht** `damage × fireRate`. Die Abkürzung liefert 0 für Beam-Tower (Fire hat `damage: 0` und trägt seinen Output in `damagePerSecond`) und ignoriert Chain-Falloff, Splash und DoT |
 | `getTowerValueVsArmor(type, armor)` | effektive DPS pro Credit gegen eine Rüstungsklasse. Notwendig, weil die Damage-Matrix schief ist: Archer schlägt Magic auf dem Papier, landet aber bei 0.1× gegen Ethereal, wo Magic 2.0× macht |
 
 ### TowerAction
@@ -197,11 +197,11 @@ Skill-Level unterscheiden sich in Reaktionszeit, Turm-Cap und Strategie-Set.
 
 **Warum `maxTowers` bei 20 liegt** (und nicht bei 80 oder 300):
 
-- Der Design-Zielbestand sind ~13 Türme (einer je Typ, Archer ×3) auf Level 20
-  — siehe `docs/wave-planner.html`. 20 liegt knapp darüber, nicht weit.
+- Der Design-Zielbestand sind ~13 Türme (einer je Typ, Archer ×3) auf Level 20,
+  siehe `docs/wave-planner.html`. 20 liegt knapp darüber, nicht weit.
 - Bei 80 baute der Bot eine Verteidigung, die kein menschlicher Build erreicht:
   ~7800 DPS über den ganzen Pfad, ab Welle 11 wurden 100 % jeder Welle getötet.
-  Der Wave Director hatte damit nichts mehr zum Zielen — die Near-Miss-Quote lag
+  Der Wave Director hatte damit nichts mehr zum Zielen: die Near-Miss-Quote lag
   über 15k Episoden flach bei 0.02, während er das einzig noch Erreichbare
   optimierte, das Run-Pacing. Ein Training gegen eine Verteidigung, die das
   Spiel nie produziert, lehrt Wellen, die das Spiel nie braucht.
@@ -249,35 +249,35 @@ Reaktionszeit (1500 vs. 400 ms) und Turm-Cap (15 vs. 20).
 
 Das Training fährt `strategist` (`TrainingSession` schaltet bei
 `control: start` auf Timescale 75 und `enableBot('strategist')`). Der
-Strategist ist damit der Build, gegen den das Wave-Design gemessen wird — bei
+Strategist ist damit der Build, gegen den das Wave-Design gemessen wird; bei
 Änderungen an seinen Strategien ändern sich alle Trainingszahlen mit.
 
 ---
 
 ## Strategien im Einzelnen
 
-### ResearchCenterPlacement — 95
+### ResearchCenterPlacement (95)
 
 Baut das Research-Center, solange `state.research.centerLevel === 0`. Wartet, bis
 Center **plus** ein Archer bezahlbar sind (75 + 45), damit der Bot sich nicht
 in die Forschung leerkauft und ohne Verteidigung dasteht. Position über
-`findStrategicPositions` — das Center braucht keine Reichweite, aber der Service
+`findStrategicPositions`: das Center braucht keine Reichweite, aber der Service
 liefert bereits validierte straßennahe Punkte.
 
 Höchste Priorität, weil ohne Center kein Tower-Unlock passiert und damit fast
 das gesamte Spiel verschlossen bleibt.
 
-### AntiAirPlacement — 90
+### AntiAirPlacement (90)
 
 Aktiv bei `vulnerabilities.airDefenseGap`, ab Welle 4, unterhalb `maxTowers`,
 sobald ein luftfähiger Turm bezahlbar ist.
 
-Wählt nach **effektiver DPS pro Credit gegen `light`** — nicht nach roher
+Wählt nach **effektiver DPS pro Credit gegen `light`**, nicht nach roher
 DPS-pro-Kosten. Nach roher DPS gewann immer der Archer: der schließt die Lücke
 formal (er kann Luft treffen), lässt die Verteidigung aber ohne echte Antwort
 auf einen Dragon. `light` ist die Rüstung, die die ersten Luftwellen schicken.
 
-### AntiEtherealPlacement — 88
+### AntiEtherealPlacement (88)
 
 Aktiv bei `vulnerabilities.etherealGap`, ab Welle 9.
 
@@ -285,14 +285,14 @@ Ethereal ist die eine Rüstungsklasse, die sich nicht mit Masse erschlagen läss
 physical, pierce und fire liegen alle bei 0.1×, nur magic (2.0×), ice (1.5×),
 lightning (1.5×) und chaos (1.0×) kommen durch. Das Curriculum forciert `ghost_surge` auf
 W13 und `wraith_storm` auf W17, und ein forciertes Template ignoriert das
-Capability-Gate — ohne diese Strategie verliert der Bot dort schlicht. Vorher
+Capability-Gate; ohne diese Strategie verliert der Bot dort schlicht. Vorher
 entstanden Ethereal-Konter nur zufällig über den „neuen Typ probieren"-Zweig der
 Coverage-Strategien.
 
 Welle 9 als Start, damit Forschung und Bau bis W13 fertig werden. Auswahl über
 `getTowerValueVsArmor(t, 'ethereal')`.
 
-### SplashDefensePlacement — 85
+### SplashDefensePlacement (85)
 
 Aktiv bei `vulnerabilities.splashGap`, ab Welle 3. Liest Splash aus
 `isSplashTower`, das ihn aus der Tower-Config ableitet (Projektil mit
@@ -301,7 +301,7 @@ Rocket hat keinen Splash und zählt nicht. Auswahl nach `getTowerValueVsArmor`,
 gewichtet mit `expectedArmorDistribution` (ohne Verteilung roh nach `getTowerValue`):
 seit der Matrix-Spreizung 2026-09 ist die Cannon gegen weiche Schwärme schwach (0,5).
 
-### ResearchPick — 80
+### ResearchPick (80)
 
 Feuert, wenn ein Center steht, ein Slot frei ist und die nächste Node bezahlbar
 ist und ihre Prereqs erfüllt sind.
@@ -309,7 +309,7 @@ ist und ihre Prereqs erfüllt sind.
 - **beginner:** nur `gatling-tech`.
 - **casual:** `gatling-tech, ice-magic, toxic-compounds, siege-engineering,
   fire-alchemy`.
-- **strategist / meta:** primär **adaptiv** — bewertet alle offenen Nodes gegen
+- **strategist / meta:** primär **adaptiv**: bewertet alle offenen Nodes gegen
   `state.expectedArmorDistribution` (effektive DPS pro Credit des freigeschalteten
   Turms gegen den erwarteten Rüstungsmix, Tier-Unlocks nach Bedarf). Nur wenn
   daraus nichts kommt, greift die statische Liste
@@ -338,16 +338,16 @@ Zwei Sonderregeln, beide aus konkreten Fehlern:
 - **`hasAntiAirCapability`** liest bevorzugt `defense.capabilities.hasAntiAir`
   (was wirklich gebaut ist und reicht) und fällt sonst auf die Unlock-Flags
   *aller* luftfähigen Türme zurück. Die alte Prüfung sah nur `rocket`, also galt
-  eine Verteidigung voller Archer — die Luft treffen — als „keine Anti-Air" und
+  eine Verteidigung voller Archer (die Luft treffen) als „keine Anti-Air" und
   der Bot kaufte weiter Rocketry.
 
-### PathCoverageUpgrade — 75
+### PathCoverageUpgrade (75)
 
 **War `NearSpawnUpgradeStrategy`; umbenannt, weil sich das Verhalten geändert
 hat.** Datei: `strategies/upgrade/path-coverage-upgrade.strategy.ts`.
 
 Bedingungen: ≥ 3 Türme, ≥ 50 Credits, mindestens ein bezahlbares Upgrade
-vorhanden. Feuerrate 70 % pro Entscheidung, 90 % ab 2000 Credits — damit
+vorhanden. Feuerrate 70 % pro Entscheidung, 90 % ab 2000 Credits, damit
 hortende Bots ihre Kasse tatsächlich in Upgrades leeren statt auf 300k zu
 sitzen.
 
@@ -356,13 +356,13 @@ Ablauf:
 1. Türme mit verfügbaren Upgrades nach Distanz zum nächsten Spawn sortieren.
 2. **Kandidaten abwechselnd von BEIDEN Enden der Liste nehmen** (bis zu 8).
    Die Liste läuft spawn-nächster → spawn-fernster, und spawn-fernst ist
-   HQ-nächst — es braucht also keine zweite Distanzrechnung. Vorne zuerst je
+   HQ-nächst; es braucht also keine zweite Distanzrechnung. Vorne zuerst je
    Paar, weil die Eröffnungswellen am Spawn entschieden werden und ein junger
    Run zu wenige Türme hat, als dass das ferne Ende zählt.
 3. Pro Kandidat die bezahlbaren Upgrades filtern, Tier-Gate über das geteilte
    `requiredUpgradeTier()` (`research-slots` ist ausgenommen).
 4. Das Upgrade mit dem **niedrigsten** aktuellen Level wählen, Gleichstand
-   zufällig — so bleiben die drei Upgrade-Tracks eines Turms auf ähnlicher Höhe
+   zufällig; so bleiben die drei Upgrade-Tracks eines Turms auf ähnlicher Höhe
    statt einer maximiert.
 
 Warum acht Kandidaten und nicht einer: Vorher wurde nur `towersWithDistance[0]`
@@ -374,23 +374,23 @@ kompakten hochgezogenen.
 
 Warum von beiden Enden: siehe [nächster Abschnitt](#warum-die-platzierung-so-aussieht).
 
-Das eigene Tier-Mapping ist ebenfalls entfallen — der Bot trug eine strengere
+Das eigene Tier-Mapping ist ebenfalls entfallen: der Bot trug eine strengere
 lokale Kopie (Tier 2 schon ab Level 1, Tier 3 ab Level 2, darüber nichts) und
 lehnte damit Upgrades ab, die die Engine akzeptiert hätte; Tier 4 und 5 waren
 für ihn unerreichbar.
 
-### SellUnderperformer — 72 (nur Strategist)
+### SellUnderperformer (72, nur Strategist)
 
 Verkauft **unaufgerüstete Archer**, wenn ≥ 2000 Credits da sind, ≥ 5 Türme
 stehen, der Sell-Cooldown (4 s Game-Time) abgelaufen ist und ein teurerer,
 freigeschalteter, bezahlbarer Alternativturm existiert. Zweck: die
-Early-Game-Platzhalter loswerden, wenn Geld für Besseres da ist — ohne
+Early-Game-Platzhalter loswerden, wenn Geld für Besseres da ist; ohne
 Verkaufsmechanismus entstanden 300k-Gold-Horte.
 
 Der Kommentar im Code beschreibt eine Auswahl „nächster am Pfadende"; implementiert
 ist bewusst `archers[0]`.
 
-### DistributedPlacement — 65 (nur Strategist)
+### DistributedPlacement (65, nur Strategist)
 
 Zonenbasierte Platzierung über `findDistributedPositions` (5 Zonen entlang des
 Pfades, unterversorgte Zonen scoren höher). Auswahl-Logik:
@@ -406,7 +406,7 @@ Deckel endete der Bot bei 92 Archern und je einem von allem anderen. Der Cap
 wächst mit dem Mix mit, verbietet aber reinen Archer-Spam; ist nur Archer
 bezahlbar und der Cap erreicht, spart der Bot auf den billigsten Nicht-Archer.
 
-### CoverageFill — 60
+### CoverageFill (60)
 
 Dieselbe Varianz-/Verstärkungslogik wie DistributedPlacement, aber über
 `findStrategicPositions` statt Zonen und mit 50/50 statt 30/70 beim
@@ -479,13 +479,13 @@ außerhalb der 5 m des Strahls läuft.
 nach `master-engineering` (1.500 Gold). Beginner und casual spielen
 unverändert.
 
-### AutoStartWave — 30
+### AutoStartWave (30)
 
 Nur im Auto-Modus und nur in der Setup-Phase, ab 1 Turm. Wartet auf laufende
 Forschung (ein Mensch startet keine Welle mitten im Upgrade), verlangt 1 s
 Game-Time seit der letzten Action, und will vor Welle 3 lieber 2 Türme sehen,
 solange noch ≥ 20 Credits da sind. Nach 5 s Game-Time in Setup wird die Welle
-erzwungen — sonst wartet der Bot in Situationen ohne laufende Forschung
+erzwungen, sonst wartet der Bot in Situationen ohne laufende Forschung
 unbegrenzt.
 
 Alle drei Timer laufen in Game-Time über `tickCooldowns`.
@@ -513,7 +513,7 @@ Gegner bei median **12 %** des Pfades. Sobald ein Gegner 80 % passierte, kam in
 Spawn, dahinter ein unverteidigter Korridor.
 
 Das ist der Grund, warum sich der Wave Director nicht trainieren ließ. Seine
-Reward-Funktion verlangt Near-Misses — den Anteil einer Welle, der 80 % des
+Reward-Funktion verlangt Near-Misses, den Anteil einer Welle, der 80 % des
 Pfades passiert **ohne** anzukommen. Erreichbar war das in 2.2 % der Wellen, weil
 auf der letzten Strecke nichts tötet. Vier Wave-Designer, so verschieden wie ein
 Policy-Netz und ein Gleichverteilungs-Sampler, erzeugten statistisch identische
@@ -523,7 +523,7 @@ Läufe.
 
 Zwei Stellen, gemeinsam:
 
-- `strategic-placement.service.ts::endZoneProximity(t)` — U-förmiges Gewicht über
+- `strategic-placement.service.ts::endZoneProximity(t)`: U-förmiges Gewicht über
   die normalisierte Pfadposition (0 = Spawn, 1 = HQ) statt linearer Spawn-Nähe:
 
   ```ts
@@ -542,7 +542,7 @@ Zwei Stellen, gemeinsam:
   Das Gewicht geht mit 0.6 in `calculatePlacementScore` ein; die restlichen 0.4
   verteilen sich auf Pfadabdeckung (0.2) und Straßenabstand (0.2, Optimum 20 m).
 
-- `path-coverage-upgrade.strategy.ts` — Upgrade-Kandidaten abwechselnd von beiden
+- `path-coverage-upgrade.strategy.ts`: Upgrade-Kandidaten abwechselnd von beiden
   Enden der spawn-sortierten Liste. Diese Strategie überholt jede
   Platzierungsstrategie und feuert auf den meisten Ticks; solange sie nur das
   Spawn-Ende bediente, landete praktisch das gesamte Upgrade-Gold in einem
@@ -575,7 +575,7 @@ abdeckt, ist `2·√(r² − 20²)`:
 | Rocket | 100 | ~196 m |
 
 Spawns liegen 500–1000 m vom HQ. Fünf Türme decken damit grob 25–50 % des Pfades.
-Überall dünn heißt überall durchlässig — dann stirbt niemand mehr irgendwo
+Überall dünn heißt überall durchlässig: dann stirbt niemand mehr irgendwo
 zuverlässig, und die Kurve wird nicht spannender, sondern nur schlechter.
 
 Die spielbare Lösung ist **eine zweite Killzone vor dem HQ**, nicht
@@ -664,21 +664,21 @@ prüft `training-client.service.spec.ts`; das Budget `training-session` in
 
 | Kontext | Verhalten |
 |---|---|
-| `?devworld` (ohne `?bot=manual`) | `botAutoMode = true` **und** `enableBot('strategist')` — der Tab spielt sofort selbst |
+| `?devworld` (ohne `?bot=manual`) | `botAutoMode = true` **und** `enableBot('strategist')`: der Tab spielt sofort selbst |
 | `?devworld&bot=manual` | kein Bot, kein Auto-Wave |
 | sonst mit `?bot=auto` | nur `botAutoMode = true`; der Bot selbst wird über die Debug-UI oder das Dashboard aktiviert |
 | Dashboard-Kommando `start` | Timescale 75 + `enableBot('strategist')` |
 
 DevWorld startet den Bot bewusst **selbst**, statt auf den `start`-Broadcast des
-Dashboards zu warten: Ein Tab, der neu lädt, verpasst diesen Broadcast — er wird
-nicht wiederholt — und saß danach dauerhaft in der Setup-Phase, während er sich
+Dashboards zu warten: Ein Tab, der neu lädt, verpasst diesen Broadcast (er wird
+nicht wiederholt) und saß danach dauerhaft in der Setup-Phase, während er sich
 weiter als verbunden und gesund meldete. Analog `?bot=auto` als Pflichtangabe
 zusätzlich zu `?devworld`: der Bot baute dann Türme, startete aber nie eine Welle,
 und der Lauf produzierte keine Trainingsdaten.
 
 `botAutoMode` steuert nur, ob `AutoStartWaveStrategy` überhaupt Teil des
 Strategie-Sets ist (`createBot(skill, autoStartWaves)`), und wird zum
-Erzeugungszeitpunkt gelesen — eine spätere Änderung wirkt erst beim nächsten
+Erzeugungszeitpunkt gelesen; eine spätere Änderung wirkt erst beim nächsten
 `enableBot`.
 
 ---
@@ -692,7 +692,7 @@ Erzeugungszeitpunkt gelesen — eine spätere Änderung wirkt erst beim nächste
 3. Valide Positionen? → `StrategicPlacementService` gibt nur Kandidaten zurück,
    die `TowerPlacementService.placementChecker()` besteht (dieselben Regeln wie
    Vorschau und Klick). Keine Kandidaten, keine Platzierung
-4. `canExecute()` der Strategie — Turm-Cap (`maxTowers`, gejittert!) erreicht?
+4. `canExecute()` der Strategie: Turm-Cap (`maxTowers`, gejittert!) erreicht?
 5. Reaktions-Cooldown abgelaufen? → `reactionTimeMs`, ebenfalls gejittert
 
 ### Bot upgradet nicht
@@ -757,7 +757,7 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
   wählen ihn nach Wert pro Credit. Gegen Ethereal (0,30) liegt er dort hinter
   Magic (0,86) und Lightning (0,71), gegen Light hinter Gatling und Lightning.
 
-### 2026-09 — Platzierung an beiden Pfadenden
+### 2026-09: Platzierung an beiden Pfadenden
 - `NearSpawnUpgradeStrategy` → **`PathCoverageUpgradeStrategy`**, Datei
   `near-spawn-upgrade.strategy.ts` → `path-coverage-upgrade.strategy.ts`.
   Kandidaten jetzt abwechselnd von beiden Enden der spawn-sortierten Liste.
@@ -767,7 +767,7 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 - Begründung und Messwerte: [Warum die Platzierung so
   aussieht](#warum-die-platzierung-so-aussieht).
 
-### 2026-08 — Training-Refresh (P3 im [Handover](HANDOVER_TRAINING_REFRESH.md))
+### 2026-08: Training-Refresh (P3 im [Handover](HANDOVER_TRAINING_REFRESH.md))
 - `lightning` in `ALL_COMBAT_TOWERS`, `storm-mastery` in den Research-Listen.
 - Neue **AntiEtherealPlacementStrategy** (88) + `etherealGap` im Snapshot.
 - Tower-Bewertung über `computeTowerDPSFromLevels`; Anti-Air und Splash nach
@@ -778,18 +778,18 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 - Fehler-Simulation (`mistakeRate`, `makeSuboptimalAction`) und `plansAhead`
   existieren nicht mehr; Variation kommt aus dem Factory-Jitter.
 
-### Phase 5.16 (2026-04 ff.) — Research-aware Bots
+### Phase 5.16 (2026-04 ff.): Research-aware Bots
 - **ResearchCenterPlacement** (95), **ResearchPick** (80, curriculum-aligned,
   strategist/meta adaptiv), **SellUnderperformer** (72, nur Strategist).
 - Alle Skill-Level bekommen die Research-Strategien.
 - Factory-Jitter auf `reactionTimeMs` / `maxTowers`.
 
-### Phase 5.12 — Game-Time-Cooldowns
+### Phase 5.12: Game-Time-Cooldowns
 - Bot- und Strategie-Cooldowns von `Date.now()` auf Game-Time-Akkumulatoren
   umgestellt; `tickCooldown` von `update` getrennt, damit der Snapshot-Bau
   übersprungen werden kann.
 
-### 2026-01 — Distributed Placement / Strategy Pattern
+### 2026-01: Distributed Placement / Strategy Pattern
 - `DistributedPlacementStrategy` + `findDistributedPositions` (Zonen-Scoring).
 - Komplette Ablösung des monolithischen SmartBots durch Strategy Pattern +
   Composition.
@@ -798,11 +798,11 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 
 ## Verwandte Dokumente
 
-- [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) — die Wellenseite:
+- [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md): die Wellenseite,
   Regel-Director und Fairness-Gate, gegen die der Bot spielt
-- [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md) — Trainings- und
+- [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md): Trainings- und
   Messhistorie, inklusive der Befunde, die zu dieser Platzierung geführt haben
-- [WAVE_SYSTEM.md](WAVE_SYSTEM.md) — Wave-Management und Spawn-Pipeline
-- [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) — Damage-Matrix und
+- [WAVE_SYSTEM.md](WAVE_SYSTEM.md): Wave-Management und Spawn-Pipeline
+- [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md): Damage-Matrix und
   Rüstungsklassen, auf denen die Turmauswahl rechnet
-- `training-backend/docs/AI_TRAINING_BACKEND.md` — Python-Trainingspfad
+- `training-backend/docs/AI_TRAINING_BACKEND.md`: Python-Trainingspfad
