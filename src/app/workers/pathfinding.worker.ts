@@ -77,6 +77,8 @@
 
 /// <reference lib="webworker" />
 
+import { SegmentRoutes, type RouteTail } from '../utils/route-start';
+
 // ========================================
 // TYPES (duplicated to avoid import issues in worker context)
 // ========================================
@@ -344,7 +346,7 @@ function astar(
   end: StreetNode,
   endLat: number,
   endLon: number
-): StreetNode[] {
+): RouteTail | null {
   const openHeap = new MinHeap<number>();
   const openSetTracker = new Set<number>([start.id]);
   const cameFrom = new Map<number, number>();
@@ -367,7 +369,7 @@ function astar(
         if (entry) path.unshift(entry.node);
         curr = cameFrom.get(curr);
       }
-      return path;
+      return { path, cost: gScore.get(current)! };
     }
 
     openSetTracker.delete(current);
@@ -399,7 +401,7 @@ function astar(
     }
   }
 
-  return [];
+  return null;
 }
 
 function findPath(
@@ -417,13 +419,15 @@ function findPath(
     return [];
   }
 
-  return astar(
-    graph,
+  // From the foot of the start on its segment, as OsmStreetService.findPath
+  const g = graph;
+  const end = endPoint.street.nodes[endPoint.nodeIndex];
+  return new SegmentRoutes(
     startPoint.street.nodes[startPoint.nodeIndex],
-    endPoint.street.nodes[endPoint.nodeIndex],
-    endLat,
-    endLon
-  );
+    startPoint.street.nodes[startPoint.nodeIndex + 1],
+    ROAD_TYPE_WEIGHTS[startPoint.street.type] ?? DEFAULT_ROAD_WEIGHT,
+    (node) => astar(g, node, end, endLat, endLon),
+  ).routeFrom(startLat, startLon);
 }
 
 // ========================================

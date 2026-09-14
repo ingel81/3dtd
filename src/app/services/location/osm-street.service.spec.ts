@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { OsmStreetService, BuildingFootprint, StreetNetwork } from './osm-street.service';
 import { boxAround } from './street-box';
+import { ROUTE_START_NODE_ID } from '../../utils/route-start';
+import { extendPathToOptimalTurnoff, leavePathForBase } from '../../utils/route-geometry';
 
 // Mock Angular DI — OsmStreetService uses inject(StreetCacheService)
 vi.mock('@angular/core', async () => {
@@ -229,7 +231,73 @@ describe('OsmStreetService', () => {
 
     it('keeps the shape node at the corner of a way', () => {
       const path = service.findPath(network, 47.9995, 9.0, 48.001, 9.0025);
-      expect(path.map((n) => n.id)).toEqual([10, 1, 2, 3]);
+      expect(path.map((n) => n.id)).toEqual([ROUTE_START_NODE_ID, 1, 2, 3]);
+    });
+
+    describe('where the route starts and ends', () => {
+      // A straight street north along lon 9, in ways of 111 to 333 m:
+      // n0 - n1 (111 m) - n2 (333 m) - n3 (111 m) - n4 (222 m)
+      const s0 = { id: 0, lat: 47.999, lon: 9.0 };
+      const s1 = { id: 1, lat: 48.0, lon: 9.0 };
+      const s2 = { id: 2, lat: 48.003, lon: 9.0 };
+      const s3 = { id: 3, lat: 48.004, lon: 9.0 };
+      const s4 = { id: 4, lat: 48.006, lon: 9.0 };
+      const straight: StreetNetwork = {
+        streets: [
+          { id: 100, name: 'Süd', type: 'residential', nodes: [s0, s1] },
+          { id: 200, name: 'Lang', type: 'residential', nodes: [s1, s2] },
+          { id: 300, name: 'Mitte', type: 'residential', nodes: [s2, s3] },
+          { id: 400, name: 'Nord', type: 'residential', nodes: [s3, s4] },
+        ],
+        nodes: new Map([s0, s1, s2, s3, s4].map((n) => [n.id, n])),
+        bounds: { minLat: 47.999, maxLat: 48.006, minLon: 9.0, maxLon: 9.0 },
+      };
+      /** 20 m east of the street beside the middle of Nord */
+      const hq = { lat: 48.005, lon: 9.00027 };
+
+      it('starts a click beside the middle of a long segment at its foot there, not on the segment\'s first node', () => {
+        // 7 m east of the middle of Lang, 167 m from either node
+        const path = service.findPath(straight, 48.0015, 9.0001, hq.lat, hq.lon);
+        expect(path[0].id).toBe(ROUTE_START_NODE_ID);
+        expect(path[0].lat).toBeCloseTo(48.0015, 9);
+        expect(path[0].lon).toBe(9.0);
+        expect(path.slice(1).map((n) => n.id)).toEqual([2, 3]);
+      });
+
+      it('leaves the foot towards the HQ, whichever end of the segment that is', () => {
+        const south = { lat: 47.9995, lon: 9.00027 };
+        const path = service.findPath(straight, 48.0015, 9.0001, south.lat, south.lon);
+        expect(path[0].id).toBe(ROUTE_START_NODE_ID);
+        expect(path.slice(1).map((n) => n.id)).toEqual([1, 0]);
+      });
+
+      it('starts a click 11 m short of a junction at its foot, not on the far end of the segment', () => {
+        const path = service.findPath(straight, 48.0029, 9.0001, hq.lat, hq.lon);
+        expect(path[0].id).toBe(ROUTE_START_NODE_ID);
+        expect(service.haversineDistance(path[0].lat, path[0].lon, s2.lat, s2.lon)).toBeCloseTo(11.1, 0);
+        expect(path.slice(1).map((n) => n.id)).toEqual([2, 3]);
+      });
+
+      it('starts a click on a junction on the junction node itself', () => {
+        // Foot 0.5 m past n2 on Mitte
+        const path = service.findPath(straight, 48.0030045, 9.0001, hq.lat, hq.lon);
+        expect(path.map((n) => n.id)).toEqual([2, 3]);
+        expect(path[0]).toBe(s2);
+      });
+
+      it('ends the built route at the foot of the HQ on its segment and then at the HQ', () => {
+        // A* ends on the first node of the HQ's segment; the route is led on
+        // from there as PathAndRouteService.buildRouteFromPath does it
+        const path = service.findPath(straight, 48.0015, 9.0001, hq.lat, hq.lon);
+        expect(path[path.length - 1]).toBe(s3);
+
+        const built = leavePathForBase(extendPathToOptimalTurnoff(path, hq, straight.streets, service), hq, service);
+        const [foot, end] = built.slice(-2);
+        expect(end).toEqual(hq);
+        expect(foot.lat).toBeCloseTo(hq.lat, 9);
+        expect(foot.lon).toBe(9.0);
+        expect(built.slice(1, -2).map((p) => p.lat)).toEqual([s2.lat, s3.lat]);
+      });
     });
   });
 

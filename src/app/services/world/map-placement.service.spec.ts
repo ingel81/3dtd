@@ -18,6 +18,8 @@ import {
   portalTurnRange,
   spawnPortalPose,
 } from '../../three-engine/renderers/marker/spawn-portal-pose';
+import { haversineDistance } from '../../utils/geo-utils';
+import { SegmentRoutes } from '../../utils/route-start';
 
 const HQ = { lat: 48.9, lon: 9.2 };
 /** The box the streets were loaded for: 0.01 degree around the HQ. */
@@ -33,6 +35,8 @@ const STREET = [
   { id: 2, lat: CURSOR.lat, lon: HQ.lon - 0.0005 },
   { id: 3, lat: CURSOR.lat, lon: HQ.lon - 0.001 },
 ];
+/** The way STREET belongs to, as findNearestStreetPoint names it. */
+const STREET_WAY = { id: 7, name: 'Street', type: 'residential', nodes: STREET };
 
 /** 0.001 degree = 100 m, +X west, +Z north, like the engine's frame. */
 function geoToLocal(lat: number, lon: number, height: number): Vector3 {
@@ -61,14 +65,16 @@ describe('MapPlacementService', () => {
   let distanceToHq: number;
   /** Distance from the cursor to the nearest street of the loaded network, m */
   let distanceToStreet: number;
-  /** Id of the node the route would start on: the nearest segment's first */
-  let startNode: number;
-  /** What findPath answers from there to the HQ */
+  /** Index of the segment of STREET_WAY nearest to the cursor */
+  let segment: number;
+  /** The route a spawn at the cursor gets to the HQ, as the segment's routes answer */
   let route: unknown[];
+  /** The segment's routes from the cursor on (SegmentRoutes.routeFrom) */
+  let routeFrom: ReturnType<typeof vi.fn>;
   let osm: {
     findNearestStreetPoint: ReturnType<typeof vi.fn>;
     haversineDistance: ReturnType<typeof vi.fn>;
-    findPath: ReturnType<typeof vi.fn>;
+    segmentRoutes: ReturnType<typeof vi.fn>;
   };
   const mapPlacementMode = signal<'hq' | 'spawn' | null>(null);
 
@@ -82,12 +88,13 @@ describe('MapPlacementService', () => {
       createDiamondMarker: vi.fn(({ color }: { color: number }) => fakePortalPreview(color)),
       disposePreviewMarker: vi.fn(),
     };
-    startNode = 1;
+    segment = 0;
     route = STREET;
+    routeFrom = vi.fn(() => route);
     osm = {
-      findNearestStreetPoint: vi.fn(() => ({ distance: distanceToStreet, street: { nodes: [{ id: startNode }] }, nodeIndex: 0 })),
+      findNearestStreetPoint: vi.fn(() => ({ distance: distanceToStreet, street: STREET_WAY, nodeIndex: segment })),
       haversineDistance: vi.fn(() => distanceToHq),
-      findPath: vi.fn(() => route),
+      segmentRoutes: vi.fn(() => ({ routeFrom })),
     };
     const injector = Injector.create({
       providers: [
@@ -178,20 +185,22 @@ describe('MapPlacementService', () => {
       expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'Too close to HQ' });
     });
 
-    it('refuses a street with no route to the HQ, and asks A* once per start node', () => {
+    it('refuses a street with no route to the HQ, and asks for the routes once per segment', () => {
       route = [];
       expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'No route to HQ' });
-      expect(osm.findPath).toHaveBeenCalledWith(expect.anything(), inside.lat, inside.lon, HQ.lat, HQ.lon);
+      expect(osm.segmentRoutes).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ nodeIndex: 0 }), HQ.lat, HQ.lon);
+      expect(routeFrom).toHaveBeenCalledWith(inside.lat, inside.lon);
 
-      // Along the same segment: the answer stands, no second search
+      // Along the same segment: its routes stand, only the start moves
       service.validatePosition('spawn', inside.lat + 0.0001, inside.lon);
-      expect(osm.findPath).toHaveBeenCalledTimes(1);
+      expect(osm.segmentRoutes).toHaveBeenCalledTimes(1);
+      expect(routeFrom).toHaveBeenLastCalledWith(inside.lat + 0.0001, inside.lon);
 
-      // The next segment starts on another node: searched again
-      startNode = 2;
+      // The next segment: searched again
+      segment = 1;
       route = STREET;
       expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: true });
-      expect(osm.findPath).toHaveBeenCalledTimes(2);
+      expect(osm.segmentRoutes).toHaveBeenCalledTimes(2);
     });
 
     it('asks again once the HQ or the streets changed', () => {
@@ -200,6 +209,7 @@ describe('MapPlacementService', () => {
       route = STREET;
       service.updateDependencies({ bounds: BOUNDS } as unknown as StreetNetwork, { ...HQ });
       expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: true });
+      expect(osm.segmentRoutes).toHaveBeenCalledTimes(2);
     });
 
     it('keeps the wider tolerance for the HQ, which needs no street to start on', () => {
@@ -237,6 +247,32 @@ describe('MapPlacementService', () => {
       // West along the street: +x
       expect(preview().rotation.y).toBeCloseTo(Math.PI / 2, 6);
       expect(preview().scale.x).toBeCloseTo(STREET_POSE.scale, 6);
+    });
+
+    it('follows the cursor along a long segment: stands on its foot there, not on the segment\'s first node', () => {
+      // The routes from STREET's first segment (51 m), on along STREET from either end
+      const along = (from: number) => {
+        let cost = 0;
+        for (let i = from; i < STREET.length - 1; i++) {
+          cost += haversineDistance(STREET[i].lat, STREET[i].lon, STREET[i + 1].lat, STREET[i + 1].lon);
+        }
+        return { path: STREET.slice(from), cost };
+      };
+      osm.segmentRoutes.mockImplementation(() => new SegmentRoutes(STREET[0], STREET[1], 1, (node) => along(STREET.indexOf(node))));
+      service.startPlacement('spawn');
+
+      // Beside the street, 20 m west of its first node in the scene
+      service.updatePreviewPosition(CURSOR.lat + 0.0001, CURSOR.lon, 0);
+      const foot = geoToLocal(CURSOR.lat, CURSOR.lon, 0);
+      expect(preview().position.x).toBeCloseTo(foot.x, 6);
+      expect(preview().position.z).toBeCloseTo(foot.z, 6);
+      expect(preview().rotation.y).toBeCloseTo(Math.PI / 2, 6);
+
+      // 10 m on west: the preview goes with it, the segment's routes stand
+      service.updatePreviewPosition(CURSOR.lat + 0.0001, CURSOR.lon - 0.0001, 0);
+      expect(preview().position.x).toBeCloseTo(foot.x + 10, 6);
+      expect(preview().position.z).toBeCloseTo(foot.z, 6);
+      expect(osm.segmentRoutes).toHaveBeenCalledTimes(1);
     });
 
     it('stands at the cursor facing the HQ where no spawn may stand', () => {

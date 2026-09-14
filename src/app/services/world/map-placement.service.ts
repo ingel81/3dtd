@@ -12,7 +12,8 @@ import {
   type SpawnPortalPose,
 } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { SpawnDistanceRings } from '../../three-engine/renderers/spawn-distance-rings';
-import { OsmStreetService, Street, StreetNetwork } from '../location/osm-street.service';
+import { OsmStreetService, Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
+import type { SegmentRoutes } from '../../utils/route-start';
 import { UIStore } from '../../store/ui.store';
 import { GeoPosition } from '../../models/game.types';
 import {
@@ -98,9 +99,10 @@ export class MapPlacementService {
   private turnDirection = 1;
   private isRotating = false;
 
-  // The route a spawn would get, per start node, see previewRouteAt(); and
-  // the one under the cursor now, null where no spawn may stand
-  private readonly routeFromNode = new Map<number, PreviewRoute | null>();
+  // The routes a spawn on each street segment ("street id:node index") would
+  // get, see previewRouteAt(); and the one under the cursor now, null where
+  // no spawn may stand
+  private readonly routesFromSegment = new Map<string, SegmentRoutes | null>();
   private currentRoute: PreviewRoute | null = null;
 
   // Dependencies (set via initialize)
@@ -129,7 +131,7 @@ export class MapPlacementService {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
     this.baseCoords = baseCoords;
-    this.routeFromNode.clear();
+    this.routesFromSegment.clear();
   }
 
   /**
@@ -141,7 +143,7 @@ export class MapPlacementService {
   ): void {
     this.streetNetwork = streetNetwork;
     this.baseCoords = baseCoords;
-    this.routeFromNode.clear();
+    this.routesFromSegment.clear();
   }
 
   /**
@@ -396,30 +398,31 @@ export class MapPlacementService {
    * The route a spawn at the click would get, found as the relocation will
    * find it (findPath from the click); null without one, where the
    * relocation would turn the click down without a word after a green
-   * preview. The route starts on the nearest segment's first node, so it
-   * is remembered per node: sliding along a street asks A* once per
-   * segment, not once per mouse move.
+   * preview. The route starts at the click's foot on its nearest segment
+   * (SegmentRoutes), so the preview follows the cursor along the street.
+   * The routes on from that segment are kept per segment: sliding along a
+   * street runs A* at most twice per segment, not once per mouse move.
    */
   private previewRouteAt(nearest: { street: Street; nodeIndex: number }, lat: number, lon: number): PreviewRoute | null {
-    const startId = nearest.street.nodes[nearest.nodeIndex].id;
-    let known = this.routeFromNode.get(startId);
-    if (known === undefined) {
-      known = this.buildPreviewRoute(lat, lon);
-      this.routeFromNode.set(startId, known);
+    const key = `${nearest.street.id}:${nearest.nodeIndex}`;
+    let routes = this.routesFromSegment.get(key);
+    if (routes === undefined) {
+      const hq = this.baseCoords!;
+      routes = this.osmService.segmentRoutes(this.streetNetwork!, nearest, hq.lat, hq.lon);
+      this.routesFromSegment.set(key, routes);
     }
-    return known;
+    return routes && this.buildPreviewRoute(routes.routeFrom(lat, lon));
   }
 
   /**
-   * The portal's pose on the route from (lat, lon) to the HQ, as
+   * The portal's pose on `path`, the route from the click to the HQ, as
    * MarkerVisualizationService.placeSpawnPortal will stand it, and its turn
-   * range. The corridor there is not measured before the route is built:
-   * the pose takes the default width, the placed portal its own.
+   * range; null for a path of less than two nodes, where there is no route.
+   * The corridor there is not measured before the route is built: the pose
+   * takes the default width, the placed portal its own.
    */
-  private buildPreviewRoute(lat: number, lon: number): PreviewRoute | null {
+  private buildPreviewRoute(path: StreetNode[]): PreviewRoute | null {
     const engine = this.engine;
-    const hq = this.baseCoords!;
-    const path = this.osmService.findPath(this.streetNetwork!, lat, lon, hq.lat, hq.lon);
     if (!engine || path.length < 2) return null;
 
     const points = path.slice(0, PORTAL_POSE_WAYPOINTS).map((node) => {
