@@ -1,6 +1,6 @@
 # Status Effects System
 
-**Stand:** 2026-09-14
+**Stand:** 2026-09-15
 
 Dokumentation des Status-Effekt-Systems für Debuffs und Buffs auf Enemies.
 
@@ -31,7 +31,7 @@ Schadenstyp. Der Chaos Tower (Schadenstyp `chaos`, 1,0 gegen jede Rüstung) legt
 ```typescript
 // models/status-effects.ts
 
-export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'poison';
+export type StatusEffectType = 'slow' | 'freeze' | 'stun' | 'burn' | 'poison';
 
 export interface StatusEffect {
   type: StatusEffectType;
@@ -166,7 +166,7 @@ applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string):
 ### Refresh-Logik
 
 `slow` und `poison` werden **immer ersetzt** — es gibt kein Stacking. Jeder neue Effekt dieses Typs ersetzt den vorherigen, unabhängig von der Source.
-Andere Effekttypen (`burn`, `freeze`) werden pro `(type, sourceId)` deduplikiert (gleiche Quelle = Refresh, andere Quelle = neuer Eintrag).
+Andere Effekttypen (`burn`, `freeze`, `stun`) werden pro `(type, sourceId)` deduplikiert (gleiche Quelle = Refresh, andere Quelle = neuer Eintrag).
 Ein ersetzter Eintrag gibt seine DoT-Tick-Phase (`tickAccumMs`) an den neuen weiter.
 
 ```typescript
@@ -378,7 +378,6 @@ effects: {
 - Langsamere Bewegung des Enemies
 
 **Geplant:**
-- Blauer Glow um Enemy
 - Icon über Health Bar
 
 ### Freeze Effect
@@ -406,6 +405,10 @@ effects: {
 - Oranger Tint auf der Instanz (`setBurnVisual`, Priorität: Hit-Flash > Freeze (Stopp) > Stun > Slow > Burn > Poison), flankengesteuert in `EnemyManager.presentFrame()`
 - Orange Schadenszahlen pro Tick
 
+**Geplant:**
+- Feuer-Partikel am brennenden Gegner (ähnlich wie HQ Fire)
+- Rauch-Partikel
+
 ### Wurm (Kette aus Segmenten)
 
 Jedes Segment ist ein Gegner mit eigenen Effekten. Die Kette geht im Mittel der
@@ -430,10 +433,6 @@ dunkler, je nur einer in dieser Reihenfolge; Burn glüht orange darüber (`OOZE_
 Eiskristalle und Stun-Funken gibt es am Band nicht. DoT-Zahlen erscheinen am Punkt
 des letzten Treffers (ENEMY_CREATION.md, Körper entlang der Route).
 
-**Geplant:**
-- Feuer-Partikel am brennenden Gegner (ähnlich wie HQ Fire)
-- Rauch-Partikel
-
 ---
 
 ## Performance-Überlegungen
@@ -444,26 +443,6 @@ des letzten Treffers (ENEMY_CREATION.md, Körper entlang der Route).
 - Update pro Sub-Step: ein Durchlauf mit In-place-Compaction (`updateStatusEffects`), O(n) mit n = Anzahl Effekte, keine Allokation
 - Kein Problem bei <1000 Enemies
 
-### Optimization Möglichkeiten
-
-1. **Max Effects Limit:**
-   ```typescript
-   const MAX_EFFECTS = 5;
-   if (this.statusEffects.length >= MAX_EFFECTS) {
-     this.statusEffects.shift(); // Remove oldest
-   }
-   this.statusEffects.push(effect);
-   ```
-
-2. **Batch Cleanup:**
-   ```typescript
-   // Nur alle 100ms cleanen statt jedes Frame
-   if (now - this.lastCleanup > 100) {
-     this.removeExpiredEffects();
-     this.lastCleanup = now;
-   }
-   ```
-
 ---
 
 ## Erweiterung: Neue Status-Effekte
@@ -472,7 +451,7 @@ des letzten Treffers (ENEMY_CREATION.md, Körper entlang der Route).
 
 ```typescript
 // models/status-effects.ts
-export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'poison' | 'NEW_EFFECT';
+export type StatusEffectType = 'slow' | 'freeze' | 'stun' | 'burn' | 'poison' | 'NEW_EFFECT';
 ```
 
 ### 2. Anwendungs-Logik
@@ -516,10 +495,10 @@ if (isBurning !== this.burnVisualEnemies.has(enemy.id)) {
 
 ### Manual Testing
 
-`startTime` muss aus dem Game-Clock kommen (nicht `performance.now()`), sonst läuft der Timer asynchron zur Spiellogik:
+`startTime` muss aus dem Game-Clock kommen (nicht `performance.now()`), sonst läuft der Timer asynchron zur Spiellogik. Ein Test-Aufruf geht deshalb über den Service (Beispiel, so steht es nicht im Code):
 
 ```typescript
-// In Wave Debug Component
+// Beispiel, etwa aus einem Debug-Werkzeug
 constructor(private statusEffectService: StatusEffectService, ...) {}
 
 testSlowEffect(): void {
@@ -528,14 +507,6 @@ testSlowEffect(): void {
     this.statusEffectService.applyEffect(enemy, 'slow', 0.7, 10000, 'debug');
   }
 }
-```
-
-### Console Commands
-
-```typescript
-// Im Browser Console (ohne Game-Clock-Zugriff): nur grobe Tests, da
-// performance.now() vom Game-Clock abweicht. Besser: über DebugFacade einen
-// passenden Helper aufrufen.
 ```
 
 ---
