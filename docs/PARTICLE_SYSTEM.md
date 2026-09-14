@@ -661,11 +661,13 @@ Höhepunkt. Die langsamsten Frames waren Frame 2 oder 3 nach dem Kill mit 3,5 bi
 die GPU-Kosten im Browser (Fill-Rate der additiven Funken, Draw Calls der Trümmer).
 
 Grenzen: Der Replay kollabiert das Band eines getöteten Ooze genauso, samt Blasen und
-Trümmern, aber ohne Pfützen (er hält die Bodenspuren an). Ein Neustart, bei dem keine
-Ooze mehr lebt, räumt liegende Trümmer nicht ab (`OozeBodies.clear` ruft den Renderer
-dann nicht); sie sinken wie ein absinkendes Band von selbst ein, spätestens etwa 7,6 s
-nach dem Kill (geworfen bis 1,2 s, Flug mit Aufsprung bis 1,9 s, 3,5 s Liegen, 1 s
-Einsinken).
+Trümmern, aber ohne Pfützen (er hält die Bodenspuren an). Ein Neustart, ein Game Over,
+ein Standortwechsel und ein Verlassen des Replays räumen ein noch kollabierendes Band
+und liegende Trümmer sofort ab (`OozeBodies.clear` bzw. `ReplayPlayer.exit` rufen den
+Renderer immer, auch ohne lebende Ooze). Jedes Trümmerstück landet auf der Bodenhöhe
+seines Abwurfpunkts, einmal beim Loslassen gelesen (`letGo()`); am Hang oder an
+Gehsteigkanten kann es daher bis zu den knapp 8 m seitlich seines Auswurfs schweben
+oder einsinken. Mit Gebäuden oder Tiles kollidiert es nicht.
 
 ---
 
