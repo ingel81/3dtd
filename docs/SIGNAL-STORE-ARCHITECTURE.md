@@ -1,6 +1,6 @@
 # Signal Store Architektur — TowerDefenseStore
 
-**Stand:** 2026-09-13 (`useAIDirector`-Ownership: 2026-09-07)
+**Stand:** 2026-09-15 (`useAIDirector`-Ownership: 2026-09-07)
 
 ## Überblick
 
@@ -16,8 +16,8 @@ Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentr
 ### Sub-Stores
 | Store | Datei | Domain | Signals |
 |-------|-------|--------|---------|
-| `GameStore` | `store/game.store.ts` | Game State | credits, health, phase, wave, enemies (`enemiesAlive`, `waveEnemyTotal`, `waveEnemiesLeft`), towers (`selectedTower`, `selectedTowerRevision`), `runSummary` (Game-Over-Bilanz), Training/AI-Director |
-| `UIStore` | `store/ui.store.ts` | UI State | debug flags, layer toggles, Quick-Actions-Menü (`openMenu`), Audio-Lautstärken, build mode, persistence |
+| `GameStore` | `store/game.store.ts` | Game State | credits, health, phase, wave, enemies (`enemiesAlive`, `waveEnemyTotal`, `waveEnemiesLeft`), towers (`selectedTower`, `selectedTowerRevision`), `abilities`, `hero`, `paused`, `autoWaveSecondsLeft` (Countdown der Auto-Welle), `runSummary` (Game-Over-Bilanz), Training/AI-Director |
+| `UIStore` | `store/ui.store.ts` | UI State | debug flags, layer toggles, Quick-Actions-Menü (`openMenu`), Audio-Lautstärken, `autoStartWaves`, build mode, `photoMode`, `replayMode`, persistence |
 | `EngineStore` | `store/engine.store.ts` | Engine State | fps, tiles, camera, compass |
 | `LocationStore` | `store/location.store.ts` | Location State | coords, spawns, streets |
 | `ResearchStore` | `store/research.store.ts` | Research State | active research, completed, `researchElapsed`, unlocks |
@@ -43,10 +43,10 @@ Alle Sub-Stores sind `@Injectable({ providedIn: 'root' })`. Der Root-Store injiz
 ### Persistenz (localStorage)
 | Key | Schreiber | Inhalt |
 |-----|-----------|--------|
-| `td-ui-state` | `UIStore` (lädt im Konstruktor, schreibt per `effect()` mit 500 ms Trailing-Debounce) | `infoOverlayVisible`, `streetsVisible`, `routesVisible`, `spatialGridDebugVisible`, `airSpatialGridDebugVisible`, `airRouteVisible`, `perTowerLosFilter`, `openMenu`, `musicVolume`, `sfxVolume`, `musicMuted`, `sfxMuted`. Ältere Stände mit einem Flag pro Menü öffnen beim Laden genau ein Menü |
+| `td-ui-state` | `UIStore` (lädt im Konstruktor, schreibt per `effect()` mit 500 ms Trailing-Debounce) | `infoOverlayVisible`, `streetsVisible`, `routesVisible`, `spatialGridDebugVisible`, `airSpatialGridDebugVisible`, `airRouteVisible`, `perTowerLosFilter`, `openMenu`, `musicVolume`, `sfxVolume`, `musicMuted`, `sfxMuted`, `autoStartWaves`. Ältere Stände mit einem Flag pro Menü öffnen beim Laden genau ein Menü |
 | `td_display_options` | `DebugFacadeService` über `utils/display-options.storage.ts` (Angular-frei) | Display-Optionen und VFX-Schalter in einem Objekt. Die alten Keys `3dtd-fps-limit` und `td_screen_shake_enabled` faltet `loadDisplayOptions()` einmal ein und löscht sie |
 
-Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_recent_locations_v1` (`LocationManagementService`), `td_onboarding_v2` (`OnboardingService`), `td_debug_windows_v6` (`DebugWindowService`), `td_music_enabled` (`BackgroundMusicService`), `training-timescale` (`GameStateManager`), `td_geocode_cache_v1` (`GeocodingService`), `3dtd-tile-credentials` (`ConfigService`).
+Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_recent_locations_v1` (`LocationManagementService`), `td_best_waves_v1` (`BestWaveService` über `best-waves.ts`), `td_onboarding_v2` (`OnboardingService`), `td_debug_windows_v6` (`DebugWindowService`), `td_music_enabled` (`BackgroundMusicService`), `training-timescale` (`GameStateManager`), `td_geocode_cache_v1` (`GeocodingService`), `3dtd-tile-credentials` (`ConfigService`).
 
 **Display-Optionen und VFX-Schalter liegen in keinem Store.** `DebugFacadeService` hält die Signals `healthBarsVisible`, `screenShakeEnabled`, `damageNumbersVisible`, `fpsLimit` und `vfx` (`VfxSettings` aus `three-engine/vfx-settings.ts`: `muzzleFlash`, `projectileTrails`, `impactEffects`, `groundMarks`, `freezeTint`, `bloom`, `colorGrading`, `bloodMoon`) und startet sie aus dem gespeicherten Objekt. Quick Actions und das Display-Debug-Fenster lesen diese Signals. Eine Änderung geht an die Engine (`applyVfxSettings()`, `setFpsLimit()` usw.) und per `persistDisplayOptions()` als Merge ins Objekt; jeder Schreiber setzt nur seine eigenen Felder. `ScreenShakeService` liest seinen Startwert selbst über `loadDisplayOptions()`.
 
@@ -71,18 +71,20 @@ Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_rece
 - ✅ `updateEngineStats()` — Batch-State-Updates (pure, keine Side-Effects)
 - ✅ `appendDebugLog()` — Convenience-Mutations
 - ❌ `startWave()` — gehört in Facade
-- ❌ `placeTower()` — gehört in Facade
+- ❌ Tower bauen — gehört in den `TowerPlacementService`
 - ❌ `upgradeTower()` — gehört in Facade
 - ❌ EventBus-Interaktion — gehört in Facade / SyncService
 
-**Facade (TowerDefenseFacadeService):**
+**Facade (TowerDefenseFacadeService und Sub-Facades):**
 - ✅ `startWave()` → `EventBus.emit('command:start-wave')`
-- ✅ `placeTower()` → `EventBus.emit('command:place-tower')`
 - ✅ `restartGame()` → `EventBus.emit('command:restart-game')`
+- ✅ `sellTower()` → `EventBus.emit('command:sell-tower')`
 - ✅ EventBus-Subscriptions für UI-State-Sync
 - ✅ Service-Orchestrierung (Camera, Markers, Routes, etc.)
 - ❌ Eigene Signals — benutzt Store-Signals
 - ❌ Direkte State-Mutations ohne EventBus für Engine-Commands
+
+`command:place-tower` kommt nicht aus einer Facade, sondern aus dem `TowerPlacementService` beim Bau-Klick. Weitere Commands senden `TowerDefenseComponent` (Forschung, Targeting), `AbilityTargetingService` und `HeroControlService`, siehe [EVENT_SYSTEM.md](EVENT_SYSTEM.md#command-events-ui--game-engine).
 
 ### Datenfluss-Muster
 
@@ -132,99 +134,19 @@ DamageApplicationService → tower:kill Event
   → GameStateSyncService → Store.selectedTowerRevision + 1 (nur beim gewählten Tower)
 ```
 
-## Die Lösung: TowerDefenseStore + GameStateSyncService
+## Root-Store
 
-```
-┌──────────────────────────────────────────────────────┐
-│                  TowerDefenseStore                     │
-│  @Injectable({ providedIn: 'root' })                  │
-│  PURE STATE CONTAINER — keine Action-Methods!          │
-│                                                        │
-│  ┌─────────────┐ ┌──────────┐ ┌───────────────────┐  │
-│  │ Game State   │ │ UI State │ │ Location          │  │
-│  │ credits      │ │ openMenu │ │ baseCoords        │  │
-│  │ baseHealth   │ │ volumes  │ │ centerCoords      │  │
-│  │ phase        │ │ debug    │ │ spawnPoints       │  │
-│  │ waveNumber   │ │ build    │ │ favorites         │  │
-│  │ enemies      │ │ toggles  │ │ locationName      │  │
-│  │ selectedTwr  │ │ ...      │ │ ...               │  │
-│  └─────────────┘ └──────────┘ └───────────────────┘  │
-│                                                        │
-│  ┌─────────────┐ ┌──────────────┐ ┌─────────────────┐│
-│  │ Engine       │ │ Research     │ │ Debug           ││
-│  │ fps          │ │ active       │ │ waveEnemyCount  ││
-│  │ tileStats    │ │ completed    │ │ waveEnemySpeed  ││
-│  │ sounds       │ │ progress     │ │ waveEnemyHealth ││
-│  │ compass      │ │ unlocks      │ │ waveSpawnMode   ││
-│  │ cameraDbg    │ │              │ │ towerOverrides  ││
-│  │              │ │              │ │ enemyOverrides  ││
-│  └─────────────┘ └──────────────┘ └─────────────────┘│
-│                                                        │
-│  ═══════ Computed ════════════════════════════════════ │
-│  waveActive, isGameOver, canStartWave, healthPercent  │
-│  healthCritical, canPlaceTowers, gameStarted          │
-│                                                        │
-│  ═══════ State Mutations (pure, no side effects) ════ │
-│  resetGameState(), resetAll(), updateEngineStats()    │
-│  appendDebugLog(), clearDebugLog()                    │
-└──────────────────────────────────────────────────────┘
-         │                              │
-    reads signals                  reads/writes
-         │                              │
-    ┌────▼─────┐                 ┌──────▼──────┐
-    │Component │                 │   Facade    │
-    │(pure view│                 │ (Commands   │
-    │ template)│                 │  via Event- │
-    │          │───user input──>│  Bus)       │
-    └──────────┘                 └──────┬──────┘
-                                        │
-                                   EventBus
-                                        │
-                                 ┌──────▼──────┐
-                                 │   Engine    │
-                                 │ (GSM, Mgrs)│
-                                 └──────┬──────┘
-                                        │
-                                   EventBus
-                                        │
-                                 ┌──────▼──────┐
-                                 │  SyncService│
-                                 │  → Store    │
-                                 └─────────────┘
-```
+`TowerDefenseStore` ist ein reiner State-Container ohne Action-Methoden. Er re-exportiert die Signals der Sub-Stores
+und hält, was mehrere Domains braucht:
 
-## Vorteile
+- Computed: `waveActive`, `isGameOver`, `gameStarted`, `healthPercent`, `healthCritical` (aus dem `GameStore`),
+  `canStartWave` und `canPlaceTowers` (über Game-, Engine- und Location-Store)
+- Mutationen ohne Seiteneffekte: `resetGameState()`, `resetAll()`, `updateEngineStats()`, `appendDebugLog()`,
+  `clearDebugLog()`
 
-### 1. Single Source of Truth
-Jedes Signal existiert **genau einmal** im Store. Component, Facades, AI-Services lesen alle vom Store.
+Komponenten lesen die Signals direkt (`readonly credits = this.store.credits`), Facades lesen und schreiben sie, die
+Engine erreicht den Store nur über Events und den `GameStateSyncService`. Isoliert testbar, ohne DOM:
 
-### 2. Keine Proxy-Signals mehr
-```typescript
-// VORHER: Component (40+ Zeilen Proxy-Boilerplate von verschiedenen Services)
-readonly fps = this.uiState.fps;
-readonly buildMode = this.towerPlacement.buildMode;
-readonly credits = this.gameState.credits;
-
-// NACHHER: Component liest vom Store
-readonly fps = this.store.fps;
-readonly buildMode = this.store.buildMode;
-readonly credits = this.store.credits;
-```
-
-### 3. Minimale Bridge
-```typescript
-// Bridge enthält nur noch mutable Engine-Infrastruktur
-export interface FacadeComponentBridge {
-  getEngine: () => ThreeTilesEngine | null;
-  setEngine: (e: ThreeTilesEngine | null) => void;
-  getStreetNetwork / setStreetNetwork, etc.
-  getCanvasElement: () => HTMLCanvasElement;
-  onTerrainClick / onMouseMove / exitBuildMode / handleEnemyPlacement
-  onMapPlacementClick / onMapPlacementMove / exitMapPlacement
-}
-```
-
-### 4. Testbar
 ```typescript
 const store = TestBed.inject(TowerDefenseStore);
 store.phase.set('wave');
@@ -232,7 +154,7 @@ expect(store.waveActive()).toBe(true);
 expect(store.canStartWave()).toBe(false);
 ```
 
-### 5. Klare Ownership
+## Ownership
 
 | Signal-Kategorie | Owner | Wer liest | Wer schreibt |
 |------------------|-------|-----------|-------------|
@@ -271,41 +193,13 @@ in `startWaveWithAI()`, der auf manuelle Wave-Erzeugung zurückfällt, und
 `TowerDefenseFacadeService` beim Init in der DevWorld (setzt `true`). Das
 entspricht der Regel oben: **State im Store, Entscheidung in der Facade**.
 
-## Migrationsplan — ABGESCHLOSSEN ✅
+## Herkunft
 
-### Phase 1: Store erstellen ✅
-- [x] `TowerDefenseStore` mit allen Signals und Interfaces
-- [x] Computed Values definieren
-- [x] Sub-Stores erstellt: `GameStore`, `UIStore`, `EngineStore`, `LocationStore`, `ResearchStore`
-- [x] `DebugStore` als 6. Sub-Store ergänzt (2026-05-10) — Migration der Wave/Tower/Enemy-Debug-Signals aus den jeweiligen Services
-- [x] Root-Store als Aggregate-Fassade refactored
-- [x] Types in `tower-defense.store.types.ts` extrahiert
-
-### Phase 2: Store als Read-Layer einführen ✅
-- [x] GameStateSyncService erstellt — EventBus → Store sync
-- [x] Alle EventBus-Events (wave, game, credits, health, tower, enemy) synced
-- [x] Template schrittweise auf `store.xxx()` umgestellt
-- [x] GameSidebar nutzt Store statt GameStateManager-Input
-
-### Phase 3: Facade nutzt Store als State-Layer ✅
-- [x] GameLoopFacade liest phase/credits/health vom Store
-- [x] LocationFacade liest phase/waveNumber vom Store
-- [x] AI-Services (AIDataCollector, TrainingClient) lesen vom Store
-- [x] InputHandler liest selectedTowerId vom Store
-- [x] Commands weiterhin über EventBus → GSM
-
-### Phase 4: Services entkernen ✅
-- [x] Component-Signals von 40+ Service-Proxies auf Store umgestellt
-- [x] GameUIStateService entfernt — Persistence lebt in UIStore-Konstruktor
-- [x] GSM bleibt als Game-Logic-Orchestrator (update loop, entity managers)
-- [x] Bridge auf Minimum reduziert (5 getter/setter-Paare + Canvas getter + 4 Callbacks)
-
-### Phase 5: Cleanup ✅
-- [x] Dead code: Duplicate `activeSounds` entfernt
-- [x] GameSidebar: `gameState` Input entfernt, nutzt Store direkt
-- [x] Tests grün (zuletzt 487/487 nach Code-Review-Sprint 2026-03)
-- [x] Lint clean, Build OK
-- [x] Dokumentation aktualisiert
+Vor dem Store hielten Services und die Spielkomponente ihre Signals selbst; die Komponente reichte über 40 Signals
+anderer Services als Proxy durch, der `GameUIStateService` hielt die Persistenz. Die Migration war bis 2026-03
+abgeschlossen: Store angelegt, `GameStateSyncService` als Lese-Schicht, Facades lesen aus dem Store, Services entkernt
+(`GameUIStateService` entfernt, die Persistenz lebt im Konstruktor des `UIStore`), die Bridge auf das Minimum
+reduziert. Der `DebugStore` kam am 2026-05-10 als sechster Sub-Store dazu.
 
 ## Trade-offs
 
@@ -343,6 +237,7 @@ entspricht der Regel oben: **State im Store, Entscheidung in der Facade**.
 - **Lifecycle:** `initialize(eventBus)` nach GSM.initialize(), `dispose()` bei Game-Dispose
 
 ### Verbleibende Bridge
+- **Interface:** `FacadeComponentBridge` in `tower-defense-facade.service.ts`
 - **Enthält NUR:** Engine-Referenz, StreetNetwork-State, Canvas, Click-Callbacks (Terrain, Build-Mode, Enemy- und Map-Placement)
 - **Warum nicht im Store?** — Mutable Runtime-Objekte (ThreeTilesEngine, HTMLCanvasElement) passen nicht in ein Signal-Store-Pattern
 - **Minimal:** 5 getter/setter Paare + 1 getter (Canvas) + 7 Callbacks
