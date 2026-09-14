@@ -110,6 +110,7 @@ import { ResearchStore } from './store/research.store';
 import { BUILD_VERSION } from './configs/build-info.config';
 import { isLocationDialogFailure } from './components/location-dialog/open-location-dialog';
 import { ABILITIES } from './configs/abilities.config';
+import { RefusalHintService } from './services/refusal-hint.service';
 
 @Component({
   selector: 'app-tower-defense',
@@ -368,6 +369,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     { key: 'ESC', description: 'Cancel' },
   ]);
   readonly placementModeWarning = computed(() => this.mapPlacement.validationReason());
+
+  /** Why the last press on an ability or the hero did nothing; its box comes before every other */
+  readonly refusal = inject(RefusalHintService).refusal;
 
   // Ability targeting hints for context hint box: what a click does comes from the ability
   readonly abilityTargetingActive = computed(() => this.abilityTargeting.targeting() !== null);

@@ -153,6 +153,12 @@
   border-bottom: 1px solid var(--td-frame-dark);
 }
 
+/* A warning with nothing under it (a refusal) needs no rule */
+.warning-row.visible:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
 .warning-text {
   color: var(--td-health-red);
   font-size: 12px;

@@ -453,7 +453,7 @@ Knopf: Quadrat 44 × 44px, Fläche und Kanten wie die laufende Welle (`--td-pane
 
 Der Held-Knopf ist ein Schalter: Icon `--td-text-secondary`, Hover `--td-text-primary`, ausgewählt im Aktiv-Rezept der Dev-Kacheln (Fläche `rgba(194,160,85,0.16)`, Rand `--td-gold-dark`, Icon `--td-gold-light`, `aria-pressed`). Er erscheint mit der fertigen Forschung `mercenary-contract`: bis zum Anheuern als Münze (`coin`) ohne Taste, der Tooltip nennt Preis und fehlende Credits; danach der Held (`user`) mit G, Tooltip mit Stufe und Munition. Inhalt aus `heroBarView()` (`ability-bar/hero-bar.ts`).
 
-Ohne Wirkung bleibt ein Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht. Der Tooltip (`tdRichTooltip`, rechts daneben) trägt im Kopf Name, Zustand in Versalien ("RECHARGES IN 2 WAVES") und die Tastenkappe, darunter CHARGES und RECHARGE, dann die Beschreibung. Welche Knöpfe es gibt, Zustand, Striche und Texte liefern `abilityBarIds()`, `abilityButtonView()` und `abilityTooltip()` (`ability-bar/ability-button.ts`) aus `GameStore.abilities`.
+Ohne Wirkung bleibt ein Knopf klickbar und trägt `aria-disabled`, sonst erschiene sein Tooltip nicht; ein Druck darauf schaltet nichts scharf, die Kontext-Hinweis-Box nennt den Grund ([Ablehnung](#context-hint-box)). Der Tooltip (`tdRichTooltip`, rechts daneben) trägt im Kopf Name, Zustand in Versalien ("RECHARGES IN 2 WAVES") und die Tastenkappe, darunter CHARGES und RECHARGE, dann die Beschreibung. Welche Knöpfe es gibt, Zustand, Striche und Texte liefern `abilityBarIds()`, `abilityButtonView()` und `abilityTooltip()` (`ability-bar/ability-button.ts`) aus `GameStore.abilities`.
 
 Im Zielmodus zeigt die Kontext-Hinweis-Box "Click" mit dem `aimHint` der Fähigkeit (Nuklearschlag: "Strike") und "ESC Cancel", dazu die Warnung "No route within 30 m", solange keine Route-Zelle in Reichweite ist. Auf der Karte ist der Zielring gold (`--td-gold`), wo der Schlag landen würde, und rot (`--td-health-red`), wo er abgelehnt würde; der Marker während der Vorwarnung ist orange (`--td-warn-orange`) mit goldenem Countdown-Ring (`--td-gold-light`). Beim Orbitallaser zeigt ein Band so breit wie der Strahl den Weg, den er brennen würde: im Zielmodus in `--td-gold` (20 % Deckkraft), während der Vorwarnung in `--td-warn-orange` (22 %).
 
@@ -525,7 +525,9 @@ Verwendung:
 />
 ```
 
-Optional: `title` (mit `counter` rechts daneben), `message` darunter, `actions` als Textbuttons unten (Output `actionClicked` mit der Id). Mit Actions nimmt die Box Klicks an (`pointer-events: auto`), sonst lässt sie sie durch. Das Spiel zeigt immer nur eine Box: Build-Modus vor Platzierungsmodus vor Zielmodus einer Fähigkeit vor gewähltem Helden vor First-Run-Tipp.
+Optional: `title` (mit `counter` rechts daneben), `message` darunter, `actions` als Textbuttons unten (Output `actionClicked` mit der Id), `live` setzt `role="status"`. Mit Actions nimmt die Box Klicks an (`pointer-events: auto`), sonst lässt sie sie durch. Steht unter der Warnung nichts mehr, fällt ihre Linie weg. Das Spiel zeigt immer nur eine Box: Ablehnung vor Build-Modus vor Platzierungsmodus vor Zielmodus einer Fähigkeit vor gewähltem Helden vor First-Run-Tipp.
+
+**Ablehnung** (`RefusalHintService`): Tut ein Druck auf eine Fähigkeit oder den Helden nichts, steht 2,5 s (`UPGRADE_HINT_MS`, so lange wie die Zeile der U-Ablehnung) eine Box mit dem Namen als Titel und dem Grund als Warnung, ohne Tasten, mit `live`: "Nuclear Strike" über "ONLY DURING A WAVE", "NO CHARGES, RECHARGES IN 3 WAVES" oder "NO ROUTE WITHIN 30 M"; "Hire Mercenary" über "NEED 600 CREDITS"; "Mercenary" über "NO WAY THERE ALONG THE ROUTES". Quellen: die eigene Prüfung des Zielmodus, bevor er scharf schaltet (Taste und Knopf der Leiste), und `ability:rejected` und `hero:rejected` der Manager, nicht für Befehle des Bots. Gründe, auf die der Spieler nichts tun kann, zeigt sie nicht: `locked` (vor ihrer Forschung bleibt die Taste einer Fähigkeit still wie bisher), `hired`, `no-hero`, `unknown-ammo`, `unknown`. Startet danach ein Zeigermodus (Build, Platzierung, Zielmodus, Held gewählt), endet sie sofort; ein Neustart räumt sie weg. Rot wie jede Warnung der Box, nicht orange wie der aufsteigende Text der U-Ablehnung: der steht über seinem Tower, eine Fähigkeit vor dem Zielen und der Held vor dem Anheuern haben keinen solchen Ort.
 
 ### Tastenkürzel
 
@@ -542,7 +544,7 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | H / ? | Übersicht als Dialog | |
 | Pos1 (Home) | Kamera gleitet zum HQ | nicht während des Intro-Flugs |
 | N | Kamera gleitet zum nächsten Spawnpunkt, reihum | nicht während des Intro-Flugs |
-| Taste der Fähigkeit (`AbilityConfig.hotkey`, K für den Nuclear Strike, alle in [ABILITIES.md](ABILITIES.md)) | Zielmodus der Fähigkeit an, nochmal drücken schaltet ihn ab (nicht im Photo Mode) | Knopf in der Fähigkeitenleiste (`AbilityTargetingService.start`) |
+| Taste der Fähigkeit (`AbilityConfig.hotkey`, K für den Nuclear Strike, alle in [ABILITIES.md](ABILITIES.md)) | Zielmodus der Fähigkeit an, nochmal drücken schaltet ihn ab (nicht im Photo Mode). Kann sie gerade nicht feuern, nennt die Kontext-Hinweis-Box den Grund ("Only during a wave", "No charges, recharges in 2 waves"); vor ihrer Forschung bleibt die Taste still | Knopf in der Fähigkeitenleiste (`AbilityTargetingService.start`) |
 | G | Held wählen; ist er gewählt, gleitet die Kamera zu ihm (nicht im Photo Mode, nicht während des Intro-Flugs) | Held-Knopf in der Fähigkeitenleiste, Klick auf den Helden (`HeroControlService.summon`) |
 | V | Nächste Munition des Helden, reihum (auch ohne ihn zu wählen) | Segmente im Helden-Panel (`HeroControlService.cycleAmmo`) |
 | O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |

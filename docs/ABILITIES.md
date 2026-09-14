@@ -178,7 +178,7 @@ GameStateManager.runSubStep
 | `ability:used` | VFXService (Zielmarker), je `abilityId` |
 | `ability:impact` | VFXService, AudioService, ScreenShakeService, je `abilityId` (siehe [Darstellung](#darstellung)) |
 | `ability:resolved` | AIDataCollectorService (`abilityKills`, alle Fähigkeiten). Beim Nuklearschlag im selben Sub-Step direkt nach `ability:impact` |
-| `ability:rejected` | niemand fest; die UI prüft vor dem Klick selbst |
+| `ability:rejected` | RefusalHintService: Name und Grund in der Kontext-Hinweis-Box, nicht für Befehle des Bots. Die UI prüft vor dem Scharfschalten und vor dem Klick selbst; was ihre eigene Prüfung ablehnt, meldet sie dort genauso ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#context-hint-box)) |
 | `ability:state-changed` | GameStateSyncService → `GameStore.abilities` |
 
 Gründe für `ability:rejected`: `unknown`, `locked`, `no-charge`, `no-wave`,
@@ -460,6 +460,7 @@ während einer Welle.
 | `configs/abilities.config.ts` | Werte, `AbilityStatus`, Ablehnungsgründe |
 | `managers/ability.manager.ts` | Ladungen, Nachladen, Zeitplan und Auflösung der Einschläge |
 | `managers/game-commands.handler.ts` | `command:use-ability`, Cheat `debug:ready-ability` |
+| `services/refusal-hint.service.ts` | Warum ein Druck nichts tat, in der Kontext-Hinweis-Box (auch für den Helden) |
 | `services/combat/damage-application.service.ts` | `applyMaxHpFraction`, der matrixfreie Schadensweg |
 | `services/world/global-route-grid.service.ts`, `utils/global-route-grid.ts` | `snapToRouteCell`, `findNearestCell` |
 | `ai/core/gate-controller.ts` | `gateLeakRatio` |

@@ -16,6 +16,7 @@ import { GameStateManager } from '../../managers/game-state.manager';
 import { TrainingClientService } from '../../ai/training/training-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { GameStateSyncService } from '../infrastructure/game-state-sync.service';
+import { RefusalHintService } from '../refusal-hint.service';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { BestWaveService } from '../location/best-wave.service';
 import { ThreeTilesEngine } from '../../three-engine';
@@ -100,6 +101,7 @@ export class TowerDefenseFacadeService {
   private readonly strategicPlacement = inject(StrategicPlacementService);
   private readonly trainingClient = inject(TrainingClientService);
   private readonly gameStateSync = inject(GameStateSyncService);
+  private readonly refusals = inject(RefusalHintService);
   private readonly onboarding = inject(OnboardingService);
   private readonly bestWaves = inject(BestWaveService);
 
@@ -226,6 +228,7 @@ export class TowerDefenseFacadeService {
     this.gameStateSync.dispose();
     this.onboarding.disconnect();
     this.bestWaves.disconnect();
+    this.refusals.disconnect();
     this.gameState.dispose();
     this.gameLoopFacade.dispose();
     this.locationFacade.dispose();
@@ -371,6 +374,8 @@ export class TowerDefenseFacadeService {
     this.onboarding.connect(this.gameState.getEventBus());
     // Best wave per place for the world map; runs the bot plays do not count
     this.bestWaves.connect(this.gameState.getEventBus(), () => !this.trainingClient.botEnabled());
+    // Refused hires and abilities in the context hint box; the bot's commands get none
+    this.refusals.connect(this.gameState.getEventBus(), () => !this.trainingClient.botEnabled());
 
     // Let sub-facades subscribe to their own EventBus events
     this.vizFacade.subscribeToEventBus();
