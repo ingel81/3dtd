@@ -57,7 +57,8 @@ export interface CorridorConfig {
    * stops only the low ray (a parked car or van, a hedge, a fence) or only
    * the high one (a tree crown, an eave, a balcony) does not narrow the
    * corridor; a cell that ends up under a crown or an eave is put back on
-   * the ground by the roof check (`roofRise`).
+   * the ground by the roof check (`roofRise`), one on a car or a hedge by
+   * the step check (`stepRise`).
    */
   rayHeightLow: number;
   rayHeightHigh: number;
@@ -99,6 +100,15 @@ export interface CorridorConfig {
    */
   roofRise: number;
   /**
+   * A route cell whose column comes down more than this above the ground a
+   * walk from the centre line out to it reached, spot by spot across the
+   * grid, takes the ground right in front of it instead: the column hit a
+   * parked car, a van or a hedge, which the photogrammetry has no ground
+   * under either. A kerb, a step and a slope that climbs a little from spot
+   * to spot keep their height (RouteCellSampler.sampleCellY).
+   */
+  stepRise: number;
+  /**
    * Typical carriageway width per `highway` class, for stations the tiles
    * cannot measure. Used when a way has neither `width` nor `lanes`, which
    * is most of them. Motorways are mapped per direction, so the value is
@@ -129,6 +139,7 @@ export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
   dipLength: 4,
   bulgeLength: 8,
   roofRise: 2.5,
+  stepRise: 0.75,
   highwayWidths: Object.freeze({
     motorway: 11,
     trunk: 9,
@@ -203,6 +214,7 @@ const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [nu
   dipLength: [0, 100],
   bulgeLength: [0, 100],
   roofRise: [0.5, 50],
+  stepRise: [0.1, 50],
   unknownHighwayWidth: [1, 50],
   laneWidth: [1, 10],
   laneExtra: [0, 10],

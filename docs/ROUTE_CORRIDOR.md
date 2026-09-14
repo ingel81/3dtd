@@ -46,6 +46,7 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 | `dipLength` | 4 | 0 bis 100 | Einbrüche bis etwa so lang werden geschlossen |
 | `bulgeLength` | 8 | 0 bis 100 | Ausbuchtungen bis etwa so lang werden abgeschnitten |
 | `roofRise` | 2,5 | 0,5 bis 50 | Schwelle des Dach-Checks |
+| `stepRise` | 0,75 | 0,1 bis 50 | Schwelle des Stufen-Checks je Rasterschritt (2 m) |
 | `highwayWidths` | Tabelle unten | je bis 50 | Straßenbreite je `highway`-Klasse |
 | `unknownHighwayWidth`, `laneWidth`, `laneExtra` | 5, 3, 1 | 1 bis 50, 1 bis 10, 0 bis 10 | Breite unbekannter Klassen, Spurbreite, Zuschlag bei `lanes` |
 
@@ -267,6 +268,29 @@ Ausnahmen:
   Mittellinien-Zellen selbst. Welche Mittellinien-Zelle daneben liegt, legt
   `claimSegmentCells` beim Anlegen fest (`axisX`, `axisZ`,
   `route-grid-builder.ts:228-230`).
+- **Stufen-Check** (`groundInFront`, `crossSlope` in
+  `route-cell-sampler.ts`): Greift der Dach-Check nicht, geht die Zelle den
+  Weg von der Mittellinien-Zelle zu sich Rasterstelle für Rasterstelle ab
+  (Säulen der Zellen dort, aus dem Cache). Eine Stelle gilt als erreicht,
+  wenn ihr Boden höchstens `stepRise` (0,75 m) über dem höchsten bisher
+  erreichten Boden liegt oder über dem zuletzt erreichten plus der
+  Querneigung je Stelle seitdem. Liegt die Zelle selbst höher, nimmt sie den
+  Boden der letzten erreichten Stelle vor ihr und trägt ebenfalls
+  `clamped = true`. Das trifft Zellen auf einem geparkten Auto, einem
+  Transporter oder einer Hecke: Die Strahlen lassen den Korridor darüber
+  reichen (nur der untere Strahl stoppt), und die Photogrammetrie hat unter
+  einem Auto keinen Boden (Playtest 2026-09-14). Der Gehweg hinter einer
+  Reihe Autos bleibt, wie er ist, abwärts geht es beliebig weit (bis
+  `OUTLIER_M`).
+  - **Querneigung:** Steigt der Boden an der ersten Stelle zur Zelle hin
+    um etwa so viel, wie er an der gespiegelten Stelle auf der anderen
+    Seite der Mittellinie fällt (beide höchstens `stepRise` auseinander),
+    darf der Weg je Stelle um das Kleinere der beiden mehr steigen. Eine
+    Straße quer am Hang (auch DevWorld) behält so ihre Randzellen; ein Auto
+    steigt nur auf einer Seite, eine Kaimauer fällt viel tiefer, als ein
+    Auto hoch ist.
+  - **Kosten:** eine Säule je Rasterstelle auf dem Weg und eine
+    gespiegelte, meist Zellen, deren Säulen der Engine schon im Cache hat.
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
   (`path-route.service.ts:464`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
@@ -583,7 +607,7 @@ Die Kontur zeigt den Zustand, in dieser Rangfolge (`overlayCellKind`,
 | rosa | ohne Höhenprobe; die LOS-Anzeige eines Towers lässt die Zelle aus. Eine gefüllte Zelle (`filled`, siehe Zellhöhe) hat eine Höhe und die Kontur ihrer Fläche; `__corridor.pick()` zeigt sie als `state: 'filled'`, `__rg.dumpStats()` zählt sie unter `filled` |
 | blau | Brückendeck |
 | gelb | Tunnel oder überdachter Durchgang |
-| orange | vom Dach-Check auf den Boden gesetzt (`clamped`) |
+| orange | vom Dach- oder Stufen-Check auf den Boden gesetzt (`clamped`) |
 | weiß | normal |
 
 Das "Air Route Grid Overlay" zeigt dieselben Konturen, die Fläche blau für
@@ -605,9 +629,17 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
 - Auf freien Flächen ohne Wand innerhalb von `maxHalfWidth` (Platz, Park,
   Vorgärten mit niedriger Hecke oder Mauer) ist der Korridor auf dieser Seite
   7 m breit.
-- Der Dach-Check vergleicht mit der Mittellinien-Zelle daneben. Steht dort
-  selbst eine Krone, greift er nicht; eine Probe auf einem Autodach unter
-  2,5 m über der Mittellinie greift er ebenfalls nicht.
+- Dach- und Stufen-Check gehen von der Mittellinien-Zelle daneben aus.
+  Steht dort selbst eine Krone oder ein Auto (OSM-Linie über dem
+  Parkstreifen), greifen sie nicht. Eine Zelle auf einem Auto oder einer
+  Hecke bleibt begehbar, nur auf Straßenhöhe: Gegner laufen dort durch das
+  Auto. Den Korridor am Auto enden zu lassen hieße, einen Strahl allein als
+  Wand zu werten, genau das hat der Playtest vom 2026-09-12 verworfen
+  (Transporterreihe engte die Straße ein, `8910463`). Vorgärten auf
+  Straßenhöhe hinter Zaun oder Hecke bleiben aus demselben Grund im
+  Korridor. Steht an einem Hang zur Zelle hin ein Auto und fällt die andere
+  Seite ähnlich stark, nimmt der Stufen-Check die Neigung für den Hang und
+  lässt die Zelle auf dem Auto.
 - Nähte zwischen Tile-Meshes: Stationen und Zellen versuchen Säulen 0,5 m
   daneben, Lücken füllt der Grid aus den Nachbarn. Eine Lücke breiter als
   eine Zelle bleibt ohne Höhe (rosa), eine Messlücke länger als etwa

@@ -129,7 +129,10 @@ export class GlobalRouteGrid {
   }
 
   /** Terrain-Sampling der Cells (`sampleCellY`) mit Proben und Sweep-Zählern. */
-  private readonly sampler = new RouteCellSampler((cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth));
+  private readonly sampler = new RouteCellSampler(
+    (cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth),
+    this.CELL_SIZE,
+  );
 
   /**
    * Frame-budgeted terrain-refresh sweep, see RouteGridHeightSweep. A slice

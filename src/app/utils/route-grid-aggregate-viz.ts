@@ -22,7 +22,7 @@ const CELL_VIZ_Y_OFFSET_M = 0.05;
 
 /**
  * State of a cell for the overlay contour (`aCellKind`): 0 sampled on the
- * ground, 1 clamped by the roof check, 2 on a bridge deck, 3 without a
+ * ground, 1 clamped by the roof or the step check, 2 on a bridge deck, 3 without a
  * height sample (the fallback height; a tower's LOS display leaves these
  * out), 4 in a tunnel or covered passage. Plus 8 when the route centre
  * line runs through the cell.

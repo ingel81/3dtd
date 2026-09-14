@@ -123,7 +123,7 @@ export const LOS_VIZ_CONFIG = {
     borders: {
       /** Zelle mit Höhenprobe am Boden. */
       normal: new Color(0xf0f0f0),
-      /** Dach-Check: die Säule traf ein Dach oder eine Krone, die Zelle steht am Boden daneben. */
+      /** Dach- oder Stufen-Check: die Säule traf ein Dach, eine Krone, ein Auto oder eine Hecke, die Zelle steht am Boden daneben. */
       clamped: new Color(0xe69f00),
       /** Auf einem Brückendeck. */
       deck: new Color(0x56b4e9),

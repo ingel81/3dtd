@@ -748,7 +748,9 @@ describe('GlobalRouteGrid roof cells', () => {
     expect(grid.describeTowerRange('t1', 20, 1, 10).clamped).toBeGreaterThan(0);
   });
 
-  it('keeps a step below the threshold, and a bridge deck', () => {
+  it('keeps a rise below both thresholds, and a bridge deck', () => {
+    // A 2 m rise is below roofRise; the step check would take it.
+    corridorConfig.stepRise = 5;
     expect(build(street(2)).getCellAt(20.5, 3.5)!.terrainHeight).toBe(2);
     // Deck at 8 m over a street at 0: the edge cell stays on the deck.
     const bridge = build(street(0, 8), [at(0, 1, true), at(40, 1)]);
@@ -756,8 +758,52 @@ describe('GlobalRouteGrid roof cells', () => {
   });
 
   it('takes the threshold from corridorConfig.roofRise', () => {
+    corridorConfig.stepRise = 5;
     corridorConfig.roofRise = 1.5;
     expect(build(street(2)).getCellAt(20.5, 3.5)!.sample.clamped).toBe(true);
+  });
+
+  /**
+   * Playtest 2026-09-14: cells stood on a parked van in an alley, and on
+   * cars and hedges a little above the street. The clearance rays let the
+   * corridor reach over them (only the low ray stops), and the photogrammetry
+   * has no ground under a car either.
+   */
+  const column = (y: number): ColumnSample => ({ groundY: y, topY: y, tileDepth: 20, tileGeometricError: 2 });
+  /** Street at 0 m, a car (roof 1.5 m) parked 1 to 3 m south of the centre line, the pavement at 0.15 m behind it. */
+  const parked = (_x: number, z: number) => column(z > 2 && z < 4 ? 1.5 : z >= 4 ? 0.15 : 0);
+
+  it('puts a cell on a parked car on the street in front of it, and keeps the pavement behind', () => {
+    const grid = build(parked);
+    // Centre (21, 3): on the car.
+    const car = grid.getCellAt(20.5, 3.5)!;
+    expect(car.terrainHeight).toBe(0);
+    expect(car.sample.clamped).toBe(true);
+    // Centre (21, 5): the pavement, reached past the car.
+    const pavement = grid.getCellAt(20.5, 5.5)!;
+    expect(pavement.terrainHeight).toBe(0.15);
+    expect(pavement.sample.clamped).toBe(false);
+
+    // The same car on a quay, the river 5 m down north of the centre line:
+    // the drop is no slope the car could stand on.
+    const quay = build((x, z) => (z < 0 ? column(-5) : parked(x, z)));
+    expect(quay.getCellAt(20.5, 3.5)!.terrainHeight).toBe(0);
+  });
+
+  it('keeps the cells of a street across a slope', () => {
+    // A plane rising 0.5 m per metre southwards: 1 m from one cell to the
+    // next, more than stepRise, but the ground falls as much on the other
+    // side of the centre line.
+    const grid = build((_x, z) => column((z - 1) * 0.5));
+    const outer = grid.getCellAt(20.5, 5.5)!;
+    expect(outer.terrainHeight).toBe(2);
+    expect(outer.sample.clamped).toBe(false);
+    expect(grid.getCellAt(20.5, 3.5)!.terrainHeight).toBe(1);
+  });
+
+  it('takes the step from corridorConfig.stepRise', () => {
+    corridorConfig.stepRise = 2;
+    expect(build(parked).getCellAt(20.5, 3.5)!.terrainHeight).toBe(1.5);
   });
 });
 
