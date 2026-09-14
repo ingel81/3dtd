@@ -50,6 +50,25 @@ describe('ooze sounds', () => {
     }
   });
 
+  it('splats at once and pops on over the band\'s two-second collapse, softer towards the end', () => {
+    const splat = oozeSplat();
+    const rms = (from: number, to: number) => {
+      const a = Math.round(from * OOZE_SOUND_RATE);
+      const b = Math.round(to * OOZE_SOUND_RATE);
+      let sum = 0;
+      for (let i = a; i < b; i++) sum += splat[i] * splat[i];
+      return Math.sqrt(sum / (b - a));
+    };
+    expect(OOZE_SPLAT_S).toBeGreaterThanOrEqual(2);
+    let loudest = 0;
+    for (let i = 1; i < splat.length; i++) if (Math.abs(splat[i]) > Math.abs(splat[loudest])) loudest = i;
+    expect(loudest / OOZE_SOUND_RATE).toBeLessThan(0.2);
+    // Still wet and audible in the second half of the collapse, and fading
+    expect(rms(1.0, 1.8)).toBeGreaterThan(0.02);
+    expect(rms(1.0, 1.8)).toBeGreaterThan(rms(0, 0.3) * 0.05);
+    expect(rms(1.8, OOZE_SPLAT_S)).toBeLessThan(rms(0.3, 1.0));
+  });
+
   it('hands out WAV data URLs, built once', () => {
     const urls = oozeSoundUrls();
     for (const url of [urls.bubble, urls.splat, urls.slurp]) {

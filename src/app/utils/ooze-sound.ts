@@ -1,8 +1,9 @@
 /**
  * The ooze's sounds, synthesised in code (there is no slime asset): a
- * bubbling loop for its body, a wet splat when it breaks up and a slurp while
- * it flows into the HQ. Seeded, so every run builds the same samples; built
- * on first use (oozeSoundUrls) and kept as WAV data URLs (utils/pcm-wav.ts).
+ * bubbling loop for its body, a wet splat and the slump of its collapse when
+ * it breaks up and a slurp while it flows into the HQ. Seeded, so every run
+ * builds the same samples; built on first use (oozeSoundUrls) and kept as
+ * WAV data URLs (utils/pcm-wav.ts).
  */
 import { pcmWav, wavDataUrl } from './pcm-wav';
 
@@ -10,8 +11,12 @@ export const OOZE_SOUND_RATE = 22050;
 
 /** Length of the bubbling loop; the end runs seamlessly into the start */
 export const OOZE_BUBBLE_LOOP_S = 3;
-export const OOZE_SPLAT_S = 0.9;
+/** The splat runs on over the band's collapse (OOZE_LOOK.collapse, 2 s) and a little past it */
+export const OOZE_SPLAT_S = 2.2;
 export const OOZE_SLURP_S = 1.1;
+
+/** The wet burst at the start of the splat, over which its droplets thin out (the whole splat until 2026-09-14) */
+const SPLAT_BURST_S = 0.9;
 
 const TWO_PI = Math.PI * 2;
 
@@ -122,18 +127,26 @@ export function oozeBubbleLoop(): Float32Array {
 }
 
 /**
- * The break-up, OOZE_SPLAT_S long: a low thump falling from 90 to 45 Hz, a
- * wet burst (noise under a low-pass that closes from 3.5 kHz to 250 Hz) and
- * droplets that thin out.
+ * The break-up, OOZE_SPLAT_S long, one voice over the band's collapse: a
+ * low thump falling from 90 to 45 Hz, a wet burst (noise under a low-pass
+ * that closes from 3.5 kHz to 250 Hz) and droplets that thin out over its
+ * first 0.9 s; then the mass slumping, a dark rumble (low-passed noise)
+ * swelling from 0.15 s and gone at the end, with bubbles bursting in it,
+ * denser early and softer late, and a few deep gloops.
  */
 export function oozeSplat(): Float32Array {
   const n = samplesOf(OOZE_SPLAT_S);
   const rnd = seeded(0x5b1a7);
   const out = new Float32Array(n);
   const attack = samplesOf(0.003);
+  const rumbleA = lowPassCoefficient(160);
+  const slumpFrom = 0.15;
+  const slumpS = OOZE_SPLAT_S - slumpFrom - 0.1;
 
   let phase = 0;
   let y = 0;
+  let r1 = 0;
+  let r2 = 0;
   for (let i = 0; i < n; i++) {
     const t = i / OOZE_SOUND_RATE;
     const rise = Math.min(1, i / attack);
@@ -142,15 +155,28 @@ export function oozeSplat(): Float32Array {
     const cutoff = 250 + 3250 * Math.exp(-t / 0.12);
     y += lowPassCoefficient(cutoff) * (rnd() * 2 - 1 - y);
     const burst = y * Math.exp(-t / 0.11) * 1.6;
-    out[i] = (thump + burst) * rise;
+    r1 += rumbleA * (rnd() * 2 - 1 - r1);
+    r2 += rumbleA * (r1 - r2);
+    const slump = Math.sin(Math.PI * Math.min(1, Math.max(0, (t - slumpFrom) / slumpS))) ** 1.5;
+    out[i] = (thump + burst) * rise + r2 * slump * 6;
   }
 
   for (let d = 0; d < 14; d++) {
     const u = rnd();
     const t = 0.03 + 0.62 * u * u;
-    addBubble(out, samplesOf(t), pitch(rnd, 350, 1100), between(rnd, 0.018, 0.055), between(rnd, 0.15, 0.4) * (1 - t / OOZE_SPLAT_S), between(rnd, 1.3, 2.5), false);
+    addBubble(out, samplesOf(t), pitch(rnd, 350, 1100), between(rnd, 0.018, 0.055), between(rnd, 0.15, 0.4) * (1 - t / SPLAT_BURST_S), between(rnd, 1.3, 2.5), false);
   }
-  fadeOut(out, 0.02);
+  // Bubbles bursting as the body collapses, fewer and softer towards the end
+  for (let b = 0; b < 18; b++) {
+    const t = 0.3 + (OOZE_SPLAT_S - 0.55) * rnd() ** 1.4;
+    addBubble(out, samplesOf(t), pitch(rnd, 160, 650), between(rnd, 0.03, 0.09), between(rnd, 0.25, 0.55) * (1 - 0.6 * (t / OOZE_SPLAT_S)), between(rnd, 1.4, 2.6), false);
+  }
+  // Deep gloops as the mass settles
+  for (let g = 0; g < 5; g++) {
+    const t = between(rnd, 0.35, 1.7);
+    addBubble(out, samplesOf(t), pitch(rnd, 65, 120), between(rnd, 0.14, 0.24), between(rnd, 0.35, 0.55), 0.6 + rnd() * 0.25, false);
+  }
+  fadeOut(out, 0.15);
   return normalise(out, 0.9);
 }
 

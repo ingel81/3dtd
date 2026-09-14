@@ -342,7 +342,9 @@ Die Ooze hat kein Modell und keinen `movingSound`. Ihre Sounds spielt `OozeSound
 (`audio.config.ts`).
 
 - **Synthese:** `utils/ooze-sound.ts` erzeugt Blubber-Loop (3 s, Ende läuft nahtlos in den
-  Anfang), Splat (0,9 s) und Schlürfen (1,1 s) mit festem Seed als WAV-Data-URL
+  Anfang), Splat (2,2 s: Aufprall und nasser Burst, dann das Zusammensacken über den
+  zweisekündigen Kollaps des Bands mit dunklem Grollen, platzenden Blasen und tiefen
+  Gloops; bis 2026-09-14 nur die ersten 0,9 s) und Schlürfen (1,1 s) mit festem Seed als WAV-Data-URL
   (`utils/pcm-wav.ts`, derselbe Schreiber wie die UI-Töne in `alert-tone.ts`). Erzeugt und
   registriert beim ersten Spawn einer Ooze, danach gecacht.
 - **Loop:** `createLoop('ooze_bubble', …)` je Ooze. `presentFrame` setzt ihn einmal pro Frame
@@ -359,7 +361,7 @@ Die Ooze hat kein Modell und keinen `movingSound`. Ihre Sounds spielt `OozeSound
   weil es beim Pausieren noch lud), wartet ohne Ton bis zum Fortsetzen. Beim Weiterspielen laufen die Loops in Hörweite
   weiter, Gegner-Loops soweit das Budget reicht; die übrigen beim nächsten Positions-Update wie gehabt.
   Boss-Intro und Replay pausieren über denselben Weg (`GameStore.paused`).
-- **One-Shots:** Splat beim Kill am Körperpunkt nächst dem Listener, Schlürfen alle 3 m
+- **One-Shots:** Splat beim Kill am Körperpunkt nächst dem Listener (eine Stimme, 2,2 s lang), Schlürfen alle 3 m
   Körper, die in die HQ fließen (der erste Meter sofort). Beide gehen als `audio:play`
   (deferred) aus dem Sub-Step, also in Spielzeit: In der Pause kommt nichts, bei hoher
   Spielgeschwindigkeit begrenzt `minIntervalMs: 600` (Wandzeit) das Schlürfen.
