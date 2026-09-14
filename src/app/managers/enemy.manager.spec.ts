@@ -958,7 +958,7 @@ describe('EnemyManager', () => {
       expect(length - ooze.body!.lengthM).toBeCloseTo(0.15, 6);
     });
 
-    it('breaks into slime clumps along its body when killed, one per 8 m of it', () => {
+    it('breaks into slime clumps along its body when killed, one per 4 m of it', () => {
       const splits: number[] = [];
       eventBus.on('enemy:split', (e) => splits.push(e.children.length));
       const ooze = manager.spawn(route, 'ooze', undefined, false, 6000); // HP multiplier 2
@@ -966,21 +966,23 @@ describe('EnemyManager', () => {
       manager.kill(ooze);
 
       const clumps = manager.getAlive().filter((e) => e.typeConfig.id === 'slime-clump');
-      expect(splits).toEqual([10]);
-      expect(clumps).toHaveLength(10);
+      expect(splits).toEqual([20]);
+      expect(clumps).toHaveLength(20);
       const along = clumps.map((c) => c.movement.getDistanceAlongPath()).sort((a, b) => a - b);
-      expect(along[0]).toBeCloseTo(44, 6);
-      expect(along[9]).toBeCloseTo(116, 6);
-      expect(clumps.every((c) => c.health.maxHp === 60)).toBe(true);
+      expect(along[0]).toBeCloseTo(42, 6);
+      expect(along[19]).toBeCloseTo(118, 6);
+      expect(clumps.every((c) => c.health.maxHp === 30)).toBe(true);
+      // The same 600 HP as the ten clumps of 60 HP before 2026-09-14
+      expect(clumps.reduce((sum, c) => sum + c.health.maxHp, 0)).toBe(600);
       // Lanes scattered across the corridor, not one line
-      expect(new Set(clumps.map((c) => c.movement.getLateralFactor().toFixed(3))).size).toBe(10);
+      expect(new Set(clumps.map((c) => c.movement.getLateralFactor().toFixed(3))).size).toBe(20);
     });
 
     it('breaks a short body into fewer clumps', () => {
       const ooze = manager.spawn(route, 'ooze');
       walk(ooze, 8); // 24 m
       manager.kill(ooze);
-      expect(manager.getAlive().filter((e) => e.typeConfig.id === 'slime-clump')).toHaveLength(3);
+      expect(manager.getAlive().filter((e) => e.typeConfig.id === 'slime-clump')).toHaveLength(6);
     });
 
     it('leaves nothing behind on a debug kill', () => {

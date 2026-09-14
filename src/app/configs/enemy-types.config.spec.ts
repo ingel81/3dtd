@@ -38,12 +38,19 @@ describe('enemy types config', () => {
     expect(lineageHp('zombie')).toBe(ENEMY_TYPES['zombie'].baseHp);
   });
 
-  it('breaks an ooze into ten slime clumps that split no further', () => {
+  it('breaks an ooze into twenty slime clumps that split no further', () => {
     expect(ENEMY_TYPES['ooze'].splitOnDeath?.type).toBe('slime-clump');
-    expect(splitBodyCount('ooze')).toBe(11);
-    expect(lineageHp('ooze')).toBe(ENEMY_TYPES['ooze'].baseHp + 10 * ENEMY_TYPES['slime-clump'].baseHp);
-    expect(splitLeafCount('ooze')).toBe(10);
+    expect(splitBodyCount('ooze')).toBe(21);
+    expect(lineageHp('ooze')).toBe(ENEMY_TYPES['ooze'].baseHp + 20 * ENEMY_TYPES['slime-clump'].baseHp);
+    expect(splitLeafCount('ooze')).toBe(20);
     expect(ENEMY_TYPES['slime-clump'].splitOnDeath).toBeUndefined();
+  });
+
+  it('keeps the clumps of a full ooze at a tenth of its HP, as the ten of 30 HP held before 2026-09-14', () => {
+    const split = ENEMY_TYPES['ooze'].splitOnDeath!;
+    expect(split.count * ENEMY_TYPES['slime-clump'].baseHp).toBe(10 * 30);
+    expect(split.count * ENEMY_TYPES['slime-clump'].baseHp).toBe(ENEMY_TYPES['ooze'].baseHp / 10);
+    expect(lineageHp('ooze')).toBe(3000 + 300);
   });
 
   it('lets a skeleton leak twice: both minions reach the base when it dies just before', () => {
