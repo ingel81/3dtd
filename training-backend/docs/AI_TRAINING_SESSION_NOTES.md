@@ -7,7 +7,7 @@ Directors, neueste zuerst. Aktueller Stand:
 
 ---
 
-## 2026-09-07 — Die Messung, und was sie beendet hat
+## 2026-09-07: Die Messung, und was sie beendet hat
 
 **Ergebnis:** Der Wave Director im Spiel ist ab hier regelbasiert und
 clientseitig. Das trainierte Netz war nicht besser als Würfeln, und die Ursache
@@ -37,19 +37,19 @@ längst abgebaute Verteidigung dimensioniert waren.
 
 **2. Falsches Regelsignal.** Gesteuert wurde auf die Kill-Quote: „die
 Verteidigung hat alles getötet, also mehr erlauben". Das liest die eigene
-Vorsicht als Spielraum — eine kleine Wave wird gemeistert, *weil* sie klein ist.
+Vorsicht als Spielraum: eine kleine Wave wird gemeistert, *weil* sie klein ist.
 Einseitiger Druck, der den Multiplikator an jede gegebene Obergrenze klebte
 (bei Ceiling 2,0: 52 % der Wellen am Anschlag).
 
 **Fix:** zweiseitige Steuerung auf die **Leak-Quote** gegen ein Zielband
-(`GATE_LEAK_TARGET_LO/HI = 0.08 / 0.16`) — zu wenig heißt harmlos, zu viel heißt
+(`GATE_LEAK_TARGET_LO/HI = 0.08 / 0.16`): zu wenig heißt harmlos, zu viel heißt
 der Run endet. Konvergiert statt zu klettern.
 
 **3. Feste Schrittweite ersetzt durch Proportionalregler** (`GATE_GAIN = 0.35`).
 `FAIRNESS_KILL_REALISM = 0.65` wurde auf den Waves 1–10 gemessen; ab Wave 11
 töten Verteidigungen fast die volle Vorhersage. Der Multiplikator muss also ~1,6
 erreichen, nur um einen **bekannten Bias** auszugleichen. Bei 5 % pro Fenster
-sind das ~170 Waves gegen Runs von ~60, die nach dem Reset bei 1,0 starten —
+sind das ~170 Waves gegen Runs von ~60, die nach dem Reset bei 1,0 starten;
 gemessener Median 1,28, er kam nie an. Der Cap landete exakt auf dem, was die
 Verteidigung töten konnte (`cap/effMax = 1.00`), 80 % der Wellen richteten
 keinen Schaden an.
@@ -70,7 +70,7 @@ dieser Änderungen war für sich richtig; keine hat die Ursache getroffen.
 ### Der Aufbau: mehrere Directors gleichzeitig
 
 Neu: `directors.py` + `DIRECTOR_ROSTER` in `config.py`. Vier Wave-Designer laufen
-gleichzeitig gegen dieselben Bots, dasselbe Curriculum, denselben Gate —
+gleichzeitig gegen dieselben Bots, dasselbe Curriculum, denselben Gate:
 `model`, `rules`, `random`, `maxgate`. Clients werden beim Verbinden reihum
 zugewiesen. Nicht-lernende Directors speisen PPO nicht, sonst wären es
 Off-Policy-Daten mit On-Policy-Etikett.
@@ -80,7 +80,7 @@ gelernte Policy besser als gar nicht lernen?** Ohne diesen Boden waren mehrere
 Reward-Rewrites nicht beurteilbar.
 
 Neue Tests: `tests/test_gate_loop.py` (ruft den echten Regelkreis auf statt ihn
-zu spiegeln), `tests/test_directors.py` (Decoder-Contract — `template_probs` war
+zu spiegeln), `tests/test_directors.py` (Decoder-Contract: `template_probs` war
 bei den Nicht-Modell-Directors `None`, der Decoder warf auf jeder Wave, und die
 verschluckte Exception ließ einen A/B-Lauf als „drei flache Linien" erscheinen).
 
@@ -90,8 +90,8 @@ verschluckte Exception ließ einen A/B-Lauf als „drei flache Linien" erscheine
 
 | Metrik | `model` | `random` | `rules` / `maxgate` |
 |---|---|---|---|
-| mittlere Runlänge | 45,6 [42, 49] | 44,7 [41, 48] | — |
-| near-miss | 0,045 | — | 0,067–0,069 |
+| mittlere Runlänge | 45,6 [42, 49] | 44,7 [41, 48] | – |
+| near-miss | 0,045 | – | 0,067–0,069 |
 
 Zwei triviale Heuristiken erzeugten mehr Spannung als die Policy.
 
@@ -101,10 +101,10 @@ unverändert auf dem Initialwert −0,5, und alle vier Faktor-Mittelwerte lagen 
 
 **Die Ursache liegt vor dem Lernen.** Der Aktionsraum war praktisch leer:
 
-- Das Curriculum nagelt das Template fest — strukturell auf W1–W30, über die
+- Das Curriculum nagelt das Template fest: strukturell auf W1–W30, über die
   beobachteten Runs gemessen auf **49 % aller Wellen**.
 - Der Fairness-Cap band auf **63 %** der Wellen. Ein Deckel, der auf der Mehrheit
-  greift, ist keine Sicherheitsgrenze — er *ist* die Policy.
+  greift, ist keine Sicherheitsgrenze, er *ist* die Policy.
 - Was übrig blieb: der volle Regelbereich des `count`-Faktors bewegte eine Wave
   von **19 auf 28 Gegner**.
 
@@ -120,7 +120,7 @@ Schwächen lernt, ist gegen einen Menschen wertlos.
 Der Regel-Director (`src/app/ai/core/rule-director.ts`) und der Gate-Regelkreis
 (`src/app/ai/core/gate-controller.ts`) laufen im Client. Das Spiel braucht im
 Betrieb keinen Server, kein Modell und keine ONNX-Runtime. Der ONNX-Pfad bleibt
-als Opt-in-Knopf im Debug-Fenster erreichbar. Das Backend bleibt bestehen — als
+als Opt-in-Knopf im Debug-Fenster erreichbar. Das Backend bleibt bestehen, als
 Messinstrument.
 
 **Lesson:** Bevor man einen Reward repariert, prüft man, ob die Aktionen
@@ -128,13 +128,13 @@ Messinstrument.
 
 ---
 
-## 2026-08 — Training-Refresh: Schema v3, Reward v4
+## 2026-08: Training-Refresh, Schema v3, Reward v4
 
 Details: `docs/HANDOVER_TRAINING_REFRESH.md`.
 
 - **Schema v2 → v3, 162 → 203 Features.** Neu: der Wave-Context-Block
   (Availability-Maske 32 + effektive Ranges 6 + Fairness-Headroom 1). Das Netz
-  gab vorher `count_factor` aus, ohne zu wissen, worauf es angewendet wird —
+  gab vorher `count_factor` aus, ohne zu wissen, worauf es angewendet wird:
   derselbe 0..1-Wert bedeutet 20–2000 Gegner für `zombie_horde` und 5–100 für
   `mech_army`. Dazu der AoE-Anteil der Ground-/Air-DPS.
 - **Reward v3 → v4.** v3 verlangte 1–5 % HP-Verlust *pro Wave* und gatete drei
@@ -152,7 +152,7 @@ Details: `docs/HANDOVER_TRAINING_REFRESH.md`.
 
 ---
 
-## Phase 5.x — Frühere Iterationen
+## Phase 5.x: Frühere Iterationen
 
 Die Phase-5.x-Geschichte lebt in den phasenspezifischen Dokumenten im
 Projekt-Root, weil dort gameplay-übergreifende Frontend-Änderungen
@@ -166,7 +166,7 @@ behandelt werden:
 | 5.11 | `docs/PHASE_5.11_RANGES.md` | Range-Based-Templates, 4 Continuous-Params, Wave-Duration-Cap |
 | 5.16 | `docs/HANDOVER_PLAYTEST_PHASE5.16.md` | Wave-Curriculum-Override |
 
-Die Versionen unten (v1 → v3.5) sind aus archivarischen Gründen erhalten —
+Die Versionen unten (v1 → v3.5) sind aus archivarischen Gründen erhalten;
 die dort beschriebene Architektur ist nicht mehr in Kraft. Lessons Learned
 am Ende sind weiterhin gültig und haben Phase 5.x mitgeprägt.
 
@@ -176,9 +176,9 @@ am Ende sind weiterhin gültig und haben Phase 5.x mitgeprägt.
 
 ### Problem (v3.4 Training)
 Training lief stabil mit ~40% Sweet Spot, aber:
-- **Rewards zu hoch:** Dynamische Rewards fuehrten zu schneller Wirtschafts-Eskalation
-- **Training-Limits zu niedrig:** Tower-Limit 20, Episode-Length 20 → wenig Daten fuer Late-Game DPS
-- **Kill Time sinkend:** 3.09s → 2.13s (naehert sich Minimum 2.0s)
+- **Rewards zu hoch:** Dynamische Rewards führten zu schneller Wirtschafts-Eskalation
+- **Training-Limits zu niedrig:** Tower-Limit 20, Episode-Length 20 → wenig Daten für Late-Game DPS
+- **Kill Time sinkend:** 3.09s → 2.13s (nähert sich Minimum 2.0s)
 
 ### Fixes
 - **Reward-Formel angepasst:**
@@ -186,9 +186,9 @@ Training lief stabil mit ~40% Sweet Spot, aber:
   - Speed-Divisor: /5 → /10
   - Scale-Factor: 0.6 → 0.4
   - Max-Cap: 40 → 25
-- **Training-Limits erhoeht:**
+- **Training-Limits erhöht:**
   - Tower-Limit: 20 → 50 (strategist bot kann mehr bauen)
-  - Episode-Length: 20 → 100 (laengere Spiele, mehr Late-Game Daten)
+  - Episode-Length: 20 → 100 (längere Spiele, mehr Late-Game Daten)
 - **Bugfixes:**
   - Wave 1 Stuck Bug (fehlender Spawn-Counter Reset)
   - Floating Text zeigte statischen statt dynamischen Reward
@@ -212,22 +212,22 @@ Training lief stabil mit ~40% Sweet Spot, aber:
 ## Version 3.4 - Anti-Kollaps + Type Diversity
 
 ### Problem (v3.3 Training, 32000 Episoden)
-Training lief ueber Nacht, kollabierte bei ~E6000-8000:
+Training lief über Nacht, kollabierte bei ~E6000-8000:
 - **Peak bei E4000-6000:** Avg Reward 0.43, Sweet Spot 43%
 - **Kollaps E6000-14000:** Reward fiel von 0.43 auf 0.02
 - **Stagnation E14000-32000:** Reward blieb bei ~0.03, Sweet Spot nur 21%
 
 **Ursachen:**
 1. **Type-Kollaps:** herbert/tank/bat = 89%, penguin/wallsmasher = 2.7%
-2. **Boring-Wave-Exploitation:** Model generierte zu einfache Wellen (progress ~0.15-0.25), knapp ueber dem Boring-Threshold von 0.20
+2. **Boring-Wave-Exploitation:** Model generierte zu einfache Wellen (progress ~0.15-0.25), knapp über dem Boring-Threshold von 0.20
 3. **Entropy reichte nicht:** Trotz 0.04 Koeffizient spezialisierte sich das Model
 
 ### Fixes
 - **ENTROPY_COEF 0.08** statt 0.04 (verdoppelt, mehr Exploration)
-- **REWARD_BORING_THRESHOLD 0.30** statt 0.20 (hoehere Schwelle fuer Boring-Penalty)
-- **REWARD_VARIETY_BONUS 0.20** statt 0.15 (staerkerer Anreiz fuer Type-Diversity)
-- **TYPE_COOLDOWN_WAVES 4** statt 2 (Typ wird fuer 4 Wellen nach Nutzung gesperrt)
-- **Dashboard Mobile-Support:** CSS fuer Smartphones, Server bindet auf 0.0.0.0
+- **REWARD_BORING_THRESHOLD 0.30** statt 0.20 (höhere Schwelle für Boring-Penalty)
+- **REWARD_VARIETY_BONUS 0.20** statt 0.15 (stärkerer Anreiz für Type-Diversity)
+- **TYPE_COOLDOWN_WAVES 4** statt 2 (Typ wird für 4 Wellen nach Nutzung gesperrt)
+- **Dashboard Mobile-Support:** CSS für Smartphones, Server bindet auf 0.0.0.0
 
 ### Ergebnisse (E5000-6500, nach Rollback + Fixes)
 | Metrik | v3.3 (Kollaps) | v3.4 (Fix) |
@@ -250,15 +250,15 @@ Training lief ueber Nacht, kollabierte bei ~E6000-8000:
 5 von 6 Typen jetzt gleichverteilt (~20%). Penguin bleibt unterrepresentiert (Model-Bias aus Checkpoint).
 
 ### Rollback-Strategie
-1. Checkpoints nach E5000 geloescht (2679 Dateien)
+1. Checkpoints nach E5000 gelöscht (2679 Dateien)
 2. Training von checkpoint_5000.pt neu gestartet
-3. Kritischer Bereich E6000-8000 wird ueberwacht
+3. Kritischer Bereich E6000-8000 wird überwacht
 
 ### Zweiter Drift (E7000+)
 Training driftete erneut bei E7000+ - diesmal ohne Type-Kollaps aber mit Boring-Exploitation.
-Modell waehlt kill_time nahe Minimum (1.0-1.3s) → HP zu niedrig → Enemies sterben sofort → Boring Penalty.
+Modell wählt kill_time nahe Minimum (1.0-1.3s) → HP zu niedrig → Enemies sterben sofort → Boring Penalty.
 
-**Fix:** KILL_TIME_MIN von 1.0s auf 1.5s erhoeht - verhindert "instant-kill" Wellen.
+**Fix:** KILL_TIME_MIN von 1.0s auf 1.5s erhöht - verhindert "instant-kill" Wellen.
 Rollback zu E7000, Training mit neuem Minimum fortgesetzt.
 
 ---
@@ -269,7 +269,7 @@ Rollback zu E7000, Training mit neuem Minimum fortgesetzt.
 Bimodale Progress-Verteilung: 30% Boring (<20%) + 16.5% Danger (>85%). Sweet Spot nur 24.3%.
 Model lernte: niedriger kill_time ist "sicher" (vermeidet Game-Over). Boring-Penalty war zu schwach (skaliert statt flat).
 Entropy sank stetig (7.17→6.68) → Wallsmasher nur noch 3.3%, Typ-Spezialisierung.
-Zusaetzlich: 10 Schaden/Enemy am HQ → Game Over nach 4-7 Waves. Bot baute nur Archers (konnte sich teure Typen nicht leisten).
+Zusätzlich: 10 Schaden/Enemy am HQ → Game Over nach 4-7 Waves. Bot baute nur Archers (konnte sich teure Typen nicht leisten).
 
 ### Fixes
 - **Boring-Penalty flat -0.30** statt skaliert (gleich hart wie Overflow)
@@ -277,8 +277,8 @@ Zusaetzlich: 10 Schaden/Enemy am HQ → Game Over nach 4-7 Waves. Bot baute nur 
 - **Entropy Coef 0.04** statt 0.02 (mehr Exploration, weniger Spezialisierung)
 - **Enemy Base Damage 1** statt 10 (100 Enemies bis Game Over, Spiele dauern 15-20 Waves)
 - **Spawn Delay [500, 2000]ms** statt [150, 600]ms (kein Pulk-Spam, echtes TD-Feeling)
-- **Bot Spar-Logik:** Persistenter savingForType-State, 60% Spar-Chance fuer fehlende Tower-Typen
-- **Bot Tower-Variety:** Alle 6 Typen werden ueber die ersten 10 Waves aufgebaut
+- **Bot Spar-Logik:** Persistenter savingForType-State, 60% Spar-Chance für fehlende Tower-Typen
+- **Bot Tower-Variety:** Alle 6 Typen werden über die ersten 10 Waves aufgebaut
 
 ### Erwartete Verbesserungen
 | Metrik | v3.2 (6500 Ep.) | v3.3 Ziel |
@@ -296,23 +296,23 @@ Zusaetzlich: 10 Schaden/Enemy am HQ → Game Over nach 4-7 Waves. Bot baute nur 
 
 ### Problem (v3.1 Training, 6000 Episoden)
 Herbert-Dominanz (58%): Feste HP=500 + Count-Cap=3 gab dem Model kein Gradient-Signal.
-`compute_effective_progress()` erzeugt binaere 0/1.0-Spruenge bei konzentrierter Verteidigung.
+`compute_effective_progress()` erzeugt binäre 0/1.0-Sprünge bei konzentrierter Verteidigung.
 Sweet Spot (0.90 effective) war physisch unerreichbar. Entropy-Kollaps (7.1→5.9).
 
 ### Fixes
 - **Herbert skalierbar:** Keine feste HP/Count mehr. `enemy_hp = DPS * kill_time` wie alle
-- **Raw progress fuer Reward:** Keine DPS-Normalisierung mehr. DPS-Profil nur als Model-Input
-- **Progress Center 0.55** statt 0.90 (angemessen fuer raw progress mit konzentrierter Defense)
+- **Raw progress für Reward:** Keine DPS-Normalisierung mehr. DPS-Profil nur als Model-Input
+- **Progress Center 0.55** statt 0.90 (angemessen für raw progress mit konzentrierter Defense)
 - **Progress Sigma 0.15** statt 0.08 (breiteres Gradient-Signal)
 - **Overflow-Grenze 0.85** statt 0.95 (passt zum neuen Center)
 - **Entropy Coef 0.02** statt 0.005 (verhindert Typ-Kollaps)
 
 ### Distributed Placement Strategy
-Problem: Konzentrierte Verteidigung (15-25% des Pfades) erzeugt binaere Progress-Verteilung (0.22 oder 1.0).
+Problem: Konzentrierte Verteidigung (15-25% des Pfades) erzeugt binäre Progress-Verteilung (0.22 oder 1.0).
 AI kann keinen sauberen Sweet Spot bei 0.55 treffen weil Enemies entweder sofort sterben oder komplett durchlaufen.
 
-Loesung: `DistributedPlacementStrategy` fuer den Strategist-Bot:
-- Pfad in 5 Zonen aufgeteilt, Towers gleichmaessig verteilt
+Lösung: `DistributedPlacementStrategy` für den Strategist-Bot:
+- Pfad in 5 Zonen aufgeteilt, Towers gleichmäßig verteilt
 - Scoring: 50% Zone-Bedarf, 30% Path-Coverage, 20% Street-Distance
 - Ersetzt `CoverageFillStrategy` im Strategist-Bot (Priority 65)
 - Enemies sterben an verschiedenen Stellen → kontinuierliche Progress-Werte
@@ -337,7 +337,7 @@ Dashboard-Thresholds (Sweet Spot, Overflow, etc.) dynamisch vom Backend:
 
 ### Problem (v3.0 Training)
 Model fand degenerierte Strategie: 3 Zombies mit kill_time=7-8s (unkillbar).
-Alle Enemies erreichen Base (progress=1.0). Reward war +0.71 (Gauss-Schwanz + Bonuses).
+Alle Enemies erreichen Base (progress=1.0). Reward war +0.71 (Gauß-Schwanz + Bonuses).
 Game-Over-Penalty (-0.5) zu mild. 100% Game-Over-Rate, Sweet Spot nie getroffen.
 
 ### Fixes
@@ -373,7 +373,7 @@ Game-Over-Penalty (-0.5) zu mild. 100% Game-Over-Rate, Sweet Spot nie getroffen.
 
 ### Key Changes vs. v2.0
 - DPS-Profil (20 Bins) ersetzt einzelne Defense-Metriken
-- Conv1D Branch fuer raeumliche Feature-Verarbeitung
+- Conv1D Branch für räumliche Feature-Verarbeitung
 - `compute_effective_progress()` mit DPS-Normalisierung
 - Web Dashboard (FastAPI + Chart.js) ersetzt TUI
 - Reward-Peak verschoben: 65% → 90% (mit DPS-Normalisierung ist 90% angemessen)
@@ -397,9 +397,9 @@ Game-Over-Penalty (-0.5) zu mild. 100% Game-Over-Rate, Sweet Spot nie getroffen.
 ### Key Changes vs. v1.0
 - DPS-relative HP: `enemy_hp = effective_dps * kill_time` (statt absoluter HP-Multiplier)
 - Path-Progress als Reward-Signal (statt Damage-Prozent)
-- Air-DPS Unterscheidung fuer Bats
+- Air-DPS Unterscheidung für Bats
 - Frontend sendet `enemyBaseHp` (Single Source of Truth)
-- Linearer Korridor entfernt (nicht mehr noetig mit DPS-relativer HP)
+- Linearer Korridor entfernt (nicht mehr nötig mit DPS-relativer HP)
 
 ---
 
@@ -413,12 +413,12 @@ Game-Over-Penalty (-0.5) zu mild. 100% Game-Over-Rate, Sweet Spot nie getroffen.
 
 ### Reward
 - Sweet Spot: 3-7% Damage pro Wave
-- Lineare Interpolation ausserhalb des Sweet Spots
+- Lineare Interpolation außerhalb des Sweet Spots
 - Game Over: -1.0 bis -1.9 (stark)
 
-### Probleme (geloest in v2.0)
+### Probleme (gelöst in v2.0)
 - **HP-Multiplikator zu abstrakt:** Model konnte nicht lernen was "zu viel HP" bedeutet, weil DPS unbekannt
-- **Linearer Korridor noetig:** Ohne DPS-Bezug mussten HP/Count/Speed per-Wave geclampt werden
+- **Linearer Korridor nötig:** Ohne DPS-Bezug mussten HP/Count/Speed per-Wave geclampt werden
 - **Damage-basierter Reward instabil:** 3-7% Damage war unrealistisch eng, Sweet Spot wurde nie getroffen
 - **Speed-Multiplikator:** Kaum Effekt auf Gameplay, entfernt in v2.0
 
@@ -437,25 +437,25 @@ Game-Over-Penalty (-0.5) zu mild. 100% Game-Over-Rate, Sweet Spot nie getroffen.
 
 1. **DPS-Relative HP ist essentiell:** Absolut HP-Werte sind bedeutungslos ohne Kontext der Verteidigung
 2. **Path-Progress > Damage:** Progress ist stetiger, weniger varianzreich, besseres Lernsignal
-3. **Raeumliches Profil > Skalare:** Ein einzelner DPS-Wert verliert die Information wo die Verteidigung ist
-4. **Gaussian Reward > Linear:** Gauss-Peak gibt staerkeres Gradient-Signal im Sweet Spot
+3. **Räumliches Profil > Skalare:** Ein einzelner DPS-Wert verliert die Information wo die Verteidigung ist
+4. **Gaussian Reward > Linear:** Gauß-Peak gibt stärkeres Gradient-Signal im Sweet Spot
 5. **Web Dashboard > TUI:** Live-Charts sind wesentlich informativer als Console-Output
-6. **DPS-Profil als Input, nicht Reward:** Normalisierung im Reward erzeugt binaere Spruenge. Besser als Conv1D-Input fuer das Model
-7. **Keine festen HP/Count pro Typ:** Fixed-Werte entziehen dem Model das Gradient-Signal und werden zur Exploitation-Luecke
-8. **Symmetrische Penalties:** Boring und Overflow muessen gleich hart bestraft werden. Asymmetrie fuehrt zu Risk-Aversion (Model waehlt "sicher aber langweilig")
+6. **DPS-Profil als Input, nicht Reward:** Normalisierung im Reward erzeugt binäre Sprünge. Besser als Conv1D-Input für das Model
+7. **Keine festen HP/Count pro Typ:** Fixed-Werte entziehen dem Model das Gradient-Signal und werden zur Exploitation-Lücke
+8. **Symmetrische Penalties:** Boring und Overflow müssen gleich hart bestraft werden. Asymmetrie führt zu Risk-Aversion (Model wählt "sicher aber langweilig")
 9. **Action-Space-Minimum begrenzen:** kill_time min 1.0s statt 0.5s verhindert degenerierte "instant-kill" Waves die keinen Lernwert haben
-10. **Game-Laenge ermoeglicht DPS-Skalierung:** 1 Schaden/Enemy (statt 10) → Spiele dauern 15-20 Waves → Bot baut diverse teure Towers → AI sieht breites DPS-Spektrum
+10. **Game-Länge ermöglicht DPS-Skalierung:** 1 Schaden/Enemy (statt 10) → Spiele dauern 15-20 Waves → Bot baut diverse teure Towers → AI sieht breites DPS-Spektrum
 11. **Type-Cooldown ist kritisch:** Ohne expliziten Cooldown kollabiert das Model auf 2-3 bevorzugte Typen. 4-Wellen-Cooldown erzwingt Diversity
-12. **Entropy muss hoch genug sein:** 0.04 reichte nicht fuer stabiles Training ueber 30k Episoden. 0.08 verhindert Spezialisierung
-13. **Boring-Threshold nicht zu niedrig:** 0.20 erlaubt dem Model "knapp drueber" zu exploiten. 0.30 schliesst diese Luecke
-14. **Checkpoints regelmaessig analysieren:** Kollaps passierte schleichend (E6000-14000). Fruehe Erkennung durch Analyse in 2000er-Chunks
-15. **Rollback-Strategie vorbereiten:** Checkpoints alle 10 Episoden ermoeglichen praezises Zuruecksetzen zum besten Zeitpunkt
-16. **Reward-Skalierung beachten:** Zu hohe Rewards fuehren zu schneller Wirtschafts-Eskalation. Sublineare Skalierung (HP/150 statt HP/50) verhindert Inflation
-17. **Training-Limits grosszuegig waehlen:** Niedrige Tower/Wave-Limits schraenken den DPS-Range ein. 50 Towers + 100 Waves ermoeglicht Training ueber breites DPS-Spektrum
-18. **Race Conditions in async Code:** Wave-Start kann mehrfach getriggert werden. Flags (`pendingAIWaveRequest`) schuetzen vor doppelten Requests
-19. **State vollstaendig zuruecksetzen:** Spawn-Counter, Flags und temporaerer State muessen in `reset()` explizit zurueckgesetzt werden
+12. **Entropy muss hoch genug sein:** 0.04 reichte nicht für stabiles Training über 30k Episoden. 0.08 verhindert Spezialisierung
+13. **Boring-Threshold nicht zu niedrig:** 0.20 erlaubt dem Model "knapp drüber" zu exploiten. 0.30 schließt diese Lücke
+14. **Checkpoints regelmäßig analysieren:** Kollaps passierte schleichend (E6000-14000). Frühe Erkennung durch Analyse in 2000er-Chunks
+15. **Rollback-Strategie vorbereiten:** Checkpoints alle 10 Episoden ermöglichen präzises Zurücksetzen zum besten Zeitpunkt
+16. **Reward-Skalierung beachten:** Zu hohe Rewards führen zu schneller Wirtschafts-Eskalation. Sublineare Skalierung (HP/150 statt HP/50) verhindert Inflation
+17. **Training-Limits großzügig wählen:** Niedrige Tower/Wave-Limits schränken den DPS-Range ein. 50 Towers + 100 Waves ermöglicht Training über breites DPS-Spektrum
+18. **Race Conditions in async Code:** Wave-Start kann mehrfach getriggert werden. Flags (`pendingAIWaveRequest`) schützen vor doppelten Requests
+19. **State vollständig zurücksetzen:** Spawn-Counter, Flags und temporärer State müssen in `reset()` explizit zurückgesetzt werden
 
 ---
 
 **Last Updated (v1–v3.5 Inhalte):** 2026-01-25
-**Doku zuletzt strukturiert:** 2026-05-08 — Phase-5.x-Index oben ergänzt, Inhalte unverändert.
+**Doku zuletzt strukturiert:** 2026-05-08, Phase-5.x-Index oben ergänzt, Inhalte unverändert.
