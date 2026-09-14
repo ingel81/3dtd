@@ -231,6 +231,9 @@ export class HeroManager implements IGameManager {
     this.clockMs = 0;
     this.applyStats();
     this.emitState();
+    // Shown at once, like a placed tower: in a pause no sub-step runs, and
+    // the frame's present only follows a sub-step
+    this.presentFrame();
     return true;
   }
 
@@ -249,6 +252,8 @@ export class HeroManager implements IGameManager {
     this.mode = this.goal ? 'travel' : 'hold';
     this.replanMs = 0;
     this.emitState();
+    // The post ring moves at once, in a pause too (see hire)
+    this.presentFrame();
     return true;
   }
 
@@ -272,7 +277,8 @@ export class HeroManager implements IGameManager {
 
   /**
    * Hand him to the renderer. Once per rendered frame after the sub-steps,
-   * like EnemyManager.presentFrame; reads the simulation, changes nothing.
+   * like EnemyManager.presentFrame, and right after a hire or a move order;
+   * reads the simulation, changes nothing.
    */
   presentFrame(): void {
     const hero = this.hero;

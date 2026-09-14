@@ -507,6 +507,21 @@ describe('HeroManager', () => {
       manager.reset();
       expect(cleared).toBe(1);
     });
+
+    it('shows him with the hire and his new post with a move order, before any sub-step (a pause)', () => {
+      const shown: { x: number; z: number; post: { x: number; z: number } }[] = [];
+      manager.setView({ present: (h) => shown.push({ ...local(h), post: local(h.anchor) }), clear: () => undefined });
+
+      hired();
+      expect(shown).toEqual([{ x: 0, z: 300, post: { x: 0, z: 300 } }]);
+
+      expect(manager.moveTo(at(0, 200))).toBe(true);
+      expect(shown).toHaveLength(2);
+      expect(shown.at(-1)).toEqual({ x: 0, z: 300, post: { x: 0, z: 200 } });
+
+      expect(manager.moveTo(at(40, 100))).toBe(false); // refused: nothing to show
+      expect(shown).toHaveLength(2);
+    });
   });
 
   it('starts over on reset: gone, locked, no kills', () => {

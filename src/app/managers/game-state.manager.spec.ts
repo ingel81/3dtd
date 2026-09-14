@@ -598,6 +598,24 @@ describe('GameStateManager', () => {
         bus.emit({ type: 'debug:ready-hero' });
         expect(gsm.heroManager.getHero()).toBe(hero);
       });
+
+      it('shows a hero hired in a pause at once, though no sub-step runs', () => {
+        const present = vi.fn();
+        gsm.heroManager.setView({ present, clear: vi.fn() });
+        gsm.researchManager.completeResearch(getResearch('mercenary-contract')!.id);
+        gsm.addCredits(getResearch('mercenary-contract')!.cost + 1000);
+        gsm.update(1, undefined);
+        gsm.paused.set(true);
+        const clock = gsm.gameTimeMs;
+
+        bus.emit({ type: 'command:hire-hero' }); // the ability bar's button, not deferred
+        gsm.update(500, undefined);
+        gsm.update(1000, undefined);
+
+        expect(gsm.heroManager.getStatus().hired).toBe(true);
+        expect(present).toHaveBeenCalledTimes(1);
+        expect(gsm.gameTimeMs).toBe(clock);
+      });
     });
 
     describe('research:completed', () => {
