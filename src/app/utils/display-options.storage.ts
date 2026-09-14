@@ -21,9 +21,6 @@ export interface StoredDisplayOptions extends Partial<VfxSettings> {
   enemies?: boolean;
   animations?: boolean;
   movement?: boolean;
-  textures?: boolean;
-  skeletonCloning?: boolean;
-  alphaBlend?: boolean;
   // Display menu of the quick actions, besides the VFX settings
   healthBars?: boolean;
   damageNumbers?: boolean;

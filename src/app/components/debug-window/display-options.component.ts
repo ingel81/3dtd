@@ -27,9 +27,6 @@ export class DisplayOptionsComponent {
   readonly healthBars = this.debugFacade.healthBarsVisible;
   readonly animations = signal(true);
   readonly movement = signal(true);
-  readonly textures = signal(true);
-  readonly skeletonCloning = signal(true);
-  readonly alphaBlend = signal(true);
   readonly screenShake = this.debugFacade.screenShakeEnabled;
   /** One of the VFX settings, which the display menu shows as well. */
   readonly colorGrading = computed(() => this.debugFacade.vfx().colorGrading);
@@ -42,9 +39,6 @@ export class DisplayOptionsComponent {
   readonly healthBarsToggled = output<boolean>();
   readonly animationsToggled = output<boolean>();
   readonly movementToggled = output<boolean>();
-  readonly texturesToggled = output<boolean>();
-  readonly skeletonCloningToggled = output<boolean>();
-  readonly alphaBlendToggled = output<boolean>();
   readonly screenShakeToggled = output<boolean>();
   readonly colorGradingChanged = output<ColorGradingPreset>();
   readonly tileLodDebugToggled = output<boolean>();
@@ -59,9 +53,6 @@ export class DisplayOptionsComponent {
         enemies: this.enemies(),
         animations: this.animations(),
         movement: this.movement(),
-        textures: this.textures(),
-        skeletonCloning: this.skeletonCloning(),
-        alphaBlend: this.alphaBlend(),
       });
     });
   }
@@ -88,24 +79,6 @@ export class DisplayOptionsComponent {
     this.movementToggled.emit(next);
   }
 
-  toggleTextures(): void {
-    const next = !this.textures();
-    this.textures.set(next);
-    this.texturesToggled.emit(next);
-  }
-
-  toggleSkeletonCloning(): void {
-    const next = !this.skeletonCloning();
-    this.skeletonCloning.set(next);
-    this.skeletonCloningToggled.emit(next);
-  }
-
-  toggleAlphaBlend(): void {
-    const next = !this.alphaBlend();
-    this.alphaBlend.set(next);
-    this.alphaBlendToggled.emit(next);
-  }
-
   toggleScreenShake(): void {
     this.screenShakeToggled.emit(!this.screenShake());
   }
@@ -126,8 +99,5 @@ export class DisplayOptionsComponent {
     this.enemies.set(opts.enemies ?? true);
     this.animations.set(opts.animations ?? true);
     this.movement.set(opts.movement ?? true);
-    this.textures.set(opts.textures ?? true);
-    this.skeletonCloning.set(opts.skeletonCloning ?? true);
-    this.alphaBlend.set(opts.alphaBlend ?? true);
   }
 }

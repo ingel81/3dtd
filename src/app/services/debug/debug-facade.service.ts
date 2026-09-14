@@ -222,30 +222,6 @@ export class DebugFacadeService {
   }
 
   /**
-   * Toggle texture rendering and persist (Performance Debug)
-   */
-  onTexturesToggled(enabled: boolean): void {
-    this.engine?.enemies.setTexturesEnabled(enabled);
-    persistDisplayOptions({ textures: enabled });
-  }
-
-  /**
-   * Toggle skeleton cloning for new enemies and persist (Performance Debug)
-   */
-  onSkeletonCloningToggled(enabled: boolean): void {
-    this.engine?.enemies.setSkeletonCloningEnabled(enabled);
-    persistDisplayOptions({ skeletonCloning: enabled });
-  }
-
-  /**
-   * Toggle alpha blending and persist (Performance Debug)
-   */
-  onAlphaBlendToggled(enabled: boolean): void {
-    this.engine?.enemies.setAlphaBlendEnabled(enabled);
-    persistDisplayOptions({ alphaBlend: enabled });
-  }
-
-  /**
    * Color grading preset from the debug window; one of the VFX settings.
    */
   onColorGradingChanged(preset: ColorGradingPreset): void {
@@ -340,9 +316,6 @@ export class DebugFacadeService {
     if (opts.movement === false && this.gameState) {
       this.gameState.enemyManager.movementEnabled = false;
     }
-    if (opts.textures === false) this.engine?.enemies.setTexturesEnabled(false);
-    if (opts.skeletonCloning === false) this.engine?.enemies.setSkeletonCloningEnabled(false);
-    if (opts.alphaBlend === false) this.engine?.enemies.setAlphaBlendEnabled(false);
   }
 
   // ========================================
