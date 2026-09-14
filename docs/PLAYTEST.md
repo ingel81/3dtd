@@ -207,7 +207,7 @@ Aufbau: Display-Menü "Blood Moon" an, Cheats "Research" und "Credits".
 - **647** (376): "Jump to wave" 20, Welle 21 starten: sind die Fledermäuse rot getönt wie die anderen? "Jump to wave"
   35: glühen die Skarnax-Ringe rot, auch der neue Kopf nach einem Split?
 
-### Runde 13: Neustart, Musik, Game Over, Dialoge (648 bis 651)
+### Runde 13: Neustart, Musik, Game Over, Dialoge, Verkauf (648 bis 652)
 
 Aufbau: je Punkt beschrieben.
 
@@ -219,6 +219,9 @@ Aufbau: je Punkt beschrieben.
 - **650** (160, 162): Im BUILD-Panel die Info "Damage vs armor" öffnen und mit Esc schließen. Ist der Übergang
   animiert, die Schrift wie gewohnt? Bleibt der Kopf des Dialogs beim Scrollen stehen?
 - **651** (326): Im WAVE-Panel mit Tab auf die NEXT-Rauten: ist der goldene Fokusrahmen gut sichtbar?
+- **652** (Doku, Research Center verkaufen): Cheat "Credits", ein Research Center bauen und anklicken. Zeigt sein
+  Panel einen Sell-Knopf wie beim Tower (zweimal klicken)? Gibt der Verkauf Credits zurück wie bei einem Tower (75 %
+  des Eingesetzten)?
 
 ## Daten vom User
 
@@ -288,6 +291,9 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   für Frost und EMP; Laser-Ton am Startpunkt; Skarnax (Textur, bewegte Beine, Schwanzstück, Mandibeln, Sound am
   Kopf, Healthbar je Ring); Tod-Sound der Schleimklumpen; Mech und Ghost über dem Modell-Budget; Gold-Popup der Ooze
   an der Spitze; größere Eiskristalle an großen Gegnern; Held Stufe 2; Schrägstütze für Sockel an der Dachkante.
+- **E19 ONNX-Director im Debug-Fenster:** Das eingecheckte Modell hat 156 Eingänge, der Encoder liefert 208.
+  `OnnxPolicy.load()` lehnt es deshalb ab, "Load ONNX model" im Fenster "AI" (Developer options) bleibt immer bei den
+  Regeln. Ein Modell neu exportieren oder trainieren, oder das Opt-in so lassen?
 
 Schon entschieden, nicht mehr vorlegen: Wurm-Ecken, Held ohne Ersatzmodell, Boss-Intro mit Hindernis-Check und
 Abstand 21,4 m, Vorgärten (a), Showcases mit festen Spawns und ohne Dubai, Name Skarnax, Atompilz "realistisch,
