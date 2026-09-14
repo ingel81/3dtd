@@ -1,7 +1,12 @@
 # Balance-Vorschlag 2026-09: Upgrades, Cannon, Schadensmatrix, Boss-Takt
 
-**Status:** Entwurf zur Entscheidung. Keine Config und kein Spielcode geändert.
-**Stand:** 2026-09-11, Code-Stand `3338f4b`.
+**Status:** Bericht. Entstanden als Entwurf zur Entscheidung auf Code-Stand
+`3338f4b`, ohne Config-Änderung. Umgesetzt im Sprint 2026-09-11:
+Upgrade-Kurven (`90662f08`), Cannon (`401c6a14`), Schadensmatrix mit
+Fairness-Floor (`5b3102ee`), Boss-Takt ab W31 mit doppeltem Boss-Gold
+(`9e46b11d`). Die Gold-Nachsteuerung (Schritt 4) steht aus. Den Stand der
+offenen Entscheidungen hält Abschnitt 7 am Ende fest.
+**Stand:** 2026-09-11 (Vorschlag), Statuszeilen 2026-09-15.
 **Bezug:** TODO.md PRIO 2.1 (drei Punkte) und 2.2 (Boss-Frequenz ab W31).
 
 Alle Zahlen sind aus den Configs und den Formeln im Code berechnet, nicht
@@ -721,6 +726,23 @@ Boss-Wellen ab W31 in `goldBudgetForWave` (`wave-curriculum.config.ts:368-386`).
 7. **Herbert `immunityPercent`** und **Tentacle True Damage**: bauen oder aus
    Config und Master-Dokument streichen. *Empfehlung:* streichen, beides
    würde die Matrix-Spreizung wieder aufweichen.
+
+**Stand 2026-09-15** (gegen den Code geprüft):
+
+1. Wie empfohlen: `siege` gegen light steht auf 0,5, die Rocket hat keinen
+   eigenen Splash.
+2. Umgesetzt: `FAIRNESS_MATCHUP_FLOOR = 0.6` (`templates.ts`).
+3. Umgesetzt: degressive Stufen über `lateFromLevel` und `lateMultiplier`
+   (`tower-types.config.ts`).
+4. Der Range-Track mit 10 Stufen ist umgesetzt. Das Gold ist nicht
+   nachgesteuert, der Kommentar am Curriculum hält das bis zum Playtest
+   bewusst so.
+5. Boss-Wellen sind im Leck-Fenster geblieben; der `GateController`
+   behandelt sie nicht gesondert.
+6. Umgesetzt: `BOSS_GOLD_MULTIPLIER = 2` in `goldBudgetForWave`.
+7. Halb: Tentacle True Damage gibt es im Code nicht, MASTER_GAME_DESIGN
+   §3.10 nennt es gestrichen. Herbert trägt weiter `immunityPercent: 100`
+   (`enemy-types.config.ts`), gelesen wird das Feld im Spiel nicht.
 
 ---
 
