@@ -88,4 +88,57 @@ describe('claimRouteCells', () => {
     expect(cellAt(cells, 10.5, 5.5)).toBeUndefined();
     expect(cellAt(cells, 30.5, 5.5)).toMatchObject({ surface: 'deck' });
   });
+
+  it('keeps the width of a wide piece out of the narrow piece after it', () => {
+    // Eastbound along z = 1, right of travel is +z: 7 m on the first 20 m
+    // (a front garden), then 2.5 m (the house at the street).
+    const cells = new Map<number, RouteCell>();
+    const route: RouteWaypoint[] = [
+      { lat: 0, lon: 0, corridorLeft: 2.5, corridorRight: 7 },
+      { lat: 0, lon: 0, corridorLeft: 2.5, corridorRight: 2.5 },
+      { lat: 0, lon: 0 },
+    ];
+    claimRouteCells(cells, lattice, route, [p(0, 1), p(20, 1), p(40, 1)]);
+
+    expect(cellAt(cells, 18.5, 6.5)).toBeDefined(); // centre (19, 7): 6 m right on the wide piece
+    expect(cellAt(cells, 22.5, 2.5)).toBeDefined(); // centre (23, 3): 2 m right on the narrow piece
+    // Centre (23, 5): 3 m past the joint and 4 m right, 5 m from the joint.
+    // The wide piece's round end of 7 m took it, inside the house.
+    expect(cellAt(cells, 22.5, 4.5)).toBeUndefined();
+    // Nor in front of the joint, mirrored.
+    const back = new Map<number, RouteCell>();
+    claimRouteCells(back, lattice, [
+      { lat: 0, lon: 0, corridorLeft: 2.5, corridorRight: 2.5 },
+      { lat: 0, lon: 0, corridorLeft: 2.5, corridorRight: 7 },
+      { lat: 0, lon: 0 },
+    ], [p(0, 1), p(20, 1), p(40, 1)]);
+    expect(cellAt(back, 16.5, 4.5)).toBeUndefined(); // centre (17, 5)
+    expect(cellAt(back, 20.5, 6.5)).toBeDefined(); // centre (21, 7)
+  });
+
+  it('rounds the outer side of a corner to the narrower of its two pieces', () => {
+    // East along z = 1 to x = 20, then south (+z). Left of travel is the
+    // outer side, north-east of the corner: 6 m before it, 2 m after.
+    const cells = new Map<number, RouteCell>();
+    const route: RouteWaypoint[] = [
+      { lat: 0, lon: 0, corridorLeft: 6, corridorRight: 2 },
+      { lat: 0, lon: 0, corridorLeft: 2, corridorRight: 2 },
+      { lat: 0, lon: 0 },
+    ];
+    claimRouteCells(cells, lattice, route, [p(0, 1), p(20, 1), p(20, 30)]);
+
+    expect(cellAt(cells, 18.5, -4.5)).toBeDefined(); // centre (19, -5): 6 m left before the corner
+    expect(cellAt(cells, 20.5, 0.5)).toBeDefined(); // centre (21, 1): round the corner
+    expect(cellAt(cells, 22.5, -2.5)).toBeUndefined(); // centre (23, -3): 5 m from the corner
+  });
+
+  it('keeps a round end of the full half width at the ends of the route', () => {
+    const cells = new Map<number, RouteCell>();
+    claimRouteCells(cells, lattice, [
+      { lat: 0, lon: 0, corridorLeft: 4, corridorRight: 4 },
+      { lat: 0, lon: 0, corridorLeft: 1, corridorRight: 1 },
+      { lat: 0, lon: 0 },
+    ], [p(0, 1), p(20, 1), p(40, 1)]);
+    expect(cellAt(cells, -2.5, 2.5)).toBeDefined(); // centre (-3, 3): 3.6 m behind the start
+  });
 });
