@@ -834,6 +834,16 @@ describe('GameStateManager', () => {
         expect(gsm.baseHealth()).toBe(GAME_BALANCE.player.startHealth);
         expect(gsm.credits()).toBe(GAME_BALANCE.player.startCredits);
       });
+
+      it('clears the ooze renderer, a killed ooze\'s collapsing band and debris included, which a wave end leaves', () => {
+        const engine = createMockEngine() as unknown as { oozes: { clear: Mock } };
+        const game = new GameStateManager();
+        game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+        const clear = engine.oozes.clear;
+        clear.mockClear();
+        game.reset();
+        expect(clear).toHaveBeenCalledTimes(1);
+      });
     });
 
     describe('healBase()', () => {

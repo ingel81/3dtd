@@ -36,6 +36,7 @@ const createMockTilesEngine = () => ({
     setFrame: vi.fn(),
     remove: vi.fn(),
     collapse: vi.fn(),
+    discard: vi.fn(),
     clear: vi.fn(),
   },
   spatialAudio: null,

@@ -180,6 +180,42 @@ describe('Ooze integration', () => {
     });
   });
 
+  describe('clearing the map', () => {
+    let m: TestManagers;
+
+    beforeEach(() => {
+      m = createWiredManagers();
+      m.waveManager.startWave(makeSingleTypeWaveConfig({ count: 1, type: 'ooze' }));
+    });
+
+    afterEach(() => {
+      m.enemyManager.clear();
+    });
+
+    it('leaves a killed ooze\'s collapsing band and debris to run out at the wave end', () => {
+      const clock = { now: 0 };
+      tickEngine(m, 9_000, clock);
+      m.enemyManager.kill(m.enemyManager.getAlive()[0]);
+      for (const clump of m.enemyManager.getAlive()) m.enemyManager.kill(clump);
+      tickEngine(m, 3_000, clock); // the clumps' death animation is over
+      expect(m.waveManager.checkWaveComplete()).toBe(true);
+
+      m.waveManager.endWave();
+      const oozes = m.tilesEngine.oozes;
+      expect(oozes.collapse).toHaveBeenCalledTimes(1);
+      expect(oozes.clear).not.toHaveBeenCalled();
+      expect(oozes.discard).not.toHaveBeenCalled();
+    });
+
+    it('takes the band of a live ooze at once, and nothing else of the renderer (game over)', () => {
+      tickEngine(m, 5_000);
+      const ooze = m.enemyManager.getAlive()[0];
+      m.enemyManager.clear();
+      expect(m.tilesEngine.oozes.discard).toHaveBeenCalledWith(ooze.id);
+      expect(m.tilesEngine.oozes.clear).not.toHaveBeenCalled();
+    });
+  });
+
   it('breaks into the same clumps in the same sub-step at 1 and 4 sub-steps per frame', () => {
     const split = (stepsPerFrame: number) => {
       const m = createWiredManagers();
