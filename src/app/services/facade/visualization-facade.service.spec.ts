@@ -44,7 +44,7 @@ import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
 import { HeroControlService } from '../hero-control.service';
 import { MapPlacementService } from '../world/map-placement.service';
-import { RelocationStatusService } from '../world/relocation-status.service';
+import { MEASURING_STEP, RelocationStatusService } from '../world/relocation-status.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -774,9 +774,9 @@ describe('VisualizationFacadeService', () => {
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
     });
 
-    it('measures in the larger slices while the hint of a moving HQ stands', () => {
+    it('measures in the larger slices while the hint shows the measurement of a moving HQ', () => {
       corridor.slices = 2;
-      relocationStatus.status.set({ title: 'Moving HQ', step: 'Finding the route', percent: null });
+      relocationStatus.status.set({ title: 'Moving HQ', step: MEASURING_STEP, percent: 0 });
 
       facade.fitCorridorToTiles();
 
