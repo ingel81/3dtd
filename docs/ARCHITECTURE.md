@@ -896,7 +896,8 @@ Ein Präsentations-Replay, keine Re-Simulation (Begründung in REPLAY.md):
 `ReplayRecorder` (`replay/`, ohne Angular-DI, vom GameStateManager gehalten)
 nimmt alle 6 Sub-Steps auf, was die Renderer zeigen (Gegner, Projektile,
 Türme, die Körper der Oozes, den Helden), in Typed-Array-Spalten mit
-Speichergrenze, dazu Effekt-Events und jedes `command:*` über `onAny()`.
+Speichergrenze, dazu Effekt-Events und jedes `command:*` über `onAny()`,
+das nur während einer aufgenommenen Welle am Bus hängt.
 `ReplayPlayer` spielt das über die Live-Renderer ab, während das Spiel
 pausiert, im Blutmond-Look der aufgezeichneten Welle; Effekte laufen über
 einen eigenen Bus mit eigenem `VFXService`, `AudioService` und
@@ -932,7 +933,7 @@ class GameEventBus {
   // Subscriptions
   on<T extends GameEvent['type']>(type: T, handler: (event) => void): EventSubscription;
   off<T extends GameEvent['type']>(type: T, handler): void;
-  onAny(handler: (event: GameEvent) => void): EventSubscription;  // Debug
+  onAny(handler: (event: GameEvent) => void): EventSubscription;  // Catch-all: Event-Debugger, ReplayRecorder
   clear(): void;
 }
 ```
