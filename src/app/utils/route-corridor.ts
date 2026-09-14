@@ -105,8 +105,9 @@ export interface CorridorConfig {
   widthStep: number;
   /**
    * A dip in the measured free space up to about this long is closed: a
-   * lamp post, a sign, a van, a single tree trunk. Rounded up to whole
-   * stations either side, see {@link closeShortDips}.
+   * lamp post, a sign, a single tree trunk. A low wall (a parked car or a
+   * van, {@link probeLowWall}) stays however short it is. Rounded up to
+   * whole stations either side, see {@link closeShortDips}.
    */
   dipLength: number;
   /**
@@ -391,13 +392,19 @@ function stationRadius(lengthM: number): number {
 /**
  * Morphological closing over `radius` stations either side (by default
  * enough for `dipLength`). A dip in the clearance of up to `2 * radius`
- * stations (a lamp post, a sign, a van) goes, a longer narrowing keeps its
- * full length. NaN marks a station that could not be measured; it stays
- * unknown and does not count for its neighbours.
+ * stations (a lamp post, a sign, a single trunk) goes, a longer narrowing
+ * keeps its full length. A station `keep` marks (a low wall,
+ * probeLowWall: a parked car or a van) keeps its value however short the
+ * dip. NaN marks a station that could not be measured; it stays unknown
+ * and does not count for its neighbours.
  */
-export function closeShortDips(values: readonly number[], radius = stationRadius(corridorConfig.dipLength)): number[] {
+export function closeShortDips(
+  values: readonly number[],
+  keep: readonly boolean[] = [],
+  radius = stationRadius(corridorConfig.dipLength),
+): number[] {
   const dilated = values.map((_, k) => windowExtreme(values, k, radius, Math.max));
-  return dilated.map((_, k) => (Number.isNaN(values[k]) ? NaN : windowExtreme(dilated, k, radius, Math.min)));
+  return dilated.map((_, k) => (Number.isNaN(values[k]) || keep[k] ? values[k] : windowExtreme(dilated, k, radius, Math.min)));
 }
 
 /**
@@ -485,6 +492,13 @@ export interface CorridorStations {
    */
   walkLeft?: readonly number[];
   walkRight?: readonly number[];
+  /**
+   * Stations whose free space is a low wall (probeLowWall), left and right:
+   * a parked car or a van. The dip closing keeps them, and closing short
+   * narrowings does not widen them. Missing: none.
+   */
+  lowWallLeft?: readonly boolean[];
+  lowWallRight?: readonly boolean[];
 }
 
 /**
@@ -550,7 +564,8 @@ export interface StationProbe {
  * the hit comes down at least `lowWallRise` above the station's ground
  * (StationProbe.lowRise). A parked car or a van, a hedge, a low wall in
  * front of a raised garden; not a bollard, a sign post or a fence in front
- * of ground at street level. It counts as a wall (probeFreeSpace).
+ * of ground at street level. It counts as a wall (probeFreeSpace), however
+ * short (closeShortDips, closeShortNarrowings).
  */
 export function probeLowWall(probe: StationProbe | null, side: 'left' | 'right'): boolean {
   if (!probe || probe.unmeasured !== null) return false;
@@ -602,9 +617,10 @@ export function walkWidth(walk: number): number {
  * found a wall, is the half width on that side, clamped to
  * [minHalfWidth, maxHalfWidth]. Along the whole route, across its
  * waypoints, a short gap of unmeasured stations takes the free space
- * measured around it (fillShortGaps), short dips are closed
- * (closeShortDips) and short bulges cut (cutShortBulges), each side on its
- * own, then the value is rounded down to `widthStep`. A station the tiles
+ * measured around it (fillShortGaps), short dips other than low walls
+ * (lowWallLeft, lowWallRight) are closed (closeShortDips) and short bulges
+ * cut (cutShortBulges), each side on its own, then the value is rounded
+ * down to `widthStep`. A station the tiles
  * could not measure in a longer gap gets the street's half width; off the
  * network the street's half width is the cap. Last, whatever set it, the
  * half width stays short of a cell an enemy could not walk to (walkLeft,
@@ -617,8 +633,9 @@ export function fitCorridorStations(
 
   const fitSide = (side: 'left' | 'right'): StationFit[][] => {
     const free = segments.flatMap((s) => s[side]);
+    const lowWalls = segments.flatMap((s) => lowWallsOf(s, side));
     const filled = fillShortGaps(free);
-    const smoothed = cutShortBulges(closeShortDips(filled));
+    const smoothed = cutShortBulges(closeShortDips(filled, lowWalls));
     let offset = 0;
     return segments.map((segment) => {
       const walks = side === 'left' ? segment.walkLeft : segment.walkRight;
@@ -634,6 +651,7 @@ export function fitCorridorStations(
           rules.push('unmeasured: street width');
         } else {
           if (Number.isNaN(f)) rules.push('unmeasured: from neighbours');
+          if (lowWalls[offset + k]) rules.push('low obstacle, raised behind');
           if (s > g) rules.push('dip closed');
           else if (s < g) rules.push('bulge cut');
           // A ray that hit nothing reports its full length, the maximum; a
@@ -668,11 +686,18 @@ export function fitCorridorStations(
   return { left: fitSide('left'), right: fitSide('right') };
 }
 
+/** Which stations of `segment` are low walls on `side`, one flag per station. */
+function lowWallsOf(segment: CorridorStations, side: 'left' | 'right'): boolean[] {
+  const flags = side === 'left' ? segment.lowWallLeft : segment.lowWallRight;
+  return segment[side].map((_, k) => flags?.[k] ?? false);
+}
+
 /**
  * The corridor pieces of each segment of a route, from what the tiles
  * showed: the station half widths of {@link fitCorridorStations}, runs of
  * equal widths as one piece, with the narrowest walk cap of their stations
- * as `maxLeft` / `maxRight`. A segment without stations is one piece at the
+ * as `maxLeft` / `maxRight`, and at a low wall (lowWallLeft, lowWallRight)
+ * the half width it gave. A segment without stations is one piece at the
  * fallback.
  */
 export function fitCorridorPieces(segments: readonly CorridorStations[]): CorridorPiece[][] {
@@ -680,6 +705,8 @@ export function fitCorridorPieces(segments: readonly CorridorStations[]): Corrid
   return segments.map((segment, i) => {
     const n = segment.left.length;
     if (n === 0) return [{ t: 0, left: segment.fallback, right: segment.fallback }];
+    const lowLeft = lowWallsOf(segment, 'left');
+    const lowRight = lowWallsOf(segment, 'right');
     const pieces: CorridorPiece[] = [];
     for (let k = 0; k < n; k++) {
       const l = left[i][k].halfWidth;
@@ -689,8 +716,8 @@ export function fitCorridorPieces(segments: readonly CorridorStations[]): Corrid
         last = { t: k / n, left: l, right: r };
         pieces.push(last);
       }
-      const maxLeft = Math.min(last.maxLeft ?? Infinity, walkWidth(left[i][k].walk));
-      const maxRight = Math.min(last.maxRight ?? Infinity, walkWidth(right[i][k].walk));
+      const maxLeft = Math.min(last.maxLeft ?? Infinity, walkWidth(left[i][k].walk), lowLeft[k] ? l : Infinity);
+      const maxRight = Math.min(last.maxRight ?? Infinity, walkWidth(right[i][k].walk), lowRight[k] ? r : Infinity);
       if (maxLeft < Infinity) last.maxLeft = maxLeft;
       if (maxRight < Infinity) last.maxRight = maxRight;
     }
@@ -710,7 +737,8 @@ export function fitCorridorPieces(segments: readonly CorridorStations[]): Corrid
  * runs longer, such as walls on both sides over a few metres, stays; so
  * does one at either end of the route. No piece gets wider than its
  * `maxLeft` / `maxRight`: a car or an eave narrows the corridor however
- * short it is.
+ * short it is, whether the grid found it (a walk cap) or the rays (a low
+ * wall).
  *
  * `pieces` per segment as fitCorridorPieces gives them, `lengths` the
  * segment lengths in metres, `fixed` the segments whose width must not

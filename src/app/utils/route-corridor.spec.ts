@@ -101,6 +101,13 @@ describe('closeShortDips', () => {
     expect(closed.slice(2)).toEqual([3, 3, 3, 7]);
   });
 
+  it('keeps a low wall however short the dip', () => {
+    // A parked car on two stations: the low ray hit it, the ground behind the hit is its roof.
+    expect(closeShortDips([7, 7, 3, 3, 7, 7], [false, false, true, true, false, false])).toEqual([7, 7, 3, 3, 7, 7]);
+    // A lamp post between two of them still goes, to their width.
+    expect(closeShortDips([7, 3, 1, 3, 7], [false, true, false, true, false])).toEqual([7, 3, 3, 3, 7]);
+  });
+
   it('bridges longer dips when the dip length is raised', () => {
     // A 6 m van on 2 m stations covers three of them.
     expect(closeShortDips([7, 7, 3, 3, 3, 7, 7])).toEqual([7, 7, 3, 3, 3, 7, 7]);
@@ -201,6 +208,27 @@ describe('fitCorridorPieces', () => {
     ]]);
   });
 
+  it('keeps a car the low ray found on two stations, and closing short narrowings keeps to it', () => {
+    // A car 4.5 m long 3.2 m right of the centre line at stations 5 and 6
+    // of a 24 m segment; the open stretches either side are longer than
+    // bulgeLength, or they would be cut to the car's width.
+    const right = [7, 7, 7, 7, 7, 3.2, 3.2, 7, 7, 7, 7, 7];
+    const car = measured(right.map(() => 7), right);
+    const segment: CorridorStations = { ...car, lowWallRight: right.map((d) => d < 7) };
+    const pieces = fitCorridorPieces([segment]);
+    expect(pieces).toEqual([[
+      { t: 0, left: 7, right: 7 },
+      { t: 5 / 12, left: 7, right: 2.5, maxRight: 2.5 },
+      { t: 7 / 12, left: 7, right: 7 },
+    ]]);
+    expect(closeShortNarrowings(pieces, [24], [false])).toEqual([[
+      { t: 0, left: 7, right: 7 },
+      { t: 5 / 12, left: 7, right: 2.5 },
+      { t: 7 / 12, left: 7, right: 7 },
+    ]]);
+    // The same dip from both rays, a wall on two stations, is closed.
+    expect(fitCorridorPieces([car])).toEqual([[{ t: 0, left: 7, right: 7 }]]);
+  });
 });
 
 describe('fitCorridorStations', () => {
@@ -269,6 +297,15 @@ describe('fitCorridorStations', () => {
     expect(fit.left[0][2]).toMatchObject({ halfWidth: 7, rule: 'unmeasured: from neighbours, no wall within the maximum' });
     expect(fitCorridorPieces([measured([7, 7, NaN], [7, 7, NaN]), measured([7, 7], [7, 7])]))
       .toEqual([[{ t: 0, left: 7, right: 7 }], [{ t: 0, left: 7, right: 7 }]]);
+  });
+
+  it('names a low wall and cuts a gap between two parked cars like a driveway', () => {
+    // Cars 3.2 m right on stations 0 to 2 and 5 to 7, a 4 m gap on 3 and 4.
+    const right = [3.2, 3.2, 3.2, 7, 7, 3.2, 3.2, 3.2];
+    const fit = fitCorridorStations([{ ...measured(right.map(() => 7), right), lowWallRight: right.map((d) => d < 7) }]);
+    expect(fit.right[0].map((s) => s.halfWidth)).toEqual([2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5]);
+    expect(fit.right[0][1].rule).toBe('low obstacle, raised behind, wall less margin');
+    expect(fit.right[0][3].rule).toBe('bulge cut, wall less margin');
   });
 
   it('gives the same half widths the pieces are made of', () => {
