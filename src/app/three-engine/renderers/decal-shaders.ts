@@ -9,9 +9,13 @@
  * - The blood moon's tint (`uBloodMoonTint`, GroundDecals.setBloodMoon):
  *   they draw after the mood's multiply quad, so they multiply by it
  *   themselves, like the ground under them got it
+ * - Colours in display values, written for the target (displayOutput,
+ *   display-output.ts); the blood moon's tint is in the target's values
+ *   and applies after that
  */
 
 import { ShaderMaterial, DoubleSide, Vector3, type IUniform } from 'three';
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 /** A tint uniform of the normal look, for a decal material without a shared one */
 function neutralTint(): IUniform<Vector3> {
@@ -67,6 +71,8 @@ export function createBloodDecalShader(bloodMoonTint: IUniform<Vector3> = neutra
 
     #include <logdepthbuf_pars_fragment>
 
+    ${DISPLAY_OUTPUT_GLSL}
+
     // Simple noise function for variation
     float hash(vec2 p) {
       return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -112,7 +118,7 @@ export function createBloodDecalShader(bloodMoonTint: IUniform<Vector3> = neutra
       // Apply instance opacity
       alpha *= vInstanceOpacity;
 
-      gl_FragColor = vec4(color * uBloodMoonTint, alpha);
+      gl_FragColor = vec4(displayOutput(color) * uBloodMoonTint, alpha);
 
       #include <logdepthbuf_fragment>
     }
@@ -179,6 +185,8 @@ export function createScorchDecalShader(bloodMoonTint: IUniform<Vector3> = neutr
 
     #include <logdepthbuf_pars_fragment>
 
+    ${DISPLAY_OUTPUT_GLSL}
+
     float hash(vec2 p) {
       return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
     }
@@ -220,7 +228,7 @@ export function createScorchDecalShader(bloodMoonTint: IUniform<Vector3> = neutr
       float blotch = noise(center * 4.0 + seed * 0.5);
       vec3 color = mix(vInstanceColor, vInstanceColor * 0.45, smoothstep(0.35, 0.75, blotch) * 0.7);
 
-      gl_FragColor = vec4(color * uBloodMoonTint, alpha * vInstanceOpacity);
+      gl_FragColor = vec4(displayOutput(color) * uBloodMoonTint, alpha * vInstanceOpacity);
 
       #include <logdepthbuf_fragment>
     }
@@ -285,6 +293,8 @@ export function createIceDecalShader(bloodMoonTint: IUniform<Vector3> = neutralT
 
     #include <logdepthbuf_pars_fragment>
 
+    ${DISPLAY_OUTPUT_GLSL}
+
     // Simple noise function
     float hash(vec2 p) {
       return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -329,7 +339,7 @@ export function createIceDecalShader(bloodMoonTint: IUniform<Vector3> = neutralT
       // Apply instance opacity
       alpha *= vInstanceOpacity;
 
-      gl_FragColor = vec4(color * uBloodMoonTint, alpha);
+      gl_FragColor = vec4(displayOutput(color) * uBloodMoonTint, alpha);
 
       #include <logdepthbuf_fragment>
     }

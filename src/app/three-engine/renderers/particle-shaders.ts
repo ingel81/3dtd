@@ -6,6 +6,7 @@ import {
   AdditiveBlending,
   NormalBlending,
 } from 'three';
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 /**
  * GPU particle shaders for ThreeEffectsRenderer's trail/atlas particle pools.
@@ -18,6 +19,11 @@ import {
  * Key constraint: with `logarithmicDepthBuffer: true` on the WebGLRenderer,
  * custom ShaderMaterials MUST include the log-depth shader chunks to write
  * correct depth values — otherwise particles z-fight / punch through 3D Tiles.
+ *
+ * Colours are display values, written for the target (display-output.ts):
+ * the glow as additive light (displayLight), smoke and dust as a colour
+ * (displayOutput). On the canvas as before, through the post-processing
+ * target alike where opaque and, for the glow, over a street.
  */
 
 /**
@@ -64,6 +70,8 @@ const PARTICLE_FRAGMENT_SHADER_ADDITIVE = /* glsl */ `
 
       #include <logdepthbuf_pars_fragment>
 
+      ${DISPLAY_OUTPUT_GLSL}
+
       void main() {
         if (vFrameIndex < 0.0) {
           // === Classic circular particle (no atlas) ===
@@ -71,7 +79,7 @@ const PARTICLE_FRAGMENT_SHADER_ADDITIVE = /* glsl */ `
           float dist = length(center);
           if (dist > 0.5) discard;
           float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-          gl_FragColor = vec4(vColor * alpha, alpha);
+          gl_FragColor = displayLight(vec4(vColor * alpha, alpha));
         } else {
           // === Sprite-sheet atlas lookup ===
           float frame = floor(vFrameIndex + 0.5); // round to nearest int
@@ -87,7 +95,7 @@ const PARTICLE_FRAGMENT_SHADER_ADDITIVE = /* glsl */ `
           vec4 texel = texture2D(uAtlas, uv);
           if (texel.a < 0.01) discard;
           // Tint with particle color (allows color variation)
-          gl_FragColor = vec4(texel.rgb * vColor, texel.a);
+          gl_FragColor = displayLight(vec4(texel.rgb * vColor, texel.a));
         }
 
         #include <logdepthbuf_fragment>
@@ -104,6 +112,8 @@ const PARTICLE_FRAGMENT_SHADER_NORMAL = /* glsl */ `
 
       #include <logdepthbuf_pars_fragment>
 
+      ${DISPLAY_OUTPUT_GLSL}
+
       void main() {
         if (vFrameIndex < 0.0) {
           // === Classic circular particle (no atlas) ===
@@ -111,7 +121,7 @@ const PARTICLE_FRAGMENT_SHADER_NORMAL = /* glsl */ `
           float dist = length(center);
           if (dist > 0.5) discard;
           float alpha = 0.7 * (1.0 - smoothstep(0.3, 0.5, dist));
-          gl_FragColor = vec4(vColor, alpha);
+          gl_FragColor = displayOutput(vec4(vColor, alpha));
         } else {
           // === Sprite-sheet atlas lookup ===
           float frame = floor(vFrameIndex + 0.5);
@@ -124,7 +134,7 @@ const PARTICLE_FRAGMENT_SHADER_NORMAL = /* glsl */ `
           );
           vec4 texel = texture2D(uAtlas, uv);
           if (texel.a < 0.01) discard;
-          gl_FragColor = vec4(texel.rgb * vColor, texel.a * 0.85);
+          gl_FragColor = displayOutput(vec4(texel.rgb * vColor, texel.a * 0.85));
         }
 
         #include <logdepthbuf_fragment>
