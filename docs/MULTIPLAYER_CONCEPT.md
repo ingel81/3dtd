@@ -1,7 +1,8 @@
 # Multiplayer-Konzept: PvE-Coop & PvP
 
 > **Status:** Konzept / Entscheidungsvorlage — noch kein Code.
-> **Stand:** 2026-08-26 · Branch `claude/multiplayer-pve-pvp-architecture-amu0x7`
+> **Stand:** 2026-08-26 · Branch `claude/multiplayer-pve-pvp-architecture-amu0x7`;
+> Commands, Korridor und Stellen im Code nachgeführt 2026-09-15
 >
 > Bewertet den Ist-Zustand der Engine gegen die Anforderungen von
 > Netzwerk-Multiplayer und schlaegt eine Architektur plus Ausbaureihenfolge vor.
@@ -13,7 +14,7 @@
 **Empfehlung: Deterministisches Lockstep mit Command-Relay** — nicht State-Replication.
 Der Grund ist Entity-Scale: bei 10k+ Gegnern ist Zustandsuebertragung
 bandbreitentechnisch tot (~3 MB/s), waehrend das gesamte Spieler-Input-Volumen
-aus **7 Command-Events** besteht und pro Match unter 100 KB bleibt.
+aus **14 Command-Events** besteht und pro Match unter 100 KB bleibt.
 
 **Drei harte Blocker** stehen dem heute im Weg — alle loesbar, aber keiner trivial:
 
@@ -21,7 +22,7 @@ aus **7 Command-Events** besteht und pro Match unter 100 KB bleibt.
    sind sich nicht einig, was ein Turm sieht. → Host-autoritative LOS-Masken.
 2. **Terrain-Hoehen kommen aus Raycasts gegen dieselben Tiles bei variabler LOD.**
    → World-Snapshot mit eingefrorenem Hoehenfeld ("World Seal").
-3. **Ungeseedete `Math.random()` in ~6 Gameplay-Pfaden.** → Seeded RNG.
+3. **Ungeseedete `Math.random()` in fünf Gameplay-Dateien.** → Seeded RNG.
    *(Der Wave-Director stand hier ursprünglich mit drin. Seit dem Wechsel auf
    `rule-director.ts` ist er reines TypeScript und nimmt seine Zufallsquelle
    bereits als Parameter — siehe 2.3.)*
@@ -41,7 +42,7 @@ typischen Singleplayer-Codebase.
 | Asset | Fundstelle | Warum es zaehlt |
 |-------|-----------|-----------------|
 | **Fixed-Timestep-Sub-Step-Loop** | `managers/game-state/game-clock.ts`: `GameClock.FIXED_STEP_MS = 16.667` | Die wichtigste Voraussetzung fuer Lockstep ist schon da. Gameplay laeuft bereits in festen Game-Time-Schritten, unabhaengig von der Framerate. |
-| **Command-Bus mit exakt 7 Player-Commands** | `game-event-bus.ts` + `game-commands.handler.ts` | `place-tower`, `sell-tower`, `upgrade-tower`, `start-wave`, `start-research`, `cancel-research`, `restart-game`. Das ist die *komplette* Input-Oberflaeche — genau das, was ueber die Leitung muss. |
+| **Command-Bus mit 14 Player-Commands** | `game-event-bus.ts` + `game-commands.handler.ts` | Tower: `place-tower`, `sell-tower`, `upgrade-tower`, `set-targeting`; Welle und Spiel: `start-wave`, `restart-game`; Forschung: `start-research`, `cancel-research`, `queue-research`, `unqueue-research`; Fähigkeiten: `use-ability`; Held: `hire-hero`, `hero-move`, `hero-ammo` (beim Schreiben des Konzepts waren es sieben). Das ist die *komplette* Input-Oberflaeche — genau das, was ueber die Leitung muss. |
 | **Command-Handler ist bereits vom Game-Loop-Owner getrennt** | `game-commands.handler.ts` | Der Netzwerk-Layer haengt sich zwischen Bus und Handler, ohne Manager anzufassen. |
 | **Serialisierbares Strassennetz** | `pathfinding.worker.ts` — `SerializedStreetNetwork` | Das Format fuer den World-Snapshot existiert schon, inklusive Tests. |
 | **WebSocket-Client-Praezedenz** | `ai/training/training-session.ts` | Reconnect, Message-Typing, Lifecycle — als Vorlage fuer den Netzwerk-Client wiederverwendbar. |
@@ -56,7 +57,7 @@ typischen Singleplayer-Codebase.
 
 `global-route-grid.ts` fuellt `cell.towerVisibility` / `cell.airVisibility` ueber
 einen `readRenderTargetPixels`-Pass gegen die Tower-Shadow-Cubemap
-(`three-engine/tower-shadow-mapper.ts:360`). Der Combat-Hot-Path liest daraus
+(`TowerShadowMapper`, gelesen über `sampleCubeAtPoint` in `utils/gpu-cube-resolve.ts`, siehe [LOS_PIPELINE.md](LOS_PIPELINE.md)). Der Combat-Hot-Path liest daraus
 O(1) — also entscheidet ein **GPU-Roundtrip gegen gerade geladene Tile-Geometrie**
 darueber, ob ein Turm schiessen darf.
 
@@ -71,7 +72,7 @@ uebernehmen sie, statt lokal zu samplen. Die lokale Preview beim Bauen bleibt
 erlaubt — sie ist unverbindlich.
 
 Bandbreite: Ein Turm mit 100 m Range deckt im 2-m-Grid (`CELL_SIZE = 2`,
-`CORRIDOR_WIDTH = 7`) groessenordnungsmaessig ein paar tausend Zellen ab, 2 Bit
+Korridor je Seite bis 7 m, `maxHalfWidth`) groessenordnungsmaessig ein paar tausend Zellen ab, 2 Bit
 pro Zelle (Ground + Air) → **unter 1 KB roh, komprimiert ein paar hundert Byte**,
 und das nur bei einem Bau-Event. Vollkommen unkritisch.
 
@@ -88,7 +89,8 @@ Der Host wartet vor Match-Start, bis das Sampling stabil ist, serialisiert
 Gameplay-Hoehen ein. Nachladende Tiles duerfen weiter die *Optik* verbessern,
 aber nicht mehr die Simulation.
 
-Groesse: 3 km Route × 7 m Korridor / 4 m² ≈ 5–6k Korridorzellen, plus
+Groesse: 3 km Route × bis 14 m Korridor (je Seite bis 7 m, gemessen, siehe
+[ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md)) / 4 m² ≈ bis 10k Korridorzellen, plus
 Tower-Radius-Zellen — realistisch 20–50k Zellen. Als Int16-Delta in cm:
 **40–100 KB roh, gzip ~15–30 KB.** Einmaliger Download beim Join.
 
@@ -106,13 +108,13 @@ Stale-LOS-Bugs, weil Hoehen nach dem Seal nicht mehr still wandern.
 
 Gameplay-relevante `Math.random()`-Aufrufe (der Rest ist VFX und darf bleiben):
 
-| Datei | Zeile | Wofuer |
-|-------|-------|--------|
-| `managers/enemy.manager.ts` | 169, 176 | Lateral-Offset, Speed-Varianz |
-| `managers/wave.manager.ts` | 306 | Spawn-Point-Auswahl |
-| `entities/enemy.entity.ts` | 197, 213, 246, 268 | Audio-Timing, Shuffle |
-| `ai/core/spawn-schedule-builder.ts` | 81, 157 | Count-Jitter, Shuffle |
-| `ai/core/rule-director.ts` | 75 | Template-Wahl und Faktor-Jitter |
+| Datei | Stelle | Wofuer |
+|-------|--------|--------|
+| `managers/enemy.manager.ts` | `spawnOne` | Seitenversatz (`lateralSpread`), Höhenvarianz der Luftgegner |
+| `managers/wave.manager.ts` | `selectSpawnPoint` | Spawn-Point-Auswahl |
+| `entities/enemy.entity.ts` | `scheduleNextRandomSound`, `playRandomSound`, `refillRandomSoundsQueue`, `scheduleNextPoolSound` | Audio-Timing, Shuffle |
+| `ai/core/spawn-schedule-builder.ts` | `getDelay` (`delayVariation`), `buildRandom` | Delay-Jitter, Shuffle |
+| `ai/core/rule-director.ts` | `RuleDirector.decide` | Template-Wahl und Faktor-Jitter |
 | `ai/core/gate-controller.ts` | — | keiner: rein arithmetisch, kein RNG |
 
 **Loesung:** Ein `DeterministicRng` (mulberry32/xorshift128, seed pro Match aus
@@ -311,13 +313,15 @@ Ein Spieler baut Tuerme. Der andere **ist der Wave-Director**: kauft von einem
 Angriffsbudget Gegnergruppen, waehlt Zusammensetzung, Spawn-Punkt und Timing.
 
 Der Clou: **Die Action-Space dafuer existiert bereits.** Der Wave-Director
-arbeitet in `ai/wave-director/` genau mit diesen Groessen (Range-Based Templates,
+arbeitet in `ai/core/` (`rule-director.ts`, Templates, `spawn-schedule-builder.ts`) genau mit diesen Groessen (Range-Based Templates,
 Spawn-Schedules, Constraints — siehe `docs/PHASE_5.11_RANGES.md`). Ein
 Angreifer-UI ist im Kern ein Human-Frontend fuer die gleiche Action-Space, mit
 den gleichen Constraints als Balance-Leitplanke.
 
-Nebeneffekt: Das trainierte Modell wird zum **Bot-Gegner** fuer diesen Modus und
-zum Balance-Massstab ("schlaegst du die AI auf Level 5?").
+Nebeneffekt: Der Director wird zum **Bot-Gegner** fuer diesen Modus und zum
+Balance-Massstab ("schlaegst du die AI auf Level 5?"). Seit 2026-09-07 ist das der
+Regel-Director; das trainierte Modell ist nur noch ein Opt-in im Debug-Fenster
+([AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md)).
 
 Netzwerktechnisch ist das der einfachste PvP-Modus ueberhaupt — der Angreifer
 schickt Wave-Schedules, ansonsten laeuft eine einzige Sim beim Verteidiger.
@@ -330,8 +334,12 @@ Verteidiger-Client autoritativ ist.
 
 Grob nach Aufwand sortiert, mit Dateibezug:
 
-**Determinismus-Fundament (nutzt auch Singleplayer: Replays, Bug-Repro, AI-Training)**
-1. `DeterministicRng` + Injection in die 4 Gameplay-Dateien aus 2.3
+**Determinismus-Fundament (nutzt auch Singleplayer: Replays per Re-Simulation, Bug-Repro, AI-Training)**
+
+Das heute gebaute Replay der letzten Welle ist eine Präsentations-Aufnahme, keine
+Re-Simulation, und braucht nichts davon ([REPLAY.md](REPLAY.md)).
+
+1. `DeterministicRng` + Injection in die Gameplay-Dateien aus 2.3
 2. World Seal: `terrainHeight`-Freeze + Serialisierung — `utils/global-route-grid.ts`
 3. Voller Game-State-Serializer (fuer Rejoin/Resync) — faellt mit Save/Load zusammen
 4. Checksum-Funktion + Divergenz-Log
@@ -402,8 +410,6 @@ lohnt, wenn Multiplayer nie kommt.
 5. **Wave-Director im MP:** *entschieden durch den Wechsel auf den Regel-Director* —
    er läuft auf jedem Client identisch, sobald er die geseedete Zufallsquelle
    bekommt. Der ONNX-Pfad bleibt im MP gesperrt.
-   (`configs/wave-curriculum.config.ts`)? Statisch ist fairer und einfacher,
-   Host-Inferenz ist interessanter.
 6. **Performance-Budget:** Der Client rendert heute schon am Limit. Ein zweiter
    Spieler bringt kaum Sim-Kosten (Lockstep), aber Tick-Stalls machen
    Frame-Drops beim Peer sichtbar.
@@ -469,7 +475,8 @@ Es blockieren also drei konkrete Dinge, nicht "das ganze Rendering":
    direkt.
 2. **`tilesEngine`-Aufrufe** — schon `| null`, aber `advanceTurretAim()` ist
    gameplay-relevant (Turret-Alignment gated das Feuern, siehe
-   `game-loop-facade.service.ts:454`). Muss aus dem Renderer in die Sim-Schicht
+   `advanceTurretAim` in `three-tower.renderer.ts`, je Sub-Step aus dem
+   `GameLoopFacadeService` aufgerufen). Muss aus dem Renderer in die Sim-Schicht
    wandern; der Renderer liest die Rotation dann nur noch ab.
 3. **Occlusion** — siehe 11.2. Das ist die eigentliche Entscheidung.
 
@@ -485,7 +492,7 @@ LOS-Pipeline weg. Drei Wege:
 **Weg 1 — OSM-Gebaeudemodell als Gameplay-Wahrheit** ← Empfehlung
 
 `BuildingFootprint { id, type, levels, nodes }` wird **bereits geholt**
-(`services/location/osm-street.service.ts:30`) und gerendert
+(`services/location/osm-street.service.ts`) und gerendert
 (`services/world/building-rendering.service.ts`, `levels × METERS_PER_LEVEL`).
 Daraus laesst sich ein CPU-Occlusion-Modell bauen: extrudierte Polygonprismen,
 LOS als Segment-vs-Prisma-Test, Bodenhoehe aus grobem DEM oder aus dem
@@ -548,7 +555,7 @@ Worker-Thread pro Match, Matches pro vCPU muss **gemessen** werden. Die
 Werkzeuge dafuer existieren bereits im Repo:
 
 - `PerformanceProfilerService` misst die Sub-Step-Anteile getrennt
-  (`tProjectile`, `tCombat`, `tEvents`, `tTower`).
+  (`GameStateManager.stepTimings`: `tProjectile`, `tCombat`, `tEvents`).
 - Der Bot-Modus mit `trainingTimescale` spielt ganze Matches im Zeitraffer —
   ein 20-Minuten-Match bei 75× dauert 16 Sekunden.
 - `renderingEnabled = false` (Phase 5.14) trennt Sim-Zeit von Render-Zeit
@@ -700,6 +707,9 @@ Damit pruefbar:
 - Sind Research-Voraussetzungen erfuellt, laeuft schon eine Forschung?
 - Passt der Bauplatz in den Room-Snapshot (Zelle existiert, nicht belegt)?
 - Plausibilitaets- und Rate-Limits: Commands pro Sekunde, Tuerme pro Welle.
+- Noch nicht mitgedacht (seit dem Konzept dazugekommen): `use-ability`
+  (Freischaltung per Forschung, Ladungen je Welle) und die Held-Commands
+  (Anheuern gegen Credits, Befehl, Munition). Beide wären ebenso Buchhaltung.
 
 Nicht pruefbar (und das ehrlich benennen): alles, was aus der Sim kommt —
 Reichweite, Sichtlinie, Schaden, Kill-Zuordnung. **Und damit auch die
@@ -746,7 +756,7 @@ Socket).
 | C→S | `hello` | Token, Client-Build-Hash, `balanceHash`, Region |
 | C→S | `room:create` / `room:join` / `room:leave` / `room:ready` | Modus, Room-Code |
 | C→S | `world:publish` | *(nur Host)* Snapshot-Upload → gibt Artefakt-URL zurueck |
-| C→S | `command` | Command-Typ + Payload (die 7 aus `game-event-bus.ts`) |
+| C→S | `command` | Command-Typ + Payload (die 14 `command:*` aus `game-event-bus.ts`) |
 | C→S | `tick:ack` | Net-Tick bestaetigt, auch ohne Input |
 | C→S | `los:publish` | *(nur Host)* Turm-ID + Masken-Blob |
 | C→S | `wave:publish` | *(nur Host)* Wellennummer + Spawn-Schedule |
@@ -786,7 +796,9 @@ Match**. Bei Lockstep faellt das ohne Zusatzaufwand an — es ist derselbe Strom
 den das Relay ohnehin durchreicht.
 
 Was daraus wird, kann spaeter entschieden werden:
-- **Replay-Wiedergabe** im Client (kostet nur UI).
+- **Replay-Wiedergabe** im Client (kostet nur UI). Das heute gebaute Replay der
+  letzten Welle ist eine Präsentations-Aufnahme ohne Nachrechnen
+  ([REPLAY.md](REPLAY.md)), keine Wiedergabe aus dem Command-Log.
 - **Zuschauermodus** — ein Client, der den Tick-Strom live mitliest.
 - **Nachtraegliche Verifikation** fuer Ranked: Ein Verifizierer spielt den Log
   nach und vergleicht das Ergebnis. Das braucht irgendwann doch eine
@@ -825,7 +837,7 @@ sondern das Match abzubrechen.
 ## 20. Technik und Betrieb
 
 **Sprache: TypeScript**, obwohl Python im Projekt etabliert ist
-(`training-backend/server.py`, 1041 Zeilen, mit Multi-Client-Handling und
+(`training-backend/server.py`, mit Multi-Client-Handling und
 Broadcast — die Vorlage waere da).
 
 Der Grund ist nicht Geschmack, sondern **geteilte Typen**: Das Relay muss die
@@ -904,9 +916,9 @@ Das ist kein neues Konzept, sondern eine Zuordnung:
 
 | Vorhandenes Bauteil | Fundstelle | Wird zu |
 |---------------------|-----------|---------|
-| `SpawnPoint[]` mit eigener Route je Spawn | `wave.manager.ts:68`, `path-route.service.ts:206` | **die Lane** |
-| `selectSpawnPoint('each' \| 'random')` | `wave.manager.ts:302` | Verteilung der Welle auf Lanes |
-| `SPAWN_COLORS` — **exakt vier Farben** | `configs/map-constants.config.ts:27` | Spielerfarben |
+| `SpawnPoint[]` mit eigener Route je Spawn | `WaveManager.spawnPoints`, Routen-Cache im `PathAndRouteService` | **die Lane** |
+| `selectSpawnPoint('each' \| 'random')` | `WaveManager.selectSpawnPoint` | Verteilung der Welle auf Lanes |
+| `SPAWN_COLORS` — **exakt vier Farben** | `configs/map-constants.config.ts` | Spielerfarben |
 | `MIN/MAX_SPAWN_DISTANCE` 500–1000 m | ebenda | Lane-Laenge und -Abstand |
 | Route-Berechnung pro Spawn zum HQ | `path-route.service.ts` | Lane-Geometrie |
 
@@ -990,7 +1002,7 @@ profitiert.
 Netzwerk, sondern der Renderer.**
 
 Vier Lanes bedeuten die vierfache Gegnerzahl **in jedem einzelnen Client**.
-Gemessener Ist-Stand (`docs/INSTANCED_ENEMY_RENDERING.md:325`):
+Ist-Stand laut [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md):
 
 > 5000 Enemies @ 67 FPS · 500 Enemies ≈ 1,3 ms JS-Zeit, linear skalierend
 
@@ -1012,7 +1024,7 @@ Fuenf Hebel, nach Wirkung sortiert:
 3. **Distanz-LOD fuer fremde Lanes.** Jenseits X Meter: VAT-Animation aus,
    Health-Bars aus, Partikel aus. Die Toggles existieren teilweise schon
    (`_showAnimations`, `_showEnemies`).
-4. **Spatial-Grid pro Lane.** Existiert (`spatial-grid.service.ts`); Lanes sind
+4. **Spatial-Grid pro Lane.** Existiert (`services/world/spatial-grid.service.ts`); Lanes sind
    raeumlich sauber getrennt, das Grid profitiert automatisch.
 5. **Tick-Barriere-Realitaet:** Der langsamste Client bestimmt das Tempo
    **aller**. Bei heterogener Hardware ist das der spuerbarste Effekt im ganzen
