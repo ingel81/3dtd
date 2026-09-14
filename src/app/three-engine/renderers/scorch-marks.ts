@@ -1,4 +1,4 @@
-import { BufferGeometry, Color, Vector3 } from 'three';
+import { BufferGeometry, Color, Vector3, type IUniform } from 'three';
 import { SCORCH_DECAL_CONFIG, type ScorchSource } from '../../configs/visual-effects.config';
 import { DecalInstanceManager } from './decal-instance.manager';
 import { createScorchDecalShader } from './decal-shaders';
@@ -24,8 +24,9 @@ export class ScorchMarks {
   private readonly position = new Vector3();
   private readonly color = new Color();
 
-  constructor(geometry: BufferGeometry) {
-    this.decals = new DecalInstanceManager(geometry, createScorchDecalShader(), SCORCH_DECAL_CONFIG.maxDecals);
+  /** `bloodMoonTint`: the blood moon tint the ground marks share (GroundDecals) */
+  constructor(geometry: BufferGeometry, bloodMoonTint?: IUniform<Vector3>) {
+    this.decals = new DecalInstanceManager(geometry, createScorchDecalShader(bloodMoonTint), SCORCH_DECAL_CONFIG.maxDecals);
     // Drawn before blood and ice (999), so fresh blood lies on old burns
     this.decals.instancedMesh.renderOrder = 998;
   }

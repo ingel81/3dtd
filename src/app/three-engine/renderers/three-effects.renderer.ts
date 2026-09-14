@@ -507,6 +507,11 @@ export class ThreeEffectsRenderer {
     return this.particleEffects.groundMarksEnabled;
   }
 
+  /** Blood moon look at `amount` (BloodMoonLook): the ground marks take the mood's tint. */
+  setBloodMoon(amount: number, linearOutput: boolean): void {
+    this.particleEffects.setBloodMoon(amount, linearOutput);
+  }
+
   /** Whether impact effects are spawned (VFX settings). */
   get impactEffectsEnabled(): boolean {
     return this.particleEffects.impactEffectsEnabled;
