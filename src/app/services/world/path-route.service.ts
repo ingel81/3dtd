@@ -656,6 +656,8 @@ export class PathAndRouteService {
         onStreet: route.onStreet[i],
         walkLeft: walk?.left,
         walkRight: walk?.right,
+        lowWallLeft: measured?.probes.map((probe) => probeLowWall(probe, 'left')),
+        lowWallRight: measured?.probes.map((probe) => probeLowWall(probe, 'right')),
       });
     }
     return segments;

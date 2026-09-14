@@ -79,7 +79,7 @@ function liesOnWayEdge(network: StreetNetwork, a: { lat: number; lon: number }, 
  * der Station (eine Naht zwischen zwei Tile-Meshes).
  */
 type Hits = number | number[];
-type Clearance = number | { left: Hits; right: Hits; shiftM?: number } | null | 'no tile';
+type Clearance = number | { left: Hits; right: Hits; shiftM?: number; lowRise?: { left: number; right: number } } | null | 'no tile';
 let clearanceAt: (x: number, z: number, max: number) => Clearance = (_x, _z, max) => max;
 
 /** Jede Messstation, die der Engine-Ersatz beantwortet hat: Ort, Richtung, Strahlhöhen, Länge, Deck. */
@@ -104,7 +104,8 @@ function makeEngine(): ThreeTilesEngine {
         const perHeight = (hits: Hits) => (typeof hits === 'number' ? heights.map(() => hits) : hits);
         const sides = typeof free === 'number' ? { left: free, right: free } : free;
         const shifted = typeof free === 'object' && free.shiftM !== undefined ? { shiftM: free.shiftM } : {};
-        return { unmeasured: null, tileError: 2, left: perHeight(sides.left), right: perHeight(sides.right), ...shifted };
+        const lowRise = typeof free === 'object' && free.lowRise !== undefined ? { lowRise: free.lowRise } : {};
+        return { unmeasured: null, tileError: 2, left: perHeight(sides.left), right: perHeight(sides.right), ...shifted, ...lowRise };
       },
     },
     sync: {
@@ -546,12 +547,46 @@ describe('PathAndRouteService route geometry', () => {
         expect(why.sides[0]).toMatchObject({
           side: 'left', lowHitM: 7, highHitM: 7, wall: false, halfWidthM: 7, inUseM: 7, rule: 'no wall within the maximum',
         });
-        // The van stops only the low ray: the wall is the facade at 6 m, less the margin.
+        // The van stops only the low ray, and no raised ground behind it was
+        // reported (no lowRise): the wall is the facade at 6 m, less the margin.
         expect(why.sides[1]).toMatchObject({
           side: 'right', lowHitM: 2, highHitM: 6, wall: true, freeM: 6, halfWidthM: 5.5, inUseM: 5.5, rule: 'wall less margin',
         });
         expect(why.nearby.filter((s) => s.here)).toHaveLength(1);
         expect(why.nearby.length).toBe(9);
+      });
+
+      it('narrows the corridor at a car the low ray found with its roof behind the hit, however short', () => {
+        // Playtest 2026-09-14, Rothenburg: a car on two stations 50 m north of
+        // n1, its side 3.2 m right of the centre line, nothing over it; the
+        // column 1 m behind the hit is its roof, 1.2 m up.
+        const car = (rise: number) => (x: number, z: number, max: number): Clearance =>
+          Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 2 ? { left: max, right: [3.2, max], lowRise: { left: NaN, right: rise } } : max;
+        clearanceAt = car(1.2);
+        const service = buildRouteService(network, spawn, hq);
+        measure(service);
+        service.showPathFromSpawn(spawnPointAt(spawn));
+
+        const narrow = service.getCachedPath('s1')!.filter((p) => p.corridorRight === 2.5);
+        expect(narrow).toHaveLength(1);
+        expect(narrow[0].corridorLeft).toBe(7);
+        const n1Local = toMeters(n1);
+        const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
+        expect(why.sides[1]).toMatchObject({
+          side: 'right', lowHitM: 3.2, highHitM: 7, lowRiseM: 1.2, wall: true, freeM: 3.2, halfWidthM: 2.5,
+          rule: 'low obstacle, raised behind, wall less margin',
+        });
+        expect(why.sides[0]).toMatchObject({ side: 'left', lowRiseM: null, wall: false });
+
+        // A fence with the pavement 0.15 m up behind it narrows nothing: the
+        // corridor of open space, the leg to the HQ at its inherited width.
+        clearanceAt = car(0.15);
+        const fence = buildRouteService(network, spawn, hq);
+        measure(fence);
+        fence.showPathFromSpawn(spawnPointAt(spawn));
+        expect(fence.getCachedPath('s1')!.map((p) => p.corridorRight)).toEqual([7, 7, 7, 7, 2.75, undefined]);
+        expect(fence.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!.sides[1])
+          .toMatchObject({ lowRiseM: 0.2, wall: false, freeM: 7, rule: 'no wall within the maximum' });
       });
 
       it('says why a station has no measurement', () => {
