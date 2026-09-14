@@ -113,7 +113,7 @@ export class GameSidebarComponent implements OnDestroy {
     void this.locationCoordinator.openLocationDialog('world');
   }
 
-  /** Show the first-run tips again from the first. */
+  /** Show the first-run tips again, from the first the running game has not done. */
   showTips(): void {
     this.onboarding.restart();
   }

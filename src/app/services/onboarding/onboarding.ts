@@ -172,8 +172,8 @@ export type OnboardingAction =
   | { kind: 'skip'; step: OnboardingStep }
   /** No more tips */
   | { kind: 'hide' }
-  /** Show the tips again from the first */
-  | { kind: 'restart' };
+  /** Show the tips again from the first, leaving out what the running game has done */
+  | { kind: 'restart'; doneInGame: readonly OnboardingStep[] };
 
 export const INITIAL_ONBOARDING: OnboardingState = { done: false, completed: [] };
 
@@ -217,7 +217,7 @@ function stepFor(action: OnboardingAction): OnboardingStep | null {
  * notify.
  */
 export function advanceOnboarding(state: OnboardingState, action: OnboardingAction): OnboardingState {
-  if (action.kind === 'restart') return { done: false, completed: [] };
+  if (action.kind === 'restart') return restartOnboarding(action.doneInGame);
   if (state.done) return state;
   if (action.kind === 'hide') return { ...state, done: true };
 
@@ -225,6 +225,16 @@ export function advanceOnboarding(state: OnboardingState, action: OnboardingActi
   if (!step || state.completed.includes(step)) return state;
   const completed = [...state.completed, step];
   return { done: ONBOARDING_STEPS.every((s) => completed.includes(s)), completed };
+}
+
+/**
+ * The tips from the first again, except for the steps the running game has
+ * done: asking for them in wave 12 does not bring back "Build a tower". A
+ * game that has done every step gets the whole round.
+ */
+function restartOnboarding(doneInGame: readonly OnboardingStep[]): OnboardingState {
+  if (ONBOARDING_STEPS.every((step) => doneInGame.includes(step))) return { done: false, completed: [] };
+  return { done: false, completed: [...doneInGame] };
 }
 
 function isStep(v: unknown): v is OnboardingStep {

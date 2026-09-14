@@ -108,7 +108,25 @@ describe('onboarding state machine', () => {
   });
 
   it('restart shows the tips again from the first', () => {
-    const s = run({ kind: 'hide' }, { kind: 'restart' });
+    const s = run({ kind: 'hide' }, { kind: 'restart', doneInGame: [] });
+    expect(s).toEqual({ done: false, completed: [] });
+    expect(currentStep(s, LATE)).toBe('build-tower');
+  });
+
+  it('restart leaves out what the running game has done, skips do not count', () => {
+    const s = run(
+      { kind: 'skip', step: 'build-tower' },
+      { kind: 'skip', step: 'start-wave' },
+      { kind: 'hide' },
+      { kind: 'restart', doneInGame: ['start-wave', 'upgrade-tower'] },
+    );
+    expect(s).toEqual({ done: false, completed: ['start-wave', 'upgrade-tower'] });
+    expect(currentStep(s, LATE)).toBe('build-tower');
+    expect(currentStep(advanceOnboarding(s, { kind: 'tower-placed', towerType: 'archer' }), LATE)).toBe('research-center');
+  });
+
+  it('restart after a game that did every step shows the whole round', () => {
+    const s = run({ kind: 'restart', doneInGame: ONBOARDING_STEPS });
     expect(s).toEqual({ done: false, completed: [] });
     expect(currentStep(s, LATE)).toBe('build-tower');
   });

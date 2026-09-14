@@ -108,6 +108,35 @@ describe('OnboardingService', () => {
     expect(service.tip()?.index).toBe(1);
   });
 
+  it('restart in a running game starts at the first step it has not done', () => {
+    bus.emit({ type: 'tower:placed', tower: tower('archer'), position: { lat: 0, lon: 0 }, cost: 0 });
+    bus.emit({ type: 'wave:started', wave: 1, enemyCount: 5 });
+    bus.emit(waveCompleted(1));
+    bus.emit({ type: 'tower:upgraded', tower: tower('archer'), level: 1, cost: 0 });
+    bus.emit({ type: 'wave:started', wave: 2, enemyCount: 5 });
+    bus.emit(waveCompleted(2));
+    service.hide();
+    service.restart();
+    expect(service.tip()).toMatchObject({ title: 'Build a research center', index: 4 });
+    expect(JSON.parse(localStorage.getItem(ONBOARDING_KEY)!)).toEqual({
+      done: false, completed: ['build-tower', 'start-wave', 'upgrade-tower'],
+    });
+  });
+
+  it('restart keeps skipped steps out of the running game', () => {
+    service.skip();
+    service.skip();
+    service.restart();
+    expect(service.tip()).toMatchObject({ title: 'Build a tower', index: 1 });
+  });
+
+  it('restart in a new game starts at the first tip', () => {
+    bus.emit({ type: 'tower:placed', tower: tower('archer'), position: { lat: 0, lon: 0 }, cost: 0 });
+    bus.emit({ type: 'game:reset' });
+    service.restart();
+    expect(service.tip()).toMatchObject({ title: 'Build a tower', index: 1 });
+  });
+
   it('a new service picks up the stored state', () => {
     service.skip();
     expect(new OnboardingService().tip()?.title).toBe('Start the first wave');
