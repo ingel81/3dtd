@@ -82,7 +82,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
   shootHeight: 5,                // Höhe des Schussursprungs (für LOS)
   footprintRadius: 3.5,          // Radius der Grundfläche (m), siehe "Sockel auf unebenem Grund"
   rotationY: 0,                  // Initiale Y-Rotation in Radians (visuelles Alignment)
-  turretBarrelOffset: 0,         // Optional: Turret-Barrel-Orientierung im Model Space (default: 0 = -Z/Nord)
+  turretBarrelOffset: 0,         // Optional: Turret-Barrel-Orientierung im Model Space (default: 0 = Barrels zeigen +Z)
   damage: 50,
   range: 60,
   fireRate: 1.0,                 // Schüsse pro Sekunde
@@ -222,12 +222,16 @@ Die Turret-Rotation muss zwischen Geo-Koordinaten und Three.js konvertieren:
 Geo-Koordinaten:
 - geoHeading = atan2(dLon·cos(lat), dLat): 0=Nord, π/2=Ost (metrisch, `utils/geo-utils.ts`)
 
-Three.js:
-- rotation.y = 0: Blickrichtung -Z (Nord)
-- rotation.y = -π/2: Blickrichtung +X (Ost)
+Szene (EllipsoidSync.geoToLocalSimple, Tower, Gegner und Scheinwerfer):
+- Nord = +Z, Ost = -X
+- rotation.y = 0: die +Z-Achse des Modells zeigt nach Nord
+- rotation.y = -π/2: die +Z-Achse des Modells zeigt nach Ost (-X)
 
 Konvertierung: threeJsRotation = -geoHeading
 ```
+
+Der Blutmond-Scheinwerfer dreht seinen Kegel (entlang +Z) genauso:
+`headingToSearchlightYaw()` gibt `-heading`.
 
 ### Model-Offset (rotationY vs turretBarrelOffset)
 
@@ -236,12 +240,12 @@ Zwei verschiedene Offsets:
 - **`rotationY`**: Visuelle Rotation des gesamten Modells (Alignment)
 - **`turretBarrelOffset`**: Barrel-Orientierung im Model Space (für Zielberechnung)
 
-Wenn das Turret-Modell nicht in -Z-Richtung zeigt (Three.js Standard), müssen diese Werte gesetzt werden:
+Wenn die Rohre des Turret-Modells nicht in +Z-Richtung zeigen, müssen diese Werte gesetzt werden:
 
 ```typescript
-// Beispiel: Dual-Gatling - Barrels zeigen auf +X
+// Beispiel: Dual-Gatling - Barrels zeigen auf -X
 rotationY: -Math.PI / 2,         // -90° visuelles Alignment
-turretBarrelOffset: -Math.PI / 2, // Barrels zeigen +X im Model Space
+turretBarrelOffset: -Math.PI / 2, // Barrels zeigen -X im Model Space
 ```
 
 Der Renderer verwendet `turretBarrelOffset` für die Zielberechnung:
@@ -700,7 +704,7 @@ Vollständiges Beispiel eines Towers mit rotierendem Turret:
   heightOffset: 2.4,
   shootHeight: 2.1,
   rotationY: -1.5708,            // -90° visuelles Alignment
-  turretBarrelOffset: -1.5708,   // Barrels zeigen +X im Model Space
+  turretBarrelOffset: -1.5708,   // Barrels zeigen -X im Model Space
   firePoints: [
     { x: -0.9, z: 0 },           // linker Barrel-Cluster
     { x:  0.9, z: 0 },           // rechter Barrel-Cluster (alternierend pro Schuss)
