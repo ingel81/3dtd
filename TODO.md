@@ -287,6 +287,22 @@
       Dach-Check sie weglassen statt auf den Boden setzen soll, und wie weit
       sie heute Laufweg (seitlicher Versatz im Korridor), Zielwahl und LOS
       beeinflussen.
+      **Stand (Fix-Session 2026-09-14):** teilweise, alles aus dem Code
+      abgeleitet, im Browser ungesehen. Orange Zellen im Haus an Engstellen
+      behoben (`0e9b9280`, runde Segmentenden reichten bis 7 m ins
+      schmalere Stück); Zellen auf Autos, Transportern und Hecken stehen auf
+      Straßenhöhe (orange, `33ce898d`), bleiben aber im Laufweg, Gegner laufen
+      durch das Auto; Auskragungen begrenzen den Korridor (`a8866f4d`,
+      Urteilsfrage, alte Regel per `__corridor.set({ overhangDepth: 0 })`);
+      `__corridor.pick()` zeigt Säule, Überbau, Kamerasicht und OSM-Tags
+      (`8f47fc4b`). Offen: Vorgärten (Entscheidung a/b/c), Traufen über 3,5 m,
+      Innenseite von Knicks, zwei Ebenen, synchroner Neuaufbau. Review-Befunde
+      C1 bis C4 behoben (fixrev2): Ein Tower sieht eine Zelle am Auto wieder
+      über dem Dach und zielt auf Gegner im Auto (`66569eca`,
+      Lead-Entscheidung), Stufen-Check erst über Straßenhöhe (`9f2e2b47`),
+      `pick()` mit dem echten Lift der Linie (`d8298b31`), Zeilenverweise
+      (`633ec1cf`). Playtest 560 bis 563 und 566 bis 570 in
+      `docs/REVIEW_FIX_2026-09-14.md`.
 
 - [ ] **Gegnermodelle: Blender-Runde**
       Reihenfolge laut `docs/ENEMY_MODEL_BUDGET.md`: Hornet (69 297
@@ -407,6 +423,10 @@
       Offscreen-Scan bei 20k Gegnern. Ungesehen: die HQ-Zelle "100/100" ist
       knapp (47 von 51 px). Die Photo-Leiste hat keine Fokusfalle
       (`services/photo-mode.service.ts`).
+      **Stand (Fix-Session 2026-09-14):** Die Queue-Ketten der Nacht 2
+      (`7914062f`) sind zurückgenommen (`a1bcb3d5`, User-Entscheidung): eine
+      gesperrte Forschung lässt sich nicht einreihen, die Queue läuft strikt in
+      Reihenfolge. Playtest 508, 509 in `docs/REVIEW_FIX_2026-09-14.md`.
 
 - [ ] **Meta: ungeprüft**
       Showcase-Orte nicht angespielt (`configs/showcase-locations.config.ts`);
@@ -518,6 +538,9 @@
 > (`configs/visual-effects.config.ts:212`), der Nachhall läuft in Spielzeit
 > (`46a096d2`), VFX, Ton und Shake gehen je Fähigkeit (`4479bc9f`); offen
 > bleibt die Warnsirene.
+> Fix-Session 2026-09-14: Stand je Eintrag unten, Übersicht in
+> `docs/REVIEW_FIX_2026-09-14.md`. Die Queue-Ketten (`7914062f`) sind dort
+> zurückgenommen (`a1bcb3d5`).
 
 - [ ] **Sockel: Dach oder Boden, Annahmen ungeprüft** (laut fix1 und fix4)
       Ob die Tiles unter einem Dach Boden zeigen, ist unbelegt; die
@@ -537,6 +560,11 @@
       (`MAX_STEP`) heben; Terrassenmauern, die neben ebenem Cursor steiler
       als 0,5 m je Nachbarschritt steigen, heben nicht mehr. Cursor auf einem
       Autodach: Tower dort mit Sockel (die Cursor-Fläche zählt).
+      **Stand (Fix-Session 2026-09-14):** nicht geändert. Der Widerspruch ist
+      bestätigt (Doc-Kommentar über `hitOf` in `utils/route-cell-sampler.ts`
+      gegen den Kommentar in `onMouseMove` von `tower-defense.component.ts`);
+      welche Aussage stimmt, zeigt nur
+      `__footprintDebug()` im Spiel (Nacht-2-Playtest 429).
 
 - [ ] **Shader-Compile-Check braucht glslangValidator von Hand** (laut shadercheck und fix4)
       `npm run shader-check` (läuft auch in `npm test`) kompiliert die
@@ -547,11 +575,17 @@
       GPU-Grenzen prüft er nicht; `/engine-test` hat keinen Fall. Drei Fälle
       greifen per Cast auf private Member zu und scheitern bei einer
       Umbenennung mit TypeError (`tools/shader-check/`).
+      **Stand (Fix-Session 2026-09-14):** nicht geändert (Tooling-Entscheidung);
+      die Casts bleiben, sie zu ersetzen hieße Produktionsklassen für den Test
+      zu öffnen.
 
 - [ ] **Pause: Gegner- und Flammen-Loops laufen weiter** (laut blob)
       Nur der Loop der Ooze hält in der Pause an (`EnemyManager.holdSounds()`,
       `managers/ooze-sounds.ts`); die Loops der übrigen Gegner und der
       Flammen laufen weiter.
+      **Stand (Fix-Session 2026-09-14):** behoben: Die Pause hält alle Loops
+      (`177ba53f`), ein fortgesetzter Loop nimmt die aktuelle Lautstärke
+      (`5ae79d52`); gilt auch für Boss-Intro und Replay. Playtest 545 bis 548.
 
 - [ ] **Mech und Ghost knapp über dem Modell-Budget** (laut assets)
       Mech 5 416 und Ghost 5 248 VAT-Vertices bei einem Budget von 5 000.
@@ -559,6 +593,7 @@
       den Schleiern); nur die Wiederholungen zu entfernen spart 233 Vertices
       und macht die Schleier schwächer. Tiefer nur mit stärkerem Decimate
       oder Retopologie (`docs/ENEMY_MODEL_BUDGET.md`, "Offen").
+      **Stand (Fix-Session 2026-09-14):** nicht geändert (Blender-Arbeit).
 
 - [ ] **Wurm-Boss: Reste** (laut worm und assets, ungesehen)
       An scharfen Routenecken können außen Lücken zwischen den Ringen
@@ -570,6 +605,12 @@
       Boss. Mit Beinen 7,2 m breit, auf engen Straßen breiter als die
       Portalöffnung. Ein per Debug platzierter Wurm kommt ohne Portal aus
       dem Nichts (`managers/worm/`).
+      **Stand (Fix-Session 2026-09-14):** Offscreen-Pfeile behoben, nur der
+      Kopf jedes Stücks ist ein Boss (`66a5468a`, Playtest 555). Ecken nicht
+      geändert: Überschlag ohne Messung, Außenspalt ab etwa 5° Knick, bei 90°
+      etwa 3,6 m; Heading aus den Nachbarringen oder längeres `SEG_FRONT`
+      bräuchten Sichtprüfung. Beine, Schwanz, Sound, Healthbar je Ring:
+      Entscheidung; Breite und Debug-Wurm ohne Portal bewusst so.
 
 - [ ] **Boss-Varianten ohne Fairness-Gate** (laut worm und blob)
       Die Größe der Wurm- und Ooze-Wellen (W35, W45, ...) bestimmt die
@@ -578,6 +619,8 @@
       10 Klumpen à 30 HP (`configs/boss-variants.config.ts`,
       `configs/enemy-types.config.ts`). Auf Varianten-Wellen speichert der
       AI-Data-Collector die Wurm- bzw. Ooze-Welle statt der Director-Welle.
+      **Stand (Fix-Session 2026-09-14):** bestätigt, nicht geändert; welche
+      Welle ins Log gehört, wartet auf den Run-Dump (2.2).
 
 - [ ] **Ooze: Reste** (laut blob, ungesehen)
       Gold-Popup, Offscreen-Pfeil und Knochen-Burst erscheinen an der
@@ -586,6 +629,9 @@
       Synthese der Sounds beim ersten Spawn ist im Browser ungemessen. Der
       Band-Shader ist nur offline geprüft (Desktop-Treiber, glslang), nicht
       im Browser (`three-engine/renderers/ooze/`).
+      **Stand (Fix-Session 2026-09-14):** nicht geändert. Gold-Popup an der
+      Spitze bestätigt (Designfrage, welcher Punkt besser wäre); Slider,
+      Tod-Sound und Messungen sind Feature, Asset oder Browser-Arbeit.
 
 - [ ] **Held: Reste** (laut hero)
       Ein abgelehntes Anheuern bleibt stumm (`hero:rejected` hat keinen
@@ -596,6 +642,10 @@
       Mündungsfeuer, keine eigenen Sounds. Nicht in `totalDPS`, DPS-Rampe und
       NEXT sehen ihn nicht. Stufe 2 aus PLAYER_AGENCY_CONCEPT (ganzes
       Straßennetz) offen (`docs/HERO.md`).
+      **Stand (Fix-Session 2026-09-14):** nicht geändert. `hero:rejected` ohne
+      Anzeige bestätigt (auch `ability:rejected`, ein Toast-System gibt es
+      nicht), die Form der Rückmeldung ist offen; ohne GLB nur `console.warn`;
+      Tracer-Versatz nur im Browser prüfbar; `totalDPS` bewusst ohne ihn.
 
 - [ ] **Fähigkeiten: Reste** (laut abilities)
       Keine eigenen Sound-Assets für Frost und EMP, der Laser-Ton sitzt am
@@ -606,6 +656,10 @@
       Bots strategist und meta erforschen und nutzen Frost, EMP und Laser,
       ihre Trainingsläufe sind mit älteren nicht direkt vergleichbar
       (`docs/ABILITIES.md`).
+      **Stand (Fix-Session 2026-09-14):** nicht geändert. Laser-Bot-Zählung
+      bestätigt (0 bis 72 m hinter dem Anführer gegen 5-m-Radius, Näherung in
+      beide Richtungen), eine Änderung verschiebt die Bot-Läufe: Entscheidung
+      offen. Sounds sind Assets.
 
 - [ ] **Fähigkeitsleiste: Kopplung und Platz** (laut abilitybar, ungesehen)
       `ABILITY_BAR_EDGE_PX` (68) hängt nur per Kommentar am SCSS der Leiste
@@ -613,19 +667,32 @@
       mittige Leiste das aufgeklappte Info-Overlay berühren. Drei Icons über
       einer NEXT-Marke (Boss, Luft, Mond) sind 34 px breit bei 28 px Marke
       (laut bloodmoon).
+      **Stand (Fix-Session 2026-09-14):** Kopplung behoben, `ABILITY_BAR_PX`
+      ist die eine Zahlenquelle (`49d8e06e`); drei Icons in 8 px (`f758f544`,
+      bis W210 trägt keine Marke drei). Offen: Die Leiste berührt das
+      aufgeklappte Info-Overlay unter etwa 483 px Canvas-Höhe (gerechnet).
+      Playtest 512, 516.
 
 - [ ] **Blutmond: Grenzen des Looks** (laut bloodmoon, bewusst so gebaut)
       Das Multiplikations-Quad tönt nur Opakes: Feuer, Projektile,
-      Healthbars, Kegel, Glasteile, HQ-Marker, Portal und Decals bleiben
-      ungetönt; Rotstich statt Entsättigung; die Kegel enden ohne Lichtfleck
-      am Boden; Kosten ungemessen. Auf W35 läuft das Banner unter dem
-      Schleier des Boss-Intros eventuell verdeckt ab (z-index 5 gegen 25)
-      (`three-engine/blood-moon/`).
+      Healthbars, Kegel, Glasteile, HQ-Marker und Portal bleiben ungetönt
+      (die Decals sind seit `3f1f5fdc` getönt); Rotstich statt Entsättigung;
+      die Kegel enden ohne Lichtfleck am Boden; Kosten ungemessen. Auf W35
+      läuft das Banner unter dem Schleier des Boss-Intros eventuell verdeckt
+      ab (z-index 5 gegen 25) (`three-engine/blood-moon/`).
+      **Stand (Fix-Session 2026-09-14):** Der Banner-Befund oben ist behoben:
+      Das Banner wartet auf das Ende des Boss-Intros (`1997c45b`, Playtest
+      554, 556); die Kegel folgen seit
+      `6a42d3a5` dem Turret. Die übrigen Grenzen sind bewusst so.
 
 - [ ] **Boss-Intro: Reste** (laut bossintro, ungesehen)
       Kein Hindernis-Check der Kameraeinstellung (Kurven, Brücken, Hänge);
       ein offener Dialog hält das Intro nicht auf; die Tastenübersicht (H)
       nennt Esc zum Überspringen nicht (`services/boss-intro.service.ts`).
+      **Stand (Fix-Session 2026-09-14):** Die Tastenübersicht nennt Esc
+      (`821c0cf6`, seit `a99d0c92` für Intro-Flug und Boss-Intro, Playtest
+      524, 528). Hindernis-Check und offener Dialog (überspringen oder
+      aufschieben): Entscheidung offen.
 
 - [ ] **Veteranen: Reste** (laut veterans)
       Schwellen aus Bot-Logs vom 2026-08-28 mit älterem W19-Template
@@ -633,6 +700,9 @@
       einmal gemessen, Tower-Debug-Overrides verschieben es nicht mit; die
       Tentakel können über das Abzeichen reichen
       (`three-engine/renderers/tower-badge/`).
+      **Stand (Fix-Session 2026-09-14):** nicht geändert (Schwellen warten auf
+      Balance-Daten, der Anker betrifft nur Debug-Overrides, die Tentakel sind
+      nur im Browser prüfbar).
 
 - [ ] **Weltkarte: ungesehen** (laut worldmap)
       Zeichnen, Hover, Ziehen und Zoomen des Globus sowie das Layout von Tab,
@@ -640,6 +710,8 @@
       keinen Spec, jsdom hat kein Canvas). Der Hover-Tipp im
       Game-Over-Overlay kann abgeschnitten werden; die Bot-Ausnahme hängt an
       `botEnabled`.
+      **Stand (Fix-Session 2026-09-14):** nicht geändert, nur im Browser
+      prüfbar.
 
 - [ ] **Quickfix-Paket: Reste** (laut quickfix)
       Training-`total_count` mit den Minions: siehe 1.8, Skeleton-Split.
@@ -658,16 +730,27 @@
       `three-engine/renderers/marker/spawn-portal-glow-material.ts`).
       `TowerLifecycle.turnToGuardIfClear()` nimmt an, dass Kill-All die
       einzige Tötung ohne Split ist (`managers/game-state/tower-lifecycle.ts`).
+      **Stand (Fix-Session 2026-09-14):** Research-Queue entschieden: gesperrt
+      wie vor `7914062f` (`a1bcb3d5`, Playtest 508, 509). `hasRoutes` weiter
+      ungeprüft (zwei Routen in `app.routes.ts`, die Spielkomponente kann neu
+      entstehen); Kreis und `turnToGuardIfClear` bewusst so.
 
 - [ ] **Hover-Pick nimmt den ersten statt des vordersten Towers** (laut perf, nicht nachgestellt)
       `ScreenPicker.raycastTowers()` (`three-engine/screen-picker.ts`)
       liefert den ersten getroffenen Tower in Einfügereihenfolge; stehen zwei
       Tower auf dem Schirm hintereinander, kann der hintere gewinnen.
+      **Stand (Fix-Session 2026-09-14):** behoben, der nächste Treffer über
+      alle Tower gewinnt (`57858cb0`, Playtest 523); die Kosten nach einem
+      Treffer sind nicht gemessen.
 
 - [ ] **Sprung zu Welle N: Wellenzähler** (laut wavejump)
       Was nur `wave:completed` mitzählt, bekommt übersprungene Wellen nicht
       mit; neue Zähler dieser Art müssen `wave:jumped` abonnieren. Rückwärts
       springen gibt es nicht.
+      **Stand (Fix-Session 2026-09-14):** nicht geändert. Die Ladungen der
+      Fähigkeiten zählen mit: `GameStateManager.jumpToWave` ruft
+      `abilityManager.advanceWaves(skipped)`; der Hinweis für neue Zähler
+      bleibt.
 
 - [ ] **Replay: Re-Simulation durch Determinismus-Blocker verhindert** (laut replay)
       Das Replay zeigt nur, was die Renderer gezeigt haben (`docs/REPLAY.md`).
@@ -682,6 +765,7 @@
       `docs/MULTIPLAYER_CONCEPT.md`, Abschnitt 2; Turmdrehung im Renderer und
       Singleton-Dienste kommen dazu. Die Befehle der Welle stehen
       schon als Klartext im Log, darauf kann eine Re-Simulation aufsetzen.
+      **Stand (Fix-Session 2026-09-14):** außer Scope, nicht angefasst.
 
 - [ ] **Replay: Lücken und ungemessene Kosten** (laut replay, ungesehen)
       Nicht wiedergegeben: Schadenszahlen, Gold-Popups, Aufblitzen der
@@ -699,6 +783,11 @@
       stehen (praktisch nicht erreichbar); die Replay-Leiste stößt die Change
       Detection mit 20 Hz an (nicht gemessen). Seit `cd4036d9` läuft das
       Replay unter 20 Bildern je Sekunde langsamer als sein Tempo.
+      **Stand (Fix-Session 2026-09-14):** Die Boss-Intro-Sperre in `enter()`
+      hat einen Test (`8404cd10`). Archer, Lightning und Tentacle zeichnen
+      ihre Zielrichtung je Frame auf (`18d7cef7`, 23 B je Turm und Frame),
+      ihre Blutmond-Kegel drehen im Replay mit (Playtest 553). Die übrigen
+      Lücken sind nicht geändert.
 
 - [ ] **Review-Fixes: bewusst ausgelassen** (laut fix2 und fix3)
       Die Portal-Shader-Inhalte haben keine eigene Spec (review2, zweiter
@@ -713,6 +802,8 @@
       `enemiesFromProgress` je Strategie. Weitere Eingangsverschiebungen des
       ONNX-Modells seit April (außer Forschungsquote und Held-DPS) sind nicht
       untersucht.
+      **Stand (Fix-Session 2026-09-14):** eingeordnet, nicht geändert; die
+      Portal-Shader-Spec ist zurückgestellt.
 
 ---
 
@@ -732,42 +823,73 @@
       Tiles verdecken alles darunter. Diagnose: `__corridor.pick()` an der
       Stelle, `__routes.describe()` (Tags), `__rg.dumpCellsInBox` um die
       Pick-Koordinaten.
+      **Stand (Fix-Session 2026-09-14):** nur Diagnose, kein Fix ohne Daten.
+      Fünf Hypothesen aus dem Code (H1 bis H5 in
+      `docs/REVIEW_FIX_2026-09-14.md`); `__corridor.pick()` zeigt jetzt Säule,
+      Überbau, Kamerasicht und OSM-Tags (`8f47fc4b`). Playtest 564.
 - [ ] **Upgrade per U ohne sichtbares Feedback** (Nacht-1-Liste 105): Beim
       Drücken von U mehr sichtbare Rückmeldung (Aufblitzen des Towers, Zahl,
       Panel-Hinweis), auch wenn nichts bezahlbar ist.
+      **Stand (Fix-Session 2026-09-14):** umgesetzt (`68f69772`): Welttext über
+      dem Tower, Kachel-Blitz, bei Ablehnung der Grund. Playtest 517 bis 520.
 - [ ] **Tastenübersicht prominenter öffnen** (105): Sie geht mit H oder ?,
       braucht aber einen sichtbaren Knopf in der Oberfläche.
+      **Stand (Fix-Session 2026-09-14):** Knopf "Keys" im Sidebar-Fuß
+      (`edb6d630`). Playtest 524.
 - [ ] **Intro-Flug: nur Esc und Maus brechen ab** (106): Heute bricht jede
       Taste das Intro ab, und der Sprung (Pos1, N) folgt nicht. Wunsch: nur Esc
       und Mausklick brechen ab, andere Tasten wirken erst nach dem Intro oder
       gar nicht.
+      **Stand (Fix-Session 2026-09-14):** umgesetzt (`f94813b7`), andere Tasten
+      wirken im Flug gar nicht; die Tastenübersicht nennt Esc für den Flug
+      (`a99d0c92`). Playtest 525 bis 528.
 - [ ] **Hover-Reichweite beim Ziehen auf dem Tower** (107): Drückt man die
       Maustaste auf dem Tower, um die Kamera zu ziehen, erscheint die
       Reichweite trotzdem; sie soll bei gedrückter Taste ausbleiben.
+      **Stand (Fix-Session 2026-09-14):** umgesetzt (`b1b684dd`). Playtest 521,
+      522.
 - [ ] **Screenshot: Logo als Wasserzeichen und URL** (Nacht-1-Liste 145):
       Beim "Save screenshot" im Photo Mode zusätzlich das Logo als
       Wasserzeichen und unten links dezent `https://3dtd.sgeht.net`
       einbacken.
+      **Stand (Fix-Session 2026-09-14):** umgesetzt (`2e2b266c`; wo die
+      Attributionsleiste bis unter die Adresse reicht, rückt diese über die
+      Logos, `794415b3`). Playtest 557 bis 559.
 - [ ] **Onboarding-Tipps überarbeiten** (146): Die Funktion geht, aber der
       frühe Tipp zum Research Center ist unsinnig; Reihenfolge und Inhalt der
       Tipps neu festlegen.
+      **Stand (Fix-Session 2026-09-14):** 7 Tipps entlang des Spielablaufs nach
+      Vorschlag des Workers (`4a219445`, Key `td_onboarding_v2`), der
+      Center-Tipp kommt nach Welle 2. Playtest 502 bis 507.
 - [ ] **Fähigkeiten erst nach der Forschung in der linken Leiste** (User):
       Heute stehen gesperrte Fähigkeiten gedimmt mit Schloss von Anfang an in
       der Leiste (Entscheidung der Nachtschicht 2, `3769d8e3`). Wunsch: ein
       Knopf erscheint erst, wenn seine Forschung fertig ist.
+      **Stand (Fix-Session 2026-09-14):** umgesetzt (`586f493e`), der
+      Gesperrt-Zustand ist entfernt. Playtest 510 bis 513.
 - [ ] **Blutmond-Scheinwerfer an die Turmdrehung koppeln** (User): Der Kegel
       soll in Schuss- bzw. Blickrichtung des Turms zeigen und mit ihm drehen,
       statt unabhängig um die Wachrichtung zu schwenken
       (`three-engine/renderers/searchlight/`).
+      **Stand (Fix-Session 2026-09-14):** umgesetzt (`6a42d3a5`; die
+      Replay-Aufnahme je Frame für Türme ohne Turret-Teil kam mit `18d7cef7`).
+      Playtest 549 bis 553.
 - [ ] **HQ umsetzen in dichter Stadt: lange Bedenkzeit ohne Rückmeldung**
       (User, z. B. Paris): Nach dem Umplatzieren des HQ vergeht spürbar Zeit
       (Route, Korridor-Messung, Grid-Neubau), ohne dass die Oberfläche etwas
       zeigt. Fortschritt oder zumindest einen Hinweis anzeigen; vorher messen,
       welcher Schritt die Zeit kostet (`[Corridor] clearance`/`rebuild`,
       Routensuche).
+      **Stand (Fix-Session 2026-09-14):** teilweise. Hinweis-Chip mit
+      Korridor-Prozent (`ac5eafee`), Zeitlogs (`5bdce997`, Ausgang `ended=`
+      seit `4044c44a`). Nicht schneller; welcher Schritt dauert, zeigt erst die
+      Messung in Paris. Playtest 541 bis 544.
 - [ ] **Beim Ortswechsel bleibt der alte Korridor sichtbar** (User): Während
       ein neuer Ort lädt, sieht man noch den Korridor bzw. die Zellen (falls
       das Overlay an ist) des alten Orts. Beim Start des Ladens abräumen.
+      **Stand (Fix-Session 2026-09-14):** behoben (`4132607f`), die Overlays
+      stehen am neuen Ort gleich nach dem Grid-Schritt (`a99e7095`). Playtest
+      535, 536.
 - [ ] **Portal an einer Kurve falsch ausgerichtet; Spawn drehbar machen**
       (User, Screenshots `C:\Users\joerg\Pictures\Screenshots\Screenshot
       2026-09-14 105455.png` und `105627.png`): Beginnt die Route an einer
@@ -776,6 +898,10 @@
       Ausrichtung am tatsächlichen Routenverlauf der ersten Meter statt am
       ersten Segment prüfen. Dazu: beim manuellen Setzen oder Verschieben des
       Spawns soll man ihn drehen können (etwa mit R wie beim Tower).
+      **Stand (Fix-Session 2026-09-14):** Das Portal zielt auf den Punkt, an
+      dem die Route die Vorderfläche verlässt (`5a061423`; Ursache aus dem
+      Code, der Screenshot-Ort ist nicht nachgestellt); R dreht es beim Setzen
+      (`8e79069f`). Playtest 529 bis 534.
 - [ ] **Favoriten: Knopf weg bei 10 Einträgen, volles CRUD** (User): Mit 10
       Favoriten verschwindet das Speichern, weil `canAddFavorite` fest
       `favorites().length < 10` ist (`tower-defense.component.html:29`); die
@@ -783,15 +909,25 @@
       löschen (gibt es), ordnen; beim Speichern nur ein vorbefüllter,
       änderbarer Namensvorschlag. Grenze klären (höher, weg oder mit Hinweis
       "Liste voll").
+      **Stand (Fix-Session 2026-09-14):** umgesetzt (`a30d8412`), keine Grenze
+      (User), Name beim Speichern, umbenennen, ordnen. Playtest 537 bis 540.
 - [ ] **zombie_v2 ohne bewegte Vorschau** (User): In der Modellvorschau
       (docs/MODEL_PREVIEW.md) steht zombie_v2 still, statt animiert zu laufen.
+      **Stand (Fix-Session 2026-09-14):** teilweise. Behoben ist die
+      Fehlrahmung (`909fba4b`, die Kamera zielte auf die Füße); ein Stillstand
+      ist nicht belegt, in jsdom läuft der Clip. Playtest 515.
 - [ ] **Spawn-Vorschau immer rot** (Nacht-1-Liste 132): Beim Umsetzen des
       Spawns ist die Portal-Vorschau am Cursor auch an gültigen Stellen rot;
       das Setzen klappt und die Karte unten zeigt die Gültigkeit richtig.
+      **Stand (Fix-Session 2026-09-14):** behoben, es war nur die Farbe
+      (`23483121`). Playtest 531.
 - [ ] **Einstellung "Impact Effects" ohne Wirkung** (Nacht-1-Liste 126): Der
       Knochen-Puff beim Skeleton-Split bleibt auch ausgeschaltet. Prüfen,
       welche Effekte die Einstellung abdecken soll und ob sie überhaupt noch
       irgendwo gelesen wird.
+      **Stand (Fix-Session 2026-09-14):** kein Code-Defekt gefunden, die
+      Einstellung wirkt auf den Knochen-Puff (Test `0b1dbdf4`). Vermutung,
+      unbelegt: gesehen wurde der Todesclip. Playtest 514.
 
 # PRIO 2 — Balance & Phase-5.16-Followups
 
