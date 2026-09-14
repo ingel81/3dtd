@@ -482,24 +482,34 @@
 > (`46a096d2`), VFX, Ton und Shake gehen je Fähigkeit (`4479bc9f`); offen
 > bleibt die Warnsirene.
 
-- [ ] **Sockel: Annahmen über die Photogrammetrie ungeprüft** (laut fix1)
-      Die Boden-Regel (`f500aaaf`, `utils/tower-footprint.ts`) nimmt an, dass
-      unter einem Auto kein Boden-Treffer liegt und unter einem Dach schon.
-      Fehlt der Boden unter einem Dach, gilt die Boden-Regel: ein
-      gleichmäßig geneigtes Dach hebt über die Steigung trotzdem, eine
-      Dachstufe, Gaube oder Kehle nicht. Eine Probe auf der geglätteten
-      Flanke eines Autos kann den Tower um bis zu 0,5 m (`MAX_STEP`) heben.
-      Terrassenmauern und Böschungen, die neben ebenem Cursor steiler als
-      0,5 m je Nachbarschritt steigen, heben nicht mehr. Cursor auf einem
+- [ ] **Sockel: Dach oder Boden, Annahmen ungeprüft** (laut fix1 und fix4)
+      Ob die Tiles unter einem Dach Boden zeigen, ist unbelegt; die
+      Kommentare in `utils/route-cell-sampler.ts:246` und
+      `tower-defense.component.ts:525` widersprechen sich. Im Playtest mit
+      `__footprintDebug()` auf Dach und Straße klären (`centreGroundY` gegen
+      `centreTopY`). Grenzen der Regel (`a26cd7dd`, `utils/tower-footprint.ts`):
+      Auf einem Damm, einer Kuppe oder Terrasse, die binnen Radius plus 8 m zu
+      zwei gegenüberliegenden Seiten mehr als 2,5 m abfällt, gilt fälschlich
+      die Dach-Regel, dort heben Autos und Hecken den Tower. In der Mitte
+      eines Dachs, das in jede Richtung weiter als Radius plus 8 m reicht und
+      unter der Säule keinen Boden zeigt, gilt die Boden-Regel, ein Aufbau
+      hebt dann nicht. Wo sich Dach- und Boden-Regel uneinig sind (neben
+      Autos, Mauern, Hecken, an Dachkanten und -stufen), kostet jede
+      Validierung 8 Säulenproben mehr, im Browser nicht gemessen. Eine Probe
+      auf der geglätteten Flanke eines Autos kann den Tower um bis zu 0,5 m
+      (`MAX_STEP`) heben; Terrassenmauern, die neben ebenem Cursor steiler
+      als 0,5 m je Nachbarschritt steigen, heben nicht mehr. Cursor auf einem
       Autodach: Tower dort mit Sockel (die Cursor-Fläche zählt).
 
-- [ ] **Shader-Compile-Check braucht glslangValidator von Hand** (laut shadercheck)
+- [ ] **Shader-Compile-Check braucht glslangValidator von Hand** (laut shadercheck und fix4)
       `npm run shader-check` (läuft auch in `npm test`) kompiliert die
       eigenen Shader nur, wenn `GLSLANG_VALIDATOR` gesetzt oder
-      `glslangValidator` im PATH ist; sonst stehen 13 Tests als übersprungen
-      in der Zusammenfassung. Getestet mit 11.7.0, die in ARCHITECTURE.md §13
-      genannte 16.6.0 nicht. Treiber, ANGLE und GPU-Grenzen prüft er nicht
-      (`tools/shader-check/`).
+      `glslangValidator` im PATH ist; sonst stehen die 27 Compile-Tests als
+      übersprungen in der Zusammenfassung. Getestet mit 11.7.0, die in
+      ARCHITECTURE.md §13 genannte 16.6.0 nicht. Treiber, ANGLE und
+      GPU-Grenzen prüft er nicht; `/engine-test` hat keinen Fall. Drei Fälle
+      greifen per Cast auf private Member zu und scheitern bei einer
+      Umbenennung mit TypeError (`tools/shader-check/`).
 
 - [ ] **Pause: Gegner- und Flammen-Loops laufen weiter** (laut blob)
       Nur der Loop der Ooze hält in der Pause an (`EnemyManager.holdSounds()`,
