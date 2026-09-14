@@ -20,7 +20,9 @@ import { DrawGate } from '../renderers/draw-gate';
  * After every opaque object of the world (tiles, towers, plinths, enemies),
  * before anything transparent: fire, muzzle flashes, projectiles, the
  * searchlights and the 3D UI (health bars, range, LOS cells) keep their own
- * colours and read as light in the red night.
+ * colours and read as light in the red night. What is transparent but part
+ * of the world multiplies by the tint in its own shader: blending enemies,
+ * the ooze band and the ground decals (bloodMoonMultiplier).
  */
 const MOOD_ORDER = 900;
 

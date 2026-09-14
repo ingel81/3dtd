@@ -1,5 +1,6 @@
-import { Color, PlaneGeometry, type Scene, type Vector3 } from 'three';
+import { Color, PlaneGeometry, Vector3, type IUniform, type Scene } from 'three';
 import { BLOOD_DECAL_CONFIG, ICE_DECAL_CONFIG, type ScorchSource } from '../../configs/visual-effects.config';
+import { bloodMoonMultiplier } from '../blood-moon/blood-moon-mood';
 import { DecalInstanceManager } from './decal-instance.manager';
 import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
 import { ScorchMarks, type ScorchGround } from './scorch-marks';
@@ -16,6 +17,8 @@ export class GroundDecals {
   /** At most one per route cell (SCORCH_DECAL_CONFIG). */
   readonly scorch: ScorchMarks;
   private decalIdCounter = 0;
+  /** Blood moon tint the three decal materials share, see setBloodMoon() */
+  private readonly bloodMoonTint: IUniform<Vector3> = { value: new Vector3(1, 1, 1) };
 
   constructor(private readonly scene: Scene) {
     // Create shared plane geometry for all decals (rotated to lay flat)
@@ -23,15 +26,30 @@ export class GroundDecals {
     decalGeometry.rotateX(-Math.PI / 2); // Rotate to lie flat on ground (XZ plane)
 
     // Create blood decal manager with custom shader
-    this.blood = new DecalInstanceManager(decalGeometry.clone(), createBloodDecalShader(), BLOOD_DECAL_CONFIG.maxDecals);
+    this.blood = new DecalInstanceManager(
+      decalGeometry.clone(),
+      createBloodDecalShader(this.bloodMoonTint),
+      BLOOD_DECAL_CONFIG.maxDecals,
+    );
     this.scene.add(this.blood.instancedMesh);
 
     // Create ice decal manager with custom shader
-    this.ice = new DecalInstanceManager(decalGeometry.clone(), createIceDecalShader(), ICE_DECAL_CONFIG.maxDecals);
+    this.ice = new DecalInstanceManager(decalGeometry.clone(), createIceDecalShader(this.bloodMoonTint), ICE_DECAL_CONFIG.maxDecals);
     this.scene.add(this.ice.instancedMesh);
 
-    this.scorch = new ScorchMarks(decalGeometry.clone());
+    this.scorch = new ScorchMarks(decalGeometry.clone(), this.bloodMoonTint);
     this.scene.add(this.scorch.decals.instancedMesh);
+  }
+
+  /**
+   * Blood moon look at `amount` (0..1, BloodMoonLook): the mood's
+   * multiplier in the values of the target. The decals blend after the
+   * mood's quad (transparent, renderOrder 998/999), so without it green
+   * slime and ice lay untinted on the red ground. One uniform write for
+   * all three pools.
+   */
+  setBloodMoon(amount: number, linearOutput: boolean): void {
+    bloodMoonMultiplier(amount, linearOutput, this.bloodMoonTint.value);
   }
 
   /**

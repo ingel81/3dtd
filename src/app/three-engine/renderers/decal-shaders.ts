@@ -6,9 +6,17 @@
  * - Per-instance color, opacity, variation
  * - Soft edges and procedural noise patterns
  * - Organic shapes for blood splatters
+ * - The blood moon's tint (`uBloodMoonTint`, GroundDecals.setBloodMoon):
+ *   they draw after the mood's multiply quad, so they multiply by it
+ *   themselves, like the ground under them got it
  */
 
-import { ShaderMaterial, DoubleSide } from 'three';
+import { ShaderMaterial, DoubleSide, Vector3, type IUniform } from 'three';
+
+/** A tint uniform of the normal look, for a decal material without a shared one */
+function neutralTint(): IUniform<Vector3> {
+  return { value: new Vector3(1, 1, 1) };
+}
 
 /**
  * Blood Decal Shader
@@ -19,7 +27,7 @@ import { ShaderMaterial, DoubleSide } from 'three';
  * - Soft edges with alpha falloff
  * - Random variation via instanceVariation attribute
  */
-export function createBloodDecalShader(): ShaderMaterial {
+export function createBloodDecalShader(bloodMoonTint: IUniform<Vector3> = neutralTint()): ShaderMaterial {
   const vertexShader = /* glsl */ `
     attribute vec3 instanceColor;
     attribute float instanceOpacity;
@@ -51,6 +59,7 @@ export function createBloodDecalShader(): ShaderMaterial {
 
   const fragmentShader = /* glsl */ `
     precision highp float;
+    uniform vec3 uBloodMoonTint;
     varying vec2 vUv;
     varying vec3 vInstanceColor;
     varying float vInstanceOpacity;
@@ -103,7 +112,7 @@ export function createBloodDecalShader(): ShaderMaterial {
       // Apply instance opacity
       alpha *= vInstanceOpacity;
 
-      gl_FragColor = vec4(color, alpha);
+      gl_FragColor = vec4(color * uBloodMoonTint, alpha);
 
       #include <logdepthbuf_fragment>
     }
@@ -112,6 +121,7 @@ export function createBloodDecalShader(): ShaderMaterial {
   return new ShaderMaterial({
     vertexShader,
     fragmentShader,
+    uniforms: { uBloodMoonTint: bloodMoonTint },
     transparent: true,
     depthWrite: false,
     side: DoubleSide,
@@ -129,7 +139,7 @@ export function createBloodDecalShader(): ShaderMaterial {
  * - Rim and streak noise sample the direction vector, not atan(), so there
  *   is no seam where the angle wraps
  */
-export function createScorchDecalShader(): ShaderMaterial {
+export function createScorchDecalShader(bloodMoonTint: IUniform<Vector3> = neutralTint()): ShaderMaterial {
   const vertexShader = /* glsl */ `
     attribute vec3 instanceColor;
     attribute float instanceOpacity;
@@ -161,6 +171,7 @@ export function createScorchDecalShader(): ShaderMaterial {
 
   const fragmentShader = /* glsl */ `
     precision highp float;
+    uniform vec3 uBloodMoonTint;
     varying vec2 vUv;
     varying vec3 vInstanceColor;
     varying float vInstanceOpacity;
@@ -209,7 +220,7 @@ export function createScorchDecalShader(): ShaderMaterial {
       float blotch = noise(center * 4.0 + seed * 0.5);
       vec3 color = mix(vInstanceColor, vInstanceColor * 0.45, smoothstep(0.35, 0.75, blotch) * 0.7);
 
-      gl_FragColor = vec4(color, alpha * vInstanceOpacity);
+      gl_FragColor = vec4(color * uBloodMoonTint, alpha * vInstanceOpacity);
 
       #include <logdepthbuf_fragment>
     }
@@ -218,6 +229,7 @@ export function createScorchDecalShader(): ShaderMaterial {
   return new ShaderMaterial({
     vertexShader,
     fragmentShader,
+    uniforms: { uBloodMoonTint: bloodMoonTint },
     transparent: true,
     depthWrite: false,
     side: DoubleSide,
@@ -233,7 +245,7 @@ export function createScorchDecalShader(): ShaderMaterial {
  * - Soft edges with radial gradient
  * - Subtle sparkle effect
  */
-export function createIceDecalShader(): ShaderMaterial {
+export function createIceDecalShader(bloodMoonTint: IUniform<Vector3> = neutralTint()): ShaderMaterial {
   const vertexShader = /* glsl */ `
     attribute vec3 instanceColor;
     attribute float instanceOpacity;
@@ -265,6 +277,7 @@ export function createIceDecalShader(): ShaderMaterial {
 
   const fragmentShader = /* glsl */ `
     precision highp float;
+    uniform vec3 uBloodMoonTint;
     varying vec2 vUv;
     varying vec3 vInstanceColor;
     varying float vInstanceOpacity;
@@ -316,7 +329,7 @@ export function createIceDecalShader(): ShaderMaterial {
       // Apply instance opacity
       alpha *= vInstanceOpacity;
 
-      gl_FragColor = vec4(color, alpha);
+      gl_FragColor = vec4(color * uBloodMoonTint, alpha);
 
       #include <logdepthbuf_fragment>
     }
@@ -325,6 +338,7 @@ export function createIceDecalShader(): ShaderMaterial {
   return new ShaderMaterial({
     vertexShader,
     fragmentShader,
+    uniforms: { uBloodMoonTint: bloodMoonTint },
     transparent: true,
     depthWrite: false,
     side: DoubleSide,

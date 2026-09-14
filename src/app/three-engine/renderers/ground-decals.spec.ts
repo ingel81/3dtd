@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Matrix4, Scene, Vector3 } from 'three';
+import { Matrix4, Scene, Vector3, type ShaderMaterial } from 'three';
 import { BLOOD_DECAL_CONFIG } from '../../configs/visual-effects.config';
+import { bloodMoonMultiplier } from '../blood-moon/blood-moon-mood';
 import type { ScorchGround } from './scorch-marks';
 import { GroundDecals } from './ground-decals';
 
@@ -42,6 +43,27 @@ describe('GroundDecals', () => {
     const decals = new GroundDecals(new Scene());
     for (let i = 0; i < BLOOD_DECAL_CONFIG.maxDecals + 3; i++) decals.layBlood(new Vector3(), 2);
     expect(decals.blood.count).toBe(BLOOD_DECAL_CONFIG.maxDecals);
+  });
+
+  it('tints all three pools with the blood moon mood through one shared uniform', () => {
+    const decals = new GroundDecals(new Scene());
+    const materials = [decals.blood, decals.ice, decals.scorch.decals]
+      .map((pool) => pool.instancedMesh.material as ShaderMaterial);
+    const tint = materials[0].uniforms['uBloodMoonTint'];
+    for (const material of materials) {
+      expect(material.uniforms['uBloodMoonTint']).toBe(tint);
+      expect(material.fragmentShader).toContain('* uBloodMoonTint');
+      expect(material.fragmentShader).toContain('#include <logdepthbuf_fragment>');
+    }
+    expect((tint.value as Vector3).toArray()).toEqual([1, 1, 1]);
+
+    // The mood's multiplier, in display values on the canvas, linear in the composer target
+    decals.setBloodMoon(1, false);
+    expect((tint.value as Vector3).toArray()).toEqual(bloodMoonMultiplier(1, false, new Vector3()).toArray());
+    decals.setBloodMoon(1, true);
+    expect((tint.value as Vector3).toArray()).toEqual(bloodMoonMultiplier(1, true, new Vector3()).toArray());
+    decals.setBloodMoon(0, true);
+    expect((tint.value as Vector3).toArray()).toEqual([1, 1, 1]);
   });
 
   it('clears blood, ice and scorch marks together', () => {

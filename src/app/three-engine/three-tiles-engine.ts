@@ -347,6 +347,7 @@ export class ThreeTilesEngine {
       enemies: this.enemies,
       searchlights: this.searchlights,
       oozes: this.oozes,
+      groundMarks: this.effects,
     });
     this.hero = new HeroRenderer(this.scene, coordinateSync, this.assetManager);
     this.frostBursts = new FrostBurstRenderer(this.scene, this.effects.particleShaderMaterials);

@@ -9,8 +9,9 @@ function setup() {
   const enemies = { setBloodMoon: vi.fn() };
   const searchlights = { setAmount: vi.fn(), advance: vi.fn() };
   const oozes = { setBloodMoon: vi.fn() };
-  const look = new BloodMoonLook({ mood, enemies, searchlights, oozes });
-  return { look, mood, enemies, searchlights, oozes };
+  const groundMarks = { setBloodMoon: vi.fn() };
+  const look = new BloodMoonLook({ mood, enemies, searchlights, oozes, groundMarks });
+  return { look, mood, enemies, searchlights, oozes, groundMarks };
 }
 
 describe('BloodMoonLook', () => {
@@ -102,6 +103,18 @@ describe('BloodMoonLook', () => {
     look.update(16, true, false);
     expect(enemies.setBloodMoon).toHaveBeenLastCalledWith(0, false);
     expect(oozes.setBloodMoon).toHaveBeenLastCalledWith(0);
+  });
+
+  it('tints the ground marks with the mood, in the values of the output target', () => {
+    const { look, groundMarks } = setup();
+    look.setActive(true);
+    look.update(fadeInMs / 2, true, false);
+    expect(groundMarks.setBloodMoon).toHaveBeenLastCalledWith(look.amount, false);
+    look.update(16, true, true);
+    expect(groundMarks.setBloodMoon).toHaveBeenLastCalledWith(look.amount, true);
+    look.setActive(false, true);
+    look.update(16, true, true);
+    expect(groundMarks.setBloodMoon).toHaveBeenLastCalledWith(0, true);
   });
 
   it('lights the searchlights with the fade and sweeps them only while they show and the game runs', () => {

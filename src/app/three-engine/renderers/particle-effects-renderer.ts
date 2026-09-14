@@ -590,6 +590,11 @@ export class ParticleEffectsRenderer {
     return this.groundMarks;
   }
 
+  /** Blood moon tint of the ground marks, see GroundDecals.setBloodMoon. */
+  setBloodMoon(amount: number, linearOutput: boolean): void {
+    this.decals.setBloodMoon(amount, linearOutput);
+  }
+
   /** Whether impact effects are spawned; callers skip the work that only feeds one otherwise. */
   get impactEffectsEnabled(): boolean {
     return this.impacts;
