@@ -389,6 +389,35 @@ spatialAudio.registerSound('hq_damage', 'assets/sounds/effects/explosion.mp3', {
 eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height });
 ```
 
+### Nuklearschlag (synthetisiert, Nachhall in Spielzeit)
+`GAME_SOUNDS.nuclearStrike` (`audio.config.ts`), im Code synthetisiert in
+`utils/nuke-sound.ts`, registriert und gespielt vom `AudioService` über
+`ABILITY_IMPACT_SOUNDS`.
+
+- **Knall** (`nuclear_strike`, 2,4 s) beim `ability:impact`: ein Crack aus einem N-förmigen
+  Druckpuls (7 ms), einem Rauschstoß und Knacksern, die über 0,3 s ausdünnen; ein
+  Sub-Bass-Boom, Sinus von 70 auf 28 Hz fallend, rund 2 s ausklingend; das Tosen des
+  Feuerballs, Rauschen unter einem Tiefpass, der sich von 1,8 kHz auf 150 Hz schließt. Die
+  Summe läuft durch ein `tanh`: lauter, und die ungeraden Obertöne tragen den Boom auch auf
+  Lautsprecher ohne Bass.
+- **Grollen** (`nuclear_strike_rumble_1` bis `_3`, je 3 s): tiefes Rauschen (zwei Tiefpässe
+  bei 110 Hz) mit einem Band Tosen zwischen 250 und 700 Hz, in fünf Wellen anschwellend,
+  dazu zwei tiefe Schläge wie Echos; 0,35 s ein- und 0,7 s ausgeblendet, sodass ein Stück
+  ins nächste übergeht. Der `AudioService` startet sie nach 450, 2600 und 4800 ms
+  Spielzeit mit 85, 65 und 45 % der Lautstärke (`tail`, jeder Eintrag mit eigenem
+  `sample`), zusammen etwa 8 s.
+- **Spielzeit:** Die Stücke starten in `AudioService.update()` je Sub-Step. Eine Pause hält
+  das Grollen, das noch kommt, höheres Tempo verkürzt es, `game:reset` verwirft
+  ausstehende. Ein Stück, das schon spielt, spielt zu Ende (One-Shots kennen keine Pause),
+  höchstens 3 s. Deshalb Stücke statt eines langen Samples.
+- **Budget:** normale One-Shots über `playAtGeo`, mit SFX-Lautstärke, Anti-Flood und
+  globalem Cap. `priority` hält sie gegen das Voice-Stealing, `audibleDistance` 1500 m
+  (so weit wie der Shake des Schlags), `maxInstances` 2 je Stück für zwei Schläge
+  hintereinander.
+- **Erzeugung:** fester Seed, beim ersten Registrieren gebaut und als WAV-Data-URL
+  (24 kHz, 16 bit mono) für die Sitzung gecacht; im Test (`nuke-sound.spec.ts`) dauern
+  Synthese, WAV und Base64 zusammen etwa 25 ms.
+
 ## Performance-Optimierungen
 
 ### PositionalAudio-Erzeugung
@@ -487,8 +516,9 @@ public/assets/sounds/
     └── building_selled.mp3            # Tower-Verkauft-Sound
 ```
 
-Ohne Datei, im Code synthetisiert: die UI-Töne (`utils/alert-tone.ts`) und die Ooze-Sounds
-(`utils/ooze-sound.ts`), beide als WAV-Data-URL über `utils/pcm-wav.ts`. Seed-Zufall,
+Ohne Datei, im Code synthetisiert: die UI-Töne (`utils/alert-tone.ts`), die Ooze-Sounds
+(`utils/ooze-sound.ts`) und der Nuklearschlag (`utils/nuke-sound.ts`), alle als WAV-Data-URL
+über `utils/pcm-wav.ts`. Seed-Zufall,
 Tiefpass-Koeffizient und Normalisieren teilen sich die Synthesen in `utils/synth.ts`.
 
 ## Beispiel: Neuen Sound hinzufügen
