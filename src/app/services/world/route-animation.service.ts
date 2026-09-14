@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Color, Group, Vector3, Vector2, BufferGeometry, Float32BufferAttribute } from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
@@ -7,6 +7,7 @@ import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition } from '../../models/game.types';
 import { routePathToLocalPoints } from '../../utils/route-path.util';
 import { SpawnPoint } from './marker-visualization.service';
+import { PathAndRouteService } from './path-route.service';
 
 /**
  * Animated route data for a single spawn path
@@ -46,9 +47,6 @@ export class RouteAnimationService {
   /** Duration of fade-out in milliseconds */
   private readonly FADE_DURATION = 800; // Quick fade
 
-  /** Height offset above terrain for the animated line (matches path-route.service HEIGHT_ABOVE_GROUND) */
-  private readonly HEIGHT_OFFSET = 1;
-
   // --- MAIN LINE (flowing red dashes) ---
   /** Main line color (vivid red) */
   private readonly MAIN_COLOR = new Color(0xff2020);
@@ -70,6 +68,9 @@ export class RouteAnimationService {
   // ========================================
   // STATE
   // ========================================
+
+  /** Same lift as the static route line (routeLineLift), so both sit at the same height. */
+  private readonly pathAndRoute = inject(PathAndRouteService);
 
   private engine: ThreeTilesEngine | null = null;
   private overlayGroup: Group | null = null;
@@ -327,7 +328,7 @@ export class RouteAnimationService {
    */
   private convertPathToLocalPoints(path: GeoPosition[]): Vector3[] {
     if (!this.engine) return [];
-    return routePathToLocalPoints(this.engine, path, this.HEIGHT_OFFSET);
+    return routePathToLocalPoints(this.engine, path, this.pathAndRoute.routeLineLift());
   }
 
   /**
