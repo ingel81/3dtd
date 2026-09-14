@@ -786,6 +786,28 @@ abarbeiten.
   schneller, Ziel etwa 1 s für die Messung noch nicht ganz erreicht.
 - **546 erneut ok** (nach audioloop): Laufgeräusche setzen ein, sobald die
   Kamera in Hörweite ist.
+- **Bloom-Block, Ursache laut Code (ring2):** der Ring-Shader des HQ-Markers
+  rechnete `pow(1 - abs(dot(viewDir, normal)), 1.5)` mit einer nicht
+  normierten Normale; an MSAA-Kantenpixeln des dünnen Torus wird die Basis
+  negativ, `pow` liefert dort NaN, der Bloom verschmiert einen Pixel zu
+  einem Block von über 2 000 px. Fix: Basis geklemmt (Ring und Diamant),
+  dazu ein Bloom-Hochpass, der NaN/Inf-Pixel verwirft, und die Konsole
+  `__bloom.marks()` (markiert NaN magenta, Inf cyan) und `__bloom.guard(false)`
+  (alter Hochpass). **Nachtest:** Bloom an, HQ im Bild: kein Block. Dann
+  `__bloom.guard(false)`: der Block darf nicht zurückkommen; `__bloom.marks()`
+  zeigt am HQ keine magenta Quadrate. Zurück mit `__bloom.guard()` und
+  `__bloom.marks(false)`. Reichweitenband auf Bäumen: Deckkraft 0,85 auf 0,6
+  (Normalenfilter geht mit dem Stencil-Verfahren nicht).
+- **Korridor (corridor2):** Paris-Brückenköpfe: das runde Ende der Zufahrt
+  zog die ersten Meter des Decks auf den Kai (8 bis 9,5 m tiefer), die
+  Linie lief dort unter das Deck; jetzt behält ein Segment, das eine Zelle
+  entlang seiner Länge erreicht, sie gegen ein rundes Ende. Orange Zellen
+  gibt es nicht mehr: Zellen, zu denen kein Gegner laufen kann, fallen weg,
+  der Korridor endet davor (Rückkopplung Grid, Breite, Neubau).
+  **Nachtest:** 560 bis 562 in Rothenburg (keine orange Zellen, keine
+  Zellen in Häusern, Höfen, Gärten, an Autos; Korridor dort schmaler, keine
+  Gegner außerhalb der Zellen), 563 (Hang weiter gut) und 564 (Paris,
+  Brückenköpfe: Linie, Zellen und Gegner bleiben auf dem Deck).
 
 **Vorab**
 

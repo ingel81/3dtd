@@ -1081,11 +1081,26 @@ User, zurückgestellt):
   in allen anderen Fällen ist der Sockel laut User korrekt.
 - **430 ok.** **429:** gleichzeitig im Spiel zeigen und in der Konsole
   tippen ist zu umständlich; `__footprintDebug` bekommt einen Beobachtungs-
-  modus (footprintdbg), dann erneut.
+  modus (footprintdbg), dann erneut: Konsole `__footprintDebug.watch()`,
+  dann im Spiel mit dem Build-Cursor auf Flachdach bzw. Straße stehen
+  bleiben, je Ruhepunkt kommt eine Zeile; `__footprintDebug.watch(false)`
+  beendet.
 - **366 ok** mit Wunsch: die Kamera könnte näher an den Boss vor dem Tor
   (tweaks). **370 ok. 303 ok.** **304:** Ghost ok; der Tank sitzt zu tief,
   mit Höhenversatz 1 im Enemy Debugger sind die Ketten wieder sichtbar
   (tweaks setzt `heightOffset` 1).
+- **Logik-Punkte per Szenario-Test (verifyC, verifyD):** alle Logikteile
+  der Bündel Fähigkeiten/Leiste, Wellen-Panel, Held, Boss-Intro/Blutmond,
+  Ooze/Wurm/Kampf, Veteranen/Weltkarte und Quickfix bestätigt (Tests in
+  `*.scenario.spec.ts`). Überholt: Schwenk in 373/374 (`6a42d3a5`),
+  Haarlinie in 384 (`586f493e`), Charakterisierungstest in 405, Fußzeile in
+  346. Befunde zu 421: **D1** das Leck-Budget (18 HP je Welle) deckelt das
+  Wackeln der Ooze am HQ nach etwa 2,3 s bei 4x, der rote Rand pulst
+  weiter (Text von 421 zu eng); **D2** ein Zombie-Leck in W45 (5 HP) wackelt
+  innerhalb von 900 ms nach einem Ooze-Punkt nicht, weil der Faktor bei
+  0,5 geklemmt ist; ob "härter" die Amplitude oder die HP meint, ist eine
+  Entscheidung (offen). Die Augen-/Ohren-Teile stehen in den Runden G bis N
+  der Vorsortierung.
 - Überholt: 317, 322, 339, 406, 434. Zurückgestellt: Replay 407 bis 418
   und 435 bis 440 (User: Replay eigenes Thema), 323 (Offener Punkt 8 im
   Fix-Handover), 428 (optional). Logik-Punkte per Szenario-Test: verifyC,
