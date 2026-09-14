@@ -1,14 +1,14 @@
 # Bug: 3D-Tiles Loading hängt bei "0 Kacheln geladen"
 
 **Status:** Unter Beobachtung (Fix implementiert, sporadisches Auftreten möglich)
-**Stand:** 2026-05-08
+**Stand:** 2026-05-08, Verweise auf Code und Versionen abgeglichen am 2026-09-15
 
-> **Verwandter Fix (separates Problem):** Die *Tile-Quality-Aware Route Protection*
-> in `path-route.service.ts` / `three-tiles-engine.ts` (Stand 2026-02-27) ist ein
-> getrenntes Thema — sie löst Routen-Höhen-Desync bei wechselnder Tile-LOD
-> (siehe DONE.md 2026-02-27 und Code: `tileQualityTracker`, `tileSceneMap`,
-> `forEachLoadedModel`). Sie hat **nichts** mit dem hier beschriebenen
-> 0-Kacheln-Hänger zu tun, ist aber im selben Engine-File angesiedelt.
+> **Verwandtes, getrenntes Thema:** Gegen Routen-Höhen-Desync bei wechselnder Tile-LOD gab es
+> ab 2026-02-27 eine *Tile-Quality-Aware Route Protection* (DONE.md 2026-02-27). Ihre
+> Bezeichner `tileQualityTracker` und `tileSceneMap` gibt es nicht mehr. Heute nehmen die
+> Route-Cells die Höhe aus den feinsten Tiles über die Tile-Tiefe (`three-engine/column-sample.ts`,
+> `utils/route-cell-sampler.ts`, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md)). Mit dem hier
+> beschriebenen 0-Kacheln-Hänger hat das nichts zu tun.
 
 ## Problem
 
@@ -153,12 +153,12 @@ if (stats.visible === 0 && this.cameraNudgeCount < this.MAX_CAMERA_NUDGES) {
   - liefert die Origin-Probe (`terrain.raycastTerrainHeight(0, 0)`, siehe `terrain-queries.ts`) und reagiert in `onTileSetSettled()` auf jeden beruhigten `tiles-load-end`
   - `getTileStats()`, `setOnFirstTilesLoadedCallback()` und `setOnAuthErrorCallback()` reichen an den Tracker durch
 
-### Debug-Logs (aktiv)
-```typescript
-console.log(`[TilesEngine] tiles-load-end event received, rootLoaded=..., groupPos=...`);
-console.log(`[TilesEngine] Debounce fired: firstTilesLoaded=..., raycast=..., visible=...`);
-console.log(`[TilesEngine] Retry #N: cam(...), raycast=..., visible=..., groupMeshes=...`);
-```
+### Logs
+Die Debug-Logs der Untersuchung (`tiles-load-end event received`, `Debounce fired`,
+`Retry #N`) sind entfernt. `tile-loading-tracker.ts` schreibt heute nur noch
+`console.error` beim `load-error`-Event und `console.warn`, wenn die Retries ohne Tiles
+ausgeschöpft sind (Force-Update und "marking as loaded"). Bei erneutem Auftreten also
+eigene Logs oder `getTileStats()` in der Konsole.
 
 ### Konstanten (Modulkonstanten in `tile-loading-tracker.ts`)
 ```typescript
@@ -173,7 +173,7 @@ MIN_VISIBLE_TILES = 50;        // Fallback wenn Raycast fehlschlägt
 
 1. Warum laden die Tile-Geometrien manchmal nicht, obwohl `load-tileset` Events gefeuert werden?
 2. Ist es ein Cesium Ion Auth Timing-Problem?
-3. Gibt es ein bekanntes Issue in 3DTilesRendererJS 0.4.19?
+3. Gibt es ein bekanntes Issue in 3DTilesRendererJS 0.4.19 (damals; heute 0.5.2, siehe Nachtrag 2026-09-10)?
 4. Hängt es mit dem Browser-Cache zusammen?
 
 ## Nächste Schritte
