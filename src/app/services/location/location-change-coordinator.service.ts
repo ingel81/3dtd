@@ -251,11 +251,26 @@ export class LocationChangeCoordinatorService {
 
   /**
    * Save current location as favorite
+   * @param name Name for it, from the suggestion the header prefills
    */
-  onAddFavorite(): void {
-    this.locationMgmt.saveFavorite();
+  onAddFavorite(name?: string): void {
+    this.locationMgmt.saveFavorite(name);
     this.resolveFavoriteNames(); // Refresh names
     this.delegate?.getChangeCallbacks().appendDebugLog('Favorite saved');
+  }
+
+  /**
+   * Rename a favorite. A cleared name falls back to the geocoded one, which
+   * resolveFavoriteNames looks up again.
+   */
+  onRenameFavorite(id: string, name: string): void {
+    this.locationMgmt.renameFavorite(id, name);
+    this.resolveFavoriteNames();
+  }
+
+  /** Move a favorite up (-1) or down (1) in the list */
+  onMoveFavorite(id: string, offset: number): void {
+    this.locationMgmt.moveFavorite(id, offset);
   }
 
   /**
@@ -289,13 +304,15 @@ export class LocationChangeCoordinatorService {
   }
 
   /**
-   * Resolve display names for all favorites
+   * Resolve display names for the favorites without a name of their own
+   * (FavoriteLocation.name); the header shows that name first.
    */
   async resolveFavoriteNames(): Promise<void> {
     const favs = this.locationMgmt.favorites();
     const names: Record<string, string> = {};
 
     for (const fav of favs) {
+      if (fav.name) continue;
       names[fav.id] = await this.locationMgmt.getFavoriteDisplayName(fav);
     }
 

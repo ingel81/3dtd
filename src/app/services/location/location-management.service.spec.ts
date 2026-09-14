@@ -40,6 +40,45 @@ describe('LocationManagementService', () => {
     expect(service.hq()).toBeNull();
   });
 
+  describe('favorites', () => {
+    const PARIS = { lat: 48.8584, lon: 2.2945 };
+    const stored = () => JSON.parse(localStorage.getItem('td_favorites_v2')!);
+
+    it('saves any number of favorites, each under the name it was given', () => {
+      service.hq.set(PARIS);
+      service.spawns.set([{ lat: 48.862, lon: 2.2945 }]);
+      for (let i = 1; i <= 12; i++) service.saveFavorite(`Place ${i}`);
+
+      expect(service.favorites()).toHaveLength(12);
+      expect(service.favorites()[11]).toMatchObject({ hq: PARIS, spawns: [{ lat: 48.862, lon: 2.2945 }], name: 'Place 12' });
+      expect(stored()).toHaveLength(12);
+    });
+
+    it('saves without a name when the field was emptied, and nothing without an HQ', () => {
+      service.saveFavorite('  ');
+      expect(service.favorites()).toEqual([]);
+
+      service.hq.set(PARIS);
+      service.saveFavorite('  ');
+      expect(service.favorites()[0]).not.toHaveProperty('name');
+    });
+
+    it('renames, reorders and deletes, and keeps each change for the next start', () => {
+      service.hq.set(PARIS);
+      service.saveFavorite('A');
+      service.saveFavorite('B');
+      service.saveFavorite('C');
+      const [a, b, c] = service.favorites().map((f) => f.id);
+
+      service.renameFavorite(b, 'Bee');
+      service.moveFavorite(c, -1);
+      service.deleteFavorite(a);
+
+      expect(service.favorites().map((f) => f.name)).toEqual(['C', 'Bee']);
+      expect(create().favorites().map((f) => f.id)).toEqual([c, b]);
+    });
+  });
+
   describe('recent locations', () => {
     it('records a place on top and persists it', () => {
       service.recordRecent({ lat: 49.17, lon: 9.26 }, [{ lat: 49.175, lon: 9.26 }], 'Heilbronn');

@@ -88,6 +88,8 @@ function makeLocationMgmt() {
     favorites: signal<FavoriteLocation[]>([]),
     getFavoriteDisplayName: vi.fn(async (fav: FavoriteLocation) => `name-${fav.id}`),
     saveFavorite: vi.fn(),
+    renameFavorite: vi.fn(),
+    moveFavorite: vi.fn(),
     deleteFavorite: vi.fn(),
     setLocation: vi.fn(),
     saveLocationsToStorage: vi.fn(),
@@ -646,17 +648,47 @@ describe('LocationChangeCoordinatorService', () => {
       expect(coordinator.favoriteNamesMap()).toEqual({ a: 'name-a', b: 'name-b' });
     });
 
-    it('saves the current location and refreshes the names', async () => {
+    it('saves the current location under the name from the header and refreshes the names', async () => {
       coordinator.initializeFlow(delegate);
       await settle();
       locationMgmt.favorites.set([favA]);
 
-      coordinator.onAddFavorite();
+      coordinator.onAddFavorite('Schlossplatz');
       await settle();
 
-      expect(locationMgmt.saveFavorite).toHaveBeenCalled();
+      expect(locationMgmt.saveFavorite).toHaveBeenCalledWith('Schlossplatz');
       expect(coordinator.favoriteNamesMap()).toEqual({ a: 'name-a' });
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('Favorite saved');
+    });
+
+    it('looks names up only for favorites without one of their own', async () => {
+      locationMgmt.favorites.set([{ ...favA, name: 'Home' }, favB]);
+      coordinator.initializeFlow(delegate);
+      await settle();
+
+      expect(coordinator.favoriteNamesMap()).toEqual({ b: 'name-b' });
+      expect(locationMgmt.getFavoriteDisplayName).toHaveBeenCalledTimes(1);
+    });
+
+    it('renames a favorite and looks its geocoded name up again once the name is cleared', async () => {
+      locationMgmt.favorites.set([{ ...favA, name: 'Home' }]);
+      locationMgmt.renameFavorite.mockImplementation((id: string, name: string) => {
+        locationMgmt.favorites.update((list) => list.map((f) => (f.id === id ? { ...f, name: name || undefined } : f)));
+      });
+      coordinator.initializeFlow(delegate);
+      await settle();
+      expect(coordinator.favoriteNamesMap()).toEqual({});
+
+      coordinator.onRenameFavorite('a', '');
+      await settle();
+
+      expect(locationMgmt.renameFavorite).toHaveBeenCalledWith('a', '');
+      expect(coordinator.favoriteNamesMap()).toEqual({ a: 'name-a' });
+    });
+
+    it('moves a favorite up or down', () => {
+      coordinator.onMoveFavorite('b', -1);
+      expect(locationMgmt.moveFavorite).toHaveBeenCalledWith('b', -1);
     });
 
     it('deletes one favorite and drops only its name', async () => {
