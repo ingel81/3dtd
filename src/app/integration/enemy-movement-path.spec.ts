@@ -55,7 +55,7 @@ describe('Enemy Movement Path Integration', () => {
 
   it('should emit enemy:reached-base when enemy reaches end of path', () => {
     // High speed → quickly reaches end
-    const _enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 500, false);
+    m.enemyManager.spawn(TEST_PATH, 'zombie', 500, false);
 
     const reachedBaseHandler = vi.fn();
     m.eventBus.on('enemy:reached-base', reachedBaseHandler);
@@ -76,7 +76,7 @@ describe('Enemy Movement Path Integration', () => {
   });
 
   it('should remove enemy from manager after reaching base', () => {
-    const _enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 500, false);
+    m.enemyManager.spawn(TEST_PATH, 'zombie', 500, false);
 
     // Run until enemy reaches end
     for (let i = 0; i < 200; i++) {
