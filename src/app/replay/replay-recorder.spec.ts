@@ -39,10 +39,10 @@ function fakeProjectile(lat = 0, lon = 0) {
   return { typeConfig: { id: 'arrow' }, position: { lat, lon }, flightHeight: 20 };
 }
 
-function fakeTower(id: string) {
+function fakeTower(id: string, typeConfig: { id: string; attackType?: string } = { id: 'archer' }) {
   return {
     id,
-    typeConfig: { id: 'archer' },
+    typeConfig,
     position: { lat: 0.001, lon: 0.002, height: 5 },
     customRotation: 0.3,
     plinthHeight: 1.5,
@@ -237,9 +237,9 @@ describe('ReplayRecorder', () => {
 
   it('follows towers placed and sold during the wave and their beams and strikes', () => {
     const h = new Harness();
-    h.towers.push(fakeTower('fire-1'), fakeTower('wall-1'));
+    h.towers.push(fakeTower('fire-1'), fakeTower('research-1', { id: 'research-center', attackType: 'passive' }));
     h.turrets.set('fire-1', { currentLocalRotation: 0, turretPart: {} });
-    h.turrets.set('wall-1', { currentLocalRotation: 0, turretPart: null });
+    h.turrets.set('research-1', { currentLocalRotation: 0, turretPart: null });
     h.startWave();
     h.steps(3);
     const tentacle = fakeTower('tentacle-1');
@@ -253,12 +253,12 @@ describe('ReplayRecorder', () => {
     h.recorder.finish('completed');
 
     const rec = h.recorder.recording!;
-    expect(rec.towers.map((t) => t.id)).toEqual(['fire-1', 'wall-1', 'tentacle-1']);
+    expect(rec.towers.map((t) => t.id)).toEqual(['fire-1', 'research-1', 'tentacle-1']);
     expect(rec.towers[0].placedMs).toBe(-1);
     expect(rec.towers[1].soldMs).toBe(Infinity);
     expect(rec.towers[2].placedMs).toBeCloseTo(3 * STEP);
     expect(rec.towers[2].soldMs).toBeCloseTo(6 * STEP);
-    // Frame 0: the fire tower's turret only, the wall has none
+    // Frame 0: the fire tower's turret only, the research center aims at nothing
     expect(rec.frameTowerStart[1] - rec.frameTowerStart[0]).toBe(1);
     // Frame 1: beam and strike with their targets
     const s = rec.frameTowerStart[1];
@@ -266,6 +266,26 @@ describe('ReplayRecorder', () => {
     expect(Array.from(rec.tAux.subarray(s * 4, s * 4 + 4))).toEqual([1, 2, 3, 8]);
     expect(rec.tFlags[s + 1]).toBe(TOWER_FLAG.STRIKE);
     expect(Array.from(rec.tAux.subarray((s + 1) * 4, (s + 1) * 4 + 3))).toEqual([4, 5, 6]);
+  });
+
+  it('samples the aim of a tower without a turret part in every frame, for its searchlight', () => {
+    const h = new Harness();
+    const archer = { currentLocalRotation: 0.5, turretPart: null };
+    h.towers.push(fakeTower('archer-1'));
+    h.turrets.set('archer-1', archer);
+    h.startWave();
+    archer.currentLocalRotation = 0.9;
+    h.steps(6);
+    // Unchanged, still a sample: a jump back to this frame shows it
+    h.steps(6);
+    h.recorder.finish('completed');
+
+    const rec = h.recorder.recording!;
+    expect(rec.frameCount).toBe(3);
+    for (let f = 0; f < 3; f++) expect(rec.frameTowerStart[f + 1] - rec.frameTowerStart[f]).toBe(1);
+    expect(rec.tRot[0]).toBeCloseTo(0.5);
+    expect(rec.tRot[1]).toBeCloseTo(0.9);
+    expect(rec.tRot[2]).toBeCloseTo(0.9);
   });
 
   it('logs every command of the wave as plain data, the hero\'s and one it does not know as well', () => {

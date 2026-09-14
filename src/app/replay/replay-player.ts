@@ -898,7 +898,7 @@ export class ReplayPlayer {
         engine.plinths.create(renderId, tower.lat, tower.lon, tower.height, tower.plinthHeight, config.footprintRadius);
       }
       if (tower.typeId === 'tentacle') engine.tentacles.create(renderId, tip);
-      // Its blood moon searchlight, turned with the recorded turret
+      // Its blood moon searchlight, turned with the recorded aim
       if (config) engine.searchlights.add(renderId, tower.lat, tower.lon, tower.height, config);
     }
     return {
