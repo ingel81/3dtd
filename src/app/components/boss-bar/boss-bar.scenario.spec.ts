@@ -16,19 +16,8 @@ import { BossBarComponent } from './boss-bar.component';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { createTestManagers, TestManagers, tickEngine } from '../../integration/test-helpers';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
-import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
-import type { GeoPosition } from '../../models/game.types';
+import { northPath } from '../../../test/worm-test-helpers';
 import type { WormGroup } from '../../managers/worm/worm-group';
-
-/** Straight route north, a waypoint every 50 m */
-function northPath(meters: number): GeoPosition[] {
-  const points: GeoPosition[] = [];
-  for (let m = 0; m < meters; m += 50) {
-    points.push({ lat: 48.776 + m / METERS_PER_DEGREE_LAT, lon: 9.183, height: 300 });
-  }
-  points.push({ lat: 48.776 + meters / METERS_PER_DEGREE_LAT, lon: 9.183, height: 300 });
-  return points;
-}
 
 describe('Boss bar for the worm and the ooze (playtest 352, 353, 362)', () => {
   let m: TestManagers;
