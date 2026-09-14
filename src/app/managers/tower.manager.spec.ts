@@ -36,6 +36,7 @@ const createMockTilesEngine = () => ({
   },
   searchlights: {
     add: vi.fn(),
+    setHeading: vi.fn(),
     remove: vi.fn(),
     clear: vi.fn(),
   },
@@ -228,6 +229,8 @@ describe('TowerManager', () => {
       // The wider circle meets the route further north.
       expect(tower.guardHeading!).toBeGreaterThan(0);
       expect(tower.guardHeading!).toBeLessThan(before);
+      // The searchlight sweeps around the new heading
+      expect(tilesEngine.searchlights.setHeading).toHaveBeenLastCalledWith(tower.id, tower.guardHeading);
     });
 
     it('follows a route change', () => {
@@ -240,6 +243,7 @@ describe('TowerManager', () => {
 
       // Same street walked northwards: the tower now watches the south.
       expect(Math.abs(tower.guardHeading!)).toBeGreaterThan((3 * Math.PI) / 4);
+      expect(tilesEngine.searchlights.setHeading).toHaveBeenLastCalledWith(tower.id, tower.guardHeading);
     });
   });
 

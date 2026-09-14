@@ -128,8 +128,10 @@ export class TowerManager extends EntityManager<Tower> {
     }
   }
 
+  /** The blood moon searchlight sweeps around the new heading; placement lights it afterwards. */
   private updateGuardHeading(tower: Tower, routes: GeoPosition[][]): void {
     tower.guardHeading = computeGuardHeading(tower.position, tower.combat.range, routes);
+    this.tilesEngine?.searchlights.setHeading(tower.id, tower.guardHeading);
   }
 
   /**

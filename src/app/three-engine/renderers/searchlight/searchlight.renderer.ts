@@ -280,6 +280,18 @@ export class SearchlightRenderer {
     this.slots.uploadSlot(this.sweepAttribute, index);
   }
 
+  /**
+   * The beam of tower `id` sweeps around `guardHeading` from now on (its
+   * range changed, or the routes). Null keeps the heading it has; a tower
+   * without a light is left alone.
+   */
+  setHeading(id: string, guardHeading: number | null): void {
+    const index = this.lights.get(id);
+    if (index === undefined || guardHeading === null) return;
+    this.sweepAttribute.setX(index, headingToSearchlightYaw(guardHeading));
+    this.slots.uploadSlot(this.sweepAttribute, index);
+  }
+
   /** Take the searchlight of tower `id` away, if it has one. */
   remove(id: string): void {
     const index = this.lights.get(id);

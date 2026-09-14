@@ -119,6 +119,23 @@ describe('SearchlightRenderer', () => {
     expect(sweep.getW(0)).toBe(LOOK.length);
   });
 
+  it('turns the sweep to a new guard heading and keeps its phase, speed and length', () => {
+    const { renderer, geometry } = setup();
+    renderer.add('t1', 0, 0, 0, TOWER_TYPES.cannon, 0);
+    const sweep = geometry.getAttribute('aSweep');
+    const [phase, speed, length] = [sweep.getY(0), sweep.getZ(0), sweep.getW(0)];
+
+    renderer.setHeading('t1', Math.PI / 2);
+    expect(sweep.getX(0)).toBeCloseTo(headingToSearchlightYaw(Math.PI / 2));
+    expect([sweep.getY(0), sweep.getZ(0), sweep.getW(0)]).toEqual([phase, speed, length]);
+
+    // No guard heading: the beam stays where it sweeps; no light: nothing happens
+    renderer.setHeading('t1', null);
+    renderer.setHeading('other', 0);
+    expect(sweep.getX(0)).toBeCloseTo(headingToSearchlightYaw(Math.PI / 2));
+    expect(renderer.count).toBe(1);
+  });
+
   it('gives the Research Center no light', () => {
     const { renderer, geometry } = setup();
     renderer.add('lab', 0, 0, 0, TOWER_TYPES['research-center'], null);
