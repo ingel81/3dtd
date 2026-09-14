@@ -1,20 +1,22 @@
 # AI Model Export Guide
 
-**Stand:** 2026-09-12, Schema v5 (208 Features). Der Export ist ein Opt-in-Pfad.
+**Stand:** 2026-09-15, Schema v5 (208 Features). Der Export ist ein Opt-in-Pfad.
 
 Anleitung zum Exportieren des trainierten PyTorch-Modells für Browser-Inferenz.
 
 > **Das exportierte Modell ist nicht mehr der Standard.** Der Wave Director im
 > Spiel ist regelbasiert und clientseitig
 > (`src/app/ai/core/rule-director.ts`); beim Start wird nichts geladen. Das ONNX-
-> Modell wird nur über den Knopf **„ONNX-Modell laden"** im Debug-Fenster
-> aktiviert, zurück geht es über **„Regeln nutzen"**.
+> Modell wird nur über den Knopf **„Load ONNX model"** im Training-Debug-Fenster
+> aktiviert, zurück geht es über **„Use rules"**.
 >
 > Grund: Das Netz war in A/B-Läufen statistisch nicht von uniformem Zufall zu
 > unterscheiden, und eine 404-kB-Runtime plus Netzwerk-Roundtrip ist dafür bei
 > jedem Kaltstart zu teuer. Der Pfad bleibt erreichbar für einen künftigen Lauf,
 > der gegen echte Spielerdaten statt gegen einen scripted Bot trainiert wurde.
-> Vollständige Begründung: [../../docs/HANDOVER_RULE_DIRECTOR.md](../../docs/HANDOVER_RULE_DIRECTOR.md).
+> Einstieg: [AI_WAVE_DIRECTOR_PLAN.md](../../docs/AI_WAVE_DIRECTOR_PLAN.md); die
+> vollständige Begründung mit der Messreihe:
+> [HANDOVER_RULE_DIRECTOR.md](../../docs/HANDOVER_RULE_DIRECTOR.md).
 
 > Trotz des historischen Skript-Namens `export_to_tfjs.py` exportieren wir
 > direkt nach **ONNX** — TensorFlow.js wird **nicht** verwendet.
@@ -23,16 +25,14 @@ Anleitung zum Exportieren des trainierten PyTorch-Modells für Browser-Inferenz.
 
 ## ⚠️ Das eingecheckte Modell ist inkompatibel
 
-`public/assets/ai/wave-director/wave-director.onnx` stammt aus Phase 5.10
-(`metadata.json`: `version 5.10.0`, `checkpoint_7350.pt`, `inputSize 156`,
-exportiert 2026-04-21). Der Encoder produziert seit Schema v5 **208** Features.
-
-Die Datei selbst ist ein gültiges Modell, `InferenceSession.create` dürfte also
-durchgehen; der Konflikt schlägt beim ersten `session.run()` zu, und
-`runInference` hat keinen Fallback (nicht nachgemessen — der Pfad wurde seit dem
-Schema-Sprung nicht mehr benutzt). Wer ihn heute benutzen will, muss vorher neu
-exportieren (`npm run export-ai`) und braucht dafür einen Checkpoint aus einem
-Schema-v5-Lauf.
+`public/assets/ai/wave-director/wave-director.onnx` (289.959 Byte) stammt aus
+Phase 5.10 (`metadata.json`: `version 5.10.0`, `checkpoint_7350.pt`,
+`inputSize 156`, exportiert 2026-04-21). Der Encoder produziert seit Schema v5
+**208** Features. `OnnxPolicy.load()` lehnt das Modell deshalb beim Laden ab
+(`'wrong-input-size'`, Warnung in der Konsole), und die Wellen kommen weiter
+vom Regel-Director ([Was beim Laden passiert](#was-beim-laden-passiert)). Wer
+den Pfad benutzen will, muss neu exportieren (`npm run export-ai`) und braucht
+dafür einen Checkpoint aus einem Schema-v5-Lauf.
 
 ---
 
@@ -114,7 +114,7 @@ das ist die eigentliche Absicherung.
 
 ```
 public/assets/ai/wave-director/
-├── wave-director.onnx   # ~110 KB — Das Modell
+├── wave-director.onnx   # Das Modell (das eingecheckte: 289.959 Byte)
 ├── metadata.json        # Schema-Version, Templates, Ranges, Curriculum, Orders
 └── README.md            # Kurzanleitung
 ```
@@ -124,12 +124,13 @@ public/assets/ai/wave-director/
 Curriculum-Sequenz, die Enemy-Base-HP und die positionsrelevanten Vokabular-
 Reihenfolgen.
 
-> **Das Frontend liest diese Datei nicht.** Kein Modul unter `src/` referenziert
-> `metadata.json`; die Templates und Konstanten leben in
-> `src/app/ai/core/templates.ts` und werden per `npm run ai-schema` mit dem
-> Backend synchron gehalten. Die Datei ist der **Beleg**, gegen welches Schema
-> das ausgelieferte `.onnx` exportiert wurde — genau die Frage, die oben den
-> Inkompatibilitäts-Kasten begründet.
+> **Das Frontend liest davon nur `inputSize`.** `OnnxPolicy.load()` prüft damit
+> beim Laden, ob das Modell zum Encoder passt (siehe
+> [Was beim Laden passiert](#was-beim-laden-passiert)). Die Templates und
+> Konstanten leben in `src/app/ai/core/templates.ts` und werden per
+> `npm run ai-schema` mit dem Backend synchron gehalten. Ansonsten ist die
+> Datei der **Beleg**, gegen welches Schema das ausgelieferte `.onnx`
+> exportiert wurde.
 
 ## Modell-Format (Schema v5)
 
@@ -181,10 +182,10 @@ Wird **lazy** geladen, erst wenn `loadModel()` gerufen wird
 
 ```typescript
 const ort = await import('onnxruntime-web');
-ort.env.wasm.wasmPaths = '/assets/onnx-wasm/';
+ort.env.wasm.wasmPaths = 'assets/onnx-wasm/';
 
 const session = await ort.InferenceSession.create(
-  '/assets/ai/wave-director/wave-director.onnx',
+  'assets/ai/wave-director/wave-director.onnx',
   { executionProviders: ['wasm'] }
 );
 
@@ -193,11 +194,27 @@ const results = await session.run({ state: inputTensor });
 const output = results.action.data; // Float32Array(36)
 ```
 
-Fehlt die Modelldatei, ist das kein Fehler: `aiMode` bleibt auf `'rules'`.
+### Was beim Laden passiert
+
+`WaveDirectorService.loadModel()` ruft `OnnxPolicy.load()` (`onnx-policy.ts`)
+und wertet das Ergebnis aus:
+
+| Ergebnis | Wann | Folge |
+|---|---|---|
+| `'ready'` | Runtime geladen, Session angelegt, `inputSize` aus `metadata.json` passt zu `ENCODED_STATE_SIZE` oder fehlt | `modelState = 'ready'`, `aiMode = 'inference'`: das Modell wählt Template und Faktoren |
+| `'wrong-input-size'` | `metadata.json` nennt eine andere Eingangsbreite (heute 156 gegen 208) | Session wird freigegeben, Warnung in der Konsole, `modelState = 'rules'` |
+| `'no-model'` | `InferenceSession.create` warf, etwa weil die Modelldatei fehlt | Hinweis in der Konsole, `modelState = 'rules'` |
+| `'runtime-error'` | ONNX Runtime selbst ließ sich nicht laden | `modelState = 'error'`, `aiMode = 'rules'` |
+
+Außer bei `'ready'` kommen die Wellen weiter vom Regel-Director, ohne
+Exception. Die Eingangsbreite liest `load()` aus `metadata.json`, weil
+onnxruntime-web eine dynamische Batch-Achse nicht verlässlich als feste Größe
+meldet; fehlt die Datei oder das Feld, prüft es nicht. „Use rules" im
+Training-Debug-Fenster (`forceRuleMode()`) gibt die Session wieder frei.
 
 ### WASM-Files
 
-ONNX Runtime braucht WASM-Dateien (~60 MB). Werden via `npm postinstall`
+ONNX Runtime braucht WASM-Dateien (rund 80 MB in `public/assets/onnx-wasm/`, gemessen 2026-09-15). Werden via `npm postinstall`
 automatisch nach `public/assets/onnx-wasm/` kopiert:
 
 ```bash
@@ -237,9 +254,9 @@ Der Checkpoint stammt aus einer älteren Architektur. Das aktuelle Modell hat
 `INPUT_SIZE = 208` und `OUTPUT_SIZE = 36`. Pre-Phase-5.5-Checkpoints liegen in
 `checkpoints/archive-v3.5/` und sind inkompatibel.
 
-**`Failed to load model` oder Shape-Fehler beim ersten `session.run()` im Browser**
-Das ausgelieferte `.onnx` passt nicht zum aktuellen Encoder — siehe den
-Inkompatibilitäts-Kasten oben. Neu exportieren.
+**Konsole: `[AI] Model expects 156 inputs, the encoder produces 208`**
+Das ausgelieferte `.onnx` passt nicht zum aktuellen Encoder; `load()` lehnt es
+ab, das Spiel bleibt auf den Regeln. Neu exportieren (siehe oben).
 
 **`AI schema version mismatch` beim Serverstart**
 ```bash
