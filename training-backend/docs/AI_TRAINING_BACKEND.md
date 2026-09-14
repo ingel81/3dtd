@@ -6,7 +6,7 @@
 > Seit `3875d61` entscheidet im Spiel ein Regel-Director im Client
 > (`src/app/ai/core/rule-director.ts`). Das Spiel braucht im Betrieb **keinen**
 > Python-Server, **kein** Modell und **keine** ONNX-Runtime. Dieses Backend
-> existiert, um Wave-Designs gegen Bots über hunderte Runs zu vergleichen — das
+> existiert, um Wave-Designs gegen Bots über hunderte Runs zu vergleichen; das
 > ist die einzige Umgebung im Projekt, in der das geht.
 >
 > Einstieg in den Wave Director: [AI_WAVE_DIRECTOR_PLAN.md](../../docs/AI_WAVE_DIRECTOR_PLAN.md).
@@ -90,7 +90,7 @@ training-backend/
 ├── manage_server.py       # Start/Stop/Status als Hintergrundprozess
 ├── directors.py           # A/B-Roster: model / rules / random / maxgate
 ├── schema.py              # Lädt generated/ai-schema.json (Templates, Curriculum,
-│                          #   Enemy-Tabellen, Feature-Layout) — aus den TS-Configs
+│                          #   Enemy-Tabellen, Feature-Layout), aus den TS-Configs
 ├── generated/             # ai-schema.json, erzeugt von `npm run ai-schema`
 ├── config.py              # Trainings-Entscheidungen: Hyperparameter, Reward-
 │                          #   Shaping, Gate-Regelparameter, Director-Roster
@@ -127,7 +127,7 @@ training-backend/
 
 **Zuständigkeitsschnitt:** `schema.py` trägt alles, was aus dem **Spiel** kommt
 (Enemy-Tabellen, Templates, Curriculum, Feature-Layout, Decoder-Konstanten) und
-wird von `npm run ai-schema` generiert — nie von Hand editieren. `config.py`
+wird von `npm run ai-schema` generiert, nie von Hand editieren. `config.py`
 trägt alles, was eine **Trainings-Entscheidung** ist.
 
 ---
@@ -151,7 +151,7 @@ hartkodiert.
 
 Der **Wave-Context-Block** ist die Neuerung von Schema v3 und der Grund für den
 Versionssprung: Das Netz gab vorher `count_factor` aus, ohne zu wissen, auf
-welches Template es angewendet wird — derselbe 0..1-Wert bedeutet 20–2000 Gegner
+welches Template es angewendet wird: derselbe 0..1-Wert bedeutet 20–2000 Gegner
 für `zombie_horde` und 5–100 für `mech_army`.
 
 Schema v4 (2026-09-12) ändert am Layout nichts. Es verlängert nur die Tower-
@@ -195,7 +195,7 @@ final_count = lerp(template.count_range, count_factor)
 (`schema.get_available_template_mask`):
 
 - **Curriculum-Gate**: Waves 1–30 (`curriculum.forcedThroughWave = 30`) verengen
-  die Maske auf genau ein Template — die gesampelte Aktion *ist* dann die
+  die Maske auf genau ein Template; die gesampelte Aktion *ist* dann die
   ausgelieferte Wave, was die PPO-Credit-Zuweisung ehrlich hält.
 - **Capability-Gate** (`requiresCapability`): „antiAir" / „antiEthereal" muss der
   Spieler tatsächlich haben (Frontend-Capabilities inkl. Line-of-Sight, mit
@@ -209,14 +209,14 @@ final_count = lerp(template.count_range, count_factor)
   hpMult 1000).
 - **Wave-Duration-Cap**: `count × spawn_delay > 180 s` komprimiert `spawn_delay`
   auf `max(5 ms, cap/count)`.
-- **Fairness-Gate**: siehe unten — der Deckel, der in der Praxis am häufigsten
+- **Fairness-Gate**: siehe unten, der Deckel, der in der Praxis am häufigsten
   bindet.
 
 ### 3. Fairness-Gate (Regelkreis)
 
 `schema.fair_max_count` schätzt, wie viele Gegner eine Verteidigung zerstören
 kann, diskontiert mit `FAIRNESS_KILL_REALISM = 0.65`. Dieser Discount wurde auf
-den Waves 1–10 gemessen und ist ab Wave 11 falsch — die Schätzung hat also einen
+den Waves 1–10 gemessen und ist ab Wave 11 falsch: die Schätzung hat also einen
 stehenden Bias und keine Möglichkeit, ihn zu bemerken. `server.py::steer_gate`
 korrigiert ihn aus dem einzigen belastbaren Signal: was tatsächlich die Basis
 erreicht hat.
@@ -309,7 +309,7 @@ eine Paarung mit dem PPO-Ratio wären Off-Policy-Daten mit On-Policy-Etikett.
 Ihre Ergebnisse gehen in die Eval-Metriken.
 
 Der Director steht in den JSONL-Logs an `wave_result` und `episode_end`
-(Feld `director`). `scripts/analyze_log.py` gruppiert nicht danach — die
+(Feld `director`). `scripts/analyze_log.py` gruppiert nicht danach, die
 Auswertung ist selbst zu schreiben.
 
 **Ergebnis der bisher einzigen vollständigen Messreihe:** `model` war dreimal
@@ -347,7 +347,7 @@ Input: 208 Features
 ```
 
 **Kein Dropout im Torso.** Aktionen werden unter `model.eval()` gesampelt, das
-PPO-Update läuft unter `model.train()` — Dropout ließ das Ratio π_neu/π_alt ein
+PPO-Update läuft unter `model.train()`; Dropout ließ das Ratio π_neu/π_alt ein
 ausgedünntes Netz gegen ein volles vergleichen. Der gemessene approx-KL von
 0,14–0,24 gegen ein Ziel von 0,02 war größtenteils Sampling-Rauschen und
 reagierte weder auf eine dreifach kleinere Lernrate noch auf eine verdoppelte
@@ -355,7 +355,7 @@ Minibatch. Die LayerNorms regularisieren ausreichend.
 
 **`log_std` ist geklemmt statt entropie-belohnt.** Die alte Obergrenze 2 (std
 ≈ 7,4) zusammen mit einem Entropie-Bonus auf der *Prä-Sigmoid*-Gaußverteilung
-war ein stehender Anreiz, die Verteilung zu verbreitern — und eine breite
+war ein stehender Anreiz, die Verteilung zu verbreitern, und eine breite
 Gaußverteilung durch ein Sigmoid häuft ihre Masse an den **Rändern** des
 Bereichs. Das ist Anti-Exploration im Faktorraum: Wellen kollabieren auf
 min/max count und min/max HP. Der Entropie-Bonus läuft heute nur noch auf dem
@@ -371,7 +371,7 @@ Sample (`OUTPUT_SIZE = MAX_TEMPLATE_SLOTS + NUM_CONTINUOUS = 32 + 4`).
 `core/reward.py::calculate_reward` summiert **DEATH + DRAMA + PACING + SWARM_SIZE**.
 
 > Der Kopfkommentar von `config.py` listet die Terme noch als
-> „DEATH, DRAMA, SWARM_SIZE, PROGRESSION" — `PROGRESSION` existiert nicht mehr,
+> „DEATH, DRAMA, SWARM_SIZE, PROGRESSION"; `PROGRESSION` existiert nicht mehr,
 > der dritte Term heißt `PACING`.
 
 > **v3 wurde ersetzt, weil sie nicht erfüllbar war.** v3 verlangte 1–5 % HP-Verlust
@@ -379,19 +379,19 @@ Sample (`OUTPUT_SIZE = MAX_TEMPLATE_SLOTS + NUM_CONTINUOUS = 32 + 4`).
 > ist `1 + floor((w-1)/10)` HP bei 100 max HP, also quantisiert: ab Wave 51 sind
 > 0 Leaks = 0 % und 1 Leak = 6 %, dazwischen existiert nichts. Die drei gegateten
 > Terme lieferten ab W51 strukturell 0. Dazu heilt der Spieler nie und das Spiel
-> hat kein Sieg-Ziel — 100 HP sind das Budget des gesamten Runs, 1–5 % pro Wave
+> hat kein Sieg-Ziel: 100 HP sind das Budget des gesamten Runs, 1–5 % pro Wave
 > sind also der Tod, den der DEATH-Term mit −15…−30 bestrafte. Gemessenes
 > Ergebnis nach ~9.900 Episoden: die AI schickte nichts mehr (avgProgress 0,06–0,27
 > gegen Zielband 0,65–0,90; ein Client mit 133 Waves ohne einen HP-Verlust).
 
 v4 trennt die zwei Fragen, die v3 vermischt hatte:
 
-* **DRAMA** — „war diese Wave spannend?" — pro Wave, auf `near_miss_ratio`.
-* **PACING** — „hat der Run die richtige Länge?" — über den ganzen Run, auf der HP-Kurve.
+* **DRAMA** („war diese Wave spannend?"): pro Wave, auf `near_miss_ratio`.
+* **PACING** („hat der Run die richtige Länge?"): über den ganzen Run, auf der HP-Kurve.
 
 ### Term 1: DEATH (`_death_penalty`)
 
-Relativ zur Ziel-Rundenlänge, nicht absolut. Der Run *soll* enden — ein endloses
+Relativ zur Ziel-Rundenlänge, nicht absolut. Der Run *soll* enden: ein endloses
 Spiel ohne Heilung hat genau einen Ausgang. Planmäßig zu enden ist gratis:
 
 ```python
@@ -410,7 +410,7 @@ Die Größenordnung ist zweiseitig eingeklemmt:
 - **Von oben** durch den Reward-Skalierer. Rewards werden über eine gefensterte
   Standardabweichung normalisiert; Tode sind selten und riesig, setzen also
   diese Standardabweichung und dividieren alles andere zu Rauschen. Bei −40
-  gemessen: kombinierte std 9,13, davon 9,12 aus dem DEATH-Term — ein voller
+  gemessen: kombinierte std 9,13, davon 9,12 aus dem DEATH-Term; ein voller
   Drama-Ausschlag von 1,30 kam skaliert bei 0,142 an, ein Tod bei −3,58. Bei
   25:1 lernt der Agent nicht, gute Wellen zu bauen, sondern Tode zu vermeiden.
 - Bei −15 kollabierte Drama über 56 Updates monoton auf 0
@@ -422,7 +422,7 @@ Die Größenordnung ist zweiseitig eingeklemmt:
 anzukommen. Drei Gründe für diese Größe: sie beschreibt den *oberen Rand* der
 Verteilung statt des Mittelwerts, ihre Schrittweite ist 1/count statt 6 % pro
 Leak, und sie ist das, was ein Spieler als knappe Sache wahrnimmt. Ankünfte
-auszuschließen ist entscheidend — sonst punktet ein Durchbruch identisch mit
+auszuschließen ist entscheidend, sonst punktet ein Durchbruch identisch mit
 einer knappen Sache.
 
 ```python
@@ -439,7 +439,7 @@ return score + REWARD_LEAK_SLOPE * leak_ratio + REWARD_P90_PROGRESS_WEIGHT * p90
 
 | Konstante | Wert | Begründung |
 |---|---|---|
-| `NEAR_MISS_TARGET` | 0.20 | 90. Perzentil einer Messung über 4002 Wellen. **Nie gegen echtes Spielempfinden validiert** — siehe Handover, Abschnitt 4 |
+| `NEAR_MISS_TARGET` | 0.20 | 90. Perzentil einer Messung über 4002 Wellen. **Nie gegen echtes Spielempfinden validiert**, siehe Handover, Abschnitt 4 |
 | `NEAR_MISS_SIGMA` | 0.18 | |
 | `REWARD_DRAMA_PEAK` | 1.00 | Wert exakt im Ziel |
 | `REWARD_DRAMA_IDLE` | −0.30 | Wert weit weg vom Ziel |
@@ -451,7 +451,7 @@ return score + REWARD_LEAK_SLOPE * leak_ratio + REWARD_P90_PROGRESS_WEIGHT * p90
 **Aufwärts linear, abwärts Gauß.** Eine reine Glocke steht bei Ratio 0 noch bei
 14,5 % ihres Maximums (das Ziel liegt 1,4 σ darüber), eine völlig harmlose Wave
 kostete also −0,11 statt der vollen −0,30. Gemessen parkten 52,5 % der Wellen in
-diesem Band — billiger als jeder Versuch, der ein Leak riskiert.
+diesem Band, billiger als jeder Versuch, der ein Leak riskiert.
 
 **Der p90-Term** existiert, weil 88–91 % der Wellen eine Near-Miss-Ratio von
 exakt 0 haben und DRAMA über diesen gesamten Bereich konstant ist. Ohne ihn kann
@@ -471,11 +471,11 @@ return -REWARD_PACING_PEAK * min(shape, PACING_SHAPE_CAP)          # 0.60, Cap 5
 
 **Eine Strafe, kein Bonus.** Für das Sitzen auf der Kurve zu zahlen bedeutete,
 dass Nichtstun positiv punktet, solange der Spieler zufällig auf der Kurve
-liegt — der v3-Kollaps durch eine andere Tür. Auf Kurve zu sein ist lediglich
+liegt: der v3-Kollaps durch eine andere Tür. Auf Kurve zu sein ist lediglich
 kostenlos; nur DRAMA zahlt.
 
 **Quadratisch innerhalb 1 σ, linear darüber.** Eine reine Gaußkurve ist jenseits
-von ~2 σ flach und wird zur konstanten Steuer ohne Gradient — gemessen saßen
+von ~2 σ flach und wird zur konstanten Steuer ohne Gradient; gemessen saßen
 58,4 % der Wellen exakt auf −0,60, also genau die, die am weitesten von der
 Kurve entfernt waren und die Richtung am dringendsten gebraucht hätten.
 
@@ -490,7 +490,7 @@ return min(SWARM_SIZE_CAP, SWARM_SIZE_SLOPE * (total_count - 20))      # 0.30, 0
 ```
 
 Ungegatet war dieser Term schwer ausbeutbar: das Netz schickte 2000 Gegner im
-Wissen, dass alle überlaufen — +4,67 Swarm gegen −3,39 Drama, netto +1,28 pro
+Wissen, dass alle überlaufen: +4,67 Swarm gegen −3,39 Drama, netto +1,28 pro
 Wave, während der Bot jede Wave verlor.
 
 **Hard-Constraints stehen nicht im Reward**, sondern in der Maske
@@ -526,7 +526,7 @@ Wave, während der Bot jede Wave verlor.
 Todesstrafe gegen ~−0,6 typische Wellen setzte pro Batch einige Samples jenseits
 −3 σ. Diese allein dominierten den Gradienten (gemessene Grad-Norm 3,6–51,7
 gegen einen Clip von 0,5) und trieben den Schritt bereits im ersten Minibatch
-über `TARGET_KL` — der Early-Stop verwarf damit den Großteil jedes Batches:
+über `TARGET_KL`; der Early-Stop verwarf damit den Großteil jedes Batches:
 **16 Updates ergaben etwa 20–30 echte Gradientenschritte über 1200 Episoden.**
 Clipping begrenzt den Einfluss einzelner Samples, ohne das Vorzeichen des
 Lernsignals anzutasten; eine kleinere Lernrate hätte nur die überlebenden
@@ -536,13 +536,13 @@ Schritte weiter verkleinert.
 Trajektorie.** Wellen sind nicht unabhängig: der Spieler heilt nie, HP sind eine
 Einwegressource über den ganzen Run. Die alte Bandit-Rahmung zahlte den vollen
 Sweet-Spot-Reward den ganzen Weg nach unten und stellte am Ende einmal −3,5 in
-Rechnung — „den Spieler ausbluten und bei Wave 30 töten" punktete ~+83 und
+Rechnung: „den Spieler ausbluten und bei Wave 30 töten" punktete ~+83 und
 schlug jede nachhaltige Politik.
 
 ### Training-Loop
 
 1. Browser sendet den Game-State-Snapshot.
-2. Server baut zuerst die **Availability-Maske** — sie ist gleichzeitig Input
+2. Server baut zuerst die **Availability-Maske**; sie ist gleichzeitig Input
    (Wave-Context-Block) und Filter auf den Template-Output. Eine Quelle, damit
    beide nicht auseinanderlaufen können.
 3. Fährt ein nicht-lernender Director diesen Client, entscheidet er hier; sonst
@@ -560,7 +560,7 @@ schlug jede nachhaltige Politik.
 ### PPO-Update mit Maske
 
 `model.evaluate_action()` bekommt die ursprüngliche Template-Maske, damit
-geblockte Logits korrekt re-evaluiert werden — sonst erhielte das Netz
+geblockte Logits korrekt re-evaluiert werden, sonst erhielte das Netz
 Ratio-Werte für Templates, die es nie hätte wählen können.
 
 ---
@@ -579,7 +579,7 @@ Ratio-Werte für Templates, die es nie hätte wählen können.
 - **Template-Histogramm**
 - **Wave-Log + Training-Log**
 
-> Das Dashboard kennt den A/B-Roster **nicht** — es aggregiert über alle
+> Das Dashboard kennt den A/B-Roster **nicht**, es aggregiert über alle
 > Clients. Eine Aufschlüsselung nach Director geht nur über die JSONL-Logs.
 > Die Damage-Bänder (`DAMAGE_SWEET_MIN/MAX`, `DAMAGE_HARD_THRESHOLD`,
 > `PROGRESS_OVERFLOW_THRESHOLD`, `PROGRESS_NEAR_MISS_LOW/HIGH`) sind seit v4
@@ -601,10 +601,10 @@ Ratio-Werte für Templates, die es nie hätte wählen können.
 
 ### WebSocket-Events
 
-- `episode` — neuer Reward/Damage/Progress-Datenpunkt
-- `wave` — Wave-Ergebnis (Template, Count, Progress, Reward-Breakdown)
-- `stats` — Gesamt-Statistiken
-- `training_update` — PPO-Metriken (Loss, Entropy, Grad-Norm)
+- `episode`: neuer Reward/Damage/Progress-Datenpunkt
+- `wave`: Wave-Ergebnis (Template, Count, Progress, Reward-Breakdown)
+- `stats`: Gesamt-Statistiken
+- `training_update`: PPO-Metriken (Loss, Entropy, Grad-Norm)
 
 ---
 
@@ -679,7 +679,7 @@ Trainings-Workflow in [AI_WAVE_DIRECTOR_PLAN.md](../../docs/AI_WAVE_DIRECTOR_PLA
 Solange ein Training-Client verbunden ist, kommen die Wellen vom Server. Ohne
 Verbindung entscheidet der clientseitige Regel-Director.
 
-**Der Gegner:** `BOT_WEIGHTS = {"strategist": 1.0}` — es gibt derzeit genau
+**Der Gegner:** `BOT_WEIGHTS = {"strategist": 1.0}`: es gibt derzeit genau
 einen Bot. Alles, was ein Agent über dessen Schwächen lernt, ist gegen einen
 Menschen wertlos; das ist eine Obergrenze für den Aussagewert jeder Messung
 hier.
@@ -723,11 +723,11 @@ wurden:
 
 - `tests/test_gate_loop.py` ruft `server.steer_gate` **direkt** auf statt die
   Logik zu spiegeln. Die Vorgängerversion hatte den Regelkreis nachgebaut und
-  konnte deshalb nur mit dem übereinstimmen, wovon sie kopiert war — keiner der
+  konnte deshalb nur mit dem übereinstimmen, wovon sie kopiert war; keiner der
   beiden geschifften Gate-Bugs wäre auffindbar gewesen.
 - `tests/test_directors.py` prüft den Decoder-Contract. `template_probs` war bei
   den Nicht-Modell-Directors `None`, der Decoder warf auf jeder Wave, die
-  Exception wurde zu einer Default-Wave mit 10 Gegnern verschluckt — ein
+  Exception wurde zu einer Default-Wave mit 10 Gegnern verschluckt, ein
   A/B-Lauf meldete daraufhin drei flache Linien, die wie ein Befund über
   Strategien aussahen und ein fehlender Key waren.
 
@@ -765,7 +765,7 @@ Kurz-Timeline:
 - **Training-Refresh (2026-08)** Schema v2 → v3 (162 → 203 Features), Reward v4,
   Wave-Context-Block (`docs/HANDOVER_TRAINING_REFRESH.md`)
 - **Regel-Director (2026-09-07, aktuell)** Fairness-Gate als Regelkreis,
-  A/B-Roster, Advantage-Clipping — und das Ergebnis der Messung: das Spiel
+  A/B-Roster, Advantage-Clipping, dazu das Ergebnis der Messung: das Spiel
   läuft auf Regeln, das Backend ist ein Messinstrument
   (`docs/HANDOVER_RULE_DIRECTOR.md`)
 - **Chaos Tower (2026-09-12)** Schema v3 → v4 (203 → 207 Features): `chaos`
