@@ -752,8 +752,10 @@ abarbeiten.
      `Shader Error` (der Scheinwerfer-Shader ist neu). O, "Save screenshot":
      kein Fehler.
      **Befund (2026-09-14):** keine Fehler, aber der Scheinwerfer zeigt um
-     180° verkehrt (entgegen der Zielrichtung des Turrets). Fix folgt,
-     erneut prüfen.
+     180° verkehrt (entgegen der Zielrichtung des Turrets). Ursache:
+     `headingToSearchlightYaw` rechnete `PI - heading` statt `-heading`
+     (falsche Achsenannahme seit `7d1b8362`, auch der alte Schwenk war
+     verdreht). Fix `a7c29cca`, erneut prüfen, zusammen mit 549 bis 553.
 
 **Tipps und Forschung** (neues Spiel)
 
@@ -774,8 +776,13 @@ abarbeiten.
      "7/7", Kappen G und V. Oberer Knopf der Leiste (Münze), 1 000 Credits:
      keine Tipps mehr. Sidebar-Fuß "Tips": wieder "Build a tower", "1/7".
      **Befund (2026-09-14):** der Ablauf klappt, aber der Wiedereinstieg
-     beginnt immer bei "1/7", egal wie weit man war. Fix folgt, erneut
-     prüfen.
+     beginnt immer bei "1/7", egal wie weit man war. Ursache laut Code: der
+     Knopf "Tips" löschte alle erledigten Schritte; Reload, neues Spiel und
+     Ortswechsel behalten den Stand (Test). Fix `1d8d2aaa`: "Tips" beginnt
+     beim ersten Schritt, den das laufende Spiel noch nicht getan hat; hat es
+     alle sieben getan, kommt die ganze Runde ab 1/7. Erneut prüfen: Key
+     löschen, Archer, Welle 1, U, Welle 2: "4/7"; "Hide tips", dann "Tips":
+     wieder "4/7", nicht "1/7". Reload: kein "1/7".
 506. Key löschen und Reload wie in 502. Archer bauen, Cheat Credits,
      Welle 1 starten und darin ein Research Center bauen: noch in Welle 1
      erscheint "Start a research", "5/7" (bereit, sobald ein Center steht).
@@ -783,11 +790,12 @@ abarbeiten.
      Solange er steht, am Center "Research Wing" kaufen: der Tipp bleibt.
      Dann den Archer upgraden: wieder "Start a research", "5/7"; "Build a
      research center" erscheint auch nach Welle 2 nicht.
-     **Per Test verifiziert statt geklickt** (User-Wunsch 2026-09-14),
-     Ergebnis folgt.
+     **Per Test bestätigt** (`28aa82cc`, `onboarding-playtest.spec.ts`
+     "506: a research center built in wave 1, ...").
 507. Bei einem beliebigen Tipp "Hide tips": keine Tipps mehr, auch nicht
-     nach Welle 2 oder nach dem Research-Cheat. **Per Test verifiziert
-     statt geklickt** (User-Wunsch 2026-09-14), Ergebnis folgt.
+     nach Welle 2 oder nach dem Research-Cheat. **Per Test bestätigt**
+     (`28aa82cc`, "507: Hide tips at %i/7, no tip afterwards", alle sieben
+     Tipps).
 508. Neues Spiel, Cheat Credits, Research Center bauen und anklicken. Über
      "Siege Engineering" hovern und klicken: gesperrt, nicht klickbar,
      Tooltip nur "Requires: Gatling Technology", kein "· queue", keine Zeile
