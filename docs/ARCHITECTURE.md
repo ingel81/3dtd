@@ -1772,7 +1772,14 @@ zwei instanzierte Draw Calls für alle Portale:
   dort erst mit der Route gemessen wird. Die Route beginnt am Fußpunkt des Cursors auf dem
   nächsten Straßensegment, liegt der Fußpunkt keinen Meter vor einem Knoten, auf dem Knoten
   (`findPath`, `SegmentRoutes` in `utils/route-start.ts`). Die Vorschau folgt dem Cursor so
-  die Straße entlang. Bis 2026-09-14 begann die Route am ersten Knoten des Segments, bis zu
+  die Straße entlang. Sie gleitet je Frame zu der Pose der letzten Mausbewegung
+  (`updatePreview`, Zeitkonstante `PREVIEW_FOLLOW_S` 40 ms): ein Schritt, der Wechsel auf
+  eine andere Straße, eine Wende der Route oder eine neue Bodenhöhe ist nach rund 0,1 s zu
+  90 % eingeholt, statt zwischen zwei Mausbewegungen zu springen. Ein Klick setzt die Pose,
+  nicht das gerade Gezeigte; die Drehung mit R kommt ohne Verzögerung obendrauf. Die Routen
+  eines Segments werden gemerkt (A* höchstens zweimal je Segment), eine Bewegung wählt nur
+  den Start neu. Mausbewegungen innerhalb der 16-ms-Drossel gehen nicht mehr verloren, die
+  letzte kommt am Ende des Fensters durch (`InputHandlerService.handlePointerMove`). Bis 2026-09-14 begann die Route am ersten Knoten des Segments, bis zu
   eine Segmentlänge vom Klick entfernt. Wo keiner stehen darf, steht sie rot am Cursor und
   schaut zum HQ. R
   gehalten dreht sie mit 15°/s im Drehbereich (unten), an der Grenze bleibt sie stehen, der
