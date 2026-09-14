@@ -23,6 +23,15 @@ export function isOffscreenThreat(isBoss: boolean, pathProgress: number): boolea
   return isBoss || pathProgress >= NEAR_HQ_PROGRESS;
 }
 
+/**
+ * Whether an enemy of a boss type counts as a boss for the arrows. A worm is
+ * one boss: its head does, and after a split the head of each piece
+ * (Enemy.worm), not every ring behind it.
+ */
+export function isArrowBoss(isBossType: boolean, wormLink: { head: boolean } | null): boolean {
+  return isBossType && (wormLink === null || wormLink.head);
+}
+
 export interface OffscreenArrow {
   /** Position in px from the top left of the view */
   x: number;
