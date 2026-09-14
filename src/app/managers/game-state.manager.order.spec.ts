@@ -34,6 +34,7 @@ vi.mock('@angular/core', async () => {
 import { GameStateManager } from './game-state.manager';
 import { GameEventBus } from '../game-engine';
 import { GameObject } from '../core/game-object';
+import { withAutoStubs } from '../integration/test-helpers';
 import type { Tower } from '../entities/tower.entity';
 
 const log: string[] = [];
@@ -46,16 +47,6 @@ const logged = (label: string, ret?: unknown) => vi.fn(() => {
 let debugEnemies: unknown[] = [];
 /** Answers of checkWaveComplete, in call order; false once empty. */
 let waveCompleteAnswers: boolean[] = [];
-
-/** Any property the test does not set is a silent vi.fn(). */
-function withAutoStubs<T extends object>(target: T): T {
-  return new Proxy(target, {
-    get(obj, prop, receiver) {
-      if (!(prop in obj)) Reflect.set(obj, prop, vi.fn());
-      return Reflect.get(obj, prop, receiver);
-    },
-  });
-}
 
 function createStub(name: string): Record<string, unknown> {
   switch (name) {
