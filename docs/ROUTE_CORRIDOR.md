@@ -1,6 +1,6 @@
 # Routenkorridor
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-14
 
 Wie breit der Korridor aus Route-Zellen links und rechts der Mittellinie einer
 Route ist, woher die Breite kommt, wann sie gemessen und neu gebaut wird und
@@ -21,14 +21,14 @@ Route (vom Spawn zum HQ).
 | Waypoints | `path-route.service.ts:518-523` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts:262`) | 2-m-Zellen im Korridor |
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`) | Boden, Brückendeck, Tunnelsohle, Dach-Check |
-| Gegner | `MovementComponent` (`movement.component.ts:379-428`), `getRouteProfile` (`route-corridor.ts:559`) | Seitenversatz innerhalb der Zellen |
+| Gegner | `MovementComponent` (`movement.component.ts:379-428`), `getRouteProfile` (`route-corridor.ts:703`) | Seitenversatz innerhalb der Zellen |
 | Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `CorridorController` (`services/world/corridor-controller.ts:42-66`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
 
 ## Einstellungen
 
 Alle Werte stehen in `corridorConfig`, die Vorgaben in `CORRIDOR_DEFAULTS`
-(`route-corridor.ts:117-160`), die erlaubten Bereiche in `SETTING_RANGES`
-(`:188-209`). Routen und Grid lesen die Werte beim Bauen; eine Änderung wirkt
+(`route-corridor.ts:137-182`), die erlaubten Bereiche in `SETTING_RANGES`
+(`:211-234`). Routen und Grid lesen die Werte beim Bauen; eine Änderung wirkt
 erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 
 | Name | Vorgabe | Bereich | Wirkung |
@@ -51,7 +51,7 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 | `highwayWidths` | Tabelle unten | je bis 50 | Straßenbreite je `highway`-Klasse |
 | `unknownHighwayWidth`, `laneWidth`, `laneExtra` | 5, 3, 1 | 1 bis 50, 1 bis 10, 0 bis 10 | Breite unbekannter Klassen, Spurbreite, Zuschlag bei `lanes` |
 
-`MEASUREMENT_KEYS` (`route-corridor.ts:179-185`) sind die Werte, deren Änderung
+`MEASUREMENT_KEYS` (`route-corridor.ts:201-208`) sind die Werte, deren Änderung
 eine neue Messung braucht: `stationSpacing`, `rayHeightLow`, `rayHeightHigh`,
 `maxHalfWidth`, `maxTileError`, `overhangDepth` (der gespeicherte Freiraum
 entsteht beim Messen aus den Treffern). Die übrigen formen nur das Gemessene
@@ -86,7 +86,7 @@ Je Station (`TerrainQueries.measureStreetClearance`, `terrain-queries.ts:324-378
    meldet der Strahl seine volle Länge.
 
 Der Freiraum einer Seite ist der weitere der beiden ersten Treffer
-(`probeFreeSpace`, `route-corridor.ts:417`). Eine Wand ist also nur, was beide
+(`probeFreeSpace`, `route-corridor.ts:481`). Eine Wand ist also nur, was beide
 Strahlen stoppt: Fassade, Mauer, Stamm. Ein parkendes Auto, ein Transporter,
 eine Hecke oder ein Zaun stoppt nur den unteren, eine Baumkrone, Traufe oder ein
 Balkon nur den oberen; beides engt den Korridor nicht ein.
@@ -169,7 +169,7 @@ Waypoints, eine geschlossene Engstelle gilt also für beide.
 
 ## OSM-Breite als Rückfall und Deckel
 
-`estimateStreetWidth` (`route-corridor.ts:271-282`): der `width`-Tag, sonst
+`estimateStreetWidth` (`route-corridor.ts:296-307`): der `width`-Tag, sonst
 `lanes` × `laneWidth` + `laneExtra` (3 m je Spur plus 1 m), sonst die Tabelle je
 `highway`-Klasse, sonst `unknownHighwayWidth`. Die Halbbreite ist die halbe
 Breite, geklemmt auf [`minHalfWidth`, `maxHalfWidth`] (`corridorHalfWidth`).
@@ -191,7 +191,7 @@ Breite, geklemmt auf [`minHalfWidth`, `maxHalfWidth`] (`corridorHalfWidth`).
 | `cycleway`, `footway`, `path`, `bridleway`, `steps` | 2 |
 
 Ein Segment ohne Way (das Endstück zum HQ) übernimmt die Breite des Ways davor,
-ein Segment ohne Way davor `defaultHalfWidth` (`routeHalfWidths`, `:294-302`).
+ein Segment ohne Way davor `defaultHalfWidth` (`routeHalfWidths`, `:319-327`).
 
 Die OSM-Breite gilt:
 
@@ -274,7 +274,7 @@ unterste Treffer der feinsten LOD (`column-sample.ts`).
 
 Ausnahmen:
 
-- **Dach-Check** (`route-cell-sampler.ts:141-155`): Liegt die Probe einer
+- **Dach-Check** (`hitOf`, `route-cell-sampler.ts:273-278`): Liegt die Probe einer
   Zelle neben der Mittellinie mehr als `roofRise` (2,5 m) über dem Boden der
   Mittellinien-Zelle daneben, nimmt die Zelle diesen Boden und trägt
   `sample.clamped = true`. Die Säule hat dann ein Dach, eine Traufe oder eine
@@ -309,17 +309,17 @@ Ausnahmen:
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
   (`path-route.service.ts:464`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
-  (`route-cell-sampler.ts:136`). Erreicht auch ein Segment ohne Brücke dieselbe
+  (`route-cell-sampler.ts:268`). Erreicht auch ein Segment ohne Brücke dieselbe
   Zelle, bleibt sie am Boden (`route-grid-builder.ts:223-225`).
 - **Tunnel und überdachte Durchgänge:** `runsUnderCover`
-  (`route-corridor.ts:316`) gilt für `tunnel=*` außer `no` (also auch
+  (`route-corridor.ts:341`) gilt für `tunnel=*` außer `no` (also auch
   `building_passage`) und für `covered=yes`. Solche Segmente tragen `inTunnel`
   und werden nicht vermessen, es gilt die OSM-Breite. Ihre Zellen haben die
   Fläche `tunnel`.
   - **Höhe:** linear zwischen dem Boden an zwei Portalen, je 2 m vor den
     Mündungen des ganzen Tunnelstücks (`TUNNEL_PORTAL_OFFSET_M`,
     `tunnelSegments`, `route-grid-builder.ts:12-90`). Die Höhe hat die gröbere
-    LOD der beiden Portale (`tunnelColumn`, `route-cell-sampler.ts:237-249`).
+    LOD der beiden Portale (`tunnelColumn`, `route-cell-sampler.ts:390-401`).
   - **Ohne Portal-Tile:** Solange an einem der beiden Portale kein Tile
     liegt, bleibt die Zelle ohne Höhenprobe.
   - **Geteilte Zellen:** Erreicht ein Tunnelsegment eine Zelle, ist sie
@@ -338,7 +338,7 @@ Der Versatz in Metern ist Faktor mal die seitliche Grenze an der aktuellen
 Stelle, auf der Seite, auf der der Gegner läuft (`movement.component.ts:406-427`).
 
 - **Grenze eines Segments:** `lateralLimit(H) = max(0, H - edgeMargin)`
-  (`route-corridor.ts:523`). `edgeMargin` ist mindestens die halbe Diagonale
+  (`route-corridor.ts:667`). `edgeMargin` ist mindestens die halbe Diagonale
   einer 2-m-Zelle (1,41 m). Ein Gegner innerhalb der Grenze steht deshalb
   in einer Zelle, deren Mittelpunkt innerhalb `H` liegt, also in einer Zelle,
   die das Grid angelegt hat (`route-corridor.ts:37-44`).
@@ -348,7 +348,7 @@ Stelle, auf der Seite, auf der der Gegner läuft (`movement.component.ts:406-427
     Engstellen und Ecken ab.
 - **Übergänge:** Die Grenze an einem Waypoint ist die kleinere der beiden
   angrenzenden Segmente. Danach darf sie entlang der Route höchstens um
-  `taper` (0,5 m pro m) steigen (`buildSideLimits`, `route-corridor.ts:592-622`).
+  `taper` (0,5 m pro m) steigen (`buildSideLimits`, `route-corridor.ts:736-766`).
   Vor einer Engstelle rücken Gegner so allmählich ein, statt am ersten
   schmalen Waypoint seitlich zu springen.
 - **Mittellinie:** Unter 1,5 m Halbbreite ist die Grenze 0. An einer
