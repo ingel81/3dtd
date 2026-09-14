@@ -1,6 +1,6 @@
 # Enemy Model Budget
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-15 (Tabellen per `npm run model-budget` geprüft, unverändert)
 
 Was die Gegnermodelle die GPU kosten, aus den Modelldateien gerechnet, und ein Budget je
 Gegnerklasse. Die Tabellen unter [Messwerte](#messwerte) schreibt `npm run model-budget`
@@ -13,10 +13,13 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
 ## Kurzfassung
 
 - Die Blender-Runde vom 2026-09-13 hat zwölf Modelle geändert (`tools/blender/optimize_enemy.py`,
-  ein Rezept je Modell, siehe [Empfehlungen](#empfehlungen-je-modell)). Alle 20 Typen werden
-  beim Start gebacken (`preloadAllModels`); ihre VATs belegen zusammen 88,1 MB GPU-Speicher,
-  19 Typen als RGBA16F, der Stone Golem als RGBA32F (alles in RGBA32F wären 154,6 MB).
-  Vor der Runde waren es 264,2 MB, bis 2026-09-12 (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
+  ein Rezept je Modell, siehe [Empfehlungen](#empfehlungen-je-modell)). Beim Start backt das
+  Spiel jeden Typ außer der Ooze (`preloadAllModels`; ihr Körper ist ein Band, `slime.glb`
+  dient nur der Sidebar-Vorschau). Was die VATs zusammen belegen, steht als Summe unter
+  [Laufzeitkosten](#laufzeitkosten-pro-gegner), am 2026-09-15 88,2 MB (die Ooze mit 0,1 MB
+  eingerechnet), alle Typen RGBA16F außer dem Stone Golem (RGBA32F; alles in RGBA32F wären
+  154,9 MB). Vor der Runde waren es 264,2 MB, bis 2026-09-12 (RGBA32F, Todes-Clips ungekappt)
+  664,6 MB.
   Die Runde vom 2026-09-14 (Tank, Ghost, Mech) steht unter
   [Runde vom 2026-09-14](#runde-vom-2026-09-14).
 - Die teuersten Wellen nach Vertex-Last sind jetzt `rat_tide` (5,0 Mio.), `zombie_horde`
@@ -25,7 +28,8 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
   `hornet_strike` (14,9) und `zombie_horde` (14,4). Kein Template liegt über dem Richtwert von
   5 Mio.
 - Über dem Budget je Modell liegen noch Herbert (30.831 VAT-Vertices, höchstens drei pro
-  Welle), Wraith (8.126), Mech (5.416), Ghost (5.248), Bat, Spider und Penguin.
+  Welle), Wraith (8.126), Mammoth (5.557), Mech (5.416), Ghost (5.248), Bat, Spider und
+  Penguin.
 - Die Ratten-Animation ist seit der Runde nicht mehr exakt (siehe Rat). Bei den anderen
   geänderten Modellen backt three.js dieselben Posen wie vorher; sie weichen nur durch das
   Decimate ab und bei Dragon und Golem in den Blend-Frames am Loop-Ende.
@@ -213,6 +217,7 @@ jeweils die Hälfte, außer beim Stone Golem.
   auf Standhöhe, der Sturz beginnt bei etwa 3,25 s und endet bei etwa 5 s. Der Gegner
   verschwand also zuckend im Stehen (aus den Keyframes gelesen, nicht im Browser gesehen).
   Soll die Variante zurück, den Sturz in Blender herausschneiden (etwa 3,0 bis 5,0 s).
+  So geschehen in der Runde vom 2026-09-13, der Clip ist wieder im Pool (siehe Zombie v2 oben).
 - Wirkung: VAT 105,5 → rund 16 MB (5.000 Vertices), `zombie_horde` 14,4 → 9,1 Mio. (das
   alte Zombie bleibt der größere Posten, siehe Nr. 6).
 - Das Backup `zombie_v2.original.glb.bak`, auf das die TODO verweist, liegt nicht im
@@ -304,7 +309,8 @@ Code-seitig umgesetzt (2026-09-12):
   `idleAnimation` und der Idle-Knopf im Debug-Fenster sind entfernt, denn Idle lief nur dort.
   VAT 664,6 → 516,1 MB.
 - **`Electrocuted_Fall` aus dem zombie-v2-Pool**: Der Sturz käme erst nach dem Entfernen
-  (siehe Nr. 2). −61 Frames, −30,5 MB, VAT gesamt 485,6 MB.
+  (siehe Nr. 2). −61 Frames, −30,5 MB, VAT gesamt 485,6 MB. Seit der Runde vom 2026-09-13
+  ist der Clip auf den Sturz geschnitten wieder im Pool.
 
 Code-seitig umgesetzt (2026-09-13):
 
@@ -316,7 +322,7 @@ Code-seitig umgesetzt (2026-09-13):
 - **Opake VAT-Materialien** (`vatAlpha` in `vat-surface.ts`): Transparent sind nur noch Typen,
   deren Materialien Alpha brauchen. Bear (Alpha in der Textur), Ghost und Hornet (Opacity
   unter 1, beim Hornet die Flügel) blenden, Dragon schneidet mit `alphaTest` 0,5 aus
-  (glTF MASK), die übrigen 16 Typen zeichnen opak. `aOpacity` ist entfernt, es war immer 1.
+  (glTF MASK), die übrigen Typen zeichnen opak (Liste unter [Alpha](#alpha)). `aOpacity` ist entfernt, es war immer 1.
   Ob opak messbar schneller ist, ist nicht gemessen. Vorher verwarf der Shader bei jedem Typ
   Texel unter Alpha 0,05, opake Typen zeichnen sie jetzt deckend (wie three.js bei glTF
   OPAQUE). Keiner der ausgelieferten opaken Typen hat solche Texel in seiner Basisfarbe; der
@@ -363,7 +369,7 @@ Nicht in der Gegner-Config, deshalb nicht in den Tabellen unten; von Hand gemess
   Modelleinheiten, Blick nach +z. Der Knoten `Muzzle` hängt am Handknochen `Wrist.R`
   (three.js: `WristR`) an der Mündung.
 
-## Boss-Variante: Chitin-Wurm
+## Boss-Variante: Skarnax (Wurm)
 
 Modelle: `worm_head.glb` und `worm_segment.glb` (`tools/blender/worm_boss.py`, eigenes Werk
 ohne fremde Quellen), statische Meshes ohne Knochen und Clips, je eine 512²-Basisfarbe
