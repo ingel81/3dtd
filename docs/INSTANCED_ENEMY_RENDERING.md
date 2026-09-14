@@ -1,6 +1,6 @@
 # Instanced Enemy Rendering (VAT System)
 
-**Stand:** 2026-09-14 (Blutmond-Uniforms)
+**Stand:** 2026-09-15 (Doku-Abgleich: Stun- und Iced-Tint, Seiten, Typlisten per Verweis)
 
 GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert Draw Calls von ~2 pro Enemy auf ~1 pro Enemy-Typ.
 
@@ -12,7 +12,7 @@ Das frühere klassische Rendering (`ThreeEnemyRenderer`, entfernt in 2bbf91f) er
 
 | Komponente | Klassisch | Instanziert |
 |-----------|-----------|-------------|
-| 500 Enemies | ~1000 Draw Calls | ~14 Draw Calls |
+| 500 Enemies | ~1000 Draw Calls | ~14 Draw Calls (Messung 2026-03, hängt vom Wellenmix ab) |
 | Mesh-Rendering | 1 Object3D pro Enemy | 1 InstancedMesh pro Typ |
 | Health Bars | 1 Sprite pro Enemy | 1 InstancedBufferGeometry für alle (2 Passes) |
 | Animation | AnimationMixer pro Enemy | Per-Instance VAT Lookup im Shader |
@@ -73,8 +73,10 @@ Ohne SkinnedMesh oder ohne passenden Clip liefert `bakeVAT` `null`.
 ### Node-Animation (`bakeObjectAnimVAT`)
 
 Für Modelle, deren Clips starre Mesh-Teile per Node-Transform bewegen, statt Vertices über
-Skin-Gewichte zu verformen (Mech, Hornet, Skeleton). `InstancedEnemyRenderer` ruft es auf,
-wenn `bakeVAT` `null` liefert.
+Skin-Gewichte zu verformen, etwa Hornet und Skeleton. `bakeEnemyVAT` (vat-baker.ts) ruft es
+auf, wenn `bakeVAT` `null` liefert. Welcher Typ welchen Pfad nimmt, zeigt die generierte
+Spalte „Bake-Pfad“ in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte); der Mech
+backt seit der Runde vom 2026-09-14 über Skinning.
 
 1. Alle Non-Skinned Meshes sammeln und in eine Geometrie legen
 2. Pro Frame: `mixer.setTime(t)` und `updateMatrixWorld()`, dann für jedes Mesh `meshToRoot`
@@ -163,14 +165,16 @@ Das `+ 0.5` ist Texel-Center-Sampling (NearestFilter).
 ### CPU-Kopie und Context-Loss
 
 - `createPool` hängt `releaseTexels` an `onUpdate` der VAT-Textur. three ruft es direkt nach
-  dem Upload auf; danach liegt die VAT nur noch auf der GPU, die CPU-Kopie (für alle 19 Typen
-  zusammen 264 MB) ist frei.
+  dem Upload auf; danach liegt die VAT nur noch auf der GPU, die CPU-Kopie ist frei (zusammen
+  so viel, wie [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte) als VAT-Speicher aller
+  Typen nennt, ohne die Ooze, die keinen Pool hat).
 - Nach einem WebGL-Context-Loss legt three beim Restore alle GPU-Objekte neu an und lädt jede
   Textur beim nächsten Zeichnen aus ihrer CPU-Kopie. Für die VATs backt
   `InstancedEnemyRenderer.rebakeAfterContextRestore()` bei `webglcontextrestored` die
   freigegebenen Typen aus dem Asset-Cache neu und tauscht die Textur im Material, bevor ein
   Frame zeichnet (Listener aus `ThreeTilesEngine`, er läuft nach dem von three). Das kostet
-  die Bake-Zeit dieser Typen; in Node brauchen alle 19 zusammen rund 5 s.
+  die Bake-Zeit dieser Typen; vor der Blender-Runde vom 2026-09-13 (19 Typen, 264 MB VAT)
+  waren das in Node rund 5 s.
 - Einen zweiten Upload gibt es sonst nicht: Nur `createPositionTexture` setzt `needsUpdate`.
   Frames, Tints, Sichtbarkeit und `clear()` fassen die Textur nicht an (Spec), ein zweites
   `createPool` für denselben Typ wird ignoriert. Pools entstehen nur beim Bake; von außen
@@ -247,8 +251,11 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 | `aAnimFrame` | float | Aktueller VAT Frame |
 | `aTintColor` | vec3 | Tint-Overlay, 50 % gemischt (0,0,0 = keiner) |
 
-Tint-Priorität (`applyTint()`): Hit-Flash vor Freeze vor Burn vor Poison. Den Freeze-Tint
-schaltet die VFX-Einstellung `freezeTint` ab (`setFreezeTintEnabled()`).
+Tint-Priorität (`applyTint()`): Hit-Flash vor `iced` (Status `freeze`, eingefroren) vor
+`stunned` (Status `stun`) vor `frozen` (Slow des Ice Towers) vor Burn vor Poison. Den
+Slow-Tint schaltet die VFX-Einstellung `freezeTint` ab (`setFreezeTintEnabled()`), die Tints
+für `iced` und `stunned` bleiben. Die Status-Effekte selbst beschreibt
+[STATUS_EFFECTS.md](STATUS_EFFECTS.md).
 
 ### Alpha
 
@@ -265,8 +272,10 @@ behandelt, so wie three.js die Materialien zeichnen würde:
   der Map, per Canvas gelesen) zählt als opak. Lässt sich die Map nicht lesen, bleibt es beim
   Blending.
 - Ein Pool hat ein Material: Blendet ein Mesh, blendet der ganze Typ.
-- Stand 2026-09-13: Bear (Alpha in der Textur), Ghost und Hornet (Opacity unter 1, beim
-  Hornet die Flügel) blenden, Dragon ist Maske (Cutoff 0,5), die übrigen 15 Typen sind opak.
+- Welcher Typ welchen Modus bekommt, zeigt die generierte Tabelle „Alpha“ in
+  [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#alpha). Heute blenden Bear (Alpha in der
+  Textur), Ghost und Hornet (Opacity unter 1, beim Hornet die Flügel), Dragon ist Maske
+  (Cutoff 0,5), alle übrigen Typen sind opak.
 - Eine Opazität pro Instanz gibt es nicht, Gegner werden beim Tod nicht ausgeblendet.
 
 ### Beleuchtung
@@ -310,8 +319,9 @@ Tönung eigens, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen).
 
 `vatSide()` übernimmt die Seite aus den Materialien der gebackenen Meshes (glTF
 `doubleSided` → `DoubleSide`). Sind sie sich uneinig, zeichnet der Typ beide Seiten. Stand
-2026-09-13 zeichnen Bat, Dragon, Ghost, Herbert, Hornet, Mammoth, Mech, Penguin, Skeleton,
-Spider und Wraith beide Seiten, die übrigen acht Typen nur die Vorderseite.
+2026-09-15 (aus `doubleSided` der GLB-Materialien gelesen) zeichnen Bat, Dragon, Ghost,
+Herbert, Hornet, Mammoth, Mech, Penguin, Skeleton und Skeleton Minion, Spider, Wallsmasher
+und Wraith beide Seiten, die übrigen gebackenen Typen nur die Vorderseite.
 
 - Rückseiten beleuchtet der Shader mit umgedrehter Normale (`gl_FrontFacing`).
 - Kosten: Die Vertex-Arbeit mit dem VAT-Lesen bleibt gleich, gecullt wird erst danach. Dazu
@@ -341,8 +351,9 @@ Pro Enemy-Typ ein `TypePool`:
 ### Slot-Vergabe und Uploads
 
 Enemy-Pools, Health-Bars, die Projektil-Pools (`three-projectile.renderer.ts`), die
-Decal-Pools (`decal-instance.manager.ts`) und die Lightning-Bolts
-(`lightning-bolt.renderer.ts`) vergeben ihre Slots über
+Decal-Pools (`decal-instance.manager.ts`), die Lightning-Bolts
+(`lightning-bolt.renderer.ts`), die Suchscheinwerfer (`searchlight/searchlight.renderer.ts`)
+und die Tower-Abzeichen (`tower-badge/tower-badge.renderer.ts`) vergeben ihre Slots über
 `renderers/instance-slot-allocator.ts`:
 
 - Freie Slots kommen auf eine Free-List und werden vor dem Wachsen wieder vergeben.
@@ -402,7 +413,9 @@ interface EnemyInstanceState {
   speedMultiplier: number; // aktuelle Geschwindigkeit / Basisgeschwindigkeit
   isWalking: boolean;
   isDead: boolean;
-  frozen: boolean;
+  frozen: boolean;         // Slow (Ice Tower): Freeze-Tint, per freezeTint abschaltbar
+  iced: boolean;           // Status freeze (eingefroren): Iced-Tint
+  stunned: boolean;        // Status stun: Stun-Tint
   poisoned: boolean;
   burning: boolean;
   hitFlashEnd: number;     // performance.now() am Ende des Hit-Flash, 0 = keiner
@@ -465,7 +478,8 @@ instanziert, Bosse eingeschlossen; einen klassischen Renderer gibt es nicht mehr
 API: `create()`, `resolveSlot()` + `updateSlot()` (Push pro Render-Frame aus
 `EnemyManager.presentFrame()`), `remove()`, `setRenderType()`, `startWalkAnimation()`,
 `startRunAnimation()`, `playDeathAnimation()`, `updateAnimations()`, Status-Visuals
-(`setFreezeVisual()`, `setPoisonVisual()`, `setBurnVisual()`, `triggerHitFlash()`) und
+(`setFreezeVisual()`, `setIcedVisual()`, `setStunVisual()`, `setPoisonVisual()`,
+`setBurnVisual()`, `triggerHitFlash()`, `setFreezeTintEnabled()`), `setBloodMoon()` und
 `applyDebugOverrides()`.
 
 ### Pool-Wechsel (Wurm-Kopf)
@@ -491,20 +505,25 @@ await renderer.preloadAllModels();      // Alle Typen parallel
 
 ### Bake-Auswahl und Fehlerfälle
 
+`preloadAllModels()` backt jeden Typ aus `ENEMY_TYPES` außer der Ooze (`ooze`-Flag): Ihren
+Körper zeichnet `renderers/ooze/` als Band, ihre Klumpen (`slime-clump`) haben einen Pool.
+`bakeEnemyVAT()` (vat-baker.ts) wählt den Pfad:
+
 1. `hasAnimations` und Clips im Model → `bakeVAT`, bei `null` → `bakeObjectAnimVAT`
 2. sonst → `bakeStaticVAT`
 3. Clone oder Bake fehlgeschlagen → `console.error` ("... enemy type will not render"), kein
    Pool; `create()` liefert `null`, Gegner dieses Typs sind unsichtbar
 
 Nach dem Bake überschreibt `config.unlit` den erkannten `isUnlit`-Wert, und
-`registerEnemyModelCenterY()` (`utils/enemy-aim.util.ts`) bekommt die Modellmitte aus
-`modelMinY`/`modelMaxY`.
+`registerEnemyModelRangeY()` (`utils/enemy-aim.util.ts`) bekommt die senkrechte Ausdehnung
+`modelMinY`/`modelMaxY`. Daraus rechnet `getEnemyAimOffsetY()` den Zielpunkt der Tower
+(Mitte × `scale`), der Spawn-Portal-Pfad liest die ganze Spanne über `getEnemyModelRangeY()`.
 
 ---
 
 ## Geloeste Herausforderungen
 
-### 1. Grosse Vertex-Counts (Wallsmasher: 17010, Herbert: 30831)
+### 1. Grosse Vertex-Counts (damals Wallsmasher 17.010, heute noch Herbert 30.831)
 
 **Problem:** VAT DataTexture breiter als WebGL MAX_TEXTURE_SIZE (16384).
 **Loesung:** Texture Tiling - Vertices werden auf mehrere Zeilen verteilt (MAX_VAT_WIDTH = 8192).
@@ -561,6 +580,8 @@ Nach dem Bake überschreibt `config.unlit` den erkannten `isUnlit`-Wert, und
 ---
 
 ## Performance
+
+Messung aus dem März 2026 (Hardware und Wellenmix von damals):
 
 | Szenario | Draw Calls | JS-Zeit | FPS |
 |----------|-----------|---------|-----|
