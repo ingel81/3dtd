@@ -25,6 +25,10 @@ ueber fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
 - **Atompilz** (`MushroomCloudRenderer`): eigene instanzierte Billboards mit eigenen
   Materialien (beleuchteter Rauch, additive Glut) und ein Feuerball-Mesh, in Spielzeit,
   siehe [Atompilz](#atompilz-nuklearschlag).
+- **Frostbombe, EMP, Orbitallaser** (`FrostBurstRenderer`, `EmpPulseRenderer`,
+  `OrbitalBeamRenderer`): eigene Puffer in Spielzeit, siehe die Abschnitte unten.
+- **Ooze-Trümmer** (`OozeDebrisRenderer`): prozedurale Stücke, instanziert je Art, siehe
+  [Tod der Ooze](#tod-der-ooze).
 
 Pool-Limits und Effektwerte in `configs/visual-effects.config.ts` (`PARTICLE_LIMITS`,
 `BLOOD_DECAL_CONFIG`, `ICE_DECAL_CONFIG`, `SCORCH_DECAL_CONFIG`, `EXPLOSION_PRESETS`,
@@ -42,7 +46,8 @@ Zwei klassische Three.js `Points` mit unterschiedlichen Blending-Modi:
 - **Normal Pool**: Für Rauch, Staub, opake Partikel
 
 ShaderMaterial ist **default aktiv** (`useShaderMaterial = true`); per
-**P-Taste** kann auf `PointsMaterial` umgeschaltet werden (Fallback ohne
+**Shift+P** kann auf `PointsMaterial` umgeschaltet werden (P allein pausiert,
+`hotkey-map.ts`; Fallback ohne
 Per-Partikel-Groessen, mit harten Quadrat-Kanten).
 
 ### Free-Lists (O(1) Allocation)
@@ -71,105 +76,17 @@ Render-Liste (`DrawGate` aus `renderers/draw-gate.ts`, gesetzt in
 Instanzen. Der Lade-Warm-up zeichnet sie einmal, damit Shader und Uploads nicht
 in die erste Welle fallen.
 
-## Grundlagen: Was ist ein Partikelsystem?
+## Grundlagen: PointsMaterial und ShaderMaterial
 
-Ein **Partikelsystem** ist eine Technik, um viele kleine Objekte (Partikel) effizient zu rendern. Statt tausende einzelne 3D-Objekte zu verwalten, werden alle Partikel in einem einzigen Objekt (`THREE.Points`) zusammengefasst.
+Die Trail-Pools sind je ein `THREE.Points`: Die CPU schreibt jeden Frame Position, Farbe,
+Größe und Lebenszeit aller Partikel in Puffer, die GPU zeichnet alle Punkte eines Pools in
+einem Draw Call. Wie ein Punkt aussieht, bestimmt das Material:
 
-**Jedes Partikel hat eigene Eigenschaften:**
-- Position (x, y, z)
-- Geschwindigkeit (velocity)
-- Farbe
-- Größe
-- Lebensdauer
-
-**Die CPU** berechnet jeden Frame die neuen Positionen und schreibt sie in einen Puffer.
-**Die GPU** rendert dann alle Punkte auf einmal - extrem schnell.
-
-## PointsMaterial vs ShaderMaterial - Für Laien erklärt
-
-Beide Ansätze rendern das **gleiche Partikelsystem**. Der Unterschied liegt nur darin, **wie** die GPU die Punkte malt.
-
-### Was ist ein Shader überhaupt?
-
-Ein **Shader** ist ein kleines Programm, das auf der **Grafikkarte (GPU)** läuft. Er bestimmt, wie etwas auf dem Bildschirm aussieht.
-
-```
-Material = "Wie soll das aussehen?" (Farbe, Transparenz, Glanz...)
-Shader   = "Das Programm, das es tatsächlich malt" (läuft auf GPU)
-```
-
-**Jedes Material hat intern einen Shader:**
-- `PointsMaterial` → Three.js liefert einen fertigen Standard-Shader
-- `ShaderMaterial` → Wir schreiben den Shader selbst
-
-**Shader bestehen aus zwei Teilen:**
-1. **Vertex Shader**: Berechnet, WO jeder Punkt auf dem Bildschirm erscheint
-2. **Fragment Shader**: Berechnet, WELCHE FARBE jeder Pixel hat
-
-```
-Vertex Shader:    "Wo sitzt der Punkt?"     → Position auf Bildschirm
-Fragment Shader:  "Wie sieht er aus?"       → Farbe, Transparenz, Form
-```
-
-**Also ja: Shader sind quasi die "Rezepte", nach denen die GPU Materialien malt.**
-Bei PointsMaterial bekommen wir ein Fertigrezept, bei ShaderMaterial kochen wir selbst.
-
-### PointsMaterial (Three.js Standard)
-
-```
-CPU berechnet: Position, Farbe, Größe, Lifetime
-     ↓
-Three.js übersetzt das in GPU-Befehle (automatisch)
-     ↓
-GPU malt quadratische Punkte
-```
-
-**Vorteile:**
-- Einfach zu benutzen
-- Funktioniert immer (auch mit 3D Tiles)
-- Automatische Kompatibilität mit allen Renderer-Features
-
-**Nachteile:**
-- **Alle Partikel haben die gleiche Größe** (globale `size` Property)
-- Keine weichen Kanten (harte Quadrate)
-- Kein individuelles Aussehen pro Partikel
-
-### ShaderMaterial (Custom GPU Code)
-
-```
-CPU berechnet: Position, Farbe, Größe, Lifetime
-     ↓
-EIGENER Shader-Code läuft auf der GPU
-     ↓
-GPU malt Partikel nach unseren Regeln
-```
-
-**Vorteile:**
-- **Jedes Partikel kann eigene Größe haben** (Größen-Fadeout möglich!)
-- Weiche, runde Kanten (soft edges via `smoothstep`)
-- Volle kreative Kontrolle über das Aussehen
-- Bessere visuelle Qualität
-
-**Nachteile:**
-- Komplexer zu implementieren
-- Muss speziellen Code für Features wie Log-Depth-Buffer enthalten
-
-### Visueller Vergleich
-
-```
-PointsMaterial:          ShaderMaterial:
-┌──┐  ┌──┐  ┌──┐         ●    ◦    ○
-│  │  │  │  │  │        groß klein mittel
-└──┘  └──┘  └──┘
- alle gleich groß        individuelle Größen
- harte Kanten            weiche Kanten
-```
-
-### Warum ShaderMaterial besser ist für Effekte
-
-1. **Rauch expandiert**: Rauchpartikel starten klein und werden größer → nur mit ShaderMaterial
-2. **Funken schrumpfen**: Funken starten groß und werden kleiner → nur mit ShaderMaterial
-3. **Weiche Wolken**: Runde, weiche Ränder statt pixelige Quadrate → nur mit ShaderMaterial
+| | `PointsMaterial` (three.js) | `ShaderMaterial` (eigener Shader, Standard) |
+|---|---|---|
+| Größe | eine für alle (`size`) | je Partikel (`size`-Attribut): Rauch wächst, Funken schrumpfen |
+| Kanten | harte Quadrate | weich und rund (`smoothstep`) |
+| Log-Depth | eingebaut | braucht die `logdepthbuf`-Chunks, siehe unten |
 
 ### Das Log-Depth-Buffer Problem (gelöst)
 
@@ -212,7 +129,7 @@ PointsMaterial:          ShaderMaterial:
 
 ### Fallback: PointsMaterial
 
-Mit **P-Taste** kann auf PointsMaterial umgeschaltet werden (keine Per-Partikel-Größen, keine Soft Edges).
+Mit **Shift+P** kann auf PointsMaterial umgeschaltet werden (keine Per-Partikel-Größen, keine Soft Edges).
 
 ## Technische Details: Der Log-Depth-Buffer Fix
 
@@ -386,7 +303,8 @@ bullet: {
 ### Keyboard Shortcuts
 
 - **T**: Toggle 3D Tiles Sichtbarkeit (zum Debuggen von Rendering-Problemen)
-- **P**: Toggle zwischen PointsMaterial und ShaderMaterial für Trail-Partikel
+- **Shift+P**: Toggle zwischen PointsMaterial und ShaderMaterial für Trail-Partikel
+  (`input-handler.service.ts`; P allein pausiert das Spiel)
   - PointsMaterial: Funktioniert immer, aber keine Per-Partikel-Größen
   - ShaderMaterial: Per-Partikel-Größen und Soft Edges, erfordert Log-Depth-Support
 
@@ -416,7 +334,7 @@ typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
 | `spawnExplosion(localX, localY, localZ, count, radius, smokePuffs)` | Zweistufige Feuer-Atlas-Explosion am lokalen Punkt, siehe unten |
 | `spawnExplosionAtGeo(lat, lon, h, count, radius, smokePuffs)` | Dasselbe an Geo-Position |
 | `spawnIceExplosionAtGeo(lat, lon, h, count)` | Runder Funken-Burst, Palette `BURST_PALETTES.ice` |
-| `spawnBurstAtGeo(lat, lon, h, count, palette)` | Gleicher Burst in einer Palette aus `BURST_PALETTES`: `arcane` (Arcane Orb, Violett/Cyan), `chaos` (Chaos Orb, Violett/Magenta), `poison` (Poison Glob, Grün) |
+| `spawnBurstAtGeo(lat, lon, h, count, palette)` | Gleicher Burst in einer Palette aus `BURST_PALETTES`: `arcane` (Arcane Orb und Runengeschoss des Helden, Violett/Cyan), `chaos` (Chaos Orb, Violett/Magenta), `poison` (Poison Glob, Grün), `bone` (`enemy:split`), `slime` (Blasen der sterbenden Ooze), `stun` (Funken betäubter Gegner, `STUN_SPARKS`) |
 | `spawnMuzzleFlash(localX, localY, localZ, profile)` | Muendungsfeuer, Anzahl/Größe/Dauer aus `MUZZLE_FLASH_PROFILES` |
 | `spawnConfigurableTrail(localX, localY, localZ, config)` | Projektil-Trail nach `TrailParticleConfig`, Pool nach `blending`, `trailType: 'spiral'` für die Arcane-Orb-Spirale |
 | `spawnFloatingText(...)` | GPU-instanced Floating Damage Number |
@@ -442,9 +360,11 @@ ausblendet.
 |-----------|-------------------|--------|-------------|
 | `rocket` und Typen mit `homing` | 50 | 8 m (Preset, rein optisch) | 6 |
 | `cannonball` | 50 | `splashRadius` des Projektils (6 m), Fallback Preset 6 m | 5 |
-| `bullet` | 2 | keiner, also `referenceRadius` (6 m) | 0 |
+| `bullet`, `hero-round` | 2 | keiner, also `referenceRadius` (6 m) | 0 |
+| `hero-shell` (Sprenggeschoss des Helden, Preset `heroShell`) | 12 | 2,5 m (rein optisch) | 1 |
 
-Poison Glob, Arcane Orb und Chaos Orb bekommen statt dessen einen Funken-Burst, siehe
+Poison Glob, Arcane Orb, Chaos Orb und das Runengeschoss des Helden (`hero-rune`, 8
+Funken in der Arcane-Palette) bekommen statt dessen einen Funken-Burst, siehe
 [VFXService](#vfxservice-event-bridge).
 
 1. **Feuerball, ab dem Einschlag:** `count` additive Sprites aus dem Explosions-Atlas,
@@ -730,7 +650,7 @@ Durchmesser der Aufrufer sind so gewählt, dass die Fläche gleich bleibt
 ## Screen Shake
 
 `ScreenShakeService` (`game-engine/`) wählt Stärke und Dauer, `ThreeTilesEngine`
-zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG`, Stand 2026-09-12:
+zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG` und `ABILITY_IMPACT_SHAKE`, Stand 2026-09-15:
 
 - **Umsetzung:** ein Versatz der Projektionsmatrix im Bildraum, nur für den Draw eines
   Frames (`drawFrame`). Er wird nach `tilesRenderer.update()` gesetzt und danach mit
@@ -742,7 +662,10 @@ zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG`, Stand 2026-09-12:
 - **Stärke:** Anteil der Bildhöhe (0,005 ≈ 5 px bei 1080p), linear auf 0 über die
   Dauer, nach Wanduhr statt pro Frame (der alte Abbau pro Frame nahm 60 FPS an).
   Cannon 0,0025 / 150 ms, Rocket 0,005 / 200 ms, HQ-Schaden 0,0025 × 0,5 bis 2 /
-  300 ms, Boss-Tod 0,004 / 400 ms, Nuklearschlag 0,014 / 1600 ms (seit 2026-09-13).
+  300 ms, Boss-Tod 0,004 / 400 ms. Fähigkeiten beim `ability:impact`: Nuklearschlag
+  0,017 / 2200 ms, etwa so lang wie sein Donner (2,4 s, `utils/nuke-sound.ts`; bis
+  2026-09-13 0,008 / 700 ms, bis zum Playtest 2 0,014 / 1600 ms), Frostbombe
+  0,004 / 350 ms, EMP 0,005 / 450 ms, Orbitallaser 0,003 / 1200 ms.
   Kalibriert auf den alten Meter-Shake: Einschläge wie aus 150 m Kameraabstand
   gesehen, HQ und Boss wie aus 425 m (Startkamera).
 - **HQ-Schaden gedrosselt:** höchstens ein Shake je `hqDamageMinIntervalMs` (900 ms
@@ -754,10 +677,12 @@ zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG`, Stand 2026-09-12:
   sofort; die Amplitude bleibt beim geklemmten Faktor.
 - **Nur nahe Einschläge:** volle Stärke bis 40 m Abstand zwischen Kamera und
   Einschlag (`nearDistance`), dann linear weniger bis 0 ab 100 m (`farDistance`,
-  `shakeFalloff`). Es schütteln nur Cannon- und Rocket-Einschläge (auch `homing`-Typen).
-  HQ-Schaden und Boss-Tod schütteln unabhängig vom Ort. Der Nuklearschlag nimmt mit
-  eigener Reichweite ab: voll bis 350 m, keiner ab 1500 m (`strikeNearDistance`,
-  `strikeFarDistance`), aus der Übersichtskamera (etwa 425 m) gut 90 %.
+  `shakeFalloff`). Von den Projektilen schütteln nur Cannon- und Rocket-Einschläge (auch
+  `homing`-Typen). HQ-Schaden und Boss-Tod schütteln unabhängig vom Ort. Der
+  Nuklearschlag nimmt mit eigener Reichweite ab: voll bis 350 m, keiner ab 1500 m
+  (`strikeNearDistance`, `strikeFarDistance`), aus der Übersichtskamera (etwa 425 m) gut
+  90 %. Die anderen Fähigkeiten: voll bis 150 m, keiner ab 700 m (`abilityNearDistance`,
+  `abilityFarDistance`), aus der Übersichtskamera etwa die Hälfte.
 - **Überlagerung:** Der stärkere laufende Shake gewinnt, ein schwächerer, der
   währenddessen kommt, entfällt (`ScreenShake.trigger` in `three-engine/screen-shake.ts`).
 
@@ -830,11 +755,21 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
   dessen einen Funken-Burst (`spawnBurstAtGeo` mit ihrer Palette aus
   `BURST_PALETTES`); `ice-shard` und `arrow` nichts, der Eis-Burst kommt vom Treffer
   selbst (`CombatVfxService.emitIceExplosion`). Bei `rocket` (auch `homing`-Typen) und
-  `cannonball` zusätzlich `markScorch`, siehe [Kampfspuren](#kampfspuren-scorch-decals)
+  `cannonball` zusätzlich `markScorch`, siehe [Kampfspuren](#kampfspuren-scorch-decals).
+  Geschosse des Helden: `hero-round` wie `bullet`, `hero-shell` eine kleine Explosion
+  (`EXPLOSION_PRESETS.heroShell`), `hero-rune` ein Funken-Burst in der Arcane-Palette
 - `enemy:split` → Knochen-Burst (`BURST_PALETTES.bone`) einen Meter über dem Elternteil,
   außer bei der Ooze: deren Trümmer kommen beim Kollaps aus dem ganzen Körper, siehe
   [Tod der Ooze](#tod-der-ooze). Ein blutender Elternteil spritzt zusätzlich in seiner
   Blutfarbe, wo jedes Kind landet
+- `ability:used` / `ability:impact` → je Fähigkeit (`abilityVfx`): beim Einsatz der
+  Zielmarker (beim Orbitallaser mit dem Band der Route, die er fegt); beim Einschlag
+  Atompilz und Brandflecken (Nuklearschlag), Frostausbruch und Eis-Decals (Frostbombe),
+  Puls (EMP) oder Strahl mit Brandspur (Orbitallaser). Abläufe in
+  [ABILITIES.md](ABILITIES.md)
+- `game:reset` → Marker, Pilze, Frostausbrüche, Pulse und Strahlen weg (`clearStrikes`)
+- `hero:level-up` → "LEVEL N" in Gold als Floating Text über dem Kopf des Helden
+  (`HERO_LEVEL_UP_TEXT`)
 - `vfx:chain-lightning` → ein Blitz pro aufeinanderfolgendem Punktpaar
   (`lightningBolts.spawnBolt` mit `attachLight`, additiver Halo am Blitzende); der
   Bloom-Pass bleibt unberührt
@@ -857,6 +792,7 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/particle-effects-renderer.ts` | Combat-VFX (Blood, Fire, Explosion mit Rauchstufe, Funken-Bursts, Trails, Muzzle), Decals, `activeEffects`-Lifecycle |
 | `three-engine/renderers/environment-effects-renderer.ts` | HQ-Explosion, Fire-Flash, Tower-Inner-Fire |
 | `three-engine/renderers/aura-renderer.ts` | Orbitierende Frost-/Poison-Status-Auren |
+| `three-engine/renderers/ground-decals.ts` | `GroundDecals`: die Blut-, Eis- und Brand-Decal-Pools samt Blutmond-Tönung, gehört zu `ParticleEffectsRenderer` |
 | `three-engine/renderers/decal-instance.manager.ts` | GPU-instanced Blood/Ice/Scorch-Decals |
 | `three-engine/renderers/decal-shaders.ts` | Decal-Shader (Fade, Color-Variation) |
 | `three-engine/renderers/scorch-marks.ts` | Kampfspuren: eine pro Route-Zelle, Verstärken bei Wiederholung |
@@ -868,11 +804,17 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/sprite-atlas-generator.ts` | Sprite-Sheet-Atlanten (Explosion 4×4, Smoke 4×4) |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Nuklearschlags, in Spielzeit |
 | `three-engine/renderers/mushroom-cloud-shape.ts`, `-sprites.ts`, `-fireball.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Teile des Atompilzes: Form, Billboards und Billow-Atlas, Feuerball, Glut, Rauch, Bodenlicht/Ring/Kuppel/Blitz |
+| `three-engine/post-processing/bloom-kick.ts` | `BloomKick`: kurzes Aufhellen des Bloom-Passes beim Blitz des Atompilzes, danach die alten Werte zurück |
+| `three-engine/renderers/frost-burst.renderer.ts` | Frostbombe: Blitz, Ring, Reif, Eissplitter, Nebel |
+| `three-engine/renderers/emp-pulse.renderer.ts` | EMP: Blitz, zwei Fronten, Hülle, Funken |
+| `three-engine/renderers/orbital-beam.renderer.ts` | Orbitallaser: Säule, Fuß, Ring, Blitz, Funken, Brandspur |
+| `three-engine/renderers/effect-buffers.ts` | Puffer-Helfer der Fähigkeiten-Renderer und des Reichweitenrings (`particleBuffer`, `commitParticles`, `radialTexture`, `reach`, `unpickable`) |
+| `three-engine/renderers/ooze/ooze-band.renderer.ts` | Körper der Ooze als Band, sein Kollaps beim Tod (`collapse()`) |
 | `three-engine/renderers/ooze/ooze-death-plan.ts` | Tod der Ooze: was der Kollaps wann und wo loslässt (`planOozeDeath`, `oozeMessCounts`) |
 | `three-engine/renderers/ooze/ooze-debris.renderer.ts` | Tod der Ooze: prozedurale Trümmer, instanziert je Art, Flug, Aufprall, Liegen, Einsinken |
 | `configs/projectile-types.config.ts` | Trail-Partikel Konfiguration (TrailParticleConfig) |
 | `configs/visual-effects.config.ts` | Partikel-Limits, Decal-Configs, Explosion-Presets, Farben |
-| `game-engine/vfx.service.ts` | VFX Event Handler (Blood, Explosion, Muzzle-Flash, Projectile Impact) |
+| `game-engine/vfx.service.ts` | VFX Event Handler (Blood, Explosion, Muzzle-Flash, Projectile Impact, Split, Fähigkeiten, Level-up des Helden) |
 | `three-engine/vfx-settings.ts` | Spieler-Schalter und Presets Low/Medium/High, siehe [VFX-Einstellungen](#vfx-einstellungen) |
 | `game-engine/screen-shake.service.ts` | Screen Shake: Preset je Ereignis, Abfall mit dem Kameraabstand |
 | `three-engine/screen-shake.ts` | Hüllkurve (`ScreenShake`) und Projektionsversatz (`offsetProjection`) |
