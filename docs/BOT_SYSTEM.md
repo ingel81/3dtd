@@ -1,6 +1,6 @@
 # Bot System — Dokumentation
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-15
 **Code:** `src/app/ai/training/`
 
 ## Überblick
@@ -78,7 +78,11 @@ src/app/ai/training/
 └── strategies/
     ├── tower-strategy.interface.ts  # ITowerStrategy, BaseStrategy (+ Tower-Bewertung)
     ├── ability/
-    │   └── nuclear-strike.strategy.ts              # 97
+    │   ├── ability-aim.ts                          # Zielhilfen (densestCenter), geteilt
+    │   ├── nuclear-strike.strategy.ts              # 97
+    │   ├── frost-bomb.strategy.ts                  # 96
+    │   ├── emp.strategy.ts                         # 94
+    │   └── orbital-laser.strategy.ts               # 93
     ├── placement/
     │   ├── research-center-placement.strategy.ts   # 95
     │   ├── anti-air-placement.strategy.ts          # 90
@@ -220,9 +224,9 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 |---:|---|:--:|:--:|:--:|:--:|
 | 97 | NuclearStrike | ✓ | ✓ | ✓ | ✓ |
 | 96 | FrostBomb | ✓ | ✓ | ✓ | ✓ |
+| 95 | ResearchCenterPlacement | ✓ | ✓ | ✓ | ✓ |
 | 94 | Emp | ✓ | ✓ | ✓ | ✓ |
 | 93 | OrbitalLaser | ✓ | ✓ | ✓ | ✓ |
-| 95 | ResearchCenterPlacement | ✓ | ✓ | ✓ | ✓ |
 | 90 | AntiAirPlacement | | ✓ | ✓ | ✓ |
 | 88 | AntiEtherealPlacement | | ✓ | ✓ | ✓ |
 | 85 | SplashDefensePlacement | | ✓ | ✓ | ✓ |
@@ -311,8 +315,10 @@ ist und ihre Prereqs erfüllt sind.
   daraus nichts kommt, greift die statische Liste
   (`gatling-tech → ice-magic → tentacle-biology → siege-engineering → rocketry →
   aa-retrofit → arcane-studies → toxic-compounds → fire-alchemy →
-  advanced-weaponry → nuclear-strike → storm-mastery → master-engineering → chaos-rift →
-  advanced-engineering → transcendent-tech`), die am Wave-Curriculum ausgerichtet ist: AA fertig vor
+  advanced-weaponry → nuclear-strike → frost-bomb → storm-mastery → emp →
+  master-engineering → orbital-laser → chaos-rift → advanced-engineering →
+  transcendent-tech`, `research-pick.strategy.ts`), die am Wave-Curriculum
+  ausgerichtet ist: AA fertig vor
   `bat_swarm` (W7), Cannon vor `boss_herbert` (W10), Magic vor `ghost_surge`
   (W13).
 - **Keine Stufe** erforscht `mercenary-contract` (Held, [HERO.md](HERO.md)):
@@ -427,9 +433,51 @@ Fähigkeit für 1.000 Gold und setzen sie ein. Ihre Läufe sind mit Läufen vor 
 Forschungsfolge, weniger Lecks in Wellen mit Einsatz. Beginner und casual
 erforschen sie nie und spielen unverändert. Das Fairness-Gate bucht die Kills
 als Leck, im Frontend wie im Backend (`gate_leak_share`), die Wellengröße
-wächst also nicht durch den Einsatz. Außerdem verschiebt der sechzehnte
-Forschungsknoten das Encoder-Merkmal `research_progress` (abgeschlossen durch
-gesamt) für alle Bots.
+wächst also nicht durch den Einsatz. Das Encoder-Merkmal `research_progress`
+(abgeschlossen durch gesamt) zählt seit 2026-09-14 nur die elf Knoten, die das
+Modell kennt (`ENCODER_RESEARCH_IDS`); neue Knoten wie dieser verschieben es
+nicht ([AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md), Abschnitt 7).
+
+### FrostBomb (96)
+
+Wirft die Frostbombe ([ABILITIES.md](ABILITIES.md#frostbombe-in-zahlen)):
+während einer Welle, sobald sie bereit ist, und nur, wenn irgendwo in der
+zweiten Hälfte der Route (Pfadfortschritt ab 0,5) mindestens 8 Gegner im
+Radius von 20 m um einen von ihnen stehen. Ziel ist dieser Gegner, gewählt wie
+beim Nuklearschlag (`densestCenter` in `strategies/ability/ability-aim.ts`,
+höchstens 48 Kandidaten). Steht beides bereit, geht der Nuklearschlag (97)
+vor.
+
+**Vergleichbarkeit:** strategist und meta erforschen `frost-bomb` direkt nach
+`nuclear-strike` (700 Gold). Ihre Läufe sind mit Läufen vor dem 2026-09-14
+nicht direkt vergleichbar; beginner und casual spielen unverändert.
+
+### Emp (94)
+
+Setzt das EMP ein ([ABILITIES.md](ABILITIES.md#emp-in-zahlen)): während einer
+Welle, sobald es bereit ist, wenn mindestens 3 Maschinen (`mechanical`) ab
+Pfadfortschritt 0,4 im Radius von 30 m um eine von ihnen stehen, dort stoppt
+es sie 6 s; sonst, wenn mindestens 12 Gegner beliebiger Art in den letzten
+40 % der Route (Pfadfortschritt ab 0,6) im Radius um einen stehen. Ziel ist die
+Maschine mit den meisten Maschinen im Radius, sonst der Gegner der Menge mit
+den meisten anderen (`densestCenter`).
+
+**Vergleichbarkeit:** strategist und meta erforschen `emp` direkt nach
+`storm-mastery` (800 Gold). Beginner und casual spielen unverändert.
+
+### OrbitalLaser (93)
+
+Ruft den Orbitallaser ([ABILITIES.md](ABILITIES.md#orbitallaser-in-zahlen)):
+während einer Welle, sobald er bereit ist, wenn ein Gegner ab Pfadfortschritt
+0,5 auf derselben Route mindestens 10 Gegner hinter sich hat, höchstens 72 m
+zurück (so weit brennt der Strahl Richtung Spawn). Ziel ist der Gegner mit den
+meisten dahinter; geprüft werden höchstens 48 Kandidaten. Die Zählung nimmt
+die Strecke auf der Mittellinie und prüft nicht, ob ein Gegner seitlich
+außerhalb der 5 m des Strahls läuft.
+
+**Vergleichbarkeit:** strategist und meta erforschen `orbital-laser` direkt
+nach `master-engineering` (1.500 Gold). Beginner und casual spielen
+unverändert.
 
 ### AutoStartWave — 30
 
@@ -668,47 +716,6 @@ Erwartetes Symptom, wenn PathCoverageUpgrade nicht durchkommt (Tier-Gate, keine
 bezahlbaren Upgrades) und die Platzierungsstrategien am Turm-Cap hängen. Die
 90 %-Feuerrate ab 2000 Credits und SellUnderperformer sind die Gegenmaßnahmen;
 beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
-
-### FrostBomb (96)
-
-Wirft die Frostbombe ([ABILITIES.md](ABILITIES.md#frostbombe-in-zahlen)):
-während einer Welle, sobald sie bereit ist, und nur, wenn irgendwo in der
-zweiten Hälfte der Route (Pfadfortschritt ab 0,5) mindestens 8 Gegner im
-Radius von 20 m um einen von ihnen stehen. Ziel ist dieser Gegner, gewählt wie
-beim Nuklearschlag (`densestCenter` in `strategies/ability/ability-aim.ts`,
-höchstens 48 Kandidaten). Steht beides bereit, geht der Nuklearschlag (97)
-vor.
-
-**Vergleichbarkeit:** strategist und meta erforschen `frost-bomb` direkt nach
-`nuclear-strike` (700 Gold). Ihre Läufe sind mit Läufen vor dem 2026-09-14
-nicht direkt vergleichbar; beginner und casual spielen unverändert.
-
-### Emp (94)
-
-Setzt das EMP ein ([ABILITIES.md](ABILITIES.md#emp-in-zahlen)): während einer
-Welle, sobald es bereit ist, wenn mindestens 3 Maschinen (`mechanical`) ab
-Pfadfortschritt 0,4 im Radius von 30 m um eine von ihnen stehen, dort stoppt
-es sie 6 s; sonst, wenn mindestens 12 Gegner beliebiger Art in den letzten
-40 % der Route (Pfadfortschritt ab 0,6) im Radius um einen stehen. Ziel ist die
-Maschine mit den meisten Maschinen im Radius, sonst der Gegner der Menge mit
-den meisten anderen (`densestCenter`).
-
-**Vergleichbarkeit:** strategist und meta erforschen `emp` direkt nach
-`storm-mastery` (800 Gold). Beginner und casual spielen unverändert.
-
-### OrbitalLaser (93)
-
-Ruft den Orbitallaser ([ABILITIES.md](ABILITIES.md#orbitallaser-in-zahlen)):
-während einer Welle, sobald er bereit ist, wenn ein Gegner ab Pfadfortschritt
-0,5 auf derselben Route mindestens 10 Gegner hinter sich hat, höchstens 72 m
-zurück (so weit brennt der Strahl Richtung Spawn). Ziel ist der Gegner mit den
-meisten dahinter; geprüft werden höchstens 48 Kandidaten. Die Zählung nimmt
-die Strecke auf der Mittellinie und prüft nicht, ob ein Gegner seitlich
-außerhalb der 5 m des Strahls läuft.
-
-**Vergleichbarkeit:** strategist und meta erforschen `orbital-laser` direkt
-nach `master-engineering` (1.500 Gold). Beginner und casual spielen
-unverändert.
 
 ---
 
