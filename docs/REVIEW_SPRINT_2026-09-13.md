@@ -757,13 +757,16 @@ steht unter "Bugfixes".
 ## Playtest-Liste
 
 **Stand 2026-09-14 (nach der Fix-Session):** Die offenen Punkte 117, 121,
-142, 144, 151, 154 bis 231 und 238 sind vorsortiert in
+142, 144, 151, 154 bis 231 und 238, dazu die alten Punkte 53 und 14, sind
+vorsortiert in
 `tmp/fix1/reports/sorter-night1.md` (Code-Stand `509aaed0`): 17 überholt,
 32 per Szenario-Test prüfbar (verifyE), 29 für den User in den Runden O bis
 T, 7 gemischt. Die Erwartungen zu 176, 178 und 205 bis 209 sind dort an den
 neuen Korridor angepasst (keine orangen Zellen mehr). 157 bleibt in TODO 1.4.
-Alte Liste 14 (Paris-Brücke) ist mit `corridor2` behoben und hat dort eine
-Nachtest-Frage.
+Für alte Liste 14 (Paris-Brücke) gibt es einen Fix aus dem Code
+(`427443a6`, corridor2), belegt durch Specs, im Browser ungesehen; offen ist
+H2 (kurze Zufahrts-Ways ohne Brücken-Tag noch über dem Kai). Nachtest-Frage
+in Runde O.
 
 Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst. Die neuen Punkte
 beginnen bei 101, damit sie sich nicht mit der alten Liste überschneiden.
