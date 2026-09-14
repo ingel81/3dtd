@@ -16,13 +16,13 @@ npm run lint
 ## Architektur
 
 - Angular 22 Standalone Components (nur UI)
-- Three.js + 3DTilesRendererJS fuer 3D-Rendering
+- Three.js + 3DTilesRendererJS für 3D-Rendering
 - **Event-driven Game Engine** - Manager kommunizieren via GameEventBus
 - **Signal Store** - 6 Sub-Stores als Single Source of Truth (Game, UI, Engine, Location, Research, Debug)
-- Kein Backend im Spiel-Client - komplett clientseitig (Python-Backend nur fuer AI-Training)
+- Kein Backend im Spiel-Client - komplett clientseitig (Python-Backend nur für AI-Training)
 - **Wave-Director ist regelbasiert** (`ai/core/rule-director.ts` + `gate-controller.ts`),
-  laeuft ohne Server, ohne Modell, ohne ONNX-Runtime. Das ONNX-Modell ist Opt-in
-  im Debug-Fenster - Begruendung in [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)
+  läuft ohne Server, ohne Modell, ohne ONNX-Runtime. Das ONNX-Modell ist Opt-in
+  im Debug-Fenster - Begründung in [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)
 - Tile-Zugang: Cesium-Ion-Token (Standard) oder Google-Maps-Key. `ConfigService` liest ihn aus drei Quellen, die
   spätere gewinnt: `environment.ts` (Vorlage `environment.template.ts`), `public/runtime-config.json`, Token-Dialog
   (localStorage `3dtd-tile-credentials`)
@@ -59,11 +59,11 @@ src/app/
 ├── utils/                      # Shared Utilities (geo-utils, damage-calculator, global-route-grid, route-corridor)
 └── workers/                    # Web Workers (Pathfinding, Heartbeat)
 
-training-backend/               # Python Training Backend (nur fuer Trainingslaeufe)
+training-backend/               # Python Training Backend (nur für Trainingsläufe)
 ├── server.py                   # WebSocket Server (:3001), Decoder, A/B-Verteilung
 ├── manage_server.py            # Start/Stop/Status als Hintergrundprozess
 ├── directors.py                # Austauschbare Wave-Designer (model/rules/random/maxgate)
-├── schema.py                   # Laedt generated/ai-schema.json (Templates, Curriculum, Masken)
+├── schema.py                   # Lädt generated/ai-schema.json (Templates, Curriculum, Masken)
 ├── config.py                   # Hyperparameter, DIRECTOR_ROSTER
 ├── core/
 │   ├── model.py                # Neural Network (Conv1D + Dense, State 208 → 36 Outputs)
@@ -95,7 +95,7 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 
 | Dokument | Beschreibung |
 |----------|--------------|
-| [INDEX.md](docs/INDEX.md) | Uebersicht aller Dokumentationen |
+| [INDEX.md](docs/INDEX.md) | Übersicht aller Dokumentationen |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System-Architektur & Design |
 | [EVENT_SYSTEM.md](docs/EVENT_SYSTEM.md) | Event Bus & Manager-Kommunikation |
 | [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) | UI Design System |
@@ -112,7 +112,7 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 | [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
 | [DEVWORLD.md](docs/DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung |
 | [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md) | Routenkorridor: Breite je Seite aus den Tiles, OSM-Rückfall, Dach-Check, Brücken/Tunnel, CorridorRefit, `__corridor.*` |
-| [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md) | Game Design (Schadenstypen, Ruestung, Balance) |
+| [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md) | Game Design (Schadenstypen, Rüstung, Balance) |
 | [BALANCE_PROPOSAL_2026-09.md](docs/game-design/BALANCE_PROPOSAL_2026-09.md) | Balance-Vorschlag (Upgrade-Kurven, Cannon, Matrix, Boss-Takt), im Sprint 2026-09-11 umgesetzt, offene Fragen am Ende |
 | [PLAYER_AGENCY_CONCEPT.md](docs/game-design/PLAYER_AGENCY_CONCEPT.md) | _Konzept:_ Spielerfähigkeiten und Held; Entscheidung 2026-09-12 in Abschnitt 7 |
 | [HERO.md](docs/HERO.md) | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition, Fairness-Gate, Bedienung (G, V) |
@@ -136,10 +136,10 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 | [HANDOVER_RULE_DIRECTOR.md](docs/HANDOVER_RULE_DIRECTOR.md) | Umstellung auf den Regel-Director (2026-09-07), Messreihe, Einstieg für späteres Training |
 | [BOT_SYSTEM.md](docs/BOT_SYSTEM.md) | Strategy-Based Bot System (Gegenspieler im Training) |
 | [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md) | _Historisch:_ Balance-Stand von Phase 5.16, überholt durch HANDOVER_TRAINING_REFRESH |
-| [PHASE_5.11_RANGES.md](docs/PHASE_5.11_RANGES.md) | Range-Templates + Decoder-Constraints (Mechanik gilt; Modell-als-Director ist ueberholt) |
+| [PHASE_5.11_RANGES.md](docs/PHASE_5.11_RANGES.md) | Range-Templates + Decoder-Constraints (Mechanik gilt; Modell-als-Director ist überholt) |
 | [STATIC_WAVE_FALLBACK.md](docs/STATIC_WAVE_FALLBACK.md) | Debug-Pfad ohne Director (STATIC_WAVE_PROFILES) |
 | [PHASE_5.10_TEMPLATES.md](docs/archive/PHASE_5.10_TEMPLATES.md) | _Historisch:_ superseded by 5.11 (weitere überholte Docs in `docs/archive/`) |
-| **Training Backend** (`training-backend/`, nur fuer Trainingslaeufe) | |
+| **Training Backend** (`training-backend/`, nur für Trainingsläufe) | |
 | [AI_TRAINING_BACKEND.md](training-backend/docs/AI_TRAINING_BACKEND.md) | PPO, State-Encoder, Reward, Decoder-Constraints, A/B-Directors |
 | [HANDOVER_TRAINING_REFRESH.md](docs/HANDOVER_TRAINING_REFRESH.md) | Backend-Refresh: Befunde + Grundsatzentscheidungen |
 | [AI_TRAINING_SESSION_NOTES.md](training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte v1→v3.5 + Phase-5.x-Index |
