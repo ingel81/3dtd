@@ -35,6 +35,8 @@
              [attr.aria-valuetext]="time() + ' of ' + duration()"
              (pointerdown)="replay.beginScrub()"
              (input)="onScrub($event)"
+             (pointerup)="replay.endScrub()"
+             (pointercancel)="replay.endScrub()"
              (change)="replay.endScrub()">
     </div>
 
