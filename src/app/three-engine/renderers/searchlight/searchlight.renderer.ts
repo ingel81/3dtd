@@ -54,11 +54,13 @@ export function searchlightLampHeight(config: SearchlightTowerConfig): number | 
 
 /**
  * Yaw of the beam's axis for a geo heading (0 = north, clockwise). The cone
- * points along +Z; the scene has X east and Z south, so heading h lies at
- * (sin h, 0, -cos h), which a turn of PI - h about Y gives.
+ * points along +Z; the scene has -X east and +Z north
+ * (EllipsoidSync.geoToLocalSimple), so heading h lies at (-sin h, 0, cos h),
+ * which a turn of -h about Y gives. The turret takes the same -h
+ * (headingToLocalRotation).
  */
 export function headingToSearchlightYaw(heading: number): number {
-  return Math.PI - heading;
+  return -heading;
 }
 
 /**
