@@ -341,9 +341,12 @@ Die Ooze hat kein Modell und keinen `movingSound`. Ihre Sounds spielt `OozeSound
   Enemy-Budget, zwölf Zombies können den Boss nicht stumm schalten.
 - **Pause:** `GameStateManager` meldet Pause und Weiterspielen über
   `SpatialAudioManager.holdLoops()`. Das gilt für alle Loops, nicht nur die der Ooze: Laufgeräusche
-  der Gegner, Flammen und Blubbern stehen, ein in der Pause erzeugter Loop (die Kamera fährt an
-  eine Ooze heran) startet pausiert. Beim Weiterspielen laufen die Loops in Hörweite weiter,
-  Gegner-Loops soweit das Budget reicht; die übrigen beim nächsten Positions-Update wie gehabt.
+  der Gegner, Flammen und Blubbern stehen. Fährt die Kamera in der Pause an eine Ooze heran, entsteht
+  dort noch kein Loop: `presentFrame` und damit `OozeSounds.follow` laufen nur in Frames mit
+  mindestens einem Sub-Step (`GameStateManager.update`), in der Pause also nicht. Der Loop entsteht
+  mit dem ersten Frame nach dem Fortsetzen. Ein `createLoop`, das erst in der Pause fertig wird (etwa
+  weil es beim Pausieren noch lud), startet pausiert. Beim Weiterspielen laufen die Loops in Hörweite
+  weiter, Gegner-Loops soweit das Budget reicht; die übrigen beim nächsten Positions-Update wie gehabt.
   Boss-Intro und Replay pausieren über denselben Weg (`GameStore.paused`).
 - **One-Shots:** Splat beim Kill am Körperpunkt nächst dem Listener, Schlürfen alle 3 m
   Körper, die in die HQ fließen (der erste Meter sofort). Beide gehen als `audio:play`
