@@ -631,6 +631,30 @@ describe('PathAndRouteService route geometry', () => {
           expect(widths()).toEqual([4.5, 4.5, 4.5, 4.5, 2.75, undefined]);
         });
 
+        it('tells how far an open run is, and nothing once it is committed or cancelled', () => {
+          vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          clearanceAt = () => 5.2;
+          const service = buildRouteService(network, spawn, hq);
+          expect(service.clearanceProgress()).toBeNull();
+
+          const run = service.beginClearanceMeasurement();
+          const total = service.clearanceProgress()!.total;
+          expect(total).toBeGreaterThan(2);
+          expect(service.clearanceProgress()).toEqual({ done: 0, total });
+          run.step(0);
+          run.step(0);
+          expect(service.clearanceProgress()).toEqual({ done: 2, total });
+          run.step(Infinity);
+          run.commit();
+          expect(service.clearanceProgress()).toBeNull();
+
+          const other = buildRouteService(network, spawn, hq);
+          const cancelled = other.beginClearanceMeasurement();
+          cancelled.step(0);
+          cancelled.cancel('a tower');
+          expect(other.clearanceProgress()).toBeNull();
+        });
+
         it('gives the same corridor as one go when a tower or a wave has it finish at once', () => {
           const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
           clearanceAt = facades;

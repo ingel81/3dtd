@@ -18,6 +18,7 @@ import { RouteAnimationService } from '../world/route-animation.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { LocationChangeCoordinatorService } from '../location/location-change-coordinator.service';
 import { MapPlacementService } from '../world/map-placement.service';
+import { RelocationStatusService } from '../world/relocation-status.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { VizCallbacks } from './location-facade.service';
@@ -62,6 +63,13 @@ describe('MapRelocationService', () => {
     clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn(), setPortalHeading: vi.fn(),
   });
   let markerViz: ReturnType<typeof noop>;
+  const relocationStatus = {
+    show: vi.fn(),
+    clear: vi.fn(),
+    painted: vi.fn(async () => undefined),
+    followCorridor: vi.fn(),
+  };
+  const clearanceProgress = vi.fn((): { done: number; total: number } | null => null);
 
   const click = async (mode: 'hq' | 'spawn', at: { lat: number; lon: number }) => {
     placementClick = { mode, ...at };
@@ -104,13 +112,17 @@ describe('MapRelocationService', () => {
       providers: [
         { provide: OsmStreetService, useValue: osm },
         { provide: MarkerVisualizationService, useValue: markerViz },
-        { provide: PathAndRouteService, useValue: { clearAllRoutes: vi.fn(), clearCachedPaths: vi.fn(), getCachedPaths: () => cachedPaths } },
+        {
+          provide: PathAndRouteService,
+          useValue: { clearAllRoutes: vi.fn(), clearCachedPaths: vi.fn(), getCachedPaths: () => cachedPaths, clearanceProgress },
+        },
         { provide: LocationManagementService, useValue: { setLocation: vi.fn() } },
         { provide: HeightUpdateService, useValue: { stopHeightUpdates: vi.fn() } },
         { provide: RouteAnimationService, useValue: { stopAnimation: vi.fn(), startAnimation: vi.fn() } },
         { provide: StreetRenderingService, useValue: { dispose: vi.fn() } },
         { provide: LocationChangeCoordinatorService, useValue: coordinator },
         { provide: MapPlacementService, useValue: mapPlacement },
+        { provide: RelocationStatusService, useValue: relocationStatus },
         { provide: TowerDefenseStore, useValue: store },
       ],
     });
@@ -154,6 +166,49 @@ describe('MapRelocationService', () => {
     osm.findRandomStreetPoint.mockReturnValue({ lat: 48.785, lon: 9.195, streetName: 'Neckarstraße' });
     await click('hq', INSIDE);
     expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(/ route=0\.0 random=\d+\.\d .* spawnFrom=random spawns=1$/);
+  });
+
+  it('shows the hint and lets it paint before the work, then follows the corridor measurement', async () => {
+    await click('hq', INSIDE);
+
+    expect(relocationStatus.show).toHaveBeenCalledWith('Moving HQ', 'Finding the route');
+    expect(relocationStatus.painted.mock.invocationCallOrder[0])
+      .toBeLessThan(gameState.reset.mock.invocationCallOrder[0]);
+    expect(relocationStatus.followCorridor).toHaveBeenCalledTimes(1);
+    expect(viz.fitCorridorToTiles.mock.invocationCallOrder[0])
+      .toBeLessThan(relocationStatus.followCorridor.mock.invocationCallOrder[0]);
+
+    // It follows the route service's measurement and sums up the wait at its end.
+    const [progress, done] = relocationStatus.followCorridor.mock.calls[0] as unknown as [() => unknown, () => void];
+    clearanceProgress.mockReturnValueOnce({ done: 3, total: 12 });
+    expect(progress()).toEqual({ done: 3, total: 12 });
+    done();
+    expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(
+      /^\[Relocation\] HQ done: paint=\d+\.\d work=\d+\.\d corridor=\d+\.\d total=\d+\.\dms$/,
+    );
+  });
+
+  it('takes the hint back when the component went away while it painted', async () => {
+    relocationStatus.painted.mockImplementationOnce(async () => {
+      host.context.mockReturnValue(null);
+    });
+
+    await click('hq', INSIDE);
+
+    expect(relocationStatus.clear).toHaveBeenCalled();
+    expect(gameState.reset).not.toHaveBeenCalled();
+    expect(relocationStatus.followCorridor).not.toHaveBeenCalled();
+  });
+
+  it('shows the hint while the streets load and leaves the rest to the loading screen', async () => {
+    osm.loadStreets.mockResolvedValue({ streets: [{}], bounds: BOUNDS });
+
+    await click('hq', OUTSIDE);
+
+    expect(relocationStatus.show).toHaveBeenCalledWith('Moving HQ', 'Loading streets');
+    expect(relocationStatus.show.mock.invocationCallOrder[0]).toBeLessThan(osm.loadStreets.mock.invocationCallOrder[0]);
+    expect(relocationStatus.clear.mock.invocationCallOrder[0])
+      .toBeLessThan(coordinator.applyNewLocation.mock.invocationCallOrder[0]);
   });
 
   it('logs how long the streets and the spawn took before a full change', async () => {

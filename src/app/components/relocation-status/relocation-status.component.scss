@@ -1,0 +1,74 @@
+@use '../../styles/td-mixins' as td;
+
+/* Over the canvas where the blood moon banner shows, below the HUD column
+   at the top; never in the way of a click. The two do not meet: moving the
+   HQ resets the game, a blood moon starts with a wave. */
+:host {
+  position: absolute;
+  top: 18%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Glass chip like the blood moon banner, the move HQ pin in gold */
+.rls {
+  @include td.bevel-glass;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+  padding: 8px 18px 10px 12px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rls-icon {
+  color: var(--td-gold);
+}
+
+.rls-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rls-title {
+  font: 600 12px/14px var(--td-font-body);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--td-text-primary);
+}
+
+.rls-step {
+  font: 10px/12px var(--td-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-muted);
+}
+
+.rls-percent {
+  margin-left: 4px;
+  color: var(--td-text-secondary);
+}
+
+/* How much of the corridor is measured: 2px along the bottom edge, like the
+   bar of the wave button */
+.rls-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(194, 160, 85, 0.18);
+}
+
+.rls-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--td-gold);
+  transition: width 0.2s linear;
+}

@@ -32,6 +32,7 @@ import { WaveDebugService } from '../debug/wave-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
 import { LocationChangeCoordinatorService, LocationFlowDelegate } from '../location/location-change-coordinator.service';
 import { MapPlacementService } from '../world/map-placement.service';
+import { RelocationStatusService } from '../world/relocation-status.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
@@ -243,6 +244,11 @@ describe('LocationFacadeService', () => {
         { provide: DebugFacadeService, useValue: debugFacade },
         { provide: LocationChangeCoordinatorService, useValue: coordinator },
         { provide: MapPlacementService, useValue: mapPlacement },
+        // The hint while the HQ moves; map-relocation.service.spec.ts covers it
+        {
+          provide: RelocationStatusService,
+          useValue: { show: vi.fn(), clear: vi.fn(), painted: vi.fn(async () => undefined), followCorridor: vi.fn() },
+        },
         { provide: TowerPlacementService, useValue: {} },
         { provide: MatDialog, useValue: dialog },
         { provide: TowerDefenseStore, useValue: store },
