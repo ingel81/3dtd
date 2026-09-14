@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
-import { Group, Mesh, MeshBasicMaterial, MeshPhongMaterial, PlaneGeometry, Vector2, Vector3 } from 'three';
+import { Group, Vector2 } from 'three';
 
 // Only their DI tokens are needed, as in game-loop-facade.service.spec.ts
 vi.mock('../boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
@@ -36,6 +36,7 @@ import {
   spawnPortalPose,
 } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { MAX_MANUAL_SPAWN_DISTANCE, MIN_MANUAL_SPAWN_DISTANCE } from '../../configs/map-constants.config';
+import { makeGeoToLocal, fakePortalPreview } from '../../../test/portal-preview-fixture';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { ThreeTilesEngine } from '../../three-engine';
@@ -53,18 +54,7 @@ const STREET = [
 /** Turn of the preview while R is held (map-placement.service.ts TURN_SPEED): 15 degrees a second */
 const TURN_SPEED = Math.PI / 12;
 
-/** 0.001 degree = 100 m, +X west, +Z north, like the engine's frame. */
-function geoToLocal(lat: number, lon: number, height: number): Vector3 {
-  return new Vector3((HQ.lon - lon) * 1e5, height, (lat - HQ.lat) * 1e5);
-}
-
-/** A stand-in for the portal preview, as in map-placement.service.spec.ts */
-function fakePortalPreview(color: number): Group {
-  const group = new Group();
-  group.add(new Mesh(new PlaneGeometry(), new MeshPhongMaterial({ color })));
-  group.add(new Mesh(new PlaneGeometry(), new MeshBasicMaterial({ color })));
-  return group;
-}
+const geoToLocal = makeGeoToLocal(HQ);
 
 /** The portal on STREET as it will stand, and how far R may turn it */
 const STREET_POINTS = STREET.map((node) => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
-import { Color, Group, Mesh, MeshBasicMaterial, MeshPhongMaterial, PlaneGeometry, Vector2, Vector3 } from 'three';
+import { Color, Group, Mesh, MeshPhongMaterial, Vector2 } from 'three';
 import { MapPlacementService } from './map-placement.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { OsmStreetService } from '../location/osm-street.service';
@@ -21,6 +21,7 @@ import {
 import { haversineDistance } from '../../utils/geo-utils';
 import { SegmentRoutes } from '../../utils/route-start';
 import { raycastStats } from '../../utils/raycast-stats';
+import { makeGeoToLocal, fakePortalPreview } from '../../../test/portal-preview-fixture';
 
 const HQ = { lat: 48.9, lon: 9.2 };
 /** The box the streets were loaded for: 0.01 degree around the HQ. */
@@ -39,18 +40,7 @@ const STREET = [
 /** The way STREET belongs to, as findNearestStreetPoint names it. */
 const STREET_WAY = { id: 7, name: 'Street', type: 'residential', nodes: STREET };
 
-/** 0.001 degree = 100 m, +X west, +Z north, like the engine's frame. */
-function geoToLocal(lat: number, lon: number, height: number): Vector3 {
-  return new Vector3((HQ.lon - lon) * 1e5, height, (lat - HQ.lat) * 1e5);
-}
-
-/** A stand-in for the portal preview: a frame in Phong and a surface in Basic, as createPortalPreview builds it. */
-function fakePortalPreview(color: number): Group {
-  const group = new Group();
-  group.add(new Mesh(new PlaneGeometry(), new MeshPhongMaterial({ color })));
-  group.add(new Mesh(new PlaneGeometry(), new MeshBasicMaterial({ color })));
-  return group;
-}
+const geoToLocal = makeGeoToLocal(HQ);
 
 /** The portal on STREET as MarkerVisualizationService would stand it, and its turn range. */
 const STREET_POINTS = STREET.map((node) => {
