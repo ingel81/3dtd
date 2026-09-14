@@ -1,7 +1,7 @@
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { RouteCell } from './route-cell';
 import { RouteCellSampler } from './route-cell-sampler';
-import { corridorConfig } from './route-corridor';
+import { corridorConfig, walkWidth } from './route-corridor';
 import { type RouteCellLattice, jointCap, segmentTouchesCell } from './route-grid-builder';
 
 /**
@@ -312,12 +312,21 @@ export interface WalkCaps {
   right: number[];
 }
 
+/** Share of a station's length within which a spot counts as right at its end, for rounding in the local projection. */
+const ALONG_EPSILON = 1e-6;
+
 /** A line from (ax, az) to (bx, bz), local. */
 interface Line {
   ax: number;
   az: number;
   bx: number;
   bz: number;
+}
+
+/** One station of a route in walkCaps: its segment `i`, its index `k` there and its stretch of the segment. */
+interface CapStation extends Line {
+  i: number;
+  k: number;
 }
 
 /**
@@ -336,6 +345,15 @@ interface Line {
  * default), plus a centimetre, so no piece claims the spot once its station
  * is capped. A spot a centre line runs through stays: the corridor claims
  * that cell at any width.
+ *
+ * That margin holds while the capped half width is at least `edgeMargin`.
+ * Below it the enemies' limit there is 0, and the round end of the station
+ * next to it still reaches half a cell diagonal times hypot(1, taper), 1.58 m
+ * by default (jointCap): a car cell 1.5 m off the line, next to where two
+ * stations meet, stayed (playtest 2026-09-14). So, once the stations along
+ * the spots are capped, every station whose round end at a joint with
+ * narrower neighbour would still reach a spot is capped short of it as well,
+ * until none does (roundEndsOff).
  */
 export function walkCaps(route: readonly WalkCapSegment[], spots: readonly WalkSpot[], cellSize: number): WalkCaps[] {
   const overshoot = Math.max(0, cellSize * Math.SQRT1_2 * Math.hypot(1, corridorConfig.taper) - corridorConfig.edgeMargin);
@@ -350,11 +368,13 @@ export function walkCaps(route: readonly WalkCapSegment[], spots: readonly WalkS
   const first = (s: WalkCapSegment, side: 'left' | 'right') => s[side][0];
   const last = (s: WalkCapSegment, side: 'left' | 'right') => s[side][s[side].length - 1];
 
+  const kept: WalkSpot[] = [];
   for (const spot of spots) {
     const gx = Math.floor(spot.x / cellSize);
     const gz = Math.floor(spot.z / cellSize);
     const through = (s: Line) => segmentTouchesCell(cellSize, { x: s.ax, z: s.az }, { x: s.bx, z: s.bz }, gx, gz);
     if (route.some(through)) continue;
+    kept.push(spot);
     const places = route.map((s) => placeOn(s, spot.x, spot.z));
     for (let i = 0; i < route.length; i++) {
       const segment = route[i];
@@ -380,7 +400,74 @@ export function walkCaps(route: readonly WalkCapSegment[], spots: readonly WalkS
       }
     }
   }
+  roundEndsOff(route, kept, caps, cellSize);
   return caps;
+}
+
+/**
+ * Cap every station whose round end at a joint would still reach one of
+ * `spots` short of it, see walkCaps. A joint is where two segments meet,
+ * or inside a segment where two stations get different half widths on
+ * either side: the fitting makes a piece of each run of stations equal on
+ * both sides. Where only the other side changes, the round end on this
+ * side keeps the full half width of its neighbour and can reach over a
+ * short piece into a stretch narrowed on this side (a tree crown over the
+ * street, capped on both sides, playtest Erlenbach). The
+ * half width of a station is taken as the one in use or its cap, whichever
+ * is smaller, rounded down to `widthStep` as the corridor fitting does. The
+ * cap is the distance of the spot to the joint less a centimetre: the round
+ * end of a station reaches at most its own half width (jointCap). Repeated
+ * until no station changes, as a cap makes new joints.
+ */
+function roundEndsOff(route: readonly WalkCapSegment[], spots: readonly WalkSpot[], caps: WalkCaps[], cellSize: number): void {
+  if (spots.length === 0) return;
+  const stations: CapStation[] = [];
+  route.forEach((s, i) => {
+    for (let k = 0; k < s.stations; k++) {
+      const f0 = k / s.stations;
+      const f1 = (k + 1) / s.stations;
+      stations.push({
+        i, k,
+        ax: s.ax + (s.bx - s.ax) * f0, az: s.az + (s.bz - s.az) * f0,
+        bx: s.ax + (s.bx - s.ax) * f1, bz: s.az + (s.bz - s.az) * f1,
+      });
+    }
+  });
+  const width = (st: CapStation, side: 'left' | 'right') => Math.min(route[st.i][side][st.k], walkWidth(caps[st.i][side][st.k]));
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let s = 0; s < stations.length; s++) {
+      const st = stations[s];
+      for (const q of [s - 1, s + 1]) {
+        const other = stations[q];
+        // Neighbours along the route; across a segment without stations (a tunnel) there are none.
+        if (!other || Math.abs(other.i - st.i) > 1) continue;
+        for (const spot of spots) {
+          const { along, distance, side } = placeOn(st, spot.x, spot.z);
+          // At or past the end of the station that meets `other`. Right at
+          // the joint the piece claims with its own half width
+          // (claimSegmentCells takes along 0 and 1 as along its length):
+          // a cell centre on the line across the joint, as where stations
+          // meet at an odd metre.
+          const beyond = q < s ? -along : along - 1;
+          if (beyond < -ALONG_EPSILON) continue;
+          // Within a segment, stations equal on both sides are one piece: no joint.
+          const same = (s: 'left' | 'right') => width(st, s) === width(other, s);
+          if (other.i === st.i && same('left') && same('right')) continue;
+          const own = width(st, side);
+          const next = width(other, side);
+          const radius = beyond <= ALONG_EPSILON ? own : jointCap(own, next, cellSize);
+          if (distance > radius) continue;
+          const capped = Math.max(0, distance - 0.01);
+          if (capped >= caps[st.i][side][st.k]) continue;
+          caps[st.i][side][st.k] = capped;
+          changed = true;
+        }
+      }
+    }
+  }
 }
 
 /** Where (x, z) lies from `segment`: how far along it (0 to 1 over its length), how far off it and on which side. */
