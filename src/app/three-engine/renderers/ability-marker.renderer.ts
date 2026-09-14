@@ -255,6 +255,7 @@ export class AbilityMarkerRenderer {
   dispose(): void {
     this.clear();
     this.disposeAim();
+    this.disposeAimPath();
     this.ringGeometry.dispose();
     this.countdownGeometry.dispose();
     this.discGeometry.dispose();
@@ -266,6 +267,15 @@ export class AbilityMarkerRenderer {
       this.aim.edge.dispose();
       this.aim.fill.dispose();
       this.aim = null;
+    }
+  }
+
+  /** The aim band is made once and reused by every showAim(), hideAim() only hides it. */
+  private disposeAimPath(): void {
+    if (this.aimPath) {
+      this.scene.remove(this.aimPath.mesh);
+      this.aimPath.dispose();
+      this.aimPath = null;
     }
   }
 

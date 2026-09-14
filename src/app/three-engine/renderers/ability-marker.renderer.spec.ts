@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BufferGeometry, Group, Mesh, Scene, Vector3 } from 'three';
+import { BufferGeometry, Group, Material, Mesh, Scene, Vector3 } from 'three';
 import { AbilityMarkerRenderer } from './ability-marker.renderer';
 
 const CENTER = new Vector3(10, 5, -10);
@@ -51,5 +51,21 @@ describe('AbilityMarkerRenderer path bands', () => {
     markers.hideAim();
     expect(band.visible).toBe(false);
     markers.dispose();
+  });
+
+  it('takes the aim band out of the scene and frees it on dispose', () => {
+    const scene = new Scene();
+    const markers = new AbilityMarkerRenderer(scene);
+    markers.showAim(CENTER, 5, true, PATH);
+    const [band] = bands(scene);
+    let geometryFreed = false;
+    let materialFreed = false;
+    band.geometry.addEventListener('dispose', () => { geometryFreed = true; });
+    (band.material as Material).addEventListener('dispose', () => { materialFreed = true; });
+
+    markers.dispose();
+    expect(scene.children).toEqual([]);
+    expect(geometryFreed).toBe(true);
+    expect(materialFreed).toBe(true);
   });
 });
