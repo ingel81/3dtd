@@ -197,16 +197,18 @@ describe('PathAndRouteService route geometry', () => {
     service.initialize(
       makeEngine(), network, { lat: 48.0011, lon: 9.0025 }, (() => false) as never, new OsmStreetService(), onRouteBuilt,
     );
-    const spawn = { lat: 47.9993, lon: 9.0 };
+    // 7 m east of Way 100, 33 m north of its first node
+    const spawn = { lat: 47.9993, lon: 9.0001 };
     service.showPathFromSpawn(spawnPointAt(spawn));
 
     const route = service.getCachedPath('s1')!;
     expect(onRouteBuilt).toHaveBeenCalledTimes(1);
     expect(onRouteBuilt.mock.calls[0][0]).toBe('s1');
     expect(onRouteBuilt.mock.calls[0][1]).toBe(route);
-    // The route starts on the street node nearest the spawn point, metres off it
-    expect([...network.nodes.values()].some((n) => n.lat === route[0].lat && n.lon === route[0].lon)).toBe(true);
-    expect(distToSegmentM(spawn, route[0], route[0])).toBeGreaterThan(1);
+    // The route starts at the spawn's foot on the street, not on a node of it
+    expect(distToSegmentM(route[0], n10, n1)).toBeLessThan(0.05);
+    expect(distToSegmentM(spawn, route[0], route[0])).toBeCloseTo(distToSegmentM(spawn, n10, n1), 2);
+    expect(distToSegmentM(route[0], n10, n10)).toBeGreaterThan(30);
   });
 
   it('says whether a route is cached (hasRoutes, gates the recent-locations list)', () => {

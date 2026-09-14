@@ -12,6 +12,7 @@ import type {
   ClearGraphMessage,
   WorkerOutMessage,
 } from './pathfinding.worker';
+import { ROUTE_START_NODE_ID } from '../utils/route-start';
 
 // Local mirrors of the worker-internal (non-exported) node/street shapes.
 interface TStreetNode { id: number; lat: number; lon: number; }
@@ -129,20 +130,24 @@ describe('pathfinding.worker (message protocol)', () => {
       expect((last() as { id: string }).id).toBe('req-42');
     });
 
-    it('finds the node sequence along a straight street', () => {
+    it('finds the node sequence along a straight street, from the foot of the start', () => {
       send({ type: 'init', network: makeStraightNetwork(6) });
-      // start mid-segment 0 (n1–n2), end mid-segment 3 (n4–n5) → A* node1→node4.
+      // start mid-segment 0 (n1–n2), end mid-segment 3 (n4–n5): from the
+      // start's foot on to n2, then A* node2→node4.
       send({ type: 'findPath', id: 'p', startLat: 48.0005, startLon: 9.0, endLat: 48.0035, endLon: 9.0 });
       const result = last() as { type: string; path: TStreetNode[] };
       expect(result.type).toBe('pathResult');
-      expect(result.path.map((n) => n.id)).toEqual([1, 2, 3, 4]);
+      expect(result.path.map((n) => n.id)).toEqual([ROUTE_START_NODE_ID, 2, 3, 4]);
     });
 
-    it('returns full node objects (id + lat + lon)', () => {
+    it('returns full node objects (id + lat + lon), the start at the foot of the start', () => {
       send({ type: 'init', network: makeStraightNetwork(4) });
-      send({ type: 'findPath', id: 'p', startLat: 48.0005, startLon: 9.0, endLat: 48.0015, endLon: 9.0 });
+      send({ type: 'findPath', id: 'p', startLat: 48.0005, startLon: 9.0001, endLat: 48.0015, endLon: 9.0 });
       const result = last() as { path: TStreetNode[] };
-      expect(result.path[0]).toMatchObject({ id: 1, lat: 48.0, lon: 9.0 });
+      expect(result.path[0].id).toBe(ROUTE_START_NODE_ID);
+      expect(result.path[0].lat).toBeCloseTo(48.0005, 9);
+      expect(result.path[0].lon).toBe(9.0);
+      expect(result.path[1]).toMatchObject({ id: 2, lat: 48.001, lon: 9.0 });
     });
 
     it('keeps the shape node at the corner of a way (no junction there)', () => {
@@ -150,7 +155,14 @@ describe('pathfinding.worker (message protocol)', () => {
       // Start auf Way "Süd", Ziel auf Way "Ost": der Pfad muss um die Ecke.
       send({ type: 'findPath', id: 'p', startLat: 47.9995, startLon: 9.0, endLat: 48.001, endLon: 9.0025 });
       const result = last() as { path: TStreetNode[] };
-      expect(result.path.map((n) => n.id)).toEqual([10, 1, 2, 3]);
+      expect(result.path.map((n) => n.id)).toEqual([ROUTE_START_NODE_ID, 1, 2, 3]);
+    });
+
+    it('starts on the node itself where the start lies on it', () => {
+      send({ type: 'init', network: makeStraightNetwork(6) });
+      send({ type: 'findPath', id: 'p', startLat: 48.002, startLon: 9.0, endLat: 48.0045, endLon: 9.0 });
+      const result = last() as { path: TStreetNode[] };
+      expect(result.path.map((n) => n.id)).toEqual([3, 4, 5]);
     });
 
     it('returns an empty path between two disconnected street components', () => {

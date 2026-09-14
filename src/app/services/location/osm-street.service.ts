@@ -3,6 +3,7 @@ import { RandomSpawnCandidate } from '../../models/location.types';
 import { StreetCacheService } from './street-cache.service';
 import { GeoBox, boxAreaKm2, boxAround, boxMinus, boxesOverlap, mergeStreets } from './street-box';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { SegmentRoutes, type RouteTail } from '../../utils/route-start';
 
 export interface StreetNode {
   id: number;
@@ -565,8 +566,10 @@ export class OsmStreetService {
   }
 
   /**
-   * Simple pathfinding: find path from start to end along streets
-   * Uses A* algorithm on the street network
+   * Path along the streets from start to end, A* on the street network. It
+   * starts at the foot of the start on its nearest segment (SegmentRoutes)
+   * and ends on the first node of the segment nearest to the end, from
+   * where PathAndRouteService leads it to the HQ (leavePathForBase).
    */
   findPath(
     network: StreetNetwork,
@@ -575,28 +578,39 @@ export class OsmStreetService {
     endLat: number,
     endLon: number
   ): StreetNode[] {
-    // Find nearest street points to start and end
     const startPoint = this.findNearestStreetPoint(network, startLat, startLon);
-    const endPoint = this.findNearestStreetPoint(network, endLat, endLon);
-
-    if (!startPoint || !endPoint) {
+    const routes = startPoint && this.segmentRoutes(network, startPoint, endLat, endLon);
+    if (!routes) {
       console.warn('Could not find street points for pathfinding');
       return [];
     }
+    return routes.routeFrom(startLat, startLon);
+  }
+
+  /**
+   * The routes from the street segment `start` (as findNearestStreetPoint
+   * gives it) to the end findPath goes to, see SegmentRoutes. findPath takes
+   * the one from its start; the spawn preview keeps them per segment. Null
+   * without a street near the end.
+   */
+  segmentRoutes(
+    network: StreetNetwork,
+    start: { street: Street; nodeIndex: number },
+    endLat: number,
+    endLon: number
+  ): SegmentRoutes | null {
+    const endPoint = this.findNearestStreetPoint(network, endLat, endLon);
+    if (!endPoint) return null;
 
     // Get or build adjacency graph (cached for performance)
     const graph = this.getOrBuildGraph(network);
-
-    // A* pathfinding
-    const path = this.astar(
-      graph,
-      startPoint.street.nodes[startPoint.nodeIndex],
-      endPoint.street.nodes[endPoint.nodeIndex],
-      endLat,
-      endLon
+    const end = endPoint.street.nodes[endPoint.nodeIndex];
+    return new SegmentRoutes(
+      start.street.nodes[start.nodeIndex],
+      start.street.nodes[start.nodeIndex + 1],
+      ROAD_TYPE_WEIGHTS[start.street.type] ?? DEFAULT_ROAD_WEIGHT,
+      (node) => this.astar(graph, node, end, endLat, endLon),
     );
-
-    return path;
   }
 
   /**
@@ -764,7 +778,7 @@ export class OsmStreetService {
     end: StreetNode,
     endLat: number,
     endLon: number
-  ): StreetNode[] {
+  ): RouteTail | null {
     const openHeap = new MinHeap<number>();
     const openSetTracker = new Set<number>([start.id]);
     const cameFrom = new Map<number, number>();
@@ -794,7 +808,7 @@ export class OsmStreetService {
           curr = cameFrom.get(curr);
         }
 
-        return path;
+        return { path, cost: gScore.get(current)! };
       }
 
       openSetTracker.delete(current);
@@ -831,9 +845,9 @@ export class OsmStreetService {
       }
     }
 
-    // No path found - return empty array (NOT a direct line!)
+    // No path found - null (NOT a direct line!)
     console.warn('No path found between nodes');
-    return [];
+    return null;
   }
 
   /**
