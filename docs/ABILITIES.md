@@ -480,6 +480,7 @@ Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,
 `integration/ability-laser.spec.ts`, `orbital-beam.renderer.spec.ts`,
+`integration/ability-ooze.spec.ts` (Frost, EMP und Laser gegen den Körper der Ooze),
 `route-sweep.spec.ts`, `ability-marker.renderer.spec.ts`,
 `ability-button.spec.ts`, `nuclear-strike.strategy.spec.ts`,
 `strategy-bot.factory.spec.ts`, Backend `tests/test_gate_loop.py`.
