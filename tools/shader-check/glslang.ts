@@ -41,14 +41,21 @@ export function compileProgram(glslang: string, vertex: string, fragment: string
   // glslang knows a built-in average() in GLSL ES, which WebGL has not, and
   // rejects the one three's common chunk defines: renamed for glslang only
   const run = spawnSync(glslang, ['-l', '-Daverage=threeAverage', ...sources.keys()], { encoding: 'utf8' });
-  const log = `${run.stdout ?? ''}${run.stderr ?? ''}`;
+  const log = `${run.stdout ?? ''}${run.stderr ?? ''}${run.error ? String(run.error) : ''}`;
   return { ok: run.status === 0, report: withContext(log, sources) };
 }
 
-/** A stage's source after the preprocessor: three's defines applied, `varying` already in/out. */
+/**
+ * A stage's source after the preprocessor: three's defines applied, `varying`
+ * already in/out. Throws when glslang fails: empty output would let every
+ * check on it pass.
+ */
 export function preprocess(glslang: string, path: string): string {
   const run = spawnSync(glslang, ['-E', path], { encoding: 'utf8' });
-  return run.stdout ?? '';
+  if (run.status !== 0) {
+    throw new Error(`glslang -E ${path} failed (exit ${run.status}): ${run.stderr || run.stdout || run.error}`);
+  }
+  return run.stdout;
 }
 
 /**
