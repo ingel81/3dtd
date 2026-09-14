@@ -17,7 +17,7 @@ import { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
 import { GameStateManager } from '../../../../managers/game-state.manager';
 import { ABILITIES } from '../../../../configs/abilities.config';
-import { densestCenter, enemiesFromProgress } from './ability-aim';
+import { DecisionAim, densestCenter, enemiesFromProgress } from './ability-aim';
 
 const FROST = ABILITIES['frost-bomb'];
 
@@ -27,6 +27,8 @@ export class FrostBombStrategy extends BaseStrategy {
   /** Fewer than this within the radius of one spot and the charge is kept */
   static readonly MIN_CLUSTER = 8;
 
+  private readonly decision = new DecisionAim<ReturnType<typeof densestCenter>>();
+
   constructor(private readonly gameState: GameStateManager) {
     super('FrostBomb', 96);
   }
@@ -34,11 +36,11 @@ export class FrostBombStrategy extends BaseStrategy {
   canExecute(state: GameStateSnapshot): boolean {
     if (state.phase !== 'wave') return false;
     if (this.gameState.abilityManager.checkUse(FROST.id) !== null) return false;
-    return this.aim() !== null;
+    return this.decision.find(state, () => this.aim()) !== null;
   }
 
-  execute(_state: GameStateSnapshot): TowerAction | null {
-    const aim = this.aim();
+  execute(state: GameStateSnapshot): TowerAction | null {
+    const aim = this.decision.take(state, () => this.aim());
     if (!aim) return null;
     return {
       type: 'use-ability',

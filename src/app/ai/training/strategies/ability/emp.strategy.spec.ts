@@ -19,6 +19,8 @@ function enemyAt(type: string, metersNorth: number, progress: number) {
 describe('EmpStrategy', () => {
   let enemies: ReturnType<typeof enemyAt>[];
   let useCheck: AbilityRejectReason | null;
+  /** Reads of the enemy list: one for the machines, one more for a crowd */
+  let scans: number;
   let strategy: EmpStrategy;
   const inWave = { phase: 'wave' } as GameStateSnapshot;
   const aimedNorth = () => (strategy.execute(inWave)!.position!.z - ORIGIN.lat) * METERS_PER_DEGREE_LAT;
@@ -26,9 +28,10 @@ describe('EmpStrategy', () => {
   beforeEach(() => {
     enemies = [];
     useCheck = null;
+    scans = 0;
     const gameState = {
       abilityManager: { checkUse: () => useCheck },
-      enemyManager: { getAlive: () => enemies },
+      enemyManager: { getAlive: () => (scans++, enemies) },
     };
     strategy = new EmpStrategy(gameState as never);
   });
@@ -63,5 +66,17 @@ describe('EmpStrategy', () => {
     expect(strategy.canExecute(inWave)).toBe(true);
     expect(aimedNorth()).toBeGreaterThan(99);
     expect(strategy.execute(inWave)!.reason).toContain('12 enemies');
+  });
+
+  it('aims once per decision: execute takes the aim canExecute found for the same snapshot', () => {
+    for (let i = 0; i < 12; i++) enemies.push(enemyAt('zombie', 100 + i, 0.7));
+    const decision = { phase: 'wave' } as GameStateSnapshot;
+    expect(strategy.canExecute(decision)).toBe(true);
+    expect(scans).toBe(2); // no machines, then the crowd
+    expect(strategy.execute(decision)!.reason).toContain('12 enemies');
+    expect(scans).toBe(2);
+
+    strategy.execute({ phase: 'wave' } as GameStateSnapshot); // the next decision aims anew
+    expect(scans).toBe(4);
   });
 });
