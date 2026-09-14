@@ -19,7 +19,7 @@ Anleitung zum Exportieren des trainierten PyTorch-Modells für Browser-Inferenz.
 > [HANDOVER_RULE_DIRECTOR.md](../../docs/HANDOVER_RULE_DIRECTOR.md).
 
 > Trotz des historischen Skript-Namens `export_to_tfjs.py` exportieren wir
-> direkt nach **ONNX** — TensorFlow.js wird **nicht** verwendet.
+> direkt nach **ONNX**; TensorFlow.js wird **nicht** verwendet.
 
 ---
 
@@ -62,7 +62,7 @@ pip install -r requirements.txt
 - `torch` (für Training ohnehin installiert)
 - `onnx` >= 1.14.0
 
-> **Achtung:** `tensorflowjs` NICHT installieren — Versionskonflikte und
+> **Achtung:** `tensorflowjs` NICHT installieren: Versionskonflikte und
 > tensorflow-decision-forests ist auf Windows broken. ONNX Runtime Web
 > reicht vollständig.
 
@@ -107,7 +107,7 @@ Export complete!
 
 Die Validierung prüft nur die **Shape**, nicht die Schema-Version des
 Checkpoints. Ein Checkpoint aus einem älteren Schema hat eine andere
-`INPUT_SIZE` und lässt bereits `load_model` mit einem Shape-Mismatch scheitern —
+`INPUT_SIZE` und lässt bereits `load_model` mit einem Shape-Mismatch scheitern;
 das ist die eigentliche Absicherung.
 
 ### Ergebnis
@@ -151,7 +151,7 @@ Layout-Definitionen: `training-backend/generated/ai-schema.json` (generiert),
 `server.py::_encode_state` (Backend-Encoder),
 `src/app/ai/core/game-state-encoder.ts` (Frontend-Encoder).
 
-### Output — 36 Werte
+### Output: 36 Werte
 
 Das ONNX-Modell gibt einen flachen Tensor mit 36 Werten zurück
 (`OUTPUT_SIZE = MAX_TEMPLATE_SLOTS + NUM_CONTINUOUS = 32 + 4`):
@@ -165,13 +165,13 @@ Das ONNX-Modell gibt einen flachen Tensor mit 36 Werten zurück
 | `[35]` | `variation` raw | `sigmoid` → lerp in `template.variationRange` |
 
 **Wichtig:** Alles, was danach kommt, ist zwischen Modell und Regel-Director
-geteilt — Curriculum-Gates (`minWave`), Capability-Gates (`antiAir`,
+geteilt: Curriculum-Gates (`minWave`), Capability-Gates (`antiAir`,
 `antiEthereal`), Boss-only, Cooldown, DPS-Scaled Range-Caps, Wave-Duration-Cap
 und der Fairness-Gate. Das Modell ersetzt genau die fünf Zahlen oben und sonst
 nichts.
 
 Diese Logik lebt im Frontend in `src/app/ai/core/wave-config-builder.ts` und
-im Backend in `server.py::_decode_action` — beide müssen synchron bleiben.
+im Backend in `server.py::_decode_action`; beide müssen synchron bleiben.
 
 ## Browser-Integration
 
@@ -265,7 +265,7 @@ npm run ai-schema
 Regeneriert `training-backend/generated/ai-schema.json` aus den TS-Configs.
 
 **`DeprecationWarning: legacy TorchScript-based ONNX export`**
-Kann ignoriert werden — der Export läuft bewusst mit `dynamo=False`
+Kann ignoriert werden, der Export läuft bewusst mit `dynamo=False`
 (Unicode-Probleme des neuen Exporters unter Windows).
 
 ## Modell-Architektur ändern
@@ -274,12 +274,12 @@ Alle Größen kommen aus `generated/ai-schema.json`; hartkodierte Werte gibt es
 weder im Backend noch im Frontend-Encoder. Bei einer Layout-Änderung:
 
 1. `src/app/ai/core/ai-schema.ts` anpassen und `AI_SCHEMA_VERSION` hochziehen.
-2. `npm run ai-schema` — regeneriert `training-backend/generated/ai-schema.json`.
+2. `npm run ai-schema` regeneriert `training-backend/generated/ai-schema.json`.
 3. `EXPECTED_SCHEMA_VERSION` in `training-backend/schema.py` mitziehen. Der
    Server startet sonst nicht (bewusst laut statt still).
 4. `server.py::_encode_state` und ggf. `_decode_action` aktualisieren; der
    Encoder wirft bei falscher Feature-Anzahl.
-5. Frontend-`encodeGameState()` spiegeln — `tests/test_encoder.py` prüft beide
+5. Frontend-`encodeGameState()` spiegeln; `tests/test_encoder.py` prüft beide
    gegen dieselbe Schema-Datei.
-6. **Re-Training nötig** — alte Checkpoints sind inkompatibel.
+6. **Re-Training nötig**, alte Checkpoints sind inkompatibel.
 7. Neu exportieren, damit `metadata.json` die neue `schemaVersion` trägt.
