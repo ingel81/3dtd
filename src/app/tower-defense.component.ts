@@ -796,7 +796,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.debugFacade.addDebugCredits(this.gameState, event.shiftKey ? 100000 : 1000);
   }
   addDebugHealth(event: MouseEvent): void {
-    this.debugFacade.addDebugHealth(this.gameState, event.shiftKey ? 100000 : 1000);
+    // A right click takes HP instead, to walk the HQ fire through its stages
+    const take = event.type === 'contextmenu';
+    const amount = take ? (event.shiftKey ? -50 : -10) : (event.shiftKey ? 100000 : 1000);
+    this.debugFacade.addDebugHealth(this.gameState, amount);
   }
   completeAllResearch(): void {
     this.debugFacade.completeAllResearch(this.gameState);

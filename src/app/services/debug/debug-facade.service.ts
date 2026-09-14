@@ -98,11 +98,11 @@ export class DebugFacadeService {
 
   /**
    * Add debug health via EventBus command. Default 1000; pass a custom
-   * amount (e.g. 100000 for Shift+Click) to override.
+   * amount (e.g. 100000 for Shift+Click, negative to take HP) to override.
    */
   addDebugHealth(gameState: GameStateManager, amount = 1000): void {
     gameState.getEventBus().emit({ type: 'debug:add-health', amount });
-    this.appendDebugLog(`+${amount.toLocaleString()} HP (Debug)`);
+    this.appendDebugLog(`${amount >= 0 ? '+' : ''}${amount.toLocaleString()} HP (Debug)`);
   }
 
   /**
