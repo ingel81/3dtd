@@ -2259,6 +2259,20 @@ const material = new THREE.ShaderMaterial({
 
 **Regel:** Der Hochpass ist die einzige Stelle, an der ein einzelner Pixel großflächig wirkt. Wer einen weiteren Pass einbaut, der Nachbarn über große Radien mischt, muss dieselbe Prüfung vorschalten.
 
+### Eigene Shader: Farben in Anzeigewerten, für das Ziel geschrieben
+
+**Problem:** Bloom und Color Grading sind standardmäßig aus, dann rendert die Engine direkt auf den sRGB-Canvas. Ein `ShaderMaterial`, das `gl_FragColor` selbst schreibt, zeigt dort genau diese Werte; die meisten eigenen Shader sind so abgestimmt, in Anzeigewerten. Mit Bloom oder Grading geht die Szene erst in das lineare Half-Float-Ziel des Composers, der Output-Pass kodiert das Bild nach sRGB. Ein Anzeigewert, unkodiert in dieses Ziel geschrieben, kommt heller und blasser an (0,2 als 0,48).
+
+**Mechanismus (three r186):** Jedes `ShaderMaterial` (nicht `RawShaderMaterial`) bekommt `linearToOutputTexel` vorangestellt, gebaut für das Ziel des Programms: sRGB-Kodierung für den Canvas (`renderer.outputColorSpace`), keine für ein Render Target (`WebGLPrograms`, `outputColorSpace`: der Arbeitsfarbraum, linear). Der Renderer baut das Programm neu, wenn das Ziel wechselt. Tone Mapping ist im Spiel aus, auch im Output-Pass.
+
+**Lösung:** `renderers/display-output.ts`, `DISPLAY_OUTPUT_GLSL` vor `main()` einfügen:
+- `displayOutput(farbe)`: dekodiert den Anzeigewert zu linearem Licht (`sRGBTransferEOTF`) und kodiert ihn für das Ziel. Auf dem Canvas kommt derselbe Wert heraus (Abweichung höchstens 6e-6, ein 8-Bit-Schritt ist 3,9e-3), das Bild ohne Bloom bleibt also gleich; ins Composer-Ziel geht das Licht, das der Output-Pass wieder zu diesem Anzeigewert macht. Der Teil über 1 geht unverändert durch: der Canvas klemmt ihn ohnehin, der Bloom bekommt so viel davon wie vorher.
+- `displayLight(licht)`: für additives Licht. Der Canvas addiert in Anzeigewerten, das Composer-Ziel linear; keine Menge addiert über jedem Boden gleich. `displayLight` schreibt das Licht, das einen Boden von `ADDITIVE_GROUND` (0,3, eine Straße der Tiles) so weit anhebt wie auf dem Canvas: dort gleich, über dunklerem Boden mit Bloom heller, über hellerem dunkler. Die `vec4`-Form rechnet das Alpha von `AdditiveBlending` (SrcAlpha, One) mit ein.
+
+Deckend ist das Bild mit und ohne Bloom gleich. Normales Blending mit Teil-Alpha mischt im Composer-Ziel linear, wie die eingebauten transparenten Materialien von three dort auch, etwas heller als auf dem Canvas; näher am Canvas als unkodiert. Ein Farbfaktor, der schon in den Werten des Ziels vorliegt (der Blutmond-Multiplikator, `bloodMoonMultiplier`), gehört hinter `displayOutput`. Der Beleg mit Probewerten steht in `display-output.spec.ts`.
+
+**Regel:** Ein neuer eigener Shader rechnet entweder linear und endet mit `#include <colorspace_fragment>` (Uniform-Farben dann linear, wie `Color` sie aus Hex-Werten macht), oder er baut in Anzeigewerten und schreibt über `displayOutput` bzw. `displayLight`. Ohne eins von beiden sieht er mit Bloom anders aus als ohne.
+
 ### Shader-Compile-Check ohne Browser
 
 **Problem:** Ein GLSL-Fehler in einem eigenen Material zeigt sich nur in der Browser-Konsole, das Material bleibt dann unsichtbar. Specs, die nur den Shader-Text prüfen, finden keine Tippfehler, reservierten Wörter (`flat`, `sample`, ...) oder Typfehler.
