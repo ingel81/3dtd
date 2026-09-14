@@ -2,7 +2,7 @@ import { CorridorRefit } from './corridor-refit';
 import type { PathAndRouteService } from './path-route.service';
 import type { RouteAnimationService } from './route-animation.service';
 import type { IntroCameraFlightService } from './intro-camera-flight.service';
-import type { RelocationStatusService } from './relocation-status.service';
+import { MEASURING_STEP, type RelocationStatusService } from './relocation-status.service';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { TowerDefenseStore } from '../../store/tower-defense.store';
 import type { GameStateManager } from '../../managers/game-state.manager';
@@ -23,7 +23,7 @@ export interface CorridorControllerDeps {
   >;
   routeAnimation: Pick<RouteAnimationService, 'isRunning' | 'startAnimation'>;
   store: Pick<TowerDefenseStore, 'spawnPoints'>;
-  /** The hint while the HQ moves: the player waits for the measurement then. */
+  /** The hint while the HQ moves: the player waits for the measurement while it shows it (MEASURING_STEP). */
   relocationStatus: Pick<RelocationStatusService, 'status'>;
 }
 
@@ -56,7 +56,10 @@ export class CorridorController {
       enemyCount: () => deps.gameState().enemyManager.getAliveCount(),
       waveRunning: () => deps.gameState().waveManager.phase() === 'wave',
       introRunning: () => deps.introFlight.isRunning(),
-      hurried: () => deps.relocationStatus.status() !== null,
+      // Only the measurement of the routes a move in place built. Not under
+      // "Loading streets" before a move outside the streets: a run then
+      // measures the old routes, and the location change drops its result.
+      hurried: () => deps.relocationStatus.status()?.step === MEASURING_STEP,
       beginMeasurement: () => deps.pathRoute.beginClearanceMeasurement(),
       // Or cells a finer tile showed no enemy could walk to: the commit of
       // the (then empty) run drops them. The walk check looks at every cell,

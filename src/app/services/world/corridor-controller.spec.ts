@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CorridorController, type CorridorControllerDeps } from './corridor-controller';
 import { CorridorRefit } from './corridor-refit';
+import { MEASURING_STEP } from './relocation-status.service';
 
 /**
  * CorridorController hooks CorridorRefit into the game: the animation
@@ -220,15 +221,32 @@ describe('CorridorController', () => {
       expect(frames.size).toBe(0);
     });
 
-    it('measures in the larger slices while the hint of a moving HQ stands', () => {
+    it('measures in the larger slices while the hint shows the measurement of a moving HQ', () => {
       state.slices = 3;
-      state.hint = { title: 'Moving HQ', step: 'Finding the route', percent: null };
+      state.hint = { title: 'Moving HQ', step: MEASURING_STEP, percent: 0 };
       create().fitToTiles();
       expect(runs[0].step).toHaveBeenLastCalledWith(CorridorRefit.HURRIED_BUDGET_MS);
 
       state.hint = null;
       runFrames();
       expect(runs[0].step).toHaveBeenLastCalledWith(CorridorRefit.MEASURE_BUDGET_MS);
+    });
+
+    it('keeps the small slices under the other steps of the hint: loading streets, finding the route', () => {
+      state.slices = 4;
+      // A move outside the streets loads them first; a run now measures the old routes
+      state.hint = { title: 'Moving HQ', step: 'Loading streets', percent: null };
+      create().fitToTiles();
+      expect(runs[0].step).toHaveBeenLastCalledWith(CorridorRefit.MEASURE_BUDGET_MS);
+
+      // A move in place: its first slice runs within the move, before the hint shows the measurement
+      state.hint = { title: 'Moving HQ', step: 'Finding the route', percent: null };
+      runFrames();
+      expect(runs[0].step).toHaveBeenLastCalledWith(CorridorRefit.MEASURE_BUDGET_MS);
+
+      state.hint = { title: 'Moving HQ', step: MEASURING_STEP, percent: 10 };
+      runFrames();
+      expect(runs[0].step).toHaveBeenLastCalledWith(CorridorRefit.HURRIED_BUDGET_MS);
     });
 
     it('measures again after the interval when the intro flight held it back', () => {

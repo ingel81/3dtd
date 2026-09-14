@@ -515,14 +515,19 @@ viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
   bisherigen Kosten je Station über das Budget ginge, nimmt aber mindestens
   eine Station je Frame.
 - **Budget, während der Spieler wartet:** Solange der Hinweis "MOVING HQ"
-  steht (`RelocationStatusService.status`, `CorridorRefitHost.hurried`), sind
-  es `HURRIED_BUDGET_MS` = 32 ms je Frame (`corridor-refit.ts`). Im Playtest
+  die Messung zeigt (Schritt "Measuring the corridor", `MEASURING_STEP` in
+  `relocation-status.service.ts`; `CorridorRefitHost.hurried`), sind es
+  `HURRIED_BUDGET_MS` = 32 ms je Frame (`corridor-refit.ts`). Im Playtest
   vom 2026-09-14 in Paris brauchte ein Umzug für 358 Stationen 465 ms
   Rechenzeit in 144 Scheiben über 5,3 s; jeder Frame kostete neben seiner
   Scheibe etwa 33 ms. Mit 32 ms sind es etwa 15 Frames zu 65 ms, rund 1 s.
   Gelesen wird je Scheibe: Verschwindet der Hinweis mitten im Lauf, geht es
-  mit 4 ms weiter. Nachmessungen nach Tile-Schüben und die erste Messung
-  nach dem Laden laufen ohne Hinweis und behalten die 4 ms.
+  mit 4 ms weiter. Die erste Scheibe läuft im Umzug selbst, noch unter
+  "Finding the route", und nimmt 4 ms. Unter "Loading streets" (Umzug
+  außerhalb der Straßen) bleibt es bei 4 ms: Ein Lauf misst dann die alten
+  Routen, und der Ortswechsel danach verwirft sein Ergebnis. Nachmessungen
+  nach Tile-Schüben und die erste Messung nach dem Laden laufen ohne Hinweis
+  und behalten die 4 ms.
 - **Gleiches Ergebnis:** Der Lauf nimmt die Stationen in derselben
   Reihenfolge und mit denselben Strahlen wie der frühere Lauf am Stück und
   legt sie in dieselben Felder. `path-route.service.spec.ts` ("in slices")

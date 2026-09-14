@@ -32,7 +32,10 @@ export interface CorridorRefitHost {
   waveRunning(): boolean;
   /** The intro camera flight is running. */
   introRunning(): boolean;
-  /** The player waits for the measurement: the hint over the map while the HQ moves (RelocationStatusService). */
+  /**
+   * The player waits for the measurement: the hint over the map shows it
+   * after the HQ moved in place (RelocationStatusService, MEASURING_STEP).
+   */
   hurried(): boolean;
   /** Start measuring the stations without a measurement (PathAndRouteService.beginClearanceMeasurement). */
   beginMeasurement(): CorridorMeasurement;
@@ -96,8 +99,11 @@ export class CorridorRefit {
   static readonly MEASURE_BUDGET_MS = 4;
 
   /**
-   * Main-thread time per frame while the player waits for the measurement,
-   * with the hint over the map while the HQ moves. In the Paris playtest of
+   * Main-thread time per frame while the player waits for the measurement:
+   * the hint over the map shows it after the HQ moved (hurried). The first
+   * slice runs within the move, under "Finding the route", at
+   * MEASURE_BUDGET_MS; "Loading streets" before a move outside the streets
+   * keeps it too. In the Paris playtest of
    * 2026-09-14 a move measured 358 stations in 465 ms of 144 slices over
    * 5.3 s: each frame took about 33 ms besides its 4 ms slice. In slices of
    * 32 ms the same run takes about 15 frames of 65 ms, about 1 s. The hint
