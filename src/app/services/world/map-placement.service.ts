@@ -14,6 +14,7 @@ import {
 import { SpawnDistanceRings } from '../../three-engine/renderers/spawn-distance-rings';
 import { OsmStreetService, Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import type { SegmentRoutes } from '../../utils/route-start';
+import { raycastStats } from '../../utils/raycast-stats';
 import { UIStore } from '../../store/ui.store';
 import { GeoPosition } from '../../models/game.types';
 import {
@@ -558,10 +559,17 @@ export class MapPlacementService {
     if (!this.engine || !this.baseCoords) return;
 
     const resolution = this.engine.getRenderer().getSize(new Vector2());
-    this.distanceRings = new SpawnDistanceRings(this.engine, this.baseCoords, [
-      { radiusM: MIN_MANUAL_SPAWN_DISTANCE, color: MIN_RING_COLOR },
-      { radiusM: MAX_MANUAL_SPAWN_DISTANCE, color: MAX_RING_COLOR },
-    ], resolution);
+    // A column sample per ring point and one at the centre, all in this
+    // call: `__raycastStats()` books their rays as `spawnRings`
+    const scope = raycastStats.enter('spawnRings');
+    try {
+      this.distanceRings = new SpawnDistanceRings(this.engine, this.baseCoords, [
+        { radiusM: MIN_MANUAL_SPAWN_DISTANCE, color: MIN_RING_COLOR },
+        { radiusM: MAX_MANUAL_SPAWN_DISTANCE, color: MAX_RING_COLOR },
+      ], resolution);
+    } finally {
+      raycastStats.exit(scope);
+    }
     this.engine.getOverlayGroup().add(this.distanceRings.group);
   }
 
