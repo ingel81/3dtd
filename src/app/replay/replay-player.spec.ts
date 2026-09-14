@@ -495,6 +495,18 @@ describe('ReplayPlayer', () => {
       expect(oozes['add']).toHaveBeenCalledTimes(2);
     });
 
+    it('takes the debris thrown before a jump, so scrubbing over a kill again stacks none', () => {
+      const oozes = fake.engine.oozes as Record<string, Spy>;
+      advance(p, 160);
+      expect(oozes['collapse']).toHaveBeenCalledTimes(1);
+      oozes['clearDebris'].mockClear();
+      p.seek(50);
+      expect(oozes['clearDebris']).toHaveBeenCalledTimes(1);
+      p.seek(160);
+      expect(oozes['clearDebris']).toHaveBeenCalledTimes(2);
+      expect(oozes['collapse']).toHaveBeenCalledTimes(2);
+    });
+
     it('lays no band without a ground', () => {
       const f = fakeEngine();
       new ReplayPlayer(newcomersRecording(), f.engine as never).enter();
