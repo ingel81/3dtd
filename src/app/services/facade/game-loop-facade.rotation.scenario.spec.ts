@@ -100,7 +100,8 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
           useValue: {
             findNearestStreetPoint: () => ({ distance: 1, street: { nodes: [{ id: STREET[0].id }] }, nodeIndex: 0 }),
             haversineDistance: () => (MIN_MANUAL_SPAWN_DISTANCE + MAX_MANUAL_SPAWN_DISTANCE) / 2,
-            findPath: () => STREET,
+            // The routes from the cursor's segment (SegmentRoutes): along STREET from its start
+            segmentRoutes: () => ({ routeFrom: () => STREET }),
           },
         },
       ],
