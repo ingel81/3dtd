@@ -581,7 +581,11 @@ bitte klären"; Lead-Entscheidungen sind revertierbar):
 - **18 Assets:** später, eigenes Thema. **19 Tooling:** bleibt ohne
   npm-Abhängigkeit (User-Entscheidung Nacht 2).
 - **Neu, 421 D2 (Wackeln):** Lead-Entscheidung: "härter" heißt mehr HP
-  verloren (Worker shake).
+  verloren; umgesetzt in `d48b5c87` (die Drossel vergleicht die
+  ungeklemmten HP, die Amplitude bleibt geklemmt). Kommt ein Zombie-Leck
+  nur Millisekunden nach einem Ooze-Punkt, wirkt es eher wie ein längerer
+  als wie ein zweiter Wackler; nach verbrauchtem Leck-Budget (18 HP je
+  Welle) wackelt nichts mehr (D1).
 
 **Korridor**
 
