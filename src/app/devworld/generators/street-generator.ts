@@ -6,14 +6,13 @@
  *
  * Features:
  * - 3-level hierarchy: Arterial → Collector → Residential
- * - Terrain-following paths with max 15% slope
- * - Catmull-Rom splines for smooth curves
+ * - Terrain-following paths
  * - L-System branching for collectors
  * - Union-Find connectivity validation
  * - Min 30m intersection spacing
  */
 
-import { mulberry32, createSeededNoise, hashSeed, SeededNoiseCollection } from '../utils/seeded-random';
+import { mulberry32, hashSeed } from '../utils/seeded-random';
 
 // ========================================
 // Types
@@ -75,10 +74,6 @@ interface Vec2 {
 // Vector Utilities
 // ========================================
 
-function _vec2(x: number, z: number): Vec2 {
-  return { x, z };
-}
-
 function add(a: Vec2, b: Vec2): Vec2 {
   return { x: a.x + b.x, z: a.z + b.z };
 }
@@ -95,23 +90,8 @@ function length(v: Vec2): number {
   return Math.sqrt(v.x * v.x + v.z * v.z);
 }
 
-function _normalize(v: Vec2): Vec2 {
-  const len = length(v);
-  if (len < 0.0001) return { x: 0, z: 0 };
-  return { x: v.x / len, z: v.z / len };
-}
-
 function distance(a: Vec2, b: Vec2): number {
   return length(sub(b, a));
-}
-
-function _rotate(v: Vec2, angle: number): Vec2 {
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  return {
-    x: v.x * cos - v.z * sin,
-    z: v.x * sin + v.z * cos,
-  };
 }
 
 function lerp(a: Vec2, b: Vec2, t: number): Vec2 {
@@ -119,68 +99,6 @@ function lerp(a: Vec2, b: Vec2, t: number): Vec2 {
     x: a.x + (b.x - a.x) * t,
     z: a.z + (b.z - a.z) * t,
   };
-}
-
-// ========================================
-// Catmull-Rom Spline
-// ========================================
-
-/**
- * Evaluate Catmull-Rom spline at parameter t.
- * p0, p1, p2, p3 are control points, t is in [0, 1] between p1 and p2.
- */
-function catmullRom(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: number): Vec2 {
-  const t2 = t * t;
-  const t3 = t2 * t;
-
-  return {
-    x: 0.5 * (
-      2 * p1.x +
-      (-p0.x + p2.x) * t +
-      (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
-      (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3
-    ),
-    z: 0.5 * (
-      2 * p1.z +
-      (-p0.z + p2.z) * t +
-      (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t2 +
-      (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t3
-    ),
-  };
-}
-
-/**
- * Sample points along a Catmull-Rom spline path.
- */
-function _sampleSplinePath(controlPoints: Vec2[], sampleDistance: number): Vec2[] {
-  if (controlPoints.length < 2) return [...controlPoints];
-  if (controlPoints.length === 2) {
-    return sampleLinearPath(controlPoints[0], controlPoints[1], sampleDistance);
-  }
-
-  const result: Vec2[] = [];
-
-  // For each segment between control points
-  for (let i = 0; i < controlPoints.length - 1; i++) {
-    const p0 = controlPoints[Math.max(0, i - 1)];
-    const p1 = controlPoints[i];
-    const p2 = controlPoints[i + 1];
-    const p3 = controlPoints[Math.min(controlPoints.length - 1, i + 2)];
-
-    // Estimate segment length
-    const segmentLength = distance(p1, p2) * 1.2; // Approximate arc length
-    const numSamples = Math.max(2, Math.ceil(segmentLength / sampleDistance));
-
-    for (let j = 0; j < numSamples; j++) {
-      const t = j / numSamples;
-      result.push(catmullRom(p0, p1, p2, p3, t));
-    }
-  }
-
-  // Add final point
-  result.push(controlPoints[controlPoints.length - 1]);
-
-  return result;
 }
 
 function sampleLinearPath(start: Vec2, end: Vec2, sampleDistance: number): Vec2[] {
@@ -291,14 +209,12 @@ class UnionFind {
 export class StreetGenerator {
   private readonly config: Required<StreetGeneratorConfig>;
   private rng: () => number;
-  private noise: SeededNoiseCollection;
   private segments: StreetSegment[] = [];
   private segmentIdCounter = 0;
   private intersections: Vec2[] = [];
   private unionFind: UnionFind;
 
   // Constants
-  private readonly MAX_SLOPE = 0.15; // 15% max slope
   private readonly MIN_INTERSECTION_SPACING = 30; // meters
   private readonly SAMPLE_DISTANCE = 3; // meters between path samples (finer for terrain following)
 
@@ -315,7 +231,6 @@ export class StreetGenerator {
     // Initialize RNG with street-specific seed
     const streetSeed = hashSeed(this.config.seed, 31337);
     this.rng = mulberry32(streetSeed);
-    this.noise = createSeededNoise(streetSeed);
     this.unionFind = new UnionFind();
   }
 
