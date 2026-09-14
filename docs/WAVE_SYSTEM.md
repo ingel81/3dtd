@@ -723,12 +723,21 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
   Schleier, Schnitt zurück, Schleier weicht; zusammen rund 3,7 s. Ein Frame
   zählt höchstens 100 ms, ein Ruckler frisst die Einstellung nicht. Klick
   oder Esc springt sofort zur Rückkehr.
-- **Einstellung** (`portalShot`): die Kamera steht über der Route jenseits
-  des Bosses und folgt der Straße um Kurven, damit sie über der Fahrbahn und
-  nicht in einer Fassade steht. Das Portal füllt 55 % der vertikalen Bildhöhe,
-  14° Neigung auf einen Punkt zwischen Portal und Boss, über die Einstellung
-  8 % Heranfahrt (keine bei `prefers-reduced-motion`). Ist die Route kürzer,
-  steht die Kamera an ihrem Ende.
+- **Einstellung** (`portalShot`, `BOSS_SHOT`): die Kamera steht über der
+  Route jenseits des Bosses und folgt der Straße um Kurven, damit sie über
+  der Fahrbahn und nicht in einer Fassade steht. Abstand zum Boss 2,5
+  Bosshöhen (bis zum Lebensbalken, `heightOffset + healthBarOffset`),
+  mindestens aber so viel, dass die Krone des Portals unter 95 % der oberen
+  Bildhälfte bleibt und das ganze Portal hinter dem Boss zu sehen ist. Bei
+  Herbert vor dem kleinsten Portal (Skala 0,75) entscheidet seine Höhe, sonst
+  bei allen heutigen Bossen die Krone. 14° Neigung, die Füße des Bosses etwa
+  27 % über dem unteren Bildrand, über der Titelkarte. Über die Einstellung
+  8 % Heranfahrt auf den Boss zu (keine bei `prefers-reduced-motion`), am Ende
+  reicht die Kronenspitze an den oberen Bildrand. Ist die Route kürzer, steht
+  die Kamera an ihrem Ende. Bis 2026-09-14 füllte das Portal 55 % der
+  Bildhöhe und die Kamera stand weiter weg: von Herberts Mitte auf gerader
+  Straße mit Skala 1 rund 31 m (jetzt 23 m), mit Skala 1,75 rund 57 m (jetzt
+  42 m).
 - Solange es läuft: Kamera-Controls aus, ein laufender Schnellsprung (Pos1, N)
   und gehaltene Pan-Tasten enden, die Spieltasten warten. Die obere HUD-Spalte
   blendet aus, die Boss-Leiste bleibt dabei bestehen.

@@ -12,6 +12,8 @@ import {
   pointAlongRoute,
   portalShot,
   type BossIntroContext,
+  type PortalShot,
+  type ShotPoint,
 } from './boss-intro';
 import { PORTAL_DEPTH, PORTAL_FRAME_TOP } from '../configs/marker-geometry.config';
 
@@ -125,24 +127,55 @@ describe('portalShot', () => {
     { x: 0, y: 0, z: 0 },
     { x: 0, y: 0, z: -200 },
   ];
-  /** Distance that frames a portal of scale 1 with a 60° field of view */
-  const framing = PORTAL_FRAME_TOP / 2 / Math.tan((BOSS_SHOT.fill * 30 * Math.PI) / 180);
+  /** Herbert up to his health bar (heightOffset 0.5 + healthBarOffset 7) */
+  const HERBERT = 7.5;
+  /** Angle of `p` above the shot's line of sight, share of the half field of view of 60° */
+  const above = (shot: PortalShot, p: ShotPoint) => {
+    const { position: c, target: t } = shot;
+    const sight = Math.atan2(t.y - c.y, Math.hypot(t.x - c.x, t.z - c.z));
+    const to = Math.atan2(p.y - c.y, Math.hypot(p.x - c.x, p.z - c.z));
+    return (((to - sight) * 180) / Math.PI) / 30;
+  };
 
-  it('stands on the route beyond the boss and looks back down at the portal', () => {
-    const shot = portalShot(straight, 60, 1, 8)!;
-    expect(shot.target).toEqual({ x: 0, y: PORTAL_FRAME_TOP * BOSS_SHOT.aimHeight, z: -4 });
+  it('stands on the route beyond the boss, looking down at it, its feet above the title card', () => {
+    // Smallest portal: Herbert's height decides the distance, not the crown
+    const shot = portalShot(straight, 60, 0.75, 8, HERBERT)!;
+    expect(shot.target.x).toBeCloseTo(0);
+    expect(shot.target.z).toBeCloseTo(-8);
     expect(shot.position.x).toBeCloseTo(0);
-    expect(shot.position.z).toBeCloseTo(-4 - framing);
+    expect(shot.position.z).toBeCloseTo(-8 - HERBERT * BOSS_SHOT.bossHeights);
     const drop = shot.position.y - shot.target.y;
-    expect((Math.atan2(drop, framing) * 180) / Math.PI).toBeCloseTo(BOSS_SHOT.pitchDeg);
+    const across = shot.target.z - shot.position.z;
+    expect((Math.atan2(drop, across) * 180) / Math.PI).toBeCloseTo(BOSS_SHOT.pitchDeg);
+    expect(above(shot, { x: 0, y: 0, z: -8 })).toBeCloseTo(-BOSS_SHOT.feet);
+    expect(above(shot, { x: 0, y: PORTAL_FRAME_TOP * 0.75, z: 0 })).toBeLessThan(BOSS_SHOT.crown);
+  });
+
+  it('frames a bigger boss from further away', () => {
+    const herbert = portalShot(straight, 60, 0.75, 8, HERBERT)!;
+    const bigger = portalShot(straight, 60, 0.75, 8, 10)!;
+    expect(bigger.target.z - bigger.position.z).toBeCloseTo(10 * BOSS_SHOT.bossHeights);
+    expect(bigger.position.z).toBeLessThan(herbert.position.z);
+  });
+
+  it('backs off until the whole portal fits behind the boss', () => {
+    const shot = portalShot(straight, 60, 1.75, 12, HERBERT)!;
+    expect(shot.target.z - shot.position.z).toBeGreaterThan(HERBERT * BOSS_SHOT.bossHeights);
+    expect(above(shot, { x: 0, y: PORTAL_FRAME_TOP * 1.75, z: 0 })).toBeCloseTo(BOSS_SHOT.crown);
+    expect(above(shot, { x: 0, y: 0, z: -12 })).toBeCloseTo(-BOSS_SHOT.feet);
+  });
+
+  it('frames a bigger portal from further away', () => {
+    const small = portalShot(straight, 60, 1, 8, HERBERT)!;
+    const big = portalShot(straight, 60, 1.75, 8, HERBERT)!;
+    expect(big.position.z).toBeLessThan(small.position.z);
   });
 
   it('pushes in towards the target over the hold', () => {
-    const shot = portalShot(straight, 60, 1, 8, 0.1)!;
-    const dist = (a: { x: number; y: number; z: number }) =>
-      Math.hypot(a.x - shot.target.x, a.y - shot.target.y, a.z - shot.target.z);
+    const shot = portalShot(straight, 60, 1, 8, HERBERT, 0.1)!;
+    const dist = (a: ShotPoint) => Math.hypot(a.x - shot.target.x, a.y - shot.target.y, a.z - shot.target.z);
     expect(dist(shot.dollyTo)).toBeCloseTo(dist(shot.position) * 0.9);
-    const still = portalShot(straight, 60, 1, 8, 0)!;
+    const still = portalShot(straight, 60, 1, 8, HERBERT, 0)!;
     expect(still.dollyTo).toEqual(still.position);
   });
 
@@ -152,9 +185,9 @@ describe('portalShot', () => {
       { x: 0, y: 0, z: -10 },
       { x: 100, y: 0, z: -10 },
     ];
-    const shot = portalShot(bend, 60, 1, 8)!;
+    const shot = portalShot(bend, 60, 1, 8, HERBERT)!;
     expect(shot.position.z).toBeCloseTo(-10);
-    expect(shot.position.x).toBeGreaterThan(20);
+    expect(shot.position.x).toBeGreaterThan(10);
   });
 
   it('holds the camera at the end of a short route, clear of the ground', () => {
@@ -162,18 +195,12 @@ describe('portalShot', () => {
       { x: 0, y: 0, z: 0 },
       { x: 0, y: 12, z: -10 },
     ];
-    const shot = portalShot(short, 60, 1, 4)!;
+    const shot = portalShot(short, 60, 1, 4, HERBERT)!;
     expect(shot.position.z).toBeCloseTo(-10);
     expect(shot.position.y).toBeGreaterThanOrEqual(12 + BOSS_SHOT.minClearance);
   });
 
-  it('frames a bigger portal from further away', () => {
-    const small = portalShot(straight, 60, 1, 8)!;
-    const big = portalShot(straight, 60, 1.75, 8)!;
-    expect(big.position.z).toBeLessThan(small.position.z);
-  });
-
   it('has no shot without a route', () => {
-    expect(portalShot([{ x: 0, y: 0, z: 0 }], 60, 1, 8)).toBeNull();
+    expect(portalShot([{ x: 0, y: 0, z: 0 }], 60, 1, 8, HERBERT)).toBeNull();
   });
 });

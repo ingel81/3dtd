@@ -48,7 +48,7 @@ interface FakeBoss {
 function fakeBoss(id = 'herbert', isBoss = true, name = 'Herbert'): FakeBoss {
   const boss: FakeBoss = { enemy: null as unknown as Enemy, walked: 0 };
   boss.enemy = {
-    typeConfig: { id, isBoss, name },
+    typeConfig: { id, isBoss, name, heightOffset: 0.5, healthBarOffset: 7 },
     active: true,
     alive: true,
     movement: { path: ROUTE, getDistanceAlongPath: () => boss.walked },
