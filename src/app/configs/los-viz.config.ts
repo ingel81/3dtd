@@ -1,9 +1,8 @@
 /**
  * Konfiguration für die GPU-Cubemap-basierte LOS-Visualisierung.
  *
- * Single source of truth für alle Magic-Numbers aus dem Handover-Plan
- * (siehe docs/HANDOVER_ROUTE_GRID_GPU_LOS.md). Werte hier ändern statt
- * im Code patchen.
+ * Single source of truth für alle Magic-Numbers der LOS-Pipeline
+ * (siehe docs/LOS_PIPELINE.md). Werte hier ändern statt im Code patchen.
  */
 
 import { Color } from 'three';

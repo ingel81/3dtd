@@ -6,8 +6,7 @@
  * `gpu-cube-resolve.ts` und Three.js' `textureCube` auf einem
  * `WebGLCubeRenderTarget`:
  *   - face-Indizes folgen WebGL-Konvention: 0=POS_X 1=NEG_X 2=POS_Y 3=NEG_Y 4=POS_Z 5=NEG_Z
- *   - py = floor(t * size) — KEIN y-Flip (siehe H5-Diskussion im
- *     HANDOVER_ROUTE_GRID_GPU_LOS.md)
+ *   - py = floor(t * size) — KEIN y-Flip (Regel 12 in docs/LOS_PIPELINE.md)
  *
  * Wird vom LOS-Debug-Panel benutzt um Cell-Direction → Canvas-Pixel und
  * Canvas-Hover → Welt-Direction abzubilden.

@@ -106,7 +106,7 @@ export function sampleCubeAtPoint(
   // sampelt direkt mit framebuffer-bottom-up t-Koordinate. Der "py = size-1
   // - floor(t*size)"-Flip aus der v2-Probe war FALSCH und produzierte
   // systematisch divergierende Visibility-Werte zwischen CPU-readPixels
-  // und GPU-textureCube (siehe H5 im HANDOVER_ROUTE_GRID_GPU_LOS.md).
+  // und GPU-textureCube (Regel 12 in docs/LOS_PIPELINE.md).
   const py = Math.min(size - 1, Math.max(0, Math.floor(t * size)));
 
   const faceBuf = ctx.faces[face];
