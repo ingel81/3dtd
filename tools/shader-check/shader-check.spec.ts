@@ -95,6 +95,7 @@ import { ThreeTentacleRenderer } from '../../src/app/three-engine/renderers/thre
 import { TowerShadowMapper } from '../../src/app/three-engine/tower-shadow-mapper';
 import { createColorGradingPass } from '../../src/app/three-engine/post-processing/color-grading';
 import { guardBloomHighPass } from '../../src/app/three-engine/post-processing/bloom-guard';
+import { createPixelMarksPass } from '../../src/app/three-engine/post-processing/pixel-marks';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { buildRouteAltitudeTubes } from '../../src/app/utils/route-altitude-tubes';
 import type { GlobalRouteGrid } from '../../src/app/utils/global-route-grid';
@@ -446,6 +447,12 @@ const CASES: ShaderCase[] = [
     },
     marks: ['nonFinite( texel.rgb )'],
     withoutLogDepth: 'full-screen pass of the composer: reads the frame, depth plays no part',
+  },
+  {
+    name: 'NaN and infinity marks (__bloom.marks)',
+    file: 'three-engine/post-processing/pixel-marks.ts',
+    build: (scene) => scene.add(new Mesh(new PlaneGeometry(2, 2), createPixelMarksPass().material)),
+    withoutLogDepth: 'full-screen diagnostic pass of the composer: reads the frame, depth plays no part',
   },
 ];
 

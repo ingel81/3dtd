@@ -2229,6 +2229,8 @@ const material = new THREE.ShaderMaterial({
 
 **Lösung:** `post-processing/bloom-guard.ts` ersetzt den Fragment-Shader des Hochpasses: ein Pixel mit NaN oder Unendlich in einem Kanal trägt nichts zum Bloom bei, negative Kanäle zählen als 0. Der Test ist ein Bit-Test auf den Exponenten (`floatBitsToUint`), weil `isnan()` unter Fast-Math wegoptimiert werden darf. Das Bild selbst bleibt unverändert, der kaputte Pixel ist mit und ohne Bloom derselbe eine Pixel.
 
+**Diagnose (DevTools):** `__bloom.marks()` malt jeden NaN-Pixel, den die Szene schreibt, als magenta Quadrat (9 px), jeden unendlichen cyan, mit Bloom an oder aus (`post-processing/pixel-marks.ts`, direkt nach dem RenderPass; solange die Marken an sind, läuft das Bild durch den Composer). Wo ein Quadrat erscheint, sitzt der Shader, der repariert werden muss. `__bloom.marks(false)` schaltet sie ab. `__bloom.guard(false)` stellt den alten Hochpass zum Vergleich wieder her, `__bloom.guard()` den geschützten.
+
 **Regel:** Der Hochpass ist die einzige Stelle, an der ein einzelner Pixel großflächig wirkt. Wer einen weiteren Pass einbaut, der Nachbarn über große Radien mischt, muss dieselbe Prüfung vorschalten.
 
 ### Shader-Compile-Check ohne Browser

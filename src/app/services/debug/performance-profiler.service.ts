@@ -152,8 +152,19 @@ export class PerformanceProfilerService {
    * renderer.forceContextLoss() and restores it `ms` later
    * (forceContextRestore()), to check what comes back, e.g. the enemy VATs
    * InstancedEnemyRenderer bakes again.
+   *
+   * `__bloom.marks(on = true)` paints every NaN pixel the scene writes as a
+   * magenta square and every infinite one cyan, with bloom on or off
+   * (PostProcessingPipeline.setPixelMarks); where a square shows, a shader
+   * writes values the bloom would spread into a black block.
+   * `__bloom.guard(on = true)` turns the bloom's guard against them
+   * (bloom-guard.ts) on or off, off only to compare with the old bloom.
    */
   private exposeDebugApi(): void {
+    (globalThis as Record<string, unknown>)['__bloom'] = {
+      marks: (on = true) => this.engine?.setPixelMarks(on) ?? false,
+      guard: (on = true) => this.engine?.setBloomGuard(on) ?? false,
+    };
     (globalThis as Record<string, unknown>)['__perf'] = {
       setRendering: (enabled: boolean) => {
         this.gameStore.renderingEnabled.set(enabled);
