@@ -40,6 +40,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) | Aktuell | Partikel, Decals, Floating Text, VFX-Subsysteme |
 | [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) | Aktuell | GPU Instancing mit VAT (Draw-Call-Reduktion) |
 | [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) | Aktuell | Gegnermodelle vermessen (VAT-Vertices, VAT-Speicher, Clips, Vorkommen in Wellen), Budget je Klasse, Optimierungsliste. Tabellen per `npm run model-budget` |
+| [SPAWN_PORTAL.md](SPAWN_PORTAL.md) | Aktuell | Spawn-Portal: Volumen und Ausrichtung an der Route, Vorschau beim Setzen, Drehen mit R samt Kurs in URL und Favoriten, Drehbereich, Lufteinheiten, Asset, Licht, Sigillen, Beschwörungskreis |
 | [LOS_PIPELINE.md](LOS_PIPELINE.md) | Aktuell | Sichtlinien der Tower auf dem Route-Grid: eine GPU-Cubemap je Tower-Tip, drei Leser (Build-Vorschau, Auswahl, Kampf-Cache), Farben der Zellplatten, Regeln für jeden Eingriff am Cube, Abläufe |
 | [DEVWORLD.md](DEVWORLD.md) | Aktuell | Offline-Entwicklungsumgebung, Terrain-Presets (`?devworld`) |
 
@@ -148,6 +149,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...ein neues Modell exportieren | [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) |
 | ...das Location-System anpassen | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
 | ...verstehen, wie breit Route und Zellkorridor sind | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
+| ...das Spawn-Portal verstehen (Drehen, Look, Sigillen) | [SPAWN_PORTAL.md](SPAWN_PORTAL.md) |
 | ...Sounds hinzufügen | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
 | ...neue Projektiltypen erstellen | [PROJECTILES.md](PROJECTILES.md) |
 | ...Model Previews anpassen | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) |

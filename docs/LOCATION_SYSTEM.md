@@ -274,7 +274,7 @@ Die Drehung des Spawn-Portals:
 | Erneuter Versuch nach Ladefehler (`retryLoading`) | bleibt |
 | HQ versetzen (in place und außerhalb der Straßen), Standort-Dialog, Zuletzt gespielt, Weltkarte, World Dice | keiner, das Portal folgt der Route |
 
-`LocationFacadeService.addSpawnPoint` dreht das Portal nach dem Bau der Route (`MarkerVisualizationService.setPortalHeading`); jeder Bau der Route hält den Kurs im Drehbereich dieser Route (`clampPortalHeading`). Hat sich die Route seit dem Speichern geändert, steht das Portal an der Grenze; im Ort, in der URL und im Favoriten bleibt der Kurs, wie er gegeben wurde. Mehr zum Drehbereich in [ARCHITECTURE.md](ARCHITECTURE.md#spawn-portal).
+`LocationFacadeService.addSpawnPoint` dreht das Portal nach dem Bau der Route (`MarkerVisualizationService.setPortalHeading`); jeder Bau der Route hält den Kurs im Drehbereich dieser Route (`clampPortalHeading`). Hat sich die Route seit dem Speichern geändert, steht das Portal an der Grenze; im Ort, in der URL und im Favoriten bleibt der Kurs, wie er gegeben wurde. Mehr zum Drehbereich in [SPAWN_PORTAL.md](SPAWN_PORTAL.md#drehbereich).
 
 ```typescript
 parseFromUrl(): { hq, spawns } | null   // URL parsen
