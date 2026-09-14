@@ -894,11 +894,13 @@ Der Held (Söldner) läuft auf dem Routengraph (`utils/route-graph.ts`), kämpft
 
 Ein Präsentations-Replay, keine Re-Simulation (Begründung in REPLAY.md):
 `ReplayRecorder` (`replay/`, ohne Angular-DI, vom GameStateManager gehalten)
-nimmt alle 6 Sub-Steps auf, was die Renderer zeigen, in Typed-Array-Spalten
-mit Speichergrenze, dazu Effekt-Events und jedes `command:*` über `onAny()`.
+nimmt alle 6 Sub-Steps auf, was die Renderer zeigen (Gegner, Projektile,
+Türme, die Körper der Oozes, den Helden), in Typed-Array-Spalten mit
+Speichergrenze, dazu Effekt-Events und jedes `command:*` über `onAny()`.
 `ReplayPlayer` spielt das über die Live-Renderer ab, während das Spiel
-pausiert; Effekte laufen über einen eigenen Bus mit eigenem `VFXService`,
-`AudioService` und `ScreenShakeService`. `ReplayService` (Angular, vom
+pausiert, im Blutmond-Look der aufgezeichneten Welle; Effekte laufen über
+einen eigenen Bus mit eigenem `VFXService`, `AudioService` und
+`ScreenShakeService`. `ReplayService` (Angular, vom
 Spiel-Component bereitgestellt) steuert den Modus, `app-replay-bar` die Leiste.
 
 ```typescript

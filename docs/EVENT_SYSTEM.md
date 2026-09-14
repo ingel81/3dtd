@@ -279,7 +279,7 @@ function gameLoop(deltaTime: number) {
 | **HQDamageService** | Ja | Mixed | Reagiert auf `health:changed`, emittiert `audio:play` |
 | **GameStateSyncService** | Ja | Subscriber | Synchronisiert Game State mit Angular UI |
 | **GameStateManager** | Ja | Adapter | Orchestriert Manager, emittiert `game:started`, `game:over`, `game:reset`; über seine Klassen in `managers/game-state/` außerdem `credits:changed`, `health:changed`, `tower:upgraded` |
-| **ReplayRecorder** | Nein | Subscriber (`onAny`) | Nimmt die laufende Welle für das Replay auf: startet bei `wave:started`, liest Spawns, Tode, Lecks, `projectile:hit`, gebaute und verkaufte Tower, die Effekt-Events (`vfx:*`, `audio:play`, `ability:*`, `health:changed`, `enemy:split`) und jedes `command:*`. Emittiert nichts. Der `ReplayPlayer` spielt die Effekt-Events später auf einem eigenen Bus ab. Siehe [REPLAY.md](REPLAY.md) |
+| **ReplayRecorder** | Nein | Subscriber (`onAny`) | Nimmt die laufende Welle für das Replay auf: startet bei `wave:started`, liest Spawns, Tode, Lecks, `projectile:hit`, gebaute und verkaufte Tower, die Effekt-Events (`vfx:*`, `audio:play`, `ability:*`, `health:changed`, `enemy:split`, `hero:level-up`) und jedes `command:*`; `wave:started` der nächsten Welle und `wave:jumped` verwerfen die Aufnahme. Emittiert nichts. Der `ReplayPlayer` spielt die Effekt-Events später auf einem eigenen Bus ab. Siehe [REPLAY.md](REPLAY.md) |
 
 ---
 
