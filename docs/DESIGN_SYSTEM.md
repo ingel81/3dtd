@@ -563,7 +563,7 @@ Sieben kurze Tipps in der Context-Hint-Box, entlang des Spielablaufs: Tower baue
 - Kopf "1/7" rechts neben dem Titel; der erste Tipp zeigt die Kamera-Tasten und H (Shortcuts) als Tastenkappen, der Controls Hint wartet so lange. Der Wellen-Tipp zeigt Space, P und +/-, der Upgrade-Tipp U und Del (Verkauf), der Fähigkeiten-Tipp die Tasten der erforschten Fähigkeiten, der Helden-Tipp G und V
 - Nicht über Ladescreen, Token-Screen, Fehler, Intro-Flug, Game Over, Photo Mode und Replay
 - Die Tipp-Box sitzt 56px über der Unterkante statt 20px wie die Build-Hinweise: oberhalb des Bands der Offscreen-Pfeile (26px vom Rand, Chips bis 26px), damit kein Pfeil darunter verschwindet
-- "Tips" links im Sidebar-Footer startet die Tipps von vorn
+- "Tips" links im Sidebar-Footer startet die Tipps von vorn, ohne die Schritte, die das laufende Spiel schon getan hat (ohne Skips): in Welle 12 kommt nicht "Build a tower". Hat das Spiel alle sieben getan, kommt die ganze Runde ab 1/7. Neues Spiel oder Reload setzen den gespeicherten Stand nicht zurück, nur den Spielfortschritt
 
 ### Damage-vs-Armor-Dialog
 

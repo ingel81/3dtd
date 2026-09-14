@@ -1,6 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
 import {
+  INITIAL_ONBOARDING,
   INITIAL_PROGRESS,
   ONBOARDING_STEPS,
   OnboardingAction,
@@ -28,7 +29,7 @@ export interface ActiveOnboardingTip extends OnboardingTip {
  * two done, a research center, an ability or the hero researched). The
  * state machine is in onboarding.ts, the state in localStorage
  * (td_onboarding_v2), the game's progress only here. The sidebar footer's
- * Tips button starts them again.
+ * Tips button starts them again from the first the running game has not done.
  */
 @Injectable({ providedIn: 'root' })
 export class OnboardingService {
@@ -44,24 +45,30 @@ export class OnboardingService {
     return { ...tipFor(step, progress), index: ONBOARDING_STEPS.indexOf(step) + 1, total: ONBOARDING_STEPS.length };
   });
 
+  /**
+   * The same machine over this game's own actions, no skips: what the
+   * running game has done. Tips leaves those steps out. Not stored.
+   */
+  private game: OnboardingState = INITIAL_ONBOARDING;
+
   private readonly subs = new SubscriptionBag();
 
   /** Follow the game's events; called per game session next to GameStateSyncService. */
   connect(bus: GameEventBus): void {
     this.subs.disposeAll();
-    this.progress.set(INITIAL_PROGRESS);
+    this.newGame();
     this.subs.add(bus.on('tower:placed', (e) => {
-      this.dispatch({ kind: 'tower-placed', towerType: e.tower.typeConfig.id });
+      this.play({ kind: 'tower-placed', towerType: e.tower.typeConfig.id });
     }));
     this.subs.add(bus.on('tower:upgraded', (e) => {
-      this.dispatch({ kind: 'tower-upgraded', towerType: e.tower.typeConfig.id });
+      this.play({ kind: 'tower-upgraded', towerType: e.tower.typeConfig.id });
     }));
-    this.subs.add(bus.on('research:started', () => this.dispatch({ kind: 'research-started' })));
-    this.subs.add(bus.on('wave:started', () => this.dispatch({ kind: 'wave-started' })));
-    this.subs.add(bus.on('ability:used', () => this.dispatch({ kind: 'ability-used' })));
+    this.subs.add(bus.on('research:started', () => this.play({ kind: 'research-started' })));
+    this.subs.add(bus.on('wave:started', () => this.play({ kind: 'wave-started' })));
+    this.subs.add(bus.on('ability:used', () => this.play({ kind: 'ability-used' })));
     this.subs.add(bus.on('hero:state-changed', (e) => {
       this.updateProgress({ heroUnlocked: e.hero.unlocked });
-      if (e.hero.hired) this.dispatch({ kind: 'hero-hired' });
+      if (e.hero.hired) this.play({ kind: 'hero-hired' });
     }));
 
     this.subs.add(bus.on('wave:completed', (e) => this.updateProgress({ wavesCompleted: e.wave })));
@@ -71,7 +78,7 @@ export class OnboardingService {
     this.subs.add(bus.on('ability:state-changed', (e) => {
       this.updateProgress({ abilities: e.abilities.filter((a) => a.unlocked).map((a) => a.id) });
     }));
-    this.subs.add(bus.on('game:reset', () => this.progress.set(INITIAL_PROGRESS)));
+    this.subs.add(bus.on('game:reset', () => this.newGame()));
   }
 
   disconnect(): void {
@@ -88,11 +95,22 @@ export class OnboardingService {
   }
 
   restart(): void {
-    this.dispatch({ kind: 'restart' });
+    this.dispatch({ kind: 'restart', doneInGame: this.game.completed });
+  }
+
+  private newGame(): void {
+    this.progress.set(INITIAL_PROGRESS);
+    this.game = INITIAL_ONBOARDING;
   }
 
   private updateProgress(patch: Partial<OnboardingProgress>): void {
     this.progress.set({ ...this.progress(), ...patch });
+  }
+
+  /** An action of the game: counts for this game and for the tips. */
+  private play(action: OnboardingAction): void {
+    this.game = advanceOnboarding(this.game, action);
+    this.dispatch(action);
   }
 
   private dispatch(action: OnboardingAction): void {
