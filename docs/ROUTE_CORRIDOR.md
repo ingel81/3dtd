@@ -855,9 +855,37 @@ __corridor.pick(6)
 - Korridor: `corridorM` (links plus rechts), `leftM`, `rightM`, als Spanne,
   wo die Breite wechselt.
 - Höhe: `maxCellAboveStreetM` und `at`, der größte Abstand der Zellhöhe über
-  dem gelben Straßen-Overlay entlang der Mittellinie.
+  der Straßenhöhe entlang der Mittellinie, nach der Regel des gelben
+  Straßen-Overlays (`getStreetHeightEstimate`, siehe unten). Die
+  Fortsetzung eines Decks nimmt der Vergleich wie die Zellen entlang der
+  Route (`deckApproaches`).
 
-Nur für Diagnose: je Punkt alle 2 m bis zu fünf Säulenproben.
+Nur für Diagnose: je Punkt alle 2 m bis zu fünf Säulenproben, auf Brücke und
+Fortsetzung eine bis zwei mehr.
+
+### Gelbes Straßen-Overlay
+
+Layer "Show streets" im Layers-Menü der Quick-Actions
+(`StreetRenderingService`, `street-rendering.service.ts`). Höhe je OSM-Knoten
+(`TerrainQueries.getStreetHeightEstimate`), danach je Way geglättet
+(`smoothPathHeights`):
+
+- sonst der unterste Treffer unter dem Knoten, oder das Minimum der Proben
+  3 und 6 m quer dazu, wenn der Knoten mehr als 3 m darüber liegt (Krone,
+  Dach; `getGroundHeightEstimate`);
+- auf einem Way mit `bridge=*` die Oberkante der Säule, das Deck, wie die
+  Zellen eines Brückensegments;
+- auf einem Way, der das Deck fortsetzt, die Oberkante, wenn sie höchstens
+  1,5 m von der Oberkante am Endknoten des Brücken-Ways abweicht, sonst wie
+  oben. Welche Knoten dazugehören, sucht `streetDeckApproaches` im
+  Straßennetz: von beiden Endknoten jedes Brücken-Ways über Ways ohne
+  Brücken-Tag, geradeaus (höchstens 45° je Knick), ohne Tunnel, bis 40 m.
+  Das ist dieselbe Strecke, die eine Route über diese Ways bekommt, außer wo
+  eine Route den Brücken-Way an einem mittleren Knoten verlässt: Dort trägt
+  die Route das Deck weiter, das Overlay nicht.
+
+Vorher lag das Overlay auf jeder Brücke auf Kai oder Fluss darunter
+(Playtest 2026-09-14, Paris).
 
 ### Linie, Zellen und Gegner verschwinden (Brücken, Unterführungen)
 
@@ -888,9 +916,10 @@ Was der Code dazu sagt:
   Brückendeck).
 - **Kein Fehler der Zellen:** `maxCellAboveStreetM` 9,5 auf dem
   Brücken-Way. Das gelbe Straßen-Overlay und der Vergleichswert in
-  `__routes.describe()` nehmen je Säule den untersten Treffer
-  (`getGroundHeightEstimate`), auf einer Brücke also Kai oder Fluss. Die
-  Deckzellen liegen 9,5 m darüber.
+  `__routes.describe()` nahmen je Säule den untersten Treffer
+  (`getGroundHeightEstimate`), auf einer Brücke also Kai oder Fluss; die
+  Deckzellen lagen 9,5 m darüber. Seitdem nehmen beide dort das Deck
+  (siehe "Gelbes Straßen-Overlay").
 - Die rote Linie liegt 1 m (in DevWorld 3 m) über den Zellen der
   Mittellinie und zeichnet mit Tiefentest
   (`route-line-layer.ts`), Gegner ebenso. Das Route Grid Overlay zeichnet

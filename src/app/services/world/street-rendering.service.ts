@@ -17,6 +17,7 @@ import { smoothPathHeights } from '../../utils/route-height-smoothing';
 import { GeoPosition } from '../../models/game.types';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { UIStore } from '../../store/ui.store';
+import { StreetDeck, streetDeckApproaches } from '../../utils/deck-approach';
 
 /**
  * Maximum distance between street points (in meters).
@@ -36,6 +37,12 @@ interface PreparedNode {
   isDevWorld: boolean;
   /** For DevWorld: subdivided nodes from this segment */
   subdivided?: StreetNode[];
+  /**
+   * On a bridge way or the stretch off its end, what the height compares
+   * with (TerrainQueries.getStreetHeightEstimate); null elsewhere and in
+   * DevWorld.
+   */
+  deck: StreetDeck | null;
 }
 
 /**
@@ -44,7 +51,9 @@ interface PreparedNode {
  * Extracted from TowerDefenseComponent to reduce god object complexity.
  * Manages:
  * - Merged LineSegments geometry for all streets (1 draw call instead of 600+)
- * - Terrain-following street heights via raycast with segment subdivision
+ * - Terrain-following street heights via raycast with segment subdivision,
+ *   on the deck over a bridge way and the ways that carry it on past its
+ *   ends (deck-approach.ts), as the route cells take them
  * - Debug height markers
  * - Street visibility toggle
  *
@@ -135,6 +144,8 @@ export class StreetRenderingService {
     const allNodes: PreparedNode[] = [];
     const streetIndices: number[] = [];
     const isDevWorld = this.devWorld.isActive;
+    // The ways off the ends of bridge ways, whose deck may carry on.
+    const approaches = isDevWorld ? null : streetDeckApproaches(networkToRender.streets);
 
     for (let si = 0; si < networkToRender.streets.length; si++) {
       const street = networkToRender.streets[si];
@@ -147,13 +158,13 @@ export class StreetRenderingService {
           const nodeB = street.nodes[nodeIdx + 1];
           const subdivided = this.subdivideSegment(nodeA, nodeB);
           for (const node of subdivided) {
-            allNodes.push({ node, prev: nodeA, next: nodeB, isDevWorld: true });
+            allNodes.push({ node, prev: nodeA, next: nodeB, isDevWorld: true, deck: null });
             streetIndices.push(si);
           }
         }
         // Last node
         const lastNode = street.nodes[street.nodes.length - 1];
-        allNodes.push({ node: lastNode, prev: lastNode, next: lastNode, isDevWorld: true });
+        allNodes.push({ node: lastNode, prev: lastNode, next: lastNode, isDevWorld: true, deck: null });
         streetIndices.push(si);
       } else {
         // Real world: use nodes directly with prev/next for lateral sampling
@@ -162,7 +173,8 @@ export class StreetRenderingService {
           const node = nodes[idx];
           const prevNode = nodes[Math.max(0, idx - 1)];
           const nextNode = nodes[Math.min(nodes.length - 1, idx + 1)];
-          allNodes.push({ node, prev: prevNode, next: nextNode, isDevWorld: false });
+          const deck = street.bridge !== undefined ? 'bridge' : approaches?.get(node.id)?.deckEnd ?? null;
+          allNodes.push({ node, prev: prevNode, next: nextNode, isDevWorld: false, deck });
           streetIndices.push(si);
         }
       }
@@ -215,10 +227,11 @@ export class StreetRenderingService {
         if (prepared.isDevWorld) {
           terrainY = s.engine.getTerrainHeightAtGeo(prepared.node.lat, prepared.node.lon);
         } else {
-          terrainY = s.engine.terrain.getGroundHeightEstimate(
+          terrainY = s.engine.terrain.getStreetHeightEstimate(
             prepared.node.lat, prepared.node.lon,
             prepared.prev.lat, prepared.prev.lon,
-            prepared.next.lat, prepared.next.lon
+            prepared.next.lat, prepared.next.lon,
+            prepared.deck,
           );
         }
       } finally {

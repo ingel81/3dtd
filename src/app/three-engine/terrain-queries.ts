@@ -2,6 +2,7 @@ import { Box3, Raycaster, Vector3, type Intersection, type Object3D } from 'thre
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { StationProbe, corridorConfig } from '../utils/route-corridor';
+import { StreetDeck, continuesDeck } from '../utils/deck-approach';
 import { raycastStats } from '../utils/raycast-stats';
 import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import type { EllipsoidSync } from './ellipsoid-sync';
@@ -147,13 +148,45 @@ export class TerrainQueries {
 
     // Caching happens per column in `sampleColumn`, keyed on local (x,z):
     // one keyspace for the whole engine instead of a second lat/lon one.
+    return this.columnAtGeo(lat, lon)?.groundY ?? null;
+  }
+
+  /** The column at a geographic point (sampleColumn), its rays booked as `heightAtGeo`. */
+  private columnAtGeo(lat: number, lon: number): ColumnSample | null {
     const localPos = this.sync.geoToLocalSimple(lat, lon, 0);
     const scope = raycastStats.enter('heightAtGeo');
     try {
-      return this.sampleColumn(localPos.x, localPos.z)?.groundY ?? null;
+      return this.sampleColumn(localPos.x, localPos.z);
     } finally {
       raycastStats.exit(scope);
     }
+  }
+
+  /**
+   * Height of a street at a path point, as the yellow street overlay draws
+   * it and `__routes.describe()` compares the route cells with.
+   *
+   * `deck` 'bridge', on a way with `bridge=*`: the top of the column, the
+   * deck, as the route cells of a bridge segment take it. `deck` a bridge
+   * end, on a way that carries a bridge on past its end (deck-approach.ts):
+   * the top where it lies within DECK_APPROACH_RISE_M of the top at the
+   * bridge end (continuesDeck), as the route cells there take it. Otherwise,
+   * and for `deck` null, getGroundHeightEstimate. The route cells fall back
+   * to the lowest hit instead of the lateral minimum.
+   */
+  getStreetHeightEstimate(
+    lat: number, lon: number,
+    prevLat: number, prevLon: number,
+    nextLat: number, nextLon: number,
+    deck: StreetDeck | null,
+  ): number | null {
+    if (deck !== null) {
+      const here = this.columnAtGeo(lat, lon);
+      if (deck === 'bridge') return here?.topY ?? null;
+      const end = this.columnAtGeo(deck.lat, deck.lon);
+      if (here !== null && end !== null && continuesDeck(here.topY, end.topY)) return here.topY;
+    }
+    return this.getGroundHeightEstimate(lat, lon, prevLat, prevLon, nextLat, nextLon);
   }
 
   /**
@@ -165,7 +198,7 @@ export class TerrainQueries {
    *
    * On a bridge every sample is the lowest hit of its column (sampleColumn), the river or
    * road under the deck where the photogrammetry has it, so the estimate lies under the
-   * bridge. Route cells of a bridge segment take the deck instead (RouteCellSampler).
+   * bridge. getStreetHeightEstimate takes the deck there, as the route cells do.
    *
    * @param lat - Latitude of the path point
    * @param lon - Longitude of the path point
