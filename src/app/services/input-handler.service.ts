@@ -261,6 +261,7 @@ export class InputHandlerService {
           this.rightClickDownPos = { x: event.clientX, y: event.clientY };
           this.rightClickDownTime = Date.now();
         }
+        this.holdHover();
       }
     };
     document.addEventListener('pointerdown', this.pointerDownHandler, { capture: true });
@@ -272,9 +273,10 @@ export class InputHandlerService {
         // Right-click release: cancel build/placement mode if it was a short, stationary click
         if (event.button === 2) {
           this.handleRightClickUp(event);
-          return;
+        } else {
+          this.handleClick(event);
         }
-        this.handleClick(event);
+        this.resumeHover(event);
       }
     };
     document.addEventListener('pointerup', this.pointerUpHandler, { capture: true });
@@ -466,16 +468,16 @@ export class InputHandlerService {
   private handlePointerMove(event: PointerEvent): void {
     if (!this.engine) return;
 
-    const inBuildMode = this.buildModeSignal?.() ?? false;
-    const inPlacementMode = !!this.mapPlacementModeSignal?.();
-    const inTargeting = !!this.abilityTargetingSignal?.();
-    const heroSelected = !!this.heroInput?.selected();
-
-    if (!inBuildMode && !inPlacementMode && !inTargeting && !heroSelected) {
+    if (!this.pointerOwnedByMode()) {
       this.scheduleHoverPick(event);
       return;
     }
     if (this.hoveredTowerId) this.setHoveredTower(null);
+
+    const inBuildMode = this.buildModeSignal?.() ?? false;
+    const inPlacementMode = !!this.mapPlacementModeSignal?.();
+    const inTargeting = !!this.abilityTargetingSignal?.();
+    const heroSelected = !!this.heroInput?.selected();
 
     // Throttle to prevent excessive raycasts
     const now = performance.now();
@@ -505,11 +507,41 @@ export class InputHandlerService {
     }
   }
 
+  /** Build, placement, ability targeting or the selected hero own the pointer: no hover range then. */
+  private pointerOwnedByMode(): boolean {
+    return (this.buildModeSignal?.() ?? false)
+      || !!this.mapPlacementModeSignal?.()
+      || !!this.abilityTargetingSignal?.()
+      || !!this.heroInput?.selected();
+  }
+
+  /**
+   * A button went down on the canvas, a camera drag or a click: the range
+   * shown on hover goes, and a pick still pending for the last move is
+   * dropped. Until the release no pick runs (scheduleHoverPick skips moves
+   * with a button held), resumeHover picks again.
+   */
+  private holdHover(): void {
+    if (this.hoverPickTimer !== null) {
+      clearTimeout(this.hoverPickTimer);
+      this.hoverPickTimer = null;
+    }
+    this.setHoveredTower(null);
+    // The release may come where the last pick was; it must pick again
+    this.lastHoverPickX = NaN;
+    this.lastHoverPickY = NaN;
+  }
+
+  /** The button came up over the canvas: the tower under the pointer shows its range again. */
+  private resumeHover(event: PointerEvent): void {
+    if (!this.pointerOwnedByMode()) this.scheduleHoverPick(event);
+  }
+
   /**
    * Range of the tower under the pointer, outside build and placement mode.
-   * Kept cheap: no pick while a button is held (a camera drag), at most one
-   * per HOVER_PICK_INTERVAL_MS with a trailing one for where the pointer
-   * stopped, and none when the pointer has not moved since the last.
+   * Kept cheap: no pick while a button is held (a camera drag, holdHover),
+   * at most one per HOVER_PICK_INTERVAL_MS with a trailing one for where the
+   * pointer stopped, and none when the pointer has not moved since the last.
    */
   private scheduleHoverPick(event: PointerEvent): void {
     // Photo mode and replay: no range ring in the picture

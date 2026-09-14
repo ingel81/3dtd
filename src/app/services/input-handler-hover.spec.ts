@@ -17,8 +17,8 @@ import { UIStore } from '../store/ui.store';
 
 /**
  * Range ring on hover: the tower under the pointer shows its range outside
- * build, placement and photo mode, picked at most every 100 ms and never
- * during a camera drag.
+ * build, placement and photo mode, picked at most every 100 ms and not while
+ * a button is down (a camera drag or a click).
  */
 describe('InputHandlerService tower hover', () => {
   let service: InputHandlerService;
@@ -35,6 +35,11 @@ describe('InputHandlerService tower hover', () => {
 
   const move = (x: number, y: number, init: PointerEventInit = {}, target: EventTarget = canvas) =>
     target.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true, ...init }));
+  const down = (x: number, y: number) =>
+    canvas.dispatchEvent(new PointerEvent('pointerdown', { clientX: x, clientY: y, bubbles: true, button: 0, buttons: 1 }));
+  const up = (x: number, y: number) =>
+    canvas.dispatchEvent(new PointerEvent('pointerup', { clientX: x, clientY: y, bubbles: true, button: 0, buttons: 0 }));
+  let selectTower: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -49,10 +54,12 @@ describe('InputHandlerService tower hover', () => {
       },
       towers: { setHovered: vi.fn() },
     };
+    selectTower = vi.fn();
 
     const injector = Injector.create({
       providers: [
-        { provide: TowerDefenseStore, useValue: {} },
+        // A click on a tower reads the selection
+        { provide: TowerDefenseStore, useValue: { selectedTowerId: () => null } },
         // Photo mode is one of the view-only modes (UIStore.viewOnly)
         { provide: UIStore, useValue: { viewOnly: photoMode } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
@@ -62,7 +69,7 @@ describe('InputHandlerService tower hover', () => {
       ],
     });
     service = runInInjectionContext(injector, () => new InputHandlerService());
-    service.initialize(canvas, engine as never, {} as never, buildMode, vi.fn(), vi.fn());
+    service.initialize(canvas, engine as never, { towerManager: { selectTower } } as never, buildMode, vi.fn(), vi.fn());
   });
 
   afterEach(() => {
@@ -95,6 +102,50 @@ describe('InputHandlerService tower hover', () => {
     move(10, 10, { buttons: 1 });
     vi.advanceTimersByTime(200);
     expect(engine.picker.raycastTowers).not.toHaveBeenCalled();
+  });
+
+  it('drops the range when a button goes down on the tower and shows none during the drag', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith('t1');
+
+    down(10, 10);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith(null);
+    move(40, 40, { buttons: 1 });
+    vi.advanceTimersByTime(200);
+    expect(engine.picker.raycastTowers).toHaveBeenCalledTimes(1);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith(null);
+  });
+
+  it('drops a pick still pending for the move before the press', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    move(20, 20);
+    down(20, 20);
+    vi.advanceTimersByTime(200);
+    expect(engine.picker.raycastTowers).toHaveBeenCalledTimes(1);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith(null);
+  });
+
+  it('shows the range again where the button comes up after a drag', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    down(10, 10);
+    move(60, 60, { buttons: 1 });
+    up(60, 60);
+    vi.advanceTimersByTime(200);
+    expect(engine.picker.raycastTowers).toHaveBeenLastCalledWith(60, 60);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith('t1');
+  });
+
+  it('picks again after a click on the spot of the last pick', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    down(10, 10);
+    up(10, 10);
+    expect(selectTower).toHaveBeenCalledWith('t1');
+    vi.advanceTimersByTime(200);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith('t1');
   });
 
   it('drops the hover when the pointer leaves the canvas', () => {
