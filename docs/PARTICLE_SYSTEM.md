@@ -440,8 +440,11 @@ Bildschirmblitz in `CloudBlast` (`mushroom-cloud-blast.ts`), die Puffer-Helfer i
   oben (Welt-Oben in den Rahmen des Sprites gedreht) und mit dem Feuer von unten
   (`aGlow`: orange, solange der Feuerball glüht, an der Unterseite der Kappe länger).
   Die Glut ist additiv, Farbe mal Dichte². Die Farben sind linear; alle drei
-  Shader kodieren wie die eingebauten Materialien (`colorspace_fragment`), mit und
-  ohne Post-Processing gleich hell.
+  Shader kodieren wie die eingebauten Materialien (`colorspace_fragment`). Deckende
+  Pixel sehen mit und ohne Post-Processing gleich aus, gemischt wird aber auf dem Canvas
+  in kodierten und im Composer in linearen Werten. Am stärksten trifft das die additive
+  Glut: Glut mit linear 0,1 über einer Straße mit Anzeigewert 0,3 hellt ohne
+  Post-Processing um etwa 0,35 auf, mit Post-Processing um etwa 0,15.
 - **Feuerball:** Kugel (48 × 24 Segmente) mit eigenem ShaderMaterial. Wertrauschen in
   beiden Stufen: im Vertex-Shader beult es die Oberfläche aus (`uBoil`), im
   Fragment-Shader gleiten feinere Zellen nach oben. Die Hitze (`fireballHeat`, von 1
@@ -466,6 +469,10 @@ Bildschirmblitz in `CloudBlast` (`mushroom-cloud-blast.ts`), die Puffer-Helfer i
 - **Schockkuppel:** Halbkugel (`SphereGeometry`, 32 × 10 Segmente) mit eigenem
   ShaderMaterial samt Log-Depth-Chunks, additiv, am Umriss am hellsten
   (`1 - |n·v|` hoch 2,5). Mit Tiefentest: Gebäude davor verdecken sie.
+- **Ohne Kodierung:** Bild-Quad und Schockkuppel (`mushroom-cloud-blast.ts`) schreiben ihre
+  Farbe roh, ohne `colorspace_fragment` und ohne `displayOutput`/`displayLight`. Mit
+  Post-Processing (linearer Composer, Bloom an) kommen Nachblitz und Kuppel deshalb heller
+  und blasser an als ohne.
 - **Glutbrocken:** 48 Schweife aus je 4 Sprites, der Kopf und seine Positionen 45, 90
   und 135 ms früher, kleiner und dunkler. Die Flugbahn mit linearer Luftreibung und
   Schwerkraft ist eine geschlossene Formel des Alters; ein Sprite unter der Höhe des
@@ -608,7 +615,10 @@ Grenzen: Der Replay kollabiert das Band eines getöteten Ooze genauso, samt Blas
 Trümmern, aber ohne Pfützen (er hält die Bodenspuren an). Ein Neustart, ein Game Over,
 ein Standortwechsel und ein Verlassen des Replays räumen ein noch kollabierendes Band
 und liegende Trümmer sofort ab (`OozeBodies.clear` bzw. `ReplayPlayer.exit` rufen den
-Renderer immer, auch ohne lebende Ooze). Jedes Trümmerstück landet auf der Bodenhöhe
+Renderer immer, auch ohne lebende Ooze). Ein Sprung im Replay räumt Band und Trümmer
+nicht ab (`ReplayPlayer.seek`); läuft das Replay danach wieder über den Kill, wirft der
+Kollaps einen neuen Satz Trümmer, während der alte noch liegt. Wiederholtes Springen kann
+so die Pools einer Art füllen, danach fallen weitere Stücke still weg. Jedes Trümmerstück landet auf der Bodenhöhe
 seines Abwurfpunkts, einmal beim Loslassen gelesen (`letGo()`); am Hang oder an
 Gehsteigkanten kann es daher bis zu den knapp 8 m seitlich seines Auswurfs schweben
 oder einsinken. Mit Gebäuden oder Tiles kollidiert es nicht.
