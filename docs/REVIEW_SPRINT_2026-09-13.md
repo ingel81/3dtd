@@ -761,7 +761,13 @@ steht unter "Bugfixes".
 vorsortiert in
 `tmp/fix1/reports/sorter-night1.md` (Code-Stand `509aaed0`): 17 überholt,
 32 per Szenario-Test prüfbar (verifyE), 29 für den User in den Runden O bis
-T, 7 gemischt. Die Erwartungen zu 176, 178 und 205 bis 209 sind dort an den
+T, 7 gemischt. **verifyE:** von 39 Logikpunkten (inklusive der Logikteile
+der gemischten) sind 37 per Test bestätigt, kein Befund; 166 (Hinweistext)
+und 189 (blockierter Chunk des Token-Screens) nur teilweise per Test.
+Teilweise überholt: 163 (Kamera-Timeline loggt in DevWorld eine
+`[Camera]`-Zeile), 174 (HQ-Teil durch 541/544), 176 (`clamped` ersetzt
+durch `unwalkable`/`walkable`). Hinweis zu 161: mit Token in
+`environment.ts` kommt der Token-Screen nur mit `?tokensetup`. Die Erwartungen zu 176, 178 und 205 bis 209 sind dort an den
 neuen Korridor angepasst (keine orangen Zellen mehr). 157 bleibt in TODO 1.4.
 Für alte Liste 14 (Paris-Brücke) gibt es einen Fix aus dem Code
 (`427443a6`, corridor2), belegt durch Specs, im Browser ungesehen; offen ist
