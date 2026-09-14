@@ -248,7 +248,7 @@ Zeilen sind Checkbox-Labels wie im Display-Debugfenster (Akzent `--td-teal`), Ko
 
 ### Boss-Leiste
 
-Solange ein Boss lebt (`EnemyTypeConfig.isBoss`, derzeit nur Herbert), steht oben mittig unter Game Speed und PAUSED-Chip `app-boss-bar` (`components/boss-bar/`): Glas-Panel (Mixin `bevel-glass`), `min(420px, 56vw)` breit, links der Name des Typs (12px/600 `--td-font-body`, Versalien, `--td-text-primary`), rechts die HP ("12,340 / 40,000", 10px Mono, `--td-text-muted`), darunter ein 8px-Balken als vertiefte Fläche mit Füllung in `--td-health-red`. Bei mehreren Bossen zeigt der große Balken den mit den meisten HP, die übrigen stehen als 3px-Balken darunter, höchstens vier, danach "+N" (Auswahl in `boss-bar.ts`). `pointer-events: none`.
+Solange ein Boss lebt (`EnemyTypeConfig.isBoss`: Herbert, Skarnax, die Ooze), steht oben mittig unter Game Speed und PAUSED-Chip `app-boss-bar` (`components/boss-bar/`): Glas-Panel (Mixin `bevel-glass`), `min(420px, 56vw)` breit, links der Name des Typs (12px/600 `--td-font-body`, Versalien, `--td-text-primary`), rechts die HP ("12,340 / 40,000", 10px Mono, `--td-text-muted`), darunter ein 8px-Balken als vertiefte Fläche mit Füllung in `--td-health-red`. Bei mehreren Bossen zeigt der große Balken den mit den meisten HP, die übrigen stehen als 3px-Balken darunter, höchstens vier, danach "+N" (Auswahl in `boss-bar.ts`). `pointer-events: none`.
 
 Bosse kommen über `enemy:spawned` in eine kurze Liste; ein 8-Hz-Timer außerhalb von Angular liest ihre HP und wirft die heraus, die gestorben, durchgekommen oder entfernt sind (ein Reset und das Debug-Fenster senden kein `enemy:died`, geprüft wird `active && alive`). Das Signal ändert sich nur, wenn sich die Leiste ändert; pausiert bleibt es also stehen.
 
@@ -536,7 +536,7 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | Taste | Aktion | Prüfung wie |
 |-------|--------|-------------|
 | 1 bis 9 | Karte an dieser Stelle im BUILD-Panel wählen | Karten-Button (`canPickTowerCard`) |
-| U | Erstes Upgrade des gewählten Towers, das bezahlbar und freigeschaltet ist. Über dem Tower steigt der Track mit neuer Stufe auf ("SPEED LV 4", `--td-gold-light`), die Kachel blitzt. Kauft U nichts, steigt dort der Grund auf (`--td-warn-orange`: "NEED 120 CREDITS", "NEEDS RESEARCH", "FULLY UPGRADED"), und über den Kacheln steht 2,5 s eine Zeile mit Rand in `--td-warn-orange` ("Need 120 more credits for Damage", "Research Advanced Weaponry for the next levels", "Fully upgraded"). Ohne gewählten Tower tut U nichts. Ein Klick auf eine Upgrade-Kachel (Tower-Detail und Research Wing) antwortet genauso, für genau diese Kachel: gekauft steigt ihr Track auf und sie blitzt, sonst steigt ihr Grund auf ("NEED 400 CREDITS" für diese Kachel, auch wenn eine andere bezahlbar wäre) und die Zeile erscheint | Upgrade-Kacheln (Klick: `upgradeTrackRefusal`; U: `firstAffordableUpgrade`, Grund aus `upgradeRefusal`; Kauf und Antwort für beide in `TowerUpgradeService`, Panel-Anzeige über `UpgradeHintService`) |
+| U | Erstes Upgrade des gewählten Towers, das bezahlbar und freigeschaltet ist. Über dem Tower steigt der Track mit neuer Stufe auf ("FIRE RATE LV 4", der Name des Tracks in Versalien, `--td-gold-light`), die Kachel blitzt. Kauft U nichts, steigt dort der Grund auf (`--td-warn-orange`: "NEED 120 CREDITS", "NEEDS RESEARCH", "FULLY UPGRADED"), und über den Kacheln steht 2,5 s eine Zeile mit Rand in `--td-warn-orange` ("Need 120 more credits for Damage", "Research Advanced Weaponry for the next levels", "Fully upgraded"). Ohne gewählten Tower tut U nichts. Ein Klick auf eine Upgrade-Kachel (Tower-Detail und Research Wing) antwortet genauso, für genau diese Kachel: gekauft steigt ihr Track auf und sie blitzt, sonst steigt ihr Grund auf ("NEED 400 CREDITS" für diese Kachel, auch wenn eine andere bezahlbar wäre) und die Zeile erscheint | Upgrade-Kacheln (Klick: `upgradeTrackRefusal`; U: `firstAffordableUpgrade`, Grund aus `upgradeRefusal`; Kauf und Antwort für beide in `TowerUpgradeService`, Panel-Anzeige über `UpgradeHintService`) |
 | Entf / Backspace | Verkaufen, zweimal drücken | Sell-Button (`SellConfirmService`) |
 | Leertaste | Nächste Welle | `store.canStartWave` |
 | P | Pause | Pause-Button |
@@ -681,33 +681,6 @@ Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().ki
 | `components/world-globe/` | Weltkarte: Globus (2D-Canvas), Rekord-Hinweis im Game-Over-Overlay |
 | `components/address-autocomplete.component.ts` | Adress-Autocomplete (Nominatim) |
 | `components/engine-test/` | Standalone Engine-Test-View |
-
----
-
-## Erweiterung
-
-### Neues Theme erstellen (Beispiel fuer zukuenftige Erweiterung)
-
-**Hinweis:** Diese Datei existiert noch nicht, dient als Vorlage fuer zukuenftige Theme-Varianten.
-
-```typescript
-// styles/td-theme-dark.ts (noch nicht implementiert)
-export const TD_THEME_DARK = {
-  ...TD_THEME,
-  bgDark: '#0a0a0a',
-  panelMain: '#1a1a1a',
-  // ...
-};
-```
-
-### Theme wechseln
-
-```typescript
-// In Komponente
-import { TD_CSS_VARS } from '../styles/td-theme';
-// Zukuenftig moeglich:
-// import { TD_CSS_VARS } from '../styles/td-theme-dark';
-```
 
 ---
 
