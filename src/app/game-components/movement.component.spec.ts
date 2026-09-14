@@ -6,7 +6,7 @@ import { ComponentType } from '../core/component';
 import { StatusEffect } from '../models/status-effects';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
-import { corridorConfig, lateralLimit } from '../utils/route-corridor';
+import { corridorConfig, getRouteProfile, lateralLimit } from '../utils/route-corridor';
 
 class TestGameObject extends GameObject {
   constructor() {
@@ -648,6 +648,44 @@ describe('MovementComponent', () => {
       expect(movement.getDistanceAlongPath()).toBe(0);
       movement.advance(5);
       expect(movement.getDistanceAlongPath()).toBeCloseTo(5, 6);
+    });
+  });
+
+  describe('seek to a distance', () => {
+    // 100 m north, then 3 m and 40 m: waypoints of different lengths
+    const LAT = 48.776;
+    const path: RouteWaypoint[] = [0, 100, 103, 143].map((m) => ({
+      lat: LAT + m / METERS_PER_DEGREE_LAT,
+      lon: 9.183,
+      height: 0,
+    }));
+
+    it('lands on that distance exactly, across waypoints of any length', () => {
+      movement.setPath(path);
+      const lengths = getRouteProfile(path).cumulativeLength;
+      expect(movement.seekDistance(101.5)).toBe('moving');
+      expect(movement.currentIndex).toBe(1);
+      expect(movement.getDistanceAlongPath()).toBeCloseTo(101.5, 9);
+      expect(movement.seekDistance(lengths[2])).toBe('moving');
+      expect(movement.currentIndex).toBe(2);
+      expect(movement.progress).toBe(0);
+    });
+
+    it('reports the end of the path like advance()', () => {
+      movement.setPath(path);
+      const total = getRouteProfile(path).totalLength;
+      expect(movement.seekDistance(total - 0.01)).toBe('moving');
+      expect(movement.seekDistance(total)).toBe('reached_end');
+      expect(movement.getDistanceAlongPath()).toBeCloseTo(total, 9);
+    });
+
+    it('places nothing: the caller does', () => {
+      movement.setPath(path);
+      const transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+      const start = { ...transform.position };
+      movement.seekDistance(50);
+      expect(transform.position.lat).toBe(start.lat);
+      expect(transform.position.lon).toBe(start.lon);
     });
   });
 });
