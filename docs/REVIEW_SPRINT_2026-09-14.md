@@ -140,8 +140,9 @@ stehen die Hashes des Branches.
 - `3769d8e3`: Schmale Glasleiste am linken Rand des Spielfelds, senkrecht
   mittig. Der Atomschlag-Knopf ist aus dem Wave-Panel dorthin gezogen (der
   alte Knopf ist gelöscht). Gesperrte Fähigkeiten sind von Anfang an
-  sichtbar, gedimmt mit Schloss, der Tooltip nennt Forschung und Preis. Oben
-  ein Platz für den Held-Knopf. Die Offscreen-Pfeile halten am linken Rand
+  sichtbar, gedimmt mit Schloss, der Tooltip nennt Forschung und Preis
+  (überholt durch `586f493e`, Fix-Session 2026-09-14: ein Knopf erscheint
+  erst mit fertiger Forschung). Oben ein Platz für den Held-Knopf. Die Offscreen-Pfeile halten am linken Rand
   94 px Abstand.
 - `4479bc9f`: VFX, Ton und Shake wählen per `abilityId` aus drei Tabellen
   (`abilityVfx`, `ABILITY_IMPACT_SOUNDS`, `ABILITY_IMPACT_SHAKE`), vollständig
@@ -200,6 +201,9 @@ stehen die Hashes des Branches.
     Voraussetzungskette ein (Voraussetzungen zuerst). Neue Regel: Wer auf
     eine Voraussetzung wartet, lässt den Nächsten an den Slot; wer auf Gold
     wartet, hält die Schlange wie bisher. Entfernen nimmt Abhängige mit.
+    Überholt durch `a1bcb3d5` (Fix-Session 2026-09-14): zurückgenommen, ein
+    gesperrter Knoten ist wieder nicht klickbar, die Queue läuft strikt in
+    Reihenfolge, Entfernen nimmt nur den einen Eintrag.
 
 ### Weltkarte (worldmap, `0bbd9730` bis `fd374b9b`, 7 Commits)
 
@@ -770,6 +774,8 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
    vorher). Held-Kills zählen nicht für Veteranen-Ränge.
 3. **Gesperrte Fähigkeiten sichtbar** mit Schloss (`3769d8e3`). Wer sie
    versteckt haben will: im Template nur Knöpfe mit `state !== 'locked'`.
+   Überholt durch `586f493e` (Fix-Session 2026-09-14): entschieden, ein
+   Knopf erscheint erst mit fertiger Forschung, `locked` gibt es nicht mehr.
 4. **NEXT zeigt fünf Wellen**, und das Tower-Panel hat neue
    Schadensart-Icons (Siege als Explosion, Magie als Stern, Lightning als
    Blitz statt Schwert).
@@ -802,7 +808,9 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
 14. **Sprung-Gold** ohne Skill-Boni (Perfect, Close Call, Combo): die untere
     Linie eines sauberen Laufs.
 15. **Research-Queue**: Wer auf eine Voraussetzung wartet, gibt den Slot
-    ab; vorher galt strikt die Reihenfolge (`7914062f`).
+    ab; vorher galt strikt die Reihenfolge (`7914062f`). Überholt durch
+    `a1bcb3d5` (Fix-Session 2026-09-14): wieder strikt in Reihenfolge, eine
+    gesperrte Forschung lässt sich nicht einreihen.
 16. **Beschwörungskreis** auf Straßenhelligkeit 0,3 kalibriert (`7c2530f6`).
 17. **Orbitallaser** läuft Richtung Spawn (trifft die Kolonne frontal) und
     macht Feuerschaden.
@@ -1164,6 +1172,11 @@ Punkte beginnen bei 301.
      vier gedimmten Knöpfen mit Schloss (K, F, E, L), kein Held-Knopf. Neben
      dem Wellen-Knopf kein Atomschlag-Knopf mehr. Tooltip nennt Forschung und
      Preis; Klick und Taste tun nichts.
+     **Überholt** durch `586f493e` (Fix-Session 2026-09-14), so nicht mehr
+     testen: ohne erforschte Fähigkeit und ohne Held zeigt ein neues Spiel
+     keine Leiste, ein Knopf erscheint erst mit fertiger Forschung. Weiter
+     gültig: kein Atomschlag-Knopf neben dem Wellen-Knopf, K, F, E und L tun
+     vor der Forschung nichts.
 318. Cheat Abilities: zwischen den Wellen graue Icons mit drei goldenen
      Strichen, Tooltip "READY, FIRES DURING A WAVE", CHARGES 1/1, RECHARGE
      3 waves.
@@ -1236,6 +1249,9 @@ Punkte beginnen bei 301.
      Mit weniger als 400 Credits (sonst startet Gatling sofort) Gatling aus
      der Queue nehmen: Siege Engineering und Advanced Weaponry fallen mit
      heraus.
+     **Überholt** durch `a1bcb3d5` (Fix-Session 2026-09-14), so nicht mehr
+     testen: der gesperrte Knoten ist nicht klickbar, sein Tooltip nennt nur
+     "Requires: ..."; Entfernen aus der Queue nimmt nur den einen Eintrag.
 
 **Weltkarte**
 
@@ -1621,7 +1637,7 @@ HQ-Marker auf die Dateien nach der Zerlegung, der Atompilz auf
 | Nuklearschlag: Explosionsstufen in Echtzeit | überholt: die Stufen-Timer fielen schon am 2026-09-13 weg (`configs/visual-effects.config.ts:212`), der Nachhall läuft in Spielzeit, VFX, Ton und Shake je Fähigkeit; offen nur die Warnsirene | `46a096d2`, `4479bc9f` |
 | Skeleton-Split: Reste | Debug-Platzierung auf der Route, Tower drehen nicht mehr zur Wache; offen: `total_count`, Balance | `cbd01d10`, `dde04a9c` |
 | Lazy-Chunks: Reste | beide Punkte erledigt | `9504032d`, `82f23124` |
-| Steuerung und HUD: Kleinkram | Pause, Queue-Ketten, Fokusfalle erledigt; Hover-Pick und Offscreen-Scan in Node gemessen; offen: "100/100" knapp | `c3d6f89a`, `7914062f`, `ae0a5f39`, `42fb575b` |
+| Steuerung und HUD: Kleinkram | Pause, Queue-Ketten (überholt durch `a1bcb3d5`, Fix-Session 2026-09-14), Fokusfalle erledigt; Hover-Pick und Offscreen-Scan in Node gemessen; offen: "100/100" knapp | `c3d6f89a`, `7914062f`, `ae0a5f39`, `42fb575b` |
 | Meta: ungeprüft | Recent erst nach stehender Route; Showcase weiter nicht angespielt | `df847ee8` |
 | Training-Debugger: Callbacks als Funktions-Inputs | umgestellt auf Outputs | `321edf85`, `ca88d039` |
 | Beschwörungskreis mit Bloom unsichtbar | behoben, kalibriert auf Straßenhelligkeit 0,3 | `7c2530f6` |

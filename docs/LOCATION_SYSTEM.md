@@ -128,7 +128,7 @@ Favoriten-Namen `LocationChangeCoordinatorService.favoriteNamesMap`.
 
 ## LocationManagementService
 
-Verwaltet den aktuellen Location-State und Favorites. Speichert nur Koordinaten, Namen werden immer ueber `GeocodingService` aufgeloest (mit Cache).
+Verwaltet den aktuellen Location-State und Favorites. Ein Favorit speichert Koordinaten und optional einen eigenen Namen; ohne eigenen Namen wird er über `GeocodingService` aufgelöst (mit Cache).
 
 ### Signals
 
@@ -494,7 +494,7 @@ Sub-Facade fuer Location-Management. Verbindet Coordinator mit Component-State.
 - **Location Detection**: URL → Geolocation → Dialog Cascade
 - **Coordinator-Initialisierung**: Baut `LocationFlowDelegate` fuer den Coordinator
 - **Spawn-Management**: `addPredefinedSpawns()`, `addSpawnPoint()`
-- **Map Cleanup**: `clearMapEntities()` (Marker, Routes, Streets)
+- **Map Cleanup**: `clearMapEntities()` (Marker, Routes, Streets, Route-Zellen mit ihren Overlays)
 - **DevWorld**: Regeneration, Visual Cleanup
 - **Map-Platzierung**: `handleMapPlacementClick()` gibt an `MapRelocationService` weiter (siehe HQ-Relocation)
 

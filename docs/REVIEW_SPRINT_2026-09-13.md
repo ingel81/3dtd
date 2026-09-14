@@ -816,7 +816,10 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      are paid when it starts", startet von selbst; X entfernt ohne
      Erstattung.
      **Ersetzt** durch Nacht 2 (Queue nimmt Ketten, `7914062f`): siehe
-     REVIEW_SPRINT_2026-09-14.md Punkt 339.
+     REVIEW_SPRINT_2026-09-14.md Punkt 339. Das ist wiederum überholt durch
+     `a1bcb3d5` (Fix-Session 2026-09-14): der Revert stellt die Regeln vor
+     `7914062f` wieder her, 109 beschreibt wieder das aktuelle Verhalten,
+     339 nicht mehr.
 110. Checkbox "Auto-start" an: nach Wellenende 10 s Countdown mit Balken, P
      hält ihn an, nach einem Reload noch an; mit Bot bleibt er aus.
      **Ersetzt** durch Nacht 2 (Auto-Start ist jetzt der Schalter "auto 10s"
@@ -969,6 +972,10 @@ Offene Punkte aus REVIEW_SPRINT_2026-09-12.md: 4 bis 9, 11 bis 16, 20 bis 22,
      **ok mit Befund** (Playtest 2026-09-14 auf `sprint/night-2026-09-14`):
      Die Funktion geht. Der frühe Tipp zum Research Center ist aber unsinnig;
      Reihenfolge und Inhalt der Tipps überarbeiten. Steht in TODO 1.10.
+     **Überholt** durch `4a219445` (Fix-Session 2026-09-14), so nicht mehr
+     testen: sieben Tipps folgen dem Spiel, gespeichert unter
+     `td_onboarding_v2`; der erste heißt "Build a tower", der Tipp zum
+     Research Center kommt erst später (`RESEARCH_TIP_AFTER_WAVE`).
 
 **Korridor**
 
