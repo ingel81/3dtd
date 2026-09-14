@@ -98,7 +98,8 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 | [TOWER_CREATION.md](docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
 | [ENEMY_CREATION.md](docs/ENEMY_CREATION.md) | Neue Enemies, Animationen, Audio |
 | [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) | Wave-Management, Spawning, Phases |
-| [STATUS_EFFECTS.md](docs/STATUS_EFFECTS.md) | Status-Effekte (Slow, Burn, Poison; Freeze reserviert) |
+| [STATUS_EFFECTS.md](docs/STATUS_EFFECTS.md) | Status-Effekte (Slow, Burn, Poison, Freeze, Stun) |
+| [ABILITIES.md](docs/ABILITIES.md) | Spielerfähigkeiten (Nuklearschlag, Frostbombe, EMP, Orbitallaser), Fähigkeitenleiste, Ladungen, Leck-Buchung |
 | [LOCATION_SYSTEM.md](docs/LOCATION_SYSTEM.md) | Standort-System |
 | [SPATIAL_AUDIO.md](docs/SPATIAL_AUDIO.md) | 3D Audio System |
 | [PROJECTILES.md](docs/PROJECTILES.md) | Projektil-System |
