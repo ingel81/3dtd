@@ -12,7 +12,14 @@ export const SCREENSHOT_URL = 'https://3dtd.sgeht.net';
 /** Watermark logo height in font sizes of the stamp: about 48 px on a 1080 p picture */
 const WATERMARK_HEIGHT = 4;
 const WATERMARK_ALPHA = 0.6;
-const URL_ALPHA = 0.75;
+/** Address size in font sizes of the stamp: 15 px on a 1080 p picture */
+const URL_SIZE = 1.25;
+const URL_ALPHA = 0.9;
+/** Width of the address' dark outline in its font size: 3 px at 15 px, half of it outside the letters */
+const URL_OUTLINE = 0.2;
+const URL_OUTLINE_ALPHA = 0.6;
+/** Gap between logo and address in font sizes of the stamp */
+const BRAND_GAP = 0.25;
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -51,9 +58,8 @@ export interface ScreenshotBrand {
  * Draw into the picture what the screen shows as HTML over the canvas, which
  * a canvas copy has none of: the map attribution as the game shows it
  * (provider logos bottom left, the data attribution bottom right on a light
- * strip), and the game's mark: its address small after the provider logos
- * (a line above them where the strip reaches that far left), its logo as a
- * faint watermark bottom right above the attribution.
+ * strip), and the game's mark as one block bottom right, a margin above that
+ * bottom row, so it stays clear of both however wide the strip gets.
  */
 export function stampScreenshot(
   canvas: HTMLCanvasElement,
@@ -65,6 +71,8 @@ export function stampScreenshot(
   if (!ctx) return;
   const fontPx = Math.max(10, Math.round(canvas.height / 90));
   const margin = Math.round(fontPx * 0.6);
+  // Height of the bottom row as far as anything is drawn in it
+  let rowHeight = 0;
 
   const logoHeight = Math.round(fontPx * 1.6);
   let x = margin;
@@ -73,59 +81,70 @@ export function stampScreenshot(
     const width = Math.round((logo.naturalWidth * logoHeight) / logo.naturalHeight);
     ctx.drawImage(logo, x, canvas.height - margin - logoHeight, width, logoHeight);
     x += width + margin;
+    rowHeight = logoHeight;
   }
-
-  // The attribution strip bottom right, measured first: the address keeps
-  // clear of it
-  const stripHeight = Math.round(fontPx * 1.5);
-  const stripY = canvas.height - margin - stripHeight;
-  const padX = Math.round(fontPx * 0.5);
-  let textWidth = 0;
-  let stripX = canvas.width;
-  if (attribution) {
-    ctx.font = `${fontPx}px sans-serif`;
-    textWidth = Math.min(ctx.measureText(attribution).width, canvas.width * 0.6);
-    stripX = canvas.width - margin - textWidth - 2 * padX;
-  }
-
-  // The address on the logos' middle line, a gap after them; light with a
-  // soft shadow, so it reads over bright facades and dark streets alike.
-  // Where it would run under the strip (a narrow picture with a long
-  // attribution), a line up instead, above the logos at the left margin.
-  ctx.save();
-  ctx.font = `500 ${fontPx}px ${TD_FONTS.body}`;
-  ctx.textBaseline = 'middle';
-  ctx.globalAlpha = URL_ALPHA;
-  ctx.fillStyle = TD_THEME.textPrimary;
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-  ctx.shadowBlur = Math.round(fontPx * 0.4);
-  const urlX = x === margin ? x : x + margin;
-  if (urlX + ctx.measureText(brand.url).width + margin <= stripX) {
-    ctx.fillText(brand.url, urlX, canvas.height - margin - logoHeight / 2);
-  } else {
-    ctx.fillText(brand.url, margin, canvas.height - 2 * margin - logoHeight - fontPx / 2);
-  }
-  ctx.restore();
 
   if (attribution) {
+    const stripHeight = Math.round(fontPx * 1.5);
+    const stripY = canvas.height - margin - stripHeight;
+    const padX = Math.round(fontPx * 0.5);
     ctx.font = `${fontPx}px sans-serif`;
     ctx.textBaseline = 'middle';
+    const textWidth = Math.min(ctx.measureText(attribution).width, canvas.width * 0.6);
+    const stripX = canvas.width - margin - textWidth - 2 * padX;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
     ctx.fillRect(stripX, stripY, textWidth + 2 * padX, stripHeight);
     ctx.fillStyle = '#444';
     ctx.fillText(attribution, stripX + padX, stripY + stripHeight / 2, textWidth);
+    rowHeight = Math.max(rowHeight, stripHeight);
   }
 
-  const mark = brand.logo;
-  if (!mark || mark.naturalWidth <= 0 || mark.naturalHeight <= 0) return;
-  const markHeight = fontPx * WATERMARK_HEIGHT;
-  const markWidth = Math.round((mark.naturalWidth * markHeight) / mark.naturalHeight);
-  const markBottom = attribution ? stripY - margin : canvas.height - margin;
+  const bottom = canvas.height - margin - (rowHeight > 0 ? rowHeight + margin : 0);
+  stampBrand(ctx, canvas.width, brand, fontPx, margin, bottom);
+}
+
+/**
+ * The game's mark with its lower edge at `bottom`, its right edge on the
+ * margin like the attribution strip's: the logo as a faint watermark, the
+ * address centred under it. The address is light with a dark outline, so it
+ * reads over bright facades and dark streets alike.
+ */
+function stampBrand(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  brand: ScreenshotBrand,
+  fontPx: number,
+  margin: number,
+  bottom: number,
+): void {
+  const urlPx = Math.round(fontPx * URL_SIZE);
   ctx.save();
-  ctx.globalAlpha = WATERMARK_ALPHA;
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-  ctx.shadowBlur = Math.round(fontPx * 0.5);
-  ctx.drawImage(mark, canvas.width - margin - markWidth, markBottom - markHeight, markWidth, markHeight);
+  ctx.font = `500 ${urlPx}px ${TD_FONTS.body}`;
+  const urlWidth = Math.min(ctx.measureText(brand.url).width, width - 2 * margin);
+  const mark = brand.logo && brand.logo.naturalWidth > 0 && brand.logo.naturalHeight > 0 ? brand.logo : null;
+  const markHeight = fontPx * WATERMARK_HEIGHT;
+  const markWidth = mark ? Math.round((mark.naturalWidth * markHeight) / mark.naturalHeight) : 0;
+  const centre = width - margin - Math.max(urlWidth, markWidth) / 2;
+
+  // Outline first, the letters over its inner half
+  const urlX = Math.round(centre - urlWidth / 2);
+  ctx.textBaseline = 'bottom';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(2, Math.round(urlPx * URL_OUTLINE));
+  ctx.strokeStyle = TD_THEME.panelShadow;
+  ctx.globalAlpha = URL_OUTLINE_ALPHA;
+  ctx.strokeText(brand.url, urlX, bottom, urlWidth);
+  ctx.globalAlpha = URL_ALPHA;
+  ctx.fillStyle = TD_THEME.textPrimary;
+  ctx.fillText(brand.url, urlX, bottom, urlWidth);
+
+  if (mark) {
+    ctx.globalAlpha = WATERMARK_ALPHA;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+    ctx.shadowBlur = Math.round(fontPx * 0.5);
+    const markBottom = bottom - urlPx - Math.round(fontPx * BRAND_GAP);
+    ctx.drawImage(mark, Math.round(centre - markWidth / 2), markBottom - markHeight, markWidth, markHeight);
+  }
   ctx.restore();
 }
 
