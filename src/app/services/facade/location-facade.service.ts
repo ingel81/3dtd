@@ -439,7 +439,11 @@ export class LocationFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   /**
-   * Clear all map entities (markers, routes, streets, spawns).
+   * Clear all map entities (markers, routes, streets, spawns, route cells)
+   * at the start of a location change. The route cells go with their
+   * overlays (Route Grid, Air Route Grid, air route): the new location
+   * builds its own in step 6, and until then the old corridor would stand
+   * on the map, shifted to the new origin.
    */
   clearMapEntities(): void {
     const ctx = this.ctx;
@@ -451,6 +455,7 @@ export class LocationFacadeService {
     this.markerViz.clearAllMarkers();
     this.pathRoute.clearAllRoutes();
     this.streetRendering.dispose(overlayGroup);
+    ctx.gameState.getGlobalRouteGrid().clear();
 
     this.store.spawnPoints.set([]);
     this.pathRoute.clearCachedPaths();
