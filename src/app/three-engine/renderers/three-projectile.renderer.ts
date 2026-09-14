@@ -35,14 +35,6 @@ import { InstanceSlotAllocator } from './instance-slot-allocator';
 import { DrawGate } from './draw-gate';
 
 /**
- * Projectile render data
- */
-export interface ProjectileRenderData {
-  id: string;
-  visualType: ProjectileVisualType;
-}
-
-/**
  * Simple instanced entity manager for projectiles
  */
 export class ProjectileInstanceManager {
