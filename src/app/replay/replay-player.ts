@@ -257,6 +257,7 @@ export class ReplayPlayer {
       mesh.visible = false;
       engine.plinths.setVisible(id, false);
       engine.tentacles.setVisible(id, false);
+      engine.searchlights.setVisible(id, false);
     }
 
     this.views = this.rec.towers.map((tower, i) => this.createView(tower, i));
@@ -289,6 +290,7 @@ export class ReplayPlayer {
         engine.towers.remove(view.renderId);
         engine.plinths.remove(view.renderId);
         engine.tentacles.remove(view.renderId);
+        engine.searchlights.remove(view.renderId);
       }
     }
     this.views = [];
@@ -298,6 +300,7 @@ export class ReplayPlayer {
       if (data) data.mesh.visible = visible;
       engine.plinths.setVisible(id, true);
       engine.tentacles.setVisible(id, true);
+      engine.searchlights.setVisible(id, true);
     }
     this.laterTowers.length = 0;
     this.clearStrikes();
@@ -894,6 +897,9 @@ export class ReplayPlayer {
         engine.plinths.create(renderId, tower.lat, tower.lon, tower.height, tower.plinthHeight, config.footprintRadius);
       }
       if (tower.typeId === 'tentacle') engine.tentacles.create(renderId, tip);
+      // Its blood moon searchlight; the live tower's guard heading is not in
+      // the recording, so it sweeps around a random one
+      if (config) engine.searchlights.add(renderId, tower.lat, tower.lon, tower.height, config, null);
     }
     return {
       tower,
@@ -915,6 +921,7 @@ export class ReplayPlayer {
     data.mesh.visible = visible;
     this.engine.plinths.setVisible(view.renderId, visible);
     this.engine.tentacles.setVisible(view.renderId, visible);
+    this.engine.searchlights.setVisible(view.renderId, visible);
     view.visible = visible;
     if (!visible) {
       this.stopBeam(view);
@@ -927,6 +934,7 @@ export class ReplayPlayer {
     const data = this.engine.towers.get(view.renderId);
     this.engine.plinths.setVisible(view.renderId, true);
     this.engine.tentacles.setVisible(view.renderId, true);
+    this.engine.searchlights.setVisible(view.renderId, true);
     // A strike of the replay's own does not stay on the live tentacle
     if (saved.tentacle) this.engine.tentacles.restoreStrike(view.renderId, saved.tentacle);
     if (!data) return;

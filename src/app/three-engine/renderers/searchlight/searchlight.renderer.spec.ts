@@ -159,6 +159,22 @@ describe('SearchlightRenderer', () => {
     expect(geometry.instanceCount).toBe(0);
   });
 
+  it('hides one tower\'s beam and shows it again, the slot kept (wave replay)', () => {
+    const { renderer, geometry } = setup();
+    renderer.add('a', 0, 0, 0, TOWER_TYPES.archer, 0);
+    renderer.add('b', 1, 0, 0, TOWER_TYPES.archer, 0);
+    const sweep = geometry.getAttribute('aSweep');
+    renderer.setVisible('a', false);
+    expect(sweep.getW(0)).toBe(0);
+    expect(sweep.getW(1)).toBe(LOOK.length);
+    expect(renderer.count).toBe(2);
+    renderer.setVisible('a', true);
+    expect(sweep.getW(0)).toBe(LOOK.length);
+    // No light: nothing happens
+    renderer.setVisible('none', false);
+    expect(renderer.count).toBe(2);
+  });
+
   it('shows only while the blood moon is up and there are towers', () => {
     const { renderer, mesh, material } = setup();
     renderer.setAmount(1);
