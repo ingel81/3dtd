@@ -4,6 +4,7 @@ import { BLOOD_DECAL_CONFIG } from '../../configs/visual-effects.config';
 import { bloodMoonMultiplier } from '../blood-moon/blood-moon-mood';
 import type { ScorchGround } from './scorch-marks';
 import { GroundDecals } from './ground-decals';
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 /** Every point lies on the route, its ground at 0. */
 const FLAT_ROUTE: ScorchGround = {
@@ -64,6 +65,16 @@ describe('GroundDecals', () => {
     expect((tint.value as Vector3).toArray()).toEqual(bloodMoonMultiplier(1, true, new Vector3()).toArray());
     decals.setBloodMoon(0, true);
     expect((tint.value as Vector3).toArray()).toEqual([1, 1, 1]);
+  });
+
+  it('writes each decal colour for the target, the tint in the target\'s values after it', () => {
+    const decals = new GroundDecals(new Scene());
+    for (const pool of [decals.blood, decals.ice, decals.scorch.decals]) {
+      const shader = (pool.instancedMesh.material as ShaderMaterial).fragmentShader;
+      expect(shader).toContain(DISPLAY_OUTPUT_GLSL);
+      expect(shader).toContain('gl_FragColor = vec4(displayOutput(color) * uBloodMoonTint, alpha');
+      expect(shader).not.toContain('vec4(color * uBloodMoonTint');
+    }
   });
 
   it('clears blood, ice and scorch marks together', () => {
