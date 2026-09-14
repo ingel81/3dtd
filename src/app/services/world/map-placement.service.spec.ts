@@ -270,9 +270,39 @@ describe('MapPlacementService', () => {
 
       // 10 m on west: the preview goes with it, the segment's routes stand
       service.updatePreviewPosition(CURSOR.lat + 0.0001, CURSOR.lon - 0.0001, 0);
+      service.updatePreview(1);
       expect(preview().position.x).toBeCloseTo(foot.x + 10, 6);
       expect(preview().position.z).toBeCloseTo(foot.z, 6);
       expect(osm.segmentRoutes).toHaveBeenCalledTimes(1);
+    });
+
+    it('glides to a new pose over the next frames instead of jumping there, and places the pose on a click', () => {
+      service.startPlacement('spawn');
+      service.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
+      const start = geoToLocal(STREET[0].lat, STREET[0].lon, 0);
+
+      // Off the streets now: the pose is at the cursor, facing the HQ
+      distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
+      service.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
+      const cursor = geoToLocal(CURSOR.lat, CURSOR.lon, 0);
+      expect(preview().position.x).toBeCloseTo(start.x, 6);
+
+      // One frame: part of the way (+x is west, the cursor east of the route start), in position and heading
+      service.updatePreview(1 / 60);
+      expect(preview().position.x).toBeGreaterThan(start.x);
+      expect(preview().position.x).toBeLessThan(cursor.x);
+      expect(preview().rotation.y).toBeGreaterThan(STREET_POSE.heading);
+      expect(preview().rotation.y).toBeLessThan(Math.PI);
+
+      // A fraction of a second later it is there
+      service.updatePreview(0.5);
+      expect(preview().position.x).toBeCloseTo(cursor.x, 3);
+      expect(preview().rotation.y).toBeCloseTo(Math.PI, 3);
+
+      // Back on the street: a click right after the move places the route start, not what is shown
+      distanceToStreet = 1;
+      service.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
+      expect(service.handlePlacementClick()).toMatchObject({ mode: 'spawn', lat: CURSOR.lat, lon: CURSOR.lon });
     });
 
     it('stands at the cursor facing the HQ where no spawn may stand', () => {
@@ -300,40 +330,40 @@ describe('MapPlacementService', () => {
       expect(STREET_TURN.max).toBeGreaterThan(0.1);
 
       expect(service.startRotating()).toBe(true);
-      service.updateRotation(0.1);
+      service.updatePreview(0.1);
       expect(turned()).toBeGreaterThan(0);
       expect(turned()).toBeLessThan(STREET_TURN.max);
 
       // Held on: it stops where the outermost enemies still get out
-      service.updateRotation(5);
+      service.updatePreview(5);
       expect(turned()).toBeCloseTo(STREET_TURN.max, 6);
-      service.updateRotation(1);
+      service.updatePreview(1);
       expect(turned()).toBeCloseTo(STREET_TURN.max, 6);
     });
 
     it('turns back with the next press once it stopped at a limit, not with the auto-repeat of the held key', () => {
       placeAtCursor();
       service.startRotating();
-      service.updateRotation(5);
+      service.updatePreview(5);
       service.stopRotating();
 
       service.startRotating();
-      service.updateRotation(0.1);
+      service.updatePreview(0.1);
       const back = turned();
       expect(back).toBeLessThan(STREET_TURN.max);
 
       // Auto-repeat while held: the same way on
       service.startRotating();
-      service.updateRotation(0.1);
+      service.updatePreview(0.1);
       expect(turned()).toBeLessThan(back);
-      service.updateRotation(5);
+      service.updatePreview(5);
       expect(turned()).toBeCloseTo(STREET_TURN.min, 6);
     });
 
     it('hands the turned heading to the click', () => {
       placeAtCursor();
       service.startRotating();
-      service.updateRotation(0.1);
+      service.updatePreview(0.1);
       service.stopRotating();
       const heading = preview().rotation.y;
 
@@ -343,11 +373,12 @@ describe('MapPlacementService', () => {
     it('keeps the turn on the route while the cursor moves along it', () => {
       placeAtCursor();
       service.startRotating();
-      service.updateRotation(0.1);
+      service.updatePreview(0.1);
       service.stopRotating();
       const turn = turned();
 
       service.updatePreviewPosition(CURSOR.lat + 0.00005, CURSOR.lon, 0);
+      service.updatePreview(1);
       expect(turned()).toBeCloseTo(turn, 6);
     });
 
@@ -360,7 +391,7 @@ describe('MapPlacementService', () => {
       distanceToStreet = MAX_SPAWN_STREET_DISTANCE + 1;
       placeAtCursor();
       service.startRotating();
-      service.updateRotation(1);
+      service.updatePreview(1);
       expect(preview().rotation.y).toBeCloseTo(Math.PI, 6);
     });
 
@@ -368,7 +399,7 @@ describe('MapPlacementService', () => {
       service.startPlacement('hq');
       service.updatePreviewPosition(HQ.lat, HQ.lon, 0);
       expect(service.startRotating()).toBe(false);
-      service.updateRotation(1);
+      service.updatePreview(1);
       expect(preview().rotation.y).toBe(0);
       expect(service.handlePlacementClick()!.heading).toBeUndefined();
     });
@@ -376,11 +407,11 @@ describe('MapPlacementService', () => {
     it('forgets a turn and a held R when the placement ends', () => {
       placeAtCursor();
       service.startRotating();
-      service.updateRotation(0.5);
+      service.updatePreview(0.5);
       service.exitPlacementMode();
 
       placeAtCursor();
-      service.updateRotation(1);
+      service.updatePreview(1);
       expect(preview().rotation.y).toBeCloseTo(STREET_POSE.heading, 6);
       expect(service.handlePlacementClick()!.heading).toBeUndefined();
     });

@@ -48,12 +48,29 @@ interface PreviewRoute {
   turn: { min: number; max: number };
 }
 
+/** Where the preview marker stands: scene position, heading without the player's R turn, scale. */
+interface PreviewPose {
+  x: number;
+  y: number;
+  z: number;
+  heading: number;
+  scale: number;
+}
+
 /**
  * Turn of the spawn preview while R is held (rad/s): 15 degrees a second,
  * about a second from one limit of the turn range to the other on a
  * straight street (12 to 21 degrees wide).
  */
 const TURN_SPEED = Math.PI / 12;
+
+/**
+ * Time constant the preview follows its pose with (s), see updatePreview():
+ * a step to where the cursor moved, to another street or onto a new ground
+ * sample is 90 % made up within about 0.1 s instead of in one jump between
+ * two pointer moves. The click places the pose, not what is shown.
+ */
+const PREVIEW_FOLLOW_S = 0.04;
 
 // Colors for valid/invalid preview, the same for the HQ and a spawn: the
 // spawn's own red would not tell a valid place from an invalid one
@@ -104,6 +121,11 @@ export class MapPlacementService {
   // no spawn may stand
   private readonly routesFromSegment = new Map<string, SegmentRoutes | null>();
   private currentRoute: PreviewRoute | null = null;
+
+  // Where the preview is shown and the pose it follows (updatePreview), null
+  // until the first move after it appears, which it takes at once
+  private shownPose: PreviewPose | null = null;
+  private targetPose: PreviewPose | null = null;
 
   // Dependencies (set via initialize)
   private engine: ThreeTilesEngine | null = null;
@@ -186,7 +208,8 @@ export class MapPlacementService {
    * stand: on the start of the route it gets, facing along it
    * (spawnPortalPose), turned as far as the player turned it with R within
    * the opening (portalTurnRange). Elsewhere it stands at the cursor facing
-   * the HQ.
+   * the HQ. The first move after the preview appears puts it there; later
+   * ones give the pose it glides to (updatePreview).
    */
   updatePreviewPosition(lat: number, lon: number, height: number): void {
     if (!this.previewMarker || !this.engine) return;
@@ -202,12 +225,12 @@ export class MapPlacementService {
     let validation: { valid: boolean; reason?: string };
     if (mode === 'hq') {
       // The HQ diamond floats above the cursor
-      this.previewMarker.position.set(local.x, groundY + HEIGHT_ABOVE_GROUND, local.z);
+      this.followPose({ x: local.x, y: groundY + HEIGHT_ABOVE_GROUND, z: local.z, heading: 0, scale: 1 });
       validation = this.validatePosition(mode, lat, lon);
     } else {
       const check = this.checkSpawn(lat, lon);
       this.currentRoute = check.route ?? null;
-      this.standSpawnPreview(local.x, groundY, local.z);
+      this.followPose(this.spawnPreviewPose(local.x, groundY, local.z));
       validation = check;
     }
     this.previewMarker.visible = true;
@@ -218,22 +241,38 @@ export class MapPlacementService {
     this.colorizePreviewMarker(validation.valid);
   }
 
-  /** Stand the spawn preview on the route under the cursor, without one at (x, y, z) facing the HQ. */
-  private standSpawnPreview(x: number, y: number, z: number): void {
-    const preview = this.previewMarker!;
+  /** The spawn preview's pose: on the route under the cursor, without one at (x, y, z) facing the HQ. */
+  private spawnPreviewPose(x: number, y: number, z: number): PreviewPose {
     const route = this.currentRoute;
     if (route) {
-      preview.position.set(route.pose.x, route.pose.y, route.pose.z);
-      preview.rotation.y = route.pose.heading + this.turnOn(route);
-      preview.scale.setScalar(route.pose.scale);
-      return;
+      const { pose } = route;
+      return { x: pose.x, y: pose.y, z: pose.z, heading: pose.heading, scale: pose.scale };
     }
-    preview.position.set(x, y, z);
-    preview.scale.setScalar(1);
+    let heading = 0;
     if (this.baseCoords) {
       const hq = this.engine!.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-      preview.rotation.y = provisionalPortalPose(x, y, z, hq.x, hq.z).heading;
+      heading = provisionalPortalPose(x, y, z, hq.x, hq.z).heading;
     }
+    return { x, y, z, heading, scale: 1 };
+  }
+
+  /** Let the preview follow `pose`; the first one after it appears it takes at once. */
+  private followPose(pose: PreviewPose): void {
+    this.targetPose = pose;
+    if (!this.shownPose) {
+      this.shownPose = { ...pose };
+      this.applyShownPose();
+    }
+  }
+
+  /** Put the preview marker where it is shown, turned by the player's R on a route. */
+  private applyShownPose(): void {
+    const preview = this.previewMarker!;
+    const shown = this.shownPose!;
+    const route = this.currentRoute;
+    preview.position.set(shown.x, shown.y, shown.z);
+    preview.rotation.y = shown.heading + (route ? this.turnOn(route) : 0);
+    preview.scale.setScalar(shown.scale);
   }
 
   /** The player's turn on `route`, held within its turn range. */
@@ -276,6 +315,8 @@ export class MapPlacementService {
     this.currentPosition = null;
     this.currentValid = false;
     this.currentRoute = null;
+    this.shownPose = null;
+    this.targetPose = null;
     this.manualTurn = null;
     this.turnDirection = 1;
     this.isRotating = false;
@@ -313,17 +354,32 @@ export class MapPlacementService {
   }
 
   /**
-   * Turn the spawn preview while R is held; call once per frame. It turns
-   * on a route only (off the streets it faces the HQ) and stops at the
-   * limit of the route's turn range.
+   * Once per frame: turn the spawn preview while R is held, on a route only
+   * (off the streets it faces the HQ) up to the limit of the route's turn
+   * range, and let the preview glide towards the pose of the last move
+   * (PREVIEW_FOLLOW_S), its heading the short way round. The turn comes on
+   * top without delay.
    * @param deltaTime Time since the last frame (s)
    */
-  updateRotation(deltaTime: number): void {
+  updatePreview(deltaTime: number): void {
+    const shown = this.shownPose;
+    const target = this.targetPose;
+    if (!this.previewMarker || !shown || !target) return;
+
     const route = this.currentRoute;
-    if (!this.isRotating || !this.previewMarker || !route) return;
-    const turn = this.turnOn(route) + this.turnDirection * TURN_SPEED * deltaTime;
-    this.manualTurn = Math.min(route.turn.max, Math.max(route.turn.min, turn));
-    this.previewMarker.rotation.y = route.pose.heading + this.manualTurn;
+    if (this.isRotating && route) {
+      const turn = this.turnOn(route) + this.turnDirection * TURN_SPEED * deltaTime;
+      this.manualTurn = Math.min(route.turn.max, Math.max(route.turn.min, turn));
+    }
+
+    const follow = 1 - Math.exp(-deltaTime / PREVIEW_FOLLOW_S);
+    shown.x += (target.x - shown.x) * follow;
+    shown.y += (target.y - shown.y) * follow;
+    shown.z += (target.z - shown.z) * follow;
+    shown.scale += (target.scale - shown.scale) * follow;
+    const turnLeft = target.heading - shown.heading;
+    shown.heading += Math.atan2(Math.sin(turnLeft), Math.cos(turnLeft)) * follow;
+    this.applyShownPose();
   }
 
   /**
