@@ -375,7 +375,7 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | `render-loop.ts` | Render-Loop: rAF-Treiber mit FPS-Cap (`FramePacer`), Heartbeat-Worker für versteckte Trainings-Tabs, FPS-Zähler, Warten auf den nächsten gezeichneten Frame. Als `engine.renderLoop` erreichbar |
 | `terrain-queries.ts` | Raycasts gegen Boden und Tiles: Säulen-Probe `sampleColumn()` mit Cache pro 0,5-m-Säule und `lodVersion`, `getGroundHeightEstimate()`, Tile-LOD-Peek ohne Raycast, Straßen-Freiraum für den Routen-Korridor (`measureStreetClearance()`), Line-of-Sight. Als `engine.terrain` erreichbar, nur `getTerrainHeightAtGeo()` reicht der Engine durch |
 | `scene-environment.ts` | Statische Szenen-Lichter (`addSceneLights()`) und der Himmel als Cube-Textur aus `day.webp` (`SkyBackground`) |
-| `screen-picker.ts` | Screen-Picking: Boden unter dem Mauszeiger (`raycastTerrain()`, in DevWorld über den DevTerrainProvider) und angeklickter Tower (`raycastTowers()`), je Aufruf ein frischer Raycaster. Als `engine.picker` erreichbar |
+| `screen-picker.ts` | Screen-Picking: Boden unter dem Mauszeiger (`raycastTerrain()`, in DevWorld über den DevTerrainProvider) und der vorderste Tower unter dem Punkt (`raycastTowers()`, bei gleichem Abstand der erste der Liste), je Aufruf ein frischer Raycaster. Als `engine.picker` erreichbar |
 | `tiles-renderer-setup.ts` | Aufbau des TilesRenderers (`createTilesRenderer()`: Auth je Provider, Kompression, Update-on-Change, verzögertes Entladen, Fade, glTF/Draco, Reorientation, Load-Regions, Gruppe auf Y-oben) und Streaming-Budget (`applyStreamingBudget()`) |
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
