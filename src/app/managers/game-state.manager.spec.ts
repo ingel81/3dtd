@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi, type Mock } from 'vitest';
 
 // Mock three.js
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
@@ -115,6 +115,7 @@ function createStubService(name: string): Record<string, unknown> {
   return stubs[name] ?? {};
 }
 
+import { effect, signal } from '@angular/core';
 import { GameStateManager } from './game-state.manager';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { getResearch } from '../configs/research/research-tree.config';
@@ -1045,6 +1046,63 @@ describe('GameStateManager', () => {
           paused.paused.set(false);
           paused.update(17, undefined);
           expect(engine.setTimescale).toHaveBeenLastCalledWith(2);
+        });
+
+        /** A game whose GameStore the test drives; Angular would run its effects on each change. */
+        function withStore(pausedAtStart: boolean) {
+          const store = { trainingTimescale: signal(1), paused: signal(pausedAtStart), renderingEnabled: signal(true) };
+          mockServices['GameStore'] = store;
+          const from = vi.mocked(effect).mock.calls.length;
+          const game = new GameStateManager();
+          const effects = vi.mocked(effect).mock.calls.slice(from).map(([fn]) => fn as () => void);
+          const sync = () => {
+            for (const run of effects) run();
+          };
+          sync();
+          const engine = createMockEngine() as unknown as { spatialAudio: { holdLoops: Mock } };
+          return { store, game, sync, engine };
+        }
+
+        it('holds every audio loop through GameStore.paused, which the boss intro sets as well (playtest 545 to 547)', () => {
+          const { store, game, sync, engine } = withStore(false);
+          game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+          const holdLoops = engine.spatialAudio.holdLoops;
+          expect(holdLoops).toHaveBeenLastCalledWith(false);
+
+          store.paused.set(true);
+          sync();
+          expect(game.paused()).toBe(true);
+          expect(holdLoops).toHaveBeenLastCalledWith(true);
+
+          store.paused.set(false);
+          sync();
+          expect(holdLoops).toHaveBeenLastCalledWith(false);
+        });
+
+        it('holds the loops of an engine that arrives while the game is paused', () => {
+          const { game, engine } = withStore(true);
+          game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+          expect(engine.spatialAudio.holdLoops).toHaveBeenLastCalledWith(true);
+        });
+
+        it('presents no enemy frame while paused, so no ooze loop starts in the pause (playtest 548)', () => {
+          const engine = createMockEngine();
+          const game = new GameStateManager();
+          game.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+          const present = vi.spyOn(game.enemyManager, 'presentFrame');
+          game.update(1, undefined);
+          game.update(18, undefined);
+          const running = present.mock.calls.length;
+          expect(running).toBeGreaterThan(0);
+
+          game.paused.set(true);
+          game.update(35, undefined);
+          game.update(500, undefined);
+          expect(present.mock.calls.length).toBe(running);
+
+          game.paused.set(false);
+          game.update(517, undefined);
+          expect(present.mock.calls.length).toBeGreaterThan(running);
         });
       });
 

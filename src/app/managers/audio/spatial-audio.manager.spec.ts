@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vite
 import { Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
 import { SpatialAudioManager } from './spatial-audio.manager';
 import { GameEventBus } from '../../game-engine/game-event-bus';
-import { AUDIO_LIMITS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
+import { AUDIO_LIMITS, OOZE_SOUNDS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
+import { OozeSounds } from '../ooze-sounds';
 
 /**
  * Characterization of the spatial audio facade: registration and buffer
@@ -831,5 +832,105 @@ describe('SpatialAudioManager', () => {
 
       expect(listener.context.resume).not.toHaveBeenCalled();
     });
+  });
+});
+
+/**
+ * Playtest 546 and 548 (fix session 2026-09-14): what the player hears
+ * around the pause. The pause reaches the loops as holdLoops
+ * (GameStateManager's pause sync, see its spec; the boss intro and the replay
+ * pause the same way); the camera is the listener and flies while the game
+ * stands.
+ */
+describe('SpatialAudioManager around the pause (playtest 546, 548)', () => {
+  const D = AUDIO_LIMITS.maxAudibleDistance;
+  const flyTo = (camera: PerspectiveCamera, x: number) => {
+    camera.position.set(x, 0, 0);
+    camera.updateMatrixWorld(true);
+  };
+  /** createLoop awaits the context and the buffer. */
+  const settle = async () => {
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+  };
+
+  it('546: nothing starts while the camera flies over enemies in the pause; in earshot they walk on after it', async () => {
+    const { camera, manager, ready } = setup();
+    await ready('zombie_walk', 'walk.mp3');
+    const there = new Vector3(3 * D, 0, 0);
+    // One zombie beside the camera, one that walked by and is out of earshot over there now
+    await manager.createLoop('zombie_walk', NEAR);
+    const here = lastPositional();
+    const walker = (await manager.createLoop('zombie_walk', new Vector3(20, 0, 0)))!;
+    const away = lastPositional();
+    manager.updateLoopPosition(walker, there);
+    expect(away.isPlaying).toBe(false);
+
+    manager.holdLoops(true);
+    flyTo(camera, 3 * D - 10);
+    expect(here.isPlaying).toBe(false);
+    expect(away.isPlaying).toBe(false);
+
+    manager.holdLoops(false);
+    expect(away.isPlaying).toBe(true);
+    expect(here.isPlaying).toBe(false);
+  });
+
+  it('546: a zombie that started walking out of earshot has no loop that could come back', async () => {
+    const { camera, manager, ready } = setup();
+    await ready('zombie_walk', 'walk.mp3');
+    // EnemyEntity.startMoving plays its walk loop once (AudioComponent.play); out of earshot there is none
+    expect(await manager.createLoop('zombie_walk', new Vector3(3 * D, 0, 0))).toBeNull();
+
+    manager.holdLoops(true);
+    flyTo(camera, 3 * D - 10);
+    manager.holdLoops(false);
+    expect(reg.positional).toHaveLength(0);
+  });
+
+  it('546: walk and flame loops come back at the SFX volume set in the pause', async () => {
+    const { manager, ready } = setup();
+    await ready('zombie_walk', 'walk.mp3', { volume: 0.6 });
+    await ready('fire', 'fire.mp3', { volume: 0.8 });
+    await manager.createLoop('zombie_walk', NEAR);
+    const walk = lastPositional();
+    await manager.createLoop('fire', NEAR);
+    const flame = lastPositional();
+
+    manager.holdLoops(true);
+    manager.setMasterVolume(0.25);
+    manager.holdLoops(false);
+
+    expect(walk.isPlaying && flame.isPlaying).toBe(true);
+    expect(walk.volume).toBeCloseTo(0.15);
+    expect(flame.volume).toBeCloseTo(0.2);
+  });
+
+  it('548: the bubbling stands in the pause; an ooze reached meanwhile bubbles only once the game goes on', async () => {
+    const { camera, manager } = setup();
+    const sounds = new OozeSounds(new GameEventBus());
+    sounds.register(manager);
+    await manager.getBuffer(OOZE_SOUNDS.bubble.id);
+    sounds.follow('ooze-1', manager, 10, 0, 0);
+    await settle();
+    const first = lastPositional();
+    expect(first.isPlaying).toBe(true);
+
+    manager.holdLoops(true);
+    expect(first.isPlaying).toBe(false);
+
+    // The camera flies to a second ooze. OozeBodies.present runs only in
+    // frames with a sub-step, none in the pause (GameStateManager spec); were
+    // it called, the loop would start held.
+    flyTo(camera, 3 * D);
+    sounds.follow('ooze-2', manager, 3 * D + 5, 0, 0);
+    await settle();
+    const second = lastPositional();
+    expect(second).not.toBe(first);
+    expect(second.isPlaying).toBe(false);
+
+    manager.holdLoops(false);
+    expect(second.isPlaying).toBe(true);
+    // Left behind, out of earshot
+    expect(first.isPlaying).toBe(false);
   });
 });
