@@ -403,8 +403,11 @@ Leiste ganz.
 kennt den Helden nicht, sie bekommt ihn als Eingang und meldet den Druck:
 
 ```html
-<app-ability-bar [hero]="heroBar()" (heroPressed)="onHeroBarPressed()" />
+<app-ability-bar [hero]="heroBar()" [topInset]="uiStore.infoOverlayBottom()" (heroPressed)="onHeroBarPressed()" />
 ```
+
+`topInset` ist die gemessene Unterkante des Info-Overlays; die Leiste bleibt
+darunter (Einpassen in die Höhe: [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#fähigkeitenleiste-canvas)).
 
 `hero` ist ein `AbilityBarHero` (`icon`, `name`, `hotkey` oder null,
 `selected`, optional `detail` als Tooltip-Zeile) oder `null`, der Standard;

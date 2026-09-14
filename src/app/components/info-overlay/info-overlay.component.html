@@ -1,4 +1,4 @@
-<aside class="td-info" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
+<aside #box class="td-info" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
        (click)="uiStore.toggleInfoOverlay()"
        (keydown.enter)="uiStore.toggleInfoOverlay()"
        (keydown.space)="uiStore.toggleInfoOverlay()"

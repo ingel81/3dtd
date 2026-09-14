@@ -31,12 +31,15 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ability-bar.component.html',
   styleUrl: './ability-bar.component.scss',
-  // The measures the SCSS draws with, from the same numbers as ABILITY_BAR_EDGE_PX
+  // The measures the SCSS draws with, from the same numbers as ABILITY_BAR_EDGE_PX,
+  // and where its room begins below the info overlay
   host: {
     '[style.left.px]': 'px.left',
     '[style.--td-bar-border]': "px.border + 'px'",
     '[style.--td-bar-pad]': "px.padding + 'px'",
     '[style.--td-bar-btn]': "px.button + 'px'",
+    '[style.--td-bar-clear]': "px.clear + 'px'",
+    '[style.--td-bar-top]': "topInset() + px.clear + 'px'",
   },
 })
 export class AbilityBarComponent {
@@ -44,6 +47,13 @@ export class AbilityBarComponent {
   private readonly abilityTargeting = inject(AbilityTargetingService);
 
   protected readonly px = ABILITY_BAR_PX;
+
+  /**
+   * Bottom edge of what stands above the bar at the left edge, the info
+   * overlay, in px from the top of the canvas area (UIStore.infoOverlayBottom);
+   * the bar keeps ABILITY_BAR_PX.clear below it. 0 for nothing above.
+   */
+  readonly topInset = input(0);
 
   /** The hero's button at the top of the bar; null while there is no hero */
   readonly hero = input<AbilityBarHero | null>(null);

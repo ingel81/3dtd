@@ -111,6 +111,13 @@ export class UIStore {
   /** Info overlay (FPS, tiles, enemies, sounds) */
   readonly infoOverlayVisible = signal<boolean>(false);
 
+  /**
+   * Bottom edge of the info overlay in px from the top of the canvas area,
+   * collapsed or expanded, measured by InfoOverlayComponent; 0 while it is
+   * not shown. The ability bar keeps below it. Not persisted.
+   */
+  readonly infoOverlayBottom = signal<number>(0);
+
   /** Spatial grid debug (ground cells) */
   readonly spatialGridDebugVisible = signal<boolean>(false);
 

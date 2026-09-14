@@ -112,10 +112,11 @@ export function heroTooltip(hero: AbilityBarHero): TdTooltipData {
 
 /**
  * Measures of the bar in px: its `left` on the canvas, its border, its
- * padding and the square buttons. AbilityBarComponent hands them to its
- * SCSS as custom properties, so the bar is drawn from these numbers.
+ * padding, the square buttons and the room it keeps clear below the info
+ * overlay and above the logo row (`clear`). AbilityBarComponent hands them
+ * to its SCSS as custom properties, so the bar is drawn from these numbers.
  */
-export const ABILITY_BAR_PX = { left: 12, border: 1, padding: 5, button: 44 } as const;
+export const ABILITY_BAR_PX = { left: 12, border: 1, padding: 5, button: 44, clear: 8 } as const;
 
 /**
  * Outer right edge of the bar in px from the left edge of the canvas: its
