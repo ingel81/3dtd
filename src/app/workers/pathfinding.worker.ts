@@ -78,6 +78,7 @@
 /// <reference lib="webworker" />
 
 import { SegmentRoutes, type RouteTail } from '../utils/route-start';
+import { MinHeap, haversineDistance, distanceToSegment } from '../utils/street-astar';
 
 // ========================================
 // TYPES (duplicated to avoid import issues in worker context)
@@ -180,55 +181,6 @@ const ROAD_TYPE_WEIGHTS: Record<string, number> = {
 const DEFAULT_ROAD_WEIGHT = 1.5;
 
 // ========================================
-// MIN HEAP (same as OsmStreetService)
-// ========================================
-
-class MinHeap<T> {
-  private heap: { item: T; priority: number }[] = [];
-
-  get size(): number { return this.heap.length; }
-
-  push(item: T, priority: number): void {
-    this.heap.push({ item, priority });
-    this._bubbleUp(this.heap.length - 1);
-  }
-
-  pop(): T | undefined {
-    if (this.heap.length === 0) return undefined;
-    const top = this.heap[0].item;
-    const last = this.heap.pop()!;
-    if (this.heap.length > 0) {
-      this.heap[0] = last;
-      this._sinkDown(0);
-    }
-    return top;
-  }
-
-  private _bubbleUp(i: number): void {
-    while (i > 0) {
-      const parent = (i - 1) >> 1;
-      if (this.heap[i].priority >= this.heap[parent].priority) break;
-      [this.heap[i], this.heap[parent]] = [this.heap[parent], this.heap[i]];
-      i = parent;
-    }
-  }
-
-  private _sinkDown(i: number): void {
-    const len = this.heap.length;
-      while (true) {
-      let smallest = i;
-      const left = 2 * i + 1;
-      const right = 2 * i + 2;
-      if (left < len && this.heap[left].priority < this.heap[smallest].priority) smallest = left;
-      if (right < len && this.heap[right].priority < this.heap[smallest].priority) smallest = right;
-      if (smallest === i) break;
-      [this.heap[i], this.heap[smallest]] = [this.heap[smallest], this.heap[i]];
-      i = smallest;
-    }
-  }
-}
-
-// ========================================
 // PATHFINDING ENGINE (runs in worker)
 // ========================================
 
@@ -273,50 +225,6 @@ function buildGraph(networkStreets: Street[]): Map<number, GraphEntry> {
   }
 
   return g;
-}
-
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function distanceToSegment(
-  pLat: number, pLon: number,
-  aLat: number, aLon: number,
-  bLat: number, bLon: number
-): number {
-  // Scale longitude by cos(latitude) to get approximately equal-distance units
-  const midLat = (aLat + bLat) * 0.5;
-  const lonScale = Math.cos((midLat * Math.PI) / 180);
-
-  const dxSeg = (bLon - aLon) * lonScale;
-  const dySeg = bLat - aLat;
-  const lengthSq = dxSeg * dxSeg + dySeg * dySeg;
-
-  if (lengthSq === 0) {
-    return haversineDistance(pLat, pLon, aLat, aLon);
-  }
-
-  const dxPoint = (pLon - aLon) * lonScale;
-  const dyPoint = pLat - aLat;
-
-  let t = (dxPoint * dxSeg + dyPoint * dySeg) / lengthSq;
-  t = Math.max(0, Math.min(1, t));
-
-  // Interpolate in original coordinates for haversine
-  const closestLat = aLat + t * (bLat - aLat);
-  const closestLon = aLon + t * (bLon - aLon);
-
-  return haversineDistance(pLat, pLon, closestLat, closestLon);
 }
 
 function findNearestStreetPoint(
