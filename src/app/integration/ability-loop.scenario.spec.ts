@@ -242,7 +242,7 @@ describe('Abilities through the sub-step loop, playtest 320, 335, 395 and 397 (n
       return { atImpact, heardInPause, frames, volumes: played.mock.calls.map((call) => call[4]) };
     };
 
-    it('plays the impact, then two quieter repeats', () => {
+    it('plays the impact, then the quieter pieces of its tail', () => {
       expect(tailRun(1).volumes).toEqual([1, ...TAIL.map((r) => r.volume)]);
     });
 
