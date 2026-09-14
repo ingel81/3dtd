@@ -33,10 +33,6 @@ export class EllipsoidSync {
   private originMatrix = new Matrix4();
   private inverseOriginMatrix = new Matrix4();
 
-  // Temporary vectors for calculations (avoid allocations)
-  private tempVec3 = new Vector3();
-  private tempMatrix = new Matrix4();
-
   constructor(originLat: number, originLon: number, originHeight = 0) {
     this.originLatRad = originLat * MathUtils.DEG2RAD;
     this.originLonRad = originLon * MathUtils.DEG2RAD;
@@ -263,29 +259,4 @@ export class EllipsoidSync {
     return target;
   }
 
-  /**
-   * @deprecated Use geoToLocalSimple() with overlayGroup instead
-   *
-   * This method was for adding objects directly inside tilesRenderer.group
-   * but that approach doesn't work well due to ECEF coordinates.
-   * Use overlayGroup (in scene root) with delta synchronization instead.
-   */
-  geoToGroupLocal(lat: number, lon: number, height: number): Vector3 {
-    const simple = this.geoToLocalSimple(lat, lon, height);
-    // Legacy transform - no longer needed with overlayGroup approach
-    return new Vector3(simple.x, -simple.z, -simple.y);
-  }
-
-  /**
-   * Fast distance between two points in meters
-   * Uses flat-earth approximation - accurate for <200m (game distances)
-   */
-  private fastDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const dLat = lat2 - lat1;
-    const dLon = lon2 - lon1;
-    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(lat1 * MathUtils.DEG2RAD);
-    const dx = dLon * metersPerDegreeLon;
-    const dy = dLat * METERS_PER_DEGREE_LAT;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
 }
