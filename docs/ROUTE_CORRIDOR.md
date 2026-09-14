@@ -81,8 +81,16 @@ Je Station (`TerrainQueries.measureStreetClearance`):
    Tile auch dort ist die Station `unmeasured: 'no tile'`, mit einem Tile
    gröber als `maxTileError` ist sie `unmeasured: 'coarse tile'`.
 2. Je Strahlhöhe ein waagrechter Strahl nach links und einer nach rechts, in
-   1 m und 3,5 m über dem Boden der Säule (auf einer Brücke über ihrer
-   Oberkante `topY`), jeder `maxHalfWidth` lang.
+   1 m und 3,5 m über der Fläche, auf der die Zellen dort stehen (`surfaceY`,
+   siehe Zellhöhe), jeder `maxHalfWidth` lang. Das ist der Boden der Säule,
+   auf einer Brücke ihre Oberkante `topY`. Auf der Fortsetzung eines Decks
+   (`approach`) ist es die Oberkante, wo die Säule das Deck am nächsten
+   Brückenende fortsetzt, sonst der Boden; dafür nimmt die Station die
+   Säule an diesem Brückenende dazu, bei einer Naht mit denselben
+   Verschiebungen. Hat diese Säule kein Tile bis `maxTileError`, ist die
+   Station `unmeasured: 'no bridge end'` und kommt beim nächsten Lauf
+   wieder dran. Bis 2026-09-15 gingen die Strahlen dort vom untersten
+   Treffer aus, am Brückenkopf also unter dem Deck (review-f M2).
 3. Ein Treffer zählt nur auf einem Tile mit höchstens `maxTileError`
    geometricError und nicht auf dem Wurzel-Tile (`TerrainQueries.clearanceRay`). Ohne Treffer
    meldet der Strahl seine volle Länge.
@@ -94,7 +102,7 @@ Je Station (`TerrainQueries.measureStreetClearance`):
    nicht auf der Fortsetzung eines Decks (`approach`: bis `DECK_APPROACH_M`,
    40 m, hinter dem Ende eines Brücken-Ways, `deckApproaches`, siehe
    Zellhöhe), dort träfe diese Säule den Fluss, den Kai oder die Straße unter
-   dem Deck (`nearDeck` in `measureStreetClearance`). Autos auf diesen 40 m
+   dem Deck (`onDeck`, `deckEnd` in `measureStreetClearance`). Autos auf diesen 40 m
    engen nur über den Laufweg ein.
 
 Der Freiraum einer Seite ist der weitere der beiden ersten Treffer
@@ -754,7 +762,8 @@ einem Frame:
   erscheint am Ende eines Laufs, der mindestens ein Segment angefasst hat.
   - `stations`: die in diesem Lauf versuchten Stationen.
   - `rays`: 2 Strahlhöhen × 2 Seiten × gemessene Stationen; die Säulen unter
-    der Station und hinter einem niedrigen Hindernis sind nicht mitgezählt.
+    der Station, am Brückenende und hinter einem niedrigen Hindernis sind
+    nicht mitgezählt.
   - `in`: Rechenzeit des Laufs im Hauptthread, alle Scheiben samt Vergleich
     am Ende. So lange hätte der Lauf am Stück blockiert; vergleichbar mit den
     Zahlen von vor dem Stückeln.

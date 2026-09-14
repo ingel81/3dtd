@@ -82,7 +82,7 @@ type Hits = number | number[];
 type Clearance = number | { left: Hits; right: Hits; shiftM?: number; lowRise?: { left: number; right: number } } | null | 'no tile';
 let clearanceAt: (x: number, z: number, max: number) => Clearance = (_x, _z, max) => max;
 
-/** Jede Messstation, die der Engine-Ersatz beantwortet hat: Ort, Richtung, Strahlhöhen, Länge, Deck. */
+/** Jede Messstation, die der Engine-Ersatz beantwortet hat: Ort, Richtung, Strahlhöhen, Länge, Deck, Brückenende. */
 const probeCalls: unknown[][] = [];
 
 /** Minimaler Engine-Ersatz: flaches Gelände, Geo→Lokal als Plattkarte um ORIGIN. */
@@ -95,9 +95,10 @@ function makeEngine(): ThreeTilesEngine {
       // Höhe des gelben Overlays: flaches Gelände.
       getStreetHeightEstimate: () => 0,
       measureStreetClearance: (
-        x: number, z: number, ax: number, az: number, heights: readonly number[], max: number, onDeck = false, nearDeck = onDeck,
+        x: number, z: number, ax: number, az: number, heights: readonly number[], max: number, onDeck = false,
+        deckEnd: { x: number; z: number } | null = null,
       ): StationProbe => {
-        probeCalls.push([x, z, ax, az, [...heights], max, onDeck, nearDeck]);
+        probeCalls.push([x, z, ax, az, [...heights], max, onDeck, deckEnd]);
         const free = clearanceAt(x, z, max);
         if (free === null) return { unmeasured: 'coarse tile', tileError: 20, left: [], right: [] };
         if (free === 'no tile') return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
@@ -589,7 +590,7 @@ describe('PathAndRouteService route geometry', () => {
           .toMatchObject({ lowRiseM: 0.2, wall: false, freeM: 7, rule: 'no wall within the maximum' });
       });
 
-      it('judges no low wall on a bridge and on the stretch off its end', () => {
+      it('judges no low wall on a bridge and on the stretch off its end, which measures against the deck at that end', () => {
         // Way 200 is a bridge; way 100 runs straight on from its end at n1,
         // so its last DECK_APPROACH_M (40 m) carry the deck on.
         network = makeNetwork([
@@ -605,12 +606,15 @@ describe('PathAndRouteService route geometry', () => {
         const near = onWay100.filter(([, z]) => northOfN1(z as number) > -39);
         const far = onWay100.filter(([, z]) => northOfN1(z as number) < -41);
         expect(near.length).toBeGreaterThan(10);
-        expect(near.every((call) => call[6] === false && call[7] === true)).toBe(true);
+        // The bridge end of these stations is n1, where way 200 starts.
+        const atN1 = (end: unknown) =>
+          end !== null && Math.abs((end as { x: number }).x) < 1 && Math.abs(northOfN1((end as { z: number }).z)) < 1;
+        expect(near.every((call) => call[6] === false && atN1(call[7]))).toBe(true);
         expect(far.length).toBeGreaterThan(3);
-        expect(far.every((call) => call[7] === false)).toBe(true);
+        expect(far.every((call) => call[7] === null)).toBe(true);
         const onDeck = probeCalls.filter((call) => call[6] === true);
         expect(onDeck.length).toBeGreaterThan(0);
-        expect(onDeck.every((call) => call[7] === true)).toBe(true);
+        expect(onDeck.every((call) => call[7] === null)).toBe(true);
       });
 
       it('says why a station has no measurement', () => {

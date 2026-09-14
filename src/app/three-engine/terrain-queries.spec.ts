@@ -302,14 +302,34 @@ describe('TerrainQueries', () => {
       expect(onDeck.lowRise).toEqual({ left: NaN, right: NaN });
     });
 
-    it('beurteilt nichts auf der Fortsetzung eines Decks (nearDeck), misst aber vom Boden', () => {
+    it('beurteilt nichts auf der Fortsetzung eines Decks (deckEnd)', () => {
       const car = setup();
       car.addTile(floor(0, 6), 3, FINE);
       car.addTile(wall(3, 1.5), 3, FINE);
       car.addTile(floor(1.5, 2, 4, 0), 3, FINE);
-      const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10, false, true)!;
+      const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10, false, { x: 0, z: 1 })!;
       expect(probe.right.map((d) => +d.toFixed(6))).toEqual([3, 10]);
       expect(probe.lowRise).toEqual({ left: NaN, right: NaN });
+    });
+
+    it('misst auf der Fortsetzung eines Decks von der Höhe, auf der ihre Zellen stehen (surfaceY)', () => {
+      // Deck (y=6) über der Straße, auf ihm eine Wand 2 m rechts; darunter rechts die Wand bei 4 m.
+      const { queries, addTile } = street();
+      addTile(floor(6, 4), 3, FINE);
+      addTile(wall(2, 10, 5), 3, FINE);
+      // Das Brückenende auf dem Deck: die Säule setzt es fort, die Strahlen gehen über das Deck.
+      const onDeck = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { x: 0, z: 1.5 });
+      expect(onDeck?.right.map((d) => +d.toFixed(6))).toEqual([2]);
+      // Das Brückenende 6 m tiefer als die Oberkante hier: die Säule behält ihren Boden.
+      const below = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { x: 0, z: 10 });
+      expect(below?.right.map((d) => +d.toFixed(6))).toEqual([4]);
+    });
+
+    it('lässt eine Station auf der Fortsetzung ungemessen, solange das Brückenende keine feine Säule hat', () => {
+      const { queries } = street();
+      expect(queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { x: 100, z: 100 })).toEqual({
+        unmeasured: 'no bridge end', tileError: FINE, left: [], right: [],
+      });
     });
 
     it('kostet für ein Hindernis nur am unteren Strahl eine Säule mehr', () => {

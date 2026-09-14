@@ -22,7 +22,9 @@ import {
   segmentRight,
 } from '../../utils/route-corridor';
 import { WalkCapSegment, WalkCaps, walkCaps } from '../../utils/corridor-walk';
-import { DeckApproach, deckApproaches, nearestDeckApproach } from '../../utils/deck-approach';
+import { deckApproaches, nearestDeckApproach } from '../../utils/deck-approach';
+import type { DeckEnd } from '../../utils/route-cell';
+import type { SegmentApproach } from '../../utils/route-grid-builder';
 import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -981,7 +983,8 @@ export class PathAndRouteService {
 
         const count = Math.max(1, Math.round(length / corridorConfig.stationSpacing));
         segments.push({
-          key, x: start.x, z: start.z, dx, dz, count, onBridge: onBridge[i], approaches: approaches[i],
+          key, x: start.x, z: start.z, dx, dz, count, onBridge: onBridge[i],
+          approaches: approaches[i].map(({ end, from, to }) => ({ deckEnd: { x: local[end].x, z: local[end].z }, from, to })),
           left: known ? [...known.left] : new Array<number>(count).fill(NaN),
           right: known ? [...known.right] : new Array<number>(count).fill(NaN),
           probes: known ? [...known.probes] : new Array<StationProbe | null>(count).fill(null),
@@ -992,8 +995,8 @@ export class PathAndRouteService {
     const run = new ClearanceRun(
       segments,
       2 * rayHeights.length,
-      (x, z, acrossX, acrossZ, onDeck, nearDeck) =>
-        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck, nearDeck) ?? null,
+      (x, z, acrossX, acrossZ, onDeck, deckEnd) =>
+        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck, deckEnd) ?? null,
       (measured) => this.storeClearance(measured),
     );
     this.clearanceRun = run;
@@ -1138,11 +1141,13 @@ interface ClearanceSegment {
   count: number;
   onBridge: boolean;
   /**
-   * The stretches off a bridge end the segment lies on (deckApproaches):
-   * a station within DECK_APPROACH_M of such an end judges no low wall,
-   * as on the deck (TerrainQueries.measureStreetClearance, `nearDeck`).
+   * The stretches off a bridge end the segment lies on (deckApproaches),
+   * with their bridge ends as the route cells there take them: a station
+   * within DECK_APPROACH_M of such an end measures from where those cells
+   * stand and judges no low wall, as on the deck
+   * (TerrainQueries.measureStreetClearance, `deckEnd`).
    */
-  approaches: DeckApproach[];
+  approaches: SegmentApproach[];
   /** Free space per station and side, NaN until measured, and what each station's rays found. */
   left: number[];
   right: number[];
@@ -1181,7 +1186,7 @@ class ClearanceRun implements CorridorMeasurement {
     /** Rays a measured station casts, for the log. */
     private readonly raysPerStation: number,
     private readonly probeAt: (
-      x: number, z: number, acrossX: number, acrossZ: number, onDeck: boolean, nearDeck: boolean,
+      x: number, z: number, acrossX: number, acrossZ: number, onDeck: boolean, deckEnd: DeckEnd | null,
     ) => StationProbe | null,
     /** Stores what the run measured; true when that changes a corridor. */
     private readonly store: (segments: readonly ClearanceSegment[]) => boolean,
@@ -1278,9 +1283,10 @@ class ClearanceRun implements CorridorMeasurement {
     const t = (k + 0.5) / segment.count;
     const x = segment.x + segment.dx * t;
     const z = segment.z + segment.dz * t;
-    const nearDeck = segment.onBridge || nearestDeckApproach(segment.approaches, t) !== null;
+    // Off a bridge end: the end nearest the station, as for a route cell there
+    const approach = segment.onBridge ? null : nearestDeckApproach(segment.approaches, t);
     // (-dz, dx) points right of the direction of travel.
-    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, nearDeck);
+    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach?.deckEnd ?? null);
     segment.probes[k] = probe;
     this.probed++;
     if (probe?.unmeasured === 'coarse tile') this.coarse++;

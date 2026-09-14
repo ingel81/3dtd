@@ -2,8 +2,9 @@ import { Box3, Raycaster, Vector3, type Intersection, type Object3D } from 'thre
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { LOW_WALL_BEHIND_M, StationProbe, corridorConfig, lowRayAlone } from '../utils/route-corridor';
-import { StreetDeck, continuesDeck } from '../utils/deck-approach';
+import { StreetDeck, continuesDeck, surfaceY } from '../utils/deck-approach';
 import { raycastStats } from '../utils/raycast-stats';
+import type { DeckEnd } from '../utils/route-cell';
 import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import type { EllipsoidSync } from './ellipsoid-sync';
 import { ColumnHit, ColumnSample, isBetterLod, selectColumnSample } from './column-sample';
@@ -371,8 +372,13 @@ export class TerrainQueries {
   /**
    * Free space either side of a point on a street, for fitting the route
    * corridor to the street the tiles show. Casts a horizontal ray to each
-   * side at every height in `heightsAboveGround`, over the column's ground
-   * (over its top `onDeck`, for a bridge). What blocks the rays at all
+   * side at every height in `heightsAboveGround`, over the surface the
+   * route cells there stand on (surfaceY in deck-approach.ts): the column's
+   * ground, its top `onDeck` for a bridge, and on the stretch off a bridge
+   * end (`deckEnd`, where that bridge ends) its top where it carries on the
+   * deck there. Such a station comes back unmeasured (`no bridge end`)
+   * while the column at the bridge end has no tile up to `maxTileError`.
+   * What blocks the rays at all
    * heights counts as a wall (a facade, a wall, a trunk), so the free space
    * on a side is the farthest of the first hits: an eave or a tree crown
    * stops only the high ray, not the corridor (probeFreeSpace, which makes
@@ -383,9 +389,9 @@ export class TerrainQueries {
    * Where the low ray alone stops (lowRayAlone: a parked van, a hedge, a
    * fence), one more column LOW_WALL_BEHIND_M behind its hit tells how far
    * the ground there lies above the station's (`StationProbe.lowRise`);
-   * raised ground makes the hit a wall (probeLowWall). Not `nearDeck`: on a
-   * deck or on the stretch off a bridge end (deck-approach.ts), where the
-   * lowest hit of that column may be the river, quay or road under the deck.
+   * raised ground makes the hit a wall (probeLowWall). Not on a deck or on
+   * the stretch off a bridge end (`onDeck`, `deckEnd`), where the lowest
+   * hit of that column may be the river, quay or road under the deck.
    *
    * Only tiles up to `corridorConfig.maxTileError` count, for the column
    * and for the hits, so a coarse hull still waiting for its children
@@ -396,7 +402,7 @@ export class TerrainQueries {
    * tile meshes. The station then tries the columns half a metre ahead and
    * behind along the route (SEAM_SHIFTS_M) and measures from the first that
    * finds one (`StationProbe.shiftM`): at most two more column rays, only
-   * for such a station.
+   * for such a station. The column at a bridge end tries the same shifts.
    *
    * @returns the first hit per height and side (probeFreeSpace makes the
    *   free space of it), or null where there is nothing to measure: in
@@ -410,7 +416,7 @@ export class TerrainQueries {
     heightsAboveGround: readonly number[],
     maxDistance: number,
     onDeck = false,
-    nearDeck = onDeck,
+    deckEnd: DeckEnd | null = null,
   ): StationProbe | null {
     const tiles = this.sources.tiles();
     if (this.sources.devTerrain() || !tiles) return null;
@@ -418,47 +424,68 @@ export class TerrainQueries {
     const scope = raycastStats.enter('routeCorridor');
     try {
       const len = Math.hypot(acrossX, acrossZ);
-      let x = localX;
-      let z = localZ;
-      let shiftM: number | null = null;
-      let column = this.sampleColumn(x, z);
-      if (!column && len > 0) {
-        for (const shift of SEAM_SHIFTS_M) {
-          // (acrossZ, -acrossX) is the direction of travel: across points to its right.
-          x = localX + (acrossZ / len) * shift;
-          z = localZ - (acrossX / len) * shift;
-          column = this.sampleColumn(x, z);
-          if (column) {
-            shiftM = shift;
-            break;
-          }
-        }
-      }
+      // (acrossZ, -acrossX) is the direction of travel: across points to its right.
+      const alongX = len > 0 ? acrossZ / len : 0;
+      const alongZ = len > 0 ? -acrossX / len : 0;
+      const station = this.columnBesideSeam(localX, localZ, alongX, alongZ);
+      if (!station) return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
+      const { column, x, z, shiftM } = station;
       const shifted = shiftM === null ? {} : { shiftM };
-      if (!column) return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
       if (column.tileGeometricError > corridorConfig.maxTileError) {
         return { unmeasured: 'coarse tile', tileError: column.tileGeometricError, left: [], right: [], ...shifted };
       }
       if (len === 0) return null;
 
-      const surfaceY = onDeck ? column.topY : column.groundY;
+      // Off a bridge end the rays start where the cells there stand: over
+      // the top where the column carries on the deck at the bridge end.
+      let deckY: number | null = null;
+      if (deckEnd !== null && !onDeck) {
+        const deck = this.columnBesideSeam(deckEnd.x, deckEnd.z, alongX, alongZ);
+        if (!deck || deck.column.tileGeometricError > corridorConfig.maxTileError) {
+          return { unmeasured: 'no bridge end', tileError: column.tileGeometricError, left: [], right: [], ...shifted };
+        }
+        deckY = deck.column.topY;
+      }
+      const baseY = surfaceY(onDeck ? 'deck' : deckY === null ? 'ground' : 'approach', column, deckY)!;
       const left: number[] = [];
       const right: number[] = [];
       for (const height of heightsAboveGround) {
-        this._clearanceOrigin.set(x, surfaceY + height, z);
+        this._clearanceOrigin.set(x, baseY + height, z);
         left.push(this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance));
         right.push(this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance));
       }
-      const lowRise = nearDeck
+      const lowRise = onDeck || deckEnd !== null
         ? { left: NaN, right: NaN }
         : {
-          left: this.riseBehindLowHit(x, z, -acrossX / len, -acrossZ / len, left, maxDistance, surfaceY),
-          right: this.riseBehindLowHit(x, z, acrossX / len, acrossZ / len, right, maxDistance, surfaceY),
+          left: this.riseBehindLowHit(x, z, -acrossX / len, -acrossZ / len, left, maxDistance, baseY),
+          right: this.riseBehindLowHit(x, z, acrossX / len, acrossZ / len, right, maxDistance, baseY),
         };
       return { unmeasured: null, tileError: column.tileGeometricError, left, right, lowRise, ...shifted };
     } finally {
       raycastStats.exit(scope);
     }
+  }
+
+  /**
+   * The column at (x, z), or, where that finds no tile (a seam between two
+   * tile meshes), the first one SEAM_SHIFTS_M along the unit direction
+   * (alongX, alongZ) that does, with where it stands and the shift it
+   * took (null for none). Null without a column; no shift for a zero
+   * direction.
+   */
+  private columnBesideSeam(
+    x: number, z: number, alongX: number, alongZ: number,
+  ): { column: ColumnSample; x: number; z: number; shiftM: number | null } | null {
+    const column = this.sampleColumn(x, z);
+    if (column) return { column, x, z, shiftM: null };
+    if (alongX === 0 && alongZ === 0) return null;
+    for (const shift of SEAM_SHIFTS_M) {
+      const sx = x + alongX * shift;
+      const sz = z + alongZ * shift;
+      const shifted = this.sampleColumn(sx, sz);
+      if (shifted) return { column: shifted, x: sx, z: sz, shiftM: shift };
+    }
+    return null;
   }
 
   /**

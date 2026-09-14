@@ -528,10 +528,12 @@ export function lowRayAlone(hits: readonly number[], maxDistance: number): boole
  */
 export interface StationProbe {
   /**
-   * Why the station could not be measured: no tile under it, or its tile
-   * is coarser than `maxTileError` (still streaming in). Null when measured.
+   * Why the station could not be measured: no tile under it, its tile is
+   * coarser than `maxTileError` (still streaming in), or, on the stretch
+   * off a bridge end, the column at that end has no such tile yet. Null
+   * when measured.
    */
-  unmeasured: 'no tile' | 'coarse tile' | null;
+  unmeasured: 'no tile' | 'coarse tile' | 'no bridge end' | null;
   /** Geometric error of the tile under the station, Infinity without one. */
   tileError: number;
   /**
@@ -546,8 +548,9 @@ export interface StationProbe {
    * column {@link LOW_WALL_BEHIND_M} behind its hit comes down above the
    * station's ground, the top of what the photogrammetry has there. NaN on
    * a side where the low ray did not stop alone, where that column has no
-   * tile up to `maxTileError`, and on a bridge deck (the lowest hit of a
-   * column there is the river or road under it). Absent when unmeasured.
+   * tile up to `maxTileError`, and on a bridge deck or the stretch off its
+   * end (the lowest hit of a column there may be the river or road under
+   * it). Absent when unmeasured.
    */
   lowRise?: { left: number; right: number };
   /**
