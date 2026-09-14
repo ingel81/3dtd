@@ -550,6 +550,39 @@ Konflikt an.
 
 ## Offene Punkte und Entscheidungen für dich
 
+**Stand 2026-09-14 abends** (User: "Alles, was du ohne mich machen kannst,
+bitte klären"; Lead-Entscheidungen sind revertierbar):
+- **1, 3, 5 Korridor:** ersetzt durch die User-Entscheidung "orange Zellen
+  weglassen" (corridor2): Zellen, zu denen kein Gegner laufen kann, fallen
+  weg, der Korridor endet davor; im Browser ungesehen, Nachtest 560 bis 562.
+  Klein und offen: animierte Routenlinie in DevWorld, Raycast-Rückfall im
+  Kampf.
+- **2 Auskragung:** User-Urteil in 561, die neue Regel ist einen Tick
+  besser und bleibt.
+- **4 Paris-Brücke:** Ursache laut Code behoben (`427443a6`), Nachtest 564.
+- **6 zombie_v2:** 515 ok nach preview2. **7 Impact Effects:** 514 ok.
+- **8 Leiste gegen Info-Overlay:** Lead-Entscheidung: nie überlappen
+  (Worker decideui).
+- **9 HQ umsetzen:** jetzt schneller, 541 in Paris 2,5 s statt 6,1 s
+  (relocspeed).
+- **10 Spawn-Drehung:** Lead-Entscheidung: in URL und Favoriten speichern
+  (Worker spawnpersist); ein HQ-Umzug setzt sie weiter zurück.
+- **11 Center-Tipp nach Welle 2:** Lead-Entscheidung: bleibt (503, 504 ok).
+- **12 Wurm-Ecken:** bleibt für die User-Runde mit 356.
+- **13 `hero:rejected`, `ability:rejected`:** Lead-Entscheidung: sichtbare
+  Rückmeldung wie beim U-Grund (Worker decideui); Ersatzmodell für den Held
+  bleibt offen.
+- **14 Boss-Intro bei offenem Dialog:** Lead-Entscheidung: das Intro fällt
+  dann aus (Worker decideui); Hindernis-Check bleibt offen.
+- **15 Laser-Bot-Zählung:** Lead-Entscheidung: bleibt als Näherung (nur
+  Training).
+- **16 Sockel-Widerspruch:** klärt 429 mit `__footprintDebug.watch()`.
+- **17 Boss-Varianten:** Lead-Entscheidung: bleibt bis zum Run-Dump.
+- **18 Assets:** später, eigenes Thema. **19 Tooling:** bleibt ohne
+  npm-Abhängigkeit (User-Entscheidung Nacht 2).
+- **Neu, 421 D2 (Wackeln):** Lead-Entscheidung: "härter" heißt mehr HP
+  verloren (Worker shake).
+
 **Korridor**
 
 1. **Vorgärten** bleiben im Korridor. Mit Strahlen und Säulen sind sie
