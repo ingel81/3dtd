@@ -546,8 +546,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * Handle mouse move in build mode (for build preview)
    */
   private onMouseMove(lat: number, lon: number, hitPoint: Vector3): void {
-    // The cursor ray already hit the exact surface the player is pointing at
-    //, a rooftop, a bridge deck, the street. Use it.
+    // The cursor ray already hit the exact surface the player is pointing at:
+    // a rooftop, a bridge deck, the street. Use it.
     //
     // This used to re-derive the height with `getTerrainHeightAtGeo`, which
     // throws that away and answers for the column instead. That was tolerable
