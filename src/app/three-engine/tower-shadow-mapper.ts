@@ -28,31 +28,34 @@ import { losPerf } from '../utils/los-perf';
  * `direction(towerTip → cell)`-Vektor und vergleicht die gepackte
  * Distanz mit der eigenen Distanz zum Tower.
  *
- * Alle 10 Lessons aus dem Handover (docs/HANDOVER_ROUTE_GRID_GPU_LOS.md)
- * sind hier umgesetzt:
- *   1.  Custom ShaderMaterial mit `packDepthToRGBA`, KEIN MeshDistanceMaterial.
- *   2.  USE_INSTANCING + USE_BATCHING im Vertex-Shader.
- *   3.  `<batching_pars_vertex>` + `<batching_vertex>`, greifen nur bei BatchedMesh.
- *       Tiles sind ohne BatchedTilesPlugin reguläre Meshes; die Chunks bleiben
- *       als Absicherung.
- *   4.  scene.overrideMaterial reicht für 3DTiles NICHT — Mesh-Material +
- *       onBeforeRender werden pro Render geswapped, hart-reset des Distance-
- *       Material-State.
- *   5.  WebGLCubeRenderTarget: NearestFilter (kein bilineares Mixing von
- *       packed-depth-Bytes).
- *   6.  WebGLCubeRenderTarget: colorSpace=NoColorSpace.
- *   7.  Renderer-ClearColor wird auf (0,0,0,0) gesetzt und nach dem Render
- *       wiederhergestellt.
- *   8.  `includeOnly: Object3D` — alle Scene-Children außer dieser eine Group
- *       werden für den Cube-Render unsichtbar gemacht.
- *   9.  Move-Gate: Cubemap wird nur neu gerendert wenn Tower-Tip > threshold
- *       bewegt oder `invalidate()` aufgerufen wurde.
- *   10. textureCube(map, worldDir) ohne X-Flip — kein flipEnvMap für
- *       CubeRenderTarget.
- *   11. scene.background / scene.environment save/restore. Three.js
- *       rendert Background-Texturen unabhängig vom child.visible-Filter
- *       und ohne overrideMaterial — Skybox-RGBA-Bytes leaken sonst als
- *       false-Blocker in jede Cubemap-Face.
+ * 10 der 12 Regeln aus docs/LOS_PIPELINE.md ("Regeln für jeden Eingriff am
+ * Cube") sind hier umgesetzt (Regel 9 gilt für die Konsumenten TowerLosViz/
+ * TowerManager, Regel 12 für den CPU-Resolve in gpu-cube-resolve.ts):
+ *   Regel 1.  Custom ShaderMaterial mit `packDepthToRGBA`, KEIN MeshDistanceMaterial.
+ *   Regel 2.  USE_INSTANCING + USE_BATCHING im Vertex-Shader.
+ *   Regel 3.  `<batching_pars_vertex>` + `<batching_vertex>`, greifen nur bei BatchedMesh.
+ *             Tiles sind ohne BatchedTilesPlugin reguläre Meshes; die Chunks bleiben
+ *             als Absicherung.
+ *   Regel 4.  scene.overrideMaterial reicht für 3DTiles NICHT — Mesh-Material +
+ *             onBeforeRender werden pro Render geswapped, hart-reset des Distance-
+ *             Material-State.
+ *   Regel 5.  WebGLCubeRenderTarget: NearestFilter (kein bilineares Mixing von
+ *             packed-depth-Bytes).
+ *   Regel 6.  WebGLCubeRenderTarget: colorSpace=NoColorSpace.
+ *   Regel 7.  Renderer-ClearColor wird auf (0,0,0,0) gesetzt und nach dem Render
+ *             wiederhergestellt.
+ *   Regel 8.  `includeOnly: Object3D` — alle Scene-Children außer dieser eine Group
+ *             werden für den Cube-Render unsichtbar gemacht.
+ *   Regel 10. textureCube(map, worldDir) ohne X-Flip — kein flipEnvMap für
+ *             CubeRenderTarget.
+ *   Regel 11. scene.background / scene.environment save/restore. Three.js
+ *             rendert Background-Texturen unabhängig vom child.visible-Filter
+ *             und ohne overrideMaterial — Skybox-RGBA-Bytes leaken sonst als
+ *             false-Blocker in jede Cubemap-Face.
+ *
+ * Dazu ein eigenes Move-Gate (keine der 12 Regeln): Cubemap wird nur neu
+ * gerendert wenn der Tower-Tip mehr als der Schwellwert bewegt wurde oder
+ * `invalidate()` aufgerufen wurde.
  */
 export class TowerShadowMapper {
   private readonly renderer: WebGLRenderer;
@@ -70,7 +73,7 @@ export class TowerShadowMapper {
   private invalidated = true;
   private lastEncodedFar = 1;
 
-  /** Backup-Slots für ClearColor save/restore (Lesson 7). */
+  /** Backup-Slots für ClearColor save/restore (Regel 7). */
   private readonly prevClearColor = new Color();
 
   // CPU-Mirror der 6 Cube-Faces für den LOS-Resolve-Pfad (gpu-cube-resolve).
@@ -106,10 +109,10 @@ export class TowerShadowMapper {
     this.renderTarget = new WebGLCubeRenderTarget(size, {
       format: RGBAFormat,
       type: UnsignedByteType,
-      minFilter: NearestFilter,        // Lesson 3 — kein bilineares Pack-Mixing
+      minFilter: NearestFilter,        // Regel 5 — kein bilineares Pack-Mixing
       magFilter: NearestFilter,
       generateMipmaps: false,
-      colorSpace: NoColorSpace,        // Lesson 4 — kein sRGB-Roundtrip
+      colorSpace: NoColorSpace,        // Regel 6 — kein sRGB-Roundtrip
     });
 
     // near=0.1 fängt Self-Hits ab; far wird pro update() gesetzt.
@@ -189,7 +192,7 @@ export class TowerShadowMapper {
    * @param tip Tower-Tip in World-Space
    * @param range Tower-Reichweite (= far der Cubemap, kein Padding)
    * @param includeOnly Group die als einziges sichtbar bleibt während
-   *        des Renders (typisch tilesRenderer.group). Lesson 8.
+   *        des Renders (typisch tilesRenderer.group). Regel 8.
    * @returns true wenn neu gerendert wurde, false wenn gegated.
    */
   update(tip: Vector3, range: number, includeOnly: Object3D): boolean {
@@ -217,7 +220,7 @@ export class TowerShadowMapper {
 
     this.distanceMaterial.uniforms['uReferencePosition'].value.copy(tip);
     this.distanceMaterial.uniforms['uFarDistance'].value = range;
-    // Lesson 2 — Material-State hart resetten, falls ein Plugin zuvor
+    // Regel 4 — Material-State hart resetten, falls ein Plugin zuvor
     // transparent/opacity mutiert hat.
     this.distanceMaterial.transparent = false;
     this.distanceMaterial.opacity = 1;
@@ -225,7 +228,7 @@ export class TowerShadowMapper {
     this.distanceMaterial.depthTest = true;
     this.distanceMaterial.needsUpdate = true;
 
-    // Lesson 8 — alle Scene-Children außer `includeOnly` für den Render
+    // Regel 8 — alle Scene-Children außer `includeOnly` für den Render
     // unsichtbar machen.
     const hiddenSiblings: Object3D[] = [];
     for (const child of this.scene.children) {
@@ -235,7 +238,7 @@ export class TowerShadowMapper {
       hiddenSiblings.push(child);
     }
 
-    // Lesson 4 — Mesh-Material + onBeforeRender pro Render swappen.
+    // Regel 4 — Mesh-Material + onBeforeRender pro Render swappen.
     interface MeshBackup {
       mesh: Mesh;
       material: Material | Material[];
@@ -243,7 +246,7 @@ export class TowerShadowMapper {
     }
     const meshBackup: MeshBackup[] = [];
     const noop: Mesh['onBeforeRender'] = () => {
-      /* neutralisiert Plugin-Mutations am Override-Material (Lesson 2). */
+      /* neutralisiert Plugin-Mutations am Override-Material (Regel 4). */
     };
     // Meshes inside the blocker group that must not occlude — flagged with
     // `userData.losTransparent`. Ground decals (DevWorld road stamps sitting
@@ -270,14 +273,14 @@ export class TowerShadowMapper {
     });
     losPerf.sample('cube/traverse', performance.now() - tTraverseStart, meshBackup.length);
 
-    // Lesson 7 — ClearColor save/restore.
+    // Regel 7 — ClearColor save/restore.
     this.renderer.getClearColor(this.prevClearColor);
     const prevClearAlpha = this.renderer.getClearAlpha();
     this.renderer.setClearColor(0x000000, 0);
 
-    // Lesson 11 — scene.background / scene.environment save/restore.
-    // Three.js rendert beide UNABHÄNGIG vom child.visible-Filter (Lesson 8)
-    // und der overrideMaterial / per-Mesh-Material-Swap (Lesson 4) wird
+    // Regel 11 — scene.background / scene.environment save/restore.
+    // Three.js rendert beide UNABHÄNGIG vom child.visible-Filter (Regel 8)
+    // und der overrideMaterial / per-Mesh-Material-Swap (Regel 4) wird
     // auf den Background NICHT angewendet. Eine Equirectangular-Skybox-
     // Texture wandert ihre RGBA-Bytes also direkt in jedes Cube-Face —
     // unpackRGBAToDepth auf eine blau-weiße Wolke (z.B. RGB=(140,180,200))
