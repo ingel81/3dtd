@@ -301,6 +301,7 @@ function addCell(
       tileDepth: 0,
       tileGeometricError: Infinity,
       clamped: false,
+      stepTop: null,
     },
     heightSampled: false,
     enemies: new Set(),

@@ -39,7 +39,9 @@ export const LOS_VIZ_CONFIG = {
 
   /**
    * Y-Offset für Ground-Sample-Punkt über `cell.terrainHeight`. Etwas über
-   * 0 damit der Strahl nicht im Boden-Mesh startet (Self-Hit).
+   * 0 damit der Strahl nicht im Boden-Mesh startet (Self-Hit). Über einer
+   * vom Stufen-Check geklemmten Zelle über `sample.stepTop`, siehe
+   * `getGroundTargetY` (route-cell.ts).
    */
   groundSampleYOffset: 1.5,
 

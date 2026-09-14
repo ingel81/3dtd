@@ -28,6 +28,7 @@ function cell(
       tileDepth: sampled ? 20 : 0,
       tileGeometricError: sampled ? 2 : Infinity,
       clamped: opts.clamped ?? false,
+      stepTop: null,
     },
     heightSampled: sampled,
     enemies: new Set(),

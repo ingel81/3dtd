@@ -306,6 +306,18 @@ Ausnahmen:
     Auto hoch ist.
   - **Kosten:** eine Säule je Rasterstelle auf dem Weg und eine
     gespiegelte, meist Zellen, deren Säulen der Engine schon im Cache hat.
+  - **Sichtlinie der Tower:** Die Zelle merkt sich die Höhe, von der der
+    Stufen-Check sie heruntergesetzt hat, als `sample.stepTop` (das Dach
+    des Autos). Die Boden-Probe der Tower-LOS liegt 1,5 m darüber
+    (`getGroundTargetY`, `route-cell.ts`), wie vor dem Stufen-Check; die
+    Zelle selbst, die Gegner darauf und die Platte der LOS-Anzeige bleiben
+    auf Straßenhöhe. Auf Straßenhöhe plus 1,5 m läge die Probe bei einem
+    Transporter oder einer Hecke im Objekt, der Cube sähe dessen
+    Oberfläche vor der Probe, und die Zelle wäre für jeden Tower
+    `blocked`: Gegner dort fände kein Tower (Review 2026-09-14, C1). Die
+    Air-Probe bleibt `getAirTargetY` über der Zellhöhe, dort fliegen die
+    Luftgegner. Eine Zelle, die der Dach-Check geklemmt hat, probt wie
+    bisher über ihrer Zellhöhe.
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
   (`path-route.service.ts:464`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
@@ -683,7 +695,10 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Steht dort selbst eine Krone oder ein Auto (OSM-Linie über dem
   Parkstreifen), greifen sie nicht. Eine Zelle auf einem Auto oder einer
   Hecke bleibt begehbar, nur auf Straßenhöhe: Gegner laufen dort durch das
-  Auto. Den Korridor am Auto enden zu lassen hieße, einen Strahl allein als
+  Auto. Die Tower-LOS probt dort weiter über dem Objekt (siehe
+  Stufen-Check, Sichtlinie); ob ein Tower die Zelle sieht, hängt also wie
+  vorher davon ab, was zwischen ihm und dem Objekt steht, nicht davon, dass
+  der Gegner darin gezeichnet wird. Den Korridor am Auto enden zu lassen hieße, einen Strahl allein als
   Wand zu werten, genau das hat der Playtest vom 2026-09-12 verworfen
   (Transporterreihe engte die Straße ein, `8910463`). Vorgärten auf
   Straßenhöhe hinter Zaun oder Hecke bleiben aus demselben Grund im

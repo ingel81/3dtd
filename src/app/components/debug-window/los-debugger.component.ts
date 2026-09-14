@@ -18,6 +18,7 @@ import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { LosDebugService, HoveredPixelState } from '../../services/debug/los-debug.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { FACE_LABELS, FACE_CROSS_LAYOUT } from '../../utils/los-debug-pixel-math';
+import { getAirTargetY, getGroundTargetY } from '../../utils/route-cell';
 
 const FACE_DISPLAY_MIN_PX = 64;
 const FACE_DISPLAY_MAX_PX = 360;
@@ -114,9 +115,7 @@ export class LosDebuggerComponent implements AfterViewInit, OnDestroy {
     const tip = this.losDebug.towerTip();
     if (!cell || !tip) return null;
     const layer = this.layer();
-    const cellY = layer === 'air'
-      ? cell.terrainHeight + 15  // mirror of LOS_VIZ_CONFIG.airSampleYOffset
-      : cell.terrainHeight + 1.5;
+    const cellY = layer === 'air' ? getAirTargetY(cell) : getGroundTargetY(cell);
     const dx = cell.x - tip.x;
     const dy = cellY - tip.y;
     const dz = cell.z - tip.z;

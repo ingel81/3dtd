@@ -5,6 +5,8 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
 import { corridorConfig, lateralLimit, resetCorridorConfig } from './route-corridor';
 import { overlayCellKind } from './route-grid-aggregate-viz';
+import { getGroundTargetY } from './route-cell';
+import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { Vector3 } from 'three';
 import { METERS_PER_DEGREE_LAT } from './geo-utils';
 import { ROUTE_BODY_COVER, RouteBody, RouteBodyStations } from './route-body';
@@ -788,6 +790,28 @@ describe('GlobalRouteGrid roof cells', () => {
     // the drop is no slope the car could stand on.
     const quay = build((x, z) => (z < 0 ? column(-5) : parked(x, z)));
     expect(quay.getCellAt(20.5, 3.5)!.terrainHeight).toBe(0);
+  });
+
+  /**
+   * Review 2026-09-14 (C1): on the street, the ground LOS probe of a cell
+   * beside a van or a hedge lay in the object, and the cube called the cell
+   * blocked. It stays above the object's top, as before the step check; a
+   * cell under a roof keeps probing above its ground.
+   */
+  it('probes the LOS of a cell beside a car above the car, of a roof cell above its ground', () => {
+    const offset = LOS_VIZ_CONFIG.groundSampleYOffset;
+    const grid = build(parked);
+    const car = grid.getCellAt(20.5, 3.5)!;
+    expect(car.sample).toMatchObject({ clamped: true, stepTop: 1.5 });
+    expect(car.terrainHeight).toBe(0);
+    expect(getGroundTargetY(car)).toBe(1.5 + offset);
+    const pavement = grid.getCellAt(20.5, 5.5)!;
+    expect(pavement.sample.stepTop).toBeNull();
+    expect(getGroundTargetY(pavement)).toBe(0.15 + offset);
+
+    const eave = build(street(6)).getCellAt(20.5, 3.5)!;
+    expect(eave.sample).toMatchObject({ clamped: true, stepTop: null });
+    expect(getGroundTargetY(eave)).toBe(offset);
   });
 
   it('keeps the cells of a street across a slope', () => {

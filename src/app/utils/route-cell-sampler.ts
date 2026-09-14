@@ -8,8 +8,10 @@ interface CellHit {
   y: number;
   tileDepth: number;
   tileGeometricError: number;
-  /** The roof check put the cell on the ground beside the route. */
+  /** The roof or the step check put the cell on the ground beside the route. */
   clamped: boolean;
+  /** The height the step check took the cell down from, see CellSample.stepTop. */
+  stepTop: number | null;
 }
 
 /**
@@ -192,9 +194,10 @@ export class RouteCellSampler {
         );
         return false;
       }
-      // Same Y and same LOD: nothing to do.
+      // Same Y, same LOD and the same LOS probe height: nothing to do.
       if (
         Math.abs(hit.y - cell.terrainHeight) < 0.01 &&
+        Math.abs((hit.stepTop ?? hit.y) - (cell.sample.stepTop ?? cell.terrainHeight)) < 0.01 &&
         newDepth === oldDepth &&
         clamped === cell.sample.clamped
       ) {
@@ -210,6 +213,7 @@ export class RouteCellSampler {
       tileDepth: hit.tileDepth,
       tileGeometricError: hit.tileGeometricError,
       clamped,
+      stepTop: hit.stepTop,
     };
     cell.heightSampled = true;
     logGrid(
@@ -257,8 +261,10 @@ export class RouteCellSampler {
    * clearance rays let the corridor reach over: a column that comes down
    * more than `stepRise` above the ground the walk out from the centre line
    * reached takes the ground right in front of it (step check,
-   * groundInFront). Only ever lowered, and never on a bridge deck, which is meant to
-   * be high. The probes on the centre line and on the way out are the
+   * groundInFront). Only ever lowered, and never on a bridge deck, which is
+   * meant to be high. A cell the step check lowered keeps the height it
+   * came down from as `stepTop` for its LOS probe (getGroundTargetY). The
+   * probes on the centre line and on the way out are the
    * columns of the cells there, cached by the engine. A centre line ground
    * more than OUTLIER_M below is none either: its column went through a
    * seam (plausible).
@@ -269,6 +275,7 @@ export class RouteCellSampler {
       tileDepth: column.tileDepth,
       tileGeometricError: column.tileGeometricError,
       clamped: false,
+      stepTop: null,
     };
     if (cell.surface === 'ground' && (cell.axisX !== cell.x || cell.axisZ !== cell.z)) {
       const axis = this.columnNear(cell.axisX, cell.axisZ);
@@ -279,6 +286,7 @@ export class RouteCellSampler {
       } else if (axis !== null && rise <= RouteCellSampler.OUTLIER_M) {
         const inFront = this.groundInFront(cell, axis.groundY, hit.y);
         if (inFront !== null) {
+          hit.stepTop = hit.y;
           hit.y = inFront;
           hit.clamped = true;
         }
@@ -418,6 +426,7 @@ export class RouteCellSampler {
       tileDepth: 0,
       tileGeometricError: Infinity,
       clamped: false,
+      stepTop: null,
     };
     cell.heightSampled = true;
     logGrid('SAMPLE', `fill key=${cell.key} y=${y.toFixed(2)}`);
@@ -436,6 +445,7 @@ export class RouteCellSampler {
       tileDepth: 0,
       tileGeometricError: Infinity,
       clamped: false,
+      stepTop: null,
     };
     cell.heightSampled = false;
     cell.terrainHeight = cell.routeAnchorY;

@@ -1,6 +1,5 @@
-import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
-import { RouteCell, getAirTargetY } from './route-cell';
+import { RouteCell, getAirTargetY, getGroundTargetY } from './route-cell';
 import type { RouteCellSampler } from './route-cell-sampler';
 
 /**
@@ -65,13 +64,13 @@ export function resolveTowerLos(
 
     const atTower = distSq < 0.01;
 
-    // Ground visibility — GPU-cube sample at cell.terrainHeight + 1.5m
+    // Ground visibility — GPU-cube sample at getGroundTargetY(cell) (terrain + 1.5m)
     let groundVisible = false;
     if (canTargetGround) {
       if (atTower) {
         groundVisible = true;
       } else {
-        const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+        const targetY = getGroundTargetY(cell);
         groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
       }
       cell.towerVisibility.set(towerId, groundVisible);
@@ -160,7 +159,7 @@ export function resolveTowerLosIncremental(
         groundVisible = true;
         cell.towerVisibility.set(towerId, groundVisible);
       } else {
-        const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+        const targetY = getGroundTargetY(cell);
         groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
         cell.towerVisibility.set(towerId, groundVisible);
       }

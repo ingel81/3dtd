@@ -27,9 +27,8 @@ import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { ResearchStore } from '../store/research.store';
 import { Tower } from '../entities/tower.entity';
 import { TowerTypeId } from '../configs/tower-types.config';
-import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import type { ColumnSample } from '../three-engine/column-sample';
-import type { RouteCell } from '../utils/route-cell';
+import { getGroundTargetY, type RouteCell } from '../utils/route-cell';
 
 /**
  * Per-tower LOS has to follow the cell heights as tiles refine, without
@@ -89,7 +88,7 @@ describe('TowerPlacementService tower LOS refresh', () => {
   /** Cells in range whose ground answer does not match the cell's current height. */
   const staleAnswers = (tower: Tower): RouteCell[] =>
     cellsOf(tower).filter(
-      (c) => c.towerVisibility.get(tower.id) !== (c.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset < 10),
+      (c) => c.towerVisibility.get(tower.id) !== (getGroundTargetY(c) < 10),
     );
 
   beforeEach(() => {

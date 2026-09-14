@@ -12,8 +12,9 @@ vi.mock('./gpu-cube-resolve', () => ({
 import { isCubeVisible } from './gpu-cube-resolve';
 import { resolveTowerLos, resolveTowerLosIncremental } from './route-grid-los';
 
-const cell = (x: number, z: number, terrainHeight: number) =>
-  ({ x, z, terrainHeight, towerVisibility: new Map(), airVisibility: new Map() }) as unknown as RouteCell;
+/** `stepTop`: the top of the car the step check took the cell down from. */
+const cell = (x: number, z: number, terrainHeight: number, stepTop: number | null = null) =>
+  ({ x, z, terrainHeight, sample: { stepTop }, towerVisibility: new Map(), airVisibility: new Map() }) as unknown as RouteCell;
 
 /** A sampler whose sampleCellY reports a height change for the cells `moved` picks. */
 const sampler = (moved: (c: RouteCell) => boolean = () => false) =>
@@ -57,6 +58,20 @@ describe('resolveTowerLos', () => {
     expect(pass).toEqual({ visible: [low], changed: [mid] });
     expect(low.towerVisibility.has('t1')).toBe(false);
     expect(mid.airVisibility.get('t1')).toBe(false);
+  });
+
+  it('probes the ground of a cell beside a car above the car, air and other cells above their ground', () => {
+    // Both on the street at 0 m: one the step check took down from a van
+    // roof at 2.5 m, one the roof check (or nothing) took down.
+    const van = cell(3, 0, 0, 2.5);
+    const eave = cell(4, 0, 0);
+    resolveTowerLos([van, eave], sampler(), 't1', 0, 0, 10, ctx, true, true);
+    // Ground then air, per cell.
+    expect(cube.mock.calls.map((call) => call[4])).toEqual([4, 15, 1.5, 15]);
+
+    cube.mockClear();
+    resolveTowerLosIncremental([cell(3, 0, 0, 2.5)], sampler(), 't1', 0, 0, 10, ctx, true, false);
+    expect(cube.mock.calls[0][4]).toBe(4);
   });
 });
 
