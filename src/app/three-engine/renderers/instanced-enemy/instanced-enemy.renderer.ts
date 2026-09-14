@@ -445,11 +445,8 @@ export class InstancedEnemyRenderer {
 
   // Legacy display toggles — no-ops for instanced rendering, kept for API compat
   setTexturesEnabled(_enabled: boolean): void { /* no-op */ }
-  readonly showTextures = true;
   setSkeletonCloningEnabled(_enabled: boolean): void { /* no-op */ }
-  readonly useSkeletonClone = true;
   setAlphaBlendEnabled(_enabled: boolean): void { /* no-op */ }
-  readonly showAlphaBlend = true;
 
   // =====================================================
   // DEBUG OVERRIDES (native instanced support)
@@ -463,9 +460,6 @@ export class InstancedEnemyRenderer {
   applyDebugOverrides(id: string, overrides: EnemyDebugOverrides): void {
     this.instanceManager.applyDebugOverrides(id, overrides);
   }
-
-  /** No-op kept for API compat — markForClassic is no longer needed */
-  markForClassic(_id: string): void { /* no-op */ }
 
   setAnimationSpeed(id: string, speed: number): void {
     const state = this.instanceManager.getState(id);
