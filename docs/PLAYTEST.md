@@ -1,64 +1,98 @@
 # Playtest-Liste
 
 Stand 2026-09-15. Das ist die eine, laufende Liste für die nächste Session: nur offene Punkte. Die alten Listen
-(REVIEW_FIX_2026-09-14, REVIEW_SPRINT_2026-09-12 bis -14) verweisen hierher. Code-Stand: `sprint/night-2026-09-14`
-mit dem Merge des Atompilzes (`996531b1`).
+(REVIEW_FIX_2026-09-14, REVIEW_SPRINT_2026-09-12 bis -14) verweisen hierher. Code-Stand: Branch `next` (umbenannt
+aus `sprint/night-2026-09-14`) auf `994badd4`, mit dem Atompilz und den Fixes aus dem letzten Review (fixrev5).
 
-Antworten reicht so: "603 ok, 607 kaputt". In Klammern stehen die alten Nummern. Jede Runde hat einen gemeinsamen
-Aufbau, jeder Punkt höchstens drei Fragen.
+Antworten reicht so: "603 ok, 607a kaputt". In Klammern stehen die alten Nummern. Jede Runde hat einen gemeinsamen
+Aufbau, jeder Punkt höchstens drei Fragen. Wo ein Punkt zu viel auf einmal wollte, ist er in a, b und c geteilt; die
+Teile laufen mit demselben Aufbau direkt nacheinander.
 
 ## Vorab
 
 - Konsole (F12) offen lassen. Jede Zeile mit `Shader Error` oder `Uncaught` melden. Konsolenfilter nur als einfacher
   Text ("Corridor", "Camera").
-- Quick Actions unten rechts: Auge = Display-Menü (Effects mit Low, Medium, High und "Bloom"; darunter "Blood Moon",
-  "Screen Shake", "Boss Intro"), Layers ("Route Grid Overlay", "Show streets", "Show routes"), "Reset camera" und
-  "Developer options".
-- "Developer options": Cheats "Kill", "Credits" (Shift+Klick +100 000), "+HP" (Rechtsklick -10 HP, mit Shift -50),
-  "Research", "Max Up", "Abilities" (alle Fähigkeiten, Ladungen voll), "Hero". "Waves" öffnet Wave Debug mit "Jump to
-  wave" und darunter Single: Type, Count, "Start Custom Wave". "Enemies" öffnet Enemy Debug ("Place enemy on route",
-  "Start moving").
+- **Quick Actions:** eine Reihe Symbolknöpfe unten rechts. Sie tragen keinen Text; den Namen zeigt ein Tooltip, wenn
+  die Maus darüber steht. Von links nach rechts:
+  - Weg mit zwei Punkten: "Play route animation".
+  - Auge: "Display", das Display-Menü. Oben "Effects" mit den Knöpfen Low, Medium und High, darunter Haken, einer
+    davon "Bloom". Weiter unten die Haken "Blood Moon", "Screen Shake" und "Boss Intro".
+  - Lautsprecher: "Audio", oben der Regler für die Musik, darunter der für die Soundeffekte (SFX).
+  - Drei gestapelte Ebenen: "Layers". Klappt eine Spalte weiterer Symbolknöpfe nach oben auf, Namen wieder im
+    Tooltip. Gebraucht werden der oberste, "Route Grid Overlay" (vier Quadrate), dazu "Show streets" (Weg mit zwei
+    Punkten) und "Show routes" (Balkendiagramm).
+  - Zielscheibe: "Reset camera".
+  - Ganz rechts ein "T": "Developer options".
+- **Developer options** öffnet Kacheln mit Text. Unter "Cheats":
+  - "Kill" tötet alle Gegner.
+  - "Credits": Klick +1000, Shift+Klick +100 000.
+  - "+HP": Klick +1000 HP. Rechtsklick -10 HP, Shift+Rechtsklick -50 HP. Das HQ startet mit 100 HP.
+  - "Research" (alle Forschungen fertig), "Max Up" (alle Tower voll ausgebaut), "Abilities" (alle Fähigkeiten,
+    Ladungen voll), "Hero" (Held angeheuert).
+  - Unter "Waves & Inspect": "Waves" öffnet das Fenster "Wave Debug", "Enemies" das Fenster "Enemy Debug".
+- **Wave Debug:**
+  - "Jump to wave" ist die Überschrift eines Abschnitts. Die Welle ins Feld "Wave" tippen (voreingestellt 35), dann
+    den Knopf darunter drücken; er heißt "Jump: next start Wave" mit der getippten Zahl. Das geht nur zwischen zwei
+    Wellen und nur vorwärts. Danach startet Space genau diese Welle.
+  - Custom Wave: Knopf "Single", im Abschnitt "Spawn" bei "Type" den Gegner wählen, bei "Count" die Anzahl, dann
+    "Start Custom Wave". Eine Custom Wave zählt als nächste Welle.
+- **Enemy Debug:** Unter "Placement" den Typ in der Liste wählen, rechts daneben den Knopf mit dem Stecknadel-Symbol
+  drücken ("Place enemy on route"), dann auf die Route klicken. Der Gegner erscheint in der Liste "Debug Enemies".
+  Ihn dort anklicken, dann darunter im Abschnitt "Movement" auf "Start": er läuft los.
 - Der Wurm heißt jetzt "Skarnax".
 
 ## Nachtests (Fixes vom 14.09. abends und nachts)
 
 ### Runde 1: Paris, Pont d'Iéna (601 bis 604)
 
-Aufbau: Paris am Pont d'Iéna laden wie im Playtest 2 (Favorit oder URL), keine Tower, Layers "Route Grid Overlay" an.
+Aufbau: Paris am Pont d'Iéna laden, am einfachsten über den Favoriten aus Playtest 2. Ohne Favorit: Standort-Dialog
+("Change Location"), "New Location", im Feld "City, street or address..." nach "Pont d'Iéna, Paris" suchen und den
+Treffer wählen. Führt die rote Route danach nicht über die Brücke, mit dem Header-Knopf "Set spawn" (Fahnen-Symbol)
+den Spawn ans andere Seine-Ufer setzen. Keine Tower, Layers "Route Grid Overlay" an. Farben der Zellumrandung: blau
+heißt Brückendeck samt dem Stück Straße, das es hinter dem Brückenende fortsetzt; weiß heißt normale Bodenzelle.
 
-- **601** (564, alte 14): Zu beiden Brückenköpfen zoomen. Läuft die blaue Umrandung über die kurzen Straßenstücke
-  hinter der Brücke auf Deckhöhe weiter? Keine weißen Zellen unten am Kai unter dem Deckanfang? Ist der Korridor an
-  den Köpfen ohne Lücken und nicht schmaler als auf dem Deck?
-- **602** (564): Space, die Welle über die Brücke laufen lassen. Bleiben rote Linie und Gegner an beiden Köpfen
-  durchgehend sichtbar, oben auf dem Deck und nicht unten am Kai?
-- **603** (564): Layers "Show streets" an. Liegt die gelbe Linie auf der Brücke und den kurzen Stücken dahinter oben
-  auf dem Deck? Bleibt die Kaistraße unter dem Brückenende unten? Liegen an der Quai Branly (Platanen) Zellen und
-  gelbe Linie auf der Straße, nicht in den Kronen?
-- **604** (544): Beim Laden die "Field Tips" im Ladescreen lesen. Sind einzelne Wörter farbig hervorgehoben? Fehlt in
-  der Konsole die Zeile "WARNING: sanitizing HTML stripped some content"?
+- **601** (564, alte 14): Nacheinander zu beiden Brückenenden zoomen. Läuft die blaue Umrandung hinter dem
+  Brückenende über die kurzen Straßenstücke weiter, auf Höhe der Brücke? Liegen unten am Ufer unter dem
+  Brückenanfang keine weißen Zellen? Hat der Korridor an den Brückenenden keine Lücken, und ist er dort so breit wie
+  auf der Brücke?
+- **602** (564): Space, die Welle über die Brücke laufen lassen. Bleiben rote Linie und Gegner an beiden
+  Brückenenden durchgehend sichtbar, oben auf der Brücke und nicht unten am Ufer?
+- **603** (564): Layers "Show streets" an, die Straßen erscheinen als gelbe Linien. Liegt die gelbe Linie auf der
+  Brücke und auf den kurzen Stücken dahinter oben auf Brückenhöhe? Bleibt die Uferstraße unter dem Brückenende
+  unten? An der Quai Branly (Uferstraße mit Platanen): liegen Zellen und gelbe Linie auf der Straße, nicht in den
+  Baumkronen?
+- **604** (544): Beim Laden die Tipps unter "Field Tip" im Ladescreen lesen. Sind einzelne Wörter farbig
+  hervorgehoben? Fehlt in der Konsole die Zeile "WARNING: sanitizing HTML stripped some content"?
 
 ### Runde 2: Korridor in Rothenburg und Erlenbach (605 bis 608)
 
-Aufbau: keine Tower, keine Welle, "Route Grid Overlay" an, warten, bis die Konsole `[Corridor] rebuild` zeigt. Steht
-irgendwo noch eine weiße Zelle, wo keine hingehört: `__corridor.pick()` in die Konsole, Linksklick auf die Zelle,
-Tabelle schicken.
+Aufbau: keine Tower, keine Welle, "Route Grid Overlay" an. Nach dem Laden misst der Korridor mehrmals nach, jedes Mal
+mit einer Konsolenzeile `[Corridor] rebuild`. Warten, bis einige Sekunden lang keine neue solche Zeile mehr kommt.
+Steht dann irgendwo noch eine weiße Zelle, wo keine hingehört: `__corridor.pick()` in die Konsole, Linksklick auf die
+Zelle, die Tabelle schicken.
 
 - **605** (560 bis 563, alte 44): Rothenburg, die Stellen deiner Screenshots vom 14.09. (Auto, Dachecke, Erker).
-  Keine weißen Zellen mehr dort? Kamera 10 s nicht bewegen: bleibt auch danach nichts auf Dach, Traufe oder Auto? An
-  einer Straße quer am Hang: bleiben die Randzellen?
-- **606** (Vorgärten): Rothenburg, Wohnstraße. Erhöhter Vorgarten mit Hecke oder Mäuerchen: endet der Korridor davor?
-  Laterne, Schild oder Straßenbaum am Rand: keine Kerbe im Korridor? Enge Gasse mit geparktem Auto: bleibt eine
-  Zellreihe? (Ein Vorgarten auf Gehweghöhe hinter einem Zaun bleibt drin, bekannt.)
-- **607** (562, alte 41): Straße mit parkenden Autos und dem Transporter. Endet der Korridor vor der Autoreihe, ohne
-  Zellen auf dem Gehweg und ohne Ausbuchtung zwischen zwei Autos? Dann Space: läuft kein Gegner durch ein Auto?
-  Zeigen die Gegner auf schrägen Straßen mit dem Körper in Laufrichtung (vorher gut 10° verdreht)?
+  Keine weißen Zellen mehr dort? Kamera 10 s nicht bewegen: liegt auch danach keine Zelle auf Dach, Dachrand oder
+  Auto? An einer Straße quer am Hang: bleiben die Zellen am Rand?
+- **606a** (Vorgärten): Rothenburg, Wohnstraße mit einem erhöhten Vorgarten hinter Hecke oder Mäuerchen. Endet der
+  Korridor davor? (Ein Vorgarten auf Gehweghöhe hinter einem Zaun bleibt drin, das ist bekannt.)
+- **606b** (Vorgärten): Laterne, Schild oder Straßenbaum am Straßenrand. Läuft der Korridor gerade daran vorbei, ohne
+  Kerbe?
+- **606c** (Vorgärten): Enge Gasse mit einem geparkten Auto. Bleibt neben dem Auto mindestens eine Reihe Zellen?
+- **607a** (562, alte 41): Straße mit parkenden Autos und dem Transporter. Endet der Korridor vor der Autoreihe?
+  Liegen keine Zellen auf dem Gehweg dahinter? Buchtet er nicht in die Lücke zwischen zwei Autos aus?
+- **607b** (562): Space, die Welle durch diese Straße laufen lassen. Läuft kein Gegner durch ein Auto?
+- **607c**: Solange die Welle läuft, eine Straße der Route suchen, die diagonal verläuft, also laut Kompass etwa nach
+  Nordost oder Nordwest (um 45°). Kamera von oben nah an einen Gegner: zeigt sein Körper entlang der Straße in
+  Laufrichtung? (Vorher war er auf solchen Straßen um gut 10° verdreht, auf Nord-Süd- und Ost-West-Straßen nicht.)
 - **608** (205 bis 209): Erlenbach, Weinstraße und Erlenweg, die Stellen deiner Screenshots. Keine einzelnen weißen
-  Zellen mehr in Baumkronen oder auf Hecken, endet der Rand davor? Gleich danach D2 (selber Ort).
+  Zellen mehr in Baumkronen oder auf Hecken? Endet der Korridor davor? Gleich danach D2 (selber Ort).
 
 ### Runde 3: Boss-Intro und Skarnax-Karte (609 bis 612)
 
-Aufbau: Display-Menü "Boss Intro" an. Spawn mit dem Header-Knopf "Set spawn" setzen, Boss rufen mit "Waves", Single,
-Type wählen, Count 1, "Start Custom Wave". Bei einem schlechten Bild: Screenshot und die Konsolenzeile
+Aufbau: Display-Menü "Boss Intro" an. Den Spawn mit dem Header-Knopf "Set spawn" (Fahnen-Symbol) setzen. Einen Boss
+rufen: "Waves", "Single", Type wählen, Count 1, "Start Custom Wave". Jeder Boss-Typ bekommt je Welle ein Intro; für
+ein weiteres Intro also eine neue Custom Wave starten. Bei einem schlechten Bild: Screenshot und die Konsolenzeile
 `[Camera] bossIntro.shot` schicken.
 
 - **609** (366): Spawn in eine schmale Straße zwischen Häusern, möglichst kurz vor einer Kurve, Type "Herbert". Steht
@@ -69,72 +103,93 @@ Type wählen, Count 1, "Start Custom Wave". Bei einem schlechten Bild: Screensho
 - **611** (352, 368): Spawn wie in 609, Type "Skarnax". Ist der Kopf frei vor dem Tor? Zeigt die Intro-Karte groß
   "SKARNAX" und darunter klein "THE THOUSAND-LEGGED CALAMITY", gut lesbar? Steht danach oben mittig die Boss-Leiste
   "SKARNAX"?
-- **612** (366): Spawn an eine offene, breite Straße, Herbert. Dieselbe Einstellung wie bisher (ganzes Portal, Krone
-  knapp unter dem oberen Rand)? Ruckelt es beim Abdunkeln merklich? Noch ein Herbert, in der ersten Abdunklung Esc:
-  sofort die eigene Ansicht, kein Hänger?
+- **612a** (366): Spawn an eine offene, breite Straße, Type "Herbert". Zeigt das Intro wie bisher das ganze Portal,
+  mit der Krone oben am Portal knapp unter dem oberen Bildrand? Steht in der Zeile `[Camera] bossIntro.shot` bei
+  `shot` der Wert `route` und bei `clear` der Wert `true`? (Nur dann ist es die bisherige Einstellung; sonst die
+  Zeile schicken.) Ruckelt es beim Abdunkeln merklich?
+- **612b** (366): Neue Custom Wave mit Herbert. Sobald das Bild zum ersten Mal dunkel wird, Esc drücken. Ist sofort die
+  eigene Ansicht zurück, ohne Hänger?
 
 ### Runde 4: Skarnax an Ecken (613 bis 616)
 
-Aufbau: Ort mit rechtwinkligem Knick auf der Route, Cheat "Credits". "Waves", Single, Type "Skarnax", Count 1,
+Aufbau: Ort mit rechtwinkligem Knick auf der Route, Cheat "Credits". "Waves", "Single", Type "Skarnax", Count 1,
 "Start Custom Wave", Kamera über den Knick.
 
 - **613** (356): Tempo 1x. Laufen die Ringe im Bogen durch die Ecke, ohne spitzes V und ohne Lücke außen? Bleibt der
   Wurm auf der Straße (er schneidet die Ecke leicht nach innen)? Schwingen die Ringe nach der Ecke nicht nach?
-- **614** (356, 353): Tempo 4x: dieselbe Form wie bei 1x? Einen Tower an die Ecke setzen und einen Ring mitten im
-  Bogen zerstören lassen: wird der Ring dahinter zum Kopf, und laufen beide Teile ohne Sprung weiter?
+- **614** (356, 353): Tempo 4x: dieselbe Form wie bei 1x? Dann einen Tower direkt an die Ecke setzen. Welchen Ring er
+  zerstört, lässt sich nicht steuern. Zerfällt der Wurm, während Ringe im Bogen liegen: wird der Ring hinter der
+  Lücke zum neuen Kopf, und laufen beide Teile ohne Sprung weiter? Klappt es nicht, mit dem nächsten Skarnax.
 - **615** (356): Schmale Wohnstraße mit Knick, falls auf der Route: höchstens ein schmaler Spalt außen? Sticht der
-  Körper an der Innenecke in Fassaden? Auf einer schrägen Straße: liegen die Ringe in einer Flucht?
-- **616** (398): Cheat "Abilities", dann F, E und L jeweils auf Ringe. Sehen Eis, Funken und Brand an den Ringen
-  passend aus (bekannt: eher klein)?
+  Körper an der Innenecke in Fassaden? Auf einer diagonal verlaufenden Straße (laut Kompass etwa Nordost oder
+  Nordwest): liegen die Ringe in einer Flucht?
+- **616** (398): Cheat "Abilities", dann F, E und L jeweils auf Ringe. Passen Eis (F), Funken (E) und bei L
+  Lichtsäule, Funken und Brandspur am Boden zu den Ringen (bekannt: eher klein)? Skarnax ist ein Boss: das Eis hält
+  nur 1 s, der EMP 0,75 s, also genau hinsehen.
 
 ### Runde 5: Ooze (617 bis 621)
 
-Aufbau: Display-Menü "Boss Intro" an, Cheats "Credits" und "Abilities". "Waves", Single, Type "Ooze", Count 1,
-"Start Custom Wave". Für 617 und 618 die Ooze mindestens 27 s wachsen lassen.
+Aufbau: Display-Menü "Boss Intro" an, bei Effects "Medium" oder "High" (auf "Low" gibt es keine Blasen, keine
+Spritzer, keine Pfützen und nur ein Drittel der Trümmer). Cheats "Credits" und "Abilities". "Waves", "Single", Type
+"Ooze", Count 1, "Start Custom Wave". Für 617 und 618 die Ooze mindestens 27 s wachsen lassen.
 
-- **617** (363): Die Ooze töten (Tower oder K). Sackt das Band in etwa 2 s zusammen, mit Blasen, grünen Pfützen und
-  fliegenden Trümmern (Knochen, Schädel, Helme, Stoppschilder, Dosen)? Klingt der Splat etwa 2 s nach? Genug
-  übertrieben, oder noch mehr?
+- **617a** (363): Die Ooze töten, mit Towern oder mit K. K nimmt einem Boss 20 % seiner HP; allein mit K sind es also
+  fünf Schläge, vor jedem die Kachel "Abilities". Sackt das Band in etwa 2 s zusammen? Platzen dabei grüne Blasen,
+  und bleiben grüne Pfützen liegen? Klingt der Splat etwa 2 s nach?
+- **617b** (363): Beim selben Tod auf die Trümmer achten. Fliegen Knochen, Schädel, Helme, Stoppschilder und Dosen aus
+  dem ganzen Körper, liegen ein paar Sekunden und sinken dann ein? Laufen sie auch dann zu Ende, wenn die Welle
+  währenddessen endet (letzter Klumpen tot)? Genug übertrieben, oder noch mehr?
 - **618** (363): Vorher `__towerTargets.watch()` in die Konsole. Fire, Poison und Ice Tower an den Körper stellen und
   die Ooze töten lassen. Nimmt jeder binnen etwa 3 s einen Klumpen ins Ziel? Schießt ein danach neu gesetzter Tower
   ebenso? Steht einer still: D4.
-- **619** (360, 366): Nächste Ooze, solange sie lebt. Ist die Spitze im Intro frei vor dem Tor? Ice, Poison und Fire
-  auf das Band schießen lassen: wird es bläulich, dunkler bzw. orange glühend, gut zu erkennen?
-- **620** (399): Nächste Ooze. F auf den Körper: wird er weiß-cyan, und steht die Spitze still? E: violett? L über den
-  Körper: passt der Brand auf dem Band?
-- **621** (363): Eine Ooze töten, gleich danach mit Shift+Rechtsklick auf "+HP" Game Over und RESTART (oder einen
-  anderen Ort laden). Sind Band und Trümmer sofort weg, keine schwebenden Knochen?
+- **619a** (360, 366): Nächste Ooze (neue Custom Wave). Ist die Spitze im Intro frei vor dem Tor?
+- **619b** (360): Solange sie lebt, nacheinander je einen Tower an das Band stellen und den vorigen verkaufen, denn das
+  Band zeigt nur eine Tönung zugleich (ein Slow verdeckt das Gift). Ice: wird es bläulich? Poison: dunkler? Fire:
+  glüht es orange? Jeweils gut zu erkennen?
+- **620** (399): Nächste Ooze. F auf den Körper: wird er weiß-cyan, und steht die Spitze still? Bei einem Boss hält
+  das nur 1 s. E: wird er violett (0,75 s)? L über den Körper: passen Lichtsäule, Funken und Brandspur am Boden zum
+  Band? (L setzt keinen Brand; das orange Glühen am Band kommt nur vom Fire Tower.)
+- **621** (363): Eine Ooze töten, gleich danach zweimal Shift+Rechtsklick auf "+HP" (je -50 HP; hat das HQ mehr als
+  100, entsprechend öfter): Game Over. Laufen Band und Trümmer dabei zu Ende, ohne schlagartig zu verschwinden? Dann
+  RESTART (oder einen anderen Ort laden): sind Band und Trümmer sofort weg, keine schwebenden Knochen?
 
 ### Runde 6: Atompilz und Frost (622 bis 625)
 
-Aufbau: neues Spiel, Cheat "Abilities" (füllt die Ladungen beliebig oft nach). "Waves", "Jump to wave" 7, Space. Ton
-an, möglichst Kopfhörer.
+Aufbau: neues Spiel, Cheat "Abilities" (füllt die Ladungen beliebig oft nach), zur Sicherheit einmal "+HP" (Klick,
++1000 HP). "Waves", bei "Jump to wave" 7 eintragen, "Jump: next start Wave 7", dann Space. Fähigkeiten gehen nur,
+solange eine Welle läuft; ist Welle 7 vorbei, die nächste mit Space starten. Ton an, möglichst Kopfhörer.
 
-- **622** (216, 217): "Reset camera", K, Klick auf die Route. Liest sich der Schlag sofort als Atompilz (Blitz,
-  Feuerball, Druckwelle, Pilz), passend groß zur Karte? Bis etwa 22 s zusehen: rollt die Kappe, ist der Stamm
+- **622** (216, 217): "Reset camera" (Zielscheibe), K, Klick auf die Route. Liest sich der Schlag sofort als Atompilz
+  (Blitz, Feuerball, Druckwelle, Pilz), passend groß zur Karte? Bis etwa 22 s zusehen: rollt die Kappe, ist der Stamm
   schmaler als die Kappe? Genug Wumms im Bild?
 - **623** (218): Nächster Schlag, auf den Ton achten: scharfer Knall, tiefer Boom, dann etwa 8 s Grollen in drei
-  Wellen. Klingt das wuchtig genug? SFX-Regler im Audio-Menü runter: wird alles leiser?
-- **624** (220, 223): Display-Menü, Effects, "Bloom" an. Kamera unter 100 m an den Einschlag, HQ im Bild, nächster
-  Schlag, dann in die Wolke fahren. Keine abgeschnittenen oder springenden Rauchballen, keine harte Kante auf flachem
-  Boden (an Hängen und Häusern bekannt)? Kurzes Nachglühen, danach normal, kein schwarzer Block?
-- **625** (395, 394): Passt das Wort "Abilities" in seine Cheat-Kachel? F auf eine Gruppe: Frostausbruch sichtbar
-  (Blitz, Kältering, Reif, Splitter, Nebel)? Gegner weiß-cyan mit Eis, Fledermäuse hängen in der Luft, Knistern
-  hörbar?
+  Wellen. Klingt das wuchtig genug? Dann im Audio-Menü den unteren Regler (SFX) weit herunter und noch ein Schlag: ist
+  er leiser? (Der Regler wirkt auf Klänge, die danach starten; ein schon laufender Knall bleibt laut.)
+- **624a** (220): Display-Menü, Effects, Haken "Bloom" an. Kamera tief an die Stelle, wo der nächste Schlag landen
+  soll (unter 100 m über dem Boden), Schlag, dann mit der Kamera in die Wolke hineinfahren. Die Wolke besteht aus
+  vielen Rauchballen: wird einer am Bildrand abgeschnitten, oder springt einer beim Fahren? Zeichnet sich dort, wo der
+  Rauch auf flachem Boden aufsitzt, eine harte gerade Linie ab (an Hängen und Häusern ist das bekannt)?
+- **624b** (223): Bloom bleibt an, nächster Schlag mit dem HQ im Bild. Glüht das Bild kurz nach und ist nach etwa
+  1,4 s wieder normal? Taucht dabei ein schwarzes Rechteck auf, oder flackert es?
+- **625a** (395): Developer options: passt das Wort "Abilities" ganz in seine Kachel?
+- **625b** (394): F auf eine Gruppe Gegner. Sieht man den Frostausbruch (Blitz, Kältering, Reif, Splitter, Nebel)?
+  Werden die Gegner weiß-cyan mit Eis, und hängen Fledermäuse still in der Luft? Ist ein Knistern zu hören?
 
 ### Runde 7: Bloom an und aus (626 bis 629)
 
-Aufbau: Ort mit Tiles, Cheats "Credits", "Research" und "Abilities", verschiedene Tower an die Route (Kanone oder
-Rakete, Magie, Eis, Gift, Tentakel, Blitz), Welle starten. Display-Menü, Effects, "Bloom": jeden Punkt erst ohne,
-dann mit, dann wieder ohne ansehen. Ohne Bloom soll alles aussehen wie bisher. (TODO 1.9, Ausgabe-Kodierung der
-eigenen Shader)
+Aufbau: ein Ort mit Karte (nicht DevWorld), Cheats "Credits", "Research" und "Abilities". Verschiedene Tower an die
+Route: Kanone oder Rakete, Magie, Eis, Gift, Chaos, Tentakel, Blitz ("Research" schaltet alle frei). Welle starten.
+Bloom schalten: Display-Menü, Effects, Haken "Bloom". Jeden Punkt erst ohne, dann mit, dann wieder ohne Bloom
+ansehen. Ohne Bloom hat sich rechnerisch nichts geändert, gefragt ist der Unterschied mit Bloom. Fällt dir ohne Bloom
+trotzdem etwas als neu auf, bitte melden.
 
-- **626**: Kamera nah an einen Pulk. Sind die Gegner mit Bloom gleich hell und gesättigt wie ohne (vorher heller und
-  blasser)? Healthbars grün, gelb, rot gleich? Schadenszahlen in derselben Farbe?
-- **627**: Brand- und Blutflecken am Boden, Feuer und Funken, dazu F und E. Sind die Flecken mit Bloom kaum heller als
-  ohne (vorher deutlich heller)? Feuer und Funken über der Straße etwa gleich?
+- **626**: Kamera nah an einen Pulk. Sind die Gegner mit Bloom gleich hell und gesättigt wie ohne (bisher mit Bloom
+  heller und blasser)? Healthbars grün, gelb, rot gleich? Schadenszahlen in derselben Farbe?
+- **627**: Brand- und Blutflecken am Boden, Feuer und Funken, dazu F und E. Sind die Flecken mit Bloom noch etwas
+  heller als ohne, aber weniger als bisher (bisher mit Bloom deutlich heller)? Feuer und Funken über der Straße mit und
+  ohne Bloom etwa gleich?
 - **628**: Magie-, Eis-, Gift- und Chaos-Geschosse, Tentakel, Blitze. Tentakel mit Bloom in derselben Farbe wie ohne
-  (vorher heller)? Kugeln, Spuren und Blitze über der Straße etwa gleich?
+  (bisher mit Bloom heller)? Kugeln, Spuren und Blitze über der Straße etwa gleich?
 - **629**: Kamera aufs HQ, dann aufs Spawn-Portal zwischen zwei Wellen und beim Start. Diamant und Label mit Bloom wie
   ohne? Straßenlicht vor dem Portal mit Bloom nicht heller als ohne? Beschwörungskreis sichtbar wie bisher?
 
@@ -143,22 +198,25 @@ eigenen Shader)
 Jeder Punkt hat seinen eigenen Aufbau.
 
 - **630** (142): Standort-Dialog, Tab "Showcase", "Rio de Janeiro, Copacabana". Lädt der Ort ohne Zufalls-Spawn, mit
-  dem Portal an deiner Stelle? Steht in der Adresszeile `s=-22.96421,-43.17463`? Fehlt "Dubai, Marina Walk" in der
-  Liste?
-- **631**: DevWorld öffnen, Layers "Show routes" an, dann Quick Actions "Play route animation". Liegen die animierte
-  und die feste rote Linie auf derselben Höhe, ohne 2 m Versatz?
+  dem Portal an der Stelle, die du für Rio geliefert hast? Steht in der Adresszeile `s=-22.96421,-43.17463`? Fehlt
+  "Dubai, Marina Walk" in der Liste?
+- **631**: DevWorld öffnen: an die Adresse `?devworld` anhängen, also `http://localhost:4200/?devworld`. Layers "Show
+  routes" an, dann in den Quick Actions ganz links "Play route animation". Liegen die animierte und die feste rote
+  Linie auf derselben Höhe, ohne 2 m Versatz?
 
 ## Runden (alte, noch ungetestete Punkte)
 
 ### Runde 9: Gegnermodelle (632 bis 635)
 
-Aufbau: "Enemies" (Enemy Debug), Typ wählen, "Place enemy on route", Klick auf die Route, "Start moving".
+Aufbau: "Enemies" (Enemy Debug), Typ wählen, Stecknadel-Knopf, Klick auf die Route, den Gegner in "Debug Enemies"
+anklicken, unter "Movement" auf "Start" (siehe Vorab).
 
 - **632** (154, 183): Mech, Wallsmasher, Mammoth, Zombie Soldier, Bear und Stone Golem laufen lassen: stocken sie am
-  Ende der Laufschleife? Rennt die Ratte? Fliegt der Drache ohne Sprung, und ist er zu hören?
-- **633** (156, 154): Mit den Gegnern aus 632 zweimal `__perf.loseContext(2000)` in die Konsole. Kommt nach etwa 2 s
-  "Baked N VATs again", und stehen die Gegner danach normal da? Dann Cheat "Kill": bleibt der Wallsmasher in seiner
-  Endpose liegen?
+  Ende der Laufschleife? Rennt die Ratte? Fliegt der Drache ohne Sprung, und ist alle 12 bis 35 s sein Brüllen zu
+  hören (ein Laufgeräusch hat er nicht)?
+- **633a** (156): Mit den Gegnern aus 632 `__perf.loseContext(2000)` in die Konsole, danach ein zweites Mal. Kommt
+  jedes Mal nach etwa 2 s die Zeile "Baked N VATs again"? Stehen die Gegner danach normal da?
+- **633b** (154): Dann Cheat "Kill". Bleibt der Wallsmasher in seiner Endpose liegen?
 - **634** (155): Ghost und Zombie gemischt setzen, Kamera so drehen, dass sie sich überdecken. Scheint kein Zombie
   durch einen Ghost davor? Verschwindet kein Ghost hinter einem Zombie, der weiter hinten steht?
 - **635** (184, 185): "Waves", Single, "Zombie v2", Count 10, "Start Custom Wave", sterben lassen: fällt einer im
@@ -167,55 +225,72 @@ Aufbau: "Enemies" (Enemy Debug), Typ wählen, "Place enemy on route", Klick auf 
 
 ### Runde 10: Laser und Held (636 bis 639)
 
-Aufbau: Cheats "Abilities", "Research" und "Credits", Welle mit Bodengegnern.
+Aufbau: Cheats "Abilities", "Research" und "Credits", eine Welle mit Bodengegnern (etwa Custom Wave "Zombie",
+Count 30).
 
-- **636** (397): L. Ring mit goldenem Band Richtung Spawn, abseits der Route rot mit Hinweis? Klick vor eine Gruppe:
-  oranges Band, dann eine Lichtsäule, die 4 s Richtung Portal läuft, mit Funken und Brandspur? Sieht das gut aus?
+- **636a** (397): L drücken. Erscheint ein Ring mit einem goldenen Band Richtung Spawn? Wird er abseits der Route rot,
+  mit einem Hinweis?
+- **636b** (397): Klick vor eine Gruppe. Kommt erst ein oranges Band, dann eine Lichtsäule, die 4 s Richtung Portal
+  läuft, mit Funken und Brandspur? Sieht das gut aus?
 - **637** (385): Münze oben in der linken Leiste klicken. Steht der Soldat am Routenpunkt beim HQ? Fehlt in der
   Konsole "[HeroRenderer] Hero model did not load"? Sieht die Figur gut aus?
 - **638** (386): G drücken (oder den Held-Knopf). Goldener Ring unter ihm und ein kleinerer auf seinem Posten? Noch
   einmal G: gleitet die Kamera zu ihm?
-- **639** (388, 389): Held an eine schräge Straße schicken, Gegner nah an ihn. Starten Tracer und Mündungsfeuer an der
-  Waffe, nicht im Boden oder über dem Kopf? V mehrmals: wechseln Farbe und Schussgeräusch? Explodiert die Munition
-  "Explosive" am Ziel?
+- **639** (388, 389): Held an eine diagonal verlaufende Straße schicken (laut Kompass etwa Nordost oder Nordwest),
+  Gegner nah an ihn. Starten Tracer und Mündungsfeuer an der Waffe, nicht im Boden oder über dem Kopf? V mehrmals:
+  wechseln Farbe und Schussgeräusch? Explodiert die Munition "Explosive" am Ziel?
 
 ### Runde 11: Veteranen und viele Gegner (640 bis 643)
 
 Aufbau: Cheat "Credits", ein Archer an die Route.
 
-- **640** (348): Welle 1 spielen. Steht nach 10 Kills im Tower-Panel "BLOODED"? Sitzt über dem Archer ein silberner
-  Winkel mit dunklem Rand, sieht er ordentlich aus?
-- **641** (349): Kamera nah an den Archer (etwa 20 m), dann weit weg. Passt das Abzeichen nah zum Tower, und ist es ab
-  etwa 1 100 m weg? Verschwindet es hinter einem Gebäude? Archer auf einem Dach mit Sockel: sitzt es über der Spitze?
-- **642** (351, 210, 211): "Credits" und "+HP" je mehrmals mit Shift+Klick: ragt keine Zahl im Header ins
-  Nachbarfeld? Viele Tower an eine Stelle, große Custom Wave: ab 150 Kills drei silberne Winkel, ab 400 drei goldene,
-  ab 1 000 ein Stern? Lesbar über hellen Dächern und dunklem Himmel?
+- **640** (348): Welle 1 spielen, wenn nötig auch Welle 2. Steht nach 10 Todesstößen im Tower-Panel "BLOODED"? Sitzt
+  über dem Archer ein silberner Winkel mit dunklem Rand, sieht er ordentlich aus?
+- **641** (349): Kamera nah an den Archer (etwa 20 m), dann weit weg. Passt das Abzeichen nah zum Tower, und blendet es
+  beim Wegzoomen ab etwa 700 m aus, bis es ab 1 100 m weg ist? Verschwindet es hinter einem Gebäude? Archer auf einem
+  Dach mit Sockel: sitzt es über der Spitze?
+- **642a** (351): "Credits" und "+HP" je mehrmals mit Shift+Klick. Ragt keine Zahl im Header ins Nachbarfeld?
+- **642b** (210, 211): Ränge zählen je Tower, und nur der Todesstoß zählt; stehen viele Tower an einer Stelle, teilen
+  sie sich die Kills. Deshalb einen einzelnen Tower an ein langes Stück Route, Cheat "Max Up", andere Tower weit weg.
+  Custom Wave "Zombie", Count 1200, dazu ein paarmal "+HP" (Klick), falls Zombies durchkommen. Zeigt das Abzeichen ab
+  150 Kills drei silberne Winkel, ab 400 drei goldene, ab 1 000 einen Stern? Lesbar über hellen Dächern und dunklem
+  Himmel?
 - **643** (172, 546): Etwa 10 Archer oder Gatling an eine Stelle, Custom Wave "Zombie", Count 100, Tempo 1x. Kamera
-  erst weit weg, dann heran: setzen die Laufgeräusche in Hörweite ein, höchstens etwa 12 zugleich? 2 Minuten zusehen:
-  bleiben die Schüsse hörbar?
+  erst weit weg, dann heran: setzt das Stöhnen der Zombies in Hörweite ein, von höchstens etwa 12 zugleich? 2 Minuten
+  zusehen: bleiben die Schüsse hörbar?
 
 ### Runde 12: Blutmond (644 bis 647)
 
-Aufbau: Display-Menü "Blood Moon" an, Cheats "Research" und "Credits".
+Aufbau: Display-Menü "Blood Moon" an, Cheats "Research" und "Credits", ein paarmal "+HP" (Klick, je +1000 HP), damit
+das HQ die Wellen ohne passende Tower übersteht. Blutmond ist in Welle 14, 21, 28, 35 und so fort. Einen Tower auf
+ein Dach mit Sockel und einen Ice Tower an die Route stellen. "Jump to wave" 14 ("Jump: next start Wave 14"). Dann
+nicht Space, sondern eine Custom Wave "Zombie", Count 30: sie zählt als Welle 14 und ist damit eine Blutmond-Welle.
+(Die echte Welle 14 bringt Mammuts und Wallsmasher, keine Zombies.)
 
-- **644** (373): Tower auf ein Dach mit Sockel, "Jump to wave" 14, Space. Haben die Gegner einen roten Rand? Beginnt
-  der Lichtkegel des Sockel-Towers oben am Tower, nicht im Sockel?
-- **645** (422): In Welle 14 einen Ice Tower Zombies töten lassen. Sind Eis- und Blutflecken am Boden rot getönt wie
-  der Boden, nicht hell leuchtend?
-- **646** (376): In Welle 14 Display-Menü, Effects, "Bloom" an. Bleibt die rote Tönung etwa gleich? Ist der Kegel über
-  hellem Boden schwächer?
-- **647** (376): "Jump to wave" 20, Welle 21 starten: sind die Fledermäuse rot getönt wie die anderen? "Jump to wave"
-  35: glühen die Skarnax-Ringe rot, auch der neue Kopf nach einem Split?
+- **644** (373): Haben die Gegner einen roten Rand? Beginnt der Lichtkegel des Sockel-Towers oben am Tower, nicht im
+  Sockel?
+- **645** (422): Den Ice Tower Zombies töten lassen. Sind Eis- und Blutflecken am Boden rot getönt wie der Boden,
+  nicht hell leuchtend?
+- **646** (376): Noch in dieser Welle Display-Menü, Effects, "Bloom" an. Bleibt die rote Tönung etwa gleich? Ist der
+  Kegel über hellem Boden schwächer?
+- **647** (376): Nach dem Ende der Welle "Jump to wave" 21, Space: Welle 21 bringt Fledermäuse. Sind sie rot getönt
+  wie die anderen Gegner? Danach "Jump to wave" 35, Space: glühen die Skarnax-Ringe rot, auch der neue Kopf nach einem
+  Split?
 
 ### Runde 13: Neustart, Musik, Game Over, Dialoge, Verkauf (648 bis 652)
 
 Aufbau: je Punkt beschrieben.
 
-- **648** (158, 181, 173): Neuen Ort laden, dann Strg+Umschalt+R, nichts klicken. Kein "Uncaught" in der Konsole
-  (höchstens "[MusicMixer] Audio context did not resume")? Erster Klick: Main Theme, nach dem Intro der Build-Track
-  mit Überblendung? Audio-Menü: wirken Musik aus, an und Lautstärke sofort?
-- **649** (341, 173): Welle 1, Rechtsklick auf "+HP" bis Game Over. Blendet die Musik aus? Erscheint nach etwa 1,2 s
-  unter RESTART ein kleiner Globus mit "First run here", ohne dass RESTART springt? Blendet "Skip" den Hinweis aus?
+- **648a** (158, 181, 173): Neuen Ort laden, dann Strg+Umschalt+R, nichts klicken. Kein "Uncaught" in der Konsole
+  (höchstens "[MusicMixer] Audio context did not resume")? Läuft im Ladescreen das Main Theme? Es startet beim Laden
+  von selbst; blockiert der Browser das automatische Abspielen, bleibt es stumm, und kein Klick holt es nach (bekannt).
+- **648b** (158, 173): Wenn der Ladescreen verschwindet: blendet das Main Theme in etwa 3 s aus, und nach einer kurzen
+  Stille beginnt der Build-Track (nacheinander, nicht überblendet)? War bis hier alles stumm, einmal ins Bild klicken
+  und melden, ob danach Musik kommt. Audio-Menü: wirken Musik aus, an und Lautstärke sofort?
+- **649** (341, 173): An einem Ort, der auf diesem Rechner noch nie gespielt wurde, Welle 1, ohne "Jump to wave".
+  Rechtsklick auf "+HP" bis Game Over (zehnmal, oder zweimal mit Shift). Blendet die Musik aus? Erscheint nach etwa
+  1,2 s unter RESTART ein kleiner Globus mit "First run here", ohne dass RESTART springt? Blendet "Skip" den Hinweis
+  aus?
 - **650** (160, 162): Im BUILD-Panel die Info "Damage vs armor" öffnen und mit Esc schließen. Ist der Übergang
   animiert, die Schrift wie gewohnt? Bleibt der Kopf des Dialogs beim Scrollen stehen?
 - **651** (326): Im WAVE-Panel mit Tab auf die NEXT-Rauten: ist der goldene Fokusrahmen gut sichtbar?
@@ -232,9 +307,11 @@ Aufbau: je Punkt beschrieben.
   liegen Zellen und Gegner danach auf der Straße? Das zeigt die Ursache, behoben ist noch nichts.
 - **D3 Feste Spawns für Showcases (142):** Für jeden Showcase-Ort, der einen festen Spawn bekommen soll: Ort laden,
   Header "Set spawn" an die gewünschte Stelle (R dreht das Portal), `__showcase.line()` in die Konsole, Zeile schicken.
-- **D4 Klumpen ohne Beschuss (363):** Steht in 618 ein Tower still, obwohl Klumpen in seinem Ring sind: seine Zeilen
-  mit `[TowerTargets]` aus der Konsole kopieren (die Tower-ID steht vorn), den Tower anklicken, Screenshot mit Ring.
-  `__towerTargets.watch(false)` beendet die Ausgabe.
+- **D4 Klumpen ohne Beschuss (363):** Nur wenn in 618 ein Tower stillsteht, obwohl Klumpen in seinem Ring sind:
+  1. Aus der Konsole die letzten Zeilen mit `[TowerTargets]` kopieren. Vorn steht die Tower-ID; im Zweifel alle
+     Zeilen der letzten Sekunden.
+  2. Den Tower anklicken und einen Screenshot mit seinem Ring machen.
+  3. `__towerTargets.watch(false)` in die Konsole, das beendet die Ausgabe.
 - **D5 optional (alte 53):** Kennst du einen Ort mit Tunnel oder überdachtem Durchgang auf der Route? URL schicken,
   sonst bleibt der Punkt liegen.
 
@@ -257,19 +334,24 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   sichtbar. Bestätigen oder zurücknehmen.
 - **E6 Mittellinienzellen auf Dach oder Erker:** Läuft die OSM-Linie selbst unter einem Erker oder über eine Dachecke,
   bleibt die Zelle, bekommt aber Straßenhöhe (`f75e72ab`). Alternative: Zelle oben lassen, dann `f75e72ab` und
-  `afb3ad2d` zusammen zurücknehmen.
+  `afb3ad2d` zusammen zurücknehmen. `afb3ad2d` ist zugleich der Kronen-Fix für Erlenbach (608); die Alternative nimmt
+  ihn mit zurück.
 - **E7 Brückenenden ohne Niedrig-Hindernis-Probe:** Bis 40 m hinter einem Brückenende prüft der Korridor keine
   niedrigen Hindernisse, auch wo die Zufahrt schon auf Bodenhöhe liegt; Autos engen dort nur über den Laufweg ein
   (`347ae61b`).
-- **E8 Heldenschüsse auf schrägen Straßen:** Seit Gegner und Held metrisch ausgerichtet werden, starten seine Schüsse
-  auf Diagonalen etwa 0,5 m anders, dort, wo das Modell die Waffe hält (`fa7712ec`).
+- **E8 Heldenschüsse auf diagonal verlaufenden Straßen:** Seit Gegner und Held metrisch ausgerichtet werden, starten
+  seine Schüsse an einer anderen Stelle, dort, wo das Modell die Waffe hält (`fa7712ec`): auf einer 45°-Straße bei
+  49° N etwa 0,5 m seitlich, auf Nord-Süd- und Ost-West-Straßen gar nicht.
 - **E9 Klumpen-Befund ohne Code-Fix:** Im Test nicht nachstellbar. Statt einer Änderung gibt es die Sonde
   `__towerTargets` (618, D4); ein Fix erst mit Daten.
 - **E10 Additives Licht mit Bloom:** `ADDITIVE_GROUND` 0,3 wie beim Beschwörungskreis. Mit Bloom sind additive Effekte
-  über hellem Boden schwächer als vorher, über dunklem kräftiger. Das alte Verhalten entspräche etwa 0,53, eine Zahl
-  in `display-output.ts`.
-- **E11 Ooze-Gold bei junger Ooze:** Voller Körper zahlt gleich viel, eine jung getötete weniger (Welle 45, 1,5 m
-  Körper: 1142 statt 2181 Gold; 27 m: 4568 statt 4363). Genau gleich ginge nur mit gewichteten Slots für alle Gegner
+  jetzt über jedem Boden schwächer als vorher (Licht 0,1 über Boden 0: 0,349 → 0,271; über 0,6: 0,079 → 0,049).
+  Verglichen mit ohne Bloom sind sie gleich über einem Boden von 0,3, heller über dunklerem und dunkler über hellerem.
+  Bei einem Boden von etwa 0,53 passte der alte Rohwert zufällig zum Bild ohne Bloom. Ändern geht über eine Zahl in
+  `display-output.ts`.
+- **E11 Ooze-Gold bei junger Ooze:** Eine voll gewachsene Ooze zahlt gleich viel wie vorher. Bei einer jung getöteten
+  hängt es von der Länge ab: meist weniger, bei manchen Längen etwas mehr (Welle 45: 1,5 m Körper 1142 statt 2181
+  Gold, 15 m 2855 statt 3272, 27 m 4568 statt 4363). Genau gleich ginge nur mit gewichteten Slots für alle Gegner
   (`2acf7db9`, Tabelle in `tmp/fix1/reports/oozedeath.md`).
 - **E12 Debug-Checkboxen entfernt:** "Textures", "Skeleton Clone" und "Alpha Blend" im Debug-Fenster Display
   (Abschnitt "Performance") waren wirkungslos und sind weg (`1427f5c0`).
@@ -278,8 +360,9 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   gröber, Framerate ok?
 - **E14 Hörweite des Atomschlags:** Knall und Grollen sind bis 1500 m zu hören, so weit wie das Wackeln reicht, statt
   bis 500 m. Ansehen: aus der Übersicht weiter als 500 m herauszoomen, K.
-- **E15 Vollbild-Blitz des Atomschlags:** Das ganze Bild ist 80 ms lang fast weiß (`flash.screenPeak` 0,92). Bitte
-  auch mit Blick auf Lichtempfindlichkeit beurteilen. Mildern geht über diese eine Zahl, 0 schaltet den Blitz ab.
+- **E15 Vollbild-Blitz des Atomschlags:** Das ganze Bild steht 80 ms lang auf 0,92 Weiß (`flash.screenPeak`,
+  `screenHold` 0,08 s), danach blendet der Blitz bis 1,1 s nach dem Einschlag aus. Bitte auch mit Blick auf
+  Lichtempfindlichkeit beurteilen, über die ganze Dauer. Mildern geht über `screenPeak`, 0 schaltet den Blitz ab.
 
 **Neu zu entscheiden**
 
@@ -303,6 +386,7 @@ aber größer", Dachkante so lassen, Replay als eigenes Thema.
 
 - 542, 321, 393, 398 (Laser auf die Wurmringe) und 400 sind per Szenario-Test bestätigt, 334 im frischen Checkout
   (`npm ci` und `ng build` je Exit 0). Suite dabei: 395 Testdateien, 4520 Tests grün.
-- Ebenfalls per Test, ohne eigenen Punkt: Klumpen-HP in der Summe gleich und 1x wie 4x beim Ooze-Tod, Tower nehmen
-  Klumpen als Ziel (Wächter-Szenario), Atompilz und Grollen in Pause und bei 4x, Held in der Pause nach einem
-  Routen-Neubau, Blickrichtung der Gegner auf Diagonalen. Letztes Gate `996531b1`: 4584 Tests grün.
+- Ebenfalls per Test, ohne eigenen Punkt: Klumpen-HP in der Summe gleich beim voll gewachsenen Körper (bei jungen
+  Körpern weicht sie ab, wie das Gold in E11) und 1x wie 4x beim Ooze-Tod, Tower nehmen Klumpen als Ziel
+  (Wächter-Szenario), Atompilz und Grollen in Pause und bei 4x, Held in der Pause nach einem Routen-Neubau,
+  Blickrichtung der Gegner auf Diagonalen. Letztes Gate `994badd4`: 4596 Tests grün.
