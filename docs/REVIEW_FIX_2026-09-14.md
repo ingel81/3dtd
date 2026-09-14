@@ -808,6 +808,15 @@ abarbeiten.
   Zellen in Häusern, Höfen, Gärten, an Autos; Korridor dort schmaler, keine
   Gegner außerhalb der Zellen), 563 (Hang weiter gut) und 564 (Paris,
   Brückenköpfe: Linie, Zellen und Gegner bleiben auf dem Deck).
+- **Spawn-Vorschau (pathstart):** Die Route beginnt am Fußpunkt des Spawns
+  auf dem nächsten Straßensegment statt am ersten Knoten dieses Segments;
+  das Portal steht dort, wo man klickt. Die Vorschau gleitet pro Frame zu
+  ihrer Pose, ein Mausschritt kostet in der Messspec 0,75 ms (1,7 ms auf
+  einem neuen Segment). **Nachtest 529:** "Set spawn", Cursor langsam und
+  schnell eine lange Straße entlang: die Vorschau folgt dem Cursor ohne
+  Springen und ohne Ruckeln; klicken: das Portal steht an der Stelle.
+  Gespeicherte Orte (URL, Favoriten) setzen ihr Portal jetzt am Fußpunkt,
+  also etwas anders als vorher.
 
 **Vorab**
 
