@@ -56,7 +56,8 @@ export interface CorridorRefitHost {
  * When the route corridor is fitted to the tiles and routes and cells are
  * rebuilt with it:
  *
- * - `fitToTiles`: once per location, when the height update has stopped.
+ * - `fitToTiles`: once per location, when the height update has stopped
+ *   and the intro flight has landed.
  * - `remeasure`: whenever a tile-load batch has settled, for the stations
  *   that were still on coarse tiles, at most every REMEASURE_INTERVAL_MS
  *   and not during the intro flight.
@@ -112,6 +113,12 @@ export class CorridorRefit {
   /** Cancels the call of `remeasure` it waits for, see retryRemeasure. */
   private pendingRetry: (() => void) | null = null;
 
+  /**
+   * A fit the intro flight held back (fitToTiles): remeasure takes it up
+   * once the flight has landed, flush when a tower or a wave comes first.
+   */
+  private fitPending = false;
+
   constructor(private readonly host: CorridorRefitHost) {}
 
   /** Why routes and cells must not be rebuilt now, null if they may. */
@@ -126,6 +133,14 @@ export class CorridorRefit {
    * Measure the free space along every route and rebuild where it gives
    * other widths than before. The first slice runs right away, the rest in
    * the following frames; a run already under way is left to finish.
+   *
+   * Not during the intro flight, which streams the tiles along the route: a
+   * run under it measures stations whose tiles have not come yet. In the
+   * Paris playtest of 2026-09-14, after a move outside the streets, the
+   * first run took 5.1 s wall and left 617 stations unmeasured; a location
+   * change starts the flight right after that run's first slice. Held back
+   * by the flight, or cut short when it starts, the fit waits for it like
+   * remeasure and runs once it has landed.
    */
   fitToTiles(): void {
     if (this.running?.measurement.open) return;
@@ -133,14 +148,26 @@ export class CorridorRefit {
     this.running?.stop();
     this.running = null;
     if (this.rebuildBlocker()) return;
+    if (this.host.introRunning()) {
+      this.holdForIntro();
+      return;
+    }
+    this.fitPending = false;
 
     const measurement = this.host.beginMeasurement();
     const slice = (): boolean => {
       const blocker = this.rebuildBlocker();
-      if (!blocker && !measurement.step(this.budget())) return true;
+      const intro = !blocker && this.host.introRunning();
+      if (!blocker && !intro && !measurement.step(this.budget())) return true;
       if (this.running?.measurement === measurement) this.running = null;
-      if (blocker) measurement.cancel(blocker);
-      else if (measurement.commit()) this.host.rebuild();
+      if (blocker) {
+        measurement.cancel(blocker);
+      } else if (intro) {
+        measurement.cancel('intro flight');
+        this.holdForIntro();
+      } else if (measurement.commit()) {
+        this.host.rebuild();
+      }
       return false;
     };
     if (slice()) this.running = { measurement, stop: this.host.eachFrame(slice) };
@@ -149,7 +176,9 @@ export class CorridorRefit {
   /**
    * Measure again the stations that had no fine tile at the last run and
    * rebuild where that changes the corridor. The first measurement does not
-   * wait for the corridor tiles, which keep streaming in after it.
+   * wait for the corridor tiles, which keep streaming in after it. Takes up
+   * the fit the intro flight held back (fitToTiles) as well, without
+   * waiting for the interval: that one has not measured yet.
    *
    * Held back by the intro flight, a run under way or the interval, it
    * calls itself again later: the last tile batch often settles right then
@@ -158,12 +187,12 @@ export class CorridorRefit {
    * wave: the corridor stays as it is while they are there.
    */
   remeasure(): void {
-    if (!this.host.hasUnmeasured()) return;
+    if (!this.fitPending && !this.host.hasUnmeasured()) return;
     if (this.rebuildBlocker()) return;
     const now = this.host.now();
-    const wait = this.running?.measurement.open || this.host.introRunning()
-      ? CorridorRefit.REMEASURE_INTERVAL_MS
-      : this.lastRemeasure + CorridorRefit.REMEASURE_INTERVAL_MS - now;
+    let wait = this.lastRemeasure + CorridorRefit.REMEASURE_INTERVAL_MS - now;
+    if (this.running?.measurement.open || this.host.introRunning()) wait = CorridorRefit.REMEASURE_INTERVAL_MS;
+    else if (this.fitPending) wait = 0;
     if (wait > 0) {
       this.retryRemeasure(wait);
       return;
@@ -192,6 +221,8 @@ export class CorridorRefit {
 
     // A run under way took its stations and rays from the old settings.
     this.cancel('settings changed');
+    // Measured in one go below, a fit held back for the intro flight included.
+    this.fitPending = false;
     const remeasure = MEASUREMENT_KEYS.some((key) => before[key] !== corridorConfig[key]);
     if (remeasure) this.host.clearMeasurements();
     const measurement = this.host.beginMeasurement();
@@ -208,29 +239,40 @@ export class CorridorRefit {
    * widths. The rest of the run is measured in one go, stored and rebuilt
    * as usual, so at worst this is the one hitch of the old one-shot run. A
    * blocker that is already there (enemies from the debug panel) cancels the
-   * run instead.
+   * run instead. A fit the intro flight held back is measured in one go the
+   * same way; under such a blocker it stays for remeasure.
    *
    * @param reason What is about to freeze the corridor, for the log (`flushed=`)
    */
   flush(reason: string): void {
     const running = this.running;
-    if (!running?.measurement.open) return;
+    const open = running?.measurement.open === true;
+    if (!open && !this.fitPending) return;
     this.running = null;
-    running.stop();
+    running?.stop();
     const blocker = this.rebuildBlocker();
     if (blocker) {
-      running.measurement.cancel(blocker);
+      if (open) running?.measurement.cancel(blocker);
       return;
     }
-    running.measurement.step(Infinity);
-    if (running.measurement.commit(reason)) this.host.rebuild();
+    this.fitPending = false;
+    const measurement = open && running ? running.measurement : this.host.beginMeasurement();
+    measurement.step(Infinity);
+    if (measurement.commit(reason)) this.host.rebuild();
   }
 
   /** Stop for good, from CorridorController.dispose(). */
   dispose(): void {
     this.pendingRetry?.();
     this.pendingRetry = null;
+    this.fitPending = false;
     this.cancel('disposed');
+  }
+
+  /** Keep the fit for after the intro flight, see fitToTiles. */
+  private holdForIntro(): void {
+    this.fitPending = true;
+    this.retryRemeasure(CorridorRefit.REMEASURE_INTERVAL_MS);
   }
 
   /** Main-thread time for the next slice of a run. */

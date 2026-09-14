@@ -225,6 +225,101 @@ describe('CorridorRefit', () => {
     });
   });
 
+  describe('fitToTiles and the intro flight, which streams the tiles along the route', () => {
+    it('waits for the flight and fits once it has landed, at a location with nothing measured yet', () => {
+      const { refit, state, calls, advance, pendingTimers } = setup();
+      state.unmeasured = false;
+      state.intro = true;
+
+      refit.fitToTiles();
+      advance(CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(calls).toEqual([]);
+      expect(pendingTimers()).toBe(1);
+
+      state.intro = false;
+      advance(2 * CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(calls).toEqual(['measure', 'commit', 'rebuild']);
+      expect(pendingTimers()).toBe(0);
+    });
+
+    it('drops a run the flight starts under, as a location change does after the first slice, and fits after it', () => {
+      const { refit, state, calls, runs, runFrames, pendingFrames, advance } = setup();
+      state.unmeasured = false;
+      state.slices = 3;
+      refit.fitToTiles();
+
+      state.intro = true;
+      runFrames();
+      expect(calls).toEqual(['measure', 'cancel: intro flight']);
+      expect(runs[0].budgets).toHaveLength(1);
+      expect(pendingFrames()).toBe(0);
+
+      state.intro = false;
+      advance(CorridorRefit.REMEASURE_INTERVAL_MS);
+      runFrames(2);
+      expect(calls).toEqual(['measure', 'cancel: intro flight', 'measure', 'commit', 'rebuild']);
+    });
+
+    it('fits at the first settled tile batch after the landing, without the interval of a re-measurement', () => {
+      const { refit, state, host } = setup();
+      state.changed = false;
+      refit.remeasure();
+      state.unmeasured = false;
+      state.intro = true;
+      refit.fitToTiles();
+
+      state.intro = false;
+      state.clock = 100;
+      refit.remeasure();
+      expect(host.beginMeasurement).toHaveBeenCalledTimes(2);
+    });
+
+    it('measures a held fit in one go when a tower or a wave comes before the landing', () => {
+      const { refit, state, calls, runs, advance } = setup();
+      state.intro = true;
+      refit.fitToTiles();
+
+      refit.flush('tower');
+      expect(calls).toEqual(['measure', 'commit flushed=tower', 'rebuild']);
+      expect(runs[0].budgets).toEqual([Infinity]);
+
+      // The tower stands now; nothing is left for after the flight.
+      state.towers = 1;
+      state.intro = false;
+      advance(CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(calls).toHaveLength(3);
+    });
+
+    it('keeps a held fit under enemies from the debug panel for later', () => {
+      const { refit, state, calls } = setup();
+      state.unmeasured = false;
+      state.intro = true;
+      refit.fitToTiles();
+
+      state.enemies = 1;
+      refit.flush('tower');
+      expect(calls).toEqual([]);
+
+      state.enemies = 0;
+      state.intro = false;
+      refit.remeasure();
+      expect(calls).toEqual(['measure', 'commit', 'rebuild']);
+    });
+
+    it('forgets a held fit on dispose', () => {
+      const { refit, state, calls, advance } = setup();
+      state.unmeasured = false;
+      state.intro = true;
+      refit.fitToTiles();
+
+      refit.dispose();
+      state.intro = false;
+      advance(CorridorRefit.REMEASURE_INTERVAL_MS);
+      refit.remeasure();
+      expect(calls).toEqual([]);
+    });
+  });
+
   describe('flush, right before a tower is placed or a wave starts', () => {
     it('measures the rest in one go and rebuilds, so the tower stands on the new cells', () => {
       const { refit, state, calls, runs, runFrames, pendingFrames } = setup();
