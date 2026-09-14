@@ -178,6 +178,8 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
       pathRoute,
       routeAnimation: { isRunning: () => false, startAnimation: vi.fn() },
       store: { spawnPoints: store.spawnPoints },
+      // The hint of the move: the run measures in the larger slices while it stands
+      relocationStatus: status,
     } as unknown as CorridorControllerDeps);
     controller.attach();
 
