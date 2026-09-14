@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, peekUpcomingWaves, shownPeek } from './upcoming-waves';
+import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markIconSize, peekUpcomingWaves, shownPeek } from './upcoming-waves';
 import { CURRICULUM_FORCED_THROUGH_WAVE, isBossWave, templateObjectForWave } from '../../../configs/wave-curriculum.config';
 import { DPS_RAMP_COUNT } from '../../../ai/core/templates';
 
@@ -139,5 +139,17 @@ describe('shownPeek', () => {
 
   it('shows nothing without waves', () => {
     expect(shownPeek([], null, null)).toBeNull();
+  });
+});
+
+describe('markIconSize', () => {
+  it('keeps the icons at 10 px up to two and shrinks three to 8 px, so they fit the 28 px mark', () => {
+    const peek = (boss: boolean, air: boolean, bloodMoon: boolean) => ({ boss, air, bloodMoon });
+    expect(markIconSize(peek(true, false, false))).toBe(10);
+    expect(markIconSize(peek(true, false, true))).toBe(10);
+    expect(markIconSize(peek(true, true, true))).toBe(8);
+    // Three icons and their two 2 px gaps against the 28 px mark
+    expect(3 * markIconSize(peek(true, true, true)) + 2 * 2).toBeLessThanOrEqual(28);
+    expect(2 * markIconSize(peek(false, true, true)) + 2).toBeLessThanOrEqual(28);
   });
 });

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, signal } from '@an
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent } from '../../icon/icon.component';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
-import { shownPeek, type WavePeek } from './upcoming-waves';
+import { markIconSize, shownPeek, type WavePeek } from './upcoming-waves';
 
 /**
  * NEXT in the WAVE panel: the coming waves as marks on a thin line, the
@@ -28,6 +28,7 @@ export class WaveTimelineComponent {
   readonly shown = computed(() => shownPeek(this.peeks(), this.hovered(), this.picked()));
 
   readonly damageTypeIcon = damageTypeIcon;
+  readonly markIconSize = markIconSize;
 
   /** "Wave 7, Bat Swarm, air"; "…, blood moon" on a blood moon wave */
   markLabel(peek: WavePeek): string {

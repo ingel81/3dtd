@@ -83,6 +83,17 @@ export function shownPeek(peeks: readonly WavePeek[], hovered: number | null, pi
   return peeks.find((p) => p.wave === hovered) ?? peeks.find((p) => p.wave === picked) ?? peeks[0] ?? null;
 }
 
+/**
+ * Size in px of the icons above a mark (boss, air, blood moon), 2 px apart
+ * (wave-timeline.component.scss). Up to two fit the 28 px mark at 10 px;
+ * three at 10 px would be 34 px and reach into the next mark, so three are
+ * 8 px, 28 px together.
+ */
+export function markIconSize(peek: Pick<WavePeek, 'boss' | 'air' | 'bloodMoon'>): number {
+  const icons = Number(peek.boss) + Number(peek.air) + Number(peek.bloodMoon);
+  return icons > 2 ? 8 : 10;
+}
+
 /** A boss wave the rotation gives to a boss variant: known ahead, unlike the director's picks. */
 function variantPeek(wave: number, variant: BossVariant): WavePeek {
   const cfg = ENEMY_TYPES[variant.enemyType];
