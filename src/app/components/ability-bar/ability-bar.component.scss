@@ -1,12 +1,13 @@
 @use '../../styles/td-mixins' as td;
 
 /* Left edge of the canvas, vertically centred. Above the leak vignette (4)
- * and the off-screen arrows (5), below the game-over overlay (20). The
- * outer edge (12px + 56px) is ABILITY_BAR_EDGE_PX in ability-button.ts;
- * the off-screen arrows keep clear of it. */
+ * and the off-screen arrows (5), below the game-over overlay (20). `left`,
+ * the border, the padding and the button size come from ABILITY_BAR_PX in
+ * ability-button.ts (host bindings of the component), the numbers
+ * ABILITY_BAR_EDGE_PX is summed from; the off-screen arrows keep clear of
+ * that edge. */
 :host {
   position: absolute;
-  left: 12px;
   top: 50%;
   transform: translateY(-50%);
   z-index: 6;
@@ -16,9 +17,10 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  padding: 5px;
+  padding: var(--td-bar-pad);
   border-radius: 4px;
   @include td.bevel-glass;
+  border-width: var(--td-bar-border);
 }
 
 /* Hairline between the hero and the abilities */
@@ -43,8 +45,8 @@
  * shows. */
 .td-bar-btn {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: var(--td-bar-btn);
+  height: var(--td-bar-btn);
   display: flex;
   align-items: center;
   justify-content: center;
