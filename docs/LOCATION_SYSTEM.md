@@ -146,9 +146,11 @@ readonly address = signal<NominatimAddress | null>(null);  // Adresse aus dem Re
 readonly missionInfo = computed<MissionInfo | null>(...);  // Straße, PLZ, Ort, Koordinaten für den Ladescreen
 readonly isApplyingLocation = signal(false);
 readonly favorites = signal<FavoriteLocation[]>([]);
+readonly recents = signal<RecentLocation[]>([]);           // zuletzt gespielte Orte, siehe Zuletzt gespielt
 readonly hasLocation = computed(() => this.hq() !== null);
 readonly editableHqLocation = computed(() => { ... });       // { lat, lon, name }
 readonly editableSpawnLocations = computed(() => { ... });    // SpawnLocationConfig[]
+readonly recentCandidate = computed(() => { ... });           // der Ort als Recent-Eintrag, sobald er spielbar ist
 ```
 
 ### Methoden
@@ -240,7 +242,7 @@ Ein Klick auf einen Marker oder eine Zeile schließt den Dialog wie ein Recent-E
 - 2D-Canvas in orthografischer Projektion (`globe-projection.ts`, ohne Angular und Canvas testbar): dunkle Scheibe (`--td-panel-shadow`), Gradnetz alle 30°, Landgrenzen und Küsten in den Rahmen-Grautönen, Marker in `--td-gold` mit der Welle daneben. Linien werden am Horizont geschnitten und enden am Rand; Beschriftungen, die eine höhere überdecken würden, fallen weg; Marker blassen zum Rand hin aus
 - Ziehen dreht (Breite des Mittelpunkts bis ±80°), Mausrad zoomt 1x bis 8x, Hover zeigt Name, Headertext und beste Welle
 - Gezeichnet wird außerhalb von Angular per `requestAnimationFrame`, nur bei Änderungen; einziges Signal ist der Hover-Tipp, und das nur, wenn sich der Ort darunter ändert
-- Lazy: Globus und Umrisse sind ein eigener Chunk (`world-globe-component`, 32 kB roh, 16 kB übertragen), geladen per `@defer (on immediate)` beim ersten Öffnen des Tabs oder beim ersten Rekord-Hinweis. Kein `@placeholder`, `@loading` oder `on timer`: deren Code käme in den Core-Chunk des Initial-Bundles (für `@placeholder` und `@loading` gemessen: +2,4 kB). Das Initial-Bundle bleibt bei 357,18 kB
+- Lazy: Globus und Umrisse sind ein eigener Chunk (`world-globe-component`, 32 kB roh, 16 kB übertragen), geladen per `@defer (on immediate)` beim ersten Öffnen des Tabs oder beim ersten Rekord-Hinweis. Kein `@placeholder`, `@loading` oder `on timer`: deren Code käme in den Core-Chunk des Initial-Bundles (für `@placeholder` und `@loading` gemessen: +2,4 kB)
 
 ### Umrisse (Natural Earth)
 
