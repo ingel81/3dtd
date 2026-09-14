@@ -154,6 +154,7 @@ function createEngine(): never {
     orbitalBeams: auto(),
     mushroomClouds: auto(),
     hero: auto(),
+    oozes: auto(),
   };
   return auto(engine) as never;
 }

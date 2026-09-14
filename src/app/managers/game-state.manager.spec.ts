@@ -177,6 +177,7 @@ function createDeepMock(): never {
       tentacles: autoProxy(),
       hero: autoProxy(),
       orbitalBeams: autoProxy(),
+      oozes: autoProxy(),
       triggerScreenShake: noopFn,
     } as Record<string, unknown>,
     handler

@@ -192,6 +192,7 @@ function createMockEngine(): never {
       hero: autoProxy(),
       orbitalBeams: autoProxy(),
       abilityMarkers: autoProxy(),
+      oozes: autoProxy(),
       triggerScreenShake: vi.fn(),
     } as Record<string, unknown>,
     handler,
