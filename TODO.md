@@ -1446,7 +1446,9 @@
       0,9 s). In einer Welle mit Platzieren 4,2 s in 101 s, davon
       `towerFootprint` 1,6 s und `towerRange` 1,0 s; `towerRange` und
       `routeGrid` haben dort Bursts von je 110 ms, also sichtbare Hänger beim
-      Setzen eines Towers. In Ruhe spielt die Kamera dank Cache kaum noch eine
+      Setzen eines Towers. (Stand 2026-09-14: der `towerRange`-Anteil ist mit
+      dem Stencil-Reichweitenring `225c42dd` weggefallen, der Ring kommt ohne
+      Raycasts aus.) In Ruhe spielt die Kamera dank Cache kaum noch eine
       Rolle (`cameraControls` 454 Aufrufe in 101 s).
       Einschätzung: BVH lohnt sich für Laden und Platzieren, die Bursts beim
       Setzen und die Sockel-Abtastung würden am meisten gewinnen; für die FPS
