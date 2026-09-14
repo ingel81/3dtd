@@ -2,9 +2,9 @@
 
 **Stand:** 2026-09-14
 
-Das Location-System ermoeglicht es Spielern, ihren eigenen Spielort zu waehlen. Die URL ist die Single Source of Truth fuer die aktuelle Location.
+Das Location-System ermöglicht es Spielern, ihren eigenen Spielort zu wählen. Die URL ist die Single Source of Truth für die aktuelle Location.
 
-## Uebersicht
+## Übersicht
 
 ```
 URL (?l=...&s=...)                  ← Source of Truth
@@ -19,7 +19,7 @@ LocationChangeCoordinatorService    ← Dialog, Favoriten, Weltwürfel; applyNew
   ↓
 LocationChangeExecutorService       ← 7-Step Location Change Sequence
   ↓
-LocationDialogComponent             ← UI fuer Ortswahl
+LocationDialogComponent             ← UI für Ortswahl
 ```
 
 ## Dateien
@@ -61,7 +61,7 @@ interface LocationConfig extends GeoPosition {
   address?: NominatimAddress; // Strukturierte Adresse
 }
 
-// Vollstaendige Location-Info mit Anzeigenamen
+// Vollständige Location-Info mit Anzeigenamen
 interface LocationInfo extends GeoPosition {
   name: string;               // Display name (city/place)
   displayName: string;        // Full Nominatim display name
@@ -94,7 +94,7 @@ interface LocationDialogResult {
   confirmed: boolean;
 }
 
-// Zufaelliger Spawn-Kandidat
+// Zufälliger Spawn-Kandidat
 interface RandomSpawnCandidate extends GeoPosition {
   distance: number;
   streetName?: string;
@@ -113,7 +113,7 @@ interface FavoriteLocation {
 
 ## LocationStore (`store/location.store.ts`)
 
-Zentrale Angular Signals fuer Location-Daten in der UI:
+Zentrale Angular Signals für Location-Daten in der UI:
 
 ```typescript
 @Injectable({ providedIn: 'root' })
@@ -156,9 +156,9 @@ readonly recentCandidate = computed(() => { ... });           // der Ort als Rec
 ### Methoden
 
 ```typescript
-// Location setzen und Display-Name via Reverse Geocoding aufloesen
+// Location setzen und Display-Name via Reverse Geocoding auflösen
 setLocation(hq: { lat: number; lon: number }, spawns: SavedSpawn[]): void
-// Wenn spawns leer → needsRandomSpawn = true (wird spaeter generiert)
+// Wenn spawns leer → needsRandomSpawn = true (wird später generiert)
 // URL und Favoriten nehmen die Spawns samt portalBearing von hier
 
 // Display-Name abfragen
@@ -189,7 +189,7 @@ initializeEditableLocations(), saveLocationsToStorage(), clearLocationsFromStora
 - Jeder Favorit hat `id` (crypto.randomUUID), `hq`, `spawns`, `createdAt`, optional `name`
 - Ein Spawn trägt `portalBearing`, wenn sein Portal beim Speichern gedreht war (siehe [UrlLocationService](#urllocationservice)); Laden dreht es wieder so
 - Einträge von vor dem 2026-09-14 haben keinen `name` und keinen `portalBearing` und lesen sich unverändert (das Portal folgt der Route); defekte Einträge (auch ein `portalBearing`, der keine Zahl ist) werden beim Laden übersprungen
-- Namen: der eigene (`name`, getrimmt, höchstens 80 Zeichen), sonst via `GeocodingService.reverseGeocodeWithCache()` aufgeloest (`favoriteNamesMap`, nur für Favoriten ohne eigenen Namen)
+- Namen: der eigene (`name`, getrimmt, höchstens 80 Zeichen), sonst via `GeocodingService.reverseGeocodeWithCache()` aufgelöst (`favoriteNamesMap`, nur für Favoriten ohne eigenen Namen)
 
 Bedienung im Header (Lesezeichen-Knopf):
 
@@ -279,7 +279,7 @@ Die Drehung des Spawn-Portals:
 ```typescript
 parseFromUrl(): { hq, spawns } | null   // URL parsen
 updateUrl(hq, spawns): void              // URL ohne Reload aktualisieren (replaceState), Spawns samt Kurs
-getShareUrl(): string                    // Aktuelle URL fuer Sharing
+getShareUrl(): string                    // Aktuelle URL für Sharing
 hasLocationParams(): boolean             // Prueft ob l= Parameter vorhanden
 ```
 
@@ -288,7 +288,7 @@ hasLocationParams(): boolean             // Prueft ob l= Parameter vorhanden
 Automatische Standort-Erkennung:
 
 ```
-1. Browser Geolocation API (GPS/WiFi, 15s Timeout fuer Permission-Dialog)
+1. Browser Geolocation API (GPS/WiFi, 15s Timeout für Permission-Dialog)
    ↓ (bei Fehler/Ablehnung)
 2. null → Location-Dialog wird angezeigt
 ```
@@ -298,15 +298,15 @@ async detectLocation(): Promise<GeolocationResult | null>
 // GeolocationResult = { lat, lon, source: 'browser' }
 ```
 
-Dazwischen lag frueher ein IP-Lookup ueber ip-api.com. Der ist raus: der
+Dazwischen lag früher ein IP-Lookup über ip-api.com. Der ist raus: der
 kostenlose Tarif spricht nur http, auf der ausgelieferten https-Seite blockt
 der Browser den Request ohnehin als Mixed Content, und die IP jedes Spielers
-ging an einen Dritten fuer eine Schaetzung, die der Dialog mit einem Klick
+ging an einen Dritten für eine Schätzung, die der Dialog mit einem Klick
 genauer hinbekommt.
 
 ## GeocodingService
 
-Nominatim (OpenStreetMap) API fuer Forward- und Reverse-Geocoding.
+Nominatim (OpenStreetMap) API für Forward- und Reverse-Geocoding.
 
 ### Forward Search (Adresssuche)
 
@@ -315,7 +315,7 @@ search(query: string): void
 // - Debounced (300ms)
 // - Min. 3 Zeichen
 // - Max. 8 Ergebnisse
-// - AbortController fuer Request-Cancellation
+// - AbortController für Request-Cancellation
 
 readonly isLoading = signal(false);
 readonly results = signal<GeocodingResult[]>([]);
@@ -328,14 +328,14 @@ clearResults(): void
 
 ```typescript
 reverseGeocode(lat, lon): Promise<string | null>
-// Einfach: gibt displayName zurueck
+// Einfach: gibt displayName zurück
 
 reverseGeocodeDetailed(lat, lon): Promise<ReverseGeocodeResult | null>
-// Vollstaendig: displayName + locationName + address + lat/lon
+// Vollständig: displayName + locationName + address + lat/lon
 
 reverseGeocodeWithCache(lat, lon): Promise<string>
 // Memory-Cache, beim Start aus localStorage geladen (Key: td_geocode_cache_v1)
-// Max. 100 Eintraege, 4 Dezimalstellen Praezision (~11m)
+// Max. 100 Einträge, 4 Dezimalstellen Präzision (~11m)
 // Fallback: "lat, lon" mit 4 Nachkommastellen, wird nicht gecacht
 // Kein Retry bei HTTP 429
 ```
@@ -344,7 +344,7 @@ reverseGeocodeWithCache(lat, lon): Promise<string>
 
 ```typescript
 extractLocationName(address: NominatimAddress): string
-// Prioritaet: city > town > village > municipality > suburb > city_district > county
+// Priorität: city > town > village > municipality > suburb > city_district > county
 // Sonst UNKNOWN_LOCATION_NAME ('Unknown location')
 
 formatAddressShort(addr: NominatimAddress): string
@@ -369,17 +369,17 @@ Beim App-Start in `LocationFacadeService.initializeLocation()`:
 
 4. Nichts gefunden
    → Location-Dialog (disableClose: true) anzeigen
-   → Warten bis User eine Location waehlt
+   → Warten bis User eine Location wählt
 ```
 
 Nach Erkennung wird die URL synchronisiert (`syncUrlWithLocation()`).
 
 ## LocationChangeCoordinatorService - 7-Step Sequence
 
-Orchestriert den kompletten Ortswechsel. Extrahiert aus der TowerDefenseComponent um God-Object-Komplexitaet zu reduzieren.
-`applyNewLocation()` verhindert parallele Wechsel, laesst die sieben Schritte in
+Orchestriert den kompletten Ortswechsel. Extrahiert aus der TowerDefenseComponent um God-Object-Komplexität zu reduzieren.
+`applyNewLocation()` verhindert parallele Wechsel, lässt die sieben Schritte in
 `LocationChangeExecutorService.executeLocationChange()` laufen und setzt bei einem
-Fehler die Loading-Flags zurueck.
+Fehler die Loading-Flags zurück.
 
 ### Delegate-Pattern
 
@@ -400,7 +400,7 @@ interface LocationFlowDelegate {
 STEP 1: Initialize Loading State
   - Loading-Flags setzen (tiles, OSM, heights)
   - isApplyingLocation = true
-  - Loading-Steps zuruecksetzen
+  - Loading-Steps zurücksetzen
 
 STEP 2: Reset & Configure Engine
   - Height-Updates, Route-Animation und Intro-Kamerafahrt stoppen
@@ -417,7 +417,7 @@ STEP 2: Reset & Configure Engine
   - Initiale Kamera-Framing berechnen und anwenden
 
 STEP 3: Load Streets
-  - OSM-Strassendaten laden (2000m Radius)
+  - OSM-Straßendaten laden (2000m Radius)
   - Cache-Check: Wenn gleiche Location (~100m), Cache wiederverwenden
   - Sonst OsmStreetService.loadStreets(): erst IndexedDB (StreetCacheService,
     Key v2_<lat>_<lon>_<radius>, max. 5 Orte, LRU), dann Overpass mit drei
@@ -439,8 +439,8 @@ STEP 3: Load Streets
     vor; die Ways sind nach id sortiert wie bei Overpass. Konsole:
     `[OSM] streets: X of Ykm² from the streets loaded before, fetching Zkm² in N boxes`
   - Street-Count aktualisieren
-  - Street-Rendering laeuft progressiv (50 Nodes/Frame, alte Strassen
-    bleiben sichtbar bis neue fertig sind — `street-rendering.service.ts`)
+  - Street-Rendering läuft progressiv (50 Nodes/Frame, alte Straßen
+    bleiben sichtbar, bis neue fertig sind; `street-rendering.service.ts`)
 
   → Tiles-Loading abwarten (mit 15s Timeout-Fallback)
 
@@ -454,7 +454,7 @@ STEP 4: Place HQ Marker
   - HQ Base-Marker platzieren
 
 STEP 5: Place Spawn Point
-  - Spawn-Punkt mit Marker und Pfad hinzufuegen
+  - Spawn-Punkt mit Marker und Pfad hinzufügen
     (addSpawnPoint() → PathAndRouteService.showPathFromSpawn(): A* über das
     Straßennetz, die Route landet im Routen-Cache)
   - Spawn-Name aus Input extrahieren (vor erstem Komma)
@@ -512,25 +512,25 @@ Boden.
 Der Coordinator bietet auch UI-Flow-Methoden:
 
 ```typescript
-openLocationDialog(initialMode?): void  // Dialog oeffnen (optional auf einem Tab), bei Bestaetigung applyNewLocation()
+openLocationDialog(initialMode?): void  // Dialog öffnen (optional auf einem Tab), bei Bestätigung applyNewLocation()
 onShareLocation(): void          // URL in Clipboard kopieren
-onWorldDice(): Promise<void>     // Zufaellige Stadt via Wikidata, URL-Reload
+onWorldDice(): Promise<void>     // Zufällige Stadt via Wikidata, URL-Reload
 onAddFavorite(name?): void       // Aktuelle Location als Favorit
 onRenameFavorite(id, name): void // Favorit umbenennen
 onMoveFavorite(id, offset): void // Favorit hoch (-1) oder runter (1)
 onSelectFavorite(fav): void      // Favorit laden und anwenden
-onDeleteFavorite(id): void       // Favorit loeschen
-resolveFavoriteNames(): void     // Geocoding-Namen fuer die Favoriten ohne eigenen Namen
+onDeleteFavorite(id): void       // Favorit löschen
+resolveFavoriteNames(): void     // Geocoding-Namen für die Favoriten ohne eigenen Namen
 ```
 
 ## LocationFacadeService
 
-Sub-Facade fuer Location-Management. Verbindet Coordinator mit Component-State.
+Sub-Facade für Location-Management. Verbindet Coordinator mit Component-State.
 
 ### Verantwortlichkeiten
 
 - **Location Detection**: URL → Geolocation → Dialog Cascade
-- **Coordinator-Initialisierung**: Baut `LocationFlowDelegate` fuer den Coordinator
+- **Coordinator-Initialisierung**: Baut `LocationFlowDelegate` für den Coordinator
 - **Spawn-Management**: `addPredefinedSpawns()`, `addSpawnPoint()`
 - **Map Cleanup**: `clearMapEntities()` (Marker, Routes, Streets, Route-Zellen mit ihren Overlays)
 - **DevWorld**: Regeneration, Visual Cleanup
@@ -550,7 +550,7 @@ needsRandomSpawn && streetNetwork vorhanden?
       → URL mit generiertem Spawn synchronisieren
 
 Spawns aus URL/Service vorhanden?
-  → Alle Spawns mit Markern und Pfaden hinzufuegen
+  → Alle Spawns mit Markern und Pfaden hinzufügen
 ```
 
 ## Location Dialog Component
@@ -571,7 +571,7 @@ Angular Material Dialog mit drei Modi:
 
 | Modus | Beschreibung |
 |-------|--------------|
-| `random` | Automatisch 500m-1km vom HQ auf Strasse platziert |
+| `random` | Automatisch 500m-1km vom HQ auf Straße platziert |
 | `manual` | Adresse per Autocomplete suchen |
 
 ### Features
@@ -581,7 +581,7 @@ Angular Material Dialog mit drei Modi:
   - Showcase: 12 Orte aus `configs/showcase-locations.config.ts` (Name, eine Zeile Hinweis), Spawn zufällig wie im Modus Random. Koordinaten gegen OSM (Nominatim) geprüft, auf Fußweg, Straße oder Platz; nicht einzeln im Spiel angespielt. Ein Ort kann einen festen Spawn tragen (`ShowcaseLocation.spawn`, optional mit Kompasskurs, `SavedSpawn`); ein Klick lädt ihn dann über denselben Pfad wie einen Spawn aus URL oder Favorit (`spawn.id: 'spawn_showcase'`, keine Zufallssuche). `__showcase.line()` in den DevTools druckt ein einfügefertiges `ShowcaseLocation`-Snippet für den aktuellen Ort (id/name/hint als `'TODO'`), zum Weitergeben neuer Einträge
 - **Autocomplete-Suche** via `AddressAutocompleteComponent` (Nominatim)
 - **Manuelle Koordinaten-Eingabe** (ausklappbar, nur für das HQ: "Enter coordinates")
-  - Unterstuetzte Formate beim Einfuegen:
+  - Unterstützte Formate beim Einfügen:
     - Dezimal: `49.5432, 9.1234`
     - Kardinal: `49.5432°N, 9.1234°E`
     - Kardinal vorangestellt: `N 49.5432, E 9.1234`
@@ -606,19 +606,19 @@ Bei `isRandom: true` (`id: 'spawn_random'`, `lat`/`lon` = 0) lädt der Coordinat
 
 ## HQ-Relocation (interaktives Versetzen)
 
-Wenn der Spieler das HQ ueber die Map-Platzierung versetzt, waehlt `MapRelocationService.applyNewHqPosition()` (`services/facade/map-relocation.service.ts`) zwischen zwei Pfaden:
+Wenn der Spieler das HQ über die Map-Platzierung versetzt, wählt `MapRelocationService.applyNewHqPosition()` (`services/facade/map-relocation.service.ts`) zwischen zwei Pfaden:
 
 ### Fast Path (innerhalb Street-Bounds)
 
 Wenn das neue HQ innerhalb der geladenen Street-Network-Bounds liegt:
 - Kein Street-Reload, kein Loading Screen
-- Strassennetz wird wiederverwendet
+- Straßennetz wird wiederverwendet
 - Alte Spawns werden via `findPath()` revalidiert
 - Wenn kein alter Spawn erreichbar ist → Random Spawn generieren
 
-### Slow Path (ausserhalb Street-Bounds)
+### Slow Path (außerhalb Street-Bounds)
 
-Wenn das HQ ausserhalb der Bounds platziert wird (z.B. 10km entfernt):
+Wenn das HQ außerhalb der Bounds platziert wird (z.B. 10km entfernt):
 - Volle 7-Step Location Change Pipeline (mit Loading Screen)
 - **Spawn-Discard-Logik**: Alter Spawn wird verworfen wenn >1500m vom neuen HQ (`SPAWN_DISCARD_DISTANCE`)
 - Bei verworfenen/fehlenden Spawns: Streets werden vorab geladen, Random Spawn generiert (500-1000m)
@@ -677,9 +677,9 @@ Jeder Versuch bei einem Overpass-Server (`OsmStreetService.fetchOverpass`, für 
 
 ### HQ-Placement-Validierung (`MapPlacementService`)
 
-| Modus | Innerhalb Bounds | Ausserhalb Bounds |
+| Modus | Innerhalb Bounds | Außerhalb Bounds |
 |-------|------------------|-------------------|
-| `hq` | Naehe zu Strasse pruefen (max 150m) | Immer erlaubt (Streets werden nachgeladen) |
+| `hq` | Nähe zu Straße prüfen (max 150m) | Immer erlaubt (Streets werden nachgeladen) |
 | `spawn` | 200-1500 m Luftlinie zum HQ, dann ein Way des geladenen Netzes höchstens 30 m entfernt ("Too far from streets"), dann eine Route von dort zum HQ ("No route to HQ") | Gleiche Prüfung; ohne geladenen Way in 30 m "Streets not loaded here" |
 
 Beim Platzieren eines Spawns zeigt die Karte zwei Ringe um das HQ (200 m und 1500 m), `SpawnDistanceRings` (`three-engine/renderers/spawn-distance-rings.ts`): auf dem Boden (eine Säulenprobe je Punkt, 96 Punkte je Ring, ohne Tile die Bodenhöhe am HQ), 3 px gestrichelt über einem durchgehenden dunklen Saum von 7 px (`--td-panel-shadow`, 60 %), Line2 mit Pixelbreite, ohne Tiefentest. Die Canvas-Größe dafür setzt Line2 vor jedem Zeichnen neu aus dem Viewport des Renderers (`LineSegments2.onBeforeRender`), ein Resize wirkt also ab dem nächsten Frame. Die Säulenproben (2 × 96 Punkte plus je eine in der Mitte) laufen beim Start der Platzierung am Stück; `__raycastStats()` bucht ihre Strahlen unter `spawnRings`. Innen `--td-warn-orange` (bis dahin "Too close to HQ"), außen das Grün der gültigen Vorschau (ab da "Too far from HQ"), je Ring 48 Striche. Beim Versetzen des HQ gibt es keine Ringe.
@@ -698,9 +698,9 @@ MIN_SPAWN_DISTANCE = 500          // Random Spawn: Mindestdistanz zum HQ
 MAX_SPAWN_DISTANCE = 1000         // Random Spawn: Maximaldistanz zum HQ
 MIN_MANUAL_SPAWN_DISTANCE = 200   // Spawn per Kartenklick: Mindestdistanz zum HQ (MapPlacementService)
 MAX_MANUAL_SPAWN_DISTANCE = 1500  // Spawn per Kartenklick: Maximaldistanz; der Dialog prüft 1500 m separat
-MAX_HQ_STREET_DISTANCE = 150      // HQ per Kartenklick: max Distanz zur naechsten Strasse (nur im geladenen Kasten)
-MAX_SPAWN_STREET_DISTANCE = 30    // Spawn per Kartenklick: max Distanz zum naechsten Way des geladenen Netzes
-STREET_FILTER_RADIUS = 100        // Radius fuer Street-Filter um Routen
+MAX_HQ_STREET_DISTANCE = 150      // HQ per Kartenklick: max Distanz zur nächsten Straße (nur im geladenen Kasten)
+MAX_SPAWN_STREET_DISTANCE = 30    // Spawn per Kartenklick: max Distanz zum nächsten Way des geladenen Netzes
+STREET_FILTER_RADIUS = 100        // Radius für Street-Filter um Routen
 SPAWN_COLORS = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]  // bis zu 4 Spawns
 ```
 
@@ -711,12 +711,12 @@ SPAWN_COLORS = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]  // bis zu 4 Spawns
 zurückgesetzt in STEP 7 oder im Fehlerfall). `VisualizationFacadeService` unterscheidet
 damit das erste Laden vom Ortswechsel. Keine UI-Komponente liest das Flag.
 
-## Bekannte Einschraenkungen
+## Bekannte Einschränkungen
 
-### Nominatim-Geocoding Praezision
-Nominatim gibt oft Strassen-Koordinaten statt exakte Gebaeude-Koordinaten zurueck.
+### Nominatim-Geocoding Präzision
+Nominatim gibt oft Straßen-Koordinaten statt exakte Gebäude-Koordinaten zurück.
 
-**Workaround:** Manuelle Koordinaten-Eingabe nutzen (Dezimal, DMS, oder Google Maps URL einfuegen).
+**Workaround:** Manuelle Koordinaten-Eingabe nutzen (Dezimal, DMS, oder Google Maps URL einfügen).
 
 ### Rate-Limiting
 Nominatim hat strikte Rate-Limits. Der GeocodingService verwendet:
