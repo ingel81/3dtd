@@ -300,14 +300,7 @@ export class ReplayPlayer {
       engine.tentacles.setVisible(id, true);
     }
     this.laterTowers.length = 0;
-    for (const strikeId of this.pendingStrikes) engine.abilityMarkers.removeStrike(strikeId);
-    this.pendingStrikes.clear();
-    if (this.abilityLanded) {
-      engine.mushroomClouds.clear();
-      engine.frostBursts.clear();
-      engine.empPulses.clear();
-      engine.orbitalBeams.clear();
-    }
+    this.clearStrikes();
     if (this.heroShown) engine.hero.clear();
     this.heroShown = false;
     engine.bloodMoon.setActive(this.bloodMoonBefore, true);
@@ -354,6 +347,7 @@ export class ReplayPlayer {
     this.stunSparkAt.fill(0);
     // A rumbling tail from before the jump is not heard after it
     this.audio?.clearTail();
+    this.clearStrikes();
     // From the start the events at 0 are still to come (the first sounds of the wave)
     this.eventCursor = t > 0 ? this.rec.eventAfter(t) : 0;
     this.apply(t, false);
@@ -953,6 +947,25 @@ export class ReplayPlayer {
   }
 
   // ── Events ───────────────────────────────────────────────────────
+
+  /**
+   * Take down what the replay's strikes put up: the markers still waiting
+   * for their impact and, once one landed, the clouds, bursts, pulses and
+   * beams (those of the live game with them). On exit and on every jump: a
+   * marker whose impact the jump skipped would stand to the end, an effect
+   * from before a jump back would run on and land a second time.
+   */
+  private clearStrikes(): void {
+    const engine = this.engine;
+    for (const strikeId of this.pendingStrikes) engine.abilityMarkers.removeStrike(strikeId);
+    this.pendingStrikes.clear();
+    if (this.abilityLanded) {
+      engine.mushroomClouds.clear();
+      engine.frostBursts.clear();
+      engine.empPulses.clear();
+      engine.orbitalBeams.clear();
+    }
+  }
 
   /** Play the recorded events up to `ms` on the replay's own bus. */
   private emitEventsUpTo(ms: number): void {
