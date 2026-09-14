@@ -619,6 +619,46 @@
       mit; neue Zähler dieser Art müssen `wave:jumped` abonnieren. Rückwärts
       springen gibt es nicht.
 
+- [ ] **Replay: Re-Simulation durch Determinismus-Blocker verhindert** (laut replay)
+      Das Replay zeigt nur, was die Renderer gezeigt haben (`docs/REPLAY.md`).
+      Eine Re-Simulation aus Wellenstart und Befehlen scheitert heute an:
+      ungeseedetem `Math.random()` beim Spawn (Seitenversatz, Flughöhe;
+      `EnemyManager.spawn()`) und bei der Spawnpunkt-Wahl
+      (`WaveManager.selectSpawnPoint()`, Standard `'random'`); der Tower-LOS
+      aus GPU-Readbacks gegen gestreamte Tiles (`losReady`, Zellhöhen beim
+      Nachladen); der Turmdrehung, die das Feuern freigibt, im Renderer
+      (`advanceTurretAim`); den Simulationsdiensten als Singletons des
+      laufenden Spiels. Dieselben Blocker wie in
+      `docs/MULTIPLAYER_CONCEPT.md`, Abschnitt 2. Die Befehle der Welle stehen
+      schon als Klartext im Log, darauf kann eine Re-Simulation aufsetzen.
+
+- [ ] **Replay: Lücken und ungemessene Kosten** (laut replay, ungesehen)
+      Nicht wiedergegeben: Schadenszahlen, Gold-Popups, Aufblitzen der
+      Kettenblitze, Eis-Explosionen der Eis-Treffer, Bodenmarken
+      (angehalten), Gegner-Sounds, Ooze-Blubbern, Flammen-Loop, Verlauf des
+      HQ-Feuers, Boss-Tod-Shake, Ringe des Helden; Upgrades nicht Schritt für
+      Schritt. Gegner, die zwischen zwei Frames spawnen und sterben, fehlen.
+      Die Aufnahme kostet in jsdom etwa 0,8 ms je Spielsekunde, im Browser
+      ungemessen; Stichproben bis 48 MB, Events geschätzt bis 15 MB, die
+      Spalten bleiben nach der ersten großen Welle reserviert. Landet im
+      Replay eine Fähigkeit, räumt das Verlassen auch deren Effekte im
+      Live-Spiel ab. Die Boss-Intro-Sperre in `ReplayService.enter()` hat
+      keinen Test (`services/replay.service.ts`).
+
+- [ ] **Review-Fixes: bewusst ausgelassen** (laut fix2 und fix3)
+      Die Portal-Shader-Inhalte haben keine eigene Spec (review2, zweiter
+      Teil von Befund 14). Der Raycast-Cache von `BodyAim` verfällt nicht bei
+      einem Debug-Override der Tip-Höhe. Fließt eine Ooze über einen
+      Wellenwechsel ins HQ, zählt sie in der neuen Welle noch einmal als Leck
+      (im normalen Ablauf endet eine Welle erst ohne Gegner). Die Drossel des
+      HQ-Shakes läuft auf der Wanduhr. Der Flammenkegel prüft den Ooze-Körper
+      an zwei Stichproben, schräg kreuzend kann ein Treffer fehlen. Ein
+      Neubau des Routengraphen in der Pause zeigt den Helden erst beim
+      Fortsetzen. Die Bot-Strategien der Fähigkeiten rechnen
+      `enemiesFromProgress` je Strategie. Weitere Eingangsverschiebungen des
+      ONNX-Modells seit April (außer Forschungsquote und Held-DPS) sind nicht
+      untersucht.
+
 ---
 
 # PRIO 2 — Balance & Phase-5.16-Followups
