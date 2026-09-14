@@ -19,8 +19,6 @@ import type { DevWorldWorkerMessage, DevWorldWorkerResponse, DevWorldWorkerConfi
  * - Seeded reproducibility (same seed = same world)
  * - Live regeneration via regenerate() method
  */
-/** Road thickness (height) in meters */
-const _ROAD_THICKNESS = 0.3; // Reserved for future use
 /** Road height offset above terrain */
 const ROAD_HEIGHT_OFFSET = 0.5;
 
@@ -52,9 +50,6 @@ export class DevTerrainProvider implements TerrainProvider {
   // Web Worker for off-main-thread generation
   private worker: Worker | null = null;
 
-  // TerrainGenerator kept for height sampling after generation
-  private terrainGenerator: TerrainGenerator | null = null;
-
   // Generated data
   private streetSegments: StreetSegment[] = [];
   private spawnPoints: SpawnPoint[] = [];
@@ -75,7 +70,6 @@ export class DevTerrainProvider implements TerrainProvider {
 
   // Height cache for performance
   private heightCache = new Map<string, number>();
-  private readonly CACHE_PRECISION = 5; // decimal places
 
   // Shared building material (MeshLambertMaterial for better performance)
   private buildingMaterial: THREE.MeshLambertMaterial | null = null;
@@ -99,8 +93,6 @@ export class DevTerrainProvider implements TerrainProvider {
 
   async initialize(scene: THREE.Scene): Promise<void> {
     this.scene = scene;
-
-    const _startTime = performance.now();
 
     // Generate everything from seed
     await this.regenerate();
@@ -130,8 +122,6 @@ export class DevTerrainProvider implements TerrainProvider {
   async regenerate(): Promise<void> {
     const { terrain, seed, buildings } = this.devWorld.config;
 
-    const startTime = performance.now();
-
     // Clear existing
     this.clearWorld();
 
@@ -157,8 +147,11 @@ export class DevTerrainProvider implements TerrainProvider {
     this.streetSegments = result.streetSegments;
     this.spawnPoints = result.spawnPoints;
 
-    // Create TerrainGenerator for height sampling (reuses heightData)
-    this.terrainGenerator = new TerrainGenerator({
+    // Kept: nothing reads the instance (the removed `terrainGenerator` field
+    // was write-only), but constructing it consumes its own self-contained
+    // seeded RNG, not a shared one, so dropping the call entirely is a
+    // separate, larger change left for later.
+    new TerrainGenerator({
       preset: terrain as TerrainPreset,
       seed,
       size: DEV_WORLD_HEIGHTMAP_SIZE,
@@ -181,8 +174,6 @@ export class DevTerrainProvider implements TerrainProvider {
     if (this.onStreetRefreshCallback) {
       this.onStreetRefreshCallback(this.streetSegments, this.spawnPoints);
     }
-
-    const _meshTime = performance.now() - startTime - result.timing.total;
   }
 
   /**
@@ -353,7 +344,6 @@ export class DevTerrainProvider implements TerrainProvider {
    */
   private createTerrainSkirt(segments: number): void {
     const halfSize = DEV_WORLD_SIZE / 2;
-    const _skirtDepth = 100; // Reserved: how far down the skirt extends
     const skirtBottom = -50; // Bottom Y position
 
     const vertices: number[] = [];
