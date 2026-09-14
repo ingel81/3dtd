@@ -38,7 +38,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Rocket | projectile | siege | 40 | 100m | 0.5/s | 120 | **Nur Luft-Ziele** |
 | Ice | projectile | ice | 5 | 60m | 0.33/s | 90 | Slow-Effekt, Air+Ground, Splash |
 | Fire | **beam** | fire | 35 DPS | 20m (= Flammenlänge) | – | 110 | Flammenkegel, nur Boden, 20 % der DPS als Burn-DoT (3 s), Upgrade `beam-width` statt `speed` |
-| Tentacle | **melee** | physical | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering (`meleeStrikeDuration: 250`) |
+| Tentacle | **melee** | physical | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering |
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
@@ -139,7 +139,6 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `defaultTargeting` | TargetingStrategy | `'closest'` | Standard-Targeting-Strategie |
 | `defaultAirSubStrategy` | AirSubStrategy | `'closest'` | Auswahl unter Air-Zielen bei `air-priority` |
 | `firePoints` | { x, z }[] | - | Mehrere Feuer-Positionen (z.B. Dual-Gatling) |
-| `meleeStrikeDuration` | number | 250 | Melee-Angriffs-Dauer in ms (z.B. Tentacle) |
 | `maxJumps` | number | - | **Chain-only:** Anzahl zusätzlicher Ziele nach Primary (Lightning: 2 → 3 Hits) |
 | `chainFalloff` | number | - | **Chain-only:** Schaden-Multiplier pro Jump (Lightning: 0.7 → 100%/70%/49%) |
 | `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
