@@ -67,6 +67,33 @@ describe('ScreenShakeService', () => {
     service.destroy();
   });
 
+  it('shakes for HQ damage at most once per interval, unless a harder hit comes in', () => {
+    const { eventBus, engine, service } = setup();
+    const { hqDamageMinIntervalMs } = SCREEN_SHAKE_CONFIG;
+    const now = vi.spyOn(performance, 'now');
+    const hurt = (ms: number, delta: number) => {
+      now.mockReturnValue(ms);
+      eventBus.emit({ type: 'health:changed', health: 50, delta });
+    };
+
+    // An ooze flowing in at 4x: a point every 130 ms of wall time
+    for (let t = 0; t < hqDamageMinIntervalMs; t += 130) hurt(1000 + t, -1);
+    // A harder leak in between still shakes
+    hurt(1500, -20);
+    hurt(1900, -1);
+    // The next point once the interval since the last shake has run
+    hurt(1500 + hqDamageMinIntervalMs, -1);
+
+    const { amplitude, duration } = presets.hqDamage;
+    expect(engine.triggerScreenShake.mock.calls).toEqual([
+      [amplitude * 0.5, duration],
+      [amplitude * 2, duration],
+      [amplitude * 0.5, duration],
+    ]);
+    now.mockRestore();
+    service.destroy();
+  });
+
   it('shakes once for a worm, when its last segment dies', () => {
     const { eventBus, engine, service } = setup();
     const segment = (remaining: number) =>
