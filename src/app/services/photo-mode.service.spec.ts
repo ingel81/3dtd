@@ -18,6 +18,17 @@ vi.mock('../devworld/devworld.service', () => ({ DevWorldService: class DevWorld
 vi.mock('../store/ui.store', () => ({ UIStore: class UIStore {} }));
 vi.mock('../store/tower-defense.store', () => ({ TowerDefenseStore: class TowerDefenseStore {} }));
 
+// Image loading, stamping and the download need a browser; the file name stays real.
+const screenshot = vi.hoisted(() => ({
+  loadImage: vi.fn(async (src: string) => ({ src }) as unknown as HTMLImageElement),
+  stampScreenshot: vi.fn(),
+  downloadCanvasPng: vi.fn(async () => true),
+}));
+vi.mock('../utils/screenshot', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils/screenshot')>()),
+  ...screenshot,
+}));
+
 // afterNextRender runs when the test has drawn the frame.
 const rendered = vi.hoisted(() => [] as (() => void)[]);
 vi.mock('@angular/core', async (importOriginal) => ({
@@ -172,5 +183,64 @@ describe('PhotoModeService focus', () => {
     drawFrame();
 
     expect(document.activeElement).toBe(save);
+  });
+});
+
+describe('PhotoModeService screenshot', () => {
+  const frame = {} as HTMLCanvasElement;
+
+  function build(devWorld: boolean, tileProvider: 'google' | 'cesium'): PhotoModeService {
+    const injector = Injector.create({
+      providers: [
+        { provide: UIStore, useValue: { photoMode: signal(true), openMenu: signal(null), mapPlacementMode: signal(false) } },
+        {
+          provide: TowerDefenseStore,
+          useValue: { loading: signal(false), error: signal(null), mapAttribution: signal('Map data ©2026 Google') },
+        },
+        { provide: GameStateManager, useValue: {} },
+        { provide: TowerPlacementService, useValue: {} },
+        { provide: MapPlacementService, useValue: {} },
+        { provide: AbilityTargetingService, useValue: {} },
+        { provide: EngineInitializationService, useValue: { getEngine: () => ({ captureFrame: async () => frame }) } },
+        { provide: LocationManagementService, useValue: { displayName: () => 'Paris' } },
+        { provide: ConfigService, useValue: { tileProvider: () => tileProvider } },
+        { provide: DevWorldService, useValue: { isActive: devWorld } },
+        { provide: LiveAnnouncer, useValue: { announce: vi.fn() } },
+        { provide: ElementRef, useValue: new ElementRef(document.createElement('div')) },
+      ],
+    });
+    return runInInjectionContext(injector, () => new PhotoModeService());
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('stamps the game logo and address next to the map attribution, then saves the picture', async () => {
+    const service = build(false, 'google');
+    await service.saveScreenshot();
+
+    expect(screenshot.loadImage.mock.calls.map(([src]) => src)).toEqual([
+      'assets/images/logo/logo.png',
+      'assets/images/ui/google-maps-logo.svg',
+    ]);
+    expect(screenshot.stampScreenshot).toHaveBeenCalledWith(
+      frame,
+      'Map data ©2026 Google',
+      [{ src: 'assets/images/ui/google-maps-logo.svg' }],
+      { logo: { src: 'assets/images/logo/logo.png' }, url: 'https://3dtd.sgeht.net' },
+    );
+    expect(screenshot.downloadCanvasPng).toHaveBeenCalledWith(frame, expect.stringMatching(/^3dtd-paris-\d{8}-\d{6}\.png$/));
+    expect(service.saving()).toBe(false);
+  });
+
+  it('stamps the game mark in DevWorld too, where no provider logo shows', async () => {
+    await build(true, 'cesium').saveScreenshot();
+    expect(screenshot.stampScreenshot).toHaveBeenCalledWith(
+      frame,
+      'Map data ©2026 Google',
+      [],
+      { logo: { src: 'assets/images/logo/logo.png' }, url: 'https://3dtd.sgeht.net' },
+    );
   });
 });
