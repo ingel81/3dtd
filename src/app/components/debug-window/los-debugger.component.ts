@@ -372,7 +372,6 @@ export class LosDebuggerComponent implements AfterViewInit, OnDestroy {
 
     // Mittiges Crosshair, plus 1-Pixel-Markierung exakt auf dem hover-
     // pixel (im Zoom-Coordinate-System).
-    const center = ZOOM_CANVAS_PX / 2;
     // Position des hover-pixels innerhalb des Crops (kann bei Edge-Clamp
     // vom Center abweichen)
     const inCropX = pix.px - sx;
@@ -392,7 +391,6 @@ export class LosDebuggerComponent implements AfterViewInit, OnDestroy {
     ctx.moveTo(markerX, 0); ctx.lineTo(markerX, ZOOM_CANVAS_PX);
     ctx.moveTo(0, markerY); ctx.lineTo(ZOOM_CANVAS_PX, markerY);
     ctx.stroke();
-    void center; // suppress unused
   }
 
   private offscreen: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; size: number } | null = null;
