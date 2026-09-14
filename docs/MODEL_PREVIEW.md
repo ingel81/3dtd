@@ -1,6 +1,6 @@
 # 3D Model Preview System
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-14
 
 Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Sidebar.
 
@@ -150,6 +150,25 @@ directionalLight.position.set(2, 4, 3);
 const rimLight = new THREE.DirectionalLight(0x88ccff, 0.3);
 rimLight.position.set(-2, 1, -2);
 ```
+
+### Metall ohne Umgebung
+
+Die Vorschau-Szene hat keine Environment-Map. Ein Material mit `metalness` 1
+hat in three.js keinen Diffus-Anteil (`diffuseContribution = diffuseColor *
+(1.0 - metalnessFactor)` in `lights_physical_fragment`), das AmbientLight
+trägt dann nichts bei, es bleiben die Glanzlichter der zwei gerichteten
+Lichter: Das Modell wirkt dunkel. Lässt ein GLB `metallicFactor` weg, setzt
+GLTFLoader den glTF-Standard 1,0. Im Spiel betrifft das keinen Gegner, der
+VAT-Shader nimmt vom Material nur die Basisfarbe.
+
+- `zombie_v2.glb` hatte seit dem Import (2026-05-15) kein `metallicFactor`,
+  seit 2026-09-14 steht dort 0 (Playtest 515, "etwas dunkel"). Den
+  zombie-v2-Lauf von `tools/blender/optimize_enemy.py` liest und schreibt
+  dieselbe Datei; dass ein neuer Lauf die 0 übernimmt, ist nicht mit Blender
+  nachgeprüft.
+- Ebenfalls ohne `metallicFactor` (Stand 2026-09-14): bear ohne Emissive,
+  stone_golem, herbert_optimized und wraith mit einer Emissive-Textur bei
+  Faktor 1, die unabhängig vom Licht leuchtet. Nicht geändert.
 
 ## Verwendung
 
