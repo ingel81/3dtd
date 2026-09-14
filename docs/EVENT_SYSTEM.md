@@ -279,7 +279,7 @@ function gameLoop(deltaTime: number) {
 | **HQDamageService** | Ja | Mixed | Reagiert auf `health:changed`, emittiert `audio:play` |
 | **GameStateSyncService** | Ja | Subscriber | Synchronisiert Game State mit Angular UI |
 | **GameStateManager** | Ja | Adapter | Orchestriert Manager, emittiert `game:started`, `game:over`, `game:reset`; über seine Klassen in `managers/game-state/` außerdem `credits:changed`, `health:changed`, `tower:upgraded` |
-| **ReplayRecorder** | Nein | Subscriber (`onAny`) | Nimmt die laufende Welle für das Replay auf: startet bei `wave:started`, liest Spawns, Tode, Lecks, `projectile:hit`, gebaute und verkaufte Tower, die Effekt-Events (`vfx:*`, `audio:play`, `ability:*`, `health:changed`, `enemy:split`, `hero:level-up`) und jedes `command:*`; `wave:started` der nächsten Welle und `wave:jumped` verwerfen die Aufnahme. Emittiert nichts. Der `ReplayPlayer` spielt die Effekt-Events später auf einem eigenen Bus ab. Siehe [REPLAY.md](REPLAY.md) |
+| **ReplayRecorder** | Nein | Subscriber (`onAny` nur während einer aufgenommenen Welle, sonst typisiert `wave:started`, `command:start-wave`, `wave:jumped`) | Nimmt die laufende Welle für das Replay auf: startet bei `wave:started`, liest Spawns, Tode, Lecks, `projectile:hit`, gebaute und verkaufte Tower, die Effekt-Events (`vfx:*`, `audio:play`, `ability:*`, `health:changed`, `enemy:split`, `hero:level-up`) und jedes `command:*`; `wave:started` der nächsten Welle und `wave:jumped` verwerfen die Aufnahme. Emittiert nichts. Der `ReplayPlayer` spielt die Effekt-Events später auf einem eigenen Bus ab. Siehe [REPLAY.md](REPLAY.md) |
 
 ---
 
@@ -305,9 +305,13 @@ eventBus.onAny((event) => {
 });
 ```
 
-`onAny` hört vor den typisierten Listenern desselben Events. Neben dem
-Event-Debugger nutzt es der `ReplayRecorder`, damit jedes `command:*` im Log
-landet, auch eines, das es beim Schreiben des Recorders noch nicht gab.
+`onAny` hört vor den typisierten Listenern desselben Events. Ein Wurf in
+einem Catch-all-Listener wird gefangen und geloggt wie bei den typisierten:
+er bricht `emit` nicht ab. Ohne Catch-all-Listener (`catchAllListenerCount`
+0) bleibt `emit` auf seinem schnellen Pfad. Neben dem Event-Debugger nutzt es
+der `ReplayRecorder`, damit jedes `command:*` im Log landet, auch eines, das
+es beim Schreiben des Recorders noch nicht gab; er hängt nur dort, solange er
+eine gerenderte Welle aufnimmt.
 
 ---
 

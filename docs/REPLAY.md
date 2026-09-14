@@ -42,7 +42,7 @@ spätere Re-Simulation, sobald die Blocker gelöst sind, kann darauf aufsetzen
 |-------|---------|
 | `configs/replay.config.ts` | Framedichte, Speichergrenze, Event-Grenze, Geschwindigkeiten |
 | `replay/replay-recording.ts` | Die Aufnahme: Tabellen je Gegner, Projektil, Turm, Frames als Typed-Array-Spalten, Events, Befehle, HQ-Leben; Speichergrenze mit Ausdünnen (`thin()`) |
-| `replay/replay-recorder.ts` | Nimmt auf. Gehört dem `GameStateManager`, liest den Bus über `onAny()` |
+| `replay/replay-recorder.ts` | Nimmt auf. Gehört dem `GameStateManager`, liest den Bus während einer aufgenommenen Welle über `onAny()` |
 | `replay/replay-events.ts` | Welche Events aufgehoben werden und in welcher Form; Befehle als Klartext (`toPlainData`) |
 | `replay/replay-player.ts` | Spielt eine Aufnahme über die Live-Renderer ab und gibt sie danach unverändert zurück |
 | `replay/replay-bar-view.ts` | Reine Funktionen für die Leiste: Befehls-Marken, Zeit, Geschwindigkeit |
@@ -120,6 +120,14 @@ wachsen (`truncated`), das Replay endet früher. Die Frames liegen immer auf
 Vielfachen des aktuellen Abstands ab Wellenbeginn, deshalb geht das Ausdünnen
 ohne Lücken weiter.
 
+Die Spalten wachsen durch Verdoppeln. Passt das nicht mehr ins Budget,
+wächst eine Spalte auf ihren Bedarf und bis zur Hälfte davon darüber hinaus,
+soweit das Budget reicht (`GROWTH_SLACK`), statt in jedem Frame genau auf den
+Bedarf. So gibt es zwischen dem letzten Verdoppeln und dem Ausdünnen ein oder
+zwei Neuanlagen, nicht eine je Frame. Während einer Neuanlage bestehen alte
+und neue Spalte kurz nebeneinander; der Speicher liegt in diesem Moment um
+die alte Spalte über dem Budget.
+
 Rechnung für den ungünstigsten Fall, 2 800 Körper gleichzeitig auf der Route
 (ein Skelett-Schwarm am Rand seiner Template-Spanne; die Curriculum-W19 hat
 310 Skelette mit je 2 Minions, höchstens 930 Körper):
@@ -146,7 +154,15 @@ Zählen der Körper vor jedem Frame (eine Schleife über die Gegnerliste); die
 Messung hat keine Oozes und keinen Helden, die je Frame eine
 beziehungsweise zwei Umrechnungen mehr kosten. Eine Messung im Browser steht aus. Die übrigen Sub-Steps kosten einen
 Zähler. Pro Frame wird nichts angelegt außer Map-Einträgen für neue Gegner
-und Projektile.
+und Projektile (und den seltenen Neuanlagen der Spalten, siehe Speicher).
+
+Am Bus hängt der Recorder nur, solange er eine gerenderte Welle aufnimmt, über
+den Catch-all-Pfad (`onAny`); Wellenstart, Startbefehl und Wellensprung hört
+er typisiert. Zwischen den Wellen und im Headless-Training bleibt `emit` damit
+auf seinem schnellen Pfad ohne Catch-all-Listener. Jeder Schritt des Recorders
+(Events, Frames, Abschluss) ist geschützt: ein Fehler verwirft die Aufnahme,
+wird geloggt und erreicht das Spiel nicht. Der Bus selbst fängt Würfe von
+Catch-all-Listenern ab wie die der typisierten.
 
 ---
 
@@ -165,11 +181,12 @@ eigenen Bus des Players, auf dem der `BossIntroService` nicht hört. Dann
 - Gegner und Projektile bekommen eigene Instanzen in den bestehenden Renderern (`replay-enemy-N`, `replay-projectile-N`); Positionen, Blickrichtungen und Turret-Drehungen werden zwischen zwei Frames interpoliert. Status-Tönungen und Auren, Eis (Tönung und Eiskristalle) und Betäubung (Tönung und Funken im Takt des Spiels, `STUN_SPARKS`), Gehen und Rennen, Todesanimationen (ab dem aufgezeichneten Todeszeitpunkt) und Lecks folgen der Aufnahme
 - Ein Ooze bekommt statt einer Instanz ein eigenes Band im `OozeBandRenderer` (unter derselben `replay-enemy-N`-Id), auf denselben Stationen und dem Boden des Route-Grids; Schwanz und Spitze werden interpoliert, Leben und Status kommen aus seiner Gegner-Stichprobe. Stirbt oder leckt er, sinkt das Band wie im Spiel (`OOZE_LOOK.dissolve`); ein Sprung davor legt es neu hin
 - Der Held-Renderer zeigt den aufgezeichneten Helden mit Pose und Blickrichtung, interpoliert. In Frames ohne Helden (vor dem Anheuern) ist er nicht zu sehen; der Live-Held kommt beim Verlassen zurück (`HeroManager.presentFrame()`). Der Blutmond-Look ist der der aufgezeichneten Welle, sofort ohne Überblendung; beim Verlassen kehrt der Live-Zustand zurück
-- Die Live-Türme drehen sich auf die aufgezeichnete Turret-Drehung und sind unsichtbar, bis sie in der Welle gebaut wurden. In der Welle verkaufte Türme kommen als eigene Modelle (`replay-tower-N`) mit Sockel und Tentakel zurück, nach der Welle gebaute sind während des Replays ausgeblendet. Flammenstrahlen und Tentakelschläge spielen aus den Turm-Stichproben
-- Die Effekt-Events laufen über einen eigenen Bus des Players, auf dem ein eigener `VFXService`, `AudioService` und `ScreenShakeService` hören: dieselben Effekte wie im Spiel. Oberhalb von 1x spielt das Replay keine Sounds
+- Die Live-Türme drehen sich auf die aufgezeichnete Turret-Drehung und sind unsichtbar, bis sie in der Welle gebaut wurden. In der Welle verkaufte Türme kommen als eigene Modelle (`replay-tower-N`) mit Sockel und Tentakel zurück, nach der Welle gebaute sind während des Replays ausgeblendet. Die Blutmond-Scheinwerfer folgen der Sichtbarkeit der Türme; ein verkaufter Turm bekommt einen eigenen, der um eine zufällige Richtung schwenkt, weil die Wachrichtung des Live-Turms nicht in der Aufnahme steht. Flammenstrahlen und Tentakelschläge spielen aus den Turm-Stichproben
+- Die Effekt-Events laufen über einen eigenen Bus des Players, auf dem ein eigener `VFXService`, `AudioService` und `ScreenShakeService` hören: dieselben Effekte wie im Spiel. Oberhalb von 1x spielt das Replay keine Sounds, auch keine Einschlagsounds der Fähigkeiten und keinen Nachhall: der `AudioService` des Players hört auf einem eigenen Bus, der dann nichts bekommt, und ein noch ausstehender Nachhall wird verworfen, ebenso bei einem Sprung
 - Der Timescale der Renderer folgt der Replay-Geschwindigkeit (0 in der Pause), damit laufen Gehzyklen, Todesanimationen und Atompilze mit
+- Je Frame rückt das Replay höchstens `GameClock.MAX_CATCHUP_MS` (50 ms) Echtzeit vor, wie die Spieluhr: ein langer Frame (GC, Shader-Kompilierung, Tiles) springt nicht und spielt nicht die Events einer langen Spanne auf einmal. Unter 20 Frames pro Sekunde läuft das Replay dadurch langsamer als sein Tempo
 - Bodenmarken (Blut, Frost, Brandflecken) sind angehalten (`holdGroundMarks`): die Einschläge der Welle haben den Boden schon markiert
-- Springen spielt keine Events dazwischen, holt Gegner zurück ins Leben, wenn der Sprung vor ihren Tod geht, und beginnt die Projektilspuren neu
+- Springen spielt keine Events dazwischen, holt Gegner zurück ins Leben, wenn der Sprung vor ihren Tod geht, und beginnt die Projektilspuren neu. Es nimmt Zielmarker weg, deren Einschlag noch aussteht, und räumt nach einer im Replay gelandeten Fähigkeit Atompilze, Frost-Explosionen, EMP-Wellen und Orbitallaser ab (wie `exit()` samt denen des Live-Spiels): ein übersprungener Einschlag ließ sonst den Marker bis zum Ende stehen, ein Sprung zurück ließ den Effekt beim erneuten Abspielen doppelt kommen
 
 `exit()` nimmt alle eigenen Instanzen weg, stellt Turret-Drehung, Suchschwenk,
 Tentakelschlag und Sichtbarkeit der Live-Türme zurück, entfernt die Replay-Modelle, gibt die
@@ -184,7 +201,7 @@ verwirft Trägheit und einen laufenden Zug.
 | „replay W12“ im WAVE-Panel (zwischen den Wellen) oder „Replay wave N“ auf dem Game-Over-Screen | Replay starten |
 | Leertaste, P, Play-Knopf | Pause und weiter; am Ende startet Play von vorn |
 | + / - , Geschwindigkeitsknöpfe | 0,25x, 0,5x, 1x, 2x, 4x |
-| Fortschrittsbalken (Maus, Pfeiltasten bei Fokus) | Springen; beim Ziehen hält das Replay an und spielt beim Loslassen weiter. Marken zeigen, wann der Spieler Befehle gab |
+| Fortschrittsbalken (Maus, Pfeiltasten bei Fokus) | Springen; beim Ziehen hält das Replay an und spielt beim Loslassen weiter (`pointerup`, `pointercancel`, auch nach einem Klick ohne Bewegen; `change` für die Tastatur). Marken zeigen, wann der Spieler Befehle gab |
 | Maus, WASD, Pos1, N | Kamera wie im Spiel |
 | Esc, Exit | Zurück ins Spiel |
 
@@ -204,7 +221,7 @@ gezeigten Moment, Tab bleibt in ihr.
 - Türme haben im Replay ihr heutiges Modell, Upgrades der Welle sind nicht Schritt für Schritt zu sehen
 - Ein Gegner, der zwischen zwei Frames spawnt und stirbt, hat keine Stichprobe und fehlt; nach dem Ausdünnen werden Kurven gröber
 - Eine Todesanimation, in deren Mitte gesprungen wird, beginnt von vorn. Zielmarker einer Fähigkeit erscheinen nur, wenn das `ability:used` abgespielt wurde, nicht nach einem Sprung; ebenso Atompilz, Frost-Explosion, EMP-Welle und Laser nur, wenn ihr `ability:impact` abgespielt wurde
-- Landet im Replay eine Fähigkeit, räumt `exit()` alle Atompilze, Frost-Explosionen, EMP-Wellen und Orbitallaser ab, auch einen, der im Spiel noch lief
+- Landet im Replay eine Fähigkeit, räumen jeder Sprung und `exit()` alle Atompilze, Frost-Explosionen, EMP-Wellen und Orbitallaser ab, auch einen, der im Spiel noch lief
 - Ein Sprung in das Absinken eines Ooze-Bandes zeigt kein Absinken, das Band fehlt dann; das Blubbern der Oozes fehlt (ein Loop an der Entity, kein Event)
 - Die Ringe des Helden (Auswahl, Posten, Laufziel) gibt es im Replay nicht, er ist dort nicht auswählbar
 
@@ -224,11 +241,13 @@ gezeigten Moment, Tab bleibt in ihr.
 
 | Spec | Prüft |
 |------|-------|
-| `replay/replay-recording.spec.ts` | Tabellen, Frames, Quantisierung, Posen des Helden, Wachsen bis zur Grenze, Ausdünnen mit erhaltenen Stichproben (auch Körper und Held), `truncated`, Event-Grenze |
-| `replay/replay-recorder.spec.ts` | Start und Ende, Frame-Takt, Stichproben mit Eis und Betäubung, Ooze-Körper, Held, Tabellen aus dem Bus, Türme mit Strahl und Schlag, Befehlslog mit den Befehlen des Helden, Effekt-Events mit `hero:level-up`, Blutmond, nur die letzte Welle, Verwerfen beim Wellensprung, kein Rendering keine Aufnahme; Kostenmessung |
+| `replay/replay-recording.spec.ts` | Tabellen, Frames, Quantisierung, Posen des Helden, Wachsen bis zur Grenze (nahe der Grenze höchstens zwei Neuanlagen bis zum Ausdünnen), Ausdünnen mit erhaltenen Stichproben (auch Körper und Held), `truncated`, Event-Grenze |
+| `replay/replay-recorder.spec.ts` | Start und Ende, Frame-Takt, Stichproben mit Eis und Betäubung, Ooze-Körper, Held, Tabellen aus dem Bus, Türme mit Strahl und Schlag, Befehlslog mit den Befehlen des Helden, Effekt-Events mit `hero:level-up`, Blutmond, nur die letzte Welle, Verwerfen beim Wellensprung, kein Rendering keine Aufnahme, Catch-all nur während der Aufnahme, ein Fehler verwirft die Aufnahme; Kostenmessung |
+| `game-engine/game-event-bus.spec.ts` | Catch-all-Listener: Wurf gefangen, Zähler, Abmelden während eines Events |
 | `replay/replay-recorder-budget.spec.ts` | Frames bleiben beim Ausdünnen auf dem Raster, Körper und Held gehen mit |
 | `replay/replay-events.spec.ts` | Auswahl der Events, Stummel für `enemy:split`, Klartext der Befehle |
-| `replay/replay-player.spec.ts` | Interpolation, Status, Eis und Betäubung, Lecks, Todesanimation und Zurückspringen, Ooze-Bänder (Strecke, Absinken, Zurückspringen, ohne Boden keins), Held, Blutmond, Projektile, Türme (Sichtbarkeit, Drehung, Strahl, Schlag), Events und Sounds, Rückgabe beim Verlassen samt Fähigkeiten-Effekten |
+| `replay/replay-player.spec.ts` | Interpolation, gedeckeltes Frame-Delta, Status, Eis und Betäubung, Lecks, Todesanimation und Zurückspringen, Ooze-Bänder (Strecke, Absinken, Zurückspringen, ohne Boden keins), Held, Blutmond, Projektile, Türme (Sichtbarkeit, Drehung, Strahl, Schlag, Scheinwerfer), Events und Sounds (Einschlag und Nachhall nur bis 1x, mit den echten Diensten), Zielmarker und Effekte beim Springen, Rückgabe beim Verlassen samt Fähigkeiten-Effekten |
+| `three-engine/renderers/searchlight/searchlight.renderer.spec.ts` | `setVisible()` je Turm, Slot bleibt |
 | `managers/hero.manager.spec.ts` | `getPresentation()` ohne Renderer |
 | `replay/replay-bar-view.spec.ts` | Marken, Zeitformat |
 | `services/hotkey.service.spec.ts` | Tasten während des Replays |
