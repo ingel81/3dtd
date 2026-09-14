@@ -1,90 +1,23 @@
-# Game Engine - Event System
+# Game Engine
 
-**Stand:** 2026-05-08
+Angular-freie Kernklassen: der Event Bus und die Dienste, die an ihm hängen und Effekte, Ton und Musik auslösen.
+Manager und Dienste reden über den Bus statt über direkte Aufrufe.
 
-Framework-agnostische Game Engine mit Event-basierter Kommunikation.
-Kann mit React, Vue oder Vanilla JavaScript verwendet werden.
-
----
-
-## Dokumentation
-
-Die vollstaendige Dokumentation befindet sich in `docs/`:
-
-- **[EVENT_SYSTEM.md](../../../docs/EVENT_SYSTEM.md)** - Event-Typen, Event Flow, Best Practices
-- **[ARCHITECTURE.md](../../../docs/ARCHITECTURE.md)** - Gesamt-Architektur
-- **[SPATIAL_AUDIO.md](../../../docs/SPATIAL_AUDIO.md)** - 3D Audio + Hintergrundmusik
-
----
-
-## Quick Start
-
-```typescript
-import { GameEventBus } from './game-engine';
-
-const eventBus = new GameEventBus();
-
-// Subscribe
-eventBus.on('enemy:died', (event) => {
-  console.log(`Enemy ${event.enemy.id} died, reward: ${event.credits}`);
-});
-
-// Emit
-eventBus.emit({
-  type: 'enemy:died',
-  enemy: myEnemy,
-  credits: 100,
-  position: new Vector3(10, 0, 5),
-});
-```
-
----
+Beschreibung, Event-Typen, Producer und Listener: [docs/EVENT_SYSTEM.md](../../../docs/EVENT_SYSTEM.md).
+Einordnung ins Ganze: [docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md). Ton und Musik:
+[docs/SPATIAL_AUDIO.md](../../../docs/SPATIAL_AUDIO.md).
 
 ## Dateien
 
-```
-src/app/game-engine/
-├── game-event-bus.ts          # Event Bus Core (~671 LOC)
-├── vfx.service.ts             # VFX Event Handler (~153 LOC)
-├── audio.service.ts           # Audio Event Handler (~61 LOC)
-├── background-music.service.ts # Phasen-basierte Musik: Main Theme, Track-Wahl, Loop
-├── music-mixer.ts             # Two-Channel A/B Crossfade (Fades, Loop vor Track-Ende)
-├── music-buffer-loader.ts     # Laden + Cache der Musik-Buffer
-├── screen-shake.service.ts    # Screen-Shake-Effekte
-├── blood-moon.service.ts      # Blutmond-Look an/aus nach Wellen-Events
-├── index.ts                   # Barrel exports
-└── README.md                  # Diese Datei
-```
-
----
-
-## Komponenten-Status
-
-| Komponente | Rolle |
-|------------|------|
-| GameEventBus | Core System (~40 Event-Typen) |
-| VFXService | Subscriber: `vfx:*`, `projectile:hit` |
-| AudioService | Subscriber: `audio:play` |
-| BackgroundMusicService | Phasen-getriggerter Track-Wechsel mit Crossfade |
-| ScreenShakeService | Subscriber: `vfx:projectile-impact` (nur nahe Einschläge), `health:changed`, `enemy:died` (Boss) |
-| BloodMoonService | Subscriber: `wave:started`, `wave:completed`, `game:over`, `game:reset` (Blutmond-Look) |
-| ProjectileManager | Producer: `projectile:hit`, `vfx:*`, `audio:play` |
-| EnemyManager | Producer: `enemy:died`, `enemy:reached-base`, `dot:damage` |
-| WaveManager | Producer: `wave:started`, `wave:completed` |
-| TowerManager | Producer: `tower:placed`, `tower:sold` |
-| ResearchManager | Producer: `research:started`, `research:completed`, `research:cancelled` |
-| CombatEffectService | Subscriber: `projectile:hit` |
-| DamageApplicationService | Schadens-Pipeline (Damage-Matrix) |
-| StatusEffectService | Slow / Burn / Poison (Game-Time) |
-| HQDamageService | Subscriber: `enemy:reached-base` |
-| GameStateManager | Adapter / Orchestrator |
-
----
-
-## Performance
-
-- Event Emission: ~50–100ns pro Event
-- Typische Last: ~50–100 Events/Frame @ 60 FPS
-- Overhead: ~5μs/Frame (0.03% des 16ms Budgets)
-
-**Vernachlaessigbarer Performance Impact.**
+| Datei | Rolle |
+|-------|-------|
+| `game-event-bus.ts` | `GameEventBus`, die Union `GameEvent`, `SubscriptionBag` |
+| `game-manager.interface.ts` | Gemeinsame Schnittstelle der Manager |
+| `vfx.service.ts` | Hört `vfx:*`, `ability:*`, `enemy:split`, `hero:level-up` und startet die Effekte |
+| `audio.service.ts` | Hört `audio:play` und `ability:impact`, spielt 3D-Ton |
+| `screen-shake.service.ts` | Kamerawackeln bei nahen Einschlägen, HQ-Schaden, Boss-Tod und Fähigkeiten |
+| `blood-moon.service.ts` | Blutmond-Look an und aus nach Wellen-Events |
+| `background-music.service.ts` | Musik nach Spielphase: Main Theme, Track-Wahl, Loop |
+| `music-mixer.ts` | Zwei Kanäle mit Crossfade |
+| `music-buffer-loader.ts` | Laden und Cache der Musik-Buffer |
+| `index.ts` | Barrel Exports |
