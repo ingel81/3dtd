@@ -51,6 +51,7 @@ import { LocationConfig, FavoriteLocation } from './models/location.types';
 import { CameraControlService } from './services/camera-control.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { HotkeyService } from './services/hotkey.service';
+import { TowerUpgradeService } from './services/tower-upgrade.service';
 import { TowerPlacementService } from './services/tower-placement.service';
 import { AbilityTargetingService } from './services/ability-targeting.service';
 import { HeroControlService } from './services/hero-control.service';
@@ -163,8 +164,9 @@ import { ABILITIES } from './configs/abilities.config';
     TowerDefenseFacadeService,
     GameLoopFacadeService,
     VisualizationFacadeService,
-    // Game hotkeys drive the facade, so they live in the same scope
+    // Game hotkeys and the upgrade purchases drive the facade, so they live in the same scope
     HotkeyService,
+    TowerUpgradeService,
     // Deselects through the component-scoped GameStateManager
     PhotoModeService,
     // Listens on the component-scoped GameStateManager's bus, ticked by the game loop
