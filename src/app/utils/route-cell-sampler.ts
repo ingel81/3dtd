@@ -309,6 +309,10 @@ export class RouteCellSampler {
    * the pavement behind a row of parked cars.
    */
   private groundInFront(cell: RouteCell, axisY: number, y: number): number | null {
+    // The walk never reaches less than the centre line, so a cell at most
+    // one step above it is reached whatever lies in between: no probes on
+    // the way out for the edge cells of a level street.
+    if (y <= axisY + corridorConfig.stepRise) return null;
     const size = this.cellSize;
     const gx = Math.round((cell.x - cell.axisX) / size);
     const gz = Math.round((cell.z - cell.axisZ) / size);
