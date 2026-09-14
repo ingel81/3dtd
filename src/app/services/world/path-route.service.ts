@@ -15,6 +15,7 @@ import {
   fitCorridorPieces,
   fitCorridorStations,
   probeFreeSpace,
+  probeLowWall,
   routeHalfWidths,
   runsUnderCover,
   segmentLeft,
@@ -88,9 +89,18 @@ export interface CorridorSideRow {
   /** First fine hit of the low and the high ray; the ray length where nothing was hit. */
   lowHitM: number | null;
   highHitM: number | null;
-  /** Both rays hit something within their length: a wall. */
+  /**
+   * Where the low ray alone stopped: how far the column 1 m behind its hit
+   * (LOW_WALL_BEHIND_M) comes down above the station's ground; null
+   * elsewhere. At least `lowWallRise`: the low hit is a wall.
+   */
+  lowRiseM: number | null;
+  /** The rays found a wall: both hit something within their length, or the low one a low wall (lowRiseM). */
   wall: boolean | null;
-  /** Free space the fitting starts from (the farther hit), after smoothing along the route. */
+  /**
+   * Free space the fitting starts from (the farther hit, the low one at a
+   * low wall, the outer face of an overhang), after smoothing along the route.
+   */
   freeM: number | null;
   smoothedM: number | null;
   /** Half width that gives now. */
@@ -829,7 +839,8 @@ export class PathAndRouteService {
         streetHalfWidthM: route.halfWidths[i],
         lowHitM: hits ? round1(hits[0]) : null,
         highHitM: hits ? round1(hits[hits.length - 1]) : null,
-        wall: hits ? hits.every((d) => d < corridorConfig.maxHalfWidth) : null,
+        lowRiseM: hits ? round1(probe?.lowRise?.[side] ?? NaN) : null,
+        wall: hits ? hits.every((d) => d < corridorConfig.maxHalfWidth) || probeLowWall(probe, side) : null,
         freeM: station ? round1(station.free) : null,
         smoothedM: station ? round1(station.smoothed) : null,
         halfWidthM: halfWidth,

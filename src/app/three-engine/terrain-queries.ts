@@ -1,7 +1,7 @@
 import { Box3, Raycaster, Vector3, type Intersection, type Object3D } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
-import { StationProbe, corridorConfig } from '../utils/route-corridor';
+import { LOW_WALL_BEHIND_M, StationProbe, corridorConfig, lowRayAlone } from '../utils/route-corridor';
 import { StreetDeck, continuesDeck } from '../utils/deck-approach';
 import { raycastStats } from '../utils/raycast-stats';
 import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
@@ -372,14 +372,19 @@ export class TerrainQueries {
    * Free space either side of a point on a street, for fitting the route
    * corridor to the street the tiles show. Casts a horizontal ray to each
    * side at every height in `heightsAboveGround`, over the column's ground
-   * (over its top `onDeck`, for a bridge). Only what blocks the rays at all
+   * (over its top `onDeck`, for a bridge). What blocks the rays at all
    * heights counts as a wall (a facade, a wall, a trunk), so the free space
-   * on a side is the farthest of the first hits: a parked van stops the
-   * low ray, an eave or a tree crown the high one, neither the corridor
-   * (probeFreeSpace, which makes an exception for a jetty right in front of
-   * its facade).
+   * on a side is the farthest of the first hits: an eave or a tree crown
+   * stops only the high ray, not the corridor (probeFreeSpace, which makes
+   * an exception for a jetty right in front of its facade).
    * Capped at `maxDistance`. `acrossX, acrossZ` points to the right of the
    * direction of travel.
+   *
+   * Where the low ray alone stops (lowRayAlone: a parked van, a hedge, a
+   * fence), one more column LOW_WALL_BEHIND_M behind its hit tells how far
+   * the ground there lies above the station's (`StationProbe.lowRise`);
+   * raised ground makes the hit a wall (probeLowWall). Not on a deck, where
+   * the lowest hit of that column is the river or road under the bridge.
    *
    * Only tiles up to `corridorConfig.maxTileError` count, for the column
    * and for the hits, so a coarse hull still waiting for its children
@@ -442,10 +447,33 @@ export class TerrainQueries {
         left.push(this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance));
         right.push(this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance));
       }
-      return { unmeasured: null, tileError: column.tileGeometricError, left, right, ...shifted };
+      const lowRise = onDeck
+        ? { left: NaN, right: NaN }
+        : {
+          left: this.riseBehindLowHit(x, z, -acrossX / len, -acrossZ / len, left, maxDistance, surfaceY),
+          right: this.riseBehindLowHit(x, z, acrossX / len, acrossZ / len, right, maxDistance, surfaceY),
+        };
+      return { unmeasured: null, tileError: column.tileGeometricError, left, right, lowRise, ...shifted };
     } finally {
       raycastStats.exit(scope);
     }
+  }
+
+  /**
+   * How far the column LOW_WALL_BEHIND_M behind the low ray's hit, along
+   * the horizontal unit direction (dirX, dirZ) from (x, z), comes down
+   * above `groundY`, where the low ray alone stopped (`hits` per ray
+   * height, see lowRayAlone). NaN where it did not, or where that column
+   * has no tile up to `maxTileError`.
+   */
+  private riseBehindLowHit(
+    x: number, z: number, dirX: number, dirZ: number, hits: readonly number[], maxDistance: number, groundY: number,
+  ): number {
+    if (!lowRayAlone(hits, maxDistance)) return NaN;
+    const reach = hits[0] + LOW_WALL_BEHIND_M;
+    const behind = this.sampleColumn(x + dirX * reach, z + dirZ * reach);
+    if (!behind || behind.tileGeometricError > corridorConfig.maxTileError) return NaN;
+    return behind.groundY - groundY;
   }
 
   /**
