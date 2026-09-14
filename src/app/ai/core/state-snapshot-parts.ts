@@ -6,7 +6,6 @@
 
 import { PlayerState, ResearchSnapshot } from './models/game-state-snapshot';
 import { WaveConfig } from './models/wave-config';
-import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { ArmorType } from '../../configs/combat/combat.types';
 import { getEnemyType, EnemyTypeId } from '../../configs/enemy-types.config';
@@ -36,10 +35,28 @@ export function playerState(baseHealth: number, credits: number): PlayerState {
   };
 }
 
+/**
+ * The research tree the shipped ONNX model knows: checkpoint 7350, trained
+ * from 2026-04-17 and exported 2026-04-27 (e8ae88a9), on these eleven nodes.
+ * The research quota the encoder reads (completedCount / totalCount) counts
+ * only them, so it keeps the scale the model was trained on. Every node
+ * added since (Storm Mastery, the T4/T5 tiers, Chaos Rift, the abilities, the
+ * hero's contract) would lower it at the same progress, and bots never take
+ * the contract, so it could not reach 1 any more. A new training run is the
+ * moment to widen it (AI_WAVE_DIRECTOR_PLAN.md, section 7).
+ */
+export const ENCODER_RESEARCH_IDS: readonly string[] = [
+  'gatling-tech', 'ice-magic', 'tentacle-biology', 'toxic-compounds', 'siege-engineering', 'fire-alchemy',
+  'arcane-studies', 'rocketry', 'aa-retrofit', 'advanced-weaponry', 'master-engineering',
+];
+
 /** Build a research-state snapshot from ResearchStore. */
 export function researchSnapshot(research: ResearchReader): ResearchSnapshot {
   const completed = research.completedResearches();
-  const totalCount = Object.keys(RESEARCH_TREE).length;
+  let completedCount = 0;
+  for (const id of ENCODER_RESEARCH_IDS) {
+    if (completed.has(id)) completedCount++;
+  }
 
   // Build per-tower unlock map
   const towerUnlocked: Record<TowerTypeId, boolean> = {} as Record<TowerTypeId, boolean>;
@@ -50,8 +67,8 @@ export function researchSnapshot(research: ResearchReader): ResearchSnapshot {
   const activeResearches = research.activeResearches();
   return {
     completedIds: [...completed],
-    completedCount: completed.size,
-    totalCount,
+    completedCount,
+    totalCount: ENCODER_RESEARCH_IDS.length,
     activeIds: activeResearches.map(a => a.researchId),
     centerLevel: research.centerLevel(),
     slotsUsed: activeResearches.length,

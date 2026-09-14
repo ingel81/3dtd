@@ -12,7 +12,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
 import { GlobalRouteGridService } from '../../services/world/global-route-grid.service';
 import { ComponentType } from '../../core/component';
-import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
+import { ENCODER_RESEARCH_IDS } from './state-snapshot-parts';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { WormGroup } from '../../managers/worm/worm-group';
@@ -471,7 +471,7 @@ describe('AIDataCollectorService', () => {
       expect(snap).toMatchObject({
         completedIds: ['gatling-tech'],
         completedCount: 1,
-        totalCount: Object.keys(RESEARCH_TREE).length,
+        totalCount: ENCODER_RESEARCH_IDS.length,
         activeIds: ['cannon-tech'],
         centerLevel: 2,
         slotsUsed: 1,
