@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { TransformComponent, TurningFlagSink } from './transform.component';
 import { GameObject } from '../core/game-object';
+import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 
 class TestGameObject extends GameObject {
   constructor() {
@@ -43,6 +44,40 @@ describe('TransformComponent', () => {
     } else {
       expect(true).toBe(true);
     }
+  });
+
+  describe('lookAt heading', () => {
+    // 10 m towards `bearingDeg` (0 north, 90 east) from 49°N, built in metres
+    function towards(bearingDeg: number): { lat: number; lon: number } {
+      const b = bearingDeg * DEG_TO_RAD;
+      return {
+        lat: 49 + (10 * Math.cos(b)) / METERS_PER_DEGREE_LAT,
+        lon: 8 + (10 * Math.sin(b)) / (METERS_PER_DEGREE_LAT * Math.cos(49 * DEG_TO_RAD)),
+      };
+    }
+
+    it('faces the true bearing of a diagonal street at 49°N, not the degree-delta angle', () => {
+      for (const bearing of [45, 135, -45, -135, 30]) {
+        const transform = new TransformComponent(new TestGameObject());
+        transform.setPosition(49, 8);
+        transform.lookAt(towards(bearing));
+        // rotation.y turns counterclockwise, the bearing clockwise
+        expect(transform.rotation).toBeCloseTo(-bearing * DEG_TO_RAD, 9);
+      }
+    });
+
+    it('faces the direction the scene draws: local (-X east, +Z north) rotated by rotation.y', () => {
+      const transform = new TransformComponent(new TestGameObject());
+      transform.setPosition(49, 8);
+      const target = towards(45);
+      transform.lookAt(target);
+      const x = -(target.lon - 8) * METERS_PER_DEGREE_LAT * Math.cos(49 * DEG_TO_RAD);
+      const z = (target.lat - 49) * METERS_PER_DEGREE_LAT;
+      const len = Math.hypot(x, z);
+      // Three.js rotation.y turns the model's +Z to (sin r, cos r)
+      expect(Math.sin(transform.rotation)).toBeCloseTo(x / len, 9);
+      expect(Math.cos(transform.rotation)).toBeCloseTo(z / len, 9);
+    });
   });
 
   describe('turning flag', () => {
