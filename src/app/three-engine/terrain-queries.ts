@@ -383,8 +383,9 @@ export class TerrainQueries {
    * Where the low ray alone stops (lowRayAlone: a parked van, a hedge, a
    * fence), one more column LOW_WALL_BEHIND_M behind its hit tells how far
    * the ground there lies above the station's (`StationProbe.lowRise`);
-   * raised ground makes the hit a wall (probeLowWall). Not on a deck, where
-   * the lowest hit of that column is the river or road under the bridge.
+   * raised ground makes the hit a wall (probeLowWall). Not `nearDeck`: on a
+   * deck or on the stretch off a bridge end (deck-approach.ts), where the
+   * lowest hit of that column may be the river, quay or road under the deck.
    *
    * Only tiles up to `corridorConfig.maxTileError` count, for the column
    * and for the hits, so a coarse hull still waiting for its children
@@ -409,6 +410,7 @@ export class TerrainQueries {
     heightsAboveGround: readonly number[],
     maxDistance: number,
     onDeck = false,
+    nearDeck = onDeck,
   ): StationProbe | null {
     const tiles = this.sources.tiles();
     if (this.sources.devTerrain() || !tiles) return null;
@@ -447,7 +449,7 @@ export class TerrainQueries {
         left.push(this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance));
         right.push(this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance));
       }
-      const lowRise = onDeck
+      const lowRise = nearDeck
         ? { left: NaN, right: NaN }
         : {
           left: this.riseBehindLowHit(x, z, -acrossX / len, -acrossZ / len, left, maxDistance, surfaceY),

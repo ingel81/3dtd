@@ -91,8 +91,12 @@ Je Station (`TerrainQueries.measureStreetClearance`, `terrain-queries.ts:341-391
    oder mindestens 1 m weiter, `lowRayAlone`), eine Säule 1 m hinter seinem
    Treffer (`LOW_WALL_BEHIND_M`, `riseBehindLowHit` in
    `terrain-queries.ts`): wie hoch ihr unterster Treffer über dem Boden der
-   Station liegt (`StationProbe.lowRise`). Nicht auf einem Brückendeck, dort
-   träfe diese Säule den Fluss oder die Straße unter der Brücke.
+   Station liegt (`StationProbe.lowRise`). Nicht auf einem Brückendeck und
+   nicht auf der Fortsetzung eines Decks (`approach`: bis `DECK_APPROACH_M`,
+   40 m, hinter dem Ende eines Brücken-Ways, `deckApproaches`, siehe
+   Zellhöhe), dort träfe diese Säule den Fluss, den Kai oder die Straße unter
+   dem Deck (`nearDeck` in `measureStreetClearance`). Autos auf diesen 40 m
+   engen nur über den Laufweg ein.
 
 Der Freiraum einer Seite ist der weitere der beiden ersten Treffer
 (`probeFreeSpace`, `route-corridor.ts`). Eine Wand ist also, was beide
