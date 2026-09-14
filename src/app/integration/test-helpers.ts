@@ -157,6 +157,7 @@ export function createMockTilesEngine() {
     },
     searchlights: {
       add: vi.fn(),
+      setHeading: vi.fn(),
       remove: vi.fn(),
       clear: vi.fn(),
     },
