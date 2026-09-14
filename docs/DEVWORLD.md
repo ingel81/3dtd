@@ -6,11 +6,11 @@
 
 ---
 
-## Uebersicht
+## Übersicht
 
-DevWorld ist eine alternative Spielwelt die ohne Google 3D Tiles funktioniert. Sie ermoeglicht:
+DevWorld ist eine alternative Spielwelt die ohne Google 3D Tiles funktioniert. Sie ermöglicht:
 - **Schnelles Laden** (keine Tiles, kein Netzwerk)
-- **Offline-Development** (kein Netzwerk noetig)
+- **Offline-Development** (kein Netzwerk nötig)
 - **Deterministische Welten** (Seed-basiert reproduzierbar)
 - **AI Training** (schnelle Iterationen ohne API-Kosten)
 
@@ -18,12 +18,12 @@ DevWorld ist eine alternative Spielwelt die ohne Google 3D Tiles funktioniert. S
 
 ## Aktivierung
 
-Ueber URL-Parameter:
+Über URL-Parameter:
 
 ```
 ?devworld                          # Standard-Config (flat, dense, seed=42)
 ?devworld&terrain=mountains        # Terrain-Preset
-?devworld&buildings=sparse         # Gebaeude-Dichte
+?devworld&buildings=sparse         # Gebäude-Dichte
 ?devworld&spawn=north              # Spawn-Position (nur Fallback, siehe unten)
 ?devworld&seed=123                 # Reproduzierbarer Seed
 ?devworld&bot=manual               # ohne Trainings-Bot, siehe Training
@@ -69,7 +69,7 @@ den `DevStreetProvider` als Pathfinding-Service (`VisualizationFacadeService`).
 | `devworld.service.ts` | URL-Parameter Parsing, Config, Konstanten |
 | `dev-terrain.provider.ts` | TerrainProvider-Implementierung, Meshes, Web Worker Steuerung |
 | `dev-street.provider.ts` | StreetNetworkProvider mit A* Pathfinding (Gewichtung nach Straßentyp) |
-| `devworld.worker.ts` | Web Worker fuer Off-Main-Thread Generation |
+| `devworld.worker.ts` | Web Worker für Off-Main-Thread Generation |
 | `devworld-worker.types.ts` | Worker Message Types |
 | `devworld-debug-panel.component.ts` | UI Panel: Terrain, Seed, Gebäude, Regenerate, Share-URL |
 | `devworld-debugger.component.ts` | Draggable Debug Window Wrapper |
@@ -79,7 +79,7 @@ den `DevStreetProvider` als Pathfinding-Service (`VisualizationFacadeService`).
 | Datei | Beschreibung |
 |-------|--------------|
 | `generators/terrain-generator.ts` | 30 Terrain-Presets via Seeded Noise (Simplex, FBM, Ridged, Warp, Cellular) |
-| `generators/street-generator.ts` | 3-Level Strassenhierarchie (Arterial, Collector, Residential) |
+| `generators/street-generator.ts` | 3-Level Straßenhierarchie (Arterial, Collector, Residential) |
 | `generators/building-generator.ts` | Gebäude als LOS-Blocker entlang Straßen; Größen (`BUILDING_PRESETS`) und Dichten (`DENSITY_CONFIGS`) in derselben Datei |
 | `utils/seeded-random.ts` | Deterministische Noise-Funktionen (Mulberry32, `hashSeed`, Simplex aus `simplex-noise`, FBM, Ridged, Warp, Cellular) |
 
@@ -104,52 +104,52 @@ den `DevStreetProvider` als Pathfinding-Service (`VisualizationFacadeService`).
 | Extreme | `chaos`, `alien`, `fractal` |
 
 Terrain-Features:
-- Multi-Layer Domain Warping fuer organische Formen
+- Multi-Layer Domain Warping für organische Formen
 - Hydraulic/Thermal Erosion Simulation
 - Keine Straßen-Einebnung: Straßen folgen dem Terrain (max. 15 % Steigung im Generator),
   die Fahrbahn wird 0,5 m über dem Mesh gezeichnet
-- Heightmap-Aufloesung: 1024x1024 (~1m pro Pixel)
-- Max. Hoehe: 150m
+- Heightmap-Auflösung: 1024x1024 (~1m pro Pixel)
+- Max. Höhe: 150m
 - Terrain-Mesh: 64x64 Segmente (ca. 15,6 m pro Quad). Höhenabfragen (`getHeightAtLocal`)
   interpolieren die Mesh-Oberfläche, nicht die Heightmap, damit Boden-Samples, CPU-Raycasts
   und die GPU-LOS-Cubemap dieselbe Fläche sehen
 
 ---
 
-## Gebaeude-Dichte
+## Gebäude-Dichte
 
 URL-akzeptierte Werte (`?devworld&buildings=…`, siehe `DevWorldService.parseBuildingsParam`):
 
 | Preset | Beschreibung |
 |--------|--------------|
-| `none` | Keine Gebaeude |
+| `none` | Keine Gebäude |
 | `sparse` | 150 Gebäude, nur `medium` und `large` |
 | `dense` | 1200 Gebäude, Stadtgefühl (Default) |
 | `maze` | 2000 Gebäude, überwiegend `small`: dicht gestellte Blocker, platziert wie die anderen Stufen |
 
-Hinweis: `building-generator.ts` definiert intern zusaetzlich eine Stufe `medium`
+Hinweis: `building-generator.ts` definiert intern zusätzlich eine Stufe `medium`
 (`BuildingDensity = 'none' | 'sparse' | 'medium' | 'dense' | 'maze'`).
 Über den URL-Parameter ist sie nicht erreichbar: `parseBuildingsParam` macht aus
 `medium` (wie aus jedem unbekannten Wert) `dense`. Bei Bedarf kann der Generator-Aufrufer den
 Wert direkt setzen.
 
 Platzierungslogik:
-- Alle Gebaeude entlang von Strassen platziert (keine isolierten Cluster)
-- Mehrere Reihen pro Strassenseite (bis zu 4 Reihen)
+- Alle Gebäude entlang von Straßen platziert (keine isolierten Cluster)
+- Mehrere Reihen pro Straßenseite (bis zu 4 Reihen)
 - HQ Safe Zone wird respektiert (min. 60m Abstand)
-- Grid-Fallback wenn keine Strassen vorhanden
-- Gebaeude dienen als LOS-Blocker fuer Tower-Placement
+- Grid-Fallback wenn keine Straßen vorhanden
+- Gebäude dienen als LOS-Blocker für Tower-Placement
 - Gerendert als ein InstancedMesh; für Raycasts hält `DevTerrainProvider` zusätzlich
   Box-Meshes, die nicht in der Szene hängen
 
 ---
 
-## Strassen-Generation
+## Straßen-Generation
 
 3-Level Hierarchie:
-1. **Arterial** (primary) - Hauptstrassen, breiter
-2. **Collector** (secondary) - Verbindungsstrassen
-3. **Residential** - Wohnstrassen, schmaler
+1. **Arterial** (primary) - Hauptstraßen, breiter
+2. **Collector** (secondary) - Verbindungsstraßen
+3. **Residential** - Wohnstraßen, schmaler
 
 Fahrbahnbreite je Klasse (`DEV_STREET_WIDTHS`): primary 8 m, secondary 7 m, residential 5 m.
 `DevTerrainProvider` zeichnet die Straßen so breit, `DevStreetProvider` gibt denselben Wert
@@ -157,11 +157,11 @@ als `width` weiter wie ein OSM-Tag.
 
 Features:
 - Terrain-Following mit max. 15% Steigung
-- Catmull-Rom Splines fuer Kurven
-- L-System Branching fuer Collector-Strassen
+- Catmull-Rom Splines für Kurven
+- L-System Branching für Collector-Straßen
 - Union-Find Connectivity Validation
 - Min. 30m Intersection-Abstand
-- A* Pathfinding mit Strassentyp-Gewichtung
+- A* Pathfinding mit Straßentyp-Gewichtung
 
 Spawns: Der Generator legt bis zu 4 an Straßenenden an (mindestens 0,7 x `minSpawnDistance`
 vom HQ, Default 300 m). Das Spiel nutzt nur den ersten, beim Laden
@@ -172,7 +172,7 @@ zum Ein-Spawn-Spiel der echten Welt.
 
 ## Web Worker
 
-Die Terrain-/Strassen-/Gebaeude-Generation laeuft in einem Web Worker um den Main Thread nicht zu blockieren:
+Die Terrain-/Straßen-/Gebäude-Generation läuft in einem Web Worker um den Main Thread nicht zu blockieren:
 
 ```
 Main Thread                    Worker
@@ -180,9 +180,9 @@ Main Thread                    Worker
     |-- generate(config) -------->|
     |                             |-- Terrain generieren
     |<-- progress(terrain, 0/100)-|
-    |                             |-- Strassen generieren
+    |                             |-- Straßen generieren
     |<-- progress(streets, 0/100)-|
-    |                             |-- Gebaeude platzieren
+    |                             |-- Gebäude platzieren
     |<-- progress(buildings,0/100)|
     |                             |
     |<-- result(heightData,       |
@@ -201,7 +201,7 @@ derzeit nicht aus. Die Three.js-Meshes baut der Main Thread aus dem Ergebnis.
 ```typescript
 DEV_WORLD_SIZE = 1000          // 1km x 1km Spielfeld
 DEV_WORLD_HEIGHTMAP_SIZE = 1024 // ~1m Aufloesung
-DEV_WORLD_MAX_HEIGHT = 150     // Max. Terrain-Hoehe in Metern
+DEV_WORLD_MAX_HEIGHT = 150     // Max. Terrain-Höhe in Metern
 DEV_WORLD_DEFAULT_SEED = 42    // Standard-Seed
 DEV_WORLD_ORIGIN = { lat: 0.0, lon: 0.0, height: 0 }  // Fake Geo-Koordinaten
 ```
@@ -210,10 +210,10 @@ DEV_WORLD_ORIGIN = { lat: 0.0, lon: 0.0, height: 0 }  // Fake Geo-Koordinaten
 
 ## Debug Panel
 
-Das DevWorld Debug Panel (`app-devworld-debug-panel`) ermoeglicht zur Laufzeit:
+Das DevWorld Debug Panel (`app-devworld-debug-panel`) ermöglicht zur Laufzeit:
 - Terrain-Preset wechseln (nach Kategorie gruppiert)
-- Building-Dichte aendern
-- Seed aendern
+- Building-Dichte ändern
+- Seed ändern
 - Welt regenerieren
 - Share-URL kopieren (`DevWorldService.getShareUrl()`)
 
