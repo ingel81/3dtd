@@ -422,6 +422,39 @@ describe('ReplayRecorder', () => {
     h.startWave();
     expect(h.recorder.isRecording).toBe(false);
   });
+
+  it('hangs on the catch-all path only while it records, so emit keeps its fast path otherwise', () => {
+    const h = new Harness();
+    expect(h.bus.catchAllListenerCount).toBe(0);
+    h.startWave();
+    expect(h.bus.catchAllListenerCount).toBe(1);
+    h.recorder.finish('completed');
+    expect(h.bus.catchAllListenerCount).toBe(0);
+    // Headless training records nothing and listens to nothing but the wave start
+    h.engine.renderingEnabled = false;
+    h.startWave();
+    expect(h.bus.catchAllListenerCount).toBe(0);
+  });
+
+  it('drops the recording when it fails on an event; the game still gets the event', () => {
+    const h = new Harness();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const spawned = vi.fn();
+    h.bus.on('enemy:spawned', spawned);
+    h.startWave();
+    const broken = {
+      get typeConfig(): never {
+        throw new Error('broken');
+      },
+    };
+
+    expect(() => h.emit({ type: 'enemy:spawned', enemy: broken as never })).not.toThrow();
+    expect(spawned).toHaveBeenCalledTimes(1);
+    expect(h.recorder.isRecording).toBe(false);
+    expect(h.recorder.recording).toBeNull();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
 });
 
 /**

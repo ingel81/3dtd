@@ -92,9 +92,13 @@ export interface ReplaySources {
  * Owned by the GameStateManager: it starts on wave:started, samples a frame
  * every ReplayRecording.stepsPerFrame sub-steps (onSubStep()), and is closed
  * by finish() when the wave ends or the HQ falls. Everything else comes from
- * the event bus, read through onAny(): spawns, deaths, leaks, hits, towers
- * placed and sold, the effect events and every command:*, so a new command
- * is logged without a change here.
+ * the event bus, read on its catch-all path (onAny) while a wave is being
+ * recorded: spawns, deaths, leaks, hits, towers placed and sold, the effect
+ * events and every command:*, so a new command is logged without a change
+ * here. The wave start, the start command and a wave jump come through
+ * typed listeners; so between waves and in headless training nothing hangs
+ * on the catch-all path and emit keeps its fast path. A failure in here
+ * drops the recording and never reaches the game.
  *
  * Only the last wave is kept: the next wave:started overwrites it, a jump to
  * a later wave (wave:jumped, dev cheat) drops it: the wave it shows is then
@@ -127,10 +131,19 @@ export class ReplayRecorder {
   private captureSerial = 0;
 
   private readonly local = new Vector3();
-  private readonly subscription: EventSubscription;
+  /** The wave start, its command and a wave jump */
+  private readonly triggers: EventSubscription[];
+  /** Every event, while a wave is being recorded (begin() to stop()) */
+  private catchAll: EventSubscription | null = null;
 
-  constructor(eventBus: GameEventBus, private readonly sources: ReplaySources) {
-    this.subscription = eventBus.onAny(this.onEvent);
+  constructor(private readonly eventBus: GameEventBus, private readonly sources: ReplaySources) {
+    this.triggers = [
+      eventBus.on('command:start-wave', (event) => {
+        this.pendingConfig = event.config ?? null;
+      }),
+      eventBus.on('wave:started', (event) => this.guarded(() => this.begin(event.wave))),
+      eventBus.on('wave:jumped', () => this.clear()),
+    ];
   }
 
   /** The finished recording of the last wave, null while there is none. */
@@ -147,7 +160,7 @@ export class ReplayRecorder {
   onSubStep(): void {
     if (!this.active) return;
     this.stepIndex++;
-    if (this.stepIndex % this.rec.stepsPerFrame === 0) this.captureFrame(false);
+    if (this.stepIndex % this.rec.stepsPerFrame === 0) this.guarded(this.captureRegularFrame);
   }
 
   /**
@@ -157,10 +170,12 @@ export class ReplayRecorder {
    */
   finish(outcome: 'completed' | 'gameover'): void {
     if (!this.active) return;
-    this.captureFrame(true);
-    this.rec.finish(this.nowMs(), outcome);
-    this.stop();
-    this.readyWave.set(this.rec.wave);
+    this.guarded(() => {
+      this.captureFrame(true);
+      this.rec.finish(this.nowMs(), outcome);
+      this.stop();
+      this.readyWave.set(this.rec.wave);
+    });
   }
 
   /** Drop the recording (restart, new location, new world). */
@@ -172,22 +187,30 @@ export class ReplayRecorder {
   }
 
   dispose(): void {
-    this.subscription.dispose();
+    for (const trigger of this.triggers) trigger.dispose();
     this.clear();
   }
 
-  private readonly onEvent = (event: GameEvent): void => {
-    switch (event.type) {
-      case 'command:start-wave':
-        this.pendingConfig = event.config ?? null;
-        return;
-      case 'wave:started':
-        this.begin(event.wave);
-        return;
-      case 'wave:jumped':
-        this.clear();
-        return;
+  /**
+   * Run a step of the recording. A recording that failed on the way is not
+   * to be trusted: it is dropped, logged, and the game goes on.
+   */
+  private guarded(step: () => void): void {
+    try {
+      step();
+    } catch (err) {
+      console.error('[ReplayRecorder] Dropped the recording:', err);
+      this.clear();
     }
+  }
+
+  private readonly captureRegularFrame = (): void => this.captureFrame(false);
+
+  private readonly onEvent = (event: GameEvent): void => {
+    this.guarded(() => this.record(event));
+  };
+
+  private record(event: GameEvent): void {
     if (!this.active) return;
 
     const ms = this.nowMs();
@@ -221,7 +244,7 @@ export class ReplayRecorder {
       const kept = presentationEvent(event);
       if (kept) this.rec.pushEvent(ms, kept);
     }
-  };
+  }
 
   private begin(wave: number): void {
     this.stop();
@@ -240,11 +263,14 @@ export class ReplayRecorder {
     }
     this.active = true;
     this.stepIndex = 0;
+    this.catchAll ??= this.eventBus.onAny(this.onEvent);
     this.captureFrame(false);
   }
 
   private stop(): void {
     this.active = false;
+    this.catchAll?.dispose();
+    this.catchAll = null;
     this.enemyIndex.clear();
     this.projectileIndex.clear();
     this.towerIndex.clear();

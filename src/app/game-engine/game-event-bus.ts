@@ -605,7 +605,8 @@ export class GameEventBus {
   private metricsEnabled = false;
 
   /** Debug listeners that receive ALL events (for debug panel) */
-  private debugListeners = new Set<(event: GameEvent) => void>();
+  /** Catch-all listeners (onAny); a new array on every change, so an emit under way keeps its list */
+  private debugListeners: readonly ((event: GameEvent) => void)[] = [];
 
   /**
    * Subscribe to ALL events (for debugging/monitoring)
@@ -621,8 +622,12 @@ export class GameEventBus {
    * ```
    */
   onAny(handler: (event: GameEvent) => void): EventSubscription {
-    this.debugListeners.add(handler);
-    return new EventSubscription(() => this.debugListeners.delete(handler));
+    this.debugListeners = [...this.debugListeners, handler];
+    return new EventSubscription(() => {
+      const list = this.debugListeners;
+      const at = list.indexOf(handler);
+      if (at >= 0) this.debugListeners = [...list.slice(0, at), ...list.slice(at + 1)];
+    });
   }
 
   /**
@@ -689,15 +694,28 @@ export class GameEventBus {
    * });
    * ```
    */
+  /** Listeners on the catch-all path (onAny); with none, emit skips it. */
+  get catchAllListenerCount(): number {
+    return this.debugListeners.length;
+  }
+
   emit<T extends GameEvent['type']>(event: GameEventMap[T]): void {
     if (this.metricsEnabled) {
       this.metrics.eventsEmitted++;
     }
 
-    // Notify debug listeners (catch-all) — skip the forEach allocation/iteration
-    // entirely when no debug subscribers are attached (the hot path 99% of the time).
-    if (this.debugListeners.size > 0) {
-      this.debugListeners.forEach((handler) => handler(event as GameEvent));
+    // Catch-all listeners (event debugger, replay recorder while it records a
+    // wave). With none attached the loop ends at once, the hot path. A plain
+    // loop over the array, no closure per event (the list is replaced, never
+    // changed, so one that leaves during the event skips nobody); isolated
+    // like the typed listeners below, so a throwing one neither aborts the
+    // emit nor keeps the event from the game's handlers
+    for (const handler of this.debugListeners) {
+      try {
+        handler(event as GameEvent);
+      } catch (err) {
+        console.error(`[GameEventBus] Catch-all listener threw on '${event.type}':`, err);
+      }
     }
 
     const handlers = this.listeners.get(event.type);

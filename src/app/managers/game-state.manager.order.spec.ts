@@ -488,6 +488,8 @@ describe('GameStateManager order of operations (characterization)', () => {
         'debug:kill-all', 'enemy:reached-base', 'enemy:leaking', 'enemy:died',
         'research:completed', 'wave:completed',
         'research:completed', 'hero:kill',
+        // ReplayRecorder: its triggers; every other event only while it records a wave (onAny)
+        'command:start-wave', 'wave:started', 'wave:jumped',
         // VFXService, AudioService, ScreenShakeService, BackgroundMusicService, BloodMoonService
         'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
         'enemy:split', 'ability:used', 'ability:impact', 'game:reset', 'hero:level-up',

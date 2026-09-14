@@ -207,6 +207,39 @@ describe('GameEventBus', () => {
       expect(anyHandler).toHaveBeenCalledTimes(2);
       expect(typedHandler).toHaveBeenCalledTimes(1);
     });
+
+    it('a throwing catch-all listener neither aborts the emit nor stops the other listeners', () => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const other = vi.fn();
+      const typed = vi.fn();
+      bus.onAny(() => {
+        throw new Error('boom');
+      });
+      bus.onAny(other);
+      bus.on('health:changed', typed);
+
+      expect(() => bus.emit({ type: 'health:changed', health: 80, delta: -10 })).not.toThrow();
+      expect(other).toHaveBeenCalledTimes(1);
+      expect(typed).toHaveBeenCalledTimes(1);
+      expect(error).toHaveBeenCalled();
+      error.mockRestore();
+    });
+
+    it('counts its listeners; with none, emit takes its fast path', () => {
+      expect(bus.catchAllListenerCount).toBe(0);
+      const sub = bus.onAny(vi.fn());
+      expect(bus.catchAllListenerCount).toBe(1);
+      sub.dispose();
+      expect(bus.catchAllListenerCount).toBe(0);
+    });
+
+    it('a catch-all listener that leaves during an event does not skip the next one', () => {
+      const next = vi.fn();
+      const sub = bus.onAny(() => sub.dispose());
+      bus.onAny(next);
+      bus.emit({ type: 'health:changed', health: 80, delta: -10 });
+      expect(next).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('clear()', () => {
