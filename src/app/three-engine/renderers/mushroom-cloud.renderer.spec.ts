@@ -19,6 +19,7 @@ import { MushroomCloudRenderer, screenFlashAt } from './mushroom-cloud.renderer'
 import { fireballHeat } from './mushroom-cloud-fireball';
 import { CloudShape, capHeightAt, type Cloud } from './mushroom-cloud-shape';
 import { MUSHROOM_CLOUD_LOOK } from '../../configs/visual-effects.config';
+import { seededRandom } from '../../../test/vfx-renderer-fixture';
 
 const GROUND = new Vector3(100, 20, -50);
 const RADIUS = 25;
@@ -33,15 +34,6 @@ const LOW_GLOW = sum(glowSprites.low) + glowSprites.low.embers * (embers.trail -
 const EMBERS_END = 0.12 + embers.life[1] + (embers.trail - 1) * embers.trailStep;
 
 type Sprites = Mesh<InstancedBufferGeometry, ShaderMaterial>;
-
-/** Math.random with a fixed sequence, so two clouds draw the same sprites. */
-function seededRandom(seed = 1): void {
-  let state = seed;
-  vi.spyOn(Math, 'random').mockImplementation(() => {
-    state = (state * 1664525 + 1013904223) % 4294967296;
-    return state / 4294967296;
-  });
-}
 
 function setup() {
   const scene = new Scene();
