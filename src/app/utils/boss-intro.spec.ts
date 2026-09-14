@@ -3,7 +3,11 @@ import {
   BOSS_INTRO_CLEAR_MARGIN_M,
   BOSS_INTRO_TIMING,
   BOSS_SHOT,
+  BOSS_SHOT_RAYS,
   BossIntroGate,
+  PortalShotSearch,
+  SHOT_CANDIDATE_RAYS,
+  SHOT_CHECKS,
   bossClearDistance,
   bossIntroBlock,
   bossIntroCutMs,
@@ -13,6 +17,7 @@ import {
   portalShot,
   type BossIntroContext,
   type PortalShot,
+  type ShotProbe,
   type ShotPoint,
 } from './boss-intro';
 import { PORTAL_DEPTH, PORTAL_FRAME_TOP } from '../configs/marker-geometry.config';
@@ -205,5 +210,193 @@ describe('portalShot', () => {
 
   it('has no shot without a route', () => {
     expect(portalShot([{ x: 0, y: 0, z: 0 }], 60, 1, 8, HERBERT)).toBeNull();
+  });
+});
+
+/** A solid block, min and max corners. */
+interface Block {
+  min: ShotPoint;
+  max: ShotPoint;
+}
+
+const block = (minX: number, maxX: number, minZ: number, maxZ: number, top = 12, bottom = 0): Block => ({
+  min: { x: minX, y: bottom, z: minZ },
+  max: { x: maxX, y: top, z: maxZ },
+});
+
+const inside = (p: ShotPoint, b: Block) =>
+  p.x > b.min.x && p.x < b.max.x && p.y > b.min.y && p.y < b.max.y && p.z > b.min.z && p.z < b.max.z;
+
+/**
+ * Solid blocks on flat ground at 0. A sight line stops half a metre short
+ * of its end like TerrainQueries.raycastLineOfSight; unlike the tiles, a
+ * block also stops a line that starts inside it.
+ */
+function blockProbe(blocks: readonly Block[]): ShotProbe {
+  return {
+    blocked(from, to) {
+      const d = { x: to.x - from.x, y: to.y - from.y, z: to.z - from.z };
+      const length = Math.hypot(d.x, d.y, d.z);
+      const end = (length - 0.5) / length;
+      return blocks.some((b) => {
+        // Slab test on the segment from + t d, t in [0, end]
+        let t0 = 0;
+        let t1 = end;
+        for (const axis of ['x', 'y', 'z'] as const) {
+          if (Math.abs(d[axis]) < 1e-12) {
+            if (from[axis] <= b.min[axis] || from[axis] >= b.max[axis]) return false;
+            continue;
+          }
+          const a = (b.min[axis] - from[axis]) / d[axis];
+          const c = (b.max[axis] - from[axis]) / d[axis];
+          t0 = Math.max(t0, Math.min(a, c));
+          t1 = Math.min(t1, Math.max(a, c));
+          if (t0 > t1) return false;
+        }
+        return true;
+      });
+    },
+    column(x, z) {
+      let topY = 0;
+      for (const b of blocks) {
+        if (x > b.min.x && x < b.max.x && z > b.min.z && z < b.max.z) topY = Math.max(topY, b.max.y);
+      }
+      return { groundY: 0, topY };
+    },
+  };
+}
+
+describe('PortalShotSearch', () => {
+  /** Portal at the origin, the route along -z */
+  const straight = [
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 0, z: -200 },
+  ];
+  const out = bossClearDistance(1);
+  /** Up to the health bar: Herbert, the worm's head, the ooze's tip */
+  const BOSSES = { herbert: 7.5, worm: 6, ooze: 3 };
+  /** Houses on both sides of an 8 m street along the route */
+  const street = [block(-40, -4, -200, 30), block(4, 40, -200, 30)];
+
+  const search = (blocks: readonly Block[], route: readonly ShotPoint[] = straight, height = BOSSES.herbert) =>
+    PortalShotSearch.create(route, 60, 1, out, height, blockProbe(blocks))!;
+
+  /** The boss on the route and the points of it the camera must see */
+  const bossAt = (route: readonly ShotPoint[]) => pointAlongRoute(route, out, { x: 0, y: 0, z: 0 });
+  const sees = (blocks: readonly Block[], eye: ShotPoint, route: readonly ShotPoint[], height: number) => {
+    const boss = bossAt(route);
+    const probe = blockProbe(blocks);
+    return [0.2, 0.55, 0.95].every(
+      (share) =>
+        !probe.blocked({ x: boss.x, y: boss.y + share * height, z: boss.z }, eye) &&
+        !probe.blocked(eye, { x: boss.x, y: boss.y + share * height, z: boss.z }),
+    );
+  };
+
+  it('keeps the shot portalShot composes where nothing is in the way', () => {
+    for (const height of Object.values(BOSSES)) {
+      for (const scale of [0.75, 1, 1.75]) {
+        const found = PortalShotSearch.create(straight, 60, scale, bossClearDistance(scale), height, blockProbe([]))!;
+        const choice = found.result();
+        expect(choice.label).toBe('route');
+        expect(choice.clear).toBe(true);
+        expect(choice.shot).toEqual(portalShot(straight, 60, scale, bossClearDistance(scale), height));
+        // The column, chest, feet, head, lintel, crown and both sides
+        expect(choice.rays).toBe(SHOT_CANDIDATE_RAYS);
+      }
+    }
+  });
+
+  it('also on a street between houses, as long as the view along it is clear', () => {
+    const choice = search(street).result();
+    expect(choice.label).toBe('route');
+    expect(choice.shot).toEqual(portalShot(straight, 60, 1, out, BOSSES.herbert));
+  });
+
+  it('turns around the boss when a crown on the route hides it, before it goes closer', () => {
+    const tree = block(-1.5, 1.5, -24, -20, 11, 4);
+    expect(sees([tree], portalShot(straight, 60, 1, out, BOSSES.herbert)!.position, straight, BOSSES.herbert)).toBe(false);
+
+    const choice = search([tree]).result();
+    expect(choice.label).toBe('p14-far+25');
+    expect(choice.clear).toBe(true);
+    expect(sees([tree], choice.shot.position, straight, BOSSES.herbert)).toBe(true);
+  });
+
+  /**
+   * Night-2 playtest 366, screenshot 1: the portal in a narrow street, the
+   * route turns into a side street right behind the boss. Along the route
+   * the camera looks back across the corner house; straight down the street
+   * it would stand in the house across the junction.
+   */
+  const bend = [
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 0, z: -16 },
+    { x: 200, y: 0, z: -16 },
+  ];
+  const junction = [
+    block(-40, -4, -20, 30), // west of the street
+    block(4, 200, -12, 30), // the corner house
+    block(-40, 200, -60, -20), // across the side street
+  ];
+
+  it('in a narrow street with a bend: goes closer down the street instead of looking through the corner house', () => {
+    for (const height of Object.values(BOSSES)) {
+      const old = portalShot(bend, 60, 1, out, height)!;
+      expect(sees(junction, old.position, bend, height)).toBe(false);
+
+      const choice = search(junction, bend, height).result();
+      expect(choice.clear).toBe(true);
+      expect(choice.label).toMatch(/^p14-(mid|near)/);
+      expect(sees(junction, choice.shot.position, bend, height)).toBe(true);
+      expect(junction.some((b) => inside(choice.shot.position, b))).toBe(false);
+      expect(choice.rays).toBeLessThanOrEqual(BOSS_SHOT_RAYS.total);
+    }
+  });
+
+  it('looks from higher up over a hedge right in front of the boss that hides it from every low camera', () => {
+    const hedge = block(-4, 4, -12.5, -11.5, 4);
+    const blocks = [...street, hedge];
+    const choice = search(blocks).result();
+    expect(choice.label).toBe('p30-far');
+    expect(choice.clear).toBe(true);
+    expect(choice.shot.position.y).toBeGreaterThan(12);
+    expect(sees(blocks, choice.shot.position, straight, BOSSES.herbert)).toBe(true);
+  });
+
+  it('with nothing clear keeps the shot that got furthest, the one portalShot composes on a tie', () => {
+    // A roof over the whole square: every sight line to a camera above it is cut
+    const roof = block(-100, 100, -100, 100, 10, 9);
+    const choice = search([roof]).result();
+    expect(choice.clear).toBe(false);
+    expect(choice.label).toBe('route');
+    expect(choice.score).toBe(1);
+    expect(choice.shot).toEqual(portalShot(straight, 60, 1, out, BOSSES.herbert));
+    expect(choice.rays).toBeLessThanOrEqual(BOSS_SHOT_RAYS.total);
+  });
+
+  it('stays in its ray budget, per step and in all', () => {
+    // Every candidate fails only at the last check, room at its sides, so each costs almost all its rays
+    const cramped: ShotProbe = { blocked: (from, to) => from.y === to.y, column: () => null };
+    const found = PortalShotSearch.create(straight, 60, 1, out, BOSSES.herbert, cramped)!;
+    let rays = 0;
+    let steps = 0;
+    while (!found.done) {
+      found.step(BOSS_SHOT_RAYS.perFrame);
+      // Paused between two rays, also inside a candidate
+      expect(found.raysCast - rays).toBeLessThanOrEqual(BOSS_SHOT_RAYS.perFrame);
+      rays = found.raysCast;
+      steps++;
+    }
+    const choice = found.result();
+    expect(choice.rays).toBe(rays);
+    expect(choice.rays).toBeLessThanOrEqual(BOSS_SHOT_RAYS.total);
+    expect(steps).toBeGreaterThan(1);
+    expect(choice.score).toBe(SHOT_CHECKS - 1);
+    expect(choice.label).toBe('route');
+  });
+
+  it('has no search where portalShot has no shot', () => {
+    expect(PortalShotSearch.create([{ x: 0, y: 0, z: 0 }], 60, 1, out, 7.5, blockProbe([]))).toBeNull();
   });
 });
