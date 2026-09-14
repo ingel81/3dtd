@@ -112,6 +112,7 @@ training-backend/               # Python Training Backend (nur für Trainingslä
 | [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
 | [DEVWORLD.md](docs/DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung |
 | [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md) | Routenkorridor: Breite je Seite aus den Tiles, OSM-Rückfall, Dach-Check, Brücken/Tunnel, CorridorRefit, `__corridor.*` |
+| [SPAWN_PORTAL.md](docs/SPAWN_PORTAL.md) | Spawn-Portal: Ausrichtung, Vorschau, Drehen mit R, Drehbereich, Asset, Sigillen, Beschwörungskreis |
 | [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md) | Game Design (Schadenstypen, Rüstung, Balance) |
 | [BALANCE_PROPOSAL_2026-09.md](docs/game-design/BALANCE_PROPOSAL_2026-09.md) | Balance-Vorschlag (Upgrade-Kurven, Cannon, Matrix, Boss-Takt), im Sprint 2026-09-11 umgesetzt, offene Fragen am Ende |
 | [PLAYER_AGENCY_CONCEPT.md](docs/game-design/PLAYER_AGENCY_CONCEPT.md) | _Konzept:_ Spielerfähigkeiten und Held; Entscheidung 2026-09-12 in Abschnitt 7 |
