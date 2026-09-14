@@ -1,0 +1,188 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+vi.mock('three', () => ({
+  Vector3: class {
+    x = 0; y = 0; z = 0;
+    constructor(x?: number, y?: number, z?: number) {
+      this.x = x ?? 0;
+      this.y = y ?? 0;
+      this.z = z ?? 0;
+    }
+  },
+}));
+
+import { explainTowerTarget, TowerTargetConsole, type TowerTargetLookup } from './tower-target-console';
+import { Tower } from '../../entities/tower.entity';
+import { Enemy } from '../../entities/enemy.entity';
+import { GameEventBus } from '../../game-engine/game-event-bus';
+import { METERS_PER_DEGREE_LAT as M } from '../../utils/geo-utils';
+import type { RouteCell } from '../../utils/route-cell';
+import type { RouteBody } from '../../utils/route-body';
+
+// 100 m north; at the equator a degree of longitude is as long as one of latitude
+const PATH = [
+  { lat: 0, lon: 0, height: 0 },
+  { lat: 100 / M, lon: 0, height: 0 },
+];
+
+/** A clump `s` metres along the path */
+const clumpAt = (s: number): Enemy => new Enemy('slime-clump', PATH, undefined, 0, s / 100);
+
+/** An Ice tower (range 60 m) `east` metres east of the path, level with `s` metres along it, its LOS resolved */
+const iceAt = (s: number, east: number): Tower => {
+  const tower = new Tower({ lat: s / M, lon: east / M, height: 0 }, 'ice');
+  tower.losReady = true;
+  return tower;
+};
+
+/** A route cell with `seen` as the tower's answer, none when undefined */
+const cellSeenBy = (tower: Tower, seen: boolean | undefined): RouteCell =>
+  ({ towerVisibility: new Map(seen === undefined ? [] : [[tower.id, seen]]) }) as unknown as RouteCell;
+
+const lookup = (cell: RouteCell | undefined, aligned = true): TowerTargetLookup => ({
+  cellOf: () => cell,
+  aligned: () => aligned,
+});
+
+describe('explainTowerTarget', () => {
+  it('leaves out a tower no enemy is near', () => {
+    // 76 m away: past the range (60 m) and the candidate margin (66 m)
+    expect(explainTowerTarget(iceAt(20, 15), [clumpAt(95)], lookup(undefined))).toBeNull();
+  });
+
+  it('names the target and what holds its fire: the cooldown and the turret', () => {
+    const tower = iceAt(20, 15);
+    const clump = clumpAt(20);
+    expect(tower.findTarget([clump], false)).toBe(clump);
+    tower.combat.fire();
+
+    expect(explainTowerTarget(tower, [clump], lookup(undefined, false))).toBe(
+      `${tower.id} ice: target slime-clump ${clump.id} at 15.0 m, cooldown 3.0 s, turret not aligned`,
+    );
+  });
+
+  it('without a target: LOS not resolved yet, asleep', () => {
+    const tower = iceAt(20, 15);
+    tower.isSleeping = true;
+    expect(explainTowerTarget(tower, [clumpAt(20)], lookup(undefined))).toBe(
+      `${tower.id} ice: no target, asleep (wake check every 500 ms)`,
+    );
+    tower.losReady = false;
+    expect(explainTowerTarget(tower, [clumpAt(20)], lookup(undefined))).toBe(`${tower.id} ice: no target, LOS not resolved yet`);
+  });
+
+  it('without a target: what the cells under the clumps say for the tower', () => {
+    const tower = iceAt(20, 15);
+    const clumps = [clumpAt(10), clumpAt(20), clumpAt(30), clumpAt(40)];
+    const cells = [cellSeenBy(tower, false), cellSeenBy(tower, undefined), cellSeenBy(tower, true), undefined];
+    const cellOf = new Map(clumps.map((clump, i) => [clump, cells[i]]));
+
+    expect(explainTowerTarget(tower, clumps, { cellOf: (enemy) => cellOf.get(enemy), aligned: () => true })).toBe(
+      `${tower.id} ice: no target, no candidate in visibleCells (4 near: 1 in cells it does not see, ` +
+        '1 in cells without its LOS entry, 1 in cells it sees but missing from visibleCells, 1 off the grid)',
+    );
+  });
+
+  it('without a target: candidates only beyond its range, or in range and not taken yet', () => {
+    const tower = iceAt(20, 15);
+    const cell = cellSeenBy(tower, true);
+    tower.visibleCells = [cell];
+    // 62 m away: inside the candidate margin (66 m), past the range (60 m)
+    const far = clumpAt(20 + Math.sqrt(62 ** 2 - 15 ** 2));
+
+    expect(explainTowerTarget(tower, [far], lookup(cell))).toBe(
+      `${tower.id} ice: no target, candidates only beyond its range (nearest 62.0 m of 60.0 m)`,
+    );
+    expect(explainTowerTarget(tower, [far, clumpAt(30)], lookup(cell))).toBe(
+      `${tower.id} ice: no target, 2 candidate(s) in range not taken yet (nearest 18.0 m)`,
+    );
+  });
+});
+
+describe('TowerTargetConsole (__towerTargets)', () => {
+  let log: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    delete (globalThis as Record<string, unknown>)['__towerTargets'];
+  });
+
+  /** An Ice tower 15 m beside a clump in a cell it sees, and an ooze whose split hands that clump out */
+  const setup = () => {
+    const bus = new GameEventBus();
+    const tower = iceAt(20, 15);
+    const clump = clumpAt(20);
+    const cell = cellSeenBy(tower, true);
+    tower.visibleCells = [cell];
+    const probe = new TowerTargetConsole({
+      gameState: () =>
+        ({
+          towerManager: { getAllActive: () => [tower] },
+          enemyManager: { getAlive: () => [clump] },
+          getGlobalRouteGrid: () => ({ getCellAt: () => cell }),
+          getEventBus: () => bus,
+        }) as never,
+      engineInit: {
+        getEngine: () => ({ sync: { geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }) }, towers: { isTurretAligned: () => true } }) as never,
+      },
+    });
+    probe.install();
+    const api = (globalThis as Record<string, unknown>)['__towerTargets'] as (() => string) & { watch: (on?: boolean) => string };
+    const ooze = new Enemy('ooze', PATH);
+    ooze.body = {} as RouteBody;
+    const split = (): void => bus.emit({ type: 'enemy:split', enemy: ooze, children: [clump] });
+    return { tower, clump, probe, api, split };
+  };
+
+  const lines = (): unknown[] => log.mock.calls.map((call: unknown[]) => call[0]);
+
+  it('logs nothing unless watching; watching, a line per tower near the clumps each second for 6 s after the split', () => {
+    const { tower, probe, api, split } = setup();
+    split();
+    vi.advanceTimersByTime(3_000);
+    expect(log).not.toHaveBeenCalled();
+
+    api.watch();
+    split();
+    vi.advanceTimersByTime(999);
+    expect(log).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(lines()).toEqual([
+      '[TowerTargets] +1 s, 1 clump(s)',
+      `[TowerTargets] ${tower.id} ice: no target, 1 candidate(s) in range not taken yet (nearest 15.0 m)`,
+    ]);
+    vi.advanceTimersByTime(10_000);
+    expect(log).toHaveBeenCalledTimes(12);
+
+    api.watch(false);
+    split();
+    vi.advanceTimersByTime(3_000);
+    expect(log).toHaveBeenCalledTimes(12);
+    probe.uninstall();
+    expect((globalThis as Record<string, unknown>)['__towerTargets']).toBeUndefined();
+  });
+
+  it('stops once the clumps are gone', () => {
+    const { clump, api, split } = setup();
+    api.watch();
+    split();
+    clump.health.takeDamage(clump.health.hp);
+    vi.advanceTimersByTime(3_000);
+    expect(lines()).toEqual(['[TowerTargets] all clumps gone']);
+  });
+
+  it('__towerTargets() prints a table of the towers with an enemy near', () => {
+    const table = vi.spyOn(console, 'table').mockImplementation(() => undefined);
+    const { tower, api } = setup();
+    expect(api()).toBe('1 tower(s) with an enemy near.');
+    expect(table).toHaveBeenCalledWith([
+      { tower: tower.id, why: 'no target, 1 candidate(s) in range not taken yet (nearest 15.0 m)', sleeping: false, visibleCells: 1 },
+    ]);
+  });
+});
