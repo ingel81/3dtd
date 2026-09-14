@@ -49,12 +49,13 @@ describe('presentationEvent', () => {
     expect(presentationEvent(event)).toBeNull();
   });
 
-  it('turns a split into a stub of the dead enemy\'s place', () => {
-    const enemy = { position: { lat: 48.1, lon: 9.2 }, transform: { terrainHeight: 250 }, heightOffset: 1.5 };
+  it('turns a split into a stub of the dead enemy\'s place and type', () => {
+    const typeConfig = { id: 'skeleton', canBleed: false };
+    const enemy = { position: { lat: 48.1, lon: 9.2 }, transform: { terrainHeight: 250 }, heightOffset: 1.5, typeConfig };
     const kept = presentationEvent({ type: 'enemy:split', enemy: enemy as never, children: [{}] as never });
     expect(kept).toEqual({
       type: 'enemy:split',
-      enemy: { position: { lat: 48.1, lon: 9.2 }, transform: { terrainHeight: 250 }, heightOffset: 1.5 },
+      enemy: { position: { lat: 48.1, lon: 9.2 }, transform: { terrainHeight: 250 }, heightOffset: 1.5, typeConfig },
       children: [],
     });
     // Later moves of the (pooled or dead) enemy do not reach the stub

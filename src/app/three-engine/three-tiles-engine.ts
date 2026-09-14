@@ -45,6 +45,7 @@ import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
 import { OozeBandRenderer } from './renderers/ooze/ooze-band.renderer';
+import { OozeDebrisRenderer } from './renderers/ooze/ooze-debris.renderer';
 import { BloodMoonLook } from './blood-moon/blood-moon-look';
 import { BloodMoonMood } from './blood-moon/blood-moon-mood';
 import { SearchlightRenderer } from './renderers/searchlight/searchlight.renderer';
@@ -342,7 +343,8 @@ export class ThreeTilesEngine {
     this.lightningBolts = new LightningBoltRenderer(this.scene);
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
     this.mushroomClouds = new MushroomCloudRenderer(this.scene, this.effects.particleShaderMaterials);
-    this.oozes = new OozeBandRenderer(this.scene);
+    // A killed ooze's bubbles and splashes go through the effects, its debris to a renderer of its own
+    this.oozes = new OozeBandRenderer(this.scene, { effects: this.effects, debris: new OozeDebrisRenderer(this.scene) });
     this.searchlights = new SearchlightRenderer(this.scene, coordinateSync, this.towers);
     // Takes the fog colour set above as the one to return to
     this.bloodMoon = new BloodMoonLook({

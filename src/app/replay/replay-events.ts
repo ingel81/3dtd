@@ -26,8 +26,9 @@ export function isPresentationEvent(type: GameEvent['type']): boolean {
  * Emitters build a fresh object per event and no listener changes it, so
  * the object itself is kept, no copy. An event that holds a live entity
  * (Enemy, Tower, Projectile) would show that entity as it is at playback,
- * not as it was: enemy:split keeps a stub with the dead enemy's place, the
- * only fields VFXService reads; any other such event is dropped.
+ * not as it was: enemy:split keeps a stub with the dead enemy's place and
+ * its type's config (static), the only fields VFXService reads; any other
+ * such event is dropped.
  */
 export function presentationEvent(event: GameEvent): GameEvent | null {
   if (event.type === 'enemy:split') {
@@ -36,6 +37,7 @@ export function presentationEvent(event: GameEvent): GameEvent | null {
       position: { lat: enemy.position.lat, lon: enemy.position.lon },
       transform: { terrainHeight: enemy.transform.terrainHeight },
       heightOffset: enemy.heightOffset,
+      typeConfig: enemy.typeConfig,
     } as unknown as Enemy;
     return { type: 'enemy:split', enemy: stub, children: [] };
   }
