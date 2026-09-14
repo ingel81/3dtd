@@ -28,6 +28,7 @@ describe('CorridorConsole', () => {
   let engine: object | null;
   let columnAt: ReturnType<typeof vi.fn>;
   let blocked: ReturnType<typeof vi.fn>;
+  let inspect: ReturnType<typeof vi.fn>;
   let reference: { x: number; z: number };
   let selected: { id: string } | null;
   let layer: { cells: Cell[] } | null;
@@ -88,6 +89,7 @@ describe('CorridorConsole', () => {
     reference = { x: 10, z: 20 };
     columnAt = vi.fn(() => null);
     blocked = vi.fn(() => false);
+    inspect = vi.fn(() => null);
     engine = {
       sync: {
         localToGeo: (hit: { x: number; z: number }) => ({ lat: hit.x, lon: hit.z }),
@@ -95,7 +97,7 @@ describe('CorridorConsole', () => {
       },
       getTowerShadowMapper: () => ({ getReferencePos: () => reference }),
       getCamera: () => ({ position: { x: 0, y: 100, z: 0 } }),
-      terrain: { raycastColumnSample: columnAt, raycastLineOfSight: blocked },
+      terrain: { raycastColumnSample: columnAt, raycastLineOfSight: blocked, inspectColumn: inspect },
     };
     selected = null;
     layer = null;
@@ -206,6 +208,31 @@ describe('CorridorConsole', () => {
       // From the camera to where the red line runs, 1 m over the cell.
       expect(blocked).toHaveBeenCalledWith(0, 100, 0, 1, 31, 1);
       expect(columnAt).toHaveBeenCalledWith(5, 1, 'corridorPick');
+    });
+
+    /**
+     * Playtest 2026-09-14, Erlenbach: cells on an Autobahn deck over the
+     * street the route runs on. Whether the street is in the column at all,
+     * only in a coarser tile, or only not yet in the cache, the column at the
+     * click tells.
+     */
+    it('prints what the column at the click is made of, cached against a fresh ray', () => {
+      const column = (groundY: number, topY: number, tileDepth: number) => ({ groundY, topY, tileDepth, tileGeometricError: 2 });
+      inspect.mockReturnValue({
+        hits: [{ y: 10.004, depth: 22, geometricError: 1 }, { y: 0, depth: 21, geometricError: 2 }],
+        fresh: column(10.004, 10.004, 22),
+        cached: column(10, 10, 22),
+      });
+
+      api().pick();
+      click(3, 1);
+
+      expect(inspect).toHaveBeenCalledWith(3, 1);
+      expect(console.log).toHaveBeenCalledWith('[Corridor] column at the click', {
+        cached: 'ground 10 top 10 depth 22',
+        fresh: 'ground 10 top 10 depth 22',
+        hits: '10@22/1 0@21/2',
+      });
     });
 
     it('looks from the camera at the height the red line runs at, 3 m over the cells in DevWorld', () => {

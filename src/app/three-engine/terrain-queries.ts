@@ -314,8 +314,34 @@ export class TerrainQueries {
     return sample;
   }
 
+  /**
+   * What the column at a local position is made of, for `__corridor.pick()`:
+   * every hit of a fresh ray (height, tile depth, geometricError), the
+   * sample selectColumnSample makes of them now, and the sample the column
+   * cache holds, which the route cells and the street overlay read. Tells
+   * apart a street under a deck that no hit shows, one only in a coarser
+   * tile than the deck (dropped by the finest-LOD filter), and one the
+   * cache has not seen yet. Uncached; rays booked on `corridorPick`. Null
+   * in DevWorld.
+   */
+  inspectColumn(localX: number, localZ: number): { hits: ColumnHit[]; fresh: ColumnSample | null; cached: ColumnSample | null } | null {
+    if (this.sources.devTerrain()) return null;
+    const scope = raycastStats.enter('corridorPick');
+    try {
+      const fresh = this.raycastColumn(localX, localZ);
+      return {
+        hits: this._columnHits.map((hit) => ({ ...hit })),
+        fresh,
+        cached: this.columnCache.get(columnCacheKey(localX, localZ))?.sample ?? null,
+      };
+    } finally {
+      raycastStats.exit(scope);
+    }
+  }
+
   /** Uncached ray + LOD resolution behind {@link sampleColumn}. */
   private raycastColumn(localX: number, localZ: number): ColumnSample | null {
+    this._columnHits.length = 0;
     // The ray only ever hits active tiles.
     const tiles = this.sources.tiles();
     if (!tiles || tiles.activeTiles.size === 0) return null;
@@ -328,7 +354,6 @@ export class TerrainQueries {
     this.terrainRaycaster.intersectObject(tiles.group, true, this._columnResults);
     if (this._columnResults.length === 0) return null;
 
-    this._columnHits.length = 0;
     for (const r of this._columnResults) {
       // Every object in a tile's scene carries its tile. Hits always come from
       // tilesRenderer.raycast, so this is always a tile mesh.

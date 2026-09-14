@@ -107,6 +107,7 @@ function pickOnLine(service: PathAndRouteService, point: Vector3): { row: Record
     getCamera: () => ({ position: { x: point.x + 60, y: point.y + 25, z: point.z } }),
     terrain: {
       raycastColumnSample: () => null,
+      inspectColumn: () => null,
       raycastLineOfSight: (...args: number[]) => {
         aimedAt = args[4];
         return blocked(args[4]);

@@ -8,11 +8,29 @@ import type { EngineInitializationService } from '../infrastructure/engine-initi
 import type { InputHandlerService } from '../input-handler.service';
 import type { PathAndRouteService } from '../world/path-route.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
+import type { ColumnSample } from '../../three-engine/column-sample';
 
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 /** The engine as `__corridor.pick()` reads it. */
 type PickEngine = NonNullable<ReturnType<EngineInitializationService['getEngine']>>;
+
+/** What TerrainQueries.inspectColumn tells about the column at the click. */
+type ColumnInspection = NonNullable<ReturnType<PickEngine['terrain']['inspectColumn']>>;
+
+/**
+ * The column at the click for the console: the sample the cache holds (what
+ * the cells read), the one a fresh ray gives now, and every hit of that ray
+ * as height@depth/geometricError, top first.
+ */
+function describeColumn(column: ColumnInspection): Record<string, string | null> {
+  const sample = (s: ColumnSample | null) => (s ? `ground ${round(s.groundY, 2)} top ${round(s.topY, 2)} depth ${s.tileDepth}` : null);
+  return {
+    cached: sample(column.cached),
+    fresh: sample(column.fresh),
+    hits: column.hits.map((hit) => `${round(hit.y, 2)}@${hit.depth}/${hit.geometricError}`).join(' '),
+  };
+}
 
 /** What CorridorConsole needs; VisualizationFacadeService passes its services. */
 export interface CorridorConsoleDeps {
@@ -65,7 +83,9 @@ export class CorridorConsole {
    * `__corridor.pick()`: the next left click on the map prints every grid
    * spot within `radius` of it with its cell, sample state, height, surface,
    * the selected tower's answers and whether its LOS display draws it,
-   * nearest to the route line first, and what lies over it (coverAt). Then,
+   * nearest to the route line first, and what lies over it (coverAt). Then
+   * what the column at the click is made of, cached against a fresh ray
+   * (TerrainQueries.inspectColumn; not in DevWorld). Then,
    * for the route station nearest to the click, how the corridor width
    * there came about and the tags of its way
    * (PathAndRouteService.explainCorridorAt). Selection and display stay as
@@ -91,6 +111,9 @@ export class CorridorConsole {
         (tower ? `, answers and display of ${tower.id}` : ', no tower selected'),
       );
       console.table(rows);
+
+      const column = engine.terrain.inspectColumn(local.x, local.z);
+      if (column) console.log('[Corridor] column at the click', describeColumn(column));
 
       const why = this.deps.pathRoute.explainCorridorAt(local.x, local.z);
       if (why) {

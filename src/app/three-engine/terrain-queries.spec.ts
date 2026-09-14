@@ -490,6 +490,46 @@ describe('TerrainQueries', () => {
         expect(at(10, 0, geo(10, -10))(queries)).toBeCloseTo(0, 6);
       });
     });
+
+    // Playtest 2026-09-14, Erlenbach: Zellen auf einem Autobahndeck über der
+    // Straße, auf der die Route läuft, obwohl Zellen den untersten Treffer nehmen.
+    describe('inspectColumn()', () => {
+      it('zeigt eine Straße, die nur in einem gröberen Tile als das Deck darüber liegt: die Säule verwirft sie', () => {
+        const { queries, addTile } = setup();
+        addTile(floor(0), 21, 2);
+        addTile(floor(10, 10), 22, 1);
+        // Neben der Diagonale der Planes, sonst trifft der Strahl beide Dreiecke.
+        queries.sampleColumn(1, 3);
+
+        const column = queries.inspectColumn(1, 3)!;
+        expect(column.hits.map((hit) => `${Math.round(hit.y)}@${hit.depth}`)).toEqual(['10@22', '0@21']);
+        expect(column.fresh!.groundY).toBeCloseTo(10, 6);
+        expect(column.cached!.groundY).toBeCloseTo(10, 6);
+      });
+
+      it('zeigt einen Cache, der die Straße aus einem später geladenen Tile gleicher Tiefe nicht kennt', () => {
+        const { queries, addTile } = setup();
+        addTile(floor(10, 10), 21, 2);
+        queries.sampleColumn(1, 3);
+        addTile(floor(0), 21, 2);
+        queries.markTileSetChanged();
+
+        // Der Cache prüft nur, ob ein besseres LOD da ist.
+        expect(queries.sampleColumn(1, 3)!.groundY).toBeCloseTo(10, 6);
+        const column = queries.inspectColumn(1, 3)!;
+        expect(column.fresh!.groundY).toBeCloseTo(0, 6);
+        expect(column.cached!.groundY).toBeCloseTo(10, 6);
+      });
+
+      it('gibt ohne Treffer keine, und in DevWorld nichts', () => {
+        const world = setup();
+        world.addTile(floor(0, 4), 21, 2);
+        expect(world.queries.inspectColumn(30, 30)).toEqual({ hits: [], fresh: null, cached: null });
+        const dev = setup();
+        dev.useDevWorld();
+        expect(dev.queries.inspectColumn(0, 0)).toBeNull();
+      });
+    });
   });
 
   describe('raycastLineOfSight()', () => {
