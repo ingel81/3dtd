@@ -190,7 +190,6 @@ interface GraphEntry {
 }
 
 let graph: Map<number, GraphEntry> | null = null;
-let _networkNodes: Map<number, StreetNode> | null = null;
 let streets: Street[] = [];
 
 function buildGraph(networkStreets: Street[]): Map<number, GraphEntry> {
@@ -349,7 +348,6 @@ addEventListener('message', (event: MessageEvent<WorkerInMessage>) => {
     case 'init': {
       try {
         // Deserialize network
-        _networkNodes = new Map(msg.network.nodes);
         streets = msg.network.streets;
 
         // Build graph
@@ -389,7 +387,6 @@ addEventListener('message', (event: MessageEvent<WorkerInMessage>) => {
 
     case 'clearGraph': {
       graph = null;
-      _networkNodes = null;
       streets = [];
       break;
     }
