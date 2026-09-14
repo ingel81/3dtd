@@ -6,7 +6,7 @@ import {
 import { ThreeTilesEngine } from '../../three-engine';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { provisionalPortalPose } from '../../three-engine/renderers/marker/spawn-portal-pose';
-import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
+import { OsmStreetService, Street, StreetNetwork } from '../location/osm-street.service';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { UIStore } from '../../store/ui.store';
 import { GeoPosition } from '../../models/game.types';
@@ -72,6 +72,9 @@ export class MapPlacementService {
   private manualHeading: number | null = null;
   private isRotating = false;
 
+  // Whether a route runs to the HQ from a street node, see hasRouteToHq()
+  private readonly routeFromNode = new Map<number, boolean>();
+
   // Dependencies (set via initialize)
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
@@ -98,6 +101,7 @@ export class MapPlacementService {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
     this.baseCoords = baseCoords;
+    this.routeFromNode.clear();
   }
 
   /**
@@ -109,6 +113,7 @@ export class MapPlacementService {
   ): void {
     this.streetNetwork = streetNetwork;
     this.baseCoords = baseCoords;
+    this.routeFromNode.clear();
   }
 
   /**
@@ -303,8 +308,30 @@ export class MapPlacementService {
     if (!nearest || nearest.distance > MAX_SPAWN_STREET_DISTANCE) {
       return { valid: false, reason: this.isInsideStreets(lat, lon) ? 'Too far from streets' : 'Streets not loaded here' };
     }
+    if (!this.hasRouteToHq(nearest, lat, lon)) {
+      return { valid: false, reason: 'No route to HQ' };
+    }
 
     return { valid: true };
+  }
+
+  /**
+   * Whether a route runs from the clicked spot to the HQ, found as the
+   * relocation will find it (findPath from the click), which otherwise
+   * turns the click down without a word after the preview was green. The
+   * route starts on the nearest segment's first node, so the answer is
+   * remembered per node: sliding along a street asks A* once per segment,
+   * not once per mouse move.
+   */
+  private hasRouteToHq(nearest: { street: Street; nodeIndex: number }, lat: number, lon: number): boolean {
+    const startId = nearest.street.nodes[nearest.nodeIndex].id;
+    let known = this.routeFromNode.get(startId);
+    if (known === undefined) {
+      const hq = this.baseCoords!;
+      known = this.osmService.findPath(this.streetNetwork!, lat, lon, hq.lat, hq.lon).length >= 2;
+      this.routeFromNode.set(startId, known);
+    }
+    return known;
   }
 
   /** Whether the position lies inside the box the street network was loaded for. */

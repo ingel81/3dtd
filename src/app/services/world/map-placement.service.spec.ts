@@ -38,6 +38,15 @@ describe('MapPlacementService', () => {
   let distanceToHq: number;
   /** Distance from the cursor to the nearest street of the loaded network, m */
   let distanceToStreet: number;
+  /** Id of the node the route would start on: the nearest segment's first */
+  let startNode: number;
+  /** What findPath answers from there to the HQ */
+  let route: unknown[];
+  let osm: {
+    findNearestStreetPoint: ReturnType<typeof vi.fn>;
+    haversineDistance: ReturnType<typeof vi.fn>;
+    findPath: ReturnType<typeof vi.fn>;
+  };
   const mapPlacementMode = signal<'hq' | 'spawn' | null>(null);
 
   beforeEach(() => {
@@ -50,9 +59,12 @@ describe('MapPlacementService', () => {
       createDiamondMarker: vi.fn(({ color }: { color: number }) => fakePortalPreview(color)),
       disposePreviewMarker: vi.fn(),
     };
-    const osm = {
-      findNearestStreetPoint: vi.fn(() => ({ distance: distanceToStreet })),
+    startNode = 1;
+    route = [{}, {}];
+    osm = {
+      findNearestStreetPoint: vi.fn(() => ({ distance: distanceToStreet, street: { nodes: [{ id: startNode }] }, nodeIndex: 0 })),
       haversineDistance: vi.fn(() => distanceToHq),
+      findPath: vi.fn(() => route),
     };
     const injector = Injector.create({
       providers: [
@@ -138,6 +150,30 @@ describe('MapPlacementService', () => {
       expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'Too far from HQ' });
       distanceToHq = MIN_MANUAL_SPAWN_DISTANCE - 1;
       expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'Too close to HQ' });
+    });
+
+    it('refuses a street with no route to the HQ, and asks A* once per start node', () => {
+      route = [];
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: false, reason: 'No route to HQ' });
+      expect(osm.findPath).toHaveBeenCalledWith(expect.anything(), inside.lat, inside.lon, HQ.lat, HQ.lon);
+
+      // Along the same segment: the answer stands, no second search
+      service.validatePosition('spawn', inside.lat + 0.0001, inside.lon);
+      expect(osm.findPath).toHaveBeenCalledTimes(1);
+
+      // The next segment starts on another node: searched again
+      startNode = 2;
+      route = [{}, {}];
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: true });
+      expect(osm.findPath).toHaveBeenCalledTimes(2);
+    });
+
+    it('asks again once the HQ or the streets changed', () => {
+      route = [];
+      service.validatePosition('spawn', inside.lat, inside.lon);
+      route = [{}, {}];
+      service.updateDependencies({ bounds: BOUNDS } as unknown as StreetNetwork, { ...HQ });
+      expect(service.validatePosition('spawn', inside.lat, inside.lon)).toEqual({ valid: true });
     });
 
     it('keeps the wider tolerance for the HQ, which needs no street to start on', () => {

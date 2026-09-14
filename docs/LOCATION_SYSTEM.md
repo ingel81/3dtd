@@ -628,7 +628,7 @@ Jede Zeile nennt die Zeit je Schritt in ms (`StepTimes` in `map-relocation.servi
 | Modus | Innerhalb Bounds | Ausserhalb Bounds |
 |-------|------------------|-------------------|
 | `hq` | Naehe zu Strasse pruefen (max 150m) | Immer erlaubt (Streets werden nachgeladen) |
-| `spawn` | 200-1500 m Luftlinie zum HQ, dann ein Way des geladenen Netzes höchstens 30 m entfernt ("Too far from streets") | Gleiche Prüfung; ohne geladenen Way in 30 m "Streets not loaded here" |
+| `spawn` | 200-1500 m Luftlinie zum HQ, dann ein Way des geladenen Netzes höchstens 30 m entfernt ("Too far from streets"), dann eine Route von dort zum HQ ("No route to HQ") | Gleiche Prüfung; ohne geladenen Way in 30 m "Streets not loaded here" |
 
 Beim Platzieren eines Spawns zeigt die Karte zwei Ringe um das HQ (200 m und 1500 m).
 
