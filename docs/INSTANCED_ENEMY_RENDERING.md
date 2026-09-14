@@ -6,7 +6,7 @@ GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert
 
 ---
 
-## Uebersicht
+## Übersicht
 
 Das frühere klassische Rendering (`ThreeEnemyRenderer`, entfernt in 2bbf91f) erzeugte pro Enemy 2 Draw Calls (Mesh + Health Bar Sprite), bei 500 Enemies ~1000. Heute läuft jeder Typ instanziert: ein Draw Call pro Enemy-Typ mit belegten Slots plus zwei für alle Health-Bars (zwei Passes). Leere Pools stehen nicht in der Render-Liste (siehe Slot-Vergabe).
 
@@ -51,7 +51,7 @@ Model laden → VAT baken → InstancedMesh Pool erstellen → Pro Frame: Animat
 
 ### Konzept
 
-Skelettanimationen werden in eine DataTexture "gebacken": Fuer jeden Frame wird jede Vertex-Position nach Bone-Transform berechnet und als RGBA-Float in die Textur geschrieben. Der Shader liest zur Laufzeit nur noch die Position aus der Textur - kein Skelett noetig.
+Skelettanimationen werden in eine DataTexture "gebacken": Für jeden Frame wird jede Vertex-Position nach Bone-Transform berechnet und als RGBA-Float in die Textur geschrieben. Der Shader liest zur Laufzeit nur noch die Position aus der Textur - kein Skelett nötig.
 
 ### Animierte Modelle (`bakeVAT`)
 
@@ -62,7 +62,7 @@ Ausgabe: DataTexture (width=texWidth, height=totalFrames × rowsPerFrame)
 
 **Ablauf:**
 1. Alle SkinnedMeshes im Model sammeln (Body, Haare, Anhänge) und ihre Vertices hintereinander in eine Geometrie legen
-2. Fuer jeden Clip einen frischen `AnimationMixer` erstellen
+2. Für jeden Clip einen frischen `AnimationMixer` erstellen
 3. Pro Frame: `mixer.setTime(t)` → für jedes SkinnedMesh `applyBoneTransform(v, pos)` → in Textur schreiben
 4. Positionen von Mesh-Local nach Model-Root-Space transformieren
 
@@ -121,7 +121,7 @@ Für Modelle ohne Animation (`hasAnimations: false` oder keine Clips im Model, z
 
 ### Texture Tiling
 
-WebGL limitiert Texturgroesse auf `MAX_TEXTURE_SIZE` (typisch 16384). Bei Modellen mit >8192 Vertices werden Vertices auf mehrere Zeilen verteilt (`vatLayout()`):
+WebGL limitiert Texturgröße auf `MAX_TEXTURE_SIZE` (typisch 16384). Bei Modellen mit >8192 Vertices werden Vertices auf mehrere Zeilen verteilt (`vatLayout()`):
 
 ```
 texWidth = min(vertexCount, 8192)
@@ -185,7 +185,7 @@ Das `+ 0.5` ist Texel-Center-Sampling (NearestFilter).
 
 ### Multi-Material Support
 
-Modelle mit mehreren Materialien (z.B. Tank: Turret mit Textur, Ketten ohne) werden ueber Per-Vertex Attribute gehandhabt:
+Modelle mit mehreren Materialien (z.B. Tank: Turret mit Textur, Ketten ohne) werden über Per-Vertex Attribute gehandhabt:
 
 | Attribut | Typ | Beschreibung |
 |----------|-----|-------------|
@@ -220,15 +220,15 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 |---------|-----|-------------|
 | `vatTexture` | sampler2D | VAT DataTexture (RGBA16F oder RGBA32F) |
 | `vatWidth` | float | Texturbreite (texWidth) |
-| `vatHeight` | float | Texturhoehe (totalFrames × rowsPerFrame) |
+| `vatHeight` | float | Texturhöhe (totalFrames × rowsPerFrame) |
 | `rowsPerFrame` | float | Zeilen pro Frame (Tiling) |
 | `vatOrigin` | vec3 | Mitte der Bounding-Box (RGBA16F), sonst 0 |
 | `vatExtent` | vec3 | Halbe Ausdehnung der Bounding-Box (RGBA16F), sonst 1 |
 | `diffuseMap` | sampler2D | Diffuse Texture (optional) |
 | `hasDiffuse` | float | 1.0 wenn Texture vorhanden |
-| `isUnlit` | float | 1.0 fuer unbeleuchtete Modelle |
+| `isUnlit` | float | 1.0 für unbeleuchtete Modelle |
 | `emissiveIntensity` | float | Additiver Helligkeitsboost (aus EnemyTypeConfig) |
-| `emissiveColor` | vec3 | Emissive-Farbe (default weiss) |
+| `emissiveColor` | vec3 | Emissive-Farbe (default weiß) |
 | `colorMultiplier` | float | Helligkeitsfaktor vor dem Emissive (aus EnemyTypeConfig, default 1.0) |
 | `alphaCutoff` | float | Alpha-Grenze im Modus Maske (siehe Alpha) |
 | `bloodMoonGlow` | float | Blutmond-Glühen 0..1, ein Objekt für alle Typen (siehe Blutmond) |
@@ -239,7 +239,7 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 
 | Attribut | Typ | Quelle |
 |----------|-----|--------|
-| `aVertexIndex` | float | Vertex-ID fuer VAT Lookup |
+| `aVertexIndex` | float | Vertex-ID für VAT Lookup |
 | `aVertexColor` | vec3 | Material-Farbe (Fallback) |
 | `aVertexAlpha` | float | Alpha zur Vertex-Farbe |
 | `aUseMap` | float | Texture vs Color Flag |
@@ -283,10 +283,10 @@ behandelt, so wie three.js die Materialien zeichnen würde:
 World-Space Lighting mit 4 Lichtquellen:
 
 ```
-Sun:     (-0.44, 0.89, -0.27), warm, Intensitaet 1.5
-Fill:    (0.63, 0.63, 0.38),   neutral, Intensitaet 0.8
-Hemi:    Sky/Ground Blend,      kuehl, Intensitaet 0.75
-Ambient: neutral,               Intensitaet 0.5
+Sun:     (-0.44, 0.89, -0.27), warm, Intensität 1.5
+Fill:    (0.63, 0.63, 0.38),   neutral, Intensität 0.8
+Hemi:    Sky/Ground Blend,      kühl, Intensität 0.75
+Ambient: neutral,               Intensität 0.5
 ```
 
 **Wichtig:** Normalen werden in World-Space transformiert (`mat3(instanceMatrix) * normal`), NICHT View-Space. Die Lichtrichtungen sind hardcodiert in World-Space.
@@ -334,7 +334,7 @@ und Wraith beide Seiten, die übrigen gebackenen Typen nur die Vorderseite.
 
 ### LogDepthBuf
 
-Beide Shader (VAT + Health Bar) enthalten die Three.js `logdepthbuf` Chunks fuer korrekte Tiefendarstellung mit 3D Tiles.
+Beide Shader (VAT + Health Bar) enthalten die Three.js `logdepthbuf` Chunks für korrekte Tiefendarstellung mit 3D Tiles.
 
 ---
 
@@ -432,7 +432,7 @@ interface EnemyInstanceState {
 
 1. `animTime += deltaTime × animSpeed × speedMultiplier` (tote Gegner ohne `speedMultiplier`)
 2. Frame berechnen: `localFrame = floor((animTime / totalTime) % 1.0 × frameCount)`
-3. Looping fuer Walk/Run, Clamping fuer Death (hält den letzten gebackenen Frame)
+3. Looping für Walk/Run, Clamping für Death (hält den letzten gebackenen Frame)
 4. `aAnimFrame` nur schreiben, wenn sich der globale Frame geändert hat (`lastFrame`), sonst entfällt der Upload
 
 `speedMultiplier` setzt `updateEnemyState()`: aktuelle Geschwindigkeit geteilt durch
@@ -521,27 +521,27 @@ Nach dem Bake überschreibt `config.unlit` den erkannten `isUnlit`-Wert, und
 
 ---
 
-## Geloeste Herausforderungen
+## Gelöste Herausforderungen
 
-### 1. Grosse Vertex-Counts (damals Wallsmasher 17.010, heute noch Herbert 30.831)
+### 1. Große Vertex-Counts (damals Wallsmasher 17.010, heute noch Herbert 30.831)
 
 **Problem:** VAT DataTexture breiter als WebGL MAX_TEXTURE_SIZE (16384).
-**Loesung:** Texture Tiling - Vertices werden auf mehrere Zeilen verteilt (MAX_VAT_WIDTH = 8192).
+**Lösung:** Texture Tiling - Vertices werden auf mehrere Zeilen verteilt (MAX_VAT_WIDTH = 8192).
 
 ### 2. Multi-Mesh Modelle (Tank: 7 Sub-Meshes)
 
-**Problem:** `bakeStaticVAT` nahm nur das groesste Mesh, Rest fehlte.
-**Loesung:** Alle Non-Skinned Meshes mergen mit korrekten Transforms.
+**Problem:** `bakeStaticVAT` nahm nur das größte Mesh, Rest fehlte.
+**Lösung:** Alle Non-Skinned Meshes mergen mit korrekten Transforms.
 
 ### 3. Multi-Material (Tank: Textur + Farb-Meshes)
 
 **Problem:** Eine Diffuse Texture auf alle Vertices angewendet → falsche Farben.
-**Loesung:** Per-Vertex `aVertexColor` + `aUseMap` Flag. Meshes mit passender Texture nutzen diese, andere nutzen Material-Farbe.
+**Lösung:** Per-Vertex `aVertexColor` + `aUseMap` Flag. Meshes mit passender Texture nutzen diese, andere nutzen Material-Farbe.
 
 ### 4. Beleuchtung (Tank: komplett schwarz)
 
 **Problem:** Normalen in View-Space transformiert, aber Lichtrichtungen in World-Space.
-**Loesung:** `normalMatrix` entfernt, nur `mat3(instanceMatrix) * normal` fuer World-Space Normalen.
+**Lösung:** `normalMatrix` entfernt, nur `mat3(instanceMatrix) * normal` für World-Space Normalen.
 
 ### 5. Multi-SkinnedMesh (Spider: 2 SkinnedMeshes)
 
@@ -552,17 +552,17 @@ Nach dem Bake überschreibt `config.unlit` den erkannten `isUnlit`-Wert, und
 
 ## Konfiguration
 
-### EnemyTypeConfig Felder (relevant fuer Instancing)
+### EnemyTypeConfig Felder (relevant für Instancing)
 
 | Feld | Beschreibung |
 |------|-------------|
 | `hasAnimations` | true (und Clips im Model) → `bakeVAT` bzw. `bakeObjectAnimVAT`, sonst `bakeStaticVAT` |
-| `walkAnimation` | Clip-Name fuer Walk |
-| `runAnimation` | Clip-Name fuer Run |
-| `deathAnimation` | Clip-Name fuer Death (gebacken bis zum Entfernen) |
+| `walkAnimation` | Clip-Name für Walk |
+| `runAnimation` | Clip-Name für Run |
+| `deathAnimation` | Clip-Name für Death (gebacken bis zum Entfernen) |
 | `deathAnimations` | Pool von Todes-Clips, einer pro Kill (gebacken wie `deathAnimation`) |
 | `animationSpeed` | Playback Speed Multiplier |
-| `randomAnimationStart` | Zufaelliger Start-Offset (verhindert Sync) |
+| `randomAnimationStart` | Zufälliger Start-Offset (verhindert Sync) |
 | `unlit` | true → kein Lighting (Cartoon-Modelle) |
 | `scale` | Model-Skalierung (in Instance Matrix) |
 | `headingOffset` | Rotations-Korrektur |
