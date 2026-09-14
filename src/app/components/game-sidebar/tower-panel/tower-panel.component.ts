@@ -32,11 +32,12 @@ import {
   VETERAN_TOOLTIP,
   targetingStrategiesFor,
   towerStats,
-  upgradeKeyView,
+  upgradeHintView,
   upgradeTierLockReason,
   veteranView,
 } from './tower-stats';
 import { formatCompact } from '../../../utils/format-compact';
+import { upgradeTrackRefusal } from '../../../utils/player-actions';
 
 /**
  * How often the panel re-reads the damage dealt (ms). It grows with every hit,
@@ -68,8 +69,8 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   /** The first click on Sell only arms it, see SellConfirmService. */
   readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
 
-  /** The last U on this tower: the tile it bought flashes, or why it bought nothing */
-  readonly keyView = computed(() => upgradeKeyView(this.upgradeHint.hint(), this.tower()));
+  /** The last U or tile click on this tower: the tile it bought flashes, or why it bought nothing */
+  readonly hintView = computed(() => upgradeHintView(this.upgradeHint.hint(), this.tower()));
 
   readonly sellTower = output<void>();
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
@@ -129,6 +130,13 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
 
   isUpgradeTierUnlocked(upgradeId: UpgradeId): boolean {
     return this.researchStore.maxUpgradeTier() >= this.getRequiredUpgradeTier(upgradeId);
+  }
+
+  /** Not buyable right now: the tile looks disabled, a click on it still says why. */
+  isUpgradeRefused(upgradeId: UpgradeId): boolean {
+    return upgradeTrackRefusal(
+      this.tower(), upgradeId, this.store.credits(), this.researchStore.maxUpgradeTier(),
+    ) !== null;
   }
 
   getUpgradeTierLockReason(upgradeId: UpgradeId): string | null {

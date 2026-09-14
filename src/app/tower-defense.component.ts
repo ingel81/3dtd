@@ -202,6 +202,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly cameraControl = inject(CameraControlService);
   private readonly inputHandler = inject(InputHandlerService);
   private readonly hotkeys = inject(HotkeyService);
+  private readonly towerUpgrade = inject(TowerUpgradeService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly abilityTargeting = inject(AbilityTargetingService);
@@ -607,10 +608,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Upgrade a tower, delegates to facade
+   * A click on an upgrade tile: buys it or says why not, answered like U
+   * (TowerUpgradeService)
    */
   upgradeTower(tower: Tower, upgradeId: UpgradeId): boolean {
-    return this.facade.upgradeTower(tower, upgradeId);
+    return this.towerUpgrade.buy(tower, upgradeId);
   }
 
   /**

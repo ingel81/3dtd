@@ -10,7 +10,8 @@ import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { UpgradeHintService } from '../../../services/upgrade-hint.service';
 import { TdIconComponent } from '../../icon/icon.component';
-import { upgradeKeyView } from '../tower-panel/tower-stats';
+import { upgradeHintView } from '../tower-panel/tower-stats';
+import { upgradeTrackRefusal } from '../../../utils/player-actions';
 import {
   missingPrereqNames,
   researchNodeIcon,
@@ -43,8 +44,8 @@ export class SidebarResearchPanelComponent {
   /** The first click on Sell only arms it, see SellConfirmService. */
   readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
 
-  /** The last U on the center: the tile it bought flashes, or why it bought nothing */
-  readonly keyView = computed(() => upgradeKeyView(this.upgradeHint.hint(), this.tower()));
+  /** The last U or tile click on the center: the tile it bought flashes, or why it bought nothing */
+  readonly hintView = computed(() => upgradeHintView(this.upgradeHint.hint(), this.tower()));
 
   readonly sellTower = output<void>();
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
@@ -128,6 +129,13 @@ export class SidebarResearchPanelComponent {
 
   onSell(): void {
     if (this.sellConfirm.request(this.tower().id)) this.sellTower.emit();
+  }
+
+  /** Not buyable right now: the tile looks disabled, a click on it still says why. */
+  isUpgradeRefused(upgradeId: UpgradeId): boolean {
+    return upgradeTrackRefusal(
+      this.tower(), upgradeId, this.store.credits(), this.researchStore.maxUpgradeTier(),
+    ) !== null;
   }
 
   onUpgradeTower(upgradeId: UpgradeId): void {

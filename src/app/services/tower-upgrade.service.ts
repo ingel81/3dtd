@@ -4,7 +4,12 @@ import type { Tower } from '../entities/tower.entity';
 import { GameStateManager } from '../managers/game-state.manager';
 import { ResearchStore } from '../store/research.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
-import { firstAffordableUpgrade, upgradeRefusal, type UpgradeRefusal } from '../utils/player-actions';
+import {
+  firstAffordableUpgrade,
+  upgradeRefusal,
+  upgradeTrackRefusal,
+  type UpgradeRefusal,
+} from '../utils/player-actions';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
 import { UpgradeHintService } from './upgrade-hint.service';
 
@@ -32,11 +37,12 @@ function refusalLabel(refusal: UpgradeRefusal): string {
 }
 
 /**
- * The player's upgrade purchases, and their answer on the map and in the
- * panel: the track and its new level rise over the tower and its tile
- * flashes, or the reason nothing was bought rises there and shows in the
- * tower's panel (UpgradeHintService). The bots buy through the facade and
- * get neither.
+ * The player's upgrade purchases, from the U key (HotkeyService) and from a
+ * click on an upgrade tile in the tower or research panel (the game
+ * component), with one answer for both on the map and in the panel: the
+ * track and its new level rise over the tower and its tile flashes, or the
+ * reason nothing was bought rises there and shows in the tower's panel
+ * (UpgradeHintService). The bots buy through the facade and get neither.
  *
  * Provided by the game component, because the facade it drives is.
  */
@@ -47,6 +53,22 @@ export class TowerUpgradeService {
   private readonly store = inject(TowerDefenseStore);
   private readonly researchStore = inject(ResearchStore);
   private readonly upgradeHint = inject(UpgradeHintService);
+
+  /**
+   * A click on an upgrade tile: buys that track, or says why not
+   * (upgradeTrackRefusal), also on a tile that looks disabled.
+   * @returns true when it bought
+   */
+  buy(tower: Tower, upgradeId: UpgradeId): boolean {
+    const refusal = upgradeTrackRefusal(
+      tower, upgradeId, this.store.credits(), this.researchStore.maxUpgradeTier(),
+    );
+    if (refusal) {
+      this.refuse(tower, refusal);
+      return false;
+    }
+    return this.purchase(tower, upgradeId);
+  }
 
   /**
    * U: buys the first track the player can afford (firstAffordableUpgrade),

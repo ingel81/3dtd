@@ -184,13 +184,15 @@
     font-family: inherit;
   }
 
-  .td-upgrade-tile:hover:not(:disabled) {
+  .td-upgrade-tile:hover:not([aria-disabled='true']) {
     background: linear-gradient(135deg, rgba(255, 193, 7, 0.25) 0%, rgba(255, 193, 7, 0.1) 100%);
     border-color: var(--td-gold);
     box-shadow: 0 0 12px rgba(255, 193, 7, 0.3);
   }
 
-  .td-upgrade-tile:disabled {
+  /* A tile the player cannot buy stays clickable (aria-disabled): the click
+     says why, like U */
+  .td-upgrade-tile[aria-disabled='true'] {
     opacity: 0.4;
     cursor: not-allowed;
     border-color: var(--td-frame-mid);
