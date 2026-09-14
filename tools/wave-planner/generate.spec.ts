@@ -36,13 +36,11 @@ import {
   TOWER_TYPES,
   UPGRADE_BASE_COST,
   UPGRADE_COST_SCALING,
+  getUpgradeCost,
   type TowerTypeId,
 } from '../../src/app/configs/tower-types.config';
 import { RESEARCH_TREE } from '../../src/app/configs/research/research-tree.config';
-import {
-  RESEARCH_CENTER_LEVELS,
-  RESEARCH_CENTER_CONFIG,
-} from '../../src/app/configs/research/research-center.config';
+import { RESEARCH_CENTER_LEVELS } from '../../src/app/configs/research/research-center.config';
 import {
   WAVE_CURRICULUM,
 } from '../../src/app/configs/wave-curriculum.config';
@@ -196,11 +194,16 @@ function buildPayload(): Payload {
     effectSummary: summariseEffect(r.effects as never),
   }));
 
+  // Placement and upgrade costs live on the tower type, not in
+  // research-center.config.ts (which only holds slot counts): placement is
+  // its own `cost`, upgrading is its `research-slots` track.
+  const rcConfig = TOWER_TYPES['research-center'];
+  const rcSlotsUpgrade = rcConfig.upgrades.find((u) => u.effect.stat === 'research-slots')!;
   const rc = {
-    baseCost: RESEARCH_CENTER_CONFIG.baseCost,
-    levels: RESEARCH_CENTER_LEVELS.map((l) => ({
+    baseCost: rcConfig.cost,
+    levels: RESEARCH_CENTER_LEVELS.map((l, i) => ({
       level: l.level,
-      upgradeCost: l.upgradeCost,
+      upgradeCost: i === 0 ? 0 : getUpgradeCost(rcSlotsUpgrade, i - 1),
       slots: l.researchSlots,
     })),
   };
@@ -218,7 +221,7 @@ function buildPayload(): Payload {
     defaults: {
       upgradeBaseCost: UPGRADE_BASE_COST,
       upgradeCostScaling: UPGRADE_COST_SCALING,
-      rcBaseCost: RESEARCH_CENTER_CONFIG.baseCost,
+      rcBaseCost: rcConfig.cost,
     },
     towers,
     researches,

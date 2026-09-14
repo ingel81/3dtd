@@ -35,10 +35,7 @@ import {
   type TowerUpgrade,
 } from '../../src/app/configs/tower-types.config';
 import { RESEARCH_TREE } from '../../src/app/configs/research/research-tree.config';
-import {
-  RESEARCH_CENTER_LEVELS,
-  RESEARCH_CENTER_CONFIG,
-} from '../../src/app/configs/research/research-center.config';
+import { RESEARCH_CENTER_LEVELS } from '../../src/app/configs/research/research-center.config';
 import { GAME_BALANCE } from '../../src/app/configs/game-balance.config';
 import type { ResearchId } from '../../src/app/configs/research/research.types';
 import { HERO } from '../../src/app/configs/hero.config';
@@ -217,9 +214,14 @@ function renderHtml(
   // Cost milestones to overlay on the cumulative-income chart. Each one is the
   // *total* gold a player needs to have spent to reach that state (cumulative
   // cost from game start, including prereq research where applicable).
-  const rcBaseCost = RESEARCH_CENTER_CONFIG.baseCost;
-  const rcLvl2 = RESEARCH_CENTER_LEVELS.find((l) => l.level === 2)?.upgradeCost ?? 0;
-  const rcLvl3 = RESEARCH_CENTER_LEVELS.find((l) => l.level === 3)?.upgradeCost ?? 0;
+  // Research Center costs live on the tower type, not in research-center.config.ts
+  // (which only holds slot counts): placement is its own `cost`, upgrading is
+  // its `research-slots` track via `getUpgradeCost`.
+  const rcConfig = TOWER_TYPES['research-center'];
+  const rcSlotsUpgrade = rcConfig.upgrades.find((u) => u.effect.stat === 'research-slots')!;
+  const rcBaseCost = rcConfig.cost;
+  const rcLvl2 = getUpgradeCost(rcSlotsUpgrade, 0);
+  const rcLvl3 = getUpgradeCost(rcSlotsUpgrade, 1);
   const find = (id: ResearchId) => researchRows.find((r) => r.id === id)!;
 
   const milestones: { label: string; cost: number; color: string }[] = [
@@ -560,8 +562,8 @@ ${researchRows
         <tr><td class="l">Place (Level 1)</td><td>${rcBaseCost}</td><td>${RESEARCH_CENTER_LEVELS[0].researchSlots}</td></tr>
 ${RESEARCH_CENTER_LEVELS.slice(1)
   .map(
-    (l) =>
-      `        <tr><td class="l">Upgrade to Level ${l.level}</td><td>${fmt(l.upgradeCost)}</td><td>${l.researchSlots}</td></tr>`,
+    (l, i) =>
+      `        <tr><td class="l">Upgrade to Level ${l.level}</td><td>${fmt([rcLvl2, rcLvl3][i])}</td><td>${l.researchSlots}</td></tr>`,
   )
   .join('\n')}
       </tbody>
