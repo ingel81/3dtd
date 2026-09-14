@@ -1339,6 +1339,9 @@ Punkte beginnen bei 301.
      verstummt (Zombie-Loops laufen weiter, bekannt); Kill: ein nasser
      Splat; Fließen ins HQ: etwa jede Sekunde ein Schlürfen; mit 12 oder mehr
      Zombies bleibt die Ooze hörbar.
+     **Überholt** in einem Teil durch `177ba53f` (Fix-Session 2026-09-14):
+     In der Pause verstummen jetzt auch die Zombie- und Flammen-Loops, siehe
+     REVIEW_FIX_2026-09-14.md, Playtest 545 bis 548. Der Rest gilt weiter.
 365. Sprung auf 45: NEXT zeigt W45 "Boss: Ooze", die Welle bringt eine Ooze.
 
 **Boss-Intro**
@@ -1371,9 +1374,17 @@ Punkte beginnen bei 301.
      dunkler, Gegner mit rotem Rand; jeder Kampf-Tower schwenkt einen
      warmweißen Kegel Richtung Route, das Research Center nicht; auf einem
      Sockel beginnt der Kegel oben am Tower.
+     **Überholt** in einem Teil durch `6a42d3a5` (Fix-Session 2026-09-14):
+     Der Kegel schwenkt nicht mehr selbst, er zeigt in die Zielrichtung des
+     Turms und dreht mit ihm, siehe REVIEW_FIX_2026-09-14.md, Playtest 549
+     bis 552. Der Rest gilt weiter.
 374. P mitten in der Blende: Blende und Schwenk stehen, weiter ohne Sprung.
      4x: die Blende dauert weiter etwa 3 s. Wellenende: Look blendet in etwa
      4,5 s aus.
+     **Überholt** in einem Teil durch `6a42d3a5` (Fix-Session 2026-09-14):
+     Einen Schwenk gibt es nicht mehr, in der Pause steht der Kegel mit dem
+     Turret; siehe REVIEW_FIX_2026-09-14.md, Playtest 549 bis 552. Blende,
+     4x und Ausblenden gelten weiter.
 375. Photo Mode in W14: HUD und Banner weg, Look und Kegel bleiben, auch im
      Screenshot. Display, General, "Blood Moon" aus: Look und Mond sofort
      weg. Restart in W14: Look sofort aus.
