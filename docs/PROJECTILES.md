@@ -1,6 +1,6 @@
 # Projektil-System
 
-**Stand:** 2026-09-13
+**Stand:** 2026-09-15
 
 ## Architektur
 
@@ -47,7 +47,8 @@ const projectile = new Projectile(..., spawnHeight);
 ```
 
 **Wichtige Methoden:**
-- `spawn(tower, targetEnemy, heading?)` - Erstellt das Projektil (bei `firePoints` versetzt und um `heading` gedreht), legt Instanz und Trail-Streak an, spielt den Sound und emittiert `vfx:muzzle-flash`
+- `spawn(tower, targetEnemy, heading?, aimPoint?)` - Erstellt das Projektil (bei `firePoints` versetzt und um `heading` gedreht), legt Instanz und Trail-Streak an, spielt den Sound und emittiert `vfx:muzzle-flash`. `aimPoint` ist das Ziel statt der Gegnerposition, bei einem Körper entlang der Route (Ooze) dessen nächster Punkt
+- `spawnShot(origin, originHeight, targetEnemy, typeId, damage, damageType, ...)` - Schuss ohne Tower (der Held, siehe unten): gleiche Flugbahn, Treffer, Trail und Sound, kein Mündungsfeuer
 - `playProjectileSound(tower, projectileType)` - Emittiert Audio-Event an Tower-Position
 
 **Update:**
@@ -80,6 +81,7 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 | Rocket | 100 |
 | Poison | 500 |
 | Chaos | 500 |
+| Shell (Explosive rounds des Helden) | 100 |
 
 Ist ein Pool voll, bleibt ein neues Projektil unsichtbar (`add()` findet keinen Slot), die
 Simulation läuft trotzdem. `commitToGPU()` lädt einmal pro Frame nur den gezeichneten Bereich der
@@ -183,57 +185,39 @@ chaos:            { projectileType: 'chaos-orb' }
 
 ## Sound
 
-Jeder Projektiltyp hat eigene Sound-Konfiguration in `PROJECTILE_SOUNDS`:
+Jeder Projektiltyp hat eigene Sound-Konfiguration in `PROJECTILE_SOUNDS`
+(`projectile-types.config.ts`). Diese Tabelle ist die einzige Liste der Projektil-Sounds;
+[SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) und [TOWER_CREATION.md](TOWER_CREATION.md) verweisen
+hierher.
 
-| Projektil | Sound-Datei | Volume | refDistance |
-|-----------|-------------|--------|------------|
-| arrow | `assets/sounds/towers/archer/shoot.mp3` | 0.5 | 50 |
-| cannonball | `assets/sounds/towers/cannon/shoot.mp3` | 0.6 | 70 |
-| arcane-orb | `assets/sounds/towers/magic/cast.mp3` | 0.45 | 55 |
-| ice-shard | `assets/sounds/towers/ice/cast.mp3` | 0.4 | 50 |
-| bullet | `assets/sounds/towers/gatling/shoot.mp3` | 0.25 | 40 |
-| rocket | `assets/sounds/towers/rocket/launch.mp3` | 0.7 | 60 |
-| poison-glob | `assets/sounds/towers/poison/poison_spit.mp3` | 0.4 | 50 |
-| chaos-orb | `assets/sounds/towers/magic/cast.mp3` (bis Chaos einen eigenen hat) | 0.5 | 55 |
-| hero-round | `assets/sounds/towers/gatling/shoot.mp3` | 0.22 | 35 |
-| hero-shell | `assets/sounds/towers/cannon/shoot.mp3` | 0.3 | 40 |
-| hero-rune | `assets/sounds/towers/magic/cast.mp3` | 0.3 | 40 |
+| Projektil | Sound-Datei | Volume | refDistance | rolloffFactor |
+|-----------|-------------|--------|------------|---------------|
+| arrow | `assets/sounds/towers/archer/shoot.mp3` | 0.5 | 50 | 1 |
+| cannonball | `assets/sounds/towers/cannon/shoot.mp3` | 0.6 | 70 | 1 |
+| arcane-orb | `assets/sounds/towers/magic/cast.mp3` | 0.45 | 55 | 1.1 |
+| ice-shard | `assets/sounds/towers/ice/cast.mp3` | 0.4 | 50 | 1 |
+| bullet | `assets/sounds/towers/gatling/shoot.mp3` | 0.25 | 40 | 1.2 |
+| rocket | `assets/sounds/towers/rocket/launch.mp3` | 0.7 | 60 | 1 |
+| poison-glob | `assets/sounds/towers/poison/poison_spit.mp3` | 0.4 | 50 | 1 |
+| chaos-orb | `assets/sounds/towers/magic/cast.mp3` (bis Chaos einen eigenen hat) | 0.5 | 55 | 1.1 |
+| hero-round | `assets/sounds/towers/gatling/shoot.mp3` | 0.22 | 35 | 1.2 |
+| hero-shell | `assets/sounds/towers/cannon/shoot.mp3` | 0.3 | 40 | 1.2 |
+| hero-rune | `assets/sounds/towers/magic/cast.mp3` | 0.3 | 40 | 1.2 |
 
-Sounds werden als Events ueber den `GameEventBus` emittiert (`audio:play`), nicht direkt abgespielt.
+Der `ProjectileManager` registriert jeden Eintrag beim `SpatialAudioManager` mit
+`minIntervalMs: 10` und `maxInstances: 12` und spielt ihn beim Schuss über ein
+`audio:play`-Event (deferred) an der Tower-Position, beim Held am Startpunkt des Schusses.
+`PROJECTILE_SOUND_IDS` in `audio.config.ts` muss genau diese Schlüssel enthalten, sonst
+zählt ein Sound nicht gegen das Projektil-Budget; `projectile-types.config.spec.ts` prüft
+das. Budget und Abspielweg: [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#sound-budget-system).
 
 ## Visuelle Effekte
 
-Implementiert in `three-effects.renderer.ts`, gesteuert ueber `vfx.service.ts` (Event-basiert):
-
-### Blood Splatter (Partikel)
-- Standard: 20 Partikel (konfigurierbar via `count` Parameter)
-- Intensity-basiert (VFX Service bestimmt Count)
-- Partikel fallen nach unten (Gravitation)
-
-### Blood Decals (Bodenflecken)
-- Rund, `size` ist der Durchmesser (Standard 2,0 m, ±20 %)
-- Intensity >= 10: 1,8 m, Intensity >= 30: 2,8 m (via VFX Service). Bis 2026-09-12 waren
-  es 0,8 und 2,0 als Ovale von 2·size × 2 m; die neuen Durchmesser haben dieselbe Fläche
-- Faden nach 20s aus (ueber 10s)
-- Max 100 Decals gleichzeitig
-
-### Projektil-Impact-Effekte
-- Rockets: Grosse Explosion (50 Partikel)
-- Cannonball: Mittlere Explosion (50 Partikel, eine Explosion pro Einschlag; bis 2026-09-12
-  kamen über ein zweites Splash-Event 30 Partikel einen Meter tiefer dazu)
-- Bullet: Minimaler Impact (2 Partikel)
-- Poison: Grüner Funken-Burst (14 Partikel, `spawnBurstAtGeo` mit `BURST_PALETTES.poison`; bis
-  2026-09-12 eine orange Feuer-Atlas-Explosion aus 6 + 30 Partikeln)
-- Arcane Orb (Magic): Violett-cyanfarbener Funken-Burst (14 runde Partikel, `spawnBurstAtGeo` mit `BURST_PALETTES.arcane`, gleiche Bewegung wie der Ice-Burst, keine Feuer-Atlas-Explosion)
-- Chaos Orb (Chaos): Violett-magentafarbener Funken-Burst (14 Partikel, `spawnBurstAtGeo` mit `BURST_PALETTES.chaos`)
-- Ice-Shard: Eis-Burst (35 Partikel) und Frost-Decals vom Treffer (`CombatVfxService.emitIceExplosion`);
-  die zusätzliche kleine Feuer-Atlas-Explosion (8 Partikel) ist seit 2026-09-12 weg
-- Arrow: Kein Impact-Effekt
-
-### Floating Text
-- Zeigt Belohnung bei Kill (+Credits)
-- Steigt nach oben und fadet aus
-- Max 50 Texte gleichzeitig
+Einschläge, Blut, Decals und Floating Text beschreibt
+[PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md): Explosion je Projektiltyp unter
+[Explosionen](PARTICLE_SYSTEM.md#explosionen-feuer-atlas-zweistufig), welches Event welchen
+Effekt auslöst unter [VFXService](PARTICLE_SYSTEM.md#vfxservice-event-bridge), die
+Trail-Partikel unter [Konfiguration](PARTICLE_SYSTEM.md#konfiguration).
 
 ## Assets
 
