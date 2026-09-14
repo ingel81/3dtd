@@ -124,6 +124,15 @@ interface OverpassAnswer {
  */
 const OVERPASS_HEADER_TIMEOUT_MS = 15000;
 
+/**
+ * Time a server gets to start its answer before the next one is asked
+ * alongside it (OsmStreetService.fetchOverpass). An assumption, not a
+ * measurement: a server that has not begun to answer after 4 s is taken
+ * to be queueing the query. `headers=` in the `[OSM]` log shows what the
+ * servers take.
+ */
+const OVERPASS_HEDGE_MS = 4000;
+
 /** `[OSM] <what> from <host>: ...` for an answer: where its time went and what came. */
 function logOverpassAnswer(what: string, server: string, answer: OverpassAnswer): void {
   let ways = 0;
@@ -299,42 +308,81 @@ export class OsmStreetService {
   }
 
   /**
-   * Post `query` to the Overpass servers one after the other and return
-   * what `accept` makes of the first answer it takes. A server that fails,
-   * does not start its answer within OVERPASS_HEADER_TIMEOUT_MS or whose
-   * answer `accept` throws on hands over to the next. Every attempt is
-   * logged: an answer with the time to its headers and on to the end of its
-   * body, its size and what came (logOverpassAnswer), a failure with its
-   * time and reason. So a slow load shows whether a server was slow to
-   * start or its answer was long. Rejects with the last error when none
-   * answered.
+   * Post `query` to the Overpass servers and return what `accept` makes of
+   * the first answer it takes. The servers are asked in order. One that
+   * fails, does not start its answer within OVERPASS_HEADER_TIMEOUT_MS or
+   * whose answer `accept` throws on hands over to the next at once. One
+   * that has not started its answer after OVERPASS_HEDGE_MS gets the next
+   * asked alongside it, so a server that waits out its 15 s no longer holds
+   * the others back that long; the first answer taken aborts the rest.
+   * Every attempt is logged: an answer with the time to its headers and on
+   * to the end of its body, its size and what came (logOverpassAnswer), a
+   * failure with its time and reason. So a slow load shows whether a server
+   * was slow to start or its answer was long. Rejects with the last error
+   * when none answered.
    *
    * @param what What is loaded, for the log
    */
-  private async fetchOverpass<T>(what: string, query: string, accept: (data: OverpassResponse) => T): Promise<T> {
-    let lastError: Error | null = null;
-    for (const server of this.OVERPASS_SERVERS) {
-      const start = performance.now();
-      try {
-        const answer = await this.askOverpass(server, query, new AbortController());
-        logOverpassAnswer(what, server, answer);
-        return accept(answer.data);
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(
-          `[OSM] ${what} from ${new URL(server).host} failed after ${(performance.now() - start).toFixed(0)}ms: ${lastError.message}`,
+  private fetchOverpass<T>(what: string, query: string, accept: (data: OverpassResponse) => T): Promise<T> {
+    const servers = this.OVERPASS_SERVERS;
+    return new Promise<T>((resolve, reject) => {
+      const controllers: AbortController[] = [];
+      let asked = 0;
+      let failed = 0;
+      let done = false;
+
+      const askNext = (): void => {
+        if (done || asked >= servers.length) return;
+        const server = servers[asked++];
+        const controller = new AbortController();
+        controllers.push(controller);
+        const start = performance.now();
+        const hedge = setTimeout(askNext, OVERPASS_HEDGE_MS);
+        const attempt = async (): Promise<T> => {
+          const answer = await this.askOverpass(server, query, controller, () => clearTimeout(hedge));
+          logOverpassAnswer(what, server, answer);
+          return accept(answer.data);
+        };
+        attempt().then(
+          (result) => {
+            if (done) return;
+            done = true;
+            for (const other of controllers) if (other !== controller) other.abort();
+            resolve(result);
+          },
+          (error: unknown) => {
+            clearTimeout(hedge);
+            // A server aborted because another answered first.
+            if (done) return;
+            const reason = error instanceof Error ? error : new Error(String(error));
+            console.warn(
+              `[OSM] ${what} from ${new URL(server).host} failed after ${(performance.now() - start).toFixed(0)}ms: ${reason.message}`,
+            );
+            failed++;
+            if (asked < servers.length) {
+              askNext();
+            } else if (failed === asked) {
+              done = true;
+              reject(reason);
+            }
+          },
         );
-      }
-    }
-    throw lastError ?? new Error('No Overpass server to ask');
+      };
+      askNext();
+    });
   }
 
   /**
    * Post `query` to one Overpass server and read its answer. Aborted
    * through `controller`, and by itself when the headers take longer than
-   * OVERPASS_HEADER_TIMEOUT_MS.
+   * OVERPASS_HEADER_TIMEOUT_MS; `onHeaders` is called when they are there.
    */
-  private async askOverpass(server: string, query: string, controller: AbortController): Promise<OverpassAnswer> {
+  private async askOverpass(
+    server: string,
+    query: string,
+    controller: AbortController,
+    onHeaders: () => void,
+  ): Promise<OverpassAnswer> {
     const start = performance.now();
     let timedOut = false;
     const timeoutId = setTimeout(() => {
@@ -358,6 +406,7 @@ export class OsmStreetService {
       clearTimeout(timeoutId);
     }
 
+    onHeaders();
     const headersAt = performance.now();
     if (!response.ok) {
       throw new Error(`OSM API error: ${response.status}`);

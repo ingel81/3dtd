@@ -243,6 +243,8 @@ describe('OsmStreetService', () => {
       query: string;
       signal: AbortSignal;
       answer(data: object, status?: number): void;
+      /** Send the headers now; the body comes with the call returned. */
+      stream(): (data: object) => void;
       fail(error: Error): void;
     }
     let requests: OverpassRequest[];
@@ -259,7 +261,7 @@ describe('OsmStreetService', () => {
         { type: 'way', id, nodes: [id * 10, id * 10 + 1], tags: { highway: 'residential', name: `Way ${id}` } },
       ]),
     });
-    const logged = () => warn.mock.calls.map((call: unknown[]) => String(call[0]));
+    const logged = (): string[] => warn.mock.calls.map((call: unknown[]) => String(call[0]));
 
     beforeEach(() => {
       requests = [];
@@ -271,6 +273,12 @@ describe('OsmStreetService', () => {
           query: decodeURIComponent(String(init.body).replace(/^data=/, '')),
           signal,
           answer: (data, status = 200) => resolve({ ok: status < 400, status, text: async () => JSON.stringify(data) }),
+          stream: () => {
+            let body!: (text: string) => void;
+            const text = new Promise<string>((done) => { body = done; });
+            resolve({ ok: true, status: 200, text: () => text });
+            return (data) => body(JSON.stringify(data));
+          },
           fail: reject,
         });
       })));
@@ -304,22 +312,76 @@ describe('OsmStreetService', () => {
       ));
     });
 
-    it('aborts a server that has not started its answer after 15 s and asks the next', async () => {
+    it('asks the next server as well when the first has not started its answer after 4 s, and aborts the slower', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       const loading = service.loadStreets(48.78, 9.18, 500);
       await flush();
 
-      vi.advanceTimersByTime(14999);
+      vi.advanceTimersByTime(3999);
       await flush();
       expect(requests).toHaveLength(1);
       vi.advanceTimersByTime(1);
       await flush();
+      expect(requests.map((request) => request.host)).toEqual(['overpass.kumi.systems', 'overpass-api.de']);
 
-      expect(requests[0].signal.aborted).toBe(true);
-      expect(requests).toHaveLength(2);
-      expect(logged()).toContainEqual(expect.stringMatching(/overpass\.kumi\.systems failed after \d+ms: no answer within 15000ms$/));
       requests[1].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
       await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
+      expect(requests[0].signal.aborted).toBe(true);
+      expect(logged().filter((line) => line.includes('failed'))).toEqual([]);
+
+      vi.advanceTimersByTime(20000);
+      await flush();
+      expect(requests).toHaveLength(2);
+    });
+
+    it('aborts a server that has not started its answer after 15 s; the others were asked meanwhile', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const loading = service.loadStreets(48.78, 9.18, 500);
+      await flush();
+
+      for (let i = 0; i < 15; i++) {
+        vi.advanceTimersByTime(1000);
+        await flush();
+      }
+
+      expect(requests).toHaveLength(3);
+      expect(requests[0].signal.aborted).toBe(true);
+      expect(logged()).toContainEqual(expect.stringMatching(/overpass\.kumi\.systems failed after \d+ms: no answer within 15000ms$/));
+      requests[2].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
+      await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
+      expect(requests[1].signal.aborted).toBe(true);
+    });
+
+    it('asks no other server while an answer streams in', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const loading = service.loadStreets(48.78, 9.18, 500);
+      await flush();
+      vi.advanceTimersByTime(1000);
+      const body = requests[0].stream();
+      await flush();
+
+      vi.advanceTimersByTime(20000);
+      await flush();
+      expect(requests).toHaveLength(1);
+
+      body(overpass([1, 48.78, 9.18, 48.781, 9.18]));
+      await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
+    });
+
+    it('hands over to the next server at once when one fails, also after the second was asked alongside', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const loading = service.loadStreets(48.78, 9.18, 500);
+      await flush();
+      vi.advanceTimersByTime(4000);
+      await flush();
+
+      requests[0].answer({}, 429);
+      await flush();
+      expect(requests).toHaveLength(3);
+
+      requests[1].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
+      await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
+      expect(requests[2].signal.aborted).toBe(true);
     });
 
     it('hands an answer without streets to the next server, and says so when no server has any', async () => {
