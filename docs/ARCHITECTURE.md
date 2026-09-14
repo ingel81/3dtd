@@ -1934,12 +1934,12 @@ aufrecht nach außen, in der Mitte der "haloed moon", gegenläufig. Dunkel, dreh
 (0,02 rad/s), flammt mit dem Schub eines Wellenstarts auf. Unter Skala 1 bleibt die Tiefe bei 1
 (`portalDepthScale`); der Shader misst die Tiefe darum in Breiteneinheiten, so bleibt der Kreis
 rund. Aus den Distanzfeldern der Sigillen gezeichnet, ohne Geometrie und ohne Draw Call; die
-Linien blenden aus, wo ein Pixel zu viel Straße deckt. Der Kreis ist in Anzeigewerten gebaut
-und wird für sein Ziel kodiert (`linearToOutputTexel`): auf dem Canvas wie gebaut, durch die
-Nachbearbeitung als lineares Licht; über dunkler Straße sieht er mit und ohne Bloom gleich aus.
-Additiv addiert der Canvas in Anzeigewerten, das Nachbearbeitungs-Target linear, über heller
-Straße weichen die Pfade darum etwas ab. Das Straßenlicht im selben Shader schreibt weiter
-unkodiert.
+Linien blenden aus, wo ein Pixel zu viel Straße deckt. Kreis und Straßenlicht sind
+additives Licht in Anzeigewerten und werden zusammen für ihr Ziel geschrieben (`displayLight`,
+`display-output.ts`, siehe Gotcha "Eigene Shader: Farben in Anzeigewerten"): auf dem Canvas wie
+gebaut, mit Bloom über einer Straße von `ADDITIVE_GROUND` (0,3) gleich, über hellerer Straße
+etwas schwächer, über dunklerer stärker. Allein dekodiert war der Kreis mit Bloom über
+sonniger Straße kaum zu sehen (Playtest 248).
 
 ### Route Animation (Knight Rider Effekt)
 
