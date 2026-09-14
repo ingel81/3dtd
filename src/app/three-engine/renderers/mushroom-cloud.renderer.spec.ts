@@ -552,6 +552,11 @@ describe('MushroomCloudRenderer', () => {
     expect(screen.frustumCulled).toBe(false);
   });
 
+  it('clamps the base of the dome\'s outline pow, which rounding can push below 0', () => {
+    const { domes } = setup();
+    expect(domes[0].material.fragmentShader).toContain('pow(max(1.0 - facing, 0.0), 2.5)');
+  });
+
   it('frees its materials on dispose and leaves the scene empty', () => {
     const dispose = vi.spyOn(ShaderMaterial.prototype, 'dispose');
     const { scene, clouds } = setup();

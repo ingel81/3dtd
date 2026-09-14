@@ -468,7 +468,8 @@ Bildschirmblitz in `CloudBlast` (`mushroom-cloud-blast.ts`), die Puffer-Helfer i
   (`flash.screenPeak`, 0 schaltet ihn ab), von Weiß zu warm.
 - **Schockkuppel:** Halbkugel (`SphereGeometry`, 32 × 10 Segmente) mit eigenem
   ShaderMaterial samt Log-Depth-Chunks, additiv, am Umriss am hellsten
-  (`1 - |n·v|` hoch 2,5). Mit Tiefentest: Gebäude davor verdecken sie.
+  (`1 - |n·v|` hoch 2,5, die Basis bei 0 geklemmt: gerundet kann `|n·v|` knapp über 1
+  liegen). Mit Tiefentest: Gebäude davor verdecken sie.
 - **Ohne Kodierung:** Bild-Quad und Schockkuppel (`mushroom-cloud-blast.ts`) schreiben ihre
   Farbe roh, ohne `colorspace_fragment` und ohne `displayOutput`/`displayLight`. Mit
   Post-Processing (linearer Composer, Bloom an) kommen Nachblitz und Kuppel deshalb heller
