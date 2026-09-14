@@ -2,17 +2,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Mesh, PerspectiveCamera, PlaneGeometry, Points, Raycaster, Scene, ShaderMaterial, SphereGeometry, Sprite, Vector3 } from 'three';
 import { EmpPulseRenderer } from './emp-pulse.renderer';
 import { EMP_PULSE_LOOK } from '../../configs/visual-effects.config';
+import { seededRandom, drawn, positions } from '../../../test/vfx-renderer-fixture';
 
 const GROUND = new Vector3(-20, 8, 60);
 const RADIUS = 30;
-
-function seededRandom(seed = 1): void {
-  let state = seed;
-  vi.spyOn(Math, 'random').mockImplementation(() => {
-    state = (state * 1664525 + 1013904223) % 4294967296;
-    return state / 4294967296;
-  });
-}
 
 function setup() {
   const scene = new Scene();
@@ -34,15 +27,6 @@ function setup() {
     }
   };
   return { scene, materials, pulses, sparks, rings, domes, flashes, run };
-}
-
-const drawn = (points: Points) => (points.visible ? points.geometry.drawRange.count : 0);
-
-function positions(points: Points): number[][] {
-  const array = points.geometry.getAttribute('position').array;
-  const out: number[][] = [];
-  for (let i = 0; i < drawn(points); i++) out.push([array[i * 3], array[i * 3 + 1], array[i * 3 + 2]]);
-  return out;
 }
 
 describe('EmpPulseRenderer', () => {

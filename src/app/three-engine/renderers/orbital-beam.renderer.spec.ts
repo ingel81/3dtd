@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Mesh, MeshBasicMaterial, PerspectiveCamera, Points, Raycaster, Scene, ShaderMaterial, Sprite, Vector3 } from 'three';
 import { OrbitalBeamRenderer } from './orbital-beam.renderer';
 import { ORBITAL_BEAM_LOOK } from '../../configs/visual-effects.config';
+import { drawn } from '../../../test/vfx-renderer-fixture';
 
 /** 60 m straight along -z at ground height 10, a point every 5 m */
 const PATH = Array.from({ length: 13 }, (_, i) => new Vector3(20, 10, -i * 5));
@@ -32,8 +33,6 @@ function setup() {
   };
   return { scene, beams, sparks, columns, rings, sprites, column, base, run };
 }
-
-const drawn = (points: Points) => (points.visible ? points.geometry.drawRange.count : 0);
 
 describe('OrbitalBeamRenderer', () => {
   it('runs the foot along the path at the beam speed, in game time', () => {
