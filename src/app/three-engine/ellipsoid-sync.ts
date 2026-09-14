@@ -175,9 +175,9 @@ export class EllipsoidSync {
    *
    * Three.js rotation.y (counterclockwise from above):
    * - 0 = facing +Z (North)
-   * - PI/2 = facing -X (East)
+   * - PI/2 = facing +X (West)
    * - PI or -PI = facing -Z (South)
-   * - -PI/2 = facing +X (West)
+   * - -PI/2 = facing -X (East)
    *
    * @param fromLat - Start latitude in degrees
    * @param fromLon - Start longitude in degrees
@@ -203,27 +203,6 @@ export class EllipsoidSync {
     // In our system: -X = East, so moving East means dx < 0
     // atan2(dx, dz) directly gives correct rotation.y
     return Math.atan2(dx, dz);
-  }
-
-  /**
-   * Calculate heading from geo direction deltas (for efficiency when you already have deltas)
-   *
-   * @param dLat - Latitude delta (positive = North)
-   * @param dLon - Longitude delta (positive = East)
-   * @returns Heading in radians for Three.js rotation.y
-   */
-  calculateHeadingFromDeltas(dLat: number, dLon: number): number {
-    // Skip if too small
-    if (Math.abs(dLat) < 0.0000001 && Math.abs(dLon) < 0.0000001) return 0;
-
-    // Convert geo deltas to local direction:
-    // - dLon > 0 (East) → local dx < 0 (because -X = East)
-    // - dLat > 0 (North) → local dz > 0 (because +Z = North)
-    // Using simple approximation (accurate enough for small deltas):
-    const localDx = -dLon; // East in geo = -X in local
-    const localDz = dLat;  // North in geo = +Z in local
-
-    return Math.atan2(localDx, localDz);
   }
 
   /**
