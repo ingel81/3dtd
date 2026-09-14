@@ -779,6 +779,13 @@ abarbeiten.
   sichtbaren Ring, erscheint, sobald das HQ im Bild ist, neu seit etwa
   gestern, auf jeder Karte inklusive DevWorld. Hauptverdacht: die neuen
   Distanzringe ums HQ (`Line2`, portal2).
+- **541 erneut (nach relocspeed):** `HQ in place` total=321,2 ms;
+  `[Corridor] clearance` rays=1940 in 689,3 ms, slices=22, wall=1809,2 ms
+  (vorher 144 Slices, 5271 ms); `rebuild` total=419 ms; `HQ done`
+  corridor=2197,9 total=2527,7 ms ended=commit (vorher 6138 ms). Deutlich
+  schneller, Ziel etwa 1 s für die Messung noch nicht ganz erreicht.
+- **546 erneut ok** (nach audioloop): Laufgeräusche setzen ein, sobald die
+  Kamera in Hörweite ist.
 
 **Vorab**
 
