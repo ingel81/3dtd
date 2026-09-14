@@ -756,6 +756,7 @@ abarbeiten.
      `headingToSearchlightYaw` rechnete `PI - heading` statt `-heading`
      (falsche Achsenannahme seit `7d1b8362`, auch der alte Schwenk war
      verdreht). Fix `a7c29cca`, erneut prüfen, zusammen mit 549 bis 553.
+     **ok nach Fix** (mit 549 geprüft).
 
 **Tipps und Forschung** (neues Spiel)
 
@@ -823,6 +824,10 @@ abarbeiten.
      Knöpfe: `49d8e06e` melden). Welle starten, Kamera so drehen, dass
      Gegner links außerhalb laufen: rote Pfeile rechts neben der Leiste,
      nicht darunter.
+     **Rückfrage (2026-09-14):** Pfeile kamen erst, wenn Gegner nahe am HQ
+     waren. So gebaut: Pfeile nur für Bosse und Gegner ab 85 % ihrer Route
+     (`NEAR_HQ_PROGRESS`, `utils/offscreen-indicators.ts`). User: so
+     lassen. **ok**
 513. Neues Spiel, Cheat Hero (ohne Abilities): Leiste nur mit dem
      Held-Knopf (Figur, Kappe G), keine Haarlinie. Dann Cheat Abilities: die
      Linie erscheint zwischen Held und Fähigkeiten.
@@ -831,12 +836,17 @@ abarbeiten.
      Funken etwa 1 m über dem Boden (Kniehöhe); das Zusammenfallen in Knochen und die
      zwei Minions bleiben. Gegenprobe mit Schalter an: zusätzlich ein kurzer
      Puff aus 12 knochenfarbenen Funken. Kommt der Puff auch mit Schalter
-     aus: Reload, prüfen, ob der Haken aus bleibt, und ein Video.
+     aus: Reload, prüfen, ob der Haken aus bleibt, und ein Video. **ok**
 515. Wave Debug, Single, Type "Zombie v2", Count 5, Custom Wave starten. Im
      WAVE-Panel die Vorschau (64 × 64 px): Figur mittig (nicht mehr in der
      oberen Hälfte), dreht sich langsam, bewegt Arme und Beine im
      taumelnden Gang. Vergleich mit "Zombie". Steht sie still: Konsole nach
      `[ModelPreview]` durchsuchen, Screenshot.
+     **Befund (2026-09-14):** immer noch nicht richtig. Der User hat die
+     Vorschau im Enemy Debugger eingestellt: `previewScale` 5,
+     `previewCameraDistance` 12,5, `previewCameraAngle` 0,12,
+     `previewOffsetY` 5 (nur diese Werte übernehmen). Außerdem wirkt er in
+     der Vorschau etwas dunkel. Fix folgt, erneut prüfen.
 516. Optional, keine Änderung erwartet: Sprung auf 20, die Marke W21 zeigt
      Flugzeug und Mond in 10 px.
 
@@ -846,6 +856,9 @@ abarbeiten.
      "DAMAGE LV 1" auf (bzw. der erste bezahlbare Track in Panel-Reihenfolge),
      die Kachel dieses Tracks blitzt golden, ihre Stufe steigt. U mehrmals
      schnell: jeder Druck blitzt erneut und bringt einen neuen Text.
+     **ok, mit Wunsch (2026-09-14):** dasselbe Feedback soll auch beim Klick
+     auf eine Kachel in der UI erscheinen, nicht nur bei U. Umsetzung folgt,
+     erneut prüfen.
 518. Credits ausgeben, bis das billigste Upgrade nicht bezahlbar ist, Tower
      wählen, U: orange "NEED n CREDITS" über dem Tower, 2,5 s die Zeile "Need
      n more credits for <Track>" über den Kacheln, nichts gekauft. Cheat
@@ -863,18 +876,19 @@ abarbeiten.
      dem Tower die linke Taste drücken und die Kamera ziehen: die Reichweite
      verschwindet beim Drücken und bleibt beim Ziehen weg; über einem Tower
      loslassen: seine Reichweite kommt nach höchstens etwa 0,1 s. Dasselbe
-     mit der rechten Taste.
+     mit der rechten Taste. **ok**
 522. Kurz auf einen Tower klicken: gewählt (Panel, Reichweite). Noch einmal
      klicken zum Abwählen, Maus dort lassen: die Hover-Reichweite bleibt.
 523. Zwei Tower bauen, Kamera flach, bis sie sich auf dem Schirm überdecken,
      Maus auf die Überdeckung, klicken: Hover und Auswahl gehen an den
-     vorderen. Mit umgekehrter Bau-Reihenfolge wiederholen: dasselbe.
+     vorderen. Mit umgekehrter Bau-Reihenfolge wiederholen: dasselbe. **ok**
 524. Sidebar-Fuß: eine Zeile World, Tips, Keys, Map Key, Attributions, kein
      Label abgeschnitten oder überlappend. Maus über "Keys": Tooltip
      "Keyboard shortcuts (H or ?)". Klick öffnet die Tastenübersicht: in der
      Gruppe "Game" genau eine Esc-Zeile, "Skip the intro flight or the boss
      intro"; in der Gruppe "Towers" die R-Zeile "Hold to rotate while
      building, or the portal while placing a spawn". H oder Esc schließen.
+     **ok**
 
 **Intro-Flug** (Ort laden oder Reload)
 
@@ -898,18 +912,29 @@ abarbeiten.
      durch die Öffnung hinaus, nicht am Pfeiler. Welle starten: die Gegner
      treten vorn durch die Öffnung. Falls nicht: `__routes.describe()` und
      die ersten Wegpunkte der Route melden.
+     **Befund (2026-09-14):** Mit R lässt sich das Portal weiter so drehen,
+     dass die Route seitlich am Pfeiler oder durch die geschlossene
+     Rückwand läuft und die Gegner dort herauskommen (zwei Screenshots des
+     Users). **Entscheidung User:** die Vorschau richtet sich beim Setzen
+     schon nach der Straße aus (WYSIWYG); R verstellt nur im zulässigen
+     Rahmen, in dem die Route noch durch die Öffnung läuft. Umsetzung
+     folgt (portal2), erneut prüfen.
 530. "Set spawn" mitten auf eine gerade Straße: das Portal steht längs der
-     Straße wie bisher.
+     Straße wie bisher. **ok**
 531. "Set spawn", Cursor auf eine Straße zwischen den beiden gestrichelten
      Ringen um das HQ: Vorschau grün, Karte ohne Warnung. Im inneren Ring:
      rot, "Too close to HQ". Abseits jeder Straße: rot, "Too far from
      streets". Zurück auf grün, klicken: der Spawn steht.
+     **Befund (2026-09-14):** grün/rot passt, "Too close to HQ" und "Too
+     far from HQ" gehen; "Too far from streets" ließ sich nicht auslösen.
+     Die gestrichelten Ringe ums HQ sind beim Spawn-Setzen kaum zu sehen.
+     Fix folgt (portal2), erneut prüfen.
 532. "Set spawn", Cursor auf eine gültige Straße: die Karte zeigt "R Rotate".
      R halten: die Vorschau dreht (etwa eine halbe Umdrehung je Sekunde),
      loslassen: sie steht; Cursor weiterziehen: die Richtung bleibt;
      klicken: das Portal steht so. 5 bis 10 s warten (die Korridor-Messung
      baut die Route neu), Welle starten: das Portal bleibt gedreht, die
-     Gegner laufen ihre Route.
+     Gegner laufen ihre Route. **ok**
 533. "Set spawn" ohne R: das Portal schaut entlang der Route. Spawn wieder
      gedreht setzen, dann "Move HQ" an eine andere Stelle: das Portal folgt
      wieder der Route.
@@ -924,12 +949,13 @@ abarbeiten.
      (etwa Paris): ab dem Ladescreen keine Zellen, kein Air-Grid, keine
      Röhre des alten Orts, weder während noch nach dem Laden. Nach dem
      Ladeschritt "Generating Route Grid" stehen alle drei an der neuen
-     Route, auch die Röhre, ohne dass die Kamera bewegt wird.
+     Route, auch die Röhre, ohne dass die Kamera bewegt wird. **ok**
 536. Dasselbe über das Header-Lesezeichen, Klick auf einen Favoriten.
 537. Header-Lesezeichen, "Save location": Namensfeld an dieser Stelle,
      vorbefüllt mit dem Header-Namen, markiert; tippen ersetzt, Enter
      speichert, der Eintrag steht unten, das Menü bleibt offen. Wiederholen
      bis etwa 12 Einträge: "Save location" bleibt oben, die Liste scrollt.
+     **ok**
 538. Stift an einer Zeile, neuer Name, Enter: umbenannt. Stift an einer
      anderen, Esc: Name bleibt. Stift, Feld leeren, Enter: kurz "Loading...",
      dann die Adresse.
@@ -952,9 +978,18 @@ abarbeiten.
      `[Corridor] clearance`, falls vorhanden `[Corridor] rebuild`, `HQ
      done`). Lesen: `work` ist der Stillstand am Stück, `corridor` die
      Messung samt Neuaufbau, `total` die Wartezeit ab Klick.
+     **ok (2026-09-14)**, Konsolenfilter per Regex ging beim User nicht
+     (Text "Relocation" bzw. "Corridor" nehmen). Messung Paris:
+     `HQ in place` paths=31,6 route=120,6 grid=322,7 total=498,2 ms;
+     `[Corridor] clearance` rays=1428 in 464,6 ms, slices=144,
+     wall=5271,2 ms; `rebuild` total=360,4 ms (grid 263,6);
+     `HQ done` paint=9,7 work=498,2 corridor=5630,3 total=6138,2 ms
+     ended=commit. Lesart: von 6,1 s Wartezeit ist die Korridor-Messung
+     gedrosselt (0,46 s Rechenzeit über 5,3 s verteilt).
 542. Wie 541, aber so weit weg, dass der alte Spawn keine Route mehr hat
      (andere Seite der Seine): `spawnFrom=random`, `random=` größer 0. Zeilen
-     kopieren.
+     kopieren. **Nicht erreicht (2026-09-14):** der Versuch landete
+     außerhalb der Straßen (544).
 543. Noch einmal umsetzen, während "Measuring the corridor" läuft einen
      Tower bauen: der Hinweis ist sofort weg, `[Corridor] clearance ...
      flushed=tower`, danach `HQ done ... ended=commit`. Tower verkaufen,
@@ -964,13 +999,20 @@ abarbeiten.
 544. HQ weit außerhalb setzen (etwa 3 km, außerhalb des Straßennetzes und
      mehr als 1,5 km vom alten Spawn): Chip "MOVING HQ", darunter "Loading
      streets", bis zum Ladescreen; die Zeile `[Relocation] HQ outside the
-     streets: ...` kopieren.
+     streets: ...` kopieren. **ok (2026-09-14):** `HQ outside the streets:
+     streets=16997,4 spawn=78,1 total=17075,5 ms spawnFrom=random`; danach
+     `updateTerrainHeights` spanMs=3714 (56 Slices, 1880 Raycasts), erste
+     Korridor-Messung ohne Tiles (unmeasured 617), zweite rays=2460 in
+     668,5 ms, wall=1388 ms. Lesart: 17 s kostet das Nachladen der Straßen
+     (Netzwerk). **Entscheidung User:** beides beschleunigen (Messung
+     während des Umzugs mit mehr Budget je Frame, Straßen-Nachladen
+     untersuchen); Umsetzung relocspeed, danach 541 und 544 erneut messen.
 
 **Pause und Ton**
 
 545. Feuer-Tower an die Route, Welle mit Zombies. Sobald Laufgeräusche und
      Flammenrauschen zu hören sind, P: beide verstummen sofort. P: beide
-     laufen weiter.
+     laufen weiter. **ok**
 546. Pausieren, die Kamera über andere Gegner fahren: kein Laufgeräusch setzt
      ein, nach dem Fortsetzen sind sie in Hörweite zu hören. Pausieren, in
      den Audio-Einstellungen SFX deutlich leiser, fortsetzen: die Loops
@@ -987,24 +1029,26 @@ abarbeiten.
 549. Cannon und Archer mit etwas Abstand an die Route, "Jump to wave" 14,
      Space: in 3 s rot, auf jedem Turm ein Kegel. Er zeigt, wohin der Turret
      der Cannon schaut, und dreht mit dem Rohr auf jeden Gegner; kein
-     eigenes Hin- und Herschwenken mehr.
+     eigenes Hin- und Herschwenken mehr. **ok** (nach `a7c29cca`)
 550. In derselben Welle der Archer: das Modell dreht nicht, der Kegel zeigt
      auf den beschossenen Gegner und wandert mit etwa einer halben
      Umdrehung je Sekunde zum nächsten; der Archer schießt so schnell wie
-     vorher.
+     vorher. **ok**
 551. Kein Gegner in Reichweite: der Kegel hält die letzte Richtung. Nach dem
      Wellenende drehen Turret und Kegel zur Wachrichtung, während der Look
-     in 4,5 s ausblendet.
+     in 4,5 s ausblendet. **ok**
 552. "Jump to wave" 21, Welle starten, P, einen Turm bauen: sobald das
      Modell steht, hat er einen Kegel in Richtung seines Modells; nach dem
-     Fortsetzen dreht er zur Wache bzw. auf ein Ziel.
+     Fortsetzen dreht er zur Wache bzw. auf ein Ziel. **ok**
 553. W14 oder W21 mit Research Center, Archer und, soweit verfügbar,
      Lightning zu Ende spielen, im WAVE-Panel "replay W14" (bzw. W21): die
      Kegel von Cannon, Archer und Lightning drehen auf ihre Ziele wie in der
      Welle. Auf dem Fortschrittsbalken an den Anfang springen: die Kegel
      zeigen, wohin sie damals zeigten, nicht in die Endrichtung. Das
      Research Center hat keinen Kegel. Esc: die Live-Kegel wie vor dem
-     Replay.
+     Replay. **Zurückgestellt (User 2026-09-14):** das Replay wird eigens
+     angesehen; Ziel ist eine vollständig korrekte Wiedergabe, keine
+     Präsentations-Krücke.
 554. "Boss Intro" an, Tempo höchstens 4x, "Jump to wave" 35, Space: "BLOOD
      MOON / Wave 35" erscheint. Tritt der Wurm aus dem Portal, während das
      Banner steht, verschwindet es mit dem Abdunkeln und läuft nach dem
@@ -1025,11 +1069,15 @@ abarbeiten.
      unten links das Google-Logo, daneben klein und hell
      `https://3dtd.sgeht.net` auf dessen Mittellinie. Über hellen Fassaden
      noch lesbar, nicht aufdringlich?
+     **ok mit Wunsch (2026-09-14):** Logo und URL sollen beieinander stehen,
+     die URL ist schlecht lesbar (Kontur oder Schatten direkt am Text).
+     Umsetzung folgt (stamp2), erneut prüfen, auch 558.
 558. DevTools-Gerätemodus hochkant, etwa 390 × 844 mit DPR 3, echter Ort in
      einer Großstadt (lange Attribution), O, "Save screenshot": die Adresse
      steht links über dem Google-Logo, nicht unter der hellen Leiste.
+     **ok** (Wunsch aus 557 gilt auch hier)
 559. DevWorld (`?devworld`), O, "Save screenshot": Logo unten rechts, Adresse
-     unten links am Rand, keine Anbieter-Logos.
+     unten links am Rand, keine Anbieter-Logos. **ok**
 
 **Routenkorridor** (Overlay an)
 
@@ -1038,6 +1086,8 @@ abarbeiten.
      Kreuzung mit einer Gasse): keine orangen Zellen im Grundriss des Hauses
      hinter der Fassadenlinie; der Rand springt am Übergang, statt als
      Viertelkreis bis 7 m ins Haus zu reichen.
+     **Befund (2026-09-14):** im Prinzip wie vorher, orange Zellen in
+     Häusern, Höfen und Gärten neben der Route (Screenshot des Users).
 561. Rothenburg, Fachwerkfassaden: `__corridor.pick()`, Linksklick auf eine
      orange Randzelle an einer Fassade; in der Tabelle nach "[Corridor] width
      at the nearest route station" die Spalte `rule` lesen (wo die neue Regel
@@ -1047,15 +1097,21 @@ abarbeiten.
      unter auskragenden Obergeschossen. Bleiben dort orange Zellen: einmal
      `__corridor.set({ wallMargin: 1 })`. Urteil: welche Variante besser
      aussieht und spielt.
+     **Urteil User (2026-09-14):** kaum Unterschied, die neue Regel ist
+     einen Tick besser und bleibt; insgesamt immer noch zu viel Orange in
+     Häusern und Gärten.
 562. Gasse mit parkenden Autos (alte Liste 41): Zellen auf Autos und dem
      Transporter orange und auf Straßenhöhe, der Gehweg dahinter weiß auf
      seiner Höhe. `__corridor.pick()` auf ein Auto: `clamped: true`,
      `heightM` etwa Straße, `columnBottomM` etwa Autodach. Gegenprobe ohne
      Tower: `__corridor.set({ stepRise: 50 })` zeigt das alte Verhalten,
      `__corridor.reset()` zurück.
+     **Befund (2026-09-14):** minimal besser, aber weiter orange Zellen an
+     parkenden Autos und Fassaden (Screenshots des Users).
 563. Straße quer am Hang (Rothenburg oder DevWorld): bergseitige Randzellen
      weiß auf ihrer Höhe, nicht orange und nicht eingegraben. Falls orange:
-     `__corridor.pick()` darauf und die Tabelle sichern.
+     `__corridor.pick()` darauf und die Tabelle sichern. **ok** ("passt
+     super")
 564. Paris, Brücke vor dem Eiffelturm (alte Liste 14), zu beiden Stellen
      zoomen, an denen Linie und Gegner verschwinden. Notieren: Sieht man dort
      die Zellen im Overlay? Dann je Stelle `__corridor.pick()` und
@@ -1067,6 +1123,16 @@ abarbeiten.
      dasselbe mit `layer=1` ohne `bridge` in `tags` heißt H2; `heightM` weit
      weg von `columnBottomM` heißt H3; `cell` false heißt H4; `surface`
      tunnel und `state` unsampled heißt H5.
+     **Daten (2026-09-14):** Die Route liegt auf der Pont d'Iéna (Way
+     986589650, `bridge=yes layer=1`, 156 m), Deck-Zellen vorhanden
+     (`surface: 'deck'`, Höhe ≈ 79,8). Beide Picks lagen 8 bis 13 m neben
+     der Linie (außerhalb des Korridors), darunter die Ebene bei ≈ 71,5.
+     `maxCellAboveStreet`: 9,5 m auf der Brücke, 3,4 und 3,9 m auf kurzen
+     ungetaggten Anschluss-Ways an den Brückenköpfen. Verdacht: Übergang
+     Deck/Boden an den Brückenköpfen (H2/H3). Diagnose und Fix: corridor2.
+     **Entscheidung User zum Korridor:** orange (geklemmte) Zellen
+     weglassen, der Korridor wird dort schmaler (corridor2); 560 bis 562
+     danach erneut prüfen.
 
 **Optional: Training**
 
@@ -1088,6 +1154,9 @@ abarbeiten.
      Straßenhöhe grün. Welle starten: der Tower beschießt Gegner, die dort
      mit großem Seitenversatz durch den Transporter laufen; die Schüsse gehen
      ins Auto (so entschieden). Bewerten, wie das aussieht.
+     **Entfällt (2026-09-14):** mit der Entscheidung "orange Zellen
+     weglassen" verschwinden diese Zellen; 566 und 568 werden durch einen
+     Test nach corridor2 ersetzt.
 567. An einer Fachwerkfassade eine orange Zelle unter einer Traufe, einen
      Tower davor setzen und auswählen, `__corridor.pick()` auf die Zelle: die
      Antwort ist wie vorher (die Probe liegt 1,5 m über dem Boden unter der

@@ -766,6 +766,9 @@
       Singleton-Dienste kommen dazu. Die Befehle der Welle stehen
       schon als Klartext im Log, darauf kann eine Re-Simulation aufsetzen.
       **Stand (Fix-Session 2026-09-14):** außer Scope, nicht angefasst.
+      **User 2026-09-14 (Playtest 553):** Replay als eigenes Thema angehen;
+      Ziel ist eine vollständig korrekte Wiedergabe, keine Krücke. Playtest
+      553 bis dahin zurückgestellt.
 
 - [ ] **Replay: Lücken und ungemessene Kosten** (laut replay, ungesehen)
       Nicht wiedergegeben: Schadenszahlen, Gold-Popups, Aufblitzen der
