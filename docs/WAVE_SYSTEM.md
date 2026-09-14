@@ -747,6 +747,35 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
   Bildhöhe und die Kamera stand weiter weg: von Herberts Mitte auf gerader
   Straße mit Skala 1 rund 31 m (jetzt 23 m), mit Skala 1,75 rund 57 m (jetzt
   42 m).
+- **Freie Sicht** (seit 2026-09-14, `PortalShotSearch`): Im Playtest (366,
+  echte Karte, Portal in einer schmalen Straße zwischen zwei Häusern) schaute
+  die Einstellung nach einer Kurve seitlich über die Häuser (nur die
+  Portalspitze über den Dächern, Herbert verdeckt) oder über Büsche, die die
+  untere Bildhälfte deckten. Jetzt prüft das Intro während der ersten Blende
+  Kandidaten gegen die geladenen Tiles, in dieser Reihenfolge: die Einstellung
+  oben; auf der Linie Portal-Boss, um 25° gedreht (beide Seiten); näher (halber
+  Weg, dann "nah": nur Öffnung und Boss im Bild, die Krone angeschnitten), nah
+  auch um 50° gedreht; 30° Neigung weit und nah; 50° Neigung nah
+  (`BOSS_SHOT_FALLBACKS`). Frei ist ein Kandidat, wenn die höchste Fläche der
+  Säule unter der Kamera mindestens 1 m unter ihr liegt (nicht im Haus, nicht
+  in einer Krone, nicht unter einem Dach), die Linien von Brust, Füßen und
+  Kopf des Bosses, von der Oberkante der Portalöffnung und, wo das ganze Portal
+  im Bild ist, von der Krone zur Kamera keine Tile treffen, und links und
+  rechts der Kamera 2 m frei sind. Die Linien laufen vom Motiv zur Kamera: so
+  treffen sie auch die Fassade eines Hauses, in dem die Kamera stünde. Der
+  erste freie Kandidat gewinnt, auf offener Straße also die Einstellung oben,
+  unverändert. Ist keiner frei, gewinnt der, der in dieser Reihenfolge die
+  meisten Prüfungen bestand, bei Gleichstand der frühere; ist gar nichts frei
+  (ein Dach über dem Boss), bleibt es bei der Einstellung oben.
+- **Kosten der Suche**: höchstens 64 Strahlen je Intro (Säulenproben
+  mitgezählt), 4 pro Frame der Blende; bei 60 fps ist sie vor dem Schnitt
+  fertig, sonst läuft der Rest im Schnitt-Frame hinter dem dunklen Schleier.
+  In den synthetischen Szenen der Specs: offene Straße 8 Strahlen, Häuser mit
+  Kurve 15, Baum 20, Hecke 25 bis 35, nichts frei 40. Gebucht unter
+  `bossShot` in `__raycastStats()`; die Wahl steht im Kamera-Log
+  (`[Camera] bossIntro.shot` mit `shot`, `clear`, `score`, `rays`). Die Suche
+  sieht die Tiles, die die Ansicht des Spielers geladen hat; um ein Portal
+  weit weg vom Blick können das grobe Stufen sein.
 - Solange es läuft: Kamera-Controls aus, ein laufender Schnellsprung (Pos1, N)
   und gehaltene Pan-Tasten enden, die Spieltasten warten. Die obere HUD-Spalte
   blendet aus, die Boss-Leiste bleibt dabei bestehen.
