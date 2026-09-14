@@ -613,6 +613,62 @@ Impact Effects aus keine Funken. `game:reset` leert sie.
 
 ---
 
+## Tod der Ooze
+
+`OozeBandRenderer.collapse()` (`three-engine/renderers/ooze/`), Werte in
+`OOZE_LOOK.collapse` und `OOZE_DEATH_LOOK`, seit 2026-09-14, in Spielzeit: Die Pause
+hält alles an, die Spielgeschwindigkeit beschleunigt es, ein Frame bei hoher
+Geschwindigkeit lässt alles los, was in ihm fällig wurde. `OozeBodies.died` gibt dem
+Band die Strecke des Kill-Sub-Steps und startet den Kollaps; dabei plant
+`planOozeDeath` die Teile für die Länge des Körpers, mit den VFX-Einstellungen dieses
+Moments.
+
+| Teil | Darstellung |
+|---|---|
+| Band | kollabiert über 2 s (Shader-Uniform `uCollapse`): schwillt bis 0,2 s an und kocht bis etwa 1,2 s (mehr, schnellere und hellere Blasen), sackt von 0,3 bis 1,7 s zur Pfütze zusammen, die um bis zu 30 % über die Ränder läuft, reißt ab 0,6 s entlang eines Rauschmusters mit leuchtenden Kanten auf und blendet ab 1,4 s aus. Leck und Entfernen sinken wie bisher in 0,6 s |
+| Blasen | eine je 2,5 m Körper (mindestens 4), bis 0,8 des Kollapses: 8 additive Funken (`BURST_PALETTES.slime`) 0,9 m über dem Boden und 14 Schleimtropfen (`spawnBloodSplatter`, Normal-Pool, `OOZE_DEATH_LOOK.goo`) |
+| Pfützen | eine je 5 m (mindestens 2), zwischen 0,2 und 0,85 des Kollapses: Blut-Decal in Schleimgrün, 2,2 bis 3,8 m, im Blutmond getönt wie jede Bodenspur |
+| Trümmer | 0,75 je Meter (mindestens 6), zwischen 0,05 und 0,6 des Kollapses, 0,8 m über dem Boden aus dem ganzen Körper geworfen: 5 bis 11 m/s hoch (die schweren Stücke 0,8 davon), 1 bis 4,5 m/s seitlich, drehend; sie springen einmal auf, liegen 2 bis 3,5 s und sinken in 1 s ein (`OozeDebrisRenderer`) |
+
+Die Trümmer kommen in der Reihenfolge von `OOZE_DEBRIS_DECK`, einer Runde aus 20:
+Knochen, Rippe, Schädel, Knochen, Kiefer mit Zähnen, Helm und so weiter. Ein voller
+Körper (60 Stück) ergibt 18 Knochen, 12 Rippen, 6 Schädel, 6 Kiefer, 6 Bleche und je 3
+Helme, Stiefel, Stoppschilder und Dosen; schon ein Körper von wenigen Metern (6 Stück)
+wirft einen Schädel. Die Stücke sind prozedural aus Three-Grundkörpern mit
+Vertexfarben gebaut, 1,6-fach vergrößert, damit sie aus der Übersichtskamera lesbar
+bleiben, manche grün angeschleimt (Instanzfarbe).
+
+Verteilung: Jede Art legt je Stück einen eigenen, gleich langen Abschnitt des Körpers
+fest, deckt also die ganze Länge; quer bis 0,85 der bedeckten Halbbreite. Boden ist der
+des Route-Grids, sonst der des Bands unter der Station.
+
+Budget eines 80-m-Körpers: 32 Blasen (256 additive Funken und 448 Tropfen, 704
+Partikel über 1,6 s), 16 der 100 Blut-Decals, 60 Trümmer. Je Trümmerart ein
+`InstancedMesh` mit festem Pool (acht Runden, 160 Stück: zwei volle Oozes und etwas
+mehr; ist der Pool einer Art voll, fällt das Stück weg), ein gemeinsames
+`MeshStandardMaterial` und ein `DrawGate`: höchstens 9 Draw Calls, solange Trümmer
+fliegen oder liegen, danach keiner. Der Warm-up beim Laden zeichnet die Pools einmal.
+
+**Low-Preset** (Impact Effects und Ground Marks aus): keine Blasen, keine Tropfen, keine
+Pfützen und ein Drittel der Trümmer (mindestens 3). Der Plan steht beim Kill; die
+Spawner prüfen ihre Schalter zusätzlich selbst.
+
+**Gemessen** (`ooze-death.spec.ts`, "Ooze death cost", jsdom ohne GPU): zwei volle
+Oozes im selben Frame getötet; je Frame Band und Trümmer, das Partikel-Update und die
+Pool-Puffer. Median 0,05 bis 0,06 ms je Frame, bis 717 lebende Partikel auf dem
+Höhepunkt. Die langsamsten Frames waren Frame 2 oder 3 nach dem Kill mit 3,5 bis 7,0 ms
+(vier Läufe); die Ursache dieser frühen Spitzen ist nicht isoliert. Nicht gemessen sind
+die GPU-Kosten im Browser (Fill-Rate der additiven Funken, Draw Calls der Trümmer).
+
+Grenzen: Der Replay kollabiert das Band eines getöteten Ooze genauso, samt Blasen und
+Trümmern, aber ohne Pfützen (er hält die Bodenspuren an). Ein Neustart, bei dem keine
+Ooze mehr lebt, räumt liegende Trümmer nicht ab (`OozeBodies.clear` ruft den Renderer
+dann nicht); sie sinken wie ein absinkendes Band von selbst ein, spätestens etwa 7,6 s
+nach dem Kill (geworfen bis 1,2 s, Flug mit Aufsprung bis 1,9 s, 3,5 s Liegen, 1 s
+Einsinken).
+
+---
+
 ## Kampfspuren (Scorch-Decals)
 
 Schicht 1 aus `docs/game-design/COMBAT_HEATMAP_STUDY.md`, seit 2026-09-12. Dunkle
@@ -751,6 +807,10 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
   `BURST_PALETTES`); `ice-shard` und `arrow` nichts, der Eis-Burst kommt vom Treffer
   selbst (`CombatVfxService.emitIceExplosion`). Bei `rocket` (auch `homing`-Typen) und
   `cannonball` zusätzlich `markScorch`, siehe [Kampfspuren](#kampfspuren-scorch-decals)
+- `enemy:split` → Knochen-Burst (`BURST_PALETTES.bone`) einen Meter über dem Elternteil,
+  außer bei der Ooze: deren Trümmer kommen beim Kollaps aus dem ganzen Körper, siehe
+  [Tod der Ooze](#tod-der-ooze). Ein blutender Elternteil spritzt zusätzlich in seiner
+  Blutfarbe, wo jedes Kind landet
 - `vfx:chain-lightning` → ein Blitz pro aufeinanderfolgendem Punktpaar
   (`lightningBolts.spawnBolt` mit `attachLight`, additiver Halo am Blitzende); der
   Bloom-Pass bleibt unberührt
@@ -784,6 +844,8 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/sprite-atlas-generator.ts` | Sprite-Sheet-Atlanten (Explosion 4×4, Smoke 4×4) |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Nuklearschlags, in Spielzeit |
 | `three-engine/renderers/mushroom-cloud-shape.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Teile des Atompilzes: Form, Glut, Rauch, Ring/Dom/Blitz |
+| `three-engine/renderers/ooze/ooze-death-plan.ts` | Tod der Ooze: was der Kollaps wann und wo loslässt (`planOozeDeath`, `oozeMessCounts`) |
+| `three-engine/renderers/ooze/ooze-debris.renderer.ts` | Tod der Ooze: prozedurale Trümmer, instanziert je Art, Flug, Aufprall, Liegen, Einsinken |
 | `configs/projectile-types.config.ts` | Trail-Partikel Konfiguration (TrailParticleConfig) |
 | `configs/visual-effects.config.ts` | Partikel-Limits, Decal-Configs, Explosion-Presets, Farben |
 | `game-engine/vfx.service.ts` | VFX Event Handler (Blood, Explosion, Muzzle-Flash, Projectile Impact) |

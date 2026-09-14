@@ -143,12 +143,14 @@ describe('VFXService split', () => {
       position: { lat: 1, lon: 2 },
       transform: { terrainHeight: 30 },
       heightOffset: 0,
-      typeConfig: { id: 'ooze', canBleed: true, bloodColor: '#6fe021' },
+      typeConfig: { id: 'ooze', canBleed: true, bloodColor: '#6fe021', ooze: { maxLengthM: 80, leakDamageFactor: 10 } },
     };
     const clump = { position: { lat: 3, lon: 4 }, transform: { terrainHeight: 10 } };
     eventBus.emit({ type: 'enemy:split', enemy: ooze as never, children: [clump as never, clump as never] });
     expect(tilesEngine.effects.spawnBloodSplatter).toHaveBeenCalledTimes(2);
     expect(tilesEngine.effects.spawnBloodSplatter).toHaveBeenCalledWith(3, 4, 11, 12, 0x6fe021);
+    // Its debris comes from its whole body as the band collapses, no bone burst at the tip
+    expect(tilesEngine.effects.spawnBurstAtGeo).not.toHaveBeenCalled();
     service.destroy();
   });
 });

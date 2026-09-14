@@ -357,6 +357,62 @@ export const OOZE_LOOK = {
 };
 
 /**
+ * What a killed ooze lets go while its band collapses (OOZE_LOOK.collapse):
+ * bubbles bursting with a spray of slime, splashes of it on the ground
+ * (blood decals in its colour, tinted by the blood moon like every ground
+ * mark) and the debris it had swallowed, thrown up from its whole length
+ * (OozeDebrisRenderer). OozeBandRenderer plans it at the kill
+ * (planOozeDeath) and lets each part go at its share of the collapse.
+ * Counts go with the body's length; the minimums hold for a body a few
+ * metres long.
+ *
+ * With impact effects off (VFX settings, the Low preset) no bubbles and no
+ * spray and a third of the debris; with ground marks off no splashes.
+ *
+ * Budget of an 80 m body: 32 bubbles of 8 sparks (additive pool) and 14
+ * drops (normal pool), 704 particles over 1.6 s; 16 splashes out of the
+ * 100 blood decals; 60 pieces of debris, instanced, one draw call per kind
+ * with a piece in the air or on the ground (nine kinds).
+ */
+export const OOZE_DEATH_LOOK = {
+  /** Colour of the spray and the splashes: the ooze's bloodColor, which its clumps splash in */
+  goo: 0x6fe021,
+  /** Bursting bubbles: one per `everyM` of body, `sparks` additive sparks and `spray` slime drops each, `lift` m above the ground, until `until` of the collapse */
+  pops: { everyM: 2.5, min: 4, sparks: 8, spray: 14, lift: 0.9, until: 0.8 },
+  /** Splashes on the ground: one per `everyM` of body, sizeMin..sizeMax m across, between `from` and `until` of the collapse */
+  splashes: { everyM: 5, min: 2, sizeMin: 2.2, sizeMax: 3.8, from: 0.2, until: 0.85 },
+  /**
+   * Debris: `perM` pieces a metre of body, at least `min` (with impact
+   * effects off `lowShare` of them, at least `minLow`), thrown between
+   * `from` and `until` of the collapse from `lift` m above the ground,
+   * upMin..upMax m/s up and outMin..outMax m/s out, spinning at up to
+   * `spin` rad/s under `gravity` m/s². A piece bounces once, lies
+   * restMin..restMax seconds and sinks into the ground over `sink`. `scale`
+   * over the pieces' natural size: they have to read from the overview
+   * camera.
+   */
+  debris: {
+    perM: 0.75,
+    min: 6,
+    minLow: 3,
+    lowShare: 1 / 3,
+    from: 0.05,
+    until: 0.6,
+    lift: 0.8,
+    upMin: 5,
+    upMax: 11,
+    outMin: 1,
+    outMax: 4.5,
+    spin: 12,
+    gravity: 16,
+    restMin: 2,
+    restMax: 3.5,
+    sink: 1,
+    scale: 1.6,
+  },
+} as const;
+
+/**
  * Mushroom cloud of the nuclear strike (MushroomCloudRenderer). Times are
  * game seconds after the impact, so a pause freezes the cloud and the
  * timescale runs it faster; lengths are metres at `referenceRadius` and
@@ -745,7 +801,7 @@ export type BurstPalette = readonly [EffectRgb, EffectRgb, EffectRgb];
  */
 export const STUN_SPARKS = { intervalMs: 400, particles: 5, perFrame: 8, height: 1.6 } as const;
 
-/** Palettes for the round-particle spark bursts (ice, arcane orb, chaos orb and poison glob hits, a skeleton's split, stun sparks). */
+/** Palettes for the round-particle spark bursts (ice, arcane orb, chaos orb and poison glob hits, a skeleton's split, an ooze's bubbles, stun sparks). */
 export const BURST_PALETTES = {
   // Bone white to dust grey. The pool blends additively, so the colours stay
   // dim: a bone-white core at full value would flash like the ice burst.
@@ -753,6 +809,13 @@ export const BURST_PALETTES = {
     { r: 0.8, g: 0.77, b: 0.68 },  // Bone white
     { r: 0.55, g: 0.51, b: 0.44 }, // Aged bone
     { r: 0.32, g: 0.3, b: 0.26 },  // Dust
+  ],
+  // Bubbles bursting on a collapsing ooze (OOZE_DEATH_LOOK.pops): the glow
+  // of its slime, dim like the bone burst since the pool blends additively
+  slime: [
+    { r: 0.35, g: 0.8, b: 0.12 },  // Glowing slime
+    { r: 0.18, g: 0.45, b: 0.05 }, // Deep slime
+    { r: 0.5, g: 0.85, b: 0.32 },  // Bubble film
   ],
   poison: [
     { r: 0.55, g: 1.0, b: 0.2 },  // Bright toxic green core

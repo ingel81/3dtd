@@ -1,12 +1,36 @@
-import { Mesh, Vector3, type BufferGeometry, type IUniform, type Scene, type ShaderMaterial } from 'three';
-import { OOZE_LOOK } from '../../../configs/visual-effects.config';
+import { Mesh, Vector3, type BufferAttribute, type BufferGeometry, type IUniform, type Scene, type ShaderMaterial } from 'three';
+import { BURST_PALETTES, OOZE_DEATH_LOOK, OOZE_LOOK, type BurstPalette } from '../../../configs/visual-effects.config';
 import { ROUTE_BODY_COVER, type RouteBodyStations } from '../../../utils/route-body';
 import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
 import { buildOozeBandGeometry, refreshOozeBandHeights, type OozeGround } from './ooze-band-geometry';
 import { createOozeBandMaterial } from './ooze-band-material';
+import type { OozeDebrisRenderer } from './ooze-debris.renderer';
+import { planOozeDeath, type OozeMessEvent } from './ooze-death-plan';
 
 /** Stations of ground refreshed past each end of the body */
 const REFRESH_MARGIN = 3;
+
+/** The mess of a band that lives, sinks after a leak or has nowhere to put it */
+const NO_MESS: readonly OozeMessEvent[] = [];
+
+/** The effects a killed ooze's mess spawns through (ThreeEffectsRenderer) */
+export interface OozeMessEffects {
+  readonly impactEffectsEnabled: boolean;
+  readonly groundMarksEnabled: boolean;
+  spawnBurstAtGeo(lat: number, lon: number, height: number, count: number, palette: BurstPalette): void;
+  spawnBloodSplatter(lat: number, lon: number, height: number, count?: number, color?: number): unknown;
+  spawnBloodDecal(lat: number, lon: number, height: number, size?: number, color?: number): unknown;
+}
+
+/**
+ * Where a killed ooze's mess goes (OOZE_DEATH_LOOK): bubbles, spray and
+ * splashes through the effects, the debris to its renderer, which the band
+ * renderer takes over (animates, clears and disposes it).
+ */
+export interface OozeMess {
+  effects: OozeMessEffects;
+  debris: OozeDebrisRenderer;
+}
 
 interface OozeBand {
   readonly mesh: Mesh<BufferGeometry, ShaderMaterial>;
@@ -18,6 +42,9 @@ interface OozeBand {
   dissolve: number | null;
   /** Seconds the sinking takes: OOZE_LOOK.dissolve, OOZE_LOOK.collapse for a killed ooze */
   dissolveS: number;
+  /** A killed ooze's mess, sorted by its share of the collapse, and the next part to go */
+  mess: readonly OozeMessEvent[];
+  messNext: number;
 }
 
 /**
@@ -29,7 +56,9 @@ interface OozeBand {
  * OOZE_LOOK.groundRefresh game seconds the ground under the body's
  * stretch is read again from the route grid, which refines as tiles
  * stream in. A removed ooze sinks away over OOZE_LOOK.dissolve, a killed
- * one collapses over OOZE_LOOK.collapse (collapse()).
+ * one collapses over OOZE_LOOK.collapse (collapse()) and lets go of its
+ * mess meanwhile (OOZE_DEATH_LOOK, planOozeDeath): bubbles bursting with a
+ * spray of slime, splashes on the ground and debris from its whole length.
  *
  * Visual only: EnemyManager pushes the frame (OozeBodies.present); nothing
  * here feeds back into the simulation.
@@ -44,7 +73,11 @@ export class OozeBandRenderer {
   private time = 0;
   private sinceRefresh = 0;
 
-  constructor(private readonly scene: Scene) {}
+  /** @param mess Where a killed ooze's mess goes; without it a collapse makes none */
+  constructor(
+    private readonly scene: Scene,
+    private readonly mess: OozeMess | null = null,
+  ) {}
 
   /** Bands drawn, the sinking ones included. */
   get count(): number {
@@ -71,7 +104,9 @@ export class OozeBandRenderer {
     const mesh = new Mesh(shared.geometry, material);
     mesh.name = `ooze-${id}`;
     this.scene.add(mesh);
-    this.bands.set(id, { mesh, stations, ground, tailM: 0, tipM: 0, dissolve: null, dissolveS: OOZE_LOOK.dissolve });
+    this.bands.set(id, {
+      mesh, stations, ground, tailM: 0, tipM: 0, dissolve: null, dissolveS: OOZE_LOOK.dissolve, mess: NO_MESS, messNext: 0,
+    });
   }
 
   /**
@@ -141,7 +176,8 @@ export class OozeBandRenderer {
 
   /**
    * The ooze was killed: its band collapses over OOZE_LOOK.collapse from
-   * the stretch of its last frame, see the uCollapse uniform.
+   * the stretch of its last frame, see the uCollapse uniform, and plans its
+   * mess for that stretch with the VFX settings of this moment.
    */
   collapse(id: string): void {
     const band = this.bands.get(id);
@@ -149,6 +185,12 @@ export class OozeBandRenderer {
     band.dissolve = 0;
     band.dissolveS = OOZE_LOOK.collapse;
     band.mesh.material.uniforms['uCollapse'].value = 1;
+    const mess = this.mess;
+    if (mess) {
+      const { impactEffectsEnabled, groundMarksEnabled } = mess.effects;
+      band.mess = planOozeDeath(band.tipM - band.tailM, impactEffectsEnabled, groundMarksEnabled);
+      band.messNext = 0;
+    }
   }
 
   /** The band of `id` goes at once, without sinking: the wave replay leaves none behind. */
@@ -156,10 +198,15 @@ export class OozeBandRenderer {
     this.drop(id);
   }
 
-  /** Once per render frame, `gameDeltaMs` of game time: clocks, sinking, ground refresh. */
+  /**
+   * Once per render frame, `gameDeltaMs` of game time: the debris, clocks,
+   * sinking and the mess of a collapse, ground refresh. At a high timescale
+   * a frame lets go of every part that fell due in it.
+   */
   animate(gameDeltaMs: number): void {
-    if (this.bands.size === 0) return;
     const dt = gameDeltaMs / 1000;
+    this.mess?.debris.update(dt);
+    if (this.bands.size === 0) return;
     this.time += dt;
     this.sinceRefresh += dt;
     const refresh = this.sinceRefresh >= OOZE_LOOK.groundRefresh;
@@ -171,6 +218,9 @@ export class OozeBandRenderer {
       if (band.dissolve !== null) {
         band.dissolve = Math.min(1, band.dissolve + dt / band.dissolveS);
         u['uDissolve'].value = band.dissolve;
+        while (band.messNext < band.mess.length && band.mess[band.messNext].t <= band.dissolve) {
+          this.letGo(band, band.mess[band.messNext++]);
+        }
         if (band.dissolve >= 1) this.drop(id);
         continue;
       }
@@ -188,14 +238,48 @@ export class OozeBandRenderer {
     }
   }
 
-  /** Every band gone at once (reset, location change). */
+  /** Every band and every piece of debris gone at once (reset, location change). */
   clear(): void {
     for (const id of [...this.bands.keys()]) this.drop(id);
+    this.mess?.debris.clear();
   }
 
   dispose(): void {
     this.clear();
     this.baseMaterial.dispose();
+    this.mess?.debris.dispose();
+  }
+
+  /**
+   * One part of a killed ooze's mess goes, at its place on the body and on
+   * the ground there: the route grid's, else the band's own under the
+   * station's centre.
+   */
+  private letGo(band: OozeBand, e: OozeMessEvent): void {
+    const mess = this.mess;
+    if (!mess) return;
+    const st = band.stations;
+    const k = st.nearestIndex(band.tailM + e.alongM);
+    const offset = e.across * (e.across < 0 ? st.left[k] : st.right[k]) * ROUTE_BODY_COVER;
+    const x = st.x[k] + st.rightX[k] * offset;
+    const z = st.z[k] + st.rightZ[k] * offset;
+    const bandGround = band.mesh.geometry.getAttribute('position') as BufferAttribute;
+    const groundY = band.ground(x, z) ?? bandGround.getY(k * OOZE_LOOK.across + (OOZE_LOOK.across >> 1));
+    const look = OOZE_DEATH_LOOK;
+    if (e.debris !== null) {
+      mess.debris.launch(e.debris, x, groundY + look.debris.lift, z, groundY);
+      return;
+    }
+    const lat = st.lat[k] + st.latPerRight[k] * offset;
+    const lon = st.lon[k] + st.lonPerRight[k] * offset;
+    const height = groundY + st.originHeight;
+    if (e.kind === 'pop') {
+      mess.effects.spawnBurstAtGeo(lat, lon, height + look.pops.lift, look.pops.sparks, BURST_PALETTES.slime);
+      mess.effects.spawnBloodSplatter(lat, lon, height + look.pops.lift * 0.5, look.pops.spray, look.goo);
+    } else {
+      const { sizeMin, sizeMax } = look.splashes;
+      mess.effects.spawnBloodDecal(lat, lon, height, sizeMin + (sizeMax - sizeMin) * Math.random(), look.goo);
+    }
   }
 
   private drop(id: string): void {

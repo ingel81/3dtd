@@ -102,17 +102,21 @@ export class VFXService {
 
     // Bone burst a metre above the body a split came from. The impact bursts'
     // pool and switch: nothing while impact effects are off (VFX settings).
-    // A parent that bleeds (the ooze breaking into clumps along its body)
-    // splashes in its blood colour where each piece lands.
+    // An ooze throws up its debris from its whole body while its band
+    // collapses (OozeBandRenderer.collapse), so no burst at its tip. A parent
+    // that bleeds (the ooze breaking into clumps along its body) splashes in
+    // its blood colour where each piece lands.
     this.subs.add(this.eventBus.on('enemy:split', ({ enemy, children }) => {
-      const height = enemy.transform.terrainHeight + enemy.heightOffset + 1;
-      this.tilesEngine.effects.spawnBurstAtGeo(
-        enemy.position.lat,
-        enemy.position.lon,
-        height,
-        EXPLOSION_PRESETS.bone.particles,
-        BURST_PALETTES.bone,
-      );
+      if (!enemy.typeConfig.ooze) {
+        const height = enemy.transform.terrainHeight + enemy.heightOffset + 1;
+        this.tilesEngine.effects.spawnBurstAtGeo(
+          enemy.position.lat,
+          enemy.position.lon,
+          height,
+          EXPLOSION_PRESETS.bone.particles,
+          BURST_PALETTES.bone,
+        );
+      }
       if (!enemy.typeConfig.canBleed) return;
       const color = enemyBloodColor(enemy);
       for (const child of children) {
