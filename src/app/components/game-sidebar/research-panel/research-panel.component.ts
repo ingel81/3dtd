@@ -8,7 +8,9 @@ import { RESEARCH_TREE, getResearch } from '../../../configs/research/research-t
 import { ActiveResearch, ResearchConfig, ResearchId } from '../../../configs/research/research.types';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
+import { UpgradeHintService } from '../../../services/upgrade-hint.service';
 import { TdIconComponent } from '../../icon/icon.component';
+import { upgradeKeyView } from '../tower-panel/tower-stats';
 import {
   missingPrereqNames,
   researchNodeIcon,
@@ -34,11 +36,15 @@ export class SidebarResearchPanelComponent {
   readonly store = inject(TowerDefenseStore);
   readonly researchStore = inject(ResearchStore);
   private readonly sellConfirm = inject(SellConfirmService);
+  private readonly upgradeHint = inject(UpgradeHintService);
 
   readonly tower = input.required<Tower>();
 
   /** The first click on Sell only arms it, see SellConfirmService. */
   readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
+
+  /** The last U on the center: the tile it bought flashes, or why it bought nothing */
+  readonly keyView = computed(() => upgradeKeyView(this.upgradeHint.hint(), this.tower()));
 
   readonly sellTower = output<void>();
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();

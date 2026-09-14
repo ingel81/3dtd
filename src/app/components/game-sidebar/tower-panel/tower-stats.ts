@@ -2,8 +2,11 @@ import {
   TARGETING_STRATEGIES,
   TargetingStrategyConfig,
   TowerTypeConfig,
+  UpgradeId,
 } from '../../../configs/tower-types.config';
 import { RECRUIT_NAME, VETERAN_RANKS, veteranLevel, veteranRank } from '../../../configs/veteran-ranks.config';
+import type { UpgradeHint } from '../../../services/upgrade-hint.service';
+import type { UpgradeRefusal } from '../../../utils/player-actions';
 import type { TdIconName } from '../../icon/icon.component';
 
 /**
@@ -118,4 +121,42 @@ export function upgradeTierLockReason(requiredTier: number, maxUnlockedTier: num
   if (maxUnlockedTier >= requiredTier) return null;
   const research = TIER_RESEARCH[requiredTier];
   return research ? `Requires: ${research}` : null;
+}
+
+/** What the upgrade section shows of the last U press (UpgradeHintService). */
+export interface UpgradeKeyView {
+  /** The tile U bought, it flashes; null for none */
+  flashId: UpgradeId | null;
+  /** Alternates per press: two classes with the same animation restart it */
+  flashAlt: boolean;
+  /** Why U bought nothing, null when it bought or shows nothing for this tower */
+  refusalText: string | null;
+}
+
+const NO_KEY_VIEW: UpgradeKeyView = { flashId: null, flashAlt: false, refusalText: null };
+
+/** The last U press as the panel of `tower` shows it; nothing when it was another tower. */
+export function upgradeKeyView(
+  hint: UpgradeHint | null,
+  tower: { id: string; typeConfig: { upgrades: readonly { id: UpgradeId; name: string }[] } },
+): UpgradeKeyView {
+  if (!hint || hint.towerId !== tower.id) return NO_KEY_VIEW;
+  const name = (id: UpgradeId) => tower.typeConfig.upgrades.find((u) => u.id === id)?.name ?? id;
+  return {
+    flashId: hint.upgradeId,
+    flashAlt: hint.seq % 2 === 0,
+    refusalText: hint.refusal ? upgradeRefusalText(hint.refusal, name) : null,
+  };
+}
+
+/** The line in the upgrade section when U bought nothing. */
+export function upgradeRefusalText(refusal: UpgradeRefusal, upgradeName: (id: UpgradeId) => string): string {
+  switch (refusal.kind) {
+    case 'credits':
+      return `Need ${refusal.missing} more credits for ${upgradeName(refusal.upgradeId)}`;
+    case 'tier':
+      return `Research ${TIER_RESEARCH[refusal.tier] ?? `tier ${refusal.tier}`} for the next levels`;
+    case 'maxed':
+      return 'Fully upgraded';
+  }
 }

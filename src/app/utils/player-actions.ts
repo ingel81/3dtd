@@ -46,3 +46,41 @@ export function firstAffordableUpgrade(
   }
   return null;
 }
+
+/** Why firstAffordableUpgrade() found nothing, see upgradeRefusal(). */
+export type UpgradeRefusal =
+  /** Every track is at its last level */
+  | { kind: 'maxed' }
+  /** The cheapest track within the unlocked tiers costs more than the credits */
+  | { kind: 'credits'; upgradeId: UpgradeId; cost: number; missing: number }
+  /** What is left needs an upgrade tier not researched yet, the lowest of them */
+  | { kind: 'tier'; tier: number };
+
+/**
+ * Why firstAffordableUpgrade() finds nothing for this tower, null when it
+ * finds one. Short credits come before a missing tier: the upgrade the
+ * player can reach soonest is the one worth naming. Same rules as
+ * firstAffordableUpgrade().
+ */
+export function upgradeRefusal(
+  tower: UpgradableTower,
+  credits: number,
+  maxUpgradeTier: number,
+): UpgradeRefusal | null {
+  let cheapest: { upgradeId: UpgradeId; cost: number } | null = null;
+  let lowestLockedTier = Infinity;
+  for (const upgrade of tower.getAvailableUpgrades()) {
+    const cost = tower.getNextUpgradeCost(upgrade.id);
+    if (cost <= 0) continue;
+    const tier = upgrade.id === 'research-slots' ? 0 : requiredUpgradeTier(tower.getUpgradeLevel(upgrade.id));
+    if (maxUpgradeTier < tier) {
+      lowestLockedTier = Math.min(lowestLockedTier, tier);
+      continue;
+    }
+    if (credits >= cost) return null;
+    if (!cheapest || cost < cheapest.cost) cheapest = { upgradeId: upgrade.id, cost };
+  }
+  if (cheapest) return { kind: 'credits', ...cheapest, missing: cheapest.cost - credits };
+  if (lowestLockedTier !== Infinity) return { kind: 'tier', tier: lowestLockedTier };
+  return { kind: 'maxed' };
+}

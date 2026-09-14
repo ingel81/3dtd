@@ -41,6 +41,7 @@ import { AbilityTargetingService } from './ability-targeting.service';
 import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
 import { ReplayService } from './replay.service';
+import { UpgradeHintService } from './upgrade-hint.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 
 function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
@@ -93,13 +94,19 @@ describe('HotkeyService', () => {
     exit: vi.fn(() => replayActive.set(false)),
   };
 
+  /** Level per track; facade.upgradeTower raises it like the real command */
+  let levels: Record<string, number>;
   const tower = {
     id: 't1',
+    position: { lat: 48.7, lon: 9.1, height: 300 },
+    typeConfig: { shootHeight: 2, upgrades: [{ id: 'damage', name: 'Damage' }, { id: 'speed', name: 'Speed' }] },
     getSellValue: () => 50,
     getAvailableUpgrades: () => [{ id: 'damage' as UpgradeId }, { id: 'speed' as UpgradeId }],
     getNextUpgradeCost: (id: UpgradeId) => (id === 'damage' ? 500 : 30),
-    getUpgradeLevel: () => 0,
+    getUpgradeLevel: (id: UpgradeId) => levels[id] ?? 0,
   };
+  let spawnFloatingText: ReturnType<typeof vi.fn>;
+  let upgradeHint: UpgradeHintService;
 
   const store = {
     loading: signal(false),
@@ -137,7 +144,17 @@ describe('HotkeyService', () => {
     uiStore.mapPlacementMode.set(null);
     uiStore.buildMode.set(false);
 
-    facade = { startWave: vi.fn(), upgradeTower: vi.fn(), sellSelectedTower: vi.fn() };
+    levels = {};
+    facade = {
+      startWave: vi.fn(),
+      upgradeTower: vi.fn((_t: unknown, id: UpgradeId) => {
+        levels[id] = (levels[id] ?? 0) + 1;
+        return true;
+      }),
+      sellSelectedTower: vi.fn(),
+    };
+    spawnFloatingText = vi.fn();
+    upgradeHint = new UpgradeHintService();
     selectTower = vi.fn();
     selectTowerType = vi.fn();
     openDialog = vi.fn();
@@ -163,7 +180,10 @@ describe('HotkeyService', () => {
     const injector = Injector.create({
       providers: [
         { provide: TowerDefenseFacadeService, useValue: facade },
-        { provide: GameStateManager, useValue: { towerManager: { selectTower } } },
+        {
+          provide: GameStateManager,
+          useValue: { towerManager: { selectTower }, tilesEngine: { effects: { spawnFloatingText } } },
+        },
         { provide: TowerDefenseStore, useValue: store },
         { provide: GameStore, useValue: gameStore },
         { provide: UIStore, useValue: uiStore },
@@ -177,6 +197,7 @@ describe('HotkeyService', () => {
         { provide: PhotoModeService, useValue: photoMode },
         { provide: HeroControlService, useValue: heroControl },
         { provide: ReplayService, useValue: replay },
+        { provide: UpgradeHintService, useValue: upgradeHint },
       ],
     });
     service = runInInjectionContext(injector, () => new HotkeyService());
@@ -342,11 +363,50 @@ describe('HotkeyService', () => {
     });
   });
 
-  it('U buys the first upgrade the player can afford', () => {
-    store.selectedTower.set(tower);
-    store.credits.set(100);
-    service.handleKeyDown(press('u'));
-    expect(facade.upgradeTower).toHaveBeenCalledWith(tower, 'speed');
+  describe('U', () => {
+    it('buys the first upgrade the player can afford', () => {
+      store.selectedTower.set(tower);
+      store.credits.set(100);
+      service.handleKeyDown(press('u'));
+      expect(facade.upgradeTower).toHaveBeenCalledWith(tower, 'speed');
+    });
+
+    it('raises the track and its new level over the tower and flashes its tile', () => {
+      store.selectedTower.set(tower);
+      store.credits.set(100);
+      const event = press('u');
+      service.handleKeyDown(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(spawnFloatingText).toHaveBeenCalledWith(
+        'SPEED LV 1', 48.7, 9.1, 305, expect.objectContaining({ color: '#D9BC68' }),
+      );
+      expect(upgradeHint.hint()).toMatchObject({ towerId: 't1', upgradeId: 'speed', refusal: null });
+    });
+
+    it('says why when it buys nothing: over the tower and in the panel', () => {
+      store.selectedTower.set(tower);
+      store.credits.set(10);
+      const event = press('u');
+      service.handleKeyDown(event);
+      expect(facade.upgradeTower).not.toHaveBeenCalled();
+      expect(event.defaultPrevented).toBe(true);
+      expect(spawnFloatingText).toHaveBeenCalledWith(
+        'NEED 20 CREDITS', 48.7, 9.1, 305, expect.objectContaining({ color: '#C96A3A' }),
+      );
+      expect(upgradeHint.hint()).toMatchObject({
+        towerId: 't1',
+        upgradeId: null,
+        refusal: { kind: 'credits', upgradeId: 'speed', missing: 20 },
+      });
+    });
+
+    it('leaves the key alone without a selected tower', () => {
+      const event = press('u');
+      service.handleKeyDown(event);
+      expect(event.defaultPrevented).toBe(false);
+      expect(spawnFloatingText).not.toHaveBeenCalled();
+      expect(upgradeHint.hint()).toBeNull();
+    });
   });
 
   it('Delete arms the sale, the second press sells', () => {

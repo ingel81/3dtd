@@ -24,6 +24,7 @@ import {
 import { DAMAGE_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
+import { UpgradeHintService } from '../../../services/upgrade-hint.service';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-matrix-dialog';
 import { TdIconComponent } from '../../icon/icon.component';
 import { damageTypeIcon } from '../../icon/damage-type-icon';
@@ -31,6 +32,7 @@ import {
   VETERAN_TOOLTIP,
   targetingStrategiesFor,
   towerStats,
+  upgradeKeyView,
   upgradeTierLockReason,
   veteranView,
 } from './tower-stats';
@@ -58,12 +60,16 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   private readonly dialog = inject(MatDialog);
   private readonly researchStore = inject(ResearchStore);
   private readonly sellConfirm = inject(SellConfirmService);
+  private readonly upgradeHint = inject(UpgradeHintService);
   readonly store = inject(TowerDefenseStore);
 
   readonly tower = input.required<Tower>();
 
   /** The first click on Sell only arms it, see SellConfirmService. */
   readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
+
+  /** The last U on this tower: the tile it bought flashes, or why it bought nothing */
+  readonly keyView = computed(() => upgradeKeyView(this.upgradeHint.hint(), this.tower()));
 
   readonly sellTower = output<void>();
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
