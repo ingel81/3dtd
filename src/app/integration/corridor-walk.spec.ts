@@ -250,6 +250,45 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(grid.getCellAt(15, 23)).toBeDefined();
   });
 
+  /**
+   * Playtest Erlenbach (Weinstraße, Erlenweg): single cells up in tree
+   * crowns beside the street. A crown that also covers two centre line
+   * spots in a row tipped the median of three spots onto the crown: the
+   * cells beside it were measured against the crown and passed, and the
+   * centre line cells stayed up in it. Irregular heights, as a crown gives.
+   */
+  it('ends the corridor before a tree crown and keeps the centre line under it on the street', () => {
+    const crown = bySpot({
+      '23,1': 6.8, '25,1': 7.9,
+      '21,3': 3.2, '23,3': 6.1, '25,3': 8.2, '27,3': 5.4, '23,5': 4.0,
+      '23,-1': 4.9, '25,-1': 7.0, '27,-1': 2.9,
+    }, 0);
+    const { grid, route, builds } = narrowed(crown);
+
+    expect(builds).toBe(1);
+    for (const [x, z] of [[21, 3], [23, 3], [25, 3], [27, 3], [23, 5], [23, -1], [25, -1], [27, -1]]) {
+      expect(grid.getCellAt(x, z), `${x},${z}`).toBeUndefined();
+    }
+    expect(grid.getCellAt(23, 1)!.terrainHeight).toBe(0);
+    expect(grid.getCellAt(25, 1)!.terrainHeight).toBe(0);
+    expect(grid.getCellAt(11, 3)).toBeDefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
+  it('ends the corridor before a hedge with an uneven top, and the front garden behind it', () => {
+    // Pavement 0.12 m, then a hedge 0.7 to 1.6 m from x 30 to 40, the
+    // garden behind it at 0.15 m: the corridor is a band per side.
+    const hedge = bySpot({ '31,5': 1.4, '33,5': 1.1, '35,5': 1.6, '37,5': 0.7, '39,5': 1.3 }, 0);
+    const { grid, route } = narrowed((x, z) => (z > 2 && z < 4 ? 0.12 : z > 6 && x > 30 && x < 40 ? 0.15 : hedge(x, z)));
+
+    expect(grid.unwalkableCells()).toEqual([]);
+    for (const x of [31, 33, 35, 37, 39]) expect(grid.getCellAt(x, 5), `${x},5`).toBeUndefined();
+    expect(grid.getCellAt(35, 7)).toBeUndefined();
+    expect(grid.getCellAt(35, 3)).toBeDefined();
+    expect(grid.getCellAt(15, 7)).toBeDefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
   it('keeps the full corridor across a slope', () => {
     // Rising 0.4 m per metre southwards: 0.8 m from one cell to the next, more
     // than stepRise, and 2.4 m at the edge cells, less than roofRise.
