@@ -447,6 +447,15 @@ export class PathAndRouteService {
   }
 
   /**
+   * How far above its cells the red route line runs, m: 1, in DevWorld 3
+   * for its steep procedural terrain. `__corridor.pick()` looks at the cells
+   * from the camera at this height (CorridorConsole.coverAt).
+   */
+  routeLineLift(): number {
+    return this.devWorld.isActive ? 3 : 1;
+  }
+
+  /**
    * Build route visualization and cache from a computed path.
    * Shared by both sync (showPathFromSpawn) and async (showPathFromSpawnAsync) flows.
    * @param spawn Spawn point
@@ -491,8 +500,7 @@ export class PathAndRouteService {
     const { left: leftWidths, right: rightWidths, onBridge, inTunnel } = fitted;
 
     // Create route line in Three.js - on terrain with RELATIVE heights
-    // DevWorld needs higher offset due to steep procedural terrain
-    const HEIGHT_ABOVE_GROUND = this.devWorld.isActive ? 3 : 1;
+    const HEIGHT_ABOVE_GROUND = this.routeLineLift();
     const overlayGroup = this.engine.getOverlayGroup();
     const points: Vector3[] = [];
 

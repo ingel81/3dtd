@@ -9,9 +9,6 @@ import type { InputHandlerService } from '../input-handler.service';
 import type { PathAndRouteService } from '../world/path-route.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 
-/** How far above its cells the red route line runs, m (PathAndRouteService.buildRouteFromPath). */
-const ROUTE_LINE_LIFT_M = 1;
-
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
 /** The engine as `__corridor.pick()` reads it. */
@@ -23,7 +20,7 @@ export interface CorridorConsoleDeps {
   gameState: () => Pick<GameStateManager, 'towerManager' | 'getGlobalRouteGrid'>;
   engineInit: Pick<EngineInitializationService, 'getEngine'>;
   inputHandler: Pick<InputHandlerService, 'armPick'>;
-  pathRoute: Pick<PathAndRouteService, 'explainCorridorAt'>;
+  pathRoute: Pick<PathAndRouteService, 'explainCorridorAt' | 'routeLineLift'>;
   /** Change the corridor settings and rebuild (CorridorController.change). */
   change: (apply: () => string[]) => string;
 }
@@ -85,9 +82,10 @@ export class CorridorConsole {
       const tower = towers.getSelected();
       const layer = tower ? towers.getSelectionViz()?.getLayer() ?? null : null;
       const drawn = layer ? new Set(layer.cells.map((c) => `${c.x},${c.z}`)) : null;
+      const lift = this.deps.pathRoute.routeLineLift();
       const rows = gameState.getGlobalRouteGrid().getGrid()
         .describeCellsAround(local.x, local.z, radius, tower?.id ?? null)
-        .map((row) => ({ ...row, displayed: drawn ? drawn.has(`${row.x},${row.z}`) : null, ...this.coverAt(engine, row) }));
+        .map((row) => ({ ...row, displayed: drawn ? drawn.has(`${row.x},${row.z}`) : null, ...this.coverAt(engine, row, lift) }));
       console.log(
         `[Corridor] pick at ${local.x.toFixed(1)},${local.z.toFixed(1)}: ${rows.length} spots within ${radius} m` +
         (tower ? `, answers and display of ${tower.id}` : ', no tower selected'),
@@ -114,14 +112,18 @@ export class CorridorConsole {
    *   the bottom, on a bridge deck the top.
    * - `overM`: how far that top lies above the cell, a bridge deck, a roof
    *   or a crown over it.
-   * - `cameraSees`: a straight line from the camera to where the red line
-   *   runs over the cell (ROUTE_LINE_LIFT_M) passes no tile. False where the
-   *   line and the enemies on the cell are hidden behind or under the tiles.
+   * - `cameraSees`: a straight line from the camera to the point `lift`
+   *   above the cell (PathAndRouteService.routeLineLift, 1 m, DevWorld 3 m)
+   *   passes no tile. The red line runs there over a centre line cell and
+   *   nowhere else; beside the centre line the point stands in for the
+   *   enemies on the cell. False where they are hidden behind or under the
+   *   tiles.
    * Null without a cell height or without a column.
    */
   private coverAt(
     engine: PickEngine,
     row: { x: number; z: number; heightM?: number | null },
+    lift: number,
   ): { columnBottomM: number | null; columnTopM: number | null; overM: number | null; cameraSees: boolean | null } {
     const column = engine.terrain.raycastColumnSample(row.x, row.z, 'corridorPick');
     const y = row.heightM ?? null;
@@ -131,7 +133,7 @@ export class CorridorConsole {
       columnTopM: column ? round(column.topY, 2) : null,
       overM: column && y !== null ? round(column.topY - y, 1) : null,
       cameraSees: y === null ? null
-        : !engine.terrain.raycastLineOfSight(camera.x, camera.y, camera.z, row.x, y + ROUTE_LINE_LIFT_M, row.z),
+        : !engine.terrain.raycastLineOfSight(camera.x, camera.y, camera.z, row.x, y + lift, row.z),
     };
   }
 

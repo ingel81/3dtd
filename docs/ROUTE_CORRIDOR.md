@@ -585,9 +585,12 @@ __corridor.pick(6)
        und oberste Fläche der Säule (feinstes Tile, wie die Zellen sie
        proben); `overM`, wie weit die oberste über der Zelle liegt
        (Brückendeck, Dach, Krone); `cameraSees`, ob die Gerade von der
-       Kamera zum Punkt 1 m über der Zelle, wo die rote Linie läuft, frei
-       von Tiles ist. `false` heißt: Linie und Gegner auf dieser Zelle sind
-       von hier aus verdeckt.
+       Kamera zum Punkt in Linienhöhe über der Zelle frei von Tiles ist
+       (`PathAndRouteService.routeLineLift`: 1 m, in DevWorld 3 m). Über
+       einer Zelle der Mittellinie läuft dort die rote Linie; die Linie
+       liegt nur auf der Mittellinie, daneben steht der Punkt für die
+       Gegner auf der Zelle. `false` heißt: Linie und Gegner auf dieser
+       Zelle sind von hier aus verdeckt.
   2. `[Corridor] width at the nearest route station`: woher die Breite an der
      nächsten Station kommt (`explainCorridorAt`,
      `path-route.service.ts:629-729`).
@@ -634,7 +637,8 @@ Befund Paris (TODO 1.10, alte Liste 14): Die Route läuft am Quai an den
 Köpfen einer Brücke vorbei, an zwei Stellen verschwinden Gegner, Zellen und
 rote Linie. Was der Code dazu sagt:
 
-- Die rote Linie liegt 1 m über den Zellen und zeichnet mit Tiefentest
+- Die rote Linie liegt 1 m (in DevWorld 3 m) über den Zellen der
+  Mittellinie und zeichnet mit Tiefentest
   (`route-line-layer.ts`), Gegner ebenso. Das Route Grid Overlay zeichnet
   jede Zelle ohne Tiefentest (`route-grid-aggregate-viz.ts`), eine Zelle
   unter einer Brücke bliebe dort also sichtbar.
