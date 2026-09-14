@@ -336,7 +336,7 @@ typischerweise vom `VFXService` über EventBus-Subscriptions aufgerufen:
 | `spawnExplosionAtGeo(lat, lon, h, count, radius, smokePuffs)` | Dasselbe an Geo-Position |
 | `spawnIceExplosionAtGeo(lat, lon, h, count)` | Runder Funken-Burst, Palette `BURST_PALETTES.ice` |
 | `spawnBurstAtGeo(lat, lon, h, count, palette)` | Gleicher Burst in einer Palette aus `BURST_PALETTES`: `arcane` (Arcane Orb und Runengeschoss des Helden, Violett/Cyan), `chaos` (Chaos Orb, Violett/Magenta), `poison` (Poison Glob, Grün), `bone` (`enemy:split`), `slime` (Blasen der sterbenden Ooze), `stun` (Funken betäubter Gegner, `STUN_SPARKS`) |
-| `spawnMuzzleFlash(localX, localY, localZ, profile)` | Muendungsfeuer, Anzahl/Größe/Dauer aus `MUZZLE_FLASH_PROFILES` |
+| `spawnMuzzleFlash(localX, localY, localZ, profile)` | Mündungsfeuer, Anzahl/Größe/Dauer aus `MUZZLE_FLASH_PROFILES` |
 | `spawnConfigurableTrail(localX, localY, localZ, config)` | Projektil-Trail nach `TrailParticleConfig`, Pool nach `blending`, `trailType: 'spiral'` für die Arcane-Orb-Spirale |
 | `spawnFloatingText(...)` | GPU-instanced Floating Damage Number |
 
