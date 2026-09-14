@@ -3,7 +3,10 @@ import { GameEventBus, VFXService, AudioService, ScreenShakeService } from '../g
 import type { ThreeTilesEngine } from '../three-engine';
 import type { EnemyInstanceState } from '../three-engine/renderers/instanced-enemy/enemy-instance.manager';
 import type { TentacleStrike } from '../three-engine/renderers/three-tentacle.renderer';
+import type { OozeGround } from '../three-engine/renderers/ooze/ooze-band-geometry';
+import type { HeroPresentation } from '../managers/hero.manager';
 import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
+import { BURST_PALETTES, OOZE_LOOK, STUN_SPARKS } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES, type ProjectileTypeId } from '../configs/projectile-types.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
@@ -14,9 +17,19 @@ import {
   ENEMY_FLAG,
   TOWER_FLAG,
   decodeHeading,
+  heroPoseName,
   type ReplayRecording,
   type ReplayTower,
 } from './replay-recording';
+
+/** What the player needs besides the recording and the engine */
+export interface ReplayPlayerOptions {
+  /** The route grid's ground, which the oozes' bands lie on; without it no bands */
+  ground?: OozeGround | null;
+}
+
+/** Status bits followed every frame while on: their auras move, the sparks repeat */
+const FOLLOWED_FLAGS = ENEMY_FLAG.SLOWED | ENEMY_FLAG.POISONED | ENEMY_FLAG.FROZEN | ENEMY_FLAG.STUNNED;
 
 /** What an enemy of the recording shows right now */
 const SHOWN_NONE = 0;
@@ -65,11 +78,14 @@ const NEW_STRIKE_DISTANCE_SQ = 0.25;
  * renderers are free: replay enemies and projectiles get instances of their
  * own under `replay-*` ids, the live towers turn to the recorded turret
  * rotations and hide until they were placed, towers sold during the wave
- * come back as replay models. Effect events go out on a bus of the player's
- * own, heard by its own VFXService, AudioService and ScreenShakeService.
- * Ground marks are held meanwhile, so the replay adds none to the live
- * ground. exit() takes every instance down and puts the live towers back as
- * they were.
+ * come back as replay models. The oozes get bands of their own, the hero
+ * renderer shows the recorded hero, the blood moon look is the recorded
+ * wave's. Effect events go out on a bus of the player's own, heard by its
+ * own VFXService, AudioService and ScreenShakeService (ability strikes
+ * included). Ground marks are held meanwhile, so the replay adds none to the
+ * live ground. exit() takes every instance down and puts the live towers
+ * and the blood moon look back as they were; the live hero is the caller's
+ * to show again (HeroManager.presentFrame).
  *
  * The game state is never touched: the player writes to renderers only.
  * Between two frames it interpolates positions, headings and turrets.
@@ -103,6 +119,26 @@ export class ReplayPlayer {
   private shownEnemyCount = 0;
   /** Killed enemies of types with a death animation, by time of death */
   private readonly died: Int32Array;
+  /** 1 for an enemy with a body along the route (an ooze): a band, no instance */
+  private readonly isBody: Uint8Array;
+  /** Body sample of the current and the next frame, valid where the stamp is this pass's */
+  private readonly bodyCur: Int32Array;
+  private readonly bodyCurStamp: Uint32Array;
+  private readonly bodyNext: Int32Array;
+  private readonly bodyNextStamp: Uint32Array;
+  /** Replay time of a stunned enemy's next spark burst */
+  private readonly stunSparkAt: Float64Array;
+  /** Spark bursts this pass, at most STUN_SPARKS.perFrame like the live game */
+  private sparkBursts = 0;
+  /** This apply() pass moves forward in play, not a jump */
+  private forward = false;
+
+  // The hero
+  /** The hero renderer shows someone: the recorded hero, or on entry the live one */
+  private heroShown = false;
+  private readonly heroView: HeroPresentation = { lat: 0, lon: 0, heading: 0, pose: 'idle', anchor: { lat: 0, lon: 0 } };
+  /** The live blood moon state, put back on exit */
+  private bloodMoonBefore = false;
 
   // Projectiles, by table index
   private readonly projectileShown: Uint8Array;
@@ -137,8 +173,16 @@ export class ReplayPlayer {
   constructor(
     private readonly rec: ReplayRecording,
     private readonly engine: ThreeTilesEngine,
+    private readonly options: ReplayPlayerOptions = {},
   ) {
     const enemies = rec.enemyCount;
+    this.isBody = new Uint8Array(enemies);
+    for (const i of rec.bodyStations.keys()) this.isBody[i] = 1;
+    this.bodyCur = new Int32Array(enemies);
+    this.bodyCurStamp = new Uint32Array(enemies);
+    this.bodyNext = new Int32Array(enemies);
+    this.bodyNextStamp = new Uint32Array(enemies);
+    this.stunSparkAt = new Float64Array(enemies);
     this.enemyShown = new Uint8Array(enemies);
     this.enemyFlags = new Uint8Array(enemies);
     this.enemyStamp = new Uint32Array(enemies);
@@ -216,6 +260,12 @@ export class ReplayPlayer {
     this.towerNext = new Int32Array(this.views.length);
     this.towerNextStamp = new Uint32Array(this.views.length);
 
+    // The look of the recorded wave, at once
+    this.bloodMoonBefore = engine.bloodMoon.isActive;
+    engine.bloodMoon.setActive(this.rec.bloodMoon, true);
+    // The live hero goes unless the recording has him on the map
+    this.heroShown = true;
+
     this.seek(0);
     this.playing = true;
   }
@@ -248,7 +298,15 @@ export class ReplayPlayer {
     this.laterTowers.length = 0;
     for (const strikeId of this.pendingStrikes) engine.abilityMarkers.removeStrike(strikeId);
     this.pendingStrikes.clear();
-    if (this.abilityLanded) engine.mushroomClouds.clear();
+    if (this.abilityLanded) {
+      engine.mushroomClouds.clear();
+      engine.frostBursts.clear();
+      engine.empPulses.clear();
+      engine.orbitalBeams.clear();
+    }
+    if (this.heroShown) engine.hero.clear();
+    this.heroShown = false;
+    engine.bloodMoon.setActive(this.bloodMoonBefore, true);
 
     this.vfx?.destroy();
     this.audio?.destroy();
@@ -287,6 +345,8 @@ export class ReplayPlayer {
     const t = Math.max(0, Math.min(this.rec.durationMs, ms));
     this.clearProjectiles();
     this.timeMs = t;
+    // Stunned enemies spark again from the new time on
+    this.stunSparkAt.fill(0);
     // From the start the events at 0 are still to come (the first sounds of the wave)
     this.eventCursor = t > 0 ? this.rec.eventAfter(t) : 0;
     this.apply(t, false);
@@ -323,9 +383,43 @@ export class ReplayPlayer {
     const t1 = g >= 0 ? rec.frameMs[g] : t0;
     const alpha = t1 > t0 ? Math.min(1, (t - t0) / (t1 - t0)) : 0;
     this.stamp++;
+    this.forward = forward;
+    this.sparkBursts = 0;
     this.applyEnemies(f, g, alpha, t);
     this.applyProjectiles(f, g, t, forward);
     this.applyTowers(f, g, alpha, t);
+    this.applyHero(f, g, alpha);
+  }
+
+  /** The recorded hero between frame f and g, or none where he was not on the map. */
+  private applyHero(f: number, g: number, alpha: number): void {
+    const rec = this.rec;
+    const code = rec.heroPose[f];
+    if (code === 0) {
+      if (this.heroShown) this.engine.hero.clear();
+      this.heroShown = false;
+      return;
+    }
+    let x = rec.heroPos[f * 2];
+    let z = rec.heroPos[f * 2 + 1];
+    let heading = rec.heroHeading[f];
+    if (g >= 0 && rec.heroPose[g] !== 0) {
+      x += (rec.heroPos[g * 2] - x) * alpha;
+      z += (rec.heroPos[g * 2 + 1] - z) * alpha;
+      heading = lerpAngle(heading, rec.heroHeading[g], alpha);
+    }
+    // His renderer stands him on the route grid's ground, the height does not matter
+    const geo = this.localToGeo(this.pos.set(x, 0, z));
+    const view = this.heroView;
+    view.lat = geo.lat;
+    view.lon = geo.lon;
+    view.heading = heading;
+    view.pose = heroPoseName(code);
+    // His post shows only while he is selected, which he is not in the replay
+    view.anchor.lat = geo.lat;
+    view.anchor.lon = geo.lon;
+    this.engine.hero.present(view);
+    this.heroShown = true;
   }
 
   private applyEnemies(f: number, g: number, alpha: number, t: number): void {
@@ -337,6 +431,16 @@ export class ReplayPlayer {
         this.enemyNext[i] = s;
         this.enemyNextStamp[i] = stamp;
       }
+      for (let b = rec.frameBodyStart[g], end = rec.frameBodyStart[g + 1]; b < end; b++) {
+        const i = rec.bIndex[b];
+        this.bodyNext[i] = b;
+        this.bodyNextStamp[i] = stamp;
+      }
+    }
+    for (let b = rec.frameBodyStart[f], end = rec.frameBodyStart[f + 1]; b < end; b++) {
+      const i = rec.bIndex[b];
+      this.bodyCur[i] = b;
+      this.bodyCurStamp[i] = stamp;
     }
 
     let alive = 0;
@@ -345,6 +449,10 @@ export class ReplayPlayer {
       const i = rec.eIndex[s];
       // Died, leaked or cleared between this frame and t
       if (t >= rec.enemyEndMs[i]) continue;
+      if (this.isBody[i] !== 0) {
+        if (this.showBody(i, s, alpha)) alive++;
+        continue;
+      }
       const n = this.enemyNextStamp[i] === stamp ? this.enemyNext[i] : s;
       lerpSample(rec.ePos, s, n, alpha, pos);
       const heading = lerpAngle(decodeHeading(rec.eHeading[s]), decodeHeading(rec.eHeading[n]), alpha);
@@ -363,10 +471,68 @@ export class ReplayPlayer {
     let kept = 0;
     for (let k = 0; k < this.shownEnemyCount; k++) {
       const i = this.shownEnemies[k];
-      if (this.enemyStamp[i] === stamp) this.shownEnemies[kept++] = i;
+      if (this.enemyStamp[i] === stamp || (this.isBody[i] !== 0 && this.sinkBody(i, t))) this.shownEnemies[kept++] = i;
       else this.hideEnemy(i);
     }
     this.shownEnemyCount = kept;
+  }
+
+  /**
+   * An ooze's band between frame f and the next: its stretch interpolated,
+   * health and status from the enemy sample `s` of the same frame.
+   * @returns false without a ground to lay it on or a body sample
+   */
+  private showBody(i: number, s: number, alpha: number): boolean {
+    const ground = this.options.ground;
+    const stations = this.rec.bodyStations.get(i);
+    if (!ground || !stations || this.bodyCurStamp[i] !== this.stamp) return false;
+    const rec = this.rec;
+    const oozes = this.engine.oozes;
+    const id = this.enemyId(i);
+    const listed = this.enemyShown[i] !== SHOWN_NONE;
+    // Scrubbed back before it went: a sinking band cannot rise again
+    if (this.enemyShown[i] === SHOWN_DYING) {
+      oozes.discard(id);
+      this.enemyShown[i] = SHOWN_NONE;
+    }
+    if (this.enemyShown[i] === SHOWN_NONE) {
+      oozes.add(id, stations, ground);
+      this.enemyShown[i] = SHOWN_ALIVE;
+      if (!listed) this.shownEnemies[this.shownEnemyCount++] = i;
+    }
+    this.enemyStamp[i] = this.stamp;
+
+    const b = this.bodyCur[i];
+    const n = this.bodyNextStamp[i] === this.stamp ? this.bodyNext[i] : b;
+    const flags = rec.eFlags[s];
+    oozes.setFrame(
+      id,
+      rec.bTail[b] + (rec.bTail[n] - rec.bTail[b]) * alpha,
+      rec.bTip[b] + (rec.bTip[n] - rec.bTip[b]) * alpha,
+      rec.eHp[s] / 255,
+      (flags & ENEMY_FLAG.SLOWED) !== 0,
+      (flags & ENEMY_FLAG.POISONED) !== 0,
+      (flags & ENEMY_FLAG.BURNING) !== 0,
+      (flags & ENEMY_FLAG.FROZEN) !== 0,
+      (flags & ENEMY_FLAG.STUNNED) !== 0,
+    );
+    return true;
+  }
+
+  /**
+   * A killed or leaked ooze's band sinks away over OOZE_LOOK.dissolve, as
+   * in the live game. @returns true while it sinks at `t`
+   */
+  private sinkBody(i: number, t: number): boolean {
+    const end = this.rec.enemyEnd[i];
+    const endMs = this.rec.enemyEndMs[i];
+    if (end !== ENEMY_END.DIED && end !== ENEMY_END.LEAKED) return false;
+    if (t < endMs || t >= endMs + OOZE_LOOK.dissolve * 1000) return false;
+    if (this.enemyShown[i] === SHOWN_ALIVE) {
+      this.engine.oozes.remove(this.enemyId(i));
+      this.enemyShown[i] = SHOWN_DYING;
+    }
+    return true;
   }
 
   /** @returns false when the enemy's type has no instance pool */
@@ -435,7 +601,7 @@ export class ReplayPlayer {
   /** Tints, auras and walk or run, switched where they changed. */
   private applyStatus(i: number, id: string, flags: number, pos: Vector3): void {
     const was = this.enemyFlags[i];
-    if (flags === was && (flags & ENEMY_FLAG.SLOWED) === 0 && (flags & ENEMY_FLAG.POISONED) === 0) return;
+    if (flags === was && (flags & FOLLOWED_FLAGS) === 0) return;
     const { enemies, effects } = this.engine;
 
     const slowed = (flags & ENEMY_FLAG.SLOWED) !== 0;
@@ -463,6 +629,30 @@ export class ReplayPlayer {
     const burning = (flags & ENEMY_FLAG.BURNING) !== 0;
     if (burning !== ((was & ENEMY_FLAG.BURNING) !== 0)) enemies.setBurnVisual(id, burning);
 
+    const frozen = (flags & ENEMY_FLAG.FROZEN) !== 0;
+    if (frozen && (was & ENEMY_FLAG.FROZEN) === 0) {
+      enemies.setIcedVisual(id, true);
+      effects.spawnIceCrystals(id, pos);
+    } else if (frozen) {
+      effects.updateIceCrystalsPosition(id, pos);
+    } else if ((was & ENEMY_FLAG.FROZEN) !== 0) {
+      enemies.setIcedVisual(id, false);
+      effects.stopIceCrystals(id);
+    }
+
+    // Stunned: the tint, and spark bursts every STUN_SPARKS.intervalMs of replay time while it plays
+    const stunned = (flags & ENEMY_FLAG.STUNNED) !== 0;
+    if (stunned !== ((was & ENEMY_FLAG.STUNNED) !== 0)) {
+      enemies.setStunVisual(id, stunned);
+      this.stunSparkAt[i] = this.timeMs;
+    }
+    if (stunned && this.forward && this.timeMs >= this.stunSparkAt[i] && this.sparkBursts < STUN_SPARKS.perFrame) {
+      this.sparkBursts++;
+      const geo = this.localToGeo(pos);
+      effects.spawnBurstAtGeo(geo.lat, geo.lon, geo.height + STUN_SPARKS.height, STUN_SPARKS.particles, BURST_PALETTES.stun);
+      this.stunSparkAt[i] = this.timeMs + STUN_SPARKS.intervalMs;
+    }
+
     const running = (flags & ENEMY_FLAG.RUNNING) !== 0;
     if (running !== ((was & ENEMY_FLAG.RUNNING) !== 0)) {
       if (running) enemies.startRunAnimation(id);
@@ -474,9 +664,15 @@ export class ReplayPlayer {
   /** Take the enemy's instance and auras down; its entry keeps its place in the list. */
   private releaseEnemy(i: number): void {
     const id = this.enemyId(i);
+    // A band goes at once, sinking or not
+    if (this.isBody[i] !== 0) {
+      this.engine.oozes.discard(id);
+      return;
+    }
     const was = this.enemyFlags[i];
     if ((was & ENEMY_FLAG.SLOWED) !== 0) this.engine.effects.stopFrostAura(id);
     if ((was & ENEMY_FLAG.POISONED) !== 0) this.engine.effects.stopPoisonAura(id);
+    if ((was & ENEMY_FLAG.FROZEN) !== 0) this.engine.effects.stopIceCrystals(id);
     this.engine.enemies.remove(id);
     this.enemySlots[i] = null;
     this.enemyFlags[i] = 0;
@@ -789,7 +985,7 @@ export class ReplayPlayer {
   }
 }
 
-/** Killed enemies whose type plays a death animation, by time of death. */
+/** Killed enemies whose type plays a death animation, by time of death; a band sinks instead. */
 function diedWithDeathAnimation(rec: ReplayRecording): Int32Array {
   const hasAnimation = rec.enemyTypeIds.map((id) => {
     const config = ENEMY_TYPES[id as EnemyTypeId];
@@ -797,7 +993,7 @@ function diedWithDeathAnimation(rec: ReplayRecording): Int32Array {
   });
   const died: number[] = [];
   for (let i = 0; i < rec.enemyCount; i++) {
-    if (rec.enemyEnd[i] === ENEMY_END.DIED && hasAnimation[rec.enemyType[i]]) died.push(i);
+    if (rec.enemyEnd[i] === ENEMY_END.DIED && hasAnimation[rec.enemyType[i]] && !rec.bodyStations.has(i)) died.push(i);
   }
   died.sort((a, b) => rec.enemyEndMs[a] - rec.enemyEndMs[b]);
   return Int32Array.from(died);

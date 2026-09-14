@@ -17,6 +17,7 @@ import { MapPlacementService } from './world/map-placement.service';
 import { AbilityTargetingService } from './ability-targeting.service';
 import { CameraControlService } from './camera-control.service';
 import { PhotoModeService } from './photo-mode.service';
+import { HeroControlService } from './hero-control.service';
 
 /** Wall-clock ms between two updates of the replay bar while it plays */
 const BAR_REFRESH_MS = 50;
@@ -50,6 +51,7 @@ export class ReplayService {
   private readonly cameraControl = inject(CameraControlService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly photoMode = inject(PhotoModeService);
+  private readonly heroControl = inject(HeroControlService);
   private readonly ngZone = inject(NgZone);
   private readonly injector = inject(Injector);
   /** The game component's element, whose template holds the replay bar */
@@ -108,6 +110,7 @@ export class ReplayService {
     if (this.towerPlacement.buildMode()) this.towerPlacement.exitBuildMode();
     if (this.uiStore.mapPlacementMode()) this.mapPlacement.exitPlacementMode();
     if (this.abilityTargeting.targeting()) this.abilityTargeting.cancel();
+    this.heroControl.deselect();
     this.gameState.towerManager.selectTower(null);
     this.uiStore.openMenu.set(null);
     this.cameraControl.cancelJump();
@@ -117,7 +120,8 @@ export class ReplayService {
     this.pausedBefore = this.gameStore.paused();
     this.setPaused(true);
 
-    const player = new ReplayPlayer(recording, engine);
+    const grid = this.gameState.getGlobalRouteGrid();
+    const player = new ReplayPlayer(recording, engine, { ground: (x, z) => grid.getGroundLocalYAt(x, z) });
     player.setSpeed(1);
     player.enter();
     this.player = player;
@@ -135,6 +139,8 @@ export class ReplayService {
     const engine = this.engineInit.getEngine();
     this.player?.exit();
     this.player = null;
+    // The live hero where he stands; the paused game would show him only once it runs
+    this.gameState.heroManager.presentFrame();
     this.cameraControl.cancelJump();
     if (engine && this.camera) restoreCamera(engine, this.camera);
     this.camera = null;

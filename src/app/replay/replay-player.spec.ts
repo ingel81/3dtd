@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Vector3 } from 'three';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { TIMING } from '../configs/timing.config';
-import { ENEMY_END, ENEMY_FLAG, ReplayRecording, TOWER_FLAG } from './replay-recording';
+import { OOZE_LOOK, STUN_SPARKS } from '../configs/visual-effects.config';
+import type { HeroPresentation } from '../managers/hero.manager';
+import type { RouteBodyStations } from '../utils/route-body';
+import { ENEMY_END, ENEMY_FLAG, ReplayRecording, TOWER_FLAG, heroPoseCode } from './replay-recording';
 import { ReplayPlayer, lerpAngle } from './replay-player';
 
 type Spy = ReturnType<typeof vi.fn>;
@@ -64,6 +67,8 @@ function fakeEngine() {
       setFreezeVisual: vi.fn(),
       setPoisonVisual: vi.fn(),
       setBurnVisual: vi.fn(),
+      setIcedVisual: vi.fn(),
+      setStunVisual: vi.fn(),
     },
     towers: {
       get: (id: string) => towers.get(id),
@@ -82,6 +87,12 @@ function fakeEngine() {
     flameBeams,
     abilityMarkers: auto(),
     mushroomClouds: auto(),
+    frostBursts: auto(),
+    empPulses: auto(),
+    orbitalBeams: auto(),
+    oozes: auto(),
+    hero: auto(),
+    bloodMoon: { isActive: false, setActive: vi.fn() },
     spatialAudio: auto(),
     lightningBolts: auto(),
     setTimescale: vi.fn(),
@@ -145,6 +156,47 @@ function waveRecording(): ReplayRecording {
   rec.pushEvent(60, { type: 'audio:play', sound: 'arrow', lat: 48, lon: 9, height: 200 });
   rec.pushEvent(120, { type: 'audio:play', sound: 'arrow', lat: 48, lon: 9, height: 200 });
   rec.finish(2400, 'completed');
+  return rec;
+}
+
+/**
+ * Wave 14, a blood moon, 1.1 s: an ooze stretches from 0-10 m to 10-30 m
+ * along its route and dies at 150, a zombie is frozen and stunned from 100
+ * to 1000, the hero is on the map in frames 1 and 2, a frost bomb lands at 120.
+ */
+function newcomersRecording(): ReplayRecording {
+  const rec = new ReplayRecording();
+  rec.reset(14, 0, 100, 0, null);
+  rec.bloodMoon = true;
+  const ooze = rec.addEnemy('ooze', 0);
+  const zombie = rec.addEnemy('zombie', 0);
+  rec.endEnemy(ooze, 150, ENEMY_END.DIED);
+  const stations = {} as RouteBodyStations;
+  const halted = ENEMY_FLAG.FROZEN | ENEMY_FLAG.STUNNED;
+
+  rec.beginFrame(0);
+  rec.pushEnemy(ooze, 10, 0, 0, 0, 1, 1, 0);
+  rec.pushBody(ooze, stations, 0, 10);
+  rec.pushEnemy(zombie, 0, 0, 0, 0, 1, 1, 0);
+  rec.endFrame();
+  rec.beginFrame(100);
+  rec.pushEnemy(ooze, 30, 0, 0, 0, 1, 0.5, ENEMY_FLAG.FROZEN);
+  rec.pushBody(ooze, stations, 10, 30);
+  rec.pushEnemy(zombie, 0, 0, 0, 0, 1, 1, halted);
+  rec.pushHero(10, 0, 1, heroPoseCode('run'));
+  rec.endFrame();
+  rec.beginFrame(200);
+  rec.pushEnemy(zombie, 0, 0, 0, 0, 1, 1, halted);
+  rec.pushHero(20, 0, 2, heroPoseCode('shoot'));
+  rec.endFrame();
+  rec.beginFrame(1000);
+  rec.pushEnemy(zombie, 0, 0, 0, 0, 1, 1, 0);
+  rec.endFrame();
+  rec.beginFrame(1100);
+  rec.endFrame();
+
+  rec.pushEvent(120, { type: 'ability:impact', abilityId: 'frost-bomb', strikeId: 1, target: { lat: 48, lon: 9 }, radiusM: 10 });
+  rec.finish(1100, 'completed');
   return rec;
 }
 
@@ -369,6 +421,93 @@ describe('ReplayPlayer', () => {
       p.exit();
       expect(f.engine.tentacles['restoreStrike'].mock.calls).toEqual([['archer-1', strike]]);
       expect(f.engine.tentacles['resetAllToIdle']).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('oozes, freeze and stun, the hero, the blood moon', () => {
+    let p: ReplayPlayer;
+    const ground = () => 0;
+
+    beforeEach(() => {
+      fake = fakeEngine();
+      p = new ReplayPlayer(newcomersRecording(), fake.engine as never, { ground });
+      p.enter();
+    });
+
+    it('lays an ooze\'s band along its route instead of an instance, stretched between frames', () => {
+      const oozes = fake.engine.oozes as Record<string, Spy>;
+      expect(oozes['add']).toHaveBeenCalledWith('replay-enemy-0', expect.any(Object), ground);
+      expect(fake.engine.enemies.create.mock.calls.map((c) => c[0])).toEqual(['replay-enemy-1']);
+      p.update(50);
+      expect(oozes['setFrame']).toHaveBeenLastCalledWith('replay-enemy-0', 5, 20, 1, false, false, false, false, false);
+      expect(p.enemiesAlive).toBe(2);
+    });
+
+    it('sinks the band of a killed ooze, then drops it; scrubbed back it lies again', () => {
+      const oozes = fake.engine.oozes as Record<string, Spy>;
+      p.update(160);
+      expect(oozes['remove']).toHaveBeenCalledWith('replay-enemy-0');
+      expect(oozes['discard']).not.toHaveBeenCalled();
+      p.update(OOZE_LOOK.dissolve * 1000);
+      expect(oozes['discard']).toHaveBeenCalledWith('replay-enemy-0');
+      p.seek(50);
+      expect(oozes['add']).toHaveBeenCalledTimes(2);
+    });
+
+    it('lays no band without a ground', () => {
+      const f = fakeEngine();
+      new ReplayPlayer(newcomersRecording(), f.engine as never).enter();
+      expect((f.engine.oozes as Record<string, Spy>)['add']).not.toHaveBeenCalled();
+    });
+
+    it('freezes and stuns: tint, ice crystals, sparks at the live pace', () => {
+      const { enemies, effects } = fake.engine;
+      p.update(100);
+      expect(enemies.setIcedVisual).toHaveBeenCalledWith('replay-enemy-1', true);
+      expect(effects['spawnIceCrystals']).toHaveBeenCalledWith('replay-enemy-1', expect.any(Vector3));
+      expect(enemies.setStunVisual).toHaveBeenCalledWith('replay-enemy-1', true);
+      expect(effects['spawnBurstAtGeo']).toHaveBeenCalledTimes(1);
+      p.update(100);
+      expect(effects['updateIceCrystalsPosition']).toHaveBeenCalled();
+      expect(effects['spawnBurstAtGeo']).toHaveBeenCalledTimes(1);
+      p.update(STUN_SPARKS.intervalMs);
+      expect(effects['spawnBurstAtGeo']).toHaveBeenCalledTimes(2);
+      // Frame 3, at 1000: thawed and awake
+      p.update(400);
+      expect(enemies.setIcedVisual).toHaveBeenLastCalledWith('replay-enemy-1', false);
+      expect(effects['stopIceCrystals']).toHaveBeenCalledWith('replay-enemy-1');
+      expect(enemies.setStunVisual).toHaveBeenLastCalledWith('replay-enemy-1', false);
+    });
+
+    it('shows the recorded hero, and none where he was not on the map', () => {
+      const hero = fake.engine.hero as Record<string, Spy>;
+      // Frame 0 has no hero: the live one goes
+      expect(hero['clear']).toHaveBeenCalledTimes(1);
+      expect(hero['present']).not.toHaveBeenCalled();
+      p.update(150);
+      const shown = hero['present'].mock.calls.at(-1)![0] as HeroPresentation;
+      expect(shown.pose).toBe('run');
+      expect(shown.heading).toBeCloseTo(1.5);
+      // Local x 15 m between 10 and 20; x points west
+      const metersPerDegreeLon = 111_320 * Math.cos(48 * Math.PI / 180);
+      expect((9 - shown.lon) * metersPerDegreeLon).toBeCloseTo(15, 0);
+      p.exit();
+      expect(hero['clear']).toHaveBeenCalledTimes(2);
+    });
+
+    it('wears the recorded wave\'s blood moon look and gives the live one back', () => {
+      expect(fake.engine.bloodMoon.setActive).toHaveBeenCalledWith(true, true);
+      p.exit();
+      expect(fake.engine.bloodMoon.setActive).toHaveBeenLastCalledWith(false, true);
+    });
+
+    it('clears the ability effects on exit once one landed', () => {
+      p.update(130);
+      expect(emitted.map((e) => e.type)).toContain('ability:impact');
+      p.exit();
+      for (const renderer of ['mushroomClouds', 'frostBursts', 'empPulses', 'orbitalBeams'] as const) {
+        expect(fake.engine[renderer]['clear']).toHaveBeenCalled();
+      }
     });
   });
 });

@@ -24,7 +24,7 @@
 
     <!-- Progress, to scrub. The ticks under it mark the player's commands -->
     <div class="td-replay-track" [style.--td-replay-done]="progress() + '%'"
-         matTooltip="Drag to jump. Ticks mark your builds, sales, upgrades and abilities"
+         matTooltip="Drag to jump. Ticks mark your orders: builds, sales, upgrades, abilities, the hero"
          matTooltipPosition="above">
       @for (marker of replay.markers(); track $index) {
         <span class="td-replay-mark" [style.left.%]="marker.percent" aria-hidden="true"></span>

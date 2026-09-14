@@ -133,6 +133,11 @@ export class OozeBandRenderer {
     if (band && band.dissolve === null) band.dissolve = 0;
   }
 
+  /** The band of `id` goes at once, without sinking: the wave replay leaves none behind. */
+  discard(id: string): void {
+    this.drop(id);
+  }
+
   /** Once per render frame, `gameDeltaMs` of game time: clocks, sinking, ground refresh. */
   animate(gameDeltaMs: number): void {
     if (this.bands.size === 0) return;
