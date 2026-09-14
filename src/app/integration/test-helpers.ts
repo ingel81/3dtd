@@ -229,6 +229,26 @@ export function createMockTilesEngine() {
 
 export type MockTilesEngine = ReturnType<typeof createMockTilesEngine>;
 
+/**
+ * The engine an ability integration spec hands to GameStateManager.initialize:
+ * a mock tiles engine with the members the sub-step loop reaches stubbed, plus
+ * an auto-stubbed catch-all for anything else it touches.
+ */
+export function createAbilityTestEngine(): never {
+  // The helper's engine is typed; the loop reaches a few members it does not declare
+  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
+  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'sync']) {
+    engine[key] = withAutoStubs(engine[key]);
+  }
+  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
+  engine['hero'] = withAutoStubs({});
+  // BackgroundMusicService resumes the audio context on wave:started
+  engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
+  // Headless, like a training tab: no presentFrame
+  (engine as Record<string, unknown>)['renderingEnabled'] = false;
+  return withAutoStubs(engine) as never;
+}
+
 // ─── Mock Angular Services ────────────────────────────────────────
 
 /** Creates a mock GlobalRouteGridService */

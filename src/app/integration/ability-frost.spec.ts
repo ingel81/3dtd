@@ -31,8 +31,9 @@ vi.mock('@angular/core', async () => {
 });
 
 import {
-  createMockTilesEngine,
   createTestCachedPaths,
+  createAbilityTestEngine,
+  withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
 } from './test-helpers';
@@ -47,30 +48,7 @@ import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
 
-/** Any property the test does not set is a vi.fn(). */
-function withAutoStubs<T extends object>(target: T): T {
-  return new Proxy(target, {
-    get(obj, prop, receiver) {
-      if (!(prop in obj)) Reflect.set(obj, prop, vi.fn());
-      return Reflect.get(obj, prop, receiver);
-    },
-  });
-}
-
-function createEngine(): never {
-  // The helper's engine is typed; the loop reaches a few members it does not declare
-  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
-  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'sync']) {
-    engine[key] = withAutoStubs(engine[key]);
-  }
-  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['hero'] = withAutoStubs({});
-  // BackgroundMusicService resumes the audio context on wave:started
-  engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
-  // Headless, like a training tab: no presentFrame
-  (engine as Record<string, unknown>)['renderingEnabled'] = false;
-  return withAutoStubs(engine) as never;
-}
+const createEngine = createAbilityTestEngine;
 
 const FROST = ABILITIES['frost-bomb'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
