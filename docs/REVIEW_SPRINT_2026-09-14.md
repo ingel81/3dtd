@@ -1088,7 +1088,14 @@ User, zurückgestellt):
 - **366 ok** mit Wunsch: die Kamera könnte näher an den Boss vor dem Tor
   (tweaks). **370 ok. 303 ok.** **304:** Ghost ok; der Tank sitzt zu tief,
   mit Höhenversatz 1 im Enemy Debugger sind die Ketten wieder sichtbar
-  (tweaks setzt `heightOffset` 1).
+  (tweaks setzt `heightOffset` 1). Umgesetzt von tweaks2: Tank
+  `heightOffset` 0 auf 1 (der Lebensbalken steigt mit); Boss-Intro-Kamera
+  näher am Boss (Herbert bei Skala 1: 23 m statt 31 m). **Nachtest:** 366
+  mit Herbert und dem Chitin Worm (Boss groß genug im Bild, Portal noch
+  lesbar dahinter), 304 Tank per Custom Wave (Ketten sichtbar). Hinweis:
+  bei den heutigen Bossen setzt ab Portalgröße 1 das ganze Portal samt
+  Krone den Mindestabstand; noch näher geht nur, wenn die Krone oben
+  angeschnitten werden darf (`BOSS_SHOT.crown` über 1).
 - **Logik-Punkte per Szenario-Test (verifyC, verifyD):** alle Logikteile
   der Bündel Fähigkeiten/Leiste, Wellen-Panel, Held, Boss-Intro/Blutmond,
   Ooze/Wurm/Kampf, Veteranen/Weltkarte und Quickfix bestätigt (Tests in
