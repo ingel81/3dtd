@@ -5,6 +5,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createColorGradingPass, ColorGradingPreset } from './color-grading';
 import { BloomKick, type BloomValues } from './bloom-kick';
+import { guardBloomHighPass } from './bloom-guard';
 
 /**
  * PostProcessingPipeline — kapselt EffectComposer + Render-/Bloom-/ColorGrading-/Output-Pass.
@@ -54,6 +55,9 @@ export class PostProcessingPipeline {
     // would run on every composer.render() even when only color grading is
     // active (the bloomEnabled flag was previously not wired to pass.enabled).
     this.bloomPass.enabled = false;
+    // A NaN or infinite pixel of the frame would spread into a black block
+    // hundreds of pixels wide (bloom-guard.ts)
+    guardBloomHighPass(this.bloomPass);
     this.composer.addPass(this.bloomPass);
     this.bloomKick = new BloomKick(this.bloomPass);
 

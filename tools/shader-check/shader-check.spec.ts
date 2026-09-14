@@ -94,6 +94,8 @@ import { TrailStreakRenderer } from '../../src/app/three-engine/renderers/trail-
 import { ThreeTentacleRenderer } from '../../src/app/three-engine/renderers/three-tentacle.renderer';
 import { TowerShadowMapper } from '../../src/app/three-engine/tower-shadow-mapper';
 import { createColorGradingPass } from '../../src/app/three-engine/post-processing/color-grading';
+import { guardBloomHighPass } from '../../src/app/three-engine/post-processing/bloom-guard';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { buildRouteAltitudeTubes } from '../../src/app/utils/route-altitude-tubes';
 import type { GlobalRouteGrid } from '../../src/app/utils/global-route-grid';
 import { RouteGridAggregateViz } from '../../src/app/utils/route-grid-aggregate-viz';
@@ -432,6 +434,17 @@ const CASES: ShaderCase[] = [
     file: 'three-engine/post-processing/color-grading.ts',
     // The composer draws it on a full-screen quad, the same program
     build: (scene) => scene.add(new Mesh(new PlaneGeometry(2, 2), createColorGradingPass().pass.material)),
+    withoutLogDepth: 'full-screen pass of the composer: reads the frame, depth plays no part',
+  },
+  {
+    name: 'bloom high pass (guarded against NaN and infinite pixels)',
+    file: 'three-engine/post-processing/bloom-guard.ts',
+    build: (scene) => {
+      const bloom = new UnrealBloomPass(new Vector2(64, 64), 0.3, 0.4, 0.85);
+      guardBloomHighPass(bloom);
+      scene.add(new Mesh(new PlaneGeometry(2, 2), bloom.materialHighPassFilter));
+    },
+    marks: ['nonFinite( texel.rgb )'],
     withoutLogDepth: 'full-screen pass of the composer: reads the frame, depth plays no part',
   },
 ];
