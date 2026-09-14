@@ -60,12 +60,22 @@ export class RouteCellSampler {
    */
   private readonly neighbourMedian: (cell: RouteCell, minDepth: number) => number | null;
 
+  /** The height a cell takes instead of the hit `y`, null to keep it; see sampleCellY. */
+  private readonly replaceHit: ((cell: RouteCell, y: number) => number | null) | null;
+
   /**
    * @param neighbourMedian `GlobalRouteGrid.medianOfStableNeighbourY`.
    *   Läuft nur, wenn die Säule getroffen hat.
+   * @param replaceHit The grid's rule for a hit the cell must not keep:
+   *   streetUnderRoof in corridor-walk.ts, for the cells the route centre
+   *   line runs through. Asked for every hit a cell would take.
    */
-  constructor(neighbourMedian: (cell: RouteCell, minDepth: number) => number | null) {
+  constructor(
+    neighbourMedian: (cell: RouteCell, minDepth: number) => number | null,
+    replaceHit: ((cell: RouteCell, y: number) => number | null) | null = null,
+  ) {
     this.neighbourMedian = neighbourMedian;
+    this.replaceHit = replaceHit;
   }
 
   // ========================================
@@ -164,6 +174,12 @@ export class RouteCellSampler {
       if (!found) logGrid('SAMPLE', `miss key=${cell.key}`);
       return false;
     }
+    // A cell the route centre line runs through whose column came down on
+    // a jetty, an oriel or a roof corner takes the street instead
+    // (replaceHit). With its LOD, so the sweep leaves it until a finer
+    // tile shows something else.
+    const replaced = this.replaceHit?.(cell, hit.y) ?? null;
+    if (replaced !== null) hit = { ...hit, y: replaced };
 
     // Quality-versioned idempotency: if the cell already has a stable sample
     // from a strictly better tile (deeper LOD), refuse to overwrite with

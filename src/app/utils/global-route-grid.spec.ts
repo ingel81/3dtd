@@ -822,6 +822,35 @@ describe('GlobalRouteGrid cells an enemy could not walk to', () => {
     expect(grid.unwalkableCells()).toEqual([]);
   });
 
+  /**
+   * Rothenburg, retest 560 to 563: the centre line of an alley runs under
+   * a jetty whose column has no street under it (pick C, 5.7 m up), and
+   * clips the corner of a roof (pick B, 7.6 m up). The corridor keeps
+   * both cells at any width; they take the street.
+   */
+  it('puts a cell the centre line runs through on the street, not on a jetty or a roof corner over it', () => {
+    const spot = (v: number) => (Math.floor(v / 2) + 0.5) * 2;
+    const heights: Record<string, number> = { '-231,-57': 477, '-231,-55': 471.93 };
+    const alley = (x: number, z: number) => column(heights[`${spot(x)},${spot(z)}`] ?? 471.25);
+    const line = (x: number, z: number): RouteWaypoint => ({ lat: z, lon: x, corridorLeft: 1, corridorRight: 7 });
+    const jetty = build(alley, [line(-235, -70), line(-229, -46)]);
+    expect(jetty.getCellAt(-231, -57)!.terrainHeight).toBeLessThan(472);
+    expect(jetty.getCellAt(-231, -57)!.sample.state).toBe('stable');
+    // Its neighbour 0.65 m up under the jetty is no roof: it keeps its hit.
+    expect(jetty.getCellAt(-231, -55)!.terrainHeight).toBe(471.93);
+
+    const corner = (x: number, z: number) => column(spot(x) === -227 && spot(z) === -19 ? 480.57 : 472.9);
+    const clipped = build(corner, [line(-230.9, -27.1), line(-224.9, -9.1)]);
+    expect(clipped.getCellAt(-227, -19)!.terrainHeight).toBe(472.9);
+  });
+
+  it('keeps the cells of a centre line up a steep street where they are', () => {
+    // 30 % along the line: 0.6 m from one spot to the next.
+    const grid = build((x) => column(x * 0.3));
+    expect(grid.getCellAt(21, 1)!.terrainHeight).toBeCloseTo(6.3, 9);
+    expect(grid.getCellAt(39, 1)!.terrainHeight).toBeCloseTo(11.7, 9);
+  });
+
   it('judges no cell sampled from a tile coarser than maxTileError', () => {
     expect(build((x, z) => ({ ...parked(x, z), tileGeometricError: 20 })).unwalkableCells()).toEqual([]);
   });

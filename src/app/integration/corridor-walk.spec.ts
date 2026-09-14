@@ -186,10 +186,11 @@ describe('Corridor short of the cells no enemy could walk to', () => {
 
     expect(builds).toBe(1);
     expect(grid.getCellAt(-235, -57)).toBeUndefined();
-    // The centre line cell on the jetty stays: the corridor keeps it at any width.
+    // The centre line cell under the jetty stays, the corridor keeps it at
+    // any width, but on the street: enemies take their height from it.
     const [jetty] = grid.describeCellsAround(-231, -57, 0.5, null);
-    expect(jetty).toMatchObject({ x: -231, z: -57, cell: true, heightM: 477, walkable: null, walkCheck: 'centre line' });
-    expect(jetty.overLineM).toBeGreaterThan(5);
+    expect(jetty).toMatchObject({ x: -231, z: -57, cell: true, walkable: null, walkCheck: 'centre line on a roof', overLineM: 0 });
+    expect(jetty.heightM).toBeLessThan(472);
     expect(grid.getCellAt(-235, -61)).toBeDefined();
     expect(positionsOutside(grid, route)).toEqual([]);
   });
