@@ -37,6 +37,7 @@ import { signal } from '@angular/core';
 import {
   createMockTilesEngine,
   createTestCachedPaths,
+  withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
 } from './test-helpers';
@@ -52,16 +53,6 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { GeoPosition } from '../models/game.types';
 import type { FacadeComponentBridge } from '../services/facade/tower-defense-facade.service';
-
-/** Any property the test does not set is a vi.fn(). */
-function withAutoStubs<T extends object>(target: T): T {
-  return new Proxy(target, {
-    get(obj, prop, receiver) {
-      if (!(prop in obj)) Reflect.set(obj, prop, vi.fn());
-      return Reflect.get(obj, prop, receiver);
-    },
-  });
-}
 
 /** The engine the loop gets, as in ability-loop.scenario.spec.ts */
 function createEngine(): never {

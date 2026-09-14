@@ -38,6 +38,7 @@ vi.mock('@angular/core', async () => {
 import {
   createMockTilesEngine,
   createTestCachedPaths,
+  withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
 } from './test-helpers';
@@ -55,16 +56,6 @@ import type { SpawnStart } from '../managers/enemy.manager';
 import type { GeoPosition } from '../models/game.types';
 
 type Mock = ReturnType<typeof vi.fn>;
-
-/** Any property the test does not set is a vi.fn(). */
-function withAutoStubs<T extends object>(target: T): T {
-  return new Proxy(target, {
-    get(obj, prop, receiver) {
-      if (!(prop in obj)) Reflect.set(obj, prop, vi.fn());
-      return Reflect.get(obj, prop, receiver);
-    },
-  });
-}
 
 /** The engine the loop gets, and its parts for the test to read back */
 function createEngine() {
