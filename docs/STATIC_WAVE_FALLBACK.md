@@ -3,7 +3,7 @@
 **Stand:** 2026-09-15 (Prioritätskette, Loop und Gold gegen den Code geprüft)
 
 Static-Wave-Fallback ist ein Debug-/Playtest-Modus, der Wellen aus einer
-festen Per-Wave-Tabelle spawnt — als Alternative zum Wave Director.
+festen Per-Wave-Tabelle spawnt, als Alternative zum Wave Director.
 Gedacht für Offline-Playtests und Headless-Tests, wo man **dieselbe** Wellenfolge
 mehrfach durchspielen will. **Der Director bleibt der Production-Default**;
 dies ist ein bewusst opt-in Debug-Pfad.
@@ -11,7 +11,7 @@ dies ist ein bewusst opt-in Debug-Pfad.
 > **Der ursprüngliche Hauptzweck ist entfallen.** Diese Datei entstand als Weg,
 > das Curriculum ohne geladenes ONNX-Modell durchspielen zu können. Seit 2026-09
 > ist der Wave Director **regelbasiert** (`src/app/ai/core/rule-director.ts`) und
-> braucht weder Modell noch Server noch ONNX-Runtime — „kein Modell geladen" ist
+> braucht weder Modell noch Server noch ONNX-Runtime; „kein Modell geladen" ist
 > kein Zustand mehr, der existiert. Was bleibt, ist der eigentliche Wert des
 > Modus: eine **deterministische, unveränderliche** Wellenfolge. Der
 > Regel-Director erzwingt Abwechslung und jittert seine Faktoren, ist also
@@ -24,7 +24,7 @@ gespawnt. Der Static-Pfad nutzt dafür dieselbe Spawn-Pipeline wie der AI
 
 ---
 
-## Drei Wave-Quellen — Prioritäten
+## Drei Wave-Quellen: Prioritäten
 
 In `game-loop-facade.service.ts` `startWave()` läuft folgende Prioritätskette:
 
@@ -37,7 +37,7 @@ In `game-loop-facade.service.ts` `startWave()` läuft folgende Prioritätskette:
 3. **Debug Panel** (sonst)
    → `buildWaveConfig()` aus `WaveDebugService`-Signals.
 
-**Wichtig:** Der Static-Toggle **schlägt** den Director, bedingungslos — der
+**Wichtig:** Der Static-Toggle **schlägt** den Director, bedingungslos: der
 `useStaticCurriculum`-Zweig kehrt vor dem `useAIDirector`-Check zurück.
 
 Der Grund dafür ist heute stärker als früher: `useAIDirector` ist per Default
@@ -47,7 +47,7 @@ zusätzlich abschaltet.
 
 Historisch: Bis 2026-05-20 kam der AI-Check zuerst. Damals startete
 `useAIDirector` auf `false` und ein Effect schaltete es ein, sobald das
-ONNX-Modell geladen war — der Static-Klick verpuffte also, sobald das Modell da
+ONNX-Modell geladen war; der Static-Klick verpuffte also, sobald das Modell da
 war. Diesen Effect gibt es nicht mehr: mit einem immer verfügbaren
 Regel-Director war seine Bedingung dauerhaft wahr, er feuerte auf seinen eigenen
 Schreibvorgang und machte den UI-Toggle inert. Stattdessen ist der Default
@@ -86,19 +86,19 @@ export const STATIC_WAVE_PROFILES: readonly StaticWaveProfile[] = [
   { wave:  1, groups: [{ enemyType: 'zombie', count: 20, hpMult: 0.8 }], spawnDelayMs: 1000 },
   { wave:  2, groups: [{ enemyType: 'rat',    count: 60, hpMult: 1.0 }], spawnDelayMs:  400 },
   ...
-  // W8 hornet_strike mirror — hornet + bat mix
+  // W8 hornet_strike mirror: hornet + bat mix
   { wave:  8, groups: [
     { enemyType: 'hornet', count: 15, hpMult: 0.9 },
     { enemyType: 'bat',    count:  6, hpMult: 1.0 },
   ], spawnDelayMs: 500, pattern: 'interleaved' },
   ...
-  // ── Mid game (W10-W19) — Boss W10 mit Support ──
+  // ── Mid game (W10-W19), Boss W10 mit Support ──
   { wave: 10, groups: [
     { enemyType: 'herbert', count:  1, hpMult: 8.0 },
     { enemyType: 'tank',    count: 12, hpMult: 1.0 },
     { enemyType: 'zombie',  count: 18, hpMult: 0.6 },
   ], spawnDelayMs: 700, pattern: 'clustered' },
-  // W16 chaos_wave mirror — 4-Mix
+  // W16 chaos_wave mirror: 4-Mix
   { wave: 16, groups: [
     { enemyType: 'zombie', count: 18, hpMult: 1.0 },
     { enemyType: 'tank',   count: 12, hpMult: 1.5 },
@@ -106,7 +106,7 @@ export const STATIC_WAVE_PROFILES: readonly StaticWaveProfile[] = [
     { enemyType: 'bear',   count:  4, hpMult: 1.0 },
   ], spawnDelayMs: 400, pattern: 'interleaved' },
   ...
-  // ── Late game (W20-W30) — Boss W30 mit max Support ──
+  // ── Late game (W20-W30), Boss W30 mit max Support ──
   { wave: 30, groups: [
     { enemyType: 'herbert', count:  3, hpMult: 35.0 },
     { enemyType: 'tank',    count: 25, hpMult:  2.5 },
@@ -130,7 +130,7 @@ Der `endgameHpMultiplier` (auch in `wave-curriculum.config.ts`) steht bis
 W20 auf 1, steigt ab W21 um 0,05 je Welle und cappt bei 4× (W80). So bleiben
 spätere Loop-Iterationen herausfordernd, obwohl das Profil wieder vorne
 anfängt.
-Der Ramp wird beim Resolven pro Gruppe in `healthMultiplier` gebaken —
+Der Ramp wird beim Resolven pro Gruppe in `healthMultiplier` gebaken;
 der WaveManager bekommt fertige Per-Enemy-HPs.
 
 ### Speed
@@ -168,7 +168,7 @@ zu endlosen Herbert-Schwärmen ab W31. Der Loop-Fix behob das.
 er früher im Lockstep lief, tun das nicht mehr:
 
 - **`templateForWave` loopt nicht.** Ab W31 (`CURRICULUM_FORCED_THROUGH_WAVE`)
-  gibt es kein forciertes Template mehr — dort wählt der Wave Director unter der
+  gibt es kein forciertes Template mehr, dort wählt der Wave Director unter der
   normalen Maske selbst. Der Docstring an `staticWaveProfileForWave` behauptet
   noch, der Loop laufe „alongside `templateForWave`"; das stimmt nicht mehr.
 - **`goldBudgetForWave` loopt nicht.** Ab W31 **verfällt** das Budget
@@ -177,7 +177,7 @@ er früher im Lockstep lief, tun das nicht mehr:
   das Doppelte (`BOSS_GOLD_MULTIPLIER = 2`). Das Gold richtet sich nach der
   Wellennummer, nicht nach dem Static-Profil, das gerade läuft. Der frühere mod-30-Loop ließ Welle 31 von
   180 000 auf 200 Gold fallen und wieder hochklettern, und zahlte über 100 Wellen
-  2,64 M aus — gegen ein Design-Roster von 1,39 M. Der Trainings-Bot erreichte
+  2,64 M aus, gegen ein Design-Roster von 1,39 M. Der Trainings-Bot erreichte
   damit ~6700 DPS über die ganze Route und tötete ab Welle 11 100 % jeder Welle.
   Die Konstanten `KILL_DELTA_PER_WAVE` / `COMPLETE_DELTA_PER_WAVE` der noch
   früheren linearen Extrapolation sind ebenfalls weg.
@@ -222,7 +222,7 @@ readonly useStaticCurriculum = signal<boolean>(false);
 ```
 
 Default: aus. Wird nicht persistiert (existiert nur in-Memory pro Session).
-Über `TowerDefenseStore` re-exportiert. `resetAll()` fasst es **nicht** an —
+Über `TowerDefenseStore` re-exportiert. `resetAll()` fasst es **nicht** an;
 zurückgesetzt werden dort nur `trainingTimescale`, `useAIDirector` (auf `true`)
 und `isDevWorldRegenerating`.
 
@@ -245,7 +245,7 @@ wirft (dann läuft der Debug-Panel-Pfad, und `aiError` trägt die Meldung).
 | `src/app/store/tower-defense.store.ts` | Re-Export |
 | `src/app/components/quick-actions/quick-actions.component.ts` | UI-Button + Input/Output |
 | `src/app/tower-defense.component.{html,ts}` | Binding + Handler |
-| `src/app/ai/core/templates.ts` | `golem_squad` Template (`minWave: 14` — der frühere 999er-Block gegen die untrainierte AI ist weg) |
+| `src/app/ai/core/templates.ts` | `golem_squad` Template (`minWave: 14`; der frühere 999er-Block gegen die untrainierte AI ist weg) |
 | `tools/wave-planner/generate.spec.ts` | Wave-Planner-Tool (zeigt das Curriculum visuell, inkl. Gates für golem_squad) |
 
 ---
@@ -273,8 +273,8 @@ Spieler-DPS aus dem Wave-Planner. Unterwegs kamen dazu:
 ## Unified Pipeline (kein Parallel-Code mehr)
 
 Seit 2026-05-23 läuft Static-Curriculum durch dieselbe Spawn-Pipeline
-wie der AI Director. Der WaveManager hat genau einen `startWave`-Pfad
-— `WaveConfig = { schedule }`, schedule-only, kein Single-Type-Fast-
+wie der AI Director. Der WaveManager hat genau einen `startWave`-Pfad:
+`WaveConfig = { schedule }`, schedule-only, kein Single-Type-Fast-
 Path. `staticWaveResolvedFor(waveNum)` baut eine `AIWaveConfig` (gleicher
 Shape wie das, was der NN ausspuckt), die Facade gibt das an
 `adaptAIWaveConfig(...)` → fertige `WaveConfig` mit Schedule.
@@ -301,7 +301,7 @@ keine zweite Code-Welt mehr.
 2. **Per-Wave-Tuning ist iterativ.** Die aktuellen Counts/HP-Mults sind
    gegen die optimistische Player-DPS aus dem Wave-Planner kalibriert.
    Real abweichende Builds (z.B. nur Archer-Spam, kein Magic gegen
-   Ethereal) leaken früher. Erwartet — Static-Fallback ist „rough
+   Ethereal) leaken früher. Erwartet: der Static-Fallback ist „rough
    playtest", nicht eine balancierte Gegen-AI.
 
 3. **Per-Group Spawn-Delay-Override.** Die Pipeline unterstützt
@@ -318,14 +318,14 @@ keine zweite Code-Welt mehr.
 Wenn sich beim Static-Spiel etwas falsch anfühlt:
 
 1. **Wave-Planner aufmachen** (`docs/wave-planner.html`, regen via
-   `npm run wave-planner`) — zeigt Plan-Bedarf pro Welle.
-2. **Tower-Stats-Chart aufmachen** (`docs/tower-stats-chart.html`) —
+   `npm run wave-planner`), zeigt Plan-Bedarf pro Welle.
+2. **Tower-Stats-Chart aufmachen** (`docs/tower-stats-chart.html`),
    zeigt erwarteten Player-DPS pro Tower und Level.
 3. Anhand der zwei Datenpunkte den Player-DPS bei der problematischen
    Welle schätzen. Wave-Gesamt-HP ≈ DPS × 15–30 s ist die Zielzone.
 4. `count` / `hpMult` / `spawnDelayMs` in `STATIC_WAVE_PROFILES` drehen.
 5. Tests: `npm test` (Curriculum-Spec asserted monoton-mit-Boss-Dip auf
-   den Gold-Werten, *nicht* auf den Static-Profilen — die sind frei
+   den Gold-Werten, *nicht* auf den Static-Profilen; die sind frei
    tunbar).
 6. Optional: Static-Toggle im Spiel aktivieren und durchspielen.
 
@@ -333,14 +333,14 @@ Wenn sich beim Static-Spiel etwas falsch anfühlt:
 
 ## Verwandte Dokumente
 
-- [WAVE_SYSTEM.md](WAVE_SYSTEM.md) — gesamtes Wave-Management, Spawn-Logik,
+- [WAVE_SYSTEM.md](WAVE_SYSTEM.md): gesamtes Wave-Management, Spawn-Logik,
   Mixed Waves, Phasen, Sub-Step-Spawner.
-- [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) — die Director-Seite, die
+- [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md): die Director-Seite, die
   der Static-Fallback ersetzt (heute regelbasiert, kein Modell).
-- [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) — _historisch:_ das
+- [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md): _historisch:_ das
   Range-Template-System, das die Static-Profiles spiegeln. Templates, Maske und
   Ranges gelten weiter, die NN-Teile nicht.
-- [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) —
+- [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md):
   _historisch:_ Curriculum- und Gold-Stand vom Mai 2026, Gold-Zahlen dort
   überholt.
 - Offene Erweiterungen stehen oben unter [Bekannte Limitationen](#bekannte-limitationen);
