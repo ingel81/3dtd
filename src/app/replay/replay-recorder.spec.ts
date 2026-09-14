@@ -5,8 +5,9 @@ vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 import { Vector3 } from 'three';
 import { GameEventBus, type GameEvent } from '../game-engine/game-event-bus';
 import { GameClock } from '../managers/game-state/game-clock';
-import { ReplayRecorder } from './replay-recorder';
-import { ENEMY_END, ENEMY_FLAG, TOWER_FLAG, decodeHeading } from './replay-recording';
+import { ReplayRecorder, type RecordableHero } from './replay-recorder';
+import { ENEMY_END, ENEMY_FLAG, TOWER_FLAG, decodeHeading, heroPoseName } from './replay-recording';
+import type { RouteBodyStations } from '../utils/route-body';
 
 const STEP = GameClock.FIXED_STEP_MS;
 
@@ -26,8 +27,11 @@ function fakeEnemy(typeId = 'zombie', lat = 0, lon = 0) {
       isSlowed: () => true,
       isPoisoned: () => false,
       isBurning: () => true,
+      isFrozen: () => false,
+      isStunned: () => false,
     },
     rush: null as { running: boolean } | null,
+    body: null as { stations: RouteBodyStations; tailM: number; tipM: number } | null,
   };
 }
 
@@ -65,6 +69,7 @@ class Harness {
     tentacles: { getStrikeTarget: (id: string) => this.strikes.get(id) ?? null },
   };
   time = 1000;
+  hero: RecordableHero | null = null;
   readonly recorder: ReplayRecorder;
 
   constructor() {
@@ -72,6 +77,7 @@ class Harness {
       enemies: () => this.enemies,
       projectiles: () => this.projectiles,
       towers: () => this.towers,
+      hero: () => this.hero,
       engine: () => this.engine,
       gameTimeMs: () => this.time,
       baseHealth: () => 80,
@@ -262,20 +268,95 @@ describe('ReplayRecorder', () => {
     expect(Array.from(rec.tAux.subarray((s + 1) * 4, (s + 1) * 4 + 3))).toEqual([4, 5, 6]);
   });
 
-  it('logs every command of the wave as plain data, one it does not know as well', () => {
+  it('logs every command of the wave as plain data, the hero\'s and one it does not know as well', () => {
     const h = new Harness();
     h.startWave();
     h.steps(2);
     h.emit({ type: 'command:place-tower', position: { lat: 1, lon: 2, height: 3 }, typeId: 'archer', rotation: 0.5, plinthHeight: 2 });
-    h.emit({ type: 'command:hero-move', target: { lat: 4, lon: 5 } } as never);
+    h.emit({ type: 'command:hire-hero' });
+    h.emit({ type: 'command:hero-move', target: { lat: 4, lon: 5 } });
+    h.emit({ type: 'command:hero-ammo', ammo: 'explosive' });
+    h.emit({ type: 'command:not-there-yet', x: 1 } as never);
     h.recorder.finish('completed');
 
     const rec = h.recorder.recording!;
     expect(rec.commands.map((c) => c.command)).toEqual([
       { type: 'command:place-tower', position: { lat: 1, lon: 2, height: 3 }, typeId: 'archer', rotation: 0.5, plinthHeight: 2 },
+      { type: 'command:hire-hero' },
       { type: 'command:hero-move', target: { lat: 4, lon: 5 } },
+      { type: 'command:hero-ammo', ammo: 'explosive' },
+      { type: 'command:not-there-yet', x: 1 },
     ]);
     expect(rec.commands[0].ms).toBeCloseTo(2 * STEP);
+  });
+
+  it('keeps frozen and stunned in the status bits', () => {
+    const h = new Harness();
+    const enemy = fakeEnemy();
+    enemy.movement.statusEffects.push({});
+    enemy.movement.isSlowed = () => false;
+    enemy.movement.isBurning = () => false;
+    enemy.movement.isFrozen = () => true;
+    enemy.movement.isStunned = () => true;
+    h.enemies.push(enemy);
+    h.startWave();
+    h.recorder.finish('completed');
+    expect(h.recorder.recording!.eFlags[0]).toBe(ENEMY_FLAG.FROZEN | ENEMY_FLAG.STUNNED);
+  });
+
+  it('keeps an ooze\'s stretch along its route per frame, its stations once', () => {
+    const h = new Harness();
+    const stations = {} as RouteBodyStations;
+    const ooze = fakeEnemy('ooze');
+    ooze.body = { stations, tailM: 2, tipM: 10 };
+    h.enemies.push(fakeEnemy(), ooze);
+    h.startWave();
+    ooze.body.tailM = 3;
+    ooze.body.tipM = 12;
+    h.steps(6);
+    h.recorder.finish('completed');
+
+    const rec = h.recorder.recording!;
+    expect([...rec.bodyStations]).toEqual([[1, stations]]);
+    expect(rec.frameBodyStart[1] - rec.frameBodyStart[0]).toBe(1);
+    const b = rec.frameBodyStart[1];
+    expect([rec.bIndex[b], rec.bTail[b], rec.bTip[b]]).toEqual([1, 3, 12]);
+    // Its tip, health and status are an enemy sample like any other
+    expect(rec.frameEnemyStart[2] - rec.frameEnemyStart[1]).toBe(2);
+  });
+
+  it('keeps the hero per frame: where he stands, heading and pose; nothing before he is hired', () => {
+    const h = new Harness();
+    h.startWave();
+    h.hero = { lat: 0.01, lon: 0.02, heading: 1.5, pose: 'run-shoot' };
+    h.steps(6);
+    h.recorder.finish('completed');
+
+    const rec = h.recorder.recording!;
+    expect(rec.heroPose[0]).toBe(0);
+    expect(heroPoseName(rec.heroPose[1])).toBe('run-shoot');
+    expect(rec.heroPos[2]).toBeCloseTo(2);
+    expect(rec.heroPos[3]).toBeCloseTo(1);
+    expect(rec.heroHeading[1]).toBeCloseTo(1.5);
+  });
+
+  it('keeps the hero\'s level-up, not his kills (they hold the enemy)', () => {
+    const h = new Harness();
+    h.startWave();
+    h.emit({ type: 'hero:kill', enemy: {} as never });
+    h.emit({ type: 'hero:level-up', level: 2, position: { lat: 1, lon: 2 } });
+    h.recorder.finish('completed');
+    expect(h.recorder.recording!.events.map((e) => e.type)).toEqual(['hero:level-up']);
+  });
+
+  it('marks a blood moon wave', () => {
+    const h = new Harness();
+    h.startWave(14);
+    h.recorder.finish('completed');
+    expect(h.recorder.recording!.bloodMoon).toBe(true);
+    h.startWave(15);
+    h.recorder.finish('completed');
+    expect(h.recorder.recording!.bloodMoon).toBe(false);
   });
 
   it('keeps effect events and HQ health changes with their time', () => {

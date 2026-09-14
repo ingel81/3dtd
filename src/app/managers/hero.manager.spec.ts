@@ -544,6 +544,13 @@ describe('HeroManager', () => {
       expect(manager.moveTo(at(40, 100))).toBe(false); // refused: nothing to show
       expect(shown).toHaveLength(2);
     });
+
+    it('gives the same presentation without a renderer (the wave replay records it), none before the hire', () => {
+      expect(manager.getPresentation()).toBeNull();
+      hired();
+      const p = manager.getPresentation()!;
+      expect({ pose: p.pose, ...local(p) }).toEqual({ pose: 'idle', x: 0, z: 300 });
+    });
   });
 
   it('starts over on reset: gone, locked, no kills', () => {

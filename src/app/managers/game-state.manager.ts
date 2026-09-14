@@ -133,6 +133,7 @@ export class GameStateManager {
     enemies: () => this.enemyManager.getAllActive(),
     projectiles: () => this.projectileManager.getAllActive(),
     towers: () => this.towerManager.getAll(),
+    hero: () => this.heroManager.getPresentation(),
     engine: () => this.tilesEngine,
     gameTimeMs: () => this.clock.gameTimeMs,
     baseHealth: () => this.baseHealth(),

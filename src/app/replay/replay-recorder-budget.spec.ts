@@ -17,9 +17,10 @@ import { Vector3 } from 'three';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { GameClock } from '../managers/game-state/game-clock';
 import { ReplayRecorder } from './replay-recorder';
+import type { RouteBodyStations } from '../utils/route-body';
 
 describe('ReplayRecorder under the memory budget', () => {
-  it('keeps every frame on the grid of the current spacing while thinning', () => {
+  it('keeps every frame on the grid of the current spacing while thinning, bodies and hero with them', () => {
     const bus = new GameEventBus();
     const enemy = {
       alive: true,
@@ -31,15 +32,21 @@ describe('ReplayRecorder under the memory budget', () => {
       movement: {
         speedMps: 1, speedMultiplier: 1, statusEffects: [],
         getSlowMultiplier: () => 1, isSlowed: () => false, isPoisoned: () => false, isBurning: () => false,
+        isFrozen: () => false, isStunned: () => false,
       },
       rush: null,
+      body: null as { stations: RouteBodyStations; tailM: number; tipM: number } | null,
     };
-    const enemies = Array.from({ length: 1000 }, () => ({ ...enemy }));
+    // Every tenth one an ooze with its body along the route
+    const stations = {} as RouteBodyStations;
+    const enemies = Array.from({ length: 1000 }, (_, i) =>
+      ({ ...enemy, body: i % 10 === 0 ? { stations, tailM: i, tipM: i + 5 } : null }));
     let time = 0;
     const recorder = new ReplayRecorder(bus, {
       enemies: () => enemies,
       projectiles: () => [],
       towers: () => [],
+      hero: () => ({ lat: 0, lon: 0, heading: 0, pose: 'idle' }),
       engine: () => ({
         renderingEnabled: true,
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, t: Vector3) => t },
@@ -67,6 +74,13 @@ describe('ReplayRecorder under the memory budget', () => {
     // Every frame but the closing one sits on a multiple of the spacing
     for (let f = 0; f < rec.frameCount - 1; f++) {
       expect(rec.frameMs[f] / spacingMs).toBeCloseTo(f, 6);
+    }
+    // Each kept frame still holds its 100 bodies, in table order, and the hero
+    for (let f = 0; f < rec.frameCount; f++) {
+      const b = rec.frameBodyStart[f];
+      expect(rec.frameBodyStart[f + 1] - b).toBe(100);
+      expect([rec.bIndex[b + 1], rec.bTail[b + 1], rec.bTip[b + 1]]).toEqual([10, 10, 15]);
+      expect(rec.heroPose[f]).toBeGreaterThan(0);
     }
   });
 });

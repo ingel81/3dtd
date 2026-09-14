@@ -17,8 +17,11 @@ import {
   ReplayRecording,
   decodeHeading,
   encodeHeading,
+  heroPoseCode,
+  heroPoseName,
   sampleBytes,
 } from './replay-recording';
+import type { RouteBodyStations } from '../utils/route-body';
 
 /** One frame at `ms` with `enemies` enemy samples whose x is the frame number. */
 function addFrame(rec: ReplayRecording, ms: number, enemies: number, marker: number): void {
@@ -105,6 +108,24 @@ describe('ReplayRecording', () => {
       expect(rec.eFlags[0]).toBe(5);
     });
 
+    it('codes the hero\'s poses from 1, 0 being no hero', () => {
+      for (const pose of ['idle', 'run', 'shoot', 'run-shoot'] as const) {
+        expect(heroPoseCode(pose)).toBeGreaterThan(0);
+        expect(heroPoseName(heroPoseCode(pose))).toBe(pose);
+      }
+    });
+
+    it('forgets the bodies\' stations and the blood moon on reset', () => {
+      rec.bloodMoon = true;
+      rec.beginFrame(0);
+      rec.pushBody(3, {} as RouteBodyStations, 0, 1);
+      rec.endFrame();
+      rec.reset(13, 0, 100, 0, null);
+      expect(rec.bloodMoon).toBe(false);
+      expect(rec.bodyStations.size).toBe(0);
+      expect(rec.bodySamples).toBe(0);
+    });
+
     it('rounds headings to within a ten-thousandth of a radian', () => {
       for (const h of [0, 0.1, -1.2, 2.9, -3.1, 7.5]) {
         const back = decodeHeading(encodeHeading(h));
@@ -158,6 +179,28 @@ describe('ReplayRecording', () => {
       expect(sampleBytes(1, 0, 0)).toBe(22);
       expect(sampleBytes(0, 1, 0)).toBe(16);
       expect(sampleBytes(0, 0, 1)).toBe(23);
+      expect(sampleBytes(0, 0, 0, 1)).toBe(12);
+    });
+
+    it('thins the body samples and the hero with their frames', () => {
+      const stations = {} as RouteBodyStations;
+      for (let f = 0; f < 4; f++) {
+        expect(rec.reserveFrame(0, 0, 0, 1)).toBe('ok');
+        rec.beginFrame(f * 100);
+        rec.pushBody(0, stations, f, f + 10);
+        if (f !== 2) rec.pushHero(f + 1, f + 2, f / 10, heroPoseCode('run'));
+        rec.endFrame();
+      }
+      rec.thin();
+      expect(rec.frameCount).toBe(2);
+      expect(rec.bodySamples).toBe(2);
+      expect(Array.from(rec.frameBodyStart.subarray(0, 3))).toEqual([0, 1, 2]);
+      expect(Array.from(rec.bTail.subarray(0, 2))).toEqual([0, 2]);
+      expect(Array.from(rec.bTip.subarray(0, 2))).toEqual([10, 12]);
+      // Frame 2 had no hero, and is now frame 1
+      expect(Array.from(rec.heroPose.subarray(0, 2))).toEqual([heroPoseCode('run'), 0]);
+      expect(Array.from(rec.heroPos.subarray(0, 2))).toEqual([1, 2]);
+      expect(rec.bodyStations.get(0)).toBe(stations);
     });
 
     it('keeps its columns for the next wave', () => {

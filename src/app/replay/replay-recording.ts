@@ -2,6 +2,8 @@ import { REPLAY_CONFIG } from '../configs/replay.config';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { WaveConfig } from '../managers/wave.manager';
+import type { HeroPresentation } from '../managers/hero.manager';
+import type { RouteBodyStations } from '../utils/route-body';
 
 /**
  * The last wave as the replay plays it: what was on screen, frame by frame,
@@ -9,8 +11,8 @@ import type { WaveConfig } from '../managers/wave.manager';
  *
  * A presentation recording, not a re-simulation: frames hold what the
  * renderers showed (positions, headings, health, status tints, turret
- * rotations), so playing it back never touches the simulation. Filled by the
- * ReplayRecorder, read by the ReplayPlayer.
+ * rotations, the oozes' bodies, the hero), so playing it back never touches
+ * the simulation. Filled by the ReplayRecorder, read by the ReplayPlayer.
  *
  * Samples live in growable typed arrays, one column per field. They are kept
  * from wave to wave, so after the first big wave recording allocates nothing
@@ -38,6 +40,10 @@ export const ENEMY_FLAG = {
   BURNING: 4,
   /** Running instead of walking (EnemyRush) */
   RUNNING: 8,
+  /** Frozen solid (frost bomb) */
+  FROZEN: 16,
+  /** Stunned (EMP) */
+  STUNNED: 32,
 } as const;
 
 /** Bits of a tower sample */
@@ -48,10 +54,25 @@ export const TOWER_FLAG = {
   STRIKE: 2,
 } as const;
 
+export type ReplayHeroPose = HeroPresentation['pose'];
+
+/** The hero's pose per frame by code - 1; code 0 = no hero on the map */
+const HERO_POSES: readonly ReplayHeroPose[] = ['idle', 'run', 'shoot', 'run-shoot'];
+
+export function heroPoseCode(pose: ReplayHeroPose): number {
+  return HERO_POSES.indexOf(pose) + 1;
+}
+
+/** The pose of a non-zero code */
+export function heroPoseName(code: number): ReplayHeroPose {
+  return HERO_POSES[code - 1] ?? 'idle';
+}
+
 /** Bytes of one sample, see the columns below */
 export const ENEMY_SAMPLE_BYTES = 22;
 export const PROJECTILE_SAMPLE_BYTES = 16;
 export const TOWER_SAMPLE_BYTES = 23;
+export const BODY_SAMPLE_BYTES = 12;
 
 /** A tower of the wave: stood at its start, or placed during it */
 export interface ReplayTower {
@@ -103,6 +124,8 @@ export function decodeHeading(encoded: number): number {
 
 /** First capacity of the sample columns; they double from here */
 const INITIAL_SAMPLES = 4096;
+/** Bodies along the route are few (the oozes), their column starts small */
+const INITIAL_BODY_SAMPLES = 64;
 const INITIAL_ENTITIES = 256;
 const INITIAL_FRAMES = 1024;
 
@@ -117,6 +140,8 @@ export class ReplayRecording {
   outcome: 'completed' | 'gameover' | null = null;
   baseHealthAtStart = 0;
   creditsAtStart = 0;
+  /** A blood moon wave (isBloodMoonWave): the replay wears its look */
+  bloodMoon = false;
   /** The config of the command that started the wave, for a later re-simulation */
   waveConfig: WaveConfig | null = null;
   /** Sub-steps between two frames; doubles each time thin() runs */
@@ -136,6 +161,8 @@ export class ReplayRecording {
   enemyEndMs = new Float32Array(INITIAL_ENTITIES);
   /** ENEMY_END */
   enemyEnd = new Uint8Array(INITIAL_ENTITIES);
+  /** Route stations of the enemies with a body along the route (the oozes), by table index */
+  readonly bodyStations = new Map<number, RouteBodyStations>();
 
   // ── Projectiles ──────────────────────────────────────────────────
   projectileCount = 0;
@@ -157,6 +184,15 @@ export class ReplayRecording {
   frameEnemyStart = new Uint32Array(INITIAL_FRAMES + 1);
   frameProjectileStart = new Uint32Array(INITIAL_FRAMES + 1);
   frameTowerStart = new Uint32Array(INITIAL_FRAMES + 1);
+  frameBodyStart = new Uint32Array(INITIAL_FRAMES + 1);
+
+  // ── The hero, one entry per frame (13 bytes, not in the budget) ─
+  /** heroPoseCode(), 0 when he is not on the map */
+  heroPose = new Uint8Array(INITIAL_FRAMES);
+  /** Local x, z; his feet stand on the route grid's ground */
+  heroPos = new Float32Array(INITIAL_FRAMES * 2);
+  /** Heading, TransformComponent's convention */
+  heroHeading = new Float32Array(INITIAL_FRAMES);
 
   // ── Enemy samples (ENEMY_SAMPLE_BYTES) ──────────────────────────
   enemySamples = 0;
@@ -187,6 +223,14 @@ export class ReplayRecording {
   /** Beam or strike target (local x, y, z) and the beam width */
   tAux = new Float32Array(INITIAL_SAMPLES * 4);
 
+  // ── Body samples (BODY_SAMPLE_BYTES): a body's stretch along its route ─
+  bodySamples = 0;
+  /** Enemy table index; the enemy has its own sample (tip, health, status) in the same frame */
+  bIndex = new Uint32Array(INITIAL_BODY_SAMPLES);
+  /** Rear end and tip, metres from path[0] (RouteBody) */
+  bTail = new Float32Array(INITIAL_BODY_SAMPLES);
+  bTip = new Float32Array(INITIAL_BODY_SAMPLES);
+
   // ── Events ───────────────────────────────────────────────────────
   /** Effect and sound events in time order, played back on the replay's own bus */
   readonly events: GameEvent[] = [];
@@ -205,6 +249,7 @@ export class ReplayRecording {
     this.outcome = null;
     this.baseHealthAtStart = baseHealth;
     this.creditsAtStart = credits;
+    this.bloodMoon = false;
     this.waveConfig = waveConfig;
     this.stepsPerFrame = REPLAY_CONFIG.stepsPerFrame;
     this.truncated = false;
@@ -212,6 +257,7 @@ export class ReplayRecording {
     this.enemyCount = 0;
     this.enemyTypeIds.length = 0;
     this.enemyTypeIndex.clear();
+    this.bodyStations.clear();
     this.projectileCount = 0;
     this.projectileTypeIds.length = 0;
     this.projectileTypeIndex.clear();
@@ -220,9 +266,11 @@ export class ReplayRecording {
     this.frameEnemyStart[0] = 0;
     this.frameProjectileStart[0] = 0;
     this.frameTowerStart[0] = 0;
+    this.frameBodyStart[0] = 0;
     this.enemySamples = 0;
     this.projectileSamples = 0;
     this.towerSamples = 0;
+    this.bodySamples = 0;
     this.events.length = 0;
     this.eventMs.length = 0;
     this.commands.length = 0;
@@ -285,15 +333,20 @@ export class ReplayRecording {
   // ── Frames ───────────────────────────────────────────────────────
 
   /**
-   * Room for one more frame of up to `enemies`, `projectiles` and `towers`
-   * samples. 'ok' with room, 'thinned' after thin() made room (the caller
-   * skips a frame that is off the new spacing), 'full' when even the
+   * Room for one more frame of up to `enemies`, `projectiles`, `towers` and
+   * `bodies` samples. 'ok' with room, 'thinned' after thin() made room (the
+   * caller skips a frame that is off the new spacing), 'full' when even the
    * coarsest spacing leaves none (the recording stops growing, `truncated`).
    */
-  reserveFrame(enemies: number, projectiles: number, towers: number): FrameFit {
+  reserveFrame(enemies: number, projectiles: number, towers: number, bodies = 0): FrameFit {
     if (this.truncated) return 'full';
     let fit: FrameFit = 'ok';
-    while (!this.makeRoom(this.enemySamples + enemies, this.projectileSamples + projectiles, this.towerSamples + towers)) {
+    while (!this.makeRoom(
+      this.enemySamples + enemies,
+      this.projectileSamples + projectiles,
+      this.towerSamples + towers,
+      this.bodySamples + bodies,
+    )) {
       if (this.stepsPerFrame * 2 > REPLAY_CONFIG.maxStepsPerFrame || this.frameCount < 2) {
         this.truncated = true;
         return 'full';
@@ -313,11 +366,17 @@ export class ReplayRecording {
       this.frameEnemyStart = withLength(this.frameEnemyStart, n + 1);
       this.frameProjectileStart = withLength(this.frameProjectileStart, n + 1);
       this.frameTowerStart = withLength(this.frameTowerStart, n + 1);
+      this.frameBodyStart = withLength(this.frameBodyStart, n + 1);
+      this.heroPose = withLength(this.heroPose, n);
+      this.heroPos = withLength(this.heroPos, n * 2);
+      this.heroHeading = withLength(this.heroHeading, n);
     }
     this.frameMs[f] = ms;
     this.frameEnemyStart[f] = this.enemySamples;
     this.frameProjectileStart[f] = this.projectileSamples;
     this.frameTowerStart[f] = this.towerSamples;
+    this.frameBodyStart[f] = this.bodySamples;
+    this.heroPose[f] = 0;
     return f;
   }
 
@@ -353,11 +412,30 @@ export class ReplayRecording {
     this.tAux[s * 4 + 3] = aw;
   }
 
+  /** The stretch of enemy `index`'s body this frame; its stations go in once. */
+  pushBody(index: number, stations: RouteBodyStations, tailM: number, tipM: number): void {
+    if (!this.bodyStations.has(index)) this.bodyStations.set(index, stations);
+    const s = this.bodySamples++;
+    this.bIndex[s] = index;
+    this.bTail[s] = tailM;
+    this.bTip[s] = tipM;
+  }
+
+  /** The hero in the open frame, at local (x, z). */
+  pushHero(x: number, z: number, heading: number, poseCode: number): void {
+    const f = this.frameCount;
+    this.heroPose[f] = poseCode;
+    this.heroPos[f * 2] = x;
+    this.heroPos[f * 2 + 1] = z;
+    this.heroHeading[f] = heading;
+  }
+
   endFrame(): void {
     const next = ++this.frameCount;
     this.frameEnemyStart[next] = this.enemySamples;
     this.frameProjectileStart[next] = this.projectileSamples;
     this.frameTowerStart[next] = this.towerSamples;
+    this.frameBodyStart[next] = this.bodySamples;
     this.durationMs = this.frameMs[next - 1];
   }
 
@@ -436,7 +514,7 @@ export class ReplayRecording {
 
   /** Bytes the sample columns hold now, the memory the budget counts. */
   get sampleBytes(): number {
-    return sampleBytes(this.eIndex.length, this.pIndex.length, this.tIndex.length);
+    return sampleBytes(this.eIndex.length, this.pIndex.length, this.tIndex.length, this.bIndex.length);
   }
 
   // ── Memory ───────────────────────────────────────────────────────
@@ -446,22 +524,25 @@ export class ReplayRecording {
    * that fits the budget and to the exact need where only that does. False
    * when not even that fits.
    */
-  private makeRoom(enemies: number, projectiles: number, towers: number): boolean {
+  private makeRoom(enemies: number, projectiles: number, towers: number, bodies: number): boolean {
     const eCap = this.eIndex.length;
     const pCap = this.pIndex.length;
     const tCap = this.tIndex.length;
-    if (enemies <= eCap && projectiles <= pCap && towers <= tCap) return true;
+    const bCap = this.bIndex.length;
+    if (enemies <= eCap && projectiles <= pCap && towers <= tCap && bodies <= bCap) return true;
 
     const budget = REPLAY_CONFIG.sampleBudgetBytes;
     const doubled = (cap: number, need: number) => (need <= cap ? cap : Math.max(need, cap * 2));
     let e = doubled(eCap, enemies);
     let p = doubled(pCap, projectiles);
     let t = doubled(tCap, towers);
-    if (sampleBytes(e, p, t) > budget) {
+    let b = doubled(bCap, bodies);
+    if (sampleBytes(e, p, t, b) > budget) {
       e = Math.max(eCap, enemies);
       p = Math.max(pCap, projectiles);
       t = Math.max(tCap, towers);
-      if (sampleBytes(e, p, t) > budget) return false;
+      b = Math.max(bCap, bodies);
+      if (sampleBytes(e, p, t, b) > budget) return false;
     }
     if (e > eCap) {
       this.eIndex = withLength(this.eIndex, e);
@@ -481,6 +562,11 @@ export class ReplayRecording {
       this.tFlags = withLength(this.tFlags, t);
       this.tAux = withLength(this.tAux, t * 4);
     }
+    if (b > bCap) {
+      this.bIndex = withLength(this.bIndex, b);
+      this.bTail = withLength(this.bTail, b);
+      this.bTip = withLength(this.bTip, b);
+    }
     return true;
   }
 
@@ -495,6 +581,7 @@ export class ReplayRecording {
     let we = 0;
     let wp = 0;
     let wt = 0;
+    let wb = 0;
     for (let f = 0; f < this.frameCount; f += 2) {
       const es = this.frameEnemyStart[f];
       const ee = this.frameEnemyStart[f + 1];
@@ -502,11 +589,18 @@ export class ReplayRecording {
       const pe = this.frameProjectileStart[f + 1];
       const ts = this.frameTowerStart[f];
       const te = this.frameTowerStart[f + 1];
+      const bs = this.frameBodyStart[f];
+      const be = this.frameBodyStart[f + 1];
 
       this.frameMs[w] = this.frameMs[f];
       this.frameEnemyStart[w] = we;
       this.frameProjectileStart[w] = wp;
       this.frameTowerStart[w] = wt;
+      this.frameBodyStart[w] = wb;
+      this.heroPose[w] = this.heroPose[f];
+      this.heroPos[w * 2] = this.heroPos[f * 2];
+      this.heroPos[w * 2 + 1] = this.heroPos[f * 2 + 1];
+      this.heroHeading[w] = this.heroHeading[f];
 
       if (we !== es) {
         this.eIndex.copyWithin(we, es, ee);
@@ -526,26 +620,37 @@ export class ReplayRecording {
         this.tFlags.copyWithin(wt, ts, te);
         this.tAux.copyWithin(wt * 4, ts * 4, te * 4);
       }
+      if (wb !== bs) {
+        this.bIndex.copyWithin(wb, bs, be);
+        this.bTail.copyWithin(wb, bs, be);
+        this.bTip.copyWithin(wb, bs, be);
+      }
       we += ee - es;
       wp += pe - ps;
       wt += te - ts;
+      wb += be - bs;
       w++;
     }
     this.frameCount = w;
     this.frameEnemyStart[w] = we;
     this.frameProjectileStart[w] = wp;
     this.frameTowerStart[w] = wt;
+    this.frameBodyStart[w] = wb;
     this.enemySamples = we;
     this.projectileSamples = wp;
     this.towerSamples = wt;
+    this.bodySamples = wb;
     this.durationMs = w > 0 ? this.frameMs[w - 1] : 0;
     this.stepsPerFrame *= 2;
   }
 }
 
 /** Bytes of sample columns with these capacities. */
-export function sampleBytes(enemies: number, projectiles: number, towers: number): number {
-  return enemies * ENEMY_SAMPLE_BYTES + projectiles * PROJECTILE_SAMPLE_BYTES + towers * TOWER_SAMPLE_BYTES;
+export function sampleBytes(enemies: number, projectiles: number, towers: number, bodies = 0): number {
+  return enemies * ENEMY_SAMPLE_BYTES
+    + projectiles * PROJECTILE_SAMPLE_BYTES
+    + towers * TOWER_SAMPLE_BYTES
+    + bodies * BODY_SAMPLE_BYTES;
 }
 
 /** Index of `id` in a type table, added on first sight. */

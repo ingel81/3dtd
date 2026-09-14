@@ -8,15 +8,16 @@ import { GameObject } from '../core/game-object';
  * Kept are the events the effect services turn into something seen or
  * heard: every vfx:*, audio:play, the ability events (markers, clouds,
  * impact sounds and shakes; not the state snapshots and rejections),
- * health:changed (the shake on HQ damage, the HQ health in the replay bar)
- * and enemy:split (the bone burst). The replay emits them again on a bus of
+ * health:changed (the shake on HQ damage, the HQ health in the replay bar),
+ * enemy:split (the bone burst) and hero:level-up (the text over the hero's
+ * head, who is the replay's hero then). The replay emits them again on a bus of
  * its own, where its own VFXService, AudioService and ScreenShakeService
  * listen: an effect those services learn is replayed without a change here.
  */
 export function isPresentationEvent(type: GameEvent['type']): boolean {
   if (type.startsWith('vfx:')) return true;
   if (type.startsWith('ability:')) return type !== 'ability:state-changed' && type !== 'ability:rejected';
-  return type === 'audio:play' || type === 'health:changed' || type === 'enemy:split';
+  return type === 'audio:play' || type === 'health:changed' || type === 'enemy:split' || type === 'hero:level-up';
 }
 
 /**

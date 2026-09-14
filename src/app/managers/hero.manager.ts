@@ -284,13 +284,13 @@ export class HeroManager implements IGameManager {
   }
 
   /**
-   * Hand him to the renderer. Once per rendered frame after the sub-steps,
-   * like EnemyManager.presentFrame, and right after a hire or a move order;
-   * reads the simulation, changes nothing.
+   * He as the renderer shows him: position, heading, pose, the spot he
+   * holds; null until hired. Filled into one object on every call, read it
+   * before the next. presentFrame hands it on, the wave replay records it.
    */
-  presentFrame(): void {
+  getPresentation(): Readonly<HeroPresentation> | null {
     const hero = this.hero;
-    if (!hero || !this.view) return;
+    if (!hero) return null;
     const p = this.presentation;
     p.lat = hero.position.lat;
     p.lon = hero.position.lon;
@@ -298,7 +298,18 @@ export class HeroManager implements IGameManager {
     if (this.target) p.pose = this.goal ? 'run-shoot' : 'shoot';
     else p.pose = this.goal ? 'run' : 'idle';
     p.anchor = this.getAnchor() ?? p.anchor;
-    this.view.present(p);
+    return p;
+  }
+
+  /**
+   * Hand him to the renderer. Once per rendered frame after the sub-steps,
+   * like EnemyManager.presentFrame, and right after a hire or a move order;
+   * reads the simulation, changes nothing.
+   */
+  presentFrame(): void {
+    if (!this.view) return;
+    const p = this.getPresentation();
+    if (p) this.view.present(p);
   }
 
   // ==================== Update Loop ====================

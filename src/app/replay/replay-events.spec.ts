@@ -16,7 +16,7 @@ describe('isPresentationEvent', () => {
   it('keeps what the effect services show or play', () => {
     for (const type of [
       'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
-      'audio:play', 'ability:used', 'ability:impact', 'health:changed', 'enemy:split',
+      'audio:play', 'ability:used', 'ability:impact', 'health:changed', 'enemy:split', 'hero:level-up',
     ] as const) {
       expect(isPresentationEvent(type)).toBe(true);
     }
@@ -26,6 +26,7 @@ describe('isPresentationEvent', () => {
     for (const type of [
       'enemy:died', 'enemy:spawned', 'tower:placed', 'wave:started', 'credits:changed',
       'command:place-tower', 'ability:state-changed', 'ability:rejected', 'research:progress',
+      'hero:kill', 'hero:state-changed', 'command:hero-move',
     ] as const) {
       expect(isPresentationEvent(type)).toBe(false);
     }
