@@ -14,6 +14,7 @@ import { TowerTypeId, TOWER_TYPES } from '../../../../configs/tower-types.config
 import { StrategicPlacementService } from '../../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../../managers/game-state.manager';
 import { Tower } from '../../../../entities/tower.entity';
+import { canExecutePlacement } from './placement-budget';
 
 export class DistributedPlacementStrategy extends BaseStrategy {
   private savingForType: TowerTypeId | null = null;
@@ -27,13 +28,7 @@ export class DistributedPlacementStrategy extends BaseStrategy {
   }
 
   canExecute(state: GameStateSnapshot): boolean {
-    const notMaxed = this.config.maxTowers <= 0 || state.defense.towerCount < this.config.maxTowers;
-    if (!notMaxed) return false;
-
-    // Stay active while saving for a type
-    if (this.savingForType) return true;
-
-    return state.player.credits >= 20;
+    return canExecutePlacement(state, this.config.maxTowers, this.savingForType);
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {
