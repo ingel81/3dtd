@@ -16,10 +16,10 @@ offen (REVIEW_SPRINT_2026-09-13.md, Abschnitt "Zwischenstand Playtest
 Ergebnis). Wo diese Nacht an einem alten Punkt etwas geändert hat, steht es
 am Anfang der Playtest-Liste unten. Danach die neuen Punkte ab Nummer 301.
 
-**Stand dieses Dokuments:** zweiter Durchgang auf Head `292d788f`, mit den
-Review-Fixes von fix1, der Zerlegung der Pilzwolke und dem
-Shader-Compile-Check. Replay und die Behebung der Befunde von review2 (fix2)
-und review3 (fix3) sind noch nicht gemergt und folgen.
+**Stand dieses Dokuments:** dritter Durchgang, Teil 1, auf Head `4d415013`:
+dazu gekommen sind das Replay und die Behebung der Befunde von review2 (fix2)
+und review3 (fix3). Die Zahlen unter "Stand" sind noch die vom `292d788f`;
+fix4, review5, der Faktencheck und die Endzahlen folgen in Teil 2.
 
 ## Stand
 
@@ -43,10 +43,10 @@ Varyings). Deshalb steht die Konsole weiter als erster Playtest-Punkt (301).
 
 ## Vorgehen
 
-17 Worker in eigenen Git-Worktrees, je ein Thema: assets (Blender), perf,
+20 Worker in eigenen Git-Worktrees, je ein Thema: assets (Blender), perf,
 sockel, abilitybar, quickfix, worldmap, veterans, worm, blob (dazu blob2),
-refactor, bossintro, bloodmoon, wavejump, hero, abilities, fix1 und
-shadercheck. Vor jedem Merge hat der Lead den Diff gelesen, bei Bedarf
+refactor, bossintro, bloodmoon, wavejump, hero, abilities, replay,
+shadercheck, fix1, fix2 und fix3. Vor jedem Merge hat der Lead den Diff gelesen, bei Bedarf
 Nacharbeit angefordert, die Worker haben selbst auf den Nacht-Head rebased,
 übernommen wurde per Fast-Forward (Teile per Cherry-Pick: `e92575f4`,
 `ae5fe4f8`, die vat-Zerlegung). Nach jedem Merge lief das Gate: vitest,
@@ -439,6 +439,56 @@ stehen die Hashes des Branches.
   von 20 %, auch wenn alle 72 m seines Wegs auf dem Körper liegen. Kein
   Fehler gefunden.
 
+### Replay der letzten Welle (replay, `a4d8c839` bis `4d415013`, 12 Commits)
+
+- **Präsentations-Replay statt Re-Simulation**: Aufgezeichnet wird, was
+  die Renderer gezeigt haben, abgespielt über dieselben Renderer; die
+  Simulation wird nie berührt. Den Zustand beim Wellenstart zu sichern und
+  die Welle mit den Befehlen neu zu simulieren, geht heute nicht
+  verlässlich: Der Spawn nutzt ungeseedetes `Math.random()` (Seitenversatz,
+  Flughöhe, Wahl des Spawnpunkts), die Sichtlinie der Tower kommt aus
+  GPU-Readbacks gegen gestreamte Tiles, die Turmdrehung, die das Feuern
+  freigibt, lebt im Renderer, und die Simulationsdienste sind Singletons des
+  laufenden Spiels. Belege in [REPLAY.md](REPLAY.md), dieselben Blocker wie
+  in MULTIPLAYER_CONCEPT.md. Alle `command:*` der Welle stehen trotzdem als
+  Klartext im Log, mit der `WaveConfig` des Starts.
+- **Bedienung**: "replay W12" im WAVE-Panel neben "auto 10s" (zwischen den
+  Wellen) und "Replay wave N" auf dem Game-Over-Screen. Im Replay ist das HUD
+  weg, unten mittig eine Leiste; freie Kamera (Maus, WASD, Pos1, N),
+  Leertaste oder P pausiert, 0,25x bis 4x, Sprung über den
+  Fortschrittsbalken mit Marken für eigene Befehle, Esc zurück. Kamera,
+  Pause, Menü und Fokus kehren danach zurück wie vorher. Bauen, Verkaufen,
+  Fähigkeiten und Photo Mode ruhen; über 1x kein Ton.
+- **Aufnahme**: ab `wave:started` 10 Frames je Sekunde Spielzeit (Gegner
+  22 B, Projektil 16 B, Turm 23 B, Ooze-Körper 12 B, Held 13 B je Frame),
+  dazu Tabellen und Effekt-Events vom Bus. Nur die letzte Welle bleibt; der
+  nächste Wellenstart, Neustart, Ortswechsel und ein Sprung zu Welle N
+  (`360f5c82`) verwerfen sie. Ohne Rendering (Training) nimmt nichts auf.
+- **Speicher**: höchstens 48 MB für die Stichproben. Bei 2 800 Körpern
+  gleichzeitig sind das 616 KB je Sekunde, die Grenze reicht dann etwa 78 s
+  mit 10 Frames/s; danach dünnt die Aufnahme auf 5, 2,5 und 1,25 Frames/s
+  aus und hört zuletzt auf zu wachsen, das Replay endet dann früher. Mit
+  einigen hundert Gegnern belegt eine dreiminütige Welle etwa 20 MB. Events
+  höchstens 150 000, geschätzt bis 15 MB.
+- **Kosten**: in vitest/jsdom 77 bis 84 µs je Frame bei 2 800 Gegnern, 300
+  Projektilen und 60 Towern (erste Welle 96 bis 120 µs), etwa 0,8 ms je
+  Sekunde Spielzeit; ohne Oozes und Held gemessen, im Browser nicht.
+- **Nacharbeit** (`5c17dc88` bis `4d415013`): Held (Pose, Blickrichtung,
+  Tracer je Munition, "LEVEL N"), Ooze-Bänder, Freeze und Stun, der
+  Blutmond-Look der aufgezeichneten Welle; kein Replay, solange ein
+  Boss-Intro läuft, und im Replay startet keins (`d9b0d17e`). `a4d8c839`:
+  Die Zielwahl im Tower-Panel geht jetzt über `command:set-targeting`, damit
+  sie im Befehlslog steht; für den Spieler gleich.
+- **Nicht wiedergegeben**: Schadenszahlen, Gold-Popups, Aufblitzen der
+  Kettenblitze, Eis-Explosionen der Eis-Treffer, Bodenmarken (angehalten),
+  Gegner-Sounds, Ooze-Blubbern und Flammen-Loop, Verlauf des HQ-Feuers,
+  Boss-Tod-Shake, Ringe des Helden; Upgrades nicht Schritt für Schritt.
+  Gegner, die zwischen zwei Frames spawnen und sterben, fehlen. Landet im
+  Replay eine Fähigkeit, räumt das Verlassen auch deren Effekte im
+  Live-Spiel ab.
+- Nicht im Browser gesehen; der Player ist mit Fake-Renderern getestet. Die
+  Nacharbeit hatte noch keinen eigenen Review, review5 liest sie.
+
 ### Review-Fixes (fix1, `2b7da859` bis `5744bcce`, 5 Commits)
 
 Behebt die fünf Befunde von review1 (Abschnitt "Review", Befunde 1 bis 5).
@@ -473,6 +523,64 @@ Behebt die fünf Befunde von review1 (Abschnitt "Review", Befunde 1 bis 5).
 - **Doku** (`2b7da859`, `386a17c1`, Befunde 3 und 4): Kommentar zu
   `TileSetVersion` nennt die Events, die den Cache wirklich leeren;
   WAVE_SYSTEM.md sagt NEXT statt COMING UP.
+
+### Review-Fixes (fix2, `bea17437` bis `913a66ee`, 10 Commits)
+
+Behebt die neun Befunde von review2 (Abschnitt "Review", Befunde 6 bis 14).
+
+- **BodyAim merkt sich die Raycasts** (`bea17437`, Doku `913a66ee`, Befund
+  6): je Körperpunkt die Antwort (unbekannt, frei, verdeckt), bis sich
+  `TerrainQueries.lodVersion` ändert (jeder fertige Tile-Load) oder die
+  Ansicht neu gebaut wird; ein LOS-Eintrag der Zelle hat Vorrang. Spec: über
+  40 Züge erst 4, am Ende 0 Raycasts je Zug.
+- **Ooze ist ab dem ersten Leckpunkt ein Leck** (`188bacc2`, Befund 7):
+  einmal, auch wenn sie danach stirbt; für Wellenstatistik und Run-Stats.
+  Die Leck-Quote des Fairness-Gates ändert sich laut fix2 nicht (sie las für
+  eine solche Ooze schon vorher 1), wohl aber `enemiesKilled`,
+  `enemiesReachedBase` und die Game-Over-Übersicht.
+- **HQ-Shake höchstens alle 900 ms** (`684993d6`, Befund 8), auf der
+  Wanduhr, im Takt des roten Rands; ein härterer Treffer schüttelt sofort.
+  Gilt auch ohne Ooze: mehrere gleich starke Lecks innerhalb 900 ms
+  schütteln einmal.
+- **Suchscheinwerfer folgt der neuen Wachrichtung** (`ee4a3722`, Befund 10),
+  sofort, auch während der Welle.
+- **Bodendecals unter dem Blutmond getönt** (`3f1f5fdc`, Befund 11): Blut-,
+  Eis- und Brandflecken nehmen den geteilten Tint.
+- **Zwei Bosstypen, ein Intro** (`96715cb0`, Befund 12): Bosse derselben
+  Welle, die beim Start noch warten, laufen mit ("HERBERT & OOZE"), die
+  Einstellung bleibt beim ersten; ein später kommender anderer Typ bekommt
+  weiter ein eigenes.
+- **DoT-Zahl auf dem Körper** (`dfcf1d5c`, Befund 9) und **Flammenkegel
+  über den Körper** (`15a1778f`, Befund 13): Der Kegel prüft zusätzlich die
+  Körperpunkte an seinem Ende und seiner Mitte; kreuzt der Körper schräg,
+  können beide Stichproben einen Treffer verfehlen.
+- **Spec für `mergeBakedMeshes`** (`f68a1553`, Befund 14, erster Teil); die
+  Portal-Shader-Inhalte haben weiter keine eigene Spec.
+
+### Review-Fixes (fix3, `d597329f` bis `8d34c49e`, 5 Commits)
+
+Behebt die fünf Befunde von review3 (Befunde 15 bis 19).
+
+- `d597329f` (Befund 15): Das Band der Laser-Zielvorschau wird beim Abbau
+  der Engine entsorgt.
+- `900cadff` (Befund 16): Anheuern und Marschbefehl zeigen den Helden sofort
+  (`presentFrame()` im Befehl, wie beim Tower), auch in der Pause. Ein
+  Neubau des Routengraphen in der Pause zeigt sich weiter erst beim
+  Fortsetzen.
+- `eea57760` (Befund 17): Die Forschungsquote im Snapshot zählt nur die 11
+  Knoten, auf denen das ONNX-Modell trainiert wurde (Trainingsstart
+  `1d173d32`, Export `e8ae88a9`); der Baum hat heute 20. Betrifft nur das
+  Opt-in-Modell und Trainingsläufe (Dashboard "Completed x/11"). Der Held
+  bleibt im DPS-Eingang, dokumentiert in AI_WAVE_DIRECTOR_PLAN.md
+  Abschnitt 7.
+- `8d34c49e` (Befund 18): Routengraph ohne Objekte je Kante, Suchpuffer für
+  die Lebensdauer des Graphen; am Posten ohne Ziel eine Graph-Abfrage statt
+  einer je 250 ms. Golden-Trace über 8 000 Sub-Steps vorher und nachher
+  byte-gleich; Node-Bench mit 20 000 Neuplanungen 278 bis 289 ms und 20 GCs
+  auf 150 bis 160 ms und 2 bis 3 GCs (synthetischer Graph, nicht im Spiel
+  gemessen).
+- `ede0b617` (Befund 19): Frost-, EMP- und Laser-Bots zielen einmal je
+  Entscheidung.
 
 ### Shader-Compile-Check (shadercheck, `795f9cef` bis `292d788f`, 3 Commits)
 
@@ -529,6 +637,9 @@ nicht mehr geprüft. "Doku" heißt: der Konflikt liegt nur in einem Dokument.
 | Pilzwolke `8ca1c4bf` bis `ac10bed9` | konfliktfrei | `66a94828` baut auf `459235bd` (Fähigkeiten) auf |
 | fix1 `2b7da859` bis `5744bcce` | `2b7da859`, `386a17c1`, `bf573095`, `5744bcce` einzeln konfliktfrei; `f500aaaf` nur zusammen mit `5744bcce` | `5744bcce` baut auf `f500aaaf` auf; beide auf dem Sockel, `bf573095` auf dem Abzeichen |
 | Shader-Check `795f9cef` bis `292d788f` | konfliktfrei | nur Test, Doku und Kommentare |
+| Replay `a4d8c839` bis `4d415013` | am `4d415013`: ganzer Bereich konfliktfrei; einzeln konfliktfrei auch `a4d8c839`, `360f5c82`, `d9b0d17e` und die Nacharbeit `5c17dc88` bis `4d415013` für sich | `a4d8c839` entbehrlich (dann fehlt nur die Zielwahl im Befehlslog); die Nacharbeit liest Held, Ooze, Freeze und Stun, Blutmond, Boss-Intro und Sprung-Cheat |
+| fix2 `bea17437` bis `913a66ee` | am `4d415013` einzeln konfliktfrei: `bea17437`, `188bacc2`, `684993d6`, `96715cb0`, `f68a1553`, `913a66ee`; Doku-Konflikt: `ee4a3722` (`WAVE_SYSTEM.md`), `dfcf1d5c` und `15a1778f` (gemeinsame Zeile in `ENEMY_CREATION.md`); Code-Konflikt: `3f1f5fdc` in `three-effects.renderer.ts` (das Replay hängt daneben an) | `913a66ee` beschreibt `bea17437` |
+| fix3 `d597329f` bis `8d34c49e` | am `4d415013` einzeln konfliktfrei außer `900cadff` (`hero.manager.ts` und Spec, die Replay-Nacharbeit liegt daneben) | sonst voneinander unabhängig |
 
 Am Head wiederholt: Ground-Pick-Cache, Sockel, Veteranen, Fähigkeiten, Held,
 Sprung, die Boss-Intro-Code-Commits, die einzelnen Ooze- und
@@ -619,13 +730,30 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
     installiertes `glslangValidator` prüft `npm test` nur den Aufbau der
     Shader, die 13 Compile-Tests stehen als übersprungen da (so auch im
     Gate).
+23. **Forschungsquote des ONNX-Modells über 11 Knoten** (`eea57760`): Die
+    Quote zählt nur den Baum, auf dem das Modell trainiert wurde; bei einem
+    neuen Training muss die Liste bewusst erweitert werden. Der Held bleibt
+    im DPS-Eingang (auf Stufe 1 24 bis 48 effektive DPS je Rüstung), ihn
+    herauszurechnen bräuchte ein zweites Snapshot-Feld in beiden Encodern.
+24. **Ooze ab dem ersten Leckpunkt ein Leck** (`188bacc2`), auch wenn sie
+    danach stirbt; in der Game-Over-Übersicht fehlt sie dann bei den Kills.
+25. **HQ-Shake gedrosselt** (`684993d6`): höchstens alle 900 ms, das gilt
+    auch für normale Lecks.
+26. **Zwei Bosse, ein Intro** (`96715cb0`): Ein zweiter Boss, der beim Start
+    des Intros noch im Portal steht, wird auf der Karte genannt, aber nicht
+    gezeigt.
+27. **Replay ohne Re-Simulation** (`91346c78` bis `acded7cb`): Es zeigt, was
+    die Renderer gezeigt haben; ein Sprung zu Welle N verwirft die Aufnahme
+    (`360f5c82`).
 
 ## Review
 
 Drei Review-Agents haben gelesen, alle nur lesend. Keiner fand einen Befund
-der Schwere hoch. Die Befunde von review1 hat fix1 behoben (Abschnitt
-"Review-Fixes"); die von review2 (fix2) und review3 (fix3) sind zum Stand
-dieses Dokuments offen, ihre Behebung läuft.
+der Schwere hoch. Alle 19 Befunde sind behoben: die von review1 durch fix1,
+die von review2 durch fix2, die von review3 durch fix3 (Abschnitte
+"Review-Fixes"). Was die Fix-Worker bewusst ausgelassen haben, steht bei den
+Befunden und unter "Befunde, offen". Die Befunde von review4 (fix4) und
+review5 (Replay) folgen in Teil 2.
 
 **review1**, `1ca6713a..bffae869` (54 Commits: Assets, perf, Sockel, Leiste,
 Wellen-Panel, Quickfix, Weltkarte, Veteranen, Wurm): 1 mittel, 4 niedrig,
@@ -649,63 +777,63 @@ alle behoben.
    den Rang im Panel, aber kein Abzeichen gezeigt. Behoben `bf573095`.
 
 **review2**, `bffae869..fe69ba4c` (42 Commits: Ooze, Boss-Intro, Blutmond,
-Zerlegungen): 1 mittel, 8 niedrig. Ohne Fehler im Spielablauf (Targeting,
-Splash, Kettenblitz, Status-Effekte, Atomschlag, Leck, Reset, Pause).
+Zerlegungen): 1 mittel, 8 niedrig, alle behoben (fix2). Ohne Fehler im
+Spielablauf (Targeting, Splash, Kettenblitz, Status-Effekte, Atomschlag,
+Leck, Reset, Pause).
 
-6. **BodyAim wiederholt den Raycast-Rückfall in jedem Tower-Zug**
-   (mittel, Performance): Liegen Körperpunkte der Ooze in Zellen ohne
-   LOS-Eintrag des Towers (Rand der Reichweite, LOS noch nicht aufgelöst),
-   kostet jeder Sub-Step bis zu 4 rekursive Raycasts gegen die Tiles je
-   Tower. Belegt mit einer temporären Spec, auf echten Karten nicht
-   gemessen.
-7. **Gate und Run-Stats zählen eine Ooze erst als Leck, wenn sie ganz drin
-   ist** (niedrig); der HP-Verlust kommt richtig an.
-8. **Screen Shake bei jedem Leckpunkt der einfließenden Ooze** (niedrig), bei
-   4x etwa 7,5-mal pro Sekunde, bis das Wellen-Cap erreicht ist.
-9. **Treffpunkt der Ooze kann veraltet sein** (niedrig, nur Optik):
-   DoT-Zahlen und Blut erscheinen am letzten Treffpunkt.
-10. **Suchscheinwerfer schwenkt nach einem Reichweiten-Upgrade um die alte
-    Richtung** (niedrig, nur im Blutmond).
-11. **Bodendecals bekommen die Blutmond-Tönung nicht** (niedrig): grüne
-    Schleimflecken und Eis leuchten ungetönt auf rotem Boden.
+6. **BodyAim wiederholte den Raycast-Rückfall in jedem Tower-Zug**
+   (mittel, Performance): Lagen Körperpunkte der Ooze in Zellen ohne
+   LOS-Eintrag des Towers, kostete jeder Sub-Step bis zu 4 rekursive
+   Raycasts gegen die Tiles je Tower. Behoben `bea17437` (Antwort je Punkt
+   gemerkt bis zum nächsten Tile-Load); ein Debug-Override der Tip-Höhe
+   verwirft den Cache nicht.
+7. **Wellenstatistik und Run-Stats zählten eine Ooze erst als Leck, wenn
+   sie ganz drin war** (niedrig). Behoben `188bacc2`; die Leck-Quote des
+   Gates war laut fix2 nicht betroffen.
+8. **Screen Shake bei jedem Leckpunkt der einfließenden Ooze** (niedrig).
+   Behoben `684993d6` (höchstens alle 900 ms, Wanduhr).
+9. **Treffpunkt der Ooze konnte veraltet sein** (niedrig, nur Optik).
+   Behoben `dfcf1d5c` für DoT-Zahlen.
+10. **Suchscheinwerfer schwenkte nach einem Reichweiten-Upgrade um die alte
+    Richtung** (niedrig, nur im Blutmond). Behoben `ee4a3722`.
+11. **Bodendecals bekamen die Blutmond-Tönung nicht** (niedrig). Behoben
+    `3f1f5fdc`.
 12. **Zwei Bosstypen in einer Welle: zwei Intros direkt hintereinander**
-    (niedrig, nur mit Custom Wave oder Enemy Debug).
-13. **Flammenkegel trifft die Ooze nur an ihrem Zielpunkt** für diesen
-    Tower (niedrig, Designgrenze).
-14. **Nach dem Entfernen der Fingerprint-Specs** fehlt eine direkte
-    Abdeckung für `mergeBakedMeshes` und die Portal-Shader (niedrig).
+    (niedrig). Behoben `96715cb0` (ein gemeinsames Intro).
+13. **Flammenkegel traf die Ooze nur an ihrem Zielpunkt** für diesen Tower
+    (niedrig). Behoben `15a1778f` mit zwei Stichproben am Körper.
+14. **Nach dem Entfernen der Fingerprint-Specs fehlte eine direkte
+    Abdeckung** für `mergeBakedMeshes` und die Portal-Shader (niedrig).
+    Behoben für `mergeBakedMeshes` (`f68a1553`); die Portal-Shader bleiben
+    ohne eigene Spec.
 
 **review3**, `fe69ba4c..fcc543fa` (Sprung-Cheat, Held, Fähigkeiten): 5
-niedrig, kein mittlerer. Geprüft ohne Defekt: Atomschlag unverändert (nur
-`ability:impact` kommt jetzt vor dem Schaden, Treffer und Kills in
-`ability:resolved`), `isSlowed()`, Status-Zusammenspiel, Laser,
-Determinismus, Gate-Buchung, Bots ohne Held, Tasten, Shader, Aufräumen bei
-Restart und Ortswechsel.
+niedrig, kein mittlerer, alle behoben (fix3). Geprüft ohne Defekt:
+Atomschlag unverändert (nur `ability:impact` kommt jetzt vor dem Schaden,
+Treffer und Kills in `ability:resolved`), `isSlowed()`,
+Status-Zusammenspiel, Laser, Determinismus, Gate-Buchung, Bots ohne Held,
+Tasten, Shader, Aufräumen bei Restart und Ortswechsel.
 
-15. **Band der Laser-Zielvorschau wird nie entsorgt** (niedrig):
-    `ability-marker.renderer.ts`, `aimPath` fehlt in `dispose()`; eine
-    Geometrie und ein Material je Engine-Lebensdauer.
+15. **Band der Laser-Zielvorschau wurde nie entsorgt** (niedrig): eine
+    Geometrie und ein Material je Engine-Lebensdauer. Behoben `d597329f`.
 16. **Held nach Anheuern in der Pause unsichtbar und nicht anklickbar**
-    (niedrig, nur Darstellung): Der Pause-Zweig im `GameStateManager` ruft
-    `heroManager.presentFrame()` nicht, erst der erste Sub-Step nach der
-    Pause zeigt ihn; ebenso bleibt der Postenring nach einem Marschbefehl
-    in der Pause am alten Ort. Der Cheat "Hero" zeigt es nicht, der echte
-    Knopf schon.
-17. **Eingaben des ONNX-Modells verschieben sich** (niedrig, nur beim
-    Opt-in-Modell): vier neue Forschungen vergrößern den Nenner der
-    Forschungsquote, der Held erhöht `effectiveDPSPerArmor`. Der
-    Regel-Director ist nicht betroffen, `ai-schema.json` unverändert.
-18. **Held plant bei hohem Tempo mit vielen kurzlebigen Objekten neu**
-    (niedrig, nicht gemessen): alle 250 ms Spielzeit `nearestPoint` über
-    alle Kanten und bis zu zwei Dijkstra-Läufe mit frischen Puffern, bei 75x
-    etwa 300 Neuplanungen je Sekunde.
-19. **Zielsuche der drei neuen Bot-Strategien läuft je Entscheidung
-    doppelt** (niedrig, nicht gemessen, nur Bots).
+    (niedrig, nur Darstellung), ebenso blieb der Postenring nach einem
+    Marschbefehl in der Pause am alten Ort. Behoben `900cadff`; ein Neubau
+    des Routengraphen in der Pause zeigt sich weiter erst beim Fortsetzen.
+17. **Eingaben des ONNX-Modells verschoben sich** (niedrig, nur beim
+    Opt-in-Modell): neue Forschungen vergrößerten den Nenner der
+    Forschungsquote, der Held erhöht `effectiveDPSPerArmor`. Behoben
+    `eea57760` für die Quote (Entscheidung 23); der Held bleibt im
+    DPS-Eingang.
+18. **Held plante bei hohem Tempo mit vielen kurzlebigen Objekten neu**
+    (niedrig). Behoben `8d34c49e`, Bahn byte-gleich.
+19. **Zielsuche der drei neuen Bot-Strategien lief je Entscheidung
+    doppelt** (niedrig, nur Bots). Behoben `ede0b617`.
 
 ## Befunde, offen
 
-In TODO.md unter 1.9 eingetragen. Die Review-Befunde oben kommen dazu, soweit
-sie in der Nacht nicht mehr behoben werden.
+In TODO.md unter 1.9 eingetragen. Die Review-Befunde oben sind behoben; was
+die Fix-Worker bewusst ausgelassen haben, steht unter 16.
 
 1. **Pause**: Nur der Ooze-Loop hält an; Loops von Zombies und Flammen laufen
    in der Pause weiter.
@@ -738,6 +866,17 @@ sie in der Nacht nicht mehr behoben werden.
     0,5 m heben.
 14. **Shader-Check** braucht `glslangValidator` von Hand; ohne ihn prüft
     `npm test` nur den Aufbau, nicht das Kompilieren.
+15. **Replay**: keine Re-Simulation, solange die Determinismus-Blocker
+    bestehen (ungeseedeter Zufall beim Spawn, GPU-LOS, Turmdrehung im
+    Renderer, Singleton-Dienste); nicht wiedergegeben werden unter anderem
+    Schadenszahlen, Gold-Popups, Gegner-Sounds und Bodenmarken; im Browser
+    nicht gesehen, Kosten nur in jsdom gemessen.
+16. **Reste der Review-Fixes**: Portal-Shader ohne eigene Spec; der
+    BodyAim-Cache verfällt nicht bei einem Debug-Override der Tip-Höhe; eine
+    Ooze, die über einen Wellenwechsel ins HQ fließt, zählt doppelt (im
+    normalen Ablauf nicht möglich); HQ-Shake-Drossel auf der Wanduhr;
+    Flammenkegel mit zwei Stichproben; Neubau des Routengraphen in der
+    Pause; weitere Eingangsverschiebungen des ONNX-Modells nicht untersucht.
 
 ## Playtest-Liste
 
@@ -1149,6 +1288,88 @@ Punkte beginnen bei 301.
      `npm run shader-check`: "Tests 27 passed (27)". Ohne die Variable: die
      Warnung "[shader-check] glslangValidator not found, compile tests
      skipped", 13 Tests übersprungen.
+
+**Replay (dritter Durchgang)**
+
+407. Tower bauen, Welle 1 durchspielen: unter dem Wellen-Knopf rechts neben
+     "auto 10s" steht "replay W1" (grau, mit Icon). Klick: Header, Sidebar
+     und Overlays weg, unten mittig die Leiste "REPLAY Wave 1"; die Welle
+     läuft von Beginn an mit Gegnern, drehenden Towern, Projektilen,
+     Einschlägen und Ton, Herz- und Totenkopfzahl laufen mit.
+408. Im Replay die Kamera mit Maus, WASD, Pos1 und N bewegen, dann Esc: die
+     Kamera steht wie vor dem Klick, das HUD ist wieder da; Forschungsbalken
+     und Auto-Start-Countdown standen während des Replays.
+409. Leertaste und P pausieren und setzen fort (die Flammen hören in der
+     Pause auf); + und - oder die Knöpfe 0.25x bis 4x ändern das Tempo, über
+     1x kein Ton, die Laufanimationen passen zum Tempo.
+410. Am Fortschrittsbalken ziehen: das Replay hält, springt und spielt beim
+     Loslassen weiter; vor den Tod eines Gegners zurück: er läuft wieder;
+     teal Marken an den eigenen Befehlen. Am Ende stoppt es, der Play-Knopf
+     zeigt einen Kreispfeil und startet von vorn.
+411. Welle 2: mittendrin einen Tower bauen und einen verkaufen, nach der
+     Welle einen weiteren bauen, dann "replay W2": der mittendrin gebaute
+     erscheint zu seinem Zeitpunkt, der verkaufte steht bis zum Verkauf, der
+     danach gebaute ist unsichtbar. Nach Esc: alle Tower wie vorher,
+     Abzeichen da, keine Replay-Gegner, keine neuen Brandflecken.
+412. Welle 3 starten: "replay W2" verschwindet sofort, nach W3 steht "replay
+     W3" da. Game Over: unter RESTART "Replay wave N", Esc bringt das
+     Game-Over-Fenster zurück.
+413. Im Replay 1 bis 9, U, Entf, K, O und G: nichts passiert; H zeigt die
+     Gruppe "Replay of the last wave". Außerhalb: Targeting im Tower-Panel
+     umschalten (auch "Air priority") wirkt wie bisher.
+414. Große Welle (W19 oder viele Gegner per Wave Debug) aufnehmen und
+     abspielen: flüssig, Skelette splitten mit Knochen-Burst. Welle mit
+     Atomschlag: Zielmarker, Einschlag, Pilz und Shake; nach Esc kein Marker
+     und kein Pilz übrig.
+415. Held anheuern, mitten in der Welle umsetzen und die Munition wechseln,
+     dann Replay: der Held ist ab dem Anheuern zu sehen, läuft mit
+     Animation, schießt mit der Tracer-Farbe der Munition, Marken für
+     Anheuern, Laufbefehl und Munition; vorher kein Held. Nach Esc steht der
+     Live-Held am Posten, nicht gewählt.
+416. Ooze-Welle abspielen: das Band wird länger und kürzer wie im Spiel,
+     getönt bei Slow, Gift, Eis und EMP, sinkt beim Tod ein, die Klumpen
+     laufen weiter; nach Esc kein Replay-Band übrig.
+417. Frost, EMP und Laser in einer Welle einsetzen, dann Replay: die Effekte
+     zum aufgezeichneten Zeitpunkt, getroffene Gegner eisig bzw. violett mit
+     Funken; nach Esc keine Reste.
+418. Auf 14 springen, W14 spielen, dann "replay W14": roter Look von Anfang
+     an, auch wenn er im Spiel schon ausgeblendet ist; nach Esc normaler
+     Look. Mit sichtbarem Replay-Link "Jump to wave" nutzen: der Link
+     verschwindet. Welle mit Boss abspielen: kein Intro im Replay.
+
+**Review-Fixes fix2 und fix3 (dritter Durchgang)**
+
+419. Auf 45 springen, einen Tower seitlich an den Rand der Ooze-Route
+     stellen, 4x: das Spiel läuft flüssig (optional im Chrome-Profil:
+     `raycastLineOfSight` aus `BodyAim` nur in den ersten Zügen).
+420. W45: die Ooze teilweise ins HQ fließen lassen, dann töten; später Game
+     Over: die Übersicht zeigt für W45 ein Leck, die Ooze fehlt bei den
+     Kills.
+421. W45 bei 4x, die Ooze fließt voll ins HQ: der Bildschirm wackelt etwa
+     einmal je Sekunde im Takt des roten Rands, nicht durchgehend; ein
+     Zombie-Leck mit 10 HP dazwischen wackelt sofort.
+422. Auf 14 springen, Archer mit der Straße seitlich, Welle starten,
+     Reichweite upgraden: der Lichtkegel schwenkt sofort um die neue
+     Wachrichtung. In W14 einen Ice Tower Zombies töten lassen: Eis- und
+     Blutflecken sind rot getönt wie der Boden.
+423. Custom Wave mit Herbert und Ooze zugleich: ein Intro, Karte "HERBERT &
+     OOZE", danach kein zweites.
+424. Poison Tower an die Ooze-Route, den Schwanz am Tower vorbeiziehen
+     lassen: grüne DoT-Zahlen auf dem Körper, nicht auf der leeren Straße.
+     Fire Tower an einer Kurve, Zombies vor der Ooze: streicht der Kegel
+     über den Körper, während der Tower einen Zombie anvisiert, sinkt der
+     Balken der Ooze.
+425. Pause, dann über den Held-Knopf anheuern: der Held steht sofort am HQ,
+     noch in der Pause; anklicken wählt ihn; Klick auf einen fernen
+     Routenpunkt: der Postenring springt sofort, nach der Pause läuft er
+     los.
+426. 75x, Held an einem Posten, zwei Wellen: er verfolgt bis zur Leine und
+     kehrt zurück wie vorher, ohne Ruckler oder Sprünge.
+427. Laser anwählen (goldenes Band sichtbar), abbrechen, dann den Ort über
+     die Weltkarte wechseln: keine Konsolenfehler, kein Band am neuen Ort.
+428. Optional: im Debug-Fenster das ONNX-Modell einschalten, drei Wellen
+     spielen: Wellen wie gewohnt, keine Konsolenfehler; im
+     Trainings-Dashboard steht bei Research "Completed x/11".
 
 ## TODO-Stand
 
