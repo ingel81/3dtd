@@ -308,7 +308,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 1,
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
-    previewOffsetY: 0,
+    // The preview measures this model as 2 cm tall (mesh ahead of its bones,
+    // see MODEL_PREVIEW.md, Zentrierung) and would aim at its feet; half of
+    // its 1.7 m aims at the middle of the body
+    previewOffsetY: 0.85,
   },
 
   tank: {
