@@ -268,6 +268,8 @@ DPS-Modell rechnet das nicht ein.
 
 ## Playtest-Liste
 
+**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+
 Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
 
 **Aus der letzten Runde noch offen**
@@ -634,6 +636,8 @@ Auch hier lief nichts im Browser.
   Gebaut wird in einer eigenen Runde.
 
 ### Playtest-Liste, Fortsetzung
+
+**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
 
 41. Korridor an einer Wohnstraße mit Parkstreifen: die Seite mit Parkstreifen
     oder Vorgärten breiter als die an einer Fassade; in Gassen eine Zellreihe.

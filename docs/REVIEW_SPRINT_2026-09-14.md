@@ -1070,6 +1070,8 @@ Von review5 sind die zwei Hinweise offen (17).
 
 ## Playtest-Liste
 
+**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+
 **Ergebnisse Playtest 2026-09-14 (Nachmittag, nach der Fix-Session)**,
 vorsortiert in `tmp/fix1/reports/sorter-night2.md` (überholt, per Test,
 User, zurückgestellt):
