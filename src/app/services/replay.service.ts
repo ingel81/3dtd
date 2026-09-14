@@ -18,6 +18,7 @@ import { AbilityTargetingService } from './ability-targeting.service';
 import { CameraControlService } from './camera-control.service';
 import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
+import { BossIntroService } from './boss-intro.service';
 
 /** Wall-clock ms between two updates of the replay bar while it plays */
 const BAR_REFRESH_MS = 50;
@@ -52,6 +53,7 @@ export class ReplayService {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly photoMode = inject(PhotoModeService);
   private readonly heroControl = inject(HeroControlService);
+  private readonly bossIntro = inject(BossIntroService);
   private readonly ngZone = inject(NgZone);
   private readonly injector = inject(Injector);
   /** The game component's element, whose template holds the replay bar */
@@ -95,8 +97,14 @@ export class ReplayService {
     });
   }
 
+  /**
+   * No replay while a boss intro holds the camera (it pauses the game and
+   * puts the camera back itself). During the replay no intro can start: the
+   * live game stands, and the replay's events go out on its own bus, where
+   * BossIntroService does not listen.
+   */
   enter(): void {
-    if (this.active() || !this.available()) return;
+    if (this.active() || !this.available() || this.bossIntro.active()) return;
     const engine = this.engineInit.getEngine();
     const recording = this.gameState.replayRecorder.recording;
     if (!engine || !recording) return;
