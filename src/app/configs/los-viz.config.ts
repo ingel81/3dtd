@@ -39,8 +39,7 @@ export const LOS_VIZ_CONFIG = {
 
   /**
    * Y-Offset für Ground-Sample-Punkt über `cell.terrainHeight`. Etwas über
-   * 0 damit der Strahl nicht im Boden-Mesh startet (Self-Hit). Über einer
-   * vom Stufen-Check geklemmten Zelle über `sample.stepTop`, siehe
+   * 0 damit der Strahl nicht im Boden-Mesh startet (Self-Hit). Siehe
    * `getGroundTargetY` (route-cell.ts).
    */
   groundSampleYOffset: 1.5,
@@ -125,8 +124,6 @@ export const LOS_VIZ_CONFIG = {
     borders: {
       /** Zelle mit Höhenprobe am Boden. */
       normal: new Color(0xf0f0f0),
-      /** Dach- oder Stufen-Check: die Säule traf ein Dach, eine Krone, ein Auto oder eine Hecke, die Zelle steht am Boden daneben. */
-      clamped: new Color(0xe69f00),
       /** Auf einem Brückendeck. */
       deck: new Color(0x56b4e9),
       /** Ohne Höhenprobe, nur Ersatzhöhe. Die LOS-Anzeige eines Towers zeichnet sie nicht. */

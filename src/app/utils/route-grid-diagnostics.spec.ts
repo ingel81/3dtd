@@ -21,7 +21,7 @@ const cellOn = (gx: number, gz: number): RouteCell => ({
   surface: 'ground',
   tunnelSpan: null,
   routeAnchorY: 0,
-  sample: { state: 'stable', sampledAt: 0, tileDepth: 20, tileGeometricError: 2, clamped: false, stepTop: null },
+  sample: { state: 'stable', sampledAt: 0, tileDepth: 20, tileGeometricError: 2 },
   heightSampled: true,
   enemies: new Set(),
   towerVisibility: new Map(),
@@ -67,10 +67,10 @@ describe('collectCentreLineCells', () => {
 describe('probeCellsAround', () => {
   it('lists the spots around a point, nearest to the route line first', () => {
     const route = [{ lat: 1, lon: -10 }, { lat: 1, lon: 10 }];
-    const rows = probeCellsAround(view([[0, 0]], [route]), 1, 3, 2, null, () => null);
+    const rows = probeCellsAround(view([[0, 0]], [route]), 1, 3, 2, null, () => null, () => false);
 
-    expect(rows[0]).toMatchObject({ x: 1, z: 1, routeM: 0, cell: true, state: 'stable' });
-    expect(rows.find((r) => r.x === 1 && r.z === 3)).toMatchObject({ routeM: 2, cell: false });
+    expect(rows[0]).toMatchObject({ x: 1, z: 1, routeM: 0, cell: true, state: 'stable', walkable: false });
+    expect(rows.find((r) => r.x === 1 && r.z === 3)).toMatchObject({ routeM: 2, cell: false, walkable: null });
     expect(rows.every((r, k) => k === 0 || r.routeM >= rows[k - 1].routeM)).toBe(true);
   });
 });

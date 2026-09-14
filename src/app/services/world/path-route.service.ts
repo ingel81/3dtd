@@ -20,6 +20,7 @@ import {
   segmentLeft,
   segmentRight,
 } from '../../utils/route-corridor';
+import { WalkCapSegment, WalkCaps, walkCaps } from '../../utils/corridor-walk';
 import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -72,6 +73,13 @@ const segmentKey = (a: LatLon, b: LatLon) => `${a.lat},${a.lon}|${b.lat},${b.lon
 
 const round1 = (v: number): number | null => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
 
+/** The piece among a segment's `pieces` that covers `t` (0 to 1 along the segment). */
+function pieceCovering(pieces: readonly CorridorPiece[], t: number): CorridorPiece {
+  let found = pieces[0];
+  for (const piece of pieces) if (piece.t <= t) found = piece;
+  return found;
+}
+
 /** One side of the station `__corridor.pick()` explains, see explainCorridorAt(). */
 export interface CorridorSideRow {
   side: 'left' | 'right';
@@ -89,6 +97,12 @@ export interface CorridorSideRow {
   halfWidthM: number;
   /** Half width the route in use has there; differs from halfWidthM until the next rebuild. */
   inUseM: number | null;
+  /**
+   * How far out enemies can walk there: short of a cell of the grid they
+   * could not walk to (a car, a van, a hedge, an eave), null where nothing
+   * stops them. Caps the half width (rule `unwalkable cell beyond`).
+   */
+  walkableM: number | null;
   /** What set the half width. */
   rule: string;
 }
@@ -186,6 +200,17 @@ export class PathAndRouteService {
   private clearanceBySegment = new Map<string, { left: number[]; right: number[]; probes: (StationProbe | null)[] }>();
 
   /**
+   * How far out enemies can walk at each station of a street segment
+   * (segmentKey, stations as in clearanceBySegment), left and right: short
+   * of the cells of a grid in use they could not walk to, a car, a van, a
+   * hedge, an eave (walkCapsWithGrid). Infinity where nothing stops them.
+   * Only ever narrowed while a location lasts, forgotten with the
+   * measurements. Every route build caps its corridor with these
+   * (fitCorridorStations).
+   */
+  private walkBySegment = new Map<string, WalkCaps>();
+
+  /**
    * The latest clearance measurement, see beginClearanceMeasurement: under
    * way while it is open, kept once it ended so clearanceEnding() can tell how.
    */
@@ -239,6 +264,7 @@ export class PathAndRouteService {
     this.streetRoutes.clear();
     this.cancelClearanceRun('location changed');
     this.clearanceBySegment.clear();
+    this.walkBySegment.clear();
     this.baseCoords = baseCoords;
     this.routesVisible = routesVisible;
     this.pathfindingService = pathfindingService;
@@ -610,12 +636,16 @@ export class PathAndRouteService {
   private corridorStationsOf(route: StreetRoute): CorridorStations[] {
     const segments: CorridorStations[] = [];
     for (let i = 0; i < route.points.length - 1; i++) {
-      const measured = this.clearanceBySegment.get(segmentKey(route.points[i], route.points[i + 1]));
+      const key = segmentKey(route.points[i], route.points[i + 1]);
+      const measured = this.clearanceBySegment.get(key);
+      const walk = this.walkBySegment.get(key);
       segments.push({
         left: measured?.left ?? [],
         right: measured?.right ?? [],
         fallback: route.halfWidths[i],
         onStreet: route.onStreet[i],
+        walkLeft: walk?.left,
+        walkRight: walk?.right,
       });
     }
     return segments;
@@ -629,11 +659,14 @@ export class PathAndRouteService {
   /**
    * Forget what the tiles showed, so the next beginClearanceMeasurement
    * measures every station again: after a settings change that moves the
-   * stations or the rays (MEASUREMENT_KEYS). A run under way is cancelled.
+   * stations or the rays or changes where enemies can walk
+   * (MEASUREMENT_KEYS). The walk caps go as well, the next grid tells them
+   * again. A run under way is cancelled.
    */
   clearCorridorMeasurements(): void {
     this.cancelClearanceRun('measurements cleared');
     this.clearanceBySegment.clear();
+    this.walkBySegment.clear();
   }
 
   /**
@@ -651,6 +684,85 @@ export class PathAndRouteService {
       }
     }
     return false;
+  }
+
+  /**
+   * Narrow the corridor short of the cells of the grid in use an enemy
+   * could not walk to (walkCapsWithGrid). True when that changes a
+   * corridor: routes and cells then need a rebuild, after which the new
+   * grid is asked again (CorridorController.rebuildCorridors).
+   */
+  narrowToWalkable(): boolean {
+    const merged = this.walkCapsWithGrid();
+    if (!merged) return false;
+    const before = this.fittedCorridors();
+    this.walkBySegment = merged;
+    return this.fittedCorridors() !== before;
+  }
+
+  /**
+   * Whether narrowToWalkable would change a corridor now, without doing it:
+   * the grid has cells an enemy could not walk to that a narrower corridor
+   * would drop, typically ones a finer tile has shown since the last build.
+   * Cells no narrower corridor drops (the centre line runs through them)
+   * do not count. For CorridorRefit.remeasure.
+   */
+  hasUnwalkableCells(): boolean {
+    const merged = this.walkCapsWithGrid();
+    if (!merged) return false;
+    const kept = this.walkBySegment;
+    const before = this.fittedCorridors();
+    this.walkBySegment = merged;
+    const after = this.fittedCorridors();
+    this.walkBySegment = kept;
+    return after !== before;
+  }
+
+  /**
+   * walkBySegment with what the grid in use adds: its cells an enemy could
+   * not walk to (GlobalRouteGrid.unwalkableCells), mapped onto the stations
+   * of every route with the half widths they have now (walkCaps). A new
+   * map; null without a grid or without such cells. Segments without
+   * stations (tunnels, not measured yet) get none.
+   */
+  private walkCapsWithGrid(): Map<string, WalkCaps> | null {
+    const engine = this.engine;
+    if (!engine || !this.globalRouteGrid.isInitialized()) return null;
+    const grid = this.globalRouteGrid.getGrid();
+    const spots = grid.unwalkableCells();
+    if (spots.length === 0) return null;
+
+    const merged = new Map<string, WalkCaps>();
+    for (const [key, caps] of this.walkBySegment) merged.set(key, { left: [...caps.left], right: [...caps.right] });
+    for (const route of this.streetRoutes.values()) {
+      const pieces = this.fitRoute(route);
+      const keys: string[] = [];
+      const segments: WalkCapSegment[] = [];
+      for (let i = 0; i < route.points.length - 1; i++) {
+        const key = segmentKey(route.points[i], route.points[i + 1]);
+        const a = engine.sync.geoToLocalSimple(route.points[i].lat, route.points[i].lon, 0);
+        const b = engine.sync.geoToLocalSimple(route.points[i + 1].lat, route.points[i + 1].lon, 0);
+        const n = this.clearanceBySegment.get(key)?.left.length ?? 0;
+        const widths = (side: 'left' | 'right') => n === 0
+          ? [pieces[i][0][side]]
+          : Array.from({ length: n }, (_, k) => pieceCovering(pieces[i], (k + 0.5) / n)[side]);
+        keys.push(key);
+        segments.push({ ax: a.x, az: a.z, bx: b.x, bz: b.z, stations: n, left: widths('left'), right: widths('right') });
+      }
+      walkCaps(segments, spots, grid.getCellSize()).forEach((caps, i) => {
+        if (segments[i].stations === 0) return;
+        const known = merged.get(keys[i]);
+        if (!known || known.left.length !== caps.left.length) {
+          merged.set(keys[i], caps);
+          return;
+        }
+        for (let k = 0; k < caps.left.length; k++) {
+          known.left[k] = Math.min(known.left[k], caps.left[k]);
+          known.right[k] = Math.min(known.right[k], caps.right[k]);
+        }
+      });
+    }
+    return merged;
   }
 
   /**
@@ -700,11 +812,7 @@ export class PathAndRouteService {
     // The pieces the route gets: the stations' half widths with short
     // narrowings closed over the whole route.
     const pieces = this.fitRoute(route);
-    const pieceAt = (j: number, t: number): CorridorPiece => {
-      let found = pieces[j][0];
-      for (const piece of pieces[j]) if (piece.t <= t) found = piece;
-      return found;
-    };
+    const pieceAt = (j: number, t: number): CorridorPiece => pieceCovering(pieces[j], t);
 
     const sideRow = (side: 'left' | 'right'): CorridorSideRow => {
       const station = fit[side][i][k];
@@ -726,6 +834,7 @@ export class PathAndRouteService {
         smoothedM: station ? round1(station.smoothed) : null,
         halfWidthM: halfWidth,
         inUseM: inUse ? inUse[side] : null,
+        walkableM: station && station.walk < Infinity ? round1(station.walk) : null,
         rule: halfWidth > own ? `${rule}, short narrowing closed` : rule,
       };
     };
@@ -877,7 +986,11 @@ export class PathAndRouteService {
     return run;
   }
 
-  /** Hand what a finished run measured to the corridor; true when that changes one. */
+  /**
+   * Hand what a finished run measured to the corridor, and where the grid
+   * in use shows cells an enemy could not walk to (walkCapsWithGrid); true
+   * when that changes a corridor.
+   */
   private storeClearance(segments: readonly ClearanceSegment[]): boolean {
     const before = this.fittedCorridors();
     // Stored with their unmeasured stations as well: they keep their
@@ -886,6 +999,7 @@ export class PathAndRouteService {
     for (const { key, left, right, probes } of segments) {
       this.clearanceBySegment.set(key, { left, right, probes });
     }
+    this.walkBySegment = this.walkCapsWithGrid() ?? this.walkBySegment;
     return this.fittedCorridors() !== before;
   }
 
@@ -987,6 +1101,7 @@ export class PathAndRouteService {
     this.edgeIndex = null;
     this.streetRoutes.clear();
     this.clearanceBySegment.clear();
+    this.walkBySegment.clear();
     this.baseCoords = null;
     this.routesVisible = null;
     this.pathfindingService = null;

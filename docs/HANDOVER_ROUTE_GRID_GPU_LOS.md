@@ -116,7 +116,7 @@ Preview, Selection-Viz, Aggregat und Legende.
 
 | Layer | Plate-Höhe | covered | blocked |
 |---|---|---|---|
-| Ground | `terrainHeight + cellYOffset`, sampelt `getGroundTargetY(cell)` (`terrainHeight + 1.5 m`, neben einem Auto über dessen Dach, siehe ROUTE_CORRIDOR.md, Stufen-Check) | grün `#5CE6A8`, α 0.45 | vermillon `#D55E00`, α 0.30 |
+| Ground | `terrainHeight + cellYOffset`, sampelt `getGroundTargetY(cell)` (`terrainHeight + 1.5 m`) | grün `#5CE6A8`, α 0.45 | vermillon `#D55E00`, α 0.30 |
 | Air | `getAirTargetY(cell)` (+15 m), sampelt dieselbe Höhe | blau `#3AA0FF`, α 0.45 | vermillon `#D55E00`, α 0.30 |
 
 - Jede Plate zeigt nur die eigene Coverage. "Ground + Air" hat keine

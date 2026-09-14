@@ -178,6 +178,26 @@ describe('fitCorridorPieces', () => {
     corridorConfig.widthStep = 1;
     expect(fitCorridorPieces([measured([7, 7, 7], [4.8, 4.8, 4.8])])).toEqual([[{ t: 0, left: 5, right: 4 }]]);
   });
+
+  it('gives a piece the walk cap of its stations, which closing short narrowings keeps to', () => {
+    // A van 3 m right of the centre line at stations 2 and 3 of a 12 m segment.
+    const segment: CorridorStations = {
+      ...measured([7, 7, 7, 7, 7, 7], [7, 7, 7, 7, 7, 7]),
+      walkRight: [Infinity, Infinity, 2.9, 2.9, Infinity, Infinity],
+    };
+    const pieces = fitCorridorPieces([segment]);
+    expect(pieces).toEqual([[
+      { t: 0, left: 7, right: 7 },
+      { t: 2 / 6, left: 7, right: 2.5, maxRight: 2.5 },
+      { t: 4 / 6, left: 7, right: 7 },
+    ]]);
+    // 4 m, a short narrowing between open stretches: it stays.
+    expect(closeShortNarrowings(pieces, [12], [false])).toEqual([[
+      { t: 0, left: 7, right: 7 },
+      { t: 2 / 6, left: 7, right: 2.5 },
+      { t: 4 / 6, left: 7, right: 7 },
+    ]]);
+  });
 });
 
 describe('fitCorridorStations', () => {
@@ -187,7 +207,8 @@ describe('fitCorridorStations', () => {
   const leftAt = (segment: CorridorStations, k: number) => fitCorridorStations([segment]).left[0][k];
 
   it('names the rule that set each half width', () => {
-    expect(leftAt(measured([7, 7, 7], [7, 7, 7]), 1)).toEqual({ free: 7, smoothed: 7, halfWidth: 7, rule: 'no wall within the maximum' });
+    expect(leftAt(measured([7, 7, 7], [7, 7, 7]), 1))
+      .toEqual({ free: 7, smoothed: 7, halfWidth: 7, walk: Infinity, rule: 'no wall within the maximum' });
     expect(leftAt(measured([5.2, 5.2, 5.2], [7, 7, 7]), 1)).toMatchObject({ halfWidth: 4.5, rule: 'wall less margin' });
     expect(leftAt(measured([0.4, 0.4, 0.4], [7, 7, 7]), 1)).toMatchObject({ halfWidth: 1, rule: 'wall less margin, minimum' });
     expect(leftAt(measured([NaN, NaN], [7, 7], 4), 0)).toMatchObject({ halfWidth: 4, rule: 'unmeasured: street width' });
@@ -198,16 +219,31 @@ describe('fitCorridorStations', () => {
   it('shows what the smoothing did', () => {
     // A driveway: two open stations between walls at 3 m.
     expect(leftAt(measured([3, 3, 3, 7, 7, 3, 3, 3], [3, 3, 3, 3, 3, 3, 3, 3]), 3))
-      .toEqual({ free: 7, smoothed: 3, halfWidth: 2.5, rule: 'bulge cut, wall less margin' });
+      .toEqual({ free: 7, smoothed: 3, halfWidth: 2.5, walk: Infinity, rule: 'bulge cut, wall less margin' });
     // A lamp post in the open.
     expect(leftAt(measured([7, 7, 1, 7, 7], [7, 7, 7, 7, 7]), 2))
-      .toEqual({ free: 1, smoothed: 7, halfWidth: 7, rule: 'dip closed, no wall within the maximum' });
+      .toEqual({ free: 1, smoothed: 7, halfWidth: 7, walk: Infinity, rule: 'dip closed, no wall within the maximum' });
+  });
+
+  it('stays short of a cell no enemy could walk to, whatever set the width', () => {
+    // A van 3 m right of the centre line at stations 2 and 3: walk cap 2.9 m.
+    const segment: CorridorStations = {
+      ...measured([7, 7, 7, 7, 7, 7], [7, 7, 7, 7, 7, 7]),
+      walkRight: [Infinity, Infinity, 2.9, 2.9, Infinity, Infinity],
+    };
+    const fit = fitCorridorStations([segment]);
+    expect(fit.right[0].map((s) => s.halfWidth)).toEqual([7, 7, 2.5, 2.5, 7, 7]);
+    expect(fit.right[0][2]).toMatchObject({ walk: 2.9, rule: 'no wall within the maximum, unwalkable cell beyond' });
+    expect(fit.left[0].map((s) => s.halfWidth)).toEqual([7, 7, 7, 7, 7, 7]);
+    // Below the minimum as well, and at a station the tiles did not measure.
+    expect(leftAt({ ...measured([NaN, NaN], [7, 7], 4), walkLeft: [0.9, 0.9] }, 0))
+      .toMatchObject({ halfWidth: 0.5, rule: 'unmeasured: street width, unwalkable cell beyond' });
   });
 
   it('gives a short unmeasured gap the free space measured around it', () => {
     // A seam between two tile meshes: the column under one station finds no tile.
     expect(leftAt(measured([7, 7, NaN, 7, 7], [7, 7, NaN, 7, 7]), 2)).toEqual({
-      free: NaN, smoothed: 7, halfWidth: 7, rule: 'unmeasured: from neighbours, no wall within the maximum',
+      free: NaN, smoothed: 7, halfWidth: 7, walk: Infinity, rule: 'unmeasured: from neighbours, no wall within the maximum',
     });
     // The narrower side of the gap, two stations long.
     expect(leftAt(measured([7, 7, NaN, NaN, 5.2, 5.2, 5.2], [7, 7, 7, 7, 7, 7, 7]), 3))
@@ -272,6 +308,12 @@ describe('closeShortNarrowings', () => {
     expect(closeShortNarrowings(pieces, [30], [false])).toEqual(pieces);
     corridorConfig.dipLength = 6;
     expect(closeShortNarrowings(pieces, [30], [false])).toEqual([[piece(0, 7)]]);
+  });
+
+  it('widens a stretch no further than its walk cap', () => {
+    // The street width of an unmeasured station, with a car 5.1 m left.
+    const pieces = [[piece(0, 7), { ...piece(0.5, 2.75), maxLeft: 5 }, piece(0.6, 7)]];
+    expect(closeShortNarrowings(pieces, [20], [false])).toEqual([[piece(0, 7), piece(0.5, 5, 7), piece(0.6, 7)]]);
   });
 });
 

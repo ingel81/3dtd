@@ -18,7 +18,8 @@ export interface CorridorControllerDeps {
   introFlight: Pick<IntroCameraFlightService, 'isRunning'>;
   pathRoute: Pick<
     PathAndRouteService,
-    'beginClearanceMeasurement' | 'hasUnmeasuredStations' | 'clearCorridorMeasurements' | 'refreshRouteLines' | 'getCachedPaths'
+    | 'beginClearanceMeasurement' | 'hasUnmeasuredStations' | 'hasUnwalkableCells' | 'narrowToWalkable'
+    | 'clearCorridorMeasurements' | 'refreshRouteLines' | 'getCachedPaths'
   >;
   routeAnimation: Pick<RouteAnimationService, 'isRunning' | 'startAnimation'>;
   store: Pick<TowerDefenseStore, 'spawnPoints'>;
@@ -36,6 +37,13 @@ export interface CorridorControllerDeps {
  * and rebuilds.
  */
 export class CorridorController {
+  /**
+   * Builds a rebuild adds at most to drop cells an enemy could not walk to
+   * (rebuildCorridors). One is the rule: the second build rarely finds new
+   * ones; what is left waits for the next remeasure.
+   */
+  static readonly MAX_WALK_PASSES = 2;
+
   private readonly refit: CorridorRefit;
 
   /** The flush hook is set on the game state, see attach(). */
@@ -50,7 +58,11 @@ export class CorridorController {
       introRunning: () => deps.introFlight.isRunning(),
       hurried: () => deps.relocationStatus.status() !== null,
       beginMeasurement: () => deps.pathRoute.beginClearanceMeasurement(),
-      hasUnmeasured: () => deps.pathRoute.hasUnmeasuredStations(),
+      // Or cells a finer tile showed no enemy could walk to: the commit of
+      // the (then empty) run drops them. The walk check looks at every cell,
+      // so not while a blocker holds the corridor anyway.
+      hasUnmeasured: () => deps.pathRoute.hasUnmeasuredStations()
+        || (this.refit.rebuildBlocker() === null && deps.pathRoute.hasUnwalkableCells()),
       clearMeasurements: () => deps.pathRoute.clearCorridorMeasurements(),
       rebuild: () => this.rebuildCorridors(),
       cellCount: () => deps.gameState().getGlobalRouteGrid().getStats().totalCells,
@@ -106,8 +118,10 @@ export class CorridorController {
    * now, their cells and the route line, all in one frame. Logs how long
    * each part took (`[Corridor] rebuild:`): routes (pathfinding, corridor
    * fit, route line), grid (the cells and their first sample), heights (the
-   * full terrain sweep), lines (pathfinding and route line again, on the new
-   * cells' heights) and overlays (debug layers, route animation).
+   * full terrain sweep), walk (routes, cells and heights again, `narrowed`
+   * times, short of the cells an enemy could not walk to), lines
+   * (pathfinding and route line again, on the new cells' heights) and
+   * overlays (debug layers, route animation).
    */
   private rebuildCorridors(): void {
     // Routes with the new widths first, then the cells built from them,
@@ -123,6 +137,17 @@ export class CorridorController {
     const tGrid = performance.now();
     grid.updateTerrainHeights();
     const tHeights = performance.now();
+    // The new cells may reach further than the last ones, onto a car or
+    // under an eave: narrow the corridor short of them and build again.
+    let narrowed = 0;
+    while (narrowed < CorridorController.MAX_WALK_PASSES && this.deps.pathRoute.narrowToWalkable()) {
+      narrowed++;
+      this.deps.pathRoute.refreshRouteLines(spawns);
+      grid.clear();
+      gameState.initializeGlobalRouteGrid();
+      grid.updateTerrainHeights();
+    }
+    const tWalk = performance.now();
     this.deps.pathRoute.refreshRouteLines(spawns);
     const tLines = performance.now();
     grid.initSpatialGridVisualizationIfEnabled();
@@ -136,7 +161,8 @@ export class CorridorController {
     const ms = (from: number, to: number) => (to - from).toFixed(1);
     console.warn(
       `[Corridor] rebuild: routes=${ms(t0, tRoutes)} grid=${ms(tRoutes, tGrid)} heights=${ms(tGrid, tHeights)} ` +
-      `lines=${ms(tHeights, tLines)} overlays=${ms(tLines, tEnd)} total=${ms(t0, tEnd)}ms ` +
+      `walk=${ms(tHeights, tWalk)} narrowed=${narrowed} ` +
+      `lines=${ms(tWalk, tLines)} overlays=${ms(tLines, tEnd)} total=${ms(t0, tEnd)}ms ` +
       `spawns=${spawns.length} cells=${grid.getStats().totalCells}`,
     );
   }

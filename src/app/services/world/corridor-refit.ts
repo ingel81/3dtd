@@ -36,7 +36,10 @@ export interface CorridorRefitHost {
   hurried(): boolean;
   /** Start measuring the stations without a measurement (PathAndRouteService.beginClearanceMeasurement). */
   beginMeasurement(): CorridorMeasurement;
-  /** Stations waiting for finer tiles (PathAndRouteService.hasUnmeasuredStations). */
+  /**
+   * Stations waiting for finer tiles (PathAndRouteService.hasUnmeasuredStations),
+   * or cells finer tiles showed no enemy could walk to (hasUnwalkableCells).
+   */
   hasUnmeasured(): boolean;
   /** Forget every measurement, so the next one takes all stations again. */
   clearMeasurements(): void;

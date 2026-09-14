@@ -56,9 +56,9 @@ export interface CorridorConfig {
    * what blocks both counts as a wall: a facade, a wall, a trunk. What
    * stops only the low ray (a parked car or van, a hedge, a fence) or only
    * the high one (a tree crown, an eave, a balcony) does not narrow the
-   * corridor; a cell that ends up under a crown or an eave is put back on
-   * the ground by the roof check (`roofRise`), one on a car or a hedge by
-   * the step check (`stepRise`).
+   * corridor. The corridor ends before a cell under a crown or an eave
+   * (`roofRise`) or on a car or a hedge (`stepRise`) instead, see
+   * corridor-walk.ts.
    */
   rayHeightLow: number;
   rayHeightHigh: number;
@@ -72,8 +72,8 @@ export interface CorridorConfig {
    * Where both rays hit and the high one stops at most this much nearer than
    * the low one, the wall's outer face bounds the corridor, not the wall
    * under it: upper floors that jut out over the ground floor (a jetty of a
-   * half-timbered house), an oriel. Cells under them stood on the ground
-   * the roof check put them on, under the roof. A crown or a balcony
+   * half-timbered house), an oriel. Cells under them stood under the
+   * roof. A crown or a balcony
    * further out in front of the facade keeps the farther hit. 0: always the
    * farther hit. See {@link probeFreeSpace}.
    */
@@ -103,19 +103,20 @@ export interface CorridorConfig {
    */
   bulgeLength: number;
   /**
-   * A route cell whose column comes down more than this above the ground
-   * on the route centre line beside it takes that ground instead: the
-   * column hit a roof, an eave or a tree crown over the street, with no
-   * ground under it in the photogrammetry (RouteCellSampler.sampleCellY).
+   * No enemy walks to a route cell whose column comes down more than this
+   * above the ground on the route centre line beside it: the column hit a
+   * roof, an eave or a tree crown over the street, with no ground under it
+   * in the photogrammetry. The corridor ends before it (cellWalkable in
+   * corridor-walk.ts).
    */
   roofRise: number;
   /**
-   * A route cell whose column comes down more than this above the ground a
-   * walk from the centre line out to it reached, spot by spot across the
-   * grid, takes the ground right in front of it instead: the column hit a
-   * parked car, a van or a hedge, which the photogrammetry has no ground
-   * under either. A kerb, a step and a slope that climbs a little from spot
-   * to spot keep their height (RouteCellSampler.sampleCellY).
+   * No enemy walks to a route cell a walk from the centre line out to it,
+   * spot by spot across the grid, cannot climb onto, each step at most this
+   * much: the column hit a parked car, a van or a hedge, which the
+   * photogrammetry has no ground under either. A kerb, a step and a slope
+   * that climbs a little from spot to spot stay walkable. The corridor ends
+   * before such a cell (cellWalkable in corridor-walk.ts).
    */
   stepRise: number;
   /**
@@ -194,9 +195,11 @@ export function resetCorridorConfig(): void {
 }
 
 /**
- * Settings whose change moves the clearance stations, what the rays see or
- * how their hits become the free space that is stored: changing one means
- * measuring again. The others only reshape what was measured.
+ * Settings whose change moves the clearance stations, what the rays see,
+ * how their hits become the free space that is stored, or which cells an
+ * enemy could not walk to (the stored walk caps, corridor-walk.ts):
+ * changing one means measuring again. The others only reshape what was
+ * measured.
  */
 export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = [
   'stationSpacing',
@@ -205,6 +208,8 @@ export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = [
   'maxHalfWidth',
   'maxTileError',
   'overhangDepth',
+  'roofRise',
+  'stepRise',
 ];
 
 /** Allowed range per numeric setting, inclusive. */
@@ -422,6 +427,13 @@ export interface CorridorPiece {
   t: number;
   left: number;
   right: number;
+  /**
+   * Widest the piece may get on each side: short of a cell an enemy could
+   * not walk to (CorridorStations.walkLeft), which closeShortNarrowings
+   * keeps to. Absent where nothing limits it.
+   */
+  maxLeft?: number;
+  maxRight?: number;
 }
 
 /** One segment of a route as {@link fitCorridorPieces} sees it. */
@@ -442,6 +454,15 @@ export interface CorridorStations {
    * the fallback, not widen it.
    */
   onStreet: boolean;
+  /**
+   * How far out from the centre line enemies can walk at each station,
+   * left and right: short of the cells an enemy could not walk to (walkCaps
+   * in corridor-walk.ts). A cap on the half width after every other rule,
+   * below `minHalfWidth` as well. Infinity, or missing, where nothing stops
+   * them.
+   */
+  walkLeft?: readonly number[];
+  walkRight?: readonly number[];
 }
 
 /**
@@ -495,8 +516,15 @@ export interface StationFit {
   /** After filling short gaps, closing short dips and cutting short bulges along the route. */
   smoothed: number;
   halfWidth: number;
+  /** How far out enemies can walk there (CorridorStations.walkLeft), Infinity where nothing stops them. */
+  walk: number;
   /** What set the half width, e.g. "bulge cut, wall less margin". For `__corridor.pick()`. */
   rule: string;
+}
+
+/** The half width a walk cap allows: rounded down to `widthStep`, Infinity where there is none. */
+function walkWidth(walk: number): number {
+  return walk === Infinity ? Infinity : Math.max(0, Math.floor(walk / corridorConfig.widthStep) * corridorConfig.widthStep);
 }
 
 /**
@@ -511,7 +539,9 @@ export interface StationFit {
  * (closeShortDips) and short bulges cut (cutShortBulges), each side on its
  * own, then the value is rounded down to `widthStep`. A station the tiles
  * could not measure in a longer gap gets the street's half width; off the
- * network the street's half width is the cap.
+ * network the street's half width is the cap. Last, whatever set it, the
+ * half width stays short of a cell an enemy could not walk to (walkLeft,
+ * walkRight), not smoothed: a car narrows the corridor over its length.
  */
 export function fitCorridorStations(
   segments: readonly CorridorStations[],
@@ -524,34 +554,44 @@ export function fitCorridorStations(
     const smoothed = cutShortBulges(closeShortDips(filled));
     let offset = 0;
     return segments.map((segment) => {
+      const walks = side === 'left' ? segment.walkLeft : segment.walkRight;
       const fits = segment[side].map((_, k): StationFit => {
         const f = free[offset + k];
         const g = filled[offset + k];
         const s = smoothed[offset + k];
-        if (Number.isNaN(s)) return { free: f, smoothed: s, halfWidth: segment.fallback, rule: 'unmeasured: street width' };
+        const walk = walks?.[k] ?? Infinity;
         const rules: string[] = [];
-        if (Number.isNaN(f)) rules.push('unmeasured: from neighbours');
-        if (s > g) rules.push('dip closed');
-        else if (s < g) rules.push('bulge cut');
-        // A ray that hit nothing reports its full length, the maximum; a
-        // wall keeps `wallMargin` off.
         let halfWidth: number;
-        if (s >= maxHalfWidth) {
-          halfWidth = maxHalfWidth;
-          rules.push('no wall within the maximum');
-        } else {
-          halfWidth = Math.floor((s - wallMargin) / widthStep) * widthStep;
-          rules.push('wall less margin');
-        }
-        if (halfWidth < minHalfWidth) {
-          halfWidth = minHalfWidth;
-          rules.push('minimum');
-        }
-        if (!segment.onStreet && segment.fallback < halfWidth) {
+        if (Number.isNaN(s)) {
           halfWidth = segment.fallback;
-          rules.push('leg to the HQ: street width');
+          rules.push('unmeasured: street width');
+        } else {
+          if (Number.isNaN(f)) rules.push('unmeasured: from neighbours');
+          if (s > g) rules.push('dip closed');
+          else if (s < g) rules.push('bulge cut');
+          // A ray that hit nothing reports its full length, the maximum; a
+          // wall keeps `wallMargin` off.
+          if (s >= maxHalfWidth) {
+            halfWidth = maxHalfWidth;
+            rules.push('no wall within the maximum');
+          } else {
+            halfWidth = Math.floor((s - wallMargin) / widthStep) * widthStep;
+            rules.push('wall less margin');
+          }
+          if (halfWidth < minHalfWidth) {
+            halfWidth = minHalfWidth;
+            rules.push('minimum');
+          }
+          if (!segment.onStreet && segment.fallback < halfWidth) {
+            halfWidth = segment.fallback;
+            rules.push('leg to the HQ: street width');
+          }
         }
-        return { free: f, smoothed: s, halfWidth, rule: rules.join(', ') };
+        if (walkWidth(walk) < halfWidth) {
+          halfWidth = walkWidth(walk);
+          rules.push('unwalkable cell beyond');
+        }
+        return { free: f, smoothed: s, halfWidth, walk, rule: rules.join(', ') };
       });
       offset += segment[side].length;
       return fits;
@@ -564,8 +604,9 @@ export function fitCorridorStations(
 /**
  * The corridor pieces of each segment of a route, from what the tiles
  * showed: the station half widths of {@link fitCorridorStations}, runs of
- * equal widths as one piece. A segment without stations is one piece at
- * the fallback.
+ * equal widths as one piece, with the narrowest walk cap of their stations
+ * as `maxLeft` / `maxRight`. A segment without stations is one piece at the
+ * fallback.
  */
 export function fitCorridorPieces(segments: readonly CorridorStations[]): CorridorPiece[][] {
   const { left, right } = fitCorridorStations(segments);
@@ -576,8 +617,15 @@ export function fitCorridorPieces(segments: readonly CorridorStations[]): Corrid
     for (let k = 0; k < n; k++) {
       const l = left[i][k].halfWidth;
       const r = right[i][k].halfWidth;
-      const last = pieces[pieces.length - 1];
-      if (!last || last.left !== l || last.right !== r) pieces.push({ t: k / n, left: l, right: r });
+      let last = pieces[pieces.length - 1];
+      if (!last || last.left !== l || last.right !== r) {
+        last = { t: k / n, left: l, right: r };
+        pieces.push(last);
+      }
+      const maxLeft = Math.min(last.maxLeft ?? Infinity, walkWidth(left[i][k].walk));
+      const maxRight = Math.min(last.maxRight ?? Infinity, walkWidth(right[i][k].walk));
+      if (maxLeft < Infinity) last.maxLeft = maxLeft;
+      if (maxRight < Infinity) last.maxRight = maxRight;
     }
     return pieces;
   });
@@ -593,7 +641,9 @@ export function fitCorridorPieces(segments: readonly CorridorStations[]): Corrid
  * the tiles did not measure) would otherwise pinch the cells and, with
  * the taper, the enemy stream for many metres around it. A narrowing that
  * runs longer, such as walls on both sides over a few metres, stays; so
- * does one at either end of the route.
+ * does one at either end of the route. No piece gets wider than its
+ * `maxLeft` / `maxRight`: a car or an eave narrows the corridor however
+ * short it is.
  *
  * `pieces` per segment as fitCorridorPieces gives them, `lengths` the
  * segment lengths in metres, `fixed` the segments whose width must not
@@ -606,11 +656,16 @@ export function closeShortNarrowings(
   lengths: readonly number[],
   fixed: readonly boolean[],
 ): CorridorPiece[][] {
-  const stretches: { segment: number; t: number; length: number; left: number; right: number; fixed: boolean }[] = [];
+  const stretches: {
+    segment: number; t: number; length: number; left: number; right: number; fixed: boolean; max: { left: number; right: number };
+  }[] = [];
   pieces.forEach((own, i) => {
     own.forEach((piece, k) => {
       const end = k + 1 < own.length ? own[k + 1].t : 1;
-      stretches.push({ segment: i, t: piece.t, length: (end - piece.t) * lengths[i], left: piece.left, right: piece.right, fixed: fixed[i] });
+      stretches.push({
+        segment: i, t: piece.t, length: (end - piece.t) * lengths[i], left: piece.left, right: piece.right, fixed: fixed[i],
+        max: { left: piece.maxLeft ?? Infinity, right: piece.maxRight ?? Infinity },
+      });
     });
   });
 
@@ -636,8 +691,12 @@ export function closeShortNarrowings(
         const after = b < stretches.length ? stretches[b][side] : -Infinity;
         if (before > width && after > width && length <= maxLength) {
           const to = Math.min(before, after);
-          for (let k = a; k < b; k++) stretches[k][side] = to;
-          changed = true;
+          for (let k = a; k < b; k++) {
+            const raised = Math.min(to, stretches[k].max[side]);
+            if (raised <= stretches[k][side]) continue;
+            stretches[k][side] = raised;
+            changed = true;
+          }
         }
         a = b;
       }

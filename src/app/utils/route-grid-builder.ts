@@ -233,7 +233,7 @@ export function claimSegmentCells(
       const span: TunnelSpan | null = tunnel
         ? { ax: tunnel.ax, az: tunnel.az, bx: tunnel.bx, bz: tunnel.bz, f: tunnel.from + (tunnel.to - tunnel.from) * t }
         : null;
-      // The centre line's grid spot next to the cell, for the roof check in sampleCellY.
+      // The centre line's grid spot next to the cell, where the walk check starts (cellWalkable).
       const axisX = (lattice.index(start.x + dx * t) + 0.5) * cellSize;
       const axisZ = (lattice.index(start.z + dz * t) + 0.5) * cellSize;
       const anchorY = start.y + (end.y - start.y) * t;
@@ -333,8 +333,6 @@ function addCell(
       sampledAt: 0,
       tileDepth: 0,
       tileGeometricError: Infinity,
-      clamped: false,
-      stepTop: null,
     },
     heightSampled: false,
     enemies: new Set(),

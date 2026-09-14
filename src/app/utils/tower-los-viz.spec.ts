@@ -30,10 +30,7 @@ describe('TowerLosViz', () => {
   }
 
   const cube = new WebGLCubeRenderTarget(4);
-  const cells = [
-    { x: 0, z: 0, terrainHeight: 0, sample: { stepTop: null } },
-    { x: 2, z: 0, terrainHeight: 0, sample: { stepTop: null } },
-  ] as unknown as RouteCell[];
+  const cells = [{ x: 0, z: 0, terrainHeight: 0 }, { x: 2, z: 0, terrainHeight: 0 }] as unknown as RouteCell[];
   const ownTip = new Vector3(0, 12, 0);
 
   function build(mapper: ReturnType<typeof makeMapper>): TowerLosViz {

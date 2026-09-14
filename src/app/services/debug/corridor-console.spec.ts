@@ -51,11 +51,11 @@ describe('CorridorConsole', () => {
         airVisible: 9, airBlocked: 2, airMissing: 0,
         holes: ['h1', 'h2'],
         raised: Array.from({ length: 25 }, (_, i) => `r${i}`),
-        clamped: 2,
+        unwalkable: 2,
       })),
       centreLineCells: vi.fn(() => ({ cells: [cellA, cellC, cellD] })),
       describeCentreLine: vi.fn(() => ({
-        cells: 3, holes: ['h1'], unsampled: 1, groundBlocked: 1, raised: ['r0'], clamped: 0,
+        cells: 3, holes: ['h1'], unsampled: 1, groundBlocked: 1, raised: ['r0'], unwalkable: 0,
       })),
       // cellB was replaced since the display was built.
       getCellAt: vi.fn((x: number) => (x === cellB.x ? { ...cellB } : [cellA, cellC].find((c) => c.x === x))),
@@ -257,12 +257,12 @@ describe('CorridorConsole', () => {
       expect(result).toMatchObject({
         tower: 't1', range: 8, cells: 12, unsampled: 1,
         groundVisible: 7, groundBlocked: 3, groundMissing: 1, airVisible: 9, airBlocked: 2, airMissing: 0,
-        holes: 2, raised: 25, clamped: 2,
+        holes: 2, raised: 25, unwalkable: 2,
         displayed: 2,
         displayOutdated: 1,
         notDisplayed: 1,
         cubeFromTower: true,
-        centreCells: 3, centreMissing: 1, centreUnsampled: 1, centreBlocked: 1, centreRaised: 1, centreClamped: 0,
+        centreCells: 3, centreMissing: 1, centreUnsampled: 1, centreBlocked: 1, centreRaised: 1,
         // cellC is sampled and not drawn, cellD is not sampled.
         centreNotDisplayed: 1,
         holeCells: ['h1', 'h2'],

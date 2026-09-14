@@ -1,12 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { InstancedBufferAttribute, Matrix4, ShaderMaterial, Vector3, WebGLCubeRenderTarget } from 'three';
+import { InstancedBufferAttribute, ShaderMaterial, Vector3, WebGLCubeRenderTarget } from 'three';
 import { TowerLosLayer, TowerLosLayerBuilder, visibleLosLayers } from './tower-los-layer-builder';
 import { getAirTargetY, RouteCell } from './route-cell';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
-/** `stepTop`: the top of the car the step check took the cell down from. */
-function cell(x: number, z: number, terrainHeight: number, stepTop: number | null = null): RouteCell {
-  return { x, z, terrainHeight, sample: { stepTop } } as unknown as RouteCell;
+function cell(x: number, z: number, terrainHeight: number): RouteCell {
+  return { x, z, terrainHeight } as unknown as RouteCell;
 }
 
 const cubemap = new WebGLCubeRenderTarget(4);
@@ -94,16 +93,6 @@ describe('TowerLosLayerBuilder', () => {
       expect(groundY.getX(i)).toBeCloseTo(c.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset);
       expect(airY.getX(i)).toBeCloseTo(getAirTargetY(c));
     });
-  });
-
-  it('draws the ground plate of a cell beside a car on the street and samples above the car', () => {
-    // Street at 10 m, the step check took the cell down from a car roof at 11.5 m.
-    const l = build(true, false, [cell(2, 0, 10, 11.5)]);
-    const plate = new Matrix4();
-    l.groundMesh.getMatrixAt(0, plate);
-    expect(plate.elements[13]).toBeCloseTo(10 + LOS_VIZ_CONFIG.cellYOffset);
-    const groundY = l.groundMesh.geometry.getAttribute('aSampleY') as InstancedBufferAttribute;
-    expect(groundY.getX(0)).toBeCloseTo(11.5 + LOS_VIZ_CONFIG.groundSampleYOffset);
   });
 
   it('shows both layers for a mixed tower and follows the filter', () => {

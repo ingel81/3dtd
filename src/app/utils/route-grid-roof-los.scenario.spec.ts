@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 
 /**
- * Playtest 567 (fix session 2026-09-14): 66569eca moved the ground LOS probe
- * of a cell the step check put beside a car up above the car. A cell under an
- * eave, which the roof check put on the ground, keeps its probe 1.5 m above
- * that ground: `__corridor.pick()` answers for it as before, and
- * `__corridor.towerCells()` counts it under `clamped`.
+ * Playtest 567 (fix session 2026-09-14), after the user decision to leave the
+ * orange cells out: a cell under an eave is no longer put on the ground. It
+ * keeps the height its column finds, the eave, and the grid names it as a
+ * cell no enemy could walk to; the route service then ends the corridor
+ * before it (corridor-walk.ts, integration/corridor-walk.spec.ts). Where the
+ * corridor still holds such a cell (the grid alone here, as under towers),
+ * `__corridor.pick()` shows it as `walkable: false`, `__corridor.towerCells()`
+ * counts it under `unwalkable`, and its ground LOS probe is 1.5 m above the
+ * eave.
  *
  * The real grid with its sampler and LOS resolve, the console on it. The
  * cubemap is a stand-in: an eave 6 m up over the pavement south of z = 2.5
@@ -33,7 +37,7 @@ const coordinateSync = { geoToLocalSimple: (lat: number, lon: number) => ({ x: l
 /** A tower in front of the house, across the street. */
 const TOWER = { id: 't1', position: { lat: -6, lon: 20, height: 0 }, combat: { range: 12 } };
 
-describe('A cell under an eave in __corridor after 66569eca (playtest 567)', () => {
+describe('A cell under an eave in __corridor (playtest 567, orange cells left out)', () => {
   let grid: GlobalRouteGrid;
   let corridor: CorridorConsole;
   let picked: ((hit: { x: number; y: number; z: number }) => void) | null;
@@ -78,37 +82,41 @@ describe('A cell under an eave in __corridor after 66569eca (playtest 567)', () 
     vi.restoreAllMocks();
   });
 
-  it('probes the eave cell 1.5 m above its ground, as before 66569eca', () => {
+  it('keeps the eave cell at the eave, names it, and probes 1.5 m above it', () => {
     const eave = grid.getCellAt(20.5, 3.5)!;
-    expect(eave.sample).toMatchObject({ clamped: true, stepTop: null });
-    expect(eave.terrainHeight).toBe(0);
+    expect(eave.terrainHeight).toBe(6);
+    expect(grid.unwalkableCells()).toContain(eave);
 
     const probes = cube.mock.calls.filter((call) => call[3] === eave.x && call[5] === eave.z);
-    expect(probes.map((call) => call[4])).toEqual([0 + LOS_VIZ_CONFIG.groundSampleYOffset]);
-    expect(getGroundTargetY(eave)).toBe(LOS_VIZ_CONFIG.groundSampleYOffset);
+    expect(probes.map((call) => call[4])).toEqual([6 + LOS_VIZ_CONFIG.groundSampleYOffset]);
+    expect(getGroundTargetY(eave)).toBe(6 + LOS_VIZ_CONFIG.groundSampleYOffset);
   });
 
-  it('pick() answers for it from that probe: blocked under the eave, visible on the street', () => {
+  it('pick() shows it as a cell no enemy could walk to, the street before it as walkable', () => {
     const eave = grid.getCellAt(20.5, 3.5)!;
-    const road = grid.getCellAt(20.5, 1.5)!;
+    const pavement = grid.getCellAt(20.5, -0.5)!;
     api().pick();
     picked!({ x: eave.x, y: 0, z: eave.z });
 
     const rows = vi.mocked(console.table).mock.calls[0][0] as Record<string, unknown>[];
     expect(rows.find((r) => r['x'] === eave.x && r['z'] === eave.z))
-      .toMatchObject({ cell: true, clamped: true, heightM: 0, ground: 'blocked' });
-    expect(rows.find((r) => r['x'] === road.x && r['z'] === road.z))
-      .toMatchObject({ cell: true, clamped: false, ground: 'visible' });
+      .toMatchObject({ cell: true, walkable: false, heightM: 6 });
+    picked = null;
+    api().pick();
+    picked!({ x: pavement.x, y: 0, z: pavement.z });
+    const street = vi.mocked(console.table).mock.calls.at(-2)![0] as Record<string, unknown>[];
+    expect(street.find((r) => r['x'] === pavement.x && r['z'] === pavement.z))
+      .toMatchObject({ cell: true, walkable: true, heightM: 0, ground: 'visible' });
   });
 
-  it('towerCells() still counts it under clamped', () => {
+  it('towerCells() counts it under unwalkable', () => {
     const eave = grid.getCellAt(20.5, 3.5)!;
     const inRange = grid.getCellsInRange(20, -6, TOWER.combat.range);
-    const clamped = inRange.filter((c) => c.sample.clamped);
-    expect(clamped).toContain(eave);
+    const unwalkable = grid.unwalkableCells().filter((c) => inRange.includes(c));
+    expect(unwalkable).toContain(eave);
 
     const report = api().towerCells();
-    expect(report['clamped']).toBe(clamped.length);
-    expect(report['groundBlocked']).toBeGreaterThan(0);
+    expect(report['unwalkable']).toBe(unwalkable.length);
+    expect(report['clamped']).toBeUndefined();
   });
 });

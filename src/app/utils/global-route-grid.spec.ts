@@ -5,8 +5,6 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
 import { corridorConfig, lateralLimit, resetCorridorConfig } from './route-corridor';
 import { overlayCellKind } from './route-grid-aggregate-viz';
-import { getGroundTargetY } from './route-cell';
-import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { Vector3 } from 'three';
 import { METERS_PER_DEGREE_LAT } from './geo-utils';
 import { ROUTE_BODY_COVER, RouteBody, RouteBodyStations } from './route-body';
@@ -383,7 +381,7 @@ describe('GlobalRouteGrid tile seams', () => {
     grid.updateTerrainHeights();
     const cell = grid.getCellAt(21, 1)!;
     expect(cell.sample.state).toBe('unsampled');
-    expect(overlayCellKind(cell) & 7).toBe(3);
+    expect(overlayCellKind(cell) & 7).toBe(2);
   });
 });
 
@@ -712,11 +710,14 @@ describe('GlobalRouteGrid centre line', () => {
 });
 
 /**
- * Playtest 2026-09-12: edge cells sat on the eaves of houses at the street
- * and on a roof in an alley. The photogrammetry has no ground under a roof,
- * so the column there finds only the roof.
+ * Playtest 2026-09-12 and 2026-09-14: edge cells sat on the eaves of houses
+ * at the street, on a roof in an alley, on a parked van, on cars and
+ * hedges. The photogrammetry has no ground under any of them, so the
+ * column finds only their top. The cell keeps that height, the grid names
+ * it as a cell no enemy could walk to, and the route service ends the
+ * corridor before it (corridor-walk.ts).
  */
-describe('GlobalRouteGrid roof cells', () => {
+describe('GlobalRouteGrid cells an enemy could not walk to', () => {
   const coordinateSync = {
     geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
   } as never;
@@ -738,31 +739,34 @@ describe('GlobalRouteGrid roof cells', () => {
 
   afterEach(() => resetCorridorConfig());
 
-  it('puts a cell whose column finds only a roof back on the ground beside the route', () => {
+  /** Centres of the cells the grid names as unwalkable, as "x,z". */
+  const unwalkable = (grid: GlobalRouteGrid) => grid.unwalkableCells().map((c) => `${c.x},${c.z}`);
+
+  it('keeps a cell whose column finds only a roof on the roof and names it', () => {
     const grid = build(street(6));
     // Centre (21, 3): under the roof, 2 m off the centre line.
-    const eave = grid.getCellAt(20.5, 3.5)!;
-    expect(eave.terrainHeight).toBe(0);
-    expect(eave.sample.clamped).toBe(true);
-    expect(grid.getCellAt(20.5, 1.5)!.sample.clamped).toBe(false);
-    // Enemies stand on the ground there, not on the roof.
-    expect(grid.getGroundLocalYAt(20.5, 3.5)).toBe(0);
-    expect(grid.describeTowerRange('t1', 20, 1, 10).clamped).toBeGreaterThan(0);
+    expect(grid.getCellAt(20.5, 3.5)!.terrainHeight).toBe(6);
+    expect(unwalkable(grid)).toContain('21,3');
+    expect(unwalkable(grid)).not.toContain('21,1');
+    expect(unwalkable(grid)).not.toContain('21,-1');
+    expect(grid.describeTowerRange('t1', 20, 1, 10).unwalkable).toBeGreaterThan(0);
+    expect(grid.describeCellsAround(21, 3, 0.5, null)).toMatchObject([{ x: 21, z: 3, heightM: 6, walkable: false }]);
   });
 
-  it('keeps a rise below both thresholds, and a bridge deck', () => {
+  it('lets a rise below both thresholds be, and never judges a bridge deck', () => {
     // A 2 m rise is below roofRise; the step check would take it.
     corridorConfig.stepRise = 5;
-    expect(build(street(2)).getCellAt(20.5, 3.5)!.terrainHeight).toBe(2);
+    expect(build(street(2)).unwalkableCells()).toEqual([]);
     // Deck at 8 m over a street at 0: the edge cell stays on the deck.
     const bridge = build(street(0, 8), [at(0, 1, true), at(40, 1)]);
     expect(bridge.getCellAt(20.5, -0.5)!.terrainHeight).toBe(8);
+    expect(bridge.unwalkableCells()).toEqual([]);
   });
 
   it('takes the threshold from corridorConfig.roofRise', () => {
     corridorConfig.stepRise = 5;
     corridorConfig.roofRise = 1.5;
-    expect(build(street(2)).getCellAt(20.5, 3.5)!.sample.clamped).toBe(true);
+    expect(unwalkable(build(street(2)))).toContain('21,3');
   });
 
   /**
@@ -775,59 +779,38 @@ describe('GlobalRouteGrid roof cells', () => {
   /** Street at 0 m, a car (roof 1.5 m) parked 1 to 3 m south of the centre line, the pavement at 0.15 m behind it. */
   const parked = (_x: number, z: number) => column(z > 2 && z < 4 ? 1.5 : z >= 4 ? 0.15 : 0);
 
-  it('puts a cell on a parked car on the street in front of it, and keeps the pavement behind', () => {
+  it('names a cell on a parked car, not the pavement behind it', () => {
     const grid = build(parked);
-    // Centre (21, 3): on the car.
-    const car = grid.getCellAt(20.5, 3.5)!;
-    expect(car.terrainHeight).toBe(0);
-    expect(car.sample.clamped).toBe(true);
+    // Centre (21, 3): on the car, at the car's roof.
+    expect(grid.getCellAt(20.5, 3.5)!.terrainHeight).toBe(1.5);
+    expect(unwalkable(grid)).toContain('21,3');
     // Centre (21, 5): the pavement, reached past the car.
-    const pavement = grid.getCellAt(20.5, 5.5)!;
-    expect(pavement.terrainHeight).toBe(0.15);
-    expect(pavement.sample.clamped).toBe(false);
+    expect(grid.getCellAt(20.5, 5.5)!.terrainHeight).toBe(0.15);
+    expect(unwalkable(grid)).not.toContain('21,5');
 
     // The same car on a quay, the river 5 m down north of the centre line:
     // the drop is no slope the car could stand on.
     const quay = build((x, z) => (z < 0 ? column(-5) : parked(x, z)));
-    expect(quay.getCellAt(20.5, 3.5)!.terrainHeight).toBe(0);
+    expect(unwalkable(quay)).toContain('21,3');
   });
 
-  /**
-   * Review 2026-09-14 (C1): on the street, the ground LOS probe of a cell
-   * beside a van or a hedge lay in the object, and the cube called the cell
-   * blocked. It stays above the object's top, as before the step check; a
-   * cell under a roof keeps probing above its ground.
-   */
-  it('probes the LOS of a cell beside a car above the car, of a roof cell above its ground', () => {
-    const offset = LOS_VIZ_CONFIG.groundSampleYOffset;
-    const grid = build(parked);
-    const car = grid.getCellAt(20.5, 3.5)!;
-    expect(car.sample).toMatchObject({ clamped: true, stepTop: 1.5 });
-    expect(car.terrainHeight).toBe(0);
-    expect(getGroundTargetY(car)).toBe(1.5 + offset);
-    const pavement = grid.getCellAt(20.5, 5.5)!;
-    expect(pavement.sample.stepTop).toBeNull();
-    expect(getGroundTargetY(pavement)).toBe(0.15 + offset);
-
-    const eave = build(street(6)).getCellAt(20.5, 3.5)!;
-    expect(eave.sample).toMatchObject({ clamped: true, stepTop: null });
-    expect(getGroundTargetY(eave)).toBe(offset);
-  });
-
-  it('keeps the cells of a street across a slope', () => {
+  it('keeps the cells of a street across a slope walkable', () => {
     // A plane rising 0.5 m per metre southwards: 1 m from one cell to the
     // next, more than stepRise, but the ground falls as much on the other
     // side of the centre line.
     const grid = build((_x, z) => column((z - 1) * 0.5));
-    const outer = grid.getCellAt(20.5, 5.5)!;
-    expect(outer.terrainHeight).toBe(2);
-    expect(outer.sample.clamped).toBe(false);
+    expect(grid.getCellAt(20.5, 5.5)!.terrainHeight).toBe(2);
     expect(grid.getCellAt(20.5, 3.5)!.terrainHeight).toBe(1);
+    expect(grid.unwalkableCells()).toEqual([]);
   });
 
   it('takes the step from corridorConfig.stepRise', () => {
     corridorConfig.stepRise = 2;
-    expect(build(parked).getCellAt(20.5, 3.5)!.terrainHeight).toBe(1.5);
+    expect(build(parked).unwalkableCells()).toEqual([]);
+  });
+
+  it('judges no cell sampled from a tile coarser than maxTileError', () => {
+    expect(build((x, z) => ({ ...parked(x, z), tileGeometricError: 20 })).unwalkableCells()).toEqual([]);
   });
 });
 
@@ -935,7 +918,6 @@ describe('GlobalRouteGrid tunnels', () => {
     const inside = grid.getCellAt(31, 1)!;
     expect(inside.surface).toBe('tunnel');
     expect(inside.terrainHeight).toBeCloseTo((10 * 13) / 24, 6);
-    expect(inside.sample.clamped).toBe(false);
     expect(grid.getCellAt(10, 1)!.surface).toBe('ground');
     expect(grid.getCellAt(10, 1)!.terrainHeight).toBe(0);
     expect(grid.getCellAt(50, 1)!.terrainHeight).toBe(10);
