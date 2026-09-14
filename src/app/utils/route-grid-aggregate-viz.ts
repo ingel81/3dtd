@@ -22,13 +22,14 @@ const CELL_VIZ_Y_OFFSET_M = 0.05;
 
 /**
  * State of a cell for the overlay contour (`aCellKind`): 0 sampled on the
- * ground, 1 on a bridge deck, 2 without a height sample (the fallback
- * height; a tower's LOS display leaves these out), 3 in a tunnel or covered
- * passage. Plus 8 when the route centre line runs through the cell.
+ * ground, 1 on a bridge deck or on the stretch off its end (`approach`,
+ * whichever hit its column gave it), 2 without a height sample (the
+ * fallback height; a tower's LOS display leaves these out), 3 in a tunnel or
+ * covered passage. Plus 8 when the route centre line runs through the cell.
  */
 export function overlayCellKind(cell: RouteCell): number {
   const kind = !cell.heightSampled ? 2
-    : cell.surface === 'deck' ? 1
+    : cell.surface === 'deck' || cell.surface === 'approach' ? 1
     : cell.surface === 'tunnel' ? 3
     : 0;
   return cell.axisX === cell.x && cell.axisZ === cell.z ? kind + 8 : kind;

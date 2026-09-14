@@ -1,5 +1,6 @@
 import { ColumnSample, ColumnSampler, TerrainPeekLOD, isBetterLod } from '../three-engine/column-sample';
 import { RouteCell, TunnelSpan } from './route-cell';
+import { surfaceY } from './deck-approach';
 import { logGrid } from './route-grid-log';
 
 /** What one column gives a cell, see RouteCellSampler.hitOf. */
@@ -150,7 +151,8 @@ export class RouteCellSampler {
     // most four more column probes, only for such a cell. A column already
     // discards hits without usable LOD info (undecoded tile meshes) and
     // resolves ground against the finest LOD in it. A tunnel cell takes its
-    // portals instead.
+    // portals instead. A cell on the stretch off a bridge end compares with
+    // the deck at that end, and like a tunnel cell waits for a column there.
     this.raycastCount++;
     const sampler = this.columnSampler;
     if (sampler === null) return false;
@@ -160,13 +162,16 @@ export class RouteCellSampler {
     if (cell.surface === 'tunnel' && cell.tunnelSpan) {
       const column = this.tunnelColumn(cell.tunnelSpan);
       found = column !== null;
-      if (column !== null) hit = this.plausible(cell, this.hitOf(cell, column));
+      if (column !== null) hit = this.plausible(cell, this.hitOf(cell, column, null));
     } else {
+      const deckEnd = cell.surface === 'approach' ? cell.deckEnd : null;
+      const deck = deckEnd ? this.columnNear(deckEnd.x, deckEnd.z) : null;
       for (const [dx, dz] of RouteCellSampler.CELL_PROBES_M) {
+        if (deckEnd !== null && deck === null) break;
         const column = sampler(cell.x + dx, cell.z + dz);
         if (column === null) continue;
         found = true;
-        hit = this.plausible(cell, this.hitOf(cell, column));
+        hit = this.plausible(cell, this.hitOf(cell, column, deck));
         if (hit !== null) break;
       }
     }
@@ -250,17 +255,26 @@ export class RouteCellSampler {
 
   /**
    * The height `column` gives `cell`: a bridge deck is the top of its
-   * column, the ground is the bottom. A column at the corridor edge can
-   * come down on a roof, an eave, a crown or a parked car, which the
-   * photogrammetry has no ground under; the cell keeps that height, and the
-   * corridor ends before such a cell instead (corridor-walk.ts).
+   * column, the ground is the bottom. On the stretch off a bridge end
+   * (`deck`, the column at that end) the top where it carries on the deck,
+   * else the bottom (deckApproachY), with the coarser LOD of the two
+   * columns, so the cell is sampled again once the bridge end has a finer
+   * tile. A column at the corridor edge can come down on a roof, an eave, a
+   * crown or a parked car, which the photogrammetry has no ground under;
+   * the cell keeps that height, and the corridor ends before such a cell
+   * instead (corridor-walk.ts).
    */
-  private hitOf(cell: RouteCell, column: ColumnSample): CellHit {
-    return {
-      y: cell.surface === 'deck' ? column.topY : column.groundY,
-      tileDepth: column.tileDepth,
-      tileGeometricError: column.tileGeometricError,
-    };
+  private hitOf(cell: RouteCell, column: ColumnSample, deck: ColumnSample | null): CellHit {
+    // A tunnel cell's column is already the one between its portals (tunnelColumn).
+    const y = cell.surface === 'tunnel' ? column.groundY : surfaceY(cell.surface, column, deck?.topY ?? null) ?? column.groundY;
+    if (deck !== null) {
+      return {
+        y,
+        tileDepth: Math.min(column.tileDepth, deck.tileDepth),
+        tileGeometricError: Math.max(column.tileGeometricError, deck.tileGeometricError),
+      };
+    }
+    return { y, tileDepth: column.tileDepth, tileGeometricError: column.tileGeometricError };
   }
 
   /**

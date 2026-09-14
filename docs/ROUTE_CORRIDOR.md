@@ -20,7 +20,7 @@ Route (vom Spawn zum HQ).
 | Anpassung | `fitCorridorStations`, `fitCorridorPieces`, `closeShortNarrowings` (`route-corridor.ts`), `fitRoute`, `applyClearance` (`path-route.service.ts`) | Segmente geteilt, wo sich eine Seite ändert; Halbbreite links und rechts je Stück; kurze Engstellen geschlossen |
 | Waypoints | `path-route.service.ts:572-577` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts:336`) | 2-m-Zellen im Korridor |
-| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`) | Boden, Brückendeck, Tunnelsohle |
+| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/deck-approach.ts` | Boden, Brückendeck und seine Fortsetzung, Tunnelsohle |
 | Laufweg | `cellWalkable`, `walkCaps` (`utils/corridor-walk.ts`), `PathAndRouteService.narrowToWalkable`, `CorridorController.rebuildCorridors` | Zellen, zu denen kein Gegner laufen kann (Auto, Traufe, Hecke), fallen weg; die Halbbreite endet davor |
 | Gegner | `MovementComponent.advance` (`movement.component.ts:460-509`), `getRouteProfile` (`route-corridor.ts:762`) | Seitenversatz innerhalb der Zellen |
 | Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `CorridorController` (`services/world/corridor-controller.ts:42-66`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
@@ -298,7 +298,12 @@ Ausnahmen:
   `walkCheck: 'centre line on a roof'`, `heightM` auf der Straße und
   `columnBottomM` auf der Auskragung. Eine Urteilsfrage: Die
   Nutzerentscheidung vom 2026-09-14 ("Orange Zellen weglassen") galt
-  Randzellen, die wegfallen können; diese Zellen können es nicht.
+  Randzellen, die wegfallen können; diese Zellen können es nicht. Nur
+  Zellen der Fläche `ground`: Eine Zelle auf der Fortsetzung eines Decks
+  (`approach`, unten) behält ihren Treffer. Die Mittellinie um die letzten
+  Zellen der Fortsetzung reicht über sie hinaus auf Bodenzellen, deren
+  unterster Treffer unter einem weiterreichenden Deck der Kai sein kann; der
+  Median zöge eine Zelle auf dem Deck dorthin.
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
   (`path-route.service.ts:519`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
@@ -307,11 +312,33 @@ Ausnahmen:
   das runde Ende des anderen ändert sie nicht (`claimSegmentCells`,
   `alongClaims`). Erreichen zwei Segmente eine Zelle beide entlang ihrer
   Länge (eine Straße unter der Brücke) oder beide nur mit dem runden Ende,
-  bleibt sie am Boden. Vorher gewann der Boden immer: Das runde Ende der
+  gilt die tiefere Fläche: Boden vor Fortsetzung vor Deck
+  (`SURFACE_ORDER`). Vorher gewann der Boden immer: Das runde Ende der
   Zufahrt (bei 7 m Halbbreite 7 m weit) machte die ersten Meter des Decks zu
   Bodenzellen, und die nahmen den untersten Treffer, den Kai oder Fluss
   unter dem Deck (Playtest 2026-09-14, Paris, siehe "Linie, Zellen und
   Gegner verschwinden").
+- **Fortsetzung des Decks** (`approach`, `utils/deck-approach.ts`): Das
+  Bauwerk einer Brücke reicht oft über das Ende ihres OSM-Brücken-Ways
+  hinaus, die Ways dort tragen kein Brücken-Tag. Ein Segment, das an einem
+  Ende einer Folge von Brückensegmenten weiterläuft, ist bis
+  `DECK_APPROACH_M` (40 m) entlang der Route Fortsetzung, solange es an
+  jedem Knick höchstens `DECK_APPROACH_TURN_DEG` (45°) abbiegt und kein
+  Tunnel ist (`deckApproaches`). Seine Zellen tragen die Fläche `approach`
+  und das Brückenende (`deckEnd`). Höhe (`deckApproachY`): die Oberkante
+  der Säule, wenn sie höchstens `DECK_APPROACH_RISE_M` (1,5 m) von der
+  Oberkante der Säule am Brückenende abweicht (das Deck geht weiter), sonst
+  der unterste Treffer wie überall. Die LOD ist die gröbere der beiden
+  Säulen; ohne Säule am Brückenende wartet die Zelle wie ein Tunnel auf
+  seine Portale. Eine Straße auf Deckhöhe unter einer Krone, Laterne,
+  Statue oder Markise behält so ihren Boden (Oberkante mehr als 1,5 m
+  darüber), eine Treppe hinunter zum Kai oder eine Kaistraße im rechten
+  Winkel biegt ab und bleibt am Boden, eine Straße unter dem Deck gewinnt
+  als Boden (oben). Anlass: Playtest 2026-09-14, Retest 564, Paris, Pont
+  d'Iéna. `pick()` an einem Brückenkopf: Säulen mit Oberkante 79,8 bis
+  80,2 m (Deck) und Boden 71,4 bis 79,1 m, nächste Station auf Way
+  1423074549 ohne `bridge`; weiße Zellen lagen an beiden Köpfen tiefer als
+  das Deck, zum Teil im Kai.
 - **Tunnel und überdachte Durchgänge:** `runsUnderCover`
   (`route-corridor.ts:346`) gilt für `tunnel=*` außer `no` (also auch
   `building_passage`) und für `covered=yes`. Solche Segmente tragen `inTunnel`
@@ -341,8 +368,8 @@ Zelle. Vorher blieb sie im Korridor und wurde auf den Boden daneben gesetzt
 unter dem Dach.
 
 **Prüfung** (`judgeWalk`, `cellWalkable`, `utils/corridor-walk.ts`): für
-jede Zelle mit Fläche `ground` und einer eigenen Probe aus einem Tile bis
-`maxTileError`, durch die keine Mittellinie läuft. Bezug ist die Höhe der
+jede Zelle mit Fläche `ground` oder `approach` und einer eigenen Probe aus
+einem Tile bis `maxTileError`, durch die keine Mittellinie läuft. Bezug ist die Höhe der
 Mittellinie neben der Zelle (`centreLineGround`): der Median über die
 Mittellinien-Stelle daneben (`axisX`, `axisZ`, beim Anlegen festgelegt) und
 die Mittellinien-Stellen bis zwei Rasterschritte um sie (5×5), bei gerader
@@ -354,14 +381,19 @@ Weinstraße und Erlenweg, einzelne weiße Zellen in Kronen neben der Straße;
 nachgestellt in `integration/corridor-walk.spec.ts`). Drei hohe Stellen in
 Folge, etwa 6 m Krone über der Linie, kippen ihn weiter. Jede Stelle zählt
 mit der Fläche ihrer Zelle wie beim
-Sampeln: der unterste Treffer, auf einem Brückendeck der oberste; eine
-Tunnelstelle zählt nicht. Mit dem untersten Treffer auch der Deck-Stellen
+Sampeln (`surfaceY`, `deck-approach.ts`): der unterste Treffer, auf einem
+Brückendeck der oberste, auf der Fortsetzung eines Decks (`approach`) die
+Oberkante, wo sie das Deck am Brückenende fortsetzt; eine Tunnelstelle
+zählt nicht. Mit dem untersten Treffer auch der Deck-Stellen
 lagen an einem Brückenkopf auf einer schrägen Linie Randzellen 8 m über dem
 Median, dem Wasser unter dem Deck (Spec). Bis 2026-09-14 war es die eine Stelle.
 Lag sie unter einer Auskragung, deren Säule keinen Boden hat, zählte deren
 Unterseite: In Rothenburg (Retest 560 bis 563, Pick C) lag die Stelle 5,7 m
 über der Straße, und eine Zelle 2 m über der Straße unter einer Traufe
-bestand den Check.
+bestand den Check. Auf der Fortsetzung eines Decks steht auch der Weg nach
+außen auf dem Treffer, den eine Zelle dort nähme (`walkSurface`): auf dem
+Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Deck
+10 m über dem Kai und fiele als Dach weg.
 
 - **Dach-Check:** Liegt die Zelle mehr als `roofRise` (2,5 m) über der
   Höhe der Mittellinie daneben, ist sie nicht begehbar: Dach, Traufe,
@@ -400,6 +432,7 @@ bestand den Check.
 - **Kein Urteil** (`null`): Zellen, durch die eine Mittellinie läuft,
   auch wenn sie nur eine Ecke anschneidet (`centreLineKeys`; der Korridor
   nimmt sie bei jeder Breite, `walkCaps` lässt sie aus), Deck und Tunnel,
+  Fortsetzung ohne Säule am Brückenende (`no bridge end`),
   gefüllte und ungesampelte Zellen, Zellen aus Tiles gröber als
   `maxTileError` (ein grober Klumpen engt nichts ein; sie kommen dran,
   sobald ein feineres Tile da ist), eine Zelle ohne Säule an der
@@ -766,6 +799,7 @@ __corridor.pick(6)
        hält die Zelle trotzdem), `walkCheck` (warum: `walkable`, `roof`,
        `step`, `centre line`, `centre line on a roof` (auf die Straße gesetzt,
        siehe Zellhöhe), `coarse tile`, `no sample`, `deck or tunnel`,
+       `no bridge end` (Fortsetzung eines Decks ohne Säule am Brückenende),
        `no centre line ground`, `seam`), `overLineM` (Höhe über der
        Mittellinie, gegen die der Check misst; bei einer Zelle der
        Mittellinie über der Mittellinie ringsum), `aboveNeighboursM`,
@@ -866,11 +900,12 @@ Was der Code dazu sagt:
   `bridge=*` den obersten. Ein Way unter einer Brücke ist in OSM oft ohne
   `tunnel`, nur mit `layer=-1` oder ganz ohne Tag erfasst; dann ist die
   Zelle `ground`.
-- **Offen:** ob die kurzen Ways ohne Brücken-Tag selbst noch über dem Kai
-  liegen, weil das Bauwerk über das Ende des OSM-Brücken-Ways hinausreicht.
-  Dann liegen ihre Zellen weiter auf dem Kai (H2 unten). Das zeigt ein
-  `__corridor.pick()` mit Linksklick direkt auf die rote Linie an einer
-  Stelle, an der sie noch verschwindet.
+- **Behoben (H2):** Die kurzen Ways ohne Brücken-Tag lagen selbst noch
+  über dem Kai, das Bauwerk reicht über das Ende des OSM-Brücken-Ways
+  hinaus. Beleg aus dem Retest: `pick()` an einem Kopf, alle 14 Stellen mit
+  Oberkante 79,8 bis 80,2 m, nächste Station auf Way 1423074549 (2 m, ohne
+  `bridge`). Seitdem tragen solche Ways das Deck weiter (siehe Zellhöhe,
+  Fortsetzung des Decks).
 
 Ein `__corridor.pick()` je Stelle trennt die Fälle:
 
@@ -896,7 +931,7 @@ Die Kontur zeigt den Zustand, in dieser Rangfolge (`overlayCellKind`,
 | Kontur | Zustand |
 |---|---|
 | rosa | ohne Höhenprobe; die LOS-Anzeige eines Towers lässt die Zelle aus. Eine gefüllte Zelle (`filled`, siehe Zellhöhe) hat eine Höhe und die Kontur ihrer Fläche; `__corridor.pick()` zeigt sie als `state: 'filled'`, `__rg.dumpStats()` zählt sie unter `filled` |
-| blau | Brückendeck |
+| blau | Brückendeck, und die Fortsetzung eines Decks (`approach`), gleich welchen Treffer die Säule ihr gab; die Höhe zeigt, ob Deck oder Boden |
 | gelb | Tunnel oder überdachter Durchgang |
 | weiß | normal |
 
@@ -962,7 +997,16 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   steht das ganze Tunnelstück schief. Eine Kuppe oder Senke im Tunnel wird als
   Gerade zwischen den Portalen angenähert.
 - Zwei Routen auf verschiedenen Ebenen, die sich Zellen teilen: bei einer
-  Brücke gilt der Boden, bei einem Tunnel die Tunnelsohle.
+  Brücke und ihrer Fortsetzung gilt der Boden, bei einem Tunnel die
+  Tunnelsohle.
+- Fortsetzung eines Decks: Die Vergleichshöhe ist eine Säule, die am
+  Brückenende. Steht dort etwas auf dem Deck (Bus, Lieferwagen), fallen die
+  Zellen der Fortsetzung auf den untersten Treffer zurück, wie vor der
+  Regel. Ein Deck, das mehr als 1,5 m von der Höhe am Brückenende abweicht
+  (steiler als etwa 4 % über 40 m), oder das weiter als 40 m reicht, fällt
+  dort ebenso zurück. Ein Gegenstand auf Deckhöhe mit Boden darunter
+  (weniger als 1,5 m über dem Deck, etwa eine Bank) trägt die Zelle; der
+  Laufweg-Check sieht sie wie ein Auto.
 - Der Neuaufbau läuft weiter synchron in einem Frame, im Playtest etwa 40 ms
   (routes 14, lines 11, grid 10, heights 4 bis 6 ms), mit dem Laufweg bis
   zu zwei weitere Bauten von Routen, Grid und Höhen, nach diesen Zahlen je

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { RouteCell } from './route-cell';
-import { ColumnAt, WalkCapSegment, WalkGround, cellWalkable, judgeWalk, walkCaps } from './corridor-walk';
+import { ColumnAt, WalkCapSegment, WalkGround, cellWalkable, judgeWalk, streetUnderRoof, walkCaps } from './corridor-walk';
 import { corridorConfig, resetCorridorConfig } from './route-corridor';
 
 /** How much further than a piece's half width a neighbouring piece's round end reaches, plus a centimetre. */
@@ -97,13 +97,13 @@ describe('walkCaps', () => {
 describe('cellWalkable', () => {
   const flat = (): ColumnSample => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 2 });
   /** The columns, and a centre line running east through the grid spots at z = 1 (and through (1, 5) with `through`). */
-  const ground = (column: ColumnAt, through = false): WalkGround => ({
+  const ground = (column: ColumnAt, through = false, line: Pick<RouteCell, 'surface' | 'deckEnd'> = { surface: 'ground', deckEnd: null }): WalkGround => ({
     column,
-    lineSurface: (_x, z) => (Math.floor(z / 2) === 0 || (through && Math.floor(z / 2) === 2) ? 'ground' : null),
+    lineCell: (_x, z) => (Math.floor(z / 2) === 0 || (through && Math.floor(z / 2) === 2) ? line : null),
   });
   /** A cell 4 m south of the centre line spot (1, 1), 3 m up: on a roof over the street. */
   const cell = (over: Partial<RouteCell> = {}): RouteCell => ({
-    key: 0, x: 1, z: 5, axisX: 1, axisZ: 1, terrainHeight: 3, surface: 'ground', tunnelSpan: null, routeAnchorY: 0,
+    key: 0, x: 1, z: 5, axisX: 1, axisZ: 1, terrainHeight: 3, surface: 'ground', tunnelSpan: null, deckEnd: null, routeAnchorY: 0,
     sample: { state: 'stable', sampledAt: 1, tileDepth: 20, tileGeometricError: 2 },
     heightSampled: true, enemies: new Set(), towerVisibility: new Map(), airVisibility: new Map(),
     ...over,
@@ -132,5 +132,37 @@ describe('cellWalkable', () => {
     const roof = (x: number, z: number): ColumnSample => ({ ...flat(), groundY: x === 1 && z === 5 ? 3 : 0 });
     expect(judgeWalk(cell({ terrainHeight: 0 }), ground(roof, true), 2))
       .toEqual({ walkable: null, check: 'centre line on a roof', overLine: 0 });
+  });
+
+  it('walks out on the deck carried on past a bridge end, not on the quay under it', () => {
+    // The deck at 80 m over a quay at 70 m north of z = 3, solid ground at 80 m south of it.
+    const head = (_x: number, z: number): ColumnSample => (z < 3
+      ? { groundY: 70, topY: 80, tileDepth: 20, tileGeometricError: 2 }
+      : { groundY: 80, topY: 80, tileDepth: 20, tileGeometricError: 2 });
+    const deckEnd = { x: -20, z: 1 };
+    const onDeck = cell({ terrainHeight: 80, surface: 'approach', deckEnd });
+    // The centre line beside it is on the stretch as well, its spots on the deck.
+    const line = { surface: 'approach' as const, deckEnd };
+    expect(judgeWalk(onDeck, ground(head, false, line), 2)).toEqual({ walkable: true, check: 'walkable', overLine: 0 });
+    // Judged from the quay, the same cell would stand 10 m over the street.
+    expect(judgeWalk({ ...onDeck, surface: 'ground', deckEnd: null }, ground(head), 2))
+      .toEqual({ walkable: false, check: 'roof', overLine: 10 });
+    // A car on the deck carried on is still a car.
+    const car = (x: number, z: number) => (z > 4 ? { groundY: 81.5, topY: 81.5, tileDepth: 20, tileGeometricError: 2 } : head(x, z));
+    expect(cellWalkable({ ...onDeck, terrainHeight: 81.5 }, ground(car, false, line), 2)).toBe(false);
+    // No column at the bridge end: no judgement.
+    expect(judgeWalk(onDeck, ground((x, z) => (x < -10 ? null : head(x, z)), false, line), 2).check).toBe('no bridge end');
+  });
+
+  it('never pulls a cell on the deck carried on down to the quay under it', () => {
+    // A centre line cell of the stretch at 80 m among line spots on the ground, whose lowest hit is the quay at 70 m.
+    const quay = (): ColumnSample => ({ groundY: 70, topY: 80, tileDepth: 20, tileGeometricError: 2 });
+    const onLine = cell({ z: 1, terrainHeight: 80, surface: 'approach', deckEnd: { x: -20, z: 1 } });
+    expect(streetUnderRoof(onLine, 80, ground(quay), 2)).toBeNull();
+    // A ground cell there would take the line's ground, as under a jetty.
+    expect(streetUnderRoof({ ...onLine, surface: 'ground', deckEnd: null }, 80, ground(quay), 2)).toBe(70);
+    // With its line spots on the stretch as well, they count on the deck.
+    expect(judgeWalk({ ...cell({ terrainHeight: 80 }), surface: 'approach', deckEnd: { x: -20, z: 1 } },
+      ground(quay, false, { surface: 'approach', deckEnd: { x: -20, z: 1 } }), 2).overLine).toBe(0);
   });
 });

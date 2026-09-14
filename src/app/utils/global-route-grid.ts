@@ -144,14 +144,14 @@ export class GlobalRouteGrid {
 
   /**
    * What the walk check reads off this grid (corridor-walk.ts): the
-   * sampler's column probe, beside a seam as well, and the surface of the
-   * cells a centre line runs through.
+   * sampler's column probe, beside a seam as well, and the cells a centre
+   * line runs through.
    */
   private readonly walkGround: WalkGround = {
     column: (x, z) => this.sampler.columnNear(x, z),
-    lineSurface: (x, z) => {
+    lineCell: (x, z) => {
       const key = this.intCellKey(this.cellIndex(x), this.cellIndex(z));
-      return this.centreLine.has(key) ? this.cells.get(key)?.surface ?? null : null;
+      return this.centreLine.has(key) ? this.cells.get(key) ?? null : null;
     },
   };
 
@@ -348,7 +348,10 @@ export class GlobalRouteGrid {
    * height: where the bridge and its approach meet, a cell takes the
    * surface of the segment it lies along, not of the one that reaches it
    * only with a round end; a cell both reach along their length (a street
-   * under the bridge) stays on the ground (claimSegmentCells).
+   * under the bridge) stays on the ground (claimSegmentCells). Cells of a
+   * way that continues a bridge, up to DECK_APPROACH_M past its end, take
+   * the top of their column where it carries on the deck at the bridge end
+   * (`approach`, deck-approach.ts), else the ground.
    *
    * Cells of a segment in a tunnel or covered passage (`inTunnel`) take their
    * height between the ground just outside the two mouths of the stretch,

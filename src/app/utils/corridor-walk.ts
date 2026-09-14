@@ -3,6 +3,7 @@ import type { RouteCell } from './route-cell';
 import { RouteCellSampler } from './route-cell-sampler';
 import { corridorConfig, walkWidth } from './route-corridor';
 import { type RouteCellLattice, jointCap, segmentTouchesCell } from './route-grid-builder';
+import { surfaceY } from './deck-approach';
 
 /**
  * Where enemies can walk off the route centre line, and how that narrows
@@ -31,12 +32,13 @@ export interface WalkGround {
   /** The grid's column probe; the columns of the cells, cached by the engine. */
   column: ColumnAt;
   /**
-   * The surface of the cell at the grid spot around (x, z) where a route
-   * centre line runs through it, null where none does. The corridor claims
-   * such a cell at any width (claimSegmentCells), so no narrower corridor
-   * drops it.
+   * The cell at the grid spot around (x, z) where a route centre line runs
+   * through it, null where none does. The corridor claims such a cell at
+   * any width (claimSegmentCells), so no narrower corridor drops it. Its
+   * surface, and on the stretch off a bridge end its bridge end, tell which
+   * hit of its column counts (surfaceY).
    */
-  lineSurface: (x: number, z: number) => RouteCell['surface'] | null;
+  lineCell: (x: number, z: number) => Pick<RouteCell, 'surface' | 'deckEnd'> | null;
 }
 
 /**
@@ -50,6 +52,7 @@ export type WalkCheck =
   | 'centre line'
   | 'centre line on a roof'
   | 'deck or tunnel'
+  | 'no bridge end'
   | 'no sample'
   | 'coarse tile'
   | 'no centre line ground'
@@ -84,13 +87,18 @@ type LineGroundMemo = Map<number, number | null>;
  * the centre line cannot climb onto it (step check, see reached): a parked
  * car, a van, a hedge, a raised garden.
  *
+ * On the stretch off a bridge end (`approach`) the walk out stands on the
+ * hit a cell there takes (walkSurface), as the centre line spots do
+ * (centreLineGround): the deck carried on where it is, not the quay under
+ * it.
+ *
  * Null where that cannot be told or would change nothing: a cell without a
  * sample of its own, one sampled from a tile coarser than `maxTileError`
  * (told once a finer one has streamed in, so a coarse hull narrows
  * nothing), a cell a centre line runs through (the corridor keeps it at
  * any width, even where the line only clips a corner), a deck or tunnel
- * cell, no column on the centre line beside it, or one more than OUTLIER_M
- * from that (a seam).
+ * cell, an approach cell without a column at its bridge end, no column on
+ * the centre line beside it, or one more than OUTLIER_M from that (a seam).
  *
  * @param memo Keeps centreLineGround per grid spot over a pass that judges
  *   many cells: the edge cells beside one spot share it.
@@ -107,14 +115,16 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround, cellSize: number,
     }
     return y;
   };
-  if (cell.surface !== 'ground') return unjudged('deck or tunnel');
+  if (cell.surface === 'deck' || cell.surface === 'tunnel') return unjudged('deck or tunnel');
   if (cell.sample.state !== 'stable') return unjudged('no sample');
-  if (ground.lineSurface(cell.x, cell.z) !== null) {
+  const surfaceOf = walkSurface(cell, ground.column);
+  if (surfaceOf === null) return unjudged('no bridge end');
+  if (ground.lineCell(cell.x, cell.z) !== null) {
     const lineY = lineGround(cell.x, cell.z);
     if (lineY === null) return unjudged('centre line');
     // Its own column on a roof over the line: the grid put it on the street.
     const own = ground.column(cell.x, cell.z);
-    const lifted = own !== null && own.groundY - lineY > corridorConfig.roofRise;
+    const lifted = own !== null && surfaceOf(own) - lineY > corridorConfig.roofRise;
     return unjudged(lifted ? 'centre line on a roof' : 'centre line', cell.terrainHeight - lineY);
   }
   if (cell.sample.tileGeometricError > corridorConfig.maxTileError) return unjudged('coarse tile');
@@ -123,8 +133,36 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround, cellSize: number,
   const rise = cell.terrainHeight - axisY;
   if (Math.abs(rise) > RouteCellSampler.OUTLIER_M) return unjudged('seam', rise);
   if (rise > corridorConfig.roofRise) return { walkable: false, check: 'roof', overLine: rise };
-  const walkable = reached(cell, axisY, ground.column, cellSize);
+  const walkable = reached(cell, axisY, ground.column, surfaceOf, cellSize);
   return { walkable, check: walkable ? 'walkable' : 'step', overLine: rise };
+}
+
+/** The height a column gives a walk, see walkSurface. */
+type SurfaceY = (column: ColumnSample) => number;
+
+const groundOf: SurfaceY = (column) => column.groundY;
+
+/**
+ * The top of the column at the bridge end of an `approach` cell
+ * (RouteCell.deckEnd), which its hits compare with (surfaceY); null for any
+ * other cell and where that column is missing.
+ */
+function deckTop(cell: Pick<RouteCell, 'surface' | 'deckEnd'>, column: ColumnAt): number | null {
+  if (cell.surface !== 'approach' || cell.deckEnd === null) return null;
+  return column(cell.deckEnd.x, cell.deckEnd.z)?.topY ?? null;
+}
+
+/**
+ * The hit of each column a walk out to `cell` stands on: the hit a cell of
+ * its surface would take there (surfaceY), the ground or, on the stretch
+ * off a bridge end, the deck carried on where it is. Null for an approach
+ * cell without a column at its bridge end.
+ */
+function walkSurface(cell: RouteCell, column: ColumnAt): SurfaceY | null {
+  if (cell.surface === 'ground') return groundOf;
+  const deckY = deckTop(cell, column);
+  if (deckY === null) return null;
+  return (probe) => surfaceY(cell.surface, probe, deckY) ?? probe.groundY;
 }
 
 /**
@@ -187,9 +225,16 @@ export function centreLineKeys(routes: readonly (readonly { x: number; z: number
  * the line rises far less than `roofRise` from one spot to the next; the
  * median keeps up to two raised spots in a row, the cell and one beside
  * it, out of the reference.
+ *
+ * Ground cells only. On the stretch off a bridge end (`approach`) the hit
+ * is already the deck carried on or, where the top does not carry it on,
+ * the lowest hit; and the line around the last cells of the stretch
+ * reaches past it, onto ground spots that may take the quay under a deck
+ * that goes on further: the median would pull a cell on the deck down to
+ * the quay.
  */
 export function streetUnderRoof(cell: RouteCell, y: number, ground: WalkGround, cellSize: number): number | null {
-  if (cell.surface !== 'ground' || ground.lineSurface(cell.x, cell.z) === null) return null;
+  if (cell.surface !== 'ground' || ground.lineCell(cell.x, cell.z) === null) return null;
   const lineY = centreLineGround(cell.x, cell.z, ground, cellSize);
   return lineY !== null && y - lineY > corridorConfig.roofRise ? lineY : null;
 }
@@ -217,8 +262,10 @@ const LINE_REACH = 2;
  * do not tip it; with one either way, a tree crown over two spots of the
  * street did (playtest Erlenbach: cells in crowns beside the street). Three
  * in a row, 6 m of crown over the line, still do. A spot counts with the surface
- * its cell stands on, as RouteCellSampler.hitOf takes it: the lowest hit of
- * its column, the highest on a bridge deck; a tunnel spot not at all. With
+ * its cell stands on, as RouteCellSampler.hitOf takes it (surfaceY): the
+ * lowest hit of its column, the highest on a bridge deck, the deck carried
+ * on past a bridge end where its top continues it; a tunnel spot not at
+ * all, nor a spot of the stretch without a column at its bridge end. With
  * the lowest hit of the deck spots, the water under the deck, the edge
  * cells at the head of a bridge on a diagonal line stood 8 m over the
  * median and were judged a roof. Null where none of them has a column.
@@ -236,10 +283,12 @@ export function centreLineGround(x: number, z: number, ground: WalkGround, cellS
     for (let dz = -LINE_REACH; dz <= LINE_REACH; dz++) {
       const sx = x + dx * cellSize;
       const sz = z + dz * cellSize;
-      const surface = ground.lineSurface(sx, sz);
-      if (surface === null || surface === 'tunnel') continue;
+      const line = ground.lineCell(sx, sz);
+      if (line === null || line.surface === 'tunnel') continue;
       const column = ground.column(sx, sz);
-      if (column !== null) heights.push(surface === 'deck' ? column.topY : column.groundY);
+      if (column === null) continue;
+      const y = surfaceY(line.surface, column, deckTop(line, ground.column));
+      if (y !== null) heights.push(y);
     }
   }
   if (heights.length === 0) return null;
@@ -256,9 +305,10 @@ export function centreLineGround(x: number, z: number, ground: WalkGround, cellS
  * so far, or above the last one plus the cross slope for every spot since
  * (crossSlope). So it goes down a ditch or a drop (up to OUTLIER_M, deeper is
  * a seam), up a kerb, a step or a slope, but not onto a car, a van or a
- * hedge; the ground beyond one of those counts again.
+ * hedge; the ground beyond one of those counts again. `surfaceY`: the hit
+ * of each column the walk stands on (walkSurface).
  */
-function reached(cell: RouteCell, axisY: number, column: ColumnAt, cellSize: number): boolean {
+function reached(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: SurfaceY, cellSize: number): boolean {
   const y = cell.terrainHeight;
   // The walk never reaches less than the centre line, so a cell at most one
   // step above it is reached whatever lies in between: no probes on the way
@@ -277,7 +327,7 @@ function reached(cell: RouteCell, axisY: number, column: ColumnAt, cellSize: num
   // uneven steps, the first one often none. The same spots otherwise.
   const ux = (cell.x - cell.axisX) / steps;
   const uz = (cell.z - cell.axisZ) / steps;
-  const slope = crossSlope(axisY, column(cell.axisX + ux, cell.axisZ + uz), column(cell.axisX - ux, cell.axisZ - uz));
+  const slope = crossSlope(axisY, column(cell.axisX + ux, cell.axisZ + uz), column(cell.axisX - ux, cell.axisZ - uz), surfaceY);
 
   let top = axisY;
   let last = axisY;
@@ -287,7 +337,7 @@ function reached(cell: RouteCell, axisY: number, column: ColumnAt, cellSize: num
   for (let k = 1; k < steps; k++) {
     const probe = spot(k);
     if (probe === null) continue;
-    const ground = probe.groundY;
+    const ground = surfaceY(probe);
     if (!reaches(ground, k) || ground < top - RouteCellSampler.OUTLIER_M) continue;
     last = ground;
     lastK = k;
@@ -306,10 +356,10 @@ function reached(cell: RouteCell, axisY: number, column: ColumnAt, cellSize: num
  * alike (DevWorld's terrain as well). As the tower footprint's cursorSlope
  * does it.
  */
-function crossSlope(axisY: number, up: ColumnSample | null, down: ColumnSample | null): number {
+function crossSlope(axisY: number, up: ColumnSample | null, down: ColumnSample | null, surfaceY: SurfaceY): number {
   if (up === null || down === null) return 0;
-  const rise = up.groundY - axisY;
-  const fall = axisY - down.groundY;
+  const rise = surfaceY(up) - axisY;
+  const fall = axisY - surfaceY(down);
   if (rise <= 0 || fall <= 0 || Math.abs(rise - fall) > corridorConfig.stepRise) return 0;
   return Math.min(rise, fall);
 }

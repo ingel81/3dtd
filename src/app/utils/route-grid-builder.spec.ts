@@ -97,6 +97,35 @@ describe('claimSegmentCells', () => {
     expect(cellAt(reversed, 20.5, 4.5)).toMatchObject({ surface: 'deck', axisX: 21 });
     expect(cellAt(reversed, 18.5, 4.5)).toMatchObject({ surface: 'ground', axisX: 19 });
   });
+
+  it('puts the ground before the stretch off a bridge end, and that before the deck, whichever comes first', () => {
+    const deckEnd = { x: 0, z: 1 };
+    // The bridge east along z = 1 to x = 0, the way off it on at 30 degrees to the south-east, 20 m.
+    const bridge = (cells: Map<number, RouteCell>, claims: Set<number>) =>
+      claimSegmentCells(cells, lattice, p(-40, 1), p(0, 1), 3, 3, true, null, undefined, claims);
+    const offBridge = (cells: Map<number, RouteCell>, claims: Set<number>) =>
+      claimSegmentCells(cells, lattice, p(0, 1), p(20 * Math.cos(Math.PI / 6), 11), 3, 3, false, null, undefined, claims,
+        [{ deckEnd, from: 0, to: 20 }]);
+    // A street under both, along x = -11 and x = 9.
+    const under = (cells: Map<number, RouteCell>, claims: Set<number>) => {
+      claimSegmentCells(cells, lattice, p(-11, -10), p(-11, 10), 1, 1, false, null, undefined, claims);
+      claimSegmentCells(cells, lattice, p(9, -10), p(9, 20), 1, 1, false, null, undefined, claims);
+    };
+
+    for (const order of [[bridge, offBridge, under], [under, offBridge, bridge]]) {
+      const cells = new Map<number, RouteCell>();
+      const claims = new Set<number>();
+      for (const claim of order) claim(cells, claims);
+      // Centre (5, 5): along the way off the bridge, compared with the deck at its end.
+      expect(cellAt(cells, 4.5, 4.5)).toMatchObject({ surface: 'approach', deckEnd });
+      // Centre (-1, 3), inside the bend: along both.
+      expect(cellAt(cells, -1.5, 2.5)).toMatchObject({ surface: 'approach', deckEnd });
+      expect(cellAt(cells, -21.5, 2.5)).toMatchObject({ surface: 'deck', deckEnd: null });
+      // Where the street under them crosses.
+      expect(cellAt(cells, -11.5, 0.5)).toMatchObject({ surface: 'ground', deckEnd: null });
+      expect(cellAt(cells, 8.5, 6.5)).toMatchObject({ surface: 'ground', deckEnd: null });
+    }
+  });
 });
 
 describe('claimRouteCells', () => {
@@ -153,6 +182,24 @@ describe('claimRouteCells', () => {
     expect(cellAt(cells, 18.5, -4.5)).toBeDefined(); // centre (19, -5): 6 m left before the corner
     expect(cellAt(cells, 20.5, 0.5)).toBeDefined(); // centre (21, 1): round the corner
     expect(cellAt(cells, 22.5, -2.5)).toBeUndefined(); // centre (23, -3): 5 m from the corner
+  });
+
+  it('makes the cells of the ways off a bridge end approach cells, as far as DECK_APPROACH_M along the route', () => {
+    const cells = new Map<number, RouteCell>();
+    const at = (onBridge?: boolean): RouteWaypoint => ({ lat: 0, lon: 0, corridorLeft: 3, corridorRight: 3, onBridge });
+    // Eastbound along z = 1: a way to the bridge, the bridge 30 to 90, then 60 m of way off it.
+    claimRouteCells(cells, lattice, [at(), at(true), at(), at()], [p(0, 1), p(30, 1), p(90, 1), p(150, 1)]);
+
+    expect(cellAt(cells, 10.5, 2.5)).toMatchObject({ surface: 'approach', deckEnd: { x: 30, z: 1 } });
+    expect(cellAt(cells, 60.5, 2.5)).toMatchObject({ surface: 'deck', deckEnd: null });
+    expect(cellAt(cells, 128.5, 2.5)).toMatchObject({ surface: 'approach', deckEnd: { x: 90, z: 1 } });
+    // Centre (133, 3): 43 m past the bridge end.
+    expect(cellAt(cells, 132.5, 2.5)).toMatchObject({ surface: 'ground', deckEnd: null });
+
+    // Turning off the bridge at its end: the ground.
+    const turn = new Map<number, RouteCell>();
+    claimRouteCells(turn, lattice, [at(true), at(), at()], [p(0, 1), p(60, 1), p(60, 40)]);
+    expect(cellAt(turn, 60.5, 20.5)).toMatchObject({ surface: 'ground' });
   });
 
   it('keeps a round end of the full half width at the ends of the route', () => {

@@ -64,14 +64,23 @@ export interface RouteCell {
   /**
    * Which surface of the column the cell stands on: `ground` is the lowest
    * hit, `deck` the highest, the deck of a bridge the route crosses rather
-   * than the river or road below it. `tunnel`: neither, the cell lies in a
-   * tunnel or covered passage and takes its height between the portals
-   * (`tunnelSpan`). Set at generation from the OSM tags of the segments
-   * that reach the cell, read by `sampleCellY`.
+   * than the river or road below it. `approach`: on a way that continues a
+   * bridge, near its end (deck-approach.ts), the highest hit where it
+   * carries on the deck at the bridge end (`deckEnd`), else the lowest.
+   * `tunnel`: none of them, the cell lies in a tunnel or covered passage
+   * and takes its height between the portals (`tunnelSpan`). Set at
+   * generation from the OSM tags of the segments that reach the cell, read
+   * by `sampleCellY`.
    */
-  surface: 'ground' | 'deck' | 'tunnel';
+  surface: 'ground' | 'approach' | 'deck' | 'tunnel';
   /** Portals a `tunnel` cell takes its height between; null on every other cell. */
   tunnelSpan: TunnelSpan | null;
+  /**
+   * Where the bridge an `approach` cell continues ends, local x, z: the top
+   * of the column there is the deck height it compares with
+   * (deckApproachY). Null on every other cell.
+   */
+  deckEnd: DeckEnd | null;
   /**
    * Route-anchor Y, taken at generation time from the smoothed route height
    * at the nearest route sample point. Stands in as `terrainHeight` until the
@@ -109,6 +118,12 @@ export interface TunnelSpan {
   bx: number;
   bz: number;
   f: number;
+}
+
+/** The end of a bridge, local x, z, see RouteCell.deckEnd. */
+export interface DeckEnd {
+  x: number;
+  z: number;
 }
 
 /**
