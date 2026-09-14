@@ -1,6 +1,6 @@
 # Handover — Phase 5.16 Balance Pass
 
-**Stand:** Geparkt — Branch ist auf `main` gemerged, offene Followups warten auf Live-Playtest.
+**Stand:** Historisch, Protokoll des Phase-5.16-Balance-Passes (Mai 2026). Aktuell sind [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) und die Configs; die Gold-Zahlen hier sind überholt, unter anderem zahlen Boss-Wellen ab W31 seit 2026-09-11 das doppelte Budget.
 **Branch:** `feature/phase5.5-economy-ai-prep` (gemerged 2026-05-08)
 **Build-Status:** grün, zuletzt 642/642 Tests pass (Engine Cleanup-Pass 2026-05-11)
 **Letzte Aktualisierung:** 2026-08-27 (Korrekturen, siehe Kasten)
