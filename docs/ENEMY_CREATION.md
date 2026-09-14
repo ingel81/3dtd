@@ -51,7 +51,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | **worm** | heavy | 35 je Segment | 4.5 | – | Boss, Kette aus Segmenten (`chain`, siehe [Kette](#kette-chain-der-wurm)), jedes Segment ein eigener Gegner; Endlos-Rotation ab W35, kein Template |
 | worm-segment | heavy | 35 | 4.5 | – | Modell der Wurm-Segmente (eigener VAT-Pool, statisch). Einzeln gespawnt ein einzelner Ring mit den Werten des Wurms |
 | **ooze** | unarmored | 3000 | 3 | – | Boss (2026-09-14), `isBoss`, ein Körper entlang der Route statt eines Modells ([Körper entlang der Route](#körper-entlang-der-route-ooze)), fließt an der HQ Meter für Meter hinein, zerfällt beim Kill in Slime Clumps. Boss-Variante der Endlos-Rotation, kein Template |
-| slime-clump | unarmored | 30 | 4.5 | – | Nur aus dem Split der Ooze, kein Template. `slime.glb` bei `scale: 0.9` (Hüpfer `Wobble`, Tod `Splat`), grünes Blut (`bloodColor`) |
+| slime-clump | unarmored | 15 | 4.5 | – | Nur aus dem Split der Ooze, kein Template. `slime.glb` bei `scale: 0.9` (Hüpfer `Wobble`, Tod `Splat`), grünes Blut (`bloodColor`) |
 
 > **Wave-Director:** Stone Golem ist seit 2026-08-27 angebunden — Template
 > `golem_squad` (`src/app/ai/core/templates.ts`, `minWave: 14`) steht auf Wave 15
@@ -538,7 +538,7 @@ ooze: {
   isBoss: true,
   lateralSpread: 0,   // die Spitze bleibt auf der Mittellinie, der Körper füllt den Korridor
   ooze: { maxLengthM: 80, leakDamageFactor: 10 },
-  splitOnDeath: { type: 'slime-clump', count: 10, spread: 0.8 },
+  splitOnDeath: { type: 'slime-clump', count: 20, spread: 0.8 },
   bloodColor: '#6fe021',
 }
 ```
@@ -555,7 +555,7 @@ ooze: {
 | Grid | Die Ooze steht in keiner Zelle und nicht im Spatial-Grid, sondern in der Körperliste des Route-Grids. Tower bekommen sie als Kandidat dazu, der Weckcheck schlafender Tower fragt `hasBodyWithin` | `getBodyEnemies`, `tower-combat.service.ts` |
 | Status-Effekte | Wirken auf das Ganze: Slow verlangsamt die Spitze, der Schwanz folgt; Poison und Burn ticken auf den einen Pool. Das Band tönt sich (Slow blau, Poison dunkler, Burn glüht) | wie jeder Gegner, `OozeBandRenderer.setFrame` |
 | Leck | An der HQ bleibt die Spitze stehen, der Körper fließt mit dem Tempo der Spitze hinein (Slow wirkt, pausiert fließt nichts). Jeder Meter kostet `leakDamageFactor × enemyBaseDamageForWave(welle) / maxLengthM`, bei 10 und 80 m 0,125 Lecks, abgerechnet in ganzen Punkten als `enemy:leaking` und gedeckelt durch `maxLeakDamagePerWave` wie jedes Leck. Die HP sinken mit der verbleibenden Länge, die Ooze bleibt tötbar. Ist alles drin, kommt einmal `enemy:reached-base` mit dem Rest | `OozeBodies.update`, `OozeBody.flowIn`, `owe`, `settle` |
-| Tod | Ein Kill teilt sie über `splitOnDeath` in `slime-clump`s entlang des Körpers, je Kind die Mitte seines Anteils, einer je 8 m verbleibender Körper (`maxLengthM / count`), mindestens einer. Die Gold-Slots fehlender Clumps bleiben unbezahlt wie bei einem Leck | `EnemyManager.splitOnDeath`, `OozeBodies.splitCount`, `placeSplitChild` |
+| Tod | Ein Kill teilt sie über `splitOnDeath` in `slime-clump`s entlang des Körpers, je Kind die Mitte seines Anteils, einer je 4 m verbleibender Körper (`maxLengthM / count`, bis 20), mindestens einer. Bis 2026-09-14 waren es bis zu 10 Clumps zu 30 HP; 20 zu 15 HP halten dieselben 300 HP (× HP-Multiplikator), das Wellengold verteilt sich auf 21 statt 11 Slots. Die Gold-Slots fehlender Clumps bleiben unbezahlt wie bei einem Leck | `EnemyManager.splitOnDeath`, `OozeBodies.splitCount`, `placeSplitChild` |
 | Klang | Im Code synthetisiert, kein Asset (`utils/ooze-sound.ts`). Ein Blubber-Loop je Ooze sitzt am Punkt des Körpers, der dem Hörer am nächsten ist, und rückt einmal pro Frame nach; er zählt nicht zum Enemy-Sound-Budget. Beim Kill endet er in einem Splat an diesem Punkt. Fließt die Ooze in die HQ, schlürft es alle 3 m, in Spielzeit. In der Pause steht der Loop | `OozeSounds` (`managers/ooze-sounds.ts`), `OOZE_SOUNDS` (`configs/audio.config.ts`), SPATIAL_AUDIO.md |
 | Darstellung | `OozeBandRenderer` (`tilesEngine.oozes`): ein Band pro Ooze. Die Geometrie deckt die ganze Route, wird einmal pro Pfad gebaut und geteilt; pro Frame setzt `presentFrame` nur Uniforms. Den Boden unter dem Körper liest der Renderer einmal je Spielsekunde neu. Aussehen in `OOZE_LOOK` | `three-engine/renderers/ooze/` |
 | Vorschau | `slime.glb` (Generator `tools/slime-model/build-slime-glb.mjs`) zeigt die Sidebar; für die Ooze bäckt der Instanz-Renderer keinen Pool | `InstancedEnemyRenderer.preloadAllModels` |

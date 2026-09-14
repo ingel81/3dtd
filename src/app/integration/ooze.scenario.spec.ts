@@ -209,9 +209,9 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
 
   it.each([
     [500, 1],
-    [5_000, 2],
-    [8_000, 3],
-    [28_000, 10],
+    [5_000, 4],
+    [8_000, 6],
+    [28_000, 20],
   ])('363: killed %i ms after its spawn it breaks into %i clumps', (ms, count) => {
     const ooze = startOoze(1);
     run(ms);
@@ -224,7 +224,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     run(28_000);
     m.enemyManager.kill(ooze);
     const clumps = alive('slime-clump');
-    expect(clumps).toHaveLength(10);
+    expect(clumps).toHaveLength(20);
     run(3_000);
     expect(m.waveManager.checkWaveComplete()).toBe(false);
 

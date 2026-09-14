@@ -133,20 +133,20 @@ describe('Ooze integration', () => {
       tickEngine(m, 28_000, clock);
       expect(ooze.body!.lengthM).toBeCloseTo(80, 5);
       m.enemyManager.kill(ooze);
-      expect(alive(CLUMP)).toHaveLength(10);
+      expect(alive(CLUMP)).toHaveLength(20);
       for (const clump of alive(CLUMP)) m.enemyManager.kill(clump);
     };
 
-    it('counts the ooze and its ten clumps as bodies of the wave', () => {
+    it('counts the ooze and its twenty clumps as bodies of the wave', () => {
       startOoze();
       expect(m.waveManager.getExpectedEnemyCount()).toBe(1);
-      expect(m.waveManager.getExpectedBodyCount()).toBe(11);
+      expect(m.waveManager.getExpectedBodyCount()).toBe(21);
     });
 
     it('pays exactly the wave budget when the ooze and all its clumps die', () => {
       killFullOoze();
 
-      expect(credits).toHaveLength(11);
+      expect(credits).toHaveLength(21);
       expect(paid()).toBe(goldBudgetForWave(1).kill);
       expect(Math.max(...credits) - Math.min(...credits)).toBeLessThanOrEqual(1);
       tickEngine(m, 3_000, clock); // the clumps' death animation is over
@@ -155,16 +155,17 @@ describe('Ooze integration', () => {
 
     it('leaves the slots of the clumps a young body never became unpaid', () => {
       const ooze = startOoze();
-      tickEngine(m, 9_000, clock); // 27 m of body: 3 of 10 clumps
+      tickEngine(m, 9_000, clock); // 27 m of body: 7 of 20 clumps
       m.enemyManager.kill(ooze);
-      expect(alive(CLUMP)).toHaveLength(3);
+      expect(alive(CLUMP)).toHaveLength(7);
       for (const clump of alive(CLUMP)) m.enemyManager.kill(clump);
 
-      // 4 of 11 slots paid, the floor accumulator leaves at most one coin of rounding
+      // 8 of 21 slots paid; each paid slot floors its share and leaves the
+      // remainder to the later slots, which stay unpaid
       const budget = goldBudgetForWave(1).kill;
-      expect(credits).toHaveLength(4);
-      expect(paid()).toBeGreaterThanOrEqual(Math.floor((budget * 4) / 11));
-      expect(paid()).toBeLessThanOrEqual(Math.ceil((budget * 4) / 11));
+      expect(credits).toHaveLength(8);
+      expect(paid()).toBeGreaterThanOrEqual(8 * Math.floor(budget / 21));
+      expect(paid()).toBeLessThanOrEqual(Math.ceil((budget * 8) / 21));
       tickEngine(m, 3_000, clock);
       expect(m.waveManager.checkWaveComplete()).toBe(true);
     });
@@ -174,8 +175,40 @@ describe('Ooze integration', () => {
       m.enemyManager.setWaveNumberProvider(() => 45);
       killFullOoze();
 
-      expect(credits).toHaveLength(11);
+      expect(credits).toHaveLength(21);
       expect(paid()).toBe(goldBudgetForWave(45).kill);
     });
+  });
+
+  it('breaks into the same clumps in the same sub-step at 1 and 4 sub-steps per frame', () => {
+    const split = (stepsPerFrame: number) => {
+      const m = createWiredManagers();
+      m.waveManager.startWave(makeSingleTypeWaveConfig({ count: 1, type: 'ooze' }));
+      const STEP = 16.667;
+      let now = 0;
+      const frames = (steps: number) => {
+        for (let f = 0; f < steps / stepsPerFrame; f++) {
+          for (let s = 0; s < stepsPerFrame; s++) {
+            now += STEP;
+            m.waveManager.tickSpawn(STEP);
+            m.enemyManager.update(STEP, now);
+          }
+        }
+      };
+      const clumps = () => m.enemyManager.getAlive().map((e) => [
+        e.movement.getDistanceAlongPath(), e.movement.getLateralFactor(), e.health.maxHp,
+      ]);
+      frames(1680); // 28 s: the body is full
+      m.enemyManager.kill(m.enemyManager.getAlive()[0]);
+      const atKill = clumps();
+      frames(120); // 2 s of hopping on
+      const later = clumps();
+      m.enemyManager.clear();
+      return { atKill, later };
+    };
+    const one = split(1);
+    expect(one.atKill).toHaveLength(20);
+    expect(one.later).toHaveLength(20);
+    expect(split(4)).toEqual(one);
   });
 });
