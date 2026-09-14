@@ -1,6 +1,8 @@
 # UX-Diskussionsnotizen
 
-**Status:** Diskussionsgrundlage, kein Code.
+**Status:** Bericht. Teil A ist entschieden und gebaut (2026-09-12). Teil B:
+das Review vom 2026-09-12 hielt fest, dass Color Grading ein Debug-Feature
+bleibt (DONE.md); die dramaturgischen Einsätze (Option 2) sind nicht gebaut.
 **Stand:** 2026-09-11, Code-Stand `3338f4b`.
 **Bezug:** TODO.md 3.1, „Türme nach Wegfall des Ziels nicht in Grundstellung
 zurückdrehen“ und „Color Grading Anwendungsfall klären“.
@@ -80,7 +82,9 @@ Mechanik: `docs/TOWER_CREATION.md`, Abschnitt „Ohne Ziel“.
   Vollbild-Pass, Intensität 0 bis 1 (`color-grading.ts:13-23`, `:28`,
   `:36-107`, `:146-148`).
 - Nur im Debug-Panel erreichbar (`display-options.component.ts:82-86`),
-  gespeichert in localStorage (`debug-facade.service.ts:254-273`).
+  gespeichert in localStorage (`debug-facade.service.ts:254-273`). Das war der
+  Stand 2026-09-11; heute steht die Auswahl im Display-Menü
+  (`quick-actions.component.html`).
 - **Kosten:** Ist ein Preset aktiv, rendert die Szene über den
   EffectComposer (Render-Pass in ein Target, LUT-Pass, Output-Pass) statt
   direkt (`post-processing-pipeline.ts:40-65`). Auf schwachen Geräten ist das
@@ -109,3 +113,6 @@ genau in den dichtesten Momenten zuschaltet.
 Offen für den Menschen: Soll Noir bei niedrigen HP die Lesbarkeit der
 Schadenszahlen-Farben opfern (Grau, Rot, Orange, Gold werden entsättigt), oder
 bleibt die Entsättigung unter 50 %?
+
+**Stand 2026-09-15:** Die Frage entfällt, Option 2 ist nicht gebaut (siehe
+Status).
