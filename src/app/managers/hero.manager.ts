@@ -509,6 +509,10 @@ export class HeroManager implements IGameManager {
       this.goal = null;
       this.mode = 'hold';
       this.replanMs = 0;
+      // Shown at once, like a hire or a move order: this can run from a query
+      // (resolveMoveTarget) while the game is paused, where no sub-step
+      // follows to present the new position.
+      this.presentFrame();
     }
     return this.graph;
   }
