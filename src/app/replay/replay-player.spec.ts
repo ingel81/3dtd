@@ -594,6 +594,46 @@ describe('ReplayPlayer', () => {
       expect(playAtGeo).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('ability strikes and jumps', () => {
+    let p: ReplayPlayer;
+
+    /** 1 s: a frost bomb is marked at 20 ms and lands at 120 */
+    function strikeRecording(): ReplayRecording {
+      const rec = new ReplayRecording();
+      rec.reset(5, 0, 100, 0, null);
+      rec.beginFrame(0);
+      rec.endFrame();
+      rec.beginFrame(1000);
+      rec.endFrame();
+      const target = { lat: 48, lon: 9 };
+      rec.pushEvent(20, { type: 'ability:used', abilityId: 'frost-bomb', strikeId: 7, target, radiusM: 10, warningMs: 100 });
+      rec.pushEvent(120, { type: 'ability:impact', abilityId: 'frost-bomb', strikeId: 7, target, radiusM: 10 });
+      rec.finish(1000, 'completed');
+      return rec;
+    }
+
+    beforeEach(() => {
+      fake = fakeEngine();
+      p = new ReplayPlayer(strikeRecording(), fake.engine as never);
+      p.enter();
+    });
+
+    it('takes a strike marker down when the jump skips its impact', () => {
+      advance(p, 50);
+      expect(fake.engine.abilityMarkers['removeStrike']).not.toHaveBeenCalled();
+      p.seek(500);
+      expect(fake.engine.abilityMarkers['removeStrike']).toHaveBeenCalledWith(7);
+    });
+
+    it('clears a landed strike\'s effects on a jump, so played again it lands once', () => {
+      advance(p, 150);
+      p.seek(50);
+      for (const renderer of ['mushroomClouds', 'frostBursts', 'empPulses', 'orbitalBeams'] as const) {
+        expect(fake.engine[renderer]['clear']).toHaveBeenCalled();
+      }
+    });
+  });
 });
 
 describe('lerpAngle', () => {
