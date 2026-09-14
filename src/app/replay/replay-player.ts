@@ -11,6 +11,7 @@ import { PROJECTILE_TYPES, type ProjectileTypeId } from '../configs/projectile-t
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { REPLAY_CONFIG } from '../configs/replay.config';
+import { GameClock } from '../managers/game-state/game-clock';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import {
   ENEMY_END,
@@ -360,7 +361,10 @@ export class ReplayPlayer {
    */
   update(realDeltaMs: number): void {
     if (this.playing) {
-      const to = Math.min(this.rec.durationMs, this.timeMs + realDeltaMs * this.speed);
+      // A long frame (GC, a shader compile, tiles streaming in) moves the
+      // replay no further than the game clock would move the game
+      const deltaMs = Math.min(realDeltaMs, GameClock.MAX_CATCHUP_MS);
+      const to = Math.min(this.rec.durationMs, this.timeMs + deltaMs * this.speed);
       const gameDeltaMs = to - this.timeMs;
       this.emitEventsUpTo(to);
       this.timeMs = to;

@@ -3,12 +3,21 @@ import { Vector3 } from 'three';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { TIMING } from '../configs/timing.config';
 import { OOZE_LOOK, STUN_SPARKS } from '../configs/visual-effects.config';
+import { GameClock } from '../managers/game-state/game-clock';
 import type { HeroPresentation } from '../managers/hero.manager';
 import type { RouteBodyStations } from '../utils/route-body';
 import { ENEMY_END, ENEMY_FLAG, ReplayRecording, TOWER_FLAG, heroPoseCode } from './replay-recording';
 import { ReplayPlayer, lerpAngle } from './replay-player';
 
 type Spy = ReturnType<typeof vi.fn>;
+
+/** Wall time the player advances at most per frame, see ReplayPlayer.update */
+const FRAME_MS = GameClock.MAX_CATCHUP_MS;
+
+/** Play `ms` of wall time in frames of at most FRAME_MS, as the render loop hands them. */
+function advance(p: ReplayPlayer, ms: number): void {
+  for (let left = ms; left > 0; left -= FRAME_MS) p.update(Math.min(FRAME_MS, left));
+}
 
 function towerData(rotation: number) {
   return {
@@ -246,7 +255,7 @@ describe('ReplayPlayer', () => {
     it('hides a tower built after the wave for the whole replay', () => {
       expect(fake.towers.get('after-1')!.mesh.visible).toBe(false);
       expect(fake.engine.plinths['setVisible']).toHaveBeenCalledWith('after-1', false);
-      player.update(150);
+      advance(player, 150);
       expect(fake.towers.get('after-1')!.mesh.visible).toBe(false);
     });
 
@@ -264,14 +273,22 @@ describe('ReplayPlayer', () => {
       expect(player.currentMs).toBe(50);
       expect(enemyX(0)).toBeCloseTo(5);
       player.setSpeed(0.5);
-      player.update(100);
+      advance(player, 100);
       expect(player.currentMs).toBe(100);
       expect(enemyX(0)).toBeCloseTo(10);
       expect(fake.engine.setTimescale).toHaveBeenLastCalledWith(0.5);
     });
 
+    it('advances at most as much wall time per frame as the game clock does', () => {
+      player.update(1000);
+      expect(player.currentMs).toBe(FRAME_MS);
+      player.setSpeed(4);
+      player.update(1000);
+      expect(player.currentMs).toBe(FRAME_MS * 5);
+    });
+
     it('switches tints and auras where the status changes', () => {
-      player.update(100);
+      advance(player, 100);
       expect(fake.engine.enemies.setFreezeVisual).toHaveBeenCalledWith('replay-enemy-0', true);
       expect(fake.engine.effects['spawnFrostAura']).toHaveBeenCalledWith('replay-enemy-0', expect.any(Vector3));
       player.update(50);
@@ -279,7 +296,7 @@ describe('ReplayPlayer', () => {
     });
 
     it('takes a leaked enemy away when it reached the HQ', () => {
-      player.update(140);
+      advance(player, 140);
       expect(fake.engine.enemies.remove).not.toHaveBeenCalledWith('replay-enemy-1');
       player.update(20);
       expect(fake.engine.enemies.remove).toHaveBeenCalledWith('replay-enemy-1');
@@ -287,7 +304,7 @@ describe('ReplayPlayer', () => {
     });
 
     it('plays the death animation where the enemy died and removes it after it', () => {
-      player.update(150);
+      advance(player, 150);
       player.seek(260);
       expect(fake.engine.enemies.playDeathAnimation).toHaveBeenCalledWith('replay-enemy-0');
       expect(fake.engine.effects['stopFrostAura']).toHaveBeenCalledWith('replay-enemy-0');
@@ -307,7 +324,7 @@ describe('ReplayPlayer', () => {
     });
 
     it('stops at the end and plays again from the start', () => {
-      player.update(5000);
+      advance(player, 5000);
       expect(player.currentMs).toBe(2400);
       expect(player.isPlaying).toBe(false);
       expect(fake.engine.setTimescale).toHaveBeenLastCalledWith(0);
@@ -331,7 +348,7 @@ describe('ReplayPlayer', () => {
     it('flies towards the next sample, then towards where it hit, and goes', () => {
       const projectiles = fake.engine.projectiles as Record<string, Spy>;
       expect(projectiles['create']).toHaveBeenCalledWith('replay-projectile-0', 'arrow', expect.any(Number), expect.any(Number), expect.any(Number), expect.any(Object));
-      player.update(125);
+      advance(player, 125);
       const [, lat, lon] = projectiles['updateWithRotation'].mock.calls.at(-1)!;
       // Local x 25 m between the sample at 20 and the hit at 30; x points west
       const metersPerDegreeLon = 111_320 * Math.cos(48 * Math.PI / 180);
@@ -352,22 +369,22 @@ describe('ReplayPlayer', () => {
 
   describe('towers', () => {
     it('turns the turrets to the recorded rotation, interpolated', () => {
-      player.update(150);
+      advance(player, 150);
       expect(fake.towers.get('archer-1')!.currentLocalRotation).toBeCloseTo(1.5);
       expect(fake.towers.get('archer-1')!.turretPart.rotation.y).toBeCloseTo(1.5);
     });
 
     it('shows a tower from its placement and a sold one until it was sold', () => {
-      player.update(150);
+      advance(player, 150);
       expect(fake.towers.get('late-1')!.mesh.visible).toBe(true);
       expect(fake.towers.get('replay-tower-2')!.mesh.visible).toBe(true);
-      player.update(60);
+      advance(player, 60);
       expect(fake.towers.get('replay-tower-2')!.mesh.visible).toBe(false);
       expect(fake.engine.plinths['setVisible']).toHaveBeenCalledWith('replay-tower-2', false);
     });
 
     it('strikes once per strike and burns while the beam is on', () => {
-      player.update(100);
+      advance(player, 100);
       player.update(20);
       expect(fake.strikes).toEqual([['replay-tower-2', new Vector3(1, 2, 3)]]);
       expect(fake.beams[0]).toEqual(['fire-1', new Vector3(4, 5, 6), 8]);
@@ -378,7 +395,7 @@ describe('ReplayPlayer', () => {
 
   describe('events', () => {
     it('plays the events it passes, a sold tower\'s flash on its replay model', () => {
-      player.update(70);
+      advance(player, 70);
       expect(emitted.map((e) => e.type)).toEqual(['vfx:muzzle-flash', 'audio:play']);
       expect(emitted[0].towerId).toBe('replay-tower-2');
     });
@@ -394,7 +411,7 @@ describe('ReplayPlayer', () => {
 
   describe('exit', () => {
     it('gives the live towers back as they were and removes everything of its own', () => {
-      player.update(150);
+      advance(player, 150);
       player.exit();
       const archer = fake.towers.get('archer-1')!;
       expect(archer.currentLocalRotation).toBe(0.2);
@@ -417,7 +434,7 @@ describe('ReplayPlayer', () => {
       f.engine.tentacles['captureStrike'].mockImplementation((id: string) => (id === 'archer-1' ? strike : null));
       const p = new ReplayPlayer(waveRecording(), f.engine as never);
       p.enter();
-      p.update(150);
+      advance(p, 150);
       p.exit();
       expect(f.engine.tentacles['restoreStrike'].mock.calls).toEqual([['archer-1', strike]]);
       expect(f.engine.tentacles['resetAllToIdle']).not.toHaveBeenCalled();
@@ -445,10 +462,10 @@ describe('ReplayPlayer', () => {
 
     it('sinks the band of a killed ooze, then drops it; scrubbed back it lies again', () => {
       const oozes = fake.engine.oozes as Record<string, Spy>;
-      p.update(160);
+      advance(p, 160);
       expect(oozes['remove']).toHaveBeenCalledWith('replay-enemy-0');
       expect(oozes['discard']).not.toHaveBeenCalled();
-      p.update(OOZE_LOOK.dissolve * 1000);
+      advance(p, OOZE_LOOK.dissolve * 1000);
       expect(oozes['discard']).toHaveBeenCalledWith('replay-enemy-0');
       p.seek(50);
       expect(oozes['add']).toHaveBeenCalledTimes(2);
@@ -462,18 +479,18 @@ describe('ReplayPlayer', () => {
 
     it('freezes and stuns: tint, ice crystals, sparks at the live pace', () => {
       const { enemies, effects } = fake.engine;
-      p.update(100);
+      advance(p, 100);
       expect(enemies.setIcedVisual).toHaveBeenCalledWith('replay-enemy-1', true);
       expect(effects['spawnIceCrystals']).toHaveBeenCalledWith('replay-enemy-1', expect.any(Vector3));
       expect(enemies.setStunVisual).toHaveBeenCalledWith('replay-enemy-1', true);
       expect(effects['spawnBurstAtGeo']).toHaveBeenCalledTimes(1);
-      p.update(100);
+      advance(p, 100);
       expect(effects['updateIceCrystalsPosition']).toHaveBeenCalled();
       expect(effects['spawnBurstAtGeo']).toHaveBeenCalledTimes(1);
-      p.update(STUN_SPARKS.intervalMs);
+      advance(p, STUN_SPARKS.intervalMs);
       expect(effects['spawnBurstAtGeo']).toHaveBeenCalledTimes(2);
       // Frame 3, at 1000: thawed and awake
-      p.update(400);
+      advance(p, 400);
       expect(enemies.setIcedVisual).toHaveBeenLastCalledWith('replay-enemy-1', false);
       expect(effects['stopIceCrystals']).toHaveBeenCalledWith('replay-enemy-1');
       expect(enemies.setStunVisual).toHaveBeenLastCalledWith('replay-enemy-1', false);
@@ -484,7 +501,7 @@ describe('ReplayPlayer', () => {
       // Frame 0 has no hero: the live one goes
       expect(hero['clear']).toHaveBeenCalledTimes(1);
       expect(hero['present']).not.toHaveBeenCalled();
-      p.update(150);
+      advance(p, 150);
       const shown = hero['present'].mock.calls.at(-1)![0] as HeroPresentation;
       expect(shown.pose).toBe('run');
       expect(shown.heading).toBeCloseTo(1.5);
@@ -502,7 +519,7 @@ describe('ReplayPlayer', () => {
     });
 
     it('clears the ability effects on exit once one landed', () => {
-      p.update(130);
+      advance(p, 130);
       expect(emitted.map((e) => e.type)).toContain('ability:impact');
       p.exit();
       for (const renderer of ['mushroomClouds', 'frostBursts', 'empPulses', 'orbitalBeams'] as const) {
