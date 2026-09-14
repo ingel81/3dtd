@@ -69,7 +69,9 @@ interface IntroRun {
  * portal behind a short dark veil, holds on the boss, and cuts back to the
  * pose it had. Rules in utils/boss-intro.ts: one intro per boss type and
  * wave (BossIntroGate), none in photo mode, training runs or above 4x
- * (bossIntroBlock).
+ * (bossIntroBlock). Bosses of the wave still waiting when an intro starts
+ * (two types out of the portals at once, a Custom Wave) share it: the card
+ * names them all, the shot stays on the first.
  *
  * Presentation only: it moves the camera and pauses the game the way the
  * pause button does (GameStore.paused), nothing in the simulation changes.
@@ -187,6 +189,10 @@ export class BossIntroService {
     const shot = portalShot(route, camera.fov, boss.portalScale, boss.clearDistance, this.dolly);
     if (!shot) return false;
 
+    // Instead of a second intro right after this one, which would cut to a
+    // boss that walked on during the reveal
+    const names = [boss.enemy.typeConfig.name, ...this.takeWaiting(boss.wave)];
+
     this.savedPosition.copy(camera.position);
     this.savedQuaternion.copy(camera.quaternion);
     this.cameraControl.stopJump();
@@ -202,14 +208,26 @@ export class BossIntroService {
     };
     if (controls) controls.enabled = false;
     cameraTimeline.record('bossIntro.start', { boss: boss.enemy.typeConfig.id, wave: boss.wave }, true);
-    const name = boss.enemy.typeConfig.name;
     this.ngZone.run(() => {
-      this.card.set({ name, wave: boss.wave });
+      this.card.set({ name: names.join(' & '), wave: boss.wave });
       this.gameStore.paused.set(true);
     });
     this.setStage('dip-in');
-    this.announcer.announce(`Boss: ${name}, wave ${boss.wave}. Escape skips.`);
+    const said = names.length > 1 ? `Bosses: ${names.join(' and ')}` : `Boss: ${names[0]}`;
+    this.announcer.announce(`${said}, wave ${boss.wave}. Escape skips.`);
     return true;
+  }
+
+  /** The names of the bosses of `wave` still waiting, taken out of the queue. */
+  private takeWaiting(wave: number): string[] {
+    const names: string[] = [];
+    for (let i = this.waiting.length - 1; i >= 0; i--) {
+      const { enemy } = this.waiting[i];
+      if (this.waiting[i].wave !== wave || !enemy.active || !enemy.alive) continue;
+      names.unshift(enemy.typeConfig.name);
+      this.waiting.splice(i, 1);
+    }
+    return names;
   }
 
   private advance(deltaMs: number): void {

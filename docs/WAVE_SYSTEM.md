@@ -690,8 +690,15 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
 
 - **Einmal pro Bosstyp und Welle** (`BossIntroGate`): mehrere Bosse eines Typs
   in einer Welle (fünf Herberts einer Custom Wave, die Segmente eines Wurms)
-  bekommen eines, zwei Typen je eines, nacheinander. `game:reset` setzt das
-  Tor zurück, der nächste Lauf zählt wieder ab Welle 1.
+  bekommen eines, zwei Typen je eines. `game:reset` setzt das Tor zurück, der
+  nächste Lauf zählt wieder ab Welle 1.
+- **Zwei Typen zugleich teilen sich ein Intro** (seit 2026-09-14): wartet beim
+  Start eines Intros noch ein Boss derselben Welle (zwei Typen verlassen ihre
+  Portale fast gleichzeitig, nur mit Custom Wave), nennt die Karte beide
+  („Herbert & Ooze“), die Einstellung bleibt beim ersten. Vorher lief das zweite
+  Intro direkt nach dem ersten und zielte auf die Stelle vor dem Portal, an der
+  der Boss während des Reveals schon vorbei war. Ein Boss eines anderen Typs, der
+  erst später in der Welle kommt, bekommt weiter sein eigenes.
 - **Wurm und Ooze**: den Wurm meldet `worm:spawned` mit `viaPortal` (Kopf als
   Boss); die `enemy:spawned` seiner Segmente tragen kein `viaPortal`, weil sie
   einzeln nachkommen, und lösen nichts aus. Ein zerstörtes Segment teilt den
