@@ -77,6 +77,30 @@ const segmentKey = (a: LatLon, b: LatLon) => `${a.lat},${a.lon}|${b.lat},${b.lon
 
 const round1 = (v: number): number | null => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
 
+/**
+ * The stretch off a bridge end that station `t` (0 to 1 along a segment)
+ * lies on, from the stretches of each route over the segment: the one with
+ * the nearest bridge end where every route has the station on such a
+ * stretch, else null. A cell two segments reach along their length takes
+ * the lower surface, the ground over the stretch off a bridge end
+ * (claimSegmentCells), and the station measures from where its cells
+ * stand; so the order of the routes does not decide it.
+ */
+function stationApproach(byRoute: readonly (readonly SegmentApproach[])[], t: number): SegmentApproach | null {
+  let nearest: SegmentApproach | null = null;
+  let nearestM = Infinity;
+  for (const approaches of byRoute) {
+    const approach = nearestDeckApproach(approaches, t);
+    if (approach === null) return null;
+    const m = approach.from + (approach.to - approach.from) * t;
+    if (m < nearestM) {
+      nearest = approach;
+      nearestM = m;
+    }
+  }
+  return nearest;
+}
+
 /** The piece among a segment's `pieces` that covers `t` (0 to 1 along the segment). */
 function pieceCovering(pieces: readonly CorridorPiece[], t: number): CorridorPiece {
   let found = pieces[0];
@@ -957,8 +981,9 @@ export class PathAndRouteService {
     const rayHeights = [corridorConfig.rayHeightLow, corridorConfig.rayHeightHigh];
     const maxHalfWidth = corridorConfig.maxHalfWidth;
     const segments: ClearanceSegment[] = [];
-    // Routes from several spawns share segments; one pass over each is enough.
-    const seen = new Set<string>();
+    // Routes from several spawns share segments; one pass over each is
+    // enough. Each route over one hands on its stretches off a bridge end.
+    const byKey = new Map<string, ClearanceSegment | null>();
 
     for (const { points, onBridge, inTunnel } of this.streetRoutes.values()) {
       if (!engine) break;
@@ -970,8 +995,13 @@ export class PathAndRouteService {
         // above: the street width stays.
         if (inTunnel[i]) continue;
         const key = segmentKey(points[i], points[i + 1]);
-        if (seen.has(key)) continue;
-        seen.add(key);
+        const stretches = approaches[i].map(({ end, from, to }) => ({ deckEnd: { x: local[end].x, z: local[end].z }, from, to }));
+        const seen = byKey.get(key);
+        if (seen !== undefined) {
+          seen?.approaches.push(stretches);
+          continue;
+        }
+        byKey.set(key, null);
         const known = this.clearanceBySegment.get(key);
         if (known && !known.left.some(Number.isNaN)) continue;
 
@@ -982,13 +1012,14 @@ export class PathAndRouteService {
         if (length < 0.01) continue;
 
         const count = Math.max(1, Math.round(length / corridorConfig.stationSpacing));
-        segments.push({
-          key, x: start.x, z: start.z, dx, dz, count, onBridge: onBridge[i],
-          approaches: approaches[i].map(({ end, from, to }) => ({ deckEnd: { x: local[end].x, z: local[end].z }, from, to })),
+        const segment: ClearanceSegment = {
+          key, x: start.x, z: start.z, dx, dz, count, onBridge: onBridge[i], approaches: [stretches],
           left: known ? [...known.left] : new Array<number>(count).fill(NaN),
           right: known ? [...known.right] : new Array<number>(count).fill(NaN),
           probes: known ? [...known.probes] : new Array<StationProbe | null>(count).fill(null),
-        });
+        };
+        byKey.set(key, segment);
+        segments.push(segment);
       }
     }
 
@@ -1141,13 +1172,13 @@ interface ClearanceSegment {
   count: number;
   onBridge: boolean;
   /**
-   * The stretches off a bridge end the segment lies on (deckApproaches),
-   * with their bridge ends as the route cells there take them: a station
-   * within DECK_APPROACH_M of such an end measures from where those cells
-   * stand and judges no low wall, as on the deck
-   * (TerrainQueries.measureStreetClearance, `deckEnd`).
+   * Per route over the segment, the stretches off a bridge end it lies on
+   * (deckApproaches), with their bridge ends as the route cells there take
+   * them. A station on such a stretch on every route (stationApproach)
+   * measures from where those cells stand and judges no low wall, as on
+   * the deck (TerrainQueries.measureStreetClearance, `deckEnd`).
    */
-  approaches: SegmentApproach[];
+  approaches: SegmentApproach[][];
   /** Free space per station and side, NaN until measured, and what each station's rays found. */
   left: number[];
   right: number[];
@@ -1284,7 +1315,7 @@ class ClearanceRun implements CorridorMeasurement {
     const x = segment.x + segment.dx * t;
     const z = segment.z + segment.dz * t;
     // Off a bridge end: the end nearest the station, as for a route cell there
-    const approach = segment.onBridge ? null : nearestDeckApproach(segment.approaches, t);
+    const approach = segment.onBridge ? null : stationApproach(segment.approaches, t);
     // (-dz, dx) points right of the direction of travel.
     const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach?.deckEnd ?? null);
     segment.probes[k] = probe;
