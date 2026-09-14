@@ -2,31 +2,31 @@
 
 **Stand:** 2026-09-15
 
-Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Sidebar.
+Das Model Preview System rendert 3D-Vorschauen von Türmen und Gegnern in der Sidebar.
 
 ## Architektur
 
 ### Shared Renderer Ansatz
-- **Ein WebGL-Kontext** fuer alle Previews (performanter als multiple Kontexte)
+- **Ein WebGL-Kontext** für alle Previews (performanter als multiple Kontexte)
 - Renderer rendert sequentiell zu verschiedenen Canvas-Elementen
 - Jedes Preview hat eigene Scene, Camera und optional AnimationMixer
 - **Off-Screen-Render + drawImage**: Renderer rendert in einen einzigen, gemeinsamen
   Off-Screen-Canvas (`128×128` Init-Größe). Der Inhalt wird per
   `ctx.drawImage(renderer.domElement, ...)` in das jeweilige Ziel-Canvas kopiert.
 
-### Renderer Buffer Capacity (kritisch fuer Performance)
-- Der Renderer-Drawingbuffer waechst monoton: `setSize(...)` wird nur dann
-  aufgerufen, wenn ein Preview groesser ist als alle bisherigen
-  (`rendererCapacityCss`). Es wird nie geschrumpft → in einer Session laeuft
+### Renderer Buffer Capacity (kritisch für Performance)
+- Der Renderer-Drawingbuffer wächst monoton: `setSize(...)` wird nur dann
+  aufgerufen, wenn ein Preview größer ist als alle bisherigen
+  (`rendererCapacityCss`). Es wird nie geschrumpft → in einer Session läuft
   `setSize` insgesamt nur eine Handvoll Mal.
 - Pro Preview-Render wird stattdessen `setViewport()` + `setScissor()` auf den
-  oberen Bereich des Buffers gesetzt — reine State-Aenderung, keine WebGL-Buffer-
+  oberen Bereich des Buffers gesetzt, eine reine State-Änderung, keine WebGL-Buffer-
   Realloc.
-- **Hintergrund:** Frueher rief der Service pro Frame `setSize()` mit der
-  Canvas-Groesse auf. Das reallozierte den WebGL-Drawingbuffer in jedem
+- **Hintergrund:** Früher rief der Service pro Frame `setSize()` mit der
+  Canvas-Größe auf. Das reallozierte den WebGL-Drawingbuffer in jedem
   Frame und produzierte bei aktivem Tower-Sidebar-Preview unter Speed
   x2/x4 messbare Frame-Drops (~80% der x4-Cost laut Profile vom 2026-05-07).
-  Mit Max-Size + Viewport laeuft x4 jetzt mit ~10% Idle-Reserve (vorher 0%).
+  Mit Max-Size + Viewport läuft x4 jetzt mit ~10% Idle-Reserve (vorher 0%).
 
 ### Dateien
 - `services/infrastructure/model-preview.service.ts` - Haupt-Service, nicht `providedIn: 'root'`, sondern in den `providers` von `tower-defense.component.ts`
@@ -46,31 +46,31 @@ interface PreviewConfig {
   animationName?: string;     // Name der Animation (z.B. 'Armature|Walk')
   animationTimeScale?: number; // Animations-Geschwindigkeit (default: 1)
   backgroundColor?: number;   // Hex-Farbe oder transparent wenn nicht gesetzt
-  lightIntensity?: number;    // Lichtstaerke (default: 1)
-  groundModel?: boolean;      // true = Modell steht auf Boden (fuer Charaktere)
-  offsetY?: number;           // Vertikaler Offset fuer das Kamera-Target (Bild rauf/runter shiften)
+  lightIntensity?: number;    // Lichtstärke (default: 1)
+  groundModel?: boolean;      // true = Modell steht auf Boden (für Charaktere)
+  offsetY?: number;           // Vertikaler Offset für das Kamera-Target (Bild rauf/runter shiften)
   isHidden?: () => boolean;   // Host meldet verstecktes Canvas: animieren ja, rendern nein
 }
 ```
 
 ## Frame-Takt
 
-- Der Animation-Loop laeuft ueber `requestAnimationFrame`, arbeitet aber nur
-  mit **30 fps** (`PREVIEW_FPS`), unabhaengig von der Display-Rate. Den Takt
+- Der Animation-Loop läuft über `requestAnimationFrame`, arbeitet aber nur
+  mit **30 fps** (`PREVIEW_FPS`), unabhängig von der Display-Rate. Den Takt
   gibt ein `FramePacer` (`utils/frame-pacer.ts`) vor, derselbe wie beim
   Frame-Cap der Engine.
 - Rotation und AnimationMixer rechnen mit der Zeit zwischen den gelaufenen
   Frames, die Drehgeschwindigkeit bleibt also gleich.
-- Ein Preview wird nicht gerendert, solange sein Canvas nicht im DOM haengt
+- Ein Preview wird nicht gerendert, solange sein Canvas nicht im DOM hängt
   oder `isHidden()` true liefert (z. B. Sidebar-Panel unter `display: none`).
   Rotation und Mixer laufen weiter, damit ein wieder sichtbares Preview den
-  Frame zeigt, den es ohnehin gezeigt haette.
+  Frame zeigt, den es ohnehin gezeigt hätte.
 
 ## Wichtige technische Details
 
 ### Zentrierung
-- **groundModel: false** (default): Modell komplett zentriert (gut fuer Gebaeude/Tuerme)
-- **groundModel: true**: Modell steht auf y=0, Kamera schaut auf Koerpermitte (gut fuer Charaktere)
+- **groundModel: false** (default): Modell komplett zentriert (gut für Gebäude/Türme)
+- **groundModel: true**: Modell steht auf y=0, Kamera schaut auf Körpermitte (gut für Charaktere)
 - **Box auf dem frischen Klon:** `loadModel()` misst die Box direkt nach
   `SkeletonUtils.clone`, bevor die Welt-Matrizen der Knochen stehen. Steht im
   Modell das SkinnedMesh vor seinen Knochen, misst `Box3.setFromObject` das
@@ -88,7 +88,7 @@ interface PreviewConfig {
 ### Animation & Caching
 - **Alle Modelle**: Werden via `AssetManager.loadModel()` gecached und geklont
 - **Mit `animationName`**: Werden mit `cloneModel(url, { preserveSkeleton: true })` geklont
-  - Grund: `preserveSkeleton` erhält Bone-Referenzen fuer AnimationMixer
+  - Grund: `preserveSkeleton` erhält Bone-Referenzen für AnimationMixer
 - **Ohne `animationName`**: Werden ohne Skeleton-Erhaltung geklont (`preserveSkeleton: false`), kein Mixer
 - **Fallback Animation**: Wenn `animationName` nicht gefunden wird, wird automatisch die erste Animation verwendet
 
@@ -99,11 +99,11 @@ interface PreviewConfig {
 
 ## Canvas-Dimensionen
 
-| Preview Typ | Canvas-Groesse |
+| Preview Typ | Canvas-Größe |
 |-------------|----------------|
 | Enemy Preview | 64×64 pixel (`width`/`height` im Template) |
 | Tower Preview | CSS 100 %×80 px; `createTowerPreview()` setzt die Canvas-Auflösung auf CSS-Größe × `devicePixelRatio` |
-| Shared Renderer (intern) | startet 128×128, waechst monoton bis zur groessten Preview-Groesse |
+| Shared Renderer (intern) | startet 128×128, wächst monoton bis zur größten Preview-Größe |
 
 ## Renderer Settings
 
@@ -121,12 +121,12 @@ this.renderer.outputColorSpace = SRGBColorSpace;
 Pro Preview-Frame:
 
 ```typescript
-// Buffer nur vergroessern, niemals schrumpfen.
+// Buffer nur vergrößern, niemals schrumpfen.
 if (neededCss > this.rendererCapacityCss) {
   this.rendererCapacityCss = neededCss;
   this.renderer.setSize(neededCss, neededCss, false);
 }
-// Viewport/Scissor auf oberen Bereich des Buffers — billig, keine Realloc.
+// Viewport/Scissor auf den oberen Bereich des Buffers: billig, keine Realloc.
 this.renderer.setViewport(0, capCss - heightCss, widthCss, heightCss);
 this.renderer.setScissor(0, capCss - heightCss, widthCss, heightCss);
 this.renderer.setScissorTest(true);
@@ -184,7 +184,7 @@ this.modelPreview.createPreview(`mixed-enemy-${idx}`, canvas, {
   animationName: enemyConfig.walkAnimation || undefined,
   animationTimeScale: 0.7,
   lightIntensity: 1.3,
-  groundModel: true,               // Wichtig fuer Charaktere!
+  groundModel: true,               // Wichtig für Charaktere!
 });
 ```
 
@@ -201,14 +201,14 @@ this.modelPreview.createPreview(`tower-preview-${towerId}`, canvas, {
 });
 ```
 
-## Anpassung der Groesse
+## Anpassung der Größe
 
 | Parameter | Effekt |
 |-----------|--------|
-| `cameraDistance` erhoehen | Modell erscheint kleiner |
-| `cameraDistance` verringern | Modell erscheint groesser |
-| `scale` erhoehen | Modell wird groesser |
-| `cameraAngle` erhoehen | Mehr von oben schauen |
+| `cameraDistance` erhöhen | Modell erscheint kleiner |
+| `cameraDistance` verringern | Modell erscheint größer |
+| `scale` erhöhen | Modell wird größer |
+| `cameraAngle` erhöhen | Mehr von oben schauen |
 
 ## UI Layout (Tower Cards)
 
@@ -226,7 +226,7 @@ this.modelPreview.createPreview(`tower-preview-${towerId}`, canvas, {
 ## API Methoden
 
 ### createPreview(id, canvas, config)
-Erstellt ein neues Preview. Ueberschreibt existierendes Preview mit gleicher ID.
+Erstellt ein neues Preview. Überschreibt existierendes Preview mit gleicher ID.
 
 ### pausePreview(id)
 Pausiert die Animation eines spezifischen Previews.
