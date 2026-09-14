@@ -11,11 +11,10 @@ export interface CoordinateSync {
 }
 
 export { type EnemyRenderData, type EnemyDebugOverrides } from './instanced-enemy/instanced-enemy.renderer';
-export { ThreeTowerRenderer, type TowerRenderData, type LineOfSightRaycaster } from './three-tower.renderer';
-export { type ColumnSampler } from '../column-sample';
-export { ThreeProjectileRenderer, type ProjectileRenderData } from './three-projectile.renderer';
+export { ThreeTowerRenderer, type TowerRenderData } from './three-tower.renderer';
+export { ThreeProjectileRenderer } from './three-projectile.renderer';
 export { ThreeEffectsRenderer } from './three-effects.renderer';
 export { ThreeFlameBeamRenderer } from './three-flame-beam.renderer';
 export { ThreeTentacleRenderer } from './three-tentacle.renderer';
 export { TrailStreakRenderer } from './trail-streak.renderer';
-export { LightningBoltRenderer, type BoltOptions } from './lightning-bolt.renderer';
+export { LightningBoltRenderer } from './lightning-bolt.renderer';
