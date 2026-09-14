@@ -1,6 +1,7 @@
 import { Component } from '../core/component';
 import { GameObject } from '../core/game-object';
 import { GeoPosition } from '../models/game.types';
+import { geoHeading } from '../utils/geo-utils';
 
 /**
  * Receives whether a TransformComponent still has to turn, i.e. whether
@@ -55,7 +56,9 @@ export class TransformComponent extends Component {
   /**
    * Look at a target position (updates target rotation, smoothed in update)
    *
-   * Uses the same heading calculation as EllipsoidSync.calculateHeadingFromDeltas()
+   * The heading is metric (geoHeading scales the longitude delta by
+   * cos(lat)) like the scene. On raw degree deltas an enemy on a 45° street
+   * at 49°N faced about 12° off its walking direction.
    *
    * Coordinate system (with ReorientationPlugin + tiles.group.rotation.x = -PI/2):
    * - Local: -X = East, +Z = North, +Y = Up
@@ -63,9 +66,9 @@ export class TransformComponent extends Component {
    *
    * Three.js rotation.y (counterclockwise from above):
    * - 0 = facing +Z (North)
-   * - PI/2 = facing -X (East)
+   * - PI/2 = facing +X (West)
    * - PI or -PI = facing -Z (South)
-   * - -PI/2 = facing +X (West)
+   * - -PI/2 = facing -X (East)
    *
    * @returns false if the target was too close to derive a heading from (the
    *   target rotation is left as it was), true if the target rotation was set.
@@ -77,14 +80,9 @@ export class TransformComponent extends Component {
     // Skip if movement is too small (prevents jitter)
     if (Math.abs(dLat) < 0.0000001 && Math.abs(dLon) < 0.0000001) return false;
 
-    // Convert geo deltas to local direction:
-    // - dLon > 0 (East) → local dx < 0 (because -X = East)
-    // - dLat > 0 (North) → local dz > 0 (because +Z = North)
-    const localDx = -dLon;
-    const localDz = dLat;
-
-    // Calculate rotation.y: atan2(x, z) gives angle from +Z axis
-    this.targetRotation = Math.atan2(localDx, localDz);
+    // geoHeading turns clockwise from north (east positive), rotation.y
+    // counterclockwise, hence the sign
+    this.targetRotation = -geoHeading(this.position, target);
 
     // Initialize rotation immediately on first call
     if (!this.rotationInitialized) {

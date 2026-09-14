@@ -5,7 +5,7 @@ import { TransformComponent } from './transform.component';
 import { ComponentType } from '../core/component';
 import { StatusEffect } from '../models/status-effects';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
-import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { DEG_TO_RAD, METERS_PER_DEGREE_LAT, geoHeading } from '../utils/geo-utils';
 import { corridorConfig, getRouteProfile, lateralLimit } from '../utils/route-corridor';
 
 class TestGameObject extends GameObject {
@@ -385,7 +385,8 @@ describe('MovementComponent', () => {
           // The target move() used to set on every step.
           const dLat = lat - prevLat;
           const dLon = lon - prevLon;
-          const perStep = Math.atan2(-(lon + dLon - lon), lat + dLat - lat);
+          // Metric like lookAt since the cos(lat) fix; this used to pin the raw degree-delta angle
+          const perStep = -geoHeading({ lat, lon }, { lat: lat + dLat, lon: lon + dLon });
           if (i === crossedAt || i === crossedAt + 1) {
             expect(target()).toBe(perStep); // derived on this step, bit for bit
           } else {
