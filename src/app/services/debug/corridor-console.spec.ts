@@ -32,6 +32,8 @@ describe('CorridorConsole', () => {
   let selected: { id: string } | null;
   let layer: { cells: Cell[] } | null;
   let explanation: Record<string, unknown> | null;
+  /** How far above its cells the red line runs (PathAndRouteService.routeLineLift). */
+  let lift: number;
   let change: ReturnType<typeof vi.fn>;
   let armPick: ReturnType<typeof vi.fn>;
   let grid: ReturnType<typeof fakeGrid>;
@@ -71,7 +73,7 @@ describe('CorridorConsole', () => {
       gameState: () => ({ towerManager, getGlobalRouteGrid: () => ({ getGrid: () => grid }) }),
       engineInit: { getEngine: () => engine },
       inputHandler: { armPick },
-      pathRoute: { explainCorridorAt: vi.fn(() => explanation) },
+      pathRoute: { explainCorridorAt: vi.fn(() => explanation), routeLineLift: () => lift },
       change,
     };
     const corridorConsole = new CorridorConsole(deps as unknown as CorridorConsoleDeps);
@@ -98,6 +100,7 @@ describe('CorridorConsole', () => {
     selected = null;
     layer = null;
     explanation = null;
+    lift = 1;
     change = vi.fn((apply: () => string[]) => {
       const problems = apply();
       return problems.length > 0 ? `refused: ${problems.join('; ')}` : 'rebuilt';
@@ -203,6 +206,16 @@ describe('CorridorConsole', () => {
       // From the camera to where the red line runs, 1 m over the cell.
       expect(blocked).toHaveBeenCalledWith(0, 100, 0, 1, 31, 1);
       expect(columnAt).toHaveBeenCalledWith(5, 1, 'corridorPick');
+    });
+
+    it('looks from the camera at the height the red line runs at, 3 m over the cells in DevWorld', () => {
+      lift = 3;
+      grid.describeCellsAround.mockReturnValue([{ x: 1, z: 1, cell: true, heightM: 30 }]);
+
+      api().pick();
+      click(1, 1);
+
+      expect(blocked).toHaveBeenCalledWith(0, 100, 0, 1, 33, 1);
     });
 
     it('marks what the selected tower displays and explains the width at the nearest station', () => {
