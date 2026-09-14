@@ -18,8 +18,8 @@ am Anfang der Playtest-Liste unten. Danach die neuen Punkte ab Nummer 301.
 
 **Stand dieses Dokuments:** zweiter Durchgang auf Head `292d788f`, mit den
 Review-Fixes von fix1, der Zerlegung der Pilzwolke und dem
-Shader-Compile-Check. Replay und die Behebung der Befunde von review2 und
-review3 (fix2) sind noch nicht gemergt und folgen.
+Shader-Compile-Check. Replay und die Behebung der Befunde von review2 (fix2)
+und review3 (fix3) sind noch nicht gemergt und folgen.
 
 ## Stand
 
@@ -613,13 +613,19 @@ Von Workern selbst getroffen, bitte im Playtest bewerten:
     schnellen Überfahren fehlt ein Sockel, den nur der äußere Ring
     verlangt; er erscheint einen Frame nach dem Anhalten, der Klick setzt
     ihn immer.
+22. **Keine npm-Abhängigkeit für den Shader-Check** (`795f9cef`): Eine
+    Abhängigkeit, die glslang mitbringt, wurde bewusst abgelehnt; das
+    Binary kommt über `GLSLANG_VALIDATOR` oder den PATH. Folge: Ohne
+    installiertes `glslangValidator` prüft `npm test` nur den Aufbau der
+    Shader, die 13 Compile-Tests stehen als übersprungen da (so auch im
+    Gate).
 
 ## Review
 
 Drei Review-Agents haben gelesen, alle nur lesend. Keiner fand einen Befund
 der Schwere hoch. Die Befunde von review1 hat fix1 behoben (Abschnitt
-"Review-Fixes"); die von review2 und review3 sind zum Stand dieses Dokuments
-offen, ihre Behebung (fix2) folgt.
+"Review-Fixes"); die von review2 (fix2) und review3 (fix3) sind zum Stand
+dieses Dokuments offen, ihre Behebung läuft.
 
 **review1**, `1ca6713a..bffae869` (54 Commits: Assets, perf, Sockel, Leiste,
 Wellen-Panel, Quickfix, Weltkarte, Veteranen, Wurm): 1 mittel, 4 niedrig,
