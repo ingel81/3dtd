@@ -40,43 +40,63 @@ const at = (x: number, z: number, left?: number, right = left): RouteWaypoint =>
   corridorRight: right,
 });
 
-/** The street: eastbound along z = 1 from x = 0 to 60, so right of travel is +z; 2 m stations, no wall within 7 m. */
-const LENGTH = 60;
-const STATIONS = 30;
 const CELL = 2;
+
+/** A street from `a` to `b` (local x, z), stations every 2 m; the free space they measure left and right of travel. */
+interface Street {
+  a: { x: number; z: number };
+  b: { x: number; z: number };
+  left: number;
+  right: number;
+}
+
+/** Most tests: eastbound along z = 1 from x = 0 to 60, so right of travel is +z; no wall within 7 m. */
+const STREET: Street = { a: { x: 0, z: 1 }, b: { x: 60, z: 1 }, left: 7, right: 7 };
 
 /** Ground height of the photogrammetry at local (x, z); a car or an eave has no ground under it. */
 type Ground = (x: number, z: number) => number;
+
+/** Heights per grid spot, "x,z" of its centre, `street` elsewhere: the columns of a `__corridor.pick()`. */
+const bySpot = (heights: Record<string, number>, street: number): Ground => {
+  const centre = (v: number) => (Math.floor(v / CELL) + 0.5) * CELL;
+  return (x, z) => heights[`${centre(x)},${centre(z)}`] ?? street;
+};
 
 const pieceAt = (pieces: readonly CorridorPiece[], t: number) => pieces.filter((p) => p.t <= t).pop()!;
 
 /**
  * The street's grid once the corridor stays short of every cell no enemy
  * could walk to, the route it was built from and how many builds that took
- * after the first.
+ * after the first. What PathAndRouteService.narrowToWalkable and
+ * CorridorController.rebuildCorridors do, on one segment.
  */
-function narrowed(ground: Ground): { grid: GlobalRouteGrid; route: RouteWaypoint[]; builds: number } {
+function narrowed(ground: Ground, street: Street = STREET): { grid: GlobalRouteGrid; route: RouteWaypoint[]; builds: number } {
+  const { a, b } = street;
+  const length = Math.hypot(b.x - a.x, b.z - a.z);
+  const stations = Math.max(1, Math.round(length / 2));
   const column = (x: number, z: number): ColumnSample => ({ groundY: ground(x, z), topY: ground(x, z), tileDepth: 20, tileGeometricError: 2 });
-  const free = new Array<number>(STATIONS).fill(7);
-  const walk = { left: new Array<number>(STATIONS).fill(Infinity), right: new Array<number>(STATIONS).fill(Infinity) };
+  const walk = { left: new Array<number>(stations).fill(Infinity), right: new Array<number>(stations).fill(Infinity) };
   for (let builds = 0; ; builds++) {
-    const fitted = fitCorridorPieces([{ left: free, right: free, fallback: 2.75, onStreet: true, walkLeft: walk.left, walkRight: walk.right }]);
-    const [pieces] = closeShortNarrowings(fitted, [LENGTH], [false]);
-    const route = pieces.map((p) => at(p.t * LENGTH, 1, p.left, p.right));
-    route.push(at(LENGTH, 1));
+    const fitted = fitCorridorPieces([{
+      left: new Array<number>(stations).fill(street.left), right: new Array<number>(stations).fill(street.right),
+      fallback: 2.75, onStreet: true, walkLeft: walk.left, walkRight: walk.right,
+    }]);
+    const [pieces] = closeShortNarrowings(fitted, [length], [false]);
+    const route = pieces.map((p) => at(a.x + (b.x - a.x) * p.t, a.z + (b.z - a.z) * p.t, p.left, p.right));
+    route.push(at(b.x, b.z));
     const grid = new GlobalRouteGrid();
     grid.initialize(column as never, sync as never);
     grid.generateFromRoutes([route]);
 
-    const widths = (side: 'left' | 'right') => Array.from({ length: STATIONS }, (_, k) => pieceAt(pieces, (k + 0.5) / STATIONS)[side]);
+    const widths = (side: 'left' | 'right') => Array.from({ length: stations }, (_, k) => pieceAt(pieces, (k + 0.5) / stations)[side]);
     const [caps] = walkCaps(
-      [{ ax: 0, az: 1, bx: LENGTH, bz: 1, stations: STATIONS, left: widths('left'), right: widths('right') }],
+      [{ ax: a.x, az: a.z, bx: b.x, bz: b.z, stations, left: widths('left'), right: widths('right') }],
       grid.unwalkableCells(),
       CELL,
     );
     let changed = false;
     for (const side of ['left', 'right'] as const) {
-      for (let k = 0; k < STATIONS; k++) {
+      for (let k = 0; k < stations; k++) {
         if (caps[side][k] >= walk[side][k]) continue;
         walk[side][k] = caps[side][k];
         changed = true;
@@ -146,6 +166,31 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(grid.getCellAt(35, 5)).toBeUndefined();
     expect(grid.getCellAt(35, 3)).toBeDefined();
     expect(grid.getCellAt(51, 7)).toBeDefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
+  /**
+   * Playtest 2026-09-14, retest 560 to 563, Rothenburg ob der Tauber, pick
+   * C: an alley with a wall 1.5 m left of the centre line (half width 1),
+   * open to the right. The column of the centre line spot (-231, -57) came
+   * down on a jetty 5.7 m above the street, and the cell (-235, -57), 2 m
+   * above the street under an eave, was measured against it and passed.
+   * Heights as the pick printed them; the line runs through the corner
+   * (-232, -58) as the order of its rows shows, a little steeper than 1 in 3,
+   * so the point of the line nearest to (-235, -57) lies in (-231, -57).
+   */
+  it('measures an edge cell from the street, not from a centre line spot on a jetty', () => {
+    const ground = bySpot({ '-231,-57': 477, '-231,-55': 471.93, '-235,-57': 473.31 }, 471.25);
+    const alley: Street = { a: { x: -235, z: -70 }, b: { x: -229, z: -46 }, left: 1.5, right: 7 };
+    const { grid, route, builds } = narrowed(ground, alley);
+
+    expect(builds).toBe(1);
+    expect(grid.getCellAt(-235, -57)).toBeUndefined();
+    // The centre line cell on the jetty stays: the corridor keeps it at any width.
+    const [jetty] = grid.describeCellsAround(-231, -57, 0.5, null);
+    expect(jetty).toMatchObject({ x: -231, z: -57, cell: true, heightM: 477, walkable: null, walkCheck: 'centre line' });
+    expect(jetty.overLineM).toBeGreaterThan(5);
+    expect(grid.getCellAt(-235, -61)).toBeDefined();
     expect(positionsOutside(grid, route)).toEqual([]);
   });
 

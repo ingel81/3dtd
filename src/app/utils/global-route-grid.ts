@@ -28,7 +28,7 @@ import {
 import { RouteGridAggregateViz } from './route-grid-aggregate-viz';
 import { RouteGridHeightSweep } from './route-grid-height-sweep';
 import { RouteCellSampler } from './route-cell-sampler';
-import { cellWalkable, unwalkableCells } from './corridor-walk';
+import { WalkGround, cellWalkable, centreLineKeys, judgeWalk, unwalkableCells } from './corridor-walk';
 import { logGrid } from './route-grid-log';
 import type { RouteBodyContact } from './route-body';
 
@@ -132,11 +132,27 @@ export class GlobalRouteGrid {
   /** Terrain-Sampling der Cells (`sampleCellY`) mit Proben und Sweep-Zählern. */
   private readonly sampler = new RouteCellSampler((cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth));
 
-  /** The column probe the walk check reads (corridor-walk.ts): the sampler's, beside a seam as well. */
-  private readonly columnAt = (x: number, z: number) => this.sampler.columnNear(x, z);
+  /** Keys of the cells a route centre line runs through (centreLineKeys), set by generateFromRoutes. */
+  private centreLine = new Set<number>();
+
+  /**
+   * What the walk check reads off this grid (corridor-walk.ts): the
+   * sampler's column probe, beside a seam as well, and the surface of the
+   * cells a centre line runs through.
+   */
+  private readonly walkGround: WalkGround = {
+    column: (x, z) => this.sampler.columnNear(x, z),
+    lineSurface: (x, z) => {
+      const key = this.intCellKey(this.cellIndex(x), this.cellIndex(z));
+      return this.centreLine.has(key) ? this.cells.get(key)?.surface ?? null : null;
+    },
+  };
 
   /** cellWalkable for one cell of this grid, for the diagnostics. */
-  private readonly walkable = (cell: RouteCell) => cellWalkable(cell, this.columnAt, this.CELL_SIZE);
+  private readonly walkable = (cell: RouteCell) => cellWalkable(cell, this.walkGround, this.CELL_SIZE);
+
+  /** judgeWalk for one cell of this grid, for `__corridor.pick()`. */
+  private readonly walkJudgement = (cell: RouteCell) => judgeWalk(cell, this.walkGround, this.CELL_SIZE);
 
   /**
    * Frame-budgeted terrain-refresh sweep, see RouteGridHeightSweep. A slice
@@ -346,12 +362,15 @@ export class GlobalRouteGrid {
     this.cachedRoutes = routes;
 
     const alongClaims = new Set<number>();
+    const lines: { x: number; z: number }[][] = [];
     for (const route of routes) {
       if (route.length < 2) continue;
 
       const points = route.map((p) => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
       claimRouteCells(this.cells, this.lattice, route, points, alongClaims);
+      lines.push(points);
     }
+    this.centreLine = centreLineKeys(lines, this.lattice);
 
     // Sampled only once every segment has claimed its cells: which surface
     // a cell samples depends on all segments that reach it. Then the gaps
@@ -1147,7 +1166,7 @@ export class GlobalRouteGrid {
    * adds that tower's answers.
    */
   describeCellsAround(x: number, z: number, radius: number, towerId: string | null): RouteCellProbe[] {
-    return probeCellsAround(this.view, x, z, radius, towerId, (cell) => this.medianOfStableNeighbourY(cell), this.walkable);
+    return probeCellsAround(this.view, x, z, radius, towerId, (cell) => this.medianOfStableNeighbourY(cell), this.walkJudgement);
   }
 
   /**
@@ -1158,7 +1177,7 @@ export class GlobalRouteGrid {
    * the columns from the engine's cache.
    */
   unwalkableCells(): RouteCell[] {
-    return unwalkableCells(this.cells.values(), this.columnAt, this.CELL_SIZE);
+    return unwalkableCells(this.cells.values(), this.walkGround, this.CELL_SIZE);
   }
 
   /** The grid as the spatial probes in route-grid-diagnostics read it. Diagnostics only. */
@@ -1244,6 +1263,7 @@ export class GlobalRouteGrid {
    */
   clear(): void {
     this.cells.clear();
+    this.centreLine.clear();
     this.enemyCellKeys.clear();
     this.bodyEnemies.length = 0;
     this.generation = GlobalRouteGrid.nextGeneration++;

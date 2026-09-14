@@ -2,7 +2,7 @@ import type { ColumnSample } from '../three-engine/column-sample';
 import type { RouteCell } from './route-cell';
 import { RouteCellSampler } from './route-cell-sampler';
 import { corridorConfig } from './route-corridor';
-import { jointCap, segmentTouchesCell } from './route-grid-builder';
+import { type RouteCellLattice, jointCap, segmentTouchesCell } from './route-grid-builder';
 
 /**
  * Where enemies can walk off the route centre line, and how that narrows
@@ -26,43 +26,190 @@ import { jointCap, segmentTouchesCell } from './route-grid-builder';
 /** The column at a point, or half a metre beside it on a seam (RouteCellSampler.columnNear). */
 export type ColumnAt = (x: number, z: number) => ColumnSample | null;
 
+/** What the walk check reads off the grid. */
+export interface WalkGround {
+  /** The grid's column probe; the columns of the cells, cached by the engine. */
+  column: ColumnAt;
+  /**
+   * The surface of the cell at the grid spot around (x, z) where a route
+   * centre line runs through it, null where none does. The corridor claims
+   * such a cell at any width (claimSegmentCells), so no narrower corridor
+   * drops it.
+   */
+  lineSurface: (x: number, z: number) => RouteCell['surface'] | null;
+}
+
 /**
- * Whether an enemy could walk from the route centre line out to `cell`.
+ * Why cellWalkable says what it says, for `__corridor.pick()`: `walkable`
+ * (true), `roof` and `step` (false, see cellWalkable), the rest null.
+ */
+export type WalkCheck =
+  | 'walkable'
+  | 'roof'
+  | 'step'
+  | 'centre line'
+  | 'deck or tunnel'
+  | 'no sample'
+  | 'coarse tile'
+  | 'no centre line ground'
+  | 'seam';
+
+/** What the walk check found for one cell. */
+export interface WalkJudgement {
+  walkable: boolean | null;
+  check: WalkCheck;
+  /** Height of the cell over the ground of the centre line beside it (centreLineGround), null where there is none. */
+  overLine: number | null;
+}
+
+/**
+ * Whether an enemy could walk from the route centre line out to `cell`,
+ * see judgeWalk.
+ */
+export function cellWalkable(cell: RouteCell, ground: WalkGround, cellSize: number): boolean | null {
+  return judgeWalk(cell, ground, cellSize).walkable;
+}
+
+/** centreLineGround per grid spot key, for one pass over the cells (unwalkableCells). */
+type LineGroundMemo = Map<number, number | null>;
+
+/**
+ * Whether an enemy could walk from the route centre line out to `cell`,
+ * and why.
  *
- * False for a cell more than `roofRise` above the ground on the centre line
- * beside it (axisX, axisZ): its column came down on a roof, an eave or a
- * crown over the street (roof check). False as well where a walk out from
+ * False for a cell more than `roofRise` above the ground of the centre line
+ * beside it (centreLineGround): its column came down on a roof, an eave or
+ * a crown over the street (roof check). False as well where a walk out from
  * the centre line cannot climb onto it (step check, see reached): a parked
  * car, a van, a hedge, a raised garden.
  *
- * Null where that cannot be told: a cell without a sample of its own, one
- * sampled from a tile coarser than `maxTileError` (told once a finer one has
- * streamed in, so a coarse hull narrows nothing), a cell the centre line runs
- * through, a deck or tunnel cell, no column on the centre line beside it, or
- * one more than OUTLIER_M from that (a seam).
+ * Null where that cannot be told or would change nothing: a cell without a
+ * sample of its own, one sampled from a tile coarser than `maxTileError`
+ * (told once a finer one has streamed in, so a coarse hull narrows
+ * nothing), a cell a centre line runs through (the corridor keeps it at
+ * any width, even where the line only clips a corner), a deck or tunnel
+ * cell, no column on the centre line beside it, or one more than OUTLIER_M
+ * from that (a seam).
  *
- * @param column The grid's column probe; the probes on the centre line and on
- *   the way out are the columns of the cells there, cached by the engine.
+ * @param memo Keeps centreLineGround per grid spot over a pass that judges
+ *   many cells: the edge cells beside one spot share it.
  */
-export function cellWalkable(cell: RouteCell, column: ColumnAt, cellSize: number): boolean | null {
-  if (cell.surface !== 'ground' || cell.sample.state !== 'stable') return null;
-  if (cell.axisX === cell.x && cell.axisZ === cell.z) return null;
-  if (cell.sample.tileGeometricError > corridorConfig.maxTileError) return null;
-  const axis = column(cell.axisX, cell.axisZ);
-  if (axis === null) return null;
-  const rise = cell.terrainHeight - axis.groundY;
-  if (Math.abs(rise) > RouteCellSampler.OUTLIER_M) return null;
-  if (rise > corridorConfig.roofRise) return false;
-  return reached(cell, axis.groundY, column, cellSize);
+export function judgeWalk(cell: RouteCell, ground: WalkGround, cellSize: number, memo?: LineGroundMemo): WalkJudgement {
+  const unjudged = (check: WalkCheck, overLine: number | null = null): WalkJudgement => ({ walkable: null, check, overLine });
+  const lineGround = (x: number, z: number): number | null => {
+    if (!memo) return centreLineGround(x, z, ground, cellSize);
+    const key = ((Math.floor(x / cellSize) & 0xffff) << 16) | (Math.floor(z / cellSize) & 0xffff);
+    let y = memo.get(key);
+    if (y === undefined) {
+      y = centreLineGround(x, z, ground, cellSize);
+      memo.set(key, y);
+    }
+    return y;
+  };
+  if (cell.surface !== 'ground') return unjudged('deck or tunnel');
+  if (cell.sample.state !== 'stable') return unjudged('no sample');
+  if (ground.lineSurface(cell.x, cell.z) !== null) {
+    const lineY = lineGround(cell.x, cell.z);
+    return unjudged('centre line', lineY === null ? null : cell.terrainHeight - lineY);
+  }
+  if (cell.sample.tileGeometricError > corridorConfig.maxTileError) return unjudged('coarse tile');
+  const axisY = lineGround(cell.axisX, cell.axisZ);
+  if (axisY === null) return unjudged('no centre line ground');
+  const rise = cell.terrainHeight - axisY;
+  if (Math.abs(rise) > RouteCellSampler.OUTLIER_M) return unjudged('seam', rise);
+  if (rise > corridorConfig.roofRise) return { walkable: false, check: 'roof', overLine: rise };
+  const walkable = reached(cell, axisY, ground.column, cellSize);
+  return { walkable, check: walkable ? 'walkable' : 'step', overLine: rise };
+}
+
+/**
+ * Keys of the grid spots a route centre line runs through, edges and
+ * corners included (segmentTouchesCell): the cells claimSegmentCells claims
+ * at any width. Their axis spot (RouteCell.axisX) is not always the cell
+ * itself: where the line only clips a corner, the point of the line
+ * nearest to the cell centre lies in the spot beside it. `routes` are the
+ * local positions of each route.
+ */
+export function centreLineKeys(routes: readonly (readonly { x: number; z: number }[])[], lattice: RouteCellLattice): Set<number> {
+  const keys = new Set<number>();
+  const size = lattice.cellSize;
+  for (const points of routes) {
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      // Column by column of grid spots, the z range of the segment over it;
+      // one spot more on the low side of each range for a line on an edge.
+      for (let gx = lattice.index(Math.min(a.x, b.x)) - 1; gx <= lattice.index(Math.max(a.x, b.x)); gx++) {
+        const x0 = gx * size;
+        let t0 = 0;
+        let t1 = 1;
+        if (dx !== 0) {
+          const ta = (x0 - a.x) / dx;
+          const tb = (x0 + size - a.x) / dx;
+          t0 = Math.max(0, Math.min(ta, tb));
+          t1 = Math.min(1, Math.max(ta, tb));
+          if (t0 > t1) continue;
+        } else if (a.x < x0 || a.x > x0 + size) {
+          continue;
+        }
+        const z0 = a.z + dz * t0;
+        const z1 = a.z + dz * t1;
+        for (let gz = lattice.index(Math.min(z0, z1)) - 1; gz <= lattice.index(Math.max(z0, z1)); gz++) {
+          if (segmentTouchesCell(size, a, b, gx, gz)) keys.add(lattice.key(gx, gz));
+        }
+      }
+    }
+  }
+  return keys;
 }
 
 /** The cells among `cells` an enemy could not walk to (cellWalkable false). */
-export function unwalkableCells(cells: Iterable<RouteCell>, column: ColumnAt, cellSize: number): RouteCell[] {
+export function unwalkableCells(cells: Iterable<RouteCell>, ground: WalkGround, cellSize: number): RouteCell[] {
   const found: RouteCell[] = [];
+  const memo: LineGroundMemo = new Map();
   for (const cell of cells) {
-    if (cellWalkable(cell, column, cellSize) === false) found.push(cell);
+    if (judgeWalk(cell, ground, cellSize, memo).walkable === false) found.push(cell);
   }
   return found;
+}
+
+const ascending = (a: number, b: number) => a - b;
+
+/**
+ * Ground of the route centre line at the grid spot (x, z): the median of
+ * the heights of the centre line spots among it and its eight neighbours,
+ * the lower of the middle two for an even count. On a line those are the
+ * spot and the spots before and after it. A spot counts with the surface
+ * its cell stands on, as RouteCellSampler.hitOf takes it: the lowest hit of
+ * its column, the highest on a bridge deck; a tunnel spot not at all. With
+ * the lowest hit of the deck spots, the water under the deck, the edge
+ * cells at the head of a bridge on a diagonal line stood 8 m over the
+ * median and were judged a roof. Null where none of them has a column.
+ *
+ * One spot alone was the reference until 2026-09-14. Where the line runs
+ * under the jetty of a half-timbered house, the column of its spot comes
+ * down on the jetty (the photogrammetry has no street under it), and every
+ * cell beside it was measured against that: a cell 2 m above the street
+ * under an eave was 3.7 m below the reference and passed (playtest
+ * 2026-09-14, Rothenburg, spot 5.7 m above the street).
+ */
+export function centreLineGround(x: number, z: number, ground: WalkGround, cellSize: number): number | null {
+  const heights: number[] = [];
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      const sx = x + dx * cellSize;
+      const sz = z + dz * cellSize;
+      const surface = ground.lineSurface(sx, sz);
+      if (surface === null || surface === 'tunnel') continue;
+      const column = ground.column(sx, sz);
+      if (column !== null) heights.push(surface === 'deck' ? column.topY : column.groundY);
+    }
+  }
+  if (heights.length === 0) return null;
+  heights.sort(ascending);
+  return heights[Math.floor((heights.length - 1) / 2)];
 }
 
 /**
@@ -165,6 +312,14 @@ export interface WalkCaps {
   right: number[];
 }
 
+/** A line from (ax, az) to (bx, bz), local. */
+interface Line {
+  ax: number;
+  az: number;
+  bx: number;
+  bz: number;
+}
+
 /**
  * How far out from the centre line each station of a route may reach on
  * each side so that its corridor claims none of `spots`: per segment,
@@ -179,7 +334,7 @@ export interface WalkCaps {
  * it. The margin is how much further than a piece's half width the round
  * end of a neighbouring piece reaches (reach less edgeMargin, 0.08 m by
  * default), plus a centimetre, so no piece claims the spot once its station
- * is capped. A spot the segment runs through stays: the corridor claims
+ * is capped. A spot a centre line runs through stays: the corridor claims
  * that cell at any width.
  */
 export function walkCaps(route: readonly WalkCapSegment[], spots: readonly WalkSpot[], cellSize: number): WalkCaps[] {
@@ -198,12 +353,13 @@ export function walkCaps(route: readonly WalkCapSegment[], spots: readonly WalkS
   for (const spot of spots) {
     const gx = Math.floor(spot.x / cellSize);
     const gz = Math.floor(spot.z / cellSize);
+    const through = (s: Line) => segmentTouchesCell(cellSize, { x: s.ax, z: s.az }, { x: s.bx, z: s.bz }, gx, gz);
+    if (route.some(through)) continue;
     const places = route.map((s) => placeOn(s, spot.x, spot.z));
     for (let i = 0; i < route.length; i++) {
       const segment = route[i];
       const n = segment.stations;
       if (n === 0) continue;
-      if (segmentTouchesCell(cellSize, { x: segment.ax, z: segment.az }, { x: segment.bx, z: segment.bz }, gx, gz)) continue;
       const { along, distance, side } = places[i];
       if (along >= 0 && along <= 1) {
         const k = Math.min(n - 1, Math.floor(along * n));
@@ -228,7 +384,7 @@ export function walkCaps(route: readonly WalkCapSegment[], spots: readonly WalkS
 }
 
 /** Where (x, z) lies from `segment`: how far along it (0 to 1 over its length), how far off it and on which side. */
-function placeOn(segment: WalkCapSegment, x: number, z: number): { along: number; distance: number; side: 'left' | 'right' } {
+function placeOn(segment: Line, x: number, z: number): { along: number; distance: number; side: 'left' | 'right' } {
   const dx = segment.bx - segment.ax;
   const dz = segment.bz - segment.az;
   const lenSq = dx * dx + dz * dz;

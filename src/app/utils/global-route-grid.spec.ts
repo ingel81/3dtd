@@ -809,6 +809,19 @@ describe('GlobalRouteGrid cells an enemy could not walk to', () => {
     expect(build(parked).unwalkableCells()).toEqual([]);
   });
 
+  it('measures the edge cells at the head of a bridge from the deck, not from the water under it', () => {
+    // A diagonal line, 7 m either side: around the last spot on the
+    // embankment lie deck spots, whose lowest hit is the water 8 m down.
+    const water = (x: number, z: number): ColumnSample => ((x + z) / 2 > 20 && (x + z) / 2 < 40
+      ? { groundY: 0, topY: 8, tileDepth: 20, tileGeometricError: 2 }
+      : { groundY: 8, topY: 8, tileDepth: 20, tileGeometricError: 2 });
+    const wide = (x: number, z: number, onBridge?: boolean): RouteWaypoint =>
+      ({ lat: z, lon: x, corridorLeft: 7, corridorRight: 7, onBridge });
+    const grid = build(water, [wide(0, 0), wide(20, 20, true), wide(40, 40), wide(60, 60)]);
+    expect(grid.getCellAt(17, 23)!.terrainHeight).toBe(8);
+    expect(grid.unwalkableCells()).toEqual([]);
+  });
+
   it('judges no cell sampled from a tile coarser than maxTileError', () => {
     expect(build((x, z) => ({ ...parked(x, z), tileGeometricError: 20 })).unwalkableCells()).toEqual([]);
   });
