@@ -17,6 +17,7 @@ import { GameStateSnapshot } from '../core/models/game-state-snapshot';
 import { WaveConfig } from '../core/models/wave-config';
 import { WaveResult } from '../core/models/wave-result';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
+import { BUILD_VERSION } from '../../configs/build-info.config';
 import { ITowerBot, TowerAction, BotSkillLevel } from './bots/tower-bot.interface';
 import { StrategyBotFactory } from './bots/strategy-bot.factory';
 import { TOWER_TYPES, UpgradeId } from '../../configs/tower-types.config';
@@ -499,7 +500,7 @@ export class TrainingSession {
           this.send({
             type: 'connect',
             clientId: this.clientId,
-            gameVersion: '1.0.0',
+            gameVersion: BUILD_VERSION,
           });
 
           this.intentionalDisconnect = false;  // fresh connection → reconnect allowed
