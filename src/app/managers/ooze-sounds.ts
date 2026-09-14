@@ -9,7 +9,7 @@ interface OozeLoop {
   handle: string | null;
   /** createLoop is still in flight */
   pending: boolean;
-  /** createLoop gave nothing although the ooze was in range (no buffer): not asked again */
+  /** createLoop gave nothing (no buffer): not asked again */
   failed: boolean;
 }
 
@@ -41,8 +41,9 @@ export class OozeSounds {
 
   /**
    * Once per render frame: the loop of ooze `id` moves to local (x, y, z).
-   * One that has none yet asks for it once the point is within earshot.
-   * SpatialAudioLoops pauses it out of range and resumes it back in range.
+   * The first call asks for the loop. Out of earshot it waits in
+   * SpatialAudioLoops and joins once the point comes within earshot;
+   * SpatialAudioLoops also pauses it out of range and resumes it back in range.
    */
   follow(id: string, audio: SpatialAudioManager, x: number, y: number, z: number): void {
     this.at.set(x, y, z);
@@ -55,11 +56,12 @@ export class OozeSounds {
       audio.updateLoopPosition(loop.handle, this.at);
       return;
     }
-    if (loop.pending || loop.failed || !audio.isWithinAudibleDistance(this.at)) return;
+    if (loop.pending || loop.failed) return;
 
     loop.pending = true;
     const started = loop;
-    void audio.createLoop(OOZE_SOUNDS.bubble.id, this.at.clone(), { randomStart: true }).then((handle) => {
+    // createLoop copies the position before it awaits
+    void audio.createLoop(OOZE_SOUNDS.bubble.id, this.at, { randomStart: true }).then((handle) => {
       started.pending = false;
       // The ooze went while the loop was loading
       if (this.loops.get(id) !== started) {
