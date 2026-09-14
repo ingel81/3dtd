@@ -13,7 +13,6 @@ import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { StatusEffectService } from '../services/combat/status-effect.service';
 import { HQDamageService } from '../services/combat/hq-damage.service';
 import { TowerCombatService } from '../services/combat/tower-combat.service';
-import { OsmStreetService } from '../services/location/osm-street.service';
 import { WaveDebugService } from '../services/debug/wave-debug.service';
 import { EnemyDebugService } from '../services/debug/enemy-debug.service';
 import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
@@ -59,7 +58,6 @@ export class GameStateManager {
   private readonly statusEffectService = inject(StatusEffectService);
   private readonly hqDamage = inject(HQDamageService);
   private readonly towerCombat = inject(TowerCombatService);
-  private readonly osmService = inject(OsmStreetService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
   private readonly markerViz = inject(MarkerVisualizationService);
@@ -77,7 +75,7 @@ export class GameStateManager {
   private bloodMoonService: BloodMoonService | null = null;
   private readonly researchStore = inject(ResearchStore);
   readonly towerManager = (() => {
-    const mgr = new TowerManager(this.eventBus, this.osmService, this.researchStore);
+    const mgr = new TowerManager(this.eventBus, this.researchStore);
     mgr.setGlobalRouteGrid(this.globalRouteGrid);
     return mgr;
   })();

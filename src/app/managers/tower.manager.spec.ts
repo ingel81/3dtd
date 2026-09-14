@@ -13,7 +13,6 @@ import { GameEventBus } from '../game-engine';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-import type { OsmStreetService } from '../services/location/osm-street.service';
 import type { ThreeTilesEngine } from '../three-engine';
 
 const createMockTilesEngine = () => ({
@@ -57,23 +56,16 @@ const createMockTilesEngine = () => ({
   },
 });
 
-const createOsmService = () => ({
-  findNearestStreetPoint: vi.fn(() => ({ distance: 10, position: { lat: 0, lon: 0 } })),
-});
-
 describe('TowerManager', () => {
   let eventBus: GameEventBus;
   let tilesEngine: ReturnType<typeof createMockTilesEngine>;
-  let osmService: ReturnType<typeof createOsmService>;
   let manager: TowerManager;
 
   beforeEach(() => {
     eventBus = new GameEventBus();
     tilesEngine = createMockTilesEngine();
-    osmService = createOsmService();
     manager = new TowerManager(
       eventBus,
-      osmService as unknown as OsmStreetService,
       { airTargetingUnlocked: () => false } as unknown as import('../store/research.store').ResearchStore,
     );
     manager.initialize(tilesEngine as unknown as ThreeTilesEngine);
