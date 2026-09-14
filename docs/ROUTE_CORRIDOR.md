@@ -833,8 +833,26 @@ __corridor.pick(6)
   - Die LOS-Anzeige: `displayed`, `displayOutdated`, `notDisplayed`,
     `cubeFromTower`.
 
-  Deutung der Felder: ROUTE_GEOMETRY_ANALYSIS.md, Abschnitt "Lücken in der
-  LOS-Anzeige".
+  Deutung der Felder (die Anzeige zeichnet nur Zellen mit Höhenprobe und ist
+  ein Schnappschuss, neu erst beim nächsten LOS-Recompute des Towers):
+
+  | Feld | Deutung |
+  |---|---|
+  | `unsampled` > 0 | diese Zellen fehlen in der Anzeige |
+  | `groundMissing` > 0 | dort prüft das Targeting per CPU-Raycast statt nachzuschlagen; die Anzeige liest die Antworten nicht |
+  | `airMissing` | bei reinen Boden-Towern gleich `cells` |
+  | `holes` > 0 | widerspräche dem Test "leaves no hole in the corridor at any heading" (`global-route-grid.spec.ts`); Liste in `holeCells` |
+  | `raised` > 0 | Zellen auf Autodach oder Krone, ihre Platte schwebt und erscheint aus schräger Kamera versetzt; Liste in `raisedCells` (x, z, Meter über den Nachbarn, höchstens 20) |
+  | `unwalkable` > 0 | ein feineres Tile zeigte sie erst, als Tower standen (siehe Laufweg) |
+  | `centreMissing` > 0 | widerspräche den Tests zur Mittelreihe; Liste in `centreMissingCells` |
+  | `centreUnsampled`, `centreBlocked`, `centreRaised`, `centreNotDisplayed` | woran eine fehlende Reihe entlang der roten Linie liegt |
+  | `displayOutdated` > 0 | Grid neu gebaut, Anzeige nicht |
+  | `notDisplayed` > 0 | die Anzeige ist ein alter Schnappschuss |
+  | `cubeFromTower` false | bleibt nur, wenn die Anzeige die geteilte Cubemap nicht zurückholt |
+
+  Die Koordinaten aus `holeCells` und `raisedCells` zeigt
+  `__rg.dumpCellsInBox({ xMin, xMax, zMin, zMax })` genauer. Herkunft der
+  Felder: Playtest 2026-09-12, [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md).
 - **`pick`** nimmt den nächsten Linksklick auf die Karte, ohne etwas auszuwählen
   oder zu bauen (`InputHandlerService.armPick`).
   Danach stehen drei Ausgaben in der Konsole.
