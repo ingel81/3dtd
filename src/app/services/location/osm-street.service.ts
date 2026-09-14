@@ -1,7 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { RandomSpawnCandidate } from '../../models/location.types';
 import { StreetCacheService } from './street-cache.service';
-import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+import { GeoBox, boxAreaKm2, boxAround, boxMinus, boxesOverlap, mergeStreets } from './street-box';
+import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 
 export interface StreetNode {
   id: number;
@@ -148,6 +149,32 @@ function logOverpassAnswer(what: string, server: string, answer: OverpassAnswer)
   );
 }
 
+/** Highway types loadStreets asks for: the roads, and the paths enemies may take. */
+const HIGHWAY_TYPES =
+  'motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|' +
+  'unclassified|residential|living_street|service|pedestrian|footway|path|cycleway|track|steps';
+
+/**
+ * Overpass query for the streets that run through any of `boxes`: each way
+ * once with its tags, then all of its nodes, inside the boxes or not.
+ * `maxsize` caps the server's memory for the query at 4 MB; a query that
+ * needs more ends with a `remark` in the answer (logOverpassAnswer).
+ */
+function streetQuery(boxes: readonly GeoBox[]): string {
+  const ways = boxes
+    .map((box) => `way["highway"~"^(${HIGHWAY_TYPES})$"](${box.minLat},${box.minLon},${box.maxLat},${box.maxLon});`)
+    .join('\n        ');
+  return `
+      [out:json][timeout:25][maxsize:4194304];
+      (
+        ${ways}
+      );
+      out body;
+      >;
+      out skel qt;
+    `;
+}
+
 type StreetTags = Pick<Street, 'width' | 'lanes' | 'bridge' | 'tunnel' | 'covered' | 'layer'>;
 
 /**
@@ -240,8 +267,21 @@ export class OsmStreetService {
   private cachedGraphNetworkId: string | null = null;
 
   /**
+   * The streets loaded last, from Overpass or the IndexedDB cache. The next
+   * load takes the ways of them that run through its box and asks Overpass
+   * only for the rest (loadStreets). One network, in memory for the session.
+   */
+  private lastLoaded: StreetNetwork | null = null;
+
+  /**
    * Load street network for a given bounding box around coordinates
    * Uses IndexedDB cache to avoid repeated API calls (supports larger data than localStorage)
+   *
+   * Where the box overlaps the streets loaded last (lastLoaded), their ways
+   * through the box are taken over and Overpass is asked only for the rest
+   * of it, in up to four strips (boxMinus): about half the box after the HQ
+   * moved just past an edge of the loaded streets, three quarters past a
+   * corner, nothing when they cover it. A way in both comes once.
    */
   async loadStreets(
     centerLat: number,
@@ -253,52 +293,47 @@ export class OsmStreetService {
     const cached = await this.streetCache.load(cacheKey);
     if (cached) {
       console.log('[OSM] Loaded from IndexedDB cache');
+      this.lastLoaded = cached;
       return cached;
     }
 
-    // Calculate bounding box (approximate)
-    const latDelta = radiusMeters / METERS_PER_DEGREE_LAT;
-    const lonDelta = radiusMeters / (METERS_PER_DEGREE_LAT * Math.cos(centerLat * DEG_TO_RAD));
-
-    const bounds = {
-      minLat: centerLat - latDelta,
-      maxLat: centerLat + latDelta,
-      minLon: centerLon - lonDelta,
-      maxLon: centerLon + lonDelta,
-    };
-
-    // Overpass QL query for streets
-    // maxsize limits response to 4MB to prevent huge downloads in dense cities
-    const query = `
-      [out:json][timeout:25][maxsize:4194304];
-      (
-        way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service|pedestrian|footway|path|cycleway|track|steps)$"]
-          (${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon});
+    const bounds = boxAround(centerLat, centerLon, radiusMeters);
+    const loaded = this.lastLoaded && boxesOverlap(bounds, this.lastLoaded.bounds) ? this.lastLoaded : null;
+    const missing = loaded ? boxMinus(bounds, loaded.bounds) : [bounds];
+    if (loaded) {
+      const fetchKm2 = missing.reduce((sum, box) => sum + boxAreaKm2(box), 0);
+      const totalKm2 = boxAreaKm2(bounds);
+      console.warn(
+        `[OSM] streets: ${(totalKm2 - fetchKm2).toFixed(1)} of ${totalKm2.toFixed(1)}km² from the streets loaded before, ` +
+        `fetching ${fetchKm2.toFixed(1)}km² in ${missing.length} boxes`,
       );
-      out body;
-      >;
-      out skel qt;
-    `;
+    }
+    const noStreets = () => new Error('No streets found in this area. Choose a different location.');
 
     let network: StreetNetwork;
-    try {
-      // An answer without streets hands over to the next server as well.
-      network = await this.fetchOverpass('streets', query, (data) => {
-        const parsed = this.parseOverpassResponse(data, bounds);
-        if (parsed.streets.length === 0) {
-          throw new Error('No streets found in this area. Choose a different location.');
-        }
-        return parsed;
-      });
-    } catch (error) {
-      console.error('[OSM] All Overpass servers failed');
-      // Provide user-friendly error message
-      const userMessage = 'OSM server unreachable. Check your internet connection.';
-      throw error instanceof Error && error.message.includes('No streets')
-        ? error
-        : new Error(userMessage);
+    if (loaded && missing.length === 0) {
+      network = mergeStreets(loaded, null, bounds);
+      if (network.streets.length === 0) throw noStreets();
+    } else {
+      try {
+        // An answer without streets hands over to the next server as well.
+        network = await this.fetchOverpass('streets', streetQuery(missing), (data) => {
+          const fetched = this.parseOverpassResponse(data, bounds);
+          const streets = loaded ? mergeStreets(loaded, fetched, bounds) : fetched;
+          if (streets.streets.length === 0) throw noStreets();
+          return streets;
+        });
+      } catch (error) {
+        console.error('[OSM] All Overpass servers failed');
+        // Provide user-friendly error message
+        const userMessage = 'OSM server unreachable. Check your internet connection.';
+        throw error instanceof Error && error.message.includes('No streets')
+          ? error
+          : new Error(userMessage);
+      }
     }
 
+    this.lastLoaded = network;
     // Cache the result to IndexedDB (async, fire-and-forget)
     this.streetCache.save(cacheKey, network).catch((err) => {
       console.warn('[OSM] Failed to cache to IndexedDB:', err);
@@ -826,15 +861,7 @@ export class OsmStreetService {
     centerLon: number,
     radiusMeters = 500
   ): Promise<BuildingData> {
-    const latDelta = radiusMeters / METERS_PER_DEGREE_LAT;
-    const lonDelta = radiusMeters / (METERS_PER_DEGREE_LAT * Math.cos(centerLat * DEG_TO_RAD));
-
-    const bounds = {
-      minLat: centerLat - latDelta,
-      maxLat: centerLat + latDelta,
-      minLon: centerLon - lonDelta,
-      maxLon: centerLon + lonDelta,
-    };
+    const bounds = boxAround(centerLat, centerLon, radiusMeters);
 
     const query = `
       [out:json][timeout:25][maxsize:4194304];
@@ -943,6 +970,8 @@ export class OsmStreetService {
    * Clear cache for specific coordinates or all street caches (IndexedDB)
    */
   async clearCache(centerLat?: number, centerLon?: number, radiusMeters?: number): Promise<void> {
+    // The next load asks Overpass for all of its box again.
+    this.lastLoaded = null;
     if (centerLat !== undefined && centerLon !== undefined && radiusMeters !== undefined) {
       // Clear specific cache
       const cacheKey = this.streetCache.getCacheKey(centerLat, centerLon, radiusMeters);

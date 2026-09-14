@@ -406,6 +406,16 @@ STEP 3: Load Streets
     Anfragen werden abgebrochen. Jeder Server hat 15 s bis zu den Headern,
     der Body danach keine Grenze. Jeder Versuch steht als
     `[OSM] streets from ...` in der Konsole, siehe "Zeiten" unten
+  - Überlappt die Box die zuletzt geladenen Straßen (`lastLoaded`, eine im
+    Speicher, aus Overpass oder dem IndexedDB-Cache), übernimmt
+    `loadStreets` deren Ways, die durch die neue Box laufen, und fragt
+    Overpass nur nach dem Rest der Box, in bis zu vier Streifen
+    (`street-box.ts`: `boxMinus`, `mergeStreets`). Nach einem HQ-Umzug knapp
+    über eine Kante der geladenen Straßen ist das etwa die halbe Box, über
+    eine Ecke drei Viertel; deckt das geladene Netz die Box ganz ab, geht
+    keine Anfrage raus. Ein Way, der in beiden Teilen liegt, kommt einmal
+    vor; die Ways sind nach id sortiert wie bei Overpass. Konsole:
+    `[OSM] streets: X of Ykm² from the streets loaded before, fetching Zkm² in N boxes`
   - Street-Count aktualisieren
   - Street-Rendering laeuft progressiv (50 Nodes/Frame, alte Strassen
     bleiben sichtbar bis neue fertig sind — `street-rendering.service.ts`)
