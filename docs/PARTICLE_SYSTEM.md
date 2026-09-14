@@ -4,14 +4,14 @@
 
 Das visuelle Effektsystem umfasst mehrere Subsysteme, nicht nur klassische
 CPU-Partikel. `ThreeEffectsRenderer` ist seit 2026-05-21 eine Delegations-Facade
-ueber fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
+über fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
 
 - **Trail Additive Pool** (3000 Partikel): Feuer, Tracer, Explosions-Feuerball,
   Glüheffekte, Bullet-Trails, Arcane-Orb-Spirale, Flame-Beam, Mündungsfeuer, Funken-Bursts.
 - **Trail Normal Pool** (4000 Partikel): Explosionsrauch, opake Cannon-Trails,
   Rocket- und Chaos-Orb-Rauchspur, Blood-Splatter.
 - **Tower Fire Pool** (800 Partikel, dediziert): Tower-Innenfeuer,
-  unabhaengig von Combat-VFX, immer verfuegbar.
+  unabhängig von Combat-VFX, immer verfügbar.
 - **Sprite-Sheet Atlanten** (`generateExplosionAtlas`, `generateSmokeAtlas`):
   4×4 prozedural generierte Texturen, Atlas-Frame-Animation via
   `frameIndex` Attribut.
@@ -19,9 +19,9 @@ ueber fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
   Ice-Decals (max 150), Kampfspuren (max 200, eine pro Route-Zelle, siehe unten),
   1 Draw Call pro Decal-Typ. Ausblenden über das Opacity-Attribut.
 - **GPU-instanzierte Floating Text** (`FloatingTextInstanceManager`):
-  Floating Damage Numbers ueber Gegnern. 1 Draw Call fuer alle Texts.
+  Floating Damage Numbers über Gegnern. 1 Draw Call für alle Texts.
 - **Frost-/Poison-Auren**: Pro-Enemy orbitierende Partikel-Cluster (Tracking
-  ueber Maps mit `localPosition` und `orbitAngle`).
+  über Maps mit `localPosition` und `orbitAngle`).
 - **Atompilz** (`MushroomCloudRenderer`): eigene instanzierte Billboards mit eigenen
   Materialien (beleuchteter Rauch, additive Glut) und ein Feuerball-Mesh, in Spielzeit,
   siehe [Atompilz](#atompilz-nuklearschlag).
@@ -48,13 +48,13 @@ Zwei klassische Three.js `Points` mit unterschiedlichen Blending-Modi:
 ShaderMaterial ist **default aktiv** (`useShaderMaterial = true`); per
 **Shift+P** kann auf `PointsMaterial` umgeschaltet werden (P allein pausiert,
 `hotkey-map.ts`; Fallback ohne
-Per-Partikel-Groessen, mit harten Quadrat-Kanten).
+Per-Partikel-Größen, mit harten Quadrat-Kanten).
 
 ### Free-Lists (O(1) Allocation)
 
 Jeder Pool hat eine Free-List (`freeIndicesAdditive`, `freeIndicesNormal`,
 `freeIndicesTowerFire`) als Stack freier Indizes plus einen Round-Robin-Cursor
-als Fallback. Aktivitaets-Tracking (`_poolDirtyAdditive` etc.) ueberspringt
+als Fallback. Aktivitäts-Tracking (`_poolDirtyAdditive` etc.) überspringt
 komplett inaktive Pools im Update-Loop.
 
 Das Tower-Innenfeuer belebt seine Partikel selbst wieder, an `getInactiveParticle()`
@@ -72,7 +72,7 @@ tötet. Die Werte für Blut und Feuer sind auf diesen einen Schritt umgerechnet
 
 Ein Pool mit leerer Draw-Range ist unsichtbar und steht nicht in der
 Render-Liste (`DrawGate` aus `renderers/draw-gate.ts`, gesetzt in
-`updateBuffers()`). Dasselbe gilt fuer die Decal-Pools und Floating Text ohne
+`updateBuffers()`). Dasselbe gilt für die Decal-Pools und Floating Text ohne
 Instanzen. Der Lade-Warm-up zeichnet sie einmal, damit Shader und Uploads nicht
 in die erste Welle fallen.
 
@@ -320,8 +320,8 @@ Features:
 
 ## Spawn-API (ThreeEffectsRenderer)
 
-Die wichtigsten Effekt-Spawner — alle als Methoden auf `ThreeEffectsRenderer`,
-typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
+Die wichtigsten Effekt-Spawner, alle als Methoden auf `ThreeEffectsRenderer`,
+typischerweise vom `VFXService` über EventBus-Subscriptions aufgerufen:
 
 | Methode | Zweck |
 |---------|-------|
@@ -749,7 +749,7 @@ Screen Shake und Frame-Limit. Die früheren Einzelschlüssel `3dtd-fps-limit` un
 Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 
 - `vfx:blood` → `spawnBloodSplatter` + optional `spawnBloodDecal`
-  (Decal-Durchmesser haengt von `intensity` ab: ≥30 → 2,8 m, ≥10 → 1,8 m, sonst keins)
+  (Decal-Durchmesser hängt von `intensity` ab: ≥30 → 2,8 m, ≥10 → 1,8 m, sonst keins)
 - `vfx:projectile-impact` → Feuer-Atlas-Explosion mit rocket/cannon/bullet-Preset
   (`EXPLOSION_PRESETS`); `arcane-orb`, `chaos-orb` und `poison-glob` bekommen statt
   dessen einen Funken-Burst (`spawnBurstAtGeo` mit ihrer Palette aus
@@ -788,7 +788,7 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 |-------|--------------|
 | `three-engine/renderers/three-effects.renderer.ts` | Delegations-Facade (FloatingText, Debug-Spheres, `update`/`clear`/`dispose`-Orchestrierung) |
 | `three-engine/renderers/particle-pool-manager.ts` | 3 GPU-Partikel-Pools (Trail-Additive/Normal, Tower-Fire), Free-Lists, Buffer-Caches, Atlas, Shader-Toggle |
-| `three-engine/renderers/particle-shaders.ts` | GLSL-Vertex/Fragment-Shader + ShaderMaterial-Factory fuer die Partikel-Pools |
+| `three-engine/renderers/particle-shaders.ts` | GLSL-Vertex/Fragment-Shader + ShaderMaterial-Factory für die Partikel-Pools |
 | `three-engine/renderers/particle-effects-renderer.ts` | Combat-VFX (Blood, Fire, Explosion mit Rauchstufe, Funken-Bursts, Trails, Muzzle), Decals, `activeEffects`-Lifecycle |
 | `three-engine/renderers/environment-effects-renderer.ts` | HQ-Explosion, Fire-Flash, Tower-Inner-Fire |
 | `three-engine/renderers/aura-renderer.ts` | Orbitierende Frost-/Poison-Status-Auren |
@@ -799,7 +799,7 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/instance-slot-allocator.ts` | Slot-Vergabe für instanzierte Pools, hier die Decals |
 | `three-engine/renderers/draw-gate.ts` | `DrawGate`: leere Pools raus aus der Render-Liste, der Warm-up zeichnet sie einmal |
 | `three-engine/renderers/floating-text/floating-text-instance.manager.ts` | GPU-instanced Floating Damage Numbers |
-| `three-engine/renderers/floating-text/floating-text-material.ts` | Custom ShaderMaterial fuer Text-Atlas |
+| `three-engine/renderers/floating-text/floating-text-material.ts` | Custom ShaderMaterial für Text-Atlas |
 | `three-engine/renderers/floating-text/floating-text-atlas.ts` | Prozedurale Text-Atlas-Generierung |
 | `three-engine/renderers/sprite-atlas-generator.ts` | Sprite-Sheet-Atlanten (Explosion 4×4, Smoke 4×4) |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Nuklearschlags, in Spielzeit |
