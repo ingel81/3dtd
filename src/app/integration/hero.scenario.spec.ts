@@ -31,7 +31,7 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { createMockTilesEngine, withAutoStubs, TEST_PATH, TEST_SPAWN_POINTS } from './test-helpers';
+import { createMockTilesEngine, withAutoStubs, TEST_PATH } from './test-helpers';
 import { createHeroTestGame } from './hero-test-helpers';
 import { HERO } from '../configs/hero.config';
 import { geoDistanceFast } from '../utils/geo-utils';
