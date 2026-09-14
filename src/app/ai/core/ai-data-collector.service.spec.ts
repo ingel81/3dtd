@@ -34,7 +34,7 @@ vi.mock('./dps-profile', async (importOriginal) => {
 });
 
 const SUBSCRIBED: GameEvent['type'][] = [
-  'wave:started', 'wave:completed', 'enemy:spawned', 'enemy:died', 'enemy:reached-base', 'enemy:split',
+  'wave:started', 'wave:completed', 'enemy:spawned', 'enemy:died', 'enemy:reached-base', 'enemy:leaking', 'enemy:split',
   'worm:spawned', 'ability:resolved', 'health:changed', 'game:started', 'game:over', 'tower:placed',
   'tower:sold', 'tower:upgraded',
 ];

@@ -27,6 +27,8 @@ export class WaveOutcomeTracker {
   private endedLifetimeTotalMs = 0;
   private endedLifetimeCount = 0;
   private pathProgress = new Map<string, number>();
+  /** Oozes already booked as leaks while they flow in, see enemyLeaking(). */
+  private leaking = new Set<string>();
 
   /** A wave with `enemyCount` enemies started at `now`, the base at `baseHealth`. */
   start(enemyCount: number, baseHealth: number, now: number): void {
@@ -73,8 +75,13 @@ export class WaveOutcomeTracker {
     this.performanceOf(enemyType).spawned++;
   }
 
-  /** `progress` is the path progress at death, if the enemy had a movement component. */
+  /**
+   * `progress` is the path progress at death, if the enemy had a movement
+   * component. An ooze killed while it flows in was booked as a leak
+   * (enemyLeaking) and is no kill.
+   */
   enemyDied(enemyId: string, enemyType: string, progress: number | undefined, now: number): void {
+    if (this.leaking.delete(enemyId)) return;
     this.outcome.enemiesKilled = (this.outcome.enemiesKilled || 0) + 1;
 
     // Track per-enemy-type performance
@@ -110,7 +117,19 @@ export class WaveOutcomeTracker {
     this.outcome.abilityKills = (this.outcome.abilityKills || 0) + kills;
   }
 
+  /**
+   * An ooze lost its first HP point into the base (enemy:leaking): it
+   * reached the base and counts as a leak from here on, once. Its arrival
+   * as a whole (enemy:reached-base) or its death halfway in adds nothing.
+   */
+  enemyLeaking(enemyId: string, enemyType: string, now: number): void {
+    if (this.leaking.has(enemyId)) return;
+    this.enemyReachedBase(enemyId, enemyType, now);
+    this.leaking.add(enemyId);
+  }
+
   enemyReachedBase(enemyId: string, enemyType: string, now: number): void {
+    if (this.leaking.delete(enemyId)) return;
     this.outcome.enemiesReachedBase = (this.outcome.enemiesReachedBase || 0) + 1;
 
     // Track per-enemy-type performance
@@ -241,5 +260,6 @@ export class WaveOutcomeTracker {
     this.endedLifetimeTotalMs = 0;
     this.endedLifetimeCount = 0;
     this.pathProgress.clear();
+    this.leaking.clear();
   }
 }

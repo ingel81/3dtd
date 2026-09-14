@@ -116,6 +116,27 @@ describe('WaveOutcomeTracker', () => {
     expect(tracker.finalize('completed', 6000, 1).waveDurationMs).toBe(1000);
   });
 
+  it('books an ooze as a leak from its first point that flows in, once, and not as a kill after it', () => {
+    tracker.start(2, 100, 0);
+    tracker.enemySpawned('ooze', 'ooze', 0);
+    tracker.enemySpawned('whole', 'ooze', 0);
+    // Flows in point by point, then dies halfway in
+    tracker.enemyLeaking('ooze', 'ooze', 1000);
+    tracker.enemyLeaking('ooze', 'ooze', 1500);
+    tracker.enemyDied('ooze', 'ooze', 1, 2000);
+    // Flows in whole
+    tracker.enemyLeaking('whole', 'ooze', 3000);
+    tracker.enemyReachedBase('whole', 'ooze', 4000);
+
+    const outcome = tracker.finalize('completed', 5000, 1);
+
+    expect(outcome).toMatchObject({ enemiesKilled: 0, enemiesReachedBase: 2 });
+    expect(outcome.enemyPerformance['ooze']).toMatchObject({ spawned: 2, killed: 0, reachedBase: 2 });
+    expect(outcome.enemyProgressValues).toEqual([1, 1]);
+    // Lifetimes end with the first point in
+    expect(outcome.avgEnemyLifetimeMs).toBe(2000);
+  });
+
   it('counts split children as spawned bodies', () => {
     tracker.start(1, 100, 0);
     tracker.enemiesSplit(2);
