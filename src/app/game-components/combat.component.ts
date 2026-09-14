@@ -45,6 +45,11 @@ export class CombatComponent extends Component {
     this.fireRate = config.fireRate;
   }
 
+  /** Game-time ms until the next shot, 0 when it can fire (read by the `__towerTargets` console). */
+  get cooldownRemaining(): number {
+    return this.cooldownRemainingMs;
+  }
+
   canFire(): boolean {
     return this.fireRate > 0 && this.cooldownRemainingMs <= 0;
   }

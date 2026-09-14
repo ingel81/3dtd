@@ -38,6 +38,7 @@ import { EngineStore } from '../../store/engine.store';
 import { STREET_FILTER_RADIUS } from '../../configs/map-constants.config';
 import { CorridorController } from '../world/corridor-controller';
 import { CorridorConsole } from '../debug/corridor-console';
+import { TowerTargetConsole } from '../debug/tower-target-console';
 import { RouteGridConvergence } from '../world/route-grid-convergence';
 import { IntroLoadingGate } from '../world/intro-loading-gate';
 import { CameraOverview } from '../camera-overview';
@@ -60,6 +61,7 @@ import { cameraTimeline } from '../../utils/camera-timeline';
  * Owned helpers (plain classes, built in the field initializers below):
  * - CorridorController: when the route corridor is measured and rebuilt
  * - CorridorConsole: `__corridor` in DevTools
+ * - TowerTargetConsole: `__towerTargets` in DevTools
  * - RouteGridConvergence: cell refresh after tile loads, baked heights
  * - IntroLoadingGate: loading screen held for the intro flight
  * - CameraOverview: overview frame, initial view, camera debug toggles
@@ -118,6 +120,12 @@ export class VisualizationFacadeService {
     inputHandler: this.inputHandler,
     pathRoute: this.pathRoute,
     change: (apply) => this.corridor.change(apply),
+  });
+
+  /** `__towerTargets` in DevTools, see TowerTargetConsole. */
+  private readonly towerTargetConsole = new TowerTargetConsole({
+    gameState: () => this.gameState,
+    engineInit: this.engineInit,
   });
 
   /** Cell refresh after tile loads and the heights baked off the cells, see RouteGridConvergence. */
@@ -189,6 +197,7 @@ export class VisualizationFacadeService {
     // A tower or a wave finishes a corridor measurement under way first.
     this.corridor.attach();
     this.corridorConsole.install();
+    this.towerTargetConsole.install();
   }
 
   /**
@@ -198,6 +207,7 @@ export class VisualizationFacadeService {
     this.eventBusSubs.disposeAll();
     this.corridor.dispose();
     this.corridorConsole.uninstall();
+    this.towerTargetConsole.uninstall();
     this.convergence.dispose();
     this.introGate.dispose();
     const engine = this.initialized ? this.bridge.getEngine() : null;
