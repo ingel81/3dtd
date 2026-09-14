@@ -26,6 +26,8 @@ describe('CorridorConsole', () => {
   const cellD: Cell = { x: 7, z: 1, heightSampled: false };
 
   let engine: object | null;
+  let columnAt: ReturnType<typeof vi.fn>;
+  let blocked: ReturnType<typeof vi.fn>;
   let reference: { x: number; z: number };
   let selected: { id: string } | null;
   let layer: { cells: Cell[] } | null;
@@ -40,7 +42,7 @@ describe('CorridorConsole', () => {
 
   function fakeGrid() {
     return {
-      describeCellsAround: vi.fn(() => [{ x: 1, z: 1, state: 'sampled' }, { x: 3, z: 3, state: 'unsampled' }]),
+      describeCellsAround: vi.fn((): Record<string, unknown>[] => [{ x: 1, z: 1, state: 'sampled' }, { x: 3, z: 3, state: 'unsampled' }]),
       describeTowerRange: vi.fn(() => ({
         cells: 12, unsampled: 1,
         groundVisible: 7, groundBlocked: 3, groundMissing: 1,
@@ -82,12 +84,16 @@ describe('CorridorConsole', () => {
       vi.spyOn(console, method).mockImplementation(() => undefined);
     }
     reference = { x: 10, z: 20 };
+    columnAt = vi.fn(() => null);
+    blocked = vi.fn(() => false);
     engine = {
       sync: {
         localToGeo: (hit: { x: number; z: number }) => ({ lat: hit.x, lon: hit.z }),
         geoToLocalSimple: (lat: number, lon: number, height: number) => ({ x: lat, y: height, z: lon }),
       },
       getTowerShadowMapper: () => ({ getReferencePos: () => reference }),
+      getCamera: () => ({ position: { x: 0, y: 100, z: 0 } }),
+      terrain: { raycastColumnSample: columnAt, raycastLineOfSight: blocked },
     };
     selected = null;
     layer = null;
@@ -149,6 +155,8 @@ describe('CorridorConsole', () => {
 
   describe('pick', () => {
     const click = (x: number, z: number) => (armPick.mock.calls.at(-1)![0] as (hit: object) => void)({ x, y: 0, z });
+    /** What coverAt adds for a spot without a column or a cell height. */
+    const noCover = { columnBottomM: null, columnTopM: null, overM: null, cameraSees: null };
 
     it('arms the next click only with a location', () => {
       expect(api().pick()).toBe(
@@ -169,9 +177,32 @@ describe('CorridorConsole', () => {
       expect(console.log).toHaveBeenCalledTimes(1);
       expect(console.log).toHaveBeenCalledWith('[Corridor] pick at 12.3,56.8: 2 spots within 6 m, no tower selected');
       expect(console.table).toHaveBeenCalledWith([
-        { x: 1, z: 1, state: 'sampled', displayed: null },
-        { x: 3, z: 3, state: 'unsampled', displayed: null },
+        { x: 1, z: 1, state: 'sampled', displayed: null, ...noCover },
+        { x: 3, z: 3, state: 'unsampled', displayed: null, ...noCover },
       ]);
+    });
+
+    it('tells what lies over each spot and whether the camera sees the red line there', () => {
+      const column = (groundY: number, topY: number) => ({ groundY, topY, tileDepth: 20, tileGeometricError: 2 });
+      grid.describeCellsAround.mockReturnValue([
+        { x: 1, z: 1, cell: true, heightM: 30 }, // under a deck at 38 m
+        { x: 3, z: 1, cell: true, heightM: 30.2 }, // open sky
+        { x: 5, z: 1, cell: false, heightM: null },
+      ]);
+      columnAt.mockImplementation((x: number) => (x === 1 ? column(30, 38.04) : x === 3 ? column(30.2, 30.2) : null));
+      blocked.mockImplementation((_ox: number, _oy: number, _oz: number, x: number) => x === 1);
+
+      api().pick();
+      click(3, 1);
+
+      expect(console.table).toHaveBeenCalledWith([
+        expect.objectContaining({ x: 1, columnBottomM: 30, columnTopM: 38.04, overM: 8, cameraSees: false }),
+        expect.objectContaining({ x: 3, columnBottomM: 30.2, columnTopM: 30.2, overM: 0, cameraSees: true }),
+        expect.objectContaining({ x: 5, ...noCover }),
+      ]);
+      // From the camera to where the red line runs, 1 m over the cell.
+      expect(blocked).toHaveBeenCalledWith(0, 100, 0, 1, 31, 1);
+      expect(columnAt).toHaveBeenCalledWith(5, 1, 'corridorPick');
     });
 
     it('marks what the selected tower displays and explains the width at the nearest station', () => {
@@ -185,8 +216,8 @@ describe('CorridorConsole', () => {
       expect(grid.describeCellsAround).toHaveBeenCalledWith(1, 1, 4, 't1');
       expect(console.log).toHaveBeenCalledWith('[Corridor] pick at 1.0,1.0: 2 spots within 4 m, answers and display of t1');
       expect(console.table).toHaveBeenNthCalledWith(1, [
-        { x: 1, z: 1, state: 'sampled', displayed: true },
-        { x: 3, z: 3, state: 'unsampled', displayed: false },
+        { x: 1, z: 1, state: 'sampled', displayed: true, ...noCover },
+        { x: 3, z: 3, state: 'unsampled', displayed: false, ...noCover },
       ]);
       expect(console.log).toHaveBeenCalledWith('[Corridor] width at the nearest route station', { way: 'w1' });
       expect(console.table).toHaveBeenNthCalledWith(2, ['left', 'right']);

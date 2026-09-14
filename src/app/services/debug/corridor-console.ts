@@ -9,6 +9,14 @@ import type { InputHandlerService } from '../input-handler.service';
 import type { PathAndRouteService } from '../world/path-route.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 
+/** How far above its cells the red route line runs, m (PathAndRouteService.buildRouteFromPath). */
+const ROUTE_LINE_LIFT_M = 1;
+
+const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
+
+/** The engine as `__corridor.pick()` reads it. */
+type PickEngine = NonNullable<ReturnType<EngineInitializationService['getEngine']>>;
+
 /** What CorridorConsole needs; VisualizationFacadeService passes its services. */
 export interface CorridorConsoleDeps {
   /** The game state, set by the facade's initialize(); read on each call. */
@@ -60,8 +68,9 @@ export class CorridorConsole {
    * `__corridor.pick()`: the next left click on the map prints every grid
    * spot within `radius` of it with its cell, sample state, height, surface,
    * the selected tower's answers and whether its LOS display draws it,
-   * nearest to the route line first. Then, for the route station nearest to
-   * the click, how the corridor width there came about
+   * nearest to the route line first, and what lies over it (coverAt). Then,
+   * for the route station nearest to the click, how the corridor width
+   * there came about and the tags of its way
    * (PathAndRouteService.explainCorridorAt). Selection and display stay as
    * they are.
    */
@@ -78,7 +87,7 @@ export class CorridorConsole {
       const drawn = layer ? new Set(layer.cells.map((c) => `${c.x},${c.z}`)) : null;
       const rows = gameState.getGlobalRouteGrid().getGrid()
         .describeCellsAround(local.x, local.z, radius, tower?.id ?? null)
-        .map((row) => ({ ...row, displayed: drawn ? drawn.has(`${row.x},${row.z}`) : null }));
+        .map((row) => ({ ...row, displayed: drawn ? drawn.has(`${row.x},${row.z}`) : null, ...this.coverAt(engine, row) }));
       console.log(
         `[Corridor] pick at ${local.x.toFixed(1)},${local.z.toFixed(1)}: ${rows.length} spots within ${radius} m` +
         (tower ? `, answers and display of ${tower.id}` : ', no tower selected'),
@@ -94,6 +103,36 @@ export class CorridorConsole {
       }
     });
     return `Click the map (left button): the grid within ${radius} m of the click and how the corridor width comes about there are printed here.`;
+  }
+
+  /**
+   * What lies over a grid spot and whether the camera sees it, for a place
+   * where the red line, the cells and the enemies vanish (a route under a
+   * bridge, TODO 1.10):
+   * - `columnBottomM`, `columnTopM`: the lowest and the highest surface of
+   *   the column there (finest tile), as the cells sample them. A cell takes
+   *   the bottom, on a bridge deck the top.
+   * - `overM`: how far that top lies above the cell, a bridge deck, a roof
+   *   or a crown over it.
+   * - `cameraSees`: a straight line from the camera to where the red line
+   *   runs over the cell (ROUTE_LINE_LIFT_M) passes no tile. False where the
+   *   line and the enemies on the cell are hidden behind or under the tiles.
+   * Null without a cell height or without a column.
+   */
+  private coverAt(
+    engine: PickEngine,
+    row: { x: number; z: number; heightM?: number | null },
+  ): { columnBottomM: number | null; columnTopM: number | null; overM: number | null; cameraSees: boolean | null } {
+    const column = engine.terrain.raycastColumnSample(row.x, row.z, 'corridorPick');
+    const y = row.heightM ?? null;
+    const camera = engine.getCamera().position;
+    return {
+      columnBottomM: column ? round(column.groundY, 2) : null,
+      columnTopM: column ? round(column.topY, 2) : null,
+      overM: column && y !== null ? round(column.topY - y, 1) : null,
+      cameraSees: y === null ? null
+        : !engine.terrain.raycastLineOfSight(camera.x, camera.y, camera.z, row.x, y + ROUTE_LINE_LIFT_M, row.z),
+    };
   }
 
   /**

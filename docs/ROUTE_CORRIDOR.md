@@ -553,10 +553,19 @@ __corridor.pick(6)
        `aboveNeighboursM`, `surface`.
      - Antworten und Anzeige des ausgewählten Towers: `ground`, `air`,
        `displayed`.
+     - Was über der Stelle liegt und ob die Kamera sie sieht (`coverAt`,
+       `corridor-console.ts`): `columnBottomM` und `columnTopM`, unterste
+       und oberste Fläche der Säule (feinstes Tile, wie die Zellen sie
+       proben); `overM`, wie weit die oberste über der Zelle liegt
+       (Brückendeck, Dach, Krone); `cameraSees`, ob die Gerade von der
+       Kamera zum Punkt 1 m über der Zelle, wo die rote Linie läuft, frei
+       von Tiles ist. `false` heißt: Linie und Gegner auf dieser Zelle sind
+       von hier aus verdeckt.
   2. `[Corridor] width at the nearest route station`: woher die Breite an der
      nächsten Station kommt (`explainCorridorAt`,
      `path-route.service.ts:629-729`).
-     - Die Station: Way, `streetWidthM`, `widthSource`, `onStreet`,
+     - Die Station: Way, `tags` (`width`, `lanes`, `bridge`, `tunnel`,
+       `covered`, `layer` wie in `__routes.describe()`), `streetWidthM`, `widthSource`, `onStreet`,
        `inTunnel`, `unmeasured`, `tileError`, am Ende `shiftM` (wie weit
        entlang der Route die Station neben einer Naht gemessen wurde, sonst
        null).
@@ -590,6 +599,31 @@ __corridor.pick(6)
   dem gelben Straßen-Overlay entlang der Mittellinie.
 
 Nur für Diagnose: je Punkt alle 2 m bis zu fünf Säulenproben.
+
+### Linie, Zellen und Gegner verschwinden (Brücken, Unterführungen)
+
+Befund Paris (TODO 1.10, alte Liste 14): Die Route läuft am Quai an den
+Köpfen einer Brücke vorbei, an zwei Stellen verschwinden Gegner, Zellen und
+rote Linie. Was der Code dazu sagt:
+
+- Die rote Linie liegt 1 m über den Zellen und zeichnet mit Tiefentest
+  (`route-line-layer.ts`), Gegner ebenso. Das Route Grid Overlay zeichnet
+  jede Zelle ohne Tiefentest (`route-grid-aggregate-viz.ts`), eine Zelle
+  unter einer Brücke bliebe dort also sichtbar.
+- Eine Zelle nimmt den untersten Treffer ihrer Säule, auf einem Segment mit
+  `bridge=*` den obersten. Ein Way unter einer Brücke ist in OSM oft ohne
+  `tunnel`, nur mit `layer=-1` oder ganz ohne Tag erfasst; dann ist die
+  Zelle `ground`.
+
+Ein `__corridor.pick()` je Stelle trennt die Fälle:
+
+| Befund in den Zeilen nahe `routeM` 0 | Deutung |
+|---|---|
+| `cell` true, `heightM` gleich `columnBottomM`, `overM` mehrere Meter, `cameraSees` false | Die Route läuft unter etwas durch (Brücke, Rampe) und liegt richtig; Linie und Gegner sind verdeckt, die Zellen im Overlay nicht |
+| wie oben, aber die Straße liegt in Wirklichkeit oben (`tags` mit `layer=1`, keine `bridge`) | Die Route läuft über ein Bauwerk ohne Brücken-Tag, die Zellen fallen auf die untere Ebene |
+| `heightM` weit weg von `columnBottomM` und den Nachbarn, oder `NaN` | Zellhöhe falsch (Naht, Ausreißer-Cluster); Linie, Zellen und Gegner liegen woanders |
+| `cell` false auf der Linie | keine Zellen, Lücke im Grid |
+| `surface` `tunnel`, `state` `unsampled` | Tunnelstück ohne Portal-Tile |
 
 ### Route Grid Overlay
 
