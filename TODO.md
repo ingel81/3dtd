@@ -396,14 +396,14 @@
       Straßenlicht des Portals und HQ-Diamant, -Ringe, -Bodenglühen, Labels
       (`marker/spawn-portal-glow-material.ts:195`,
       `marker/marker-shaders.ts:134, 246, 325, 422`; bei Labels eventuell
-      gewollt), VAT-Gegner (`instanced-enemy/vat-material.ts:63`), Healthbars
+      gewollt), VAT-Gegner (`instanced-enemy/vat-material.ts:281, 283`), Healthbars
       (`instanced-enemy/health-bar-instance.manager.ts:425`), Partikel
       (`particle-shaders.ts:156, 169`), Decals (`decal-shaders.ts:112, 218,
       325`), Projektile (`three-projectile.renderer.ts:395, 418, 469, 494`),
       Trails (`trail-streak.renderer.ts:447`), Tentakel
       (`three-tentacle.renderer.ts:148`), Blitz
       (`lightning-bolt.renderer.ts:235`), Atompilz
-      (`mushroom-cloud.renderer.ts:362, 397`), Schadenszahlen
+      (`mushroom-cloud-blast.ts:50, 83`), Schadenszahlen
       (`floating-text/floating-text-material.ts:18`); dazu
       `utils/route-altitude-tubes.ts:45`. Additives Licht lässt sich zwischen
       Canvas und linearem Composer-Target nicht exakt angleichen.
@@ -547,8 +547,8 @@
       Spitze; Zielpunkte liegen auf 2-m-Stationen; die Debug-Slider (Scale
       usw.) wirken nicht; Schleimklumpen ohne eigenen Tod-Sound; die
       Synthese der Sounds beim ersten Spawn ist im Browser ungemessen. Der
-      Band-Shader lief nur durch den Desktop-Treiber
-      (`three-engine/renderers/ooze/`).
+      Band-Shader ist nur offline geprüft (Desktop-Treiber, glslang), nicht
+      im Browser (`three-engine/renderers/ooze/`).
 
 - [ ] **Held: Reste** (laut hero)
       Ein abgelehntes Anheuern bleibt stumm (`hero:rejected` hat keinen
@@ -563,8 +563,8 @@
 - [ ] **Fähigkeiten: Reste** (laut abilities)
       Keine eigenen Sound-Assets für Frost und EMP, der Laser-Ton sitzt am
       Startpunkt; Eiskristalle und Funken wirken an großen Modellen
-      (Wurmring 7 m) klein; keine Warnsirene; die Bot-Zählung des Lasers
-      nimmt die Mittellinie ohne die 5 m Strahlbreite; ein späteres
+      (Wurmring 7 m) klein; die Bot-Zählung des Lasers nimmt die Mittellinie
+      ohne den 5-m-Radius des Strahls; ein späteres
       Angriffssystem der Gegner muss `movement.isHalted()` fragen. Die
       Bots strategist und meta erforschen und nutzen Frost, EMP und Laser,
       ihre Trainingsläufe sind mit älteren nicht direkt vergleichbar
@@ -605,9 +605,8 @@
       `botEnabled`.
 
 - [ ] **Quickfix-Paket: Reste** (laut quickfix)
-      Training-`total_count` zählt die Skeleton-Minions mit, als Absicht
-      dokumentiert (`ai/core/ai-data-collector.service.ts:246`), geht in den
-      Reward (`reward.py`); Entscheidung offen. Recent: `hasRoutes`
+      Training-`total_count` mit den Minions: siehe 1.8, Skeleton-Split.
+      Recent: `hasRoutes`
       (`services/world/path-route.service.ts:160`) liegt in einem
       Root-Service; wird die Spielkomponente in derselben Seite neu erzeugt,
       bleibt der alte Wert bis zum nächsten Leeren (ungeprüft, ob das
