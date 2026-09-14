@@ -2,7 +2,7 @@
 
 Stand 2026-09-15. Das ist die eine, laufende Liste für die nächste Session: nur offene Punkte. Die alten Listen
 (REVIEW_FIX_2026-09-14, REVIEW_SPRINT_2026-09-12 bis -14) verweisen hierher. Code-Stand: `sprint/night-2026-09-14`
-ab `3df5f9e6` mit dem Merge des Atompilzes (nuke).
+mit dem Merge des Atompilzes (`996531b1`).
 
 Antworten reicht so: "603 ok, 607 kaputt". In Klammern stehen die alten Nummern. Jede Runde hat einen gemeinsamen
 Aufbau, jeder Punkt höchstens drei Fragen.
@@ -87,7 +87,7 @@ Aufbau: Ort mit rechtwinkligem Knick auf der Route, Cheat "Credits". "Waves", Si
 - **616** (398): Cheat "Abilities", dann F, E und L jeweils auf Ringe. Sehen Eis, Funken und Brand an den Ringen
   passend aus (bekannt: eher klein)?
 
-### Runde 5: Ooze (617 bis 620)
+### Runde 5: Ooze (617 bis 621)
 
 Aufbau: Display-Menü "Boss Intro" an, Cheats "Credits" und "Abilities". "Waves", Single, Type "Ooze", Count 1,
 "Start Custom Wave". Für 617 und 618 die Ooze mindestens 27 s wachsen lassen.
@@ -102,49 +102,49 @@ Aufbau: Display-Menü "Boss Intro" an, Cheats "Credits" und "Abilities". "Waves"
   auf das Band schießen lassen: wird es bläulich, dunkler bzw. orange glühend, gut zu erkennen?
 - **620** (399): Nächste Ooze. F auf den Körper: wird er weiß-cyan, und steht die Spitze still? E: violett? L über den
   Körper: passt der Brand auf dem Band?
+- **621** (363): Eine Ooze töten, gleich danach mit Shift+Rechtsklick auf "+HP" Game Over und RESTART (oder einen
+  anderen Ort laden). Sind Band und Trümmer sofort weg, keine schwebenden Knochen?
 
-### Runde 6: Atompilz und Frost (621 bis 624)
+### Runde 6: Atompilz und Frost (622 bis 625)
 
 Aufbau: neues Spiel, Cheat "Abilities" (füllt die Ladungen beliebig oft nach). "Waves", "Jump to wave" 7, Space. Ton
 an, möglichst Kopfhörer.
 
-- **621** (216, 217): "Reset camera", K, Klick auf die Route. Liest sich der Schlag sofort als Atompilz (Blitz,
+- **622** (216, 217): "Reset camera", K, Klick auf die Route. Liest sich der Schlag sofort als Atompilz (Blitz,
   Feuerball, Druckwelle, Pilz), passend groß zur Karte? Bis etwa 22 s zusehen: rollt die Kappe, ist der Stamm
   schmaler als die Kappe? Genug Wumms im Bild?
-- **622** (218): Nächster Schlag, auf den Ton achten: scharfer Knall, tiefer Boom, dann etwa 8 s Grollen in drei
+- **623** (218): Nächster Schlag, auf den Ton achten: scharfer Knall, tiefer Boom, dann etwa 8 s Grollen in drei
   Wellen. Klingt das wuchtig genug? SFX-Regler im Audio-Menü runter: wird alles leiser?
-- **623** (220, 223): Display-Menü, Effects, "Bloom" an. Kamera unter 100 m an den Einschlag, HQ im Bild, nächster
+- **624** (220, 223): Display-Menü, Effects, "Bloom" an. Kamera unter 100 m an den Einschlag, HQ im Bild, nächster
   Schlag, dann in die Wolke fahren. Keine abgeschnittenen oder springenden Rauchballen, keine harte Kante auf flachem
   Boden (an Hängen und Häusern bekannt)? Kurzes Nachglühen, danach normal, kein schwarzer Block?
-- **624** (395, 394): Passt das Wort "Abilities" in seine Cheat-Kachel? F auf eine Gruppe: Frostausbruch sichtbar
+- **625** (395, 394): Passt das Wort "Abilities" in seine Cheat-Kachel? F auf eine Gruppe: Frostausbruch sichtbar
   (Blitz, Kältering, Reif, Splitter, Nebel)? Gegner weiß-cyan mit Eis, Fledermäuse hängen in der Luft, Knistern
   hörbar?
 
-### Runde 7: Bloom an und aus (625 bis 628)
+### Runde 7: Bloom an und aus (626 bis 629)
 
 Aufbau: Ort mit Tiles, Cheats "Credits", "Research" und "Abilities", verschiedene Tower an die Route (Kanone oder
 Rakete, Magie, Eis, Gift, Tentakel, Blitz), Welle starten. Display-Menü, Effects, "Bloom": jeden Punkt erst ohne,
 dann mit, dann wieder ohne ansehen. Ohne Bloom soll alles aussehen wie bisher. (TODO 1.9, Ausgabe-Kodierung der
 eigenen Shader)
 
-- **625**: Kamera nah an einen Pulk. Sind die Gegner mit Bloom gleich hell und gesättigt wie ohne (vorher heller und
+- **626**: Kamera nah an einen Pulk. Sind die Gegner mit Bloom gleich hell und gesättigt wie ohne (vorher heller und
   blasser)? Healthbars grün, gelb, rot gleich? Schadenszahlen in derselben Farbe?
-- **626**: Brand- und Blutflecken am Boden, Feuer und Funken, dazu F und E. Sind die Flecken mit Bloom kaum heller als
+- **627**: Brand- und Blutflecken am Boden, Feuer und Funken, dazu F und E. Sind die Flecken mit Bloom kaum heller als
   ohne (vorher deutlich heller)? Feuer und Funken über der Straße etwa gleich?
-- **627**: Magie-, Eis-, Gift- und Chaos-Geschosse, Tentakel, Blitze. Tentakel mit Bloom in derselben Farbe wie ohne
+- **628**: Magie-, Eis-, Gift- und Chaos-Geschosse, Tentakel, Blitze. Tentakel mit Bloom in derselben Farbe wie ohne
   (vorher heller)? Kugeln, Spuren und Blitze über der Straße etwa gleich?
-- **628**: Kamera aufs HQ, dann aufs Spawn-Portal zwischen zwei Wellen und beim Start. Diamant und Label mit Bloom wie
+- **629**: Kamera aufs HQ, dann aufs Spawn-Portal zwischen zwei Wellen und beim Start. Diamant und Label mit Bloom wie
   ohne? Straßenlicht vor dem Portal mit Bloom nicht heller als ohne? Beschwörungskreis sichtbar wie bisher?
 
-### Runde 8: Einzelstücke (629 bis 631)
+### Runde 8: Einzelstücke (630 bis 631)
 
 Jeder Punkt hat seinen eigenen Aufbau.
 
-- **629** (142): Standort-Dialog, Tab "Showcase", "Rio de Janeiro, Copacabana". Lädt der Ort ohne Zufalls-Spawn, mit
+- **630** (142): Standort-Dialog, Tab "Showcase", "Rio de Janeiro, Copacabana". Lädt der Ort ohne Zufalls-Spawn, mit
   dem Portal an deiner Stelle? Steht in der Adresszeile `s=-22.96421,-43.17463`? Fehlt "Dubai, Marina Walk" in der
   Liste?
-- **630** (363): Ooze (Custom Wave) 5 s wachsen lassen und töten, gleich danach mit Shift+Rechtsklick auf "+HP" bis
-  Game Over, RESTART. Sind Band und Trümmer sofort weg, keine schwebenden Knochen?
 - **631**: DevWorld öffnen, Layers "Show routes" an, dann Quick Actions "Play route animation". Liegen die animierte
   und die feste rote Linie auf derselben Höhe, ohne 2 m Versatz?
 
@@ -270,12 +270,21 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   (`2acf7db9`, Tabelle in `tmp/fix1/reports/oozedeath.md`).
 - **E12 Debug-Checkboxen entfernt:** "Textures", "Skeleton Clone" und "Alpha Blend" im Debug-Fenster Display
   (Abschnitt "Performance") waren wirkungslos und sind weg (`1427f5c0`).
+- **E13 Atompilz auf Preset Low:** Low zeigt jetzt den ganzen Pilz in derselben Form mit weniger Sprites (294 Rauch,
+  88 Glut) statt nur der Detonation, ist damit aber teurer als vorher. Ansehen: Display-Menü, Effects, "Low", K. Pilz
+  gröber, Framerate ok?
+- **E14 Hörweite des Atomschlags:** Knall und Grollen sind bis 1500 m zu hören, so weit wie das Wackeln reicht, statt
+  bis 500 m. Ansehen: aus der Übersicht weiter als 500 m herauszoomen, K.
+- **E15 Vollbild-Blitz des Atomschlags:** Das ganze Bild ist 80 ms lang fast weiß (`flash.screenPeak` 0,92). Bitte
+  auch mit Blick auf Lichtempfindlichkeit beurteilen. Mildern geht über diese eine Zahl, 0 schaltet den Blitz ab.
 
 **Neu zu entscheiden**
 
-- **E13 `immunityPercent`:** Steht bei Herbert auf 100, wirkt aber nirgends. Entfernen oder an Schaden und Anzeige
+- **E16 `immunityPercent`:** Steht bei Herbert auf 100, wirkt aber nirgends. Entfernen oder an Schaden und Anzeige
   anbinden?
-- **E14 Assets und Features:** Welche willst du, in welcher Reihenfolge? Warnsirene des Atomschlags; eigene Sounds
+- **E17 Doku-Tabelle in CLAUDE.md:** Auf die Pflichtlektüre plus Verweis auf docs/INDEX.md kürzen? Vorerst bleibt sie
+  voll.
+- **E18 Assets und Features:** Welche willst du, in welcher Reihenfolge? Warnsirene des Atomschlags; eigene Sounds
   für Frost und EMP; Laser-Ton am Startpunkt; Skarnax (Textur, bewegte Beine, Schwanzstück, Mandibeln, Sound am
   Kopf, Healthbar je Ring); Tod-Sound der Schleimklumpen; Mech und Ghost über dem Modell-Budget; Gold-Popup der Ooze
   an der Spitze; größere Eiskristalle an großen Gegnern; Held Stufe 2; Schrägstütze für Sockel an der Dachkante.
@@ -290,4 +299,4 @@ aber größer", Dachkante so lassen, Replay als eigenes Thema.
   (`npm ci` und `ng build` je Exit 0). Suite dabei: 395 Testdateien, 4520 Tests grün.
 - Ebenfalls per Test, ohne eigenen Punkt: Klumpen-HP in der Summe gleich und 1x wie 4x beim Ooze-Tod, Tower nehmen
   Klumpen als Ziel (Wächter-Szenario), Atompilz und Grollen in Pause und bei 4x, Held in der Pause nach einem
-  Routen-Neubau, Blickrichtung der Gegner auf Diagonalen. Letztes Gate `3df5f9e6`: 4564 Tests grün.
+  Routen-Neubau, Blickrichtung der Gegner auf Diagonalen. Letztes Gate `996531b1`: 4584 Tests grün.
