@@ -71,6 +71,17 @@ interface PreviewConfig {
 ### Zentrierung
 - **groundModel: false** (default): Modell komplett zentriert (gut fuer Gebaeude/Tuerme)
 - **groundModel: true**: Modell steht auf y=0, Kamera schaut auf Koerpermitte (gut fuer Charaktere)
+- **Box auf dem frischen Klon:** `loadModel()` misst die Box direkt nach
+  `SkeletonUtils.clone`, bevor die Welt-Matrizen der Knochen stehen. Steht im
+  Modell das SkinnedMesh vor seinen Knochen, misst `Box3.setFromObject` das
+  Skinning mit veralteten Matrizen: bei zombie_v2 2 cm statt 1,7 m hoch, die
+  Kamera zielt dann auf die Füße. Betroffen sind laut Messung (jsdom, alle
+  Gegnertypen, 2026-09-14) zombie_v2, stone-golem, penguin, herbert,
+  zombie-soldier, rat, spider, mammoth, bear, dragon, mech und wraith. Ihre
+  `previewOffsetY` in `enemy-types.config.ts` sind gegen diese Messung
+  eingestellt (zombie_v2 seit 2026-09-14 mit 0,85); die Messung zu korrigieren
+  (`model.updateMatrixWorld(true)` vor der Box) verschiebt alle diese
+  Vorschauen und verlangt, ihre Offsets neu einzustellen.
 
 ### Animation & Caching
 - **Alle Modelle**: Werden via `AssetManager.loadModel()` gecached und geklont
