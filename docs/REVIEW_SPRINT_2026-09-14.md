@@ -1383,11 +1383,14 @@ Punkte beginnen bei 301.
 358. Enemy Debug, Ooze, Place, Klick, Start moving: ein giftgrünes,
      durchscheinendes Band wächst vom Klickpunkt, mit Blasen, Knochenresten,
      glänzendem Rand, dickerer Spitze; Boss-Leiste "Ooze"; ab 80 m zieht das
-     Ende nach.
+     Ende nach. **ok (Playtest 2, 2026-09-14**, per Custom Wave)
 359. Tower entlang der Route, auch weit hinter der Spitze: jeder schießt auf
      den nächsten Punkt des Bands, grüne Spritzer und Zahlen dort.
+     **ok (Playtest 2, 2026-09-14)**
 360. Ice, Poison, Fire dazu: das Band wird bläulich, dunkler bzw. glüht
      orange; die ganze Ooze wird langsamer.
+     **Offen (Playtest 2, 2026-09-14):** die Farben waren nicht
+     beantwortet; dabei gefunden: Befund bei 363 (Klumpen).
 361. Custom Wave Ooze, Cheat Abilities, K auf ein Stück weit hinter der
      Spitze: die Boss-Leiste fällt um 20 %.
 362. Ooze ohne Tower bis ins HQ: das Band fließt hinein, HQ-HP sinken
@@ -1400,6 +1403,13 @@ Punkte beginnen bei 301.
      grünen Spritzern, Knochen-Burst an der Spitze; die Welle endet nach dem
      letzten Klumpen. Kurz nach dem Spawn getötet: 1 bis 3 Klumpen. Bei 4x
      gleich.
+     **Playtest 2 (2026-09-14): gut, mit Wunsch und Befund.** Wunsch: mehr
+     Klumpen, längerer Tod, mehr Sauerei, mehr und abwechslungsreicherer
+     Inhalt (Knochen und anderes), "mehr übertreiben". Lead: Gesamt-HP und
+     Gold aller Klumpen bleiben gleich, verteilt auf mehr Klumpen; Umsetzung
+     oozedeath. **Befund:** Tower, die beim Tod der Ooze standen (Ice,
+     Poison, Fire), schießen teils nicht auf die Klumpen, neu gesetzte
+     Tower schon. Fix oozetarget, erneut prüfen.
 364. Ton: leises Blubbern am Körper, folgt dem nächsten Körperpunkt; P: es
      verstummt (Zombie-Loops laufen weiter, bekannt); Kill: ein nasser
      Splat; Fließen ins HQ: etwa jede Sekunde ein Schlürfen; mit 12 oder mehr
@@ -1407,6 +1417,8 @@ Punkte beginnen bei 301.
      **Überholt** in einem Teil durch `177ba53f` (Fix-Session 2026-09-14):
      In der Pause verstummen jetzt auch die Zombie- und Flammen-Loops, siehe
      REVIEW_FIX_2026-09-14.md, Playtest 545 bis 548. Der Rest gilt weiter.
+     **ok (Playtest 2, 2026-09-14)** für Blubbern und Splat ("Rest ist
+     top"); Schlürfen mit 421 geprüft.
 365. Sprung auf 45: NEXT zeigt W45 "Boss: Ooze", die Welle bringt eine Ooze.
 
 **Boss-Intro**
@@ -1423,7 +1435,8 @@ Punkte beginnen bei 301.
      Bildhälfte. An offener Stelle passt die Einstellung. **Entscheidung
      User:** Blickwinkel dynamisch wählen und gegen Hindernisse absichern
      (bisher offen, kein Hindernis-Check). Umsetzung bossshot, erneut
-     prüfen; die Abstandsfrage 21,4 gegen 15,5 m danach.
+     prüfen. **Entscheidung User zum Abstand:** 21,4 m bleiben (die Suche
+     rückt bei Hindernissen näher).
 367. Während der Karte: Gegner stehen, Tower schießen nicht, P und WASD tun
      nichts. Esc: sofort zurück (im Build-Modus bleibt der an). Klick auf
      die Karte: zurück, nichts gewählt oder gebaut.
