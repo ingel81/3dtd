@@ -1,7 +1,7 @@
 # Handover: Training-Backend Refresh (From-Scratch-Retraining)
 
 **Branch:** `feat/training-backend-refresh`
-**Stand:** 2026-09-07 — abgeschlossen, Ergebnis: kein Modell im Produkt
+**Stand:** 2026-09-07, abgeschlossen (historisch). Ergebnis: kein Modell im Produkt; den aktuellen Stand beschreibt [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md).
 
 Ziel: Das Training-Backend auf den aktuellen Spielstand bringen, damit ein
 From-Scratch-Trainingslauf überhaupt sinnvolle Gradienten bekommt. Ausgangslage
