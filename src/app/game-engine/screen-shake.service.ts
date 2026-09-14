@@ -31,9 +31,9 @@ export class ScreenShakeService {
   private readonly subs = new SubscriptionBag();
   private readonly impactPos = new Vector3();
   private _enabled: boolean;
-  /** The last HQ damage shake: wall clock (ms) and damage factor */
+  /** The last HQ damage shake: wall clock (ms) and HP lost */
   private lastHqShakeMs = Number.NEGATIVE_INFINITY;
-  private lastHqShakeFactor = 0;
+  private lastHqShakeHp = 0;
 
   constructor(
     private readonly eventBus: GameEventBus,
@@ -86,16 +86,18 @@ export class ScreenShakeService {
     );
 
     // HQ taking damage → shake scales with the damage, not with distance. At
-    // most once per hqDamageMinIntervalMs, unless a harder hit comes in
+    // most once per hqDamageMinIntervalMs, unless a hit costing more HP comes
+    // in: compared by the HP, since the factor is 0.5 for 1 HP and 5 HP alike
     this.subs.add(
       this.eventBus.on('health:changed', (event) => {
         if (event.delta >= 0 || !this._enabled) return;
-        const damageFactor = Math.max(0.5, Math.min(Math.abs(event.delta) / 10, 2.0));
+        const hpLost = Math.abs(event.delta);
         const now = performance.now();
         const recent = now - this.lastHqShakeMs < SCREEN_SHAKE_CONFIG.hqDamageMinIntervalMs;
-        if (recent && damageFactor <= this.lastHqShakeFactor) return;
+        if (recent && hpLost <= this.lastHqShakeHp) return;
         this.lastHqShakeMs = now;
-        this.lastHqShakeFactor = damageFactor;
+        this.lastHqShakeHp = hpLost;
+        const damageFactor = Math.max(0.5, Math.min(hpLost / 10, 2.0));
         this.shake(presets.hqDamage.amplitude * damageFactor, presets.hqDamage.duration);
       }),
     );

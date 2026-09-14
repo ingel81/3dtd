@@ -668,7 +668,10 @@ zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG`, Stand 2026-09-12:
 - **HQ-Schaden gedrosselt:** höchstens ein Shake je `hqDamageMinIntervalMs` (900 ms
   Wanduhr, wie der rote Leck-Rand), außer ein härterer Treffer kommt dazwischen. Ein
   einfließendes Ooze verliert HP Punkt für Punkt, bei 4x etwa siebenmal pro Sekunde,
-  und schüttelte bis 2026-09-14 ohne Pause.
+  und schüttelte bis 2026-09-14 ohne Pause. "Härter" heißt: mehr HP verloren als beim
+  letzten Shake, nicht ein größerer Faktor. Der Faktor ist für 1 bis 5 HP gleich 0,5,
+  ein Zombie-Leck von 5 HP (W45) mitten im Ooze-Fluss schüttelt deshalb trotzdem
+  sofort; die Amplitude bleibt beim geklemmten Faktor.
 - **Nur nahe Einschläge:** volle Stärke bis 40 m Abstand zwischen Kamera und
   Einschlag (`nearDistance`), dann linear weniger bis 0 ab 100 m (`farDistance`,
   `shakeFalloff`). Es schütteln nur Cannon- und Rocket-Einschläge (auch `homing`-Typen).

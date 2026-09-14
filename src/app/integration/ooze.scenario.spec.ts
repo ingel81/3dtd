@@ -160,7 +160,8 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     expect(leaking.filter((l) => l.wall > lastHurt).length).toBeGreaterThan(20);
   });
 
-  it('421: a zombie leak at W45 costs 5 HP, not 10, and shakes no harder than an ooze point: not inside the 900 ms', () => {
+  it('421: a zombie leak at W45 costs 5 HP, not 10, and shakes at once, inside the 900 ms', () => {
+    expect(enemyBaseDamageForWave(45)).toBe(5);
     startOoze(45);
     while (shakes.length === 0 && clock.now < 60_000) run(STEP, 4);
     const pointShake = shakes[0];
@@ -171,8 +172,8 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     const zombieLeak = hurt.find((h) => h.delta === -5);
     expect(zombieLeak).toBeDefined();
     expect(zombieLeak!.wall - pointShake).toBeLessThan(hqDamageMinIntervalMs);
-    // 5 HP is a factor 0.5 like 1 HP (screen-shake.service.ts: at least 0.5), not a harder hit
-    expect(shakes).toEqual([pointShake]);
+    // 5 HP shakes at the floor of 0.5 like 1 HP, but costs more HP: a harder hit
+    expect(shakes).toEqual([pointShake, zombieLeak!.wall]);
   });
 
   it('421: from W91 on a zombie leak costs 10 HP and shakes at once, inside the 900 ms', () => {
