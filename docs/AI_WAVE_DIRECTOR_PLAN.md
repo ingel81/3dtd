@@ -1,11 +1,15 @@
 # Wave Director — Gesamtübersicht
 
-> **Stand:** Regelbasierter Wave-Director + Fairness-Gate-Regelkreis, vollständig
-> clientseitig. Das ONNX-Modell ist **nicht mehr** der Director; es bleibt als
-> Opt-in im Debug-Fenster erreichbar.
+> **Stand:** 2026-09-15. Regelbasierter Wave-Director + Fairness-Gate-Regelkreis,
+> vollständig clientseitig. Das ONNX-Modell ist **nicht mehr** der Director; es
+> bleibt als Opt-in im Debug-Fenster erreichbar.
 >
 > Das Spiel braucht im Betrieb **keinen Python-Server, kein Modell und keine
 > ONNX-Runtime**.
+>
+> Director, Maske, Decoder, Fairness-Cap und Gate-Controller stehen nur in
+> diesem Dokument. Wie der WaveManager die fertige Welle abspielt, steht in
+> [WAVE_SYSTEM.md](WAVE_SYSTEM.md).
 
 Dieses Dokument beschreibt, was heute Wellen erzeugt, warum das trainierte Netz
 dabei ersetzt wurde, und was vom RL-Aufbau übrig bleibt und wofür.
@@ -232,8 +236,8 @@ einmal, ein Kill auf halbem Weg hinein ist kein Kill. Die Fortschrittsliste, aus
 der das Gate liest, stand dafür schon vorher auf 1: die Spitze ist am Pfadende,
 wenn das Einfließen beginnt.
 
-**Fähigkeits-Kills zählen als Leck.** Was ein Nuklearschlag des Spielers tötet,
-zählt `gateLeakRatio()` zu den Ankünften (Entscheidung 6.1 b in
+**Fähigkeits-Kills zählen als Leck.** Was eine Fähigkeit des Spielers tötet
+(Event `ability:resolved`, Feld `kills`), zählt `gateLeakRatio()` zu den Ankünften (Entscheidung 6.1 b in
 [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md)): der Einsatz
 rettet HP und Gold, macht die Wellen danach aber nicht größer. Die Zahl kommt
 über `WaveOutcome.abilityKills` vom Collector; das Backend-Gate zählt genauso
@@ -248,7 +252,7 @@ also keinen. Details in [HERO.md](HERO.md#fairness-gate).
 
 **State ist per Run.** `reset()` gehört an den Spielstart und wird von
 `WaveDirectorService.resetForNewGame()` aufgerufen (Aufrufer:
-`game-loop-facade.service.ts`). Ließ man den Multiplikator über Runs hinweg
+`GameLoopFacadeService.restartGame()`). Ließ man den Multiplikator über Runs hinweg
 stehen, wurde er zur Ratsche: er stieg bei jeder geräumten Welle und fiel nur bei
 einem Tod. Die mediane Runlänge lag dann bei 6 Waves gegen ein Ziel von 80, und
 frische Runs starteten gegen Wellen, die für eine längst abgebaute Verteidigung
@@ -259,7 +263,9 @@ nicht am `wave:completed`-Event — dieses Event wird beim Fall der Basis nicht
 emittiert, der Todes-Rückfall wäre also unerreichbar gewesen. Beim ersten Schreiben
 fehlte die Verdrahtung komplett (`onWaveCompleted` hatte keinen Aufrufer), und
 sämtliche Unit-Tests waren trotzdem grün, weil sie den Controller isoliert
-prüften. `gate-wiring.spec.ts` existiert genau dagegen.
+prüften. `gate-wiring.spec.ts` existiert genau dagegen. `onWaveResult` hängt
+an `addToHistory()`, dem einzigen Punkt, den das normale Wellenende und der
+Game-Over-Pfad beide passieren.
 
 ---
 
@@ -272,8 +278,8 @@ prüften. `gate-wiring.spec.ts` existiert genau dagegen.
    manuelle Wellen fallen; eine degradierte AI-Welle ist besser als keine.
 2. **Ranges interpolieren** (`lerpRange`) — `spawnDelay`, `hpMult`, `variation`.
 3. **DPS-Ramp** auf die Schwierigkeitsachsen `count` und `hpMult`: Der obere
-   Endpunkt wird mit `min(1, totalDPS / DPS_RAMP_*)` skaliert, Floor 0.1
-   (`DPS_RAMP_COUNT = 500`, `DPS_RAMP_HP_MULT = 1000`). Schwache Verteidigung →
+   Endpunkt wird mit `min(1, totalDPS / DPS_RAMP_*)` skaliert, Floor
+   `DPS_RAMP_FLOOR = 0.10` (`DPS_RAMP_COUNT = 500`, `DPS_RAMP_HP_MULT = 1000`). Schwache Verteidigung →
    schmaler Effektivbereich.
 4. **Endgame-Multiplikator**: `hpMult *= endgameHpMultiplier(wave)` —
    W1–20 ×1.0, danach +5 %/Wave, Cap ×4.0 ab W80. Compoundet auf den Faktor des
@@ -299,6 +305,38 @@ prüften. `gate-wiring.spec.ts` existiert genau dagegen.
    Frontend nicht.
 7. **Template → Enemy-Gruppen** über die Shares, Rest auf die letzte Gruppe.
 
+### Fairness-Cap im Einzelnen
+
+`fairMaxCount()` (`templates.ts`, Spiegel `schema.fair_max_count`) schätzt, wie
+viele Gegner die Verteidigung tötet, solange die Welle spawnt und die Gegner im
+Feuer stehen, und gibt eine Leck-Toleranz obendrauf:
+
+- **Kills pro Sekunde:** das Knappere aus DPS gegen die Gegner-HP (je Rüstung,
+  Boden und Luft getrennt, aus `gateDpsPerArmor`) und dem Kill-Durchsatz der
+  Tower (`killThroughput`, ein Ziel pro Schuss). Ein Gegner, der sich teilt,
+  zählt mit seiner ganzen Linie.
+- **Zeit im Feuer:** die Spawn-Dauer plus `FAIRNESS_ENGAGEMENT_REACH_M = 60` m
+  geteilt durch das Tempo der Gegner, geklemmt auf 2 bis 40 s.
+- **Abschlag:** `FAIRNESS_KILL_REALISM = 0.65`, mal `budgetMultiplier` vom
+  Gate-Controller (Abschnitt 5).
+- **Leck-Toleranz in HP:** `FAIRNESS_WAVE_HP_BUDGET = 0.06` der Rest-HP,
+  mindestens `FAIRNESS_MIN_LEAK_HP = 1`, geteilt durch den Leck-Schaden der
+  Welle (`enemyBaseDamageForWave`) und durch die Lecks, die ein Gegner
+  höchstens kostet (`splitLeafCount`).
+- **Untergrenze** `FAIRNESS_MIN_COUNT = 5`. Hat die Verteidigung gegen die
+  Welle gar keinen wirksamen Schaden (eine gepinnte Luftwelle gegen eine reine
+  Bodenabwehr), liefert der Cap genau diese 5.
+
+**Matchup-Floor (seit 2026-09).** Der Cap liest `gateDpsPerArmor` aus der
+Defense-Analyse, nicht die rohe Matrix: gegen Boden-Gegner mit unarmored,
+light, heavy und fortified zählt jeder Tower mindestens
+`FAIRNESS_MATCHUP_FLOOR = 0.6` seiner DPS. Ohne Floor machte eine schlechte
+Paarung die Welle nur kleiner (Gatlings gegen Panzer bekamen weniger Panzer),
+und die breitere Schadensmatrix wäre im Gate verschwunden. Mit Floor spürt der
+Spieler ein falsches Roster als Leck, begrenzt durch `maxLeakDamagePerWave`
+(18 HP). Ethereal und Luft bleiben auf der reinen Matrix, dort greifen die
+Capability-Gates.
+
 ### Maske und Curriculum
 
 `getAvailableTemplateMask()` in `templates.ts` (Spiegel:
@@ -309,12 +347,30 @@ prüften. `gate-wiring.spec.ts` existiert genau dagegen.
   das Training ehrlich — gesampelte Aktion == ausgelieferte Welle. Die
   Vorgänger-Version maskierte frei und überschrieb die Wahl danach im Decoder,
   trainierte den Template-Head also auf Entscheidungen, die nie stattfanden.
+  Der Pin umgeht die Capability-Gates bewusst: eine gepinnte Luftwelle kommt
+  auch gegen eine Abwehr ohne Luftziel, der Fairness-Cap hält sie überlebbar.
 - **Ab W31**: `minWave`, Capability-Gates (`antiAir`, `antiEthereal`),
-  Reuse-Cooldown (2 Waves) und Boss-Kadenz (`isBossWave`: jede fünfte Welle).
-  An Boss-Wellen kollabiert die Maske auf die Boss-Templates (Herbert, Golem,
-  Drache), an allen anderen sind sie gesperrt.
-- Fallbacks verhindern eine leere Maske (die den maskierten Softmax auf NaN
-  laufen ließe).
+  Reuse-Cooldown (`TEMPLATE_COOLDOWN_WAVES = 2`) und Boss-Kadenz
+  (`isBossWave()` in `wave-curriculum.config.ts`: bis W30 jede zehnte Welle,
+  dort gepinnt, danach jede fünfte). An Boss-Wellen kollabiert die Maske auf
+  die Boss-Templates, die die Gates bestehen (`boss_herbert`, `boss_golem`,
+  `boss_dragon`; die Älteste-zuerst-Regel rotiert sie), an allen anderen sind
+  sie gesperrt. Vorher waren Bosse an Vielfachen von 10 nur erlaubt: über
+  2.000 simulierte Läufe kamen zwischen W31 und W130 0,7 statt 10
+  Boss-Wellen. Einen Teil der Boss-Wellen ersetzt die Facade danach durch eine
+  Boss-Variante (Skarnax, Ooze), siehe
+  [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-waves). Boss-Wellen nach W30 zahlen das
+  doppelte Gold-Budget (`BOSS_GOLD_MULTIPLIER` in `goldBudgetForWave`).
+- **Fallbacks** in dieser Reihenfolge, damit die Maske nie leer ist (der
+  maskierte Softmax liefe sonst auf NaN): an einer Boss-Welle, deren
+  Boss-Templates alle im Cooldown stehen, das erste davon trotz Cooldown; an
+  einer Boss-Welle, die kein Boss-Template bedienen kann (`minWave`,
+  Capability), eine normale Welle; danach das erste zulässige Template trotz
+  Cooldown; zuletzt Slot 0. Der Leerfall im `RuleDirector` (Abschnitt 4) ist
+  deshalb rein defensiv.
+
+`describeTemplateMask()` liefert Maske und Begründung (für „Why this wave"),
+`getAvailableTemplateMask()` ist der Wrapper ohne Begründung.
 
 22 aktive Templates in 32 permanenten Output-Slots (`MAX_TEMPLATE_SLOTS = 32`).
 
@@ -356,7 +412,8 @@ Nichts davon ist tot, das meiste ist weiterhin der gemeinsame Unterbau:
 | `directors.py` | Das Messinstrument. Ohne A/B-Baseline ist jede Aussage über „das Modell ist besser" unbelegt. |
 
 **Eingänge des Opt-in-Modells.** Das ausgelieferte Modell (Checkpoint 7350,
-trainiert ab 2026-04-17, exportiert 2026-04-27 in `e8ae88a9`) kennt einen
+trainiert ab 2026-04-17, exportiert 2026-04-21 laut `exportedAt` in
+`metadata.json`, eingecheckt 2026-04-27 in `e8ae88a9`) kennt einen
 Forschungsbaum mit elf Knoten; heute hat der Baum zwanzig. Zwei Eingänge haben
 sich seither verschoben:
 
@@ -412,7 +469,8 @@ Ehrlichkeitsabschnitt. Nichts davon ist belegt:
 - **`NEAR_MISS_TARGET = 0.20` ist als Designziel nie validiert.** Der Wert ist
   aus der Verteilung *erreichter* Werte abgeleitet (p90 über 4002 gemessene
   Waves) — das belegt, dass er erreichbar ist, nicht dass er sich für einen
-  Menschen spannend anfühlt. Aktuell liegt der gemessene Wert bei ~0.058.
+  Menschen spannend anfühlt. Zuletzt gemessen (Bot-Läufe nach der
+  Platzierungsänderung, [BOT_SYSTEM.md](BOT_SYSTEM.md#das-ergebnis)): ~0.058.
 - **Niemand hat den Regel-Director je selbst gespielt.** Er lief bisher
   ausschließlich gegen Bots. Alle Zahlen in diesem Dokument stammen aus
   Bot-Läufen.
@@ -424,7 +482,9 @@ Ehrlichkeitsabschnitt. Nichts davon ist belegt:
 
 ## 9. Dateien
 
-### Frontend (`src/app/ai/core/`)
+### Frontend (`src/app/ai/`)
+
+Dateien ohne Ordner liegen in `core/`.
 
 | Datei | Funktion |
 |-------|----------|
@@ -471,7 +531,7 @@ Tests: `gate-controller.spec.ts`, `gate-wiring.spec.ts`, `rule-director.spec.ts`
 | `schema.py` | Lädt `generated/ai-schema.json` (aus den TS-Configs generiert) |
 | `dashboard/` | FastAPI (:3002) + Chart.js |
 | `scripts/export_to_tfjs.py` | ONNX-Export (`npm run export-ai`) |
-| `tests/` | `test_schema.py`, `test_encoder.py`, `test_reward_v2.py`, `test_directors.py`, `test_gate_loop.py` |
+| `tests/` | `test_schema.py`, `test_encoder.py`, `test_reward_v2.py`, `test_directors.py`, `test_gate_loop.py`, `test_training_log.py` |
 
 ---
 
@@ -500,10 +560,12 @@ sichtbaren Tabs, die Läufe stehen dann still und melden trotzdem „gesund".
 
 | Dokument | Inhalt |
 |----------|--------|
+| [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | WaveManager, Spawn-Pipeline, Boss-Varianten, Blutmond, Jump to Wave |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy-Pattern-Bots, die als Gegenspieler im Training laufen |
-| [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md) | Refresh des Trainings-Backends, Befunde und Grundsatzentscheidungen |
-| [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) | Range-Templates, Decoder, Reward-Tuning — die Mechanik, die geteilt bleibt |
-| [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) | Balance-Stand: Curriculum, Endgame-Knobs, Gold-Budget |
+| [HANDOVER_RULE_DIRECTOR.md](HANDOVER_RULE_DIRECTOR.md) | _Bericht 2026-09-07:_ die Messreihe hinter dem Wechsel auf Regeln, Einstieg für ein späteres Training |
+| [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md) | _Bericht, abgeschlossen 2026-09-07:_ Refresh des Trainings-Backends, Befunde und Grundsatzentscheidungen |
+| [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) | _Historisch:_ Range-Templates, Decoder, Reward-Tuning; die Mechanik unterhalb der Entscheidung gilt weiter |
+| [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) | _Historisch:_ Balance-Pass Mai 2026 (Curriculum, Endgame-Knobs, Gold-Budget); die Gold-Zahlen dort sind überholt |
 | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) | Debug-Pfad ohne Director: `STATIC_WAVE_PROFILES` |
 | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Backend-Details |
 | [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte |
