@@ -4,6 +4,7 @@ import { createVATBloodMoonUniforms, createVATMaterial } from './vat-material';
 import type { VATData } from './vat-baker';
 import type { VATAlpha } from './vat-surface';
 import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
+import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 
 /** A one-texel VAT with the given alpha mode; nothing is drawn. */
 function vatWith(alpha: VATAlpha): VATData {
@@ -75,6 +76,20 @@ describe('createVATMaterial blood moon', () => {
     const shader = createVATMaterial(vatWith({ mode: 'opaque', cutoff: 0 })).fragmentShader;
     expect(shader).toContain('if (bloodMoonGlow > 0.0)');
     const blend = shader.slice(shader.indexOf('#ifdef VAT_ALPHA_BLEND'));
-    expect(blend.slice(0, blend.indexOf('#else'))).toContain('litColor *= bloodMoonTint;');
+    // The multiplier is in the values of the target, so it applies after the colour is written for it
+    expect(blend.slice(0, blend.indexOf('#else'))).toContain('displayOutput(litColor) * bloodMoonTint');
+  });
+});
+
+describe('createVATMaterial output', () => {
+  it('writes its colour, built in display values, for the target in every alpha mode', () => {
+    for (const mode of ['opaque', 'mask', 'blend'] as const) {
+      const shader = createVATMaterial(vatWith({ mode, cutoff: 0.5 })).fragmentShader;
+      expect(shader).toContain(DISPLAY_OUTPUT_GLSL);
+      expect(shader).toContain('gl_FragColor = vec4(displayOutput(litColor) * bloodMoonTint, baseAlpha);');
+      expect(shader).toContain('gl_FragColor = vec4(displayOutput(litColor), 1.0);');
+      expect(shader).not.toContain('gl_FragColor = vec4(litColor');
+      expect(shader).toContain('#include <logdepthbuf_fragment>');
+    }
   });
 });

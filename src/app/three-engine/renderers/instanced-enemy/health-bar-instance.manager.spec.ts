@@ -7,8 +7,10 @@ import {
   PerspectiveCamera,
   Scene,
   Vector3,
+  type ShaderMaterial,
 } from 'three';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
+import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 
 describe('HealthBarInstanceManager', () => {
   let bars: HealthBarInstanceManager;
@@ -36,6 +38,15 @@ describe('HealthBarInstanceManager', () => {
       expect(mesh.frustumCulled).toBe(false);
     }
     expect(drawCounts()).toEqual([0, 0]);
+  });
+
+  it('writes the fill colour for the target in both passes, with log depth', () => {
+    for (const mesh of meshes) {
+      const shader = (mesh.material as ShaderMaterial).fragmentShader;
+      expect(shader).toContain(DISPLAY_OUTPUT_GLSL);
+      expect(shader).toContain('gl_FragColor = vec4(displayOutput(fillColor), 0.9);');
+      expect(shader).toContain('#include <logdepthbuf_fragment>');
+    }
   });
 
   it('shrinks the draw count when the top bars are removed', () => {

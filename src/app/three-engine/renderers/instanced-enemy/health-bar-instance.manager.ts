@@ -11,6 +11,7 @@ import {
 } from 'three';
 import { InstanceSlotAllocator } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
+import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 
 const MAX_HEALTH_BARS = 20000;
 
@@ -65,7 +66,10 @@ const HEALTH_BAR_VERTEX = /* glsl */ `
   }
 `;
 
-// Shared GLSL for the health bar rendering logic (after discard check)
+// Shared GLSL for the health bar rendering logic (after discard check). The
+// fill colours are display values, written for the target (displayOutput,
+// display-output.ts), so a bar looks alike with and without bloom; black is
+// black in either target and is written as it is.
 const HEALTH_BAR_BODY = /* glsl */ `
   // Aspect ratio correction (plane is ~6:1)
   float aspect = 6.0;
@@ -107,7 +111,7 @@ const HEALTH_BAR_BODY = /* glsl */ `
         fillColor = vec3(0.937, 0.267, 0.267); // #ef4444
       }
     }
-    gl_FragColor = vec4(fillColor, 0.9);
+    gl_FragColor = vec4(displayOutput(fillColor), 0.9);
   } else {
     // Empty part: dark background
     gl_FragColor = vec4(0.0, 0.0, 0.0, 0.4);
@@ -437,6 +441,8 @@ export class HealthBarInstanceManager {
         varying vec2 vUv;
 
         #include <logdepthbuf_pars_fragment>
+
+        ${DISPLAY_OUTPUT_GLSL}
 
         void main() {
           #include <logdepthbuf_fragment>
