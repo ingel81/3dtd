@@ -10,6 +10,7 @@ import {
   Scene,
 } from 'three';
 import { ProjectileVisualType } from '../../configs/projectile-types.config';
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 // ─── Trail Style Configs ────────────────────────────────────────────
 
@@ -176,9 +177,12 @@ const TRAIL_FRAGMENT = /* glsl */ `
 
   #include <logdepthbuf_pars_fragment>
 
+  ${DISPLAY_OUTPUT_GLSL}
+
   void main() {
     if (vAlpha < 0.005) discard;
-    gl_FragColor = vec4(vColor * uEmissiveIntensity, vAlpha);
+    // Additive light in display values, written for the target (display-output.ts)
+    gl_FragColor = displayLight(vec4(vColor * uEmissiveIntensity, vAlpha));
 
     #include <logdepthbuf_fragment>
   }

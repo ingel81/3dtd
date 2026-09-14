@@ -2,6 +2,16 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { BoxGeometry, Euler, MeshBasicMaterial, Vector3 } from 'three';
 import { createRocketGeometry, ProjectileInstanceManager } from './three-projectile.renderer';
 import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
+import { MAGIC_ORB_FRAGMENT } from './magic-orb-shaders';
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
+
+describe('orb shader (magic, ice, poison, chaos)', () => {
+  it('writes its additive light for the target, with log depth', () => {
+    expect(MAGIC_ORB_FRAGMENT).toContain(DISPLAY_OUTPUT_GLSL);
+    expect(MAGIC_ORB_FRAGMENT).toContain('gl_FragColor = displayLight(vec4(finalColor, sphereFade * 0.9));');
+    expect(MAGIC_ORB_FRAGMENT).toContain('#include <logdepthbuf_fragment>');
+  });
+});
 
 describe('createRocketGeometry', () => {
   const geometry = createRocketGeometry();

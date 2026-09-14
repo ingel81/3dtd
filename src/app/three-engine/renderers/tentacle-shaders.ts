@@ -9,7 +9,11 @@
  * - Log depth buffer support for 3D Tiles compatibility
  *
  * Template geometry: unit-circle cross-section in position.xz, uv.y = Bezier t.
+ * Colour in display values, written for the target (displayOutput,
+ * display-output.ts).
  */
+
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 export const TENTACLE_VERTEX = /* glsl */ `
   #include <common>
@@ -144,6 +148,8 @@ export const TENTACLE_VERTEX = /* glsl */ `
 export const TENTACLE_FRAGMENT = /* glsl */ `
   precision highp float;
   #include <logdepthbuf_pars_fragment>
+
+  ${DISPLAY_OUTPUT_GLSL}
 
   varying vec2 vUv;
   varying vec3 vNormal;
@@ -326,7 +332,7 @@ export const TENTACLE_FRAGMENT = /* glsl */ `
 
     vec3 finalColor = color * diffuse + vec3(0.95, 0.88, 0.92) * spec + rimColor * rim;
 
-    gl_FragColor = vec4(finalColor, 1.0);
+    gl_FragColor = vec4(displayOutput(finalColor), 1.0);
 
     #include <logdepthbuf_fragment>
   }

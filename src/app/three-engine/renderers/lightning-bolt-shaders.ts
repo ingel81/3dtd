@@ -25,7 +25,11 @@
  *   - uColorOuter  : vec3, fade-out outer color (saturated blue)
  *
  * MUST include logdepthbuf chunks for correct 3D Tiles occlusion.
+ * Additive light in display values, written for the target (displayLight,
+ * display-output.ts).
  */
+
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 export const LIGHTNING_BOLT_VERTEX = /* glsl */ `
   #include <common>
@@ -120,6 +124,8 @@ export const LIGHTNING_BOLT_FRAGMENT = /* glsl */ `
   precision highp float;
   #include <logdepthbuf_pars_fragment>
 
+  ${DISPLAY_OUTPUT_GLSL}
+
   uniform vec3 uColorCore;
   uniform vec3 uColorOuter;
 
@@ -143,7 +149,7 @@ export const LIGHTNING_BOLT_FRAGMENT = /* glsl */ `
     float alpha = widthAlpha * lifeAlpha;
     if (alpha < 0.005) discard;
 
-    gl_FragColor = vec4(col * vIntensity, alpha);
+    gl_FragColor = displayLight(vec4(col * vIntensity, alpha));
 
     #include <logdepthbuf_fragment>
   }
