@@ -238,7 +238,8 @@ export class TowerCombatService {
       0,
       this._towerLocalScratch,
     );
-    this.bodyAim.beginTower(tower, local.x, local.z, engine.towers);
+    // The raycasts run against the tiles, which lodVersion follows
+    this.bodyAim.beginTower(tower, local.x, local.z, engine.towers, engine.terrain.lodVersion);
   }
 
   /**

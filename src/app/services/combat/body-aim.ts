@@ -30,6 +30,11 @@ export interface BodyAimPoint {
 /** Raycasts one resolve may spend on points without a grid answer. */
 const MAX_RAYCASTS_PER_RESOLVE = 4;
 
+/** What a raycast said about a point of a TowerStationView (`sight`) */
+const SIGHT_UNKNOWN = 0;
+const SIGHT_CLEAR = 1;
+const SIGHT_BLOCKED = 2;
+
 /**
  * The points of one path a tower could aim at, nearest first: per station
  * the point moved across the corridor toward the tower, within the lateral
@@ -43,6 +48,13 @@ class TowerStationView {
   readonly x: Float64Array;
   readonly z: Float64Array;
   readonly cells: (RouteCell | undefined)[];
+  /**
+   * Raycast answers for points whose cell has no LOS entry of the tower
+   * (SIGHT_*), kept across turns for the ground they were cast against
+   * (`sightVersion`, BodyAim.beginTower)
+   */
+  readonly sight: Uint8Array;
+  sightVersion = 0;
   /** Lowest and highest station in the view, for a quick miss */
   readonly minStation: number;
   readonly maxStation: number;
@@ -78,6 +90,7 @@ class TowerStationView {
     this.x = new Float64Array(n);
     this.z = new Float64Array(n);
     this.cells = new Array<RouteCell | undefined>(n);
+    this.sight = new Uint8Array(n);
     let min = Infinity;
     let max = -Infinity;
     for (let i = 0; i < n; i++) {
@@ -112,7 +125,9 @@ class TowerStationView {
  * them nearest first and stops at the first on the body that the tower
  * sees, by the tower's ground LOS of the cell under the point, or a
  * raycast where the cell has no answer. Results are kept for the rest of
- * the tower's turn, so findTarget and the shot agree.
+ * the tower's turn, so findTarget and the shot agree. Raycast answers are
+ * kept in the view until the ground they were cast against changes, so a
+ * point is cast once, not in every sub-step while the body passes.
  */
 export class BodyAim {
   private readonly views = new WeakMap<Tower, Map<RouteBodyStations, TowerStationView>>();
@@ -122,6 +137,7 @@ export class BodyAim {
   private towerX = 0;
   private towerZ = 0;
   private raycaster: BodyAimRaycaster | null = null;
+  private raycastVersion = 0;
   private readonly resolvedEnemies: Enemy[] = [];
   private readonly resolvedIndex: number[] = [];
   private readonly resolvedViews: (TowerStationView | null)[] = [];
@@ -131,12 +147,22 @@ export class BodyAim {
   /**
    * Start `tower`'s turn: it stands at local (x, z). `raycaster` answers
    * for points whose cell has no LOS entry of the tower, null for none.
+   * `raycastVersion` counts changes of the ground it casts against
+   * (TerrainQueries.lodVersion): raycast answers of an older one are cast
+   * again.
    */
-  beginTower(tower: Tower, x: number, z: number, raycaster: BodyAimRaycaster | null): void {
+  beginTower(
+    tower: Tower,
+    x: number,
+    z: number,
+    raycaster: BodyAimRaycaster | null,
+    raycastVersion: number,
+  ): void {
     this.tower = tower;
     this.towerX = x;
     this.towerZ = z;
     this.raycaster = raycaster;
+    this.raycastVersion = raycastVersion;
     this.resolvedEnemies.length = 0;
     this.resolvedIndex.length = 0;
     this.resolvedViews.length = 0;
@@ -193,15 +219,25 @@ export class BodyAim {
     const last = body.lastStation();
     let found = -1;
     if (view.count > 0 && last >= view.minStation && first <= view.maxStation) {
+      if (view.sightVersion !== this.raycastVersion) {
+        view.sight.fill(SIGHT_UNKNOWN);
+        view.sightVersion = this.raycastVersion;
+      }
       let raycasts = MAX_RAYCASTS_PER_RESOLVE;
       for (let i = 0; i < view.count; i++) {
         const k = view.station[i];
         if (k < first || k > last) continue;
         let visible = view.cells[i]?.towerVisibility.get(tower.id);
-        if (visible === undefined && this.raycaster !== null && raycasts > 0) {
-          raycasts--;
-          const groundY = this.grid.getGroundLocalYAt(view.x[i], view.z[i]);
-          visible = groundY !== null && this.raycaster.hasLineOfSight(tower.id, view.x[i], groundY + 1.5, view.z[i]);
+        if (visible === undefined && this.raycaster !== null) {
+          const sight = view.sight[i];
+          if (sight !== SIGHT_UNKNOWN) {
+            visible = sight === SIGHT_CLEAR;
+          } else if (raycasts > 0) {
+            raycasts--;
+            const groundY = this.grid.getGroundLocalYAt(view.x[i], view.z[i]);
+            visible = groundY !== null && this.raycaster.hasLineOfSight(tower.id, view.x[i], groundY + 1.5, view.z[i]);
+            view.sight[i] = visible ? SIGHT_CLEAR : SIGHT_BLOCKED;
+          }
         }
         if (visible) {
           found = i;
