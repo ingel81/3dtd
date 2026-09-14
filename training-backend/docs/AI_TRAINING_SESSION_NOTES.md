@@ -2,7 +2,8 @@
 
 Chronologische Zusammenfassung der Architektur-Iterationen des AI Wave
 Directors, neueste zuerst. Aktueller Stand:
-`docs/HANDOVER_RULE_DIRECTOR.md` im Projekt-Root.
+`docs/AI_WAVE_DIRECTOR_PLAN.md` im Projekt-Root, die Messreihe vom 2026-09-07 in
+`docs/HANDOVER_RULE_DIRECTOR.md`.
 
 ---
 
