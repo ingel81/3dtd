@@ -654,7 +654,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       // A worm segment goes where its chain put it (worms.tick above)
       const moveResult = enemy.worm === null
         ? enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier)
-        : stepWormSegment(enemy.movement, enemy.worm);
+        : stepWormSegment(enemy, enemy.worm);
       if (sample) tMove += performance.now() - t0;
 
       // An ooze flows into the base over many sub-steps (OozeBodies.update)
