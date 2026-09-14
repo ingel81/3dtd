@@ -180,6 +180,9 @@ describe('TowerPlacementService', () => {
   };
   const hover = (p: { lat: number; lon: number }, height = 0) =>
     service.updatePreviewPosition(p.lat, p.lon, height);
+  /** The footprint lines `__footprintDebug.watch()` logged, from a console.log spy. */
+  const watchLines = (log: { mock: { calls: unknown[][] } }) =>
+    log.mock.calls.map(([line]) => String(line)).filter((line) => line.includes(' rule='));
 
   beforeEach(() => {
     losViz.instances.length = 0;
@@ -714,6 +717,85 @@ describe('TowerPlacementService', () => {
       expect(window.__footprintDebug).toBeUndefined();
     });
 
+    describe('footprint watch', () => {
+      /** Flat roof at 20 m over a street at 5 m, 1.5 m higher from 1 m east of the tower on */
+      const steppedRoof = () => {
+        const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+        terrain.raycastColumnSample.mockImplementation((x: number) => ({ groundY: 5, topY: x - local.x > 1 ? 21.5 : 20 }));
+      };
+
+      it('logs one line once the cursor rests on a spot, and the next on the next spot', async () => {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        steppedRoof();
+        init();
+        await enterBuild('archer');
+        window.__footprintDebug!.watch();
+        hover(FREE, 20);
+        service.tickBuildPreviewViz(10);
+        service.tickBuildPreviewViz(10.2);
+        expect(watchLines(log)).toEqual([]);
+
+        service.tickBuildPreviewViz(10.4);
+        service.tickBuildPreviewViz(11);
+        expect(watchLines(log)).toEqual([
+          '[Footprint] rest archer rule=roof-column centreGroundY=5 centreTopY=20 plinthHeight=1.5 footY=21.5 '
+            + `surfaceY=20 at ${FREE.lat.toFixed(6)},${FREE.lon.toFixed(6)}`,
+        ]);
+
+        const next = at(0, 310);
+        hover(next, 20);
+        service.tickBuildPreviewViz(11.1);
+        service.tickBuildPreviewViz(11.5);
+        expect(watchLines(log)).toHaveLength(2);
+        expect(watchLines(log)[1]).toContain(`at ${next.lat.toFixed(6)},${next.lon.toFixed(6)}`);
+      });
+
+      it('stays quiet while the cursor sweeps on, and while off', async () => {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        terrain.raycastColumnSample.mockImplementation(() => column(3));
+        init();
+        await enterBuild('archer');
+        for (let i = 0; i < 10; i++) {
+          hover(at(0, 300 + 1.5 * i), 3);
+          service.tickBuildPreviewViz(i);
+        }
+        service.tickBuildPreviewViz(10);
+        service.handleBuildClick();
+        expect(watchLines(log)).toEqual([]);
+
+        window.__footprintDebug!.watch();
+        await enterBuild('archer');
+        for (let i = 0; i < 10; i++) {
+          hover(at(0, 300 + 1.5 * i), 3);
+          service.tickBuildPreviewViz(20 + i);
+        }
+        expect(watchLines(log)).toEqual([]);
+      });
+
+      it('logs each placement, and watch(false) stops it', async () => {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        steppedRoof();
+        init();
+        await enterBuild('archer');
+        window.__footprintDebug!.watch();
+        hover(FREE, 20);
+        service.handleBuildClick();
+        expect(emit).toHaveBeenCalledTimes(1);
+        expect(watchLines(log)).toEqual([
+          expect.stringMatching(/^\[Footprint\] placed archer rule=roof-column .*plinthHeight=1\.5 footY=21\.5 /),
+        ]);
+
+        window.__footprintDebug!.watch(false);
+        await enterBuild('archer');
+        hover(at(0, 320), 20);
+        service.tickBuildPreviewViz(0);
+        service.tickBuildPreviewViz(1);
+        service.handleBuildClick();
+        expect(emit).toHaveBeenCalledTimes(2);
+        expect(watchLines(log)).toHaveLength(1);
+      });
+    });
+
     describe('outer ring on level ground', () => {
       /** Archer: the centre and 6 inner probes, 12 on the outer ring */
       const INNER = 1 + 6;
@@ -765,6 +847,25 @@ describe('TowerPlacementService', () => {
         service.handleBuildClick();
 
         expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 20 }, plinthHeight: 15 });
+      });
+
+      it('lets the watch log the settled footprint, not the provisional one', async () => {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        roofEdge();
+        init();
+        await enterBuild('archer');
+        window.__footprintDebug!.watch();
+        hover(FREE, 20);
+        service.tickBuildPreviewViz(0);
+        // Settles the outer ring: a new note, the wait starts again
+        service.tickBuildPreviewViz(0.1);
+        service.tickBuildPreviewViz(0.35);
+        expect(watchLines(log)).toEqual([]);
+
+        service.tickBuildPreviewViz(0.5);
+        expect(watchLines(log)).toHaveLength(1);
+        expect(watchLines(log)[0]).toContain('plinthHeight=15 ');
+        expect(watchLines(log)[0]).not.toContain('level-inner-ring');
       });
     });
   });
