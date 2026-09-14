@@ -127,6 +127,12 @@ const INITIAL_SAMPLES = 4096;
 /** Bodies along the route are few (the oozes), their column starts small */
 const INITIAL_BODY_SAMPLES = 64;
 const INITIAL_ENTITIES = 256;
+/**
+ * Share of its need a column grows past it once doubling no longer fits
+ * the budget (makeRoom): one or two copies near the limit instead of one
+ * per frame until thin()
+ */
+const GROWTH_SLACK = 0.5;
 const INITIAL_FRAMES = 1024;
 
 export class ReplayRecording {
@@ -520,9 +526,9 @@ export class ReplayRecording {
   // ── Memory ───────────────────────────────────────────────────────
 
   /**
-   * Grow the sample columns so they hold the given totals, doubling where
-   * that fits the budget and to the exact need where only that does. False
-   * when not even that fits.
+   * Grow the sample columns so they hold the given totals: doubling where
+   * that fits the budget, else to the need plus up to GROWTH_SLACK of it
+   * again, as far as the budget goes. False when not even the need fits.
    */
   private makeRoom(enemies: number, projectiles: number, towers: number, bodies: number): boolean {
     const eCap = this.eIndex.length;
@@ -538,11 +544,25 @@ export class ReplayRecording {
     let t = doubled(tCap, towers);
     let b = doubled(bCap, bodies);
     if (sampleBytes(e, p, t, b) > budget) {
+      // Growing to just the need would copy the columns again in the next
+      // frame, and in every one after until thin() steps in: the columns
+      // that must grow take some slack, whatever the budget has left
       e = Math.max(eCap, enemies);
       p = Math.max(pCap, projectiles);
       t = Math.max(tCap, towers);
       b = Math.max(bCap, bodies);
-      if (sampleBytes(e, p, t, b) > budget) return false;
+      const spare = budget - sampleBytes(e, p, t, b);
+      if (spare < 0) return false;
+      const extraE = enemies > eCap ? Math.ceil(enemies * GROWTH_SLACK) : 0;
+      const extraP = projectiles > pCap ? Math.ceil(projectiles * GROWTH_SLACK) : 0;
+      const extraT = towers > tCap ? Math.ceil(towers * GROWTH_SLACK) : 0;
+      const extraB = bodies > bCap ? Math.ceil(bodies * GROWTH_SLACK) : 0;
+      const wish = sampleBytes(extraE, extraP, extraT, extraB);
+      const share = wish > 0 ? Math.min(1, spare / wish) : 0;
+      e += Math.floor(extraE * share);
+      p += Math.floor(extraP * share);
+      t += Math.floor(extraT * share);
+      b += Math.floor(extraB * share);
     }
     if (e > eCap) {
       this.eIndex = withLength(this.eIndex, e);

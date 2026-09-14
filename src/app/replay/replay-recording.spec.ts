@@ -203,6 +203,24 @@ describe('ReplayRecording', () => {
       expect(rec.bodyStations.get(0)).toBe(stations);
     });
 
+    it('grows once to what the budget still holds when doubling no longer fits, not every frame', () => {
+      // 4096 enemy samples fill up in 41 frames; doubling then no longer fits the budget
+      let grown = 0;
+      let columns = rec.eIndex;
+      let fit = 'ok';
+      for (let f = 0; f < 200 && fit !== 'thinned'; f++) {
+        fit = rec.reserveFrame(100, 1, 1);
+        if (rec.eIndex !== columns) {
+          grown++;
+          columns = rec.eIndex;
+        }
+        addFrame(rec, f * 100, 100, f);
+        expect(rec.sampleBytes).toBeLessThanOrEqual(260_000);
+      }
+      expect(fit).toBe('thinned');
+      expect(grown).toBeLessThanOrEqual(2);
+    });
+
     it('keeps its columns for the next wave', () => {
       for (let f = 0; f < 10; f++) {
         rec.reserveFrame(500, 1, 1);
