@@ -7,6 +7,7 @@ import {
 import { VATData } from './vat-baker';
 import type { VATAlphaMode } from './vat-surface';
 import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
+import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 
 /** Shader switch per VAT alpha mode. */
 const ALPHA_DEFINES: Record<VATAlphaMode, Record<string, string>> = {
@@ -58,6 +59,11 @@ export interface VATMaterialOptions {
  *
  * Blood moon (VATBloodMoonUniforms, shared by every type): a rim glow while
  * bloodMoonGlow is above 0, and for blending types the mood's multiplier.
+ *
+ * The colour is built in display values (the lights and the tone curve were
+ * tuned on the canvas) and written for the target (displayOutput,
+ * display-output.ts): as it is on the canvas, as linear light through the
+ * post-processing target, so an enemy looks alike with and without bloom.
  */
 export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions): ShaderMaterial {
   const emissiveIntensity = options?.emissiveIntensity ?? 0;
@@ -189,6 +195,8 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
 
       #include <logdepthbuf_pars_fragment>
 
+      ${DISPLAY_OUTPUT_GLSL}
+
       void main() {
         #include <logdepthbuf_fragment>
 
@@ -274,13 +282,16 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         litColor = (litColor * (2.51 * litColor + 0.03)) /
                    (litColor * (2.43 * litColor + 0.59) + 0.14);
 
+        // Written for the target: as it is on the canvas, as linear light
+        // through the post-processing target
         #ifdef VAT_ALPHA_BLEND
           // Drawn after the blood moon's mood quad (transparent), so the
-          // mood's multiplier comes in here; 1 outside a blood moon
-          litColor *= bloodMoonTint;
-          gl_FragColor = vec4(litColor, baseAlpha);
+          // mood's multiplier comes in here; 1 outside a blood moon. It is
+          // given in the values of the target (bloodMoonMultiplier), so it
+          // applies after the colour is written for it
+          gl_FragColor = vec4(displayOutput(litColor) * bloodMoonTint, baseAlpha);
         #else
-          gl_FragColor = vec4(litColor, 1.0);
+          gl_FragColor = vec4(displayOutput(litColor), 1.0);
         #endif
       }
     `,
