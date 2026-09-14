@@ -13,8 +13,9 @@
  *
  * Timers inside a dedicated worker are not tied to the frame clock, so this
  * keeps delivering ticks with the tab hidden. Chrome does apply intensive
- * throttling to hidden pages after ~5 minutes, which a page playing audio is
- * exempt from — see `startTrainingKeepAlive` in the engine.
+ * throttling to hidden pages after ~5 minutes; a page playing audio is
+ * exempt from that, but this worker is what actually keeps training ticks
+ * arriving here.
  *
  * PROTOCOL:
  *   Main → Worker:  { type: 'start', intervalMs: number }
