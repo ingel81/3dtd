@@ -103,6 +103,8 @@ export class ReplayPlayer {
   private stamp = 0;
 
   private bus: GameEventBus | null = null;
+  /** The AudioService's bus: only what is to be heard goes on it, nothing above REPLAY_CONFIG.maxAudioSpeed */
+  private audioBus: GameEventBus | null = null;
   private vfx: VFXService | null = null;
   private audio: AudioService | null = null;
   private shake: ScreenShakeService | null = null;
@@ -242,8 +244,9 @@ export class ReplayPlayer {
     const engine = this.engine;
     engine.effects.holdGroundMarks(true);
     this.bus = new GameEventBus();
+    this.audioBus = new GameEventBus();
     this.vfx = new VFXService(this.bus, engine);
-    this.audio = new AudioService(this.bus, engine);
+    this.audio = new AudioService(this.audioBus, engine);
     this.shake = new ScreenShakeService(this.bus, engine);
 
     // Towers built after the wave were not there yet
@@ -313,8 +316,9 @@ export class ReplayPlayer {
     this.audio?.destroy();
     this.shake?.destroy();
     this.bus?.clear();
+    this.audioBus?.clear();
     this.vfx = this.audio = this.shake = null;
-    this.bus = null;
+    this.bus = this.audioBus = null;
     engine.effects.holdGroundMarks(false);
     this.playing = false;
   }
@@ -348,6 +352,8 @@ export class ReplayPlayer {
     this.timeMs = t;
     // Stunned enemies spark again from the new time on
     this.stunSparkAt.fill(0);
+    // A rumbling tail from before the jump is not heard after it
+    this.audio?.clearTail();
     // From the start the events at 0 are still to come (the first sounds of the wave)
     this.eventCursor = t > 0 ? this.rec.eventAfter(t) : 0;
     this.apply(t, false);
@@ -369,8 +375,10 @@ export class ReplayPlayer {
       this.emitEventsUpTo(to);
       this.timeMs = to;
       this.apply(to, true);
-      // The rumbling tail of an ability's impact sound, in replay time
-      this.audio?.update(gameDeltaMs);
+      // The rumbling tail of an ability's impact sound, in replay time; too
+      // fast for sound, what is left of it goes
+      if (this.speed <= REPLAY_CONFIG.maxAudioSpeed) this.audio?.update(gameDeltaMs);
+      else this.audio?.clearTail();
       if (to >= this.rec.durationMs) this.pause();
     }
     this.engine.setTimescale(this.playing ? this.speed : 0);
@@ -951,13 +959,14 @@ export class ReplayPlayer {
     const bus = this.bus;
     if (!bus) return;
     const rec = this.rec;
-    const audible = this.speed <= REPLAY_CONFIG.maxAudioSpeed;
+    // Sounds go on the AudioService's bus, and only at a speed with sound
+    const audioBus = this.speed <= REPLAY_CONFIG.maxAudioSpeed ? this.audioBus : null;
     while (this.eventCursor < rec.events.length && rec.eventMs[this.eventCursor] <= ms) {
       const event = rec.events[this.eventCursor++];
       switch (event.type) {
         case 'audio:play':
-          if (!audible) continue;
-          break;
+          audioBus?.emit(event);
+          continue;
         case 'vfx:muzzle-flash': {
           // A tower sold during the wave flashes on its replay model
           const view = this.viewById.get(event.towerId);
@@ -973,6 +982,8 @@ export class ReplayPlayer {
         case 'ability:impact':
           this.pendingStrikes.delete(event.strikeId);
           this.abilityLanded = true;
+          // Its impact sound and tail (AudioService); the effects and shake below either way
+          audioBus?.emit(event);
           break;
       }
       bus.emit(event);

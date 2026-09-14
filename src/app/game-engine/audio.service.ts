@@ -88,7 +88,8 @@ export class AudioService {
     this.pendingTail.length = kept;
   }
 
-  private clearTail(): void {
+  /** Drop the repeats still to come: a restart, and the wave replay when it jumps or runs too fast for sound. */
+  clearTail(): void {
     this.pendingTail.length = 0;
   }
 
