@@ -1,6 +1,6 @@
 # 3D Model Preview System
 
-**Stand:** 2026-09-14
+**Stand:** 2026-09-15
 
 Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Sidebar.
 
@@ -90,7 +90,6 @@ interface PreviewConfig {
 - **Mit `animationName`**: Werden mit `cloneModel(url, { preserveSkeleton: true })` geklont
   - Grund: `preserveSkeleton` erhält Bone-Referenzen fuer AnimationMixer
 - **Ohne `animationName`**: Werden ohne Skeleton-Erhaltung geklont (`preserveSkeleton: false`), kein Mixer
-- **FBX-Modelle**: bekommen nach dem Klonen `assetManager.applyFbxMaterials()`
 - **Fallback Animation**: Wenn `animationName` nicht gefunden wird, wird automatisch die erste Animation verwendet
 
 ### Pivot-Rotation
