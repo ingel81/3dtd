@@ -51,6 +51,36 @@ describe('walkCaps', () => {
     expect(unlimited(south.left)).toBe(true);
   });
 
+  it('keeps the round end of the station next to a narrow cap off the spot', () => {
+    // Stations meet at odd metres, the line runs inside the cells at z = 1.
+    // The spot's station is capped under edgeMargin; the round end of the
+    // one before it reaches 1.58 m.
+    const [caps] = walkCaps([segment(1, 0.5, 21, 0.5, 10, 2, 7)], [{ x: 11.4, z: -0.8 }], 2);
+    expect(caps.left[5]).toBeCloseTo(1.3 - MARGIN, 9);
+    expect(caps.left[4]).toBeCloseTo(Math.hypot(0.4, 1.3) - 0.01, 9);
+    expect(unlimited([...caps.left.slice(0, 4), ...caps.left.slice(6)])).toBe(true);
+    expect(unlimited(caps.right)).toBe(true);
+  });
+
+  it('caps the station that claims a spot right at its end with its own half width', () => {
+    // (11, -1) lies across the joint of stations 4 and 5: both claim it along their length.
+    const [caps] = walkCaps([segment(1, 0.5, 21, 0.5, 10, 2, 7)], [{ x: 11, z: -1 }], 2);
+    expect(caps.left[5]).toBeCloseTo(1.5 - MARGIN, 9);
+    expect(caps.left[4]).toBeCloseTo(1.5 - 0.01, 9);
+    expect(unlimited(caps.left.slice(6))).toBe(true);
+  });
+
+  it('caps a station whose round end reaches over a joint only the other side makes', () => {
+    // Along z = 1, 7 m both sides. A spot right of stations 10 caps them
+    // there, one left of station 11 there: the piece of station 10 ends
+    // at x = 22 on the left side as well, and station 9, 7 m on the left
+    // like station 10, reached (23, -1) with its round end from (20, 1).
+    const [caps] = walkCaps([segment(0, 1, 60, 1, 30, 7)], [{ x: 23, z: -1 }, { x: 21, z: 3 }], 2);
+    expect(caps.left[11]).toBeCloseTo(2 - MARGIN, 9);
+    expect(caps.right[10]).toBeCloseTo(2 - MARGIN, 9);
+    expect(caps.left[9]).toBeCloseTo(Math.hypot(3, 2) - 0.01, 9);
+    expect(unlimited(caps.left.slice(0, 9))).toBe(true);
+  });
   it('leaves a segment without stations alone', () => {
     const tunnel: WalkCapSegment = { ax: 0, az: 0, bx: 20, bz: 0, stations: 0, left: [3], right: [3] };
     expect(walkCaps([tunnel], [{ x: 11, z: 3 }], 2)).toEqual([{ left: [], right: [] }]);

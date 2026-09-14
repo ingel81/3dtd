@@ -523,7 +523,7 @@ export interface StationFit {
 }
 
 /** The half width a walk cap allows: rounded down to `widthStep`, Infinity where there is none. */
-function walkWidth(walk: number): number {
+export function walkWidth(walk: number): number {
   return walk === Infinity ? Infinity : Math.max(0, Math.floor(walk / corridorConfig.widthStep) * corridorConfig.widthStep);
 }
 

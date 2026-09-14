@@ -194,6 +194,20 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(positionsOutside(grid, route)).toEqual([]);
   });
 
+  it('drops a car cell next to where two stations of a narrow lane meet', () => {
+    // A wall 2.5 m left of the centre line (half width 2), stations meeting
+    // at odd metres; a car 1.5 m up, 1.5 m off the line, across the joint
+    // at x = 21. Capped under edgeMargin, a station's neighbour still
+    // reached the cell with its round end.
+    const lane: Street = { a: { x: 1, z: 0.5 }, b: { x: 41, z: 0.5 }, left: 2.5, right: 7 };
+    const { grid, route, builds } = narrowed((x, z) => (x > 20 && x < 22 && z > -2 && z < 0 ? 1.5 : 0), lane);
+
+    expect(builds).toBe(1);
+    expect(grid.getCellAt(21, -1)).toBeUndefined();
+    expect(grid.getCellAt(11, -1)).toBeDefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
   it('keeps the full corridor across a slope', () => {
     // Rising 0.4 m per metre southwards: 0.8 m from one cell to the next, more
     // than stepRise, and 2.4 m at the edge cells, less than roofRise.
