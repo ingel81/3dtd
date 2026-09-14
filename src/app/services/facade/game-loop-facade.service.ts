@@ -2,6 +2,7 @@ import { Injectable, inject, Injector, NgZone, effect, untracked } from '@angula
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { CameraControlService } from '../camera-control.service';
 import { TowerPlacementService } from '../tower-placement.service';
+import { MapPlacementService } from '../world/map-placement.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
@@ -47,6 +48,7 @@ export class GameLoopFacadeService {
   private readonly engineStore = inject(EngineStore);
   private readonly cameraControl = inject(CameraControlService);
   private readonly towerPlacement = inject(TowerPlacementService);
+  private readonly mapPlacement = inject(MapPlacementService);
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly routeAnimation = inject(RouteAnimationService);
@@ -528,6 +530,7 @@ export class GameLoopFacadeService {
 
     // Per-frame delegation calls
     this.towerPlacement.updateRotation(dtSec);
+    this.mapPlacement.updateRotation(dtSec);
     this.streetRendering.continueStreetRender();
     this.keyboardPan.update(dtSec);
     // Quick jumps (Home, N) add to what keyboard pan did this frame

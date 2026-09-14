@@ -55,7 +55,7 @@ export class MapRelocationService {
     if (result.mode === 'hq') {
       await this.applyNewHqPosition(result.lat, result.lon, host);
     } else {
-      await this.applyNewSpawnPosition(result.lat, result.lon, host);
+      await this.applyNewSpawnPosition(result.lat, result.lon, host, result.heading);
     }
   }
 
@@ -241,8 +241,10 @@ export class MapRelocationService {
    * Apply a new spawn position.
    * If within loaded street bounds, does a fast in-place update.
    * Otherwise triggers a full location change.
+   * @param heading Portal heading the player turned the spawn to, see
+   *   PlacementResult; kept by the in-place update only
    */
-  private async applyNewSpawnPosition(lat: number, lon: number, host: RelocationHost): Promise<void> {
+  private async applyNewSpawnPosition(lat: number, lon: number, host: RelocationHost, heading?: number): Promise<void> {
     const ctx = host.context();
     if (!ctx) return;
     const streetNetwork = ctx.bridge.getStreetNetwork();
@@ -250,7 +252,7 @@ export class MapRelocationService {
 
     if (streetNetwork && this.isWithinBounds(streetNetwork.bounds, lat, lon)) {
       // Fast in-place update (no street reload)
-      await this.applySpawnInPlace(lat, lon, host);
+      await this.applySpawnInPlace(lat, lon, host, heading);
     } else {
       // Outside bounds — full location change
       await this.locationCoordinator.applyNewLocation({
@@ -264,7 +266,7 @@ export class MapRelocationService {
    * Fast spawn replacement within loaded street network bounds.
    * Avoids reloading streets — only recalculates paths and game state.
    */
-  private async applySpawnInPlace(lat: number, lon: number, host: RelocationHost): Promise<void> {
+  private async applySpawnInPlace(lat: number, lon: number, host: RelocationHost, heading?: number): Promise<void> {
     const ctx = host.context();
     const engine = ctx?.bridge.getEngine();
     const streetNetwork = ctx?.bridge.getStreetNetwork();
@@ -290,8 +292,10 @@ export class MapRelocationService {
     // 3. Reset game state (towers, enemies, etc.)
     gameState.reset();
 
-    // 4. Add new spawn point
+    // 4. Add new spawn point; its portal faces along the route unless the
+    // player turned it
     host.addSpawnPoint('spawn-1', 'Spawn', lat, lon, SPAWN_COLORS[0]);
+    if (heading !== undefined) this.markerViz.setPortalHeading('spawn-1', heading);
 
     // 5. Update location service + URL
     this.locationMgmt.setLocation(hq, [{ lat, lon }]);

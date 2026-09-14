@@ -1,15 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Only their DI tokens are needed. Material's dialog needs the JIT compiler
-// under vitest, the placement service pulls in the whole tower pipeline.
+// under vitest, the placement services pull in the tower pipeline and the markers.
 vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
 vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
+vi.mock('./world/map-placement.service', () => ({ MapPlacementService: class MapPlacementService {} }));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { InputHandlerService } from './input-handler.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
+import { MapPlacementService } from './world/map-placement.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 
@@ -56,6 +58,7 @@ describe('InputHandlerService tower hover', () => {
         { provide: MatDialog, useValue: { openDialogs: [] } },
         { provide: KeyboardPanService, useValue: {} },
         { provide: TowerPlacementService, useValue: {} },
+        { provide: MapPlacementService, useValue: {} },
       ],
     });
     service = runInInjectionContext(injector, () => new InputHandlerService());

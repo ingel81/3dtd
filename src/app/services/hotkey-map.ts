@@ -126,7 +126,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
     title: 'Towers',
     rows: [
       { keys: ['1', '9'], range: true, label: 'Pick a tower from the build panel' },
-      { keys: ['R'], label: 'Hold to rotate while building' },
+      { keys: ['R'], label: 'Hold to rotate while building, or the portal while placing a spawn' },
       { keys: ['U'], label: 'Upgrade the selected tower: the first upgrade you can afford' },
       { keys: ['Del'], label: 'Sell the selected tower, press twice' },
       { keys: ['Esc'], label: 'Cancel building, close a menu, deselect' },

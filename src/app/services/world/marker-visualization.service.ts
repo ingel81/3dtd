@@ -139,6 +139,13 @@ export class MarkerVisualizationService {
   /** Spark colours per portal, built once when the portal is added */
   private readonly portalPalettes = new Map<string, BurstPalette>();
 
+  /**
+   * Headings the player turned portals to while placing their spawn (scene
+   * rotation about +Y, rad), see setPortalHeading. They win over the
+   * route's direction until the spawn is added again or cleared.
+   */
+  private readonly manualHeadings = new Map<string, number>();
+
   /** Height debug markers group (small spheres for terrain height debugging) */
   private heightDebugGroup: Group | null = null;
 
@@ -178,6 +185,7 @@ export class MarkerVisualizationService {
     this.labelManager?.dispose();
     this.portalsOnCells.clear();
     this.portalPalettes.clear();
+    this.manualHeadings.clear();
 
     const overlayGroup = engine.getOverlayGroup();
     this.markerManager = new MarkerInstanceManager(overlayGroup);
@@ -348,6 +356,7 @@ export class MarkerVisualizationService {
 
     this.portalManager.add(id, pose, color);
     this.portalsOnCells.delete(id);
+    this.manualHeadings.delete(id);
     this.portalPalettes.set(id, portalPalette(color));
     this.labelManager.addLabel(id, name, this.portalLabelCentre(pose), cssColor, this.getPhaseOffset(id));
   }
@@ -356,7 +365,8 @@ export class MarkerVisualizationService {
    * Stand a spawn portal on the start of its route. PathAndRouteService
    * calls this whenever it builds the route: on the ground at the first
    * waypoint, facing along the route, the opening as wide as the corridor
-   * there (spawnPortalPose).
+   * there (spawnPortalPose). A heading the player gave it (setPortalHeading)
+   * wins over the route's.
    *
    * @param startGroundY Route cell height at the start, null while the cells
    *   are not built; the portal then stands on the terrain sample there
@@ -379,11 +389,28 @@ export class MarkerVisualizationService {
     const groundY = startGroundY ?? engine.getTerrainHeightAtGeo(start.lat, start.lon) ?? current.y;
     const pose = spawnPortalPose(points, groundY, portalCorridorWidth(start));
     if (!pose) return;
+    const manual = this.manualHeadings.get(id);
+    if (manual !== undefined) pose.heading = manual;
 
     portals.setPose(id, pose);
     if (startGroundY !== null) this.portalsOnCells.add(id);
     else this.portalsOnCells.delete(id);
     this.labelManager.updatePosition(id, this.portalLabelCentre(pose));
+  }
+
+  /**
+   * Turn a spawn portal to `heading` (scene rotation about +Y, rad), the way
+   * the player turned it while placing the spawn (MapPlacementService). It
+   * keeps that heading through every rebuild of its route
+   * (placeSpawnPortal) until the spawn is added again (a new placement, an
+   * HQ move, a location change) or removed.
+   */
+  setPortalHeading(id: string, heading: number): void {
+    const portals = this.portalManager;
+    const pose = portals?.getPose(id);
+    if (!portals || !pose) return;
+    this.manualHeadings.set(id, heading);
+    portals.setPose(id, { ...pose, heading });
   }
 
   /** Centre of a spawn label above its portal. */
@@ -400,6 +427,7 @@ export class MarkerVisualizationService {
     this.labelManager.removeLabel(spawnId);
     this.portalsOnCells.delete(spawnId);
     this.portalPalettes.delete(spawnId);
+    this.manualHeadings.delete(spawnId);
   }
 
   /**
@@ -414,6 +442,7 @@ export class MarkerVisualizationService {
     }
     this.portalsOnCells.clear();
     this.portalPalettes.clear();
+    this.manualHeadings.clear();
   }
 
   // ========================================
@@ -536,6 +565,7 @@ export class MarkerVisualizationService {
     this.clearHeightDebugMarkers();
     this.portalsOnCells.clear();
     this.portalPalettes.clear();
+    this.manualHeadings.clear();
   }
 
   // ========================================
@@ -720,6 +750,7 @@ export class MarkerVisualizationService {
     this.labelManager = null;
     this.portalsOnCells.clear();
     this.portalPalettes.clear();
+    this.manualHeadings.clear();
     this.engine = null;
     this.baseCoords = null;
     this.heightDebugVisible = null;
