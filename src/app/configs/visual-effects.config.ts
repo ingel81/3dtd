@@ -94,7 +94,9 @@ export interface ScreenShakePreset {
  * the player aims it and watches it, usually from the overview camera
  * (about 425 m), and from there it has to shake hard. Full up to
  * strikeNearDistance, none from strikeFarDistance on. Until 2026-09-13 it
- * shook at 0.008 for 700 ms wherever it landed.
+ * shook at 0.008 for 700 ms wherever it landed, until playtest 2
+ * (2026-09-14) at 0.014 for 1600 ms; now about as long as its blast sounds
+ * (2.4 s, utils/nuke-sound.ts).
  *
  * The other abilities are aimed and watched the same way but shake far
  * less: full up to abilityNearDistance, none from abilityFarDistance on,
@@ -120,7 +122,7 @@ export const SCREEN_SHAKE_CONFIG = {
     /** Times 0.5 to 2 for 5 to 20 HP lost */
     hqDamage:  { amplitude: 0.0025, duration: 300 },
     bossDeath: { amplitude: 0.004,  duration: 400 },
-    nuclearStrike: { amplitude: 0.014, duration: 1600 },
+    nuclearStrike: { amplitude: 0.017, duration: 2200 },
     frostBomb: { amplitude: 0.004, duration: 350 },
     emp: { amplitude: 0.005, duration: 450 },
     orbitalLaser: { amplitude: 0.003, duration: 1200 },
