@@ -41,11 +41,12 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 | `taper` | 0,5 | 0,05 bis 5 | wie schnell sich der seitliche Spielraum entlang der Route ändern darf, m pro m |
 | `stationSpacing` | 2 | 0,5 bis 10 | Abstand der Messstationen |
 | `rayHeightLow`, `rayHeightHigh` | 1, 3,5 | 0,3 bis 10, 0,3 bis 20 | Höhe der beiden Strahlen über dem Boden der Station |
+| `lowWallRise` | 0,3 | 0,1 bis 50 | stoppt nur der untere Strahl, ist sein Treffer eine Wand, wo der Boden 1 m dahinter mindestens so weit über der Station liegt (niedriges Hindernis, siehe Messung); 50 schaltet es ab |
 | `wallMargin` | 0,5 | 0 bis 5 | Abstand zu einer gefundenen Wand |
 | `overhangDepth` | 1 | 0 bis 5 | bis zu so weit vorkragende Obergeschosse begrenzen den Korridor mit ihrer Außenkante, 0 aus |
 | `maxTileError` | 5 | 0,1 bis 100 | gröbstes Tile (geometricError), das für die Messung zählt |
 | `widthStep` | 0,5 | 0,1 bis 2 | Rundung der gemessenen Breite nach unten |
-| `dipLength` | 4 | 0 bis 100 | Einbrüche bis etwa so lang werden geschlossen |
+| `dipLength` | 4 | 0 bis 100 | Einbrüche bis etwa so lang werden geschlossen, außer an einem niedrigen Hindernis (Auto, Transporter) |
 | `bulgeLength` | 8 | 0 bis 100 | Ausbuchtungen bis etwa so lang werden abgeschnitten |
 | `roofRise` | 2,5 | 0,5 bis 50 | Dach-Check: so weit über der Mittellinie daneben ist eine Zelle nicht begehbar (siehe Laufweg) |
 | `stepRise` | 0,5 | 0,1 bis 50 | Stufen-Check: höchste Stufe je Rasterschritt (2 m) auf dem Weg zur Zelle (siehe Laufweg; bis 2026-09-14 0,75) |
@@ -54,8 +55,8 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 
 `MEASUREMENT_KEYS` (`route-corridor.ts:204-213`) sind die Werte, deren Änderung
 eine neue Messung braucht: `stationSpacing`, `rayHeightLow`, `rayHeightHigh`,
-`maxHalfWidth`, `maxTileError`, `overhangDepth` (der gespeicherte Freiraum
-entsteht beim Messen aus den Treffern), `roofRise` und `stepRise` (die
+`maxHalfWidth`, `maxTileError`, `overhangDepth` und `lowWallRise` (der
+gespeicherte Freiraum entsteht beim Messen aus den Treffern), `roofRise` und `stepRise` (die
 gespeicherten Kappen des Laufwegs entstehen aus den Zellen, siehe Laufweg).
 Die übrigen formen nur das Gemessene um.
 
@@ -86,12 +87,47 @@ Je Station (`TerrainQueries.measureStreetClearance`, `terrain-queries.ts:341-391
 3. Ein Treffer zählt nur auf einem Tile mit höchstens `maxTileError`
    geometricError und nicht auf dem Wurzel-Tile (`:406-407`). Ohne Treffer
    meldet der Strahl seine volle Länge.
+4. Stoppt auf einer Seite nur der untere Strahl (der obere trifft nichts
+   oder mindestens 1 m weiter, `lowRayAlone`), eine Säule 1 m hinter seinem
+   Treffer (`LOW_WALL_BEHIND_M`, `riseBehindLowHit` in
+   `terrain-queries.ts`): wie hoch ihr unterster Treffer über dem Boden der
+   Station liegt (`StationProbe.lowRise`). Nicht auf einem Brückendeck, dort
+   träfe diese Säule den Fluss oder die Straße unter der Brücke.
 
 Der Freiraum einer Seite ist der weitere der beiden ersten Treffer
-(`probeFreeSpace`, `route-corridor.ts:502`). Eine Wand ist also nur, was beide
-Strahlen stoppt: Fassade, Mauer, Stamm. Ein parkendes Auto, ein Transporter,
-eine Hecke oder ein Zaun stoppt nur den unteren, eine Baumkrone, Traufe oder ein
-Balkon nur den oberen; beides engt den Korridor nicht ein.
+(`probeFreeSpace`, `route-corridor.ts`). Eine Wand ist also, was beide
+Strahlen stoppt: Fassade, Mauer, Stamm. Eine Baumkrone, Traufe oder ein
+Balkon stoppt nur den oberen und engt den Korridor nicht ein.
+
+Ausnahme **niedriges Hindernis** (Nutzerentscheidung nach dem Playtest
+2026-09-14, Vorgärten, Option a): Stoppt nur der untere Strahl und liegt die
+Säule 1 m hinter seinem Treffer mindestens `lowWallRise` (0,3 m) über dem
+Boden der Station, ist der untere Treffer eine Wand (`probeLowWall`). Unter
+einem Auto hat die Photogrammetrie keinen Boden, die Säule trifft sein
+Dach. So engen ein parkendes Auto, ein Transporter, eine Hecke und ein
+Vorgarten höher als der Gehweg den Korridor ein, beim Vorgarten, wenn etwas
+darauf den unteren Strahl stoppt (Hecke, Zaun, Bewuchs). Ein Zaun, Poller
+oder Schildmast vor Boden auf Gehweghöhe nicht: 1 m dahinter liegt der
+Boden.
+
+- **0,3 m:** über einem Bordstein (10 bis 15 cm) samt Quergefälle der
+  Fahrbahn, unter einem Hochbeet von 0,4 m und unter den 0,58 m, die Zellen
+  auf einem parkenden Auto in Rothenburg über ihren Nachbarn lagen
+  (Playtest 2026-09-14, `pick()` an Station `11:6/19`). Das Rauschen der
+  Tiles in der Höhe ist nicht gemessen.
+- **1 m:** tiefer als ein Poller, Mast, Mülleimer oder Zaun, schmaler als
+  ein Auto (1,7 bis 1,9 m). Ein Stamm stoppt beide Strahlen etwa an
+  derselben Stelle; er bleibt eine Wand beider Strahlen, die das Schließen
+  der Einbrüche wegnimmt.
+- **Kosten:** eine Säule mehr je Seite, auf der nur der untere Strahl
+  stoppt, aus dem Cache der Engine, wo eine Zelle sie schon geprobt hat.
+  Nicht im Spiel gemessen.
+
+Vorher zählte ein Treffer nur des unteren Strahls nie; der Playtest vom
+2026-09-12 hatte das Einengen an einer Transporterreihe verworfen
+(`8910463`), der Nutzer will es seit dem 2026-09-14. `__corridor.pick()`
+zeigt die Höhe als `lowRiseM` und die Regel als `low obstacle, raised
+behind`. Abschaltbar mit `__corridor.set({ lowWallRise: 50 })` (misst neu).
 
 Ausnahme **Auskragung**: Treffen beide Strahlen und stoppt der obere
 höchstens `overhangDepth` (1 m) näher als der untere, gilt der nähere
@@ -100,8 +136,10 @@ Treffer, die Außenkante. So kragen die Obergeschosse eines Fachwerkhauses
 die Randzellen unter dem Obergeschoss, ihre Säule traf dessen Dach oder
 Unterseite, der Dach-Check setzte sie orange auf den Boden (Playtest
 2026-09-14, Rothenburg, Zellen "unter dem Dach"). Ein Balkon oder eine
-Krone weiter als 1 m vor der Fassade und ein Auto vor der Fassade (unterer
-Strahl näher) lassen es beim weiteren Treffer. `__corridor.pick()` nennt die
+Krone weiter als 1 m vor der Fassade lassen es beim weiteren Treffer. Ein
+Auto vor der Fassade (unterer Strahl näher) fällt nicht unter diese
+Ausnahme; steht es mindestens 1 m davor, ist es ein niedriges Hindernis
+(oben), sonst gilt die Fassade. `__corridor.pick()` nennt die
 Ausnahme mit `overhang: outer face` in `rule`. Eine Urteilsfrage, abschaltbar
 mit `__corridor.set({ overhangDepth: 0 })` (misst neu).
 
@@ -126,11 +164,15 @@ ganze Route, über Waypoints hinweg:
    Korridor nicht für 2 m auf die Straßenbreite ein (Playtest 2026-09-13,
    Station `7:3/32`). Längere Lücken behalten die Straßenbreite.
 1. **Einbrüche schließen** (`closeShortDips`, morphologisches Closing): Ein
-   schmalerer Abschnitt bis etwa `dipLength` (Laterne, Schild, Transporter,
-   einzelner Stamm) verschwindet, ein längerer bleibt in voller Länge.
+   schmalerer Abschnitt bis etwa `dipLength` (Laterne, Schild, einzelner
+   Stamm) verschwindet, ein längerer bleibt in voller Länge. Ein niedriges
+   Hindernis (siehe Messung) bleibt auch kürzer: Ein Auto von 4,5 m liegt
+   vor zwei oder drei Stationen, ein kleineres vor einer, und nach der Länge
+   allein wäre es von einer Laterne nicht zu trennen. Die Laterne stoppt
+   beide Strahlen, das Auto nur den unteren, mit seinem Dach dahinter.
 2. **Ausbuchtungen abschneiden** (`cutShortBulges`, Opening): Ein breiterer
-   Abschnitt bis etwa `bulgeLength` (Einfahrt, Lücke zwischen zwei Häusern,
-   schmale Einmündung) verschwindet.
+   Abschnitt bis etwa `bulgeLength` (Einfahrt, Lücke zwischen zwei Häusern
+   oder zwei parkenden Autos, schmale Einmündung) verschwindet.
 
    Beide Filter runden die Länge auf ganze Stationen je Seite auf
    (`ceil(Länge / stationSpacing / 2)`). Ungemessene Stationen bleiben
@@ -161,7 +203,9 @@ ist das Schließen der Einbrüche aus Schritt 1 noch einmal, über die fertigen
 Stücke, egal welche Regel ihre Breite gesetzt hat: etwa die Straßenbreite
 eines kurzen Segments, das noch nicht gemessen ist, oder eines kurzen
 Fußweg-Stücks zwischen zwei Straßen. Längere Engstellen, eine Engstelle am
-Anfang oder Ende der Route und Tunnel bleiben. `__corridor.pick()` nennt es
+Anfang oder Ende der Route und Tunnel bleiben. Ein Stück an einem
+niedrigen Hindernis wird nicht breiter als dort gemessen (`maxLeft`,
+`maxRight`, wie bei den Kappen des Laufwegs). `__corridor.pick()` nennt es
 mit `short narrowing closed` in `rule`.
 
 `applyClearance` (`path-route.service.ts`) teilt jedes Segment an den
@@ -357,9 +401,10 @@ Ausnahmen:
 
 ## Laufweg: Zellen, zu denen kein Gegner laufen kann
 
-Die Strahlen lassen den Korridor über alles reichen, was nur einen von
-ihnen stoppt: ein parkendes Auto, einen Transporter oder eine Hecke unter
-dem oberen Strahl, eine Traufe oder Krone über dem unteren. Die
+Die Strahlen lassen den Korridor über eine Traufe oder Krone reichen, die
+nur den oberen stoppt, und über ein Auto, einen Transporter oder eine
+Hecke, deren Säule 1 m hinter dem Treffer sie nicht erhöht sahen (siehe
+Messung, niedriges Hindernis). Die
 Photogrammetrie hat unter keinem davon Boden, die Säule einer Zelle dort
 trifft dessen Oberseite. Seit der Nutzerentscheidung nach dem Playtest
 2026-09-14 ("Orange Zellen weglassen") endet der Korridor vor einer solchen
@@ -706,8 +751,8 @@ einem Frame:
 - **`clearance`** (`ClearanceRun.commit`, `path-route.service.ts:1211-1217`):
   erscheint am Ende eines Laufs, der mindestens ein Segment angefasst hat.
   - `stations`: die in diesem Lauf versuchten Stationen.
-  - `rays`: 2 Strahlhöhen × 2 Seiten × gemessene Stationen; die Säulenprobe
-    ist nicht mitgezählt.
+  - `rays`: 2 Strahlhöhen × 2 Seiten × gemessene Stationen; die Säulen unter
+    der Station und hinter einem niedrigen Hindernis sind nicht mitgezählt.
   - `in`: Rechenzeit des Laufs im Hauptthread, alle Scheiben samt Vergleich
     am Ende. So lange hätte der Lauf am Stück blockiert; vergleichbar mit den
     Zahlen von vor dem Stückeln.
@@ -833,7 +878,9 @@ __corridor.pick(6)
        `inTunnel`, `unmeasured`, `tileError`, am Ende `shiftM` (wie weit
        entlang der Route die Station neben einer Naht gemessen wurde, sonst
        null).
-     - Je Seite eine Zeile: `lowHitM`, `highHitM`, `wall`, `freeM`,
+     - Je Seite eine Zeile: `lowHitM`, `highHitM`, `lowRiseM` (wo nur der
+       untere Strahl stoppte: wie hoch die Säule 1 m hinter seinem Treffer
+       über dem Boden der Station liegt, sonst null), `wall`, `freeM`,
        `smoothedM`, `halfWidthM`, `inUseM`, `walkableM` (die Kappe des
        Laufwegs, sonst null) und `rule`.
      - Eine Tabelle mit den vier Stationen davor und danach; `leftM` und
@@ -841,7 +888,8 @@ __corridor.pick(6)
 
   `rule` nennt die Regeln, die gegriffen haben, auch mehrere
   (`bulge cut, wall less margin`):
-  - aus der Messung: `dip closed`, `bulge cut`, `wall less margin`,
+  - aus der Messung: `low obstacle, raised behind` (niedriges Hindernis),
+    `dip closed`, `bulge cut`, `wall less margin`,
     `no wall within the maximum`, `minimum`, `leg to the HQ: street width`,
     angehängt `overhang: outer face` (siehe Auskragung);
   - ohne Messung: `unmeasured: from neighbours` (kurze Lücke, gefolgt von
@@ -1019,8 +1067,24 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
 - An Kreuzungen laufen die Strahlen in die Querstraße. Eine Einmündung breiter
   als etwa `bulgeLength` bleibt als Ausbuchtung stehen, bis `maxHalfWidth`.
 - Auf freien Flächen ohne Wand innerhalb von `maxHalfWidth` (Platz, Park,
-  Vorgärten mit niedriger Hecke oder Mauer) ist der Korridor auf dieser Seite
-  7 m breit.
+  ein Vorgarten auf Gehweghöhe hinter Zaun, Mauer oder schmaler Hecke) ist
+  der Korridor auf dieser Seite 7 m breit.
+- **Vorgärten:** Die Strahlen trennen einen Vorgarten nur über die Höhe
+  seines Bodens 1 m hinter dem, was den unteren Strahl stoppt. Einer auf
+  Gehweghöhe bleibt im Korridor; eine Hecke 1 m tief und mehr zählt selbst
+  als erhöht. Ein erhöhter Garten ohne etwas darauf, das den unteren
+  Strahl stoppt, bleibt für die Strahlen offen (0,4 m liegen unter dem
+  Strahl in 1 m) und für den Laufweg auch, solange die Stufe unter
+  `stepRise` bleibt.
+- **Quergefälle:** Steigt der Boden neben der Straße bis auf die Höhe des
+  unteren Strahls (Böschung, Hang), trifft der ihn, und die Säule dahinter
+  liegt höher: Der Korridor endet dort. Ein Zaun auf einem Gehweg, der
+  1 m hinter dem Zaun 0,3 m über der Station liegt (etwa 6 % Quergefälle
+  auf 5 m), engt ebenso ein. Nicht im Spiel geprüft.
+- **Einzelnes Erhöhtes:** Alles mindestens 1 m Tiefe, das nur den unteren
+  Strahl stoppt und oben mehr als 0,3 m hoch ist (Stromkasten, Kübel mit
+  Bewuchs), engt seine Station (2 m) ein; das Schließen der Einbrüche nimmt
+  es nicht weg.
 - Der Laufweg-Check geht von der Mittellinie neben der Zelle aus, dem
   Median über die Stelle daneben und je zwei Nachbarn auf der Linie.
   Stehen dort drei und mehr Stellen in Folge auf einer Krone oder einem
@@ -1033,7 +1097,9 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Gehweg hinter einer Autoreihe eingeschlossen: Der Korridor ist je Seite
   ein Band. Genau dieses Einengen hatte der Playtest vom 2026-09-12 bei den
   Strahlen verworfen (Transporterreihe, `8910463`); nach dem Playtest
-  2026-09-14 hat der Nutzer entschieden, die orangen Zellen wegzulassen.
+  2026-09-14 hat der Nutzer entschieden, die orangen Zellen wegzulassen,
+  und dass Autos und Transporter einengen sollen (Vorgärten, Option a; zu
+  den Strahlen siehe Vorgärten oben).
   Ein Vorgarten auf Straßenhöhe ohne Wand bleibt im Korridor, bis
   `maxHalfWidth`, auch hinter einem Zaun oder einer schmalen Hecke, die
   zwischen zwei Zellmitten liegt. Kommt eine Zelle auf die Hecke (mehr als
