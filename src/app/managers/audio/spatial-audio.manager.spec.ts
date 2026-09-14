@@ -433,6 +433,39 @@ describe('SpatialAudioManager', () => {
       expect(debugEvents()).toContainEqual(expect.objectContaining({ soundId: 'v0', details: 'voice-stolen' }));
     });
 
+    it('steals the oldest one-shot without priority first, one with priority only when every voice has it', async () => {
+      const { manager, debugEvents, ready } = setup();
+      const max = AUDIO_LIMITS.maxConcurrentOneShots;
+      await ready('boom', 'boom.mp3', { priority: true, maxInstances: 1000, minIntervalMs: 0 });
+      await ready('hit', 'hit.mp3', { maxInstances: 1000, minIntervalMs: 0 });
+      await ready('late', 'late.mp3', { minIntervalMs: 0 });
+
+      // The boom is the oldest; the next sound takes the first hit's voice
+      await manager.playAt('boom', NEAR);
+      for (let i = 1; i < max; i++) await manager.playAt('hit', NEAR);
+      expect(await manager.playAt('late', NEAR)).not.toBeNull();
+      expect(manager.getActiveSoundCount()).toBe(max);
+      expect(manager.isPlaying('boom')).toBe(true);
+      const stolen = () => debugEvents().filter((e) => e.details === 'voice-stolen').map((e) => e.soundId);
+      expect(stolen()).toEqual(['hit']);
+
+      // Only priority voices busy: the oldest of them goes
+      manager.stopAll();
+      for (let i = 0; i < max; i++) await manager.playAt('boom', NEAR);
+      expect(await manager.playAt('late', NEAR)).not.toBeNull();
+      expect(manager.getActiveSoundCount()).toBe(max);
+      expect(stolen()).toEqual(['hit', 'boom']);
+    });
+
+    it('plays a sound with an audible distance of its own out to that distance, and no further', async () => {
+      const { manager, debugEvents, ready } = setup();
+      await ready('boom', 'boom.mp3', { audibleDistance: 1500, minIntervalMs: 0 });
+
+      expect(await manager.playAt('boom', FAR)).not.toBeNull();
+      expect(await manager.playAt('boom', new Vector3(1501, 0, 0))).toBeNull();
+      expect(debugEvents().at(-1)).toMatchObject({ eventType: 'distance_culled', soundId: 'boom' });
+    });
+
     it.each(['silent', 'throw'] as const)('treats a play() that does not start (%s) as a failure', async (mode) => {
       vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       vi.spyOn(console, 'error').mockImplementation(() => undefined);

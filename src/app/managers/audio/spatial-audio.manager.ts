@@ -7,7 +7,7 @@ import {
   Vector3,
   Audio,
 } from 'three';
-import { SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
+import { AUDIO_LIMITS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
 import { GameEventBus } from '../../game-engine';
 import { AudioBufferCache } from './audio-buffer-cache';
 import { AudioPoolManager } from './audio-pool.manager';
@@ -44,6 +44,17 @@ export interface SpatialSoundConfig {
    * heuristic from buffer duration (short=8, medium=4, long=2).
    */
   maxInstances?: number;
+  /**
+   * Kept when every one-shot voice is busy: voice stealing takes the oldest
+   * one-shot without priority, one with it only when all have it. For the
+   * few sounds a moment rests on (the nuclear strike). Default false.
+   */
+  priority?: boolean;
+  /**
+   * A one-shot of this sound further from the listener than this (m) is not
+   * played. Default AUDIO_LIMITS.maxAudibleDistance; loops keep that one.
+   */
+  audibleDistance?: number;
 }
 
 const DEFAULT_CONFIG: Required<SpatialSoundConfig> = {
@@ -56,6 +67,8 @@ const DEFAULT_CONFIG: Required<SpatialSoundConfig> = {
   // -1 sentinel: derive from buffer duration at play time.
   minIntervalMs: -1,
   maxInstances: -1,
+  priority: false,
+  audibleDistance: AUDIO_LIMITS.maxAudibleDistance,
 };
 
 /**

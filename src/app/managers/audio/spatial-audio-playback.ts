@@ -17,6 +17,8 @@ export interface ActiveSound {
   ownerId?: string;
   timer?: ReturnType<typeof setTimeout>;
   isProjectileSound?: boolean;
+  /** Voice stealing takes it last (SpatialSoundConfig.priority) */
+  priority?: boolean;
 }
 
 /**
@@ -205,10 +207,11 @@ export class SpatialAudioPlayback {
       return null;
     }
 
-    // Distance-based culling
-    if (!this.isWithinAudibleDistance(position)) {
+    // Distance-based culling, at the sound's own audible distance
+    const audible = sound.config.audibleDistance;
+    if (this.distanceSqToListener(position) > audible * audible) {
       const distance = this.getDistanceToCamera(position);
-      this.emitDebug('distance_culled', soundId, `distance ${distance.toFixed(0)}m exceeds max ${AUDIO_LIMITS.maxAudibleDistance}m`);
+      this.emitDebug('distance_culled', soundId, `distance ${distance.toFixed(0)}m exceeds max ${audible}m`);
       return null;
     }
 
@@ -258,11 +261,12 @@ export class SpatialAudioPlayback {
     }
 
     // Global one-shot cap with voice-stealing: if we're at the limit,
-    // stop the OLDEST active one-shot (= activeSounds[0]) to make room.
-    // Sounds smoother than rejecting the new sound, which would leave
-    // gaps in fast-paced combat audio.
+    // stop the OLDEST active one-shot to make room, the oldest without
+    // priority while there is one (the hits and deaths of a big wave must
+    // not cut the nuclear strike). Sounds smoother than rejecting the new
+    // sound, which would leave gaps in fast-paced combat audio.
     while (this.activeSounds.length >= AUDIO_LIMITS.maxConcurrentOneShots) {
-      const victim = this.activeSounds.shift();
+      const victim = this.takeVoiceToSteal();
       if (!victim) break;
       this.emitDebug('budget_exceeded', victim.soundId, 'voice-stolen');
       this.cleanupActiveSound(victim);
@@ -284,7 +288,9 @@ export class SpatialAudioPlayback {
     const container = this.pool.createContainerAtPosition(audio, position);
 
     // Track active sound
-    const activeSound: ActiveSound = { audio, soundId, container, isProjectileSound: isProjectile };
+    const activeSound: ActiveSound = {
+      audio, soundId, container, isProjectileSound: isProjectile, priority: sound.config.priority,
+    };
     this.activeSounds.push(activeSound);
 
     // Play
@@ -430,6 +436,12 @@ export class SpatialAudioPlayback {
 
   isPlaying(soundId: string): boolean {
     return this.activeSounds.some((s) => s.soundId === soundId && s.audio.isPlaying);
+  }
+
+  /** The oldest one-shot without priority, else the oldest; taken out of the active list. */
+  private takeVoiceToSteal(): ActiveSound | undefined {
+    const index = this.activeSounds.findIndex((active) => !active.priority);
+    return this.activeSounds.splice(index === -1 ? 0 : index, 1)[0];
   }
 
   private cleanupActiveSound(active: ActiveSound): void {
