@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
-import { Group, Mesh, MeshBasicMaterial, MeshPhongMaterial, PlaneGeometry, Vector2, Vector3 } from 'three';
+import { Group, Vector2, Vector3 } from 'three';
 import { MapPlacementService } from './map-placement.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { OsmStreetService, Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
@@ -14,6 +14,7 @@ import {
   portalTurnRange,
   spawnPortalPose,
 } from '../../three-engine/renderers/marker/spawn-portal-pose';
+import { fakePortalPreview } from '../../../test/portal-preview-fixture';
 
 /**
  * What one cursor move costs the spawn preview (MapPlacementService.
@@ -70,13 +71,6 @@ function cityGrid(): StreetNetwork {
   const min = geoAt(-HALF_M, -HALF_M);
   const max = geoAt(HALF_M, HALF_M);
   return { streets, nodes, bounds: { minLat: min.lat, minLon: min.lon, maxLat: max.lat, maxLon: max.lon } };
-}
-
-function fakePortalPreview(color: number): Group {
-  const group = new Group();
-  group.add(new Mesh(new PlaneGeometry(), new MeshPhongMaterial({ color })));
-  group.add(new Mesh(new PlaneGeometry(), new MeshBasicMaterial({ color })));
-  return group;
 }
 
 /** Milliseconds per call of `fn` over `runs` calls after a warm-up: mean, median, 95th percentile, max. */
