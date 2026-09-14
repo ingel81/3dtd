@@ -225,6 +225,13 @@ Minion ist ein Leck, das getötete Skeleton ein Kill. Der Nenner wächst mit jed
 Split; die Fortschrittsliste führt jeden Gegner ohnehin einzeln, und
 `WaveOutcome.enemiesSpawned` zählt die Kinder seit 2026-09-13 mit.
 
+**Ein Ooze ist ab dem ersten Punkt ein Leck.** Es fließt Meter für Meter in die
+Basis (`enemy:leaking`) und kostet dabei HP. Der Collector bucht es beim ersten
+Punkt einmal als Ankunft; das spätere `enemy:reached-base` zählt nicht noch
+einmal, ein Kill auf halbem Weg hinein ist kein Kill. Die Fortschrittsliste, aus
+der das Gate liest, stand dafür schon vorher auf 1: die Spitze ist am Pfadende,
+wenn das Einfließen beginnt.
+
 **Fähigkeits-Kills zählen als Leck.** Was ein Nuklearschlag des Spielers tötet,
 zählt `gateLeakRatio()` zu den Ankünften (Entscheidung 6.1 b in
 [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md)): der Einsatz

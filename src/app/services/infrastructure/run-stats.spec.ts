@@ -40,6 +40,22 @@ describe('RunStatsTracker', () => {
     expect(s.durationMs).toBe(60_000);
   });
 
+  it('counts an ooze once, as a leak from its first point in, even when it is killed halfway in', () => {
+    const ooze = { id: 'ooze' } as never;
+    const whole = { id: 'whole' } as never;
+    startWave(45);
+    bus.emit({ type: 'enemy:leaking', enemy: ooze, damage: 1 });
+    bus.emit({ type: 'enemy:leaking', enemy: ooze, damage: 1 });
+    bus.emit({ type: 'enemy:died', enemy: ooze, credits: 0 });
+    bus.emit({ type: 'enemy:leaking', enemy: whole, damage: 1 });
+    bus.emit({ type: 'enemy:reached-base', enemy: whole, damage: 2 });
+    bus.emit({ type: 'enemy:died', enemy: { id: 'clump' } as never, credits: 5 });
+
+    const s = tracker.summary(0);
+    expect(s.leaksPerWave[44]).toBe(2);
+    expect(s.kills).toBe(1);
+  });
+
   it('ignores healing and leaks outside a wave', () => {
     leak(10); // debug enemy before wave 1
     startWave(1);

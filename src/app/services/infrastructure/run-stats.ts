@@ -18,7 +18,7 @@ export interface TowerRunStats {
 export interface RunSummary {
   /** Wave the HQ fell in */
   waveReached: number;
-  /** Enemies killed, by towers or anything else */
+  /** Enemies killed, by towers or anything else; an ooze killed while it flows into the HQ is a leak */
   kills: number;
   /** Kill rewards and wave bonuses; refunds and cheat credits left out */
   goldEarned: number;
@@ -26,7 +26,10 @@ export interface RunSummary {
   goldSpent: number;
   /** Game time from the start of the run (build phase included) to the fall */
   durationMs: number;
-  /** Enemies that reached the HQ, index 0 = wave 1, one entry per wave up to waveReached */
+  /**
+   * Enemies that reached the HQ, index 0 = wave 1, one entry per wave up to
+   * waveReached. An ooze counts once, from the first point that flows in.
+   */
   leaksPerWave: number[];
   /** HP the HQ lost, same indexing as leaksPerWave */
   hqDamagePerWave: number[];
@@ -68,14 +71,26 @@ export class RunStatsTracker {
   private cheatCredits = 0;
   private leaks: number[] = [];
   private hqDamage: number[] = [];
+  /** Oozes flowing into the HQ, counted as leaks at their first point */
+  private readonly leaking = new Set<string>();
   private readonly liveTowers = new Map<string, Tower>();
   private soldTowers: TowerRunStats[] = [];
 
   /** Subscribe to the bus; the bag owns the subscriptions. */
   attach(bus: GameEventBus, bag: SubscriptionBag): void {
     bag.add(bus.on('wave:started', (e) => { this.wave = e.wave; }));
-    bag.add(bus.on('enemy:died', () => { this.kills++; }));
-    bag.add(bus.on('enemy:reached-base', () => { this.addToWave(this.leaks, 1); }));
+    // An ooze counts once: as a leak from its first point, not as a kill after it
+    bag.add(bus.on('enemy:died', (e) => {
+      if (!this.leaking.delete(e.enemy.id)) this.kills++;
+    }));
+    bag.add(bus.on('enemy:leaking', (e) => {
+      if (this.leaking.has(e.enemy.id)) return;
+      this.leaking.add(e.enemy.id);
+      this.addToWave(this.leaks, 1);
+    }));
+    bag.add(bus.on('enemy:reached-base', (e) => {
+      if (!this.leaking.delete(e.enemy.id)) this.addToWave(this.leaks, 1);
+    }));
     bag.add(bus.on('health:changed', (e) => {
       if (e.delta < 0) this.addToWave(this.hqDamage, -e.delta);
     }));
@@ -105,6 +120,7 @@ export class RunStatsTracker {
     this.cheatCredits = 0;
     this.leaks = [];
     this.hqDamage = [];
+    this.leaking.clear();
     this.liveTowers.clear();
     this.soldTowers = [];
   }

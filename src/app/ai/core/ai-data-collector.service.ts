@@ -193,6 +193,12 @@ export class AIDataCollectorService {
     this.subscriptions.add(
       this.eventBus.on('enemy:reached-base', (event) => this.onEnemyReachedBase(event))
     );
+    // An ooze is a leak from its first point that flows into the base on
+    this.subscriptions.add(
+      this.eventBus.on('enemy:leaking', (event) => {
+        this.currentWave.enemyLeaking(event.enemy.id, event.enemy.typeConfig.id, Date.now());
+      })
+    );
     this.subscriptions.add(
       this.eventBus.on('enemy:split', (event) => this.onEnemySplit(event))
     );
