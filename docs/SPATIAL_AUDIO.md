@@ -476,7 +476,8 @@ public/assets/sounds/
 ```
 
 Ohne Datei, im Code synthetisiert: die UI-Töne (`utils/alert-tone.ts`) und die Ooze-Sounds
-(`utils/ooze-sound.ts`), beide als WAV-Data-URL über `utils/pcm-wav.ts`.
+(`utils/ooze-sound.ts`), beide als WAV-Data-URL über `utils/pcm-wav.ts`. Seed-Zufall,
+Tiefpass-Koeffizient und Normalisieren teilen sich die Synthesen in `utils/synth.ts`.
 
 ## Beispiel: Neuen Sound hinzufügen
 

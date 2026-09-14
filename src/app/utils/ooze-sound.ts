@@ -6,6 +6,7 @@
  * WAV data URLs (utils/pcm-wav.ts).
  */
 import { pcmWav, wavDataUrl } from './pcm-wav';
+import { normalise, onePoleCoefficient, seeded } from './synth';
 
 export const OOZE_SOUND_RATE = 22050;
 
@@ -19,18 +20,6 @@ export const OOZE_SLURP_S = 1.1;
 const SPLAT_BURST_S = 0.9;
 
 const TWO_PI = Math.PI * 2;
-
-/** Seeded PRNG (mulberry32), 0..1 */
-function seeded(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 const between = (rnd: () => number, lo: number, hi: number) => lo + (hi - lo) * rnd();
 /** Log-uniform between lo and hi, for pitches */
@@ -68,18 +57,7 @@ function addBubble(
 }
 
 /** One-pole low-pass coefficient for cutoff `hz` */
-const lowPassCoefficient = (hz: number) => 1 - Math.exp((-TWO_PI * hz) / OOZE_SOUND_RATE);
-
-/** Scale `out` so its loudest sample is `peak`. */
-function normalise(out: Float32Array, peak: number): Float32Array {
-  let max = 0;
-  for (const v of out) max = Math.max(max, Math.abs(v));
-  if (max > 0) {
-    const k = peak / max;
-    for (let i = 0; i < out.length; i++) out[i] *= k;
-  }
-  return out;
-}
+const lowPassCoefficient = (hz: number) => onePoleCoefficient(hz, OOZE_SOUND_RATE);
 
 /** Fade the last `seconds` of a one-shot to silence, so it ends without a click. */
 function fadeOut(out: Float32Array, seconds: number): void {
