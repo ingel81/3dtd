@@ -1757,7 +1757,12 @@ zwei instanzierte Draw Calls für alle Portale:
   Routenstart, wo `EnemyManager.spawn` jeden Gegner auf `path[0]` setzt (dieselbe Route, die
   das Portal bekommt, `path-route.service.spec.ts`). Ein Gegner steht damit im Volumen, von
   allen Seiten verdeckt samt Healthbar, bis er vorn heraustritt. Die Tiefe schrumpft bei
-  schmalen Korridoren nicht mit (`portalDepthScale`). `spawn-portal-frame.spec.ts` prüft
+  schmalen Korridoren nicht mit (`portalDepthScale`). Das Portal schaut dorthin, wo die Route
+  sein Volumen verlässt: auf den Punkt, an dem sie zum ersten Mal so weit vom Start weg ist wie
+  die vordere Fläche (`spawnPortalPose`, `routeExitPoint`). Die Route läuft so mittig durch die
+  Öffnung hinaus, auch wenn sie in einer Kurve beginnt (Kreisverkehr, Stummel vor einer Ecke);
+  ein Knick näher als die halbe Tiefe am Start lässt sie im Volumen trotzdem seitlich laufen.
+  `spawn-portal-frame.spec.ts` prüft
   das am echten Asset mit Strahlen rundum von den gemessenen Körpern aller Bodengegner (Bounding Box mal
   Skala, Mech und Tank bis 9,3 m lang): bei Skala 1 und 1,75 alle verdeckt, bei Skala 0,75
   (Gasse) sind Mammoth, Mech, Stone Golem und Wallsmasher breiter oder höher als das Tor.
