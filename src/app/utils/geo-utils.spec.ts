@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { haversineDistance, fastDistance, fastDistanceSq, geoDistance, geoDistanceFast, geoDistanceFastSq, findNearestRouteDistance } from './geo-utils';
+import { haversineDistance, fastDistance, fastDistanceSq, geoDistanceFast, geoDistanceFastSq, findNearestRouteDistance } from './geo-utils';
 
 describe('geo-utils', () => {
   // Well-known coordinates
@@ -102,18 +102,6 @@ describe('geo-utils', () => {
       // but difference should be <1% for nearby points
       const error = Math.abs(d1 - d2) / Math.max(d1, d2);
       expect(error).toBeLessThan(0.01);
-    });
-  });
-
-  describe('geoDistance() wrapper', () => {
-    it('produces same result as haversineDistance', () => {
-      const d1 = geoDistance(STUTTGART, BERLIN);
-      const d2 = haversineDistance(STUTTGART.lat, STUTTGART.lon, BERLIN.lat, BERLIN.lon);
-      expect(d1).toBe(d2);
-    });
-
-    it('returns 0 for same point', () => {
-      expect(geoDistance(STUTTGART, STUTTGART)).toBe(0);
     });
   });
 
