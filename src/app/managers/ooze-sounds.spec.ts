@@ -12,7 +12,6 @@ function mockAudio() {
     registerSound: vi.fn(),
     createLoop: vi.fn(() => new Promise<string | null>((resolve) => { arrive = resolve; })),
     updateLoopPosition: vi.fn(),
-    isWithinAudibleDistance: vi.fn(() => true),
     stopLoop: vi.fn(),
   };
   return {
@@ -51,17 +50,13 @@ describe('OozeSounds', () => {
     );
   });
 
-  it('starts the loop once within earshot and moves it from then on', async () => {
+  it('asks for its loop on the first frame, in earshot or not, and moves it from then on', async () => {
     const { audio, manager, arrive } = mockAudio();
-    audio.isWithinAudibleDistance.mockReturnValue(false);
+    // 600 m away: SpatialAudioLoops lets the loop wait until it is in earshot
     sounds.follow('ooze-1', manager, 600, 0, 0);
-    expect(audio.createLoop).not.toHaveBeenCalled();
-
-    audio.isWithinAudibleDistance.mockReturnValue(true);
-    sounds.follow('ooze-1', manager, 10, 0, 0);
+    expect(audio.createLoop).toHaveBeenCalledWith(OOZE_SOUNDS.bubble.id, new Vector3(600, 0, 0), { randomStart: true });
     sounds.follow('ooze-1', manager, 11, 0, 0); // still loading: no second loop
     expect(audio.createLoop).toHaveBeenCalledTimes(1);
-    expect(audio.createLoop).toHaveBeenCalledWith(OOZE_SOUNDS.bubble.id, new Vector3(10, 0, 0), { randomStart: true });
 
     await arrive('loop_1');
     sounds.follow('ooze-1', manager, 12, 1, 3);

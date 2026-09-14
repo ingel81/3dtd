@@ -347,8 +347,8 @@ Die Ooze hat kein Modell und keinen `movingSound`. Ihre Sounds spielt `OozeSound
   registriert beim ersten Spawn einer Ooze, danach gecacht.
 - **Loop:** `createLoop('ooze_bubble', …)` je Ooze. `presentFrame` setzt ihn einmal pro Frame
   auf den Punkt des Körpers, der dem Listener am nächsten ist (`RouteBody.nearest`), am
-  Boden. Liegt der Punkt beim Start weiter als 500 m weg, startet der Loop erst, wenn er in
-  Hörweite kommt. Die ID passt auf kein `ENEMY_SOUND_PATTERNS`: Der Loop zählt nicht zum
+  Boden. `OozeSounds` fragt den Loop beim ersten Frame an; liegt der Punkt weiter als 500 m weg,
+  wartet er in `SpatialAudioLoops` und setzt ein, wenn er in Hörweite kommt. Die ID passt auf kein `ENEMY_SOUND_PATTERNS`: Der Loop zählt nicht zum
   Enemy-Budget, zwölf Zombies können den Boss nicht stumm schalten.
 - **Pause:** `GameStateManager` meldet Pause und Weiterspielen über
   `SpatialAudioManager.holdLoops()`. Das gilt für alle Loops, nicht nur die der Ooze: Laufgeräusche
