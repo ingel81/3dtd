@@ -20,6 +20,7 @@ import { fireballHeat } from './mushroom-cloud-fireball';
 import { CloudShape, capHeightAt, type Cloud } from './mushroom-cloud-shape';
 import { MUSHROOM_CLOUD_LOOK } from '../../configs/visual-effects.config';
 import { seededRandom } from '../../../test/vfx-renderer-fixture';
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 
 const GROUND = new Vector3(100, 20, -50);
 const RADIUS = 25;
@@ -555,6 +556,14 @@ describe('MushroomCloudRenderer', () => {
   it('clamps the base of the dome\'s outline pow, which rounding can push below 0', () => {
     const { domes } = setup();
     expect(domes[0].material.fragmentShader).toContain('pow(max(1.0 - facing, 0.0), 2.5)');
+  });
+
+  it('adds the shock dome and the screen flash as display light, written for the target', () => {
+    const { domes, screen } = setup();
+    for (const material of [domes[0].material, screen.material]) {
+      expect(material.fragmentShader).toContain(DISPLAY_OUTPUT_GLSL);
+      expect(material.fragmentShader).toContain('gl_FragColor = displayLight(vec4(uColor, uOpacity');
+    }
   });
 
   it('frees its materials on dispose and leaves the scene empty', () => {
