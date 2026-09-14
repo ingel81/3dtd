@@ -285,6 +285,26 @@ describe('probeFreeSpace', () => {
     expect(probeFreeSpace({ unmeasured: 'coarse tile', tileError: 20, left: [], right: [] }, 'left')).toBeNaN();
     expect(probeFreeSpace(null, 'right')).toBeNaN();
   });
+
+  it('takes the outer face of upper floors that jut out a little over the ground floor', () => {
+    const probe = (low: number, high: number) => ({ unmeasured: null, tileError: 2, left: [low, high], right: [7, 7] });
+    // A jetty 0.6 m in front of the ground floor facade at 4 m.
+    expect(probeFreeSpace(probe(4, 3.4), 'left')).toBe(3.4);
+    // A balcony or a crown 1.5 m out in front of it: the facade.
+    expect(probeFreeSpace(probe(5, 3.5), 'left')).toBe(5);
+    // A car 0.6 m in front of a facade stops the low ray: the facade.
+    expect(probeFreeSpace(probe(3.4, 4), 'left')).toBe(4);
+    // Only the high ray hit.
+    expect(probeFreeSpace(probe(7, 6.5), 'left')).toBe(7);
+
+    const depth = corridorConfig.overhangDepth;
+    corridorConfig.overhangDepth = 0;
+    try {
+      expect(probeFreeSpace(probe(4, 3.4), 'left')).toBe(4);
+    } finally {
+      corridorConfig.overhangDepth = depth;
+    }
+  });
 });
 
 describe('lateralLimit', () => {

@@ -69,6 +69,16 @@ export interface CorridorConfig {
    */
   wallMargin: number;
   /**
+   * Where both rays hit and the high one stops at most this much nearer than
+   * the low one, the wall's outer face bounds the corridor, not the wall
+   * under it: upper floors that jut out over the ground floor (a jetty of a
+   * half-timbered house), an oriel. Cells under them stood on the ground
+   * the roof check put them on, under the roof. A crown or a balcony
+   * further out in front of the facade keeps the farther hit. 0: always the
+   * farther hit. See {@link probeFreeSpace}.
+   */
+  overhangDepth: number;
+  /**
    * Tiles coarser than this (geometric error) do not count for the clearance
    * rays. During refinement a coarse ancestor hull stays active and averages
    * street and facades into one lump, which a horizontal ray would hit right
@@ -134,6 +144,7 @@ export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
   rayHeightLow: 1,
   rayHeightHigh: 3.5,
   wallMargin: 0.5,
+  overhangDepth: 1,
   maxTileError: 5,
   widthStep: 0.5,
   dipLength: 4,
@@ -183,9 +194,9 @@ export function resetCorridorConfig(): void {
 }
 
 /**
- * Settings whose change moves the clearance stations or what the rays see:
- * changing one means measuring again. The others only reshape what was
- * measured.
+ * Settings whose change moves the clearance stations, what the rays see or
+ * how their hits become the free space that is stored: changing one means
+ * measuring again. The others only reshape what was measured.
  */
 export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = [
   'stationSpacing',
@@ -193,6 +204,7 @@ export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = [
   'rayHeightHigh',
   'maxHalfWidth',
   'maxTileError',
+  'overhangDepth',
 ];
 
 /** Allowed range per numeric setting, inclusive. */
@@ -209,6 +221,7 @@ const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [nu
   rayHeightLow: [0.3, 10],
   rayHeightHigh: [0.3, 20],
   wallMargin: [0, 5],
+  overhangDepth: [0, 5],
   maxTileError: [0.1, 100],
   widthStep: [0.1, 2],
   dipLength: [0, 100],
@@ -460,11 +473,19 @@ export interface StationProbe {
 
 /**
  * Free space on one side of a probed station: a wall stops every ray, so
- * the farthest of the first hits. NaN when the station was not measured.
+ * the farthest of the first hits. Except where every ray hit and the high
+ * one, the last, stopped at most `overhangDepth` nearer than the low one:
+ * upper floors jutting out over the ground floor, whose outer face is the
+ * nearest hit. NaN when the station was not measured.
  */
 export function probeFreeSpace(probe: StationProbe | null, side: 'left' | 'right'): number {
   if (!probe || probe.unmeasured !== null || probe[side].length === 0) return NaN;
-  return Math.max(...probe[side]);
+  const hits = probe[side];
+  const farthest = Math.max(...hits);
+  const low = hits[0];
+  const high = hits[hits.length - 1];
+  const overhang = farthest < corridorConfig.maxHalfWidth && high < low && low - high <= corridorConfig.overhangDepth;
+  return overhang ? Math.min(...hits) : farthest;
 }
 
 /** How one side of one station got its half width, see {@link fitCorridorStations}. */

@@ -41,6 +41,7 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 | `stationSpacing` | 2 | 0,5 bis 10 | Abstand der Messstationen |
 | `rayHeightLow`, `rayHeightHigh` | 1, 3,5 | 0,3 bis 10, 0,3 bis 20 | Höhe der beiden Strahlen über dem Boden der Station |
 | `wallMargin` | 0,5 | 0 bis 5 | Abstand zu einer gefundenen Wand |
+| `overhangDepth` | 1 | 0 bis 5 | bis zu so weit vorkragende Obergeschosse begrenzen den Korridor mit ihrer Außenkante, 0 aus |
 | `maxTileError` | 5 | 0,1 bis 100 | gröbstes Tile (geometricError), das für die Messung zählt |
 | `widthStep` | 0,5 | 0,1 bis 2 | Rundung der gemessenen Breite nach unten |
 | `dipLength` | 4 | 0 bis 100 | Einbrüche bis etwa so lang werden geschlossen |
@@ -52,7 +53,9 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 
 `MEASUREMENT_KEYS` (`route-corridor.ts:179-185`) sind die Werte, deren Änderung
 eine neue Messung braucht: `stationSpacing`, `rayHeightLow`, `rayHeightHigh`,
-`maxHalfWidth`, `maxTileError`. Die übrigen formen nur das Gemessene um.
+`maxHalfWidth`, `maxTileError`, `overhangDepth` (der gespeicherte Freiraum
+entsteht beim Messen aus den Treffern). Die übrigen formen nur das Gemessene
+um.
 
 ## Breite aus dem Freiraum, je Seite
 
@@ -87,6 +90,18 @@ Der Freiraum einer Seite ist der weitere der beiden ersten Treffer
 Strahlen stoppt: Fassade, Mauer, Stamm. Ein parkendes Auto, ein Transporter,
 eine Hecke oder ein Zaun stoppt nur den unteren, eine Baumkrone, Traufe oder ein
 Balkon nur den oberen; beides engt den Korridor nicht ein.
+
+Ausnahme **Auskragung**: Treffen beide Strahlen und stoppt der obere
+höchstens `overhangDepth` (1 m) näher als der untere, gilt der nähere
+Treffer, die Außenkante. So kragen die Obergeschosse eines Fachwerkhauses
+über das Erdgeschoss vor, ein Erker ebenso. Mit dem weiteren Treffer lagen
+die Randzellen unter dem Obergeschoss, ihre Säule traf dessen Dach oder
+Unterseite, der Dach-Check setzte sie orange auf den Boden (Playtest
+2026-09-14, Rothenburg, Zellen "unter dem Dach"). Ein Balkon oder eine
+Krone weiter als 1 m vor der Fassade und ein Auto vor der Fassade (unterer
+Strahl näher) lassen es beim weiteren Treffer. `__corridor.pick()` nennt die
+Ausnahme mit `overhang: outer face` in `rule`. Eine Urteilsfrage, abschaltbar
+mit `__corridor.set({ overhangDepth: 0 })` (misst neu).
 
 Gespeichert wird der Freiraum je Segment, Station und Seite in
 `clearanceBySegment` (`path-route.service.ts:171`), NaN für ungemessene
@@ -577,7 +592,8 @@ __corridor.pick(6)
   `rule` nennt die Regeln, die gegriffen haben, auch mehrere
   (`bulge cut, wall less margin`):
   - aus der Messung: `dip closed`, `bulge cut`, `wall less margin`,
-    `no wall within the maximum`, `minimum`, `leg to the HQ: street width`;
+    `no wall within the maximum`, `minimum`, `leg to the HQ: street width`,
+    angehängt `overhang: outer face` (siehe Auskragung);
   - ohne Messung: `unmeasured: from neighbours` (kurze Lücke, gefolgt von
     den Regeln oben), `unmeasured: street width`,
     `tunnel or covered: street width`, `not measured yet: street width`;
