@@ -470,10 +470,12 @@ Bildschirmblitz in `CloudBlast` (`mushroom-cloud-blast.ts`), die Puffer-Helfer i
   ShaderMaterial samt Log-Depth-Chunks, additiv, am Umriss am hellsten
   (`1 - |n·v|` hoch 2,5, die Basis bei 0 geklemmt: gerundet kann `|n·v|` knapp über 1
   liegen). Mit Tiefentest: Gebäude davor verdecken sie.
-- **Ohne Kodierung:** Bild-Quad und Schockkuppel (`mushroom-cloud-blast.ts`) schreiben ihre
-  Farbe roh, ohne `colorspace_fragment` und ohne `displayOutput`/`displayLight`. Mit
-  Post-Processing (linearer Composer, Bloom an) kommen Nachblitz und Kuppel deshalb heller
-  und blasser an als ohne.
+- **Kodierung von Bild-Quad und Kuppel:** Beide (`mushroom-cloud-blast.ts`) sind auf dem
+  Canvas abgestimmt, ihre Farbe ist also additives Licht in Anzeigewerten. Sie schreiben
+  es über `displayLight` (`display-output.ts`): ohne Post-Processing wie zuvor, mit
+  Post-Processing (linearer Composer, Bloom an) heben sie einen Boden von
+  `ADDITIVE_GROUND` (0,3) so weit an wie auf dem Canvas. Bis 2026-09-15 schrieben sie roh
+  und kamen mit Bloom heller und blasser an.
 - **Glutbrocken:** 48 Schweife aus je 4 Sprites, der Kopf und seine Positionen 45, 90
   und 135 ms früher, kleiner und dunkler. Die Flugbahn mit linearer Luftreibung und
   Schwerkraft ist eine geschlossene Formel des Alters; ein Sprite unter der Höhe des

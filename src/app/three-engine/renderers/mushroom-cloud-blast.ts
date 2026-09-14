@@ -15,6 +15,7 @@ import {
   type Scene,
 } from 'three';
 import { MUSHROOM_CLOUD_LOOK as LOOK } from '../../configs/visual-effects.config';
+import { DISPLAY_OUTPUT_GLSL } from './display-output';
 import { DrawGate } from './draw-gate';
 import { radialTexture, reach, unpickable } from './effect-buffers';
 import { TAU, type Cloud } from './mushroom-cloud-shape';
@@ -31,7 +32,11 @@ const RING_LIFT = 0.6;
 /** Height of the shock dome over its radius */
 const DOME_FLATTEN = 0.8;
 
-/** A quad over the whole screen, additive: the screen part of the flash. */
+/**
+ * A quad over the whole screen, additive: the screen part of the flash.
+ * Its colour was tuned on the canvas, so it is light in display values,
+ * written for the target (displayLight, display-output.ts).
+ */
 const SCREEN_VERTEX_SHADER = /* glsl */ `
   #include <common>
   #include <logdepthbuf_pars_vertex>
@@ -48,13 +53,18 @@ const SCREEN_FRAGMENT_SHADER = /* glsl */ `
 
   #include <logdepthbuf_pars_fragment>
 
+  ${DISPLAY_OUTPUT_GLSL}
+
   void main() {
-    gl_FragColor = vec4(uColor, uOpacity);
+    gl_FragColor = displayLight(vec4(uColor, uOpacity));
     #include <logdepthbuf_fragment>
   }
 `;
 
-/** Shock dome: additive, faint where it faces the camera, bright along its outline. */
+/**
+ * Shock dome: additive, faint where it faces the camera, bright along its
+ * outline. Light in display values like the screen flash (displayLight).
+ */
 const DOME_VERTEX_SHADER = /* glsl */ `
   varying vec3 vNormal;
   varying vec3 vView;
@@ -79,11 +89,13 @@ const DOME_FRAGMENT_SHADER = /* glsl */ `
 
   #include <logdepthbuf_pars_fragment>
 
+  ${DISPLAY_OUTPUT_GLSL}
+
   void main() {
     float facing = abs(dot(normalize(vNormal), normalize(vView)));
     // Rounding can put facing a hair above 1; pow of a negative base is undefined
     float outline = pow(max(1.0 - facing, 0.0), 2.5);
-    gl_FragColor = vec4(uColor, uOpacity * (0.15 + 0.85 * outline));
+    gl_FragColor = displayLight(vec4(uColor, uOpacity * (0.15 + 0.85 * outline)));
     #include <logdepthbuf_fragment>
   }
 `;
