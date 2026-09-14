@@ -1070,6 +1070,27 @@ Von review5 sind die zwei Hinweise offen (17).
 
 ## Playtest-Liste
 
+**Ergebnisse Playtest 2026-09-14 (Nachmittag, nach der Fix-Session)**,
+vorsortiert in `tmp/fix1/reports/sorter-night2.md` (überholt, per Test,
+User, zurückgestellt):
+- **305/306 ok:** nach dem Laden im Stillstand keine `cameraControls`-
+  Raycasts (Nacht 1 etwa 5 000); beim heftigen Manövrieren 2 019 Aufrufe
+  in 65 s, 0,25 ms im Mittel. **307, 308, 330 ok.**
+- **309/310, 311 (auch mit Bloom), 312, 431 ok.**
+- **315/432, 402, 316, 401 ok:** auf perfekt ebener Fläche kein Sockel,
+  in allen anderen Fällen ist der Sockel laut User korrekt.
+- **430 ok.** **429:** gleichzeitig im Spiel zeigen und in der Konsole
+  tippen ist zu umständlich; `__footprintDebug` bekommt einen Beobachtungs-
+  modus (footprintdbg), dann erneut.
+- **366 ok** mit Wunsch: die Kamera könnte näher an den Boss vor dem Tor
+  (tweaks). **370 ok. 303 ok.** **304:** Ghost ok; der Tank sitzt zu tief,
+  mit Höhenversatz 1 im Enemy Debugger sind die Ketten wieder sichtbar
+  (tweaks setzt `heightOffset` 1).
+- Überholt: 317, 322, 339, 406, 434. Zurückgestellt: Replay 407 bis 418
+  und 435 bis 440 (User: Replay eigenes Thema), 323 (Offener Punkt 8 im
+  Fix-Handover), 428 (optional). Logik-Punkte per Szenario-Test: verifyC,
+  verifyD (Ergebnis folgt).
+
 Nummeriert, damit du mit "305 ok, 312 kaputt" antworten kannst. Die neuen
 Punkte beginnen bei 301.
 
