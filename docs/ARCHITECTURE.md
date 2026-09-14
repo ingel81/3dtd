@@ -455,6 +455,32 @@ getTerrainHeightAtGeo(lat: number, lon: number): number | null {
 Welcher Treffer der Probe als Boden zählt, entscheidet `three-engine/column-sample.ts`
 (ohne Three.js, einzeln testbar). `clearHeightCache()` leert den Säulen-Cache.
 
+#### Raycast-Messung (`__raycastStats`)
+
+`instrumentRaycasts()` (`utils/raycast-stats.ts`) misst jeden Strahl in die Tiles-Group.
+Aufrufer benennen sich mit `raycastStats.enter()`/`exit()`, der äußerste gewinnt; ein Strahl
+ohne Aufrufer landet unter `unscoped`, ein Treffer im Säulen-Cache kostet keinen Strahl und
+taucht nicht auf. `__raycastStats()` in der Konsole zeigt je Aufrufer Aufrufe, Summe, Mittel,
+Maximum, den längsten Burst (Strahlen mit weniger als 4 ms Abstand) und Treffer pro Strahl,
+`__raycastStats(true)` setzt danach zurück. Kosten ohne Abfrage: zwei `performance.now()` und
+ein Map-Zugriff pro Strahl. Herkunft: PERF_BUG_ANALYSIS_2026-05-28.md, Nachtrag 2026-09-12.
+
+| Aufrufer | Strahlen |
+|---|---|
+| `routeGrid` | Zell-Sampling und Sweeps des Route-Grids (`GameStateManager`) |
+| `routeCorridor` | Säule und Seitenstrahlen der Korridor-Stationen (`TerrainQueries.measureStreetClearance`) |
+| `corridorPick` | Säulen-Inspektion ohne Cache (`TerrainQueries.inspectColumn`) |
+| `streets` | Straßen-Overlay (`StreetRenderingService`) |
+| `lineOfSight` | LOS-Strahl zwischen zwei Punkten (`TerrainQueries.raycastLineOfSight`) |
+| `screenPick` | Zeiger im Bau- und Platziermodus, Klicks (`ScreenPicker`) |
+| `towerFootprint` | Säulen unter der Grundfläche eines Towers (`TowerPlacementService`, Sockel) |
+| `spawnRings` | Abstandsringe um die Spawns (`MapPlacementService`) |
+| `intro` | Höhenproben des Einleitungsflugs (`IntroCameraFlightService`) |
+| `bossShot` | Suche der Kameraeinstellung beim Boss-Intro (`BossIntroService`) |
+| `tileProbe` | Origin-Probe nach jedem Tile-Load |
+| `heightAtGeo` | alles andere über `getTerrainHeightAtGeo` |
+| `cameraControls` | GlobeControls über `GroundPickRoot`: Punkt unter der Kamera, Zoom-Punkt, Pivot. Ein wiederholter Strahl bei unverändertem Tile-Set kommt aus dem Cache und taucht nicht auf |
+
 ### Pfad-Höhen und Route-Grid-Cells
 
 Gegner folgen gecachten Pfaden mit Höhen, die aus dem **Route-Grid** stammen.
