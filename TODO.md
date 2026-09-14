@@ -394,7 +394,8 @@
       sRGB-Canvas). Das Tor und der Beschwörungskreis sind seit `0be611c` und
       `f3f7238` kodiert. Offen in `three-engine/renderers/`:
       Straßenlicht des Portals und HQ-Diamant, -Ringe, -Bodenglühen, Labels
-      (`marker/marker-shaders.ts:896, 25, 159, 271, 1048`; bei Labels eventuell
+      (`marker/spawn-portal-glow-material.ts:195`,
+      `marker/marker-shaders.ts:134, 246, 325, 422`; bei Labels eventuell
       gewollt), VAT-Gegner (`instanced-enemy/vat-material.ts:63`), Healthbars
       (`instanced-enemy/health-bar-instance.manager.ts:425`), Partikel
       (`particle-shaders.ts:156, 169`), Decals (`decal-shaders.ts:112, 218,
@@ -458,6 +459,165 @@
       Zoom, Pan und Mindestabstand der GlobeControls treffen nur noch die
       Tiles (`three-engine/ground-pick-root.ts`); Tower zählen nicht als
       Hindernis, sonst hoben sie Zoom-Halt und Pivot wieder an.
+
+## 1.9 Befunde aus der Nachtschicht 2026-09-14 (nicht behoben)
+
+> Auf `sprint/night-2026-09-14` aufgefallen, bewusst nicht in der Nacht
+> erledigt. Übersicht: `docs/REVIEW_SPRINT_2026-09-14.md`. Aus 1.8 hat die
+> Nacht bearbeitet (nichts verschoben, Playtest steht aus): Canvas folgt der
+> Fenstergröße (`9619b82f`); Lazy-Chunks: "Reload" statt "Change tile
+> credentials" (`9504032d`), `@angular/animations` raus (`82f23124`);
+> Steuerung: Wellenstart hebt die Pause auf (`c3d6f89a`), die Research-Queue
+> nimmt Voraussetzungsketten (`7914062f`), Fokusfalle der Photo-Leiste
+> (`ae0a5f39`), Hover-Pick und Offscreen-Scan in Node gemessen (`42fb575b`);
+> Recent erst nach stehender Route (`df847ee8`); Training-Debugger mit
+> Outputs (`ca88d039`); Beschwörungskreis mit Bloom (`7c2530f6`); Tower auf
+> schrägen Dächern: Steinsockel (`7185812f` bis `10c9b178`); Debug-Gegner
+> schauen ab dem Spawn in Laufrichtung und stehen auf der Route (`7414ee13`,
+> `cbd01d10`); Skeleton-Split: Tower drehen nicht mehr zur Wache
+> (`dde04a9c`); Kamera-Raycasts: Cache in Ruhe (`8380bd01`, im Browser
+> ungemessen). Der Eintrag "Nuklearschlag: Explosionsstufen in Echtzeit" ist
+> überholt: Die Stufen-Timer fielen schon am 2026-09-13 weg
+> (`configs/visual-effects.config.ts:212`), der Nachhall läuft in Spielzeit
+> (`46a096d2`), VFX, Ton und Shake gehen je Fähigkeit (`4479bc9f`); offen
+> bleibt die Warnsirene.
+
+- [ ] **Sockel: Annahmen über die Photogrammetrie ungeprüft** (laut fix1)
+      Die Boden-Regel (`f500aaaf`, `utils/tower-footprint.ts`) nimmt an, dass
+      unter einem Auto kein Boden-Treffer liegt und unter einem Dach schon.
+      Fehlt der Boden unter einem Dach, gilt die Boden-Regel: ein
+      gleichmäßig geneigtes Dach hebt über die Steigung trotzdem, eine
+      Dachstufe, Gaube oder Kehle nicht. Eine Probe auf der geglätteten
+      Flanke eines Autos kann den Tower um bis zu 0,5 m (`MAX_STEP`) heben.
+      Terrassenmauern und Böschungen, die neben ebenem Cursor steiler als
+      0,5 m je Nachbarschritt steigen, heben nicht mehr. Cursor auf einem
+      Autodach: Tower dort mit Sockel (die Cursor-Fläche zählt).
+
+- [ ] **Shader-Compile-Check braucht glslangValidator von Hand** (laut shadercheck)
+      `npm run shader-check` (läuft auch in `npm test`) kompiliert die
+      eigenen Shader nur, wenn `GLSLANG_VALIDATOR` gesetzt oder
+      `glslangValidator` im PATH ist; sonst stehen 13 Tests als übersprungen
+      in der Zusammenfassung. Getestet mit 11.7.0, die in ARCHITECTURE.md §13
+      genannte 16.6.0 nicht. Treiber, ANGLE und GPU-Grenzen prüft er nicht
+      (`tools/shader-check/`).
+
+- [ ] **Pause: Gegner- und Flammen-Loops laufen weiter** (laut blob)
+      Nur der Loop der Ooze hält in der Pause an (`EnemyManager.holdSounds()`,
+      `managers/ooze-sounds.ts`); die Loops der übrigen Gegner und der
+      Flammen laufen weiter.
+
+- [ ] **Mech und Ghost knapp über dem Modell-Budget** (laut assets)
+      Mech 5 416 und Ghost 5 248 VAT-Vertices bei einem Budget von 5 000.
+      Der Ghost hat 1 487 Dreiecke doppelt mit umgekehrter Windung (1 301 in
+      den Schleiern); nur die Wiederholungen zu entfernen spart 233 Vertices
+      und macht die Schleier schwächer. Tiefer nur mit stärkerem Decimate
+      oder Retopologie (`docs/ENEMY_MODEL_BUDGET.md`, "Offen").
+
+- [ ] **Wurm-Boss: Reste** (laut worm und assets, ungesehen)
+      An scharfen Routenecken können außen Lücken zwischen den Ringen
+      aufgehen (Stellschrauben `SEG_FRONT`/`SEG_REAR` in
+      `tools/blender/worm_boss.py`). Beine starr, kein Schwanzstück, keine
+      Mandibel-Animation. Kein Sound: ein Loop je Segment belegte das Budget
+      von 12 Gegner-Sounds. Jeder Ring hat eine eigene Healthbar (bei 240
+      Ringen ein Band), jedes Segment gilt für die Offscreen-Pfeile als
+      Boss. Mit Beinen 7,2 m breit, auf engen Straßen breiter als die
+      Portalöffnung. Ein per Debug platzierter Wurm kommt ohne Portal aus
+      dem Nichts (`managers/worm/`).
+
+- [ ] **Boss-Varianten ohne Fairness-Gate** (laut worm und blob)
+      Die Größe der Wurm- und Ooze-Wellen (W35, W45, ...) bestimmt die
+      Routenlänge bzw. die Config, nicht das Gate. Balance ungespielt: Wurm
+      35 HP je Segment, Ooze 3 000 HP, 80 m, voller Körper im HQ = 10 Lecks,
+      10 Klumpen à 30 HP (`configs/boss-variants.config.ts`,
+      `configs/enemy-types.config.ts`). Auf Varianten-Wellen speichert der
+      AI-Data-Collector die Wurm- bzw. Ooze-Welle statt der Director-Welle.
+
+- [ ] **Ooze: Reste** (laut blob, ungesehen)
+      Gold-Popup, Offscreen-Pfeil und Knochen-Burst erscheinen an der
+      Spitze; Zielpunkte liegen auf 2-m-Stationen; die Debug-Slider (Scale
+      usw.) wirken nicht; Schleimklumpen ohne eigenen Tod-Sound; die
+      Synthese der Sounds beim ersten Spawn ist im Browser ungemessen. Der
+      Band-Shader lief nur durch den Desktop-Treiber
+      (`three-engine/renderers/ooze/`).
+
+- [ ] **Held: Reste** (laut hero)
+      Ein abgelehntes Anheuern bleibt stumm (`hero:rejected` hat keinen
+      UI-Listener). Lädt das GLB nicht, ist der Held unsichtbar. In der
+      Lauf-Schieß-Pose startet der Tracer bis 0,2 m neben dem Lauf, weil die
+      Mündung fest aus der Zielpose kommt (`HERO.muzzle` in
+      `configs/hero.config.ts`). Explosivmunition ohne Flächenschaden, kein
+      Mündungsfeuer, keine eigenen Sounds. Nicht in `totalDPS`, DPS-Rampe und
+      NEXT sehen ihn nicht. Stufe 2 aus PLAYER_AGENCY_CONCEPT (ganzes
+      Straßennetz) offen (`docs/HERO.md`).
+
+- [ ] **Fähigkeiten: Reste** (laut abilities)
+      Keine eigenen Sound-Assets für Frost und EMP, der Laser-Ton sitzt am
+      Startpunkt; Eiskristalle und Funken wirken an großen Modellen
+      (Wurmring 7 m) klein; keine Warnsirene; die Bot-Zählung des Lasers
+      nimmt die Mittellinie ohne die 5 m Strahlbreite; ein späteres
+      Angriffssystem der Gegner muss `movement.isHalted()` fragen. Die
+      Bots strategist und meta erforschen und nutzen Frost, EMP und Laser,
+      ihre Trainingsläufe sind mit älteren nicht direkt vergleichbar
+      (`docs/ABILITIES.md`).
+
+- [ ] **Fähigkeitsleiste: Kopplung und Platz** (laut abilitybar, ungesehen)
+      `ABILITY_BAR_EDGE_PX` (68) hängt nur per Kommentar am SCSS der Leiste
+      (`components/ability-bar/`); bei sehr niedrigen Fenstern kann die
+      mittige Leiste das aufgeklappte Info-Overlay berühren. Drei Icons über
+      einer NEXT-Marke (Boss, Luft, Mond) sind 34 px breit bei 28 px Marke
+      (laut bloodmoon).
+
+- [ ] **Blutmond: Grenzen des Looks** (laut bloodmoon, bewusst so gebaut)
+      Das Multiplikations-Quad tönt nur Opakes: Feuer, Projektile,
+      Healthbars, Kegel, Glasteile, HQ-Marker, Portal und Decals bleiben
+      ungetönt; Rotstich statt Entsättigung; die Kegel enden ohne Lichtfleck
+      am Boden; Kosten ungemessen. Auf W35 läuft das Banner unter dem
+      Schleier des Boss-Intros eventuell verdeckt ab (z-index 5 gegen 25)
+      (`three-engine/blood-moon/`).
+
+- [ ] **Boss-Intro: Reste** (laut bossintro, ungesehen)
+      Kein Hindernis-Check der Kameraeinstellung (Kurven, Brücken, Hänge);
+      ein offener Dialog hält das Intro nicht auf; die Tastenübersicht (H)
+      nennt Esc zum Überspringen nicht (`services/boss-intro.service.ts`).
+
+- [ ] **Veteranen: Reste** (laut veterans)
+      Schwellen aus Bot-Logs vom 2026-08-28 mit älterem W19-Template
+      (`configs/veteran-ranks.config.ts`). Der Anker des Abzeichens wird
+      einmal gemessen, Tower-Debug-Overrides verschieben es nicht mit; die
+      Tentakel können über das Abzeichen reichen
+      (`three-engine/renderers/tower-badge/`).
+
+- [ ] **Weltkarte: ungesehen** (laut worldmap)
+      Zeichnen, Hover, Ziehen und Zoomen des Globus sowie das Layout von Tab,
+      Sidebar-Fuß und Game-Over-Hinweis sind ungeprüft (die Komponente hat
+      keinen Spec, jsdom hat kein Canvas). Der Hover-Tipp im
+      Game-Over-Overlay kann abgeschnitten werden; die Bot-Ausnahme hängt an
+      `botEnabled`.
+
+- [ ] **Quickfix-Paket: Reste** (laut quickfix)
+      Training-`total_count` zählt die Skeleton-Minions mit, als Absicht
+      dokumentiert (`ai/core/ai-data-collector.service.ts:246`), geht in den
+      Reward (`reward.py`); Entscheidung offen. Recent: `hasRoutes`
+      (`services/world/path-route.service.ts:160`) liegt in einem
+      Root-Service; wird die Spielkomponente in derselben Seite neu erzeugt,
+      bleibt der alte Wert bis zum nächsten Leeren (ungeprüft, ob das
+      vorkommt). Research-Queue: Wer auf eine Voraussetzung wartet, lässt
+      spätere Einträge vor (neue Regel, mit Frost, EMP und Laser ungetestet).
+      Der Beschwörungskreis ist mit Bloom exakt gleich hell nur über einer
+      Straße der Helligkeit 0,3 (`CIRCLE_STREET` in
+      `three-engine/renderers/marker/spawn-portal-glow-material.ts`).
+      `TowerLifecycle.turnToGuardIfClear()` nimmt an, dass Kill-All die
+      einzige Tötung ohne Split ist (`managers/game-state/tower-lifecycle.ts`).
+
+- [ ] **Hover-Pick nimmt den ersten statt des vordersten Towers** (laut perf, nicht nachgestellt)
+      `ScreenPicker.raycastTowers()` (`three-engine/screen-picker.ts`)
+      liefert den ersten getroffenen Tower in Einfügereihenfolge; stehen zwei
+      Tower auf dem Schirm hintereinander, kann der hintere gewinnen.
+
+- [ ] **Sprung zu Welle N: Wellenzähler** (laut wavejump)
+      Was nur `wave:completed` mitzählt, bekommt übersprungene Wellen nicht
+      mit; neue Zähler dieser Art müssen `wave:jumped` abonnieren. Rückwärts
+      springen gibt es nicht.
 
 ---
 
