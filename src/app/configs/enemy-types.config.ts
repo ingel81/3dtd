@@ -305,13 +305,15 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     randomSoundStart: true,
     lateralSpread: 1.0,
-    previewScale: 1,
-    previewCameraDistance: 7,
-    previewCameraAngle: 0.26,
-    // The preview measures this model as 2 cm tall (mesh ahead of its bones,
-    // see MODEL_PREVIEW.md, Zentrierung) and would aim at its feet; half of
-    // its 1.7 m aims at the middle of the body
-    previewOffsetY: 0.85,
+    // Tuned live in the Enemy Debugger (playtest 515). The preview measures
+    // this model as 2 cm tall (mesh ahead of its bones, see MODEL_PREVIEW.md,
+    // Zentrierung) and aims at its feet; the offset lifts the aim into the
+    // figure, 8.5 m tall at preview scale 5. The debugger's Offset Y slider
+    // ends at 3, its number field takes 5.
+    previewScale: 5,
+    previewCameraDistance: 12.5,
+    previewCameraAngle: 0.12,
+    previewOffsetY: 5,
   },
 
   tank: {
