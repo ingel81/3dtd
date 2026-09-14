@@ -628,9 +628,13 @@ Jede Zeile nennt die Zeit je Schritt in ms (`StepTimes` in `map-relocation.servi
 | Modus | Innerhalb Bounds | Ausserhalb Bounds |
 |-------|------------------|-------------------|
 | `hq` | Naehe zu Strasse pruefen (max 150m) | Immer erlaubt (Streets werden nachgeladen) |
-| `spawn` | Straße des geladenen Netzes höchstens 150 m entfernt, 200-1500 m Luftlinie zum HQ | Gleiche Prüfung, scheitert ohne nahe Straße des geladenen Netzes |
+| `spawn` | 200-1500 m Luftlinie zum HQ, dann ein Way des geladenen Netzes höchstens 30 m entfernt ("Too far from streets") | Gleiche Prüfung; ohne geladenen Way in 30 m "Streets not loaded here" |
 
 Beim Platzieren eines Spawns zeigt die Karte zwei Ringe um das HQ (200 m und 1500 m).
+
+Geladen werden alle Ways der Overpass-Abfrage (auch Fuß-, Rad- und Feldwege, Service-Straßen, Treppen) in einem Kasten von ±2000 m um das HQ des Ortswechsels, jeweils ganz, also auch ihre Stücke außerhalb des Kastens. Gezeichnet werden nur die Straßen bis 100 m um die Routen (`STREET_FILTER_RADIUS`), und nur mit dem Layer "Streets". Der Spawn prüft gegen das ganze geladene Netz, wie `findPath()`, das die Route am nächsten Way beginnen lässt. Bis 2026-09-14 lag die Toleranz bei 150 m, mit Fuß- und Servicewegen im Netz: "Too far from streets" ließ sich im Playtest (531) nicht auslösen, und das Portal stand danach mindestens so weit vom Klick entfernt, wie der Klick neben dem Way lag.
+
+Der Kasten folgt dem HQ nur beim Ortswechsel, nicht beim Versetzen in place. Liegt das HQ danach mehr als 500 m von der Mitte des Kastens entfernt, reicht der äußere Ring über den Kasten hinaus; dort kennt das Spiel nur die hinausreichenden Ways.
 
 ### Relevante Konstanten (`map-constants.config.ts`)
 
@@ -640,7 +644,8 @@ MIN_SPAWN_DISTANCE = 500          // Random Spawn: Mindestdistanz zum HQ
 MAX_SPAWN_DISTANCE = 1000         // Random Spawn: Maximaldistanz zum HQ
 MIN_MANUAL_SPAWN_DISTANCE = 200   // Spawn per Kartenklick: Mindestdistanz zum HQ (MapPlacementService)
 MAX_MANUAL_SPAWN_DISTANCE = 1500  // Spawn per Kartenklick: Maximaldistanz; der Dialog prüft 1500 m separat
-MAX_PLACEMENT_STREET_DISTANCE = 150  // Max Distanz zur naechsten Strasse fuer Placement
+MAX_HQ_STREET_DISTANCE = 150      // HQ per Kartenklick: max Distanz zur naechsten Strasse (nur im geladenen Kasten)
+MAX_SPAWN_STREET_DISTANCE = 30    // Spawn per Kartenklick: max Distanz zum naechsten Way des geladenen Netzes
 STREET_FILTER_RADIUS = 100        // Radius fuer Street-Filter um Routen
 SPAWN_COLORS = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]  // bis zu 4 Spawns
 ```
