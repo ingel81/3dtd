@@ -51,6 +51,7 @@ export interface GameStateSnapshot {
 export interface ResearchSnapshot {
   /** IDs of completed researches */
   completedIds: string[];
+  /** Of ENCODER_RESEARCH_IDS (the tree the shipped model knows), not of the whole tree: the encoder's quota */
   completedCount: number;
   totalCount: number;
   /** IDs of currently-active (in-progress) researches */

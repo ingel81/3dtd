@@ -355,6 +355,32 @@ Nichts davon ist tot, das meiste ist weiterhin der gemeinsame Unterbau:
 | Python-Backend (PPO, Reward, Dashboard) | Nur für Trainingsläufe. Für das Spiel irrelevant. |
 | `directors.py` | Das Messinstrument. Ohne A/B-Baseline ist jede Aussage über „das Modell ist besser" unbelegt. |
 
+**Eingänge des Opt-in-Modells.** Das ausgelieferte Modell (Checkpoint 7350,
+trainiert ab 2026-04-17, exportiert 2026-04-27 in `e8ae88a9`) kennt einen
+Forschungsbaum mit elf Knoten; heute hat der Baum zwanzig. Zwei Eingänge haben
+sich seither verschoben:
+
+- **Research-Quote** (`completedCount / totalCount`): zählt seit 2026-09-14 nur
+  die elf Knoten, die das Modell kennt (`ENCODER_RESEARCH_IDS` in
+  `state-snapshot-parts.ts`); `completedIds` bleibt vollständig. Vorher stand
+  der ganze Baum im Nenner: jeder neue Knoten (Storm Mastery, T4/T5, Chaos
+  Rift, die vier Fähigkeiten, der Söldnervertrag) drückte die Quote bei
+  gleichem Fortschritt, und weil Bots den Söldnervertrag überspringen
+  (`BOT_SKIPPED_RESEARCH`), erreichten sie 1 nicht mehr. TS-Encoder und
+  `server.py` lesen dieselben Snapshot-Felder, Schema und Dimensionen sind
+  unverändert; das Trainings-Dashboard zeigt „Completed x/11". Bei einem neuen
+  Training die Liste bewusst erweitern.
+- **Held in `effectiveDPSPerArmor`**: bleibt drin. Ein angeheuerter Held bringt
+  auf Stufe 1 je Rüstung 24 bis 48 effektive DPS (48 DPS × Matrix × Präsenz
+  0,5), auf 500 normiert also 0,05 bis 0,1 je Eingang, am Boden und in der
+  Luft. Im Training kam er nie vor, Bots heuern nicht an; neu ist vor allem,
+  dass die Luft-Eingänge mit ihm auch dann über null liegen, wenn kein Tower
+  Luftziele trifft. Er ist Verteidigung wie ein Tower, das Gate rechnet ihn
+  genauso, und ihn nur für den Encoder herauszurechnen bräuchte ein zweites
+  DPS-Feld im Snapshot und in beiden Encodern.
+
+Der Regel-Director liest keinen der beiden Eingänge.
+
 **Wofür der RL-Pfad noch da ist:** Ein Lauf gegen echte Spielerdaten statt gegen
 einen Skript-Bot. Der Bot spielt eine feste Strategie; das Netz hat dagegen
 nichts gelernt, was gegen einen Menschen etwas bedeuten würde. Außerdem gilt: Der

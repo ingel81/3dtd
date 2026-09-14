@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { signal } from '@angular/core';
-import { expectedArmorDistribution, playerState, researchSnapshot, type ResearchReader } from './state-snapshot-parts';
+import {
+  ENCODER_RESEARCH_IDS, expectedArmorDistribution, playerState, researchSnapshot, type ResearchReader,
+} from './state-snapshot-parts';
 import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 
@@ -29,7 +31,7 @@ describe('state snapshot parts', () => {
     expect(snap).toMatchObject({
       completedIds: ['gatling-tech'],
       completedCount: 1,
-      totalCount: Object.keys(RESEARCH_TREE).length,
+      totalCount: ENCODER_RESEARCH_IDS.length,
       activeIds: ['cannon-tech'],
       centerLevel: 2,
       slotsUsed: 1,
@@ -38,6 +40,35 @@ describe('state snapshot parts', () => {
       maxUpgradeTier: 2,
     });
     expect(Object.keys(snap.towerUnlocked).sort()).toEqual(Object.keys(TOWER_TYPES).sort());
+  });
+
+  describe('research quota of the encoder', () => {
+    const snapshotOf = (completed: string[]) => researchSnapshot({
+      completedResearches: signal(new Set(completed)),
+      activeResearches: signal([]),
+      centerLevel: signal(1),
+      researchSlots: signal(1),
+      airTargetingUnlocked: signal(false),
+      maxUpgradeTier: signal(1),
+      isTowerUnlocked: () => true,
+    } as unknown as ResearchReader);
+
+    it('names only nodes the tree still has', () => {
+      for (const id of ENCODER_RESEARCH_IDS) expect(RESEARCH_TREE[id]).toBeDefined();
+    });
+
+    it('counts the tree the shipped model knows: the whole tree reaches 1, nodes added since count for nothing', () => {
+      const all = snapshotOf(Object.keys(RESEARCH_TREE));
+      expect(all.completedCount / all.totalCount).toBe(1);
+      expect(all.completedIds).toHaveLength(Object.keys(RESEARCH_TREE).length);
+
+      // A bot's tree without the hero's contract still reaches 1
+      const bot = snapshotOf(Object.keys(RESEARCH_TREE).filter((id) => id !== 'mercenary-contract'));
+      expect(bot.completedCount / bot.totalCount).toBe(1);
+
+      const newer = snapshotOf(['mercenary-contract', 'frost-bomb', 'emp', 'orbital-laser', 'nuclear-strike']);
+      expect(newer.completedCount).toBe(0);
+    });
   });
 
   describe('expectedArmorDistribution', () => {
