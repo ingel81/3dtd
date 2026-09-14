@@ -21,7 +21,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Projektil-Angriffe mit optionalen mehreren Fire Points (Dual-Gatling)
 - Beam-Angriffe (Fire Tower, `attackType: 'beam'`)
 - Melee-Angriffe (Tentacle Tower, `attackType: 'melee'`)
-- **Chain-Hitscan-Angriffe** (Lightning Tower, `attackType: 'chain'` — Primary + N Jumps mit `chainFalloff` zwischen Hits, eigener `LightningBoltRenderer`)
+- **Chain-Hitscan-Angriffe** (Lightning Tower, `attackType: 'chain'`: Primary + N Jumps mit `chainFalloff` zwischen Hits, eigener `LightningBoltRenderer`)
 - Passive Buildings (Research Center, `attackType: 'passive'`)
 - **Veteranen-Ränge** aus Kills, rein kosmetisch, mit Abzeichen über dem Tower (siehe [Veteranen-Ränge](#veteranen-ränge))
 
@@ -37,12 +37,12 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Magic | projectile | magic | 40 | 70m | 1.5/s | 140 | Stark gegen ethereal |
 | Rocket | projectile | siege | 40 | 100m | 0.5/s | 120 | **Nur Luft-Ziele** |
 | Ice | projectile | ice | 5 | 60m | 0.33/s | 90 | Slow-Effekt, Air+Ground, Splash |
-| Fire | **beam** | fire | 35 DPS | 20m (= Flammenlänge) | — | 110 | Flammenkegel, nur Boden, 20 % der DPS als Burn-DoT (3 s), Upgrade `beam-width` statt `speed` |
+| Fire | **beam** | fire | 35 DPS | 20m (= Flammenlänge) | – | 110 | Flammenkegel, nur Boden, 20 % der DPS als Burn-DoT (3 s), Upgrade `beam-width` statt `speed` |
 | Tentacle | **melee** | physical | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering (`meleeStrikeDuration: 250`) |
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
-| Research Center | **passive** | — | 0 | 0 | 0 | 75 | Kein Combat — siehe Research-System |
+| Research Center | **passive** | – | 0 | 0 | 0 | 75 | Kein Combat, siehe Research-System |
 
 Archer und Research Center sind von Anfang an baubar. Alle anderen Tower schaltet eine Forschung
 mit einem `unlock-tower`-Effekt frei (`configs/research/research-tree.config.ts`, Chaos:
@@ -140,7 +140,7 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `defaultAirSubStrategy` | AirSubStrategy | `'closest'` | Auswahl unter Air-Zielen bei `air-priority` |
 | `firePoints` | { x, z }[] | - | Mehrere Feuer-Positionen (z.B. Dual-Gatling) |
 | `meleeStrikeDuration` | number | 250 | Melee-Angriffs-Dauer in ms (z.B. Tentacle) |
-| `maxJumps` | number | - | **Chain-only:** Anzahl zusaetzlicher Ziele nach Primary (Lightning: 2 → 3 Hits) |
+| `maxJumps` | number | - | **Chain-only:** Anzahl zusätzlicher Ziele nach Primary (Lightning: 2 → 3 Hits) |
 | `chainFalloff` | number | - | **Chain-only:** Schaden-Multiplier pro Jump (Lightning: 0.7 → 100%/70%/49%) |
 | `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
 | `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning/chaos |
@@ -633,7 +633,7 @@ fire: {
   range: 20,                    // Erfassung = Flammenlänge
   beamWidth: 5,                 // Kegel-Breite am Ende
   fireRate: 0,                  // Nicht verwendet bei beam
-  projectileType: 'arrow',      // Fallback, fuer beam ungenutzt
+  projectileType: 'arrow',      // Fallback, für beam ungenutzt
 }
 ```
 
@@ -657,7 +657,7 @@ fire: {
 - [ ] `damageType` gewählt, Paarungen in `configs/combat/damage-matrix.config.ts` geprüft. Ein neuer
   Schadenstyp braucht eine Zeile in `DAMAGE_MATRIX` und Einträge in `DAMAGE_TYPE_UI` und
   `DAMAGE_ACCENT` (Tooltip-Farbe), der Compiler meldet fehlende
-- [ ] Projektiltyp vorhanden (oder neuen erstellt) — bei `chain`/`beam` Fallback-`projectileType` ok
+- [ ] Projektiltyp vorhanden (oder neuen erstellt), bei `chain`/`beam` genügt der Fallback-`projectileType`
 - [ ] Bei `chain`: `maxJumps`, `chainFalloff`, `jumpRange` gesetzt
 - [ ] Sound-Datei in `/public/assets/sounds/` (optional)
 - [ ] Bei neuem Projektiltyp: Eintrag in `PROJECTILE_SOUNDS` (Pflicht, `Record<ProjectileTypeId, …>`)
@@ -737,7 +737,7 @@ fire: {
   cost: 110,
   canTargetAir: false,
   canTargetGround: true,
-  // Fire nutzt damage + range (Flammenlänge) + beam-width — kein fireRate (Beam-basiert)
+  // Fire nutzt damage + range (Flammenlänge) + beam-width, kein fireRate (Beam-basiert)
   upgrades: [degressiveUpgrade('damage', 'Damage', 'damage', 1.06), RANGE_UPGRADE, BEAM_WIDTH_UPGRADE],
 },
 ```
@@ -746,7 +746,7 @@ fire: {
 
 ## Beispiel: Lightning Tower (Chain Attack)
 
-Vollständiges Beispiel eines `chain`-Towers — Hitscan-Kette zwischen mehreren Enemies,
+Vollständiges Beispiel eines `chain`-Towers: Hitscan-Kette zwischen mehreren Enemies,
 gerendert über den dedizierten `LightningBoltRenderer` (bis zu 192 Bolts als Instanzen
 eines Quad-Strips, ein Mesh und ein Draw Call; der Vertex-Shader erzeugt die
 Jagged-Polyline aus Endpunkten und Seed pro Instanz) plus additive Aufhell-Halos pro Hit
@@ -770,7 +770,7 @@ lightning: {
   damage: 35,                   // Primary-Hit-Damage
   range: 65,                    // Primary-Target-Acquisition-Range
   fireRate: 0.8,                // 0.8 Schuss/s
-  projectileType: 'arrow',      // Fallback, fuer chain ungenutzt
+  projectileType: 'arrow',      // Fallback, für chain ungenutzt
 
   maxJumps: 2,                  // Primary + 2 = 3 Total-Hits
   chainFalloff: 0.7,            // 100% → 70% → 49%
