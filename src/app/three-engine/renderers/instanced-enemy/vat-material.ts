@@ -287,8 +287,9 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     defines: { ...ALPHA_DEFINES[vatData.alpha.mode] },
     transparent: vatData.alpha.mode === 'blend',
     side: vatData.side,
-    // Double-sided blending in one pass too: three would otherwise draw back
-    // and front faces in two passes, which doubles the VAT reads.
+    // One pass also for double-sided blending. ShaderMaterial's own default
+    // in r186, kept explicit: a transparent double-sided material without it
+    // draws back and front faces in two passes, which doubles the VAT reads.
     forceSinglePass: true,
     depthWrite: true,
   });
