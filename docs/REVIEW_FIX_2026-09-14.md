@@ -744,6 +744,42 @@ abarbeiten.
 - `__corridor.set()` und `reset()` wirken nur ohne Tower, Welle und Gegner
   (sonst "Not changed").
 
+**Stand nach dem Playtest vom 2026-09-14 (Nachmittag)**
+
+- **Per Szenario-Test bestätigt statt geklickt** (User-Wunsch): 509, 510,
+  511, 513, 516 (nur mit "Blood Moon" an), 518, 519, 520, 522 (bis 100 ms
+  Lücke), 525 bis 528, 533, 534, 536, 538 bis 540 (verifyA); 543, 546 bis
+  548, 554 bis 556, 565, 567, 569 (verifyB); 506, 507 (onboarding2). Die
+  Tests liegen in `*.scenario.spec.ts` und `onboarding-playtest.spec.ts`.
+- Befunde der Verifier: **546** ein Gegner, der beim Loslaufen außer
+  Hörweite ist (oder bei vollem Budget), bekommt nie einen Lauf-Loop, auch
+  nicht, wenn die Kamera später hinfährt (vorbestehend; Fix audioloop).
+  **548** SPATIAL_AUDIO.md beschreibt den Pausen-Start des Ooze-Loops
+  ungenau (Doku, audioloop). **555** zwei Wurmköpfe und die Ringe der
+  letzten 15 % teilen sich einen Pfeil, solange sie im selben 45°-Sektor
+  liegen (Zahl am Pfeil); ein zweiter Boss-Pfeil nur in einem anderen
+  Sektor. So gebaut, der Text von 555 war zu eng.
+- Nachtests nach Fixes: 515 (zombie_v2-Vorschau, preview2), 517 Klick
+  (upgradeclick), 529 und 531 (portal2), 557 bis 559 (stamp2), der
+  Reichweitenring (rangering), 541 und 544 (relocspeed), 560 bis 562 und
+  564 (corridor2). 553 (Replay) zurückgestellt, 566 und 568 entfallen.
+- Nachtest-Ergebnisse: **515 ok** (Vorschau nach `814dec34` u. a.), **517
+  Klick ok** (TowerUpgradeService), **531 ok** (Ringe am Boden, Meldungen
+  "Too far from streets", "Streets not loaded here", "No route to HQ"),
+  **529 im Prinzip ok**, die WYSIWYG-Vorschau ruckelt beim Mitziehen
+  (Fix pathstart, erneut prüfen).
+- **Reichweitenring (rangering) im Prinzip ok**, auch in der Bauvorschau;
+  Bäume an der Ringkante bekommen gelbe Bänder, stellenweise zu viel Gelb
+  (Fix ring2). **557/558 ok** (Block Logo und Adresse, `81ad0b9b`).
+- **Befund Bloom (2026-09-14):** mit Bloom an flackert ein großer schwarzer
+  Block über mehr als die rechte Bildhälfte (Paris, bei Eiffelturm/HQ),
+  ohne Konsolenfehler; ohne Bloom normal. Ursache offen (Verdacht: NaN/Inf
+  aus einem Shader oder die Stencil-Änderung am Composer), Diagnose ring2.
+  Eingrenzung durch den User: bleibt ohne Blutmond, kommt auch ohne
+  sichtbaren Ring, erscheint, sobald das HQ im Bild ist, neu seit etwa
+  gestern, auf jeder Karte inklusive DevWorld. Hauptverdacht: die neuen
+  Distanzringe ums HQ (`Line2`, portal2).
+
 **Vorab**
 
 501. Echten Ort laden, Konsole offen, Intro-Flug abwarten: keine rote Zeile.
