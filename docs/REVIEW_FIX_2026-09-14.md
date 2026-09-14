@@ -561,8 +561,10 @@ bitte klären"; Lead-Entscheidungen sind revertierbar):
   besser und bleibt.
 - **4 Paris-Brücke:** Ursache laut Code behoben (`427443a6`), Nachtest 564.
 - **6 zombie_v2:** 515 ok nach preview2. **7 Impact Effects:** 514 ok.
-- **8 Leiste gegen Info-Overlay:** Lead-Entscheidung: nie überlappen
-  (Worker decideui).
+- **8 Leiste gegen Info-Overlay:** Lead-Entscheidung: nie überlappen;
+  umgesetzt in `d48dc0b7` (die Leiste bleibt unter der gemessenen
+  Unterkante des Overlays und über den Logos, scrollt bei zu niedrigem
+  Spielfeld; der Gold-Glow endet dadurch am Innenrand der Leiste).
 - **9 HQ umsetzen:** jetzt schneller, 541 in Paris 2,5 s statt 6,1 s
   (relocspeed).
 - **10 Spawn-Drehung:** Lead-Entscheidung: in URL und Favoriten speichern;
@@ -577,10 +579,14 @@ bitte klären"; Lead-Entscheidungen sind revertierbar):
 - **11 Center-Tipp nach Welle 2:** Lead-Entscheidung: bleibt (503, 504 ok).
 - **12 Wurm-Ecken:** bleibt für die User-Runde mit 356.
 - **13 `hero:rejected`, `ability:rejected`:** Lead-Entscheidung: sichtbare
-  Rückmeldung wie beim U-Grund (Worker decideui); Ersatzmodell für den Held
-  bleibt offen.
+  Rückmeldung; umgesetzt in `0961846d` (Grund 2,5 s in der Hinweis-Box,
+  z. B. "Only during a wave", "No charges, recharges in N waves", "Need N
+  credits"; vor der Forschung bleiben die Tasten still). Ersatzmodell für
+  den Held bleibt offen.
 - **14 Boss-Intro bei offenem Dialog:** Lead-Entscheidung: das Intro fällt
-  dann aus (Worker decideui); Hindernis-Check bleibt offen.
+  dann aus; umgesetzt in `77fb07b4` (gilt für den Start; ein Dialog, der
+  erst während des Intros aufgeht, hält es nicht an). Hindernis-Check
+  bleibt offen.
 - **15 Laser-Bot-Zählung:** Lead-Entscheidung: bleibt als Näherung (nur
   Training).
 - **16 Sockel-Widerspruch:** klärt 429 mit `__footprintDebug.watch()`.
