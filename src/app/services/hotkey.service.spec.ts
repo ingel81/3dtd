@@ -42,6 +42,7 @@ import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
 import { ReplayService } from './replay.service';
 import { UpgradeHintService } from './upgrade-hint.service';
+import { TowerUpgradeService } from './tower-upgrade.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 
 function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
@@ -198,6 +199,8 @@ describe('HotkeyService', () => {
         { provide: HeroControlService, useValue: heroControl },
         { provide: ReplayService, useValue: replay },
         { provide: UpgradeHintService, useValue: upgradeHint },
+        // The real one: U answers through it, on the facade and stores above
+        { provide: TowerUpgradeService, useFactory: () => new TowerUpgradeService() },
       ],
     });
     service = runInInjectionContext(injector, () => new HotkeyService());

@@ -17,7 +17,7 @@ export interface UpgradeHint {
 }
 
 /**
- * Feedback of the U key in the tower and research panels (HotkeyService
+ * Feedback of the U key in the tower and research panels (TowerUpgradeService
  * writes it): the tile it bought flashes, or a line says why it bought
  * nothing. A click on a tile needs neither, the player is looking at it.
  *

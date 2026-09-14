@@ -7,9 +7,8 @@ import { GameStore } from '../store/game.store';
 import { ResearchStore } from '../store/research.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
-import { canPickTowerCard, firstAffordableUpgrade, upgradeRefusal, type UpgradeRefusal } from '../utils/player-actions';
+import { canPickTowerCard } from '../utils/player-actions';
 import { ownsKey } from '../utils/keyboard-target';
-import type { Tower } from '../entities/tower.entity';
 import { openHotkeyHelpDialog } from '../components/hotkey-help-dialog/open-hotkey-help-dialog';
 import { CameraControlService } from './camera-control.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
@@ -22,30 +21,7 @@ import { TowerPlacementService } from './tower-placement.service';
 import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
 import { ReplayService } from './replay.service';
-import { UpgradeHintService } from './upgrade-hint.service';
-
-/**
- * Text rising over the tower after U: --td-gold-light for what it bought,
- * --td-warn-orange when it bought nothing. Starts `lift` metres above the
- * tower's shoot height.
- */
-const UPGRADE_KEY_TEXT = {
-  bought: '#D9BC68',
-  refused: '#C96A3A',
-  durationMs: 1600,
-  floatSpeed: 1.3,
-  scale: 0.8,
-  lift: 3,
-} as const;
-
-/** The short reason over the tower when U bought nothing; the panel line says more. */
-function refusalLabel(refusal: UpgradeRefusal): string {
-  switch (refusal.kind) {
-    case 'credits': return `NEED ${refusal.missing} CREDITS`;
-    case 'tier': return 'NEEDS RESEARCH';
-    case 'maxed': return 'FULLY UPGRADED';
-  }
-}
+import { TowerUpgradeService } from './tower-upgrade.service';
 
 /**
  * Runs the game hotkeys (see hotkey-map.ts). The component hands it every key
@@ -74,7 +50,7 @@ export class HotkeyService {
   private readonly photoMode = inject(PhotoModeService);
   private readonly heroControl = inject(HeroControlService);
   private readonly replay = inject(ReplayService);
-  private readonly upgradeHint = inject(UpgradeHintService);
+  private readonly towerUpgrade = inject(TowerUpgradeService);
 
   /** BUILD panel order, the number keys follow it */
   private readonly towerTypes = getAllTowerTypes();
@@ -219,44 +195,10 @@ export class HotkeyService {
     return true;
   }
 
-  /**
-   * U answers on the map, where the player is looking when using the key:
-   * the track and its new level rise over the tower and its tile flashes, or
-   * the reason it bought nothing rises there and shows in the tower's panel
-   * (UpgradeHintService).
-   */
+  /** U buys the first upgrade it can and answers over the tower, see TowerUpgradeService. */
   private upgrade(): boolean {
     const tower = this.store.selectedTower();
-    if (!tower) return false;
-    const credits = this.store.credits();
-    const maxTier = this.researchStore.maxUpgradeTier();
-    const upgradeId = firstAffordableUpgrade(tower, credits, maxTier);
-    if (!upgradeId) {
-      const refusal = upgradeRefusal(tower, credits, maxTier);
-      if (!refusal) return false;
-      this.upgradeHint.refused(tower.id, refusal);
-      this.floatOverTower(tower, refusalLabel(refusal), UPGRADE_KEY_TEXT.refused);
-      return true;
-    }
-    if (!this.facade.upgradeTower(tower, upgradeId)) return false;
-    this.upgradeHint.bought(tower.id, upgradeId);
-    const name = tower.typeConfig.upgrades.find((u) => u.id === upgradeId)?.name ?? upgradeId;
-    // The command ran synchronously on the bus, the level is the new one
-    this.floatOverTower(tower, `${name.toUpperCase()} LV ${tower.getUpgradeLevel(upgradeId)}`, UPGRADE_KEY_TEXT.bought);
-    return true;
-  }
-
-  private floatOverTower(tower: Tower, text: string, color: string): void {
-    const effects = this.gameState.tilesEngine?.effects;
-    if (!effects) return;
-    const { lat, lon, height = 0 } = tower.position;
-    const top = height + Math.max(tower.typeConfig.shootHeight, 0) + UPGRADE_KEY_TEXT.lift;
-    effects.spawnFloatingText(text, lat, lon, top, {
-      color,
-      duration: UPGRADE_KEY_TEXT.durationMs,
-      floatSpeed: UPGRADE_KEY_TEXT.floatSpeed,
-      scale: UPGRADE_KEY_TEXT.scale,
-    });
+    return tower !== null && this.towerUpgrade.buyFirst(tower);
   }
 
   /** Delete arms the sale like the first click on Sell, a second press sells. */
