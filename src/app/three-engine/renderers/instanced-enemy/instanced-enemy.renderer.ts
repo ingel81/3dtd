@@ -75,7 +75,7 @@ export class InstancedEnemyRenderer {
   private stopRebakeOnRestore: (() => void) | null = null;
 
   constructor(
-    private readonly scene: Scene,
+    scene: Scene,
     private readonly sync: CoordinateSync,
     private readonly assetManager: AssetManagerService,
   ) {
