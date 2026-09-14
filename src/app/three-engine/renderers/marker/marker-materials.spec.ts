@@ -5,6 +5,7 @@ import { createPortalGateMaterial, setPortalGateTextures } from './spawn-portal-
 import { CIRCLE_STREET, createPortalGlowMaterial } from './spawn-portal-glow-material';
 import { PORTAL_SHADER_LAYOUT } from './spawn-portal-geometry';
 import { SPAWN_PORTAL_LOOK as L } from '../../../configs/visual-effects.config';
+import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 
 /** Every material the marker and portal managers build, with the arguments they pass. */
 function materials(): Record<string, ShaderMaterial> {
@@ -35,6 +36,17 @@ describe('Marker- und Portal-Materialien', () => {
     expect(ring.fragmentShader).toContain('float fresnel = clamp(1.0 - abs(dot(viewDir, vWorldNormal)), 0.0, 1.0);');
     expect(diamond.vertexShader).toContain('vFresnel = clamp(1.0 - abs(dot(viewDir, vWorldNormal)), 0.0, 1.0);');
     expect(diamond.fragmentShader).toContain('float fresnel = clamp(vFresnel, 0.0, 1.0);');
+  });
+
+  it('schreibt die Farben des HQ für ihr Ziel: Diamant, Ringe und Label als Farbe, das Bodenglühen als Licht', () => {
+    const { diamond, ring, groundGlow, label } = materials();
+    for (const material of [diamond, ring, groundGlow, label]) {
+      expect(material.fragmentShader).toContain(DISPLAY_OUTPUT_GLSL);
+    }
+    expect(diamond.fragmentShader).toContain('gl_FragColor = displayOutput(vec4(finalColor, alpha));');
+    expect(ring.fragmentShader).toContain('gl_FragColor = displayOutput(vec4(finalColor, alpha));');
+    expect(groundGlow.fragmentShader).toContain('gl_FragColor = displayLight(vec4(finalColor, alpha));');
+    expect(label.fragmentShader).toContain('gl_FragColor = displayOutput(vec4(texColor.rgb, texColor.a * vAlpha));');
   });
 
   it('gibt dem Tor die gebackenen Texturen des Rahmens', () => {

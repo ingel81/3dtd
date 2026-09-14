@@ -5,6 +5,12 @@ import {
   Texture,
   AdditiveBlending,
 } from 'three';
+import { DISPLAY_OUTPUT_GLSL } from '../display-output';
+
+// The HQ marker's colours are display values, written for the target
+// (display-output.ts): diamond, rings and label as colours (displayOutput),
+// the ground glow as additive light (displayLight). On the canvas as they
+// were, through the post-processing target alike where opaque.
 
 // ============================================================
 // DIAMOND BODY SHADER
@@ -99,6 +105,8 @@ export function createDiamondMaterial(): ShaderMaterial {
 
       #include <logdepthbuf_pars_fragment>
 
+      ${DISPLAY_OUTPUT_GLSL}
+
       void main() {
         #include <logdepthbuf_fragment>
 
@@ -135,7 +143,7 @@ export function createDiamondMaterial(): ShaderMaterial {
         // Alpha: much more opaque overall, slight edge glow
         float alpha = mix(0.92, 1.0, fresnel * vGlowIntensity * 0.5) * pulse;
 
-        gl_FragColor = vec4(finalColor, alpha);
+        gl_FragColor = displayOutput(vec4(finalColor, alpha));
       }
     `,
     transparent: true,
@@ -233,6 +241,8 @@ export function createRingMaterial(): ShaderMaterial {
 
       #include <logdepthbuf_pars_fragment>
 
+      ${DISPLAY_OUTPUT_GLSL}
+
       void main() {
         #include <logdepthbuf_fragment>
 
@@ -254,7 +264,7 @@ export function createRingMaterial(): ShaderMaterial {
         vec3 finalColor = mix(vColor, vec3(1.0), fresnel * 0.4) * pulse * 1.2;
         float alpha = mix(0.5, 0.9, fresnel) * pulse;
 
-        gl_FragColor = vec4(finalColor, alpha);
+        gl_FragColor = displayOutput(vec4(finalColor, alpha));
       }
     `,
     transparent: true,
@@ -306,6 +316,8 @@ export function createGroundGlowMaterial(): ShaderMaterial {
 
       #include <logdepthbuf_pars_fragment>
 
+      ${DISPLAY_OUTPUT_GLSL}
+
       void main() {
         #include <logdepthbuf_fragment>
 
@@ -333,7 +345,7 @@ export function createGroundGlowMaterial(): ShaderMaterial {
         float alpha = falloff * (0.25 + rings * 0.2) * pulse;
         vec3 finalColor = vColor * (1.0 + rings * 0.5);
 
-        gl_FragColor = vec4(finalColor, alpha);
+        gl_FragColor = displayLight(vec4(finalColor, alpha));
       }
     `,
     transparent: true,
@@ -422,6 +434,8 @@ export function createLabelMaterial(atlasTexture: Texture): ShaderMaterial {
 
       #include <logdepthbuf_pars_fragment>
 
+      ${DISPLAY_OUTPUT_GLSL}
+
       void main() {
         if (vAlpha < 0.01) discard;
 
@@ -430,7 +444,7 @@ export function createLabelMaterial(atlasTexture: Texture): ShaderMaterial {
         vec4 texColor = texture2D(uAtlas, vUv);
         if (texColor.a < 0.01) discard;
 
-        gl_FragColor = vec4(texColor.rgb, texColor.a * vAlpha);
+        gl_FragColor = displayOutput(vec4(texColor.rgb, texColor.a * vAlpha));
       }
     `,
     transparent: true,
