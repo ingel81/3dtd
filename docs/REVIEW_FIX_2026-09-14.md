@@ -565,8 +565,15 @@ bitte klären"; Lead-Entscheidungen sind revertierbar):
   (Worker decideui).
 - **9 HQ umsetzen:** jetzt schneller, 541 in Paris 2,5 s statt 6,1 s
   (relocspeed).
-- **10 Spawn-Drehung:** Lead-Entscheidung: in URL und Favoriten speichern
-  (Worker spawnpersist); ein HQ-Umzug setzt sie weiter zurück.
+- **10 Spawn-Drehung:** Lead-Entscheidung: in URL und Favoriten speichern;
+  umgesetzt in `0113357e` (Kompasskurs als dritter Wert `s=lat,lon,kurs`,
+  beim Wiederherstellen auf den zulässigen Bereich der neu gebauten Route
+  begrenzt; alte URLs und Favoriten ohne Kurs folgen der Route). Ein
+  HQ-Umzug setzt sie weiter zurück; Welt-Würfel, zuletzt gespielte Orte und
+  Weltkarte laden ohne Drehung. Ein alter, gecachter Build verwirft eine
+  neue URL mit Kurs und würfelt den Spawn neu. **Nachtest:** Spawn mit R
+  drehen, F5: gleiche Drehung; als Favorit speichern, anderen Ort laden,
+  Favorit laden: gleiche Drehung.
 - **11 Center-Tipp nach Welle 2:** Lead-Entscheidung: bleibt (503, 504 ok).
 - **12 Wurm-Ecken:** bleibt für die User-Runde mit 356.
 - **13 `hero:rejected`, `ability:rejected`:** Lead-Entscheidung: sichtbare
