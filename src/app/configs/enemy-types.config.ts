@@ -331,7 +331,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     movingSound: 'assets/sounds/enemies/tank/moving.mp3',
     movingSoundVolume: 0.3,
     movingSoundRefDistance: 50, // Tanks are louder (larger refDistance range)
-    heightOffset: 0,
+    heightOffset: 1, // At 0 the tracks sink into the road
     healthBarOffset: 5.5,
     canBleed: false, // Tanks don't bleed
     headingOffset: -0.122, // ~-7° rotation offset
