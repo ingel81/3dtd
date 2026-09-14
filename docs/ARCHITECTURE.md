@@ -1447,6 +1447,7 @@ src/app/
 │       ├── three-effects.renderer.ts        # Fassade über die Effekt-Module (Abschnitt 6.5)
 │       ├── particle-pool-manager.ts
 │       ├── particle-effects-renderer.ts
+│       ├── mushroom-cloud.renderer.ts       # Atompilz in Spielzeit; Teile: mushroom-cloud-shape/-glow/-smoke/-blast.ts
 │       ├── particle-shaders.ts
 │       ├── environment-effects-renderer.ts
 │       ├── aura-renderer.ts

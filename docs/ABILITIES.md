@@ -461,6 +461,7 @@ während einer Welle.
 | `services/hotkey-map.ts` | Taste je Fähigkeit aus `AbilityConfig.hotkey` |
 | `three-engine/renderers/ability-marker.renderer.ts` | Zielmarker und Zielring |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
+| `three-engine/renderers/mushroom-cloud-shape.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Form, Glut, Rauch und Ring/Dom/Blitz des Atompilzes |
 | `three-engine/renderers/frost-burst.renderer.ts` | Frostausbruch der Frostbombe |
 | `three-engine/renderers/emp-pulse.renderer.ts` | Puls des EMP |
 | `three-engine/renderers/orbital-beam.renderer.ts` | Strahl des Orbitallasers |
