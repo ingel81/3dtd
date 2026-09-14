@@ -226,6 +226,27 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(positionsOutside(grid, route)).toEqual([]);
   });
 
+  /**
+   * User decision after the second playtest of 2026-09-14: parked cars and
+   * transporters narrow the corridor, no cells on them. Also on a street
+   * across a slope, where the step check allows the cross slope: the car
+   * stands 0.6 m on the ground rising 15 % towards it.
+   */
+  it('ends the corridor before a car on the uphill side of a street across a slope', () => {
+    const slope = (z: number) => (z - 1) * 0.15;
+    const onCar = (x: number, z: number) => x > 20 && x < 24 && z > 4 && z < 6;
+    const { grid, route, builds } = narrowed((x, z) => slope(z) + (onCar(x, z) ? 0.6 : 0));
+
+    expect(builds).toBe(1);
+    expect(grid.getCellAt(21, 5)).toBeUndefined();
+    expect(grid.getCellAt(23, 5)).toBeUndefined();
+    expect(grid.getCellAt(21, 3)).toBeDefined();
+    // The slope itself keeps its cells, uphill and downhill.
+    expect(grid.getCellAt(11, 7)).toBeDefined();
+    expect(grid.getCellAt(21, -5)).toBeDefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
   it('keeps a kerb, photogrammetry noise and a bank rising 20 % on one side walkable', () => {
     // Right: a kerb 0.2 m up from 2 m off the centre line, then a bank
     // rising 0.2 m per metre, with nothing falling on the other side to

@@ -391,7 +391,12 @@ bestand den Check.
     (nichts zu spiegeln) bleibt bis 25 % entlang der Rasterachsen begehbar,
     diagonal bis etwa 17 %; mit 0,4 m fiel an einer diagonalen Straße eine
     Böschung mit 15 % schon weg. Ein Auto, das die Photogrammetrie flacher
-    als 0,5 m macht, bleibt im Korridor.
+    als 0,5 m macht, bleibt im Korridor. Nach dem zweiten Playtest vom
+    2026-09-14 hat der Nutzer entschieden: Geparkte Autos und Transporter
+    sollen den Korridor einengen, Zellen auf ihnen sind nicht gewollt. Am
+    Hang misst die Stufe von der Querneigung aus: Ein Auto 0,6 m hoch auf
+    der Bergseite einer Straße mit 15 % Querneigung fällt mit 0,5 m weg,
+    mit 0,75 m blieb es (`integration/corridor-walk.spec.ts`).
 - **Kein Urteil** (`null`): Zellen, durch die eine Mittellinie läuft,
   auch wenn sie nur eine Ecke anschneidet (`centreLineKeys`; der Korridor
   nimmt sie bei jeder Breite, `walkCaps` lässt sie aus), Deck und Tunnel,
