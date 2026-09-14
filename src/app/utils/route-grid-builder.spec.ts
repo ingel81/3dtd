@@ -74,6 +74,29 @@ describe('claimSegmentCells', () => {
     claimSegmentCells(cells, lattice, p(0, 1), p(20, 1), 3, 3, false, tunnel);
     expect(cellAt(cells, 10.5, 1.5)).toMatchObject({ surface: 'tunnel', tunnelSpan: { ax: 0, bx: 1 } });
   });
+
+  it('gives a cell the surface of the segment it lies along, not of a round end reaching it', () => {
+    // Eastbound along z = 1: the approach to x = 20, 7 m either side, then
+    // the bridge. Playtest 2026-09-14, Paris: the approach's round end took
+    // the first 7 m of the deck to the ground, under the deck.
+    const claims = new Set<number>();
+    const cells = new Map<number, RouteCell>();
+    claimSegmentCells(cells, lattice, p(0, 1), p(20, 1), 7, 7, false, null, undefined, claims);
+    claimSegmentCells(cells, lattice, p(20, 1), p(60, 1), 7, 7, true, null, undefined, claims);
+
+    // Centre (21, 5): on the deck, 1 m past the approach's end.
+    expect(cellAt(cells, 20.5, 4.5)).toMatchObject({ surface: 'deck', axisX: 21, axisZ: 1 });
+    // Centre (19, 5): on the approach, 1 m before the bridge's start.
+    expect(cellAt(cells, 18.5, 4.5)).toMatchObject({ surface: 'ground', axisX: 19, axisZ: 1 });
+
+    // The same the other way round, the bridge claimed first.
+    const reversed = new Map<number, RouteCell>();
+    const reversedClaims = new Set<number>();
+    claimSegmentCells(reversed, lattice, p(20, 1), p(60, 1), 7, 7, true, null, undefined, reversedClaims);
+    claimSegmentCells(reversed, lattice, p(0, 1), p(20, 1), 7, 7, false, null, undefined, reversedClaims);
+    expect(cellAt(reversed, 20.5, 4.5)).toMatchObject({ surface: 'deck', axisX: 21 });
+    expect(cellAt(reversed, 18.5, 4.5)).toMatchObject({ surface: 'ground', axisX: 19 });
+  });
 });
 
 describe('claimRouteCells', () => {

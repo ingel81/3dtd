@@ -317,9 +317,11 @@ export class GlobalRouteGrid {
    * enemies spread, so no enemy walks outside the cells towers look at.
    *
    * Cells of a segment on a bridge (`onBridge`) sample the deck, the top of
-   * the column, instead of the ground under the bridge. A cell that a
-   * segment off the bridge reaches as well stays on the ground: a cell holds
-   * one height, and at the ends of a bridge deck and approach agree anyway.
+   * the column, instead of the ground under the bridge. A cell holds one
+   * height: where the bridge and its approach meet, a cell takes the
+   * surface of the segment it lies along, not of the one that reaches it
+   * only with a round end; a cell both reach along their length (a street
+   * under the bridge) stays on the ground (claimSegmentCells).
    *
    * Cells of a segment in a tunnel or covered passage (`inTunnel`) take their
    * height between the ground just outside the two mouths of the stretch,
@@ -339,11 +341,12 @@ export class GlobalRouteGrid {
     this.generation = GlobalRouteGrid.nextGeneration++;
     this.cachedRoutes = routes;
 
+    const alongClaims = new Set<number>();
     for (const route of routes) {
       if (route.length < 2) continue;
 
       const points = route.map((p) => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
-      claimRouteCells(this.cells, this.lattice, route, points);
+      claimRouteCells(this.cells, this.lattice, route, points, alongClaims);
     }
 
     // Sampled only once every segment has claimed its cells: which surface

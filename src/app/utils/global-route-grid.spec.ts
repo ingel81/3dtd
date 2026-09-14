@@ -857,11 +857,40 @@ describe('GlobalRouteGrid bridges', () => {
     expect(grid.getGroundLocalYAt(75, 0.5)).toBe(0);
   });
 
-  it('keeps a cell on the ground when a segment off the bridge reaches it too', () => {
+  it('keeps the deck where the approach reaches it with its round end, and the approach where the bridge does', () => {
     grid.generateFromRoutes([[at(0, 0), at(30, 0, true), at(60, 0)]]);
-    // Centre (31, 1) is 1.4 m from the approach, (35, 1) 5.1 m.
-    expect(grid.getGroundLocalYAt(31, 0.5)).toBe(0);
+    // Centre (31, 1) lies along the bridge, 1.4 m from the approach's end;
+    // (29, 1) along the approach, 1.4 m from the bridge's start.
+    expect(grid.getGroundLocalYAt(31, 0.5)).toBe(8);
+    expect(grid.getGroundLocalYAt(29, 0.5)).toBe(0);
     expect(grid.getGroundLocalYAt(35, 0.5)).toBe(8);
+  });
+
+  /**
+   * Playtest 2026-09-14, Paris, Pont d'Iéna: at both ends of the bridge the
+   * red line, the cells and the enemies dropped under the deck. The quay
+   * runs under the ends of the deck; the approaches' round ends, 7 m on a
+   * 7 m corridor, made the first 7 m of the deck ground cells, which took
+   * the lowest hit, the quay.
+   */
+  it('keeps the ends of a deck over a quay on the deck', () => {
+    // Deck at 80 m from x = 30 to 90, the quay under it at 70 m; the
+    // approaches on solid ground at 80 m either side.
+    const quay = new GlobalRouteGrid();
+    quay.initialize(((x: number) => (x > 30 && x < 90
+      ? { groundY: 70, topY: 80, tileDepth: 20, tileGeometricError: 2 }
+      : { groundY: 80, topY: 80, tileDepth: 20, tileGeometricError: 2 })) as never, coordinateSync);
+    const wide = (x: number, onBridge?: boolean): RouteWaypoint =>
+      ({ lat: 0, lon: x, corridorLeft: 7, corridorRight: 7, onBridge });
+    quay.generateFromRoutes([[wide(0), wide(30, true), wide(90), wide(120)]]);
+
+    // The cells at the two joints, where the red line takes its height, and
+    // those across the first and last metres of the deck.
+    expect(quay.getGroundLocalYAt(30, 0)).toBe(80);
+    expect(quay.getGroundLocalYAt(90, 0)).toBe(80);
+    for (const x of [31, 33, 35, 37, 83, 85, 87, 89]) {
+      for (const z of [-5, -1, 1, 5]) expect(quay.getGroundLocalYAt(x, z), `${x}, ${z}`).toBe(80);
+    }
   });
 
   it('decides the surface before sampling, whichever route comes first', () => {

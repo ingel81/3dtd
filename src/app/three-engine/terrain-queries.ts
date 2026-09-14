@@ -163,8 +163,9 @@ export class TerrainQueries {
    * If center is significantly higher than the lateral minimum, the raycast likely hit
    * a tree canopy or building roof. In that case, returns the lateral minimum as ground estimate.
    *
-   * Preserves bridges: bridge decks are wide enough (6-12m+) that lateral samples at ±3m/±6m
-   * still hit the bridge surface, so center ≈ lateral → no correction applied.
+   * On a bridge every sample is the lowest hit of its column (sampleColumn), the river or
+   * road under the deck where the photogrammetry has it, so the estimate lies under the
+   * bridge. Route cells of a bridge segment take the deck instead (RouteCellSampler).
    *
    * @param lat - Latitude of the path point
    * @param lon - Longitude of the path point

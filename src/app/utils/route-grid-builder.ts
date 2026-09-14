@@ -130,13 +130,15 @@ export function jointCap(own: number, other: number, cellSize: number): number {
  * surface a cell samples depends on all segments that reach it, so the
  * caller samples only once every route has claimed its cells. At a joint
  * of two segments each one's round end is cut to jointCap; the two ends of
- * the route keep their half widths.
+ * the route keep their half widths. `alongClaims`: see claimSegmentCells,
+ * one set for all routes of a grid.
  */
 export function claimRouteCells(
   cells: Map<number, RouteCell>,
   lattice: RouteCellLattice,
   route: readonly RouteWaypoint[],
   points: readonly LocalPoint[],
+  alongClaims = new Set<number>(),
 ): void {
   const tunnels = tunnelSegments(route, points);
   const segments = route.length - 1;
@@ -153,7 +155,9 @@ export function claimRouteCells(
       endLeft: cap(left, after, segmentLeft),
       endRight: cap(right, after, segmentRight),
     };
-    claimSegmentCells(cells, lattice, points[i], points[i + 1], left, right, route[i].onBridge === true, tunnels[i], caps);
+    claimSegmentCells(
+      cells, lattice, points[i], points[i + 1], left, right, route[i].onBridge === true, tunnels[i], caps, alongClaims,
+    );
   }
 }
 
@@ -170,6 +174,18 @@ export function claimRouteCells(
  * fallback `terrainHeight` until the first sample succeeds. `tunnel`:
  * the segment lies in a tunnel, its cells take their height between the
  * portals, also those another segment reaches as well.
+ *
+ * A cell another segment reached first: a tunnel wins. Otherwise a segment
+ * that reaches the cell along its length (the centre's nearest point lies
+ * on it, or it runs through the cell) takes the cell, surface and centre
+ * line spot, from one that reached it only with a round end; `alongClaims`
+ * holds the keys of cells claimed along a length so far. Two segments that
+ * both reach it along their length, or both with a round end: the ground
+ * wins over a deck, a street under a bridge. So at the end of a bridge the
+ * approach's round end no longer turns the first metres of the deck into
+ * ground, which took the lowest hit, the quay or river under the deck
+ * (playtest 2026-09-14, Paris, Pont d'Iéna), and the bridge's round end
+ * leaves the approach on the ground.
  */
 export function claimSegmentCells(
   cells: Map<number, RouteCell>,
@@ -181,6 +197,7 @@ export function claimSegmentCells(
   onBridge: boolean,
   tunnel: SegmentTunnel | null,
   caps: SegmentCaps = { startLeft: left, startRight: right, endLeft: left, endRight: right },
+  alongClaims = new Set<number>(),
 ): void {
   const cellSize = lattice.cellSize;
   const dx = end.x - start.x;
@@ -206,31 +223,47 @@ export function claimSegmentCells(
       const halfWidth = along < 0 ? (rightOfLine ? caps.startRight : caps.startLeft)
         : along > 1 ? (rightOfLine ? caps.endRight : caps.endLeft)
         : rightOfLine ? right : left;
-      if (ox * ox + oz * oz > halfWidth * halfWidth && !segmentTouchesCell(cellSize, start, end, gx, gz)) continue;
+      const within = ox * ox + oz * oz <= halfWidth * halfWidth;
+      if (!within && !segmentTouchesCell(cellSize, start, end, gx, gz)) continue;
+      // Along the segment's length, or it runs through the cell; not only its round end.
+      const alongIt = !within || (along >= 0 && along <= 1);
 
       const key = lattice.key(gx, gz);
       const existing = cells.get(key);
       const span: TunnelSpan | null = tunnel
         ? { ax: tunnel.ax, az: tunnel.az, bx: tunnel.bx, bz: tunnel.bz, f: tunnel.from + (tunnel.to - tunnel.from) * t }
         : null;
-      if (existing) {
-        // A cell several segments reach: a tunnel wins, or the cells in its
-        // mouth, reached by the approach first, would sample the hill above
-        // it; otherwise the ground wins over a deck.
-        if (span && existing.surface !== 'tunnel') {
-          existing.surface = 'tunnel';
-          existing.tunnelSpan = span;
-        } else if (!span && !onBridge && existing.surface === 'deck') {
-          existing.surface = 'ground';
-        }
-        continue;
-      }
       // The centre line's grid spot next to the cell, for the roof check in sampleCellY.
       const axisX = (lattice.index(start.x + dx * t) + 0.5) * cellSize;
       const axisZ = (lattice.index(start.z + dz * t) + 0.5) * cellSize;
-      addCell(
-        cells, key, cx, cz, axisX, axisZ, start.y + (end.y - start.y) * t, onBridge ? 'deck' : tunnel ? 'tunnel' : 'ground', span,
-      );
+      const anchorY = start.y + (end.y - start.y) * t;
+      if (existing) {
+        // A cell several segments reach: a tunnel wins, or the cells in its
+        // mouth, reached by the approach first, would sample the hill above
+        // it. Else see above: along a length over a round end, then the
+        // ground over a deck.
+        if (span) {
+          if (existing.surface !== 'tunnel') {
+            existing.surface = 'tunnel';
+            existing.tunnelSpan = span;
+          }
+        } else if (existing.surface !== 'tunnel') {
+          const surface = onBridge ? 'deck' : 'ground';
+          if (alongIt && !alongClaims.has(key)) {
+            alongClaims.add(key);
+            existing.surface = surface;
+            existing.axisX = axisX;
+            existing.axisZ = axisZ;
+            existing.routeAnchorY = anchorY;
+            existing.terrainHeight = anchorY;
+          } else if (alongIt === alongClaims.has(key) && surface === 'ground' && existing.surface === 'deck') {
+            existing.surface = 'ground';
+          }
+        }
+        continue;
+      }
+      if (alongIt) alongClaims.add(key);
+      addCell(cells, key, cx, cz, axisX, axisZ, anchorY, onBridge ? 'deck' : tunnel ? 'tunnel' : 'ground', span);
     }
   }
 }
