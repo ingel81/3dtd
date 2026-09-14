@@ -369,7 +369,12 @@ STEP 1: Initialize Loading State
 STEP 2: Reset & Configure Engine
   - Height-Updates, Route-Animation und Intro-Kamerafahrt stoppen
   - gameState.reset() (Enemies, Towers, Projectiles, Effects)
-  - Map-Entities und Pfad-Cache leeren
+  - Map-Entities und Pfad-Cache leeren; dazu gehören die Route-Zellen mit
+    ihren Overlays (Route Grid, Air Route Grid, Flughöhe der Air-Route,
+    `GlobalRouteGridService.clear()`), sonst stünde der alte Korridor bis
+    STEP 6 verschoben auf der Karte. Die Route aus STEP 5 entsteht damit wie
+    beim ersten Laden ohne Zellen (Linie flach auf HQ-Höhe, Portal auf der
+    Terrain-Probe am Routenstart), STEP 6 baut die Zellen neu
   - Engine-Origin auf neue Koordinaten setzen
   - LocationManagementService.setLocation() aufrufen
   - URL synchronisieren

@@ -87,7 +87,7 @@ describe('LocationFacadeService', () => {
     setStreetNetworkLocation: vi.fn(),
     setFilteredStreetNetwork: vi.fn(),
   };
-  const routeGrid = { disposeVisualization: vi.fn() };
+  const routeGrid = { disposeVisualization: vi.fn(), clear: vi.fn() };
   const gameState = {
     reset: vi.fn(),
     initialize: vi.fn(),
@@ -835,7 +835,7 @@ describe('LocationFacadeService', () => {
   });
 
   describe('clearMapEntities', () => {
-    it('removes markers, routes, streets and spawns and stops the tile stats', () => {
+    it('removes markers, routes, streets, spawns and the route cells and stops the tile stats', () => {
       store.spawnPoints.set([OLD_SPAWN]);
 
       facade.clearMapEntities();
@@ -843,6 +843,8 @@ describe('LocationFacadeService', () => {
       expect(markerViz.clearAllMarkers).toHaveBeenCalled();
       expect(pathRoute.clearAllRoutes).toHaveBeenCalled();
       expect(streetRendering.dispose).toHaveBeenCalledWith(overlay);
+      // The cells and their overlays of the old location, see GlobalRouteGridService.clear
+      expect(routeGrid.clear).toHaveBeenCalled();
       expect(store.spawnPoints()).toEqual([]);
       expect(pathRoute.clearCachedPaths).toHaveBeenCalled();
       expect(bridge.setFilteredStreetNetwork).toHaveBeenCalledWith(null);
