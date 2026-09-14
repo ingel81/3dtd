@@ -65,8 +65,8 @@ describe('Boss bar for the worm and the ooze (playtest 352, 353, 362)', () => {
     return group;
   };
 
-  it('352: one bar "Chitin Worm" for the whole worm, however many rings are out', () => {
-    expect(ENEMY_TYPES['worm'].name).toBe('Chitin Worm');
+  it('352: one bar "Skarnax" for the whole worm, however many rings are out', () => {
+    expect(ENEMY_TYPES['worm'].name).toBe('Skarnax');
     const group = wormOut();
     // Every ring is an enemy of the boss type
     const rings = m.enemyManager.getAlive().filter((e) => e.worm?.group === group);
@@ -74,10 +74,10 @@ describe('Boss bar for the worm and the ooze (playtest 352, 353, 362)', () => {
     expect(rings.every((e) => e.typeConfig.isBoss)).toBe(true);
 
     poll();
-    expect(bar.view()).toMatchObject({ name: 'Chitin Worm', percent: 100, others: [], more: 0 });
+    expect(bar.view()).toMatchObject({ name: 'Skarnax', percent: 100, others: [], more: 0 });
   });
 
-  it('353: a destroyed ring splits it: "Chitin Worm ×2", one bar with the HP of both parts; gone with the last ring', () => {
+  it('353: a destroyed ring splits it: "Skarnax ×2", one bar with the HP of both parts; gone with the last ring', () => {
     const group = wormOut();
     m.enemyManager.kill(group.segments[5]!);
     tickEngine(m, 5_000);
@@ -85,7 +85,7 @@ describe('Boss bar for the worm and the ooze (playtest 352, 353, 362)', () => {
 
     poll();
     const view = bar.view()!;
-    expect(view.name).toBe('Chitin Worm ×2');
+    expect(view.name).toBe('Skarnax ×2');
     expect(view.others).toEqual([]);
     expect(view.percent).toBeLessThan(100);
     expect(view.percent).toBeCloseTo((group.hp() / group.maxHp) * 100, 0);

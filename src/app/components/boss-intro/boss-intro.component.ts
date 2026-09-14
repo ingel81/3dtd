@@ -26,6 +26,9 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       <div class="card" [class.shown]="shown()" aria-hidden="true">
         <span class="overline">Boss<span class="mark"></span>Wave {{ card.wave }}</span>
         <span class="name">{{ card.name }}</span>
+        @if (card.epithet) {
+          <span class="epithet">{{ card.epithet }}</span>
+        }
         <span class="rule"></span>
         <span class="hint"><kbd>Esc</kbd> or click to skip</span>
       </div>
@@ -130,6 +133,15 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     @keyframes name-settle {
       from { letter-spacing: 0.3em; }
       to { letter-spacing: 0.16em; }
+    }
+
+    /* The boss's honorific, tucked under its name (worm's "Skarnax") */
+    .epithet {
+      margin-top: -6px;
+      font: 600 clamp(11px, 1.5vw, 15px)/1 var(--td-font-body);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--td-text-secondary);
     }
 
     .rule {

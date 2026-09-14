@@ -68,7 +68,7 @@ describe('bossVariantWave', () => {
     expect(wave).toMatchObject({
       enemies: [{ type: 'worm', count: 1, healthMultiplier: 3.5 }],
       totalCount: 1,
-      templateName: 'Boss: Chitin Worm',
+      templateName: 'Boss: Skarnax',
     });
     expect(wave.templateIdx).toBeUndefined();
 
@@ -80,7 +80,7 @@ describe('bossVariantWave', () => {
 
   it('says why in place of the director explanation', () => {
     const { explanation } = bossVariantWave(BOSS_VARIANTS.worm, directed, 35);
-    expect(explanation?.summary).toBe('W35: Boss: Chitin Worm, HP ×3.5');
+    expect(explanation?.summary).toBe('W35: Boss: Skarnax, HP ×3.5');
     expect(explanation?.reasons[0]).toContain("in place of the director's Boss: Stone Golem");
   });
 });

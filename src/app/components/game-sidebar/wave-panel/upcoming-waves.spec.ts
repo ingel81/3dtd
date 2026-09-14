@@ -85,7 +85,7 @@ describe('peekUpcomingWaves', () => {
   it('names a boss wave the rotation gives to a boss variant ahead (W35: the worm)', () => {
     const [, w35] = peekUpcomingWaves(33, 0, 2);
     expect(w35).toMatchObject({
-      wave: 35, name: 'Boss: Chitin Worm', boss: true, known: true, count: null,
+      wave: 35, name: 'Boss: Skarnax', boss: true, known: true, count: null,
       armors: ['Heavy'], armorLabel: 'Heavy',
     });
     expect(w35.weakToTypes.length).toBeGreaterThan(0);
@@ -102,7 +102,7 @@ describe('peekUpcomingWaves', () => {
 
     // Past the curriculum as well: W35 is the worm's boss wave and a blood moon at once
     const [, w35] = peekUpcomingWaves(33, 0, 2);
-    expect(w35).toMatchObject({ wave: 35, name: 'Boss: Chitin Worm', boss: true, bloodMoon: true });
+    expect(w35).toMatchObject({ wave: 35, name: 'Boss: Skarnax', boss: true, bloodMoon: true });
     expect(w35.tooltip).toContain('splits the worm in two');
     expect(w35.tooltip).toContain(BLOOD_MOON_NOTE);
   });

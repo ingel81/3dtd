@@ -449,7 +449,7 @@ chain: {
 ```
 
 Ein Spawn eines Typs mit `chain` setzt einen ganzen Wurm auf die Route (`managers/worm/`).
-Umgesetzt für den Chitin-Wurm (`worm`).
+Umgesetzt für Skarnax, the Thousand-Legged Calamity (`worm`).
 
 - **Länge:** so viele Segmente, dass der Kopf das HQ erreicht, wenn das letzte Segment den
   Start verlässt (`floor(Routenlänge / spacing) + 1`), mindestens `minSegments`, höchstens
@@ -482,7 +482,7 @@ Umgesetzt für den Chitin-Wurm (`worm`).
   Wave-Panel. `debug:kill-all` nimmt die Segmente im Portal mit.
 - **Boss:** `isBoss` steht auf beiden Typen, also bekommt jedes Segment den Boss-Anteil der
   Fähigkeiten. Die Boss-Leiste zeigt einen Balken für den ganzen Wurm (HP aller Teile,
-  „Chitin Worm ×3“ nach zwei Splits), der Screen-Shake kommt einmal, mit dem letzten Segment.
+  „Skarnax ×3“ nach zwei Splits), der Screen-Shake kommt einmal, mit dem letzten Segment.
 - **Enemy Debug:** Ein platzierter Wurm sitzt auf der Route selbst (`SpawnStart` der
   Platzierung) und kommt dort heraus statt aus dem Portal: Seine Segmente erscheinen an dieser
   Stelle (`WormGroup.origin`), er ist so lang wie die Route ab dort, das Schlängeln setzt ab

@@ -33,7 +33,7 @@ export interface BossVariant {
 export const BOSS_VARIANTS: Record<BossVariantId, BossVariant> = {
   worm: {
     id: 'worm',
-    name: 'Boss: Chitin Worm',
+    name: 'Boss: Skarnax',
     enemyType: 'worm',
     description:
       'A chitin worm as long as the route. Every segment is a target of its own; '

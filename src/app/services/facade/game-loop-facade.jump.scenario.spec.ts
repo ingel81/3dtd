@@ -130,7 +130,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     facade.startWave();
     await settle();
     expect(startedTypes()).toEqual(['worm']);
-    expect(store.aiExplanation()?.summary).toBe('W35: Boss: Chitin Worm, HP ×3.5');
+    expect(store.aiExplanation()?.summary).toBe('W35: Boss: Skarnax, HP ×3.5');
     expect(store.aiExplanation()?.reasons[0]).toContain("in place of the director's Boss: Stone Golem");
 
     // The header reads the store's wave

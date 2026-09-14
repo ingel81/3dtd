@@ -152,9 +152,9 @@ describe('GameLoopFacadeService: aiExplanation', () => {
       facade.startWave();
       await settle();
       expect(startedTypes()).toEqual(['worm']);
-      expect(store.aiExplanation()?.summary).toContain('Boss: Chitin Worm');
+      expect(store.aiExplanation()?.summary).toContain('Boss: Skarnax');
       expect(collector.setCurrentWaveConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ templateName: 'Boss: Chitin Worm' }),
+        expect.objectContaining({ templateName: 'Boss: Skarnax' }),
       );
     });
 

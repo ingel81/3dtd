@@ -45,9 +45,9 @@ describe('Jump to wave section, playtest 378 and 380 replayed', () => {
   const enter = (value: string) =>
     debuggerPanel.onJumpWaveChange({ target: { value } } as unknown as Event);
 
-  it('378: before W1 the field holds 35, named "Boss: Chitin Worm", gold on, "Jump: next start Wave 35"', () => {
+  it('378: before W1 the field holds 35, named "Boss: Skarnax", gold on, "Jump: next start Wave 35"', () => {
     expect(debuggerPanel.jumpWave()).toBe(35);
-    expect(debuggerPanel.jumpWaveName()).toBe('Boss: Chitin Worm');
+    expect(debuggerPanel.jumpWaveName()).toBe('Boss: Skarnax');
     expect(debuggerPanel.jumpGrantGold()).toBe(true);
     expect(debuggerPanel.jumpLabel()).toBe('Jump: next start Wave 35');
     expect(debuggerPanel.canJump()).toBe(true);
