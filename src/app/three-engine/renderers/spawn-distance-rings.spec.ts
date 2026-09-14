@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Vector2, Vector3 } from 'three';
+import { Vector2, Vector3, Vector4, type WebGLRenderer } from 'three';
 import type { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { groundCirclePositions, SpawnDistanceRings, type RingGround } from './spawn-distance-rings';
@@ -76,6 +76,19 @@ describe('SpawnDistanceRings', () => {
 
     // 48 dashes around the ring, whatever its radius: 2 pi r / 48 per period
     expect(line.dashSize + line.gapSize).toBeCloseTo((2 * Math.PI * 200) / 48, 0);
+  });
+
+  it('takes the canvas size before every draw, so the pixel width follows a resize from the next frame', () => {
+    const rings = new SpawnDistanceRings(ground(), HQ, [{ radiusM: 200, color: 0xc96a3a }], new Vector2(1600, 900));
+    // After ThreeTilesEngine.resize(): renderer.setSize() set the viewport, in CSS px
+    const renderer = { getViewport: (target: Vector4) => target.set(0, 0, 1280, 720) } as unknown as WebGLRenderer;
+
+    const lines = rings.group.children as Line2[];
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      line.onBeforeRender(renderer);
+      expect((line.material as LineMaterial).resolution.equals(new Vector2(1280, 720))).toBe(true);
+    }
   });
 
   it('frees its lines on dispose', () => {

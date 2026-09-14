@@ -92,7 +92,10 @@ export class SpawnDistanceRings {
   readonly group = new Group();
 
   /**
-   * @param resolution Size of the canvas in CSS px, for the pixel width
+   * @param resolution Size of the canvas in CSS px, for the pixel width. Line2
+   *   sets it again from the renderer's viewport before every draw
+   *   (LineSegments2.onBeforeRender), so the width follows a resize; the value
+   *   here only stands until the first draw.
    */
   constructor(ground: RingGround, center: { lat: number; lon: number }, rings: readonly DistanceRing[], resolution: Vector2) {
     this.group.name = 'spawnDistanceRings';
