@@ -20,6 +20,8 @@ describe('CorridorRefit', () => {
       enemies: 0,
       wave: false,
       intro: false,
+      /** The hint while the HQ moves stands. */
+      hurried: false,
       changed: true,
       unmeasured: true,
       clock: 0,
@@ -35,6 +37,7 @@ describe('CorridorRefit', () => {
       enemyCount: () => state.enemies,
       waveRunning: () => state.wave,
       introRunning: () => state.intro,
+      hurried: () => state.hurried,
       beginMeasurement: vi.fn(() => {
         calls.push('measure');
         let left = state.slices;
@@ -184,6 +187,31 @@ describe('CorridorRefit', () => {
 
       expect(calls).toEqual(['measure', 'cancel: routes replaced', 'measure', 'commit', 'rebuild']);
       expect(runs[0].budgets).toHaveLength(1);
+    });
+
+    it('measures in larger slices while the player waits for it, and back in the small ones once the hint is gone', () => {
+      const { refit, state, calls, runs, runFrames } = setup();
+      state.slices = 4;
+      state.hurried = true;
+
+      refit.fitToTiles();
+      runFrames();
+      state.hurried = false;
+      runFrames(2);
+
+      expect(CorridorRefit.HURRIED_BUDGET_MS).toBeGreaterThan(BUDGET);
+      expect(runs[0].budgets).toEqual([
+        CorridorRefit.HURRIED_BUDGET_MS, CorridorRefit.HURRIED_BUDGET_MS, BUDGET, BUDGET,
+      ]);
+      expect(calls).toEqual(['measure', 'commit', 'rebuild']);
+    });
+
+    it('keeps the small slices for a re-measurement nobody waits for', () => {
+      const { refit, state, runs, runFrames } = setup();
+      state.slices = 2;
+      refit.remeasure();
+      runFrames();
+      expect(runs[0].budgets).toEqual([BUDGET, BUDGET]);
     });
 
     it('stops the frames and drops the run on dispose', () => {

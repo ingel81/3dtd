@@ -9,6 +9,7 @@ import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
 import { HeroControlService } from '../hero-control.service';
 import { MapPlacementService } from '../world/map-placement.service';
+import { RelocationStatusService } from '../world/relocation-status.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -97,6 +98,7 @@ export class VisualizationFacadeService {
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly store = inject(TowerDefenseStore);
   private readonly engineStore = inject(EngineStore);
+  private readonly relocationStatus = inject(RelocationStatusService);
 
   /** When the route corridor is measured and rebuilt (CorridorRefit). */
   private readonly corridor = new CorridorController({
@@ -106,6 +108,7 @@ export class VisualizationFacadeService {
     pathRoute: this.pathRoute,
     routeAnimation: this.routeAnimation,
     store: this.store,
+    relocationStatus: this.relocationStatus,
   });
 
   /** `__corridor` in DevTools, see CorridorConsole. */
