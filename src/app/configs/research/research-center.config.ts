@@ -7,30 +7,26 @@
 
 export interface ResearchCenterLevelConfig {
   level: number;
-  upgradeCost: number;           // Credits to reach this level (0 for base)
   researchSlots: number;         // Concurrent research slots at this level
   description: string;           // Human-readable description
 }
 
 /**
- * Research Center level progression.
- * Level 1 = base (placed at cost 150), Level 2-3 = upgrades.
+ * Research Center level progression. Placed at
+ * `TOWER_TYPES['research-center'].cost` (75); upgrading to the next level
+ * costs the `research-slots` upgrade track on that tower type (120, then
+ * 216 with its 1.8 costScaling), not a value in this file.
  */
 export const RESEARCH_CENTER_LEVELS: ResearchCenterLevelConfig[] = [
-  { level: 1, upgradeCost: 0,   researchSlots: 1, description: 'Basic Research (1 Slot)' },
-  { level: 2, upgradeCost: 180, researchSlots: 2, description: 'Expanded Research (2 Slots)' },
-  { level: 3, upgradeCost: 350, researchSlots: 3, description: 'Advanced Research (3 Slots)' },
+  { level: 1, researchSlots: 1, description: 'Basic Research (1 Slot)' },
+  { level: 2, researchSlots: 2, description: 'Expanded Research (2 Slots)' },
+  { level: 3, researchSlots: 3, description: 'Advanced Research (3 Slots)' },
 ];
 
 /**
  * Research Center global constants.
  */
 export const RESEARCH_CENTER_CONFIG = {
-  /** Cost to place the Research Center */
-  // Placement cost actually comes from TOWER_TYPES['research-center'].cost
-  // (75). This field has no consumers and is kept only as documentation of
-  // the level-1 price in the cost table below.
-  baseCost: 150,
   /** Maximum building level */
   maxLevel: 3,
   /** Percentage of credits refunded when cancelling active research (0.0 - 1.0) */
