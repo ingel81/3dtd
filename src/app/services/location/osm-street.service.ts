@@ -91,6 +91,54 @@ const ROAD_TYPE_WEIGHTS: Record<string, number> = {
 /** Default weight for unknown street types */
 const DEFAULT_ROAD_WEIGHT = 1.5;
 
+/** An element of an Overpass answer, as far as the parsers read it. */
+interface OverpassElement {
+  type: string;
+  id: number;
+  lat?: number;
+  lon?: number;
+  nodes?: number[];
+  tags?: Record<string, string>;
+}
+
+/** An Overpass answer. */
+interface OverpassResponse {
+  elements: OverpassElement[];
+  /** Set when the server ran into a limit (memory, time); the elements may be cut short then. */
+  remark?: string;
+}
+
+/** One answer of one Overpass server and how long it took, see OsmStreetService.askOverpass. */
+interface OverpassAnswer {
+  data: OverpassResponse;
+  /** Length of the JSON text, about its bytes unpacked. */
+  chars: number;
+  /** From the request to the headers, and from there to the end of the body. */
+  headersMs: number;
+  bodyMs: number;
+}
+
+/**
+ * Time a server gets to start its answer (the headers) before the attempt
+ * is aborted. The body after the headers has no limit.
+ */
+const OVERPASS_HEADER_TIMEOUT_MS = 15000;
+
+/** `[OSM] <what> from <host>: ...` for an answer: where its time went and what came. */
+function logOverpassAnswer(what: string, server: string, answer: OverpassAnswer): void {
+  let ways = 0;
+  let nodes = 0;
+  for (const element of answer.data.elements) {
+    if (element.type === 'way') ways++;
+    else if (element.type === 'node') nodes++;
+  }
+  const remark = answer.data.remark ? ` remark="${answer.data.remark}"` : '';
+  console.warn(
+    `[OSM] ${what} from ${new URL(server).host}: headers=${answer.headersMs.toFixed(0)} body=${answer.bodyMs.toFixed(0)}ms ` +
+    `size=${(answer.chars / 1e6).toFixed(1)}MB ways=${ways} nodes=${nodes}${remark}`,
+  );
+}
+
 type StreetTags = Pick<Street, 'width' | 'lanes' | 'bridge' | 'tunnel' | 'covered' | 'layer'>;
 
 /**
@@ -223,70 +271,108 @@ export class OsmStreetService {
       out skel qt;
     `;
 
-    // Try each server until one works
-    let lastError: Error | null = null;
-
-    for (const server of this.OVERPASS_SERVERS) {
-      try {
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-
-        const response = await fetch(server, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: `data=${encodeURIComponent(query)}`,
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`OSM API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        const network = this.parseOverpassResponse(data, bounds);
-
-        // Check if any streets were found
-        if (network.streets.length === 0) {
+    let network: StreetNetwork;
+    try {
+      // An answer without streets hands over to the next server as well.
+      network = await this.fetchOverpass('streets', query, (data) => {
+        const parsed = this.parseOverpassResponse(data, bounds);
+        if (parsed.streets.length === 0) {
           throw new Error('No streets found in this area. Choose a different location.');
         }
-
-        // Cache the result to IndexedDB (async, fire-and-forget)
-        this.streetCache.save(cacheKey, network).catch((err) => {
-          console.warn('[OSM] Failed to cache to IndexedDB:', err);
-        });
-
-        return network;
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        // Continue to next server
-      }
+        return parsed;
+      });
+    } catch (error) {
+      console.error('[OSM] All Overpass servers failed');
+      // Provide user-friendly error message
+      const userMessage = 'OSM server unreachable. Check your internet connection.';
+      throw error instanceof Error && error.message.includes('No streets')
+        ? error
+        : new Error(userMessage);
     }
 
-    console.error('[OSM] All Overpass servers failed');
-    // Provide user-friendly error message
-    const userMessage = 'OSM server unreachable. Check your internet connection.';
-    throw lastError?.message?.includes('No streets')
-      ? lastError
-      : new Error(userMessage);
+    // Cache the result to IndexedDB (async, fire-and-forget)
+    this.streetCache.save(cacheKey, network).catch((err) => {
+      console.warn('[OSM] Failed to cache to IndexedDB:', err);
+    });
+
+    return network;
+  }
+
+  /**
+   * Post `query` to the Overpass servers one after the other and return
+   * what `accept` makes of the first answer it takes. A server that fails,
+   * does not start its answer within OVERPASS_HEADER_TIMEOUT_MS or whose
+   * answer `accept` throws on hands over to the next. Every attempt is
+   * logged: an answer with the time to its headers and on to the end of its
+   * body, its size and what came (logOverpassAnswer), a failure with its
+   * time and reason. So a slow load shows whether a server was slow to
+   * start or its answer was long. Rejects with the last error when none
+   * answered.
+   *
+   * @param what What is loaded, for the log
+   */
+  private async fetchOverpass<T>(what: string, query: string, accept: (data: OverpassResponse) => T): Promise<T> {
+    let lastError: Error | null = null;
+    for (const server of this.OVERPASS_SERVERS) {
+      const start = performance.now();
+      try {
+        const answer = await this.askOverpass(server, query, new AbortController());
+        logOverpassAnswer(what, server, answer);
+        return accept(answer.data);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.warn(
+          `[OSM] ${what} from ${new URL(server).host} failed after ${(performance.now() - start).toFixed(0)}ms: ${lastError.message}`,
+        );
+      }
+    }
+    throw lastError ?? new Error('No Overpass server to ask');
+  }
+
+  /**
+   * Post `query` to one Overpass server and read its answer. Aborted
+   * through `controller`, and by itself when the headers take longer than
+   * OVERPASS_HEADER_TIMEOUT_MS.
+   */
+  private async askOverpass(server: string, query: string, controller: AbortController): Promise<OverpassAnswer> {
+    const start = performance.now();
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, OVERPASS_HEADER_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(server, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `data=${encodeURIComponent(query)}`,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      throw timedOut ? new Error(`no answer within ${OVERPASS_HEADER_TIMEOUT_MS}ms`) : error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    const headersAt = performance.now();
+    if (!response.ok) {
+      throw new Error(`OSM API error: ${response.status}`);
+    }
+    const text = await response.text();
+    return {
+      data: JSON.parse(text) as OverpassResponse,
+      chars: text.length,
+      headersMs: headersAt - start,
+      bodyMs: performance.now() - headersAt,
+    };
   }
 
   private parseOverpassResponse(
-    data: {
-      elements: {
-        type: string;
-        id: number;
-        lat?: number;
-        lon?: number;
-        nodes?: number[];
-        tags?: Record<string, string>;
-      }[];
-    },
+    data: { elements: OverpassElement[] },
     bounds: StreetNetwork['bounds']
   ): StreetNetwork {
     const nodes = new Map<number, StreetNode>();
@@ -711,51 +797,20 @@ export class OsmStreetService {
       out skel qt;
     `;
 
-    let lastError: Error | null = null;
-
-    for (const server of this.OVERPASS_SERVERS) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-        const response = await fetch(server, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `data=${encodeURIComponent(query)}`,
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`OSM API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const buildings = this.parseBuildingResponse(data);
-
-        console.log(`[OSM] Loaded ${buildings.length} building footprints`);
-        return { buildings };
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-      }
+    let buildings: BuildingFootprint[];
+    try {
+      buildings = await this.fetchOverpass('buildings', query, (data) => this.parseBuildingResponse(data));
+    } catch (error) {
+      console.error('[OSM] All Overpass servers failed for buildings');
+      throw error instanceof Error ? error : new Error('Failed to load buildings');
     }
 
-    console.error('[OSM] All Overpass servers failed for buildings');
-    throw lastError ?? new Error('Failed to load buildings');
+    console.log(`[OSM] Loaded ${buildings.length} building footprints`);
+    return { buildings };
   }
 
   private parseBuildingResponse(
-    data: {
-      elements: {
-        type: string;
-        id: number;
-        lat?: number;
-        lon?: number;
-        nodes?: number[];
-        tags?: Record<string, string>;
-      }[];
-    }
+    data: { elements: OverpassElement[] }
   ): BuildingFootprint[] {
     const nodes = new Map<number, StreetNode>();
     const buildings: BuildingFootprint[] = [];
