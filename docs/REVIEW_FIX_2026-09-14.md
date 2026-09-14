@@ -848,6 +848,20 @@ abarbeiten.
   Gespeicherte Orte (URL, Favoriten) setzen ihr Portal jetzt am Fußpunkt,
   also etwas anders als vorher.
 
+**Review D (Nachmittags-Merges) und fixrev3:** 0 hoch, 1 mittel, 5
+niedrig. Behoben: wartende Gegner-Loops prüfen die Hördistanz jetzt über
+die Weltmatrix der Kamera statt `getWorldPosition()` je Gegner und
+Sub-Step (`44fd9dc0`, Spec: 200 Prüfungen, 0 Aufrufe); die 32-ms-Scheiben
+der Korridor-Messung gelten nur noch, solange "Measuring the corridor"
+steht, nicht beim Straßenladen (`1e16bebf`). Die Linienbreite der
+Spawn-Ringe folgt einem Resize schon, weil three sie vor jedem Zeichnen
+setzt (nur Spec). Offen als Messung: "Set spawn" fragt für die Ringe 194
+Säulen synchron ab; **Nachtest:** Konsole `__raycastStats(true)`, "Set
+spawn" (erstes Mal nach dem Laden), `__raycastStats()`, Zeile `spawnRings`
+lesen (`totalMs`, `maxBurstMs`). Ein Hänger beim ersten Tower oder
+Wellenstart im Intro-Flug (volle Erstmessung am Stück) ist als Messpunkt
+vermerkt (`flushed=tower` im Log).
+
 **Vorab**
 
 501. Echten Ort laden, Konsole offen, Intro-Flug abwarten: keine rote Zeile.
