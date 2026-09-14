@@ -41,26 +41,10 @@ import { GameCommandsHandler } from '../managers/game-commands.handler';
 import type { GameStateManager } from '../managers/game-state.manager';
 import { HERO, type HeroStatus } from '../configs/hero.config';
 import { heroPanelView } from '../components/game-sidebar/hero-panel/hero-panel';
-import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
-import type { GeoPosition } from '../models/game.types';
+import { at, local, line } from '../../test/geo-test-points';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
-const LAT0 = 48.7758;
-const LON0 = 9.1829;
-const COS = Math.cos(LAT0 * DEG_TO_RAD);
-
-/** Geo position `x` metres east and `z` metres north of the origin. */
-const at = (x: number, z: number): GeoPosition => ({
-  lat: LAT0 + z / METERS_PER_DEGREE_LAT,
-  lon: LON0 + x / (METERS_PER_DEGREE_LAT * COS),
-});
-/** Metres east and north of the origin, rounded to decimetres. */
-const local = (p: GeoPosition) => ({
-  x: Math.round((p.lon - LON0) * METERS_PER_DEGREE_LAT * COS * 10) / 10,
-  z: Math.round((p.lat - LAT0) * METERS_PER_DEGREE_LAT * 10) / 10,
-});
-const line = (...points: [number, number][]): GeoPosition[] => points.map(([x, z]) => at(x, z));
 
 /** Two spawns, south and west, joining at (0, 150) and running north to the HQ at (0, 300) */
 const ROUTES = new Map([

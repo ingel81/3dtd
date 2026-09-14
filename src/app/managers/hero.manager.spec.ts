@@ -3,28 +3,13 @@ import { HeroManager, type HeroShot, type HeroWorld } from './hero.manager';
 import { RouteGraph } from '../utils/route-graph';
 import { GameEventBus, type GameEvent } from '../game-engine/game-event-bus';
 import { HERO, HERO_AMMO } from '../configs/hero.config';
-import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { ROUTE_BODY_AIM_HEIGHT_M } from '../utils/route-body';
+import { at, local, line } from '../../test/geo-test-points';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
-const LAT0 = 48.7758;
-const LON0 = 9.1829;
-const COS = Math.cos(LAT0 * DEG_TO_RAD);
-
-/** Geo position `x` metres east and `z` metres north of the origin. */
-const at = (x: number, z: number): GeoPosition => ({
-  lat: LAT0 + z / METERS_PER_DEGREE_LAT,
-  lon: LON0 + x / (METERS_PER_DEGREE_LAT * COS),
-});
-/** Metres east and north of the origin, rounded to decimetres. */
-const local = (p: GeoPosition) => ({
-  x: Math.round((p.lon - LON0) * METERS_PER_DEGREE_LAT * COS * 10) / 10,
-  z: Math.round((p.lat - LAT0) * METERS_PER_DEGREE_LAT * 10) / 10,
-});
-const line = (...points: [number, number][]): GeoPosition[] => points.map(([x, z]) => at(x, z));
 
 /**
  * Two spawns: south at (0, 0), west at (-150, 150). They join at (0, 150)
