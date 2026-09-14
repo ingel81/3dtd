@@ -110,11 +110,13 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 | [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md) | Game Design (Schadenstypen, Ruestung, Balance) |
 | [BALANCE_PROPOSAL_2026-09.md](docs/game-design/BALANCE_PROPOSAL_2026-09.md) | Balance-Vorschlag (Upgrade-Kurven, Cannon, Matrix, Boss-Takt), im Sprint 2026-09-11 umgesetzt, offene Fragen am Ende |
 | [PLAYER_AGENCY_CONCEPT.md](docs/game-design/PLAYER_AGENCY_CONCEPT.md) | _Konzept:_ Spielerfähigkeiten und Held; Entscheidung 2026-09-12 in Abschnitt 7 |
+| [HERO.md](docs/HERO.md) | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition, Fairness-Gate, Bedienung (G, V) |
 | [INSTANCED_ENEMY_RENDERING.md](docs/INSTANCED_ENEMY_RENDERING.md) | GPU Instancing mit VAT (Draw Call Reduktion) |
 | [ENEMY_MODEL_BUDGET.md](docs/ENEMY_MODEL_BUDGET.md) | Gegnermodelle vermessen, Budget je Klasse (`npm run model-budget`) |
 | [MULTIPLAYER_CONCEPT.md](docs/MULTIPLAYER_CONCEPT.md) | _Plan:_ PvE-Coop & PvP - Determinismus-Blocker, Server-Entwurf, zwei Zielmodi. Kein Code |
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](docs/ROUTE_ALIGNED_CELLS_CONCEPT.md) | _Konzept:_ Zellen parallel zur Route statt Nord-Ost-Raster. Kein Code |
 | **Analysen & Berichte** | |
+| [REVIEW_SPRINT_2026-09-14.md](docs/REVIEW_SPRINT_2026-09-14.md) | Handover der Nachtschicht 2026-09-14: Änderungen je Feature mit Revert-Hinweisen, Entscheidungen, Review, Playtest-Liste ab 301 |
 | [REVIEW_SPRINT_2026-09-13.md](docs/REVIEW_SPRINT_2026-09-13.md) | Handover der Nachtschicht 2026-09-13: Änderungen, Entscheidungen, Review, Playtest-Liste ab 101 |
 | [REVIEW_SPRINT_2026-09-12.md](docs/REVIEW_SPRINT_2026-09-12.md) | Letzter Sprint-Handover: Änderungen, Review-Befunde, Playtest-Liste mit Ergebnissen |
 | [ROUTE_GEOMETRY_ANALYSIS.md](docs/ROUTE_GEOMETRY_ANALYSIS.md) | Route vs. Straße: Herleitung des Korridors, Lücken in der LOS-Anzeige |

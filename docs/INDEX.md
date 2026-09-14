@@ -26,9 +26,9 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 |----------|--------|--------------|
 | [TOWER_CREATION.md](TOWER_CREATION.md) | Aktuell | Neue Tower erstellen, rotierende Turrets, Sound-Integration |
 | [ENEMY_CREATION.md](ENEMY_CREATION.md) | Aktuell | Enemies erstellen, Animationen, Audio-System |
-| [STATUS_EFFECTS.md](STATUS_EFFECTS.md) | Aktuell | Status-Effekt-System (Slow, Burn, Poison; Freeze reserviert) |
+| [STATUS_EFFECTS.md](STATUS_EFFECTS.md) | Aktuell | Status-Effekt-System (Slow, Burn, Poison, Freeze als Halt, Stun) |
 | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | Aktuell | Wave-Management, Sub-Step-Spawner, Mixed Waves, Game Phases |
-| [ABILITIES.md](ABILITIES.md) | Aktuell | Spieler-Fähigkeiten, bisher der Nuklearschlag: Ladungen, Zielmodus, Einschlag in Sub-Steps, Leck-Buchung im Gate, Bot-Strategie |
+| [ABILITIES.md](ABILITIES.md) | Aktuell | Spieler-Fähigkeiten (Nuklearschlag, Frostbombe, EMP, Orbitallaser), Fähigkeitenleiste: Ladungen, Zielmodus, Einschlag in Sub-Steps, Leck-Buchung im Gate, Bot-Strategie |
 | [HERO.md](HERO.md) | Aktuell | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition als Schadensart, Stufen, virtueller Tower im Fairness-Gate, Modell-Naht, Bedienung (G, V) |
 | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) | Aktuell | Debug-Pfad ohne Director: `STATIC_WAVE_PROFILES`, UI-Toggle, Post-W30-Loop |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
@@ -76,6 +76,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
+| [REVIEW_SPRINT_2026-09-14.md](REVIEW_SPRINT_2026-09-14.md) | Bericht (Playtest offen) | Nachtschicht 2 auf `sprint/night-2026-09-14`: Änderungen je Feature mit Commit-Bereichen und Revert-Probe, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 301 |
 | [REVIEW_SPRINT_2026-09-13.md](REVIEW_SPRINT_2026-09-13.md) | Bericht (Playtest offen) | Nachtschicht auf `sprint/night-2026-09-13`: Änderungen, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 101 |
 | [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) | Bericht (Playtest läuft) | Zweite Sprint-Runde auf `sprint/todo-2026-09-11`: Änderungen, Review-Befunde, nummerierte Playtest-Liste mit Ergebnissen |
 | [REVIEW_SPRINT_2026-09-11.md](REVIEW_SPRINT_2026-09-11.md) | Bericht | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand. TODO.md 1.6 verweist darauf |
@@ -123,7 +124,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...das UI stylen | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | ...einen Bug fixen | [TODO.md](../TODO.md) |
 | ...wissen, was schon fertig ist | [DONE.md](../DONE.md) |
-| ...den laufenden Playtest-Stand sehen | [REVIEW_SPRINT_2026-09-13.md](REVIEW_SPRINT_2026-09-13.md) → Playtest-Liste, offene alte Punkte in [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) |
+| ...den laufenden Playtest-Stand sehen | [REVIEW_SPRINT_2026-09-14.md](REVIEW_SPRINT_2026-09-14.md) → Playtest-Liste ab 301, offene Punkte der Nacht 1 in [REVIEW_SPRINT_2026-09-13.md](REVIEW_SPRINT_2026-09-13.md) und [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) |
 | ...einen neuen Tower erstellen | [TOWER_CREATION.md](TOWER_CREATION.md) |
 | ...einen neuen Enemy erstellen | [ENEMY_CREATION.md](ENEMY_CREATION.md) |
 | ...wissen, wie teuer ein Gegnermodell ist | [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) |
@@ -131,7 +132,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...das Tower-Placement verstehen | [TOWER_CREATION.md](TOWER_CREATION.md) → Tower-Placement-System |
 | ...Enemy-Animationen konfigurieren | [ENEMY_CREATION.md](ENEMY_CREATION.md) → Animation-System |
 | ...Status-Effekte verstehen | [STATUS_EFFECTS.md](STATUS_EFFECTS.md) |
-| ...den Nuklearschlag (Fähigkeiten) verstehen | [ABILITIES.md](ABILITIES.md) |
+| ...die Fähigkeiten (Nuklearschlag, Frost, EMP, Laser) verstehen | [ABILITIES.md](ABILITIES.md) |
 | ...den Helden (Söldner) verstehen | [HERO.md](HERO.md) |
 | ...Waves konfigurieren / Mixed Waves bauen | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
 | ...verstehen, wer die Wellen aussucht | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) |
