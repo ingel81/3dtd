@@ -321,8 +321,16 @@ Ausnahmen:
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
   (`path-route.service.ts:493`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
-  (`route-cell-sampler.ts:274`). Erreicht auch ein Segment ohne Brücke dieselbe
-  Zelle, bleibt sie am Boden (`route-grid-builder.ts:223-225`).
+  (`route-cell-sampler.ts:274`). Wo Brücke und Zufahrt aneinanderstoßen,
+  nimmt eine Zelle die Fläche des Segments, entlang dessen Länge sie liegt;
+  das runde Ende des anderen ändert sie nicht (`claimSegmentCells`,
+  `alongClaims`). Erreichen zwei Segmente eine Zelle beide entlang ihrer
+  Länge (eine Straße unter der Brücke) oder beide nur mit dem runden Ende,
+  bleibt sie am Boden. Vorher gewann der Boden immer: Das runde Ende der
+  Zufahrt (bei 7 m Halbbreite 7 m weit) machte die ersten Meter des Decks zu
+  Bodenzellen, und die nahmen den untersten Treffer, den Kai oder Fluss
+  unter dem Deck (Playtest 2026-09-14, Paris, siehe "Linie, Zellen und
+  Gegner verschwinden").
 - **Tunnel und überdachte Durchgänge:** `runsUnderCover`
   (`route-corridor.ts:341`) gilt für `tunnel=*` außer `no` (also auch
   `building_passage`) und für `covered=yes`. Solche Segmente tragen `inTunnel`
@@ -656,19 +664,50 @@ Nur für Diagnose: je Punkt alle 2 m bis zu fünf Säulenproben.
 
 ### Linie, Zellen und Gegner verschwinden (Brücken, Unterführungen)
 
-Befund Paris (TODO 1.10, alte Liste 14): Die Route läuft am Quai an den
-Köpfen einer Brücke vorbei, an zwei Stellen verschwinden Gegner, Zellen und
-rote Linie. Was der Code dazu sagt:
+Befund Paris (TODO 1.10, alte Liste 14, Playtest 564): Route `spawn-1`
+läuft über den Pont d'Iéna (Way 986589650, `service`,
+`bridge=yes layer=1`, 156 m), davor und danach über kurze Ways ohne
+Brücken-Tag mit demselben Namen (1322092756 mit 7 m, 1423074549 mit 2 m,
+1284139443 mit 31 m), überall 7 m je Seite. An beiden Brückenköpfen
+verschwanden Gegner, Zellen und rote Linie. Im Overlay lag das Deck blau,
+an beiden Köpfen lagen weiße und orange Zellen verstreut, zum Teil auf einer
+anderen Ebene. Zwei `pick()` 8 bis 13 m neben der Linie zeigten Säulen mit
+zwei Ebenen: Deck bei 79,7 bis 79,85 m, darunter 70,4 und 71,5 m.
 
+Was der Code dazu sagt:
+
+- **Behoben:** In einer Zelle, die ein Brückensegment und ein Segment ohne
+  Brücke erreichten, gewann bis dahin immer der Boden. Die Zufahrt reicht
+  mit ihrem runden Ende (`jointCap`, bei 7 m auf beiden Stücken 7 m) über
+  die ersten 7 m des Decks. Diese Zellen nahmen den untersten Treffer ihrer
+  Säule, wo das Deck über dem Kai liegt also den Kai 8 bis 9,5 m tiefer.
+  Dazu gehört die Zelle am Waypoint zwischen Brücke und Zufahrt; dort nimmt
+  die rote Linie ihre Höhe und lief von dort unter das Deck, die Gegner auf
+  diesen Zellen ebenso. Randzellen der Zone verwiesen für den Dach-Check auf
+  die Mittellinien-Stelle am Übergang (`axisX`, `axisZ`); lag deren
+  unterster Treffer auf dem Kai, lag eine Randzelle über festem Boden mehr
+  als `roofRise` darüber und wurde orange auf den Kai gesetzt. Seitdem
+  behält eine Zelle entlang der Brücke das Deck (siehe Zellhöhe,
+  Brückendeck).
+- **Kein Fehler der Zellen:** `maxCellAboveStreetM` 9,5 auf dem
+  Brücken-Way. Das gelbe Straßen-Overlay und der Vergleichswert in
+  `__routes.describe()` nehmen je Säule den untersten Treffer
+  (`getGroundHeightEstimate`), auf einer Brücke also Kai oder Fluss. Die
+  Deckzellen liegen 9,5 m darüber.
 - Die rote Linie liegt 1 m (in DevWorld 3 m) über den Zellen der
   Mittellinie und zeichnet mit Tiefentest
   (`route-line-layer.ts`), Gegner ebenso. Das Route Grid Overlay zeichnet
   jede Zelle ohne Tiefentest (`route-grid-aggregate-viz.ts`), eine Zelle
-  unter einer Brücke bliebe dort also sichtbar.
+  unter einer Brücke bliebe dort also sichtbar, in Schrägsicht versetzt.
 - Eine Zelle nimmt den untersten Treffer ihrer Säule, auf einem Segment mit
   `bridge=*` den obersten. Ein Way unter einer Brücke ist in OSM oft ohne
   `tunnel`, nur mit `layer=-1` oder ganz ohne Tag erfasst; dann ist die
   Zelle `ground`.
+- **Offen:** ob die kurzen Ways ohne Brücken-Tag selbst noch über dem Kai
+  liegen, weil das Bauwerk über das Ende des OSM-Brücken-Ways hinausreicht.
+  Dann liegen ihre Zellen weiter auf dem Kai (H2 unten). Das zeigt ein
+  `__corridor.pick()` mit Linksklick direkt auf die rote Linie an einer
+  Stelle, an der sie noch verschwindet.
 
 Ein `__corridor.pick()` je Stelle trennt die Fälle:
 
