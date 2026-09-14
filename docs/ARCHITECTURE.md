@@ -8,27 +8,28 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 
 **Hinweis:** Cesium.js wurde vollständig entfernt. Die Engine basiert jetzt zu 100% auf Three.js.
 
-### Feature-Status (nach Cesium-Cleanup)
+### Systeme im Überblick
 
-- [x] Tower-Platzierung (mit Terrain-Höhe)
-- [x] Tower-Rendering (GLB Modelle)
-- [x] Tower-Selektion (Range-Anzeige mit Terrain-Raycasting)
-- [x] Route LOS Grid (2m Zellenauflösung, Shader-Visualisierung)
-- [x] Enemy-Spawning und Rendering
-- [x] Enemy-Animationen (Walk, Death, Run mit Speed-Multiplier)
-- [x] Animation Speed Coupling (Animation-Geschwindigkeit an Bewegung gekoppelt)
-- [x] Enemy-Heading (folgt Bewegungsrichtung)
-- [x] Pfad-Smoothing (Gegner folgen geglätteten Routen)
-- [x] Projektile (Instanced Rendering mit GLB-Modell)
-- [x] Projektil-Sound (arrow_01.mp3)
-- [x] Blut-Effekte (Partikel + Decals)
-- [x] Feuer-Effekte (bei Basis-Schaden + Game Over)
-- [x] Location-System (Dialog, Random Spawn, Reset-Fix)
-- [x] Air Units (Fledermaus mit heightOffset + heightVariation)
-- [x] Air-LOS (skyline-adaptive Cell-Layer, `airVisibility` pro Cell, `canTargetAir`-Tower routen via `isAirPositionVisibleFromTower`)
-- [x] LOS-Overlay Ground vs Air visuell getrennt (grün=ground, blau=air-only, rot=blocked)
-- [x] Post-Processing-Pipeline (Bloom + Color Grading) als eigene `three-engine/post-processing/` Klasse
-- [ ] Projektil-LoS (nur bei Sichtverbindung treffen)
+| System | Kern im Code | Dokument |
+|---|---|---|
+| Tower (Bau, Upgrades, Sockel, Veteranen-Ränge) | `managers/tower.manager.ts`, `TowerPlacementService`, `TowerLifecycle` | [TOWER_CREATION.md](TOWER_CREATION.md) |
+| Gegner, auch Luft, Ooze und Wurm (Skarnax) | `managers/enemy.manager.ts`, `managers/ooze-bodies.ts`, `managers/worm/` | [ENEMY_CREATION.md](ENEMY_CREATION.md), [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
+| Wellen, Director, Boss-Intro, Blutmond | `managers/wave.manager.ts`, `ai/core/` | [WAVE_SYSTEM.md](WAVE_SYSTEM.md), [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) |
+| Route, Korridor, Zellen | `services/world/path-route.service.ts`, `utils/global-route-grid.ts`, `utils/route-corridor.ts` | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
+| Sichtlinien der Tower (Boden und Luft) | `three-engine/tower-shadow-mapper.ts`, `utils/route-grid-los.ts` | [LOS_PIPELINE.md](LOS_PIPELINE.md) |
+| Kampf, Schaden, Status-Effekte | `services/combat/` | [STATUS_EFFECTS.md](STATUS_EFFECTS.md), [PROJECTILES.md](PROJECTILES.md), [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) |
+| Forschung | `managers/research.manager.ts`, `configs/research/` | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) |
+| Fähigkeiten | `managers/ability.manager.ts` | [ABILITIES.md](ABILITIES.md) |
+| Held (Söldner) | `managers/hero.manager.ts` | [HERO.md](HERO.md) |
+| Replay der letzten Welle | `replay/` | [REPLAY.md](REPLAY.md) |
+| Ort, Straßen, Favoriten, Weltkarte | `services/location/` | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
+| Effekte, Post-Processing, Screen Shake | `three-engine/renderers/`, `three-engine/post-processing/` | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) |
+| Ton und Musik | `managers/audio/`, `game-engine/background-music.service.ts` | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
+| UI, Tasten, Photo Mode, Onboarding | `components/`, `services/` | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
+| Offline-Welt | `devworld/` | [DEVWORLD.md](DEVWORLD.md) |
+
+Offen aus der früheren Feature-Liste: Projektil-LoS (ein Projektil trifft nur bei
+Sichtverbindung).
 
 ### Laufzeit-Abhaengigkeiten
 
@@ -93,80 +94,8 @@ Die Haupt-Komponente wurde durch Extraktion spezialisierter Services modularisie
 am 2026-05-10** sind sie thematisch in Subfolder gruppiert (heute sieben, `onboarding/` kam dazu); Root-Files
 bleiben einige zentrale Service-Klassen, die keinem Subfolder eindeutig zuzuordnen sind.
 
-### Verzeichnisstruktur
-
-```
-src/app/services/
-├── (Root)
-│   ├── camera-control.service.ts
-│   ├── camera-framing.service.ts
-│   ├── camera-overview.ts          ← Hilfsklasse der VisualizationFacade (unten)
-│   ├── economy.service.ts          ← Wave-Completion-Bonus, Perfect-Streak (extrahiert aus GSM, 2026-05-10)
-│   ├── input-handler.service.ts
-│   ├── keyboard-pan.service.ts
-│   ├── tower-placement.service.ts  ← Build-Mode, Preview, Validierung; LOS-API delegiert an:
-│   ├── tower-los-registry.ts       ← Tower-LOS auf dem Route-Grid (Register, Recompute, Stale-Queue)
-│   ├── build-preview-los.ts        ← GPU-LOS-Viz der Build-Preview
-│   └── tower-preview-model.ts      ← Transparenz + Gruen/Rot-Tint des Preview-Modells
-├── combat/
-│   ├── combat-effect.service.ts
-│   ├── combat-vfx.service.ts
-│   ├── damage-application.service.ts
-│   ├── hq-damage.service.ts
-│   ├── status-effect.service.ts
-│   └── tower-combat.service.ts
-├── debug/
-│   ├── corridor-console.ts           ← `__corridor`, Hilfsklasse der VisualizationFacade
-│   ├── debug-facade.service.ts
-│   ├── debug-state-dump.service.ts
-│   ├── debug-window.service.ts
-│   ├── dps-bins-overlay.ts           ← Hilfsklasse der VisualizationFacade
-│   ├── enemy-debug.service.ts
-│   ├── los-debug.service.ts
-│   ├── performance-profiler.service.ts
-│   ├── sound-debug.service.ts
-│   ├── tower-debug.service.ts
-│   └── wave-debug.service.ts
-├── facade/
-│   ├── game-loop-facade.service.ts
-│   ├── location-facade.service.ts
-│   ├── map-relocation.service.ts   ← HQ/Spawn auf der Karte versetzen (in place oder voller Wechsel)
-│   ├── tower-defense-facade.service.ts
-│   └── visualization-facade.service.ts
-├── infrastructure/
-│   ├── asset-manager.service.ts
-│   ├── engine-initialization.service.ts
-│   ├── game-state-sync.service.ts
-│   └── model-preview.service.ts
-├── location/
-│   ├── geocoding.service.ts
-│   ├── geolocation.service.ts
-│   ├── location-change-coordinator.service.ts
-│   ├── location-change-executor.service.ts
-│   ├── location-management.service.ts
-│   ├── osm-street.service.ts
-│   ├── pathfinding-worker.service.ts
-│   ├── street-cache.service.ts
-│   ├── url-location.service.ts
-│   └── world-dice.service.ts
-└── world/
-    ├── building-overlay.ts           ← Hilfsklasse der VisualizationFacade
-    ├── building-rendering.service.ts
-    ├── corridor-controller.ts        ← Hilfsklasse der VisualizationFacade, siehe ROUTE_CORRIDOR.md
-    ├── corridor-refit.ts             ← CorridorRefit, siehe ROUTE_CORRIDOR.md
-    ├── global-route-grid.service.ts
-    ├── height-update.service.ts
-    ├── intro-camera-flight.service.ts
-    ├── intro-loading-gate.ts         ← Hilfsklasse der VisualizationFacade
-    ├── map-placement.service.ts
-    ├── marker-visualization.service.ts
-    ├── path-route.service.ts
-    ├── route-animation.service.ts
-    ├── route-grid-convergence.ts     ← Hilfsklasse der VisualizationFacade
-    ├── spatial-grid.service.ts
-    ├── strategic-placement.service.ts
-    └── street-rendering.service.ts
-```
+Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen daneben
+(`*.spec.ts`), Szenario-Tests als `*.scenario.spec.ts`.
 
 ### Service-Übersicht (nach Subfolder)
 
@@ -178,6 +107,7 @@ src/app/services/
 | **EngineInitializationService** | Loading Sequence mit 10 Boot-Steps (`location` bis `flight`; `location`, `grid` und `flight` setzen andere Services), Progress Tracking |
 | **ModelPreviewService** | 3D Model Previews für Sidebar (Max-Renderer + setViewport pro Preview, kein Re-`setSize()` pro Frame) |
 | **GameStateSyncService** | EventBus → Store Bridge — wave/game/credits/health/tower/enemy/research:state-changed |
+| **RunStatsTracker** (`run-stats.ts`) | Zahlen der Game-Over-Bilanz vom Event-Bus, Angular-frei, gehalten vom GameStateSyncService |
 
 #### (Root) — Camera & Input + zentrale Services
 
@@ -192,6 +122,16 @@ src/app/services/
 | **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
 | **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh, refineCellsInRadius vor LOS-Reg. Tastet die Grundfläche ab (`resolveFootprint`): auf unebenem Grund Fuß auf dem höchsten Punkt, Sockel bis zum tiefsten, schon in der Vorschau |
 | **EconomyService** | Wave-Completion-Bonus + Perfect-Streak (extrahiert aus GameStateManager, 2026-05-10) |
+| **AbilityTargetingService** | Zielmodus einer Fähigkeit: Ring im Radius des Schlags am Cursor, auf die Route gesnappt, Klick sendet `command:use-ability`, siehe [ABILITIES.md](ABILITIES.md) |
+| **HeroControlService** | Held wählen, schicken (`command:hero-move`), anheuern und Munition wechseln, siehe [HERO.md](HERO.md) |
+| **PhotoModeService** | Photo Mode: HUD aus, Screenshot mit Logo und Adresse (`utils/screenshot.ts`), siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#photo-mode) |
+| **ReplayService** | Replay der letzten Welle starten und verlassen: Pause, `ReplayPlayer`, Kamera, Menü und Fokus zurück, siehe [REPLAY.md](REPLAY.md) |
+| **SellConfirmService** | Verkauf in zwei Schritten ohne Dialog (`SELL_CONFIRM_WINDOW_MS`), für Tower- und Research-Panel |
+| **RefusalHintService** | Hinweis in der Context-Hint-Box, wenn eine Fähigkeit oder der Held einen Befehl des Spielers ablehnt |
+| **UpgradeHintService** | Zeile im Panel, wenn ein Upgrade nicht gekauft werden kann (`UPGRADE_HINT_MS`) |
+| **TowerLosRegistry** (`tower-los-registry.ts`) | LOS eines Towers auf dem Route-Grid: Registrieren, Neuberechnen, Warteschlange geänderter Zellen, siehe [LOS_PIPELINE.md](LOS_PIPELINE.md) |
+| `build-preview-los.ts`, `tower-preview-model.ts`, `tower-plinth-preview.ts` | Bauvorschau: LOS-Anzeige, transparentes Modell mit Grün/Rot-Tönung, Sockel |
+| `hotkey-map.ts` | Zuordnung Taste zu Aktion (`resolveHotkey`, `HOTKEY_HELP`) |
 
 #### combat/
 
@@ -203,6 +143,7 @@ src/app/services/
 | **DamageApplicationService** | Damage-Pipeline: Schadensmatrix, Resistances, DOT-Application |
 | **StatusEffectService** | Status-Effekte (Slow, Burn, Poison, Freeze als Halt, Stun) inkl. DOT-Ticks, siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) |
 | **HQDamageService** | HQ Fire Effects, Damage Sounds, Game Over Visuals |
+| **BodyAim** (`body-aim.ts`) | Zielpunkt eines Towers auf einem Körper entlang der Route (Ooze): der nächste Punkt in Reichweite und Sicht |
 
 #### world/
 
@@ -220,6 +161,10 @@ src/app/services/
 | **BuildingRenderingService** | OSM-Gebaeude rendern (DevWorld + Live) |
 | **MapPlacementService** | HQ-Placement, Spawn-Generation, Map-Bounds |
 | **StrategicPlacementService** | Optimale Tower-Positionen entlang Enemy-Pfade |
+| **RelocationStatusService** | Hinweis "MOVING HQ" beim HQ-Umzug mit Schritt und Messfortschritt |
+| `route-line-layer.ts` | Rote Routenlinien (Line2, eine je Spawn-Route) des PathAndRouteService |
+| `route-way-report.ts` | Tabelle für `__routes.describe()`, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#__routesdescribe) |
+| `corridor-controller.ts`, `route-grid-convergence.ts`, `intro-loading-gate.ts`, `building-overlay.ts` | Hilfsklassen der VisualizationFacade (unten) |
 
 #### location/
 
@@ -235,6 +180,17 @@ src/app/services/
 | **PathfindingWorkerService** | A*-Pathfinding ueber Web Worker |
 | **UrlLocationService** | URL-Parameter für Location-Sharing |
 | **WorldDiceService** | Zufällige Städte für Random-Location |
+| **BestWaveService** | Beste Welle je Ort am Event-Bus, Rekord-Hinweis beim Game Over; Liste und Speicher in `best-waves.ts` |
+| `favorite-locations.ts`, `recent-locations.ts` | Favoriten und zuletzt gespielte Orte: Laden, Speichern, Ordnen (reine Funktionen) |
+| `street-box.ts` | Kasten der Straßenabfrage und der Rest nach schon geladenen Straßen (`boxMinus`, `mergeStreets`) |
+
+Details: [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md).
+
+#### onboarding/
+
+| Service | Verantwortung |
+|---------|---------------|
+| **OnboardingService** | First-Run-Tipps in der Context-Hint-Box, Fortschritt vom Event-Bus, gespeichert unter `td_onboarding_v2`; die Zustandsmaschine liegt in `onboarding.ts`, siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#first-run-tipps) |
 
 #### debug/
 
@@ -1404,217 +1360,37 @@ Richtung des letzten Ziels. Der Idle-Spin des Magic-Towers ohne Ziel ist rein vi
 
 ## 10. Dateistruktur
 
-```
-src/app/
-├── app.ts, app.config.ts, app.routes.ts  # Root-Component, Provider, Routing
-├── tower-defense.component.ts    # Haupt-Component (~810 Zeilen)
-├── tower-defense.component.html  # Template, Debug-Fenster in einem @defer-Block
-├── tower-defense.component.scss
-│
-├── ai/                           # Wave Director, Bot System, Training Hooks
-│   ├── core/
-│   │   ├── rule-director.ts      # Regel-Director (Default): Template + 4 Formfaktoren
-│   │   ├── gate-controller.ts    # Regelkreis fuer den Fairness-Cap (Leak-Quote)
-│   │   ├── wave-director.service.ts  # Einstieg getNextWave, Regeln oder optionaler ONNX-Pfad
-│   │   ├── wave-config-builder.ts    # buildWaveConfig: Entscheidung → Welle (beide Directors)
-│   │   ├── onnx-policy.ts        # ONNX-Runtime + Session, decodeModelOutput
-│   │   ├── templates.ts          # Template-Tabelle, Mask, fairMaxCount
-│   │   ├── wave-context.ts       # Mask + Ranges + Fairness-Headroom (Encoder/Decoder-Sync)
-│   │   ├── wave-config-adapter.ts# AIWaveConfig → WaveConfig (SpawnSchedule)
-│   │   ├── ai-data-collector.service.ts # Snapshots, Wave-History, onWaveResult-Hook
-│   │   └── ...                   # Encoder, Defense-Analyzer, DPS-Profil, Explainer
-│   └── training/                 # Bots (Strategy Pattern), Strategies, TrainingClient
-│
-├── services/                     # Angular Services — vollstaendige Liste oben unter "Verzeichnisstruktur"
-│   ├── (Root)                    # economy, tower-placement, camera-*, keyboard-pan, input-handler
-│   ├── combat/                   # Tower-Combat, Damage-Application, Status-Effect, Combat-Effect/Vfx, HQ-Damage
-│   ├── debug/                    # Debug-Facade + Wave/Tower/Enemy/Sound/LOS-Debug, Performance-Profiler, Debug-Window, State-Dump
-│   ├── facade/                   # TowerDefense/GameLoop/Visualization/Location-Facades
-│   ├── infrastructure/           # Asset-Manager, EngineInit, GameStateSync, ModelPreview
-│   ├── location/                 # Geocoding, Geolocation, OsmStreet, PathfindingWorker, etc.
-│   └── world/                    # Marker, Path/Route, Grid (Global/Spatial), Height, Streets, Buildings, Intro-Kamerafahrt, CorridorRefit
-│
-├── managers/                     # Manager-Dateien (event-driven, Angular-frei)
-│   ├── entity-manager.ts         # Base class
-│   ├── game-state.manager.ts     # Orchestrator: Game-Loop, Event-Wiring, subManagers[] + dispose()
-│   ├── game-state/               # Vom GSM gehalten: GameClock, CreditsLedger, BaseHealthLedger, TowerLifecycle, summarizeWaveGroups
-│   ├── game-commands.handler.ts  # Routing der `command:*`- und vier `debug:*`-Events (extrahiert aus GSM, 2026-05-10)
-│   ├── enemy.manager.ts          # Enemy Lifecycle
-│   ├── tower.manager.ts          # Tower Lifecycle
-│   ├── projectile.manager.ts     # Projectile Lifecycle
-│   ├── wave.manager.ts           # Wave Management (templates, mixed waves)
-│   ├── worm/                     # Wurm-Boss: WormGroup (Slots, Ketten, Split), WormChains (Sub-Step, Portal, Ziele), WormPath (Bögen an Ecken)
-│   ├── research.manager.ts       # Forschungs-System (Effects, Tick) — emittiert `research:state-changed`
-│   └── audio/                    # Audio-Subsystem
-│       ├── spatial-audio.manager.ts    # 3D Audio Manager
-│       ├── spatial-audio-playback.ts   # Playback-Logik
-│       ├── audio-buffer-cache.ts       # LRU Buffer Cache
-│       └── audio-pool.manager.ts       # Audio Pool
-│
-├── game-engine/                  # Framework-agnostic Engine-Services
-│   ├── index.ts
-│   ├── game-event-bus.ts         # Event Bus + GameEvent Union + SubscriptionBag
-│   ├── vfx.service.ts            # VFX Event Handler
-│   ├── audio.service.ts          # Audio Event Handler
-│   ├── background-music.service.ts
-│   ├── screen-shake.service.ts   # Event Handler, Hüllkurve in three-engine/screen-shake.ts
-│   └── game-manager.interface.ts # IGameManager
-│
-├── three-engine/                 # Three.js Engine
-│   ├── three-tiles-engine.ts     # Haupt-Engine: Scene, Renderer, TilesRenderer, Frame-Ablauf
-│   ├── camera-rig.ts             # Controls + Startposition der Kamera (seit 2026-09-11)
-│   ├── ground-pick-root.ts       # Raycast-Ziel der GlobeControls: nur die Tiles (seit 2026-09-13)
-│   ├── tile-loading-tracker.ts   # Erster Tile-Load, Retry, Auth-Fehler, Tile-Stats (seit 2026-09-11)
-│   ├── render-loop.ts            # rAF-Loop, FPS-Cap, Heartbeat für versteckte Tabs (seit 2026-09-13)
-│   ├── terrain-queries.ts        # Boden-, Freiraum- und LOS-Raycasts mit Säulen-Cache (seit 2026-09-13)
-│   ├── scene-environment.ts      # Statische Lichter + Himmel (seit 2026-09-13)
-│   ├── column-sample.ts          # Was eine senkrechte Terrain-Probe getroffen hat (ohne Three.js)
-│   ├── route-corridor-region.ts  # Load-Region, hält den Routen-Korridor auf feinem LOD
-│   ├── tower-shadow-mapper.ts    # Tiefen-Cubemap vom Tower-Tip (GPU-LOS)
-│   ├── screen-shake.ts           # Shake-Hüllkurve in Wanduhr-Zeit
-│   ├── screen-shake-benchmark.ts
-│   ├── scene-warmup.ts           # Warm-up beim Laden (Shader, leere Pools)
-│   ├── vfx-settings.ts           # Abschaltbare Effekte (Display-Menü)
-│   ├── tile-material-log.ts      # Diagnose: welche Materialien Szenenlichter rechnen
-│   ├── screen-picker.ts          # Boden und Tower unter dem Mauszeiger (seit 2026-09-13)
-│   ├── tiles-renderer-setup.ts   # TilesRenderer-Aufbau + Streaming-Budget (seit 2026-09-13)
-│   ├── ellipsoid-sync.ts         # Koordinaten
-│   ├── index.ts                  # Exports
-│   ├── post-processing/          # Bloom + Color Grading (eigene Pipeline-Klasse seit 2026-05-10)
-│   │   ├── post-processing-pipeline.ts
-│   │   └── color-grading.ts
-│   └── renderers/
-│       ├── index.ts              # CoordinateSync Interface
-│       ├── three-tower.renderer.ts
-│       ├── three-projectile.renderer.ts
-│       ├── three-effects.renderer.ts        # Fassade über die Effekt-Module (Abschnitt 6.5)
-│       ├── particle-pool-manager.ts
-│       ├── particle-effects-renderer.ts
-│       ├── mushroom-cloud.renderer.ts       # Atompilz in Spielzeit; Teile: mushroom-cloud-shape/-glow/-smoke/-blast.ts
-│       ├── particle-shaders.ts
-│       ├── environment-effects-renderer.ts
-│       ├── aura-renderer.ts
-│       ├── scorch-marks.ts
-│       ├── three-flame-beam.renderer.ts
-│       ├── three-tentacle.renderer.ts
-│       ├── lightning-bolt.renderer.ts       # Chain-Bolts + Idle-Crackle + Impact-Halos (Lightning Tower)
-│       ├── lightning-bolt-shaders.ts
-│       ├── trail-streak.renderer.ts
-│       ├── decal-instance.manager.ts
-│       ├── decal-shaders.ts
-│       ├── magic-orb-shaders.ts
-│       ├── tentacle-shaders.ts
-│       ├── sprite-atlas-generator.ts
-│       ├── draw-gate.ts          # Leere Pools aus der Render-Liste nehmen
-│       ├── instance-slot-allocator.ts # Update-Ranges pro Instanz-Slot
-│       ├── instanced-enemy/      # VAT-instanced enemy renderer
-│       ├── tower-plinth/         # Steinsockel unter Towern auf unebenem Grund
-│       ├── floating-text/        # GPU-instanzierte Schadenszahlen
-│       └── marker/               # HQ-Marker + Labels (marker-shaders.ts), Spawn-Portale (spawn-portal-*.ts), Range-Discs
-│
-├── devworld/                     # DevWorld Offline-Entwicklungsumgebung
-│
-├── entities/
-│   ├── enemy.entity.ts
-│   ├── enemy-rush.ts             # Gehen/Rennen-Wechsel als Simulationszustand
-│   ├── tower.entity.ts
-│   ├── tower-targeting.util.ts
-│   └── projectile.entity.ts
-│
-├── game-components/
-│   ├── transform.component.ts
-│   ├── health.component.ts
-│   ├── movement.component.ts
-│   ├── combat.component.ts
-│   ├── render.component.ts
-│   └── audio.component.ts
-│
-├── core/
-│   ├── game-object.ts
-│   ├── component.ts
-│   └── services/config.service.ts
-│
-├── store/                        # Signal Stores (Single Source of Truth)
-│   ├── tower-defense.store.ts    # Root-Store (Aggregat-Fassade)
-│   ├── tower-defense.store.types.ts
-│   ├── game.store.ts             # Game State (credits, health, phase, wave)
-│   ├── ui.store.ts               # UI State (toggles, build mode, persistence)
-│   ├── engine.store.ts           # Engine Stats (fps, tiles, camera, loading)
-│   ├── location.store.ts         # Location (coords, spawns, streets)
-│   ├── research.store.ts         # Research-State (active, completed, locks)
-│   └── debug.store.ts            # Wave/Tower/Enemy-Debug-State
-│
-├── configs/
-│   ├── tower-types.config.ts
-│   ├── enemy-types.config.ts     # (2026-05-10 aus models/ migriert)
-│   ├── projectile-types.config.ts
-│   ├── visual-effects.config.ts
-│   ├── audio.config.ts
-│   ├── background-music.config.ts
-│   ├── attributions.config.ts
-│   ├── combat-tuning.config.ts
-│   ├── game-balance.config.ts
-│   ├── los-viz.config.ts         # LOS_VIZ_CONFIG (Farben der LOS- und Grid-Visualisierung)
-│   ├── map-constants.config.ts
-│   ├── marker-geometry.config.ts
-│   ├── placement.config.ts
-│   ├── timing.config.ts
-│   ├── wave-curriculum.config.ts # (2026-05-10 aus ai/core/ migriert)
-│   ├── combat/                   # damage-matrix.config, combat.types, combat-ui.config
-│   └── research/                 # research-tree.config, research-center.config, research.types
-│
-├── models/
-│   ├── game.types.ts
-│   ├── location.types.ts
-│   └── status-effects.ts
-│   # (enemy-types.ts ist 2026-05-10 nach configs/enemy-types.config.ts umgezogen)
-│
-├── styles/
-│   └── td-theme.ts               # Theme-Konstanten + CSS-Vars
-│
-├── utils/                        # Reine Hilfsmodule (Auswahl)
-│   ├── geo-utils.ts              # Haversine, Fast Distance
-│   ├── global-route-grid.ts      # GlobalRouteGrid, dazu route-cell*.ts, route-grid-*.ts (Abschnitt 11)
-│   ├── route-corridor.ts         # Korridorbreite pro Seite, siehe ROUTE_CORRIDOR.md
-│   ├── tower-los-viz.ts          # TowerLosViz, mit tower-los-layer-builder.ts und gpu-cube-resolve.ts (GPU-LOS)
-│   ├── tower-placement-rules.ts
-│   ├── display-options.storage.ts # td_display_options
-│   ├── frame-pacer.ts            # Frame-Cap
-│   ├── damage-calculator.ts
-│   ├── flight-*.ts, camera-*.ts  # Intro-Kamerafahrt, Kamera-Framing, Kamera-Timeline
-│   └── ...                       # raycast-stats, los-perf, route-ways, route-path.util, enemy-aim.util, ...
-│
-├── workers/
-│   ├── pathfinding.worker.ts     # A*-Pathfinding
-│   └── heartbeat.worker.ts       # Takt für den Game Loop im versteckten Tab (Training)
-│
-├── interfaces/                   # Provider-Interfaces für Straßennetz und Terrain (IGameManager liegt in game-engine/)
-│
-├── integration/                  # Cross-Manager Integration Tests
-│
-└── components/
-    ├── address-autocomplete.component.ts
-    ├── attributions-dialog/
-    ├── compass/
-    ├── context-hint/
-    ├── damage-matrix-dialog/
-    ├── debug-window/             # Debug-Fenster; debug-windows.ts bündelt sie zu einem Lazy-Chunk
-    ├── engine-test/
-    ├── game-header/
-    ├── game-sidebar/             # Rahmen + Footer; wave-, build-, tower-, research-panel/, sidebar-tooltips.ts
-    ├── game-speed/
-    ├── icon/                     # Inline-SVG-Icons
-    ├── info-overlay/
-    ├── intro-skip/               # Überspringen der Intro-Kamerafahrt
-    ├── loading-screen/
-    ├── location-dialog/          # Location-Auswahl Dialog
-    ├── los-legend/               # Legende der LOS-Coverage
-    ├── quick-actions/
-    ├── token-setup/              # Erststart: eigene Tile-Credentials
-    └── tooltip/                  # Rich-Tooltip-Direktive
+Ordner unter `src/app/` mit Zweck und Einstieg. Die Dateien einzelner Ordner stehen in den
+Abschnitten dieses Dokuments (Services oben, Three.js-Kern in Abschnitt 1, Renderer in
+Abschnitt 6) und in den Fach-Dokumenten.
 
-docs/                              # siehe INDEX.md
-```
+| Ordner | Zweck | Einstieg |
+|---|---|---|
+| (Root) | Root-Component, Provider, Routing, Spielkomponente | `app.ts`, `tower-defense.component.ts` (Template mit den Debug-Fenstern in einem `@defer`-Block) |
+| `ai/core/` | Wave-Director (Regeln, optional ONNX), Gate-Controller, Templates, Encoder, Defense-Analyse | `wave-director.service.ts`, `rule-director.ts`, `gate-controller.ts`, `wave-config-builder.ts` |
+| `ai/training/` | Bots (Strategy Pattern), Strategien je Bereich, Trainings-Client | `training-session.ts`, `bots/`, `strategies/` |
+| `components/` | UI-Komponenten (Header, Sidebar-Panels, Dialoge, Leisten, Debug-Fenster) | siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#dateien) |
+| `configs/` | Tower, Gegner, Projektile, Effekte, Audio, Balance, Wellen-Curriculum, Forschung, Fähigkeiten, Held, LOS-Farben | `tower-types.config.ts`, `enemy-types.config.ts`, `wave-curriculum.config.ts`, `research/`, `combat/` |
+| `core/` | `GameObject`, `Component`, `ConfigService` (Tile-Zugang) | `game-object.ts`, `services/config.service.ts` |
+| `devworld/` | Offline-Welt: Terrain, Straßen, Gebäude, Worker | siehe [DEVWORLD.md](DEVWORLD.md) |
+| `entities/` | Enemy, Tower, Projectile, Held, Körper der Ooze | `enemy.entity.ts`, `tower.entity.ts`, `enemy-rush.ts`, `tower-targeting.util.ts` |
+| `game-components/` | Transform, Health, Movement, Combat, Render, Audio | `movement.component.ts` |
+| `game-engine/` | Event Bus und die Angular-freien Dienste daran | siehe [game-engine/README.md](../src/app/game-engine/README.md) |
+| `integration/` | Tests über mehrere Manager und Services | |
+| `interfaces/` | Provider-Interfaces für Straßennetz und Terrain | |
+| `managers/` | Manager (event-driven, Angular-frei außer dem GameStateManager), `game-state/` (GameClock, Ledger, TowerLifecycle, Wellen-Vorschau), `worm/`, `audio/` (Spatial Audio), `ooze-*.ts` | `game-state.manager.ts`, `game-commands.handler.ts` |
+| `models/` | Typen (`game.types.ts`, `location.types.ts`, `status-effects.ts`) | |
+| `replay/` | Replay der letzten Welle: Aufnahme, Wiedergabe, Leiste | `replay-recorder.ts`, `replay-player.ts`, siehe [REPLAY.md](REPLAY.md) |
+| `services/` | Angular-Services in sieben Unterordnern und im Root | Tabellen unter [Services](#services) |
+| `store/` | Signal Stores | siehe [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) |
+| `styles/` | Theme-Tokens | `td-theme.ts` |
+| `three-engine/` | Three.js-Engine: Szene, Tiles, Kamera, Render-Loop, Raycasts, Renderer, Post-Processing | `three-tiles-engine.ts`, Abschnitt 1 und 6 |
+| `utils/` | Reine Hilfsmodule (Route-Grid, Korridor, Geo, Kamera, LOS, Platzierung, Frame-Pacer) | `global-route-grid.ts`, `route-corridor.ts`, `geo-utils.ts` |
+| `workers/` | Web Worker: A*-Pathfinding, Heartbeat für den Loop im versteckten Tab | `pathfinding.worker.ts`, `heartbeat.worker.ts` |
+
+Außerhalb von `src/app/`: `tools/` (Shader-Check, Blender-Skripte, Weltkarten-Umrisse,
+Modell-Budget, Charts, Benchmarks, AI-Schema), `training-backend/` (Python, nur Training), `docs/` (siehe
+[INDEX.md](INDEX.md)).
 
 ---
 
