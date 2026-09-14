@@ -3,7 +3,9 @@
 ## Übersicht
 
 Das Spatial Audio System verwendet Three.js Audio (Web Audio API) für positionsabhängige Sounds.
-Sounds werden leiser je weiter die Kamera entfernt ist - ohne harten Cutoff.
+Sounds werden mit der Entfernung zur Kamera leiser (Distanz-Modell `inverse`). Jenseits der
+Hörweite (`maxAudibleDistance` 500 m, für One-Shots je Sound per `audibleDistance` anders)
+fallen One-Shots weg und Loops pausieren.
 
 ## Architektur
 
@@ -163,12 +165,11 @@ export const AUDIO_LIMITS = {
 export const ENEMY_SOUND_PATTERNS = [
   'zombie', 'tank', 'enemy', 'wallsmasher', 'big_arm', 'herbert', 'mammouth',
 ] as const;
-
-export const PROJECTILE_SOUND_IDS = [
-  'arrow', 'bullet', 'rocket', 'cannonball', 'ice-shard', 'arcane-orb',
-  'chaos-orb', 'poison-glob',
-] as const;
 ```
+
+`PROJECTILE_SOUND_IDS` (ebenfalls `audio.config.ts`) enthält genau die Schlüssel von
+`PROJECTILE_SOUNDS`. Die Liste der Projektil-Sounds mit ihren Werten steht nur in
+[PROJECTILES.md](PROJECTILES.md#sound).
 
 Per-Sound-Anti-Flood-Fenster und Polyphony-Cap werden zur Laufzeit aus der
 Buffer-Dauer abgeleitet (kurze Combat-Samples → locker, lange Spawn-Samples
@@ -230,6 +231,10 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
 - Separierte Klasse `AudioBufferCache` (`managers/audio/audio-buffer-cache.ts`)
 - Laden mit bis zu drei Wiederholungen im Abstand von 1 s; geräumt wird nach jedem
   abgeschlossenen Laden
+- Scheitert auch die letzte Wiederholung, bleibt kein Eintrag, und der Sound gilt als nicht
+  spielbar. Dieselbe URL lädt frühestens nach `RETRY_COOLDOWN_MS` (30 s) wieder, höchstens
+  `MAX_LOAD_ROUNDS` (3) Runden je URL. Gegner registrieren ihre Sounds bei jedem Spawn; die
+  Sperre begrenzt, wie oft eine fehlende Datei neu geladen wird
 - `accessTimestamps: Map<string, number>` trackt Zugriffs-Zeitpunkte (inkrementierender Counter)
 - Bei jedem Zugriff: Timestamp wird aktualisiert
 - Bei Überschreitung: Ältester Eintrag (niedrigster Timestamp) wird evicted
@@ -301,22 +306,13 @@ setzt beim Registrieren eigene Werte, wenn nichts angegeben ist: `refDistance` 3
 ## Integration
 
 ### Projektil-Sounds (One-Shot)
-Der `ProjectileManager` registriert die Sounds aus `PROJECTILE_SOUNDS` (`projectile-types.config.ts`) und emittiert in `spawn()` ein `audio:play`-Event an der Tower-Position. Der `AudioService` empfängt es und spielt den Sound über `SpatialAudioManager.playAtGeo()` ab. `PROJECTILE_SOUND_IDS` in `audio.config.ts` muss genau diese Schlüssel enthalten, sonst zählt ein Sound nicht gegen `maxProjectileSounds`; `projectile-types.config.spec.ts` prüft das.
+Der `ProjectileManager` registriert die Sounds aus `PROJECTILE_SOUNDS` und emittiert beim
+Schuss ein `audio:play`-Event, beim Tower an seiner Position. Der `AudioService` empfängt es
+und spielt den Sound über `SpatialAudioManager.playAtGeo()` ab. Liste, Werte und die Regel
+zu `PROJECTILE_SOUND_IDS`: [PROJECTILES.md](PROJECTILES.md#sound).
 
 ```typescript
-// In projectile-types.config.ts, ein Eintrag pro Projektiltyp
-export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> = {
-  arrow:         { url: 'assets/sounds/towers/archer/shoot.mp3',       refDistance: 50, rolloffFactor: 1,   volume: 0.5 },
-  bullet:        { url: 'assets/sounds/towers/gatling/shoot.mp3',      refDistance: 40, rolloffFactor: 1.2, volume: 0.25 },
-  rocket:        { url: 'assets/sounds/towers/rocket/launch.mp3',      refDistance: 60, rolloffFactor: 1,   volume: 0.7 },
-  cannonball:    { url: 'assets/sounds/towers/cannon/shoot.mp3',       refDistance: 70, rolloffFactor: 1,   volume: 0.6 },
-  'ice-shard':   { url: 'assets/sounds/towers/ice/cast.mp3',           refDistance: 50, rolloffFactor: 1,   volume: 0.4 },
-  'arcane-orb':  { url: 'assets/sounds/towers/magic/cast.mp3',         refDistance: 55, rolloffFactor: 1.1, volume: 0.45 },
-  'poison-glob': { url: 'assets/sounds/towers/poison/poison_spit.mp3', refDistance: 50, rolloffFactor: 1,   volume: 0.4 },
-  'chaos-orb':   { url: 'assets/sounds/towers/magic/cast.mp3',         refDistance: 55, rolloffFactor: 1.1, volume: 0.5 },
-};
-
-// ProjectileManager.playProjectileSound(), aufgerufen in spawn()
+// ProjectileManager.playProjectileSound(), aufgerufen beim Schuss
 this.eventBus.emitDeferred({
   type: 'audio:play',
   sound: soundId,
@@ -418,6 +414,21 @@ eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height
   (24 kHz, 16 bit mono) für die Sitzung gecacht; im Test (`nuke-sound.spec.ts`) dauern
   Synthese, WAV und Base64 zusammen etwa 25 ms.
 
+### Weitere Fähigkeiten (Datei-Samples mit Wiederholungen)
+Frostbombe, EMP und Orbitallaser stehen wie der Nuklearschlag in `ABILITY_IMPACT_SOUNDS`
+(`GAME_SOUNDS.frostBomb`, `.emp`, `.orbitalLaser`). Der `AudioService` registriert sie beim
+Start und spielt beim `ability:impact` das Sample am Einschlag, danach die Einträge aus `tail`
+als leisere Wiederholungen desselben Samples, in Spielzeit wie beim Grollen des Schlags:
+
+| Fähigkeit | ID, Datei | Wiederholungen (ms, Lautstärke) |
+|---|---|---|
+| Frostbombe | `frost_bomb`, `towers/ice/cast.mp3` | 110 (0,6), 260 (0,35) |
+| EMP | `emp`, `towers/lightning/lightning_chain.mp3` | 180 (0,5), 420 (0,3) |
+| Orbitallaser | `orbital_laser`, `towers/lightning/bolt.mp3` | 1300 (0,7), 2500 (0,45), so lange der Strahl brennt |
+
+Ohne `priority` und mit der Standard-Hörweite (500 m). `refDistance`, `rolloffFactor`,
+`volume` und `maxInstances` stehen in `audio.config.ts`.
+
 ## Performance-Optimierungen
 
 ### PositionalAudio-Erzeugung
@@ -496,7 +507,8 @@ public/assets/sounds/
 │   ├── poison/poison_spit.mp3         # Poison-Glob-Schuss-Sound
 │   ├── fire/flame_loop.mp3            # Flammenwerfer-Loop-Sound
 │   ├── tentacle/tentacle-01.mp3       # Tentacle-Strike-Sound
-│   └── lightning/lightning_chain.mp3  # Lightning-Chain-Sound
+│   ├── lightning/lightning_chain.mp3  # Lightning-Chain-Sound, auch das EMP
+│   └── lightning/bolt.mp3             # Orbitallaser
 ├── enemies/
 │   ├── zombie/ambient.mp3             # Zombie-Bewegungs-Loop
 │   ├── tank/moving.mp3                # Tank-Bewegungs-Loop
