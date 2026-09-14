@@ -8,7 +8,6 @@ import {
   AnimationAction,
   MeshBasicMaterial,
   RingGeometry,
-  Vector3,
   DoubleSide,
   LoopPingPong,
   LoopRepeat,
