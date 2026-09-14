@@ -43,6 +43,7 @@ import { PhotoModeService } from '../photo-mode.service';
 import { HeroControlService } from '../hero-control.service';
 import { ReplayService } from '../replay.service';
 import { UpgradeHintService } from '../upgrade-hint.service';
+import { TowerUpgradeService } from '../tower-upgrade.service';
 import { IntroSkipComponent } from '../../components/intro-skip/intro-skip.component';
 
 const HQ = { lat: 48.7, lon: 9.1 };
@@ -150,9 +151,11 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
         },
         { provide: ReplayService, useValue: { active: signal(false) } },
         { provide: UpgradeHintService, useValue: new UpgradeHintService() },
+        // U buys through it; no key here reaches a purchase
+        { provide: TowerUpgradeService, useValue: { buyFirst: vi.fn(() => false) } },
       ],
     });
-    input = runInInjectionContext(injector, () => new InputHandlerService());
+    input =runInInjectionContext(injector, () => new InputHandlerService());
     hotkeys = runInInjectionContext(injector, () => new HotkeyService());
     skip = runInInjectionContext(injector, () => new IntroSkipComponent());
   });
