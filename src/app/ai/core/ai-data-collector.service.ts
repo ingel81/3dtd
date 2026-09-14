@@ -258,7 +258,7 @@ export class AIDataCollectorService {
     this.currentWave.enemiesSplit(event.children.length);
   }
 
-  private onWaveCompleted(event: { wave: number; credits: number }): void {
+  private onWaveCompleted(event: { wave: number; credits: number; perfect: boolean }): void {
     // Drop the wave the game-over path already finalised.
     //
     // When the last leaker of a wave is also the one that destroys the base,
@@ -275,6 +275,8 @@ export class AIDataCollectorService {
 
     // Time metrics are divided by the training timescale.
     const outcome = this.currentWave.finalize('completed', Date.now(), this.gameState.trainingTimescale());
+    // The WaveManager's verdict, the one the PerfectBonus pays on
+    outcome.perfect = event.perfect;
     this.recordWave(event.wave, outcome);
 
     // Reset for next wave
