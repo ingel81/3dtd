@@ -45,10 +45,10 @@ interface FakeBoss {
   walked: number;
 }
 
-function fakeBoss(id = 'herbert', isBoss = true): FakeBoss {
+function fakeBoss(id = 'herbert', isBoss = true, name = 'Herbert'): FakeBoss {
   const boss: FakeBoss = { enemy: null as unknown as Enemy, walked: 0 };
   boss.enemy = {
-    typeConfig: { id, isBoss, name: 'Herbert' },
+    typeConfig: { id, isBoss, name },
     active: true,
     alive: true,
     movement: { path: ROUTE, getDistanceAlongPath: () => boss.walked },
@@ -209,6 +209,39 @@ describe('BossIntroService', () => {
     spawn(next);
     frame();
     expect(service.stage()).toBe('dip-in');
+  });
+
+  it('gives two boss types that leave together one intro that names both', () => {
+    const herbert = fakeBoss();
+    const ooze = fakeBoss('ooze', true, 'Ooze');
+    herbert.walked = 20;
+    ooze.walked = 12; // still in its portal
+    spawn(herbert);
+    spawn(ooze);
+    frame();
+    expect(service.stage()).toBe('dip-in');
+    expect(service.card()).toEqual({ name: 'Herbert & Ooze', wave: 10 });
+    expect(announce).toHaveBeenCalledWith('Bosses: Herbert and Ooze, wave 10. Escape skips.');
+
+    play(bossIntroReturnMs() + BOSS_INTRO_TIMING.revealMs);
+    expect(service.stage()).toBeNull();
+    ooze.walked = 30;
+    frame();
+    expect(service.stage()).toBeNull();
+  });
+
+  it('still gives a boss of another type that comes later in the wave its own intro', () => {
+    const herbert = fakeBoss();
+    herbert.walked = 20;
+    spawn(herbert);
+    frame();
+    play(bossIntroReturnMs() + BOSS_INTRO_TIMING.revealMs);
+
+    const ooze = fakeBoss('ooze', true, 'Ooze');
+    ooze.walked = 20;
+    spawn(ooze);
+    frame();
+    expect(service.card()).toEqual({ name: 'Ooze', wave: 10 });
   });
 
   it('gives a worm one intro, from its worm:spawned, not from its segments', () => {
