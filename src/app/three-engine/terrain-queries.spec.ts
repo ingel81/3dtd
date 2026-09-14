@@ -271,6 +271,49 @@ describe('TerrainQueries', () => {
       expect(probe?.right.map((d) => +d.toFixed(6))).toEqual([2, 4]);
     });
 
+    it('misst hinter einem Treffer nur des unteren Strahls, wie hoch der Boden dort liegt', () => {
+      // Straße bei y=0 bis x=3, dort die Flanke eines Autos (1,5 m), sein Dach bis x=5, ohne Boden darunter.
+      const car = setup();
+      car.addTile(floor(0, 6), 3, FINE);
+      car.addTile(wall(3, 1.5), 3, FINE);
+      car.addTile(floor(1.5, 2, 4, 0), 3, FINE);
+      const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10)!;
+      expect(probe.right.map((d) => +d.toFixed(6))).toEqual([3, 10]);
+      expect(probe.lowRise?.right).toBeCloseTo(1.5, 6);
+      // Links trifft kein Strahl: nichts zu beurteilen.
+      expect(probe.lowRise?.left).toBeNaN();
+
+      // Ein Zaun 1,2 m hoch, dahinter Boden auf Straßenhöhe.
+      const fence = setup();
+      fence.addTile(floor(0), 3, FINE);
+      fence.addTile(wall(3, 1.2), 3, FINE);
+      expect(fence.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10)!.lowRise?.right).toBeCloseTo(0, 6);
+    });
+
+    it('beurteilt nichts, wo beide Strahlen treffen, und nichts auf einem Deck', () => {
+      expect(street().queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10)!.lowRise).toEqual({ left: NaN, right: NaN });
+
+      // Auf dem Deck (y=6) ein Hindernis 1,5 m hoch, 1,5 m rechts: die Säule dahinter träfe den Boden unter der Brücke.
+      const { queries, addTile } = street();
+      addTile(floor(6, 4), 3, FINE);
+      addTile(wall(1.5, 7.5, 6), 3, FINE);
+      const onDeck = queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10, true)!;
+      expect(onDeck.right.map((d) => +d.toFixed(6))).toEqual([1.5, 4]);
+      expect(onDeck.lowRise).toEqual({ left: NaN, right: NaN });
+    });
+
+    it('kostet für ein Hindernis nur am unteren Strahl eine Säule mehr', () => {
+      const { queries, addTile, group } = street();
+      addTile(wall(2, 2), 3, FINE);
+      instrumentRaycasts(group);
+      raycastStats.reset();
+
+      queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10);
+      expect(raycastStats.rows().map(({ caller, calls }) => ({ caller, calls }))).toEqual([
+        { caller: 'routeCorridor', calls: 6 },
+      ]);
+    });
+
     it('übergeht Treffer grober Tiles und Treffer ohne Tile-Tiefe', () => {
       const { queries, addTile } = street();
       addTile(wall(1), 1, corridorConfig.maxTileError + 15);

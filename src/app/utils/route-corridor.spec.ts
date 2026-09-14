@@ -9,6 +9,8 @@ import {
   fitCorridorPieces,
   fitCorridorStations,
   probeFreeSpace,
+  probeLowWall,
+  lowRayAlone,
   getRouteProfile,
   closeShortDips,
   cutShortBulges,
@@ -198,6 +200,7 @@ describe('fitCorridorPieces', () => {
       { t: 4 / 6, left: 7, right: 7 },
     ]]);
   });
+
 });
 
 describe('fitCorridorStations', () => {
@@ -346,6 +349,49 @@ describe('probeFreeSpace', () => {
     } finally {
       corridorConfig.overhangDepth = depth;
     }
+  });
+
+  it('takes the low hit where the ground behind it is raised', () => {
+    const probe = (rise: number) => ({ unmeasured: null, tileError: 2, left: [3, 7], right: [7, 7], lowRise: { left: rise, right: NaN } });
+    // A parked car 3 m left: the column 1 m behind its side is its roof, 1.2 m up.
+    expect(probeFreeSpace(probe(1.2), 'left')).toBe(3);
+    // A fence in front of a garden at pavement height.
+    expect(probeFreeSpace(probe(0.15), 'left')).toBe(7);
+  });
+});
+
+describe('probeLowWall', () => {
+  const probe = (rise: number) => ({ unmeasured: null, tileError: 2, left: [3, 7], right: [7, 7], lowRise: { left: rise, right: NaN } });
+
+  it('holds where the column behind the low hit is at least lowWallRise up', () => {
+    expect(probeLowWall(probe(1.2), 'left')).toBe(true);
+    expect(probeLowWall(probe(0.3), 'left')).toBe(true);
+    // A kerb: the pavement behind a fence 0.15 m up.
+    expect(probeLowWall(probe(0.15), 'left')).toBe(false);
+    expect(probeLowWall(probe(1.2), 'right')).toBe(false);
+    expect(probeLowWall(probe(NaN), 'left')).toBe(false);
+    expect(probeLowWall({ unmeasured: null, tileError: 2, left: [3, 7], right: [7, 7] }, 'left')).toBe(false);
+    expect(probeLowWall({ unmeasured: 'coarse tile', tileError: 20, left: [], right: [] }, 'left')).toBe(false);
+    expect(probeLowWall(null, 'left')).toBe(false);
+  });
+
+  it('follows lowWallRise', () => {
+    corridorConfig.lowWallRise = 0.5;
+    expect(probeLowWall(probe(0.4), 'left')).toBe(false);
+    corridorConfig.lowWallRise = 50;
+    expect(probeLowWall(probe(1.2), 'left')).toBe(false);
+  });
+});
+
+describe('lowRayAlone', () => {
+  it('holds where every other ray hit nothing or hit at least 1 m beyond the low one', () => {
+    expect(lowRayAlone([3, 7], 7)).toBe(true); // nothing over a car
+    expect(lowRayAlone([3, 5], 7)).toBe(true); // a facade 2 m behind it
+    expect(lowRayAlone([6.5, 7], 7)).toBe(true); // a car near the end of the rays
+    expect(lowRayAlone([3, 3.4], 7)).toBe(false); // a trunk under its crown
+    expect(lowRayAlone([3, 2.5], 7)).toBe(false); // a jetty
+    expect(lowRayAlone([7, 7], 7)).toBe(false); // nothing hit
+    expect(lowRayAlone([3], 7)).toBe(false); // one ray only
   });
 });
 

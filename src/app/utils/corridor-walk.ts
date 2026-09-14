@@ -10,8 +10,9 @@ import { surfaceY } from './deck-approach';
  * the corridor.
  *
  * The clearance rays let the corridor reach over whatever stops only one of
- * them (probeFreeSpace in route-corridor.ts): a parked car, a van or a hedge
- * below the high ray, an eave or a tree crown above the low one. The
+ * them (probeFreeSpace in route-corridor.ts): an eave or a tree crown above
+ * the low one, and below the high one a parked car, a van or a hedge whose
+ * column behind the hit they did not see raised (probeLowWall). The
  * photogrammetry has no ground under any of them, so the column of a cell
  * there comes down on its top. Such a cell is no place to walk to
  * (cellWalkable), and the corridor ends before it: the grid in use names

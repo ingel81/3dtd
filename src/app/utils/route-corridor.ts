@@ -52,16 +52,29 @@ export interface CorridorConfig {
   /** Spacing of the clearance stations along a route segment. */
   stationSpacing: number;
   /**
-   * Heights of the low and the high clearance ray over the ground. Only
-   * what blocks both counts as a wall: a facade, a wall, a trunk. What
-   * stops only the low ray (a parked car or van, a hedge, a fence) or only
-   * the high one (a tree crown, an eave, a balcony) does not narrow the
-   * corridor. The corridor ends before a cell under a crown or an eave
-   * (`roofRise`) or on a car or a hedge (`stepRise`) instead, see
-   * corridor-walk.ts.
+   * Heights of the low and the high clearance ray over the ground. What
+   * blocks both counts as a wall: a facade, a wall, a trunk. What stops
+   * only the high one (a tree crown, an eave, a balcony) does not narrow
+   * the corridor. What stops only the low one counts as a wall where the
+   * ground behind it is raised (`lowWallRise`): a parked car or van, a
+   * hedge, a front garden above the pavement; not a fence, a bollard or a
+   * sign post in front of ground at street level. The corridor ends before
+   * a cell under a crown or an eave (`roofRise`) or on a car or a hedge
+   * (`stepRise`) as well, see corridor-walk.ts.
    */
   rayHeightLow: number;
   rayHeightHigh: number;
+  /**
+   * Where only the low ray stops, what it hit counts as a wall if the
+   * column {@link LOW_WALL_BEHIND_M} behind the hit comes down at least
+   * this much above the station's ground: the roof of a parked car or a
+   * van (the photogrammetry has no ground under it), a hedge, a garden
+   * raised above the pavement. Above a kerb (10 to 15 cm) plus the camber
+   * of the street, below a 0.4 m raised bed and the 0.58 m a car stood
+   * above its neighbours in the mesh (playtest 2026-09-14, Rothenburg).
+   * See {@link probeLowWall}.
+   */
+  lowWallRise: number;
   /**
    * Distance kept from a wall the rays found, taken off the free space, so
    * the cells next to a facade stay out from under balconies and canopies.
@@ -149,6 +162,7 @@ export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
   stationSpacing: 2,
   rayHeightLow: 1,
   rayHeightHigh: 3.5,
+  lowWallRise: 0.3,
   wallMargin: 0.5,
   overhangDepth: 1,
   maxTileError: 5,
@@ -213,6 +227,7 @@ export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = [
   'maxHalfWidth',
   'maxTileError',
   'overhangDepth',
+  'lowWallRise',
   'roofRise',
   'stepRise',
 ];
@@ -230,6 +245,8 @@ const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [nu
   stationSpacing: [0.5, 10],
   rayHeightLow: [0.3, 10],
   rayHeightHigh: [0.3, 20],
+  // 50: nothing counts, only what stops both rays is a wall.
+  lowWallRise: [0.1, 50],
   wallMargin: [0, 5],
   overhangDepth: [0, 5],
   maxTileError: [0.1, 100],
@@ -471,6 +488,27 @@ export interface CorridorStations {
 }
 
 /**
+ * How far behind the low ray's hit the column stands that tells whether
+ * the ground there is raised (StationProbe.lowRise): on the roof of a car
+ * (1.7 to 1.9 m wide) or a van hit on its side, past a bollard, a sign
+ * post, a litter bin or a fence. Every other ray has to reach beyond it
+ * for the low one to have stopped alone (lowRayAlone): a trunk stops both
+ * about where it stands and stays a wall of both rays.
+ */
+export const LOW_WALL_BEHIND_M = 1;
+
+/**
+ * The low ray (the first of `hits`, distances capped at `maxDistance`)
+ * stopped at something every other ray passes over: each of those hit
+ * nothing or hit at least {@link LOW_WALL_BEHIND_M} beyond it.
+ */
+export function lowRayAlone(hits: readonly number[], maxDistance: number): boolean {
+  const low = hits[0];
+  if (hits.length < 2 || !(low < maxDistance)) return false;
+  return hits.slice(1).every((d) => d >= maxDistance || d >= low + LOW_WALL_BEHIND_M);
+}
+
+/**
  * What the clearance rays found at one station
  * (TerrainQueries.measureStreetClearance).
  */
@@ -490,6 +528,15 @@ export interface StationProbe {
   left: number[];
   right: number[];
   /**
+   * Per side, where the low ray alone stopped (lowRayAlone): how far the
+   * column {@link LOW_WALL_BEHIND_M} behind its hit comes down above the
+   * station's ground, the top of what the photogrammetry has there. NaN on
+   * a side where the low ray did not stop alone, where that column has no
+   * tile up to `maxTileError`, and on a bridge deck (the lowest hit of a
+   * column there is the river or road under it). Absent when unmeasured.
+   */
+  lowRise?: { left: number; right: number };
+  /**
    * The column under the station found no tile (a seam between two tile
    * meshes), so the station was measured from the column this far along
    * the route, ahead positive. Absent when the column under it had a tile.
@@ -498,15 +545,30 @@ export interface StationProbe {
 }
 
 /**
+ * The low ray alone stopped on this side of a probed station, at something
+ * with raised ground behind it: the column {@link LOW_WALL_BEHIND_M} behind
+ * the hit comes down at least `lowWallRise` above the station's ground
+ * (StationProbe.lowRise). A parked car or a van, a hedge, a low wall in
+ * front of a raised garden; not a bollard, a sign post or a fence in front
+ * of ground at street level. It counts as a wall (probeFreeSpace).
+ */
+export function probeLowWall(probe: StationProbe | null, side: 'left' | 'right'): boolean {
+  if (!probe || probe.unmeasured !== null) return false;
+  return (probe.lowRise?.[side] ?? NaN) >= corridorConfig.lowWallRise;
+}
+
+/**
  * Free space on one side of a probed station: a wall stops every ray, so
  * the farthest of the first hits. Except where every ray hit and the high
  * one, the last, stopped at most `overhangDepth` nearer than the low one:
  * upper floors jutting out over the ground floor, whose outer face is the
- * nearest hit. NaN when the station was not measured.
+ * nearest hit. And where the low ray alone hit a low wall (probeLowWall):
+ * its hit. NaN when the station was not measured.
  */
 export function probeFreeSpace(probe: StationProbe | null, side: 'left' | 'right'): number {
   if (!probe || probe.unmeasured !== null || probe[side].length === 0) return NaN;
   const hits = probe[side];
+  if (probeLowWall(probe, side)) return hits[0];
   const farthest = Math.max(...hits);
   const low = hits[0];
   const high = hits[hits.length - 1];
