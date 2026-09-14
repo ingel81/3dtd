@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   AdditiveBlending,
+  Group,
+  Object3D,
   Scene,
   Vector3,
   type BufferAttribute,
@@ -15,8 +17,11 @@ import {
   searchlightLampHeight,
 } from './searchlight.renderer';
 import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
-import { TOWER_TYPES } from '../../../configs/tower-types.config';
+import { TOWER_TYPES, type TowerTypeId } from '../../../configs/tower-types.config';
 import type { CoordinateSync } from '../index';
+import { ThreeTowerRenderer } from '../three-tower.renderer';
+import { EllipsoidSync } from '../../ellipsoid-sync';
+import { geoHeading } from '../../../utils/geo-utils';
 
 const LOOK = BLOOD_MOON_LOOK.searchlights;
 
@@ -58,16 +63,16 @@ describe('searchlightLampHeight', () => {
 });
 
 describe('headingToSearchlightYaw', () => {
-  it('points the +Z cone along the heading: north is -Z, east is +X', () => {
+  it('points the +Z cone along the heading: north is +Z, east is -X', () => {
     const along = (heading: number) => {
       const yaw = headingToSearchlightYaw(heading);
       return [Math.sin(yaw), Math.cos(yaw)];
     };
     const [nx, nz] = along(0);
     expect(nx).toBeCloseTo(0);
-    expect(nz).toBeCloseTo(-1);
+    expect(nz).toBeCloseTo(1);
     const [ex, ez] = along(Math.PI / 2);
-    expect(ex).toBeCloseTo(1);
+    expect(ex).toBeCloseTo(-1);
     expect(ez).toBeCloseTo(0);
   });
 });
@@ -231,5 +236,121 @@ describe('SearchlightRenderer', () => {
     expect(hits).toEqual([]);
     renderer.dispose();
     expect(scene.children).not.toContain(mesh);
+  });
+});
+
+/**
+ * The beam against the world, not against the turret maths: the tower turns
+ * onto a target in the real ThreeTowerRenderer, the beam's axis comes out of
+ * the vertex shader's aim(), and it is compared with the way from the lamp to
+ * the target, both placed by EllipsoidSync.geoToLocalSimple as the engine
+ * places towers, enemies and lamps. Until 2026-09-14 the beam pointed 180°
+ * away from the target (playtest 501).
+ */
+describe('SearchlightRenderer beam on the tower\'s target', () => {
+  const STEP_MS = 1000 / 60;
+  const TOWER = { lat: 48.137, lon: 11.575 };
+  const TARGETS = [
+    { lat: TOWER.lat + 0.0004, lon: TOWER.lon }, // north
+    { lat: TOWER.lat, lon: TOWER.lon + 0.0006 }, // east
+    { lat: TOWER.lat - 0.0003, lon: TOWER.lon - 0.0005 }, // south-west
+  ];
+  const ellipsoid = new EllipsoidSync(TOWER.lat, TOWER.lon, 0);
+  // The adapter ThreeTilesEngine hands its renderers
+  const coordinates: CoordinateSync = {
+    geoToLocal: (lat, lon, height) => ellipsoid.geoToLocalSimple(lat, lon, height),
+    geoToLocalSimple: (lat, lon, height) => ellipsoid.geoToLocalSimple(lat, lon, height),
+    geoToLocalSimpleInto: (lat, lon, height, target) => ellipsoid.geoToLocalSimpleInto(lat, lon, height, target),
+  };
+
+  /** The vertex shader's aim(): tip the cone's +Z down by the pitch about X, then turn it by the yaw about Y */
+  const shaderAim = (v: Vector3, pitch: number, yaw: number) => {
+    const cp = Math.cos(pitch);
+    const sp = Math.sin(pitch);
+    const cy = Math.cos(yaw);
+    const sy = Math.sin(yaw);
+    const x = v.x;
+    const y = v.y * cp - v.z * sp;
+    const z = v.y * sp + v.z * cp;
+    return new Vector3(x * cy + z * sy, y, -x * sy + z * cy);
+  };
+
+  /** A tower of `typeId` at TOWER with its light; the fake model has a turret part or not */
+  async function setup(typeId: TowerTypeId, withTurret: boolean) {
+    const config = TOWER_TYPES[typeId];
+    const assetManager = {
+      loadModel: async () => ({ animations: [] }),
+      cloneModel: () => {
+        const model = new Group();
+        if (withTurret) {
+          const turret = new Object3D();
+          turret.name = config.turretNode ?? 'turret_top';
+          model.add(turret);
+        }
+        return model;
+      },
+    };
+    const scene = new Scene();
+    const towers = new ThreeTowerRenderer(scene, coordinates as never, assetManager as never);
+    const data = (await towers.create('t1', typeId, TOWER.lat, TOWER.lon, 0, 0.4, null))!;
+    const searchlights = new SearchlightRenderer(scene, coordinates, towers);
+    searchlights.add('t1', TOWER.lat, TOWER.lon, 0, config);
+    const mesh = scene.children.find((child) => child.name === 'searchlights') as Mesh;
+    const material = mesh.material as ShaderMaterial;
+    const geometry = mesh.geometry as InstancedBufferGeometry;
+    const beam = geometry.getAttribute('aBeam') as BufferAttribute;
+    const lamp = geometry.getAttribute('aLamp') as BufferAttribute;
+
+    /** Horizontal angle between the beam and the way from its lamp to `target`, radians */
+    const offTarget = (target: { lat: number; lon: number }) => {
+      const axis = shaderAim(new Vector3(0, 0, 1), material.uniforms['uPitch'].value, beam.getX(0));
+      const to = coordinates.geoToLocalSimple(target.lat, target.lon, 0);
+      const dx = to.x - lamp.getX(0);
+      const dz = to.z - lamp.getZ(0);
+      return Math.abs(Math.atan2(axis.x * dz - axis.z * dx, axis.x * dx + axis.z * dz));
+    };
+    const advance = (ms: number) => {
+      for (let t = 0; t < ms; t += STEP_MS) towers.advanceTurretAim(STEP_MS);
+    };
+    return { towers, searchlights, data, material, offTarget, advance };
+  }
+
+  it('mirrors the vertex shader\'s aim()', async () => {
+    const { material } = await setup('cannon', true);
+    expect(material.vertexShader).toContain('v = vec3(v.x, v.y * cp - v.z * sp, v.y * sp + v.z * cp);');
+    expect(material.vertexShader).toContain('return vec3(v.x * cy + v.z * sy, v.y, -v.x * sy + v.z * cy);');
+  });
+
+  const lit = (Object.keys(TOWER_TYPES) as TowerTypeId[]).filter((id) => searchlightLampHeight(TOWER_TYPES[id]) !== null);
+  for (const typeId of lit) {
+    for (const withTurret of [true, false]) {
+      it(`${typeId} ${withTurret ? 'with' : 'without'} a turret part: the beam points at the target`, async () => {
+        const { towers, searchlights, offTarget, advance } = await setup(typeId, withTurret);
+        for (const target of TARGETS) {
+          // As TowerCombatService aims
+          towers.updateRotation('t1', geoHeading(TOWER, target));
+          advance(2000);
+          searchlights.aim();
+          expect(offTarget(target)).toBeLessThan(1e-6);
+        }
+      });
+    }
+  }
+
+  it('follows the rotation the wave replay writes, the game paused', async () => {
+    const { towers, searchlights, data, offTarget, advance } = await setup('cannon', true);
+    towers.updateRotation('t1', geoHeading(TOWER, TARGETS[0]));
+    advance(2000);
+    const recorded = data.currentLocalRotation;
+    towers.updateRotation('t1', geoHeading(TOWER, TARGETS[1]));
+    advance(2000);
+    searchlights.aim();
+    expect(offTarget(TARGETS[1])).toBeLessThan(1e-6);
+
+    // As ReplayPlayer writes a frame: the recorded rotation, no sub-step after it
+    data.currentLocalRotation = recorded;
+    data.turretPart!.rotation.y = recorded;
+    searchlights.aim();
+    expect(offTarget(TARGETS[0])).toBeLessThan(1e-6);
   });
 });
