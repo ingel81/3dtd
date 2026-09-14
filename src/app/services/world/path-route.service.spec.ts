@@ -498,7 +498,9 @@ describe('PathAndRouteService route geometry', () => {
 
         const n1Local = toMeters(n1);
         const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
-        expect(why).toMatchObject({ route: 's1', way: 200, streetWidthM: 12, widthSource: 'width', onStreet: true, unmeasured: null });
+        expect(why).toMatchObject({
+          route: 's1', way: 200, tags: 'width=12', streetWidthM: 12, widthSource: 'width', onStreet: true, unmeasured: null,
+        });
         expect(why.distanceM).toBeLessThan(1.5);
         expect(why.sides[0]).toMatchObject({
           side: 'left', lowHitM: 7, highHitM: 7, wall: false, halfWidthM: 7, inUseM: 7, rule: 'no wall within the maximum',
@@ -561,7 +563,9 @@ describe('PathAndRouteService route geometry', () => {
 
         const n1Local = toMeters(n1);
         const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
-        expect(why).toMatchObject({ way: 200, inTunnel: true, unmeasured: 'tunnel or covered: not measured' });
+        expect(why).toMatchObject({
+          way: 200, tags: 'width=12 tunnel=yes', inTunnel: true, unmeasured: 'tunnel or covered: not measured',
+        });
         expect(why.sides[0]).toMatchObject({ halfWidthM: 6, rule: 'tunnel or covered: street width' });
       });
 

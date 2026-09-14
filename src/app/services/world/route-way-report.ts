@@ -18,8 +18,8 @@ class Span {
   }
 }
 
-/** `width=5 tunnel=building_passage` etc., for the diagnostics table. */
-function describeStreetTags(street: Street): string {
+/** `width=5 tunnel=building_passage` etc., for the diagnostics tables. */
+export function describeStreetTags(street: Street): string {
   const parts: string[] = [];
   for (const key of ['width', 'lanes', 'bridge', 'tunnel', 'covered', 'layer'] as const) {
     if (street[key] !== undefined) parts.push(`${key}=${street[key]}`);

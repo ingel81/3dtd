@@ -28,7 +28,7 @@ import { UIStore } from '../../store/ui.store';
 import { PathfindingWorkerService } from '../location/pathfinding-worker.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import type { CorridorMeasurement } from './corridor-refit';
-import { RouteWayRun, describeRouteWays } from './route-way-report';
+import { RouteWayRun, describeRouteWays, describeStreetTags } from './route-way-report';
 import { RouteLineLayer } from './route-line-layer';
 
 /**
@@ -117,6 +117,12 @@ export interface CorridorExplanation {
   way: number | null;
   type: string;
   name: string;
+  /**
+   * The way's width, lanes, bridge, tunnel, covered and layer tags, as
+   * `__routes.describe()` shows them: a road under a bridge or in an
+   * underpass is often mapped with `layer=-1` only, no tunnel tag.
+   */
+  tags: string;
   /** Street width from OSM and where it came from. */
   streetWidthM: number | null;
   widthSource: string;
@@ -744,6 +750,7 @@ export class PathAndRouteService {
       way: way?.id ?? null,
       type: way?.type ?? '(off network: leg to the HQ)',
       name: way?.name ?? '',
+      tags: way ? describeStreetTags(way) : '',
       streetWidthM: estimate?.widthM ?? null,
       widthSource: estimate?.source ?? 'inherited',
       onStreet: route.onStreet[i],
