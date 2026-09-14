@@ -91,7 +91,7 @@ export class ParticleEffectsRenderer {
   private readonly tempVelocity = new Vector3();
 
   constructor(
-    private readonly scene: Scene,
+    scene: Scene,
     private readonly sync: CoordinateSync,
     private readonly pools: ParticlePoolManager,
   ) {
