@@ -1096,22 +1096,24 @@ User, zurückgestellt):
   bei den heutigen Bossen setzt ab Portalgröße 1 das ganze Portal samt
   Krone den Mindestabstand; noch näher geht nur, wenn die Krone oben
   angeschnitten werden darf (`BOSS_SHOT.crown` über 1).
-- **Logik-Punkte per Szenario-Test (verifyC, verifyD):** alle Logikteile
-  der Bündel Fähigkeiten/Leiste, Wellen-Panel, Held, Boss-Intro/Blutmond,
-  Ooze/Wurm/Kampf, Veteranen/Weltkarte und Quickfix bestätigt (Tests in
-  `*.scenario.spec.ts`). Überholt: Schwenk in 373/374 (`6a42d3a5`),
+- **Logik-Punkte per Szenario-Test (verifyC, verifyD):** Logikteile der
+  Bündel Fähigkeiten/Leiste, Wellen-Panel, Held, Boss-Intro/Blutmond,
+  Ooze/Wurm/Kampf, Veteranen/Weltkarte und Quickfix per Test bestätigt,
+  meist in neuen `*.scenario.spec.ts`, 331 bis 333 und 337 mit vorhandenen
+  Specs, 334 nur per grep (`npm ci` und `ng build` im frischen Checkout
+  nicht gelaufen); einige Verdrahtungen nur per Code (321, 393, 398, 400).
+  Ausnahme 421 (D1, D2 unten). Überholt: Schwenk in 373/374 (`6a42d3a5`),
   Haarlinie in 384 (`586f493e`), Charakterisierungstest in 405, Fußzeile in
   346. Befunde zu 421: **D1** das Leck-Budget (18 HP je Welle) deckelt das
   Wackeln der Ooze am HQ nach etwa 2,3 s bei 4x, der rote Rand pulst
   weiter (Text von 421 zu eng); **D2** ein Zombie-Leck in W45 (5 HP) wackelt
   innerhalb von 900 ms nach einem Ooze-Punkt nicht, weil der Faktor bei
   0,5 geklemmt ist; ob "härter" die Amplitude oder die HP meint, ist eine
-  Entscheidung (offen). Die Augen-/Ohren-Teile stehen in den Runden G bis N
-  der Vorsortierung.
+  Entscheidung (offen). Die Augen-/Ohren-Teile stehen in den Runden E bis N
+  (ohne J) der Vorsortierung.
 - Überholt: 317, 322, 339, 406, 434. Zurückgestellt: Replay 407 bis 418
   und 435 bis 440 (User: Replay eigenes Thema), 323 (Offener Punkt 8 im
-  Fix-Handover), 428 (optional). Logik-Punkte per Szenario-Test: verifyC,
-  verifyD (Ergebnis folgt).
+  Fix-Handover), 428 (optional).
 
 Nummeriert, damit du mit "305 ok, 312 kaputt" antworten kannst. Die neuen
 Punkte beginnen bei 301.
