@@ -8,7 +8,7 @@ Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen 
 
 ## Übersicht
 
-Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` definiert (vorher `models/enemy-types.ts`, 2026-05-10 umgezogen — siehe DONE.md). Das System unterstützt:
+Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` definiert (vorher `models/enemy-types.ts`, 2026-05-10 umgezogen, siehe DONE.md). Das System unterstützt:
 
 - 3D-Modelle als GLB mit Skinning- oder Node-Animationen, als VAT instanziert gerendert ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md))
 - Walk-, Run- und Death-Animationen mit Speed-Coupling
@@ -56,7 +56,7 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 | **ooze** | unarmored | 3000 | 3 | – | Boss (2026-09-14), `isBoss`, ein Körper entlang der Route statt eines Modells ([Körper entlang der Route](#körper-entlang-der-route-ooze)), fließt an der HQ Meter für Meter hinein, zerfällt beim Kill in Slime Clumps. Boss-Variante der Endlos-Rotation, kein Template |
 | slime-clump | unarmored | 15 | 4.5 | – | Nur aus dem Split der Ooze, kein Template. `slime.glb` bei `scale: 0.9` (Hüpfer `Wobble`, Tod `Splat`), grünes Blut (`bloodColor`) |
 
-> **Wave-Director:** Stone Golem ist seit 2026-08-27 angebunden — Template
+> **Wave-Director:** Stone Golem ist seit 2026-08-27 angebunden: Template
 > `golem_squad` (`src/app/ai/core/templates.ts`, `minWave: 14`) steht auf Wave 15
 > des Curriculums (`configs/wave-curriculum.config.ts`).
 
@@ -737,7 +737,7 @@ wallsmasher: {
   animationVariation: true,    // Wechselt zwischen Walk/Run
   runSpeedMultiplier: 2.5,     // 2.5x Speed bei Run
 
-  // Kein spawnSound — Wallsmasher-Rush ist als visuelle Überraschung gedacht.
+  // Kein spawnSound: Wallsmasher-Rush ist als visuelle Überraschung gedacht.
   // `enemy.entity.ts` gateet beide Pfade (Register + Play) durch
   // `if (this.typeConfig.spawnSound)`, also bleibt der Spawn ohne Property lautlos.
   randomSound: 'assets/sounds/enemies/wallsmasher/attack.mp3',
@@ -773,7 +773,7 @@ wallsmasher: {
 - [ ] Bei Run-Animation: `animationVariation: true` und `runSpeedMultiplier` gesetzt
 - [ ] Todes-Clip liegt innerhalb von `animationSpeed` × 2 s Clip-Zeit am Boden
 - [ ] Bei Boss: `isBoss: true`, nur wenn der Typ in keiner normalen Welle vorkommt (das Flag gilt pro Typ); optional `healthBarColor` (`immunityPercent` wird derzeit nicht ausgewertet)
-- [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu gross/klein
+- [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu groß/klein
 - [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse
 - [ ] Bei `splitOnDeath`: Kind-Typ in `ENEMY_TYPES`, kein Zyklus, `countRange` der Templates an die HP der ganzen Linie angepasst, `npm run ai-schema` gelaufen (`lineageHp`, `bodies`, `maxLeaks`)
 - [ ] Bei `chain`: `segmentModel` als eigener Typ in `ENEMY_TYPES` (gleiche Werte, nur das Modell), `spacing` passend zur Segmentlänge, `maxSegments` im Blick auf Gegnerzahl und Wellendauer
