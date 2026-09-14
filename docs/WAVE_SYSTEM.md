@@ -1,6 +1,6 @@
 # Wave System
 
-**Stand:** 2026-09-14 (Blutmond-Wellen)
+**Stand:** 2026-09-15
 
 Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen.
 
@@ -39,6 +39,7 @@ export class WaveManager implements IGameManager {
   constructor(eventBus: GameEventBus, enemyManager: EnemyManager);
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void;
+  getPaths(): Iterable<GeoPosition[]>; // die Routen der Gegner, eine je Spawn-Point
   setCurrentHealthProvider(provider: () => number): void; // für CloseCall-Detection
   getExpectedEnemyCount(): number; // Gegner laut Schedule, auf sie wartet die Wave-Completion
   getExpectedBodyCount(): number; // dazu die Split-Kinder: Kill-Gold-Slots des EnemyManager
@@ -49,6 +50,7 @@ export class WaveManager implements IGameManager {
   checkWaveComplete(): boolean;
   endWave(): { wave: number; perfect: boolean; closeCall: boolean; hpLost: number };
   stopSpawning(): void;
+  jumpTo(lastWave: number): void; // Jump to Wave: Welle lastWave gilt als gespielt, nur in 'setup'
   reset(): void;
   update(dt: number): void;
   destroy(): void;
@@ -131,16 +133,7 @@ fertiger `WaveConfig`. Auf einer Boss-Welle der Rotation (siehe
 [Boss Waves](#boss-waves)) ersetzt die Facade die Welle des lokalen Directors durch die
 der Boss-Variante; Wellen aus dem Training-Backend bleiben unverändert.
 
-### SpawnPoint Interface
-
-```typescript
-export interface SpawnPoint extends GeoPosition {
-  id: string;    // Eindeutige ID
-  name: string;  // Display name (z.B. "Nord")
-}
-```
-
-**Hinweis:** `SpawnPoint` erweitert `GeoPosition` (mit `lat`, `lon`, `height?`), NICHT eigene `latitude`/`longitude` Felder.
+`SpawnPoint` steht unter [Spawn Points](#spawn-points).
 
 ### Spawn Mode
 
@@ -172,164 +165,38 @@ Spawn Point C: Enemy 2, 6, 8, 11, ...
 
 ## Wave-Erzeugung: Director → WaveConfig
 
-> **Stand 2026-09-07:** Der Director ist **regelbasiert und laeuft im Client**.
-> Das ONNX-Modell ist nicht mehr der Default; es bleibt als Opt-in erhalten
-> (`WaveDirectorService.loadModel()`). Fuer den Betrieb braucht das Spiel weder
-> Modell noch Python-Server.
-
-`WaveDirectorService.getNextWave()` erzeugt fuenf Zahlen — einen Template-Index
-und vier Formfaktoren in `[0,1]` (`count`, `spawn`, `hp`, `variation`) — und
-schickt sie durch einen Decoder, der fuer Regeln und Modell **derselbe** ist.
-Nur die Herkunft der fuenf Zahlen unterscheidet sich, was den A/B-Vergleich
-zwischen beiden ueberhaupt erst aussagekraeftig macht.
+Der WaveManager bekommt eine fertige `WaveConfig` und kennt keine
+Schwierigkeitskurve. Die Welle entsteht im Wave-Director
+(`WaveDirectorService.getNextWave()`, regelbasiert, im Client) aus fünf Zahlen:
+einem Template-Index und vier Formfaktoren. Regel-Director, Maske und
+Curriculum, Decoder, Fairness-Cap und Gate-Controller beschreibt nur
+[AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) (Abschnitte 4 bis 6).
 
 ```
-getStateSnapshot()                     ai/core/ai-data-collector.service.ts
+getStateSnapshot()        ai/core/ai-data-collector.service.ts
    │
    ▼
-buildWaveContext(state, recent)        ai/core/wave-context.ts
-   │   mask[32]  = Curriculum-Pin, sonst minWave/Capability/Boss/Cooldown
-   │   ranges    = count / hpMult / spawnDelay des tatsaechlichen Templates
+buildWaveContext()        ai/core/wave-context.ts          Maske, Ranges, Fairness-Headroom
+   │
    ▼
-RuleDirector.decide(mask, wave, recent)   ai/core/rule-director.ts
-   │   templateIdx + countFactor / spawnFactor / hpFactor / variationFactor
+RuleDirector.decide()     ai/core/rule-director.ts         Template + 4 Faktoren
+   │
    ▼
-buildWaveConfig(decision, state, maskReason, gate)   ai/core/wave-config-builder.ts
-   │   DPS-Ramp → endgameHpMultiplier → Fairness-Cap → Dauer-Cap → Gruppen
-   │   + explanation (explainWaveDecision, "Why this wave")
+buildWaveConfig()         ai/core/wave-config-builder.ts   DPS-Ramp, Endgame-HP, Fairness-Cap, Dauer-Cap, Gruppen
+   │
    ▼
 AIWaveConfig ──adaptAIWaveConfig()──► WaveConfig (SpawnSchedule) ──► WaveManager
 ```
 
-### Regel-Director: Abwechslung und Kurve
+Für den WaveManager zählt davon:
 
-Der `RuleDirector` trifft genau zwei Entscheidungen, beide bewusst ohne Lernen:
-
-- **Abwechslung wird erzwungen, nicht belohnt.** Gewaehlt wird das *aelteste
-  erlaubte* Template (Gleichstand zufaellig). Reward-Term und Cooldown-Maske
-  haben Wiederholung nur teuer gemacht — die Regel macht sie unmoeglich.
-- **Schwierigkeit ist eine geschriebene Kurve, kein Pro-Wave-Urteil.** Der
-  Spieler heilt nie, seine HP sind also ein Budget fuer den ganzen Run; das ist
-  etwas, das man aufschreibt, nicht aus einem Skalar-Reward pro Welle ableitet.
-
-| Faktor | Rampenstart | ab Wave 60 | Wirkung |
-|---|---|---|---|
-| `countFactor` | 0.45 | 0.85 | mehr Gegner |
-| `spawnFactor` | 0.55 | 0.30 | kuerzeres Spawn-Delay |
-| `hpFactor` | 0.40 | 0.75 | zaehere Gegner |
-| `variationFactor` | 0.60 | 0.60 | konstante Streuung |
-
-Rampe linear bis `RAMP_FULL_WAVE = 60`, danach gehalten; auf jeden Faktor kommt
-`JITTER = ±0.12`, damit aufeinanderfolgende Wellen nicht identisch sind.
-
-Die Maske selbst kommt aus `describeTemplateMask()` (`getAvailableTemplateMask()`
-ist der Wrapper ohne Begründung): **innerhalb** des
-Curriculums (bis `CURRICULUM_FORCED_THROUGH_WAVE`) kollabiert sie auf das eine
-gepinnte Template — die Gates greifen dort gar nicht, weil der Designer die
-Welle bereits gewaehlt hat. Erst danach gelten `minWave`,
-Capability-Anforderungen (Anti-Air, Anti-Ethereal), die Boss-Kadenz und der
-Cooldown (`TEMPLATE_COOLDOWN_WAVES = 2`). Boss-Kadenz: `isBossWave()` in
-`wave-curriculum.config.ts`, bis W30 jede zehnte Welle (gepinnt), danach jede
-fünfte. An Boss-Wellen kollabiert die Maske auf die `bossOnly`-Templates, die
-die Gates bestehen (`boss_herbert`, `boss_golem`, `boss_dragon`; die
-Älteste-zuerst-Regel rotiert sie), an allen anderen Wellen sind sie gesperrt.
-Vorher waren Bosse an Vielfachen von 10 nur erlaubt, nicht erzwungen: simuliert
-kamen zwischen W31 und W130 0,7 statt 10 Boss-Wellen. Boss-Wellen nach W30
-zahlen das doppelte Gold-Budget. Fallbacks garantieren, dass nie alle Slots
-gesperrt sind (Boss-Template trotz Cooldown, sonst normale Welle); der Leerfall
-im `RuleDirector` (Slot 0 mit festen Mittelwerten) ist deshalb rein defensiv.
-
-### Decoder: von den Faktoren zur Welle
-
-`buildWaveConfig()` ist der geteilte Teil und wendet in dieser Reihenfolge an:
-
-1. **DPS-Ramp** — `count`- und `hpMult`-Range werden am Defense-DPS gedeckelt
-   (`DPS_RAMP_COUNT = 500`, `DPS_RAMP_HP_MULT = 1000`, Untergrenze
-   `DPS_RAMP_FLOOR = 0.10`). Schwache Defense → schmaler effektiver Bereich.
-2. **`endgameHpMultiplier(wave)`**: multipliziert *nach* dem Faktor auf
-   `hpMult` (ab W21 +5 % pro Welle, W30 ×1,5, Cap 4× ab W80, siehe
-   `wave-curriculum.config.ts`).
-3. **Fairness-Cap** (`fairMaxCount`, siehe unten).
-4. **Dauer-Cap** — `MAX_WAVE_DURATION_MS = 180_000`. Wird er gerissen, wird
-   `spawnDelay` komprimiert **und der Count danach neu abgeleitet**: eine
-   langsame Mega-Welle besteht den Fairness-Check gerade *weil* ihr langes
-   Spawn-Fenster der Defense Zeit gibt, und die Kompression vervielfacht
-   anschliessend die Spawn-Rate. Ohne den zweiten Durchlauf umgehen genau die
-   Wellen das Gate, wegen derer es existiert.
-5. **Gruppen-Aufteilung** — `template.enemies` liefert die Anteile; die letzte
-   Gruppe bekommt den Rest, damit `totalCount` exakt aufgeht.
-
-### Fairness-Cap (`fairMaxCount`)
-
-Der Cap begrenzt, **wie gross eine Welle werden darf**. Er schaetzt aus
-Defense-DPS, Kill-Throughput, Gegner-HP, -Ruestung und -Tempo, wie viele Gegner
-die Verteidigung in der Spawn-Zeit plus Engagement-Fenster toeten kann, und
-addiert eine in HP bepreiste Leck-Toleranz
-(`FAIRNESS_WAVE_HP_BUDGET = 6%` der Rest-HP, mindestens `FAIRNESS_MIN_LEAK_HP`,
-geteilt durch `enemyBaseDamageForWave(wave)`).
-
-Zwei Eigenschaften sind wichtig:
-
-- Der Cap **interpoliert, statt zu clampen**: er verengt die `count`-Range,
-  bevor der Faktor angewandt wird. Nachtraegliches Clampen bildete jeden Faktor
-  oberhalb des Caps auf dieselbe Welle ab — eine flache Zone, in der keine
-  Praeferenz mehr ausdrueckbar ist.
-- Der Cap **schlaegt das Template-Minimum**. Liegt er unter `countRange[0]`,
-  kann die Defense nicht einmal die kleinste vorgesehene Welle halten; dann
-  kollabiert die Range auf den Cap, statt trotzdem das Minimum zu schicken.
-
-**Matchup-Floor (seit 2026-09).** Der Cap liest `gateDpsPerArmor` aus der
-Defense-Analyse, nicht die rohe Matrix: gegen Boden-Gegner mit unarmored, light,
-heavy und fortified zählt jeder Tower mindestens `FAIRNESS_MATCHUP_FLOOR = 0.6`
-seiner DPS. Ohne Floor machte eine schlechte Paarung die Welle nur kleiner
-(Gatlings gegen Panzer bekamen weniger Panzer), und die breitere Schadensmatrix
-wäre im Gate verschwunden. Mit Floor spürt der Spieler ein falsches Roster als
-Leck, begrenzt durch `maxLeakDamagePerWave`. Ethereal und Luft bleiben auf der
-reinen Matrix, dort greifen die Capability-Gates.
-
-### Gate-Controller: Regelkreis auf der Leck-Quote
-
-`fairMaxCount` diskontiert die Kill-Schaetzung mit `FAIRNESS_KILL_REALISM = 0.65`.
-Dieser Wert wurde auf den Wellen 1–10 gemessen und ist ab Wave 11 zu
-pessimistisch — der Cap hat also einen stehenden Bias und keine Moeglichkeit,
-ihn zu bemerken. Der `GateController` (`ai/core/gate-controller.ts`) korrigiert
-das aus der einzigen belastbaren Evidenz: **was tatsaechlich die Basis erreicht
-hat**.
-
-| Groesse | Wert | Bedeutung |
-|---|---|---|
-| `GATE_ADAPT_WINDOW` | 4 | Wellen Leck-Historie, bevor ueberhaupt geregelt wird |
-| `GATE_LEAK_TARGET_LO/HI` | 0.08 / 0.16 | Zielband fuer den durchgelassenen Anteil |
-| `GATE_GAIN` | 0.35 | Proportional-Verstaerkung auf den relativen Fehler |
-| `GATE_MULT_DOWN` | 0.8 | Ruecknahme, wenn ein Run endet (bewusst haerter als der Gain) |
-| `GATE_MULT_MIN/MAX` | 0.5 / 8 | Klammer des `budgetMultiplier` |
-
-Innerhalb des Bandes wird gehalten. Zwei Fehlerformen sind bewusst vermieden:
-
-- **Nicht auf die Kill-Quote regeln.** „Die Defense hat alles getoetet, also
-  mehr erlauben" liest die eigene Vorsicht des Reglers als Spielraum — eine
-  kleine Welle wird geraeumt, *weil* sie klein ist. Einseitiger Druck; im
-  Python-Original lief der Multiplikator dabei an seine Obergrenze und schaltete
-  das Gate praktisch ab. Die Leck-Quote ist zweiseitig und konvergiert.
-- **Keine feste Schrittweite.** Der Multiplikator muss ~1.6 erreichen, nur um
-  den veralteten Realism-Discount aufzuheben. Bei 5% pro Fenster sind das ~170
-  Wellen bei Runs von ~60.
-
-**Verdrahtung (der Teil, der beim ersten Anlauf gefehlt hat):** Der Controller
-haengt an `AIDataCollectorService.onWaveResult()`, **nicht** am Event
-`wave:completed`. Beim Fall der Basis wird `wave:completed` nicht emittiert
-(siehe [EVENT_SYSTEM.md](EVENT_SYSTEM.md#event-typen)) — die Todes-Ruecknahme
-waere ueber das Event nie erreichbar gewesen. `onWaveResult` haengt an
-`addToHistory()`, dem einzigen Punkt, den beide Pfade passieren.
-
-Kills durch Spieler-Fähigkeiten (Nuklearschlag) zählen für den Regler als Leck
-(`gateLeakRatio`, `WaveOutcome.abilityKills`): der Einsatz rettet HP und Gold,
-vergrößert die folgenden Wellen aber nicht. Siehe [ABILITIES.md](ABILITIES.md).
-
-Der Zustand ist **pro Run**: `GameLoopFacadeService.restartGame()` ruft
-`waveDirector.resetForNewGame()`. Lief der Multiplikator ueber Runs hinweg
-weiter, wurde er zur Ratsche — neue Runs starteten gegen Wellen, die fuer eine
-laengst abgebaute Verteidigung dimensioniert waren.
+- Jede Welle kommt als `command:start-wave` mit fertiger `WaveConfig`, egal
+  aus welcher Quelle (siehe [Wave-Konfiguration](#wave-konfiguration)).
+- Das Ergebnis jeder Welle geht über `AIDataCollectorService.onWaveResult()` an
+  den Gate-Controller, nicht über `wave:completed`: beim Game Over wird
+  `wave:completed` nicht emittiert (siehe [Game Over Integration](#base-destroyed)).
+- Kills durch Spieler-Fähigkeiten zählen für den Gate-Controller als Leck
+  ([ABILITIES.md](ABILITIES.md)).
 
 ---
 
@@ -568,18 +435,18 @@ private selectSpawnPoint(mode: 'each' | 'random', index: number): SpawnPoint {
 
 ### Debug Event Handler
 
-Der WaveManager reagiert auf `debug:kill-all` und kürzt dabei keine Credits zu (sonst Instant-Goldfarm beim Testen, Phase 5.16):
+Der WaveManager reagiert auf `debug:kill-all`. Ein Kill mit Ursache `'debug'` zahlt keine Credits (sonst Instant-Goldfarm beim Testen, Phase 5.16) und teilt keinen Gegner, ein Skeleton hinterlässt also keine Minions:
 
 ```typescript
 private registerDebugHandlers(): void {
-  this.eventBus.on('debug:kill-all', () => {
+  this.subs.add(this.eventBus.on('debug:kill-all', () => {
     this.stopSpawning();
     for (const enemy of this.enemyManager.getAlive()) {
       if (enemy.alive) {
-        this.enemyManager.kill(enemy, /*awardCredits*/ false);
+        this.enemyManager.kill(enemy, 'debug');
       }
     }
-  });
+  }));
 }
 ```
 
@@ -648,7 +515,8 @@ multipliziert sich:
 | Leck-Schaden | `enemyBaseDamageForWave(wave)` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
 
 Nach oben gedeckelt wird die Kurve durch den Fairness-Cap und den
-Gate-Controller (siehe [Wave-Erzeugung](#wave-erzeugung-director--waveconfig))
+Gate-Controller (siehe [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md),
+Abschnitte 5 und 6)
 sowie durch `GAME_BALANCE.combat.maxLeakDamagePerWave` — eine einzelne Welle
 kann den Spieler nie mehr als 18 HP kosten.
 
@@ -658,15 +526,15 @@ Boss-Wellen sind Templates mit `bossOnly: true` (`boss_herbert`, `boss_golem`,
 `boss_dragon`). Welche Welle eine Boss-Welle ist, sagt `isBossWave()`: im
 Curriculum W10/W20/W30, dort fest auf `boss_herbert` gepinnt, danach jede
 fünfte Welle (W35, W40, ...). An Boss-Wellen lässt die Maske nur Boss-Templates
-zu, an allen anderen sperrt sie sie; Details unter
-[Regel-Director](#regel-director-abwechslung-und-kurve). `boss_golem` und
+zu, an allen anderen sperrt sie sie; Details in
+[AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md#maske-und-curriculum). `boss_golem` und
 `boss_dragon` haben `minWave: 31`, `boss_dragon` braucht Anti-Air.
 
 **Boss-Varianten** (`configs/boss-variants.config.ts`): Bosse, die kein Template des
 Directors sind, kommen über eine Rotation über die Boss-Wellen nach dem Curriculum.
 `BOSS_VARIANT_ROTATION` läuft über W35, W40, W45, ... und nennt je Welle eine Variante oder
 `null` für das Boss-Template des Directors; derzeit `['worm', null, 'ooze', null]`: W35,
-W55, W75, ... bringen den Chitin-Wurm, W45, W65, W85, ... die Ooze (ENEMY_CREATION.md,
+W55, W75, ... bringen Skarnax, den Wurm, W45, W65, W85, ... die Ooze (ENEMY_CREATION.md,
 Körper entlang der Route), W40, W50, W60, ... die Director-Bosse. Der Director plant auch diese
 Wellen wie bisher. `GameLoopFacadeService.startWaveWithAI()` ersetzt danach seine Welle durch
 `bossVariantWave()`: ein Gegner des Varianten-Typs (ein Wurm, also ein Enemy je Segment) mit
@@ -746,7 +614,8 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
   die Kamera an ihrem Ende. Bis 2026-09-14 füllte das Portal 55 % der
   Bildhöhe und die Kamera stand weiter weg: von Herberts Mitte auf gerader
   Straße mit Skala 1 rund 31 m (jetzt 23 m), mit Skala 1,75 rund 57 m (jetzt
-  42 m).
+  42 m); waagerecht zwischen Kamera und Boss bei Skala 1 28,8 m (jetzt
+  21,4 m). Gerechnet mit einem Projektionsskript, nicht im Spiel gemessen.
 - **Freie Sicht** (seit 2026-09-14, `PortalShotSearch`): Im Playtest (366,
   echte Karte, Portal in einer schmalen Straße zwischen zwei Häusern) schaute
   die Einstellung nach einer Kurve seitlich über die Häuser (nur die
@@ -789,7 +658,7 @@ Spiel-Logik liest etwas davon.
 
 - **Welche Wellen:** `isBloodMoonWave()` in `configs/blood-moon.config.ts`: ab
   W14 jede siebte (W14, W21, W28, W35, …), ohne Ende, also auch im Endlosspiel.
-  Jede fünfte davon ist zugleich eine Boss-Welle: W35 die des Chitin-Wurms, W70 eine
+  Jede fünfte davon ist zugleich eine Boss-Welle: W35 die von Skarnax (Wurm), W70 eine
   des Directors, W105 die der Ooze (Rotation siehe oben). Es zählt nur die Wellennummer, eine
   Custom-Welle aus dem Debug-Fenster auf W14 bekommt den Look ebenso.
 - **An und aus:** `BloodMoonService` (`game-engine/`) hört auf den Event-Bus.
@@ -991,7 +860,7 @@ die Welle kommt aus `WaveDebugService.toAIWaveConfig()` (siehe
 ### Kill All
 
 `debug:kill-all` stoppt den Spawner (`stopSpawning()`) und tötet alle lebenden
-Enemies ohne Credits. Die Welle endet danach regulär über `checkWaveComplete()`.
+Enemies ohne Credits und ohne Split. Die Welle endet danach regulär über `checkWaveComplete()`.
 
 ### Jump to Wave
 
@@ -1092,6 +961,9 @@ export interface GeoPosition {
 }
 ```
 
+`SpawnPoint` erweitert `GeoPosition` (`lat`, `lon`, `height?`), hat also keine
+eigenen `latitude`/`longitude`-Felder.
+
 ### Herkunft
 
 Spawn-Points werden nicht zufällig erzeugt. `LocationFacadeService` übernimmt
@@ -1113,27 +985,14 @@ Nach einer DevWorld-Neugenerierung setzt `reseatWavePipeline()` beide neu, weil
 
 ## Best Practices
 
-### 1. Spawn Delay
-
-```typescript
-// Zu schnell: Enemies spawnen als Block
-spawnDelay: 50,  // Nicht empfohlen
-
-// Gut: Sichtbare Luecken zwischen Enemies
-spawnDelay: 300-500,  // Empfohlen
-
-// Langsam: Fuer grosse Wellen
-spawnDelay: 800-1000,  // Empfohlen (Tank, Boss)
-```
-
-### 2. Wave Difficulty Curve
+### 1. Wave Difficulty Curve
 
 Keine eigene Count-Formel schreiben: Count, HP und Delay kommen aus
 Template-Ranges, Rule-Director-Rampe, Fairness-Cap und Gate-Controller (siehe
 [Progressive Difficulty](#progressive-difficulty)). Feste Wellen stehen in
 `STATIC_WAVE_PROFILES`.
 
-### 3. Mixed Enemy Types
+### 2. Mixed Enemy Types
 
 Mischungen gehören in ein Template (`enemies: [[typ, anteil], ...]`) bzw. in
 die Gruppen einer `AIWaveConfig`; die Reihenfolge bestimmt das Spawn-Pattern.
@@ -1167,16 +1026,6 @@ die Gruppen einer `AIWaveConfig`; die Reihenfolge bestimmt das Spawn-Pattern.
 
 ## Performance
 
-### Spawn Delay Minimum
-
-```typescript
-// Zu viele gleichzeitige Spawns -> FPS-Drop
-spawnDelay: 50,  // 20 enemies/sec - nicht empfohlen
-
-// Gut fuer Performance
-spawnDelay: 200,  // 5 enemies/sec - empfohlen
-```
-
 ### Large Waves
 
 Zwei Grenzen im Code: Der Director komprimiert das Delay, wenn
@@ -1190,6 +1039,7 @@ parallel gibt es nicht: `GameLoopFacadeService.startWave()` startet nur aus
 
 ## Siehe auch
 
+- [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) - Regel-Director, Maske, Decoder, Fairness-Cap, Gate-Controller
 - [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) - AI-off Debug-Pfad: feste Per-Wave-Profile + UI-Toggle
 - [ENEMY_CREATION.md](ENEMY_CREATION.md) - Enemy-Typen erstellen
 - [STATUS_EFFECTS.md](STATUS_EFFECTS.md) - Status-Effekte
