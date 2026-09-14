@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-09-13 (Dateistruktur, Services, Manager, Renderer, Game Loop gegen den Code geprüft; `ai/`-Baum: 2026-09-07)
+**Stand:** 2026-09-15 (Services, Manager, Signaturen, Ordner und Game Loop gegen den Code geprüft)
 
 ## Übersicht
 
@@ -39,6 +39,7 @@ Server-Anteil und kein Modell:
 |---|---|
 | Google Maps 3D Tiles / Cesium-Tiles | extern, Pflicht (Kartendaten) |
 | OSM Nominatim | extern, nur beim Location-Wechsel |
+| OSM Overpass | extern, Straßen und Gebäude beim Laden eines Orts (IndexedDB-Cache, siehe [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md)) |
 | Python-Training-Backend (`:3001`) | **nur Training**. Ohne Verbindung laeuft das Spiel unveraendert. |
 | Bots + WebSocket-Client (`ai/training/training-session.ts`) | **nur Training**. Eigener Lazy-Chunk, laedt erst bei Bot-Start oder Backend-Verbindung ([BOT_SYSTEM.md](BOT_SYSTEM.md#integration)). |
 | ONNX-Modell + `onnxruntime-web` | **opt-in**. Wird nicht mehr beim Start geladen. |
@@ -85,11 +86,11 @@ const preview = this.markerViz.createDiamondMarker({ color: 0x22c55e, size: 0.8,
 ## Services
 
 Die Haupt-Komponente wurde durch Extraktion spezialisierter Services modularisiert.
-`tower-defense.component.ts` hat ~810 Zeilen, Template und Styles liegen daneben in
+`tower-defense.component.ts` ist die Spielkomponente, Template und Styles liegen daneben in
 `tower-defense.component.html` und `.scss`.
 
 **Hinweis:** Services liegen in `/src/app/services/`. Seit dem **services/-Subfolder-Split
-am 2026-05-10** sind sie thematisch in 6 Subfolder gruppiert; Root-Files
+am 2026-05-10** sind sie thematisch in Subfolder gruppiert (heute sieben, `onboarding/` kam dazu); Root-Files
 bleiben einige zentrale Service-Klassen, die keinem Subfolder eindeutig zuzuordnen sind.
 
 ### Verzeichnisstruktur
@@ -185,7 +186,7 @@ src/app/services/
 | **CameraControlService** | Start- und Übersichtsansicht merken, Kamera-Reset, Heading und Debug-Info für Kompass und Engine-Store, Schnellsprung `focusGeo` (Home/N): Blickrichtung bleibt, die Position gleitet 600 ms additiv zu Keyboard-Pan und Controls; `stopJump()` beendet ihn, wenn eine geskriptete Einstellung die Kamera nimmt (Boss-Intro) |
 | **CameraFramingService** | Viewport-basierte Kamera-Positionierung |
 | **InputHandlerService** | Click/Pan Detection, Terrain Raycasting, Kamera-, Build- und Debug-Tasten. Außerhalb von Build- und Platzierungsmodus zeigt der Tower unter dem Zeiger seine Reichweite (Scheibe und Auswahlring des Renderers, `ThreeTowerRenderer.setHovered`): höchstens ein Tower-Pick alle 100 ms mit Nachzügler für die Endposition, keiner bei gedrückter Maustaste. Ein Druck auf dem Canvas nimmt die Hover-Reichweite weg (auch auf dem Tower selbst, vor einem Kamera-Ziehen), das Loslassen über dem Canvas pickt neu |
-| **HotkeyService** | Spieltasten (1-9, U, Entf, Leertaste, P, +/-, H, Esc, Pos1, N) nach dem InputHandler; Provider der Spielkomponente, weil er die Facade braucht. Zuordnung in `hotkey-map.ts` |
+| **HotkeyService** | Spieltasten nach dem InputHandler (alle Tasten: [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#tastenkürzel)); Provider der Spielkomponente, weil er die Facade braucht. Zuordnung in `hotkey-map.ts` |
 | **TowerUpgradeService** | Upgrade-Käufe des Spielers, von U (`buyFirst`, aus dem HotkeyService) und vom Klick auf eine Upgrade-Kachel (`buy`, Tower- und Research-Panel über die Spielkomponente), mit einer Antwort für beide: Track und neue Stufe als Welttext über dem Tower und Kachel-Blitz, oder der Grund über dem Tower und als Zeile im Panel (`UpgradeHintService`). Regeln in `utils/player-actions.ts` (`upgradeTrackRefusal`). Provider der Spielkomponente, weil er die Facade braucht; die Bots kaufen direkt über die Facade, ohne Antwort |
 | **BossIntroService** | Boss-Intro: tritt ein Boss einer Welle aus seinem Portal, Kameraschnitt aufs Portal mit Titelkarte, das Spiel pausiert, Klick oder Esc überspringt. Provider der Spielkomponente (hört am Bus des GameStateManager), getickt aus `GameLoopFacadeService.onEngineUpdate` nach den Sub-Steps; bekommt jede Taste vor InputHandler und HotkeyService. Regeln, Zeitplan und Einstellung in `utils/boss-intro.ts`, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-intro) |
 | **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
@@ -200,7 +201,7 @@ src/app/services/
 | **CombatEffectService** | Projectile Hits, Damage, Blood/Death/Slow Effects |
 | **CombatVfxService** | VFX-Trigger fuer Combat-Events (Hit-Sparks, Splash-Visuals) |
 | **DamageApplicationService** | Damage-Pipeline: Schadensmatrix, Resistances, DOT-Application |
-| **StatusEffectService** | Status-Effekte (Slow, Burn, Poison; Freeze reserviert) inkl. DOT-Ticks |
+| **StatusEffectService** | Status-Effekte (Slow, Burn, Poison, Freeze als Halt, Stun) inkl. DOT-Ticks, siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) |
 | **HQDamageService** | HQ Fire Effects, Damage Sounds, Game Over Visuals |
 
 #### world/
@@ -330,9 +331,10 @@ tower-defense.component.ts
     ├── Managers (event-driven)
     │   ├── GameStateManager ──────────── Game-Loop, Event-Wiring, Sub-Manager-Lifecycle, Fassade für UI und Bots
     │   │   └── game-state/ ───────────── GameClock, CreditsLedger, BaseHealthLedger, TowerLifecycle (2026-09-13)
-    │   ├── GameCommandsHandler ───────── Routing der `command:*`- und vier `debug:*`-Events (2026-05-10)
+    │   ├── GameCommandsHandler ───────── Routing der `command:*`- und sieben `debug:*`-Events (2026-05-10)
     │   ├── EconomyService ────────────── Wave-Completion-Bonus + Streak (extrahiert aus GSM)
     │   ├── EnemyManager / TowerManager / ProjectileManager / WaveManager / ResearchManager
+    │   ├── AbilityManager / HeroManager / ReplayRecorder
     │   └── EntityManager ─────────────── Generischer Entity-Container
 ```
 
@@ -555,7 +557,9 @@ Tower-LOS und Air-Routing bedienen.
 **Sanity & sampling rules (in `sampleCellY`, `route-cell-sampler.ts`):**
 - Rejects raycast hits with `tileDepth=0` / `tileGeomErr=Infinity` (mesh
   not yet decoded → keeps cell `unsampled` instead of caching garbage)
-- Rejects outliers >50 m from the median of stable 3×3 neighbours
+- Rejects outliers >50 m from the median of stable neighbours of the same
+  surface; for a first sample or an LOD upgrade only neighbours from tiles at
+  least as deep count (ROUTE_CORRIDOR.md, Zellhöhe)
 - LOD-versioned idempotency: stable cells are only resampled when the
   hit comes from a strictly better LOD
 
@@ -573,7 +577,7 @@ Tower-Platzierung und Kamera-Bewegung loesten frueher schwere Frame-Drops aus
 - `TowerPlacementService.registerTowerOnGrid()` läuft beim Platzieren (aus
   `GameStateManager`, nicht für passive Gebäude): erst `refineCellsInRadius()` im
   Tower-Radius, dann `registerTower()` am Grid mit GPU-Cubemap-LOS
-  ([HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md)), danach
+  ([LOS_PIPELINE.md](LOS_PIPELINE.md)), danach
   `tower.losReady = true`
 - Combat-System überspringt Towers mit `!losReady`
 - Ändern sich Cell-Höhen (cells-changed-Listener), kommen die betroffenen Tower in eine
@@ -589,7 +593,8 @@ Tower-Platzierung und Kamera-Bewegung loesten frueher schwere Frame-Drops aus
 
 ### Enemy System Performance
 
-Optimiert fuer 5000+ Enemies bei 67 FPS (~1.79µs pro Enemy):
+Optimierungen im Enemy-Pfad. Die Zahlen (5000+ Gegner bei 67 FPS, etwa 1,79 µs je Gegner,
+die Ersparnis je Zeile) stammen aus einer Messung ohne Datum und ohne Protokoll im Repo:
 
 | Optimierung | Ersparnis |
 |-------------|-----------|
@@ -610,7 +615,7 @@ Optimiert fuer 5000+ Enemies bei 67 FPS (~1.79µs pro Enemy):
 ```typescript
 abstract class GameObject {
   readonly id: string;
-  readonly type: GameObjectType; // 'enemy' | 'tower' | 'projectile'
+  readonly type: GameObjectType; // 'enemy' | 'tower' | 'projectile' | 'hero'
 
   protected components = new Map<ComponentType, Component>();
   private _active = true;
@@ -679,7 +684,7 @@ class Tower extends GameObject {
 
   selected = false;
 
-  findTarget(enemies: Enemy[]): Enemy | null;
+  findTarget(enemies: Enemy[], airTargetingUnlocked: boolean, losCheck?, bodyDistSq?): Enemy | null;
   select(): void;
   deselect(): void;
 }
@@ -719,6 +724,7 @@ class GameStateManager {
   readonly projectileManager: ProjectileManager;
   readonly waveManager: WaveManager;
   readonly researchManager: ResearchManager;
+  readonly abilityManager: AbilityManager;
   readonly heroManager: HeroManager;
 
   // Event Bus
@@ -736,7 +742,7 @@ class GameStateManager {
 }
 ```
 
-Die `command:*`- und vier `debug:*`-Subscriptions liegen in `GameCommandsHandler`
+Die `command:*`- und sieben `debug:*`-Subscriptions liegen in `GameCommandsHandler`
 (`managers/game-commands.handler.ts`). Der Handler sucht nur den Tower heraus und ruft die
 öffentliche API des GameStateManager.
 
@@ -765,8 +771,8 @@ Aufrufe pro Sub-Step und pro Frame, Pause, Timescale 1 und 10, Listener-Reihenfo
 class EnemyManager extends EntityManager<Enemy> {
   constructor(eventBus: GameEventBus, routeGrid: GlobalRouteGridService, spatialGrid: SpatialGridService);
 
-  spawn(path, typeId, speedOverride?, paused?, healthOverride?): Enemy;
-  kill(enemy: Enemy, awardCredits?: boolean): boolean;  // Emittiert 'enemy:died'
+  spawn(path, typeId, speedOverride?, paused?, healthOverride?, entry?): Enemy;  // entry: 'portal' oder ein Start mitten auf dem Pfad
+  kill(enemy: Enemy, cause: KillCause = 'combat'): boolean;  // Emittiert 'enemy:died'; nur 'combat' zahlt Gold und teilt, 'debug' (kill-all) nicht
   update(deltaTime: number, gameTimeMs: number): void;  // Emittiert 'enemy:reached-base'
   startAll(defaultDelayBetween?: number): void;
   getAlive(): Enemy[];
@@ -795,7 +801,7 @@ class TowerManager extends EntityManager<Tower> {
   constructor(eventBus: GameEventBus, osmService: OsmStreetService, researchStore: ResearchStore);
 
   initialize(tilesEngine: ThreeTilesEngine): void;  // aus EntityManager
-  placeTower(position: GeoPosition, typeId: TowerTypeId, customRotation?: number): Tower | null;  // Emittiert 'tower:placed'
+  placeTower(position: GeoPosition, typeId: TowerTypeId, customRotation = 0, plinthHeight = 0): Tower | null;  // Emittiert 'tower:placed'
   sell(tower: Tower): number;  // Emittiert 'tower:sold'
   selectTower(id: string | null): void;
   getSelected(): Tower | null;
@@ -812,7 +818,7 @@ und `utils/tower-placement-rules.ts`.
 class ProjectileManager extends EntityManager<Projectile> {
   constructor(eventBus: GameEventBus);
 
-  spawn(tower: Tower, targetEnemy: Enemy, heading?: number): Projectile;  // Emittiert 'vfx:muzzle-flash'
+  spawn(tower: Tower, targetEnemy: Enemy, heading?: number, aimPoint?: GeoPosition): Projectile;  // Emittiert 'vfx:muzzle-flash'; aimPoint für Körper entlang der Route
   spawnShot(origin, originHeight, target, typeId, damage, damageType, sourceId, aimPoint?): Projectile;  // Schuss ohne Tower (Held); aimPoint für Körper entlang der Route
   update(deltaTime: number): void;  // Emittiert 'projectile:hit', 'vfx:projectile-impact', 'audio:play'
 }
@@ -854,7 +860,7 @@ class ResearchManager implements IGameManager {
 Den Store-Zustand meldet der Manager als `research:state-changed`, `GameStateSyncService`
 schreibt ihn in den `ResearchStore`.
 
-ResearchEffects sind in `configs/research/research.types.ts` definiert und werden bei Completion an Tower- und Game-Systeme verteilt (z.B. unlockTowerType, multiplyDamage).
+ResearchEffects sind in `configs/research/research.types.ts` definiert und werden bei Completion an Tower- und Game-Systeme verteilt (`kind`: `unlock-tower`, `global-perk`, `unlock-upgrade-tier`, `enable-targeting`).
 
 ### 4.7 SpatialAudioManager
 
@@ -966,10 +972,14 @@ Services und Manager sammeln ihre Subscriptions in einer `SubscriptionBag`
 // GameStateManager.runSubStep(stepMs), einmal pro Sub-Step
 projectileManager.update(stepMs);          // Emits immediate + deferred
 researchManager.update(stepMs);
+audioService?.update(stepMs);              // Loop-Sounds in Spielzeit
+abilityManager.update(stepMs);             // Einschläge und Strahlen der Fähigkeiten
 eventBus.processQueue();                   // Process deferred at stable point
 waveManager.tickSpawn(stepMs);             // nur in der Wave-Phase
 enemyManager.update(stepMs, gameTimeMs);   // Emits immediate events
 towerCombat.updateTowerShooting(...);      // + Beam/Melee/Chain, nur in der Wave-Phase oder mit Debug-Gegnern
+heroManager.update(stepMs);                // eigener Schritt des Helden
+// danach in update(): onSubStep (Turret-Aim, Bot), replayRecorder.onSubStep()
 ```
 
 ---
@@ -1772,7 +1782,7 @@ zwei instanzierte Draw Calls für alle Portale:
   zu ihr ausgerichtet (`spawnPortalPose`), in der Skala des Standardkorridors, da die Breite
   dort erst mit der Route gemessen wird. Die Route beginnt am Fußpunkt des Cursors auf dem
   nächsten Straßensegment, liegt der Fußpunkt keinen Meter vor einem Knoten, auf dem Knoten
-  (`findPath`, `SegmentRoutes` in `utils/route-start.ts`). Die Vorschau folgt dem Cursor so
+  (`findPath` in `OsmStreetService` bzw. `DevStreetProvider`, Start über `SegmentRoutes` aus `utils/route-start.ts`). Die Vorschau folgt dem Cursor so
   die Straße entlang. Sie gleitet je Frame zu der Pose der letzten Mausbewegung
   (`updatePreview`, Zeitkonstante `PREVIEW_FOLLOW_S` 40 ms): ein Schritt, der Wechsel auf
   eine andere Straße, eine Wende der Route oder eine neue Bodenhöhe ist nach rund 0,1 s zu
@@ -1998,7 +2008,7 @@ class GlobalRouteGrid {
   begehbar; der Korridor endet vor ihnen, Routen und Grid werden neu gebaut (`roofRise`,
   `stepRise`, `corridor-walk.ts`, ROUTE_CORRIDOR.md, Laufweg)
 - Gegner-Seitenversatz auf die Halbbreite der Seite minus 1,5 m begrenzt, damit jeder Gegner
-  in einer Zelle steht (Details: [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md))
+  in einer Zelle steht (Details: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#seitenversatz-der-gegner))
 - 2m Zellenauflösung für präzise LOS-Prüfung
 
 **Shader-Visualisierung:**
@@ -2015,12 +2025,11 @@ const material = new THREE.ShaderMaterial({
 ```
 
 **Farben** (Aggregat-Mesh, Quelle `LOS_VIZ_CONFIG`; gleiche Layer-Farben wie die
-per-Tower-Viz, siehe "Farbsemantik der Cell-Plates" in
-[HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md)):
-- Ground-Plate (`grid`): grün `#5CE6A8` (α 0.45), wenn ein Tower die Zelle am Boden sieht
-- Air-Plate (`gridAir`, `getAirTargetY` = `terrainHeight` + 15 m): blau `#3AA0FF` (α 0.45),
+per-Tower-Viz, siehe [LOS_PIPELINE.md](LOS_PIPELINE.md#farben-der-zellplatten)):
+- Ground-Plate (`grid`): grün `#5CE6A8` (α `gridOverlay.coveredAlpha` 0,6), wenn ein Tower die Zelle am Boden sieht
+- Air-Plate (`gridAir`, `getAirTargetY` = `terrainHeight` + 15 m): blau `#3AA0FF` (α 0,6),
   wenn ein Tower die Air-Höhe sieht
-- Sonst grau `#9999A1` (α 0.15): kein Tower deckt die Zelle ab. Vermillon `#D55E00`
+- Sonst grau `#9999A1` (α 0,35, `globalStates.uncovered`): kein Tower deckt die Zelle ab. Vermillon `#D55E00`
   (in Reichweite, aber blockiert) gibt es nur in der per-Tower-Viz
 - Jede Plate zeigt nur ihre eigene Coverage, "Ground + Air" ergibt sich aus dem Stapeln
 - Alpha pulsiert leicht (Faktor 0,925 bis 1,025; `pulseSpeed` 2.0, `pulseDepth` 0.05)
@@ -2113,7 +2122,7 @@ setTimeout(() => {
 
 ### setTimeout-Loops bei Game State Changes
 
-**Problem:** Rekursive setTimeout-Loops (z.B. für Spawning) laufen weiter, auch wenn der Game State sich ändert.
+**Problem:** Rekursive setTimeout-Loops (z.B. für Spawning) laufen weiter, auch wenn der Game State sich ändert. Das Beispiel stammt aus der Zeit vor dem Sub-Step-Spawner; gespawnt wird heute in `WaveManager.tickSpawn` im Sub-Step. Die Lehre gilt für jede Schleife außerhalb des Game Loops.
 
 ```typescript
 // ❌ FALSCH - Spawnt weiter nach Game Over
