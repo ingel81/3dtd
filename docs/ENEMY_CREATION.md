@@ -1,6 +1,6 @@
 # Enemy Creation Guide
 
-**Stand:** 2026-09-14
+**Stand:** 2026-09-15
 
 Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen Effekten.
 
@@ -10,10 +10,10 @@ Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen 
 
 Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` definiert (vorher `models/enemy-types.ts`, 2026-05-10 umgezogen — siehe DONE.md). Das System unterstützt:
 
-- Verschiedene 3D-Modelle (GLB, FBX) mit Skinning- oder Node-Animationen, als VAT instanziert gerendert ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md))
+- 3D-Modelle als GLB mit Skinning- oder Node-Animationen, als VAT instanziert gerendert ([INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md))
 - Walk-, Run- und Death-Animationen mit Speed-Coupling
 - Spatial Audio (Loop-Sounds, Random Sounds, Spawn Sounds, Random-Sounds-Pool mit Shuffle)
-- Status-Effekte (Slow, Poison, Burn; Freeze-Typ reserviert)
+- Status-Effekte (Slow, Poison, Burn, Freeze, Stun; [STATUS_EFFECTS.md](STATUS_EFFECTS.md))
 - Air und Ground Units
 - **Damage/Armor-Matrix** (`armorType` Pflichtfeld, Phase 5.x)
 - Lateral Spread und Height Variation für Bewegungsvariation
@@ -24,12 +24,15 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 
 ---
 
-## Aktuelle Enemy-Typen (22)
+## Aktuelle Enemy-Typen
+
+Alle Einträge aus `ENEMY_TYPES`. Modellkosten je Typ (Vertices, VAT, Bake-Pfad) stehen in den
+generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte).
 
 | Enemy | armorType | baseHp | Speed | Air? | Besonderheit |
 |-------|-----------|--------|-------|------|--------------|
 | zombie | unarmored | 80 | 5 | – | Standard-Gegner |
-| zombie-v2 | unarmored | 80 | 3 | – | Zweites Zombie-Modell, Todes-Clip-Pool `deathAnimations: ['Dead', 'dying_backwards']`, 10 % der `zombie_horde` |
+| zombie-v2 | unarmored | 80 | 3 | – | Zweites Zombie-Modell, Todes-Clip-Pool `deathAnimations: ['Dead', 'dying_backwards', 'Electrocuted_Fall']` (der letzte auf den Sturz geschnitten), 10 % der `zombie_horde` |
 | zombie-soldier | heavy | 160 | 6 | – | Stärkere Variante mit Emissive |
 | rat | unarmored | 5 | 10 | – | Schwächster Swarm-Gegner |
 | spider | light | 60 | 9 | – | Schneller, wenig HP |
@@ -68,7 +71,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: { ... },
   tank: { ... },
-  // ... (siehe Tabelle oben für alle 22 aktuellen Typen)
+  // ... (siehe Tabelle oben für alle Typen)
   'new-enemy': { ... }, // Neuer Enemy
 };
 
@@ -82,8 +85,8 @@ const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
 ```
 
 **Model-Anforderungen:**
-- Unterstützte Formate: GLB, FBX
-- Animation per Skinning (SkinnedMesh) oder per Node-Transform starrer Teile (Skeleton, Mech, Hornet); ohne Animation wird das Modell statisch gebacken
+- Format: GLB (glTF). Einen FBX-Ladepfad gibt es nicht mehr, der Wallsmasher kam 2026-09-13 als letztes FBX-Modell auf GLB
+- Animation per Skinning (SkinnedMesh) oder per Node-Transform starrer Teile (Skeleton, Hornet); ohne Animation wird das Modell statisch gebacken. Welcher Typ welchen Pfad nimmt, zeigt die Spalte „Bake-Pfad“ in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte)
 - Benannte Animationen (z.B. `Armature|Walk`, `Armature|Die`). Gebacken werden nur die Clips aus `walkAnimation`, `runAnimation`, `deathAnimation` und `deathAnimations`
 
 ### 3. Enemy-Konfiguration hinzufügen
@@ -157,8 +160,9 @@ Idle-Clips werden nicht gebacken, das Spiel zeigt keine stehenden Gegner.
 
 Ein Todes-Clip muss innerhalb von `animationSpeed` × 2 s Clip-Zeit am Boden sein, sonst
 verschwindet der Gegner stehend. `zombie-v2` hatte deshalb `Electrocuted_Fall` im Pool, dessen
-Fall erst nach etwa 3,25 s beginnt; der Clip ist raus (fd18a10). Ein kürzerer Clip hält seinen
-letzten Frame bis zum Entfernen (Skeleton: `die` mit 0,33 s).
+Fall erst nach etwa 3,25 s beginnt; der Clip flog raus (fd18a10). Seit `05b25233` ist er in
+Blender auf den Sturz (3,0 bis 5,0 s) geschnitten und wieder im Pool. Ein kürzerer Clip hält
+seinen letzten Frame bis zum Entfernen (Skeleton: `die` mit 0,33 s).
 
 ### Animation Speed Coupling
 
@@ -579,41 +583,11 @@ Grenzen:
 
 ## Status-Effekte
 
-Enemies können von Towern mit Status-Effekten belegt werden:
-
-### Slow (Verlangsamung)
-
-```typescript
-// Ice-Tower-Treffer: StatusEffectService.applySlow(), Werte aus GAME_BALANCE.effects.ice
-{
-  type: 'slow',
-  value: 0.5,        // 50% Verlangsamung
-  duration: 3000,    // 3 Sekunden
-}
-```
-
-**Kein Stacking:** Slow-Effekte ersetzen sich gegenseitig (nur einer aktiv)
-- 1x Slow 50%: `slowMultiplier = 0.5`
-- 2x Slow 50%: Ersetzt vorherigen (Timer reset), weiterhin 50% langsamer
-
-### Poison (DoT — aktiv)
-
-Vom Poison Tower angewendet. Kein Stacking — neuer Poison ersetzt vorherigen.
-
-```typescript
-// StatusEffectService.applyPoison(), Werte aus GAME_BALANCE.effects.poison
-type: 'poison',
-value: 8,         // Schaden pro Sekunde (× Upgrade-Multiplikator des Towers)
-duration: 4000,   // Game-Time ms
-```
-
-### Burn (DoT — aktiv)
-
-Vom Fire Tower auf jeden Gegner im Flammenkegel angewendet: 20 % der Beam-DPS laufen als Burn, 3 s Nachbrennen. Pro Tower ein eigener Eintrag (zwei Fire Tower brennen nebeneinander). Details in [STATUS_EFFECTS.md](STATUS_EFFECTS.md#burn-effect-dot).
-
-### Freeze (Reserviert)
-
-`freeze` ist als `StatusEffectType` definiert, aktuell aber nicht aktiv im Spiel verwendet. Siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) für Details.
+Welche Effekte es gibt (Slow, Poison, Burn, Freeze, Stun), wie sie sich stapeln, wie sie
+aussehen und wie sie auf Wurm und Ooze wirken, steht in [STATUS_EFFECTS.md](STATUS_EFFECTS.md).
+Ein neuer Gegner braucht dafür keine eigenen Felder. Zwei Typ-Flags ändern die Dauer der
+Fähigkeiten: `isBoss` hält Freeze und Stun kürzer, `mechanical` den Stun des EMP länger
+([ABILITIES.md](ABILITIES.md)).
 
 ---
 
@@ -748,8 +722,8 @@ penguin: {
 wallsmasher: {
   id: 'wallsmasher',
   name: 'Wallsmasher',
-  modelUrl: 'assets/models/enemies/wallsmasher.fbx',
-  scale: 0.037,
+  modelUrl: 'assets/models/enemies/wallsmasher.glb', // in Metern (das FBX bis 2026-09-13 in cm, scale 0.037)
+  scale: 3.7,
   minimumPixelSize: 0,
   armorType: 'light',
   baseHp: 200,
@@ -869,7 +843,7 @@ Einzeltyp-Konfiguration mehr.
 
 Enemies werden automatisch vom `InstancedEnemyRenderer` (`tilesEngine.enemies`) gerendert.
 `ThreeTilesEngine` bäckt beim Laden per `preloadAllModels()` für jeden Typ in `ENEMY_TYPES`
-eine VAT und legt den Pool an.
+außer der Ooze (ihr Körper ist ein Band, siehe oben) eine VAT und legt den Pool an.
 
 ```typescript
 // In EnemyManager
@@ -919,7 +893,7 @@ npx gltf-transform inspect model.glb
 
 ### Animation spielt nicht
 - Check `hasAnimations: true` gesetzt
-- Check Animation-Name exakt wie in GLB/FBX; nur Clips aus `walkAnimation`, `runAnimation` und `deathAnimation(s)` werden gebacken
+- Check Animation-Name exakt wie im GLB; nur Clips aus `walkAnimation`, `runAnimation` und `deathAnimation(s)` werden gebacken
 - Check `animationSpeed` nicht 0
 
 ### Sound spielt nicht
