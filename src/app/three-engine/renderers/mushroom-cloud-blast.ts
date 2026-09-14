@@ -81,7 +81,8 @@ const DOME_FRAGMENT_SHADER = /* glsl */ `
 
   void main() {
     float facing = abs(dot(normalize(vNormal), normalize(vView)));
-    float outline = pow(1.0 - facing, 2.5);
+    // Rounding can put facing a hair above 1; pow of a negative base is undefined
+    float outline = pow(max(1.0 - facing, 0.0), 2.5);
     gl_FragColor = vec4(uColor, uOpacity * (0.15 + 0.85 * outline));
     #include <logdepthbuf_fragment>
   }
