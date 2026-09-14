@@ -22,6 +22,7 @@ vi.mock('./replay.service', () => ({ ReplayService: class ReplayService {} }));
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { HotkeyService } from './hotkey.service';
+import { TowerUpgradeService } from './tower-upgrade.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
 import { GameStateManager } from '../managers/game-state.manager';
 import { TowerDefenseStore } from '../store/tower-defense.store';
@@ -43,23 +44,26 @@ import { CreditsLedger } from '../managers/game-state/credits-ledger';
 import { TowerLifecycle } from '../managers/game-state/tower-lifecycle';
 import { GameCommandsHandler } from '../managers/game-commands.handler';
 import { Tower } from '../entities/tower.entity';
-import { upgradeKeyView } from '../components/game-sidebar/tower-panel/tower-stats';
+import { upgradeHintView } from '../components/game-sidebar/tower-panel/tower-stats';
 import type { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 
 const POSITION = { lat: 48.7, lon: 9.1, height: 300 };
-/** Colours of the text over the tower (hotkey.service.ts UPGRADE_KEY_TEXT) */
+/** Colours of the text over the tower (tower-upgrade.service.ts UPGRADE_TEXT) */
 const GOLD = '#D9BC68';
 const ORANGE = '#C96A3A';
 
 /**
  * Playtest 518, 519 and 520 (docs/REVIEW_FIX_2026-09-14.md) replayed: U
- * through HotkeyService on real towers, the purchase through the facade's
- * command into GameCommandsHandler and TowerLifecycle with the real credits
- * and research tier, the panel line through upgradeKeyView as the tower and
- * research panels read it.
+ * through HotkeyService and a click on a tile through
+ * TowerDefenseComponent.upgradeTower, both into the real TowerUpgradeService
+ * on real towers; the purchase through the facade's command into
+ * GameCommandsHandler and TowerLifecycle with the real credits and research
+ * tier; the panel line through upgradeHintView as the tower and research
+ * panels read it.
  */
-describe('U on the selected tower, playtest 518, 519 and 520 replayed', () => {
+describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
   let service: HotkeyService;
+  let towerUpgrade: TowerUpgradeService;
   let bus: GameEventBus;
   let research: ResearchManager;
   let ledger: CreditsLedger;
@@ -67,11 +71,6 @@ describe('U on the selected tower, playtest 518, 519 and 520 replayed', () => {
   let towers: Tower[];
   let upgradeHint: UpgradeHintService;
   let spawnFloatingText: ReturnType<typeof vi.fn>;
-  let facade: {
-    upgradeTower: (tower: Tower, upgradeId: UpgradeId) => boolean;
-    startWave: () => void;
-    sellSelectedTower: () => void;
-  };
   const selectedTower = signal<Tower | null>(null);
 
   beforeEach(() => {
@@ -101,12 +100,12 @@ describe('U on the selected tower, playtest 518, 519 and 520 replayed', () => {
     );
     // GameLoopFacadeService.upgradeTower: checks the credits and the last level, then the
     // command, synchronous on the bus
-    facade = {
-      upgradeTower: vi.fn((tower: Tower, upgradeId: UpgradeId) => {
+    const facade = {
+      upgradeTower: (tower: Tower, upgradeId: UpgradeId): boolean => {
         if (ledger.credits() < tower.getNextUpgradeCost(upgradeId) || !tower.canUpgrade(upgradeId)) return false;
         bus.emit({ type: 'command:upgrade-tower', towerId: tower.id, upgradeId });
         return true;
-      }),
+      },
       startWave: vi.fn(),
       sellSelectedTower: vi.fn(),
     };
@@ -154,8 +153,10 @@ describe('U on the selected tower, playtest 518, 519 and 520 replayed', () => {
         { provide: HeroControlService, useValue: {} },
         { provide: ReplayService, useValue: { active: signal(false) } },
         { provide: UpgradeHintService, useValue: upgradeHint },
+        { provide: TowerUpgradeService, useFactory: () => towerUpgrade },
       ],
     });
+    towerUpgrade = runInInjectionContext(injector, () => new TowerUpgradeService());
     service = runInInjectionContext(injector, () => new HotkeyService());
   });
 
@@ -171,6 +172,8 @@ describe('U on the selected tower, playtest 518, 519 and 520 replayed', () => {
     service.handleKeyDown(event);
     return event;
   };
+  /** A click on the tile of `upgradeId`: TowerDefenseComponent.upgradeTower */
+  const clickTile = (tower: Tower, upgradeId: UpgradeId) => towerUpgrade.buy(tower, upgradeId);
   const setCredits = (credits: number) => ledger.add(credits - ledger.credits());
   const levels = (tower: Tower) => tower.typeConfig.upgrades.map((u) => tower.getUpgradeLevel(u.id));
   /** Text and colour of the last text over the tower */
@@ -179,9 +182,9 @@ describe('U on the selected tower, playtest 518, 519 and 520 replayed', () => {
     return [call[0], call[4].color];
   };
   /** The line over the tiles of the tower's panel */
-  const panelLine = (tower: Tower) => upgradeKeyView(upgradeHint.hint(), tower).refusalText;
+  const panelLine = (tower: Tower) => upgradeHintView(upgradeHint.hint(), tower).refusalText;
 
-  it('518: short of the cheapest track U buys nothing, NEED n CREDITS rises, the line stays 2.5 s', () => {
+  it('518: short of the cheapest track U buys nothing, NEED n CREDITS rises, the line stays 2.5 s; its tile answers alike', () => {
     const archer = place('archer');
     selectedTower.set(archer);
     const tracks = archer.getAvailableUpgrades();
@@ -201,9 +204,17 @@ describe('U on the selected tower, playtest 518, 519 and 520 replayed', () => {
     expect(panelLine(archer)).not.toBeNull();
     vi.advanceTimersByTime(1);
     expect(panelLine(archer)).toBeNull();
+
+    // The tile of that track (it looks disabled, a click still answers)
+    expect(clickTile(archer, cheapest.id)).toBe(false);
+    expect(levels(archer).every((level) => level === 0)).toBe(true);
+    expect(lastText()).toEqual(['NEED 20 CREDITS', ORANGE]);
+    expect(panelLine(archer)).toBe(`Need 20 more credits for ${cheapest.name}`);
+    vi.advanceTimersByTime(UPGRADE_HINT_MS);
+    expect(panelLine(archer)).toBeNull();
   });
 
-  it('518: with the credits cheat U raises every track to level 5, then says NEEDS RESEARCH', () => {
+  it('518: with the credits cheat U raises every track to level 5, then U and every tile say NEEDS RESEARCH', () => {
     const archer = place('archer');
     selectedTower.set(archer);
     setCredits(100_000);
@@ -212,18 +223,27 @@ describe('U on the selected tower, playtest 518, 519 and 520 replayed', () => {
       pressU();
       if (upgradeHint.hint()?.refusal) break;
     }
-    expect(levels(archer)).toEqual(archer.typeConfig.upgrades.map((u) => Math.min(5, u.maxLevel)));
+    const atFive = archer.typeConfig.upgrades.map((u) => Math.min(5, u.maxLevel));
+    expect(levels(archer)).toEqual(atFive);
     expect(research.getMaxUpgradeTier()).toBe(1);
     expect(lastText()).toEqual(['NEEDS RESEARCH', ORANGE]);
     expect(panelLine(archer)).toBe('Research Advanced Weaponry for the next levels');
     // The first press bought the first track, in gold
     expect(spawnFloatingText.mock.calls[0][0]).toBe(`${archer.typeConfig.upgrades[0].name.toUpperCase()} LV 1`);
     expect(spawnFloatingText.mock.calls[0][4].color).toBe(GOLD);
+
+    for (const track of archer.getAvailableUpgrades()) {
+      expect(clickTile(archer, track.id), track.id).toBe(false);
+      expect(lastText()).toEqual(['NEEDS RESEARCH', ORANGE]);
+      expect(panelLine(archer)).toBe('Research Advanced Weaponry for the next levels');
+    }
+    expect(levels(archer)).toEqual(atFive);
   });
 
-  it('519: after Max Up U says FULLY UPGRADED; a Research Center built later gets RESEARCH WING LV 1, without credits the line', () => {
+  it('519: after Max Up U says FULLY UPGRADED; a Research Center built later gets RESEARCH WING from U and its tile, or the line', () => {
     const archer = place('archer');
     lifecycle.maxUpgradeAll();
+    // No tile left to click: the panels list the available upgrades only
     expect(archer.getAvailableUpgrades()).toEqual([]);
     selectedTower.set(archer);
     pressU();
@@ -238,28 +258,37 @@ describe('U on the selected tower, playtest 518, 519 and 520 replayed', () => {
     expect(center.getUpgradeLevel('research-slots')).toBe(1);
     expect(research.maxSlots).toBe(2);
     expect(lastText()).toEqual(['RESEARCH WING LV 1', GOLD]);
-    // SidebarResearchPanelComponent.keyView: the Research Wing tile flashes
-    expect(upgradeKeyView(upgradeHint.hint(), center).flashId).toBe('research-slots');
+    // SidebarResearchPanelComponent reads the same view: the Research Wing tile flashes
+    expect(upgradeHintView(upgradeHint.hint(), center).flashId).toBe('research-slots');
 
     setCredits(0);
-    pressU();
     const cost = center.getNextUpgradeCost('research-slots');
+    pressU();
     expect(lastText()).toEqual([`NEED ${cost} CREDITS`, ORANGE]);
     expect(panelLine(center)).toBe(`Need ${cost} more credits for Research Wing`);
+    expect(clickTile(center, 'research-slots')).toBe(false);
+    expect(lastText()).toEqual([`NEED ${cost} CREDITS`, ORANGE]);
+    expect(panelLine(center)).toBe(`Need ${cost} more credits for Research Wing`);
+
+    setCredits(10_000);
+    expect(clickTile(center, 'research-slots')).toBe(true);
+    expect(lastText()).toEqual(['RESEARCH WING LV 2', GOLD]);
+    expect(research.maxSlots).toBe(3);
   });
 
-  it('520: U with nothing selected does nothing; a click on a tile buys as before and raises no text', () => {
+  it('520: U with nothing selected does nothing; a click on a tile buys as before and now answers like U', () => {
     const archer = place('archer');
     setCredits(10_000);
     expect(pressU().defaultPrevented).toBe(false);
     expect(levels(archer).every((level) => level === 0)).toBe(true);
-
-    // The tile: TowerPanel.onUpgradeTower, its output, TowerDefenseFacadeService.upgradeTower
-    selectedTower.set(archer);
-    const track = archer.typeConfig.upgrades[0].id;
-    expect(facade.upgradeTower(archer, track)).toBe(true);
-    expect(archer.getUpgradeLevel(track)).toBe(1);
     expect(spawnFloatingText).not.toHaveBeenCalled();
-    expect(upgradeHint.hint()).toBeNull();
+
+    selectedTower.set(archer);
+    const track = archer.typeConfig.upgrades[0];
+    expect(clickTile(archer, track.id)).toBe(true);
+    expect(archer.getUpgradeLevel(track.id)).toBe(1);
+    // Since the wish from playtest 517 the tile answers like U: text over the tower, the tile flashes
+    expect(lastText()).toEqual([`${track.name.toUpperCase()} LV 1`, GOLD]);
+    expect(upgradeHintView(upgradeHint.hint(), archer).flashId).toBe(track.id);
   });
 });

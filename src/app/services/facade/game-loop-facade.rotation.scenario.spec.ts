@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
-import { Group, Mesh, MeshBasicMaterial, MeshPhongMaterial, PlaneGeometry, Vector3 } from 'three';
+import { Group, Mesh, MeshBasicMaterial, MeshPhongMaterial, PlaneGeometry, Vector2, Vector3 } from 'three';
 
 // Only their DI tokens are needed, as in game-loop-facade.service.spec.ts
 vi.mock('../boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
@@ -29,14 +29,31 @@ import { PerformanceProfilerService } from '../debug/performance-profiler.servic
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { UIStore } from '../../store/ui.store';
 import { OsmStreetService } from '../location/osm-street.service';
+import {
+  portalCorridorWidth,
+  portalLaneOffset,
+  portalTurnRange,
+  spawnPortalPose,
+} from '../../three-engine/renderers/marker/spawn-portal-pose';
+import { MAX_MANUAL_SPAWN_DISTANCE, MIN_MANUAL_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { StreetNetwork } from '../location/osm-street.service';
 
 const HQ = { lat: 48.9, lon: 9.2 };
+const BOUNDS = { minLat: HQ.lat - 0.01, maxLat: HQ.lat + 0.01, minLon: HQ.lon - 0.01, maxLon: HQ.lon + 0.01 };
+/** Where the cursor points: 500 m north of the HQ, next to a straight street (map-placement.service.spec.ts) */
+const CURSOR = { lat: HQ.lat + 0.005, lon: HQ.lon };
+const STREET = [
+  { id: 1, lat: CURSOR.lat, lon: HQ.lon + 0.0002 },
+  { id: 2, lat: CURSOR.lat, lon: HQ.lon - 0.0005 },
+  { id: 3, lat: CURSOR.lat, lon: HQ.lon - 0.001 },
+];
+/** Turn of the preview while R is held (map-placement.service.ts TURN_SPEED): 15 degrees a second */
+const TURN_SPEED = Math.PI / 12;
 
-/** 0.001 degree = 100 m, +X west, +Z north, like the engine's frame (map-placement.service.spec.ts). */
+/** 0.001 degree = 100 m, +X west, +Z north, like the engine's frame. */
 function geoToLocal(lat: number, lon: number, height: number): Vector3 {
   return new Vector3((HQ.lon - lon) * 1e5, height, (lat - HQ.lat) * 1e5);
 }
@@ -49,11 +66,19 @@ function fakePortalPreview(color: number): Group {
   return group;
 }
 
+/** The portal on STREET as it will stand, and how far R may turn it */
+const STREET_POINTS = STREET.map((node) => {
+  const p = geoToLocal(node.lat, node.lon, 0);
+  return { x: p.x, z: p.z };
+});
+const STREET_POSE = spawnPortalPose(STREET_POINTS, 0, portalCorridorWidth(STREET[0]))!;
+const STREET_TURN = portalTurnRange(STREET_POINTS, STREET_POSE, portalLaneOffset(STREET[0]));
+
 /**
  * Playtest 534 (docs/REVIEW_FIX_2026-09-14.md), second half, replayed: the
- * game is paused, the spawn preview of the real MapPlacementService is
- * turned with R held, and the per-frame engine update of the game loop
- * facade runs as it does every frame.
+ * game is paused, the spawn preview of the real MapPlacementService stands on
+ * its route start and is turned with R held, and the per-frame engine update
+ * of the game loop facade runs as it does every frame.
  */
 describe('Turning the spawn preview in the pause, playtest 534 replayed', () => {
   let facade: GameLoopFacadeService;
@@ -72,14 +97,23 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
         },
         {
           provide: OsmStreetService,
-          useValue: { findNearestStreetPoint: () => ({ distance: 1 }), haversineDistance: () => 700 },
+          useValue: {
+            findNearestStreetPoint: () => ({ distance: 1, street: { nodes: [{ id: STREET[0].id }] }, nodeIndex: 0 }),
+            haversineDistance: () => (MIN_MANUAL_SPAWN_DISTANCE + MAX_MANUAL_SPAWN_DISTANCE) / 2,
+            findPath: () => STREET,
+          },
         },
       ],
     });
     mapPlacement = runInInjectionContext(placementInjector, () => new MapPlacementService());
     mapPlacement.initialize(
-      { getOverlayGroup: () => overlay, getTerrainHeightAtGeo: () => 0, sync: { geoToLocalSimple: geoToLocal } } as unknown as ThreeTilesEngine,
-      { bounds: {} } as unknown as StreetNetwork,
+      {
+        getOverlayGroup: () => overlay,
+        getTerrainHeightAtGeo: () => 0,
+        getRenderer: () => ({ getSize: (target: Vector2) => target.set(1600, 900) }),
+        sync: { geoToLocalSimple: geoToLocal },
+      } as unknown as ThreeTilesEngine,
+      { bounds: BOUNDS } as unknown as StreetNetwork,
       { ...HQ },
     );
 
@@ -140,17 +174,24 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
     );
   });
 
-  it('534: with the game paused, R held still turns the spawn preview in every frame', () => {
+  it('534: with the game paused, R held turns the spawn preview in every frame, up to the limit of its opening', () => {
     mapPlacement.startPlacement('spawn');
-    mapPlacement.updatePreviewPosition(HQ.lat + 0.005, HQ.lon, 0);
+    mapPlacement.updatePreviewPosition(CURSOR.lat, CURSOR.lon, 0);
     const preview = overlay.children.find((o) => o.name === 'placementPreview')!;
-    // North of the HQ it faces south to it
-    expect(preview.rotation.y).toBeCloseTo(Math.PI, 6);
+    const turned = () => preview.rotation.y - STREET_POSE.heading;
+    // On the route start, facing along the route
+    expect(turned()).toBeCloseTo(0, 6);
 
     // R down (InputHandlerService.handleKeyDown), then one frame of 250 ms
     expect(mapPlacement.startRotating()).toBe(true);
     facade.onEngineUpdate(250);
     expect(gameUpdate).toHaveBeenCalledTimes(1);
-    expect(preview.rotation.y).toBeCloseTo(Math.PI + Math.PI / 4, 6);
+    const step = TURN_SPEED * 0.25;
+    expect(STREET_TURN.max).toBeGreaterThan(step);
+    expect(turned()).toBeCloseTo(step, 6);
+
+    // Held on for 10 s of frames: it stops at the limit of the turn range
+    for (let i = 0; i < 40; i++) facade.onEngineUpdate(250);
+    expect(turned()).toBeCloseTo(STREET_TURN.max, 6);
   });
 });
