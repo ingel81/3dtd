@@ -747,10 +747,14 @@ abarbeiten.
 **Stand nach dem Playtest vom 2026-09-14 (Nachmittag)**
 
 - **Per Szenario-Test bestätigt statt geklickt** (User-Wunsch): 509, 510,
-  511, 513, 516 (nur mit "Blood Moon" an), 518, 519, 520, 522 (bis 100 ms
+  511, 513, 516 (nur mit "Blood Moon" an), 518, 519, 520 (erster Teil; der
+  Kachelklick zeigt seit `a2198b2a` Text wie U), 522 (bis 100 ms
   Lücke), 525 bis 528, 533, 534, 536, 538 bis 540 (verifyA); 543, 546 bis
-  548, 554 bis 556, 565, 567, 569 (verifyB); 506, 507 (onboarding2). Die
-  Tests liegen in `*.scenario.spec.ts` und `onboarding-playtest.spec.ts`.
+  548, 554 bis 556, 565, 567 (bestätigt vor `509aaed0`, überholt, siehe
+  567), 569 (verifyB); 506, 507 (onboarding2). Die Tests liegen meist in
+  `*.scenario.spec.ts` und `onboarding-playtest.spec.ts`; 533, 536, 546 bis
+  548 und 565 in den Specs der jeweiligen Services (Namen in
+  verifyA/verifyB).
 - Befunde der Verifier: **546** ein Gegner, der beim Loslaufen außer
   Hörweite ist (oder bei vollem Budget), bekommt nie einen Lauf-Loop, auch
   nicht, wenn die Kamera später hinfährt (vorbestehend; Fix audioloop).
@@ -762,10 +766,13 @@ abarbeiten.
 - Nachtests nach Fixes: 515 (zombie_v2-Vorschau, preview2), 517 Klick
   (upgradeclick), 529 und 531 (portal2), 557 bis 559 (stamp2), der
   Reichweitenring (rangering), 541 und 544 (relocspeed), 560 bis 562 und
-  564 (corridor2). 553 (Replay) zurückgestellt, 566 und 568 entfallen.
+  564 (corridor2). 553 (Replay) zurückgestellt, 566 und 568 entfallen,
+  567 und 570 überholt (`509aaed0`).
 - Nachtest-Ergebnisse: **515 ok** (Vorschau nach `814dec34` u. a.), **517
-  Klick ok** (TowerUpgradeService), **531 ok** (Ringe am Boden, Meldungen
-  "Too far from streets", "Streets not loaded here", "No route to HQ"),
+  Klick ok** (TowerUpgradeService), **531 ok** (Ringe am Boden, "Too far
+  from streets" auslösbar; "Streets not loaded here" und "No route to HQ"
+  belegen Code und Spec, ob sie im Nachtest zu sehen waren, ist nicht
+  festgehalten),
   **529 im Prinzip ok**, die WYSIWYG-Vorschau ruckelt beim Mitziehen
   (Fix pathstart, erneut prüfen).
 - **Reichweitenring (rangering) im Prinzip ok**, auch in der Bauvorschau;
@@ -778,7 +785,13 @@ abarbeiten.
   Eingrenzung durch den User: bleibt ohne Blutmond, kommt auch ohne
   sichtbaren Ring, erscheint, sobald das HQ im Bild ist, neu seit etwa
   gestern, auf jeder Karte inklusive DevWorld. Hauptverdacht: die neuen
-  Distanzringe ums HQ (`Line2`, portal2).
+  Distanzringe ums HQ (`Line2`, portal2). **Nachtrag:** Der Verdacht auf
+  die Distanzringe ist widerlegt, sie stehen nur beim Spawn-Setzen in der
+  Szene (ring2, review-d); die Stencil-Änderung als Ursache ist laut ring2
+  nicht belegt. Quelle laut Code: NaN aus dem Fresnel des HQ-Torus (siehe
+  unten "Bloom-Block"). "Neu seit etwa gestern" ist die Beobachtung des
+  Users; der Ring-Shader ist seit `e5d65818` unverändert, das MSAA-Ziel des
+  Composers kam mit `131f4d3d` (2026-09-10).
 - **541 erneut (nach relocspeed):** `HQ in place` total=321,2 ms;
   `[Corridor] clearance` rays=1940 in 689,3 ms, slices=22, wall=1809,2 ms
   (vorher 144 Slices, 5271 ms); `rebuild` total=419 ms; `HQ done`
@@ -801,18 +814,35 @@ abarbeiten.
 - **Korridor (corridor2):** Paris-Brückenköpfe: das runde Ende der Zufahrt
   zog die ersten Meter des Decks auf den Kai (8 bis 9,5 m tiefer), die
   Linie lief dort unter das Deck; jetzt behält ein Segment, das eine Zelle
-  entlang seiner Länge erreicht, sie gegen ein rundes Ende. Orange Zellen
-  gibt es nicht mehr: Zellen, zu denen kein Gegner laufen kann, fallen weg,
-  der Korridor endet davor (Rückkopplung Grid, Breite, Neubau).
+  entlang seiner Länge erreicht, sie gegen ein rundes Ende; offen bleibt
+  H2 (kurze Zufahrts-Ways ohne Brücken-Tag noch über dem Kai). Orange
+  Zellen gibt es nicht mehr: Zellen, zu denen kein Gegner laufen kann,
+  fallen weg, sobald der Korridor neu gebaut wird, der Korridor endet davor
+  (Rückkopplung Grid, Breite, Neubau). Ausnahmen: Zellen, durch die die
+  Mittellinie läuft, bleiben; Zellen aus Tiles gröber als `maxTileError`
+  werden nicht beurteilt; zeigt ein feineres Tile eine solche Zelle erst
+  unter Towern, Gegnern oder einer Welle, bleibt sie (`walkable: false`)
+  bis zum nächsten Neubau; was nach `MAX_WALK_PASSES` (2) übrig ist, wartet
+  auf das nächste `remeasure()`. Alles aus Code und Specs, im Browser
+  ungesehen.
   **Nachtest:** 560 bis 562 in Rothenburg (keine orange Zellen, keine
-  Zellen in Häusern, Höfen, Gärten, an Autos; Korridor dort schmaler, keine
+  Zellen in Häusern, unter Traufen, in erhöhten Gärten oder auf Autos; ein
+  Hof auf Straßenhöhe darf Zellen haben; Korridor dort schmaler, keine
   Gegner außerhalb der Zellen), 563 (Hang weiter gut) und 564 (Paris,
   Brückenköpfe: Linie, Zellen und Gegner bleiben auf dem Deck).
 - **Spawn-Vorschau (pathstart):** Die Route beginnt am Fußpunkt des Spawns
   auf dem nächsten Straßensegment statt am ersten Knoten dieses Segments;
-  das Portal steht dort, wo man klickt. Die Vorschau gleitet pro Frame zu
-  ihrer Pose, ein Mausschritt kostet in der Messspec 0,75 ms (1,7 ms auf
-  einem neuen Segment). **Nachtest 529:** "Set spawn", Cursor langsam und
+  das Portal steht auf der Straße auf Höhe des Klicks (Fußpunkt, nicht mehr
+  am Segmentanfang; der Klick darf bis 30 m neben der Straße liegen,
+  `MAX_SPAWN_STREET_DISTANCE`). In der DevWorld nimmt
+  `DevStreetProvider.findPath` weiter den nächsten Graphknoten. Die
+  Vorschau gleitet pro Frame zu ihrer Pose, ein Mausschritt kostet in der
+  Messspec (jsdom, 16 400 Segmente, ohne Tile-Raycasts) 0,75 ms (1,7 ms auf
+  einem neuen Segment); im Spiel kommen Cursor-Pick und zwei Säulenproben
+  dazu, ungemessen (review-d schätzt etwa 0,3 ms je Säulenprobe). Als
+  wahrscheinliche Ursache des Ruckelns nennt pathstart die 16-ms-Drossel,
+  die Bewegungen ohne Nachlauf verwarf (nicht im Browser belegt); seit
+  `4e4ace28` reicht sie eine übersprungene Bewegung nach. **Nachtest 529:** "Set spawn", Cursor langsam und
   schnell eine lange Straße entlang: die Vorschau folgt dem Cursor ohne
   Springen und ohne Ruckeln; klicken: das Portal steht an der Stelle.
   Gespeicherte Orte (URL, Favoriten) setzen ihr Portal jetzt am Fußpunkt,
@@ -851,7 +881,9 @@ abarbeiten.
      "7/7", Kappen G und V. Oberer Knopf der Leiste (Münze), 1 000 Credits:
      keine Tipps mehr. Sidebar-Fuß "Tips": wieder "Build a tower", "1/7".
      **Befund (2026-09-14):** der Ablauf klappt, aber der Wiedereinstieg
-     beginnt immer bei "1/7", egal wie weit man war. Ursache laut Code: der
+     beginnt immer bei "1/7", egal wie weit man war. Ursache laut Code,
+     unter der Annahme, dass mit dem Wiedereinstieg der Knopf "Tips" gemeint
+     war (Deutung von onboarding2, Rückfrage an den User offen): der
      Knopf "Tips" löschte alle erledigten Schritte; Reload, neues Spiel und
      Ortswechsel behalten den Stand (Test). Fix `1d8d2aaa`: "Tips" beginnt
      beim ersten Schritt, den das laufende Spiel noch nicht getan hat; hat es
@@ -946,6 +978,9 @@ abarbeiten.
      Research-Panel blitzt; ohne Credits steht die Zeile im Research-Panel.
 520. Nichts gewählt, U: nichts passiert. Eine Upgrade-Kachel anklicken:
      Kauf wie bisher, kein Text über dem Tower.
+     **Überholt in einem Teil (2026-09-14):** seit `a2198b2a` (Wunsch aus
+     517) zeigt der Kachelklick Gold-Text und Kachel-Blitz wie U. Der erste
+     Teil (U ohne Auswahl) gilt und ist per Test bestätigt (verifyA).
 521. Ohne Build-Modus die Maus über einen Tower: Reichweite erscheint. Auf
      dem Tower die linke Taste drücken und die Kamera ziehen: die Reichweite
      verschwindet beim Drücken und bleibt beim Ziehen weg; über einem Tower
@@ -1008,7 +1043,9 @@ abarbeiten.
      loslassen: sie steht; Cursor weiterziehen: die Richtung bleibt;
      klicken: das Portal steht so. 5 bis 10 s warten (die Korridor-Messung
      baut die Route neu), Welle starten: das Portal bleibt gedreht, die
-     Gegner laufen ihre Route. **ok**
+     Gegner laufen ihre Route. **ok** (vor portal2; seit `71ad5120` und
+     `bfd2d312` dreht R mit 15°/s und nur im Drehbereich, siehe Nachtest
+     529)
 533. "Set spawn" ohne R: das Portal schaut entlang der Route. Spawn wieder
      gedreht setzen, dann "Move HQ" an eine andere Stelle: das Portal folgt
      wieder der Route.
@@ -1078,7 +1115,9 @@ abarbeiten.
      `updateTerrainHeights` spanMs=3714 (56 Slices, 1880 Raycasts), erste
      Korridor-Messung ohne Tiles (unmeasured 617), zweite rays=2460 in
      668,5 ms, wall=1388 ms. Lesart: 17 s kostet das Nachladen der Straßen
-     (Netzwerk). **Entscheidung User:** beides beschleunigen (Messung
+     von Overpass (ob ein Server 15 s nicht zu antworten begann oder die
+     Antwort lange lief, ist offen; das zeigen seit `3c472037` die
+     `[OSM]`-Zeilen). **Entscheidung User:** beides beschleunigen (Messung
      während des Umzugs mit mehr Budget je Frame, Straßen-Nachladen
      untersuchen); Umsetzung relocspeed, danach 541 und 544 erneut messen.
 
@@ -1201,8 +1240,9 @@ abarbeiten.
      986589650, `bridge=yes layer=1`, 156 m), Deck-Zellen vorhanden
      (`surface: 'deck'`, Höhe ≈ 79,8). Beide Picks lagen 8 bis 13 m neben
      der Linie (außerhalb des Korridors), darunter die Ebene bei ≈ 71,5.
-     `maxCellAboveStreet`: 9,5 m auf der Brücke, 3,4 und 3,9 m auf kurzen
-     ungetaggten Anschluss-Ways an den Brückenköpfen. Verdacht: Übergang
+     `maxCellAboveStreet`: 9,5 m auf der Brücke, 3,4 m auf einem 2 m kurzen
+     Way ohne Brücken-Tag am Brückenkopf, 3,9 m an der Place de Varsovie
+     (Zuordnung laut corridor2). Verdacht: Übergang
      Deck/Boden an den Brückenköpfen (H2/H3). Diagnose und Fix: corridor2.
      **Entscheidung User zum Korridor:** orange (geklemmte) Zellen
      weglassen, der Korridor wird dort schmaler (corridor2); 560 bis 562
@@ -1236,6 +1276,9 @@ abarbeiten.
      Antwort ist wie vorher (die Probe liegt 1,5 m über dem Boden unter der
      Traufe, meist `blocked`); `__corridor.towerCells()` zählt sie weiter
      unter `clamped`.
+     **Überholt (2026-09-14):** seit `509aaed0` keine orangen Zellen und
+     kein `clamped` mehr; das Szenario zu 567 prüft die Traufzelle jetzt als
+     nicht begehbare Zelle (`towerCells()` zählt sie unter `unwalkable`).
 568. Quick Actions, Developer options, Kachel "LOS" (Tooltip "LOS
      Cubemap"); mit dem Tower aus 566 ausgewählt über die
      Platte der Zelle am Transporter fahren: der Marker schwebt 1,5 m über
@@ -1247,6 +1290,9 @@ abarbeiten.
 570. Optional: Rothenburg ohne Tower, `__corridor.set({ stepRise: 0.75 })`
      (die Vorgabe, baut trotzdem neu): das Overlay zeigt dieselben orangen
      Zellen wie vorher; die Zeile `[Corridor] rebuild: ...` notieren.
+     **Überholt (2026-09-14):** seit `509aaed0` gibt es keine orangen Zellen
+     mehr; die Gegenprobe zum neuen Korridor steht im Stand-Block oben
+     (560 bis 562).
 
 ## TODO-Stand
 
@@ -1255,6 +1301,12 @@ Eintrag, den diese Session bearbeitet hat, trägt eine Zeile "Stand
 (Fix-Session 2026-09-14)" mit Commit und Playtest-Nummer. Korrigiert ist
 außerdem der Text von 1.9 "Blutmond: Grenzen des Looks" (die Decals sind
 seit `3f1f5fdc` getönt).
+
+Die Tabelle gibt den Stand bei der Übergabe (`bd768859`) wieder. Was nach
+dem Playtest am Nachmittag dazukam, steht in den Stand-Zeilen von TODO.md
+(nachgetragen 2026-09-14: 1.7 Routenkorridor, 1.10 Brücke, Upgrade per U,
+Screenshot, Onboarding, Blutmond-Scheinwerfer, HQ umsetzen, Portal,
+zombie_v2, dazu 1.9 Replay und Sockel).
 
 | TODO-Eintrag | Stand | Playtest |
 |---|---|---|
