@@ -270,6 +270,18 @@ export class CorridorRefit {
     if (measurement.commit(reason)) this.host.rebuild();
   }
 
+  /**
+   * Call remeasure once more after REMEASURE_INTERVAL_MS: a rebuild ran out
+   * of builds for the cells an enemy could not walk to
+   * (CorridorController.MAX_WALK_PASSES) and the grid may still show some.
+   * Without it they waited for the next tile batch, which may never come
+   * while the camera stands still. Not under a tower, an enemy or a wave,
+   * like every remeasure.
+   */
+  remeasureLater(): void {
+    this.retryRemeasure(CorridorRefit.REMEASURE_INTERVAL_MS);
+  }
+
   /** Stop for good, from CorridorController.dispose(). */
   dispose(): void {
     this.pendingRetry?.();

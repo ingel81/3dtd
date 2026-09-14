@@ -150,6 +150,9 @@ export class CorridorController {
       gameState.initializeGlobalRouteGrid();
       grid.updateTerrainHeights();
     }
+    // Out of builds: what the last one still shows waits for a remeasure,
+    // which a still camera loads no tiles for.
+    if (narrowed === CorridorController.MAX_WALK_PASSES) this.refit.remeasureLater();
     const tWalk = performance.now();
     this.deps.pathRoute.refreshRouteLines(spawns);
     const tLines = performance.now();

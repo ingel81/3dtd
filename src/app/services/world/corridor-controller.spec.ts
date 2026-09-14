@@ -192,6 +192,33 @@ describe('CorridorController', () => {
       expect(calls.filter((call) => call === 'narrow')).toHaveLength(CorridorController.MAX_WALK_PASSES);
     });
 
+    it('measures again after the interval when it ran out of builds', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      state.narrow = 100;
+      state.unmeasured = false;
+      state.unwalkable = true;
+      const controller = create();
+      controller.fitToTiles();
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(2);
+      controller.dispose();
+    });
+
+    it('waits for the next tile batch when the builds dropped everything', () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      state.narrow = 1;
+      state.unmeasured = false;
+      state.unwalkable = true;
+      const controller = create();
+      controller.fitToTiles();
+
+      vi.advanceTimersByTime(CorridorRefit.REMEASURE_INTERVAL_MS);
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+      controller.dispose();
+    });
+
     it('restarts a running route animation on the rebuilt routes', () => {
       routeAnimation.isRunning.mockReturnValue(true);
       create().fitToTiles();
