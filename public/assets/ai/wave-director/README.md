@@ -19,7 +19,7 @@ npm run export-ai
 
 Wrapper für `python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_latest.pt --output ../public/assets/ai/wave-director` aus `training-backend/`.
 
-Siehe `training-backend/docs/AI_MODEL_EXPORT.md` für Details (Skript exportiert ONNX, nicht TF.js — Name ist historisch).
+Siehe `training-backend/docs/AI_MODEL_EXPORT.md` für Details (Skript exportiert ONNX, nicht TF.js; der Name ist historisch).
 
 ## Model Format (Phase 5.10/5.11)
 
@@ -37,7 +37,7 @@ Siehe `training-backend/docs/AI_MODEL_EXPORT.md` für Details (Skript exportiert
 | 0–31 | Template Logits (32 Slots; 18 aktive Templates, Rest reserviert) |
 | 32–35 | Continuous Params: count_factor, spawn_delay_factor, hp_mult_factor, variation |
 
-Die continuous Params werden im Frontend pro gewähltem Template auf die Template-spezifischen Ranges aus `metadata.json` gemappt. Constraints (Curriculum-Gates, Capability-Gates, Boss-Cooldown, DPS-Caps, Wave-Duration-Cap) werden im Decoder angewendet — siehe `docs/AI_WAVE_DIRECTOR_PLAN.md`.
+Die continuous Params werden im Frontend pro gewähltem Template auf die Template-spezifischen Ranges aus `metadata.json` gemappt. Constraints (Curriculum-Gates, Capability-Gates, Boss-Cooldown, DPS-Caps, Wave-Duration-Cap) werden im Decoder angewendet, siehe `docs/AI_WAVE_DIRECTOR_PLAN.md`.
 
 ## WASM Runtime
 
