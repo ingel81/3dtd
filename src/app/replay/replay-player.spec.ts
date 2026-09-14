@@ -93,6 +93,7 @@ function fakeEngine() {
     projectiles: auto(),
     trailStreaks: auto(),
     plinths: auto(),
+    searchlights: auto(),
     tentacles,
     flameBeams,
     abilityMarkers: auto(),
@@ -391,6 +392,19 @@ describe('ReplayPlayer', () => {
       expect(fake.beams[0]).toEqual(['fire-1', new Vector3(4, 5, 6), 8]);
       player.pause();
       expect(fake.engine.flameBeams['stopBeam']).toHaveBeenCalledWith('fire-1');
+    });
+
+    it('hides a tower\'s blood moon searchlight with the tower and gives it back on exit', () => {
+      const lights = fake.engine.searchlights as Record<string, Spy>;
+      expect(lights['setVisible']).toHaveBeenCalledWith('after-1', false);
+      expect(lights['setVisible']).toHaveBeenCalledWith('late-1', false);
+      // A tower sold during the wave gets a light of its own, around no known heading
+      expect(lights['add']).toHaveBeenCalledWith('replay-tower-2', 48, 9, 200, expect.any(Object), null);
+      advance(player, 150);
+      expect(lights['setVisible']).toHaveBeenCalledWith('late-1', true);
+      player.exit();
+      expect(lights['setVisible']).toHaveBeenCalledWith('after-1', true);
+      expect(lights['remove']).toHaveBeenCalledWith('replay-tower-2');
     });
   });
 

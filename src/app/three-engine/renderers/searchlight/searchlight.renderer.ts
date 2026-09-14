@@ -292,6 +292,19 @@ export class SearchlightRenderer {
     this.slots.uploadSlot(this.sweepAttribute, index);
   }
 
+  /**
+   * Hide the beam of tower `id` or show it again, its slot kept: the wave
+   * replay hides the towers not built yet at the moment it shows. A tower
+   * without a light is left alone.
+   */
+  setVisible(id: string, visible: boolean): void {
+    const index = this.lights.get(id);
+    if (index === undefined) return;
+    // Length 0 collapses the slot in the shader, as for a removed light
+    this.sweepAttribute.setW(index, visible ? BLOOD_MOON_LOOK.searchlights.length : 0);
+    this.slots.uploadSlot(this.sweepAttribute, index);
+  }
+
   /** Take the searchlight of tower `id` away, if it has one. */
   remove(id: string): void {
     const index = this.lights.get(id);
