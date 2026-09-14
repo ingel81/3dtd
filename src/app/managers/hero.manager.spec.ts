@@ -545,6 +545,23 @@ describe('HeroManager', () => {
       expect(shown).toHaveLength(2);
     });
 
+    it('presents the frame when the routes shift under him without a sub-step, a pause too', () => {
+      const shown: { x: number; z: number }[] = [];
+      manager.setView({ present: (h) => shown.push(local(h)), clear: () => undefined });
+      hired();
+      sendTo(0, 200);
+      shown.length = 0;
+
+      const shifted = new Map([['spawn-south', line([10, 0], [10, 150], [10, 300])]]);
+      (manager as unknown as { world: HeroWorld }).world.routes = () => shifted;
+      // A query only, no update()/tick(): a corridor rebuild replacing the
+      // routes while paused must still show him on the new graph at once,
+      // since no sub-step follows to present it.
+      manager.resolveMoveTarget(at(10, 100));
+
+      expect(shown).toEqual([{ x: 10, z: 200 }]);
+    });
+
     it('gives the same presentation without a renderer (the wave replay records it), none before the hire', () => {
       expect(manager.getPresentation()).toBeNull();
       hired();
