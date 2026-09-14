@@ -378,7 +378,7 @@ Stelle, auf der Seite, auf der der Gegner läuft (`movement.component.ts:487-508
 
 | Auslöser | Wann | Bedingung |
 |---|---|---|
-| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:553-556`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:21-25`) | neu gebaut wird nur, wenn die Messung einen Korridor ändert |
+| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:553-556`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:21-25`) | kein Intro-Flug (siehe unten); neu gebaut wird nur, wenn die Messung einen Korridor ändert |
 | `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`RouteGridConvergence`, `route-grid-convergence.ts:140-142`), und von selbst noch einmal, wenn ihn einer der letzten drei Punkte rechts aufhielt (siehe unten) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
 | `change()` | `__corridor.set()` und `__corridor.reset()` | ein Ort ist geladen; bei geänderten `MEASUREMENT_KEYS` werden alle Messungen verworfen. Misst am Stück und baut immer neu |
 
@@ -387,8 +387,18 @@ stehen, eine Welle läuft oder Gegner auf der Karte sind. Tower halten ihre
 LOS-Antworten in den Zellen, die ein Neuaufbau ersetzt, Gegner ihre Zelle und
 ihre Route.
 
-Die erste Messung wartet nicht auf die feinen Tiles entlang der Route; die
-laden danach weiter. Stationen, die dann noch auf groben Tiles stehen, laufen
+Die erste Messung wartet auf das Ende des Intro-Flugs, der die Tiles entlang
+der Route lädt. Läuft er beim Aufruf, oder startet er mitten im Lauf (ein
+Ortswechsel startet ihn gleich nach der ersten Scheibe, STEP 7 in
+`location-change-executor.service.ts`), verwirft `fitToTiles()` den Lauf
+(`clearance cancelled (intro flight)`) und merkt sich die Messung
+(`fitPending`). `remeasure()` holt sie nach dem Flug nach, beim nächsten
+Tile-Schub oder spätestens mit dem 3-s-Takt unten, ohne die 3 s seit dem
+letzten Lauf abzuwarten; ein Tower oder eine Welle vorher misst sie am Stück
+(`flush`). Anlass: Im Playtest vom 2026-09-14 in Paris lief die erste Messung
+nach einem Umzug außerhalb der Straßen 5,1 s lang und ließ 617 Stationen
+ungemessen. Auf die feinen Tiles selbst wartet die Messung nicht; die laden
+danach weiter. Stationen, die dann noch auf groben Tiles stehen, laufen
 mit der OSM-Breite, bis `remeasure()` sie nach einem späteren Tile-Schub
 nachholt. Ob sich etwas geändert hat, vergleicht `storeClearance` an den
 fertigen Korridorstücken aller Routen vor und nach dem Speichern
@@ -454,6 +464,8 @@ viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
   oder eine Welle starten, solange ein Lauf offen ist, misst
   `CorridorRefit.flush` (`corridor-refit.ts:200`) den Rest sofort am Stück,
   speichert und baut neu; erst dann steht der Tower oder startet die Welle.
+  Dasselbe gilt für eine erste Messung, die auf das Ende des Intro-Flugs
+  wartet.
   Der Haken sitzt in `GameStateManager.placeTower`, `startWave` und
   `beginWave` (`setBeforeCorridorLock`, gesetzt von `CorridorController.attach`
   aus `VisualizationFacadeService.initialize`) und gilt damit für Klick, Hotkey,
@@ -472,8 +484,9 @@ viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
   Ende.
 - **Abbruch:** Ortswechsel und ersetzte Routen (`initialize`, `clearCache`,
   auch beim Umsetzen von Spawn oder HQ), `clearCorridorMeasurements`,
-  `dispose` und ein neuer Lauf verwerfen den offenen. `fitToTiles()` lässt
-  einen offenen Lauf weiterlaufen, `remeasure()` wartet auf ihn.
+  `dispose` und ein neuer Lauf verwerfen den offenen, ebenso ein Intro-Flug,
+  der währenddessen startet (danach wie oben). `fitToTiles()` lässt einen
+  offenen Lauf weiterlaufen, `remeasure()` wartet auf ihn.
 - **Konsole:** `__corridor.set()` und `reset()` verwerfen einen offenen Lauf
   und messen am Stück (Budget unbegrenzt), die Konsole wartet auf die
   Antwort.
@@ -521,7 +534,8 @@ einem Frame:
   Korridor bleibt, wie er war. Der Grund ist einer der Sperrgründe
   (`enemies are on the map`, sonst `towers stand on the map, sell them first`
   oder `a wave is running`) oder `routes replaced`, `location changed`,
-  `measurements cleared`, `settings changed`, `superseded`, `disposed`.
+  `measurements cleared`, `settings changed`, `superseded`, `disposed`,
+  `intro flight`.
   `stations=N of M`: so weit kam er.
 - **`rebuild`**: erscheint nur bei einem Neuaufbau, also nach `changed=true`
   oder nach `__corridor.set()`/`reset()`.
