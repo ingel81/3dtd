@@ -79,9 +79,12 @@ describe('resolveHotkey', () => {
     expect(hero.rows.map((r) => r.keys)).toEqual([['G'], ['V']]);
   });
 
-  it('names Esc for skipping the boss intro in the overview (BossIntroService.handleKeyDown)', () => {
+  it('names Esc for skipping both intros in the overview (IntroCameraFlightService and BossIntroService.handleKeyDown)', () => {
     const game = HOTKEY_HELP.find((g) => g.title === 'Game')!;
-    expect(game.rows.find((r) => r.keys.includes('Esc'))?.label).toMatch(/boss intro/i);
+    const esc = game.rows.filter((r) => r.keys.includes('Esc'));
+    expect(esc).toHaveLength(1);
+    expect(esc[0].label).toMatch(/intro flight/i);
+    expect(esc[0].label).toMatch(/boss intro/i);
   });
 
   it('toggles photo mode on O, also with Caps Lock or Shift', () => {
