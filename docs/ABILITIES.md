@@ -1,6 +1,6 @@
 # Fähigkeiten (Player Abilities)
 
-**Stand:** 2026-09-14. Konzept und Entscheidungen zum Nuklearschlag:
+**Stand:** 2026-09-15. Konzept und Entscheidungen zum Nuklearschlag:
 [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md), Abschnitte 5,
 7 und 8. Die weiteren Fähigkeiten folgen seinem Muster: eigene Forschung, eine
 Ladung, eine neue nach je 3 abgeschlossenen Wellen, eigene Taste, Knopf in der
@@ -249,42 +249,50 @@ zwischen Gebäuden lesbar bleibt.
 gezeichnet von `three-engine/renderers/mushroom-cloud.renderer.ts`). Er läuft
 in Spielzeit: Pause (P) hält ihn an, der Timescale spielt ihn schneller ab.
 Zeiten in Spielsekunden nach dem Einschlag, Längen bei 25 m Radius; sie
-skalieren mit dem Radius. Nach dem Playtest 2026-09-13 ("es fehlt an
-optischem Wumms") ist die Detonation dichter gestaffelt und der Pilz etwa
-doppelt so hoch:
+skalieren mit dem Radius. Nach dem Playtest 2 (2026-09-14: "optisch und
+klanglich noch nicht gut, zu wenig Wumms, nicht typisch genug"; Entscheidung:
+realistisch wie Archivaufnahmen, aber größer) neu gebaut: der Feuerball eine
+Kugel mit brodelnder Oberfläche, der Rauch aus beleuchteten Billboards, der
+Pilz etwa 1,6-mal so groß wie vorher und 22 statt 14 s zu sehen:
 
 | Zeit | Phase |
 |---|---|
-| 0 bis 0,55 s | Blitz: additiver Sprite (150 m, dreifache Helligkeit) über dem Einschlag, dazu eine Aufhellung des ganzen Bildes, Spitze 0,65, quadratisch abklingend. Mit Bloom an (VFX-Einstellungen) zieht der Blitz 0,9 s lang die Bloom-Stärke von 0,3 auf bis zu 1,4 und die Schwelle von 0,85 auf 0,55 |
-| 0 bis 0,6 s | Weißglühender Kern im Feuerball |
-| 0 bis 0,75 s | Schockkuppel: helle Halbkugel, am Umriss am hellsten, bis 46 m |
-| 0,05 bis 1,05 s | Zweite Feuerfront: flache Schale aus Feuer, läuft bis 38 m aus |
-| 0 bis 1,6 s | Druckwelle: heller Ring am Boden bis 70 m, auf ihrer Front eine Staubwand, die bis 3,2 s stehen bleibt |
-| 0 bis 3,1 s | Feuerball: Halbkugel am Boden, in 0,15 s auf 18 m, ihr Zentrum schießt in der ersten halben Sekunde 14 m hoch; bis 0,7 s von weißglühend zu orange; ab 0,5 s steigt er in die Kappe |
-| 0 bis 2,9 s | Glutbrocken: 48 Funkenschweife fliegen mit 22 bis 55 m/s nach außen und oben, gebremst von Luft und Schwerkraft, und verlöschen am Boden |
-| 0,35 bis 7,5 s | Bodenfeuer: flackernde Glut bis 24 m um den Stammfuß |
-| ab 0,05 s | Staub: Bodenwalze bis etwa 50 m, dazu dunklerer Staub am Stammfuß |
-| ab 0,3 s | Stamm: Rauch steigt in die Kappe, am Fuß breit, unten anfangs feuerbeleuchtet; bis 3,8 s Feuer im Kern |
-| ab 0,35 s | Kappe: Rauch-Torus, schießt in der ersten Sekunde auf gut 55 m und steigt dann langsam weiter, bei 5 s knapp 100 m, beim Auflösen über 110 m. Rollt oben nach außen und unten nach innen, in Wülsten, die um den Stamm wandern. Oben dunkel, die Unterseite glüht bis etwa 7,5 s orange (additive Randglut), eine Kuppel deckt die Mitte |
-| 0,5 bis 3,8 s | Kondensationsring (Wilson-Wolke): weißer Ring um den Stamm auf halber Höhe, breitet sich von 8 auf 42 m aus |
-| 8 bis 14 s | Auflösen: breiter und höher, treibt mit dem Wind, blendet aus |
+| 0 bis 1,1 s | Blitz: das ganze Bild 0,08 s lang um 0,92 Weiß aufgehellt, dann quadratisch abklingend und wärmer werdend; ein additiver Sprite (520 m) 60 m über dem Einschlag hellt den Himmel auf, bis 1,4 s. Mit Bloom an (VFX-Einstellungen) zieht der Blitz 1,4 s lang die Bloom-Stärke von 0,3 auf bis zu 1,6 und die Schwelle von 0,85 auf 0,5 |
+| 0 bis 6 s | Feuerball: Kugel mit brodelnder Oberfläche, in 0,4 s gut 23 m im Radius; weißglühend, um 0,35 s gelb, um 1 s orange, ab 3 s dunkelrot, mit Ruß, wo er abkühlt. Steigt bis 1 s als Kopf der Säule auf die Höhe der Kappe (75 m), flacht bis 3 s zu ihrem Kern ab, blendet von 2,8 bis 6 s aus |
+| 0 bis 0,9 s | Schockkuppel: weiße Halbkugel, am Umriss am hellsten, bis 75 m |
+| 0,03 bis 0,93 s | Feuerfront: flache Schale aus Feuer am Boden, läuft bis 45 m aus |
+| 0 bis 2,2 s | Druckwelle: heller Ring am Boden bis 135 m, auf ihrer Front eine Staubwand, die bis 4 s stehen bleibt |
+| 0 bis 7 s | Bodenlicht: additive Scheibe (130 m) um den Fuß, hell beim Einschlag, dunkler mit dem Feuerball; die Tiles nehmen kein Licht an |
+| 0 bis 3,1 s | Glutbrocken: 48 Funkenschweife fliegen mit 30 bis 75 m/s nach außen und oben, gebremst von Luft und Schwerkraft, und verlöschen am Boden |
+| 0,3 bis 9 s | Bodenfeuer: flackernde Glut bis 36 m um den Stammfuß |
+| ab 0,25 s | Stamm: unten Staub, oben Rauch, steigt in die Kappe; Radius am Fuß 22 m, in der Mitte 8 m, oben zur Kappe ausgestellt; bis 4,5 s Feuer im Kern |
+| ab 0,5 s | Base Surge: ein Staubring rollt am Boden nach außen, bei 8 s über 100 m, blendet bis 20 s aus |
+| ab 0,8 s | Staub wird am Boden spiralförmig zum Stammfuß gezogen und steigt dort auf |
+| ab 1 s | Kappe: Rauch-Torus um den Feuerball, von 1 bis 2,6 s eingeblendet. Ihr Zentrum steht bei 1,5 s auf gut 95 m, bei 5 s auf gut 140 m, bei 10 s auf gut 160 m, der Rauch reicht 15 bis 20 m darüber. Rollt oben nach außen und unten nach innen, bei 6 s schon mehr als eine halbe Umdrehung; jeder Puff dreht sich auf dem Bild mit, die beiden Seiten des Rings gegenläufig. Wülste wandern um den Stamm. Oben rußig und von oben beleuchtet, dunkler werdend, die Unterseite glüht orange, bis etwa 11 s zu Dunkelrot abkühlend |
+| 0,6 bis 3,6 s | Kondensationsring (Wilson-Wolke): weißer Ring um den Stamm auf 0,42 der Kappenhöhe, breitet sich von 10 auf 62 m aus |
+| 12 bis 22 s | Auflösen: breiter und höher, treibt mit dem Wind, blendet aus |
 
-Budget: 432 additive Partikel (Explosions-Atlas, davon 192 für die 48
-Glutschweife à 4 Punkte) und 546 Rauchpartikel (Rauch-Atlas) pro Pilz, in
-eigenen Puffern für zwei gleichzeitige Pilze (864 und 1092), nicht in den
-Trail-Pools. Vor dem Playtest-Nachtrag waren es 106 und 270. Details in
+Bei 5 s reichen die Puffs der Kappe mehr als 2,5-mal so weit vom Zentrum wie
+die des Stamms (`mushroom-cloud.renderer.spec.ts`). Vorher (Stand
+2026-09-13): Druckwelle 70 m, Kappe bei 5 s knapp 100 m hoch, 14 s Dauer.
+
+Budget: 740 Rauch- und 402 Glut-Sprites pro Pilz (Low 294 und 88), in
+eigenen Puffern für zwei gleichzeitige Pilze, dazu je Pilz ein Feuerball.
+Ein Pilz zeichnet höchstens 1090 Sprites (bei 1,4 s) mit höchstens 9 Draw
+Calls; Aufbau und Messwerte in
 [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#atompilz-nuklearschlag).
 
 **Brandflecken:** auf dem Einschlagpunkt und auf zwei Ringen, 6 bei 0,45 und 9
 bei 0,85 des Radius (`NUCLEAR_STRIKE_SCORCH_RINGS`), alle beim Einschlag, nur
 auf Route-Zellen und mit Ground Marks an.
 
-**VFX-Einstellungen:** Mit Impact Effects aus (Preset Low) bleibt die
-Detonation: Blitz mit Bildaufhellung, Kern, Feuerball, zweite Feuerfront,
-Schockkuppel und Druckwelle; kein Rauch, keine Glutbrocken, kein Bodenfeuer.
-Bloom ist im Low-Preset aus und damit auch der Bloom-Kick. Bis 2026-09-13 bestand der Einschlag aus
-gestaffelten Feuer-Atlas-Explosionen auf Wanduhr-Timern, und Low zeigte davon
-nichts.
+**VFX-Einstellungen:** Mit Impact Effects aus (Preset Low) läuft derselbe
+Pilz mit derselben Silhouette aus weniger, größeren Sprites (294 Rauch, 88
+Glut statt 740 und 402), ohne Glutbrocken, mit unbeleuchtetem Rauch (Farbe
+und Feuerlicht ohne Normalen) und einem Feuerball mit zwei statt vier
+Rausch-Oktaven. Die Anzahl gilt ab dem nächsten Schlag, die Beleuchtung
+sofort. Bloom ist im Low-Preset aus und damit auch der Bloom-Kick. Vor dem
+Umbau nach Playtest 2 zeigte Low nur die Detonation ohne Rauch.
 
 **Massentode:** Todesblut nur für die ersten `ABILITY_DEATH_BLOOD_CAP` (24)
 Kills eines Schlags. Jede Blutwolke sind 40 Partikel im normalen Pool und ein
@@ -475,7 +483,7 @@ während einer Welle.
 | `services/hotkey-map.ts` | Taste je Fähigkeit aus `AbilityConfig.hotkey` |
 | `three-engine/renderers/ability-marker.renderer.ts` | Zielmarker und Zielring |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
-| `three-engine/renderers/mushroom-cloud-shape.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Form, Glut, Rauch und Ring/Dom/Blitz des Atompilzes |
+| `three-engine/renderers/mushroom-cloud-shape.ts`, `-sprites.ts`, `-fireball.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Form, Billboards samt Billow-Atlas und Materialien, Feuerball, Glut, Rauch, Bodenlicht/Ring/Kuppel/Blitz des Atompilzes |
 | `three-engine/renderers/frost-burst.renderer.ts` | Frostausbruch der Frostbombe |
 | `three-engine/renderers/emp-pulse.renderer.ts` | Puls des EMP |
 | `three-engine/renderers/orbital-beam.renderer.ts` | Strahl des Orbitallasers |
@@ -491,7 +499,7 @@ während einer Welle.
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,
 `gate-wiring.spec.ts`, `ai-data-collector.ability-kills.spec.ts`,
-`vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`,
+`vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`,
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,

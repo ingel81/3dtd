@@ -22,8 +22,9 @@ ueber fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
   Floating Damage Numbers ueber Gegnern. 1 Draw Call fuer alle Texts.
 - **Frost-/Poison-Auren**: Pro-Enemy orbitierende Partikel-Cluster (Tracking
   ueber Maps mit `localPosition` und `orbitAngle`).
-- **Atompilz** (`MushroomCloudRenderer`): eigene Points mit den ShaderMaterials
-  der Trail-Pools, in Spielzeit, siehe [Atompilz](#atompilz-nuklearschlag).
+- **Atompilz** (`MushroomCloudRenderer`): eigene instanzierte Billboards mit eigenen
+  Materialien (beleuchteter Rauch, additive Glut) und ein Feuerball-Mesh, in Spielzeit,
+  siehe [Atompilz](#atompilz-nuklearschlag).
 
 Pool-Limits und Effektwerte in `configs/visual-effects.config.ts` (`PARTICLE_LIMITS`,
 `BLOOD_DECAL_CONFIG`, `ICE_DECAL_CONFIG`, `SCORCH_DECAL_CONFIG`, `EXPLOSION_PRESETS`,
@@ -482,72 +483,93 @@ Zurück zum alten Bild: `EXPLOSION_LOOK.fire.sizeEnd = 0` und `smokePuffs = 0` i
 ## Atompilz (Nuklearschlag)
 
 `MushroomCloudRenderer` (`three-engine/renderers/mushroom-cloud.renderer.ts`), Werte in
-`MUSHROOM_CLOUD_LOOK`, seit 2026-09-13. `VFXService` ruft `engine.mushroomClouds.detonate`
-beim `ability:impact`; die Phasen stehen in [ABILITIES.md](ABILITIES.md#darstellung).
-Die Glut schreibt `CloudGlow` (`mushroom-cloud-glow.ts`), den Rauch samt Sortierung
-`CloudSmoke` (`mushroom-cloud-smoke.ts`), beide aus der Form von `CloudShape`
-(`mushroom-cloud-shape.ts`); Ring, Dom, Blitz und Bildschirmblitz stehen in `CloudBlast`
-(`mushroom-cloud-blast.ts`), die Puffer-Helfer in `effect-buffers.ts`.
+`MUSHROOM_CLOUD_LOOK`, seit 2026-09-13, nach dem Playtest 2 (2026-09-14) neu gebaut.
+`VFXService` ruft `engine.mushroomClouds.detonate` beim `ability:impact`; die Phasen
+stehen in [ABILITIES.md](ABILITIES.md#darstellung). Billboards, Billow-Atlas und
+Materialien stehen in `mushroom-cloud-sprites.ts`, der Feuerball in
+`mushroom-cloud-fireball.ts`, die Glut in `CloudGlow` (`mushroom-cloud-glow.ts`), der
+Rauch samt Sortierung in `CloudSmoke` (`mushroom-cloud-smoke.ts`), alle mit der Form aus
+`CloudShape` (`mushroom-cloud-shape.ts`); Bodenlicht, Ring, Kuppel, Blitz und
+Bildschirmblitz in `CloudBlast` (`mushroom-cloud-blast.ts`), die Puffer-Helfer in
+`effect-buffers.ts`.
 
 - **Spielzeit:** `ThreeTilesEngine.update` reicht den Frame in Spielzeit weiter
-  (Wanduhr mal Timescale, in der Pause 0). Jedes Partikel ist eine Funktion aus dem
-  Alter des Pilzes und vier Zufallszahlen vom Einschlag, jeden Frame neu berechnet:
+  (Wanduhr mal Timescale, in der Pause 0). Jedes Sprite ist eine Funktion aus dem
+  Alter des Pilzes und vier Zufallszahlen vom Einschlag, jeden Frame neu berechnet;
+  der Feuerball bekommt das Alter als `uTime`, auch sein Brodeln läuft in Spielzeit.
   Pause hält den Pilz an, ein langer Frame bei hohem Timescale endet im selben Bild
-  wie viele kurze. Die Trail-Pools dagegen altern in Wanduhrzeit.
-- **Eigene Puffer, geteilte Materialien:** zwei `Points` (additiv mit dem
-  Explosions-Atlas, normal mit dem Rauch-Atlas) mit den ShaderMaterials der
-  Trail-Pools (`ParticlePoolManager.shaderMaterials`), also Log-Depth und Atlas wie
-  dort. Nicht aus den Pools, weil ein Schlag auf eine große Welle trifft, die sie
-  füllt. Budget pro Pilz 432 Glut- und 546 Rauchpartikel (vor dem
-  Playtest-Nachtrag vom 2026-09-13 106 und 270), Puffer für zwei gleichzeitige
-  Pilze (864 und 1092); ein dritter nimmt den Platz des ältesten. Pro Frame keine
-  Allokation.
-- **Deckkraft über den Frame:** Der Normal-Shader kennt kein Alpha pro Partikel. Der
-  Rauch-Atlas wird von Frame zu Frame breiter und blasser; der Renderer wählt den
-  Frame nach der gewünschten Deckkraft und gleicht die Größe über den Anteil aus, den
-  der Puff im Frame bedeckt.
-- **Größe in Metern:** Der Partikel-Shader rechnet in Pixeln
-  (`PARTICLE_POINT_SCALE`, `size * 3000 / Tiefe`). Der Pilz rechnet Meter über die
-  Höhe des Zeichenpuffers und das FOV um, damit er auf jeder Auflösung gleich groß
-  ist. Die übrigen Effekte tun das nicht.
-- **Sortierung:** Rauch blendet normal und schreibt keine Tiefe, er wird jeden Frame
-  von hinten nach vorn geschrieben (Insertion Sort über die Reihenfolge des
-  Vorframes). Die Glut zeichnet vorher (`renderOrder` 996 vor 997), damit Rauch davor
-  sie dämpft.
-- **Blitz, Druckwelle, Bildschirm:** Sprite und Ring mit eingebauten Materialien und
-  prozeduralen `DataTexture`s, Tiefentest aus wie beim Zielmarker; ein
-  Vollbild-Quad (ShaderMaterial mit Log-Depth-Chunks) hellt das Bild 0,55 s lang
-  additiv auf, Spitze 0,65, quadratisch abklingend (`flash.screenPeak`, 0 schaltet
-  ihn ab).
-- **Schockkuppel:** eine Halbkugel (`SphereGeometry`, 32 × 10 Segmente) mit eigenem
+  wie viele kurze.
+- **Billboards statt Points:** je Sprite eine Instanz eines Quads
+  (`InstancedBufferGeometry`; `aCenter` mit der Bodenhöhe des Pilzes als w, `aShape`
+  mit Durchmesser in Metern, Drehung, Deckkraft und Atlas-Zelle, `aColor`, beim Rauch
+  `aGlow`). Der Vertex-Shader dreht das Quad zur Kamera. Anders als die Points der
+  Trail-Pools wird ein Sprite aus der Nähe nicht auf die größte Punktgröße der GPU
+  geklemmt und verschwindet nicht, sobald seine Mitte den Bildrand verlässt. Ein
+  Sprite blendet aus, wenn die Kamera hineinfährt (voll ab einem Durchmesser
+  Abstand, weg unter 0,3 davon), und über die unteren 4 m zur Bodenhöhe seines
+  Pilzes, damit sein Schnitt mit dem Boden weich bleibt. Wo das Gelände über dieser
+  Höhe liegt (Hang, Gebäude), bleibt ein Schnitt: Weiche Partikel gegen die Tiefe
+  der Tiles gibt es nicht.
+- **Billow-Atlas:** 4 × 4 Puffs à 96 px (`billowAtlas`), beim Bau der Engine einmal
+  gerechnet, im Test etwa 30 ms: einige runde Lappen, oben mehr, Wertrauschen in den
+  Rand gefressen. RG ist die Normale der Oberfläche, B wie offen die Stelle ist
+  (Spalten dunkler), A die Dichte; jede Zelle ist am Rand leer, Mipmaps an.
+- **Beleuchtung:** Der Rauch-Shader liest die Normale und beleuchtet jeden Puff von
+  oben (Welt-Oben in den Rahmen des Sprites gedreht) und mit dem Feuer von unten
+  (`aGlow`: orange, solange der Feuerball glüht, an der Unterseite der Kappe länger).
+  Die Glut ist additiv, Farbe mal Dichte². Die Farben sind linear; alle drei
+  Shader kodieren wie die eingebauten Materialien (`colorspace_fragment`), mit und
+  ohne Post-Processing gleich hell.
+- **Feuerball:** Kugel (48 × 24 Segmente) mit eigenem ShaderMaterial. Wertrauschen in
+  beiden Stufen: im Vertex-Shader beult es die Oberfläche aus (`uBoil`), im
+  Fragment-Shader gleiten feinere Zellen nach oben. Die Hitze (`fireballHeat`, von 1
+  auf 0,12), die Zellen und der kühlere Rand wählen die Farbe von Weiß über Gelb und
+  Orange bis Dunkelrot, mal `uIntensity` (3,2 bis 0,9, über 1 für Bloom), mit Ruß, wo
+  er abgekühlt ist. Weicher Umriss, normale Mischung, Tiefentest an, keine
+  Tiefenschreibung. Alle `smoothstep`-Grenzen steigen, `pow` hat nur nichtnegative
+  Basen, `normalize` bekommt keinen Nullvektor.
+- **Sortierung:** Der Rauch mischt normal und schreibt keine Tiefe; er wird jeden Frame
+  von hinten nach vorn sortiert (Insertion Sort über die Reihenfolge des Vorframes) und
+  am Feuerball geteilt: Puffs, die weiter weg sind als seine Mitte, gehen in den
+  Puffer davor (`renderOrder` 995), die anderen in den danach (998); dazwischen
+  zeichnen Feuerball (996) und Glut (997). So verdeckt der Rauch hinter dem Feuerball
+  ihn nicht, der davor schon. Ohne Feuerball (ab 6 s) liegt aller Rauch im ersten
+  Puffer.
+- **Bodenlicht, Blitz, Druckwelle, Bildschirm:** Bodenlicht und Ring sind flache
+  Meshes, der Blitz ein Sprite, alle mit eingebauten Materialien und prozeduralen
+  `DataTexture`s, additiv, Tiefentest aus wie beim Zielmarker. Die Tiles nehmen kein
+  dynamisches Licht an, deshalb ist das Bodenlicht eine additive Scheibe. Ein
+  Vollbild-Quad (ShaderMaterial mit Log-Depth-Chunks) hellt das Bild auf
+  (`flash.screenPeak`, 0 schaltet ihn ab), von Weiß zu warm.
+- **Schockkuppel:** Halbkugel (`SphereGeometry`, 32 × 10 Segmente) mit eigenem
   ShaderMaterial samt Log-Depth-Chunks, additiv, am Umriss am hellsten
-  (`1 - |n·v|` hoch 2,5). Anders als Ring und Blitz mit Tiefentest: Gebäude davor
-  verdecken sie.
-- **Glutbrocken:** 48 Schweife aus je 4 Glutpunkten im additiven Puffer, der Kopf und
-  seine Positionen 45, 90 und 135 ms früher, kleiner und dunkler. Die Flugbahn mit
-  linearer Luftreibung und Schwerkraft ist eine geschlossene Formel des Alters, also
-  in Spielzeit wie der Rest; ein Punkt unter der Höhe des Einschlagpunkts fällt weg.
-  Nicht über den `TrailStreakRenderer` (ein Mesh und Draw Call pro Schweif, jeden
-  Frame neu gebaut, am Schalter Projectile Trails) und nicht über die Trail-Pools
-  (Wanduhr).
-- **Bodenfeuer:** 32 Glutpunkte bis 24 m um den Einschlag, flackern über Größe,
-  Helligkeit und Atlas-Frame in Spielzeit, aus bis 7,5 s. Sie stehen auf der Höhe
-  des Einschlagpunkts; auf Hängen sitzen sie zu hoch oder im Boden.
-- **Bloom-Kick:** `MushroomCloudRenderer.bloomKick` (1 beim Einschlag, quadratisch
-  auf 0 über 0,9 s Spielzeit) geht jeden Frame an
-  `PostProcessingPipeline.setBloomKick`: Bloom-Stärke von 0,3 bis 1,4, Schwelle von
-  0,85 bis 0,55 (`MUSHROOM_CLOUD_LOOK.bloomKick`). `BloomKick`
-  (`post-processing/bloom-kick.ts`) merkt sich die Werte des Passes und schreibt
-  genau diese zurück, sobald der Kick vorbei ist oder Bloom ausgeschaltet wird. Nur
-  mit Bloom an, der Kick schaltet den Pass nie ein. Eine Belichtung zum Hochziehen
-  gibt es nicht, der Renderer hat kein Tone Mapping.
-- **Draw Calls:** Glut und Rauch je ein Points-Draw, solange ein Pilz steht; dazu
-  Ring (1,6 s), Kuppel (0,75 s), Blitz-Sprite (0,5 s) und Bild-Quad (0,55 s). Alle
-  Objekte hängen an `DrawGate`s, ohne Pilz steht nichts in der Render-Liste.
+  (`1 - |n·v|` hoch 2,5). Mit Tiefentest: Gebäude davor verdecken sie.
+- **Glutbrocken:** 48 Schweife aus je 4 Sprites, der Kopf und seine Positionen 45, 90
+  und 135 ms früher, kleiner und dunkler. Die Flugbahn mit linearer Luftreibung und
+  Schwerkraft ist eine geschlossene Formel des Alters; ein Sprite unter der Höhe des
+  Einschlagpunkts fällt weg.
+- **Bodenfeuer:** 40 Glut-Sprites bis 36 m um den Einschlag, flackern über Größe und
+  Helligkeit in Spielzeit, aus bis 9 s. Sie stehen auf der Höhe des Einschlagpunkts.
+- **Budget und Messwerte:** pro Pilz 740 Rauch- und 402 Glut-Sprites; Puffer für zwei
+  Pilze (Rauch davor und dahinter je 1480 Plätze, Glut 804). Die Spitze eines Pilzes
+  liegt bei 1,4 s mit 1090 Sprites. `mushroom-cloud.renderer.spec.ts` ("peak moment")
+  prüft über den ganzen Ablauf höchstens das Budget, höchstens 9 sichtbare Objekte,
+  also Draw Calls (in den ersten 0,9 s Bodenlicht, Ring, Kuppel, Blitz, Bild-Quad,
+  zwei Rauch-Puffer, Feuerball, Glut; bei 1,5 s noch 6), und dass kein Frame einen
+  neuen Puffer anlegt. Hochgeladen wird nur der benutzte Teil der Attribute
+  (`addUpdateRange`), an der Spitze etwa 57 KB je Frame. Die CPU-Zeit von `update()`
+  lag in jsdom an der Spitze bei 0,13 ms je Frame, mit kreisender Kamera (mehr zu
+  sortieren) bei 0,14 ms. Die GPU-Last hängt an der Überdeckung großer Rauch-Sprites,
+  aus der Nähe mehr als aus der Übersicht; im Browser gemessen ist sie nicht.
 - **VFX-Einstellungen:** Impact Effects aus (`setFullCloud(false)` aus
-  `applyVfxSettings`) lässt den nächsten Pilz auf die Detonation schrumpfen: Blitz,
-  Kern, Feuerball, zweite Feuerfront (zusammen bis 120 Glutpunkte), Schockkuppel und
-  Druckwelle; kein Rauch, keine Glutbrocken, kein Bodenfeuer.
+  `applyVfxSettings`): 294 Rauch- und 88 Glut-Sprites, die ersten jeder Gruppe, bis zu
+  1,5-mal so groß; keine Glutbrocken; Rauch unbeleuchtet (`uLit` 0); Feuerball mit zwei
+  Rausch-Oktaven (`uDetail` 0). Im Test weicht die Höhe bei 5 s um weniger als 5 % ab,
+  die Breite ist höchstens 15 % kleiner. Die Anzahl gilt ab dem nächsten Schlag, die
+  Beleuchtung sofort.
+- **Draw Gates:** Alle Objekte hängen an `DrawGate`s, ohne Pilz steht nichts in der
+  Render-Liste; das Warm-up beim Laden zeichnet sie einmal und kompiliert die
+  Programme vorab.
 - **Reset:** `game:reset` leert die Pilze (`VFXService`).
 
 ---
@@ -768,7 +790,7 @@ Status-Effekte und Events laufen gleich, Training und Headless-Betrieb auch.
 |----------|---------|-----------|
 | Muzzle Flash | an | `spawnMuzzleFlash` erzeugt keine Partikel, `ThreeTowerRenderer.triggerMuzzleFlash` zündet das Licht nicht. Das PointLight bleibt dunkel in der Szene, sonst bräuchten alle beleuchteten Materialien ein neues Shader-Programm. |
 | Projectile Trails | an | `TrailStreakRenderer.create` vergibt keinen Streak, laufende fallen weg (je Projektil ein eigenes Mesh mit eigenem Draw Call, Geometrie jeden Frame neu). `spawnConfigurableTrail` erzeugt keine Trail-Partikel. |
-| Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch, keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. Der Atompilz des Nuklearschlags schrumpft auf Blitz, Feuerball und Druckwelle. |
+| Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch, keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. Der Atompilz des Nuklearschlags kommt mit weniger, größeren Sprites, unbeleuchtetem Rauch und ohne Glutbrocken. |
 | Ground Marks | an | Keine Blut-, Eis- und Brand-Decals. Beim Ausschalten werden die liegenden gelöscht, die leeren Pools fallen per `DrawGate` aus der Render-Liste. `VFXService` und `CombatVfxService` sparen die Terrain-Raycasts für ein Decal (einer pro Blut-Decal, bis zu vier pro Eis-Explosion). |
 | Bloom | aus | `UnrealBloomPass` aus. Sind Bloom und Color Grading beide aus, zeichnet die Engine ohne Composer. |
 | Color Grading | None | LUT-Pass aus. |
@@ -845,7 +867,7 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/floating-text/floating-text-atlas.ts` | Prozedurale Text-Atlas-Generierung |
 | `three-engine/renderers/sprite-atlas-generator.ts` | Sprite-Sheet-Atlanten (Explosion 4×4, Smoke 4×4) |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Nuklearschlags, in Spielzeit |
-| `three-engine/renderers/mushroom-cloud-shape.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Teile des Atompilzes: Form, Glut, Rauch, Ring/Dom/Blitz |
+| `three-engine/renderers/mushroom-cloud-shape.ts`, `-sprites.ts`, `-fireball.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Teile des Atompilzes: Form, Billboards und Billow-Atlas, Feuerball, Glut, Rauch, Bodenlicht/Ring/Kuppel/Blitz |
 | `three-engine/renderers/ooze/ooze-death-plan.ts` | Tod der Ooze: was der Kollaps wann und wo loslässt (`planOozeDeath`, `oozeMessCounts`) |
 | `three-engine/renderers/ooze/ooze-debris.renderer.ts` | Tod der Ooze: prozedurale Trümmer, instanziert je Art, Flug, Aufprall, Liegen, Einsinken |
 | `configs/projectile-types.config.ts` | Trail-Partikel Konfiguration (TrailParticleConfig) |

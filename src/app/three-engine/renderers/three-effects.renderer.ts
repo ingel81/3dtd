@@ -123,7 +123,7 @@ export class ThreeEffectsRenderer {
     return this.pools.isUsingShaderMaterial();
   }
 
-  /** The trail pools' ShaderMaterials, for Points drawn outside the pools (mushroom cloud). */
+  /** The trail pools' ShaderMaterials, for Points drawn outside the pools (frost burst, EMP pulse, orbital beam). */
   get particleShaderMaterials(): ParticleShaderMaterials {
     return this.pools.shaderMaterials;
   }

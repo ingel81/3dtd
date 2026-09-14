@@ -3,25 +3,25 @@
  * right after the impact freezes the flash and the cloud, after P it goes
  * on; at a higher speed everything runs faster.
  *
- * The engine hands the clouds game time (three-tiles-engine.ts:987): a
- * paused frame is 0 ms, a frame at 4x four times its wall time.
- * mushroom-cloud.renderer.spec.ts already holds glow and smoke still in a
+ * The engine hands the clouds game time (three-tiles-engine.ts, render
+ * loop): a paused frame is 0 ms, a frame at 4x four times its wall time.
+ * mushroom-cloud.renderer.spec.ts already holds the sprites still in a
  * pause and plays one long frame like many short ones; this pins the parts
  * of the moment of detonation on top: the flash sprite, the screen flash,
- * the shock dome, the shockwave ring and the bloom kick. The real renderer,
- * real three.js; how it looks is the user's (216, 217).
+ * the shock dome, the shockwave ring, the ground glow, the fireball and the
+ * bloom kick. The real renderer, real three.js; how it looks is the user's.
  */
 import { describe, it, expect } from 'vitest';
 import {
-  Mesh,
-  MeshBasicMaterial,
   PerspectiveCamera,
-  PlaneGeometry,
   Scene,
-  ShaderMaterial,
-  SphereGeometry,
-  Sprite,
   Vector3,
+  type Mesh,
+  type MeshBasicMaterial,
+  type PlaneGeometry,
+  type ShaderMaterial,
+  type SphereGeometry,
+  type Sprite,
 } from 'three';
 import { MushroomCloudRenderer } from './mushroom-cloud.renderer';
 
@@ -32,31 +32,39 @@ const FRAME_MS = 16;
 
 function setup() {
   const scene = new Scene();
-  const clouds = new MushroomCloudRenderer(scene, { additive: new ShaderMaterial(), normal: new ShaderMaterial() });
+  const clouds = new MushroomCloudRenderer(scene);
   const camera = new PerspectiveCamera(60, 16 / 9, 1, 8000);
-  camera.position.set(100, 250, 350);
+  camera.position.set(100, 320, 450);
   camera.lookAt(GROUND);
-  const meshes = scene.children.filter((c): c is Mesh => c instanceof Mesh);
-  const rings = meshes.filter((m) => m.material instanceof MeshBasicMaterial);
-  const domes = meshes.filter((m) => m.geometry instanceof SphereGeometry);
-  const flashes = scene.children.filter((c): c is Sprite => c instanceof Sprite);
-  const screen = meshes.find((m) => m.material instanceof ShaderMaterial && m.geometry instanceof PlaneGeometry)!;
+  camera.updateMatrixWorld();
+  const named = <T>(name: string) => scene.getObjectByName(name) as T;
+  const both = <T>(name: string) => [0, 1].map((i) => named<T>(`${name}-${i}`));
+  const rings = both<Mesh<PlaneGeometry, MeshBasicMaterial>>('mushroom-ring');
+  const grounds = both<Mesh<PlaneGeometry, MeshBasicMaterial>>('mushroom-ground-glow');
+  const domes = both<Mesh<SphereGeometry, ShaderMaterial>>('mushroom-dome');
+  const flashes = both<Sprite>('mushroom-flash');
+  const fireballs = both<Mesh<SphereGeometry, ShaderMaterial>>('mushroom-fireball');
+  const screen = named<Mesh<PlaneGeometry, ShaderMaterial>>('mushroom-screen');
 
   /** One frame of `gameMs` game time, as the engine hands it over */
-  const frame = (gameMs: number) => clouds.update(gameMs, camera, 1080);
+  const frame = (gameMs: number) => clouds.update(gameMs, camera);
   /** What the moment of detonation shows right now */
   const moment = () => ({
     flash: flashes.filter((f) => f.visible).map((f) => f.scale.x),
-    screen: screen.visible ? ((screen.material as ShaderMaterial).uniforms['uOpacity'].value as number) : 0,
+    screen: screen.visible ? (screen.material.uniforms['uOpacity'].value as number) : 0,
     dome: domes.filter((d) => d.visible).map((d) => d.scale.x),
     ring: rings.filter((r) => r.visible).map((r) => r.scale.x),
+    ground: grounds.filter((g) => g.visible).map((g) => g.material.opacity),
+    fireball: fireballs
+      .filter((b) => b.visible)
+      .flatMap((b) => [b.position.y, b.scale.x, b.scale.y, b.material.uniforms['uHeat'].value as number]),
     kick: clouds.bloomKick,
   });
   return { clouds, frame, moment };
 }
 
 describe('The mushroom cloud in a pause and at speed, playtest 219 (night 1) replayed', () => {
-  it('P right after the impact: flash, dome, ring and bloom kick stand, after P they go on as without the pause', () => {
+  it('P right after the impact: flash, dome, ring, ground glow, fireball and bloom kick stand, after P they go on as without the pause', () => {
     const paused = setup();
     const straight = setup();
     for (const run of [paused, straight]) {
@@ -68,6 +76,8 @@ describe('The mushroom cloud in a pause and at speed, playtest 219 (night 1) rep
     expect(atP.screen).toBeGreaterThan(0);
     expect(atP.dome.length).toBeGreaterThan(0);
     expect(atP.ring.length).toBeGreaterThan(0);
+    expect(atP.ground.length).toBeGreaterThan(0);
+    expect(atP.fireball.length).toBeGreaterThan(0);
     expect(atP.kick).toBeGreaterThan(0);
 
     // Ten seconds of pause: frames without game time
@@ -114,6 +124,9 @@ describe('The mushroom cloud in a pause and at speed, playtest 219 (night 1) rep
       expect(a.screen).toBeCloseTo(b.screen, 9);
       a.dome.forEach((s, j) => expect(s).toBeCloseTo(b.dome[j], 9));
       a.ring.forEach((s, j) => expect(s).toBeCloseTo(b.ring[j], 9));
+      a.ground.forEach((s, j) => expect(s).toBeCloseTo(b.ground[j], 9));
+      expect(a.fireball.length).toBe(b.fireball.length);
+      a.fireball.forEach((s, j) => expect(s).toBeCloseTo(b.fireball[j], 9));
       expect(a.kick).toBeCloseTo(b.kick, 9);
     }
   });

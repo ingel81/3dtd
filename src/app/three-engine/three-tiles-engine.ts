@@ -342,7 +342,7 @@ export class ThreeTilesEngine {
     this.trailStreaks = new TrailStreakRenderer(this.scene);
     this.lightningBolts = new LightningBoltRenderer(this.scene);
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
-    this.mushroomClouds = new MushroomCloudRenderer(this.scene, this.effects.particleShaderMaterials);
+    this.mushroomClouds = new MushroomCloudRenderer(this.scene);
     // A killed ooze's bubbles and splashes go through the effects, its debris to a renderer of its own
     this.oozes = new OozeBandRenderer(this.scene, { effects: this.effects, debris: new OozeDebrisRenderer(this.scene) });
     this.searchlights = new SearchlightRenderer(this.scene, coordinateSync, this.towers);
@@ -986,7 +986,7 @@ export class ThreeTilesEngine {
     this.abilityMarkers.update(deltaTime, gameDeltaSeconds * 1000);
 
     // Mushroom clouds run in game time: a pause (timescale 0) holds them
-    this.mushroomClouds.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
+    this.mushroomClouds.update(gameDeltaSeconds * 1000, this.camera);
     // Their flash kicks the bloom, where bloom is on
     this.postProcessing?.setBloomKick(this.mushroomClouds.bloomKick, MUSHROOM_CLOUD_LOOK.bloomKick);
     // Frost bursts run in game time as well
