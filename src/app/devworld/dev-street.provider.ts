@@ -76,14 +76,11 @@ export class DevStreetProvider implements StreetNetworkProvider {
       return this.network;
     }
 
-    const _startTime = performance.now();
-
     // Build network from generated segments
     this.network = this.buildNetwork();
 
     // Build graph for pathfinding
     this.buildGraph();
-
 
     return this.network;
   }
@@ -370,10 +367,6 @@ export class DevStreetProvider implements StreetNetworkProvider {
       console.warn('[DevStreets] Could not find graph nodes for pathfinding');
       return [];
     }
-
-    const _startNode = this.graph.get(startId)!;
-    const _endNode = this.graph.get(endId)!;
-
 
     // A* pathfinding
     return this.astar(startId, endId);
