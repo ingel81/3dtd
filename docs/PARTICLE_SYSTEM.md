@@ -617,10 +617,10 @@ nach einem Game Over laufen ein noch kollabierendes Band und seine Trümmer aus:
 `OozeBodies.clear` (aus `EnemyManager.clear`) nimmt nur die Oozes, die es noch führt,
 deren Band sofort. Ein Neustart und ein Standortwechsel räumen beides sofort ab
 (`GameStateManager.reset` ruft `oozes.clear()`), ebenso ein Verlassen des Replays
-(`ReplayPlayer.exit`). Ein Sprung im Replay räumt Band und Trümmer
-nicht ab (`ReplayPlayer.seek`); läuft das Replay danach wieder über den Kill, wirft der
-Kollaps einen neuen Satz Trümmer, während der alte noch liegt. Wiederholtes Springen kann
-so die Pools einer Art füllen, danach fallen weitere Stücke still weg. Jedes Trümmerstück landet auf der Bodenhöhe
+(`ReplayPlayer.exit`). Ein Sprung im Replay räumt die Trümmer ab
+(`ReplayPlayer.seek` ruft `oozes.clearDebris()`), das Band führt der Replay über seinen
+eigenen Zustand; läuft das Replay danach wieder über den Kill, wirft der Kollaps einen
+neuen Satz, der alte ist dann schon weg. Jedes Trümmerstück landet auf der Bodenhöhe
 seines Abwurfpunkts, einmal beim Loslassen gelesen (`letGo()`); am Hang oder an
 Gehsteigkanten kann es daher bis zu den knapp 8 m seitlich seines Auswurfs schweben
 oder einsinken. Mit Gebäuden oder Tiles kollidiert es nicht.

@@ -353,6 +353,9 @@ export class ReplayPlayer {
     // A rumbling tail from before the jump is not heard after it
     this.audio?.clearTail();
     this.clearStrikes();
+    // Debris a killed ooze threw before the jump would lie on beside the set
+    // its band throws again when the jump passes the kill once more
+    this.engine.oozes.clearDebris();
     // From the start the events at 0 are still to come (the first sounds of the wave)
     this.eventCursor = t > 0 ? this.rec.eventAfter(t) : 0;
     this.apply(t, false);

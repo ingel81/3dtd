@@ -241,6 +241,11 @@ export class OozeBandRenderer {
   /** Every band and every piece of debris gone at once (reset, location change). */
   clear(): void {
     for (const id of [...this.bands.keys()]) this.drop(id);
+    this.clearDebris();
+  }
+
+  /** The debris thrown so far gone at once, the bands stay (a jump in the replay). */
+  clearDebris(): void {
     this.mess?.debris.clear();
   }
 

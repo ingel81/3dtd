@@ -215,6 +215,15 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
     expect(debris.count).toBe(0);
     expect(debris.drawCalls).toBe(0);
   });
+
+  it('takes only the debris on clearDebris, the band collapses on', () => {
+    const { debris, renderer } = killedBand(effectsMock());
+    frames(renderer, 1000);
+    expect(debris.count).toBeGreaterThan(0);
+    renderer.clearDebris();
+    expect(debris.count).toBe(0);
+    expect(renderer.count).toBe(1);
+  });
 });
 
 /**
