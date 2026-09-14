@@ -5,9 +5,6 @@ import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 
-// Re-export GamePhase for backward compatibility
-export type { GamePhase } from '../models/game.types';
-
 export interface SpawnPoint extends GeoPosition {
   id: string;
   name: string;

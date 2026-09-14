@@ -7,7 +7,7 @@ import {
   Vector3,
   Audio,
 } from 'three';
-import { AUDIO_LIMITS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
+import { SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
 import { GameEventBus } from '../../game-engine';
 import { AudioBufferCache } from './audio-buffer-cache';
 import { AudioPoolManager } from './audio-pool.manager';
@@ -214,19 +214,6 @@ export class SpatialAudioManager {
 
   getActiveSoundCount(): number {
     return this.playback.getActiveSoundCount() + this.loops.size;
-  }
-
-  // ─── Debug ───────────────────────────────────────────────
-
-  debugLogActiveSounds(): void {
-    const enemy = this.enemyBudget.stats();
-    console.log('[SpatialAudio] Active sounds:', {
-      oneShots: this.playback.getActiveSounds().map(s => s.soundId),
-      loops: this.loops.describe(),
-      enemyBudget: `${enemy.current}/${enemy.max}`,
-      projectileBudget: `${this.playback.getProjectileSoundStats().current}/${AUDIO_LIMITS.maxProjectileSounds}`,
-      poolAvailable: 0,
-    });
   }
 
   setEventBus(eventBus: GameEventBus): void {
