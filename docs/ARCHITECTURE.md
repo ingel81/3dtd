@@ -31,28 +31,28 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 Offen aus der früheren Feature-Liste: Projektil-LoS (ein Projektil trifft nur bei
 Sichtverbindung).
 
-### Laufzeit-Abhaengigkeiten
+### Laufzeit-Abhängigkeiten
 
-Das Spiel laeuft **vollstaendig im Browser**. Zur Laufzeit gibt es keinen
+Das Spiel läuft **vollständig im Browser**. Zur Laufzeit gibt es keinen
 Server-Anteil und kein Modell:
 
-| Abhaengigkeit | Status |
+| Abhängigkeit | Status |
 |---|---|
 | Google Maps 3D Tiles / Cesium-Tiles | extern, Pflicht (Kartendaten) |
 | OSM Nominatim | extern, nur beim Location-Wechsel |
 | OSM Overpass | extern, Straßen und Gebäude beim Laden eines Orts (IndexedDB-Cache, siehe [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md)) |
-| Python-Training-Backend (`:3001`) | **nur Training**. Ohne Verbindung laeuft das Spiel unveraendert. |
-| Bots + WebSocket-Client (`ai/training/training-session.ts`) | **nur Training**. Eigener Lazy-Chunk, laedt erst bei Bot-Start oder Backend-Verbindung ([BOT_SYSTEM.md](BOT_SYSTEM.md#integration)). |
+| Python-Training-Backend (`:3001`) | **nur Training**. Ohne Verbindung läuft das Spiel unverändert. |
+| Bots + WebSocket-Client (`ai/training/training-session.ts`) | **nur Training**. Eigener Lazy-Chunk, lädt erst bei Bot-Start oder Backend-Verbindung ([BOT_SYSTEM.md](BOT_SYSTEM.md#integration)). |
 | ONNX-Modell + `onnxruntime-web` | **opt-in**. Wird nicht mehr beim Start geladen. |
 
 Der **Wave-Director sitzt im Client**. Standard ist der regelbasierte Director
-(`ai/core/rule-director.ts`), der weder Netzwerk noch Modell braucht — deshalb
-gibt es kein Startfenster, in dem der Director nicht verfuegbar waere, und
+(`ai/core/rule-director.ts`), der weder Netzwerk noch Modell braucht; deshalb
+gibt es kein Startfenster, in dem der Director nicht verfügbar wäre, und
 `useAIDirector` steht per Default auf `true`. Der ONNX-Pfad ist erhalten, wird
 aber nur durch einen expliziten `WaveDirectorService.loadModel()`-Aufruf aktiv
-(Button im Training-Debugger-Panel, `forceRuleMode()` schaltet zurueck);
+(Button im Training-Debugger-Panel, `forceRuleMode()` schaltet zurück);
 `onnxruntime-web` (404 kB WASM) landet damit nicht im Cold Start. Das
-Training-Backend uebernimmt die Wave-Wahl nur, solange der
+Training-Backend übernimmt die Wave-Wahl nur, solange der
 `TrainingClientService` verbunden ist.
 
 Details zum Weg vom Director zur fertigen Welle:
@@ -106,10 +106,10 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **AssetManagerService** | Zentraler GLTF/FBX Loader mit Reference Counting |
 | **EngineInitializationService** | Loading Sequence mit 10 Boot-Steps (`location` bis `flight`; `location`, `grid` und `flight` setzen andere Services), Progress Tracking |
 | **ModelPreviewService** | 3D Model Previews für Sidebar (Max-Renderer + setViewport pro Preview, kein Re-`setSize()` pro Frame) |
-| **GameStateSyncService** | EventBus → Store Bridge — wave/game/credits/health/tower/enemy/research:state-changed |
+| **GameStateSyncService** | EventBus → Store Bridge: wave/game/credits/health/tower/enemy/research:state-changed |
 | **RunStatsTracker** (`run-stats.ts`) | Zahlen der Game-Over-Bilanz vom Event-Bus, Angular-frei, gehalten vom GameStateSyncService |
 
-#### (Root) — Camera & Input + zentrale Services
+#### (Root): Camera & Input + zentrale Services
 
 | Service | Verantwortung |
 |---------|---------------|
@@ -139,7 +139,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 |---------|---------------|
 | **TowerCombatService** | Tower Targeting, Turret-Rotation, Shooting, Chain-Hitscan (Lightning) |
 | **CombatEffectService** | Projectile Hits, Damage, Blood/Death/Slow Effects |
-| **CombatVfxService** | VFX-Trigger fuer Combat-Events (Hit-Sparks, Splash-Visuals) |
+| **CombatVfxService** | VFX-Trigger für Combat-Events (Hit-Sparks, Splash-Visuals) |
 | **DamageApplicationService** | Damage-Pipeline: Schadensmatrix, Resistances, DOT-Application |
 | **StatusEffectService** | Status-Effekte (Slow, Burn, Poison, Freeze als Halt, Stun) inkl. DOT-Ticks, siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) |
 | **HQDamageService** | HQ Fire Effects, Damage Sounds, Game Over Visuals |
@@ -155,10 +155,10 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup, Tower-Registrierung. Die Per-Tower-Viz (`TowerLosViz`, `utils/tower-los-viz.ts`) halten TowerManager (Auswahl) und TowerPlacementService (Build-Preview) |
 | **IntroCameraFlightService** | Intro-Kamerafahrt entlang der Route, lädt dabei die Tiles des Korridors vor. Abbruch per Klick oder Mausrad auf dem Canvas, "Skip Intro" oder Esc; die übrigen Spieltasten wirken während des Flugs nicht (`handleKeyDown`, von der Spielkomponente nach dem Boss-Intro und vor InputHandler und HotkeyService gefragt) |
 | **CorridorRefit** (`corridor-refit.ts`) | Korridor-Messung nach Tile-Loads nachziehen, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
-| **SpatialGridService** | Generischer Spatial Hash fuer Tower/Enemy Range-Queries |
+| **SpatialGridService** | Generischer Spatial Hash für Tower/Enemy Range-Queries |
 | **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
 | **StreetRenderingService** | Street Network Visualisierung mit Terrain-Following |
-| **BuildingRenderingService** | OSM-Gebaeude rendern (DevWorld + Live) |
+| **BuildingRenderingService** | OSM-Gebäude rendern (DevWorld + Live) |
 | **MapPlacementService** | HQ-Placement, Spawn-Generation, Map-Bounds |
 | **StrategicPlacementService** | Optimale Tower-Positionen entlang Enemy-Pfade |
 | **RelocationStatusService** | Hinweis "MOVING HQ" beim HQ-Umzug mit Schritt und Messfortschritt |
@@ -177,7 +177,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **GeolocationService** | Browser Geolocation API Wrapper |
 | **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
 | **StreetCacheService** | IndexedDB Cache für Straßendaten |
-| **PathfindingWorkerService** | A*-Pathfinding ueber Web Worker |
+| **PathfindingWorkerService** | A*-Pathfinding über Web Worker |
 | **UrlLocationService** | URL-Parameter für Location-Sharing |
 | **WorldDiceService** | Zufällige Städte für Random-Location |
 | **BestWaveService** | Beste Welle je Ort am Event-Bus, Rekord-Hinweis beim Game Over; Liste und Speicher in `best-waves.ts` |
@@ -197,10 +197,10 @@ Details: [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md).
 | Service | Verantwortung |
 |---------|---------------|
 | **DebugFacadeService** | Debug Log, Height Debug, Display Options (ein Objekt unter `td_display_options`, `utils/display-options.storage.ts`), Enemy Debug |
-| **WaveDebugService** | Wave-Debugging Utilities — delegiert State an `DebugStore` |
+| **WaveDebugService** | Wave-Debugging Utilities, delegiert State an `DebugStore` |
 | **SoundDebugService** | Sound-Debug Stats & Events von SpatialAudioManager |
-| **TowerDebugService** | Tower-Parameter Overrides (Scale, Height, Rotation) — delegiert State an `DebugStore` |
-| **EnemyDebugService** | Enemy-Debug (Spawn, Type-Config, Live-Visualisierung) — delegiert State an `DebugStore` |
+| **TowerDebugService** | Tower-Parameter Overrides (Scale, Height, Rotation), delegiert State an `DebugStore` |
+| **EnemyDebugService** | Enemy-Debug (Spawn, Type-Config, Live-Visualisierung), delegiert State an `DebugStore` |
 | **DebugWindowService** | Offen/zu-Zustand der elf Debug-Fenster. Die Fenster-Komponenten laden als ein Lazy-Chunk (`components/debug-window/debug-windows.ts`, ein `@defer`-Block im Template), sobald das Dev-Menü oder ein Fenster offen ist; die Debug-Services bleiben im Spiel-Chunk |
 | **PerformanceProfilerService** | Frame-Time Sampling, Hot-Path-Profile (`.profiles/`) |
 | **LosDebugService** | Zustand des LOS-Debug-Fensters: aktiver Tower, Cubemap-Faces, Pixel-zu-Cell-Lookup |
@@ -458,16 +458,16 @@ Welcher Treffer der Probe als Boden zählt, entscheidet `three-engine/column-sam
 ### Pfad-Höhen und Route-Grid-Cells
 
 Gegner folgen gecachten Pfaden mit Höhen, die aus dem **Route-Grid** stammen.
-Cells sind die Single Source of Truth für Boden-Y — dieselben Cells, die auch
+Cells sind die Single Source of Truth für Boden-Y: dieselben Cells, die auch
 Tower-LOS und Air-Routing bedienen.
 
 **Problem ohne zentrale Quelle:**
 - Live-Terrain-Sampling pro Frame würde Gegner über Bäume/Gebäude laufen lassen
-- Routen sollen DURCH Hindernisse gehen (geglättete Linie auf Strassenniveau)
+- Routen sollen DURCH Hindernisse gehen (geglättete Linie auf Straßenniveau)
 - Doppelpipeline (eigene Pfad-Raycasts neben Cell-Raycasts) führt zu Drift
   zwischen sichtbarer Linie, Gegner-Position und Tower-LOS-Sample
 
-**Lösung — eine Quelle, drei Konsumenten:**
+**Lösung: eine Quelle, drei Konsumenten**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -520,13 +520,13 @@ Tower-LOS und Air-Routing bedienen.
   hit comes from a strictly better LOD
 
 **smoothPathHeights():** liegt in `utils/route-height-smoothing.ts` und wird
-ausschliesslich von `street-rendering.service.ts` für gerenderte Strassenmesh-
+ausschließlich von `street-rendering.service.ts` für gerenderte Straßenmesh-
 Vertices genutzt. Der Pfad-Bau braucht es nicht mehr, Cells sind schon
 sanity-checked.
 
 ### Progressive LOS & Street Rendering
 
-Tower-Platzierung und Kamera-Bewegung loesten frueher schwere Frame-Drops aus
+Tower-Platzierung und Kamera-Bewegung lösten früher schwere Frame-Drops aus
 (95-600ms synchrone Raycasts). Beide nutzen jetzt progressive Batching:
 
 **Tower LOS Registration:**
@@ -542,9 +542,9 @@ Tower-Platzierung und Kamera-Bewegung loesten frueher schwere Frame-Drops aus
   3 s (`MAX_LOS_WAIT_MS`)
 
 **Street Rendering:**
-- `renderStreets()` sammelt alle Nodes und gibt sofort zurueck
+- `renderStreets()` sammelt alle Nodes und gibt sofort zurück
 - `continueStreetRender()` verarbeitet 50 Nodes/Frame (je 5 Raycasts bei Lateral Sampling)
-- Alte Strassen bleiben sichtbar bis neue fertig (kein Flackern)
+- Alte Straßen bleiben sichtbar bis neue fertig (kein Flackern)
 - Tile-Reload-Callback: von 350-600ms auf 14-34ms reduziert
 
 ### Enemy System Performance
@@ -557,7 +557,7 @@ die Ersparnis je Zeile) stammen aus einer Messung ohne Datum und ohne Protokoll 
 | `performance.now()` einmal pro Frame cachen | ~0.5ms |
 | Single-Pass Status-Effects (in-place compact) | ~0.8ms |
 | GPU `needsUpdate` Flags pro Pool batchen | ~0.7ms |
-| Integer-Hash-Keys fuer Spatial Grids | ~0.4ms |
+| Integer-Hash-Keys für Spatial Grids | ~0.4ms |
 | `geoToLocalSimple` inlined + cos gecacht | ~0.9ms |
 | Heading sqrt eliminiert, lateralOffset gecacht | ~0.4ms |
 | `Math.pow` → lineare Approximation | ~0.4ms |
@@ -667,7 +667,7 @@ class Projectile extends GameObject {
 ## 4. Manager System
 
 > **Event-driven seit 2026-01-19:** Alle Manager kommunizieren via GameEventBus.
-> Siehe [EVENT_SYSTEM.md](EVENT_SYSTEM.md) fuer Details.
+> Siehe [EVENT_SYSTEM.md](EVENT_SYSTEM.md) für Details.
 
 ### 4.1 GameStateManager (Orchestrator)
 
@@ -686,7 +686,7 @@ class GameStateManager {
   // Event Bus
   private readonly eventBus = new GameEventBus();
 
-  // Game State (Angular Signals fuer UI-Bindings, gehalten von BaseHealthLedger / CreditsLedger)
+  // Game State (Angular Signals für UI-Bindings, gehalten von BaseHealthLedger / CreditsLedger)
   readonly baseHealth: WritableSignal<number>;
   readonly credits: WritableSignal<number>;
 
@@ -881,9 +881,9 @@ class ReplayRecorder {
 
 ## 5. Event-System
 
-> **Vollstaendige Dokumentation:** [EVENT_SYSTEM.md](EVENT_SYSTEM.md)
+> **Vollständige Dokumentation:** [EVENT_SYSTEM.md](EVENT_SYSTEM.md)
 
-Das Projekt verwendet einen **type-safe Event Bus** fuer lose Kopplung zwischen Komponenten.
+Das Projekt verwendet einen **type-safe Event Bus** für lose Kopplung zwischen Komponenten.
 
 ### GameEventBus
 
@@ -1007,11 +1007,11 @@ Neben Tower-, Projektil- und Effects-Renderer gibt es mehrere spezialisierte Ren
 
 | Renderer | Datei | Zweck |
 |----------|-------|-------|
-| **InstancedEnemyRenderer** | `renderers/instanced-enemy/` | GPU-instancing fuer Enemies via VAT (Vertex Animation Textures) — siehe [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
+| **InstancedEnemyRenderer** | `renderers/instanced-enemy/` | GPU-instancing für Enemies via VAT (Vertex Animation Textures), siehe [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
 | **OozeBandRenderer** | `renderers/ooze/` | Körper der Ooze als Schleimband entlang der Route: Geometrie einmal pro Pfad, pro Frame nur Uniforms (`OOZE_LOOK`), siehe [ENEMY_CREATION.md](ENEMY_CREATION.md#körper-entlang-der-route-ooze) |
 | **DecalInstanceManager** | `renderers/decal-instance.manager.ts` | Blut-, Eis- und Scorch-Decals (`scorch-marks.ts`) als InstancedMesh mit Free-List-Pool |
 | **ThreeFlameBeamRenderer** | `renderers/three-flame-beam.renderer.ts` | Fire-Tower-Beam (animierter Flammen-Kegel) |
-| **ThreeTentacleRenderer** | `renderers/three-tentacle.renderer.ts` | Bezier-basierte Tentakel fuer Tentacle-Tower |
+| **ThreeTentacleRenderer** | `renderers/three-tentacle.renderer.ts` | Bezier-basierte Tentakel für Tentacle-Tower |
 | **TowerPlinthRenderer** | `renderers/tower-plinth/` | Steinsockel unter Towern auf unebenem Grund (`engine.plinths`), ein Mesh pro Sockel, Bruchsteinmauerwerk prozedural im `MeshStandardMaterial` (`onBeforeCompile`). Angelegt und entfernt vom `TowerManager`, Höhe aus `Tower.plinthHeight`, siehe [TOWER_CREATION.md → Sockel auf unebenem Grund](TOWER_CREATION.md#sockel-auf-unebenem-grund) |
 | **TowerBadgeRenderer** | `renderers/tower-badge/` | Veteranen-Abzeichen über Towern mit Rang (`engine.towerBadges`), alle in einem Draw Call, Billboard und Insignien im Shader. Rang aus `CombatComponent.kills`, jeden Frame vom `TowerManager` gesetzt (`syncVeteranBadges`), siehe [TOWER_CREATION.md → Veteranen-Ränge](TOWER_CREATION.md#veteranen-ränge) |
 | **LightningBoltRenderer** | `renderers/lightning-bolt.renderer.ts` | Chain-Bolts, Idle-Crackle, Impact-Halos (Lightning Tower) |
@@ -1044,8 +1044,8 @@ class ThreeEffectsRenderer {
 }
 ```
 
-**Architektur (Stand 2026-05-21):** `ThreeEffectsRenderer` ist eine duenne
-Delegations-Facade — die Konsumenten-API (`tilesEngine.effects.*`) bleibt stabil,
+**Architektur (Stand 2026-05-21):** `ThreeEffectsRenderer` ist eine dünne
+Delegations-Facade: die Konsumenten-API (`tilesEngine.effects.*`) bleibt stabil,
 die Implementierung liegt in fokussierten Modulen: `ParticlePoolManager`
 (GPU-Pools, Free-Lists, Buffer-Caches, Atlas), `ParticleEffectsRenderer`
 (Blood/Fire/Explosion/Smoke/Trails + `activeEffects`-Lifecycle, dazu die Decal-Pools für
