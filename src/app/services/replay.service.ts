@@ -191,7 +191,9 @@ export class ReplayService {
    * Pointer down on the progress bar: a playing replay holds still while
    * the thumb is dragged, otherwise playback and the drag pull the thumb
    * both ways. endScrub() on release plays on, unless the drag ended at
-   * the very end.
+   * the very end. Release is pointerup or pointercancel: a press that does
+   * not move the thumb fires no change. change comes from the keyboard,
+   * and a second call does nothing.
    */
   beginScrub(): void {
     if (!this.player?.isPlaying) return;
