@@ -1,7 +1,7 @@
 import { MathUtils } from 'three';
 import { MUSHROOM_CLOUD_LOOK as LOOK } from '../../configs/visual-effects.config';
 
-/** Random numbers per particle, drawn once per strike */
+/** Random numbers per sprite, drawn once per strike */
 export const SEEDS = 4;
 export const TAU = Math.PI * 2;
 
@@ -15,7 +15,7 @@ export interface Cloud {
   z: number;
   /** Strike radius over LOOK.referenceRadius */
   scale: number;
-  /** Everything, or the detonation only (impact effects off) */
+  /** All sprites, or the `low` counts (impact effects off) */
   full: boolean;
   /** Wind direction, unit vector on the ground */
   windX: number;
@@ -29,10 +29,35 @@ export function fract(x: number): number {
 }
 
 /**
+ * Height of the cap's centre `t` game seconds after the impact, metres at
+ * the reference radius, before it disperses: a fast punch, then the slow
+ * climb.
+ */
+export function capHeightAt(t: number): number {
+  const { cap } = LOOK;
+  const tau = Math.max(0, t - cap.start);
+  return (
+    cap.startHeight +
+    cap.punchHeight * (1 - Math.exp(-tau / cap.punchTime)) +
+    (cap.height - cap.startHeight - cap.punchHeight) * (1 - Math.exp(-tau / cap.riseTime))
+  );
+}
+
+/**
+ * Diameters of a group of sprites drawn with `low` of its `full` count
+ * (impact effects off): larger, so the group covers about as much, at most
+ * half as large again.
+ */
+export function lowSizeBoost(full: number, low: number): number {
+  return low <= 0 || low >= full ? 1 : Math.min(1.5, Math.sqrt(full / low));
+}
+
+/**
  * The shape of the cloud being written and the point being written, for
- * its glow (CloudGlow) and its smoke (CloudSmoke): each takes the cloud's
- * cap, stem and wind at its age (shape()) before it writes, then places
- * every particle with torusPoint(), spreadOut() and drift().
+ * its fireball (CloudFireballs), glow (CloudGlow) and smoke (CloudSmoke):
+ * each takes the cloud's cap, stem and wind at its age (shape()) before it
+ * writes, then places every sprite with torusPoint(), spreadOut() and
+ * drift().
  */
 export abstract class CloudShape {
   // Shape of the cloud being written (shape()), metres from its ground point
@@ -54,12 +79,7 @@ export abstract class CloudShape {
     const { cap, disperse } = LOOK;
     const t = cloud.t;
     const s = cloud.scale;
-    const tau = Math.max(0, t - cap.start);
-    // A fast punch, then the slow climb
-    const height =
-      cap.startHeight +
-      cap.punchHeight * (1 - Math.exp(-tau / cap.punchTime)) +
-      (cap.height - cap.startHeight - cap.punchHeight) * (1 - Math.exp(-tau / cap.riseTime));
+    const height = capHeightAt(t);
     const rise = (height - cap.startHeight) / (cap.height - cap.startHeight);
     const late = Math.max(0, t - disperse.start);
     this.spread = MathUtils.smoothstep(t, disperse.start, LOOK.duration);
@@ -67,6 +87,7 @@ export abstract class CloudShape {
     this.ringR = (MathUtils.lerp(cap.ringRadius[0], cap.ringRadius[1], rise) + disperse.spread * late) * s;
     this.tubeR = (MathUtils.lerp(cap.tubeRadius[0], cap.tubeRadius[1], rise) + disperse.spread * 0.6 * late) * s;
     // Turned so far: rollSpeed at first, slowing down
+    const tau = Math.max(0, t - cap.start);
     this.roll = cap.rollSpeed * cap.rollTime * (1 - Math.exp(-tau / cap.rollTime));
     // The stem runs into the underside of the cap
     this.stemTop = this.capY - this.tubeR * cap.flatten * 0.6;
@@ -90,10 +111,10 @@ export abstract class CloudShape {
   /** Push the point out and up as the cloud spreads. */
   protected spreadOut(phi: number, u: number, v: number, s: number): void {
     if (this.spread <= 0) return;
-    const out = this.spread * 8 * s * (0.5 + u);
+    const out = this.spread * 14 * s * (0.5 + u);
     this.px += Math.cos(phi) * out;
     this.pz += Math.sin(phi) * out;
-    this.py += this.spread * 5 * s * v;
+    this.py += this.spread * 8 * s * v;
   }
 
   /** Wind drift, full at the cap's height and none on the ground. */

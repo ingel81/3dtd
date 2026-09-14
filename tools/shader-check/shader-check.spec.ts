@@ -305,9 +305,9 @@ const CASES: ShaderCase[] = [
     build: (scene) => new OrbitalBeamRenderer(scene, particleMaterials()),
   },
   {
-    name: 'mushroom cloud (shape, glow, smoke, blast)',
+    name: 'mushroom cloud (sprites, fireball, blast)',
     file: 'three-engine/renderers/mushroom-cloud.renderer.ts, mushroom-cloud-*.ts',
-    build: (scene) => new MushroomCloudRenderer(scene, particleMaterials()),
+    build: (scene) => new MushroomCloudRenderer(scene),
   },
   // Enemies, projectiles and effects on the tiles
   {

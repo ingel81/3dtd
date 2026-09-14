@@ -19,12 +19,14 @@ import { DrawGate } from './draw-gate';
 import { radialTexture, reach, unpickable } from './effect-buffers';
 import { TAU, type Cloud } from './mushroom-cloud-shape';
 
-/** Above the strike marker (950), under the particle pools (999) */
+/** Ground glow under the strike marker (950), ring and dome above it, flash and screen over the particle pools (999) */
+const GROUND_GLOW_ORDER = 949;
 const RING_ORDER = 951;
 const DOME_ORDER = 952;
 const FLASH_ORDER = 1002;
 const SCREEN_ORDER = 1003;
-/** Shockwave ring above the ground point, m */
+/** Ground glow and shockwave ring above the ground point, m */
+const GROUND_GLOW_LIFT = 0.4;
 const RING_LIFT = 0.6;
 /** Height of the shock dome over its radius */
 const DOME_FLATTEN = 0.8;
@@ -86,20 +88,25 @@ const DOME_FRAGMENT_SHADER = /* glsl */ `
 `;
 
 /**
- * The detonation of the mushroom clouds besides their particles: per cloud
- * a shockwave ring on the ground, a shock dome and a flash sprite, and one
+ * The detonation of the mushroom clouds besides their fireball and
+ * sprites: per cloud the light on the ground around the foot, a shockwave
+ * ring, a shock dome and a flash sprite that lights the sky, and one
  * additive quad over the whole screen for the screen part of the flash
- * (MushroomCloudRenderer).
+ * (MushroomCloudRenderer). The tiles take no light, so the ground glow is
+ * an additive disc; like the ring and the flash without depth test.
  */
 export class CloudBlast {
   private readonly ringTexture: DataTexture;
   private readonly flashTexture: DataTexture;
-  private readonly ringGeometry = new PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
+  private readonly groundTexture: DataTexture;
+  private readonly planeGeometry = new PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
   /** Upper half of a unit sphere */
   private readonly domeGeometry = new SphereGeometry(1, 32, 10, 0, TAU, 0, Math.PI / 2);
+  private readonly grounds: Mesh<PlaneGeometry, MeshBasicMaterial>[] = [];
   private readonly rings: Mesh<PlaneGeometry, MeshBasicMaterial>[] = [];
   private readonly domes: Mesh<SphereGeometry, ShaderMaterial>[] = [];
   private readonly flashes: Sprite[] = [];
+  private readonly groundGates: DrawGate[] = [];
   private readonly ringGates: DrawGate[] = [];
   private readonly domeGates: DrawGate[] = [];
   private readonly flashGates: DrawGate[] = [];
@@ -111,10 +118,30 @@ export class CloudBlast {
     this.ringTexture = radialTexture(256, (r) =>
       Math.exp(-(((r - 0.9) / 0.045) ** 2)) + (r < 0.9 ? 0.18 * MathUtils.smoothstep(r, 0.2, 0.9) : 0));
     this.flashTexture = radialTexture(64, (r) => (1 - r) ** 2);
+    this.groundTexture = radialTexture(128, (r) => (1 - r) ** 2.2);
 
-    const { flash, shockwave, shockDome } = LOOK.colors;
+    const { flash, shockwave, shockDome, groundGlow } = LOOK.colors;
     const intensity = LOOK.flash.intensity;
+    const glowPeak = LOOK.groundGlow.peak;
     for (let i = 0; i < LOOK.clouds; i++) {
+      const groundMaterial = new MeshBasicMaterial({
+        map: this.groundTexture,
+        transparent: true,
+        opacity: 0,
+        blending: AdditiveBlending,
+        depthTest: false,
+        depthWrite: false,
+        side: DoubleSide,
+      });
+      groundMaterial.color.setRGB(groundGlow.r * glowPeak, groundGlow.g * glowPeak, groundGlow.b * glowPeak);
+      const ground = unpickable(new Mesh(this.planeGeometry, groundMaterial));
+      ground.name = `mushroom-ground-glow-${i}`;
+      ground.frustumCulled = false;
+      ground.renderOrder = GROUND_GLOW_ORDER;
+      scene.add(ground);
+      this.grounds.push(ground);
+      this.groundGates.push(new DrawGate([ground]));
+
       const ringMaterial = new MeshBasicMaterial({
         map: this.ringTexture,
         transparent: true,
@@ -125,7 +152,8 @@ export class CloudBlast {
         side: DoubleSide,
       });
       ringMaterial.color.setRGB(shockwave.r, shockwave.g, shockwave.b);
-      const ring = unpickable(new Mesh(this.ringGeometry, ringMaterial));
+      const ring = unpickable(new Mesh(this.planeGeometry, ringMaterial));
+      ring.name = `mushroom-ring-${i}`;
       ring.frustumCulled = false;
       ring.renderOrder = RING_ORDER;
       scene.add(ring);
@@ -144,6 +172,7 @@ export class CloudBlast {
         depthWrite: false,
       });
       const dome = unpickable(new Mesh(this.domeGeometry, domeMaterial));
+      dome.name = `mushroom-dome-${i}`;
       dome.frustumCulled = false;
       dome.renderOrder = DOME_ORDER;
       scene.add(dome);
@@ -160,6 +189,7 @@ export class CloudBlast {
       });
       flashMaterial.color.setRGB(flash.r * intensity, flash.g * intensity, flash.b * intensity);
       const sprite = unpickable(new Sprite(flashMaterial));
+      sprite.name = `mushroom-flash-${i}`;
       sprite.frustumCulled = false;
       sprite.renderOrder = FLASH_ORDER;
       scene.add(sprite);
@@ -180,45 +210,56 @@ export class CloudBlast {
       depthWrite: false,
     });
     this.screen = unpickable(new Mesh(new PlaneGeometry(2, 2), screenMaterial));
+    this.screen.name = 'mushroom-screen';
     this.screen.frustumCulled = false;
     this.screen.renderOrder = SCREEN_ORDER;
     scene.add(this.screen);
     this.screenGate = new DrawGate([this.screen]);
   }
 
-  /** The ring, dome and flash of `cloud` in its `slot`, at its age. */
+  /** The ground glow, ring, dome and flash of `cloud` in its `slot`, at its age. */
   update(cloud: Cloud, slot: number): void {
+    this.updateGround(cloud, slot);
     this.updateRing(cloud, slot);
     this.updateDome(cloud, slot);
     this.updateFlash(cloud, slot);
   }
 
-  /** Hide the ring, dome and flash of `slot` (no cloud there). */
+  /** Hide the ground glow, ring, dome and flash of `slot` (no cloud there). */
   hide(slot: number): void {
+    this.groundGates[slot].setCount(0);
     this.ringGates[slot].setCount(0);
     this.domeGates[slot].setCount(0);
     this.flashGates[slot].setCount(0);
   }
 
-  /** The screen part of the flash at `opacity`, not drawn at 0. */
-  setScreen(opacity: number): void {
-    this.screen.material.uniforms['uOpacity'].value = opacity;
+  /**
+   * The screen part of the flash at `opacity`, not drawn at 0; `warmth` 0
+   * to 1 of the way from colors.flash to colors.flashAfter.
+   */
+  setScreen(opacity: number, warmth: number): void {
+    const { flash, flashAfter } = LOOK.colors;
+    const uniforms = this.screen.material.uniforms;
+    (uniforms['uColor'].value as Vector3).set(
+      MathUtils.lerp(flash.r, flashAfter.r, warmth),
+      MathUtils.lerp(flash.g, flashAfter.g, warmth),
+      MathUtils.lerp(flash.b, flashAfter.b, warmth),
+    );
+    uniforms['uOpacity'].value = opacity;
     this.screenGate.setCount(opacity > 0 ? 1 : 0);
   }
 
   /** Hide all of it (restart). */
   clear(): void {
-    for (const gate of this.ringGates) gate.setCount(0);
-    for (const gate of this.domeGates) gate.setCount(0);
-    for (const gate of this.flashGates) gate.setCount(0);
+    for (let slot = 0; slot < LOOK.clouds; slot++) this.hide(slot);
     this.screenGate.setCount(0);
   }
 
   /** Remove and free all of it. */
   dispose(scene: Scene): void {
-    for (const ring of this.rings) {
-      scene.remove(ring);
-      ring.material.dispose();
+    for (const mesh of [...this.grounds, ...this.rings]) {
+      scene.remove(mesh);
+      mesh.material.dispose();
     }
     for (const dome of this.domes) {
       scene.remove(dome);
@@ -231,10 +272,32 @@ export class CloudBlast {
     scene.remove(this.screen);
     this.screen.geometry.dispose();
     this.screen.material.dispose();
-    this.ringGeometry.dispose();
+    this.planeGeometry.dispose();
     this.domeGeometry.dispose();
     this.ringTexture.dispose();
     this.flashTexture.dispose();
+    this.groundTexture.dispose();
+  }
+
+  /** Light on the ground around the foot: bright at the impact, dimming with the fireball. */
+  private updateGround(cloud: Cloud, slot: number): void {
+    const { groundGlow } = LOOK;
+    const gate = this.groundGates[slot];
+    const t = cloud.t;
+    if (t >= groundGlow.fadeEnd) {
+      gate.setCount(0);
+      return;
+    }
+    const light =
+      MathUtils.smoothstep(t, 0, 0.05) *
+      (0.35 + 0.65 * Math.exp(-t / 0.8)) *
+      (1 - MathUtils.smoothstep(t, groundGlow.fadeStart, groundGlow.fadeEnd));
+    const radius = groundGlow.radius * cloud.scale * (0.6 + 0.4 * MathUtils.smoothstep(t, 0, 0.4));
+    const ground = this.grounds[slot];
+    ground.position.set(cloud.x, cloud.y + GROUND_GLOW_LIFT, cloud.z);
+    ground.scale.set(radius, 1, radius);
+    ground.material.opacity = light;
+    gate.setCount(light > 0 ? 1 : 0);
   }
 
   /** Shockwave: out over the ground, fast at first, fading as it goes. */
@@ -269,7 +332,7 @@ export class CloudBlast {
     gate.setCount(1);
   }
 
-  /** Flash over the ground point: full size within 80 ms, then gone by LOOK.flash.duration. */
+  /** Flash in the sky over the ground point: full size within 80 ms, then gone by LOOK.flash.duration. */
   private updateFlash(cloud: Cloud, slot: number): void {
     const { flash } = LOOK;
     const gate = this.flashGates[slot];
