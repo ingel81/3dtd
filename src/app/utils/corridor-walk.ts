@@ -333,28 +333,40 @@ export function centreLineGround(x: number, z: number, ground: WalkGround, cellS
  * where the ground rises towards the cell (crossSlope); and at most
  * `stepDrop` below the lowest ground reached so far, or below the last one
  * less the cross slope for every spot since, where it falls towards the
- * cell. So it goes up and down a kerb, a step, a gutter or a slope, but not
- * onto a car, a van or a hedge, nor down an embankment or a quay wall; the
- * ground beyond one of those counts again where it is back within reach.
- * Deeper than OUTLIER_M below is a seam, never reached. `surfaceY`: the hit
- * of each column the walk stands on (walkSurface).
+ * cell. Where it falls, every ground reached counts carried down the cross
+ * slope to the spot, the last one in full as well. So it goes up and down a
+ * kerb, a step, a gutter or a slope, but not onto a car, a van or a hedge,
+ * nor down an embankment or a quay wall; the ground beyond one of those
+ * counts again where it is back within reach. Deeper than OUTLIER_M below
+ * is a seam, never reached. `surfaceY`: the hit of each column the walk
+ * stands on (walkSurface).
  *
  * Until 2026-09-15 the walk went down any drop: on the valley side of a
  * street across a slope the corridor reached down the embankment into the
  * vegetation (playtest 2026-09-15, Rothenburg), while the uphill side ended
- * at the bank.
+ * at the bank. And the highest ground reached on that side was the centre
+ * line, which a car there counted from: 0.8 m high 4 m down a 10 % cross
+ * slope it stood 0.4 m above it and kept its cell (the same playtest:
+ * single parked cars still carried cells). Now it counts from the ground in
+ * front of it. That ground keeps its full step, so a step up to a garden
+ * level with the centre line stays walkable, and so does a car up to
+ * `stepRise` plus one spot's fall above it.
  */
 function walkOut(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: SurfaceY, cellSize: number): 'walkable' | 'step' | 'drop' {
   const y = cell.terrainHeight;
   const { stepRise, stepDrop } = corridorConfig;
-  // The walk never reaches less high than the centre line, nor lower, so a
-  // cell at most one step above or below it is reached whatever lies in
-  // between: no probes on the way out for the edge cells of a level street.
-  if (y <= axisY + stepRise && y >= axisY - stepDrop) return 'walkable';
   const gx = Math.round((cell.x - cell.axisX) / cellSize);
   const gz = Math.round((cell.z - cell.axisZ) / cellSize);
   const steps = Math.max(Math.abs(gx), Math.abs(gz));
   if (steps === 0) return 'walkable';
+  // The walk never reaches lower than the centre line, nor less high than
+  // it or, where the ground falls towards the cell, its ground carried
+  // down the cross slope (the ceiling below). So a cell at most one step
+  // above or below the centre line is reached whatever lies in between,
+  // right beside the line or where the ground does not fall towards it: no
+  // probes on the way out for most edge cells of a level street.
+  const inReach = y <= axisY + stepRise && y >= axisY - stepDrop;
+  if (inReach && steps === 1) return 'walkable';
   // Rounded away from the centre line.
   const along = (g: number, k: number) => Math.sign(g * k) * Math.round(Math.abs((g * k) / steps)) * cellSize;
   const spot = (k: number) => column(cell.axisX + along(gx, k), cell.axisZ + along(gz, k));
@@ -364,15 +376,22 @@ function walkOut(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: Sur
   // uneven steps, the first one often none. The same spots otherwise.
   const ux = (cell.x - cell.axisX) / steps;
   const uz = (cell.z - cell.axisZ) / steps;
-  const slope = crossSlope(axisY, column(cell.axisX + ux, cell.axisZ + uz), column(cell.axisX - ux, cell.axisZ - uz), surfaceY);
+  const toward = column(cell.axisX + ux, cell.axisZ + uz);
+  if (inReach && (toward === null || surfaceY(toward) >= axisY)) return 'walkable';
+  const slope = crossSlope(axisY, toward, column(cell.axisX - ux, cell.axisZ - uz), surfaceY);
   const rise = Math.max(0, slope);
   const fall = Math.min(0, slope);
+  if (inReach && y <= axisY + fall * steps + stepRise) return 'walkable';
 
   let top = axisY;
+  // The highest ground reached, each spot carried down the cross slope to
+  // spot 0: its ground less the fall per spot. `top` where the ground does
+  // not fall towards the cell.
+  let high = axisY;
   let bottom = axisY;
   let last = axisY;
   let lastK = 0;
-  const ceiling = (k: number) => Math.max(top, last + rise * (k - lastK)) + stepRise;
+  const ceiling = (k: number) => Math.max(high + fall * k, last + rise * (k - lastK)) + stepRise;
   const floor = (k: number) => Math.min(bottom, last + fall * (k - lastK)) - stepDrop;
   for (let k = 1; k < steps; k++) {
     const probe = spot(k);
@@ -382,6 +401,7 @@ function walkOut(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: Sur
     last = ground;
     lastK = k;
     top = Math.max(top, ground);
+    high = Math.max(high, ground - fall * k);
     bottom = Math.min(bottom, ground);
   }
   return y > ceiling(steps) ? 'step' : y < floor(steps) ? 'drop' : 'walkable';
