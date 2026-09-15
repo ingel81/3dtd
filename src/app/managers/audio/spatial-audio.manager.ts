@@ -321,8 +321,14 @@ export class SpatialAudioManager {
 
   // ─── One-shot playback (delegated) ──────────────────────
 
-  async playAt(soundId: string, position: Vector3, volumeMultiplier = 1.0): Promise<PositionalAudio | null> {
-    return this.playback.playAt(soundId, position, volumeMultiplier);
+  /** `playbackRate` above 1 plays the sample faster and higher, below 1 slower and lower. */
+  async playAt(soundId: string, position: Vector3, volumeMultiplier = 1.0, playbackRate = 1): Promise<PositionalAudio | null> {
+    return this.playback.playAt(soundId, position, volumeMultiplier, playbackRate);
+  }
+
+  /** Stop the one-shot `audio` (what playAt gave) now; nothing if it is over already. */
+  stopOneShot(audio: PositionalAudio): void {
+    this.playback.stopOneShot(audio);
   }
 
   async playAtGeo(soundId: string, lat: number, lon: number, height: number, volumeMultiplier = 1.0): Promise<PositionalAudio | null> {

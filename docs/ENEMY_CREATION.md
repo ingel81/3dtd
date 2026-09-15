@@ -552,11 +552,11 @@ Umgesetzt für Skarnax, the Thousand-Legged Calamity (`worm`).
     in der Pause und solange der Wurm steht, stehen Beine und Kiefer, bei höherer Timescale
     laufen sie schneller.
 - **Sound:** kein `movingSound`: Alle Segmente sind vom Typ `worm`, ein Loop-Sound liefe auf
-  jedem Segment und belegte das Budget von 12 Gegner-Sounds. Stattdessen ein Loop je Wurm am
-  Kopf, der dem Listener am nächsten ist (`WormSounds`, `WORM_SOUNDS.crawl`, seit
-  2026-09-15), außerhalb des Gegner-Budgets; siehe
-  [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#skarnax-loop-am-kopf). Der Loop nimmt das erste Segment
-  jeder Kette, nie den Schwanz: ein allein übriges Segment ist Kopf.
+  jedem Segment und belegte das Budget von 12 Gegner-Sounds. Stattdessen alle 6 bis 15 s
+  Spielzeit ein Knurren oder Klackern am Kopf, der dem Listener am nächsten ist (`WormSounds`,
+  `WORM_SOUNDS.voice`, seit 2026-09-15); siehe
+  [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#skarnax-stimme-am-kopf). Die Stimme nimmt das erste
+  Segment jeder Kette, nie den Schwanz: ein allein übriges Segment ist Kopf.
 
 ---
 

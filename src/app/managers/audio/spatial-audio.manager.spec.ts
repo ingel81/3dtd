@@ -96,6 +96,8 @@ vi.mock('three', async (importOriginal) => {
     setRolloffFactor() { return this; }
     setDistanceModel() { return this; }
     setMaxDistance(v: number) { this.maxDistance = v; return this; }
+    playbackRate = 1;
+    setPlaybackRate(v: number) { this.playbackRate = v; return this; }
     play() {
       if (reg.playMode === 'throw') throw new Error('play failed');
       if (reg.playMode === 'ok') this.isPlaying = true;
@@ -481,6 +483,37 @@ describe('SpatialAudioManager', () => {
       // The polyphony slot was given back: the single allowed instance plays.
       reg.playMode = 'ok';
       expect(await manager.playAt('arrow', NEAR)).not.toBeNull();
+    });
+
+    it('plays at a playback rate and cleans up once the slower sample is over', async () => {
+      const { manager, ready } = setup();
+      await ready('growl', 'growl.mp3');
+      const audio = (await manager.playAt('growl', NEAR, 1, 0.5)) as unknown as FakeAudio & { playbackRate: number };
+      expect(audio.playbackRate).toBe(0.5);
+
+      // 0.3 s at half speed: 0.6 s
+      await vi.advanceTimersByTimeAsync(600 + 100 - 1);
+      expect(manager.isPlaying('growl')).toBe(true);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(manager.isPlaying('growl')).toBe(false);
+    });
+
+    it('stopOneShot ends that one-shot only, and nothing once it is over', async () => {
+      const { manager, ready } = setup();
+      await ready('a', 'a.mp3', { minIntervalMs: 0 });
+      const first = (await manager.playAt('a', NEAR))!;
+      const second = (await manager.playAt('a', NEAR))!;
+
+      manager.stopOneShot(first);
+      expect(manager.getActiveSoundCount()).toBe(1);
+      expect((first as unknown as FakeAudio).disconnected).toBe(true);
+      expect((second as unknown as FakeAudio).disconnected).toBe(false);
+
+      manager.stopOneShot(first);
+      expect(manager.getActiveSoundCount()).toBe(1);
+      await vi.advanceTimersByTimeAsync(300 + 100);
+      manager.stopOneShot(second);
+      expect(manager.getActiveSoundCount()).toBe(0);
     });
 
     it('stop(id) ends only the one-shots of that id', async () => {

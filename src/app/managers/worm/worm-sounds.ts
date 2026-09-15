@@ -1,77 +1,92 @@
-import { Vector3 } from 'three';
+import { Vector3, type PositionalAudio } from 'three';
 import type { SpatialAudioManager } from '../audio/spatial-audio.manager';
 import type { ThreeTilesEngine } from '../../three-engine';
 import { WORM_SOUNDS } from '../../configs/audio.config';
+import { seeded } from '../../utils/synth';
 import type { WormGroup } from './worm-group';
 
-/** The crawl loop of one worm */
-interface WormLoop {
-  handle: string | null;
-  /** createLoop is still in flight */
-  pending: boolean;
-  /** createLoop gave nothing (no buffer): not asked again */
-  failed: boolean;
+/** Seed of a worm's draws, plus its spawn order (WormGroup.seq) */
+const VOICE_SEED = 0x5ca7a;
+
+/** The voice of one worm */
+interface WormVoice {
+  /** Game ms the next growl or clack is due at */
+  nextMs: number;
+  /** This worm's draws, per voice in this order: sample, volume, pitch, gap */
+  readonly random: () => number;
+  /** Its last one-shot, stopped when the worm goes */
+  playing: PositionalAudio | null;
   /** The present() call that last saw its worm */
   seen: number;
 }
 
+const between = (random: () => number, range: { readonly min: number; readonly max: number }) =>
+  range.min + (range.max - range.min) * random();
+
 /**
- * Skarnax's voice, for EnemyManager: one crawl loop per worm (WormGroup,
- * WORM_SOUNDS.crawl) at its head, moved once per render frame
- * (presentFrame). After a split every part walks with a head of its own; the
- * loop sits on the head nearest the listener, so a worm in pieces keeps one
- * voice. The loop stands while the game is paused like every loop
- * (SpatialAudioManager.holdLoops) and waits while out of earshot; its id
- * matches no ENEMY_SOUND_PATTERNS entry, so the enemy budget cannot silence
- * the boss.
+ * Skarnax's voice, for EnemyManager: now and then a growl or a clack at the
+ * head of each worm (WormGroup, WORM_SOUNDS.voice), scheduled in game time
+ * from presentFrame. After a split every part walks with a head of its own;
+ * the voice comes from the head nearest the listener, so a worm in pieces
+ * keeps one voice. Each worm draws from a seed of its own, so a run repeats.
+ *
+ * presentFrame runs only in frames with a sub-step: in a pause nothing new
+ * plays, a one-shot already playing plays out (2.3 s at most). A worm beaten,
+ * through or removed stops its voice.
  */
 export class WormSounds {
   private registeredWith: SpatialAudioManager | null = null;
-  private readonly loops = new Map<WormGroup, WormLoop>();
+  private readonly voices = new Map<WormGroup, WormVoice>();
   private pass = 0;
   private readonly listener = new Vector3();
   private readonly head = new Vector3();
   private readonly nearest = new Vector3();
 
   /**
-   * Once per render frame: each worm's loop to its head nearest the
-   * listener, the first call for a worm asks for its loop. The loop of a
-   * worm no longer in `groups` (beaten, through, removed) ends.
+   * Once per render frame, at game time `gameTimeMs`: each worm whose voice
+   * is due growls or clacks at its head nearest the listener. The voice of
+   * a worm no longer in `groups` (beaten, through, removed) stops.
    */
-  present(groups: readonly WormGroup[], engine: ThreeTilesEngine): void {
+  present(groups: readonly WormGroup[], engine: ThreeTilesEngine, gameTimeMs: number): void {
     const audio = engine.spatialAudio ?? null;
     if (audio === null) return;
     const pass = ++this.pass;
-    if (groups.length !== 0) {
-      this.register(audio);
-      audio.getListener().getWorldPosition(this.listener);
-      for (const group of groups) {
-        if (group.remaining === 0) continue;
-        let loop = this.loops.get(group);
-        if (loop === undefined) {
-          loop = { handle: null, pending: false, failed: false, seen: pass };
-          this.loops.set(group, loop);
-        }
-        loop.seen = pass;
-        // No head walks for a moment (it died, the next one leads from the next sub-step): the loop stays put
-        if (this.nearestHead(group, engine)) this.follow(group, loop, audio);
+    let listening = false;
+    for (const group of groups) {
+      if (group.remaining === 0) continue;
+      let voice = this.voices.get(group);
+      if (voice === undefined) {
+        this.register(audio);
+        const random = seeded(VOICE_SEED + group.seq);
+        voice = { nextMs: gameTimeMs + between(random, WORM_SOUNDS.voice.firstMs), random, playing: null, seen: pass };
+        this.voices.set(group, voice);
       }
+      voice.seen = pass;
+      if (gameTimeMs < voice.nextMs) continue;
+      if (!listening) {
+        audio.getListener().getWorldPosition(this.listener);
+        listening = true;
+      }
+      // No head walks for a moment (it died, the next one leads from the next sub-step): the next frame tries again
+      if (this.nearestHead(group, engine)) this.speak(group, voice, audio, gameTimeMs);
     }
-    for (const [group, loop] of this.loops) {
-      if (loop.seen !== pass) this.stop(group, audio);
+    for (const [group, voice] of this.voices) {
+      if (voice.seen !== pass) this.end(group, voice, audio);
     }
   }
 
-  /** Every loop ends (wave end, reset, game over). */
+  /** Every voice stops (wave end, reset, game over). */
   clear(audio: SpatialAudioManager | null): void {
-    for (const group of [...this.loops.keys()]) this.stop(group, audio);
+    for (const [group, voice] of [...this.voices]) this.end(group, voice, audio);
   }
 
   private register(audio: SpatialAudioManager): void {
     if (this.registeredWith === audio) return;
     this.registeredWith = audio;
-    const { id, url, refDistance, rolloffFactor, volume } = WORM_SOUNDS.crawl;
-    audio.registerSound(id, url, { refDistance, rolloffFactor, volume, loop: true });
+    const { samples, refDistance, rolloffFactor, volume } = WORM_SOUNDS.voice;
+    for (const sample of samples) {
+      audio.registerSound(sample.id, sample.url, { refDistance, rolloffFactor, volume: volume * sample.gain });
+    }
   }
 
   /** The head of `group` nearest the listener into `nearest`, local; false while none walks. */
@@ -83,7 +98,7 @@ export class WormSounds {
       const enemy = group.segments[chain.first];
       if (!enemy?.alive) continue;
       const head = engine.sync.geoToLocalSimpleInto(enemy.position.lat, enemy.position.lon, 0, this.head);
-      head.y = enemy.transform.terrainHeight + enemy.heightOffset + WORM_SOUNDS.crawl.liftM - originHeight;
+      head.y = enemy.transform.terrainHeight + enemy.heightOffset + WORM_SOUNDS.voice.liftM - originHeight;
       const d = (head.x - x) ** 2 + (head.y - y) ** 2 + (head.z - z) ** 2;
       if (d < best) {
         best = d;
@@ -93,30 +108,25 @@ export class WormSounds {
     return best < Infinity;
   }
 
-  private follow(group: WormGroup, loop: WormLoop, audio: SpatialAudioManager): void {
-    if (loop.handle !== null) {
-      audio.updateLoopPosition(loop.handle, this.nearest);
-      return;
-    }
-    if (loop.pending || loop.failed) return;
-    loop.pending = true;
-    // createLoop copies the position before it awaits
-    void audio.createLoop(WORM_SOUNDS.crawl.id, this.nearest, { randomStart: true }).then((handle) => {
-      loop.pending = false;
-      // The worm went while the loop was loading
-      if (this.loops.get(group) !== loop) {
-        if (handle !== null) audio.stopLoop(handle);
-        return;
-      }
-      if (handle === null) loop.failed = true;
-      else loop.handle = handle;
+  /** A growl or clack at `nearest`, drawn from the worm's seed, and the next one scheduled. */
+  private speak(group: WormGroup, voice: WormVoice, audio: SpatialAudioManager, gameTimeMs: number): void {
+    const { samples, volumeShare, playbackRate, gapMs } = WORM_SOUNDS.voice;
+    const sample = samples[Math.min(samples.length - 1, Math.floor(voice.random() * samples.length))];
+    const volume = between(voice.random, volumeShare);
+    const rate = between(voice.random, playbackRate);
+    voice.nextMs = gameTimeMs + between(voice.random, gapMs);
+    // playAt reads the position after its awaits: a copy of its own
+    void audio.playAt(sample.id, this.nearest.clone(), volume, rate).then((played) => {
+      if (played === null) return;
+      // The worm went while the sample was loading
+      if (this.voices.get(group) !== voice) audio.stopOneShot(played);
+      else voice.playing = played;
     });
   }
 
-  private stop(group: WormGroup, audio: SpatialAudioManager | null): void {
-    const loop = this.loops.get(group);
-    if (loop === undefined) return;
-    this.loops.delete(group);
-    if (loop.handle !== null) audio?.stopLoop(loop.handle);
+  private end(group: WormGroup, voice: WormVoice, audio: SpatialAudioManager | null): void {
+    this.voices.delete(group);
+    if (voice.playing !== null) audio?.stopOneShot(voice.playing);
+    voice.playing = null;
   }
 }
