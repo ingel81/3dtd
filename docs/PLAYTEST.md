@@ -492,11 +492,13 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   **Entscheidung User (2026-09-15): bleibt so.**
 - **E5 Tower-Sicht neben Autos:** Für Zellen, die der Stufen-Check auf Straßenhöhe setzt, prüft die Sichtlinie über
   dem Objekt; der Tower schießt dann auf Gegner "im Auto" (`66569eca`). Seit Autozellen wegfallen, kaum noch
-  sichtbar. Bestätigen oder zurücknehmen.
+  sichtbar. Bestätigen oder zurücknehmen. **Entscheidung User (2026-09-15): bleibt** (Prüfpunkt über dem Objekt).
 - **E6 Mittellinienzellen auf Dach oder Erker:** Läuft die OSM-Linie selbst unter einem Erker oder über eine Dachecke,
   bleibt die Zelle, bekommt aber Straßenhöhe (`f75e72ab`). Alternative: Zelle oben lassen, dann `f75e72ab` und
   `afb3ad2d` zusammen zurücknehmen. `afb3ad2d` ist zugleich der Kronen-Fix für Erlenbach (608); die Alternative nimmt
-  ihn mit zurück.
+  ihn mit zurück. **User (2026-09-15):** Es soll realistisch sein, Straßenhöhe unter einem gefüllten Erker ist falsch,
+  das 3D-Modell gilt. In Diskussion: Ausweichen im Korridor (Zelle weg, Weg biegt um das Hindernis, ohne Platz
+  daneben wie ein Durchgang), gilt dann auch für Autos auf der Mittellinie (706 bis 708).
 - **E7 Brückenenden ohne Niedrig-Hindernis-Probe:** Bis 40 m hinter einem Brückenende prüft der Korridor keine
   niedrigen Hindernisse, auch wo die Zufahrt schon auf Bodenhöhe liegt; Autos engen dort nur über den Laufweg ein
   (`347ae61b`). **Überholt durch bridge4 (2026-09-15):** Auf der Strecke hinter dem Brückenende (jetzt 60 m) läuft
