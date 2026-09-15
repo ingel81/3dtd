@@ -1016,7 +1016,12 @@ describe('GlobalRouteGrid bridges', () => {
       // The red line takes its heights at the waypoints.
       for (const z of [0, 40]) expect(bridge.getGroundLocalYAt(96, z), `waypoint 96, ${z}`).toBe(80);
       expect(bridge.getCellAt(95, 11)).toMatchObject({ surface: 'approach' });
-      expect(bridge.unwalkableCells()).toEqual([]);
+      // Nothing on the square is unwalkable. West of x = 90, beside the
+      // bridge, the ground lies 10 m under it: the drop check (stepDrop)
+      // ends the corridor there.
+      const unwalkable = bridge.unwalkableCells();
+      expect(unwalkable.filter((c) => c.x > 90)).toEqual([]);
+      expect(unwalkable.every((c) => c.x < 90 && c.terrainHeight === 70)).toBe(true);
     });
 
     /**

@@ -117,7 +117,7 @@ export interface RouteCellProbe {
    * cell) or without a cell.
    */
   walkable: boolean | null;
-  /** Why `walkable` is what it is (WalkCheck): `roof`, `step`, `centre line`, `coarse tile` and so on; null without a cell. */
+  /** Why `walkable` is what it is (WalkCheck): `roof`, `step`, `drop`, `centre line`, `coarse tile` and so on; null without a cell. */
   walkCheck: WalkCheck | null;
   /** Height over the ground of the centre line beside the cell that the walk check measures from (centreLineGround). */
   overLineM: number | null;

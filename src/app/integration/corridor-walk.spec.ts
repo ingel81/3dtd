@@ -260,6 +260,64 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(grid.getCellAt(31, -5)).toBeDefined();
   });
 
+  it('keeps a kerb down, photogrammetry noise and a bank falling 20 % on one side walkable', () => {
+    // The mirror of the test above: right, a kerb 0.2 m down from 2 m off
+    // the centre line, then a bank falling 0.2 m per metre.
+    const noise = (x: number, z: number) => ((Math.floor(x / CELL) + Math.floor(z / CELL)) % 2 === 0 ? 0.1 : -0.1);
+    const { grid, builds } = narrowed((x, z) => (z > 2 ? -0.2 - Math.max(0, z - 3) * 0.2 : noise(x, z)));
+
+    expect(builds).toBe(0);
+    expect(grid.unwalkableCells()).toEqual([]);
+    expect(grid.getCellAt(31, 7)).toBeDefined();
+    expect(grid.getCellAt(31, -5)).toBeDefined();
+  });
+
+  it('keeps a bank falling 15 % on one side of a diagonal street walkable', () => {
+    const diagonal: Street = { a: { x: 0, z: 0 }, b: { x: 40, z: 40 }, left: 7, right: 7 };
+    const { grid, builds } = narrowed((x, z) => -Math.max(0, (z - x) / Math.SQRT2) * 0.15, diagonal);
+
+    expect(builds).toBe(0);
+    expect(grid.unwalkableCells()).toEqual([]);
+    expect(grid.getCellAt(15, 23)).toBeDefined();
+  });
+
+  /**
+   * Playtest 2026-09-15, retest 605, Rothenburg ob der Tauber: on a street
+   * across a slope the uphill side ended at the bank, but on the valley side
+   * rows of cells stepped down the embankment into the vegetation. The walk
+   * went down any drop. A road 6 m wide tilting 3 % towards the valley, the
+   * embankment below it falling 1 in 1.5, the bank above it rising as much.
+   */
+  it('ends the corridor at the top of the embankment on the valley side of a street across a slope', () => {
+    // The valley lies right of travel (+z).
+    const terrace = (_x: number, z: number) => {
+      const off = z - 1;
+      if (off > 3) return -0.09 - (off - 3) / 1.5;
+      if (off < -3) return 0.09 + (-off - 3) / 1.5;
+      return -0.03 * off;
+    };
+    const { grid, route, builds } = narrowed(terrace);
+
+    expect(builds).toBe(1);
+    expect(grid.unwalkableCells()).toEqual([]);
+    expect(grid.getCellAt(31, 3)).toBeDefined(); // the road, valley side
+    expect(grid.getCellAt(31, 5)).toBeUndefined(); // 1 m down the embankment
+    expect(grid.getCellAt(31, 7)).toBeUndefined();
+    expect(grid.getCellAt(31, -1)).toBeDefined(); // the road, uphill side
+    expect(grid.getCellAt(31, -3)).toBeUndefined(); // the bank, as before
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
+  it('ends the corridor at a quay wall, not on the river below it', () => {
+    // The river 4 m down from 3 m right of the centre line.
+    const { grid, route } = narrowed((_x, z) => (z > 4 ? -4 : 0));
+
+    expect(grid.unwalkableCells()).toEqual([]);
+    expect(grid.getCellAt(31, 3)).toBeDefined();
+    expect(grid.getCellAt(31, 5)).toBeUndefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
   it('keeps a bank rising 15 % on one side of a diagonal street walkable', () => {
     // South-east along x = z: the walk out crosses the grid diagonally,
     // 0.42 m per spot on the bank right of travel (south-west).
