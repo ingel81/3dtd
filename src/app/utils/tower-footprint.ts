@@ -9,6 +9,12 @@ export interface TowerFootprint {
   footY: number;
   /** Plinth from the lowest surface under the footprint up to footY (m), 0 = none. */
   plinthHeight: number;
+  /**
+   * Probes the plinth hangs over a drop at, as indices into
+   * footprintSampleOffsets (plinthOverhang). Only with a plinth; missing =
+   * none. The plinth gets braces there (plinth-braces.ts).
+   */
+  overhang?: readonly number[];
 }
 
 /**
@@ -221,7 +227,9 @@ export function levelWithCursor(surfaceY: number, columns: readonly (FootprintCo
  *   steeply out of the ground and does not lift it; the tower clips into it
  *   as it did before the plinth existed.
  * The lowest probe counts in both cases, the plinth also covers a drop
- * behind a wall.
+ * behind a wall. Where it hangs over a drop it does not reach down to, past
+ * a roof edge deeper than MAX_DROP, `overhang` names those probes
+ * (plinthOverhang).
  */
 export function resolveTowerFootprint(
   surfaceY: number,
@@ -262,7 +270,7 @@ export function decideTowerFootprint(
   ): FootprintDecision => ({
     footprint: top - bottom < PLINTH_CONFIG.MIN_UNEVENNESS
       ? { footY: surfaceY, plinthHeight: 0 }
-      : { footY: top, plinthHeight: top - bottom },
+      : plinthFootprint(top, bottom, columns),
     rule,
     centre,
     bottom,
@@ -279,6 +287,35 @@ export function decideTowerFootprint(
     return decided('roof-surroundings', roofTop, around);
   }
   return decided('ground', groundTopY, around);
+}
+
+/** The foot at `footY` on a plinth down to `bottom`, with the probes it overhangs. */
+function plinthFootprint(footY: number, bottom: number, columns: readonly (FootprintColumn | null)[]): TowerFootprint {
+  const overhang = plinthOverhang(bottom, columns);
+  const footprint = { footY, plinthHeight: footY - bottom };
+  return overhang.length > 0 ? { ...footprint, overhang } : footprint;
+}
+
+/**
+ * The probes a plinth down to `bottom` hangs over a drop at: their column
+ * tops out below it or hits nothing. The plinth reaches down to every probe
+ * resolveTowerFootprint counts, so these are the ones MAX_DROP left out, the
+ * drop past a roof edge, and those without a surface. Indices into `columns`.
+ */
+export function plinthOverhang(bottom: number, columns: readonly (FootprintColumn | null)[]): number[] {
+  const overhang: number[] = [];
+  columns.forEach((column, index) => {
+    if (column === null || column.topY < bottom) overhang.push(index);
+  });
+  return overhang;
+}
+
+/** True when two footprints stand the tower the same way: foot, plinth and overhang. */
+export function sameFootprint(a: TowerFootprint, b: TowerFootprint): boolean {
+  if (a.footY !== b.footY || a.plinthHeight !== b.plinthHeight) return false;
+  const overA = a.overhang ?? [];
+  const overB = b.overhang ?? [];
+  return overA.length === overB.length && overA.every((index, i) => index === overB[i]);
 }
 
 /** True where `column` shows ground more than ROOF_ABOVE_GROUND below `surfaceY`. */
