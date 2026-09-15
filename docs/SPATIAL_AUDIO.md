@@ -444,19 +444,23 @@ Towers, `towers/lightning/bolt.mp3`, zweimal leiser wiederholt).
   Abschnitt der Welle in wenigen Sekunden, deren Todesgeräusche nähmen ihm sonst die
   Stimmen). Standard-Hörweite 500 m.
 
-### Weitere Fähigkeiten (Datei-Samples mit Wiederholungen)
+### Frostbombe und EMP (eigene Samples)
 Frostbombe und EMP stehen wie der Nuklearschlag in `ABILITY_IMPACT_SOUNDS`
 (`GAME_SOUNDS.frostBomb`, `.emp`). Der `AudioService` registriert sie beim
-Start und spielt beim `ability:impact` das Sample am Einschlag, danach die Einträge aus `tail`
-als leisere Wiederholungen desselben Samples, in Spielzeit wie beim Grollen des Schlags:
+Start und spielt beim `ability:impact` das Sample am Einschlag, ohne Wiederholungen
+(`tail` leer). Beide seit 2026-09-15 eigene Samples, mit ElevenLabs erzeugt (E18);
+vorher der Cast des Ice Towers und der Kettenblitz des Lightning Towers, je zweimal
+leiser wiederholt.
 
-| Fähigkeit | ID, Datei | Wiederholungen (ms, Lautstärke) |
-|---|---|---|
-| Frostbombe | `frost_bomb`, `towers/ice/cast.mp3` | 110 (0,6), 260 (0,35) |
-| EMP | `emp`, `towers/lightning/lightning_chain.mp3` | 180 (0,5), 420 (0,3) |
+| Fähigkeit | ID, Datei | Länge | Klang |
+|---|---|---|---|
+| Frostbombe | `frost_bomb`, `abilities/frost_bomb.mp3` | 2,5 s | eisiger Knall und Aufbruch, dann knisterndes Gefrieren mit glasigem Schimmer, klingt über etwa 2 s aus |
+| EMP | `emp`, `abilities/emp.mp3` | 2,5 s | elektrischer Schlag mit Hochspannungs-Zap, dann knisternde Entladung, klingt aus |
 
-Ohne `priority` und mit der Standard-Hörweite (500 m). `refDistance`, `rolloffFactor`,
-`volume` und `maxInstances` stehen in `audio.config.ts`.
+Ohne `priority` und mit der Standard-Hörweite (500 m), `maxInstances` 2. `refDistance`,
+`rolloffFactor` und `volume` stehen in `audio.config.ts`. Die Dateien sind wie alle
+Assets auf etwa -14 LUFS gebracht, lineare Verstärkung mit True Peak höchstens -1 dBFS
+(Abschnitt [Assets](#assets)).
 
 ## Performance-Optimierungen
 
@@ -536,7 +540,10 @@ public/assets/sounds/
 │   ├── poison/poison_spit.mp3         # Poison-Glob-Schuss-Sound
 │   ├── fire/flame_loop.mp3            # Flammenwerfer-Loop-Sound
 │   ├── tentacle/tentacle-01.mp3       # Tentacle-Strike-Sound
-│   └── lightning/lightning_chain.mp3  # Lightning-Chain-Sound, auch das EMP
+│   └── lightning/lightning_chain.mp3  # Lightning-Chain-Sound
+├── abilities/                         # mit ElevenLabs erzeugt (E18, 2026-09-15)
+│   ├── frost_bomb.mp3                 # Einschlag der Frostbombe
+│   └── emp.mp3                        # Einschlag des EMP
 ├── enemies/
 │   ├── zombie/ambient.mp3             # Zombie-Bewegungs-Loop
 │   ├── tank/moving.mp3                # Tank-Bewegungs-Loop
@@ -555,6 +562,12 @@ public/assets/sounds/
     ├── building_placed.mp3            # Tower-Platziert-Sound
     └── building_selled.mp3            # Tower-Verkauft-Sound
 ```
+
+Neue Datei-Sounds von ElevenLabs (Text-to-Sound-Effects) werden linear auf etwa
+-14 LUFS verstärkt, begrenzt auf True Peak -1 dBFS, und als mp3 mit 44,1 kHz, Stereo,
+128 kbit/s abgelegt wie die Tower-Sounds. Kein dynamisches `loudnorm`: Es glättet das
+Abklingen eines One-Shots und die Naht eines Loops. Die Lautstärke im Spiel regelt
+danach das `volume` in der Config.
 
 Ohne Datei, im Code synthetisiert: die UI-Töne (`utils/alert-tone.ts`), die Ooze-Sounds
 (`utils/ooze-sound.ts`) und der Nuklearschlag (`utils/nuke-sound.ts`), alle als WAV-Data-URL

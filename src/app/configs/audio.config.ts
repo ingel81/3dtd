@@ -167,36 +167,31 @@ export const GAME_SOUNDS = {
     ],
   },
   /**
-   * Frost bomb burst: the ice tower's cast (0.8 s), louder and further, and
-   * two quick quieter repeats that break it up into a crackle of ice.
+   * Frost bomb burst, its own sample (generated with ElevenLabs, 2.5 s): an
+   * icy crack and burst, then ice crackling and freezing outward with a
+   * glassy shimmer, dying away over about 2 s.
    */
   frostBomb: {
     id: 'frost_bomb',
-    url: 'assets/sounds/towers/ice/cast.mp3',
+    url: 'assets/sounds/abilities/frost_bomb.mp3',
     refDistance: 90,
     rolloffFactor: 0.8,
     volume: 1.5,
-    maxInstances: 4,
-    tail: [
-      { delayMs: 110, volume: 0.6 },
-      { delayMs: 260, volume: 0.35 },
-    ],
+    maxInstances: 2,
+    tail: [],
   },
   /**
-   * EMP pulse: the lightning tower's chain crack (1.2 s), louder and
-   * further, with two quieter repeats as the fronts run out.
+   * EMP pulse, its own sample (generated with ElevenLabs, 2.5 s): an electric
+   * blast with a high-voltage zap, then crackling discharge dying away.
    */
   emp: {
     id: 'emp',
-    url: 'assets/sounds/towers/lightning/lightning_chain.mp3',
+    url: 'assets/sounds/abilities/emp.mp3',
     refDistance: 110,
     rolloffFactor: 0.7,
     volume: 1.5,
-    maxInstances: 4,
-    tail: [
-      { delayMs: 180, volume: 0.5 },
-      { delayMs: 420, volume: 0.3 },
-    ],
+    maxInstances: 2,
+    tail: [],
   },
   /**
    * Orbital laser, synthesised (utils/laser-sound.ts): the strike where the
