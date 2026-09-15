@@ -5,6 +5,7 @@ import { AudioService } from './audio.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import { ABILITY_IMPACT_SOUNDS, GAME_SOUNDS, type AbilityImpactSound } from '../configs/audio.config';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { ABILITIES, abilityBeamReachM, type AbilityEffect } from '../configs/abilities.config';
 import { NUKE_BLAST_S, NUKE_RUMBLE_S, NUKE_RUMBLES } from '../utils/nuke-sound';
 
 const nuke: AbilityImpactSound = GAME_SOUNDS.nuclearStrike;
@@ -244,6 +245,137 @@ describe('AudioService nuclear strike siren', () => {
     used('nuclear-strike', 1);
     await settle();
     expect(spatialAudio.createLoop.mock.calls[0][1]).toEqual(new Vector3(9, 12, 48));
+    service.destroy();
+  });
+});
+
+describe('AudioService orbital laser burn', () => {
+  const laser = GAME_SOUNDS.orbitalLaser;
+  const burn = laser.beam;
+  const effect = ABILITIES['orbital-laser'].effect as Extract<AbilityEffect, { kind: 'beam' }>;
+  const REACH_M = abilityBeamReachM(effect);
+  /** Local x is lon in the stand-in conversion: a straight path, 40 m then 60 m on */
+  const PATH = [{ lat: 0, lon: 0, height: 5 }, { lat: 0, lon: 40, height: 5 }, { lat: 0, lon: 100, height: 5 }];
+
+  function setup() {
+    let handles = 0;
+    const eventBus = new GameEventBus();
+    /** Where the loop was put, per update */
+    const moves: Vector3[] = [];
+    const spatialAudio = {
+      registerSound: vi.fn(),
+      playAtGeo: vi.fn(() => Promise.resolve(null)),
+      geoToLocalPosition: vi.fn((lat: number, lon: number, height: number, target: Vector3) => target.set(lon, height, lat)),
+      createLoop: vi.fn((_soundId: string, _position: Vector3) => Promise.resolve(`loop_${++handles}`)),
+      stopLoop: vi.fn(),
+      updateLoopPosition: vi.fn((_handle: string, position: Vector3) => {
+        moves.push(position.clone());
+      }),
+      setLoopVolume: vi.fn(),
+    };
+    const service = new AudioService(eventBus, { spatialAudio } as unknown as ThreeTilesEngine);
+    const impact = (path: typeof PATH = PATH, strikeId = 1) => eventBus.emit({
+      type: 'ability:impact', abilityId: 'orbital-laser', strikeId, target: path[0], radiusM: 5, path,
+    });
+    /** `ms` of game time in sub-steps */
+    const run = (ms: number) => {
+      for (let k = Math.round(ms / STEP_MS); k > 0; k--) service.update(STEP_MS);
+    };
+    const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+    return { eventBus, spatialAudio, service, impact, run, settle, moves };
+  }
+
+  it('registers the burn once as a loop; the strike has no pieces of burn left', () => {
+    const { spatialAudio, service } = setup();
+    expect(laser.tail).toEqual([]);
+    const calls = spatialAudio.registerSound.mock.calls.filter((args: unknown[]) => args[0] === burn.id);
+    expect(calls).toEqual([[burn.id, burn.url, {
+      refDistance: burn.refDistance, rolloffFactor: burn.rolloffFactor, volume: burn.volume, loop: true,
+    }]]);
+    service.destroy();
+  });
+
+  it('comes down with the strike at the start of the path', async () => {
+    const { spatialAudio, service, impact, settle } = setup();
+    impact();
+    await settle();
+    expect(spatialAudio.playAtGeo.mock.calls).toEqual([[laser.id, 0, 0, 5, 1]]);
+    expect(spatialAudio.createLoop.mock.calls).toEqual([[burn.id, new Vector3(0, 5, 0)]]);
+    service.destroy();
+  });
+
+  it('runs along the path with the beam, at its speed in game time', async () => {
+    const { service, impact, run, settle, moves } = setup();
+    impact();
+    await settle();
+    run(1000);
+    expect(moves.at(-1)!.x).toBeCloseTo(effect.speedMps, 1);
+    // Past the corner at 40 m, on the second stretch
+    run(2000);
+    expect(moves.at(-1)!.x).toBeCloseTo(3 * effect.speedMps, 1);
+    expect(moves.at(-1)!.y).toBe(5);
+    service.destroy();
+  });
+
+  it('stands while no sub-step runs, as in a pause', async () => {
+    vi.useFakeTimers();
+    const { spatialAudio, service, impact, run } = setup();
+    impact();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(spatialAudio.updateLoopPosition).not.toHaveBeenCalled();
+    expect(spatialAudio.stopLoop).not.toHaveBeenCalled();
+    run(500);
+    expect(spatialAudio.updateLoopPosition).toHaveBeenCalled();
+    service.destroy();
+    vi.useRealTimers();
+  });
+
+  it('fades out where the beam ended, then stops', async () => {
+    const { spatialAudio, service, impact, run, settle, moves } = setup();
+    impact();
+    await settle();
+    run(effect.durationMs);
+    expect(spatialAudio.setLoopVolume).not.toHaveBeenCalled();
+    expect(moves.at(-1)!.x).toBeCloseTo(REACH_M, 1);
+
+    run(burn.fadeOutMs / 2);
+    const volumes = spatialAudio.setLoopVolume.mock.calls.map((args: unknown[]) => args[1] as number);
+    expect(volumes.length).toBeGreaterThan(1);
+    for (let k = 1; k < volumes.length; k++) expect(volumes[k]).toBeLessThan(volumes[k - 1]);
+    expect(volumes.at(-1)!).toBeCloseTo(0.5, 1);
+    expect(moves.at(-1)!.x).toBeCloseTo(REACH_M, 1);
+    expect(spatialAudio.stopLoop).not.toHaveBeenCalled();
+
+    run(burn.fadeOutMs);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1']]);
+    service.destroy();
+    expect(spatialAudio.stopLoop).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends sooner where the route ends sooner', async () => {
+    const { spatialAudio, service, impact, run, settle, moves } = setup();
+    const short = [{ lat: 0, lon: 0, height: 5 }, { lat: 0, lon: 36, height: 5 }];
+    impact(short);
+    await settle();
+    run((36 / effect.speedMps) * 1000 + burn.fadeOutMs + STEP_MS);
+    expect(spatialAudio.stopLoop).toHaveBeenCalledTimes(1);
+    expect(moves.at(-1)!.x).toBeCloseTo(36, 1);
+    service.destroy();
+  });
+
+  it('ends on a restart and on a replay jump', async () => {
+    const { eventBus, spatialAudio, service, impact, run, settle } = setup();
+    impact();
+    await settle();
+    eventBus.emit({ type: 'game:reset' });
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1']]);
+    run(1000);
+    expect(spatialAudio.updateLoopPosition).not.toHaveBeenCalled();
+
+    impact(PATH, 2);
+    await settle();
+    service.clearAbilitySounds();
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1'], ['loop_2']]);
     service.destroy();
   });
 });

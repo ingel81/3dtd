@@ -359,6 +359,11 @@ export class SpatialAudioManager {
     this.loops.stop(handle);
   }
 
+  /** Loop `handle` at `volumeMultiplier` times its sound's volume from now on, see SpatialAudioLoops.setVolume(). */
+  setLoopVolume(handle: string, volumeMultiplier: number): void {
+    this.loops.setVolume(handle, volumeMultiplier);
+  }
+
   isLoopPaused(handle: string): boolean {
     return this.loops.isPaused(handle);
   }
