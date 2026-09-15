@@ -62,16 +62,40 @@ export function addSceneLights(scene: Scene): void {
  * filters, so the same pixels.
  */
 export class SkyBackground {
-  // Sky as a cube render target, converted once from the equirect image
+  // Sky as a cube render target, converted from the equirect image
   private skyTarget: WebGLCubeRenderTarget | null = null;
   // The sky image can arrive after dispose(), it must not touch the renderer then
   private disposed = false;
+  /** Removes the webglcontextrestored listener (convertAgainOnContextRestore). */
+  private stopConvertOnRestore: (() => void) | null = null;
 
   /** Starts loading; the image sets `scene.background` when it arrives. */
-  constructor(renderer: WebGLRenderer, scene: Scene) {
-    const loader = new TextureLoader();
+  constructor(
+    private readonly renderer: WebGLRenderer,
+    private readonly scene: Scene,
+  ) {
+    this.load();
+  }
 
-    loader.load(
+  /**
+   * Convert the sky again whenever `canvas` gets its WebGL context back. A
+   * restored context gives the cube target new, empty GL storage: its pixels
+   * were drawn once from the image, and the image is freed after that. Loads
+   * the image again (from the browser cache) into the same target. Nothing
+   * happens while the fallback colour is the background. dispose() stops
+   * listening.
+   */
+  convertAgainOnContextRestore(canvas: HTMLCanvasElement): void {
+    this.stopConvertOnRestore?.();
+    const onRestored = (): void => {
+      if (this.skyTarget !== null) this.load();
+    };
+    canvas.addEventListener('webglcontextrestored', onRestored);
+    this.stopConvertOnRestore = () => canvas.removeEventListener('webglcontextrestored', onRestored);
+  }
+
+  private load(): void {
+    new TextureLoader().load(
       'assets/images/skybox/day.webp',
       (texture) => {
         if (this.disposed) {
@@ -79,17 +103,16 @@ export class SkyBackground {
           return;
         }
         texture.colorSpace = SRGBColorSpace;
-        this.skyTarget = new WebGLCubeRenderTarget(texture.image.height).fromEquirectangularTexture(
-          renderer,
-          texture
-        );
-        scene.background = this.skyTarget.texture;
+        // Again after a context restore: the same image, so the same size
+        this.skyTarget ??= new WebGLCubeRenderTarget(texture.image.height);
+        this.skyTarget.fromEquirectangularTexture(this.renderer, texture);
+        this.scene.background = this.skyTarget.texture;
         texture.dispose();
       },
       undefined,
       (error) => {
         console.warn('[ThreeTilesEngine] Failed to load sky texture, using fallback color', error);
-        scene.background = new Color(0x87ceeb); // Light blue fallback
+        this.scene.background = new Color(0x87ceeb); // Light blue fallback
       }
     );
   }
@@ -97,6 +120,8 @@ export class SkyBackground {
   /** Frees the cube target; an image that arrives later is dropped. */
   dispose(): void {
     this.disposed = true;
+    this.stopConvertOnRestore?.();
+    this.stopConvertOnRestore = null;
     this.skyTarget?.dispose();
     this.skyTarget = null;
   }
