@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { createPlinthGeometry, PLINTH_EMBED_M, PLINTH_RIM_M } from './plinth-geometry';
+import {
+  BRACE_SLOPE,
+  BRACE_TOP_Y,
+  createPlinthGeometry,
+  PLINTH_EMBED_M,
+  PLINTH_RIM_M,
+  plinthWallRadius,
+} from './plinth-geometry';
 
 describe('createPlinthGeometry', () => {
   const RADIUS = 3.6;
@@ -61,5 +68,71 @@ describe('createPlinthGeometry', () => {
     const narrow = createPlinthGeometry(2.4, HEIGHT).getAttribute('position').count;
     const wide = createPlinthGeometry(10, HEIGHT).getAttribute('position').count;
     expect(wide).toBeGreaterThan(narrow * 3);
+  });
+
+  it('keeps the wall where plinthWallRadius says', () => {
+    for (let i = 0; i < segments; i++) {
+      const v = vertex(segments + i);
+      const theta = Math.atan2(v.z, v.x);
+      expect(radial(v)).toBeCloseTo(plinthWallRadius(RADIUS, HEIGHT, theta, v.y), 5);
+    }
+  });
+});
+
+describe('createPlinthGeometry with braces (E18)', () => {
+  const RADIUS = 3.6;
+  const HEIGHT = 1.5;
+  const brace = { angle: Math.PI / 4, topReach: 3.6, footReach: 1.5 };
+  const plainCount = createPlinthGeometry(RADIUS, HEIGHT).getAttribute('position').count;
+  const geometry = createPlinthGeometry(RADIUS, HEIGHT, [brace]);
+  const position = geometry.getAttribute('position');
+  const normal = geometry.getAttribute('normal');
+  const vertex = (i: number) => new Vector3().fromBufferAttribute(position, i);
+  const normalAt = (i: number) => new Vector3().fromBufferAttribute(normal, i);
+  /** After wall and top face: the bottom face (centre and a ring), then the brace, 6 faces of 4 vertices */
+  const braceStart = position.count - 24;
+  const braceVertices = Array.from({ length: 24 }, (_, i) => vertex(braceStart + i));
+  const along = (v: Vector3) => v.x * Math.cos(brace.angle) + v.z * Math.sin(brace.angle);
+
+  it('closes the plinth underneath with a face turned down', () => {
+    expect(braceStart - plainCount).toBeGreaterThan(16);
+    for (let i = plainCount; i < braceStart; i++) {
+      expect(vertex(i).y).toBeCloseTo(-PLINTH_EMBED_M, 6);
+      expect(normalAt(i).y).toBeCloseTo(-1, 6);
+    }
+  });
+
+  it('slants the brace at BRACE_SLOPE from under the rim down to its foot', () => {
+    const drop = (brace.topReach - brace.footReach) * BRACE_SLOPE;
+    expect(Math.max(...braceVertices.map((v) => v.y))).toBeCloseTo(BRACE_TOP_Y, 6);
+    expect(Math.min(...braceVertices.map((v) => v.y))).toBeCloseTo(BRACE_TOP_Y - drop, 6);
+    expect(Math.max(...braceVertices.map(along))).toBeCloseTo(brace.topReach, 6);
+    expect(Math.min(...braceVertices.map(along))).toBeCloseTo(brace.footReach, 6);
+    // The lowest point is at the foot, the outer top edge is at the top
+    for (const v of braceVertices) {
+      if (Math.abs(v.y - (BRACE_TOP_Y - drop)) < 1e-6) expect(along(v)).toBeCloseTo(brace.footReach, 6);
+      if (Math.abs(along(v) - brace.topReach) < 1e-6) expect(v.y).toBeCloseTo(BRACE_TOP_Y, 6);
+    }
+  });
+
+  it('keeps the brace under the plinth: its top inside the plinth, nothing out beyond the rim', () => {
+    expect(BRACE_TOP_Y).toBeGreaterThan(-PLINTH_EMBED_M);
+    expect(BRACE_TOP_Y).toBeLessThan(0);
+    for (const v of braceVertices) {
+      expect(Math.hypot(v.x, v.z)).toBeLessThan(RADIUS + PLINTH_RIM_M);
+    }
+  });
+
+  it('turns every brace face outwards', () => {
+    const middle = braceVertices.reduce((sum, v) => sum.add(v), new Vector3()).divideScalar(braceVertices.length);
+    for (let i = 0; i < 24; i++) {
+      const v = vertex(braceStart + i);
+      expect(normalAt(braceStart + i).dot(v.clone().sub(middle))).toBeGreaterThan(0);
+    }
+  });
+
+  it('bounds the brace too, for culling', () => {
+    const lowest = braceVertices.reduce((low, v) => (v.y < low.y ? v : low));
+    expect(geometry.boundingSphere!.containsPoint(lowest)).toBe(true);
   });
 });

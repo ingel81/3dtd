@@ -1,14 +1,24 @@
 import { Mesh, type Camera, type Material, type Object3D, type Scene, type WebGLRenderer } from 'three';
 import type { CoordinateSync } from '../index';
+import { plinthBraces } from './plinth-braces';
 import { createPlinthGeometry } from './plinth-geometry';
 import { createPlinthMaterial } from './plinth-material';
 
 /**
  * A plinth mesh with a geometry of its own. Its origin is the lowest point
- * of the footprint; the top, `height` above it, is the tower's foot.
+ * of the footprint; the top, `height` above it, is the tower's foot. Where
+ * it hangs over a drop at the footprint probes `overhang`
+ * (TowerFootprint.overhang), braces go under it (plinthBraces), part of the
+ * same geometry.
  */
-export function createPlinthMesh(footprintRadius: number, height: number, material: Material): Mesh {
-  const mesh = new Mesh(createPlinthGeometry(footprintRadius, height), material);
+export function createPlinthMesh(
+  footprintRadius: number,
+  height: number,
+  material: Material,
+  overhang: readonly number[] = [],
+): Mesh {
+  const braces = plinthBraces(footprintRadius, height, overhang);
+  const mesh = new Mesh(createPlinthGeometry(footprintRadius, height, braces), material);
   mesh.name = 'tower-plinth';
   return mesh;
 }
@@ -34,11 +44,21 @@ export class TowerPlinthRenderer {
   /**
    * Plinth under tower `id`: its top at `footY` (the tower's foot, local
    * Y), reaching `height` down to the lowest point of the footprint. The
-   * width follows the tower's footprintRadius. Replaces an earlier one.
+   * width follows the tower's footprintRadius, braces go under it where it
+   * hangs over a drop at the footprint probes `overhang`. Replaces an
+   * earlier one.
    */
-  create(id: string, lat: number, lon: number, footY: number, height: number, footprintRadius: number): void {
+  create(
+    id: string,
+    lat: number,
+    lon: number,
+    footY: number,
+    height: number,
+    footprintRadius: number,
+    overhang: readonly number[] = [],
+  ): void {
     this.remove(id);
-    const mesh = createPlinthMesh(footprintRadius, height, this.material);
+    const mesh = createPlinthMesh(footprintRadius, height, this.material, overhang);
     mesh.position.copy(this.sync.geoToLocal(lat, lon, footY - height));
     // It never moves: one matrix, no recompose every frame
     mesh.updateMatrix();
