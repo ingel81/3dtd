@@ -45,12 +45,13 @@ export interface WalkGround {
 
 /**
  * Why cellWalkable says what it says, for `__corridor.pick()`: `walkable`
- * (true), `roof` and `step` (false, see cellWalkable), the rest null.
+ * (true), `roof`, `step` and `drop` (false, see judgeWalk), the rest null.
  */
 export type WalkCheck =
   | 'walkable'
   | 'roof'
   | 'step'
+  | 'drop'
   | 'centre line'
   | 'centre line on a roof'
   | 'deck or tunnel'
@@ -86,8 +87,9 @@ type LineGroundMemo = Map<number, number | null>;
  * False for a cell more than `roofRise` above the ground of the centre line
  * beside it (centreLineGround): its column came down on a roof, an eave or
  * a crown over the street (roof check). False as well where a walk out from
- * the centre line cannot climb onto it (step check, see reached): a parked
- * car, a van, a hedge, a raised garden.
+ * the centre line cannot climb onto it (step check, see walkOut): a parked
+ * car, a van, a hedge, a raised garden; or cannot get down to it (drop
+ * check): the embankment below a street across a slope, a quay wall.
  *
  * On the stretch off a bridge end (`approach`) the walk out stands on the
  * hit a cell there takes (walkSurface), as the centre line spots do
@@ -137,8 +139,8 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround, cellSize: number,
   const rise = cell.terrainHeight - axisY;
   if (Math.abs(rise) > RouteCellSampler.OUTLIER_M) return unjudged('seam', rise);
   if (rise > corridorConfig.roofRise) return { walkable: false, check: 'roof', overLine: rise };
-  const walkable = reached(cell, axisY, ground.column, surfaceOf, cellSize);
-  return { walkable, check: walkable ? 'walkable' : 'step', overLine: rise };
+  const check = walkOut(cell, axisY, ground.column, surfaceOf, cellSize);
+  return { walkable: check === 'walkable', check, overLine: rise };
 }
 
 /** The height a column gives a walk, see walkSurface. */
@@ -300,27 +302,38 @@ export function centreLineGround(x: number, z: number, ground: WalkGround, cellS
 }
 
 /**
- * Whether a walk from the centre line out to `cell`, grid spot by grid
- * spot, can climb onto the cell's ground.
+ * How a walk from the centre line out to `cell`, grid spot by grid spot,
+ * ends: on the cell's ground (`walkable`), or short of it because the cell
+ * lies too high (`step`) or too low (`drop`) for the ground reached before.
  *
  * The walk starts on the centre line (`axisY`). A spot counts as reached
  * where its ground lies at most `stepRise` above the highest ground reached
- * so far, or above the last one plus the cross slope for every spot since
- * (crossSlope). So it goes down a ditch or a drop (up to OUTLIER_M, deeper is
- * a seam), up a kerb, a step or a slope, but not onto a car, a van or a
- * hedge; the ground beyond one of those counts again. `surfaceY`: the hit
+ * so far, or above the last one plus the cross slope for every spot since,
+ * where the ground rises towards the cell (crossSlope); and at most
+ * `stepDrop` below the lowest ground reached so far, or below the last one
+ * less the cross slope for every spot since, where it falls towards the
+ * cell. So it goes up and down a kerb, a step, a gutter or a slope, but not
+ * onto a car, a van or a hedge, nor down an embankment or a quay wall; the
+ * ground beyond one of those counts again where it is back within reach.
+ * Deeper than OUTLIER_M below is a seam, never reached. `surfaceY`: the hit
  * of each column the walk stands on (walkSurface).
+ *
+ * Until 2026-09-15 the walk went down any drop: on the valley side of a
+ * street across a slope the corridor reached down the embankment into the
+ * vegetation (playtest 2026-09-15, Rothenburg), while the uphill side ended
+ * at the bank.
  */
-function reached(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: SurfaceY, cellSize: number): boolean {
+function walkOut(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: SurfaceY, cellSize: number): 'walkable' | 'step' | 'drop' {
   const y = cell.terrainHeight;
-  // The walk never reaches less than the centre line, so a cell at most one
-  // step above it is reached whatever lies in between: no probes on the way
-  // out for the edge cells of a level street.
-  if (y <= axisY + corridorConfig.stepRise) return true;
+  const { stepRise, stepDrop } = corridorConfig;
+  // The walk never reaches less high than the centre line, nor lower, so a
+  // cell at most one step above or below it is reached whatever lies in
+  // between: no probes on the way out for the edge cells of a level street.
+  if (y <= axisY + stepRise && y >= axisY - stepDrop) return 'walkable';
   const gx = Math.round((cell.x - cell.axisX) / cellSize);
   const gz = Math.round((cell.z - cell.axisZ) / cellSize);
   const steps = Math.max(Math.abs(gx), Math.abs(gz));
-  if (steps === 0) return true;
+  if (steps === 0) return 'walkable';
   // Rounded away from the centre line.
   const along = (g: number, k: number) => Math.sign(g * k) * Math.round(Math.abs((g * k) / steps)) * cellSize;
   const spot = (k: number) => column(cell.axisX + along(gx, k), cell.axisZ + along(gz, k));
@@ -331,40 +344,46 @@ function reached(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: Sur
   const ux = (cell.x - cell.axisX) / steps;
   const uz = (cell.z - cell.axisZ) / steps;
   const slope = crossSlope(axisY, column(cell.axisX + ux, cell.axisZ + uz), column(cell.axisX - ux, cell.axisZ - uz), surfaceY);
+  const rise = Math.max(0, slope);
+  const fall = Math.min(0, slope);
 
   let top = axisY;
+  let bottom = axisY;
   let last = axisY;
   let lastK = 0;
-  const reaches = (ground: number, k: number) =>
-    ground <= Math.max(top, last + slope * (k - lastK)) + corridorConfig.stepRise;
+  const ceiling = (k: number) => Math.max(top, last + rise * (k - lastK)) + stepRise;
+  const floor = (k: number) => Math.min(bottom, last + fall * (k - lastK)) - stepDrop;
   for (let k = 1; k < steps; k++) {
     const probe = spot(k);
     if (probe === null) continue;
     const ground = surfaceY(probe);
-    if (!reaches(ground, k) || ground < top - RouteCellSampler.OUTLIER_M) continue;
+    if (ground > ceiling(k) || ground < floor(k) || ground < top - RouteCellSampler.OUTLIER_M) continue;
     last = ground;
     lastK = k;
-    if (ground > top) top = ground;
+    top = Math.max(top, ground);
+    bottom = Math.min(bottom, ground);
   }
-  return reaches(y, steps);
+  return y > ceiling(steps) ? 'step' : y < floor(steps) ? 'drop' : 'walkable';
 }
 
 /**
- * Rise per grid spot of the ground across the street, from the first step
- * on the way out (`up`) and its mirror on the other side of the centre
- * line (`down`): where the ground rises towards the cell about as much as
- * it falls on the other side (the two within `stepRise`), the smaller of
- * the two, else 0. A car or a hedge rises on one side only, a quay wall
- * falls far more than a car rises; a hillside street tilts both ways
- * alike (DevWorld's terrain as well). As the tower footprint's cursorSlope
- * does it.
+ * Rise per grid spot of the ground across the street towards the cell,
+ * from the first step on the way out (`toward`) and its mirror on the
+ * other side of the centre line (`away`): where the ground rises towards
+ * the cell about as much as it falls on the other side, or falls towards
+ * it about as much as it rises there (the two within `stepRise`), the
+ * smaller of the two, negative where it falls; else 0. A car or a hedge
+ * rises on one side only, a quay wall or an embankment below a terrace
+ * falls on one side only; a hillside street tilts both ways alike
+ * (DevWorld's terrain as well). As the tower footprint's cursorSlope does
+ * it.
  */
-function crossSlope(axisY: number, up: ColumnSample | null, down: ColumnSample | null, surfaceY: SurfaceY): number {
-  if (up === null || down === null) return 0;
-  const rise = surfaceY(up) - axisY;
-  const fall = axisY - surfaceY(down);
-  if (rise <= 0 || fall <= 0 || Math.abs(rise - fall) > corridorConfig.stepRise) return 0;
-  return Math.min(rise, fall);
+function crossSlope(axisY: number, toward: ColumnSample | null, away: ColumnSample | null, surfaceY: SurfaceY): number {
+  if (toward === null || away === null) return 0;
+  const out = surfaceY(toward) - axisY;
+  const back = axisY - surfaceY(away);
+  if (out * back <= 0 || Math.abs(out - back) > corridorConfig.stepRise) return 0;
+  return Math.sign(out) * Math.min(Math.abs(out), Math.abs(back));
 }
 
 /** A point the corridor must not claim, local x, z: the centre of a cell an enemy could not walk to. */

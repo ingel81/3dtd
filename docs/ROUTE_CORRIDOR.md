@@ -21,7 +21,7 @@ Route (vom Spawn zum HQ).
 | Waypoints | `PathAndRouteService.buildRouteFromPath` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts`) | 2-m-Zellen im Korridor |
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/deck-approach.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Tunnelsohle |
-| Laufweg | `cellWalkable`, `walkCaps` (`utils/corridor-walk.ts`), `PathAndRouteService.narrowToWalkable`, `CorridorController.rebuildCorridors` | Zellen, zu denen kein Gegner laufen kann (Auto, Traufe, Hecke), fallen weg; die Halbbreite endet davor |
+| Laufweg | `cellWalkable`, `walkCaps` (`utils/corridor-walk.ts`), `PathAndRouteService.narrowToWalkable`, `CorridorController.rebuildCorridors` | Zellen, zu denen kein Gegner laufen kann (Auto, Traufe, Hecke, Böschung), fallen weg; die Halbbreite endet davor |
 | Gegner | `MovementComponent.advance` (`movement.component.ts`), `getRouteProfile` (`route-corridor.ts`) | Seitenversatz innerhalb der Zellen |
 | Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `CorridorController` (`services/world/corridor-controller.ts`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
 
@@ -50,13 +50,14 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 | `bulgeLength` | 8 | 0 bis 100 | Ausbuchtungen bis etwa so lang werden abgeschnitten |
 | `roofRise` | 2,5 | 0,5 bis 50 | Dach-Check: so weit über der Mittellinie daneben ist eine Zelle nicht begehbar (siehe Laufweg) |
 | `stepRise` | 0,5 | 0,1 bis 50 | Stufen-Check: höchste Stufe je Rasterschritt (2 m) auf dem Weg zur Zelle (siehe Laufweg; bis 2026-09-14 0,75) |
+| `stepDrop` | 0,5 | 0,1 bis 50 | Abfall-Check: tiefster Abfall je Rasterschritt auf dem Weg zur Zelle (siehe Laufweg; bis 2026-09-15 ohne Grenze); 50 schaltet ihn praktisch ab |
 | `highwayWidths` | Tabelle unten | je bis 50 | Straßenbreite je `highway`-Klasse |
 | `unknownHighwayWidth`, `laneWidth`, `laneExtra` | 5, 3, 1 | 1 bis 50, 1 bis 10, 0 bis 10 | Breite unbekannter Klassen, Spurbreite, Zuschlag bei `lanes` |
 
 `MEASUREMENT_KEYS` (`route-corridor.ts`) sind die Werte, deren Änderung
 eine neue Messung braucht: `stationSpacing`, `rayHeightLow`, `rayHeightHigh`,
 `maxHalfWidth`, `maxTileError`, `overhangDepth` und `lowWallRise` (der
-gespeicherte Freiraum entsteht beim Messen aus den Treffern), `roofRise` und `stepRise` (die
+gespeicherte Freiraum entsteht beim Messen aus den Treffern), `roofRise`, `stepRise` und `stepDrop` (die
 gespeicherten Kappen des Laufwegs entstehen aus den Zellen, siehe Laufweg).
 Die übrigen formen nur das Gemessene um.
 
@@ -496,13 +497,18 @@ auf dem Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Dec
   Cache der Engine). Eine Stelle gilt als erreicht, wenn ihr Boden
   höchstens `stepRise` (0,5 m) über dem höchsten bisher erreichten Boden
   liegt oder über dem zuletzt erreichten plus der Querneigung je Stelle
-  seitdem. Erreicht der Weg die Zelle nicht, ist sie nicht begehbar: Auto,
-  Transporter, Hecke, erhöhter Garten. Abwärts geht es beliebig weit (bis
-  `OUTLIER_M`, tiefer ist eine Naht).
+  seitdem, und höchstens `stepDrop` (0,5 m) unter dem tiefsten bisher
+  erreichten oder unter dem zuletzt erreichten minus der Querneigung je
+  Stelle seitdem. Erreicht der Weg die Zelle nicht, ist sie nicht begehbar:
+  zu hoch (`step`) auf Auto, Transporter, Hecke, erhöhtem Garten, zu tief
+  (`drop`) unter einer Böschung oder Kaimauer. Tiefer als `OUTLIER_M` ist
+  eine Naht.
   - **Querneigung:** Steigt der Boden einen Schritt von der Mittellinie
     entlang der geraden Linie zur Zelle um etwa so viel, wie er gespiegelt
     auf der anderen Seite fällt (beide höchstens `stepRise` auseinander),
-    darf der Weg je Stelle um das Kleinere der beiden mehr steigen. Eine
+    darf der Weg je Stelle um das Kleinere der beiden mehr steigen; fällt
+    er zur Zelle hin so, wie er gegenüber steigt, darf er je Stelle um so
+    viel mehr fallen. Eine
     Straße quer am Hang (auch DevWorld) behält so ihre Randzellen, solange
     sie höchstens `roofRise` über der Mittellinie liegen (Playtest 563).
     Gemessen auf der geraden Linie, nicht auf den Rasterstellen: Auf einer
@@ -522,6 +528,32 @@ auf dem Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Dec
     Hang misst die Stufe von der Querneigung aus: Ein Auto 0,6 m hoch auf
     der Bergseite einer Straße mit 15 % Querneigung fällt mit 0,5 m weg,
     mit 0,75 m blieb es (`integration/corridor-walk.spec.ts`).
+  - **Abfall-Check** (`stepDrop`, seit 2026-09-15): Bis dahin ging es
+    abwärts beliebig weit. Im Playtest 2026-09-15 (Retest 605, Rothenburg)
+    endete der Korridor an einer Straße quer am Hang bergseitig an der
+    Böschung, talseitig reichte er in Reihen die Böschung hinunter in den
+    Bewuchs. Der Schwellwert kommt aus synthetischen Böden (nicht
+    committete Spec): eine Straße 6 m breit mit 3 % Quergefälle zum Tal,
+    Böschung ab 3 m neben der Mittellinie, 60 Zellen talseitig in 4 und
+    6 m Abstand.
+
+    | `stepDrop` | Bordstein 0,2 m hinab, Rauschen ±0,1, Böschung 20 % einseitig: nicht begehbar | 15 % einseitig, diagonale Straße: nicht begehbar | Hang 40 % quer: nicht begehbar | Böschung 1:1,5: bleiben | 1:2: bleiben | 1:3: bleiben | 1:4: bleiben | Kaimauer 4 m: nicht begehbar |
+    |---|---|---|---|---|---|---|---|---|
+    | 0,3 | 53 | 65 | 0 | 0 | 0 | 0 | 30 | 70 |
+    | 0,4 | 0 | 65 | 0 | 0 | 0 | 30 | 30 | 70 |
+    | 0,5 | 0 | 0 | 0 | 0 | 30 | 30 | 60 | 70 |
+    | 0,75 | 0 | 0 | 0 | 30 | 30 | 60 | 60 | 70 |
+    | 50 | 0 | 0 | 0 | 60 | 60 | 60 | 60 | 0 |
+
+    0,5 m ist wie beim Stufen-Check der tiefste der geprüften Werte, der
+    Bordstein, Rauschen und die einseitigen Böschungen mit 20 % entlang
+    der Achsen und 15 % diagonal hält. Damit endet der Korridor an einer
+    Böschung 1:1,5 an der Straßenkante, an 1:2 und 1:3 nach der ersten
+    Reihe (1 m in der Böschung); eine Böschung 1:4 bleibt bis
+    `maxHalfWidth`, wie eine gleich steile bergseitig. Ebenso endet er an
+    einer Kaimauer, einer Stützmauer oder einer tiefer liegenden Straße
+    daneben. `pick()` zeigt `walkCheck: 'drop'`, abschaltbar mit
+    `__corridor.set({ stepDrop: 50 })` (misst neu).
 - **Kein Urteil** (`null`): Zellen, durch die eine Mittellinie läuft,
   auch wenn sie nur eine Ecke anschneidet (`centreLineKeys`; der Korridor
   nimmt sie bei jeder Breite, `walkCaps` lässt sie aus), Deck und Tunnel,
@@ -909,7 +941,7 @@ __corridor.pick(6)
      - Lage und Zelle: `routeM`, `cell`, `state`, `heightM`, `walkable`
        (`cellWalkable`; `false`: kein Gegner kann dorthin laufen, der Korridor
        hält die Zelle trotzdem), `walkCheck` (warum: `walkable`, `roof`,
-       `step`, `centre line`, `centre line on a roof` (auf die Straße gesetzt,
+       `step`, `drop`, `centre line`, `centre line on a roof` (auf die Straße gesetzt,
        siehe Zellhöhe), `coarse tile`, `no sample`, `deck or tunnel`,
        `no bridge end` (Strecke hinter einem Brückenende ohne Säule dort),
        `no centre line ground`, `seam`), `overLineM` (Höhe über der
@@ -1183,6 +1215,13 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Photogrammetrie zu einer Böschung verschmilzt, die je Rasterschritt
   höchstens `stepRise` steigt und unter `roofRise` bleibt, ist vom Hang nicht
   zu unterscheiden und bleibt im Korridor.
+- Abfall-Check: Eine Böschung bis 25 % entlang der Rasterachsen (diagonal
+  etwa 17 %) bleibt im Korridor. Liegt an einer schmalen Straße schon die
+  erste Rasterstelle neben der Mittellinie auf Böschung und Hang, nimmt der
+  Check die Neigung für eine Straße quer am Hang, und die Böschung bleibt.
+  Eine Straße auf einem Grat oder Damm, der zu beiden Seiten mehr als
+  0,5 m je Rasterschritt fällt, verliert dort die Randzellen (nichts zu
+  spiegeln), auch in DevWorld. Nicht im Spiel geprüft.
 - Steht an einem Hang zur Zelle hin ein Auto und fällt die andere Seite
   ähnlich stark, nimmt der Stufen-Check die Neigung für den Hang und lässt
   die Zelle im Korridor, auf dem Autodach. Liegt eine Randzelle am Hang

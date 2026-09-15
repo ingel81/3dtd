@@ -139,6 +139,18 @@ export interface CorridorConfig {
    */
   stepRise: number;
   /**
+   * The mirror of `stepRise`: no enemy walks to a route cell a walk from the
+   * centre line cannot get down to, each step at most this much: an
+   * embankment below a street across a slope, a quay or retaining wall, the
+   * river or the street under it. A gutter, a kerb down, a ramp and the
+   * cross slope of a street across a hillside stay walkable. 0.5 m, as
+   * `stepRise`: a bank falling on one side only stays walkable up to 25 %
+   * across the grid axes, about 17 % on a diagonal; 1 in 1.5 is a common
+   * embankment. Until 2026-09-15 a walk went down any drop (playtest
+   * 2026-09-15, Rothenburg: cells down the embankment on the valley side).
+   */
+  stepDrop: number;
+  /**
    * Typical carriageway width per `highway` class, for stations the tiles
    * cannot measure. Used when a way has neither `width` nor `lanes`, which
    * is most of them. Motorways are mapped per direction, so the value is
@@ -172,6 +184,7 @@ export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
   bulgeLength: 8,
   roofRise: 2.5,
   stepRise: 0.5,
+  stepDrop: 0.5,
   highwayWidths: Object.freeze({
     motorway: 11,
     trunk: 9,
@@ -231,6 +244,7 @@ export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = [
   'lowWallRise',
   'roofRise',
   'stepRise',
+  'stepDrop',
 ];
 
 /** Allowed range per numeric setting, inclusive. */
@@ -256,6 +270,8 @@ const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [nu
   bulgeLength: [0, 100],
   roofRise: [0.5, 50],
   stepRise: [0.1, 50],
+  // 50: a walk goes down any drop up to OUTLIER_M, as until 2026-09-15.
+  stepDrop: [0.1, 50],
   unknownHighwayWidth: [1, 50],
   laneWidth: [1, 10],
   laneExtra: [0, 10],

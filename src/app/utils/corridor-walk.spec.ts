@@ -95,7 +95,9 @@ describe('walkCaps', () => {
 });
 
 describe('cellWalkable', () => {
-  const flat = (): ColumnSample => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 2 });
+  afterEach(() => resetCorridorConfig());
+
+  const flat =(): ColumnSample => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 2 });
   /** The columns, and a centre line running east through the grid spots at z = 1 (and through (1, 5) with `through`). */
   const ground = (column: ColumnAt, through = false, line: Pick<RouteCell, 'surface' | 'deckEnd'> = { surface: 'ground', deckEnd: null }): WalkGround => ({
     column,
@@ -132,6 +134,16 @@ describe('cellWalkable', () => {
     const roof = (x: number, z: number): ColumnSample => ({ ...flat(), groundY: x === 1 && z === 5 ? 3 : 0 });
     expect(judgeWalk(cell({ terrainHeight: 0 }), ground(roof, true), 2))
       .toEqual({ walkable: null, check: 'centre line on a roof', overLine: 0 });
+  });
+
+  it('tells a drop from a step, and takes it from corridorConfig.stepDrop', () => {
+    // 1 m below the centre line, 4 m out: a drop of 1 m on the last step.
+    expect(judgeWalk(cell({ terrainHeight: -1 }), ground(flat), 2)).toEqual({ walkable: false, check: 'drop', overLine: -1 });
+    // 0.4 m per step down a slope on one side only, nothing to mirror.
+    const bank = (_x: number, z: number): ColumnSample => ({ ...flat(), groundY: z > 2 ? -0.2 * (z - 1) : 0 });
+    expect(judgeWalk(cell({ terrainHeight: -0.8 }), ground(bank), 2).check).toBe('walkable');
+    corridorConfig.stepDrop = 1.5;
+    expect(cellWalkable(cell({ terrainHeight: -1 }), ground(flat), 2)).toBe(true);
   });
 
   it('walks out on the deck carried on past a bridge end, not on the quay under it', () => {
