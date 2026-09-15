@@ -311,7 +311,8 @@ Aufbau: Cheat "Credits", ein Archer an die Route.
   Der Fehler beginnt mit der ersten Bewegung des Helden. `__towerTargets()` im Fehlerzustand: tower-2 und tower-3
   "no target, asleep (wake check every 500 ms)", `sleeping: true`, `visibleCells: 241`, "2 tower(s) with an enemy
   near". Die Sicht ist also in Ordnung, die Tower schlafen und wachen trotz Gegnern nicht mehr auf. Es reicht, den
-  Helden ein paar Meter am HQ zu bewegen, 900 m von den Towern entfernt: ein globaler Zustand, keine Nähe.
+  Helden ein paar Meter am HQ zu bewegen, 900 m von den Towern entfernt: ein globaler Zustand, keine Nähe. Später trat
+  es auch ganz ohne Bewegung des Helden auf: ein allgemeiner Fehler im Schlaf/Aufwach-Pfad der Tower.
 
 ### Runde 12: Blutmond (644 bis 647)
 
@@ -322,14 +323,16 @@ nicht Space, sondern eine Custom Wave "Zombie", Count 30: sie zählt als Welle 1
 (Die echte Welle 14 bringt Mammuts und Wallsmasher, keine Zombies.)
 
 - **644** (373): Haben die Gegner einen roten Rand? Beginnt der Lichtkegel des Sockel-Towers oben am Tower, nicht im
-  Sockel?
+  Sockel? **ok (2026-09-15)**, funktional; der Kegel der Gatling sitzt minimal zu hoch. Wünsche (TODO 3.7):
+  Kegelhöhe je Tower in den Tower-Debug-Tools feinjustierbar; Debug-Schalter, der Blutmond (und künftige Modi) mit
+  allem Zubehör erzwingt.
 - **645** (422): Den Ice Tower Zombies töten lassen. Sind Eis- und Blutflecken am Boden rot getönt wie der Boden,
-  nicht hell leuchtend?
+  nicht hell leuchtend? **ok (2026-09-15)**
 - **646** (376): Noch in dieser Welle Display-Menü, Effects, "Bloom" an. Bleibt die rote Tönung etwa gleich? Ist der
-  Kegel über hellem Boden schwächer?
+  Kegel über hellem Boden schwächer? **ok (2026-09-15)**
 - **647** (376): Nach dem Ende der Welle "Jump to wave" 21, Space: Welle 21 bringt Fledermäuse. Sind sie rot getönt
   wie die anderen Gegner? Danach "Jump to wave" 35, Space: glühen die Skarnax-Ringe rot, auch der neue Kopf nach einem
-  Split?
+  Split? **ok (2026-09-15)**
 
 ### Runde 13: Neustart, Musik, Game Over, Dialoge, Verkauf (648 bis 652)
 
