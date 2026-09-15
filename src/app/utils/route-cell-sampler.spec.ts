@@ -13,7 +13,7 @@ const approachCell = (): RouteCell => ({
   terrainHeight: 80,
   surface: 'approach',
   tunnelSpan: null,
-  deckEnd: { x: 0, z: 0 },
+  deckEnd: { path: [{ x: 0, z: 0 }, { x: 10, z: 0 }], m: 10 },
   routeAnchorY: 80,
   sample: { state: 'unsampled', sampledAt: 0, tileDepth: 0, tileGeometricError: Infinity },
   heightSampled: false,

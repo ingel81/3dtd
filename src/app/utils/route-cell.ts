@@ -64,9 +64,10 @@ export interface RouteCell {
   /**
    * Which surface of the column the cell stands on: `ground` is the lowest
    * hit, `deck` the highest, the deck of a bridge the route crosses rather
-   * than the river or road below it. `approach`: on a way that continues a
-   * bridge, near its end (deck-approach.ts), the highest hit where it
-   * carries on the deck at the bridge end (`deckEnd`), else the lowest.
+   * than the river or road below it. `approach`: on the route off a bridge
+   * end, near it (deck-approach.ts), the hit nearest to the height the route
+   * carries there from the bridge end (`deckEnd`), the deck carried on over
+   * a quay or road below, the ground of a street or stairs on their own.
    * `tunnel`: none of them, the cell lies in a tunnel or covered passage
    * and takes its height between the portals (`tunnelSpan`). Set at
    * generation from the OSM tags of the segments that reach the cell, read
@@ -76,8 +77,8 @@ export interface RouteCell {
   /** Portals a `tunnel` cell takes its height between; null on every other cell. */
   tunnelSpan: TunnelSpan | null;
   /**
-   * Where the bridge an `approach` cell continues ends, local x, z: the top
-   * of the column there is the deck height it compares with
+   * Where an `approach` cell lies on the route off a bridge end: the height
+   * the route carries there (carriedDeckY) is what its hits compare with
    * (deckApproachY). Null on every other cell.
    */
   deckEnd: DeckEnd | null;
@@ -120,10 +121,14 @@ export interface TunnelSpan {
   f: number;
 }
 
-/** The end of a bridge, local x, z, see RouteCell.deckEnd. */
+/**
+ * A point on the route off a bridge end, see RouteCell.deckEnd: `path`,
+ * the route from the bridge end on, local x, z, its first point the bridge
+ * end; `m`, how far along it the point lies, metres.
+ */
 export interface DeckEnd {
-  x: number;
-  z: number;
+  path: readonly { x: number; z: number }[];
+  m: number;
 }
 
 /**

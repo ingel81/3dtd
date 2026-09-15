@@ -307,7 +307,7 @@ describe('TerrainQueries', () => {
       car.addTile(floor(0, 6), 3, FINE);
       car.addTile(wall(3, 1.5), 3, FINE);
       car.addTile(floor(1.5, 2, 4, 0), 3, FINE);
-      const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10, false, { x: 0, z: 1 })!;
+      const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10, false, { path: [{ x: 0, z: 1 }, { x: 0, z: 0 }], m: 1 })!;
       expect(probe.right.map((d) => +d.toFixed(6))).toEqual([3, 10]);
       expect(probe.lowRise).toEqual({ left: NaN, right: NaN });
     });
@@ -317,17 +317,17 @@ describe('TerrainQueries', () => {
       const { queries, addTile } = street();
       addTile(floor(6, 4), 3, FINE);
       addTile(wall(2, 10, 5), 3, FINE);
-      // Das Brückenende auf dem Deck: die Säule setzt es fort, die Strahlen gehen über das Deck.
-      const onDeck = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { x: 0, z: 1.5 });
+      // Das Brückenende auf dem Deck: die Route trägt das Deck bis hier, die Strahlen gehen über das Deck.
+      const onDeck = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 0, z: 1.5 }, { x: 0, z: 0 }], m: 1.5 });
       expect(onDeck?.right.map((d) => +d.toFixed(6))).toEqual([2]);
-      // Das Brückenende 6 m tiefer als die Oberkante hier: die Säule behält ihren Boden.
-      const below = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { x: 0, z: 10 });
+      // Das Brückenende 6 m tiefer, die Route von dort auf der Straße: die Säule behält ihren Boden.
+      const below = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 0, z: 10 }, { x: 0, z: 0 }], m: 10 });
       expect(below?.right.map((d) => +d.toFixed(6))).toEqual([4]);
     });
 
     it('lässt eine Station auf der Fortsetzung ungemessen, solange das Brückenende keine feine Säule hat', () => {
       const { queries } = street();
-      expect(queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { x: 100, z: 100 })).toEqual({
+      expect(queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 100, z: 100 }, { x: 0, z: 0 }], m: 141 })).toEqual({
         unmeasured: 'no bridge end', tileError: FINE, left: [], right: [],
       });
     });
@@ -545,14 +545,19 @@ describe('TerrainQueries', () => {
         expect(at(0, 0, null)(queries)).toBeCloseTo(0, 6);
       });
 
-      it('trägt das Deck auf einem Way hinter dem Brückenende weiter, wo die Oberkante zu der dort passt', () => {
+      /** Der Weg vom Brückenende (x0, z0) gerade zum Punkt (x, z). */
+      const from = (x0: number, z0: number, x: number, z: number) => ({ path: [geo(x0, z0), geo(x, z)], m: Math.hypot(x - x0, z - z0) });
+
+      it('nimmt hinter dem Brückenende die Höhe, die der Weg von dort trägt', () => {
         const { queries } = quay();
         // Brückenende bei z = -4, der Punkt 7 m weiter nördlich noch über dem Kai.
-        expect(at(0, 3, geo(0, -4))(queries)).toBeCloseTo(9, 6);
+        expect(at(0, 3, from(0, -4, 0, 3))(queries)).toBeCloseTo(9, 6);
+        // Um die Ecke, noch über dem Kai.
+        expect(at(4, 0, { path: [geo(0, -4), geo(0, 0), geo(4, 0)], m: 8 })(queries)).toBeCloseTo(9, 6);
         // Über dem offenen Kai hinter dem Deck: kein Deck, der Boden.
-        expect(at(0, 8, geo(0, -4))(queries)).toBeCloseTo(0, 6);
+        expect(at(0, 8, from(0, -4, 0, 8))(queries)).toBeCloseTo(0, 6);
         // Ohne Säule am Brückenende: wie überall.
-        expect(at(0, 3, geo(30, 30))(queries)).toBeCloseTo(0, 6);
+        expect(at(0, 3, from(90, 90, 0, 3))(queries)).toBeCloseTo(0, 6);
       });
 
       it('lässt eine Straße auf Deckhöhe unter einer Krone am Boden', () => {
@@ -560,7 +565,14 @@ describe('TerrainQueries', () => {
         addTile(floor(0, 40), 3, 2);
         // Krone 8 m über der Straße bei x = 10; das Brückenende auf der Straße.
         addTile(floor(8, 2, 10, 0), 3, 2);
-        expect(at(10, 0, geo(10, -10))(queries)).toBeCloseTo(0, 6);
+        expect(at(10, 0, from(10, -10, 10, 0))(queries)).toBeCloseTo(0, 6);
+      });
+
+      it('nimmt unter einem Schild weit über dem Deck die getragene Höhe, wie eine Zelle auf der Mittellinie', () => {
+        const { queries, addTile } = quay();
+        // Ein Schild 8 m über dem Deck bei z = 2; der Kai liegt 9 m unter dem Deck, weiter weg als das Schild.
+        addTile(floor(17, 1, 0, 2), 3, 2);
+        expect(at(0, 2, from(0, -4, 0, 2))(queries)).toBeCloseTo(9, 6);
       });
     });
 

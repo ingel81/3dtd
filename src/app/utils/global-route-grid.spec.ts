@@ -885,10 +885,11 @@ describe('GlobalRouteGrid bridges', () => {
   });
 
   it('keeps the deck where the approach reaches it with its round end, and the approach where the bridge does', () => {
-    // A gantry 12 m up over the approach just before the bridge: a cell of
-    // the approach stays under it, a deck cell would take its top.
+    // A gantry 20 m up over the approach just before the bridge, farther
+    // over the deck (8 m) than the ground under it: a cell of the approach
+    // stays under it, a deck cell would take its top.
     const gantry = new GlobalRouteGrid();
-    gantry.initialize(((x: number) => (x > 26 && x < 30 ? { ...deck(x), topY: 12 } : deck(x))) as never, coordinateSync);
+    gantry.initialize(((x: number) => (x > 26 && x < 30 ? { ...deck(x), topY: 20 } : deck(x))) as never, coordinateSync);
     gantry.generateFromRoutes([[at(0, 0), at(30, 0, true), at(60, 0)]]);
     // Centre (31, 1) lies along the bridge, 1.4 m from the approach's end;
     // (29, 1) along the approach, 1.4 m from the bridge's start.
@@ -957,7 +958,8 @@ describe('GlobalRouteGrid bridges', () => {
       }
       // The red line takes its heights at the waypoints, the enemies from the cells.
       for (const x of [24, 30, 90, 96]) expect(bridge.getGroundLocalYAt(x, 0), `waypoint ${x}`).toBe(80);
-      expect(bridge.getCellAt(25, 5)).toMatchObject({ surface: 'approach', deckEnd: { x: 30, z: 0 } });
+      expect(bridge.getCellAt(25, 5)).toMatchObject({ surface: 'approach' });
+      expect(bridge.getCellAt(25, 5)!.deckEnd!.path[0]).toEqual({ x: 30, z: 0 });
       // The walk check judges them from the centre line on the deck.
       expect(bridge.unwalkableCells()).toEqual([]);
       // Beside the deck, over the open quay, the ground.
@@ -987,12 +989,86 @@ describe('GlobalRouteGrid bridges', () => {
     });
 
     it('carries the deck no further than DECK_APPROACH_M past the end of the bridge way', () => {
-      // The deck on to x = 150 this time.
+      // The deck and the route on to x = 190 this time.
       const long = (x: number, z: number) => head(Math.min(x, 100), z);
-      const bridge = build(long, [route]);
-      expect(bridge.getGroundLocalYAt(127, 1)).toBe(80);
-      // Centre (133, 1): 43 m past the end at x = 90.
-      expect(bridge.getGroundLocalYAt(133, 1)).toBe(70);
+      const bridge = build(long, [[...route.slice(0, -1), wide(190)]]);
+      expect(bridge.getGroundLocalYAt(147, 1)).toBe(80);
+      // Centre (153, 1): 63 m past the end at x = 90.
+      expect(bridge.getGroundLocalYAt(153, 1)).toBe(70);
+    });
+
+    /**
+     * A junction right past a bridge end where the route turns, over a road
+     * under the square there (the case named for the retest 2026-09-15; the
+     * picks came from Place de Varsovie, below).
+     */
+    it('keeps the square round a corner right past a bridge end on its level, over a road under it', () => {
+      // Past the east end (x = 90) a square at 80 m, a road under it at 71 m from x = 92 to 100.
+      const square = (x: number, z: number): ColumnSample => (x < 90 ? head(x, z)
+        : x > 92 && x < 100 && z > -9 && z < 30 ? { groundY: 71, topY: 80, tileDepth: 20, tileGeometricError: 2 }
+          : { groundY: 80, topY: 80, tileDepth: 20, tileGeometricError: 2 });
+      const off = (x: number, z: number): RouteWaypoint => ({ lat: z, lon: x, corridorLeft: 7, corridorRight: 7 });
+      // A junction 6 m past the end, then south along x = 96.
+      const bridge = build(square, [[wide(0), wide(16), wide(24), wide(30, true), wide(90), off(96, 0), off(96, 40)]]);
+      for (const x of [93, 95, 97, 99]) {
+        for (const z of [5, 11, 17, 25]) expect(bridge.getGroundLocalYAt(x, z), `${x}, ${z}`).toBe(80);
+      }
+      // The red line takes its heights at the waypoints.
+      for (const z of [0, 40]) expect(bridge.getGroundLocalYAt(96, z), `waypoint 96, ${z}`).toBe(80);
+      expect(bridge.getCellAt(95, 11)).toMatchObject({ surface: 'approach' });
+      expect(bridge.unwalkableCells()).toEqual([]);
+    });
+
+    /**
+     * Retest 2026-09-15, Paris, Pont d'Iéna, head at Place de Varsovie: the
+     * route comes down a way of 34 m, turns 35 degrees onto Avenue de New
+     * York (18 m) and 90 degrees onto a way of 9 m to the bridge way. The
+     * columns of the road there have a second surface 1.2 to 3.9 m under it
+     * in the same tile (picks A and C), at one spot the road 10 m below
+     * (pick B). The turn ended the stretch after 9 m, and the cells behind
+     * it took the surface under the road.
+     */
+    it('keeps the road over a hollow on its level where the route turns twice before a bridge', () => {
+      const under = (groundY: number): ColumnSample => ({ groundY, topY: 80, tileDepth: 20, tileGeometricError: 2 });
+      // The road at 80 m; along x = 21.3 from z = -16 to -1 a surface 1.3 to 3 m under it, round (21.3, -17.6) the road 10 m under it.
+      const varsovie = (x: number, z: number): ColumnSample => {
+        if (Math.abs(x - 21.3) < 4 && z > -16 && z < -1) return under(z < -8 ? 77 : 78.7);
+        if (Math.hypot(x - 21.3, z + 17.6) < 3) return under(70);
+        return x >= 30 && x < 90 ? under(70) : under(80);
+      };
+      const off = (x: number, z: number, onBridge?: boolean): RouteWaypoint =>
+        ({ lat: z, lon: x, corridorLeft: 3, corridorRight: 3, onBridge });
+      // In travel order: 34.4 m, a turn of 35 degrees, 17.6 m, a turn of 90 degrees, 8.7 m, the bridge 30 to 90.
+      const bridge = build(varsovie, [[off(1.57, -45.78), off(21.3, -17.6), off(21.3, 0), off(30, 0, true), off(90, 0), off(120, 0)]]);
+      for (const x of [19, 21, 23]) {
+        for (const z of [-19, -17, -15, -11, -7, -3]) expect(bridge.getGroundLocalYAt(x, z), `${x}, ${z}`).toBe(80);
+      }
+      // The red line takes its heights at the waypoints.
+      for (const z of [-17.6, 0]) expect(bridge.getGroundLocalYAt(21.3, z), `waypoint 21.3, ${z}`).toBe(80);
+      expect(bridge.getCellAt(21, -11)).toMatchObject({ surface: 'approach' });
+      expect(bridge.unwalkableCells()).toEqual([]);
+    });
+
+    it('follows stairs off a bridge end down to the quay, and keeps the quay under a deck there', () => {
+      // Off the east end (x = 90) south: the deck to z = 9, stairs down to
+      // the quay from z = 9 to 25 (1.25 m every 2 m), then the quay, under
+      // another deck at 80 m from z = 36 to 44.
+      const stairs = (x: number, z: number): ColumnSample => {
+        if (x > 84 && x < 96 && z >= 9 && z < 25) {
+          const y = 80 - (z - 9) * 0.625;
+          return { groundY: y, topY: y, tileDepth: 20, tileGeometricError: 2 };
+        }
+        if (x > 80 && x < 100 && z > 36 && z < 44) return { groundY: 70, topY: 80, tileDepth: 20, tileGeometricError: 2 };
+        return head(x, z);
+      };
+      const off = (x: number, z: number): RouteWaypoint => ({ lat: z, lon: x, corridorLeft: 3, corridorRight: 3 });
+      const bridge = build(stairs, [[wide(0), wide(16), wide(24), wide(30, true), off(90, 0), off(90, 9), off(90, 25), off(90, 60)]]);
+      // Centre (89, 13) and (91, 13): 2.5 m down the stairs.
+      expect(bridge.getGroundLocalYAt(89, 13)).toBe(77.5);
+      expect(bridge.getGroundLocalYAt(91, 13)).toBe(77.5);
+      for (const z of [37, 39, 41, 43]) {
+        expect(bridge.getCellAt(91, z), `91, ${z}`).toMatchObject({ surface: 'approach', terrainHeight: 70 });
+      }
     });
 
     it('leaves a street under the deck on the ground', () => {

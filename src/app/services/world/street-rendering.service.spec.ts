@@ -31,14 +31,15 @@ describe('StreetRenderingService', () => {
    */
   it('draws a bridge way and the ways off its ends on the deck, other streets on their ground', () => {
     const n = {
-      west: node(1, 0, 0), east: node(2, 60, 0), a: node(3, 67, 0), b: node(4, 120, 0), under1: node(5, 30, -20), under2: node(6, 30, 20),
+      west: node(1, 0, 0), east: node(2, 60, 0), a: node(3, 67, 0), b: node(4, 130, 0), under1: node(5, 30, -20), under2: node(6, 30, 20),
     };
     const way = (id: number, nodes: StreetNode[], bridge?: string): Street => ({ id, name: '', type: 'service', nodes, bridge });
     const streets = [way(100, [n.west, n.east], 'yes'), way(200, [n.east, n.a, n.b]), way(300, [n.under1, n.under2])];
     const network = { streets, nodes: new Map(), bounds: { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 } } as unknown as StreetNetwork;
 
     // The deck at 80 m, the ground under it and beside it at 70 m.
-    const asked: [number, StreetDeck | null][] = [];
+    // Per node: 'bridge', the ids along the way from the bridge end and its length, or null.
+    const asked: [number, unknown][] = [];
     const overlay = new Group();
     const engine = {
       getOverlayGroup: () => overlay,
@@ -46,7 +47,9 @@ describe('StreetRenderingService', () => {
       sync: { geoToLocalSimple: (lat: number, lon: number, h: number) => new Vector3(lon * METERS_PER_DEGREE_LAT, h, -lat * METERS_PER_DEGREE_LAT) },
       terrain: {
         getStreetHeightEstimate: (lat: number, lon: number, _pl: number, _po: number, _nl: number, _no: number, deck: StreetDeck | null) => {
-          asked.push([Object.values(n).find((p) => p.lat === lat && p.lon === lon)!.id, deck]);
+          const id = Object.values(n).find((p) => p.lat === lat && p.lon === lon)!.id;
+          const way = deck === null || deck === 'bridge' ? deck : [deck.path.map((p) => (p as StreetNode).id), Math.round(deck.m)];
+          asked.push([id, way]);
           return deck === null ? 70 : 80;
         },
       },
@@ -57,10 +60,10 @@ describe('StreetRenderingService', () => {
     expect(asked).toEqual([
       [n.west.id, 'bridge'],
       [n.east.id, 'bridge'],
-      // The way off the east end: its first node and the one 7 m on compare
-      // with the end node; 60 m on, its ground.
-      [n.east.id, n.east],
-      [n.a.id, n.east],
+      // The way off the east end: its first node and the one 7 m on take
+      // the height carried from the end node; 70 m on, its ground.
+      [n.east.id, [[n.east.id], 0]],
+      [n.a.id, [[n.east.id, n.a.id], 7]],
       [n.b.id, null],
       // The street under the bridge: its ground.
       [n.under1.id, null],

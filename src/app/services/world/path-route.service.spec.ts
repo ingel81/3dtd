@@ -96,7 +96,7 @@ function makeEngine(): ThreeTilesEngine {
       getStreetHeightEstimate: () => 0,
       measureStreetClearance: (
         x: number, z: number, ax: number, az: number, heights: readonly number[], max: number, onDeck = false,
-        deckEnd: { x: number; z: number } | null = null,
+        deckEnd: { path: readonly { x: number; z: number }[]; m: number } | null = null,
       ): StationProbe => {
         probeCalls.push([x, z, ax, az, [...heights], max, onDeck, deckEnd]);
         const free = clearanceAt(x, z, max);
@@ -591,24 +591,27 @@ describe('PathAndRouteService route geometry', () => {
       });
 
       it('judges no low wall on a bridge and on the stretch off its end, which measures against the deck at that end', () => {
-        // Way 200 is a bridge; way 100 runs straight on from its end at n1,
-        // so its last DECK_APPROACH_M (40 m) carry the deck on.
+        // Way 200 is a bridge; way 100 runs on from its end at n1, so its
+        // last DECK_APPROACH_M (60 m) follow the height carried from there.
         network = makeNetwork([
           { id: 100, nodes: [n10, n1] },
           { id: 200, type: 'primary', width: 12, bridge: 'yes', nodes: [n1, n2, n3] },
           { id: 300, nodes: [n3, n30] },
         ]);
-        const service = buildRouteService(network, spawn, hq);
+        // The spawn 100 m south of n1, so way 100 reaches past the stretch.
+        const service = buildRouteService(network, { lat: 47.9991, lon: 9.0 }, hq);
         probeCalls.length = 0;
         measure(service);
 
         const onWay100 = probeCalls.filter(([x, z]) => Math.abs(x as number) < 1 && northOfN1(z as number) < -1);
-        const near = onWay100.filter(([, z]) => northOfN1(z as number) > -39);
-        const far = onWay100.filter(([, z]) => northOfN1(z as number) < -41);
+        const near = onWay100.filter(([, z]) => northOfN1(z as number) > -59);
+        const far = onWay100.filter(([, z]) => northOfN1(z as number) < -61);
         expect(near.length).toBeGreaterThan(10);
         // The bridge end of these stations is n1, where way 200 starts.
-        const atN1 = (end: unknown) =>
-          end !== null && Math.abs((end as { x: number }).x) < 1 && Math.abs(northOfN1((end as { z: number }).z)) < 1;
+        const atN1 = (deck: unknown) => {
+          const end = deck === null ? null : (deck as { path: { x: number; z: number }[] }).path[0];
+          return end !== null && Math.abs(end.x) < 1 && Math.abs(northOfN1(end.z)) < 1;
+        };
         expect(near.every((call) => call[6] === false && atN1(call[7]))).toBe(true);
         expect(far.length).toBeGreaterThan(3);
         expect(far.every((call) => call[7] === null)).toBe(true);

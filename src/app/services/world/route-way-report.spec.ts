@@ -94,9 +94,12 @@ describe('describeRouteWays', () => {
 
     expect(decks).toHaveLength(51 + 16 + 31);
     expect(decks.slice(0, 51).every((d) => d === 'bridge')).toBe(true);
-    // The bridge end is the waypoint after the bridge, up to 40 m on: 29 m,
-    // then 6 samples of the last segment (0 to 10 of its 59 m).
-    expect(decks.slice(51, 67 + 6).every((d) => d === path[1])).toBe(true);
-    expect(decks.slice(67 + 6).every((d) => d === null)).toBe(true);
+    // The route from the bridge end, the waypoint after the bridge, up to
+    // 60 m on: 29 m, then 16 samples of the last segment (0 to 30 of its 59 m).
+    const off = decks.slice(51, 67 + 16) as { path: RouteWaypoint[]; m: number }[];
+    expect(off.every((d) => d !== null && typeof d === 'object' && d.path[0] === path[1])).toBe(true);
+    expect(off[16].path).toEqual([path[1], path[2], path[3]]);
+    expect(off[16].m).toBeCloseTo(29, 3);
+    expect(decks.slice(67 + 16).every((d) => d === null)).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 import { ColumnSample, ColumnSampler, TerrainPeekLOD, isBetterLod } from '../three-engine/column-sample';
 import { RouteCell, TunnelSpan } from './route-cell';
-import { surfaceY } from './deck-approach';
+import { carriedDeckY, surfaceY } from './deck-approach';
 import { logGrid } from './route-grid-log';
 
 /** What one column gives a cell, see RouteCellSampler.hitOf. */
@@ -139,7 +139,8 @@ export class RouteCellSampler {
         let depth = peek.depth;
         let geometricError = peek.geometricError;
         if (cell.surface === 'approach' && cell.deckEnd !== null) {
-          const deck = this.terrainPeekLOD(cell.deckEnd.x, cell.deckEnd.z);
+          const end = cell.deckEnd.path[0];
+          const deck = this.terrainPeekLOD(end.x, end.z);
           depth = Math.min(depth, deck?.depth ?? 0);
           geometricError = Math.max(geometricError, deck?.geometricError ?? Infinity);
         }
@@ -162,7 +163,8 @@ export class RouteCellSampler {
     // discards hits without usable LOD info (undecoded tile meshes) and
     // resolves ground against the finest LOD in it. A tunnel cell takes its
     // portals instead. A cell on the stretch off a bridge end compares with
-    // the deck at that end, and like a tunnel cell waits for a column there.
+    // the height the route carries there from that end (carriedDeckY), and
+    // like a tunnel cell waits for a column at the bridge end.
     this.raycastCount++;
     const sampler = this.columnSampler;
     if (sampler === null) return false;
@@ -172,16 +174,17 @@ export class RouteCellSampler {
     if (cell.surface === 'tunnel' && cell.tunnelSpan) {
       const column = this.tunnelColumn(cell.tunnelSpan);
       found = column !== null;
-      if (column !== null) hit = this.plausible(cell, this.hitOf(cell, column, null));
+      if (column !== null) hit = this.plausible(cell, this.hitOf(cell, column, null, null));
     } else {
       const deckEnd = cell.surface === 'approach' ? cell.deckEnd : null;
-      const deck = deckEnd ? this.columnNear(deckEnd.x, deckEnd.z) : null;
+      const deck = deckEnd ? this.columnNear(deckEnd.path[0].x, deckEnd.path[0].z) : null;
+      const carried = deckEnd && deck ? carriedDeckY(deckEnd, (x, z) => this.columnNear(x, z)) : null;
       for (const [dx, dz] of RouteCellSampler.CELL_PROBES_M) {
         if (deckEnd !== null && deck === null) break;
         const column = sampler(cell.x + dx, cell.z + dz);
         if (column === null) continue;
         found = true;
-        hit = this.plausible(cell, this.hitOf(cell, column, deck));
+        hit = this.plausible(cell, this.hitOf(cell, column, deck, carried));
         if (hit !== null) break;
       }
     }
@@ -266,19 +269,20 @@ export class RouteCellSampler {
   /**
    * The height `column` gives `cell`: a bridge deck is the top of its
    * column, the ground is the bottom. On the stretch off a bridge end
-   * (`deck`, the column at that end) the top where it carries on the deck,
-   * else the bottom (deckApproachY), with the coarser LOD of the two
-   * columns, so the cell is sampled again once the bridge end has a finer
-   * tile. Under a flat roof the bottom is usually the street: playtest
+   * (`deck`, the column at that end) the hit nearest to the height the
+   * route carries there (`carried`, deckApproachY), with the coarser LOD of
+   * the two columns, so the cell is sampled again once the bridge end has a
+   * finer tile; the columns carriedDeckY reads between the two do not count
+   * in it. Under a flat roof the bottom is usually the street: playtest
    * 2026-09-14 (Tokyo), roofs at 70.5 to 99.3 m had their column's ground at
    * 39.5 to 39.9 m. A column at the corridor edge can still come down on a
    * roof, an eave, a crown or a parked car with no ground showing under it;
    * the cell keeps that height, and the corridor ends before such a cell
    * instead (corridor-walk.ts).
    */
-  private hitOf(cell: RouteCell, column: ColumnSample, deck: ColumnSample | null): CellHit {
+  private hitOf(cell: RouteCell, column: ColumnSample, deck: ColumnSample | null, carried: number | null): CellHit {
     // A tunnel cell's column is already the one between its portals (tunnelColumn).
-    const y = cell.surface === 'tunnel' ? column.groundY : surfaceY(cell.surface, column, deck?.topY ?? null) ?? column.groundY;
+    const y = cell.surface === 'tunnel' ? column.groundY : surfaceY(cell.surface, column, carried) ?? column.groundY;
     if (deck !== null) {
       return {
         y,
