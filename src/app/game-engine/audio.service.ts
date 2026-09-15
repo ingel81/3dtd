@@ -1,7 +1,9 @@
+import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 import { ABILITY_IMPACT_SOUNDS, type AbilityImpactSample } from '../configs/audio.config';
 import type { SpatialSoundConfig } from '../managers/audio/spatial-audio.manager';
+import type { GeoPosition } from '../models/game.types';
 
 /** A repeat of an impact sound still to come (AbilityImpactSound.tail) */
 interface PendingRepeat {
@@ -14,6 +16,19 @@ interface PendingRepeat {
   height: number;
 }
 
+/** A loop this service runs for an ability (AbilityImpactSound.warning) */
+interface AbilityLoop {
+  /** Set once createLoop gave it */
+  handle: string | null;
+  /** Ended before createLoop came back: stopped as soon as it arrives */
+  ended: boolean;
+}
+
+/** Ground the ability loops stand on: the route grid (GameStateManager). */
+export interface AbilitySoundGround {
+  getGroundLocalYAt(localX: number, localZ: number): number | null;
+}
+
 /**
  * Audio Service - Handles spatial audio via events
  *
@@ -21,12 +36,17 @@ interface PendingRepeat {
  * and plays sounds using ThreeTilesEngine's SpatialAudioManager.
  *
  * Event-driven: Subscribes to `audio:play` events from GameEventBus, and
- * plays each ability's impact sound (ABILITY_IMPACT_SOUNDS) on
- * `ability:impact`, its tail in game time (update())
+ * plays each ability's sounds (ABILITY_IMPACT_SOUNDS): its warning loop from
+ * `ability:used` to `ability:impact`, its impact sound on `ability:impact`
+ * and its tail in game time (update())
  */
 export class AudioService {
   private readonly subs = new SubscriptionBag();
   private readonly pendingTail: PendingRepeat[] = [];
+  /** Warning loops by strike id, see AbilityImpactSound.warning */
+  private readonly warnings = new Map<number, AbilityLoop>();
+  private ground: AbilitySoundGround | null = null;
+  private readonly local = new Vector3();
 
   constructor(
     private eventBus: GameEventBus,
@@ -36,10 +56,15 @@ export class AudioService {
     this.setupEventHandlers();
   }
 
+  /** Ground under the ability loops; without it they stand at the height of their target. */
+  setGround(ground: AbilitySoundGround | null): void {
+    this.ground = ground;
+  }
+
   /**
    * Sounds this service plays for game events of its own: the abilities'
-   * impacts and the samples of their tails, each id once. A synthesised
-   * sample is built here, on the first registration.
+   * impacts, the samples of their tails and their loops, each id once. A
+   * synthesised sample is built here, on the first registration.
    */
   private registerSounds(): void {
     const audio = this.tilesEngine.spatialAudio;
@@ -53,6 +78,12 @@ export class AudioService {
         const url = typeof sample.url === 'string' ? sample.url : sample.url();
         audio.registerSound(sample.id, url, spatialConfig(sample));
       }
+      const loop = sound.warning;
+      if (loop && !registered.has(loop.id)) {
+        registered.add(loop.id);
+        const { refDistance, rolloffFactor, volume } = loop;
+        audio.registerSound(loop.id, loop.url, { refDistance, rolloffFactor, volume, loop: true });
+      }
     }
   }
 
@@ -64,9 +95,17 @@ export class AudioService {
       this.handleAudioPlay(event);
     }));
 
+    // The warning of a strike on its way (the nuclear strike's siren), at
+    // its target until it lands
+    this.subs.add(this.eventBus.on('ability:used', ({ abilityId, strikeId, target }) => {
+      const warning = ABILITY_IMPACT_SOUNDS[abilityId]?.warning;
+      if (warning) this.warnings.set(strikeId, this.startLoop(warning.id, target));
+    }));
+
     // The ability's own impact sound at the impact point, then its tail
     // (the nuclear strike's rolls of rumble), see update()
-    this.subs.add(this.eventBus.on('ability:impact', ({ abilityId, target }) => {
+    this.subs.add(this.eventBus.on('ability:impact', ({ abilityId, strikeId, target }) => {
+      this.endWarning(strikeId);
       const sound = ABILITY_IMPACT_SOUNDS[abilityId];
       if (!sound) return;
       const { lat, lon } = target;
@@ -76,8 +115,8 @@ export class AudioService {
         this.pendingTail.push({ sound: (sample ?? sound).id, remainingMs: delayMs, volume, lat, lon, height });
       }
     }));
-    // A restart drops the repeats still to come
-    this.subs.add(this.eventBus.on('game:reset', () => this.clearTail()));
+    // A restart drops what is still to come and ends the loops
+    this.subs.add(this.eventBus.on('game:reset', () => this.clearAbilitySounds()));
   }
 
   /**
@@ -100,9 +139,49 @@ export class AudioService {
     this.pendingTail.length = kept;
   }
 
-  /** Drop the repeats still to come: a restart, and the wave replay when it jumps or runs too fast for sound. */
-  clearTail(): void {
+  /**
+   * Drop the repeats still to come and end the ability loops: a restart, and
+   * the wave replay when it jumps or runs too fast for sound.
+   */
+  clearAbilitySounds(): void {
     this.pendingTail.length = 0;
+    for (const strikeId of [...this.warnings.keys()]) this.endWarning(strikeId);
+  }
+
+  /** A loop of `soundId` at `at`, on the ground; one that cannot start comes back ended. */
+  private startLoop(soundId: string, at: GeoPosition): AbilityLoop {
+    const loop: AbilityLoop = { handle: null, ended: false };
+    const audio = this.tilesEngine.spatialAudio;
+    const position = audio ? this.localOnGround(at) : null;
+    if (!audio || !position) {
+      loop.ended = true;
+      return loop;
+    }
+    // createLoop copies the position before it awaits
+    void audio.createLoop(soundId, position).then((handle) => {
+      if (handle === null) return;
+      if (loop.ended) audio.stopLoop(handle);
+      else loop.handle = handle;
+    });
+    return loop;
+  }
+
+  private endWarning(strikeId: number): void {
+    const loop = this.warnings.get(strikeId);
+    if (!loop) return;
+    this.warnings.delete(strikeId);
+    loop.ended = true;
+    if (loop.handle !== null) this.tilesEngine.spatialAudio?.stopLoop(loop.handle);
+    loop.handle = null;
+  }
+
+  /** `at` in local coordinates on the route grid's ground, or at its own height without one. Reuses one vector. */
+  private localOnGround(at: GeoPosition): Vector3 | null {
+    const p = this.tilesEngine.spatialAudio?.geoToLocalPosition(at.lat, at.lon, at.height ?? 0, this.local) ?? null;
+    if (!p) return null;
+    const groundY = this.ground?.getGroundLocalYAt(p.x, p.z) ?? null;
+    if (groundY !== null) p.y = groundY;
+    return p;
   }
 
   /**
@@ -134,7 +213,7 @@ export class AudioService {
    */
   destroy(): void {
     this.subs.disposeAll();
-    this.clearTail();
+    this.clearAbilitySounds();
   }
 }
 

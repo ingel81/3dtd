@@ -165,6 +165,18 @@ export const GAME_SOUNDS = {
       { delayMs: 2600, volume: 0.65, sample: nukeRumble(1) },
       { delayMs: 4800, volume: 0.45, sample: nukeRumble(2) },
     ],
+    /**
+     * Air raid siren through the warning (1.5 s), at the target where the
+     * marker shows it; generated with ElevenLabs (2 s, a rising wail). Ends
+     * with the impact, the blast covers the cut. Rolls off like the blast.
+     */
+    warning: {
+      id: 'nuclear_strike_siren',
+      url: 'assets/sounds/abilities/nuke_siren.mp3',
+      refDistance: NUKE_SPATIAL.refDistance,
+      rolloffFactor: NUKE_SPATIAL.rolloffFactor,
+      volume: 1,
+    },
   },
   /**
    * Frost bomb burst, its own sample (generated with ElevenLabs, 2.5 s): an
@@ -242,6 +254,16 @@ export interface AbilityImpactSample {
   audibleDistance?: number;
 }
 
+/** A loop an ability plays (SpatialAudioManager.createLoop), registered with `loop: true` */
+export interface AbilityLoopSample {
+  id: string;
+  /** Asset path */
+  url: string;
+  refDistance: number;
+  rolloffFactor: number;
+  volume: number;
+}
+
 /** A sound an ability plays where it lands */
 export interface AbilityImpactSound extends AbilityImpactSample {
   /**
@@ -249,6 +271,12 @@ export interface AbilityImpactSound extends AbilityImpactSample {
    * share of the volume: the impact's own sample again, or `sample`
    */
   tail: readonly { readonly delayMs: number; readonly volume: number; readonly sample?: AbilityImpactSample }[];
+  /**
+   * A loop at the target from `ability:used` to `ability:impact`, through
+   * the warning (the nuclear strike's siren). It stands while the game is
+   * paused like every loop; a restart ends it.
+   */
+  warning?: AbilityLoopSample;
 }
 
 /**
