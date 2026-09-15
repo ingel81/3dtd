@@ -109,7 +109,7 @@ describe('TowerPlinthRenderer', () => {
     };
 
     expect(lowest('flat')).toBeCloseTo(-PLINTH_EMBED_M, 6);
-    expect(lowest('edge')).toBeLessThan(-PLINTH_EMBED_M - 1);
+    expect(lowest('edge')).toBeLessThan(-PLINTH_EMBED_M - 0.9);
     expect(plinthOf('edge')!.geometry.getAttribute('position').count)
       .toBeGreaterThan(plinthOf('flat')!.geometry.getAttribute('position').count);
   });

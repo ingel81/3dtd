@@ -696,7 +696,7 @@ describe('TowerPlacementService', () => {
 
       const plinth = overlay.children.find((child) => child.name === 'tower-plinth') as Mesh;
       plinth.geometry.computeBoundingBox();
-      expect(plinth.geometry.boundingBox!.min.y).toBeLessThan(-PLINTH_EMBED_M - 1);
+      expect(plinth.geometry.boundingBox!.min.y).toBeLessThan(-PLINTH_EMBED_M - 0.9);
 
       service.handleBuildClick();
       const pastEdge = footprintSampleOffsets(TOWER_TYPES.archer.footprintRadius)

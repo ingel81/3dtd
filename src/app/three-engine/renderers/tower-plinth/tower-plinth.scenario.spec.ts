@@ -26,7 +26,7 @@ import {
 import { TowerManager } from '../../../managers/tower.manager';
 import { TowerPlinthRenderer } from './tower-plinth.renderer';
 import { plinthBraces } from './plinth-braces';
-import { BRACE_SLOPE, BRACE_TOP_CUT_M, BRACE_TOP_Y, PLINTH_EMBED_M, type PlinthBrace } from './plinth-geometry';
+import { braceCourse, PLINTH_EMBED_M, type PlinthBrace } from './plinth-geometry';
 import { ScreenPicker } from '../../screen-picker';
 import { TowerShadowMapper } from '../../tower-shadow-mapper';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
@@ -171,16 +171,20 @@ describe('A tower on its plinth at a roof edge, braced over the drop (E18)', () 
   /** The probes of its footprint east of a roof edge 2 m from the tower, the street far below */
   const overhang = footprintSampleOffsets(radius).flatMap(([x], index) => (x > 2 ? [index] : []));
   const braces = plinthBraces(radius, PLINTH, overhang);
-  /** The brace nearest the camera, which looks from +z */
-  const front = braces.reduce((a, b) => (Math.sin(b.angle) > Math.sin(a.angle) ? b : a));
 
-  /** A point inside `brace` halfway along it, in the scene */
+  /** A point inside the second course of `brace`, in the scene */
   const braceMiddle = (brace: PlinthBrace) => {
-    const reach = (brace.topReach + brace.footReach) / 2;
-    // Its underside there, and half its height across the slant above that
-    const y = BRACE_TOP_Y - (brace.topReach - reach) * BRACE_SLOPE + (BRACE_TOP_CUT_M * BRACE_SLOPE) / 2;
-    return new Vector3(Math.cos(brace.angle) * reach, FOOT - PLINTH + y, Math.sin(brace.angle) * reach);
+    const { step, height } = braceCourse(brace);
+    const reach = brace.topReach - 1.5 * step;
+    const y = -PLINTH_EMBED_M - 1.5 * height;
+    return new Vector3(
+      Math.cos(brace.angle) * reach - Math.sin(brace.angle) * brace.offset,
+      FOOT - PLINTH + y,
+      Math.sin(brace.angle) * reach + Math.cos(brace.angle) * brace.offset,
+    );
   };
+  /** The corbel nearest the camera, which looks from +z */
+  const front = braces.reduce((a, b) => (braceMiddle(b).z > braceMiddle(a).z ? b : a));
 
   let s: ReturnType<typeof setup>;
   let tower: Tower;

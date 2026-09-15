@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import {
-  BRACE_SLOPE,
+  BRACE_COURSES,
   BRACE_TOP_Y,
+  BRACE_WIDTH_M,
+  braceCourse,
   createPlinthGeometry,
   PLINTH_EMBED_M,
   PLINTH_RIM_M,
@@ -79,60 +81,89 @@ describe('createPlinthGeometry', () => {
   });
 });
 
-describe('createPlinthGeometry with braces (E18)', () => {
+describe('createPlinthGeometry with a corbel (E18)', () => {
   const RADIUS = 3.6;
   const HEIGHT = 1.5;
-  const brace = { angle: Math.PI / 4, topReach: 3.6, footReach: 1.5 };
+  const brace = { angle: Math.PI / 4, offset: 0.4, topReach: 3.3, edgeReach: 2.1, footReach: 1.2 };
+  const { step, height } = braceCourse(brace);
   const plainCount = createPlinthGeometry(RADIUS, HEIGHT).getAttribute('position').count;
   const geometry = createPlinthGeometry(RADIUS, HEIGHT, [brace]);
   const position = geometry.getAttribute('position');
   const normal = geometry.getAttribute('normal');
+  const index = geometry.getIndex()!;
   const vertex = (i: number) => new Vector3().fromBufferAttribute(position, i);
   const normalAt = (i: number) => new Vector3().fromBufferAttribute(normal, i);
-  /** After wall and top face: the bottom face (centre and a ring), then the brace, 6 faces of 4 vertices */
-  const braceStart = position.count - 24;
-  const braceVertices = Array.from({ length: 24 }, (_, i) => vertex(braceStart + i));
+  /**
+   * After wall and top face: the bottom face (centre and a ring), then the
+   * corbel, a face per side of its profile (2 + 2 per course) and a
+   * rectangle per course on each side, 4 vertices each
+   */
+  const corbelQuads = 2 + 2 * BRACE_COURSES + 2 * BRACE_COURSES;
+  const corbelStart = position.count - corbelQuads * 4;
+  const corbel = Array.from({ length: corbelQuads * 4 }, (_, i) => vertex(corbelStart + i));
   const along = (v: Vector3) => v.x * Math.cos(brace.angle) + v.z * Math.sin(brace.angle);
+  const across = (v: Vector3) => -v.x * Math.sin(brace.angle) + v.z * Math.cos(brace.angle);
+  const lowest = -PLINTH_EMBED_M - BRACE_COURSES * height;
 
   it('closes the plinth underneath with a face turned down', () => {
-    expect(braceStart - plainCount).toBeGreaterThan(16);
-    for (let i = plainCount; i < braceStart; i++) {
+    expect(corbelStart - plainCount).toBeGreaterThan(16);
+    for (let i = plainCount; i < corbelStart; i++) {
       expect(vertex(i).y).toBeCloseTo(-PLINTH_EMBED_M, 6);
       expect(normalAt(i).y).toBeCloseTo(-1, 6);
     }
   });
 
-  it('slants the brace at BRACE_SLOPE from under the rim down to its foot', () => {
-    const drop = (brace.topReach - brace.footReach) * BRACE_SLOPE;
-    expect(Math.max(...braceVertices.map((v) => v.y))).toBeCloseTo(BRACE_TOP_Y, 6);
-    expect(Math.min(...braceVertices.map((v) => v.y))).toBeCloseTo(BRACE_TOP_Y - drop, 6);
-    expect(Math.max(...braceVertices.map(along))).toBeCloseTo(brace.topReach, 6);
-    expect(Math.min(...braceVertices.map(along))).toBeCloseTo(brace.footReach, 6);
-    // The lowest point is at the foot, the outer top edge is at the top
-    for (const v of braceVertices) {
-      if (Math.abs(v.y - (BRACE_TOP_Y - drop)) < 1e-6) expect(along(v)).toBeCloseTo(brace.footReach, 6);
-      if (Math.abs(along(v) - brace.topReach) < 1e-6) expect(v.y).toBeCloseTo(BRACE_TOP_Y, 6);
+  it('steps the corbel out course by course from its flat underside to the front face under the rim', () => {
+    // A course is as high as it steps out: 1.2 m from the roof's edge to the front in three courses
+    expect(step).toBeCloseTo(0.4, 9);
+    expect(height).toBeCloseTo(0.4, 9);
+    expect(Math.max(...corbel.map((v) => v.y))).toBeCloseTo(BRACE_TOP_Y, 6);
+    expect(Math.min(...corbel.map((v) => v.y))).toBeCloseTo(lowest, 6);
+    expect(Math.max(...corbel.map(along))).toBeCloseTo(brace.topReach, 6);
+    expect(Math.min(...corbel.map(along))).toBeCloseTo(brace.footReach, 6);
+
+    // The flat underside of the lowest course, from the back to its front
+    const underside = corbel.filter((v) => Math.abs(v.y - lowest) < 1e-6).map(along);
+    expect(Math.min(...underside)).toBeCloseTo(brace.footReach, 6);
+    expect(Math.max(...underside)).toBeCloseTo(brace.topReach - (BRACE_COURSES - 1) * step, 6);
+    // The front face goes one course down below the plinth
+    const front = corbel.filter((v) => Math.abs(along(v) - brace.topReach) < 1e-6).map((v) => v.y);
+    expect(Math.min(...front)).toBeCloseTo(-PLINTH_EMBED_M - height, 6);
+    // Each course reaches one step further out than the one below
+    for (let k = 1; k <= BRACE_COURSES; k++) {
+      const course = corbel.filter((v) => Math.abs(v.y - (-PLINTH_EMBED_M - k * height)) < 1e-6).map(along);
+      expect(Math.max(...course)).toBeCloseTo(brace.topReach - (k - 1) * step, 6);
     }
   });
 
-  it('keeps the brace under the plinth: its top inside the plinth, nothing out beyond the rim', () => {
+  it('is BRACE_WIDTH_M across, centred on its offset', () => {
+    expect(Math.min(...corbel.map(across))).toBeCloseTo(brace.offset - BRACE_WIDTH_M / 2, 6);
+    expect(Math.max(...corbel.map(across))).toBeCloseTo(brace.offset + BRACE_WIDTH_M / 2, 6);
+  });
+
+  it('keeps the corbel under the plinth: its top inside the plinth, nothing out beyond the rim', () => {
     expect(BRACE_TOP_Y).toBeGreaterThan(-PLINTH_EMBED_M);
     expect(BRACE_TOP_Y).toBeLessThan(0);
-    for (const v of braceVertices) {
+    for (const v of corbel) {
       expect(Math.hypot(v.x, v.z)).toBeLessThan(RADIUS + PLINTH_RIM_M);
     }
   });
 
-  it('turns every brace face outwards', () => {
-    const middle = braceVertices.reduce((sum, v) => sum.add(v), new Vector3()).divideScalar(braceVertices.length);
-    for (let i = 0; i < 24; i++) {
-      const v = vertex(braceStart + i);
-      expect(normalAt(braceStart + i).dot(v.clone().sub(middle))).toBeGreaterThan(0);
+  it('turns every face outwards: its faces enclose the volume of the block', () => {
+    let volume = 0;
+    for (let i = index.count - corbelQuads * 6; i < index.count; i += 3) {
+      const [a, b, c] = [vertex(index.getX(i)), vertex(index.getX(i + 1)), vertex(index.getX(i + 2))];
+      volume += a.dot(b.clone().cross(c)) / 6;
     }
+    const top = BRACE_TOP_Y - (-PLINTH_EMBED_M - height);
+    const profile = (brace.topReach - brace.footReach) * top
+      + (brace.topReach - step - brace.footReach) * height
+      + (brace.topReach - 2 * step - brace.footReach) * height;
+    expect(volume).toBeCloseTo(profile * BRACE_WIDTH_M, 5);
   });
 
-  it('bounds the brace too, for culling', () => {
-    const lowest = braceVertices.reduce((low, v) => (v.y < low.y ? v : low));
-    expect(geometry.boundingSphere!.containsPoint(lowest)).toBe(true);
+  it('bounds the corbel too, for culling', () => {
+    const low = corbel.reduce((a, v) => (v.y < a.y ? v : a));
+    expect(geometry.boundingSphere!.containsPoint(low)).toBe(true);
   });
 });
