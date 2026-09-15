@@ -53,6 +53,12 @@ describe('createPlinthMaterial', () => {
     expect(addedCount('{')).toBe(addedCount('}'));
   });
 
+  it('keeps the moss of the foot on the wall, fading out below its underside down a brace (E18)', () => {
+    expect(shader.fragmentShader).toMatch(
+      /float plinthFoot = \( 1\.0 - smoothstep\( 0\.0, 0\.9, vPlinthLocal\.y \) \)\n\s*\* smoothstep\( -1\.20, -0\.40, vPlinthLocal\.y \);/,
+    );
+  });
+
   it('keeps the log depth and the output conversion of the standard shader', () => {
     expect(shader.vertexShader).toContain('#include <logdepthbuf_vertex>');
     expect(shader.fragmentShader).toContain('#include <logdepthbuf_fragment>');

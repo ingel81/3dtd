@@ -1,4 +1,5 @@
 import { Color, MeshStandardMaterial, type IUniform, type WebGLProgramParametersWithUniforms } from 'three';
+import { PLINTH_EMBED_M } from './plinth-geometry';
 
 /**
  * Rubble masonry for the tower plinths: weathered quarry stones in lime
@@ -141,8 +142,14 @@ vec3 plinthPerturbNormal( vec3 surfPos, vec3 surfNorm, float height, float faceD
 }
 `;
 
+/** Moss of the foot fades out this far (m) below the plinth's underside, down the braces. */
+const FOOT_MOSS_FADE_M = 0.8;
+const UNDERSIDE_Y = (-PLINTH_EMBED_M).toFixed(2);
+const FOOT_MOSS_END_Y = (-PLINTH_EMBED_M - FOOT_MOSS_FADE_M).toFixed(2);
+
 // Stones about 0.5 m long and 0.28 m high. vPlinthLocal.y = 0 is the lowest
-// point of the footprint, where the plinth meets the ground.
+// point of the footprint, where the plinth meets the ground; the wall ends
+// PLINTH_EMBED_M below, only braces (plinth-braces.ts) reach further down.
 const FRAGMENT_ALBEDO = /* glsl */ `
 vec4 plinthCell = plinthStones( vPlinthWorld / vec3( 0.5, 0.28, 0.5 ) );
 float plinthJoint = plinthCell.x;
@@ -161,9 +168,11 @@ float plinthStreak = plinthNoise( vPlinthWorld * vec3( 2.5, 0.35, 2.5 ) );
 plinthStone *= 1.0 - 0.22 * smoothstep( 0.55, 0.85, plinthStreak );
 vec3 plinthMortarColor = plinthMortar * ( 0.85 + 0.25 * plinthNoise( vPlinthWorld * 14.0 ) );
 
-// Moss in patches: in the joints, on faces that look up, along the foot
+// Moss in patches: in the joints, on faces that look up, along the foot of
+// the wall, not all down a brace hanging over a drop
 float plinthUp = smoothstep( 0.35, 0.9, normalize( vPlinthUp ).y );
-float plinthFoot = 1.0 - smoothstep( 0.0, 0.9, vPlinthLocal.y );
+float plinthFoot = ( 1.0 - smoothstep( 0.0, 0.9, vPlinthLocal.y ) )
+  * smoothstep( ${FOOT_MOSS_END_Y}, ${UNDERSIDE_Y}, vPlinthLocal.y );
 float plinthPatch = plinthNoise( vPlinthWorld * 1.7 ) * 0.65 + plinthNoise( vPlinthWorld * 5.3 ) * 0.35;
 float plinthMossMask = smoothstep( 0.52, 0.72, plinthPatch )
   * max( max( plinthMortarMask * 0.75, plinthUp ), plinthFoot * 0.8 );
