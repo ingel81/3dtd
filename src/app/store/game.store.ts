@@ -74,6 +74,13 @@ export class GameStore {
    */
   readonly selectedTowerRevision = signal<number>(0);
 
+  /**
+   * Zählt jedes Upgrade hoch, auch das eines nicht gewählten Towers (Debug
+   * "Max Upgrade All", Trainings-Bot). Die Tower-DPS, mit der NEXT die
+   * Wellen schätzt, hängt an den Upgrade-Stufen aller Tower.
+   */
+  readonly towerUpgrades = signal<number>(0);
+
   /** Total placed tower count */
   readonly towerCount = signal<number>(0);
 

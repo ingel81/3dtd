@@ -92,6 +92,9 @@ export class TowerDefenseStore {
   /** Revision of the selected tower's kills and stats (see GameStore) */
   readonly selectedTowerRevision = this.gameStore.selectedTowerRevision;
 
+  /** Upgrades of any tower so far (see GameStore) */
+  readonly towerUpgrades = this.gameStore.towerUpgrades;
+
   /** Total placed tower count */
   readonly towerCount = this.gameStore.towerCount;
 
