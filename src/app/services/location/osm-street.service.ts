@@ -187,8 +187,9 @@ type StreetTags = Pick<Street, 'width' | 'lanes' | 'bridge' | 'tunnel' | 'covere
  * Die Tags eines Ways, die später Korridorbreite und Höhenmodell brauchen.
  * Kommen mit `out body` ohnehin in der Overpass-Antwort mit. Nicht lesbare
  * Werte (`width=3'6"`, `lanes=2;3`) werden weggelassen statt geraten.
+ * Exportiert für die Szenen auf den OSM-Fixtures (integration/fixtures/osm).
  */
-function parseStreetTags(tags: Record<string, string> | undefined): StreetTags {
+export function parseStreetTags(tags: Record<string, string> | undefined): StreetTags {
   const result: StreetTags = {};
   if (!tags) return result;
 
