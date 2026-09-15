@@ -595,6 +595,22 @@ export class TerrainQueries {
   }
 
   /**
+   * Run `measure` against a column cache of its own, empty at the start and
+   * dropped afterwards: every column it samples costs a ray, and the cache
+   * the cells and the corridor read stays as it was. For
+   * `__corridor.probeLod()`, which measures on tiles the game does not use.
+   */
+  withScratchColumnCache<T>(measure: () => T): T {
+    const kept = this.columnCache;
+    this.columnCache = new Map();
+    try {
+      return measure();
+    } finally {
+      this.columnCache = kept;
+    }
+  }
+
+  /**
    * Called on every settled tile-load-end. Bumps {@link lodVersion}, which
    * invalidates cached column samples one entry at a time instead of by a
    * global cache wipe, and drops the lazily computed tile AABBs.
