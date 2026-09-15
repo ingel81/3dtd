@@ -5,6 +5,7 @@ import {
   portalDepthScale,
 } from '../configs/marker-geometry.config';
 import { GAME_SPEEDS } from '../configs/game-speed.config';
+import type { EnemyTypeConfig } from '../configs/enemy-types.config';
 
 /**
  * Boss intro: once a wave's boss has stepped out of its spawn portal, the
@@ -17,13 +18,24 @@ import { GAME_SPEEDS } from '../configs/game-speed.config';
 export const BOSS_INTRO_CLEAR_MARGIN_M = 3;
 
 /**
+ * The same for a boss whose body lies along the route (the ooze, OozeConfig):
+ * the stretch of band out of the portal in the shot (m). Its tip rounds off
+ * over OOZE_LOOK.capLength (4 m) and the shot looks along the band from its
+ * front, so 3 m showed a low bump at the portal (playtest 2026-09-15); 6 m
+ * add two at full crest.
+ */
+export const BOSS_INTRO_BODY_OUT_M = 6;
+
+/**
  * Route distance at which a boss out of a portal of `portalScale` stands in
  * front of it (m): the front face, half the portal's depth from the route
- * start, plus BOSS_INTRO_CLEAR_MARGIN_M. Before that it is inside the
- * portal's volume and hidden from every side (PORTAL_DEPTH).
+ * start, plus BOSS_INTRO_CLEAR_MARGIN_M, or BOSS_INTRO_BODY_OUT_M for a
+ * `type` with a body along the route. Before that it is inside the portal's
+ * volume and hidden from every side (PORTAL_DEPTH).
  */
-export function bossClearDistance(portalScale: number): number {
-  return (PORTAL_DEPTH / 2) * portalDepthScale(portalScale) + BOSS_INTRO_CLEAR_MARGIN_M;
+export function bossClearDistance(portalScale: number, type?: Pick<EnemyTypeConfig, 'ooze'>): number {
+  const margin = type?.ooze ? BOSS_INTRO_BODY_OUT_M : BOSS_INTRO_CLEAR_MARGIN_M;
+  return (PORTAL_DEPTH / 2) * portalDepthScale(portalScale) + margin;
 }
 
 /**

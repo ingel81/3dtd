@@ -34,7 +34,15 @@ import { GameStore } from '../store/game.store';
 import { DebugFacadeService } from './debug/debug-facade.service';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
-import { BOSS_INTRO_TIMING, bossIntroCutMs, bossIntroReturnMs } from '../utils/boss-intro';
+import {
+  BOSS_INTRO_BODY_OUT_M,
+  BOSS_INTRO_CLEAR_MARGIN_M,
+  BOSS_INTRO_TIMING,
+  bossIntroCutMs,
+  bossIntroReturnMs,
+} from '../utils/boss-intro';
+import { PORTAL_DEPTH, portalDepthScale } from '../configs/marker-geometry.config';
+import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
 import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
 
@@ -333,6 +341,42 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
     wholeIntro();
     frame();
     expect(service.active()).toBe(false);
+  });
+
+  it('playtest 2026-09-15: the ooze intro starts once its tip is 6 m out of the portal, not at 3 m like Herbert', () => {
+    // The portal's front face on this route (no corridor width: the default one)
+    const front = (PORTAL_DEPTH / 2) * portalDepthScale(portalScaleForWidth(portalCorridorWidth(ROUTE[0])));
+    const ooze = boss('ooze');
+    spawn(ooze);
+    // Where Herbert's intro starts: only the rounded tip is out
+    ooze.walked = front + BOSS_INTRO_CLEAR_MARGIN_M;
+    frame();
+    expect(service.active()).toBe(false);
+    ooze.walked = front + BOSS_INTRO_BODY_OUT_M - 0.1;
+    frame();
+    expect(service.active()).toBe(false);
+
+    ooze.walked = front + BOSS_INTRO_BODY_OUT_M;
+    frame();
+    expect(service.card()).toEqual({ name: 'Ooze', wave: 10 });
+    play(bossIntroCutMs());
+    expect(service.stage()).toBe('hold');
+    // Over the route beyond the tip (-z), aimed at a point above the tip, the portal behind it
+    const eye = camera.position;
+    const view = camera.getWorldDirection(new Vector3());
+    const tipZ = -(front + BOSS_INTRO_BODY_OUT_M);
+    expect(eye.z).toBeLessThan(tipZ);
+    const along = (tipZ - eye.z) / view.z;
+    expect(eye.x + view.x * along).toBeCloseTo(0);
+    expect(eye.y + view.y * along).toBeGreaterThan(0);
+
+    // Herbert on the same portal still cuts at 3 m
+    const herbert = boss('herbert');
+    spawn(herbert);
+    wholeIntro();
+    herbert.walked = front + BOSS_INTRO_CLEAR_MARGIN_M;
+    frame();
+    expect(service.card()).toEqual({ name: 'Herbert', wave: 10 });
   });
 
   it('369: photo mode when Herbert steps out: no intro, and none once photo mode is left either', () => {
