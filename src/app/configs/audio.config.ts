@@ -7,6 +7,7 @@
 
 import type { AbilityId } from './abilities.config';
 import { nukeSoundUrls } from '../utils/nuke-sound';
+import { laserSoundUrls } from '../utils/laser-sound';
 
 /** Sound budget limits to prevent audio overload */
 export const AUDIO_LIMITS = {
@@ -113,6 +114,24 @@ const NUKE_SPATIAL = {
 const nukeRumble = (roll: number) =>
   ({ id: `nuclear_strike_rumble_${roll + 1}`, url: () => nukeSoundUrls().rumble[roll], ...NUKE_SPATIAL }) as const;
 
+/**
+ * Spatial settings the pieces of the orbital laser's sound share, with
+ * priority: the beam kills a stretch of the wave within a few seconds, and
+ * their deaths would steal its voices otherwise. Two of each at once, for
+ * two beams in a row.
+ */
+const LASER_SPATIAL = {
+  refDistance: 130,
+  rolloffFactor: 0.7,
+  volume: 1.4,
+  maxInstances: 2,
+  priority: true,
+} as const;
+
+/** Piece `piece` of the orbital laser's burn (utils/laser-sound.ts) */
+const laserBurnPiece = (piece: number) =>
+  ({ id: `orbital_laser_burn_${piece + 1}`, url: () => laserSoundUrls().burn[piece], ...LASER_SPATIAL }) as const;
+
 /** Game state sounds configuration */
 export const GAME_SOUNDS = {
   hqDamage: {
@@ -173,20 +192,20 @@ export const GAME_SOUNDS = {
     ],
   },
   /**
-   * Orbital laser: the lightning tower's bolt (2.3 s) where the beam comes
-   * down, played again twice more quietly so the crackle lasts about as
-   * long as the beam burns (4 s).
+   * Orbital laser, synthesised (utils/laser-sound.ts): the strike where the
+   * beam comes down, a zap, a crack and a thump with the burn setting in
+   * (1.8 s), then two pieces of burn (1.9 s each, fading into one another),
+   * the drone and sizzle of the beam, the last one powering down; about as
+   * long as the beam burns and fades (4.45 s). Pieces in game time like the
+   * nuclear strike's rumble.
    */
   orbitalLaser: {
     id: 'orbital_laser',
-    url: 'assets/sounds/towers/lightning/bolt.mp3',
-    refDistance: 130,
-    rolloffFactor: 0.7,
-    volume: 1.4,
-    maxInstances: 3,
+    url: () => laserSoundUrls().strike,
+    ...LASER_SPATIAL,
     tail: [
-      { delayMs: 1300, volume: 0.7 },
-      { delayMs: 2500, volume: 0.45 },
+      { delayMs: 1300, volume: 0.9, sample: laserBurnPiece(0) },
+      { delayMs: 2500, volume: 0.8, sample: laserBurnPiece(1) },
     ],
   },
 } as const;
