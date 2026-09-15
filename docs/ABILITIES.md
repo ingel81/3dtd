@@ -344,8 +344,9 @@ Frostflecken (die Eis-Decals des Ice Towers) auf dem Einschlag und auf zwei
 Ringen, 6 bei 0,35 und 10 bei 0,65 des Radius (`FROST_BOMB_ICE_RINGS`), in der
 Höhe der Routenzelle, nur mit Ground Marks an. An den Gegnern der Eis-Tint und
 die Eiskristalle des Freeze. Ton
-`frost_bomb`: der Cast des Ice Towers, lauter und weiter hörbar, mit zwei
-schnellen leiseren Wiederholungen nach 110 und 260 ms als Knistern. Shake
+`frost_bomb` (`abilities/frost_bomb.mp3`, 2,5 s, mit ElevenLabs erzeugt): ein
+eisiger Knall und Aufbruch, dann knisterndes Gefrieren mit glasigem Schimmer;
+bis 2026-09-15 der Cast des Ice Towers mit zwei leiseren Wiederholungen. Shake
 `frostBomb` 0,004 für 350 ms, voll bis 150 m, keiner ab 700 m
 (`abilityNearDistance`, `abilityFarDistance`); aus der Übersichtskamera
 bleibt etwa die Hälfte.
@@ -354,8 +355,10 @@ bleibt etwa die Hälfte.
 (`EmpPulseRenderer`, `EMP_PULSE_LOOK`, in Spielzeit): blau-weißer Blitz, zwei
 elektrische Fronten, die gezackt und knisternd über den Radius laufen, eine
 schwache Hülle darüber und Funken entlang der ersten Front. An den Gegnern
-Tint und Funken des Stun. Ton `emp`: der Kettenblitz des Lightning Towers,
-lauter, mit zwei leiseren Wiederholungen nach 180 und 420 ms. Shake `emp`
+Tint und Funken des Stun. Ton `emp` (`abilities/emp.mp3`, 2,5 s, mit
+ElevenLabs erzeugt): ein elektrischer Schlag mit Hochspannungs-Zap, dann
+knisternde Entladung; bis 2026-09-15 der Kettenblitz des Lightning Towers mit
+zwei leiseren Wiederholungen. Shake `emp`
 0,005 für 450 ms, dieselbe Reichweite wie die Frostbombe. Keine Bodenspuren.
 
 **Orbitallaser:** während der Vorwarnung der Zielmarker im Strahlradius
