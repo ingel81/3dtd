@@ -1185,8 +1185,8 @@ __corridor.towerCells('<towerId>')
 __corridor.pick()                                       // nächster Linksklick auf die Karte, Radius 4 m
 __corridor.pick(6)
 __corridor.report()                                     // Zellbericht: Zellen wählen, JSON kopieren
-await __corridor.probeLod()                             // Region auf 5, 2,5 und 0 m laden und messen (Phase 0)
-await __corridor.probeLod([5, 0], 90)                   // eigene Ziele, höchstens 90 s Warten je Ziel
+__corridor.probeLod()                                   // Region auf 5, 2,5 und 0 m laden und messen, Bericht in die Zwischenablage (Phase 0)
+__corridor.probeLod([5, 0], 90)                         // eigene Ziele, höchstens 90 s Warten je Ziel
 __corridor.fingerprint()                                // Hash über den Korridor in Gebrauch (Phase 0)
 __tiles.stats()                                         // Tiles, Cache, Downloads, beide Fehlerziele
 ```
@@ -1360,11 +1360,26 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
 
   In DevWorld: `No 3D tiles: ...`.
 - **`__corridor.probeLod(targets = [5, 2.5, 0], timeoutS = 60)`**
-  (`CorridorLodProbe`, `debug/corridor-lod-probe.ts`) gibt ein Promise
-  zurück, also mit `await` aufrufen. Ablauf:
-  1. Verweigert mit `Not started: ...`, solange Tower stehen, eine Welle
-     läuft, Gegner da sind, der Intro-Flug läuft oder eine Korridormessung
-     offen ist, ebenso ohne Tiles (DevWorld) oder ohne Region.
+  (`CorridorLodProbe`, `debug/corridor-lod-probe.ts`): ein Befehl je Ort,
+  für den Playtest ohne Erklärung. Ausgabe nur über `console.log`, jede Zeile
+  mit `[Corridor] probeLod:` davor:
+  - Kann sie nicht laufen, genau eine Zeile mit Grund und was zu tun ist,
+    z. B. `Der Ort lädt noch: Ladebildschirm abwarten, dann noch einmal.`
+  - Sonst eine Startzeile, je Ziel eine Zeile
+    (`2/3: 2.5 m geladen in 1.2 s, 236 Stationen gemessen in 310 ms`), eine
+    kurze Tabelle und die Schlusszeile
+    `Fertig, Ergebnis in der Zwischenablage, bitte in den Chat einfügen.`,
+    nach einem Abbruch `Abgebrochen (Grund), Teilergebnis ...`.
+  - Die Zwischenablage braucht den Fokus der Seite, den nach dem Tippen
+    DevTools hat. Lehnt sie deshalb ab, bittet eine Zeile um einen Klick in
+    die Spielseite und kopiert danach (höchstens 2 min, `FOCUS_WAIT_MS`).
+    Lehnt sie auch dann ab, steht der Bericht in der Konsole, und die
+    Schlusszeile sagt es.
+
+  Ablauf:
+  1. Verweigert, solange der Ort lädt (Ladebildschirm), Tower stehen, eine
+     Welle läuft, Gegner da sind, der Intro-Flug läuft oder eine
+     Korridormessung offen ist, ebenso ohne Tiles (DevWorld) oder ohne Region.
   2. Hält die beruhigten Tile-Ladungen vom Spiel fern (`SettleHold`): kein
      Sprung der `lodVersion`, kein Höhen-Sweep, kein `remeasure`, solange sie
      läuft. Setzt das Fehlerziel der Kamera auf 1e6 px
@@ -1381,10 +1396,17 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
      die Ladungen freigeben. Kam in der Zeit eine an, gibt `SettleHold` genau
      eine weiter.
   5. Kommt zwischen zwei Zielen ein Tower, eine Welle oder eine Messung dazu,
-     hört sie auf (`stopped early`). `__corridor.set()` und `reset()`
+     hört sie auf (`stoppedEarly`). `__corridor.set()` und `reset()`
      antworten während der Probe `Not changed: __corridor.probeLod() is running.`
 
-  Spalten, eine Zeile je Ziel:
+  Der Bericht (`buildLodProbeReport`) ist eine Zeile JSON: `report`, `time`,
+  `url` (ohne Parameter, deren Name nach Schlüssel oder Token klingt, wie
+  im Zellbericht), `version`, `corridor` (von `CORRIDOR_DEFAULTS`
+  abweichende Werte), `tiles` (wie `__tiles.stats()`, vor der Probe),
+  `fingerprint` (Hash, je Teil `[entries, hash]`), `rows`, `restored`,
+  `stoppedEarly`, `restoreTimedOut`, `corridorUnchanged`. Die Tabelle in der
+  Konsole zeigt eine Auswahl der Spalten. Spalten von `rows`, eine Zeile je
+  Ziel:
 
   | Spalte | Inhalt |
   |---|---|
@@ -1396,10 +1418,8 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
   | `measureMs`, `msPerStation` | Hauptthread-Zeit des Durchlaufs, ein Frame lang am Stück |
   | `rays`, `rayMs`, `hitsPerRay` | Säulen- und Seitenstrahlen des Durchlaufs; `__raycastStats()` bucht sie unter `corridorLodProbe` |
 
-  Die Schlusszeile `[Corridor] probeLod: region N m and camera N px restored`
-  nennt die zurückgesetzten Ziele, `stopped early` mit Grund und ob sich der
-  Korridor während der Probe geändert hat (Fingerprint vor und nach der
-  Probe, vor der Freigabe). Nach der Freigabe läuft der weitergegebene
+  `corridorUnchanged` sagt, ob sich der Korridor während der Probe geändert
+  hat (Fingerprint vor und nach der Probe, vor der Freigabe). Nach der Freigabe läuft der weitergegebene
   Tile-Schub wie jeder andere: Sweep, Konvergenz, `remeasure`. Fingerprints
   daher vor der Probe nehmen oder nach einem Neuladen.
 
