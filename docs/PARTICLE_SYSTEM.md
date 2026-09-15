@@ -347,7 +347,8 @@ und blendet über 10 s aus, Eis 4 s und 3 s (Wanduhr).
 
 `DecalInstanceManager` vergibt Instanz-Slots über `InstanceSlotAllocator`, die
 Draw-Anzahl folgt dessen `activeCount`. Ist ein Pool voll, entfernt der Aufrufer vorher
-das Decal mit der frühesten Spawn-Zeit (`removeOldest`). `updateFades()` tut nichts, bis
+das Decal, dessen Ausblenden zuerst beginnt (`removeNextToFade`); in Pools mit einem
+gemeinsamen Fade-Delay (Blut, Eis) ist das das älteste. `updateFades()` tut nichts, bis
 das früheste Ausblenden fällig ist, und läuft danach jeden Frame, solange ein Decal
 ausblendet.
 
@@ -665,19 +666,25 @@ Brandflecken als eigener `DecalInstanceManager`-Pool (`ScorchMarks` in
 
 - **Auslöser:** Einschläge von Cannon und Rocket (`VFXService`, aus
   `vfx:projectile-impact`) und Flammenstrahlen: jeder brennende Strahl markiert sein
-  Ziel alle 400 ms (`ThreeFlameBeamRenderer`).
-- **Größe:** Radius Cannon 2,2 m, Rocket 2,6 m, Feuer 1,6 m, je ±15 %; Deckkraft einer
-  neuen Spur 0,5 / 0,55 / 0,3.
+  Ziel alle 400 ms (`ThreeFlameBeamRenderer`). Dazu die Brandspur des Orbitallasers
+  (Quelle `beam`, siehe [Orbitallaser](#orbitallaser)).
+- **Größe:** Radius Cannon 2,2 m, Rocket 2,6 m, Feuer 1,6 m, Laser 5 m, je ±15 %;
+  Deckkraft einer neuen Spur 0,5 / 0,55 / 0,3 / 0,85. Die Laserspur ist fast schwarz
+  (`sources.beam.color` statt `baseColor`).
 - **Höchstens eine Spur pro Route-Grid-Zelle** (2 × 2 m). Die Decal-ID ist der
   Zellschlüssel. Ein weiterer Treffer in derselben Zelle macht die Spur dunkler
   (Cannon +0,1, Rocket +0,12, Feuer +0,05, höchstens 0,8) und startet ihr Ausblenden
-  neu (`DecalInstanceManager.reinforce`).
+  neu (`DecalInstanceManager.reinforce`). Die Laserspur hat je Zelle eine eigene Spur
+  neben der der Geschütze (`ownMark`, ID `scorch_beam_<Zelle>`), ein zweiter Strahl
+  macht sie dunkler, bis 0,95.
 - **Nur auf der Route und am Boden:** Punkte außerhalb der Korridor-Zellen und Treffer
   mehr als 6 m über dem Zellboden (Flieger) hinterlassen nichts. Die Höhe kommt aus
   dem Route-Grid (`getGroundLocalYAt`, verdrahtet in `GameStateManager.initialize`),
   nicht aus der Einschlagshöhe.
-- **Lebensdauer:** Wanduhr wie Blut, 60 s stehen, 30 s ausblenden. Pool 200; ist er
-  voll, weicht die Spur, die am längsten nicht mehr getroffen wurde.
+- **Lebensdauer:** Wanduhr wie Blut, 60 s stehen, 30 s ausblenden, die Laserspur
+  150 s und 45 s. Pool 200; ist er voll, weicht die Spur, deren Ausblenden zuerst
+  beginnt: unter den Geschützspuren die, die am längsten nicht mehr getroffen wurde,
+  eine Laserspur erst, wenn ihre längere Frist näher liegt.
 - **Reihenfolge:** `renderOrder` 998, also unter Blut und Eis (999).
 - **Reset:** `ThreeEffectsRenderer.clear()` (Spielneustart, Standortwechsel).
 - Rein optisch, kein Einfluss auf Gameplay oder Training.

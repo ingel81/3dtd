@@ -175,8 +175,7 @@ export class DecalInstanceManager {
   /**
    * Make an existing decal darker and young again: its opacity rises by
    * `step` from what it shows now (a fading decal counts at its faded
-   * value), capped at `max`, its fade starts over `fadeDelay` from `now`,
-   * and removeOldest() treats it as just added.
+   * value), capped at `max`, and its fade starts over `fadeDelay` from `now`.
    *
    * @returns false when there is no decal with that ID
    */
@@ -206,15 +205,17 @@ export class DecalInstanceManager {
   }
 
   /**
-   * Remove the decal with the earliest spawn time, so a full pool has room
-   * for add(). Walks the Map, no array copy.
+   * Remove the decal whose fade starts first, so a full pool has room for
+   * add(): in a pool whose decals share one fade delay the oldest, a
+   * reinforced one counting from its reinforcement. Walks the Map, no array
+   * copy.
    */
-  removeOldest(): void {
-    let oldest: DecalInstance | undefined;
+  removeNextToFade(): void {
+    let next: DecalInstance | undefined;
     for (const instance of this.instances.values()) {
-      if (!oldest || instance.spawnTime < oldest.spawnTime) oldest = instance;
+      if (!next || instance.fadeStartTime < next.fadeStartTime) next = instance;
     }
-    if (oldest) this.remove(oldest.id);
+    if (next) this.remove(next.id);
   }
 
   /**

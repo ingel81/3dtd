@@ -62,6 +62,11 @@ export const ICE_DECAL_CONFIG = {
  * its fade over instead of adding one, so the zones that see the most
  * fighting turn dark and the pool does not fill up with duplicates. Only
  * on route cells, only near the ground (air hits leave none).
+ *
+ * The orbital laser's trail (`beam`) keeps a mark of its own in each cell,
+ * beside the one the guns share: wider, near black and lying longer. A
+ * full pool gives up the mark whose fade comes first, so the gun marks go
+ * before a trail that is still due to lie.
  */
 export const SCORCH_DECAL_CONFIG = {
   maxDecals: 200,
@@ -74,15 +79,35 @@ export const SCORCH_DECAL_CONFIG = {
   heightOffset: 0.1,   // Above ground, below blood and ice (0.12)
   /** A hit further above the cell's ground than this (air units) leaves no mark, m */
   maxHeightAboveGround: 6,
-  /** Per source: decal radius (m), opacity of a new mark, opacity added per further hit */
+  /** Per source, see ScorchStyle */
   sources: {
     cannon: { size: 2.2, opacity: 0.5, opacityStep: 0.1 },
     rocket: { size: 2.6, opacity: 0.55, opacityStep: 0.12 },
     fire:   { size: 1.6, opacity: 0.3, opacityStep: 0.05 },
-  },
+    beam: {
+      size: 5, opacity: 0.85, opacityStep: 0.1, maxOpacity: 0.95,
+      color: { r: 0.022, g: 0.016, b: 0.012 }, fadeDelay: 150000, fadeDuration: 45000, ownMark: true,
+    },
+  } satisfies Record<string, ScorchStyle>,
   /** A burning flame beam marks its target this often, ms */
   fireIntervalMs: 400,
 } as const;
+
+/** How one source marks the ground (SCORCH_DECAL_CONFIG.sources); a field left out takes the config's own. */
+export interface ScorchStyle {
+  /** Decal radius, m, ±15 % */
+  size: number;
+  /** Opacity of a new mark and what a further hit adds */
+  opacity: number;
+  opacityStep: number;
+  maxOpacity?: number;
+  color?: EffectRgb;
+  /** ms, wall clock */
+  fadeDelay?: number;
+  fadeDuration?: number;
+  /** A mark of its own in each cell, beside the one the other sources share */
+  ownMark?: boolean;
+}
 
 export type ScorchSource = keyof typeof SCORCH_DECAL_CONFIG.sources;
 

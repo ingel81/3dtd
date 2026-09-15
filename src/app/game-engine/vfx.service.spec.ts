@@ -305,7 +305,7 @@ describe('VFXService nuclear strike', () => {
     expect(beamPath).toHaveLength(2);
     expect([beamRadius, speed, burnS]).toEqual([5, 18, 4]);
     scorch(1, 2, 3);
-    expect(tilesEngine.effects.markScorch).toHaveBeenCalledWith(1, 2, 3, 'rocket');
+    expect(tilesEngine.effects.markScorch).toHaveBeenCalledWith(1, 2, 3, 'beam');
     service.destroy();
   });
 
