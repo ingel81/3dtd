@@ -132,6 +132,22 @@ function cappedStations(caps: ReadonlyMap<string, WalkCaps>): number {
   return count;
 }
 
+/** The same values in the same places, NaN equal to NaN; `a` missing counts as all NaN. For the corridor trace. */
+function sameNumbers(a: readonly number[] | undefined, b: readonly number[]): boolean {
+  if (!a) return b.every(Number.isNaN);
+  return a.length === b.length && a.every((value, k) => Object.is(value, b[k]));
+}
+
+/** The same walk caps on the same segments, for the corridor trace. */
+function sameCaps(a: ReadonlyMap<string, WalkCaps>, b: ReadonlyMap<string, WalkCaps>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, caps] of b) {
+    const was = a.get(key);
+    if (!was || !sameNumbers(was.left, caps.left) || !sameNumbers(was.right, caps.right)) return false;
+  }
+  return true;
+}
+
 /** The detours and passages of `plans`, for the corridor trace. */
 function planSummary(plans: ReadonlyMap<string, DetourPlan>): string {
   let detours = 0;
@@ -1377,39 +1393,40 @@ export class PathAndRouteService {
    * when that changes a corridor.
    */
   private storeClearance(segments: readonly ClearanceSegment[]): boolean {
+    const t0 = corridorTrace.enabled ? performance.now() : 0;
     const before = this.fittedCorridors();
+    // For the corridor trace, without another fit of the corridors: whether
+    // the run brought free space the corridor did not have (below: whether
+    // the grid gave other walk caps). Whether a width changed says `changed`.
+    const measured = corridorTrace.enabled && segments.some(({ key, left, right }) => {
+      const known = this.clearanceBySegment.get(key);
+      return !sameNumbers(known?.left, left) || !sameNumbers(known?.right, right);
+    });
     // Stored with their unmeasured stations as well: they keep their
     // place, so the smoothing along the route does not join what lies
     // either side of them.
     for (const { key, left, right, probes } of segments) {
       this.clearanceBySegment.set(key, { left, right, probes });
     }
-    // For the corridor trace, one more fit tells the measurement from the walk caps below.
-    let measured = before;
-    let traceMs = 0;
-    if (corridorTrace.enabled) {
-      const t = performance.now();
-      measured = this.fittedCorridors();
-      traceMs = performance.now() - t;
-    }
+    const capsBefore = this.walkBySegment;
     this.walkBySegment = this.walkCapsWithGrid() ?? this.walkBySegment;
     // The room beside an obstacle on a centre line comes from the rays as well.
     const plansBefore = plansKey(this.detourPlans);
     this.detourPlans = this.detoursWithGrid() ?? this.detourPlans;
-    const after = this.fittedCorridors();
     const replanned = plansKey(this.detourPlans) !== plansBefore;
+    const changed = this.fittedCorridors() !== before || replanned;
     if (corridorTrace.enabled) {
       const by: string[] = [];
-      if (measured !== before) by.push('measured');
-      if (after !== measured) by.push('walkCaps');
+      if (measured) by.push('measured');
+      if (!sameCaps(capsBefore, this.walkBySegment)) by.push('walkCaps');
       if (replanned) by.push('detourPlans');
       corridorTrace.noteChange(by);
       corridorTrace.log('store', {
-        changed: after !== before || replanned, by: by.join('+') || 'none', segments: segments.length,
-        capped: cappedStations(this.walkBySegment), plans: planSummary(this.detourPlans), traceMs,
+        changed, by: by.join('+') || 'none', segments: segments.length,
+        capped: cappedStations(this.walkBySegment), plans: planSummary(this.detourPlans), ms: performance.now() - t0,
       });
     }
-    return after !== before || replanned;
+    return changed;
   }
 
   /** Cancel the clearance measurement under way, if any; nothing of it is stored. */

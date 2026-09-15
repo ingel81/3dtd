@@ -461,7 +461,7 @@ describe('PathAndRouteService route geometry', () => {
 
         expect(lines).toHaveLength(3);
         expect(lines[0]).toMatch(/ clearance\.start segments=0 stations=0 \| /);
-        expect(lines[1]).toMatch(/ store changed=true by=walkCaps segments=0 capped=\d+ plans=0 routes\/0 detours\/0 passages traceMs=/);
+        expect(lines[1]).toMatch(/ store changed=true by=walkCaps segments=0 capped=\d+ plans=0 routes\/0 detours\/0 passages ms=/);
         expect(lines[2]).toMatch(/ clearance\.commit segments=0 stations=0 unmeasured=0 coarse=0 rays=0 changed=true lod=2m:0,5m:0,coarse:0,none:0 slices=1 /);
       });
 
