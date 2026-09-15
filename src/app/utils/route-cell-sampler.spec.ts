@@ -22,9 +22,15 @@ const approachCell = (): RouteCell => ({
   airVisibility: new Map(),
 });
 
+/**
+ * The one place that writes a cell's height. A cell takes it when the grid
+ * generates the cells and, for a cell the finest level gave no column, in
+ * the build's retry on the fallback level; the build then freezes them
+ * (CorridorBuild), and nothing samples a cell again.
+ */
 describe('RouteCellSampler.sampleCellY', () => {
-  it('samples a cell off a bridge end again only once its column or the bridge end has a finer tile', () => {
-    // The deck at 80 m over a quay at 70 m; the bridge end has the coarser tile.
+  /** The deck at 80 m over a quay at 70 m; the bridge end has the coarser tile. */
+  const setup = () => {
     const lod = { cell: { depth: 20, geometricError: 2 }, deck: { depth: 18, geometricError: 8 } };
     const at = (x: number) => (x < 5 ? lod.deck : lod.cell);
     const columns = vi.fn((x: number): ColumnSample =>
@@ -32,21 +38,40 @@ describe('RouteCellSampler.sampleCellY', () => {
     const sampler = new RouteCellSampler(() => null);
     sampler.columnSampler = (x) => columns(x);
     sampler.terrainPeekLOD = (x) => at(x);
-    const cell = approachCell();
+    return { lod, columns, sampler, cell: approachCell() };
+  };
+
+  it('takes the coarser of the two tiles an approach cell stands on', () => {
+    const { sampler, cell } = setup();
 
     // The coarser LOD of the two columns (hitOf)
     expect(sampler.sampleCellY(cell)).toBe(true);
     expect(cell).toMatchObject({ terrainHeight: 80, sample: { state: 'stable', tileDepth: 18, tileGeometricError: 8 } });
-    const cast = columns.mock.calls.length;
+  });
 
-    // Nothing finer at either: the peek skips the cell, no column is cast
-    expect(sampler.sampleCellY(cell)).toBe(false);
-    expect(columns.mock.calls.length).toBe(cast);
-    expect(sampler.peekSkipCount).toBe(1);
+  it('takes the finer tile of a bridge end that refined before the build sampled the cell', () => {
+    const { lod, sampler, cell } = setup();
+    expect(sampler.sampleCellY(cell)).toBe(true);
 
-    // The bridge end refines: sampled again
     lod.deck = { depth: 20, geometricError: 2 };
+
     expect(sampler.sampleCellY(cell)).toBe(true);
     expect(cell.sample).toMatchObject({ tileDepth: 20, tileGeometricError: 2 });
+  });
+
+  it('casts no column where no tile mesh is decoded yet', () => {
+    const { columns, sampler, cell } = setup();
+
+    // No loaded tile contains the point: the column would miss anyway.
+    sampler.terrainPeekLOD = () => null;
+    expect(sampler.sampleCellY(cell)).toBe(false);
+
+    // The tile is there, its mesh is not: the column would find no usable LOD.
+    sampler.terrainPeekLOD = () => ({ depth: 0, geometricError: Infinity });
+    expect(sampler.sampleCellY(cell)).toBe(false);
+
+    expect(columns).not.toHaveBeenCalled();
+    expect(sampler.peekSkipCount).toBe(2);
+    expect(cell.sample.state).toBe('unsampled');
   });
 });

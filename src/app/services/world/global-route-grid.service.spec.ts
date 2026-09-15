@@ -71,7 +71,6 @@ describe('GlobalRouteGridService', () => {
   const init = () => {
     service.initialize((() => column) as never, sync as never);
     service.generateFromRoutes([route]);
-    service.updateTerrainHeights();
   };
   /** Register a tower at (x, 0) that sees the cells within `range`. */
   const tower = (id: string, x: number, range: number) =>

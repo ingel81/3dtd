@@ -60,7 +60,7 @@ describe('TowerPlacementService placement checks', () => {
       perTowerLosFilter: signal('both'),
     };
     injectionRegistry['AssetManagerService'] = {};
-    injectionRegistry['GlobalRouteGridService'] = { addCellsChangedListener: () => () => undefined };
+    injectionRegistry['GlobalRouteGridService'] = {};
     injectionRegistry['ResearchStore'] = {};
     injectionRegistry['TowerDefenseStore'] = {
       spawnPoints: signal([{ id: 'sp-1', name: 'Spawn', color: '#f00', ...spawn }]),

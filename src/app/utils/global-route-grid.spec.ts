@@ -91,9 +91,12 @@ vi.mock('./gpu-cube-resolve', () => ({
 }));
 
 /**
- * Covers the healing loop that the rooftop-route bug lived in: a cell sampled
- * from a coarse tile has to be replaced once a finer tile streams in, and
- * everything baked off cell heights has to hear about it.
+ * A cell takes its height once, when the corridor build generates the cells
+ * on the finest tile level, and keeps it. Nothing re-samples a cell after
+ * that: not a tile batch, not a tower registering on it
+ * (docs/ROUTE_CORRIDOR.md). The one later probe is retryUnsampledCells,
+ * which the build itself runs on the fallback level for the cells the finest
+ * level gave no column.
  *
  * The grid takes its terrain probe and LOD peek as injected functions, so
  * this runs without a tileset.
@@ -117,7 +120,11 @@ describe('GlobalRouteGrid terrain sampling', () => {
   let peek: { depth: number; geometricError: number } | null;
   let sampler: ReturnType<typeof vi.fn>;
 
-  const sweep = () => grid.updateTerrainHeights();
+  /** What a finer tile reports: the real street instead of the block hull. */
+  const finer = () => {
+    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
+    peek = { depth: 21, geometricError: 2 };
+  };
   const groundAtOrigin = () => grid.getGroundLocalYAt(0, 0);
 
   beforeEach(() => {
@@ -129,125 +136,55 @@ describe('GlobalRouteGrid terrain sampling', () => {
     grid = new GlobalRouteGrid();
     grid.initialize(sampler as never, coordinateSync, () => peek);
     grid.generateFromRoutes(route as never);
-    sweep();
   });
 
-  it('accepts the coarse sample so there is something to stand on', () => {
+  it('samples every cell as it generates them', () => {
     expect(groundAtOrigin()).toBe(85);
+    expect(sampler).toHaveBeenCalled();
   });
 
-  it('replaces it once a finer tile reports the real street', () => {
-    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
-    peek = { depth: 21, geometricError: 2 };
-
-    sweep();
-
-    expect(groundAtOrigin()).toBe(3);
-  });
-
-  it('does not re-probe while the loaded LOD is unchanged', () => {
+  it('keeps the height a cell has when finer tiles arrive', () => {
+    finer();
     sampler.mockClear();
-    sweep();
-    // The peek says nothing improved, so the sweep must not pay for rays.
+
+    expect(grid.retryUnsampledCells()).toEqual({ promoted: 0 });
+
     expect(sampler).not.toHaveBeenCalled();
-  });
-
-  it('refuses to fall back to a coarser tile once it has a fine sample', () => {
-    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
-    peek = { depth: 21, geometricError: 2 };
-    sweep();
-
-    // Tiles re-stream coarser (zoom-out). The peek gate alone would already
-    // skip this, so force the probe through to exercise the accept rule.
-    column = { groundY: 85, topY: 85, tileDepth: 14, tileGeometricError: 40 };
-    peek = { depth: 30, geometricError: 0 };
-    sweep();
-
-    expect(groundAtOrigin()).toBe(3);
-  });
-
-  it('tells every subscriber which cells changed', () => {
-    // One listener is not enough: per-tower LOS and the baked route line both
-    // have to self-heal, and a single-slot listener silently starved one.
-    const first = vi.fn();
-    const second = vi.fn();
-    grid.addCellsChangedListener(first);
-    grid.addCellsChangedListener(second);
-
-    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
-    peek = { depth: 21, geometricError: 2 };
-    sweep();
-
-    expect(first).toHaveBeenCalledOnce();
-    expect(second).toHaveBeenCalledOnce();
-    expect(first.mock.calls[0][0].length).toBeGreaterThan(0);
-  });
-
-  it('stops notifying after unsubscribe', () => {
-    const listener = vi.fn();
-    const off = grid.addCellsChangedListener(listener);
-    off();
-
-    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
-    peek = { depth: 21, geometricError: 2 };
-    sweep();
-
-    expect(listener).not.toHaveBeenCalled();
-  });
-
-  it('keeps the last good height when the probe comes back empty', () => {
-    column = null;
-    peek = { depth: 30, geometricError: 0 };
-    sweep();
-
     expect(groundAtOrigin()).toBe(85);
   });
 
-  // A height change nobody hears about is permanent: the peek-skip keeps
-  // every later sweep from flagging the cell again.
+  it('retries the cells the finest level gave no column, on the level it is called at', () => {
+    // As a build on the finest level leaves them: no tile under the route.
+    column = null;
+    grid.generateFromRoutes(route as never);
+    expect(grid.cellsWithoutHeight()).toBeGreaterThan(0);
 
-  it('reports cells a local refine refreshed, not only promoted ones', () => {
-    const listener = vi.fn();
-    grid.addCellsChangedListener(listener);
+    finer();
+    expect(grid.retryUnsampledCells().promoted).toBeGreaterThan(0);
 
-    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
-    peek = { depth: 21, geometricError: 2 };
-    const result = grid.refineCellsInRadius(10, 0, 6);
-
-    expect(result.refreshed).toBeGreaterThan(0);
-    expect(listener).toHaveBeenCalledOnce();
-    expect(listener.mock.calls[0][0]).toHaveLength(result.refreshed);
+    expect(grid.cellsWithoutHeight()).toBe(0);
+    expect(groundAtOrigin()).toBe(3);
   });
 
-  it('reports the heights a tower registration moved, after its own answers are in', () => {
-    const answeredWhenReported: boolean[] = [];
-    grid.addCellsChangedListener((changed) => {
-      for (const cell of changed) answeredWhenReported.push(cell.towerVisibility.has('t1'));
-    });
+  it('answers a tower from the heights the cells hold, without sampling one', () => {
+    finer();
+    sampler.mockClear();
 
-    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
-    peek = { depth: 21, geometricError: 2 };
     grid.registerTower('t1', 10, 0, 6, { referencePos: { x: 10, y: 20, z: 0 } } as never);
 
-    expect(answeredWhenReported.length).toBeGreaterThan(0);
-    expect(answeredWhenReported.every(Boolean)).toBe(true);
+    expect(sampler).not.toHaveBeenCalled();
+    // The 85 m hull the cells hold stands behind the wall at 10 m.
+    expect(grid.getCellsInRange(10, 0, 6).some((c) => c.towerVisibility.get('t1'))).toBe(false);
   });
 
-  it('re-resolves a cached answer whose cell height the re-registration moved', () => {
+  it('keeps the answers a tower has when it registers again on finer tiles', () => {
     const ctx = { referencePos: { x: 10, y: 20, z: 0 } } as never;
-    const listener = vi.fn();
     grid.registerTower('t1', 10, 0, 6, ctx);
-    // 85 m roof: behind the wall.
-    expect(grid.getCellsInRange(10, 0, 6).some((c) => c.towerVisibility.get('t1'))).toBe(false);
+    finer();
 
-    grid.addCellsChangedListener(listener);
-    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
-    peek = { depth: 21, geometricError: 2 };
     grid.registerTowerIncremental('t1', 10, 0, 6, ctx);
 
-    // 3 m street: in front of it.
-    expect(grid.getCellsInRange(10, 0, 6).every((c) => c.towerVisibility.get('t1'))).toBe(true);
-    expect(listener).toHaveBeenCalledOnce();
+    expect(grid.getCellsInRange(10, 0, 6).every((c) => c.towerVisibility.get('t1') === false)).toBe(true);
   });
 });
 
@@ -280,17 +217,26 @@ describe('GlobalRouteGrid tile seams', () => {
   const fallsThrough = (width: number) => (x: number): ColumnSample | null =>
     Math.abs(x - 21) < width ? { groundY: -3542, topY: -3542, tileDepth: 10, tileGeometricError: 500 } : seam(x);
 
-  it('samples a cell whose centre column falls through the seam from beside it', () => {
+  it('samples the cells whose centre column falls through the seam from beside them', () => {
     const grid = new GlobalRouteGrid();
     grid.initialize(fallsThrough(0.05) as never, coordinateSync);
     grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4 }, { lat: 1, lon: 40 }]]);
-    grid.updateTerrainHeights();
 
-    for (const z of [-3, -1, 1, 3, 5]) {
+    for (const z of [-1, 1, 3, 5]) {
       const cell = grid.getCellAt(21, z)!;
-      expect(cell.heightSampled, `z=${z}`).toBe(true);
+      expect(cell.sample.state, `z=${z}`).toBe('stable');
       expect(cell.terrainHeight, `z=${z}`).toBeCloseTo(2.15, 6);
     }
+
+    // One of them accepts nothing beside its centre either and takes the
+    // height of its neighbours, until the build retries it on the fallback
+    // level (CorridorBuild, step 5).
+    const filled = grid.getCellAt(21, -3)!;
+    expect(filled.sample.state).toBe('filled');
+    expect(filled.terrainHeight).toBeCloseTo(2.1, 6);
+
+    expect(grid.retryUnsampledCells().promoted).toBe(1);
+    expect(grid.getCellAt(21, -3)!.terrainHeight).toBeCloseTo(2.15, 6);
   });
 
   it('refuses a first sample far below the neighbours, from a coarser tile', () => {
@@ -340,7 +286,6 @@ describe('GlobalRouteGrid tile seams', () => {
 
   it('fills a cell between stable cells when no column near it gives ground', () => {
     const grid = street(fallsThrough(0.6));
-    grid.updateTerrainHeights();
 
     for (const z of [-3, -1, 1, 3, 5]) {
       const cell = grid.getCellAt(21, z)!;
@@ -357,28 +302,26 @@ describe('GlobalRouteGrid tile seams', () => {
     expect(grid.getGroundLocalYAt(21, -3)).toBeCloseTo(2.1, 6);
   });
 
-  it('replaces a fill with the first sample it accepts and reports both', () => {
+  it('replaces a fill with the first sample the fallback level accepts', () => {
+    // On the finest level the seam is 1.2 m wide: the cells in it have no
+    // column of their own and are filled from their neighbours.
     let width = 0.6;
     const grid = street((x) => fallsThrough(width)(x));
-    const changed = vi.fn();
-    grid.addCellsChangedListener(changed);
-    // Its neighbours move: the fill follows them.
-    grid.updateTerrainHeights();
-    expect(changed).not.toHaveBeenCalled();
+    expect(grid.getCellAt(21, 1)!.sample.state).toBe('filled');
 
-    // Finer tiles close the gap to a thin seam.
+    // The corridor build retries them on the fallback level, where the
+    // columns come down on the street (CorridorBuild).
     width = 0;
-    grid.updateTerrainHeights();
+    expect(grid.retryUnsampledCells().promoted).toBeGreaterThan(0);
+
     const cell = grid.getCellAt(21, 1)!;
     expect(cell.sample.state).toBe('stable');
     expect(cell.terrainHeight).toBeCloseTo(2.15, 6);
-    expect(changed.mock.calls.flatMap(([cells]) => cells)).toContain(cell);
   });
 
   it('leaves a cell without stable cells on opposite sides unsampled', () => {
     // A gap three cells wide.
     const grid = street((x) => (Math.abs(x - 21) < 2.6 ? null : seam(x)));
-    grid.updateTerrainHeights();
     const cell = grid.getCellAt(21, 1)!;
     expect(cell.sample.state).toBe('unsampled');
     expect(overlayCellKind(cell) & 7).toBe(2);

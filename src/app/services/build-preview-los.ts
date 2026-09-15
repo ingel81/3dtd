@@ -57,16 +57,9 @@ export class BuildPreviewLos {
     const canTargetAir = canTargetAirEffective(typeId, this.airTargetingUnlocked());
     const range = config.range;
 
-    // Cells in der Cursor-Region zu `stable` promoten falls noch nicht
-    // gesampelt — sonst tauchen sie nicht in der Viz auf (getCellsInRange
-    // filtert auf `heightSampled`). Schmal-Variante: stabile Cells werden
-    // übersprungen, also kein Raycast pro Move. LOD-Upgrades für stabile
-    // Cells laufen separat über den Tile-Streaming-Pfad.
-    const tPromoteStart = performance.now();
-    this.grid.promoteUnsampledCellsInRadius(
-      local.x, local.z, range,
-    );
-    losPerf.sample('preview/promote', performance.now() - tPromoteStart);
+    // The cells are the ones the corridor build froze (CorridorBuild); the
+    // preview draws those with a height (getCellsInRange filters on
+    // `heightSampled`) and samples none of its own.
 
     // Move-Schwelle: nur bei größerer Bewegung neu bauen
     const movedSq =

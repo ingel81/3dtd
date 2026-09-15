@@ -25,26 +25,22 @@ interface CellHit {
 export class RouteCellSampler {
   /**
    * The one terrain probe. Returns ground plus tile-LOD metadata for a
-   * vertical column; `sampleCellY` uses the LOD for quality-versioned
-   * idempotency so a coarse streaming pass can never overwrite a finer
-   * sample.
+   * vertical column; `sampleCellY` records that LOD on the cell, so a dump
+   * tells which tile a cell's height came from.
    */
   columnSampler: ColumnSampler | null = null;
 
   /**
-   * Cheap LOD probe — returns the best tile LOD currently loaded at
-   * (x,z) WITHOUT raycasting. Used by `sampleCellY` to skip the full
-   * raycast when a stable cell's tile-LOD has not improved. When null,
-   * `updateTerrainHeights` falls back to the legacy raycast-every-cell
-   * behaviour.
+   * Cheap LOD probe — the best tile LOD loaded at (x,z) WITHOUT raycasting.
+   * `sampleCellY` uses it to skip a column that cannot succeed anyway,
+   * where no tile mesh is decoded at the point yet. Optional: without it
+   * every call casts its column.
    */
   terrainPeekLOD: TerrainPeekLOD | null = null;
 
-  // ── Per-batch diagnostic counters ───────────────────────────────────
-  // Reset by the grid at the start of each terrain sweep
-  // (`beginTerrainHeightRefresh`) and incremented from `sampleCellY`. Read
-  // by the grid after the sweep to log the skip-vs-raycast ratio — that's
-  // how we verify Option C is actually doing what it claims.
+  // ── Diagnostic counters, incremented from `sampleCellY` ─────────────
+  // Columns skipped because no tile mesh was loaded at the point, and
+  // columns actually cast.
   peekSkipCount = 0;
   raycastCount = 0;
 
@@ -101,36 +97,31 @@ export class RouteCellSampler {
    * invariant lets us reason about cell state without tracking who-wrote-
    * what-when across the grid / tower-reg / viz pathways.
    *
-   * Phase 1 semantics:
+   * A cell is sampled when the grid generates it, and again only through
+   * `GlobalRouteGrid.retryUnsampledCells`, for a cell without a sample of
+   * its own: the corridor build runs that on the fallback level and then
+   * freezes the cells (CorridorBuild). No tile load, camera move or tower
+   * samples a cell afterwards.
+   *
    *  - If no column at the cell centre or half a metre beside it (a seam
    *    between two tile meshes) gives a hit its neighbours accept
    *    (plausible): `cell.sample` and `cell.terrainHeight` keep what they
    *    had (anchor fallback for an unsampled cell).
-   *  - If raycast hits: `cell.terrainHeight` and `cell.sample` are updated,
-   *    `cell.heightSampled` mirrors `state === 'stable'`.
-   *
-   * Phase 2 will add tile-LOD versioning (reject samples with strictly
-   * worse `geometricError` than the cached one), making this fully
-   * idempotent under streaming.
+   *  - If the column hits: `cell.terrainHeight` and `cell.sample` are
+   *    updated, `cell.heightSampled` mirrors `state === 'stable'`.
    *
    * @returns `true` when the cell was promoted to / refreshed in `stable`.
    */
   sampleCellY(cell: RouteCell): boolean {
-    // Tile-LOD-aware early exit (Option C, perf/route-grid-tile-aware-update):
-    // Peek the best LOD currently loaded at this (x,z) WITHOUT raycasting.
-    // Skip the raycast when ANY of the following is true:
+    // Peek the best LOD loaded at this (x,z) WITHOUT raycasting, and skip a
+    // column that cannot succeed:
     //
-    //  - peek === null: no loaded tile horizontally contains (x,z) → raycast
-    //    would miss anyway.
+    //  - peek === null: no loaded tile horizontally contains (x,z) → the
+    //    column would miss anyway.
     //  - peek.depth === 0 or geometricError === Infinity: tile is in the map
-    //    but its mesh isn't decoded yet → raycast would land in the noLOD
+    //    but its mesh isn't decoded yet → the column would land in the noLOD
     //    reject branch below. Catches the bootstrap-phase spike where
     //    1700+ raycasts run before any tile has usable LOD info.
-    //  - stable cell + peek LOD NOT strictly better than cell.sample: raycast
-    //    result would be rejected by the worseLOD or noChange branch below.
-    //
-    // "Strictly better" mirrors the acceptance criterion: deeper depth (primary)
-    // or same depth with lower geometricError.
     if (this.terrainPeekLOD !== null && this.columnSampler !== null) {
       const peek = this.terrainPeekLOD(cell.x, cell.z);
 
@@ -138,29 +129,6 @@ export class RouteCellSampler {
       if (peek === null || peek.depth === 0 || peek.geometricError === Infinity) {
         this.peekSkipCount++;
         return false;
-      }
-
-      // Stable cell + peek LOD not better than what we have → would be rejected.
-      // A cell off a bridge end keeps the coarser LOD of its column and the
-      // bridge end's (hitOf), so the peek there counts the same way; no tile
-      // there, no column there either.
-      if (cell.sample.state === 'stable') {
-        let depth = peek.depth;
-        let geometricError = peek.geometricError;
-        if (cell.surface === 'approach' && cell.deckEnd !== null) {
-          const end = cell.deckEnd.path[0];
-          const deck = this.terrainPeekLOD(end.x, end.z);
-          depth = Math.min(depth, deck?.depth ?? 0);
-          geometricError = Math.max(geometricError, deck?.geometricError ?? Infinity);
-        }
-        const peekIsBetter =
-          depth > cell.sample.tileDepth ||
-          (depth === cell.sample.tileDepth &&
-            geometricError < cell.sample.tileGeometricError);
-        if (!peekIsBetter) {
-          this.peekSkipCount++;
-          return false;
-        }
       }
     }
 
@@ -208,31 +176,6 @@ export class RouteCellSampler {
     const replaced = this.replaceHit?.(cell, hit.y) ?? null;
     if (replaced !== null) hit = { ...hit, y: replaced };
 
-    // Quality-versioned idempotency: if the cell already has a stable sample
-    // from a strictly better tile (deeper LOD), refuse to overwrite with
-    // potentially-degraded data. This keeps the grid robust against LOD
-    // drops during streaming (e.g. user zooms out and tiles re-stream at
-    // coarser detail).
-    if (cell.sample.state === 'stable') {
-      const oldDepth = cell.sample.tileDepth;
-      const oldErr = cell.sample.tileGeometricError;
-      const newDepth = hit.tileDepth;
-      const newErr = hit.tileGeometricError;
-      // Strictly worse LOD: lower depth AND higher geometricError.
-      if (newDepth < oldDepth && newErr > oldErr) {
-        logGrid(
-          'SAMPLE',
-          `reject reason=worseLOD key=${cell.key} oldDepth=${oldDepth} newDepth=${newDepth} oldErr=${oldErr.toFixed(2)} newErr=${newErr.toFixed(2)}`,
-        );
-        return false;
-      }
-      // Same Y and same LOD: nothing to do.
-      if (Math.abs(hit.y - cell.terrainHeight) < 0.01 && newDepth === oldDepth) {
-        return false;
-      }
-    }
-
-    const wasStable = cell.sample.state === 'stable';
     cell.terrainHeight = hit.y;
     cell.sample = {
       state: 'stable',
@@ -243,7 +186,7 @@ export class RouteCellSampler {
     cell.heightSampled = true;
     logGrid(
       'SAMPLE',
-      `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.y.toFixed(2)} depth=${hit.tileDepth} err=${hit.tileGeometricError.toFixed(2)}`,
+      `promote key=${cell.key} y=${hit.y.toFixed(2)} depth=${hit.tileDepth} err=${hit.tileGeometricError.toFixed(2)}`,
     );
     return true;
   }

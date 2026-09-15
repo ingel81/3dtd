@@ -31,12 +31,14 @@ import type { ColumnSample } from '../three-engine/column-sample';
 import { getGroundTargetY, type RouteCell } from '../utils/route-cell';
 
 /**
- * Per-tower LOS has to follow the cell heights as tiles refine, without
- * re-rendering a tower's cubemap more often than needed. Runs the real grid
- * and the real placement service; the cubemap, the engine and the frame loop
- * are fakes.
+ * A tower registers its LOS on the cells the corridor build froze
+ * (CorridorBuild) and keeps those answers: no tile load and no second tower
+ * samples a cell again. What still asks for a recompute is a research that
+ * gives a tower air targets (scheduleLosRecompute) and a range upgrade.
+ * Runs the real grid and the real placement service; the cubemap, the engine
+ * and the frame loop are fakes.
  */
-describe('TowerPlacementService tower LOS refresh', () => {
+describe('TowerPlacementService tower LOS on the frozen cells', () => {
   /** Fake space as in global-route-grid.spec.ts: lon is x, lat is z, height is y. */
   const sync = {
     geoToLocalSimple: (lat: number, lon: number, height: number) => ({ x: lon, y: height, z: lat }),
@@ -112,10 +114,10 @@ describe('TowerPlacementService tower LOS refresh', () => {
     injectionRegistry['GlobalRouteGridService'] = grid;
     service = new TowerPlacementService();
 
+    // The cells as a corridor build left them: sampled once, then frozen.
     coarse();
     grid.initialize((() => column) as never, sync as never, () => peek);
     grid.generateFromRoutes(route as never);
-    grid.updateTerrainHeights();
 
     const referencePos = new Vector3();
     const mapper = {
@@ -149,148 +151,39 @@ describe('TowerPlacementService tower LOS refresh', () => {
     vi.restoreAllMocks();
   });
 
-  it('recomputes each covering tower once per sweep, not once per slice', () => {
+  it('registers a tower on the cells as they are, with answers for their heights', () => {
     const a = place(15, 10);
-    const b = place(40, 10);
-    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
 
-    fine();
-    grid.beginTerrainHeightRefresh();
-    let slices = 0;
-    for (;;) {
-      // A zero budget yields every 32 cells: one slice per frame.
-      grid.stepTerrainHeightRefresh(0);
-      if (!grid.isTerrainRefreshActive()) break;
-      slices++;
-      runFrame();
-    }
-    expect(slices).toBeGreaterThan(1);
-    expect(recompute).not.toHaveBeenCalled();
-    // Until then the towers keep their old answers instead of losing them.
-    expect(cellsOf(a).every((c) => c.towerVisibility.has(a.id))).toBe(true);
-
-    drainFrames();
-    expect(recompute).toHaveBeenCalledTimes(2);
-    expect(new Set(recompute.mock.calls.map(([t]) => t))).toEqual(new Set([a, b]));
+    expect(a.losReady).toBe(true);
+    expect(cellsOf(a).length).toBeGreaterThan(0);
     expect(staleAnswers(a)).toEqual([]);
-    expect(staleAnswers(b)).toEqual([]);
-  });
-
-  it('spreads the recomputes over frames, one tower each', () => {
-    const towersInRange = [place(15, 10), place(40, 10), place(25, -10)];
-    fine();
-    grid.updateTerrainHeights();
-    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
-
-    runFrame();
-    expect(recompute).toHaveBeenCalledTimes(1);
-    runFrame();
-    expect(recompute).toHaveBeenCalledTimes(2);
-    runFrame();
-    expect(recompute).toHaveBeenCalledTimes(3);
+    // The hull at 85 m stands behind the wall at 10 m: every cell blocked.
+    expect(cellsOf(a).every((c) => c.towerVisibility.get(a.id) === false)).toBe(true);
     expect(frames).toHaveLength(0);
-    // In the end every tower answers for the heights its cells have now.
-    for (const tower of towersInRange) expect(staleAnswers(tower)).toEqual([]);
   });
 
-  it('drops a sold tower from the queue', () => {
+  it('samples no cell and moves no answer when finer tiles come in under a standing tower', () => {
     const a = place(15, 10);
-    const b = place(40, 10);
-    fine();
-    grid.updateTerrainHeights();
-    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
+    const heights = cellsOf(a).map((c) => c.terrainHeight);
 
-    service.unregisterTowerFromGrid(b);
-    towers.splice(towers.indexOf(b), 1);
+    // What a tile batch does to the cells now: nothing (VisualizationFacadeService.onTilesLoaded)
+    fine();
     drainFrames();
 
-    expect(recompute.mock.calls.map(([t]) => t)).toEqual([a]);
+    expect(cellsOf(a).map((c) => c.terrainHeight)).toEqual(heights);
+    expect(staleAnswers(a)).toEqual([]);
+    expect(frames).toHaveLength(0);
   });
 
-  it('lets a direct recompute settle what was queued for the tower', () => {
+  it('leaves the cells of the towers standing alone when another tower is placed on finer tiles', () => {
     const a = place(15, 10);
-    const b = place(40, 10);
     fine();
-    grid.updateTerrainHeights();
-    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
 
-    // e.g. a range upgrade before the next frame
-    service.recomputeTowerLOS(a);
-    expect(staleAnswers(a)).toEqual([]);
+    place(40, 10);
     drainFrames();
 
-    expect(recompute.mock.calls.map(([t]) => t)).toEqual([a, b]);
-    expect(staleAnswers(b)).toEqual([]);
-  });
-
-  it('keeps a tower queued while its recompute cannot run', () => {
-    const a = place(15, 10);
-    fine();
-    grid.updateTerrainHeights();
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-
-    blockerGroup = null;
-    runFrame();
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('no LOS blocker group'));
-    blockerGroup = {};
-    drainFrames();
-
-    // Dropped from the queue on the failed attempt, its answers would have
-    // stayed on the old height for good.
+    expect(cellsOf(a).every((c) => c.terrainHeight === 85)).toBe(true);
     expect(staleAnswers(a)).toEqual([]);
-  });
-
-  it('does not hold an explicit request back for a running sweep', () => {
-    const gatling = place(15, 10, 'dual-gatling');
-    // A tile load started a sweep that is still going.
-    grid.beginTerrainHeightRefresh();
-
-    service.scheduleLosRecompute(gatling);
-    researchStore.airTargetingUnlocked.set(true);
-    runFrame();
-
-    expect(grid.isTerrainRefreshActive()).toBe(true);
-    expect(cellsOf(gatling).every((c) => c.airVisibility.has(gatling.id))).toBe(true);
-  });
-
-  it('stops waiting for a sweep that keeps restarting', () => {
-    let clock = 0;
-    vi.spyOn(performance, 'now').mockImplementation(() => clock);
-    const a = place(15, 10);
-    fine();
-    grid.beginTerrainHeightRefresh();
-    // First slice: moves cells in a's range and queues a.
-    grid.stepTerrainHeightRefresh(0);
-    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
-
-    // Continuous panning: every tile load restarts the sweep before it ends.
-    for (; clock < 3000; clock += 500) {
-      grid.beginTerrainHeightRefresh();
-      runFrame();
-    }
-    expect(recompute).not.toHaveBeenCalled();
-
-    grid.beginTerrainHeightRefresh();
-    runFrame();
-    expect(recompute.mock.calls.map(([t]) => t)).toEqual([a]);
-    expect(staleAnswers(a)).toEqual([]);
-  });
-
-  it('passes a height change found while re-resolving one tower on to the others', () => {
-    const a = place(15, 10);
-    const b = place(40, 10);
-    // Finer tiles are in, but no sweep has run yet.
-    fine();
-    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
-
-    // e.g. a range upgrade: samples a's cells on the way
-    service.recomputeTowerLOS(a);
-    expect(staleAnswers(a)).toEqual([]);
-    drainFrames();
-
-    // b for the cells it shares with a; a is not queued for its own cells.
-    expect(recompute.mock.calls.map(([t]) => t)).toEqual([a, b]);
-    expect(staleAnswers(b)).toEqual([]);
   });
 
   it('resolves air for a retrofitted tower with the flag the store has by then', () => {
@@ -305,13 +198,62 @@ describe('TowerPlacementService tower LOS refresh', () => {
     expect(cellsOf(gatling).every((c) => c.airVisibility.has(gatling.id))).toBe(true);
   });
 
-  it('updates the standing towers when a new tower refines their cells', () => {
+  it('spreads the queued recomputes over frames, one tower each', () => {
+    const queued = [place(15, 10), place(40, 10), place(25, -10)];
+    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
+    for (const tower of queued) service.scheduleLosRecompute(tower);
+
+    runFrame();
+    expect(recompute).toHaveBeenCalledTimes(1);
+    runFrame();
+    expect(recompute).toHaveBeenCalledTimes(2);
+    runFrame();
+    expect(recompute).toHaveBeenCalledTimes(3);
+    expect(frames).toHaveLength(0);
+    expect(new Set(recompute.mock.calls.map(([t]) => t))).toEqual(new Set(queued));
+  });
+
+  it('drops a sold tower from the queue', () => {
     const a = place(15, 10);
-    fine();
-    // Its refine moves the cells it shares with a.
-    place(40, 10);
+    const b = place(40, 10);
+    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
+    service.scheduleLosRecompute(a);
+    service.scheduleLosRecompute(b);
+
+    service.unregisterTowerFromGrid(b);
+    towers.splice(towers.indexOf(b), 1);
     drainFrames();
 
+    expect(recompute.mock.calls.map(([t]) => t)).toEqual([a]);
+  });
+
+  it('keeps a tower queued while its recompute cannot run', () => {
+    const a = place(15, 10);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    service.scheduleLosRecompute(a);
+
+    blockerGroup = null;
+    runFrame();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('no LOS blocker group'));
+
+    blockerGroup = {};
+    drainFrames();
+    // Dropped from the queue on the failed attempt, its answers would have
+    // stayed as they were for good.
     expect(staleAnswers(a)).toEqual([]);
+  });
+
+  it('lets a direct recompute settle what was queued for the tower', () => {
+    const a = place(15, 10);
+    const b = place(40, 10);
+    const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
+    service.scheduleLosRecompute(a);
+    service.scheduleLosRecompute(b);
+
+    // e.g. a range upgrade before the next frame
+    service.recomputeTowerLOS(a);
+    drainFrames();
+
+    expect(recompute.mock.calls.map(([t]) => t)).toEqual([a, b]);
   });
 });

@@ -41,7 +41,6 @@ import { CorridorLodProbe } from '../debug/corridor-lod-probe';
 import { TilesConsole } from '../debug/tiles-console';
 import { CellReportService } from '../debug/cell-report.service';
 import { TowerTargetConsole } from '../debug/tower-target-console';
-import { RouteGridConvergence } from '../world/route-grid-convergence';
 import { IntroLoadingGate } from '../world/intro-loading-gate';
 import { CameraOverview } from '../camera-overview';
 import { DpsBinsOverlay } from '../debug/dps-bins-overlay';
@@ -149,15 +148,6 @@ export class VisualizationFacadeService {
     engineInit: this.engineInit,
   });
 
-  /** Cell refresh after tile loads and the heights baked off the cells, see RouteGridConvergence. */
-  private readonly convergence = new RouteGridConvergence({
-    grid: () => this.gameState.getGlobalRouteGrid(),
-    store: this.store,
-    pathRoute: this.pathRoute,
-    markerViz: this.markerViz,
-    routeAnimation: this.routeAnimation,
-  });
-
   /** Loading screen held for the intro flight on the first load, see IntroLoadingGate. */
   private readonly introGate = new IntroLoadingGate({
     engineInit: this.engineInit,
@@ -231,7 +221,6 @@ export class VisualizationFacadeService {
     this.corridorConsole.uninstall();
     this.tilesConsole.uninstall();
     this.towerTargetConsole.uninstall();
-    this.convergence.dispose();
     this.introGate.dispose();
     const engine = this.initialized ? this.bridge.getEngine() : null;
     this.dpsBins.dispose(engine);
@@ -332,9 +321,6 @@ export class VisualizationFacadeService {
 
     // Initialize intro camera flight (spike)
     this.introFlight.initialize(engine);
-
-    // Anything baked off cell heights has to follow the cells as they heal.
-    this.convergence.followCells();
 
     // Initialize keyboard panning service
     this.keyboardPan.initialize(engine);
@@ -579,10 +565,8 @@ export class VisualizationFacadeService {
     this.heightUpdate.initialize(
       engine,
       this.engineInit.loadingStatus,
-      () => {
-        this.markerViz.updateMarkerHeights();
-        corridorTrace.within('heightUpdate', () => this.gameState.getGlobalRouteGrid().updateTerrainHeights());
-      },
+      // The markers only: the cells get their heights from the corridor build.
+      () => this.markerViz.updateMarkerHeights(),
       () => this.renderStreets(),
       (detail: string) => this.engineInit.setStepDone('view', detail),
       (detail: string) => this.engineInit.updateStepMeta('view', detail),
@@ -733,54 +717,16 @@ export class VisualizationFacadeService {
     this.markerViz.updateMarkerHeights();
     const tMarkers = performance.now();
 
-    // Refresh cell terrain heights against the just-streamed tile geometry
-    // BEFORE the route-line / route-animation rebuild reads from them.
-    // Cells are now the single source of truth for ground Y (red line,
-    // enemy feet, tower-LOS), so the line snap-up after a tile-load
-    // depends on this refresh happening first.
-    //
-    // This also drives per-tower LOS: each slice of the sweep fires the
-    // cells-changed listener for the cells it promoted or refreshed, and the
-    // tower-placement handler re-resolves LOS for just those cells on the
-    // towers that cover them. When no cell changed LOD (the common
-    // pan/zoom case) the listener never fires — so the cost shown in the
-    // `terrainHeights` PerfTrace term stays at a few ms instead of the
-    // multi-second cubemap-readback spike the old full sweep produced.
-    // Kick off a FRAME-BUDGETED refresh instead of the old synchronous full
-    // sweep. The sweep used to raycast all ~3600 cells in one blocking call
-    // (~900ms main-thread freeze on every tile-load = the pan/zoom stutter).
-    // `RouteGridConvergence.schedule` below now drives the sweep across rAF
-    // ticks at ~5ms/frame, then falls back to unsampled self-heal. The route
-    // lines / animation below read the current (for refresh-cases already
-    // usable) cell heights; the small LOD deltas snap in over the next frames.
-    this.gameState.getGlobalRouteGrid().beginTerrainHeightRefresh();
+    // The cells, their heights, the route line and the corridor stay as the
+    // corridor build left them (CorridorBuild): a tile batch neither samples
+    // a cell nor rebuilds a line. Before it, the loading screen stands and
+    // the build measures on the tiles it waits for itself.
     const tTerrainHeights = performance.now();
-
-    // Request the re-snap of lines / markers / animation onto the freshly
-    // streamed tiles. With the budgeted sweep above in flight this only marks
-    // it pending — the rebuild runs once, when the sweep converges. Route
-    // TOPOLOGY does not depend on tiles (it comes from the OSM street graph),
-    // so nothing disappears in the meantime: the existing lines simply keep
-    // last load's heights for the ~1-2 s the sweep takes. Called explicitly
-    // rather than relying on the cells-changed listener so the DevWorld path
-    // still gets its refresh: its heights come from the generated heightmap in
-    // one shot rather than converging over several tile loads, so it never
-    // emits a cells-changed event.
-    this.convergence.scheduleBakedHeightRefresh();
     const tRoutes = performance.now();
     const tRouteAnim = performance.now();
 
     this.gameState.onTilesLoaded();
     const tGameState = performance.now();
-
-    // Self-heal cells that were `unsampled` either because tiles weren't
-    // streamed yet OR because the strict sampleCellY rejected a fallback
-    // hit / sanity-outlier in an earlier pass. Tile-mesh decoding is
-    // asynchronous to the load-end event, so we keep retrying across rAF
-    // ticks until two consecutive frames promote nothing (= converged)
-    // or a safety cap is hit. No magic-number timeout — the loop
-    // self-adjusts to hardware and cache state.
-    this.convergence.schedule();
     const tConvergence = performance.now();
 
     // Per-tower LOS is no longer re-resolved here. It used to run a full

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { RouteCell } from './route-cell';
-import type { RouteCellSampler } from './route-cell-sampler';
 import type { LosResolveContext } from './gpu-cube-resolve';
 
 // Stand-in for the cubemap: a wall at 10 m, so what a tower sees follows
@@ -14,10 +13,6 @@ import { resolveTowerLos, resolveTowerLosIncremental } from './route-grid-los';
 
 const cell = (x: number, z: number, terrainHeight: number) =>
   ({ x, z, terrainHeight, towerVisibility: new Map(), airVisibility: new Map() }) as unknown as RouteCell;
-
-/** A sampler whose sampleCellY reports a height change for the cells `moved` picks. */
-const sampler = (moved: (c: RouteCell) => boolean = () => false) =>
-  ({ sampleCellY: vi.fn(moved) }) as unknown as RouteCellSampler;
 
 const ctx = { referencePos: { x: 0, y: 20, z: 0 } } as unknown as LosResolveContext;
 const cube = isCubeVisible as unknown as MockInstance;
@@ -38,9 +33,9 @@ describe('resolveTowerLos', () => {
   });
 
   it('answers ground and air and lists the cells it sees anything in', () => {
-    const pass = resolveTowerLos([low, mid, high, far], sampler(), 't1', 0, 0, 10, ctx, true, true);
+    const visible = resolveTowerLos([low, mid, high, far], 't1', 0, 0, 10, ctx, true, true);
 
-    expect(pass).toEqual({ visible: [low, mid], changed: [] });
+    expect(visible).toEqual([low, mid]);
     expect([low, mid, high].map((c) => [c.towerVisibility.get('t1'), c.airVisibility.get('t1')]))
       .toEqual([[true, true], [true, false], [false, false]]);
     expect(far.towerVisibility.size + far.airVisibility.size).toBe(0);
@@ -48,15 +43,21 @@ describe('resolveTowerLos', () => {
 
   it('sees the cell it stands on without asking the cube', () => {
     const own = cell(0.05, 0, 50);
-    expect(resolveTowerLos([own], sampler(), 't1', 0, 0, 10, ctx, true, true).visible).toEqual([own]);
+    expect(resolveTowerLos([own], 't1', 0, 0, 10, ctx, true, true)).toEqual([own]);
     expect(cube).not.toHaveBeenCalled();
   });
 
-  it('answers only for what the tower targets and reports the heights it moved', () => {
-    const pass = resolveTowerLos([low, mid], sampler((c) => c === mid), 't1', 0, 0, 10, ctx, false, true);
-    expect(pass).toEqual({ visible: [low], changed: [mid] });
+  it('answers only for what the tower targets', () => {
+    const visible = resolveTowerLos([low, mid], 't1', 0, 0, 10, ctx, false, true);
+    expect(visible).toEqual([low]);
     expect(low.towerVisibility.has('t1')).toBe(false);
     expect(mid.airVisibility.get('t1')).toBe(false);
+  });
+
+  it('samples no cell height: the cells are the ones the corridor build froze', () => {
+    const frozen = cell(3, 0, 0);
+    resolveTowerLos([frozen], 't1', 0, 0, 10, ctx, true, false);
+    expect(frozen.terrainHeight).toBe(0);
   });
 });
 
@@ -66,21 +67,22 @@ describe('resolveTowerLosIncremental', () => {
   it('reuses the answers it has and asks the cube only for the new cells', () => {
     const inner = cell(3, 0, 0);
     const outer = cell(8, 0, 0);
-    resolveTowerLos([inner], sampler(), 't1', 0, 0, 5, ctx, true, false);
+    resolveTowerLos([inner], 't1', 0, 0, 5, ctx, true, false);
     cube.mockClear();
 
-    const pass = resolveTowerLosIncremental([inner, outer], sampler(), 't1', 0, 0, 10, ctx, true, false);
-    expect(pass.visible).toEqual([inner, outer]);
+    const visible = resolveTowerLosIncremental([inner, outer], 't1', 0, 0, 10, ctx, true, false);
+    expect(visible).toEqual([inner, outer]);
     expect(cube).toHaveBeenCalledOnce();
     expect(cube.mock.calls[0][3]).toBe(8);
   });
 
-  it('asks again where the sampling moved the height under a cached answer', () => {
-    const moved = cell(3, 0, 0);
-    moved.towerVisibility.set('t1', false); // answered for the old height
-    const pass = resolveTowerLosIncremental([moved], sampler(() => true), 't1', 0, 0, 10, ctx, true, false);
-    expect(pass).toEqual({ visible: [moved], changed: [moved] });
-    expect(moved.towerVisibility.get('t1')).toBe(true);
+  it('answers a cell whose entry the caller dropped, as after a research retrofit', () => {
+    const retrofitted = cell(3, 0, 0);
+    retrofitted.towerVisibility.set('t1', false);
+    retrofitted.towerVisibility.delete('t1');
+    const visible = resolveTowerLosIncremental([retrofitted], 't1', 0, 0, 10, ctx, true, false);
+    expect(visible).toEqual([retrofitted]);
+    expect(retrofitted.towerVisibility.get('t1')).toBe(true);
   });
 
   it('drops answers outside the new circle and for a capability the tower lost', () => {
@@ -90,7 +92,7 @@ describe('resolveTowerLosIncremental', () => {
       c.towerVisibility.set('t1', true);
       c.airVisibility.set('t1', true);
     }
-    resolveTowerLosIncremental([corner, inside], sampler(), 't1', 0, 0, 10, ctx, true, false);
+    resolveTowerLosIncremental([corner, inside], 't1', 0, 0, 10, ctx, true, false);
     expect(corner.towerVisibility.has('t1') || corner.airVisibility.has('t1')).toBe(false);
     expect(inside.towerVisibility.get('t1')).toBe(true);
     expect(inside.airVisibility.has('t1')).toBe(false);

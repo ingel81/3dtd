@@ -96,9 +96,7 @@ describe('VisualizationFacadeService', () => {
   let cachedPaths: Map<string, typeof ROUTE>;
   let frames: Map<number, FrameRequestCallback>;
   let nextFrameId: number;
-  let cellsChanged: ((changed: unknown[]) => void) | null;
   let towerCount: number;
-  let sweepFrames: number;
 
   type Fn = ReturnType<typeof vi.fn>;
   /** The corridor measurement fake: slices a run takes, whether it changes a corridor, the runs so far. */
@@ -150,17 +148,8 @@ describe('VisualizationFacadeService', () => {
     onMapPlacementMove: vi.fn(),
     exitMapPlacement: vi.fn(),
   };
-  const cellsOff = vi.fn();
   const grid = {
-    addCellsChangedListener: vi.fn((listener: (changed: unknown[]) => void) => {
-      cellsChanged = listener;
-      return cellsOff;
-    }),
-    isTerrainRefreshActive: vi.fn(() => sweepFrames > 0),
-    stepTerrainHeightRefresh: vi.fn(() => { sweepFrames--; }),
-    beginTerrainHeightRefresh: vi.fn(),
     retryUnsampledCells: vi.fn(() => ({ promoted: 0 })),
-    updateTerrainHeights: vi.fn(),
     initSpatialGridVisualizationIfEnabled: vi.fn(),
     initAirSpatialGridVisualizationIfEnabled: vi.fn(),
     initAirRouteLayerIfEnabled: vi.fn(),
@@ -391,9 +380,7 @@ describe('VisualizationFacadeService', () => {
     streetNetwork = { streets: [{}] };
     filteredNetwork = { streets: [{}], filtered: true };
     cachedPaths = new Map([['spawn-1', ROUTE]]);
-    cellsChanged = null;
     towerCount = 0;
-    sweepFrames = 0;
     dpsViz.instances.length = 0;
     devWorld.isActive = false;
     bridge.getEngine.mockImplementation(() => engine);
@@ -520,35 +507,6 @@ describe('VisualizationFacadeService', () => {
       expect(options.groundAt(2, 0)).toBeNull();
     });
 
-    it('re-bakes route line and markers once per frame when cells change', () => {
-      routeAnimation.isRunning.mockReturnValue(true);
-      facade.initializeVisualizationServices();
-
-      cellsChanged!([]);
-      cellsChanged!([]);
-      expect(pathRoute.refreshRouteLines).not.toHaveBeenCalled();
-      runFrames();
-
-      expect(pathRoute.refreshRouteLines).toHaveBeenCalledTimes(1);
-      expect(pathRoute.refreshRouteLines).toHaveBeenCalledWith([SPAWN]);
-      expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
-      expect(routeAnimation.startAnimation).toHaveBeenCalledWith(cachedPaths, [SPAWN]);
-    });
-
-    it('does not restart an animation that is not running', () => {
-      facade.initializeVisualizationServices();
-      cellsChanged!([]);
-      runFrames();
-      expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
-    });
-
-    it('keeps one cells-changed subscription across location changes', () => {
-      facade.initializeVisualizationServices();
-      facade.initializeVisualizationServices();
-
-      expect(grid.addCellsChangedListener).toHaveBeenCalledTimes(2);
-      expect(cellsOff).toHaveBeenCalledTimes(1);
-    });
   });
 
   describe('setupClickHandlerWithGameState', () => {
@@ -736,7 +694,6 @@ describe('VisualizationFacadeService', () => {
 
       onHeights();
       expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
-      expect(grid.updateTerrainHeights).toHaveBeenCalled();
       onStreets();
       expect(streetRendering.renderStreets).toHaveBeenCalled();
       onDone('3 of 3');
@@ -985,81 +942,39 @@ describe('VisualizationFacadeService', () => {
       filteredNetwork = {};
       bridge.getEngine.mockReturnValue(null);
       facade.onTilesLoaded();
-      expect(grid.beginTerrainHeightRefresh).not.toHaveBeenCalled();
+      expect(gameState.onTilesLoaded).not.toHaveBeenCalled();
     });
 
-    it('refreshes streets, markers, cell heights and the debug overlays', () => {
+    it('refreshes streets, markers and the debug overlays', () => {
       facade.onTilesLoaded();
 
       expect(streetRendering.renderStreets).toHaveBeenCalled();
       expect(buildingRendering.renderBuildings).not.toHaveBeenCalled();
       expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
-      expect(grid.beginTerrainHeightRefresh).toHaveBeenCalled();
       expect(gameState.onTilesLoaded).toHaveBeenCalled();
       expect(grid.initSpatialGridVisualizationIfEnabled).toHaveBeenCalled();
       expect(grid.initAirSpatialGridVisualizationIfEnabled).toHaveBeenCalled();
       expect(grid.initAirRouteLayerIfEnabled).toHaveBeenCalled();
     });
 
-    it('steps the height sweep, then retries unsampled cells until two empty frames', () => {
-      sweepFrames = 2;
-      grid.retryUnsampledCells
-        .mockReturnValueOnce({ promoted: 3 })
-        .mockReturnValueOnce({ promoted: 0 })
-        .mockReturnValueOnce({ promoted: 0 });
-
+    /**
+     * What the tile batches did to the corridor until 2026-09-16: a height
+     * sweep over every cell, a retry loop for the unsampled ones, a
+     * measurement and a rebuild of routes, cells and the route line. The
+     * corridor is built once behind the loading screen now (CorridorBuild)
+     * and frozen; a batch touches none of it.
+     */
+    it('samples no cell and rebuilds nothing, however many batches arrive', () => {
       facade.onTilesLoaded();
-      runFrames(2);
-      expect(grid.stepTerrainHeightRefresh.mock.calls).toEqual([[5], [5]]);
+      facade.onTilesLoaded();
+      runFrames(5);
+
       expect(grid.retryUnsampledCells).not.toHaveBeenCalled();
-      // The rebuild requested during the sweep waits for its end.
-      expect(pathRoute.refreshRouteLines).not.toHaveBeenCalled();
-
-      runFrames(3);
-      expect(grid.retryUnsampledCells).toHaveBeenCalledTimes(3);
-      expect(pathRoute.refreshRouteLines).not.toHaveBeenCalled();
-
-      runFrames();
-      expect(pathRoute.refreshRouteLines).toHaveBeenCalledTimes(1);
-      runFrames(5);
-      expect(grid.retryUnsampledCells).toHaveBeenCalledTimes(3);
-      expect(pathRoute.refreshRouteLines).toHaveBeenCalledTimes(1);
-    });
-
-    it('gives up retrying after 120 frames that keep promoting cells', () => {
-      grid.retryUnsampledCells.mockReturnValue({ promoted: 1 });
-
-      facade.onTilesLoaded();
-      runFrames(125);
-
-      expect(grid.retryUnsampledCells).toHaveBeenCalledTimes(120);
-      expect(frames.size).toBe(0);
-    });
-
-    it('runs one convergence loop however many tile loads arrive', () => {
-      facade.onTilesLoaded();
-      facade.onTilesLoaded();
-      runFrames();
-      expect(grid.retryUnsampledCells).toHaveBeenCalledTimes(1);
-    });
-
-    it('measures and rebuilds nothing when a batch settles: the corridor stays as built', () => {
-      facade.onTilesLoaded();
-      runFrames(5);
-
       expect(pathRoute.beginClearanceMeasurement).not.toHaveBeenCalled();
+      expect(pathRoute.refreshRouteLines).not.toHaveBeenCalled();
       expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
-    });
-
-    it('stops the loop on dispose', () => {
-      grid.retryUnsampledCells.mockReturnValue({ promoted: 1 });
-      facade.onTilesLoaded();
-      runFrames(3);
-
-      facade.dispose();
-      runFrames(3);
-
-      expect(grid.retryUnsampledCells).toHaveBeenCalledTimes(3);
+      expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
+      expect(frames.size).toBe(0);
     });
   });
 
@@ -1204,7 +1119,7 @@ describe('VisualizationFacadeService', () => {
       expect(towerDebug.selectTower).toHaveBeenCalledWith('cannon');
     });
 
-    it('drops subscriptions, the cells listener, the DPS bins and the buildings on dispose', () => {
+    it('drops subscriptions, the DPS bins and the buildings on dispose', () => {
       facade.initializeVisualizationServices();
       facade.subscribeToEventBus();
       facade.onDpsBinsToggled(true);
@@ -1213,7 +1128,6 @@ describe('VisualizationFacadeService', () => {
       facade.dispose();
 
       expect(bus.getListenerCount()).toBe(0);
-      expect(cellsOff).toHaveBeenCalled();
       expect(viz.disposed).toBe(true);
       expect(scene.remove).toHaveBeenCalledWith(viz.mesh);
       expect(buildingRendering.reset).toHaveBeenCalled();

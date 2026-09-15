@@ -91,17 +91,13 @@ describe('Build preview with a plinth on a spot too close to the route (playtest
       releaseModel: vi.fn(),
     };
     injectionRegistry['GlobalRouteGridService'] = {
-      addCellsChangedListener: vi.fn(() => () => undefined),
       isInitialized: vi.fn(() => true),
-      promoteUnsampledCellsInRadius: vi.fn(),
-      refineCellsInRadius: vi.fn(),
       getCellsInRange: vi.fn(() => [{}, {}]),
       getCellSize: () => 2,
       registerTower: vi.fn(() => []),
       registerTowerIncremental: vi.fn(() => []),
       unregisterTower: vi.fn(),
       rebuildAirRouteLayer: vi.fn(),
-      isTerrainRefreshActive: () => false,
     };
     injectionRegistry['ResearchStore'] = { airTargetingUnlocked: signal(false) };
     injectionRegistry['TowerDefenseStore'] = {

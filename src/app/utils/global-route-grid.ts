@@ -26,7 +26,6 @@ import {
   summarizeTowerRange,
 } from './route-grid-diagnostics';
 import { RouteGridAggregateViz } from './route-grid-aggregate-viz';
-import { RouteGridHeightSweep } from './route-grid-height-sweep';
 import { RouteCellSampler } from './route-cell-sampler';
 import { WalkGround, cellWalkable, centreLineKeys, judgeWalk, streetUnderRoof, streetUnderRoofAt, unwalkableCells } from './corridor-walk';
 import { logGrid } from './route-grid-log';
@@ -54,17 +53,6 @@ const ascending = (a: number, b: number): number => a - b;
 export class GlobalRouteGrid {
   /** Map of cell keys to RouteCell data */
   private readonly cells = new Map<number, RouteCell>();
-
-  /**
-   * Listener called when cells change their terrain sample — either
-   * promoted (unsampled→sampled) or refreshed (sampled→strictly-better
-   * tile LOD). Both shift `cell.terrainHeight`, so per-tower LOS resolved
-   * against the old height is stale for exactly those cells. Consumers
-   * (e.g. tower-placement-service) use the changed-cell list to re-resolve
-   * LOS for just those cells per placed tower and to refresh per-tower viz
-   * meshes — instead of rebuilding every tower's whole visibility cache.
-   */
-  private cellsChangedListeners: ((changed: RouteCell[]) => void)[] = [];
 
   /** Map of enemy ID to current cell key (for fast cell transitions) */
   private enemyCellKeys = new Map<string, number>();
@@ -177,16 +165,6 @@ export class GlobalRouteGrid {
 
   /** judgeWalk for one cell of this grid, for `__corridor.pick()`. */
   private readonly walkJudgement = (cell: RouteCell) => judgeWalk(cell, this.walkGround, this.CELL_SIZE);
-
-  /**
-   * Frame-budgeted terrain-refresh sweep, see RouteGridHeightSweep. A slice
-   * that moved cells snaps the aggregate viz and tells the cells-changed
-   * listeners about them.
-   */
-  private readonly heightSweep = new RouteGridHeightSweep(this.sampler, (changed) => {
-    this.aggregateViz.refreshPositions();
-    this.emitCellsChanged(changed);
-  });
 
   /** Coordinate sync for geo <-> local conversions */
   private coordinateSync: CoordinateSync | null = null;
@@ -432,112 +410,13 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Update terrain heights for all cells in one blocking pass.
-   * Call this after terrain tiles have loaded for accurate visualization
-   * and for valid air-LOS pre-compute. Uses ABSOLUTE raycast heights.
-   *
-   * This is NOT a second sweep implementation — it drives the exact same
-   * queue as {@link beginTerrainHeightRefresh} / {@link
-   * stepTerrainHeightRefresh}, just with an unlimited per-slice budget so it
-   * finishes in one call. Used for the initial load, where the stall sits
-   * behind the loading screen; the recurring tile-load path uses the
-   * frame-budgeted driver so it can't freeze the main thread.
-   */
-  updateTerrainHeights(): void {
-    if (!this.sampler.columnSampler) return;
-    this.beginTerrainHeightRefresh();
-    this.stepTerrainHeightRefresh(Infinity);
-    // The budgeted driver only re-snaps the viz for slices that moved a cell.
-    // The blocking path always wants it — cells may have been generated since
-    // the last snap, and "cell sticks in ground" on toggle-race lives here.
-    this.aggregateViz.refreshPositions();
-  }
-
-  /**
-   * Begin a frame-budgeted terrain-height refresh over all cells. Snapshots
-   * the current cell set into a sweep queue; the caller then drives
-   * `stepTerrainHeightRefresh(budgetMs)` once per rAF tick until it reports
-   * `done`. This is the non-blocking driver for the tile-load hot path —
-   * same work as the blocking `updateTerrainHeights` (promote + LOD-refresh
-   * every cell), just spread across frames so a tile-load no longer freezes
-   * the main thread for ~900ms.
-   *
-   * Re-calling while a sweep is already in flight restarts it from scratch
-   * (a fresh tile-load means newer LOD is available). The peek-skip fast
-   * path in `sampleCellY` makes re-sweeping already-current cells cheap, so
-   * restarting is not wasteful.
-   */
-  beginTerrainHeightRefresh(): void {
-    this.heightSweep.begin(this.cells.values());
-  }
-
-  /**
-   * Process one frame's worth of the terrain-refresh sweep started by
-   * `beginTerrainHeightRefresh`. Raycasts cells from the cursor until the
-   * `budgetMs` time budget is exhausted (checked every ~32 cells to keep
-   * `performance.now()` overhead negligible), then yields. Fires
-   * `aggregateViz.refreshPositions` + `emitCellsChanged` for THIS slice's
-   * changed cells, so no change is lost when a new tile-load restarts the
-   * sweep. Listeners with expensive follow-up work (per-tower LOS, route
-   * line) collect the slices and run once the sweep is over.
-   *
-   * Returns `done=true` once the queue is exhausted (or there is no sweep
-   * in flight) — at which point the aggregated `[PerfTrace]` line is logged.
-   */
-  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number; changed: number } {
-    const wasActive = this.heightSweep.active;
-    const result = this.heightSweep.step(budgetMs);
-    // Once the sweep is through, the gaps between the cells it sampled.
-    if (wasActive && result.done) {
-      const filled = this.fillGaps(this.cells.values());
-      if (filled.length > 0) {
-        this.aggregateViz.refreshPositions();
-        this.emitCellsChanged(filled);
-      }
-    }
-    return result;
-  }
-
-  /** True while a budgeted terrain-refresh sweep is in flight. */
-  isTerrainRefreshActive(): boolean {
-    return this.heightSweep.active;
-  }
-
-  /**
-   * Subscribe to terrain-sample-change events (promote + refresh).
-   *
-   * More than one system depends on cell heights and each has to self-heal
-   * as tiles stream in: per-tower LOS and its viz, and everything baked off
-   * the cells (route line, markers). A list rather than a single slot —
-   * the previous single-listener design is what left the route line
-   * pinned to the heights it was first built with.
-   *
-   * @returns unsubscribe
-   */
-  addCellsChangedListener(listener: (changed: RouteCell[]) => void): () => void {
-    this.cellsChangedListeners.push(listener);
-    return () => {
-      const i = this.cellsChangedListeners.indexOf(listener);
-      if (i >= 0) this.cellsChangedListeners.splice(i, 1);
-    };
-  }
-
-  /** Fan a change batch out to every subscriber. */
-  private emitCellsChanged(changed: RouteCell[]): void {
-    if (changed.length === 0) return;
-    for (const listener of this.cellsChangedListeners) listener(changed);
-  }
-
-  /**
    * Retry sampling for cells that have no sample of their own
    * (`unsampled` or `filled`). Cheap: only walks that subset. A promotion
    * may close a gap next to a cell still waiting, see fillGaps.
    *
-   * Intended to be called from tile-load-end callbacks so cells self-heal
-   * as tiles stream in, without re-sampling already-stable cells.
-   *
-   * Triggers `onCellsChanged` and refreshes the global viz mesh when at
-   * least one cell flipped from `unsampled` → `stable`.
+   * The corridor build calls it on the fallback level for the cells the
+   * finest level gave no column (CorridorBuild); nothing else samples cells
+   * after a build.
    */
   retryUnsampledCells(): { promoted: number } {
     if (!this.sampler.columnSampler) {
@@ -567,101 +446,9 @@ export class GlobalRouteGrid {
     if (promoted.length === 0) return { promoted: 0 };
 
     // The new samples may close gaps around the cells still waiting.
-    const changed = promoted.concat(this.fillGaps(waiting));
+    this.fillGaps(waiting);
     this.aggregateViz.refreshPositions();
-    this.emitCellsChanged(changed);
     return { promoted: promoted.length };
-  }
-
-  /**
-   * Schmal-Variante von `refineCellsInRadius`: ruft `sampleCellY` NUR
-   * für Cells im Radius, die noch nicht `stable` sind. Skip-Pfad für
-   * bereits-gesampelte Cells = kein Raycast.
-   *
-   * Use case: per-frame Build-Preview-Aufrufe, wo wir Cells in der
-   * Cursor-Region zu `stable` bringen müssen damit sie in der Viz
-   * erscheinen, aber wir keine LOD-Upgrades für bereits stabile Cells
-   * brauchen (Y-Drift durch LOD bewegt sich im Sub-Meter-Bereich, was
-   * für die Coverage-Viz und LOS-Raycasts irrelevant ist).
-   *
-   * Tile-Streaming-getriebene LOD-Upgrades laufen weiterhin über die
-   * volle `refineCellsInRadius` aus dem Tile-Load-End-Pfad.
-   */
-  promoteUnsampledCellsInRadius(x: number, z: number, radius: number): { promoted: number } {
-    if (!this.sampler.columnSampler) {
-      return { promoted: 0 };
-    }
-    const rangeSq = radius * radius;
-    const promoted: RouteCell[] = [];
-
-    for (const cell of this.cells.values()) {
-      if (cell.heightSampled) continue;
-      const distSq = (cell.x - x) ** 2 + (cell.z - z) ** 2;
-      if (distSq > rangeSq) continue;
-      if (this.sampler.sampleCellY(cell)) {
-        promoted.push(cell);
-      }
-    }
-
-    if (promoted.length > 0) {
-      this.aggregateViz.refreshPositions();
-      this.emitCellsChanged(promoted);
-    }
-
-    return { promoted: promoted.length };
-  }
-
-  /**
-   * Locally refine cell-Y for all cells within `radius` of (x, z). Walks
-   * the candidate set, calls `sampleCellY` on each — promoting unsampled
-   * cells and refreshing stable cells if the tile-LOD improved.
-   *
-   * Cheap relative to a full grid sweep: only cells inside the radius
-   * are touched. Used right before tower placement / preview so the
-   * tower's range gets the freshest possible per-cell heights without
-   * waiting for a global tile-load-driven refresh.
-   *
-   * Returns counts for logging / verification. Triggers viz refresh +
-   * the cells-changed listeners when at least one cell changed its sample
-   * (promoted or refreshed).
-   */
-  refineCellsInRadius(x: number, z: number, radius: number): { promoted: number; refreshed: number; inRange: number } {
-    if (!this.sampler.columnSampler) {
-      return { promoted: 0, refreshed: 0, inRange: 0 };
-    }
-    const rangeSq = radius * radius;
-    const changed: RouteCell[] = [];
-    let promoted = 0;
-    let inRange = 0;
-
-    for (const cell of this.cells.values()) {
-      const distSq = (cell.x - x) ** 2 + (cell.z - z) ** 2;
-      if (distSq > rangeSq) continue;
-      inRange++;
-      // A filled cell's first sample of its own is a promotion too.
-      const wasUnsampled = cell.sample.state !== 'stable';
-      if (this.sampler.sampleCellY(cell)) {
-        changed.push(cell);
-        if (wasUnsampled) promoted++;
-      }
-    }
-    const refreshed = changed.length - promoted;
-
-    logGrid(
-      'REFINE',
-      `at=(${x.toFixed(1)},${z.toFixed(1)}) r=${radius.toFixed(1)} inRange=${inRange} promoted=${promoted} refreshed=${refreshed}`,
-    );
-
-    // A refresh moves terrainHeight just like a promotion. Reporting only
-    // promotions left every other tower covering a refreshed cell with LOS
-    // against the old height for good: the peek-skip in sampleCellY keeps
-    // the next sweep from ever flagging that cell again.
-    if (changed.length > 0) {
-      this.aggregateViz.refreshPositions();
-      this.emitCellsChanged(changed);
-    }
-
-    return { promoted, refreshed, inRange };
   }
 
   /**
@@ -720,23 +507,9 @@ export class GlobalRouteGrid {
     canTargetGround = true,
     canTargetAir = false
   ): RouteCell[] {
-    const { visible, changed } = resolveTowerLos(
-      this.cellsInRange(towerX, towerZ, range), this.sampler, towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
+    return resolveTowerLos(
+      this.cellsInRange(towerX, towerZ, range), towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
     );
-
-    // Tower-reg re-sampled cell.terrainHeight for each visited cell — refresh
-    // the global viz so its mesh positions match the new cached values,
-    // preventing a visible Y-drift between global overlay and per-tower
-    // overlay for the same cells.
-    this.aggregateViz.refreshPositions();
-
-    // Other towers covering a moved cell still answer for its old height.
-    // Reported only now, after the loop: `ctx` is the shared cubemap, and a
-    // listener that re-rendered it would change what the rest of the loop
-    // samples. This tower's own answers are current already.
-    this.emitCellsChanged(changed);
-
-    return visible;
   }
 
   /**
@@ -761,18 +534,9 @@ export class GlobalRouteGrid {
     canTargetGround = true,
     canTargetAir = false,
   ): RouteCell[] {
-    const { visible, changed } = resolveTowerLosIncremental(
-      this.cellsInRange(towerX, towerZ, range), this.sampler, towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
+    return resolveTowerLosIncremental(
+      this.cellsInRange(towerX, towerZ, range), towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
     );
-
-    // Same rationale as in registerTower — incremental re-sampling may have
-    // updated cell.terrainHeight, keep the global viz mesh in sync.
-    this.aggregateViz.refreshPositions();
-
-    // As in registerTower: report the moved cells once the loop is done.
-    this.emitCellsChanged(changed);
-
-    return visible;
   }
 
   /**
@@ -1320,11 +1084,6 @@ export class GlobalRouteGrid {
     this.enemyCellKeys.clear();
     this.bodyEnemies.length = 0;
     this.generation = GlobalRouteGrid.nextGeneration++;
-    // Abandon any sweep in flight. Its queue holds hard references to the
-    // cells we just dropped, and a driver that keeps stepping would raycast
-    // those orphans with the NEW location's sampler and emit cells-changed
-    // for cells that are no longer in the grid.
-    this.heightSweep.abort();
     this.disposeVisualization();
     this.disposeAirVisualization();
   }
