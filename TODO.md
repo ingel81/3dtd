@@ -1381,6 +1381,18 @@
       `324ca45`); nach dem Playtest überarbeitet (gesperrte Tower ausblenden,
       Breite, Optik) auf `wt/fix-matrixui`, Retest steht aus.
 
+- [ ] **Konzept: Resistenzen, Immunitäten, Schild und HP** (PLAYTEST.md E16,
+      2026-09-15, erst Konzept, dann bauen). Resistenz heißt: ein Effekt oder
+      Schadenstyp wirkt nur zum Teil; Immunität: gar nicht (100 %). Gewünscht
+      für Effekte (Slow, Frost, Stun) und für Schadenstypen, je Gegnertyp.
+      Dazu die Idee, Gegner generell in Schild und HP aufzuteilen (bisher nur
+      "Schildphasen" als Boss-Feature diskutiert). Grundlage mit Ist-Stand,
+      betroffenen Stellen (Gate, Training, Encoder, Matrix-Anzeigen) und
+      Optionen: `tmp/fix1/reports/bossresist.md` und `immunity.md`. Schon
+      entschieden: Herbert Slow-Resistenz 50 %; `immunityPercent` (Herbert
+      100, wirkt nirgends) geht im neuen Feld auf. Umgesetzt vorab: Skarnax
+      steht nur still, wenn sein Kopf eingefroren oder betäubt ist.
+
 ## 3.4 Wave Director — Build & Deployment
 
 > Training-Code nicht in Prod Bundle
@@ -1633,6 +1645,12 @@
 - [ ] **Gewässer von OSM laden** - `natural=water`, `waterway=river/stream/canal` über Overpass abfragen. Gewässer als unpassierbare Zonen ins Routing einbeziehen → Brücken werden natürliche Chokepoints (Engstellen). Optional: Gewässerflächen visuell auf der Karte darstellen
 
 ## Gameplay-Konzepte
+
+- [ ] **Konzept: Tech Tree des Helden** (PLAYTEST.md E18 "Held Stufe 2",
+      2026-09-15). Der Held braucht vermutlich viel mehr Möglichkeiten; eine
+      Stufe 2 erst mit dem passenden Tech Tree. Drei Vorschläge (Forschung
+      "Heavy Gear", nur Look ab 100 Kills, ganzes Straßennetz) mit Werten und
+      Aufwand in `tmp/fix1/reports/herotier2.md`.
 
 - [ ] **Konzept: Spieler aktiver ins Geschehen einbinden**
       Idee 2026-09-10. Heute baut der Spieler nur und schaut zu; er braucht
