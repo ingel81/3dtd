@@ -27,6 +27,7 @@ import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { MapPlacementService } from '../world/map-placement.service';
 import { MapRelocationService, RelocationHost } from './map-relocation.service';
+import type { CorridorBuildResult, CorridorProgress } from '../world/corridor-build';
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
 
@@ -42,8 +43,11 @@ export interface VizCallbacks {
   reframeCameraWithRoutes: () => void;
   renderStreets: () => void;
   saveInitialCameraPosition: () => void;
-  /** Fit the route corridor to the tiles, over the next frames (CorridorRefit.fitToTiles). */
-  fitCorridorToTiles: () => void;
+  /**
+   * Build the corridor of the routes a move built (CorridorBuild.build):
+   * `report` is told each step, the result is null when it stopped.
+   */
+  buildCorridor: (reason: string, report: (progress: CorridorProgress) => void) => Promise<CorridorBuildResult | null>;
 }
 
 /** The game component went away, or was never there, before a location was picked. */

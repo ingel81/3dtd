@@ -1,38 +1,29 @@
-import { Injectable, NgZone, inject, signal } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 
-/** Stations of the corridor measurement under way, see PathAndRouteService.clearanceProgress. */
-export interface StationProgress {
-  done: number;
-  total: number;
-}
-
-/** What the hint over the map says while the HQ moves. */
+/** What the hint over the map says while HQ or spawn move. */
 export interface RelocationStatus {
   /** What is moved, the title of the hint */
   title: string;
   /** The step under way */
   step: string;
-  /** Share of the corridor measured, whole percent; null before the measurement */
+  /** Share of the step done, whole percent; null where there is none */
   percent: number | null;
 }
 
-/** Step shown while the corridor of the new routes is measured */
-export const MEASURING_STEP = 'Measuring the corridor';
+/** A step and its share, as the corridor build reports them (CorridorBuild). */
+type StepProgress = Pick<RelocationStatus, 'step' | 'percent'>;
 
 /**
- * The hint over the map while the HQ moves (MapRelocationService). The
+ * The hint over the map while HQ or spawn move (MapRelocationService). The
  * rebuild blocks the main thread for its whole length, and the corridor
- * measurement after it runs for seconds in a dense city; neither showed
- * anything on screen. Holds the signal RelocationStatusComponent shows,
- * and the frame loop that follows the measurement.
+ * build after it runs for seconds in a dense city; neither showed anything
+ * on screen. Holds the signal RelocationStatusComponent shows.
  */
 @Injectable({ providedIn: 'root' })
 export class RelocationStatusService {
-  private readonly zone = inject(NgZone);
-
   readonly status = signal<RelocationStatus | null>(null);
 
-  /** Bumped by show() and clear(), so a followCorridor() of an earlier move stops. */
+  /** Bumped by show() and clear(), so what follow() handed out for an earlier move does nothing. */
   private generation = 0;
 
   /** Show the hint with `step` under way. */
@@ -56,29 +47,22 @@ export class RelocationStatusService {
   }
 
   /**
-   * Show the corridor measurement under way until it ends: reads
-   * `progress` once a frame, outside Angular (the signal changes only with
-   * the percentage), and when it gives null clears the hint and calls
-   * `done`. A measurement that is over before the call ends it at once.
-   * Stops without `done` when another move shows its own hint.
+   * Follow the corridor build of the move on the hint shown now: `report`
+   * puts each step and its share on it (the signal changes only when one of
+   * them does), `end` takes the hint away. Both do nothing once another move
+   * has shown its own hint.
    */
-  followCorridor(progress: () => StationProgress | null, done: () => void): void {
+  follow(): { report: (progress: StepProgress) => void; end: () => void } {
     const generation = this.generation;
-    const tick = (): void => {
-      if (generation !== this.generation) return;
-      const now = progress();
-      if (!now) {
-        this.clear();
-        done();
-        return;
-      }
-      const percent = now.total > 0 ? Math.floor((100 * now.done) / now.total) : 0;
-      const current = this.status();
-      if (current && (current.step !== MEASURING_STEP || current.percent !== percent)) {
-        this.status.set({ ...current, step: MEASURING_STEP, percent });
-      }
-      requestAnimationFrame(tick);
+    return {
+      report: ({ step, percent }) => {
+        const current = this.status();
+        if (generation !== this.generation || !current) return;
+        if (current.step !== step || current.percent !== percent) this.status.set({ ...current, step, percent });
+      },
+      end: () => {
+        if (generation === this.generation) this.clear();
+      },
     };
-    this.zone.runOutsideAngular(tick);
   }
 }

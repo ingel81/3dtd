@@ -118,7 +118,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
     facade.initialize(
       { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => bus } as unknown as GameStateManager,
+      { getEventBus: () => bus, corridorPending: () => false } as unknown as GameStateManager,
     );
   });
 

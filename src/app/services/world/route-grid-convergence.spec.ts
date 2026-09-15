@@ -41,7 +41,6 @@ describe('RouteGridConvergence', () => {
       pathRoute: { refreshRouteLines: vi.fn(), getCachedPaths: vi.fn(() => cachedPaths) },
       markerViz: { updateMarkerHeights: vi.fn() },
       routeAnimation: { isRunning: vi.fn(() => false), startAnimation: vi.fn() },
-      settled: vi.fn(),
     };
   }
 
@@ -149,7 +148,6 @@ describe('RouteGridConvergence', () => {
 
       runFrames(3);
       expect(grid.retryUnsampledCells).toHaveBeenCalledTimes(3);
-      expect(deps.settled).toHaveBeenCalledTimes(1);
       // The rebuild held back during the sweep runs in the next frame.
       expect(deps.pathRoute.refreshRouteLines).not.toHaveBeenCalled();
       runFrames();
@@ -160,7 +158,6 @@ describe('RouteGridConvergence', () => {
     it('settles without a rebuild when nothing was held back', () => {
       convergence.schedule();
       runFrames(2);
-      expect(deps.settled).toHaveBeenCalledTimes(1);
       expect(frames.size).toBe(0);
       expect(deps.pathRoute.refreshRouteLines).not.toHaveBeenCalled();
     });
@@ -170,7 +167,6 @@ describe('RouteGridConvergence', () => {
       convergence.schedule();
       runFrames(125);
       expect(grid.retryUnsampledCells).toHaveBeenCalledTimes(120);
-      expect(deps.settled).toHaveBeenCalledTimes(1);
       expect(frames.size).toBe(0);
     });
 
@@ -179,7 +175,6 @@ describe('RouteGridConvergence', () => {
       convergence.schedule();
       runFrames(200);
       expect(grid.stepTerrainHeightRefresh).toHaveBeenCalledTimes(200);
-      expect(deps.settled).not.toHaveBeenCalled();
     });
 
     it('runs one loop however often it is scheduled', () => {
@@ -204,7 +199,6 @@ describe('RouteGridConvergence', () => {
 
       expect(grid.cellsOff).toHaveBeenCalledTimes(1);
       expect(grid.retryUnsampledCells).toHaveBeenCalledTimes(2);
-      expect(deps.settled).not.toHaveBeenCalled();
       expect(deps.pathRoute.refreshRouteLines).not.toHaveBeenCalled();
       expect(frames.size).toBe(0);
     });

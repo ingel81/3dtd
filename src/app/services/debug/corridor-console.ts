@@ -61,8 +61,8 @@ export interface CorridorConsoleDeps {
   engineInit: Pick<EngineInitializationService, 'getEngine'>;
   inputHandler: Pick<InputHandlerService, 'armPick'>;
   pathRoute: Pick<PathAndRouteService, 'explainCorridorAt' | 'routeLineLift' | 'getCachedPaths'>;
-  /** Change the corridor settings and rebuild (CorridorController.change). */
-  change: (apply: () => string[]) => string;
+  /** Change the corridor settings and build the corridor with them (CorridorBuild.change). */
+  change: (apply: () => string[]) => Promise<string>;
   /** The cell report, `__corridor.report()`; this console reads its cells. */
   cellReport: Pick<CellReportService, 'start' | 'connect' | 'disconnect'>;
   /** `__corridor.probeLod()` and `fingerprint()`, see CorridorLodProbe. */
@@ -95,11 +95,11 @@ export class CorridorConsole {
   install(): void {
     this.api = {
       get: () => ({ ...corridorConfig, highwayWidths: { ...corridorConfig.highwayWidths } }),
-      set: (patch: Partial<CorridorConfig>) => this.deps.change(() => setCorridorConfig(patch)),
-      reset: () => this.deps.change(() => {
+      set: (patch: Partial<CorridorConfig>) => this.changed(this.deps.change(() => setCorridorConfig(patch))),
+      reset: () => this.changed(this.deps.change(() => {
         resetCorridorConfig();
         return [];
-      }),
+      })),
       towerCells: (towerId?: string) => this.describeTowerCells(towerId),
       pick: (radius = 4) => this.armCellPick(radius),
       report: () => this.deps.cellReport.start(),
@@ -109,6 +109,17 @@ export class CorridorConsole {
     };
     (globalThis as Record<string, unknown>)['__corridor'] = this.api;
     this.deps.cellReport.connect(this.reportSource);
+  }
+
+  /**
+   * What `__corridor.set()` and `reset()` hand back, the build under way:
+   * the line it ends with goes to the console as well, since DevTools shows
+   * a promise, not its value.
+   */
+  private async changed(result: Promise<string>): Promise<string> {
+    const line = await result;
+    console.log(`[Corridor] ${line}`);
+    return line;
   }
 
   /**

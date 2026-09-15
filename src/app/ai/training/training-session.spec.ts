@@ -12,6 +12,9 @@ import { GameEventBus } from '../../game-engine/game-event-bus';
 /** Sub-step length the game loop hands the bot (GameClock.FIXED_STEP_MS). */
 const STEP_MS = 16.667;
 
+/** The corridor build of the location, as GameStateManager.corridorPending tells it. */
+const corridor = { building: false };
+
 class TestBot extends BaseTowerBot {
   decisionCount = 0;
   constructor() {
@@ -33,7 +36,8 @@ function createSession(phase = 'wave') {
   });
   // Der Service ist hier nur Halter der Signale, in die die Session schreibt.
   const client = runInInjectionContext(injector, () => new TrainingClientService());
-  const session = runInInjectionContext(injector, () => new TrainingSession(client, {} as TrainingDeps));
+  const deps = { gameState: { corridorPending: () => corridor.building } } as unknown as TrainingDeps;
+  const session = runInInjectionContext(injector, () => new TrainingSession(client, deps));
   const bot = new TestBot();
   // enableBot() would build a real strategy bot; updateBot only needs a bot.
   (session as unknown as { currentBot: ITowerBot | null }).currentBot = bot;
@@ -92,6 +96,21 @@ describe('TrainingSession.updateBot snapshot laziness', () => {
     expect(snapshot).not.toHaveBeenCalled();
     expect(bot.decisionCount).toBe(0);
   });
+
+  it('waits for the corridor of the location to be built, then decides', () => {
+    const { session, bot } = createSession('setup');
+    const snapshot = vi.fn(() => ({}) as GameStateSnapshot);
+    corridor.building = true;
+    try {
+      session.updateBot(snapshot, STEP_MS);
+      expect(bot.decisionCount).toBe(0);
+    } finally {
+      corridor.building = false;
+    }
+
+    session.updateBot(snapshot, STEP_MS);
+    expect(bot.decisionCount).toBe(1);
+  });
 });
 
 describe('TrainingSession bot actions', () => {
@@ -115,7 +134,7 @@ describe('TrainingSession bot actions', () => {
       ],
     });
     const client = runInInjectionContext(injector, () => new TrainingClientService());
-    const deps = { gameState: { getEventBus: () => bus } } as unknown as TrainingDeps;
+    const deps = { gameState: { getEventBus: () => bus, corridorPending: () => false } } as unknown as TrainingDeps;
     const session = runInInjectionContext(injector, () => new TrainingSession(client, deps));
     (session as unknown as { currentBot: ITowerBot | null }).currentBot = new StrikeBot();
     client.botEnabled.set(true);

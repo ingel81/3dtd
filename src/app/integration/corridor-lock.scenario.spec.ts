@@ -2,20 +2,20 @@
  * Playtest 2026-09-15: towers stood, their turrets did not turn, and
  * `__towerTargets()` said "no target, asleep". Between waves the console
  * showed `[Corridor] rebuild` with the towers standing, after the camera had
- * moved (G to the hero). The corridor lock (CorridorRefit.rebuildBlocker)
- * read GameStateManager.towerCount, a computed over a plain array that kept
- * its first value, 0 from the location load; so it let the rebuild through,
- * and the towers' visibleCells were left in the grid it replaced.
+ * moved (G to the hero): a tile batch let the corridor be measured and
+ * rebuilt under them, and the towers' visibleCells were left in the grid it
+ * replaced. Since 2026-09-16 the corridor is built once per route set
+ * (CorridorBuild) and no tile batch measures or rebuilds it; towers wait for
+ * that build (GameStateManager.corridorPending).
  *
  * Real: GameStateManager (towerCount, placeTower, sellTower, beginWave and the
  * sub-step loop), GlobalRouteGridService (cells from the route, enemies in
  * their cells), SpatialGridService, TowerCombatService, CombatEffectService,
- * DamageApplicationService, CorridorController with its CorridorRefit, and
- * RouteGridConvergence, whose settled tile batch calls remeasure. Fake: the
- * route service (stations waiting for finer tiles; a measurement that finds
- * the free space `tiles.halfWidth` shows, the route built with it), the GPU
- * line of sight (every cell in range visible, as TowerLosRegistry.register
- * writes it for a clear view), the renderer and the animation frames.
+ * DamageApplicationService, CorridorBuild, and RouteGridConvergence for the
+ * tile batches. Fake: the route service (a measurement that finds the free
+ * space `tiles.halfWidth` shows, the route built with it), the GPU line of
+ * sight (every cell in range visible, as TowerLosRegistry.register writes it
+ * for a clear view), the renderer, the tiles and the animation frames.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -44,13 +44,11 @@ import { DamageApplicationService } from '../services/combat/damage-application.
 import { TowerCombatService } from '../services/combat/tower-combat.service';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
-import { CorridorController, type CorridorControllerDeps } from '../services/world/corridor-controller';
+import { CorridorBuild, type CorridorBuildDeps, type CorridorMeasurement } from '../services/world/corridor-build';
 import { RouteGridConvergence, type RouteGridConvergenceDeps } from '../services/world/route-grid-convergence';
-import { CorridorRefit } from '../services/world/corridor-refit';
 import { GameObject } from '../core/game-object';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { Tower } from '../entities/tower.entity';
-import type { CorridorMeasurement } from '../services/world/corridor-refit';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 
 /** The origin of the helper's engine */
@@ -106,13 +104,17 @@ function createEngine(): never {
 describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
   let frames: Map<number, FrameRequestCallback>;
   let nextFrame: number;
-  /** Plain console lines: `[Corridor] rebuild` is one. */
+  /** Plain console lines: `[Corridor] build` is one. */
   let log: ReturnType<typeof vi.spyOn>;
   /** What the tiles show on each side of the route (m); a push of finer tiles changes it */
   let tiles: { halfWidth: number };
+  /** Slices the next measurement takes, one per frame the build waits for */
+  let slices: number;
+  /** Frames the build waits for, resolved by buildFrame() */
+  let buildFrames: (() => void)[];
   let gsm: GameStateManager;
   let grid: GlobalRouteGridService;
-  let controller: CorridorController;
+  let corridor: CorridorBuild;
   let convergence: RouteGridConvergence;
   let measurements: ReturnType<typeof vi.fn>;
   let towerShots: Map<string, number>;
@@ -125,7 +127,12 @@ describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
       for (const callback of due) callback(0);
     }
   };
-  const rebuilds = (): number => log.mock.calls.filter((call: unknown[]) => String(call[0]).startsWith('[Corridor] rebuild')).length;
+  const builds = (): number => log.mock.calls.filter((call: unknown[]) => String(call[0]).startsWith('[Corridor] build:')).length;
+  /** One frame of the corridor build and the promise chains it resolves. */
+  const buildFrame = async () => {
+    buildFrames.shift()?.();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+  };
 
   /** A tile batch loads and settles, as VisualizationFacadeService.onTilesLoaded drives it. */
   const tileBatch = () => {
@@ -164,7 +171,7 @@ describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
     return towerShots.get(tower.id) ?? 0;
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5); // centre line
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -181,15 +188,19 @@ describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
 
     // The route as the street width gives it until the first measurement
     tiles = { halfWidth: 4 };
+    slices = 1;
+    buildFrames = [];
     let halfWidth = 3;
     const route = (): RouteWaypoint[] => TEST_PATH.map((p) => ({ ...p, corridorLeft: halfWidth, corridorRight: halfWidth }));
     const paths = new Map<string, RouteWaypoint[]>([['spawn-1', route()]]);
-    // One run measures every waiting station in its first slice; stations stay waiting for finer tiles
+    // A run measures every station in `slices` slices and finds what the tiles show
     measurements = vi.fn((): CorridorMeasurement => {
       let open = true;
+      let left = slices;
       return {
         get open() { return open; },
-        step: () => true,
+        get progress() { return { done: slices - left, total: slices }; },
+        step: () => --left <= 0,
         commit: () => {
           if (!open) return false;
           open = false;
@@ -202,9 +213,10 @@ describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
     });
     const pathRoute = withAutoStubs({
       getCachedPaths: () => paths,
+      routesEpoch: () => 1,
       beginClearanceMeasurement: measurements,
-      hasUnmeasuredStations: () => true,
-      hasUnwalkableCells: () => false,
+      unmeasuredStations: () => 0,
+      walkState: () => '',
       narrowToWalkable: () => false,
       refreshRouteLines: () => { paths.set('spawn-1', route()); },
     });
@@ -224,23 +236,23 @@ describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
     gsm.initialize(createEngine(), BASE, TEST_SPAWN_POINTS, paths);
     gsm.initializeGlobalRouteGrid();
 
-    controller = new CorridorController({
+    corridor = new CorridorBuild({
       gameState: () => gsm,
-      engineInit: { getEngine: () => ({}) },
-      introFlight: { isRunning: () => false },
+      // No 3D tiles to load: the build measures on what the fake route service finds
+      engineInit: { getEngine: () => ({ tilesLodDebug: () => null, terrain: { clearHeightCache: () => undefined } }) },
       pathRoute,
       routeAnimation: { isRunning: () => false, startAnimation: vi.fn() },
       store: { spawnPoints: () => TEST_SPAWN_POINTS },
-      relocationStatus: { status: () => null },
-    } as unknown as CorridorControllerDeps);
-    controller.attach();
+      nextFrame: () => new Promise<void>((resolve) => buildFrames.push(resolve)),
+    } as unknown as CorridorBuildDeps);
+    // As VisualizationFacadeService.initialize wires it
+    gsm.setCorridorPending(() => corridor.pending());
     convergence = new RouteGridConvergence({
       grid: () => gsm.getGlobalRouteGrid(),
       store: { spawnPoints: () => TEST_SPAWN_POINTS },
       pathRoute,
       markerViz: { updateMarkerHeights: vi.fn() },
       routeAnimation: { isRunning: () => false, startAnimation: vi.fn() },
-      settled: () => controller.remeasure(),
     } as unknown as RouteGridConvergenceDeps);
 
     towerShots = new Map();
@@ -252,20 +264,19 @@ describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
     });
     now = 1000;
 
-    // The location loads: the first fit, no tower yet (the lock reads the tower count here first)
-    controller.fitToTiles();
-    expect(rebuilds()).toBe(1);
+    // The location loads: the corridor is built once, no tower yet
+    await corridor.build('location load');
+    expect(builds()).toBe(1);
   });
 
   afterEach(() => {
-    controller.dispose();
+    corridor.dispose();
     convergence.dispose();
-    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it('a tile batch between waves rebuilds nothing under the tower, and the tower keeps firing', () => {
+  it('a tile batch between waves measures and rebuilds nothing under the tower, and the tower keeps firing', () => {
     const tower = buildArcher();
     expect(runWave(tower)).toBeGreaterThan(0);
 
@@ -274,30 +285,40 @@ describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
     tileBatch();
 
     expect(measurements).toHaveBeenCalledTimes(1);
-    expect(rebuilds()).toBe(1);
+    expect(builds()).toBe(1);
     expect(orphaned(tower)).toEqual([]);
     expect(runWave(tower)).toBeGreaterThan(0);
   });
 
-  it('drops a remeasure the tower blocks; the next tile batch after the tower is sold rebuilds', () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  it('nothing measures or rebuilds after the tower is sold either: the corridor stays until the next build', () => {
     const tower = buildArcher();
     tiles.halfWidth = 5;
     tileBatch();
-    expect(measurements).toHaveBeenCalledTimes(1);
-
-    // No retry of its own: neither the interval nor the sale brings it back
-    vi.advanceTimersByTime(CorridorRefit.REMEASURE_INTERVAL_MS * 3);
     gsm.sellTower(tower);
     expect(gsm.towerCount()).toBe(0);
-    vi.advanceTimersByTime(CorridorRefit.REMEASURE_INTERVAL_MS * 3);
+
+    tileBatch();
     runFrames();
     expect(measurements).toHaveBeenCalledTimes(1);
-    expect(rebuilds()).toBe(1);
+    expect(builds()).toBe(1);
+  });
 
-    // The next settled batch measures the waiting stations and rebuilds with what they show
-    tileBatch();
-    expect(measurements).toHaveBeenCalledTimes(2);
-    expect(rebuilds()).toBe(2);
+  it('a tower and a wave wait for the corridor build, then stand on its cells', async () => {
+    slices = 3;
+    tiles.halfWidth = 5;
+    const building = corridor.build('spawn moved in place');
+    await buildFrame();
+
+    expect(corridor.pending()).toBe(true);
+    expect(gsm.placeTower(TOWER_AT, 'archer')).toBeNull();
+    gsm.beginWave();
+    expect(gsm.waveManager.phase()).toBe('setup');
+
+    while (corridor.pending()) await buildFrame();
+    expect(await building).not.toBeNull();
+    expect(builds()).toBe(2);
+    const tower = buildArcher();
+    expect(orphaned(tower)).toEqual([]);
+    expect(runWave(tower)).toBeGreaterThan(0);
   });
 });

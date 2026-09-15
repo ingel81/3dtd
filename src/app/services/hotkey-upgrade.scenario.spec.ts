@@ -92,7 +92,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
       ledger,
       bus,
       () => null,
-      () => undefined,
+      () => false,
     );
     new GameCommandsHandler(
       { towerManager: { getAll: () => towers }, upgradeTower: (t: Tower, id: UpgradeId) => lifecycle.upgrade(t, id) } as never,

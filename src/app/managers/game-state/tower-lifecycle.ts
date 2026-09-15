@@ -39,8 +39,8 @@ export class TowerLifecycle {
     private readonly eventBus: GameEventBus,
     /** The engine once the GameStateManager is initialized */
     private readonly engine: () => ThreeTilesEngine | null,
-    /** Right before a tower is placed, see GameStateManager.setBeforeCorridorLock */
-    private readonly beforePlace: () => void,
+    /** The route corridor is being built: no tower until it is done, see GameStateManager.corridorPending */
+    private readonly corridorPending: () => boolean,
   ) {}
 
   /**
@@ -61,6 +61,9 @@ export class TowerLifecycle {
     const config = TOWER_TYPES[typeId];
     if (!config) return null;
 
+    // The corridor build replaces the cells the tower would register its LOS in.
+    if (this.corridorPending()) return null;
+
     // Research-gate: tower must be unlocked. Defense-in-depth against bots
     // or commands that bypass the UI's isTowerUnlocked() check.
     if (!this.researchStore.isTowerUnlocked(typeId)) {
@@ -77,10 +80,6 @@ export class TowerLifecycle {
     if (this.creditsLedger.credits() < config.cost) {
       return null;
     }
-
-    // A corridor measurement still under way finishes first: the tower
-    // stands on the cells it rebuilds.
-    this.beforePlace();
 
     const tower = this.towerManager.placeTower(position, typeId, customRotation, plinthHeight, plinthOverhang);
 

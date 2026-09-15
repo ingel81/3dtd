@@ -412,7 +412,6 @@ describe('PathAndRouteService route geometry', () => {
 
         expect(service.narrowToWalkable()).toBe(true);
         // The same cell again narrows nothing more.
-        expect(service.hasUnwalkableCells()).toBe(false);
         expect(service.narrowToWalkable()).toBe(false);
 
         service.showPathFromSpawn(spawnPointAt(spawn));
@@ -436,10 +435,10 @@ describe('PathAndRouteService route geometry', () => {
         expect(service.getCachedPath('s1')!.some((p) => p.corridorRight === 2.5)).toBe(false);
       });
 
-      it('traces a run without stations whose commit narrows the corridor by the walk caps alone', () => {
-        // The case behind a rebuild after `rays=0 changed=true`: nothing is
-        // left to measure, the grid in use shows a van, the commit takes its
-        // walk caps. The existing log has no line for a run without segments.
+      it('takes no walk caps from the grid in use when a run is stored: they come from the grids of the build', () => {
+        // Before, a run without stations took the caps of the grid in use
+        // and narrowed the corridor by them alone, whatever tiles that grid
+        // had been sampled from (`rays=0 changed=true`).
         vi.spyOn(console, 'warn').mockImplementation(() => undefined);
         const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
         const service = buildRouteService(network, spawn, hq);
@@ -450,7 +449,8 @@ describe('PathAndRouteService route geometry', () => {
         corridorTrace.setEnabled(true);
         const lines: string[] = [];
         try {
-          expect(measure(service)).toBe(true);
+          expect(measure(service)).toBe(false);
+          expect(service.corridorState().walkCaps).toEqual([]);
         } finally {
           lines.push(...log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[CorridorTrace]')));
           corridorTrace.setEnabled(false);
@@ -461,8 +461,27 @@ describe('PathAndRouteService route geometry', () => {
 
         expect(lines).toHaveLength(3);
         expect(lines[0]).toMatch(/ clearance\.start segments=0 stations=0 \| /);
-        expect(lines[1]).toMatch(/ store changed=true by=walkCaps segments=0 capped=\d+ plans=0 routes\/0 detours\/0 passages ms=/);
-        expect(lines[2]).toMatch(/ clearance\.commit segments=0 stations=0 unmeasured=0 coarse=0 rays=0 changed=true lod=2m:0,5m:0,coarse:0,none:0 slices=1 /);
+        expect(lines[1]).toMatch(/ store changed=false by=none segments=0 ms=/);
+        expect(lines[2]).toMatch(/ clearance\.commit segments=0 stations=0 unmeasured=0 coarse=0 rays=0 changed=false lod=2m:0,2\.5m:0,5m:0,coarse:0,none:0 slices=1 /);
+      });
+
+      it('forgets walk caps and detours for the next build, and tells their state apart', () => {
+        const service = buildRouteService(network, spawn, hq);
+        measure(service);
+        const empty = service.walkState();
+        const n1Local = toMeters(n1);
+        grid.ready = true;
+        grid.unwalkable = [{ x: n1Local.x + 3, z: -(n1Local.z + 50) }];
+        try {
+          expect(service.narrowToWalkable()).toBe(true);
+          expect(service.walkState()).not.toBe(empty);
+          service.resetWalkCaps();
+          expect(service.walkState()).toBe(empty);
+          expect(service.corridorState().walkCaps).toEqual([]);
+        } finally {
+          grid.ready = false;
+          grid.unwalkable = [];
+        }
       });
 
       it('traces each slice against its budget: a slow station runs past it, as in Berlin', () => {
@@ -744,18 +763,23 @@ describe('PathAndRouteService route geometry', () => {
         expect(why.sides[0]).toMatchObject({ lowHitM: null, wall: null, freeM: null, halfWidthM: 6, rule: 'unmeasured: street width' });
       });
 
-      it('knows which stations still wait for finer tiles', () => {
-        // Way 200 from 60 to 110 m north of n1 is still on coarse tiles.
+      it('counts the stations the measurement could not take, which a run on the fallback level measures', () => {
+        // Way 200 from 60 to 110 m north of n1 has no usable tile.
         clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 60 && northOfN1(z) < 110 ? null : max);
         const service = buildRouteService(network, spawn, hq);
-        expect(service.hasUnmeasuredStations()).toBe(false);
+        expect(service.unmeasuredStations()).toBe(0);
         measure(service);
-        expect(service.hasUnmeasuredStations()).toBe(true);
+        const missing = service.unmeasuredStations();
+        // 50 m at a station every 2 m
+        expect(missing).toBeGreaterThanOrEqual(24);
+        expect(missing).toBeLessThanOrEqual(26);
 
-        // Finer tiles later: the stations get measured and widen the corridor there.
+        // The fallback level has them: only those stations are measured again, and they widen the corridor there.
         clearanceAt = (_x, _z, max) => max;
+        probeCalls.length = 0;
         expect(measure(service)).toBe(true);
-        expect(service.hasUnmeasuredStations()).toBe(false);
+        expect(probeCalls).toHaveLength(missing);
+        expect(service.unmeasuredStations()).toBe(0);
       });
 
       it('does not measure a tunnel or covered passage and keeps its street width there', () => {
@@ -855,53 +879,33 @@ describe('PathAndRouteService route geometry', () => {
           expect(widths()).toEqual([4.5, 4.5, 4.5, 4.5, 2.75, undefined]);
         });
 
-        it('tells how far an open run is, and nothing once it is committed or cancelled', () => {
+        it('tells how far a run is: stations tried and stations it set out to measure', () => {
           vi.spyOn(console, 'warn').mockImplementation(() => undefined);
           clearanceAt = () => 5.2;
           const service = buildRouteService(network, spawn, hq);
-          expect(service.clearanceProgress()).toBeNull();
 
           const run = service.beginClearanceMeasurement();
-          const total = service.clearanceProgress()!.total;
+          const total = run.progress.total;
           expect(total).toBeGreaterThan(2);
-          expect(service.clearanceProgress()).toEqual({ done: 0, total });
+          expect(run.progress).toEqual({ done: 0, total });
           run.step(0);
           run.step(0);
-          expect(service.clearanceProgress()).toEqual({ done: 2, total });
+          expect(run.progress).toEqual({ done: 2, total });
           run.step(Infinity);
-          run.commit();
-          expect(service.clearanceProgress()).toBeNull();
-
-          const other = buildRouteService(network, spawn, hq);
-          const cancelled = other.beginClearanceMeasurement();
-          cancelled.step(0);
-          cancelled.cancel('a tower');
-          expect(other.clearanceProgress()).toBeNull();
+          expect(run.progress).toEqual({ done: total, total });
         });
 
-        it('tells how the latest run ended: committed, or cancelled by its owner or by the routes going away', () => {
-          vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-          clearanceAt = () => 5.2;
+        it('bumps the routes epoch when the routes are replaced, not when they are built again', () => {
           const service = buildRouteService(network, spawn, hq);
-          expect(service.clearanceEnding()).toBeNull();
+          const epoch = service.routesEpoch();
+          service.refreshRouteLines([spawnPointAt(spawn)]);
+          expect(service.routesEpoch()).toBe(epoch);
 
-          const run = service.beginClearanceMeasurement();
-          run.step(0);
-          expect(service.clearanceEnding()).toBeNull();
-          run.step(Infinity);
-          run.commit();
-          expect(service.clearanceEnding()).toBe('commit');
-
-          // CorridorRefit drops it for a blocker (enemies from the debug panel)
-          service.beginClearanceMeasurement().cancel('enemies are on the map');
-          expect(service.clearanceEnding()).toBe('cancel');
-
-          // The spawn moved: the routes it measured are replaced
-          const replaced = buildRouteService(network, spawn, hq);
-          replaced.beginClearanceMeasurement().step(0);
-          replaced.clearCache();
-          expect(replaced.clearanceEnding()).toBe('cancel');
-          expect(replaced.clearanceProgress()).toBeNull();
+          // The spawn moved: the routes are replaced
+          service.clearCache();
+          expect(service.routesEpoch()).toBe(epoch + 1);
+          service.initialize(makeEngine(), network, hq, (() => false) as never, new OsmStreetService(), null);
+          expect(service.routesEpoch()).toBe(epoch + 2);
         });
 
         /** `__corridor.probeLod()` times a pass over every station on tiles the corridor does not use. */
@@ -925,31 +929,8 @@ describe('PathAndRouteService route geometry', () => {
           expect(probeCalls).toHaveLength(stations);
           expect(probes.every((probe) => probe?.left[0] === 1.5)).toBe(true);
           expect(service.corridorState()).toEqual(before);
-          expect(service.clearanceEnding()).toBeNull();
+          expect(run.open).toBe(true);
           expect(run.commit()).toBe(false);
-        });
-
-        it('gives the same corridor as one go when a tower or a wave has it finish at once', () => {
-          const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-          clearanceAt = facades;
-          const oneGo = buildRouteService(network, spawn, hq);
-          probeCalls.length = 0;
-          measure(oneGo);
-          const oneGoProbes = [...probeCalls];
-
-          const flushed = buildRouteService(network, spawn, hq);
-          probeCalls.length = 0;
-          const run = flushed.beginClearanceMeasurement();
-          for (let i = 0; i < 5; i++) run.step(0);
-          // What CorridorRefit.flush does: the rest in one go.
-          run.step(Infinity);
-          expect(run.commit('tower')).toBe(true);
-
-          expect(probeCalls).toEqual(oneGoProbes);
-          oneGo.showPathFromSpawn(spawnPointAt(spawn));
-          flushed.showPathFromSpawn(spawnPointAt(spawn));
-          expect(flushed.getCachedPath('s1')).toEqual(oneGo.getCachedPath('s1'));
-          expect(String(log.mock.calls.at(-1)?.[0])).toMatch(/ slices=6 wall=[\d.]+ms flushed=tower$/);
         });
 
         it('stores nothing of a cancelled run, the next one measures every station', () => {
@@ -963,7 +944,7 @@ describe('PathAndRouteService route geometry', () => {
           expect(run.open).toBe(false);
           expect(run.step(4)).toBe(true);
           expect(run.commit()).toBe(false);
-          expect(service.hasUnmeasuredStations()).toBe(false);
+          expect(service.unmeasuredStations()).toBe(0);
           probeCalls.length = 0;
           expect(measure(service)).toBe(true);
           expect(probeCalls.length).toBeGreaterThan(100);
@@ -1011,12 +992,12 @@ describe('PathAndRouteService route geometry', () => {
           clearanceAt = (x, z, max) => (Math.abs(x) < 1 && northOfN1(z) > 60 && northOfN1(z) < 110 ? null : max);
           const service = buildRouteService(network, spawn, hq);
           measure(service);
-          expect(service.hasUnmeasuredStations()).toBe(true);
+          expect(service.unmeasuredStations()).toBeGreaterThan(0);
 
           service.clearCache();
           service.showPathFromSpawn(spawnPointAt({ lat: n40.lat, lon: n40.lon }));
           // The stations still waiting belong to the route that is gone.
-          expect(service.hasUnmeasuredStations()).toBe(false);
+          expect(service.unmeasuredStations()).toBe(0);
 
           probeCalls.length = 0;
           expect(measure(service)).toBe(true);

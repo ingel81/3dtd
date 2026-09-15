@@ -8,7 +8,7 @@ import type { RouteWaypoint } from '../models/game.types';
  * changes or may change the route corridor, its cells, their heights, the
  * waypoints and the route lines, with the seconds since the location load,
  * the event, its numbers and the chain of callers and reasons that led to it
- * (`tilesLoaded lod=7 -> convergence.settled -> refit.remeasure`). Rebuilds
+ * (`heightUpdate.done -> build location load -> pass 2`). Rebuilds
  * carry a delta against the corridor before them. `__corridor.trace()`
  * prints the timeline of the current location load as a table,
  * `__corridor.trace(false)` turns the channel off. On in dev builds, off in
@@ -33,31 +33,34 @@ const WIDTH_STEP_M = 2;
 const MAX_ENTRIES = 5000;
 
 /**
- * Tile geometric error of the columns a run or a sweep used, in four
- * buckets: `fine` up to 2 m (finer than the route corridor region asks
- * for, the camera's tiles), `region` up to 5 m (the region target and
- * maxTileError), `coarse` above, `none` without a tile.
+ * Tile geometric error of the columns a run or a sweep used, in five
+ * buckets: `fine` up to 2 m, `region` up to 2.5 m (the region target, the
+ * finest level the tiles have at the places measured, which is about 2.0 m),
+ * `fallback` up to 5 m (the fallback level and maxTileError), `coarse`
+ * above, `none` without a tile.
  */
 export interface LodHistogram {
   fine: number;
   region: number;
+  fallback: number;
   coarse: number;
   none: number;
 }
 
-export const emptyLod = (): LodHistogram => ({ fine: 0, region: 0, coarse: 0, none: 0 });
+export const emptyLod = (): LodHistogram => ({ fine: 0, region: 0, fallback: 0, coarse: 0, none: 0 });
 
 /** Count one column of `geometricError` (Infinity: no tile) into `lod`. */
 export function countLod(lod: LodHistogram, geometricError: number): void {
   if (!Number.isFinite(geometricError)) lod.none++;
   else if (geometricError <= 2) lod.fine++;
-  else if (geometricError <= 5) lod.region++;
+  else if (geometricError <= 2.5) lod.region++;
+  else if (geometricError <= 5) lod.fallback++;
   else lod.coarse++;
 }
 
-/** `2m:12,5m:200,coarse:0,none:24`, the buckets of LodHistogram. */
+/** `2m:0,2.5m:212,5m:4,coarse:0,none:2`, the buckets of LodHistogram. */
 export function formatLod(lod: LodHistogram): string {
-  return `2m:${lod.fine},5m:${lod.region},coarse:${lod.coarse},none:${lod.none}`;
+  return `2m:${lod.fine},2.5m:${lod.region},5m:${lod.fallback},coarse:${lod.coarse},none:${lod.none}`;
 }
 
 /** How far the tiles of the route corridor region are refined (RouteCorridorRegion.lodState). */

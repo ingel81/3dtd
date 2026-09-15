@@ -64,14 +64,16 @@ describe('MapRelocationService', () => {
   });
   let markerViz: ReturnType<typeof noop>;
   const locationMgmt = { setLocation: vi.fn() };
+  const routeAnimation = { stopAnimation: vi.fn(), startAnimation: vi.fn() };
+  const hint = { report: vi.fn(), end: vi.fn() };
   const relocationStatus = {
     show: vi.fn(),
     clear: vi.fn(),
     painted: vi.fn(async () => undefined),
-    followCorridor: vi.fn(),
+    follow: vi.fn(() => hint),
   };
-  const clearanceProgress = vi.fn((): { done: number; total: number } | null => null);
-  const clearanceEnding = vi.fn((): 'commit' | 'cancel' | null => 'commit');
+  /** What the corridor build of a move ends with, null when it stopped. */
+  const BUILT = { stations: 40, unmeasured: 0, passes: 2, timedOut: false, fallbackStations: 0, fallbackCells: 0, cells: 300, ms: 900 };
 
   const click = async (mode: 'hq' | 'spawn', at: { lat: number; lon: number }) => {
     placementClick = { mode, ...at };
@@ -99,7 +101,7 @@ describe('MapRelocationService', () => {
       reframeCameraWithRoutes: vi.fn(),
       renderStreets: vi.fn(),
       saveInitialCameraPosition: vi.fn(),
-      fitCorridorToTiles: vi.fn(),
+      buildCorridor: vi.fn(async () => BUILT),
     };
     host = {
       context: vi.fn(() => ({ bridge, gameState })),
@@ -116,11 +118,11 @@ describe('MapRelocationService', () => {
         { provide: MarkerVisualizationService, useValue: markerViz },
         {
           provide: PathAndRouteService,
-          useValue: { clearAllRoutes: vi.fn(), clearCachedPaths: vi.fn(), getCachedPaths: () => cachedPaths, clearanceProgress, clearanceEnding },
+          useValue: { clearAllRoutes: vi.fn(), clearCachedPaths: vi.fn(), getCachedPaths: () => cachedPaths },
         },
         { provide: LocationManagementService, useValue: locationMgmt },
         { provide: HeightUpdateService, useValue: { stopHeightUpdates: vi.fn() } },
-        { provide: RouteAnimationService, useValue: { stopAnimation: vi.fn(), startAnimation: vi.fn() } },
+        { provide: RouteAnimationService, useValue: routeAnimation },
         { provide: StreetRenderingService, useValue: { dispose: vi.fn() } },
         { provide: LocationChangeCoordinatorService, useValue: coordinator },
         { provide: MapPlacementService, useValue: mapPlacement },
@@ -151,7 +153,8 @@ describe('MapRelocationService', () => {
       engine, INSIDE, [{ id: OLD_SPAWN.id, name: OLD_SPAWN.name, lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }], cachedPaths,
     );
     expect(mapPlacement.updateDependencies).toHaveBeenCalled();
-    expect(viz.fitCorridorToTiles).toHaveBeenCalledTimes(1);
+    expect(viz.buildCorridor).toHaveBeenCalledTimes(1);
+    expect(viz.buildCorridor).toHaveBeenCalledWith('HQ moved in place', hint.report);
     expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
   });
 
@@ -161,47 +164,42 @@ describe('MapRelocationService', () => {
     expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(new RegExp(
       '^\\[Relocation\\] HQ in place: reset=\\d+\\.\\d clear=\\d+\\.\\d services=\\d+\\.\\d paths=\\d+\\.\\d ' +
       'route=\\d+\\.\\d random=0\\.0 state=\\d+\\.\\d grid=\\d+\\.\\d placement=\\d+\\.\\d streets=\\d+\\.\\d ' +
-      'camera=\\d+\\.\\d rest=\\d+\\.\\d corridor=\\d+\\.\\d total=\\d+\\.\\dms spawnFrom=old spawns=1$',
+      'camera=\\d+\\.\\d rest=\\d+\\.\\d total=\\d+\\.\\dms spawnFrom=old spawns=1$',
     )));
 
     osm.findPath.mockReturnValue(null);
     osm.findRandomStreetPoint.mockReturnValue({ lat: 48.785, lon: 9.195, streetName: 'Neckarstraße' });
+    vi.mocked(console.warn).mockClear();
     await click('hq', INSIDE);
-    expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(/ route=0\.0 random=\d+\.\d .* spawnFrom=random spawns=1$/);
+    const inPlace = vi.mocked(console.warn).mock.calls.map(([line]) => String(line)).find((line) => line.startsWith('[Relocation] HQ in place:'));
+    expect(inPlace).toMatch(/ route=0\.0 random=\d+\.\d .* spawnFrom=random spawns=1$/);
   });
 
-  it('shows the hint and lets it paint before the work, then follows the corridor measurement', async () => {
+  it('shows the hint and lets it paint before the work, then the corridor build on it until it has frozen', async () => {
     await click('hq', INSIDE);
 
     expect(relocationStatus.show).toHaveBeenCalledWith('Moving HQ', 'Finding the route');
     expect(relocationStatus.painted.mock.invocationCallOrder[0])
       .toBeLessThan(gameState.reset.mock.invocationCallOrder[0]);
-    expect(relocationStatus.followCorridor).toHaveBeenCalledTimes(1);
-    expect(viz.fitCorridorToTiles.mock.invocationCallOrder[0])
-      .toBeLessThan(relocationStatus.followCorridor.mock.invocationCallOrder[0]);
-
-    // It follows the route service's measurement and sums up the wait at its
-    // end, with how the measurement ended.
-    const [progress, done] = relocationStatus.followCorridor.mock.calls[0] as unknown as [() => unknown, () => void];
-    clearanceProgress.mockReturnValueOnce({ done: 3, total: 12 });
-    expect(progress()).toEqual({ done: 3, total: 12 });
-    done();
+    // The build reports its steps on the hint and takes it away at its end
+    expect(relocationStatus.follow.mock.invocationCallOrder[0])
+      .toBeLessThan(viz.buildCorridor.mock.invocationCallOrder[0]);
+    expect(hint.end).toHaveBeenCalledTimes(1);
     expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(
-      /^\[Relocation\] HQ done: paint=\d+\.\d work=\d+\.\d corridor=\d+\.\d total=\d+\.\dms ended=commit$/,
+      /^\[Relocation\] HQ done: paint=\d+\.\d work=\d+\.\d corridor=\d+\.\d total=\d+\.\dms ended=frozen$/,
     );
   });
 
-  it('logs a cancelled measurement as such, and none when no run was begun', async () => {
+  it('starts the route animation on the frozen routes, and none after a build that stopped', async () => {
     await click('hq', INSIDE);
-    const [, done] = relocationStatus.followCorridor.mock.calls[0] as unknown as [() => unknown, () => void];
+    expect(routeAnimation.startAnimation).toHaveBeenCalledWith(cachedPaths, store.spawnPoints());
+    expect(viz.buildCorridor.mock.invocationCallOrder[0]).toBeLessThan(routeAnimation.startAnimation.mock.invocationCallOrder[0]);
 
-    clearanceEnding.mockReturnValueOnce('cancel');
-    done();
-    expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(/ ended=cancel$/);
-
-    clearanceEnding.mockReturnValueOnce(null);
-    done();
-    expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(/ ended=none$/);
+    routeAnimation.startAnimation.mockClear();
+    viz.buildCorridor.mockResolvedValueOnce(null);
+    await click('hq', INSIDE);
+    expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
+    expect(vi.mocked(console.warn).mock.calls.at(-1)?.[0]).toMatch(/ ended=stopped$/);
   });
 
   it('takes the hint back and passes the error on when the rebuild throws', async () => {
@@ -212,7 +210,7 @@ describe('MapRelocationService', () => {
     await expect(click('hq', INSIDE)).rejects.toThrow('no grid');
 
     expect(relocationStatus.clear).toHaveBeenCalledTimes(1);
-    expect(relocationStatus.followCorridor).not.toHaveBeenCalled();
+    expect(viz.buildCorridor).not.toHaveBeenCalled();
   });
 
   it('takes the hint back when the component went away while it painted', async () => {
@@ -224,7 +222,7 @@ describe('MapRelocationService', () => {
 
     expect(relocationStatus.clear).toHaveBeenCalled();
     expect(gameState.reset).not.toHaveBeenCalled();
-    expect(relocationStatus.followCorridor).not.toHaveBeenCalled();
+    expect(viz.buildCorridor).not.toHaveBeenCalled();
   });
 
   it('shows the hint while the streets load and leaves the rest to the loading screen', async () => {
@@ -283,7 +281,11 @@ describe('MapRelocationService', () => {
     await click('spawn', INSIDE);
     expect(host.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', INSIDE.lat, INSIDE.lon, SPAWN_COLORS[0], undefined);
     expect(gameState.reset).toHaveBeenCalledTimes(1);
-    expect(viz.fitCorridorToTiles).toHaveBeenCalledTimes(1);
+    // Under a hint of its own, as for the HQ
+    expect(relocationStatus.show).toHaveBeenCalledWith('Moving spawn', 'Finding the route');
+    expect(viz.buildCorridor).toHaveBeenCalledWith('spawn moved in place', hint.report);
+    expect(hint.end).toHaveBeenCalledTimes(1);
+    expect(routeAnimation.startAnimation).toHaveBeenCalledTimes(1);
 
     osm.findPath.mockReturnValue(null);
     await click('spawn', INSIDE);

@@ -54,6 +54,7 @@ export class EngineInitializationService {
     { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
     { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
     { id: 'tiles', title: 'Waiting for 3D Tiles', status: 'pending' },
+    { id: 'corridor', title: 'Measuring the Corridor', status: 'pending' },
     { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
   ]);
 
@@ -228,6 +229,7 @@ export class EngineInitializationService {
       { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
       { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
       { id: 'tiles', title: 'Waiting for 3D Tiles', status: 'pending' },
+      { id: 'corridor', title: 'Measuring the Corridor', status: 'pending' },
       { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
     ]);
   }

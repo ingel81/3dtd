@@ -136,11 +136,11 @@ describe('corridor trace', () => {
     });
   });
 
-  it('sorts the tile errors of the columns into four buckets', () => {
+  it('sorts the tile errors of the columns into five buckets: the region target 2.5 m, the fallback level 5 m', () => {
     const lod = emptyLod();
-    for (const error of [0.5, 2, 2.01, 5, 5.01, 40, Infinity]) countLod(lod, error);
-    expect(lod).toEqual({ fine: 2, region: 2, coarse: 2, none: 1 });
-    expect(formatLod(lod)).toBe('2m:2,5m:2,coarse:2,none:1');
+    for (const error of [0.5, 2, 2.006, 2.5, 5, 5.01, 40, Infinity]) countLod(lod, error);
+    expect(lod).toEqual({ fine: 2, region: 2, fallback: 1, coarse: 2, none: 1 });
+    expect(formatLod(lod)).toBe('2m:2,2.5m:2,5m:1,coarse:2,none:1');
   });
 
   describe('delta of a rebuild', () => {

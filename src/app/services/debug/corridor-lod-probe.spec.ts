@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  CorridorLodProbe, type CorridorLodProbeDeps, type LodProbeResult, type ProbeClipboard, MUTED_CAMERA_ERROR_TARGET,
-} from './corridor-lod-probe';
+import { CorridorLodProbe, type CorridorLodProbeDeps, type LodProbeResult, type ProbeClipboard } from './corridor-lod-probe';
+import { MUTED_CAMERA_ERROR_TARGET } from '../../three-engine/tiles-lod-debug';
 import type { CorridorState } from '../world/path-route.service';
 import type { StationProbe } from '../../utils/route-corridor';
 import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
@@ -104,7 +103,8 @@ describe('CorridorLodProbe', () => {
       }),
       engineInit: { getEngine: () => engine, loading: () => loading },
       introFlight: { isRunning: () => intro },
-      pathRoute: { measureAllStations: measureAll, clearanceProgress: () => progress, corridorState },
+      pathRoute: { measureAllStations: measureAll, corridorState },
+      corridorBuilding: () => progress !== null,
       nextFrame: async () => {
         clock += FRAME_MS;
       },
@@ -174,7 +174,7 @@ describe('CorridorLodProbe', () => {
       expect(await probe.probe()).toBe('Intro noch aktiv: warten und Befehl nochmal');
       intro = false;
       progress = { done: 3, total: 90 };
-      expect(await probe.probe()).toBe('Korridor wird noch gemessen: ein paar Sekunden warten und Befehl nochmal');
+      expect(await probe.probe()).toBe('Korridor wird noch gebaut: ein paar Sekunden warten und Befehl nochmal');
 
       expect(tiles.setRegionErrorTarget).not.toHaveBeenCalled();
       expect(tiles.setCameraErrorTarget).not.toHaveBeenCalled();

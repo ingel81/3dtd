@@ -2,7 +2,13 @@ import type { GameStateManager } from '../../managers/game-state.manager';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import type { PathAndRouteService } from '../world/path-route.service';
-import type { TilesLodDebug, TilesLodSnapshot } from '../../three-engine/tiles-lod-debug';
+import {
+  MUTED_CAMERA_ERROR_TARGET,
+  nextFrameOrTimeout,
+  waitForQuietTiles,
+  type TilesLodDebug,
+  type TilesLodSnapshot,
+} from '../../three-engine/tiles-lod-debug';
 import { CORRIDOR_DEFAULTS, corridorConfig, type StationProbe } from '../../utils/route-corridor';
 import { raycastStats } from '../../utils/raycast-stats';
 import { BUILD_VERSION } from '../../configs/build-info.config';
@@ -16,26 +22,8 @@ export const DEFAULT_PROBE_TARGETS: readonly number[] = [5, 2.5, 0];
 /** How long a probe waits for the tiles of one target, seconds. */
 export const DEFAULT_PROBE_TIMEOUT_S = 60;
 
-/**
- * Camera error target while the probe runs, px. The region's error is
- * `geometricError - regionTarget + errorTarget` (RouteCorridorRegion), so it
- * still refines to its target; the camera's own error in px stays far below
- * this and refines nothing. The tiles in the corridor then depend on the
- * routes alone (docs/ROUTE_CORRIDOR.md, Phase 0).
- */
-export const MUTED_CAMERA_ERROR_TARGET = 1e6;
-
-/**
- * The tiles count as loaded once nothing loaded for this long, ms: the
- * debounce the game waits after tiles-load-end as well (TileLoadingTracker).
- */
-export const QUIET_MS = 500;
-
 /** Caller the probe's rays are booked on in `__raycastStats()`. */
 export const PROBE_CALLER = 'corridorLodProbe';
-
-/** Where the probe waits for the next frame: rAF stops in a hidden tab, the timeout keeps counting. */
-const FRAME_FALLBACK_MS = 250;
 
 /** One row of `__corridor.probeLod()`, one per region target. */
 export interface LodProbeRow {
@@ -98,7 +86,9 @@ export interface CorridorLodProbeDeps {
   gameState: () => Pick<GameStateManager, 'towerCount' | 'enemyManager' | 'waveManager' | 'getGlobalRouteGrid'>;
   engineInit: Pick<EngineInitializationService, 'getEngine' | 'loading'>;
   introFlight: Pick<IntroCameraFlightService, 'isRunning'>;
-  pathRoute: Pick<PathAndRouteService, 'measureAllStations' | 'clearanceProgress' | 'corridorState'>;
+  pathRoute: Pick<PathAndRouteService, 'measureAllStations' | 'corridorState'>;
+  /** The corridor is being built (CorridorBuild.pending): it sets the same error targets. */
+  corridorBuilding: () => boolean;
   /** Resolves on the next frame; the default waits for rAF, at most FRAME_FALLBACK_MS. */
   nextFrame?: () => Promise<void>;
   /** Monotonic clock, ms; the default is performance.now(). */
@@ -114,19 +104,6 @@ type ProbeEngine = NonNullable<ReturnType<EngineInitializationService['getEngine
 
 /** Every cell of the grid, for dumpCellsInBox. */
 const WHOLE_GRID = { xMin: -Infinity, xMax: Infinity, zMin: -Infinity, zMax: Infinity };
-
-function nextFrameOrTimeout(): Promise<void> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      cancelAnimationFrame(frame);
-      resolve();
-    }, FRAME_FALLBACK_MS);
-    const frame = requestAnimationFrame(() => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-}
 
 /** The page's clipboard, as the cell report uses it, and the button for when it refuses. */
 const pageClipboard: ProbeClipboard = {
@@ -336,27 +313,19 @@ export class CorridorLodProbe {
     if (gameState.waveManager.phase() === 'wave') return { why: 'Welle läuft', todo: reload };
     if (gameState.enemyManager.getAliveCount() > 0) return { why: 'Gegner auf der Karte', todo: reload };
     if (this.deps.introFlight.isRunning()) return { why: 'Intro noch aktiv', todo: 'warten und Befehl nochmal' };
-    if (this.deps.pathRoute.clearanceProgress() !== null) {
-      return { why: 'Korridor wird noch gemessen', todo: 'ein paar Sekunden warten und Befehl nochmal' };
+    if (this.deps.corridorBuilding()) {
+      return { why: 'Korridor wird noch gebaut', todo: 'ein paar Sekunden warten und Befehl nochmal' };
     }
     return null;
   }
 
   /**
-   * Wait until the tiles have not loaded for QUIET_MS, at most `timeoutMs`.
-   * `ms` is the time until they stopped, or the whole wait on a timeout.
+   * Wait until the tiles have not loaded for QUIET_MS, at most `timeoutMs`
+   * (waitForQuietTiles). `ms` is the time until they stopped, or the whole
+   * wait on a timeout.
    */
-  private async settle(tiles: TilesLodDebug, timeoutMs: number): Promise<{ ms: number; timedOut: boolean }> {
-    const start = this.now();
-    let quietSince: number | null = null;
-    for (;;) {
-      await this.nextFrame();
-      const now = this.now();
-      if (tiles.busy()) quietSince = null;
-      else quietSince ??= now;
-      if (quietSince !== null && now - quietSince >= QUIET_MS) return { ms: quietSince - start, timedOut: false };
-      if (now - start >= timeoutMs) return { ms: now - start, timedOut: true };
-    }
+  private settle(tiles: TilesLodDebug, timeoutMs: number): Promise<{ ms: number; timedOut: boolean }> {
+    return waitForQuietTiles(tiles, timeoutMs, this.nextFrame, this.now);
   }
 
   /** Measure every station once on the tiles loaded now, into a scratch list, and put it in a row. */
