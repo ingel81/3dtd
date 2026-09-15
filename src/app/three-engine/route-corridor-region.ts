@@ -51,7 +51,8 @@ export class RouteCorridorRegion {
     routes: readonly (readonly Vector3[])[],
     toLocal: Matrix4,
     private readonly halfWidth: number,
-    readonly errorTarget: number,
+    /** Metres of geometric error the corridor refines to; `__corridor.probeLod()` changes it for a run. */
+    public errorTarget: number,
   ) {
     this.toLocal = toLocal.clone();
 

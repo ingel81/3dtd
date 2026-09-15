@@ -97,6 +97,12 @@ export class RaycastStats {
     return rows.sort((a, b) => b.totalMs - a.totalMs);
   }
 
+  /** One caller's raw sums since the last reset, zeros without rays; for a difference before and after a pass. */
+  totals(caller: string): { calls: number; hits: number; totalMs: number } {
+    const b = this.buckets.get(caller);
+    return b ? { calls: b.calls, hits: b.hits, totalMs: b.totalMs } : { calls: 0, hits: 0, totalMs: 0 };
+  }
+
   /** Seconds since the last reset (or page load). */
   get seconds(): number {
     return (performance.now() - this.since) / 1000;

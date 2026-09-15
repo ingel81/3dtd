@@ -61,6 +61,7 @@ import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
 import { RouteCorridorRegion } from './route-corridor-region';
+import { SettleHold, type TilesLodDebug, createTilesLodDebug } from './tiles-lod-debug';
 import { warmUpScene } from './scene-warmup';
 import { logTileMaterialTypes } from './tile-material-log';
 import { instrumentRaycasts } from '../utils/raycast-stats';
@@ -110,6 +111,10 @@ export class ThreeTilesEngine {
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
   private routeRegions: LoadRegionPlugin | null = null;
+  /** The region routeRegions holds, see setRouteCorridor(); null before the first routes and after an origin change. */
+  private routeCorridorRegion: RouteCorridorRegion | null = null;
+  /** Holds settled tile loads back from the game while `__corridor.probeLod()` runs, see tilesLodDebug(). */
+  private readonly settleHold = new SettleHold(() => this.onTileSetSettled());
   private tileLodDebug: DebugTilesPlugin | null = null;
 
   // Post-processing pipeline (composer + bloom + color grading + output pass)
@@ -550,6 +555,9 @@ export class ThreeTilesEngine {
    * after its first-tiles check.
    */
   private onTileSetSettled(): void {
+    // A LOD probe runs (tilesLodDebug): the game keeps its view of the tiles until it ends.
+    if (this.settleHold.intercept()) return;
+
     // The loaded-tile set has changed, that is true on EVERY settled
     // load-end, not only when the origin column happens to shift.
     //
@@ -652,6 +660,7 @@ export class ThreeTilesEngine {
 
     // The corridor was built in the old group frame; the new routes rebuild it.
     this.routeRegions?.clearRegions();
+    this.routeCorridorRegion = null;
 
     // Update ReorientationPlugin
     if (this.reorientationPlugin && this.tilesRenderer) {
@@ -765,11 +774,26 @@ export class ThreeTilesEngine {
       route.map((p) => this.sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0)),
     );
     this.routeRegions.clearRegions();
-    this.routeRegions.addRegion(new RouteCorridorRegion(
+    this.routeCorridorRegion = new RouteCorridorRegion(
       localRoutes, group.matrixWorld, ROUTE_CORRIDOR_HALF_WIDTH, ROUTE_CORRIDOR_ERROR_TARGET,
-    ));
+    );
+    this.routeRegions.addRegion(this.routeCorridorRegion);
     // UpdateOnChangePlugin does not notice region changes on its own.
     this.tilesRenderer.dispatchEvent({ type: 'needs-update' });
+  }
+
+  /**
+   * Debug: the LOD the tiles load at, for `__tiles.stats()` and
+   * `__corridor.probeLod()`. Sets the corridor region's error target and the
+   * camera's, and holds the settled tile loads back from the game for a
+   * probe (SettleHold). Null in DevWorld and before initialize().
+   */
+  tilesLodDebug(): TilesLodDebug | null {
+    if (!this.tilesRenderer) return null;
+    return createTilesLodDebug(this.tilesRenderer, {
+      region: () => this.routeCorridorRegion,
+      holdSettled: (hold) => this.settleHold.hold(hold),
+    });
   }
 
   /**
