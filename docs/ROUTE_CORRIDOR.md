@@ -828,18 +828,31 @@ Erker und Dachecken (Rothenburg). Der Korridor nimmt eine Zelle, durch die die L
 läuft, bei jeder Breite. Die Gegner stiegen über das Auto, die rote Linie nahm seine
 Dachhöhe.
 
-**Hindernis** (`judge`, `raisedAcross`): Alle `DETOUR_SAMPLE_M` (1 m) entlang der
+**Hindernis** (`judge`, `streetBeside`): Alle `DETOUR_SAMPLE_M` (1 m) entlang der
 Route, wie das Straßennetz sie gibt, eine Säule auf der Linie (nur Tiles bis
-`maxTileError`). Ein Hindernis ist dort:
+`maxTileError`). Straße neben der Stelle heißt: zu dieser Seite bis 3 m die erste
+Säule mehr als `stepRise` unter dem Treffer, und 1 m weiter außen fällt der Boden
+nicht um mehr als `stepDrop` (kein Damm, kein Grat). Ein Hindernis ist dort:
 
 - ein Treffer mehr als `roofRise` über dem Boden der Linie ringsum (Median der
   Stellen bis 4 m davor und danach): Erker, Dachecke, Krone über der Linie;
-- sonst ein Treffer mehr als `stepRise` über der Straße zu beiden Seiten. Zu jeder
-  Seite bis 3 m die erste Säule mehr als `stepRise` unter dem Treffer, beide
-  höchstens `stepRise` auseinander (keine Kaimauer, keine Böschung auf nur einer
-  Seite), und 1 m weiter außen fällt der Boden nicht um mehr als `stepDrop` (kein
-  Damm, kein Grat). Das trifft Auto, Transporter, Hecke, Mäuerchen. Diese Regel hat
-  der Worker carcells als O1 an den Wächtern geprüft.
+- sonst ein Treffer mit Straße zu beiden Seiten, beide höchstens `stepRise`
+  auseinander. Das trifft Auto, Transporter, Hecke, Mäuerchen. Diese Regel hat der
+  Worker carcells als O1 an den Wächtern geprüft;
+- sonst ein Treffer mit Straße nur auf einer Seite, während die andere steigt oder
+  weit fällt (Garten oder Mauer hinter einer Autoreihe, Kaimauer). Dann muss die
+  Stelle ein Buckel entlang der Linie sein: Bis `BUMP_REACH_M` (6 m) davor und
+  danach kommt die Linie mehr als `stepRise` herunter (`raisedAlong`; ein Auto ist
+  4,5 m lang, zwei Stoß an Stoß 9 m). Und die Linie muss dort bis auf `stepRise` an
+  diese Straße herankommen (`reachesAlong`). Ein Gehweg auf einer Stützmauer oder
+  eine Straße quer an einem steilen Hang ist kein Buckel; ein Kai unter einer Straße
+  ist kein Boden, auf den die Linie herunterkommt. Anlass: Playtest 719, Erlenbach,
+  Erlenbacher Weg (Way 959083801). Die Linie läuft an der Südkante einer Autoreihe
+  entlang, dahinter liegt der Boden 1,6 bis 2,6 m höher. Der Laufweg begann dort auf
+  den Dächern, weil nur eine Seite tiefer liegt (`groundBesideRaisedLine` braucht
+  beide). Die Straße daneben war `drop`, und die Kappen rissen einzelne Löcher in
+  den Korridor. Mit dem Umweg liegt die Mittellinie auf der Straße und der Laufweg
+  misst von dort.
 
 Stellen bis `JOIN_M` (2 m) auseinander sind ein Hindernis. Gesucht wird nur auf
 Straßen am Boden: nicht auf einer Brücke, im Tunnel, auf der Strecke hinter einem
@@ -855,7 +868,14 @@ denn die legen sich um das Hindernis selbst. 1,5 m ist die halbe Zelldiagonale
 (1,41 m) auf dem 0,5-m-Raster der Säulen: Eine Zelle, die der Weg berührt, hat ihren
 Mittelpunkt höchstens so weit neben ihm, ihre Höhe kommt also von der Straße.
 Gewählt wird die Seite mit dem kleineren Maß, bei gleichem die mit mehr Platz, dann
-rechts. Ein Auto von 1,8 m mittig auf der Linie braucht 2,5 m.
+rechts. Ein Auto von 1,8 m mittig auf der Linie braucht 2,5 m. Eine Säule ganz ohne
+Treffer (ein Loch im Mesh, im Playtest 719 die Zellen (413, 25) und (413, 27)) zählt
+nicht als Hindernis, solange mindestens die Hälfte der Säulen im Band einen Treffer
+hat. Eine Zelle dort bekommt wie an einer Naht die Höhe ihrer Nachbarn (`fillGaps`),
+wo auf zwei gegenüberliegenden Seiten stabile Zellen liegen; sonst bleibt sie ohne
+Höhe (rosa), die Gegner nehmen dort den Median der Nachbarn. Der Laufweg überspringt
+Säulen ohne Treffer und urteilt über eine Zelle ohne eigene Probe nicht, sie reißt
+also keine Lücke in den Korridor.
 
 **Umweg:** Das Maß gilt entlang des Hindernisses, davor und danach liegt eine Rampe
 als halbe Kosinuskurve. Ihre engste Krümmung ist der Radius, mit dem der Wurm eine
@@ -1547,9 +1567,10 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   darüber.
 - Hindernis auf der Mittellinie (`corridor-detour.ts`), nicht im Spiel
   geprüft:
-  - Ein Auto oder eine Hecke auf der Linie gilt nur, wo zu beiden Seiten
-    bis 3 m Straße ist. Steht es direkt an einer Mauer oder einem erhöhten
-    Garten, bleibt es, und die Gegner steigen darüber.
+  - Mit Straße nur auf einer Seite (Auto direkt an einer Mauer oder einem
+    erhöhten Garten) gilt ein Hindernis nur als Buckel der Linie. Eine
+    Reihe ohne Lücke, länger als etwa 12 m, gilt in ihrer Mitte nicht, und
+    die Gegner steigen dort darüber.
   - Ein Erker oder eine Krone über mehr als etwa 4 m der Linie kippt den
     Median entlang der Linie und gilt nicht.
   - Der Weg braucht beiderseits 1,5 m Straße, zusammen etwa 3 m neben dem
