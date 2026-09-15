@@ -181,6 +181,13 @@ Das `+ 0.5` ist Texel-Center-Sampling (NearestFilter).
   ruft das Spiel nur `clear()`, `setEnemiesVisible()` und `dispose()` auf den Renderer, und
   eine neue Engine backt alles neu. Training ohne Rendering lädt nichts hoch und behält die
   CPU-Kopie.
+- Was three vor dem Loss benutzt hat (Tiles, Pools, Render-Targets), behält den
+  Dispose-Listener des alten GL-Zustands. Ein späteres `dispose()` würde damit den Handle aus
+  dem verlorenen Context löschen, Chrome meldet dann „delete: object does not belong to this
+  context“ (Playtest 2026-09-15: 180 Meldungen, Stack über `tilesRenderer.update()`, das
+  dort das Entladen von Tiles einplant). `skipLostContextDeletes()` (`three-engine/lost-context-deletes.ts`,
+  von `ThreeTilesEngine` angelegt) merkt sich die GL-Objekte, die seit dem letzten
+  `webglcontextlost` entstanden sind, und lässt nur deren `delete*` durch.
 - Test von Hand: `__perf.loseContext(2000)` in der Konsole (Context-Loss, Restore nach 2 s).
 
 ### Multi-Material Support

@@ -28,6 +28,7 @@ import { CanvasSizeFollower } from './canvas-size-follower';
 import { TerrainQueries } from './terrain-queries';
 import { SkyBackground, addSceneLights } from './scene-environment';
 import { ScreenPicker } from './screen-picker';
+import { skipLostContextDeletes } from './lost-context-deletes';
 import { applyStreamingBudget, createTilesRenderer } from './tiles-renderer-setup';
 import {
   CoordinateSync,
@@ -118,6 +119,8 @@ export class ThreeTilesEngine {
   private readonly sky: SkyBackground;
   // Set by dispose(); preloadModels() skips the shader warm-up then
   private disposed = false;
+  /** Puts the context's delete calls back (skipLostContextDeletes). */
+  private readonly restoreGLDeletes: () => void;
 
   // Game speed multiplier for animations (turret rotation etc.)
   private gameTimescale = 1.0;
@@ -268,6 +271,9 @@ export class ThreeTilesEngine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x151c1f);
     this.renderer.outputColorSpace = SRGBColorSpace;
+    // After a context loss, objects three used before (tiles, pools, targets)
+    // would delete their lost handles in the restored context when disposed.
+    this.restoreGLDeletes = skipLostContextDeletes(this.renderer.getContext() as WebGL2RenderingContext, canvas);
 
     // Distance limits - keep in sync!
     const VIEW_DISTANCE = 8000; // Max tile loading distance
@@ -1297,5 +1303,6 @@ export class ThreeTilesEngine {
 
     // Dispose renderer
     this.renderer.dispose();
+    this.restoreGLDeletes();
   }
 }
