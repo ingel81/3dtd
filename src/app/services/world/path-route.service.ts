@@ -45,6 +45,7 @@ import { GlobalRouteGridService } from './global-route-grid.service';
 import type { CorridorMeasurement } from './corridor-refit';
 import { RouteWayRun, describeRouteWays, describeStreetTags } from './route-way-report';
 import { RouteLineLayer } from './route-line-layer';
+import { corridorTrace, countLod, emptyLod, formatLod } from '../../utils/corridor-trace';
 
 /**
  * Interface for pathfinding services (OsmStreetService or DevStreetProvider)
@@ -121,6 +122,26 @@ const routeKey = (route: StreetRoute) => route.points.map((p) => `${p.lat},${p.l
 
 /** The plans of `plans` as one string, to tell whether a new planning changed any. */
 const plansKey = (plans: ReadonlyMap<string, DetourPlan>) => JSON.stringify([...plans]);
+
+/** Stations with a walk cap on either side, over every segment, for the corridor trace. */
+function cappedStations(caps: ReadonlyMap<string, WalkCaps>): number {
+  let count = 0;
+  for (const { left, right } of caps.values()) {
+    for (let k = 0; k < left.length; k++) if (left[k] < Infinity || right[k] < Infinity) count++;
+  }
+  return count;
+}
+
+/** The detours and passages of `plans`, for the corridor trace. */
+function planSummary(plans: ReadonlyMap<string, DetourPlan>): string {
+  let detours = 0;
+  let passages = 0;
+  for (const plan of plans.values()) {
+    detours += plan.pieces.length;
+    passages += plan.passages.length;
+  }
+  return `${plans.size} routes/${detours} detours/${passages} passages`;
+}
 
 /** Key of a directed route segment, for the clearance cache. */
 const segmentKey = (a: LatLon, b: LatLon) => `${a.lat},${a.lon}|${b.lat},${b.lon}`;
@@ -940,7 +961,19 @@ export class PathAndRouteService {
     const plansBefore = plansKey(this.detourPlans);
     if (merged) this.walkBySegment = merged;
     if (plans) this.detourPlans = plans;
-    return this.fittedCorridors() !== before || plansKey(this.detourPlans) !== plansBefore;
+    const narrowed = this.fittedCorridors() !== before;
+    const replanned = plansKey(this.detourPlans) !== plansBefore;
+    if (corridorTrace.enabled) {
+      const by: string[] = [];
+      if (narrowed) by.push('walkPass:walkCaps');
+      if (replanned) by.push('walkPass:detourPlans');
+      corridorTrace.noteChange(by);
+      corridorTrace.log('walk.narrow', {
+        changed: narrowed || replanned, by: by.join('+') || 'none',
+        capped: cappedStations(this.walkBySegment), plans: planSummary(this.detourPlans),
+      });
+    }
+    return narrowed || replanned;
   }
 
   /**
@@ -954,7 +987,10 @@ export class PathAndRouteService {
    */
   hasUnwalkableCells(): boolean {
     const plans = this.detoursWithGrid();
-    if (plans && plansKey(plans) !== plansKey(this.detourPlans)) return true;
+    if (plans && plansKey(plans) !== plansKey(this.detourPlans)) {
+      if (corridorTrace.enabled) corridorTrace.log('pending.unwalkable', { by: 'detourPlans', plans: planSummary(plans) });
+      return true;
+    }
     const merged = this.walkCapsWithGrid();
     if (!merged) return false;
     const kept = this.walkBySegment;
@@ -962,6 +998,7 @@ export class PathAndRouteService {
     this.walkBySegment = merged;
     const after = this.fittedCorridors();
     this.walkBySegment = kept;
+    if (after !== before && corridorTrace.enabled) corridorTrace.log('pending.unwalkable', { by: 'walkCaps', capped: cappedStations(merged) });
     return after !== before;
   }
 
@@ -1327,11 +1364,32 @@ export class PathAndRouteService {
     for (const { key, left, right, probes } of segments) {
       this.clearanceBySegment.set(key, { left, right, probes });
     }
+    // For the corridor trace, one more fit tells the measurement from the walk caps below.
+    let measured = before;
+    let traceMs = 0;
+    if (corridorTrace.enabled) {
+      const t = performance.now();
+      measured = this.fittedCorridors();
+      traceMs = performance.now() - t;
+    }
     this.walkBySegment = this.walkCapsWithGrid() ?? this.walkBySegment;
     // The room beside an obstacle on a centre line comes from the rays as well.
     const plansBefore = plansKey(this.detourPlans);
     this.detourPlans = this.detoursWithGrid() ?? this.detourPlans;
-    return this.fittedCorridors() !== before || plansKey(this.detourPlans) !== plansBefore;
+    const after = this.fittedCorridors();
+    const replanned = plansKey(this.detourPlans) !== plansBefore;
+    if (corridorTrace.enabled) {
+      const by: string[] = [];
+      if (measured !== before) by.push('measured');
+      if (after !== measured) by.push('walkCaps');
+      if (replanned) by.push('detourPlans');
+      corridorTrace.noteChange(by);
+      corridorTrace.log('store', {
+        changed: after !== before || replanned, by: by.join('+') || 'none', segments: segments.length,
+        capped: cappedStations(this.walkBySegment), plans: planSummary(this.detourPlans), traceMs,
+      });
+    }
+    return after !== before || replanned;
   }
 
   /** Cancel the clearance measurement under way, if any; nothing of it is stored. */
@@ -1514,6 +1572,9 @@ class ClearanceRun implements CorridorMeasurement {
   private readonly noTile: string[] = [];
   /** Positions of stations without a tile the log names; the rest it counts. */
   private static readonly MAX_LOGGED_STATIONS = 10;
+  /** Tile geometric error of the stations probed and the longest slice, for the corridor trace. */
+  private readonly lod = emptyLod();
+  private maxSliceMs = 0;
 
   constructor(
     private readonly segments: ClearanceSegment[],
@@ -1530,6 +1591,7 @@ class ClearanceRun implements CorridorMeasurement {
       for (let k = 0; k < segment.count; k++) if (Number.isNaN(segment.left[k])) planned++;
     }
     this.planned = planned;
+    corridorTrace.log('clearance.start', { segments: segments.length, stations: planned });
   }
 
   get open(): boolean {
@@ -1558,7 +1620,10 @@ class ClearanceRun implements CorridorMeasurement {
       this.probe(segment);
       here++;
     }
-    this.busyMs += performance.now() - start;
+    const sliceMs = performance.now() - start;
+    this.busyMs += sliceMs;
+    this.maxSliceMs = Math.max(this.maxSliceMs, sliceMs);
+    corridorTrace.cost('clearance.slice', sliceMs, { stations: here, budgetMs });
     return this.next() === null;
   }
 
@@ -1567,15 +1632,27 @@ class ClearanceRun implements CorridorMeasurement {
     this.end = 'commit';
     const start = performance.now();
     const changed = this.store(this.segments);
-    this.busyMs += performance.now() - start;
+    const storeMs = performance.now() - start;
+    this.busyMs += storeMs;
+    const rays = this.raysPerStation * (this.probed - this.unmeasured);
     if (this.segments.length > 0) {
       console.warn(
         `[Corridor] clearance: segments=${this.segments.length} stations=${this.probed} unmeasured=${this.unmeasured} ` +
-        `(coarse tile ${this.coarse}) rays=${this.raysPerStation * (this.probed - this.unmeasured)} changed=${changed} ` +
+        `(coarse tile ${this.coarse}) rays=${rays} changed=${changed} ` +
         `in ${this.busyMs.toFixed(1)}ms slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms` +
         (flushedBy ? ` flushed=${flushedBy}` : '') +
         (this.noTile.length > 0 ? ` noTile=${this.noTileList()}` : ''),
       );
+    }
+    // A run without segments too: its commit takes the walk caps and detour plans of the grid in use.
+    if (corridorTrace.enabled) {
+      corridorTrace.noteChange([], rays);
+      corridorTrace.log('clearance.commit', {
+        segments: this.segments.length, stations: this.probed, unmeasured: this.unmeasured, coarse: this.coarse, rays, changed,
+        lod: formatLod(this.lod), slices: this.slices, maxSliceMs: this.maxSliceMs, busyMs: this.busyMs,
+        wallMs: performance.now() - this.startedAt, flushed: flushedBy,
+      });
+      corridorTrace.cost('clearance.commit', storeMs);
     }
     return changed;
   }
@@ -1583,6 +1660,7 @@ class ClearanceRun implements CorridorMeasurement {
   cancel(reason: string): void {
     if (this.end) return;
     this.end = 'cancel';
+    corridorTrace.log('clearance.cancel', { reason, segments: this.segments.length, stations: this.probed, of: this.planned });
     if (this.segments.length === 0) return;
     console.warn(
       `[Corridor] clearance cancelled (${reason}): stations=${this.probed} of ${this.planned} in ${this.busyMs.toFixed(1)}ms ` +
@@ -1623,6 +1701,7 @@ class ClearanceRun implements CorridorMeasurement {
     const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach ? deckEndAt(approach, t) : null);
     segment.probes[k] = probe;
     this.probed++;
+    countLod(this.lod, probe?.tileError ?? Infinity);
     if (probe?.unmeasured === 'coarse tile') this.coarse++;
     if (probe?.unmeasured === 'no tile') this.noTile.push(`${x.toFixed(1)},${z.toFixed(1)}`);
     const free = probeFreeSpace(probe, 'left');

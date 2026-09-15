@@ -14,6 +14,7 @@ import { GameStateManager } from '../../managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, SPAWN_DISCARD_DISTANCE } from '../../configs/map-constants.config';
 import { portalHeadingToBearing } from '../../three-engine/renderers/marker/spawn-portal-pose';
+import { corridorTrace } from '../../utils/corridor-trace';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { VizCallbacks } from './location-facade.service';
 
@@ -221,7 +222,8 @@ export class MapRelocationService {
       this.store.spawnPoints.set([]);
       bridge.setFilteredStreetNetwork(null);
 
-      // 4. Update engine coordinate system
+      // 4. Update engine coordinate system; the corridor trace counts a new location load from here
+      corridorTrace.begin('HQ moved, new origin');
       engine.setOrigin(lat, lon);
 
       // 5. Update store signals

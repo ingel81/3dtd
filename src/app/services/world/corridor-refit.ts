@@ -1,4 +1,5 @@
 import { MEASUREMENT_KEYS, corridorConfig } from '../../utils/route-corridor';
+import { corridorTrace } from '../../utils/corridor-trace';
 
 /**
  * A measurement of the corridor clearance under way
@@ -152,18 +153,29 @@ export class CorridorRefit {
    * remeasure and runs once it has landed.
    */
   fitToTiles(): void {
-    if (this.running?.measurement.open) return;
+    if (this.running?.measurement.open) {
+      corridorTrace.log('refit.fit', { outcome: 'run under way' });
+      return;
+    }
     // A run the routes replaced (PathAndRouteService cancelled it).
     this.running?.stop();
     this.running = null;
-    if (this.rebuildBlocker()) return;
+    const blocker = this.rebuildBlocker();
+    if (blocker) {
+      corridorTrace.log('refit.fit', { outcome: `blocked: ${blocker}` });
+      return;
+    }
     if (this.host.introRunning()) {
+      corridorTrace.log('refit.fit', { outcome: 'held for the intro flight' });
       this.holdForIntro();
       return;
     }
     this.fitPending = false;
 
+    corridorTrace.log('refit.fit', { outcome: 'measure' });
     const measurement = this.host.beginMeasurement();
+    // The later slices run under the chain this one began under.
+    const trigger = corridorTrace.capture();
     const slice = (): boolean => {
       const blocker = this.rebuildBlocker();
       const intro = !blocker && this.host.introRunning();
@@ -179,7 +191,7 @@ export class CorridorRefit {
       }
       return false;
     };
-    if (slice()) this.running = { measurement, stop: this.host.eachFrame(slice) };
+    if (slice()) this.running = { measurement, stop: this.host.eachFrame(() => corridorTrace.within('refit.slice', slice, trigger)) };
   }
 
   /**
@@ -196,17 +208,31 @@ export class CorridorRefit {
    * wave: the corridor stays as it is while they are there.
    */
   remeasure(): void {
-    if (!this.fitPending && !this.host.hasUnmeasured()) return;
-    if (this.rebuildBlocker()) return;
+    if (!this.fitPending && !this.host.hasUnmeasured()) {
+      corridorTrace.log('refit.remeasure', { outcome: 'nothing to measure' });
+      return;
+    }
+    const blocker = this.rebuildBlocker();
+    if (blocker) {
+      corridorTrace.log('refit.remeasure', { outcome: `blocked: ${blocker}` });
+      return;
+    }
     const now = this.host.now();
     let wait = this.lastRemeasure + CorridorRefit.REMEASURE_INTERVAL_MS - now;
-    if (this.running?.measurement.open || this.host.introRunning()) wait = CorridorRefit.REMEASURE_INTERVAL_MS;
-    else if (this.fitPending) wait = 0;
+    let why = 'interval';
+    if (this.running?.measurement.open || this.host.introRunning()) {
+      wait = CorridorRefit.REMEASURE_INTERVAL_MS;
+      why = this.running?.measurement.open ? 'run under way' : 'intro flight';
+    } else if (this.fitPending) {
+      wait = 0;
+    }
     if (wait > 0) {
+      corridorTrace.log('refit.remeasure', { outcome: `wait ${Math.round(wait)}ms (${why})` });
       this.retryRemeasure(wait);
       return;
     }
     this.lastRemeasure = now;
+    corridorTrace.log('refit.remeasure', { outcome: this.fitPending ? 'measure the fit held for the intro' : 'measure' });
     this.fitToTiles();
   }
 
@@ -233,6 +259,8 @@ export class CorridorRefit {
     // Measured in one go below, a fit held back for the intro flight included.
     this.fitPending = false;
     const remeasure = MEASUREMENT_KEYS.some((key) => before[key] !== corridorConfig[key]);
+    corridorTrace.log('refit.change', { remeasure });
+    corridorTrace.noteChange(['settings']);
     if (remeasure) this.host.clearMeasurements();
     const measurement = this.host.beginMeasurement();
     measurement.step(Infinity);
@@ -261,10 +289,12 @@ export class CorridorRefit {
     running?.stop();
     const blocker = this.rebuildBlocker();
     if (blocker) {
+      corridorTrace.log('refit.flush', { reason, outcome: `blocked: ${blocker}` });
       if (open) running?.measurement.cancel(blocker);
       return;
     }
     this.fitPending = false;
+    corridorTrace.log('refit.flush', { reason, outcome: open ? 'finish the run in one go' : 'measure the fit held for the intro in one go' });
     const measurement = open && running ? running.measurement : this.host.beginMeasurement();
     measurement.step(Infinity);
     if (measurement.commit(reason)) this.host.rebuild();
@@ -279,6 +309,7 @@ export class CorridorRefit {
    * like every remeasure.
    */
   remeasureLater(): void {
+    corridorTrace.log('refit.remeasureLater', { inMs: CorridorRefit.REMEASURE_INTERVAL_MS });
     this.retryRemeasure(CorridorRefit.REMEASURE_INTERVAL_MS);
   }
 
@@ -304,9 +335,10 @@ export class CorridorRefit {
   /** Call remeasure again in `ms`; one call waits at a time. */
   private retryRemeasure(ms: number): void {
     if (this.pendingRetry) return;
+    const trigger = corridorTrace.capture();
     this.pendingRetry = this.host.after(ms, () => {
       this.pendingRetry = null;
-      this.remeasure();
+      corridorTrace.within('refit.retry', () => this.remeasure(), trigger);
     });
   }
 

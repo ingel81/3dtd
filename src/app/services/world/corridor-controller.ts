@@ -6,6 +6,7 @@ import { MEASURING_STEP, type RelocationStatusService } from './relocation-statu
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { TowerDefenseStore } from '../../store/tower-defense.store';
 import type { GameStateManager } from '../../managers/game-state.manager';
+import { corridorTrace, widthProfile, type CorridorSnapshot } from '../../utils/corridor-trace';
 
 /** What CorridorController needs; VisualizationFacadeService passes its services. */
 export interface CorridorControllerDeps {
@@ -90,23 +91,23 @@ export class CorridorController {
    * finishes first instead of being dropped (CorridorRefit.flush).
    */
   attach(): void {
-    this.deps.gameState().setBeforeCorridorLock((reason) => this.refit.flush(reason));
+    this.deps.gameState().setBeforeCorridorLock((reason) => corridorTrace.within(`refit.flush ${reason}`, () => this.refit.flush(reason)));
     this.attached = true;
   }
 
   /** See CorridorRefit.fitToTiles. */
   fitToTiles(): void {
-    this.refit.fitToTiles();
+    corridorTrace.within('refit.fitToTiles', () => this.refit.fitToTiles());
   }
 
   /** See CorridorRefit.remeasure. */
   remeasure(): void {
-    this.refit.remeasure();
+    corridorTrace.within('refit.remeasure', () => this.refit.remeasure());
   }
 
   /** See CorridorRefit.change. */
   change(apply: () => string[]): string {
-    return this.refit.change(apply);
+    return corridorTrace.within('refit.change', () => this.refit.change(apply));
   }
 
   /** Take the flush hook back and drop a measurement under way. */
@@ -127,6 +128,10 @@ export class CorridorController {
    * overlays (debug layers, route animation).
    */
   private rebuildCorridors(): void {
+    const trace = corridorTrace.enter('rebuild');
+    const tSnapshot = performance.now();
+    const before = corridorTrace.enabled ? this.snapshot() : null;
+    let snapshotMs = performance.now() - tSnapshot;
     // Routes with the new widths first, then the cells built from them,
     // then the route line on the new cells' heights.
     const t0 = performance.now();
@@ -171,5 +176,20 @@ export class CorridorController {
       `lines=${ms(tWalk, tLines)} overlays=${ms(tLines, tEnd)} total=${ms(t0, tEnd)}ms ` +
       `spawns=${spawns.length} cells=${grid.getStats().totalCells}`,
     );
+    if (before) {
+      const tAfter = performance.now();
+      const after = this.snapshot();
+      snapshotMs += performance.now() - tAfter;
+      corridorTrace.rebuilt(before, after, { narrowed, spawns: spawns.length, snapshotMs }, tEnd - t0);
+    }
+    corridorTrace.exit(trace);
+  }
+
+  /** The cells, the half widths along each route and the waypoints in use, for the corridor trace (CorridorTrace.rebuilt). */
+  private snapshot(): CorridorSnapshot {
+    const paths = this.deps.pathRoute.getCachedPaths();
+    let waypoints = 0;
+    for (const path of paths.values()) waypoints += path.length;
+    return { cells: this.deps.gameState().getGlobalRouteGrid().snapshotHeights(), widths: widthProfile(paths), waypoints };
   }
 }

@@ -60,7 +60,7 @@ import { DevWorldService } from '../devworld/devworld.service';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
-import { RouteCorridorRegion } from './route-corridor-region';
+import { RouteCorridorRegion, type RegionLodState, type RegionTile } from './route-corridor-region';
 import { SettleHold, type TilesLodDebug, createTilesLodDebug } from './tiles-lod-debug';
 import { warmUpScene } from './scene-warmup';
 import { logTileMaterialTypes } from './tile-material-log';
@@ -797,6 +797,21 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * How far the active tiles of the route corridor are refined, and how many
+   * tiles wait to load anywhere, for the corridor trace
+   * (VisualizationFacadeService.onTilesLoaded). Null without a corridor.
+   */
+  routeCorridorLod(): (RegionLodState & { pending: number }) | null {
+    if (!this.tilesRenderer || !this.routeCorridorRegion) return null;
+    // The renderer counts these, its declarations do not type them.
+    const stats = (this.tilesRenderer as unknown as { stats?: { queued?: number; downloading?: number; parsing?: number } }).stats;
+    return {
+      ...this.routeCorridorRegion.lodState(this.tilesRenderer.activeTiles as unknown as Iterable<RegionTile>),
+      pending: (stats?.queued ?? 0) + (stats?.downloading ?? 0) + (stats?.parsing ?? 0),
+    };
+  }
+
+  /**
    * Debug: paint tiles black to white by geometric error, white at
    * {@link TILE_LOD_DEBUG_MAX_ERROR} or coarser. Shows whether the route
    * corridor is really refined. The plugin registers on first use.
@@ -1301,6 +1316,7 @@ export class ThreeTilesEngine {
       this.tilesRenderer.dispose();
       this.tilesRenderer = null;
       this.routeRegions = null;
+      this.routeCorridorRegion = null;
       this.tileLodDebug = null;
     }
 

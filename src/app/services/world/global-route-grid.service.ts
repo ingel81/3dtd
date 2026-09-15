@@ -352,6 +352,11 @@ export class GlobalRouteGridService {
     return this.grid.getStats();
   }
 
+  /** Height per cell key, see GlobalRouteGrid.snapshotHeights. */
+  snapshotHeights(): Map<number, number> {
+    return this.grid.snapshotHeights();
+  }
+
   /**
    * Create visualization mesh
    */

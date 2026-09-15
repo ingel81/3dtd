@@ -7,6 +7,25 @@ interface BoundingVolumeLike {
   regionObb?: BoundingVolumeLike['obb'];
 }
 
+/** The parts of an active tile lodState reads. */
+export interface RegionTile {
+  geometricError?: number;
+  children?: readonly unknown[];
+  engineData?: { boundingVolume?: BoundingVolumeLike | null } | null;
+}
+
+/** How far the tiles reaching the region are refined, see lodState. */
+export interface RegionLodState {
+  /** Active tiles that reach the region. */
+  tiles: number;
+  /** Of those, at `errorTarget` or finer, or a leaf that cannot refine. */
+  fine: number;
+  /** Of those, 2 m or finer. */
+  finest: number;
+  /** Of those, coarser than `errorTarget` with children: still to refine. */
+  coarse: number;
+}
+
 /** Tile bounding sphere, projected onto the local ground plane. */
 interface TileFootprint {
   x: number;
@@ -108,6 +127,26 @@ export class RouteCorridorRegion {
   /** No distance: corridor tiles load by error alone. */
   calculateDistance(): number {
     return Infinity;
+  }
+
+  /**
+   * How far the active tiles that reach the region are refined, for the
+   * corridor trace: a coarse tile stays active until its children are
+   * ready, so a coarse one with children is a refinement still to come.
+   * O(active tiles × segments), footprints cached per tile.
+   */
+  lodState(activeTiles: Iterable<RegionTile>): RegionLodState {
+    const state: RegionLodState = { tiles: 0, fine: 0, finest: 0, coarse: 0 };
+    for (const tile of activeTiles) {
+      const volume = tile.engineData?.boundingVolume;
+      if (!volume || !this.intersectsTile(volume, tile)) continue;
+      state.tiles++;
+      const error = tile.geometricError ?? Infinity;
+      if (error <= 2) state.finest++;
+      if (error > this.errorTarget && (tile.children?.length ?? 0) > 0) state.coarse++;
+      else state.fine++;
+    }
+    return state;
   }
 
   private footprintOf(boundingVolume: BoundingVolumeLike): TileFootprint | null {
