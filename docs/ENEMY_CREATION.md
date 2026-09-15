@@ -43,7 +43,7 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 | bat | light | 25 | 8 | ✓ | Air-Unit, `heightOffset: 15` |
 | hornet | light | 80 | 9 | ✓ | Air-Unit, `heightOffset: 18` |
 | dragon | heavy | 450 | 6 | ✓ | Air-Boss-Tier, `heightOffset: 20` |
-| tank | heavy | 250 | 3 | – | Mechanisch, `canBleed: false` |
+| tank | heavy | 250 | 3 | – | Mechanisch, `canBleed: false`. Quaternius-Modell (2026-09-15) in Metern, die Ketten laufen (`TankArmature\|Tank_Forward`, `animationSpeed` passend zu 3 m/s) |
 | bear | heavy | 300 | 8 | – | Random Growl Sound |
 | mech | heavy | 500 | 3 | – | Mechanisch |
 | mammoth | fortified | 400 | 3 | – | Random Mammoth Call |
