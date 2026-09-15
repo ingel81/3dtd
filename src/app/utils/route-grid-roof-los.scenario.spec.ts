@@ -73,6 +73,7 @@ describe('A cell under an eave in __corridor (playtest 567, orange cells left ou
       inputHandler: { armPick: (callback: (hit: { x: number; y: number; z: number }) => void) => { picked = callback; } },
       pathRoute: { explainCorridorAt: () => null, routeLineLift: () => 1 },
       change: () => '',
+      cellReport: { start: () => '', connect: () => undefined, disconnect: () => undefined },
     } as unknown as CorridorConsoleDeps);
     corridor.install();
   });

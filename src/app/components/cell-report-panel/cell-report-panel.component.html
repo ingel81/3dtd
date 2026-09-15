@@ -1,0 +1,27 @@
+@if (report.active()) {
+  <section class="crp" aria-label="Cell report">
+    <div class="crp-head">
+      <span class="crp-title">Cell report</span>
+      <span class="crp-count">{{ report.spots().length }} / {{ maxCells }} cells</span>
+    </div>
+    <p class="crp-hint">Click: cell on / off &middot; Shift + drag: box &middot; Esc: done</p>
+    <!-- Esc in the field ends the report too; the game keys leave a focused text field alone -->
+    <input class="crp-note" type="text" placeholder="Note: car, embankment, roof ..." aria-label="Note"
+           [value]="report.note()" (input)="onNote($event)" (keydown.escape)="report.stop()">
+    <div class="crp-actions">
+      <button type="button" class="crp-btn crp-btn-gold" (click)="report.copy()"
+              [disabled]="report.spots().length === 0">Copy JSON</button>
+      <button type="button" class="crp-btn" (click)="report.clear()"
+              [disabled]="report.spots().length === 0">Clear</button>
+      <button type="button" class="crp-btn" (click)="report.stop()">Done</button>
+    </div>
+    @if (report.status(); as status) {
+      <p class="crp-status" role="status">{{ status }}</p>
+    }
+  </section>
+}
+@if (report.box(); as box) {
+  <div class="crp-box"
+       [style.left.px]="box.left" [style.top.px]="box.top"
+       [style.width.px]="box.right - box.left" [style.height.px]="box.bottom - box.top"></div>
+}

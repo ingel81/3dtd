@@ -37,6 +37,7 @@ import { EngineStore } from '../../store/engine.store';
 import { STREET_FILTER_RADIUS } from '../../configs/map-constants.config';
 import { CorridorController } from '../world/corridor-controller';
 import { CorridorConsole } from '../debug/corridor-console';
+import { CellReportService } from '../debug/cell-report.service';
 import { TowerTargetConsole } from '../debug/tower-target-console';
 import { RouteGridConvergence } from '../world/route-grid-convergence';
 import { IntroLoadingGate } from '../world/intro-loading-gate';
@@ -99,6 +100,7 @@ export class VisualizationFacadeService {
   private readonly store = inject(TowerDefenseStore);
   private readonly engineStore = inject(EngineStore);
   private readonly relocationStatus = inject(RelocationStatusService);
+  private readonly cellReport = inject(CellReportService);
 
   /** When the route corridor is measured and rebuilt (CorridorRefit). */
   private readonly corridor = new CorridorController({
@@ -118,6 +120,7 @@ export class VisualizationFacadeService {
     inputHandler: this.inputHandler,
     pathRoute: this.pathRoute,
     change: (apply) => this.corridor.change(apply),
+    cellReport: this.cellReport,
   });
 
   /** `__towerTargets` in DevTools, see TowerTargetConsole. */
@@ -363,6 +366,14 @@ export class VisualizationFacadeService {
       click: (lat: number, lon: number, height: number) => this.heroControl.click(lat, lon, height),
       move: (lat: number, lon: number, hitPoint: Vector3) => this.heroControl.hover(lat, lon, hitPoint),
       cancel: () => this.heroControl.deselect(),
+    });
+
+    this.inputHandler.setCellReportCallbacks({
+      active: () => this.cellReport.active(),
+      click: (hitPoint: Vector3) => this.cellReport.click(hitPoint),
+      drag: (rect) => this.cellReport.box.set(rect),
+      select: (rect) => this.cellReport.select(rect),
+      end: () => this.cellReport.stop(),
     });
 
     this.inputHandler.initKeyboard({

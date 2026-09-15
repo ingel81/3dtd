@@ -1,0 +1,134 @@
+@use '../../styles/td-mixins' as td;
+
+/* Over the whole canvas area, clickable only on the panel. The box of a
+   Shift drag comes in client pixels and is drawn position: fixed; nothing
+   between the host and the page transforms. */
+:host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 21;
+}
+
+/* Glass panel at the top centre, below the HUD column (game speed, PAUSED,
+   boss bar) */
+.crp {
+  @include td.bevel-glass;
+  position: absolute;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+  font-family: var(--td-font-mono);
+  color: var(--td-text-secondary);
+}
+
+.crp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.crp-title {
+  font: 600 12px/14px var(--td-font-body);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--td-text-primary);
+}
+
+/* In the frame colour of the selected cells (LOS_VIZ_CONFIG.gridOverlay.selection) */
+.crp-count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #e69f00;
+}
+
+.crp-hint,
+.crp-status {
+  margin: 0;
+  font-size: 10px;
+  line-height: 13px;
+  color: var(--td-text-muted);
+}
+
+/* Input recipe: sunken field on the shadow panel */
+.crp-note {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(74, 84, 77, 0.13);
+  color: var(--td-text-primary);
+  font: 12px var(--td-font-mono);
+}
+
+.crp-note:focus {
+  outline: none;
+  border-color: var(--td-frame-mid);
+}
+
+.crp-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Frame button recipe */
+.crp-btn {
+  flex: 1;
+  padding: 5px 0;
+  background: var(--td-panel-main);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 2px;
+  color: var(--td-text-secondary);
+  font: 700 11px var(--td-font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.crp-btn:hover:not(:disabled) {
+  border-color: var(--td-frame-mid);
+  color: var(--td-text-primary);
+}
+
+.crp-btn:disabled {
+  color: var(--td-text-disabled);
+  cursor: default;
+}
+
+/* Gold recipe for the one action the panel is there for */
+.crp-btn-gold {
+  flex: 1.4;
+  background: linear-gradient(180deg, var(--td-gold-light), var(--td-gold) 55%, var(--td-gold-dark));
+  border-color: rgba(26, 20, 10, 0.8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), var(--td-shadow-key);
+  color: #1a140a;
+}
+
+.crp-btn-gold:hover:not(:disabled) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), var(--td-gold-glow);
+  color: #1a140a;
+}
+
+.crp-btn-gold:disabled {
+  background: var(--td-panel-secondary);
+  border-color: var(--td-frame-dark);
+  box-shadow: none;
+}
+
+.crp-box {
+  position: fixed;
+  border: 1px dashed #e69f00;
+  background: rgba(230, 159, 0, 0.12);
+  pointer-events: none;
+}

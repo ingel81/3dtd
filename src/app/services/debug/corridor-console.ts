@@ -1,3 +1,4 @@
+import { Vector3 } from 'three';
 import {
   CorridorConfig,
   corridorConfig,
@@ -9,6 +10,10 @@ import type { InputHandlerService } from '../input-handler.service';
 import type { PathAndRouteService } from '../world/path-route.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { ColumnSample } from '../../three-engine/column-sample';
+import type { GlobalRouteGrid } from '../../utils/global-route-grid';
+import type { RouteCellProbe } from '../../utils/route-grid-diagnostics';
+import type { CellReportService, CellReportSource } from './cell-report.service';
+import type { CellProbe, CellSpot, NeighbourRow, ProbedCell, ScreenRect } from './cell-report';
 
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
@@ -17,6 +22,21 @@ type PickEngine = NonNullable<ReturnType<EngineInitializationService['getEngine'
 
 /** What TerrainQueries.inspectColumn tells about the column at the click. */
 type ColumnInspection = NonNullable<ReturnType<PickEngine['terrain']['inspectColumn']>>;
+
+/** A row of `__corridor.pick()` before the cover: the grid spot and what the selected tower's display draws of it. */
+type PickRow = RouteCellProbe & { displayed: boolean | null };
+
+/** What a pick or a report reads once: the grid, the selected tower, its display, the height of the red line. */
+interface PickView {
+  grid: GlobalRouteGrid;
+  tower: string | null;
+  /** Cells the tower's LOS display draws, as "x,z"; null without a selected tower. */
+  drawn: Set<string> | null;
+  lift: number;
+}
+
+/** Every cell of the grid, for dumpCellsInBox. */
+const WHOLE_GRID = { xMin: -Infinity, xMax: Infinity, zMin: -Infinity, zMax: Infinity };
 
 /**
  * The column at the click for the console: the sample the cache holds (what
@@ -38,19 +58,30 @@ export interface CorridorConsoleDeps {
   gameState: () => Pick<GameStateManager, 'towerManager' | 'getGlobalRouteGrid'>;
   engineInit: Pick<EngineInitializationService, 'getEngine'>;
   inputHandler: Pick<InputHandlerService, 'armPick'>;
-  pathRoute: Pick<PathAndRouteService, 'explainCorridorAt' | 'routeLineLift'>;
+  pathRoute: Pick<PathAndRouteService, 'explainCorridorAt' | 'routeLineLift' | 'getCachedPaths'>;
   /** Change the corridor settings and rebuild (CorridorController.change). */
   change: (apply: () => string[]) => string;
+  /** The cell report, `__corridor.report()`; this console reads its cells. */
+  cellReport: Pick<CellReportService, 'start' | 'connect' | 'disconnect'>;
 }
 
 /**
  * Korridor-API für Playtests, analog zu `__rg` und `__routes`, in
  * DevTools: `__corridor.get()`, `__corridor.set({ maxHalfWidth: 8 })`,
- * `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`.
+ * `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`,
+ * `__corridor.report()`.
  */
 export class CorridorConsole {
   /** The `__corridor` this instance registered, see uninstall(). */
   private api: object | null = null;
+
+  /** The cells of the cell report, read the way pick() reads its click. */
+  private readonly reportSource: CellReportSource = {
+    spotAt: (hit) => this.spotAt(hit),
+    cellsInRect: (rect, limit) => this.cellsInRect(rect, limit),
+    showSelection: (spots) => this.deps.gameState().getGlobalRouteGrid().showCellSelection(spots),
+    describe: (spots) => this.describeCells(spots),
+  };
 
   constructor(private readonly deps: CorridorConsoleDeps) {}
 
@@ -65,18 +96,22 @@ export class CorridorConsole {
       }),
       towerCells: (towerId?: string) => this.describeTowerCells(towerId),
       pick: (radius = 4) => this.armCellPick(radius),
+      report: () => this.deps.cellReport.start(),
     };
     (globalThis as Record<string, unknown>)['__corridor'] = this.api;
+    this.deps.cellReport.connect(this.reportSource);
   }
 
   /**
    * Remove `__corridor` from globalThis, unless another instance has
-   * registered its own since: that one belongs to the live game.
+   * registered its own since: that one belongs to the live game. The cell
+   * report lets go of this console's cells (and ends) the same way.
    */
   uninstall(): void {
     const global = globalThis as Record<string, unknown>;
     if (this.api && global['__corridor'] === this.api) delete global['__corridor'];
     this.api = null;
+    this.deps.cellReport.disconnect(this.reportSource);
   }
 
   /**
@@ -95,20 +130,13 @@ export class CorridorConsole {
     const engine = this.deps.engineInit.getEngine();
     if (!engine) return 'No location loaded.';
     this.deps.inputHandler.armPick((hit) => {
-      const geo = engine.sync.localToGeo(hit);
-      const local = engine.sync.geoToLocalSimple(geo.lat, geo.lon, 0);
-      const gameState = this.deps.gameState();
-      const towers = gameState.towerManager;
-      const tower = towers.getSelected();
-      const layer = tower ? towers.getSelectionViz()?.getLayer() ?? null : null;
-      const drawn = layer ? new Set(layer.cells.map((c) => `${c.x},${c.z}`)) : null;
-      const lift = this.deps.pathRoute.routeLineLift();
-      const rows = gameState.getGlobalRouteGrid().getGrid()
-        .describeCellsAround(local.x, local.z, radius, tower?.id ?? null)
-        .map((row) => ({ ...row, displayed: drawn ? drawn.has(`${row.x},${row.z}`) : null, ...this.coverAt(engine, row, lift) }));
+      const local = this.groundPoint(engine, hit);
+      const view = this.pickView();
+      const rows = this.rowsAround(view, local.x, local.z, radius)
+        .map((row) => ({ ...row, ...this.coverAt(engine, row, view.lift) }));
       console.log(
         `[Corridor] pick at ${local.x.toFixed(1)},${local.z.toFixed(1)}: ${rows.length} spots within ${radius} m` +
-        (tower ? `, answers and display of ${tower.id}` : ', no tower selected'),
+        (view.tower ? `, answers and display of ${view.tower}` : ', no tower selected'),
       );
       console.table(rows);
 
@@ -124,6 +152,32 @@ export class CorridorConsole {
       }
     });
     return `Click the map (left button): the grid within ${radius} m of the click and how the corridor width comes about there are printed here.`;
+  }
+
+  /** The point on the ground a picked hit stands for, in the local frame the grid is keyed in. */
+  private groundPoint(engine: PickEngine, hit: Vector3): Vector3 {
+    const geo = engine.sync.localToGeo(hit);
+    return engine.sync.geoToLocalSimple(geo.lat, geo.lon, 0);
+  }
+
+  /** Read once per pick or report: the grid, the selected tower, what its LOS display draws, the red line's lift. */
+  private pickView(): PickView {
+    const gameState = this.deps.gameState();
+    const towers = gameState.towerManager;
+    const tower = towers.getSelected();
+    const layer = tower ? towers.getSelectionViz()?.getLayer() ?? null : null;
+    return {
+      grid: gameState.getGlobalRouteGrid().getGrid(),
+      tower: tower?.id ?? null,
+      drawn: layer ? new Set(layer.cells.map((c) => `${c.x},${c.z}`)) : null,
+      lift: this.deps.pathRoute.routeLineLift(),
+    };
+  }
+
+  /** The grid spots within `radius` of (x, z) as pick() prints them, before the cover. */
+  private rowsAround(view: PickView, x: number, z: number, radius: number): PickRow[] {
+    return view.grid.describeCellsAround(x, z, radius, view.tower)
+      .map((row) => ({ ...row, displayed: view.drawn ? view.drawn.has(`${row.x},${row.z}`) : null }));
   }
 
   /**
@@ -158,6 +212,85 @@ export class CorridorConsole {
       cameraSees: y === null ? null
         : !engine.terrain.raycastLineOfSight(camera.x, camera.y, camera.z, row.x, y + lift, row.z),
     };
+  }
+
+  /**
+   * The grid spot under a click for the cell report: the centre of its
+   * square on the grid lattice (the spot pick() would list for it), framed
+   * at the hit's height where it has no cell.
+   */
+  private spotAt(hit: Vector3): CellSpot | null {
+    const engine = this.deps.engineInit.getEngine();
+    if (!engine) return null;
+    const local = this.groundPoint(engine, hit);
+    const size = this.deps.gameState().getGlobalRouteGrid().getGrid().getCellSize();
+    return { x: (Math.floor(local.x / size) + 0.5) * size, y: hit.y, z: (Math.floor(local.z / size) + 0.5) * size };
+  }
+
+  /**
+   * The cells whose centre, on its ground (getGroundLocalYAt), the camera
+   * shows inside the rectangle (client pixels), at most `limit`, nearest to
+   * the rectangle's middle first. A cell counts by where it lies on the
+   * screen, also behind a house.
+   */
+  private cellsInRect(rect: ScreenRect, limit: number): CellSpot[] {
+    const engine = this.deps.engineInit.getEngine();
+    if (!engine) return [];
+    const grid = this.deps.gameState().getGlobalRouteGrid().getGrid();
+    const camera = engine.getCamera();
+    const canvas = engine.getRenderer().domElement.getBoundingClientRect();
+    const midX = (rect.left + rect.right) / 2;
+    const midY = (rect.top + rect.bottom) / 2;
+    const p = new Vector3();
+    const found: (CellSpot & { d: number })[] = [];
+    for (const cell of grid.dumpCellsInBox(WHOLE_GRID)) {
+      const y = grid.getGroundLocalYAt(cell.x, cell.z) ?? cell.terrainHeight;
+      p.set(cell.x, y, cell.z).project(camera);
+      // Behind the camera or past its far plane
+      if (p.z < -1 || p.z > 1) continue;
+      const sx = canvas.left + ((p.x + 1) / 2) * canvas.width;
+      const sy = canvas.top + ((1 - p.y) / 2) * canvas.height;
+      if (sx < rect.left || sx > rect.right || sy < rect.top || sy > rect.bottom) continue;
+      found.push({ x: cell.x, y, z: cell.z, d: (sx - midX) ** 2 + (sy - midY) ** 2 });
+    }
+    return found.sort((a, b) => a.d - b.d).slice(0, limit).map(({ x, y, z }) => ({ x, y, z }));
+  }
+
+  /**
+   * The cell report's spots as pick() sees a click on each: the pick row of
+   * the spot with the cover, heightM and walkable of the eight spots around
+   * it, the column at its centre and the corridor width at the nearest
+   * route station. The rows carry the answers of the selected tower, as in
+   * pick(). No cells without a location.
+   */
+  private describeCells(spots: readonly CellSpot[]): CellProbe {
+    const engine = this.deps.engineInit.getEngine();
+    const view = this.pickView();
+    const size = view.grid.getCellSize();
+    const cells = engine ? spots.map((spot): ProbedCell => {
+      // The spot and its eight neighbours: the next ring lies 2 cells out
+      const rows = this.rowsAround(view, spot.x, spot.z, size * 1.5);
+      let centre: PickRow | null = null;
+      for (const row of rows) {
+        if (!centre || Math.hypot(row.x - spot.x, row.z - spot.z) < Math.hypot(centre.x - spot.x, centre.z - spot.z)) centre = row;
+      }
+      const neighbours: Record<string, NeighbourRow> = {};
+      for (const row of rows) {
+        if (row === centre) continue;
+        neighbours[`${Math.round((row.x - spot.x) / size)},${Math.round((row.z - spot.z) / size)}`] =
+          row.cell ? [row.heightM, row.walkable] : null;
+      }
+      const column = engine.terrain.inspectColumn(spot.x, spot.z);
+      const geo = engine.sync.localToGeo(new Vector3(spot.x, 0, spot.z));
+      return {
+        geo: `${geo.lat.toFixed(7)},${geo.lon.toFixed(7)}`,
+        row: centre ? { ...centre, ...this.coverAt(engine, centre, view.lift) } : { x: spot.x, z: spot.z, cell: false },
+        neighbours,
+        column: column ? describeColumn(column) : null,
+        station: this.deps.pathRoute.explainCorridorAt(spot.x, spot.z),
+      };
+    }) : [];
+    return { tower: view.tower, routes: [...this.deps.pathRoute.getCachedPaths().keys()], cells };
   }
 
   /**
