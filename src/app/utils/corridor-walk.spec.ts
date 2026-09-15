@@ -146,6 +146,18 @@ describe('cellWalkable', () => {
     expect(cellWalkable(cell({ terrainHeight: -1 }), ground(flat), 2)).toBe(true);
   });
 
+  it('walks out from the street beside a centre line raised on a row of cars', () => {
+    // The line spots (0 <= z < 2) on a row of cars 1.5 m up: their median, the reference, on the roofs.
+    const row = (_x: number, z: number): ColumnSample => ({ ...flat(), groundY: z >= 0 && z < 2 ? 1.5 : 0 });
+    expect(judgeWalk(cell({ terrainHeight: 0 }), ground(row), 2)).toEqual({ walkable: true, check: 'walkable', overLine: -1.5 });
+    // A car at the edge, measured from the street beside the row, not from its roofs.
+    expect(judgeWalk(cell({ terrainHeight: 1.5 }), ground(row), 2).check).toBe('step');
+    // A quay 4 m down on the other side: the walk goes on from the street, and the quay stays a drop.
+    const quay = (x: number, z: number): ColumnSample => (z < 0 ? { ...flat(), groundY: -4 } : row(x, z));
+    expect(judgeWalk(cell({ terrainHeight: 0 }), ground(quay), 2).check).toBe('walkable');
+    expect(judgeWalk(cell({ z: -3, terrainHeight: -4 }), ground(quay), 2).check).toBe('drop');
+  });
+
   it('walks out on the deck carried on past a bridge end, not on the quay under it', () => {
     // The deck at 80 m over a quay at 70 m north of z = 3, solid ground at 80 m south of it.
     const head = (_x: number, z: number): ColumnSample => (z < 3

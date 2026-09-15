@@ -327,7 +327,9 @@ export function centreLineGround(x: number, z: number, ground: WalkGround, cellS
  * ends: on the cell's ground (`walkable`), or short of it because the cell
  * lies too high (`step`) or too low (`drop`) for the ground reached before.
  *
- * The walk starts on the centre line (`axisY`). A spot counts as reached
+ * The walk starts on the centre line (`lineY`), or where the line stands
+ * raised over the ground on both sides of it, a row of cars on it, on that
+ * ground (groundBesideRaisedLine). A spot counts as reached
  * where its ground lies at most `stepRise` above the highest ground reached
  * so far, or above the last one plus the cross slope for every spot since,
  * where the ground rises towards the cell (crossSlope); and at most
@@ -352,7 +354,7 @@ export function centreLineGround(x: number, z: number, ground: WalkGround, cellS
  * level with the centre line stays walkable, and so does a car up to
  * `stepRise` plus one spot's fall above it.
  */
-function walkOut(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: SurfaceY, cellSize: number): 'walkable' | 'step' | 'drop' {
+function walkOut(cell: RouteCell, lineY: number, column: ColumnAt, surfaceY: SurfaceY, cellSize: number): 'walkable' | 'step' | 'drop' {
   const y = cell.terrainHeight;
   const { stepRise, stepDrop } = corridorConfig;
   const gx = Math.round((cell.x - cell.axisX) / cellSize);
@@ -365,8 +367,8 @@ function walkOut(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: Sur
   // above or below the centre line is reached whatever lies in between,
   // right beside the line or where the ground does not fall towards it: no
   // probes on the way out for most edge cells of a level street.
-  const inReach = y <= axisY + stepRise && y >= axisY - stepDrop;
-  if (inReach && steps === 1) return 'walkable';
+  const inReach = (from: number) => y <= from + stepRise && y >= from - stepDrop;
+  if (inReach(lineY) && steps === 1) return 'walkable';
   // Rounded away from the centre line.
   const along = (g: number, k: number) => Math.sign(g * k) * Math.round(Math.abs((g * k) / steps)) * cellSize;
   const spot = (k: number) => column(cell.axisX + along(gx, k), cell.axisZ + along(gz, k));
@@ -377,11 +379,13 @@ function walkOut(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: Sur
   const ux = (cell.x - cell.axisX) / steps;
   const uz = (cell.z - cell.axisZ) / steps;
   const toward = column(cell.axisX + ux, cell.axisZ + uz);
-  if (inReach && (toward === null || surfaceY(toward) >= axisY)) return 'walkable';
-  const slope = crossSlope(axisY, toward, column(cell.axisX - ux, cell.axisZ - uz), surfaceY);
+  if (inReach(lineY) && (toward === null || surfaceY(toward) >= lineY)) return 'walkable';
+  const away = column(cell.axisX - ux, cell.axisZ - uz);
+  const axisY = groundBesideRaisedLine(lineY, toward, away, surfaceY) ?? lineY;
+  const slope = crossSlope(axisY, toward, away, surfaceY);
   const rise = Math.max(0, slope);
   const fall = Math.min(0, slope);
-  if (inReach && y <= axisY + fall * steps + stepRise) return 'walkable';
+  if (inReach(axisY) && y <= axisY + fall * steps + stepRise) return 'walkable';
 
   let top = axisY;
   // The highest ground reached, each spot carried down the cross slope to
@@ -405,6 +409,30 @@ function walkOut(cell: RouteCell, axisY: number, column: ColumnAt, surfaceY: Sur
     bottom = Math.min(bottom, ground);
   }
   return y > ceiling(steps) ? 'step' : y < floor(steps) ? 'drop' : 'walkable';
+}
+
+/**
+ * The ground a walk out starts from where the centre line stands raised over
+ * the ground on both sides of it: the first step on the way out (`toward`)
+ * and its mirror (`away`) both lie more than `stepDrop` below `lineY`, the
+ * centre line ground (centreLineGround). A row of parked cars or a hedge the
+ * OSM line runs over: three of the five line spots on it tip the median onto
+ * its top, and every cell on the street beside it lay more than a step below
+ * that and was a drop, the corridor there only the centre line cells on the
+ * roofs (playtest 2026-09-15, retest 706 to 708). The middle of the two, so a
+ * street across a slope keeps its cross slope (crossSlope); the higher of the
+ * two where they lie more than two steps (`stepRise`) apart, one side falling
+ * far (a quay wall, an embankment), so the walk goes on from the other. Null
+ * where either lies within `stepDrop` of the line or has no column: the walk
+ * starts on the line.
+ */
+function groundBesideRaisedLine(lineY: number, toward: ColumnSample | null, away: ColumnSample | null, surfaceY: SurfaceY): number | null {
+  if (toward === null || away === null) return null;
+  const { stepRise, stepDrop } = corridorConfig;
+  const out = surfaceY(toward);
+  const back = surfaceY(away);
+  if (lineY - out <= stepDrop || lineY - back <= stepDrop) return null;
+  return Math.abs(out - back) <= 2 * stepRise ? (out + back) / 2 : Math.max(out, back);
 }
 
 /**
