@@ -99,12 +99,13 @@ function kinds(list: readonly (OozeDebrisKind | null)[]): Partial<Record<OozeDeb
 }
 
 describe('planOozeDeath', () => {
-  it('lets a full 80 m body go in 32 bubbles, 64 splashes and 60 pieces of debris, six of them skulls', () => {
-    expect(oozeMessCounts(80, true, true)).toEqual({ pops: 32, splashes: 64, debris: 60 });
+  it('lets a full 80 m body go in 32 bubbles, 64 splashes and 128 pieces of debris of fifteen kinds, twelve skulls', () => {
+    expect(oozeMessCounts(80, true, true)).toEqual({ pops: 32, splashes: 64, debris: 128 });
     const plan = planOozeDeath(80, true, true, 1);
-    expect(plan).toHaveLength(32 + 64 + 60);
+    expect(plan).toHaveLength(32 + 64 + 128);
     expect(kinds(plan.map((e) => e.debris))).toEqual({
-      bone: 18, rib: 12, skull: 6, teeth: 6, helmet: 3, scrap: 6, boot: 3, sign: 3, can: 3,
+      bone: 24, rib: 12, skull: 12, teeth: 8, helmet: 8, ribcage: 8, sign: 8, can: 8, cone: 8, scrap: 8, boot: 8,
+      spine: 4, tire: 4, barrel: 4, bottle: 4,
     });
   });
 
@@ -131,15 +132,15 @@ describe('planOozeDeath', () => {
     for (let i = 1; i < plan.length; i++) expect(plan[i].t).toBeGreaterThanOrEqual(plan[i - 1].t);
   });
 
-  it('keeps a short body messy, a skull included, and the Low preset cheap', () => {
-    expect(oozeMessCounts(1.5, true, true)).toEqual({ pops: 4, splashes: 4, debris: 6 });
-    expect(OOZE_DEBRIS_DECK.slice(0, 6)).toContain('skull');
+  it('keeps a short body messy, a skull included, and the Low preset at a third of the debris', () => {
+    expect(oozeMessCounts(1.5, true, true)).toEqual({ pops: 4, splashes: 4, debris: 10 });
+    expect(OOZE_DEBRIS_DECK.slice(0, 10)).toEqual(expect.arrayContaining(['skull', 'teeth', 'helmet', 'sign', 'can']));
     // Low: impact effects and ground marks off
     expect(LOW.impactEffects).toBe(false);
     expect(LOW.groundMarks).toBe(false);
-    expect(oozeMessCounts(80, LOW.impactEffects, LOW.groundMarks)).toEqual({ pops: 0, splashes: 0, debris: 20 });
-    expect(oozeMessCounts(1.5, LOW.impactEffects, LOW.groundMarks)).toEqual({ pops: 0, splashes: 0, debris: 3 });
-    expect(OOZE_DEBRIS_DECK.slice(0, 3)).toEqual(['bone', 'rib', 'skull']);
+    expect(oozeMessCounts(80, LOW.impactEffects, LOW.groundMarks)).toEqual({ pops: 0, splashes: 0, debris: 43 });
+    expect(oozeMessCounts(1.5, LOW.impactEffects, LOW.groundMarks)).toEqual({ pops: 0, splashes: 0, debris: 5 });
+    expect(OOZE_DEBRIS_DECK.slice(0, 5)).toEqual(['bone', 'rib', 'skull', 'bone', 'teeth']);
   });
 
   it('splashes in the colour the ooze\'s clumps splash in', () => {
@@ -168,7 +169,7 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
       before = now;
       if (t < OOZE_LOOK.collapse * 100) firstTenth = now;
     }
-    expect(before).toBe(32 + 64 + 60);
+    expect(before).toBe(32 + 64 + 128);
     expect(most).toBeLessThan(12);
     expect(firstTenth).toBeLessThan(before / 4);
 
@@ -209,43 +210,52 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
     expect(effects.spawnBurstAtGeo).not.toHaveBeenCalled();
     expect(effects.spawnBloodSplatter).not.toHaveBeenCalled();
     expect(effects.spawnGooDecal).not.toHaveBeenCalled();
-    expect(debris.count).toBe(20);
+    expect(debris.count).toBe(43);
   });
 
   it('throws the debris up, lets it land, lie and sink in; every kind drawn, then no draw call left', () => {
     const { scene, debris, renderer } = killedBand(effectsMock());
     const meshes = scene.children.filter((c) => c.name.startsWith('ooze-debris-')) as InstancedMesh[];
-    expect(meshes).toHaveLength(9);
+    expect(meshes).toHaveLength(15);
     expect(debris.drawCalls).toBe(0);
 
-    frames(renderer, 700);
-    const heights = () => meshes.flatMap((mesh) => {
-      const m = new Matrix4();
-      return Array.from({ length: mesh.count }, (_, i) => (mesh.getMatrixAt(i, m), m.elements[13]));
-    });
-    expect(Math.max(...heights())).toBeGreaterThan(2); // in the air
+    const m = new Matrix4();
+    const places = () => meshes.flatMap((mesh) =>
+      Array.from({ length: mesh.count }, (_, i) => (mesh.getMatrixAt(i, m), { x: m.elements[12], y: m.elements[13] })));
+    const heights = () => places().map((p) => p.y);
+    // The high ones peak about 1 to 1.5 s after the kill
+    let highest = 0;
+    for (let t = 0; t < 1600; t += FRAME_MS) {
+      renderer.animate(FRAME_MS);
+      highest = Math.max(highest, ...heights());
+    }
+    expect(highest).toBeGreaterThan(8);
 
-    frames(renderer, OOZE_LOOK.collapse * 1000 - 700 + FRAME_MS);
-    expect(debris.count).toBe(60);
-    expect(debris.drawCalls).toBe(9);
+    frames(renderer, OOZE_LOOK.collapse * 1000 - 1600 + FRAME_MS);
+    expect(debris.count).toBe(128);
+    expect(debris.drawCalls).toBe(15);
 
-    // 4 s after the kill every piece is down (the last thrown at 1.2 s lands within 2 s)
-    frames(renderer, 2000);
+    // 5 s after the kill every piece is down (the last thrown at 1.2 s lands and bounces within 3.3 s)
+    frames(renderer, 3000);
     expect(Math.max(...heights())).toBeLessThan(0.2);
+    // Scattered along the street more than across it: the body covers 2.7 m left and 4.5 m right of its line
+    expect(Math.max(...places().map((p) => Math.abs(p.x)))).toBeLessThan(10);
 
-    // All sunk in: the latest lands by 3.1 s, lies up to 3.5 s and sinks for 1 s
-    frames(renderer, 4000);
+    // Still there 10 s after the kill, all sunk in by 14.5 s: the latest settles by 4.5 s, lies up to 8 s, sinks 1.5 s
+    frames(renderer, 5000);
+    expect(debris.count).toBeGreaterThan(0);
+    frames(renderer, 4500);
     expect(debris.count).toBe(0);
     expect(debris.drawCalls).toBe(0);
     expect(meshes.every((mesh) => !mesh.visible && mesh.count === 0)).toBe(true);
   });
 
   it('looks the same at 4x as at 1x: the same splashes, bubbles in the same places, the debris on the same arcs', () => {
-    // 3.2 s after the kill, 200 frames at 1x and 50 at 4x: every piece thrown, none sunk in yet
+    // 6.4 s after the kill, 400 frames at 1x and 100 at 4x: every piece down, none sunk in yet
     const run = (frameMs: number) => {
       const effects = effectsMock();
       const { scene, renderer } = killedBand(effects);
-      for (let t = 0; t < 3200; t += frameMs) renderer.animate(frameMs);
+      for (let t = 0; t < 6400; t += frameMs) renderer.animate(frameMs);
       const meshes = scene.children.filter((c) => c.name.startsWith('ooze-debris-')) as InstancedMesh[];
       return {
         splashes: effects.splashes,
@@ -314,7 +324,7 @@ describe('OozeDebrisRenderer', () => {
     const scene = new Scene();
     const debris = new OozeDebrisRenderer(scene);
     const mesh = scene.getObjectByName('ooze-debris-skull') as InstancedMesh;
-    debris.launch('skull', 0, OOZE_DEATH_LOOK.debris.lift, 0, 0, new SeededRandom(3).next);
+    debris.launch('skull', 0, OOZE_DEATH_LOOK.debris.lift, 0, 0, 1, 0, new SeededRandom(3).next);
     const s = FRAME_MS / 1000;
     let version = mesh.instanceMatrix.version;
     const frame = (): boolean => {
@@ -332,7 +342,7 @@ describe('OozeDebrisRenderer', () => {
     const { restMin, restMax, sink } = OOZE_DEATH_LOOK.debris;
     const flying = run(true);
     expect(flying).toBeGreaterThan(0.5);
-    expect(flying).toBeLessThan(2);
+    expect(flying).toBeLessThan(3.5);
     const lying = run(false);
     expect(lying).toBeGreaterThanOrEqual(restMin - 2 * s);
     expect(lying).toBeLessThanOrEqual(restMax + 2 * s);
@@ -378,7 +388,7 @@ describe('Ooze death cost', () => {
       `${peak.decals} splashes, ${peak.ms.toFixed(2)} ms that frame; per frame median ${median.toFixed(2)} ms, ` +
       `worst ${worst.toFixed(2)} ms (frame ${times.indexOf(worst)}), next ${secondWorst.toFixed(2)} ms (jsdom, without the GPU)`,
     );
-    expect(debris.count).toBe(120);
+    expect(debris.count).toBe(256);
     expect(decals.count).toBe(128);
     expect(peak.particles).toBeGreaterThan(0);
     expect(worst).toBeLessThan(SANITY_CAP_MS);

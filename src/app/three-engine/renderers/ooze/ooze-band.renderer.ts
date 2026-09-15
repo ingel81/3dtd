@@ -282,7 +282,7 @@ export class OozeBandRenderer {
     const look = OOZE_DEATH_LOOK;
     const random = this.partRandom.seed(e.seed).next;
     if (e.debris !== null) {
-      mess.debris.launch(e.debris, x, groundY + look.debris.lift, z, groundY, random, lateS);
+      mess.debris.launch(e.debris, x, groundY + look.debris.lift, z, groundY, st.rightX[k], st.rightZ[k], random, lateS);
       return;
     }
     const lat = st.lat[k] + st.latPerRight[k] * offset;
