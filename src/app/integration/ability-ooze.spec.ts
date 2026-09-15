@@ -88,6 +88,7 @@ describe('Frost bomb, EMP and orbital laser against the ooze body', () => {
         }
         return kills;
       },
+      showDamage: () => undefined,
       // As CombatEffectService.applyAbilityHalt applies them
       halt: (targets, kind, durationMsOf, sourceId) => {
         for (const enemy of targets) {

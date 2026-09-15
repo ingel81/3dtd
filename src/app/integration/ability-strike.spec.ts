@@ -43,6 +43,7 @@ import { DamageApplicationService } from '../services/combat/damage-application.
 import { GameObject } from '../core/game-object';
 import { ABILITIES } from '../configs/abilities.config';
 import { ENEMY_TYPES, EnemyTypeId } from '../configs/enemy-types.config';
+import { EFFECTIVENESS_COLORS } from '../configs/combat/damage-matrix.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
@@ -82,16 +83,27 @@ const ROSTER: { type: EnemyTypeId; speed: number; preDamage: number }[] = [
 /** A skeleton where the third zombie of ROSTER stands, half its HP gone, so the strike kills it */
 const SKELETON_ROSTER: typeof ROSTER = [{ type: 'skeleton', speed: 6, preDamage: 0.5 }];
 
+interface EngineWithTexts {
+  effects: { spawnFloatingText: ReturnType<typeof vi.fn> };
+}
+
 interface Outcome {
   impactStep: number;
   hpShare: number[];
   alive: boolean[];
+  maxHp: number[];
   kills: number;
   /** Sum of `kills` over the ability:resolved events */
   abilityKills: number;
   /** HP share of every living skeleton-minion */
   minions: number[];
   credits: number;
+  /** Credits gained since the wave start */
+  earned: number;
+  /** Damage numbers so far, as "text colour" */
+  numbers: string[];
+  /** Gold popups so far, as "text colour" */
+  goldPopups: string[];
 }
 
 /** A game in setup with the strike researched, the grid stubbed and the real damage path. */
@@ -122,7 +134,8 @@ function createGame(timescale: number) {
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  gsm.initialize(createEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
+  const engine = createEngine() as unknown as EngineWithTexts;
+  gsm.initialize(engine as never, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.trainingTimescale.set(timescale);
 
   gsm.getEventBus().emit({
@@ -130,7 +143,14 @@ function createGame(timescale: number) {
     researchId: NUKE.researchId,
     effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
   });
-  return { gsm, strike };
+  return { gsm, strike, texts: engine.effects.spawnFloatingText };
+}
+
+/** The floating texts of a run as "text colour": damage numbers start with "-", gold with "+" */
+function floatingTexts(texts: EngineWithTexts['effects']['spawnFloatingText'], prefix: '-' | '+'): string[] {
+  return texts.mock.calls
+    .filter(([text]) => (text as string).startsWith(prefix))
+    .map(([text, , , , config]) => `${text} ${(config as { color: string }).color}`);
 }
 
 /**
@@ -138,7 +158,8 @@ function createGame(timescale: number) {
  * @param roster      enemies spawned at the wave start
  */
 function run(timescale: number, pauseFrames = 0, roster = ROSTER): Outcome {
-  const { gsm, strike } = createGame(timescale);
+  const { gsm, strike, texts } = createGame(timescale);
+  const creditsBefore = gsm.credits();
   const bus = gsm.getEventBus();
   let kills = 0;
   bus.on('enemy:died', () => kills++);
@@ -146,6 +167,8 @@ function run(timescale: number, pauseFrames = 0, roster = ROSTER): Outcome {
   bus.on('ability:resolved', (event) => (abilityKills += event.kills));
 
   gsm.beginWave();
+  // The wave has no spawn plan: its size is the roster, so every kill has its slot of the kill budget
+  gsm.enemyManager.setWaveSizeProvider(() => roster.length);
   const enemies = roster.map(({ type, speed, preDamage }) => {
     const enemy = gsm.enemyManager.spawn(TEST_PATH, type, speed);
     enemy.health.takeDamage(enemy.health.maxHp * preDamage);
@@ -179,12 +202,16 @@ function run(timescale: number, pauseFrames = 0, roster = ROSTER): Outcome {
           impactStep,
           hpShare: enemies.map((e) => e.health.hp / e.health.maxHp),
           alive: enemies.map((e) => e.alive),
+          maxHp: enemies.map((e) => e.health.maxHp),
           kills,
           abilityKills,
           minions: gsm.enemyManager.getAlive()
             .filter((e) => e.typeConfig.id === 'skeleton-minion')
             .map((e) => e.health.hp / e.health.maxHp),
           credits: gsm.credits(),
+          earned: gsm.credits() - creditsBefore,
+          numbers: floatingTexts(texts, '-'),
+          goldPopups: floatingTexts(texts, '+'),
         };
       }
     });
@@ -228,6 +255,32 @@ describe('Nuclear strike through the sub-step loop', () => {
     expect(kills).toBe(1);           // enemy:died for the skeleton only
     expect(abilityKills).toBe(1);    // the gate books one leak, not three
     expect(minions).toEqual([1, 1]); // both minions on the route at full HP
+  });
+
+  it('shows every enemy it hits a damage number past the matrix, the killed ones included', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const { numbers, maxHp } = run(1);
+    // All but the first zombie (31 m away); red like a normal tower hit, whatever the armor
+    const number = (i: number, share: number) => `-${Math.round(maxHp[i] * share)} ${EFFECTIVENESS_COLORS.normal}`;
+    expect([...numbers].sort()).toEqual([
+      number(1, 0.6),
+      number(2, 0.6),
+      number(3, 0.6), // tank
+      number(4, 0.2), // herbert, the boss
+      number(5, 0.6), // bat
+      number(6, 0.6),
+    ].sort());
+  });
+
+  it('pays each kill from the kill budget like any other kill, with its gold popup', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const { kills, goldPopups, earned } = run(1);
+    expect(kills).toBe(3);
+    expect(goldPopups).toHaveLength(3);
+    expect(earned).toBeGreaterThan(0);
+    const paid = goldPopups.reduce((sum, popup) => sum + Number(popup.split(' ')[0]), 0);
+    expect(paid).toBe(earned);
+    expect(goldPopups.every((popup) => popup.endsWith(' #FFD700'))).toBe(true);
   });
 
   it('gives the same outcome at timescale 1 and 10', () => {
