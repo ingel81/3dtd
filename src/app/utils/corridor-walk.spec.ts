@@ -140,10 +140,32 @@ describe('cellWalkable', () => {
     // 1 m below the centre line, 4 m out: a drop of 1 m on the last step.
     expect(judgeWalk(cell({ terrainHeight: -1 }), ground(flat), 2)).toEqual({ walkable: false, check: 'drop', overLine: -1 });
     // 0.4 m per step down a slope on one side only, nothing to mirror.
-    const bank = (_x: number, z: number): ColumnSample => ({ ...flat(), groundY: z > 2 ? -0.2 * (z - 1) : 0 });
+    const bank = (_x: number, z: number): ColumnSample => {
+      const y = z > 2 ? -0.2 * (z - 1) : 0;
+      return { ...flat(), groundY: y, topY: y };
+    };
     expect(judgeWalk(cell({ terrainHeight: -0.8 }), ground(bank), 2).check).toBe('walkable');
     corridorConfig.stepDrop = 1.5;
     expect(cellWalkable(cell({ terrainHeight: -1 }), ground(flat), 2)).toBe(true);
+  });
+
+  it('tells a cell under a car the mesh made hollow, the street under its body', () => {
+    // Playtest 727, Galgengasse: the roof 1.48 m over the street the cell took.
+    const over = (top: number) => (x: number, z: number): ColumnSample => (x === 1 && z === 5 ? { ...flat(), topY: top } : flat());
+    expect(judgeWalk(cell({ terrainHeight: 0 }), ground(over(1.48)), 2)).toEqual({ walkable: false, check: 'hollow', overLine: 0 });
+    // A crown or an eave higher than roofRise over the street, a blob no higher than a step: the street counts.
+    expect(judgeWalk(cell({ terrainHeight: 0 }), ground(over(6)), 2).check).toBe('walkable');
+    expect(judgeWalk(cell({ terrainHeight: 0 }), ground(over(0.4)), 2).check).toBe('walkable');
+    // A bush or a crown whose top is 2 m over the street: the column shows nothing else, it counts as an object.
+    expect(judgeWalk(cell({ terrainHeight: 0 }), ground(over(2)), 2).check).toBe('hollow');
+  });
+
+  it('keeps a cell on the deck carried on past a bridge end over a hollow under the road', () => {
+    // Place de Varsovie, pick C: the road at 79.84 m, a second surface 77.99 m under it in the same tile.
+    const head = (): ColumnSample => ({ groundY: 77.99, topY: 79.84, tileDepth: 20, tileGeometricError: 2 });
+    const deckEnd = { path: [{ x: -20, z: 1 }, { x: 1, z: 1 }], m: 21 };
+    const onDeck = cell({ terrainHeight: 79.84, surface: 'approach', deckEnd });
+    expect(judgeWalk(onDeck, ground(head, false, { surface: 'approach', deckEnd }), 2).check).toBe('walkable');
   });
 
   it('walks out from the street beside a centre line raised on a row of cars', () => {

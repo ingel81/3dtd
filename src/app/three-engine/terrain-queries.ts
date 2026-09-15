@@ -1,7 +1,7 @@
 import { Box3, Raycaster, Vector3, type Intersection, type Object3D } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
-import { LOW_WALL_BEHIND_M, StationProbe, corridorConfig, lowRayAlone } from '../utils/route-corridor';
+import { LOW_WALL_BEHIND_M, StationProbe, corridorConfig, lowObjectTop, lowRayAlone } from '../utils/route-corridor';
 import { StreetDeck, carriedDeckY, deckApproachY, surfaceY } from '../utils/deck-approach';
 import type { StreetUnder } from '../utils/underpass';
 import { raycastStats } from '../utils/raycast-stats';
@@ -528,8 +528,10 @@ export class TerrainQueries {
    * above `groundY`, where the low ray alone stopped (`hits` per ray
    * height, see lowRayAlone): its lowest hit, or on the stretch off a
    * bridge end the one nearest to `carried`, the height carried at the
-   * station, as the station's own ground (surfaceY). NaN where it did not,
-   * or where that column has no tile up to `maxTileError`.
+   * station, as the station's own ground (surfaceY); the top of a low
+   * object over a hollow above that instead (lowObjectTop: a car the mesh
+   * made hollow, the street under its body its lowest hit). NaN where it
+   * did not, or where that column has no tile up to `maxTileError`.
    */
   private riseBehindLowHit(
     x: number, z: number, dirX: number, dirZ: number, hits: readonly number[], maxDistance: number, groundY: number,
@@ -539,7 +541,8 @@ export class TerrainQueries {
     const reach = hits[0] + LOW_WALL_BEHIND_M;
     const behind = this.sampleColumn(x + dirX * reach, z + dirZ * reach);
     if (!behind || behind.tileGeometricError > corridorConfig.maxTileError) return NaN;
-    return surfaceY(carried === null ? 'ground' : 'approach', behind, carried)! - groundY;
+    const y = surfaceY(carried === null ? 'ground' : 'approach', behind, carried)!;
+    return (lowObjectTop(behind, y) ?? y) - groundY;
   }
 
   /**

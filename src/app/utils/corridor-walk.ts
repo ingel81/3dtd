@@ -1,7 +1,7 @@
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { RouteCell } from './route-cell';
 import { RouteCellSampler } from './route-cell-sampler';
-import { corridorConfig, walkWidth } from './route-corridor';
+import { corridorConfig, lowObjectTop, walkWidth } from './route-corridor';
 import { type RouteCellLattice, jointCap, segmentTouchesCell } from './route-grid-builder';
 import { carriedDeckY, surfaceY } from './deck-approach';
 
@@ -45,11 +45,13 @@ export interface WalkGround {
 
 /**
  * Why cellWalkable says what it says, for `__corridor.pick()`: `walkable`
- * (true), `roof`, `step` and `drop` (false, see judgeWalk), the rest null.
+ * (true), `roof`, `hollow`, `step` and `drop` (false, see judgeWalk), the
+ * rest null.
  */
 export type WalkCheck =
   | 'walkable'
   | 'roof'
+  | 'hollow'
   | 'step'
   | 'drop'
   | 'centre line'
@@ -86,7 +88,11 @@ type LineGroundMemo = Map<number, number | null>;
  *
  * False for a cell more than `roofRise` above the ground of the centre line
  * beside it (centreLineGround): its column came down on a roof, an eave or
- * a crown over the street (roof check). False as well where a walk out from
+ * a crown over the street (roof check). False for a cell whose column hits
+ * something more than `stepRise` and at most `roofRise` above the hit it
+ * stands on (lowObjectTop, hollow check): a car or a van the
+ * photogrammetry made hollow, the street under its body the lowest hit,
+ * which the cell took. False as well where a walk out from
  * the centre line cannot climb onto it (step check, see walkOut): a parked
  * car, a van, a hedge, a raised garden; or cannot get down to it (drop
  * check): the embankment below a street across a slope, a quay wall.
@@ -139,6 +145,8 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround, cellSize: number,
   const rise = cell.terrainHeight - axisY;
   if (Math.abs(rise) > RouteCellSampler.OUTLIER_M) return unjudged('seam', rise);
   if (rise > corridorConfig.roofRise) return { walkable: false, check: 'roof', overLine: rise };
+  const own = ground.column(cell.x, cell.z);
+  if (own !== null && lowObjectTop(own, surfaceOf(own)) !== null) return { walkable: false, check: 'hollow', overLine: rise };
   const check = walkOut(cell, axisY, ground.column, surfaceOf, cellSize);
   return { walkable: check === 'walkable', check, overLine: rise };
 }

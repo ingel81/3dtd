@@ -133,6 +133,17 @@ darauf den unteren Strahl stoppt (Hecke, Zaun, Bewuchs). Ein Zaun, Poller
 oder Schildmast vor Boden auf Gehweghöhe nicht: 1 m dahinter liegt der
 Boden.
 
+**Hohles Auto** (seit 2026-09-15): Macht die Photogrammetrie ein Auto
+hohl, trifft die Säule dahinter sein Dach und die Straße unter ihm. Liegt
+ihr oberster Treffer mehr als `stepRise` und höchstens `roofRise` über dem
+Boden, den sie nach `surfaceY` nimmt, zählt dieser Treffer (`lowObjectTop`,
+`route-corridor.ts`). Anlass: Playtest 727, Rothenburg, Galgengasse, ein
+rotes Auto etwa 4 m neben der roten Linie: Dach 1,48 und 2 m über der
+Straße darunter, `lowRiseM` 0,1, keine Wand, Halbbreite 7 m. Ein Vordach,
+eine Traufe oder Krone höher als `roofRise` über dem Boden dahinter zählt
+nicht. Die Säule kennt nur ihren untersten und obersten Treffer: Ein Auto
+unter einer höheren Krone bleibt unsichtbar.
+
 - **0,3 m:** über einem Bordstein (10 bis 15 cm) samt Quergefälle der
   Fahrbahn, unter einem Hochbeet von 0,4 m und unter den 0,58 m, die Zellen
   auf einem parkenden Auto in Rothenburg über ihren Nachbarn lagen
@@ -563,6 +574,23 @@ auf dem Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Dec
 - **Dach-Check:** Liegt die Zelle mehr als `roofRise` (2,5 m) über der
   Höhe der Mittellinie daneben, ist sie nicht begehbar: Dach, Traufe,
   Krone.
+- **Hohl-Check** (`hollow`, seit 2026-09-15): Trifft die Säule der Zelle
+  mehr als `stepRise` und höchstens `roofRise` über dem Treffer, auf dem
+  die Zelle steht, noch etwas (`lowObjectTop`), ist sie nicht begehbar: ein
+  Auto oder Transporter, den die Photogrammetrie hohl gemacht hat, die
+  Straße unter der Karosserie als unterster Treffer. Anlass: Playtest 727,
+  Rothenburg, Galgengasse, ein rotes Auto etwa 4 m neben der roten Linie,
+  Dach 1,48 und 2 m über der Straße darunter; die Zellen standen auf der
+  Straße und waren begehbar. Höher (Traufe, Krone, Vordach) zählt der Boden
+  darunter wie bisher. Die Säule kennt nur ihren untersten und obersten
+  Treffer: Ein Busch oder eine Krone, deren Oberkante höchstens 2,5 m über
+  dem Boden liegt, und ein Unterstand bis 2,5 m fallen ebenso weg; ein Auto
+  unter einer höheren Krone bleibt. Auf der Strecke hinter einem
+  Brückenende steht die Zelle auf dem Treffer, der der getragenen Höhe am
+  nächsten liegt; ist das das Deck, liegt nichts darüber (Place de
+  Varsovie, Pick C, 1,85 m Hohlraum unter der Straße). Eine Straße über
+  einem Hohlraum ohne Brücke in der Nähe steht auf dem untersten Treffer;
+  liegt die Straße bis 2,5 m darüber, sind ihre Randzellen jetzt `hollow`.
 - **Stufen-Check:** Sonst geht die Prüfung den Weg von der Mittellinie zur
   Zelle Rasterstelle für Rasterstelle ab (Säulen der Zellen dort, aus dem
   Cache der Engine). Eine Stelle gilt als erreicht, wenn ihr Boden
@@ -1074,7 +1102,7 @@ __corridor.report()                                     // Zellbericht: Zellen w
      - Lage und Zelle: `routeM`, `cell`, `state`, `heightM`, `walkable`
        (`cellWalkable`; `false`: kein Gegner kann dorthin laufen, der Korridor
        hält die Zelle trotzdem), `walkCheck` (warum: `walkable`, `roof`,
-       `step`, `drop`, `centre line`, `centre line on a roof` (auf die Straße gesetzt,
+       `step`, `drop`, `hollow` (Auto hohl im Mesh), `centre line`, `centre line on a roof` (auf die Straße gesetzt,
        siehe Zellhöhe), `coarse tile`, `no sample`, `deck or tunnel`,
        `no bridge end` (Strecke hinter einem Brückenende ohne Säule dort),
        `no centre line ground`, `seam`), `overLineM` (Höhe über der

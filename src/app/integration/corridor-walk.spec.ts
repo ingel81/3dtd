@@ -68,13 +68,17 @@ const pieceAt = (pieces: readonly CorridorPiece[], t: number) => pieces.filter((
  * The street's grid once the corridor stays short of every cell no enemy
  * could walk to, the route it was built from and how many builds that took
  * after the first. What PathAndRouteService.narrowToWalkable and
- * CorridorController.rebuildCorridors do, on one segment.
+ * CorridorController.rebuildCorridors do, on one segment. `top`: the
+ * highest hit of each column where the mesh has more than one, as over a
+ * car the photogrammetry made hollow.
  */
-function narrowed(ground: Ground, street: Street = STREET): { grid: GlobalRouteGrid; route: RouteWaypoint[]; builds: number } {
+function narrowed(ground: Ground, street: Street = STREET, top: Ground = ground): { grid: GlobalRouteGrid; route: RouteWaypoint[]; builds: number } {
   const { a, b } = street;
   const length = Math.hypot(b.x - a.x, b.z - a.z);
   const stations = Math.max(1, Math.round(length / 2));
-  const column = (x: number, z: number): ColumnSample => ({ groundY: ground(x, z), topY: ground(x, z), tileDepth: 20, tileGeometricError: 2 });
+  const column = (x: number, z: number): ColumnSample => ({
+    groundY: ground(x, z), topY: Math.max(ground(x, z), top(x, z)), tileDepth: 20, tileGeometricError: 2,
+  });
   const walk = { left: new Array<number>(stations).fill(Infinity), right: new Array<number>(stations).fill(Infinity) };
   for (let builds = 0; ; builds++) {
     const fitted = fitCorridorPieces([{
@@ -432,6 +436,39 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(grid.getCellAt(23, 5)).toBeDefined();
     expect(grid.getCellAt(23, -1)).toBeUndefined();
     expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
+  /**
+   * Playtest 2026-09-15, 727, Rothenburg, Galgengasse (favourite "rothenburg
+   * rotes auto"): a red car about 4 m beside the red line kept walkable
+   * cells. The photogrammetry made it hollow: the columns there hit its roof
+   * at 486.48 and 487.11 m and the street under it at 485 and 485.11 m; the
+   * cells took the street and passed. The street around 484.9 to 485.43 m.
+   */
+  it('ends the corridor before a car the mesh made hollow, the street under its body', () => {
+    const street = (x: number, z: number) => 485.15 + (((Math.floor(x / CELL) + Math.floor(z / CELL)) % 3) - 1) * 0.2;
+    const onCar = (x: number, z: number) => x > 20 && x < 24 && z > 4 && z < 6;
+    const ground = (x: number, z: number) => (onCar(x, z) ? (x < 22 ? 485 : 485.11) : street(x, z));
+    const roof = (x: number, z: number) => (onCar(x, z) ? (x < 22 ? 486.48 : 487.11) : street(x, z));
+    const { grid, route, builds } = narrowed(ground, STREET, roof);
+
+    expect(builds).toBe(1);
+    expect(grid.unwalkableCells()).toEqual([]);
+    expect(grid.getCellAt(21, 5)).toBeUndefined();
+    expect(grid.getCellAt(23, 5)).toBeUndefined();
+    expect(grid.getCellAt(21, 3)).toBeDefined();
+    expect(grid.getCellAt(11, 5)).toBeDefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
+  it('keeps the street under a crown higher than roofRise and under a blob no higher than a step', () => {
+    // From x 30 to 40: right, a crown 6 m over the street; left, a blob 0.4 m over it; the street under both.
+    const over = (x: number, z: number) => (x > 30 && x < 40 && z > 2 ? 6 : x > 30 && x < 40 && z < -2 ? 0.4 : 0);
+    const { grid, builds } = narrowed(() => 0, STREET, over);
+
+    expect(builds).toBe(0);
+    expect(grid.getCellAt(35, 5)).toBeDefined();
+    expect(grid.getCellAt(35, -3)).toBeDefined();
   });
 
   it('keeps a bank rising 15 % on one side of a diagonal street walkable', () => {
