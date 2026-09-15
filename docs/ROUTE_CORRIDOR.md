@@ -101,14 +101,19 @@ Je Station (`TerrainQueries.measureStreetClearance`):
 4. Stoppt auf einer Seite nur der untere Strahl (der obere trifft nichts
    oder mindestens 1 m weiter, `lowRayAlone`), eine Säule 1 m hinter seinem
    Treffer (`LOW_WALL_BEHIND_M`, `riseBehindLowHit` in
-   `terrain-queries.ts`): wie hoch ihr unterster Treffer über dem Boden der
-   Station liegt (`StationProbe.lowRise`). Nicht auf einem Brückendeck und
-   nicht auf der Strecke hinter einem Brückenende (`approach`: bis
-   `DECK_APPROACH_M`, 60 m, hinter dem Ende eines Brücken-Ways,
-   `deckApproaches`, siehe Zellhöhe), dort träfe diese Säule den Fluss, den
-   Kai oder die Straße unter dem Deck (`onDeck`, `deckEnd` in
-   `measureStreetClearance`). Autos auf diesen 60 m engen nur über den
-   Laufweg ein.
+   `terrain-queries.ts`): wie hoch ihr Boden über dem Boden der Station
+   liegt (`StationProbe.lowRise`). Ihren Boden nimmt sie nach derselben
+   Regel wie die Station (`surfaceY`): den untersten Treffer, auf der
+   Strecke hinter einem Brückenende (`approach`, siehe Zellhöhe) den
+   Treffer, der der getragenen Höhe am nächsten liegt. Nicht auf einem
+   Brückendeck, dort träfe diese Säule den Fluss, den Kai oder die Straße
+   unter dem Deck (`onDeck` in `measureStreetClearance`). Bis 2026-09-15
+   fehlte die Prüfung auch auf der Strecke hinter einem Brückenende. Am
+   Pont d'Iéna (Place de Varsovie, Pick A) lag eine Station hinter dem
+   Ende der damaligen Strecke und nahm den Hohlraum unter der Straße als
+   Boden; ihr unterer Strahl traf nach 1,4 m etwas, die Säule dahinter lag
+   1 m über diesem Boden, und die Seite bekam eine niedrige Wand mit 1 m
+   Halbbreite.
 
 Der Freiraum einer Seite ist der weitere der beiden ersten Treffer
 (`probeFreeSpace`, `route-corridor.ts`). Eine Wand ist also, was beide

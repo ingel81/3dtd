@@ -409,9 +409,12 @@ export class TerrainQueries {
    * Where the low ray alone stops (lowRayAlone: a parked van, a hedge, a
    * fence), one more column LOW_WALL_BEHIND_M behind its hit tells how far
    * the ground there lies above the station's (`StationProbe.lowRise`);
-   * raised ground makes the hit a wall (probeLowWall). Not on a deck or on
-   * the stretch off a bridge end (`onDeck`, `deckEnd`), where the lowest
-   * hit of that column may be the river, quay or road under the deck.
+   * raised ground makes the hit a wall (probeLowWall). That column's ground
+   * is taken by the station's rule (surfaceY): on the stretch off a bridge
+   * end the hit nearest to the height carried there, so a car there is a
+   * wall and a station over a hollow under the road measures from the road.
+   * Not on a deck (`onDeck`), where the lowest hit of that column may be the
+   * river, quay or road under the deck.
    *
    * Only tiles up to `corridorConfig.maxTileError` count, for the column
    * and for the hits, so a coarse hull still waiting for its children
@@ -475,11 +478,11 @@ export class TerrainQueries {
         left.push(this.clearanceRay(tiles.group, -acrossX / len, -acrossZ / len, maxDistance));
         right.push(this.clearanceRay(tiles.group, acrossX / len, acrossZ / len, maxDistance));
       }
-      const lowRise = onDeck || deckEnd !== null
+      const lowRise = onDeck
         ? { left: NaN, right: NaN }
         : {
-          left: this.riseBehindLowHit(x, z, -acrossX / len, -acrossZ / len, left, maxDistance, baseY),
-          right: this.riseBehindLowHit(x, z, acrossX / len, acrossZ / len, right, maxDistance, baseY),
+          left: this.riseBehindLowHit(x, z, -acrossX / len, -acrossZ / len, left, maxDistance, baseY, carried),
+          right: this.riseBehindLowHit(x, z, acrossX / len, acrossZ / len, right, maxDistance, baseY, carried),
         };
       return { unmeasured: null, tileError: column.tileGeometricError, left, right, lowRise, ...shifted };
     } finally {
@@ -513,17 +516,20 @@ export class TerrainQueries {
    * How far the column LOW_WALL_BEHIND_M behind the low ray's hit, along
    * the horizontal unit direction (dirX, dirZ) from (x, z), comes down
    * above `groundY`, where the low ray alone stopped (`hits` per ray
-   * height, see lowRayAlone). NaN where it did not, or where that column
-   * has no tile up to `maxTileError`.
+   * height, see lowRayAlone): its lowest hit, or on the stretch off a
+   * bridge end the one nearest to `carried`, the height carried at the
+   * station, as the station's own ground (surfaceY). NaN where it did not,
+   * or where that column has no tile up to `maxTileError`.
    */
   private riseBehindLowHit(
     x: number, z: number, dirX: number, dirZ: number, hits: readonly number[], maxDistance: number, groundY: number,
+    carried: number | null,
   ): number {
     if (!lowRayAlone(hits, maxDistance)) return NaN;
     const reach = hits[0] + LOW_WALL_BEHIND_M;
     const behind = this.sampleColumn(x + dirX * reach, z + dirZ * reach);
     if (!behind || behind.tileGeometricError > corridorConfig.maxTileError) return NaN;
-    return behind.groundY - groundY;
+    return surfaceY(carried === null ? 'ground' : 'approach', behind, carried)! - groundY;
   }
 
   /**

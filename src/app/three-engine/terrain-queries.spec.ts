@@ -2,7 +2,7 @@ import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } fr
 import type { TilesRenderer } from '3d-tiles-renderer';
 import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
-import { corridorConfig } from '../utils/route-corridor';
+import { corridorConfig, probeLowWall } from '../utils/route-corridor';
 import { instrumentRaycasts, raycastStats } from '../utils/raycast-stats';
 import type { EllipsoidSync } from './ellipsoid-sync';
 import { TerrainQueries, columnCacheKey } from './terrain-queries';
@@ -302,14 +302,32 @@ describe('TerrainQueries', () => {
       expect(onDeck.lowRise).toEqual({ left: NaN, right: NaN });
     });
 
-    it('beurteilt nichts auf der Fortsetzung eines Decks (deckEnd)', () => {
+    it('beurteilt ein Auto auf der Strecke hinter dem Brückenende mit dem Boden der Station (deckEnd)', () => {
       const car = setup();
       car.addTile(floor(0, 6), 3, FINE);
       car.addTile(wall(3, 1.5), 3, FINE);
       car.addTile(floor(1.5, 2, 4, 0), 3, FINE);
       const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10, false, { path: [{ x: 0, z: 1 }, { x: 0, z: 0 }], m: 1 })!;
       expect(probe.right.map((d) => +d.toFixed(6))).toEqual([3, 10]);
-      expect(probe.lowRise).toEqual({ left: NaN, right: NaN });
+      expect(probe.lowRise?.right).toBeCloseTo(1.5, 6);
+      expect(probe.lowRise?.left).toBeNaN();
+      expect(probeLowWall(probe, 'right')).toBe(true);
+    });
+
+    it('misst hinter dem Brückenende über einem Hohlraum unter der Straße von der Straße aus (Place de Varsovie, Pick A)', () => {
+      // Die Straße auf 3 m; unter der Station im selben Tile eine Fläche auf 0 m bis x = 2, dort ihre Kante bis 3 m hoch.
+      const world = setup();
+      world.addTile(floor(3), 3, FINE);
+      world.addTile(floor(0, 4), 3, FINE);
+      world.addTile(wall(2, 3), 3, FINE);
+      // Als Bodenstation vom Hohlraum aus: der untere Strahl trifft dessen Kante, dahinter liegt die Straße 3 m höher, eine niedrige Wand.
+      const ground = world.queries.measureStreetClearance(0, 0, 1, 0, [1, 3.5], 10)!;
+      expect(ground.right.map((d) => +d.toFixed(6))).toEqual([2, 10]);
+      expect(probeLowWall(ground, 'right')).toBe(true);
+      // Auf der Strecke hinter dem Brückenende von der Straße aus: frei.
+      const off = world.queries.measureStreetClearance(0, 0, 1, 0, [1, 3.5], 10, false, { path: [{ x: 0, z: 1.5 }, { x: 0, z: 0 }], m: 1.5 })!;
+      expect(off.right.map((d) => +d.toFixed(6))).toEqual([10, 10]);
+      expect(probeLowWall(off, 'right')).toBe(false);
     });
 
     it('misst auf der Fortsetzung eines Decks von der Höhe, auf der ihre Zellen stehen (surfaceY)', () => {

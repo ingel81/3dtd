@@ -546,11 +546,12 @@ export interface StationProbe {
   /**
    * Per side, where the low ray alone stopped (lowRayAlone): how far the
    * column {@link LOW_WALL_BEHIND_M} behind its hit comes down above the
-   * station's ground, the top of what the photogrammetry has there. NaN on
-   * a side where the low ray did not stop alone, where that column has no
-   * tile up to `maxTileError`, and on a bridge deck or the stretch off its
-   * end (the lowest hit of a column there may be the river or road under
-   * it). Absent when unmeasured.
+   * station's ground, the top of what the photogrammetry has there; on the
+   * stretch off a bridge end the hit nearest to the height carried there,
+   * as the station's own ground (surfaceY). NaN on a side where the low ray
+   * did not stop alone, where that column has no tile up to `maxTileError`,
+   * and on a bridge deck (the lowest hit of a column there may be the river
+   * or road under it). Absent when unmeasured.
    */
   lowRise?: { left: number; right: number };
   /**
