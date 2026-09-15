@@ -125,7 +125,12 @@ jedem Einsatz "Abilities" erneut. Ton an, möglichst Kopfhörer.
   **Ergebnis (2026-09-15): nicht gut.** Zellen auf den Autos und Löcher links der Straße wie vorher (Zellbericht,
   Screenshot). Der Umweg hat nicht gegriffen: `detourM` null an allen Stationen, Autozellen `centre line`. Kandidaten:
   die Bedingung "Straße beiderseits des Hindernisses" (die Autos stehen am Rand vor dem Grünstreifen) und ein
-  Ausreißer im Säulen-Cache bei (413,21), 782,65 m auf Tiefe 10. **733 ok. 734:** ok, aber der Skarnax-Ton loopt zu
+  Ausreißer im Säulen-Cache bei (413,21), 782,65 m auf Tiefe 10. **Ursache (detour, nachgestellt mit der echten
+  OSM-Linie):** Der Planer findet die Autos, legt aber zwei Ausweichstücke auf derselben Seite 1 m auseinander (3,5
+  und 2,5 m Versatz); der Übergang braucht 2 m, das zweite fällt weg, die Rampe des ersten läuft dann durch dessen
+  Autos, das erste fällt auch: leerer Plan. Beide Kandidaten oben ausgeschlossen. Vorschlag in
+  `tmp/fix1/reports/detour.md` (Nachtrag 2). **User:** klingt sinnvoll, gewünscht ist aber eine allgemeine Lösung;
+  mit der Umsetzung warten, Details zum Korridor folgen. **733 ok. 734:** ok, aber der Skarnax-Ton loopt zu
   gleichmäßig, lieber zufällig und seltener (sounds). **735:** Tank gut, Textur könnte moderner sein (models); Ghost
   und Mech passen.
 - **733** (E18, sounds): K auf die Route: heult 1,5 s eine Sirene am Ziel und endet mit dem Knall? F auf eine Gruppe:
