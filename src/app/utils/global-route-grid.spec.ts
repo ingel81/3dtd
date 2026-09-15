@@ -1130,12 +1130,35 @@ describe('GlobalRouteGrid tunnels', () => {
     groundY: x > 20 && x < 40 ? 30 : x <= 20 ? 0 : 10, topY: 30, tileDepth: 20, tileGeometricError: 2,
   });
 
-  function build(column: (x: number, z: number) => ColumnSample | null): GlobalRouteGrid {
+  function build(column: (x: number, z: number) => ColumnSample | null, passage = route): GlobalRouteGrid {
     const grid = new GlobalRouteGrid();
     grid.initialize(column as never, coordinateSync);
-    grid.generateFromRoutes([route]);
+    grid.generateFromRoutes([passage]);
     return grid;
   }
+
+  /**
+   * Playtest 2026-09-15, retest 607, Rothenburg: in the narrow passage of
+   * an archway the yellow cells climbed, and enemies came out of the house
+   * on the other side. A portal 2 m outside a mouth can lie under the jetty
+   * of the house the passage runs through, or on the house itself where the
+   * OSM way ends short of the opening; its column has no street under it.
+   */
+  it('takes a portal under a jetty from the street around it', () => {
+    // Street at 0 m; the house over the passage (x 20 to 30) 10 m high, its
+    // jetty over the street up to x = 33 with its underside at 4 m.
+    const house = (x: number): ColumnSample => {
+      const y = x > 20 && x < 30 ? 10 : x >= 30 && x < 33 ? 4 : 0;
+      return { groundY: y, topY: y, tileDepth: 20, tileGeometricError: 2 };
+    };
+    const grid = build(house, [at(0, 1), at(20, 1, true), at(30, 1), at(60, 1)]);
+    // Portals at x = 18 and 32; cells up to 3 m past each mouth are the tunnel's.
+    for (const x of [21, 25, 29, 31, 33]) {
+      expect(grid.getCellAt(x, 1)!.surface, `${x}`).toBe('tunnel');
+      expect(grid.getCellAt(x, 1)!.terrainHeight, `${x}`).toBeCloseTo(0, 6);
+    }
+    expect(grid.getCellAt(35, 1)!.terrainHeight).toBe(0);
+  });
 
   it('puts the cells between the ground outside the two mouths', () => {
     const grid = build(hill);
