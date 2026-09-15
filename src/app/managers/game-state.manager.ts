@@ -227,10 +227,20 @@ export class GameStateManager {
   // Computed signals for UI bindings
   readonly phase = computed(() => this.waveManager.phase());
   readonly waveNumber = computed(() => this.waveManager.waveNumber());
-  readonly towerCount = computed(() => this.towerManager.getAll().length);
   readonly enemiesAlive = computed(() => this.enemyManager.aliveCount());
   readonly selectedTowerId = computed(() => this.towerManager.getSelectedId());
   readonly selectedTower = computed(() => this.towerManager.getSelected());
+
+  /**
+   * Towers standing now. A plain method: towerManager.getAll() reads no
+   * signal, so as a computed it kept the count of its first read. The
+   * corridor lock reads it when a location loads (CorridorRefit.rebuildBlocker),
+   * with no tower standing yet, and from then on let corridor rebuilds
+   * through under standing towers; their visibleCells stayed in the old grid.
+   */
+  towerCount(): number {
+    return this.towerManager.getAll().length;
+  }
 
   // Engine reference (public so visual hooks like turret-aim can access it).
   tilesEngine: ThreeTilesEngine | null = null;
