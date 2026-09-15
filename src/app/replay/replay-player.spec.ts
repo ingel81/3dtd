@@ -129,10 +129,12 @@ function waveRecording(): ReplayRecording {
   rec.endEnemy(rat, 150, ENEMY_END.LEAKED);
   const arrow = rec.addProjectile('arrow');
   rec.endProjectile(arrow, 150, 30, 0, 0);
-  const tower = { lat: 48, lon: 9, height: 200, customRotation: 0, plinthHeight: 0, placedMs: -1, soldMs: Infinity };
+  const tower = {
+    lat: 48, lon: 9, height: 200, customRotation: 0, plinthHeight: 0, plinthOverhang: [], placedMs: -1, soldMs: Infinity,
+  };
   rec.addTower({ ...tower, id: 'archer-1', typeId: 'archer' });
   rec.addTower({ ...tower, id: 'late-1', typeId: 'archer', placedMs: 150 });
-  rec.addTower({ ...tower, id: 'sold-1', typeId: 'tentacle', plinthHeight: 2, soldMs: 200 });
+  rec.addTower({ ...tower, id: 'sold-1', typeId: 'tentacle', plinthHeight: 2, plinthOverhang: [5, 6], soldMs: 200 });
   rec.addTower({ ...tower, id: 'fire-1', typeId: 'fire' });
 
   // Frame 0
@@ -265,7 +267,7 @@ describe('ReplayPlayer', () => {
     it('hides a tower placed later and builds one sold during the wave', () => {
       expect(fake.towers.get('late-1')!.mesh.visible).toBe(false);
       expect(fake.engine.towers.create).toHaveBeenCalledWith('replay-tower-2', 'tentacle', 48, 9, 200, 0, null);
-      expect(fake.engine.plinths['create']).toHaveBeenCalledWith('replay-tower-2', 48, 9, 200, 2, expect.any(Number));
+      expect(fake.engine.plinths['create']).toHaveBeenCalledWith('replay-tower-2', 48, 9, 200, 2, expect.any(Number), [5, 6]);
       expect(fake.engine.tentacles['create']).toHaveBeenCalledWith('replay-tower-2', expect.any(Vector3));
     });
   });

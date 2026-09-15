@@ -84,6 +84,8 @@ export interface ReplayTower {
   height: number;
   customRotation: number;
   plinthHeight: number;
+  /** Footprint probes the plinth hangs over a drop at, see Tower.plinthOverhang */
+  plinthOverhang: readonly number[];
   /** Placed during the wave at this time (ms), -1 when it stood before */
   placedMs: number;
   /** Sold during the wave at this time (ms), Infinity when it still stands */

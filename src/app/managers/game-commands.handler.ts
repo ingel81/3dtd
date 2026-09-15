@@ -41,6 +41,7 @@ export class GameCommandsHandler {
         event.typeId,
         event.rotation ?? 0,
         event.plinthHeight ?? 0,
+        event.plinthOverhang ?? [],
       );
     }));
 

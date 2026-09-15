@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Group, Mesh, MeshStandardMaterial } from 'three';
 import { TowerPlinthPreview } from './tower-plinth-preview';
+import { PLINTH_EMBED_M } from '../three-engine/renderers/tower-plinth/plinth-geometry';
+import { footprintSampleOffsets } from '../utils/tower-footprint';
 
 describe('TowerPlinthPreview', () => {
   const setup = () => {
@@ -52,6 +54,24 @@ describe('TowerPlinthPreview', () => {
     expect(mesh()).not.toBe(first);
     // The new mesh keeps the look of the preview.
     expect((mesh()!.material as MeshStandardMaterial).transparent).toBe(true);
+  });
+
+  it('shows the braces the footprint asks for, and builds anew only when they change (E18)', () => {
+    const { parent, preview, mesh } = setup();
+    // The probes east of a roof edge 2 m from the tower
+    const overhang = footprintSampleOffsets(3.6).flatMap(([x], index) => (x > 2 ? [index] : []));
+    preview.show(parent, 0, 5, 0, 3.6, 1, true);
+    const plain = mesh()!;
+
+    preview.show(parent, 0, 5, 0, 3.6, 1, true, overhang);
+    const braced = mesh()!;
+    expect(braced).not.toBe(plain);
+    braced.geometry.computeBoundingBox();
+    expect(braced.geometry.boundingBox!.min.y).toBeLessThan(-PLINTH_EMBED_M - 1);
+
+    // The same probes in a new list: the mesh stays
+    preview.show(parent, 1, 5, 0, 3.6, 1, true, [...overhang]);
+    expect(mesh()).toBe(braced);
   });
 
   it('takes the plinth down and frees it on dispose', () => {

@@ -312,10 +312,12 @@ export function plinthOverhang(bottom: number, columns: readonly (FootprintColum
 
 /** True when two footprints stand the tower the same way: foot, plinth and overhang. */
 export function sameFootprint(a: TowerFootprint, b: TowerFootprint): boolean {
-  if (a.footY !== b.footY || a.plinthHeight !== b.plinthHeight) return false;
-  const overA = a.overhang ?? [];
-  const overB = b.overhang ?? [];
-  return overA.length === overB.length && overA.every((index, i) => index === overB[i]);
+  return a.footY === b.footY && a.plinthHeight === b.plinthHeight && sameOverhang(a.overhang, b.overhang);
+}
+
+/** True when two overhangs name the same probes, missing the same as none. */
+export function sameOverhang(a: readonly number[] = [], b: readonly number[] = []): boolean {
+  return a.length === b.length && a.every((index, i) => index === b[i]);
 }
 
 /** True where `column` shows ground more than ROOF_ABOVE_GROUND below `surfaceY`. */

@@ -401,15 +401,17 @@ describe('GameStateManager', () => {
         }
       });
 
-      it('hands the plinth height of a place command to the tower manager', () => {
+      it('hands plinth height and overhang of a place command to the tower manager', () => {
         const place = vi.spyOn(gsm.towerManager, 'placeTower').mockReturnValue(null);
         const position = { ...BASE_POSITION, height: 7 };
-        bus.emit({ type: 'command:place-tower', position, typeId: 'archer', rotation: 0.5, plinthHeight: 1.5 });
+        bus.emit({
+          type: 'command:place-tower', position, typeId: 'archer', rotation: 0.5, plinthHeight: 1.5, plinthOverhang: [3, 4],
+        });
         bus.emit({ type: 'command:place-tower', position, typeId: 'archer' });
 
         expect(place.mock.calls).toEqual([
-          [position, 'archer', 0.5, 1.5],
-          [position, 'archer', 0, 0],
+          [position, 'archer', 0.5, 1.5, [3, 4]],
+          [position, 'archer', 0, 0, []],
         ]);
       });
 

@@ -55,6 +55,7 @@ export interface RecordableTower {
   readonly position: { readonly lat: number; readonly lon: number; readonly height?: number };
   readonly customRotation: number;
   readonly plinthHeight: number;
+  readonly plinthOverhang: readonly number[];
 }
 
 /** The engine parts the recorder reads; ThreeTilesEngine has all of them. */
@@ -485,6 +486,7 @@ export class ReplayRecorder {
       height: tower.position.height ?? 0,
       customRotation: tower.customRotation,
       plinthHeight: tower.plinthHeight,
+      plinthOverhang: tower.plinthOverhang,
       placedMs,
       soldMs: Infinity,
     });

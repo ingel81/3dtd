@@ -130,7 +130,16 @@ describe('TowerManager', () => {
 
     expect(tilesEngine.plinths.create).toHaveBeenCalledTimes(1);
     expect(tilesEngine.plinths.create).toHaveBeenCalledWith(
-      tower.id, 1, 2, 7, 2.5, tower.typeConfig.footprintRadius,
+      tower.id, 1, 2, 7, 2.5, tower.typeConfig.footprintRadius, [],
+    );
+  });
+
+  it('hands the plinth the probes it hangs over a drop at, for its braces (E18)', () => {
+    const tower = manager.placeTower({ lat: 1, lon: 2, height: 7 }, 'cannon', 0, 2.5, [3, 4]) as Tower;
+
+    expect(tower.plinthOverhang).toEqual([3, 4]);
+    expect(tilesEngine.plinths.create).toHaveBeenCalledWith(
+      tower.id, 1, 2, 7, 2.5, tower.typeConfig.footprintRadius, [3, 4],
     );
   });
 

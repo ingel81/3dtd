@@ -150,8 +150,15 @@ export class TowerManager extends EntityManager<Tower> {
    * @param typeId Tower type ID
    * @param customRotation Custom rotation set by user (radians)
    * @param plinthHeight Stone plinth below position.height (m), 0 = none
+   * @param plinthOverhang Footprint probes the plinth hangs over a drop at, see Tower.plinthOverhang
    */
-  placeTower(position: GeoPosition, typeId: TowerTypeId, customRotation = 0, plinthHeight = 0): Tower | null {
+  placeTower(
+    position: GeoPosition,
+    typeId: TowerTypeId,
+    customRotation = 0,
+    plinthHeight = 0,
+    plinthOverhang: readonly number[] = [],
+  ): Tower | null {
     if (!this.tilesEngine) {
       throw new Error('TowerManager not initialized');
     }
@@ -159,7 +166,7 @@ export class TowerManager extends EntityManager<Tower> {
     // Note: Validation is done by TowerPlacementService (with 3D distance calculation)
     // We skip redundant validation here to allow rooftop placements etc.
 
-    const tower = new Tower(position, typeId, customRotation, plinthHeight);
+    const tower = new Tower(position, typeId, customRotation, plinthHeight, plinthOverhang);
     this.refreshGuardHeading(tower);
 
     if (position.height === undefined) {
@@ -177,7 +184,8 @@ export class TowerManager extends EntityManager<Tower> {
       tower.guardHeading,
     );
 
-    // Stone plinth from the lowest point of the footprint up to the foot
+    // Stone plinth from the lowest point of the footprint up to the foot,
+    // braced where it hangs over a drop
     if (tower.plinthHeight > 0) {
       this.tilesEngine.plinths.create(
         tower.id,
@@ -186,6 +194,7 @@ export class TowerManager extends EntityManager<Tower> {
         terrainHeight,
         tower.plinthHeight,
         tower.typeConfig.footprintRadius,
+        tower.plinthOverhang,
       );
     }
 
