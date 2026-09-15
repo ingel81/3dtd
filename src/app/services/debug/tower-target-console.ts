@@ -17,6 +17,8 @@ export interface TowerTargetLookup {
   cellOf(enemy: Enemy): RouteCell | undefined;
   /** Whether the turret is within the firing tolerance (ThreeTowerRenderer.isTurretAligned) */
   aligned(towerId: string): boolean;
+  /** Whether `cell` is still the grid's cell at its place, false for one a rebuild replaced */
+  isGridCell(cell: RouteCell): boolean;
 }
 
 const metres = (m: number): string => `${m.toFixed(1)} m`;
@@ -30,9 +32,13 @@ const metres = (m: number): string => `${m.toFixed(1)} m`;
  *
  * Without a target the first reason that holds, in the order the combat
  * loop meets them (TowerCombatService.updateTowerShooting): LOS not
- * resolved yet, asleep, no near enemy in a cell of its visibleCells (and
- * what those cells say for it), candidates only beyond its range, or
- * candidates in range not taken yet (a tower takes one in its next turn).
+ * resolved yet, no near enemy in a cell of its visibleCells (and what those
+ * cells say for it), candidates only beyond its range, or candidates in
+ * range not taken yet (a tower takes one in its next turn). A sleeping
+ * tower gets the same analysis behind "asleep, ": one that wakes and finds
+ * no target sleeps again in the same sub-step, so "asleep" alone says
+ * nothing about why. Visible cells a rebuild of the grid replaced are
+ * counted at the end: no enemy stands in them any more.
  * With a target, what holds its fire: the cooldown and, for a projectile
  * tower, the turret alignment gate.
  */
@@ -64,7 +70,10 @@ export function explainTowerTarget(tower: Tower, enemies: readonly Enemy[], look
     return `${head}: target ${target.typeConfig.id} ${target.id}${at}, ${holds.length > 0 ? holds.join(', ') : 'free to fire'}`;
   }
   if (!tower.losReady) return `${head}: no target, LOS not resolved yet`;
-  if (tower.isSleeping) return `${head}: no target, asleep (wake check every ${COMBAT_TUNING.towerSleepCheckIntervalMs} ms)`;
+  const why = `${head}: no target, ${tower.isSleeping ? 'asleep, ' : ''}`;
+  let replaced = 0;
+  for (const cell of tower.visibleCells) if (!lookup.isGridCell(cell)) replaced++;
+  const gone = replaced > 0 ? `, ${replaced} of ${tower.visibleCells.length} visibleCells not in the grid any more` : '';
 
   const visible = new Set(tower.visibleCells);
   let blocked = 0;
@@ -86,12 +95,12 @@ export function explainTowerTarget(tower: Tower, enemies: readonly Enemy[], look
     }
   }
   if (candidates.length === 0) {
-    return `${head}: no target, no candidate in visibleCells (${near.length} near: ${blocked} in cells it does not see, ` +
-      `${noEntry} in cells without its LOS entry, ${unlisted} in cells it sees but missing from visibleCells, ${offGrid} off the grid)`;
+    return `${why}no candidate in visibleCells (${near.length} near: ${blocked} in cells it does not see, ` +
+      `${noEntry} in cells without its LOS entry, ${unlisted} in cells it sees but missing from visibleCells, ${offGrid} off the grid)${gone}`;
   }
   const nearest = Math.min(...candidates);
-  if (nearest > range) return `${head}: no target, candidates only beyond its range (nearest ${metres(nearest)} of ${metres(range)})`;
-  return `${head}: no target, ${candidates.length} candidate(s) in range not taken yet (nearest ${metres(nearest)})`;
+  if (nearest > range) return `${why}candidates only beyond its range (nearest ${metres(nearest)} of ${metres(range)})${gone}`;
+  return `${why}${candidates.length} candidate(s) in range not taken yet (nearest ${metres(nearest)})${gone}`;
 }
 
 /** What TowerTargetConsole needs; VisualizationFacadeService passes its services. */
@@ -146,6 +155,7 @@ export class TowerTargetConsole {
         return grid.getCellAt(local.x, local.z);
       },
       aligned: (towerId) => engine.towers.isTurretAligned(towerId),
+      isGridCell: (cell) => grid.getCellAt(cell.x, cell.z) === cell,
     };
   }
 
