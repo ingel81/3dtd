@@ -167,7 +167,8 @@ export const SCREEN_SHAKE_CONFIG = {
     nuclearStrike: { amplitude: 0.017, duration: 2200 },
     frostBomb: { amplitude: 0.004, duration: 350 },
     emp: { amplitude: 0.005, duration: 450 },
-    orbitalLaser: { amplitude: 0.003, duration: 1200 },
+    /** Harder than the EMP where the beam comes down, fading over its first third (until playtest 636: 0.003 for 1200 ms) */
+    orbitalLaser: { amplitude: 0.006, duration: 1400 },
   },
 } as const satisfies {
   nearDistance: number;

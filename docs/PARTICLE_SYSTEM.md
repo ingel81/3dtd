@@ -736,7 +736,8 @@ zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG` und `ABILITY_IMPACT_SHAKE`, Stand 2
   300 ms, Boss-Tod 0,004 / 400 ms. Fähigkeiten beim `ability:impact`: Nuklearschlag
   0,017 / 2200 ms, etwa so lang wie sein Donner (2,4 s, `utils/nuke-sound.ts`; bis
   2026-09-13 0,008 / 700 ms, bis zum Playtest 2 0,014 / 1600 ms), Frostbombe
-  0,004 / 350 ms, EMP 0,005 / 450 ms, Orbitallaser 0,003 / 1200 ms.
+  0,004 / 350 ms, EMP 0,005 / 450 ms, Orbitallaser 0,006 / 1400 ms (bis Playtest 636
+  am 2026-09-15 0,003 / 1200 ms).
   Kalibriert auf den alten Meter-Shake: Einschläge wie aus 150 m Kameraabstand
   gesehen, HQ und Boss wie aus 425 m (Startkamera).
 - **HQ-Schaden gedrosselt:** höchstens ein Shake je `hqDamageMinIntervalMs` (900 ms

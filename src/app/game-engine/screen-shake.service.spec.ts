@@ -192,14 +192,16 @@ describe('ScreenShakeService', () => {
     service.destroy();
   });
 
-  it('rumbles long and low for the orbital laser, over the ability range', () => {
+  it('shakes harder than the EMP where the orbital laser comes down, and longer, far short of the nuke, over the ability range', () => {
     expect(ABILITY_IMPACT_SHAKE['orbital-laser']).toEqual({
       preset: presets.orbitalLaser,
       nearDistance: SCREEN_SHAKE_CONFIG.abilityNearDistance,
       farDistance: SCREEN_SHAKE_CONFIG.abilityFarDistance,
     });
-    expect(presets.orbitalLaser.amplitude).toBeLessThan(presets.emp.amplitude);
+    expect(presets.orbitalLaser.amplitude).toBeGreaterThan(presets.emp.amplitude);
+    expect(presets.orbitalLaser.amplitude).toBeLessThan(presets.nuclearStrike.amplitude / 2);
     expect(presets.orbitalLaser.duration).toBeGreaterThan(presets.emp.duration);
+    expect(presets.orbitalLaser.duration).toBeLessThan(presets.nuclearStrike.duration);
   });
 
   it('shakes by the ability that landed: one without an entry does not shake', () => {
