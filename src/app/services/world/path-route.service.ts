@@ -22,6 +22,16 @@ import {
   segmentRight,
 } from '../../utils/route-corridor';
 import { WalkCapSegment, WalkCaps, walkCaps } from '../../utils/corridor-walk';
+import {
+  DetourParent,
+  DetourPlan,
+  SegmentClearance,
+  applyDetourPlan,
+  derivedClearance,
+  isWholeSegment,
+  planDetours,
+  wholeSegment,
+} from '../../utils/corridor-detour';
 import { SegmentApproach, deckApproaches, deckEndAt, nearestDeckApproach, segmentApproaches } from '../../utils/deck-approach';
 import { UnderpassIndex, splitAtSpans } from '../../utils/underpass';
 import type { DeckEnd } from '../../utils/route-cell';
@@ -76,6 +86,41 @@ interface StreetRoute {
    */
   underWay: (number | null)[];
 }
+
+/**
+ * A spawn's route as its waypoints run: the street route with the detours
+ * and passages of its plan put in (corridor-detour.ts), itself where it has
+ * none. Its segments carry the flags of the street route's segment they lie
+ * on.
+ */
+interface BuiltRoute extends StreetRoute {
+  /** Per segment, where it lies on `base`: its measurement comes from there (measuredOf). */
+  parent: DetourParent[];
+  /** Per segment: part of a passage, `inTunnel` as well. */
+  passage: boolean[];
+  /** Per segment: offset sideways round an obstacle on the street's centre line. */
+  detour: boolean[];
+  /** The route as the street network gives it: what is measured, and where obstacles are looked for. */
+  base: StreetRoute;
+}
+
+/** `route` as the waypoints run where it has no detour or passage. */
+function wholeRoute(route: StreetRoute): BuiltRoute {
+  const segments = route.points.length - 1;
+  return {
+    ...route,
+    parent: Array.from({ length: Math.max(0, segments) }, (_, i) => wholeSegment(i)),
+    passage: new Array(Math.max(0, segments)).fill(false),
+    detour: new Array(Math.max(0, segments)).fill(false),
+    base: route,
+  };
+}
+
+/** Key of a street route's plan (detourPlans): its points. */
+const routeKey = (route: StreetRoute) => route.points.map((p) => `${p.lat},${p.lon}`).join('|');
+
+/** The plans of `plans` as one string, to tell whether a new planning changed any. */
+const plansKey = (plans: ReadonlyMap<string, DetourPlan>) => JSON.stringify([...plans]);
 
 /** Key of a directed route segment, for the clearance cache. */
 const segmentKey = (a: LatLon, b: LatLon) => `${a.lat},${a.lon}|${b.lat},${b.lon}`;
@@ -188,6 +233,15 @@ export interface CorridorExplanation {
   inTunnel: boolean;
   /** The way the station lies under (a bridge over the street, underpass.ts), null elsewhere. */
   underWay: number | null;
+  /**
+   * How far the route is moved sideways at the station, round something on
+   * the street's centre line (corridor-detour.ts), right of travel positive;
+   * null where it runs on the street's line. Its hits are those of the
+   * street's station there, moved by as much.
+   */
+  detourM: number | null;
+  /** In a passage under something on the centre line with no room beside it: a tunnel, not measured. */
+  passage: boolean;
   /** Why the station has no measurement, null if it has one. */
   unmeasured: string | null;
   /** Geometric error of the tile under the station at the last probe. */
@@ -230,10 +284,21 @@ export class PathAndRouteService {
   private underpassIndex: UnderpassIndex | null = null;
 
   /**
-   * Each spawn's route as the street network gives it, before the measured
-   * widths split its segments. beginClearanceMeasurement walks these.
+   * Each spawn's route before the measured widths split its segments, with
+   * its detours and passages, and the route as the street network gives it
+   * (`base`). beginClearanceMeasurement walks the bases.
    */
-  private streetRoutes = new Map<string, StreetRoute>();
+  private streetRoutes = new Map<string, BuiltRoute>();
+
+  /**
+   * The detours and passages round obstacles on the centre line of each
+   * street route (routeKey), planned with the columns of the grid in use
+   * (detoursWithGrid) at the same times as the walk caps: after a build and
+   * at the end of a measurement. Every build of a route until the next plan
+   * puts in the same ones, so the waypoints change only with a rebuild.
+   * Forgotten with the measurements.
+   */
+  private detourPlans = new Map<string, DetourPlan>();
 
   /**
    * What the tiles showed per street segment (segmentKey): the free space
@@ -313,6 +378,7 @@ export class PathAndRouteService {
     this.cancelClearanceRun('location changed');
     this.clearanceBySegment.clear();
     this.walkBySegment.clear();
+    this.detourPlans.clear();
     this.baseCoords = baseCoords;
     this.routesVisible = routesVisible;
     this.pathfindingService = pathfindingService;
@@ -573,7 +639,7 @@ export class PathAndRouteService {
     const split = splitAtSpans(geoPath, spans, open, (a, b, f) => ({ lat: a.lat + (b.lat - a.lat) * f, lon: a.lon + (b.lon - a.lon) * f }));
     geoPath = split.points;
     const ways = split.segment.map((i) => matched[i]);
-    const streetRoute: StreetRoute = {
+    const base: StreetRoute = {
       points: geoPath,
       halfWidths: routeHalfWidths(ways),
       onBridge: ways.map((way) => way?.bridge !== undefined),
@@ -581,10 +647,13 @@ export class PathAndRouteService {
       inTunnel: ways.map((way, i) => split.under[i] !== null || (way !== null && runsUnderCover(way))),
       underWay: split.under,
     };
+    // Round what stands on its centre line, as planned with the grid (detourPlans).
+    const plan = this.detourPlans.get(routeKey(base));
+    const streetRoute = plan ? this.detoured(base, plan) : wholeRoute(base);
     this.streetRoutes.set(spawn.id, streetRoute);
     const fitted = this.applyClearance(streetRoute);
     geoPath = fitted.points;
-    const { left: leftWidths, right: rightWidths, onBridge, inTunnel } = fitted;
+    const { left: leftWidths, right: rightWidths, onBridge, inTunnel, passage, detour } = fitted;
 
     // Create route line in Three.js - on terrain with RELATIVE heights
     const HEIGHT_ABOVE_GROUND = this.routeLineLift();
@@ -635,6 +704,8 @@ export class PathAndRouteService {
         waypoint.corridorRight = rightWidths[i];
         if (onBridge[i]) waypoint.onBridge = true;
         if (inTunnel[i]) waypoint.inTunnel = true;
+        if (passage[i]) waypoint.passage = true;
+        if (detour[i]) waypoint.detour = true;
       }
       pathWithHeights[i] = waypoint;
     }
@@ -651,18 +722,17 @@ export class PathAndRouteService {
   /**
    * Split each segment into the pieces the tiles gave it (fitRoute), with
    * the half width left and right of the direction of travel per piece.
-   * Each piece keeps its segment's bridge and tunnel flags.
+   * Each piece keeps its segment's bridge, tunnel, passage and detour flags.
    */
-  private applyClearance(
-    route: StreetRoute,
-  ): { points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[] } {
-    const { points, onBridge, inTunnel } = route;
+  private applyClearance(route: BuiltRoute): {
+    points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[]; passage: boolean[]; detour: boolean[];
+  } {
+    const { points, onBridge, inTunnel, passage, detour } = route;
     const fitted = this.fitRoute(route);
     const fittedPoints: LatLon[] = [];
     const left: number[] = [];
     const right: number[] = [];
-    const fittedBridges: boolean[] = [];
-    const fittedTunnels: boolean[] = [];
+    const flags = { onBridge: [] as boolean[], inTunnel: [] as boolean[], passage: [] as boolean[], detour: [] as boolean[] };
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i];
       const b = points[i + 1];
@@ -670,12 +740,54 @@ export class PathAndRouteService {
         fittedPoints.push(piece.t === 0 ? a : { lat: a.lat + (b.lat - a.lat) * piece.t, lon: a.lon + (b.lon - a.lon) * piece.t });
         left.push(piece.left);
         right.push(piece.right);
-        fittedBridges.push(onBridge[i]);
-        fittedTunnels.push(inTunnel[i]);
+        flags.onBridge.push(onBridge[i]);
+        flags.inTunnel.push(inTunnel[i]);
+        flags.passage.push(passage[i]);
+        flags.detour.push(detour[i]);
       }
     }
     fittedPoints.push(points[points.length - 1]);
-    return { points: fittedPoints, left, right, onBridge: fittedBridges, inTunnel: fittedTunnels };
+    return { points: fittedPoints, left, right, ...flags };
+  }
+
+  /**
+   * `base` with the detours and passages of `plan` put in
+   * (applyDetourPlan): each of its segments carries the flags, the street
+   * width and the way of the segment of `base` it lies on, a passage runs in
+   * a tunnel. Points are moved in the local frame, around the route's first
+   * point the way geoToLocalSimple maps a small step of latitude and
+   * longitude there.
+   */
+  private detoured(base: StreetRoute, plan: DetourPlan): BuiltRoute {
+    const sync = this.engine!.sync;
+    const local = base.points.map((p) => sync.geoToLocalSimple(p.lat, p.lon, 0));
+    // Local metres per degree at the first point, and back.
+    const step = 1e-5;
+    const origin = base.points[0];
+    const o = sync.geoToLocalSimple(origin.lat, origin.lon, 0);
+    const north = sync.geoToLocalSimple(origin.lat + step, origin.lon, 0);
+    const east = sync.geoToLocalSimple(origin.lat, origin.lon + step, 0);
+    const [xLat, zLat, xLon, zLon] = [(north.x - o.x) / step, (north.z - o.z) / step, (east.x - o.x) / step, (east.z - o.z) / step];
+    const det = xLat * zLon - xLon * zLat;
+    const shift = (p: LatLon, dx: number, dz: number): LatLon => ({
+      lat: p.lat + (dx * zLon - dz * xLon) / det,
+      lon: p.lon + (dz * xLat - dx * zLat) / det,
+    });
+    const interpolate = (a: LatLon, b: LatLon, f: number): LatLon => ({ lat: a.lat + (b.lat - a.lat) * f, lon: a.lon + (b.lon - a.lon) * f });
+    const { points, parent, passage } = applyDetourPlan(base.points, local, plan, interpolate, shift);
+    const of = <T>(values: readonly T[]) => parent.map((p) => values[p.segment]);
+    return {
+      points,
+      halfWidths: of(base.halfWidths),
+      onBridge: of(base.onBridge),
+      onStreet: of(base.onStreet),
+      inTunnel: parent.map((p, j) => base.inTunnel[p.segment] || passage[j]),
+      underWay: of(base.underWay),
+      parent,
+      passage,
+      detour: parent.map((p) => p.offsetFrom !== 0 || p.offsetTo !== 0),
+      base,
+    };
   }
 
   /**
@@ -684,7 +796,7 @@ export class PathAndRouteService {
    * street's half width on both sides, then with short narrowings closed
    * along the whole route (closeShortNarrowings).
    */
-  private fitRoute(route: StreetRoute): CorridorPiece[][] {
+  private fitRoute(route: BuiltRoute): CorridorPiece[][] {
     const pieces = this.clearanceBySegment.size === 0
       ? route.halfWidths.map((h) => [{ t: 0, left: h, right: h }])
       : fitCorridorPieces(this.corridorStationsOf(route));
@@ -693,25 +805,45 @@ export class PathAndRouteService {
     return closeShortNarrowings(pieces, lengths, route.inTunnel);
   }
 
-  /** The segments of `route` as the corridor fitting sees them. */
-  private corridorStationsOf(route: StreetRoute): CorridorStations[] {
+  /**
+   * The segments of `route` as the corridor fitting sees them, with the
+   * walk caps (`walk`, the default) or without them, as the clearance rays
+   * alone give it (detoursWithGrid).
+   */
+  private corridorStationsOf(route: BuiltRoute, walk = true): CorridorStations[] {
     const segments: CorridorStations[] = [];
     for (let i = 0; i < route.points.length - 1; i++) {
       const key = segmentKey(route.points[i], route.points[i + 1]);
-      const measured = this.clearanceBySegment.get(key);
-      const walk = this.walkBySegment.get(key);
+      const measured = this.measuredOf(route, i);
+      const caps = walk ? this.walkBySegment.get(key) : undefined;
       segments.push({
         left: measured?.left ?? [],
         right: measured?.right ?? [],
         fallback: route.halfWidths[i],
         onStreet: route.onStreet[i],
-        walkLeft: walk?.left,
-        walkRight: walk?.right,
+        walkLeft: caps?.left,
+        walkRight: caps?.right,
         lowWallLeft: measured?.probes.map((probe) => probeLowWall(probe, 'left')),
         lowWallRight: measured?.probes.map((probe) => probeLowWall(probe, 'right')),
       });
     }
     return segments;
+  }
+
+  /**
+   * What the tiles showed along segment `i` of `route`: the measurement of
+   * the segment of the street route it is, or for a piece of one, moved
+   * sideways round an obstacle or not, the stations of that segment there
+   * (derivedClearance). Not for a passage, a tunnel: undefined, like a
+   * segment not measured yet.
+   */
+  private measuredOf(route: BuiltRoute, i: number): SegmentClearance | undefined {
+    if (route.passage[i]) return undefined;
+    const parent = route.parent[i];
+    const base = route.base;
+    const measured = this.clearanceBySegment.get(segmentKey(base.points[parent.segment], base.points[parent.segment + 1]));
+    if (!measured || isWholeSegment(parent)) return measured;
+    return derivedClearance(measured, parent);
   }
 
   /** The pieces every route gets from what is measured now, to tell whether a measurement changed any. */
@@ -730,6 +862,7 @@ export class PathAndRouteService {
     this.cancelClearanceRun('measurements cleared');
     this.clearanceBySegment.clear();
     this.walkBySegment.clear();
+    this.detourPlans.clear();
   }
 
   /**
@@ -740,7 +873,7 @@ export class PathAndRouteService {
    * there.
    */
   hasUnmeasuredStations(): boolean {
-    for (const { points } of this.streetRoutes.values()) {
+    for (const { base: { points } } of this.streetRoutes.values()) {
       for (let i = 0; i < points.length - 1; i++) {
         const probes = this.clearanceBySegment.get(segmentKey(points[i], points[i + 1]))?.probes;
         if (probes?.some((probe) => probe !== null && probe.unmeasured !== null)) return true;
@@ -757,20 +890,26 @@ export class PathAndRouteService {
    */
   narrowToWalkable(): boolean {
     const merged = this.walkCapsWithGrid();
-    if (!merged) return false;
+    const plans = this.detoursWithGrid();
     const before = this.fittedCorridors();
-    this.walkBySegment = merged;
-    return this.fittedCorridors() !== before;
+    const plansBefore = plansKey(this.detourPlans);
+    if (merged) this.walkBySegment = merged;
+    if (plans) this.detourPlans = plans;
+    return this.fittedCorridors() !== before || plansKey(this.detourPlans) !== plansBefore;
   }
 
   /**
    * Whether narrowToWalkable would change a corridor now, without doing it:
    * the grid has cells an enemy could not walk to that a narrower corridor
-   * would drop, typically ones a finer tile has shown since the last build.
-   * Cells no narrower corridor drops (the centre line runs through them)
-   * do not count. For CorridorRefit.remeasure.
+   * would drop, typically ones a finer tile has shown since the last build,
+   * or its columns show other obstacles on a centre line than the detours
+   * and passages in use were planned for (detoursWithGrid). Cells no
+   * narrower corridor drops (the centre line runs through them) do not
+   * count. For CorridorRefit.remeasure.
    */
   hasUnwalkableCells(): boolean {
+    const plans = this.detoursWithGrid();
+    if (plans && plansKey(plans) !== plansKey(this.detourPlans)) return true;
     const merged = this.walkCapsWithGrid();
     if (!merged) return false;
     const kept = this.walkBySegment;
@@ -779,6 +918,37 @@ export class PathAndRouteService {
     const after = this.fittedCorridors();
     this.walkBySegment = kept;
     return after !== before;
+  }
+
+  /**
+   * The plans of the street routes in use for the obstacles on their centre
+   * lines (planDetours): with the columns of the grid in use, and the room
+   * the clearance rays leave either side, without the walk caps (those of
+   * the build before narrow the corridor round the obstacle on the line
+   * itself). A detour or passage lies on a street on the ground only: not on
+   * a bridge, in a tunnel, on the stretch off a bridge end or on the leg to
+   * the HQ. A new map with the routes that have one; null without a grid.
+   */
+  private detoursWithGrid(): Map<string, DetourPlan> | null {
+    const engine = this.engine;
+    if (!engine || !this.globalRouteGrid.isInitialized()) return null;
+    const grid = this.globalRouteGrid.getGrid();
+    const plans = new Map<string, DetourPlan>();
+    for (const { base } of this.streetRoutes.values()) {
+      const key = routeKey(base);
+      if (plans.has(key)) continue;
+      const local = base.points.map((p) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0));
+      const approaches = deckApproaches(local, base.onBridge, base.inTunnel);
+      const open = base.onBridge.map((bridge, i) => !bridge && !base.inTunnel[i] && base.onStreet[i] && approaches[i].length === 0);
+      const fit = fitCorridorStations(this.corridorStationsOf(wholeRoute(base), false));
+      const room = (i: number, t: number, side: 'left' | 'right') => {
+        const stations = fit[side][i];
+        return stations.length === 0 ? base.halfWidths[i] : stations[Math.min(stations.length - 1, Math.floor(t * stations.length))].halfWidth;
+      };
+      const plan = planDetours({ points: local, open, room }, (x, z) => grid.columnNear(x, z), grid.getCellSize());
+      if (plan.pieces.length > 0 || plan.passages.length > 0) plans.set(key, plan);
+    }
+    return plans;
   }
 
   /**
@@ -805,7 +975,7 @@ export class PathAndRouteService {
         const key = segmentKey(route.points[i], route.points[i + 1]);
         const a = engine.sync.geoToLocalSimple(route.points[i].lat, route.points[i].lon, 0);
         const b = engine.sync.geoToLocalSimple(route.points[i + 1].lat, route.points[i + 1].lon, 0);
-        const n = this.clearanceBySegment.get(key)?.left.length ?? 0;
+        const n = this.measuredOf(route, i)?.left.length ?? 0;
         const widths = (side: 'left' | 'right') => n === 0
           ? [pieces[i][0][side]]
           : Array.from({ length: n }, (_, k) => pieceCovering(pieces[i], (k + 0.5) / n)[side]);
@@ -841,12 +1011,11 @@ export class PathAndRouteService {
     const network = this.streetNetwork;
     if (!engine || !network) return null;
     const local = (p: LatLon) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0);
-    const stationCount = (route: StreetRoute, i: number, length: number) =>
-      this.clearanceBySegment.get(segmentKey(route.points[i], route.points[i + 1]))?.left.length
-        ?? Math.max(1, Math.round(length / corridorConfig.stationSpacing));
+    const stationCount = (route: BuiltRoute, i: number, length: number) =>
+      this.measuredOf(route, i)?.left.length ?? Math.max(1, Math.round(length / corridorConfig.stationSpacing));
 
     // The nearest station over every route.
-    let best: { routeId: string; route: StreetRoute; i: number; k: number; n: number; x: number; z: number; d: number } | null = null;
+    let best: { routeId: string; route: BuiltRoute; i: number; k: number; n: number; x: number; z: number; d: number } | null = null;
     for (const [routeId, route] of this.streetRoutes) {
       for (let i = 0; i < route.points.length - 1; i++) {
         const a = local(route.points[i]);
@@ -866,9 +1035,12 @@ export class PathAndRouteService {
     const { routeId, route, i, k, n } = best;
     const segments = this.corridorStationsOf(route);
     const fit = fitCorridorStations(segments);
-    const measured = this.clearanceBySegment.get(segmentKey(route.points[i], route.points[i + 1]));
+    const measured = this.measuredOf(route, i);
     const probe = measured?.probes[k] ?? null;
-    const way = this.getEdgeIndex(network).match(route.points)[i];
+    // A piece of a detour lies beside the way's edge: the way of the street segment it comes from.
+    const way = this.getEdgeIndex(network).match(route.base.points)[route.parent[i].segment];
+    const parent = route.parent[i];
+    const detourM = parent.offsetFrom + (parent.offsetTo - parent.offsetFrom) * ((k + 0.5) / n);
     const estimate = way ? estimateStreetWidth(way) : null;
     const inUse = this.corridorInUse(routeId, best.x, best.z);
 
@@ -885,6 +1057,7 @@ export class PathAndRouteService {
       const overhang = hits !== null && station !== undefined && station.free === hits[hits.length - 1] && hits[hits.length - 1] < hits[0];
       const rule = station ? (overhang ? `${station.rule}, overhang: outer face` : station.rule)
         : route.underWay[i] !== null ? `under way ${route.underWay[i]}: street width`
+        : route.passage[i] ? 'passage: street width'
         : route.inTunnel[i] ? 'tunnel or covered: street width'
         : 'not measured yet: street width';
       const halfWidth = pieceAt(i, (k + 0.5) / n)[side];
@@ -917,7 +1090,7 @@ export class PathAndRouteService {
     }
     const here = flat.findIndex((s) => s.i === i && s.k === k);
     const nearby = (here < 0 ? [] : flat.slice(Math.max(0, here - 4), here + 5)).map((s): CorridorStationRow => {
-      const near = this.clearanceBySegment.get(segmentKey(route.points[s.i], route.points[s.i + 1]))?.probes[s.k] ?? null;
+      const near = this.measuredOf(route, s.i)?.probes[s.k] ?? null;
       return {
         station: `${s.i}:${s.k + 1}/${s.n}`,
         alongM: round1(s.alongM),
@@ -943,7 +1116,10 @@ export class PathAndRouteService {
       onStreet: route.onStreet[i],
       inTunnel: route.inTunnel[i],
       underWay: route.underWay[i],
+      detourM: Math.abs(detourM) > 1e-9 ? round1(detourM) : null,
+      passage: route.passage[i],
       unmeasured: route.underWay[i] !== null ? `under way ${route.underWay[i]}: not measured`
+        : route.passage[i] ? 'passage: not measured'
         : route.inTunnel[i] ? 'tunnel or covered: not measured'
         : probe ? probe.unmeasured
         : measured ? 'no probe (DevWorld)'
@@ -1012,7 +1188,7 @@ export class PathAndRouteService {
     // enough. Each route over one hands on its stretches off a bridge end.
     const byKey = new Map<string, ClearanceSegment | null>();
 
-    for (const { points, onBridge, inTunnel } of this.streetRoutes.values()) {
+    for (const { base: { points, onBridge, inTunnel } } of this.streetRoutes.values()) {
       if (!engine) break;
       const local = points.map((p) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0));
       // The stretches off each bridge end, as the route cells there find them.
@@ -1075,7 +1251,10 @@ export class PathAndRouteService {
       this.clearanceBySegment.set(key, { left, right, probes });
     }
     this.walkBySegment = this.walkCapsWithGrid() ?? this.walkBySegment;
-    return this.fittedCorridors() !== before;
+    // The room beside an obstacle on a centre line comes from the rays as well.
+    const plansBefore = plansKey(this.detourPlans);
+    this.detourPlans = this.detoursWithGrid() ?? this.detourPlans;
+    return this.fittedCorridors() !== before || plansKey(this.detourPlans) !== plansBefore;
   }
 
   /** Cancel the clearance measurement under way, if any; nothing of it is stored. */
@@ -1178,6 +1357,7 @@ export class PathAndRouteService {
     this.streetRoutes.clear();
     this.clearanceBySegment.clear();
     this.walkBySegment.clear();
+    this.detourPlans.clear();
     this.baseCoords = null;
     this.routesVisible = null;
     this.pathfindingService = null;

@@ -20,7 +20,7 @@ vi.mock('@angular/core', async () => {
     GlobalRouteGridService: {
       isInitialized: () => grid.ready,
       getGroundLocalYAt: (x: number, z: number) => grid.cellY(x, z),
-      getGrid: () => ({ unwalkableCells: () => grid.unwalkable, getCellSize: () => 2 }),
+      getGrid: () => ({ unwalkableCells: () => grid.unwalkable, getCellSize: () => 2, columnNear: () => null }),
     },
   };
   return {
