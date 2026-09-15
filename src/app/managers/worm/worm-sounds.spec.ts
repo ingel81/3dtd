@@ -107,6 +107,17 @@ describe('WormSounds', () => {
     expect(audio.createLoop).toHaveBeenCalledTimes(1);
   });
 
+  it('never sits on a tail, however near the listener: the first segment of each chain leads it', async () => {
+    const { present, settle, lastMove } = setup(new Vector3(0, 0, 53));
+    // Slot 2 died: slot 1 ends the front part (its tail), slot 4 the rear part
+    const group = worm([segment(0, 60), segment(0, 53), null, segment(0, 20), segment(0, 13)], [[0, 1], [3, 4]]);
+    present([group]);
+    await settle();
+    present([group]);
+    // On the tail at 53 the listener hears the front head at 60, 7 m off
+    expect(lastMove()).toEqual(new Vector3(0, liftM, 60));
+  });
+
   it('gives every worm its own loop and ends the loop of one that is gone', async () => {
     const { audio, present, settle } = setup();
     const a = worm([segment(10, 0)]);
