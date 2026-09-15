@@ -39,7 +39,7 @@ describe('onboarding state machine', () => {
     expect(currentStep(s, progress({ wavesCompleted: 1 }))).toBe('upgrade-tower');
   });
 
-  it('holds the research center tip back until wave 2 is done', () => {
+  it('holds the research center tip back until wave 3 is done', () => {
     const s = run(
       { kind: 'tower-placed', towerType: 'archer' },
       { kind: 'wave-started' },

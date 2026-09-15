@@ -91,7 +91,7 @@ stehen die Hashes des Branches.
   | 1 | Build a tower | sofort | `tower:placed` (kein Research Center) |
   | 2 | Start the first wave | nach 1 | `wave:started` |
   | 3 | Upgrade a tower | nach Welle 1 | `tower:upgraded` (nicht der Research Wing) |
-  | 4 | Build a research center | nach Welle 2 | `tower:placed` Research Center |
+  | 4 | Build a research center | nach Welle 2 (seit E1, 2026-09-15: nach Welle 3) | `tower:placed` Research Center |
   | 5 | Start a research | sobald ein Center steht | `research:started` (Öffnen reicht nicht) |
   | 6 | Use an ability | sobald eine Fähigkeit erforscht ist | `ability:used` |
   | 7 | Hire the Mercenary | sobald Mercenary Contract fertig ist | Held angeheuert |
@@ -105,7 +105,8 @@ stehen die Hashes des Branches.
 - Die Schwelle "nach Welle 2" für den Center-Tipp
   (`RESEARCH_TIP_AFTER_WAVE` in `onboarding.ts`) ist aus dem Kurrikulum
   abgeleitet (Start mit 100 Credits, billigste Forschung 400, Welle 1 zahlt
-  200, Welle 2 400), nicht gespielt.
+  200, Welle 2 400), nicht gespielt. **Entscheidung User (E1, 2026-09-15):**
+  nach Welle 3.
 - Wer die alten Tipps beendet oder versteckt hat, sieht die neuen einmal;
   der alte Eintrag `td_onboarding_v1` bleibt ungelesen im localStorage.
 - Der Cheat "Research" sendet kein `research:started` (`completeAllResearch()`

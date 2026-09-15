@@ -27,10 +27,11 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
 
 /**
  * Waves done before the research center tip shows. The cheapest research
- * costs 400 credits, about what wave 2 pays (wave-curriculum.config.ts);
- * before that the start credits belong in towers.
+ * costs 400 credits, about what wave 2 pays (wave-curriculum.config.ts); the
+ * tip waits one wave longer than that, the user's call after the playtest of
+ * 2026-09-15 (decision E1): the first credits belong in towers.
  */
-export const RESEARCH_TIP_AFTER_WAVE = 2;
+export const RESEARCH_TIP_AFTER_WAVE = 3;
 
 export interface OnboardingTip {
   title: string;
@@ -212,7 +213,7 @@ function stepFor(action: OnboardingAction): OnboardingStep | null {
 
 /**
  * The state after an action. Doing a step before its tip shows counts too: a
- * research center built in wave 1 leaves its tip out after wave 2. Returns
+ * research center built in wave 1 leaves its tip out after wave 3. Returns
  * the same object when nothing changes, so a signal holding it does not
  * notify.
  */

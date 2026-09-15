@@ -47,12 +47,13 @@ describe('OnboardingService', () => {
     expect(service.tip()).toMatchObject({ title: 'Upgrade a tower', index: 3 });
   });
 
-  it('shows the research center tip after wave 2, the research tip once it stands', () => {
+  it('shows the research center tip after wave 3, the research tip once it stands', () => {
     storeCompleted('build-tower', 'start-wave', 'upgrade-tower');
     start();
     bus.emit(waveCompleted(1));
-    expect(service.tip()).toBeNull();
     bus.emit(waveCompleted(2));
+    expect(service.tip()).toBeNull();
+    bus.emit(waveCompleted(3));
     expect(service.tip()?.title).toBe('Build a research center');
 
     bus.emit({ type: 'tower:placed', tower: tower('research-center'), position: { lat: 0, lon: 0 }, cost: 0 });
@@ -115,6 +116,8 @@ describe('OnboardingService', () => {
     bus.emit({ type: 'tower:upgraded', tower: tower('archer'), level: 1, cost: 0 });
     bus.emit({ type: 'wave:started', wave: 2, enemyCount: 5 });
     bus.emit(waveCompleted(2));
+    bus.emit({ type: 'wave:started', wave: 3, enemyCount: 5 });
+    bus.emit(waveCompleted(3));
     service.hide();
     service.restart();
     expect(service.tip()).toMatchObject({ title: 'Build a research center', index: 4 });
