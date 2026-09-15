@@ -35,6 +35,9 @@ import { SpawnPoint } from './marker-visualization.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { StationProbe } from '../../utils/route-corridor';
+import { GlobalRouteGrid } from '../../utils/global-route-grid';
+import type { ColumnSample } from '../../three-engine/column-sample';
+import type { RouteWaypoint } from '../../models/game.types';
 
 const ORIGIN = { lat: 48.0, lon: 9.0 };
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
@@ -128,6 +131,7 @@ function makeNetwork(
     bridge?: string;
     tunnel?: string;
     covered?: string;
+    layer?: number;
     nodes: StreetNode[];
   }[],
 ): StreetNetwork {
@@ -961,5 +965,123 @@ describe('PathAndRouteService route geometry', () => {
     expect(distToSegmentM(turnOff, a, b)).toBeLessThan(0.05);
     expect(Math.hypot(toMeters(turnOff).x - toMeters(hq).x, toMeters(turnOff).z - toMeters(hq).z))
       .toBeCloseTo(shortest, 1);
+  });
+});
+
+/**
+ * Playtest 2026-09-15, Erlenbach (D2): the route on Weinsberger Straße runs
+ * under the A6, a bridge that is no way of the route. The photogrammetry is
+ * filled under most of the deck; cells, red line and enemies stood on it.
+ */
+describe('PathAndRouteService under a bridge of no route way', () => {
+  const n10 = { id: 10, lat: 47.999, lon: 9.0 };
+  const n1 = { id: 1, lat: 48.0, lon: 9.0 };
+  const n2 = { id: 2, lat: 48.001, lon: 9.0 };
+  const n3 = { id: 3, lat: 48.001, lon: 9.0015 };
+  const n30 = { id: 30, lat: 48.001, lon: 9.003 };
+  /** The ends of a motorway bridge across way 200, 44.7 m long. */
+  const west = { id: 901, lat: 48.0005, lon: 8.9997 };
+  const east = { id: 902, lat: 48.0005, lon: 9.0003 };
+  const spawn = { lat: 47.9995, lon: 9.0 };
+  const hq = { lat: 48.0011, lon: 9.0025 };
+  /** How far north of n1 the bridge crosses way 200, and where that lies in local z (south). */
+  const bridgeN = toMeters(west).z - toMeters(n1).z;
+  const deckZ = -toMeters(west).z;
+  const north = (p: { lat: number; lon: number }) => toMeters(p).z - toMeters(n1).z;
+  let network: StreetNetwork;
+
+  const column = (groundY: number, topY = groundY): ColumnSample => ({ groundY, topY, tileDepth: 20, tileGeometricError: 2 });
+  /**
+   * The deck `top` over the street, 16 m wide across local z = deckZ and
+   * filled down to the street but for 1.5 m at each edge; the street at
+   * `street(d)`, `d` metres across the deck.
+   */
+  const deck = (top: number, street: (d: number) => number) => (_x: number, z: number): ColumnSample => {
+    const d = Math.abs(z - deckZ);
+    return d < 6.5 ? column(top) : d < 8 ? column(street(d), top) : column(street(d));
+  };
+
+  function cellsOf(route: RouteWaypoint[], columns: (x: number, z: number) => ColumnSample): GlobalRouteGrid {
+    const cells = new GlobalRouteGrid();
+    cells.initialize(columns as never, makeEngine().sync as never);
+    cells.generateFromRoutes([route]);
+    return cells;
+  }
+
+  beforeEach(() => {
+    grid.ready = false;
+    grid.cellY = () => null;
+    grid.unwalkable = [];
+    clearanceAt = (_x, _z, max) => max;
+    network = makeNetwork([
+      { id: 100, nodes: [n10, n1] },
+      { id: 200, type: 'secondary', lanes: 2, nodes: [n1, n2, n3] },
+      { id: 300, nodes: [n3, n30] },
+      { id: 900, type: 'motorway', lanes: 3, bridge: 'yes', layer: 1, nodes: [west, east] },
+    ]);
+  });
+
+  it('runs under the bridge like a short tunnel: not measured, at the street width, and says so', () => {
+    const probedUnder: number[] = [];
+    clearanceAt = (x, z, max) => {
+      const n = -z - toMeters(n1).z;
+      if (Math.abs(x) < 1 && Math.abs(n - bridgeN) < 9) probedUnder.push(n);
+      return max;
+    };
+    const service = buildRouteService(network, spawn, hq);
+    expect(measure(service)).toBe(true);
+    service.showPathFromSpawn(spawnPointAt(spawn));
+    const route = service.getCachedPath('s1')!;
+
+    // 9 m either side of the bridge: half its 10 m (3 lanes) and 4 m for the edges of the deck.
+    const under = route.filter((p) => p.inTunnel);
+    expect(under).toHaveLength(1);
+    const i = route.indexOf(under[0]);
+    expect(north(route[i])).toBeCloseTo(bridgeN - 9, 1);
+    expect(north(route[i + 1])).toBeCloseTo(bridgeN + 9, 1);
+    // Secondary with 2 lanes, 7 m; the rest measured at 7 m either side.
+    expect(route[i]).toMatchObject({ corridorLeft: 3.5, corridorRight: 3.5 });
+    expect(route[i - 1]).toMatchObject({ corridorLeft: 7, corridorRight: 7 });
+    expect(probedUnder).toEqual([]);
+
+    const why = service.explainCorridorAt(0, deckZ)!;
+    expect(why).toMatchObject({ way: 200, inTunnel: true, underWay: 900, unmeasured: 'under way 900: not measured' });
+    expect(why.sides[0]).toMatchObject({ halfWidthM: 3.5, rule: 'under way 900: street width' });
+  });
+
+  it('puts the cells under a filled deck on the street, not on the deck', () => {
+    const route = buildRoute(network, spawn, hq);
+    const cells = cellsOf(route, deck(6, () => 0));
+    // Cell centres 0.7 to 6.7 m from the middle of the deck.
+    for (let z = -61; z <= -49; z += 2) {
+      for (const x of [-1, 1]) {
+        expect(cells.getCellAt(x, z), `${x}, ${z}`).toMatchObject({ surface: 'tunnel' });
+        expect(cells.getCellAt(x, z)!.terrainHeight, `${x}, ${z}`).toBeCloseTo(0, 6);
+      }
+    }
+    // The red line takes its heights at the waypoints, the enemies from the cells.
+    for (const p of route.filter((w) => Math.abs(north(w) - bridgeN) < 10)) {
+      expect(cells.getGroundLocalYAt(toMeters(p).x, -toMeters(p).z)).toBeCloseTo(0, 6);
+    }
+  });
+
+  it('keeps a route over the bridge on its deck', () => {
+    // The bridge as a way of the route, ways 800 and 850 on and off it; way 200 runs under it.
+    const w0 = { id: 801, lat: 48.0005, lon: 8.999 };
+    const w3 = { id: 851, lat: 48.0005, lon: 9.001 };
+    const overIt = makeNetwork([
+      { id: 800, nodes: [w0, west] },
+      { id: 900, type: 'motorway', lanes: 3, bridge: 'yes', layer: 1, nodes: [west, east] },
+      { id: 850, nodes: [east, w3] },
+      { id: 200, type: 'secondary', lanes: 2, nodes: [n1, n2] },
+    ]);
+    const route = buildRoute(overIt, { lat: 48.0005, lon: 8.9991 }, { lat: 48.0006, lon: 9.0011 });
+    expect(route.some((p) => p.onBridge)).toBe(true);
+    expect(route.some((p) => p.inTunnel)).toBe(false);
+
+    const cells = cellsOf(route, deck(6, () => 0));
+    for (const x of [-15, -1, 1, 15]) {
+      expect(cells.getCellAt(x, deckZ), `${x}`).toMatchObject({ surface: 'deck', terrainHeight: 6 });
+    }
   });
 });
