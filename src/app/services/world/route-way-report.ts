@@ -71,16 +71,18 @@ export interface RouteWayRun {
  * Zerlegt jede gecachte Route in die OSM-Ways, über die sie läuft, und
  * vergleicht entlang der Mittellinie (alle 2 m) die Zellhöhe mit der Höhe,
  * die das gelbe Straßen-Overlay an derselben Stelle nimmt
- * (`getStreetHeightEstimate`: seitliches Minimum, auf einem Brücken-Way und
- * seiner Fortsetzung das Deck; die Fortsetzung hier entlang der Route wie
- * bei den Zellen, `deckApproaches`). Beantwortet am Ort eines
+ * (`getStreetHeightEstimate`: seitliches Minimum, auf einem Brücken-Way das
+ * Deck, auf der Strecke hinter seinem Ende die Höhe, die die Route von dort
+ * trägt; die Strecke hier entlang der Route wie bei den Zellen,
+ * `deckApproaches`). Beantwortet am Ort eines
  * Routen-Befunds zwei Fragen: Läuft die Route dort über einen anderen Way
  * als die sichtbare Straße (Fußweg, Durchgang, Tunnel)? Und liegen die
  * Zellen dort auf Dach oder Baumkrone, während die Straße darunter liegt?
  * Dazu die Straßenbreite, ihre Quelle und die Korridorbreite, die daraus
  * geworden ist.
  *
- * Nur für Diagnose: ein Aufruf kostet pro Punkt bis zu fünf Säulen-Samples.
+ * Nur für Diagnose: ein Aufruf kostet pro Punkt bis zu fünf Säulen-Samples,
+ * hinter einem Brückenende dazu die Säulen entlang der Route von dort.
  * Hinter `__routes.describe()` (PathAndRouteService.describeRoutes).
  *
  * @param paths Gecachte Routen je Spawn
@@ -157,7 +159,8 @@ export function describeRouteWays(
         const local = engine.sync.geoToLocalSimple(lat, lon, 0);
         const cellY = grid.getGroundLocalYAt(local.x, local.z);
         const approach = a.onBridge ? null : nearestDeckApproach(approaches[i], t);
-        const deck: StreetDeck | null = a.onBridge ? 'bridge' : approach ? path[approach.end] : null;
+        const deck: StreetDeck | null = a.onBridge ? 'bridge'
+          : approach ? { path: approach.path.map((k) => path[k]), m: approach.from + (approach.to - approach.from) * t } : null;
         const streetY = engine.terrain.getStreetHeightEstimate(lat, lon, a.lat, a.lon, b.lat, b.lon, deck);
         if (cellY === null || streetY === null) continue;
         const gap = cellY - streetY;

@@ -52,8 +52,8 @@ interface PreparedNode {
  * Manages:
  * - Merged LineSegments geometry for all streets (1 draw call instead of 600+)
  * - Terrain-following street heights via raycast with segment subdivision,
- *   on the deck over a bridge way and the ways that carry it on past its
- *   ends (deck-approach.ts), as the route cells take them
+ *   on the deck over a bridge way, and on the ways off its ends at the
+ *   height they carry from there (deck-approach.ts), as the route cells take them
  * - Debug height markers
  * - Street visibility toggle
  *
@@ -173,7 +173,9 @@ export class StreetRenderingService {
           const node = nodes[idx];
           const prevNode = nodes[Math.max(0, idx - 1)];
           const nextNode = nodes[Math.min(nodes.length - 1, idx + 1)];
-          const deck = street.bridge !== undefined ? 'bridge' : approaches?.get(node.id)?.deckEnd ?? null;
+          const approach = street.bridge !== undefined ? null : approaches?.get(node.id);
+          const deck: StreetDeck | null = street.bridge !== undefined ? 'bridge'
+            : approach ? { path: approach.path, m: approach.distanceM } : null;
           allNodes.push({ node, prev: prevNode, next: nextNode, isDevWorld: false, deck });
           streetIndices.push(si);
         }

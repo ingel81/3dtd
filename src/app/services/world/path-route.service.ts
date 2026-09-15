@@ -22,9 +22,8 @@ import {
   segmentRight,
 } from '../../utils/route-corridor';
 import { WalkCapSegment, WalkCaps, walkCaps } from '../../utils/corridor-walk';
-import { deckApproaches, nearestDeckApproach } from '../../utils/deck-approach';
+import { SegmentApproach, deckApproaches, deckEndAt, nearestDeckApproach, segmentApproaches } from '../../utils/deck-approach';
 import type { DeckEnd } from '../../utils/route-cell';
-import type { SegmentApproach } from '../../utils/route-grid-builder';
 import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -995,7 +994,7 @@ export class PathAndRouteService {
         // above: the street width stays.
         if (inTunnel[i]) continue;
         const key = segmentKey(points[i], points[i + 1]);
-        const stretches = approaches[i].map(({ end, from, to }) => ({ deckEnd: { x: local[end].x, z: local[end].z }, from, to }));
+        const stretches = segmentApproaches(approaches[i], local);
         const seen = byKey.get(key);
         if (seen !== undefined) {
           seen?.approaches.push(stretches);
@@ -1173,10 +1172,11 @@ interface ClearanceSegment {
   onBridge: boolean;
   /**
    * Per route over the segment, the stretches off a bridge end it lies on
-   * (deckApproaches), with their bridge ends as the route cells there take
-   * them. A station on such a stretch on every route (stationApproach)
-   * measures from where those cells stand and judges no low wall, as on
-   * the deck (TerrainQueries.measureStreetClearance, `deckEnd`).
+   * (deckApproaches), with the route from their bridge ends as the route
+   * cells there take them. A station on such a stretch on every route
+   * (stationApproach) measures from where those cells stand and judges no
+   * low wall, as on the deck (TerrainQueries.measureStreetClearance,
+   * `deckEnd`).
    */
   approaches: SegmentApproach[][];
   /** Free space per station and side, NaN until measured, and what each station's rays found. */
@@ -1317,7 +1317,7 @@ class ClearanceRun implements CorridorMeasurement {
     // Off a bridge end: the end nearest the station, as for a route cell there
     const approach = segment.onBridge ? null : stationApproach(segment.approaches, t);
     // (-dz, dx) points right of the direction of travel.
-    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach?.deckEnd ?? null);
+    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach ? deckEndAt(approach, t) : null);
     segment.probes[k] = probe;
     this.probed++;
     if (probe?.unmeasured === 'coarse tile') this.coarse++;

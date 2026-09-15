@@ -1,7 +1,7 @@
 import { RouteWaypoint } from '../models/game.types';
 import { corridorConfig, lateralLimit, segmentLeft, segmentRight } from './route-corridor';
 import { DeckEnd, RouteCell, TunnelSpan } from './route-cell';
-import { deckApproaches, nearestDeckApproach } from './deck-approach';
+import { SegmentApproach, deckApproaches, deckEndAt, nearestDeckApproach, segmentApproaches } from './deck-approach';
 
 /**
  * Building the route-cell corridor: which cells a route claims, which
@@ -126,17 +126,6 @@ export function jointCap(own: number, other: number, cellSize: number): number {
 }
 
 /**
- * A stretch off a bridge end that a segment lies on (deckApproaches), as
- * claimSegmentCells takes it: the bridge end, and the distance along the
- * route from there to the segment's start and to its end, metres.
- */
-export interface SegmentApproach {
-  deckEnd: DeckEnd;
-  from: number;
-  to: number;
-}
-
-/**
  * Claim the cells of every segment of one route in `cells`, see
  * claimSegmentCells. `points` are the route's local positions. Which
  * surface a cell samples depends on all segments that reach it, so the
@@ -170,7 +159,7 @@ export function claimRouteCells(
       endLeft: cap(left, after, segmentLeft),
       endRight: cap(right, after, segmentRight),
     };
-    const approach = approaches[i].map(({ end, from, to }) => ({ deckEnd: { x: points[end].x, z: points[end].z }, from, to }));
+    const approach = segmentApproaches(approaches[i], points);
     claimSegmentCells(
       cells, lattice, points[i], points[i + 1], left, right, route[i].onBridge === true, tunnels[i], caps, alongClaims, approach,
     );
@@ -201,7 +190,8 @@ const SURFACE_ORDER: Record<RouteCell['surface'], number> = { ground: 0, approac
  * `approaches`: the stretches off a bridge end the segment lies on
  * (SegmentApproach). A cell whose nearest point on the segment lies within
  * DECK_APPROACH_M of the nearest such bridge end is an `approach` cell and
- * compares with the deck there (RouteCell.deckEnd).
+ * compares with the height the route carries at that point
+ * (RouteCell.deckEnd).
  *
  * A cell another segment reached first: a tunnel wins. Otherwise a segment
  * that reaches the cell along its length (the centre's nearest point lies
@@ -269,7 +259,7 @@ export function claimSegmentCells(
       const anchorY = start.y + (end.y - start.y) * t;
       const approach = onBridge || tunnel ? null : nearestDeckApproach(approaches, t);
       const surface: RouteCell['surface'] = onBridge ? 'deck' : tunnel ? 'tunnel' : approach ? 'approach' : 'ground';
-      const deckEnd = approach?.deckEnd ?? null;
+      const deckEnd = approach ? deckEndAt(approach, t) : null;
       if (existing) {
         // A cell several segments reach: a tunnel wins, or the cells in its
         // mouth, reached by the approach first, would sample the hill above
