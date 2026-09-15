@@ -291,7 +291,9 @@ checkWaveComplete(): boolean {
     && this.enemyManager.getKillingCount() === 0
     && this.enemyManager.getPendingSpawnCount() === 0;
 
-  // (gekürzt: Stuck-Diagnose, loggt einmal pro Wave)
+  // (gekürzt: Stuck-Diagnose, loggt einmal pro Wave, wenn nach dem Spawnen
+  // die Zähler stehen und über ein Fenster von 10 s Spielzeit kein Gegner
+  // läuft, in die HQ fließt oder HP verliert)
   const complete = allEnemiesSpawned && allEnemiesDead;
   this._cachedWaveComplete = complete;
   this._waveCheckDirty = false;

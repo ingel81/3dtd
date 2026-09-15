@@ -16,6 +16,7 @@ function createMockEnemyManager(): EnemyManager {
     getAliveCount: vi.fn().mockReturnValue(0),
     getKillingCount: vi.fn().mockReturnValue(0),
     getPendingSpawnCount: vi.fn().mockReturnValue(0),
+    getPendingDeathsSnapshot: vi.fn().mockReturnValue([]),
     clear: vi.fn(),
     kill: vi.fn(),
   } as unknown as EnemyManager;
@@ -243,6 +244,86 @@ describe('WaveManager', () => {
       wm.startWave(makeWaveConfig({ count: 1, spawnDelay: 50 }));
       wm.tickSpawn(0);
       expect(wm.checkWaveComplete()).toBe(false);
+    });
+  });
+
+  /**
+   * The STUCK warning of checkWaveComplete, called once per sub-step as
+   * GameStateManager does. A wave of one enemy, all spawned, still alive:
+   * its counters stand as long as it lives.
+   */
+  describe('stuck diagnosis', () => {
+    let walked: number;
+    let body: { tailM: number } | null;
+    let hp: number;
+    let warn: ReturnType<typeof vi.spyOn>;
+    const stuckWarnings = () => warn.mock.calls.filter((call: unknown[]) => String(call[0]).includes('STUCK')).length;
+    const steps = (n: number, each?: () => void) => {
+      for (let i = 0; i < n; i++) {
+        each?.();
+        wm.checkWaveComplete();
+      }
+    };
+
+    beforeEach(() => {
+      walked = 0;
+      body = null;
+      hp = 3000;
+      warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const lone = {
+        movement: { getDistanceAlongPath: () => walked },
+        get body() {
+          return body;
+        },
+        health: {
+          get hp() {
+            return hp;
+          },
+        },
+      };
+      (enemyManager.getAlive as ReturnType<typeof vi.fn>).mockReturnValue([lone]);
+      (enemyManager.getAliveCount as ReturnType<typeof vi.fn>).mockReturnValue(1);
+      wm.startWave(makeWaveConfig({ count: 1, spawnDelay: 50 }));
+      wm.tickSpawn(0);
+    });
+
+    afterEach(() => warn.mockRestore());
+
+    it('playtest 2026-09-15: a lone boss walking its route for a minute is not stuck', () => {
+      // 3 m/s, the ooze's speed, in 16.7 ms sub-steps
+      steps(3600, () => (walked += 0.05));
+      expect(stuckWarnings()).toBe(0);
+    });
+
+    it('an ooze flowing into the HQ is not stuck: its tip stands, its tail moves up', () => {
+      walked = 500;
+      body = { tailM: 420 };
+      steps(1600, () => (body!.tailM += 0.05));
+      expect(stuckWarnings()).toBe(0);
+    });
+
+    it('a machine stunned for 6 s between two stretches of walking is not stuck', () => {
+      steps(500, () => (walked += 0.05));
+      steps(360);
+      steps(1500, () => (walked += 0.05));
+      expect(stuckWarnings()).toBe(0);
+    });
+
+    it('an enemy held at a standstill and fought is not stuck', () => {
+      steps(2400, () => (hp -= 0.5));
+      expect(stuckWarnings()).toBe(0);
+    });
+
+    it('an enemy that neither moves nor loses HP is logged once, after the window that takes the sample and one more', () => {
+      // The first call sees the counters change; the window after it only samples
+      steps(601);
+      expect(stuckWarnings()).toBe(0);
+      steps(599);
+      expect(stuckWarnings()).toBe(0);
+      steps(1);
+      expect(stuckWarnings()).toBe(1);
+      steps(3000);
+      expect(stuckWarnings()).toBe(1);
     });
   });
 

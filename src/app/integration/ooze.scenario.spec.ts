@@ -134,6 +134,17 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     expect(shakes).toHaveLength(10);
   });
 
+  it('playtest 2026-09-15: a lone ooze of W4 walks its route and flows in without a STUCK warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    startOoze(4);
+    // As GameStateManager checks it: once per sub-step
+    while (!m.waveManager.checkWaveComplete() && clock.now < 200_000) run(STEP);
+    expect(m.waveManager.checkWaveComplete()).toBe(true);
+    // Tens of seconds with one enemy alive and the counters standing
+    expect(clock.now).toBeGreaterThan(30_000);
+    expect(warn.mock.calls.filter((call) => String(call[0]).includes('STUCK'))).toEqual([]);
+  });
+
   it('421: at W45 and 4x it shakes at most every 900 ms of wall time, until the leak budget of the wave is spent', () => {
     expect(enemyBaseDamageForWave(45)).toBe(5);
     startOoze(45);
