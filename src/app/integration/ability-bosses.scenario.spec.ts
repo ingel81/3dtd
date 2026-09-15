@@ -112,6 +112,7 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
         }
         return kills;
       },
+      showDamage: () => undefined,
       // As CombatEffectService.applyAbilityHalt applies them
       halt: (targets, kind, durationMsOf, sourceId) => {
         for (const enemy of targets) {

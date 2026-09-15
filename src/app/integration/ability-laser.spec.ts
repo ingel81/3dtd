@@ -45,6 +45,8 @@ import { StatusEffectService } from '../services/combat/status-effect.service';
 import { GameObject } from '../core/game-object';
 import { ABILITIES } from '../configs/abilities.config';
 import { EnemyTypeId } from '../configs/enemy-types.config';
+import { EFFECTIVENESS_COLORS } from '../configs/combat/damage-matrix.config';
+import type { DamageEffectiveness } from '../configs/combat/combat.types';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { SpawnStart } from '../managers/enemy.manager';
@@ -82,9 +84,23 @@ interface Outcome {
   resolvedStep: number;
   hpShare: number[];
   alive: boolean[];
+  maxHp: number[];
   hits: number;
   kills: number;
   credits: number;
+  /** Credits gained since the wave start */
+  earned: number;
+  /** Damage numbers, as "text colour" */
+  numbers: string[];
+  /** Gold popups, as "text colour" */
+  goldPopups: string[];
+}
+
+/** The floating texts of a run as "text colour": damage numbers start with "-", gold with "+" */
+function floatingTexts(texts: ReturnType<typeof vi.fn>, prefix: '-' | '+'): string[] {
+  return texts.mock.calls
+    .filter(([text]) => (text as string).startsWith(prefix))
+    .map(([text, , , , config]) => `${text} ${(config as { color: string }).color}`);
 }
 
 function run(timescale: number): Outcome {
@@ -112,7 +128,9 @@ function run(timescale: number): Outcome {
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  gsm.initialize(createEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
+  const engine = createEngine() as unknown as { effects: { spawnFloatingText: ReturnType<typeof vi.fn> } };
+  gsm.initialize(engine as never, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
+  const creditsBefore = gsm.credits();
   gsm.trainingTimescale.set(timescale);
   const bus = gsm.getEventBus();
   bus.emit({
@@ -163,9 +181,13 @@ function run(timescale: number): Outcome {
     resolvedStep,
     hpShare: enemies.map((e) => e.health.hp / e.health.maxHp),
     alive: enemies.map((e) => e.alive),
+    maxHp: enemies.map((e) => e.health.maxHp),
     hits,
     kills,
     credits: gsm.credits(),
+    earned: gsm.credits() - creditsBefore,
+    numbers: floatingTexts(engine.effects.spawnFloatingText, '-'),
+    goldPopups: floatingTexts(engine.effects.spawnFloatingText, '+'),
   };
 }
 
@@ -197,5 +219,24 @@ describe('Orbital laser through the sub-step loop', () => {
 
   it('gives the same outcome at timescale 1 and 10', () => {
     expect(run(10)).toEqual(run(1));
+  });
+
+  it('shows every burnt enemy one number with what it lost, coloured by fire against its armor', () => {
+    const { numbers, hpShare, maxHp } = run(1);
+    const number = (i: number, share: number, tier: DamageEffectiveness) =>
+      `-${Math.round(maxHp[i] * share)} ${EFFECTIVENESS_COLORS[tier]}`;
+    expect([...numbers].sort()).toEqual([
+      number(0, 1 - hpShare[0], 'devastating'), // zombie, unarmored: fire 1.5
+      number(1, 1 - hpShare[1], 'normal'),      // tank, heavy: fire 0.6
+      number(2, 1 - hpShare[2], 'weak'),        // herbert, fortified: fire 0.25
+      number(5, 0.5, 'devastating'),            // the half-burnt zombie: the half it had left
+    ].sort());
+  });
+
+  it('pays its kill from the kill budget like any other kill, with its gold popup', () => {
+    const { kills, goldPopups, earned } = run(1);
+    expect(kills).toBe(1);
+    expect(earned).toBeGreaterThan(0);
+    expect(goldPopups).toEqual([`+${earned} #FFD700`]);
   });
 });

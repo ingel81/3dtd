@@ -19,6 +19,7 @@ import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
+import { DAMAGE_MATRIX, EFFECTIVENESS_COLORS, getEffectiveness } from '../../configs/combat/damage-matrix.config';
 
 /**
  * Coverage: Splash trifft nur Ziele, die der Quell-Tower anvisieren darf.
@@ -282,5 +283,50 @@ describe('CombatEffectService ability strike', () => {
     expect(service.applyAbilityStrike(targets as never, () => 0.6)).toBe(200);
     const bloody = applyMaxHpFraction.mock.calls.filter((c) => c[3] === true).length;
     expect(bloody).toBe(ABILITY_DEATH_BLOOD_CAP);
+  });
+});
+
+describe('CombatEffectService ability damage numbers', () => {
+  let spawnFloatingText: ReturnType<typeof vi.fn>;
+  let service: CombatEffectService;
+
+  /** An enemy with 200 max HP wearing `armor` */
+  const enemy = (armor: string) => ({
+    health: { maxHp: 200 },
+    position: { lat: 48, lon: 9 },
+    transform: { terrainHeight: 10 },
+    heightOffset: 0,
+    body: null,
+    getEffectiveArmorType: () => armor,
+  }) as never;
+  const shown = () => spawnFloatingText.mock.calls.map(([text, , , , config]) => [text, config.color]);
+
+  beforeEach(() => {
+    Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
+    service = new CombatEffectService();
+    spawnFloatingText = vi.fn();
+    (service as unknown as { tilesEngine: unknown }).tilesEngine = { effects: { spawnFloatingText } };
+  });
+
+  it('shows a share of max HP past the matrix as a normal hit, whatever the armor', () => {
+    service.showAbilityDamage(enemy('fortified'), 0.6, null);
+    expect(shown()).toEqual([['-120', EFFECTIVENESS_COLORS.normal]]);
+  });
+
+  it('colours a beam by how its damage type does against the armor, as a tower hit', () => {
+    service.showAbilityDamage(enemy('unarmored'), 0.3, 'fire');
+    service.showAbilityDamage(enemy('fortified'), 0.05, 'fire');
+    expect(shown()).toEqual([
+      ['-60', EFFECTIVENESS_COLORS[getEffectiveness(DAMAGE_MATRIX.fire.unarmored)]],
+      ['-10', EFFECTIVENESS_COLORS[getEffectiveness(DAMAGE_MATRIX.fire.fortified)]],
+    ]);
+    expect(shown()[0][1]).not.toBe(shown()[1][1]);
+  });
+
+  it('leaves out a number that rounds to 0, and all of them with damage numbers off', () => {
+    service.showAbilityDamage(enemy('unarmored'), 0.002, null); // 0.4 HP
+    service.damageNumbersEnabled = false;
+    service.showAbilityDamage(enemy('unarmored'), 0.6, null);
+    expect(spawnFloatingText).not.toHaveBeenCalled();
   });
 });

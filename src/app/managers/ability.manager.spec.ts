@@ -30,6 +30,7 @@ describe('AbilityManager', () => {
   let halts: { ids: string[]; status: string; durations: number[]; sourceId: string }[];
   let sweep: RouteSweep | null;
   let strikeKills: number;
+  let numbers: { id: string; fraction: number; damageType: string | null }[];
   let world: AbilityWorld;
 
   const unlock = (perkId: string = NUKE.perkId) =>
@@ -53,6 +54,7 @@ describe('AbilityManager', () => {
     halts = [];
     sweep = null;
     strikeKills = 0;
+    numbers = [];
     world = {
       snapToRoute: vi.fn((target: GeoPosition) => (routeInReach ? { ...target, height: 5 } : null)),
       enemiesInRadius: vi.fn((_center: GeoPosition, _radius: number, out: Enemy[]) => {
@@ -68,6 +70,9 @@ describe('AbilityManager', () => {
         halts.push({ ids: targets.map((t) => t.id), status, durations: targets.map(durationOf), sourceId });
       }),
       routeSweep: vi.fn(() => sweep),
+      showDamage: vi.fn((enemy: Enemy, fraction: number, damageType: string | null) => {
+        numbers.push({ id: enemy.id, fraction, damageType });
+      }),
     };
     manager = new AbilityManager(bus, world);
     manager.setPhaseProvider(() => phase);
@@ -143,6 +148,19 @@ describe('AbilityManager', () => {
       manager.use('nuclear-strike', TARGET);
       tick(90);
       expect(strikes).toEqual([{ ids: ['z1', 'boss', 'bat1'], fractions: [0.6, 0.2, 0.6] }]);
+    });
+
+    it('shows every target its share as a damage number past the matrix, the killed ones included', () => {
+      inRadius = [enemyOf('z1', 'zombie'), enemyOf('boss', 'herbert')];
+      strikeKills = 1;
+      manager.use('nuclear-strike', TARGET);
+      tick(89);
+      expect(numbers).toEqual([]);
+      tick(1);
+      expect(numbers).toEqual([
+        { id: 'z1', fraction: 0.6, damageType: null },
+        { id: 'boss', fraction: 0.2, damageType: null },
+      ]);
     });
 
     it('reports a strike as pending from the command until it lands', () => {
@@ -315,6 +333,43 @@ describe('AbilityManager', () => {
       manager.use('orbital-laser', TARGET);
       tick(60 + BURN_STEPS);
       expect(resolved).toEqual([expect.objectContaining({ hits: 1, kills: 24 })]);
+    });
+
+    it('shows an enemy the sum of its ticks as one number in the sub-step the beam has moved on', () => {
+      inRadius = [beamEnemy('z1', 'zombie')];
+      manager.use('orbital-laser', TARGET);
+      // The landing sub-step and 9 more: 10 ticks of 2.5 % on it (fire 1.5 against unarmored)
+      tick(60 + 9);
+      expect(numbers).toEqual([]);
+      inRadius = [];
+      tick(1);
+      expect(numbers).toEqual([{ id: 'z1', fraction: expect.closeTo(0.25, 4), damageType: 'fire' }]);
+      tick(BURN_STEPS);
+      expect(numbers).toHaveLength(1);
+    });
+
+    it('shows a number once an enemy has its cap, and every second on one it stays on', () => {
+      inRadius = [beamEnemy('z1', 'zombie'), beamEnemy('boss', 'herbert')];
+      manager.use('orbital-laser', TARGET);
+      tick(60 + BURN_STEPS);
+      const of = (id: string) => numbers.filter((n) => n.id === id).map((n) => n.fraction);
+      // At the cap after 24 ticks: one number with all of it, in the 25th
+      expect(of('z1')).toEqual([expect.closeTo(0.6, 4)]);
+      // Fortified boss: 0.25 x 30 % per second, a number after 60 and 120 ticks, the rest at its cap (160)
+      expect(of('boss')).toEqual([expect.closeTo(0.075, 4), expect.closeTo(0.075, 4), expect.closeTo(0.05, 4)]);
+      expect(numbers.every((n) => n.damageType === 'fire')).toBe(true);
+    });
+
+    it('shows what is left when the beam is over', () => {
+      sweep = routeSweepToward([ROUTE], TARGET, LASER.snapRadiusM, 9); // 0.5 s of burn, 30 ticks
+      inRadius = [beamEnemy('t1', 'tank')];
+      manager.use('orbital-laser', TARGET);
+      tick(60 + 28);
+      expect(numbers).toEqual([]);
+      tick(1);
+      // Heavy: 1 % a tick for all 30 ticks, below its cap and under a second
+      expect(numbers.map((n) => n.fraction)).toEqual([expect.closeTo(0.3, 4)]);
+      expect(manager.hasPendingStrikes()).toBe(false);
     });
 
     it('ends where the stretch ends before its time is up', () => {

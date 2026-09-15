@@ -40,9 +40,18 @@ import {
   lockedAbilityStatus,
 } from '../configs/abilities.config';
 import type { ResearchEffect } from '../configs/research/research.types';
+import type { DamageType } from '../configs/combat/combat.types';
 import type { GeoPosition, GamePhase } from '../models/game.types';
 import type { Enemy } from '../entities/enemy.entity';
 import { pointAlongSweep, type RouteSweep } from '../utils/route-sweep';
+
+/**
+ * A beam adds an enemy's damage up over its ticks and shows it as one
+ * number when it is done with the enemy: moved on, the cap reached, the
+ * enemy dead, or the beam over. On an enemy it stays on longer (the body of
+ * an ooze) it shows the sum at least this often, game ms.
+ */
+export const BEAM_NUMBER_EVERY_MS = 1000;
 
 /** What the manager needs from the world: route grid and damage path. */
 export interface AbilityWorld {
@@ -52,6 +61,12 @@ export interface AbilityWorld {
   enemiesInRadius(center: GeoPosition, radiusM: number, out: Enemy[]): Enemy[];
   /** Every target loses `fractionOf(enemy)` of its max HP; returns the kills */
   strike(targets: readonly Enemy[], fractionOf: (enemy: Enemy) => number): number;
+  /**
+   * A damage number over `enemy` for `fraction` of its max HP, drawn like a
+   * tower hit: coloured by how `damageType` does against its armor, null
+   * for damage past the matrix
+   */
+  showDamage(enemy: Enemy, fraction: number, damageType: DamageType | null): void;
   /** Every target halts with `status` for `durationMsOf(enemy)` game ms, the effect kept under `sourceId` */
   halt(targets: readonly Enemy[], status: AbilityHaltStatus, durationMsOf: (enemy: Enemy) => number, sourceId: string): void;
   /**
@@ -76,9 +91,19 @@ export interface PendingStrike {
   burntMs: number;
   /** A beam: share of its max HP each enemy has lost to it so far */
   readonly dealt: Map<Enemy, number> | null;
+  /** A beam: damage not shown as a number yet, per enemy (BEAM_NUMBER_EVERY_MS) */
+  readonly unshown: Map<Enemy, UnshownDamage> | null;
   kills: number;
   /** Resolved; dropped from the queue at the end of the sub-step */
   done: boolean;
+}
+
+/** Damage a beam has dealt an enemy since its last number. */
+interface UnshownDamage {
+  /** Share of the enemy's max HP */
+  share: number;
+  /** The beam's burnt time at the first tick of it, game ms */
+  sinceMs: number;
 }
 
 export type AbilityUseResult =
@@ -250,6 +275,7 @@ export class AbilityManager implements IGameManager {
       sweep,
       burntMs: -1,
       dealt: sweep ? new Map() : null,
+      unshown: sweep ? new Map() : null,
       kills: 0,
       done: false,
     };
@@ -322,6 +348,10 @@ export class AbilityManager implements IGameManager {
       switch (effect.kind) {
         case 'max-hp-fraction':
           strike.kills = this.world.strike(targets, (enemy) => abilityDamageFraction(effect, enemy.typeConfig));
+          // One number per target, the killed ones included, like a tower hit
+          for (const enemy of targets) {
+            this.world.showDamage(enemy, abilityDamageFraction(effect, enemy.typeConfig), null);
+          }
           break;
         case 'freeze':
           this.world.halt(targets, 'freeze', (enemy) => abilityFreezeMs(effect, enemy.typeConfig), sourceId);
@@ -373,18 +403,48 @@ export class AbilityManager implements IGameManager {
       strike.kills += this.world.strike(targets, (enemy) => shares.get(enemy) ?? 0);
     }
     targets.length = 0;
-    shares.clear();
 
-    strike.burntMs += stepMs;
     // The sweep may end sooner than the time is up; a beam without speed stands for its time
     const burnMs = abilityBeamBurnMs(effect, sweep.length);
+    const tickEndMs = strike.burntMs + stepMs;
+    this.showBeamDamage(strike, effect.damageType, tickEndMs, tickEndMs >= burnMs);
+    shares.clear();
+
+    strike.burntMs = tickEndMs;
     if (strike.burntMs >= burnMs) this.finish(strike, dealt.size);
+  }
+
+  /**
+   * Numbers of a beam tick: this sub-step's shares (beamShares) go onto the
+   * damage not shown yet, and every enemy the beam is done with shows its
+   * sum: not hit this sub-step, hit for BEAM_NUMBER_EVERY_MS since its last
+   * number, or all of them when the beam is `over`. Runs before the tick's
+   * time is added: `strike.burntMs` is its start, `tickEndMs` its end.
+   */
+  private showBeamDamage(strike: PendingStrike, damageType: DamageType, tickEndMs: number, over: boolean): void {
+    const unshown = strike.unshown;
+    if (!unshown) return;
+    const shares = this.beamShares;
+    for (const [enemy, share] of shares) {
+      const entry = unshown.get(enemy);
+      if (entry) {
+        entry.share += share;
+      } else {
+        unshown.set(enemy, { share, sinceMs: strike.burntMs });
+      }
+    }
+    for (const [enemy, entry] of unshown) {
+      if (!over && shares.has(enemy) && tickEndMs - entry.sinceMs < BEAM_NUMBER_EVERY_MS) continue;
+      this.world.showDamage(enemy, entry.share, damageType);
+      unshown.delete(enemy);
+    }
   }
 
   /** The strike is over: announce its hits and kills, drop it at the end of the sub-step. */
   private finish(strike: PendingStrike, hits: number): void {
     strike.done = true;
     strike.dealt?.clear();
+    strike.unshown?.clear();
     this.eventBus.emit({
       type: 'ability:resolved',
       abilityId: strike.abilityId,

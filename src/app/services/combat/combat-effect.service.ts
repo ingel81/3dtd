@@ -17,8 +17,13 @@ import { geoDistanceFast } from '../../utils/geo-utils';
 import { TowerManager } from '../../managers/tower.manager';
 import { EnemyManager } from '../../managers/enemy.manager';
 import { GameEventBus, SubscriptionBag } from '../../game-engine';
-import { DamageType, DamageResult } from '../../configs/combat/combat.types';
-import { EFFECTIVENESS_COLORS, EFFECTIVENESS_SCALES } from '../../configs/combat/damage-matrix.config';
+import { DamageType, DamageResult, DamageEffectiveness } from '../../configs/combat/combat.types';
+import {
+  DAMAGE_MATRIX,
+  EFFECTIVENESS_COLORS,
+  EFFECTIVENESS_SCALES,
+  getEffectiveness,
+} from '../../configs/combat/damage-matrix.config';
 import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
 import { enemyHitSpot } from '../../utils/enemy-hit-spot';
 import { ROUTE_BODY_AIM_HEIGHT_M, type RouteBodyContact } from '../../utils/route-body';
@@ -303,10 +308,14 @@ export class CombatEffectService {
    * Spawn a floating damage number with effectiveness-based color and scale.
    */
   private spawnDamageNumberFromResult(enemy: Enemy, result: DamageResult): void {
+    this.spawnDamageNumber(enemy, result.finalDamage, result.effectiveness);
+  }
+
+  private spawnDamageNumber(enemy: Enemy, damage: number, effectiveness: DamageEffectiveness): void {
     if (!this.damageNumbersEnabled || !this.tilesEngine) return;
-    const rounded = Math.round(result.finalDamage);
-    const color = EFFECTIVENESS_COLORS[result.effectiveness];
-    const effectivenessScale = EFFECTIVENESS_SCALES[result.effectiveness];
+    const rounded = Math.round(damage);
+    const color = EFFECTIVENESS_COLORS[effectiveness];
+    const effectivenessScale = EFFECTIVENESS_SCALES[effectiveness];
     // Scale text size with damage: small splash hits → small, big direct hits → large
     const t = Math.min(rounded / 80, 1);
     const baseScale = 0.25 + t * 0.3; // 0.25 (low dmg) → 0.55 (high dmg)
@@ -455,9 +464,10 @@ export class CombatEffectService {
 
   /**
    * Ability strike: every target loses `fractionOf(enemy)` of its max HP,
-   * matrix-free (DamageApplicationService.applyMaxHpFraction). No damage
-   * numbers, a strike hits up to a few hundred enemies at once, and death
-   * blood for the first ABILITY_DEATH_BLOOD_CAP kills only.
+   * matrix-free (DamageApplicationService.applyMaxHpFraction). Death blood
+   * for the first ABILITY_DEATH_BLOOD_CAP kills only, a strike hits up to a
+   * few hundred enemies at once. The damage numbers come from
+   * showAbilityDamage, when the AbilityManager asks for them.
    *
    * @returns the number of enemies the strike killed
    */
@@ -471,6 +481,19 @@ export class CombatEffectService {
       }
     }
     return kills;
+  }
+
+  /**
+   * Damage number for an ability: `fraction` of the enemy's max HP, drawn
+   * like a tower hit. A beam's `damageType` colours it by how it does
+   * against the armor, damage past the matrix (null) shows as a normal hit.
+   * A number that rounds to 0 is left out.
+   */
+  showAbilityDamage(enemy: Enemy, fraction: number, damageType: DamageType | null): void {
+    const damage = enemy.health.maxHp * fraction;
+    if (Math.round(damage) <= 0) return;
+    const multiplier = damageType ? DAMAGE_MATRIX[damageType][enemy.getEffectiveArmorType()] : 1;
+    this.spawnDamageNumber(enemy, damage, getEffectiveness(multiplier));
   }
 
   /**

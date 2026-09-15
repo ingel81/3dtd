@@ -84,6 +84,7 @@ describe('Nuclear strike on the ooze body, playtest 361 replayed', () => {
         }
         return kills;
       },
+      showDamage: () => undefined,
       halt: () => undefined,
       routeSweep: () => null,
     };
