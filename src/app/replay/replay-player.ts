@@ -356,7 +356,7 @@ export class ReplayPlayer {
     // Stunned enemies spark again from the new time on
     this.stunSparkAt.fill(0);
     // A rumbling tail from before the jump is not heard after it
-    this.audio?.clearTail();
+    this.audio?.clearAbilitySounds();
     this.clearStrikes();
     // Debris a killed ooze threw before the jump would lie on beside the set
     // its band throws again when the jump passes the kill once more
@@ -385,7 +385,7 @@ export class ReplayPlayer {
       // The rumbling tail of an ability's impact sound, in replay time; too
       // fast for sound, what is left of it goes
       if (this.speed <= REPLAY_CONFIG.maxAudioSpeed) this.audio?.update(gameDeltaMs);
-      else this.audio?.clearTail();
+      else this.audio?.clearAbilitySounds();
       if (to >= this.rec.durationMs) this.pause();
     }
     this.engine.setTimescale(this.playing ? this.speed : 0);

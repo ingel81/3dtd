@@ -423,6 +423,17 @@ kommt ohnehin überall. Die Abnahme bleibt (`inverse`, `refDistance` 40,
 - **Erzeugung:** fester Seed, beim ersten Registrieren gebaut und als WAV-Data-URL
   (24 kHz, 16 bit mono) für die Sitzung gecacht; im Test (`nuke-sound.spec.ts`) dauern
   Synthese, WAV und Base64 zusammen etwa 25 ms.
+- **Warnsirene** (`nuclear_strike_siren`, `abilities/nuke_siren.mp3`, 2 s, eine
+  steigende Luftschutzsirene, mit ElevenLabs erzeugt; seit 2026-09-15, E18): ein Loop
+  (`AbilityImpactSound.warning`), den der `AudioService` beim `ability:used` am Ziel
+  anlegt, wo der Zielmarker die Vorwarnung zeigt, auf dem Boden des Route-Grids
+  (`AudioService.setGround`), und beim `ability:impact` desselben `strikeId` vor dem
+  Knall stoppt. Die Vorwarnung dauert 1,5 s Spielzeit: Bei 1x ist der Anstieg zu hören,
+  bei 4x ein Viertel davon. Als Loop steht sie in der Pause (`holdLoops`) und ist nur bis
+  `maxAudibleDistance` (500 m) zu hören, nicht bis 1500 m wie der Knall. Kommt der Loop
+  erst nach dem Einschlag an, stoppt der Service ihn sofort. `game:reset`, ein Sprung im
+  Replay (`clearAbilitySounds`) und `destroy()` beenden sie. Abnahme wie beim Knall
+  (`refDistance` 150, `rolloffFactor` 0,6), `volume` 1.
 
 ### Orbitallaser (synthetisiert, Stücke in Spielzeit)
 `GAME_SOUNDS.orbitalLaser` (`audio.config.ts`), im Code synthetisiert in
@@ -542,6 +553,7 @@ public/assets/sounds/
 │   ├── tentacle/tentacle-01.mp3       # Tentacle-Strike-Sound
 │   └── lightning/lightning_chain.mp3  # Lightning-Chain-Sound
 ├── abilities/                         # mit ElevenLabs erzeugt (E18, 2026-09-15)
+│   ├── nuke_siren.mp3                 # Warnsirene des Nuklearschlags (Loop)
 │   ├── frost_bomb.mp3                 # Einschlag der Frostbombe
 │   └── emp.mp3                        # Einschlag des EMP
 ├── enemies/

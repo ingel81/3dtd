@@ -179,7 +179,7 @@ GameStateManager.runSubStep
 
 | Event | Abnehmer |
 |---|---|
-| `ability:used` | VFXService (Zielmarker), je `abilityId` |
+| `ability:used` | VFXService (Zielmarker), AudioService (Warnsirene des Nuklearschlags), je `abilityId` |
 | `ability:impact` | VFXService, AudioService, ScreenShakeService, je `abilityId` (siehe [Darstellung](#darstellung)) |
 | `ability:resolved` | AIDataCollectorService (`abilityKills`, alle Fähigkeiten). Beim Nuklearschlag im selben Sub-Step direkt nach `ability:impact` |
 | `ability:rejected` | RefusalHintService: Name und Grund in der Kontext-Hinweis-Box, nicht für Befehle des Bots. Die UI prüft vor dem Scharfschalten und vor dem Klick selbst; was ihre eigene Prüfung ablehnt, meldet sie dort genauso ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#context-hint-box)) |
@@ -328,7 +328,12 @@ das noch kommt, höheres Tempo verkürzt es, `game:reset` verwirft ausstehende;
 ein Stück, das schon spielt, spielt zu Ende. Alle Stücke haben Vorrang beim
 Voice-Stealing und sind bis 1500 m zu hören, so weit wie der Shake (Details in
 [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#nuklearschlag-synthetisiert-nachhall-in-spielzeit)).
-Eine Warnsirene gibt es nicht.
+Warnsirene (seit 2026-09-15, E18): Während der Vorwarnung heult am Ziel, wo der
+Zielmarker steht, eine Luftschutzsirene (`nuclear_strike_siren`,
+`abilities/nuke_siren.mp3`, 2 s, mit ElevenLabs erzeugt), vom `ability:used`
+bis zum `ability:impact`; der Knall überdeckt den Schnitt. Sie ist ein Loop:
+Pause hält sie an, bei 4x endet sie nach einem Viertel der Zeit mit dem
+Einschlag, ein Neustart beendet sie. Loops sind nur bis 500 m zu hören.
 
 **Frostbombe:** derselbe Zielmarker in 20 m. Beim Einschlag der Frostausbruch
 (`FrostBurstRenderer`, `FROST_BURST_LOOK`, in Spielzeit wie der Atompilz):
@@ -575,7 +580,8 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
 
 ## Bewusst nicht gemacht
 
-- Keine Warnsirene.
+- Keine Sirene im Wave-Replay: Das Replay reicht `ability:used` nicht an seinen
+  AudioService weiter, und während des Replays ist das Spiel pausiert, Loops stehen.
 - Keine Pause für einen Ton, der schon spielt: One-Shots kennen keine Pause.
   Ein Stück Grollen, das beim Pausieren läuft, spielt zu Ende, höchstens 3 s;
   die Stücke danach warten auf das Weiterspielen.

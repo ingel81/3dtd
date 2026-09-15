@@ -369,6 +369,8 @@ export class GameStateManager {
 
     // Initialize Audio service (subscribes to audio events)
     this.audioService = new AudioService(this.eventBus, tilesEngine);
+    // Its ability loops (the siren) stand on the route grid's ground
+    this.audioService.setGround(this.globalRouteGrid);
 
     // Initialize Screen Shake service (subscribes to explosion/impact events)
     this.screenShakeService = new ScreenShakeService(this.eventBus, tilesEngine);

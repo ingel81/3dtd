@@ -485,7 +485,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         // VFXService, AudioService, ScreenShakeService, BackgroundMusicService, BloodMoonService
         'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
         'enemy:split', 'ability:used', 'ability:impact', 'game:reset', 'hero:level-up',
-        'audio:play', 'ability:impact', 'game:reset',
+        'audio:play', 'ability:used', 'ability:impact', 'game:reset',
         'vfx:projectile-impact', 'health:changed', 'ability:impact', 'enemy:died',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
