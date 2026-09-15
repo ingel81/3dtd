@@ -2,6 +2,7 @@ import { RouteCell } from './route-cell';
 import { RouteCellSampler } from './route-cell-sampler';
 import { logGrid } from './route-grid-log';
 import { HEIGHT_MOVE_M, corridorTrace, countLod, emptyLod, formatLod } from './corridor-trace';
+import { perfTrace } from './perf-trace';
 
 /**
  * Frame-budgeted terrain-refresh sweep over the route cells.
@@ -132,7 +133,7 @@ export class RouteGridHeightSweep {
       const raycasted = this.sampler.raycastCount;
       const skipRatio = total > 0 ? ((skipped / total) * 100).toFixed(1) : '0.0';
       const spanMs = performance.now() - this.start;
-      console.warn(
+      perfTrace.log(() =>
         `[PerfTrace] updateTerrainHeights: spanMs=${spanMs.toFixed(1)} ` +
         `slices=${this.slices} | ` +
         `cells=${total} ` +
@@ -140,7 +141,7 @@ export class RouteGridHeightSweep {
         `raycasted=${raycasted} ` +
         `promoted=${this.promoted} ` +
         `refreshed=${this.refreshed} ` +
-        `peekAvailable=${this.sampler.terrainPeekLOD !== null}`
+        `peekAvailable=${this.sampler.terrainPeekLOD !== null}`,
       );
       logGrid(
         'HEIGHT_UPDATE',

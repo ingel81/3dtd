@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import type { RouteCell } from './route-cell';
 import type { RouteCellSampler } from './route-cell-sampler';
 import { RouteGridHeightSweep } from './route-grid-height-sweep';
+import { perfTrace } from './perf-trace';
 
 const cells = (count: number, sampledFrom = count) =>
   Array.from({ length: count }, (_, key) =>
@@ -19,13 +20,18 @@ function fakeSampler(moves: (cell: RouteCell) => boolean) {
 }
 
 describe('RouteGridHeightSweep', () => {
-  let warn: MockInstance;
+  let log: MockInstance;
 
+  // The [PerfTrace] line is off by default (__perf.trace); these specs read it.
   beforeEach(() => {
-    warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    perfTrace.enabled = true;
   });
 
-  afterEach(() => warn.mockRestore());
+  afterEach(() => {
+    perfTrace.enabled = false;
+    log.mockRestore();
+  });
 
   it('runs every cell in one step with an unlimited budget and reports the moved ones once', () => {
     const onSlice = vi.fn();
@@ -38,8 +44,8 @@ describe('RouteGridHeightSweep', () => {
     expect(onSlice.mock.calls[0][0].map((c: RouteCell) => c.key)).toEqual([0, 2, 4, 6, 8]);
     expect(sweep.active).toBe(false);
 
-    expect(warn).toHaveBeenCalledOnce();
-    const line = String(warn.mock.calls[0][0]);
+    expect(log).toHaveBeenCalledOnce();
+    const line = String(log.mock.calls[0][0]);
     expect(line).toContain('[PerfTrace] updateTerrainHeights:');
     expect(line).toContain('slices=1 | cells=10 peekSkipped=0 (0.0%) raycasted=0 promoted=3 refreshed=2 peekAvailable=false');
   });
@@ -54,7 +60,17 @@ describe('RouteGridHeightSweep', () => {
     expect(sweep.step(0)).toEqual({ done: false, processed: 32, changed: 32 });
     expect(sweep.step(0)).toEqual({ done: true, processed: 6, changed: 6 });
     expect(onSlice.mock.calls.map(([changed]) => changed.length)).toEqual([32, 32, 6]);
-    expect(String(warn.mock.calls[0][0])).toContain('slices=3');
+    expect(String(log.mock.calls[0][0])).toContain('slices=3');
+  });
+
+  it('prints no [PerfTrace] line while __perf.trace is off, and never a warning', () => {
+    perfTrace.enabled = false;
+    const warn = vi.spyOn(console, 'warn');
+    const sweep = new RouteGridHeightSweep(fakeSampler(() => true), vi.fn());
+    sweep.begin(cells(5));
+    sweep.step(Infinity);
+    expect(log).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('starts over when begun again', () => {

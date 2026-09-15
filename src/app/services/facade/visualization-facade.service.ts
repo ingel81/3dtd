@@ -48,6 +48,7 @@ import { DpsBinsOverlay } from '../debug/dps-bins-overlay';
 import { BuildingOverlay } from '../world/building-overlay';
 import { cameraTimeline } from '../../utils/camera-timeline';
 import { corridorTrace } from '../../utils/corridor-trace';
+import { perfTrace } from '../../utils/perf-trace';
 
 /**
  * Sub-facade for visualization, camera, rendering, and height updates.
@@ -770,7 +771,7 @@ export class VisualizationFacadeService {
     this.gameState.getGlobalRouteGrid().initAirRouteLayerIfEnabled();
     const tDebugViz = performance.now();
 
-    console.warn(
+    perfTrace.log(() =>
       `[PerfTrace] onTilesLoaded: ${(tDebugViz - t0).toFixed(1)}ms total | ` +
       `streets=${(tStreets - t0).toFixed(1)} ` +
       `buildings=${(tBuildings - tStreets).toFixed(1)} ` +
@@ -780,7 +781,7 @@ export class VisualizationFacadeService {
       `routeAnim=${(tRouteAnim - tRoutes).toFixed(1)} ` +
       `gameState=${(tGameState - tRouteAnim).toFixed(1)} ` +
       `convergence=${(tConvergence - tGameState).toFixed(1)} ` +
-      `debugViz=${(tDebugViz - tConvergence).toFixed(1)}ms`
+      `debugViz=${(tDebugViz - tConvergence).toFixed(1)}ms`,
     );
     corridorTrace.cost('tilesLoaded', tDebugViz - t0);
     corridorTrace.exit(trace);

@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import { GameStore } from '../../store/game.store';
+import { perfTrace } from '../../utils/perf-trace';
 
 /** Subsystem names for timing & bottleneck detection */
 export type Subsystem = 'enemy' | 'tower' | 'projectile' | 'combat' | 'events' | 'other';
@@ -148,6 +149,9 @@ export class PerformanceProfilerService {
    * for `seconds`. Logs a table and resolves with its rows, see
    * ThreeTilesEngine.runShakeBenchmark. Keep the camera still meanwhile.
    *
+   * `__perf.trace(on = true)` prints the `[PerfTrace]` lines of every tile
+   * load and height sweep, off by default (perf-trace.ts).
+   *
    * `__perf.loseContext(ms = 2000)` loses the WebGL context through
    * renderer.forceContextLoss() and restores it `ms` later
    * (forceContextRestore()), to check what comes back, e.g. the enemy VATs
@@ -166,6 +170,10 @@ export class PerformanceProfilerService {
       guard: (on = true) => this.engine?.setBloomGuard(on) ?? false,
     };
     (globalThis as Record<string, unknown>)['__perf'] = {
+      trace: (on = true) => {
+        perfTrace.enabled = on;
+        return `[PerfTrace] lines ${on ? 'on' : 'off'}`;
+      },
       setRendering: (enabled: boolean) => {
         this.gameStore.renderingEnabled.set(enabled);
         return enabled;
