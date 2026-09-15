@@ -32,6 +32,9 @@
       stabil, einfrieren, Nachmess-Maschinerie entfernen (längerer Ladescreen ok), Phase 2 Regeln vereinfachen:
       Route mittig im begehbaren Band statt an der OSM-Linie (ersetzt ggf. den Umweg-Planer, behebt 732). Kleine
       Objekte auf Plätzen: Band endet davor. Prüfung mit `__corridor.fingerprint()` über drei Kamerapfade je Ort.
+      Phase 1 auch (corrperf, beide Logs): Routenlinie und Marker nur neu bauen, wenn sich Zellen geändert haben
+      (heute bei jedem Tile-Settle, `visualization-facade.service.ts:719`, samt Neustart der Routenanimation);
+      Zellhöhen mit einfrieren; keine Leerlauf-Abtastung derselben Zellen (`route-cell-sampler.ts:156/230`).
 
 - [ ] **Routenkorridor dynamisch nach Straßenbreite** (Top-Priorität, dem Nutzer sehr wichtig)
       Heute ist der Zellkorridor überall gleich breit (`CORRIDOR_WIDTH` 7 m in
