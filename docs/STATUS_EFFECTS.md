@@ -412,17 +412,18 @@ effects: {
 ### Wurm (Kette aus Segmenten)
 
 Jedes Segment ist ein Gegner mit eigenen Effekten. Die Kette geht im Mittel der
-Slow-Multiplikatoren ihrer Segmente (`WormChains`). Freeze und Stun gehen bewusst
-nicht in dieses Mittel ein: Ist ein Segment eingefroren oder betäubt, steht der
-ganze Wurm, bis es wieder frei ist, wie beim Halt aus dem Enemy Debug. Ein
-angehaltenes Segment darf sich nicht bewegen, und die Kette kann es nicht
-zurücklassen, ohne zu reißen; über das Mittel bräuchte eine Frostbombe, die 16
-von 240 Segmenten trifft, die Kette um 7 % langsamer für eine Sekunde, und die
-vereisten Segmente rutschten sichtbar mit. Die Segmente tragen `isBoss`, halten
+Slow-Multiplikatoren ihrer Segmente (`WormChains`). Freeze und Stun wirken nur am
+Kopf (Entscheidung User 2026-09-15): Ist der Kopf eines Wurms eingefroren oder
+betäubt, steht dieser Wurm, bis er wieder frei ist, wie beim Halt aus dem Enemy
+Debug; nach einem Split zählt der Kopf jedes Teils für seinen Teil. Ein
+angehaltener Ring dahinter geht nicht ins Mittel ein und wird im Tempo der
+anderen mitgezogen; er zeigt seinen Zustand nur. Bis dahin hielt jedes
+angehaltene Segment den ganzen Wurm an. Die Segmente tragen `isBoss`, halten
 also 1 s (Freeze) beziehungsweise 0,75 s (Stun). Tint, Eiskristalle und Funken
 zeigen die betroffenen Segmente wie jeder Gegner. Solange der Wurm steht, stehen auch
 Beine und Kiefer aller Segmente, denn ihre Clips laufen nach der zurückgelegten Strecke
-(`gaitStride`, [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md)).
+(`gaitStride`, [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md)); ein
+mitgezogener angehaltener Ring bewegt seine Beine dabei weiter.
 
 ### Ooze (Körper entlang der Route)
 

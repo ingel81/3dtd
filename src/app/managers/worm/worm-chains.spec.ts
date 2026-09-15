@@ -139,14 +139,31 @@ describe('Worm chains', () => {
     }
   });
 
-  it('stands whole while one segment is frozen or stunned, and walks on once it thaws', () => {
+  it('walks on at full pace with frozen or stunned rings behind its head, dragging them along', () => {
     const clock = { now: 0 };
     const head = m.enemyManager.spawn(straightPath(400), 'worm');
     const group = head.worm!.group;
     tickEngine(m, 10_000, clock);
     const before = distance(head);
-    // One segment in the middle, 2 s frozen, then another 1 s stunned
+    // Two rings in the middle: one 2 s frozen, one 2 s stunned
     group.segments[4]!.movement.applyStatusEffect({ type: 'freeze', value: 1, duration: 2000, startTime: clock.now, sourceId: 'frost' });
+    group.segments[7]!.movement.applyStatusEffect({ type: 'stun', value: 1, duration: 2000, startTime: clock.now, sourceId: 'emp' });
+    tickEngine(m, 1900, clock);
+
+    expect(distance(head)).toBeCloseTo(before + SPEED * 1.9, 3);
+    for (const e of out(group)) {
+      expect(distance(e)).toBeCloseTo(distance(head) - e.worm!.slot * chain.spacing, 6);
+    }
+    expect(group.segments[4]!.movement.isFrozen(clock.now)).toBe(true);
+  });
+
+  it('stands whole while its head is frozen or stunned, and walks on once it is free', () => {
+    const clock = { now: 0 };
+    const head = m.enemyManager.spawn(straightPath(400), 'worm');
+    const group = head.worm!.group;
+    tickEngine(m, 10_000, clock);
+    const before = distance(head);
+    head.movement.applyStatusEffect({ type: 'freeze', value: 1, duration: 2000, startTime: clock.now, sourceId: 'frost' });
     tickEngine(m, 1900, clock);
     expect(distance(head)).toBeCloseTo(before, 6);
     for (const e of out(group)) {
@@ -156,11 +173,27 @@ describe('Worm chains', () => {
     tickEngine(m, 1000, clock);
     const walked = distance(head);
     expect(walked).toBeGreaterThan(before + 1);
-    group.segments[7]!.movement.applyStatusEffect({ type: 'stun', value: 1, duration: 1000, startTime: clock.now, sourceId: 'emp' });
+    head.movement.applyStatusEffect({ type: 'stun', value: 1, duration: 1000, startTime: clock.now, sourceId: 'emp' });
     tickEngine(m, 900, clock);
     expect(distance(head)).toBeCloseTo(walked, 6);
     tickEngine(m, 500, clock);
     expect(distance(head)).toBeGreaterThan(walked + 1);
+  });
+
+  it('stands a worm split off behind when its new head is frozen, the front one walks on', () => {
+    const clock = { now: 0 };
+    const head = m.enemyManager.spawn(straightPath(400), 'worm');
+    const group = head.worm!.group;
+    tickEngine(m, 20_000, clock);
+    m.enemyManager.kill(group.segments[5]!);
+    tickEngine(m, 16, clock);
+    const rearHead = group.segments[6]!;
+    const [front, rear] = [distance(head), distance(rearHead)];
+    rearHead.movement.applyStatusEffect({ type: 'freeze', value: 1, duration: 2000, startTime: clock.now, sourceId: 'frost' });
+    tickEngine(m, 1900, clock);
+
+    expect(distance(rearHead)).toBeCloseTo(rear, 6);
+    expect(distance(head)).toBeCloseTo(front + SPEED * 1.9, 3);
   });
 
   it('stands while its head is held and walks once it is started', () => {

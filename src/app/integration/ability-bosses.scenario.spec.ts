@@ -3,7 +3,9 @@
  * replayed through the real EnemyManager and WaveManager, rendering mocked.
  *
  * 398: frost bomb and EMP on part of the worm: the rings in the radius are
- *      frozen or stunned, the whole worm stands, 1 s and 0.75 s as a boss.
+ *      frozen or stunned. Since the user decision of 2026-09-15 only a
+ *      halted head stands the worm (1 s and 0.75 s as a boss); halted rings
+ *      behind it are dragged along.
  *      The real AbilityManager picks the targets with the route grid's query
  *      for enemies without a body, a 2D distance.
  *      L: the beam burns the rings it runs over on its way toward the spawn,
@@ -157,16 +159,15 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
     return m.enemyManager.spawn(route, 'worm');
   };
 
-  /**
-   * A worm 20 s out of the portal, then `id` on the ring `slot` places behind
-   * the head, far enough that the circle does not reach the head.
-   */
-  const hitWorm = (id: AbilityId) => {
+  const spacing = ENEMY_TYPES['worm'].chain!.spacing;
+  /** The first ring far enough behind the head that the circle of `id` does not reach the head */
+  const behindHead = (id: AbilityId) => Math.ceil((ABILITIES[id].radiusM + 5) / spacing);
+
+  /** A worm 20 s out of the portal, then `id` on the ring `slot` places behind the head (0: the head). */
+  const hitWorm = (id: AbilityId, slot: number) => {
     const head = spawnWorm();
     const group = head.worm!.group;
     run(1200, head);
-    const spacing = ENEMY_TYPES['worm'].chain!.spacing;
-    const slot = Math.ceil((ABILITIES[id].radiusM + 5) / spacing);
     const aim = group.segments[slot]!.position;
     expect(abilities.use(id, { lat: aim.lat, lon: aim.lon }).ok).toBe(true);
     const trace = run(WARNING_STEPS, head);
@@ -177,27 +178,51 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
     return { head, struck, kinds, trace };
   };
 
-  it('F: the rings in the 20 m are frozen, the whole worm stands 1 s, the head too', () => {
-    const { head, struck, kinds, trace } = hitWorm('frost-bomb');
+  /** Every struck ring still in its place in the chain: dragged along, not left behind */
+  const inPlace = (head: Enemy, struck: Enemy[]) => {
+    for (const ring of struck) {
+      expect(ring.movement.getDistanceAlongPath()).toBeCloseTo(head.movement.getDistanceAlongPath() - ring.worm!.slot * spacing, 6);
+    }
+  };
+
+  it('F behind the head: the rings in the 20 m are frozen and dragged along, the worm walks on', () => {
+    const { head, struck, kinds, trace } = hitWorm('frost-bomb', behindHead('frost-bomb'));
     expect(resolved).toEqual([expect.objectContaining({ abilityId: 'frost-bomb', kills: 0 })]);
     const hits = resolved[0].hits;
     expect(hits).toBeGreaterThan(1);
 
-    // Frozen rings are the ones in the circle; the head is outside it and stands with them
+    // Frozen rings are the ones in the circle; only a frozen head stands the worm
     expect(struck).toHaveLength(hits);
     expect([...kinds]).toEqual(['freeze']);
     expect(struck).not.toContain(head);
-    expect(stillSteps(trace)).toBe(BOSS_FREEZE_STEPS);
-    expect(trace.at(-1)).toBeGreaterThan(trace[WARNING_STEPS - 1] + 1);
+    expect(stillSteps(trace)).toBe(0);
+    inPlace(head, struck);
   });
 
-  it('E: the rings in the 30 m are stunned, the whole worm stands 0.75 s', () => {
-    const { head, struck, kinds, trace } = hitWorm('emp');
+  it('F on the head: the whole worm stands 1 s', () => {
+    const { head, struck, kinds, trace } = hitWorm('frost-bomb', 0);
+    expect(struck).toContain(head);
+    expect([...kinds]).toEqual(['freeze']);
+    expect(stillSteps(trace)).toBe(BOSS_FREEZE_STEPS);
+    expect(trace.at(-1)).toBeGreaterThan(trace[WARNING_STEPS - 1] + 1);
+    inPlace(head, struck);
+  });
+
+  it('E behind the head: the rings in the 30 m are stunned and dragged along, the worm walks on', () => {
+    const { head, struck, kinds, trace } = hitWorm('emp', behindHead('emp'));
     expect(resolved).toEqual([expect.objectContaining({ abilityId: 'emp', kills: 0 })]);
     expect(resolved[0].hits).toBeGreaterThan(1);
     expect(struck).toHaveLength(resolved[0].hits);
     expect([...kinds]).toEqual(['stun']);
     expect(struck).not.toContain(head);
+    expect(stillSteps(trace)).toBe(0);
+    inPlace(head, struck);
+  });
+
+  it('E on the head: the whole worm stands 0.75 s', () => {
+    const { head, struck, kinds, trace } = hitWorm('emp', 0);
+    expect(struck).toContain(head);
+    expect([...kinds]).toEqual(['stun']);
     expect(stillSteps(trace)).toBe(BOSS_STUN_STEPS);
   });
 
