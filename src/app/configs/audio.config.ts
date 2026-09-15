@@ -239,6 +239,24 @@ export const OOZE_SOUNDS = {
   slurp: { id: 'ooze_slurp', refDistance: 40, rolloffFactor: 1, volume: 0.8, everyM: 3, minIntervalMs: 600 },
 } as const;
 
+/**
+ * Skarnax's voice (managers/worm/worm-sounds.ts): a crawl loop at the head,
+ * generated with ElevenLabs (6 s: a growl, chitin legs skittering, the growl
+ * again; it starts at a random point of it). One per worm, on its head
+ * nearest the listener, `liftM` above the ground. Its id matches no
+ * ENEMY_SOUND_PATTERNS entry, so the enemy budget cannot silence the boss.
+ */
+export const WORM_SOUNDS = {
+  crawl: {
+    id: 'skarnax_crawl',
+    url: 'assets/sounds/enemies/skarnax/crawl.mp3',
+    refDistance: 40,
+    rolloffFactor: 1,
+    volume: 1,
+    liftM: 2,
+  },
+} as const;
+
 /** A sample an ability's impact plays */
 export interface AbilityImpactSample {
   id: string;

@@ -19,6 +19,7 @@ import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/render
 import { WormChains, stepWormSegment } from './worm/worm-chains';
 import type { WormGroup, WormLink } from './worm/worm-group';
 import { OozeBodies } from './ooze-bodies';
+import { WormSounds } from './worm/worm-sounds';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -147,6 +148,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     // The head model is the worm type's own; presentFrame resolves the new slot
     showAsHead: (enemy) => this.tilesEngine?.enemies.setRenderType(enemy.id, enemy.typeConfig.id),
   });
+  /** Skarnax's voice at the head of each worm, moved in presentFrame() */
+  private readonly wormSounds = new WormSounds();
 
   constructor(
     private eventBus: GameEventBus,
@@ -993,6 +996,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
 
     this.oozes.present(engine, gameTimeMs);
+    this.wormSounds.present(this.worms.all, engine);
 
     if (profiling) this.onPresentTiming!(performance.now() - t0);
   }
@@ -1117,6 +1121,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     this.tilesEngine?.enemies.clear();
     this.oozes.clear(this.tilesEngine);
+    this.wormSounds.clear(this.tilesEngine?.spatialAudio ?? null);
     this.killingEnemies.clear();
 
     // Stop frost auras before clearing the tracking set

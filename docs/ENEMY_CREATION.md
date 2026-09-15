@@ -533,8 +533,11 @@ Umgesetzt für Skarnax, the Thousand-Legged Calamity (`worm`).
   dem vordersten Knoten der Kette, sein Kragen deckt den Ring dahinter. Das Schlängeln ist so
   flach, dass die Ringe am Körper geschlossen bleiben; Routenecken rundet `WormPath` (siehe
   Ecken).
-- **Kein Sound:** Alle Segmente sind vom Typ `worm`, ein Loop-Sound liefe auf jedem Segment
-  und belegte das Budget von 12 Gegner-Sounds.
+- **Sound:** kein `movingSound`: Alle Segmente sind vom Typ `worm`, ein Loop-Sound liefe auf
+  jedem Segment und belegte das Budget von 12 Gegner-Sounds. Stattdessen ein Loop je Wurm am
+  Kopf, der dem Listener am nächsten ist (`WormSounds`, `WORM_SOUNDS.crawl`, seit
+  2026-09-15), außerhalb des Gegner-Budgets; siehe
+  [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#skarnax-loop-am-kopf).
 
 ---
 

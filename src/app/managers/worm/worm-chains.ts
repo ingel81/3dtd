@@ -100,6 +100,11 @@ export class WormChains {
     return head;
   }
 
+  /** Every worm on the routes; one beaten since the last tick is still here with `remaining` 0. */
+  get all(): readonly WormGroup[] {
+    return this.groups;
+  }
+
   /** The worm that was spawned with head `id` and is not beaten yet, if any. */
   groupSpawnedWith(id: string): WormGroup | null {
     return this.groups.find((group) => group.spawnedHeadId === id && group.remaining > 0) ?? null;
