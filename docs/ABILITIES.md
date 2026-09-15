@@ -33,7 +33,8 @@ Alle Werte stehen in `configs/abilities.config.ts` (`ABILITIES['nuclear-strike']
 | Ziel | Klick; der Einschlag liegt auf der Mitte der nächsten Route-Zelle im Umkreis von 30 m, sonst wird abgelehnt |
 | Vorwarnung | 1500 ms Spielzeit, das sind 90 Sub-Steps à 16,667 ms |
 | Wirkung | Radius 25 m, gemessen in 2D, also Boden und Luft; 60 % der Max-HP, Bosse (`isBoss`) 20 %; an der Schadensmatrix vorbei (`effect` der Art `max-hp-fraction`) |
-| Gold | jeder Kill zahlt seinen Anteil am Kill-Budget der Welle wie jeder andere; kein Tower bekommt ihn gutgeschrieben. Ein getötetes Skeleton splittet wie bei jedem Kill |
+| Gold | jeder Kill zahlt seinen Anteil am Kill-Budget der Welle wie jeder andere, mit Gold-Popup, und zählt in KILLS und EARNED der Game-Over-Übersicht; kein Tower bekommt ihn gutgeschrieben, auch keinen Veteranenrang. Ein getötetes Skeleton splittet wie bei jedem Kill |
+| Schadenszahl | je getroffenem Gegner eine, die getöteten eingeschlossen: sein Anteil an den Max-HP, rot wie ein normaler Tower-Treffer (matrixfrei, `EFFECTIVENESS_COLORS.normal`). Der Schalter Damage Numbers gilt auch hier |
 | Wave-Director | Kills zählen im Fairness-Gate als Leck (siehe unten) |
 
 Bosse: `isBoss` tragen `herbert`, der Wurm und die Ooze (Boss-Varianten ab W35). Steingolem und
@@ -126,6 +127,8 @@ nach den ersten Wellen. Im Curriculum laufen Maschinen sicher in W9 und W22
 | Vorwarnung | 1000 ms Spielzeit, 60 Sub-Steps |
 | Weg | vom Aufsetzpunkt die Route zurück Richtung Spawn-Portal, 18 m/s für 4000 ms, also höchstens 72 m (`abilityBeamReachM`). Beginnt die Route früher, endet der Strahl dort früher |
 | Wirkung | Radius 5 m um den Strahl in 2D, Boden und Luft. Je Sub-Step verliert jeder Gegner darunter 100 % seiner Max-HP pro Sekunde mal Sub-Step-Länge, mal dem Multiplikator von `fire` gegen seine Rüstung (Schadensmatrix), Bosse 30 % pro Sekunde; über den ganzen Strahl höchstens 60 %, Bosse 20 % (`abilityBeamFraction`, `abilityBeamCap`). Der Schaden läuft über `DamageApplicationService.applyMaxHpFraction` wie beim Nuklearschlag, kein Tower bekommt Kill oder Schaden gutgeschrieben |
+| Gold | wie beim Nuklearschlag: jeder Kill zahlt seinen Anteil am Kill-Budget, mit Gold-Popup |
+| Schadenszahl | je Gegner eine mit der Summe seiner Ticks, sobald der Strahl mit ihm fertig ist: weitergezogen, Kappe erreicht, Gegner tot oder Strahl vorbei. Auf einem Gegner, auf dem er länger steht (Körper der Ooze), mindestens jede Sekunde Spielzeit eine (`BEAM_NUMBER_EVERY_MS`). Farbe und Größe nach der Wirkung von `fire` gegen seine Rüstung wie bei einem Tower-Treffer: gegen ungepanzert gold, gegen schwer rot, gegen befestigt grau. Ein Frontal-Durchlauf (etwa 0,5 s) gibt eine Zahl |
 | Wave-Director | `ability:resolved` kommt nach dem letzten Tick: `hits` sind die Gegner, die der Strahl getroffen hat, `kills` alle seine Kills. Sie zählen als Leck wie beim Nuklearschlag |
 
 **Richtung.** Der Strahl läuft gegen den Strom, vom Klick Richtung Spawn:
@@ -168,6 +171,7 @@ GameStateManager.runSubStep
        GlobalRouteGridService.getEnemiesInRadiusGeo (25 m)
        CombatEffectService.applyAbilityStrike
        DamageApplicationService.applyMaxHpFraction           matrixfrei, kein Tower-Kill
+       CombatEffectService.showAbilityDamage                 Schadenszahl je Treffer (Laser: je Gegner summiert)
                                    │
        ability:impact { target, radiusM }, ability:resolved { hits, kills }
                                   + ability:state-changed
@@ -298,9 +302,13 @@ Umbau nach Playtest 2 zeigte Low nur die Detonation ohne Rauch.
 **Massentode:** Todesblut nur für die ersten `ABILITY_DEATH_BLOOD_CAP` (24)
 Kills eines Schlags. Jede Blutwolke sind 40 Partikel im normalen Pool und ein
 Decal mit Terrain-Raycast; 200 auf einmal liefen über den Pool. Der
-Blut-Decal-Pool (100) verdrängt ohnehin seine ältesten Decals. Die
-Gold-Floating-Texts eines Schlags (je bezahltem Kill einer) bleiben unter dem
-Limit von 2048 Instanzen.
+Blut-Decal-Pool (100) verdrängt ohnehin seine ältesten Decals. Schadenszahlen
+(je Treffer eine) und Gold-Floating-Texts (je bezahltem Kill einer) gehen
+ungedeckelt an den `FloatingTextInstanceManager` und teilen sich seine 2048
+Instanzen in einem Draw Call; 200 Treffer mit 200 Kills sind 400 Texte. Ist er
+voll, verdrängt jeder neue Text den ältesten. Die Zahlen eines Schlags haben
+je Gegnertyp denselben Text, der Atlas zeichnet jeden nur einmal. Bis
+2026-09-15 zeigten Fähigkeiten keine Schadenszahlen.
 
 **Shake und Sound:** Screen-Shake `nuclearStrike` 0,017 der Bildhöhe für
 2200 ms, etwa so lange wie der Knall (2,4 s); bis Playtest 2 0,014 für
@@ -509,7 +517,7 @@ während einer Welle.
 | `three-engine/renderers/emp-pulse.renderer.ts` | Puls des EMP |
 | `three-engine/renderers/orbital-beam.renderer.ts` | Strahl des Orbitallasers |
 | `utils/route-sweep.ts` | Weg des Strahls: Routenabschnitt vom Aufsetzpunkt Richtung Spawn, Punkt nach Metern |
-| `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze und Stun über den `StatusEffectService`) |
+| `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze und Stun über den `StatusEffectService`), `showAbilityDamage` (Schadenszahl wie bei einem Tower-Treffer) |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `utils/nuke-sound.ts` | Ton des Nuklearschlags, im Code synthetisiert: Knall und drei Stücke Grollen |
 | `utils/laser-sound.ts` | Ton des Orbitallasers, im Code synthetisiert: Einschlag und zwei Stücke Brennen |
@@ -549,7 +557,9 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
    Knopf in der Leiste.
 3. Die Wirkung: `AbilityConfig.effect`, eine Art aus `AbilityEffect`;
    `AbilityManager.resolve` hat je Art einen Zweig. Eine neue Art kommt mit
-   ihrem Zweig.
+   ihrem Zweig. Macht sie Schaden, ruft der Zweig `AbilityWorld.showDamage`
+   für die Schadenszahlen; wer in kurzen Ticks trifft, summiert je Gegner wie
+   der Orbitallaser.
 4. Einträge in `abilityVfx` (VFXService), `ABILITY_IMPACT_SOUNDS` und
    `ABILITY_IMPACT_SHAKE`, siehe [Darstellung](#darstellung); ohne sie
    kompiliert der Code nicht. Der Zielmarker (`abilityMarkers.showStrike`)
