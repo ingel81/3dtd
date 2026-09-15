@@ -79,15 +79,28 @@ function network(): StreetNetwork {
 /** Ground height of the photogrammetry at local (x, z); a car, a jetty or a roof has no ground under it. */
 type Ground = (x: number, z: number) => number;
 
-/** A scenario: the ground, and how far the clearance rays reach either side of the line (walls), `left` if not as far as `free`. */
+/** Where a scenario lies: its street network, the spawn on it and the HQ. */
+interface Site {
+  network: () => StreetNetwork;
+  spawn: { lat: number; lon: number };
+  hq: { lat: number; lon: number };
+}
+
+/**
+ * A scenario: the ground, and how far the clearance rays reach either side
+ * of the line (walls), `left` if not as far as `free`; `hole` where the mesh
+ * has none (no hit at all). On the eastbound street unless `site` says else.
+ */
 interface Scene {
   ground: Ground;
   free: number;
   left?: number;
+  hole?: (x: number, z: number) => boolean;
+  site?: Site;
 }
 
-const columnsOf = (ground: Ground) => (x: number, z: number): ColumnSample =>
-  ({ groundY: ground(x, z), topY: ground(x, z), tileDepth: 20, tileGeometricError: 2 });
+const columnsOf = (ground: Ground, hole?: (x: number, z: number) => boolean) => (x: number, z: number): ColumnSample | null =>
+  hole?.(x, z) ? null : { groundY: ground(x, z), topY: ground(x, z), tileDepth: 20, tileGeometricError: 2 };
 
 function engineFor(scene: Scene): ThreeTilesEngine {
   const overlay = new Group();
@@ -112,7 +125,7 @@ function engineFor(scene: Scene): ThreeTilesEngine {
   } as unknown as ThreeTilesEngine;
 }
 
-const SPAWN_POINT = { id: 's1', name: 'Spawn', color: 0xff0000, lat: SPAWN.lat, lon: SPAWN.lon };
+const STREET: Site = { network, spawn: SPAWN, hq: HQ };
 
 /**
  * The route once nothing changes any more: measured, then built, grid,
@@ -121,18 +134,20 @@ const SPAWN_POINT = { id: 's1', name: 'Spawn', color: 0xff0000, lat: SPAWN.lat, 
  */
 function settle(scene: Scene): { service: PathAndRouteService; grid: GlobalRouteGrid; route: RouteWaypoint[]; builds: number } {
   holder.grid = null;
+  const site = scene.site ?? STREET;
+  const spawn = { id: 's1', name: 'Spawn', color: 0xff0000, lat: site.spawn.lat, lon: site.spawn.lon };
   const engine = engineFor(scene);
   const service = new PathAndRouteService();
-  service.initialize(engine, network(), HQ, (() => false) as never, new OsmStreetService(), null);
-  service.showPathFromSpawn(SPAWN_POINT);
+  service.initialize(engine, site.network(), site.hq, (() => false) as never, new OsmStreetService(), null);
+  service.showPathFromSpawn(spawn);
   const run = service.beginClearanceMeasurement();
   run.step(Infinity);
   run.commit();
 
   const build = (): GlobalRouteGrid => {
-    service.showPathFromSpawn(SPAWN_POINT);
+    service.showPathFromSpawn(spawn);
     const grid = new GlobalRouteGrid();
-    grid.initialize(columnsOf(scene.ground) as never, engine.sync as never);
+    grid.initialize(columnsOf(scene.ground, scene.hole) as never, engine.sync as never);
     grid.generateFromRoutes([service.getCachedPath('s1')!]);
     holder.grid = grid;
     return grid;
@@ -144,7 +159,7 @@ function settle(scene: Scene): { service: PathAndRouteService; grid: GlobalRoute
     builds++;
   }
   // The route line on the last grid's heights.
-  service.showPathFromSpawn(SPAWN_POINT);
+  service.showPathFromSpawn(spawn);
   return { service, grid, route: service.getCachedPath('s1')!, builds };
 }
 
@@ -171,13 +186,13 @@ function walks(route: RouteWaypoint[]): { factor: number; x: number; z: number }
   return found;
 }
 
-/** Positions of `route`'s enemies without a cell under them, or on a cell higher than `street` + 0.3 m. */
-function offTheStreet(grid: GlobalRouteGrid, route: RouteWaypoint[], street = 0): string[] {
+/** Positions of `route`'s enemies without a cell under them, or on a cell higher than the street there (`street`) + 0.3 m. */
+function offTheStreet(grid: GlobalRouteGrid, route: RouteWaypoint[], street: Ground = () => 0): string[] {
   const bad: string[] = [];
   for (const { factor, x, z } of walks(route)) {
     const cell = grid.getCellAt(x, z);
     if (!cell) bad.push(`factor ${factor} at ${x.toFixed(2)},${z.toFixed(2)}: no cell`);
-    else if (cell.terrainHeight > street + 0.3) bad.push(`factor ${factor} at ${x.toFixed(2)},${z.toFixed(2)}: ${cell.terrainHeight} up`);
+    else if (cell.terrainHeight > street(x, z) + 0.3) bad.push(`factor ${factor} at ${x.toFixed(2)},${z.toFixed(2)}: ${cell.terrainHeight} up`);
   }
   return bad;
 }
@@ -301,5 +316,108 @@ describe('Route round an obstacle on its centre line', () => {
     const edge = (x: number, z: number) => x >= 55 && x <= 59.5 && z > LINE_Z + 2.5 && z < LINE_Z + 4.3;
     const { route } = settle({ ground: (x, z) => (edge(x, z) ? 1.5 : 0), free: 7 });
     expect(offsets(route).every((o) => Math.abs(o) < 1e-6)).toBe(true);
+  });
+});
+
+/**
+ * Playtest 719, Erlenbach, Erlenbacher Weg (way 959083801, residential), the
+ * cell report of route spawn-1, in the local frame of its picks. The line
+ * runs west-north-west along the south edge of a row of parked cars; left of
+ * travel is south (+z). Centre line cells on the cars 0.56 to 1.19 m over the
+ * line, between them the line near the street; behind the cars the rays find
+ * a low obstacle raised 1.6 to 2.6 m. Left of the cars the corridor had
+ * single missing cells on the street, (413, 25) and (413, 27) without any hit
+ * of their column. The street: 225.07 m at (411, 23), 226.01 m at (391, 21).
+ */
+describe('Route along a row of parked cars with raised ground behind them (playtest 719)', () => {
+  const SQRT10 = Math.sqrt(10);
+  /** The street's line through the centre line cells (415, 21), (409, 19), (403, 17), (391, 13). */
+  const lineZ = (x: number) => 21 + (x - 415) / 3;
+  /** Metres right of travel (north-north-east) from the line. */
+  const across = (x: number, z: number) => (x - 415 - 3 * (z - 21)) / SQRT10;
+  /** x of the point of the line beside (x, z). */
+  const footX = (x: number, z: number) => x - across(x, z) / SQRT10;
+  const geoAt = (x: number, z: number) => ({ lat: ORIGIN.lat - z / METERS_PER_DEGREE_LAT, lon: ORIGIN.lon + x / M_PER_DEG_LON });
+  // A node between the ends, as every street route needs one before the segment nearest to the HQ.
+  const east = { id: 21, ...geoAt(450, lineZ(450)) };
+  const middle = { id: 23, ...geoAt(405, lineZ(405)) };
+  const west = { id: 22, ...geoAt(360, lineZ(360)) };
+  const site: Site = {
+    network: () => ({
+      streets: [{ id: 959083801, name: 'Erlenbacher Weg', type: 'residential', nodes: [east, middle, west] }],
+      nodes: new Map([[east.id, east], [middle.id, middle], [west.id, west]]),
+      bounds: { minLat: 47.99, maxLat: 48.01, minLon: 8.99, maxLon: 9.01 },
+    }),
+    spawn: east,
+    hq: geoAt(360, lineZ(360) - 12),
+  };
+  /** The street, 225.07 m at x = 411 and rising 4.7 % westward. */
+  const street: Ground = (x, z) => 225.07 + (411 - footX(x, z)) * 0.047;
+  /** Cars along the line (from and to, x of the line) and their roofs over the street, as the cells on them. */
+  const CARS: readonly [number, number, number][] = [[412.2, 416.5, 1.0], [407.6, 410.2, 1.2], [399.2, 402.2, 1.4], [390, 394.3, 1.2]];
+  const carAt = (x: number, z: number) => {
+    const v = across(x, z);
+    const f = footX(x, z);
+    return v >= -0.2 && v <= 1.6 ? CARS.find(([a, b]) => f >= a && f <= b) ?? null : null;
+  };
+  const model: Ground = (x, z) => {
+    const v = across(x, z);
+    const f = footX(x, z);
+    const s = street(x, z);
+    const row = f >= 385 && f <= 425;
+    // A garden or a wall behind the cars, the cars, the parking strip between them.
+    if (row && v > 1.6) return s + 1.8;
+    if (row && v >= -0.2) return s + (carAt(x, z)?.[2] ?? 0.1);
+    // The street, front yards past it.
+    return v < -5.5 ? s + 0.15 : s;
+  };
+  /**
+   * The heights the cell report gave, by grid spot: the centre line cells on
+   * the cars and between them (up to 0.6 m over the street beside them), and
+   * the street cells the corridor lost. The model everywhere else.
+   */
+  const REPORTED: Record<string, number> = {
+    '415,21': 225.71, '413,21': 226.08, '411,21': 225.31, '409,19': 226.4, '407,19': 225.81, '405,19': 225.89,
+    '403,17': 225.59, '401,17': 226.94, '399,17': 225.71, '399,15': 226.52, '393,13': 227.24, '391,13': 227.01,
+    '411,23': 225.07, '409,25': 225.07, '407,23': 225.15, '405,21': 225.29, '405,23': 225.28, '391,21': 226.01,
+  };
+  const centre = (v: number) => (Math.floor(v / 2) + 0.5) * 2;
+  const ground: Ground = (x, z) => REPORTED[`${centre(x)},${centre(z)}`] ?? model(x, z);
+  /** No hit at all in the cells (413, 25) and (413, 27), not even half a metre beside their centres. */
+  const hole = (x: number, z: number) => Math.hypot(x - 413, z - 26) < 1.6;
+
+  it('bends to the street and keeps the street beside the cars whole', () => {
+    const { grid, route } = settle({ ground, free: 7, hole, site });
+
+    // Beside the row the route runs 3.5 m left of the line: the reported
+    // cells on the cars are 2 m squares reaching 1.9 m left of it, the first
+    // street column lies 2 m out, and the path keeps 1.5 m clear of it.
+    const beside = route.map((p) => toLocal(p)).filter((p) => footX(p.x, p.z) > 390 && footX(p.x, p.z) < 416);
+    expect(beside.length).toBeGreaterThan(0);
+    for (const p of beside) expect(across(p.x, p.z), `${p.x.toFixed(1)}`).toBeCloseTo(-3.5, 6);
+
+    // Along the row: no cell on anything 0.5 m or more over the street (the
+    // cars, the cells 0.6 m up beside them), none missing on the street left
+    // of it. With planning off, as before the rule, 11 and 6.
+    const raised: string[] = [];
+    const missing: string[] = [];
+    for (let x = 381; x <= 429; x += 2) {
+      for (let z = 1; z <= 35; z += 2) {
+        if (footX(x, z) <= 388 || footX(x, z) >= 418) continue;
+        const rise = ground(x, z) - street(x, z);
+        const v = across(x, z);
+        if (v > -2.5 && v < 1.6 && rise >= 0.5 && grid.getCellAt(x, z)) raised.push(`${x},${z}`);
+        if (v <= -1 && v >= -5.5 && rise <= 0.3 && !grid.getCellAt(x, z)) missing.push(`${x},${z}`);
+      }
+    }
+    expect({ raised, missing }).toEqual({ raised: [], missing: [] });
+    // The two cells without a column are there, as at a seam: (413, 25)
+    // takes the height of its stable neighbours either side (fillGaps);
+    // (413, 27) at the edge of the corridor has no such pair and stays
+    // without a height of its own. Neither is judged, so neither narrows it.
+    expect([grid.getCellAt(413, 25)?.sample.state, grid.getCellAt(413, 27)?.sample.state]).toEqual(['filled', 'unsampled']);
+    expect(offTheStreet(grid, route, street).slice(0, 5)).toEqual([]);
+    // The path passes (403.9, 21.0), 3.5 m left of the line: its cell is named.
+    expect(grid.describeCellsAround(403, 21, 0.5, null)[0]).toMatchObject({ cell: true, walkCheck: 'detour' });
   });
 });

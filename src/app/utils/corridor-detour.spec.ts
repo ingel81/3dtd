@@ -18,8 +18,10 @@ const CELL = 2;
 /** Ground height at local (x, z); a car, a hedge or a jetty has no ground under it in the photogrammetry. */
 type Ground = (x: number, z: number) => number;
 
-const columns = (ground: Ground, tileGeometricError = 2) =>
-  (x: number, z: number): ColumnSample => ({ groundY: ground(x, z), topY: ground(x, z), tileDepth: 20, tileGeometricError });
+/** The columns over `ground`; none where `hole` says the mesh has a hole. */
+const columns = (ground: Ground, tileGeometricError = 2, hole?: (x: number, z: number) => boolean) =>
+  (x: number, z: number): ColumnSample | null =>
+    hole?.(x, z) ? null : { groundY: ground(x, z), topY: ground(x, z), tileDepth: 20, tileGeometricError };
 
 /**
  * A street eastbound along z = 0 from x = 0 to 120, so right of travel is
@@ -103,12 +105,52 @@ describe('planDetours', () => {
     'a street on a dam': (_x, z) => -Math.max(0, Math.abs(z) - 1.5),
     'photogrammetry noise': (x, z) => ((Math.floor(x) + Math.floor(z * 2)) % 2 === 0 ? 0.1 : -0.1),
     'a car at the edge': (x, z) => (car(55, 2.5, 4.3)(x, z) ? 1.5 : 0),
+    // The line on a pavement 0.8 m up along a retaining wall, houses behind: no bump along the line.
+    'the top of a retaining wall': (_x, z) => (z > 0.5 ? 0 : z < -2 ? 8 : 0.8),
+    'a steep street across a steep slope': (x, z) => x * 0.3 + z * 0.25,
   };
   for (const [name, ground] of Object.entries(plain)) {
     it(`finds nothing on ${name}`, () => {
       expect(planDetours(street(), columns(ground), CELL)).toEqual({ pieces: [], passages: [] });
     });
   }
+
+  it('bends round a row of cars the line runs along, to the street, where the other side rises behind them', () => {
+    // Playtest 719, Erlenbach: cars from 0.2 m right of the line to 1.6 m
+    // left of it, a garden 1.8 m up behind them, the parking strip between
+    // cars 0.1 m up; the street only on the right.
+    const onCar = (x: number, z: number) => car(40, -1.6, 0.2)(x, z) || car(47, -1.6, 0.2)(x, z);
+    const ground: Ground = (x, z) => (z >= 0.2 ? 0 : z <= -1.6 ? 1.8 : onCar(x, z) ? 1.5 : 0.1);
+    const plan = planDetours(street(), columns(ground), CELL);
+
+    expect(plan.passages).toEqual([]);
+    expect(plan.pieces).toHaveLength(3);
+    expect(plan.pieces[1]).toEqual({ from: 38, to: 53, offsetFrom: 2, offsetTo: 2 });
+  });
+
+  it('finds the street past the sides of a car the mesh slopes down', () => {
+    // The roof 1.5 m up to 0.9 m either side of the line, its sides 0.6 m up out to 1.6 m.
+    const onCar = car(55, -0.9, 0.9);
+    const side = car(55, -1.6, 1.6);
+    const plan = planDetours(street(), columns((x, z) => (onCar(x, z) ? 1.5 : side(x, z) ? 0.6 : 0)), CELL);
+    expect(plan.pieces[1]).toEqual({ from: 53, to: 61, offsetFrom: 3.5, offsetTo: 3.5 });
+  });
+
+  it('takes the carriageway, not a raised pavement, where both lie beside the cars', () => {
+    // A pavement 0.6 m up left of the cars, the carriageway right of them; between the cars the line 0.3 m up.
+    const onCar = (x: number, z: number) => car(40, -0.9, 0.9)(x, z) || car(47, -0.9, 0.9)(x, z);
+    const ground: Ground = (x, z) => (onCar(x, z) ? 1.4 : z <= -0.9 ? 0.6 : z >= 0.9 ? 0 : 0.3);
+    const plan = planDetours(street(), columns(ground), CELL);
+    expect(plan.pieces[1]).toMatchObject({ offsetFrom: 2.5, offsetTo: 2.5 });
+  });
+
+  it('bends past a hole in the mesh beside the path as if it were street', () => {
+    // A garden left of the car: only the right is free, with no hit at all 3.2 to 4.4 m right of the line.
+    const onCar = car(55, -0.9, 0.9);
+    const ground: Ground = (x, z) => (onCar(x, z) ? 1.5 : z < -1.5 ? 1.2 : 0);
+    const plan = planDetours(street(), columns(ground, 2, (x, z) => x > 45 && x < 70 && z > 3.2 && z < 4.4), CELL);
+    expect(plan.pieces[1]).toEqual({ from: 53, to: 61, offsetFrom: 2.5, offsetTo: 2.5 });
+  });
 
   it('looks for nothing on a segment that is no street on the ground, nor on coarse tiles', () => {
     const onCar = car(55, -0.9, 0.9);

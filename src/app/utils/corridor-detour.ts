@@ -49,12 +49,27 @@ const ACROSS_STEP_M = 0.5;
 const OBSTACLE_REACH_M = 3;
 
 /**
+ * How far past the first column below something on the line the street
+ * beside it may lie, metres (streetBeside): the side of a car the
+ * photogrammetry slopes down. An embankment below a dam falls for longer.
+ */
+const SKIRT_M = 1;
+
+/**
  * Metres either way along the line whose points give the ground of the line
  * at a point (their median), for the obstacles `roofRise` up: a jetty or a
  * roof corner covers a metre or two of the line, the median of nine points
  * keeps four raised ones out of it.
  */
 const ALONG_REACH_M = 4;
+
+/**
+ * How far before and after a point with the street on one side only the
+ * line has to come down for the point to be something standing on it,
+ * metres (raisedAlong): a parked car is 4.5 m long, two bumper to bumper
+ * 9 m, so from any point on them the line comes down within 6 m either way.
+ */
+const BUMP_REACH_M = 6;
 
 /** Obstacle points at most this far apart along the line are one obstacle, metres. */
 const JOIN_M = 2;
@@ -204,24 +219,63 @@ export function planDetours(line: DetourLine, column: ColumnAt, cellSize: number
   const clearance = Math.ceil((cellSize * Math.SQRT1_2) / ACROSS_STEP_M) * ACROSS_STEP_M;
   const indexOf = (s: number) => Math.round(s / DETOUR_SAMPLE_M);
   const along = alongGround(samples);
-  const judged = samples.map((p, k): Judged => judge(p, along[k], groundAt));
+  const judged = samples.map((_p, k): Judged => judge(samples, k, along[k], groundAt));
 
-  // The street ground at a point for a path beside the line: the obstacle's, else the line's own.
-  const streetAt = (k: number, fallback: number): number => judged[k].ground ?? samples[k].y ?? along[k] ?? fallback;
+  // The street beside the nearest obstacle point along the same run, per point.
+  const nearest: (number | null)[] = new Array(samples.length).fill(null);
+  const nearestAt: number[] = new Array(samples.length).fill(Infinity);
+  for (const order of [1, -1]) {
+    let last: { s: number; ground: number; run: number } | null = null;
+    for (let k = order > 0 ? 0 : samples.length - 1; k >= 0 && k < samples.length; k += order) {
+      const ground = judged[k].ground;
+      if (ground !== null) last = { s: samples[k].s, ground, run: samples[k].run };
+      if (!last || last.run !== samples[k].run) continue;
+      const d = Math.abs(samples[k].s - last.s);
+      if (d < nearestAt[k]) {
+        nearestAt[k] = d;
+        nearest[k] = last.ground;
+      }
+    }
+  }
 
-  /** Whether a path `y` right of the line at point `k` has the street within `clearance` either side of it. */
+  /**
+   * The street ground at a point for a path beside the line: the obstacle's
+   * street there; elsewhere the line's own ground where it lies within
+   * `stepRise` of the street beside the nearest obstacle, which keeps the
+   * slope along the street, else that street. Playtest 719: between two
+   * cars the line lay 0.6 m over the street beside them, and a path there
+   * compared the street with that.
+   */
+  const streetAt = (k: number, fallback: number): number => {
+    const beside = judged[k].ground;
+    if (beside !== null) return beside;
+    const street = nearest[k] ?? fallback;
+    const own = samples[k].y ?? along[k];
+    return own !== null && Math.abs(own - street) <= stepRise ? own : street;
+  };
+
+  /**
+   * Whether a path `y` right of the line at point `k` has the street within
+   * `clearance` either side of it. A column without any hit (a hole in the
+   * mesh, as at Erlenbach in playtest 719) is no obstacle, as long as at
+   * least half of them have one.
+   */
   const clear = (k: number, y: number, ground: number, slope: number): boolean => {
     const p = samples[k];
+    let count = 0;
+    let known = 0;
     for (let j = -clearance; j <= clearance + 1e-9; j += ACROSS_STEP_M) {
       const at = y + j;
       const side = at >= 0 ? 'right' : 'left';
       if (Math.abs(at) > line.room(p.i, p.t, side) + wallMargin) return false;
+      count++;
       const h = groundAt(p.x + p.rx * at, p.z + p.rz * at);
-      if (h === null) return false;
+      if (h === null) continue;
+      known++;
       const rise = h - (ground + slope * at);
       if (rise > stepRise || rise < -stepDrop) return false;
     }
-    return true;
+    return 2 * known >= count;
   };
 
   /** Whether the path from `offsetFrom` at `from` to `offsetTo` at `to` keeps clear at every point between. */
@@ -490,48 +544,103 @@ function alongGround(points: readonly LinePoint[]): (number | null)[] {
 }
 
 /**
- * What stands on the line at `p`: `roof` more than `roofRise` above the
- * ground of the line around it (`along`), `step` more than `stepRise` above
- * the street either side of it (raisedAcross), else `clear`.
+ * What stands on the line at point `k`: `roof` more than `roofRise` above
+ * the ground of the line around it (`along`), `step` more than `stepRise`
+ * above the street beside it, else `clear`.
+ *
+ * The street beside it (streetBeside) on both sides, at most `stepRise`
+ * apart: their mean, and the rise between them per metre to the right. The
+ * rule carcells tried as O1 (report 2026-09-15) for cars on the line.
+ *
+ * Or on one side only, where the other rises or falls away (a garden or a
+ * wall behind a row of parked cars the line runs along, or a quay): then the
+ * point must be a bump along the line (raisedAlong), and the line must come
+ * down to that street nearby (reachesAlong). A street along the top of a
+ * retaining wall or across a steep slope is no bump; a quay below a street
+ * is no ground the line comes down to. Playtest 719, Erlenbach
+ * (Erlenbacher Weg, way 959083801): the line runs along the south edge of a
+ * row of cars with raised ground behind them; the street lies on one side
+ * only, and the walk out started on the roofs, so the street beside them
+ * was a drop and the corridor frayed there.
  */
-function judge(p: LinePoint, along: number | null, groundAt: (x: number, z: number) => number | null): Judged {
-  if (p.run < 0 || p.y === null) return { kind: 'clear', ground: null, slope: 0 };
-  if (along !== null && p.y - along > corridorConfig.roofRise) return { kind: 'roof', ground: along, slope: 0 };
-  const beside = raisedAcross(p, p.y, groundAt);
-  return beside ? { kind: 'step', ...beside } : { kind: 'clear', ground: null, slope: 0 };
+function judge(
+  points: readonly LinePoint[],
+  k: number,
+  along: number | null,
+  groundAt: (x: number, z: number) => number | null,
+): Judged {
+  const p = points[k];
+  const clear: Judged = { kind: 'clear', ground: null, slope: 0 };
+  if (p.run < 0 || p.y === null) return clear;
+  const y = p.y;
+  if (along !== null && y - along > corridorConfig.roofRise) return { kind: 'roof', ground: along, slope: 0 };
+  const right = streetBeside(p, y, 1, groundAt);
+  const left = streetBeside(p, y, -1, groundAt);
+  if (right && left && Math.abs(right.ground - left.ground) <= corridorConfig.stepRise) {
+    return { kind: 'step', ground: (right.ground + left.ground) / 2, slope: (right.ground - left.ground) / (right.at + left.at) };
+  }
+  const sides = [right, left].filter((side) => side !== null && reachesAlong(points, k, side.ground));
+  if (sides.length === 0 || !raisedAlong(points, k)) return clear;
+  // Both sides street, at levels further apart than a step: the carriageway beside a raised pavement.
+  return { kind: 'step', ground: Math.min(...sides.map((side) => side!.ground)), slope: 0 };
 }
 
 /**
- * The street either side of something on the line at `p`, whose top is at
- * `y`: out to OBSTACLE_REACH_M on each side, the first column more than
- * `stepRise` below `y`. Both sides need one, at most `stepRise` apart (a
- * quay wall or an embankment falls on one side only), and the ground
- * 1 m further out no more than `stepDrop` below it (not a dam or a ridge the
- * street runs along). Their mean, and the rise between them per metre to
- * the right; null where there is no such street, or a column is unknown.
- * The rule carcells tried as O1 (report 2026-09-15) for cars on the line.
+ * The street on one side of something on the line at `p`, whose top is at
+ * `y` (`sign` 1 right, -1 left): out to OBSTACLE_REACH_M, the first column
+ * more than `stepRise` below `y` with the ground 1 m further out no more
+ * than `stepDrop` below it. Where it still falls there, the side of a car
+ * the photogrammetry slopes down (playtest 719: cells 0.6 m over the street
+ * beside the cars), the street may lie up to SKIRT_M further out; a dam or a
+ * ridge the street runs along falls further. Null where there is none, or a
+ * column on the way is unknown.
  */
-function raisedAcross(
+function streetBeside(
   p: LinePoint,
   y: number,
+  sign: number,
   groundAt: (x: number, z: number) => number | null,
-): { ground: number; slope: number } | null {
+): { at: number; ground: number } | null {
   const { stepRise, stepDrop } = corridorConfig;
-  const side = (sign: number): { at: number; ground: number } | null => {
-    for (let at = ACROSS_STEP_M; at <= OBSTACLE_REACH_M + 1e-9; at += ACROSS_STEP_M) {
-      const h = groundAt(p.x + p.rx * sign * at, p.z + p.rz * sign * at);
-      if (h === null) return null;
-      if (y - h <= stepRise) continue;
-      const behind = groundAt(p.x + p.rx * sign * (at + 1), p.z + p.rz * sign * (at + 1));
-      if (behind === null || h - behind > stepDrop) return null;
-      return { at, ground: h };
-    }
-    return null;
+  let first = Infinity;
+  for (let at = ACROSS_STEP_M; at <= Math.min(OBSTACLE_REACH_M, first + SKIRT_M) + 1e-9; at += ACROSS_STEP_M) {
+    const h = groundAt(p.x + p.rx * sign * at, p.z + p.rz * sign * at);
+    if (h === null) return null;
+    if (y - h <= stepRise) continue;
+    const behind = groundAt(p.x + p.rx * sign * (at + 1), p.z + p.rz * sign * (at + 1));
+    if (behind === null) return null;
+    if (h - behind <= stepDrop) return { at, ground: h };
+    first = Math.min(first, at);
+  }
+  return null;
+}
+
+/** Whether the line comes down more than `stepRise` below point `k` within BUMP_REACH_M both before and after it. */
+function raisedAlong(points: readonly LinePoint[], k: number): boolean {
+  const p = points[k];
+  const reach = Math.round(BUMP_REACH_M / DETOUR_SAMPLE_M);
+  const low = (j: number) => {
+    const q = points[j];
+    return q !== undefined && q.run === p.run && q.y !== null && q.y <= p.y! - corridorConfig.stepRise;
   };
-  const right = side(1);
-  const left = side(-1);
-  if (!right || !left || Math.abs(right.ground - left.ground) > stepRise) return null;
-  return { ground: (right.ground + left.ground) / 2, slope: (right.ground - left.ground) / (right.at + left.at) };
+  let before = false;
+  let after = false;
+  for (let j = 1; j <= reach && !(before && after); j++) {
+    before ||= low(k - j);
+    after ||= low(k + j);
+  }
+  return before && after;
+}
+
+/** Whether the line within BUMP_REACH_M of point `k` comes to within `stepRise` of `ground`. */
+function reachesAlong(points: readonly LinePoint[], k: number, ground: number): boolean {
+  const p = points[k];
+  const reach = Math.round(BUMP_REACH_M / DETOUR_SAMPLE_M);
+  for (let j = Math.max(0, k - reach); j <= Math.min(points.length - 1, k + reach); j++) {
+    const q = points[j];
+    if (q.run === p.run && q.y !== null && Math.abs(q.y - ground) <= corridorConfig.stepRise) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
