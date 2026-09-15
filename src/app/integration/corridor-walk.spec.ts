@@ -340,6 +340,43 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(positionsOutside(grid, route)).toEqual([]);
   });
 
+  /**
+   * Playtest 2026-09-15, 608, Erlenbach: beside a residential street the
+   * corridor stepped down the embankment on the valley side in several rows
+   * of cells, each about 0.5 to 1 m below the one before. The street level,
+   * the gardens on the uphill side at street level (nothing to mirror), the
+   * rows below it uneven as vegetation makes them.
+   */
+  const residential = (verge: number, below: number) => (x: number, z: number) => {
+    const uneven = ((Math.floor(x / CELL) % 3) - 1) * 0.15;
+    return z > 6 ? below + uneven : z > 4 ? verge + uneven : z < -2 ? 0.1 : 0;
+  };
+
+  it('ends the corridor at the edge of a residential street above an embankment', () => {
+    // The first row 0.55 to 0.85 m below the street, the next 1.35 to 1.65 m.
+    const { grid, route, builds } = narrowed(residential(-0.7, -1.5));
+
+    expect(builds).toBe(1);
+    expect(grid.unwalkableCells()).toEqual([]);
+    for (let x = 1; x < 60; x += 2) {
+      expect(grid.getCellAt(x, 3), `${x},3`).toBeDefined();
+      expect(grid.getCellAt(x, 5), `${x},5`).toBeUndefined();
+      expect(grid.getCellAt(x, 7), `${x},7`).toBeUndefined();
+    }
+    expect(grid.getCellAt(31, -5)).toBeDefined(); // the gardens uphill
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
+  it('keeps one row of a verge less than a step below the street, not the embankment below it', () => {
+    // The first row 0.15 to 0.45 m below the street, the next 0.8 m below that.
+    const { grid, route } = narrowed(residential(-0.3, -1.1));
+
+    expect(grid.unwalkableCells()).toEqual([]);
+    expect(grid.getCellAt(31, 5)).toBeDefined();
+    expect(grid.getCellAt(31, 7)).toBeUndefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
   it('ends the corridor at a quay wall, not on the river below it', () => {
     // The river 4 m down from 3 m right of the centre line.
     const { grid, route } = narrowed((_x, z) => (z > 4 ? -4 : 0));
