@@ -412,6 +412,15 @@ describe('GameStateManager', () => {
           [position, 'archer', 0, 0],
         ]);
       });
+
+      it('towerCount counts the towers standing now, also when read before the first one', () => {
+        // The corridor lock asks when the location loads, before any tower stands
+        expect(gsm.towerCount()).toBe(0);
+        gsm.towerManager.placeTower(BASE_POSITION, 'archer', 0);
+        expect(gsm.towerCount()).toBe(1);
+        gsm.towerManager.placeTower({ ...BASE_POSITION, lat: BASE_POSITION.lat + 0.001 }, 'archer', 0);
+        expect(gsm.towerCount()).toBe(2);
+      });
     });
 
     describe('command:set-targeting', () => {
