@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Group, Mesh, MeshBasicMaterial, Scene } from 'three';
+import { Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Scene } from 'three';
 
 // Angular DI replaced by a registry: inject() hands out what the test put there.
 const injectionRegistry: Record<string, unknown> = {};
@@ -409,6 +409,45 @@ describe('GlobalRouteGridService', () => {
       uiStore.airRouteVisible.set(true);
       service.initAirRouteLayerIfEnabled();
       expect(tubeInScene()).toHaveLength(1);
+    });
+  });
+
+  describe('cell report selection', () => {
+    const frames = () => scene.children.find((c) => c.name === 'cell-report-selection');
+    const framesAt = () => {
+      const mesh = frames()!.children[0] as InstancedMesh;
+      const m = new Matrix4();
+      return Array.from({ length: mesh.count }, (_, i) => {
+        mesh.getMatrixAt(i, m);
+        // To the millimetre: the instance matrices are float32
+        return [m.elements[12], m.elements[13], m.elements[14]].map((v) => Math.round(v * 1000) / 1000);
+      });
+    };
+
+    it('frames a cell on its ground and a spot without a cell at its own height', () => {
+      init();
+      service.initDebugViz(scene);
+
+      service.showCellSelection([{ x: 5, y: 99, z: 1 }, { x: 101, y: 7, z: 101 }]);
+
+      // Ground at 3 m, the frames 5 cm above like the overlay plates
+      expect(framesAt()).toEqual([[5, 3.05, 1], [101, 7.05, 101]]);
+      expect(service.isSpatialGridVizVisible()).toBe(false);
+    });
+
+    it('takes the frames down for an empty selection, on clear and without a scene', () => {
+      init();
+      service.showCellSelection([{ x: 5, y: 0, z: 1 }]);
+      expect(scene.children).toHaveLength(0);
+
+      service.initDebugViz(scene);
+      service.showCellSelection([{ x: 5, y: 0, z: 1 }]);
+      service.showCellSelection([]);
+      expect(frames()).toBeUndefined();
+
+      service.showCellSelection([{ x: 5, y: 0, z: 1 }]);
+      service.clear();
+      expect(frames()).toBeUndefined();
     });
   });
 

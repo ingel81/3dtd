@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { GlobalRouteGrid } from '../../utils/global-route-grid';
 import { RouteCell } from '../../utils/route-cell';
 import { buildRouteAltitudeTubes, disposeRouteAltitudeTubes } from '../../utils/route-altitude-tubes';
+import { RouteGridSelectionViz } from '../../utils/route-grid-selection-viz';
 import { Enemy } from '../../entities/enemy.entity';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
@@ -35,6 +36,9 @@ export class GlobalRouteGridService {
   // Air-cell debug visualization mesh — same cell set as spatialGridVizMesh
   // but elevated to terrainY + airSampleYOffset, drawn in the air-layer colour.
   private airSpatialGridVizMesh: InstancedMesh | null = null;
+
+  // Frames around the cells the cell report has selected, see showCellSelection
+  private cellSelection: RouteGridSelectionViz | null = null;
 
   // Air-route tube debug overlay (owned by this service)
   private airRouteTube: Group | null = null;
@@ -544,6 +548,37 @@ export class GlobalRouteGridService {
   }
 
   // ========================================
+  // CELL REPORT SELECTION
+  // ========================================
+
+  /**
+   * Frame these grid spots over the Route Grid Overlay, also while the
+   * overlay is off (the cell report, CellReportService). A spot with a cell
+   * lies on the cell's ground (getGroundLocalYAt), one without at its own
+   * `y`. Empty takes the frames down; so do clear and dispose.
+   */
+  showCellSelection(spots: readonly { x: number; y: number; z: number }[]): void {
+    if (spots.length === 0 || !this.scene) {
+      this.cleanupCellSelection();
+      return;
+    }
+    if (!this.cellSelection) {
+      this.cellSelection = new RouteGridSelectionViz(this.grid.getCellSize());
+      this.scene.add(this.cellSelection.object);
+    }
+    this.cellSelection.setSpots(spots.map((spot) => ({
+      x: spot.x,
+      y: this.grid.getCellAt(spot.x, spot.z) ? this.grid.getGroundLocalYAt(spot.x, spot.z) ?? spot.y : spot.y,
+      z: spot.z,
+    })));
+  }
+
+  private cleanupCellSelection(): void {
+    this.cellSelection?.dispose();
+    this.cellSelection = null;
+  }
+
+  // ========================================
   // AIR-ROUTE TUBE (Quick-Actions toggle)
   // ========================================
 
@@ -722,6 +757,7 @@ export class GlobalRouteGridService {
     this.cleanupSpatialGridVisualization();
     this.cleanupAirSpatialGridVisualization();
     this.cleanupAirRouteLayer();
+    this.cleanupCellSelection();
     this.grid.clear();
     this.initialized = false;
     this.hideDefenseReachMarker();
@@ -734,6 +770,7 @@ export class GlobalRouteGridService {
     this.cleanupSpatialGridVisualization();
     this.cleanupAirSpatialGridVisualization();
     this.cleanupAirRouteLayer();
+    this.cleanupCellSelection();
     this.grid.dispose();
     this.initialized = false;
     if (this.defenseReachMarker) {
