@@ -85,10 +85,12 @@ const WALK: readonly ((g: Game) => void)[] = [
   (g) => g.upgrade('archer'),
   (g) => g.startWave(2),
   (g) => g.completeWave(2),
+  (g) => g.startWave(3),
+  (g) => g.completeWave(3),
   (g) => g.place('research-center'),
   (g) => g.startResearch(),
   (g) => g.researchCheat(),
-  (g) => g.startWave(3),
+  (g) => g.startWave(4),
   (g) => g.useAbility(),
   (g) => g.hireHero(),
 ];
@@ -126,13 +128,15 @@ describe('first-run tips, playtest 502 to 507', () => {
       'Start the first wave 2/7',
       null, // wave 1 runs
       'Upgrade a tower 3/7',
-      null, // upgraded, wave 2 not done
+      null, // upgraded, wave 3 not done
       null, // wave 2 runs
+      null, // wave 2 done, the center tip waits for wave 3
+      null, // wave 3 runs
       'Build a research center 4/7',
       'Start a research 5/7',
       null, // no ability researched yet
       'Use an ability 6/7',
-      'Use an ability 6/7', // wave 3 runs
+      'Use an ability 6/7', // wave 4 runs
       'Hire the Mercenary 7/7',
       null, // hired: the tips are over
     ]);
@@ -140,7 +144,7 @@ describe('first-run tips, playtest 502 to 507', () => {
   });
 
   it('505: the research cheat shows the four ability keys, the strike the hero keys', () => {
-    WALK.slice(0, 8).forEach((move) => move(game));
+    WALK.slice(0, 10).forEach((move) => move(game));
     expect(label()).toBeNull();
 
     game.researchCheat();
@@ -152,7 +156,7 @@ describe('first-run tips, playtest 502 to 507', () => {
       { key: 'L', description: 'Orbital Laser' },
     ]);
 
-    game.startWave(3);
+    game.startWave(4);
     game.useAbility();
     expect(label()).toBe('Hire the Mercenary 7/7');
     expect(service.tip()!.keys.map((k) => k.key)).toEqual(['G', 'V']);
@@ -162,7 +166,7 @@ describe('first-run tips, playtest 502 to 507', () => {
   });
 
   it('505: "Start a research" still up at the cheat stays until Skip', () => {
-    WALK.slice(0, 7).forEach((move) => move(game));
+    WALK.slice(0, 9).forEach((move) => move(game));
     expect(label()).toBe('Start a research 5/7');
     game.researchCheat();
     expect(label()).toBe('Start a research 5/7');
@@ -178,18 +182,18 @@ describe('first-run tips, playtest 502 to 507', () => {
   });
 
   it('505: Tips after a game that skipped "Start a research" shows that one', () => {
-    WALK.slice(0, 7).forEach((move) => move(game));
+    WALK.slice(0, 9).forEach((move) => move(game));
     service.skip();
-    WALK.slice(8).forEach((move) => move(game));
+    WALK.slice(10).forEach((move) => move(game));
     expect(label()).toBeNull();
     service.restart();
     expect(label()).toBe('Start a research 5/7');
   });
 
   it.each([
-    [6, 'Build a research center 4/7'],
-    [8, null],
-    [9, 'Use an ability 6/7'],
+    [8, 'Build a research center 4/7'],
+    [10, null],
+    [11, 'Use an ability 6/7'],
   ])('505 finding: Tips after %i moves shows %s, not the first tip', (moves, expected) => {
     WALK.slice(0, moves).forEach((move) => move(game));
     service.restart();
@@ -211,6 +215,8 @@ describe('first-run tips, playtest 502 to 507', () => {
     game.completeWave(1);
     expect(label()).toBeNull();
     game.completeWave(2);
+    expect(label()).toBeNull();
+    game.completeWave(3);
     expect(label()).toBe('Build a research center 4/7');
 
     // Engine set up again: connect() on the same service
@@ -242,6 +248,9 @@ describe('first-run tips, playtest 502 to 507', () => {
     game.startWave(2);
     expect(look()).toBe('Start a research 5/7');
     game.completeWave(2);
+    expect(look()).toBe('Start a research 5/7');
+    game.startWave(3);
+    game.completeWave(3);
     expect(look()).toBe('Start a research 5/7');
 
     expect(seen).not.toContain('Build a research center 4/7');
