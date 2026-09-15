@@ -52,7 +52,8 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 | ghost | ethereal | 120 | 5 | – | Nur magic/chaos wirkt voll |
 | wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
 | **worm** | heavy | 35 je Segment | 4.5 | – | Boss, Kette aus Segmenten (`chain`, siehe [Kette](#kette-chain-der-wurm)), jedes Segment ein eigener Gegner; Endlos-Rotation ab W35, kein Template |
-| worm-segment | heavy | 35 | 4.5 | – | Modell der Wurm-Segmente (eigener VAT-Pool, statisch). Einzeln gespawnt ein einzelner Ring mit den Werten des Wurms |
+| worm-segment | heavy | 35 | 4.5 | – | Modell der Wurm-Segmente (eigener VAT-Pool). Einzeln gespawnt ein einzelner Ring mit den Werten des Wurms |
+| worm-tail | heavy | 35 | 4.5 | – | Modell des letzten Segments eines Wurms (eigener VAT-Pool): Ring mit Schwanzplatten und Cerci. Einzeln gespawnt ein einzelnes Schwanzstück mit den Werten des Wurms |
 | **ooze** | unarmored | 3000 | 3 | – | Boss (2026-09-14), `isBoss`, ein Körper entlang der Route statt eines Modells ([Körper entlang der Route](#körper-entlang-der-route-ooze)), fließt an der HQ Meter für Meter hinein, zerfällt beim Kill in Slime Clumps. Boss-Variante der Endlos-Rotation, kein Template |
 | slime-clump | unarmored | 15 | 4.5 | – | Nur aus dem Split der Ooze, kein Template. `slime.glb` bei `scale: 0.9` (Hüpfer `Wobble`, Tod `Splat`), grünes Blut (`bloodColor`) |
 
@@ -453,6 +454,7 @@ Ooze; die Ooze teilt sich entlang ihres Körpers statt an einer Stelle (siehe
 ```typescript
 chain: {
   segmentModel: 'worm-segment', // VAT-Pool der Körpersegmente
+  tailModel: 'worm-tail',       // VAT-Pool des letzten Segments
   spacing: 2.5,                 // Abstand der Segmente auf der Routenmitte (m)
   minSegments: 16,
   maxSegments: WORM_MAX_SEGMENTS, // 240
@@ -499,9 +501,13 @@ Umgesetzt für Skarnax, the Thousand-Legged Calamity (`worm`).
 - **Aus dem Portal:** Ein Segment erscheint, wenn sein Slot am Routenstart Distanz 0
   erreicht, also eins nach dem anderen. Wer noch nicht draußen ist, ist kein Gegner (kein
   Ziel). Ein zweiter Wurm auf demselben Pfad wartet mit dem Kopf im Portal hinter dem ersten.
+  Das letzte Segment kommt als Schwanz heraus (Pool `tailModel`, `WormLink.tail`); bis dahin
+  steckt der Körper hinten im Portal.
 - **Zerstörtes Segment:** Der Wurm zerfällt in zwei unabhängige Würmer
   (`WormGroup.lose()`). Das erste Segment hinter der Lücke wird Kopf und wechselt in den Pool
-  des Kopfmodells (`InstancedEnemyRenderer.setRenderType()`). Jeder Teil läuft in seinem
+  des Kopfmodells, das letzte davor wird Schwanz und wechselt in den Pool `tailModel`
+  (`WormChains.tickChain()`, `InstancedEnemyRenderer.setRenderType()`). Bleibt ein Segment
+  allein, ist es Kopf, auch wenn es vorher Schwanz war. Jeder Teil läuft in seinem
   eigenen Tempo, rückt dem Teil davor aber nicht näher als zwei Abstände (die Lücke eines
   Segments). Ein Leck am HQ und ein entferntes Segment trennen genauso.
 - **Welle:** Die Welle endet erst, wenn auch die Segmente im Portal draußen und besiegt sind
@@ -525,19 +531,32 @@ Umgesetzt für Skarnax, the Thousand-Legged Calamity (`worm`).
   `ai-schema.json` und Encoder bleiben gleich. In Wellen kommt der Wurm über die
   Boss-Rotation ab W35 (`configs/boss-variants.config.ts`, siehe
   [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-waves)).
-- **Modelle:** `worm_head.glb` und `worm_segment.glb` (`tools/blender/worm_boss.py`),
-  statisch, je eine 512²-Basisfarbe, Blick nach +z, Pivot am Boden unter der Ringmitte.
+- **Modelle:** `worm_head.glb`, `worm_segment.glb` und `worm_tail.glb`
+  (`tools/blender/worm_boss.py`), Blick nach +z, Pivot am Boden unter der Ringmitte.
   `WORM_MODELS` in `enemy-types.config.ts` fasst alles Modellabhängige zusammen (URL, Skala,
-  Offsets, Abstand). Skala 2,5: 7,2 m breit mit Beinen, 4,5 m hoch, ein Ring alle 2,5 m (der
-  `PITCH` des Skripts, 1,0 Einheiten, mit 0,10 Überlappung). Der Kopf sitzt wie ein Ring auf
-  dem vordersten Knoten der Kette, sein Kragen deckt den Ring dahinter. Das Schlängeln ist so
-  flach, dass die Ringe am Körper geschlossen bleiben; Routenecken rundet `WormPath` (siehe
-  Ecken).
+  Offsets, Abstand, Clip). Skala 2,5: 7,2 m breit mit Beinen, 4,5 m hoch, ein Ring alle 2,5 m
+  (der `PITCH` des Skripts, 1,0 Einheiten, mit 0,10 Überlappung). Der Kopf sitzt wie ein Ring
+  auf dem vordersten Knoten der Kette, sein Kragen deckt den Ring dahinter; der Schwanz sitzt
+  auf dem letzten, seine Platten und Cerci reichen 2,2 Einheiten (5,5 m) hinter seinen Ring.
+  Das Schlängeln ist so flach, dass die Ringe am Körper geschlossen bleiben; Routenecken
+  rundet `WormPath` (siehe Ecken).
+  - Textur: je eine Basisfarbe (Kopf 1024², Ring und Schwanz 512²), im Skript gebacken:
+    dunkle Chitinplatten mit bernsteinfarbenen Rändern und rostroten Seitenflanken, darauf
+    Flecken, Poren, Wachstumslinien, die Rückennaht und je eine Naht an der Seite des Rückens,
+    dazu Umgebungsverdeckung mit den Nachbarringen und dem Boden.
+  - Bewegung: jedes Modell ist geskinnt, jedes bewegte Teil ein starrer Knochen (Beine,
+    Mandibeln, Fühler, Cerci), ein Clip je Modell: Ring und Schwanz `Crawl` (32 Frames, die
+    Beine treten, die Cerci pendeln), der Kopf `Jaws` (48 Frames, die Mandibeln öffnen sich
+    langsam und schnappen zu, die Fühler pendeln). Die Clips laufen nach der Strecke
+    (`gaitStride`, [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md#clip-nach-zurückgelegter-strecke-gaitstride)):
+    in der Pause und solange der Wurm steht, stehen Beine und Kiefer, bei höherer Timescale
+    laufen sie schneller.
 - **Sound:** kein `movingSound`: Alle Segmente sind vom Typ `worm`, ein Loop-Sound liefe auf
   jedem Segment und belegte das Budget von 12 Gegner-Sounds. Stattdessen ein Loop je Wurm am
   Kopf, der dem Listener am nächsten ist (`WormSounds`, `WORM_SOUNDS.crawl`, seit
   2026-09-15), außerhalb des Gegner-Budgets; siehe
-  [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#skarnax-loop-am-kopf).
+  [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#skarnax-loop-am-kopf). Der Loop nimmt das erste Segment
+  jeder Kette, nie den Schwanz: ein allein übriges Segment ist Kopf.
 
 ---
 

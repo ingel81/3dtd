@@ -16,11 +16,11 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
   ein Rezept je Modell, siehe [Empfehlungen](#empfehlungen-je-modell)). Beim Start backt das
   Spiel jeden Typ außer der Ooze (`preloadAllModels`; ihr Körper ist ein Band, `slime.glb`
   dient nur der Sidebar-Vorschau). Was die VATs zusammen belegen, steht als Summe unter
-  [Laufzeitkosten](#laufzeitkosten-pro-gegner), am 2026-09-15 96,3 MB (die Ooze mit 0,1 MB
+  [Laufzeitkosten](#laufzeitkosten-pro-gegner), am 2026-09-15 97,4 MB (die Ooze mit 0,1 MB
   eingerechnet; in der Runde vom 2026-09-15 kam der neue Tank mit 0,9 MB dazu, Ghost und Mech
-  wurden 0,8 und 0,2 MB kleiner; 88,2 MB, bevor die Todes-Clips von Zombie v2, Stone Golem
-  und Zombie Soldier ganz in die VAT kamen), alle Typen RGBA16F außer dem Stone Golem
-  (RGBA32F; alles in RGBA32F wären 165,9 MB). Vor der Runde vom 2026-09-13 waren es
+  wurden 0,8 und 0,2 MB kleiner, die Clips und der Schwanz des Wurms kamen mit 1,1 MB dazu;
+  88,2 MB, bevor die Todes-Clips von Zombie v2, Stone Golem und Zombie Soldier ganz in die VAT
+  kamen), alle Typen RGBA16F außer dem Stone Golem (RGBA32F; alles in RGBA32F wären 168,0 MB). Vor der Runde vom 2026-09-13 waren es
   264,2 MB, bis 2026-09-12 (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
   Die Runde vom 2026-09-14 (Tank, Ghost, Mech) steht unter
   [Runde vom 2026-09-14](#runde-vom-2026-09-14), die vom 2026-09-15 (neues Tank-Modell,
@@ -429,20 +429,25 @@ Nicht in der Gegner-Config, deshalb nicht in den Tabellen unten; von Hand gemess
 
 ## Boss-Variante: Skarnax (Wurm)
 
-Modelle: `worm_head.glb` und `worm_segment.glb` (`tools/blender/worm_boss.py`, eigenes Werk
-ohne fremde Quellen), statische Meshes ohne Knochen und Clips, je eine 512²-Basisfarbe
-(JPEG), aus den beim Bauen gesetzten Vertexfarben gebacken; der statische VAT-Pfad liest
-Textur oder Materialfarbe, keine Vertexfarben. Blick nach +z, Pivot am Boden unter der
-Ringmitte, Kettenabstand 1,0 Modelleinheiten (Segment z −0,58 bis 0,52, Breite mit Beinen
-2,88, Höhe 1,78); im Spiel Skala 2,5.
+Modelle: `worm_head.glb`, `worm_segment.glb` und `worm_tail.glb`
+(`tools/blender/worm_boss.py`, eigenes Werk ohne fremde Quellen), geskinnte Meshes mit
+starren Teilen (ein Knochen je Bein, Mandibel, Fühler und Cercus, Gewicht 1) und je einem
+Clip (Kopf `Jaws`, 48 Frames; Ring und Schwanz `Crawl`, 32 Frames), je eine Basisfarbe
+(JPEG; Kopf 1024², Ring und Schwanz 512²), aus Vertexfarben, einer Chitin-Maserung und einer
+Umgebungsverdeckung gebacken; der VAT-Pfad liest Textur oder Materialfarbe, keine
+Vertexfarben. Blick nach +z, Pivot am Boden unter der Ringmitte, Kettenabstand 1,0
+Modelleinheiten (Segment z −0,58 bis 0,52, Schwanz bis −2,70, Breite mit Beinen 2,88, Höhe
+1,78); im Spiel Skala 2,5.
 
-Der Wurm (`worm`, `worm-segment`) steht in keinem Template, die Tabellen führen ihn deshalb
-„in keiner Welle“. Er kommt über die Boss-Rotation ab W35 (`configs/boss-variants.config.ts`),
-einer pro Varianten-Welle, dazu über Custom Wave und Enemy Debug. Ein Wurm hat höchstens
-`WORM_MAX_SEGMENTS` = 240 Segmente: ein Kopf aus dem Pool `worm` (1.700 VAT-Vertices), der
-Rest aus `worm-segment` (634); jeder Split macht ein Körpersegment zum Kopf. Bei 240 lebenden
-Segmenten sind das rund 0,15 Mio. VAT-Vertices, gut 3 % des Richtwerts von 5 Mio. Beide Pools
-sind statisch (ein VAT-Frame) und belegen zusammen unter 0,1 MB VAT-Speicher.
+Der Wurm (`worm`, `worm-segment`, `worm-tail`) steht in keinem Template, die Tabellen führen
+ihn deshalb „in keiner Welle“. Er kommt über die Boss-Rotation ab W35
+(`configs/boss-variants.config.ts`), einer pro Varianten-Welle, dazu über Custom Wave und Enemy
+Debug. Ein Wurm hat höchstens `WORM_MAX_SEGMENTS` = 240 Segmente: ein Kopf aus dem Pool `worm`
+(1.700 VAT-Vertices), das letzte aus `worm-tail` (1.214), der Rest aus `worm-segment` (634);
+jeder Split macht ein Körpersegment zum Kopf und eines zum Schwanz. Bei 240 lebenden Segmenten
+sind das rund 0,15 Mio. VAT-Vertices, gut 3 % des Richtwerts von 5 Mio.; auch mit einem Kopf
+und einem Schwanz je Teil nach mehreren Splits bleibt es in dieser Größe. Die drei VATs
+belegen zusammen etwa 1,1 MB (RGBA16F: 1.700 × 48, 1.214 × 32 und 634 × 32 Texel).
 
 ## Werkzeug
 

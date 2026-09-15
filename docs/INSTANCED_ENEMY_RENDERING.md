@@ -318,8 +318,8 @@ Tönung dort. Die blendenden (Bear, Ghost, Hornet) sind transparent und zeichnen
 sie multiplizieren im Shader mit `bloodMoonTint`, dem Faktor des Quads in den Werten des
 Ziels (1 außerhalb eines Blutmonds).
 
-Kopf und Segmente des Wurms (`worm`, `worm-segment`) sind statische VAT-Pools wie alle
-anderen und bekommen dieselben Uniforms. Die Ooze zeichnet ihren Körper nicht aus einem
+Kopf, Ringe und Schwanz des Wurms (`worm`, `worm-segment`, `worm-tail`) sind VAT-Pools wie
+alle anderen und bekommen dieselben Uniforms. Die Ooze zeichnet ihren Körper nicht aus einem
 Pool, sondern als Band mit eigenem Shader (`renderers/ooze/`); dort sitzen Glühen und
 Tönung eigens, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen).
 
@@ -428,6 +428,7 @@ interface EnemyInstanceState {
   burning: boolean;
   hitFlashEnd: number;     // performance.now() am Ende des Hit-Flash, 0 = keiner
   lastFrame: number;       // zuletzt geschriebener VAT-Frame
+  gait: number;            // zurückgelegter Weg (m) für gaitStride, dazu gaitX/gaitZ als letzte Stelle
   released: boolean;       // Slot freigegeben, der State wird nicht wiederverwendet
   healthBarIndex: number;  // Health-Bar-Slot, -1 = keiner
   // dazu gecachte Heading-Quaternion und Debug-Overrides (debugScale, ...)
@@ -445,6 +446,30 @@ interface EnemyInstanceState {
 
 `speedMultiplier` setzt `updateEnemyState()`: aktuelle Geschwindigkeit geteilt durch
 `baseSpeed`, beim Run-Clip durch `baseSpeed × runSpeedMultiplier`.
+
+### Clip nach zurückgelegter Strecke (`gaitStride`)
+
+Ein Typ mit `EnemyTypeConfig.gaitStride` (Kopf, Ringe und Schwanz des Wurms) spielt seinen
+Walk-Clip nicht nach der Uhr, sondern nach dem Weg, den seine Instanz zurücklegt: eine
+Schleife je `gaitStride` Meter.
+
+- `updateEnemyState()` zählt den waagrechten Weg zwischen zwei Updates in `gait` (Meter,
+  `walkGait()`). Das erste Update setzt `gait` auf die Lage der Stelle entlang der
+  Blickrichtung: Instanzen, die an einer Stelle herauskommen (die Ringe eines Wurms aus dem
+  Portal), starten gleich und trennen sich um das, was jede läuft; Instanzen, die hintereinander
+  zum ersten Mal gezeigt werden (ein Wurm im Replay nach einem Sprung), starten so weit
+  auseinander, wie sie stehen.
+- `updateAnimations()` rechnet den Frame aus `gait / gaitStride`; `animSpeed`,
+  `speedMultiplier` und `randomAnimationStart` wirken nicht. Steht die Instanz (Pause, Frost,
+  EMP, Halt aus dem Enemy Debug), steht der Clip; bei höherer Timescale läuft sie pro Frame
+  weiter, der Clip also schneller. Eine tote Instanz behält ihren Frame.
+- `changeType()` nimmt `gait` mit in den neuen Pool.
+- Der Wurm: Die Ringe schleifen ihren `Crawl`-Clip je 3,33 m (`WORM_GAIT_STRIDE`). Im Clip
+  tritt ein Bein 0,25 Schleifen nach dem Bein eine Modelleinheit davor
+  (`WAVE` in `tools/blender/worm_boss.py`); ein Ring 2,5 m weiter hinten ist 0,75 Schleifen
+  zurück, was dieselbe Welle ergibt: Die Beine des ganzen Wurms treten als eine Welle vom
+  Schwanz zum Kopf, vier Ringe lang, und ein Fuß am Boden geht etwa so schnell zurück, wie
+  der Ring läuft. Der Kopf beißt mit `Jaws` einmal je 7,2 m (1,6 s bei 4,5 m/s).
 
 `InstancedEnemyRenderer.updateAnimations(deltaTime, camera)` ruft danach
 `flushDirtyFlags()` und `updateBillboard()`. Der Debug-Schalter "Animationen aus"
@@ -497,8 +522,9 @@ Wurms sind Gegner des Typs `worm`, der Körper wird aus dem Pool `worm-segment` 
 Wird ein Körpersegment Kopf eines Wurms (Split, siehe
 [ENEMY_CREATION.md](ENEMY_CREATION.md#kette-chain-der-wurm)), zieht
 `setRenderType(id, typeId)` die Instanz in den Pool des Kopfmodells
-(`EnemyInstanceManager.changeType()`): Matrix, Tints, Debug-Overrides und der
-Health-Bar-Slot gehen mit, die Animation beginnt im neuen Pool von vorn. Der alte State ist
+(`EnemyInstanceManager.changeType()`), das letzte Segment vor der Lücke ebenso in den Pool
+`worm-tail`: Matrix, Tints, Debug-Overrides, der Health-Bar-Slot und der zurückgelegte Weg
+(`gait`) gehen mit; eine Animation nach der Uhr beginnt im neuen Pool von vorn. Der alte State ist
 danach `released`, `EnemyManager.presentFrame()` löst den neuen Slot per Id auf. Bis zum
 nächsten `updateSlot()` trägt der neue Slot die alte Matrix, das neue Modell steht also
 höchstens einen Frame in der Skala des alten. Ohne Pool für `typeId` bleibt die Instanz, wo
@@ -571,6 +597,7 @@ Nach dem Bake überschreibt `config.unlit` den erkannten `isUnlit`-Wert, und
 | `deathAnimations` | Pool von Todes-Clips, einer pro Kill (gebacken wie `deathAnimation`) |
 | `deathDuration` | Zeit vom Kill bis zum Entfernen in ms (Standard 2000), so weit werden Todes-Clips gebacken |
 | `animationSpeed` | Playback Speed Multiplier |
+| `gaitStride` | Meter je Schleife des Walk-Clips: der Clip folgt der zurückgelegten Strecke statt der Uhr (siehe Clip nach zurückgelegter Strecke) |
 | `randomAnimationStart` | Zufälliger Start-Offset (verhindert Sync) |
 | `unlit` | true → kein Lighting (Cartoon-Modelle) |
 | `scale` | Model-Skalierung (in Instance Matrix) |
