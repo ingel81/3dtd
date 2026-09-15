@@ -967,6 +967,7 @@ __corridor.towerCells()                                 // Zellen in Reichweite 
 __corridor.towerCells('<towerId>')
 __corridor.pick()                                       // nächster Linksklick auf die Karte, Radius 4 m
 __corridor.pick(6)
+__corridor.report()                                     // Zellbericht: Zellen wählen, JSON kopieren
 ```
 
 - **`set` und `reset`** geben `Not changed: ...` zurück, wenn kein Ort geladen
@@ -1073,6 +1074,45 @@ __corridor.pick(6)
     `tunnel or covered: street width`, `not measured yet: street width`;
   - zuletzt je Station, wo die Kappe des Laufwegs greift: `unwalkable cell beyond`;
   - danach, über die fertigen Stücke: `short narrowing closed`.
+- **`report`** schaltet den Zellbericht ein, wie die Kachel Cells in den
+  Entwickleroptionen, Gruppe Waves & Inspect (`CellReportService`,
+  `debug/cell-report.service.ts`). Solange er an ist:
+  - Linksklick auf die Karte nimmt die Rasterzelle dort in die Auswahl oder
+    wieder heraus, auch eine Stelle ohne Zelle (eine Lücke). Shift +
+    Linksziehen nimmt alle Zellen dazu, deren Mitte im Rechteck auf dem
+    Bildschirm liegt, auch hinter Häusern; das Rechteck folgt gestrichelt.
+    Ziehen ohne Shift, rechte Taste und Mausrad bewegen die Kamera wie sonst,
+    nur Shift + Linksziehen dreht sie in dieser Zeit nicht
+    (`InputHandlerService.setCellReportCallbacks`). Höchstens 100 Zellen
+    (`MAX_REPORT_CELLS`).
+  - Die Auswahl trägt einen orangen Rahmen über der ganzen Zelle, über dem
+    Route Grid Overlay und auch ohne es (`RouteGridSelectionViz`,
+    `GlobalRouteGridService.showCellSelection`).
+  - Das Panel oben in der Mitte zeigt die Zahl der Zellen, nimmt eine Notiz
+    und hat Copy JSON, Clear und Done. Esc oder Done beenden den Bericht,
+    Auswahl und Notiz bleiben bis Clear, bis zu einem HQ an anderer Stelle
+    oder bis zum Neuladen.
+
+  Copy JSON liest jede Zelle so, wie `pick` einen Klick auf ihre Mitte liest
+  (`CorridorConsole.describeCells`), und legt das Ergebnis in die
+  Zwischenablage. Lehnt der Browser das ab, steht es in der Konsole, und das
+  Panel sagt es. Aufbau (`buildCellReport`, `debug/cell-report.ts`; Zahlen
+  auf 2 Stellen, eine Zeile je Station und je Zelle, im Test mit 30 Zellen
+  unter 50 kB):
+  - `meta`: `time`, `url` (ohne Parameter, deren Name nach Schlüssel oder
+    Token klingt), `version`, `location`, `effects` (Preset oder `custom`),
+    `corridor` (nur Werte, die von `CORRIDOR_DEFAULTS` abweichen), `tower`
+    (dessen Antworten die Zeilen tragen), `routes`, `cells`. Kein
+    Tile-Token, kein API-Key, nichts aus `3dtd-tile-credentials`. Einen
+    Git-Commit gibt der Build nicht her, er fehlt.
+  - `note`: die Notiz.
+  - `stations`: jede Station einmal, Schlüssel `Route Station`, mit dem, was
+    `explainCorridorAt` liefert, außer den Stationen daneben (`nearby`).
+  - `cells`: je Zelle die Felder der `pick`-Tabelle (Ausgabe 1 oben, mit
+    `coverAt`), dazu `geo` (lat,lon der Mitte), `nb` (die acht Nachbarn als
+    `"dx,dz": [heightM, walkable]` in Zellen entlang lokal x und z, `null`
+    ohne Zelle), `column` (wie Ausgabe 2), `station` (Schlüssel in
+    `stations`) und `stationM` (Abstand zur Station).
 
 ### `__routes.describe()`
 

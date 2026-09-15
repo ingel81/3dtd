@@ -226,7 +226,7 @@ baut, die sie brauchen, und an denselben Stellen aufruft wie vorher den eigenen 
 | Klasse | Datei | Aufgabe |
 |--------|-------|---------|
 | **CorridorController** | `world/corridor-controller.ts` | `CorridorRefit` verdrahten (Frames, Timer, Sperren), Neuaufbau von Routen, Zellen und Routenlinie, Flush-Haken am `GameStateManager` |
-| **CorridorConsole** | `debug/corridor-console.ts` | `__corridor.get/set/reset/towerCells/pick` |
+| **CorridorConsole** | `debug/corridor-console.ts` | `__corridor.get/set/reset/towerCells/pick/report`; liest dem Zellbericht (`debug/cell-report.service.ts`) die Zellen wie `pick` |
 | **RouteGridConvergence** | `world/route-grid-convergence.ts` | rAF-Schleife nach Tile-Loads (Höhen-Sweep, Retry), Routenlinie, Marker und Animation neu, wenn sich Zellen ändern |
 | **IntroLoadingGate** | `world/intro-loading-gate.ts` | Ladescreen beim ersten Laden halten, bis die Intro-Fahrt Höhen hat |
 | **CameraOverview** | `camera-overview.ts` | Übersichts-Frame, Startansicht, Kamera-Debug-Toggles |
