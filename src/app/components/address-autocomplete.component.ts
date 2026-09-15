@@ -34,20 +34,25 @@ export class AddressAutocompleteComponent {
   locationSelected = output<{ lat: number; lon: number; name: string; address?: NominatimAddress }>();
   locationCleared = output<void>();
 
-  searchText = '';
+  /**
+   * The text in the field. A signal: searchState counts its characters, and
+   * as a plain field the state stayed "idle" while the first two were typed
+   * (nothing it read had changed).
+   */
+  readonly searchText = signal('');
   readonly hasFocus = signal(false);
   readonly showDropdown = signal(false);
 
   // Computed search state for status display
   readonly searchState = computed<SearchState>(() => {
+    const length = this.searchText().length;
     if (this.currentValue()) return 'selected';
     if (this.geocoding.error()) return 'error';
     if (this.geocoding.isLoading()) return 'searching';
-    if (this.searchText.length === 0) return 'idle';
-    if (this.searchText.length < 3) return 'too-short';
+    if (length === 0) return 'idle';
+    if (length < 3) return 'too-short';
     if (this.geocoding.results().length > 0) return 'results';
-    if (this.searchText.length >= 3) return 'no-results';
-    return 'idle';
+    return 'no-results';
   });
 
   constructor() {
@@ -55,14 +60,16 @@ export class AddressAutocompleteComponent {
     effect(() => {
       const value = this.currentValue();
       if (value && !this.hasFocus()) {
-        this.searchText = this.formatValueName(value);
+        this.searchText.set(this.formatValueName(value));
       } else if (!value && !this.hasFocus()) {
-        this.searchText = '';
+        this.searchText.set('');
       }
     });
   }
 
+  /** Each keystroke in the field ((ngModelChange)). */
   onSearchChange(query: string): void {
+    this.searchText.set(query);
     this.geocoding.search(query);
     // Show dropdown when we have results
     if (query.length >= 3) {
@@ -74,7 +81,7 @@ export class AddressAutocompleteComponent {
     this.hasFocus.set(true);
     // Clear text when focusing to edit
     if (this.currentValue()) {
-      this.searchText = '';
+      this.searchText.set('');
       this.locationCleared.emit();
     }
     if (this.geocoding.results().length > 0) {
@@ -90,13 +97,13 @@ export class AddressAutocompleteComponent {
       // Restore text if we have a value
       const value = this.currentValue();
       if (value) {
-        this.searchText = this.formatValueName(value);
+        this.searchText.set(this.formatValueName(value));
       }
     }, 200);
   }
 
   selectResult(result: GeocodingResult): void {
-    this.searchText = this.formatSmartName(result);
+    this.searchText.set(this.formatSmartName(result));
     this.showDropdown.set(false);
     this.geocoding.clearResults();
 
@@ -152,7 +159,7 @@ export class AddressAutocompleteComponent {
   clearValue(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    this.searchText = '';
+    this.searchText.set('');
     this.geocoding.clearResults();
     this.locationCleared.emit();
     // Focus input after clearing
