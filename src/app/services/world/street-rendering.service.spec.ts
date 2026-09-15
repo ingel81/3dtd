@@ -48,7 +48,9 @@ describe('StreetRenderingService', () => {
       terrain: {
         getStreetHeightEstimate: (lat: number, lon: number, _pl: number, _po: number, _nl: number, _no: number, deck: StreetDeck | null) => {
           const id = Object.values(n).find((p) => p.lat === lat && p.lon === lon)!.id;
-          const way = deck === null || deck === 'bridge' ? deck : [deck.path.map((p) => (p as StreetNode).id), Math.round(deck.m)];
+          const way = deck === null || deck === 'bridge' ? deck
+            : 'portals' in deck ? 'under'
+              : [deck.path.map((p) => (p as StreetNode).id), Math.round(deck.m)];
           asked.push([id, way]);
           return deck === null ? 70 : 80;
         },
@@ -75,5 +77,42 @@ describe('StreetRenderingService', () => {
     const ys = Array.from(mesh.geometry.getAttribute('position').array).filter((_, i) => i % 3 === 1);
     expect(ys.slice(0, 2)).toEqual([80.5, 80.5]);
     expect(ys.slice(-2)).toEqual([70.5, 70.5]);
+  });
+
+  /**
+   * Playtest 2026-09-15, Erlenbach (D2): a street under a motorway deck
+   * whose underside the photogrammetry has filled.
+   */
+  it('draws a street node under a bridge of another way between the ground either side', () => {
+    // A street north along x = 30 with a node 4 m south of a motorway bridge across it at z = 0.
+    const n = { south: node(1, 30, -50), near: node(2, 30, -4), north: node(3, 30, 50), west: node(4, 0, 0), east: node(5, 60, 0) };
+    const streets: Street[] = [
+      { id: 100, name: '', type: 'residential', nodes: [n.south, n.near, n.north] },
+      { id: 900, name: '', type: 'motorway', lanes: 3, bridge: 'yes', layer: 1, nodes: [n.west, n.east] },
+    ];
+    const network = { streets, nodes: new Map(), bounds: { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 } } as unknown as StreetNetwork;
+    const asked = new Map<number, StreetDeck | null>();
+    const engine = {
+      getOverlayGroup: () => new Group(),
+      getTerrainHeightAtGeo: () => 0,
+      sync: { geoToLocalSimple: (lat: number, lon: number, h: number) => new Vector3(lon * METERS_PER_DEGREE_LAT, h, -lat * METERS_PER_DEGREE_LAT) },
+      terrain: {
+        getStreetHeightEstimate: (lat: number, lon: number, _pl: number, _po: number, _nl: number, _no: number, deck: StreetDeck | null) => {
+          asked.set(Object.values(n).find((p) => p.lat === lat && p.lon === lon)!.id, deck);
+          return 0;
+        },
+      },
+    } as unknown as ThreeTilesEngine;
+
+    new StreetRenderingService().renderStreets(engine, network, network, { lat: 0, lon: 0 } as never, true);
+
+    expect(asked.get(n.south.id)).toBeNull();
+    expect(asked.get(n.north.id)).toBeNull();
+    // 9 m either side of the bridge, the portals 2 m further: 11 m south and north of it.
+    const under = asked.get(n.near.id) as unknown as { portals: StreetNode[]; f: number; wayId: number };
+    expect(under.wayId).toBe(900);
+    expect(under.portals.map((p) => p.lat * METERS_PER_DEGREE_LAT)).toEqual([expect.closeTo(-11, 1), expect.closeTo(11, 1)]);
+    expect(under.f).toBeCloseTo(7 / 22, 2);
+    expect(asked.get(n.west.id)).toBe('bridge');
   });
 });

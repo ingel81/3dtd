@@ -3,6 +3,7 @@ import type { DeckEnd, RouteCell } from './route-cell';
 import type { Street, StreetNode } from '../interfaces/street-network-provider.interface';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
 import { runsUnderCover } from './route-corridor';
+import type { StreetUnder } from './underpass';
 
 /**
  * Where a bridge deck carries on past the end of its OSM bridge way.
@@ -219,9 +220,10 @@ export function deckEndAt(approach: SegmentApproach, t: number): DeckEnd {
  * What a street point takes its height from (TerrainQueries.getStreetHeightEstimate):
  * `bridge` on a bridge way; on the stretch off a bridge end the way there
  * from the bridge end, geographic, its first point the bridge end and its
- * last the street point, and its length `m`; null elsewhere.
+ * last the street point, and its length `m`; on a stretch under another way
+ * the portals either side (StreetUnder, underpass.ts); null elsewhere.
  */
-export type StreetDeck = 'bridge' | { path: readonly { lat: number; lon: number }[]; m: number };
+export type StreetDeck = 'bridge' | { path: readonly { lat: number; lon: number }[]; m: number } | StreetUnder;
 
 /** A node of the street network on the stretch off a bridge end. */
 export interface StreetDeckApproach {
