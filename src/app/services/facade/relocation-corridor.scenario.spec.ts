@@ -51,7 +51,8 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
   let status: RelocationStatusService;
   let relocation: MapRelocationService;
   let host: RelocationHost;
-  let warn: ReturnType<typeof vi.spyOn>;
+  /** What the move wrote to the console, warnings and plain lines in their order. */
+  let logged: string[];
 
   /** One animation frame: what was requested before it runs, what it requests waits. */
   const runFrame = () => {
@@ -59,7 +60,7 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
     frames.clear();
     for (const callback of due) callback(clock);
   };
-  const lines = (): string[] => warn.mock.calls.map((call: unknown[]) => String(call[0]));
+  const lines = (): string[] => logged;
 
   /** A click in map placement mode on the HQ spot; the hint paints first (two frames). */
   const moveHq = async () => {
@@ -72,7 +73,9 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
   beforeEach(() => {
     clock = 0;
     vi.spyOn(performance, 'now').mockImplementation(() => clock);
-    warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    logged = [];
+    vi.spyOn(console, 'warn').mockImplementation((line: unknown) => { logged.push(String(line)); });
+    vi.spyOn(console, 'log').mockImplementation((line: unknown) => { logged.push(String(line)); });
     frames = new Map();
     nextFrame = 0;
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -229,7 +232,7 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
     lockCorridor!('tower');
     runFrame();
     game.towers = 0;
-    warn.mockClear();
+    logged.length = 0;
 
     await moveHq();
     runFrame();

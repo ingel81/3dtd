@@ -1636,7 +1636,7 @@ class ClearanceRun implements CorridorMeasurement {
     this.busyMs += storeMs;
     const rays = this.raysPerStation * (this.probed - this.unmeasured);
     if (this.segments.length > 0) {
-      console.warn(
+      console.log(
         `[Corridor] clearance: segments=${this.segments.length} stations=${this.probed} unmeasured=${this.unmeasured} ` +
         `(coarse tile ${this.coarse}) rays=${rays} changed=${changed} ` +
         `in ${this.busyMs.toFixed(1)}ms slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms` +
@@ -1662,7 +1662,7 @@ class ClearanceRun implements CorridorMeasurement {
     this.end = 'cancel';
     corridorTrace.log('clearance.cancel', { reason, segments: this.segments.length, stations: this.probed, of: this.planned });
     if (this.segments.length === 0) return;
-    console.warn(
+    console.log(
       `[Corridor] clearance cancelled (${reason}): stations=${this.probed} of ${this.planned} in ${this.busyMs.toFixed(1)}ms ` +
       `slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms, corridor unchanged`,
     );

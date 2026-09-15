@@ -170,7 +170,7 @@ export class CorridorController {
     const tEnd = performance.now();
 
     const ms = (from: number, to: number) => (to - from).toFixed(1);
-    console.warn(
+    console.log(
       `[Corridor] rebuild: routes=${ms(t0, tRoutes)} grid=${ms(tRoutes, tGrid)} heights=${ms(tGrid, tHeights)} ` +
       `walk=${ms(tHeights, tWalk)} narrowed=${narrowed} ` +
       `lines=${ms(tWalk, tLines)} overlays=${ms(tLines, tEnd)} total=${ms(t0, tEnd)}ms ` +

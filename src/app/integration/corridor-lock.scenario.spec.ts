@@ -106,7 +106,8 @@ function createEngine(): never {
 describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
   let frames: Map<number, FrameRequestCallback>;
   let nextFrame: number;
-  let warn: ReturnType<typeof vi.spyOn>;
+  /** Plain console lines: `[Corridor] rebuild` is one. */
+  let log: ReturnType<typeof vi.spyOn>;
   /** What the tiles show on each side of the route (m); a push of finer tiles changes it */
   let tiles: { halfWidth: number };
   let gsm: GameStateManager;
@@ -124,7 +125,7 @@ describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
       for (const callback of due) callback(0);
     }
   };
-  const rebuilds = (): number => warn.mock.calls.filter((call: unknown[]) => String(call[0]).startsWith('[Corridor] rebuild')).length;
+  const rebuilds = (): number => log.mock.calls.filter((call: unknown[]) => String(call[0]).startsWith('[Corridor] rebuild')).length;
 
   /** A tile batch loads and settles, as VisualizationFacadeService.onTilesLoaded drives it. */
   const tileBatch = () => {
@@ -165,7 +166,8 @@ describe('The corridor lock with a tower standing, playtest 2026-09-15', () => {
 
   beforeEach(() => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5); // centre line
-    warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     frames = new Map();
     nextFrame = 0;
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {

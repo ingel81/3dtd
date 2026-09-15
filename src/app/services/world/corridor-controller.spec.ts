@@ -113,8 +113,12 @@ describe('CorridorController', () => {
     }
   };
 
+  /** The `[Corridor] rebuild` lines, plain console lines. */
+  const rebuildLines = () =>
+    vi.mocked(console.log).mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[Corridor] rebuild'));
+
   beforeEach(() => {
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
     frames = new Map();
     nextFrameId = 1;
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -158,11 +162,13 @@ describe('CorridorController', () => {
       expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
     });
 
-    it('logs the time of each part, the spawns and the cells', () => {
+    it('logs the time of each part, the spawns and the cells, as a plain line, not a warning', () => {
+      const warn = vi.spyOn(console, 'warn');
       create().fitToTiles();
 
-      expect(console.warn).toHaveBeenCalledTimes(1);
-      expect(vi.mocked(console.warn).mock.calls[0][0]).toMatch(
+      expect(warn).not.toHaveBeenCalled();
+      expect(rebuildLines()).toHaveLength(1);
+      expect(rebuildLines()[0]).toMatch(
         /^\[Corridor\] rebuild: routes=\d+\.\d grid=\d+\.\d heights=\d+\.\d walk=\d+\.\d narrowed=0 lines=\d+\.\d overlays=\d+\.\d total=\d+\.\dms spawns=1 cells=42$/,
       );
     });
@@ -182,7 +188,7 @@ describe('CorridorController', () => {
         'initAirSpatialGridVisualization',
         'initAirRouteLayer',
       ]);
-      expect(vi.mocked(console.warn).mock.calls[0][0]).toMatch(/ narrowed=1 /);
+      expect(rebuildLines()[0]).toMatch(/ narrowed=1 /);
     });
 
     it('builds again at most MAX_WALK_PASSES times', () => {

@@ -62,6 +62,7 @@ import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
 import { RouteCorridorRegion, type RegionLodState, type RegionTile } from './route-corridor-region';
 import { SettleHold, type TilesLodDebug, createTilesLodDebug } from './tiles-lod-debug';
+import { perfTrace } from '../utils/perf-trace';
 import { warmUpScene } from './scene-warmup';
 import { logTileMaterialTypes } from './tile-material-log';
 import { instrumentRaycasts } from '../utils/raycast-stats';
@@ -581,11 +582,11 @@ export class ThreeTilesEngine {
     if (this.onTilesLoadCallback) {
       this.onTilesLoadCallback();
       const tEnd = performance.now();
-      console.warn(
+      perfTrace.log(() =>
         `[PerfTrace] onTilesLoadCallback: ${(tEnd - tPre0).toFixed(1)}ms total | ` +
         `shadowInvalidate=${(tShadowInvalidate - tPre0).toFixed(1)} ` +
         `facadeCallback=${(tEnd - tShadowInvalidate).toFixed(1)}ms ` +
-        `(lodVersion=${this.terrain.lodVersion})`
+        `(lodVersion=${this.terrain.lodVersion})`,
       );
     }
   }

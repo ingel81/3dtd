@@ -501,11 +501,11 @@ describe('PathAndRouteService route geometry', () => {
       });
 
       it('names in the log where stations found no tile', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
         clearanceAt = (x, z, max) => (Math.abs(x) < 1 && Math.abs(northOfN1(z) - 50) < 1 ? 'no tile' : max);
         measure(buildRouteService(network, spawn, hq));
-        const line = warn.mock.calls.map(([l]) => String(l)).find((l) => l.startsWith('[Corridor] clearance:'))!;
-        warn.mockRestore();
+        const line = log.mock.calls.map(([l]) => String(l)).find((l) => l.startsWith('[Corridor] clearance:'))!;
+        log.mockRestore();
 
         const at = / unmeasured=1 \(coarse tile 0\) .* noTile=(-?[\d.]+),(-?[\d.]+)$/.exec(line)!;
         expect(Number(at[1])).toBeCloseTo(toMeters(n1).x, 0);
@@ -755,7 +755,7 @@ describe('PathAndRouteService route geometry', () => {
         afterEach(() => vi.restoreAllMocks());
 
         it('casts the same rays in the same order and gives the same corridor as one go', () => {
-          const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
           clearanceAt = facades;
           const oneGo = buildRouteService(network, spawn, hq);
           probeCalls.length = 0;
@@ -785,7 +785,7 @@ describe('PathAndRouteService route geometry', () => {
           expect(sliced.describeRoutes()).toEqual(oneGo.describeRoutes());
 
           // The log keeps its fields; the sliced run adds how it was cut up.
-          const [oneGoLog, slicedLog] = warn.mock.calls
+          const [oneGoLog, slicedLog] = log.mock.calls
             .map(([line]) => String(line))
             .filter((line) => line.startsWith('[Corridor] clearance:'));
           expect(slicedLog.split(' in ')[0]).toBe(oneGoLog.split(' in ')[0]);
@@ -888,7 +888,7 @@ describe('PathAndRouteService route geometry', () => {
         });
 
         it('gives the same corridor as one go when a tower or a wave has it finish at once', () => {
-          const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
           clearanceAt = facades;
           const oneGo = buildRouteService(network, spawn, hq);
           probeCalls.length = 0;
@@ -907,7 +907,7 @@ describe('PathAndRouteService route geometry', () => {
           oneGo.showPathFromSpawn(spawnPointAt(spawn));
           flushed.showPathFromSpawn(spawnPointAt(spawn));
           expect(flushed.getCachedPath('s1')).toEqual(oneGo.getCachedPath('s1'));
-          expect(String(warn.mock.calls.at(-1)?.[0])).toMatch(/ slices=6 wall=[\d.]+ms flushed=tower$/);
+          expect(String(log.mock.calls.at(-1)?.[0])).toMatch(/ slices=6 wall=[\d.]+ms flushed=tower$/);
         });
 
         it('stores nothing of a cancelled run, the next one measures every station', () => {
@@ -928,7 +928,7 @@ describe('PathAndRouteService route geometry', () => {
         });
 
         it('is cancelled when the routes or the measurements are replaced, or another run starts', () => {
-          const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
           const replacements: [string, (service: PathAndRouteService) => void][] = [
             ['routes replaced', (service) => service.clearCache()],
             ['measurements cleared', (service) => service.clearCorridorMeasurements()],
@@ -945,7 +945,7 @@ describe('PathAndRouteService route geometry', () => {
 
             expect(run.open, reason).toBe(false);
             expect(run.commit(), reason).toBe(false);
-            expect(String(warn.mock.calls.at(-1)?.[0]), reason).toMatch(
+            expect(String(log.mock.calls.at(-1)?.[0]), reason).toMatch(
               new RegExp(`^\\[Corridor\\] clearance cancelled \\(${reason}\\): stations=1 of \\d+ `),
             );
           }
