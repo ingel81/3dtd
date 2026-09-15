@@ -253,10 +253,15 @@ export const NUCLEAR_STRIKE_SCORCH_RINGS = [
  * one on the impact point: rings of `count` patches at `distance` times the
  * radius, `size` metres across. Only with ground marks on. The burst itself
  * is FROST_BURST_LOOK.
+ *
+ * The patches lie at the height of the route cell the bomb lands on (no
+ * terrain ray), so they stay near the street: until playtest 625 the outer
+ * ring lay at 0.85 of the radius, 17 m out, past the edge of most streets,
+ * where a patch sinks into higher ground or floats over lower ground.
  */
 export const FROST_BOMB_ICE_RINGS = [
-  { count: 6, distance: 0.45, size: 4 },
-  { count: 10, distance: 0.85, size: 3.2 },
+  { count: 6, distance: 0.35, size: 4 },
+  { count: 10, distance: 0.65, size: 3.2 },
 ] as const;
 
 /**
