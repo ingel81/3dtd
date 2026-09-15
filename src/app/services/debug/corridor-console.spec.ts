@@ -20,6 +20,8 @@ describe('CorridorConsole', () => {
     towerCells: (id?: string) => unknown;
     pick: (radius?: number) => string;
     report: () => string;
+    probeLod: (targets?: number[], timeoutS?: number) => unknown;
+    fingerprint: () => unknown;
   }
   const api = () => (globalThis as Record<string, unknown>)['__corridor'] as Api;
 
@@ -43,6 +45,7 @@ describe('CorridorConsole', () => {
   let armPick: ReturnType<typeof vi.fn>;
   let showCellSelection: ReturnType<typeof vi.fn>;
   let cellReport: { start: ReturnType<typeof vi.fn>; connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> };
+  let lodProbe: { run: ReturnType<typeof vi.fn>; fingerprint: ReturnType<typeof vi.fn> };
   let grid: ReturnType<typeof fakeGrid>;
   let installed: CorridorConsole;
 
@@ -105,6 +108,7 @@ describe('CorridorConsole', () => {
       },
       change,
       cellReport,
+      lodProbe,
     };
     const corridorConsole = new CorridorConsole(deps as unknown as CorridorConsoleDeps);
     corridorConsole.install();
@@ -141,6 +145,7 @@ describe('CorridorConsole', () => {
     armPick = vi.fn();
     showCellSelection = vi.fn();
     cellReport = { start: vi.fn(() => 'Cell report on'), connect: vi.fn(), disconnect: vi.fn() };
+    lodProbe = { run: vi.fn(async () => 'probed'), fingerprint: vi.fn(() => ({ hash: '0123abcd' })) };
     grid = fakeGrid();
     installed = install();
   });
@@ -188,6 +193,17 @@ describe('CorridorConsole', () => {
 
     it('passes the problems of a rejected setting on', () => {
       expect(api().set({ noSuchSetting: 1 })).toMatch(/^refused: /);
+    });
+  });
+
+  /** The measuring tools of Phase 0 live in CorridorLodProbe; the console hands the calls on. */
+  describe('probeLod and fingerprint', () => {
+    it('hands the targets and the timeout to the probe, and the fingerprint through', async () => {
+      await expect(api().probeLod([5, 0], 30)).resolves.toBe('probed');
+      expect(lodProbe.run).toHaveBeenCalledWith([5, 0], 30);
+      await api().probeLod();
+      expect(lodProbe.run).toHaveBeenLastCalledWith(undefined, undefined);
+      expect(api().fingerprint()).toEqual({ hash: '0123abcd' });
     });
   });
 

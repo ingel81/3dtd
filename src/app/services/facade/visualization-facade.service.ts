@@ -37,6 +37,8 @@ import { EngineStore } from '../../store/engine.store';
 import { STREET_FILTER_RADIUS } from '../../configs/map-constants.config';
 import { CorridorController } from '../world/corridor-controller';
 import { CorridorConsole } from '../debug/corridor-console';
+import { CorridorLodProbe } from '../debug/corridor-lod-probe';
+import { TilesConsole } from '../debug/tiles-console';
 import { CellReportService } from '../debug/cell-report.service';
 import { TowerTargetConsole } from '../debug/tower-target-console';
 import { RouteGridConvergence } from '../world/route-grid-convergence';
@@ -61,6 +63,8 @@ import { cameraTimeline } from '../../utils/camera-timeline';
  * Owned helpers (plain classes, built in the field initializers below):
  * - CorridorController: when the route corridor is measured and rebuilt
  * - CorridorConsole: `__corridor` in DevTools
+ * - CorridorLodProbe: `__corridor.probeLod()` and `fingerprint()`
+ * - TilesConsole: `__tiles` in DevTools
  * - TowerTargetConsole: `__towerTargets` in DevTools
  * - RouteGridConvergence: cell refresh after tile loads, baked heights
  * - IntroLoadingGate: loading screen held for the intro flight
@@ -113,15 +117,28 @@ export class VisualizationFacadeService {
     relocationStatus: this.relocationStatus,
   });
 
+  /** `__corridor.probeLod()` and `fingerprint()`, see CorridorLodProbe. */
+  private readonly lodProbe = new CorridorLodProbe({
+    gameState: () => this.gameState,
+    engineInit: this.engineInit,
+    introFlight: this.introFlight,
+    pathRoute: this.pathRoute,
+  });
+
   /** `__corridor` in DevTools, see CorridorConsole. */
   private readonly corridorConsole = new CorridorConsole({
     gameState: () => this.gameState,
     engineInit: this.engineInit,
     inputHandler: this.inputHandler,
     pathRoute: this.pathRoute,
-    change: (apply) => this.corridor.change(apply),
+    // A probe holds the tiles at another LOD: a change now would measure on them.
+    change: (apply) => (this.lodProbe.running ? 'Not changed: __corridor.probeLod() is running.' : this.corridor.change(apply)),
     cellReport: this.cellReport,
+    lodProbe: this.lodProbe,
   });
+
+  /** `__tiles` in DevTools, see TilesConsole. */
+  private readonly tilesConsole = new TilesConsole({ engineInit: this.engineInit });
 
   /** `__towerTargets` in DevTools, see TowerTargetConsole. */
   private readonly towerTargetConsole = new TowerTargetConsole({
@@ -198,6 +215,7 @@ export class VisualizationFacadeService {
     // A tower or a wave finishes a corridor measurement under way first.
     this.corridor.attach();
     this.corridorConsole.install();
+    this.tilesConsole.install();
     this.towerTargetConsole.install();
   }
 
@@ -208,6 +226,7 @@ export class VisualizationFacadeService {
     this.eventBusSubs.disposeAll();
     this.corridor.dispose();
     this.corridorConsole.uninstall();
+    this.tilesConsole.uninstall();
     this.towerTargetConsole.uninstall();
     this.convergence.dispose();
     this.introGate.dispose();

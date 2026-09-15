@@ -14,6 +14,7 @@ import type { GlobalRouteGrid } from '../../utils/global-route-grid';
 import type { RouteCellProbe } from '../../utils/route-grid-diagnostics';
 import type { CellReportService, CellReportSource } from './cell-report.service';
 import type { CellProbe, CellSpot, NeighbourRow, ProbedCell, ScreenRect } from './cell-report';
+import type { CorridorLodProbe } from './corridor-lod-probe';
 
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
 
@@ -63,13 +64,15 @@ export interface CorridorConsoleDeps {
   change: (apply: () => string[]) => string;
   /** The cell report, `__corridor.report()`; this console reads its cells. */
   cellReport: Pick<CellReportService, 'start' | 'connect' | 'disconnect'>;
+  /** `__corridor.probeLod()` and `fingerprint()`, see CorridorLodProbe. */
+  lodProbe: Pick<CorridorLodProbe, 'run' | 'fingerprint'>;
 }
 
 /**
  * Korridor-API für Playtests, analog zu `__rg` und `__routes`, in
  * DevTools: `__corridor.get()`, `__corridor.set({ maxHalfWidth: 8 })`,
  * `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`,
- * `__corridor.report()`.
+ * `__corridor.report()`, `__corridor.probeLod()`, `__corridor.fingerprint()`.
  */
 export class CorridorConsole {
   /** The `__corridor` this instance registered, see uninstall(). */
@@ -97,6 +100,8 @@ export class CorridorConsole {
       towerCells: (towerId?: string) => this.describeTowerCells(towerId),
       pick: (radius = 4) => this.armCellPick(radius),
       report: () => this.deps.cellReport.start(),
+      probeLod: (targets?: number[], timeoutS?: number) => this.deps.lodProbe.run(targets, timeoutS),
+      fingerprint: () => this.deps.lodProbe.fingerprint(),
     };
     (globalThis as Record<string, unknown>)['__corridor'] = this.api;
     this.deps.cellReport.connect(this.reportSource);
