@@ -32,6 +32,9 @@
       stabil, einfrieren, Nachmess-Maschinerie entfernen (längerer Ladescreen ok), Phase 2 Regeln vereinfachen:
       Route mittig im begehbaren Band statt an der OSM-Linie (ersetzt ggf. den Umweg-Planer, behebt 732). Kleine
       Objekte auf Plätzen: Band endet davor. Prüfung mit `__corridor.fingerprint()` über drei Kamerapfade je Ort.
+      **Phase 0 erledigt (2026-09-16, `tmp/fix1/reports/phase0-results.md`):** an fünf Orten ist die feinste Stufe
+      2,5 m; gegenüber 5 m +39 bis +166 MB aktiv, Messung aller Stationen 0,15 bis 0,73 s. **Entscheidung User:
+      Phase 1 mit 2,5 m**, Rückfall auf 5 m, wo 2,5 m keine Säule hat (Paris: 4 Stationen).
       Phase 1 auch (corrperf, beide Logs): Routenlinie und Marker nur neu bauen, wenn sich Zellen geändert haben
       (heute bei jedem Tile-Settle, `visualization-facade.service.ts:719`, samt Neustart der Routenanimation);
       Zellhöhen mit einfrieren; keine Leerlauf-Abtastung derselben Zellen (`route-cell-sampler.ts:156/230`).
