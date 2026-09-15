@@ -18,34 +18,43 @@ const SEGMENT_M = 0.5;
 /** Largest bulge of the wall, as a share of the radius. */
 const BULGE = 0.025;
 
-/** Width (m) of a brace across, about one stone. */
-export const BRACE_WIDTH_M = 0.5;
-/** Thickness (m) of a brace, at right angles to its slant. */
-export const BRACE_THICKNESS_M = 0.45;
-/** How steeply a brace falls towards the building: metres down per metre inwards, 1 = 45°. */
-export const BRACE_SLOPE = 1;
+/** Width (m) of a corbel across, a little over two stones. */
+export const BRACE_WIDTH_M = 1.2;
+/** Courses a corbel steps out in under the plinth, each one further out than the one below. */
+export const BRACE_COURSES = 3;
+/** A course is as high as it steps out, within these limits (m). */
+const BRACE_COURSE_MIN_M = 0.4;
+const BRACE_COURSE_MAX_M = 0.9;
 /**
- * Top of a brace (local y), 0.2 m above the plinth's underside
+ * Top of a corbel (local y), 0.2 m above the plinth's underside
  * (-PLINTH_EMBED_M): it reaches up into the plinth, the joint stays closed.
  */
 export const BRACE_TOP_Y = -PLINTH_EMBED_M + 0.2;
-/** Width (m) of a brace's horizontal top cut, from its thickness across the slant. */
-export const BRACE_TOP_CUT_M = (BRACE_THICKNESS_M * Math.hypot(1, BRACE_SLOPE)) / BRACE_SLOPE;
-/** Height (m) of a brace's vertical foot cut. */
-const BRACE_FOOT_CUT_M = BRACE_THICKNESS_M * Math.hypot(1, BRACE_SLOPE);
 
 /**
- * A diagonal stone brace under a plinth that hangs over a drop: from just
- * inside the wall under the rim down and inwards at BRACE_SLOPE into the
- * building below. plinthBraces (plinth-braces.ts) lays them out.
+ * A stone corbel under a plinth that hangs over a drop: a block set into
+ * the building below, stepping out in BRACE_COURSES courses to its front
+ * face just inside the wall under the rim. plinthBraces (plinth-braces.ts)
+ * lays them out. Reaches run along `angle`, from the line through the
+ * plinth's axis at right angles to it.
  */
 export interface PlinthBrace {
-  /** Direction from the plinth's axis (radians), the wall's theta: 0 = +x, π/2 = +z */
+  /** Direction it points out along (radians), the wall's theta: 0 = +x, π/2 = +z */
   angle: number;
-  /** Distance (m) of its outer top edge from the axis, at BRACE_TOP_Y */
+  /** Its middle this far (m) to the side of the axis, towards angle + π/2 */
+  offset: number;
+  /** Reach (m) of its front face, just inside the wall */
   topReach: number;
-  /** Distance (m) of its foot from the axis, inside the roof's edge */
+  /** Reach (m) of the roof's edge as far as the probes tell: the steps project from there */
+  edgeReach: number;
+  /** Reach (m) of its back in the building: the flat underside of the lowest course runs back to it */
   footReach: number;
+}
+
+/** How far (m) each course of `brace` steps out, and how high it is. */
+export function braceCourse(brace: PlinthBrace): { step: number; height: number } {
+  const step = (brace.topReach - brace.edgeReach) / BRACE_COURSES;
+  return { step, height: Math.min(Math.max(step, BRACE_COURSE_MIN_M), BRACE_COURSE_MAX_M) };
 }
 
 /**
@@ -157,58 +166,64 @@ export function createPlinthGeometry(
 type Point3 = readonly [number, number, number];
 
 /**
- * A brace as a slanted stone prism, BRACE_WIDTH_M across. Its side profile
- * runs from the outer top edge under the rim down the underside to the
- * foot, up the vertical foot cut, back up the inner edge and along the
- * horizontal top cut. Six faces.
+ * A corbel as a stepped stone block, BRACE_WIDTH_M across. Its side profile
+ * runs along the top inside the plinth to the front face under the rim, down
+ * that face, back and down course by course, along the flat underside of
+ * the lowest course to its back in the building, and up the back.
  */
 function appendBrace(positions: number[], indices: number[], brace: PlinthBrace): void {
   const ux = Math.cos(brace.angle);
   const uz = Math.sin(brace.angle);
   const half = BRACE_WIDTH_M / 2;
-  const footY = BRACE_TOP_Y - (brace.topReach - brace.footReach) * BRACE_SLOPE;
-  // Side profile as (distance from the axis, y): outer top, foot below, foot above, inner top
-  const profile: readonly (readonly [number, number])[] = [
-    [brace.topReach, BRACE_TOP_Y],
-    [brace.footReach, footY],
-    [brace.footReach, footY + BRACE_FOOT_CUT_M],
-    [brace.topReach - BRACE_TOP_CUT_M, BRACE_TOP_Y],
-  ];
-  // Corner k of the profile on side `side` (-1 or 1) across the brace
-  const corner = (k: number, side: number): Point3 => {
-    const [reach, y] = profile[k];
-    return [ux * reach - uz * half * side, y, uz * reach + ux * half * side];
+  const { step, height } = braceCourse(brace);
+  // Front face and underside of course k, 1 being the top one
+  const front = (k: number) => brace.topReach - (k - 1) * step;
+  const bottom = (k: number) => -PLINTH_EMBED_M - k * height;
+  // Point at `reach` along the corbel and height y, on side `side` (-1 or 1) of it
+  const point = (reach: number, y: number, side: number): Point3 => {
+    const across = brace.offset + side * half;
+    return [ux * reach - uz * across, y, uz * reach + ux * across];
   };
 
-  // Its middle: every face turns away from it
-  const midReach = (profile[0][0] + profile[1][0] + profile[2][0] + profile[3][0]) / 4;
-  const midY = (profile[0][1] + profile[1][1] + profile[2][1] + profile[3][1]) / 4;
-  const middle: Point3 = [ux * midReach, midY, uz * midReach];
-
-  for (const side of [-1, 1]) {
-    appendQuad(positions, indices, [corner(0, side), corner(1, side), corner(2, side), corner(3, side)], middle);
+  // Side profile as (reach, y), clockwise with the reach to the right and y up
+  const profile: [number, number][] = [[brace.footReach, BRACE_TOP_Y], [brace.topReach, BRACE_TOP_Y]];
+  for (let k = 1; k <= BRACE_COURSES; k++) {
+    profile.push([front(k), bottom(k)]);
+    profile.push([k < BRACE_COURSES ? front(k + 1) : brace.footReach, bottom(k)]);
   }
-  for (let k = 0; k < 4; k++) {
-    const next = (k + 1) % 4;
-    appendQuad(positions, indices, [corner(k, -1), corner(next, -1), corner(next, 1), corner(k, 1)], middle);
+  for (let i = 0; i < profile.length; i++) {
+    const [a0, y0] = profile[i];
+    const [a1, y1] = profile[(i + 1) % profile.length];
+    // Clockwise, so outwards is the edge turned right
+    const outward: Point3 = [ux * (y0 - y1), a1 - a0, uz * (y0 - y1)];
+    appendQuad(positions, indices, [point(a0, y0, -1), point(a1, y1, -1), point(a1, y1, 1), point(a0, y0, 1)], outward);
+  }
+  // The two sides, a rectangle per course
+  for (const side of [-1, 1]) {
+    const outward: Point3 = [-uz * side, 0, ux * side];
+    for (let k = 1; k <= BRACE_COURSES; k++) {
+      const top = k === 1 ? BRACE_TOP_Y : bottom(k - 1);
+      appendQuad(positions, indices, [
+        point(brace.footReach, bottom(k), side),
+        point(front(k), bottom(k), side),
+        point(front(k), top, side),
+        point(brace.footReach, top, side),
+      ], outward);
+    }
   }
 }
 
-/** A flat quad with vertices of its own, its front turned away from `inside`. */
-function appendQuad(positions: number[], indices: number[], quad: readonly Point3[], inside: Point3): void {
+/** A flat quad with vertices of its own, its front turned towards `outward`. */
+function appendQuad(positions: number[], indices: number[], quad: readonly Point3[], outward: Point3): void {
   const [a, b, c] = quad;
   const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
   const e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
   const normal = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
-  let outward = 0;
-  for (let axis = 0; axis < 3; axis++) {
-    const centre = (quad[0][axis] + quad[1][axis] + quad[2][axis] + quad[3][axis]) / 4;
-    outward += normal[axis] * (centre - inside[axis]);
-  }
+  const facing = normal[0] * outward[0] + normal[1] * outward[1] + normal[2] * outward[2];
 
   const base = positions.length / 3;
   for (const p of quad) positions.push(p[0], p[1], p[2]);
-  if (outward > 0) {
+  if (facing > 0) {
     indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   } else {
     indices.push(base, base + 2, base + 1, base, base + 3, base + 2);

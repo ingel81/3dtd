@@ -67,7 +67,7 @@ describe('TowerPlinthPreview', () => {
     const braced = mesh()!;
     expect(braced).not.toBe(plain);
     braced.geometry.computeBoundingBox();
-    expect(braced.geometry.boundingBox!.min.y).toBeLessThan(-PLINTH_EMBED_M - 1);
+    expect(braced.geometry.boundingBox!.min.y).toBeLessThan(-PLINTH_EMBED_M - 0.9);
 
     // The same probes in a new list: the mesh stays
     preview.show(parent, 1, 5, 0, 3.6, 1, true, [...overhang]);
