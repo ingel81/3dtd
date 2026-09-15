@@ -1,5 +1,5 @@
 import { BufferGeometry, Color, Vector3, type IUniform } from 'three';
-import { SCORCH_DECAL_CONFIG, type ScorchSource } from '../../configs/visual-effects.config';
+import { SCORCH_DECAL_CONFIG, type ScorchSource, type ScorchStyle } from '../../configs/visual-effects.config';
 import { DecalInstanceManager } from './decal-instance.manager';
 import { createScorchDecalShader } from './decal-shaders';
 
@@ -39,7 +39,8 @@ export class ScorchMarks {
   /**
    * Burn a mark at a local position (the hit point; the mark goes on the
    * ground below it). A cell that already has one gets it darkened and its
-   * fade restarted instead. A full pool gives up its oldest mark.
+   * fade restarted instead; a source with `ownMark` keeps a mark of its own
+   * there. A full pool gives up the mark whose fade comes first.
    *
    * @param now - Wall clock in ms (performance.now())
    * @returns false when the point is off the route grid, has no known
@@ -55,16 +56,18 @@ export class ScorchMarks {
     const groundY = ground.getGroundLocalYAt(localX, localZ);
     if (groundY === null || localY - groundY > cfg.maxHeightAboveGround) return false;
 
-    const style = cfg.sources[source];
-    const id = `scorch_${cell.key}`;
-    if (this.decals.reinforce(id, style.opacityStep, cfg.maxOpacity, now, cfg.fadeDelay)) return true;
+    const style: ScorchStyle = cfg.sources[source];
+    const id = style.ownMark ? `scorch_${source}_${cell.key}` : `scorch_${cell.key}`;
+    const fadeDelay = style.fadeDelay ?? cfg.fadeDelay;
+    if (this.decals.reinforce(id, style.opacityStep, style.maxOpacity ?? cfg.maxOpacity, now, fadeDelay)) return true;
 
     if (this.decals.count >= cfg.maxDecals) {
-      this.decals.removeOldest();
+      this.decals.removeNextToFade();
     }
 
+    const base = style.color ?? cfg.baseColor;
     const variation = (Math.random() - 0.5) * 2 * cfg.colorVariation;
-    this.color.setRGB(cfg.baseColor.r + variation, cfg.baseColor.g + variation, cfg.baseColor.b + variation * 0.5);
+    this.color.setRGB(base.r + variation, base.g + variation, base.b + variation * 0.5);
     this.position.set(localX, groundY + cfg.heightOffset, localZ);
     const size = style.size * (0.85 + Math.random() * 0.3);
 
@@ -76,8 +79,8 @@ export class ScorchMarks {
       this.color,
       style.opacity,
       now,
-      cfg.fadeDelay,
-      cfg.fadeDuration
+      fadeDelay,
+      style.fadeDuration ?? cfg.fadeDuration
     );
     return true;
   }

@@ -237,7 +237,8 @@ export class VFXService {
   /**
    * The marker goes and the beam comes down on the start of `path` and runs
    * along it (ORBITAL_BEAM_LOOK, in game time, at the ability's speed for
-   * its duration), leaving scorch marks on the route cells it passes.
+   * its duration), leaving its own wide, dark scorch marks (source `beam`)
+   * on the route cells it passes.
    */
   private handleBeamImpact(strikeId: number, path: readonly GeoPosition[], radiusM: number): void {
     this.tilesEngine.abilityMarkers.removeStrike(strikeId);
@@ -249,7 +250,7 @@ export class VFXService {
       radiusM,
       effect.speedMps,
       effect.durationMs / 1000,
-      (x, y, z) => effects.markScorch(x, y, z, 'rocket'),
+      (x, y, z) => effects.markScorch(x, y, z, 'beam'),
     );
   }
 

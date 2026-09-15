@@ -109,7 +109,7 @@ export class GroundDecals {
 
     // If pool is full, remove oldest decal
     if (this.blood.count >= BLOOD_DECAL_CONFIG.maxDecals) {
-      this.blood.removeOldest();
+      this.blood.removeNextToFade();
     }
 
     // Add new decal instance
@@ -155,7 +155,7 @@ export class GroundDecals {
 
     // If pool is full, remove oldest decal
     if (this.ice.count >= ICE_DECAL_CONFIG.maxDecals) {
-      this.ice.removeOldest();
+      this.ice.removeNextToFade();
     }
 
     // Add new decal instance
@@ -186,7 +186,7 @@ export class GroundDecals {
 
     const id = `goo_decal_${this.decalIdCounter++}`;
     if (this.goo.count >= GOO_DECAL_CONFIG.maxDecals) {
-      this.goo.removeOldest();
+      this.goo.removeNextToFade();
     }
     this.goo.add(
       id,

@@ -46,21 +46,30 @@ describe('DecalInstanceManager', () => {
     expect(decals.instancedMesh.count).toBe(2);
   });
 
-  it('evicts the decal with the earliest spawn time', () => {
+  it('evicts the oldest decal when they share one fade delay', () => {
     const decals = create(2);
-    decals.removeOldest(); // leerer Pool, nichts zu tun
+    decals.removeNextToFade(); // leerer Pool, nichts zu tun
     addTimed(decals, 'b', 10, 1000, 100);
     addTimed(decals, 'a', 0, 1000, 100);
 
-    decals.removeOldest();
+    decals.removeNextToFade();
     expect(decals.getInstance('a')).toBeUndefined();
     expect(decals.getInstance('b')).toBeDefined();
 
     addTimed(decals, 'c', 20, 1000, 100);
-    decals.removeOldest();
+    decals.removeNextToFade();
     expect(decals.getInstance('b')).toBeUndefined();
     expect(decals.getInstance('c')).toBeDefined();
     expect(decals.count).toBe(1);
+  });
+
+  it('evicts the decal whose fade comes first, not the oldest, when the delays differ', () => {
+    const decals = create(4);
+    addTimed(decals, 'long', 0, 5000, 100); // fadet ab 5000
+    addTimed(decals, 'short', 10, 1000, 100); // fadet ab 1010
+    decals.removeNextToFade();
+    expect(decals.getInstance('short')).toBeUndefined();
+    expect(decals.getInstance('long')).toBeDefined();
   });
 
   it('fades from the opacity it was added with and removes the decal at the end', () => {
@@ -122,12 +131,12 @@ describe('DecalInstanceManager', () => {
     expect(decals.reinforce('missing', 0.1, 1, 0, 0)).toBe(false);
   });
 
-  it('treats a reinforced decal as the youngest for removeOldest', () => {
+  it('treats a reinforced decal as the youngest for removeNextToFade', () => {
     const decals = create(4);
     addTimed(decals, 'a', 0, 1000, 100);
     addTimed(decals, 'b', 10, 1000, 100);
     decals.reinforce('a', 0.1, 1, 20, 1000);
-    decals.removeOldest();
+    decals.removeNextToFade();
     expect(decals.getInstance('b')).toBeUndefined();
     expect(decals.getInstance('a')).toBeDefined();
   });

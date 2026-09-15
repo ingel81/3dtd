@@ -17,7 +17,51 @@ describe('ScorchMarks', () => {
     const opacity = marks.decals.instancedMesh.geometry.getAttribute('instanceOpacity') as BufferAttribute;
     return { marks, opacity };
   };
-  const { cannon } = SCORCH_DECAL_CONFIG.sources;
+  const { cannon, rocket, beam } = SCORCH_DECAL_CONFIG.sources;
+  const colorOf = (marks: ScorchMarks, index: number) =>
+    (marks.decals.instancedMesh.geometry.getAttribute('instanceColor') as BufferAttribute).getX(index);
+  const radiusOf = (marks: ScorchMarks, index: number) => {
+    const matrix = marks.decals.instancedMesh.instanceMatrix.array;
+    return Math.hypot(matrix[index * 16], matrix[index * 16 + 1], matrix[index * 16 + 2]);
+  };
+
+  it('burns the beam trail wider and darker than a rocket, in a mark of its own beside the guns', () => {
+    const { marks, opacity } = create();
+    marks.mark(1, 5, 1, 'rocket', 0);
+    marks.mark(1, 5, 1, 'beam', 0); // same cell
+    expect(marks.decals.count).toBe(2);
+    expect(opacity.getX(0)).toBeCloseTo(rocket.opacity); // the rocket's mark is left alone
+    expect(opacity.getX(1)).toBeCloseTo(beam.opacity);
+    expect(opacity.getX(1)).toBeGreaterThan(opacity.getX(0));
+    expect(colorOf(marks, 1)).toBeLessThan(colorOf(marks, 0));
+    expect(radiusOf(marks, 1)).toBeGreaterThan(radiusOf(marks, 0) * 1.4);
+
+    // A second beam over the cell darkens its trail mark, up to the beam's own cap
+    for (let i = 0; i < 10; i++) marks.mark(1, 5, 1, 'beam', 10 + i);
+    expect(marks.decals.count).toBe(2);
+    expect(opacity.getX(1)).toBeCloseTo(beam.maxOpacity);
+  });
+
+  it('keeps the beam trail longer than the gun marks', () => {
+    const { marks } = create();
+    marks.mark(1, 5, 1, 'cannon', 0);
+    marks.mark(3, 5, 1, 'beam', 0);
+    marks.updateFades(SCORCH_DECAL_CONFIG.fadeDelay + SCORCH_DECAL_CONFIG.fadeDuration + 1);
+    expect(marks.decals.count).toBe(1); // the cannon's mark is gone, the trail lies on
+    marks.updateFades(beam.fadeDelay + beam.fadeDuration + 1);
+    expect(marks.decals.count).toBe(0);
+  });
+
+  it('gives up gun marks before a beam trail still due to lie when the pool is full', () => {
+    const { marks } = create();
+    marks.mark(1, 5, 1, 'beam', 0); // the oldest mark of all
+    for (let i = 1; i < SCORCH_DECAL_CONFIG.maxDecals; i++) {
+      marks.mark((i % 20) * 2 + 1, 5, Math.floor(i / 20) * 2 + 1, 'cannon', i);
+    }
+    marks.mark(39, 5, 39, 'cannon', 1000); // a new cell in a full pool
+    expect(marks.decals.getInstance(`scorch_beam_${grid.getCellAt(1, 1)!.key}`)).toBeDefined();
+    expect(marks.decals.count).toBe(SCORCH_DECAL_CONFIG.maxDecals);
+  });
 
   it('keeps one mark per cell and darkens it on every further hit', () => {
     const { marks, opacity } = create();
