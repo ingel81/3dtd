@@ -51,6 +51,8 @@ import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT, haversineDistance } from '../utils/geo-utils';
 import type { GeoPosition } from '../models/game.types';
 import type { RouteCell } from '../utils/route-cell';
+import { PLINTH_EMBED_M } from '../three-engine/renderers/tower-plinth/plinth-geometry';
+import { footprintSampleOffsets } from '../utils/tower-footprint';
 
 /**
  * Build mode, preview, click and grid registration of TowerPlacementService.
@@ -589,6 +591,8 @@ describe('TowerPlacementService', () => {
       const command = emit.mock.calls[0][0];
       expect(command.position.height).toBeCloseTo(slope(r));
       expect(command.plinthHeight).toBeCloseTo(slope(r) - slope(-r));
+      // On the ground: nothing to brace
+      expect(command.plinthOverhang).toEqual([]);
     });
 
     it('registers the LOS of such a tower from the top of its plinth', async () => {
@@ -675,6 +679,30 @@ describe('TowerPlacementService', () => {
       service.handleBuildClick();
 
       expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 21.5 }, plinthHeight: 1.5 });
+      // Away from the roof's edge: nothing to brace
+      expect(emit.mock.calls[0][0].plinthOverhang).toEqual([]);
+    });
+
+    it('at a roof edge above a deep street, braces the plinth over it, in the preview and in the command (E18)', async () => {
+      const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+      // Roof at 50 m, 1 m higher from 1 m west of the tower, its edge 2 m east of it; the street at 10 m
+      terrain.raycastColumnSample.mockImplementation((x: number) => {
+        const dx = x - local.x;
+        return { groundY: 10, topY: dx > 2 ? 10 : dx < -1 ? 51 : 50 };
+      });
+      init();
+      await enterBuild('archer');
+      hover(FREE, 50);
+
+      const plinth = overlay.children.find((child) => child.name === 'tower-plinth') as Mesh;
+      plinth.geometry.computeBoundingBox();
+      expect(plinth.geometry.boundingBox!.min.y).toBeLessThan(-PLINTH_EMBED_M - 1);
+
+      service.handleBuildClick();
+      const pastEdge = footprintSampleOffsets(TOWER_TYPES.archer.footprintRadius)
+        .flatMap(([dx], index) => (dx > 2 ? [index] : []));
+      expect(pastEdge.length).toBeGreaterThan(0);
+      expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 51 }, plinthHeight: 1, plinthOverhang: pastEdge });
     });
 
     it('on a roof without ground under it, finds the roof by the street on both sides', async () => {
@@ -1056,6 +1084,7 @@ describe('TowerPlacementService', () => {
         typeId: 'cannon',
         rotation: Math.PI * 0.25,
         plinthHeight: 0,
+        plinthOverhang: [],
       });
       expect(service.buildMode()).toBe(false);
       expect(overlay.children).toHaveLength(0);

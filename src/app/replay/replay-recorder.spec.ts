@@ -46,6 +46,7 @@ function fakeTower(id: string, typeConfig: { id: string; attackType?: string } =
     position: { lat: 0.001, lon: 0.002, height: 5 },
     customRotation: 0.3,
     plinthHeight: 1.5,
+    plinthOverhang: [4, 5],
   };
 }
 
@@ -124,7 +125,7 @@ describe('ReplayRecorder', () => {
     expect(rec.waveConfig).toEqual({ schedule: { entries: [], baseDelay: 100 } });
     expect(rec.towers).toEqual([{
       id: 'tower-1', typeId: 'archer', lat: 0.001, lon: 0.002, height: 5,
-      customRotation: 0.3, plinthHeight: 1.5, placedMs: -1, soldMs: Infinity,
+      customRotation: 0.3, plinthHeight: 1.5, plinthOverhang: [4, 5], placedMs: -1, soldMs: Infinity,
     }]);
     expect(rec.frameCount).toBe(1);
     expect(rec.frameMs[0]).toBe(0);

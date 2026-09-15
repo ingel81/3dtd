@@ -10,11 +10,27 @@
  * click selects the id, the hover shows its range, input-handler-hover.spec.ts).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BoxGeometry, Mesh, MeshBasicMaterial, PerspectiveCamera, Scene, Vector3, type Object3D, type WebGLRenderer } from 'three';
+import {
+  BoxGeometry,
+  Color,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  PerspectiveCamera,
+  Scene,
+  Vector3,
+  WebGLCoordinateSystem,
+  type Object3D,
+  type WebGLRenderer,
+} from 'three';
 import { TowerManager } from '../../../managers/tower.manager';
 import { TowerPlinthRenderer } from './tower-plinth.renderer';
+import { plinthBraces } from './plinth-braces';
+import { BRACE_SLOPE, BRACE_TOP_CUT_M, BRACE_TOP_Y, PLINTH_EMBED_M, type PlinthBrace } from './plinth-geometry';
 import { ScreenPicker } from '../../screen-picker';
+import { TowerShadowMapper } from '../../tower-shadow-mapper';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
+import { footprintSampleOffsets } from '../../../utils/tower-footprint';
 import { createTestManagers, createMockResearchStore, TEST_PATH } from '../../../integration/test-helpers';
 import type { Tower } from '../../../entities/tower.entity';
 import type { ThreeTilesEngine } from '../../index';
@@ -80,11 +96,41 @@ function setup() {
     getAllMeshes: () => [...towers.getAllMeshes(), ...plinths.getAllMeshes()],
   }, sources);
   const modelsOnly = new ScreenPicker(camera, renderer, { getAllMeshes: () => towers.getAllMeshes() }, sources);
-  const pick = (p: ScreenPicker = picker) => {
+  const pickAt = (x: number, y: number, p: ScreenPicker = picker) => {
     scene.updateMatrixWorld();
-    return p.raycastTowers(CENTER.x, CENTER.y);
+    return p.raycastTowers(x, y);
   };
-  return { m, manager, plinths, pick, modelsOnly };
+  const pick = (p: ScreenPicker = picker) => pickAt(CENTER.x, CENTER.y, p);
+  /** Canvas position of a point in the scene */
+  const toScreen = (point: Vector3) => {
+    const ndc = point.clone().project(camera);
+    return { x: ((ndc.x + 1) / 2) * RECT.width, y: ((1 - ndc.y) / 2) * RECT.height };
+  };
+  return { m, manager, plinths, scene, pick, pickAt, toScreen, modelsOnly };
+}
+
+/** The members CubeCamera.update and the TowerShadowMapper touch; `onRender` runs once per face. */
+function fakeRenderer(onRender: () => void): WebGLRenderer {
+  return {
+    coordinateSystem: WebGLCoordinateSystem,
+    xr: { enabled: false },
+    getRenderTarget: () => null,
+    getActiveCubeFace: () => 0,
+    getActiveMipmapLevel: () => 0,
+    setRenderTarget: vi.fn(),
+    render: vi.fn(() => onRender()),
+    getClearColor: (target: Color) => target.set(0x87ceeb),
+    getClearAlpha: () => 1,
+    setClearColor: vi.fn(),
+  } as unknown as WebGLRenderer;
+}
+
+/** Whether `obj` gets drawn: it and every ancestor visible. */
+function drawn(obj: Object3D): boolean {
+  for (let o: Object3D | null = obj; o; o = o.parent) {
+    if (!o.visible) return false;
+  }
+  return true;
 }
 
 describe('A tower on its stone plinth (playtest 312, 313)', () => {
@@ -117,5 +163,76 @@ describe('A tower on its stone plinth (playtest 312, 313)', () => {
     s.manager.sell(tower);
     expect(s.plinths.count).toBe(0);
     expect(s.pick()).toBeNull();
+  });
+});
+
+describe('A tower on its plinth at a roof edge, braced over the drop (E18)', () => {
+  const radius = TOWER_TYPES.cannon.footprintRadius;
+  /** The probes of its footprint east of a roof edge 2 m from the tower, the street far below */
+  const overhang = footprintSampleOffsets(radius).flatMap(([x], index) => (x > 2 ? [index] : []));
+  const braces = plinthBraces(radius, PLINTH, overhang);
+  /** The brace nearest the camera, which looks from +z */
+  const front = braces.reduce((a, b) => (Math.sin(b.angle) > Math.sin(a.angle) ? b : a));
+
+  /** A point inside `brace` halfway along it, in the scene */
+  const braceMiddle = (brace: PlinthBrace) => {
+    const reach = (brace.topReach + brace.footReach) / 2;
+    // Its underside there, and half its height across the slant above that
+    const y = BRACE_TOP_Y - (brace.topReach - reach) * BRACE_SLOPE + (BRACE_TOP_CUT_M * BRACE_SLOPE) / 2;
+    return new Vector3(Math.cos(brace.angle) * reach, FOOT - PLINTH + y, Math.sin(brace.angle) * reach);
+  };
+
+  let s: ReturnType<typeof setup>;
+  let tower: Tower;
+
+  beforeEach(() => {
+    s = setup();
+    tower = s.manager.placeTower({ lat: 0, lon: 0, height: FOOT }, 'cannon', 0, PLINTH, overhang)!;
+  });
+
+  it('builds the braces into the plinth below it; a click on one picks the tower', () => {
+    expect(braces.length).toBeGreaterThan(0);
+    const point = braceMiddle(front);
+    // Below the plinth, in the air past the roof edge
+    expect(point.y).toBeLessThan(FOOT - PLINTH - PLINTH_EMBED_M - 0.2);
+    expect(point.x).toBeGreaterThan(2);
+
+    const { x, y } = s.toScreen(point);
+    expect(s.pickAt(x, y)).toBe(tower.id);
+    expect(s.pickAt(x, y, s.modelsOnly)).toBeNull();
+  });
+
+  it('stays out of the LOS cube like the plinth: only the blocker group is drawn from the tip (Regel 8)', () => {
+    const tiles = new Group();
+    const tile = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
+    tiles.add(tile);
+    s.scene.add(tiles);
+    const plinth = s.plinths.getAllMeshes()[0].mesh;
+
+    let faces = 0;
+    const mapper = new TowerShadowMapper(fakeRenderer(() => {
+      faces++;
+      expect(drawn(tile)).toBe(true);
+      expect(drawn(plinth)).toBe(false);
+    }), s.scene);
+    const tip = new Vector3(0, FOOT + TOWER_TYPES.cannon.heightOffset + TOWER_TYPES.cannon.shootHeight, 0);
+
+    expect(mapper.update(tip, TOWER_TYPES.cannon.range, tiles)).toBe(true);
+    expect(faces).toBe(6);
+    expect(drawn(plinth)).toBe(true);
+    mapper.dispose();
+  });
+
+  it('goes with the tower on sale, braces and all, and with every tower when the towers are cleared', () => {
+    const { x, y } = s.toScreen(braceMiddle(front));
+    s.manager.sell(tower);
+    expect(s.plinths.count).toBe(0);
+    expect(s.pickAt(x, y)).toBeNull();
+
+    s.manager.placeTower({ lat: 0, lon: 0, height: FOOT }, 'cannon', 0, PLINTH, overhang);
+    expect(s.pickAt(x, y)).not.toBeNull();
+    s.manager.clear();
+    expect(s.plinths.count).toBe(0);
+    expect(s.scene.children.some((child) => child.name === 'tower-plinth')).toBe(false);
   });
 });

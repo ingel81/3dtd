@@ -892,9 +892,16 @@ export class GameStateManager {
    * @param typeId Tower type ID
    * @param customRotation Custom rotation set by user (radians)
    * @param plinthHeight Stone plinth below position.height (m), 0 = none
+   * @param plinthOverhang Footprint probes the plinth hangs over a drop at, see Tower.plinthOverhang
    */
-  placeTower(position: GeoPosition, typeId: TowerTypeId = 'archer', customRotation = 0, plinthHeight = 0): Tower | null {
-    return this.towerLifecycle.place(position, typeId, customRotation, plinthHeight);
+  placeTower(
+    position: GeoPosition,
+    typeId: TowerTypeId = 'archer',
+    customRotation = 0,
+    plinthHeight = 0,
+    plinthOverhang: readonly number[] = [],
+  ): Tower | null {
+    return this.towerLifecycle.place(position, typeId, customRotation, plinthHeight, plinthOverhang);
   }
 
   /**

@@ -251,7 +251,7 @@ export class TrainingSession {
             break;
           }
 
-          const tower = this.gameState.placeTower(geoPos, action.towerType, 0, footprint.plinthHeight);
+          const tower = this.gameState.placeTower(geoPos, action.towerType, 0, footprint.plinthHeight, footprint.overhang);
 
           if (tower) {
             this.signals.botStats.update(stats => ({

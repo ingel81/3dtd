@@ -65,6 +65,13 @@ export class Tower extends GameObject {
    */
   readonly plinthHeight: number;
 
+  /**
+   * Footprint probes the plinth hangs over a drop at, as indices into
+   * footprintSampleOffsets(footprintRadius) (TowerFootprint.overhang): past a
+   * roof edge above a deep street. The plinth gets braces there. Empty = none.
+   */
+  readonly plinthOverhang: readonly number[];
+
   /** Index for alternating fire points (dual-barrel etc.) */
   private _nextFirePointIndex = 0;
 
@@ -94,11 +101,18 @@ export class Tower extends GameObject {
   /** Minimum interval between LOS rechecks (ms) */
   private readonly LOS_RECHECK_INTERVAL = TIMING.losRecheckInterval;
 
-  constructor(position: GeoPosition, typeId: TowerTypeId, customRotation = 0, plinthHeight = 0) {
+  constructor(
+    position: GeoPosition,
+    typeId: TowerTypeId,
+    customRotation = 0,
+    plinthHeight = 0,
+    plinthOverhang: readonly number[] = [],
+  ) {
     super('tower');
     this.typeConfig = getTowerType(typeId);
     this.customRotation = customRotation;
     this.plinthHeight = plinthHeight;
+    this.plinthOverhang = plinthOverhang;
     this.targetingStrategy = this.typeConfig.defaultTargeting ?? 'closest';
     this.airSubStrategy = this.typeConfig.defaultAirSubStrategy ?? 'closest';
 

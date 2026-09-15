@@ -410,6 +410,8 @@ export type GameEvent =
       rotation?: number;
       /** Stone plinth below the foot, from the lowest point of the footprint (m); 0 or missing = none */
       plinthHeight?: number;
+      /** Footprint probes the plinth hangs over a drop at (TowerFootprint.overhang), braced there; missing = none */
+      plinthOverhang?: readonly number[];
     }
   | {
       type: 'command:sell-tower';

@@ -28,6 +28,7 @@ import {
   footprintSurroundingOffsets,
   levelWithCursor,
   resolveTowerFootprint,
+  sameFootprint,
 } from '../utils/tower-footprint';
 import { TowerPlinthPreview } from './tower-plinth-preview';
 
@@ -171,8 +172,13 @@ export class TowerPlacementService {
   /** Queued position update while model was loading */
   private queuedPosition: { lat: number; lon: number; height: number } | null = null;
 
-  /** Current preview position: height is the tower's foot, with the plinth below it */
-  private currentPosition: { lat: number; lon: number; height: number; plinthHeight: number } | null = null;
+  /**
+   * Current preview position: height is the tower's foot, with the plinth
+   * below it and the footprint probes it hangs over a drop at
+   */
+  private currentPosition:
+    | { lat: number; lon: number; height: number; plinthHeight: number; plinthOverhang: readonly number[] }
+    | null = null;
 
   /** Rotation speed (radians per second when holding R) */
   private readonly ROTATION_SPEED = Math.PI; // 180 degrees per second
@@ -475,8 +481,7 @@ export class TowerPlacementService {
     const footprint = decision.footprint;
     const provisional = validation.footprint;
     validation.footprint = footprint;
-    const same = footprint.footY === provisional.footY && footprint.plinthHeight === provisional.plinthHeight;
-    return same ? null : footprint;
+    return sameFootprint(footprint, provisional) ? null : footprint;
   }
 
   /** Columns of the footprint probes `from` up to `to` (default: all the rest) around (lat, lon). */
@@ -668,7 +673,13 @@ export class TowerPlacementService {
     // Store current position for placement: the foot on the highest point
     // of the footprint, the plinth below it
     const resolvedHeight = footprint.footY;
-    this.currentPosition = { lat, lon, height: resolvedHeight, plinthHeight: footprint.plinthHeight };
+    this.currentPosition = {
+      lat,
+      lon,
+      height: resolvedHeight,
+      plinthHeight: footprint.plinthHeight,
+      plinthOverhang: footprint.overhang ?? [],
+    };
 
     if (!typeId) return;
     const config = TOWER_TYPES[typeId];
@@ -692,7 +703,7 @@ export class TowerPlacementService {
     this.previewTowerMesh.rotation.y = baseRotation + this.currentRotation();
     this.previewTowerMesh.visible = true;
 
-    // The plinth the tower will get, hidden on even ground
+    // The plinth the tower will get with its braces, hidden on even ground
     this.plinthPreview.show(
       this.engine.getOverlayGroup(),
       local.x,
@@ -701,6 +712,7 @@ export class TowerPlacementService {
       config.footprintRadius,
       footprint.plinthHeight,
       validValid,
+      footprint.overhang,
     );
 
     // Its range ring around the foot, on valid and invalid spots alike
@@ -810,6 +822,7 @@ export class TowerPlacementService {
     if (settled) {
       this.currentPosition.height = settled.footY;
       this.currentPosition.plinthHeight = settled.plinthHeight;
+      this.currentPosition.plinthOverhang = settled.overhang ?? [];
     }
     const watch = this.footprintWatch;
     if (watch && this.footprintNote) {
@@ -828,6 +841,7 @@ export class TowerPlacementService {
       typeId,
       rotation: this.currentRotation(),
       plinthHeight: this.currentPosition.plinthHeight,
+      plinthOverhang: this.currentPosition.plinthOverhang,
     });
 
     // Exit build mode (placement handled by GSM via event)
