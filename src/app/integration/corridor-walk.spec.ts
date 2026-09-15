@@ -387,6 +387,53 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(positionsOutside(grid, route)).toEqual([]);
   });
 
+  /**
+   * Playtest 2026-09-15, retest 706 to 708 (Rothenburg, Erlenbach): parked
+   * cars carried cells, more than before the drop check. Where the OSM line
+   * runs over a row of parked cars, three of the five line spots on the
+   * roofs tip the reference (centreLineGround) onto them, and every cell on
+   * the street beside the row lay more than stepDrop below it: a drop. The
+   * corridor there was the centre line cells on the roofs alone. The walk
+   * now starts on the street either side of the row.
+   */
+  const rowOnLine = (x: number, z: number) => x > 16 && x < 32 && z > 0.1 && z < 1.9;
+
+  it('keeps the street beside a row of parked cars the centre line runs over, and drops a car at the edge', () => {
+    const edgeCar = (x: number, z: number) => x > 20 && x < 24.5 && z > 4 && z < 5.8;
+    const { grid, route, builds } = narrowed((x, z) => (rowOnLine(x, z) || edgeCar(x, z) ? 1.5 : 0));
+
+    expect(builds).toBe(1);
+    expect(grid.unwalkableCells()).toEqual([]);
+    for (const [x, z] of [[23, -1], [23, -3], [23, 3], [29, 3], [29, 5]]) {
+      expect(grid.getCellAt(x, z), `${x},${z}`).toBeDefined();
+    }
+    expect(grid.getCellAt(23, 5)).toBeUndefined(); // the car at the edge
+    // The centre line cells stay on the roofs: the corridor keeps them at any width.
+    expect(grid.getCellAt(23, 1)!.terrainHeight).toBe(1.5);
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
+  it('keeps the street beside a row of cars on the centre line across a slope', () => {
+    // Rising 10 % towards +z.
+    const { grid, builds } = narrowed((x, z) => (z - 1) * 0.1 + (rowOnLine(x, z) ? 1.5 : 0));
+
+    expect(builds).toBe(0);
+    for (const [x, z] of [[23, -3], [23, -1], [23, 3], [23, 5]]) {
+      expect(grid.getCellAt(x, z), `${x},${z}`).toBeDefined();
+    }
+  });
+
+  it('ends the corridor at a quay wall beside a row of cars on the centre line', () => {
+    // The quay 4 m down left of the line cells (z < 0), the street on the right.
+    const { grid, route } = narrowed((x, z) => (rowOnLine(x, z) ? 1.5 : z < 0 ? -4 : 0));
+
+    expect(grid.unwalkableCells()).toEqual([]);
+    expect(grid.getCellAt(23, 3)).toBeDefined();
+    expect(grid.getCellAt(23, 5)).toBeDefined();
+    expect(grid.getCellAt(23, -1)).toBeUndefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
   it('keeps a bank rising 15 % on one side of a diagonal street walkable', () => {
     // South-east along x = z: the walk out crosses the grid diagonally,
     // 0.42 m per spot on the bank right of travel (south-west).

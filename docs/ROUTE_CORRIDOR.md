@@ -609,6 +609,28 @@ auf dem Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Dec
     weg und alles dahinter mit, der Korridor endet an der Straßenkante. Ein
     Bankett bis 0,45 m unter der Straße bleibt als eine Reihe, die Böschung
     0,8 m darunter nicht. Eine Reihe genau 0,5 m tiefer bleibt ebenfalls.
+  - **Erhöhte Mittellinie** (`groundBesideRaisedLine`, seit 2026-09-15):
+    Liegen der erste Schritt zur Zelle hin und sein Spiegelbild beide mehr
+    als `stepDrop` unter der Höhe der Mittellinie, steht die Linie auf
+    etwas, von dem der Boden zu beiden Seiten abfällt: eine Reihe parkender
+    Autos, über die der OSM-Weg läuft, eine Hecke. Dann beginnt der Weg auf
+    dem Boden daneben, der Mitte der beiden Stellen, so bleibt die
+    Querneigung. Liegen die beiden mehr als 2 × `stepRise` auseinander
+    (eine Seite fällt weit, Kaimauer, Böschung), beginnt er auf der höheren.
+    Anlass: Playtest 2026-09-15 (Retest 706 bis 708, Rothenburg und
+    Erlenbach), parkende Autos hatten mehr Zellen als in 607. Liegen drei der
+    fünf Mittellinien-Stellen auf Autos, steht der Median auf den Dächern.
+    Mit dem Abfall-Check lag jede Zelle der Straße daneben mehr als eine
+    Stufe darunter (`drop`), der Korridor bestand dort nur aus den
+    Mittellinienzellen auf den Dächern; vorher ging der Weg jede Stufe
+    hinab. Synthetisch (Reihe 9,2 m auf der Linie, 1,5 m hoch, Straße eben):
+    je Seite 15 Zellen neben der Reihe vorher, 0 mit dem Abfall-Check, 15
+    jetzt. Ein Auto am Rand neben so einer Reihe misst jetzt von der Straße
+    aus und fällt weg; vorher maß es von den Dächern und blieb. Zellen genau
+    einen Schritt neben der Linie und auf ihrer Höhe prüft der Weg ohne
+    Proben (siehe oben), für sie gilt der Median weiter. Eine Straße auf
+    einem Damm, der schon im ersten Schritt zu beiden Seiten mehr als
+    `stepDrop` fällt, misst ebenso von den Seiten aus.
 - **Kein Urteil** (`null`): Zellen, durch die eine Mittellinie läuft,
   auch wenn sie nur eine Ecke anschneidet (`centreLineKeys`; der Korridor
   nimmt sie bei jeder Breite, `walkCaps` lässt sie aus), Deck und Tunnel,
@@ -1249,7 +1271,12 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
 - Der Laufweg-Check geht von der Mittellinie neben der Zelle aus, dem
   Median über die Stelle daneben und je zwei Nachbarn auf der Linie.
   Stehen dort drei und mehr Stellen in Folge auf einer Krone oder einem
-  Auto (OSM-Linie über dem Parkstreifen), greift er nicht. Zellen, durch die eine Mittellinie läuft,
+  Auto (OSM-Linie über dem Parkstreifen), greift er nicht, außer wo der
+  Boden einen Schritt daneben zu beiden Seiten mehr als `stepDrop` tiefer
+  liegt (Erhöhte Mittellinie, dann misst er von dort). Unter einer Krone,
+  die auch die Stellen daneben deckt, zählt die Krone: Die Straße jenseits
+  ihres Randes fällt dann als `drop` weg, die Zellen in der Krone bleiben.
+  Zellen, durch die eine Mittellinie läuft,
   prüft er nicht. Liegt ihr Treffer mehr als `roofRise` über der
   Mittellinie ringsum, nehmen sie deren Höhe (siehe Zellhöhe); ein Auto
   oder eine Hecke auf der Mittellinie, niedriger als `roofRise`, bleibt,
