@@ -515,6 +515,9 @@ export class PathAndRouteService {
    */
   async refreshRouteLinesAsync(spawnPoints: SpawnPoint[]): Promise<void> {
     if (!this.engine) return;
+    // For the corridor trace, which loses its chain across the await.
+    const trigger = corridorTrace.capture();
+    const t0 = corridorTrace.enabled ? performance.now() : 0;
 
     const overlayGroup = this.engine.getOverlayGroup();
     const wasVisible = this.routesVisible?.() ?? false;
@@ -527,6 +530,9 @@ export class PathAndRouteService {
 
     // Restore visibility state
     this.routeLines.setVisible(wasVisible);
+    if (corridorTrace.enabled) {
+      corridorTrace.log('routes.refresh', { spawns: spawnPoints.length, waypoints: this.waypointCount(), async: true, ms: performance.now() - t0 }, trigger);
+    }
   }
 
   /**
@@ -535,6 +541,7 @@ export class PathAndRouteService {
    */
   refreshRouteLines(spawnPoints: SpawnPoint[]): void {
     if (!this.engine) return;
+    const t0 = corridorTrace.enabled ? performance.now() : 0;
 
     const overlayGroup = this.engine.getOverlayGroup();
     const wasVisible = this.routesVisible?.() ?? false;
@@ -549,6 +556,19 @@ export class PathAndRouteService {
 
     // Restore visibility state
     this.routeLines.setVisible(wasVisible);
+    // Each rebuild of the route lines with who asked for it: a rebuild of the corridor asks two to four times.
+    if (corridorTrace.enabled) {
+      const ms = performance.now() - t0;
+      corridorTrace.log('routes.refresh', { spawns: spawnPoints.length, waypoints: this.waypointCount(), ms });
+      corridorTrace.cost('routes.refresh', ms);
+    }
+  }
+
+  /** Waypoints of all cached routes, for the corridor trace. */
+  private waypointCount(): number {
+    let count = 0;
+    for (const path of this.cachedPaths.values()) count += path.length;
+    return count;
   }
 
   /**
@@ -1572,9 +1592,12 @@ class ClearanceRun implements CorridorMeasurement {
   private readonly noTile: string[] = [];
   /** Positions of stations without a tile the log names; the rest it counts. */
   private static readonly MAX_LOGGED_STATIONS = 10;
-  /** Tile geometric error of the stations probed and the longest slice, for the corridor trace. */
+  /** Tile geometric error of the stations probed, and the slices against their budget, for the corridor trace. */
   private readonly lod = emptyLod();
   private maxSliceMs = 0;
+  private sliceMsTotal = 0;
+  private overBudget = 0;
+  private readonly budgets = new Set<number>();
 
   constructor(
     private readonly segments: ClearanceSegment[],
@@ -1623,6 +1646,9 @@ class ClearanceRun implements CorridorMeasurement {
     const sliceMs = performance.now() - start;
     this.busyMs += sliceMs;
     this.maxSliceMs = Math.max(this.maxSliceMs, sliceMs);
+    this.sliceMsTotal += sliceMs;
+    this.budgets.add(budgetMs);
+    if (sliceMs > budgetMs) this.overBudget++;
     corridorTrace.cost('clearance.slice', sliceMs, { stations: here, budgetMs });
     return this.next() === null;
   }
@@ -1649,7 +1675,7 @@ class ClearanceRun implements CorridorMeasurement {
       corridorTrace.noteChange([], rays);
       corridorTrace.log('clearance.commit', {
         segments: this.segments.length, stations: this.probed, unmeasured: this.unmeasured, coarse: this.coarse, rays, changed,
-        lod: formatLod(this.lod), slices: this.slices, maxSliceMs: this.maxSliceMs, busyMs: this.busyMs,
+        lod: formatLod(this.lod), ...this.sliceStats(), busyMs: this.busyMs,
         wallMs: performance.now() - this.startedAt, flushed: flushedBy,
       });
       corridorTrace.cost('clearance.commit', storeMs);
@@ -1660,12 +1686,30 @@ class ClearanceRun implements CorridorMeasurement {
   cancel(reason: string): void {
     if (this.end) return;
     this.end = 'cancel';
-    corridorTrace.log('clearance.cancel', { reason, segments: this.segments.length, stations: this.probed, of: this.planned });
+    if (corridorTrace.enabled) {
+      corridorTrace.log('clearance.cancel', { reason, segments: this.segments.length, stations: this.probed, of: this.planned, ...this.sliceStats() });
+    }
     if (this.segments.length === 0) return;
     console.log(
       `[Corridor] clearance cancelled (${reason}): stations=${this.probed} of ${this.planned} in ${this.busyMs.toFixed(1)}ms ` +
       `slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms, corridor unchanged`,
     );
+  }
+
+  /**
+   * The slices against their budget, for the corridor trace. A slice takes
+   * at least one station whatever the budget, so a slow station runs past
+   * it (`overBudget`); `budgetMs` lists the budgets the slices had.
+   */
+  private sliceStats(): Record<string, unknown> {
+    return {
+      slices: this.slices,
+      budgetMs: [...this.budgets].join('/'),
+      overBudget: this.overBudget,
+      maxSliceMs: this.maxSliceMs,
+      meanSliceMs: this.slices > 0 ? this.sliceMsTotal / this.slices : 0,
+      msPerStation: this.probed > 0 ? this.sliceMsTotal / this.probed : 0,
+    };
   }
 
   /** The segment of the next station without a measurement, `station` its index there; null when none is left. */

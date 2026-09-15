@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RouteGridConvergence, type RouteGridConvergenceDeps } from './route-grid-convergence';
+import { corridorTrace } from '../../utils/corridor-trace';
 
 /**
  * After a tile load the route grid refreshes its cell heights in a
@@ -15,7 +16,7 @@ describe('RouteGridConvergence', () => {
   let nextFrameId: number;
   let sweepFrames: number;
   let cachedPaths: Map<string, unknown[]>;
-  let cellsChanged: (() => void) | null;
+  let cellsChanged: ((changed: unknown[]) => void) | null;
   let grid: ReturnType<typeof fakeGrid>;
   let deps: ReturnType<typeof fakeDeps>;
   let convergence: RouteGridConvergence;
@@ -23,7 +24,7 @@ describe('RouteGridConvergence', () => {
   function fakeGrid() {
     return {
       cellsOff: vi.fn(),
-      addCellsChangedListener: vi.fn((listener: () => void) => {
+      addCellsChangedListener: vi.fn((listener: (changed: unknown[]) => void) => {
         cellsChanged = listener;
         return grid.cellsOff;
       }),
@@ -74,10 +75,31 @@ describe('RouteGridConvergence', () => {
   });
 
   describe('baked heights', () => {
+    it('tells the corridor trace how many cells changed since the last refresh, none for a refresh a tile batch asked for alone', () => {
+      const lines: string[] = [];
+      vi.spyOn(console, 'log').mockImplementation((line: unknown) => { lines.push(String(line)); });
+      corridorTrace.setEnabled(true);
+      try {
+        convergence.followCells();
+        cellsChanged!([{}, {}]);
+        cellsChanged!([{}]);
+        runFrames();
+        corridorTrace.within('tilesLoaded lod=3', () => convergence.scheduleBakedHeightRefresh());
+        runFrames();
+      } finally {
+        corridorTrace.setEnabled(false);
+        vi.restoreAllMocks();
+      }
+      const refreshes = lines.filter((line) => line.includes(' routeLines.refresh '));
+      expect(refreshes).toHaveLength(2);
+      expect(refreshes[0]).toMatch(/ changedCells=3 requests=2 animation=false /);
+      expect(refreshes[1]).toMatch(/ changedCells=0 requests=1 animation=false .*\| tilesLoaded lod=3$/);
+    });
+
     it('rebuilds route line and markers once per frame when cells change', () => {
       convergence.followCells();
-      cellsChanged!();
-      cellsChanged!();
+      cellsChanged!([]);
+      cellsChanged!([]);
       expect(deps.pathRoute.refreshRouteLines).not.toHaveBeenCalled();
 
       runFrames();

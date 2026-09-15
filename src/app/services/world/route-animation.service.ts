@@ -8,6 +8,7 @@ import { GeoPosition } from '../../models/game.types';
 import { routePathToLocalPoints } from '../../utils/route-path.util';
 import { SpawnPoint } from './marker-visualization.service';
 import { PathAndRouteService } from './path-route.service';
+import { corridorTrace } from '../../utils/corridor-trace';
 
 /**
  * Animated route data for a single spawn path
@@ -118,6 +119,8 @@ export class RouteAnimationService {
   ): void {
     if (!this.engine || !this.overlayGroup || this.disposed) return;
     if (cachedPaths.size === 0) return;
+    // Who restarts the dash animation, which resets its offset.
+    corridorTrace.log('routeAnimation.start', { routes: cachedPaths.size, restart: this.isAnimating });
 
     // Clean up any existing animation
     this.stopAnimation();
