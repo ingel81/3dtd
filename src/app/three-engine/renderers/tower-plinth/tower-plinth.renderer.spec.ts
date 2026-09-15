@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Mesh, Scene, Vector3, type Material } from 'three';
 import { TowerPlinthRenderer, createPlinthMesh } from './tower-plinth.renderer';
 import { PLINTH_EMBED_M } from './plinth-geometry';
+import { footprintSampleOffsets } from '../../../utils/tower-footprint';
 
 /** Local frame of the test: x = lon, z = lat, y = height. */
 const sync = {
@@ -93,6 +94,24 @@ describe('TowerPlinthRenderer', () => {
     expect(warm.material).toBe(material);
     expect(target).toBe(scene);
     expect(scene.children).not.toContain(warm);
+  });
+
+  it('props a plinth over a drop with braces below it, and builds none without (E18)', () => {
+    const { renderer, plinthOf } = setup();
+    // The probes east of a roof edge 2 m from the tower
+    const overhang = footprintSampleOffsets(3.6).flatMap(([x], index) => (x > 2 ? [index] : []));
+    renderer.create('edge', 0, 0, 17, 1.5, 3.6, overhang);
+    renderer.create('flat', 0, 30, 17, 1.5, 3.6);
+    const lowest = (id: string) => {
+      const geometry = plinthOf(id)!.geometry;
+      geometry.computeBoundingBox();
+      return geometry.boundingBox!.min.y;
+    };
+
+    expect(lowest('flat')).toBeCloseTo(-PLINTH_EMBED_M, 6);
+    expect(lowest('edge')).toBeLessThan(-PLINTH_EMBED_M - 1);
+    expect(plinthOf('edge')!.geometry.getAttribute('position').count)
+      .toBeGreaterThan(plinthOf('flat')!.geometry.getAttribute('position').count);
   });
 
   it('builds meshes for the preview from any material', () => {
