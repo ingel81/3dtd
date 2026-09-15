@@ -17,6 +17,7 @@ import { LocationManagementService } from './location-management.service';
 import { UIStore } from '../../store/ui.store';
 import { LocationConfig, SavedSpawn } from '../../models/location.types';
 import { GeoPosition } from '../../models/game.types';
+import { corridorTrace } from '../../utils/corridor-trace';
 
 /**
  * Input data for location change
@@ -134,6 +135,8 @@ export class LocationChangeExecutorService {
    * STEP 1: Initialize loading state
    */
   private async step1_InitializeLoadingState(): Promise<void> {
+    // The corridor trace counts the seconds of this location load from here.
+    corridorTrace.begin('location change');
     this.engineInit.loading.set(true);
     this.engineInit.tilesLoading.set(true);
     this.engineInit.osmLoading.set(true);

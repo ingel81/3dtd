@@ -3,6 +3,7 @@ import type { PathAndRouteService } from './path-route.service';
 import type { MarkerVisualizationService } from './marker-visualization.service';
 import type { RouteAnimationService } from './route-animation.service';
 import type { TowerDefenseStore } from '../../store/tower-defense.store';
+import { corridorTrace } from '../../utils/corridor-trace';
 
 /** What RouteGridConvergence needs; VisualizationFacadeService passes its services. */
 export interface RouteGridConvergenceDeps {
@@ -88,8 +89,10 @@ export class RouteGridConvergence {
       return;
     }
     if (this.bakedRefreshRaf !== null) return;
+    const trigger = corridorTrace.capture();
     this.bakedRefreshRaf = requestAnimationFrame(() => {
       this.bakedRefreshRaf = null;
+      const t0 = performance.now();
       const spawns = this.deps.store.spawnPoints();
       this.deps.pathRoute.refreshRouteLines(spawns);
       this.deps.markerViz.updateMarkerHeights();
@@ -99,6 +102,9 @@ export class RouteGridConvergence {
           this.deps.routeAnimation.startAnimation(cachedPaths, spawns);
         }
       }
+      const ms = performance.now() - t0;
+      corridorTrace.log('routeLines.refresh', { spawns: spawns.length, ms }, trigger);
+      corridorTrace.cost('routeLines.refresh', ms, {}, trigger);
     });
   }
 
@@ -120,12 +126,23 @@ export class RouteGridConvergence {
    * handful of frames once the engine has decoded the mesh.
    */
   schedule(): void {
-    if (this.routeGridConvergenceScheduled) return;
+    if (this.routeGridConvergenceScheduled) {
+      corridorTrace.log('convergence.schedule', { running: true });
+      return;
+    }
     this.routeGridConvergenceScheduled = true;
     const MAX_FRAMES = 120;
     const grid = this.deps.grid();
     let frames = 0;
     let zeroFrames = 0;
+    // For the corridor trace: the chain the loop began under, its frames,
+    // those of the sweep and the cells the retries promoted.
+    const trigger = corridorTrace.capture();
+    const started = performance.now();
+    let ticks = 0;
+    let sweepTicks = 0;
+    let retryPromoted = 0;
+    corridorTrace.log('convergence.schedule', { running: false });
 
     // The grid emits cells-changed for every slice that moved a cell, but
     // `scheduleBakedHeightRefresh` defers while the sweep is active, so the
@@ -133,19 +150,27 @@ export class RouteGridConvergence {
     // implementation, just triggered once instead of per frame.
     const finish = () => {
       this.routeGridConvergenceScheduled = false;
-      if (this.bakedRefreshPending) {
-        this.bakedRefreshPending = false;
-        this.scheduleBakedHeightRefresh();
-      }
-      // The batch has settled: corridor stations that were still on coarse
-      // tiles may have fine ones now (CorridorRefit.remeasure).
-      this.deps.settled();
+      corridorTrace.log('convergence.settled', {
+        frames: ticks, sweepFrames: sweepTicks, retryPromoted, capped: frames > MAX_FRAMES, wallMs: performance.now() - started,
+      }, trigger);
+      corridorTrace.within('convergence.settled', () => {
+        if (this.bakedRefreshPending) {
+          this.bakedRefreshPending = false;
+          this.scheduleBakedHeightRefresh();
+        }
+        // The batch has settled: corridor stations that were still on coarse
+        // tiles may have fine ones now (CorridorRefit.remeasure).
+        this.deps.settled();
+      }, trigger);
     };
 
-    const tick = () => {
+    // Each frame of the loop runs under the chain it began under.
+    const tick = () => corridorTrace.within('convergence', step, trigger);
+    const step = () => {
       this.routeGridConvergenceRaf = null;
       // dispose() may have torn down the engine/grid between frames.
       if (!this.routeGridConvergenceScheduled) return;
+      ticks++;
       if (frames++ >= MAX_FRAMES) {
         finish();
         return;
@@ -155,6 +180,7 @@ export class RouteGridConvergence {
       // flight, keep ticking and skip the unsampled-retry (the sweep already
       // covers promotion + refresh for every cell).
       if (grid.isTerrainRefreshActive()) {
+        sweepTicks++;
         grid.stepTerrainHeightRefresh(RouteGridConvergence.TERRAIN_REFRESH_BUDGET_MS);
         // The MAX_FRAMES cap guards the unsampled-retry tail only; don't let
         // it abandon an in-flight (or panning-restarted) sweep.
@@ -165,7 +191,10 @@ export class RouteGridConvergence {
       }
 
       // Phase 2: self-heal cells whose mesh decoded after the sweep passed.
+      const tRetry = performance.now();
       const { promoted } = grid.retryUnsampledCells();
+      corridorTrace.cost('convergence.retry', performance.now() - tRetry, { promoted });
+      retryPromoted += promoted;
       if (promoted > 0) {
         zeroFrames = 0;
         this.routeGridConvergenceRaf = requestAnimationFrame(tick);

@@ -47,6 +47,7 @@ import { CameraOverview } from '../camera-overview';
 import { DpsBinsOverlay } from '../debug/dps-bins-overlay';
 import { BuildingOverlay } from '../world/building-overlay';
 import { cameraTimeline } from '../../utils/camera-timeline';
+import { corridorTrace } from '../../utils/corridor-trace';
 
 /**
  * Sub-facade for visualization, camera, rendering, and height updates.
@@ -573,7 +574,7 @@ export class VisualizationFacadeService {
       this.engineInit.loadingStatus,
       () => {
         this.markerViz.updateMarkerHeights();
-        this.gameState.getGlobalRouteGrid().updateTerrainHeights();
+        corridorTrace.within('heightUpdate', () => this.gameState.getGlobalRouteGrid().updateTerrainHeights());
       },
       () => this.renderStreets(),
       (detail: string) => this.engineInit.setStepDone('view', detail),
@@ -591,7 +592,7 @@ export class VisualizationFacadeService {
     await this.heightUpdate.scheduleOverlayHeightUpdate();
     // First fit of the corridors to the tiles, measured over the next frames
     // (CorridorRefit); does not hold the location change up.
-    this.corridor.fitToTiles();
+    corridorTrace.within('heightUpdate.done', () => this.corridor.fitToTiles());
   }
 
   /**
@@ -601,7 +602,7 @@ export class VisualizationFacadeService {
    * same locks as the first fit (CorridorRefit.fitToTiles).
    */
   fitCorridorToTiles(): void {
-    this.corridor.fitToTiles();
+    corridorTrace.within('moved in place', () => this.corridor.fitToTiles());
   }
 
   /**
@@ -691,6 +692,10 @@ export class VisualizationFacadeService {
     if (!engine || !this.bridge.getFilteredStreetNetwork()) return;
 
     const t0 = performance.now();
+    // Everything below, and the frames it schedules, runs under this tile batch in the corridor trace.
+    const lodVersion = engine.terrain.lodVersion;
+    const trace = corridorTrace.enter(`tilesLoaded lod=${lodVersion}`);
+    corridorTrace.tiles(lodVersion, () => engine.routeCorridorLod());
 
     this.renderStreets();
     const tStreets = performance.now();
@@ -777,6 +782,8 @@ export class VisualizationFacadeService {
       `convergence=${(tConvergence - tGameState).toFixed(1)} ` +
       `debugViz=${(tDebugViz - tConvergence).toFixed(1)}ms`
     );
+    corridorTrace.cost('tilesLoaded', tDebugViz - t0);
+    corridorTrace.exit(trace);
   }
 
   // ══════════════════════════════════════════════════════════════

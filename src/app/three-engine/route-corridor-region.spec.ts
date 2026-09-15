@@ -59,6 +59,20 @@ describe('RouteCorridorRegion', () => {
     expect(region.intersectsTile({ sphere: null, obb: null }, {})).toBe(false);
   });
 
+  it('counts the active tiles that reach it by how far they are refined, for the corridor trace', () => {
+    const region = new RouteCorridorRegion([route], identity, 20, 5);
+    const tile = (x: number, geometricError: number, children = 0) =>
+      ({ geometricError, children: new Array(children), engineData: { boundingVolume: sphereVolume(x, 0, 100, 5) } });
+    expect(region.lodState([
+      tile(10, 1), // finer than the target: the camera's tiles
+      tile(10, 4), // at the target
+      tile(10, 20, 4), // coarser, still to refine
+      tile(10, 20), // coarser, a leaf that cannot refine
+      tile(200, 20, 4), // beside the corridor
+      { geometricError: 1 }, // no bounding volume
+    ])).toEqual({ tiles: 4, fine: 3, finest: 1, coarse: 1 });
+  });
+
   it('refines while the tile is coarser than its error target', () => {
     const region = new RouteCorridorRegion([route], identity, 20, 5);
     const tiles = { errorTarget: 20 };

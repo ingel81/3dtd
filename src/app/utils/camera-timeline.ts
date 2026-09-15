@@ -61,10 +61,16 @@ class CameraTimeline {
   private camera: PerspectiveCamera | null = null;
   private readonly entries: CameraTimelineEntry[] = [];
   private readonly dir = new Vector3();
+  private readonly listeners: ((kind: string, data?: Record<string, unknown>) => void)[] = [];
 
   /** Called once by CameraRig with the engine camera. */
   attach(camera: PerspectiveCamera): void {
     this.camera = camera;
+  }
+
+  /** Also tell `listener` about every event; the corridor trace follows the intro and the height cycles. */
+  listen(listener: (kind: string, data?: Record<string, unknown>) => void): void {
+    this.listeners.push(listener);
   }
 
   /**
@@ -78,6 +84,7 @@ class CameraTimeline {
     if (withCaller) entry.from = callerFrames();
     this.entries.push(entry);
     console.log('[Camera]', entry.t, kind, data ?? '', entry.cam ?? '');
+    for (const listener of this.listeners) listener(kind, data);
   }
 
   pose(): CameraPose | null {

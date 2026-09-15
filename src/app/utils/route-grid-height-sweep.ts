@@ -1,6 +1,7 @@
 import { RouteCell } from './route-cell';
 import { RouteCellSampler } from './route-cell-sampler';
 import { logGrid } from './route-grid-log';
+import { HEIGHT_MOVE_M, corridorTrace, countLod, emptyLod, formatLod } from './corridor-trace';
 
 /**
  * Frame-budgeted terrain-refresh sweep over the route cells.
@@ -18,6 +19,12 @@ export class RouteGridHeightSweep {
   private refreshed = 0;
   private slices = 0;
   private start = 0;
+  /** Refreshed cells whose height moved more than HEIGHT_MOVE_M and the largest move, for the corridor trace. */
+  private moved = 0;
+  private maxMove = 0;
+  private maxSliceMs = 0;
+  /** The corridor trace chain the sweep began under. */
+  private trigger = '';
 
   /**
    * @param sampler The grid's cell sampler; without its column sampler no sweep runs.
@@ -47,6 +54,10 @@ export class RouteGridHeightSweep {
     this.refreshed = 0;
     this.slices = 0;
     this.start = performance.now();
+    this.moved = 0;
+    this.maxMove = 0;
+    this.maxSliceMs = 0;
+    this.trigger = corridorTrace.capture();
     // Reset the skip/raycast diagnostic counters so the aggregated
     // PerfTrace logged at `done` reflects this sweep only.
     this.sampler.peekSkipCount = 0;
@@ -79,12 +90,18 @@ export class RouteGridHeightSweep {
       const cell = queue[this.index++];
       // A filled cell has a height but no sample of its own: its first one is a promotion too.
       const wasUnsampled = cell.sample.state !== 'stable';
+      const before = cell.terrainHeight;
       if (this.sampler.sampleCellY(cell)) {
         this.changed.push(cell);
         if (wasUnsampled) {
           this.promoted++;
         } else {
           this.refreshed++;
+          const move = Math.abs(cell.terrainHeight - before);
+          if (move > HEIGHT_MOVE_M) {
+            this.moved++;
+            this.maxMove = Math.max(this.maxMove, move);
+          }
         }
       }
       processed++;
@@ -94,6 +111,9 @@ export class RouteGridHeightSweep {
     }
 
     const done = this.index >= queue.length;
+    const sliceMs = performance.now() - t0;
+    this.maxSliceMs = Math.max(this.maxSliceMs, sliceMs);
+    corridorTrace.cost('heights.slice', sliceMs, { cells: processed }, this.trigger);
 
     // Snap viz + drive LOS for this slice's changes, then clear the buffer.
     // `changedThisSlice` is reported back purely as caller diagnostics: the
@@ -127,6 +147,15 @@ export class RouteGridHeightSweep {
         `cells=${total} promoted=${this.promoted} ` +
         `refreshed=${this.refreshed} skipped=${skipped} slices=${this.slices}`,
       );
+      if (corridorTrace.enabled) {
+        // The tile error of each cell's sample; none for a cell without one.
+        const lod = emptyLod();
+        for (const cell of queue) countLod(lod, cell.sample.state === 'stable' ? cell.sample.tileGeometricError : Infinity);
+        corridorTrace.log('heights', {
+          cells: total, raycasted, promoted: this.promoted, refreshed: this.refreshed, moved: this.moved,
+          maxMoveM: this.maxMove, lod: formatLod(lod), slices: this.slices, spanMs, maxSliceMs: this.maxSliceMs,
+        }, this.trigger);
+      }
       this.queue = null;
     }
 

@@ -30,6 +30,7 @@ import { RouteGridHeightSweep } from './route-grid-height-sweep';
 import { RouteCellSampler } from './route-cell-sampler';
 import { WalkGround, cellWalkable, centreLineKeys, judgeWalk, streetUnderRoof, streetUnderRoofAt, unwalkableCells } from './corridor-walk';
 import { logGrid } from './route-grid-log';
+import { corridorTrace } from './corridor-trace';
 import type { RouteBodyContact } from './route-body';
 
 /** Numeric ascending order for Array.prototype.sort, hoisted so hot paths allocate no comparator. */
@@ -347,6 +348,16 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * Height per cell key, NaN for a cell without one: the cells a rebuild
+   * starts from and ends with, for the corridor trace (cellDelta).
+   */
+  snapshotHeights(): Map<number, number> {
+    const heights = new Map<number, number>();
+    for (const cell of this.cells.values()) heights.set(cell.key, cell.heightSampled ? cell.terrainHeight : NaN);
+    return heights;
+  }
+
+  /**
    * Generate grid cells from enemy routes and sample their terrain height.
    *
    * A cell belongs to the corridor if its centre lies within the half width
@@ -382,6 +393,7 @@ export class GlobalRouteGrid {
       return;
     }
 
+    const t0 = performance.now();
     this.cells.clear();
     this.enemyCellKeys.clear();
     this.generation = GlobalRouteGrid.nextGeneration++;
@@ -406,6 +418,10 @@ export class GlobalRouteGrid {
     // between sampled cells, see fillGaps.
     for (const cell of this.cells.values()) this.sampler.sampleCellY(cell);
     this.fillGaps(this.cells.values());
+
+    const ms = performance.now() - t0;
+    corridorTrace.log('grid.generate', { cells: this.cells.size, routes: routes.length, ms });
+    corridorTrace.cost('grid.generate', ms);
   }
 
   /**

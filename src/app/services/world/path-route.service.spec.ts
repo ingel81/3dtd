@@ -38,6 +38,7 @@ import type { StationProbe } from '../../utils/route-corridor';
 import { GlobalRouteGrid } from '../../utils/global-route-grid';
 import type { ColumnSample } from '../../three-engine/column-sample';
 import type { RouteWaypoint } from '../../models/game.types';
+import { corridorTrace } from '../../utils/corridor-trace';
 
 const ORIGIN = { lat: 48.0, lon: 9.0 };
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
@@ -433,6 +434,35 @@ describe('PathAndRouteService route geometry', () => {
         measure(service);
         service.showPathFromSpawn(spawnPointAt(spawn));
         expect(service.getCachedPath('s1')!.some((p) => p.corridorRight === 2.5)).toBe(false);
+      });
+
+      it('traces a run without stations whose commit narrows the corridor by the walk caps alone', () => {
+        // The case behind a rebuild after `rays=0 changed=true`: nothing is
+        // left to measure, the grid in use shows a van, the commit takes its
+        // walk caps. The existing log has no line for a run without segments.
+        vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        const service = buildRouteService(network, spawn, hq);
+        measure(service);
+        const n1Local = toMeters(n1);
+        grid.ready = true;
+        grid.unwalkable = [{ x: n1Local.x + 3, z: -(n1Local.z + 50) }];
+        corridorTrace.setEnabled(true);
+        const lines: string[] = [];
+        try {
+          expect(measure(service)).toBe(true);
+        } finally {
+          lines.push(...log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[CorridorTrace]')));
+          corridorTrace.setEnabled(false);
+          grid.ready = false;
+          grid.unwalkable = [];
+          vi.restoreAllMocks();
+        }
+
+        expect(lines).toHaveLength(3);
+        expect(lines[0]).toMatch(/ clearance\.start segments=0 stations=0 \| /);
+        expect(lines[1]).toMatch(/ store changed=true by=walkCaps segments=0 capped=\d+ plans=0 routes\/0 detours\/0 passages traceMs=/);
+        expect(lines[2]).toMatch(/ clearance\.commit segments=0 stations=0 unmeasured=0 coarse=0 rays=0 changed=true lod=2m:0,5m:0,coarse:0,none:0 slices=1 /);
       });
 
       it('gives a station without a tile between measured ones their width, not the street width', () => {

@@ -128,6 +128,8 @@ describe('VisualizationFacadeService', () => {
   const engine = {
     getScene: () => scene,
     towers: { setShowShootHeight: vi.fn(), applyDebugOverrides: vi.fn() },
+    terrain: { lodVersion: 0 },
+    routeCorridorLod: () => null,
   };
   const canvas = { id: 'canvas' };
   const bridge = {

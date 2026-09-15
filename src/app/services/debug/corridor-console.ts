@@ -5,6 +5,7 @@ import {
   resetCorridorConfig,
   setCorridorConfig,
 } from '../../utils/route-corridor';
+import { corridorTrace } from '../../utils/corridor-trace';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { InputHandlerService } from '../input-handler.service';
 import type { PathAndRouteService } from '../world/path-route.service';
@@ -72,7 +73,9 @@ export interface CorridorConsoleDeps {
  * Korridor-API für Playtests, analog zu `__rg` und `__routes`, in
  * DevTools: `__corridor.get()`, `__corridor.set({ maxHalfWidth: 8 })`,
  * `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`,
- * `__corridor.report()`, `__corridor.probeLod()`, `__corridor.fingerprint()`.
+ * `__corridor.report()`, `__corridor.probeLod()`, `__corridor.fingerprint()`,
+ * `__corridor.trace()` (the corridor trace of this location load,
+ * `trace(false)` turns it off, see corridor-trace.ts).
  */
 export class CorridorConsole {
   /** The `__corridor` this instance registered, see uninstall(). */
@@ -102,6 +105,7 @@ export class CorridorConsole {
       report: () => this.deps.cellReport.start(),
       probeLod: (targets?: number[], timeoutS?: number) => this.deps.lodProbe.run(targets, timeoutS),
       fingerprint: () => this.deps.lodProbe.fingerprint(),
+      trace: (on?: boolean) => (on === undefined ? corridorTrace.print() : corridorTrace.setEnabled(on)),
     };
     (globalThis as Record<string, unknown>)['__corridor'] = this.api;
     this.deps.cellReport.connect(this.reportSource);
