@@ -64,19 +64,26 @@ export class RouteCellSampler {
   /** The height a cell takes instead of the hit `y`, null to keep it; see sampleCellY. */
   private readonly replaceHit: ((cell: RouteCell, y: number) => number | null) | null;
 
+  /** The ground a tunnel portal at (x, z) takes instead of the ground `y` of its column, null to keep it; see tunnelColumn. */
+  private readonly replacePortal: ((x: number, z: number, y: number) => number | null) | null;
+
   /**
    * @param neighbourMedian `GlobalRouteGrid.medianOfStableNeighbourY`.
    *   Läuft nur, wenn die Säule getroffen hat.
    * @param replaceHit The grid's rule for a hit the cell must not keep:
    *   streetUnderRoof in corridor-walk.ts, for the cells the route centre
    *   line runs through. Asked for every hit a cell would take.
+   * @param replacePortal The same rule at a tunnel portal:
+   *   streetUnderRoofAt in corridor-walk.ts.
    */
   constructor(
     neighbourMedian: (cell: RouteCell, minDepth: number) => number | null,
     replaceHit: ((cell: RouteCell, y: number) => number | null) | null = null,
+    replacePortal: ((x: number, z: number, y: number) => number | null) | null = null,
   ) {
     this.neighbourMedian = neighbourMedian;
     this.replaceHit = replaceHit;
+    this.replacePortal = replacePortal;
   }
 
   // ========================================
@@ -331,14 +338,19 @@ export class RouteCellSampler {
   /**
    * The column a tunnel cell stands on. Its own column sees only the ground
    * or roof above the tunnel, so: the ground at the two portals of its
-   * stretch, interpolated along it, with the coarser of the two LODs.
-   * Null until both portals have a tile.
+   * stretch, interpolated along it, with the coarser of the two LODs. A
+   * portal whose column came down on a roof over the street (a jetty, the
+   * house the passage runs through) takes the street around it instead
+   * (replacePortal), so the cells no longer climb towards it. Null until
+   * both portals have a tile.
    */
   private tunnelColumn(span: TunnelSpan): ColumnSample | null {
     const a = this.columnNear(span.ax, span.az);
     const b = this.columnNear(span.bx, span.bz);
     if (a === null || b === null) return null;
-    const y = a.groundY + (b.groundY - a.groundY) * span.f;
+    const ay = this.replacePortal?.(span.ax, span.az, a.groundY) ?? a.groundY;
+    const by = this.replacePortal?.(span.bx, span.bz, b.groundY) ?? b.groundY;
+    const y = ay + (by - ay) * span.f;
     return {
       groundY: y,
       topY: y,

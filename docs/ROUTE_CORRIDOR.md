@@ -441,6 +441,22 @@ Ausnahmen:
     Mündungen des ganzen Tunnelstücks (`TUNNEL_PORTAL_OFFSET_M`,
     `tunnelSegments` in `route-grid-builder.ts`). Die Höhe hat die gröbere
     LOD der beiden Portale (`tunnelColumn`, `route-cell-sampler.ts`).
+  - **Portal unter einem Dach** (seit 2026-09-15): Liegt der Boden der
+    Säule an einem Portal mehr als `roofRise` über der Höhe der Mittellinie
+    ringsum (`centreLineGround`, ohne Tunnelstellen, siehe Laufweg), nimmt
+    das Portal diese Höhe (`streetUnderRoofAt` in `corridor-walk.ts`), wie
+    eine Zelle der Mittellinie unter einer Auskragung. Anlass: Playtest
+    2026-09-15 (Retest 607, Rothenburg), Torbogen: Die gelben Zellen
+    stiegen im Durchgang an, die Gegner kamen auf der anderen Seite aus
+    der Hauswand. 2 m vor einer Mündung kann die Säule auf der Auskragung
+    des Hauses landen, durch das der Durchgang führt, oder auf dem Haus
+    selbst, wo der OSM-Way vor der Öffnung endet; ihr unterster Treffer
+    ist dann das Obergeschoss, und alle Zellen des Durchgangs lagen auf
+    der Geraden dorthin (nachgestellt in `global-route-grid.spec.ts`,
+    "takes a portal under a jetty from the street around it"). Der Boden
+    ringsum kommt aus den Stellen der Mittellinie hinter der Mündung; die
+    Zellen bis 3 m hinter der Mündung gehören noch zum Tunnel (rundes
+    Ende) und zählen nicht.
   - **Ohne Portal-Tile:** Solange an einem der beiden Portale kein Tile
     liegt, bleibt die Zelle ohne Höhenprobe.
   - **Geteilte Zellen:** Erreicht ein Tunnelsegment eine Zelle, ist sie
@@ -1239,9 +1255,15 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Nachbarn derselben Fläche; für eine erste Probe oder ein Upgrade zählen
   nur Nachbarn aus mindestens so tiefen Tiles. Ein Treffer aus einem
   feineren Tile als alle Nachbarn wird dort also nicht geprüft.
-- Die Portalprobe eines Tunnels kann auf einem Überhang oder Hang landen, dann
-  steht das ganze Tunnelstück schief. Eine Kuppe oder Senke im Tunnel wird als
-  Gerade zwischen den Portalen angenähert.
+- Die Portalprobe eines Tunnels kann auf einem Hang oder auf etwas weniger
+  als `roofRise` Hohem (Auto, Mauer) landen, dann steht das ganze
+  Tunnelstück schief. Ein Dach oder eine Auskragung darüber ersetzt seit
+  2026-09-15 die Mittellinie ringsum, außer wo auch die Stellen dort auf
+  dem Haus liegen (der OSM-Way läuft mehrere Meter im Haus). Liegt der
+  OSM-Way neben der Öffnung, laufen die Gegner neben ihr durch die Wand;
+  das erkennt der Korridor nicht, im Durchgang gilt die OSM-Breite. Eine
+  Kuppe oder Senke im Tunnel wird als Gerade zwischen den Portalen
+  angenähert.
 - Zwei Routen auf verschiedenen Ebenen, die sich Zellen teilen: bei einer
   Brücke und der Strecke hinter ihrem Ende gilt der Boden, bei einem Tunnel
   die Tunnelsohle.

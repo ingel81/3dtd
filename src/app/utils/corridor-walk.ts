@@ -239,7 +239,28 @@ export function centreLineKeys(routes: readonly (readonly { x: number; z: number
  */
 export function streetUnderRoof(cell: RouteCell, y: number, ground: WalkGround, cellSize: number): number | null {
   if (ground.lineCell(cell.x, cell.z) === null) return null;
-  const lineY = cell.surface === 'ground' ? centreLineGround(cell.x, cell.z, ground, cellSize) : carriedAt(cell, ground.column);
+  if (cell.surface === 'ground') return streetUnderRoofAt(cell.x, cell.z, y, ground, cellSize);
+  const lineY = carriedAt(cell, ground.column);
+  return lineY !== null && y - lineY > corridorConfig.roofRise ? lineY : null;
+}
+
+/**
+ * The rule of streetUnderRoof at any point (x, z): the ground of the route
+ * centre line around it (centreLineGround) where the hit `y` there lies
+ * more than `roofRise` above that, else null.
+ *
+ * RouteCellSampler.tunnelColumn asks it for the two portals of a tunnel or
+ * covered passage. 2 m outside a mouth the column can come down on the
+ * jetty of the house the passage runs through, or on the house itself where
+ * the OSM way ends short of the opening, and every cell of the passage took
+ * its height on the line between that and the other portal (playtest
+ * 2026-09-15, Rothenburg, archway: the yellow cells climbed inside the
+ * passage, enemies came out of the house on the other side). The tunnel
+ * spots do not count for the line ground, the ground spots past the mouth
+ * do.
+ */
+export function streetUnderRoofAt(x: number, z: number, y: number, ground: WalkGround, cellSize: number): number | null {
+  const lineY = centreLineGround(x, z, ground, cellSize);
   return lineY !== null && y - lineY > corridorConfig.roofRise ? lineY : null;
 }
 
