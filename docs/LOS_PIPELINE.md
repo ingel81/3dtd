@@ -40,6 +40,12 @@ mit den Werten aus `LOS_VIZ_CONFIG`. Kampf-Probe, Platten der Anzeigen,
 Sample-Y im Shader und die Air-Route-Röhre laufen über diese Helfer. Gegner
 in der Luft fliegen auf `geoHeight + heightOffset` ihres Typs (15 bis 20 m).
 
+Zellen in einem Tunnel und unter einer fremden Brücke liegen auf der Straße
+darunter ([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#zellhöhe)), ihre Bodenprobe
+1,5 m darüber wie überall. Ein Tower außerhalb sieht dorthin den Hügel, das
+Deck oder die bis zum Boden gefüllte Photogrammetrie davor, und die Zelle
+gilt als verdeckt. Dafür gibt es keinen Sonderfall im Code.
+
 **LOS-Debug-Panel** (Dev-Menü, Fenster `los`): die Cubemap des aktiven
 Towers als 4×3-Kreuz der sechs Flächen, Hover in beide Richtungen
 (Cube-Pixel und Route-Zelle), Legende, RGB-Wert mit dekodierter Distanz,

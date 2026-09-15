@@ -19,8 +19,9 @@ Route (vom Spawn zum HQ).
 | Messung | `PathAndRouteService.beginClearanceMeasurement` und der Lauf `ClearanceRun` (`path-route.service.ts`), Strahlen in `TerrainQueries.measureStreetClearance` (`three-engine/terrain-queries.ts`, als `engine.terrain` erreichbar) | Freiraum je Station und Seite |
 | Anpassung | `fitCorridorStations`, `fitCorridorPieces`, `closeShortNarrowings` (`route-corridor.ts`), `fitRoute`, `applyClearance` (`path-route.service.ts`) | Segmente geteilt, wo sich eine Seite ändert; Halbbreite links und rechts je Stück; kurze Engstellen geschlossen |
 | Waypoints | `PathAndRouteService.buildRouteFromPath` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
+| Unterführung | `utils/underpass.ts` (`UnderpassIndex`, `splitAtSpans`), `PathAndRouteService.buildRouteFromPath` | Stück unter einem Way, der die Route auf höherer Ebene kreuzt, als Tunnel |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts`) | 2-m-Zellen im Korridor |
-| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/deck-approach.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Tunnelsohle |
+| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/deck-approach.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Tunnelsohle, Straße unter einer fremden Brücke |
 | Laufweg | `cellWalkable`, `walkCaps` (`utils/corridor-walk.ts`), `PathAndRouteService.narrowToWalkable`, `CorridorController.rebuildCorridors` | Zellen, zu denen kein Gegner laufen kann (Auto, Traufe, Hecke, Böschung), fallen weg; die Halbbreite endet davor |
 | Gegner | `MovementComponent.advance` (`movement.component.ts`), `getRouteProfile` (`route-corridor.ts`) | Seitenversatz innerhalb der Zellen |
 | Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `CorridorController` (`services/world/corridor-controller.ts`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
@@ -171,7 +172,8 @@ Stationen, dazu die Rohwerte je Station für `__corridor.pick()`. Der Lauf hält
 seine Ergebnisse bei sich und übergibt sie erst an seinem Ende
 (`storeClearance`); bis dahin baut jede Route mit dem Korridor von
 vorher. Ein weiterer Lauf misst nur die NaN-Stationen nach (`beginClearanceMeasurement`). Tunnel-
-und Durchgangssegmente werden übersprungen (ebenda).
+und Durchgangssegmente und Stücke unter einer fremden Brücke (siehe Zellhöhe) werden übersprungen
+(ebenda).
 
 ### Glättung und Halbbreite
 
@@ -264,7 +266,7 @@ ein Segment ohne Way davor `defaultHalfWidth` (`routeHalfWidths`).
 Die OSM-Breite gilt:
 
 - an Stationen ohne Messung (kein oder zu grobes Tile),
-- in Tunneln und Durchgängen,
+- in Tunneln, Durchgängen und unter einer fremden Brücke,
 - als Obergrenze auf dem Endstück zum HQ,
 - in DevWorld. Dort liefert `TerrainQueries.measureStreetClearance` keine Probe (`sources.devTerrain()`), und die
   Straßen werden in der Breite gezeichnet, die der Korridor ohnehin nimmt
@@ -462,7 +464,60 @@ Ausnahmen:
   - **Geteilte Zellen:** Erreicht ein Tunnelsegment eine Zelle, ist sie
     Tunnelzelle, auch wenn ein anderes Segment sie ebenfalls erreicht
     (`claimSegmentCells`).
+  - **Stützen** (seit 2026-09-15): Zwischen den Mündungen trägt eine Säule
+    die Gerade, die unter etwas mehr als `roofRise` über ihrem untersten
+    Treffer (Deck, Dach, Hügel) die Straße zeigt: ihr unterster Treffer
+    liegt höchstens `stepRise` über der Geraden zwischen den Portalen und
+    höchstens `roofRise` darunter. Die Zelle nimmt die Gerade durch die
+    nächste solche Säule davor und danach (`supportedY`,
+    `route-cell-sampler.ts`). Geprobt wird alle 2 m auf der Geraden von
+    Portal zu Portal, nur auf Stücken bis 100 m; das LOD dieser Säulen
+    zählt für die Zelle nicht. Ein Auto unter dem Deck (kein Boden unter
+    seinem Dach) liegt über der Geraden und zählt nicht, eine Säule mit nur
+    einer Fläche (Hügel, Auskragung) auch nicht, der Boden zwischen Portal
+    und Mündung ebenso wenig: Für ihn steht das Portal. Anlass: D2, siehe
+    unten.
   - Kein Laufweg-Check.
+- **Unter einer fremden Brücke** (`utils/underpass.ts`, seit 2026-09-15):
+  Kreuzt ein Way die Route auf höherer Ebene, gilt das Stück darunter als
+  Tunnel. `UnderpassIndex.spans` sucht je Segment der Route, das weder
+  Brücke noch Tunnel ist, die Ways, die es in 2D kreuzen, nicht an einem
+  gemeinsamen Knoten (Einmündung) und nicht der eigene Way. Höher heißt:
+  `layer`, sonst 1 für einen Way mit `bridge=*`, sonst 0 (`wayLevel`), im
+  Vergleich mit dem Way der Route (das Endstück zum HQ ohne Way: 0). So
+  zählt auch eine Straße mit `layer=-1` ohne Tunnel-Tag unter einer
+  gewöhnlichen Straße.
+  - **Länge:** je Seite der Kreuzung die halbe OSM-Breite des Ways darüber
+    (`estimateStreetWidth`) plus `DECK_EDGE_MARGIN_M` (4 m), geteilt durch
+    den Sinus des Kreuzungswinkels, zusammen höchstens `UNDERPASS_MAX_M`
+    (80 m). Stücke bis `UNDERPASS_JOIN_M` (10 m) auseinander werden eins
+    (zwei Richtungsfahrbahnen), dann auf die Route gekürzt. Die 4 m: Eine
+    Fahrbahn mit 3 Spuren ist nach `lanes` 10 m breit, das Bauwerk mit
+    Standstreifen und Kappen etwa 16 m (geschätzt, nicht gemessen).
+  - **Schnitt:** `splitAtSpans` teilt die Route an Anfang und Ende des
+    Stücks (ein Schnitt näher als 1 m an einem Punkt der Route entfällt,
+    dann entscheidet die Mitte); das Stück dazwischen trägt `inTunnel`.
+    Damit gilt alles vom Tunnel: Portale 2 m vor den Mündungen, Höhe
+    zwischen ihnen mit Stützen, Fläche `tunnel` (gelb im Overlay), keine
+    Messung, OSM-Breite, kein Laufweg-Check, `closeShortNarrowings` lässt
+    das Stück schmal, und die Strecke hinter einem Brückenende endet
+    davor. Die rote Linie nimmt ihre Höhe an den Waypoints aus diesen
+    Zellen, die Gegner aus der Zelle, in der sie stehen. Liegt ein Portal
+    trotzdem auf dem Deck, greift "Portal unter einem Dach" oben, solange
+    die Mittellinie hinter ihm auf der Straße liegt.
+  - **Anlass (D2, Playtest 2026-09-15, Erlenbach):** Weinsberger Straße
+    (Way 230161781, `secondary`, `lanes=2`, ohne `layer`) unter den beiden
+    Fahrbahnen der A6 (Ways 15258911 und 15258913, `motorway`,
+    `bridge=yes layer=1 lanes=3`; OSM-Daten über Overpass, 2026-09-15). Sie
+    kreuzen die Straße unter 85°, 16 m auseinander; das gibt ein Stück von
+    34 m (24,6 bis 58,7 m entlang des Ways ab seinem nördlichen Knoten).
+    `pick()` unter der Brücke vorher: Zellen auf 220,6 bis 220,8 m (Deck),
+    die Säule am Klick mit einem einzigen Treffer (220,67 m), zwei Säulen
+    daneben mit der Straße bei 214,72 und 215,05 m unter dem Deck
+    (Oberkante 220,6 und 220,7 m). Unter dem Deck ist das Mesh also
+    größtenteils bis zum Boden gefüllt (Fall c im Befund Erlenbach unten).
+    Nachgestellt in `path-route.service.spec.ts` ("under a bridge of no
+    route way") und `global-route-grid.spec.ts` ("under a deck").
 
 ## Laufweg: Zellen, zu denen kein Gegner laufen kann
 
@@ -1052,7 +1107,8 @@ __corridor.report()                                     // Zellbericht: Zellen w
      `path-route.service.ts`).
      - Die Station: Way, `tags` (`width`, `lanes`, `bridge`, `tunnel`,
        `covered`, `layer` wie in `__routes.describe()`), `streetWidthM`, `widthSource`, `onStreet`,
-       `inTunnel`, `unmeasured`, `tileError`, am Ende `shiftM` (wie weit
+       `inTunnel`, `underWay` (der Way über einem Stück unter einer fremden Brücke, sonst null),
+       `unmeasured`, `tileError`, am Ende `shiftM` (wie weit
        entlang der Route die Station neben einer Naht gemessen wurde, sonst
        null).
      - Je Seite eine Zeile: `lowHitM`, `highHitM`, `lowRiseM` (wo nur der
@@ -1071,7 +1127,9 @@ __corridor.report()                                     // Zellbericht: Zellen w
     angehängt `overhang: outer face` (siehe Auskragung);
   - ohne Messung: `unmeasured: from neighbours` (kurze Lücke, gefolgt von
     den Regeln oben), `unmeasured: street width`,
-    `tunnel or covered: street width`, `not measured yet: street width`;
+    `tunnel or covered: street width`, `under way N: street width` (unter
+    einer fremden Brücke, N der Way darüber; `unmeasured` dort
+    `under way N: not measured`), `not measured yet: street width`;
   - zuletzt je Station, wo die Kappe des Laufwegs greift: `unwalkable cell beyond`;
   - danach, über die fertigen Stücke: `short narrowing closed`.
 - **`report`** schaltet den Zellbericht ein, wie die Kachel Cells in den
@@ -1160,6 +1218,16 @@ Layer "Show streets" im Layers-Menü der Quick-Actions
   eine Route über diese Ways bekommt, außer wo eine Route den Brücken-Way
   an einem mittleren Knoten verlässt: Dort trägt die Route das Deck
   weiter, das Overlay nicht.
+- auf einem Stück unter einem Way, der die Straße auf höherer Ebene kreuzt
+  (dieselben Stücke wie für eine Route über die Straße, `streetUnderpasses`
+  in `underpass.ts`), zwischen dem Boden an zwei Portalen 2 m vor den
+  Enden des Stücks (`getGroundHeightEstimate` dort), wie die Zellen, aber
+  ohne Stützen. Das betrifft nur Knoten: Liegt keiner im Stück, läuft die
+  Linie gerade vom Knoten davor zum Knoten danach. In Erlenbach (D2)
+  liegen die Knoten der Weinsberger Straße 5,8 und 4,6 m vor den Enden des
+  Stücks, dort ändert sich nichts. Tunnel-Ways selbst bleiben, wie sie
+  sind (ein Tunnel aus mehreren Ways hätte je Way eigene Portale im
+  Tunnel).
 
 Vorher lag das Overlay auf jeder Brücke auf Kai oder Fluss darunter
 (Playtest 2026-09-14, Paris).
@@ -1214,7 +1282,8 @@ Was der Code dazu sagt:
   Strecke hinter dem Brückenende), seit dem Retest 601 auch um eine Ecke
   und bis 60 m.
 
-**Befund Erlenbach** (Playtest 2026-09-14, offen): Route `spawn-1` auf der
+**Befund Erlenbach** (Playtest 2026-09-14, seit 2026-09-15 als Unterführung
+behoben, siehe Zellhöhe, "Unter einer fremden Brücke"): Route `spawn-1` auf der
 Weinsberger Straße (Way 31361736, ohne Tags) unter einer Autobahnbrücke,
 die kein Way der Route ist. Zellen und Gegner lagen auf dem Deck,
 `maxCellAboveStreetM` 10,1. Keine Regel der Zellen hebt sie dorthin: Der
@@ -1245,6 +1314,15 @@ der Straße, `cached` auf dem Deck; c) kein Treffer auf Straßenhöhe. Nicht
 geändert: Jede Änderung dort trifft jede Säulenprobe (Zellen, Tower,
 Overlay).
 
+Die Daten D2 vom 2026-09-15 (Way 230161781) zeigen c): `cached` 220,77 m
+aus Tiefe 23, `fresh` 220,67 m aus Tiefe 25, unter `hits` nur 220,67 m. Auch
+das feinste Tile hat an der Stelle nur das Deck; ein F5 lädt dieselben
+Tiles und ändert daran nichts. Der Unterschied zwischen `cached` und
+`fresh` (10 cm, zwei Tiefen) ist ein älteres Sample im Säulen-Cache, das
+beim nächsten Zugriff nach einem Tile-Schub neu geprobt wird. Seit der
+Unterführung hängt die Höhe dort nicht mehr von dieser Säule ab, sondern
+von den Portalen auf der Straße und den Stützen.
+
 Ein `__corridor.pick()` je Stelle trennt die Fälle:
 
 | Befund in den Zeilen nahe `routeM` 0 | Deutung |
@@ -1270,7 +1348,7 @@ Die Kontur zeigt den Zustand, in dieser Rangfolge (`overlayCellKind`,
 |---|---|
 | rosa | ohne Höhenprobe; die LOS-Anzeige eines Towers lässt die Zelle aus. Eine gefüllte Zelle (`filled`, siehe Zellhöhe) hat eine Höhe und die Kontur ihrer Fläche; `__corridor.pick()` zeigt sie als `state: 'filled'`, `__rg.dumpStats()` zählt sie unter `filled` |
 | blau | Brückendeck, und die Strecke hinter einem Brückenende (`approach`, bis 60 m entlang der Route), gleich welchen Treffer die Säule ihr gab; die Höhe zeigt, ob Deck oder Boden |
-| gelb | Tunnel oder überdachter Durchgang |
+| gelb | Tunnel, überdachter Durchgang oder Stück unter einer fremden Brücke |
 | weiß | normal |
 
 Das "Air Route Grid Overlay" zeigt dieselben Konturen, die Fläche blau für
@@ -1375,7 +1453,30 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   angenähert.
 - Zwei Routen auf verschiedenen Ebenen, die sich Zellen teilen: bei einer
   Brücke und der Strecke hinter ihrem Ende gilt der Boden, bei einem Tunnel
-  die Tunnelsohle.
+  und einem Stück unter einer fremden Brücke die Tunnelsohle. Läuft eine
+  Route über die Brücke und eine zweite darunter, liegen die Zellen der
+  ersten an der Kreuzung also auf der Straße.
+- Unter einer fremden Brücke (`underpass.ts`):
+  - Nur Ways aus der Overpass-Abfrage der Straßen (`highway=*`). Eine
+    Eisenbahnbrücke oder ein anderes Bauwerk ohne `highway` fehlt dort;
+    unter ihm bleiben die Zellen auf dem untersten Treffer.
+  - Nur wo der Way darüber die Route kreuzt. Läuft die Route längs unter
+    einem Viadukt, oder reicht ein Deck über das Ende seines Ways hinaus
+    über die Route, greift es nicht.
+  - Die Breite des Bauwerks ist geschätzt (OSM-Breite und 4 m je Seite).
+    Ein breiteres Deck lässt die Portale darauf liegen; dann hilft nur
+    "Portal unter einem Dach".
+  - Eine Route auf einer Brücke unter einer höheren Brücke bleibt, wie sie
+    ist: Ihre Zellen nehmen die Oberkante, also das höhere Deck.
+  - Unter einer Fußgängerbrücke wird ein Stück von etwa 10 m nicht
+    gemessen und behält die OSM-Breite; eine breiter gemessene Straße wird
+    dort schmaler. Nicht im Spiel geprüft.
+  - Die Stützen liegen auf der Geraden von Portal zu Portal, der Anteil
+    einer Zelle zählt entlang der Route; auf einem gebogenen Stück weichen
+    beide etwas voneinander ab.
+  - Kosten nicht gemessen: je Routenaufbau eine Suche über die Ways mit
+    `bridge` oder `layer` über dem Way der Route (Bounding Box je Way), je
+    Tunnelzelle bis zu 50 Säulen für die Stützen aus dem Cache der Engine.
 - Strecke hinter einem Brückenende:
   - Die getragene Höhe beginnt mit der Oberkante am Brückenende. Steht dort
     etwas mehr als 1,5 m hoch auf dem Deck (Bus, Lieferwagen), bleibt sie
