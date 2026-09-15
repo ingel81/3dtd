@@ -2,7 +2,8 @@
 
 > **Stand:** 2026-09-15. Regelbasierter Wave-Director + Fairness-Gate-Regelkreis,
 > vollständig clientseitig. Das ONNX-Modell ist **nicht mehr** der Director; es
-> bleibt als Opt-in im Debug-Fenster erreichbar.
+> bleibt als Opt-in im Debug-Fenster erreichbar, sobald ein Modell mit der
+> Eingangsbreite des Encoders exportiert ist (das eingecheckte hat 156 statt 208).
 >
 > Das Spiel braucht im Betrieb **keinen Python-Server, kein Modell und keine
 > ONNX-Runtime**.
@@ -34,6 +35,13 @@ Der Default in `WaveDirectorService` ist `modelState = 'rules'` / `aiMode =
 'rules'`, `GameStore.useAIDirector` steht auf `true`. Beim Start wird **nichts**
 geladen; `loadModel()` läuft nur, wenn man im Training-Debug-Fenster auf
 „Load ONNX model" klickt, und `forceRuleMode()` („Use rules") schaltet zurück.
+
+Den Knopf zeigt das Fenster nur, wenn `metadata.json` des Modells genau
+`ENCODED_STATE_SIZE` Eingänge nennt. `checkModel()` liest das bei jedem Öffnen
+des Fensters nach, ohne die Runtime zu laden. Das eingecheckte Modell nennt 156,
+der Encoder liefert 208, deshalb fehlt der Knopf heute; nach einem passenden
+Export erscheint er beim nächsten Öffnen von selbst. Details:
+[AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md#wann-der-opt-in-erscheint).
 
 Den Zustand `'fallback'` gibt es nicht mehr. Er bedeutete früher „Modell fehlt,
 Fehler" und führte zu einer Exception; heute ist „kein Modell" der Normalfall.
@@ -407,7 +415,7 @@ Nichts davon ist tot, das meiste ist weiterhin der gemeinsame Unterbau:
 | Templates, Ranges, Maske, Curriculum | **Produktiv.** Der Regel-Director benutzt exakt sie. |
 | `fairMaxCount`, DPS-Ramp, Duration-Cap | **Produktiv.** Unverändert geteilt. |
 | State-Encoder (208 Features) | Nur für Training/ONNX-Pfad relevant. Der Regel-Director liest ihn nicht. |
-| ONNX-Inferenz (`decodeModelOutput`) | **Opt-in** über das Debug-Fenster. |
+| ONNX-Inferenz (`decodeModelOutput`) | **Opt-in** über das Debug-Fenster, angeboten nur für ein Modell mit passender Eingangsbreite. |
 | Python-Backend (PPO, Reward, Dashboard) | Nur für Trainingsläufe. Für das Spiel irrelevant. |
 | `directors.py` | Das Messinstrument. Ohne A/B-Baseline ist jede Aussage über „das Modell ist besser" unbelegt. |
 
@@ -490,9 +498,9 @@ Dateien ohne Ordner liegen in `core/`.
 |-------|----------|
 | `rule-director.ts` | Template + 4 Formfaktoren (der produktive Director) |
 | `gate-controller.ts` | Leak-Regelkreis für den Fairness-Cap |
-| `wave-director.service.ts` | Einstieg (`getNextWave`), `runRules`, Modell-Opt-in (`loadModel`), Template-Cooldown |
+| `wave-director.service.ts` | Einstieg (`getNextWave`), `runRules`, Modell-Opt-in (`checkModel`, `loadModel`), Template-Cooldown |
 | `wave-config-builder.ts` | `buildWaveConfig`: Entscheidung → Welle (für beide Directors gleich) |
-| `onnx-policy.ts` | ONNX-Runtime + Session (`OnnxPolicy`), `decodeModelOutput` |
+| `onnx-policy.ts` | ONNX-Runtime + Session (`OnnxPolicy`), Passung aus `metadata.json` (`checkModelFit`), `decodeModelOutput` |
 | `templates.ts` | 22 Templates, Maske, `fairMaxCount`, `lerpRange` (SSOT) |
 | `wave-context.ts` | Maske + Ranges + Fairness-Headroom, einmal pro Entscheidung |
 | `wave-config-adapter.ts` | `WaveConfig` → Spielformat |
@@ -548,8 +556,8 @@ Spiel wird nichts davon gebraucht.
 4. `curl -X POST http://localhost:3002/api/control/start`
 5. Dashboard: `http://localhost:3002`
 6. Checkpoints in `training-backend/checkpoints/`
-7. ONNX-Export: `npm run export-ai`, danach ist der Opt-in-Knopf im
-   Debug-Fenster funktionsfähig.
+7. ONNX-Export: `npm run export-ai`. Nennt die neue `metadata.json` 208
+   Eingänge, zeigt das Debug-Fenster beim nächsten Öffnen den Opt-in-Knopf.
 
 Hintergrundtabs frieren ein: Chrome killt `requestAnimationFrame` in nicht
 sichtbaren Tabs, die Läufe stehen dann still und melden trotzdem „gesund".

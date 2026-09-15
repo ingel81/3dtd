@@ -50,7 +50,8 @@ Der **Wave-Director sitzt im Client**. Standard ist der regelbasierte Director
 gibt es kein Startfenster, in dem der Director nicht verfügbar wäre, und
 `useAIDirector` steht per Default auf `true`. Der ONNX-Pfad ist erhalten, wird
 aber nur durch einen expliziten `WaveDirectorService.loadModel()`-Aufruf aktiv
-(Button im Training-Debugger-Panel, `forceRuleMode()` schaltet zurück);
+(Button im Training-Debugger-Panel, nur sichtbar, wenn `metadata.json` des
+Modells die Eingangsbreite des Encoders nennt; `forceRuleMode()` schaltet zurück);
 `onnxruntime-web` (404 kB WASM) landet damit nicht im Cold Start. Das
 Training-Backend übernimmt die Wave-Wahl nur, solange der
 `TrainingClientService` verbunden ist.

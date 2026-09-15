@@ -1,4 +1,4 @@
-import { Component, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, input, output, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
@@ -21,6 +21,12 @@ export class TrainingDebuggerComponent {
   readonly trainingClient = inject(TrainingClientService);
   readonly waveDirector = inject(WaveDirectorService);
   readonly loadingModel = signal(false);
+  /**
+   * The ONNX opt-in is offered only while the checked-in model fits the
+   * encoder. The 156-input model from schema v2 does not, so the button
+   * stays hidden until a model is exported with the encoder's input size.
+   */
+  readonly canLoadModel = computed(() => this.waveDirector.modelFit() === 'fits');
 
   // Bot control inputs (from parent component)
   readonly botEnabled = input<boolean>(false);
@@ -33,6 +39,14 @@ export class TrainingDebuggerComponent {
   // DPS Bins visualization toggle
   readonly showDpsBins = signal(false);
   readonly dpsBinsToggled = output<boolean>();
+
+  constructor() {
+    // Ask on every open rather than at startup: one small metadata fetch, and
+    // a model exported while the game runs shows up at the next open.
+    effect(() => {
+      if (this.windowService.trainingWindow().isOpen) void this.waveDirector.checkModel();
+    });
+  }
 
   onTimescaleChange(event: Event): void {
     const target = event.target as HTMLInputElement;

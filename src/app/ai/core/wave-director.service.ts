@@ -36,7 +36,7 @@ import { buildWaveContext } from './wave-context';
 import { RuleDirector, type DirectorDecision } from './rule-director';
 import { GateController, gateLeakRatio } from './gate-controller';
 import { buildWaveConfig } from './wave-config-builder';
-import { OnnxPolicy, decodeModelOutput } from './onnx-policy';
+import { OnnxPolicy, checkModelFit, decodeModelOutput, type ModelFit } from './onnx-policy';
 
 /** Model loading states */
 type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'rules';
@@ -70,6 +70,12 @@ export class WaveDirectorService {
   readonly aiMode = signal<AIMode>('rules');
   readonly lastDecision = signal<WaveConfig | null>(null);
   readonly inferenceTimeMs = signal(0);
+  /**
+   * Whether the checked-in model fits the encoder; null until checkModel()
+   * or loadModel() has answered. The debug window offers the opt-in only on
+   * 'fits'.
+   */
+  readonly modelFit = signal<ModelFit | null>(null);
 
   readonly isReady = computed(() => {
     const state = this.modelState();
@@ -121,6 +127,18 @@ export class WaveDirectorService {
   }
 
   /**
+   * Ask the model's metadata whether it fits the encoder, without loading the
+   * runtime. The debug window calls this each time it opens: the 156-input
+   * model from schema v2 keeps the opt-in hidden, and a model exported with
+   * the encoder's input size brings it back without a code change.
+   */
+  async checkModel(): Promise<ModelFit> {
+    const fit = await checkModelFit();
+    this.modelFit.set(fit);
+    return fit;
+  }
+
+  /**
    * Load ONNX Runtime and model
    */
   async loadModel(): Promise<boolean> {
@@ -129,13 +147,16 @@ export class WaveDirectorService {
     this.modelState.set('loading');
     const result = await this.policy.load();
     if (result === 'ready') {
+      this.modelFit.set('fits');
       this.modelState.set('ready');
       this.aiMode.set('inference');
       return true;
     }
 
     // A missing or mismatched model keeps the rules running as normal
-    // operation; only a runtime that failed to load is an error.
+    // operation and takes the opt-in away; only a runtime that failed to
+    // load is an error.
+    if (result !== 'runtime-error') this.modelFit.set(result);
     this.modelState.set(result === 'runtime-error' ? 'error' : 'rules');
     this.aiMode.set('rules');
     return false;

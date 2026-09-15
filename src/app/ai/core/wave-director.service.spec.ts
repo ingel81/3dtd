@@ -260,6 +260,44 @@ describe('WaveDirectorService', () => {
     });
   });
 
+  describe('checkModel', () => {
+    it('knows nothing about the model before it is asked', () => {
+      expect(director.modelFit()).toBeNull();
+    });
+
+    it('offers a model exported with the encoder size, without loading the runtime', async () => {
+      stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
+
+      await expect(director.checkModel()).resolves.toBe('fits');
+
+      expect(director.modelFit()).toBe('fits');
+      expect(director.modelState()).toBe('rules');
+      expect(director.aiMode()).toBe('rules');
+      expect(onnx.env.wasm.wasmPaths).toBeUndefined();
+      expect(onnx.create).not.toHaveBeenCalled();
+    });
+
+    it('withholds the 156-input model from schema v2', async () => {
+      stubMetadata({ ok: true, inputSize: 156 });
+      await expect(director.checkModel()).resolves.toBe('wrong-input-size');
+      expect(director.modelFit()).toBe('wrong-input-size');
+    });
+
+    it('withholds a model without readable metadata', async () => {
+      stubMetadata('reject');
+      await expect(director.checkModel()).resolves.toBe('no-model');
+      expect(director.modelFit()).toBe('no-model');
+    });
+
+    it('follows a re-export: the answer changes with the metadata on the next check', async () => {
+      stubMetadata({ ok: true, inputSize: 156 });
+      await director.checkModel();
+      stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
+      await director.checkModel();
+      expect(director.modelFit()).toBe('fits');
+    });
+  });
+
   describe('loadModel', () => {
     it('opts into the ONNX policy when the model matches the encoder', async () => {
       const fetchMock = stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
@@ -272,7 +310,8 @@ describe('WaveDirectorService', () => {
       expect(onnx.env.wasm.wasmPaths).toBe('assets/onnx-wasm/');
       expect(onnx.env.logLevel).toBe('error');
       expect(onnx.create).toHaveBeenCalledWith(MODEL_PATH, { executionProviders: ['wasm'], logSeverityLevel: 3 });
-      expect(fetchMock).toHaveBeenCalledWith(METADATA_PATH);
+      expect(fetchMock).toHaveBeenCalledWith(METADATA_PATH, { cache: 'no-cache' });
+      expect(director.modelFit()).toBe('fits');
     });
 
     it('does not load twice once ready', async () => {
@@ -282,14 +321,15 @@ describe('WaveDirectorService', () => {
       expect(onnx.create).toHaveBeenCalledTimes(1);
     });
 
-    it('accepts the model when the metadata cannot be read', async () => {
+    it('refuses the model when the metadata cannot be read, without loading the runtime', async () => {
       for (const response of [{ ok: false }, 'reject', { ok: true, inputSize: 'n/a' }] as const) {
-        director.forceRuleMode();
-        director.modelState.set('not-loaded');
         stubMetadata(response);
-        await expect(director.loadModel()).resolves.toBe(true);
-        expect(director.modelState()).toBe('ready');
+        await expect(director.loadModel()).resolves.toBe(false);
+        expect(director.modelState()).toBe('rules');
+        expect(director.modelFit()).toBe('no-model');
       }
+      expect(onnx.env.wasm.wasmPaths).toBeUndefined();
+      expect(onnx.create).not.toHaveBeenCalled();
     });
 
     it('refuses a model exported against another state size and keeps the rules', async () => {
@@ -299,8 +339,9 @@ describe('WaveDirectorService', () => {
 
       expect(director.modelState()).toBe('rules');
       expect(director.aiMode()).toBe('rules');
-      // The session is dropped, so enabling the director cannot bring it back.
-      expect(session.release).toHaveBeenCalledTimes(1);
+      expect(director.modelFit()).toBe('wrong-input-size');
+      // No session is ever opened, so enabling the director cannot bring one back.
+      expect(onnx.create).not.toHaveBeenCalled();
       director.setEnabled(true);
       expect(director.aiMode()).toBe('rules');
       await director.getNextWave();
@@ -316,9 +357,12 @@ describe('WaveDirectorService', () => {
       expect(director.modelState()).toBe('rules');
       expect(director.aiMode()).toBe('rules');
       expect(director.isReady()).toBe(true);
+      // The metadata fitted, but there is nothing to open: the opt-in goes away.
+      expect(director.modelFit()).toBe('no-model');
     });
 
     it('reports an error when the runtime itself fails, and still plans waves', async () => {
+      stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
       onnx.envThrows = true;
 
       await expect(director.loadModel()).resolves.toBe(false);
