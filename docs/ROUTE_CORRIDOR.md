@@ -1185,6 +1185,10 @@ __corridor.towerCells('<towerId>')
 __corridor.pick()                                       // nächster Linksklick auf die Karte, Radius 4 m
 __corridor.pick(6)
 __corridor.report()                                     // Zellbericht: Zellen wählen, JSON kopieren
+await __corridor.probeLod()                             // Region auf 5, 2,5 und 0 m laden und messen (Phase 0)
+await __corridor.probeLod([5, 0], 90)                   // eigene Ziele, höchstens 90 s Warten je Ziel
+__corridor.fingerprint()                                // Hash über den Korridor in Gebrauch (Phase 0)
+__tiles.stats()                                         // Tiles, Cache, Downloads, beide Fehlerziele
 ```
 
 - **`set` und `reset`** geben `Not changed: ...` zurück, wenn kein Ort geladen
@@ -1336,6 +1340,93 @@ __corridor.report()                                     // Zellbericht: Zellen w
     `"dx,dz": [heightM, walkable]` in Zellen entlang lokal x und z, `null`
     ohne Zelle), `column` (wie Ausgabe 2), `station` (Schlüssel in
     `stations`) und `stationM` (Abstand zur Station).
+
+### Phase 0: auf fester LOD messen
+
+Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
+(Region auf 5 m gegen feinste LOD, Entwurf `corrarch` vom 2026-09-15). Sie
+ändern das Spiel nicht, solange niemand sie aufruft.
+
+- **`__tiles.stats()`** (`TilesConsole`, `debug/tiles-console.ts`) druckt eine
+  Tabelle aus `ThreeTilesEngine.tilesLodDebug()` (`three-engine/tiles-lod-debug.ts`):
+  - `regionErrorTarget`: Fehlerziel der Korridor-Region in m, `null` vor den
+    Routen; `cameraErrorTarget`: das der Kamera in px.
+  - `active` und `visible`: Tiles im Durchlauf (nur die trifft ein Strahl),
+    `activeMB` ihre Bytes, wie der LRU-Cache sie bucht.
+  - `cachedTiles`, `cachedMB`, `cacheFull`: der LRU-Cache, gedeckelt auf
+    0,7 GiB (`tiles-renderer-setup.ts`).
+  - `queued`, `downloading`, `parsing`: ausstehende Arbeit; `lodVersion` des
+    Säulen-Caches.
+
+  In DevWorld: `No 3D tiles: ...`.
+- **`__corridor.probeLod(targets = [5, 2.5, 0], timeoutS = 60)`**
+  (`CorridorLodProbe`, `debug/corridor-lod-probe.ts`) gibt ein Promise
+  zurück, also mit `await` aufrufen. Ablauf:
+  1. Verweigert mit `Not started: ...`, solange Tower stehen, eine Welle
+     läuft, Gegner da sind, der Intro-Flug läuft oder eine Korridormessung
+     offen ist, ebenso ohne Tiles (DevWorld) oder ohne Region.
+  2. Hält die beruhigten Tile-Ladungen vom Spiel fern (`SettleHold`): kein
+     Sprung der `lodVersion`, kein Höhen-Sweep, kein `remeasure`, solange sie
+     läuft. Setzt das Fehlerziel der Kamera auf 1e6 px
+     (`MUTED_CAMERA_ERROR_TARGET`): Die Kamera verfeinert nichts mehr, die
+     Region weiter bis zu ihrem Ziel.
+  3. Je Ziel: Fehlerziel der Region setzen, warten, bis 0,5 s lang nichts
+     lädt (`QUIET_MS`, wie der Debounce des `TileLoadingTracker`), höchstens
+     `timeoutS`. Dann jede Station einmal messen
+     (`PathAndRouteService.measureAllStations`), am Stück und mit einem
+     eigenen, leeren Säulen-Cache (`TerrainQueries.withScratchColumnCache`).
+     Nichts davon wird gespeichert oder gebaut.
+  4. Am Ende, auch nach Timeout, Fehler oder Abbruch: beide Fehlerziele
+     zurück auf die Werte von vorher, warten, bis die Tiles ruhig sind, dann
+     die Ladungen freigeben. Kam in der Zeit eine an, gibt `SettleHold` genau
+     eine weiter.
+  5. Kommt zwischen zwei Zielen ein Tower, eine Welle oder eine Messung dazu,
+     hört sie auf (`stopped early`). `__corridor.set()` und `reset()`
+     antworten während der Probe `Not changed: __corridor.probeLod() is running.`
+
+  Spalten, eine Zeile je Ziel:
+
+  | Spalte | Inhalt |
+  |---|---|
+  | `target` | Fehlerziel der Region in m, 0 = feinste LOD |
+  | `loadS`, `timedOut` | Sekunden, bis nichts mehr lud (ohne die 0,5 s Ruhe); bei `timedOut` die ganze Wartezeit samt Ruhe |
+  | `active`, `activeMB`, `cachedTiles`, `cachedMB`, `cacheFull` | wie `__tiles.stats()`, nach dem Laden |
+  | `stations` | gemessene Stationen |
+  | `upTo2`, `upTo2_5`, `upTo5`, `over5`, `none` | geometricError des Tiles unter jeder Station: bis 2 m, über 2 bis 2,5 m, über 2,5 bis 5 m, über 5 m, kein Tile |
+  | `measureMs`, `msPerStation` | Hauptthread-Zeit des Durchlaufs, ein Frame lang am Stück |
+  | `rays`, `rayMs`, `hitsPerRay` | Säulen- und Seitenstrahlen des Durchlaufs; `__raycastStats()` bucht sie unter `corridorLodProbe` |
+
+  Die Schlusszeile `[Corridor] probeLod: region N m and camera N px restored`
+  nennt die zurückgesetzten Ziele, `stopped early` mit Grund und ob sich der
+  Korridor während der Probe geändert hat (Fingerprint vor und nach der
+  Probe, vor der Freigabe). Nach der Freigabe läuft der weitergegebene
+  Tile-Schub wie jeder andere: Sweep, Konvergenz, `remeasure`. Fingerprints
+  daher vor der Probe nehmen oder nach einem Neuladen.
+
+  Grenzen: Während der Probe fallen die Tiles außerhalb der Region auf grobe
+  LOD, das Bild wird grob. Bei `cacheFull` starten keine neuen Downloads; die
+  Zeile gilt dann für das, was in den Cache passte. Im Hintergrund-Tab lädt
+  nichts, die Ziele laufen dann in den Timeout.
+- **`__corridor.fingerprint()`** (`debug/corridor-fingerprint.ts`) druckt
+  `[Corridor] fingerprint <8 Hex-Ziffern>` und je Teil `entries` und `hash`.
+  Nur gespeicherter Zustand geht ein (`PathAndRouteService.corridorState` und
+  die Zellen des Grids), nichts wird neu gemessen oder beurteilt; wohin die
+  Kamera schaut, ändert ihn nicht. Derselbe Korridor gibt denselben Hash.
+
+  | Teil | Inhalt |
+  |---|---|
+  | `pieces` | je Route und Segment die Korridorstücke in Gebrauch: t, Halbbreite links und rechts (cm) |
+  | `stations` | je gemessener Station der Freiraum links und rechts (cm) und warum sie ungemessen blieb |
+  | `walk` | Kappen des Laufwegs je Station und Seite (cm): die Laufweg-Urteile, wie der Korridor sie angewendet hat |
+  | `detours` | Umweg-Stücke (von, bis, Versatz, cm) und Durchgänge |
+  | `cells` | Zellen nach ihrer Mitte (cm) |
+  | `heights` | Zellhöhen auf 0,1 m gerundet |
+  | `tiles` | geometricError des Tiles unter jeder gemessenen Station; je Zelle Sample-Zustand, Tiefe und geometricError |
+
+  Routen, Segmente und Zellen gehen nach Schlüssel sortiert ein. Messungen
+  von Routen, die nicht mehr in Gebrauch sind (Spawn verschoben), fehlen. Das
+  Urteil des Laufwegs je Zelle geht nicht ein: Es neu zu berechnen läse den
+  Säulen-Cache, und der folgt der Kamera.
 
 ### `__routes.describe()`
 
