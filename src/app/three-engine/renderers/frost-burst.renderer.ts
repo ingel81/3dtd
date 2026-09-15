@@ -187,7 +187,7 @@ export class FrostBurstRenderer {
 
     // A thin bright front with a faint fill behind it
     this.ringTexture = radialTexture(256, (r) =>
-      Math.exp(-(((r - 0.9) / 0.05) ** 2)) + (r < 0.9 ? 0.12 * MathUtils.smoothstep(r, 0.3, 0.9) : 0));
+      Math.exp(-(((r - 0.9) / 0.05) ** 2)) + (r < 0.9 ? LOOK.ring.fill * MathUtils.smoothstep(r, 0.3, 0.9) : 0));
     this.rimeTexture = rimeTexture(256);
     this.flashTexture = radialTexture(64, (r) => (1 - r) ** 2);
 
@@ -351,7 +351,7 @@ export class FrostBurstRenderer {
    * rest on the ground and fade out over their life.
    */
   private writeShards(burst: Burst, slot: number, n: number): number {
-    const { speed, lift, drag, gravity, life, size } = LOOK.shards;
+    const { speed, lift, drag, gravity, life, size, light: birthLight } = LOOK.shards;
     const { shard, shardDeep } = LOOK.colors;
     const position = this.shards.position.array as Float32Array;
     const rgb = this.shards.color.array as Float32Array;
@@ -366,7 +366,7 @@ export class FrostBurstRenderer {
       const lifeS = MathUtils.lerp(life[0], life[1], this.seeds[s + 3]);
       if (burst.t >= lifeS) continue;
       const fade = 1 - burst.t / lifeS;
-      const light = fade ** 1.5 * 1.4;
+      const light = fade ** 1.5 * birthLight;
       if (light < MIN_LIGHT) continue;
 
       const angle = this.seeds[s] * TAU;
@@ -395,7 +395,7 @@ export class FrostBurstRenderer {
    * and rising a little; the atlas frames widen and fade them out.
    */
   private writeMist(burst: Burst, slot: number, n: number): number {
-    const { start, radius, rise, spread, life, size } = LOOK.mist;
+    const { start, radius, rise, spread, life, size, firstFrame } = LOOK.mist;
     const color = LOOK.colors.mist;
     const position = this.mist.position.array as Float32Array;
     const rgb = this.mist.color.array as Float32Array;
@@ -421,8 +421,8 @@ export class FrostBurstRenderer {
       rgb[n * 3 + 2] = color.b;
       const diameter = MathUtils.lerp(size[0], size[1], this.seeds[s + 4]) * burst.scale * (0.8 + 0.5 * progress);
       sizes[n] = diameter * this.sizePerMetre;
-      // Frame 2 at the start (thick), the last drawn frame at the end (faint)
-      frames[n] = Math.min(SMOKE_LAST_FRAME, Math.round(2 + (SMOKE_LAST_FRAME - 2) * progress));
+      // `firstFrame` at the start, the last drawn frame at the end (faint)
+      frames[n] = Math.min(SMOKE_LAST_FRAME, Math.round(firstFrame + (SMOKE_LAST_FRAME - firstFrame) * progress));
       n++;
     }
     return n;
