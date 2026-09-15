@@ -30,6 +30,8 @@ export interface RecordableEnemy {
   readonly rush: { readonly running: boolean } | null;
   /** A body along the route (the oozes): its stretch, tailM to tipM on its stations */
   readonly body: { readonly stations: RouteBodyStations; readonly tailM: number; readonly tipM: number } | null;
+  /** A worm segment: whether it leads or ends its worm, which picks its model */
+  readonly worm?: { readonly head: boolean; readonly tail: boolean } | null;
 }
 
 /** What the recorder reads of the hero; HeroManager.getPresentation() gives it. */
@@ -347,6 +349,9 @@ export class ReplayRecorder {
         if (movement.isStunned(now)) flags |= ENEMY_FLAG.STUNNED;
       }
       if (enemy.rush !== null && enemy.rush.running) flags |= ENEMY_FLAG.RUNNING;
+      // A worm segment's model: its type's (the head), the ring or the tail
+      const worm = enemy.worm;
+      if (worm && !worm.head) flags |= worm.tail ? ENEMY_FLAG.WORM_TAIL : ENEMY_FLAG.WORM_BODY;
       // An ooze's sample is its tip, health and status; the body adds its stretch
       const body = enemy.body;
       if (body !== null) rec.pushBody(index, body.stations, body.tailM, body.tipM);

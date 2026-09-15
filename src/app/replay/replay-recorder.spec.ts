@@ -32,6 +32,7 @@ function fakeEnemy(typeId = 'zombie', lat = 0, lon = 0) {
     },
     rush: null as { running: boolean } | null,
     body: null as { stations: RouteBodyStations; tailM: number; tipM: number } | null,
+    worm: null as { head: boolean; tail: boolean } | null,
   };
 }
 
@@ -172,6 +173,22 @@ describe('ReplayRecorder', () => {
     expect(rec.eSpeed[0]).toBe(100); // 2 m/s × slow 0.5
     expect(rec.eHp[0]).toBe(64);
     expect(rec.eFlags[0]).toBe(ENEMY_FLAG.SLOWED | ENEMY_FLAG.BURNING | ENEMY_FLAG.RUNNING);
+  });
+
+  it('keeps which model draws a worm segment: its type\'s (the head), the ring or the tail', () => {
+    const h = new Harness();
+    const parts = [{ head: true, tail: false }, { head: false, tail: false }, { head: false, tail: true }];
+    for (const worm of parts) {
+      const segment = fakeEnemy('worm');
+      segment.worm = worm;
+      h.enemies.push(segment);
+    }
+    h.startWave();
+    h.recorder.finish('completed');
+
+    const part = ENEMY_FLAG.WORM_BODY | ENEMY_FLAG.WORM_TAIL;
+    const flags = Array.from(h.recorder.recording!.eFlags.subarray(0, 3), (f) => f & part);
+    expect(flags).toEqual([0, ENEMY_FLAG.WORM_BODY, ENEMY_FLAG.WORM_TAIL]);
   });
 
   it('takes spawns, deaths and leaks from the bus, and leaves dying enemies out of the frames', () => {

@@ -72,6 +72,12 @@ function fakeEngine() {
         if (slot) slot.released = true;
         slots.delete(id);
       }),
+      // Into another pool: a new slot, the old one released
+      setRenderType: vi.fn((id: string) => {
+        const slot = slots.get(id);
+        if (slot) slot.released = true;
+        slots.set(id, { released: false });
+      }),
       startWalkAnimation: vi.fn(),
       startRunAnimation: vi.fn(),
       playDeathAnimation: vi.fn(),
@@ -605,6 +611,54 @@ describe('ReplayPlayer', () => {
       advance(p, 160); // the ooze died at 150 ms, its band is mid-collapse
       p.exit();
       expect((fake.engine.oozes as Record<string, Spy>)['clear']).toHaveBeenCalled();
+    });
+  });
+
+  describe('worm segments', () => {
+    /**
+     * Wave 35, 300 ms: a worm's head, a ring and its tail; the head dies at
+     * 150 and the ring leads from frame 1 on.
+     */
+    function wormRecording(): ReplayRecording {
+      const rec = new ReplayRecording();
+      rec.reset(35, 0, 100, 0, null);
+      const head = rec.addEnemy('worm', 0);
+      const ring = rec.addEnemy('worm', 0);
+      const tail = rec.addEnemy('worm', 0);
+      rec.endEnemy(head, 150, ENEMY_END.DIED);
+      rec.beginFrame(0);
+      rec.pushEnemy(head, 10, 0, 0, 0, 1, 1, 0);
+      rec.pushEnemy(ring, 5, 0, 0, 0, 1, 1, ENEMY_FLAG.WORM_BODY);
+      rec.pushEnemy(tail, 0, 0, 0, 0, 1, 1, ENEMY_FLAG.WORM_TAIL);
+      rec.endFrame();
+      rec.beginFrame(200);
+      rec.pushEnemy(ring, 7, 0, 0, 0, 1, 1, 0);
+      rec.pushEnemy(tail, 2, 0, 0, 0, 1, 1, ENEMY_FLAG.WORM_TAIL);
+      rec.endFrame();
+      rec.beginFrame(300);
+      rec.endFrame();
+      rec.finish(300, 'completed');
+      return rec;
+    }
+
+    it('draws each segment with the model its sample names and follows a split', () => {
+      fake = fakeEngine();
+      const p = new ReplayPlayer(wormRecording(), fake.engine as never);
+      p.enter();
+      const { enemies } = fake.engine;
+      // Each comes as its type, the head model; ring and tail move on at once
+      expect(enemies.create.mock.calls.map((c) => (c as unknown[])[1])).toEqual(['worm', 'worm', 'worm']);
+      expect(enemies.setRenderType.mock.calls).toEqual([
+        ['replay-enemy-1', 'worm-segment'],
+        ['replay-enemy-2', 'worm-tail'],
+      ]);
+
+      advance(p, 200);
+      expect(enemies.setRenderType).toHaveBeenCalledTimes(3);
+      expect(enemies.setRenderType).toHaveBeenLastCalledWith('replay-enemy-1', 'worm');
+      // The pushes of this frame went to the slots in use now
+      expect(enemyX(1)).toBe(7);
+      expect(enemyX(2)).toBe(2);
     });
   });
 
