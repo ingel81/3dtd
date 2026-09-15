@@ -76,6 +76,23 @@ describe('Worm chains', () => {
     expect(bodyCreates.length).toBe(segments.length - 1);
   });
 
+  it('brings its last segment out as the tail', () => {
+    const head = m.enemyManager.spawn(straightPath(100), 'worm');
+    const group = head.worm!.group;
+    const last = group.size - 1;
+
+    tickEngine(m, 20_000);
+    expect(group.isPending(last)).toBe(true);
+    expect(out(group).some((e) => e.worm!.tail)).toBe(false);
+
+    // Out after (size - 1) spacings at 4.5 m/s
+    tickEngine(m, 2_500);
+    const tail = group.segments[last]!;
+    expect(tail.worm).toMatchObject({ head: false, tail: true });
+    expect(m.tilesEngine.enemies.create).toHaveBeenCalledWith(tail.id, 'worm-tail', expect.anything(), expect.anything(), expect.anything());
+    expect(m.tilesEngine.enemies.setRenderType).not.toHaveBeenCalledWith(tail.id, expect.anything());
+  });
+
   it('sways by the distance each segment has reached, straight out of the portal', () => {
     const head = m.enemyManager.spawn(straightPath(400), 'worm');
     tickEngine(m, 15_000);
@@ -185,6 +202,35 @@ describe('Worm chains', () => {
       expect(group.segments[4]!.worm!.head).toBe(false);
       expect(m.tilesEngine.enemies.setRenderType).toHaveBeenCalledWith(rear.id, 'worm');
       expect(distance(group.segments[4]!) - distance(rear)).toBeCloseTo(2 * chain.spacing, 6);
+    });
+
+    it('makes the segment in front of the gap the tail of the front worm', () => {
+      const group = wormOut();
+      const front = group.segments[4]!;
+      m.enemyManager.kill(group.segments[5]!);
+      tickEngine(m, 16);
+
+      expect(front.worm!.tail).toBe(true);
+      expect(m.tilesEngine.enemies.setRenderType).toHaveBeenCalledWith(front.id, 'worm-tail');
+      // The rear worm's tail is still in the portal
+      const tails = out(group).filter((e) => e.worm!.tail);
+      expect(tails).toEqual([front]);
+    });
+
+    it('lets a segment left alone lead rather than end, a tail included', () => {
+      const group = wormOut();
+      m.enemyManager.kill(group.segments[5]!);
+      tickEngine(m, 16);
+      const lone = group.segments[4]!;
+      expect(lone.worm!.tail).toBe(true);
+
+      // Slot 4 is a worm of its own now, slot 2 ends the one in front
+      m.enemyManager.kill(group.segments[3]!);
+      tickEngine(m, 16);
+
+      expect(lone.worm).toMatchObject({ head: true, tail: false });
+      expect(m.tilesEngine.enemies.setRenderType).toHaveBeenCalledWith(lone.id, 'worm');
+      expect(group.segments[2]!.worm!.tail).toBe(true);
     });
 
     it('lets the next segment lead when the head goes', () => {

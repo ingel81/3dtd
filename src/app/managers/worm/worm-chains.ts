@@ -18,6 +18,8 @@ export interface WormHost {
   spawnSegment(group: WormGroup, link: WormLink, paused: boolean): Enemy;
   /** Draw a body segment with the head model from now on: it leads a worm now. */
   showAsHead(enemy: Enemy): void;
+  /** Draw a body segment with the tail model from now on: it ends a worm now. */
+  showAsTail(enemy: Enemy): void;
 }
 
 /** A chain in the order of one sub-step, see WormChains.tick(). */
@@ -49,7 +51,8 @@ interface ChainRef {
  * placed it.
  *
  * A destroyed segment splits its worm in two (WormGroup.lose). Both walk on
- * at their own pace, the first segment behind the gap as the new head. A
+ * at their own pace, the first segment behind the gap as the new head, the
+ * last one in front of it as the new tail (the host switches their models). A
  * chain never closes in on the one ahead on its path to less than the gap one
  * lost segment leaves: a faster rear worm queues behind a slowed one, and a
  * worm spawned while another is still coming out waits behind it. A chain
@@ -188,11 +191,20 @@ export class WormChains {
     // An idle worm (debug placement) starts once one of its segments walks
     if (walking > 0 && !held) group.idle = false;
 
-    // The first segment behind a gap leads a worm of its own now
+    // The first segment behind a gap leads a worm of its own now, a tail
+    // left alone as well
     const lead = group.segments[chain.first]?.worm;
     if (lead && !lead.head) {
       lead.head = true;
+      lead.tail = false;
       this.host.showAsHead(group.segments[chain.first]!);
+    }
+    // The segment in front of a gap ends its worm now. A last slot still in
+    // the portal comes out as the tail (emerge).
+    const end = group.segments[chain.last]?.worm;
+    if (end && !end.head && !end.tail) {
+      end.tail = true;
+      this.host.showAsTail(group.segments[chain.last]!);
     }
 
     if (!held && !halted && !group.idle) {
@@ -222,6 +234,8 @@ export class WormChains {
       group,
       slot,
       head: slot === chain.first,
+      // The last slot of its chain comes out as the tail, unless it leads it
+      tail: slot === chain.last && slot !== chain.first,
       target: distance,
       lateral: wormSway(group.chain, distance, group.origin),
     };

@@ -32,6 +32,8 @@ export interface SplitOnDeath {
 export interface EnemyChain {
   /** Type whose VAT pool draws the body segments (only its model is used) */
   segmentModel: EnemyTypeId;
+  /** Type whose VAT pool draws the last segment of each worm once it is out (only its model is used) */
+  tailModel: EnemyTypeId;
   /** Distance between two segments along the route centre line (m) */
   spacing: number;
   /** As many segments as fit the route, at least this many ... */
@@ -184,7 +186,7 @@ export interface EnemyTypeConfig {
   previewOffsetY?: number; // Vertical offset for preview camera target (default: 0)
 }
 
-/** What a worm head or segment model sets; the rest of the type is shared. */
+/** What a worm head, segment or tail model sets; the rest of the type is shared. */
 type WormModel = Pick<
   EnemyTypeConfig,
   | 'modelUrl' | 'scale' | 'hasAnimations' | 'walkAnimation' | 'gaitStride'
@@ -195,6 +197,7 @@ type WormModel = Pick<
 interface WormModels {
   head: WormModel;
   segment: WormModel;
+  tail: WormModel;
   /** Chain spacing: segment length along the route less the overlap of the rings (m) */
   spacing: number;
 }
@@ -215,7 +218,7 @@ const WORM_SCALE = 2.5;
  */
 const WORM_GAIT_STRIDE = WORM_SCALE / 0.75;
 
-/** The ring with its legs */
+/** What segment and tail share: the ring with its legs */
 const WORM_RING = {
   scale: WORM_SCALE,
   hasAnimations: true,
@@ -232,13 +235,15 @@ const WORM_RING = {
 } satisfies Omit<WormModel, 'modelUrl'>;
 
 /**
- * The chitin head and ring (tools/blender/worm_boss.py): skinned meshes
- * with one base colour each (the head 1024², the ring 512²), looking along
- * +z, pivot on the ground under the ring centre. The rings follow each other
- * at 1.0 model units (0.10 of overlap); the head sits on the front node of
- * the chain like a ring, its collar over the first ring behind it. Their
- * clips follow the distance walked (gaitStride): the rings' legs step, the
- * head's mandibles bite. Everything that depends on the models is here.
+ * The chitin head, ring and tail (tools/blender/worm_boss.py): skinned
+ * meshes with one base colour each (the head 1024², the others 512²),
+ * looking along +z, pivot on the ground under the ring centre. The rings
+ * follow each other at 1.0 model units (0.10 of overlap); the head sits on
+ * the front node of the chain like a ring, its collar over the first ring
+ * behind it, and the tail on the last node, its plates and cerci trailing
+ * 2.2 units behind its ring. Their clips follow the distance walked
+ * (gaitStride): the rings' legs step, the head's mandibles bite. Everything
+ * that depends on the models is here.
  */
 const WORM_MODELS: WormModels = {
   head: {
@@ -258,6 +263,7 @@ const WORM_MODELS: WormModels = {
     previewOffsetY: 1,
   },
   segment: { modelUrl: 'assets/models/enemies/worm_segment.glb', ...WORM_RING },
+  tail: { modelUrl: 'assets/models/enemies/worm_tail.glb', ...WORM_RING },
   // PITCH in worm_boss.py, 1.0 model units
   spacing: WORM_SCALE,
 };
@@ -967,6 +973,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // worm-segment's (managers/worm)
     chain: {
       segmentModel: 'worm-segment',
+      tailModel: 'worm-tail',
       spacing: WORM_MODELS.spacing,
       minSegments: 16,
       maxSegments: WORM_MAX_SEGMENTS,
@@ -985,6 +992,17 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     id: 'worm-segment',
     name: 'Skarnax Segment',
     ...WORM_MODELS.segment,
+    ...WORM_STATS,
+  },
+
+  'worm-tail': {
+    // The last ring of a worm, with its tail plates and cerci: drawn from
+    // this pool once the worm's last segment is out (chain.tailModel), and
+    // for the segment in front of a gap. On its own a single tail with the
+    // worm's stats, like worm-segment.
+    id: 'worm-tail',
+    name: 'Skarnax Tail',
+    ...WORM_MODELS.tail,
     ...WORM_STATS,
   },
 

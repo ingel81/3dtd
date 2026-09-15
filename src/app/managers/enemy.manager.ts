@@ -147,6 +147,9 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.spawnOne(group.path, group.type.id, group.speedMps, paused, group.segmentMaxHp, group.start ?? undefined, link),
     // The head model is the worm type's own; presentFrame resolves the new slot
     showAsHead: (enemy) => this.tilesEngine?.enemies.setRenderType(enemy.id, enemy.typeConfig.id),
+    showAsTail: (enemy) => {
+      if (enemy.worm) this.tilesEngine?.enemies.setRenderType(enemy.id, enemy.worm.group.chain.tailModel);
+    },
   });
   /** Skarnax's voice at the head of each worm, moved in presentFrame() */
   private readonly wormSounds = new WormSounds();
@@ -334,11 +337,13 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Create 3D model and start animation. `position` is path[0], or the
     // split start on the centre line; the first step adds the lane offset.
     // An ooze has no model instance: its body lies along the route. A worm's
-    // body segments are drawn with the segment model.
+    // body segments are drawn with the segment model, its last with the tail.
     if (enemy.typeConfig.ooze) {
       this.oozes.attach(enemy, this.tilesEngine);
     } else {
-      const renderType = worm !== null && !worm.head ? worm.group.chain.segmentModel : typeId;
+      const renderType = worm === null || worm.head
+        ? typeId
+        : worm.tail ? worm.group.chain.tailModel : worm.group.chain.segmentModel;
       this.tilesEngine.enemies
         .create(enemy.id, renderType, enemy.position.lat, enemy.position.lon, geoHeight + enemy.heightOffset)
         .then((renderData) => {

@@ -36,6 +36,8 @@ export interface WormLink {
   readonly slot: number;
   /** Drawn with the head model */
   head: boolean;
+  /** Drawn with the tail model: the last segment of its worm, the head aside */
+  tail: boolean;
   /** Where the chain puts the segment in this sub-step: route distance (m) ... */
   target: number;
   /** ... and place across the corridor (-1..1, see MovementComponent.setLateralFactor) */
