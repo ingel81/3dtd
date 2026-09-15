@@ -1001,7 +1001,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
 
     this.oozes.present(engine, gameTimeMs);
-    this.wormSounds.present(this.worms.all, engine);
+    this.wormSounds.present(this.worms.all, engine, gameTimeMs);
 
     if (profiling) this.onPresentTiming!(performance.now() - t0);
   }

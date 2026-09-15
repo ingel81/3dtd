@@ -72,6 +72,10 @@ spatialAudio.registerSound('arrow', '/assets/sounds/towers/archer/shoot.mp3', {
 // Mit lokalen Koordinaten (THREE.Vector3)
 spatialAudio.playAt('arrow', position);
 
+// Mit Lautstärke-Anteil und Abspielrate (0,95: etwas tiefer und länger)
+const voice = await spatialAudio.playAt('skarnax_growl_1', position, 0.8, 0.95);
+spatialAudio.stopOneShot(voice);  // diesen einen One-Shot sofort beenden
+
 // Mit Geo-Koordinaten
 spatialAudio.playAtGeo('arrow', lat, lon, height);
 
@@ -378,27 +382,37 @@ Die Ooze hat kein Modell und keinen `movingSound`. Ihre Sounds spielt `OozeSound
   (deferred) aus dem Sub-Step, also in Spielzeit: In der Pause kommt nichts, bei hoher
   Spielgeschwindigkeit begrenzt `minIntervalMs: 600` (Wandzeit) das Schlürfen.
 
-### Skarnax (Loop am Kopf)
+### Skarnax (Stimme am Kopf)
 Der Wurm hat keinen `movingSound`: Jedes Segment ist ein Gegner vom Typ `worm`, ein
 Loop je Segment hätte das Gegner-Budget allein gefüllt. Seine Stimme spielt `WormSounds`
 (`managers/worm/worm-sounds.ts`), angetrieben vom `EnemyManager.presentFrame`; Werte in
-`WORM_SOUNDS.crawl` (`audio.config.ts`). Seit 2026-09-15 (E18).
+`WORM_SOUNDS.voice` (`audio.config.ts`). Seit 2026-09-15 (E18); bis Playtest 733/734 ein
+durchgehender Loop von 6 s am Kopf, der zu gleichmäßig klang.
 
-- **Sample:** `skarnax_crawl`, `enemies/skarnax/crawl.mp3`, 6 s, mit ElevenLabs erzeugt:
-  ein Knurren, dann Chitinbeine, die klackern und trippeln, dann wieder das Knurren. Ein
-  Loop mit zufälligem Einstieg (`randomStart`).
-- **Ein Loop je Wurm** (`WormGroup`), am Kopf, `liftM` (2 m) über dem Boden. Zerfällt der
-  Wurm, läuft jeder Teil mit eigenem Kopf; der Loop sitzt auf dem Kopf, der dem Listener
-  am nächsten ist, und wechselt, wenn ein anderer näher kommt. Ein zerteilter Wurm bleibt
-  eine Stimme. Stirbt ein Kopf, bleibt der Loop stehen, bis der nächste Ring führt.
-- **Budget:** Die ID passt auf kein `ENEMY_SOUND_PATTERNS`, der Loop zählt nicht zum
-  Gegner-Budget, zwölf Zombies können den Boss nicht stumm schalten.
-- **Ende:** Ist ein Wurm geschlagen, durch oder entfernt, fehlt er in `WormChains.all`
-  und sein Loop endet im nächsten Frame; `EnemyManager.clear()` (Wellenende, Reset) beendet
-  alle. Ein Loop, der erst ankommt, wenn sein Wurm weg ist, endet sofort.
-- **Pause und Tempo:** wie alle Loops: Die Pause hält ihn (`holdLoops`), `presentFrame` läuft
-  nur in Frames mit Sub-Step. Außer Hörweite (500 m) wartet er. Headless (Training ohne
-  Rendering) entsteht kein Loop.
+- **Samples:** drei One-Shots, geschnitten aus mit ElevenLabs erzeugten Sounds:
+  `skarnax_growl_1` (`growl_1.mp3`, 1,35 s, Knurren), `skarnax_growl_2` (`growl_2.mp3`,
+  2 s, tieferes Knurren, setzt aus der Stille ein), `skarnax_clack` (`clack.mp3`, 2 s,
+  klackernde Chitinbeine; `gain` 1,5, weil die Datei leiser ist).
+- **Takt in Spielzeit:** die erste Stimme 1,5 bis 4 s nach dem Erscheinen des Wurms, danach
+  alle 6 bis 15 s. Je Stimme gezogen: das Sample, 75 bis 100 % der Lautstärke, die
+  Abspielrate 0,9 bis 1,1 (Tonhöhe, `playAt(…, playbackRate)`) und der Abstand zur nächsten.
+  Gezogen aus einem Seed je Wurm (`seeded`, plus `WormGroup.seq`): Derselbe Lauf klingt
+  gleich.
+- **Ort:** am Kopf, `liftM` (2 m) über dem Boden. Zerfällt der Wurm, läuft jeder Teil mit
+  eigenem Kopf; die Stimme kommt vom Kopf, der dem Listener beim Einsatz am nächsten ist. Ein
+  zerteilter Wurm bleibt eine Stimme. Der One-Shot bleibt, wo er einsetzte, bis er ausklingt
+  (höchstens 2,3 s bei Rate 0,9). Führt gerade kein Kopf (einer starb, der nächste Ring
+  führt ab dem nächsten Sub-Step), wartet eine fällige Stimme.
+- **Budget:** normale One-Shots ohne `priority`: Anti-Flood, Polyphony-Cap, globaler Cap mit
+  Voice-Stealing, Hörweite 500 m, SFX-Lautstärke.
+- **Ende:** Ist ein Wurm geschlagen, durch oder entfernt, fehlt er in `WormChains.all`, und
+  seine laufende Stimme stoppt im nächsten Frame (`stopOneShot`); `EnemyManager.clear()`
+  (Wellenende, Reset) stoppt alle. Eine Stimme, die erst startet, wenn ihr Wurm weg ist,
+  stoppt sofort.
+- **Pause und Tempo:** Der Takt zählt Spielzeit und läuft aus `presentFrame`, das nur in
+  Frames mit Sub-Step läuft: In der Pause kommt keine neue Stimme, eine laufende spielt aus
+  (One-Shots kennen keine Pause). Bei 4x kommen die Stimmen in Wanduhrzeit viermal so oft.
+  Headless (Training ohne Rendering) keine Stimme.
 
 ### HQ Damage Sound
 `HQDamageService.initialize()` registriert `GAME_SOUNDS.hqDamage` (`audio.config.ts`)
@@ -605,7 +619,7 @@ public/assets/sounds/
 │   ├── mammouth/mammouth01.mp3        # Mammouth-Random-Sound
 │   ├── bear/bear01.mp3                # Bear-Random-Sound
 │   ├── dragon/dragon01.mp3            # Dragon-Random-Sound
-│   └── skarnax/crawl.mp3              # Skarnax-Loop am Kopf (ElevenLabs, E18)
+│   └── skarnax/growl_1.mp3, growl_2.mp3, clack.mp3  # Skarnax-Stimme am Kopf (ElevenLabs, E18)
 └── effects/
     ├── explosion.mp3                  # HQ-Schadens-Sound
     ├── building_placed.mp3            # Tower-Platziert-Sound

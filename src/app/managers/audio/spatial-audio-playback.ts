@@ -186,10 +186,12 @@ export class SpatialAudioPlayback {
 
   // --- Playback ---
 
+  /** `playbackRate` above 1 plays the sample faster and higher, below 1 slower and lower. */
   async playAt(
     soundId: string,
     position: Vector3,
-    volumeMultiplier = 1.0
+    volumeMultiplier = 1.0,
+    playbackRate = 1
   ): Promise<PositionalAudio | null> {
     const sound = this.sounds.get(soundId);
     if (!sound) {
@@ -280,6 +282,7 @@ export class SpatialAudioPlayback {
     audio.setDistanceModel(sound.config.distanceModel);
     audio.setVolume(sound.config.volume * volumeMultiplier * this._masterVolume);
     audio.setLoop(sound.config.loop);
+    if (playbackRate !== 1) audio.setPlaybackRate(playbackRate);
 
     if (sound.config.maxDistance > 0) {
       audio.setMaxDistance(sound.config.maxDistance);
@@ -328,7 +331,8 @@ export class SpatialAudioPlayback {
 
     // Cleanup after playback (if not looping)
     if (!sound.config.loop) {
-      const duration = sound.buffer.duration * 1000;
+      // Slower is longer
+      const duration = (sound.buffer.duration * 1000) / playbackRate;
       const timer = setTimeout(() => {
         this.emitDebug('stop', soundId);
         this.cleanupActiveSound(activeSound);
@@ -402,6 +406,14 @@ export class SpatialAudioPlayback {
         this.activeSounds.splice(i, 1);
       }
     }
+  }
+
+  /** Stop the one-shot `audio` (what playAt gave) now; nothing if it is over already. */
+  stopOneShot(audio: PositionalAudio): void {
+    const index = this.activeSounds.findIndex((active) => active.audio === audio);
+    if (index === -1) return;
+    this.cleanupActiveSound(this.activeSounds[index]);
+    this.activeSounds.splice(index, 1);
   }
 
   stopAllOneShots(): void {

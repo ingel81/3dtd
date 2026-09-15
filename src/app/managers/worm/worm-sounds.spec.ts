@@ -2,12 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { Vector3 } from 'three';
 import { WormSounds } from './worm-sounds';
 import { WORM_SOUNDS } from '../../configs/audio.config';
-import { isEnemySoundId } from '../audio/enemy-sound-budget';
 import type { WormGroup } from './worm-group';
 import type { ThreeTilesEngine } from '../../three-engine';
 
 const ORIGIN_HEIGHT = 100;
-const { liftM } = WORM_SOUNDS.crawl;
+const { liftM, samples, firstMs, gapMs, volumeShare, playbackRate } = WORM_SOUNDS.voice;
+/** One gameplay sub-step, see GameClock */
+const STEP_MS = 1000 / 60;
 
 /** A segment enemy at local (x, z): lon is x, lat is z in the stand-in conversion */
 function segment(x: number, z: number, terrainHeight = ORIGIN_HEIGHT) {
@@ -16,28 +17,40 @@ function segment(x: number, z: number, terrainHeight = ORIGIN_HEIGHT) {
 
 type Segment = ReturnType<typeof segment>;
 
-/** A worm with one chain per [first, last] pair over `segments` */
-function worm(segments: (Segment | null)[], chains: [number, number][] = [[0, segments.length - 1]]) {
+/** A worm with one chain per [first, last] pair over `segments`; `seq` its spawn order */
+function worm(segments: (Segment | null)[], chains: [number, number][] = [[0, segments.length - 1]], seq = 1) {
   return {
+    seq,
     remaining: segments.filter((s) => s !== null).length,
     segments,
     chains: chains.map(([first, last]) => ({ first, last, front: 0 })),
   };
 }
 
+/** What one growl or clack was: game time, sample, where, volume share, rate */
+interface Voice {
+  atMs: number;
+  id: string;
+  position: Vector3;
+  volume: number;
+  rate: number;
+}
+
 function setup(listener = new Vector3(0, 0, 0)) {
-  let handles = 0;
+  let voices = 0;
   let holdNext = false;
-  let held: ((handle: string | null) => void) | null = null;
+  let held: ((voice: unknown) => void) | null = null;
+  const played: Voice[] = [];
+  let nowMs = 0;
   const audio = {
     registerSound: vi.fn(),
-    createLoop: vi.fn((_id: string, _position: Vector3, _config?: { randomStart?: boolean }) => {
-      if (!holdNext) return Promise.resolve(`loop_${++handles}`);
+    playAt: vi.fn((id: string, position: Vector3, volume: number, rate: number) => {
+      played.push({ atMs: nowMs, id, position, volume, rate });
+      if (!holdNext) return Promise.resolve({ voice: ++voices });
       holdNext = false;
-      return new Promise<string | null>((resolve) => (held = resolve));
+      return new Promise((resolve) => (held = resolve));
     }),
-    updateLoopPosition: vi.fn((_handle: string, _position: Vector3) => undefined),
-    stopLoop: vi.fn(),
+    stopOneShot: vi.fn(),
     getListener: () => ({ getWorldPosition: (target: Vector3) => target.copy(listener) }),
   };
   const engine = {
@@ -48,125 +61,168 @@ function setup(listener = new Vector3(0, 0, 0)) {
     },
   } as unknown as ThreeTilesEngine;
   const sounds = new WormSounds();
-  const present = (groups: unknown[]) => sounds.present(groups as WormGroup[], engine);
-  const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
-  /** Let the next createLoop wait until `release` */
-  const holdNextLoop = () => {
-    holdNext = true;
-    return (handle: string | null) => held!(handle);
+  /** One render frame at game time `ms` */
+  const present = (groups: unknown[], ms = nowMs) => {
+    nowMs = ms;
+    sounds.present(groups as WormGroup[], engine, ms);
   };
-  /** Where the loop was put last */
-  const lastMove = () => audio.updateLoopPosition.mock.calls.at(-1)![1];
-  return { audio, sounds, present, settle, holdNextLoop, lastMove, listener };
+  /** Frames of one sub-step each over `ms` of game time */
+  const run = (groups: unknown[], ms: number) => {
+    for (let k = Math.round(ms / STEP_MS); k > 0; k--) present(groups, nowMs + STEP_MS);
+  };
+  const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+  /** Let the next playAt wait until `release` */
+  const holdNextVoice = () => {
+    holdNext = true;
+    return (voice: unknown) => held!(voice);
+  };
+  return { audio, sounds, present, run, settle, holdNextVoice, played, listener };
 }
 
 describe('WormSounds', () => {
-  it('registers the crawl once, as a loop outside the enemy budget', () => {
+  it('registers each sample once, as a one-shot evened out by its gain', () => {
     const { audio, present } = setup();
     present([worm([segment(10, 0)])]);
-    present([worm([segment(10, 0)])]);
-    const { id, url, refDistance, rolloffFactor, volume } = WORM_SOUNDS.crawl;
-    expect(audio.registerSound.mock.calls).toEqual([[id, url, { refDistance, rolloffFactor, volume, loop: true }]]);
-    expect(isEnemySoundId(id)).toBe(false);
+    present([worm([segment(10, 0)], undefined, 2)]);
+    const { refDistance, rolloffFactor, volume } = WORM_SOUNDS.voice;
+    expect(audio.registerSound.mock.calls).toEqual(
+      samples.map((s) => [s.id, s.url, { refDistance, rolloffFactor, volume: volume * s.gain }]),
+    );
   });
 
-  it('asks for no loop and registers nothing while there is no worm', () => {
-    const { audio, present } = setup();
+  it('registers nothing and plays nothing while there is no worm', () => {
+    const { audio, present, run } = setup();
     present([]);
+    run([], 30_000);
     expect(audio.registerSound).not.toHaveBeenCalled();
-    expect(audio.createLoop).not.toHaveBeenCalled();
+    expect(audio.playAt).not.toHaveBeenCalled();
   });
 
-  it('puts one loop at the head, above its ground, from a random point, and moves it with the head', async () => {
-    const { audio, present, settle, lastMove } = setup();
-    const head = segment(10, 5);
-    const group = worm([head, segment(10, -2), segment(10, -9)]);
-    present([group]);
-    present([group]);
-    await settle();
-    expect(audio.createLoop.mock.calls).toEqual([[WORM_SOUNDS.crawl.id, new Vector3(10, liftM, 5), { randomStart: true }]]);
-
-    head.position.lat = 12;
-    present([group]);
-    expect(lastMove()).toEqual(new Vector3(10, liftM, 12));
-    expect(audio.createLoop).toHaveBeenCalledTimes(1);
+  it('growls first soon after the worm appears, then now and then, with gaps in game time', () => {
+    const { present, run, played } = setup();
+    const group = worm([segment(10, 5), segment(10, -2)]);
+    present([group], 0);
+    run([group], 120_000);
+    expect(played[0].atMs).toBeGreaterThanOrEqual(firstMs.min);
+    expect(played[0].atMs).toBeLessThanOrEqual(firstMs.max + STEP_MS);
+    for (let k = 1; k < played.length; k++) {
+      const gap = played[k].atMs - played[k - 1].atMs;
+      expect(gap).toBeGreaterThanOrEqual(gapMs.min);
+      expect(gap).toBeLessThanOrEqual(gapMs.max + STEP_MS);
+    }
+    // 120 s at 6 to 15 s apart
+    expect(played.length).toBeGreaterThanOrEqual(8);
+    expect(played.length).toBeLessThanOrEqual(21);
+    // At the head, above its ground
+    expect(played[0].position).toEqual(new Vector3(10, liftM, 5));
   });
 
-  it('sits on the head nearest the listener once the worm split', async () => {
-    const { audio, present, settle, lastMove, listener } = setup(new Vector3(0, 0, 50));
+  it('draws the sample, a share of the volume and a pitch per voice', () => {
+    const { run, played } = setup();
+    const group = worm([segment(10, 5)]);
+    run([group], 300_000);
+    const ids = new Set(played.map((v) => v.id));
+    expect(ids.size).toBeGreaterThanOrEqual(2);
+    for (const id of ids) expect(samples.map((s) => s.id)).toContain(id);
+    for (const { volume, rate } of played) {
+      expect(volume).toBeGreaterThanOrEqual(volumeShare.min);
+      expect(volume).toBeLessThanOrEqual(volumeShare.max);
+      expect(rate).toBeGreaterThanOrEqual(playbackRate.min);
+      expect(rate).toBeLessThanOrEqual(playbackRate.max);
+    }
+    expect(new Set(played.map((v) => v.rate)).size).toBe(played.length);
+  });
+
+  it('repeats for the same worm in the same run and differs for another', () => {
+    const voicesOf = (seq: number) => {
+      const { run, played } = setup();
+      run([worm([segment(10, 5)], undefined, seq)], 60_000);
+      return played.map(({ atMs, id, rate }) => ({ atMs, id, rate }));
+    };
+    expect(voicesOf(3)).toEqual(voicesOf(3));
+    expect(voicesOf(3)).not.toEqual(voicesOf(4));
+  });
+
+  it('counts game time only: frames without it bring nothing new, as in a pause', () => {
+    const { present, played } = setup();
+    const group = worm([segment(10, 5)]);
+    present([group], 0);
+    present([group], firstMs.max);
+    expect(played).toHaveLength(1);
+    for (let k = 0; k < 100; k++) present([group], firstMs.max);
+    expect(played).toHaveLength(1);
+  });
+
+  it('comes from the head nearest the listener once the worm split', () => {
+    const { present, played, listener } = setup(new Vector3(0, 0, 50));
     // Slot 2 died: the front part leads with slot 0, the rear part with slot 3
     const group = worm([segment(0, 60), segment(0, 53), null, segment(0, 20), segment(0, 13)], [[0, 1], [3, 4]]);
-    present([group]);
-    await settle();
-    present([group]);
-    expect(lastMove()).toEqual(new Vector3(0, liftM, 60));
+    present([group], 0);
+    present([group], firstMs.max);
+    expect(played.at(-1)!.position).toEqual(new Vector3(0, liftM, 60));
 
     listener.set(0, 0, 15);
-    present([group]);
-    expect(lastMove()).toEqual(new Vector3(0, liftM, 20));
-    expect(audio.createLoop).toHaveBeenCalledTimes(1);
+    present([group], firstMs.max + gapMs.max);
+    expect(played.at(-1)!.position).toEqual(new Vector3(0, liftM, 20));
   });
 
-  it('never sits on a tail, however near the listener: the first segment of each chain leads it', async () => {
-    const { present, settle, lastMove } = setup(new Vector3(0, 0, 53));
+  it('never sits on a tail, however near the listener: the first segment of each chain leads it', () => {
+    const { present, played } = setup(new Vector3(0, 0, 53));
     // Slot 2 died: slot 1 ends the front part (its tail), slot 4 the rear part
     const group = worm([segment(0, 60), segment(0, 53), null, segment(0, 20), segment(0, 13)], [[0, 1], [3, 4]]);
-    present([group]);
-    await settle();
-    present([group]);
+    present([group], 0);
+    present([group], firstMs.max);
     // On the tail at 53 the listener hears the front head at 60, 7 m off
-    expect(lastMove()).toEqual(new Vector3(0, liftM, 60));
+    expect(played.at(-1)!.position).toEqual(new Vector3(0, liftM, 60));
   });
 
-  it('gives every worm its own loop and ends the loop of one that is gone', async () => {
-    const { audio, present, settle } = setup();
-    const a = worm([segment(10, 0)]);
-    const b = worm([segment(-10, 0)]);
-    present([a, b]);
+  it('waits while no head walks for a moment and speaks once one does', () => {
+    const { present, played } = setup();
+    const head = segment(10, 0);
+    const group = worm([head, segment(10, -7)]);
+    present([group], 0);
+    head.alive = false;
+    present([group], firstMs.max);
+    expect(played).toHaveLength(0);
+    head.alive = true;
+    present([group], firstMs.max + STEP_MS);
+    expect(played).toHaveLength(1);
+  });
+
+  it('stops its voice when the worm is beaten or gone, and on clear', async () => {
+    const { audio, sounds, present, settle } = setup();
+    const a = worm([segment(10, 0)], undefined, 1);
+    const b = worm([segment(-10, 0)], undefined, 2);
+    present([a, b], 0);
+    present([a, b], firstMs.max);
     await settle();
-    expect(audio.createLoop).toHaveBeenCalledTimes(2);
+    expect(audio.playAt).toHaveBeenCalledTimes(2);
 
     // Beaten: still listed until the next tick, with nothing left
     a.remaining = 0;
     present([a, b]);
-    expect(audio.stopLoop.mock.calls).toEqual([['loop_1']]);
-    present([]);
-    expect(audio.stopLoop.mock.calls).toEqual([['loop_1'], ['loop_2']]);
-  });
+    expect(audio.stopOneShot.mock.calls).toEqual([[{ voice: 1 }]]);
 
-  it('keeps the loop where it is while no head walks for a moment', async () => {
-    const { audio, present, settle } = setup();
-    const head = segment(10, 0);
-    const group = worm([head, segment(10, -7)]);
-    present([group]);
-    await settle();
-    head.alive = false;
-    present([group]);
-    expect(audio.stopLoop).not.toHaveBeenCalled();
-    expect(audio.updateLoopPosition).not.toHaveBeenCalled();
-  });
-
-  it('stops a loop that arrives after its worm went, and ends all on clear', async () => {
-    const { audio, sounds, present, settle, holdNextLoop } = setup();
-    const release = holdNextLoop();
-    const late = worm([segment(10, 0)]);
-    present([late]);
-    present([]);
-    release('late');
-    await settle();
-    expect(audio.stopLoop.mock.calls).toEqual([['late']]);
-
-    const kept = worm([segment(20, 0)]);
-    present([kept]);
-    await settle();
     sounds.clear(audio as never);
-    expect(audio.stopLoop.mock.calls.at(-1)).toEqual([expect.stringMatching(/^loop_/)]);
+    expect(audio.stopOneShot.mock.calls).toEqual([[{ voice: 1 }], [{ voice: 2 }]]);
     present([]);
-    expect(audio.stopLoop).toHaveBeenCalledTimes(2);
+    expect(audio.stopOneShot).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops a voice that starts after its worm went', async () => {
+    const { audio, present, settle, holdNextVoice } = setup();
+    const release = holdNextVoice();
+    const group = worm([segment(10, 0)]);
+    present([group], 0);
+    present([group], firstMs.max);
+    present([]);
+    release({ voice: 'late' });
+    await settle();
+    expect(audio.stopOneShot.mock.calls).toEqual([[{ voice: 'late' }]]);
   });
 
   it('does nothing without spatial audio', () => {
     const sounds = new WormSounds();
-    expect(() => sounds.present([worm([segment(1, 1)])] as unknown as WormGroup[], {} as ThreeTilesEngine)).not.toThrow();
+    expect(() => sounds.present([worm([segment(1, 1)])] as unknown as WormGroup[], {} as ThreeTilesEngine, 5000)).not.toThrow();
   });
 });

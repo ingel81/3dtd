@@ -240,19 +240,29 @@ export const OOZE_SOUNDS = {
 } as const;
 
 /**
- * Skarnax's voice (managers/worm/worm-sounds.ts): a crawl loop at the head,
- * generated with ElevenLabs (6 s: a growl, chitin legs skittering, the growl
- * again; it starts at a random point of it). One per worm, on its head
- * nearest the listener, `liftM` above the ground. Its id matches no
- * ENEMY_SOUND_PATTERNS entry, so the enemy budget cannot silence the boss.
+ * Skarnax's voice (managers/worm/worm-sounds.ts): now and then a growl or a
+ * clack of its legs at the head, one-shots cut from a sound generated with
+ * ElevenLabs. The first comes `firstMs` of game time after the worm
+ * appears, then one every `gapMs`; each a sample drawn at random, at a
+ * random share of the volume and a random playback rate (pitch), all drawn
+ * from a seed per worm, so a run repeats. `gain` evens out the samples (the
+ * clack is quieter). At the head nearest the listener, `liftM` above the
+ * ground.
  */
 export const WORM_SOUNDS = {
-  crawl: {
-    id: 'skarnax_crawl',
-    url: 'assets/sounds/enemies/skarnax/crawl.mp3',
+  voice: {
+    samples: [
+      { id: 'skarnax_growl_1', url: 'assets/sounds/enemies/skarnax/growl_1.mp3', gain: 1 },
+      { id: 'skarnax_growl_2', url: 'assets/sounds/enemies/skarnax/growl_2.mp3', gain: 1 },
+      { id: 'skarnax_clack', url: 'assets/sounds/enemies/skarnax/clack.mp3', gain: 1.5 },
+    ],
     refDistance: 40,
     rolloffFactor: 1,
-    volume: 1,
+    volume: 1.1,
+    firstMs: { min: 1500, max: 4000 },
+    gapMs: { min: 6000, max: 15000 },
+    volumeShare: { min: 0.75, max: 1 },
+    playbackRate: { min: 0.9, max: 1.1 },
     liftM: 2,
   },
 } as const;
