@@ -130,6 +130,20 @@ export const LOS_VIZ_CONFIG = {
       /** In einem Tunnel oder überdachten Durchgang, Höhe zwischen den Portalen. */
       tunnel: new Color(0xf0e442),
     },
+    /**
+     * Rahmen um die Zellen, die der Zellbericht ausgewählt hat
+     * (`route-grid-selection-viz.ts`, CellReportService): über die ganze
+     * Zelle, breiter als die Kontur, in einer Farbe, die das Overlay nicht
+     * nutzt (Okabe-Ito Orange), dazu eine schwache Fläche. Auch ohne Overlay
+     * zu sehen.
+     */
+    selection: {
+      color: new Color(0xe69f00),
+      /** Rahmenbreite in Metern; nie schmaler als 3 Pixel. */
+      borderWidthMeters: 0.3,
+      borderAlpha: 1,
+      fillAlpha: 0.2,
+    },
   },
 
   /** Plattendicke der Cell-Mesh (m). 0.02 = kaum sichtbare Höhe. */

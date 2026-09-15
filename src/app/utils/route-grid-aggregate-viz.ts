@@ -18,7 +18,7 @@ import { RouteCell } from './route-cell';
  * +0.05 m is safe).
  */
 const CELL_VIZ_HEIGHT_M = 0.02;
-const CELL_VIZ_Y_OFFSET_M = 0.05;
+export const CELL_VIZ_Y_OFFSET_M = 0.05;
 
 /**
  * State of a cell for the overlay contour (`aCellKind`): 0 sampled on the
