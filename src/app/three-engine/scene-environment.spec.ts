@@ -128,4 +128,41 @@ describe('SkyBackground', () => {
     sky.dispose();
     expect(targetDispose).toHaveBeenCalledTimes(1);
   });
+
+  it('zeichnet den Himmel nach einem Context-Restore neu in dieselbe Cube-Textur', () => {
+    const { scene, sky, loads, convert, faceSizes } = setup();
+    const canvas = document.createElement('canvas');
+    sky.convertAgainOnContextRestore(canvas);
+    loads[0].onLoad(equirect(512));
+    const target = convert.mock.contexts[0] as WebGLCubeRenderTarget;
+
+    canvas.dispatchEvent(new Event('webglcontextrestored'));
+    expect(loads.map((load) => load.url)).toEqual(['assets/images/skybox/day.webp', 'assets/images/skybox/day.webp']);
+    const again = equirect(512);
+    const sourceDispose = vi.spyOn(again, 'dispose');
+    loads[1].onLoad(again);
+
+    expect(convert.mock.contexts[1]).toBe(target);
+    expect(faceSizes).toEqual([512, 512]);
+    expect(scene.background).toBe(target.texture);
+    expect(sourceDispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('lädt beim Restore nichts, solange die Ersatzfarbe steht oder nach dispose()', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const failed = setup();
+    const canvas = document.createElement('canvas');
+    failed.sky.convertAgainOnContextRestore(canvas);
+    failed.loads[0].onError('boom');
+    canvas.dispatchEvent(new Event('webglcontextrestored'));
+    expect(failed.loads).toHaveLength(1);
+
+    vi.restoreAllMocks();
+    const { sky, loads } = setup();
+    sky.convertAgainOnContextRestore(canvas);
+    loads[0].onLoad(equirect(256));
+    sky.dispose();
+    canvas.dispatchEvent(new Event('webglcontextrestored'));
+    expect(loads).toHaveLength(1);
+  });
 });

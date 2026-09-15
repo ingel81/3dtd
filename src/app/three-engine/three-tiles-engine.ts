@@ -318,6 +318,8 @@ export class ThreeTilesEngine {
     // Setup lighting and sky
     addSceneLights(this.scene);
     this.sky = new SkyBackground(this.renderer, this.scene);
+    // The sky cube is drawn once; a restored context comes back without its pixels
+    this.sky.convertAgainOnContextRestore(this.renderer.domElement);
 
     // Initialize entity renderers with coordinate sync adapter
     // Use geoToLocalSimple for consistency with raycast results
