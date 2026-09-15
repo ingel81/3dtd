@@ -7,6 +7,7 @@ import {
   MathUtils,
   Mesh,
   MeshBasicMaterial,
+  NormalBlending,
   PlaneGeometry,
   RGBAFormat,
   Sprite,
@@ -108,13 +109,18 @@ function rimeTexture(size: number): DataTexture {
   return texture;
 }
 
-function additiveMaterial(map: DataTexture, color: EffectRgb): MeshBasicMaterial {
+/**
+ * Material of a quad on the ground: `additive` light over everything (depth
+ * test off), otherwise a colour in the normal blend under whatever stands on
+ * it (depth test on).
+ */
+function groundMaterial(map: DataTexture, color: EffectRgb, additive: boolean): MeshBasicMaterial {
   const material = new MeshBasicMaterial({
     map,
     transparent: true,
     opacity: 0,
-    blending: AdditiveBlending,
-    depthTest: false,
+    blending: additive ? AdditiveBlending : NormalBlending,
+    depthTest: !additive,
     depthWrite: false,
     side: DoubleSide,
   });
@@ -135,8 +141,12 @@ function additiveMaterial(map: DataTexture, color: EffectRgb): MeshBasicMaterial
  *
  * Shards are round additive particles, the mist puffs the smoke atlas in
  * the normal blend, both with the trail pools' materials (log depth) in
- * buffers of their own. Ring, rime and flash are built-in materials with
- * the depth test off, like the strike marker: readable between buildings.
+ * buffers of their own. Ring and flash are built-in materials with the
+ * depth test off, like the strike marker: readable between buildings. The
+ * rime is one too, but depth tested in the normal blend: the enemies frozen
+ * in it and the roofs over it cover it, and it never lights the street above
+ * its own colour. Until playtest 625 it was additive over everything and
+ * washed out the frozen enemies and the roofs inside the radius.
  * Fixed buffers, nothing allocated per frame.
  */
 export class FrostBurstRenderer {
@@ -183,14 +193,14 @@ export class FrostBurstRenderer {
 
     const { colors, flash } = LOOK;
     for (let i = 0; i < LOOK.bursts; i++) {
-      const ring = unpickable(new Mesh(this.plane, additiveMaterial(this.ringTexture, colors.ring)));
+      const ring = unpickable(new Mesh(this.plane, groundMaterial(this.ringTexture, colors.ring, true)));
       ring.frustumCulled = false;
       ring.renderOrder = RING_ORDER;
       scene.add(ring);
       this.rings.push(ring);
       this.ringGates.push(new DrawGate([ring]));
 
-      const rime = unpickable(new Mesh(this.plane, additiveMaterial(this.rimeTexture, colors.rime)));
+      const rime = unpickable(new Mesh(this.plane, groundMaterial(this.rimeTexture, colors.rime, false)));
       rime.frustumCulled = false;
       rime.renderOrder = RIME_ORDER;
       scene.add(rime);

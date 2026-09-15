@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { Mesh, PerspectiveCamera, Points, Raycaster, Scene, ShaderMaterial, Sprite, Vector3 } from 'three';
+import {
+  AdditiveBlending,
+  Mesh,
+  MeshBasicMaterial,
+  NormalBlending,
+  PerspectiveCamera,
+  Points,
+  Raycaster,
+  Scene,
+  ShaderMaterial,
+  Sprite,
+  Vector3,
+} from 'three';
 import { FrostBurstRenderer } from './frost-burst.renderer';
 import { FROST_BURST_LOOK } from '../../configs/visual-effects.config';
 import { seededRandom, drawn, positions } from '../../../test/vfx-renderer-fixture';
@@ -101,6 +113,19 @@ describe('FrostBurstRenderer', () => {
     run(500, 50);
     expect(rime.visible).toBe(false);
     expect(bursts.activeBursts).toBe(0);
+  });
+
+  it('625: lays the rime under the frozen enemies and roofs, the ring over everything', () => {
+    const { ring, rime } = setup();
+    const rimeMaterial = rime.material as MeshBasicMaterial;
+    const ringMaterial = ring.material as MeshBasicMaterial;
+    // Depth tested in the normal blend: covered by what stands in it, never brighter than its colour
+    expect(rimeMaterial.depthTest).toBe(true);
+    expect(rimeMaterial.blending).toBe(NormalBlending);
+    expect(Math.max(rimeMaterial.color.r, rimeMaterial.color.g, rimeMaterial.color.b)).toBeLessThan(1);
+    // The front stays readable between buildings, like the strike marker
+    expect(ringMaterial.depthTest).toBe(false);
+    expect(ringMaterial.blending).toBe(AdditiveBlending);
   });
 
   it('shows flash, ring and rime only while impact effects are off', () => {

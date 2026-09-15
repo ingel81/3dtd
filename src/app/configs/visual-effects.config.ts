@@ -655,8 +655,12 @@ export const FROST_BURST_LOOK = {
   flash: { duration: 0.35, size: 70, height: 4, intensity: 2.2 },
   /** Ring out to `radius` times the ability radius, time constant `timeConstant` */
   ring: { duration: 1.2, radius: 1.15, timeConstant: 0.16, opacity: 0.95 },
-  /** Rime over the radius: up in `rise` s, held for the freeze, gone `fade` s later */
-  rime: { rise: 0.12, fade: 1.0, opacity: 0.45 },
+  /**
+   * Rime over the radius: up in `rise` s, held for the freeze, gone `fade` s
+   * later. Normal blend, so `opacity` is how much of its colour covers the
+   * street (until playtest 625 additive at 0.45)
+   */
+  rime: { rise: 0.12, fade: 1.0, opacity: 0.3 },
   /**
    * Shards thrown out at `speed` and up at `lift` (m/s), slowed by air drag
    * (time constant `drag`, s) and pulled down by `gravity`; each lives
@@ -672,7 +676,8 @@ export const FROST_BURST_LOOK = {
   colors: {
     flash: { r: 0.85, g: 0.95, b: 1.0 },
     ring: { r: 0.6, g: 0.88, b: 1.0 },
-    rime: { r: 0.55, g: 0.8, b: 1.0 },
+    /** A mid ice blue, darker than the frozen enemies' white-cyan so they stand out on it */
+    rime: { r: 0.4, g: 0.62, b: 0.85 },
     shard: { r: 0.8, g: 0.95, b: 1.0 },
     shardDeep: { r: 0.35, g: 0.7, b: 1.0 },
     mist: { r: 0.86, g: 0.93, b: 1.0 },
