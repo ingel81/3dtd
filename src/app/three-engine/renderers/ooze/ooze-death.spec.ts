@@ -4,6 +4,7 @@ import { BURST_PALETTES, OOZE_DEATH_LOOK, OOZE_LOOK } from '../../../configs/vis
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { METERS_PER_DEGREE_LAT } from '../../../utils/geo-utils';
 import { RouteBodyStations } from '../../../utils/route-body';
+import { SeededRandom } from '../../../utils/seeded-random';
 import { DEFAULT_VFX_SETTINGS, withVfxPreset } from '../../vfx-settings';
 import type { GroundDecals } from '../ground-decals';
 import { ParticlePoolManager } from '../particle-pool-manager';
@@ -71,7 +72,7 @@ function kinds(list: readonly (OozeDebrisKind | null)[]): Partial<Record<OozeDeb
 describe('planOozeDeath', () => {
   it('lets a full 80 m body go in 32 bubbles, 16 splashes and 60 pieces of debris, six of them skulls', () => {
     expect(oozeMessCounts(80, true, true)).toEqual({ pops: 32, splashes: 16, debris: 60 });
-    const plan = planOozeDeath(80, true, true);
+    const plan = planOozeDeath(80, true, true, 1);
     expect(plan).toHaveLength(32 + 16 + 60);
     expect(kinds(plan.map((e) => e.debris))).toEqual({
       bone: 18, rib: 12, skull: 6, teeth: 6, helmet: 3, scrap: 6, boot: 3, sign: 3, can: 3,
@@ -79,7 +80,7 @@ describe('planOozeDeath', () => {
   });
 
   it('spreads each kind over the whole body, inside the corridor and its window of the collapse', () => {
-    const plan = planOozeDeath(80, true, true);
+    const plan = planOozeDeath(80, true, true, 1);
     const { pops, splashes, debris } = OOZE_DEATH_LOOK;
     const windows = { pop: [0, pops.until], splash: [splashes.from, splashes.until], debris: [debris.from, debris.until] };
     for (const kind of ['pop', 'splash', 'debris'] as const) {
@@ -112,6 +113,11 @@ describe('planOozeDeath', () => {
 
   it('splashes in the colour the ooze\'s clumps splash in', () => {
     expect(OOZE_DEATH_LOOK.goo).toBe(parseInt(ENEMY_TYPES['ooze'].bloodColor!.slice(1), 16));
+  });
+
+  it('plans the same mess from the same seed, another from another', () => {
+    expect(planOozeDeath(80, true, true, 7)).toEqual(planOozeDeath(80, true, true, 7));
+    expect(planOozeDeath(80, true, true, 8)).not.toEqual(planOozeDeath(80, true, true, 7));
   });
 });
 
@@ -194,6 +200,28 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
     expect(meshes.every((mesh) => !mesh.visible && mesh.count === 0)).toBe(true);
   });
 
+  it('looks the same at 4x as at 1x: the same splashes, bubbles in the same places, the debris on the same arcs', () => {
+    // 3.2 s after the kill, 200 frames at 1x and 50 at 4x: every piece thrown, none sunk in yet
+    const run = (frameMs: number) => {
+      const effects = effectsMock();
+      const { scene, renderer } = killedBand(effects);
+      for (let t = 0; t < 3200; t += frameMs) renderer.animate(frameMs);
+      const meshes = scene.children.filter((c) => c.name.startsWith('ooze-debris-')) as InstancedMesh[];
+      return {
+        splashes: effects.spawnBloodDecal.mock.calls,
+        pops: effects.spawnBurstAtGeo.mock.calls.map((call) => call.slice(0, 3)),
+        debris: meshes.map((mesh) => Array.from(mesh.instanceMatrix.array.subarray(0, mesh.count * 16))),
+      };
+    };
+    const one = run(FRAME_MS);
+    const four = run(FRAME_MS * 4);
+    expect(four.splashes).toEqual(one.splashes);
+    expect(four.pops).toEqual(one.pops);
+    expect(one.debris.flat()).toHaveLength(oozeMessCounts(80, true, true).debris * 16);
+    expect(four.debris.map((m) => m.length)).toEqual(one.debris.map((m) => m.length));
+    four.debris.forEach((m, k) => m.forEach((v, i) => expect(v).toBeCloseTo(one.debris[k][i], 5)));
+  });
+
   it('makes no mess for a band that sank after a leak, and takes the debris along on clear', () => {
     const effects = effectsMock();
     const scene = new Scene();
@@ -223,6 +251,39 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
     renderer.clearDebris();
     expect(debris.count).toBe(0);
     expect(renderer.count).toBe(1);
+  });
+});
+
+describe('OozeDebrisRenderer', () => {
+  it('uploads a kind\'s instances while a piece flies or sinks, not while it lies', () => {
+    const scene = new Scene();
+    const debris = new OozeDebrisRenderer(scene);
+    const mesh = scene.getObjectByName('ooze-debris-skull') as InstancedMesh;
+    debris.launch('skull', 0, OOZE_DEATH_LOOK.debris.lift, 0, 0, new SeededRandom(3).next);
+    const s = FRAME_MS / 1000;
+    let version = mesh.instanceMatrix.version;
+    const frame = (): boolean => {
+      debris.update(s);
+      const uploaded = mesh.instanceMatrix.version !== version;
+      version = mesh.instanceMatrix.version;
+      return uploaded;
+    };
+    /** Seconds of frames in a row that upload (or not), the first other one included */
+    const run = (uploads: boolean): number => {
+      let n = 1;
+      while (n < 1000 && frame() === uploads) n++;
+      return n * s;
+    };
+    const { restMin, restMax, sink } = OOZE_DEATH_LOOK.debris;
+    const flying = run(true);
+    expect(flying).toBeGreaterThan(0.5);
+    expect(flying).toBeLessThan(2);
+    const lying = run(false);
+    expect(lying).toBeGreaterThanOrEqual(restMin - 2 * s);
+    expect(lying).toBeLessThanOrEqual(restMax + 2 * s);
+    expect(run(true)).toBeCloseTo(sink, 1);
+    expect(debris.count).toBe(0);
+    expect(debris.drawCalls).toBe(0);
   });
 });
 

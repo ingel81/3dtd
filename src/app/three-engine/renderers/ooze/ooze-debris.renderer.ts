@@ -39,11 +39,13 @@ export const OOZE_DEBRIS_DECK: readonly OozeDebrisKind[] = [
 /** Rounds of the deck each kind's pool holds: two full bodies at once and some */
 const POOL_ROUNDS = 8;
 
-/** Longest step of the flight (s), so a frame at a high timescale does not fly through the ground */
-const STEP_S = 0.05;
-/** A piece landing faster than this (m/s) bounces once, keeping BOUNCE of its speed */
+/**
+ * A piece landing faster than this (m/s) bounces once, back up at BOUNCE
+ * of that speed, with BOUNCE_KEEP of its speed out and of its spin
+ */
 const BOUNCE_MIN = 3;
 const BOUNCE = 0.3;
+const BOUNCE_KEEP = 0.5;
 /** Height of a lying piece's centre over the ground, per metre of its scale */
 const REST_LIFT = 0.06;
 /** How deep a piece sinks, per metre of its scale */
@@ -143,6 +145,7 @@ const PIECES: Record<OozeDebrisKind, () => BufferGeometry> = {
 };
 
 interface Piece {
+  /** Where it was thrown from and how fast, local */
   x: number;
   y: number;
   z: number;
@@ -151,18 +154,21 @@ interface Piece {
   vz: number;
   /** Height of its centre lying on the ground, local */
   restY: number;
-  readonly turn: Quaternion;
+  /** Game seconds since it was thrown */
+  age: number;
+  /** Its age when it first lands, and when it lands again after its bounce (the same without one) */
+  land: number;
+  settle: number;
+  /** Speed up out of the bounce (m/s), 0 without one */
+  bounceVy: number;
+  /** Seconds it lies on the ground before it sinks */
+  rest: number;
   readonly axis: Vector3;
-  /** rad/s about `axis` while it flies */
+  /** Its turn about `axis` when thrown (rad), and how fast it spins there while it flies (rad/s) */
+  turn: number;
   spin: number;
   /** Scale over the natural size */
   size: number;
-  /** Seconds left lying on the ground before it sinks */
-  rest: number;
-  /** 0 until it sinks, 1 sunk in */
-  sunk: number;
-  landed: boolean;
-  bounced: boolean;
   /** Slime on it: white, or a green tint over the vertex colours */
   readonly tint: Color;
 }
@@ -170,46 +176,39 @@ interface Piece {
 function newPiece(): Piece {
   return {
     x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, restY: 0,
-    turn: new Quaternion(), axis: new Vector3(0, 1, 0), spin: 0, size: 1,
-    rest: 0, sunk: 0, landed: false, bounced: false, tint: new Color(1, 1, 1),
+    age: 0, land: 0, settle: 0, bounceVy: 0, rest: 0,
+    axis: new Vector3(0, 1, 0), turn: 0, spin: 0, size: 1, tint: new Color(1, 1, 1),
   };
 }
 
-const spinStep = new Quaternion();
-
-/** `dt` game seconds of a piece: flight, one bounce, rest, sinking. @returns false once it has sunk in */
-function step(p: Piece, dt: number): boolean {
+/**
+ * `p` at its age, in closed form: the arc of its throw, the one bounce,
+ * the rest and the sinking. The frames only sample it, so a piece flies
+ * the same arc and lands in the same place at any timescale. Its place
+ * (sunk in) into `out`, its turn into `turn`. @returns its scale
+ */
+function pose(p: Piece, out: Vector3, turn: Quaternion): number {
   const look = OOZE_DEATH_LOOK.debris;
-  let left = dt;
-  while (left > 0) {
-    const h = Math.min(left, STEP_S);
-    left -= h;
-    if (!p.landed) {
-      p.vy -= look.gravity * h;
-      p.x += p.vx * h;
-      p.y += p.vy * h;
-      p.z += p.vz * h;
-      p.turn.multiply(spinStep.setFromAxisAngle(p.axis, p.spin * h)).normalize();
-      if (p.y <= p.restY && p.vy < 0) {
-        p.y = p.restY;
-        if (!p.bounced && p.vy < -BOUNCE_MIN) {
-          p.bounced = true;
-          p.vy *= -BOUNCE;
-          p.vx *= 0.5;
-          p.vz *= 0.5;
-          p.spin *= 0.5;
-        } else {
-          p.landed = true;
-        }
-      }
-    } else if (p.rest > 0) {
-      p.rest -= h;
-    } else {
-      p.sunk += h / look.sink;
-      if (p.sunk >= 1) return false;
-    }
+  const g = look.gravity;
+  const a = p.age;
+  // Seconds of the throw's speed out and of its spin gone by
+  let travel: number;
+  let y: number;
+  if (a < p.land) {
+    travel = a;
+    y = p.y + (p.vy - 0.5 * g * a) * a;
+  } else if (a < p.settle) {
+    const b = a - p.land;
+    travel = p.land + BOUNCE_KEEP * b;
+    y = p.restY + (p.bounceVy - 0.5 * g * b) * b;
+  } else {
+    travel = p.land + BOUNCE_KEEP * (p.settle - p.land);
+    y = p.restY;
   }
-  return true;
+  const sunk = Math.min(1, Math.max(0, (a - p.settle - p.rest) / look.sink));
+  out.set(p.x + p.vx * travel, y - sunk * p.size * SINK_DEPTH, p.z + p.vz * travel);
+  turn.setFromAxisAngle(p.axis, p.turn + p.spin * travel);
+  return p.size * (1 - 0.5 * sunk);
 }
 
 /**
@@ -221,7 +220,9 @@ function step(p: Piece, dt: number): boolean {
  * pool (OOZE_DEBRIS_DECK times POOL_ROUNDS) and a DrawGate, so a kind with
  * nothing out costs no draw call and the load-time warm-up compiles the one
  * shared material. A piece flies, spins, bounces once, lies a few seconds
- * and sinks into the ground, all in game time (update). Visual only.
+ * and sinks into the ground, all in game time and in closed form of its age
+ * (pose), so a kill at 4x leaves the debris where it would at 1x. A kind
+ * whose pieces all lie still costs no upload. Visual only.
  */
 export class OozeDebrisRenderer {
   private readonly material = new MeshStandardMaterial({
@@ -236,10 +237,13 @@ export class OozeDebrisRenderer {
   /** Pieces out per kind; slot i of the kind's mesh draws live[k][i] */
   private readonly live: Piece[][] = [];
   private readonly spare: Piece[][] = [];
+  /** Per kind: a piece launched since the last update */
+  private readonly added: boolean[] = [];
   private liveCount = 0;
 
   private readonly matrix = new Matrix4();
   private readonly position = new Vector3();
+  private readonly quaternion = new Quaternion();
   private readonly scale = new Vector3();
 
   constructor(private readonly scene: Scene) {
@@ -258,6 +262,7 @@ export class OozeDebrisRenderer {
       this.meshes.push(mesh);
       this.gates.push(new DrawGate([mesh]));
       this.live.push([]);
+      this.added.push(false);
       this.spare.push(Array.from({ length: capacity }, newPiece));
     }
   }
@@ -281,10 +286,19 @@ export class OozeDebrisRenderer {
 
   /**
    * A piece of `kind` thrown up from local (x, y, z) over ground at local
-   * `groundY`. Drawn from the next update on. @returns false when that
-   * kind's pool is full
+   * `groundY`, its throw drawn from `random`, `age` seconds ago (a frame at
+   * a high timescale lets it go late). Drawn from the next update on.
+   * @returns false when that kind's pool is full
    */
-  launch(kind: OozeDebrisKind, x: number, y: number, z: number, groundY: number, random: () => number = Math.random): boolean {
+  launch(
+    kind: OozeDebrisKind,
+    x: number,
+    y: number,
+    z: number,
+    groundY: number,
+    random: () => number = Math.random,
+    age = 0,
+  ): boolean {
     const k = KINDS.indexOf(kind);
     const p = this.spare[k].pop();
     if (!p) return false;
@@ -301,45 +315,68 @@ export class OozeDebrisRenderer {
     if (p.axis.lengthSq() < 1e-6) p.axis.set(0, 1, 0);
     p.axis.normalize();
     p.spin = look.spin * (0.3 + 0.7 * random());
-    p.turn.setFromAxisAngle(p.axis, random() * Math.PI * 2);
+    p.turn = random() * Math.PI * 2;
     p.size = look.scale * (0.85 + 0.35 * random());
     p.restY = groundY + REST_LIFT * p.size;
     p.rest = look.restMin + (look.restMax - look.restMin) * random();
-    p.sunk = 0;
-    p.landed = false;
-    p.bounced = false;
+    // The arc down to its resting height, then one bounce if it lands hard
+    const g = look.gravity;
+    p.land = (p.vy + Math.sqrt(p.vy * p.vy + 2 * g * Math.max(0, y - p.restY))) / g;
+    const impact = g * p.land - p.vy;
+    p.bounceVy = impact > BOUNCE_MIN ? impact * BOUNCE : 0;
+    p.settle = p.land + (2 * p.bounceVy) / g;
+    p.age = age;
     const slime = 0.45 * random();
     p.tint.setRGB(1 - 0.45 * slime, 1, 1 - 0.55 * slime);
     this.live[k].push(p);
+    this.added[k] = true;
     this.liveCount++;
     return true;
   }
 
-  /** Once per render frame, `dt` game seconds: every piece moves on, the sunk ones go back to their pool. */
+  /**
+   * Once per render frame, `dt` game seconds: every piece ages, the sunk
+   * ones go back to their pool. A kind's instances are written and uploaded
+   * only while one of its pieces flies or sinks or one came or went.
+   */
   update(dt: number): void {
     if (this.liveCount === 0 || dt <= 0) return;
+    const sink = OOZE_DEATH_LOOK.debris.sink;
     for (let k = 0; k < KINDS.length; k++) {
       const live = this.live[k];
       if (live.length === 0) continue;
+      const added = this.added[k];
+      this.added[k] = false;
+      let moved = added;
+      let gone = false;
       for (let i = live.length - 1; i >= 0; i--) {
-        if (step(live[i], dt)) continue;
-        this.spare[k].push(live[i]);
-        live[i] = live[live.length - 1];
-        live.pop();
-        this.liveCount--;
+        const p = live[i];
+        const from = p.age;
+        p.age += dt;
+        if (p.age >= p.settle + p.rest + sink) {
+          this.spare[k].push(p);
+          live[i] = live[live.length - 1];
+          live.pop();
+          this.liveCount--;
+          gone = true;
+        } else if (from < p.settle || p.age > p.settle + p.rest) {
+          moved = true;
+        }
       }
       const mesh = this.meshes[k];
-      for (let i = 0; i < live.length; i++) {
-        const p = live[i];
-        this.position.set(p.x, p.y - p.sunk * p.size * SINK_DEPTH, p.z);
-        this.scale.setScalar(p.size * (1 - 0.5 * p.sunk));
-        this.matrix.compose(this.position, p.turn, this.scale);
-        mesh.setMatrixAt(i, this.matrix);
-        mesh.setColorAt(i, p.tint);
+      if (moved || gone) {
+        for (let i = 0; i < live.length; i++) {
+          this.scale.setScalar(pose(live[i], this.position, this.quaternion));
+          this.matrix.compose(this.position, this.quaternion, this.scale);
+          mesh.setMatrixAt(i, this.matrix);
+        }
+        mesh.instanceMatrix.needsUpdate = true;
+      }
+      if (added || gone) {
+        for (let i = 0; i < live.length; i++) mesh.setColorAt(i, live[i].tint);
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       }
       mesh.count = live.length;
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       this.gates[k].setCount(live.length);
     }
   }
@@ -350,6 +387,7 @@ export class OozeDebrisRenderer {
       const live = this.live[k];
       for (const p of live) this.spare[k].push(p);
       live.length = 0;
+      this.added[k] = false;
       this.meshes[k].count = 0;
       this.gates[k].setCount(0);
     }

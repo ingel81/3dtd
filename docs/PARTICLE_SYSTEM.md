@@ -596,6 +596,14 @@ Verteilung: Jede Art legt je Stück einen eigenen, gleich langen Abschnitt des K
 fest, deckt also die ganze Länge; quer bis 0,85 der bedeckten Halbbreite. Boden ist der
 des Route-Grids, sonst der des Bands unter der Station.
 
+Gleich bei jeder Geschwindigkeit: `planOozeDeath` ist mit der Id der Ooze geseedet
+(`seedOf`, `SeededRandom` in `utils/seeded-random.ts`), jedes Teil trägt einen eigenen
+Seed für sein Aussehen (Größe der Pfütze, Wurf des Trümmerstücks). Ein Trümmerstück
+fliegt in geschlossener Form seines Alters (`pose()`: Bogen, ein Aufprall, Liegen,
+Einsinken); lässt ein Frame bei hoher Geschwindigkeit es verspätet los, startet es um
+diese Verspätung älter. Bei 4x liegen Pfützen und Trümmer daher dort, wo sie bei 1x
+lägen. Eine Art, deren Stücke alle still liegen, schreibt und lädt keine Matrizen hoch.
+
 Budget eines 80-m-Körpers: 32 Blasen (256 additive Funken und 448 Tropfen, 704
 Partikel über 1,6 s), 16 der 100 Blut-Decals, 60 Trümmer. Je Trümmerart ein
 `InstancedMesh` mit festem Pool (acht Runden, 160 Stück: zwei volle Oozes und etwas
