@@ -390,8 +390,8 @@ export const OOZE_LOOK = {
  *
  * Budget of an 80 m body: 32 bubbles of 8 sparks (additive pool) and 14
  * drops (normal pool), 704 particles over 1.6 s; 64 splashes out of the
- * 192 goo decals; 60 pieces of debris, instanced, one draw call per kind
- * with a piece in the air or on the ground (nine kinds).
+ * 192 goo decals; 128 pieces of debris, instanced, one draw call per kind
+ * with a piece in the air or on the ground (fifteen kinds).
  */
 export const OOZE_DEATH_LOOK = {
   /** Colour of the spray and the splashes: the ooze's bloodColor, which its clumps splash in */
@@ -410,30 +410,45 @@ export const OOZE_DEATH_LOOK = {
    * Debris: `perM` pieces a metre of body, at least `min` (with impact
    * effects off `lowShare` of them, at least `minLow`), thrown between
    * `from` and `until` of the collapse from `lift` m above the ground,
-   * upMin..upMax m/s up and outMin..outMax m/s out, spinning at up to
-   * `spin` rad/s under `gravity` m/s². A piece bounces once, lies
+   * upMin..upMax m/s up and outMin..outMax m/s out; `highShare` of them
+   * spat up high instead, highMin..highMax m/s up and at most `highOut` out.
+   * Out goes along the route, `across` of it across, so the pieces scatter
+   * along the street rather than into the houses. Spinning at up to `spin`
+   * rad/s under `gravity` m/s². A piece bounces once, lies
    * restMin..restMax seconds and sinks into the ground over `sink`. `scale`
-   * over the pieces' natural size: they have to read from the overview
-   * camera.
+   * times sizeMin..sizeMax over the pieces' natural size: they have to
+   * read from the overview camera.
+   *
+   * Playtest 2026-09-15 asked for even more: per metre 1.6 instead of 0.75
+   * pieces, thrown up to 6.9 m high instead of 4.6 m (the high ones about
+   * 13 m), up to about 11 m along the route, lying 5 to 8 s instead of 2
+   * to 3.5 s.
    */
   debris: {
-    perM: 0.75,
-    min: 6,
-    minLow: 3,
+    perM: 1.6,
+    min: 10,
+    minLow: 5,
     lowShare: 1 / 3,
     from: 0.05,
     until: 0.6,
     lift: 0.8,
-    upMin: 5,
-    upMax: 11,
-    outMin: 1,
-    outMax: 4.5,
+    upMin: 6,
+    upMax: 14,
+    highShare: 0.2,
+    highMin: 16,
+    highMax: 20,
+    highOut: 3,
+    outMin: 1.5,
+    outMax: 5.5,
+    across: 0.5,
     spin: 12,
     gravity: 16,
-    restMin: 2,
-    restMax: 3.5,
-    sink: 1,
-    scale: 1.6,
+    restMin: 5,
+    restMax: 8,
+    sink: 1.5,
+    scale: 1.7,
+    sizeMin: 0.75,
+    sizeMax: 1.35,
   },
 } as const;
 

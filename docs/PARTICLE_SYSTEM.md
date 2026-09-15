@@ -583,15 +583,17 @@ Moments.
 | Band | kollabiert über 2 s (Shader-Uniform `uCollapse`): schwillt bis 0,2 s an und kocht bis etwa 1,2 s (mehr, schnellere und hellere Blasen), sackt von 0,3 bis 1,7 s zur Pfütze zusammen, die um bis zu 30 % über die Ränder läuft, reißt ab 0,6 s entlang eines Rauschmusters mit leuchtenden Kanten auf und blendet ab 1,4 s aus. Leck und Entfernen sinken wie bisher in 0,6 s |
 | Blasen | eine je 2,5 m Körper (mindestens 4), bis 0,8 des Kollapses: 8 additive Funken (`BURST_PALETTES.slime`) 0,9 m über dem Boden und 14 Schleimtropfen (`spawnBloodSplatter`, Normal-Pool, `OOZE_DEATH_LOOK.goo`) |
 | Pfützen | eine je 1,25 m (mindestens 4), zwischen 0,15 und 0,95 des Kollapses, quer bis 1,2 der bedeckten Halbbreite, also über die Ränder des Körpers hinaus: Goo-Decal in Schleimgrün (eigener Pool und Shader: Pfütze mit wanderndem Rand, ausgeworfenen Fingern und Tropfen daneben, nass glänzend, jede in eigener Form und Tönung), 1,4 bis 5,2 m, die meisten klein (Größe mit dem Quadrat einer Zufallszahl), bis doppelt so lang wie breit, beliebig gedreht. Liegt 45 s und verblasst über 30 s (Blut: 20 und 10 s), im Blutmond getönt wie jede Bodenspur |
-| Trümmer | 0,75 je Meter (mindestens 6), zwischen 0,05 und 0,6 des Kollapses, 0,8 m über dem Boden aus dem ganzen Körper geworfen: 5 bis 11 m/s hoch (die schweren Stücke 0,8 davon), 1 bis 4,5 m/s seitlich, drehend; sie springen einmal auf, liegen 2 bis 3,5 s und sinken in 1 s ein (`OozeDebrisRenderer`) |
+| Trümmer | 1,6 je Meter (mindestens 10), zwischen 0,05 und 0,6 des Kollapses, 0,8 m über dem Boden aus dem ganzen Körper geworfen: 6 bis 14 m/s hoch und 1,5 bis 5,5 m/s hinaus; ein Fünftel spuckt der Kollaps steil hoch, 16 bis 20 m/s bei höchstens 3 m/s hinaus (die schweren Stücke je 0,8 davon). Hinaus geht es entlang der Route, quer nur mit halber Geschwindigkeit, damit die Stücke auf der Straße bleiben statt in den Häusern. Gipfel bis etwa 6,9 m, die hohen bis etwa 13 m; entlang der Route bis etwa 11 m weit, quer bis etwa 6 m. Sie drehen sich, springen einmal auf, liegen 5 bis 8 s und sinken in 1,5 s ein (`OozeDebrisRenderer`); spätestens etwa 14 s nach dem Kill ist alles weg |
 
-Die Trümmer kommen in der Reihenfolge von `OOZE_DEBRIS_DECK`, einer Runde aus 20:
-Knochen, Rippe, Schädel, Knochen, Kiefer mit Zähnen, Helm und so weiter. Ein voller
-Körper (60 Stück) ergibt 18 Knochen, 12 Rippen, 6 Schädel, 6 Kiefer, 6 Bleche und je 3
-Helme, Stiefel, Stoppschilder und Dosen; schon ein Körper von wenigen Metern (6 Stück)
-wirft einen Schädel. Die Stücke sind prozedural aus Three-Grundkörpern mit
-Vertexfarben gebaut, 1,6-fach vergrößert, damit sie aus der Übersichtskamera lesbar
-bleiben, manche grün angeschleimt (Instanzfarbe).
+Die Trümmer kommen in der Reihenfolge von `OOZE_DEBRIS_DECK`, einer Runde aus 32:
+Knochen, Rippe, Schädel, Knochen, Kiefer mit Zähnen, Helm, Brustkorb und so weiter. Ein
+voller Körper (128 Stück, vier Runden) ergibt 24 Knochen, 12 Rippen, 12 Schädel, je 8
+Kiefer, Helme, Brustkörbe, Stoppschilder, Dosen, Leitkegel, Bleche und Stiefel und je 4
+Wirbelsäulen, Reifen, Ölfässer und Flaschen; schon ein Körper von wenigen Metern (10
+Stück) wirft einen Schädel, einen Helm, ein Stoppschild und eine Dose. Die Stücke sind
+prozedural aus Three-Grundkörpern mit Vertexfarben gebaut, 1,7-fach und dazu 0,75- bis
+1,35-fach vergrößert, damit sie aus der Übersichtskamera lesbar bleiben, manche grün
+angeschleimt (Instanzfarbe).
 
 Verteilung: Jede Art legt je Stück einen eigenen, gleich langen Abschnitt des Körpers
 fest, deckt also die ganze Länge; quer bis 0,85 der bedeckten Halbbreite. Boden ist der
@@ -608,14 +610,14 @@ lägen. Eine Art, deren Stücke alle still liegen, schreibt und lädt keine Matr
 Budget eines 80-m-Körpers: 32 Blasen (256 additive Funken und 448 Tropfen, 704
 Partikel über 1,6 s), 64 der 192 Goo-Decals (`GOO_DECAL_CONFIG`: ein Pool nur für die
 Ooze, damit das Blut einer vollen Welle die Pfützen nicht verdrängt; ein Draw Call, solange
-eine liegt; ist er voll, geht die älteste), 60 Trümmer. Je Trümmerart ein
-`InstancedMesh` mit festem Pool (acht Runden, 160 Stück: zwei volle Oozes und etwas
+eine liegt; ist er voll, geht die älteste), 128 Trümmer. Je Trümmerart ein
+`InstancedMesh` mit festem Pool (zehn Runden, 320 Stück: zwei volle Oozes und etwas
 mehr; ist der Pool einer Art voll, fällt das Stück weg), ein gemeinsames
-`MeshStandardMaterial` und ein `DrawGate`: höchstens 9 Draw Calls, solange Trümmer
+`MeshStandardMaterial` und ein `DrawGate`: höchstens 15 Draw Calls, solange Trümmer
 fliegen oder liegen, danach keiner. Der Warm-up beim Laden zeichnet die Pools einmal.
 
 **Low-Preset** (Impact Effects und Ground Marks aus): keine Blasen, keine Tropfen, keine
-Pfützen und ein Drittel der Trümmer (mindestens 3). Der Plan steht beim Kill; die
+Pfützen und ein Drittel der Trümmer wie bisher (80 m: 43 statt 20, mindestens 5 statt 3). Der Plan steht beim Kill; die
 Spawner prüfen ihre Schalter zusätzlich selbst.
 
 **Gemessen** (`ooze-death.spec.ts`, "Ooze death cost", jsdom ohne GPU): zwei volle
@@ -638,8 +640,8 @@ Bodenspuren (`effects.clear()`), ebenso ein Verlassen des Replays
 eigenen Zustand; läuft das Replay danach wieder über den Kill, wirft der Kollaps einen
 neuen Satz, der alte ist dann schon weg. Jedes Trümmerstück landet auf der Bodenhöhe
 seines Abwurfpunkts, einmal beim Loslassen gelesen (`letGo()`); am Hang oder an
-Gehsteigkanten kann es daher bis zu den knapp 8 m seitlich seines Auswurfs schweben
-oder einsinken. Mit Gebäuden oder Tiles kollidiert es nicht.
+Gehsteigkanten kann es daher bis zu den etwa 11 m entlang und 6 m quer seines Auswurfs
+schweben oder einsinken. Mit Gebäuden oder Tiles kollidiert es nicht.
 
 ---
 

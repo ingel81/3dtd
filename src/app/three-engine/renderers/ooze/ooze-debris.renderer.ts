@@ -21,23 +21,32 @@ import { OOZE_DEATH_LOOK } from '../../../configs/visual-effects.config';
 import { DrawGate } from '../draw-gate';
 
 /** What a killed ooze had swallowed and throws up again, see OOZE_DEBRIS_DECK */
-export type OozeDebrisKind = 'bone' | 'rib' | 'skull' | 'teeth' | 'helmet' | 'scrap' | 'boot' | 'sign' | 'can';
+export type OozeDebrisKind =
+  | 'bone' | 'rib' | 'skull' | 'teeth' | 'helmet' | 'scrap' | 'boot' | 'sign' | 'can'
+  | 'ribcage' | 'spine' | 'tire' | 'cone' | 'barrel' | 'bottle';
 
-const KINDS: readonly OozeDebrisKind[] = ['bone', 'rib', 'skull', 'teeth', 'helmet', 'scrap', 'boot', 'sign', 'can'];
+const KINDS: readonly OozeDebrisKind[] = [
+  'bone', 'rib', 'skull', 'teeth', 'helmet', 'scrap', 'boot', 'sign', 'can',
+  'ribcage', 'spine', 'tire', 'cone', 'barrel', 'bottle',
+];
 
 /**
  * The order the pieces of a collapse come in, round after round: the first
- * five give even a short body bones, a rib, a skull and a jaw; a full body
- * (60 pieces) gets three rounds, 18 bones, 12 ribs, 6 skulls, 6 jaws, 6
- * scraps of metal and 3 each of helmets, boots, signs and cans.
+ * five give even a short body bones, a rib, a skull and a jaw, the first ten
+ * a helmet, a ribcage, a stop sign and a can too; a full body (128 pieces)
+ * gets four rounds, 24 bones, 12 ribs, 12 skulls, 8 each of jaws, helmets,
+ * ribcages, stop signs, cans, traffic cones, scraps of metal and boots, and
+ * 4 each of spines, tyres, oil drums and bottles.
  */
 export const OOZE_DEBRIS_DECK: readonly OozeDebrisKind[] = [
-  'bone', 'rib', 'skull', 'bone', 'teeth', 'helmet', 'rib', 'bone', 'scrap', 'boot',
-  'bone', 'teeth', 'rib', 'sign', 'bone', 'can', 'skull', 'rib', 'scrap', 'bone',
+  'bone', 'rib', 'skull', 'bone', 'teeth', 'helmet', 'ribcage', 'bone', 'sign', 'can',
+  'cone', 'skull', 'rib', 'scrap', 'bone', 'boot', 'spine', 'teeth', 'tire', 'bone',
+  'barrel', 'rib', 'skull', 'bottle', 'helmet', 'sign', 'scrap', 'ribcage', 'can', 'boot',
+  'cone', 'bone',
 ];
 
 /** Rounds of the deck each kind's pool holds: two full bodies at once and some */
-const POOL_ROUNDS = 8;
+const POOL_ROUNDS = 10;
 
 /**
  * A piece landing faster than this (m/s) bounces once, back up at BOUNCE
@@ -51,7 +60,7 @@ const REST_LIFT = 0.06;
 /** How deep a piece sinks, per metre of its scale */
 const SINK_DEPTH = 0.5;
 /** The heavy pieces fly lower */
-const HEAVY = new Set<OozeDebrisKind>(['skull', 'helmet', 'boot', 'sign']);
+const HEAVY = new Set<OozeDebrisKind>(['skull', 'helmet', 'boot', 'sign', 'tire', 'barrel']);
 
 const BONE = 0xd9ccae;
 const TOOTH = 0xf1ead6;
@@ -67,6 +76,15 @@ const SIGN_WHITE = 0xe8e8e8;
 const POST = 0x9aa0a6;
 const TIN = 0xa9b1b8;
 const LABEL = 0x2e5fa8;
+const RUBBER = 0x1b1b1b;
+const HUB = 0x6d7278;
+const CONE_ORANGE = 0xe8611a;
+const CONE_WHITE = 0xf2f2f2;
+const CONE_BASE = 0x2a2a2a;
+const DRUM = 0x2f4f8f;
+const DRUM_RING = 0x24407a;
+const GLASS = 0x2f6b3a;
+const CAP = 0xc9a227;
 
 /** `geometry` in one vertex colour and without UVs, so the parts of a piece merge. */
 function part(geometry: BufferGeometry, color: number): BufferGeometry {
@@ -142,6 +160,49 @@ const PIECES: Record<OozeDebrisKind, () => BufferGeometry> = {
     part(new CylinderGeometry(0.06, 0.06, 0.16, 8), TIN),
     part(new CylinderGeometry(0.062, 0.062, 0.08, 8), LABEL),
   ]),
+  // A ribcage: the spine and four pairs of ribs arching over it, shorter towards the bottom
+  ribcage: () => {
+    const parts = [part(new CylinderGeometry(0.03, 0.03, 0.56, 5).rotateX(Math.PI / 2).translate(0, 0.17, 0), BONE)];
+    for (let i = 0; i < 4; i++) {
+      const r = 0.19 - i * 0.02;
+      parts.push(part(new TorusGeometry(r, 0.02, 4, 10, Math.PI).translate(0, 0.17 - r, -0.2 + i * 0.13), BONE));
+    }
+    return merge(parts);
+  },
+  // A piece of spine: six vertebrae with their spurs, bent a little
+  spine: () => {
+    const parts: BufferGeometry[] = [];
+    for (let i = 0; i < 6; i++) {
+      const y = (i - 2.5) * 0.075;
+      const x = 0.03 * Math.sin(i * 0.8);
+      parts.push(part(new CylinderGeometry(0.045, 0.045, 0.05, 6).translate(x, y, 0), BONE));
+      parts.push(part(new BoxGeometry(0.02, 0.03, 0.07).translate(x, y, -0.06), BONE));
+    }
+    return merge(parts);
+  },
+  // A car tyre on the rim of its wheel
+  tire: () => merge([
+    part(new TorusGeometry(0.27, 0.1, 6, 14), RUBBER),
+    part(new CylinderGeometry(0.18, 0.18, 0.12, 10).rotateX(Math.PI / 2), HUB),
+  ]),
+  // A traffic cone on its square base, with a white band
+  cone: () => merge([
+    part(new ConeGeometry(0.15, 0.56, 10).translate(0, 0.02, 0), CONE_ORANGE),
+    part(new CylinderGeometry(0.075, 0.095, 0.09, 10).translate(0, 0.02, 0), CONE_WHITE),
+    part(new BoxGeometry(0.36, 0.04, 0.36).translate(0, -0.26, 0), CONE_BASE),
+  ]),
+  // An oil drum with two rolling rings
+  barrel: () => merge([
+    part(new CylinderGeometry(0.22, 0.22, 0.62, 12), DRUM),
+    part(new TorusGeometry(0.225, 0.016, 4, 12).rotateX(Math.PI / 2).translate(0, 0.16, 0), DRUM_RING),
+    part(new TorusGeometry(0.225, 0.016, 4, 12).rotateX(Math.PI / 2).translate(0, -0.16, 0), DRUM_RING),
+  ]),
+  // A glass bottle with its cap
+  bottle: () => merge([
+    part(new CylinderGeometry(0.05, 0.05, 0.2, 8), GLASS),
+    part(new CylinderGeometry(0.018, 0.048, 0.09, 8).translate(0, 0.145, 0), GLASS),
+    part(new CylinderGeometry(0.021, 0.021, 0.02, 6).translate(0, 0.2, 0), CAP),
+  ]),
 };
 
 interface Piece {
@@ -214,8 +275,9 @@ function pose(p: Piece, out: Vector3, turn: Quaternion): number {
 /**
  * The debris a killed ooze throws up as its band collapses
  * (OOZE_DEATH_LOOK.debris, planned by planOozeDeath): bones, ribs, skulls,
- * jaws with teeth and what else it swallowed, a helmet, scrap metal, a
- * boot, a stop sign, a can. Procedural low-poly pieces in vertex colours,
+ * jaws with teeth, ribcages, spines and what else it swallowed, helmets,
+ * scrap metal, boots, stop signs, cans, traffic cones, tyres, oil drums,
+ * bottles. Procedural low-poly pieces in vertex colours,
  * some with a green tint of slime; one InstancedMesh per kind with a fixed
  * pool (OOZE_DEBRIS_DECK times POOL_ROUNDS) and a DrawGate, so a kind with
  * nothing out costs no draw call and the load-time warm-up compiles the one
@@ -286,8 +348,9 @@ export class OozeDebrisRenderer {
 
   /**
    * A piece of `kind` thrown up from local (x, y, z) over ground at local
-   * `groundY`, its throw drawn from `random`, `age` seconds ago (a frame at
-   * a high timescale lets it go late). Drawn from the next update on.
+   * `groundY`, where (rightX, rightZ) points across the route; its throw
+   * drawn from `random`, `age` seconds ago (a frame at a high timescale
+   * lets it go late). Drawn from the next update on.
    * @returns false when that kind's pool is full
    */
   launch(
@@ -296,6 +359,8 @@ export class OozeDebrisRenderer {
     y: number,
     z: number,
     groundY: number,
+    rightX: number,
+    rightZ: number,
     random: () => number = Math.random,
     age = 0,
   ): boolean {
@@ -303,20 +368,25 @@ export class OozeDebrisRenderer {
     const p = this.spare[k].pop();
     if (!p) return false;
     const look = OOZE_DEATH_LOOK.debris;
+    // Some pieces the collapse spits up high, the rest it throws wide, more along the street than across
+    const high = random() < look.highShare;
     const angle = random() * Math.PI * 2;
-    const out = look.outMin + (look.outMax - look.outMin) * random();
+    const out = high ? look.highOut * random() : look.outMin + (look.outMax - look.outMin) * random();
+    const along = Math.cos(angle) * out;
+    const across = Math.sin(angle) * out * look.across;
     p.x = x;
     p.y = y;
     p.z = z;
-    p.vx = Math.cos(angle) * out;
-    p.vz = Math.sin(angle) * out;
-    p.vy = (look.upMin + (look.upMax - look.upMin) * random()) * (HEAVY.has(kind) ? 0.8 : 1);
+    p.vx = -rightZ * along + rightX * across;
+    p.vz = rightX * along + rightZ * across;
+    const up = high ? look.highMin + (look.highMax - look.highMin) * random() : look.upMin + (look.upMax - look.upMin) * random();
+    p.vy = up * (HEAVY.has(kind) ? 0.8 : 1);
     p.axis.set(random() - 0.5, random() - 0.5, random() - 0.5);
     if (p.axis.lengthSq() < 1e-6) p.axis.set(0, 1, 0);
     p.axis.normalize();
     p.spin = look.spin * (0.3 + 0.7 * random());
     p.turn = random() * Math.PI * 2;
-    p.size = look.scale * (0.85 + 0.35 * random());
+    p.size = look.scale * (look.sizeMin + (look.sizeMax - look.sizeMin) * random());
     p.restY = groundY + REST_LIFT * p.size;
     p.rest = look.restMin + (look.restMax - look.restMin) * random();
     // The arc down to its resting height, then one bounce if it lands hard
