@@ -5,7 +5,7 @@
       #inputElement
       type="text"
       [placeholder]="placeholder()"
-      [(ngModel)]="searchText"
+      [ngModel]="searchText()"
       (ngModelChange)="onSearchChange($event)"
       (focus)="onFocus()"
       (blur)="onBlur()"
@@ -31,7 +31,7 @@
         @case ('too-short') {
           <span class="hint">
             <td-icon name="grid" [size]="12"></td-icon>
-            {{ 3 - searchText.length }} more characters
+            {{ 3 - searchText().length }} more characters
           </span>
         }
         @case ('searching') {
