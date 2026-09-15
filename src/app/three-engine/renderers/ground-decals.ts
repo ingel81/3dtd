@@ -1,21 +1,44 @@
 import { Color, PlaneGeometry, Vector3, type IUniform, type Scene } from 'three';
-import { BLOOD_DECAL_CONFIG, ICE_DECAL_CONFIG, type ScorchSource } from '../../configs/visual-effects.config';
+import {
+  BLOOD_DECAL_CONFIG,
+  GOO_DECAL_CONFIG,
+  ICE_DECAL_CONFIG,
+  type ScorchSource,
+} from '../../configs/visual-effects.config';
 import { bloodMoonMultiplier } from '../blood-moon/blood-moon-mood';
 import { DecalInstanceManager } from './decal-instance.manager';
-import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
+import { createBloodDecalShader, createGooDecalShader, createIceDecalShader } from './decal-shaders';
 import { ScorchMarks, type ScorchGround } from './scorch-marks';
 
+/** A killed ooze's splash, see GroundDecals.layGoo */
+export interface GooSplash {
+  /** Across (m), before the stretch */
+  size: number;
+  /** Length over width, 1 for round */
+  stretch: number;
+  /** Turn about the up axis (rad) */
+  rotation: number;
+  /** 0..1, seeds its shape and shade */
+  variation: number;
+  /** Hex */
+  color: number;
+}
+
 /**
- * The marks effects leave on the ground: blood and ice decals, GPU-instanced
- * with custom shaders (2 draw calls instead of 250), and the scorch marks on
- * the route grid (combat heatmap layer 1). Owned by ParticleEffectsRenderer,
- * which switches them with the groundMarks VFX setting.
+ * The marks effects leave on the ground: blood, ice and goo decals,
+ * GPU-instanced with custom shaders (one draw call per pool instead of one
+ * per decal), and the scorch marks on the route grid (combat heatmap layer
+ * 1). Owned by ParticleEffectsRenderer, which switches them with the
+ * groundMarks VFX setting.
  */
 export class GroundDecals {
   readonly blood: DecalInstanceManager;
   readonly ice: DecalInstanceManager;
   /** At most one per route cell (SCORCH_DECAL_CONFIG). */
   readonly scorch: ScorchMarks;
+  /** The splashes of killed oozes (GOO_DECAL_CONFIG), apart from the blood so it does not push them out. */
+  readonly goo: DecalInstanceManager;
+  private readonly gooColor = new Color();
   private decalIdCounter = 0;
   /** Blood moon tint the three decal materials share, see setBloodMoon() */
   private readonly bloodMoonTint: IUniform<Vector3> = { value: new Vector3(1, 1, 1) };
@@ -39,6 +62,9 @@ export class GroundDecals {
 
     this.scorch = new ScorchMarks(decalGeometry.clone(), this.bloodMoonTint);
     this.scene.add(this.scorch.decals.instancedMesh);
+
+    this.goo = new DecalInstanceManager(decalGeometry.clone(), createGooDecalShader(this.bloodMoonTint), GOO_DECAL_CONFIG.maxDecals);
+    this.scene.add(this.goo.instancedMesh);
   }
 
   /**
@@ -46,7 +72,7 @@ export class GroundDecals {
    * multiplier in the values of the target. The decals blend after the
    * mood's quad (transparent, renderOrder 998/999), so without it green
    * slime and ice lay untinted on the red ground. One uniform write for
-   * all three pools.
+   * all four pools.
    */
   setBloodMoon(amount: number, linearOutput: boolean): void {
     bloodMoonMultiplier(amount, linearOutput, this.bloodMoonTint.value);
@@ -148,6 +174,36 @@ export class GroundDecals {
     return id;
   }
 
+  /**
+   * A killed ooze's splash at a local ground position
+   * (OOZE_DEATH_LOOK.splashes), as `splash` gives it: nothing drawn at
+   * random here, so the same kill lays the same splashes at any timescale.
+   * The oldest one goes when the pool is full.
+   * @returns Decal ID
+   */
+  layGoo(localPos: Vector3, splash: Readonly<GooSplash>): string {
+    localPos.y += GOO_DECAL_CONFIG.heightOffset;
+
+    const id = `goo_decal_${this.decalIdCounter++}`;
+    if (this.goo.count >= GOO_DECAL_CONFIG.maxDecals) {
+      this.goo.removeOldest();
+    }
+    this.goo.add(
+      id,
+      localPos,
+      splash.size / 2,
+      splash.rotation,
+      this.gooColor.setHex(splash.color),
+      GOO_DECAL_CONFIG.baseOpacity,
+      performance.now(),
+      GOO_DECAL_CONFIG.fadeDelay,
+      GOO_DECAL_CONFIG.fadeDuration,
+      splash.stretch,
+      splash.variation
+    );
+    return id;
+  }
+
   /** Route grid the scorch marks sit on; null leaves none. */
   setScorchGround(ground: ScorchGround | null): void {
     this.scorch.setGround(ground);
@@ -158,11 +214,12 @@ export class GroundDecals {
     this.scorch.mark(localX, localY, localZ, source, now);
   }
 
-  /** Fade out blood, ice and scorch decals (idle until the first fade is due). */
+  /** Fade out blood, ice, scorch and goo decals (idle until the first fade is due). */
   updateFades(now: number): void {
     this.blood.updateFades(now);
     this.ice.updateFades(now);
     this.scorch.updateFades(now);
+    this.goo.updateFades(now);
   }
 
   /** Remove every mark; the empty pools leave the render list (DrawGate). */
@@ -170,6 +227,7 @@ export class GroundDecals {
     this.blood.clear();
     this.ice.clear();
     this.scorch.clear();
+    this.goo.clear();
   }
 
   /** Remove the decal meshes from the scene and dispose them. */
@@ -180,5 +238,7 @@ export class GroundDecals {
     this.ice.dispose();
     this.scene.remove(this.scorch.decals.instancedMesh);
     this.scorch.dispose();
+    this.scene.remove(this.goo.instancedMesh);
+    this.goo.dispose();
   }
 }

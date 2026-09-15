@@ -17,7 +17,7 @@ CPU-Partikel. `ThreeEffectsRenderer` ist seit 2026-05-21 eine Delegations-Facade
   `frameIndex` Attribut.
 - **GPU-instanzierte Decals** (`DecalInstanceManager`): Blood-Decals (max 100),
   Ice-Decals (max 150), Kampfspuren (max 200, eine pro Route-Zelle, siehe unten),
-  1 Draw Call pro Decal-Typ. Ausblenden über das Opacity-Attribut.
+  Ooze-Pfützen (max 192, siehe [Tod der Ooze](#tod-der-ooze)), 1 Draw Call pro Decal-Typ. Ausblenden über das Opacity-Attribut.
 - **GPU-instanzierte Floating Text** (`FloatingTextInstanceManager`): Schadenszahlen über
   Gegnern, "+N" in Gold beim Kill, der Upgrade-Text und "LEVEL N" des Helden; steigen auf
   und blenden aus. 1 Draw Call für alle Texte, höchstens 2048 zugleich (`MAX_INSTANCES`).
@@ -329,6 +329,7 @@ typischerweise vom `VFXService` über EventBus-Subscriptions aufgerufen:
 | `spawnBloodSplatter(lat, lon, h, count)` | Blut-Partikel (Normal Pool) |
 | `spawnBloodDecal(lat, lon, h, size)` | Boden-Decal (GPU-instanced) |
 | `spawnIceDecal(lat, lon, h, size)` | Eis-Decal (GPU-instanced) |
+| `spawnGooDecal(lat, lon, h, splash)` | Pfütze einer getöteten Ooze (Goo-Pool, GPU-instanced), Form und Größe aus `GooSplash` |
 | `markScorch(localX, localY, localZ, source)` | Kampfspur am Boden unter einem Treffer, eine pro Route-Zelle |
 | `spawnFire(...)` / `spawnFireOnTerrain(...)` / `spawnFireAtLocalY(...)` | Anhaltende Feuerquelle, Stufe `tiny` bis `inferno` (Anzahl und Radius aus `FIRE_INTENSITY`) |
 | `spawnFireFlash(lat, lon, localY)` | Kurzer Feuerblitz (z.B. Flame-Beam-Hit) |
@@ -581,7 +582,7 @@ Moments.
 |---|---|
 | Band | kollabiert über 2 s (Shader-Uniform `uCollapse`): schwillt bis 0,2 s an und kocht bis etwa 1,2 s (mehr, schnellere und hellere Blasen), sackt von 0,3 bis 1,7 s zur Pfütze zusammen, die um bis zu 30 % über die Ränder läuft, reißt ab 0,6 s entlang eines Rauschmusters mit leuchtenden Kanten auf und blendet ab 1,4 s aus. Leck und Entfernen sinken wie bisher in 0,6 s |
 | Blasen | eine je 2,5 m Körper (mindestens 4), bis 0,8 des Kollapses: 8 additive Funken (`BURST_PALETTES.slime`) 0,9 m über dem Boden und 14 Schleimtropfen (`spawnBloodSplatter`, Normal-Pool, `OOZE_DEATH_LOOK.goo`) |
-| Pfützen | eine je 5 m (mindestens 2), zwischen 0,2 und 0,85 des Kollapses: Blut-Decal in Schleimgrün, 2,2 bis 3,8 m, im Blutmond getönt wie jede Bodenspur |
+| Pfützen | eine je 1,25 m (mindestens 4), zwischen 0,15 und 0,95 des Kollapses, quer bis 1,2 der bedeckten Halbbreite, also über die Ränder des Körpers hinaus: Goo-Decal in Schleimgrün (eigener Pool und Shader: Pfütze mit wanderndem Rand, ausgeworfenen Fingern und Tropfen daneben, nass glänzend, jede in eigener Form und Tönung), 1,4 bis 5,2 m, die meisten klein (Größe mit dem Quadrat einer Zufallszahl), bis doppelt so lang wie breit, beliebig gedreht. Liegt 45 s und verblasst über 30 s (Blut: 20 und 10 s), im Blutmond getönt wie jede Bodenspur |
 | Trümmer | 0,75 je Meter (mindestens 6), zwischen 0,05 und 0,6 des Kollapses, 0,8 m über dem Boden aus dem ganzen Körper geworfen: 5 bis 11 m/s hoch (die schweren Stücke 0,8 davon), 1 bis 4,5 m/s seitlich, drehend; sie springen einmal auf, liegen 2 bis 3,5 s und sinken in 1 s ein (`OozeDebrisRenderer`) |
 
 Die Trümmer kommen in der Reihenfolge von `OOZE_DEBRIS_DECK`, einer Runde aus 20:
@@ -605,7 +606,9 @@ diese Verspätung älter. Bei 4x liegen Pfützen und Trümmer daher dort, wo sie
 lägen. Eine Art, deren Stücke alle still liegen, schreibt und lädt keine Matrizen hoch.
 
 Budget eines 80-m-Körpers: 32 Blasen (256 additive Funken und 448 Tropfen, 704
-Partikel über 1,6 s), 16 der 100 Blut-Decals, 60 Trümmer. Je Trümmerart ein
+Partikel über 1,6 s), 64 der 192 Goo-Decals (`GOO_DECAL_CONFIG`: ein Pool nur für die
+Ooze, damit das Blut einer vollen Welle die Pfützen nicht verdrängt; ein Draw Call, solange
+eine liegt; ist er voll, geht die älteste), 60 Trümmer. Je Trümmerart ein
 `InstancedMesh` mit festem Pool (acht Runden, 160 Stück: zwei volle Oozes und etwas
 mehr; ist der Pool einer Art voll, fällt das Stück weg), ein gemeinsames
 `MeshStandardMaterial` und ein `DrawGate`: höchstens 9 Draw Calls, solange Trümmer
@@ -627,8 +630,10 @@ Trümmern, aber ohne Pfützen (er hält die Bodenspuren an). Nach einem Wellenen
 nach einem Game Over laufen ein noch kollabierendes Band und seine Trümmer aus:
 `OozeBodies.clear` (aus `EnemyManager.clear`) nimmt nur die Oozes, die es noch führt,
 deren Band sofort. Ein Neustart und ein Standortwechsel räumen beides sofort ab
-(`GameStateManager.reset` ruft `oozes.clear()`), ebenso ein Verlassen des Replays
-(`ReplayPlayer.exit`). Ein Sprung im Replay räumt die Trümmer ab
+(`GameStateManager.reset` ruft `oozes.clear()`), die Pfützen mit den übrigen
+Bodenspuren (`effects.clear()`), ebenso ein Verlassen des Replays
+(`ReplayPlayer.exit`). Die Pfützen verblassen wie jede Bodenspur nach der Uhr
+(`performance.now()`), in der Pause und bei 4x also nach denselben 75 s. Ein Sprung im Replay räumt die Trümmer ab
 (`ReplayPlayer.seek` ruft `oozes.clearDebris()`), das Band führt der Replay über seinen
 eigenen Zustand; läuft das Replay danach wieder über den Kill, wirft der Kollaps einen
 neuen Satz, der alte ist dann schon weg. Jedes Trümmerstück landet auf der Bodenhöhe
@@ -663,7 +668,8 @@ Brandflecken als eigener `DecalInstanceManager`-Pool (`ScorchMarks` in
 - **Reset:** `ThreeEffectsRenderer.clear()` (Spielneustart, Standortwechsel).
 - Rein optisch, kein Einfluss auf Gameplay oder Training.
 
-Alle Decals sind rund (`DecalInstanceManager.add` nimmt einen Radius). Bei Blood und
+Alle Decals sind rund (`DecalInstanceManager.add` nimmt einen Radius), außer den
+Ooze-Pfützen, die `stretch` bis doppelt so lang wie breit zieht. Bei Blood und
 Ice ist `size` der Durchmesser, bei Kampfspuren gibt die Config den Radius vor. Bis
 2026-09-12 blieb die Z-Achse bei 1, jedes Decal war ein Oval von 2·size × 2 m. Die
 Durchmesser der Aufrufer sind so gewählt, dass die Fläche gleich bleibt
@@ -741,7 +747,7 @@ Status-Effekte und Events laufen gleich, Training und Headless-Betrieb auch.
 | Muzzle Flash | an | `spawnMuzzleFlash` erzeugt keine Partikel, `ThreeTowerRenderer.triggerMuzzleFlash` zündet das Licht nicht. Das PointLight bleibt dunkel in der Szene, sonst bräuchten alle beleuchteten Materialien ein neues Shader-Programm. |
 | Projectile Trails | an | `TrailStreakRenderer.create` vergibt keinen Streak, laufende fallen weg (je Projektil ein eigenes Mesh mit eigenem Draw Call, Geometrie jeden Frame neu). `spawnConfigurableTrail` erzeugt keine Trail-Partikel. |
 | Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch, keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. Der Atompilz des Nuklearschlags kommt mit weniger, größeren Sprites, unbeleuchtetem Rauch und ohne Glutbrocken. |
-| Ground Marks | an | Keine Blut-, Eis- und Brand-Decals. Beim Ausschalten werden die liegenden gelöscht, die leeren Pools fallen per `DrawGate` aus der Render-Liste. `VFXService` und `CombatVfxService` sparen die Terrain-Raycasts für ein Decal (einer pro Blut-Decal, bis zu vier pro Eis-Explosion). |
+| Ground Marks | an | Keine Blut-, Eis-, Brand- und Goo-Decals. Beim Ausschalten werden die liegenden gelöscht, die leeren Pools fallen per `DrawGate` aus der Render-Liste. `VFXService` und `CombatVfxService` sparen die Terrain-Raycasts für ein Decal (einer pro Blut-Decal, bis zu vier pro Eis-Explosion). |
 | Bloom | aus | `UnrealBloomPass` aus. Sind Bloom und Color Grading beide aus, zeichnet die Engine ohne Composer. |
 | Color Grading | None | LUT-Pass aus. |
 | Freeze Tint | an | Kein blauer Tint und keine Frost-Aura auf verlangsamten Gegnern. Der Slow bleibt vermerkt, beim Einschalten kommen Tint und Aura sofort zurück. |
@@ -817,8 +823,8 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/particle-effects-renderer.ts` | Combat-VFX (Blood, Fire, Explosion mit Rauchstufe, Funken-Bursts, Trails, Muzzle), Decals, `activeEffects`-Lifecycle |
 | `three-engine/renderers/environment-effects-renderer.ts` | HQ-Explosion, Fire-Flash, Tower-Inner-Fire |
 | `three-engine/renderers/aura-renderer.ts` | Orbitierende Frost-/Poison-Status-Auren |
-| `three-engine/renderers/ground-decals.ts` | `GroundDecals`: die Blut-, Eis- und Brand-Decal-Pools samt Blutmond-Tönung, gehört zu `ParticleEffectsRenderer` |
-| `three-engine/renderers/decal-instance.manager.ts` | GPU-instanced Blood/Ice/Scorch-Decals |
+| `three-engine/renderers/ground-decals.ts` | `GroundDecals`: die Blut-, Eis-, Brand- und Goo-Decal-Pools samt Blutmond-Tönung, gehört zu `ParticleEffectsRenderer` |
+| `three-engine/renderers/decal-instance.manager.ts` | GPU-instanced Blood/Ice/Scorch/Goo-Decals |
 | `three-engine/renderers/decal-shaders.ts` | Decal-Shader (Fade, Color-Variation) |
 | `three-engine/renderers/scorch-marks.ts` | Kampfspuren: eine pro Route-Zelle, Verstärken bei Wiederholung |
 | `three-engine/renderers/instance-slot-allocator.ts` | Slot-Vergabe für instanzierte Pools, hier die Decals |

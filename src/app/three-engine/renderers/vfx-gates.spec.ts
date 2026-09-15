@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Scene, Texture, Vector3 } from 'three';
-import type { GroundDecals } from './ground-decals';
+import type { GooSplash, GroundDecals } from './ground-decals';
 import { BURST_PALETTES, EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../../configs/visual-effects.config';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { VFXService } from '../../game-engine/vfx.service';
@@ -43,6 +43,8 @@ const FLAT_ROUTE: ScorchGround = {
   getGroundLocalYAt: () => 0,
 };
 
+const SPLASH: GooSplash = { size: 2, stretch: 1, rotation: 0, variation: 0.5, color: 0x6fe021 };
+
 function alive(pools: ParticlePoolManager): number {
   return [...pools.getPool('trailAdditive'), ...pools.getPool('trailNormal')].filter((p) => p.life > 0).length;
 }
@@ -53,8 +55,8 @@ function setup(off: Partial<VfxSettings> = {}) {
   const effects = new ParticleEffectsRenderer(new Scene(), sync, pools);
   effects.setScorchGround(FLAT_ROUTE);
   effects.setVfxSettings({ ...DEFAULT_VFX_SETTINGS, ...off });
-  const { blood, ice, scorch } = (effects as unknown as { decals: GroundDecals }).decals;
-  const decalPools = [blood, ice, scorch.decals];
+  const { blood, ice, scorch, goo } = (effects as unknown as { decals: GroundDecals }).decals;
+  const decalPools = [blood, ice, scorch.decals, goo];
   const decals = () => decalPools.reduce((n, pool) => n + pool.count, 0);
   return { pools, effects, decals, decalPools };
 }
@@ -95,9 +97,10 @@ describe('VFX settings in the particle effects', () => {
       effects.spawnBloodDecal(0, 0, 0, 2);
       effects.spawnIceDecal(0, 0, 0, 2);
       effects.markScorch(0, 0, 0, 'cannon');
+      effects.spawnGooDecal(0, 0, 0, SPLASH);
     };
     layMarks();
-    expect(decals()).toBe(3);
+    expect(decals()).toBe(4);
 
     effects.setVfxSettings({ ...DEFAULT_VFX_SETTINGS, groundMarks: false });
     expect(decals()).toBe(0);
@@ -181,6 +184,7 @@ describe('VFX settings through a game reset', () => {
 
     SPAWNS.impactEffects(effects);
     effects.spawnBloodDecal(0, 0, 0, 2);
+    effects.spawnGooDecal(0, 0, 0, SPLASH);
     auras.spawnFrostAura('slowed', new Vector3());
     expect(alive(pools)).toBe(0);
     expect(decals()).toBe(0);

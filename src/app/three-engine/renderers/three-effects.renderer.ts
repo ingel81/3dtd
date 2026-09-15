@@ -16,6 +16,7 @@ import type {
   ScorchSource,
 } from '../../configs/visual-effects.config';
 import type { ScorchGround } from './scorch-marks';
+import type { GooSplash } from './ground-decals';
 import { FloatingTextInstanceManager } from './floating-text/floating-text-instance.manager';
 import { ParticlePoolManager } from './particle-pool-manager';
 import type { ParticleShaderMaterials } from './particle-shaders';
@@ -155,6 +156,11 @@ export class ThreeEffectsRenderer {
    */
   spawnBloodDecal(lat: number, lon: number, height: number, size?: number, color?: number): string {
     return this.particleEffects.spawnBloodDecal(lat, lon, height, size, color);
+  }
+
+  /** A killed ooze's splash on the ground, see ParticleEffectsRenderer.spawnGooDecal. @returns Decal ID */
+  spawnGooDecal(lat: number, lon: number, height: number, splash: Readonly<GooSplash>): string {
+    return this.particleEffects.spawnGooDecal(lat, lon, height, splash);
   }
 
   /**
