@@ -29,6 +29,7 @@ import {
   AbilityId,
   AbilityRejectReason,
   AbilityStatus,
+  abilityBeamBurnMs,
   abilityBeamCap,
   abilityBeamFraction,
   abilityBeamReachM,
@@ -376,9 +377,7 @@ export class AbilityManager implements IGameManager {
 
     strike.burntMs += stepMs;
     // The sweep may end sooner than the time is up; a beam without speed stands for its time
-    const burnMs = effect.speedMps > 0
-      ? Math.min(effect.durationMs, (sweep.length / effect.speedMps) * 1000)
-      : effect.durationMs;
+    const burnMs = abilityBeamBurnMs(effect, sweep.length);
     if (strike.burntMs >= burnMs) this.finish(strike, dealt.size);
   }
 
