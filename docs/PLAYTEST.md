@@ -522,6 +522,10 @@ Aufbau: je Punkt beschrieben.
   unten die Straße bei 214,7 und 215,05 m (`overM` 5,9 und 5,6). Säule am Klick: nur ein Treffer, 220,67 (cached
   220,77, Tiefe 23 und 25). Das Mesh unter der Brücke ist also größtenteils gefüllt. F5-Teil offen. Worker underpass.
 - **D3:** später. **D5:** kein Ort bekannt, Punkt ruht.
+- **D6 Korridor-Sperre messen (lockbrief, Entscheidung 2026-09-15: Sperre bleibt, erst messen):** Ort laden, Konsole
+  mit Filter "Corridor". Vor dem ersten Tower die letzte Zeile `[Corridor] clearance ...` notieren, vor allem
+  `unmeasured=`. Dann `losPerfEnable()` in die Konsole, einen Tower bauen und die Zeile mit `cube` und `total`
+  schicken. Viele offene Stationen und kleine Cube-Zeiten sprechen für den Mittelweg (ein Neubau je Wellenpause).
 - **D3 Feste Spawns für Showcases (142):** Für jeden Showcase-Ort, der einen festen Spawn bekommen soll: Ort laden,
   Header "Set spawn" an die gewünschte Stelle (R dreht das Portal), `__showcase.line()` in die Konsole, Zeile schicken.
 - **D4 Klumpen ohne Beschuss (363):** Entfällt, 618 war ok (2026-09-15). Nur wenn in 618 ein Tower stillsteht, obwohl
@@ -598,7 +602,9 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
 **Neu zu entscheiden**
 
 - **E16 `immunityPercent`:** Steht bei Herbert auf 100, wirkt aber nirgends. Entfernen oder an Schaden und Anzeige
-  anbinden? **Entscheidung User (2026-09-15): anbinden.** Worker immunity.
+  anbinden? **Entscheidung User (2026-09-15): anbinden.** Worker immunity fand: gedacht als Schadensimmunität, bei
+  100 wäre Herbert unverwundbar (`tmp/fix1/reports/immunity.md`). **User:** Bosse brauchen so etwas sicher, offen ist
+  was genau und in welchem Umfang; erst besprechen. Grundlage: `tmp/fix1/reports/bossresist.md`.
 - **E17 Doku-Tabelle in CLAUDE.md:** Auf die Pflichtlektüre plus Verweis auf docs/INDEX.md kürzen? Vorerst bleibt sie
   voll. **Entscheidung User (2026-09-15): kürzen.** Worker docsai.
 - **E18 Assets und Features:** Welche willst du, in welcher Reihenfolge? Warnsirene des Atomschlags; eigene Sounds
