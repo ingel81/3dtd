@@ -116,13 +116,17 @@ export class GameStateSyncService {
 
     // Tower sind mutable Entities: Kills und Upgrades des gewählten Towers
     // zählen eine Revision hoch, aus der die Sidebar ihre Anzeige ableitet.
+    // Jedes Upgrade zählt außerdem towerUpgrades, für die DPS aller Tower.
     const bumpIfSelected = (towerId: string) => {
       if (towerId === this.store.selectedTowerId()) {
         this.store.selectedTowerRevision.update(n => n + 1);
       }
     };
     this.subs.add(eventBus.on('tower:kill', (event) => bumpIfSelected(event.tower.id)));
-    this.subs.add(eventBus.on('tower:upgraded', (event) => bumpIfSelected(event.tower.id)));
+    this.subs.add(eventBus.on('tower:upgraded', (event) => {
+      this.store.towerUpgrades.update(n => n + 1);
+      bumpIfSelected(event.tower.id);
+    }));
 
     // ── Enemy lifecycle ───────────────────────────────────────────
     this.subs.add(eventBus.on('enemy:spawned', (_event) => {

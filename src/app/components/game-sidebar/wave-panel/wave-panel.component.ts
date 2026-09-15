@@ -143,13 +143,14 @@ export class SidebarWavePanelComponent implements AfterViewInit {
 
   /**
    * Tower DPS the director sizes a wave by (calculateTotalDPS). Tower
-   * entities carry no signals: building and selling, an upgrade of the
-   * selected tower (upgrades go through it) and finished research tell when
-   * to recount. An unchanged value changes nothing downstream.
+   * entities carry no signals: building and selling, an upgrade of any
+   * tower (the debug "Max Upgrade All" and the training bot upgrade towers
+   * that are not selected) and finished research tell when to recount. An
+   * unchanged value changes nothing downstream.
    */
   private readonly towerDps = computed(() => {
     this.store.towerCount();
-    this.store.selectedTowerRevision();
+    this.store.towerUpgrades();
     this.researchStore.completedResearches();
     return calculateTotalDPS(this.gameState.towerManager.getAll());
   });

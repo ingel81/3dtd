@@ -276,6 +276,15 @@ describe('GameStateSyncService (real service)', () => {
       eventBus.emit({ type: 'tower:upgraded', tower: { id: 'sel' } as never, level: 2, cost: 50 });
       expect(store.selectedTowerRevision()).toBe(1);
     });
+
+    it('tower:upgraded of any tower → towerUpgrades++, selected or not', () => {
+      store.selectedTower.set({ id: 'sel' } as never);
+      // Debug "Max Upgrade All" emits one per tower, level 0
+      eventBus.emit({ type: 'tower:upgraded', tower: { id: 'other' } as never, level: 0, cost: 0 });
+      eventBus.emit({ type: 'tower:upgraded', tower: { id: 'sel' } as never, level: 2, cost: 50 });
+      expect(store.towerUpgrades()).toBe(2);
+      expect(store.selectedTowerRevision()).toBe(1);
+    });
   });
 
   // ── Enemy lifecycle ────────────────────────────────────────────
