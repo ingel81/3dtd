@@ -516,16 +516,17 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Wallsmasher (`wallsmasher`) | Normal | 200 | 3.444 | 5.670 | 0,7 | Skinning | 104 | 3444×104 | RGBA16F | 1,28 | 2,7 | 512² |
 | Spider (`spider`) | Swarm | 800 | 2.140 | 2.417 | 1,7 | Skinning | 25 | 2140×25 | RGBA16F | 0,56 | 0,4 | 512² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 512² |
-| Skarnax (`worm`) | in keiner Welle | 0 | 1.700 | 1.662 | 0,0 | statisch | 1 | 1700×1 | RGBA16F | 0,89 | 0,0 | 512² |
+| Skarnax (`worm`) | in keiner Welle | 0 | 1.700 | 1.662 | 0,0 | Skinning | 48 | 1700×48 | RGBA16F | 0,93 | 0,6 | 1024² |
 | Zombie (`zombie`) | Swarm | 1.800 | 1.453 | 2.157 | 2,6 | Skinning | 209 | 1453×209 | RGBA16F | 0,83 | 2,3 | 1024² |
+| Skarnax Tail (`worm-tail`) | in keiner Welle | 0 | 1.214 | 1.214 | 0,0 | Skinning | 32 | 1214×32 | RGBA16F | 1,05 | 0,3 | 512² |
 | Skeleton (`skeleton`) | Swarm | 940 | 1.156 | 658 | 1,1 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 | Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
-| Skarnax Segment (`worm-segment`) | in keiner Welle | 0 | 634 | 556 | 0,0 | statisch | 1 | 634×1 | RGBA16F | 0,88 | 0,0 | 512² |
+| Skarnax Segment (`worm-segment`) | in keiner Welle | 0 | 634 | 556 | 0,0 | Skinning | 32 | 634×32 | RGBA16F | 0,95 | 0,2 | 512² |
 | Ooze (`ooze`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 24 | 282×24 | RGBA16F | 0,50 | 0,1 | – |
 | Slime Clump (`slime-clump`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
 
-VAT-Speicher aller Typen zusammen: **96,3 MB** (30 fps), alles in RGBA32F wären **165,9 MB**.
+VAT-Speicher aller Typen zusammen: **97,4 MB** (30 fps), alles in RGBA32F wären **168,0 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **0,4 MB** dazu.
 
 ### Alpha
@@ -543,7 +544,7 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 | Ghost | Blend | 0 |
 | Bear | Blend | 33.852 (3,2 %) |
 
-Opak ohne Texel unter 0,05 (20): Herbert, Stone Golem, Wraith, Mammoth, Tank, Zombie v2, Mech, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Skarnax, Zombie, Skeleton, Skeleton Minion, Rat, Skarnax Segment, Ooze, Slime Clump.
+Opak ohne Texel unter 0,05 (21): Herbert, Stone Golem, Wraith, Mammoth, Tank, Zombie v2, Mech, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Skarnax, Zombie, Skarnax Tail, Skeleton, Skeleton Minion, Rat, Skarnax Segment, Ooze, Slime Clump.
 Texel unter 0,05, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis 0,05): **keine**.
 
 ### Modellinhalt
@@ -570,12 +571,13 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Wallsmasher | `wallsmasher.glb` | 0,4 | 1 (1) | 61 | 0 | 1 | 512² | 3 | 3.444 / 3.025 / 2.956 |
 | Spider | `spider.glb` | 0,6 | 2 (2) | 113 | 0 | 2 | 512² | 1 | 2.140 / 2.133 / 1.716 |
 | Penguin | `penguin.glb` | 0,3 | 1 (1) | 21 | 0 | 1 | 512² | 2 | 1.993 / 1.993 / 1.723 |
-| Skarnax | `worm_head.glb` | 0,1 | 1 (0) | 0 | 0 | 1 | 512² | 0 | 1.700 / 1.627 / 873 |
+| Skarnax | `worm_head.glb` | 0,2 | 1 (1) | 5 | 0 | 1 | 1024² | 1 | 1.700 / 1.627 / 873 |
 | Zombie | `zombie.glb` | 1,8 | 1 (1) | 49 | 0 | 1 | 1024² | 13 | 1.453 / 1.453 / 1.086 |
+| Skarnax Tail | `worm_tail.glb` | 0,1 | 1 (1) | 7 | 0 | 1 | 512² | 1 | 1.214 / 1.137 / 633 |
 | Skeleton | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
 | Skeleton Minion | `skeleton.glb` | 0,2 | 6 (0) | 0 | 0 | 1 | 512² | 32 | 737 / 363 / 347 |
 | Rat | `rat.glb` | 0,2 | 1 (1) | 21 | 0 | 1 | 512² | 1 | 999 / 999 / 767 |
-| Skarnax Segment | `worm_segment.glb` | 0,0 | 1 (0) | 0 | 0 | 1 | 512² | 0 | 634 / 580 / 296 |
+| Skarnax Segment | `worm_segment.glb` | 0,1 | 1 (1) | 5 | 0 | 1 | 512² | 1 | 634 / 580 / 296 |
 | Ooze | `slime.glb` | 0,0 | 2 (0) | 0 | 0 | 2 | – | 2 | 282 / 282 / 282 |
 | Slime Clump | `slime.glb` | 0,0 | 2 (0) | 0 | 0 | 2 | – | 2 | 282 / 282 / 282 |
 
@@ -612,13 +614,16 @@ die weggelassenen Frames.
 | Spider | `Armature\|Walk-Cycle-Basic` | walk | 0,83 | 25 | – |
 | Penguin | `Walk` | walk | 1,00 | 30 | – |
 | Penguin | `Fall` | death | 1,88 | 57 | – |
+| Skarnax | `Jaws` | walk | 1,60 | 48 | – |
 | Zombie | `Armature\|Walk` | walk | 4,00 | 120 | – |
 | Zombie | `Armature\|Die` | death | 2,96 | 89 | – |
+| Skarnax Tail | `Crawl` | walk | 1,07 | 32 | – |
 | Skeleton | `sprint` | walk | 0,50 | 15 | – |
 | Skeleton | `die` | death | 0,33 | 11 | – |
 | Skeleton Minion | `sprint` | walk | 0,50 | 15 | – |
 | Skeleton Minion | `die` | death | 0,33 | 11 | – |
 | Rat | `Run` | walk | 0,34 | 11 | – |
+| Skarnax Segment | `Crawl` | walk | 1,07 | 32 | – |
 | Ooze | `Wobble` | walk | 0,80 | 24 | – |
 | Slime Clump | `Wobble` | walk | 0,80 | 24 | – |
 | Slime Clump | `Splat` | death | 0,45 | 14 | – |
@@ -676,6 +681,7 @@ mit allem, was ein Kill abspaltet.
 | Wallsmasher | W4, W5, W14, W25 | 15 |
 | Skarnax | – | 0 |
 | Skarnax Segment | – | 0 |
+| Skarnax Tail | – | 0 |
 | Wraith | W13, W17, W23, W27 | 80 |
 | Zombie | W1, W10, W16, W20, W29, W30 | 60 |
 | Zombie Soldier | W9, W22 | 6 |
