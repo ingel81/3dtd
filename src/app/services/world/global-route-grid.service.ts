@@ -98,25 +98,6 @@ export class GlobalRouteGridService {
   }
 
   /**
-   * Locally refine cells in `radius` around (x, z) via sampleCellY.
-   * Promotes unsampled and refreshes stable cells when LOD improved.
-   * Call before tower placement / preview to ensure fresh heights in
-   * the affected region.
-   */
-  refineCellsInRadius(x: number, z: number, radius: number): { promoted: number; refreshed: number; inRange: number } {
-    return this.grid.refineCellsInRadius(x, z, radius);
-  }
-
-  /**
-   * Schmal-Variante: promoviert nur unsampled Cells im Radius, lässt
-   * bereits stabile Cells in Ruhe. Für den Build-Preview-Pfad gedacht,
-   * wo wir per Mouse-Move keine LOD-Upgrades ausführen wollen.
-   */
-  promoteUnsampledCellsInRadius(x: number, z: number, radius: number): { promoted: number } {
-    return this.grid.promoteUnsampledCellsInRadius(x, z, radius);
-  }
-
-  /**
    * Check if grid is initialized
    */
   isInitialized(): boolean {
@@ -395,42 +376,6 @@ export class GlobalRouteGridService {
    */
   disposeVisualization(): void {
     this.grid.disposeVisualization();
-  }
-
-  /**
-   * Update terrain heights for all cells
-   * Call this after terrain tiles have loaded
-   */
-  updateTerrainHeights(): void {
-    this.grid.updateTerrainHeights();
-  }
-
-  /**
-   * Begin a frame-budgeted terrain-height refresh (non-blocking replacement
-   * for the synchronous `updateTerrainHeights` on the tile-load hot path).
-   * Drive `stepTerrainHeightRefresh` once per rAF tick until done.
-   */
-  beginTerrainHeightRefresh(): void {
-    this.grid.beginTerrainHeightRefresh();
-  }
-
-  /** Process one frame's slice of the budgeted terrain-refresh sweep. */
-  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number; changed: number } {
-    return this.grid.stepTerrainHeightRefresh(budgetMs);
-  }
-
-  /** True while a budgeted terrain-refresh sweep is in flight. */
-  isTerrainRefreshActive(): boolean {
-    return this.grid.isTerrainRefreshActive();
-  }
-
-  /**
-   * Subscribe to cell terrain-sample-change events (promote + refresh).
-   * Consumers use the changed-cell list to recompute per-tower LOS + viz
-   * meshes so the system self-heals as tiles stream in.
-   */
-  addCellsChangedListener(listener: (changed: RouteCell[]) => void): () => void {
-    return this.grid.addCellsChangedListener(listener);
   }
 
   // ========================================

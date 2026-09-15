@@ -44,7 +44,6 @@ vi.mock('../utils/tower-los-viz', () => ({
 }));
 
 import { TowerPlacementService } from './tower-placement.service';
-import { TowerLosRegistry } from './tower-los-registry';
 import { Tower } from '../entities/tower.entity';
 import { TOWER_TYPES, TowerTypeId } from '../configs/tower-types.config';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
@@ -107,19 +106,13 @@ describe('TowerPlacementService', () => {
     releaseModel: ReturnType<typeof vi.fn>;
   };
   let grid: {
-    cellsChanged: ((changed: RouteCell[]) => void) | null;
-    off: ReturnType<typeof vi.fn>;
-    addCellsChangedListener: ReturnType<typeof vi.fn>;
     isInitialized: ReturnType<typeof vi.fn>;
-    promoteUnsampledCellsInRadius: ReturnType<typeof vi.fn>;
-    refineCellsInRadius: ReturnType<typeof vi.fn>;
     getCellsInRange: ReturnType<typeof vi.fn>;
     getCellSize: () => number;
     registerTower: ReturnType<typeof vi.fn>;
     registerTowerIncremental: ReturnType<typeof vi.fn>;
     unregisterTower: ReturnType<typeof vi.fn>;
     rebuildAirRouteLayer: ReturnType<typeof vi.fn>;
-    isTerrainRefreshActive: () => boolean;
   };
   let airTargetingUnlocked: ReturnType<typeof signal<boolean>>;
   let overlay: Group;
@@ -150,11 +143,6 @@ describe('TowerPlacementService', () => {
 
   /** Let the async preview-model load settle. */
   const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
-  const runFrames = () => {
-    const due = [...frames.values()];
-    frames.clear();
-    for (const callback of due) callback(0);
-  };
 
   /** Model the asset manager hands out: one mesh with a standard material. */
   const makeModel = () => {
@@ -212,22 +200,13 @@ describe('TowerPlacementService', () => {
     };
     injectionRegistry['AssetManagerService'] = assets;
     grid = {
-      cellsChanged: null,
-      off: vi.fn(),
-      addCellsChangedListener: vi.fn((listener: (changed: RouteCell[]) => void) => {
-        grid.cellsChanged = listener;
-        return grid.off;
-      }),
       isInitialized: vi.fn(() => true),
-      promoteUnsampledCellsInRadius: vi.fn(),
-      refineCellsInRadius: vi.fn(),
       getCellsInRange: vi.fn(() => [{} as RouteCell, {} as RouteCell]),
       getCellSize: () => 2,
       registerTower: vi.fn(() => [{ x: 1, z: 1 } as RouteCell]),
       registerTowerIncremental: vi.fn(() => []),
       unregisterTower: vi.fn(),
       rebuildAirRouteLayer: vi.fn(),
-      isTerrainRefreshActive: () => false,
     };
     injectionRegistry['GlobalRouteGridService'] = grid;
     airTargetingUnlocked = signal(false);
@@ -924,7 +903,6 @@ describe('TowerPlacementService', () => {
 
       const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
       const config = TOWER_TYPES.archer;
-      expect(grid.promoteUnsampledCellsInRadius).toHaveBeenCalledWith(local.x, local.z, config.range);
       expect(grid.getCellsInRange).toHaveBeenCalledWith(local.x, local.z, config.range);
       expect(losViz.instances).toHaveLength(1);
       const [viz] = losViz.instances;
@@ -987,7 +965,7 @@ describe('TowerPlacementService', () => {
       await enterBuild();
       hover(FREE);
 
-      expect(grid.promoteUnsampledCellsInRadius).not.toHaveBeenCalled();
+      expect(grid.getCellsInRange).not.toHaveBeenCalled();
       expect(losViz.instances).toHaveLength(0);
     });
 
@@ -1136,7 +1114,6 @@ describe('TowerPlacementService', () => {
 
       service.registerTowerOnGrid(tower, position, 'archer');
 
-      expect(grid.refineCellsInRadius).toHaveBeenCalledWith(local.x, local.z, config.range);
       expect(mapper.invalidate).toHaveBeenCalled();
       expect(mapper.invalidate.mock.invocationCallOrder[0])
         .toBeLessThan(mapper.update.mock.invocationCallOrder[0]);
@@ -1246,57 +1223,6 @@ describe('TowerPlacementService', () => {
     });
   });
 
-  describe('cells changed by tile loads', () => {
-    const cellAt = (east: number, north: number) => {
-      const p = at(east, north);
-      const local = sync.geoToLocalSimple(p.lat, p.lon, 0);
-      return { x: local.x, z: local.z, towerVisibility: new Map(), airVisibility: new Map() } as unknown as RouteCell;
-    };
-
-    it('rebuilds the air-route tube once per frame, however many changes arrive', () => {
-      init();
-      grid.cellsChanged!([cellAt(0, 0)]);
-      grid.cellsChanged!([cellAt(0, 2)]);
-      expect(grid.rebuildAirRouteLayer).not.toHaveBeenCalled();
-
-      runFrames();
-      expect(grid.rebuildAirRouteLayer).toHaveBeenCalledTimes(1);
-    });
-
-    it('ignores an empty change list', () => {
-      init();
-      grid.cellsChanged!([]);
-      expect(frames.size).toBe(0);
-    });
-
-    it('queues only registered towers whose range covers a changed cell', () => {
-      init();
-      const covering = new Tower({ ...at(0, 300), height: 0 }, 'archer');
-      covering.losReady = true;
-      const farAway = new Tower({ ...at(0, 600), height: 0 }, 'archer');
-      farAway.losReady = true;
-      const unregistered = new Tower({ ...at(0, 305), height: 0 }, 'archer');
-      towers.push(covering, farAway, unregistered);
-      const recompute = vi.spyOn(TowerLosRegistry.prototype, 'recompute');
-
-      grid.cellsChanged!([cellAt(0, 310)]);
-      runFrames();
-      runFrames();
-
-      expect(recompute.mock.calls.map(([t]) => t)).toEqual([covering]);
-    });
-
-    it('drops the subscription of the previous location on initialize', () => {
-      init();
-      const first = grid.cellsChanged;
-      init();
-
-      expect(grid.off).toHaveBeenCalledTimes(1);
-      expect(grid.addCellsChangedListener).toHaveBeenCalledTimes(2);
-      expect(grid.cellsChanged).not.toBe(first);
-    });
-  });
-
   describe('dispose', () => {
     it('leaves build mode, unsubscribes and cancels a pending LOS refresh', async () => {
       init();
@@ -1310,7 +1236,6 @@ describe('TowerPlacementService', () => {
       expect(service.buildMode()).toBe(false);
       expect(overlay.children).toHaveLength(0);
       expect(losViz.instances[0].disposed).toBe(true);
-      expect(grid.off).toHaveBeenCalledTimes(1);
       expect(cancelFrame).toHaveBeenCalledWith(pending);
     });
 

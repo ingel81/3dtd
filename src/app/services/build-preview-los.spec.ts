@@ -46,7 +46,6 @@ describe('BuildPreviewLos', () => {
 
   let grid: {
     isInitialized: ReturnType<typeof vi.fn>;
-    promoteUnsampledCellsInRadius: ReturnType<typeof vi.fn>;
     getCellsInRange: ReturnType<typeof vi.fn>;
     getCellSize: () => number;
   };
@@ -61,7 +60,6 @@ describe('BuildPreviewLos', () => {
     losViz.instances.length = 0;
     grid = {
       isInitialized: vi.fn(() => true),
-      promoteUnsampledCellsInRadius: vi.fn(),
       getCellsInRange: vi.fn(() => [{}, {}, {}]),
       getCellSize: () => 2,
     };
@@ -82,7 +80,6 @@ describe('BuildPreviewLos', () => {
     preview.update(engine, 10, 20, 5, 'archer', 'air');
 
     const config = TOWER_TYPES.archer;
-    expect(grid.promoteUnsampledCellsInRadius).toHaveBeenCalledWith(20, 10, config.range);
     expect(grid.getCellsInRange).toHaveBeenCalledWith(20, 10, config.range);
     const [viz] = losViz.instances;
     expect(viz.opts).toMatchObject({
@@ -123,7 +120,7 @@ describe('BuildPreviewLos', () => {
   it('builds nothing without an initialized grid, a blocker group or cells in range', () => {
     grid.isInitialized.mockReturnValue(false);
     preview.update(engine, 0, 0, 0, 'archer', 'both');
-    expect(grid.promoteUnsampledCellsInRadius).not.toHaveBeenCalled();
+    expect(grid.getCellsInRange).not.toHaveBeenCalled();
 
     grid.isInitialized.mockReturnValue(true);
     blockerGroup = null;
