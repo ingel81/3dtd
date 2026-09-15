@@ -414,9 +414,29 @@ eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height
   (24 kHz, 16 bit mono) für die Sitzung gecacht; im Test (`nuke-sound.spec.ts`) dauern
   Synthese, WAV und Base64 zusammen etwa 25 ms.
 
+### Orbitallaser (synthetisiert, Stücke in Spielzeit)
+`GAME_SOUNDS.orbitalLaser` (`audio.config.ts`), im Code synthetisiert in
+`utils/laser-sound.ts`, seit 2026-09-15 (Playtest 636; vorher der Blitz des Lightning
+Towers, `towers/lightning/bolt.mp3`, zweimal leiser wiederholt).
+
+- **Einschlag** (`orbital_laser`, 1,8 s) beim `ability:impact`: ein Zap, der in wenigen
+  Hundertstelsekunden von 3,2 kHz auf 200 Hz fällt, der Strahl kommt an; ein Crack und
+  ein Schlag, Sinus von 90 auf 38 Hz; dann setzt das Brennen ein.
+- **Brennen** (`orbital_laser_burn_1` und `_2`, je 1,9 s): das Dröhnen des Strahls, zwei
+  Sägezähne 15 Cent auseinander bei 55 Hz mit langsamem Vibrato und 23 Hz Brummen, Tiefpass
+  1,4 kHz; darüber das Zischen des Bodens, Rauschen über 2,5 kHz mit zufällig
+  aufknisternden Knacksern. 0,3 s ein- und 0,5 s ausgeblendet; im zweiten Stück fällt das
+  Dröhnen in den letzten 0,6 s um eine Oktave, der Strahl fährt herunter. Der
+  `AudioService` startet sie nach 1300 und 2500 ms Spielzeit mit 90 und 80 % der
+  Lautstärke; zusammen etwa 4,4 s, so lange der Strahl brennt und ausblendet.
+- **Spielzeit und Budget** wie beim Nuklearschlag: Pause hält die Stücke, die noch kommen,
+  `maxInstances` 2 je Stück, `priority` gegen das Voice-Stealing (der Strahl tötet einen
+  Abschnitt der Welle in wenigen Sekunden, deren Todesgeräusche nähmen ihm sonst die
+  Stimmen). Standard-Hörweite 500 m.
+
 ### Weitere Fähigkeiten (Datei-Samples mit Wiederholungen)
-Frostbombe, EMP und Orbitallaser stehen wie der Nuklearschlag in `ABILITY_IMPACT_SOUNDS`
-(`GAME_SOUNDS.frostBomb`, `.emp`, `.orbitalLaser`). Der `AudioService` registriert sie beim
+Frostbombe und EMP stehen wie der Nuklearschlag in `ABILITY_IMPACT_SOUNDS`
+(`GAME_SOUNDS.frostBomb`, `.emp`). Der `AudioService` registriert sie beim
 Start und spielt beim `ability:impact` das Sample am Einschlag, danach die Einträge aus `tail`
 als leisere Wiederholungen desselben Samples, in Spielzeit wie beim Grollen des Schlags:
 
@@ -424,7 +444,6 @@ als leisere Wiederholungen desselben Samples, in Spielzeit wie beim Grollen des 
 |---|---|---|
 | Frostbombe | `frost_bomb`, `towers/ice/cast.mp3` | 110 (0,6), 260 (0,35) |
 | EMP | `emp`, `towers/lightning/lightning_chain.mp3` | 180 (0,5), 420 (0,3) |
-| Orbitallaser | `orbital_laser`, `towers/lightning/bolt.mp3` | 1300 (0,7), 2500 (0,45), so lange der Strahl brennt |
 
 Ohne `priority` und mit der Standard-Hörweite (500 m). `refDistance`, `rolloffFactor`,
 `volume` und `maxInstances` stehen in `audio.config.ts`.
@@ -507,8 +526,7 @@ public/assets/sounds/
 │   ├── poison/poison_spit.mp3         # Poison-Glob-Schuss-Sound
 │   ├── fire/flame_loop.mp3            # Flammenwerfer-Loop-Sound
 │   ├── tentacle/tentacle-01.mp3       # Tentacle-Strike-Sound
-│   ├── lightning/lightning_chain.mp3  # Lightning-Chain-Sound, auch das EMP
-│   └── lightning/bolt.mp3             # Orbitallaser
+│   └── lightning/lightning_chain.mp3  # Lightning-Chain-Sound, auch das EMP
 ├── enemies/
 │   ├── zombie/ambient.mp3             # Zombie-Bewegungs-Loop
 │   ├── tank/moving.mp3                # Tank-Bewegungs-Loop
