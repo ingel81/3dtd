@@ -91,60 +91,24 @@ training-backend/               # Python Training Backend (nur für Trainingslä
 
 ## Dokumentation
 
-**Pflichtlektüre je nach Aufgabe!** Detaillierte Dokumentation befindet sich in `docs/`:
+**Pflichtlektüre je nach Aufgabe!** Alle weiteren Dokumente (Features wie Fähigkeiten, Held, Replay, Audio,
+Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Training-Backend; Archiv) listet
+[docs/INDEX.md](docs/INDEX.md) mit Status und Schnellnavigation.
 
-| Dokument | Beschreibung |
-|----------|--------------|
-| [INDEX.md](docs/INDEX.md) | Übersicht aller Dokumentationen |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System-Architektur & Design |
-| [EVENT_SYSTEM.md](docs/EVENT_SYSTEM.md) | Event Bus & Manager-Kommunikation |
-| [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) | UI Design System |
-| [TOWER_CREATION.md](docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
-| [ENEMY_CREATION.md](docs/ENEMY_CREATION.md) | Neue Enemies, Animationen, Audio |
-| [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) | Wave-Management, Spawning, Phases |
-| [STATUS_EFFECTS.md](docs/STATUS_EFFECTS.md) | Status-Effekte (Slow, Burn, Poison, Freeze, Stun) |
-| [ABILITIES.md](docs/ABILITIES.md) | Spielerfähigkeiten (Nuklearschlag, Frostbombe, EMP, Orbitallaser), Fähigkeitenleiste, Ladungen, Leck-Buchung |
-| [LOCATION_SYSTEM.md](docs/LOCATION_SYSTEM.md) | Standort-System |
-| [SPATIAL_AUDIO.md](docs/SPATIAL_AUDIO.md) | 3D Audio System |
-| [PROJECTILES.md](docs/PROJECTILES.md) | Projektil-System |
-| [MODEL_PREVIEW.md](docs/MODEL_PREVIEW.md) | 3D Model Preview |
-| [PARTICLE_SYSTEM.md](docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
-| [DEVWORLD.md](docs/DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung |
-| [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md) | Routenkorridor: Breite je Seite aus den Tiles, OSM-Rückfall, Dach-Check, Brücken/Tunnel, CorridorRefit, `__corridor.*` |
-| [SPAWN_PORTAL.md](docs/SPAWN_PORTAL.md) | Spawn-Portal: Ausrichtung, Vorschau, Drehen mit R, Drehbereich, Asset, Sigillen, Beschwörungskreis |
-| [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md) | Game Design (Schadenstypen, Rüstung, Balance) |
-| [BALANCE_PROPOSAL_2026-09.md](docs/game-design/BALANCE_PROPOSAL_2026-09.md) | Balance-Vorschlag (Upgrade-Kurven, Cannon, Matrix, Boss-Takt), im Sprint 2026-09-11 umgesetzt, offene Fragen am Ende |
-| [PLAYER_AGENCY_CONCEPT.md](docs/game-design/PLAYER_AGENCY_CONCEPT.md) | _Konzept:_ Spielerfähigkeiten und Held; Entscheidung 2026-09-12 in Abschnitt 7 |
-| [HERO.md](docs/HERO.md) | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition, Fairness-Gate, Bedienung (G, V) |
-| [REPLAY.md](docs/REPLAY.md) | Replay der letzten Welle: Präsentations-Aufnahme statt Re-Simulation, Aufnahme, Player, Grenzen |
-| [INSTANCED_ENEMY_RENDERING.md](docs/INSTANCED_ENEMY_RENDERING.md) | GPU Instancing mit VAT (Draw Call Reduktion) |
-| [ENEMY_MODEL_BUDGET.md](docs/ENEMY_MODEL_BUDGET.md) | Gegnermodelle vermessen, Budget je Klasse (`npm run model-budget`) |
-| [MULTIPLAYER_CONCEPT.md](docs/MULTIPLAYER_CONCEPT.md) | _Plan:_ PvE-Coop & PvP - Determinismus-Blocker, Server-Entwurf, zwei Zielmodi. Kein Code |
-| [ROUTE_ALIGNED_CELLS_CONCEPT.md](docs/ROUTE_ALIGNED_CELLS_CONCEPT.md) | _Konzept:_ Zellen parallel zur Route statt Nord-Ost-Raster. Kein Code |
-| **Analysen & Berichte** | |
-| [PLAYTEST.md](docs/PLAYTEST.md) | Offene Playtest-Punkte, Datenpunkte und Entscheidungen für die nächste Session |
-| [REVIEW_FIX_2026-09-14.md](docs/REVIEW_FIX_2026-09-14.md) | Handover der Fix-Session nach dem Playtest 2026-09-14: Änderungen je Thema mit Revert-Tabellen, offene Entscheidungen, Review, Playtest-Liste ab 501 |
-| [REVIEW_SPRINT_2026-09-14.md](docs/REVIEW_SPRINT_2026-09-14.md) | Handover der Nachtschicht 2026-09-14: Änderungen je Feature mit Revert-Hinweisen, Entscheidungen, Review, Playtest-Liste ab 301 |
-| [REVIEW_SPRINT_2026-09-13.md](docs/REVIEW_SPRINT_2026-09-13.md) | Handover der Nachtschicht 2026-09-13: Änderungen, Entscheidungen, Review, Playtest-Liste ab 101 |
-| [REVIEW_SPRINT_2026-09-12.md](docs/REVIEW_SPRINT_2026-09-12.md) | Letzter Sprint-Handover: Änderungen, Review-Befunde, Playtest-Liste mit Ergebnissen |
-| [PERF_BUG_ANALYSIS_2026-05-28.md](docs/PERF_BUG_ANALYSIS_2026-05-28.md) | Performance- und Bug-Deep-Dive (Render-Loop, Instancing, VFX, Leaks) |
-| **Architektur & Store** | |
-| [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) | Signal Store Architektur (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug) |
-| [LOS_PIPELINE.md](docs/LOS_PIPELINE.md) | Sichtlinien der Tower: GPU-Cubemap je Tower-Tip, Kampf-Cache in den Zellen, Regeln für den Cube |
-| **Wave Director & AI** | |
-| **[AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)** | **Einstieg:** Regel-Director + Gate-Controller, warum das ONNX-Modell ersetzt wurde |
-| [HANDOVER_RULE_DIRECTOR.md](docs/HANDOVER_RULE_DIRECTOR.md) | Umstellung auf den Regel-Director (2026-09-07), Messreihe, Einstieg für späteres Training |
-| [BOT_SYSTEM.md](docs/BOT_SYSTEM.md) | Strategy-Based Bot System (Gegenspieler im Training) |
-| [STATIC_WAVE_FALLBACK.md](docs/STATIC_WAVE_FALLBACK.md) | Debug-Pfad ohne Director (STATIC_WAVE_PROFILES) |
-| [archive/](docs/archive/) | _Historisch:_ überholte Docs, die Liste steht in INDEX.md unter Archiv |
-| **Training Backend** (`training-backend/`, nur für Trainingsläufe) | |
-| [AI_TRAINING_BACKEND.md](training-backend/docs/AI_TRAINING_BACKEND.md) | PPO, State-Encoder, Reward, Decoder-Constraints, A/B-Directors |
-| [HANDOVER_TRAINING_REFRESH.md](docs/HANDOVER_TRAINING_REFRESH.md) | Backend-Refresh: Befunde + Grundsatzentscheidungen |
-| [AI_TRAINING_SESSION_NOTES.md](training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte v1→v3.5 + Phase-5.x-Index |
-| [AI_MODEL_EXPORT.md](training-backend/docs/AI_MODEL_EXPORT.md) | ONNX Model Export (`npm run export-ai`) |
-| **Project Management** | |
-| [TODO.md](TODO.md) | Offene Aufgaben |
-| [DONE.md](DONE.md) | Changelog (chronologisch, neueste zuerst) |
+| Aufgabe | Pflichtlektüre |
+|---------|----------------|
+| Einstieg, Gesamtarchitektur | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Manager und Events | [EVENT_SYSTEM.md](docs/EVENT_SYSTEM.md) |
+| State, Stores, Facades | [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) |
+| UI und Styling | [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) |
+| Tower, Turrets, Placement | [TOWER_CREATION.md](docs/TOWER_CREATION.md) |
+| Gegner, Animationen, Gegner-Audio | [ENEMY_CREATION.md](docs/ENEMY_CREATION.md) |
+| Schaden, Rüstung, Balance | [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md) |
+| Route, Korridor, Zellen | [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md) |
+| Sichtlinien der Tower | [LOS_PIPELINE.md](docs/LOS_PIPELINE.md) |
+| Wellen: Director, Gate, Spawning | [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md) (Einstieg), [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) |
+| Playtest, offene Entscheidungen | [PLAYTEST.md](docs/PLAYTEST.md) |
+| Offene Aufgaben, Changelog | [TODO.md](TODO.md), [DONE.md](DONE.md) |
 
 **Hinweis zu TODO/DONE:**
 - **TODO.md** enthält offene Aufgaben, gruppiert nach Priorität und Bereich
