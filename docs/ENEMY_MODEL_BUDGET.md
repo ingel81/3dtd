@@ -1,6 +1,6 @@
 # Enemy Model Budget
 
-**Stand:** 2026-09-15 (Tabellen neu erzeugt: neues Tank-Modell, siehe [Runde vom 2026-09-15](#runde-vom-2026-09-15); davor Todes-Clips von Zombie v2, Stone Golem und Zombie Soldier ganz gebacken, `deathDuration`)
+**Stand:** 2026-09-15 (Tabellen neu erzeugt: neues Tank-Modell, Ghost im Budget, siehe [Runde vom 2026-09-15](#runde-vom-2026-09-15); davor Todes-Clips von Zombie v2, Stone Golem und Zombie Soldier ganz gebacken, `deathDuration`)
 
 Was die Gegnermodelle die GPU kosten, aus den Modelldateien gerechnet, und ein Budget je
 Gegnerklasse. Die Tabellen unter [Messwerte](#messwerte) schreibt `npm run model-budget`
@@ -16,22 +16,22 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
   ein Rezept je Modell, siehe [Empfehlungen](#empfehlungen-je-modell)). Beim Start backt das
   Spiel jeden Typ außer der Ooze (`preloadAllModels`; ihr Körper ist ein Band, `slime.glb`
   dient nur der Sidebar-Vorschau). Was die VATs zusammen belegen, steht als Summe unter
-  [Laufzeitkosten](#laufzeitkosten-pro-gegner), am 2026-09-15 97,3 MB (die Ooze mit 0,1 MB
-  eingerechnet; 96,5 MB vor dem neuen Tank, 88,2 MB, bevor die Todes-Clips von Zombie v2,
-  Stone Golem und Zombie Soldier ganz in die VAT kamen), alle Typen RGBA16F außer dem Stone
-  Golem (RGBA32F; alles in RGBA32F wären 167,9 MB). Vor der Runde waren es 264,2 MB, bis
-  2026-09-12 (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
+  [Laufzeitkosten](#laufzeitkosten-pro-gegner), am 2026-09-15 96,5 MB (die Ooze mit 0,1 MB
+  eingerechnet; in der Runde vom 2026-09-15 kam der neue Tank mit 0,9 MB dazu, der Ghost
+  wurde 0,8 MB kleiner; 88,2 MB, bevor die Todes-Clips von Zombie v2, Stone Golem und Zombie
+  Soldier ganz in die VAT kamen), alle Typen RGBA16F außer dem Stone Golem (RGBA32F; alles
+  in RGBA32F wären 166,3 MB). Vor der Runde vom 2026-09-13 waren es 264,2 MB, bis 2026-09-12
+  (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
   Die Runde vom 2026-09-14 (Tank, Ghost, Mech) steht unter
-  [Runde vom 2026-09-14](#runde-vom-2026-09-14), die vom 2026-09-15 (neues Tank-Modell) unter
-  [Runde vom 2026-09-15](#runde-vom-2026-09-15).
+  [Runde vom 2026-09-14](#runde-vom-2026-09-14), die vom 2026-09-15 (neues Tank-Modell,
+  Ghost) unter [Runde vom 2026-09-15](#runde-vom-2026-09-15).
 - Die teuersten Wellen nach Vertex-Last sind jetzt `rat_tide` (5,0 Mio.), `zombie_horde`
-  (3,6), `skeleton_swarm` (3,3), `armor_gauntlet` (2,5), `wraith_storm` (2,4) und `bat_swarm`
+  (3,6), `skeleton_swarm` (3,3), `armor_gauntlet` (2,4), `wraith_storm` (2,4) und `bat_swarm`
   (2,1); `mech_army` fiel mit der Runde vom 2026-09-14 von 4,2 auf 0,5. Vorher führten
   `hornet_strike` (14,9) und `zombie_horde` (14,4). Kein Template liegt über dem Richtwert von
   5 Mio.
 - Über dem Budget je Modell liegen noch Herbert (30.831 VAT-Vertices, höchstens drei pro
-  Welle), Wraith (8.126), Mammoth (5.557), Mech (5.416), Ghost (5.248), Bat, Spider und
-  Penguin.
+  Welle), Wraith (8.126), Mammoth (5.557), Mech (5.416), Bat, Spider und Penguin.
 - Die Ratten-Animation ist seit der Runde nicht mehr exakt (siehe Rat). Bei den anderen
   geänderten Modellen backt three.js dieselben Posen wie vorher; sie weichen nur durch das
   Decimate ab und bei Dragon und Golem in den Blend-Frames am Loop-Ende.
@@ -150,16 +150,8 @@ Beim Roundtrip durch Blender verschob der Standard-Import (geratene Bind-Pose) b
 Penguin und Mammoth Knochen; mit `rest_from_file` war er exakt. Beim Mech war er nur ohne
 geratene Bind-Pose exakt, bei der Ratte mit keiner Einstellung.
 
-Offen:
-
-- **Ghost** (5.248, drei 1024²-Bilder) liegt knapp über dem Budget, seine Wellen unter
-  1,5 Mio. 1.487 der 7.773 Dreiecke wiederholen ein anderes mit umgekehrter Windung,
-  1.301 davon in den Schleiern (Material_26, Opacity 0,403): zwei deckungsgleiche Lagen
-  unter einem doppelseitigen, blendenden Material. Nach Position geschweißt wären es 4.212
-  Vertices, dabei drehten sich aber die Normalen von 777 Vertices um mehr als 5°; nur die
-  Wiederholungen entfernt, sparte es 233. Ohne die zweite Lage blendeten die Schleier
-  schwächer (eine Lage 0,403 statt zwei, zusammen 0,644), das bräuchte eine angepasste
-  Opacity.
+Der hier bis 2026-09-15 offene Ghost (5.248, doppelte Schleier) ist seit der
+[Runde vom 2026-09-15](#runde-vom-2026-09-15) im Budget.
 
 ### Runde vom 2026-09-14
 
@@ -176,7 +168,7 @@ Vergleich mit `bake-compare.mjs`; Normalen zusätzlich Vertex für Vertex vergli
   Schwebezyklus von 3,5 s knapp zweimal; geschnitten auf Frame 13 bis 118 (105 Frames), die
   Posen dort liegen 0,49 % auseinander, die letzten 4 Frames gleiten in die erste. Geometrie,
   Normalen (höchstens 0,03° verschieden) und Texturen bleiben, die Vertex-Last auch. Exakt nur
-  mit `rest_from_file`; zu den doppelten Lagen siehe Offen.
+  mit `rest_from_file`; zu den doppelten Lagen siehe Runde vom 2026-09-15.
 - **Mech** 42.455 → 5.416, 15,0 → 1,7 MB, 6,3 → 0,6 MB, `mech_army` 4,2 → 0,5 Mio.: Die 34
   starren Teile hingen je an einem Empty auf einem Knochen (Objekt-Anim.-Pfad).
   `rigid_to_skin` fügt sie zu einem geskinnten Mesh zusammen, jedes Teil voll auf seinem
@@ -233,6 +225,19 @@ Nach der Playtest-Entscheidung E18 (docs/PLAYTEST.md). Rezepte wie oben in
   Einen Todes-Clip hat das Modell nicht: Beim Kill spielt der Renderer den Fahr-Clip einmal ab
   Frame 0 und hält den letzten (rund 0,2 s bei 3,72), wie beim Mech. `lateralSpread` 0,85 →
   0,7, damit der breitere Tank auf einer 10-m-Straße so weit vom Rand bleibt wie der alte.
+- **Ghost** 5.248 → **4.270**, VAT 4,2 → 3,4 MB, 2,5 → 2,4 MB Datei, `ghost_surge` 2,0 →
+  1,8 Mio.: Die Schleier (Material_26, Opacity 0,403, Textur-Alpha überall 1) sind 77
+  zusammenhängende Stücke unter einem doppelseitigen, blendenden Material, und jedes Stück
+  wiederholt ein anderes Fläche für Fläche an denselben Positionen mit umgekehrter Windung.
+  `single_layer` entfernt je Paar das spätere Stück ganz (1.299 Dreiecke, 978 Vertices) und
+  setzt die Opacity auf 1 − (1 − 0,403)² = 0,644, das Ergebnis beider Lagen zusammen; bei
+  gleicher Farbe und Textur-Alpha 1 gibt das dieselbe Farbe. Flächenweise entfernt (die erste
+  jedes Paars bleibt) sparte es nur 292 Vertices, weil die erste Fläche mal im einen, mal im
+  anderen Stück lag und beide Stücke Vertices behielten. Vergleich über `Take 001`:
+  Bounding-Box und jede Position gleich (0,00 %), der
+  Schwerpunkt liegt 1,01 % daneben, weil eine Lage fehlt. Körper, Normalen und Texturen
+  bleiben. Über dem Normal-Richtwert bleibt der Walk-Loop mit 105 Frames (Richtwert 60, siehe
+  Runde vom 2026-09-14); das kostet VAT-Speicher, keine Last pro Frame.
 
 ### Ausgangslage (2026-09-12)
 
@@ -452,7 +457,8 @@ sind statisch (ein VAT-Frame) und belegen zusammen unter 0,1 MB VAT-Speicher.
 - `tools/blender/optimize_enemy.py` hält ein Rezept je geändertem Modell (Clips behalten und
   schneiden, schweißen, decimaten mit oder ohne Nahtgewicht oder nur einzelne Materialien,
   neu backen, Normalen, nur Basisfarbe, Bildgröße, Ruhepose aus der Datei, alles in einen
-  Skin, Vertexfarben weg, verdeckte Flächen weg, Wurzel drehen und skalieren). Headless:
+  Skin, Vertexfarben weg, verdeckte Flächen weg, gespiegelte Doppellagen weg, Wurzel drehen
+  und skalieren). Headless:
   `blender --background --python tools/blender/optimize_enemy.py -- rat`; liest das Original
   aus Git (mit `rev: None` aus dem Arbeitsbaum, so beim Tank) und schreibt nach
   `public/assets/models/enemies/`. Der Rebake-Schritt braucht kein Cycles und lief headless
@@ -493,10 +499,10 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Wraith (`wraith`) | Normal | 300 | 8.126 | 6.790 | 2,4 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
 | Mammoth (`mammoth`) | Normal | 150 | 5.557 | 8.685 | 0,8 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
 | Mech (`mech`) | Normal | 100 | 5.416 | 3.457 | 0,5 | Skinning | 40 | 5416×40 | RGBA16F | 1,44 | 1,7 | 1024² |
-| Ghost (`ghost`) | Normal | 280 | 5.248 | 7.773 | 1,5 | Skinning | 105 | 5248×105 | RGBA16F | 0,46 | 4,2 | 1024² |
 | Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
 | Tank (`tank`) | Normal | 150 | 4.904 | 2.705 | 0,7 | Skinning | 24 | 4904×24 | RGBA16F | 0,82 | 0,9 | – |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 4.870 | 3.704 | 1,0 | Skinning | 306 | 4870×306 | RGBA16F | 1,08 | 11,4 | 1024² |
+| Ghost (`ghost`) | Normal | 280 | 4.270 | 6.474 | 1,2 | Skinning | 105 | 4270×105 | RGBA16F | 0,46 | 3,4 | 1024² |
 | Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 160 | 4266×160 | RGBA16F | 0,84 | 5,2 | 1024² |
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
 | Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
@@ -512,7 +518,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Ooze (`ooze`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 24 | 282×24 | RGBA16F | 0,50 | 0,1 | – |
 | Slime Clump (`slime-clump`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
 
-VAT-Speicher aller Typen zusammen: **97,3 MB** (30 fps), alles in RGBA32F wären **167,9 MB**.
+VAT-Speicher aller Typen zusammen: **96,5 MB** (30 fps), alles in RGBA32F wären **166,3 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **0,4 MB** dazu.
 
 ### Alpha
@@ -526,8 +532,8 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 | Gegner | Alpha | Texel unter 0,05 |
 | --- | --- | ---: |
 | Dragon | Maske 0,50 | 80.170 (7,6 %) |
-| Ghost | Blend | 0 |
 | Hornet | Blend | 0 |
+| Ghost | Blend | 0 |
 | Bear | Blend | 33.852 (3,2 %) |
 
 Opak ohne Texel unter 0,05 (20): Herbert, Stone Golem, Wraith, Mammoth, Mech, Tank, Zombie v2, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Skarnax, Zombie, Skeleton, Skeleton Minion, Rat, Skarnax Segment, Ooze, Slime Clump.
@@ -547,10 +553,10 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Wraith | `wraith.glb` | 1,8 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
 | Mammoth | `mammoth.glb` | 2,6 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 2 | 5.557 / 5.541 / 5.121 |
 | Mech | `mech.glb` | 0,6 | 1 (1) | 62 | 0 | 1 | 1024² | 1 | 5.416 / 4.919 / 2.009 |
-| Ghost | `ghost.glb` | 2,5 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 5.248 / 3.894 / 3.467 |
 | Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.915 / 4.913 / 3.370 |
 | Tank | `tank.glb` | 0,3 | 6 (6) | 45 | 0 | 6 | – | 1 | 4.900 / 2.487 / 2.487 |
 | Zombie v2 | `zombie_v2.glb` | 1,9 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 4.870 / 4.870 / 1.827 |
+| Ghost | `ghost.glb` | 2,4 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 4.270 / 3.894 / 3.467 |
 | Zombie Soldier | `zombie_soldier.glb` | 3,5 | 1 (1) | 56 | 0 | 1 | 3× 1024² | 6 | 4.249 / 4.249 / 3.603 |
 | Bear | `bear.glb` | 2,0 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
 | Bat | `bat.glb` | 0,3 | 1 (1) | 28 | 0 | 1 | 512² | 1 | 3.559 / 3.559 / 2.520 |
@@ -582,13 +588,13 @@ die weggelassenen Frames.
 | Mammoth | `Walk` | walk | 4,97 | 149 | – |
 | Mammoth | `Die` | death | 6,00 | 172 | 9 |
 | Mech | `Armature\|Walk` | walk | 1,33 | 40 | – |
-| Ghost | `Take 001` | walk | 3,50 | 105 | – |
 | Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Tank | `TankArmature\|Tank_Forward` | walk | 0,79 | 24 | – |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
 | Zombie v2 | `Dead` | death | 2,96 | 89 | – |
 | Zombie v2 | `dying_backwards` | death | 2,21 | 67 | – |
 | Zombie v2 | `Electrocuted_Fall` | death | 2,00 | 61 | – |
+| Ghost | `Take 001` | walk | 3,50 | 105 | – |
 | Zombie Soldier | `zombie_02_Run` | walk | 0,80 | 24 | – |
 | Zombie Soldier | `zombie_02_Death` | death | 4,50 | 136 | – |
 | Bear | `GltfAnimation 0` | walk | 1,37 | 41 | – |
@@ -621,11 +627,11 @@ mit allem, was ein Kill abspaltet.
 | `rat_tide` | W2 | 5.000 | rat 100 % | 5,0 |
 | `zombie_horde` | W1 | 2.000 | zombie 90 %, zombie-v2 10 % | 3,6 |
 | `skeleton_swarm` | W19 | 940 | skeleton 100 % (je Kill +2 skeleton-minion) | 3,3 |
-| `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,5 |
 | `wraith_storm` | W17, W27 | 300 | wraith 100 % | 2,4 |
+| `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,4 |
 | `bat_swarm` | W7, W21 | 600 | bat 100 % | 2,1 |
-| `ghost_surge` | W13, W23 | 350 | ghost 80 %, wraith 20 % | 2,0 |
 | `chaos_wave` | W16, W29 | 500 | zombie 30 %, tank 30 %, hornet 20 %, bear 20 % | 1,9 |
+| `ghost_surge` | W13, W23 | 350 | ghost 80 %, wraith 20 % | 1,8 |
 | `spider_swarm` | W6 | 800 | spider 100 % | 1,7 |
 | `hornet_strike` | W8, W26 | 300 | hornet 70 %, bat 30 % | 1,4 |
 | `light_mix` | W4 | 400 | wallsmasher 50 %, spider 50 % | 1,1 |

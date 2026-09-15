@@ -58,6 +58,9 @@ ENEMIES = 'public/assets/models/enemies'
 #               factor back on the material (see drop_vertex_colors)
 #   cull_hidden      delete the faces no view from the camera's side reaches
 #               (see cull_hidden)
+#   single_layer     material name patterns whose faces come twice, the second
+#               time with reversed winding: one layer goes, the material's
+#               opacity makes up for it (see single_layer)
 #   root        {'turn': degrees about the vertical, 'size': scale}: the model
 #               turned and scaled on its root, standing centred on the origin
 #   merge       merge co-located vertices with equal normals on import (glTF
@@ -212,16 +215,19 @@ RECIPES = {
         'texture': 1024,
     },
     # `Take 001` (6.67 s) runs a 3.5 s float cycle about twice: frames 13-118
-    # differ by 0.49 % of the height, eased over the last 4 frames. Geometry,
-    # normals and textures stay: 1,487 of 7,773 triangles repeat another one
-    # with reversed winding (coincident layers under a double-sided, blended
-    # material), but welding them away turned the normals of 777 vertices by
-    # more than 5 degrees, and removing only the repeats saved 233 vertices.
-    # Exact only with the file's node pose.
+    # differ by 0.49 % of the height, eased over the last 4 frames. 1,301 of
+    # the 2,640 veil triangles (Material_26, opacity 0.403, texture alpha 1)
+    # repeat another one with reversed winding under a double-sided, blended
+    # material: one layer goes, 978 vertices with it (5,248 -> 4,270), and the
+    # veils blend 0.644, what both layers gave together (see single_layer). Body,
+    # normals and textures stay; welding by position had turned the normals
+    # of 777 vertices by more than 5 degrees. Exact only with the file's node
+    # pose.
     'ghost': {
         'src': f'{ENEMIES}/ghost.glb',
         'rest_from_file': True,
         'trim': {'Take 001': (13, 118, 4)},
+        'single_layer': ['Material_26'],
     },
     # Quaternius "Tank" (CC0, candidates/LICENSES.md), replaces the Zsky tank.
     # Hull and both tracks are skinned to 45 bones, Tank_Forward rolls the 44
@@ -531,6 +537,71 @@ def cull_hidden(obj, frames=6, min_elevation=-10):
     bm.free()
     obj.data.update()
     print(f'[optimize_enemy] {obj.name}: culled {len(hidden)} of {len(visible)} faces')
+
+
+def single_layer(obj, patterns):
+    """One of two mirrored layers of the materials matching `patterns` goes.
+    The ghost's veils are 77 connected pieces under a double-sided, blended
+    material, each repeated face for face by another piece at the same
+    positions with reversed winding. A piece goes whole, and only if every
+    face of it has such a twin in a piece that stays; dropping single faces
+    kept vertices of both pieces (292 fewer instead of 978). The material
+    then blends 1 - (1 - a)^2 instead of a, which is what the two layers gave
+    together, exact for copies with the same colour while the texture alpha
+    is 1 (the ghost's is). The opacity factor sits on the BSDF or on the Math
+    node that multiplies it with the texture alpha."""
+    mats = {i for i, m in enumerate(obj.data.materials)
+            if m and any(fnmatch.fnmatchcase(m.name, p) for p in patterns)}
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.faces.ensure_lookup_table()
+    faces = [f for f in bm.faces if f.material_index in mats]
+    # Connected pieces over shared vertices
+    piece = {}
+    for start in faces:
+        if start in piece:
+            continue
+        piece[start] = start.index
+        stack = [start]
+        while stack:
+            f = stack.pop()
+            for v in f.verts:
+                for g in v.link_faces:
+                    if g.material_index in mats and g not in piece:
+                        piece[g] = start.index
+                        stack.append(g)
+    twins = {}
+    by_key = {}
+    for f in faces:
+        key = (f.material_index, tuple(sorted(tuple(round(c, 5) for c in v.co) for v in f.verts)))
+        by_key.setdefault(key, []).append(f)
+    for group in by_key.values():
+        for f in group:
+            twins[f] = [g for g in group if g is not f and piece[g] != piece[f] and f.normal.dot(g.normal) < -0.99]
+    members = {}
+    for f in faces:
+        members.setdefault(piece[f], []).append(f)
+    dropped = set()
+    # The later piece of each mirrored pair goes
+    for pid in sorted(members, reverse=True):
+        if all(any(piece[g] not in dropped for g in twins[f]) for f in members[pid]):
+            dropped.add(pid)
+    drop = [f for f in faces if piece[f] in dropped]
+    bmesh.ops.delete(bm, geom=drop, context='FACES')
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+    for i in mats:
+        bsdf = next(n for n in obj.data.materials[i].node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
+        sock = bsdf.inputs['Alpha']
+        if sock.is_linked:
+            node = sock.links[0].from_node
+            if node.type != 'MATH' or node.operation != 'MULTIPLY':
+                raise RuntimeError(f'single_layer: alpha of {obj.data.materials[i].name} is not a factor')
+            sock = next(s for s in node.inputs[:2] if not s.is_linked)
+        sock.default_value = 1 - (1 - sock.default_value) ** 2
+    print(f'[optimize_enemy] {obj.name}: dropped {len(drop)} mirrored faces')
 
 
 def place_root(turn, size):
@@ -1083,6 +1154,8 @@ def run(name):
             cull = recipe.get('cull_hidden')
             if cull:
                 cull_hidden(obj, **(cull if isinstance(cull, dict) else {}))
+            if 'single_layer' in recipe:
+                single_layer(obj, recipe['single_layer'])
             if 'decimate_materials' in recipe:
                 decimate_materials(obj, recipe['decimate_materials'])
             ratio = decim
