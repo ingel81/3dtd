@@ -12,9 +12,10 @@ import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
  * each. It must put the region's and the camera's error target back exactly,
  * also after a timeout or an error, hand the settled tile loads back to the
  * game, and refuse to run under towers or a wave. The console command is
- * for a playtest without explanations: one line per step, the report on the
- * clipboard, one last line; nothing but console.log. These tests drive it on
- * a fake clock against a fake tile handle and a fake clipboard.
+ * for a playtest without explanations: one line per target, the report on
+ * the clipboard or on a button, one last line; nothing but console.log.
+ * These tests drive it on a fake clock against a fake tile handle and a
+ * fake clipboard.
  */
 describe('CorridorLodProbe', () => {
   /** Frames of 10 ms on the fake clock. */
@@ -38,7 +39,7 @@ describe('CorridorLodProbe', () => {
   let measureAll: ReturnType<typeof vi.fn>;
   let scratch: ReturnType<typeof vi.fn>;
   let cells: RouteCellDump[];
-  let clipboard: { copy: ReturnType<typeof vi.fn>; focused: ReturnType<typeof vi.fn>; focus: ReturnType<typeof vi.fn> };
+  let clipboard: { copy: ReturnType<typeof vi.fn>; offerButton: ReturnType<typeof vi.fn> };
   let probe: CorridorLodProbe;
 
   const station = (tileError: number): StationProbe => ({ unmeasured: null, tileError, left: [5, 5], right: [5, 5] });
@@ -91,9 +92,9 @@ describe('CorridorLodProbe', () => {
     probes = [station(1.5), station(2), station(2.5), station(4), station(8), { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] }, null];
     measureAll = vi.fn(() => probes);
     scratch = vi.fn((measure: () => unknown) => measure());
-    engine = { tilesLodDebug: () => tiles, terrain: { withScratchColumnCache: scratch } };
+    engine = { tilesLodDebug: () => tiles, terrain: { withScratchColumnCache: scratch, lodVersion: 17 } };
     cells = [cell(1, 10), cell(3, 10.5)];
-    clipboard = { copy: vi.fn(async () => true), focused: vi.fn(() => true), focus: vi.fn(async () => true) };
+    clipboard = { copy: vi.fn(async () => true), offerButton: vi.fn() };
     const deps = {
       gameState: () => ({
         towerCount: () => towers,
@@ -138,7 +139,7 @@ describe('CorridorLodProbe', () => {
       expect(result.stoppedEarly).toBeNull();
       expect(result.restoreTimedOut).toBe(false);
       expect(result.corridorUnchanged).toBe(true);
-      expect(result.tilesBefore.regionErrorTarget).toBe(5);
+      expect(result.tilesBefore).toMatchObject({ regionErrorTarget: 5, cameraErrorTarget: 20, lodVersion: 17 });
 
       // Each target measured once, against a column cache of its own
       expect(measureAll).toHaveBeenCalledTimes(3);
@@ -148,29 +149,32 @@ describe('CorridorLodProbe', () => {
         stations: 7, upTo2: 2, upTo2_5: 1, upTo5: 1, over5: 1, none: 2,
         active: 40, activeMB: 12.5, cachedTiles: 80, cachedMB: 30.2, cacheFull: false,
       });
-      // A line to start and one per target
-      expect(lines()).toHaveLength(4);
-      expect(lines()[2]).toBe('2/3: 2.5 m geladen in 1 s, 7 Stationen gemessen in 0 ms');
+      // One line per target
+      expect(lines()).toEqual([
+        '1/3: 5 m geladen in 0 s, 7 Stationen gemessen in 0 ms',
+        '2/3: 2.5 m geladen in 1 s, 7 Stationen gemessen in 0 ms',
+        '3/3: 0 m geladen in 2 s, 7 Stationen gemessen in 0 ms',
+      ]);
     });
 
-    it('refuses while the location loads, towers stand or a wave runs, and leaves the tiles alone', async () => {
+    it('refuses while the location loads, towers stand, a wave runs or the intro flies, and leaves the tiles alone', async () => {
       loading = true;
-      expect(await probe.probe()).toBe('Der Ort lädt noch: Ladebildschirm abwarten, dann noch einmal.');
+      expect(await probe.probe()).toBe('Ort lädt noch: Ladebildschirm abwarten und Befehl nochmal');
       loading = false;
       towers = 1;
-      expect(await probe.probe()).toBe('Tower stehen auf der Karte: Seite neu laden, keinen Tower setzen, dann noch einmal.');
+      expect(await probe.probe()).toBe('Tower stehen: Seite neu laden, keinen Tower setzen, Befehl nochmal');
       towers = 0;
       phase = 'wave';
-      expect(await probe.probe()).toBe('Eine Welle läuft: Seite neu laden, dann noch einmal.');
+      expect(await probe.probe()).toBe('Welle läuft: Seite neu laden und Befehl nochmal');
       phase = 'build';
       enemies = 2;
-      expect(await probe.probe()).toBe('Gegner sind auf der Karte: Seite neu laden, dann noch einmal.');
+      expect(await probe.probe()).toBe('Gegner auf der Karte: Seite neu laden und Befehl nochmal');
       enemies = 0;
       intro = true;
-      expect(await probe.probe()).toBe('Der Intro-Flug läuft: abwarten oder abbrechen, dann noch einmal.');
+      expect(await probe.probe()).toBe('Intro noch aktiv: warten und Befehl nochmal');
       intro = false;
       progress = { done: 3, total: 90 };
-      expect(await probe.probe()).toBe('Der Korridor wird noch gemessen: ein paar Sekunden warten, dann noch einmal.');
+      expect(await probe.probe()).toBe('Korridor wird noch gemessen: ein paar Sekunden warten und Befehl nochmal');
 
       expect(tiles.setRegionErrorTarget).not.toHaveBeenCalled();
       expect(tiles.setCameraErrorTarget).not.toHaveBeenCalled();
@@ -181,11 +185,11 @@ describe('CorridorLodProbe', () => {
     it('refuses without tiles, without a corridor region and with targets that are no metres', async () => {
       expect(await probe.probe([5, -1])).toMatch(/^Ziele sind Meter ab 0/);
       expect(await probe.probe([])).toMatch(/^Ziele sind Meter ab 0/);
-      expect(await probe.probe([5], 0)).toBe('Die Wartezeit ist in Sekunden und größer als 0.');
+      expect(await probe.probe([5], 0)).toMatch(/^Wartezeit in Sekunden über 0/);
       region = null;
-      expect(await probe.probe()).toBe('Die Routen stehen noch nicht: Ladebildschirm abwarten, dann noch einmal.');
+      expect(await probe.probe()).toBe('Routen stehen noch nicht: Ladebildschirm abwarten und Befehl nochmal');
       engine = null;
-      expect(await probe.probe()).toBe('Kein Ort mit 3D-Tiles geladen: Ort laden, dann noch einmal.');
+      expect(await probe.probe()).toBe('Kein Ort mit 3D-Tiles geladen: Ort laden und Befehl nochmal');
       expect(tiles.holdSettled).not.toHaveBeenCalled();
     });
 
@@ -231,14 +235,14 @@ describe('CorridorLodProbe', () => {
       const result = await probe.probe() as LodProbeResult;
 
       expect(result.rows.map((row) => row.target)).toEqual([5]);
-      expect(result.stoppedEarly).toBe('Tower stehen auf der Karte');
+      expect(result.stoppedEarly).toBe('Tower stehen');
       expectRestored();
     });
 
     it('runs one probe at a time', async () => {
       const first = probe.probe([0]);
       expect(probe.running).toBe(true);
-      expect(await probe.probe()).toBe('Läuft schon: auf "Fertig" warten.');
+      expect(await probe.probe()).toBe("Läuft schon: auf die Zeile 'Fertig' warten");
       await first;
       expect(probe.running).toBe(false);
     });
@@ -259,26 +263,22 @@ describe('CorridorLodProbe', () => {
     /** The report the last copy put on the clipboard. */
     const copied = () => JSON.parse(clipboard.copy.mock.calls.at(-1)![0] as string) as Record<string, unknown>;
 
-    it('prints a line per step and a short table, copies the report and ends with one line to paste it', async () => {
+    it('prints a line per target, copies the report and ends with one line to paste it', async () => {
       const last = await probe.run();
 
-      expect(last).toBe('Fertig, Ergebnis in der Zwischenablage, bitte in den Chat einfügen.');
-      // Start, three targets, the last line
-      expect(lines()).toHaveLength(5);
+      expect(last).toBe('Fertig: Ergebnis kopiert, bitte in den Chat einfügen');
+      // Three targets, the last line, nothing else
+      expect(lines()).toHaveLength(4);
       expect(lines().at(-1)).toBe(last);
-      expect(console.table).toHaveBeenCalledTimes(1);
-      expect(vi.mocked(console.table).mock.calls[0][0]).toEqual([
-        expect.objectContaining({ 'Ziel m': 5, Stationen: 7, 'Fehler ≤2/≤2,5/≤5/>5/keins': '2/1/1/1/2' }),
-        expect.objectContaining({ 'Ziel m': 2.5, 'Laden s': 1 }),
-        expect.objectContaining({ 'Ziel m': 0, 'Laden s': 2 }),
-      ]);
+      expect(console.table).not.toHaveBeenCalled();
       expect(console.warn).not.toHaveBeenCalled();
+      expect(clipboard.offerButton).not.toHaveBeenCalled();
 
       const report = copied();
       expect(report).toMatchObject({
         report: 'corridor-lod-probe',
         url: 'http://localhost:4200/?l=49.17337,9.26851&s=49.17556,9.26401',
-        tiles: { regionErrorTarget: 5, cameraErrorTarget: 20 },
+        tiles: { regionErrorTarget: 5, cameraErrorTarget: 20, lodVersion: 17 },
         restored: { regionErrorTarget: 5, cameraErrorTarget: 20 },
         stoppedEarly: null,
         corridorUnchanged: true,
@@ -292,40 +292,28 @@ describe('CorridorLodProbe', () => {
     });
 
     it('says in one line why it cannot run and what to do', async () => {
-      towers = 2;
+      intro = true;
 
       const line = await probe.run();
 
-      expect(line).toBe('Tower stehen auf der Karte: Seite neu laden, keinen Tower setzen, dann noch einmal.');
+      expect(line).toBe('Intro noch aktiv: warten und Befehl nochmal');
       expect(lines()).toEqual([line]);
-      expect(console.table).not.toHaveBeenCalled();
       expect(clipboard.copy).not.toHaveBeenCalled();
+      expect(clipboard.offerButton).not.toHaveBeenCalled();
     });
 
-    it('asks for a click into the page when DevTools has the focus, and copies then', async () => {
-      clipboard.copy.mockResolvedValueOnce(false);
-      clipboard.focused.mockReturnValue(false);
-
-      const last = await probe.run([5]);
-
-      expect(lines().at(-2)).toMatch(/einmal in die Spielseite klicken/);
-      expect(clipboard.focus).toHaveBeenCalledTimes(1);
-      expect(clipboard.copy).toHaveBeenCalledTimes(2);
-      expect(last).toBe('Fertig, Ergebnis in der Zwischenablage, bitte in den Chat einfügen.');
-    });
-
-    it('prints the report where the clipboard refuses anyway, and says so', async () => {
+    it('puts the report on a button at the top of the page when the clipboard refuses', async () => {
       clipboard.copy.mockResolvedValue(false);
 
       const last = await probe.run([5]);
 
-      expect(clipboard.focus).not.toHaveBeenCalled();
-      expect(lines().at(-2)).toMatch(/^\{"report":"corridor-lod-probe"/);
-      expect(last).toMatch(/^Fertig\. Die Zwischenablage hat abgelehnt/);
+      expect(clipboard.offerButton).toHaveBeenCalledWith(clipboard.copy.mock.calls[0][0]);
+      expect(last).toBe("Fertig: Klick oben auf 'Ergebnis kopieren', dann in den Chat einfügen");
+      expect(lines()).toHaveLength(2);
       expect(console.warn).not.toHaveBeenCalled();
     });
 
-    it('names an early stop in the last line and still copies what it measured', async () => {
+    it('names an early stop in the last line and still hands on what it measured', async () => {
       measureAll.mockImplementation(() => {
         towers = 1;
         return probes;
@@ -333,7 +321,7 @@ describe('CorridorLodProbe', () => {
 
       const last = await probe.run();
 
-      expect(last).toBe('Abgebrochen (Tower stehen auf der Karte), Teilergebnis in der Zwischenablage, bitte in den Chat einfügen.');
+      expect(last).toBe('Abgebrochen (Tower stehen): Ergebnis kopiert, bitte in den Chat einfügen');
       expect(copied()['rows']).toHaveLength(1);
       expectRestored();
     });

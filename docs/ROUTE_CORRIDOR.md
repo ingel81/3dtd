@@ -1364,17 +1364,19 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
   für den Playtest ohne Erklärung. Ausgabe nur über `console.log`, jede Zeile
   mit `[Corridor] probeLod:` davor:
   - Kann sie nicht laufen, genau eine Zeile mit Grund und was zu tun ist,
-    z. B. `Der Ort lädt noch: Ladebildschirm abwarten, dann noch einmal.`
-  - Sonst eine Startzeile, je Ziel eine Zeile
-    (`2/3: 2.5 m geladen in 1.2 s, 236 Stationen gemessen in 310 ms`), eine
-    kurze Tabelle und die Schlusszeile
-    `Fertig, Ergebnis in der Zwischenablage, bitte in den Chat einfügen.`,
-    nach einem Abbruch `Abgebrochen (Grund), Teilergebnis ...`.
+    z. B. `Intro noch aktiv: warten und Befehl nochmal`.
+  - Sonst je Ziel eine Zeile
+    (`2/3: 2.5 m geladen in 1.2 s, 236 Stationen gemessen in 310 ms`) und
+    die Schlusszeile `Fertig: Ergebnis kopiert, bitte in den Chat einfügen`,
+    nach einem Abbruch `Abgebrochen (Grund): ...`.
   - Die Zwischenablage braucht den Fokus der Seite, den nach dem Tippen
-    DevTools hat. Lehnt sie deshalb ab, bittet eine Zeile um einen Klick in
-    die Spielseite und kopiert danach (höchstens 2 min, `FOCUS_WAIT_MS`).
-    Lehnt sie auch dann ab, steht der Bericht in der Konsole, und die
-    Schlusszeile sagt es.
+    DevTools hat. Lehnt sie deshalb ab, erscheint oben in der Mitte ein
+    Knopf `Ergebnis kopieren` im Stil des Zellberichts
+    (`debug/copy-result-button.ts`), der mit einem Klick kopiert und
+    verschwindet; die Schlusszeile heißt dann
+    `Fertig: Klick oben auf 'Ergebnis kopieren', dann in den Chat einfügen`.
+    Lehnt die Zwischenablage auch beim Klick ab, steht der Bericht in der
+    Konsole, und der Knopf sagt es.
 
   Ablauf:
   1. Verweigert, solange der Ort lädt (Ladebildschirm), Tower stehen, eine
@@ -1404,9 +1406,8 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
   im Zellbericht), `version`, `corridor` (von `CORRIDOR_DEFAULTS`
   abweichende Werte), `tiles` (wie `__tiles.stats()`, vor der Probe),
   `fingerprint` (Hash, je Teil `[entries, hash]`), `rows`, `restored`,
-  `stoppedEarly`, `restoreTimedOut`, `corridorUnchanged`. Die Tabelle in der
-  Konsole zeigt eine Auswahl der Spalten. Spalten von `rows`, eine Zeile je
-  Ziel:
+  `stoppedEarly`, `restoreTimedOut`, `corridorUnchanged`. Spalten von
+  `rows`, eine Zeile je Ziel:
 
   | Spalte | Inhalt |
   |---|---|
