@@ -605,7 +605,9 @@ Seed für sein Aussehen (Größe der Pfütze, Wurf des Trümmerstücks). Ein Tr�
 fliegt in geschlossener Form seines Alters (`pose()`: Bogen, ein Aufprall, Liegen,
 Einsinken); lässt ein Frame bei hoher Geschwindigkeit es verspätet los, startet es um
 diese Verspätung älter. Bei 4x liegen Pfützen und Trümmer daher dort, wo sie bei 1x
-lägen. Eine Art, deren Stücke alle still liegen, schreibt und lädt keine Matrizen hoch.
+lägen. Der Replay führt eigene Ids (`replay-enemy-<n>`): sein Satz sieht anders aus als
+live, aber bei jedem Abspielen gleich. Eine Art, deren Stücke alle still liegen,
+schreibt und lädt keine Matrizen hoch.
 
 Budget eines 80-m-Körpers: 32 Blasen (256 additive Funken und 448 Tropfen, 704
 Partikel über 1,6 s), 64 der 192 Goo-Decals (`GOO_DECAL_CONFIG`: ein Pool nur für die
@@ -622,10 +624,12 @@ Spawner prüfen ihre Schalter zusätzlich selbst.
 
 **Gemessen** (`ooze-death.spec.ts`, "Ooze death cost", jsdom ohne GPU): zwei volle
 Oozes im selben Frame getötet; je Frame Band und Trümmer, das Partikel-Update und die
-Pool-Puffer. Median 0,05 bis 0,06 ms je Frame, bis 717 lebende Partikel auf dem
-Höhepunkt. Die langsamsten Frames waren Frame 2 oder 3 nach dem Kill mit 3,5 bis 7,0 ms
-(vier Läufe); die Ursache dieser frühen Spitzen ist nicht isoliert. Nicht gemessen sind
-die GPU-Kosten im Browser (Fill-Rate der additiven Funken, Draw Calls der Trümmer).
+Pool-Puffer. Stand 2026-09-15 (256 Trümmer, 128 Pfützen): Median 0,05 bis 0,06 ms je
+Frame, bis 665 lebende Partikel auf dem Höhepunkt. Der langsamste Frame war in vier
+Läufen der erste nach dem Kill mit 3,6 bis 4,0 ms, der nächste 0,28 bis 0,49 ms; die
+Ursache der Spitze im ersten Frame ist nicht isoliert. Nicht gemessen sind die
+GPU-Kosten im Browser (Fill-Rate der additiven Funken und der Pfützen, Draw Calls der
+Trümmer).
 
 Grenzen: Der Replay kollabiert das Band eines getöteten Ooze genauso, samt Blasen und
 Trümmern, aber ohne Pfützen (er hält die Bodenspuren an). Nach einem Wellenende und
@@ -637,8 +641,9 @@ Bodenspuren (`effects.clear()`), ebenso ein Verlassen des Replays
 (`ReplayPlayer.exit`). Die Pfützen verblassen wie jede Bodenspur nach der Uhr
 (`performance.now()`), in der Pause und bei 4x also nach denselben 75 s. Ein Sprung im Replay räumt die Trümmer ab
 (`ReplayPlayer.seek` ruft `oozes.clearDebris()`), das Band führt der Replay über seinen
-eigenen Zustand; läuft das Replay danach wieder über den Kill, wirft der Kollaps einen
-neuen Satz, der alte ist dann schon weg. Jedes Trümmerstück landet auf der Bodenhöhe
+eigenen Zustand; läuft das Replay danach wieder über den Kill, wirft der Kollaps
+denselben Satz noch einmal (gleiche Replay-Id, gleicher Seed), der alte ist dann schon
+weg. Jedes Trümmerstück landet auf der Bodenhöhe
 seines Abwurfpunkts, einmal beim Loslassen gelesen (`letGo()`); am Hang oder an
 Gehsteigkanten kann es daher bis zu den etwa 11 m entlang und 6 m quer seines Auswurfs
 schweben oder einsinken. Mit Gebäuden oder Tiles kollidiert es nicht.
