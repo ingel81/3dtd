@@ -324,13 +324,18 @@ Eine Warnsirene gibt es nicht.
 
 **Frostbombe:** derselbe Zielmarker in 20 m. Beim Einschlag der Frostausbruch
 (`FrostBurstRenderer`, `FROST_BURST_LOOK`, in Spielzeit wie der Atompilz):
-weiß-cyaner Blitz, Kältering bis 1,15 × Radius, Reif über dem Radius, der
-genau so lange hält wie der Freeze (3 s) und dann in 1 s ausblendet, 64
-Eissplitter, die liegen bleiben, bis sie verlöschen, und ein niedriger
-Nebelring. Mit Impact Effects aus nur Blitz, Ring und Reif. Dazu Frostflecken
-(die Eis-Decals des Ice Towers) auf dem Einschlag und auf zwei Ringen, 6 bei
-0,45 und 10 bei 0,85 des Radius (`FROST_BOMB_ICE_RINGS`), nur mit Ground Marks
-an. An den Gegnern der Eis-Tint und die Eiskristalle des Freeze. Ton
+weiß-cyaner Blitz (0,2 s), Kältering bis an den Rand des Radius (0,9 s), Reif
+über dem Radius, der genau so lange hält wie der Freeze (3 s) und dann in
+0,6 s ausblendet, 40 Eissplitter, die innerhalb von etwa 13 m liegen bleiben,
+bis sie verlöschen, und ein dünner Nebel unter 2 m am Rand des Radius (bis etwa
+2 s). Der Reif liegt mit Tiefentest im Normal-Blending: Gegner und Dächer
+verdecken ihn. Seit Playtest 625 so zurückgenommen, damit die eingefrorenen
+Gegner in der Fläche erkennbar bleiben; die Werte davor stehen im Kommentar
+von `FROST_BURST_LOOK`. Mit Impact Effects aus nur Blitz, Ring und Reif. Dazu
+Frostflecken (die Eis-Decals des Ice Towers) auf dem Einschlag und auf zwei
+Ringen, 6 bei 0,35 und 10 bei 0,65 des Radius (`FROST_BOMB_ICE_RINGS`), in der
+Höhe der Routenzelle, nur mit Ground Marks an. An den Gegnern der Eis-Tint und
+die Eiskristalle des Freeze. Ton
 `frost_bomb`: der Cast des Ice Towers, lauter und weiter hörbar, mit zwei
 schnellen leiseren Wiederholungen nach 110 und 260 ms als Knistern. Shake
 `frostBomb` 0,004 für 350 ms, voll bis 150 m, keiner ab 700 m
