@@ -592,6 +592,18 @@ describe('TerrainQueries', () => {
         addTile(floor(17, 1, 0, 2), 3, 2);
         expect(at(0, 2, from(0, -4, 0, 2))(queries)).toBeCloseTo(9, 6);
       });
+
+      // Playtest 2026-09-15, Erlenbach (D2): eine Straße unter einem Autobahndeck, das die Photogrammetrie bis zum Boden füllt.
+      it('nimmt unter einem anderen Way die Höhe zwischen dem Boden an den beiden Portalen', () => {
+        const { queries, addTile } = setup();
+        // Portal bei z = -10 auf 0 m, Portal bei z = 10 auf 2 m, dazwischen ein Deck auf 6 m ohne Boden darunter.
+        addTile(floor(0, 10, 0, -10), 3, 2);
+        addTile(floor(2, 10, 0, 10), 3, 2);
+        addTile(floor(6, 10), 3, 2);
+        const under = { portals: [geo(0, -10), geo(0, 10)] as const, f: 0.5, wayId: 900 };
+        expect(at(0, 0, under)(queries)).toBeCloseTo(1, 6);
+        expect(at(0, 0, null)(queries)).toBeCloseTo(6, 6);
+      });
     });
 
     // Playtest 2026-09-14, Erlenbach: Zellen auf einem Autobahndeck über der

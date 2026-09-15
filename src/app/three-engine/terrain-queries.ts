@@ -3,6 +3,7 @@ import type { TilesRenderer } from '3d-tiles-renderer';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { LOW_WALL_BEHIND_M, StationProbe, corridorConfig, lowRayAlone } from '../utils/route-corridor';
 import { StreetDeck, carriedDeckY, deckApproachY, surfaceY } from '../utils/deck-approach';
+import type { StreetUnder } from '../utils/underpass';
 import { raycastStats } from '../utils/raycast-stats';
 import type { DeckEnd } from '../utils/route-cell';
 import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
@@ -174,8 +175,12 @@ export class TerrainQueries {
    * deckApproachY), as the route cells there take it; where that lies more
    * than `roofRise` above the height carried (a crown, awning or car with
    * no ground under it), the height carried, as a route cell on the centre
-   * line takes it (streetUnderRoof). Otherwise, for `deck` null and without
-   * a column at the bridge end, getGroundHeightEstimate.
+   * line takes it (streetUnderRoof). `deck` the portals of a stretch under
+   * another way (StreetUnder, underpass.ts): the ground at the two portals
+   * (getGroundHeightEstimate across the way from one to the other),
+   * interpolated, as the route cells of a tunnel stretch take it. Otherwise,
+   * for `deck` null and without a column at the bridge end or at a portal,
+   * getGroundHeightEstimate.
    */
   getStreetHeightEstimate(
     lat: number, lon: number,
@@ -183,9 +188,14 @@ export class TerrainQueries {
     nextLat: number, nextLon: number,
     deck: StreetDeck | null,
   ): number | null {
-    if (deck !== null) {
+    if (deck === 'bridge') return this.columnAtGeo(lat, lon)?.topY ?? null;
+    if (deck !== null && 'portals' in deck) {
+      const [a, b] = deck.portals;
+      const ya = this.getGroundHeightEstimate(a.lat, a.lon, a.lat, a.lon, b.lat, b.lon);
+      const yb = this.getGroundHeightEstimate(b.lat, b.lon, a.lat, a.lon, b.lat, b.lon);
+      if (ya !== null && yb !== null) return ya + (yb - ya) * deck.f;
+    } else if (deck !== null) {
       const here = this.columnAtGeo(lat, lon);
-      if (deck === 'bridge') return here?.topY ?? null;
       const carried = here === null ? null : this.carriedAtGeo(deck);
       if (here !== null && carried !== null) {
         const y = deckApproachY(here, carried);
@@ -196,7 +206,7 @@ export class TerrainQueries {
   }
 
   /** The height carried at a street point off a bridge end (carriedDeckY), its rays booked as `heightAtGeo`. */
-  private carriedAtGeo(deck: Exclude<StreetDeck, 'bridge'>): number | null {
+  private carriedAtGeo(deck: Exclude<StreetDeck, 'bridge' | StreetUnder>): number | null {
     const path = deck.path.map((p) => {
       const local = this.sync.geoToLocalSimple(p.lat, p.lon, 0);
       return { x: local.x, z: local.z };

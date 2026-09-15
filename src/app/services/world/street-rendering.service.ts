@@ -18,6 +18,7 @@ import { GeoPosition } from '../../models/game.types';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { UIStore } from '../../store/ui.store';
 import { StreetDeck, streetDeckApproaches } from '../../utils/deck-approach';
+import { streetUnderpasses } from '../../utils/underpass';
 
 /**
  * Maximum distance between street points (in meters).
@@ -38,9 +39,9 @@ interface PreparedNode {
   /** For DevWorld: subdivided nodes from this segment */
   subdivided?: StreetNode[];
   /**
-   * On a bridge way or the stretch off its end, what the height compares
-   * with (TerrainQueries.getStreetHeightEstimate); null elsewhere and in
-   * DevWorld.
+   * On a bridge way, the stretch off its end or a stretch under another
+   * way, what the height compares with (TerrainQueries.getStreetHeightEstimate);
+   * null elsewhere and in DevWorld.
    */
   deck: StreetDeck | null;
 }
@@ -52,8 +53,9 @@ interface PreparedNode {
  * Manages:
  * - Merged LineSegments geometry for all streets (1 draw call instead of 600+)
  * - Terrain-following street heights via raycast with segment subdivision,
- *   on the deck over a bridge way, and on the ways off its ends at the
- *   height they carry from there (deck-approach.ts), as the route cells take them
+ *   on the deck over a bridge way, on the ways off its ends at the height
+ *   they carry from there (deck-approach.ts), and under another way between
+ *   the ground either side (underpass.ts), as the route cells take them
  * - Debug height markers
  * - Street visibility toggle
  *
@@ -144,8 +146,10 @@ export class StreetRenderingService {
     const allNodes: PreparedNode[] = [];
     const streetIndices: number[] = [];
     const isDevWorld = this.devWorld.isActive;
-    // The ways off the ends of bridge ways, whose deck may carry on.
+    // The ways off the ends of bridge ways, whose deck may carry on, and the
+    // stretches of streets under another way.
     const approaches = isDevWorld ? null : streetDeckApproaches(networkToRender.streets);
+    const underpasses = isDevWorld ? null : streetUnderpasses(networkToRender.streets);
 
     for (let si = 0; si < networkToRender.streets.length; si++) {
       const street = networkToRender.streets[si];
@@ -173,9 +177,11 @@ export class StreetRenderingService {
           const node = nodes[idx];
           const prevNode = nodes[Math.max(0, idx - 1)];
           const nextNode = nodes[Math.min(nodes.length - 1, idx + 1)];
-          const approach = street.bridge !== undefined ? null : approaches?.get(node.id);
+          // Under another way, as a route piece there is a tunnel stretch, the stretch off a bridge end ends.
+          const under = underpasses?.get(street.id)?.[idx] ?? null;
+          const approach = street.bridge !== undefined || under !== null ? null : approaches?.get(node.id);
           const deck: StreetDeck | null = street.bridge !== undefined ? 'bridge'
-            : approach ? { path: approach.path, m: approach.distanceM } : null;
+            : under ?? (approach ? { path: approach.path, m: approach.distanceM } : null);
           allNodes.push({ node, prev: prevNode, next: nextNode, isDevWorld: false, deck });
           streetIndices.push(si);
         }
