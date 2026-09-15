@@ -578,7 +578,12 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
 - **Der Schnitt wartet, bis der Boss draußen ist**: Routendistanz
   `bossClearDistance` = halbe Portaltiefe (`PORTAL_DEPTH`, mit
   `portalDepthScale`) plus 3 m. Vorher steckt er im Portalvolumen und ist von
-  keiner Seite zu sehen. Bei Herbert (4 m/s) knapp 2 s nach dem Spawn.
+  keiner Seite zu sehen. Bei Herbert (4 m/s) knapp 2 s nach dem Spawn. Bei der
+  Ooze (Körper entlang der Route, `ooze`) zählt ihre Spitze, und es sind 6 m
+  (`BOSS_INTRO_BODY_OUT_M`, seit 2026-09-15): Die Spitze rundet sich über 4 m
+  ab (`OOZE_LOOK.capLength`), und die Einstellung schaut von vorn am Band
+  entlang, mit 3 m war nur ein flacher Buckel am Portal zu sehen. Bei 3 m/s
+  knapp 4 s nach dem Spawn.
 - **Keins** bei ausgeschaltetem Schalter "Boss Intro" im Display-Menü, im Photo
   Mode, mit Trainings-Bot oder verbundenem Trainings-Backend, über 4x (nur
   Trainingsläufe kommen darüber), ohne Rendering, während des Intro-Flugs und

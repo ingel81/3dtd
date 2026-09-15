@@ -54,7 +54,7 @@ interface WaitingBoss {
   enemy: Enemy;
   wave: number;
   portalScale: number;
-  /** Route distance at which it stands in front of the portal (m) */
+  /** Route distance at which it stands in front of the portal (m), an ooze's tip further out (bossClearDistance) */
   clearDistance: number;
 }
 
@@ -188,7 +188,7 @@ export class BossIntroService {
     const start = enemy.movement.path[0];
     if (!start) return;
     const portalScale = portalScaleForWidth(portalCorridorWidth(start));
-    this.waiting.push({ enemy, wave, portalScale, clearDistance: bossClearDistance(portalScale) });
+    this.waiting.push({ enemy, wave, portalScale, clearDistance: bossClearDistance(portalScale, enemy.typeConfig) });
   }
 
   private start(boss: WaitingBoss): boolean {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BOSS_INTRO_BODY_OUT_M,
   BOSS_INTRO_CLEAR_MARGIN_M,
   BOSS_INTRO_TIMING,
   BOSS_SHOT,
@@ -21,6 +22,8 @@ import {
   type ShotPoint,
 } from './boss-intro';
 import { PORTAL_DEPTH, PORTAL_FRAME_TOP } from '../configs/marker-geometry.config';
+import { ENEMY_TYPES } from '../configs/enemy-types.config';
+import { OOZE_LOOK } from '../configs/visual-effects.config';
 
 describe('BossIntroGate', () => {
   it('admits the first boss of a type in a wave and no more of it', () => {
@@ -59,6 +62,15 @@ describe('bossClearDistance', () => {
   it('grows with a deeper portal on a wide street, not below scale 1', () => {
     expect(bossClearDistance(1.5)).toBeCloseTo(PORTAL_DEPTH * 0.75 + BOSS_INTRO_CLEAR_MARGIN_M);
     expect(bossClearDistance(0.75)).toBeCloseTo(bossClearDistance(1));
+  });
+
+  it('waits for BOSS_INTRO_BODY_OUT_M of an ooze, past its rounded tip; Herbert and Skarnax keep the margin', () => {
+    expect(bossClearDistance(1, ENEMY_TYPES['ooze'])).toBeCloseTo(PORTAL_DEPTH / 2 + BOSS_INTRO_BODY_OUT_M);
+    expect(bossClearDistance(1.5, ENEMY_TYPES['ooze'])).toBeCloseTo(PORTAL_DEPTH * 0.75 + BOSS_INTRO_BODY_OUT_M);
+    // Two metres at full crest behind the tip's round-off
+    expect(BOSS_INTRO_BODY_OUT_M - OOZE_LOOK.capLength).toBeGreaterThanOrEqual(2);
+    expect(bossClearDistance(1, ENEMY_TYPES['herbert'])).toBe(bossClearDistance(1));
+    expect(bossClearDistance(1, ENEMY_TYPES['worm'])).toBe(bossClearDistance(1));
   });
 });
 
