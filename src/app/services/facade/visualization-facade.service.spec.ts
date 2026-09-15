@@ -172,6 +172,7 @@ describe('VisualizationFacadeService', () => {
   const gameState = {
     initialize: vi.fn(),
     initializeGlobalRouteGrid: vi.fn(),
+    rebuildRouteCells: vi.fn(),
     getGlobalRouteGrid: () => grid,
     getEventBus: () => bus,
     towerCount: () => towerCount,
@@ -740,25 +741,24 @@ describe('VisualizationFacadeService', () => {
 
       await facade.scheduleOverlayHeightUpdate();
 
-      expect(grid.clear).toHaveBeenCalled();
-      expect(gameState.initializeGlobalRouteGrid).toHaveBeenCalled();
+      // The cells anew, without setting the tile region again.
+      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
+      expect(gameState.initializeGlobalRouteGrid).not.toHaveBeenCalled();
       // Once for the routes, once more on the heights of the new cells.
       expect(pathRoute.refreshRouteLines).toHaveBeenCalledTimes(2);
-      expect(grid.clear.mock.invocationCallOrder[0])
-        .toBeLessThan(gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0]);
       expect(grid.initAirRouteLayerIfEnabled).toHaveBeenCalled();
     });
 
     it('does not rebuild when the fit changes nothing or towers stand', async () => {
       await facade.scheduleOverlayHeightUpdate();
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
-      expect(grid.clear).not.toHaveBeenCalled();
+      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
 
       towerCount = 1;
       corridor.changed = true;
       await facade.scheduleOverlayHeightUpdate();
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
-      expect(grid.clear).not.toHaveBeenCalled();
+      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
     });
 
     it('measures the corridor a slice per frame and rebuilds once it is done', async () => {
@@ -768,11 +768,11 @@ describe('VisualizationFacadeService', () => {
       await facade.scheduleOverlayHeightUpdate();
       expect(corridor.runs[0].step).toHaveBeenCalledTimes(1);
       runFrames();
-      expect(grid.clear).not.toHaveBeenCalled();
+      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
       runFrames();
 
       expect(corridor.runs[0].step).toHaveBeenCalledTimes(3);
-      expect(grid.clear).toHaveBeenCalledTimes(1);
+      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
       expect(frames.size).toBe(0);
     });
 
@@ -785,7 +785,7 @@ describe('VisualizationFacadeService', () => {
       runFrames(3);
 
       expect(corridor.runs[0].cancel).toHaveBeenCalledWith('disposed');
-      expect(grid.clear).not.toHaveBeenCalled();
+      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
       expect(frames.size).toBe(0);
     });
 
@@ -796,7 +796,7 @@ describe('VisualizationFacadeService', () => {
       facade.fitCorridorToTiles();
       runFrames();
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
-      expect(grid.clear).toHaveBeenCalledTimes(1);
+      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
 
       towerCount = 1;
       facade.fitCorridorToTiles();
@@ -822,7 +822,7 @@ describe('VisualizationFacadeService', () => {
 
       expect(corridor.runs[0].step).toHaveBeenLastCalledWith(Infinity);
       expect(corridor.runs[0].commit).toHaveBeenCalledWith('tower');
-      expect(grid.clear).toHaveBeenCalledTimes(1);
+      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
       expect(frames.size).toBe(0);
     });
   });
@@ -1044,7 +1044,7 @@ describe('VisualizationFacadeService', () => {
       runFrames(2);
 
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
-      expect(grid.clear).toHaveBeenCalled();
+      expect(gameState.rebuildRouteCells).toHaveBeenCalled();
     });
 
     it('stops the loop on dispose', () => {
@@ -1253,7 +1253,7 @@ describe('VisualizationFacadeService', () => {
       towerCount = 0;
       engineInit.getEngine.mockReturnValue(null);
       expect(api().reset()).toBe('Not changed: no location loaded.');
-      expect(grid.clear).not.toHaveBeenCalled();
+      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
     });
 
     it('hands out a copy of the corridor config', () => {

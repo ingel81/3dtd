@@ -222,7 +222,7 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
         enemyManager: { getAliveCount: () => 0 },
         waveManager: { phase: () => 'setup' },
         getGlobalRouteGrid: () => grid,
-        initializeGlobalRouteGrid: vi.fn(),
+        rebuildRouteCells: vi.fn(),
         setBeforeCorridorLock: vi.fn(),
       }),
       engineInit: { getEngine: () => engine },

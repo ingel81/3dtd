@@ -151,7 +151,7 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
         enemyManager: { getAliveCount: () => game.enemies },
         waveManager: { phase: () => game.phase },
         getGlobalRouteGrid: () => grid,
-        initializeGlobalRouteGrid: vi.fn(),
+        rebuildRouteCells: vi.fn(),
         // GameStateManager calls it right before a tower is placed (TowerLifecycle) or a wave starts
         setBeforeCorridorLock: (hook: ((reason: 'tower' | 'wave') => void) | null) => { lockCorridor = hook; },
       }),

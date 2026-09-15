@@ -67,7 +67,7 @@ describe('corridor trace, from a tile batch to a rebuild', () => {
       waveManager: { phase: () => 'setup' },
       getGlobalRouteGrid: () => grid,
       // The new cells: one more, one 0.5 m higher, one without a height.
-      initializeGlobalRouteGrid: vi.fn(() => {
+      rebuildRouteCells: vi.fn(() => {
         state.cells = new Map([[1, 10], [2, 10.5], [3, NaN], [4, 11]]);
       }),
       setBeforeCorridorLock: vi.fn(),

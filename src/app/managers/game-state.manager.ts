@@ -926,10 +926,27 @@ export class GameStateManager {
   }
 
   /**
-   * Initialize GlobalRouteGrid after routes are computed
-   * Should be called after engine and routes are ready
+   * Initialize GlobalRouteGrid after routes are computed, and keep the tiles
+   * along them fine (the route corridor region). Should be called after
+   * engine and routes are ready
    */
   initializeGlobalRouteGrid(): void {
+    this.buildRouteCells(true);
+  }
+
+  /**
+   * The cells of the routes in use built again from nothing, without setting
+   * the tile region anew: the corridor build (CorridorBuild) narrows the
+   * routes pass by pass, and the tiles it measures on stay the ones of the
+   * street routes the location was loaded with.
+   */
+  rebuildRouteCells(): void {
+    this.globalRouteGrid.clear();
+    this.buildRouteCells(false);
+  }
+
+  /** Initialize the grid and generate the cells of the routes in use; with `region`, set the tile region to them as well. */
+  private buildRouteCells(region: boolean): void {
     if (!this.tilesEngine) {
       console.warn('[GameStateManager] Cannot initialize GlobalRouteGrid - no engine');
       return;
@@ -962,7 +979,7 @@ export class GameStateManager {
     const routes = this.getCachedRoutes();
     // Fine tiles along the whole corridor, so the cells sample real ground
     // even where the camera does not look.
-    this.tilesEngine.setRouteCorridor(routes);
+    if (region) this.tilesEngine.setRouteCorridor(routes);
     if (routes.length > 0) {
       this.globalRouteGrid.generateFromRoutes(routes);
     }
