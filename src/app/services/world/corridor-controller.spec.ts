@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CorridorController, type CorridorControllerDeps } from './corridor-controller';
 import { CorridorRefit } from './corridor-refit';
+import { CorridorBuild } from './corridor-build';
 import { MEASURING_STEP } from './relocation-status.service';
 
 /**
@@ -51,7 +52,7 @@ describe('CorridorController', () => {
       enemyManager: { getAliveCount: () => 0 },
       waveManager: { phase: () => 'setup' },
       getGlobalRouteGrid: () => grid,
-      initializeGlobalRouteGrid: record('initializeGlobalRouteGrid'),
+      rebuildRouteCells: record('rebuildRouteCells'),
       setBeforeCorridorLock: vi.fn(),
     };
   }
@@ -150,8 +151,7 @@ describe('CorridorController', () => {
       expect(calls).toEqual([
         'measure',
         'refreshRouteLines',
-        'clear',
-        'initializeGlobalRouteGrid',
+        'rebuildRouteCells',
         'updateTerrainHeights',
         'narrow',
         'refreshRouteLines',
@@ -179,9 +179,9 @@ describe('CorridorController', () => {
 
       expect(calls).toEqual([
         'measure',
-        'refreshRouteLines', 'clear', 'initializeGlobalRouteGrid', 'updateTerrainHeights',
+        'refreshRouteLines', 'rebuildRouteCells', 'updateTerrainHeights',
         'narrow',
-        'refreshRouteLines', 'clear', 'initializeGlobalRouteGrid', 'updateTerrainHeights',
+        'refreshRouteLines', 'rebuildRouteCells', 'updateTerrainHeights',
         'narrow',
         'refreshRouteLines',
         'initSpatialGridVisualization',
@@ -194,8 +194,8 @@ describe('CorridorController', () => {
     it('builds again at most MAX_WALK_PASSES times', () => {
       state.narrow = 100;
       create().fitToTiles();
-      expect(calls.filter((call) => call === 'clear')).toHaveLength(1 + CorridorController.MAX_WALK_PASSES);
-      expect(calls.filter((call) => call === 'narrow')).toHaveLength(CorridorController.MAX_WALK_PASSES);
+      expect(calls.filter((call) => call === 'rebuildRouteCells')).toHaveLength(1 + CorridorBuild.MAX_WALK_PASSES);
+      expect(calls.filter((call) => call === 'narrow')).toHaveLength(CorridorBuild.MAX_WALK_PASSES);
     });
 
     it('measures again after the interval when it ran out of builds', () => {
@@ -246,11 +246,11 @@ describe('CorridorController', () => {
       expect(runs[0].step).toHaveBeenCalledWith(CorridorRefit.MEASURE_BUDGET_MS);
 
       runFrames();
-      expect(calls).not.toContain('clear');
+      expect(calls).not.toContain('rebuildRouteCells');
       runFrames();
 
       expect(runs[0].step).toHaveBeenCalledTimes(3);
-      expect(calls.filter((call) => call === 'clear')).toHaveLength(1);
+      expect(calls.filter((call) => call === 'rebuildRouteCells')).toHaveLength(1);
       expect(frames.size).toBe(0);
     });
 
@@ -337,7 +337,7 @@ describe('CorridorController', () => {
 
       expect(runs[0].step).toHaveBeenLastCalledWith(Infinity);
       expect(runs[0].commit).toHaveBeenCalledWith('wave');
-      expect(calls).toContain('clear');
+      expect(calls).toContain('rebuildRouteCells');
       expect(frames.size).toBe(0);
     });
 
@@ -362,7 +362,7 @@ describe('CorridorController', () => {
       runFrames(3);
 
       expect(runs[0].cancel).toHaveBeenCalledWith('disposed');
-      expect(calls).not.toContain('clear');
+      expect(calls).not.toContain('rebuildRouteCells');
       expect(frames.size).toBe(0);
     });
   });
@@ -378,7 +378,7 @@ describe('CorridorController', () => {
       expect(controller.change(() => [])).toBe(
         'Corridor rebuilt: 42 cells. Widths per stretch: __routes.describe()',
       );
-      expect(calls).toContain('clear');
+      expect(calls).toContain('rebuildRouteCells');
     });
 
     it('refuses while towers stand', () => {

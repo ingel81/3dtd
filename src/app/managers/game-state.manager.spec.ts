@@ -760,6 +760,16 @@ describe('GameStateManager', () => {
         expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
       });
 
+      it('sets the tile region for new routes, not when their cells are built again', () => {
+        const setRouteCorridor = vi.fn();
+        (gsm.tilesEngine as unknown as { setRouteCorridor: typeof setRouteCorridor }).setRouteCorridor = setRouteCorridor;
+        gsm.initializeGlobalRouteGrid();
+        expect(setRouteCorridor).toHaveBeenCalledTimes(1);
+
+        gsm.rebuildRouteCells();
+        expect(setRouteCorridor).toHaveBeenCalledTimes(1);
+      });
+
       // Debug enemies fought between waves never complete a wave
       describe('once the last enemy outside a wave is gone', () => {
         const enemy = (id: string) => ({
