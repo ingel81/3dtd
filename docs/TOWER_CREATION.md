@@ -889,8 +889,9 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   wird nach mehr als 1 m Weg), und eine bei jeder Platzierung: `rest` bzw. `placed`, Tower,
   `rule`, `centreGroundY`, `centreTopY`, `plinthHeight`, `footY`, `surfaceY` und Position.
   `__footprintDebug.watch(false)` beendet das; aus kostet es einen Null-Vergleich pro Frame.
-- **Weg ins Spiel:** `command:place-tower` trägt `position.height` = Fuß (Oberkante des Sockels)
-  und `plinthHeight`. Beides landet im `Tower` (`position.height`, `plinthHeight`). Alles, was
+- **Weg ins Spiel:** `command:place-tower` trägt `position.height` = Fuß (Oberkante des Sockels),
+  `plinthHeight` und `plinthOverhang` (Stützen, unten). Alles landet im `Tower` (`position.height`,
+  `plinthHeight`, `plinthOverhang`). Alles, was
   von `position.height` ausgeht, beginnt damit am angehobenen Fuß: LOS-Registrierung
   (`TowerLosRegistry`), LOS-Vorschau, Schussursprung, Tip-Marker, Tentakel und Idle-Crackle.
   Der Trainings-Bot geht denselben Weg.
@@ -903,6 +904,26 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   Der `TowerManager` legt den Sockel mit dem Tower an und entfernt ihn beim Verkauf. Ein Klick
   auf den Sockel wählt den Tower. Die Bauvorschau zeigt den Sockel durchscheinend und grün oder
   rot getönt wie den Vorschau-Tower (`TowerPlinthPreview`).
+- **Stützen an der Dachkante** (E18, `plinth-braces.ts`): Liegt die Straße hinter einer Dachkante
+  tiefer als `MAX_DROP`, reicht der Sockel nur so tief, wie das Dach uneben ist, und ragt über die
+  Kante. Die Proben dort (Säule endet unter dem tiefsten Punkt des Sockels oder trifft nichts)
+  nennt `resolveTowerFootprint` als `overhang`, nur mit Sockel. Daraus baut der
+  `TowerPlinthRenderer` beim Anlegen schräge Steinstützen in dieselbe Geometrie, mit demselben
+  Material: entlang jeder überhängenden Strecke des Rands etwa alle 2,5 m eine, radial wie
+  Konsolen unter einem runden Erker, von knapp innerhalb der Wand unter dem Rand 45° nach innen
+  und unten bis 0,3 m innerhalb der konvexen Hülle der Proben mit Grund unter dem Sockel. Die
+  echte Kante liegt zwischen dieser Hülle und der ersten Probe über dem Abbruch, die Stütze
+  verschwindet also vor ihrem Fuß in der Fassade. Keine Stütze, wo der Sockel weniger als etwa
+  0,9 m über die Hülle ragt oder die Achse des Towers selbst über dem Abbruch steht. Ein Sockel mit
+  Stützen bekommt eine Bodenfläche, von unten ist er sonst offen. Nur Probedaten, keine
+  zusätzlichen Raycasts, nichts pro Frame; die Bauvorschau zeigt die Stützen mit. Sockel und
+  Stützen hängen direkt an der Szene, nicht in der Blocker-Gruppe, der LOS-Cube zeichnet sie
+  nicht (Regel 8, [LOS_PIPELINE.md](LOS_PIPELINE.md)).
+- **Grenzen der Stützen:** Sie setzen voraus, dass die Fassade unter der Dachkante steht; unter
+  einem vorkragenden Dach oder vor einem zurückgesetzten Geschoss kann ein Stück Stütze frei
+  enden. Ein flaches Dach an der Kante gibt keinen Sockel (Proben innerhalb `MIN_UNEVENNESS`) und
+  damit keine Stütze, der Tower ragt dort wie bisher über die Kante. Liegt die Straße weniger als
+  `MAX_DROP` tiefer, reicht der Sockel bis zu ihr hinab und braucht keine Stütze.
 
 ### Keyboard-Shortcuts im Build-Modus
 

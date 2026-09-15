@@ -64,7 +64,7 @@ Einbindung:
 
 Die Aufnahme beginnt mit `wave:started` (auch bei manuellen Debug-Wellen) und
 hält dabei den Stand zu Wellenbeginn fest: die stehenden Türme (Position, Typ,
-Drehung, Sockelhöhe), HQ-Leben, Credits, ob es eine Blutmond-Welle ist
+Drehung, Sockelhöhe und Überhang des Sockels), HQ-Leben, Credits, ob es eine Blutmond-Welle ist
 (`isBloodMoonWave`) und die `WaveConfig` des Befehls, der die Welle gestartet
 hat. Solange der Renderer aus ist (Training ohne Rendering), wird nichts
 aufgenommen.
