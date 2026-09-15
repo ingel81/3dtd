@@ -605,6 +605,10 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   für Frost und EMP; Laser-Ton am Startpunkt; Skarnax (Textur, bewegte Beine, Schwanzstück, Mandibeln, Sound am
   Kopf, Healthbar je Ring); Tod-Sound der Schleimklumpen; Mech und Ghost über dem Modell-Budget; Gold-Popup der Ooze
   an der Spitze; größere Eiskristalle an großen Gegnern; Held Stufe 2; Schrägstütze für Sockel an der Dachkante.
+  **Entscheidung User (2026-09-15), alles als Nächstes:** Sounds Warnsirene Atomschlag, Frost, EMP, Laser am
+  Startpunkt, Skarnax-Kopf (ElevenLabs steht auf dem Rechner bereit); Skarnax Textur, Beine, Schwanzstück und
+  Mandibeln (Healthbar je Ring gibt es laut User schon); Modelle Held Stufe 2, Sockel-Stütze, Tank-Modell (TODO 3.1),
+  Mech und Ghost ins Budget. Nicht gewählt: Tod-Sound der Schleimklumpen, Ooze-Gold-Popup, Eiskristalle.
 - **E19 ONNX-Director im Debug-Fenster:** Das eingecheckte Modell hat 156 Eingänge, der Encoder liefert 208.
   `OnnxPolicy.load()` lehnt es deshalb ab, "Load ONNX model" im Fenster "AI" (Developer options) bleibt immer bei den
   Regeln. Ein Modell neu exportieren oder trainieren, oder das Opt-in so lassen? **Entscheidung User (2026-09-15): Opt-in ausblenden**, bis ein passendes Modell da ist.
