@@ -34,7 +34,12 @@ export const SHOWCASE_LOCATIONS: readonly ShowcaseLocation[] = [
   { id: 'madrid-sol', name: 'Madrid, Puerta del Sol', hint: 'Old centre, streets fanning out from the square', lat: 40.41686, lon: -3.70388 },
   { id: 'prague-old-town', name: 'Prague, Old Town Square', hint: 'Medieval lanes around the Old Town Hall', lat: 50.08743, lon: 14.42077 },
   { id: 'amsterdam-dam', name: 'Amsterdam, Dam Square', hint: 'Old centre, the canal ring starts to the west', lat: 52.37312, lon: 4.89235 },
-  { id: 'tokyo-shibuya', name: 'Tokyo, Shibuya Crossing', hint: 'Scramble crossing, dense side streets', lat: 35.65950, lon: 139.70050 },
+  // HQ and spawn from the user's URL (2026-09-15): the old HQ at 35.65950, 139.70050
+  // got a random route that looped round a block
+  {
+    id: 'tokyo-shibuya', name: 'Tokyo, Shibuya Crossing', hint: 'Scramble crossing, dense side streets',
+    lat: 35.65924, lon: 139.70049, spawn: { lat: 35.65208, lon: 139.69853 },
+  },
   { id: 'sydney-martin-place', name: 'Sydney, Martin Place', hint: 'Pedestrian mall in the CBD grid', lat: -33.86773, lon: 151.20914 },
   {
     id: 'rio-copacabana', name: 'Rio de Janeiro, Copacabana', hint: 'Beachfront avenue with the grid behind it',
