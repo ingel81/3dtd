@@ -36,10 +36,11 @@ function makeEffects() {
 }
 
 /** Stub of ThreeTilesEngine — only the surface HQDamageService touches. */
-function makeEngine(opts: { terrainHeight?: number | null; withAudio?: boolean } = {}) {
+function makeEngine(opts: { terrainHeight?: number | null; withAudio?: boolean; originHeight?: number } = {}) {
   return {
     effects: makeEffects(),
     spatialAudio: opts.withAudio === false ? null : { registerSound: vi.fn() },
+    sync: { getOrigin: () => ({ lat: 48.0, lon: 9.0, height: opts.originHeight ?? 0 }) },
     // null is a meaningful return value (terrain not yet loaded) — preserve it.
     getTerrainHeightAtGeo: vi.fn(() =>
       opts.terrainHeight === undefined ? 0 : opts.terrainHeight,
@@ -106,6 +107,20 @@ describe('HQDamageService', () => {
       expect(engine.effects.spawnScaledFire).toHaveBeenCalled();
       // damage sound is emitted deferred
       expect(bus.getQueueSize()).toBe(1);
+    });
+
+    it('plays the damage sound on the ground under the HQ, as a geo height', () => {
+      vi.spyOn(performance, 'now').mockReturnValue(10_000);
+      // Ground at local y 180, the local frame's origin 20 m above the ellipsoid
+      const engine = makeEngine({ terrainHeight: 180, originHeight: 20 });
+      service.initialize(engine as never, BASE_POS, bus);
+      const played: { sound: string; lat: number; lon: number; height: number }[] = [];
+      bus.on('audio:play', ({ sound, lat, lon, height }) => played.push({ sound, lat, lon, height }));
+
+      bus.emit({ type: 'health:changed', health: 90, delta: -10 });
+      bus.processQueue();
+
+      expect(played).toEqual([{ sound: GAME_SOUNDS.hqDamage.id, lat: BASE_POS.lat, lon: BASE_POS.lon, height: 200 }]);
     });
 
     it('does not queue a damage sound when health increases (heal)', () => {

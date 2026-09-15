@@ -94,10 +94,14 @@ export class HQDamageService {
   }
 
   /**
-   * Emit audio event for HQ damage sound at base position
+   * Emit audio event for HQ damage sound on the ground under the HQ, where
+   * its fire burns. The base position carries no height; at height 0 the
+   * sound sat on the ellipsoid, as far below the HQ as the ground there is
+   * high, and the audible distance (500 m) culled it wherever that depth
+   * and the camera's distance added up to more.
    */
   playDamageSound(): void {
-    if (!this.basePosition || !this.eventBus) return;
+    if (!this.basePosition || !this.eventBus || !this.tilesEngine) return;
 
     // Throttle: skip if too soon after last sound (prevents audio overload on mass hits)
     const now = performance.now();
@@ -109,8 +113,14 @@ export class HQDamageService {
       sound: GAME_SOUNDS.hqDamage.id,
       lat: this.basePosition.lat,
       lon: this.basePosition.lon,
-      height: this.basePosition.height ?? 0,
+      // Geo height: local y plus the height of the local frame's origin
+      height: this.groundY(this.tilesEngine, this.basePosition) + this.tilesEngine.sync.getOrigin().height,
     });
+  }
+
+  /** Local y of the ground under the HQ: the cached height, else a raycast, else 0 without tiles. */
+  private groundY(engine: ThreeTilesEngine, base: GeoPosition): number {
+    return this.hqTerrainHeight ?? engine.getTerrainHeightAtGeo(base.lat, base.lon) ?? 0;
   }
 
   /**
@@ -133,14 +143,7 @@ export class HQDamageService {
       return;
     }
 
-    // Get fire height
-    let fireY = this.hqTerrainHeight;
-    if (fireY === null) {
-      fireY = this.tilesEngine.getTerrainHeightAtGeo(
-        this.basePosition.lat,
-        this.basePosition.lon
-      ) ?? 0;
-    }
+    const fireY = this.groundY(this.tilesEngine, this.basePosition);
 
     // HP above threshold: Brief fire flash
     if (currentHealth > GAME_BALANCE.fire.permanentThreshold) {
@@ -188,14 +191,7 @@ export class HQDamageService {
       this.activeFireId = null;
     }
 
-    // Get terrain height
-    let localY = this.hqTerrainHeight;
-    if (localY === null) {
-      localY = this.tilesEngine.getTerrainHeightAtGeo(
-        this.basePosition.lat,
-        this.basePosition.lon
-      ) ?? 0;
-    }
+    const localY = this.groundY(this.tilesEngine, this.basePosition);
 
     // Spawn massive HQ destruction explosion
     this.tilesEngine.effects.spawnHQExplosion(
