@@ -517,14 +517,21 @@ Zufallszahlen vom Einschlag, eigene Puffer mit den Materialien der Trail-Pools
 
 | Teil | Darstellung |
 |---|---|
-| Blitz | additiver Sprite, weiß-cyan, 0,35 s |
-| Ring | Kältefront am Boden bis 1,15 × Radius, 1,2 s, Tiefentest aus |
-| Reif | Fläche über dem ganzen Radius mit Eiskristall-Muster (Wertrauschen aus einem Hash, jedes Mal gleich), hält so lange wie der Freeze und blendet in 1 s aus, Tiefentest aus |
-| Eissplitter | 64 runde additive Partikel, nach außen und oben geworfen, Luftwiderstand und Schwerkraft, bleiben am Boden liegen, bis 1,3 s |
-| Nebel | 28 Puffs aus dem Rauch-Atlas (Normal-Blending), Ring über dem Radius, rollt aus und steigt leicht, bis etwa 3,2 s |
+| Blitz | additiver Sprite, weiß-cyan, 40 m, 0,2 s, Tiefentest aus |
+| Ring | Kältefront am Boden bis an den Rand des Radius (Quad 1,15 × Radius, Front bei 0,9 davon), 0,9 s, Tiefentest aus |
+| Reif | Fläche über dem ganzen Radius mit Eiskristall-Muster (Wertrauschen aus einem Hash, jedes Mal gleich) in mittlerem Eisblau, Normal-Blending mit Tiefentest: eingefrorene Gegner und Dächer verdecken ihn, heller als seine Farbe wird die Straße nicht. Hält so lange wie der Freeze und blendet in 0,6 s aus |
+| Eissplitter | 40 runde additive Partikel, nach außen und oben geworfen, Luftwiderstand und Schwerkraft, bleiben innerhalb von etwa 13 m am Boden liegen, bis 0,9 s |
+| Nebel | 14 dünne Puffs aus dem Rauch-Atlas (Normal-Blending, ab Frame 6), nur am Rand des Radius, unter 2 m, bis etwa 2 s |
+
+Playtest 625 (2026-09-15): Reif (additiv, ohne Tiefentest), Nebel (28 Puffs bis
+14 m über dem ganzen Radius, 3,2 s) und Blitz (70 m) überdeckten die ganze Stelle,
+eingefrorene Gegner waren nicht mehr zu unterscheiden, auf Dächern im Radius
+blieben die Sprenkel des Reifs stehen. Die Werte davor stehen im Kommentar von
+`FROST_BURST_LOOK`.
 
 Zwei Ausbrüche gleichzeitig, ein dritter nimmt den Platz des ältesten. Mit Impact
-Effects aus (VFX-Einstellungen) nur Blitz, Ring und Reif. `game:reset` leert sie.
+Effects aus (VFX-Einstellungen) nur Blitz, Ring und Reif, wie vorher höchstens drei
+Draw Calls je Ausbruch. `game:reset` leert sie.
 
 ---
 
