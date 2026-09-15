@@ -193,7 +193,7 @@ Das `+ 0.5` ist Texel-Center-Sampling (NearestFilter).
 
 ### Multi-Material Support
 
-Modelle mit mehreren Materialien (z.B. Tank: sechs Materialfarben, keine Textur; Hornet: vier Materialien) werden über Per-Vertex Attribute gehandhabt:
+Modelle mit mehreren Materialien (z.B. Hornet: vier Materialien; bis zum gebackenen Anstrich vom 2026-09-15 auch der Tank mit sechs Materialfarben ohne Textur) werden über Per-Vertex Attribute gehandhabt:
 
 | Attribut | Typ | Beschreibung |
 |----------|-----|-------------|
