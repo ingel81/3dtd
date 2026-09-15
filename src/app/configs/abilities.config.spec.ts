@@ -4,6 +4,7 @@ import {
   abilityDamageFraction,
   abilityBeamCap,
   abilityBeamFraction,
+  abilityBeamBurnMs,
   abilityBeamReachM,
   abilityFreezeMs,
   abilityStunMs,
@@ -133,6 +134,11 @@ describe('abilities config', () => {
     });
     const effect = laser.effect as Extract<typeof laser.effect, { kind: 'beam' }>;
     expect(abilityBeamReachM(effect)).toBe(72);
+    // 4 s along the whole reach, 2 s along a stretch that ends after 36 m
+    expect(abilityBeamBurnMs(effect, 72)).toBe(4000);
+    expect(abilityBeamBurnMs(effect, 100)).toBe(4000);
+    expect(abilityBeamBurnMs(effect, 36)).toBeCloseTo(2000, 6);
+    expect(abilityBeamBurnMs({ ...effect, speedMps: 0 }, 0)).toBe(4000);
     // One sub-step: the share per second times the fire multiplier against the armor
     expect(abilityBeamFraction(effect, ENEMY_TYPES['zombie'], 'unarmored', 1000)).toBeCloseTo(1.5);
     expect(abilityBeamFraction(effect, ENEMY_TYPES['tank'], 'heavy', 500)).toBeCloseTo(0.3);

@@ -115,6 +115,27 @@ export function routeSweepToward(
   return { points, cumulative, length: covered };
 }
 
+/** Where a point lies against a sweep. */
+export interface SweepOffset {
+  /** Metres along the sweep from points[0] to the sweep point nearest the point */
+  alongM: number;
+  /** Metres from that sweep point to the point, 2D */
+  offM: number;
+}
+
+/**
+ * Where `target` lies against `sweep`: the sweep point nearest to it, if it
+ * is within `maxDistanceM` (2D). A target beyond an end of the sweep
+ * measures from that end. Null farther off.
+ */
+export function sweepOffset(sweep: RouteSweep, target: GeoPosition, maxDistanceM: number): SweepOffset | null {
+  const hit = project([sweep.points], target, maxDistanceM);
+  if (!hit) return null;
+  const { cumulative } = sweep;
+  const span = cumulative[hit.segment + 1] - cumulative[hit.segment];
+  return { alongM: cumulative[hit.segment] + span * hit.t, offM: hit.distanceM };
+}
+
 /**
  * The point `distanceM` along `sweep` (clamped to its ends), written into
  * `out`.

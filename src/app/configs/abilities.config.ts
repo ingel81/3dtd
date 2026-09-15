@@ -219,6 +219,17 @@ export function abilityBeamReachM(effect: BeamEffect): number {
 }
 
 /**
+ * Game ms a beam burns along a route stretch `sweepLengthM` long: its
+ * duration, less where the stretch ends sooner. A beam without speed stands
+ * for its time.
+ */
+export function abilityBeamBurnMs(effect: BeamEffect, sweepLengthM: number): number {
+  return effect.speedMps > 0
+    ? Math.min(effect.durationMs, (sweepLengthM / effect.speedMps) * 1000)
+    : effect.durationMs;
+}
+
+/**
  * Share of its max HP an enemy of `enemyType` wearing `armor` loses to a
  * beam in `stepMs` of game time, before the cap (abilityBeamCap).
  */
