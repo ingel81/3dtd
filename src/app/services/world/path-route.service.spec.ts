@@ -832,6 +832,31 @@ describe('PathAndRouteService route geometry', () => {
           expect(replaced.clearanceProgress()).toBeNull();
         });
 
+        /** `__corridor.probeLod()` times a pass over every station on tiles the corridor does not use. */
+        it('measures every station once more into a list of its own, stores nothing and leaves an open run alone', () => {
+          vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+          clearanceAt = () => 5.2;
+          const service = buildRouteService(network, spawn, hq);
+          expect(measure(service)).toBe(true);
+          const before = service.corridorState();
+          const stations = before.stations.reduce((sum, segment) => sum + segment.left.length, 0);
+          expect(stations).toBeGreaterThan(2);
+          expect(before.stations.flatMap((segment) => segment.tileError)).toEqual(new Array(stations).fill(2));
+
+          // Finer tiles that would narrow the corridor
+          clearanceAt = () => 1.5;
+          const run = service.beginClearanceMeasurement();
+          probeCalls.length = 0;
+          const probes = service.measureAllStations()!;
+
+          expect(probes).toHaveLength(stations);
+          expect(probeCalls).toHaveLength(stations);
+          expect(probes.every((probe) => probe?.left[0] === 1.5)).toBe(true);
+          expect(service.corridorState()).toEqual(before);
+          expect(service.clearanceEnding()).toBeNull();
+          expect(run.commit()).toBe(false);
+        });
+
         it('gives the same corridor as one go when a tower or a wave has it finish at once', () => {
           const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
           clearanceAt = facades;
