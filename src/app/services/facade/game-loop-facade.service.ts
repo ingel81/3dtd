@@ -302,6 +302,8 @@ export class GameLoopFacadeService {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
+    // The corridor of a new location or a move is still being built (CorridorBuild).
+    if (this.gameState.corridorPending()) return;
     this.store.paused.set(false);
 
     // Source priority for the wave config:
@@ -404,6 +406,8 @@ export class GameLoopFacadeService {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
+    // The corridor of a new location or a move is still being built (CorridorBuild).
+    if (this.gameState.corridorPending()) return;
     this.store.paused.set(false);
 
     const waveConfig = this.buildWaveConfig();

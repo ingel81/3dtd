@@ -3,16 +3,18 @@ import { Group, Vector3 } from 'three';
 
 /**
  * Playtest 543 (fix session 2026-09-14): the HQ is moved within the loaded
- * streets and, while "Measuring the corridor" runs, a tower is built or a
- * zombie is placed through Enemy Debug. The hint goes, the corridor log says
- * how the measurement ended, then `[Relocation] HQ done ... ended=`.
+ * streets and, while the corridor is measured, a tower is built or a zombie
+ * placed through Enemy Debug. Since 2026-09-16 the corridor of the new routes
+ * is built once under the hint (CorridorBuild) and then frozen: towers and
+ * waves wait for it (GameStateManager.corridorPending, its own spec), enemies
+ * change nothing of it. The hint shows the build's steps and goes at its end,
+ * then `[Relocation] HQ done ... ended=`.
  *
  * Real: MapRelocationService (the move), RelocationStatusService (the hint),
- * CorridorController with its CorridorRefit (slices, flush, cancel) and
- * PathAndRouteService (route, clearance run, its log). Fakes: the game
- * state, the engine (each station costs 1.7 ms on a fake clock, as in the
- * city-centre playtest), the animation frames. inject() hands out by class
- * name, as in path-route.service.spec.
+ * CorridorBuild and PathAndRouteService (route, clearance run, their logs).
+ * Fakes: the game state, the engine (no tiles, each station costs 1.7 ms on
+ * a fake clock, as in the city-centre playtest), the animation frames.
+ * inject() hands out by class name, as in path-route.service.spec.
  */
 const di = vi.hoisted(() => ({ stubs: {} as Record<string, unknown> }));
 vi.mock('@angular/core', async () => {
@@ -28,8 +30,8 @@ vi.mock('../../components/location-dialog/location-dialog.component', () => ({
 import { signal } from '@angular/core';
 import { MapRelocationService, type RelocationHost } from './map-relocation.service';
 import { PathAndRouteService } from '../world/path-route.service';
-import { RelocationStatusService, MEASURING_STEP } from '../world/relocation-status.service';
-import { CorridorController, type CorridorControllerDeps } from '../world/corridor-controller';
+import { RelocationStatusService } from '../world/relocation-status.service';
+import { CorridorBuild, type CorridorBuildDeps } from '../world/corridor-build';
 import { OsmStreetService } from '../location/osm-street.service';
 import type { SpawnPoint } from '../world/marker-visualization.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
@@ -42,14 +44,14 @@ const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
 const HQ = { lat: 48.0011, lon: 9.0025 };
 const SPAWN: SpawnPoint = { id: 'spawn-1', name: 'Spawn', color: 0xff0000, lat: 47.9993, lon: 9.0 };
 
-describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
+describe('Moving the HQ while the corridor is built (playtest 543)', () => {
   let clock: number;
   let frames: Map<number, FrameRequestCallback>;
   let nextFrame: number;
   let game: { towers: number; enemies: number; phase: string };
-  let lockCorridor: ((reason: 'tower' | 'wave') => void) | null;
   let status: RelocationStatusService;
   let relocation: MapRelocationService;
+  let corridor: CorridorBuild;
   let host: RelocationHost;
   /** What the move wrote to the console, warnings and plain lines in their order. */
   let logged: string[];
@@ -60,14 +62,25 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
     frames.clear();
     for (const callback of due) callback(clock);
   };
+  /** The promise chains a frame resolved. */
+  const settle = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+  };
   const lines = (): string[] => logged;
+  const lineIndex = (pattern: RegExp) => lines().findIndex((l) => pattern.test(l));
 
-  /** A click in map placement mode on the HQ spot; the hint paints first (two frames). */
-  const moveHq = async () => {
-    const moving = relocation.applyPlacementClick(host);
-    runFrame();
-    runFrame();
-    await moving;
+  /** A click in map placement mode on the HQ spot; the hint paints first (two frames), the build runs over the next. */
+  const startMove = () => {
+    const move = { done: false, promise: Promise.resolve() };
+    move.promise = relocation.applyPlacementClick(host).finally(() => { move.done = true; });
+    return move;
+  };
+  /** Frames until `until` holds, at most `limit`. */
+  const framesUntil = async (until: () => boolean, limit = 1000) => {
+    for (let i = 0; i < limit && !until(); i++) {
+      runFrame();
+      await settle();
+    }
   };
 
   beforeEach(() => {
@@ -90,7 +103,10 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
       setOrigin: vi.fn(),
       getOverlayGroup: () => overlay,
       getTerrainHeightAtGeo: () => 0,
+      // No 3D tiles: the build measures on what the fake terrain answers
+      tilesLodDebug: () => null,
       terrain: {
+        clearHeightCache: vi.fn(),
         measureStreetClearance: (_x: number, _z: number, _ax: number, _az: number, heights: readonly number[]): StationProbe => {
           clock += 1.7;
           const free = heights.map(() => 5.2);
@@ -115,8 +131,6 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
       UIStore: { routesVisible: () => false },
       PathfindingWorkerService: { isWorkerAvailable: false, dispose: () => undefined },
       GlobalRouteGridService: { isInitialized: () => false, getGroundLocalYAt: () => null },
-      // RelocationStatusService's
-      NgZone: { runOutsideAngular: (fn: () => unknown) => fn() },
       // MapRelocationService's
       OsmStreetService: { findPath: () => [SPAWN, HQ], findRandomStreetPoint: () => null, haversineDistance: () => 0 },
       MarkerVisualizationService: { clearAllMarkers: vi.fn(), clearSpawnMarkers: vi.fn(), addBaseMarker: vi.fn() },
@@ -134,36 +148,32 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
     di.stubs['RelocationStatusService'] = status;
     relocation = new MapRelocationService();
 
-    // The game: towers, enemies (Enemy Debug places them idle, no wave) and the corridor lock
+    // The game: towers, enemies (Enemy Debug places them idle, no wave)
     game = { towers: 0, enemies: 0, phase: 'setup' };
-    lockCorridor = null;
     const grid = {
-      clear: vi.fn(),
-      updateTerrainHeights: vi.fn(),
       getStats: () => ({ totalCells: 0 }),
+      snapshotHeights: () => new Map(),
+      cellsWithoutHeight: () => 0,
+      retryUnsampledCells: () => ({ promoted: 0 }),
       initSpatialGridVisualizationIfEnabled: vi.fn(),
       initAirSpatialGridVisualizationIfEnabled: vi.fn(),
       initAirRouteLayerIfEnabled: vi.fn(),
     };
-    const controller = new CorridorController({
+    corridor = new CorridorBuild({
       gameState: () => ({
         towerCount: () => game.towers,
         enemyManager: { getAliveCount: () => game.enemies },
         waveManager: { phase: () => game.phase },
         getGlobalRouteGrid: () => grid,
         rebuildRouteCells: vi.fn(),
-        // GameStateManager calls it right before a tower is placed (TowerLifecycle) or a wave starts
-        setBeforeCorridorLock: (hook: ((reason: 'tower' | 'wave') => void) | null) => { lockCorridor = hook; },
       }),
       engineInit: { getEngine: () => engine },
-      introFlight: { isRunning: () => false },
       pathRoute,
       routeAnimation: { isRunning: () => false, startAnimation: vi.fn() },
       store: { spawnPoints: store.spawnPoints },
-      // The hint of the move: the run measures in the larger slices while it stands
-      relocationStatus: status,
-    } as unknown as CorridorControllerDeps);
-    controller.attach();
+      nextFrame: () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+      now: () => clock,
+    } as unknown as CorridorBuildDeps);
 
     const initRoutes = () =>
       pathRoute.initialize(engine, network, store.baseCoords(), (() => false) as never, new OsmStreetService(), null);
@@ -180,7 +190,7 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
       }) as never,
       vizCallbacks: () => ({
         initializeVisualizationServices: initRoutes,
-        fitCorridorToTiles: () => controller.fitToTiles(),
+        buildCorridor: (reason, report) => corridor.build(reason, report),
         initializeTowerPlacement: vi.fn(),
         filterStreetNetworkToRoutes: vi.fn(),
         scheduleOverlayHeightUpdate: vi.fn(),
@@ -200,54 +210,51 @@ describe('Moving the HQ while the corridor is measured (playtest 543)', () => {
   });
 
   afterEach(() => {
+    corridor.dispose();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it('a tower built during the measurement: hint gone at once, "flushed=tower", then "ended=commit"', async () => {
-    await moveHq();
-    expect(status.status()).toMatchObject({ title: 'Moving HQ', step: MEASURING_STEP });
-    runFrame();
+  it('builds the corridor under the hint, towers and waves wait until it is frozen, then "ended=frozen"', async () => {
+    const move = startMove();
+    await framesUntil(() => status.status()?.percent !== undefined && status.status()?.percent !== null);
+    expect(status.status()).toMatchObject({ title: 'Moving HQ', step: 'Measuring the corridor' });
     const measuring = status.status()!.percent!;
     expect(measuring).toBeGreaterThan(0);
     expect(measuring).toBeLessThan(100);
+    // What GameStateManager.corridorPending reads: no tower, no wave meanwhile
+    expect(corridor.pending()).toBe(true);
 
-    // Build: the corridor lock comes first, then the tower stands
-    lockCorridor!('tower');
-    game.towers = 1;
-    const flushed = lines().findIndex((l) => /^\[Corridor\] clearance: .* flushed=tower$/.test(l));
-    expect(flushed).toBeGreaterThanOrEqual(0);
+    // An enemy placed through Enemy Debug meanwhile changes nothing of the build
+    game.enemies = 1;
+    await framesUntil(() => move.done);
+    await move.promise;
 
-    runFrame();
     expect(status.status()).toBeNull();
-    const done = lines().findIndex((l) => l.startsWith('[Relocation] HQ done:'));
-    expect(lines()[done]).toMatch(/ ended=commit$/);
-    expect(done).toBeGreaterThan(flushed);
+    expect(corridor.pending()).toBe(false);
+    const built = lineIndex(/^\[Corridor\] build: reason=HQ moved in place /);
+    const done = lineIndex(/^\[Relocation\] HQ done:/);
+    expect(built).toBeGreaterThanOrEqual(0);
+    expect(lines()[done]).toMatch(/ ended=frozen$/);
+    expect(done).toBeGreaterThan(built);
     expect(lines().some((l) => l.startsWith('[Corridor] clearance cancelled'))).toBe(false);
   });
 
-  it('a zombie placed through Enemy Debug during the measurement: hint gone, "cancelled (enemies are on the map)", "ended=cancel"', async () => {
-    // A move before, its tower sold
-    await moveHq();
-    lockCorridor!('tower');
-    runFrame();
-    game.towers = 0;
-    logged.length = 0;
+  it('a second move while the first builds stops the first, "ended=stopped", and builds its own', async () => {
+    const first = startMove();
+    await framesUntil(() => status.status()?.step === 'Measuring the corridor');
 
-    await moveHq();
-    runFrame();
-    expect(status.status()).toMatchObject({ step: MEASURING_STEP });
+    const second = startMove();
+    await framesUntil(() => first.done && second.done);
+    await Promise.all([first.promise, second.promise]);
 
-    // debug:spawn-enemy puts it idle on the route; no wave starts
-    game.enemies = 1;
-    runFrame();
-    runFrame();
-
+    const done = lines().filter((l) => l.startsWith('[Relocation] HQ done:'));
+    expect(done).toHaveLength(2);
+    expect(done[0]).toMatch(/ ended=stopped$/);
+    expect(done[1]).toMatch(/ ended=frozen$/);
+    expect(lines().filter((l) => l.startsWith('[Corridor] build:'))).toHaveLength(1);
+    // The first move's end took the second move's hint not away before its time
     expect(status.status()).toBeNull();
-    const cancelled = lines().findIndex((l) => /^\[Corridor\] clearance cancelled \(enemies are on the map\): /.test(l));
-    expect(cancelled).toBeGreaterThanOrEqual(0);
-    const done = lines().findIndex((l) => l.startsWith('[Relocation] HQ done:'));
-    expect(lines()[done]).toMatch(/ ended=cancel$/);
-    expect(done).toBeGreaterThan(cancelled);
+    expect(corridor.pending()).toBe(false);
   });
 });

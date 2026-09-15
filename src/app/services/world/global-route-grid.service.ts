@@ -357,6 +357,11 @@ export class GlobalRouteGridService {
     return this.grid.snapshotHeights();
   }
 
+  /** Cells without a height, see GlobalRouteGrid.cellsWithoutHeight. */
+  cellsWithoutHeight(): number {
+    return this.grid.cellsWithoutHeight();
+  }
+
   /**
    * Create visualization mesh
    */

@@ -16,8 +16,6 @@ export interface RouteGridConvergenceDeps {
   pathRoute: Pick<PathAndRouteService, 'refreshRouteLines' | 'getCachedPaths'>;
   markerViz: Pick<MarkerVisualizationService, 'updateMarkerHeights'>;
   routeAnimation: Pick<RouteAnimationService, 'isRunning' | 'startAnimation'>;
-  /** The loop has ended: a tile batch has settled (CorridorController.remeasure). */
-  settled: () => void;
 }
 
 /**
@@ -176,9 +174,6 @@ export class RouteGridConvergence {
           this.bakedRefreshPending = false;
           this.scheduleBakedHeightRefresh();
         }
-        // The batch has settled: corridor stations that were still on coarse
-        // tiles may have fine ones now (CorridorRefit.remeasure).
-        this.deps.settled();
       }, trigger);
     };
 

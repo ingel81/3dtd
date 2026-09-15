@@ -42,7 +42,7 @@ import { extendPathToOptimalTurnoff, leavePathForBase, subdivideGeoPath } from '
 import { UIStore } from '../../store/ui.store';
 import { PathfindingWorkerService } from '../location/pathfinding-worker.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
-import type { CorridorMeasurement } from './corridor-refit';
+import type { CorridorMeasurement } from './corridor-build';
 import { RouteWayRun, describeRouteWays, describeStreetTags } from './route-way-report';
 import { RouteLineLayer } from './route-line-layer';
 import { corridorTrace, countLod, emptyLod, formatLod } from '../../utils/corridor-trace';
@@ -136,16 +136,6 @@ function cappedStations(caps: ReadonlyMap<string, WalkCaps>): number {
 function sameNumbers(a: readonly number[] | undefined, b: readonly number[]): boolean {
   if (!a) return b.every(Number.isNaN);
   return a.length === b.length && a.every((value, k) => Object.is(value, b[k]));
-}
-
-/** The same walk caps on the same segments, for the corridor trace. */
-function sameCaps(a: ReadonlyMap<string, WalkCaps>, b: ReadonlyMap<string, WalkCaps>): boolean {
-  if (a.size !== b.size) return false;
-  for (const [key, caps] of b) {
-    const was = a.get(key);
-    if (!was || !sameNumbers(was.left, caps.left) || !sameNumbers(was.right, caps.right)) return false;
-  }
-  return true;
 }
 
 /** The detours and passages of `plans`, for the corridor trace. */
@@ -359,11 +349,11 @@ export class PathAndRouteService {
    */
   private walkBySegment = new Map<string, WalkCaps>();
 
-  /**
-   * The latest clearance measurement, see beginClearanceMeasurement: under
-   * way while it is open, kept once it ended so clearanceEnding() can tell how.
-   */
+  /** The latest clearance measurement, see beginClearanceMeasurement; under way while it is open. */
   private clearanceRun: ClearanceRun | null = null;
+
+  /** Bumped whenever the routes are replaced, see routesEpoch. */
+  private epoch = 0;
 
   /** 3D route lines for visualization */
   private readonly routeLines = new RouteLineLayer();
@@ -412,6 +402,7 @@ export class PathAndRouteService {
     this.edgeIndex = null;
     this.underpassIndex = null;
     this.streetRoutes.clear();
+    this.epoch++;
     this.cancelClearanceRun('location changed');
     this.clearanceBySegment.clear();
     this.walkBySegment.clear();
@@ -477,7 +468,18 @@ export class PathAndRouteService {
     this.cachedPaths.clear();
     this.hasRoutes.set(false);
     this.streetRoutes.clear();
+    this.epoch++;
     this.cancelClearanceRun('routes replaced');
+  }
+
+  /**
+   * Bumped whenever the routes are replaced: a location change, a move of HQ
+   * or spawn, DevWorld regenerating (clearCache, initialize, dispose). A
+   * corridor build of the routes before stops at its next frame
+   * (CorridorBuild). Building the routes again does not bump it.
+   */
+  routesEpoch(): number {
+    return this.epoch;
   }
 
   /**
@@ -968,27 +970,53 @@ export class PathAndRouteService {
   }
 
   /**
-   * Stations of the routes in use that the last measurement could not take
-   * because their tile was missing or still coarser than `maxTileError`,
-   * which a later run may. Segments of a route that was replaced (a spawn
-   * moved) do not count. DevWorld has none: there is nothing to measure
-   * there.
+   * Stations of the routes in use the measurement could not take: no tile
+   * under them, a tile coarser than `maxTileError`, no column at the bridge
+   * end. The corridor build measures them once more on the fallback level
+   * (CorridorBuild); what is left keeps the street width. Segments shared by
+   * two routes count once, segments of a route that was replaced (a spawn
+   * moved) not at all. DevWorld has none: there is nothing to measure there.
    */
-  hasUnmeasuredStations(): boolean {
+  unmeasuredStations(): number {
+    const seen = new Set<string>();
+    let count = 0;
     for (const { base: { points } } of this.streetRoutes.values()) {
       for (let i = 0; i < points.length - 1; i++) {
-        const probes = this.clearanceBySegment.get(segmentKey(points[i], points[i + 1]))?.probes;
-        if (probes?.some((probe) => probe !== null && probe.unmeasured !== null)) return true;
+        const key = segmentKey(points[i], points[i + 1]);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const probes = this.clearanceBySegment.get(key)?.probes ?? [];
+        for (const probe of probes) if (probe !== null && probe.unmeasured !== null) count++;
       }
     }
-    return false;
+    return count;
+  }
+
+  /**
+   * Forget the walk caps and detours: a corridor build (CorridorBuild) takes
+   * them from the grids it builds, from nothing, whatever camera or earlier
+   * build came before. Within a build the caps only narrow.
+   */
+  resetWalkCaps(): void {
+    this.walkBySegment.clear();
+    this.detourPlans.clear();
+  }
+
+  /**
+   * The walk caps and detours in use as one string: the corridor build
+   * (CorridorBuild) tells by it whether its passes came back to a state they
+   * had, which only a detour plan flipping back and forth can bring about.
+   */
+  walkState(): string {
+    return JSON.stringify([[...this.walkBySegment], [...this.detourPlans]]);
   }
 
   /**
    * Narrow the corridor short of the cells of the grid in use an enemy
    * could not walk to (walkCapsWithGrid). True when that changes a
    * corridor: routes and cells then need a rebuild, after which the new
-   * grid is asked again (CorridorController.rebuildCorridors).
+   * grid is asked again (CorridorBuild.build). The caps only narrow until
+   * resetWalkCaps; the detours are planned anew each time.
    */
   narrowToWalkable(): boolean {
     const merged = this.walkCapsWithGrid();
@@ -1010,32 +1038,6 @@ export class PathAndRouteService {
       });
     }
     return narrowed || replanned;
-  }
-
-  /**
-   * Whether narrowToWalkable would change a corridor now, without doing it:
-   * the grid has cells an enemy could not walk to that a narrower corridor
-   * would drop, typically ones a finer tile has shown since the last build,
-   * or its columns show other obstacles on a centre line than the detours
-   * and passages in use were planned for (detoursWithGrid). Cells no
-   * narrower corridor drops (the centre line runs through them) do not
-   * count. For CorridorRefit.remeasure.
-   */
-  hasUnwalkableCells(): boolean {
-    const plans = this.detoursWithGrid();
-    if (plans && plansKey(plans) !== plansKey(this.detourPlans)) {
-      if (corridorTrace.enabled) corridorTrace.log('pending.unwalkable', { by: 'detourPlans', plans: planSummary(plans) });
-      return true;
-    }
-    const merged = this.walkCapsWithGrid();
-    if (!merged) return false;
-    const kept = this.walkBySegment;
-    const before = this.fittedCorridors();
-    this.walkBySegment = merged;
-    const after = this.fittedCorridors();
-    this.walkBySegment = kept;
-    if (after !== before && corridorTrace.enabled) corridorTrace.log('pending.unwalkable', { by: 'walkCaps', capped: cappedStations(merged) });
-    return after !== before;
   }
 
   /**
@@ -1294,7 +1296,7 @@ export class PathAndRouteService {
    * the measurements cancels the run, and so does starting another.
    *
    * The grid is rebuilt from the result, so it must not run under placed
-   * towers (CorridorRefit).
+   * towers (CorridorBuild).
    */
   beginClearanceMeasurement(): CorridorMeasurement {
     this.cancelClearanceRun('superseded');
@@ -1388,16 +1390,16 @@ export class PathAndRouteService {
   }
 
   /**
-   * Hand what a finished run measured to the corridor, and where the grid
-   * in use shows cells an enemy could not walk to (walkCapsWithGrid); true
-   * when that changes a corridor.
+   * Hand what a finished run measured to the corridor; true when that
+   * changes a corridor. The walk caps and detours come from the grids of the
+   * corridor build afterwards (narrowToWalkable), not from the grid in use.
    */
   private storeClearance(segments: readonly ClearanceSegment[]): boolean {
     const t0 = corridorTrace.enabled ? performance.now() : 0;
     const before = this.fittedCorridors();
     // For the corridor trace, without another fit of the corridors: whether
-    // the run brought free space the corridor did not have (below: whether
-    // the grid gave other walk caps). Whether a width changed says `changed`.
+    // the run brought free space the corridor did not have. Whether a width
+    // changed says `changed`.
     const measured = corridorTrace.enabled && segments.some(({ key, left, right }) => {
       const known = this.clearanceBySegment.get(key);
       return !sameNumbers(known?.left, left) || !sameNumbers(known?.right, right);
@@ -1408,23 +1410,10 @@ export class PathAndRouteService {
     for (const { key, left, right, probes } of segments) {
       this.clearanceBySegment.set(key, { left, right, probes });
     }
-    const capsBefore = this.walkBySegment;
-    this.walkBySegment = this.walkCapsWithGrid() ?? this.walkBySegment;
-    // The room beside an obstacle on a centre line comes from the rays as well.
-    const plansBefore = plansKey(this.detourPlans);
-    this.detourPlans = this.detoursWithGrid() ?? this.detourPlans;
-    const replanned = plansKey(this.detourPlans) !== plansBefore;
-    const changed = this.fittedCorridors() !== before || replanned;
+    const changed = this.fittedCorridors() !== before;
     if (corridorTrace.enabled) {
-      const by: string[] = [];
-      if (measured) by.push('measured');
-      if (!sameCaps(capsBefore, this.walkBySegment)) by.push('walkCaps');
-      if (replanned) by.push('detourPlans');
-      corridorTrace.noteChange(by);
-      corridorTrace.log('store', {
-        changed, by: by.join('+') || 'none', segments: segments.length,
-        capped: cappedStations(this.walkBySegment), plans: planSummary(this.detourPlans), ms: performance.now() - t0,
-      });
+      corridorTrace.noteChange(measured ? ['measured'] : []);
+      corridorTrace.log('store', { changed, by: measured ? 'measured' : 'none', segments: segments.length, ms: performance.now() - t0 });
     }
     return changed;
   }
@@ -1432,28 +1421,6 @@ export class PathAndRouteService {
   /** Cancel the clearance measurement under way, if any; nothing of it is stored. */
   private cancelClearanceRun(reason: string): void {
     this.clearanceRun?.cancel(reason);
-  }
-
-  /**
-   * How far the clearance measurement under way is: stations tried and
-   * stations it set out to measure. Null when none is open (never begun,
-   * committed, cancelled or replaced). For the hint while the HQ moves
-   * (RelocationStatusService).
-   */
-  clearanceProgress(): { done: number; total: number } | null {
-    const run = this.clearanceRun;
-    return run?.open ? run.progress : null;
-  }
-
-  /**
-   * How the latest clearance measurement ended: 'commit' when it handed its
-   * stations to the corridor, 'cancel' when it was dropped (routes
-   * replaced, location changed, a blocker in CorridorRefit). Null while it
-   * is open and before the first. For the log of a move
-   * (MapRelocationService).
-   */
-  clearanceEnding(): ClearanceEnding | null {
-    return this.clearanceRun?.ending ?? null;
   }
 
   /**
@@ -1520,6 +1487,7 @@ export class PathAndRouteService {
   dispose(): void {
     this.cancelClearanceRun('disposed');
     this.clearRouteLines();
+    // Bumps the routes epoch as well.
     this.clearCache();
     this.pathfindingWorker.dispose();
     this.engine = null;
@@ -1536,9 +1504,6 @@ export class PathAndRouteService {
     this.onRouteBuilt = null;
   }
 }
-
-/** How a clearance measurement ended, see PathAndRouteService.clearanceEnding. */
-export type ClearanceEnding = 'commit' | 'cancel';
 
 /** What the corridor in use is made of, see PathAndRouteService.corridorState. */
 export interface CorridorState {
@@ -1604,7 +1569,7 @@ class ClearanceRun implements CorridorMeasurement {
   private busyMs = 0;
   private readonly startedAt = performance.now();
   /** How the run ended; null while it is open. */
-  private end: ClearanceEnding | null = null;
+  private end: 'commit' | 'cancel' | null = null;
   /** Local "x,z" of the stations that found no tile, not even beside themselves, for the log. */
   private readonly noTile: string[] = [];
   /** Positions of stations without a tile the log names; the rest it counts. */
@@ -1638,10 +1603,6 @@ class ClearanceRun implements CorridorMeasurement {
     return this.end === null;
   }
 
-  get ending(): ClearanceEnding | null {
-    return this.end;
-  }
-
   /** Stations tried so far and the stations the run set out to measure. */
   get progress(): { done: number; total: number } {
     return { done: this.probed, total: this.planned };
@@ -1670,7 +1631,7 @@ class ClearanceRun implements CorridorMeasurement {
     return this.next() === null;
   }
 
-  commit(flushedBy?: string): boolean {
+  commit(): boolean {
     if (this.end) return false;
     this.end = 'commit';
     const start = performance.now();
@@ -1683,17 +1644,16 @@ class ClearanceRun implements CorridorMeasurement {
         `[Corridor] clearance: segments=${this.segments.length} stations=${this.probed} unmeasured=${this.unmeasured} ` +
         `(coarse tile ${this.coarse}) rays=${rays} changed=${changed} ` +
         `in ${this.busyMs.toFixed(1)}ms slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms` +
-        (flushedBy ? ` flushed=${flushedBy}` : '') +
         (this.noTile.length > 0 ? ` noTile=${this.noTileList()}` : ''),
       );
     }
-    // A run without segments too: its commit takes the walk caps and detour plans of the grid in use.
+    // A run without segments too, for the trace: the build asked and there was nothing left to measure.
     if (corridorTrace.enabled) {
       corridorTrace.noteChange([], rays);
       corridorTrace.log('clearance.commit', {
         segments: this.segments.length, stations: this.probed, unmeasured: this.unmeasured, coarse: this.coarse, rays, changed,
         lod: formatLod(this.lod), ...this.sliceStats(), busyMs: this.busyMs,
-        wallMs: performance.now() - this.startedAt, flushed: flushedBy,
+        wallMs: performance.now() - this.startedAt,
       });
       corridorTrace.cost('clearance.commit', storeMs);
     }

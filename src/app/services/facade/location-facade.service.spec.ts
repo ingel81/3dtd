@@ -225,7 +225,7 @@ describe('LocationFacadeService', () => {
       reframeCameraWithRoutes: vi.fn(),
       renderStreets: vi.fn(),
       saveInitialCameraPosition: vi.fn(),
-      fitCorridorToTiles: vi.fn(),
+      buildCorridor: vi.fn(async () => ({ stations: 0, unmeasured: 0, passes: 1, timedOut: false, fallbackStations: 0, fallbackCells: 0, cells: 0, ms: 0 })),
     };
 
     const injector = Injector.create({
@@ -248,7 +248,10 @@ describe('LocationFacadeService', () => {
         // The hint while the HQ moves; map-relocation.service.spec.ts covers it
         {
           provide: RelocationStatusService,
-          useValue: { show: vi.fn(), clear: vi.fn(), painted: vi.fn(async () => undefined), followCorridor: vi.fn() },
+          useValue: {
+            show: vi.fn(), clear: vi.fn(), painted: vi.fn(async () => undefined),
+            follow: vi.fn(() => ({ report: vi.fn(), end: vi.fn() })),
+          },
         },
         { provide: TowerPlacementService, useValue: {} },
         { provide: MatDialog, useValue: dialog },
@@ -727,11 +730,13 @@ describe('LocationFacadeService', () => {
         expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
       });
 
-      it('fits the corridor of the rebuilt routes once their grid stands', async () => {
+      it('builds the corridor of the rebuilt routes once their grid stands, then starts the route animation', async () => {
         await click('hq', INSIDE);
-        expect(vizCallbacks.fitCorridorToTiles).toHaveBeenCalledTimes(1);
+        expect(vizCallbacks.buildCorridor).toHaveBeenCalledTimes(1);
         expect(gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0])
-          .toBeLessThan(vizCallbacks.fitCorridorToTiles.mock.invocationCallOrder[0]);
+          .toBeLessThan(vizCallbacks.buildCorridor.mock.invocationCallOrder[0]);
+        expect(vizCallbacks.buildCorridor.mock.invocationCallOrder[0])
+          .toBeLessThan(routeAnimation.startAnimation.mock.invocationCallOrder[0]);
       });
     });
 
@@ -804,18 +809,21 @@ describe('LocationFacadeService', () => {
     });
 
     describe('spawn', () => {
-      it('fits the corridor of the new route once its grid stands', async () => {
+      it('builds the corridor of the new route once its grid stands, then starts the route animation', async () => {
         facade.initializeCoordinator(vizCallbacks as unknown as VizCallbacks);
         store.spawnPoints.set([OLD_SPAWN]);
 
         await click('spawn', INSIDE);
 
-        expect(vizCallbacks.fitCorridorToTiles).toHaveBeenCalledTimes(1);
+        expect(vizCallbacks.buildCorridor).toHaveBeenCalledTimes(1);
         expect(gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0])
-          .toBeLessThan(vizCallbacks.fitCorridorToTiles.mock.invocationCallOrder[0]);
+          .toBeLessThan(vizCallbacks.buildCorridor.mock.invocationCallOrder[0]);
+        expect(vizCallbacks.buildCorridor.mock.invocationCallOrder[0])
+          .toBeLessThan(routeAnimation.startAnimation.mock.invocationCallOrder[0]);
       });
 
       it('replaces the spawn in place when it has a route to the HQ', async () => {
+        facade.initializeCoordinator(vizCallbacks as unknown as VizCallbacks);
         store.spawnPoints.set([OLD_SPAWN]);
 
         await click('spawn', INSIDE);

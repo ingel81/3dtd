@@ -60,7 +60,7 @@ import { DevWorldService } from '../devworld/devworld.service';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
-import { RouteCorridorRegion, type RegionLodState, type RegionTile } from './route-corridor-region';
+import { ROUTE_CORRIDOR_ERROR_TARGET, RouteCorridorRegion, type RegionLodState, type RegionTile } from './route-corridor-region';
 import { SettleHold, type TilesLodDebug, createTilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
 import { warmUpScene } from './scene-warmup';
@@ -76,17 +76,11 @@ import type { GeoPosition } from '../models/game.types';
  * reaches past the 7 m cell corridor; tile bounding spheres add their radius.
  */
 const ROUTE_CORRIDOR_HALF_WIDTH = 20;
-/**
- * Geometric error in metres the corridor refines to. The camera's 20 px budget
- * reaches about 9 m at 400 m distance, so 5 m is one LOD step finer than what
- * the player sees up close. Tune against the route grid's `err=` log.
- */
-const ROUTE_CORRIDOR_ERROR_TARGET = 5;
 
 /**
  * Top of the LOD debug color scale, in metres of geometric error. The auto
  * scale spans the whole hierarchy up to the root's kilometres and paints every
- * loaded tile the same black. At 20 m, the 5 m corridor tiles read dark.
+ * loaded tile the same black. At 20 m, the 2.5 m corridor tiles read dark.
  */
 const TILE_LOD_DEBUG_MAX_ERROR = 20;
 

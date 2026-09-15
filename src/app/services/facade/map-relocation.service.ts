@@ -32,6 +32,9 @@ export interface RelocationHost {
 /** Title of the hint over the map while the HQ moves */
 const MOVING_HQ = 'Moving HQ';
 
+/** Title of the hint over the map while the spawn moves */
+const MOVING_SPAWN = 'Moving spawn';
+
 /**
  * Moves the HQ or the spawn to where the player clicked in map placement
  * mode. Inside the loaded street network the world is rebuilt in place (no
@@ -161,21 +164,21 @@ export class MapRelocationService {
    * Calls engine.setOrigin() to update coordinate system, then rebuilds
    * markers, paths, and game state without loading screen or street reload.
    *
-   * Everything up to the corridor fit runs in one go on the main thread;
+   * Everything up to the corridor build runs in one go on the main thread;
    * `[Relocation] HQ in place:` logs how long each step took (StepTimes):
    * reset, clear, services, paths (A* from the kept spawn to the new HQ),
    * route (the spawn's route: A* again, turn-off, corridor fit, line),
    * random (a new spawn when none is kept: up to 50 A* runs, and its
    * route), state, grid (cells and their first height sample), placement,
-   * streets, camera, rest, corridor (the first slice of the measurement,
-   * whose remainder runs over the next frames and logs `[Corridor]
-   * clearance`).
+   * streets, camera, rest, corridor (the start of the corridor build, which
+   * runs over the next frames and logs `[Corridor] build`).
    *
    * A hint over the map says so (RelocationStatusService): shown and
-   * painted before the work, then the corridor measurement in percent
-   * until it is done; `[Relocation] HQ done:` sums up the whole wait and
-   * says how the measurement ended (`ended=commit|cancel`). A step that
-   * throws takes the hint away and passes the error on.
+   * painted before the work, then the steps of the corridor build until it
+   * has frozen the corridor; `[Relocation] HQ done:` sums up the whole wait
+   * and says how the build ended (`ended=frozen|stopped`). The route
+   * animation starts on the frozen routes. A step that throws takes the hint
+   * away and passes the error on.
    */
   private async applyHqInPlace(lat: number, lon: number, host: RelocationHost): Promise<void> {
     if (!this.inPlaceContext(host)) return;
@@ -192,12 +195,14 @@ export class MapRelocationService {
     const { ctx, engine, streetNetwork, vizCallbacks } = context;
     const { bridge, gameState } = ctx;
     const workStart = performance.now();
+    // The corridor build puts its steps on the hint shown above.
+    const hint = this.relocationStatus.follow();
     // A step that throws leaves the world half rebuilt, as it did before
     // the hint; the hint goes with it instead of standing until the next move.
     try {
       const times = new StepTimes([
         'reset', 'clear', 'services', 'paths', 'route', 'random', 'state', 'grid',
-        'placement', 'streets', 'camera', 'rest', 'corridor',
+        'placement', 'streets', 'camera', 'rest',
       ]);
       let spawnFrom: 'old' | 'random' | 'none' = 'none';
 
@@ -295,20 +300,9 @@ export class MapRelocationService {
       );
       host.syncUrlWithLocation();
 
-      // 14. Start route animation
-      const cachedPaths = this.pathRoute.getCachedPaths();
-      if (cachedPaths.size > 0) {
-        this.routeAnimation.startAnimation(cachedPaths, spawns);
-      }
-
-      // 15. Update map placement dependencies
+      // 14. Update map placement dependencies
       this.mapPlacement.updateDependencies(streetNetwork, { lat, lon });
       times.lap('rest');
-
-      // 16. Fit the corridor to the tiles: the route service started over at
-      // step 6, the routes run with the street widths until it is measured.
-      vizCallbacks.fitCorridorToTiles();
-      times.lap('corridor');
 
       console.warn(`[Relocation] HQ in place: ${times} spawnFrom=${spawnFrom} spawns=${spawns.length}`);
     } catch (error) {
@@ -316,20 +310,28 @@ export class MapRelocationService {
       throw error;
     }
 
-    // The measurement runs over the next frames and rebuilds routes and
-    // cells at its end; the hint shows it in percent until then.
+    // The corridor of the new routes: the route service started over at step
+    // 6. The build loads the tiles, measures and builds routes and cells over
+    // the next frames; the hint shows its steps until then. The route
+    // animation starts on the routes it froze.
     const workEnd = performance.now();
-    this.relocationStatus.followCorridor(
-      () => this.pathRoute.clearanceProgress(),
-      () => {
-        const end = performance.now();
-        const ms = (from: number, to: number) => (to - from).toFixed(1);
-        console.warn(
-          `[Relocation] HQ done: paint=${ms(clickedAt, workStart)} work=${ms(workStart, workEnd)} ` +
-          `corridor=${ms(workEnd, end)} total=${ms(clickedAt, end)}ms ended=${this.pathRoute.clearanceEnding() ?? 'none'}`,
-        );
-      },
+    const result = await vizCallbacks.buildCorridor('HQ moved in place', hint.report);
+    hint.end();
+    if (result) this.startRouteAnimation();
+    const end = performance.now();
+    const ms = (from: number, to: number) => (to - from).toFixed(1);
+    console.warn(
+      `[Relocation] HQ done: paint=${ms(clickedAt, workStart)} work=${ms(workStart, workEnd)} ` +
+      `corridor=${ms(workEnd, end)} total=${ms(clickedAt, end)}ms ended=${result ? 'frozen' : 'stopped'}`,
     );
+  }
+
+  /** Start the route animation on the routes in use, if there are any. */
+  private startRouteAnimation(): void {
+    const cachedPaths = this.pathRoute.getCachedPaths();
+    if (cachedPaths.size > 0) {
+      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
+    }
   }
 
   /** What a move in place needs from the host, null while any of it is missing. */
@@ -398,15 +400,16 @@ export class MapRelocationService {
     // 7. Update map placement service dependencies
     this.mapPlacement.updateDependencies(streetNetwork, hq);
 
-    // 8. Start route animation
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
-    }
-
-    // 9. Fit the corridor of the new route to the tiles: its new segments
-    // run with the street widths until they are measured.
-    host.vizCallbacks()?.fitCorridorToTiles();
+    // 8. Build the corridor of the new route under a hint, as for the HQ;
+    // segments it shares with the old route keep their measurement. The
+    // route animation starts on the routes it froze.
+    const viz = host.vizCallbacks();
+    if (!viz) return;
+    this.relocationStatus.show(MOVING_SPAWN, 'Finding the route');
+    const hint = this.relocationStatus.follow();
+    const result = await viz.buildCorridor('spawn moved in place', hint.report);
+    hint.end();
+    if (result) this.startRouteAnimation();
   }
 
   /**

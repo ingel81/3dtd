@@ -33,7 +33,7 @@ vi.mock('../../ai/core/dps-profile-visualizer', () => ({
 }));
 
 import { VisualizationFacadeService } from './visualization-facade.service';
-import { CorridorRefit } from '../world/corridor-refit';
+import { CorridorBuild } from '../world/corridor-build';
 import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
 import { CameraControlService, type CameraView } from '../camera-control.service';
@@ -44,7 +44,7 @@ import { TowerPlacementService } from '../tower-placement.service';
 import { AbilityTargetingService } from '../ability-targeting.service';
 import { HeroControlService } from '../hero-control.service';
 import { MapPlacementService } from '../world/map-placement.service';
-import { MEASURING_STEP, RelocationStatusService } from '../world/relocation-status.service';
+import { RelocationStatusService } from '../world/relocation-status.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -107,6 +107,7 @@ describe('VisualizationFacadeService', () => {
     let left = corridor.slices;
     const run = {
       open: true,
+      get progress() { return { done: corridor.slices - left, total: corridor.slices }; },
       step: vi.fn(() => !run.open || --left <= 0),
       commit: vi.fn(() => {
         const changed = run.open && corridor.changed;
@@ -128,8 +129,10 @@ describe('VisualizationFacadeService', () => {
   const engine = {
     getScene: () => scene,
     towers: { setShowShootHeight: vi.fn(), applyDebugOverrides: vi.fn() },
-    terrain: { lodVersion: 0 },
+    terrain: { lodVersion: 0, clearHeightCache: vi.fn() },
     routeCorridorLod: () => null,
+    // No 3D tiles here: the corridor build measures and builds without waiting for them
+    tilesLodDebug: () => null,
   };
   const canvas = { id: 'canvas' };
   const bridge = {
@@ -162,6 +165,8 @@ describe('VisualizationFacadeService', () => {
     initAirSpatialGridVisualizationIfEnabled: vi.fn(),
     initAirRouteLayerIfEnabled: vi.fn(),
     getStats: vi.fn(() => ({ totalCells: 42 })),
+    snapshotHeights: vi.fn(() => new Map()),
+    cellsWithoutHeight: vi.fn(() => 0),
     clear: vi.fn(),
     isInitialized: vi.fn(() => false),
     getGrid: vi.fn((): unknown => null),
@@ -181,7 +186,7 @@ describe('VisualizationFacadeService', () => {
     onTilesLoaded: vi.fn(),
     backgroundMusic: music,
     towerManager,
-    setBeforeCorridorLock: vi.fn(),
+    setCorridorPending: vi.fn(),
   };
 
   const osm = {
@@ -213,8 +218,10 @@ describe('VisualizationFacadeService', () => {
     refreshRouteLines: vi.fn(),
     toggleRouteLinesVisibility: vi.fn(),
     beginClearanceMeasurement: vi.fn(() => corridorRun()),
-    hasUnmeasuredStations: vi.fn(() => false),
-    hasUnwalkableCells: vi.fn(() => false),
+    routesEpoch: vi.fn(() => 1),
+    unmeasuredStations: vi.fn(() => 0),
+    resetWalkCaps: vi.fn(),
+    walkState: vi.fn(() => ''),
     narrowToWalkable: vi.fn(() => false),
     clearCorridorMeasurements: vi.fn(),
     explainCorridorAt: vi.fn(() => null),
@@ -316,6 +323,16 @@ describe('VisualizationFacadeService', () => {
       for (const callback of due) callback(0);
     }
   };
+  /** Frames, and the promise chains each resolves, until `promise` settles: the corridor build waits for frames. */
+  const untilDone = async <T>(promise: Promise<T>, limit = 100): Promise<T> => {
+    let done = false;
+    promise.then(() => { done = true; }, () => { done = true; });
+    for (let i = 0; i < limit && !done; i++) {
+      runFrames();
+      for (let j = 0; j < 10; j++) await Promise.resolve();
+    }
+    return promise;
+  };
 
   function create(): VisualizationFacadeService {
     const injector = Injector.create({
@@ -402,7 +419,6 @@ describe('VisualizationFacadeService', () => {
     cameraFraming.getLastFrame.mockReturnValue(null);
     cameraFraming.computeFrameWithEngine.mockReturnValue(FRAME);
     corridor = { slices: 1, changed: false, runs: [] };
-    pathRoute.hasUnmeasuredStations.mockReturnValue(false);
     cameraControl.toggleDebugFraming.mockReturnValue(true);
 
     store = {
@@ -736,94 +752,65 @@ describe('VisualizationFacadeService', () => {
       expect(cameraControl.saveInitialPosition).toHaveBeenCalledWith(VIEW);
     });
 
-    it('rebuilds routes and cells when the first corridor fit changes a width', async () => {
-      corridor.changed = true;
+    it('builds the corridor once the heights stop: measures, routes and cells until nothing narrows, then the line', async () => {
+      pathRoute.narrowToWalkable.mockReturnValueOnce(true);
 
-      await facade.scheduleOverlayHeightUpdate();
+      await untilDone(facade.scheduleOverlayHeightUpdate());
 
-      // The cells anew, without setting the tile region again.
-      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
+      expect(pathRoute.resetWalkCaps).toHaveBeenCalledTimes(1);
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+      // The cells anew in each pass, without setting the tile region again
+      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(2);
       expect(gameState.initializeGlobalRouteGrid).not.toHaveBeenCalled();
-      // Once for the routes, once more on the heights of the new cells.
-      expect(pathRoute.refreshRouteLines).toHaveBeenCalledTimes(2);
+      // Once per pass, once more on the heights of the final cells
+      expect(pathRoute.refreshRouteLines).toHaveBeenCalledTimes(3);
       expect(grid.initAirRouteLayerIfEnabled).toHaveBeenCalled();
+      // As a step of the loading screen
+      expect(engineInit.setStepCurrent).toHaveBeenCalledWith('corridor');
+      expect(engineInit.setStepDone).toHaveBeenCalledWith('corridor', '1 stations, 42 cells');
     });
 
-    it('does not rebuild when the fit changes nothing or towers stand', async () => {
-      await facade.scheduleOverlayHeightUpdate();
-      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
-      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
-
-      towerCount = 1;
-      corridor.changed = true;
-      await facade.scheduleOverlayHeightUpdate();
-      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
-      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
-    });
-
-    it('measures the corridor a slice per frame and rebuilds once it is done', async () => {
+    it('measures the corridor in slices of SLICE_MS, one a frame', async () => {
       corridor.slices = 3;
-      corridor.changed = true;
-
-      await facade.scheduleOverlayHeightUpdate();
-      expect(corridor.runs[0].step).toHaveBeenCalledTimes(1);
-      runFrames();
-      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
-      runFrames();
-
-      expect(corridor.runs[0].step).toHaveBeenCalledTimes(3);
+      await untilDone(facade.scheduleOverlayHeightUpdate());
+      expect(corridor.runs[0].step.mock.calls).toEqual([[CorridorBuild.SLICE_MS], [CorridorBuild.SLICE_MS], [CorridorBuild.SLICE_MS]]);
+      expect(engineInit.updateStepMeta).toHaveBeenCalledWith('corridor', 'Measuring the corridor 33 %');
       expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
-      expect(frames.size).toBe(0);
     });
 
-    it('drops a measurement under way on dispose', async () => {
+    it('has towers and waves wait from the start of the height update until the corridor is frozen', async () => {
+      const pending = gameState.setCorridorPending.mock.calls[0][0] as () => boolean;
+      expect(pending()).toBe(false);
+      let heightsDone!: () => void;
+      heightUpdate.scheduleOverlayHeightUpdate.mockImplementationOnce(() => new Promise<undefined>((resolve) => { heightsDone = () => resolve(undefined); }));
+
+      const loading = facade.scheduleOverlayHeightUpdate();
+      expect(pending()).toBe(true);
+      heightsDone();
+      await untilDone(loading);
+
+      expect(pending()).toBe(false);
+    });
+
+    it('drops the build under way on dispose', async () => {
       corridor.slices = 3;
-      corridor.changed = true;
-      await facade.scheduleOverlayHeightUpdate();
+      const loading = facade.scheduleOverlayHeightUpdate();
+      await untilDone(Promise.resolve());
 
       facade.dispose();
-      runFrames(3);
+      await untilDone(loading);
 
-      expect(corridor.runs[0].cancel).toHaveBeenCalledWith('disposed');
+      expect(corridor.runs[0].cancel).toHaveBeenCalledWith('superseded');
       expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
-      expect(frames.size).toBe(0);
     });
 
-    it('fits routes rebuilt in place the same way, under the same locks', () => {
-      corridor.slices = 2;
-      corridor.changed = true;
+    it('builds the corridor of routes rebuilt in place the same way, and hands its steps and result on', async () => {
+      const report = vi.fn();
+      const result = await untilDone(facade.buildCorridor('HQ moved in place', report));
 
-      facade.fitCorridorToTiles();
-      runFrames();
-      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ passes: 1, cells: 42 });
+      expect(report).toHaveBeenCalledWith({ step: 'Building the corridor', percent: null });
       expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
-
-      towerCount = 1;
-      facade.fitCorridorToTiles();
-      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
-    });
-
-    it('measures in the larger slices while the hint shows the measurement of a moving HQ', () => {
-      corridor.slices = 2;
-      relocationStatus.status.set({ title: 'Moving HQ', step: MEASURING_STEP, percent: 0 });
-
-      facade.fitCorridorToTiles();
-
-      expect(corridor.runs[0].step).toHaveBeenCalledWith(CorridorRefit.HURRIED_BUDGET_MS);
-    });
-
-    it('lets the game state finish a measurement under way before a tower or a wave', async () => {
-      corridor.slices = 3;
-      corridor.changed = true;
-      await facade.scheduleOverlayHeightUpdate();
-      const beforeLock = gameState.setBeforeCorridorLock.mock.calls[0][0] as (reason: string) => void;
-
-      beforeLock('tower');
-
-      expect(corridor.runs[0].step).toHaveBeenLastCalledWith(Infinity);
-      expect(corridor.runs[0].commit).toHaveBeenCalledWith('tower');
-      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
-      expect(frames.size).toBe(0);
     });
   });
 
@@ -851,6 +838,26 @@ describe('VisualizationFacadeService', () => {
       expect(engineInit.setStepDone).toHaveBeenCalledWith('flight', '95 % of the route');
       expect(engineInit.checkAllLoaded).toHaveBeenCalledTimes(1);
       expect(introFlight.prepare).toHaveBeenCalledTimes(1);
+    });
+
+    it('holds the loading screen while the corridor is built, and asks again at the end of the build', async () => {
+      introFlight.readiness.mockReturnValue(1);
+      let heightsDone!: () => void;
+      heightUpdate.scheduleOverlayHeightUpdate.mockImplementationOnce(() => new Promise<undefined>((resolve) => { heightsDone = () => resolve(undefined); }));
+      pathRoute.narrowToWalkable.mockReturnValueOnce(true);
+      const loading = facade.scheduleOverlayHeightUpdate();
+
+      // Tiles, streets and heights are there, the corridor is not
+      facade.checkAllLoaded();
+      expect(introFlight.prepare).not.toHaveBeenCalled();
+      expect(engineInit.checkAllLoaded).not.toHaveBeenCalled();
+
+      heightsDone();
+      await untilDone(loading);
+      // Its end asked again: the intro gate, then the end of loading
+      expect(introFlight.prepare).toHaveBeenCalledWith(cachedPaths);
+      expect(engineInit.checkAllLoaded).toHaveBeenCalled();
+      expect(introFlight.start).toHaveBeenCalledWith(cachedPaths);
     });
 
     it('lets the loading screen go at the timeout after the first tiles', () => {
@@ -1036,15 +1043,12 @@ describe('VisualizationFacadeService', () => {
       expect(grid.retryUnsampledCells).toHaveBeenCalledTimes(1);
     });
 
-    it('re-measures the corridor once a batch has settled', () => {
-      pathRoute.hasUnmeasuredStations.mockReturnValue(true);
-      corridor.changed = true;
-
+    it('measures and rebuilds nothing when a batch settles: the corridor stays as built', () => {
       facade.onTilesLoaded();
-      runFrames(2);
+      runFrames(5);
 
-      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
-      expect(gameState.rebuildRouteCells).toHaveBeenCalled();
+      expect(pathRoute.beginClearanceMeasurement).not.toHaveBeenCalled();
+      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
     });
 
     it('stops the loop on dispose', () => {
@@ -1230,8 +1234,8 @@ describe('VisualizationFacadeService', () => {
   describe('__corridor console API', () => {
     const api = () => (globalThis as Record<string, unknown>)['__corridor'] as {
       get: () => Record<string, unknown>;
-      set: (patch: object) => string;
-      reset: () => string;
+      set: (patch: object) => Promise<string>;
+      reset: () => Promise<string>;
       towerCells: (id?: string) => unknown;
       pick: (radius?: number) => string;
       report: () => string;
@@ -1247,13 +1251,20 @@ describe('VisualizationFacadeService', () => {
       expect(cellReport.disconnect).toHaveBeenCalledWith(source);
     });
 
-    it('refuses to change the corridor while towers stand or before a location is loaded', () => {
+    it('refuses to change the corridor while towers stand or before a location is loaded', async () => {
       towerCount = 1;
-      expect(api().set({ maxHalfWidth: 8 })).toBe('Not changed: towers stand on the map, sell them first.');
+      await expect(api().set({ maxHalfWidth: 8 })).resolves.toBe('Not changed: towers stand on the map, sell them first.');
       towerCount = 0;
       engineInit.getEngine.mockReturnValue(null);
-      expect(api().reset()).toBe('Not changed: no location loaded.');
+      await expect(api().reset()).resolves.toBe('Not changed: no location loaded.');
       expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
+    });
+
+    it('builds the corridor with the new settings and answers when it is frozen', async () => {
+      const answer = await untilDone(api().set({ bulgeLength: 9 }));
+      expect(answer).toBe('Corridor rebuilt: 42 cells. Widths per stretch: __routes.describe()');
+      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
+      await api().reset();
     });
 
     it('hands out a copy of the corridor config', () => {

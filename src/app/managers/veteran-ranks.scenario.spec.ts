@@ -158,7 +158,7 @@ describe('Tower veterans, playtest 347 to 351 and 404', () => {
       { spend: () => true } as never,
       m.eventBus,
       () => m.engine,
-      () => undefined,
+      () => false,
     );
     expect(lifecycle.upgrade(tower, 'damage')).toBe(true);
     expect(tower.getUpgradeLevel('damage')).toBe(1);

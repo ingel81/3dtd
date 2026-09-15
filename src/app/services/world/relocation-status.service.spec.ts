@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Injector, NgZone, runInInjectionContext } from '@angular/core';
-import { MEASURING_STEP, RelocationStatusService, StationProgress } from './relocation-status.service';
+import { Injector, runInInjectionContext } from '@angular/core';
+import { RelocationStatusService } from './relocation-status.service';
 
 /**
- * The hint while the HQ moves: a step, painted before the work that blocks
- * the main thread, then the corridor measurement in whole percent until it
- * ends.
+ * The hint while HQ or spawn move: a step, painted before the work that
+ * blocks the main thread, then the steps of the corridor build with their
+ * percentage until it ends.
  */
 describe('RelocationStatusService', () => {
   let frames: FrameRequestCallback[];
@@ -19,10 +19,7 @@ describe('RelocationStatusService', () => {
   beforeEach(() => {
     frames = [];
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback));
-    const injector = Injector.create({
-      providers: [{ provide: NgZone, useValue: { runOutsideAngular: (fn: () => unknown) => fn() } }],
-    });
-    status = runInInjectionContext(injector, () => new RelocationStatusService());
+    status = runInInjectionContext(Injector.create({ providers: [] }), () => new RelocationStatusService());
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -45,44 +42,37 @@ describe('RelocationStatusService', () => {
     expect(resolved).toBe(true);
   });
 
-  it('follows the measurement in whole percent until it ends, then clears and reports', () => {
-    let progress: StationProgress | null = { done: 0, total: 300 };
-    const done = vi.fn();
+  it('follows the steps of the corridor build with their percentage, then takes the hint away', () => {
     status.show('Moving HQ', 'Finding the route');
+    const hint = status.follow();
+    const set = vi.spyOn(status.status, 'set');
 
-    status.followCorridor(() => progress, done);
-    expect(status.status()).toEqual({ title: 'Moving HQ', step: MEASURING_STEP, percent: 0 });
+    hint.report({ step: 'Measuring the corridor', percent: 33 });
+    expect(status.status()).toEqual({ title: 'Moving HQ', step: 'Measuring the corridor', percent: 33 });
+    // The same again changes nothing
+    hint.report({ step: 'Measuring the corridor', percent: 33 });
+    expect(set).toHaveBeenCalledTimes(1);
+    hint.report({ step: 'Building the corridor', percent: null });
+    expect(status.status()).toEqual({ title: 'Moving HQ', step: 'Building the corridor', percent: null });
 
-    progress = { done: 101, total: 300 };
-    runFrame();
-    expect(status.status()?.percent).toBe(33);
-    expect(done).not.toHaveBeenCalled();
-
-    progress = null;
-    runFrame();
+    hint.end();
     expect(status.status()).toBeNull();
-    expect(done).toHaveBeenCalledTimes(1);
-    expect(frames).toHaveLength(0);
   });
 
-  it('ends at once when the measurement is already over', () => {
-    const done = vi.fn();
+  it('leaves the hint of a later move alone', () => {
     status.show('Moving HQ', 'Finding the route');
-    status.followCorridor(() => null, done);
-    expect(status.status()).toBeNull();
-    expect(done).toHaveBeenCalledTimes(1);
-  });
-
-  it('stops following, without reporting, when another move shows its hint', () => {
-    const done = vi.fn();
-    status.show('Moving HQ', 'Finding the route');
-    status.followCorridor(() => ({ done: 1, total: 10 }), done);
+    const hint = status.follow();
 
     status.show('Moving HQ', 'Loading streets');
-    runFrame();
+    hint.report({ step: 'Measuring the corridor', percent: 50 });
+    hint.end();
 
     expect(status.status()).toEqual({ title: 'Moving HQ', step: 'Loading streets', percent: null });
-    expect(done).not.toHaveBeenCalled();
-    expect(frames).toHaveLength(0);
+  });
+
+  it('shows nothing when no hint stands', () => {
+    const hint = status.follow();
+    hint.report({ step: 'Measuring the corridor', percent: 10 });
+    expect(status.status()).toBeNull();
   });
 });

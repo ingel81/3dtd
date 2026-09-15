@@ -6,8 +6,9 @@
  * Entscheidung.
  *
  * Das Sampling kommt während des Ladescreens voran, obwohl die Kamera dort nur den
- * Spielblick zeigt: Der Routen-Korridor (LoadRegionPlugin, 5 m geometricError) lädt
- * feine Tiles unabhängig vom Sichtfeld und ist ab dem Route-Grid-Schritt gesetzt.
+ * Spielblick zeigt: Der Routen-Korridor (LoadRegionPlugin, 2,5 m geometricError) lädt
+ * feine Tiles unabhängig vom Sichtfeld und ist ab dem Route-Grid-Schritt gesetzt. Der
+ * Ladescreen hält vorher für den Korridorbau (CorridorBuild).
  */
 
 /** Anteil verlässlicher Höhen auf der Route, ab dem der Ladescreen schließt. */

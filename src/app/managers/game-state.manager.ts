@@ -183,7 +183,7 @@ export class GameStateManager {
     this.creditsLedger,
     this.eventBus,
     () => this.tilesEngine,
-    () => this.beforeCorridorLock?.('tower'),
+    () => this.corridorPending(),
   );
   /** Game over screen signal - delegated to HQDamageService */
   readonly showGameOverScreen = computed(() => this.hqDamage.showGameOverScreen());
@@ -235,7 +235,7 @@ export class GameStateManager {
   /**
    * Towers standing now. A plain method: towerManager.getAll() reads no
    * signal, so as a computed it kept the count of its first read. The
-   * corridor lock reads it when a location loads (CorridorRefit.rebuildBlocker),
+   * corridor lock reads it when a location loads (CorridorBuild.rebuildBlocker),
    * with no tower standing yet, and from then on let corridor rebuilds
    * through under standing towers; their visibleCells stayed in the old grid.
    */
@@ -262,11 +262,10 @@ export class GameStateManager {
   private readonly stepTimings = { tProjectile: 0, tCombat: 0, tEvents: 0 };
 
   /**
-   * Called right before a tower is placed or a wave starts, both of which
-   * freeze the route corridor: a corridor measurement still under way
-   * finishes first (VisualizationFacadeService, CorridorRefit.flush).
+   * The route corridor is being built (CorridorBuild), set by
+   * VisualizationFacadeService.initialize; see corridorPending.
    */
-  private beforeCorridorLock: ((reason: 'tower' | 'wave') => void) | null = null;
+  private corridorBuilding: (() => boolean) | null = null;
 
   /** EventBus subscription bag — cleaned up in initialize() (re-init) and dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
@@ -282,9 +281,19 @@ export class GameStateManager {
     this.profiler = profiler;
   }
 
-  /** See beforeCorridorLock. */
-  setBeforeCorridorLock(hook: ((reason: 'tower' | 'wave') => void) | null): void {
-    this.beforeCorridorLock = hook;
+  /** See corridorPending. */
+  setCorridorPending(pending: (() => boolean) | null): void {
+    this.corridorBuilding = pending;
+  }
+
+  /**
+   * The route corridor of a new location or of a move is still being built
+   * (CorridorBuild): no tower is placed and no wave starts until it is done.
+   * Both would stand on the cells the build replaces. Holds for every way in:
+   * click, hotkey, auto start, wave director and the training bot.
+   */
+  corridorPending(): boolean {
+    return this.corridorBuilding?.() ?? false;
   }
 
   /**
@@ -683,8 +692,7 @@ export class GameStateManager {
    * Start a new wave with config
    */
   startWave(config: WaveConfig): void {
-    // A corridor measurement still under way finishes first.
-    this.beforeCorridorLock?.('wave');
+    if (this.corridorPending()) return;
 
     // Wave preview in the sidebar, see summarizeWaveGroups()
     const groups = summarizeWaveGroups(config);
@@ -707,8 +715,7 @@ export class GameStateManager {
    * Begin wave phase without auto-spawning
    */
   beginWave(): void {
-    // A corridor measurement still under way finishes first.
-    this.beforeCorridorLock?.('wave');
+    if (this.corridorPending()) return;
 
     // Emit lifecycle event BEFORE beginWave() so that AIDataCollector.clearHistory()
     // runs before wave:started sets up tracking (prevents NaN in wave history)

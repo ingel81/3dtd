@@ -442,38 +442,43 @@ describe('GameStateManager', () => {
       });
     });
 
-    describe('corridor measurement under way (setBeforeCorridorLock)', () => {
-      it('finishes before the tower is placed', () => {
-        const order: string[] = [];
-        gsm.setBeforeCorridorLock((reason) => order.push(`corridor ${reason}`));
-        vi.spyOn(gsm.towerManager, 'placeTower').mockImplementation(() => {
-          order.push('place');
-          return null;
-        });
-        gsm.placeTower(BASE_POSITION, 'archer');
-        expect(order).toEqual(['corridor tower', 'place']);
+    describe('corridor build under way (corridorPending)', () => {
+      let building: boolean;
+      beforeEach(() => {
+        building = true;
+        gsm.setCorridorPending(() => building);
       });
 
-      it('is left alone when the placement is refused', () => {
-        const lock = vi.fn();
-        gsm.setBeforeCorridorLock(lock);
-        gsm.spendCredits(gsm.credits());
-        gsm.placeTower(BASE_POSITION, 'archer');
-        expect(lock).not.toHaveBeenCalled();
+      it('places no tower and takes no credits until the corridor is built', () => {
+        const place = vi.spyOn(gsm.towerManager, 'placeTower');
+        const credits = gsm.credits();
+        expect(gsm.placeTower(BASE_POSITION, 'archer')).toBeNull();
+        expect(place).not.toHaveBeenCalled();
+        expect(gsm.credits()).toBe(credits);
+
+        building = false;
+        expect(gsm.placeTower(BASE_POSITION, 'archer')).not.toBeNull();
+        expect(place).toHaveBeenCalledTimes(1);
       });
 
-      it('finishes before a wave starts, with or without a config', () => {
-        const order: string[] = [];
-        gsm.setBeforeCorridorLock((reason) => order.push(`corridor ${reason}`));
-        vi.spyOn(gsm.waveManager, 'startWave').mockImplementation(() => {
-          order.push('start');
-        });
-        vi.spyOn(gsm.waveManager, 'beginWave').mockImplementation(() => {
-          order.push('begin');
-        });
+      it('starts no wave, with or without a config, until the corridor is built', () => {
+        const start = vi.spyOn(gsm.waveManager, 'startWave').mockImplementation(() => undefined);
+        const begin = vi.spyOn(gsm.waveManager, 'beginWave').mockImplementation(() => undefined);
         gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
         gsm.beginWave();
-        expect(order).toEqual(['corridor wave', 'start', 'corridor wave', 'begin']);
+        expect(start).not.toHaveBeenCalled();
+        expect(begin).not.toHaveBeenCalled();
+
+        building = false;
+        gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
+        gsm.beginWave();
+        expect(start).toHaveBeenCalledTimes(1);
+        expect(begin).toHaveBeenCalledTimes(1);
+      });
+
+      it('waits for nothing without a corridor owner', () => {
+        gsm.setCorridorPending(null);
+        expect(gsm.corridorPending()).toBe(false);
       });
     });
 

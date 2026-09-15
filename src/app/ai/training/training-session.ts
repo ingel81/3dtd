@@ -171,6 +171,8 @@ export class TrainingSession {
    */
   updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean {
     if (!this.signals.botEnabled() || !this.currentBot) return false;
+    // Towers and waves wait for the corridor build of a new location (CorridorBuild).
+    if (this.gameState.corridorPending()) return false;
 
     const phase = this.store.phase();
     if (phase !== 'setup' && phase !== 'wave') return false;

@@ -19,7 +19,7 @@ import { carriedDeckY, surfaceY } from './deck-approach';
  * those cells (unwalkableCells), every station of a route is capped short
  * of the ones its piece of the corridor claims (walkCaps, applied by
  * fitCorridorStations), and routes and cells are built again
- * (CorridorController.rebuildCorridors). Enemies keep within the narrower
+ * (CorridorBuild.build). Enemies keep within the narrower
  * corridor as within any other (lateralLimit), so none walks where no cell
  * is. Until 2026-09-14 such cells stayed in the corridor, put on the ground
  * beside them (orange in the Route Grid Overlay).

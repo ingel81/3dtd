@@ -357,6 +357,13 @@ export class GlobalRouteGrid {
     return heights;
   }
 
+  /** Cells without a height, neither a sample of their own nor one filled in from their neighbours (fillGaps). */
+  cellsWithoutHeight(): number {
+    let count = 0;
+    for (const cell of this.cells.values()) if (!cell.heightSampled) count++;
+    return count;
+  }
+
   /**
    * Generate grid cells from enemy routes and sample their terrain height.
    *

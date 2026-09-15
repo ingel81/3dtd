@@ -32,7 +32,7 @@ import { signal } from '@angular/core';
 import { MapRelocationService, type RelocationHost } from './map-relocation.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { RelocationStatusService } from '../world/relocation-status.service';
-import { CorridorController, type CorridorControllerDeps } from '../world/corridor-controller';
+import { CorridorBuild, type CorridorBuildDeps } from '../world/corridor-build';
 import { OsmStreetService, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import type { SpawnPoint } from '../world/marker-visualization.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
@@ -123,16 +123,19 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
   const stepMs = (line: string, step: string): number => Number(new RegExp(` ${step}=([\\d.]+)`).exec(line)![1]);
   const inPlaceLine = () => lines().find((l) => l.startsWith('[Relocation] HQ in place:'))!;
 
-  /** A click in map placement mode on `placement`; the hint paints first (two frames). */
+  /**
+   * A click in map placement mode on `placement`, and frames until the move
+   * is done: the hint paints first (two frames), the corridor build runs over
+   * the next ones.
+   */
   const moveHq = async () => {
-    const moving = relocation.applyPlacementClick(host);
-    runFrame();
-    runFrame();
+    let done = false;
+    const moving = relocation.applyPlacementClick(host).finally(() => { done = true; });
+    for (let i = 0; i < 1000 && !done; i++) {
+      runFrame();
+      for (let j = 0; j < 10; j++) await Promise.resolve();
+    }
     await moving;
-  };
-  /** Frames until the corridor measurement of the move is done and the hint gone */
-  const measure = () => {
-    for (let i = 0; i < 500 && status.status() !== null; i++) runFrame();
   };
 
   beforeEach(() => {
@@ -162,7 +165,10 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
       setOrigin: vi.fn(),
       getOverlayGroup: () => overlay,
       getTerrainHeightAtGeo: () => 0,
+      // No 3D tiles: the corridor build measures on what the fake terrain answers
+      tilesLodDebug: () => null,
       terrain: {
+        clearHeightCache: vi.fn(),
         getGroundHeightEstimate: () => 0,
         measureStreetClearance: (_x: number, _z: number, _ax: number, _az: number, heights: readonly number[]): StationProbe => {
           clock += 1.7;
@@ -207,32 +213,31 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
     di.stubs['RelocationStatusService'] = status;
     relocation = new MapRelocationService();
 
-    // No towers, no enemies: the measurement runs to its end
+    // No towers, no enemies: the corridor build runs to its end
     const grid = {
-      clear: vi.fn(),
-      updateTerrainHeights: vi.fn(),
       getStats: () => ({ totalCells: 0 }),
+      snapshotHeights: () => new Map(),
+      cellsWithoutHeight: () => 0,
+      retryUnsampledCells: () => ({ promoted: 0 }),
       initSpatialGridVisualizationIfEnabled: vi.fn(),
       initAirSpatialGridVisualizationIfEnabled: vi.fn(),
       initAirRouteLayerIfEnabled: vi.fn(),
     };
-    const controller = new CorridorController({
+    const corridor = new CorridorBuild({
       gameState: () => ({
         towerCount: () => 0,
         enemyManager: { getAliveCount: () => 0 },
         waveManager: { phase: () => 'setup' },
         getGlobalRouteGrid: () => grid,
         rebuildRouteCells: vi.fn(),
-        setBeforeCorridorLock: vi.fn(),
       }),
       engineInit: { getEngine: () => engine },
-      introFlight: { isRunning: () => false },
       pathRoute,
       routeAnimation: { isRunning: () => false, startAnimation: vi.fn() },
       store: { spawnPoints: store.spawnPoints },
-      relocationStatus: status,
-    } as unknown as CorridorControllerDeps);
-    controller.attach();
+      nextFrame: () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+      now: () => clock,
+    } as unknown as CorridorBuildDeps);
 
     gameState = { reset: vi.fn(), initialize: vi.fn(), initializeGlobalRouteGrid: vi.fn() };
     const initRoutes = () => pathRoute.initialize(engine, network, store.baseCoords(), (() => false) as never, osm, null);
@@ -249,7 +254,7 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
       }) as never,
       vizCallbacks: () => ({
         initializeVisualizationServices: initRoutes,
-        fitCorridorToTiles: () => controller.fitToTiles(),
+        buildCorridor: (reason, report) => corridor.build(reason, report),
         initializeTowerPlacement: vi.fn(),
         filterStreetNetworkToRoutes: vi.fn(),
         scheduleOverlayHeightUpdate: vi.fn(),
@@ -310,8 +315,7 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
     );
 
     // The measurement of its corridor ends as after any move
-    measure();
-    expect(lines().find((l) => l.startsWith('[Relocation] HQ done:'))).toMatch(/ ended=commit$/);
+    expect(lines().find((l) => l.startsWith('[Relocation] HQ done:'))).toMatch(/ ended=frozen$/);
   });
 
   it('541 counter-check: along the south bank the kept spawn keeps its route: "spawnFrom=old", "random=0.0"', async () => {
@@ -327,7 +331,6 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
     const route = pathRoute.getCachedPaths().get(SPAWN.id)!;
     expect(metres(route[0], SPAWN)).toBeLessThan(1);
     expect(metres(route.at(-1)!, HQ_QUAY)).toBeLessThan(1);
-    measure();
-    expect(lines().find((l) => l.startsWith('[Relocation] HQ done:'))).toMatch(/ ended=commit$/);
+    expect(lines().find((l) => l.startsWith('[Relocation] HQ done:'))).toMatch(/ ended=frozen$/);
   });
 });

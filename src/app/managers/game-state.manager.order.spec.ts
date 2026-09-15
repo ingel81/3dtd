@@ -238,7 +238,10 @@ describe('GameStateManager order of operations (characterization)', () => {
     bus.onAny((event) => {
       if (event.type !== 'research:progress') log.push(`event:${event.type}`);
     });
-    gsm.setBeforeCorridorLock((reason) => log.push(`corridorLock(${reason})`));
+    gsm.setCorridorPending(() => {
+      log.push('corridorPending');
+      return false;
+    });
     log.length = 0;
   });
 
@@ -562,7 +565,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       expect(archer).toBeDefined();
       expect(log).toEqual([
         'event:command:place-tower',
-        'corridorLock(tower)',
+        'corridorPending',
         'tower.placeTower',
         'tower.refreshGuardHeading',
         'event:tower:placed',
@@ -618,7 +621,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       const center = gsm.towerManager.getAll().find((t) => t.typeConfig.id === 'research-center')!;
       expect(log).toEqual([
         'event:command:place-tower',
-        'corridorLock(tower)',
+        'corridorPending',
         'tower.placeTower',
         'tower.refreshGuardHeading',
         'event:tower:placed',
@@ -671,7 +674,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       } as never);
 
       expect(log).toEqual([
-        'corridorLock(wave)',
+        'corridorPending',
         'waveDebug.setCurrentWaveGroups',
         'event:game:started',
         'ledger.refillLeakBudget',
@@ -684,7 +687,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.beginWave();
 
       expect(log).toEqual([
-        'corridorLock(wave)',
+        'corridorPending',
         'event:game:started',
         'ledger.refillLeakBudget',
         'wave.beginWave',

@@ -47,7 +47,7 @@ describe('Guard heading after a debug skeleton outside a wave (playtest 336)', (
       {} as never,
       m.eventBus,
       () => null,
-      () => undefined,
+      () => false,
     );
     aliveAtDeath = [];
     m.eventBus.on('enemy:died', () => aliveAtDeath.push(m.enemyManager.getAlive().length));

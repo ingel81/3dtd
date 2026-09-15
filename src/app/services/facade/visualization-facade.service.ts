@@ -35,7 +35,7 @@ import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { EngineStore } from '../../store/engine.store';
 import { STREET_FILTER_RADIUS } from '../../configs/map-constants.config';
-import { CorridorController } from '../world/corridor-controller';
+import { CorridorBuild, type CorridorBuildResult, type CorridorProgress } from '../world/corridor-build';
 import { CorridorConsole } from '../debug/corridor-console';
 import { CorridorLodProbe } from '../debug/corridor-lod-probe';
 import { TilesConsole } from '../debug/tiles-console';
@@ -63,7 +63,7 @@ import { perfTrace } from '../../utils/perf-trace';
  * - Game state initialization (routes, tower placement)
  *
  * Owned helpers (plain classes, built in the field initializers below):
- * - CorridorController: when the route corridor is measured and rebuilt
+ * - CorridorBuild: the route corridor, built once per route set
  * - CorridorConsole: `__corridor` in DevTools
  * - CorridorLodProbe: `__corridor.probeLod()` and `fingerprint()`
  * - TilesConsole: `__tiles` in DevTools
@@ -108,15 +108,13 @@ export class VisualizationFacadeService {
   private readonly relocationStatus = inject(RelocationStatusService);
   private readonly cellReport = inject(CellReportService);
 
-  /** When the route corridor is measured and rebuilt (CorridorRefit). */
-  private readonly corridor = new CorridorController({
+  /** The one owner of the route corridor, built once per route set (CorridorBuild). */
+  private readonly corridor = new CorridorBuild({
     gameState: () => this.gameState,
     engineInit: this.engineInit,
-    introFlight: this.introFlight,
     pathRoute: this.pathRoute,
     routeAnimation: this.routeAnimation,
     store: this.store,
-    relocationStatus: this.relocationStatus,
   });
 
   /** `__corridor.probeLod()` and `fingerprint()`, see CorridorLodProbe. */
@@ -125,6 +123,7 @@ export class VisualizationFacadeService {
     engineInit: this.engineInit,
     introFlight: this.introFlight,
     pathRoute: this.pathRoute,
+    corridorBuilding: () => this.corridor.pending(),
   });
 
   /** `__corridor` in DevTools, see CorridorConsole. */
@@ -134,7 +133,9 @@ export class VisualizationFacadeService {
     inputHandler: this.inputHandler,
     pathRoute: this.pathRoute,
     // A probe holds the tiles at another LOD: a change now would measure on them.
-    change: (apply) => (this.lodProbe.running ? 'Not changed: __corridor.probeLod() is running.' : this.corridor.change(apply)),
+    change: (apply) => (this.lodProbe.running
+      ? Promise.resolve('Not changed: __corridor.probeLod() is running.')
+      : this.corridor.change(apply)),
     cellReport: this.cellReport,
     lodProbe: this.lodProbe,
   });
@@ -155,7 +156,6 @@ export class VisualizationFacadeService {
     pathRoute: this.pathRoute,
     markerViz: this.markerViz,
     routeAnimation: this.routeAnimation,
-    settled: () => this.corridor.remeasure(),
   });
 
   /** Loading screen held for the intro flight on the first load, see IntroLoadingGate. */
@@ -214,8 +214,8 @@ export class VisualizationFacadeService {
     this.gameState = gameState;
     this.initialized = true;
 
-    // A tower or a wave finishes a corridor measurement under way first.
-    this.corridor.attach();
+    // Towers and waves wait while the corridor is built.
+    gameState.setCorridorPending(() => this.corridor.pending());
     this.corridorConsole.install();
     this.tilesConsole.install();
     this.towerTargetConsole.install();
@@ -226,6 +226,7 @@ export class VisualizationFacadeService {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
+    if (this.initialized) this.gameState.setCorridorPending(null);
     this.corridor.dispose();
     this.corridorConsole.uninstall();
     this.tilesConsole.uninstall();
@@ -561,7 +562,10 @@ export class VisualizationFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   /**
-   * Schedule overlay height updates.
+   * Schedule overlay height updates, then build the route corridor behind
+   * the loading screen (CorridorBuild): the first load and a location change
+   * wait for both. The loading screen stays until the corridor is frozen
+   * (checkAllLoaded).
    */
   async scheduleOverlayHeightUpdate(): Promise<void> {
     const engine = this.engineInit.getEngine();
@@ -570,6 +574,8 @@ export class VisualizationFacadeService {
       return;
     }
 
+    // From now on towers, waves and the end of the loading screen wait for the corridor.
+    const ticket = this.corridor.expect();
     this.heightUpdate.initialize(
       engine,
       this.engineInit.loadingStatus,
@@ -591,19 +597,33 @@ export class VisualizationFacadeService {
     );
 
     await this.heightUpdate.scheduleOverlayHeightUpdate();
-    // First fit of the corridors to the tiles, measured over the next frames
-    // (CorridorRefit); does not hold the location change up.
-    corridorTrace.within('heightUpdate.done', () => this.corridor.fitToTiles());
+    await corridorTrace.within('heightUpdate.done', () => this.buildCorridorBehindLoadingScreen(ticket));
   }
 
   /**
-   * Fit the route corridor to the tiles after the routes were rebuilt
-   * without a location load (spawn or HQ moved in place), whose new
-   * segments have no measurement yet. Over the next frames and under the
-   * same locks as the first fit (CorridorRefit.fitToTiles).
+   * The corridor build of a location load, as the loading step "corridor":
+   * its steps as the step's meta, then the next check whether loading is
+   * done. A build another load or move superseded ends without a word; that
+   * one asks again.
    */
-  fitCorridorToTiles(): void {
-    corridorTrace.within('moved in place', () => this.corridor.fitToTiles());
+  private async buildCorridorBehindLoadingScreen(ticket: number): Promise<void> {
+    void this.engineInit.setStepCurrent('corridor');
+    const result = await this.corridor.build(
+      'location load',
+      ({ step, percent }) => this.engineInit.updateStepMeta('corridor', percent === null ? step : `${step} ${percent} %`),
+      ticket,
+    );
+    if (!result) return;
+    void this.engineInit.setStepDone('corridor', `${result.stations} stations, ${result.cells} cells${result.timedOut ? ', tiles timed out' : ''}`);
+    this.checkAllLoaded();
+  }
+
+  /**
+   * Build the corridor of routes built again without a location load (spawn
+   * or HQ moved in place), under the hint of the move (CorridorBuild.build).
+   */
+  buildCorridor(reason: string, report: (progress: CorridorProgress) => void): Promise<CorridorBuildResult | null> {
+    return this.corridor.build(reason, report);
   }
 
   /**
@@ -612,6 +632,11 @@ export class VisualizationFacadeService {
   checkAllLoaded(): void {
     const wasLoading = this.engineInit.loading();
     const isApplying = this.locationMgmt.isApplyingLocation();
+
+    // Once tiles, streets and heights are there, the loading screen waits for
+    // the corridor build; its end asks again (buildCorridorBehindLoadingScreen).
+    const settled = !this.engineInit.tilesLoading() && !this.engineInit.osmLoading() && !this.heightUpdate.heightsLoading();
+    if (wasLoading && settled && this.corridor.pending()) return;
 
     // First load only; a location change starts its flight from its own step 7.
     if (wasLoading && !isApplying && this.introGate.hold()) return;

@@ -138,7 +138,7 @@ describe('CorridorConsole', () => {
     layer = null;
     explanation = null;
     lift = 1;
-    change = vi.fn((apply: () => string[]) => {
+    change = vi.fn(async (apply: () => string[]) => {
       const problems = apply();
       return problems.length > 0 ? `refused: ${problems.join('; ')}` : 'rebuilt';
     });
@@ -182,17 +182,18 @@ describe('CorridorConsole', () => {
       expect(corridorConfig.highwayWidths['residential']).toBe(CORRIDOR_DEFAULTS.highwayWidths['residential']);
     });
 
-    it('changes and resets the config through the rebuild', () => {
-      expect(api().set({ maxHalfWidth: 6 })).toBe('rebuilt');
+    it('changes and resets the config through the corridor build, and prints its last line', async () => {
+      await expect(api().set({ maxHalfWidth: 6 })).resolves.toBe('rebuilt');
       expect(corridorConfig.maxHalfWidth).toBe(6);
+      expect(console.log).toHaveBeenCalledWith('[Corridor] rebuilt');
 
-      expect(api().reset()).toBe('rebuilt');
+      await expect(api().reset()).resolves.toBe('rebuilt');
       expect(corridorConfig.maxHalfWidth).toBe(CORRIDOR_DEFAULTS.maxHalfWidth);
       expect(change).toHaveBeenCalledTimes(2);
     });
 
-    it('passes the problems of a rejected setting on', () => {
-      expect(api().set({ noSuchSetting: 1 })).toMatch(/^refused: /);
+    it('passes the problems of a rejected setting on', async () => {
+      await expect(api().set({ noSuchSetting: 1 })).resolves.toMatch(/^refused: /);
     });
   });
 

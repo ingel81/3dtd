@@ -105,7 +105,7 @@ describe('GameLoopFacadeService: aiExplanation', () => {
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
     facade.initialize(
       { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }) } as unknown as GameStateManager,
+      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }), corridorPending: () => false } as unknown as GameStateManager,
     );
   });
 
@@ -204,7 +204,7 @@ describe('GameLoopFacadeService: pause', () => {
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
     facade.initialize(
       { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }) } as unknown as GameStateManager,
+      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }), corridorPending: () => false } as unknown as GameStateManager,
     );
   });
 
