@@ -1,6 +1,6 @@
 # Routenkorridor
 
-**Stand:** 2026-09-15
+**Stand:** 2026-09-16
 
 Wie breit der Korridor aus Route-Zellen links und rechts der Mittellinie einer
 Route ist, woher die Breite kommt, wann sie gemessen und neu gebaut wird und
@@ -1158,6 +1158,111 @@ einem Frame:
   Messung davor mit 1260 Strahlen 520 bis 533 ms. Weitere Orte sind nicht
   gemessen.
 
+### Trace
+
+`[CorridorTrace]` (`utils/corridor-trace.ts`) ist ein eigener Konsolenkanal
+für alles, was Korridor, Zellen, Zellhöhen, Waypoints oder rote Linie ändert
+oder ändern kann: wer, warum, auf welchen Tiles, was sich geändert hat. Er
+ändert kein Verhalten; die Zeilen oben (`[Corridor]`, `[PerfTrace]`) bleiben,
+wie sie sind. An in Dev-Builds, aus in Production-Builds und unter vitest
+(Specs schalten ihn selbst ein).
+
+```
+[CorridorTrace] 12.35s clearance.commit segments=20 stations=236 ... changed=true lod=2m:0,5m:236,coarse:0,none:0 ... | tilesLoaded lod=15 -> convergence.settled -> refit.remeasure -> refit.slice
+[CorridorTrace] LONG 12.35s rebuild ms=183.5 | tilesLoaded lod=15 -> convergence.settled -> refit.remeasure -> refit.slice -> rebuild
+```
+
+- **Zeit:** Sekunden seit dem Laden des Orts: Seitenaufruf,
+  `LocationChangeExecutor` Schritt 1 oder ein HQ-Umzug mit neuem Ursprung
+  (`MapRelocationService`). Ein Umsetzen ohne Neuladen läuft weiter.
+- **Ereignis**, dann seine Zahlen als `name=wert`.
+- **Auslöser** nach `|`: die Kette der Aufrufer und Gründe, der älteste
+  zuerst. Frames und Timer tragen die Kette weiter, unter der sie geplant
+  wurden (`refit.slice`, `refit.retry`, `convergence`). Wo keine Kette
+  hinführt, steht `caller` mit den zwei Funktionen über dem Ereignis (im
+  Production-Build minifiziert).
+- **`LONG`:** ein Schritt, der in einem Frame länger als 16 ms lief
+  (`LONG_STEP_MS`): `rebuild`, `grid.generate`, `heights.slice`,
+  `clearance.slice`, `clearance.commit`, `convergence.retry`,
+  `routeLines.refresh`, `tilesLoaded`.
+
+| Ereignis | Wo | Zahlen |
+|---|---|---|
+| `load` | Beginn eines Orts | `label` |
+| `tiles` | `VisualizationFacadeService.onTilesLoaded`, je beruhigtem Tile-Schub | `lod` (lodVersion); aktive Tiles, die die Region (`RouteCorridorRegion.lodState`) erreichen: `tiles`, `fine` (bis 5 m oder Blatt), `finest` (bis 2 m), `coarse` (gröber und noch zu verfeinern); `pending`: Tiles in Warteschlange, Download oder beim Parsen, überall |
+| `region.complete` | das erste Mal je Ort `coarse=0` | `tiles`, `finest` |
+| `convergence.schedule`, `convergence.settled` | `RouteGridConvergence` | `running` (lief schon); `frames`, `sweepFrames`, `retryPromoted`, `capped`, `wallMs` |
+| `heights` | Ende jedes Höhen-Sweeps (`RouteGridHeightSweep`), auch des blockierenden `updateTerrainHeights` im Neuaufbau und im Höhen-Update | `raycasted`, `promoted`, `refreshed`, `moved` (aufgefrischte Zellen, die sich mehr als 0,25 m bewegten), `maxMoveM`, `lod`, `slices`, `spanMs`, `maxSliceMs` |
+| `routeLines.refresh` | rote Linie, Marker und Animation nach einem Sweep neu (`scheduleBakedHeightRefresh`) | `spawns`, `ms` |
+| `refit.fit`, `refit.remeasure`, `refit.flush`, `refit.change`, `refit.remeasureLater` | Entscheidungen in `CorridorRefit` | `outcome`: `measure`, `blocked: <Sperre>`, `held for the intro flight`, `wait <ms> (intro flight / run under way / interval)`, `nothing to measure`, `run under way`; `reason` bei `flush`, `remeasure` bei `change` |
+| `pending.unwalkable` | `hasUnwalkableCells` ist wahr, `remeasure` misst deshalb | `by`: `walkCaps` oder `detourPlans` |
+| `clearance.start`, `clearance.commit`, `clearance.cancel` | `ClearanceRun`, auch ein Lauf ohne Segmente, für den `[Corridor] clearance` nichts schreibt | `segments`, `stations`, `rays`, `changed`, `lod`, `slices`, `maxSliceMs`, `busyMs`, `wallMs`, `flushed`; `reason` |
+| `store` | `storeClearance` | `changed`, `by` (`measured`, `walkCaps`, `detourPlans`), `capped` (Stationen mit Kappe des Laufwegs), `plans`, `traceMs` |
+| `walk.narrow` | Laufweg-Runde im Neuaufbau (`narrowToWalkable`) | `changed`, `by`, `capped`, `plans` |
+| `grid.generate` | `GlobalRouteGrid.generateFromRoutes` | `cells`, `routes`, `ms` |
+| `rebuild` | Ende von `CorridorController.rebuildCorridors` | Delta, unten |
+| `intro.*`, `loading.done`, `heights.*` | aus der Kamera-Zeitleiste (`cameraTimeline`): Intro-Phasen, Ladeschirm-Gate (`intro.gateOpen`), Höhen-Update | wie dort, Auslöser `camera timeline` |
+
+**`lod`** (`lod=2m:12,5m:200,coarse:0,none:24`): die Säulen, die ein Lauf
+(je Station) oder ein Sweep (je Zelle) benutzt hat, nach dem geometricError
+ihres Tiles: bis 2 m (feiner als die Region verlangt, Tiles der Kamera), bis
+5 m (Ziel der Region und `maxTileError`), gröber, ohne Tile (bei Zellen:
+ohne eigenes Sample).
+
+**Delta eines Neuaufbaus** (`rebuild`). Vor und nach dem Neuaufbau je ein
+Schnappschuss: Höhe je Zelle (`GlobalRouteGrid.snapshotHeights`), die
+Halbbreiten links und rechts alle 2 m entlang jeder Route aus den Waypoints
+(`widthProfile`), die Zahl der Waypoints.
+
+- `by`: was die Daten seit dem letzten Neuaufbau geändert hat: `measured`
+  (neue Strahlen änderten eine Breite), `walkCaps` (Kappen des Laufwegs aus
+  dem Grid in Gebrauch), `detourPlans` (Umwege neu geplant), `settings`
+  (`__corridor.set()`), mit `walkPass:` davor dasselbe aus den Laufweg-Runden
+  des Neuaufbaus; `none`.
+- `rays`: Strahlen aller Läufe seit dem letzten Neuaufbau. `rays=0` mit
+  `by=walkCaps` oder `detourPlans` ist ein Neuaufbau ohne neue Messung.
+- `cells` alt->neu, `added`, `removed`, `moved` (mehr als 0,25 m,
+  `HEIGHT_MOVE_M`), `maxMoveM`, `lostHeight`, `gotHeight`.
+- `widthPoints`: Punkte mit anderer Halbbreite / verglichene Punkte; ein
+  Punkt, den nur einer der beiden hat (Route länger oder kürzer), zählt als
+  geändert. `maxWidthChangeM`.
+- `waypoints` alt->neu, `narrowed`, `spawns`, `ms` (der Neuaufbau, ein
+  Frame), `snapshotMs`, `deltaMs`.
+
+**Kosten** (Spec unter Node, `corridor-trace.spec.ts`, "cost"): beide
+Schnappschüsse und das Delta für 1204 Zellen und 1194 Breitenpunkte
+0,17 ms je Neuaufbau; die Spec verlangt unter 5 ms. Im Browser nicht
+gemessen. `storeClearance` passt die Korridore einmal mehr an, um
+`measured` von `walkCaps` zu trennen, und meldet die Zeit als `traceMs`;
+solange der Trace an ist, steckt sie auch im `in` von `[Corridor]
+clearance`. Die Zählung der Region je Tile-Schub kostet O(aktive Tiles ×
+Segmente), nicht gemessen.
+
+**Lesen:**
+
+- Wer hat den Korridor geändert: die `rebuild`-Zeilen, `by`, `rays` und
+  die Kette. Ein Neuaufbau ohne `[Corridor] clearance` davor (Log Berlin vom
+  2026-09-15) kann nach dem Code nur aus einem Lauf ohne Segmente kommen,
+  dessen Commit Kappen oder Umwege aus dem Grid übernimmt, oder aus
+  `__corridor.set()`. Im Trace steht der Lauf dann als `clearance.start
+  segments=0`, `store by=walkCaps` und `clearance.commit segments=0 rays=0
+  changed=true` (nachgestellt in `path-route.service.spec.ts`, "traces a
+  run without stations").
+- Auf welchen Tiles: `lod` in `clearance.commit` und `heights`; `2m:` über
+  0 heißt, feinere Tiles als die Region (Kamera, Zoom) sind eingeflossen.
+  `region.complete` sagt, wann die Region zum ersten Mal ganz verfeinert war.
+- Warum nichts passiert: `refit.remeasure outcome=...` und `refit.fit
+  outcome=...`.
+- Welcher Frame hängt: `[CorridorTrace] LONG`.
+
+```js
+__corridor.trace()        // Zeitleiste dieser Ortsladung als Tabelle (console.table)
+__corridor.trace(false)   // Kanal aus; __corridor.trace(true) wieder an
+```
+
+Die Zeitleiste hält höchstens 5000 Einträge (`MAX_ENTRIES`), die ältesten
+fallen heraus.
+
 ## Feine Tiles im Korridor
 
 Die Tile-Region `RouteCorridorRegion` (`three-engine/route-corridor-region.ts`)
@@ -1189,6 +1294,8 @@ __corridor.probeLod()                                   // Region auf 5, 2,5 und
 __corridor.probeLod([5, 0], 90)                         // eigene Ziele, höchstens 90 s Warten je Ziel
 __corridor.fingerprint()                                // Hash über den Korridor in Gebrauch (Phase 0)
 __tiles.stats()                                         // Tiles, Cache, Downloads, beide Fehlerziele
+__corridor.trace()                                      // Zeitleiste des Korridor-Trace, siehe Logs, Trace
+__corridor.trace(false)                                 // Trace aus, trace(true) an
 ```
 
 - **`set` und `reset`** geben `Not changed: ...` zurück, wenn kein Ort geladen
