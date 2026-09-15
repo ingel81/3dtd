@@ -301,7 +301,17 @@ Aufbau: Cheat "Credits", ein Archer an die Route.
 - **643** (172, 546): Etwa 10 Archer oder Gatling an eine Stelle, Custom Wave "Zombie", Count 100, Tempo 1x. Kamera
   erst weit weg, dann heran: setzt das Stöhnen der Zombies in Hörweite ein, von höchstens etwa 12 zugleich? 2 Minuten
   zusehen: bleiben die Schüsse hörbar? **ok (2026-09-15)** für den Ton; dabei fiel dem User ein anderer, gravierender
-  Bug auf (siehe Befunde).
+  Bug auf:
+  **Befund (2026-09-15, 2 von 2 reproduziert):** viele Archer und Gatling an einer Stelle, mehrere Custom Waves mit
+  vielen Gegnern. Den Helden anheuern und in die Nähe des Tower-Pulks schicken: in der nächsten Welle feuern die Tower
+  gar nicht mehr auf Gegner. Den Helden wieder wegschicken hilft nicht. Solange er am HQ stand, war alles gut.
+  Vermutlich braucht es eine Bewegung und einen Wellenwechsel, oder den Helden nahe den Towern beim nächsten
+  Wellenstart. Keine Fehler in der Konsole; der Held stand 50 m oder mehr von den Towern entfernt (Verdeckung durch
+  das Modell damit unwahrscheinlich). Untersuchung herolos (Zustand nach Marschbefehl und Wellenwechsel). Daten:
+  Der Fehler beginnt mit der ersten Bewegung des Helden. `__towerTargets()` im Fehlerzustand: tower-2 und tower-3
+  "no target, asleep (wake check every 500 ms)", `sleeping: true`, `visibleCells: 241`, "2 tower(s) with an enemy
+  near". Die Sicht ist also in Ordnung, die Tower schlafen und wachen trotz Gegnern nicht mehr auf. Es reicht, den
+  Helden ein paar Meter am HQ zu bewegen, 900 m von den Towern entfernt: ein globaler Zustand, keine Nähe.
 
 ### Runde 12: Blutmond (644 bis 647)
 
