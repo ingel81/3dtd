@@ -23,6 +23,7 @@ import {
 } from '../../utils/route-corridor';
 import { WalkCapSegment, WalkCaps, walkCaps } from '../../utils/corridor-walk';
 import { SegmentApproach, deckApproaches, deckEndAt, nearestDeckApproach, segmentApproaches } from '../../utils/deck-approach';
+import { UnderpassIndex, splitAtSpans } from '../../utils/underpass';
 import type { DeckEnd } from '../../utils/route-cell';
 import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
@@ -69,6 +70,11 @@ interface StreetRoute {
   onStreet: boolean[];
   /** The segment runs through a tunnel or a covered passage: not measured, its cells between the portals. */
   inTunnel: boolean[];
+  /**
+   * The way the segment runs under (a bridge over the street, underpass.ts),
+   * null elsewhere. Such a segment is `inTunnel` as well.
+   */
+  underWay: (number | null)[];
 }
 
 /** Key of a directed route segment, for the clearance cache. */
@@ -178,8 +184,10 @@ export interface CorridorExplanation {
   widthSource: string;
   /** False on the leg to the HQ, where the street width is the cap. */
   onStreet: boolean;
-  /** In a tunnel or covered passage: not measured, the street width stays. */
+  /** In a tunnel or covered passage, or under another way: not measured, the street width stays. */
   inTunnel: boolean;
+  /** The way the station lies under (a bridge over the street, underpass.ts), null elsewhere. */
+  underWay: number | null;
   /** Why the station has no measurement, null if it has one. */
   unmeasured: string | null;
   /** Geometric error of the tile under the station at the last probe. */
@@ -217,6 +225,9 @@ export class PathAndRouteService {
 
   /** Street lookup for route segments, built on first use per street network. */
   private edgeIndex: StreetEdgeIndex | null = null;
+
+  /** The ways a route can pass under, built on first use per street network. */
+  private underpassIndex: UnderpassIndex | null = null;
 
   /**
    * Each spawn's route as the street network gives it, before the measured
@@ -297,6 +308,7 @@ export class PathAndRouteService {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
     this.edgeIndex = null;
+    this.underpassIndex = null;
     this.streetRoutes.clear();
     this.cancelClearanceRun('location changed');
     this.clearanceBySegment.clear();
@@ -383,6 +395,11 @@ export class PathAndRouteService {
   /** The street lookup for the current network, see {@link StreetEdgeIndex}. */
   private getEdgeIndex(network: StreetNetwork): StreetEdgeIndex {
     return (this.edgeIndex ??= new StreetEdgeIndex(network.streets));
+  }
+
+  /** The ways of the current network a route can pass under, see {@link UnderpassIndex}. */
+  private getUnderpassIndex(network: StreetNetwork): UnderpassIndex {
+    return (this.underpassIndex ??= new UnderpassIndex(network.streets));
   }
 
 
@@ -547,14 +564,22 @@ export class PathAndRouteService {
     // tiles showed (beginClearanceMeasurement), the street's width where they
     // could not tell. Cells and enemy spread read it off the cached
     // waypoints, the cells also whether the segment is on a bridge or in a
-    // tunnel.
-    const ways = this.getEdgeIndex(this.streetNetwork).match(geoPath);
+    // tunnel. Where the route passes under another way (a bridge over the
+    // street), it is cut, and the piece under it runs under cover like a
+    // tunnel (underpass.ts).
+    const matched = this.getEdgeIndex(this.streetNetwork).match(geoPath);
+    const open = matched.map((way) => way === null || (way.bridge === undefined && !runsUnderCover(way)));
+    const spans = this.getUnderpassIndex(this.streetNetwork).spans(geoPath, matched, open);
+    const split = splitAtSpans(geoPath, spans, open, (a, b, f) => ({ lat: a.lat + (b.lat - a.lat) * f, lon: a.lon + (b.lon - a.lon) * f }));
+    geoPath = split.points;
+    const ways = split.segment.map((i) => matched[i]);
     const streetRoute: StreetRoute = {
       points: geoPath,
       halfWidths: routeHalfWidths(ways),
       onBridge: ways.map((way) => way?.bridge !== undefined),
       onStreet: ways.map((way) => way !== null),
-      inTunnel: ways.map((way) => way !== null && runsUnderCover(way)),
+      inTunnel: ways.map((way, i) => split.under[i] !== null || (way !== null && runsUnderCover(way))),
+      underWay: split.under,
     };
     this.streetRoutes.set(spawn.id, streetRoute);
     const fitted = this.applyClearance(streetRoute);
@@ -859,6 +884,7 @@ export class PathAndRouteService {
       // The free space is the high ray's hit, nearer than the low one: probeFreeSpace took the outer face of an overhang.
       const overhang = hits !== null && station !== undefined && station.free === hits[hits.length - 1] && hits[hits.length - 1] < hits[0];
       const rule = station ? (overhang ? `${station.rule}, overhang: outer face` : station.rule)
+        : route.underWay[i] !== null ? `under way ${route.underWay[i]}: street width`
         : route.inTunnel[i] ? 'tunnel or covered: street width'
         : 'not measured yet: street width';
       const halfWidth = pieceAt(i, (k + 0.5) / n)[side];
@@ -916,7 +942,9 @@ export class PathAndRouteService {
       widthSource: estimate?.source ?? 'inherited',
       onStreet: route.onStreet[i],
       inTunnel: route.inTunnel[i],
-      unmeasured: route.inTunnel[i] ? 'tunnel or covered: not measured'
+      underWay: route.underWay[i],
+      unmeasured: route.underWay[i] !== null ? `under way ${route.underWay[i]}: not measured`
+        : route.inTunnel[i] ? 'tunnel or covered: not measured'
         : probe ? probe.unmeasured
         : measured ? 'no probe (DevWorld)'
         : 'not measured yet',
@@ -1146,6 +1174,7 @@ export class PathAndRouteService {
     this.engine = null;
     this.streetNetwork = null;
     this.edgeIndex = null;
+    this.underpassIndex = null;
     this.streetRoutes.clear();
     this.clearanceBySegment.clear();
     this.walkBySegment.clear();

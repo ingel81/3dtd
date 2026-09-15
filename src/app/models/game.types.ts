@@ -27,7 +27,8 @@ export interface RouteWaypoint extends GeoPosition {
   onBridge?: boolean;
   /**
    * The segment runs through a tunnel or a covered passage (OSM `tunnel=*`
-   * other than `no`, or `covered=yes`): its cells take their height between
+   * other than `no`, or `covered=yes`), or under another way, a bridge over
+   * the street (`utils/underpass.ts`): its cells take their height between
    * the portals, since a column there only sees the ground or roof above,
    * and its width is not measured.
    */
