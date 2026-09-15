@@ -10,6 +10,7 @@
  */
 import { RouteWaypoint } from '../models/game.types';
 import { haversineDistance } from './geo-utils';
+import type { ColumnSample } from '../three-engine/column-sample';
 
 /**
  * Every knob of the corridor, in one place. Lengths in metres. The values in
@@ -536,6 +537,26 @@ export function lowRayAlone(hits: readonly number[], maxDistance: number): boole
   const low = hits[0];
   if (hits.length < 2 || !(low < maxDistance)) return false;
   return hits.slice(1).every((d) => d >= maxDistance || d >= low + LOW_WALL_BEHIND_M);
+}
+
+/**
+ * The top of a low object over a hollow in `column`: its highest hit, where
+ * that lies more than `stepRise` and at most `roofRise` above `standY`, the
+ * hit a cell or station there stands on; null otherwise. A parked car or a
+ * van the photogrammetry made hollow, the street under its body the lowest
+ * hit (playtest 2026-09-15, 727, Rothenburg, Galgengasse: the roof of a red
+ * car 1.48 and 2 m over the street under it; its cells stood on that street
+ * and passed the walk check, and the column behind the low ray's hit showed
+ * no rise). Higher up it is a roof, an awning, a crown or a deck, which
+ * streetUnderRoof and the stretch off a bridge end deal with. Where a cell
+ * stands on the top already (the deck carried on past a bridge end over a
+ * hollow under the road), nothing lies above it. A column keeps only its
+ * lowest and its highest hit (ColumnSample): a car under a crown or an eave
+ * higher than `roofRise` shows only as the crown.
+ */
+export function lowObjectTop(column: ColumnSample, standY: number): number | null {
+  const over = column.topY - standY;
+  return over > corridorConfig.stepRise && over <= corridorConfig.roofRise ? column.topY : null;
 }
 
 /**

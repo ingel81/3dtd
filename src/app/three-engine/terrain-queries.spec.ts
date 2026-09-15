@@ -290,6 +290,25 @@ describe('TerrainQueries', () => {
       expect(fence.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10)!.lowRise?.right).toBeCloseTo(0, 6);
     });
 
+    it('zählt hinter dem Treffer das Dach eines Autos, das das Mesh hohl gemacht hat, nicht die Straße darunter (Playtest 727)', () => {
+      // Wie oben, aber die Straße läuft unter dem Auto durch: die Säule dahinter trifft Dach (1,5 m) und Straße (0).
+      const car = setup();
+      car.addTile(floor(0), 3, FINE);
+      car.addTile(wall(3, 1.5), 3, FINE);
+      car.addTile(floor(1.5, 2, 4, 0), 3, FINE);
+      const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10)!;
+      expect(probe.right.map((d) => +d.toFixed(6))).toEqual([3, 10]);
+      expect(probe.lowRise?.right).toBeCloseTo(1.5, 6);
+      expect(probeLowWall(probe, 'right')).toBe(true);
+
+      // Ein Zaun vor einem Vordach 3,2 m über dem Boden dahinter: das Vordach zählt nicht.
+      const awning = setup();
+      awning.addTile(floor(0), 3, FINE);
+      awning.addTile(wall(3, 1.2), 3, FINE);
+      awning.addTile(floor(3.2, 2, 4, 0), 3, FINE);
+      expect(awning.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10)!.lowRise?.right).toBeCloseTo(0, 6);
+    });
+
     it('beurteilt nichts, wo beide Strahlen treffen, und nichts auf einem Deck', () => {
       expect(street().queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10)!.lowRise).toEqual({ left: NaN, right: NaN });
 
