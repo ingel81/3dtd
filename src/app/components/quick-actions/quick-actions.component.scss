@@ -472,9 +472,9 @@
   margin-top: 2px;
 }
 
-/* Tile: icon over a short caption. The longest captions (DEVWORLD,
-   RESEARCH) measure about 39px in the monospace fallback, the tile is
-   44.5px wide inside. */
+/* Tile: icon over a short caption. The longest captions in one cell
+   (DEVWORLD, RESEARCH) measure about 39px in the monospace fallback, the
+   tile is 44.5px wide inside. */
 .td-dev-tile {
   display: flex;
   flex-direction: column;
@@ -500,6 +500,14 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+/* Two cells for a caption one cell cannot hold with room to spare:
+   ABILITIES measures about 44px in the monospace fallback and about 47px
+   in JetBrains Mono. Among the cheats it fills the fourth cell the seven
+   tiles left empty in their second row. */
+.td-dev-tile-wide {
+  grid-column: span 2;
 }
 
 .td-dev-tile:hover {
