@@ -468,16 +468,40 @@ den meisten anderen (`densestCenter`).
 ### OrbitalLaser (93)
 
 Ruft den Orbitallaser ([ABILITIES.md](ABILITIES.md#orbitallaser-in-zahlen)):
-während einer Welle, sobald er bereit ist, wenn ein Gegner ab Pfadfortschritt
-0,5 auf derselben Route mindestens 10 Gegner hinter sich hat, höchstens 72 m
-zurück (so weit brennt der Strahl Richtung Spawn). Ziel ist der Gegner mit den
-meisten dahinter; geprüft werden höchstens 48 Kandidaten. Die Zählung nimmt
-die Strecke auf der Mittellinie und prüft nicht, ob ein Gegner seitlich
-außerhalb der 5 m des Strahls läuft.
+während einer Welle, sobald er bereit ist, wenn ein Strahl, gezielt auf einen
+der Gegner ab Pfadfortschritt 0,5, mindestens 10 Gegner treffen würde.
+Kandidaten sind diese Gegner, höchstens 48. Gezielt wird auf den Punkt, den
+der Kandidat bei der Landung erreicht: seine Geschwindigkeit mal 1 s
+Vorwarnung weiter auf seinem Pfad. Unter den Kandidaten mit mindestens 10
+Treffern gewinnt der mit dem größten erwarteten Schaden, der Summe der
+Max-HP-Anteile, die der Strahl den Getroffenen nimmt (bis zur Kappe, höchstens
+ihre Rest-HP); bei Gleichstand der erste.
+
+**Strahlmodell.** Der Weg ist der der Fähigkeit (`AbilityManager.previewSweep`),
+für die Bewertung über die 72 m hinaus verlängert um die Strecke, die der
+schnellste Gegner bis zum Ende des Strahls läuft, plus 5 m. Vorwarnung, Tempo,
+Brenndauer (`abilityBeamBurnMs`), Radius und Schaden (`abilityBeamFraction`,
+`abilityBeamCap`) kommen aus der Config. Jeder Gegner im 5-m-Radius der Strecke
+(2D, `sweepOffset`) läuft mit seiner Geschwindigkeit dieses Moments (Slow,
+Freeze und Stun eingerechnet) die Strecke entlang auf ihren Anfang zu. Strahl
+und Gegner kommen sich mit der Summe ihrer Geschwindigkeiten näher; der Gegner
+steht unter dem Strahl, solange ihr Abstand entlang der Strecke unter
+√(r² − Seitenabstand²) liegt. Die Route des Gegners spielt keine Rolle: Gegner
+einer anderen Route auf derselben Straße trifft der Strahl auch.
+
+**Grenzen des Modells.** Die Geschwindigkeit gilt als konstant, ein Freeze,
+der während des Strahls endet, ist nicht vorhergesagt. Ein Gegner nahe der
+Strecke gilt als einer, der sie entlangläuft; Querverkehr an einer Kreuzung
+sagt das Modell falsch vorher. Liegen an einer engen Kehre zwei Abschnitte der
+Strecke näher als 5 m beieinander, zählt ein Gegner einmal, sein Schaden kann
+unterschätzt sein.
 
 **Vergleichbarkeit:** strategist und meta erforschen `orbital-laser` direkt
 nach `master-engineering` (1.500 Gold). Beginner und casual spielen
-unverändert.
+unverändert. Seit 2026-09-15 zielt der Bot mit dem Strahlmodell statt mit der
+Zählung "bis 72 m hinter einem Gegner derselben Route" (Entscheidung E2):
+Wann und wohin er den Laser feuert, hat sich geändert, Läufe davor sind in
+allem, was vom Laser abhängt, nicht direkt vergleichbar.
 
 ### AutoStartWave (30)
 
@@ -720,6 +744,13 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 ---
 
 ## Changelog
+
+### 2026-09-15: Orbitallaser mit dem echten Strahl
+- OrbitalLaser bewertet Kandidaten mit dem Strahl der Fähigkeit (Weg, Radius,
+  Vorwarnung, Tempo, Brenndauer) und den Gegnern in Bewegung statt mit den
+  Gegnern bis 72 m hinter dem Kandidaten auf dessen Route. Ziel ist der Punkt,
+  den der Kandidat bei der Landung erreicht, Rang nach erwartetem Schaden,
+  Schwelle weiter 10 Treffer (Playtest-Entscheidung E2).
 
 ### 2026-09-14: Orbitallaser
 - Neue Strategie OrbitalLaser (93) in allen Skill-Stufen; `orbital-laser` in

@@ -480,8 +480,10 @@ während einer Welle.
 - `EmpStrategy` (94): setzt das EMP auf mindestens 3 Maschinen beisammen ab
   Pfadfortschritt 0,4, sonst auf eine Menge von mindestens 12 Gegnern ab 0,6
   ([BOT_SYSTEM.md](BOT_SYSTEM.md#emp-94)).
-- `OrbitalLaserStrategy` (93): zielt auf den Gegner ab Pfadfortschritt 0,5
-  mit den meisten Gegnern hinter sich auf derselben Route in 72 m, ab 10
+- `OrbitalLaserStrategy` (93): bewertet je Kandidat ab Pfadfortschritt 0,5
+  den Strahl, den die Fähigkeit feuern würde (Weg aus `previewSweep`,
+  Radius, Tempo, Brenndauer), gegen die Gegner in Bewegung; feuert ab 10
+  erwarteten Treffern auf den Kandidaten mit dem größten erwarteten Schaden
   ([BOT_SYSTEM.md](BOT_SYSTEM.md#orbitallaser-93)).
 
 ---
