@@ -852,6 +852,51 @@ export class PathAndRouteService {
   }
 
   /**
+   * What the corridor in use is made of, for `__corridor.fingerprint()`:
+   * stored state only, nothing is measured or judged anew, so the camera
+   * does not change it. Per route in use the pieces of each segment
+   * (fitRoute), the walk caps of its segments, the detour plan of its street
+   * route and what each station of its street route measured. Measurements
+   * of routes no longer in use (a spawn moved) are left out.
+   */
+  corridorState(): CorridorState {
+    const routes: CorridorState['routes'] = [];
+    const walkCaps = new Map<string, WalkCaps>();
+    const detours = new Map<string, DetourPlan>();
+    const stations = new Map<string, CorridorState['stations'][number]>();
+    for (const route of this.streetRoutes.values()) {
+      const key = routeKey(route.base);
+      routes.push({ key, pieces: this.fitRoute(route) });
+      const plan = this.detourPlans.get(key);
+      if (plan) detours.set(key, plan);
+      for (let i = 0; i < route.points.length - 1; i++) {
+        const segment = segmentKey(route.points[i], route.points[i + 1]);
+        const caps = this.walkBySegment.get(segment);
+        if (caps) walkCaps.set(segment, caps);
+      }
+      const { points } = route.base;
+      for (let i = 0; i < points.length - 1; i++) {
+        const segment = segmentKey(points[i], points[i + 1]);
+        const measured = this.clearanceBySegment.get(segment);
+        if (!measured) continue;
+        stations.set(segment, {
+          key: segment,
+          left: measured.left,
+          right: measured.right,
+          tileError: measured.probes.map((probe) => probe?.tileError ?? null),
+          unmeasured: measured.probes.map((probe) => probe?.unmeasured ?? null),
+        });
+      }
+    }
+    return {
+      routes,
+      walkCaps: [...walkCaps].map(([key, caps]) => ({ key, left: caps.left, right: caps.right })),
+      detours: [...detours].map(([key, plan]) => ({ key, plan })),
+      stations: [...stations.values()],
+    };
+  }
+
+  /**
    * Forget what the tiles showed, so the next beginClearanceMeasurement
    * measures every station again: after a settings change that moves the
    * stations or the rays or changes where enemies can walk
@@ -1180,9 +1225,50 @@ export class PathAndRouteService {
    */
   beginClearanceMeasurement(): CorridorMeasurement {
     this.cancelClearanceRun('superseded');
+    const run = this.clearanceRunOver(this.clearanceSegments(false), (measured) => this.storeClearance(measured));
+    this.clearanceRun = run;
+    return run;
+  }
+
+  /**
+   * Every station of the routes in use measured once more on the tiles
+   * loaded now, into a list the corridor never sees: the same stations, rays
+   * and order as a run of beginClearanceMeasurement that starts from
+   * nothing. Nothing is stored, no run is cancelled or replaced. For
+   * `__corridor.probeLod()`, which times it. Null without an engine.
+   */
+  measureAllStations(): (StationProbe | null)[] | null {
+    if (!this.engine) return null;
+    const segments = this.clearanceSegments(true);
+    // Never committed: what it measured stays in `segments`.
+    this.clearanceRunOver(segments, () => false).step(Infinity);
+    return segments.flatMap((segment) => segment.probes);
+  }
+
+  /** A clearance run over `segments` with the corridor settings of now; `store` takes what it measured on commit. */
+  private clearanceRunOver(
+    segments: ClearanceSegment[],
+    store: (segments: readonly ClearanceSegment[]) => boolean,
+  ): ClearanceRun {
     const engine = this.engine;
     const rayHeights = [corridorConfig.rayHeightLow, corridorConfig.rayHeightHigh];
     const maxHalfWidth = corridorConfig.maxHalfWidth;
+    return new ClearanceRun(
+      segments,
+      2 * rayHeights.length,
+      (x, z, acrossX, acrossZ, onDeck, deckEnd) =>
+        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck, deckEnd) ?? null,
+      store,
+    );
+  }
+
+  /**
+   * The segments of the routes in use a clearance run measures, each once:
+   * with the stations the last runs could not measure, or with every station
+   * afresh (`all`).
+   */
+  private clearanceSegments(all: boolean): ClearanceSegment[] {
+    const engine = this.engine;
     const segments: ClearanceSegment[] = [];
     // Routes from several spawns share segments; one pass over each is
     // enough. Each route over one hands on its stretches off a bridge end.
@@ -1205,7 +1291,7 @@ export class PathAndRouteService {
           continue;
         }
         byKey.set(key, null);
-        const known = this.clearanceBySegment.get(key);
+        const known = all ? undefined : this.clearanceBySegment.get(key);
         if (known && !known.left.some(Number.isNaN)) continue;
 
         const start = local[i];
@@ -1225,16 +1311,7 @@ export class PathAndRouteService {
         segments.push(segment);
       }
     }
-
-    const run = new ClearanceRun(
-      segments,
-      2 * rayHeights.length,
-      (x, z, acrossX, acrossZ, onDeck, deckEnd) =>
-        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck, deckEnd) ?? null,
-      (measured) => this.storeClearance(measured),
-    );
-    this.clearanceRun = run;
-    return run;
+    return segments;
   }
 
   /**
@@ -1367,6 +1444,23 @@ export class PathAndRouteService {
 
 /** How a clearance measurement ended, see PathAndRouteService.clearanceEnding. */
 export type ClearanceEnding = 'commit' | 'cancel';
+
+/** What the corridor in use is made of, see PathAndRouteService.corridorState. */
+export interface CorridorState {
+  /** Per route in use (key of its street route), per segment its corridor pieces: t along it, half width left and right. */
+  routes: { key: string; pieces: CorridorPiece[][] }[];
+  /** Per segment with walk caps (segment key): how far out enemies can walk at each station, Infinity where nothing stops them. */
+  walkCaps: { key: string; left: number[]; right: number[] }[];
+  /** Per street route with a detour or a passage (key as in routes): its plan. */
+  detours: { key: string; plan: DetourPlan }[];
+  /**
+   * Per measured segment of the street routes (segment key), per station:
+   * the free space left and right (NaN unmeasured), the geometric error of
+   * the tile under it (Infinity without a tile, null without a probe) and
+   * why it stayed unmeasured.
+   */
+  stations: { key: string; left: number[]; right: number[]; tileError: (number | null)[]; unmeasured: (string | null)[] }[];
+}
 
 /** A segment a clearance run measures: where its stations stand and what they found. */
 interface ClearanceSegment {
