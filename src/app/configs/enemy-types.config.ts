@@ -98,6 +98,14 @@ export interface EnemyTypeConfig {
   animationSpeed?: number;
   animationVariation?: boolean; // Switches between walk and run animation
   runSpeedMultiplier?: number; // Speed multiplier for run animation (default: 1.0)
+  /**
+   * Metres of ground per loop of the walk clip. Set, the clip follows the
+   * distance the instance moves instead of the clock
+   * (EnemyInstanceManager.updateAnimations): the worm's legs step with the
+   * ground at any speed and timescale and stand still in the pause and while
+   * the worm stands. animationSpeed and randomAnimationStart do not apply.
+   */
+  gaitStride?: number;
 
   // Audio (Spatial)
   movingSound?: string; // Loop sound while moving (asset path)
@@ -179,7 +187,7 @@ export interface EnemyTypeConfig {
 /** What a worm head or segment model sets; the rest of the type is shared. */
 type WormModel = Pick<
   EnemyTypeConfig,
-  | 'modelUrl' | 'scale' | 'hasAnimations' | 'walkAnimation' | 'animationSpeed'
+  | 'modelUrl' | 'scale' | 'hasAnimations' | 'walkAnimation' | 'gaitStride'
   | 'headingOffset' | 'heightOffset' | 'healthBarOffset'
   | 'previewScale' | 'previewCameraDistance' | 'previewCameraAngle' | 'previewOffsetY'
 >;
@@ -198,18 +206,48 @@ interface WormModels {
 const WORM_SCALE = 2.5;
 
 /**
- * The chitin head and ring (tools/blender/worm_boss.py): static meshes with
- * one 512² base colour each, looking along +z, pivot on the ground under the
- * ring centre. The rings follow each other at 1.0 model units (0.10 of
- * overlap); the head sits on the front node of the chain like a ring, its
- * collar over the first ring behind it. Everything that depends on the
- * models is here.
+ * Metres a ring walks per loop of its Crawl clip. In the clip a leg steps
+ * WAVE = 0.25 of a loop after the leg one model unit in front of it
+ * (tools/blender/worm_boss.py), so the ring behind, 2.5 m further back, has
+ * to be 1 - 0.25 loops behind: 2.5 m / 0.75. Then the legs of the whole worm
+ * step as one wave from the tail to the head, four rings long, and a foot on
+ * the ground goes back about as fast as the ring walks.
+ */
+const WORM_GAIT_STRIDE = WORM_SCALE / 0.75;
+
+/** The ring with its legs */
+const WORM_RING = {
+  scale: WORM_SCALE,
+  hasAnimations: true,
+  walkAnimation: 'Crawl',
+  gaitStride: WORM_GAIT_STRIDE,
+  headingOffset: 0,
+  heightOffset: 0,
+  // Dorsal spikes up to 1.78 units, 4.45 m
+  healthBarOffset: 5.5,
+  previewScale: 2,
+  previewCameraDistance: 7,
+  previewCameraAngle: 0.26,
+  previewOffsetY: 1,
+} satisfies Omit<WormModel, 'modelUrl'>;
+
+/**
+ * The chitin head and ring (tools/blender/worm_boss.py): skinned meshes
+ * with one base colour each (the head 1024², the ring 512²), looking along
+ * +z, pivot on the ground under the ring centre. The rings follow each other
+ * at 1.0 model units (0.10 of overlap); the head sits on the front node of
+ * the chain like a ring, its collar over the first ring behind it. Their
+ * clips follow the distance walked (gaitStride): the rings' legs step, the
+ * head's mandibles bite. Everything that depends on the models is here.
  */
 const WORM_MODELS: WormModels = {
   head: {
     modelUrl: 'assets/models/enemies/worm_head.glb',
     scale: WORM_SCALE,
-    hasAnimations: false,
+    hasAnimations: true,
+    // One bite of the mandibles, 1.6 s at the base speed of 4.5 m/s
+    walkAnimation: 'Jaws',
+    gaitStride: 7.2,
     headingOffset: 0,
     heightOffset: 0,
     // Top of the head at 2.02 units, 5.05 m
@@ -219,19 +257,7 @@ const WORM_MODELS: WormModels = {
     previewCameraAngle: 0.26,
     previewOffsetY: 1,
   },
-  segment: {
-    modelUrl: 'assets/models/enemies/worm_segment.glb',
-    scale: WORM_SCALE,
-    hasAnimations: false,
-    headingOffset: 0,
-    heightOffset: 0,
-    // Dorsal spikes up to 1.78 units, 4.45 m
-    healthBarOffset: 5.5,
-    previewScale: 2,
-    previewCameraDistance: 7,
-    previewCameraAngle: 0.26,
-    previewOffsetY: 1,
-  },
+  segment: { modelUrl: 'assets/models/enemies/worm_segment.glb', ...WORM_RING },
   // PITCH in worm_boss.py, 1.0 model units
   spacing: WORM_SCALE,
 };

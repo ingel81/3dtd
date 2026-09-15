@@ -42,6 +42,15 @@ export interface EnemyInstanceState {
   hitFlashEnd: number;
   /** Last global VAT frame written to the GPU attr — gate redundant writes/uploads. */
   lastFrame: number;
+  /**
+   * Metres walked, for a type that steps its walk clip by the ground
+   * (EnemyTypeConfig.gaitStride): the horizontal way its place has come
+   * since the first update, which starts it at its place along its heading.
+   */
+  gait: number;
+  /** Place (x, z) of the last update the gait counted from; NaN before the first */
+  gaitX: number;
+  gaitZ: number;
   /** Cached heading quaternion + the total angle it was built for (skips sin/cos when heading is unchanged). */
   headingQuat?: Quaternion;
   lastTotalHeading?: number;
@@ -125,6 +134,26 @@ const HIT_FLASH_B = 1.0;
  */
 function releaseTexels(texture: Texture): void {
   (texture.image as { data: unknown }).data = null;
+}
+
+/**
+ * Count the horizontal way `state` has come to `position` into its gait
+ * (EnemyTypeConfig.gaitStride). The first update starts the gait at the
+ * place's distance along the heading: instances that come out at one place
+ * (the rings of a worm from the portal) start alike and part by what each
+ * walks, ones first shown side by side along their way (a worm in the
+ * replay after a jump) start as far apart as they stand.
+ */
+function walkGait(state: EnemyInstanceState, position: Vector3, heading: number): void {
+  if (Number.isNaN(state.gaitX)) {
+    // The model looks along +z, turned by the heading round +y
+    const total = heading + (state.config.headingOffset ?? 0);
+    state.gait = position.x * Math.sin(total) + position.z * Math.cos(total);
+  } else {
+    state.gait += Math.hypot(position.x - state.gaitX, position.z - state.gaitZ);
+  }
+  state.gaitX = position.x;
+  state.gaitZ = position.z;
 }
 
 /** Pick a death animation: random entry from deathAnimations pool, falling back to deathAnimation. Only returns clips the pool actually baked. */
@@ -279,6 +308,9 @@ export class EnemyInstanceManager {
       burning: false,
       hitFlashEnd: 0,
       lastFrame: -1,
+      gait: 0,
+      gaitX: NaN,
+      gaitZ: NaN,
       config,
       pool,
       released: false,
@@ -308,6 +340,9 @@ export class EnemyInstanceManager {
 
     // Update matrix (state passed for debug overrides)
     this.setInstanceMatrix(state.pool, state.index, position, heading, state);
+
+    // The ground walked, for a walk clip that steps by it
+    if (state.config.gaitStride !== undefined) walkGait(state, position, heading);
 
     // Update speed multiplier for animation
     if (currentSpeed !== undefined && state.config.baseSpeed > 0) {
@@ -514,24 +549,24 @@ export class EnemyInstanceManager {
   updateAnimations(deltaTime: number): void {
     for (const pool of this.pools.values()) {
       if (pool.instances.size === 0) continue;
+      const gaitStride = pool.config.gaitStride;
 
       for (const state of pool.instances.values()) {
         const entry = pool.vatData.animations.get(state.currentAnim);
         if (!entry) continue;
 
-        // Advance animation time
-        if (!state.isDead) {
-          state.animTime += deltaTime * state.animSpeed * state.speedMultiplier;
-        } else {
-          // Death: advance but will clamp
-          state.animTime += deltaTime * state.animSpeed;
-        }
-
-        // Compute current frame (totalTime pre-computed on entry)
         let localFrame: number;
         const totalTime = entry.totalTime;
 
-        if (state.isDead) {
+        if (gaitStride !== undefined) {
+          // Stepped by the ground walked (walkGait), not by the clock, so
+          // nothing moves in the pause. A dead one keeps the frame it died in.
+          if (state.isDead) continue;
+          const loops = state.gait / gaitStride;
+          localFrame = Math.floor((loops - Math.floor(loops)) * entry.frameCount) % entry.frameCount;
+        } else if (state.isDead) {
+          // Death: advance but will clamp
+          state.animTime += deltaTime * state.animSpeed;
           // Clamp at last frame. The bake cuts death clips where the enemy
           // is removed (vatClips), so a clip that runs longer holds its
           // last baked frame rather than looping back to frame 0.
@@ -542,6 +577,7 @@ export class EnemyInstanceManager {
           );
         } else {
           // Loop
+          state.animTime += deltaTime * state.animSpeed * state.speedMultiplier;
           const normalizedTime = (state.animTime / totalTime) % 1.0;
           localFrame = Math.floor(normalizedTime * entry.frameCount) % entry.frameCount;
         }
@@ -612,6 +648,10 @@ export class EnemyInstanceManager {
     pool.matrixDirty = true;
 
     state.healthBarIndex = old.healthBarIndex;
+    // The ground walked goes along: the new model's clip steps on from there
+    state.gait = old.gait;
+    state.gaitX = old.gaitX;
+    state.gaitZ = old.gaitZ;
     state.isDead = old.isDead;
     state.frozen = old.frozen;
     state.poisoned = old.poisoned;
