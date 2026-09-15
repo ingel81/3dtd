@@ -33,6 +33,17 @@ export interface RouteWaypoint extends GeoPosition {
    * and its width is not measured.
    */
   inTunnel?: boolean;
+  /**
+   * The segment is part of a passage: the centre line runs under something
+   * the photogrammetry fills down to the street, with no room beside it
+   * (`utils/corridor-detour.ts`). In a tunnel as well (`inTunnel`).
+   */
+  passage?: boolean;
+  /**
+   * The segment bends sideways round something standing on the street's
+   * centre line, a parked car or a jetty (`utils/corridor-detour.ts`).
+   */
+  detour?: boolean;
 }
 
 /**

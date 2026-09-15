@@ -119,6 +119,8 @@ export interface TunnelSpan {
   bx: number;
   bz: number;
   f: number;
+  /** The stretch is a passage under an obstacle on the centre line (RouteWaypoint.passage), not a tunnel from OSM. */
+  passage?: boolean;
 }
 
 /**

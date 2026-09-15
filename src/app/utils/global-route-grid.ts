@@ -2,7 +2,7 @@ import { InstancedMesh, Vector3 } from 'three';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
-import type { ColumnSampler, TerrainPeekLOD } from '../three-engine/column-sample';
+import type { ColumnSample, ColumnSampler, TerrainPeekLOD } from '../three-engine/column-sample';
 import { LosResolveContext } from './gpu-cube-resolve';
 import { RouteCell } from './route-cell';
 import { resolveTowerLos, resolveTowerLosIncremental } from './route-grid-los';
@@ -144,6 +144,9 @@ export class GlobalRouteGrid {
   /** Keys of the cells a route centre line runs through (centreLineKeys), set by generateFromRoutes. */
   private centreLine = new Set<number>();
 
+  /** Keys of the cells the centre line of a detour runs through (RouteWaypoint.detour), for `__corridor.pick()`. */
+  private detourLine = new Set<number>();
+
   /**
    * What the walk check reads off this grid (corridor-walk.ts): the
    * sampler's column probe, beside a seam as well, and the cells a centre
@@ -155,7 +158,18 @@ export class GlobalRouteGrid {
       const key = this.intCellKey(this.cellIndex(x), this.cellIndex(z));
       return this.centreLine.has(key) ? this.cells.get(key) ?? null : null;
     },
+    onDetour: (x, z) => this.detourLine.has(this.intCellKey(this.cellIndex(x), this.cellIndex(z))),
   };
+
+  /**
+   * The column at local (x, z) as the cells and the walk check read it: the
+   * engine's cached column probe, half a metre beside it on a seam. Null
+   * before initialize() and where no tile is. For the obstacle check on the
+   * route centre lines (PathAndRouteService, corridor-detour.ts).
+   */
+  columnNear(x: number, z: number): ColumnSample | null {
+    return this.sampler.columnNear(x, z);
+  }
 
   /** cellWalkable for one cell of this grid, for the diagnostics. */
   private readonly walkable = (cell: RouteCell) => cellWalkable(cell, this.walkGround, this.CELL_SIZE);
@@ -375,14 +389,17 @@ export class GlobalRouteGrid {
 
     const alongClaims = new Set<number>();
     const lines: { x: number; z: number }[][] = [];
+    const detours: { x: number; z: number }[][] = [];
     for (const route of routes) {
       if (route.length < 2) continue;
 
       const points = route.map((p) => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
       claimRouteCells(this.cells, this.lattice, route, points, alongClaims);
       lines.push(points);
+      for (let i = 0; i < route.length - 1; i++) if (route[i].detour) detours.push([points[i], points[i + 1]]);
     }
     this.centreLine = centreLineKeys(lines, this.lattice);
+    this.detourLine = centreLineKeys(detours, this.lattice);
 
     // Sampled only once every segment has claimed its cells: which surface
     // a cell samples depends on all segments that reach it. Then the gaps
@@ -1276,6 +1293,7 @@ export class GlobalRouteGrid {
   clear(): void {
     this.cells.clear();
     this.centreLine.clear();
+    this.detourLine.clear();
     this.enemyCellKeys.clear();
     this.bodyEnemies.length = 0;
     this.generation = GlobalRouteGrid.nextGeneration++;
