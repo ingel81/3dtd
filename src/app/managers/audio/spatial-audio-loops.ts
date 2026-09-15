@@ -202,6 +202,17 @@ export class SpatialAudioLoops {
     return this.activeLoops.get(handle)?.paused ?? false;
   }
 
+  /**
+   * Loop `handle` at `volumeMultiplier` times its sound's volume from now on
+   * (a fade the caller steps). A paused loop takes it when it resumes.
+   */
+  setVolume(handle: string, volumeMultiplier: number): void {
+    const loop = this.activeLoops.get(handle);
+    if (!loop) return;
+    loop.baseVolume = loop.config.volume * volumeMultiplier;
+    if (!loop.paused) loop.voice?.audio.setVolume(loop.baseVolume * this.masterVolume);
+  }
+
   private pauseLoop(loop: ActiveLoop): void {
     try {
       loop.voice?.audio.pause();

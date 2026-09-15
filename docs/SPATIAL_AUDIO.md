@@ -98,6 +98,9 @@ spatialAudio.resumeLoop(handle);  // false wenn Budget erschöpft oder das Spiel
 spatialAudio.holdLoops(true);
 spatialAudio.holdLoops(false);    // Loops in Hörweite laufen weiter
 
+// Lautstärke als Anteil der Sound-Lautstärke (zum Ausblenden, vom Aufrufer gestuft)
+spatialAudio.setLoopVolume(handle, 0.5);
+
 // Loop stoppen
 spatialAudio.stopLoop(handle);
 
@@ -435,25 +438,35 @@ kommt ohnehin überall. Die Abnahme bleibt (`inverse`, `refDistance` 40,
   Replay (`clearAbilitySounds`) und `destroy()` beenden sie. Abnahme wie beim Knall
   (`refDistance` 150, `rolloffFactor` 0,6), `volume` 1.
 
-### Orbitallaser (synthetisiert, Stücke in Spielzeit)
-`GAME_SOUNDS.orbitalLaser` (`audio.config.ts`), im Code synthetisiert in
-`utils/laser-sound.ts`, seit 2026-09-15 (Playtest 636; vorher der Blitz des Lightning
-Towers, `towers/lightning/bolt.mp3`, zweimal leiser wiederholt).
+### Orbitallaser (Einschlag synthetisiert, Brennen als Loop am Strahlfuß)
+`GAME_SOUNDS.orbitalLaser` (`audio.config.ts`).
 
-- **Einschlag** (`orbital_laser`, 1,8 s) beim `ability:impact`: ein Zap, der in wenigen
-  Hundertstelsekunden von 3,2 kHz auf 200 Hz fällt, der Strahl kommt an; ein Crack und
-  ein Schlag, Sinus von 90 auf 38 Hz; dann setzt das Brennen ein.
-- **Brennen** (`orbital_laser_burn_1` und `_2`, je 1,9 s): das Dröhnen des Strahls, zwei
-  Sägezähne 15 Cent auseinander bei 55 Hz mit langsamem Vibrato und 23 Hz Brummen, Tiefpass
-  1,4 kHz; darüber das Zischen des Bodens, Rauschen über 2,5 kHz mit zufällig
-  aufknisternden Knacksern. 0,3 s ein- und 0,5 s ausgeblendet; im zweiten Stück fällt das
-  Dröhnen in den letzten 0,6 s um eine Oktave, der Strahl fährt herunter. Der
-  `AudioService` startet sie nach 1300 und 2500 ms Spielzeit mit 90 und 80 % der
-  Lautstärke; zusammen etwa 4,4 s, so lange der Strahl brennt und ausblendet.
-- **Spielzeit und Budget** wie beim Nuklearschlag: Pause hält die Stücke, die noch kommen,
-  `maxInstances` 2 je Stück, `priority` gegen das Voice-Stealing (der Strahl tötet einen
+- **Einschlag** (`orbital_laser`, 1,8 s, im Code synthetisiert in `utils/laser-sound.ts`,
+  seit Playtest 636; vorher der Blitz des Lightning Towers) beim `ability:impact` am
+  Aufsetzpunkt: ein Zap, der in wenigen Hundertstelsekunden von 3,2 kHz auf 200 Hz fällt,
+  der Strahl kommt an; ein Crack und ein Schlag, Sinus von 90 auf 38 Hz; dann setzt das
+  Brennen ein (Dröhnen aus zwei Sägezähnen bei 55 Hz, Zischen über 2,5 kHz), in den
+  letzten 0,5 s ausgeblendet. `priority` gegen das Voice-Stealing (der Strahl tötet einen
   Abschnitt der Welle in wenigen Sekunden, deren Todesgeräusche nähmen ihm sonst die
-  Stimmen). Standard-Hörweite 500 m.
+  Stimme), `maxInstances` 2, Standard-Hörweite 500 m.
+- **Brennen** (`orbital_laser_beam`, `abilities/orbital_laser_beam.mp3`, 4 s, mit
+  ElevenLabs erzeugt; seit 2026-09-15, E18): ein Loop (`AbilityImpactSound.beam`), den der
+  `AudioService` beim `ability:impact` am Anfang des Pfads anlegt (`path` im Event) und je
+  Sub-Step (`update()`) mitführt: Er steht nach verbrannter Zeit mal 18 m/s auf dem Pfad,
+  wie der Strahl in der Simulation, auf dem Boden des Route-Grids, bis
+  `abilityBeamBurnMs` (4 s, weniger, wo die Route früher endet). Danach blendet er dort
+  über 450 ms Spielzeit aus (`setLoopVolume`) und endet. Das Sample zündet in den ersten
+  0,7 s und brennt dann gleichmäßig bis 4,0 s, so lang wie der Strahl; bei 1x fällt die
+  Loop-Naht in das Ausblenden. Bis 2026-09-15 spielten zwei synthetisierte Stücke Brennen
+  nach 1,3 und 2,5 s als One-Shots am Aufsetzpunkt: Der Ton blieb dort, während der
+  Strahl bis 72 m weiterlief.
+- **Spielzeit:** Die Pause hält den Loop (`holdLoops`) und seinen Weg, höheres Tempo führt
+  ihn schneller mit und kürzt ihn; `game:reset`, ein Sprung im Replay
+  (`clearAbilitySounds`) und `destroy()` beenden ihn. Im Wave-Replay ist das Spiel
+  pausiert: Der Loop entsteht dort, wartet aber, bis er endet; zu hören ist nur der
+  Einschlag. Vorher waren die Stücke Brennen One-Shots und auch im Replay zu hören.
+- **Budget:** Der Loop hat keine Gegner-ID und zählt nicht zum Gegner-Budget; Loops kennen
+  weder Voice-Stealing noch Polyphony-Cap. Hörweite 500 m wie alle Loops.
 
 ### Frostbombe und EMP (eigene Samples)
 Frostbombe und EMP stehen wie der Nuklearschlag in `ABILITY_IMPACT_SOUNDS`
@@ -555,7 +568,8 @@ public/assets/sounds/
 ├── abilities/                         # mit ElevenLabs erzeugt (E18, 2026-09-15)
 │   ├── nuke_siren.mp3                 # Warnsirene des Nuklearschlags (Loop)
 │   ├── frost_bomb.mp3                 # Einschlag der Frostbombe
-│   └── emp.mp3                        # Einschlag des EMP
+│   ├── emp.mp3                        # Einschlag des EMP
+│   └── orbital_laser_beam.mp3         # Brennen des Orbitallasers (Loop am Strahlfuß)
 ├── enemies/
 │   ├── zombie/ambient.mp3             # Zombie-Bewegungs-Loop
 │   ├── tank/moving.mp3                # Tank-Bewegungs-Loop

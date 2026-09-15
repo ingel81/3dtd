@@ -382,12 +382,16 @@ Radius, fast schwarz, 150 s, mit Ground Marks an) und ein Glutfleck, der in
 getönt wie die Bodenspuren. Der Fuß läuft mit 18 m/s die Route entlang wie in
 der Simulation und endet mit ihr. Mit Impact Effects aus (Preset Low) nur die
 Säule ohne Streifen, Fuß, Ring und Blitz. Aufbau und Budget in
-[PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#orbitallaser). Ton `orbital_laser`, im
-Code synthetisiert (`utils/laser-sound.ts`): Zap, Crack und Schlag beim
-Einschlag, nach 1,3 und 2,5 s zwei Stücke Brennen (Dröhnen und Zischen), das
-letzte fährt herunter, zusammen etwa so lange, wie der Strahl brennt
-([SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#orbitallaser-synthetisiert-stücke-in-spielzeit));
-bis Playtest 636 der Blitz des Lightning Towers, zweimal leiser wiederholt.
+[PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#orbitallaser). Ton: am Aufsetzpunkt
+`orbital_laser`, im Code synthetisiert (`utils/laser-sound.ts`): Zap, Crack und
+Schlag, dann setzt das Brennen ein. Das Brennen selbst (`orbital_laser_beam`,
+4 s, mit ElevenLabs erzeugt, seit 2026-09-15, E18) ist ein Loop, der mit dem Fuß
+des Strahls die Route entlang läuft, in Spielzeit wie der Strahl, und nach dem
+Strahl dort in 450 ms ausblendet
+([SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#orbitallaser-einschlag-synthetisiert-brennen-als-loop-am-strahlfuß));
+bis dahin zwei synthetisierte Stücke Brennen am Aufsetzpunkt, die dort blieben,
+während der Strahl bis 72 m weiterlief; bis Playtest 636 der Blitz des Lightning
+Towers, zweimal leiser wiederholt.
 Shake `orbitalLaser` 0,006 für 1400 ms (bis Playtest 636 0,003 für 1200 ms),
 dieselbe Reichweite wie Frostbombe und EMP.
 
@@ -528,7 +532,7 @@ während einer Welle.
 | `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze und Stun über den `StatusEffectService`), `showAbilityDamage` (Schadenszahl wie bei einem Tower-Treffer) |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `utils/nuke-sound.ts` | Ton des Nuklearschlags, im Code synthetisiert: Knall und drei Stücke Grollen |
-| `utils/laser-sound.ts` | Ton des Orbitallasers, im Code synthetisiert: Einschlag und zwei Stücke Brennen |
+| `utils/laser-sound.ts` | Einschlag des Orbitallasers, im Code synthetisiert; das Brennen ist ein Asset-Loop (`abilities/orbital_laser_beam.mp3`, AudioService) |
 | `utils/synth.ts` | Seed-Zufall, Tiefpass-Koeffizient und Normalisieren, geteilt mit den Ooze-Sounds |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 | `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |

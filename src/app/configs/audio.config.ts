@@ -115,10 +115,9 @@ const nukeRumble = (roll: number) =>
   ({ id: `nuclear_strike_rumble_${roll + 1}`, url: () => nukeSoundUrls().rumble[roll], ...NUKE_SPATIAL }) as const;
 
 /**
- * Spatial settings the pieces of the orbital laser's sound share, with
- * priority: the beam kills a stretch of the wave within a few seconds, and
- * their deaths would steal its voices otherwise. Two of each at once, for
- * two beams in a row.
+ * Spatial settings of the orbital laser's strike, with priority: the beam
+ * kills a stretch of the wave within a few seconds, and their deaths would
+ * steal its voice otherwise. Two at once, for two beams in a row.
  */
 const LASER_SPATIAL = {
   refDistance: 130,
@@ -127,10 +126,6 @@ const LASER_SPATIAL = {
   maxInstances: 2,
   priority: true,
 } as const;
-
-/** Piece `piece` of the orbital laser's burn (utils/laser-sound.ts) */
-const laserBurnPiece = (piece: number) =>
-  ({ id: `orbital_laser_burn_${piece + 1}`, url: () => laserSoundUrls().burn[piece], ...LASER_SPATIAL }) as const;
 
 /** Game state sounds configuration */
 export const GAME_SOUNDS = {
@@ -206,21 +201,26 @@ export const GAME_SOUNDS = {
     tail: [],
   },
   /**
-   * Orbital laser, synthesised (utils/laser-sound.ts): the strike where the
-   * beam comes down, a zap, a crack and a thump with the burn setting in
-   * (1.8 s), then two pieces of burn (1.9 s each, fading into one another),
-   * the drone and sizzle of the beam, the last one powering down; about as
-   * long as the beam burns and fades (4.45 s). Pieces in game time like the
-   * nuclear strike's rumble.
+   * Orbital laser. The strike where the beam comes down, synthesised
+   * (utils/laser-sound.ts): a zap, a crack and a thump with the burn setting
+   * in (1.8 s). Then the burn, generated with ElevenLabs (4 s: it ignites
+   * over 0.7 s, then hums and sizzles): a loop that follows the beam's foot
+   * along its path in game time (AudioService) and fades out where the beam
+   * ends, about 4.45 s in all.
    */
   orbitalLaser: {
     id: 'orbital_laser',
     url: () => laserSoundUrls().strike,
     ...LASER_SPATIAL,
-    tail: [
-      { delayMs: 1300, volume: 0.9, sample: laserBurnPiece(0) },
-      { delayMs: 2500, volume: 0.8, sample: laserBurnPiece(1) },
-    ],
+    tail: [],
+    beam: {
+      id: 'orbital_laser_beam',
+      url: 'assets/sounds/abilities/orbital_laser_beam.mp3',
+      refDistance: LASER_SPATIAL.refDistance,
+      rolloffFactor: LASER_SPATIAL.rolloffFactor,
+      volume: 1.3,
+      fadeOutMs: 450,
+    },
   },
 } as const;
 
@@ -277,6 +277,20 @@ export interface AbilityImpactSound extends AbilityImpactSample {
    * paused like every loop; a restart ends it.
    */
   warning?: AbilityLoopSample;
+  /**
+   * A beam's burn (the orbital laser): a loop from `ability:impact` on that
+   * follows the beam's foot along the event's `path` in game time, as fast
+   * and as long as the beam burns (ABILITIES, abilityBeamBurnMs), then fades
+   * out where the beam ended. Stands while the game is paused; a restart
+   * ends it.
+   */
+  beam?: AbilityBeamSound;
+}
+
+/** A beam's burn, see AbilityImpactSound.beam */
+export interface AbilityBeamSound extends AbilityLoopSample {
+  /** Game ms it fades out over once the beam is done */
+  fadeOutMs: number;
 }
 
 /**

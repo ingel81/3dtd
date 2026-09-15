@@ -246,6 +246,21 @@ describe('SpatialAudioLoops', () => {
     expect(loops.isPaused(running)).toBe(false);
   });
 
+  it('sets a loop to a share of its volume under the master volume, a paused one when it resumes', async () => {
+    loops.setMasterVolume(0.5);
+    const handle = (await loops.create('fire', HERE))!;
+    loops.setVolume(handle, 0.25);
+    expect(audios[0].volume).toBeCloseTo(0.8 * 0.25 * 0.5);
+
+    loops.hold(true);
+    loops.setVolume(handle, 0.5);
+    expect(audios[0].volume).toBeCloseTo(0.8 * 0.25 * 0.5);
+    loops.hold(false);
+    expect(audios[0].volume).toBeCloseTo(0.8 * 0.5 * 0.5);
+
+    loops.setVolume('loop_unknown', 0);
+  });
+
   it('stops every loop and returns their slots', async () => {
     await loops.create('zombie_walk', HERE);
     await loops.create('zombie_walk', HERE);
