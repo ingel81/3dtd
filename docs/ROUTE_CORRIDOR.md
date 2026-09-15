@@ -1116,6 +1116,15 @@ einem Frame:
 
 ### Logs
 
+Alle Zeilen hier sind `console.log`, keine Warnungen: Chrome hängt an jede
+Warnung einen aufklappbaren Stack, im Log Berlin vom 2026-09-15 etwa
+192.000 von 206.000 Zeilen, bis DevTools aufgab (bis 2026-09-16 waren
+`[Corridor]` und `[PerfTrace]` Warnungen). Warnungen und Fehler bleiben für
+echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub und Höhen-Sweep
+(`onTilesLoadCallback`, `onTilesLoaded`, `updateTerrainHeights`) sind
+seitdem aus; `__perf.trace(true)` schaltet sie an, `__perf.trace(false)`
+wieder aus (`utils/perf-trace.ts`). Die `[Corridor]`-Zeilen unten bleiben an.
+
 ```
 [Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms [flushed=tower|wave] [noTile=x,z;x,z;...]
 [Corridor] clearance cancelled (Grund): stations=N of M in X ms slices= wall= ms, corridor unchanged
@@ -1163,9 +1172,10 @@ einem Frame:
 `[CorridorTrace]` (`utils/corridor-trace.ts`) ist ein eigener Konsolenkanal
 für alles, was Korridor, Zellen, Zellhöhen, Waypoints oder rote Linie ändert
 oder ändern kann: wer, warum, auf welchen Tiles, was sich geändert hat. Er
-ändert kein Verhalten; die Zeilen oben (`[Corridor]`, `[PerfTrace]`) bleiben,
-wie sie sind. An in Dev-Builds, aus in Production-Builds und unter vitest
-(Specs schalten ihn selbst ein).
+ändert kein Verhalten; die Zeilen oben (`[Corridor]`, `[PerfTrace]`) behalten
+ihren Text. `console.log`, eine Zeile je Ereignis; die ganze Tabelle nur mit
+`__corridor.trace()`. An in Dev-Builds, aus in Production-Builds und unter
+vitest (Specs schalten ihn selbst ein).
 
 ```
 [CorridorTrace] 12.35s clearance.commit segments=20 stations=236 ... changed=true lod=2m:0,5m:236,coarse:0,none:0 ... | tilesLoaded lod=15 -> convergence.settled -> refit.remeasure -> refit.slice
@@ -1178,13 +1188,14 @@ wie sie sind. An in Dev-Builds, aus in Production-Builds und unter vitest
 - **Ereignis**, dann seine Zahlen als `name=wert`.
 - **Auslöser** nach `|`: die Kette der Aufrufer und Gründe, der älteste
   zuerst. Frames und Timer tragen die Kette weiter, unter der sie geplant
-  wurden (`refit.slice`, `refit.retry`, `convergence`). Wo keine Kette
-  hinführt, steht `caller` mit den zwei Funktionen über dem Ereignis (im
-  Production-Build minifiziert).
+  wurden (`refit.slice`, `refit.retry`, `convergence`). Im Neuaufbau trägt
+  jeder Schritt sein Label: `rebuild -> routes`, `rebuild -> walkPass 1`,
+  `rebuild -> lines`. Wo keine Kette hinführt, steht `caller` mit den zwei
+  Funktionen über dem Ereignis (im Production-Build minifiziert).
 - **`LONG`:** ein Schritt, der in einem Frame länger als 16 ms lief
   (`LONG_STEP_MS`): `rebuild`, `grid.generate`, `heights.slice`,
   `clearance.slice`, `clearance.commit`, `convergence.retry`,
-  `routeLines.refresh`, `tilesLoaded`.
+  `routeLines.refresh`, `routes.refresh`, `tilesLoaded`.
 
 | Ereignis | Wo | Zahlen |
 |---|---|---|
@@ -1192,11 +1203,13 @@ wie sie sind. An in Dev-Builds, aus in Production-Builds und unter vitest
 | `tiles` | `VisualizationFacadeService.onTilesLoaded`, je beruhigtem Tile-Schub | `lod` (lodVersion); aktive Tiles, die die Region (`RouteCorridorRegion.lodState`) erreichen: `tiles`, `fine` (bis 5 m oder Blatt), `finest` (bis 2 m), `coarse` (gröber und noch zu verfeinern); `pending`: Tiles in Warteschlange, Download oder beim Parsen, überall |
 | `region.complete` | das erste Mal je Ort `coarse=0` | `tiles`, `finest` |
 | `convergence.schedule`, `convergence.settled` | `RouteGridConvergence` | `running` (lief schon); `frames`, `sweepFrames`, `retryPromoted`, `capped`, `wallMs` |
-| `heights` | Ende jedes Höhen-Sweeps (`RouteGridHeightSweep`), auch des blockierenden `updateTerrainHeights` im Neuaufbau und im Höhen-Update | `raycasted`, `promoted`, `refreshed`, `moved` (aufgefrischte Zellen, die sich mehr als 0,25 m bewegten), `maxMoveM`, `lod`, `slices`, `spanMs`, `maxSliceMs` |
-| `routeLines.refresh` | rote Linie, Marker und Animation nach einem Sweep neu (`scheduleBakedHeightRefresh`) | `spawns`, `ms` |
+| `heights` | Ende jedes Höhen-Sweeps (`RouteGridHeightSweep`), auch des blockierenden `updateTerrainHeights` im Neuaufbau und im Höhen-Update | `raycasted`, `promoted`, `refreshed`, `probedNoChange` (Zellen, bei denen der LOD-Peek ein feineres Tile versprach und die Probe trotzdem nichts änderte), `moved` (aufgefrischte Zellen, die sich mehr als 0,25 m bewegten), `maxMoveM`, `lod`, `slices`, `spanMs`, `maxSliceMs` |
+| `routeLines.refresh` | rote Linie, Marker und Animation nach einem Sweep neu (`scheduleBakedHeightRefresh`), Auslöser die erste Anfrage | `spawns`, `changedCells` (Zellen, die das Grid seit dem letzten Mal als geändert meldete; 0: nichts hat sich bewegt), `requests`, `animation` (Routen-Animation neu gestartet), `ms` |
+| `routes.refresh` | jeder Neuaufbau der roten Linie (`PathAndRouteService.refreshRouteLines`, `refreshRouteLinesAsync` mit `async=true`) | `spawns`, `waypoints`, `ms` |
+| `routeAnimation.start` | jeder Start der Routen-Animation (`RouteAnimationService.startAnimation`), der ihren Strich-Versatz zurücksetzt | `routes`, `restart` (lief schon) |
 | `refit.fit`, `refit.remeasure`, `refit.flush`, `refit.change`, `refit.remeasureLater` | Entscheidungen in `CorridorRefit` | `outcome`: `measure`, `blocked: <Sperre>`, `held for the intro flight`, `wait <ms> (intro flight / run under way / interval)`, `nothing to measure`, `run under way`; `reason` bei `flush`, `remeasure` bei `change` |
 | `pending.unwalkable` | `hasUnwalkableCells` ist wahr, `remeasure` misst deshalb | `by`: `walkCaps` oder `detourPlans` |
-| `clearance.start`, `clearance.commit`, `clearance.cancel` | `ClearanceRun`, auch ein Lauf ohne Segmente, für den `[Corridor] clearance` nichts schreibt | `segments`, `stations`, `rays`, `changed`, `lod`, `slices`, `maxSliceMs`, `busyMs`, `wallMs`, `flushed`; `reason` |
+| `clearance.start`, `clearance.commit`, `clearance.cancel` | `ClearanceRun`, auch ein Lauf ohne Segmente, für den `[Corridor] clearance` nichts schreibt | `segments`, `stations`, `rays`, `changed`, `lod`, `slices`, `budgetMs` (die Budgets der Scheiben, `4/32` bei beiden), `overBudget` (Scheiben länger als ihr Budget: eine Scheibe nimmt mindestens eine Station), `maxSliceMs`, `meanSliceMs`, `msPerStation`, `busyMs`, `wallMs`, `flushed`; `reason` |
 | `store` | `storeClearance` | `changed`, `by` (`measured`, `walkCaps`, `detourPlans`), `capped` (Stationen mit Kappe des Laufwegs), `plans`, `traceMs` |
 | `walk.narrow` | Laufweg-Runde im Neuaufbau (`narrowToWalkable`) | `changed`, `by`, `capped`, `plans` |
 | `grid.generate` | `GlobalRouteGrid.generateFromRoutes` | `cells`, `routes`, `ms` |
@@ -1253,7 +1266,14 @@ Segmente), nicht gemessen.
   `region.complete` sagt, wann die Region zum ersten Mal ganz verfeinert war.
 - Warum nichts passiert: `refit.remeasure outcome=...` und `refit.fit
   outcome=...`.
-- Welcher Frame hängt: `[CorridorTrace] LONG`.
+- Welcher Frame hängt: `[CorridorTrace] LONG`. Ob die Messung ihr Budget
+  hält: `overBudget` und `msPerStation` in `clearance.commit`.
+- Was sich ohne Neuaufbau sichtbar tut: `routeLines.refresh changedCells=0`
+  baut rote Linie und Marker neu, ohne dass eine Zelle sich bewegt hat,
+  `animation=true` startet dabei die Routen-Animation neu; `routes.refresh`
+  zeigt jeden Neuaufbau der Linie mit seinem Auslöser, auch die mehrfachen
+  in einem `rebuild`; `probedNoChange` in `heights` zählt Proben, die nichts
+  brachten.
 
 ```js
 __corridor.trace()        // Zeitleiste dieser Ortsladung als Tabelle (console.table)
