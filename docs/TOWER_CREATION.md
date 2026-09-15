@@ -908,20 +908,25 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   tiefer als `MAX_DROP`, reicht der Sockel nur so tief, wie das Dach uneben ist, und ragt über die
   Kante. Die Proben dort (Säule endet unter dem tiefsten Punkt des Sockels oder trifft nichts)
   nennt `resolveTowerFootprint` als `overhang`, nur mit Sockel. Daraus baut der
-  `TowerPlinthRenderer` beim Anlegen schräge Steinstützen in dieselbe Geometrie, mit demselben
-  Material: entlang jeder überhängenden Strecke des Rands etwa alle 2,5 m eine, radial wie
-  Konsolen unter einem runden Erker, von knapp innerhalb der Wand unter dem Rand 45° nach innen
-  und unten bis 0,3 m innerhalb der konvexen Hülle der Proben mit Grund unter dem Sockel. Die
-  echte Kante liegt zwischen dieser Hülle und der ersten Probe über dem Abbruch, die Stütze
-  verschwindet also vor ihrem Fuß in der Fassade. Keine Stütze, wo der Sockel weniger als etwa
-  0,9 m über die Hülle ragt oder die Achse des Towers selbst über dem Abbruch steht. Ein Sockel mit
-  Stützen bekommt eine Bodenfläche, von unten ist er sonst offen. Nur Probedaten, keine
-  zusätzlichen Raycasts, nichts pro Frame; die Bauvorschau zeigt die Stützen mit. Sockel und
-  Stützen hängen direkt an der Szene, nicht in der Blocker-Gruppe, der LOS-Cube zeichnet sie
-  nicht (Regel 8, [LOS_PIPELINE.md](LOS_PIPELINE.md)).
+  `TowerPlinthRenderer` beim Anlegen gestufte Kragsteine in dieselbe Geometrie, mit demselben
+  Material: Steinblöcke, 1,2 m breit, die in drei Lagen auskragen, jede Lage so hoch, wie sie
+  vorspringt (0,4 bis 0,9 m). Die oberste Lage endet stumpf knapp innerhalb der Wand unter dem
+  Rand, die unterste läuft mit flacher Unterseite ins Gebäude. Entlang jeder überhängenden
+  Strecke des Rands steht etwa alle 3 m einer, höchstens zwei je halbem Rand. Die Kragsteine
+  einer Seite zeigen parallel zur Mitte dieser Strecke hinaus und treffen eine gerade Fassade
+  rechtwinklig; verfehlt die Linie eines Kragsteins das Dach (an einer Ecke), zeigt er radial
+  von der Achse weg. Das Dach ist die konvexe Hülle der Proben mit Grund unter dem Sockel, der
+  Rücken endet 0,3 m innerhalb davon. Die Stufen setzen dort an, wo das Dach laut nächster Probe
+  endet, zwischen der letzten Probe auf dem Dach und der ersten über dem Abbruch. Kein
+  Kragstein, wo er vom Rücken bis zur Stirn kürzer als 1,04 m wäre oder die Achse des Towers
+  selbst über dem Abbruch steht. Ein Sockel mit Kragsteinen bekommt eine Bodenfläche, von unten
+  ist er sonst offen. Nur Probedaten, keine zusätzlichen Raycasts, nichts pro Frame; die
+  Bauvorschau zeigt die Kragsteine mit. Sockel und Kragsteine hängen direkt an der Szene, nicht
+  in der Blocker-Gruppe, der LOS-Cube zeichnet sie nicht (Regel 8,
+  [LOS_PIPELINE.md](LOS_PIPELINE.md)).
 - **Grenzen der Stützen:** Sie setzen voraus, dass die Fassade unter der Dachkante steht; unter
-  einem vorkragenden Dach oder vor einem zurückgesetzten Geschoss kann ein Stück Stütze frei
-  enden. Ein flaches Dach an der Kante gibt keinen Sockel (Proben innerhalb `MIN_UNEVENNESS`) und
+  einem vorkragenden Dach oder vor einem zurückgesetzten Geschoss kann ein Kragstein vor der
+  Fassade frei enden. Ein flaches Dach an der Kante gibt keinen Sockel (Proben innerhalb `MIN_UNEVENNESS`) und
   damit keine Stütze, der Tower ragt dort wie bisher über die Kante. Liegt die Straße weniger als
   `MAX_DROP` tiefer, reicht der Sockel bis zu ihr hinab und braucht keine Stütze.
 
