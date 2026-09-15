@@ -559,20 +559,39 @@ An den betäubten Gegnern selbst: Tint und Funken des Stun
 `OrbitalBeamRenderer` (`three-engine/renderers/orbital-beam.renderer.ts`), Werte in
 `ORBITAL_BEAM_LOOK`, seit 2026-09-14, in Spielzeit: der Fuß steht nach
 Geschwindigkeit mal Alter auf dem Pfad, den der `AbilityManager` gefegt hat, so wie
-der Strahl in der Simulation. Die Pause hält ihn an.
+der Strahl in der Simulation. Die Pause hält ihn an. Nach Playtest 636 (2026-09-15:
+"viel spektakulärer, die Brandspuren tiefer und kräftiger") breiter, heller und mit
+Brocken, Rauch und Glut; Schaden und Zeiten unverändert.
 
 | Teil | Darstellung |
 |---|---|
-| Säule | Quad 9 m breit, 320 m hoch, um die Senkrechte zur Kamera gedreht; eigenes ShaderMaterial (Log-Depth-Chunks, `colorspace_fragment`, additiv, **mit** Tiefentest, Gebäude davor verdecken ihn): weißglühender Kern (0,9 m), orange Glut (3,2 m), nach oben ausblendend, am Boden am hellsten, mit Wellen, die in Spielzeit nach unten laufen |
-| Fuß | Glüh-Sprite (3,2 × Radius), pulsierend, Tiefentest aus |
+| Säule | Quad 24 m breit, 340 m hoch, um die Senkrechte zur Kamera gedreht; eigenes ShaderMaterial (Log-Depth-Chunks, additiv, Licht in Anzeigewerten über `displayLight`, **mit** Tiefentest, Gebäude davor verdecken ihn): weißglühender Kern (Halbbreite 1,3 m), gelb-orange innere Korona (3,6 m), rote äußere Korona (7,5 m), nach oben ausblendend, am Boden am hellsten. Energiestreifen und Pulse laufen in Spielzeit nach unten, die Ränder der Korona flimmern wie Luft über Hitze. Kommt in 0,08 s vom Himmel herunter |
+| Fuß | Glüh-Sprite (4,4 × Radius), pulsierend, Tiefentest aus |
+| Bodenlicht | additive Scheibe mit 3,6 × Radius (18 m) um den Fuß, flackernd, läuft mit ihm; die Tiles nehmen kein Licht an. Tiefentest aus |
 | Ring | am Boden im Strahlradius (5 m), die Zone, die Schaden nimmt, Tiefentest aus |
-| Blitz | Sprite 60 m, wo der Strahl aufsetzt, 0,3 s |
-| Funken | 220 je Sekunde vom Fuß, fliegen hinaus und fallen, 0,55 s; Funke k entsteht bei k/220 s dort, wo der Fuß da stand (Funktion seiner Nummer, kein Speicher) |
-| Brandspur | alle 3 m des Wegs ein Brandfleck (Quelle `rocket`), wo der Fuß vorbeikommt, nur auf Route-Zellen und mit Ground Marks an |
+| Blitz | Sprite 90 m, wo der Strahl aufsetzt, 0,35 s |
+| Funken | 400 je Sekunde vom Fuß, fliegen hinaus und fallen, 0,65 s |
+| Glutbrocken | 40 je Sekunde, fliegen im Bogen hinaus (3 bis 10 m/s, 6 bis 13 m/s aufwärts), landen und glühen am Boden weiter, von Gelb nach Dunkelrot, 0,9 bis 1,6 s; im Flug ein Schweif aus drei Sprites |
+| Rauch und Staub | 30 Puffs je Sekunde aus dem Rauch-Atlas (normale Mischung) um den Fuß, steigen und treiben auseinander, 3 bis 11 m groß, 2,2 bis 3,4 s; sie bleiben entlang des Wegs hinter dem Fuß. Vor der Säule gezeichnet, ihr Licht liegt darüber |
+| Brandspur | alle 2,5 m des Wegs ein Brandfleck (Quelle `beam`: 5 m Radius, fast schwarz, 150 s, siehe [Kampfspuren](#kampfspuren-scorch-decals)), nur auf Route-Zellen und mit Ground Marks an; dazu ein Glutfleck (0,75 × Radius): zuerst glüht die ganze Kruste und dunkelt vom Rand her, Risse glühen weiter und kühlen über Orange nach Dunkelrot, nach 6 s Spielzeit weg. Ein `InstancedMesh` für alle Glutflecken, additiv mit `displayLight`, mal dem Blutmond-Tint der Bodenspuren (`GroundDecals.bloodMoonTint`), mit Tiefentest, 0,16 m über dem Boden |
 
-Der Fuß steht auf dem Boden des Route-Grids (`setGround`, wie die Brandflecken), wo
-das Grid eine Zelle hat, sonst auf der Höhe des Pfads. Zwei Strahlen gleichzeitig. Mit
-Impact Effects aus keine Funken. `game:reset` leert sie.
+Funken, Brocken und Rauch sind Funktionen ihrer Nummer und Geburtszeit, geboren auf
+128 Punkten entlang der Reichweite, die beim Einschlag genommen werden; ein langer Frame
+und viele kurze ergeben dasselbe Bild. Der Fuß selbst steht auf dem Boden des
+Route-Grids (`setGround`, wie die Brandflecken), wo das Grid eine Zelle hat, sonst auf
+der Höhe des Pfads. Glutflecken tragen ihre Geburt auf der Spieluhr des Renderers
+(`uClock`): die Pause hält auch das Abkühlen an. Zwei Strahlen gleichzeitig.
+`game:reset` leert Strahlen und Glut.
+
+**Budget** (`orbital-beam.renderer.spec.ts` misst es: zwei Strahlen über 72 m, Frames
+von 16 ms): Puffer für 912 additive Partikel (Funken und Brockenschweife) und 206
+Rauch-Puffs, Spitze 783 und 169; 96 Glutflecken, Spitze 58. Höchstens 12 Draw Calls:
+je Strahl Säule, Ring, Bodenlicht und Fuß, dazu ein Blitz und die drei geteilten
+Puffer. Vorher 4 Draw Calls je Strahl, ein Funkenpuffer mit 2 × 122.
+
+**Impact Effects aus (Preset Low):** Säule ohne Streifen und Flimmern, Fuß, Ring und
+Blitz; kein Bodenlicht, keine Funken, Brocken, Rauch oder Glut, also 4 Draw Calls je
+Strahl wie vorher. Die Brandflecken hängen an Ground Marks.
 
 ---
 

@@ -91,8 +91,11 @@ function withPreset(preset: VfxPreset) {
     frostFlash: sprites(frost.scene)[0],
     empSparks: points(emp.scene)[0],
     empFronts: meshes(emp.scene),
-    beamSparks: points(beam.scene)[0],
-    beamColumn: meshes(beam.scene).find((m) => m.material instanceof ShaderMaterial)!,
+    beamSparks: beam.scene.getObjectByName('orbital-beam-sparks') as Points,
+    beamSmoke: beam.scene.getObjectByName('orbital-beam-smoke') as Points,
+    beamEmbers: beam.scene.getObjectByName('orbital-beam-embers') as Mesh,
+    beamGroundGlow: beam.scene.getObjectByName('orbital-beam-ground-glow-0') as Mesh,
+    beamColumn: beam.scene.getObjectByName('orbital-beam-column-0') as Mesh,
   };
 }
 
@@ -108,6 +111,10 @@ describe('Effect preset and the ability effects, playtest 400', () => {
     expect(drawn(low.mist)).toBe(0);
     expect(drawn(low.empSparks)).toBe(0);
     expect(drawn(low.beamSparks)).toBe(0);
+    // Playtest 636: the laser's smoke, embers and ground glow stay off in Low as well
+    expect(drawn(low.beamSmoke)).toBe(0);
+    expect(low.beamEmbers.visible).toBe(false);
+    expect(low.beamGroundGlow.visible).toBe(false);
     // Flash, cold ring and rime; the EMP's fronts; the beam's column
     expect(low.frostRing.visible).toBe(true);
     expect(low.frostRime.visible).toBe(true);
@@ -126,6 +133,9 @@ describe('Effect preset and the ability effects, playtest 400', () => {
       expect(drawn(full.mist), preset).toBeGreaterThan(0);
       expect(drawn(full.empSparks), preset).toBeGreaterThan(0);
       expect(drawn(full.beamSparks), preset).toBeGreaterThan(0);
+      expect(drawn(full.beamSmoke), preset).toBeGreaterThan(0);
+      expect(full.beamEmbers.visible, preset).toBe(true);
+      expect(full.beamGroundGlow.visible, preset).toBe(true);
       expect(full.engine.mushroomClouds.setFullCloud, preset).toHaveBeenCalledWith(true);
     }
   });

@@ -365,7 +365,8 @@ export class ThreeTilesEngine {
     this.hero = new HeroRenderer(this.scene, coordinateSync, this.assetManager);
     this.frostBursts = new FrostBurstRenderer(this.scene, this.effects.particleShaderMaterials);
     this.empPulses = new EmpPulseRenderer(this.scene, this.effects.particleShaderMaterials);
-    this.orbitalBeams = new OrbitalBeamRenderer(this.scene, this.effects.particleShaderMaterials);
+    // Its embers take the ground marks' blood moon tint
+    this.orbitalBeams = new OrbitalBeamRenderer(this.scene, this.effects.particleShaderMaterials, this.effects.groundMarkTint);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
