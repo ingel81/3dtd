@@ -1,6 +1,8 @@
 import { ColumnSample, ColumnSampler, TerrainPeekLOD, isBetterLod } from '../three-engine/column-sample';
 import { RouteCell, TunnelSpan } from './route-cell';
 import { carriedDeckY, surfaceY } from './deck-approach';
+import { corridorConfig } from './route-corridor';
+import { TUNNEL_PORTAL_OFFSET_M } from './route-grid-builder';
 import { logGrid } from './route-grid-log';
 
 /** What one column gives a cell, see RouteCellSampler.hitOf. */
@@ -341,8 +343,9 @@ export class RouteCellSampler {
    * stretch, interpolated along it, with the coarser of the two LODs. A
    * portal whose column came down on a roof over the street (a jetty, the
    * house the passage runs through) takes the street around it instead
-   * (replacePortal), so the cells no longer climb towards it. Null until
-   * both portals have a tile.
+   * (replacePortal), so the cells no longer climb towards it. Between the
+   * portals, columns that show the street under what covers it carry the
+   * line (supportedY). Null until both portals have a tile.
    */
   private tunnelColumn(span: TunnelSpan): ColumnSample | null {
     const a = this.columnNear(span.ax, span.az);
@@ -350,13 +353,68 @@ export class RouteCellSampler {
     if (a === null || b === null) return null;
     const ay = this.replacePortal?.(span.ax, span.az, a.groundY) ?? a.groundY;
     const by = this.replacePortal?.(span.bx, span.bz, b.groundY) ?? b.groundY;
-    const y = ay + (by - ay) * span.f;
+    const y = this.supportedY(span, ay, by);
     return {
       groundY: y,
       topY: y,
       tileDepth: Math.min(a.tileDepth, b.tileDepth),
       tileGeometricError: Math.max(a.tileGeometricError, b.tileGeometricError),
     };
+  }
+
+  /**
+   * Metres between the points along a tunnel stretch whose columns may
+   * carry its line (supportedY), one grid cell.
+   */
+  private static readonly SUPPORT_STEP_M = 2;
+
+  /**
+   * Longest tunnel stretch supportedY looks along, metres. Under a hill no
+   * column shows the tunnel; an underpass under a motorway is some 40 m.
+   */
+  private static readonly SUPPORT_MAX_M = 100;
+
+  /**
+   * The height at `span.f` of the way from portal a (ground `ay`) to portal
+   * b (`by`): on the line between them, or where columns between them show
+   * the street under what covers it, on the line through the nearest such
+   * column before and after the point. Such a column has something more than
+   * `roofRise` over its lowest hit (a deck, a roof, a hill) and its lowest
+   * hit at most `stepRise` above the line between the portals and at most
+   * `roofRise` below it; one every SUPPORT_STEP_M on the straight line from
+   * a to b, between the mouths (the portals stand for the ground outside
+   * them, TUNNEL_PORTAL_OFFSET_M), on stretches up to SUPPORT_MAX_M.
+   *
+   * Playtest 2026-09-15, Erlenbach (D2): under the A6 the photogrammetry is
+   * filled down to the ground but for a few columns at the edges of the
+   * deck, which show the street 5.6 and 5.9 m under it. A street lowered
+   * under a bridge lies below the line between the portals; a car parked
+   * under it, with no ground under its roof, lies above and does not count,
+   * nor does a column with a single surface (a jetty, the ground outside a
+   * mouth). Their LOD does not count in the cell's.
+   */
+  private supportedY(span: TunnelSpan, ay: number, by: number): number {
+    const length = Math.hypot(span.bx - span.ax, span.bz - span.az);
+    let lo = { f: 0, y: ay };
+    let hi = { f: 1, y: by };
+    if (length <= RouteCellSampler.SUPPORT_MAX_M) {
+      const { roofRise, stepRise } = corridorConfig;
+      for (let m = RouteCellSampler.SUPPORT_STEP_M; m < length - TUNNEL_PORTAL_OFFSET_M; m += RouteCellSampler.SUPPORT_STEP_M) {
+        if (m <= TUNNEL_PORTAL_OFFSET_M) continue;
+        const f = m / length;
+        const column = this.columnNear(span.ax + (span.bx - span.ax) * f, span.az + (span.bz - span.az) * f);
+        if (column === null || column.topY - column.groundY <= roofRise) continue;
+        const line = ay + (by - ay) * f;
+        if (column.groundY > line + stepRise || column.groundY < line - roofRise) continue;
+        if (f <= span.f) {
+          lo = { f, y: column.groundY };
+        } else {
+          hi = { f, y: column.groundY };
+          break;
+        }
+      }
+    }
+    return hi.f > lo.f ? lo.y + ((hi.y - lo.y) * (span.f - lo.f)) / (hi.f - lo.f) : lo.y;
   }
 
   /**

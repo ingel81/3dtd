@@ -1185,6 +1185,39 @@ describe('GlobalRouteGrid tunnels', () => {
     expect(inside.sample.state).toBe('unsampled');
     expect(inside.heightSampled).toBe(false);
   });
+
+  /**
+   * Playtest 2026-09-15, Erlenbach (D2): a street under a motorway deck
+   * whose underside the photogrammetry has filled; a few columns at the
+   * edges of the deck show the street under it. PathAndRouteService makes
+   * the piece under the deck a tunnel stretch (underpass.ts).
+   */
+  describe('under a deck', () => {
+    const column = (groundY: number, topY = groundY): ColumnSample => ({ groundY, topY, tileDepth: 20, tileGeometricError: 2 });
+    /** A deck 6 m over the street from x = 21 to 39, filled down to it; the street at `street` under the deck, 0 outside. */
+    const deck = (street: number, show: (x: number) => boolean) => (x: number): ColumnSample =>
+      x <= 20 || x >= 40 ? column(0) : x > 21 && x < 39 && !show(x) ? column(6) : column(street, 6);
+
+    it('takes the street between the portals, not the deck', () => {
+      const grid = build(deck(0, () => false));
+      for (const x of [21, 25, 29, 31, 35, 39]) {
+        expect(grid.getCellAt(x, 1), `${x}`).toMatchObject({ surface: 'tunnel' });
+        expect(grid.getCellAt(x, 1)!.terrainHeight, `${x}`).toBeCloseTo(0, 6);
+      }
+    });
+
+    it('carries the line on columns that show the street under the deck, not on a car under it', () => {
+      // The street lowered to 1 m under the portals; shown at x = 22 to 24 and 36 to 38.
+      const shown = (x: number) => (x >= 22 && x < 24) || (x >= 36 && x < 38);
+      const grid = build(deck(-1, shown));
+      // Portals at x = 18 and 42 (0 m), the street shown at x = 22 and 36 (-1 m).
+      expect(grid.getCellAt(31, 1)!.terrainHeight).toBeCloseTo(-1, 6);
+      expect(grid.getCellAt(21, 1)!.terrainHeight).toBeCloseTo(-0.75, 6);
+      // A car at x = 30, 1.2 m over the portals with no ground under its roof, does not count.
+      const car = build((x) => (x >= 29 && x < 31 ? column(1.2, 6) : deck(-1, shown)(x)));
+      expect(car.getCellAt(31, 1)!.terrainHeight).toBeCloseTo(-1, 6);
+    });
+  });
 });
 
 /**

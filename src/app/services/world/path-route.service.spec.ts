@@ -1065,6 +1065,13 @@ describe('PathAndRouteService under a bridge of no route way', () => {
     }
   });
 
+  it('follows a street lowered under the deck where columns at its edges show it', () => {
+    // 1.5 m lower under the deck, back up 9 to 13 m across; the portals 11 m across at -0.75 m.
+    const street = (d: number) => (d <= 9 ? -1.5 : d >= 13 ? 0 : -1.5 + ((d - 9) / 4) * 1.5);
+    const cells = cellsOf(buildRoute(network, spawn, hq), deck(4.5, street));
+    for (let z = -61; z <= -49; z += 2) expect(cells.getCellAt(1, z)!.terrainHeight, `${z}`).toBeCloseTo(-1.5, 6);
+  });
+
   it('keeps a route over the bridge on its deck', () => {
     // The bridge as a way of the route, ways 800 and 850 on and off it; way 200 runs under it.
     const w0 = { id: 801, lat: 48.0005, lon: 8.999 };
