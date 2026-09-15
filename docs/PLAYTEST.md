@@ -2,7 +2,7 @@
 
 Stand 2026-09-15. Das ist die eine, laufende Liste für die nächste Session: nur offene Punkte. Die alten Listen
 (REVIEW_FIX_2026-09-14, REVIEW_SPRINT_2026-09-12 bis -14) verweisen hierher. Code-Stand: Branch `next` (umbenannt
-aus `sprint/night-2026-09-14`) auf `994badd4`, mit dem Atompilz und den Fixes aus dem letzten Review (fixrev5).
+aus `sprint/night-2026-09-14`) auf `8d9cdb6c`, mit den Fixes aus Playtest 3 (Nachtests 701 bis 716).
 
 Antworten reicht so: "603 ok, 607a kaputt". In Klammern stehen die alten Nummern. Jede Runde hat einen gemeinsamen
 Aufbau, jeder Punkt höchstens drei Fragen. Wo ein Punkt zu viel auf einmal wollte, ist er in a, b und c geteilt; die
@@ -40,6 +40,91 @@ Teile laufen mit demselben Aufbau direkt nacheinander.
   drücken ("Place enemy on route"), dann auf die Route klicken. Der Gegner erscheint in der Liste "Debug Enemies".
   Ihn dort anklicken, dann darunter im Abschnitt "Movement" auf "Start": er läuft los.
 - Der Wurm heißt jetzt "Skarnax".
+
+## Nachtests 2 (Fixes aus Playtest 3, 15.09.)
+
+### Runde 14: Paris, Place de Varsovie (701 bis 704)
+
+Aufbau wie Runde 1: Paris, Pont d'Iéna (Favorit), Spawn auf der Trocadéro-Seite, damit die Route über die Brücke
+läuft. Keine Tower, Layers "Route Grid Overlay" an. Warten, bis einige Sekunden lang keine neue Zeile
+`[Corridor] rebuild` mehr kommt. Liegt irgendwo eine weiße Zelle unter der Oberfläche: `__corridor.pick()`,
+Linksklick darauf, die Tabelle schicken, dazu `__routes.describe()`.
+
+- **701** (601): Zum Brückenkopf an der Place de Varsovie (Trocadéro-Seite) zoomen. Läuft die blaue Umrandung vom
+  Brückenende über das kurze Stück, um die Ecke die Avenue de New York entlang und an der Kreuzung ein Stück
+  Richtung Trocadéro, etwa 60 m? Keine weißen Zellen mehr unter der Oberfläche?
+  **ok (2026-09-15)**, blau durchgehend um die Ecke (Screenshot).
+- **702** (602): Space, die Welle über die Brücke laufen lassen. Bleiben rote Linie und Gegner an der Place de
+  Varsovie durchgehend sichtbar, nicht im Boden? Eiffelturm-Seite weiter gut? **ok (2026-09-15)**
+- **703** (603): Layers "Show streets" an. Liegt die gelbe Linie an der Place de Varsovie auf der Straße? Am Quai
+  mit den Platanen weiter auf der Straße, nicht in den Kronen, und die Uferstraße unten bleibt unten?
+  **ok (2026-09-15)**
+- **704**: An der Place de Varsovie: ist der Korridor so breit wie die Straße, nicht auf einen schmalen Streifen
+  eingeengt? Liegen parkende Autos dort außerhalb? **ok (2026-09-15)**, volle Breite am Brückenkopf (Screenshot
+  aus 701).
+
+### Runde 15: Korridor am Hang und im Torbogen (705 bis 708)
+
+Aufbau wie Runde 2: keine Tower, keine Welle, "Route Grid Overlay" an, warten, bis keine neue Zeile
+`[Corridor] rebuild` mehr kommt. Bleibt eine Zelle, wo keine hingehört: `__corridor.pick()`, Linksklick darauf,
+die Tabelle schicken.
+
+- **705** (605): Rothenburg, die Stelle deines Hang-Screenshots. Endet der Korridor talseitig an der Straßenkante
+  oder eine Reihe dahinter, ohne Zellreihen die Böschung hinunter? Bergseitig wie vorher?
+  **ok (2026-09-15)**: nicht perfekt, bleibt so.
+- **706** (607): Favorit "rothenburg rotes auto". Sind die Zellen auf dem roten Auto weg? Auf den ebenen Straßen
+  sonst alles wie in 607 (Autoreihen außen, Gehwegreihe frei)?
+  **Ergebnis (2026-09-15): gefühlt schlechter geworden.** Parkende Autos haben mehr Zellen als in 607 (auch 707,
+  708). Befund an einen Worker.
+- **707** (607): Der Torbogen mit dem schmalen Durchgang. Liegen die gelben Zellen dort auf Straßenhöhe, ohne
+  Anstieg im Durchgang? Space: kommen die Gegner auf Straßenhöhe aus dem Durchgang, nicht aus der Wand? (Kommen sie
+  auf Straßenhöhe neben der Öffnung aus der Wand: Screenshot von oben mit der roten Linie; dann liegt der OSM-Weg
+  neben der Öffnung.)
+  **Ergebnis (2026-09-15):** Einstieg in den Torbogen etwas besser, Ausstieg deutlich besser. Parkende Autos dort
+  schlechter (siehe 706).
+- **708** (608): Erlenbach, Weinstraße und Erlenweg, die Böschung auf der Talseite. Keine Zellreihen mehr die
+  Böschung hinunter? Bäume und Hecken weiter frei?
+  **Ergebnis (2026-09-15):** Böschung besser. Parkende Autos dort schlechter oder weiter so schlecht wie vorher (siehe
+  706). Picks Schulstraße (Way 959083801), drei Autos: die höchste Zelle je Auto ist `walkCheck: 'centre line'`,
+  0,59 bis 1,08 m über der Linie, bis 1,23 m über den Nachbarn; die OSM-Linie läuft an den Autos entlang, die rote
+  Linie nimmt die Dachhöhe. Auch die flacheren Nachbarzellen auf den Autos stören. Worker carcells.
+
+### Runde 16: Ooze (709 bis 712)
+
+Aufbau wie Runde 5: Display-Menü "Boss Intro" an, Effects "High", Cheats "Credits" und "Abilities", Konsole offen.
+"Waves", "Single", Type "Ooze", Count 1, "Start Custom Wave".
+
+- **709** (619a): Im Intro: ragt ein deutliches Stück Band aus dem Tor, runde Spitze plus ein gerades Stück von etwa
+  6 m, nicht nur ein Buckel? (Der Schnitt aufs Portal kommt dafür etwa 1 s später als bisher.)
+  **709 bis 712 ok (2026-09-15)**
+- **710** (617a): Die Ooze mindestens 27 s wachsen lassen, dann töten (Tower oder K, fünf Schläge). Liegen entlang
+  des ganzen Körpers viele grüne Pfützen, verschieden groß und glänzend? Bleiben sie etwa 45 s und verblassen dann
+  über etwa 30 s?
+- **711** (617b): Beim selben Tod: fliegen deutlich mehr Trümmer als bisher (Brustkörbe, Reifen, Leitkegel,
+  Ölfässer, Stoppschilder, Helme, Dosen, Schädel), einige etwa 13 m hoch? Sind nach etwa 14 s alle weg? Genug
+  übertrieben?
+- **712** (618): Neue Custom Wave mit Ooze, im Intro Esc. Die Ooze nicht töten, mindestens 30 s laufen und ins HQ
+  fließen lassen (vorher einmal "+HP"). Fehlt in der Konsole die Zeile `[WaveManager] STUCK`?
+
+### Runde 17: Frost, Laser, Gegnermodelle (713 bis 716)
+
+Aufbau wie Runde 6: neues Spiel, Cheat "Abilities", einmal "+HP". "Waves", bei "Jump to wave" 7 eintragen, "Jump:
+next start Wave 7", dann Space. Fähigkeiten gehen nur, solange eine Welle läuft.
+
+- **713** (625): Developer options: steht "Abilities" in einer breiten Kachel über zwei Spalten, mit Luft? F aus der
+  Übersicht auf eine Gruppe: heben sich die eingefrorenen Gegner weiß-cyan klar vom bläulichen Reif ab, ohne
+  weißen Nebel über der ganzen Stelle? Liegen auf Dächern und Fassaden am Rand keine hellen Kleckse?
+  **713 bis 716 ok (2026-09-15)**, auch die Wallsmasher-Vorschau aus 635.
+- **714** (636): L, Klick vor eine Gruppe. Kommt eine breite Säule mit weißem Kern und orange-roter Korona, mit
+  Blitz, Bodenglühen, Funken, Brocken und Rauch? Liegt dahinter eine breite schwarze Brandspur, deren glühende Risse
+  in etwa 6 s abkühlen? Mit Ton (Zap, Knall, Dröhnen) und kurzem Shake: bildgewaltig genug?
+- **715** (635): "Waves", "Single", "Zombie v2", Count 10, "Start Custom Wave", dann Cheat "Kill". Liegt jeder am
+  Boden, bevor er verschwindet (etwa 3 s nach dem Tod)? Dasselbe mit "Zombie Soldier" und "Stone Golem". Danach
+  Custom Wave "Wallsmasher": ist seine Vorschau im WAVE-Panel farbig?
+- **716** (633a): "Enemies": Zombie v2, Zombie Soldier und Stone Golem setzen, dann `__perf.loseContext(2000)` in die
+  Konsole. Nach "Baked N VATs again" die Kamera drehen, weit hinein- und herauszoomen, in "Debug Enemies" einen
+  Gegner mit dem Kreuz entfernen und neu setzen. Fehlt die Zeile `WebGL: INVALID_OPERATION: delete`? Ist der Himmel
+  nach dem Restore da?
 
 ## Nachtests (Fixes vom 14.09. abends und nachts)
 
@@ -341,6 +426,7 @@ Aufbau: je Punkt beschrieben.
 - **648a** (158, 181, 173): Neuen Ort laden, dann Strg+Umschalt+R, nichts klicken. Kein "Uncaught" in der Konsole
   (höchstens "[MusicMixer] Audio context did not resume")? Läuft im Ladescreen das Main Theme? Es startet beim Laden
   von selbst; blockiert der Browser das automatische Abspielen, bleibt es stumm, und kein Klick holt es nach (bekannt).
+  **648a und 648b ok (2026-09-15)**
 - **648b** (158, 173): Wenn der Ladescreen verschwindet: blendet das Main Theme in etwa 3 s aus, und nach einer kurzen
   Stille beginnt der Build-Track (nacheinander, nicht überblendet)? War bis hier alles stumm, einmal ins Bild klicken
   und melden, ob danach Musik kommt. Audio-Menü: wirken Musik aus, an und Lautstärke sofort?
@@ -348,9 +434,15 @@ Aufbau: je Punkt beschrieben.
   Rechtsklick auf "+HP" bis Game Over (zehnmal, oder zweimal mit Shift). Blendet die Musik aus? Erscheint nach etwa
   1,2 s unter RESTART ein kleiner Globus mit "First run here", ohne dass RESTART springt? Blendet "Skip" den Hinweis
   aus?
+  **Ergebnis (2026-09-15): kein "First run here"** nach Game Over an neuen Orten (Screenshot: WAVE 0, TIME 0:17, also
+  vor dem Start von Welle 1). Worker firstrun. **Nebenbefund, reproduzierbar:** Wird der Ort beim Boot geladen (URL
+  oder F5), fehlt der Schadenston am HQ; nach einem Ortswechsel ist er da. HP werden korrekt abgezogen; Bau-, Verkaufs-
+  und Zombie-Sounds und Musik laufen. Worker hqsound. **Nebenbefund 2:** Fähigkeiten (Abilities) zeigen keine
+  Schadenszahlen an den Gegnern wie Treffer von Towern, vielleicht fehlt auch die Belohnung. Worker abilitydmg.
 - **650** (160, 162): Im BUILD-Panel die Info "Damage vs armor" öffnen und mit Esc schließen. Ist der Übergang
-  animiert, die Schrift wie gewohnt? Bleibt der Kopf des Dialogs beim Scrollen stehen?
+  animiert, die Schrift wie gewohnt? Bleibt der Kopf des Dialogs beim Scrollen stehen? **ok (2026-09-15)**
 - **651** (326): Im WAVE-Panel mit Tab auf die NEXT-Rauten: ist der goldene Fokusrahmen gut sichtbar?
+  **651 und 652 ok (2026-09-15)**
 - **652** (Doku, Research Center verkaufen): Cheat "Credits", ein Research Center bauen und anklicken. Zeigt sein
   Panel einen Sell-Knopf wie beim Tower (zweimal klicken)? Gibt der Verkauf Credits zurück wie bei einem Tower (75 %
   des Eingesetzten)?
@@ -359,12 +451,20 @@ Aufbau: je Punkt beschrieben.
 
 - **D1 Tokyo (142):** Showcase "Tokyo, Shibuya Crossing" laden. Macht die Route eine Schlaufe um einen Block: URL aus
   der Adresszeile schicken, dazu die Ausgabe von `__routes.describe()`.
+  **Ergebnis (2026-09-15):** Route nicht gut. Neuer Ort vom User: `?l=35.65924,139.70049&s=35.65208,139.69853`.
+  Worker showcase.
 - **D2 Erlenbach unter der Autobahn (alte 53):** Weinsberger Straße unter der Autobahnbrücke. `__corridor.pick()`,
   Linksklick auf die rote Linie mitten unter der Brücke, die Zeile `[Corridor] column at the click` schicken. Dann F5:
   liegen Zellen und Gegner danach auf der Straße? Das zeigt die Ursache, behoben ist noch nichts.
+  **Daten (2026-09-15):** Die rote Linie liegt weiter oben auf dem Autobahndeck (Screenshot). Pick bei 268,3/-812,8,
+  Way 230161781 (secondary): die Zellen liegen auf 220,6 bis 220,8 m (Deck), zwei Säulen (269/-815, 271/-815) sehen
+  unten die Straße bei 214,7 und 215,05 m (`overM` 5,9 und 5,6). Säule am Klick: nur ein Treffer, 220,67 (cached
+  220,77, Tiefe 23 und 25). Das Mesh unter der Brücke ist also größtenteils gefüllt. F5-Teil offen. Worker underpass.
+- **D3:** später. **D5:** kein Ort bekannt, Punkt ruht.
 - **D3 Feste Spawns für Showcases (142):** Für jeden Showcase-Ort, der einen festen Spawn bekommen soll: Ort laden,
   Header "Set spawn" an die gewünschte Stelle (R dreht das Portal), `__showcase.line()` in die Konsole, Zeile schicken.
-- **D4 Klumpen ohne Beschuss (363):** Nur wenn in 618 ein Tower stillsteht, obwohl Klumpen in seinem Ring sind:
+- **D4 Klumpen ohne Beschuss (363):** Entfällt, 618 war ok (2026-09-15). Nur wenn in 618 ein Tower stillsteht, obwohl
+  Klumpen in seinem Ring sind:
   1. Aus der Konsole die letzten Zeilen mit `[TowerTargets]` kopieren. Vorn steht die Tower-ID; im Zweifel alle
      Zeilen der letzten Sekunden.
   2. Den Tower anklicken und einen Screenshot mit seinem Ring machen.
@@ -379,13 +479,17 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
 **Lead-Entscheidungen zum Bestätigen**
 
 - **E1 Center-Tipp nach Welle 2:** Der Tipp "Build a research center" kommt erst nach Welle 2
-  (`RESEARCH_TIP_AFTER_WAVE`). Bestätigen oder eine andere Welle nennen.
+  (`RESEARCH_TIP_AFTER_WAVE`). Bestätigen oder eine andere Welle nennen. **Entscheidung User (2026-09-15): nach
+  Welle 3.** Worker showcase.
 - **E2 Laser-Bot-Zählung:** Die Bot-Strategie zählt Gegner bis 72 m hinter dem vordersten, der Strahl trifft im
   5-m-Radius; eine Näherung, nur für Trainingsläufe. Bleibt, weil eine Änderung die Bot-Läufe verschiebt.
+  **Entscheidung User (2026-09-15): genauer machen.** Worker botlaser.
 - **E3 Boss-Varianten im Log:** Welche Welle mit Skarnax oder Ooze ins Log des Collectors gehört, wartet auf den
-  Run-Dump. Bis dahin bleibt es, wie es ist.
+  Run-Dump. Bis dahin bleibt es, wie es ist. **User (2026-09-15):** Dazu muss auch ermittelt werden, wie stark die
+  Bosse je Welle sein sollen; das passt aktuell nicht. Beides im Rahmen des Balancings (TODO), nicht mehr vorlegen.
 - **E4 Wackeln bei HQ-Treffern:** "Härter" heißt mehr HP: ein Treffer, der mehr HP kostet, kommt durch die
   900-ms-Drossel, die Stärke bleibt gedeckelt (`d48b5c87`). Alternative: härter heißt stärkeres Wackeln.
+  **Entscheidung User (2026-09-15): bleibt so.**
 - **E5 Tower-Sicht neben Autos:** Für Zellen, die der Stufen-Check auf Straßenhöhe setzt, prüft die Sichtlinie über
   dem Objekt; der Tower schießt dann auf Gegner "im Auto" (`66569eca`). Seit Autozellen wegfallen, kaum noch
   sichtbar. Bestätigen oder zurücknehmen.
@@ -395,7 +499,8 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   ihn mit zurück.
 - **E7 Brückenenden ohne Niedrig-Hindernis-Probe:** Bis 40 m hinter einem Brückenende prüft der Korridor keine
   niedrigen Hindernisse, auch wo die Zufahrt schon auf Bodenhöhe liegt; Autos engen dort nur über den Laufweg ein
-  (`347ae61b`).
+  (`347ae61b`). **Überholt durch bridge4 (2026-09-15):** Auf der Strecke hinter dem Brückenende (jetzt 60 m) läuft
+  die Probe wieder und misst vom Boden der Station; nur auf dem Brückendeck bleibt sie aus. Nicht mehr vorlegen.
 - **E8 Heldenschüsse auf diagonal verlaufenden Straßen:** Seit Gegner und Held metrisch ausgerichtet werden, starten
   seine Schüsse an einer anderen Stelle, dort, wo das Modell die Waffe hält (`fa7712ec`): auf einer 45°-Straße bei
   49° N etwa 0,5 m seitlich, auf Nord-Süd- und Ost-West-Straßen gar nicht.
