@@ -8,6 +8,7 @@ import { raycastStats } from '../../utils/raycast-stats';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { corridorChanges, reportUrl } from './cell-report';
 import { type CorridorFingerprint, corridorFingerprint } from './corridor-fingerprint';
+import { showCopyButton } from './copy-result-button';
 
 /** Region error targets a probe loads in turn, metres; 0 is the finest LOD there is. */
 export const DEFAULT_PROBE_TARGETS: readonly number[] = [5, 2.5, 0];
@@ -32,9 +33,6 @@ export const QUIET_MS = 500;
 
 /** Caller the probe's rays are booked on in `__raycastStats()`. */
 export const PROBE_CALLER = 'corridorLodProbe';
-
-/** How long the report waits for a click into the page when the clipboard needs the focus, ms. */
-export const FOCUS_WAIT_MS = 120_000;
 
 /** Where the probe waits for the next frame: rAF stops in a hidden tab, the timeout keeps counting. */
 const FRAME_FALLBACK_MS = 250;
@@ -72,8 +70,8 @@ export interface LodProbeRow {
 /** What a probe found, see CorridorLodProbe.probe(). */
 export interface LodProbeResult {
   rows: LodProbeRow[];
-  /** The tiles as the player's view left them, before the probe. */
-  tilesBefore: TilesLodSnapshot;
+  /** The tiles as the player's view left them, before the probe, as `__tiles.stats()` prints them. */
+  tilesBefore: TilesLodSnapshot & { lodVersion: number };
   /** The corridor's fingerprint before the probe. */
   fingerprint: CorridorFingerprint;
   /** Region (m) and camera (px) error target before the run, set back after it. */
@@ -88,12 +86,10 @@ export interface LodProbeResult {
 
 /** Where the report goes; the page's clipboard by default, see pageClipboard. */
 export interface ProbeClipboard {
-  /** Put `text` on the clipboard; false where the browser refuses. */
+  /** Put `text` on the clipboard; false where the browser refuses (DevTools has the focus). */
   copy(text: string): Promise<boolean>;
-  /** The page has the focus: the clipboard refuses without it, and typing in DevTools takes it. */
-  focused(): boolean;
-  /** Resolves true once the page has the focus (the player clicked into it), false after `ms`. */
-  focus(ms: number): Promise<boolean>;
+  /** Show a button on the page that copies `text` on one click (showCopyButton). */
+  offerButton(text: string): void;
 }
 
 /** What CorridorLodProbe needs; VisualizationFacadeService passes its services. */
@@ -107,7 +103,7 @@ export interface CorridorLodProbeDeps {
   nextFrame?: () => Promise<void>;
   /** Monotonic clock, ms; the default is performance.now(). */
   now?: () => number;
-  /** The default is the page's clipboard. */
+  /** The default is the page's clipboard and showCopyButton. */
   clipboard?: ProbeClipboard;
   /** The page URL for the report, without parameters that could carry a key (reportUrl). */
   pageUrl?: () => string;
@@ -132,7 +128,7 @@ function nextFrameOrTimeout(): Promise<void> {
   });
 }
 
-/** The page's clipboard, as the cell report uses it. */
+/** The page's clipboard, as the cell report uses it, and the button for when it refuses. */
 const pageClipboard: ProbeClipboard = {
   copy: async (text) => {
     try {
@@ -142,21 +138,9 @@ const pageClipboard: ProbeClipboard = {
       return false;
     }
   },
-  focused: () => document.hasFocus(),
-  focus: (ms) => new Promise((resolve) => {
-    if (document.hasFocus()) {
-      resolve(true);
-      return;
-    }
-    const done = (focused: boolean) => {
-      clearTimeout(timer);
-      window.removeEventListener('focus', onFocus);
-      resolve(focused);
-    };
-    const onFocus = () => done(true);
-    const timer = setTimeout(() => done(false), ms);
-    window.addEventListener('focus', onFocus);
-  }),
+  offerButton: (text) => {
+    showCopyButton(text);
+  },
 };
 
 const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
@@ -188,21 +172,6 @@ export function buildLodProbeReport(meta: LodProbeMeta, result: LodProbeResult):
   });
 }
 
-/** A row of the short table in the console; the report carries all fields. */
-function tableRow(row: LodProbeRow): Record<string, string | number> {
-  return {
-    'Ziel m': row.target,
-    'Laden s': row.timedOut ? `${row.loadS} Timeout` : row.loadS,
-    Tiles: row.active,
-    MB: row.activeMB,
-    'Cache MB': row.cacheFull ? `${row.cachedMB} voll` : row.cachedMB,
-    Stationen: row.stations,
-    'Fehler ≤2/≤2,5/≤5/>5/keins': `${row.upTo2}/${row.upTo2_5}/${row.upTo5}/${row.over5}/${row.none}`,
-    'Messen ms': row.measureMs,
-    Strahlen: row.rays,
-  };
-}
-
 /**
  * `__corridor.probeLod()` and `__corridor.fingerprint()`, the measuring
  * tools of Phase 0 (docs/ROUTE_CORRIDOR.md): what a corridor measured on a
@@ -223,8 +192,9 @@ function tableRow(row: LodProbeRow): Record<string, string | number> {
  * when one of those comes up between two targets.
  *
  * The console command (run) is meant for a playtest without explanations:
- * one line per step, a short table, the report on the clipboard and one
- * last line that says so. Only console.log.
+ * one line per target, the report on the clipboard (or on a button at the
+ * top of the page) and one last line that says what to do with it. Only
+ * console.log.
  */
 export class CorridorLodProbe {
   private busy = false;
@@ -246,29 +216,32 @@ export class CorridorLodProbe {
   }
 
   /**
-   * `__corridor.probeLod()`: probe(), then a short table, the report on the
-   * clipboard (buildLodProbeReport) and one line that says where it is. When
-   * the clipboard refuses because DevTools has the focus, it asks for a click
-   * into the page and copies then; when it still refuses, the report goes to
-   * the console. Resolves with the last line, or with the one line that says
-   * why it did not run and what to do.
+   * `__corridor.probeLod()`: probe(), then the report (buildLodProbeReport)
+   * to the clipboard. The clipboard refuses while DevTools has the focus,
+   * which it has right after typing the command; the report then waits on a
+   * button at the top of the page that copies it on one click. Resolves with
+   * the last line, which says which of the two it was, or with the one line
+   * that says why it did not run and what to do.
    */
   async run(targets?: readonly number[], timeoutS?: number): Promise<string> {
     let outcome: LodProbeResult | string;
     try {
       outcome = await this.probe(targets, timeoutS);
     } catch (error) {
-      return this.say(`Fehler (${error instanceof Error ? error.message : String(error)}): Seite neu laden und noch einmal.`);
+      return this.say(`Fehler (${error instanceof Error ? error.message : String(error)}): Seite neu laden und Befehl nochmal`);
     }
     if (typeof outcome === 'string') return this.say(outcome);
-    console.table(outcome.rows.map(tableRow));
     const meta = {
       time: new Date().toISOString(),
       url: this.pageUrl(),
       version: BUILD_VERSION,
       corridor: corridorChanges(corridorConfig, CORRIDOR_DEFAULTS),
     };
-    return this.deliver(buildLodProbeReport(meta, outcome), outcome.stoppedEarly);
+    const json = buildLodProbeReport(meta, outcome);
+    const head = outcome.stoppedEarly ? `Abgebrochen (${outcome.stoppedEarly})` : 'Fertig';
+    if (await this.clipboard.copy(json)) return this.say(`${head}: Ergebnis kopiert, bitte in den Chat einfügen`);
+    this.clipboard.offerButton(json);
+    return this.say(`${head}: Klick oben auf 'Ergebnis kopieren', dann in den Chat einfügen`);
   }
 
   /**
@@ -280,19 +253,20 @@ export class CorridorLodProbe {
    * @param timeoutS How long to wait for the tiles of one target
    */
   async probe(targets: readonly number[] = DEFAULT_PROBE_TARGETS, timeoutS = DEFAULT_PROBE_TIMEOUT_S): Promise<LodProbeResult | string> {
-    if (this.busy) return 'Läuft schon: auf "Fertig" warten.';
+    if (this.busy) return "Läuft schon: auf die Zeile 'Fertig' warten";
     if (!Array.isArray(targets) || targets.length === 0 || !targets.every((t) => typeof t === 'number' && Number.isFinite(t) && t >= 0)) {
-      return 'Ziele sind Meter ab 0, z. B. __corridor.probeLod([5, 2.5, 0]).';
+      return 'Ziele sind Meter ab 0: z. B. __corridor.probeLod([5, 2.5, 0])';
     }
-    if (!(timeoutS > 0)) return 'Die Wartezeit ist in Sekunden und größer als 0.';
+    if (!(timeoutS > 0)) return 'Wartezeit in Sekunden über 0: z. B. __corridor.probeLod([5, 2.5, 0], 60)';
     const blocker = this.blocker();
     if (blocker) return `${blocker.why}: ${blocker.todo}`;
     const engine = this.deps.engineInit.getEngine();
     const tiles = engine?.tilesLodDebug() ?? null;
-    if (!engine || !tiles) return 'Kein Ort mit 3D-Tiles geladen: Ort laden, dann noch einmal.';
+    if (!engine || !tiles) return 'Kein Ort mit 3D-Tiles geladen: Ort laden und Befehl nochmal';
     const before = tiles.snapshot();
-    if (before.regionErrorTarget === null) return 'Die Routen stehen noch nicht: Ladebildschirm abwarten, dann noch einmal.';
+    if (before.regionErrorTarget === null) return 'Routen stehen noch nicht: Ladebildschirm abwarten und Befehl nochmal';
     const restored = { regionErrorTarget: before.regionErrorTarget, cameraErrorTarget: before.cameraErrorTarget };
+    const tilesBefore = { ...before, lodVersion: engine.terrain.lodVersion };
 
     this.busy = true;
     const timeoutMs = timeoutS * 1000;
@@ -301,7 +275,6 @@ export class CorridorLodProbe {
     let stoppedEarly: string | null = null;
     let restoreTimedOut: boolean;
     let corridorUnchanged: boolean;
-    this.say(`startet, ${targets.length} Stufen (${targets.join(', ')} m). Tab vorn lassen, Kamera nicht bewegen, bis "Fertig" kommt.`);
     tiles.holdSettled(true);
     try {
       try {
@@ -331,7 +304,7 @@ export class CorridorLodProbe {
       tiles.holdSettled(false);
       this.busy = false;
     }
-    return { rows, tilesBefore: before, fingerprint, restored, stoppedEarly, restoreTimedOut, corridorUnchanged };
+    return { rows, tilesBefore, fingerprint, restored, stoppedEarly, restoreTimedOut, corridorUnchanged };
   }
 
   /** `__corridor.fingerprint()`: prints and returns the fingerprint of the corridor in use (corridor-fingerprint.ts). */
@@ -354,31 +327,17 @@ export class CorridorLodProbe {
     return line;
   }
 
-  /** The report to the clipboard and the last line, see run(). */
-  private async deliver(json: string, stoppedEarly: string | null): Promise<string> {
-    const done = stoppedEarly
-      ? `Abgebrochen (${stoppedEarly}), Teilergebnis in der Zwischenablage, bitte in den Chat einfügen.`
-      : 'Fertig, Ergebnis in der Zwischenablage, bitte in den Chat einfügen.';
-    if (await this.clipboard.copy(json)) return this.say(done);
-    if (!this.clipboard.focused()) {
-      this.say('Messung fertig. Jetzt einmal in die Spielseite klicken, dann kommt das Ergebnis in die Zwischenablage.');
-      if ((await this.clipboard.focus(FOCUS_WAIT_MS)) && (await this.clipboard.copy(json))) return this.say(done);
-    }
-    console.log(json);
-    return this.say('Fertig. Die Zwischenablage hat abgelehnt: Ergebnis steht eine Zeile darüber, bitte kopieren und in den Chat einfügen.');
-  }
-
   /** Why the probe must not start or go on (`why`, also the reason of an early stop) and what to do, null if it may. */
   private blocker(): { why: string; todo: string } | null {
-    const reload = 'Seite neu laden, dann noch einmal.';
-    if (this.deps.engineInit.loading()) return { why: 'Der Ort lädt noch', todo: 'Ladebildschirm abwarten, dann noch einmal.' };
+    const reload = 'Seite neu laden und Befehl nochmal';
+    if (this.deps.engineInit.loading()) return { why: 'Ort lädt noch', todo: 'Ladebildschirm abwarten und Befehl nochmal' };
     const gameState = this.deps.gameState();
-    if (gameState.towerCount() > 0) return { why: 'Tower stehen auf der Karte', todo: 'Seite neu laden, keinen Tower setzen, dann noch einmal.' };
-    if (gameState.waveManager.phase() === 'wave') return { why: 'Eine Welle läuft', todo: reload };
-    if (gameState.enemyManager.getAliveCount() > 0) return { why: 'Gegner sind auf der Karte', todo: reload };
-    if (this.deps.introFlight.isRunning()) return { why: 'Der Intro-Flug läuft', todo: 'abwarten oder abbrechen, dann noch einmal.' };
+    if (gameState.towerCount() > 0) return { why: 'Tower stehen', todo: 'Seite neu laden, keinen Tower setzen, Befehl nochmal' };
+    if (gameState.waveManager.phase() === 'wave') return { why: 'Welle läuft', todo: reload };
+    if (gameState.enemyManager.getAliveCount() > 0) return { why: 'Gegner auf der Karte', todo: reload };
+    if (this.deps.introFlight.isRunning()) return { why: 'Intro noch aktiv', todo: 'warten und Befehl nochmal' };
     if (this.deps.pathRoute.clearanceProgress() !== null) {
-      return { why: 'Der Korridor wird noch gemessen', todo: 'ein paar Sekunden warten, dann noch einmal.' };
+      return { why: 'Korridor wird noch gemessen', todo: 'ein paar Sekunden warten und Befehl nochmal' };
     }
     return null;
   }
