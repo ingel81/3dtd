@@ -538,6 +538,14 @@ describe('setCorridorConfig', () => {
     expect(corridorConfig.highwayWidths['residential']).toBe(5.5);
   });
 
+  it('switches where the enemies run in the band', () => {
+    expect(corridorConfig.centreMode).toBe('band');
+    expect(setCorridorConfig({ centreMode: 'minimal' })).toEqual([]);
+    expect(corridorConfig.centreMode).toBe('minimal');
+    expect(setCorridorConfig({ centreMode: 3 } as never)).toEqual(["centreMode must be 'band' or 'minimal'"]);
+    expect(corridorConfig.centreMode).toBe('minimal');
+  });
+
   it('keeps enemies at the edge inside the cells', () => {
     expect(setCorridorConfig({ edgeMargin: 1 })).toHaveLength(1);
     expect(corridorConfig.edgeMargin).toBe(1.5);
