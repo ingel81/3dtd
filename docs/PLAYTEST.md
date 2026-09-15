@@ -101,6 +101,19 @@ Aufbau: beliebiger Ort, Konsole offen mit Filter "Corridor", Cheat "Credits".
   research center" erst nach Welle 3, nicht nach 2? Welle 4 starten, Rechtsklick auf "+HP" bis Game Over: erscheint
   unter RESTART "First run here"?
 
+### Runde 21: Schadenszahlen und hohles Auto (729 bis 731)
+
+- **729** (abilitydmg): Cheat "Abilities", Welle mit vielen Gegnern. K auf eine Gruppe: erscheint 1,5 s später über
+  jedem getroffenen Gegner eine rote Zahl, bei getöteten dazu ein goldenes "+N", und steigen die Credits? Zu voll bei
+  einer großen Gruppe?
+- **730** (abilitydmg): L vor die Spitze einer Kolonne. Erscheint über jedem Gegner, den der Strahl hinter sich lässt,
+  eine Zahl (Zombies gold und groß, Tanks rot, Golem grau und klein), eine je Gegner, kein Zahlenregen? F und E: keine
+  Zahlen?
+- **731** (727, carcells): Rothenburg, Favorit "rothenburg rotes auto"
+  (`http://localhost:4200/?l=49.37721,10.17904&s=49.37944,10.18365`), keine Tower, "Route Grid Overlay" an, warten,
+  bis kein neues `[Corridor] rebuild` kommt. Liegt auf dem roten Auto keine Zelle mehr, endet der Korridor davor?
+  **729 bis 731 ok (2026-09-15)**, rotes Auto frei, "sieht nun ganz gut aus" (Screenshot).
+
 ## Nachtests 2 (Fixes aus Playtest 3, 15.09.)
 
 ### Runde 14: Paris, Place de Varsovie (701 bis 704)
