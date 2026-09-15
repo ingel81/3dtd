@@ -259,14 +259,15 @@ RECIPES = {
     # the rebake work on one surface and one UV layout, and the parts move as
     # before. Decimating the parts in place to 12 % (Night 1: 6,739 VAT
     # vertices) left texture seams on the old atlas; rebaked onto new UVs the
-    # seams go. Normals split over 60 degrees. The round trip is exact only
+    # seams go. Normals split over 60 degrees. 10 % keeps 4,771 VAT vertices
+    # (12 %: 5,416, 11 %: 5,082, 10.5 %: 5,003). The round trip is exact only
     # without the bind pose guess. The config plays Walk only.
     'mech': {
         'src': f'{ENEMIES}/mech.glb',
         'guess_bind_pose': False,
         'actions': {'Armature|Walk': 'Armature|Walk'},
         'rigid_to_skin': True,
-        'decimate': 0.12,
+        'decimate': 0.10,
         'normals': 60,
         'rebake': {'size': 1024, 'supersample': 2, 'uv_angle': 89},
         'base_color_only': True,

@@ -1,6 +1,6 @@
 # Enemy Model Budget
 
-**Stand:** 2026-09-15 (Tabellen neu erzeugt: neues Tank-Modell, Ghost im Budget, siehe [Runde vom 2026-09-15](#runde-vom-2026-09-15); davor Todes-Clips von Zombie v2, Stone Golem und Zombie Soldier ganz gebacken, `deathDuration`)
+**Stand:** 2026-09-15 (Tabellen neu erzeugt: neues Tank-Modell, Ghost und Mech im Budget, siehe [Runde vom 2026-09-15](#runde-vom-2026-09-15); davor Todes-Clips von Zombie v2, Stone Golem und Zombie Soldier ganz gebacken, `deathDuration`)
 
 Was die Gegnermodelle die GPU kosten, aus den Modelldateien gerechnet, und ein Budget je
 Gegnerklasse. Die Tabellen unter [Messwerte](#messwerte) schreibt `npm run model-budget`
@@ -16,22 +16,22 @@ das alte `zombie.glb` (TODO.md, Performance - Advanced).
   ein Rezept je Modell, siehe [Empfehlungen](#empfehlungen-je-modell)). Beim Start backt das
   Spiel jeden Typ außer der Ooze (`preloadAllModels`; ihr Körper ist ein Band, `slime.glb`
   dient nur der Sidebar-Vorschau). Was die VATs zusammen belegen, steht als Summe unter
-  [Laufzeitkosten](#laufzeitkosten-pro-gegner), am 2026-09-15 96,5 MB (die Ooze mit 0,1 MB
-  eingerechnet; in der Runde vom 2026-09-15 kam der neue Tank mit 0,9 MB dazu, der Ghost
-  wurde 0,8 MB kleiner; 88,2 MB, bevor die Todes-Clips von Zombie v2, Stone Golem und Zombie
-  Soldier ganz in die VAT kamen), alle Typen RGBA16F außer dem Stone Golem (RGBA32F; alles
-  in RGBA32F wären 166,3 MB). Vor der Runde vom 2026-09-13 waren es 264,2 MB, bis 2026-09-12
-  (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
+  [Laufzeitkosten](#laufzeitkosten-pro-gegner), am 2026-09-15 96,3 MB (die Ooze mit 0,1 MB
+  eingerechnet; in der Runde vom 2026-09-15 kam der neue Tank mit 0,9 MB dazu, Ghost und Mech
+  wurden 0,8 und 0,2 MB kleiner; 88,2 MB, bevor die Todes-Clips von Zombie v2, Stone Golem
+  und Zombie Soldier ganz in die VAT kamen), alle Typen RGBA16F außer dem Stone Golem
+  (RGBA32F; alles in RGBA32F wären 165,9 MB). Vor der Runde vom 2026-09-13 waren es
+  264,2 MB, bis 2026-09-12 (RGBA32F, Todes-Clips ungekappt) 664,6 MB.
   Die Runde vom 2026-09-14 (Tank, Ghost, Mech) steht unter
   [Runde vom 2026-09-14](#runde-vom-2026-09-14), die vom 2026-09-15 (neues Tank-Modell,
-  Ghost) unter [Runde vom 2026-09-15](#runde-vom-2026-09-15).
+  Ghost, Mech) unter [Runde vom 2026-09-15](#runde-vom-2026-09-15).
 - Die teuersten Wellen nach Vertex-Last sind jetzt `rat_tide` (5,0 Mio.), `zombie_horde`
   (3,6), `skeleton_swarm` (3,3), `armor_gauntlet` (2,4), `wraith_storm` (2,4) und `bat_swarm`
   (2,1); `mech_army` fiel mit der Runde vom 2026-09-14 von 4,2 auf 0,5. Vorher führten
   `hornet_strike` (14,9) und `zombie_horde` (14,4). Kein Template liegt über dem Richtwert von
   5 Mio.
 - Über dem Budget je Modell liegen noch Herbert (30.831 VAT-Vertices, höchstens drei pro
-  Welle), Wraith (8.126), Mammoth (5.557), Mech (5.416), Bat, Spider und Penguin.
+  Welle), Wraith (8.126), Mammoth (5.557), Bat, Spider und Penguin.
 - Die Ratten-Animation ist seit der Runde nicht mehr exakt (siehe Rat). Bei den anderen
   geänderten Modellen backt three.js dieselben Posen wie vorher; sie weichen nur durch das
   Decimate ab und bei Dragon und Golem in den Blend-Frames am Loop-Ende.
@@ -181,7 +181,8 @@ Vergleich mit `bake-compare.mjs`; Normalen zusätzlich Vertex für Vertex vergli
   daneben, weil das Decimate die Vertices anders verteilt. Aus der Nähe ist die Textur
   weicher, Kolben und Füße sind vereinfacht, Splitter oder Löcher waren in Blender nicht zu
   sehen. Über dem Normal-Richtwert: Die neuen UV-Nähte trennen die 2.009 Positionen in 4.919
-  Vertices, die harten Kanten in 5.416. Die Emissions-Textur fällt weg (im Spiel kommt das
+  Vertices, die harten Kanten in 5.416 (seit der Runde vom 2026-09-15 mit 10 % im Budget).
+  Die Emissions-Textur fällt weg (im Spiel kommt das
   Leuchten aus der Config); `strip_to_base_color` setzt die Emission dafür auf Schwarz, sonst
   hätte die Sidebar-Vorschau den Mech weiß gezeigt.
 
@@ -238,6 +239,12 @@ Nach der Playtest-Entscheidung E18 (docs/PLAYTEST.md). Rezepte wie oben in
   Schwerpunkt liegt 1,01 % daneben, weil eine Lage fehlt. Körper, Normalen und Texturen
   bleiben. Über dem Normal-Richtwert bleibt der Walk-Loop mit 105 Frames (Richtwert 60, siehe
   Runde vom 2026-09-14); das kostet VAT-Speicher, keine Last pro Frame.
+- **Mech** 5.416 → **4.771**, VAT 1,7 → 1,5 MB, 0,6 MB Datei: Decimate 12 % → 10 % (2.877
+  statt 3.457 Dreiecke), sonst dasselbe Rezept; 11 % ergaben 5.082, 10,5 % 5.003. Vergleich
+  mit dem Original (`39fbb18`) über den Walk-Clip: Bounding-Box höchstens 1,2 % verschieden
+  wie vorher, jeder neue Vertex im Mittel 0,32 % (vorher 0,28 %), p99 1,94 % (vorher 1,32 %)
+  vom nächsten alten. Im Render sieht er aus wie mit 12 %, Kleinteile am Rücken sind etwas
+  gröber.
 
 ### Ausgangslage (2026-09-12)
 
@@ -498,10 +505,10 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.272 | 19.541 | 0,7 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
 | Wraith (`wraith`) | Normal | 300 | 8.126 | 6.790 | 2,4 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
 | Mammoth (`mammoth`) | Normal | 150 | 5.557 | 8.685 | 0,8 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
-| Mech (`mech`) | Normal | 100 | 5.416 | 3.457 | 0,5 | Skinning | 40 | 5416×40 | RGBA16F | 1,44 | 1,7 | 1024² |
 | Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
 | Tank (`tank`) | Normal | 150 | 4.904 | 2.705 | 0,7 | Skinning | 24 | 4904×24 | RGBA16F | 0,82 | 0,9 | – |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 4.870 | 3.704 | 1,0 | Skinning | 306 | 4870×306 | RGBA16F | 1,08 | 11,4 | 1024² |
+| Mech (`mech`) | Normal | 100 | 4.771 | 2.877 | 0,5 | Skinning | 40 | 4771×40 | RGBA16F | 1,44 | 1,5 | 1024² |
 | Ghost (`ghost`) | Normal | 280 | 4.270 | 6.474 | 1,2 | Skinning | 105 | 4270×105 | RGBA16F | 0,46 | 3,4 | 1024² |
 | Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 160 | 4266×160 | RGBA16F | 0,84 | 5,2 | 1024² |
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
@@ -518,7 +525,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Ooze (`ooze`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 24 | 282×24 | RGBA16F | 0,50 | 0,1 | – |
 | Slime Clump (`slime-clump`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
 
-VAT-Speicher aller Typen zusammen: **96,5 MB** (30 fps), alles in RGBA32F wären **166,3 MB**.
+VAT-Speicher aller Typen zusammen: **96,3 MB** (30 fps), alles in RGBA32F wären **165,9 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **0,4 MB** dazu.
 
 ### Alpha
@@ -536,7 +543,7 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 | Ghost | Blend | 0 |
 | Bear | Blend | 33.852 (3,2 %) |
 
-Opak ohne Texel unter 0,05 (20): Herbert, Stone Golem, Wraith, Mammoth, Mech, Tank, Zombie v2, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Skarnax, Zombie, Skeleton, Skeleton Minion, Rat, Skarnax Segment, Ooze, Slime Clump.
+Opak ohne Texel unter 0,05 (20): Herbert, Stone Golem, Wraith, Mammoth, Tank, Zombie v2, Mech, Zombie Soldier, Bat, Wallsmasher, Spider, Penguin, Skarnax, Zombie, Skeleton, Skeleton Minion, Rat, Skarnax Segment, Ooze, Slime Clump.
 Texel unter 0,05, die der Shader deckend zeichnet (opak oder Maske mit Cutoff bis 0,05): **keine**.
 
 ### Modellinhalt
@@ -552,10 +559,10 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Dragon | `dragon.glb` | 5,9 | 1 (1) | 220 | 0 | 1 | 4× 1024² | 1 | 12.082 / 11.868 / 10.208 |
 | Wraith | `wraith.glb` | 1,8 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
 | Mammoth | `mammoth.glb` | 2,6 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 2 | 5.557 / 5.541 / 5.121 |
-| Mech | `mech.glb` | 0,6 | 1 (1) | 62 | 0 | 1 | 1024² | 1 | 5.416 / 4.919 / 2.009 |
 | Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.915 / 4.913 / 3.370 |
 | Tank | `tank.glb` | 0,3 | 6 (6) | 45 | 0 | 6 | – | 1 | 4.900 / 2.487 / 2.487 |
 | Zombie v2 | `zombie_v2.glb` | 1,9 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 4.870 / 4.870 / 1.827 |
+| Mech | `mech.glb` | 0,6 | 1 (1) | 62 | 0 | 1 | 1024² | 1 | 4.771 / 4.300 / 1.723 |
 | Ghost | `ghost.glb` | 2,4 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 4.270 / 3.894 / 3.467 |
 | Zombie Soldier | `zombie_soldier.glb` | 3,5 | 1 (1) | 56 | 0 | 1 | 3× 1024² | 6 | 4.249 / 4.249 / 3.603 |
 | Bear | `bear.glb` | 2,0 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
@@ -587,13 +594,13 @@ die weggelassenen Frames.
 | Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
 | Mammoth | `Walk` | walk | 4,97 | 149 | – |
 | Mammoth | `Die` | death | 6,00 | 172 | 9 |
-| Mech | `Armature\|Walk` | walk | 1,33 | 40 | – |
 | Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Tank | `TankArmature\|Tank_Forward` | walk | 0,79 | 24 | – |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
 | Zombie v2 | `Dead` | death | 2,96 | 89 | – |
 | Zombie v2 | `dying_backwards` | death | 2,21 | 67 | – |
 | Zombie v2 | `Electrocuted_Fall` | death | 2,00 | 61 | – |
+| Mech | `Armature\|Walk` | walk | 1,33 | 40 | – |
 | Ghost | `Take 001` | walk | 3,50 | 105 | – |
 | Zombie Soldier | `zombie_02_Run` | walk | 0,80 | 24 | – |
 | Zombie Soldier | `zombie_02_Death` | death | 4,50 | 136 | – |
@@ -643,8 +650,8 @@ mit allem, was ein Kill abspaltet.
 | `boss_dragon` | – | 80 | dragon 50 %, hornet 50 % | 0,7 |
 | `boss_golem` | – | 80 | stone-golem 30 %, mammoth 70 % | 0,6 |
 | `mammoth_siege` | W14, W25 | 120 | mammoth 70 %, wallsmasher 30 % | 0,6 |
-| `mech_army` | W28 | 100 | mech 100 % | 0,5 |
 | `bear_pack` | W11 | 120 | bear 100 % | 0,5 |
+| `mech_army` | W28 | 100 | mech 100 % | 0,5 |
 | `boss_herbert` | W10, W20, W30 | 100 | herbert 3 %, tank 48 %, zombie 48 % | 0,4 |
 
 | Gegner | Kurrikulum-Wellen | max. im Static-Fallback |
