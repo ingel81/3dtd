@@ -114,6 +114,36 @@ Aufbau: beliebiger Ort, Konsole offen mit Filter "Corridor", Cheat "Credits".
   bis kein neues `[Corridor] rebuild` kommt. Liegt auf dem roten Auto keine Zelle mehr, endet der Korridor davor?
   **729 bis 731 ok (2026-09-15)**, rotes Auto frei, "sieht nun ganz gut aus" (Screenshot).
 
+### Runde 22: Umweg, Sounds, Modelle, Sockel (732 bis 737)
+
+Aufbau für 733 und 734: Cheat "Abilities", Custom Wave "Zombie", Count 20. Fähigkeiten nur während einer Welle, nach
+jedem Einsatz "Abilities" erneut. Ton an, möglichst Kopfhörer.
+
+- **732** (719, detour): Erlenbach, Erlenbacher Weg (`http://localhost:4200/?l=49.17337,9.26851&s=49.17434,9.25915`),
+  "Route Grid Overlay" an, warten, bis kein neues `[Corridor] rebuild` kommt. Biegt die rote Linie vor der Autoreihe
+  zur Fahrbahnseite aus? Liegen auf den Autos keine Zellen, und ist das Band daneben ohne Löcher?
+  **Ergebnis (2026-09-15): nicht gut.** Zellen auf den Autos und Löcher links der Straße wie vorher (Zellbericht,
+  Screenshot). Der Umweg hat nicht gegriffen: `detourM` null an allen Stationen, Autozellen `centre line`. Kandidaten:
+  die Bedingung "Straße beiderseits des Hindernisses" (die Autos stehen am Rand vor dem Grünstreifen) und ein
+  Ausreißer im Säulen-Cache bei (413,21), 782,65 m auf Tiefe 10. **733 ok. 734:** ok, aber der Skarnax-Ton loopt zu
+  gleichmäßig, lieber zufällig und seltener (sounds). **735:** Tank gut, Textur könnte moderner sein (models); Ghost
+  und Mech passen.
+- **733** (E18, sounds): K auf die Route: heult 1,5 s eine Sirene am Ziel und endet mit dem Knall? F auf eine Gruppe:
+  eisiger Knall mit Knistern? E: elektrischer Schlag mit Knistern? Wirkt eine davon zu laut oder zu leise?
+- **734** (E18, sounds): L vor eine Gruppe, der Strahlweg quer im Bild: Zap und Knall am Aufsetzpunkt, wandert das
+  Brennen mit dem Fuß des Strahls und blendet am Ende aus, kein doppeltes Brennen? Custom Wave "Skarnax": Knurren und
+  Klackern am Kopf, das mit ihm wandert?
+- **735** (E18, models): "Enemies", nacheinander Tank, Ghost und Mech setzen und starten. Tank: grüner Panzer, Ketten
+  laufen mit dem Boden, steht auf der Straße, Vorschau in der Sidebar ganz im Bild? Ghost und Mech wie vorher?
+- **736** (E18, plinthbrace): Hochhaus mit unebenem Dachrand, Archer so an die Kante, dass der Geist über die Kante
+  ragt: zeigt die Vorschau Schrägstützen, und stehen nach dem Bau Steinstützen schräg in der Fassade? Flachdach mitten
+  drauf: keine Stützen? Verkaufen: Stützen weg?
+  **Ergebnis 736 (2026-09-15, Screenshots):** Stützen machen, was sie sollen, sind optisch aber noch nicht überzeugend
+  (dünne Spitzen unter dem Sockel). Dass der Sockel oben den Tower-Fuß manchmal nicht ganz deckt, gab es schon vorher,
+  auch ohne Stützen; nicht mehr aufsatteln als nötig.
+- **737** (E19, docsai): Developer options, Fenster "AI": fehlt der Knopf "Load ONNX model" (das eingecheckte Modell
+  passt nicht)? **ok (2026-09-15)**; so etwas prüft der Lead künftig per Spec, nicht der User.
+
 ## Nachtests 2 (Fixes aus Playtest 3, 15.09.)
 
 ### Runde 14: Paris, Place de Varsovie (701 bis 704)
@@ -618,6 +648,12 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   anbinden? **Entscheidung User (2026-09-15): anbinden.** Worker immunity fand: gedacht als Schadensimmunität, bei
   100 wäre Herbert unverwundbar (`tmp/fix1/reports/immunity.md`). **User:** Bosse brauchen so etwas sicher, offen ist
   was genau und in welchem Umfang; erst besprechen. Grundlage: `tmp/fix1/reports/bossresist.md`.
+  **Teilentscheidungen User (2026-09-15):** Herbert Slow-Schutz 50 %; Skarnax steht nur still, wenn sein Kopf
+  eingefroren oder betäubt ist (Worker skarnax). **User:** Es gibt Immunitäten und Resistenzen, für Effekte und für
+  Schadenstypen, dazu eventuell Schild und HP getrennt; erst ein Konzept, nicht heute (TODO 3.3). Nicht mehr vorlegen.
+- **Held Stufe 2 (aus E18):** Worker herotier2 fand keine Vorgabe in der Doku und schlug drei Varianten vor
+  (`tmp/fix1/reports/herotier2.md`). **User (2026-09-15):** offen lassen, erst braucht es den richtigen Tech Tree;
+  der Held muss vermutlich viel mehr Möglichkeiten bekommen. TODO.
 - **E17 Doku-Tabelle in CLAUDE.md:** Auf die Pflichtlektüre plus Verweis auf docs/INDEX.md kürzen? Vorerst bleibt sie
   voll. **Entscheidung User (2026-09-15): kürzen.** Worker docsai.
 - **E18 Assets und Features:** Welche willst du, in welcher Reihenfolge? Warnsirene des Atomschlags; eigene Sounds
