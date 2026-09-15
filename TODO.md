@@ -1452,6 +1452,14 @@
       Scheinwerfer, Banner, Decals, Gegnerrand), unabhängig von der Wellennummer; so gebaut, dass weitere Modi
       später dazukommen.
 
+- [ ] **Tower gezielt deaktivieren und aktivieren** (User, 2026-09-16)
+      Ein einzelner Tower lässt sich abschalten (schießt nicht, bleibt stehen) und wieder einschalten, z. B.
+      über einen Schalter im Tower-Panel.
+
+- [ ] **Offscreen-Marker klickbar: Kamera zum Gegner** (User, 2026-09-16)
+      Die Marker am Spielfeldrand, die Gegner außerhalb des Bildes anzeigen (Offscreen-Pfeile), werden
+      klickbar; ein Klick fährt die Kamera dorthin.
+
 - [ ] **Design-Runde: Header, Next-Wave-Button, Dev-Menü**
       Playtest 2026-09-11 nach dem Sprint: Dev-Menü (zwei Spalten) und Header
       (bündig mit der Sidebar) sind funktional erledigt (DONE.md 2026-09-12),
