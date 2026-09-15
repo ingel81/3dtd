@@ -88,10 +88,19 @@ export class LosDebuggerComponent implements AfterViewInit, OnDestroy {
   readonly mapperReady = signal<boolean>(false);
 
   /**
+   * Zählt hoch, sobald redrawFaces die Faces neu aus dem Mapper malt. Mapper
+   * und ImageData sind keine Signale: ohne diese Revision blieben die
+   * Readouts unten stehen, solange der Zeiger ruhte, während die Faces
+   * schon das neue Bild zeigten.
+   */
+  private readonly faceRevision = signal(0);
+
+  /**
    * RGB-Werte am hovered Pixel + decoded normalisierte depth. Liest direkt
    * aus dem gecachten ImageData des Mappers (in-CPU, kein Re-readback).
    */
   readonly pixelRgb = computed(() => {
+    this.faceRevision();
     const pix = this.losDebug.hoveredPixel();
     const mapper = this.losDebug.getMapper();
     if (!pix || !mapper) return null;
@@ -111,6 +120,7 @@ export class LosDebuggerComponent implements AfterViewInit, OnDestroy {
 
   // Hover-Readout: hoveredCell info aufgelöst zu strings für das Template.
   readonly hoverCellInfo = computed(() => {
+    this.faceRevision();
     const cell = this.losDebug.hoveredCell();
     const tip = this.losDebug.towerTip();
     if (!cell || !tip) return null;
@@ -263,6 +273,7 @@ export class LosDebuggerComponent implements AfterViewInit, OnDestroy {
       }
       this.clearZoomCanvas();
       this.lastDrawnPixel = null;
+      this.faceRevision.update((n) => n + 1);
       return;
     }
 
@@ -277,6 +288,7 @@ export class LosDebuggerComponent implements AfterViewInit, OnDestroy {
     // After a face repaint, our overlay (hover-marker) must be redrawn,
     // since putImageData overwrites previous pixels.
     this.lastDrawnPixel = null;
+    this.faceRevision.update((n) => n + 1);
   }
 
   private clearZoomCanvas(): void {
