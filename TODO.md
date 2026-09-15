@@ -1176,6 +1176,10 @@
         (Veteranen-Schwellen aus Bot-Logs), 14 (Sprung-Gold), Befund 4
         (Boss-Varianten ohne Fairness-Gate), Freischaltzeitpunkte der
         Fähigkeiten nur geschätzt.
+      - PLAYTEST.md E3 (2026-09-15): Wie stark Herbert, Skarnax und Ooze je
+        Welle sein sollen (HP, Tempo, Gold gegen typische Tower-DPS), passt laut
+        User aktuell nicht; zusammen damit klären, welche Welle mit welcher
+        Boss-Variante ins Log des Collectors gehört.
       Verwandt: Live-Playtest Phase-5.16-Balance, Gold-Budget feinjustieren (oben),
       1.7 "Bot-Läufe mit den neuen Inhalten", Backlog "Training Backend
       Refactoring".
