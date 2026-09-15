@@ -11,6 +11,7 @@ import { MapPlacementService } from './world/map-placement.service';
 import { isEscapeForDialog } from '../utils/dialog-key-guard';
 import { ownsKey } from '../utils/keyboard-target';
 import type { AbilityId } from '../configs/abilities.config';
+import { screenRect, type ScreenRect } from './debug/cell-report';
 
 /**
  * Callbacks that the component provides for keyboard actions
@@ -37,6 +38,20 @@ export interface HeroInputCallbacks {
   move: (lat: number, lon: number, hitPoint: THREE.Vector3) => void;
   /** A short right click while he is selected */
   cancel: () => void;
+}
+
+/** What the pointer does while the cell report is on (CellReportService). */
+export interface CellReportInputCallbacks {
+  /** The report is on: a left click on the ground and a Shift + left drag go to it */
+  active: () => boolean;
+  /** A left click on the ground */
+  click: (hitPoint: THREE.Vector3) => void;
+  /** The box of a Shift drag so far, client pixels; null once the drag ends */
+  drag: (rect: ScreenRect | null) => void;
+  /** A Shift drag let go: the cells in the box */
+  select: (rect: ScreenRect) => void;
+  /** Escape */
+  end: () => void;
 }
 
 /**
@@ -119,6 +134,11 @@ export class InputHandlerService {
 
   /** The hero: picking him, and while he is selected the move click (HeroControlService) */
   private heroInput: HeroInputCallbacks | null = null;
+
+  /** The cell report: its clicks and its Shift drag (CellReportService) */
+  private cellReport: CellReportInputCallbacks | null = null;
+  /** Where the cell report's Shift drag went down, null while none runs */
+  private reportDragStart: { x: number; y: number } | null = null;
 
   /** Stored event listeners for cleanup */
   private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
@@ -237,6 +257,17 @@ export class InputHandlerService {
   }
 
   /**
+   * Set up the cell report's pointer handling. While it is on, a left click
+   * on the ground goes to it instead of the game (no selection, no
+   * building), Shift + left drag draws a box on the screen instead of
+   * turning the camera, and Escape ends it. A plain left drag still pans,
+   * the right button still turns, the wheel still zooms.
+   */
+  setCellReportCallbacks(callbacks: CellReportInputCallbacks): void {
+    this.cellReport = callbacks;
+  }
+
+  /**
    * Hand the next left click on the ground to `callback` instead of the
    * game, once: no tower selection, no building. For `__corridor.pick()`.
    */
@@ -260,6 +291,15 @@ export class InputHandlerService {
     // Track pointerdown position - use document with capture to intercept before GlobeControls
     this.pointerDownHandler = (event: PointerEvent) => {
       if (event.target === canvas || canvas.contains(event.target as Node)) {
+        // The cell report's Shift + left drag draws its box. The camera
+        // controls never see the press, so they do not start to turn.
+        if (event.button === 0 && event.shiftKey && this.cellReport?.active()) {
+          event.stopPropagation();
+          event.preventDefault();
+          this.reportDragStart = { x: event.clientX, y: event.clientY };
+          this.cellReport.drag(screenRect(event.clientX, event.clientY, event.clientX, event.clientY));
+          return;
+        }
         this.mouseDownPos = { x: event.clientX, y: event.clientY };
         if (event.button === 2) {
           this.rightClickDownPos = { x: event.clientX, y: event.clientY };
@@ -273,6 +313,12 @@ export class InputHandlerService {
     // Use pointerup with document-level capture (consistent with other handlers)
     // This ensures we get the event before EnvironmentControls can modify scene state
     this.pointerUpHandler = (event: PointerEvent) => {
+      // The cell report's Shift drag ends wherever the button comes up, also over a panel
+      if (this.reportDragStart && event.button === 0) {
+        event.stopPropagation();
+        this.endReportDrag(event);
+        return;
+      }
       if (event.target === canvas || canvas.contains(event.target as Node)) {
         // Right-click release: cancel build/placement mode if it was a short, stationary click
         if (event.button === 2) {
@@ -287,6 +333,12 @@ export class InputHandlerService {
 
     // Pointer move handler for build preview - use document with capture to intercept before GlobeControls
     this.pointerMoveHandler = (event: PointerEvent) => {
+      // The box of the cell report's Shift drag follows the pointer anywhere, also over a panel
+      if (this.reportDragStart) {
+        event.stopPropagation();
+        this.cellReport?.drag(screenRect(this.reportDragStart.x, this.reportDragStart.y, event.clientX, event.clientY));
+        return;
+      }
       if (event.target === canvas || canvas.contains(event.target as Node)) {
         this.handlePointerMove(event);
       } else if (this.hoveredTowerId) {
@@ -347,6 +399,14 @@ export class InputHandlerService {
       const pick = this.pickCallback;
       this.pickCallback = null;
       pick(hit);
+      return;
+    }
+
+    // The cell report takes the click as well: a grid cell in or out of its
+    // selection, no tower selection, no building
+    if (this.cellReport?.active()) {
+      const hit = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
+      if (hit) this.cellReport.click(hit);
       return;
     }
 
@@ -423,6 +483,24 @@ export class InputHandlerService {
     if (this.buildModeSignal() && this.onClickCallback) {
       this.onClickCallback(geo.lat, geo.lon, geo.height);
     }
+  }
+
+  /**
+   * The cell report's Shift drag let go: a box selects the cells in it, a
+   * drag shorter than a pan counts as a click on the ground there.
+   */
+  private endReportDrag(event: PointerEvent): void {
+    const start = this.reportDragStart;
+    this.reportDragStart = null;
+    const report = this.cellReport;
+    if (!start || !report) return;
+    report.drag(null);
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > this.PAN_THRESHOLD_PX) {
+      report.select(screenRect(start.x, start.y, event.clientX, event.clientY));
+      return;
+    }
+    const hit = this.engine?.picker.raycastTerrain(event.clientX, event.clientY);
+    if (hit) report.click(hit);
   }
 
   /**
@@ -665,6 +743,13 @@ export class InputHandlerService {
       }
     }
 
+    // ESC ends the cell report
+    if (event.key === 'Escape' && this.cellReport?.active()) {
+      event.preventDefault();
+      this.cellReport.end();
+      return;
+    }
+
     // ESC cancels ability targeting
     if (event.key === 'Escape' && this.abilityTargetingSignal?.()) {
       event.preventDefault();
@@ -719,6 +804,11 @@ export class InputHandlerService {
    */
   handleWindowBlur(): void {
     this.keyboardPan.clearKeys();
+    // The button may come up outside the window: a box under way is dropped
+    if (this.reportDragStart) {
+      this.reportDragStart = null;
+      this.cellReport?.drag(null);
+    }
   }
 
   // ========================================
@@ -774,6 +864,8 @@ export class InputHandlerService {
     this.onAbilityMoveCallback = null;
     this.onAbilityCancelCallback = null;
     this.heroInput = null;
+    this.cellReport = null;
+    this.reportDragStart = null;
     this.pickCallback = null;
     this.mouseDownPos = null;
     this.keyboardCallbacks = null;

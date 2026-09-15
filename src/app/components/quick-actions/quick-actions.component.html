@@ -443,6 +443,16 @@
         <td-icon name="share" [size]="18"></td-icon>
         <span>Events</span>
       </button>
+      <!-- Cell report: grid cells by click or Shift drag, as JSON to the clipboard -->
+      <button class="td-dev-tile"
+              [class.active]="cellReport.active()"
+              (click)="cellReport.toggle()"
+              matTooltip="Cell report: click grid cells or Shift + drag a box, then copy them as JSON"
+              matTooltipPosition="left"
+              aria-label="Cell report" [attr.aria-pressed]="cellReport.active()">
+        <td-icon name="grid" [size]="18"></td-icon>
+        <span>Cells</span>
+      </button>
     </div>
     <button class="td-quick-btn td-dev-toggle-btn"
             [class.active]="uiStore.devMenuExpanded()"

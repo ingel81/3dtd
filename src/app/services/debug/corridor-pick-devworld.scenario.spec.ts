@@ -107,6 +107,7 @@ function pickOnLine(service: PathAndRouteService, point: Vector3): { row: Record
     inputHandler: { armPick: (callback: (hit: { x: number; y: number; z: number }) => void) => { click = callback; } },
     pathRoute: service,
     change: () => '',
+    cellReport: { start: () => '', connect: () => undefined, disconnect: () => undefined },
   } as unknown as CorridorConsoleDeps);
   corridor.install();
   ((globalThis as Record<string, unknown>)['__corridor'] as { pick: () => string }).pick();

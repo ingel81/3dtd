@@ -93,7 +93,10 @@ describe('Debug tools, playtest 169 and 180 (night 1) replayed', () => {
 
   it('180: __corridor goes with the game page and answers again on the next one', () => {
     const api = () => (globalThis as Record<string, unknown>)['__corridor'] as { get: () => Record<string, unknown> } | undefined;
-    const deps = { change: vi.fn() } as unknown as CorridorConsoleDeps;
+    const deps = {
+      change: vi.fn(),
+      cellReport: { start: vi.fn(), connect: vi.fn(), disconnect: vi.fn() },
+    } as unknown as CorridorConsoleDeps;
 
     // The first game page: its facade's initialize()
     const firstPage = new CorridorConsole(deps);

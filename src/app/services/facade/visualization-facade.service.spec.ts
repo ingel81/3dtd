@@ -58,6 +58,7 @@ import { StrategicPlacementService } from '../world/strategic-placement.service'
 import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { TowerDebugService } from '../debug/tower-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
+import { CellReportService } from '../debug/cell-report.service';
 import { LosDebugService } from '../debug/los-debug.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationManagementService } from '../location/location-management.service';
@@ -223,6 +224,17 @@ describe('VisualizationFacadeService', () => {
     setHeroCallbacks: vi.fn(),
     initKeyboard: vi.fn(),
     armPick: vi.fn(),
+    setCellReportCallbacks: vi.fn(),
+  };
+  const cellReport = {
+    active: signal(false),
+    box: signal<unknown>(null),
+    start: vi.fn(() => 'Cell report on'),
+    stop: vi.fn(),
+    click: vi.fn(),
+    select: vi.fn(),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
   };
   const towerPlacement = { buildMode: signal(false), initialize: vi.fn() };
   const abilityTargeting = {
@@ -335,6 +347,7 @@ describe('VisualizationFacadeService', () => {
         { provide: TowerDefenseStore, useValue: store },
         { provide: EngineStore, useValue: engineStore },
         { provide: RelocationStatusService, useValue: relocationStatus },
+        { provide: CellReportService, useValue: cellReport },
       ],
     });
     return runInInjectionContext(injector, () => new VisualizationFacadeService());
@@ -573,6 +586,20 @@ describe('VisualizationFacadeService', () => {
       expect(heroControl.click).toHaveBeenCalledWith(13, 14, 15);
       expect(heroControl.hover).toHaveBeenCalledWith(13, 14, 'hit');
       expect(heroControl.deselect).toHaveBeenCalled();
+
+      const report = inputHandler.setCellReportCallbacks.mock.calls[0][0];
+      cellReport.active.set(true);
+      expect(report.active()).toBe(true);
+      report.click('hit');
+      report.drag({ left: 1, top: 2, right: 3, bottom: 4 });
+      report.select({ left: 1, top: 2, right: 3, bottom: 4 });
+      report.end();
+      expect(cellReport.click).toHaveBeenCalledWith('hit');
+      expect(cellReport.box()).toEqual({ left: 1, top: 2, right: 3, bottom: 4 });
+      expect(cellReport.select).toHaveBeenCalledWith({ left: 1, top: 2, right: 3, bottom: 4 });
+      expect(cellReport.stop).toHaveBeenCalled();
+      cellReport.active.set(false);
+      cellReport.box.set(null);
 
       const keys = inputHandler.initKeyboard.mock.calls[0][0];
       keys.exitBuildMode();
@@ -1205,7 +1232,18 @@ describe('VisualizationFacadeService', () => {
       reset: () => string;
       towerCells: (id?: string) => unknown;
       pick: (radius?: number) => string;
+      report: () => string;
     };
+
+    it('starts the cell report and hands it the cells until dispose', () => {
+      expect(api().report()).toBe('Cell report on');
+      expect(cellReport.start).toHaveBeenCalledTimes(1);
+      const source = cellReport.connect.mock.calls[0][0];
+
+      facade.dispose();
+
+      expect(cellReport.disconnect).toHaveBeenCalledWith(source);
+    });
 
     it('refuses to change the corridor while towers stand or before a location is loaded', () => {
       towerCount = 1;

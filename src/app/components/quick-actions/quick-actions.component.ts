@@ -4,6 +4,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { DebugFacadeService, FPS_LIMITS } from '../../services/debug/debug-facade.service';
 import { DebugStateDumpService } from '../../services/debug/debug-state-dump.service';
+import { CellReportService } from '../../services/debug/cell-report.service';
 import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
@@ -48,6 +49,7 @@ export class QuickActionsComponent {
   readonly devWorld = inject(DevWorldService);
   readonly debugStateDump = inject(DebugStateDumpService);
   readonly debugFacade = inject(DebugFacadeService);
+  readonly cellReport = inject(CellReportService);
 
   // Input for camera framing debug state (component-local in parent)
   readonly cameraFramingDebug = input.required<boolean>();
