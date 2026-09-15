@@ -74,7 +74,7 @@ describe('HQDamageService', () => {
       expect(engine.spatialAudio!.registerSound).toHaveBeenCalledWith(
         GAME_SOUNDS.hqDamage.id,
         GAME_SOUNDS.hqDamage.url,
-        expect.any(Object),
+        expect.objectContaining({ audibleDistance: 1500 }),
       );
     });
 

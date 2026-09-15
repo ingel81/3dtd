@@ -190,7 +190,8 @@ Moment hängt, Stand heute die Stücke des Nuklearschlags. Er landet auf einer g
 Welle, deren Treffer und Tode im selben Sub-Step viele One-Shots starten; ohne Vorrang
 wäre sein Knall als ältester One-Shot der erste, den das Voice-Stealing stoppt.
 `audibleDistance` gilt nur für One-Shots: Der Nuklearschlag ist bis 1500 m zu hören, so
-weit wie sein Shake reicht. Loops pausieren weiter ab `maxAudibleDistance`.
+weit wie sein Shake reicht, der HQ-Schadenston ebenso weit (siehe unten). Loops pausieren
+weiter ab `maxAudibleDistance`.
 
 **Methoden in SpatialAudioManager:**
 ```typescript
@@ -381,7 +382,7 @@ Basis, höchstens alle 150 ms (`DAMAGE_SOUND_COOLDOWN`). Leck und Debug-Knopf ("
 Rechtsklick) laufen beide über `BaseHealthLedger` und dasselbe `health:changed`.
 ```typescript
 spatialAudio.registerSound('hq_damage', 'assets/sounds/effects/explosion.mp3', {
-  refDistance: 40, rolloffFactor: 1, volume: 1.4,
+  refDistance: 40, rolloffFactor: 1, volume: 1.4, audibleDistance: 1500,
 });
 eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height });
 ```
@@ -389,7 +390,10 @@ eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height
 Terrainhöhe aus `onTilesLoaded()`, sonst Raycast), plus die Höhe des Origins. Bis
 2026-09-15 stand dort 0: Die Basis hat keine Höhe, der Ton lag auf dem Ellipsoid, so
 tief unter der HQ, wie der Boden dort hoch ist, und fiel an höher gelegenen Orten aus
-der Hörweite von 500 m (Playtest 649).
+der Hörweite von 500 m (Playtest 649). Seine Hörweite ist 1500 m wie beim
+Nuklearschlag, damit der Treffer auch aus der weiten Übersicht zu hören ist; der Shake
+kommt ohnehin überall. Die Abnahme bleibt (`inverse`, `refDistance` 40,
+`rolloffFactor` 1): Aus 1000 m kommt er mit 4 % der Lautstärke von 40 m.
 
 ### Nuklearschlag (synthetisiert, Nachhall in Spielzeit)
 `GAME_SOUNDS.nuclearStrike` (`audio.config.ts`), im Code synthetisiert in

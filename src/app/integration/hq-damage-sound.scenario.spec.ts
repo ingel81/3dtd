@@ -123,7 +123,7 @@ function world() {
   };
 
   return {
-    scene, audio, culled, ledger, hqDamage,
+    scene, camera, audio, culled, ledger, hqDamage,
     /** Boot: the engine is built at the place, the game state initialised once. */
     boot(ground: number) {
       arrive(ground);
@@ -201,4 +201,35 @@ describe('HQ damage sound (playtest 649)', () => {
       });
     }
   }
+
+  /** The camera `distance` m from the HQ ground, at the start pose's angle. */
+  const zoomOut = (at: ReturnType<typeof world>, ground: number, distance: number) => {
+    const k = distance / 425;
+    at.camera.position.set(0, ground + 400 * k, -145 * k);
+    at.camera.updateMatrixWorld();
+  };
+
+  it('is heard from a wide overview 1000 m away, beyond the common 500 m', async () => {
+    vi.spyOn(performance, 'now').mockReturnValue(10_000);
+    w = world();
+    w.boot(180);
+    zoomOut(w, 180, 1000);
+
+    await w.hit(HITS[0][1]);
+
+    expect(w.culled).toEqual([]);
+    expect(w.audio.isPlaying(GAME_SOUNDS.hqDamage.id)).toBe(true);
+  });
+
+  it('is culled beyond its own audible distance of 1500 m', async () => {
+    vi.spyOn(performance, 'now').mockReturnValue(10_000);
+    w = world();
+    w.boot(180);
+    zoomOut(w, 180, 1600);
+
+    await w.hit(HITS[0][1]);
+
+    expect(w.culled).toEqual([GAME_SOUNDS.hqDamage.id]);
+    expect(w.audio.isPlaying(GAME_SOUNDS.hqDamage.id)).toBe(false);
+  });
 });
