@@ -377,13 +377,19 @@ Die Ooze hat kein Modell und keinen `movingSound`. Ihre Sounds spielt `OozeSound
 ### HQ Damage Sound
 `HQDamageService.initialize()` registriert `GAME_SOUNDS.hqDamage` (`audio.config.ts`)
 und emittiert bei `health:changed` mit negativem `delta` ein `audio:play`-Event an der
-Basis, höchstens alle 150 ms (`DAMAGE_SOUND_COOLDOWN`).
+Basis, höchstens alle 150 ms (`DAMAGE_SOUND_COOLDOWN`). Leck und Debug-Knopf ("+HP",
+Rechtsklick) laufen beide über `BaseHealthLedger` und dasselbe `health:changed`.
 ```typescript
 spatialAudio.registerSound('hq_damage', 'assets/sounds/effects/explosion.mp3', {
   refDistance: 40, rolloffFactor: 1, volume: 1.4,
 });
 eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height });
 ```
+`height` ist der Boden unter der HQ, dieselbe Höhe wie das Feuer dort (gecachte
+Terrainhöhe aus `onTilesLoaded()`, sonst Raycast), plus die Höhe des Origins. Bis
+2026-09-15 stand dort 0: Die Basis hat keine Höhe, der Ton lag auf dem Ellipsoid, so
+tief unter der HQ, wie der Boden dort hoch ist, und fiel an höher gelegenen Orten aus
+der Hörweite von 500 m (Playtest 649).
 
 ### Nuklearschlag (synthetisiert, Nachhall in Spielzeit)
 `GAME_SOUNDS.nuclearStrike` (`audio.config.ts`), im Code synthetisiert in
