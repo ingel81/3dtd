@@ -569,25 +569,27 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   die Probe wieder und misst vom Boden der Station; nur auf dem Brückendeck bleibt sie aus. Nicht mehr vorlegen.
 - **E8 Heldenschüsse auf diagonal verlaufenden Straßen:** Seit Gegner und Held metrisch ausgerichtet werden, starten
   seine Schüsse an einer anderen Stelle, dort, wo das Modell die Waffe hält (`fa7712ec`): auf einer 45°-Straße bei
-  49° N etwa 0,5 m seitlich, auf Nord-Süd- und Ost-West-Straßen gar nicht.
+  49° N etwa 0,5 m seitlich, auf Nord-Süd- und Ost-West-Straßen gar nicht. **Erledigt durch 639 (ok, Tracer an der
+  Waffe).**
 - **E9 Klumpen-Befund ohne Code-Fix:** Im Test nicht nachstellbar. Statt einer Änderung gibt es die Sonde
-  `__towerTargets` (618, D4); ein Fix erst mit Daten.
+  `__towerTargets` (618, D4); ein Fix erst mit Daten. **Erledigt: 618 ok, kein Befund mehr.**
 - **E10 Additives Licht mit Bloom:** `ADDITIVE_GROUND` 0,3 wie beim Beschwörungskreis. Mit Bloom sind additive Effekte
   jetzt über jedem Boden schwächer als vorher (Licht 0,1 über Boden 0: 0,349 → 0,271; über 0,6: 0,079 → 0,049).
   Verglichen mit ohne Bloom sind sie gleich über einem Boden von 0,3, heller über dunklerem und dunkler über hellerem.
   Bei einem Boden von etwa 0,53 passte der alte Rohwert zufällig zum Bild ohne Bloom. Ändern geht über eine Zahl in
-  `display-output.ts`.
+  `display-output.ts`. **Erledigt durch Runde 7 (626 bis 629 ok).**
 - **E11 Ooze-Gold bei junger Ooze:** Eine voll gewachsene Ooze zahlt gleich viel wie vorher. Bei einer jung getöteten
   hängt es von der Länge ab: meist weniger, bei manchen Längen etwas mehr (Welle 45: 1,5 m Körper 1142 statt 2181
   Gold, 15 m 2855 statt 3272, 27 m 4568 statt 4363). Genau gleich ginge nur mit gewichteten Slots für alle Gegner
-  (`2acf7db9`, Tabelle in `tmp/fix1/reports/oozedeath.md`).
+  (`2acf7db9`, Tabelle in `tmp/fix1/reports/oozedeath.md`). **Entscheidung User (2026-09-15): ins Balancing**
+  (TODO 2.2).
 - **E12 Debug-Checkboxen entfernt:** "Textures", "Skeleton Clone" und "Alpha Blend" im Debug-Fenster Display
-  (Abschnitt "Performance") waren wirkungslos und sind weg (`1427f5c0`).
+  (Abschnitt "Performance") waren wirkungslos und sind weg (`1427f5c0`). **Entscheidung User (2026-09-15): ok.**
 - **E13 Atompilz auf Preset Low:** Low zeigt jetzt den ganzen Pilz in derselben Form mit weniger Sprites (294 Rauch,
   88 Glut) statt nur der Detonation, ist damit aber teurer als vorher. Ansehen: Display-Menü, Effects, "Low", K. Pilz
-  gröber, Framerate ok?
+  gröber, Framerate ok? **User (2026-09-15): später ansehen.**
 - **E14 Hörweite des Atomschlags:** Knall und Grollen sind bis 1500 m zu hören, so weit wie das Wackeln reicht, statt
-  bis 500 m. Ansehen: aus der Übersicht weiter als 500 m herauszoomen, K.
+  bis 500 m. Ansehen: aus der Übersicht weiter als 500 m herauszoomen, K. **Entscheidung User (2026-09-15): ok.**
 - **E15 Vollbild-Blitz des Atomschlags:** Das ganze Bild steht 80 ms lang auf 0,92 Weiß (`flash.screenPeak`,
   `screenHold` 0,08 s), danach blendet der Blitz bis 1,1 s nach dem Einschlag aus. Bitte auch mit Blick auf
   Lichtempfindlichkeit beurteilen, über die ganze Dauer. Mildern geht über `screenPeak`, 0 schaltet den Blitz ab.
@@ -596,16 +598,17 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
 **Neu zu entscheiden**
 
 - **E16 `immunityPercent`:** Steht bei Herbert auf 100, wirkt aber nirgends. Entfernen oder an Schaden und Anzeige
-  anbinden?
+  anbinden? **Entscheidung User (2026-09-15): anbinden.** Worker immunity.
 - **E17 Doku-Tabelle in CLAUDE.md:** Auf die Pflichtlektüre plus Verweis auf docs/INDEX.md kürzen? Vorerst bleibt sie
-  voll.
+  voll. **Entscheidung User (2026-09-15): kürzen.** Worker docsai.
 - **E18 Assets und Features:** Welche willst du, in welcher Reihenfolge? Warnsirene des Atomschlags; eigene Sounds
   für Frost und EMP; Laser-Ton am Startpunkt; Skarnax (Textur, bewegte Beine, Schwanzstück, Mandibeln, Sound am
   Kopf, Healthbar je Ring); Tod-Sound der Schleimklumpen; Mech und Ghost über dem Modell-Budget; Gold-Popup der Ooze
   an der Spitze; größere Eiskristalle an großen Gegnern; Held Stufe 2; Schrägstütze für Sockel an der Dachkante.
 - **E19 ONNX-Director im Debug-Fenster:** Das eingecheckte Modell hat 156 Eingänge, der Encoder liefert 208.
   `OnnxPolicy.load()` lehnt es deshalb ab, "Load ONNX model" im Fenster "AI" (Developer options) bleibt immer bei den
-  Regeln. Ein Modell neu exportieren oder trainieren, oder das Opt-in so lassen?
+  Regeln. Ein Modell neu exportieren oder trainieren, oder das Opt-in so lassen? **Entscheidung User (2026-09-15): Opt-in ausblenden**, bis ein passendes Modell da ist.
+  Worker docsai.
 
 Schon entschieden, nicht mehr vorlegen: Wurm-Ecken, Held ohne Ersatzmodell, Boss-Intro mit Hindernis-Check und
 Abstand 21,4 m, Vorgärten (a), Showcases mit festen Spawns und ohne Dubai, Name Skarnax, Atompilz "realistisch,

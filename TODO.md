@@ -1180,6 +1180,9 @@
         Welle sein sollen (HP, Tempo, Gold gegen typische Tower-DPS), passt laut
         User aktuell nicht; zusammen damit klären, welche Welle mit welcher
         Boss-Variante ins Log des Collectors gehört.
+      - PLAYTEST.md E11 (2026-09-15): Gold einer jung getöteten Ooze hängt von
+        der Länge ab (meist weniger, bei manchen Längen etwas mehr als vorher;
+        Tabelle in `tmp/fix1/reports/oozedeath.md`), mit der Boss-Stärke klären.
       Verwandt: Live-Playtest Phase-5.16-Balance, Gold-Budget feinjustieren (oben),
       1.7 "Bot-Läufe mit den neuen Inhalten", Backlog "Training Backend
       Refactoring".
