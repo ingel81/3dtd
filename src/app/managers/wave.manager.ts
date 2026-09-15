@@ -355,8 +355,11 @@ export class WaveManager implements IGameManager {
     const allEnemiesDead = aliveCount === 0 && killingCount === 0
       && this.enemyManager.getPendingSpawnCount() === 0;
 
-    // Stuck-detection: log ONCE per wave when spawning is fully done but
-    // counters have been frozen for ≥5s. `_loggedStuckForWave` ensures we
+    // Stuck-detection: log ONCE per wave when spawning is fully done, the
+    // counters are frozen and no enemy gets anywhere over a whole window of
+    // STUCK_WINDOW_STEPS sub-steps. Frozen counters alone are no sign: a lone
+    // boss walks its route for a minute without one changing (playtest
+    // 2026-09-15, an ooze of a Custom Wave). `_loggedStuckForWave` ensures we
     // don't re-log if counters briefly advance then freeze again mid-wave.
     const stuckCandidate = allEnemiesSpawned && !allEnemiesDead;
     if (stuckCandidate) {
@@ -364,16 +367,23 @@ export class WaveManager implements IGameManager {
         aliveCount !== this._lastAlive || killingCount !== this._lastKilling;
       if (progressChanged) {
         this._stuckFrames = 0;
+        this._stuckProgress = NaN;
       } else {
         this._stuckFrames++;
       }
       this._lastAlive = aliveCount;
       this._lastKilling = killingCount;
 
-      if (
-        !this._loggedStuckForWave &&
-        this._stuckFrames > 300 // ~5s of no counter change
-      ) {
+      // Sampled at the end of each window only, not per sub-step: the first
+      // window takes the sample, a later one without a change logs
+      let stuck = false;
+      if (!this._loggedStuckForWave && this._stuckFrames >= WaveManager.STUCK_WINDOW_STEPS) {
+        const progress = this.enemyProgress();
+        stuck = progress === this._stuckProgress;
+        this._stuckProgress = progress;
+        this._stuckFrames = 0;
+      }
+      if (stuck) {
         const enemies = this.enemyManager.getAll();
         const pending = this.enemyManager.getPendingDeathsSnapshot();
         console.warn(`[WaveManager] STUCK wave ${this.waveNumber()} (all spawned, counters frozen):`, {
@@ -412,16 +422,39 @@ export class WaveManager implements IGameManager {
     return complete;
   }
 
+  /**
+   * What the living enemies have got done: metres walked, metres of an
+   * ooze's body flowed into the HQ (its tip stands meanwhile), HP lost to a
+   * fight at a standstill. The same value twice means nothing moved.
+   */
+  private enemyProgress(): number {
+    let sum = 0;
+    for (const enemy of this.enemyManager.getAlive()) {
+      sum += enemy.movement.getDistanceAlongPath() + (enemy.body?.tailM ?? 0) - enemy.health.hp;
+    }
+    return sum;
+  }
+
   /** Reset stuck-detection flag on wave transitions (called from endWave + reset). */
   private _resetStuckDetector(): void {
     this._loggedStuckForWave = false;
     this._stuckFrames = 0;
+    this._stuckProgress = NaN;
     this._lastAlive = 0;
     this._lastKilling = 0;
   }
 
+  /**
+   * Sub-steps of frozen counters the stuck detection looks at at once: 10 s
+   * of game time (none runs in a pause), longer than any halt (a machine's
+   * 6 s stun), so a halted enemy is not taken for a stuck one.
+   */
+  private static readonly STUCK_WINDOW_STEPS = 600;
+
   private _loggedStuckForWave = false;
   private _stuckFrames = 0;
+  /** enemyProgress() at the end of the last window, NaN before the first */
+  private _stuckProgress = NaN;
   private _lastAlive = 0;
   private _lastKilling = 0;
 
