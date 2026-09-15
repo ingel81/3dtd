@@ -6,7 +6,9 @@ import {
   footprintSampleOffsets,
   footprintSurroundingOffsets,
   levelWithCursor,
+  plinthOverhang,
   resolveTowerFootprint,
+  sameFootprint,
 } from './tower-footprint';
 import { PLINTH_CONFIG } from '../configs/placement.config';
 
@@ -319,5 +321,66 @@ describe('resolveTowerFootprint', () => {
       expect(onGround).toMatchObject({ rule: 'ground', bottom: 12, groundTop: 12, roofTop: 13.5 });
       expect(onGround.surroundings).toHaveLength(8);
     });
+  });
+
+  describe('overhang (E18, braces under a plinth at a roof edge)', () => {
+    /** The street more than MAX_DROP below a roof at 50 m */
+    const deepStreet = 50 - PLINTH_CONFIG.MAX_DROP - 10;
+    /** Indices of the probes of the footprint of radius R where `counts` holds */
+    const probesWhere = (counts: (x: number, z: number) => boolean) =>
+      footprintSampleOffsets(R).flatMap(([x, z], index) => (counts(x, z) ? [index] : []));
+
+    it('names the probes past a roof edge deeper than MAX_DROP, where the plinth hangs over the street', () => {
+      // Roof at 50 m, 1 m higher west of x = -1, its edge 2 m east of the tower
+      const top = (x: number) => (x > 2 ? deepStreet : x < -1 ? 51 : 50);
+      const footprint = resolveTowerFootprint(50, R, columns(top, () => deepStreet));
+
+      expect(footprint).toEqual({ footY: 51, plinthHeight: 1, overhang: probesWhere((x) => x > 2) });
+      // The rim over the street: the outer ring at 0 and 30 degrees either side
+      expect(footprint.overhang).toHaveLength(3);
+    });
+
+    it('names the probes that hit nothing as well', () => {
+      const top = (x: number) => (x > 2 ? null : x < -1 ? 51 : 50);
+      expect(resolveTowerFootprint(50, R, columns(top, () => deepStreet)).overhang).toEqual(probesWhere((x) => x > 2));
+    });
+
+    it('names none where the plinth reaches down to the street, within MAX_DROP', () => {
+      const street = 50 - PLINTH_CONFIG.MAX_DROP + 1;
+      const top = (x: number) => (x > 2 ? street : 50);
+      expect(resolveTowerFootprint(50, R, columns(top, () => street))).toEqual({ footY: 50, plinthHeight: 50 - street });
+    });
+
+    it('names none on a flat roof, at its edge (no plinth there) or in its middle', () => {
+      const edge = (x: number) => (x > 2 ? deepStreet : 50);
+      expect(resolveTowerFootprint(50, R, columns(edge, () => deepStreet))).toEqual({ footY: 50, plinthHeight: 0 });
+      expect(resolveTowerFootprint(50, R, columns(() => 50, () => deepStreet))).toEqual({ footY: 50, plinthHeight: 0 });
+    });
+
+    it('names none on a slope on the ground or on a stepped roof', () => {
+      const slope = resolveTowerFootprint(10, R, columns((x) => 10 + 0.3 * x));
+      expect(slope.plinthHeight).toBeGreaterThan(0);
+      expect(slope.overhang).toBeUndefined();
+      const stepped = resolveTowerFootprint(20, R, columns((x) => (x > 1 ? 21.5 : 20), () => 5));
+      expect(stepped).toEqual({ footY: 21.5, plinthHeight: 1.5 });
+    });
+  });
+});
+
+describe('plinthOverhang', () => {
+  it('lists the columns that top out below the plinth or hit nothing, by index', () => {
+    const columns = [{ groundY: 10, topY: 10 }, null, { groundY: 2, topY: 9.9 }, { groundY: 2, topY: 12 }];
+    expect(plinthOverhang(10, columns)).toEqual([1, 2]);
+    expect(plinthOverhang(10, [])).toEqual([]);
+  });
+});
+
+describe('sameFootprint', () => {
+  it('compares foot, plinth and overhang, no overhang the same as an empty one', () => {
+    expect(sameFootprint({ footY: 1, plinthHeight: 1 }, { footY: 1, plinthHeight: 1, overhang: [] })).toBe(true);
+    expect(sameFootprint({ footY: 1, plinthHeight: 1, overhang: [3] }, { footY: 1, plinthHeight: 1, overhang: [3] })).toBe(true);
+    expect(sameFootprint({ footY: 1, plinthHeight: 1, overhang: [3] }, { footY: 1, plinthHeight: 1, overhang: [4] })).toBe(false);
+    expect(sameFootprint({ footY: 1, plinthHeight: 1 }, { footY: 1, plinthHeight: 2 })).toBe(false);
+    expect(sameFootprint({ footY: 1, plinthHeight: 1 }, { footY: 2, plinthHeight: 1 })).toBe(false);
   });
 });
