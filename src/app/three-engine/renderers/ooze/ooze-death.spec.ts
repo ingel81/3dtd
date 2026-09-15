@@ -6,7 +6,7 @@ import { METERS_PER_DEGREE_LAT } from '../../../utils/geo-utils';
 import { RouteBodyStations } from '../../../utils/route-body';
 import { SeededRandom } from '../../../utils/seeded-random';
 import { DEFAULT_VFX_SETTINGS, withVfxPreset } from '../../vfx-settings';
-import type { GroundDecals } from '../ground-decals';
+import type { GooSplash, GroundDecals } from '../ground-decals';
 import { ParticlePoolManager } from '../particle-pool-manager';
 import { ParticleEffectsRenderer } from '../particle-effects-renderer';
 import type { CoordinateSync } from '../index';
@@ -38,14 +38,43 @@ const stations = new RouteBodyStations(
 const FRAME_MS = 16;
 const LOW = withVfxPreset(DEFAULT_VFX_SETTINGS, 'low');
 
+interface LaidSplash extends GooSplash {
+  lat: number;
+  lon: number;
+  height: number;
+}
+
 function effectsMock(impacts = true, groundMarks = true) {
-  return {
+  const splashes: LaidSplash[] = [];
+  const effects = {
     impactEffectsEnabled: impacts,
     groundMarksEnabled: groundMarks,
     spawnBurstAtGeo: vi.fn(),
     spawnBloodSplatter: vi.fn(),
-    spawnBloodDecal: vi.fn(),
+    // The band fills one splash anew for each; keep a copy
+    spawnGooDecal: vi.fn((lat: number, lon: number, height: number, splash: Readonly<GooSplash>) => {
+      splashes.push({ lat, lon, height, ...splash });
+    }),
   } satisfies OozeMessEffects;
+  return Object.assign(effects, { splashes });
+}
+
+/** The real effects and pools behind the mess, and a band killed on them. */
+function realMess(ids: readonly string[] = ['ooze']) {
+  const scene = new Scene();
+  const pools = new ParticlePoolManager(scene);
+  const sync = { geoToLocal: (lat: number, lon: number, h: number) => new Vector3(lon * M, h, -lat * M) };
+  const effects = new ParticleEffectsRenderer(scene, sync as unknown as CoordinateSync, pools);
+  effects.setVfxSettings(DEFAULT_VFX_SETTINGS);
+  const debris = new OozeDebrisRenderer(scene);
+  const renderer = new OozeBandRenderer(scene, { effects, debris });
+  for (const id of ids) {
+    renderer.add(id, stations, () => 0);
+    renderer.setFrame(id, 20, 100, 0, false, false, false);
+    renderer.collapse(id);
+  }
+  const goo = (effects as unknown as { decals: GroundDecals }).decals.goo;
+  return { pools, effects, debris, renderer, goo };
 }
 
 /** A band from 20 m to 20 + `lengthM` m along the route, killed. */
@@ -70,10 +99,10 @@ function kinds(list: readonly (OozeDebrisKind | null)[]): Partial<Record<OozeDeb
 }
 
 describe('planOozeDeath', () => {
-  it('lets a full 80 m body go in 32 bubbles, 16 splashes and 60 pieces of debris, six of them skulls', () => {
-    expect(oozeMessCounts(80, true, true)).toEqual({ pops: 32, splashes: 16, debris: 60 });
+  it('lets a full 80 m body go in 32 bubbles, 64 splashes and 60 pieces of debris, six of them skulls', () => {
+    expect(oozeMessCounts(80, true, true)).toEqual({ pops: 32, splashes: 64, debris: 60 });
     const plan = planOozeDeath(80, true, true, 1);
-    expect(plan).toHaveLength(32 + 16 + 60);
+    expect(plan).toHaveLength(32 + 64 + 60);
     expect(kinds(plan.map((e) => e.debris))).toEqual({
       bone: 18, rib: 12, skull: 6, teeth: 6, helmet: 3, scrap: 6, boot: 3, sign: 3, can: 3,
     });
@@ -94,14 +123,16 @@ describe('planOozeDeath', () => {
       for (const e of events) {
         expect(e.t).toBeGreaterThanOrEqual(windows[kind][0]);
         expect(e.t).toBeLessThanOrEqual(windows[kind][1]);
-        expect(Math.abs(e.across)).toBeLessThan(1);
+        expect(Math.abs(e.across)).toBeLessThan(kind === 'splash' ? splashes.spread : 1);
       }
     }
+    // The splashes reach past the covered width, as the collapsing band runs past its edges
+    expect(Math.max(...plan.filter((e) => e.kind === 'splash').map((e) => Math.abs(e.across)))).toBeGreaterThan(1);
     for (let i = 1; i < plan.length; i++) expect(plan[i].t).toBeGreaterThanOrEqual(plan[i - 1].t);
   });
 
   it('keeps a short body messy, a skull included, and the Low preset cheap', () => {
-    expect(oozeMessCounts(1.5, true, true)).toEqual({ pops: 4, splashes: 2, debris: 6 });
+    expect(oozeMessCounts(1.5, true, true)).toEqual({ pops: 4, splashes: 4, debris: 6 });
     expect(OOZE_DEBRIS_DECK.slice(0, 6)).toContain('skull');
     // Low: impact effects and ground marks off
     expect(LOW.impactEffects).toBe(false);
@@ -125,7 +156,7 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
   it('lets it go over the collapse, a few parts a frame, all of it by the end', () => {
     const effects = effectsMock();
     const { debris, renderer } = killedBand(effects);
-    const emitted = () => effects.spawnBurstAtGeo.mock.calls.length + effects.spawnBloodDecal.mock.calls.length + debris.count;
+    const emitted = () => effects.spawnBurstAtGeo.mock.calls.length + effects.splashes.length + debris.count;
 
     let most = 0;
     let before = 0;
@@ -137,7 +168,7 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
       before = now;
       if (t < OOZE_LOOK.collapse * 100) firstTenth = now;
     }
-    expect(before).toBe(32 + 16 + 60);
+    expect(before).toBe(32 + 64 + 60);
     expect(most).toBeLessThan(12);
     expect(firstTenth).toBeLessThan(before / 4);
 
@@ -149,15 +180,24 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
     expect(sparks + drops).toBe(704);
     expect(effects.spawnBurstAtGeo.mock.calls[0][4]).toBe(BURST_PALETTES.slime);
     expect(effects.spawnBloodSplatter.mock.calls[0][4]).toBe(OOZE_DEATH_LOOK.goo);
-    // Splashes on the ground (0 here), 2.2 to 3.8 m across
-    for (const [, , height, size, color] of effects.spawnBloodDecal.mock.calls) {
-      expect(height).toBe(0);
-      expect(size).toBeGreaterThanOrEqual(OOZE_DEATH_LOOK.splashes.sizeMin);
-      expect(size).toBeLessThanOrEqual(OOZE_DEATH_LOOK.splashes.sizeMax);
-      expect(color).toBe(OOZE_DEATH_LOOK.goo);
+    // Splashes on the ground (0 here), 1.4 to 5.2 m across, up to twice as long, turned every way
+    const { sizeMin, sizeMax, stretchMax } = OOZE_DEATH_LOOK.splashes;
+    const splashes = effects.splashes;
+    for (const s of splashes) {
+      expect(s.height).toBe(0);
+      expect(s.size).toBeGreaterThanOrEqual(sizeMin);
+      expect(s.size).toBeLessThanOrEqual(sizeMax);
+      expect(s.stretch).toBeGreaterThanOrEqual(1);
+      expect(s.stretch).toBeLessThanOrEqual(stretchMax);
+      expect(s.color).toBe(OOZE_DEATH_LOOK.goo);
     }
+    // Most of them small, a few large, every one a pattern of its own
+    const sizes = splashes.map((s) => s.size).sort((a, b) => a - b);
+    expect(sizes[sizes.length >> 1]).toBeLessThan((sizeMin + sizeMax) / 2);
+    expect(sizes[sizes.length - 1]).toBeGreaterThan(sizeMin + 0.75 * (sizeMax - sizeMin));
+    expect(new Set(splashes.map((s) => s.variation)).size).toBe(64);
     // Along the whole body, 20 to 100 m north
-    const north = effects.spawnBloodDecal.mock.calls.map((call) => call[0] * M);
+    const north = splashes.map((s) => s.lat * M);
     expect(Math.min(...north)).toBeLessThan(30);
     expect(Math.max(...north)).toBeGreaterThan(90);
   });
@@ -168,7 +208,7 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
     frames(renderer, OOZE_LOOK.collapse * 1000 + FRAME_MS);
     expect(effects.spawnBurstAtGeo).not.toHaveBeenCalled();
     expect(effects.spawnBloodSplatter).not.toHaveBeenCalled();
-    expect(effects.spawnBloodDecal).not.toHaveBeenCalled();
+    expect(effects.spawnGooDecal).not.toHaveBeenCalled();
     expect(debris.count).toBe(20);
   });
 
@@ -208,7 +248,7 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
       for (let t = 0; t < 3200; t += frameMs) renderer.animate(frameMs);
       const meshes = scene.children.filter((c) => c.name.startsWith('ooze-debris-')) as InstancedMesh[];
       return {
-        splashes: effects.spawnBloodDecal.mock.calls,
+        splashes: effects.splashes,
         pops: effects.spawnBurstAtGeo.mock.calls.map((call) => call.slice(0, 3)),
         debris: meshes.map((mesh) => Array.from(mesh.instanceMatrix.array.subarray(0, mesh.count * 16))),
       };
@@ -242,6 +282,21 @@ describe('OozeBandRenderer: the mess of a killed ooze', () => {
     renderer.clear();
     expect(debris.count).toBe(0);
     expect(debris.drawCalls).toBe(0);
+  });
+
+  it('takes the splashes and the debris on a restart or location change', () => {
+    const { effects, debris, renderer, goo } = realMess();
+    frames(renderer, 3000);
+    expect(goo.count).toBe(64);
+    expect(debris.count).toBeGreaterThan(0);
+    // GameStateManager.reset: tilesEngine.effects.clear(), then tilesEngine.oozes.clear()
+    effects.clear();
+    renderer.clear();
+    expect(goo.count).toBe(0);
+    expect(goo.instancedMesh.visible).toBe(false);
+    expect(debris.count).toBe(0);
+    expect(debris.drawCalls).toBe(0);
+    renderer.dispose();
   });
 
   it('takes only the debris on clearDebris, the band collapses on', () => {
@@ -298,21 +353,9 @@ describe('Ooze death cost', () => {
   const SANITY_CAP_MS = 50;
 
   it('stays cheap at the peak of two full oozes dying at once', () => {
-    const scene = new Scene();
-    const pools = new ParticlePoolManager(scene);
-    const sync = { geoToLocal: (lat: number, lon: number, h: number) => new Vector3(lon * M, h, -lat * M) };
-    const effects = new ParticleEffectsRenderer(scene, sync as unknown as CoordinateSync, pools);
-    effects.setVfxSettings(DEFAULT_VFX_SETTINGS);
-    const debris = new OozeDebrisRenderer(scene);
-    const renderer = new OozeBandRenderer(scene, { effects, debris });
-    for (const id of ['a', 'b']) {
-      renderer.add(id, stations, () => 0);
-      renderer.setFrame(id, 20, 100, 0, false, false, false);
-      renderer.collapse(id);
-    }
+    const { pools, effects, debris, renderer, goo: decals } = realMess(['a', 'b']);
     const alive = () =>
       [...pools.getPool('trailAdditive'), ...pools.getPool('trailNormal')].filter((p) => p.life > 0).length;
-    const decals = (effects as unknown as { decals: GroundDecals }).decals.blood;
 
     const times: number[] = [];
     let peak = { particles: 0, debris: 0, decals: 0, ms: 0 };
@@ -336,7 +379,7 @@ describe('Ooze death cost', () => {
       `worst ${worst.toFixed(2)} ms (frame ${times.indexOf(worst)}), next ${secondWorst.toFixed(2)} ms (jsdom, without the GPU)`,
     );
     expect(debris.count).toBe(120);
-    expect(decals.count).toBe(32);
+    expect(decals.count).toBe(128);
     expect(peak.particles).toBeGreaterThan(0);
     expect(worst).toBeLessThan(SANITY_CAP_MS);
     renderer.dispose();

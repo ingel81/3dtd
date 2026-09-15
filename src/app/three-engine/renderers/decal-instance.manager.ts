@@ -79,7 +79,9 @@ export class DecalInstanceManager {
   /**
    * Add a new decal instance, round with the given radius: the flat quad
    * spans ±1 before scaling. Until 2026-09-12 the Z axis stayed at 1, so
-   * every decal was a 2*size by 2 m oval.
+   * every decal was a 2*size by 2 m oval. `stretch` draws it that many
+   * times as long along its own X axis (turned by `rotation`), `variation`
+   * seeds the shader's pattern.
    */
   add(
     id: string,
@@ -90,7 +92,9 @@ export class DecalInstanceManager {
     opacity: number,
     spawnTime: number,
     fadeDelay: number,
-    fadeDuration: number
+    fadeDuration: number,
+    stretch = 1,
+    variation = Math.random()
   ): void {
     if (this.instances.has(id)) return;
 
@@ -114,7 +118,7 @@ export class DecalInstanceManager {
     // Set matrix (position, rotation, scale)
     DecalInstanceManager._tempPos.copy(position);
     DecalInstanceManager._tempRot.setFromAxisAngle(DecalInstanceManager._up, rotation);
-    DecalInstanceManager._tempScale.setScalar(radius);
+    DecalInstanceManager._tempScale.set(radius * stretch, radius, radius);
 
     this.matrix.compose(
       DecalInstanceManager._tempPos,
@@ -133,7 +137,7 @@ export class DecalInstanceManager {
     this.opacityAttribute.needsUpdate = true;
 
     // Set per-instance variation (random seed for shader noise)
-    this.variationAttribute.setX(index, Math.random());
+    this.variationAttribute.setX(index, variation);
     this.variationAttribute.needsUpdate = true;
   }
 

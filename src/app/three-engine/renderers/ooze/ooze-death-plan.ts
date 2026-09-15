@@ -12,7 +12,7 @@ export interface OozeMessEvent {
   t: number;
   /** Metres along the body from its tail */
   alongM: number;
-  /** Across the covered half width, -1 at the left edge, 1 at the right */
+  /** Across the covered half width, -1 at the left edge, 1 at the right; splashes reach past them */
   across: number;
   /** The piece, for debris; null otherwise */
   debris: OozeDebrisKind | null;
@@ -20,7 +20,7 @@ export interface OozeMessEvent {
   seed: number;
 }
 
-/** Share of the covered half width the mess keeps inside */
+/** Share of the covered half width the bubbles and the debris keep inside */
 const ACROSS = 0.85;
 
 /** How many bubbles, splashes and pieces a body `lengthM` long lets go (OOZE_DEATH_LOOK). */
@@ -55,20 +55,20 @@ export function planOozeDeath(lengthM: number, impacts: boolean, groundMarks: bo
   const { pops, splashes, debris } = OOZE_DEATH_LOOK;
   const random = new SeededRandom(seed).next;
   const events: OozeMessEvent[] = [];
-  const add = (kind: OozeMessKind, n: number, from: number, until: number): void => {
+  const add = (kind: OozeMessKind, n: number, from: number, until: number, spread = ACROSS): void => {
     for (let i = 0; i < n; i++) {
       events.push({
         kind,
         t: from + (until - from) * random(),
         alongM: ((i + random()) / n) * lengthM,
-        across: (random() * 2 - 1) * ACROSS,
+        across: (random() * 2 - 1) * spread,
         debris: kind === 'debris' ? OOZE_DEBRIS_DECK[i % OOZE_DEBRIS_DECK.length] : null,
         seed: (random() * 4294967296) >>> 0,
       });
     }
   };
   add('pop', counts.pops, 0, pops.until);
-  add('splash', counts.splashes, splashes.from, splashes.until);
+  add('splash', counts.splashes, splashes.from, splashes.until, splashes.spread);
   add('debris', counts.debris, debris.from, debris.until);
   return events.sort((a, b) => a.t - b.t);
 }

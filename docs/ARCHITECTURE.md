@@ -1075,7 +1075,7 @@ Delegations-Facade: die Konsumenten-API (`tilesEngine.effects.*`) bleibt stabil,
 die Implementierung liegt in fokussierten Modulen: `ParticlePoolManager`
 (GPU-Pools, Free-Lists, Buffer-Caches, Atlas), `ParticleEffectsRenderer`
 (Blood/Fire/Explosion/Smoke/Trails + `activeEffects`-Lifecycle, dazu die Decal-Pools für
-Blut, Eis und Scorch Marks), `EnvironmentEffectsRenderer` (HQ-Explosion, Fire-Flash,
+Blut, Eis, Scorch Marks und Ooze-Pfützen), `EnvironmentEffectsRenderer` (HQ-Explosion, Fire-Flash,
 Tower-Inner-Fire), `AuraRenderer` (Frost-/Poison-Auren), `FloatingTextInstanceManager`
 (Schadenszahlen) und `particle-shaders.ts` (GLSL).
 
@@ -1406,14 +1406,18 @@ readonly blood: DecalInstanceManager;
 readonly ice: DecalInstanceManager;
 // dazu ScorchMarks (scorch-marks.ts), höchstens eine Marke pro Route-Cell
 readonly scorch: ScorchMarks;
+// die Pfützen einer getöteten Ooze (GOO_DECAL_CONFIG), eigener Pool und Shader
+readonly goo: DecalInstanceManager;
 
 spawnBloodDecal(lat: number, lon: number, height: number, size?: number): string;
 spawnIceDecal(lat: number, lon: number, height: number, size?: number): string;
+spawnGooDecal(lat: number, lon: number, height: number, splash: Readonly<GooSplash>): string;
 ```
 
 **Rendering:**
 - **InstancedMesh** statt einzelner Meshes: ein Draw Call pro Pool
-- Je ein Pool für Blood (rot), Ice (hell-cyan) und Scorch Marks
+- Je ein Pool für Blood (rot), Ice (hell-cyan), Scorch Marks und Goo (Ooze-Pfützen, siehe
+  [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#tod-der-ooze))
 - Decals verblassen nach `fadeDelay` über `fadeDuration`; ist ein Pool voll, wird der
   älteste Decal entfernt
 - Sind die Bodenmarken in den VFX-Settings aus (`groundMarks`), entsteht kein Blut-Decal

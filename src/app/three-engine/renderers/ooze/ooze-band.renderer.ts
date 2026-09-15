@@ -3,6 +3,7 @@ import { BURST_PALETTES, OOZE_DEATH_LOOK, OOZE_LOOK, type BurstPalette } from '.
 import { ROUTE_BODY_COVER, type RouteBodyStations } from '../../../utils/route-body';
 import { SeededRandom, seedOf } from '../../../utils/seeded-random';
 import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
+import type { GooSplash } from '../ground-decals';
 import { buildOozeBandGeometry, refreshOozeBandHeights, type OozeGround } from './ooze-band-geometry';
 import { createOozeBandMaterial } from './ooze-band-material';
 import type { OozeDebrisRenderer } from './ooze-debris.renderer';
@@ -20,7 +21,7 @@ export interface OozeMessEffects {
   readonly groundMarksEnabled: boolean;
   spawnBurstAtGeo(lat: number, lon: number, height: number, count: number, palette: BurstPalette): void;
   spawnBloodSplatter(lat: number, lon: number, height: number, count?: number, color?: number): unknown;
-  spawnBloodDecal(lat: number, lon: number, height: number, size?: number, color?: number): unknown;
+  spawnGooDecal(lat: number, lon: number, height: number, splash: Readonly<GooSplash>): unknown;
 }
 
 /**
@@ -75,6 +76,8 @@ export class OozeBandRenderer {
   private sinceRefresh = 0;
   /** Seeded again for each part of a mess, see letGo() */
   private readonly partRandom = new SeededRandom();
+  /** Filled anew for each splash, see letGo() */
+  private readonly splash: GooSplash = { size: 0, stretch: 1, rotation: 0, variation: 0, color: OOZE_DEATH_LOOK.goo };
 
   /** @param mess Where a killed ooze's mess goes; without it a collapse makes none */
   constructor(
@@ -289,8 +292,15 @@ export class OozeBandRenderer {
       mess.effects.spawnBurstAtGeo(lat, lon, height + look.pops.lift, look.pops.sparks, BURST_PALETTES.slime);
       mess.effects.spawnBloodSplatter(lat, lon, height + look.pops.lift * 0.5, look.pops.spray, look.goo);
     } else {
-      const { sizeMin, sizeMax } = look.splashes;
-      mess.effects.spawnBloodDecal(lat, lon, height, sizeMin + (sizeMax - sizeMin) * random(), look.goo);
+      // Most splashes small, a few large ones
+      const { sizeMin, sizeMax, stretchMax } = look.splashes;
+      const splash = this.splash;
+      const r = random();
+      splash.size = sizeMin + (sizeMax - sizeMin) * r * r;
+      splash.stretch = 1 + (stretchMax - 1) * random();
+      splash.rotation = random() * Math.PI * 2;
+      splash.variation = random();
+      mess.effects.spawnGooDecal(lat, lon, height, splash);
     }
   }
 

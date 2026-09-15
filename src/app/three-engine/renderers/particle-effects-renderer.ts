@@ -12,7 +12,7 @@ import {
 import type { ScorchSource } from '../../configs/visual-effects.config';
 import type { VfxSettings } from '../vfx-settings';
 import type { ScorchGround } from './scorch-marks';
-import { GroundDecals } from './ground-decals';
+import { GroundDecals, type GooSplash } from './ground-decals';
 import { igniteFireParticle, setFireColor } from './fire-particles';
 import { ParticlePoolManager, type Particle } from './particle-pool-manager';
 import {
@@ -167,6 +167,16 @@ export class ParticleEffectsRenderer {
   spawnBloodDecal(lat: number, lon: number, height: number, size = 2.0, color?: number): string {
     if (!this.laysGroundMarks) return '';
     return this.decals.layBlood(this.sync.geoToLocal(lat, lon, height), size, color);
+  }
+
+  /**
+   * A killed ooze's splash on the ground, in the goo pool
+   * (GroundDecals.layGoo). Nothing while ground marks are off or held.
+   * @returns Decal ID
+   */
+  spawnGooDecal(lat: number, lon: number, height: number, splash: Readonly<GooSplash>): string {
+    if (!this.laysGroundMarks) return '';
+    return this.decals.layGoo(this.sync.geoToLocal(lat, lon, height), splash);
   }
 
   /**

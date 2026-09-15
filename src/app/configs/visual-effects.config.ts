@@ -27,6 +27,23 @@ export const BLOOD_DECAL_CONFIG = {
   heightOffset: 0.12,   // Above ground to avoid z-fighting
 } as const;
 
+/**
+ * The splashes a killed ooze leaves (OOZE_DEATH_LOOK.splashes, the goo
+ * decal shader), in a pool of their own, so the blood of a busy wave does
+ * not push them out. Held 45 s and faded over 30 s, 75 s against blood's
+ * 30 s: the kill site stays marked through the fight with its clumps and
+ * well into the rest of the wave, and the slow fade reads as the slime
+ * drying. Room for three full bodies (64 splashes each). Wall clock like
+ * every ground mark.
+ */
+export const GOO_DECAL_CONFIG = {
+  maxDecals: 192,
+  fadeDelay: 45000,
+  fadeDuration: 30000,
+  baseOpacity: 0.85,
+  heightOffset: 0.12,
+} as const;
+
 /** Ice decal configuration */
 export const ICE_DECAL_CONFIG = {
   maxDecals: 150,
@@ -361,8 +378,8 @@ export const OOZE_LOOK = {
 /**
  * What a killed ooze lets go while its band collapses (OOZE_LOOK.collapse):
  * bubbles bursting with a spray of slime, splashes of it on the ground
- * (blood decals in its colour, tinted by the blood moon like every ground
- * mark) and the debris it had swallowed, thrown up from its whole length
+ * (goo decals in its colour, GOO_DECAL_CONFIG, tinted by the blood moon
+ * like every ground mark) and the debris it had swallowed, thrown up from its whole length
  * (OozeDebrisRenderer). OozeBandRenderer plans it at the kill
  * (planOozeDeath) and lets each part go at its share of the collapse.
  * Counts go with the body's length; the minimums hold for a body a few
@@ -372,8 +389,8 @@ export const OOZE_LOOK = {
  * spray and a third of the debris; with ground marks off no splashes.
  *
  * Budget of an 80 m body: 32 bubbles of 8 sparks (additive pool) and 14
- * drops (normal pool), 704 particles over 1.6 s; 16 splashes out of the
- * 100 blood decals; 60 pieces of debris, instanced, one draw call per kind
+ * drops (normal pool), 704 particles over 1.6 s; 64 splashes out of the
+ * 192 goo decals; 60 pieces of debris, instanced, one draw call per kind
  * with a piece in the air or on the ground (nine kinds).
  */
 export const OOZE_DEATH_LOOK = {
@@ -381,8 +398,14 @@ export const OOZE_DEATH_LOOK = {
   goo: 0x6fe021,
   /** Bursting bubbles: one per `everyM` of body, `sparks` additive sparks and `spray` slime drops each, `lift` m above the ground, until `until` of the collapse */
   pops: { everyM: 2.5, min: 4, sparks: 8, spray: 14, lift: 0.9, until: 0.8 },
-  /** Splashes on the ground: one per `everyM` of body, sizeMin..sizeMax m across, between `from` and `until` of the collapse */
-  splashes: { everyM: 5, min: 2, sizeMin: 2.2, sizeMax: 3.8, from: 0.2, until: 0.85 },
+  /**
+   * Splashes on the ground: one per `everyM` of body, at least `min`,
+   * between `from` and `until` of the collapse, out to `spread` of the
+   * covered half width (the collapsing band runs up to 1.3 past its edges).
+   * sizeMin..sizeMax m across, most of them small (the size goes with a
+   * random number squared), up to `stretchMax` times as long as wide.
+   */
+  splashes: { everyM: 1.25, min: 4, sizeMin: 1.4, sizeMax: 5.2, stretchMax: 2, spread: 1.2, from: 0.15, until: 0.95 },
   /**
    * Debris: `perM` pieces a metre of body, at least `min` (with impact
    * effects off `lowShare` of them, at least `minLow`), thrown between

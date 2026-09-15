@@ -316,7 +316,7 @@ const CASES: ShaderCase[] = [
     build: (scene) => new HealthBarInstanceManager(scene),
   },
   {
-    name: 'ground decals (blood, ice, scorch)',
+    name: 'ground decals (blood, ice, scorch, goo)',
     file: 'three-engine/renderers/decal-shaders.ts',
     build: (scene) => new GroundDecals(scene),
   },
