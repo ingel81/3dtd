@@ -23,6 +23,7 @@ Route (vom Spawn zum HQ).
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts`) | 2-m-Zellen im Korridor |
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/deck-approach.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Tunnelsohle, Straße unter einer fremden Brücke |
 | Laufweg | `cellWalkable`, `walkCaps` (`utils/corridor-walk.ts`), `PathAndRouteService.narrowToWalkable`, `CorridorController.rebuildCorridors` | Zellen, zu denen kein Gegner laufen kann (Auto, Traufe, Hecke, Böschung), fallen weg; die Halbbreite endet davor |
+| Umweg | `planDetours`, `applyDetourPlan` (`utils/corridor-detour.ts`), `PathAndRouteService.detoursWithGrid` | Die Waypoints biegen um ein Hindernis auf der Mittellinie (Auto, Hecke, Erker, Dachecke); ohne Platz wird ein Hindernis über der Gasse ein Durchgang (Tunnel), ein niedriges bleibt |
 | Gegner | `MovementComponent.advance` (`movement.component.ts`), `getRouteProfile` (`route-corridor.ts`) | Seitenversatz innerhalb der Zellen |
 | Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `CorridorController` (`services/world/corridor-controller.ts`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
 
@@ -376,7 +377,12 @@ Ausnahmen:
   `walkCheck: 'centre line on a roof'`, `heightM` auf der Straße und
   `columnBottomM` auf der Auskragung. Eine Urteilsfrage: Die
   Nutzerentscheidung vom 2026-09-14 ("Orange Zellen weglassen") galt
-  Randzellen, die wegfallen können; diese Zellen können es nicht. Auf der
+  Randzellen, die wegfallen können; diese Zellen können es nicht. Seit der
+  Entscheidung E6 (2026-09-15) planen die Routen um solche Stellen herum
+  (siehe "Hindernis auf der Mittellinie"): Mit Platz daneben liegt dort keine
+  Mittellinie mehr, ohne Platz ist die Zelle eine Tunnelzelle eines
+  Durchgangs. Diese Regel bleibt für den ersten Bau vor der Planung und für
+  eine Stelle, die die Planung nicht erfasst. Auf der
   Strecke hinter einem Brückenende (`approach`, unten) ist der Bezug die
   Höhe, die die Route dort trägt (`carriedDeckY`), nicht die Mittellinie
   ringsum: Die Mittellinie um die letzten Zellen der Strecke reicht über sie
@@ -808,6 +814,114 @@ hat; nicht gemessen. Teuer ist ein zusätzlicher Bau: nach den Zahlen vom
 selben Frame, und nur, wenn eine nicht begehbare Zelle einen Korridor
 ändert. `[Corridor] rebuild` nennt ihn mit `walk=` und `narrowed=`.
 
+## Hindernis auf der Mittellinie: Umweg und Durchgang
+
+Seit 2026-09-15, Nutzerentscheidung E6 nach dem Playtest (Retest 706 bis 708): "Es
+soll realistisch sein, das 3D-Modell gilt." Code: `utils/corridor-detour.ts`
+(`planDetours`, `applyDetourPlan`, `derivedClearance`), `PathAndRouteService`
+(`detoursWithGrid`, `detoured`, `measuredOf`).
+
+**Anlass:** Die OSM-Linie einer Straße läuft über etwas, das die Photogrammetrie auf
+der Straße zeigt: parkende Autos (Erlenbach, Schulstraße, Way 959083801:
+Mittellinienzellen 0,59 bis 1,08 m über der Linie, `walkCheck: 'centre line'`),
+Erker und Dachecken (Rothenburg). Der Korridor nimmt eine Zelle, durch die die Linie
+läuft, bei jeder Breite. Die Gegner stiegen über das Auto, die rote Linie nahm seine
+Dachhöhe.
+
+**Hindernis** (`judge`, `raisedAcross`): Alle `DETOUR_SAMPLE_M` (1 m) entlang der
+Route, wie das Straßennetz sie gibt, eine Säule auf der Linie (nur Tiles bis
+`maxTileError`). Ein Hindernis ist dort:
+
+- ein Treffer mehr als `roofRise` über dem Boden der Linie ringsum (Median der
+  Stellen bis 4 m davor und danach): Erker, Dachecke, Krone über der Linie;
+- sonst ein Treffer mehr als `stepRise` über der Straße zu beiden Seiten. Zu jeder
+  Seite bis 3 m die erste Säule mehr als `stepRise` unter dem Treffer, beide
+  höchstens `stepRise` auseinander (keine Kaimauer, keine Böschung auf nur einer
+  Seite), und 1 m weiter außen fällt der Boden nicht um mehr als `stepDrop` (kein
+  Damm, kein Grat). Das trifft Auto, Transporter, Hecke, Mäuerchen. Diese Regel hat
+  der Worker carcells als O1 an den Wächtern geprüft.
+
+Stellen bis `JOIN_M` (2 m) auseinander sind ein Hindernis. Gesucht wird nur auf
+Straßen am Boden: nicht auf einer Brücke, im Tunnel, auf der Strecke hinter einem
+Brückenende oder auf dem Endstück zum HQ.
+
+**Platz daneben** (`offsetFor`, `pickSide`): Der Weg rückt um das kleinste Maß in
+Schritten von 0,5 m zur Seite, bei dem an jeder Stelle des Hindernisses und 2 m
+davor und danach (`HOLD_MARGIN_M`) die Säulen bis 1,5 m zu beiden Seiten des Weges
+Straße zeigen. Straße heißt: höchstens `stepRise` über und `stepDrop` unter dem
+Boden daneben, mit dessen Querneigung, und innerhalb der Breite, die die Strahlen
+dort erlauben, plus `wallMargin`. Die Breite zählt ohne die Kappen des Laufwegs,
+denn die legen sich um das Hindernis selbst. 1,5 m ist die halbe Zelldiagonale
+(1,41 m) auf dem 0,5-m-Raster der Säulen: Eine Zelle, die der Weg berührt, hat ihren
+Mittelpunkt höchstens so weit neben ihm, ihre Höhe kommt also von der Straße.
+Gewählt wird die Seite mit dem kleineren Maß, bei gleichem die mit mehr Platz, dann
+rechts. Ein Auto von 1,8 m mittig auf der Linie braucht 2,5 m.
+
+**Umweg:** Das Maß gilt entlang des Hindernisses, davor und danach liegt eine Rampe
+als halbe Kosinuskurve. Ihre engste Krümmung ist der Radius, mit dem der Wurm eine
+Ecke rundet (`WORM_BEND_RADIUS_M`, 20 m): `rampLength` = π·√(Maß · 10 m), 15,7 m
+für 2,5 m. Die starren Ringe des Wurms klaffen an einer schärferen Biegung auf; das
+Band der Ooze dreht mit den Segmenten. Die Rampe bekommt alle `RAMP_STEP_M` (1 m)
+einen Waypoint.
+
+- Liefe die Rampe über ein anderes Hindernis, versucht sie 75 % und 50 % der Länge,
+  mindestens das Doppelte des Maßes. Sonst entfällt der Umweg.
+- Hindernisse auf derselben Seite, deren Rampen sich träfen (Autoreihe mit Lücken),
+  werden ein Umweg mit dem größeren Maß, wo das überall frei ist. Sonst, und auf
+  verschiedenen Seiten, geht der Weg in einem Stück von einem Maß zum anderen.
+
+**Kein Platz:**
+
+- Ein Hindernis mehr als `roofRise` hoch (Erker oder Dach über der Gasse, darunter
+  vom Mesh gefüllt) wird ein **Durchgang**. Das Stück vom Hindernis bis 1 m davor und
+  danach (`PASSAGE_MARGIN_M`) läuft als Tunnel (`inTunnel`, dazu `passage`), wie ein
+  Torbogen: Höhe zwischen zwei Portalen 2 m vor den Mündungen, gelb im Overlay, nicht
+  vermessen, OSM-Breite. Im gefüllten Mesh sind die Gegner kurz verdeckt.
+- Ein niedrigeres Hindernis (ein Auto, das eine schmale Gasse ausfüllt) bleibt: Die
+  Zellen stehen auf ihm, die Gegner steigen darüber, wie das Modell es zeigt.
+
+**In der Route** (`applyDetourPlan`, `PathAndRouteService.detoured`): Die Route wird
+an den Enden der Stücke und entlang der Rampen geteilt, jeder Schnitt um das Maß dort
+zur Seite gesetzt, ein Punkt der Route innerhalb eines Umwegs entlang der Gehrung
+seiner beiden Segmente. Die übrigen Segmente bleiben, wie sie waren.
+
+- Jedes neue Segment trägt die Flags, die Straßenbreite und den Way des
+  Straßensegments, auf dem es liegt (`parent`), dazu `detour` am Waypoint.
+- Seine Stationen kommen aus der Messung dieses Straßensegments (`measuredOf`,
+  `derivedClearance`): etwa gleich viele je Meter, der Freiraum der Station dort um
+  das Maß verschoben. Eine Wand links liegt vom nach rechts gerückten Weg weiter weg,
+  eine rechts näher. Ein Strahl ohne Treffer meldet seine Länge; auf der Seite, zu der
+  der Weg rückt, reicht der Korridor also nicht weiter hinaus, als die Strahlen
+  gesehen haben. Gemessen wird weiter nur die Route, wie das Straßennetz sie gibt.
+- Die Kappen des Laufwegs gelten je neuem Segment. Das Hindernis liegt jetzt neben
+  der Mittellinie und fällt als `step` oder `roof` weg wie ein Auto am Rand.
+- Zellen, Seitenversatz, Wurm, Ooze, Held und rote Linie folgen den Waypoints ohne
+  eigene Regel.
+
+**Wann** (`detoursWithGrid`): zur selben Zeit wie die Kappen des Laufwegs, mit den
+Säulen des Grids in Gebrauch: nach jedem Bau (`narrowToWalkable`, Schritt `walk` in
+`rebuildCorridors`), am Ende eines Messlaufs (`storeClearance`) und bei `remeasure()`
+(`hasUnwalkableCells`). Gespeichert je Route, wie das Straßennetz sie gibt
+(`detourPlans`). Jeder Bau derselben Route setzt bis zur nächsten Planung dieselben
+Umwege ein, auch ein Neubau der roten Linie nach einer Höhenänderung. Unter Tower,
+Welle oder Gegnern wird nichts neu gebaut (`rebuildBlocker`). Ein neuer Umweg braucht
+einen Bau zum Finden und einen für die Kappen um das Hindernis; mit
+`MAX_WALK_PASSES` (2) prüft `remeasureLater` den Rest. Vergessen mit den Messungen.
+
+**Diagnose:** `__corridor.pick()` nennt eine Zelle auf der Mittellinie eines Umwegs
+`walkCheck: 'detour'`, eine Zelle eines Durchgangs `'passage'`. Die Station zeigt
+`detourM` (Maß, rechts positiv, `null` auf der Linie) und `passage`; ihre Treffer
+sind die der Straßenstation dort, um das Maß verschoben.
+
+**Kosten:** je Planung eine Säule je Meter Route, dazu je Hindernisstelle bis 12
+Säulen quer und je geprüftem Maß 7 Säulen je Stelle, nach dem ersten Mal aus dem
+0,5-m-Cache der Engine. Nicht im Spiel gemessen.
+
+**Tests:** `utils/corridor-detour.spec.ts` (Regeln), `integration/corridor-detour.spec.ts`
+(ganze Kette mit Routendienst und Grid: Auto mit Platz, Auto in der Gasse, Erker über
+der Gasse, Dachecke, Auto am Rand), `managers/worm/worm-detour.spec.ts` (Wurm durch den
+Umweg).
+
 ## Seitenversatz der Gegner
 
 Jeder Gegner bekommt beim Spawn einen Faktor in [-1, 1]: Zufall mal
@@ -1103,7 +1217,8 @@ __corridor.report()                                     // Zellbericht: Zellen w
        (`cellWalkable`; `false`: kein Gegner kann dorthin laufen, der Korridor
        hält die Zelle trotzdem), `walkCheck` (warum: `walkable`, `roof`,
        `step`, `drop`, `hollow` (Auto hohl im Mesh), `centre line`, `centre line on a roof` (auf die Straße gesetzt,
-       siehe Zellhöhe), `coarse tile`, `no sample`, `deck or tunnel`,
+       siehe Zellhöhe), `detour` (Mittellinie eines Umwegs), `passage` (Zelle eines
+       Durchgangs, siehe "Hindernis auf der Mittellinie"), `coarse tile`, `no sample`, `deck or tunnel`,
        `no bridge end` (Strecke hinter einem Brückenende ohne Säule dort),
        `no centre line ground`, `seam`), `overLineM` (Höhe über der
        Mittellinie, gegen die der Check misst; bei einer Zelle der
@@ -1136,6 +1251,8 @@ __corridor.report()                                     // Zellbericht: Zellen w
      - Die Station: Way, `tags` (`width`, `lanes`, `bridge`, `tunnel`,
        `covered`, `layer` wie in `__routes.describe()`), `streetWidthM`, `widthSource`, `onStreet`,
        `inTunnel`, `underWay` (der Way über einem Stück unter einer fremden Brücke, sonst null),
+       `detourM` (wie weit die Route dort um ein Hindernis auf der Mittellinie
+       zur Seite rückt, rechts positiv, sonst null), `passage` (in einem Durchgang),
        `unmeasured`, `tileError`, am Ende `shiftM` (wie weit
        entlang der Route die Station neben einer Naht gemessen wurde, sonst
        null).
@@ -1423,10 +1540,29 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   die auch die Stellen daneben deckt, zählt die Krone: Die Straße jenseits
   ihres Randes fällt dann als `drop` weg, die Zellen in der Krone bleiben.
   Zellen, durch die eine Mittellinie läuft,
-  prüft er nicht. Liegt ihr Treffer mehr als `roofRise` über der
-  Mittellinie ringsum, nehmen sie deren Höhe (siehe Zellhöhe); ein Auto
-  oder eine Hecke auf der Mittellinie, niedriger als `roofRise`, bleibt,
-  und Gegner steigen darüber.
+  prüft er nicht. Um ein Hindernis auf ihr biegt die Route, wo Platz ist
+  (siehe "Hindernis auf der Mittellinie"); was die Planung nicht erfasst,
+  bleibt: Liegt ihr Treffer mehr als `roofRise` über der Mittellinie
+  ringsum, nehmen sie deren Höhe (siehe Zellhöhe), sonst steigen die Gegner
+  darüber.
+- Hindernis auf der Mittellinie (`corridor-detour.ts`), nicht im Spiel
+  geprüft:
+  - Ein Auto oder eine Hecke auf der Linie gilt nur, wo zu beiden Seiten
+    bis 3 m Straße ist. Steht es direkt an einer Mauer oder einem erhöhten
+    Garten, bleibt es, und die Gegner steigen darüber.
+  - Ein Erker oder eine Krone über mehr als etwa 4 m der Linie kippt den
+    Median entlang der Linie und gilt nicht.
+  - Der Weg braucht beiderseits 1,5 m Straße, zusammen etwa 3 m neben dem
+    Hindernis. Ein Auto mitten auf einer Wohnstraße von 5,5 m lässt je Seite
+    etwa 1,8 m; dort steigen die Gegner darüber.
+  - Die Säulen quer zum Weg prüft die Planung nur an den Stellen im Meter-
+    raster entlang der Linie; was zwischen zwei Stellen und zwischen den
+    0,5-m-Säulen quer steht, sieht sie nicht.
+  - Eine Rampe, die kürzer sein muss (Routenende, Brücke, Tunnel, anderes
+    Hindernis), biegt enger als der Wurm; bei der Hälfte der Länge etwa mit
+    5 m Radius.
+  - `__routes.describe()` findet für die Segmente eines Umwegs keinen Way
+    (sie liegen neben seiner Kante).
 - Ein Auto oder eine Hecke am Rand nimmt den Korridor dahinter mit, den
   Gehweg hinter einer Autoreihe eingeschlossen: Der Korridor ist je Seite
   ein Band. Genau dieses Einengen hatte der Playtest vom 2026-09-12 bei den
