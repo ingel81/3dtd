@@ -41,6 +41,66 @@ Teile laufen mit demselben Aufbau direkt nacheinander.
   Ihn dort anklicken, dann darunter im Abschnitt "Movement" auf "Start": er läuft los.
 - Der Wurm heißt jetzt "Skarnax".
 
+## Nachtests 3 (Fixes der Session 4, 15.09.)
+
+### Runde 18: Erlenbach (717 bis 720)
+
+Aufbau: Erlenbach per URL laden (F5 auf der Orts-URL), Konsole offen, Layers "Route Grid Overlay" und "Show streets"
+an.
+
+- **717** (649, hqsound): Nach dem Intro Rechtsklick auf "+HP" (-10 HP). Ist an der HQ der Explosionston zu hören?
+  Dann eine Welle ohne Tower, einen Zombie ins HQ laufen lassen: Ton auch beim Leck?
+  **717, 718 und 720 ok (2026-09-15).** 719: Böschung ok, neben den Autos weiter Löcher in der Straße, die Autos
+  selbst tragen noch Zellen (Zellbericht Erlenbacher Weg, Way 959083801: fehlende Zellen mit Boden auf Straßenhöhe
+  und begehbaren Nachbarn, Breite je Station springt zwischen 2 und 7 m). Daten an Worker detour.
+- **718** (D2, underpass): Kamera schräg auf die A6-Brücke über der Weinsberger Straße. Verschwindet die rote Linie
+  unter dem Deck und kommt dahinter wieder heraus, unter dem Deck gelbe Zellen auf Straßenhöhe? Custom Wave, Count 5:
+  laufen die Gegner unter dem Deck durch, keiner oben auf der Autobahn?
+- **719** (706 bis 708, carcells): Weinstraße, Erlenweg, Schulstraße. Liegen neben den Reihen parkender Autos wieder
+  Straßenzellen? Böschung talseitig weiter frei? (Zellen auf Autos direkt auf der OSM-Linie bleiben, bis das
+  Ausweichen aus E6 kommt, Worker detour.)
+- **720** (cellreport): Developer options, "Waves & Inspect", Kachel "Cells". Erscheint oben mittig das Panel "CELL
+  REPORT"? Linksklick auf eine Zelle rahmt sie orange, ein zweiter nimmt den Rahmen weg; Shift + Linksziehen zieht
+  ein Rechteck, ohne die Kamera zu drehen? Notiz tippen, "Copy JSON", das JSON in den Chat einfügen: kommt es an?
+
+### Runde 19: Tower schießen wieder (721 bis 724)
+
+Aufbau: beliebiger Ort, Konsole offen mit Filter "Corridor", Cheat "Credits".
+
+- **721** (643, towercount): Mehrere Archer und Dual-Gatling an eine Stelle nahe der Route, Custom Wave "Zombie",
+  Count 30: drehen und feuern die Turrets? Zwischen den Wellen die Kamera weit weg und zurück, Cheat "Hero", G, den
+  Held per Klick woanders hinschicken, wieder G, zwei- bis dreimal: kommt keine Zeile `[Corridor] rebuild`, solange
+  ein Tower steht? Nächste Welle: drehen und feuern die Turrets?
+  **Ergebnis (2026-09-15):** Turrets drehen und feuern in Welle 2. In der Konsole kamen zwei `[Corridor] rebuild`
+  (cells 2159, dann 2142 nach einem Lauf `clearance: segments=2 stations=2 ... changed=true`); ob vor oder nach dem
+  ersten Tower, ist offen. Prüfung towercount. **722 bis 724 ok (2026-09-15).**
+- **722** (towercount): `__corridor.set({ maxHalfWidth: 5 })` in die Konsole. Steht dort "Not changed: towers stand on
+  the map, sell them first."?
+- **723** (towercount): Esc, damit kein Tower gewählt ist, dann zwei, drei Archer bauen und in der NEXT-Zeitleiste die
+  Anzahl für W1 bis W3 per Hover merken. Cheat "Max Up": steigt die Anzahl sofort? (Zeigt NEXT schon die volle
+  Spanne, bleibt sie gleich.)
+- **724** (towercount): Header "Change location", ins leere Adressfeld `a` tippen: steht dort "2 more characters", bei
+  `ab` "1 more characters"? Wieder leeren: "Enter address..."?
+
+### Runde 20: Orte und Tipps (725 bis 728)
+
+- **725** (D1, showcase): Standort-Dialog, Tab "Showcase", "Tokyo, Shibuya Crossing". Wird kein Spawn gewürfelt,
+  steht das Portal an deiner Stelle, und in der Adresszeile `l=35.65924,139.70049&s=35.65208,139.69853`? Läuft die
+  Route ohne Schlaufe? **725 und 726 ok (2026-09-15).**
+- **726** (underpass, Gegenprobe): Paris, Pont d'Iéna, "Route Grid Overlay" an. Deck und Brückenköpfe blau wie in
+  701, keine gelben Zellen auf der Brücke? Rote Linie und Gegner auf dem Deck?
+- **727** (706, carcells): Rothenburg, Favorit "rothenburg rotes auto". Neben den parkenden Autos wieder
+  Straßenzellen wie in 607?
+  **Ergebnis (2026-09-15, Screenshot):** Die Reihe quer parkender Autos auf der einen Seite bleibt frei, der Korridor
+  endet davor. Das rote Auto auf der anderen Seite, etwa 4 m neben der roten Linie (kein Mittellinienfall), trägt
+  weiter Zellen. Zellbericht angefragt.
+- **728**: vom User nicht mehr getestet ("sollte passen"); Tipp nach Welle 3 und der Hinweis nach gestarteter Welle
+  sind per Spec belegt (showcase, firstrun).
+- **728** (E1, 649 berichtigt): In den DevTools unter Application, Local Storage `td_onboarding_v2` und
+  `td_best_waves_v1` löschen, F5 an einem Ort. Einen Archer bauen, Wellen 1 bis 3 spielen: kommt der Tipp "Build a
+  research center" erst nach Welle 3, nicht nach 2? Welle 4 starten, Rechtsklick auf "+HP" bis Game Over: erscheint
+  unter RESTART "First run here"?
+
 ## Nachtests 2 (Fixes aus Playtest 3, 15.09.)
 
 ### Runde 14: Paris, Place de Varsovie (701 bis 704)
@@ -435,7 +495,8 @@ Aufbau: je Punkt beschrieben.
   1,2 s unter RESTART ein kleiner Globus mit "First run here", ohne dass RESTART springt? Blendet "Skip" den Hinweis
   aus?
   **Ergebnis (2026-09-15): kein "First run here"** nach Game Over an neuen Orten (Screenshot: WAVE 0, TIME 0:17, also
-  vor dem Start von Welle 1). Worker firstrun. **Nebenbefund, reproduzierbar:** Wird der Ort beim Boot geladen (URL
+  vor dem Start von Welle 1). Worker firstrun: kein Bug, der Hinweis braucht eine gestartete Welle
+  (LOCATION_SYSTEM.md); berichtigter Nachtest in 728. **Nebenbefund, reproduzierbar:** Wird der Ort beim Boot geladen (URL
   oder F5), fehlt der Schadenston am HQ; nach einem Ortswechsel ist er da. HP werden korrekt abgezogen; Bau-, Verkaufs-
   und Zombie-Sounds und Musik laufen. Worker hqsound. **Nebenbefund 2:** Fähigkeiten (Abilities) zeigen keine
   Schadenszahlen an den Gegnern wie Treffer von Towern, vielleicht fehlt auch die Belohnung. Worker abilitydmg.
@@ -498,7 +559,10 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
   `afb3ad2d` zusammen zurücknehmen. `afb3ad2d` ist zugleich der Kronen-Fix für Erlenbach (608); die Alternative nimmt
   ihn mit zurück. **User (2026-09-15):** Es soll realistisch sein, Straßenhöhe unter einem gefüllten Erker ist falsch,
   das 3D-Modell gilt. In Diskussion: Ausweichen im Korridor (Zelle weg, Weg biegt um das Hindernis, ohne Platz
-  daneben wie ein Durchgang), gilt dann auch für Autos auf der Mittellinie (706 bis 708).
+  daneben wie ein Durchgang), gilt dann auch für Autos auf der Mittellinie (706 bis 708). **Entscheidungen User
+  (2026-09-15):** Hindernis ab 0,5 m über dem Straßenboden daneben; ein Auto, das eine enge Gasse ganz sperrt: die
+  Gegner klettern drüber (dem Modell nach); eine Gasse ganz unter einem Erker mit gefülltem Mesh: Durchgang wie im
+  Torbogen. Worker detour.
 - **E7 Brückenenden ohne Niedrig-Hindernis-Probe:** Bis 40 m hinter einem Brückenende prüft der Korridor keine
   niedrigen Hindernisse, auch wo die Zufahrt schon auf Bodenhöhe liegt; Autos engen dort nur über den Laufweg ein
   (`347ae61b`). **Überholt durch bridge4 (2026-09-15):** Auf der Strecke hinter dem Brückenende (jetzt 60 m) läuft
