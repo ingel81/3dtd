@@ -24,6 +24,11 @@ export class RouteGridHeightSweep {
   private moved = 0;
   private maxMove = 0;
   private maxSliceMs = 0;
+  /**
+   * Cells probed past the LOD peek (it promised a finer tile) that still
+   * kept their sample, for the corridor trace: rays that changed nothing.
+   */
+  private probedNoChange = 0;
   /** The corridor trace chain the sweep began under. */
   private trigger = '';
 
@@ -58,6 +63,7 @@ export class RouteGridHeightSweep {
     this.moved = 0;
     this.maxMove = 0;
     this.maxSliceMs = 0;
+    this.probedNoChange = 0;
     this.trigger = corridorTrace.capture();
     // Reset the skip/raycast diagnostic counters so the aggregated
     // PerfTrace logged at `done` reflects this sweep only.
@@ -92,6 +98,7 @@ export class RouteGridHeightSweep {
       // A filled cell has a height but no sample of its own: its first one is a promotion too.
       const wasUnsampled = cell.sample.state !== 'stable';
       const before = cell.terrainHeight;
+      const probes = this.sampler.raycastCount;
       if (this.sampler.sampleCellY(cell)) {
         this.changed.push(cell);
         if (wasUnsampled) {
@@ -104,6 +111,8 @@ export class RouteGridHeightSweep {
             this.maxMove = Math.max(this.maxMove, move);
           }
         }
+      } else if (this.sampler.raycastCount > probes) {
+        this.probedNoChange++;
       }
       processed++;
       // Budget check only every 32 cells: peek-skipped cells are so cheap
@@ -153,7 +162,7 @@ export class RouteGridHeightSweep {
         const lod = emptyLod();
         for (const cell of queue) countLod(lod, cell.sample.state === 'stable' ? cell.sample.tileGeometricError : Infinity);
         corridorTrace.log('heights', {
-          cells: total, raycasted, promoted: this.promoted, refreshed: this.refreshed, moved: this.moved,
+          cells: total, raycasted, promoted: this.promoted, refreshed: this.refreshed, probedNoChange: this.probedNoChange, moved: this.moved,
           maxMoveM: this.maxMove, lod: formatLod(lod), slices: this.slices, spanMs, maxSliceMs: this.maxSliceMs,
         }, this.trigger);
       }

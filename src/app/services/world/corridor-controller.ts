@@ -138,7 +138,8 @@ export class CorridorController {
     const spawns = this.deps.store.spawnPoints();
     const gameState = this.deps.gameState();
     const grid = gameState.getGlobalRouteGrid();
-    this.deps.pathRoute.refreshRouteLines(spawns);
+    // Each step under its own label, so the corridor trace tells the route line rebuilds apart.
+    corridorTrace.within('routes', () => this.deps.pathRoute.refreshRouteLines(spawns));
     const tRoutes = performance.now();
     grid.clear();
     gameState.initializeGlobalRouteGrid();
@@ -150,16 +151,18 @@ export class CorridorController {
     let narrowed = 0;
     while (narrowed < CorridorController.MAX_WALK_PASSES && this.deps.pathRoute.narrowToWalkable()) {
       narrowed++;
-      this.deps.pathRoute.refreshRouteLines(spawns);
-      grid.clear();
-      gameState.initializeGlobalRouteGrid();
-      grid.updateTerrainHeights();
+      corridorTrace.within(`walkPass ${narrowed}`, () => {
+        this.deps.pathRoute.refreshRouteLines(spawns);
+        grid.clear();
+        gameState.initializeGlobalRouteGrid();
+        grid.updateTerrainHeights();
+      });
     }
     // Out of builds: what the last one still shows waits for a remeasure,
     // which a still camera loads no tiles for.
     if (narrowed === CorridorController.MAX_WALK_PASSES) this.refit.remeasureLater();
     const tWalk = performance.now();
-    this.deps.pathRoute.refreshRouteLines(spawns);
+    corridorTrace.within('lines', () => this.deps.pathRoute.refreshRouteLines(spawns));
     const tLines = performance.now();
     grid.initSpatialGridVisualizationIfEnabled();
     grid.initAirSpatialGridVisualizationIfEnabled();

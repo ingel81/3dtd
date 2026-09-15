@@ -465,6 +465,48 @@ describe('PathAndRouteService route geometry', () => {
         expect(lines[2]).toMatch(/ clearance\.commit segments=0 stations=0 unmeasured=0 coarse=0 rays=0 changed=true lod=2m:0,5m:0,coarse:0,none:0 slices=1 /);
       });
 
+      it('traces each slice against its budget: a slow station runs past it, as in Berlin', () => {
+        // 10 ms a station (Berlin, playtest 2026-09-15): a slice takes at least one, whatever the 4 ms budget.
+        let clock = 0;
+        vi.spyOn(performance, 'now').mockImplementation(() => clock);
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        clearanceAt = (_x, _z, max) => {
+          clock += 10;
+          return max;
+        };
+        const service = buildRouteService(network, spawn, hq);
+        corridorTrace.setEnabled(true);
+        const lines: string[] = [];
+        let slices = 1;
+        try {
+          const run = service.beginClearanceMeasurement();
+          while (!run.step(4)) slices++;
+          run.commit();
+        } finally {
+          lines.push(...log.mock.calls.map(([line]) => String(line)).filter((line) => line.includes(' clearance.commit ')));
+          corridorTrace.setEnabled(false);
+          vi.restoreAllMocks();
+        }
+
+        expect(slices).toBeGreaterThan(10);
+        expect(lines[0]).toMatch(new RegExp(` slices=${slices} budgetMs=4 overBudget=${slices} maxSliceMs=10 meanSliceMs=10 msPerStation=10 `));
+      });
+
+      it('traces each route line rebuild with the chain that asked for it', () => {
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        const service = buildRouteService(network, spawn, hq);
+        corridorTrace.setEnabled(true);
+        const lines: string[] = [];
+        try {
+          corridorTrace.within('rebuild', () => corridorTrace.within('lines', () => service.refreshRouteLines([spawnPointAt(spawn)])));
+        } finally {
+          lines.push(...log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[CorridorTrace]')));
+          corridorTrace.setEnabled(false);
+          vi.restoreAllMocks();
+        }
+        expect(lines).toEqual([expect.stringMatching(/ routes\.refresh spawns=1 waypoints=\d+ ms=[\d.]+ \| rebuild -> lines$/)]);
+      });
+
       it('gives a station without a tile between measured ones their width, not the street width', () => {
         // Playtest 2026-09-13: a residential street (2.75 m from OSM), open
         // on both sides, and a seam between two tile meshes under one station.

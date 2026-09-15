@@ -39,6 +39,13 @@ export class RouteGridConvergence {
   private bakedRefreshPending = false;
   /** Unsubscribe for the cells-changed listener, see followCells(). */
   private cellsChangedOff: (() => void) | null = null;
+  /**
+   * For the corridor trace: cells the grid reported changed since the last
+   * baked refresh, the requests for it and the chain of the first one.
+   */
+  private bakedChangedCells = 0;
+  private bakedRequests = 0;
+  private bakedTrigger = '';
 
   private routeGridConvergenceScheduled = false;
   /** rAF handle for the convergence loop, cancelled in dispose(). */
@@ -54,9 +61,10 @@ export class RouteGridConvergence {
    */
   followCells(): void {
     this.cellsChangedOff?.();
-    this.cellsChangedOff = this.deps.grid().addCellsChangedListener(() =>
-      this.scheduleBakedHeightRefresh(),
-    );
+    this.cellsChangedOff = this.deps.grid().addCellsChangedListener((changed) => {
+      this.bakedChangedCells += changed.length;
+      this.scheduleBakedHeightRefresh();
+    });
   }
 
   /**
@@ -84,26 +92,36 @@ export class RouteGridConvergence {
    * once it converges (see `schedule`).
    */
   scheduleBakedHeightRefresh(): void {
+    if (this.bakedRequests++ === 0) this.bakedTrigger = corridorTrace.capture();
     if (this.deps.grid().isTerrainRefreshActive()) {
       this.bakedRefreshPending = true;
       return;
     }
     if (this.bakedRefreshRaf !== null) return;
-    const trigger = corridorTrace.capture();
     this.bakedRefreshRaf = requestAnimationFrame(() => {
       this.bakedRefreshRaf = null;
+      // What asked for this refresh, for the corridor trace: one with no
+      // changed cell rebuilds what was already right.
+      const trigger = this.bakedTrigger;
+      const asked = { changedCells: this.bakedChangedCells, requests: this.bakedRequests };
+      this.bakedChangedCells = 0;
+      this.bakedRequests = 0;
       const t0 = performance.now();
       const spawns = this.deps.store.spawnPoints();
-      this.deps.pathRoute.refreshRouteLines(spawns);
-      this.deps.markerViz.updateMarkerHeights();
-      if (this.deps.routeAnimation.isRunning()) {
-        const cachedPaths = this.deps.pathRoute.getCachedPaths();
-        if (cachedPaths.size > 0) {
-          this.deps.routeAnimation.startAnimation(cachedPaths, spawns);
+      let animation = false;
+      corridorTrace.within('routeLines.refresh', () => {
+        this.deps.pathRoute.refreshRouteLines(spawns);
+        this.deps.markerViz.updateMarkerHeights();
+        if (this.deps.routeAnimation.isRunning()) {
+          const cachedPaths = this.deps.pathRoute.getCachedPaths();
+          if (cachedPaths.size > 0) {
+            animation = true;
+            this.deps.routeAnimation.startAnimation(cachedPaths, spawns);
+          }
         }
-      }
+      }, trigger);
       const ms = performance.now() - t0;
-      corridorTrace.log('routeLines.refresh', { spawns: spawns.length, ms }, trigger);
+      corridorTrace.log('routeLines.refresh', { spawns: spawns.length, ...asked, animation, ms }, trigger);
       corridorTrace.cost('routeLines.refresh', ms, {}, trigger);
     });
   }
@@ -227,5 +245,7 @@ export class RouteGridConvergence {
     }
     this.routeGridConvergenceScheduled = false;
     this.bakedRefreshPending = false;
+    this.bakedChangedCells = 0;
+    this.bakedRequests = 0;
   }
 }

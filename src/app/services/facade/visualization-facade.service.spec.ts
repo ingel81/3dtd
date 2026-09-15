@@ -96,7 +96,7 @@ describe('VisualizationFacadeService', () => {
   let cachedPaths: Map<string, typeof ROUTE>;
   let frames: Map<number, FrameRequestCallback>;
   let nextFrameId: number;
-  let cellsChanged: (() => void) | null;
+  let cellsChanged: ((changed: unknown[]) => void) | null;
   let towerCount: number;
   let sweepFrames: number;
 
@@ -149,7 +149,7 @@ describe('VisualizationFacadeService', () => {
   };
   const cellsOff = vi.fn();
   const grid = {
-    addCellsChangedListener: vi.fn((listener: () => void) => {
+    addCellsChangedListener: vi.fn((listener: (changed: unknown[]) => void) => {
       cellsChanged = listener;
       return cellsOff;
     }),
@@ -507,8 +507,8 @@ describe('VisualizationFacadeService', () => {
       routeAnimation.isRunning.mockReturnValue(true);
       facade.initializeVisualizationServices();
 
-      cellsChanged!();
-      cellsChanged!();
+      cellsChanged!([]);
+      cellsChanged!([]);
       expect(pathRoute.refreshRouteLines).not.toHaveBeenCalled();
       runFrames();
 
@@ -520,7 +520,7 @@ describe('VisualizationFacadeService', () => {
 
     it('does not restart an animation that is not running', () => {
       facade.initializeVisualizationServices();
-      cellsChanged!();
+      cellsChanged!([]);
       runFrames();
       expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
     });

@@ -3,6 +3,7 @@ import type { RouteCell } from './route-cell';
 import type { RouteCellSampler } from './route-cell-sampler';
 import { RouteGridHeightSweep } from './route-grid-height-sweep';
 import { perfTrace } from './perf-trace';
+import { corridorTrace } from './corridor-trace';
 
 const cells = (count: number, sampledFrom = count) =>
   Array.from({ length: count }, (_, key) =>
@@ -61,6 +62,28 @@ describe('RouteGridHeightSweep', () => {
     expect(sweep.step(0)).toEqual({ done: true, processed: 6, changed: 6 });
     expect(onSlice.mock.calls.map(([changed]) => changed.length)).toEqual([32, 32, 6]);
     expect(String(log.mock.calls[0][0])).toContain('slices=3');
+  });
+
+  it('counts for the corridor trace the cells it probed past the LOD peek without a new sample', () => {
+    const lines: string[] = [];
+    log.mockImplementation((line: unknown) => { lines.push(String(line)); });
+    corridorTrace.setEnabled(true);
+    try {
+      // Every cell gets past the peek; the even ones take a new sample.
+      const sampler = fakeSampler(() => false);
+      sampler.sampleCellY.mockImplementation((cell: RouteCell) => {
+        sampler.raycastCount++;
+        return cell.key % 2 === 0;
+      });
+      const sweep = new RouteGridHeightSweep(sampler, vi.fn());
+      sweep.begin(cells(10, 0));
+      sweep.step(Infinity);
+    } finally {
+      corridorTrace.setEnabled(false);
+    }
+    expect(lines.find((line) => line.startsWith('[CorridorTrace]'))).toMatch(
+      / heights cells=10 raycasted=10 promoted=0 refreshed=5 probedNoChange=5 moved=0 /,
+    );
   });
 
   it('prints no [PerfTrace] line while __perf.trace is off, and never a warning', () => {
