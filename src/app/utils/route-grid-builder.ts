@@ -28,6 +28,8 @@ export interface SegmentTunnel {
   bz: number;
   from: number;
   to: number;
+  /** The stretch is a passage (RouteWaypoint.passage on one of its segments); absent on a tunnel from OSM. */
+  passage?: true;
 }
 
 /**
@@ -78,11 +80,12 @@ export function tunnelSegments(route: readonly RouteWaypoint[], points: readonly
     const a = outward(points[i + 1], points[i]);
     const b = outward(points[end], points[end + 1]);
 
+    const passage = route.slice(i, end + 1).some((w) => w.passage === true);
     let along = TUNNEL_PORTAL_OFFSET_M;
     for (let j = i; j <= end; j++) {
       const from = along / total;
       along += lengths[j - i];
-      result[j] = { ax: a.x, az: a.z, bx: b.x, bz: b.z, from, to: along / total };
+      result[j] = { ax: a.x, az: a.z, bx: b.x, bz: b.z, from, to: along / total, ...(passage ? { passage: true as const } : {}) };
     }
     i = end + 1;
   }
@@ -251,7 +254,10 @@ export function claimSegmentCells(
       const key = lattice.key(gx, gz);
       const existing = cells.get(key);
       const span: TunnelSpan | null = tunnel
-        ? { ax: tunnel.ax, az: tunnel.az, bx: tunnel.bx, bz: tunnel.bz, f: tunnel.from + (tunnel.to - tunnel.from) * t }
+        ? {
+          ax: tunnel.ax, az: tunnel.az, bx: tunnel.bx, bz: tunnel.bz, f: tunnel.from + (tunnel.to - tunnel.from) * t,
+          ...(tunnel.passage ? { passage: true } : {}),
+        }
         : null;
       // The centre line's grid spot next to the cell, where the walk check starts (cellWalkable).
       const axisX = (lattice.index(start.x + dx * t) + 0.5) * cellSize;

@@ -41,12 +41,20 @@ export interface WalkGround {
    * (surfaceY).
    */
   lineCell: (x: number, z: number) => Pick<RouteCell, 'surface' | 'deckEnd'> | null;
+  /**
+   * Whether the centre line through the grid spot around (x, z) is one bent
+   * round an obstacle on the street's line (RouteWaypoint.detour), for the
+   * name `__corridor.pick()` gives it. Missing: none is.
+   */
+  onDetour?: (x: number, z: number) => boolean;
 }
 
 /**
  * Why cellWalkable says what it says, for `__corridor.pick()`: `walkable`
  * (true), `roof`, `hollow`, `step` and `drop` (false, see judgeWalk), the
- * rest null.
+ * rest null. `detour`: a centre line cell of a stretch bent round an
+ * obstacle on the street's line, `passage`: a cell of a passage under one
+ * (corridor-detour.ts).
  */
 export type WalkCheck =
   | 'walkable'
@@ -56,6 +64,8 @@ export type WalkCheck =
   | 'drop'
   | 'centre line'
   | 'centre line on a roof'
+  | 'detour'
+  | 'passage'
   | 'deck or tunnel'
   | 'no bridge end'
   | 'no sample'
@@ -125,7 +135,7 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround, cellSize: number,
     }
     return y;
   };
-  if (cell.surface === 'deck' || cell.surface === 'tunnel') return unjudged('deck or tunnel');
+  if (cell.surface === 'deck' || cell.surface === 'tunnel') return unjudged(cell.tunnelSpan?.passage ? 'passage' : 'deck or tunnel');
   if (cell.sample.state !== 'stable') return unjudged('no sample');
   const carried = carriedAt(cell, ground.column);
   if (cell.surface === 'approach' && carried === null) return unjudged('no bridge end');
@@ -137,7 +147,8 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround, cellSize: number,
     // there: the grid put it on the street (streetUnderRoof).
     const own = ground.column(cell.x, cell.z);
     const lifted = own !== null && surfaceOf(own) - (carried ?? lineY) > corridorConfig.roofRise;
-    return unjudged(lifted ? 'centre line on a roof' : 'centre line', cell.terrainHeight - lineY);
+    const line: WalkCheck = lifted ? 'centre line on a roof' : ground.onDetour?.(cell.x, cell.z) ? 'detour' : 'centre line';
+    return unjudged(line, cell.terrainHeight - lineY);
   }
   if (cell.sample.tileGeometricError > corridorConfig.maxTileError) return unjudged('coarse tile');
   const axisY = lineGround(cell.axisX, cell.axisZ);
