@@ -1407,6 +1407,16 @@
 
 ## 3.7 UI-Feinschliff und Debug-Oberfläche
 
+- [ ] **Tower-Debug: Kegelhöhe des Blutmond-Scheinwerfers je Tower** (Playtest 2026-09-15, Punkt 644)
+      Der Lichtkegel der Gatling sitzt minimal zu hoch. Die Ansatzhöhe des Scheinwerfers je Towertyp in den
+      Tower-Debug-Tools feinjustierbar machen (wie die Vorschau-Werte im Enemy Debugger), damit der User sie
+      selbst einstellt und die Werte übernommen werden können.
+
+- [ ] **Debug: Modus erzwingen (Blutmond und künftige Modi)** (Playtest 2026-09-15, Punkt 644)
+      Ein Schalter in den Debug-Tools, der die Szenerie auf Blutmond zwingt, mit allem, was dazugehört (Tönung,
+      Scheinwerfer, Banner, Decals, Gegnerrand), unabhängig von der Wellennummer; so gebaut, dass weitere Modi
+      später dazukommen.
+
 - [ ] **Design-Runde: Header, Next-Wave-Button, Dev-Menü**
       Playtest 2026-09-11 nach dem Sprint: Dev-Menü (zwei Spalten) und Header
       (bündig mit der Sidebar) sind funktional erledigt (DONE.md 2026-09-12),
