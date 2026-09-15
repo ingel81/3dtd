@@ -23,6 +23,16 @@
 
 ## 1.0 Nächste Runde: Top-Priorität
 
+- [ ] **Korridor einmal fertig messen, dann einfrieren** (Top, User 2026-09-15: "das brauchen wir gelöst, das geht
+      so gar nicht"). Heute ändert sich der Korridor sichtbar: erst OSM-Breite auf groben Tiles, nach dem Intro die
+      echte Messung (2 bis 3 s) und ein Neubau von bis zu 408 ms in einem Frame, danach weitere Neubauten aus
+      Laufweg-Kappen, sobald die Kamera feinere Tiles als die 5-m-Region lädt; das Ergebnis hängt vom Kamerapfad ab.
+      Befund und Entwurf: `tmp/fix1/reports/corrperf.md`, `corrarch.md`. Entschieden: Phase 0 Region-LOD messen
+      (5 m, 2,5 m, feinste; Worker corrprobe, Trace corrlog), Phase 1 im Ladescreen auf fester LOD messen, bauen bis
+      stabil, einfrieren, Nachmess-Maschinerie entfernen (längerer Ladescreen ok), Phase 2 Regeln vereinfachen:
+      Route mittig im begehbaren Band statt an der OSM-Linie (ersetzt ggf. den Umweg-Planer, behebt 732). Kleine
+      Objekte auf Plätzen: Band endet davor. Prüfung mit `__corridor.fingerprint()` über drei Kamerapfade je Ort.
+
 - [ ] **Routenkorridor dynamisch nach Straßenbreite** (Top-Priorität, dem Nutzer sehr wichtig)
       Heute ist der Zellkorridor überall gleich breit (`CORRIDOR_WIDTH` 7 m in
       `global-route-grid.ts`), die Gegner weichen fest bis 3 m seitlich aus.
