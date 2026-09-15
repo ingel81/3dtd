@@ -1,6 +1,6 @@
 /**
  * Building blocks of the sounds synthesised in code (utils/ooze-sound.ts,
- * utils/nuke-sound.ts): a seeded random source, so every run builds the
+ * utils/nuke-sound.ts, utils/laser-sound.ts): a seeded random source, so every run builds the
  * same samples, the one-pole low-pass they filter noise with and the
  * normalising of a finished sample.
  */

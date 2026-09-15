@@ -354,14 +354,26 @@ lauter, mit zwei leiseren Wiederholungen nach 180 und 420 ms. Shake `emp`
 (5 m) und ein orangefarbenes Band so breit wie der Strahl über den Weg, den er
 nehmen wird (`ability:used` trägt ihn als `path`). Beim Einschlag verschwindet
 beides und der Strahl kommt herunter (`OrbitalBeamRenderer`,
-`ORBITAL_BEAM_LOOK`, in Spielzeit): eine Lichtsäule 320 m hoch, weißglühender
-Kern, orange Glut, mit Tiefentest, sodass Gebäude davor sie verdecken; am Fuß
-ein Glühen, ein Ring im Strahlradius, Funken und alle 3 m des Wegs ein
-Brandfleck (Quelle `rocket`, mit Ground Marks an). Der Fuß läuft mit 18 m/s
-die Route entlang wie in der Simulation und endet mit ihr. Ton
-`orbital_laser`: der Blitz des Lightning Towers, nach 1,3 und 2,5 s noch
-zweimal leiser, damit das Knistern etwa so lange dauert wie der Strahl. Shake
-`orbitalLaser` 0,003 für 1200 ms, dieselbe Reichweite wie Frostbombe und EMP.
+`ORBITAL_BEAM_LOOK`, in Spielzeit; nach Playtest 636 am 2026-09-15 breiter,
+heller und mit Brocken, Rauch und Glut): eine Lichtsäule 340 m hoch und 24 m
+breit, weißglühender Kern, gelb-orange und rote Korona mit Energiestreifen,
+Pulsen und flimmernden Rändern, mit Tiefentest, sodass Gebäude davor sie
+verdecken; am Fuß ein Glühen, ein flackerndes Bodenlicht (18 m), ein Ring im
+Strahlradius, Funken, glühende Brocken und Rauch und Staub, die entlang des
+Wegs stehen bleiben. Alle 2,5 m des Wegs ein Brandfleck (Quelle `beam`: 5 m
+Radius, fast schwarz, 150 s, mit Ground Marks an) und ein Glutfleck, der in
+6 s Spielzeit von Weißglut über Orange nach Dunkelrot abkühlt, im Blutmond
+getönt wie die Bodenspuren. Der Fuß läuft mit 18 m/s die Route entlang wie in
+der Simulation und endet mit ihr. Mit Impact Effects aus (Preset Low) nur die
+Säule ohne Streifen, Fuß, Ring und Blitz. Aufbau und Budget in
+[PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#orbitallaser). Ton `orbital_laser`, im
+Code synthetisiert (`utils/laser-sound.ts`): Zap, Crack und Schlag beim
+Einschlag, nach 1,3 und 2,5 s zwei Stücke Brennen (Dröhnen und Zischen), das
+letzte fährt herunter, zusammen etwa so lange, wie der Strahl brennt
+([SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#orbitallaser-synthetisiert-stücke-in-spielzeit));
+bis Playtest 636 der Blitz des Lightning Towers, zweimal leiser wiederholt.
+Shake `orbitalLaser` 0,006 für 1400 ms (bis Playtest 636 0,003 für 1200 ms),
+dieselbe Reichweite wie Frostbombe und EMP.
 
 **Je Fähigkeit:** VFX, Ton und Shake wählen nach der `abilityId` im Event aus
 je einer Tabelle: `abilityVfx` im VFXService (was `ability:used` und
@@ -498,6 +510,7 @@ während einer Welle.
 | `services/combat/combat-effect.service.ts` | `applyAbilityStrike`, `applyAbilityHalt` (Freeze und Stun über den `StatusEffectService`) |
 | `three-engine/post-processing/bloom-kick.ts` | Bloom-Kick des Blitzes, stellt den Bloom-Pass exakt zurück |
 | `utils/nuke-sound.ts` | Ton des Nuklearschlags, im Code synthetisiert: Knall und drei Stücke Grollen |
+| `utils/laser-sound.ts` | Ton des Orbitallasers, im Code synthetisiert: Einschlag und zwei Stücke Brennen |
 | `utils/synth.ts` | Seed-Zufall, Tiefpass-Koeffizient und Normalisieren, geteilt mit den Ooze-Sounds |
 | `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
 | `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
@@ -511,7 +524,8 @@ Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,
-`integration/ability-laser.spec.ts`, `orbital-beam.renderer.spec.ts`,
+`integration/ability-laser.spec.ts`, `orbital-beam.renderer.spec.ts`, `laser-sound.spec.ts`,
+`scorch-marks.spec.ts` (Brandspur des Lasers),
 `integration/ability-ooze.spec.ts` (Frost, EMP und Laser gegen den Körper der Ooze),
 `route-sweep.spec.ts`, `ability-marker.renderer.spec.ts`,
 `ability-button.spec.ts`, `nuclear-strike.strategy.spec.ts`,
