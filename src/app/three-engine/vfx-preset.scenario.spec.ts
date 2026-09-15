@@ -18,6 +18,7 @@ import { FrostBurstRenderer } from './renderers/frost-burst.renderer';
 import { EmpPulseRenderer } from './renderers/emp-pulse.renderer';
 import { OrbitalBeamRenderer } from './renderers/orbital-beam.renderer';
 import { DEFAULT_VFX_SETTINGS, withVfxPreset, type VfxPreset } from './vfx-settings';
+import { FROST_BURST_LOOK } from '../configs/visual-effects.config';
 
 const GROUND = new Vector3(20, 10, -30);
 /** 60 m straight along -z at ground height 10, a point every 5 m */
@@ -72,7 +73,8 @@ function withPreset(preset: VfxPreset) {
   frost.renderer.burst(GROUND, 20, 3);
   emp.renderer.pulse(GROUND, 30);
   beam.renderer.fire(PATH, 5, 18, 4, null);
-  run((ms) => frost.renderer.update(ms, camera, 1080), 300);
+  // Halfway through the frost flash, so all three of flash, ring and rime show
+  run((ms) => frost.renderer.update(ms, camera, 1080), FROST_BURST_LOOK.flash.duration * 500);
   run((ms) => emp.renderer.update(ms, camera, 1080), 100);
   run((ms) => beam.renderer.update(ms, camera, 1080), 800);
 

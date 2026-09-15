@@ -101,18 +101,42 @@ describe('FrostBurstRenderer', () => {
   });
 
   it('holds the rime over the radius as long as the freeze, then fades it out', () => {
+    const { opacity, fade } = FROST_BURST_LOOK.rime;
     const { bursts, rime, run } = setup();
     bursts.burst(GROUND, RADIUS, HOLD_S);
     run(HOLD_S * 1000 - 100, 50);
     expect(rime.visible).toBe(true);
     expect(rime.scale.x).toBe(RADIUS);
-    expect((rime.material as { opacity: number }).opacity).toBeCloseTo(FROST_BURST_LOOK.rime.opacity);
+    expect((rime.material as { opacity: number }).opacity).toBeCloseTo(opacity);
 
-    run(700, 50); // 0.6 s into the 1 s fade
-    expect((rime.material as { opacity: number }).opacity).toBeCloseTo(FROST_BURST_LOOK.rime.opacity * 0.4);
-    run(500, 50);
+    run(100 + fade * 600, 50); // 60 % into the fade
+    expect((rime.material as { opacity: number }).opacity).toBeCloseTo(opacity * 0.4);
+    run(fade * 400 + 100, 50);
     expect(rime.visible).toBe(false);
     expect(bursts.activeBursts).toBe(0);
+  });
+
+  it('625: keeps the shards inside the frozen area and the mist low along its edge', () => {
+    seededRandom();
+    const { bursts, shards, mist, run } = setup();
+    bursts.burst(GROUND, RADIUS, HOLD_S);
+    let shardsSeen = 0;
+    let mistSeen = 0;
+    for (let t = 0; t < 2000; t += 50) {
+      run(50);
+      for (const [x, , z] of positions(shards)) {
+        expect(Math.hypot(x - GROUND.x, z - GROUND.z)).toBeLessThan(RADIUS * 0.7);
+        shardsSeen++;
+      }
+      for (const [x, y, z] of positions(mist)) {
+        // Off the middle, where the frozen enemies stand; below a facade's first floor
+        expect(Math.hypot(x - GROUND.x, z - GROUND.z)).toBeGreaterThan(RADIUS * 0.5);
+        expect(y - GROUND.y).toBeLessThan(2);
+        mistSeen++;
+      }
+    }
+    expect(shardsSeen).toBeGreaterThan(0);
+    expect(mistSeen).toBeGreaterThan(0);
   });
 
   it('625: lays the rime under the frozen enemies and roofs, the ring over everything', () => {

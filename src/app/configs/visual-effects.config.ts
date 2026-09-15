@@ -636,15 +636,22 @@ export const MUSHROOM_CLOUD_LOOK = {
  * plays it faster; lengths are metres at `referenceRadius` and scale with
  * the ability's radius (the ring and the rime take the radius itself).
  *
- * 0 to 0.35 s a white-cyan flash over the ground point; to 1.2 s a ring of
- * cold running out to 1.15 times the radius; ice shards thrown out and up,
- * resting on the ground until they fade (up to 1.3 s); a low mist rolling
- * out over the radius (to about 3.2 s). Rime on the ground over the whole
- * radius comes up in 0.12 s, holds as long as the freeze (the VFXService
- * passes it) and fades out over `rime.fade`.
+ * 0 to 0.2 s a white-cyan flash over the ground point; to 0.9 s a ring of
+ * cold running out to the edge of the radius; ice shards thrown out and up
+ * inside it, resting on the ground until they fade (up to 0.9 s); a thin low
+ * mist rolling out along the edge of the radius (to about 2 s). Rime on the
+ * ground over the whole radius comes up in 0.12 s, holds as long as the
+ * freeze (the VFXService passes it) and fades out over `rime.fade`.
+ *
+ * Playtest 625 (2026-09-15): the burst covered the whole spot in white, the
+ * frozen enemies could not be told apart. Until then the flash was 70 m at
+ * 2.2 for 0.35 s, the ring 1.2 s at 0.95, 64 shards at up to 1.4 flew past
+ * the radius for up to 1.3 s, 28 mist puffs of up to 14 m covered the whole
+ * radius for 3.2 s, and the rime was additive over everything (see the
+ * renderer).
  *
  * With impact effects off (VFX settings) flash, ring and rime only.
- * Budget: 64 shards and 28 mist puffs per burst, two bursts at once, in
+ * Budget: 40 shards and 14 mist puffs per burst, two bursts at once, in
  * buffers of the renderer's own.
  */
 export const FROST_BURST_LOOK = {
@@ -652,26 +659,33 @@ export const FROST_BURST_LOOK = {
   /** Bursts drawn at once; another takes the place of the oldest */
   bursts: 2,
   /** Sprite of `size` metres `height` above the ground point, additive at `intensity` */
-  flash: { duration: 0.35, size: 70, height: 4, intensity: 2.2 },
-  /** Ring out to `radius` times the ability radius, time constant `timeConstant` */
-  ring: { duration: 1.2, radius: 1.15, timeConstant: 0.16, opacity: 0.95 },
+  flash: { duration: 0.2, size: 40, height: 4, intensity: 1.4 },
+  /**
+   * Ring quad out to `radius` times the ability radius, time constant
+   * `timeConstant`. Its front stands at 0.9 of the quad (just past the
+   * radius), `fill` is the faint light behind it.
+   */
+  ring: { duration: 0.9, radius: 1.15, timeConstant: 0.16, opacity: 0.7, fill: 0.04 },
   /**
    * Rime over the radius: up in `rise` s, held for the freeze, gone `fade` s
    * later. Normal blend, so `opacity` is how much of its colour covers the
    * street (until playtest 625 additive at 0.45)
    */
-  rime: { rise: 0.12, fade: 1.0, opacity: 0.3 },
+  rime: { rise: 0.12, fade: 0.6, opacity: 0.3 },
   /**
    * Shards thrown out at `speed` and up at `lift` (m/s), slowed by air drag
    * (time constant `drag`, s) and pulled down by `gravity`; each lives
-   * `life` seconds. Diameters in metres.
+   * `life` seconds, `light` bright at birth. Diameters in metres. At the
+   * reference radius they land within about 13 m.
    */
-  shards: { count: 64, speed: [9, 26], lift: [3, 13], drag: 1.2, gravity: 16, life: [0.55, 1.3], size: [0.9, 2.1] },
+  shards: { count: 40, speed: [6, 18], lift: [3, 13], drag: 1.2, gravity: 16, life: [0.45, 0.9], size: [0.6, 1.4], light: 0.8 },
   /**
    * Mist puffs from `start` on, in a ring at `radius` times the ability
    * radius, rolling out at `spread` and rising at `rise` (m/s). Diameters m.
+   * They start at smoke atlas frame `firstFrame` of 14 drawn ones: the
+   * later, the thinner.
    */
-  mist: { count: 28, start: 0.04, radius: [0.35, 1.0], rise: 0.9, spread: 1.2, life: [1.6, 3.0], size: [6, 11] },
+  mist: { count: 14, start: 0.04, radius: [0.8, 1.05], rise: 0.35, spread: 0.6, life: [1.0, 1.8], size: [4, 7], firstFrame: 6 },
   /** Tints, linear. Mist goes over the light grey smoke atlas. */
   colors: {
     flash: { r: 0.85, g: 0.95, b: 1.0 },
@@ -680,7 +694,7 @@ export const FROST_BURST_LOOK = {
     rime: { r: 0.4, g: 0.62, b: 0.85 },
     shard: { r: 0.8, g: 0.95, b: 1.0 },
     shardDeep: { r: 0.35, g: 0.7, b: 1.0 },
-    mist: { r: 0.86, g: 0.93, b: 1.0 },
+    mist: { r: 0.7, g: 0.8, b: 0.92 },
   },
 } as const;
 
