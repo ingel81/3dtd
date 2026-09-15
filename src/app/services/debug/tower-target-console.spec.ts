@@ -39,9 +39,10 @@ const iceAt = (s: number, east: number): Tower => {
 const cellSeenBy = (tower: Tower, seen: boolean | undefined): RouteCell =>
   ({ towerVisibility: new Map(seen === undefined ? [] : [[tower.id, seen]]) }) as unknown as RouteCell;
 
-const lookup = (cell: RouteCell | undefined, aligned = true): TowerTargetLookup => ({
+const lookup = (cell: RouteCell | undefined, aligned = true, isGridCell = (_cell: RouteCell) => true): TowerTargetLookup => ({
   cellOf: () => cell,
   aligned: () => aligned,
+  isGridCell,
 });
 
 describe('explainTowerTarget', () => {
@@ -61,14 +62,30 @@ describe('explainTowerTarget', () => {
     );
   });
 
-  it('without a target: LOS not resolved yet, asleep', () => {
+  it('without a target: asleep with the analysis behind it, LOS not resolved yet', () => {
     const tower = iceAt(20, 15);
     tower.isSleeping = true;
     expect(explainTowerTarget(tower, [clumpAt(20)], lookup(undefined))).toBe(
-      `${tower.id} ice: no target, asleep (wake check every 500 ms)`,
+      `${tower.id} ice: no target, asleep, no candidate in visibleCells (1 near: 0 in cells it does not see, ` +
+        '0 in cells without its LOS entry, 0 in cells it sees but missing from visibleCells, 1 off the grid)',
     );
     tower.losReady = false;
     expect(explainTowerTarget(tower, [clumpAt(20)], lookup(undefined))).toBe(`${tower.id} ice: no target, LOS not resolved yet`);
+  });
+
+  it('without a target: counts the visibleCells a rebuild of the grid replaced', () => {
+    const tower = iceAt(20, 15);
+    tower.isSleeping = true;
+    const live = cellSeenBy(tower, true);
+    tower.visibleCells = [cellSeenBy(tower, true), cellSeenBy(tower, true), live];
+    // The clump stands in a cell of the new grid, which has no answer for the tower
+    const rebuilt = cellSeenBy(tower, undefined);
+
+    expect(explainTowerTarget(tower, [clumpAt(20)], lookup(rebuilt, true, (cell) => cell === live || cell === rebuilt))).toBe(
+      `${tower.id} ice: no target, asleep, no candidate in visibleCells (1 near: 0 in cells it does not see, ` +
+        '1 in cells without its LOS entry, 0 in cells it sees but missing from visibleCells, 0 off the grid), ' +
+        '2 of 3 visibleCells not in the grid any more',
+    );
   });
 
   it('without a target: what the cells under the clumps say for the tower', () => {
@@ -77,7 +94,7 @@ describe('explainTowerTarget', () => {
     const cells = [cellSeenBy(tower, false), cellSeenBy(tower, undefined), cellSeenBy(tower, true), undefined];
     const cellOf = new Map(clumps.map((clump, i) => [clump, cells[i]]));
 
-    expect(explainTowerTarget(tower, clumps, { cellOf: (enemy) => cellOf.get(enemy), aligned: () => true })).toBe(
+    expect(explainTowerTarget(tower, clumps, { cellOf: (enemy) => cellOf.get(enemy), aligned: () => true, isGridCell: () => true })).toBe(
       `${tower.id} ice: no target, no candidate in visibleCells (4 near: 1 in cells it does not see, ` +
         '1 in cells without its LOS entry, 1 in cells it sees but missing from visibleCells, 1 off the grid)',
     );
