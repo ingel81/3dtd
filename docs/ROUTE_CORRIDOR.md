@@ -600,6 +600,15 @@ auf dem Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Dec
     einer Kaimauer, einer Stützmauer oder einer tiefer liegenden Straße
     daneben. `pick()` zeigt `walkCheck: 'drop'`, abschaltbar mit
     `__corridor.set({ stepDrop: 50 })` (misst neu).
+
+    Zweiter Fall: Playtest 2026-09-15 (608, Erlenbach), Wohnstraße,
+    talseitig mehrere Zellreihen die Böschung hinunter, je Reihe etwa 0,5
+    bis 1 m tiefer. Nachgestellt in `integration/corridor-walk.spec.ts`
+    (Straße eben, bergseitig Gärten auf Straßenhöhe, also keine
+    Querneigung): Eine erste Reihe 0,55 bis 0,85 m unter der Straße fällt
+    weg und alles dahinter mit, der Korridor endet an der Straßenkante. Ein
+    Bankett bis 0,45 m unter der Straße bleibt als eine Reihe, die Böschung
+    0,8 m darunter nicht. Eine Reihe genau 0,5 m tiefer bleibt ebenfalls.
 - **Kein Urteil** (`null`): Zellen, durch die eine Mittellinie läuft,
   auch wenn sie nur eine Ecke anschneidet (`centreLineKeys`; der Korridor
   nimmt sie bei jeder Breite, `walkCaps` lässt sie aus), Deck und Tunnel,
