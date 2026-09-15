@@ -19,6 +19,8 @@ import { goldBudgetForWave } from '../configs/wave-curriculum.config';
 import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
 import { registerEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
+import { TIMING } from '../configs/timing.config';
+import { enemyDeathDuration } from '../configs/enemy-types.config';
 
 const createMockTilesEngine = () => ({
   enemies: {
@@ -186,6 +188,31 @@ describe('EnemyManager', () => {
     expect(manager.kill(enemy)).toBe(true);
     expect(manager.kill(enemy)).toBe(false);
     expect(diedSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes a killed enemy once its type's death duration has run down", () => {
+    const path: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 0 },
+      { lat: 0.001, lon: 0, height: 0 },
+    ];
+    const zombie = manager.spawn(path, 'zombie');
+    const soldier = manager.spawn(path, 'zombie-soldier');
+    manager.kill(zombie);
+    manager.kill(soldier);
+    let now = 0;
+    const run = (ms: number): void => {
+      for (let t = 0; t < ms; t += 10) manager.update(10, (now += 10));
+    };
+
+    expect(enemyDeathDuration(zombie.typeConfig)).toBe(TIMING.deathAnimationDuration);
+    run(TIMING.deathAnimationDuration);
+    expect(manager.getById(zombie.id)).toBeNull();
+    expect(manager.getById(soldier.id)).not.toBeNull();
+    expect(manager.getKillingCount()).toBe(1);
+
+    run(enemyDeathDuration(soldier.typeConfig) - TIMING.deathAnimationDuration);
+    expect(manager.getById(soldier.id)).toBeNull();
+    expect(manager.getKillingCount()).toBe(0);
   });
 
   describe('kill-budget accumulator', () => {

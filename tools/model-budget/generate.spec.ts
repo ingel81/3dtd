@@ -440,7 +440,7 @@ function render(rows: Row[]): string {
 
   out.push('### Gebackene Clips');
   out.push('');
-  out.push(`Todes-Clips laufen mit \`animationSpeed\`, bis der Gegner nach ${int(TIMING.deathAnimationDuration)} ms`);
+  out.push(`Todes-Clips laufen mit \`animationSpeed\`, bis der Gegner nach \`deathDuration\` (Standard ${int(TIMING.deathAnimationDuration)} ms)`);
   out.push('entfernt wird. Gebacken wird nur dieser Teil (`vatClips` in `vat-clips.ts`), „gekürzt“ zählt');
   out.push('die weggelassenen Frames.');
   out.push('');

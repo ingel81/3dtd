@@ -86,8 +86,8 @@ prüfen, etwa mit der GPU-Zeit bei 2.000 Gegnern je Budgetstufe.
 | Elite/Boss | ≤ 15.000 | ≤ 2048² | ≤ 90 Frames |
 
 Todes-Clips brauchen kein eigenes Budget: Sie laufen mit `animationSpeed`, der Gegner
-verschwindet nach `TIMING.deathAnimationDuration` (2 s), und `vatClips` in `vat-clips.ts`
-backt nur bis dahin. Idle backt der Baker nicht.
+verschwindet nach `deathDuration` (Standard `TIMING.deathAnimationDuration`, 2 s), und
+`vatClips` in `vat-clips.ts` backt nur bis dahin. Idle backt der Baker nicht.
 
 Mit diesem Budget läge die teuerste Welle (`rat_tide`, 5.000 Ratten) bei 5,0 Mio. und
 `zombie_horde` bei 3,7 Mio. (zombie-v2 als Normal-Gegner); alle anderen Templates lägen
@@ -212,7 +212,9 @@ jeweils die Hälfte, außer beim Stone Golem.
   16 %, besser Retopologie mit neuer Abwicklung und gebackener Textur.
 - Soll zombie-v2 in `zombie_horde` mehr als die heutigen 10 % stellen, gilt das
   Swarm-Budget (≤ 1.500).
-- Die beiden Todes-Clips sind auf die sichtbaren 2 s gekürzt (je 61 Frames).
+- Die beiden Todes-Clips sind auf die sichtbaren 2 s gekürzt (je 61 Frames). Seit dem
+  Playtest vom 2026-09-15 laufen alle Todes-Clips von zombie-v2 ganz (`deathDuration` 3000),
+  `Dead` fiel nach 2 s noch.
   `Electrocuted_Fall` (6,33 s) ist nicht mehr im Pool: Die Hüfte des Clips bleibt bis 3,0 s
   auf Standhöhe, der Sturz beginnt bei etwa 3,25 s und endet bei etwa 5 s. Der Gegner
   verschwand also zuckend im Stehen (aus den Keyframes gelesen, nicht im Browser gesehen).
