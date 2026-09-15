@@ -45,10 +45,9 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
       },
       {
         name: 'Tank',
-        author: 'Zsky',
-        license: 'CC-BY 3.0',
-        licenseUrl: 'https://creativecommons.org/licenses/by/3.0/',
-        sourceUrl: 'https://poly.pizza/m/7GG1xDtc8l',
+        author: 'Quaternius',
+        license: 'CC0',
+        sourceUrl: 'https://poly.pizza/m/cW3zvvkMOM',
       },
       {
         name: 'Spider',

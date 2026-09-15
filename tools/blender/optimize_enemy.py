@@ -23,7 +23,7 @@ import tempfile
 import bmesh
 import bpy
 import numpy as np
-from mathutils import Vector
+from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
 # Commit that holds the original models.
@@ -32,6 +32,8 @@ ENEMIES = 'public/assets/models/enemies'
 
 # Recipe keys (all optional except `src`):
 #   src         model path in the repo at SOURCE_REV
+#   rev         commit to read `src` from (default SOURCE_REV); None reads the
+#               working tree, for sources that came after SOURCE_REV
 #   extra       further files the importer needs next to it (external textures)
 #   out         output path in the repo (default: src with .glb)
 #   actions     {source action: exported clip name}; every other action is dropped
@@ -50,6 +52,14 @@ ENEMIES = 'public/assets/models/enemies'
 #               atlases whose seams the decimator cannot keep
 #   rigid_to_skin    join the rigid meshes that hang on bones into one skinned mesh
 #               before anything else (see rigid_to_skin)
+#   join_skin   bone name: join every mesh into one skinned mesh, the rigid ones
+#               weighted fully to that bone (see join_skin)
+#   vertex_colors    False drops the colour attributes and puts the base colour
+#               factor back on the material (see drop_vertex_colors)
+#   cull_hidden      delete the faces no view from the camera's side reaches
+#               (see cull_hidden)
+#   root        {'turn': degrees about the vertical, 'size': scale}: the model
+#               turned and scaled on its root, standing centred on the origin
 #   merge       merge co-located vertices with equal normals on import (glTF
 #               importer option), also without decimating
 #   texture     longest side of every image left in the model
@@ -213,14 +223,30 @@ RECIPES = {
         'rest_from_file': True,
         'trim': {'Take 001': (13, 118, 4)},
     },
-    # Static, seven material colours, no texture. The file stores 319
-    # vertices twice (same position, normal and UV); merged on import they
-    # are written once, positions and normals as before (the faceted look
-    # stays). Welding by position instead changed the normals of 12 vertices
-    # by up to 47 degrees.
+    # Quaternius "Tank" (CC0, candidates/LICENSES.md), replaces the Zsky tank.
+    # Hull and both tracks are skinned to 45 bones, Tank_Forward rolls the 44
+    # track links; turret and gun hang on the root node, so bakeVAT would
+    # leave them out: everything goes into one skin, the rigid parts on
+    # `Root`. The base colours multiply a COLOR_0 that is white everywhere.
+    # 12,093 VAT vertices, 5,234 of them road wheels that the tracks mostly
+    # cover. The faces no camera view reaches go (2,265 of 6,544, see
+    # cull_hidden): 7,334. The near-black road wheels keep 20 % of their
+    # triangles, the track links 50 % (at 40 % the links read as thin dashes
+    # from the side); hull, turret and gun stay as they are. In the file the
+    # gun points along -x and the model is 14.8 units long; turned to +z and
+    # scaled to metres (6.6 m long, 3.0 m high, as tall as the old tank). The
+    # config plays Tank_Forward only.
     'tank': {
-        'src': f'{ENEMIES}/tank.glb',
+        'src': f'{ENEMIES}/candidates/quaternius-tank/tank.glb',
+        'rev': None,
+        'out': f'{ENEMIES}/tank.glb',
         'merge': True,
+        'actions': {'TankArmature|Tank_Forward': 'TankArmature|Tank_Forward'},
+        'join_skin': 'Root',
+        'vertex_colors': False,
+        'cull_hidden': True,
+        'decimate_materials': {'Wheels': 0.2, 'Main_Details.001': 0.5},
+        'root': {'turn': 90, 'size': 0.45},
     },
     # 34 rigid parts, each under an empty on a bone (object animation VAT
     # path). Joined into one skinned mesh (rigid_to_skin), the decimator and
@@ -249,10 +275,14 @@ def repo_root():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 
-def git_export(repo, path, dest_dir):
-    """Write `path` as it is at SOURCE_REV into dest_dir, return the file path."""
-    data = subprocess.run(['git', '-C', repo, 'show', f'{SOURCE_REV}:{path}'],
-                          check=True, capture_output=True).stdout
+def git_export(repo, path, dest_dir, rev=SOURCE_REV):
+    """Write `path` as it is at `rev` (None: the working tree) into dest_dir, return the file path."""
+    if rev is None:
+        with open(os.path.join(repo, path), 'rb') as f:
+            data = f.read()
+    else:
+        data = subprocess.run(['git', '-C', repo, 'show', f'{rev}:{path}'],
+                              check=True, capture_output=True).stdout
     dest = os.path.join(dest_dir, os.path.basename(path))
     with open(dest, 'wb') as f:
         f.write(data)
@@ -337,6 +367,189 @@ def rigid_to_skin(weld_distance=1e-6):
     skin.name = 'Skin'
     skin.modifiers.new('Armature', 'ARMATURE').object = arm
     return skin
+
+
+def join_skin(bone):
+    """Every mesh as one skinned mesh on the armature, so bakeVAT, which bakes
+    skinned meshes only, keeps them all. Skinned meshes keep their weights,
+    the rigid ones (the tank's turret and gun hang on the root node, not on a
+    bone) are weighted fully to `bone`; that bone must not move in the clips
+    the config plays."""
+    scene = bpy.context.scene
+    meshes = [o for o in scene.objects if o.type == 'MESH']
+    skinned = [o for o in meshes if any(m.type == 'ARMATURE' for m in o.modifiers)]
+    if not skinned:
+        raise RuntimeError('join_skin: no skinned mesh')
+    for obj in meshes:
+        if obj not in skinned:
+            obj.vertex_groups.new(name=bone).add(list(range(len(obj.data.vertices))), 1.0, 'REPLACE')
+    skin = max(skinned, key=lambda o: len(o.data.vertices))
+    with bpy.context.temp_override(active_object=skin, object=skin, selected_objects=meshes,
+                                   selected_editable_objects=meshes):
+        bpy.ops.object.join()
+    return skin
+
+
+def drop_vertex_colors():
+    """The glTF importer multiplies the base colour factor with COLOR_0 in a Mix
+    node. The VAT shader reads the material colour and ignores COLOR_0, so a
+    model whose COLOR_0 is white (the tank) loses nothing: the factor goes
+    back on the BSDF and the colour attributes go, the export writes neither."""
+    for mat in bpy.data.materials:
+        if not (mat and mat.use_nodes):
+            continue
+        nt = mat.node_tree
+        bsdf = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+        if bsdf is None or not bsdf.inputs['Base Color'].is_linked:
+            continue
+        mix = bsdf.inputs['Base Color'].links[0].from_node
+        if mix.type != 'MIX':
+            continue
+        colours = [i for i in mix.inputs if i.identifier in ('A_Color', 'B_Color')]
+        linked = [i for i in colours if i.is_linked]
+        if len(linked) != 1 or linked[0].links[0].from_node.type != 'VERTEX_COLOR':
+            continue
+        factor = next(i for i in colours if not i.is_linked)
+        bsdf.inputs['Base Color'].default_value = factor.default_value[:]
+        nt.nodes.remove(linked[0].links[0].from_node)
+        nt.nodes.remove(mix)
+    for me in bpy.data.meshes:
+        for attr in list(me.color_attributes):
+            me.color_attributes.remove(attr)
+
+
+def view_directions(count=512, min_elevation=-10):
+    """Directions towards the camera, evenly spread (Fibonacci sphere) and at
+    most `min_elevation` degrees below the horizon: the camera stays above
+    the road, a little below the model at most on a slope."""
+    i = np.arange(count) + 0.5
+    z = 1 - 2 * i / count
+    r = np.sqrt(1 - z * z)
+    phi = i * math.pi * (3 - math.sqrt(5))
+    d = np.stack([r * np.cos(phi), r * np.sin(phi), z], -1)
+    return [Vector(v) for v in d[z >= math.sin(math.radians(min_elevation))]]
+
+
+def drop_faces(obj, drop):
+    """Delete the faces for which `drop(face)` is true and the vertices left without a face."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if drop(f)], context='FACES')
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+
+
+def decimate_materials(obj, ratios):
+    """Collapse-decimate only the faces of the materials matching `ratios`
+    ({material name pattern: ratio}), each split off on its own, decimated and
+    joined back, so the other materials keep their shape (the tank's track
+    links and road wheels, not its hull). Vertex groups and the armature
+    modifier travel with the copy."""
+    parts = []
+    for index, mat in enumerate(obj.data.materials):
+        ratio = next((r for pat, r in ratios.items() if mat and fnmatch.fnmatchcase(mat.name, pat)), None)
+        if ratio is None or ratio >= 1.0:
+            continue
+        part = obj.copy()
+        part.data = obj.data.copy()
+        part.name = f'{obj.name}_{mat.name}'
+        for coll in obj.users_collection:
+            coll.objects.link(part)
+        drop_faces(part, lambda f, i=index: f.material_index != i)
+        drop_faces(obj, lambda f, i=index: f.material_index == i)
+        decimate(part, ratio)
+        parts.append(part)
+    if parts:
+        objs = [obj] + parts
+        with bpy.context.temp_override(active_object=obj, object=obj, selected_objects=objs,
+                                       selected_editable_objects=objs):
+            bpy.ops.object.join()
+
+
+def cull_hidden(obj, frames=6, min_elevation=-10):
+    """Delete the faces of `obj` that no camera view reaches: the hull bottom,
+    the road wheels behind the tracks, the inner sides of the track links.
+
+    A face stays if, in one of `frames` poses spread over the kept clip (the
+    tracks move), a ray from one of its sample points (the centre and each
+    corner pulled a fifth towards it) leaves the model towards one of the
+    view_directions with the face turned towards it; the materials draw
+    front faces only. Seen through a gap between two track links counts.
+    """
+    scene = bpy.context.scene
+    arm = obj.find_armature()
+    act = next(iter(bpy.data.actions), None)
+    if arm is not None and act is not None:
+        if arm.animation_data is None:
+            arm.animation_data_create()
+        arm.animation_data.action = act
+        start, end = act.frame_range
+        poses = [start + (end - start) * k / frames for k in range(frames)]
+    else:
+        poses = [scene.frame_current]
+    dirs = view_directions(min_elevation=min_elevation)
+    size = max(obj.dimensions)
+    eps = size * 1e-4
+    visible = np.zeros(len(obj.data.polygons), dtype=bool)
+    for frame in poses:
+        scene.frame_set(int(frame), subframe=frame - int(frame))
+        dg = bpy.context.evaluated_depsgraph_get()
+        ev = obj.evaluated_get(dg)
+        me = ev.to_mesh()
+        co = [obj.matrix_world @ v.co for v in me.vertices]
+        polys = [list(p.vertices) for p in me.polygons]
+        tree = BVHTree.FromPolygons(co, polys)
+        for idx, verts in enumerate(polys):
+            if visible[idx]:
+                continue
+            pts = [co[v] for v in verts]
+            centre = sum(pts, Vector()) / len(pts)
+            normal = (pts[1] - pts[0]).cross(pts[2] - pts[0])
+            if len(pts) > 3:
+                normal = sum(((pts[k] - centre).cross(pts[(k + 1) % len(pts)] - centre)
+                              for k in range(len(pts))), Vector())
+            if normal.length < 1e-12:
+                continue
+            normal.normalize()
+            samples = [centre] + [p.lerp(centre, 0.2) for p in pts]
+            facing = [d for d in dirs if d.dot(normal) > 1e-3]
+            if any(tree.ray_cast(s + normal * eps + d * eps, d)[0] is None for s in samples for d in facing):
+                visible[idx] = True
+        ev.to_mesh_clear()
+    if arm is not None and arm.animation_data is not None:
+        arm.animation_data.action = None
+    scene.frame_set(0)
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.faces.ensure_lookup_table()
+    hidden = [bm.faces[i] for i in np.flatnonzero(~visible)]
+    bmesh.ops.delete(bm, geom=hidden, context='FACES')
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+    print(f'[optimize_enemy] {obj.name}: culled {len(hidden)} of {len(visible)} faces')
+
+
+def place_root(turn, size):
+    """Turn the model `turn` degrees about the vertical and scale it by `size`
+    on its root node, standing on the origin with its footprint centred
+    (bounding box of the rest pose)."""
+    scene = bpy.context.scene
+    roots = [o for o in scene.objects if o.parent is None]
+    if len(roots) != 1:
+        raise RuntimeError(f'place_root expects one root, found {[o.name for o in roots]}')
+    root = roots[0]
+    turn_scale = Matrix.Rotation(math.radians(turn), 4, 'Z') @ Matrix.Scale(size, 4)
+    bpy.context.view_layer.update()
+    co = np.array([tuple(turn_scale @ o.matrix_world @ Vector(c))
+                   for o in scene.objects if o.type == 'MESH' for c in o.bound_box])
+    lo, hi = co.min(0), co.max(0)
+    offset = Matrix.Translation((-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, -lo[2]))
+    root.matrix_world = offset @ turn_scale @ root.matrix_world
+    bpy.context.view_layer.update()
 
 
 def trim_action(act, start, end, blend=0):
@@ -841,9 +1054,10 @@ def run(name):
     out = os.path.join(repo, recipe.get('out') or os.path.splitext(recipe['src'])[0] + '.glb')
     decim = recipe.get('decimate')
     with tempfile.TemporaryDirectory() as tmp:
-        src = git_export(repo, recipe['src'], tmp)
+        rev = recipe.get('rev', SOURCE_REV)
+        src = git_export(repo, recipe['src'], tmp, rev)
         for extra in recipe.get('extra', []):
-            git_export(repo, extra, tmp)
+            git_export(repo, extra, tmp, rev)
         clear_scene()
         # The importer places keys by the scene rate, and recipe frames (`trim`) count
         # at the baker's 30 fps; a fresh Blender runs at 24.
@@ -859,9 +1073,18 @@ def run(name):
             trim_action(bpy.data.actions[action_name], *window)
         if recipe.get('rigid_to_skin'):
             rigid_to_skin()
+        if 'join_skin' in recipe:
+            join_skin(recipe['join_skin'])
+        if recipe.get('vertex_colors') is False:
+            drop_vertex_colors()
 
         meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH']
         for obj in meshes:
+            cull = recipe.get('cull_hidden')
+            if cull:
+                cull_hidden(obj, **(cull if isinstance(cull, dict) else {}))
+            if 'decimate_materials' in recipe:
+                decimate_materials(obj, recipe['decimate_materials'])
             ratio = decim
             if isinstance(decim, dict):
                 ratio = next((r for pat, r in decim.items() if fnmatch.fnmatchcase(obj.name, pat)), 1.0)
@@ -887,6 +1110,8 @@ def run(name):
             for img in bpy.data.images:
                 resize_image(img, recipe['texture'])
 
+        if 'root' in recipe:
+            place_root(**recipe['root'])
         rest_from_file = recipe.get('rest_from_file', False)
         if rest_from_file:
             keep_file_rest_pose()

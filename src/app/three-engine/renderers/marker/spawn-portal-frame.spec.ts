@@ -342,14 +342,14 @@ describe('Spawn-Portal-Rahmen (GLB)', () => {
  * Bodies of the ground enemies at their config scale (m): width across,
  * height, length along the way they walk (+z of the model). Bounding boxes
  * of their GLBs times `scale` in enemy-types.config.ts, measured
- * 2026-09-13. The air units (bat, dragon, hornet) come through the middle
+ * 2026-09-13, the tank 2026-09-15 (new model, rounded up). The air units (bat, dragon, hornet) come through the middle
  * of the opening and climb away (utils/air-portal-exit.ts); the dragon is
  * wider than even the largest opening and, up to scale 1, taller.
  */
 const GROUND_BODIES: Record<string, readonly [number, number, number]> = {
   zombie: [2.2, 4.2, 1.9],
   'zombie-v2': [3.6, 4.1, 0.8],
-  tank: [3.7, 3.2, 9.2],
+  tank: [4.8, 3.1, 6.7],
   wallsmasher: [11.0, 5.8, 2.4],
   'stone-golem': [12.6, 12.4, 7.1],
   penguin: [1.9, 2.3, 1.3],

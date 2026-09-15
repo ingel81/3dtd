@@ -30,6 +30,30 @@ Gemessen: 9 Meshes, alle geskinnt, 4.858 Vertices, 5.288 Dreiecke, 41 Knochen, e
 `Death_A` (0,80 s), `Death_B` (2,63 s), `Death_C_Skeletons` (2,00 s). Die 4,8 MB kommen fast
 nur von den Clips; das Spiel backt nur die konfigurierten.
 
+## quaternius-tank/tank.glb (übernommen)
+
+Seit 2026-09-15 das Ausgangsmodell des Tank-Gegners (vorher „Tank“ von Zsky, CC-BY 3.0).
+`tools/blender/optimize_enemy.py` (Rezept `tank`) liest diese Datei und schreibt
+`enemies/tank.glb`; Nennung in `src/app/configs/attributions.config.ts`. Der Ordner
+`candidates/` kommt nicht in den Produktions-Build (`angular.json`).
+
+| | |
+|---|---|
+| Modell | „Tank“ |
+| Autor | Quaternius (quaternius.com) |
+| Lizenz | CC0 1.0, http://creativecommons.org/publicdomain/zero/1.0/ |
+| Quelle | https://poly.pizza/m/cW3zvvkMOM |
+| Download | https://static.poly.pizza/58c387b2-636f-49dc-a900-13b0852717d6.glb |
+| Abgerufen | 2026-09-15, unverändert (SHA-256 `1763818d11cb5cef32dcbe9cf52af108710310c034591e9bdf4555847e73e979`) |
+
+Poly Pizza führt das Modell als „Public Domain (CC0)“, im Seitendaten-Feld „Licence“ als
+„CC0 1.0“.
+
+Gemessen: 5 Meshes (Rumpf und beide Ketten geskinnt, Turm und Rohr starr am Wurzelknoten),
+12.093 Vertices, 6.544 Dreiecke, 45 Knochen, keine Texturen (6 Materialfarben, `COLOR_0`
+überall weiß), 4 Clips zu je 0,79 s: `Tank_Forward`, `Tank_Backwards`, `Tank_TurningLeft`,
+`Tank_TurningRight`; sie bewegen nur die 44 Kettenglieder. Rohr in −x, 14,8 Einheiten lang.
+
 ## kenney-graveyard-kit/character-skeleton.glb (übernommen)
 
 Seit 2026-09-12 das Modell des Skeleton-Gegners: liegt als `enemies/skeleton.glb`, die Textur

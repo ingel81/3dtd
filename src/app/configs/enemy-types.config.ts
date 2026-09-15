@@ -332,26 +332,34 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   tank: {
     id: 'tank',
     name: 'Tank',
+    // Quaternius tank in metres, gun along +z, standing on the origin
+    // (tools/blender/optimize_enemy.py, recipe `tank`)
     modelUrl: 'assets/models/enemies/tank.glb',
-    scale: 2.009,
+    scale: 1,
     armorType: 'heavy',
     baseHp: 250, // Heavily armored (reduced from 500 for better early game balance)
     baseSpeed: 3,
     reward: 5, // Only without AI
-    hasAnimations: false,
-    animationSpeed: 1,
+    hasAnimations: true,
+    walkAnimation: 'TankArmature|Tank_Forward',
+    // The lower track run moves 0.81 m per clip second, so the tracks keep
+    // pace with the ground at 3 m/s
+    animationSpeed: 3.72,
+    randomAnimationStart: true,
     movingSound: 'assets/sounds/enemies/tank/moving.mp3',
     movingSoundVolume: 0.3,
     movingSoundRefDistance: 50, // Tanks are louder (larger refDistance range)
-    heightOffset: 1, // At 0 the tracks sink into the road
+    heightOffset: 0,
     healthBarOffset: 5.5,
     canBleed: false, // Tanks don't bleed
-    headingOffset: -0.122, // ~-7° rotation offset
+    headingOffset: 0,
     mechanical: true,
     randomSoundStart: true, // Start sound at random position
-    lateralSpread: 0.85,
+    // 4.7 m wide (the old tank 3.7 m): 0.7 keeps it as far from the kerb of
+    // a 10 m road as 0.85 kept the old one
+    lateralSpread: 0.7,
     spawnStartDelay: 800, // Larger gap between tanks (800ms instead of 300ms)
-    previewScale: 1.073,
+    previewScale: 0.65,
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
     previewOffsetY: 0,

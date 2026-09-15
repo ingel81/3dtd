@@ -112,7 +112,7 @@ Ausblenden und kein Einsinken.
 
 ### Statische Modelle (`bakeStaticVAT`)
 
-Für Modelle ohne Animation (`hasAnimations: false` oder keine Clips im Model, z.B. Tank):
+Für Modelle ohne Animation (`hasAnimations: false` oder keine Clips im Model, z.B. Skarnax; bis 2026-09-15 auch der Tank):
 
 1. **Alle** Non-Skinned Meshes im Model sammeln
 2. Geometrien mergen (Positionen, Normalen, UVs, Indices)
@@ -193,7 +193,7 @@ Das `+ 0.5` ist Texel-Center-Sampling (NearestFilter).
 
 ### Multi-Material Support
 
-Modelle mit mehreren Materialien (z.B. Tank: Turret mit Textur, Ketten ohne) werden über Per-Vertex Attribute gehandhabt:
+Modelle mit mehreren Materialien (z.B. Tank: sechs Materialfarben, keine Textur; Hornet: vier Materialien) werden über Per-Vertex Attribute gehandhabt:
 
 | Attribut | Typ | Beschreibung |
 |----------|-----|-------------|
@@ -536,17 +536,17 @@ Nach dem Bake überschreibt `config.unlit` den erkannten `isUnlit`-Wert, und
 **Problem:** VAT DataTexture breiter als WebGL MAX_TEXTURE_SIZE (16384).
 **Lösung:** Texture Tiling - Vertices werden auf mehrere Zeilen verteilt (MAX_VAT_WIDTH = 8192).
 
-### 2. Multi-Mesh Modelle (Tank: 7 Sub-Meshes)
+### 2. Multi-Mesh Modelle (alter Tank bis 2026-09-15: 7 Sub-Meshes)
 
 **Problem:** `bakeStaticVAT` nahm nur das größte Mesh, Rest fehlte.
 **Lösung:** Alle Non-Skinned Meshes mergen mit korrekten Transforms.
 
-### 3. Multi-Material (Tank: Textur + Farb-Meshes)
+### 3. Multi-Material (alter Tank: Textur + Farb-Meshes)
 
 **Problem:** Eine Diffuse Texture auf alle Vertices angewendet → falsche Farben.
 **Lösung:** Per-Vertex `aVertexColor` + `aUseMap` Flag. Meshes mit passender Texture nutzen diese, andere nutzen Material-Farbe.
 
-### 4. Beleuchtung (Tank: komplett schwarz)
+### 4. Beleuchtung (alter Tank: komplett schwarz)
 
 **Problem:** Normalen in View-Space transformiert, aber Lichtrichtungen in World-Space.
 **Lösung:** `normalMatrix` entfernt, nur `mat3(instanceMatrix) * normal` für World-Space Normalen.
