@@ -56,8 +56,9 @@ Ooze und Wurm damit ohne eigenen Zweig:
   Kappe von 20 % begrenzt den Schaden, auch wenn der Strahl über viele Meter
   Körper läuft.
 - **Wurm:** Jedes Segment ist ein eigener Gegner mit eigener HP. Frostbombe
-  und EMP treffen die Segmente im Radius; ist eines angehalten, steht der
-  ganze Wurm (siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md#wurm-kette-aus-segmenten)).
+  und EMP treffen die Segmente im Radius; ist der Kopf eines Wurms angehalten,
+  steht dieser Wurm, angehaltene Ringe dahinter zeigen nur ihre Tönung (siehe
+  [STATUS_EFFECTS.md](STATUS_EFFECTS.md#wurm-kette-aus-segmenten)).
   Der Laser brennt die Segmente unter sich, jedes bis zu seiner eigenen Kappe
   von 20 %. Maschinen sind beide nicht, das EMP hält sie nur als Boss.
 

@@ -42,8 +42,10 @@ interface ChainRef {
  *
  * The pace is the mean slow over the chain's segments on the route: a slowed
  * segment drags the rest along. A chain stands while one of its segments is
- * held (Enemy Debug stop) or halted (freeze, stun): a halted segment must
- * not move, and the chain cannot leave it behind without tearing apart.
+ * held (Enemy Debug stop) or its head is halted (freeze, stun). A halted ring
+ * behind the head stays out of the mean and is dragged along, its halt only
+ * shows (user decision 2026-09-15; until then any halted segment stood the
+ * whole chain).
  *
  * A segment comes out when its slot reaches the group's origin: the route
  * start inside the spawn portal for a wave worm, so the worm leaves the portal
@@ -176,6 +178,7 @@ export class WormChains {
 
   private tickChain(group: WormGroup, chain: WormChain, seconds: number, gameTimeMs: number, limit: number): void {
     let slowSum = 0;
+    let paced = 0;
     let walking = 0;
     let held = false;
     let halted = false;
@@ -183,10 +186,16 @@ export class WormChains {
       const enemy = group.segments[slot];
       if (enemy === null) continue;
       if (enemy.movement.paused) held = true;
-      const movement = enemy.movement;
-      if (movement.statusEffects.length !== 0 && movement.isHalted(gameTimeMs)) halted = true;
-      slowSum += movement.getSlowMultiplier(gameTimeMs);
       walking++;
+      const movement = enemy.movement;
+      // A frozen or stunned head stands its worm; a ring behind it is dragged
+      // along at the pace of the others, its halt only shows
+      if (movement.statusEffects.length !== 0 && movement.isHalted(gameTimeMs)) {
+        if (slot === chain.first) halted = true;
+        continue;
+      }
+      slowSum += movement.getSlowMultiplier(gameTimeMs);
+      paced++;
     }
     // An idle worm (debug placement) starts once one of its segments walks
     if (walking > 0 && !held) group.idle = false;
@@ -208,7 +217,7 @@ export class WormChains {
     }
 
     if (!held && !halted && !group.idle) {
-      const pace = walking > 0 ? slowSum / walking : 1;
+      const pace = paced > 0 ? slowSum / paced : 1;
       // Never backwards: a chain that is already closer only waits
       chain.front = Math.max(chain.front, Math.min(chain.front + group.speedMps * pace * seconds, limit));
     }
