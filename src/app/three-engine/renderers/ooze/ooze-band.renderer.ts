@@ -1,6 +1,7 @@
 import { Mesh, Vector3, type BufferAttribute, type BufferGeometry, type IUniform, type Scene, type ShaderMaterial } from 'three';
 import { BURST_PALETTES, OOZE_DEATH_LOOK, OOZE_LOOK, type BurstPalette } from '../../../configs/visual-effects.config';
 import { ROUTE_BODY_COVER, type RouteBodyStations } from '../../../utils/route-body';
+import { SeededRandom, seedOf } from '../../../utils/seeded-random';
 import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
 import { buildOozeBandGeometry, refreshOozeBandHeights, type OozeGround } from './ooze-band-geometry';
 import { createOozeBandMaterial } from './ooze-band-material';
@@ -72,6 +73,8 @@ export class OozeBandRenderer {
   private readonly bloodMoonTint: IUniform<Vector3> = { value: new Vector3(1, 1, 1) };
   private time = 0;
   private sinceRefresh = 0;
+  /** Seeded again for each part of a mess, see letGo() */
+  private readonly partRandom = new SeededRandom();
 
   /** @param mess Where a killed ooze's mess goes; without it a collapse makes none */
   constructor(
@@ -177,7 +180,8 @@ export class OozeBandRenderer {
   /**
    * The ooze was killed: its band collapses over OOZE_LOOK.collapse from
    * the stretch of its last frame, see the uCollapse uniform, and plans its
-   * mess for that stretch with the VFX settings of this moment.
+   * mess for that stretch with the VFX settings of this moment, seeded with
+   * `id`: the same kill makes the same mess at any timescale.
    */
   collapse(id: string): void {
     const band = this.bands.get(id);
@@ -188,7 +192,7 @@ export class OozeBandRenderer {
     const mess = this.mess;
     if (mess) {
       const { impactEffectsEnabled, groundMarksEnabled } = mess.effects;
-      band.mess = planOozeDeath(band.tipM - band.tailM, impactEffectsEnabled, groundMarksEnabled);
+      band.mess = planOozeDeath(band.tipM - band.tailM, impactEffectsEnabled, groundMarksEnabled, seedOf(id));
       band.messNext = 0;
     }
   }
@@ -219,7 +223,8 @@ export class OozeBandRenderer {
         band.dissolve = Math.min(1, band.dissolve + dt / band.dissolveS);
         u['uDissolve'].value = band.dissolve;
         while (band.messNext < band.mess.length && band.mess[band.messNext].t <= band.dissolve) {
-          this.letGo(band, band.mess[band.messNext++]);
+          const e = band.mess[band.messNext++];
+          this.letGo(band, e, (band.dissolve - e.t) * band.dissolveS);
         }
         if (band.dissolve >= 1) this.drop(id);
         continue;
@@ -256,11 +261,12 @@ export class OozeBandRenderer {
   }
 
   /**
-   * One part of a killed ooze's mess goes, at its place on the body and on
-   * the ground there: the route grid's, else the band's own under the
-   * station's centre.
+   * One part of a killed ooze's mess goes, `lateS` seconds after it fell
+   * due, at its place on the body and on the ground there: the route
+   * grid's, else the band's own under the station's centre. Its look comes
+   * from its own seed.
    */
-  private letGo(band: OozeBand, e: OozeMessEvent): void {
+  private letGo(band: OozeBand, e: OozeMessEvent, lateS: number): void {
     const mess = this.mess;
     if (!mess) return;
     const st = band.stations;
@@ -271,8 +277,9 @@ export class OozeBandRenderer {
     const bandGround = band.mesh.geometry.getAttribute('position') as BufferAttribute;
     const groundY = band.ground(x, z) ?? bandGround.getY(k * OOZE_LOOK.across + (OOZE_LOOK.across >> 1));
     const look = OOZE_DEATH_LOOK;
+    const random = this.partRandom.seed(e.seed).next;
     if (e.debris !== null) {
-      mess.debris.launch(e.debris, x, groundY + look.debris.lift, z, groundY);
+      mess.debris.launch(e.debris, x, groundY + look.debris.lift, z, groundY, random, lateS);
       return;
     }
     const lat = st.lat[k] + st.latPerRight[k] * offset;
@@ -283,7 +290,7 @@ export class OozeBandRenderer {
       mess.effects.spawnBloodSplatter(lat, lon, height + look.pops.lift * 0.5, look.pops.spray, look.goo);
     } else {
       const { sizeMin, sizeMax } = look.splashes;
-      mess.effects.spawnBloodDecal(lat, lon, height, sizeMin + (sizeMax - sizeMin) * Math.random(), look.goo);
+      mess.effects.spawnBloodDecal(lat, lon, height, sizeMin + (sizeMax - sizeMin) * random(), look.goo);
     }
   }
 
