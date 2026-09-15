@@ -1,6 +1,5 @@
 import type { AnimationClip } from 'three';
-import type { EnemyTypeConfig } from '../../../configs/enemy-types.config';
-import { TIMING } from '../../../configs/timing.config';
+import { enemyDeathDuration, type EnemyTypeConfig } from '../../../configs/enemy-types.config';
 
 /** Registry entry for one animation clip within the VAT */
 export interface VATAnimationEntry {
@@ -22,15 +21,15 @@ export interface VATClip {
 
 type VATClipConfig = Pick<
   EnemyTypeConfig,
-  'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'animationSpeed'
+  'walkAnimation' | 'runAnimation' | 'deathAnimation' | 'deathAnimations' | 'animationSpeed' | 'deathDuration'
 >;
 
 /**
  * Clip time a death animation is on screen. It plays at animationSpeed until
- * EnemyManager removes the enemy, TIMING.deathAnimationDuration after the kill.
+ * EnemyManager removes the enemy, enemyDeathDuration() after the kill.
  */
-export function vatDeathSeconds(config: Pick<EnemyTypeConfig, 'animationSpeed'>): number {
-  return (TIMING.deathAnimationDuration / 1000) * (config.animationSpeed ?? 1);
+export function vatDeathSeconds(config: Pick<EnemyTypeConfig, 'animationSpeed' | 'deathDuration'>): number {
+  return (enemyDeathDuration(config) / 1000) * (config.animationSpeed ?? 1);
 }
 
 /**

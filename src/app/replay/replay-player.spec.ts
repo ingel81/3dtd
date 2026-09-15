@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Vector3 } from 'three';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { TIMING } from '../configs/timing.config';
+import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { OOZE_LOOK, STUN_SPARKS } from '../configs/visual-effects.config';
 import { GameClock } from '../managers/game-state/game-clock';
 import { ABILITY_IMPACT_SOUNDS } from '../configs/audio.config';
@@ -313,6 +314,41 @@ describe('ReplayPlayer', () => {
       expect(fake.slots.has('replay-enemy-0')).toBe(true);
       player.seek(250 + TIMING.deathAnimationDuration + 10);
       expect(fake.slots.has('replay-enemy-0')).toBe(false);
+    });
+
+    it("keeps each dead enemy for its type's death duration", () => {
+      player.exit();
+      const rec = new ReplayRecording();
+      rec.reset(5, 0, 100, 0, null);
+      const soldier = rec.addEnemy('zombie-soldier', 0);
+      const zombie = rec.addEnemy('zombie', 0);
+      rec.endEnemy(soldier, 150, ENEMY_END.DIED);
+      rec.endEnemy(zombie, 150, ENEMY_END.DIED);
+      rec.beginFrame(0);
+      rec.pushEnemy(soldier, 0, 0, 0, 0, 1, 1, 0);
+      rec.pushEnemy(zombie, 5, 0, 0, 0, 1, 1, 0);
+      rec.endFrame();
+      rec.beginFrame(100);
+      rec.pushEnemy(soldier, 10, 0, 0, 0, 1, 0.5, 0);
+      rec.pushEnemy(zombie, 15, 0, 0, 0, 1, 0.5, 0);
+      rec.endFrame();
+      rec.beginFrame(4000);
+      rec.endFrame();
+      rec.finish(4000, 'completed');
+      const soldierMs = ENEMY_TYPES['zombie-soldier'].deathDuration!;
+      expect(soldierMs).toBeGreaterThan(TIMING.deathAnimationDuration);
+
+      const replay = new ReplayPlayer(rec, fake.engine as never);
+      replay.enter();
+      replay.seek(160);
+      expect(fake.slots.has('replay-enemy-0')).toBe(true);
+      expect(fake.slots.has('replay-enemy-1')).toBe(true);
+      replay.seek(150 + TIMING.deathAnimationDuration + 10);
+      expect(fake.slots.has('replay-enemy-1')).toBe(false);
+      expect(fake.slots.has('replay-enemy-0')).toBe(true);
+      replay.seek(150 + soldierMs + 10);
+      expect(fake.slots.has('replay-enemy-0')).toBe(false);
+      replay.exit();
     });
 
     it('brings a dead enemy back alive when scrubbed to before its death', () => {

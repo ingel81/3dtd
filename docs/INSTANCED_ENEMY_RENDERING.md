@@ -90,7 +90,8 @@ backt seit der Runde vom 2026-09-14 über Skinning.
 - Walk und Run loopen und kommen ganz in die VAT, bis auf den Frame am Clip-Ende: Der ist
   wieder Frame 0 (`ceil(Dauer × fps)` Frames).
 - Todes-Clips laufen mit `animationSpeed`, bis `EnemyManager` den Gegner nach
-  `TIMING.deathAnimationDuration` entfernt. Gebacken wird nur diese Clip-Zeit
+  `enemyDeathDuration()` entfernt (`EnemyTypeConfig.deathDuration`, sonst
+  `TIMING.deathAnimationDuration`, 2 s). Gebacken wird nur diese Clip-Zeit
   (`vatDeathSeconds`), bis einschließlich des Frames `floor(t × fps)`, der beim Entfernen zu
   sehen ist (`vatFrameCount`). Kürzere Todes-Clips kommen ganz in die VAT, mit ihrer
   Endpose als letztem Frame.
@@ -568,6 +569,7 @@ Nach dem Bake überschreibt `config.unlit` den erkannten `isUnlit`-Wert, und
 | `runAnimation` | Clip-Name für Run |
 | `deathAnimation` | Clip-Name für Death (gebacken bis zum Entfernen) |
 | `deathAnimations` | Pool von Todes-Clips, einer pro Kill (gebacken wie `deathAnimation`) |
+| `deathDuration` | Zeit vom Kill bis zum Entfernen in ms (Standard 2000), so weit werden Todes-Clips gebacken |
 | `animationSpeed` | Playback Speed Multiplier |
 | `randomAnimationStart` | Zufälliger Start-Offset (verhindert Sync) |
 | `unlit` | true → kein Lighting (Cartoon-Modelle) |

@@ -153,16 +153,25 @@ const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
 |-----------|--------------|--------------|
 | `walkAnimation` | Empfohlen | Standard-Bewegung |
 | `runAnimation` | Optional | Schnellere Bewegung (Alternative zu Walk) |
-| `deathAnimation` | Optional | Spielt beim Tod, 2 s bis zum Entfernen. Gebacken wird nur dieser Teil (`animationSpeed` × 2 s Clip-Zeit), der Rest des Clips ist nie zu sehen |
+| `deathAnimation` | Optional | Spielt beim Tod, bis der Gegner nach `deathDuration` (Standard 2 s) entfernt wird. Gebacken wird nur dieser Teil (`animationSpeed` × `deathDuration` Clip-Zeit), der Rest des Clips ist nie zu sehen |
 | `deathAnimations` | Optional | Pool von Todes-Clips, einer zufällig pro Kill; gekürzt wie `deathAnimation` |
 
 Idle-Clips werden nicht gebacken, das Spiel zeigt keine stehenden Gegner.
 
-Ein Todes-Clip muss innerhalb von `animationSpeed` × 2 s Clip-Zeit am Boden sein, sonst
-verschwindet der Gegner stehend. `zombie-v2` hatte deshalb `Electrocuted_Fall` im Pool, dessen
-Fall erst nach etwa 3,25 s beginnt; der Clip flog raus (fd18a10). Seit `05b25233` ist er in
-Blender auf den Sturz (3,0 bis 5,0 s) geschnitten und wieder im Pool. Ein kürzerer Clip hält
-seinen letzten Frame bis zum Entfernen (Skeleton: `die` mit 0,33 s).
+Ein Todes-Clip muss am Boden liegen, wenn der Gegner entfernt wird, sonst verschwindet er im
+Fallen. Das geschieht `deathDuration` ms nach dem Kill (`EnemyTypeConfig`, Standard
+`TIMING.deathAnimationDuration` = 2000), in Clip-Zeit also nach `animationSpeed` ×
+`deathDuration`. `tools/model-budget/death-rest.spec.ts` prüft das an den Modelldateien: Nach
+dem Entfernen bewegt sich kein Vertex eines Todes-Clips mehr als 5 % der Modellhöhe. Zombie v2
+(`Dead`), Stone Golem und Zombie Soldier fielen nach 2 s noch; seit dem Playtest vom
+2026-09-15 haben sie eine `deathDuration`, in der ihr längster Todes-Clip ganz läuft (3000,
+3000 und 3300 ms). Eine längere `deathDuration` verschiebt auch das Wellenende, denn Gegner in
+der Todesanimation zählen dort mit (`getKillingCount()`).
+
+`zombie-v2` hatte `Electrocuted_Fall` im Pool, dessen Fall erst nach etwa 3,25 s beginnt; der
+Clip flog raus (fd18a10). Seit `05b25233` ist er in Blender auf den Sturz (3,0 bis 5,0 s)
+geschnitten und wieder im Pool. Ein kürzerer Clip hält seinen letzten Frame bis zum Entfernen
+(Skeleton: `die` mit 0,33 s).
 
 ### Animation Speed Coupling
 
@@ -771,7 +780,7 @@ wallsmasher: {
 - [ ] `canBleed` korrekt (true für organisch, false für mechanisch)
 - [ ] Bei Air Unit: `isAirUnit: true` gesetzt
 - [ ] Bei Run-Animation: `animationVariation: true` und `runSpeedMultiplier` gesetzt
-- [ ] Todes-Clip liegt innerhalb von `animationSpeed` × 2 s Clip-Zeit am Boden
+- [ ] Todes-Clip liegt beim Entfernen am Boden (`death-rest.spec.ts` grün, sonst `deathDuration` setzen)
 - [ ] Bei Boss: `isBoss: true`, nur wenn der Typ in keiner normalen Welle vorkommt (das Flag gilt pro Typ); optional `healthBarColor` (`immunityPercent` wird derzeit nicht ausgewertet)
 - [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu groß/klein
 - [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse

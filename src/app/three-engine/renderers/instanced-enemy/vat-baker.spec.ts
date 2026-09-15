@@ -54,18 +54,25 @@ describe('vatFrameCount', () => {
 
 describe('vatClips', () => {
   it('cuts death clips where the enemy is removed and keeps loops whole', () => {
-    const config = ENEMY_TYPES['zombie-v2'];
+    const config = ENEMY_TYPES['zombie'];
     const deathSeconds = (TIMING.deathAnimationDuration / 1000) * config.animationSpeed!;
     expect(vatDeathSeconds(config)).toBe(deathSeconds);
     expect(vatClips(config)).toEqual([
       { name: config.walkAnimation, seconds: Infinity },
-      ...config.deathAnimations!.map((name) => ({ name, seconds: deathSeconds })),
+      { name: config.deathAnimation, seconds: deathSeconds },
     ]);
   });
 
   it('scales the death cut with animationSpeed', () => {
     const clips = vatClips({ walkAnimation: 'walk', deathAnimation: 'die', animationSpeed: 0.75 });
     expect(clips[1]).toEqual({ name: 'die', seconds: 1.5 });
+  });
+
+  it("cuts at the type's own death duration where it has one", () => {
+    const config = ENEMY_TYPES['zombie-v2'];
+    expect(config.deathDuration).toBeGreaterThan(TIMING.deathAnimationDuration);
+    expect(vatDeathSeconds(config)).toBe((config.deathDuration! / 1000) * config.animationSpeed!);
+    expect(vatClips({ deathAnimation: 'die', deathDuration: 3300, animationSpeed: 1.38 })[0].seconds).toBeCloseTo(4.554);
   });
 
   it('bakes a clip used twice once, as far as its longest use', () => {

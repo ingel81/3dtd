@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
-import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath, enemyDeathDuration } from '../configs/enemy-types.config';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
@@ -498,7 +498,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.tilesEngine?.enemies.playDeathAnimation(enemy.id);
       this.pendingDeaths.push({
         enemy,
-        remainingMs: TIMING.deathAnimationDuration,
+        remainingMs: enemyDeathDuration(enemy.typeConfig),
       });
     } else {
       this.killingEnemies.delete(enemy.id);

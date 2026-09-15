@@ -5,11 +5,10 @@ import type { EnemyInstanceState } from '../three-engine/renderers/instanced-ene
 import type { TentacleStrike } from '../three-engine/renderers/three-tentacle.renderer';
 import type { OozeGround } from '../three-engine/renderers/ooze/ooze-band-geometry';
 import type { HeroPresentation } from '../managers/hero.manager';
-import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, enemyDeathDuration, type EnemyTypeId } from '../configs/enemy-types.config';
 import { BURST_PALETTES, OOZE_LOOK, STUN_SPARKS } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES, type ProjectileTypeId } from '../configs/projectile-types.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
-import { TIMING } from '../configs/timing.config';
 import { REPLAY_CONFIG } from '../configs/replay.config';
 import { GameClock } from '../managers/game-state/game-clock';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
@@ -122,6 +121,10 @@ export class ReplayPlayer {
   private shownEnemyCount = 0;
   /** Killed enemies of types with a death animation, by time of death */
   private readonly died: Int32Array;
+  /** Time from kill to removal of each recorded type (enemyDeathDuration), by type index */
+  private readonly deathMs: Float64Array;
+  /** The longest of them: an enemy killed longer ago than this is gone */
+  private readonly longestDeathMs: number;
   /** 1 for an enemy with a body along the route (an ooze): a band, no instance */
   private readonly isBody: Uint8Array;
   /** Body sample of the current and the next frame, valid where the stamp is this pass's */
@@ -198,6 +201,8 @@ export class ReplayPlayer {
       this.enemyLastSample[rec.eIndex[s]] = s;
     }
     this.died = diedWithDeathAnimation(rec);
+    this.deathMs = Float64Array.from(rec.enemyTypeIds, (id) => enemyDeathDuration(ENEMY_TYPES[id as EnemyTypeId] ?? {}));
+    this.longestDeathMs = Math.max(0, ...this.deathMs);
 
     const projectiles = rec.projectileCount;
     this.projectileShown = new Uint8Array(projectiles);
@@ -474,11 +479,13 @@ export class ReplayPlayer {
     }
     this.aliveNow = alive;
 
-    // Death animations running at t
+    // Death animations running at t, each as long as its type's
     const died = this.died;
-    for (let k = this.firstDiedAfter(t - TIMING.deathAnimationDuration); k < died.length; k++) {
+    for (let k = this.firstDiedAfter(t - this.longestDeathMs); k < died.length; k++) {
       const i = died[k];
-      if (rec.enemyEndMs[i] > t) break;
+      const diedMs = rec.enemyEndMs[i];
+      if (diedMs > t) break;
+      if (t - diedMs >= this.deathMs[rec.enemyType[i]]) continue;
       if (this.enemyStamp[i] !== stamp) this.showDying(i);
     }
 

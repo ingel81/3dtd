@@ -6,6 +6,7 @@
  */
 
 import { ArmorType } from '../configs/combat/combat.types';
+import { TIMING } from './timing.config';
 
 /**
  * What an enemy splits into when a tower kills it (EnemyManager.kill). A leak
@@ -88,6 +89,12 @@ export interface EnemyTypeConfig {
   deathAnimation?: string;
   /** Optional pool of death animations — one is picked at random per kill. Falls back to `deathAnimation` if empty/unset. */
   deathAnimations?: string[];
+  /**
+   * Time from the kill to the removal in ms, while the death clip plays
+   * (enemyDeathDuration). Default TIMING.deathAnimationDuration; longer where
+   * a death clip is still moving then (tools/model-budget/death-rest.spec.ts).
+   */
+  deathDuration?: number;
   animationSpeed?: number;
   animationVariation?: boolean; // Switches between walk and run animation
   runSpeedMultiplier?: number; // Speed multiplier for run animation (default: 1.0)
@@ -293,9 +300,13 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     reward: 3,
     hasAnimations: true,
     walkAnimation: 'Unsteady_Walk',
-    // Electrocuted_Fall is cut to its fall (3.0-5.0 s of the source clip), the
-    // part that fits into the 2 s before the enemy is removed.
+    // Electrocuted_Fall is cut to its fall, 3.0-5.0 s of the source clip.
     deathAnimations: ['Dead', 'dying_backwards', 'Electrocuted_Fall'],
+    // Dead (2.96 s) hits the ground between 1.9 and 2.1 s and settles until
+    // about 2.9 s; removed after the default 2 s it vanished in mid-fall. The
+    // whole clip plays, the other two end or lie still before (read from the
+    // clips, tools/model-budget/death-rest.spec.ts).
+    deathDuration: 3000,
     animationSpeed: 1,
     movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
@@ -400,6 +411,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hasAnimations: true,
     walkAnimation: 'Casual_Walk',
     deathAnimation: 'dying_backwards',
+    // dying_backwards (2.21 s of clip, 2.94 s at 0.75) drops between 1.1 and
+    // 1.4 s of clip time and settles its limbs until about 2 s; the default
+    // 2 s (1.5 s of clip) took the golem away before that. The whole clip
+    // plays (tools/model-budget/death-rest.spec.ts).
+    deathDuration: 3000,
     animationSpeed: 0.75,
 
     // Audio (Spatial) — heavy stone footstep loop while moving
@@ -538,6 +554,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hasAnimations: true,
     walkAnimation: 'zombie_02_Run',
     deathAnimation: 'zombie_02_Death',
+    // zombie_02_Death (4.5 s of clip, 3.26 s at 1.38) falls between 2.2 and
+    // 3.7 s of clip time; the default 2 s (2.76 s of clip) took the soldier
+    // away halfway down. The whole clip plays
+    // (tools/model-budget/death-rest.spec.ts).
+    deathDuration: 3300,
     animationSpeed: 1.38,
     movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
@@ -1009,6 +1030,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 };
 
 export type EnemyTypeId = keyof typeof ENEMY_TYPES;
+
+/** Time from the kill to the removal of an enemy in ms, see EnemyTypeConfig.deathDuration. */
+export function enemyDeathDuration(config: Pick<EnemyTypeConfig, 'deathDuration'>): number {
+  return config.deathDuration ?? TIMING.deathAnimationDuration;
+}
 
 export function getEnemyType(id: EnemyTypeId): EnemyTypeConfig {
   const type = ENEMY_TYPES[id];
