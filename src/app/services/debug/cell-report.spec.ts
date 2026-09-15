@@ -54,6 +54,7 @@ describe('cell report JSON', () => {
     widthSource: 'width',
     onStreet: true,
     inTunnel: false,
+    underWay: null,
     unmeasured: null,
     tileError: 1.234,
     sides: [side('left'), side('right')],
