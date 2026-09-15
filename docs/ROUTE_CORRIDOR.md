@@ -515,7 +515,10 @@ auf dem Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Dec
   liegt oder über dem zuletzt erreichten plus der Querneigung je Stelle
   seitdem, und höchstens `stepDrop` (0,5 m) unter dem tiefsten bisher
   erreichten oder unter dem zuletzt erreichten minus der Querneigung je
-  Stelle seitdem. Erreicht der Weg die Zelle nicht, ist sie nicht begehbar:
+  Stelle seitdem. Fällt der Boden zur Zelle hin, zählt dabei jeder
+  erreichte Boden um die Querneigung je Stelle bis dorthin abgesenkt, der
+  zuletzt erreichte auch unverändert (Auto talseitig, unten). Erreicht der
+  Weg die Zelle nicht, ist sie nicht begehbar:
   zu hoch (`step`) auf Auto, Transporter, Hecke, erhöhtem Garten, zu tief
   (`drop`) unter einer Böschung oder Kaimauer. Tiefer als `OUTLIER_M` ist
   eine Naht.
@@ -544,6 +547,33 @@ auf dem Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Dec
     Hang misst die Stufe von der Querneigung aus: Ein Auto 0,6 m hoch auf
     der Bergseite einer Straße mit 15 % Querneigung fällt mit 0,5 m weg,
     mit 0,75 m blieb es (`integration/corridor-walk.spec.ts`).
+  - **Auto talseitig** (seit 2026-09-15): Bis dahin war talseitig einer
+    Straße quer am Hang der höchste erreichte Boden die Mittellinie, und
+    ein Auto zählte von dort: 0,8 m hoch in 4 m Abstand bei 10 %
+    Querneigung lag es 0,4 m über ihr und blieb. Anlass: Playtest
+    2026-09-15 (Retest 607, Rothenburg), einzelne Autos mit Zellen (rotes
+    Auto, ohne Pick; ob es dieser Fall war, ist offen). Jetzt zählt es vom
+    Boden davor. Der zuletzt erreichte Boden behält seine volle Stufe: Ein
+    Garten auf Höhe der Mittellinie hinter der talseitigen Straßenkante
+    bleibt begehbar, ein Auto bis `stepRise` plus einer Stelle Gefälle über
+    dem Boden davor aber auch. Autozellen talseitig (synthetisch, Auto in
+    4 bzw. 6 m Abstand, vorher → jetzt):
+
+    | Querneigung | 0,6 m in 4 m | 0,8 m | 1,0 m | 0,6 m in 6 m | 0,8 m | 1,0 m |
+    |---|---|---|---|---|---|---|
+    | 3 % | bleibt → weg | weg | weg | bleibt → weg | weg | weg |
+    | 5 % | bleibt | weg | weg | bleibt | bleibt → weg | weg |
+    | 10 % | bleibt | bleibt → weg | weg | bleibt | bleibt → weg | bleibt → weg |
+    | 15 % | bleibt | bleibt → weg | bleibt → weg | bleibt | bleibt → weg | bleibt → weg |
+
+    Bergseitig fällt ein Auto mit 0,6 m in 4 m Abstand bei allen vier
+    Neigungen weg, wie vorher. Kosten: Wo der Boden zur Zelle hin fällt,
+    braucht die Prüfung nun auch für Zellen innerhalb einer Stufe um die
+    Mittellinie die Querneigung. In einer Spec (Route 1 km mit Knicken,
+    3594 Zellen, nicht committet) stiegen die Säulenproben je Durchgang
+    eben von 5626 auf 7597, bei 5 % Neigung auf 8504, bei 15 % von 10167
+    auf 11115; die Zeit blieb in der Spec bei etwa 1 ms (Säulen aus einer
+    Funktion, nicht aus dem Cache der Engine).
   - **Abfall-Check** (`stepDrop`, seit 2026-09-15): Bis dahin ging es
     abwärts beliebig weit. Im Playtest 2026-09-15 (Retest 605, Rothenburg)
     endete der Korridor an einer Straße quer am Hang bergseitig an der
@@ -1240,7 +1270,10 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   spiegeln), auch in DevWorld. Nicht im Spiel geprüft.
 - Steht an einem Hang zur Zelle hin ein Auto und fällt die andere Seite
   ähnlich stark, nimmt der Stufen-Check die Neigung für den Hang und lässt
-  die Zelle im Korridor, auf dem Autodach. Liegt eine Randzelle am Hang
+  die Zelle im Korridor, auf dem Autodach. Talseitig bleibt ein Auto bis
+  `stepRise` plus einer Stelle Gefälle über dem Boden davor (bei 5 %
+  Querneigung 0,6 m), direkt neben der Mittellinie (erste Stelle) zählt es
+  weiter von der Mittellinie. Liegt eine Randzelle am Hang
   mehr als `roofRise` über der Mittellinie, endet der Korridor bergseitig
   vor ihr.
 - Was ein feineres Tile erst zeigt, während Tower stehen, eine Welle läuft

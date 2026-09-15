@@ -247,6 +247,38 @@ describe('Corridor short of the cells no enemy could walk to', () => {
     expect(positionsOutside(grid, route)).toEqual([]);
   });
 
+  /**
+   * Playtest 2026-09-15, retest 607, Rothenburg: single parked cars still
+   * carried cells (a red car, no pick). On the downhill side of a street
+   * across a slope the step check measured a car from the highest ground
+   * reached, the centre line: a car 0.8 m high 4 m down a 10 % cross slope
+   * stood only 0.4 m over it. Now from the ground in front of it.
+   */
+  it('ends the corridor before a car on the downhill side of a street across a slope', () => {
+    const slope = (z: number) => -(z - 1) * 0.1;
+    const onCar = (x: number, z: number) => x > 20 && x < 24 && z > 4 && z < 6;
+    const { grid, route, builds } = narrowed((x, z) => slope(z) + (onCar(x, z) ? 0.8 : 0));
+
+    expect(builds).toBe(1);
+    expect(grid.getCellAt(21, 5)).toBeUndefined();
+    expect(grid.getCellAt(23, 5)).toBeUndefined();
+    expect(grid.getCellAt(21, 3)).toBeDefined();
+    // The slope itself keeps its cells, downhill and uphill.
+    expect(grid.getCellAt(11, 7)).toBeDefined();
+    expect(grid.getCellAt(21, -5)).toBeDefined();
+    expect(positionsOutside(grid, route)).toEqual([]);
+  });
+
+  it('keeps a step up from the ground in front on the downhill side of a street across a slope', () => {
+    // Falling 10 % towards +z, a garden level with the centre line from 5 m
+    // off it: 0.4 m over the road edge in front of it at 4 m, 0.6 m over the
+    // road carried on down the slope.
+    const { grid, builds } = narrowed((_x, z) => (z > 6 ? 0 : -(z - 1) * 0.1));
+
+    expect(builds).toBe(0);
+    expect(grid.getCellAt(31, 7)).toBeDefined();
+  });
+
   it('keeps a kerb, photogrammetry noise and a bank rising 20 % on one side walkable', () => {
     // Right: a kerb 0.2 m up from 2 m off the centre line, then a bank
     // rising 0.2 m per metre, with nothing falling on the other side to
