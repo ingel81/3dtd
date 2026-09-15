@@ -40,8 +40,8 @@ export class GroundDecals {
   readonly goo: DecalInstanceManager;
   private readonly gooColor = new Color();
   private decalIdCounter = 0;
-  /** Blood moon tint the three decal materials share, see setBloodMoon() */
-  private readonly bloodMoonTint: IUniform<Vector3> = { value: new Vector3(1, 1, 1) };
+  /** Blood moon tint the three decal materials share, see setBloodMoon(); the orbital beam's embers take it too */
+  readonly bloodMoonTint: IUniform<Vector3> = { value: new Vector3(1, 1, 1) };
 
   constructor(private readonly scene: Scene) {
     // Create shared plane geometry for all decals (rotated to lay flat)

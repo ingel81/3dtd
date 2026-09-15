@@ -6,6 +6,7 @@ import {
   MeshBasicMaterial,
   SphereGeometry,
   Material,
+  type IUniform,
 } from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
@@ -516,6 +517,11 @@ export class ThreeEffectsRenderer {
   /** Blood moon look at `amount` (BloodMoonLook): the ground marks take the mood's tint. */
   setBloodMoon(amount: number, linearOutput: boolean): void {
     this.particleEffects.setBloodMoon(amount, linearOutput);
+  }
+
+  /** The ground marks' blood moon tint uniform, for marks drawn outside the decal pools (the orbital beam's embers). */
+  get groundMarkTint(): IUniform<Vector3> {
+    return this.particleEffects.groundMarkTint;
   }
 
   /** No new ground marks while `held` (wave replay), see ParticleEffectsRenderer.holdGroundMarks. */

@@ -1,4 +1,4 @@
-import { Vector3, Color, Scene } from 'three';
+import { Vector3, Color, Scene, type IUniform } from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
 import {
@@ -618,6 +618,11 @@ export class ParticleEffectsRenderer {
   /** Blood moon tint of the ground marks, see GroundDecals.setBloodMoon. */
   setBloodMoon(amount: number, linearOutput: boolean): void {
     this.decals.setBloodMoon(amount, linearOutput);
+  }
+
+  /** The ground marks' blood moon tint uniform, for marks drawn outside the decal pools (the orbital beam's embers). */
+  get groundMarkTint(): IUniform<Vector3> {
+    return this.decals.bloodMoonTint;
   }
 
   /** Whether impact effects are spawned; callers skip the work that only feeds one otherwise. */

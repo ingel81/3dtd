@@ -779,44 +779,90 @@ export const EMP_PULSE_LOOK = {
  * so a pause holds the beam and the timescale plays it faster; the foot
  * runs along the swept route at the ability's speed.
  *
- * A column of light `column.height` m high over the foot, a white-hot core
- * of `coreWidth` and an orange glow of `glowWidth` (half widths, m) on a
- * quad `quadWidth` m wide turned to the camera, depth tested; a glow at the
- * foot and a ring at the beam's radius on the ground (depth test off); a
- * flash where it comes down; `sparks.rate` sparks per second thrown from
- * the foot; a scorch mark every `scorchStep` metres of the way (with
- * ground marks on). Fades in over `fadeIn`, out over `fadeOut` once it has
+ * A column of light `column.height` m high over the foot on a quad
+ * `quadWidth` m wide turned to the camera, depth tested: a white-hot core
+ * of `coreWidth`, a yellow-orange inner corona of `innerWidth` and a red
+ * outer corona of `outerWidth` (half widths, m); energy streaks and pulses
+ * run down it and the corona's edges waver like air over heat (`shimmer`,
+ * a share of the quad's half width). It comes down from the sky in
+ * `descend`, fades in over `fadeIn` and out over `fadeOut` once it has
  * burnt its time or reached the end of its path.
  *
- * With impact effects off (VFX settings) no sparks. Budget per beam: about
- * 120 sparks in a buffer of the renderer's own, four draw calls more
- * (column, ring, foot, flash) while it burns; two beams at once.
+ * At the foot a glow sprite, a disc of light on the ground (`groundGlow`)
+ * and a ring at the beam's radius (depth test off); a flash where it comes
+ * down; sparks and molten debris thrown from the foot, smoke and dust
+ * kicked up behind it. The burn trail: every `scorchStep` metres a scorch
+ * mark (SCORCH_DECAL_CONFIG source `beam`, with ground marks on) and a
+ * patch of embers, glowing cracks that cool from white-hot over orange to
+ * dark red within `embers.cool` and are gone, tinted by the blood moon
+ * like the ground marks.
+ *
+ * With impact effects off (VFX settings, the Low preset) the column without
+ * streaks and shimmer, the foot, ring and flash: no ground glow, sparks,
+ * debris, smoke or embers.
+ *
+ * Budget: see PARTICLE_SYSTEM.md, Orbitallaser (orbital-beam.renderer.spec.ts
+ * measures the peak).
  */
 export const ORBITAL_BEAM_LOOK = {
   /** Beams drawn at once; another takes the place of the oldest */
   beams: 2,
-  column: { height: 320, coreWidth: 0.9, glowWidth: 3.2, quadWidth: 9, intensity: 2.2 },
-  fadeIn: 0.12,
-  fadeOut: 0.35,
+  column: {
+    height: 340, quadWidth: 24, coreWidth: 1.3, innerWidth: 3.6, outerWidth: 7.5,
+    intensity: 2.4, shimmer: 0.05, streaks: 0.5,
+  },
+  descend: 0.08,
+  fadeIn: 0.08,
+  fadeOut: 0.45,
   /** Glow sprite at the foot, `size` times the beam radius across */
-  foot: { size: 3.2, intensity: 2.0 },
+  foot: { size: 4.4, intensity: 2.4 },
+  /** Disc of light on the ground around the foot, `size` times the beam radius in radius, flickering */
+  groundGlow: { size: 3.6, intensity: 1.2 },
   /** Sprite of `size` m where the beam comes down */
-  flash: { duration: 0.3, size: 60, intensity: 2.5 },
+  flash: { duration: 0.35, size: 90, intensity: 3 },
   /** Ring on the ground at the beam's radius: where it hurts */
-  ring: { opacity: 0.8 },
+  ring: { opacity: 0.9 },
   /** Sparks: `rate` per second, out at `speed` and up at `lift` (m/s), pulled down by `gravity`; diameters m */
-  sparks: { rate: 220, life: 0.55, speed: [4, 12], lift: [3, 10], gravity: 14, size: [0.5, 1.3] },
-  /** Metres of the way between two scorch marks */
-  scorchStep: 3,
-  /** Tints, linear */
+  sparks: { rate: 400, life: 0.65, speed: [5, 18], lift: [4, 14], gravity: 16, size: [0.5, 1.4] },
+  /**
+   * Molten debris: `rate` blobs a second thrown out at `speed` and up at
+   * `lift` (m/s) under `gravity`, glowing and cooling on the ground for the
+   * rest of their `life`; while they fly, streaks of `trail` sprites
+   * `trailStep` seconds apart. Diameters m.
+   */
+  debris: { rate: 40, life: [0.9, 1.6], speed: [3, 10], lift: [6, 13], gravity: 20, size: [0.9, 1.7], trail: 3, trailStep: 0.03 },
+  /**
+   * Smoke and dust: `rate` puffs a second of the smoke atlas, born within
+   * `spread` times the beam radius of the foot, rising at `rise` and
+   * drifting out at `drift` (m/s), growing from size[0] to size[1] m.
+   */
+  smoke: { rate: 30, life: [2.2, 3.4], spread: 1, rise: [1.5, 4], drift: 1.2, size: [3, 11] },
+  /** Embers in the trail: patches `size` times the beam radius in radius, cooling over `cool` s, `intensity` at white heat */
+  embers: { size: 0.75, cool: 6, intensity: 1.6 },
+  /** Metres of the way between two scorch marks and ember patches */
+  scorchStep: 2.5,
+  /**
+   * Tints. Column, embers and particles build their light in display
+   * values (displayLight, display-output.ts); foot, ground glow, ring and
+   * flash are three's own materials, linear.
+   */
   colors: {
-    core: { r: 1.0, g: 0.95, b: 0.85 },
-    glow: { r: 1.0, g: 0.42, b: 0.12 },
-    foot: { r: 1.0, g: 0.6, b: 0.25 },
-    flash: { r: 1.0, g: 0.85, b: 0.65 },
+    core: { r: 1.0, g: 0.97, b: 0.9 },
+    inner: { r: 1.0, g: 0.62, b: 0.2 },
+    outer: { r: 0.95, g: 0.26, b: 0.05 },
+    foot: { r: 1.0, g: 0.62, b: 0.28 },
+    groundGlow: { r: 1.0, g: 0.5, b: 0.18 },
+    flash: { r: 1.0, g: 0.88, b: 0.7 },
     ring: { r: 1.0, g: 0.5, b: 0.18 },
     spark: { r: 1.0, g: 0.45, b: 0.1 },
     sparkHot: { r: 1.0, g: 0.9, b: 0.6 },
+    debrisHot: { r: 1.0, g: 0.75, b: 0.3 },
+    debrisCold: { r: 0.45, g: 0.07, b: 0.01 },
+    dust: { r: 0.42, g: 0.36, b: 0.29 },
+    soot: { r: 0.16, g: 0.14, b: 0.12 },
+    emberHot: { r: 1.0, g: 0.85, b: 0.5 },
+    emberWarm: { r: 1.0, g: 0.38, b: 0.06 },
+    emberDull: { r: 0.4, g: 0.04, b: 0.01 },
   },
 } as const;
 
