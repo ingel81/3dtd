@@ -285,6 +285,20 @@ describe('World map, playtest 340 to 346', () => {
       expect(bestWaves.newRecord()).toBeNull();
     });
 
+    it('649: game over before wave 1 (HQ drained by the +HP cheat): no hint, no record; after wave 1: "First run here"', () => {
+      // Round 13 went down this way: WAVE 0 on the summary, so no wave had started
+      gameOver();
+      expect(bestWaves.newRecord()).toBeNull();
+      expect(bestWaves.records()).toEqual([]);
+
+      restart();
+      wave(1);
+      gameOver();
+      const fixture = hint(bestWaves.newRecord()!);
+      expect(text(fixture)).toContain('New record for Heilbronn: wave 1');
+      expect(text(fixture)).toContain('First run here');
+    });
+
     it('342: restart and die earlier: no hint; again and die later: "Best before: wave 3"', () => {
       waves(3);
       gameOver();
