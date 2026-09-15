@@ -420,7 +420,9 @@ zurücklassen, ohne zu reißen; über das Mittel bräuchte eine Frostbombe, die 
 von 240 Segmenten trifft, die Kette um 7 % langsamer für eine Sekunde, und die
 vereisten Segmente rutschten sichtbar mit. Die Segmente tragen `isBoss`, halten
 also 1 s (Freeze) beziehungsweise 0,75 s (Stun). Tint, Eiskristalle und Funken
-zeigen die betroffenen Segmente wie jeder Gegner.
+zeigen die betroffenen Segmente wie jeder Gegner. Solange der Wurm steht, stehen auch
+Beine und Kiefer aller Segmente, denn ihre Clips laufen nach der zurückgelegten Strecke
+(`gaitStride`, [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md)).
 
 ### Ooze (Körper entlang der Route)
 
