@@ -134,12 +134,19 @@ const laserBurnPiece = (piece: number) =>
 
 /** Game state sounds configuration */
 export const GAME_SOUNDS = {
+  /**
+   * The HQ taking a hit. Heard up to 1500 m like the nuclear strike, where
+   * the common limit would cull it at 500 m: it has to reach the wide
+   * overview too, as its shake does. The rolloff keeps it quiet out there,
+   * at 1000 m 4 % of its level at 40 m.
+   */
   hqDamage: {
     id: 'hq_damage',
     url: 'assets/sounds/effects/explosion.mp3',
     refDistance: 40,
     rolloffFactor: 1,
     volume: 1.4,
+    audibleDistance: 1500,
   },
   /**
    * Nuclear strike, synthesised (utils/nuke-sound.ts): the blast at the

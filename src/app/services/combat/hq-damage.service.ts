@@ -57,6 +57,7 @@ export class HQDamageService {
           refDistance: GAME_SOUNDS.hqDamage.refDistance,
           rolloffFactor: GAME_SOUNDS.hqDamage.rolloffFactor,
           volume: GAME_SOUNDS.hqDamage.volume,
+          audibleDistance: GAME_SOUNDS.hqDamage.audibleDistance,
         }
       );
     }
