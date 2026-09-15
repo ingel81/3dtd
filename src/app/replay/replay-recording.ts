@@ -44,6 +44,10 @@ export const ENEMY_FLAG = {
   FROZEN: 16,
   /** Stunned (EMP) */
   STUNNED: 32,
+  /** A worm segment drawn with its chain's segment model; without this and WORM_TAIL with its type's, the head */
+  WORM_BODY: 64,
+  /** A worm segment drawn with its chain's tail model */
+  WORM_TAIL: 128,
 } as const;
 
 /** Bits of a tower sample */

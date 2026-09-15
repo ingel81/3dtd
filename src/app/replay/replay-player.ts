@@ -30,6 +30,8 @@ export interface ReplayPlayerOptions {
 
 /** Status bits followed every frame while on: their auras move, the sparks repeat */
 const FOLLOWED_FLAGS = ENEMY_FLAG.SLOWED | ENEMY_FLAG.POISONED | ENEMY_FLAG.FROZEN | ENEMY_FLAG.STUNNED;
+/** The bits that pick a worm segment's model, see showModel */
+const WORM_PART = ENEMY_FLAG.WORM_BODY | ENEMY_FLAG.WORM_TAIL;
 
 /** What an enemy of the recording shows right now */
 const SHOWN_NONE = 0;
@@ -576,6 +578,7 @@ export class ReplayPlayer {
       if (!listed) this.shownEnemies[this.shownEnemyCount++] = i;
     }
     this.enemyStamp[i] = this.stamp;
+    this.showModel(i, id, this.rec.eFlags[s]);
 
     let slot = this.enemySlots[i];
     if (slot === null || slot.released) slot = this.enemySlots[i] = engine.enemies.resolveSlot(id);
@@ -594,6 +597,7 @@ export class ReplayPlayer {
     const listed = this.enemyShown[i] !== SHOWN_NONE;
     if (this.enemyShown[i] === SHOWN_NONE) {
       if (!this.spawnEnemy(i, id)) return;
+      this.showModel(i, id, this.rec.eFlags[s]);
       const slot = this.enemySlots[i];
       if (slot !== null) {
         lerpSample(this.rec.ePos, s, s, 0, this.pos);
@@ -608,6 +612,23 @@ export class ReplayPlayer {
     }
     this.enemyStamp[i] = this.stamp;
     if (!listed) this.shownEnemies[this.shownEnemyCount++] = i;
+  }
+
+  /**
+   * A worm segment in the model its sample names (ENEMY_FLAG.WORM_BODY,
+   * WORM_TAIL; neither is its type's, the head), switched where that changed:
+   * a split makes a ring the head and the one in front of the gap the tail.
+   * Takes the new slot, the old one is released.
+   */
+  private showModel(i: number, id: string, flags: number): void {
+    const part = flags & WORM_PART;
+    if (part === (this.enemyFlags[i] & WORM_PART)) return;
+    const type = ENEMY_TYPES[this.rec.enemyTypeIds[this.rec.enemyType[i]]];
+    const chain = type?.chain;
+    if (!chain) return;
+    const model = part === 0 ? type.id : part === ENEMY_FLAG.WORM_TAIL ? chain.tailModel : chain.segmentModel;
+    this.engine.enemies.setRenderType(id, model as EnemyTypeId);
+    this.enemySlots[i] = this.engine.enemies.resolveSlot(id);
   }
 
   private spawnEnemy(i: number, id: string): boolean {
