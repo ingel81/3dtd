@@ -56,7 +56,8 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 ## Wave Director & AI
 
 > Der Wave-Director ist **regelbasiert und vollständig clientseitig**. Das
-> ONNX-Modell ist Opt-in im Debug-Fenster, kein Python-Server im Spielbetrieb.
+> ONNX-Modell ist Opt-in im Debug-Fenster (nur mit einem Modell passender
+> Eingangsbreite), kein Python-Server im Spielbetrieb.
 > Begründung und Messungen: AI_WAVE_DIRECTOR_PLAN.md.
 
 | Dokument | Status | Beschreibung |

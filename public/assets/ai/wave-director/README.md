@@ -46,5 +46,5 @@ Diese werden automatisch bei `npm install` kopiert (postinstall script).
 
 ## Live-Stand
 
-- **Frontend:** Die Wellen wählt ein Regel-Director im Client; dieses Modell ist nur ein Opt-in im Training-Debug-Fenster („Load ONNX model"). Siehe `docs/AI_WAVE_DIRECTOR_PLAN.md`.
-- **Deployed Modell:** stammt aus Phase 5.10 und erwartet 156 Eingänge. Der Encoder liefert seit Schema v5 208; `OnnxPolicy.load()` lehnt das Modell deshalb ab, und das Spiel bleibt auf den Regeln. Details: `training-backend/docs/AI_MODEL_EXPORT.md`.
+- **Frontend:** Die Wellen wählt ein Regel-Director im Client; dieses Modell ist nur ein Opt-in im Training-Debug-Fenster („Load ONNX model"). Den Knopf zeigt das Fenster nur, wenn `inputSize` in `metadata.json` zur Encoder-Größe passt. Siehe `docs/AI_WAVE_DIRECTOR_PLAN.md`.
+- **Deployed Modell:** stammt aus Phase 5.10 und erwartet 156 Eingänge. Der Encoder liefert seit Schema v5 208; der Knopf fehlt deshalb, und `OnnxPolicy.load()` würde das Modell ablehnen, das Spiel bleibt auf den Regeln. Details: `training-backend/docs/AI_MODEL_EXPORT.md`.

@@ -19,6 +19,13 @@ const MODEL_URL = 'assets/ai/wave-director/wave-director.onnx';
 const METADATA_URL = 'assets/ai/wave-director/metadata.json';
 
 /**
+ * Whether the checked-in model can serve the current encoder, decided from its
+ * sidecar metadata alone: no runtime, no session. The debug window offers the
+ * opt-in only on 'fits', and load() opens nothing else.
+ */
+export type ModelFit = 'fits' | 'no-model' | 'wrong-input-size';
+
+/**
  * Outcome of OnnxPolicy.load(). Only 'ready' leaves a session behind; a
  * missing or mismatched model is normal operation on the rules, a runtime
  * that fails to load is an error.
@@ -38,6 +45,30 @@ export class OnnxPolicy {
    * Load ONNX Runtime and model
    */
   async load(): Promise<PolicyLoadResult> {
+    // Refuse a model that was trained against a different state encoding,
+    // before paying for the runtime.
+    //
+    // The checked-in model was exported at schema v2 and expects 156
+    // inputs; the encoder produces ENCODED_STATE_SIZE (208 at schema v5).
+    // Without this check the session loads happily and then throws a shape
+    // error on the first `run()`: mid-wave, in a path with no fallback,
+    // long after the button that started it. Failing here keeps the rules
+    // running and says why.
+    const declared = await declaredInputSize();
+    const fit = modelFit(declared);
+    if (fit === 'wrong-input-size') {
+      console.warn(
+        `[AI] Model expects ${declared} inputs, the encoder produces `
+        + `${ENCODED_STATE_SIZE}. It was exported against an older schema; `
+        + 're-export it with `npm run export-ai`. Staying on the rule director.'
+      );
+      return fit;
+    }
+    if (fit === 'no-model') {
+      console.log('[AI] No model metadata found, staying on the rule director');
+      return fit;
+    }
+
     try {
       // Lazy load ONNX Runtime Web
       if (!this.ort) {
@@ -64,26 +95,6 @@ export class OnnxPolicy {
       };
 
       this.session = await this.ort.InferenceSession.create(MODEL_URL, options);
-
-      // Refuse a model that was trained against a different state encoding.
-      //
-      // The checked-in model was exported at schema v2 and expects 156
-      // inputs; the encoder produces ENCODED_STATE_SIZE (208 at schema v5).
-      // Without this check the session loads happily and then throws a shape
-      // error on the first `run()` — mid-wave, in a path with no fallback,
-      // long after the button that started it. Failing here keeps the rules
-      // running and says why.
-      const declared = await declaredInputSize();
-      if (declared !== null && declared !== ENCODED_STATE_SIZE) {
-        console.warn(
-          `[AI] Model expects ${declared} inputs, the encoder produces `
-          + `${ENCODED_STATE_SIZE}. It was exported against an older schema; `
-          + 're-export it with `npm run export-ai`. Staying on the rule director.'
-        );
-        this.release();
-        return 'wrong-input-size';
-      }
-
       console.log('[AI] ONNX model loaded successfully');
       return 'ready';
     } catch {
@@ -122,15 +133,33 @@ export class OnnxPolicy {
 }
 
 /**
+ * Whether the checked-in model fits the encoder, from its metadata alone.
+ *
+ * Cheap enough to ask each time the debug window opens: one small JSON fetch,
+ * no runtime import, no session. A model without a readable `inputSize`
+ * counts as absent: the export always writes it, so such a model did not
+ * come from the export and its fit cannot be known without loading it.
+ */
+export async function checkModelFit(): Promise<ModelFit> {
+  return modelFit(await declaredInputSize());
+}
+
+function modelFit(declared: number | null): ModelFit {
+  if (declared === null) return 'no-model';
+  return declared === ENCODED_STATE_SIZE ? 'fits' : 'wrong-input-size';
+}
+
+/**
  * Input width the exported model was built for, or null if unknown.
  *
  * Read from the sidecar metadata rather than the session: onnxruntime-web
  * exposes input names but not reliably a concrete dimension for a dynamic
- * batch axis, and the export writes the figure it used.
+ * batch axis, and the export writes the figure it used. Revalidated on every
+ * read, so a model re-exported while the game runs is seen at the next check.
  */
 async function declaredInputSize(): Promise<number | null> {
   try {
-    const res = await fetch(METADATA_URL);
+    const res = await fetch(METADATA_URL, { cache: 'no-cache' });
     if (!res.ok) return null;
     const meta = await res.json();
     return typeof meta?.inputSize === 'number' ? meta.inputSize : null;

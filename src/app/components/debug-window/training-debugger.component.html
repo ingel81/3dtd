@@ -93,20 +93,23 @@
         <!--
           The ONNX policy is opt-in. It measured no better than uniform
           random across a day of A/B runs, so it does not get to be the
-          default — but the path stays reachable for a future run trained
-          on real player data rather than against a scripted bot.
+          default, but the path stays reachable for a future run trained
+          on real player data rather than against a scripted bot. The load
+          button shows only while the checked-in model fits the encoder.
         -->
-        <div class="info-row">
-          @if (getAIMode() === 'inference') {
+        @if (getAIMode() === 'inference') {
+          <div class="info-row">
             <button class="mini-btn" (click)="useRules()">Use rules</button>
-          } @else {
+          </div>
+        } @else if (canLoadModel()) {
+          <div class="info-row">
             <button class="mini-btn"
                     [disabled]="loadingModel()"
                     (click)="loadOnnxModel()">
               {{ loadingModel() ? 'loading…' : 'Load ONNX model' }}
             </button>
-          }
-        </div>
+          </div>
+        }
       </div>
 
       <!-- Training Stats -->

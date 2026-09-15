@@ -20,9 +20,26 @@ vi.mock('onnxruntime-web', () => ({
   },
 }));
 
-import { OnnxPolicy, decodeModelOutput } from './onnx-policy';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { OnnxPolicy, checkModelFit, decodeModelOutput } from './onnx-policy';
 import { ENCODED_STATE_SIZE } from './game-state-encoder';
 import { MAX_TEMPLATE_SLOTS } from './templates';
+
+const METADATA_PATH = 'assets/ai/wave-director/metadata.json';
+
+/** Serve metadata.json: a body with this inputSize, a failed response, or no network. */
+function stubMetadata(response: { ok: boolean; inputSize?: unknown } | 'reject'): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn(async () => {
+    if (response === 'reject') throw new Error('offline');
+    return { ok: response.ok, json: async () => ({ inputSize: response.inputSize }) };
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+/** The metadata answers a fetch can give that name no input size. */
+const UNREADABLE_METADATA = [{ ok: false }, 'reject', { ok: true, inputSize: 'n/a' }] as const;
 
 /** Model output: template logits (default 0) followed by four raw factors. */
 function modelOutput(logits: Record<number, number>, rawFactors = [0, 0, 0, 0]): Float32Array {
@@ -62,13 +79,51 @@ describe('decodeModelOutput', () => {
   });
 });
 
+describe('checkModelFit', () => {
+  beforeEach(() => {
+    onnx.env = { wasm: {}, logLevel: '' };
+    onnx.create.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('reads the input size from the metadata, revalidated, without the runtime', async () => {
+    const fetchMock = stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
+
+    await expect(checkModelFit()).resolves.toBe('fits');
+
+    expect(fetchMock).toHaveBeenCalledWith(METADATA_PATH, { cache: 'no-cache' });
+    expect(onnx.env.wasm.wasmPaths).toBeUndefined();
+    expect(onnx.create).not.toHaveBeenCalled();
+  });
+
+  it('reports the 156-input model from schema v2 as not fitting', async () => {
+    stubMetadata({ ok: true, inputSize: 156 });
+    await expect(checkModelFit()).resolves.toBe('wrong-input-size');
+  });
+
+  it('reports a model without a readable input size as absent', async () => {
+    for (const response of UNREADABLE_METADATA) {
+      stubMetadata(response);
+      await expect(checkModelFit()).resolves.toBe('no-model');
+    }
+  });
+
+  it('reads the checked-in metadata the way the export writes it', async () => {
+    const text = readFileSync(resolve('public/assets/ai/wave-director/metadata.json'), 'utf8');
+    const { inputSize } = JSON.parse(text) as { inputSize: unknown };
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => JSON.parse(text) })));
+
+    expect(typeof inputSize).toBe('number');
+    await expect(checkModelFit()).resolves.toBe(inputSize === ENCODED_STATE_SIZE ? 'fits' : 'wrong-input-size');
+  });
+});
+
 describe('OnnxPolicy', () => {
   let policy: OnnxPolicy;
   let session: { run: ReturnType<typeof vi.fn>; release: ReturnType<typeof vi.fn> };
-
-  function stubMetadata(inputSize: unknown): void {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ inputSize }) })));
-  }
 
   beforeEach(() => {
     policy = new OnnxPolicy();
@@ -98,7 +153,7 @@ describe('OnnxPolicy', () => {
   });
 
   it('loads the runtime from the local assets and opens the model', async () => {
-    stubMetadata(ENCODED_STATE_SIZE);
+    stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
 
     await expect(policy.load()).resolves.toBe('ready');
 
@@ -111,7 +166,7 @@ describe('OnnxPolicy', () => {
   });
 
   it('runs one float32 row and returns the action output', async () => {
-    stubMetadata(ENCODED_STATE_SIZE);
+    stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
     await policy.load();
     const encoded = new Float32Array(ENCODED_STATE_SIZE);
 
@@ -123,29 +178,42 @@ describe('OnnxPolicy', () => {
     expect(output[1]).toBe(2);
   });
 
-  it('refuses a model exported for another input size and frees its session', async () => {
-    stubMetadata(156);
+  it('refuses a model exported for another input size before loading the runtime', async () => {
+    stubMetadata({ ok: true, inputSize: 156 });
 
     await expect(policy.load()).resolves.toBe('wrong-input-size');
 
     expect(policy.isLoaded).toBe(false);
-    expect(session.release).toHaveBeenCalledTimes(1);
+    expect(onnx.env.wasm.wasmPaths).toBeUndefined();
+    expect(onnx.create).not.toHaveBeenCalled();
+  });
+
+  it('treats a model without a readable input size as absent, before loading the runtime', async () => {
+    for (const response of UNREADABLE_METADATA) {
+      stubMetadata(response);
+      await expect(policy.load()).resolves.toBe('no-model');
+    }
+    expect(policy.isLoaded).toBe(false);
+    expect(onnx.env.wasm.wasmPaths).toBeUndefined();
+    expect(onnx.create).not.toHaveBeenCalled();
   });
 
   it('reports a missing model file', async () => {
+    stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
     onnx.create.mockRejectedValue(new Error('404'));
     await expect(policy.load()).resolves.toBe('no-model');
     expect(policy.isLoaded).toBe(false);
   });
 
   it('reports a runtime that fails to load, before touching the model', async () => {
+    stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
     onnx.envThrows = true;
     await expect(policy.load()).resolves.toBe('runtime-error');
     expect(onnx.create).not.toHaveBeenCalled();
   });
 
   it('frees the session on release and can open it again', async () => {
-    stubMetadata(ENCODED_STATE_SIZE);
+    stubMetadata({ ok: true, inputSize: ENCODED_STATE_SIZE });
     await policy.load();
 
     policy.release();

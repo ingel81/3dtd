@@ -8,7 +8,8 @@ Anleitung zum Exportieren des trainierten PyTorch-Modells für Browser-Inferenz.
 > Spiel ist regelbasiert und clientseitig
 > (`src/app/ai/core/rule-director.ts`); beim Start wird nichts geladen. Das ONNX-
 > Modell wird nur über den Knopf **„Load ONNX model"** im Training-Debug-Fenster
-> aktiviert, zurück geht es über **„Use rules"**.
+> aktiviert, zurück geht es über **„Use rules"**. Den Knopf gibt es nur, wenn
+> das Modell zum Encoder passt ([Wann der Opt-in erscheint](#wann-der-opt-in-erscheint)).
 >
 > Grund: Das Netz war in A/B-Läufen statistisch nicht von uniformem Zufall zu
 > unterscheiden, und eine 404-kB-Runtime plus Netzwerk-Roundtrip ist dafür bei
@@ -28,11 +29,13 @@ Anleitung zum Exportieren des trainierten PyTorch-Modells für Browser-Inferenz.
 `public/assets/ai/wave-director/wave-director.onnx` (289.959 Byte) stammt aus
 Phase 5.10 (`metadata.json`: `version 5.10.0`, `checkpoint_7350.pt`,
 `inputSize 156`, exportiert 2026-04-21). Der Encoder produziert seit Schema v5
-**208** Features. `OnnxPolicy.load()` lehnt das Modell deshalb beim Laden ab
-(`'wrong-input-size'`, Warnung in der Konsole), und die Wellen kommen weiter
-vom Regel-Director ([Was beim Laden passiert](#was-beim-laden-passiert)). Wer
+**208** Features. Das Training-Debug-Fenster zeigt den Knopf „Load ONNX model"
+deshalb gar nicht erst, und `OnnxPolicy.load()` würde das Modell ablehnen,
+bevor es die Runtime lädt (`'wrong-input-size'`). Die Wellen kommen vom
+Regel-Director ([Wann der Opt-in erscheint](#wann-der-opt-in-erscheint)). Wer
 den Pfad benutzen will, muss neu exportieren (`npm run export-ai`) und braucht
-dafür einen Checkpoint aus einem Schema-v5-Lauf.
+dafür einen Checkpoint aus einem Schema-v5-Lauf; danach erscheint der Knopf
+beim nächsten Öffnen des Fensters von selbst.
 
 ---
 
@@ -124,9 +127,9 @@ public/assets/ai/wave-director/
 Curriculum-Sequenz, die Enemy-Base-HP und die positionsrelevanten Vokabular-
 Reihenfolgen.
 
-> **Das Frontend liest davon nur `inputSize`.** `OnnxPolicy.load()` prüft damit
-> beim Laden, ob das Modell zum Encoder passt (siehe
-> [Was beim Laden passiert](#was-beim-laden-passiert)). Die Templates und
+> **Das Frontend liest davon nur `inputSize`.** Daran hängt, ob das
+> Debug-Fenster den Opt-in anbietet und ob `OnnxPolicy.load()` die Runtime
+> überhaupt lädt (siehe [Wann der Opt-in erscheint](#wann-der-opt-in-erscheint)). Die Templates und
 > Konstanten leben in `src/app/ai/core/templates.ts` und werden per
 > `npm run ai-schema` mit dem Backend synchron gehalten. Ansonsten ist die
 > Datei der **Beleg**, gegen welches Schema das ausgelieferte `.onnx`
@@ -194,23 +197,42 @@ const results = await session.run({ state: inputTensor });
 const output = results.action.data; // Float32Array(36)
 ```
 
+### Wann der Opt-in erscheint
+
+`checkModelFit()` (`onnx-policy.ts`) liest `inputSize` aus `metadata.json` und
+vergleicht es mit `ENCODED_STATE_SIZE`. Das kostet eine kleine JSON-Anfrage
+(`cache: 'no-cache'`, also neu validiert), keine Runtime und keine Session:
+
+| Ergebnis | Wann |
+|---|---|
+| `'fits'` | `inputSize` ist genau `ENCODED_STATE_SIZE` |
+| `'wrong-input-size'` | `inputSize` ist eine andere Zahl (heute 156 gegen 208) |
+| `'no-model'` | `metadata.json` fehlt, ist nicht lesbar oder hat kein numerisches `inputSize` |
+
+Das Training-Debug-Fenster fragt bei jedem Öffnen
+(`WaveDirectorService.checkModel()`, Ergebnis im Signal `modelFit`) und zeigt
+„Load ONNX model" nur bei `'fits'`. Ein Export mit passender Eingangsbreite
+bringt den Knopf deshalb ohne Codeänderung zurück, beim nächsten Öffnen des
+Fensters. Ohne lesbares `inputSize` gilt das Modell als nicht vorhanden: der
+Export schreibt das Feld immer.
+
 ### Was beim Laden passiert
 
-`WaveDirectorService.loadModel()` ruft `OnnxPolicy.load()` (`onnx-policy.ts`)
-und wertet das Ergebnis aus:
+`WaveDirectorService.loadModel()` ruft `OnnxPolicy.load()` (`onnx-policy.ts`).
+Das prüft zuerst dieselbe Passung und lädt die Runtime nur bei `'fits'`:
 
 | Ergebnis | Wann | Folge |
 |---|---|---|
-| `'ready'` | Runtime geladen, Session angelegt, `inputSize` aus `metadata.json` passt zu `ENCODED_STATE_SIZE` oder fehlt | `modelState = 'ready'`, `aiMode = 'inference'`: das Modell wählt Template und Faktoren |
-| `'wrong-input-size'` | `metadata.json` nennt eine andere Eingangsbreite (heute 156 gegen 208) | Session wird freigegeben, Warnung in der Konsole, `modelState = 'rules'` |
-| `'no-model'` | `InferenceSession.create` warf, etwa weil die Modelldatei fehlt | Hinweis in der Konsole, `modelState = 'rules'` |
+| `'ready'` | Passung `'fits'`, Runtime geladen, Session angelegt | `modelState = 'ready'`, `aiMode = 'inference'`: das Modell wählt Template und Faktoren |
+| `'wrong-input-size'` | `metadata.json` nennt eine andere Eingangsbreite | Runtime wird nicht geladen, Warnung in der Konsole, `modelState = 'rules'`, der Knopf verschwindet |
+| `'no-model'` | Kein lesbares `inputSize`, oder `InferenceSession.create` warf, etwa weil die Modelldatei fehlt | Hinweis in der Konsole, `modelState = 'rules'`, der Knopf verschwindet |
 | `'runtime-error'` | ONNX Runtime selbst ließ sich nicht laden | `modelState = 'error'`, `aiMode = 'rules'` |
 
 Außer bei `'ready'` kommen die Wellen weiter vom Regel-Director, ohne
-Exception. Die Eingangsbreite liest `load()` aus `metadata.json`, weil
-onnxruntime-web eine dynamische Batch-Achse nicht verlässlich als feste Größe
-meldet; fehlt die Datei oder das Feld, prüft es nicht. „Use rules" im
-Training-Debug-Fenster (`forceRuleMode()`) gibt die Session wieder frei.
+Exception. Die Eingangsbreite kommt aus `metadata.json`, weil onnxruntime-web
+eine dynamische Batch-Achse nicht verlässlich als feste Größe meldet. „Use
+rules" im Training-Debug-Fenster (`forceRuleMode()`) gibt die Session wieder
+frei.
 
 ### WASM-Files
 
@@ -257,6 +279,11 @@ Der Checkpoint stammt aus einer älteren Architektur. Das aktuelle Modell hat
 **Konsole: `[AI] Model expects 156 inputs, the encoder produces 208`**
 Das ausgelieferte `.onnx` passt nicht zum aktuellen Encoder; `load()` lehnt es
 ab, das Spiel bleibt auf den Regeln. Neu exportieren (siehe oben).
+
+**Kein Knopf „Load ONNX model" im Training-Debug-Fenster**
+Gewollt, solange `metadata.json` keine 208 Eingänge nennt oder fehlt (siehe
+[Wann der Opt-in erscheint](#wann-der-opt-in-erscheint)). Neu exportieren und
+das Fenster neu öffnen.
 
 **`AI schema version mismatch` beim Serverstart**
 ```bash
