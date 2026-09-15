@@ -1278,6 +1278,18 @@
 
 ## 3.1 Visual Feintuning
 
+- [ ] **Bär dunkler** (Playtest 2026-09-15, bei Punkt 632)
+      Das Bär-Modell wirkt viel zu hell und gelb. Material/Textur abdunkeln, im Enemy Debug gegen die anderen
+      Gegner vergleichen.
+
+- [ ] **Tank: schöneres Modell** (Playtest 2026-09-15, bei Punkt 632)
+      Den Tank durch ein ansprechenderes Modell ersetzen (Modell-Budget beachten, `npm run model-budget`,
+      docs/ENEMY_MODEL_BUDGET.md).
+
+- [ ] **Stone Golem: Laufgeräusch und Beben** (Playtest 2026-09-15, bei Punkt 632)
+      Besseres Laufgeräusch (schwere Schritte); dazu ein minimales Beben (Screen Shake), wenn die Kamera in der Nähe
+      ist. Audio-Budget und Schalter "Screen Shake" beachten.
+
 - [ ] **Explosions-Partikel feintunen** (nächste Runde, festgelegt 2026-09-12)
       Sprite-Sheet Partikel (Flash→Fireball→Rauch) — Timing, Größe, Farben polieren
       Betrifft Cannon- und Rocket-Einschläge. Zusammen mit

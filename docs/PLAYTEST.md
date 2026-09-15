@@ -55,14 +55,21 @@ heißt Brückendeck samt dem Stück Straße, das es hinter dem Brückenende fort
   Brückenende über die kurzen Straßenstücke weiter, auf Höhe der Brücke? Liegen unten am Ufer unter dem
   Brückenanfang keine weißen Zellen? Hat der Korridor an den Brückenenden keine Lücken, und ist er dort so breit wie
   auf der Brücke?
+  **Ergebnis (2026-09-15): deutlich besser, rechte Seite gut.** Links (Ufer mit der Kreuzung direkt hinter dem
+  Brückenende) eine Unterbrechung: kurz hinter dem Brückenkopf liegen weiße Zellen, rote Linie und animierte Route
+  stückweise unter der Oberfläche (Screenshots). Fix folgt (bridge4), erneut prüfen.
 - **602** (564): Space, die Welle über die Brücke laufen lassen. Bleiben rote Linie und Gegner an beiden
   Brückenenden durchgehend sichtbar, oben auf der Brücke und nicht unten am Ufer?
+  **Ergebnis (2026-09-15):** rechte Seite perfekt; links verschwinden die Gegner an derselben Stelle wie in 601 im
+  Boden. Fix bridge4.
 - **603** (564): Layers "Show streets" an, die Straßen erscheinen als gelbe Linien. Liegt die gelbe Linie auf der
   Brücke und auf den kurzen Stücken dahinter oben auf Brückenhöhe? Bleibt die Uferstraße unter dem Brückenende
   unten? An der Quai Branly (Uferstraße mit Platanen): liegen Zellen und gelbe Linie auf der Straße, nicht in den
   Baumkronen?
+  **ok (2026-09-15)** bis auf die Stelle aus 601.
 - **604** (544): Beim Laden die Tipps unter "Field Tip" im Ladescreen lesen. Sind einzelne Wörter farbig
   hervorgehoben? Fehlt in der Konsole die Zeile "WARNING: sanitizing HTML stripped some content"?
+  **ok (2026-09-15)**
 
 ### Runde 2: Korridor in Rothenburg und Erlenbach (605 bis 608)
 
@@ -74,19 +81,28 @@ Zelle, die Tabelle schicken.
 - **605** (560 bis 563, alte 44): Rothenburg, die Stellen deiner Screenshots vom 14.09. (Auto, Dachecke, Erker).
   Keine weißen Zellen mehr dort? Kamera 10 s nicht bewegen: liegt auch danach keine Zelle auf Dach, Dachrand oder
   Auto? An einer Straße quer am Hang: bleiben die Zellen am Rand?
+  **Ergebnis (2026-09-15): gut** (Häuser, Autos, Hang bergseitig). **Befund:** talseitig am Hang noch zu viele Zellen
+  den Abhang hinunter (Screenshot). Fix corridor5 (Abfall-Check), erneut prüfen.
 - **606a** (Vorgärten): Rothenburg, Wohnstraße mit einem erhöhten Vorgarten hinter Hecke oder Mäuerchen. Endet der
   Korridor davor? (Ein Vorgarten auf Gehweghöhe hinter einem Zaun bleibt drin, das ist bekannt.)
 - **606b** (Vorgärten): Laterne, Schild oder Straßenbaum am Straßenrand. Läuft der Korridor gerade daran vorbei, ohne
   Kerbe?
 - **606c** (Vorgärten): Enge Gasse mit einem geparkten Auto. Bleibt neben dem Auto mindestens eine Reihe Zellen?
+  **606a bis 606c ok (2026-09-15)**
 - **607a** (562, alte 41): Straße mit parkenden Autos und dem Transporter. Endet der Korridor vor der Autoreihe?
   Liegen keine Zellen auf dem Gehweg dahinter? Buchtet er nicht in die Lücke zwischen zwei Autos aus?
 - **607b** (562): Space, die Welle durch diese Straße laufen lassen. Läuft kein Gegner durch ein Auto?
 - **607c**: Solange die Welle läuft, eine Straße der Route suchen, die diagonal verläuft, also laut Kompass etwa nach
   Nordost oder Nordwest (um 45°). Kamera von oben nah an einen Gegner: zeigt sein Körper entlang der Straße in
   Laufrichtung? (Vorher war er auf solchen Straßen um gut 10° verdreht, auf Nord-Süd- und Ost-West-Straßen nicht.)
+  **Ergebnis 607 (2026-09-15): im Großen ok**, "bombe im Vergleich zu vorher", Gehwegreihe bleibt frei. **Befunde:**
+  einzelne Autos haben noch Zellen (rotes Auto, Favorit "rothenburg rotes auto"); am schmalen Durchgang eines
+  Torbogens sind die Zellen gelb, steigen an, und die Gegner kommen auf der anderen Seite aus der Wand. Fix corridor5,
+  erneut prüfen.
 - **608** (205 bis 209): Erlenbach, Weinstraße und Erlenweg, die Stellen deiner Screenshots. Keine einzelnen weißen
   Zellen mehr in Baumkronen oder auf Hecken? Endet der Korridor davor? Gleich danach D2 (selber Ort).
+  **Ergebnis (2026-09-15): ok** für Bäume und Hecken. **Befund:** auf der Talseite einer Straße noch zu viele Zellen
+  eine Böschung hinunter (wie 605). Fix corridor5.
 
 ### Runde 3: Boss-Intro und Skarnax-Karte (609 bis 612)
 
@@ -97,18 +113,18 @@ ein weiteres Intro also eine neue Custom Wave starten. Bei einem schlechten Bild
 
 - **609** (366): Spawn in eine schmale Straße zwischen Häusern, möglichst kurz vor einer Kurve, Type "Herbert". Steht
   Herbert nach dem Schnitt ganz sichtbar vor der Portalöffnung, ohne Haus davor? Steht die Kamera frei, nicht in einem
-  Haus?
+  Haus? **ok (2026-09-15)**
 - **610** (366): Spawn neben Bäume oder Büsche, wieder Herbert. Keine Krone und keine Büsche vor Herbert in der
-  unteren Bildhälfte? Steckt die Kamera nicht selbst in einer Krone?
+  unteren Bildhälfte? Steckt die Kamera nicht selbst in einer Krone? **ok (2026-09-15)**
 - **611** (352, 368): Spawn wie in 609, Type "Skarnax". Ist der Kopf frei vor dem Tor? Zeigt die Intro-Karte groß
   "SKARNAX" und darunter klein "THE THOUSAND-LEGGED CALAMITY", gut lesbar? Steht danach oben mittig die Boss-Leiste
-  "SKARNAX"?
+  "SKARNAX"? **ok (2026-09-15)**
 - **612a** (366): Spawn an eine offene, breite Straße, Type "Herbert". Zeigt das Intro wie bisher das ganze Portal,
   mit der Krone oben am Portal knapp unter dem oberen Bildrand? Steht in der Zeile `[Camera] bossIntro.shot` bei
   `shot` der Wert `route` und bei `clear` der Wert `true`? (Nur dann ist es die bisherige Einstellung; sonst die
-  Zeile schicken.) Ruckelt es beim Abdunkeln merklich?
+  Zeile schicken.) Ruckelt es beim Abdunkeln merklich? **ok (2026-09-15)**
 - **612b** (366): Neue Custom Wave mit Herbert. Sobald das Bild zum ersten Mal dunkel wird, Esc drücken. Ist sofort die
-  eigene Ansicht zurück, ohne Hänger?
+  eigene Ansicht zurück, ohne Hänger? **ok (2026-09-15)**
 
 ### Runde 4: Skarnax an Ecken (613 bis 616)
 
@@ -117,15 +133,17 @@ Aufbau: Ort mit rechtwinkligem Knick auf der Route, Cheat "Credits". "Waves", "S
 
 - **613** (356): Tempo 1x. Laufen die Ringe im Bogen durch die Ecke, ohne spitzes V und ohne Lücke außen? Bleibt der
   Wurm auf der Straße (er schneidet die Ecke leicht nach innen)? Schwingen die Ringe nach der Ecke nicht nach?
+  **ok (2026-09-15)** für die Ecke. Textur und fehlende Beinanimation bleiben ein Thema (Asset-Punkte, E18).
 - **614** (356, 353): Tempo 4x: dieselbe Form wie bei 1x? Dann einen Tower direkt an die Ecke setzen. Welchen Ring er
   zerstört, lässt sich nicht steuern. Zerfällt der Wurm, während Ringe im Bogen liegen: wird der Ring hinter der
   Lücke zum neuen Kopf, und laufen beide Teile ohne Sprung weiter? Klappt es nicht, mit dem nächsten Skarnax.
+  **ok (2026-09-15)**
 - **615** (356): Schmale Wohnstraße mit Knick, falls auf der Route: höchstens ein schmaler Spalt außen? Sticht der
   Körper an der Innenecke in Fassaden? Auf einer diagonal verlaufenden Straße (laut Kompass etwa Nordost oder
-  Nordwest): liegen die Ringe in einer Flucht?
+  Nordwest): liegen die Ringe in einer Flucht? **ok (2026-09-15)**
 - **616** (398): Cheat "Abilities", dann F, E und L jeweils auf Ringe. Passen Eis (F), Funken (E) und bei L
   Lichtsäule, Funken und Brandspur am Boden zu den Ringen (bekannt: eher klein)? Skarnax ist ein Boss: das Eis hält
-  nur 1 s, der EMP 0,75 s, also genau hinsehen.
+  nur 1 s, der EMP 0,75 s, also genau hinsehen. **ok (2026-09-15)**
 
 ### Runde 5: Ooze (617 bis 621)
 
@@ -136,22 +154,30 @@ Spritzer, keine Pfützen und nur ein Drittel der Trümmer). Cheats "Credits" und
 - **617a** (363): Die Ooze töten, mit Towern oder mit K. K nimmt einem Boss 20 % seiner HP; allein mit K sind es also
   fünf Schläge, vor jedem die Kachel "Abilities". Sackt das Band in etwa 2 s zusammen? Platzen dabei grüne Blasen,
   und bleiben grüne Pfützen liegen? Klingt der Splat etwa 2 s nach?
+  **Ergebnis (2026-09-15):** funktioniert, Wunsch: wesentlich mehr Pfützen, die länger liegen bleiben. Umsetzung
+  oozedeath2.
 - **617b** (363): Beim selben Tod auf die Trümmer achten. Fliegen Knochen, Schädel, Helme, Stoppschilder und Dosen aus
   dem ganzen Körper, liegen ein paar Sekunden und sinken dann ein? Laufen sie auch dann zu Ende, wenn die Welle
   währenddessen endet (letzter Klumpen tot)? Genug übertrieben, oder noch mehr?
+  **Ergebnis (2026-09-15):** noch mehr übertreiben. Umsetzung oozedeath2.
 - **618** (363): Vorher `__towerTargets.watch()` in die Konsole. Fire, Poison und Ice Tower an den Körper stellen und
   die Ooze töten lassen. Nimmt jeder binnen etwa 3 s einen Klumpen ins Ziel? Schießt ein danach neu gesetzter Tower
   ebenso? Steht einer still: D4.
+  **ok (2026-09-15)**, Sonde: Fire, Poison und Ice haben je einen Klumpen im Ziel. Nebenbefund: nach dem übersprungenen
+  Intro `[WaveManager] STUCK wave 4 (all spawned, counters frozen)`; Prüfung introfix.
 - **619a** (360, 366): Nächste Ooze (neue Custom Wave). Ist die Spitze im Intro frei vor dem Tor?
 - **619b** (360): Solange sie lebt, nacheinander je einen Tower an das Band stellen und den vorigen verkaufen, denn das
   Band zeigt nur eine Tönung zugleich (ein Slow verdeckt das Gift). Ice: wird es bläulich? Poison: dunkler? Fire:
   glüht es orange? Jeweils gut zu erkennen?
+  **Ergebnis 619 (2026-09-15):** Tönungen gut. Wunsch: im Boss-Intro soll die Spitze weiter aus dem Tor ragen.
+  Umsetzung introfix.
 - **620** (399): Nächste Ooze. F auf den Körper: wird er weiß-cyan, und steht die Spitze still? Bei einem Boss hält
   das nur 1 s. E: wird er violett (0,75 s)? L über den Körper: passen Lichtsäule, Funken und Brandspur am Boden zum
-  Band? (L setzt keinen Brand; das orange Glühen am Band kommt nur vom Fire Tower.)
+  Band? (L setzt keinen Brand; das orange Glühen am Band kommt nur vom Fire Tower.) **ok (2026-09-15)**
 - **621** (363): Eine Ooze töten, gleich danach zweimal Shift+Rechtsklick auf "+HP" (je -50 HP; hat das HQ mehr als
   100, entsprechend öfter): Game Over. Laufen Band und Trümmer dabei zu Ende, ohne schlagartig zu verschwinden? Dann
   RESTART (oder einen anderen Ort laden): sind Band und Trümmer sofort weg, keine schwebenden Knochen?
+  **ok (2026-09-15)**
 
 ### Runde 6: Atompilz und Frost (622 bis 625)
 
@@ -161,19 +187,25 @@ solange eine Welle läuft; ist Welle 7 vorbei, die nächste mit Space starten. T
 
 - **622** (216, 217): "Reset camera" (Zielscheibe), K, Klick auf die Route. Liest sich der Schlag sofort als Atompilz
   (Blitz, Feuerball, Druckwelle, Pilz), passend groß zur Karte? Bis etwa 22 s zusehen: rollt die Kappe, ist der Stamm
-  schmaler als die Kappe? Genug Wumms im Bild?
+  schmaler als die Kappe? Genug Wumms im Bild? **ok (2026-09-15)**, mit der Option, später noch einmal daran zu gehen.
 - **623** (218): Nächster Schlag, auf den Ton achten: scharfer Knall, tiefer Boom, dann etwa 8 s Grollen in drei
   Wellen. Klingt das wuchtig genug? Dann im Audio-Menü den unteren Regler (SFX) weit herunter und noch ein Schlag: ist
   er leiser? (Der Regler wirkt auf Klänge, die danach starten; ein schon laufender Knall bleibt laut.)
+  **ok (2026-09-15)**
 - **624a** (220): Display-Menü, Effects, Haken "Bloom" an. Kamera tief an die Stelle, wo der nächste Schlag landen
   soll (unter 100 m über dem Boden), Schlag, dann mit der Kamera in die Wolke hineinfahren. Die Wolke besteht aus
   vielen Rauchballen: wird einer am Bildrand abgeschnitten, oder springt einer beim Fahren? Zeichnet sich dort, wo der
   Rauch auf flachem Boden aufsitzt, eine harte gerade Linie ab (an Hängen und Häusern ist das bekannt)?
+  **ok (2026-09-15)**
 - **624b** (223): Bloom bleibt an, nächster Schlag mit dem HQ im Bild. Glüht das Bild kurz nach und ist nach etwa
-  1,4 s wieder normal? Taucht dabei ein schwarzes Rechteck auf, oder flackert es?
+  1,4 s wieder normal? Taucht dabei ein schwarzes Rechteck auf, oder flackert es? **ok (2026-09-15)**, der
+  Vollbild-Blitz ist für den User in Ordnung (E15).
 - **625a** (395): Developer options: passt das Wort "Abilities" ganz in seine Kachel?
 - **625b** (394): F auf eine Gruppe Gegner. Sieht man den Frostausbruch (Blitz, Kältering, Reif, Splitter, Nebel)?
   Werden die Gegner weiß-cyan mit Eis, und hängen Fledermäuse still in der Luft? Ist ein Knistern zu hören?
+  **Ergebnis 625 (2026-09-15):** a) passt, aber sehr eng. b) Befund: die Frostbombe überlagert die ganze Stelle
+  (weißer Nebel und Glühen), Gegner und Details sind nicht mehr zu unterscheiden; Fledermäuse hängen gut in der Luft.
+  Fix frostfix (Frost zurücknehmen, Label luftiger), erneut prüfen.
 
 ### Runde 7: Bloom an und aus (626 bis 629)
 
@@ -184,14 +216,15 @@ ansehen. Ohne Bloom hat sich rechnerisch nichts geändert, gefragt ist der Unter
 trotzdem etwas als neu auf, bitte melden.
 
 - **626**: Kamera nah an einen Pulk. Sind die Gegner mit Bloom gleich hell und gesättigt wie ohne (bisher mit Bloom
-  heller und blasser)? Healthbars grün, gelb, rot gleich? Schadenszahlen in derselben Farbe?
+  heller und blasser)? Healthbars grün, gelb, rot gleich? Schadenszahlen in derselben Farbe? **ok (2026-09-15)**
 - **627**: Brand- und Blutflecken am Boden, Feuer und Funken, dazu F und E. Sind die Flecken mit Bloom noch etwas
   heller als ohne, aber weniger als bisher (bisher mit Bloom deutlich heller)? Feuer und Funken über der Straße mit und
-  ohne Bloom etwa gleich?
+  ohne Bloom etwa gleich? **ok (2026-09-15)**
 - **628**: Magie-, Eis-, Gift- und Chaos-Geschosse, Tentakel, Blitze. Tentakel mit Bloom in derselben Farbe wie ohne
-  (bisher mit Bloom heller)? Kugeln, Spuren und Blitze über der Straße etwa gleich?
+  (bisher mit Bloom heller)? Kugeln, Spuren und Blitze über der Straße etwa gleich? **ok (2026-09-15)**
 - **629**: Kamera aufs HQ, dann aufs Spawn-Portal zwischen zwei Wellen und beim Start. Diamant und Label mit Bloom wie
   ohne? Straßenlicht vor dem Portal mit Bloom nicht heller als ohne? Beschwörungskreis sichtbar wie bisher?
+  **ok (2026-09-15)**
 
 ### Runde 8: Einzelstücke (630 bis 631)
 
@@ -199,10 +232,10 @@ Jeder Punkt hat seinen eigenen Aufbau.
 
 - **630** (142): Standort-Dialog, Tab "Showcase", "Rio de Janeiro, Copacabana". Lädt der Ort ohne Zufalls-Spawn, mit
   dem Portal an der Stelle, die du für Rio geliefert hast? Steht in der Adresszeile `s=-22.96421,-43.17463`? Fehlt
-  "Dubai, Marina Walk" in der Liste?
+  "Dubai, Marina Walk" in der Liste? **ok (2026-09-15)**
 - **631**: DevWorld öffnen: an die Adresse `?devworld` anhängen, also `http://localhost:4200/?devworld`. Layers "Show
   routes" an, dann in den Quick Actions ganz links "Play route animation". Liegen die animierte und die feste rote
-  Linie auf derselben Höhe, ohne 2 m Versatz?
+  Linie auf derselben Höhe, ohne 2 m Versatz? **ok (2026-09-15)**
 
 ## Runden (alte, noch ungetestete Punkte)
 
@@ -213,15 +246,23 @@ anklicken, unter "Movement" auf "Start" (siehe Vorab).
 
 - **632** (154, 183): Mech, Wallsmasher, Mammoth, Zombie Soldier, Bear und Stone Golem laufen lassen: stocken sie am
   Ende der Laufschleife? Rennt die Ratte? Fliegt der Drache ohne Sprung, und ist alle 12 bis 35 s sein Brüllen zu
-  hören (ein Laufgeräusch hat er nicht)?
+  hören (ein Laufgeräusch hat er nicht)? **ok (2026-09-15)**. Wünsche für später (TODO): Bär dunkler (zu hell und
+  gelb), Tank durch ein schöneres Modell ersetzen, Stone Golem mit besserem Laufgeräusch und leichtem Beben in
+  Kameranähe.
 - **633a** (156): Mit den Gegnern aus 632 `__perf.loseContext(2000)` in die Konsole, danach ein zweites Mal. Kommt
   jedes Mal nach etwa 2 s die Zeile "Baked N VATs again"? Stehen die Gegner danach normal da?
-- **633b** (154): Dann Cheat "Kill". Bleibt der Wallsmasher in seiner Endpose liegen?
+  **Ergebnis (2026-09-15): klappt** (Bild kurz schwarz, einmal kurz weiß, dann normal; "Baked 23 VATs again ...
+  4507 ms", beim zweiten Mal 5 VATs, 804 ms). **Befund:** 180-mal `WebGL: INVALID_OPERATION: delete: object does not
+  belong to this context` aus `three-tiles-engine.ts:849` (render), nachdem im Enemy Debug Gegner entfernt und neu
+  gesetzt wurden. Fix vatfix, erneut prüfen.
+- **633b** (154): Dann Cheat "Kill". Bleibt der Wallsmasher in seiner Endpose liegen? **ok (2026-09-15)**
 - **634** (155): Ghost und Zombie gemischt setzen, Kamera so drehen, dass sie sich überdecken. Scheint kein Zombie
-  durch einen Ghost davor? Verschwindet kein Ghost hinter einem Zombie, der weiter hinten steht?
+  durch einen Ghost davor? Verschwindet kein Ghost hinter einem Zombie, der weiter hinten steht? **ok (2026-09-15)**
 - **635** (184, 185): "Waves", Single, "Zombie v2", Count 10, "Start Custom Wave", sterben lassen: fällt einer im
   Todes-Clip zu Boden, bevor er verschwindet? Danach Custom Wave "Wallsmasher": ist seine Vorschau im WAVE-Panel
   farbig?
+  **Ergebnis (2026-09-15):** zombie_v2 verschwindet minimal zu früh, liegt noch nicht ganz am Boden; Fix vatfix.
+  Wallsmasher-Vorschau nicht beantwortet, noch offen.
 
 ### Runde 10: Laser und Held (636 bis 639)
 
@@ -232,32 +273,35 @@ Count 30).
   mit einem Hinweis?
 - **636b** (397): Klick vor eine Gruppe. Kommt erst ein oranges Band, dann eine Lichtsäule, die 4 s Richtung Portal
   läuft, mit Funken und Brandspur? Sieht das gut aus?
+  **Ergebnis 636 (2026-09-15):** alles da und funktioniert. Wunsch: insgesamt bildgewaltiger, die Brandflecken tiefer
+  und mächtiger. Umsetzung laserfx.
 - **637** (385): Münze oben in der linken Leiste klicken. Steht der Soldat am Routenpunkt beim HQ? Fehlt in der
-  Konsole "[HeroRenderer] Hero model did not load"? Sieht die Figur gut aus?
+  Konsole "[HeroRenderer] Hero model did not load"? Sieht die Figur gut aus? **ok (2026-09-15)**
 - **638** (386): G drücken (oder den Held-Knopf). Goldener Ring unter ihm und ein kleinerer auf seinem Posten? Noch
-  einmal G: gleitet die Kamera zu ihm?
+  einmal G: gleitet die Kamera zu ihm? **ok (2026-09-15)**
 - **639** (388, 389): Held an eine diagonal verlaufende Straße schicken (laut Kompass etwa Nordost oder Nordwest),
   Gegner nah an ihn. Starten Tracer und Mündungsfeuer an der Waffe, nicht im Boden oder über dem Kopf? V mehrmals:
-  wechseln Farbe und Schussgeräusch? Explodiert die Munition "Explosive" am Ziel?
+  wechseln Farbe und Schussgeräusch? Explodiert die Munition "Explosive" am Ziel? **ok (2026-09-15)**
 
 ### Runde 11: Veteranen und viele Gegner (640 bis 643)
 
 Aufbau: Cheat "Credits", ein Archer an die Route.
 
 - **640** (348): Welle 1 spielen, wenn nötig auch Welle 2. Steht nach 10 Todesstößen im Tower-Panel "BLOODED"? Sitzt
-  über dem Archer ein silberner Winkel mit dunklem Rand, sieht er ordentlich aus?
+  über dem Archer ein silberner Winkel mit dunklem Rand, sieht er ordentlich aus? **ok (2026-09-15)**
 - **641** (349): Kamera nah an den Archer (etwa 20 m), dann weit weg. Passt das Abzeichen nah zum Tower, und blendet es
   beim Wegzoomen ab etwa 700 m aus, bis es ab 1 100 m weg ist? Verschwindet es hinter einem Gebäude? Archer auf einem
-  Dach mit Sockel: sitzt es über der Spitze?
+  Dach mit Sockel: sitzt es über der Spitze? **ok (2026-09-15)**
 - **642a** (351): "Credits" und "+HP" je mehrmals mit Shift+Klick. Ragt keine Zahl im Header ins Nachbarfeld?
 - **642b** (210, 211): Ränge zählen je Tower, und nur der Todesstoß zählt; stehen viele Tower an einer Stelle, teilen
   sie sich die Kills. Deshalb einen einzelnen Tower an ein langes Stück Route, Cheat "Max Up", andere Tower weit weg.
   Custom Wave "Zombie", Count 1200, dazu ein paarmal "+HP" (Klick), falls Zombies durchkommen. Zeigt das Abzeichen ab
   150 Kills drei silberne Winkel, ab 400 drei goldene, ab 1 000 einen Stern? Lesbar über hellen Dächern und dunklem
-  Himmel?
+  Himmel? **642a und 642b ok (2026-09-15)**
 - **643** (172, 546): Etwa 10 Archer oder Gatling an eine Stelle, Custom Wave "Zombie", Count 100, Tempo 1x. Kamera
   erst weit weg, dann heran: setzt das Stöhnen der Zombies in Hörweite ein, von höchstens etwa 12 zugleich? 2 Minuten
-  zusehen: bleiben die Schüsse hörbar?
+  zusehen: bleiben die Schüsse hörbar? **ok (2026-09-15)** für den Ton; dabei fiel dem User ein anderer, gravierender
+  Bug auf (siehe Befunde).
 
 ### Runde 12: Blutmond (644 bis 647)
 
@@ -363,6 +407,7 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
 - **E15 Vollbild-Blitz des Atomschlags:** Das ganze Bild steht 80 ms lang auf 0,92 Weiß (`flash.screenPeak`,
   `screenHold` 0,08 s), danach blendet der Blitz bis 1,1 s nach dem Einschlag aus. Bitte auch mit Blick auf
   Lichtempfindlichkeit beurteilen, über die ganze Dauer. Mildern geht über `screenPeak`, 0 schaltet den Blitz ab.
+  **Entscheidung User (2026-09-15): bleibt so** (Playtest 624b).
 
 **Neu zu entscheiden**
 
