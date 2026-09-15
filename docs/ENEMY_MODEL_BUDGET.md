@@ -1,6 +1,6 @@
 # Enemy Model Budget
 
-**Stand:** 2026-09-15 (Tabellen neu erzeugt: neues Tank-Modell, Ghost und Mech im Budget, siehe [Runde vom 2026-09-15](#runde-vom-2026-09-15); davor Todes-Clips von Zombie v2, Stone Golem und Zombie Soldier ganz gebacken, `deathDuration`)
+**Stand:** 2026-09-15 (Tabellen neu erzeugt: neues Tank-Modell mit gebackenem Anstrich, Ghost und Mech im Budget, siehe [Runde vom 2026-09-15](#runde-vom-2026-09-15); davor Todes-Clips von Zombie v2, Stone Golem und Zombie Soldier ganz gebacken, `deathDuration`)
 
 Was die Gegnermodelle die GPU kosten, aus den Modelldateien gerechnet, und ein Budget je
 Gegnerklasse. Die Tabellen unter [Messwerte](#messwerte) schreibt `npm run model-budget`
@@ -197,8 +197,9 @@ Nach der Playtest-Entscheidung E18 (docs/PLAYTEST.md). Rezepte wie oben in
   `candidates/quaternius-tank/tank.glb` (Herkunft in `candidates/LICENSES.md`), das Rezept
   liest sie aus dem Arbeitsbaum (`rev: None`). Rumpf und Ketten sind auf 45 Knochen geskinnt,
   `Tank_Forward` (0,79 s) rollt die 44 Kettenglieder; Turm und Rohr hingen starr am
-  Wurzelknoten, `bakeVAT` hätte sie weggelassen. Quelle 12.093 VAT-Vertices, gebaut **4.904**
-  (2.705 Dreiecke, VAT 0,9 MB, Datei 0,27 MB); der alte Tank hatte 4.477, statisch.
+  Wurzelknoten, `bakeVAT` hätte sie weggelassen. Quelle 12.093 VAT-Vertices, gebaut 4.904,
+  mit dem Anstrich (`paint`, unten) **4.932** (2.705 Dreiecke, VAT 0,9 MB, Datei 0,49 MB);
+  der alte Tank hatte 4.477, statisch.
   - `join_skin`: alles in einen Skin, Turm und Rohr voll auf dem Knochen `Root`, den kein
     Clip bewegt.
   - `vertex_colors: False`: `COLOR_0` ist überall weiß und wird vom VAT-Shader nicht gelesen;
@@ -218,6 +219,16 @@ Nach der Playtest-Entscheidung E18 (docs/PLAYTEST.md). Rezepte wie oben in
   - `root`: Rohr nach +z gedreht, auf Meter skaliert (0,45), Grundfläche mittig auf dem
     Ursprung, tiefster Punkt darauf. Im Spiel 4,7 m breit, 3,0 m hoch und 6,6 m lang (der
     alte 3,7 × 3,2 × 9,2 m mit Rohrüberstand); `scale` 1, `headingOffset` 0, `heightOffset` 0.
+  - `paint` (`weathered_paint`, nach Playtest 735: „Textur könnte moderner sein“): neue UVs
+    und eine im Skript erzeugte 1024²-Basisfarbe (JPEG, ohne Bildquellen) statt der sechs
+    flachen Materialfarben. Tarnflecken in zwei Tönen auf Wanne und Turm (30 % braun, 18 %
+    schwarzgrün, 3D-Rauschen mit rund 1 m großen Flecken), heller Abrieb an konvexen Kanten
+    über 35° bis 2 cm breit (Wanne, Turm, Details, Rohr; auf den kleinen Kettengliedern hätte
+    er das ganze Glied bedeckt), Laufspuren an steilen Flächen, Staub bis 1,2 m über dem
+    Boden, Umgebungsverdeckung an den Dreiecksecken. Jedes Material behält die mittlere
+    Helligkeit seiner flachen Farbe (Wanne im Mittel sRGB 0,54, vorher 0,55; ohne Ausgleich
+    0,41). Danach ein Material; die UV-Nähte kosten 28 VAT-Vertices (4.904 → 4.932).
+    Geprüft mit EEVEE-Renders vorher und nachher, nicht im Spiel.
 
   Die untere Kettenbahn läuft 0,81 m pro Clip-Sekunde, mit `animationSpeed` 3,72 laufen die
   Ketten bei 3 m/s mit dem Boden. Der Loop ist nahtlos: Nach 0,79 s steht jedes Glied auf dem
@@ -469,8 +480,8 @@ belegen zusammen etwa 1,1 MB (RGBA16F: 1.700 × 48, 1.214 × 32 und 634 × 32 Te
 - `tools/blender/optimize_enemy.py` hält ein Rezept je geändertem Modell (Clips behalten und
   schneiden, schweißen, decimaten mit oder ohne Nahtgewicht oder nur einzelne Materialien,
   neu backen, Normalen, nur Basisfarbe, Bildgröße, Ruhepose aus der Datei, alles in einen
-  Skin, Vertexfarben weg, verdeckte Flächen weg, gespiegelte Doppellagen weg, Wurzel drehen
-  und skalieren). Headless:
+  Skin, Vertexfarben weg, verdeckte Flächen weg, gespiegelte Doppellagen weg, Anstrich mit
+  Tarnung, Kantenabrieb und Staub backen, Wurzel drehen und skalieren). Headless:
   `blender --background --python tools/blender/optimize_enemy.py -- rat`; liest das Original
   aus Git (mit `rev: None` aus dem Arbeitsbaum, so beim Tank) und schreibt nach
   `public/assets/models/enemies/`. Der Rebake-Schritt braucht kein Cycles und lief headless
@@ -510,8 +521,8 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.272 | 19.541 | 0,7 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
 | Wraith (`wraith`) | Normal | 300 | 8.126 | 6.790 | 2,4 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
 | Mammoth (`mammoth`) | Normal | 150 | 5.557 | 8.685 | 0,8 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
+| Tank (`tank`) | Normal | 150 | 4.932 | 2.705 | 0,7 | Skinning | 24 | 4932×24 | RGBA16F | 0,82 | 0,9 | 1024² |
 | Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
-| Tank (`tank`) | Normal | 150 | 4.904 | 2.705 | 0,7 | Skinning | 24 | 4904×24 | RGBA16F | 0,82 | 0,9 | – |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 4.870 | 3.704 | 1,0 | Skinning | 306 | 4870×306 | RGBA16F | 1,08 | 11,4 | 1024² |
 | Mech (`mech`) | Normal | 100 | 4.771 | 2.877 | 0,5 | Skinning | 40 | 4771×40 | RGBA16F | 1,44 | 1,5 | 1024² |
 | Ghost (`ghost`) | Normal | 280 | 4.270 | 6.474 | 1,2 | Skinning | 105 | 4270×105 | RGBA16F | 0,46 | 3,4 | 1024² |
@@ -565,8 +576,8 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Dragon | `dragon.glb` | 5,9 | 1 (1) | 220 | 0 | 1 | 4× 1024² | 1 | 12.082 / 11.868 / 10.208 |
 | Wraith | `wraith.glb` | 1,8 | 1 (1) | 25 | 0 | 1 | 1024² | 1 | 8.126 / 8.126 / 3.268 |
 | Mammoth | `mammoth.glb` | 2,6 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 2 | 5.557 / 5.541 / 5.121 |
+| Tank | `tank.glb` | 0,5 | 1 (1) | 45 | 0 | 1 | 1024² | 1 | 4.932 / 4.893 / 2.439 |
 | Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.915 / 4.913 / 3.370 |
-| Tank | `tank.glb` | 0,3 | 6 (6) | 45 | 0 | 6 | – | 1 | 4.900 / 2.487 / 2.487 |
 | Zombie v2 | `zombie_v2.glb` | 1,9 | 1 (1) | 24 | 0 | 1 | 1024² | 4 | 4.870 / 4.870 / 1.827 |
 | Mech | `mech.glb` | 0,6 | 1 (1) | 62 | 0 | 1 | 1024² | 1 | 4.771 / 4.300 / 1.723 |
 | Ghost | `ghost.glb` | 2,4 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 4.270 / 3.894 / 3.467 |
@@ -601,8 +612,8 @@ die weggelassenen Frames.
 | Wraith | `Armature\|RunFast\|baselayer` | walk | 0,50 | 15 | – |
 | Mammoth | `Walk` | walk | 4,97 | 149 | – |
 | Mammoth | `Die` | death | 6,00 | 172 | 9 |
-| Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Tank | `TankArmature\|Tank_Forward` | walk | 0,79 | 24 | – |
+| Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
 | Zombie v2 | `Dead` | death | 2,96 | 89 | – |
 | Zombie v2 | `dying_backwards` | death | 2,21 | 67 | – |

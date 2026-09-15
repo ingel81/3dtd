@@ -25,6 +25,7 @@ import bpy
 import numpy as np
 from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 
 # Commit that holds the original models.
 SOURCE_REV = '39fbb18'
@@ -61,6 +62,8 @@ ENEMIES = 'public/assets/models/enemies'
 #   single_layer     material name patterns whose faces come twice, the second
 #               time with reversed winding: one layer goes, the material's
 #               opacity makes up for it (see single_layer)
+#   paint       {'camo', 'camo_colours', 'camo_cover', ...}: new UVs and one generated
+#               base colour image in place of flat material colours (see weathered_paint)
 #   root        {'turn': degrees about the vertical, 'size': scale}: the model
 #               turned and scaled on its root, standing centred on the origin
 #   merge       merge co-located vertices with equal normals on import (glTF
@@ -241,7 +244,10 @@ RECIPES = {
     # from the side); hull, turret and gun stay as they are. In the file the
     # gun points along -x and the model is 14.8 units long; turned to +z and
     # scaled to metres (6.6 m long, 3.0 m high, as tall as the old tank). The
-    # config plays Tank_Forward only.
+    # flat material colours become one generated texture (weathered_paint:
+    # camo on hull and turret, worn edges, dust, occlusion, each material as
+    # bright as before); its UV seams add 28 VAT vertices, 4,932. The config
+    # plays Tank_Forward only.
     'tank': {
         'src': f'{ENEMIES}/candidates/quaternius-tank/tank.glb',
         'rev': None,
@@ -252,6 +258,13 @@ RECIPES = {
         'vertex_colors': False,
         'cull_hidden': True,
         'decimate_materials': {'Wheels': 0.2, 'Main_Details.001': 0.5},
+        'paint': {
+            'camo': ['Main', 'Main_Dark'],
+            'camo_colours': [(0.15, 0.11, 0.045), (0.035, 0.04, 0.022)],
+            'camo_cover': [0.3, 0.18],
+            'wear_on': ['Main', 'Main_Dark', 'Main_Details', 'Main_Light'],
+        },
+        'image_format': 'JPEG',
         'root': {'turn': 90, 'size': 0.45},
     },
     # 34 rigid parts, each under an empty on a bone (object animation VAT
@@ -1013,18 +1026,7 @@ def rebake_base_color(low, high, size=1024, supersample=2, margin=16, uv_angle=6
     removed.
     """
     low.data.materials[0] = low.data.materials[0].copy()
-    for o in bpy.context.view_layer.objects:
-        o.select_set(False)
-    low.select_set(True)
-    bpy.context.view_layer.objects.active = low
-    with view3d_override(object=low, active_object=low):
-        bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
-        bpy.ops.uv.smart_project(angle_limit=math.radians(uv_angle), island_margin=0.003)
-        # Packed by shape, the islands cover 51 % of the image instead of 37 %.
-        bpy.ops.uv.select_all(action='SELECT')
-        bpy.ops.uv.pack_islands(rotate=True, margin=0.002, shape_method='CONCAVE', margin_method='FRACTION')
-        bpy.ops.object.mode_set(mode='OBJECT')
+    unwrap(low, uv_angle)
 
     mat = low.data.materials[0]
     nt = mat.node_tree
@@ -1086,6 +1088,230 @@ def rebake_base_color(low, high, size=1024, supersample=2, margin=16, uv_angle=6
     for sock in targets:
         nt.links.new(tex.outputs['Color'], sock)
     bpy.data.objects.remove(high, do_unlink=True)
+
+
+def unwrap(obj, uv_angle):
+    """New UVs for all of `obj`: Smart UV Project, the islands packed by shape."""
+    if not obj.data.uv_layers:
+        obj.data.uv_layers.new(name='UVMap')
+    for o in bpy.context.view_layer.objects:
+        o.select_set(False)
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    with view3d_override(object=obj, active_object=obj):
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.uv.smart_project(angle_limit=math.radians(uv_angle), island_margin=0.003)
+        # Packed by shape, the islands cover 51 % of the image instead of 37 %.
+        bpy.ops.uv.select_all(action='SELECT')
+        bpy.ops.uv.pack_islands(rotate=True, margin=0.002, shape_method='CONCAVE', margin_method='FRACTION')
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+
+def lattice_hash(ix, iy, iz, seed):
+    """A value in [0, 1] per integer lattice point, the same for the same point and seed."""
+    h = ((ix.astype(np.uint64) * np.uint64(73856093)) ^ (iy.astype(np.uint64) * np.uint64(19349663))
+         ^ (iz.astype(np.uint64) * np.uint64(83492791)) ^ np.uint64(seed * 2654435761 % 2 ** 32))
+    h ^= h >> np.uint64(13)
+    h *= np.uint64(1274126177)
+    h ^= h >> np.uint64(16)
+    return (h & np.uint64(0xFFFF)).astype(np.float64) / 65535.0
+
+
+def value_noise(p, seed):
+    """Smooth 3D value noise in [0, 1], one value per row of `p` (lattice spacing 1)."""
+    i = np.floor(p)
+    f = p - i
+    f = f * f * (3 - 2 * f)
+    i = i.astype(np.int64)
+    out = np.zeros(len(p))
+    for dx in (0, 1):
+        wx = f[:, 0] if dx else 1 - f[:, 0]
+        for dy in (0, 1):
+            wy = f[:, 1] if dy else 1 - f[:, 1]
+            for dz in (0, 1):
+                wz = f[:, 2] if dz else 1 - f[:, 2]
+                out += wx * wy * wz * lattice_hash(i[:, 0] + dx, i[:, 1] + dy, i[:, 2] + dz, seed)
+    return out
+
+
+def fbm(p, octaves, seed):
+    """Value noise summed over `octaves`, each twice as fine and half as strong, in [0, 1]."""
+    total, amp, norm = np.zeros(len(p)), 1.0, 0.0
+    for k in range(octaves):
+        total += amp * value_noise(p * 2 ** k, seed + k)
+        norm += amp
+        amp *= 0.5
+    return total / norm
+
+
+def smoothstep(e0, e1, x):
+    t = np.clip((x - e0) / (e1 - e0), 0.0, 1.0)
+    return t * t * (3 - 2 * t)
+
+
+def linear_to_srgb(c):
+    return np.where(c <= 0.0031308, 12.92 * c, 1.055 * np.power(c, 1 / 2.4) - 0.055)
+
+
+def corner_ao(co, tri, normals, rays=32, reach=0.4):
+    """Ambient occlusion at every triangle corner over the hemisphere of the
+    triangle's own normal: the share of `rays` cosine-weighted rays that leave
+    within `reach` without a hit (1 open, 0 covered). Corners with the same
+    vertex and normal are cast once."""
+    tree = BVHTree.FromPolygons([Vector(v) for v in co], tri.tolist(), all_triangles=True)
+    rng = np.random.default_rng(3)
+    u, w = rng.random(rays), rng.random(rays)
+    local = np.stack([np.sqrt(u) * np.cos(2 * math.pi * w), np.sqrt(u) * np.sin(2 * math.pi * w),
+                      np.sqrt(1 - u)], -1)
+    out = np.ones((len(tri), 3))
+    cache = {}
+    for t, nrm in enumerate(normals):
+        if np.linalg.norm(nrm) < 0.5:
+            continue
+        helper = np.array([1.0, 0.0, 0.0]) if abs(nrm[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        tx = np.cross(nrm, helper)
+        tx /= np.linalg.norm(tx)
+        dirs = [Vector(d) for d in local @ np.stack([tx, np.cross(nrm, tx), nrm])]
+        for k in range(3):
+            key = (int(tri[t, k]), *np.round(nrm, 3))
+            if key not in cache:
+                origin = Vector(co[tri[t, k]] + nrm * 1e-3)
+                cache[key] = sum(tree.ray_cast(origin, d, reach)[0] is None for d in dirs) / rays
+            out[t, k] = cache[key]
+    return out
+
+
+def convex_edge_points(obj, metres, min_angle=35, step=0.005):
+    """Points every `step` metres along the convex edges of `obj` sharper than
+    `min_angle` degrees, in metres like weathered_paint, found on a welded copy
+    so that parts of different materials share their edges."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.transform(Matrix.Scale(metres, 4) @ obj.matrix_world)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    limit = math.radians(min_angle)
+    points = []
+    for e in bm.edges:
+        if len(e.link_faces) != 2 or e.calc_face_angle_signed(0.0) < limit:
+            continue
+        a, b = e.verts[0].co, e.verts[1].co
+        n = max(1, math.ceil((b - a).length / step))
+        points.extend(tuple(a.lerp(b, (i + 0.5) / n)) for i in range(n))
+    bm.free()
+    return points
+
+
+def weathered_paint(obj, metres, camo=(), camo_colours=(), camo_cover=(), camo_scale=1.0,
+                    wear_on=('*',), wear_colour=(0.32, 0.31, 0.27), wear_width=0.02,
+                    dust_colour=(0.17, 0.14, 0.095), dust_height=1.2, keep_brightness=True, size=1024,
+                    supersample=2, uv_angle=66, seed=11):
+    """One painted base colour image in place of the flat material colours of
+    `obj` (the tank): new UVs (unwrap) and a texture generated here from the
+    geometry, no image sources. Positions are in metres (`metres` per model
+    unit, z up), so the sizes below are real ones:
+
+    - the material colour; on the materials matching `camo`, patches of
+      `camo_colours` covering `camo_cover` of that surface (3D noise with
+      features about `camo_scale` metres across, soft edges);
+    - broad and fine brightness variation, faint vertical streaks on steep faces;
+    - worn paint (`wear_colour`) along convex edges sharper than 35 degrees,
+      up to `wear_width` wide and chipped by noise, on the materials matching
+      `wear_on` (the tank's track links are so small that it covered them whole);
+    - dust (`dust_colour`) from the ground up to `dust_height`, a little on
+      faces that look up;
+    - ambient occlusion from the triangle corners (corner_ao);
+    - with `keep_brightness`, each material scaled back to the mean luminance
+      of its flat colour: the paint moves light and dark around, it does not
+      darken the model (camo, occlusion and streaks took the tank's hull from
+      sRGB 0.55 to 0.41 on average).
+
+    Every face then uses one material, a copy of the first with the image as
+    base colour; the others go. Seams of the new UVs split vertices.
+    """
+    unwrap(obj, uv_angle)
+    me = obj.data
+    co, tri, luv = mesh_triangles(me)
+    mw = np.array(obj.matrix_world)
+    co = (co @ mw[:3, :3].T + mw[:3, 3]) * metres
+    slot = np.empty(len(tri), dtype=np.int32)
+    me.loop_triangles.foreach_get('material_index', slot)
+    normals = np.cross(co[tri[:, 1]] - co[tri[:, 0]], co[tri[:, 2]] - co[tri[:, 0]])
+    normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+    ao = corner_ao(co, tri, normals)
+    edge_points = convex_edge_points(obj, metres)
+    kd = KDTree(len(edge_points))
+    for i, q in enumerate(edge_points):
+        kd.insert(q, i)
+    kd.balance()
+
+    res = size * supersample
+    pix, t, bary = raster_uv_triangles(luv, res)
+    p = (co[tri[t]] * bary[..., None]).sum(1)
+    n = normals[t]
+    bsdfs = [next(nd for nd in m.node_tree.nodes if nd.type == 'BSDF_PRINCIPLED') for m in me.materials]
+    colour = np.array([b.inputs['Base Color'].default_value[:3] for b in bsdfs])[slot[t]]
+    painted = [i for i, m in enumerate(me.materials) if any(fnmatch.fnmatchcase(m.name, pat) for pat in camo)]
+    in_camo = np.isin(slot[t], painted)
+    for k, (patch, cover) in enumerate(zip(camo_colours, camo_cover)):
+        noise = fbm(p / camo_scale + 17.3 * (k + 1), 3, seed + 7 * k)
+        cut = np.quantile(noise[in_camo], 1 - cover) if in_camo.any() else 1.0
+        mask = smoothstep(cut - 0.006, cut + 0.006, noise) * in_camo
+        colour += (np.array(patch) - colour) * mask[:, None]
+    colour *= (0.9 + 0.2 * fbm(p / 1.5, 3, seed + 1))[:, None]
+    colour *= (0.95 + 0.1 * value_noise(p / 0.012, seed + 2))[:, None]
+    steep = 1 - smoothstep(0.3, 0.6, np.abs(n[:, 2]))
+    streaks = fbm(p / np.array([0.06, 0.06, 0.7]), 2, seed + 3)
+    colour *= (1 - 0.18 * steep * smoothstep(0.5, 0.75, streaks))[:, None]
+
+    dist = np.array([kd.find(q)[2] for q in p.tolist()])
+    edge = 1 - smoothstep(0.0, wear_width, dist)
+    wear = smoothstep(0.45, 0.65, edge * (0.4 + 1.2 * fbm(p / 0.03, 3, seed + 4)))
+    worn = [i for i, m in enumerate(me.materials) if any(fnmatch.fnmatchcase(m.name, pat) for pat in wear_on)]
+    wear *= np.isin(slot[t], worn)
+    colour += (np.array(wear_colour) - colour) * (0.7 * wear)[:, None]
+
+    height = p[:, 2] - co[:, 2].min()
+    dirt = (1 - smoothstep(0.0, dust_height, height)) * 0.5 + smoothstep(0.6, 0.95, n[:, 2]) * 0.15
+    dirt = np.clip(dirt * (0.5 + 0.8 * fbm(p / 0.25, 3, seed + 5)), 0.0, 0.6)
+    colour += (np.array(dust_colour) - colour) * dirt[:, None]
+    colour *= (1 - 0.55 * (1 - (ao[t] * bary).sum(1)))[:, None]
+    if keep_brightness:
+        luma = np.array([0.2126, 0.7152, 0.0722])
+        for i, b in enumerate(bsdfs):
+            sel = slot[t] == i
+            mean = (colour[sel] @ luma).mean() if sel.any() else 0.0
+            if mean > 1e-6:
+                colour[sel] *= (np.array(b.inputs['Base Color'].default_value[:3]) @ luma) / mean
+
+    srgb = linear_to_srgb(np.clip(colour, 0.0, 1.0))
+    for i, m in enumerate(me.materials):
+        mean = srgb[slot[t] == i].mean(0) if (slot[t] == i).any() else np.zeros(3)
+        print(f'[optimize_enemy]   {m.name}: mean sRGB {np.round(mean, 2)}')
+    out = np.zeros((res * res, 4), dtype=np.float32)
+    out[pix, :3] = srgb
+    filled = np.zeros(res * res, dtype=bool)
+    filled[pix] = True
+    out = dilate(out.reshape(res, res, 4), filled.reshape(res, res), 16 * supersample)
+    out[..., 3] = 1.0
+    out = out.reshape(size, supersample, size, supersample, 4).mean((1, 3))
+    image = bpy.data.images.new(obj.name + '_paint', size, size, alpha=False)
+    image.pixels.foreach_set(out.ravel())
+    image.pack()
+
+    mat = me.materials[0].copy()
+    mat.name = obj.name + '_paint'
+    nt = mat.node_tree
+    bsdf = next(nd for nd in nt.nodes if nd.type == 'BSDF_PRINCIPLED')
+    for link in list(bsdf.inputs['Base Color'].links):
+        nt.links.remove(link)
+    tex = nt.nodes.new('ShaderNodeTexImage')
+    tex.image = image
+    nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
+    me.polygons.foreach_set('material_index', np.zeros(len(me.polygons), dtype=np.int32))
+    me.materials.clear()
+    me.materials.append(mat)
+    print(f'[optimize_enemy] {obj.name}: painted, {len(edge_points)} edge points, {len(pix)} texels')
 
 
 def purge_orphans():
@@ -1174,6 +1400,8 @@ def run(name):
                 print(f'[optimize_enemy] {obj.name}: repaired invalid geometry')
             if bake_source is not None:
                 rebake_base_color(obj, bake_source, **recipe['rebake'])
+            if 'paint' in recipe:
+                weathered_paint(obj, recipe.get('root', {}).get('size', 1.0), **recipe['paint'])
 
         for mat in bpy.data.materials:
             if recipe.get('base_color_only'):
