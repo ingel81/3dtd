@@ -109,20 +109,55 @@ export function sampleCubeAtPoint(
   // und GPU-textureCube (Regel 12 in docs/LOS_PIPELINE.md).
   const py = Math.min(size - 1, Math.max(0, Math.floor(t * size)));
 
-  const faceBuf = ctx.faces[face];
-  const o = (py * size + px) * 4;
+  return {
+    cellDist,
+    blockerDist: unpackTexel(ctx.faces[face], (py * size + px) * 4, ctx.emptyDepthEpsilon) * ctx.farDistance,
+  };
+}
 
-  let packed =
+/**
+ * Distance of texel `o` (byte offset) as a share of the cube's far, as
+ * packDepthToRGBA wrote it; 1 for a texel no geometry reached (below
+ * `emptyDepthEpsilon`, the cleared colour).
+ */
+function unpackTexel(faceBuf: Uint8Array, o: number, emptyDepthEpsilon: number): number {
+  const packed =
     faceBuf[o] / 255 +
     faceBuf[o + 1] / 65025 +
     faceBuf[o + 2] / 16581375 +
     faceBuf[o + 3] / 4228250625;
-  if (packed < ctx.emptyDepthEpsilon) packed = 1.0;
+  return packed < emptyDepthEpsilon ? 1.0 : packed;
+}
 
-  return {
-    cellDist,
-    blockerDist: packed * ctx.farDistance,
-  };
+/** What a tower's cube saw from its tip, over all six faces; see cubeCoverage. */
+export interface CubeCoverage {
+  /** Share of texels with geometry closer than `nearM` to the tip, 0..1 */
+  near: number;
+  /** Share of texels no geometry reached within the far distance, 0..1 */
+  empty: number;
+}
+
+/**
+ * How much of the cube is taken up close to the tip and how much is empty,
+ * for the LOS diagnostics (TowerLosRegistry). A tip inside a mesh, or a mesh
+ * right at it, shows as a large `near`: from there every cell reads as
+ * blocked. Walks every texel of the six faces, about 1.5 million at 512²;
+ * meant for a one-off log, not for a frame.
+ */
+export function cubeCoverage(ctx: LosResolveContext, nearM: number): CubeCoverage {
+  const nearShare = nearM / ctx.farDistance;
+  let total = 0;
+  let near = 0;
+  let empty = 0;
+  for (const faceBuf of ctx.faces) {
+    for (let o = 0; o < faceBuf.length; o += 4) {
+      const depth = unpackTexel(faceBuf, o, ctx.emptyDepthEpsilon);
+      total++;
+      if (depth >= 1) empty++;
+      else if (depth < nearShare) near++;
+    }
+  }
+  return total === 0 ? { near: 0, empty: 0 } : { near: near / total, empty: empty / total };
 }
 
 /**

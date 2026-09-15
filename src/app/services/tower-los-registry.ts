@@ -6,7 +6,7 @@ import { Tower } from '../entities/tower.entity';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
-import { LosResolveContext } from '../utils/gpu-cube-resolve';
+import { LosResolveContext, cubeCoverage } from '../utils/gpu-cube-resolve';
 import { RouteCell } from '../utils/route-cell';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
@@ -68,6 +68,23 @@ export class TowerLosRegistry {
    * time stands still in a pause.
    */
   private static readonly MAX_LOS_WAIT_MS = 3000;
+
+  /**
+   * A recompute that leaves a tower no more than this share of the cells it
+   * saw before is logged (reportLosDrop). Finer tiles under a tower move a
+   * few answers; three quarters gone at once is what a cube that reads
+   * nearly everything as blocked looks like.
+   */
+  private static readonly LOS_DROP_LEFT_SHARE = 0.25;
+
+  /** A tower that saw fewer cells before is not logged: too few to tell a drop from a few moved answers. */
+  private static readonly LOS_DROP_MIN_CELLS = 8;
+
+  /** Geometry closer than this to the tip counts as "at the tip" in the drop log, m. */
+  private static readonly LOS_DROP_NEAR_M = 2;
+
+  /** Towers whose drop is logged already, see reportLosDrop. */
+  private readonly losDropLogged = new WeakSet<Tower>();
 
   constructor(
     private readonly grid: GlobalRouteGridService,
@@ -224,6 +241,7 @@ export class TowerLosRegistry {
     }
 
     // Incremental: only sample cells that don't already have a cached entry
+    const before = tower.visibleCells.length;
     this.resolvingTower = tower;
     try {
       tower.visibleCells = this.grid.registerTowerIncremental(
@@ -238,11 +256,46 @@ export class TowerLosRegistry {
     } finally {
       this.resolvingTower = null;
     }
+    this.reportLosDrop(tower, before, stale, ctx);
 
     // Selection-Viz refreshen, falls dieser Tower selected ist.
     if (tower.selected) {
       this.gameState?.towerManager.refreshSelectionViz(tower);
     }
+  }
+
+  /**
+   * One console warning when a recompute took most of a tower's visible
+   * cells away. In the playtest of 2026-09-15 a tower cluster stopped firing
+   * for good with nothing in the console. The line says what set the
+   * recompute off and what the cube saw from the tip, so a log tells a real
+   * blocker (geometry spread over the range) from a cube that reads nearly
+   * everything as blocked (geometry at the tip). Once per drop: the tower is
+   * logged again only after its cells came back.
+   */
+  private reportLosDrop(tower: Tower, before: number, stale: StaleLosEntry | undefined, ctx: LosResolveContext): void {
+    const after = tower.visibleCells.length;
+    if (before < TowerLosRegistry.LOS_DROP_MIN_CELLS || after > before * TowerLosRegistry.LOS_DROP_LEFT_SHARE) {
+      this.losDropLogged.delete(tower);
+      return;
+    }
+    if (this.losDropLogged.has(tower)) return;
+    this.losDropLogged.add(tower);
+
+    const causes: string[] = [];
+    if (stale?.explicit) causes.push('asked for');
+    if (stale && stale.cells.size > 0) causes.push(`${stale.cells.size} cell heights changed`);
+    const trigger = stale ? causes.join(', ') : 'direct call';
+    const nearM = TowerLosRegistry.LOS_DROP_NEAR_M;
+    const { near, empty } = cubeCoverage(ctx, nearM);
+    const tip = ctx.referencePos;
+    const percent = (share: number) => `${Math.round(share * 100)} %`;
+    console.warn(
+      `[TowerLOS] ${tower.id} ${tower.typeConfig.id}: ${after} of ${before} visible cells left after a LOS recompute (${trigger}). ` +
+      `Cube from the tip (${tip.x.toFixed(1)}, ${tip.y.toFixed(1)}, ${tip.z.toFixed(1)}), far ${ctx.farDistance} m: ` +
+      `${percent(near)} geometry within ${nearM} m of the tip, ${percent(empty)} empty. ` +
+      `__towerTargets() shows what the tower makes of each enemy near it.`,
+    );
   }
 
   /**

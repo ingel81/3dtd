@@ -181,4 +181,53 @@ describe('TowerLosRegistry', () => {
 
     expect(frames.size).toBe(0);
   });
+
+  describe('the log of a recompute that takes most cells away', () => {
+    const seen = () => Array.from({ length: 10 }, (_, i) => cell(i, 0));
+    const recomputeTo = (t: Tower, cells: RouteCell[]) => {
+      grid.registerTowerIncremental.mockReturnValueOnce(cells);
+      registry.scheduleRecompute(t);
+      runFrames();
+    };
+
+    it('warns once per drop, with the trigger and what the cube saw, and again only after the cells came back', () => {
+      attach();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const t = tower();
+      t.losReady = true;
+      t.visibleCells = seen();
+
+      recomputeTo(t, []);
+      expect(warn).toHaveBeenCalledTimes(1);
+      const line = String(warn.mock.calls[0][0]);
+      expect(line).toContain(`${t.id} archer: 0 of 10 visible cells left after a LOS recompute (asked for)`);
+      expect(line).toContain('geometry within 2 m of the tip');
+
+      // Still down: no second line
+      t.visibleCells = seen();
+      recomputeTo(t, [cell(0, 0)]);
+      expect(warn).toHaveBeenCalledTimes(1);
+
+      // Back, then down again
+      recomputeTo(t, seen());
+      recomputeTo(t, []);
+      expect(warn).toHaveBeenCalledTimes(2);
+    });
+
+    it('stays quiet when a recompute moves a few answers or the tower saw only a few cells', () => {
+      attach();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const t = tower();
+      t.losReady = true;
+      t.visibleCells = seen();
+      recomputeTo(t, seen().slice(0, 7));
+
+      const small = tower(50, 0);
+      small.losReady = true;
+      small.visibleCells = seen().slice(0, 5);
+      recomputeTo(small, []);
+
+      expect(warn).not.toHaveBeenCalled();
+    });
+  });
 });
