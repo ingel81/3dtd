@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pointAlongSweep, routeSweepToward } from './route-sweep';
+import { pointAlongSweep, routeSweepToward, sweepOffset } from './route-sweep';
 import { geoDistanceFast, METERS_PER_DEGREE_LAT } from './geo-utils';
 import type { GeoPosition } from '../models/game.types';
 
@@ -52,6 +52,31 @@ describe('routeSweepToward', () => {
     // 20 m back to the corner, then 30 m back east along the first leg
     expect(geoDistanceFast(sweep.points[1], at(0, 0))).toBeLessThan(0.01);
     expect(geoDistanceFast(sweep.points[2], at(0, 30))).toBeLessThan(0.01);
+  });
+});
+
+describe('sweepOffset', () => {
+  it('measures a point along the stretch from its start and off it', () => {
+    const sweep = routeSweepToward([STRAIGHT], at(60), 5, 50)!; // 60 m back to 10 m
+    const beside = sweepOffset(sweep, at(45, 3), 5)!;
+    expect(beside.alongM).toBeCloseTo(15, 1);
+    expect(beside.offM).toBeCloseTo(3, 2);
+  });
+
+  it('follows the stretch round a corner', () => {
+    const corner = [at(0, 40), at(0, 0), at(60, 0)]; // east to west, then north
+    const sweep = routeSweepToward([corner], at(20), 10, 50)!;
+    const onFirstLeg = sweepOffset(sweep, at(-2, 25), 5)!;
+    expect(onFirstLeg.alongM).toBeCloseTo(45, 1); // 20 m to the corner, 25 m east
+    expect(onFirstLeg.offM).toBeCloseTo(2, 2);
+  });
+
+  it('measures from the nearer end beyond the stretch, and finds nothing farther off', () => {
+    const sweep = routeSweepToward([STRAIGHT], at(60), 5, 50)!;
+    expect(sweepOffset(sweep, at(63), 5)).toEqual({ alongM: 0, offM: expect.closeTo(3, 2) });
+    expect(sweepOffset(sweep, at(6), 5)!.alongM).toBeCloseTo(50, 1);
+    expect(sweepOffset(sweep, at(40, 6), 5)).toBeNull();
+    expect(sweepOffset(sweep, at(66), 5)).toBeNull();
   });
 });
 

@@ -240,6 +240,13 @@ describe('AbilityManager', () => {
       expect(manager.previewSweep('nuclear-strike', TARGET)).toBeNull();
     });
 
+    it('previews a longer stretch on request, the beam itself keeps its reach', () => {
+      manager.previewSweep('orbital-laser', TARGET, 110);
+      expect(world.routeSweep).toHaveBeenLastCalledWith(TARGET, 30, 110);
+      manager.use('orbital-laser', TARGET);
+      expect(world.routeSweep).toHaveBeenLastCalledWith(TARGET, 30, 72);
+    });
+
     it('refuses where no route is in reach and keeps the charge', () => {
       sweep = null;
       expect(manager.use('orbital-laser', TARGET)).toEqual({ ok: false, reason: 'no-route' });

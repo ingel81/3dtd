@@ -171,12 +171,14 @@ export class AbilityManager implements IGameManager {
   /**
    * The route stretch a beam of `id` aimed at `target` would burn along,
    * from the route point nearest the target toward the spawn; null for an
-   * ability that is no beam and where no route is in reach.
+   * ability that is no beam and where no route is in reach. `lengthM` asks
+   * for more than the beam's reach: the same stretch, run on toward the
+   * spawn (the training bot looks at the enemies walking into the beam).
    */
-  previewSweep(id: AbilityId, target: GeoPosition): RouteSweep | null {
+  previewSweep(id: AbilityId, target: GeoPosition, lengthM?: number): RouteSweep | null {
     const config = ABILITIES[id];
     if (config?.effect.kind !== 'beam') return null;
-    return this.world.routeSweep(target, config.snapRadiusM, abilityBeamReachM(config.effect));
+    return this.world.routeSweep(target, config.snapRadiusM, lengthM ?? abilityBeamReachM(config.effect));
   }
 
   getPendingStrikes(): readonly PendingStrike[] {
