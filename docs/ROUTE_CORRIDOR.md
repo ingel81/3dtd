@@ -1210,7 +1210,7 @@ vitest (Specs schalten ihn selbst ein).
 | `refit.fit`, `refit.remeasure`, `refit.flush`, `refit.change`, `refit.remeasureLater` | Entscheidungen in `CorridorRefit` | `outcome`: `measure`, `blocked: <Sperre>`, `held for the intro flight`, `wait <ms> (intro flight / run under way / interval)`, `nothing to measure`, `run under way`; `reason` bei `flush`, `remeasure` bei `change` |
 | `pending.unwalkable` | `hasUnwalkableCells` ist wahr, `remeasure` misst deshalb | `by`: `walkCaps` oder `detourPlans` |
 | `clearance.start`, `clearance.commit`, `clearance.cancel` | `ClearanceRun`, auch ein Lauf ohne Segmente, für den `[Corridor] clearance` nichts schreibt | `segments`, `stations`, `rays`, `changed`, `lod`, `slices`, `budgetMs` (die Budgets der Scheiben, `4/32` bei beiden), `overBudget` (Scheiben länger als ihr Budget: eine Scheibe nimmt mindestens eine Station), `maxSliceMs`, `meanSliceMs`, `msPerStation`, `busyMs`, `wallMs`, `flushed`; `reason` |
-| `store` | `storeClearance` | `changed`, `by` (`measured`, `walkCaps`, `detourPlans`), `capped` (Stationen mit Kappe des Laufwegs), `plans`, `traceMs` |
+| `store` | `storeClearance` | `changed` (eine Breite oder ein Umweg hat sich geändert), `by`: welche Daten neu sind, `measured` (der Lauf brachte Freiraum, den der Korridor nicht hatte), `walkCaps` (das Grid gab andere Kappen des Laufwegs), `detourPlans` (Umwege neu geplant); `capped` (Stationen mit Kappe), `plans`, `ms` (die ganze Übergabe) |
 | `walk.narrow` | Laufweg-Runde im Neuaufbau (`narrowToWalkable`) | `changed`, `by`, `capped`, `plans` |
 | `grid.generate` | `GlobalRouteGrid.generateFromRoutes` | `cells`, `routes`, `ms` |
 | `rebuild` | Ende von `CorridorController.rebuildCorridors` | Delta, unten |
@@ -1227,9 +1227,9 @@ Schnappschuss: Höhe je Zelle (`GlobalRouteGrid.snapshotHeights`), die
 Halbbreiten links und rechts alle 2 m entlang jeder Route aus den Waypoints
 (`widthProfile`), die Zahl der Waypoints.
 
-- `by`: was die Daten seit dem letzten Neuaufbau geändert hat: `measured`
-  (neue Strahlen änderten eine Breite), `walkCaps` (Kappen des Laufwegs aus
-  dem Grid in Gebrauch), `detourPlans` (Umwege neu geplant), `settings`
+- `by`: welche Daten seit dem letzten Neuaufbau neu sind: `measured`
+  (neuer Freiraum aus den Strahlen), `walkCaps` (andere Kappen des Laufwegs
+  aus dem Grid in Gebrauch), `detourPlans` (Umwege neu geplant), `settings`
   (`__corridor.set()`), mit `walkPass:` davor dasselbe aus den Laufweg-Runden
   des Neuaufbaus; `none`.
 - `rays`: Strahlen aller Läufe seit dem letzten Neuaufbau. `rays=0` mit
@@ -1245,10 +1245,11 @@ Halbbreiten links und rechts alle 2 m entlang jeder Route aus den Waypoints
 **Kosten** (Spec unter Node, `corridor-trace.spec.ts`, "cost"): beide
 Schnappschüsse und das Delta für 1204 Zellen und 1194 Breitenpunkte
 0,17 ms je Neuaufbau; die Spec verlangt unter 5 ms. Im Browser nicht
-gemessen. `storeClearance` passt die Korridore einmal mehr an, um
-`measured` von `walkCaps` zu trennen, und meldet die Zeit als `traceMs`;
-solange der Trace an ist, steckt sie auch im `in` von `[Corridor]
-clearance`. Die Zählung der Region je Tile-Schub kostet O(aktive Tiles ×
+gemessen. Für `by` passt `storeClearance` die Korridore nicht noch einmal
+an, es vergleicht Freiraum und Kappen vor und nach dem Speichern, je Station
+ein Zahlenvergleich; ob sich eine Breite geändert hat, sagen `changed` und das
+Delta des `rebuild`. Die `ms` der `store`-Zeile sind die ganze Übergabe
+samt der beiden Anpassungen, die sie ohnehin rechnet. Die Zählung der Region je Tile-Schub kostet O(aktive Tiles ×
 Segmente), nicht gemessen.
 
 **Lesen:**
