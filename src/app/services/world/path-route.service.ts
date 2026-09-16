@@ -686,8 +686,9 @@ export class PathAndRouteService {
     //
     // Bootstrap fallback: on the very first build, cells aren't generated
     // yet (initializeGlobalRouteGrid runs AFTER the first showPathFromSpawn).
-    // We draw a flat line at HQ level; refreshRouteLines runs after
-    // onTilesLoaded / grid init and snaps the line up to real heights.
+    // We draw a flat line at HQ level; refreshRouteLines in the corridor
+    // build (CorridorBuild) and in the DevWorld regeneration snaps the line
+    // up to the heights of the cells. A tile batch no longer does.
     const cellsReady = this.globalRouteGrid.isInitialized();
     const pathWithHeights: RouteWaypoint[] = new Array(geoPath.length);
     let startCellY: number | null = null;
