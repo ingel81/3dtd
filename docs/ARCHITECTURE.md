@@ -525,7 +525,8 @@ Tower-LOS und Air-Routing bedienen.
    das entwertet einzelne Säulen-Samples (kein globaler Cache-Clear); danach
    invalidiert der Engine die LOS-Cubemap und ruft den Callback
 2. `VisualizationFacadeService.onTilesLoaded()`: Straßen, Gebäude, Marker-Höhen,
-   `gameState.onTilesLoaded()`, Spatial-Grid- und Air-Layer-Anzeige
+   `gameState.onTilesLoaded()`; die Overlays der Zellen zeichnen der Korridor-Bau
+   und der Grid-Schritt eines Ortswechsels
 3. Am Korridor ändert sich dabei nichts: Cells, Höhen und Routenlinie stehen, seit
    `CorridorBuild` sie eingefroren hat. Gesampelt wird nur in einem Bau
    ([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md))
