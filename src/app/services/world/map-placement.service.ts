@@ -17,6 +17,7 @@ import type { SegmentRoutes } from '../../utils/route-start';
 import { raycastStats } from '../../utils/raycast-stats';
 import { UIStore } from '../../store/ui.store';
 import { GeoPosition } from '../../models/game.types';
+import { canonicalCoords } from '../../utils/geo-utils';
 import {
   MIN_MANUAL_SPAWN_DISTANCE,
   MAX_MANUAL_SPAWN_DISTANCE,
@@ -29,6 +30,7 @@ import {
  */
 export interface PlacementResult {
   mode: 'hq' | 'spawn';
+  /** Where the click placed it, in its canonical form (canonicalCoords), as checked */
   lat: number;
   lon: number;
   height: number;
@@ -211,14 +213,20 @@ export class MapPlacementService {
    * the opening (portalTurnRange). Elsewhere it stands at the cursor facing
    * the HQ. The first move after the preview appears puts it there; later
    * ones give the pose it glides to (updatePreview).
+   *
+   * The cursor counts in the canonical form of its coordinates
+   * (canonicalCoords), the one the click places HQ or spawn in: the checks
+   * and the preview see the point that is placed, which moves in steps of
+   * about a metre.
    */
-  updatePreviewPosition(lat: number, lon: number, height: number): void {
+  updatePreviewPosition(cursorLat: number, cursorLon: number, height: number): void {
     if (!this.previewMarker || !this.engine) return;
 
     const mode = this.uiStore.mapPlacementMode();
     if (!mode) return;
 
     // Store current position
+    const { lat, lon } = canonicalCoords({ lat: cursorLat, lon: cursorLon });
     this.currentPosition = { lat, lon, height };
 
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);

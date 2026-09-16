@@ -27,6 +27,7 @@ import {
   LocationChangeContext,
   LocationChangeInput,
 } from './location-change-executor.service';
+import { COORD_DECIMALS, canonicalCoords } from '../../utils/geo-utils';
 
 /**
  * Delegate interface for component-specific state the coordinator needs
@@ -148,6 +149,9 @@ export class LocationChangeCoordinatorService {
       this.engineInit.loading.set(true);
       this.engineInit.resetLoadingSteps();
 
+      // Canonical already here (see applyNewLocation): the streets for a
+      // random spawn load around the HQ the change moves to
+      const hq = canonicalCoords(result.hq);
       let spawnLat = result.spawn.lat;
       let spawnLon = result.spawn.lon;
       let spawnName = result.spawn.name;
@@ -155,14 +159,14 @@ export class LocationChangeCoordinatorService {
       // Generate random spawn if requested
       if (result.spawn.isRandom) {
         // Load streets for the new location to find spawn
-        const newNetwork = await this.osmService.loadStreets(result.hq.lat, result.hq.lon, 2000);
+        const newNetwork = await this.osmService.loadStreets(hq.lat, hq.lon, 2000);
 
         // Store for reuse in executeLocationChange to avoid double-loading
         const callbacks = this.delegate!.getChangeCallbacks();
         callbacks.setStreetNetwork(newNetwork);
-        callbacks.setStreetNetworkLocation({ lat: result.hq.lat, lon: result.hq.lon });
+        callbacks.setStreetNetworkLocation({ lat: hq.lat, lon: hq.lon });
 
-        const randomSpawn = this.osmService.findRandomStreetPoint(newNetwork, result.hq.lat, result.hq.lon, 500, 1000);
+        const randomSpawn = this.osmService.findRandomStreetPoint(newNetwork, hq.lat, hq.lon, 500, 1000);
 
         if (randomSpawn) {
           spawnLat = randomSpawn.lat;
@@ -172,8 +176,8 @@ export class LocationChangeCoordinatorService {
         } else {
           callbacks.appendDebugLog('No valid spawn found, using fallback');
           // Fallback: use a point 700m north
-          spawnLat = result.hq.lat + 0.0063; // ~700m north
-          spawnLon = result.hq.lon;
+          spawnLat = hq.lat + 0.0063; // ~700m north
+          spawnLon = hq.lon;
           spawnName = 'Fallback Spawn';
         }
       }
@@ -181,8 +185,8 @@ export class LocationChangeCoordinatorService {
       // Apply the new location
       await this.applyNewLocation({
         hq: {
-          lat: result.hq.lat,
-          lon: result.hq.lon,
+          lat: hq.lat,
+          lon: hq.lon,
           name: result.hq.displayName,
           address: result.hq.address,
         },
@@ -240,7 +244,7 @@ export class LocationChangeCoordinatorService {
 
     // Update URL with only HQ (l=), no spawn (s=) -> randomizer will create spawn
     const url = new URL(window.location.href);
-    url.searchParams.set('l', `${city.lat.toFixed(5)},${city.lon.toFixed(5)}`);
+    url.searchParams.set('l', `${city.lat.toFixed(COORD_DECIMALS)},${city.lon.toFixed(COORD_DECIMALS)}`);
     url.searchParams.delete('s'); // Remove spawn so randomizer kicks in
 
     // Small delay so user sees the "Loading Map..." step
@@ -323,7 +327,10 @@ export class LocationChangeCoordinatorService {
   // ==================== Core Location Change ====================
 
   /**
-   * Apply new location - builds context from delegate and executes change
+   * Apply new location - builds context from delegate and executes change.
+   * The change runs on HQ and spawn in their canonical form
+   * (canonicalCoords): a place stored with every digit (favorite, recent
+   * place, world map) gets the origin, routes and corridor its URL gives it.
    */
   async applyNewLocation(data: LocationChangeInput): Promise<void> {
     // Prevent concurrent location changes (guard against rapid clicks)
@@ -344,7 +351,7 @@ export class LocationChangeCoordinatorService {
     }
 
     const callbacks = this.delegate.getChangeCallbacks();
-    const input: LocationChangeInput = { hq: data.hq, spawn: data.spawn };
+    const input: LocationChangeInput = { hq: canonicalCoords(data.hq), spawn: canonicalCoords(data.spawn) };
 
     try {
       await this.executor.executeLocationChange(input, ctx, callbacks);
