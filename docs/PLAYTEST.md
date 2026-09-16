@@ -41,6 +41,26 @@ Teile laufen mit demselben Aufbau direkt nacheinander.
   Ihn dort anklicken, dann darunter im Abschnitt "Movement" auf "Start": er läuft los.
 - Der Wurm heißt jetzt "Skarnax".
 
+## Korridor-Umbau (Test des Users am 16.09., Logs und Bilder in `tmp/corridor_tests/`)
+
+Getestet an fünf Orten: Erlenbach, Rothenburg, Berlin, Paris, Tokyo. Je Ort laden, Ladescreen beobachten, danach
+zoomen und mit G springen.
+
+- **738 Stabilität: ok.** In keinem der fünf Logs kommt nach `loading.done` noch ein `[Corridor] build` oder
+  `rebuild`. Der Korridor ändert sich nach dem Ladescreen nicht mehr.
+- **739 Determinismus: ok.** Tokyo dreimal geladen (mit Intro, Intro abgebrochen plus Zoomen, andere Fenstergröße):
+  jedes Mal Fingerprint `e51f7114`, auch jeder Teil gleich.
+- **740 Messung: ok.** Alle Stationen gemessen (`unmeasured=0`), alle auf der 2,5-m-Stufe.
+- **741 Ladezeit: ok** ("sehr gut" laut User). Bau gesamt, davon Tiles: Erlenbach 4,6 s (3,1), Rothenburg 5,2 (2,7),
+  Berlin 6,5 (4,0), Paris 4,7 (2,6), Tokyo 11,7 (9,4). Ladescreen fertig nach 10,3 bis 17,6 s.
+- **742 Bilder: ok.** Berlin Straße und Platz sauber, Paris auf Deckhöhe mit sauberem Übergang am Brückenkopf, keine
+  Zellen auf den Transportern, Tokyo ohne Ausreißer.
+- **743 Turm in Rothenburg: Befund.** Am Turm mit Durchgang steigt der Korridor über den Turm, statt unten
+  durchzugehen. Die Zellen sind gelb, also als Durchgang erkannt, nehmen aber die falsche Höhe; dazu
+  `cellsWithoutHeight=7` (sonst überall 0). Worker corrpassage.
+- **744 Rückfall kostet eine Sekunde umsonst.** Rothenburg 1036 ms ohne Fund, Berlin 1070 ms für eine Station,
+  Paris 1087 ms für vier. Mit corrpassage.
+
 ## Nachtests 3 (Fixes der Session 4, 15.09.)
 
 ### Runde 18: Erlenbach (717 bis 720)
