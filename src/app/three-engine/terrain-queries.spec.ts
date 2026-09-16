@@ -666,6 +666,64 @@ describe('TerrainQueries', () => {
     });
   });
 
+  /**
+   * A location change has to give the same columns as a fresh load of that
+   * place: the corridor build reads every height through sampleColumn, and
+   * the band's backbone with it. Playtest 2026-09-16, Tokyo: loading
+   * Erlenbach and navigating to Tokyo in game gave a fingerprint whose
+   * `band` and `heights` differed from three cold loads, while `stations`,
+   * `cells` and `tiles` were identical.
+   */
+  describe('a second location in one session', () => {
+    /** What ThreeTilesEngine.setOrigin leaves behind on a location change. */
+    const changeLocation = (world: ReturnType<typeof setup>): void => {
+      for (const mesh of [...world.group.children]) world.group.remove(mesh);
+      world.activeTiles.clear();
+      world.queries.clearHeightCache();
+    };
+
+    it('reads the same columns as a cold session once the old tiles are gone', () => {
+      const warm = setup();
+      warm.addTile(floor(25, 100), 3, 2);
+      expect(warm.queries.sampleColumn(0, 0)?.groundY).toBeCloseTo(25, 6);
+      expect(warm.queries.sampleColumn(4, 4)?.groundY).toBeCloseTo(25, 6);
+
+      changeLocation(warm);
+      warm.addTile(floor(7, 100), 3, 2);
+
+      const cold = setup();
+      cold.addTile(floor(7, 100), 3, 2);
+
+      for (const [x, z] of [[0, 0], [4, 4], [-3, 2]]) {
+        expect(warm.queries.sampleColumn(x, z), `${x},${z}`).toEqual(cold.queries.sampleColumn(x, z));
+      }
+    });
+
+    /**
+     * The one way left for the heights to differ while the `tiles` part of
+     * the fingerprint stays identical: a mesh of the same depth and the same
+     * geometric error still hanging in the group. selectColumnSample keeps
+     * every hit of the deepest level and reads the ground off all of them,
+     * and reports the lowest geometric error among them, so such a leftover
+     * moves the height without moving depth or error.
+     */
+    it('a leftover tile of the same level moves the ground while depth and error stay put', () => {
+      const cold = setup();
+      cold.addTile(floor(7, 100), 3, 2);
+      const clean = cold.queries.sampleColumn(0, 0)!;
+
+      const stale = setup();
+      stale.addTile(floor(3, 100), 3, 2);
+      stale.addTile(floor(7, 100), 3, 2);
+      const mixed = stale.queries.sampleColumn(0, 0)!;
+
+      expect(mixed.tileDepth).toBe(clean.tileDepth);
+      expect(mixed.tileGeometricError).toBe(clean.tileGeometricError);
+      expect(mixed.groundY).toBeCloseTo(3, 6);
+      expect(clean.groundY).toBeCloseTo(7, 6);
+    });
+  });
+
   describe('raycastLineOfSight()', () => {
     it('meldet eine Wand zwischen Turm und Ziel als Blockade und bucht auf lineOfSight', () => {
       const { queries, addTile, group } = setup();
