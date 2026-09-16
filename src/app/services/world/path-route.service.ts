@@ -1143,8 +1143,8 @@ export class PathAndRouteService {
     return new ClearanceRun(
       segments,
       2 * rayHeights.length,
-      (x, z, acrossX, acrossZ, onDeck, onApproach) =>
-        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck, onApproach) ?? null,
+      (x, z, acrossX, acrossZ, onDeck, onApproach, walked) =>
+        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck, onApproach, walked) ?? null,
       store,
     );
   }
@@ -1358,8 +1358,12 @@ interface ClearanceSegment {
 /**
  * One clearance measurement, see PathAndRouteService.beginClearanceMeasurement.
  * Works through the stations without a measurement one after the other, so
- * a run cut into slices casts the same rays in the same order as one that
- * takes them all at once. Keeps what it found to itself until commit().
+ * a run cut into slices measures the same stations in the same order as one
+ * that takes them all at once. The height carried along an approach it walks
+ * once per slice and path (`walked`): the stations of a long leg to the HQ
+ * would each walk it again from its start, and within a slice no tile
+ * changes; a run cut into slices casts those columns again in each slice.
+ * Keeps what it found to itself until commit().
  */
 class ClearanceRun implements CorridorMeasurement {
   /** The next station to look at. */
@@ -1387,6 +1391,8 @@ class ClearanceRun implements CorridorMeasurement {
   private sliceMsTotal = 0;
   private overBudget = 0;
   private readonly budgets = new Set<number>();
+  /** The height carried after each step along an approach path in this slice (carriedY), by its path. */
+  private readonly walked = new Map<readonly { x: number; z: number }[], number[]>();
 
   constructor(
     private readonly segments: ClearanceSegment[],
@@ -1394,6 +1400,7 @@ class ClearanceRun implements CorridorMeasurement {
     private readonly raysPerStation: number,
     private readonly probeAt: (
       x: number, z: number, acrossX: number, acrossZ: number, onDeck: boolean, onApproach: ApproachPoint | null,
+      walked: number[],
     ) => StationProbe | null,
     /** Stores what the run measured; true when that changes a corridor. */
     private readonly store: (segments: readonly ClearanceSegment[]) => boolean,
@@ -1419,6 +1426,7 @@ class ClearanceRun implements CorridorMeasurement {
     if (this.end) return true;
     const start = performance.now();
     this.slices++;
+    this.walked.clear();
     let here = 0;
     for (let segment = this.next(); segment; segment = this.next()) {
       // Stop before a station that would run past the budget, going by what
@@ -1526,8 +1534,13 @@ class ClearanceRun implements CorridorMeasurement {
     const z = segment.z + segment.dz * t;
     // On an approach: from the start nearest the station, as for a route cell there
     const approach = segment.onBridge ? null : stationApproach(segment.approaches, t);
+    let walked: number[] = [];
+    if (approach !== null) {
+      walked = this.walked.get(approach.path) ?? walked;
+      this.walked.set(approach.path, walked);
+    }
     // (-dz, dx) points right of the direction of travel.
-    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach);
+    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach, walked);
     segment.probes[k] = probe;
     this.probed++;
     countLod(this.lod, probe?.tileError ?? Infinity);

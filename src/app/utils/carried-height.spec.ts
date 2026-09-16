@@ -113,6 +113,27 @@ describe('carriedY', () => {
     expect(at(20)).toBe(202);
     expect(approachY(yard(18), at(18)!)).toBe(202);
   });
+
+  it('walks a path once for many points of it, with the heights of a walk of its own', () => {
+    // A ramp up 1 m every 2 m, a wall 3 m up at x = 60, then level: 100 m of leg.
+    const ground = (x: number) => (x < 30 ? x / 2 : x < 60 ? 15 : 18);
+    let calls = 0;
+    const slope = (x: number) => {
+      calls++;
+      return column(ground(x), ground(x));
+    };
+    const at = (m: number, walked?: number[]) => carriedY({ path: [p(0, 0), p(100, 0)], m, start: street }, slope, walked);
+    const points = [99, 1, 50, 61.5, 100, 30, 0, 100];
+    const alone = points.map((m) => at(m));
+    const own = calls;
+    calls = 0;
+    const walked: number[] = [];
+    expect(points.map((m) => at(m, walked))).toEqual(alone);
+    // The start and one column every 2 m to 100 m, each once.
+    expect(calls).toBe(51);
+    expect(own).toBeGreaterThan(200);
+    expect(alone.slice(0, 4)).toEqual([15, 0, 15, 15]);
+  });
 });
 
 describe('routeApproaches', () => {

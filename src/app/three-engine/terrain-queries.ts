@@ -461,7 +461,9 @@ export class TerrainQueries {
    *
    * Every column of a station, under it, beside a seam, at the start of an
    * approach and along it and behind a low hit, is a ray at its exact point
-   * that neither reads nor writes the column cache (raycastColumn). The side rays start at that
+   * that neither reads nor writes the column cache (raycastColumn). The
+   * columns along an approach are walked once for the stations that pass
+   * the same `walked` (carriedY), the clearance run's per slice. The side rays start at that
    * column's height: the column at the centre of its cache bucket
    * (columnCentre) can lie 0.35 m away, on a kerb or a car; and a station
    * that filled the cache would decide what the cells beside it read
@@ -481,6 +483,7 @@ export class TerrainQueries {
     maxDistance: number,
     onDeck = false,
     onApproach: ApproachPoint | null = null,
+    walked: number[] = [],
   ): StationProbe | null {
     const tiles = this.sources.tiles();
     if (this.sources.devTerrain() || !tiles) return null;
@@ -509,7 +512,7 @@ export class TerrainQueries {
         if (!start || start.column.tileGeometricError > corridorConfig.maxTileError) {
           return { unmeasured: 'no approach start', tileError: column.tileGeometricError, left: [], right: [], ...shifted };
         }
-        carried = carriedY(onApproach, (px, pz) => this.columnBesideSeam(px, pz, alongX, alongZ)?.column ?? null);
+        carried = carriedY(onApproach, (px, pz) => this.columnBesideSeam(px, pz, alongX, alongZ)?.column ?? null, walked);
       }
       const baseY = surfaceY(onDeck ? 'deck' : carried === null ? 'ground' : 'approach', column, carried)!;
       const left: number[] = [];
