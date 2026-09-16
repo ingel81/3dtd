@@ -137,6 +137,16 @@ describe('MapPlacementService', () => {
       expect(service.handlePlacementClick()).toMatchObject({ mode: 'spawn', lat: CURSOR.lat });
     });
 
+    it('fades the portal frame as well when its asset loads only after the placement started', () => {
+      service.startPlacement('spawn');
+
+      const frameMat = new MeshPhongMaterial({ color: GREEN });
+      preview().add(new Mesh(undefined, frameMat));
+
+      expect(frameMat.transparent).toBe(true);
+      expect(frameMat.opacity).toBe(0.5);
+    });
+
     it('shows the HQ preview in the same green', () => {
       service.startPlacement('hq');
       service.updatePreviewPosition(HQ.lat, HQ.lon, 0);
