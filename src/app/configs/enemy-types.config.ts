@@ -809,8 +809,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     healthBarOffset: 5,
     canBleed: true,
     headingOffset: -1.658,
-    colorMultiplier: 1.3,
-    emissiveIntensity: 0.15,
+    // Darkened (playtest 2026-09-15: far too bright and yellow). Its texture
+    // is a light orange brown, about 2.5 times the mammoth's of the same set;
+    // 0.8 and a faint glow put it among the other creatures.
+    colorMultiplier: 0.8,
+    emissiveIntensity: 0.05,
     emissiveColor: '#ccddff',
     randomAnimationStart: true,
     lateralSpread: 0.65,
