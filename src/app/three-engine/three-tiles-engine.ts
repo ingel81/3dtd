@@ -807,6 +807,16 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * The content paths of the fine tiles of the route corridor, whose hash
+   * routeCorridorLod() gives as `tileSet` (RouteCorridorRegion.finePaths),
+   * for the corridor snapshot. Null without a corridor.
+   */
+  routeCorridorTilePaths(): string[] | null {
+    if (!this.tilesRenderer || !this.routeCorridorRegion) return null;
+    return this.routeCorridorRegion.finePaths(this.tilesRenderer.activeTiles as unknown as Iterable<RegionTile>);
+  }
+
+  /**
    * Debug: paint tiles black to white by geometric error, white at
    * {@link TILE_LOD_DEBUG_MAX_ERROR} or coarser. Shows whether the route
    * corridor is really refined. The plugin registers on first use.

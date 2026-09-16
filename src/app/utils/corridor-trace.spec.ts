@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HEIGHT_MOVE_M,
   LONG_STEP_MS,
+  PAGE_LOAD,
   cellDelta,
   corridorTrace,
   countLod,
@@ -197,6 +198,21 @@ describe('corridor trace', () => {
       );
       expect(rebuilds[1]).toMatch(/ rebuild by=none rays=0 /);
       expect(lines.some((line) => line.startsWith('[CorridorTrace] LONG') && line.includes(' rebuild ms=183.5'))).toBe(true);
+    });
+  });
+
+  /** The corridor snapshot tells a place loaded with the page from one reached in the game by them. */
+  describe('loads', () => {
+    it('list every location load of the page, the page load first, also while the trace is off', () => {
+      corridorTrace.setEnabled(false);
+      const before = corridorTrace.loads().length;
+      corridorTrace.begin('HQ moved, new origin');
+
+      const loads = corridorTrace.loads();
+      expect(loads[0]).toEqual({ label: PAGE_LOAD, atS: 0 });
+      expect(loads).toHaveLength(before + 1);
+      expect(loads.at(-1)).toEqual({ label: 'HQ moved, new origin', atS: expect.any(Number) });
+      expect(loads.at(-1)!.atS).toBeGreaterThanOrEqual(loads.at(-2)!.atS);
     });
   });
 

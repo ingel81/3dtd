@@ -189,6 +189,17 @@ export interface CorridorSnapshot {
   waypoints: number;
 }
 
+/** The label of the location load a page starts with, which calls no begin(). */
+export const PAGE_LOAD = 'page load';
+
+/** A location load of this page, see CorridorTrace.loads(). */
+export interface CorridorLoad {
+  /** What begin() was called with: PAGE_LOAD, `location change`, `HQ moved, new origin`. */
+  label: string;
+  /** Seconds since the page load when it began. */
+  atS: number;
+}
+
 /** One event of the timeline, `__corridor.trace()`. */
 export interface CorridorTraceEntry {
   /** Seconds since the location load. */
@@ -223,8 +234,10 @@ export class CorridorTrace {
   private on: boolean;
   /** performance.now() at the location load, see begin(). */
   private t0 = 0;
-  private label = 'page load';
+  private label = PAGE_LOAD;
   private readonly entries: CorridorTraceEntry[] = [];
+  /** Every location load of this page, oldest first; kept whether the trace is on or off. */
+  private readonly history: CorridorLoad[] = [{ label: PAGE_LOAD, atS: 0 }];
   /** The trigger chain of the code running now, see within(). */
   private stack: readonly string[] = [];
   /** What changed the corridor data since the last rebuild, see noteChange(). */
@@ -251,10 +264,11 @@ export class CorridorTrace {
     return `Corridor trace ${on ? 'on' : 'off'}`;
   }
 
-  /** A location load starts: the clock starts at 0 and the timeline empties. */
+  /** A location load starts: the clock starts at 0, the timeline empties and the load joins loads(). */
   begin(label: string): void {
     this.t0 = performance.now();
     this.label = label;
+    this.history.push({ label, atS: round2(this.t0 / 1000) });
     this.entries.length = 0;
     this.stack = [];
     this.changedBy.clear();
@@ -387,6 +401,11 @@ export class CorridorTrace {
   /** The timeline of this location load. */
   list(): readonly CorridorTraceEntry[] {
     return this.entries;
+  }
+
+  /** Every location load of this page so far, the page load first and the one in use last. */
+  loads(): readonly CorridorLoad[] {
+    return this.history;
   }
 
   private write(flag: string, event: string, detail: Record<string, unknown>, trigger?: string): void {

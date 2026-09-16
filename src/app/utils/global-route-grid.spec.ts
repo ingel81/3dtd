@@ -327,6 +327,9 @@ describe('GlobalRouteGrid tile seams', () => {
     expect(overlayCellKind(cell) & 7).toBe(2);
     // The trace says why and where: the row x = 21, and the corners beside it, which touch two stable cells only.
     expect(grid.describeCellsWithoutHeight()).toEqual({ why: 'noColumn:9', at: '19,-3;19,5;21,-3;21,-1;21,1;21,3;21,5;23,-3;23,5' });
+    // Cell by cell, as the corridor snapshot lists them: a reason where there is no height, none where there is one.
+    expect(grid.missOf(cell)).toBe('noColumn');
+    expect(grid.missOf(grid.getCellAt(15, 1)!)).toBeNull();
   });
 
   /**

@@ -1,6 +1,19 @@
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { TilesLodSnapshot } from '../../three-engine/tiles-lod-debug';
 
+/** The engine as `__tiles.stats()` reads it. */
+type StatsEngine = Pick<NonNullable<ReturnType<EngineInitializationService['getEngine']>>, 'tilesLodDebug' | 'terrain'>;
+
+/**
+ * What `__tiles.stats()` prints: the tiles' LOD snapshot with the column
+ * cache's `lodVersion`; null without 3D tiles (no location, DevWorld). The
+ * corridor snapshot reads it too.
+ */
+export function tilesStats(engine: StatsEngine | null): (TilesLodSnapshot & { lodVersion: number }) | null {
+  const tiles = engine?.tilesLodDebug() ?? null;
+  return engine && tiles ? { ...tiles.snapshot(), lodVersion: engine.terrain.lodVersion } : null;
+}
+
 /** What TilesConsole needs; VisualizationFacadeService passes its services. */
 export interface TilesConsoleDeps {
   engineInit: Pick<EngineInitializationService, 'getEngine'>;
@@ -32,10 +45,8 @@ export class TilesConsole {
   }
 
   private stats(): (TilesLodSnapshot & { lodVersion: number }) | string {
-    const engine = this.deps.engineInit.getEngine();
-    const tiles = engine?.tilesLodDebug() ?? null;
-    if (!engine || !tiles) return 'No 3D tiles: no location loaded, or DevWorld.';
-    const row = { ...tiles.snapshot(), lodVersion: engine.terrain.lodVersion };
+    const row = tilesStats(this.deps.engineInit.getEngine());
+    if (!row) return 'No 3D tiles: no location loaded, or DevWorld.';
     console.table(row);
     return row;
   }
