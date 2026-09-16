@@ -77,14 +77,22 @@ Je Station (`TerrainQueries.measureStreetClearance`):
 
 1. Eine Säulenprobe unter der Station. Findet sie gar kein Tile, steht die
    Station womöglich auf einer Naht zwischen zwei Tile-Meshes; dann versucht
-   sie die nächste Säule voraus und zurück entlang der Route (`SEAM_SHIFTS`,
-   `terrain-queries.ts`: ein 0,5-m-Feld weiter auf der Hauptachse der Route,
-   also 0,5 m entlang einer Achse und bis 0,71 m diagonal) und misst von der
-   ersten, die ein Tile findet. Das kostet höchstens zwei weitere Säulen, nur
-   für solche Stationen; `__corridor.pick()` zeigt die Verschiebung in Metern
-   als `shiftM`. Ohne Tile auch dort ist die Station `unmeasured: 'no tile'`,
-   mit einem Tile gröber als `maxTileError` ist sie
-   `unmeasured: 'coarse tile'`.
+   sie die Säulen 0,5 m voraus und 0,5 m zurück entlang der Route
+   (`SEAM_SHIFTS_M`, `terrain-queries.ts`) und misst von der ersten, die ein
+   Tile findet. Das kostet höchstens zwei weitere Säulen, nur für solche
+   Stationen; `__corridor.pick()` zeigt die Verschiebung als `shiftM`. Ohne
+   Tile auch dort ist die Station `unmeasured: 'no tile'`, mit einem Tile
+   gröber als `maxTileError` ist sie `unmeasured: 'coarse tile'`.
+
+   Jede Säule einer Station (unter ihr, neben einer Naht, am und hinter
+   einem Brückenende, hinter einem niedrigen Treffer) ist ein eigener Strahl
+   am genauen Punkt, am Säulen-Cache vorbei: Sie liest ihn nicht und
+   schreibt nichts hinein. Die Seitenstrahlen starten in der Höhe dieser
+   Säule, und die Säule der Feldmitte (siehe Zellhöhe) läge bis 0,35 m
+   daneben, etwa auf dem Bordstein oder einem Auto. Eine Station kostet so
+   bei jeder Messung ihre Säulen neu. Mehr Strahlen als mit Cache sind das
+   nur, wo sie eine Säule vorher aus dem Cache bekam, etwa die Säule eines
+   Brückenendes für jede Station dahinter; nicht gemessen.
 2. Je Strahlhöhe ein waagrechter Strahl nach links und einer nach rechts, in
    1 m und 3,5 m über der Fläche, auf der die Zellen dort stehen (`surfaceY`,
    siehe Zellhöhe), jeder `maxHalfWidth` lang. Das ist der Boden der Säule,
@@ -329,8 +337,9 @@ unterste Treffer der feinsten LOD (`column-sample.ts`).
 **Eine Säule je 0,5-m-Feld** (`columnCentre`, `terrain-queries.ts`): Der
 Säulen-Cache hält eine Säule je 0,5-m-Feld, und ihr Strahl steht in der
 Mitte des Felds, nicht an dem Punkt, der fragt. Zellen und Band proben auf
-ganzen und halben Metern, also genau dort; eine Station, ein Knoten des
-Straßen-Overlays oder ein Tower liest die Säule bis 0,35 m neben sich. Bis
+ganzen und halben Metern, also genau dort; ein Knoten des Straßen-Overlays
+oder ein Tower liest die Säule bis 0,35 m neben sich. Die Stationen gehen
+am Cache vorbei und messen am genauen Punkt (siehe Messung). Bis
 2026-09-16 stand der Strahl am ersten Punkt, der fragte, und jeder weitere
 Punkt des Felds bekam dessen Höhe. Die Zellen eines Baus hingen damit davon
 ab, was vorher gesampelt hatte: bei einer frischen Ladung die Stationen,
@@ -1057,7 +1066,7 @@ echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
     Zahlen von vor dem Stückeln.
   - `slices`: Scheiben, eine je Frame. `wall`: Zeit vom Start bis zum Ende
     des Laufs.
-  - `noTile`: nur wenn Stationen auch eine Säule voraus und zurück kein Tile
+  - `noTile`: nur wenn Stationen auch 0,5 m voraus und zurück kein Tile
     fanden. Ihre lokalen `x,z` (wie `[Corridor] pick at` sie druckt), mit `;`
     getrennt, höchstens zehn, dahinter `;+N` für den Rest. Dort lohnt
     `__corridor.pick()`.
