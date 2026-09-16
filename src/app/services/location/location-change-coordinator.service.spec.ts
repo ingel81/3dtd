@@ -143,7 +143,7 @@ describe('LocationChangeCoordinatorService', () => {
 
   const dialog = { open: vi.fn() };
   const osm = { loadStreets: vi.fn(), findRandomStreetPoint: vi.fn() };
-  const heightUpdate = { heightsLoading: signal(false), heightProgress: signal(1), stopHeightUpdates: vi.fn() };
+  const heightUpdate = { heightsLoading: signal(false), stopHeightUpdates: vi.fn() };
   const markerViz = { initialize: vi.fn(), placeSpawnPortal: vi.fn(), addBaseMarker: vi.fn() };
   const pathRoute = {
     clearCache: vi.fn(),
@@ -273,7 +273,6 @@ describe('LocationChangeCoordinatorService', () => {
       await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(flagsDuringReset).toEqual([true, true, true, true, true]);
-      expect(heightUpdate.heightProgress()).toBe(0);
       expect(engineInit.resetLoadingSteps).toHaveBeenCalled();
       expect(engineInit.tilesLoading()).toBe(false);
       expect(engineInit.osmLoading()).toBe(false);

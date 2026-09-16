@@ -139,7 +139,6 @@ export class LocationChangeExecutorService {
     this.engineInit.osmLoading.set(true);
     this.heightUpdate.heightsLoading.set(true);
     this.locationMgmt.isApplyingLocation.set(true);
-    this.heightUpdate.heightProgress.set(0);
     this.engineInit.resetLoadingSteps();
   }
 

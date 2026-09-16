@@ -265,7 +265,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
         { provide: PathAndRouteService, useValue: pathRoute },
         { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: EngineInitializationService, useValue: engineInit },
-        { provide: HeightUpdateService, useValue: { heightsLoading: signal(false), heightProgress: signal(0), stopHeightUpdates: vi.fn() } },
+        { provide: HeightUpdateService, useValue: { heightsLoading: signal(false), stopHeightUpdates: vi.fn() } },
         { provide: CameraControlService, useValue: { initialize: vi.fn() } },
         { provide: CameraFramingService, useValue: { computeInitialFrame: vi.fn(), setEngine: vi.fn(), applyFrame: vi.fn() } },
         { provide: RouteAnimationService, useValue: { initialize: vi.fn(), stopAnimation: vi.fn(), startAnimation: vi.fn(), isRunning: () => false } },
