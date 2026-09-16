@@ -419,7 +419,7 @@ function windowExtreme(values: readonly number[], k: number, radius: number, pic
 }
 
 /** Stations either side a filter has to look at to catch features up to `lengthM` long. */
-function stationRadius(lengthM: number): number {
+export function stationRadius(lengthM: number): number {
   return Math.max(0, Math.ceil(lengthM / corridorConfig.stationSpacing / 2));
 }
 

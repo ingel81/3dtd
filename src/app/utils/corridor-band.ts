@@ -1,4 +1,4 @@
-import { CentreMode, corridorConfig, cutShortBulges } from './route-corridor';
+import { CentreMode, corridorConfig, stationRadius } from './route-corridor';
 import { segmentTouchesCell } from './route-grid-builder';
 
 /**
@@ -811,23 +811,106 @@ function walkSide(st: Work, b: number, dir: number, slope: number): number {
   return wall;
 }
 
+/** Radians the route turns right and left up to each station, summed each way (edgeLength). */
+interface Turns {
+  right: number[];
+  left: number[];
+}
+
+function turnsOf(stations: readonly Work[]): Turns {
+  const turns: Turns = { right: [], left: [] };
+  stations.forEach((st, k) => {
+    const before = stations[k - 1];
+    let turn = before ? Math.atan2(st.rz, st.rx) - Math.atan2(before.rz, before.rx) : 0;
+    if (turn > Math.PI) turn -= 2 * Math.PI;
+    if (turn <= -Math.PI) turn += 2 * Math.PI;
+    turns.right.push((turns.right[k - 1] ?? 0) + Math.max(0, turn));
+    turns.left.push((turns.left[k - 1] ?? 0) + Math.max(0, -turn));
+  });
+  return turns;
+}
+
+/**
+ * Metres between stations `j` and `k` along an edge `offset` right of the
+ * OSM line, as bandPath lays the band (a parallel of the route, mitred at a
+ * joint): the route between them, and where it turns away from that side, the
+ * arc round the outside of each turn, `offset` times its angle. Round the
+ * inside a parallel shortens and folds within a few metres of the joint,
+ * where the lines across run along the other street; there the length along
+ * the route stays. On a straight route, the metres along it. Playtest 748:
+ * measured along the route alone, a narrower street after a turn narrowed
+ * the band round the outside of the turn before it, and the other way round.
+ */
+function edgeLength(stations: readonly Work[], turns: Turns, j: number, k: number, offset: number): number {
+  const [a, b] = j < k ? [j, k] : [k, j];
+  const outside = offset < 0 ? -offset * (turns.right[b] - turns.right[a]) : offset * (turns.left[b] - turns.left[a]);
+  return stations[b].s - stations[a].s + outside;
+}
+
 /**
  * Short bulges of the band along the route cut, each side on its own, as the
  * clearance fitting cuts them (cutShortBulges, `bulgeLength`): the gap
  * between two parked cars, a driveway. The band keeps its backbone.
+ *
+ * An opening: each station keeps the most of any run of stations round it
+ * that stands out at least that far and spans `bulgeLength` (a run at an end
+ * of the route half that), counted in stations along the edge at that
+ * offset (edgeLength). On a straight route cutShortBulges exactly; round the
+ * outside of a turn the run is longer than its stations along the route.
  */
 function cutBulges(stations: Work[]): void {
   const banded = (st: Work) => st.kind === 'band' || st.kind === 'climb';
+  const turns = turnsOf(stations);
+  const radius = stationRadius(corridorConfig.bulgeLength);
+  const n = stations.length;
+  // Stations along the edge `offset` right of the line from station i to the next.
+  const steps = (i: number, offset: number) => {
+    const ds = stations[i + 1].s - stations[i].s;
+    return ds > 1e-9 ? edgeLength(stations, turns, i, i + 1, offset) / ds : 1;
+  };
   for (const side of ['left', 'right'] as const) {
     const values = stations.map((st) => (banded(st) ? (side === 'left' ? -st.left : st.right) : NaN));
-    const cut = cutShortBulges(values);
     stations.forEach((st, k) => {
-      if (!banded(st) || Number.isNaN(cut[k])) return;
+      if (!banded(st)) return;
+      let cut = -Infinity;
+      for (let p = k; p >= Math.max(0, k - 2 * radius); p--) {
+        for (let q = k; q <= Math.min(n - 1, k + 2 * radius); q++) {
+          let level = Infinity;
+          for (let i = p; i <= q; i++) if (!Number.isNaN(values[i])) level = Math.min(level, values[i]);
+          if (level <= cut) continue;
+          let span = 0;
+          for (let i = p; i < q; i++) span += steps(i, side === 'left' ? -level : level);
+          if (span >= (p === 0 ? 0 : radius) + (q === n - 1 ? 0 : radius) - 1e-9) cut = level;
+        }
+      }
       const b = st.backbone!.offset;
-      if (side === 'left') st.left = Math.min(b, -cut[k]);
-      else st.right = Math.max(b, cut[k]);
+      if (side === 'left') st.left = Math.min(b, -cut);
+      else st.right = Math.max(b, cut);
     });
   }
+}
+
+/**
+ * `values` (one side of the band per station) rising by at most `taper` per
+ * metre of edge between two stations (edgeLength at `edges`, the offset of
+ * that side at the station a value comes from): each the least of itself and
+ * every other plus `taper` times those metres. On a straight route the
+ * min-plus distance transform along it.
+ */
+function tapered(stations: readonly Work[], values: readonly number[], edges: readonly number[]): number[] {
+  const { taper } = corridorConfig;
+  const turns = turnsOf(stations);
+  const floor = values.reduce((a, v) => Math.min(a, v), Infinity);
+  return values.map((value, k) => {
+    let best = value;
+    for (const dir of [-1, 1]) {
+      // An edge is never shorter than the route, so no station further along can bind.
+      for (let j = k + dir; j >= 0 && j < stations.length && floor + taper * Math.abs(stations[j].s - stations[k].s) < best; j += dir) {
+        best = Math.min(best, values[j] + taper * edgeLength(stations, turns, j, k, edges[j]));
+      }
+    }
+    return best;
+  });
 }
 
 /**
@@ -836,16 +919,14 @@ function cutBulges(stations: Work[]): void {
  * before what ends it instead of jumping sideways at one station. Without it
  * the round end of the cells of a wide station half a car length away sweeps
  * over the car the band ends before (jointCap only caps the next segment).
- * Both ways, as a min-plus distance transform; a station without a band
- * (a passage, a tunnel, a bridge) keeps the rays' wall but tapers the band
+ * Both ways, per metre of edge (tapered); a station without a band (a
+ * passage, a tunnel, a bridge) keeps the rays' wall but tapers the band
  * beside it. The backbone stays inside.
  */
 function taperEdges(stations: Work[]): void {
-  const { taper } = corridorConfig;
   for (const side of ['left', 'right'] as const) {
-    const out = stations.map((st) => (side === 'left' ? -st.left : st.right));
-    for (let k = 1; k < stations.length; k++) out[k] = Math.min(out[k], out[k - 1] + taper * (stations[k].s - stations[k - 1].s));
-    for (let k = stations.length - 2; k >= 0; k--) out[k] = Math.min(out[k], out[k + 1] + taper * (stations[k + 1].s - stations[k].s));
+    const edges = stations.map((st) => (side === 'left' ? st.left : st.right));
+    const out = tapered(stations, edges.map((e) => (side === 'left' ? -e : e)), edges);
     stations.forEach((st, k) => {
       if (st.kind !== 'band' && st.kind !== 'climb') return;
       const b = st.backbone!.offset;
@@ -863,15 +944,16 @@ function taperEdges(stations: Work[]): void {
  * edges do: beside a van the band narrowed from 7 to 1.5 m while the line
  * moved 0.15 m per metre, and the worm's rings, which sit across the
  * corridor (wormSway), turned 17 degrees against each other
- * (worm-detour.spec.ts). Only ever narrows the band, and the backbone stays
- * inside.
+ * (worm-detour.spec.ts). Per metre of edge as there (tapered). Only ever
+ * narrows the band, and the backbone stays inside.
  */
 function taperWidths(stations: Work[]): void {
-  const { taper } = corridorConfig;
   for (const side of ['left', 'right'] as const) {
-    const room = stations.map((st) => (side === 'left' ? st.centre - st.left : st.right - st.centre));
-    for (let k = 1; k < stations.length; k++) room[k] = Math.min(room[k], room[k - 1] + taper * (stations[k].s - stations[k - 1].s));
-    for (let k = stations.length - 2; k >= 0; k--) room[k] = Math.min(room[k], room[k + 1] + taper * (stations[k + 1].s - stations[k].s));
+    const room = tapered(
+      stations,
+      stations.map((st) => (side === 'left' ? st.centre - st.left : st.right - st.centre)),
+      stations.map((st) => (side === 'left' ? st.left : st.right)),
+    );
     stations.forEach((st, k) => {
       if (st.kind !== 'band' && st.kind !== 'climb') return;
       const b = st.backbone!.offset;
