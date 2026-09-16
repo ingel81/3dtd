@@ -337,6 +337,7 @@ export class CorridorBuild {
       let fallbackCells = 0;
       const bare = grid.cellsWithoutHeight();
       if (tiles && engine && bare > 0) {
+        const { why } = grid.describeCellsWithoutHeight();
         const t = this.now();
         const reached = await this.onFallbackLevel(tiles, engine, report, stopped, () => traced(() => {
           fallbackCells = grid.retryUnsampledCells().promoted;
@@ -346,7 +347,7 @@ export class CorridorBuild {
           return null;
         }
         ms.fallback += this.now() - t;
-        traced(() => corridorTrace.log('build.fallback', { what: 'cells', missing: bare, found: fallbackCells }));
+        traced(() => corridorTrace.log('build.fallback', { what: 'cells', missing: bare, found: fallbackCells, why }));
       }
 
       // 6. The route line on the final cells, the overlays, the animation: frozen.
@@ -400,7 +401,11 @@ export class CorridorBuild {
       }
       traced(() => {
         if (before) corridorTrace.rebuilt(before, this.snapshot(), { bands: band.routes, spawns: spawns.length }, ms.build + ms.lines);
-        corridorTrace.log('build.freeze', { ...result, tilesMs: ms.tiles, measureMs: ms.measure, fallbackMs: ms.fallback, buildMs: ms.build });
+        // Cells still without a height: why, and where the first of them stand.
+        const bareCells = result.cellsWithoutHeight > 0 ? grid.describeCellsWithoutHeight() : {};
+        corridorTrace.log('build.freeze', {
+          ...result, ...bareCells, tilesMs: ms.tiles, measureMs: ms.measure, fallbackMs: ms.fallback, buildMs: ms.build,
+        });
       });
       return result;
     } finally {

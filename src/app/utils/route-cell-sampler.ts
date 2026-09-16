@@ -5,6 +5,17 @@ import { corridorConfig } from './route-corridor';
 import { TUNNEL_PORTAL_OFFSET_M } from './route-grid-builder';
 import { logGrid } from './route-grid-log';
 
+/**
+ * Why a cell got no sample of its own from sampleCellY, for the corridor
+ * trace (GlobalRouteGrid.describeCellsWithoutHeight): `noColumn`, no column
+ * at the cell or half a metre beside it (no tile there, or a mesh the
+ * columns meet nothing of); `refused`, columns whose hits its neighbours
+ * refused (plausible); `noPortal`, a tunnel portal with neither a column
+ * nor a street of the band; `noBridgeEnd`, no column at the bridge end the
+ * height off it is carried from.
+ */
+export type CellMiss = 'noColumn' | 'refused' | 'noPortal' | 'noBridgeEnd';
+
 /** What one column gives a cell, see RouteCellSampler.hitOf. */
 interface CellHit {
   y: number;
@@ -46,6 +57,9 @@ export class RouteCellSampler {
 
   /** Monotonic counter incremented on each successful sample (debug only). */
   sampleFrame = 0;
+
+  /** Why the last sampleCellY call gave its cell no sample of its own; null where it gave one or filled the cell. */
+  lastMiss: CellMiss | null = null;
 
   /**
    * A hit further than this from the median of its comparable stable
@@ -110,6 +124,7 @@ export class RouteCellSampler {
    * @returns `true` when the cell was promoted to / refreshed in `stable`.
    */
   sampleCellY(cell: RouteCell): boolean {
+    this.lastMiss = 'noColumn';
     // Peek the best LOD loaded at this (x,z) WITHOUT raycasting, and skip a
     // column that cannot succeed:
     //
@@ -145,12 +160,15 @@ export class RouteCellSampler {
 
     let hit: CellHit | null = null;
     let found = false;
+    let missing: CellMiss = 'noColumn';
     if (cell.surface === 'tunnel' && cell.tunnelSpan) {
       const column = this.tunnelColumn(cell.tunnelSpan);
       found = column !== null;
+      missing = 'noPortal';
       if (column !== null && column.tileDepth === 0) {
         // A portal without a hit stands on the street of the band: a height, not a sample.
         this.fill(cell, column.groundY);
+        this.lastMiss = null;
         return false;
       }
       if (column !== null) hit = this.plausible(cell, this.hitOf(cell, column, null, null));
@@ -158,6 +176,7 @@ export class RouteCellSampler {
       const deckEnd = cell.surface === 'approach' ? cell.deckEnd : null;
       const deck = deckEnd ? this.columnNear(deckEnd.path[0].x, deckEnd.path[0].z) : null;
       const carried = deckEnd && deck ? carriedDeckY(deckEnd, (x, z) => this.columnNear(x, z)) : null;
+      if (deckEnd !== null && deck === null) missing = 'noBridgeEnd';
       for (const [dx, dz] of RouteCellSampler.CELL_PROBES_M) {
         if (deckEnd !== null && deck === null) break;
         const column = sampler(cell.x + dx, cell.z + dz);
@@ -169,8 +188,10 @@ export class RouteCellSampler {
     }
     if (hit === null) {
       if (!found) logGrid('SAMPLE', `miss key=${cell.key}`);
+      this.lastMiss = found ? 'refused' : missing;
       return false;
     }
+    this.lastMiss = null;
     cell.terrainHeight = hit.y;
     cell.sample = {
       state: 'stable',
