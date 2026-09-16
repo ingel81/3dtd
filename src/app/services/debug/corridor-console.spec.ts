@@ -22,6 +22,7 @@ describe('CorridorConsole', () => {
     report: () => string;
     probeLod: (targets?: number[], timeoutS?: number) => unknown;
     fingerprint: () => unknown;
+    snapshot: () => Promise<string>;
   }
   const api = () => (globalThis as Record<string, unknown>)['__corridor'] as Api;
 
@@ -46,6 +47,7 @@ describe('CorridorConsole', () => {
   let showCellSelection: ReturnType<typeof vi.fn>;
   let cellReport: { start: ReturnType<typeof vi.fn>; connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> };
   let lodProbe: { run: ReturnType<typeof vi.fn>; fingerprint: ReturnType<typeof vi.fn> };
+  let snapshot: { take: ReturnType<typeof vi.fn> };
   let grid: ReturnType<typeof fakeGrid>;
   let installed: CorridorConsole;
 
@@ -109,6 +111,7 @@ describe('CorridorConsole', () => {
       change,
       cellReport,
       lodProbe,
+      snapshot,
     };
     const corridorConsole = new CorridorConsole(deps as unknown as CorridorConsoleDeps);
     corridorConsole.install();
@@ -146,6 +149,7 @@ describe('CorridorConsole', () => {
     showCellSelection = vi.fn();
     cellReport = { start: vi.fn(() => 'Cell report on'), connect: vi.fn(), disconnect: vi.fn() };
     lodProbe = { run: vi.fn(async () => 'probed'), fingerprint: vi.fn(() => ({ hash: '0123abcd' })) };
+    snapshot = { take: vi.fn(async () => 'Saved corridor-erlenbach-cold-221530.json, 12 kB') };
     grid = fakeGrid();
     installed = install();
   });
@@ -205,6 +209,14 @@ describe('CorridorConsole', () => {
       await api().probeLod();
       expect(lodProbe.run).toHaveBeenLastCalledWith(undefined, undefined);
       expect(api().fingerprint()).toEqual({ hash: '0123abcd' });
+    });
+  });
+
+  /** The Snapshot tile's download lives in CorridorSnapshotService; the console takes one the same way. */
+  describe('snapshot', () => {
+    it('takes a snapshot and hands its last line through', async () => {
+      await expect(api().snapshot()).resolves.toBe('Saved corridor-erlenbach-cold-221530.json, 12 kB');
+      expect(snapshot.take).toHaveBeenCalledTimes(1);
     });
   });
 

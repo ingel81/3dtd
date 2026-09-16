@@ -60,6 +60,7 @@ import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { TowerDebugService } from '../debug/tower-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
 import { CellReportService } from '../debug/cell-report.service';
+import { CorridorSnapshotService } from '../debug/corridor-snapshot.service';
 import { LosDebugService } from '../debug/los-debug.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationManagementService } from '../location/location-management.service';
@@ -236,6 +237,7 @@ describe('VisualizationFacadeService', () => {
     connect: vi.fn(),
     disconnect: vi.fn(),
   };
+  const corridorSnapshot = { take: vi.fn(), connect: vi.fn(), disconnect: vi.fn() };
   const towerPlacement = { buildMode: signal(false), initialize: vi.fn() };
   const abilityTargeting = {
     targeting: vi.fn(() => null),
@@ -370,6 +372,7 @@ describe('VisualizationFacadeService', () => {
         { provide: EngineStore, useValue: engineStore },
         { provide: RelocationStatusService, useValue: relocationStatus },
         { provide: CellReportService, useValue: cellReport },
+        { provide: CorridorSnapshotService, useValue: corridorSnapshot },
       ],
     });
     return runInInjectionContext(injector, () => new VisualizationFacadeService());
@@ -1339,6 +1342,16 @@ describe('VisualizationFacadeService', () => {
       facade.dispose();
 
       expect(cellReport.disconnect).toHaveBeenCalledWith(source);
+    });
+
+    it('hands the corridor snapshot the game to read until dispose', () => {
+      const reader = corridorSnapshot.connect.mock.calls[0][0] as { blocker(): string | null };
+      engineInit.getEngine.mockReturnValue(null);
+      expect(reader.blocker()).toBe('No location loaded.');
+
+      facade.dispose();
+
+      expect(corridorSnapshot.disconnect).toHaveBeenCalledWith(reader);
     });
 
     it('refuses to change the corridor while towers stand or before a location is loaded', async () => {

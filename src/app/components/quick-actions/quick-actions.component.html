@@ -453,6 +453,19 @@
         <td-icon name="grid" [size]="18"></td-icon>
         <span>Cells</span>
       </button>
+      <!-- Corridor snapshot: everything of the corridor at this place as one JSON download -->
+      <button class="td-dev-tile"
+              [class.active]="corridorSnapshot.busy()"
+              (click)="corridorSnapshot.take()"
+              matTooltip="Corridor snapshot: fingerprint, trace, every cell with its column, stations, tiles and a screenshot as one JSON download"
+              matTooltipPosition="left"
+              aria-label="Corridor snapshot" [attr.aria-busy]="corridorSnapshot.busy()">
+        <td-icon name="camera" [size]="18"></td-icon>
+        <span>Snapshot</span>
+      </button>
+      @if (corridorSnapshot.status(); as status) {
+        <p class="td-dev-status" role="status">{{ status }}</p>
+      }
     </div>
     <button class="td-quick-btn td-dev-toggle-btn"
             [class.active]="uiStore.devMenuExpanded()"

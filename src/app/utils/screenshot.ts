@@ -156,3 +156,23 @@ export function downloadCanvasPng(canvas: HTMLCanvasElement, fileName: string): 
     }, 'image/png');
   });
 }
+
+/**
+ * The canvas as a PNG data URL, for a picture inside a JSON file. Encoded
+ * off the main thread (toBlob), which toDataURL is not; null when encoding
+ * fails.
+ */
+export function canvasPngDataUrl(canvas: HTMLCanvasElement): Promise<string | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        resolve(null);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    }, 'image/png');
+  });
+}

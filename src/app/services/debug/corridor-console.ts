@@ -14,6 +14,7 @@ import type { ColumnSample } from '../../three-engine/column-sample';
 import type { GlobalRouteGrid } from '../../utils/global-route-grid';
 import { WHOLE_GRID, type RouteCellProbe } from '../../utils/route-grid-diagnostics';
 import type { CellReportService, CellReportSource } from './cell-report.service';
+import type { CorridorSnapshotService } from './corridor-snapshot.service';
 import type { CellProbe, CellSpot, NeighbourRow, ProbedCell, ScreenRect } from './cell-report';
 import type { CorridorLodProbe } from './corridor-lod-probe';
 
@@ -63,6 +64,8 @@ export interface CorridorConsoleDeps {
   change: (apply: () => string[]) => Promise<string>;
   /** The cell report, `__corridor.report()`; this console reads its cells. */
   cellReport: Pick<CellReportService, 'start' | 'connect' | 'disconnect'>;
+  /** `__corridor.snapshot()`, the Snapshot tile's download (CorridorSnapshotService). */
+  snapshot: Pick<CorridorSnapshotService, 'take'>;
   /** `__corridor.probeLod()` and `fingerprint()`, see CorridorLodProbe. */
   lodProbe: Pick<CorridorLodProbe, 'run' | 'fingerprint'>;
 }
@@ -73,7 +76,9 @@ export interface CorridorConsoleDeps {
  * `__corridor.reset()`, `__corridor.towerCells()`, `__corridor.pick()`,
  * `__corridor.report()`, `__corridor.probeLod()`, `__corridor.fingerprint()`,
  * `__corridor.trace()` (the corridor trace of this location load,
- * `trace(false)` turns it off, see corridor-trace.ts).
+ * `trace(false)` turns it off, see corridor-trace.ts),
+ * `__corridor.snapshot()` (everything of the corridor as one file, see
+ * CorridorSnapshotService).
  */
 export class CorridorConsole {
   /** The `__corridor` this instance registered, see uninstall(). */
@@ -104,6 +109,7 @@ export class CorridorConsole {
       probeLod: (targets?: number[], timeoutS?: number) => this.deps.lodProbe.run(targets, timeoutS),
       fingerprint: () => this.deps.lodProbe.fingerprint(),
       trace: (on?: boolean) => (on === undefined ? corridorTrace.print() : corridorTrace.setEnabled(on)),
+      snapshot: () => this.deps.snapshot.take(),
     };
     (globalThis as Record<string, unknown>)['__corridor'] = this.api;
     this.deps.cellReport.connect(this.reportSource);
