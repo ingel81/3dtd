@@ -8,10 +8,28 @@ import { DevStreetProvider } from '../../devworld/dev-street.provider';
 import { BootStep } from '../../components/loading-screen/boot-step.model';
 
 /**
+ * The steps of the loading screen, in order. A first load and a location
+ * change both run through them; `location`, `grid`, `corridor` and `flight`
+ * are reported by other services.
+ */
+const BOOT_STEPS: readonly BootStep[] = [
+  { id: 'location', title: 'Determining Location', status: 'pending' },
+  { id: 'engine', title: 'Initializing Engine', status: 'pending' },
+  { id: 'streets', title: 'Loading Street Network', status: 'pending' },
+  { id: 'hq', title: 'Placing Headquarters', status: 'pending' },
+  { id: 'spawns', title: 'Placing Spawns', status: 'pending' },
+  { id: 'routes', title: 'Calculating Routes', status: 'pending' },
+  { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
+  { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
+  { id: 'corridor', title: 'Measuring the Corridor', status: 'pending' },
+  { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
+];
+
+/**
  * EngineInitializationService
  *
- * Manages the initialization sequence for the Tower Defense game engine.
- * Orchestrates 6-step loading process with detailed progress tracking.
+ * Manages the initialization sequence for the Tower Defense game engine:
+ * the loading steps (BOOT_STEPS) with detailed progress tracking.
  */
 @Injectable({ providedIn: 'root' })
 export class EngineInitializationService {
@@ -44,18 +62,7 @@ export class EngineInitializationService {
   readonly error = signal<string | null>(null);
 
   /** Loading steps for detailed progress display */
-  readonly loadingSteps = signal<BootStep[]>([
-    { id: 'location', title: 'Determining Location', status: 'pending' },
-    { id: 'engine', title: 'Initializing Engine', status: 'pending' },
-    { id: 'streets', title: 'Loading Street Network', status: 'pending' },
-    { id: 'hq', title: 'Placing Headquarters', status: 'pending' },
-    { id: 'spawns', title: 'Placing Spawns', status: 'pending' },
-    { id: 'routes', title: 'Calculating Routes', status: 'pending' },
-    { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
-    { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
-    { id: 'corridor', title: 'Measuring the Corridor', status: 'pending' },
-    { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
-  ]);
+  readonly loadingSteps = signal<BootStep[]>([...BOOT_STEPS]);
 
   /** performance.now() of the first tiles-loaded callback of this load, for the intro boot gate. */
   private firstTilesLoadedAt: number | null = null;
@@ -210,23 +217,11 @@ export class EngineInitializationService {
    * Preserves 'location' step if already done (runs before initEngine)
    */
   resetLoadingSteps(): void {
+    const [pendingLocation, ...rest] = BOOT_STEPS;
     const currentLocationStep = this.loadingSteps().find(s => s.id === 'location');
-    const locationStep = currentLocationStep?.status === 'done'
-      ? currentLocationStep
-      : { id: 'location', title: 'Determining Location', status: 'pending' as const };
+    const locationStep = currentLocationStep?.status === 'done' ? currentLocationStep : pendingLocation;
 
-    this.loadingSteps.set([
-      locationStep,
-      { id: 'engine', title: 'Initializing Engine', status: 'pending' },
-      { id: 'streets', title: 'Loading Street Network', status: 'pending' },
-      { id: 'hq', title: 'Placing Headquarters', status: 'pending' },
-      { id: 'spawns', title: 'Placing Spawns', status: 'pending' },
-      { id: 'routes', title: 'Calculating Routes', status: 'pending' },
-      { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
-      { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
-      { id: 'corridor', title: 'Measuring the Corridor', status: 'pending' },
-      { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
-    ]);
+    this.loadingSteps.set([locationStep, ...rest]);
   }
 
   /** performance.now() of the first tiles-loaded callback of this load, null before. */
