@@ -116,7 +116,7 @@ def gate_leak_share(progress_values, ability_kills=0):
     Mirrors gateLeakRatio in src/app/ai/core/gate-controller.ts. Kills by a
     player ability (the nuclear strike) count as leaks for the gate, so a
     strike saves the player HP and gold without growing the waves after it
-    (PLAYER_AGENCY_CONCEPT.md, 6.1 b). The reward keeps reading plain
+    (PLAYER_AGENCY_CONCEPT.md, section 7). The reward keeps reading plain
     arrivals. None without per-enemy data.
     """
     if not progress_values:

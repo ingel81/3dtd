@@ -65,7 +65,7 @@ export const GATE_MULT_MAX = 8;
  * Share of a wave the loop counts as through: enemies that reached the base
  * plus enemies an ability killed, over every enemy with a progress sample.
  *
- * Ability kills count as leaks (PLAYER_AGENCY_CONCEPT.md, 6.1 b): a strike
+ * Ability kills count as leaks (PLAYER_AGENCY_CONCEPT.md, section 7): a strike
  * saves the player HP and gold in the wave it lands in, but must not read as
  * defense strength and grow the waves after it. A struck enemy's progress
  * sample is where it died, below 1, so it is counted once.

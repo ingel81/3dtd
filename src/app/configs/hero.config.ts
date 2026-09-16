@@ -1,6 +1,6 @@
 /**
  * The hero: a mercenary the player hires once and sends along the enemy
- * routes. Design: docs/game-design/PLAYER_AGENCY_CONCEPT.md 3.2 (stage one:
+ * routes. Design: docs/game-design/PLAYER_AGENCY_CONCEPT.md section 7 (stage one:
  * routes only, invulnerable); how it is built and why the numbers are what
  * they are: docs/HERO.md.
  *
@@ -45,7 +45,7 @@ export const HERO = {
   muzzle: { forwardM: 2.4, rightM: 0.36, upM: 3.45 },
   /**
    * Share of his damage the fairness gate counts: he is one unit and cannot
-   * be everywhere on the route at once (PLAYER_AGENCY_CONCEPT.md 3.2).
+   * be everywhere on the route at once (docs/HERO.md, fairness gate).
    */
   gatePresence: 0.5,
 } as const;

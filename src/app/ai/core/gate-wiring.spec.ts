@@ -130,7 +130,7 @@ describe('gate wiring', () => {
     it('books ability kills as leaks, so a strike does not grow the next waves', () => {
       // Nobody reached the base. Without the strike that opens the gate; with
       // 1 of 10 struck down it reads 10% through, inside the band, and holds
-      // (PLAYER_AGENCY_CONCEPT.md, 6.1 b).
+      // (PLAYER_AGENCY_CONCEPT.md, section 7).
       const wave = Array(10).fill(0.5);
       for (let i = 0; i < GATE_ADAPT_WINDOW * 3; i++) {
         collector.emitWaveResult(waveResult(wave, true, 1));

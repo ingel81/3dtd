@@ -5,7 +5,7 @@ const gatesByObject = new WeakMap<Object3D, DrawGate>();
 
 /**
  * Keeps a pool's render objects out of the render list while the pool has
- * nothing to draw (R6, docs/PERF_BUG_ANALYSIS_2026-05-28.md).
+ * nothing to draw (R6, docs/archive/PERF_BUG_ANALYSIS_2026-05-28.md).
  *
  * three puts an InstancedMesh with count 0, a geometry with instanceCount 0
  * or Points with an empty draw range into the render list anyway, and binds

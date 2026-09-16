@@ -1,5 +1,5 @@
 /**
- * HeroManager: the mercenary (docs/HERO.md, PLAYER_AGENCY_CONCEPT.md 3.2).
+ * HeroManager: the mercenary (docs/HERO.md).
  *
  * Unlocked by the research's global perk, hired once for HERO.cost, then
  * sent along the enemy routes by command. Every sub-step he walks his path,

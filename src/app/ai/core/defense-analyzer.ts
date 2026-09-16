@@ -106,7 +106,7 @@ export function analyzeDefense(
 
 /**
  * The hero as a virtual tower, counted at his presence factor: he is one
- * unit and cannot be everywhere on the route (PLAYER_AGENCY_CONCEPT.md 3.2).
+ * unit and cannot be everywhere on the route (docs/HERO.md, fairness gate).
  *
  * Against each armor the gate credits his best ammo, since the player can
  * switch it at any time: judged by the ammo loaded when the wave is planned,

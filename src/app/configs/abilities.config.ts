@@ -1,7 +1,7 @@
 /**
  * Player abilities: actions the player takes during a wave, as opposed to
  * towers, which act on their own. Design and decisions in
- * docs/game-design/PLAYER_AGENCY_CONCEPT.md (sections 5 and 7).
+ * docs/game-design/PLAYER_AGENCY_CONCEPT.md (section 7).
  *
  * A research unlocks an ability by granting the global perk `perkId`. The
  * ability holds up to `maxCharges` charges and gets one back per

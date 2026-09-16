@@ -1,9 +1,10 @@
 # Fähigkeiten (Player Abilities)
 
 **Stand:** 2026-09-15. Konzept und Entscheidungen zum Nuklearschlag:
-[PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md), Abschnitte 5,
-7 und 8. Die weiteren Fähigkeiten folgen seinem Muster: eigene Forschung, eine
-Ladung, eine neue nach je 3 abgeschlossenen Wellen, eigene Taste, Knopf in der
+[PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md), Abschnitte 7
+und 8 (das MVP aus Abschnitt 5 im
+[Archiv](archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md)). Die weiteren
+Fähigkeiten folgen seinem Muster: eigene Forschung, eine Ladung, eine neue nach je 3 abgeschlossenen Wellen, eigene Taste, Knopf in der
 Fähigkeitenleiste, Befehl über `command:use-ability`, Kills zählen als Leck.
 
 | Fähigkeit | Im Spiel | Taste | Wirkung |
