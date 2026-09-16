@@ -106,7 +106,8 @@ export class Texture { dispose() {} }
 
 export class AudioLoader {
   load(_url: string, onLoad?: (buffer: unknown) => void) {
-    if (onLoad) onLoad({});
+    // A buffer of no length: the music loop's timer on its end gets 0 ms, not NaN
+    if (onLoad) onLoad({ duration: 0 });
   }
 }
 
