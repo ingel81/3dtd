@@ -10,7 +10,7 @@
  *      for enemies without a body, a 2D distance.
  *      L: the beam burns the rings it runs over on its way toward the spawn,
  *      each by at most the boss cap; the stretch from the real route sweep,
- *      the damage as DamageApplicationService.applyMaxHpFraction takes it.
+ *      the damage from DamageApplicationService.applyMaxHpFraction.
  * 399: frost bomb and EMP on the ooze: the tip stands, and at the HQ nothing
  *      flows in. The halt is applied as CombatEffectService.applyAbilityHalt
  *      applies it, with the ability's boss durations; that the circle finds
@@ -40,6 +40,8 @@ import {
 } from './test-helpers';
 import { AbilityManager } from '../managers/ability.manager';
 import { StatusEffectService } from '../services/combat/status-effect.service';
+import { DamageApplicationService } from '../services/combat/damage-application.service';
+import type { CombatVfxService } from '../services/combat/combat-vfx.service';
 import {
   ABILITIES,
   abilityBeamCap,
@@ -95,6 +97,9 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
     m.eventBus.on('ability:resolved', (event) => resolved.push(event));
     const status = new StatusEffectService();
     status.setGameClockProvider(() => clock);
+    const damage = new DamageApplicationService();
+    damage.initialize(m.towerManager, m.enemyManager, m.eventBus);
+    const vfx = { emitDeathBlood: vi.fn() } as unknown as CombatVfxService;
     abilities = new AbilityManager(m.eventBus, {
       snapToRoute: (target) => ({ ...target }),
       // The route grid's query for enemies without a body: 2D distance
@@ -105,12 +110,11 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
         }
         return out;
       },
-      // As DamageApplicationService.applyMaxHpFraction takes it
+      // As CombatEffectService.applyAbilityStrike runs it, without the death blood
       strike: (targets, fractionOf) => {
         let kills = 0;
         for (const enemy of targets) {
-          if (!enemy.alive) continue;
-          if (enemy.health.takeDamage(enemy.health.maxHp * fractionOf(enemy)) && m.enemyManager.kill(enemy)) kills++;
+          if (enemy.alive && damage.applyMaxHpFraction(vfx, enemy, fractionOf(enemy), false)) kills++;
         }
         return kills;
       },
