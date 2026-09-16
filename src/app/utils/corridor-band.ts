@@ -32,12 +32,12 @@ import { CentreMode, corridorConfig, cutShortBulges } from './route-corridor';
  *    nearest point that does (`minimal`), smoothed: a smoothing spline with a
  *    penalty on the bend (CENTRE_STIFFNESS), kept within `edgeMargin` of both
  *    edges. The report gives its steepest slope and tightest bend.
- * 4. **No band:** a backbone more than `roofRise` above the backbones along
- *    the route around it (a jetty or a roof the mesh fills down to the
- *    street, a crown down to the ground, with no street beside it) makes the
- *    station part of a passage, run as a tunnel. A lower object filling the
- *    lane is its own backbone: the band lies on it and enemies climb over it
- *    (decision E6).
+ * 4. **No band:** a backbone more than `roofRise` above the street under the
+ *    station (`street`, streetLevel: the backbones with what covers the lane
+ *    taken out) makes the station part of a passage, run as a tunnel: a
+ *    jetty or a roof the mesh fills down to the street, an archway, a gate
+ *    tower. A lower object filling the lane is its own backbone: the band
+ *    lies on it and enemies climb over it (decision E6).
  *
  * Stretches the band does not decide (a bridge, a tunnel, a stretch under
  * another way, the stretch off a bridge end, the leg to the HQ) keep the OSM
@@ -97,6 +97,13 @@ export interface BandStation {
   kind: 'band' | 'climb' | 'passage' | 'fixed';
   /** The backbone cell: its offset and height; null without a band. */
   backbone: { offset: number; y: number } | null;
+  /**
+   * The ground of the street under the station, whatever stands over it
+   * (streetLevel). The backbone is judged against it (a passage, a climb),
+   * and a tunnel portal takes it instead of a hit on a roof over the street
+   * (portalGround). Null where no station of the route has a backbone.
+   */
+  street: number | null;
   /** Edges of the band (without a band: the rays' walls), left at most right. */
   left: number;
   right: number;
@@ -126,8 +133,13 @@ const ALONG_FILTER_STATIONS = 2;
  */
 const LINE_REACH_STATIONS = 4;
 
-/** Stations either way whose backbones give the street ground a passage is measured against. */
-const PASSAGE_REACH_STATIONS = 4;
+/**
+ * Metres of route the street under a station is found over (streetLevel).
+ * What covers the lane for less than this is taken out of the backbones; a
+ * gate tower is some 6 to 12 m deep along the street, an archway through a
+ * house about as much, and the mesh of either reaches a few metres further.
+ */
+export const PASSAGE_SPAN_M = 30;
 
 /**
  * Penalty on the bend of the enemies' line against keeping to its target,
@@ -191,12 +203,19 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
   const reach = corridorConfig.maxHalfWidth + cellSize;
   const stations = stationsOf(route, (x, z, rx, rz) => crossCells(x, z, rx, rz, reach, cellSize, columnAt));
 
-  // Ground of the cell the OSM line runs through at each station, for what the line comes down to along the route.
+  // Ground of the cell across whose centre lies nearest the OSM line at each
+  // station, for what the line comes down to along the route.
   const line = stations.map((st) => {
     let best: CrossCell | null = null;
     for (const cell of st.cells) if (cell.column && (!best || Math.abs(cell.u) < Math.abs(best.u))) best = cell;
     return best?.column?.ground ?? null;
   });
+  // Ground of the cell the line itself runs through, which is not always the
+  // one above: on a line across the lattice at an angle the nearest centre
+  // can belong to the cell beside it. A route claims the cell its line runs
+  // through whatever its width (claimSegmentCells), so this is the one that
+  // has to be on the street (markPassages).
+  const lineCell = stations.map((st) => columnAt(Math.floor(st.x / cellSize), Math.floor(st.z / cellSize))?.ground ?? null);
   const { stepRise, stepDrop } = corridorConfig;
   /**
    * Whether a cell of station `k` with ground `g` may be a backbone: no more
@@ -219,8 +238,14 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
     if (st.kind !== 'fixed') pickBackbone(st, (g) => onStreet(k, g));
   });
   filterBackbones(stations, onStreet);
-  markPassages(stations);
+  const street = streetLevel(stations);
+  stations.forEach((st, k) => {
+    st.street = street[k];
+  });
+  // The band first: whether a station can put its line clear of what covers
+  // the lane decides whether the stretch is a passage (markPassages).
   for (const st of stations) walkBand(st);
+  markPassages(stations, lineCell);
   cutBulges(stations);
   taperEdges(stations);
   // The line and the room beside it settle together: the line moves within
@@ -286,7 +311,7 @@ function stationsOf(
       result.push({
         segment: i, k, n, s: start + length * t, x, z, rx, rz,
         kind: route.open[i] ? 'band' : 'fixed',
-        backbone: null, left: -wallL, right: wallR, centre: 0,
+        backbone: null, street: null, left: -wallL, right: wallR, centre: 0,
         cells: route.open[i] ? across(x, z, rx, rz) : [], b: -1, wallL, wallR, window: street + BACKBONE_SLACK_M,
       });
     }
@@ -366,11 +391,10 @@ function pickBackbone(st: Work, onStreet: (ground: number) => boolean): void {
   st.backbone = { offset: cell.u, y: cell.column!.ground };
 }
 
-/** Median of the backbone heights of the stations within `reach` of `k` that have one, `k` itself left out unless `self`. */
-function backboneMedian(stations: readonly Work[], k: number, reach: number, self: boolean): number | null {
+/** Median of the backbone heights of the stations within `reach` of `k` that have one, `k` itself included. */
+function backboneMedian(stations: readonly Work[], k: number, reach: number): number | null {
   const heights: number[] = [];
   for (let j = Math.max(0, k - reach); j <= Math.min(stations.length - 1, k + reach); j++) {
-    if (j === k && !self) continue;
     const y = stations[j].backbone?.y;
     if (y !== undefined) heights.push(y);
   }
@@ -381,7 +405,7 @@ function backboneMedian(stations: readonly Work[], k: number, reach: number, sel
 
 /** A backbone more than `stepDrop` under the median of those around it (a drain, a hole in the mesh) is picked again above that. */
 function filterBackbones(stations: Work[], onStreet: (k: number, ground: number) => boolean): void {
-  const medians = stations.map((_, k) => backboneMedian(stations, k, ALONG_FILTER_STATIONS, true));
+  const medians = stations.map((_, k) => backboneMedian(stations, k, ALONG_FILTER_STATIONS));
   stations.forEach((st, k) => {
     const median = medians[k];
     if (!st.backbone || median === null || st.backbone.y >= median - corridorConfig.stepDrop) return;
@@ -392,18 +416,82 @@ function filterBackbones(stations: Work[], onStreet: (k: number, ground: number)
   });
 }
 
-/** Stations whose backbone lies more than `roofRise` over those around them become a passage, more than `stepRise` a climb. */
-function markPassages(stations: Work[]): void {
-  const medians = stations.map((_, k) => backboneMedian(stations, k, PASSAGE_REACH_STATIONS, false));
+/**
+ * The ground of the street under each station, whatever stands over it: the
+ * backbones as a morphological opening along the route over `PASSAGE_SPAN_M`
+ * (the lowest backbone within half a span either way, then the highest of
+ * those). An excursion upward shorter than the span is gone from it, so a
+ * gate tower, an archway, a jetty or a car no longer counts as the ground,
+ * while a street that climbs keeps its slope: on a straight one the opening
+ * gives it back exactly. A station without a backbone (a bridge, a tunnel,
+ * the leg to the HQ, a station whose cells across gave nothing) takes the
+ * street from the stations within half a span of it; null where no station
+ * within reach has a backbone.
+ */
+function streetLevel(stations: readonly Work[]): (number | null)[] {
+  const half = PASSAGE_SPAN_M / 2;
+  const n = stations.length;
+  // Stations run in route order, so `s` never falls and the window rolls.
+  const roll = (source: readonly (number | null)[], lowest: boolean): (number | null)[] => {
+    const out = new Array<number | null>(n).fill(null);
+    let lo = 0;
+    let hi = 0;
+    for (let k = 0; k < n; k++) {
+      while (lo < n && stations[lo].s < stations[k].s - half) lo++;
+      while (hi < n && stations[hi].s <= stations[k].s + half) hi++;
+      let best: number | null = null;
+      for (let j = lo; j < hi; j++) {
+        const v = source[j];
+        if (v !== null && (best === null || (lowest ? v < best : v > best))) best = v;
+      }
+      out[k] = best;
+    }
+    return out;
+  };
+  return roll(roll(stations.map((st) => st.backbone?.y ?? null), true), false);
+}
+
+/**
+ * Stations the band cannot put on the street become a passage, run as a
+ * tunnel; one whose backbone stands more than `stepRise` over the street a
+ * climb. Both are measured against `street` (streetLevel), not against the
+ * backbones of the stations around them: under a gate tower or in an
+ * archway every station within a few metres stands on the same roof, so a
+ * median over them is the roof itself.
+ *
+ * A passage, either way round:
+ *
+ * - the **backbone** stands more than `roofRise` over the street: no cell
+ *   across the line is on the street at all (the lane is filled down to the
+ *   ground, a crown, a jetty);
+ * - the cell the **line** runs through stands that far over the street and
+ *   the band is narrower than two `edgeMargin`, so the line cannot be put
+ *   clear of it. A route claims every cell its line runs through whatever
+ *   its width (claimSegmentCells), and such a cell keeps the roof over the
+ *   lane: an upper floor jutting over an alley, or the mesh of a gate tower
+ *   past the mouth of its archway.
+ *
+ * Playtest 2026-09-16, Rothenburg, the Weisser Turm over Georgengasse: the
+ * first rule found only the two ends of the stretch under the tower (the
+ * median over four stations either way was the tower roof), the band
+ * between them lay on the tower, and the cells the line ran through under
+ * the overhangs either side stood 14 to 16 m up. Until 2026-09-16 the
+ * second case was caught by `streetUnderRoof`, a height rule of its own for
+ * a centre line cell; the band replaced it and left the case open.
+ */
+function markPassages(stations: Work[], line: readonly (number | null)[]): void {
+  const { roofRise, stepRise, edgeMargin } = corridorConfig;
   stations.forEach((st, k) => {
-    const median = medians[k];
-    if (!st.backbone || median === null) return;
-    const over = st.backbone.y - median;
-    if (over > corridorConfig.roofRise) {
+    if (!st.backbone || st.street === null) return;
+    const lineY = line[k];
+    const covered = lineY !== null && lineY - st.street > roofRise && st.right - st.left < 2 * edgeMargin;
+    if (st.backbone.y - st.street > roofRise || covered) {
       st.kind = 'passage';
       st.backbone = null;
       st.b = -1;
-    } else if (over > corridorConfig.stepRise) {
+      st.left = -st.wallL;
+      st.right = st.wallR;
+    } else if (st.backbone.y - st.street > stepRise) {
       st.kind = 'climb';
     }
   });

@@ -14,7 +14,7 @@ import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
 describe('corridorFingerprint', () => {
   const station = (k: number, over: Partial<BandStation> = {}): BandStation => ({
     segment: 0, k, n: 2, s: 2 * k + 1, x: k, z: 0, rx: 0, rz: 1,
-    kind: 'band', backbone: { offset: 0.5, y: 12.25 }, left: -3.2, right: 4, centre: 0.4,
+    kind: 'band', backbone: { offset: 0.5, y: 12.25 }, street: 12.25, left: -3.2, right: 4, centre: 0.4,
     ...over,
   });
 

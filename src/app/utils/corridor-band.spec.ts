@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { BandColumn, BandRoute, CorridorBand, bandPath, buildBand, smoothCentre } from './corridor-band';
+import { BandColumn, BandRoute, CorridorBand, PASSAGE_SPAN_M, bandPath, buildBand, smoothCentre } from './corridor-band';
 import { corridorConfig, resetCorridorConfig, setCorridorConfig } from './route-corridor';
 
 const CELL = 2;
@@ -96,6 +96,48 @@ describe('buildBand', () => {
     expect(band.passages).toEqual([{ from: 56, to: 58 }]);
     const path = bandPath(street(1.5, 1.5), band);
     expect(path.some((p) => p.passage)).toBe(true);
+  });
+
+  /**
+   * Playtest 2026-09-16, Rothenburg, the Weisser Turm over Georgengasse: a
+   * gate tower is deeper along the street than the four stations either way
+   * a passage used to be measured against, so the median over them was the
+   * tower roof and only the two ends of the stretch came out as a passage.
+   */
+  it('runs a passage under a gate tower deeper than the stations around it', () => {
+    // Houses 2 m either side of the line, the tower filled to the ground from x = 50 to 62.
+    const gate = columns((x, z) => (Math.abs(z - 1) >= 2 ? 8 : x >= 50 && x <= 62 ? 20 : 0));
+    const band = buildBand(street(1.5, 1.5), gate, CELL, 'band');
+    const inside = band.stations.filter((st) => st.x > 50 && st.x < 62);
+    expect(inside.length).toBeGreaterThan(4);
+    for (const st of inside) expect(st, `${st.s}`).toMatchObject({ kind: 'passage', backbone: null });
+    expect(band.passages).toHaveLength(1);
+    // Every station knows the street under it, the ones on the tower included.
+    for (const st of band.stations) expect(st.street, `${st.s}`).toBe(0);
+  });
+
+  /*
+   * The second way into a passage, the cell the line runs through standing
+   * on a roof while the backbone is still on the street, needs a line at an
+   * angle to the cell lattice: only then can the nearest cell centre across
+   * belong to one cell and the point itself to the next. On this street
+   * along a row of cells the two are always the same cell. The scene
+   * "Weisser Turm" in integration/corridor-band.scenes.spec.ts guards it on
+   * the real line instead.
+   */
+
+  it('takes no passage on a street that climbs, and gives its slope back', () => {
+    const band = buildBand(street(), columns((x) => 0.08 * x), CELL, 'band');
+    expect(band.passages).toEqual([]);
+    // The opening gives a straight slope back exactly, but for half a span
+    // at each end of the route, where it reads up to `slope * span / 2` low.
+    for (const st of band.stations) {
+      expect(st.street!, `${st.s}`).toBeLessThanOrEqual(st.backbone!.y + 1e-9);
+      expect(st.backbone!.y - st.street!, `${st.s}`).toBeLessThan(corridorConfig.roofRise);
+    }
+    for (const st of band.stations.filter((s) => s.s > PASSAGE_SPAN_M / 2 && s.s < 120 - PASSAGE_SPAN_M / 2)) {
+      expect(st.street!, `${st.s}`).toBeCloseTo(st.backbone!.y, 6);
+    }
   });
 
   it('ends the band at the top of the embankment on the valley side, and at the bank uphill', () => {

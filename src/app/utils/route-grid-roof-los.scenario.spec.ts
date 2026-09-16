@@ -57,7 +57,7 @@ describe('A cell under an eave in __corridor (playtest 567, orange cells left ou
     // The band of the route: on the street, ending before the eave 2 m right of the line (corridor-band.ts).
     grid.setBand((x) => ({
       segment: 0, k: Math.max(0, Math.round((x - 1) / 2)), n: 20, s: x, x, z: 1, rx: 0, rz: 1,
-      kind: 'band', backbone: { offset: 0, y: 0 }, left: -3, right: 1, centre: 0,
+      kind: 'band', backbone: { offset: 0, y: 0 }, street: 0, left: -3, right: 1, centre: 0,
     }));
     grid.registerTower(TOWER.id, 20, -6, TOWER.combat.range, { referencePos: { x: 20, y: 8, z: -6 } } as never);
 

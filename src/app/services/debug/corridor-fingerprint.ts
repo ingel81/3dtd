@@ -10,8 +10,8 @@ import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
  * is hashed on its own, so two hashes that differ tell which part did:
  *
  * - `band`: per route and station of its walkable band what it decided:
- *   the kind, the backbone (offset cm, height dm), the edges left and right
- *   and the offset of the enemies' line (cm)
+ *   the kind, the backbone (offset cm, height dm), the street under it (dm),
+ *   the edges left and right and the offset of the enemies' line (cm)
  * - `stations`: per measured station the free space left and right (cm)
  *   and why it stayed unmeasured
  * - `cells`: the cells, by their centre (cm)
@@ -70,7 +70,7 @@ export function corridorFingerprint(state: CorridorState, cells: readonly RouteC
     for (const station of route.band) {
       lines.band.push(
         `${route.key}#${station.segment}:${station.k}:${station.kind},` +
-        `${num(station.backbone?.offset ?? null, 2)},${num(station.backbone?.y ?? null, 1)},` +
+        `${num(station.backbone?.offset ?? null, 2)},${num(station.backbone?.y ?? null, 1)},${num(station.street, 1)},` +
         `${num(station.left, 2)},${num(station.right, 2)},${num(station.centre, 2)}`,
       );
     }

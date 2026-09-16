@@ -56,6 +56,7 @@ describe('cell report JSON', () => {
     underWay: null,
     backboneM: 0,
     backboneY: 218.4,
+    streetY: 218.4,
     bandLeftM: -2.5,
     bandRightM: 2.5,
     bandKind: 'band',
