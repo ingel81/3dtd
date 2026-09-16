@@ -107,11 +107,12 @@ Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Trainin
 | Route, Korridor, Zellen | [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md) |
 | Sichtlinien der Tower | [LOS_PIPELINE.md](docs/LOS_PIPELINE.md) |
 | Wellen: Director, Gate, Spawning | [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md) (Einstieg), [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) |
-| Playtest, offene Entscheidungen | [PLAYTEST.md](docs/PLAYTEST.md) |
-| Offene Aufgaben, Changelog | [TODO.md](TODO.md), [DONE.md](DONE.md) |
+| Offene Nachtests im Spiel | [PLAYTEST.md](docs/PLAYTEST.md) |
+| Offene Arbeit und Entscheidungen, Changelog | [TODO.md](TODO.md), [DONE.md](DONE.md) |
 
 **Hinweis zu TODO/DONE:**
-- **TODO.md** enthält offene Aufgaben, gruppiert nach Priorität und Bereich
+- **TODO.md** ist die einzige Liste offener Arbeit, gruppiert A bis J (vor dem Merge, Entscheidungen, Bugs, Features,
+  Messungen, Konzepte, Ideen, Aufräumen); Handover und Berichte führen keine eigenen Listen
 - **DONE.md** ist ein chronologischer Changelog mit Datumsabschnitten (neueste zuerst)
 - Einträge werden **nur auf menschlichen Zuruf** von TODO nach DONE verschoben
 - Bei neuen Einträgen in DONE.md immer das aktuelle Datum als Section verwenden
