@@ -16,11 +16,16 @@ export interface Street {
   name: string;
   type: string; // residential, primary, secondary, etc.
   nodes: StreetNode[];
-  // OSM-Tags, nur gesetzt wenn der Way sie trägt (siehe OsmStreetService).
+  // OSM-Tags für Korridorbreite und Höhenmodell. Nur gesetzt, wenn der Way
+  // sie trägt (OsmStreetService); die meisten Ways haben keinen davon.
+  /** `width` in Metern, nur wenn der Tag eine reine Zahl ist */
   width?: number;
   lanes?: number;
+  /** yes, viaduct, ... (`no` wird nicht übernommen) */
   bridge?: string;
+  /** yes, building_passage, culvert, ... */
   tunnel?: string;
+  /** yes, arcade, ... */
   covered?: string;
   layer?: number;
 }

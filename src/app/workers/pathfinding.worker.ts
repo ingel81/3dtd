@@ -77,39 +77,26 @@
 
 /// <reference lib="webworker" />
 
+import type { Street, StreetNetwork, StreetNode } from '../interfaces/street-network-provider.interface';
 import { SegmentRoutes, type RouteTail } from '../utils/route-start';
-import { MinHeap, haversineDistance, distanceToSegment } from '../utils/street-astar';
+import {
+  DEFAULT_ROAD_WEIGHT,
+  MinHeap,
+  ROAD_TYPE_WEIGHTS,
+  haversineDistance,
+  distanceToSegment,
+} from '../utils/street-astar';
 
 // ========================================
-// TYPES (duplicated to avoid import issues in worker context)
+// TYPES
 // ========================================
-
-interface StreetNode {
-  id: number;
-  lat: number;
-  lon: number;
-}
-
-interface Street {
-  id: number;
-  name: string;
-  type: string;
-  nodes: StreetNode[];
-}
 
 /**
  * Serializable version of StreetNetwork.
  * Map<number, StreetNode> is converted to [number, StreetNode][] for transfer.
  */
-export interface SerializedStreetNetwork {
-  streets: Street[];
+export interface SerializedStreetNetwork extends Omit<StreetNetwork, 'nodes'> {
   nodes: [number, StreetNode][];
-  bounds: {
-    minLat: number;
-    maxLat: number;
-    minLon: number;
-    maxLon: number;
-  };
 }
 
 // Worker message types
@@ -150,35 +137,6 @@ export interface ErrorResponse {
 }
 
 export type WorkerOutMessage = InitDoneResponse | PathResultResponse | ErrorResponse;
-
-// ========================================
-// ROAD TYPE WEIGHTS (same as OsmStreetService)
-// ========================================
-
-const ROAD_TYPE_WEIGHTS: Record<string, number> = {
-  motorway: 0.8,
-  motorway_link: 0.85,
-  trunk: 0.85,
-  trunk_link: 0.9,
-  primary: 0.9,
-  primary_link: 0.95,
-  secondary: 0.95,
-  secondary_link: 1.0,
-  tertiary: 1.0,
-  tertiary_link: 1.0,
-  residential: 1.0,
-  living_street: 1.1,
-  unclassified: 1.0,
-  service: 1.2,
-  pedestrian: 2.5,
-  cycleway: 2.0,
-  footway: 3.0,
-  path: 3.0,
-  track: 2.5,
-  steps: 5.0,
-};
-
-const DEFAULT_ROAD_WEIGHT = 1.5;
 
 // ========================================
 // PATHFINDING ENGINE (runs in worker)

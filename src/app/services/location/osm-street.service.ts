@@ -1,50 +1,19 @@
 import { inject, Injectable } from '@angular/core';
+import type { Street, StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
 import { RandomSpawnCandidate } from '../../models/location.types';
 import { StreetCacheService } from './street-cache.service';
 import { GeoBox, boxAreaKm2, boxAround, boxMinus, boxesOverlap, mergeStreets } from './street-box';
 import { METERS_PER_DEGREE_LAT, canonicalCoords } from '../../utils/geo-utils';
 import { SegmentRoutes, type RouteTail } from '../../utils/route-start';
 import {
+  DEFAULT_ROAD_WEIGHT,
   MinHeap,
+  ROAD_TYPE_WEIGHTS,
   haversineDistance as sharedHaversineDistance,
   distanceToSegment as sharedDistanceToSegment,
 } from '../../utils/street-astar';
 
-export interface StreetNode {
-  id: number;
-  lat: number;
-  lon: number;
-}
-
-export interface Street {
-  id: number;
-  name: string;
-  type: string; // residential, primary, secondary, etc.
-  nodes: StreetNode[];
-  // OSM-Tags für Korridorbreite und Höhenmodell. Nur gesetzt, wenn der Way
-  // sie trägt; die meisten Ways haben keinen davon.
-  /** `width` in Metern, nur wenn der Tag eine reine Zahl ist */
-  width?: number;
-  lanes?: number;
-  /** yes, viaduct, ... (`no` wird nicht übernommen) */
-  bridge?: string;
-  /** yes, building_passage, culvert, ... */
-  tunnel?: string;
-  /** yes, arcade, ... */
-  covered?: string;
-  layer?: number;
-}
-
-export interface StreetNetwork {
-  streets: Street[];
-  nodes: Map<number, StreetNode>;
-  bounds: {
-    minLat: number;
-    maxLat: number;
-    minLon: number;
-    maxLon: number;
-  };
-}
+export type { Street, StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
 
 export interface BuildingFootprint {
   id: number;
@@ -61,42 +30,6 @@ export interface BuildingData {
  * Street types suitable for enemy spawning (exclude footpaths)
  */
 const SPAWNABLE_STREET_TYPES = ['residential', 'primary', 'secondary', 'tertiary', 'unclassified', 'living_street'];
-
-/**
- * Cost multipliers for pathfinding by street type.
- * Lower = preferred, Higher = avoided.
- * Footpaths get multiplier 3.0 = only used if route is >66% shorter
- */
-const ROAD_TYPE_WEIGHTS: Record<string, number> = {
-  // Main roads - preferred
-  motorway: 0.8,
-  motorway_link: 0.85,
-  trunk: 0.85,
-  trunk_link: 0.9,
-  primary: 0.9,
-  primary_link: 0.95,
-  secondary: 0.95,
-  secondary_link: 1.0,
-  tertiary: 1.0,
-  tertiary_link: 1.0,
-
-  // Normal streets - standard
-  residential: 1.0,
-  living_street: 1.1,
-  unclassified: 1.0,
-  service: 1.2,
-
-  // Footpaths/bike paths - heavily penalized (only if significantly shorter)
-  pedestrian: 2.5,
-  cycleway: 2.0,
-  footway: 3.0,
-  path: 3.0,
-  track: 2.5,
-  steps: 5.0, // Strongly avoid stairs
-};
-
-/** Default weight for unknown street types */
-const DEFAULT_ROAD_WEIGHT = 1.5;
 
 /** An element of an Overpass answer, as far as the parsers read it. */
 interface OverpassElement {
