@@ -678,10 +678,9 @@ export class VisualizationFacadeService {
     const wasLoading = this.engineInit.loading();
     const isApplying = this.locationMgmt.isApplyingLocation();
 
-    // Once tiles, streets and heights are there, the loading screen waits for
-    // the corridor build; its end asks again (buildCorridorBehindLoadingScreen).
-    const settled = !this.engineInit.tilesLoading() && !this.engineInit.osmLoading() && !this.heightUpdate.heightsLoading();
-    if (wasLoading && settled && this.corridor.pending()) return;
+    // While the corridor is built the loading screen waits for it, and no
+    // later step shows yet; its end asks again (buildCorridorBehindLoadingScreen).
+    if (wasLoading && this.corridor.pending()) return;
 
     // First load only; a location change starts its flight from its own step 7.
     if (wasLoading && !isApplying && this.introGate.hold()) return;

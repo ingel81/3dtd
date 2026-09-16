@@ -45,7 +45,12 @@ export class IntroLoadingGate {
   hold(): boolean {
     const { engineInit, introFlight } = this.deps;
     if (this.introGateDone) return false;
-    if (engineInit.tilesLoading() || engineInit.osmLoading() || this.deps.heightUpdate.heightsLoading()) {
+    if (engineInit.osmLoading() || this.deps.heightUpdate.heightsLoading()) return false;
+    // Only the first tiles are still missing, past the corridor build that
+    // waited for tiles of its own: the loading screen waits for them under
+    // this step, the next in its list, rather than under none.
+    if (engineInit.tilesLoading()) {
+      void engineInit.setStepCurrent('flight');
       return false;
     }
 
@@ -57,7 +62,6 @@ export class IntroLoadingGate {
         return false;
       }
       this.introGateDeadline = (engineInit.getFirstTilesLoadedAt() ?? performance.now()) + INTRO_GATE_TIMEOUT_MS;
-      void engineInit.setStepDone('tiles');
       void engineInit.setStepCurrent('flight');
     }
 

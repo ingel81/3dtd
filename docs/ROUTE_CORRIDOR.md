@@ -1028,7 +1028,7 @@ Moment.
 
 | Auslöser | Wann |
 |---|---|
-| Ortsladung | hinter dem Ladescreen, Schritt "Measuring the Corridor" nach "Waiting for 3D Tiles" und vor dem Intro-Flug |
+| Ortsladung | hinter dem Ladescreen, Schritt "Measuring the Corridor" nach "Finalizing 3D View" und vor dem Intro-Flug; die Wartezeit auf die Tiles steckt in diesem Schritt (einen Schritt "Waiting for 3D Tiles" gibt es seit 2026-09-16 nicht mehr) |
 | HQ oder Spawn umsetzen ohne Neuladen | unter dem Hinweis "MOVING HQ" (`MapRelocationService`, `RelocationStatusService`) |
 | `__corridor.set()`, `__corridor.reset()` | `change()`; bei geänderten `MEASUREMENT_KEYS` werden vorher alle Messungen verworfen |
 

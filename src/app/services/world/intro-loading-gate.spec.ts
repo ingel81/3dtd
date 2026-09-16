@@ -68,12 +68,28 @@ describe('IntroLoadingGate', () => {
     expect(deps.introFlight.prepare).not.toHaveBeenCalled();
   });
 
+  /**
+   * The step "Waiting for 3D Tiles" is gone, its wait is the corridor
+   * build's. Should the first tiles still be missing after the build, the
+   * screen waits under this step instead of under none.
+   */
+  it('shows its step while only the first tiles are missing, not while streets or heights load', () => {
+    deps.engineInit.tilesLoading.set(true);
+    deps.heightUpdate.heightsLoading.set(true);
+    expect(gate.hold()).toBe(false);
+    expect(deps.engineInit.setStepCurrent).not.toHaveBeenCalled();
+
+    deps.heightUpdate.heightsLoading.set(false);
+    expect(gate.hold()).toBe(false);
+    expect(deps.engineInit.setStepCurrent).toHaveBeenCalledWith('flight');
+    expect(deps.introFlight.prepare).not.toHaveBeenCalled();
+  });
+
   it('holds and samples the route a frame at a time until it is ready', () => {
     deps.introFlight.readiness.mockReturnValue(0.5);
 
     expect(gate.hold()).toBe(true);
     expect(deps.introFlight.prepare).toHaveBeenCalledWith(cachedPaths);
-    expect(deps.engineInit.setStepDone).toHaveBeenCalledWith('tiles');
     expect(deps.engineInit.setStepCurrent).toHaveBeenCalledWith('flight');
     expect(deps.engineInit.updateStepMeta).toHaveBeenCalledWith('flight', '50 % of the route');
 

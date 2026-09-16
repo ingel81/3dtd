@@ -53,7 +53,6 @@ export class EngineInitializationService {
     { id: 'routes', title: 'Calculating Routes', status: 'pending' },
     { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
     { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
-    { id: 'tiles', title: 'Waiting for 3D Tiles', status: 'pending' },
     { id: 'corridor', title: 'Measuring the Corridor', status: 'pending' },
     { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
   ]);
@@ -85,9 +84,6 @@ export class EngineInitializationService {
 
   /** Google Maps API key (for direct Google 3D Tiles) */
   private googleMapsApiKey: string | null = null;
-
-  /** Tile stats polling interval ID */
-  private tileStatsIntervalId: number | null = null;
 
   // ========================================
   // INITIALIZATION
@@ -228,7 +224,6 @@ export class EngineInitializationService {
       { id: 'routes', title: 'Calculating Routes', status: 'pending' },
       { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
       { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
-      { id: 'tiles', title: 'Waiting for 3D Tiles', status: 'pending' },
       { id: 'corridor', title: 'Measuring the Corridor', status: 'pending' },
       { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
     ]);
@@ -365,50 +360,12 @@ export class EngineInitializationService {
       await callbacks.onScheduleHeightUpdate();
       await this.setStepDone('view');
 
-      // Step 7: Wait for 3D tiles (if still loading)
-      if (this.tilesLoading()) {
-        await this.setStepCurrent('tiles');
-      }
-
       // Final check (heights should trigger hiding overlay)
       callbacks.onCheckAllLoaded();
     } catch (err) {
       console.error('[EngineInit] Engine init error:', err);
       this.error.set(err instanceof Error ? err.message : 'Error loading 3D map');
       this.loading.set(false);
-    }
-  }
-
-  // ========================================
-  // TILE STATS POLLING
-  // ========================================
-
-  /**
-   * Start polling tile stats to show loading progress in the tiles step.
-   * Automatically manages polling lifecycle based on tilesLoading state.
-   */
-  startTileStatsPolling(): void {
-    if (this.tileStatsIntervalId) return;
-
-    this.tileStatsIntervalId = window.setInterval(() => {
-      if (!this.engine) return;
-
-      const stats = this.engine.getTileStats();
-      const pending = stats.downloading + stats.parsing;
-      const detail = pending > 0
-        ? `${stats.visible} loaded, ${pending} pending`
-        : `${stats.visible} tiles loaded`;
-      this.updateStepMeta('tiles', detail);
-    }, 500);
-  }
-
-  /**
-   * Stop polling tile stats
-   */
-  stopTileStatsPolling(): void {
-    if (this.tileStatsIntervalId) {
-      clearInterval(this.tileStatsIntervalId);
-      this.tileStatsIntervalId = null;
     }
   }
 
@@ -477,31 +434,11 @@ export class EngineInitializationService {
   // ========================================
 
   /**
-   * Check if all loading is complete (tiles + OSM + heights)
-   * Manages tile stats polling lifecycle automatically.
+   * End loading once tiles, OSM and heights are all done.
    * @param heightsLoading Heights loading signal
    */
   checkAllLoaded(heightsLoading: WritableSignal<boolean>): void {
-    const tiles = this.tilesLoading();
-    const osm = this.osmLoading();
-    const heights = heightsLoading();
-
-    // Manage tile stats polling lifecycle
-    if (tiles && !this.tileStatsIntervalId && this.engine) {
-      this.startTileStatsPolling();
-    }
-    if (!tiles && this.tileStatsIntervalId) {
-      this.stopTileStatsPolling();
-    }
-
-    // If heights are done but tiles still loading, show the tiles step
-    if (!heights && !osm && tiles) {
-      void this.setStepCurrent('tiles');
-    }
-
-    if (!tiles && !osm && !heights) {
-      // Mark tiles step as done before hiding
-      void this.setStepDone('tiles');
+    if (!this.tilesLoading() && !this.osmLoading() && !heightsLoading()) {
       this.loading.set(false);
     }
   }
@@ -546,7 +483,6 @@ export class EngineInitializationService {
    * Dispose engine and cleanup
    */
   dispose(): void {
-    this.stopTileStatsPolling();
     this.engine = null;
     this.baseCoords = null;
     this.canvas = null;

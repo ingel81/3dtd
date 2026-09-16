@@ -497,7 +497,10 @@ Beim ersten Laden bleibt der Ladescreen nach Tiles, Straßen und Höhen noch ste
 Route (8 Samples pro Frame). Der Screen schließt, sobald 90 % der Route verlässliche
 Höhen haben (`INTRO_GATE_MIN_READY`) oder 8 s nach dem ersten Tile-Load
 (`INTRO_GATE_TIMEOUT_MS`, beide in `utils/flight-gate.ts`). Ohne Route oder wenn
-`prepare()` scheitert, wartet er nicht.
+`prepare()` scheitert, wartet er nicht. Meldet der Engine nach dem Korridor-Bau noch
+keine ersten Tiles (`tilesLoading`), wartet der Screen darauf unter demselben Schritt;
+einen eigenen Schritt "Waiting for 3D Tiles" gibt es seit 2026-09-16 nicht mehr, auf die
+Tiles des Korridors wartet "Measuring the Corridor".
 
 Ein Ortswechsel wartet darauf nicht, STEP 7 startet die Fahrt direkt. Dann sichert nur die
 Fahrt selbst ab: Samples mit mehr als 20 m Tile-Fehler (`maxSampleError`) zählen nicht

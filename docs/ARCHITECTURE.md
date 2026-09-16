@@ -105,7 +105,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | Service | Verantwortung |
 |---------|---------------|
 | **AssetManagerService** | Zentraler GLTF/FBX Loader mit Reference Counting |
-| **EngineInitializationService** | Loading Sequence mit 11 Boot-Steps (`location` bis `flight`; `location`, `grid`, `corridor` und `flight` setzen andere Services), Progress Tracking |
+| **EngineInitializationService** | Loading Sequence mit 10 Boot-Steps (`location` bis `flight`; `location`, `grid`, `corridor` und `flight` setzen andere Services; kein eigener Schritt für die 3D Tiles, auf die wartet der Korridor-Bau), Progress Tracking |
 | **ModelPreviewService** | 3D Model Previews für Sidebar (Max-Renderer + setViewport pro Preview, kein Re-`setSize()` pro Frame) |
 | **GameStateSyncService** | EventBus → Store Bridge: wave/game/credits/health/tower/enemy/research:state-changed |
 | **RunStatsTracker** (`run-stats.ts`) | Zahlen der Game-Over-Bilanz vom Event-Bus, Angular-frei, gehalten vom GameStateSyncService |

@@ -137,7 +137,6 @@ describe('LocationFacadeService', () => {
     setStepDone: vi.fn(async (_id: string, _meta?: string) => undefined),
     updateStepMeta: vi.fn(),
     getEngine: vi.fn((): unknown => null),
-    stopTileStatsPolling: vi.fn(),
     setError: vi.fn(),
     setLoading: vi.fn(),
   };
@@ -875,7 +874,7 @@ describe('LocationFacadeService', () => {
   });
 
   describe('clearMapEntities', () => {
-    it('removes markers, routes, streets, spawns and the route cells and stops the tile stats', () => {
+    it('removes markers, routes, streets, spawns and the route cells', () => {
       store.spawnPoints.set([OLD_SPAWN]);
 
       facade.clearMapEntities();
@@ -889,14 +888,13 @@ describe('LocationFacadeService', () => {
       expect(pathRoute.clearCachedPaths).toHaveBeenCalled();
       expect(bridge.setFilteredStreetNetwork).toHaveBeenCalledWith(null);
       expect(bridge.setStreetNetworkLocation).toHaveBeenCalledWith(null);
-      expect(engineInit.stopTileStatsPolling).toHaveBeenCalled();
     });
 
     it('does nothing without an engine', () => {
       bridge.getEngine.mockReturnValue(null);
       facade.clearMapEntities();
       expect(markerViz.clearAllMarkers).not.toHaveBeenCalled();
-      expect(engineInit.stopTileStatsPolling).not.toHaveBeenCalled();
+      expect(bridge.setFilteredStreetNetwork).not.toHaveBeenCalled();
     });
   });
 
