@@ -1,6 +1,5 @@
 /**
- * AbilityManager: player abilities (PLAYER_AGENCY_CONCEPT.md, sections 5
- * and 7).
+ * AbilityManager: player abilities (PLAYER_AGENCY_CONCEPT.md, section 7).
  *
  * Holds the charges of every ability, gives one back per `rechargeWaves`
  * completed waves and schedules strikes: `use()` validates, spends the charge

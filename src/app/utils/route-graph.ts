@@ -1,6 +1,6 @@
 /**
  * Route graph: the enemy routes as one walkable network, for the hero
- * (docs/HERO.md, PLAYER_AGENCY_CONCEPT.md 3.2, "Stufe 1").
+ * (docs/HERO.md, stage one).
  *
  * The routes arrive as one polyline per spawn point. Where two of them share
  * a street they share its waypoints, up to rounding; waypoints closer than

@@ -245,7 +245,7 @@ der das Gate liest, stand dafür schon vorher auf 1: die Spitze ist am Pfadende,
 wenn das Einfließen beginnt.
 
 **Fähigkeits-Kills zählen als Leck.** Was eine Fähigkeit des Spielers tötet
-(Event `ability:resolved`, Feld `kills`), zählt `gateLeakRatio()` zu den Ankünften (Entscheidung 6.1 b in
+(Event `ability:resolved`, Feld `kills`), zählt `gateLeakRatio()` zu den Ankünften (Entscheidung 6.1 b, Abschnitt 7 in
 [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md)): der Einsatz
 rettet HP und Gold, macht die Wellen danach aber nicht größer. Die Zahl kommt
 über `WaveOutcome.abilityKills` vom Collector; das Backend-Gate zählt genauso

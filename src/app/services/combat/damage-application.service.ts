@@ -125,7 +125,7 @@ export class DamageApplicationService {
    *
    * The path for abilities: a share of max HP scales over every wave without
    * retuning and does not undercut the spread of the matrix
-   * (PLAYER_AGENCY_CONCEPT.md, 6.3). The kill credits no tower; it pays its
+   * (PLAYER_AGENCY_CONCEPT.md, section 7). The kill credits no tower; it pays its
    * share of the wave's kill budget like any other kill.
    *
    * @param vfx - CombatVfxService for the death blood

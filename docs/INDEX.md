@@ -51,7 +51,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 |----------|--------|--------------|
 | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) | Aktuell | Game Design: Schadenstypen, Rüstung, Damage-Matrix, Balance |
 | [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md) | Bericht | Balance-Vorschlag vom 2026-09-11: Upgrade-Kurven, Cannon, Matrix-Spreizung, Boss-Takt ab W31, mit Rechenwegen. Im Sprint 2026-09-11 umgesetzt; die offenen Fragen stehen am Ende |
-| [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) | Konzept (Teil umgesetzt) | Spieler aktiver einbinden: Fähigkeiten, Held, Varianten mit Aufwand. Abschnitt 7 hält die Entscheidung vom 2026-09-12 fest (Nuklearschlag zuerst), Abschnitt 8 die Umsetzung vom 2026-09-13 |
+| [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) | Bericht | Spieler aktiver einbinden: die Entscheidungen vom 2026-09-12 (Abschnitt 7) und was beim Bau von Nuklearschlag und Held festgelegt wurde (8, 9). Das Konzept davor (Abschnitte 0 bis 6) liegt im Archiv |
 | [COMBAT_HEATMAP_STUDY.md](game-design/COMBAT_HEATMAP_STUDY.md) | Bericht | Machbarkeitsstudie Kampfzonen. Schicht 1 (Kampfspuren) ist umgesetzt, siehe PARTICLE_SYSTEM.md; Schicht 2 (Heatmap) nicht |
 
 ## Wave Director & AI
@@ -74,7 +74,6 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
-| [PERF_BUG_ANALYSIS_2026-05-28.md](PERF_BUG_ANALYSIS_2026-05-28.md) | Bericht | Performance- und Bug-Deep-Dive: Render-Loop, Instancing, VFX, Game-Loop, Leaks. Nachträge: Raycast-Messung, Kamera-Raycast-Cache, Benchmarks (`npm run bench`) |
 
 ## Pläne (nicht umgesetzt)
 
@@ -109,6 +108,8 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | [REVIEW_SPRINT_2026-09-11.md](archive/REVIEW_SPRINT_2026-09-11.md) | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand (in DONE.md 2026-09-12 übernommen) |
 | [HANDOVER_RULE_DIRECTOR.md](archive/HANDOVER_RULE_DIRECTOR.md) | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md); Umstellung vom ONNX-Netz auf den Regel-Director (2026-09-07), die Messreihe dahinter, Einstieg für ein späteres Training |
 | [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md) | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md); Refresh des Trainings-Backends bis 2026-09-07: Befunde, Grundsatzentscheidungen, Messhistorie |
+| [PERF_BUG_ANALYSIS_2026-05-28.md](archive/PERF_BUG_ANALYSIS_2026-05-28.md) | [ARCHITECTURE.md](ARCHITECTURE.md) (Raycast-Messung, Benchmarks); Performance- und Bug-Deep-Dive vom 2026-05-28 mit Nachträgen bis 2026-09-14 |
+| [PLAYER_AGENCY_CONCEPT_2026-09-11.md](archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md) | [ABILITIES.md](ABILITIES.md), [HERO.md](HERO.md), [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) (Abschnitte 7 bis 9); das Konzept Abschnitte 0 bis 6 mit Varianten, Vergleich, MVP und offenen Fragen |
 | `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md), historisches Restart-Runbook, liegt bewusst unter `training-backend/` |
 
 ## Werkzeuge (HTML, lokal im Browser öffnen)

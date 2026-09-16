@@ -113,7 +113,7 @@ def test_starved_gate_reaches_useful_scale_within_a_run():
 
 
 def test_ability_kills_count_as_leaks_for_the_gate():
-    """A strike must not read as defense strength (PLAYER_AGENCY_CONCEPT.md, 6.1 b).
+    """A strike must not read as defense strength (PLAYER_AGENCY_CONCEPT.md, section 7).
 
     Mirrors gateLeakRatio in the frontend's gate-controller.ts.
     """

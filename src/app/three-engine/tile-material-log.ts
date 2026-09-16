@@ -20,7 +20,7 @@ export function computesLights(material: Material): boolean {
 }
 
 /**
- * R10 decision aid (docs/PERF_BUG_ANALYSIS_2026-05-28.md): do the tile
+ * R10 decision aid (docs/archive/PERF_BUG_ANALYSIS_2026-05-28.md): do the tile
  * materials run the scene lights at all? Photoreal tiles come either as a
  * lit material (MeshStandardMaterial) or through KHR_materials_unlit as
  * MeshBasicMaterial, and only the first pays for the lights on every tile
