@@ -128,6 +128,36 @@ export function geoHeading(
 }
 
 /**
+ * Decimal places of a place's coordinates, its HQ and spawns: as many as the
+ * location URL writes (`?l=`, `&s=`), about 1.1 m north-south and 0.7 m
+ * east-west in Central Europe.
+ */
+export const COORD_DECIMALS = 5;
+
+/**
+ * A point of a place (HQ, spawn) in the one form the game takes it in,
+ * wherever it came from (URL, favorite, recent place, world map, dialog,
+ * map click, random spawn on a street node): lat and lon rounded to
+ * COORD_DECIMALS as the URL writes them and reads them back, every other
+ * field kept. The engine origin, the routes and the corridor cells depend
+ * on every digit: the same place, loaded with full precision after a
+ * location change, stood 0.19 m off and got another corridor than from its
+ * URL (playtest 747).
+ */
+export function canonicalCoords<T extends { lat: number; lon: number }>(point: T): T {
+  return { ...point, lat: roundCoord(point.lat), lon: roundCoord(point.lon) };
+}
+
+/**
+ * `value` to COORD_DECIMALS, as toFixed writes it into the URL. `+ 0` turns
+ * the -0 of a value just below zero into 0: rounded again, or written into
+ * the URL and read back, -0 comes back as 0.
+ */
+function roundCoord(value: number): number {
+  return Number(value.toFixed(COORD_DECIMALS)) + 0;
+}
+
+/**
  * Find the minimum distance from a point to any segment on the given routes.
  * Checks distance to line segments between consecutive route points, not just nodes.
  *

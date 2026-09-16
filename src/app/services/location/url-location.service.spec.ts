@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { UrlLocationService } from './url-location.service';
+import { canonicalCoords } from '../../utils/geo-utils';
 
 /**
  * The location URL: HQ and spawns, a spawn with the compass bearing of its
@@ -36,6 +37,15 @@ describe('UrlLocationService', () => {
     const spawns = url.parseFromUrl()!.spawns;
     expect(spawns).toEqual([{ lat: 48.78, lon: 9.19 }]);
     expect(spawns[0]).not.toHaveProperty('portalBearing');
+  });
+
+  it('reads a place in its canonical form back exactly as it wrote it, also south and west', () => {
+    for (let i = 0; i < 500; i++) {
+      const hq = canonicalCoords({ lat: -89.9 + i * 0.3597530864219, lon: 179.9 - i * 0.7195061728439 });
+      const spawn = canonicalCoords({ lat: hq.lat + 0.0023456789, lon: hq.lon - 0.0046123457 });
+      url.updateUrl(hq, [spawn]);
+      expect(url.parseFromUrl()).toEqual({ hq, spawns: [spawn] });
+    }
   });
 
   it('takes no bearing on the HQ', () => {

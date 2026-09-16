@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { haversineDistance, fastDistance, fastDistanceSq, geoDistanceFast, geoDistanceFastSq, findNearestRouteDistance } from './geo-utils';
+import {
+  haversineDistance, fastDistance, fastDistanceSq, geoDistanceFast, geoDistanceFastSq, findNearestRouteDistance,
+  canonicalCoords,
+} from './geo-utils';
 
 describe('geo-utils', () => {
   // Well-known coordinates
@@ -234,6 +237,22 @@ describe('geo-utils', () => {
       // This test verifies that without routes, the function returns Infinity
       // (i.e., non-route streets are not checked)
       expect(findNearestRouteDistance([], 48.0, 11.0)).toBe(Infinity);
+    });
+  });
+
+  describe('canonicalCoords()', () => {
+    it('rounds to the digits the location URL writes and keeps the other fields', () => {
+      const spawn = { lat: 49.379440871377206, lon: 10.18365173337133, portalBearing: 187.5 };
+      expect(canonicalCoords(spawn)).toEqual({ lat: 49.37944, lon: 10.18365, portalBearing: 187.5 });
+      expect(spawn.lat).toBe(49.379440871377206);
+    });
+
+    it('gives a point that is canonical already back as it is, on both hemispheres', () => {
+      for (const point of [{ lat: 49.37721, lon: 10.17904 }, { lat: -22.96421, lon: -43.17463 }, { lat: 0, lon: 0 }]) {
+        expect(canonicalCoords(point)).toEqual(point);
+        expect(canonicalCoords(canonicalCoords({ lat: point.lat + 4e-6, lon: point.lon - 4e-6 })))
+          .toEqual(canonicalCoords({ lat: point.lat + 4e-6, lon: point.lon - 4e-6 }));
+      }
     });
   });
 
