@@ -9,7 +9,7 @@
  * elsewhere, as each scene says. buildBand decides the band and the enemies'
  * line, bandPath turns it into route waypoints, the route grid claims and
  * samples their cells. Every scene runs twice with the same input and must
- * report the same. Expectations: tmp/fix1/reports/phase2-design.md, section 3.
+ * report the same. Expectations: tmp/archive-2026-09/fix1/reports/phase2-design.md, section 3.
  * The Weisser Turm, the Pont d'Iéna and the A6 run on every lattice of
  * LATTICE_SHIFTS as well (playtest 747); the other scenes give their ground
  * per cell of the fixture's lattice or count cells of it.

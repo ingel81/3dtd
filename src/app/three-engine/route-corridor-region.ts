@@ -5,7 +5,7 @@ import { fnv1a } from '../utils/fnv1a';
  * Geometric error in metres a corridor build refines the region to while it
  * measures: the finest level the tiles have. At all five places measured on
  * 2026-09-16 (Berlin, Erlenbach, Rothenburg, Paris, Tokyo;
- * tmp/fix1/reports/phase0-results.md) the tiles under every station were
+ * tmp/archive-2026-09/fix1/reports/phase0-results.md) the tiles under every station were
  * 2.0 m at 2.5 as at 0, so nothing the camera loads is finer.
  *
  * Only a build holds this level. It costs 39 to 166 MB of active tiles over

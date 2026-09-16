@@ -32,7 +32,7 @@ One JSON object per file:
 
 ## How they were cut
 
-With the harness of the analysis (`tmp/fix1/cornerband-harness`, report `tmp/fix1/reports/cornerband.md`):
+With the harness of the analysis (`tmp/archive-2026-09/fix1/cornerband-harness`, report `tmp/archive-2026-09/fix1/reports/cornerband.md`):
 
 1. The route from the snapshot's `band[].route`, in the local frame as `geoToLocalSimple` places it (stations on
    7 mm). Segments are open where the snapshot's band has a backbone on them.

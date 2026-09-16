@@ -13,7 +13,7 @@ class StubInjector extends Injector {
 const create = () => runInInjectionContext(new StubInjector(), () => new EngineInitializationService());
 
 /**
- * The loading steps after the corridor rework (tmp/fix1/reports/bootsteps.md):
+ * The loading steps after the corridor rework (tmp/archive-2026-09/fix1/reports/bootsteps.md):
  * the step "Waiting for 3D Tiles" had no wait of its own any more and ran
  * after the corridor build, whose step holds that wait.
  */
