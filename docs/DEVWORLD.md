@@ -230,9 +230,10 @@ Regenerieren: `LocationFacadeService.refreshTerrainHeights()` räumt die Szene
 ## Route-Grid und Korridor
 
 - `filterStreetNetworkToRoutes()` filtert in DevWorld nicht, das ganze Netz bleibt.
-- Die Höhen kommen in einem Schritt vom Mesh; es gibt keine Tile-Batches und keine
-  cells-changed-Events. `VisualizationFacadeService` stößt den Höhen-Refresh der
-  Routenlinien deshalb explizit an.
+- Die Höhen kommen in einem Schritt vom Mesh, es gibt keine Tile-Batches. Die Zellen tasten
+  einmal beim Aufbau des Grids ab; beim Neugenerieren baut
+  `LocationFacadeService.onDevWorldRegenerated()` erst das Grid und legt dann die Routenlinien
+  darauf (`PathRouteService.refreshRouteLines()`).
 - Korridor: `engine.terrain.measureStreetClearance()` (`TerrainQueries`) gibt in DevWorld `null` zurück, es
   laufen keine Clearance-Rays. Der Korridor behält die Breite aus `DEV_STREET_WIDTHS`.
   Details: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md).

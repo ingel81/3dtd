@@ -11,7 +11,7 @@ import { Group, Vector3 } from 'three';
  *
  * Real: MapRelocationService (the move), OsmStreetService (A*, the random
  * spawn), PathAndRouteService (routes), RelocationStatusService (the hint),
- * CorridorController with its CorridorRefit. Fakes as in
+ * CorridorBuild. Fakes as in
  * relocation-corridor.scenario.spec: the game state, the engine (each
  * corridor station costs 1.7 ms on a fake clock), the animation frames. Each
  * A* run (findPath) costs 1 ms on that clock, so the step times of the log

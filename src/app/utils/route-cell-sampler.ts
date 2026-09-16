@@ -36,7 +36,7 @@ interface CellHit {
  * Grid liegt: `sampleCellY`, dazu der Debug-Reset `resetToUnsampled`.
  *
  * Hält die beiden Terrain-Proben, die `GlobalRouteGrid.initialize` setzt,
- * und die Zähler, die der Terrain-Sweep des Grids auswertet. Die
+ * und Diagnose-Zähler (`sampleFrame` liest `GlobalRouteGrid.dumpStats`). Die
  * Nachbarschaft einer Cell kennt nur das Grid, darum kommt der
  * Nachbar-Median für den Ausreißer-Test als Funktion herein.
  */

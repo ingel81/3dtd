@@ -1,13 +1,13 @@
 # Konzept: Zellen parallel zur Route
 
 Stand 2026-09-12, Stellen nachgezogen 2026-09-15. Nur Konzept, kein Code. Die
-Entscheidung liegt beim Nutzer (TODO.md, Abschnitt 1.0). Geschrieben nach dem
+Entscheidung liegt beim Nutzer (TODO.md, B3). Geschrieben nach dem
 Korridor nach Freiraum (`331c7a3`).
 
 ## Ausgangslage
 
 Route-Zellen sind 2 m große Quadrate auf einem Raster nach Nord und Ost
-(lokal x Ost, z Süd). Der Schlüssel ist `intCellKey(floor(x / 2), floor(z / 2))`
+(lokal -x Ost, +z Nord). Der Schlüssel ist `intCellKey(floor(x / 2), floor(z / 2))`
 (`utils/global-route-grid.ts`, Zellgröße `CELL_SIZE`), alle Zellen
 liegen in einer `Map<number, RouteCell>`. Eine Zelle gehört zum
 Korridor, wenn ihr Mittelpunkt innerhalb der Halbbreite ihrer Seite liegt
@@ -47,8 +47,8 @@ Die Zuordnung Gegner zu Zelle bräuchte also keinen Raster-Lookup.
 | LOS je Kandidat | `tower-combat.service.ts` ruft `isPositionVisibleFromTower` / `isAirPositionVisibleFromTower` (`global-route-grid.ts`), die rechnen über `getCellAt` den Schlüssel neu; Rückfall CPU-Raycast `tower-combat.service.ts` | pro Kandidat und Tower | Punkt ergibt eine Zelle |
 | Umkreis | `getEnemiesInRadius` (`global-route-grid.ts`) läuft ein Quadrat von Rasterindizes ab; Aufrufer: Targeting ohne `visibleCells` (`tower-combat.service.ts`), Splash (`services/combat/combat-effect.service.ts`) | pro Einschlag | Nachbarschaft im Raster |
 | LOS-Registrierung | `registerTower` (`global-route-grid.ts`), `registerTowerIncremental` über die Indexbox `cellsInRange`; eine Probe je Zelle am Mittelpunkt, Boden +1,5 m, Luft +15 m (`configs/los-viz.config.ts`); `isCubeVisible` (`utils/gpu-cube-resolve.ts`) nimmt einen beliebigen Punkt | pro Registrierung und Recompute | Zelle hat einen Mittelpunkt |
-| Veraltete LOS | `services/tower-los-registry.ts`, `onCellsChanged` (Mittelpunkt in Reichweite) | pro Änderungsschub | wie oben |
-| Höhenprobe | `utils/route-cell-sampler.ts`, Säule am Mittelpunkt (`columnNear`), LOD-Peek, Ausreißertest gegen den Nachbarmedian (`global-route-grid.ts`) | Erzeugung, Tile-Sweep, Registrierung | eine Höhe je Zelle, Nachbarn im Raster |
+| Neu gerechnete LOS | `services/tower-los-registry.ts`, `scheduleRecompute` (Forschung, Reichweiten-Upgrade); die Zellen liegen seit dem Einfrieren fest | pro Recompute | wie oben |
+| Höhenprobe | `utils/route-cell-sampler.ts`, Säule am Mittelpunkt (`columnNear`), LOD-Peek, Ausreißertest gegen den Nachbarmedian (`global-route-grid.ts`) | Korridor-Bau (Erzeugung, Rückfall), Registrierung | eine Höhe je Zelle, Nachbarn im Raster |
 | Luftschicht | `getAirTargetY` (`utils/route-cell.ts`); Röhre `utils/route-altitude-tubes.ts` | Registrierung, Debug | eine Höhe je Zelle |
 | Anzeige je Tower | Plattengröße aus der Zellgröße (`tower-los-layer-builder.ts`), Instanz nur verschoben, nicht gedreht, Shader liest den Mittelpunkt aus `instanceMatrix[3]` | pro Auswahl oder Vorschau | achsparallele Quadrate |
 | Aggregat-Anzeige | `route-grid-aggregate-viz.ts`, Reihenfolge der Instanzen gleich der Map-Reihenfolge | Debug, pro Frame Farben | wie oben |

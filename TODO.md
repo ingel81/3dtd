@@ -168,6 +168,7 @@ Stand 2026-09-16, Branch `next`.
   - Falsches Label `climb` an einer Straßenkuppe (Trace des Bands).
   - Krücken für grobe Tiles (`unmeasured: 'coarse tile'`) nach dem Einfrieren noch nötig?
   - Hinweistext "Ground Marks" nennt die Ooze-Pfützen nicht (`quick-actions.component.ts`).
+  - Zähler `peekSkipCount` und `raycastCount` in `route-cell-sampler.ts` ohne Leser.
 - [ ] **I2 Tests und Werkzeuge**
   - Gemeinsamer Engine-Mock (`integration/test-helpers.ts`) kennt `tentacles` und `plinths` nicht.
   - `ability-bosses.scenario.spec.ts` baut `applyMaxHpFraction` nach, statt sie aufzurufen.
@@ -181,14 +182,6 @@ Stand 2026-09-16, Branch `next`.
 ## J. Aufräumen: Doku
 
 - [ ] **J1 Doku-Reste**
-  - `ARCHITECTURE.md` und `DEVWORLD.md` beschreiben den entfernten Cells-Changed-Listener.
-  - `ROUTE_CORRIDOR.md` Zeilen 2155 bis 2171 beschreiben den entfernten Neuaufbau und Flush.
-  - Spec-Kommentare nennen die entfernten Klassen `CorridorRefit` und `CorridorController`.
-  - "Pathfinding im Worker" steht falsch in `ARCHITECTURE.md` (siehe I1).
-  - Kommentar "x east, z south" ist falsch (`route-corridor-coverage.spec.ts`, `route-grid-builder.ts`).
-  - Kommentar zu Herbert "100% immunity" ist falsch (`ai/core/ai-schema.ts`).
-  - Veraltete Kommentare in Wellen-, Balance- und Gegner-Configs (`wave-curriculum.config.ts`,
-    `game-balance.config.ts`, `enemy.manager.ts`, `enemy-types.config.ts`, `td-theme.ts`, `export_to_tfjs.py`).
   - `HANDOVER_RULE_DIRECTOR.md` nennt deutsche Knopfnamen; `MULTIPLAYER_CONCEPT.md` nicht nachgezogen.
   - Bekannte Grenzen aus den Worker-Berichten in die Fach-Doku übernehmen: Korridor-Nebenbefunde (Dachzellen an
     Routenecken, Überdeckung über 30 m, Füllregel über Gitterlagen, Loch im Mesh in Erlenbach, Rückfall-Sekunde bei

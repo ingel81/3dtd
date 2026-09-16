@@ -53,12 +53,9 @@ Regel-Director war seine Bedingung dauerhaft wahr, er feuerte auf seinen eigenen
 Schreibvorgang und machte den UI-Toggle inert. Stattdessen ist der Default
 schlicht `true`.
 
-**Widerspruch, den man beim Lesen trifft:** Der JSDoc-Kommentar an
-`useStaticCurriculum` (`game.store.ts`) und an `toggleStaticCurriculum()`
-(`game-loop-facade.service.ts`) behauptet, der Static-Pfad greife nur „wenn
-`useAIDirector === false` **und** dieses Flag true ist". Der Code in
-`startWave()` prüft `useAIDirector` an dieser Stelle nicht. Die Prioritätskette
-oben ist maßgeblich.
+Die JSDoc-Kommentare an `useStaticCurriculum` (`game.store.ts`) und an
+`toggleStaticCurriculum()` (`game-loop-facade.service.ts`) sagen dasselbe: Der
+Static-Pfad greift vor dem Director, `useAIDirector` muss nicht aus sein.
 
 ---
 

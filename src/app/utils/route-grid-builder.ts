@@ -241,7 +241,8 @@ export function claimSegmentCells(
       const t = Math.max(0, Math.min(1, along));
       const ox = start.x + dx * t - cx;
       const oz = start.z + dz * t - cz;
-      // (-dz, dx) points right of the direction of travel (x east, z south).
+      // (-dz, dx) points right of the direction of travel (engine frame x west,
+      // z north, and any frame turned from it, such as x east, z south).
       const rightOfLine = (cz - start.z) * dx - (cx - start.x) * dz >= 0;
       const halfWidth = along < 0 ? (rightOfLine ? caps.startRight : caps.startLeft)
         : along > 1 ? (rightOfLine ? caps.endRight : caps.endLeft)

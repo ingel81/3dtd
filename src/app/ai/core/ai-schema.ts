@@ -105,7 +105,7 @@ export const ENEMY_THREAT_RATING: Readonly<Record<string, number>> = {
   // Fortified
   mammoth: 5.0,             // Very high HP (400), slow
   'stone-golem': 5.5,       // 480 HP, very slow — pure DPS check
-  herbert: 50.0,            // Boss: 500 HP, 100% immunity
+  herbert: 50.0,            // Boss: 500 HP (immunityPercent 100 acts nowhere)
   // Ethereal
   ghost: 6.0,               // Ethereal, requires magic/ice
   wraith: 7.0,              // Ethereal-fast

@@ -11,9 +11,10 @@
  * After wave 30 the director picks the template (every fifth wave a boss, see
  * isBossWave) and the gold budget tapers to a sustain level (goldBudgetForWave).
  *
- * Mirror: training-backend/wave_curriculum.py — keep template sequence in sync.
- * Gold budget lives only here; backend training doesn't need it (the NN's
- * reward function is its own thing in reward.py).
+ * The backend reads the template sequence from the generated schema
+ * (training-backend/generated/ai-schema.json, `npm run ai-schema`). The gold
+ * budget lives only here; backend training doesn't need it (the NN's reward
+ * function is its own thing in reward.py).
  */
 
 import { TEMPLATES, type Template } from '../ai/core/templates';
@@ -32,7 +33,8 @@ export interface CurriculumWave {
 
 /**
  * Hard sequence, 1-indexed: WAVE_CURRICULUM[0] = wave 1.
- * After the last entry the template loops; the gold budget extrapolates.
+ * After the last entry the director picks the template (templateForWave
+ * returns null) and the gold budget tapers (goldBudgetForWave).
  */
 export const WAVE_CURRICULUM: readonly CurriculumWave[] = [
   // Rebalanced baseline derived from a Wave-Planner W30-target run:
@@ -77,11 +79,10 @@ export const WAVE_CURRICULUM: readonly CurriculumWave[] = [
   { template: 'boss_herbert',     goldKill:120000, goldComplete: 60000 }, // 30 — BOSS 3 (season finale, bonus peak)
 ] as const;
 
-// Post-W30 the curriculum LOOPS the template (W31 = W1, W32 = W2 …, see
-// templateForWave) — gold budgets loop with it, so the income matches the
-// enemies that actually spawn. Earlier we used a linear `+delta` extrapolation
-// here, which inflated late-game income to half a million/wave even though
-// the player was fighting zombie hordes again.
+// Past W30 the curriculum pins no template (templateForWave returns null,
+// the director picks) and goldBudgetForWave tapers the income to a sustain
+// level. Neither a linear `+delta` extrapolation (half a million gold per wave)
+// nor looping the W1-W30 budgets held up, see goldBudgetForWave.
 
 // =====================================================================
 // Phase 5.16 Endgame Difficulty Knobs (P2)

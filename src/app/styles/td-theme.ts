@@ -4,7 +4,7 @@
  *
  * Design Refinements (2026-05): tokens shifted by ~1L for better depth staging,
  * gold desaturated to "antique brass", new bevel/glass/glow recipes.
- * See: tmp/README.md (Tower Defense — Design Refinements).
+ * The design notes were never checked in; docs/DESIGN_SYSTEM.md describes the tokens.
  */
 
 export const TD_THEME = {

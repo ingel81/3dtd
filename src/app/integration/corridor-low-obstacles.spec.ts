@@ -128,7 +128,10 @@ const expected = (open: number, ks: number[] = [], other = open) =>
 
 const ORIGIN = { lat: 48.776, lon: 9.183 };
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
-/** The flat projection EllipsoidSync.geoToLocalSimple uses: x east, z south. */
+/**
+ * A flat projection with x east and z south: EllipsoidSync.geoToLocalSimple
+ * (x west, z north) turned by 180 degrees, which keeps distances and sides.
+ */
 const sync = {
   geoToLocalSimple: (lat: number, lon: number, height: number) => ({
     x: (lon - ORIGIN.lon) * M_PER_DEG_LON,

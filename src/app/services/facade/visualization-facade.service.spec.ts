@@ -81,7 +81,7 @@ import type { CameraFrame } from '../camera-framing.service';
  * location, holds the loading screen for the intro flight, keeps baked
  * heights (route line, markers) in step with streaming tiles and owns camera
  * framing, the building and DPS overlays. These tests pin those paths against
- * fakes; the corridor rules themselves live in CorridorRefit.
+ * fakes; the corridor build itself lives in CorridorBuild.
  */
 
 const HQ = { lat: 48.7758, lon: 9.1829 };

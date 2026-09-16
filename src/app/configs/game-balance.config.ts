@@ -2,8 +2,8 @@
  * Game Balance Configuration
  *
  * Player-facing tuning values that don't belong to a specific entity config.
- * Per-wave gold budgets live in src/app/ai/core/wave-curriculum.ts so they
- * stay co-located with the wave content design.
+ * Per-wave gold budgets live in src/app/configs/wave-curriculum.config.ts so
+ * they stay co-located with the wave content design.
  */
 
 export const GAME_BALANCE = {
@@ -73,7 +73,7 @@ export const GAME_BALANCE = {
 
   /**
    * Wave-completion skill bonuses (Phase 5.16). Stack on top of the
-   * deterministic per-wave completion budget defined in wave-curriculum.ts.
+   * deterministic per-wave completion budget defined in wave-curriculum.config.ts.
    */
   economy: {
     /** PerfectBonus: +35% on the wave's completion budget when 0 HP lost */
