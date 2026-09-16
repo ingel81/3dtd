@@ -673,8 +673,9 @@ describe('TerrainQueries', () => {
    * 2026-09-16, Tokyo (PLAYTEST 745): a cold load, a location change in game
    * and `__corridor.reset()` gave three corridors with the same stations,
    * cells and tile depth and error under every column, and different heights.
-   * Two things the library already rules out as the cause are pinned here,
-   * and the cause, a column that read what its first caller's point showed.
+   * Pinned here: two causes the library already rules out, and what made a
+   * reset differ from a cold load, a column that read what the point of its
+   * first caller showed.
    */
   describe('on the library ray path', () => {
     const queriesOver = (tiles: LibraryTiles) => new TerrainQueries(sync, { tiles: () => tiles.renderer, devTerrain: () => null });
