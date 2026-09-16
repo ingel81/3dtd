@@ -536,10 +536,10 @@ describe('the walkable band on the OSM fixtures', () => {
    *
    * Heights: the square flat at 485.2, every structure a block at the height
    * its OSM tags give, and in front of the arcade, `overhang` metres past its
-   * footprint, columns that meet nothing: under the eaves of the arcade a
-   * column from above meets only the underside of the mesh, which a ray does
-   * not count. That strip is the one modelled number, so it is checked over a
-   * range of it.
+   * footprint, columns that meet nothing: a hole in the mesh along the foot
+   * of the arcade, or, if the tile material is single sided (not checked),
+   * eaves a ray from above meets only from behind. That strip is the one
+   * modelled number, so it is checked over a range of it.
    */
   describe('Marktplatz: the cells before the arcade of the town hall, whose columns meet nothing', () => {
     const ARCADE = 1311003086;

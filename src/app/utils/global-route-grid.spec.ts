@@ -332,10 +332,9 @@ describe('GlobalRouteGrid tile seams', () => {
   /**
    * Playtest 2026-09-16, Rothenburg: seven cells at the edge of the corridor
    * before the arcade of the town hall stayed without a height, and the
-   * fallback level found no column there either. Under eaves a column from
-   * above meets only the underside of the mesh. Beyond such a cell there is
-   * no cell, so it has no stable pair; the cells towards the line have the
-   * ground.
+   * fallback level found no column there either. Beyond such a cell there
+   * is no cell, so it has no stable pair; the cells towards the line have
+   * the ground.
    */
   it('fills a cell at the edge whose columns meet nothing from the three stable cells beside it', () => {
     // The outer row (z = 5, centre 4 m off the line) meets nothing from x = 10 to 30.
@@ -1153,8 +1152,8 @@ describe('GlobalRouteGrid tunnels', () => {
   });
 
   /**
-   * A portal whose column meets nothing, a hole in the mesh or the
-   * underside of the eaves over a mouth, left every cell of the stretch
+   * A portal whose column meets nothing, a hole in the mesh at the mouth,
+   * left every cell of the stretch
    * without a height; the fallback level only helped where its coarser mesh
    * had a hit there. The street of the band there is measured.
    */

@@ -234,10 +234,9 @@ export class GlobalRouteGrid {
    *   column near the cell got past.
    * - Without such a pair, where at least three stable cells of its surface
    *   touch it, it takes their median and is `filled` as well: a cell at the
-   *   edge of the corridor whose columns meet nothing, under the eaves of an
-   *   arcade or a jetty, where a column from above meets only the underside
-   *   of the mesh (playtest 2026-09-16, Rothenburg, seven cells before the
-   *   Laubengang of the town hall). The band reached the cells beside it on
+   *   edge of the corridor whose columns meet nothing, a hole in the mesh
+   *   at the foot of a facade (playtest 2026-09-16, Rothenburg, seven cells
+   *   before the Laubengang of the town hall). The band reached the cells beside it on
    *   the ground and passed over this one (corridor-band.ts, walkSide), and
    *   the fallback level found no column there either. Three measured cells
    *   around it bound its height as a pair does: along the edge the middle
