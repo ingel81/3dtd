@@ -404,19 +404,9 @@ export class TowerDefenseFacadeService {
     this.gameLoopFacade.startCustomWave();
   }
 
-  /** Toggle AI Director mode. */
-  toggleAIDirector(): void {
-    this.gameLoopFacade.toggleAIDirector();
-  }
-
   /** Toggle static-curriculum fallback (debug; used when AI is off). */
   toggleStaticCurriculum(): void {
     this.gameLoopFacade.toggleStaticCurriculum();
-  }
-
-  /** Get AI Director status text. */
-  getAIStatusText(): string {
-    return this.gameLoopFacade.getAIStatusText();
   }
 
   /** Upgrade a tower with the specified upgrade. */

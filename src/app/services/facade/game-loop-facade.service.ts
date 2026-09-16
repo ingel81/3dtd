@@ -420,14 +420,6 @@ export class GameLoopFacadeService {
   }
 
   /**
-   * Toggle AI Director mode.
-   */
-  toggleAIDirector(): void {
-    const newValue = !this.store.useAIDirector();
-    this.store.useAIDirector.set(newValue);
-  }
-
-  /**
    * Toggle static-curriculum fallback (debug). When ON, `startWave()` spawns
    * from `STATIC_WAVE_PROFILES` unconditionally, ahead of the AI Director
    * and the debug panel's custom-wave settings (docs/STATIC_WAVE_FALLBACK.md);
@@ -436,14 +428,6 @@ export class GameLoopFacadeService {
   toggleStaticCurriculum(): void {
     const newValue = !this.store.useStaticCurriculum();
     this.store.useStaticCurriculum.set(newValue);
-  }
-
-  /**
-   * Get AI Director status text.
-   */
-  getAIStatusText(): string {
-    if (!this.store.useAIDirector()) return 'Director off';
-    return this.waveDirector.statusText();
   }
 
   // ══════════════════════════════════════════════════════════════

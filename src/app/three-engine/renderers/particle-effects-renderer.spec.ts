@@ -152,7 +152,7 @@ describe('ParticleEffectsRenderer decals', () => {
 describe('ParticleEffectsRenderer effect particles', () => {
   const setup = () => {
     const pools = new ParticlePoolManager(new Scene());
-    const sync = { geoToLocal: () => new Vector3() } as unknown as CoordinateSync;
+    const sync = { geoToLocal: () => new Vector3(), geoToLocalSimple: () => new Vector3() } as unknown as CoordinateSync;
     const effects = new ParticleEffectsRenderer(new Scene(), sync, pools);
     const alive = (pool: 'trailAdditive' | 'trailNormal') => pools.getPool(pool).filter((p) => p.life > 0);
     // One engine frame: effects, then the buffer pass that frees dead particles
@@ -223,7 +223,7 @@ describe('ParticleEffectsRenderer effect particles', () => {
 
   it('keeps every particle of a burning fire alive', () => {
     const { effects, alive, frame } = setup();
-    effects.spawnFire(0, 0, 0, 'small');
+    effects.spawnScaledFire(0, 0, 0, 0);
     const count = alive('trailAdditive').length;
     expect(count).toBeGreaterThan(0);
 

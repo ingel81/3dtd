@@ -12,7 +12,6 @@ import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
 import type {
   BurstPalette,
-  FireIntensityLevel,
   MuzzleFlashProfile,
   ScorchSource,
 } from '../../configs/visual-effects.config';
@@ -165,61 +164,6 @@ export class ThreeEffectsRenderer {
   }
 
   /**
-   * Spawn fire effect at a position
-   *
-   * @param lat - Latitude
-   * @param lon - Longitude
-   * @param height - Height above ground
-   * @param intensity - Fire intensity (FIRE_INTENSITY)
-   */
-  spawnFire(
-    lat: number,
-    lon: number,
-    height: number,
-    intensity: FireIntensityLevel = 'medium'
-  ): string {
-    return this.particleEffects.spawnFire(lat, lon, height, intensity);
-  }
-
-  /**
-   * Spawn fire effect ON TERRAIN at given geo coordinates
-   * Automatically raycasts to find terrain/roof height - no manual height calculation needed!
-   *
-   * @param lat - Latitude
-   * @param lon - Longitude
-   * @param getTerrainHeight - Function to get terrain height (engine.getTerrainHeightAtGeo)
-   * @param intensity - Fire intensity
-   * @param heightOffset - Optional offset above terrain (default: 0)
-   */
-  spawnFireOnTerrain(
-    lat: number,
-    lon: number,
-    getTerrainHeight: (lat: number, lon: number) => number | null,
-    intensity: FireIntensityLevel = 'medium',
-    heightOffset = 0
-  ): string {
-    return this.particleEffects.spawnFireOnTerrain(lat, lon, getTerrainHeight, intensity, heightOffset);
-  }
-
-  /**
-   * Spawn fire effect using local Y coordinate directly
-   * Use this when you have a local terrain Y from getTerrainHeightAtGeo()
-   *
-   * @param lat - Latitude (for X/Z positioning)
-   * @param lon - Longitude (for X/Z positioning)
-   * @param localY - Local Y coordinate (from getTerrainHeightAtGeo)
-   * @param intensity - Fire intensity
-   */
-  spawnFireAtLocalY(
-    lat: number,
-    lon: number,
-    localY: number,
-    intensity: FireIntensityLevel = 'medium'
-  ): string {
-    return this.particleEffects.spawnFireAtLocalY(lat, lon, localY, intensity);
-  }
-
-  /**
    * Stop a fire effect
    */
   stopFire(id: string): void {
@@ -331,11 +275,6 @@ export class ThreeEffectsRenderer {
     this.auras.stopPoisonAura(enemyId);
   }
 
-  /** Check if an enemy has an active poison aura. */
-  hasPoisonAura(enemyId: string): boolean {
-    return this.auras.hasPoisonAura(enemyId);
-  }
-
   /**
    * Spawn a single flame particle for beam effects.
    * Used by FlameBeamRenderer for flamethrower streams.
@@ -374,14 +313,6 @@ export class ThreeEffectsRenderer {
    */
   spawnScaledFire(lat: number, lon: number, localY: number, scale: number): string {
     return this.particleEffects.spawnScaledFire(lat, lon, localY, scale);
-  }
-
-  /**
-   * Scale up an existing fire to inferno level
-   * Adds more particles to the existing fire effect
-   */
-  scaleFireToInferno(fireId: string): void {
-    this.particleEffects.scaleFireToInferno(fireId);
   }
 
   /** Spawn the massive HQ destruction explosion (dramatic final explosion). */
@@ -433,19 +364,6 @@ export class ThreeEffectsRenderer {
    */
   spawnExplosionAtGeo(lat: number, lon: number, height: number, count = 25, radius?: number, smokePuffs = 0): void {
     this.particleEffects.spawnExplosionAtGeo(lat, lon, height, count, radius, smokePuffs);
-  }
-
-  /**
-   * Spawn ice explosion effect at local position
-   * Used for ice tower impacts - cyan/blue particles
-   *
-   * @param localX - Local X coordinate
-   * @param localY - Local Y coordinate (height)
-   * @param localZ - Local Z coordinate
-   * @param count - Number of particles (default 20)
-   */
-  spawnIceExplosion(localX: number, localY: number, localZ: number, count = 20): void {
-    this.particleEffects.spawnIceExplosion(localX, localY, localZ, count);
   }
 
   /**

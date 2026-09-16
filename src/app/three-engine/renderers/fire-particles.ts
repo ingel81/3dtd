@@ -5,8 +5,7 @@ import type { Particle } from './particle-pool-manager';
  * The one way a fire particle is lit, shared by the fire spawns of
  * ParticleEffectsRenderer and the respawn that keeps a burning fire going.
  * Speeds and lifetimes follow the FIRE_TEMPO note in
- * particle-effects-renderer.ts; count and radius per intensity are
- * FIRE_INTENSITY in visual-effects.config.ts.
+ * particle-effects-renderer.ts.
  */
 
 /**
