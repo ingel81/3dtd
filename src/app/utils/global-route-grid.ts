@@ -231,9 +231,20 @@ export class GlobalRouteGrid {
    * - Between stable cells of its surface on opposite sides, such a cell
    *   takes the mean over those pairs and is `filled`
    *   (RouteCellSampler.fill): a seam between two tile meshes that no
-   *   column near the cell got past. Only stable cells count, so a fill
-   *   never spreads from one filled cell to the next.
-   * - A stable one without such a pair loses its sample.
+   *   column near the cell got past.
+   * - Without such a pair, where at least three stable cells of its surface
+   *   touch it, it takes their median and is `filled` as well: a cell at the
+   *   edge of the corridor whose columns meet nothing, under the eaves of an
+   *   arcade or a jetty, where a column from above meets only the underside
+   *   of the mesh (playtest 2026-09-16, Rothenburg, seven cells before the
+   *   Laubengang of the town hall). The band reached the cells beside it on
+   *   the ground and passed over this one (corridor-band.ts, walkSide), and
+   *   the fallback level found no column there either. Three measured cells
+   *   around it bound its height as a pair does: along the edge the middle
+   *   one, across it the cell next to it.
+   * - Only stable cells count, so a fill never spreads from one filled cell
+   *   to the next.
+   * - A stable one with neither loses its sample.
    * - Tunnel cells take their height from the portals and are left alone.
    *
    * O(cells given), eight neighbour lookups each.
@@ -247,7 +258,7 @@ export class GlobalRouteGrid {
         const median = this.medianOfStableNeighbourY(cell, cell.sample.tileDepth);
         if (median === null || Math.abs(cell.terrainHeight - median) <= RouteCellSampler.OUTLIER_M) continue;
       }
-      const y = this.heightBetweenNeighbours(cell);
+      const y = this.heightBetweenNeighbours(cell) ?? this.medianOfStableNeighbourY(cell);
       if (y !== null) {
         if (this.sampler.fill(cell, y)) changed.push(cell);
       } else if (cell.sample.state === 'stable') {
