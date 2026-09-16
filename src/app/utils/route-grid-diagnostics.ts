@@ -48,6 +48,9 @@ export interface RouteCellBox {
   zMax: number;
 }
 
+/** Every cell of the grid, for `dumpCellsInBox`. */
+export const WHOLE_GRID: Readonly<RouteCellBox> = { xMin: -Infinity, xMax: Infinity, zMin: -Infinity, zMax: Infinity };
+
 /** Eine Zeile aus `collectCellsInBox` / `collectHeightOutliers`. */
 export interface RouteCellDump {
   key: number;

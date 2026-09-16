@@ -13,6 +13,7 @@ import {
   type CameraPose,
   type CameraTimelineEntry,
 } from '../../utils/camera-timeline';
+import { downloadBlob } from '../../utils/download';
 
 /**
  * Builds a structured JSON snapshot of currently-interesting engine state
@@ -97,15 +98,7 @@ export class DebugStateDumpService {
   }
 
   private triggerDownload(filename: string, content: string): void {
-    const blob = new Blob([content], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([content], { type: 'application/json' }), filename);
   }
 }
 

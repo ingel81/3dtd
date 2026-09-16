@@ -11,6 +11,7 @@ import {
 } from '../../three-engine/tiles-lod-debug';
 import { CORRIDOR_DEFAULTS, corridorConfig, type StationProbe } from '../../utils/route-corridor';
 import { raycastStats } from '../../utils/raycast-stats';
+import { WHOLE_GRID } from '../../utils/route-grid-diagnostics';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { corridorChanges, reportUrl } from './cell-report';
 import { type CorridorFingerprint, corridorFingerprint } from './corridor-fingerprint';
@@ -98,9 +99,6 @@ export interface CorridorLodProbeDeps {
   /** The page URL for the report, without parameters that could carry a key (reportUrl). */
   pageUrl?: () => string;
 }
-
-/** Every cell of the grid, for dumpCellsInBox. */
-const WHOLE_GRID = { xMin: -Infinity, xMax: Infinity, zMin: -Infinity, zMax: Infinity };
 
 /** The page's clipboard, as the cell report uses it, and the button for when it refuses. */
 const pageClipboard: ProbeClipboard = {
