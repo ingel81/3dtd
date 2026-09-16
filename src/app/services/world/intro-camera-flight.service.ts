@@ -184,9 +184,6 @@ function smoothingAlpha(rate: number, dt: number): number {
   return 1 - Math.exp(-rate * dt);
 }
 
-/** Height above ground the path points are lifted to (matches route rendering). */
-const PATH_HEIGHT_OFFSET = 1;
-
 /** Snapshot of the flight for `__flight.state()` and the state dump. */
 export interface FlightDebugState {
   running: boolean;
@@ -1099,9 +1096,9 @@ export class IntroCameraFlightService {
     );
   }
 
-  /** Ground the route line was built on (cell heights at build time), without its lift. */
+  /** Ground the route was built on (cell heights at build time). */
   private routeGroundAt(distance: number): number {
-    return this.routeYAt(distance) - PATH_HEIGHT_OFFSET;
+    return this.routeYAt(distance);
   }
 
   // ========================================
@@ -1129,7 +1126,9 @@ export class IntroCameraFlightService {
 
     for (const path of cachedPaths.values()) {
       if (path.length < 2) continue;
-      const points = routePathToLocalPoints(engine, path, PATH_HEIGHT_OFFSET);
+      // On the ground: the curve is flat, and the route height is only the
+      // ground to fall back on (routeGroundAt), whatever the red line's lift
+      const points = routePathToLocalPoints(engine, path, 0);
       if (points.length < 2) continue;
 
       let length = 0;
