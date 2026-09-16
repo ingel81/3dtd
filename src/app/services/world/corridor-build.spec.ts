@@ -296,6 +296,20 @@ describe('CorridorBuild', () => {
       expect(result).toMatchObject({ fallbackStations: 4, unmeasured: 0 });
     });
 
+    it('goes back to the finest level when it stops on the fallback level for the stations', async () => {
+      state.unmeasured = [4, 0];
+      // The routes are replaced once the region is on the fallback level.
+      Object.defineProperty(state, 'epoch', { get: () => (calls.includes(COARSE) ? 2 : 1) });
+
+      expect(await corridor.build('location load')).toBeNull();
+
+      expect(calls).toEqual([
+        MUTED, FINE, 'clearColumns', 'measure', 'commit',
+        COARSE, FINE,
+        'camera 20', COARSE,
+      ]);
+    });
+
     it('gives cells without a height a sample on the coarse level after the band, before the line', async () => {
       state.bare = 3;
       state.promoted = 2;

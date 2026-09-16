@@ -466,6 +466,10 @@ export class CorridorBuild {
    * to this level anyway (unmute). The way back waited at least
    * QUIET_MS for tiles no one measured on; a whole fallback took 1036 to
    * 1087 ms in Rothenburg, Berlin and Paris (2026-09-16).
+   *
+   * With `back`, a stop or a throw on the fallback level still hands the
+   * region back at the finest level, so the level does not depend on what the
+   * build does after it (unmute).
    */
   private async onFallbackLevel(
     tiles: TilesLodDebug,
@@ -478,16 +482,23 @@ export class CorridorBuild {
     report({ step: FALLBACK_STEP, percent: null });
     const stop = () => stopped() !== null;
     tiles.setRegionErrorTarget(ROUTE_CORRIDOR_COARSE_ERROR_TARGET);
-    await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, { stop });
-    if (stop()) return false;
-    engine.terrain.clearHeightCache();
-    work();
-    if (!back) return true;
-    tiles.setRegionErrorTarget(ROUTE_CORRIDOR_ERROR_TARGET);
-    await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, { stop });
-    if (stop()) return false;
-    engine.terrain.clearHeightCache();
-    return true;
+    // Only a stop owes the way back; on the way through it is set once, below.
+    let owed = back;
+    try {
+      await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, { stop });
+      if (stop()) return false;
+      engine.terrain.clearHeightCache();
+      work();
+      if (!back) return true;
+      owed = false;
+      tiles.setRegionErrorTarget(ROUTE_CORRIDOR_ERROR_TARGET);
+      await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, { stop });
+      if (stop()) return false;
+      engine.terrain.clearHeightCache();
+      return true;
+    } finally {
+      if (owed) tiles.setRegionErrorTarget(ROUTE_CORRIDOR_ERROR_TARGET);
+    }
   }
 
   /** Mute the camera's refinement, keeping what it was: a build that follows one under way keeps the first value. */

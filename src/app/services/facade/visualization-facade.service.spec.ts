@@ -540,6 +540,18 @@ describe('VisualizationFacadeService', () => {
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(2);
     });
 
+    it('listens once however often it is initialised', async () => {
+      facade.initialize(bridge as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
+      await blindBuild();
+      // With towers standing each listener only logs, so the log counts the listeners.
+      towerCount = 1;
+      const traced = vi.spyOn(corridorTrace, 'log');
+
+      await show();
+
+      expect(traced.mock.calls.filter(([event]) => event === 'build.revisit')).toHaveLength(1);
+    });
+
     it('stops listening on dispose', async () => {
       await blindBuild();
       facade.dispose();
