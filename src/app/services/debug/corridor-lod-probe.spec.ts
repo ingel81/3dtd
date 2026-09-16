@@ -36,7 +36,6 @@ describe('CorridorLodProbe', () => {
   let progress: { done: number; total: number } | null;
   let probes: (StationProbe | null)[];
   let measureAll: ReturnType<typeof vi.fn>;
-  let scratch: ReturnType<typeof vi.fn>;
   let cells: RouteCellDump[];
   let clipboard: { copy: ReturnType<typeof vi.fn>; offerButton: ReturnType<typeof vi.fn> };
   let probe: CorridorLodProbe;
@@ -90,8 +89,7 @@ describe('CorridorLodProbe', () => {
     progress = null;
     probes = [station(1.5), station(2), station(2.5), station(4), station(8), { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] }, null];
     measureAll = vi.fn(() => probes);
-    scratch = vi.fn((measure: () => unknown) => measure());
-    engine = { tilesLodDebug: () => tiles, terrain: { withScratchColumnCache: scratch, lodVersion: 17 } };
+    engine = { tilesLodDebug: () => tiles, terrain: { lodVersion: 17 } };
     cells = [cell(1, 10), cell(3, 10.5)];
     clipboard = { copy: vi.fn(async () => true), offerButton: vi.fn() };
     const deps = {
@@ -141,9 +139,8 @@ describe('CorridorLodProbe', () => {
       expect(result.corridorUnchanged).toBe(true);
       expect(result.tilesBefore).toMatchObject({ regionErrorTarget: 5, cameraErrorTarget: 20, lodVersion: 17 });
 
-      // Each target measured once, against a column cache of its own
+      // Each target measured once
       expect(measureAll).toHaveBeenCalledTimes(3);
-      expect(scratch).toHaveBeenCalledTimes(3);
       expect(result.rows.map((row) => [row.target, row.loadS, row.timedOut])).toEqual([[5, 0, false], [2.5, 1, false], [0, 2, false]]);
       expect(result.rows[0]).toMatchObject({
         stations: 7, upTo2: 2, upTo2_5: 1, upTo5: 1, over5: 1, none: 2,

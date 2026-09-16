@@ -99,9 +99,6 @@ export interface CorridorLodProbeDeps {
   pageUrl?: () => string;
 }
 
-/** The engine as the probe reads it. */
-type ProbeEngine = NonNullable<ReturnType<EngineInitializationService['getEngine']>>;
-
 /** Every cell of the grid, for dumpCellsInBox. */
 const WHOLE_GRID = { xMin: -Infinity, xMax: Infinity, zMin: -Infinity, zMax: Infinity };
 
@@ -156,10 +153,10 @@ export function buildLodProbeReport(meta: LodProbeMeta, result: LodProbeResult):
  *
  * A probe loads the route corridor region at each error target in turn with
  * the camera's own refinement muted (MUTED_CAMERA_ERROR_TARGET), waits for the
- * tiles, and measures every station once into a scratch list, against a
- * column cache of its own (PathAndRouteService.measureAllStations,
- * TerrainQueries.withScratchColumnCache). Nothing of that reaches the
- * corridor: nothing is stored or rebuilt, and the settled tile loads are held
+ * tiles, and measures every station once into a scratch list
+ * (PathAndRouteService.measureAllStations); a station's columns never touch
+ * the column cache (TerrainQueries.measureStreetClearance). Nothing of that
+ * reaches the corridor: nothing is stored or rebuilt, and the settled tile loads are held
  * back from the game while it runs (SettleHold), so the cells and the
  * re-measurement keep what they saw before. At the end, also on a timeout or
  * an error, both error targets go back to what they were.
@@ -261,7 +258,7 @@ export class CorridorLodProbe {
           if (stoppedEarly) break;
           tiles.setRegionErrorTarget(target);
           const load = await this.settle(tiles, timeoutMs);
-          const row = this.measure(engine, target, load, tiles.snapshot());
+          const row = this.measure(target, load, tiles.snapshot());
           rows.push(row);
           this.say(
             `${i + 1}/${targets.length}: ${target} m geladen in ${row.loadS} s${row.timedOut ? ' (Timeout)' : ''}, ` +
@@ -329,15 +326,13 @@ export class CorridorLodProbe {
   }
 
   /** Measure every station once on the tiles loaded now, into a scratch list, and put it in a row. */
-  private measure(
-    engine: ProbeEngine, target: number, load: { ms: number; timedOut: boolean }, snapshot: TilesLodSnapshot,
-  ): LodProbeRow {
+  private measure(target: number, load: { ms: number; timedOut: boolean }, snapshot: TilesLodSnapshot): LodProbeRow {
     const raysBefore = raycastStats.totals(PROBE_CALLER);
     const scope = raycastStats.enter(PROBE_CALLER);
     const start = this.now();
     let probes: (StationProbe | null)[];
     try {
-      probes = engine.terrain.withScratchColumnCache(() => this.deps.pathRoute.measureAllStations()) ?? [];
+      probes = this.deps.pathRoute.measureAllStations() ?? [];
     } finally {
       raycastStats.exit(scope);
     }
