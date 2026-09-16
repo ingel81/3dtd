@@ -204,7 +204,7 @@ verwirft Trägheit und einen laufenden Zug.
 
 | Eingabe | Wirkung |
 |---------|---------|
-| „replay W12“ im WAVE-Panel (zwischen den Wellen) oder „Replay wave N“ auf dem Game-Over-Screen | Replay starten |
+| „replay W12“ im WAVE-Panel (zwischen den Wellen) oder „Replay wave N“ auf dem Game-Over-Screen | Replay starten. Beide Knöpfe sind seit 2026-09-16 ausgeblendet, bis das Replay getestet ist: `REPLAY_CONFIG.offered` auf `true` bringt sie zurück (`ReplayService.offered`); Aufnahme und Wiedergabe laufen unverändert |
 | Leertaste, P, Play-Knopf | Pause und weiter; am Ende startet Play von vorn |
 | + / - , Geschwindigkeitsknöpfe | 0,25x, 0,5x, 1x, 2x, 4x |
 | Fortschrittsbalken (Maus, Pfeiltasten bei Fokus) | Springen; beim Ziehen hält das Replay an und spielt beim Loslassen weiter (`pointerup`, `pointercancel`, auch nach einem Klick ohne Bewegen; `change` für die Tastatur). Marken zeigen, wann der Spieler Befehle gab |

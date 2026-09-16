@@ -69,6 +69,8 @@ export class ReplayService {
     const phase = this.store.phase();
     return phase === 'setup' || phase === 'gameover';
   });
+  /** A replay can start and the player is offered it (REPLAY_CONFIG.offered): its buttons show */
+  readonly offered = computed(() => REPLAY_CONFIG.offered && this.available());
 
   // What the replay bar shows, see syncBar()
   readonly wave = signal(0);
