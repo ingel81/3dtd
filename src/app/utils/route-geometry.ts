@@ -219,7 +219,6 @@ export function leavePathForBase(geoPath: LatLon[], base: LatLon, geo: GeoDistan
 export function subdivideGeoPath(path: LatLon[], maxLength: number): LatLon[] {
   if (path.length < 2) return path;
 
-  const METERS_PER_DEGREE = METERS_PER_DEGREE_LAT;
   const result: LatLon[] = [];
 
   for (let i = 0; i < path.length - 1; i++) {
@@ -230,8 +229,8 @@ export function subdivideGeoPath(path: LatLon[], maxLength: number): LatLon[] {
     const dLat = b.lat - a.lat;
     const dLon = b.lon - a.lon;
     const avgLat = (a.lat + b.lat) / 2;
-    const dx = dLon * METERS_PER_DEGREE * Math.cos(avgLat * Math.PI / 180);
-    const dy = dLat * METERS_PER_DEGREE;
+    const dx = dLon * METERS_PER_DEGREE_LAT * Math.cos(avgLat * DEG_TO_RAD);
+    const dy = dLat * METERS_PER_DEGREE_LAT;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     // Always add start point

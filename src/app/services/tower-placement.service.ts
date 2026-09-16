@@ -31,6 +31,7 @@ import {
   sameFootprint,
 } from '../utils/tower-footprint';
 import { TowerPlinthPreview } from './tower-plinth-preview';
+import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 
 /** One row of `__footprintDebug()`: how the last preview footprint was decided, heights in m. */
 export interface FootprintDebugRow {
@@ -630,7 +631,7 @@ export class TowerPlacementService {
 
     // Skip the expensive raycasts + validation if the cursor barely moved.
     // Distance approximation (good for <100m at typical latitudes): treat
-    // lat-lon deltas as metric via 111320 m/deg and a cos(lat) longitude
+    // lat-lon deltas as metric via METERS_PER_DEGREE_LAT and a cos(lat) longitude
     // scale. Cheaper than haversine and allocation-free.
     let footprint: TowerFootprint;
     let validValid: boolean;
@@ -732,8 +733,8 @@ export class TowerPlacementService {
   /** Approximate meters between (lat, lon) and the last validated sample. */
   private metersFromLastValidated(lat: number, lon: number): number {
     const cache = this.lastValidation!;
-    const dLat = (lat - cache.lat) * 111320;
-    const dLon = (lon - cache.lon) * 111320 * Math.cos(lat * Math.PI / 180);
+    const dLat = (lat - cache.lat) * METERS_PER_DEGREE_LAT;
+    const dLon = (lon - cache.lon) * METERS_PER_DEGREE_LAT * Math.cos(lat * DEG_TO_RAD);
     return Math.sqrt(dLat * dLat + dLon * dLon);
   }
 
