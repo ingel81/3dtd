@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Group, Mesh, MeshPhongMaterial, MeshBasicMaterial, Color, Vector2 } from 'three';
+import { Group, Mesh, MeshPhongMaterial, MeshBasicMaterial, Color, Object3D, Vector2 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import {
@@ -189,8 +189,10 @@ export class MapPlacementService {
     this.previewMarker.name = 'placementPreview';
     this.previewMarker.visible = false;
 
-    // Make semi-transparent
+    // Make semi-transparent, also the portal frame when it joins the preview
+    // only after its asset has loaded (createPortalPreview)
     this.setMarkerOpacity(this.previewMarker, 0.5);
+    this.previewMarker.addEventListener('childadded', ({ child }) => this.setMarkerOpacity(child, 0.5));
 
     // Add to overlay group
     if (this.engine) {
@@ -544,7 +546,7 @@ export class MapPlacementService {
   /**
    * Set opacity on all materials in a marker group.
    */
-  private setMarkerOpacity(marker: Group, opacity: number): void {
+  private setMarkerOpacity(marker: Object3D, opacity: number): void {
     marker.traverse((obj) => {
       if (!(obj as Mesh).isMesh) return;
       const mat = (obj as Mesh).material;
