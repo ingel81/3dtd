@@ -54,11 +54,7 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
     // 2. Best strategic position (candidates already obey the placement rules)
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
-    const [best] = this.strategicPlacement.findStrategicPositions(
-      spawnPoints,
-      paths,
-      TOWER_TYPES[bestTower].range,
-    );
+    const [best] = this.strategicPlacement.findStrategicPositions(spawnPoints, paths, bestTower);
     if (!best) return null;
 
     return {

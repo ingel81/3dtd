@@ -12,6 +12,7 @@ import { GeoPosition } from '../../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { SpawnPoint } from '../../managers/wave.manager';
 import { Tower } from '../../entities/tower.entity';
+import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 
 /**
  * Weight of the HQ end of the path relative to the spawn end, in the U-shaped
@@ -24,6 +25,9 @@ import { Tower } from '../../entities/tower.entity';
  * no defenses at all and enemies reaching it arrived at the base 95% of the time.
  */
 const END_ZONE_HQ_WEIGHT = 0.8;
+
+/** Radius (m) the path coverage of a candidate is scored in for a tower without range (Research Center). */
+const DEFAULT_SEARCH_RANGE_M = 60;
 
 /**
  * U-shaped weight over the normalised path position (0 = spawn, 1 = HQ).
@@ -62,16 +66,19 @@ export class StrategicPlacementService {
   }
 
   /**
-   * Finds optimal tower positions based on spawn points and paths. Every
-   * candidate passes the placement rules, checked against the current towers.
+   * Finds optimal positions for a tower of `typeId` based on spawn points
+   * and paths, best first. Every candidate passes the placement rules,
+   * checked against the current towers; the first also stands on its
+   * footprint (standingFirst).
    */
   findStrategicPositions(
     spawnPoints: SpawnPoint[],
     paths: Map<string, GeoPosition[]>,
-    towerRange = 60,  // Tower range in meters
+    typeId: TowerTypeId,
   ): PlacementCandidate[] {
     const candidates: PlacementCandidate[] = [];
     const isPlaceable = this.towerPlacement.placementChecker();
+    const towerRange = TOWER_TYPES[typeId].range || DEFAULT_SEARCH_RANGE_M;
 
     for (const [spawnId, path] of paths.entries()) {
       const spawnPoint = spawnPoints.find(s => s.id === spawnId);
@@ -139,24 +146,26 @@ export class StrategicPlacementService {
     }
 
     // Sort by score (highest first)
-    return candidates.sort((a, b) => b.score - a.score);
+    return this.standingFirst(candidates.sort((a, b) => b.score - a.score), typeId);
   }
 
   /**
-   * Finds tower positions distributed evenly across zones along the path.
-   * Instead of clustering near spawn, prioritizes under-defended zones.
-   * `existingTowers` only weighs the zones; every candidate passes the
-   * placement rules, checked against the current towers.
+   * Finds positions for a tower of `typeId` distributed evenly across zones
+   * along the path, best first. Instead of clustering near spawn, prioritizes
+   * under-defended zones. `existingTowers` only weighs the zones; every
+   * candidate passes the placement rules, checked against the current
+   * towers, and the first also stands on its footprint (standingFirst).
    */
   findDistributedPositions(
     spawnPoints: SpawnPoint[],
     paths: Map<string, GeoPosition[]>,
-    towerRange = 60,
+    typeId: TowerTypeId,
     existingTowers: Tower[] = [],
     numZones = 5
   ): PlacementCandidate[] {
     const candidates: PlacementCandidate[] = [];
     const isPlaceable = this.towerPlacement.placementChecker();
+    const towerRange = TOWER_TYPES[typeId].range || DEFAULT_SEARCH_RANGE_M;
 
     for (const [spawnId, path] of paths.entries()) {
       const spawnPoint = spawnPoints.find(s => s.id === spawnId);
@@ -223,7 +232,20 @@ export class StrategicPlacementService {
       }
     }
 
-    return candidates.sort((a, b) => b.score - a.score);
+    return this.standingFirst(candidates.sort((a, b) => b.score - a.score), typeId);
+  }
+
+  /**
+   * `candidates` from the first one a tower of `typeId` can stand on
+   * (TowerPlacementService.placementAt): those ahead of it would stand in a
+   * wall or over a drop and are left out. The ones behind it are not probed,
+   * the footprint costs raycasts and the strategies build on the first.
+   */
+  private standingFirst(candidates: PlacementCandidate[], typeId: TowerTypeId): PlacementCandidate[] {
+    const first = candidates.findIndex(
+      ({ position }) => this.towerPlacement.placementAt(position.lat, position.lon, typeId)?.result.valid,
+    );
+    return first < 0 ? [] : candidates.slice(first);
   }
 
   /**

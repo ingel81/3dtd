@@ -69,7 +69,8 @@ describe('endZoneProximity', () => {
 /**
  * The bots' candidates go through the same placement rules as the player's
  * clicks (TowerPlacementService.placementChecker). The search builds one
- * checker and drops every position it rejects.
+ * checker and drops every position it rejects. The best candidates also
+ * need a footprint to stand on (placementAt), probed only until one does.
  */
 describe('StrategicPlacementService candidate filter', () => {
   /** Straight 400 m street from the spawn (north) down to the HQ. */
@@ -82,6 +83,7 @@ describe('StrategicPlacementService candidate filter', () => {
   let service: StrategicPlacementService;
   let check: ReturnType<typeof vi.fn<(lat: number, lon: number) => TowerPlacementResult>>;
   let placementChecker: ReturnType<typeof vi.fn>;
+  let placementAt: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     injectionRegistry['OsmStreetService'] = {
@@ -95,14 +97,15 @@ describe('StrategicPlacementService candidate filter', () => {
       (_lat, lon) => ({ valid: lon > hq.lon }),
     );
     placementChecker = vi.fn(() => check);
-    injectionRegistry['TowerPlacementService'] = { placementChecker };
+    placementAt = vi.fn(() => ({ footprint: { footY: 0, plinthHeight: 0 }, result: { valid: true } }));
+    injectionRegistry['TowerPlacementService'] = { placementChecker, placementAt };
 
     service = new StrategicPlacementService();
     service.initialize({} as never);
   });
 
   it('findStrategicPositions keeps only positions the rules accept', () => {
-    const candidates = service.findStrategicPositions(spawnPoints, paths, 40);
+    const candidates = service.findStrategicPositions(spawnPoints, paths, 'archer');
 
     expect(candidates.length).toBeGreaterThan(0);
     expect(candidates.every((c) => c.position.lon > hq.lon)).toBe(true);
@@ -112,7 +115,7 @@ describe('StrategicPlacementService candidate filter', () => {
   });
 
   it('findDistributedPositions keeps only positions the rules accept', () => {
-    const candidates = service.findDistributedPositions(spawnPoints, paths, 40);
+    const candidates = service.findDistributedPositions(spawnPoints, paths, 'archer');
 
     expect(candidates.length).toBeGreaterThan(0);
     expect(candidates.every((c) => c.position.lon > hq.lon)).toBe(true);
@@ -121,7 +124,35 @@ describe('StrategicPlacementService candidate filter', () => {
 
   it('returns no candidates when the rules reject everything', () => {
     check.mockReturnValue({ valid: false, reason: 'No streets loaded' });
-    expect(service.findStrategicPositions(spawnPoints, paths, 40)).toEqual([]);
-    expect(service.findDistributedPositions(spawnPoints, paths, 40)).toEqual([]);
+    expect(service.findStrategicPositions(spawnPoints, paths, 'archer')).toEqual([]);
+    expect(service.findDistributedPositions(spawnPoints, paths, 'archer')).toEqual([]);
+  });
+
+  it('probes the footprint of the best candidate only, where it stands (C10)', () => {
+    const candidates = service.findStrategicPositions(spawnPoints, paths, 'cannon');
+
+    expect(placementAt).toHaveBeenCalledTimes(1);
+    expect(placementAt).toHaveBeenCalledWith(candidates[0].position.lat, candidates[0].position.lon, 'cannon');
+  });
+
+  it('leaves out the best candidates whose footprint stands in a wall or over a drop, up to the first that stands', () => {
+    const refused = { footprint: { footY: 0, plinthHeight: 0, refusal: 'wall' }, result: { valid: false, reason: 'Not enough room' } };
+    for (const find of [
+      () => service.findStrategicPositions(spawnPoints, paths, 'archer'),
+      () => service.findDistributedPositions(spawnPoints, paths, 'archer'),
+    ]) {
+      placementAt.mockClear();
+      const all = find();
+      placementAt.mockReturnValueOnce(refused).mockReturnValueOnce(null);
+
+      expect(find()).toEqual(all.slice(2));
+      expect(placementAt).toHaveBeenCalledTimes(1 + 3);
+    }
+  });
+
+  it('returns no candidates when no footprint stands', () => {
+    placementAt.mockReturnValue({ footprint: { footY: 0, plinthHeight: 0, refusal: 'edge' }, result: { valid: false } });
+    expect(service.findStrategicPositions(spawnPoints, paths, 'archer')).toEqual([]);
+    expect(service.findDistributedPositions(spawnPoints, paths, 'archer')).toEqual([]);
   });
 });

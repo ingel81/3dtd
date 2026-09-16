@@ -241,7 +241,6 @@ export class TowerDefenseFacadeService {
       if (engine) {
         engine.dispose();
         this.bridge.setEngine(null);
-        this.trainingClient.setEngine(null);
       }
     }
 
@@ -292,7 +291,6 @@ export class TowerDefenseFacadeService {
 
       const engine = this.engineInit.getEngine();
       this.bridge.setEngine(engine);
-      this.trainingClient.setEngine(engine);
 
       if (engine) {
         engine.setOnTilesLoadCallback(() => this.vizFacade.onTilesLoaded());

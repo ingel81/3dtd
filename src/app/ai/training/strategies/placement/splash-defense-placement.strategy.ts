@@ -9,7 +9,7 @@
 import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
-import { TOWER_TYPES, TowerTypeId } from '../../../../configs/tower-types.config';
+import { TowerTypeId } from '../../../../configs/tower-types.config';
 import { ARMOR_TYPES } from '../../../../configs/combat/combat.types';
 import { StrategicPlacementService } from '../../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../../managers/game-state.manager';
@@ -56,11 +56,7 @@ export class SplashDefensePlacementStrategy extends BaseStrategy {
     // 2. Best strategic position (candidates already obey the placement rules)
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
-    const [best] = this.strategicPlacement.findStrategicPositions(
-      spawnPoints,
-      paths,
-      TOWER_TYPES[bestTower].range,
-    );
+    const [best] = this.strategicPlacement.findStrategicPositions(spawnPoints, paths, bestTower);
     if (!best) return null;
 
     return {

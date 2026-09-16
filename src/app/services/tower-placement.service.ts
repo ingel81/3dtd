@@ -403,19 +403,29 @@ export class TowerPlacementService {
   }
 
   /**
-   * Public wrapper around resolvePlacementHeight — raycasts terrain+buildings
-   * and returns the highest surface (rooftop if building is below).
-   * Used by the bot so towers land on rooftops in DevWorld.
+   * Where a tower of `typeId` would stand at (lat, lon) and whether the
+   * rules let it, from the ground there: the surface (in DevWorld the roof,
+   * on the tiles the terrain height), the footprint on it (resolveFootprint)
+   * and the placement rules with that footprint. The bot's way to a spot,
+   * with the answer preview and click give. Null without an engine or
+   * without a terrain height there.
    */
-  getSurfaceHeightAt(lat: number, lon: number, fallbackHeight: number): number {
-    return this.resolvePlacementHeight(lat, lon, fallbackHeight);
+  placementAt(
+    lat: number,
+    lon: number,
+    typeId: TowerTypeId,
+  ): { footprint: TowerFootprint; result: TowerPlacementResult } | null {
+    const terrainHeight = this.engine?.getTerrainHeightAtGeo(lat, lon) ?? null;
+    if (terrainHeight === null) return null;
+    const footprint = this.resolveFootprint(lat, lon, typeId, this.resolvePlacementHeight(lat, lon, terrainHeight));
+    return { footprint, result: this.validateTowerPosition(lat, lon, footprint) };
   }
 
   /**
    * Where a tower of `typeId` stands at (lat, lon) when the surface under the
    * cursor is at `surfaceY`: on the highest point of the ground under its
    * footprint (`footprintRadius`), with a plinth down to the lowest one, see
-   * resolveTowerFootprint. Shared by preview, click and bot.
+   * resolveTowerFootprint. Shared by preview, click and bot (placementAt).
    */
   resolveFootprint(lat: number, lon: number, typeId: TowerTypeId, surfaceY: number): TowerFootprint {
     const radius = TOWER_TYPES[typeId]?.footprintRadius;
