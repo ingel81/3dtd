@@ -500,8 +500,10 @@ const cheaper = (a: ChainCost, b: ChainCost) =>
  * chain: the fewest changes to a way that does not overlap the way at the
  * station before, then the least standing on something higher than a step
  * over the lowest way across, then the ways nearest the OSM line. A shortest
- * path over stations and ways (Viterbi), over each run of stations with a
- * way across; ties to the lower way. Sets backbone and band.
+ * path over stations and ways (Viterbi); ties to the lower way. A station
+ * with no way across (no plausible cell) is passed over, the ways either
+ * side of it compared; a stretch the band does not decide ends the chain.
+ * Sets backbone and band.
  *
  * Each station used to take the lowest cell on its own. Where a cell beside
  * the street lay a little lower (a verge under a hedge 0.46 m down, a strip
@@ -522,28 +524,33 @@ const cheaper = (a: ChainCost, b: ChainCost) =>
  */
 function chainSections(stations: Work[]): void {
   const { stepRise } = corridorConfig;
-  for (let start = 0; start < stations.length; start++) {
-    if (stations[start].sections.length === 0) continue;
-    let end = start;
-    while (end + 1 < stations.length && stations[end + 1].sections.length > 0) end++;
-    const own = (st: Work, i: number): ChainCost => {
-      const section = st.sections[i];
-      const base = st.cells[st.sections[0].b].column!.ground;
-      return {
-        crossings: 0,
-        raised: Math.max(0, st.cells[section.b].column!.ground - base - stepRise),
-        off: Math.max(0, section.left, -section.right),
-      };
+  const own = (st: Work, i: number): ChainCost => {
+    const section = st.sections[i];
+    const base = st.cells[st.sections[0].b].column!.ground;
+    return {
+      crossings: 0,
+      raised: Math.max(0, st.cells[section.b].column!.ground - base - stepRise),
+      off: Math.max(0, section.left, -section.right),
     };
-    let cost = stations[start].sections.map((_, i) => own(stations[start], i));
-    // from[k - start - 1][i]: the way at station k - 1 of the cheapest chain to way i at station k.
+  };
+  // The chains: stations with a way across in route order. One with cells
+  // across but no way across is passed over; a stretch the band does not
+  // decide (no cells across) ends a chain.
+  const chains: number[][] = [[]];
+  stations.forEach((st, k) => {
+    if (st.sections.length > 0) chains[chains.length - 1].push(k);
+    else if (st.cells.length === 0 && chains[chains.length - 1].length > 0) chains.push([]);
+  });
+  for (const chain of chains.filter((c) => c.length > 0)) {
+    let cost = stations[chain[0]].sections.map((_, i) => own(stations[chain[0]], i));
+    // from[c - 1][i]: the way at the station before in the chain of the cheapest chain to way i at station chain[c].
     const from: number[][] = [];
-    for (let k = start + 1; k <= end; k++) {
-      const prior = stations[k - 1].sections;
+    for (let c = 1; c < chain.length; c++) {
+      const prior = stations[chain[c - 1]].sections;
       const priorCost = cost;
       const step: number[] = [];
-      cost = stations[k].sections.map((section, i) => {
-        const here = own(stations[k], i);
+      cost = stations[chain[c]].sections.map((section, i) => {
+        const here = own(stations[chain[c]], i);
         let best = -1;
         let bestCost = here;
         for (let p = 0; p < prior.length; p++) {
@@ -560,17 +567,16 @@ function chainSections(stations: Work[]): void {
       from.push(step);
     }
     let i = cost.reduce((b, c, j) => (cheaper(c, cost[b]) ? j : b), 0);
-    for (let k = end; k >= start; k--) {
-      const st = stations[k];
+    for (let c = chain.length - 1; c >= 0; c--) {
+      const st = stations[chain[c]];
       const section = st.sections[i];
       const cell = st.cells[section.b];
       st.b = section.b;
       st.backbone = { offset: cell.u, y: cell.column!.ground };
       st.left = section.left;
       st.right = section.right;
-      if (k > start) i = from[k - start - 1][i];
+      if (c > 0) i = from[c - 1][i];
     }
-    start = end;
   }
 }
 

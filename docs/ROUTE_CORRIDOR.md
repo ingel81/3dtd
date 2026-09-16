@@ -816,8 +816,10 @@ Station liegen nebeneinander, getrennt durch das, woran ihr Lauf endete: ein
 hohles Objekt, eine Stufe, einen Abfall.
 
 **Rückgrat als Kette** (`chainSections`, seit 2026-09-16): Die Route wählt je
-Station einen Weg, als kürzester Weg über Stationen und Wege (Viterbi) über jede
-Folge von Stationen mit Wegen, deterministisch, bei Gleichstand der tiefere Weg.
+Station einen Weg, als kürzester Weg über Stationen und Wege (Viterbi),
+deterministisch, bei Gleichstand der tiefere Weg. Über eine Station ohne Weg quer
+(keine plausible Zelle) geht die Kette hinweg und vergleicht die Wege davor und
+danach; eine Strecke, die das Band nicht entscheidet (Brücke, Tunnel), beendet sie.
 Verglichen wird der Reihe nach:
 
 1. **Wechsel ohne Überlappung:** Überlappt der Weg einer Station den der Station
@@ -848,11 +850,12 @@ Kern in Berlin (Platz der Republik, ein hohles Objekt zwischen den Seiten) und
 Paris (Place de Varsovie, der Boden hinter einer Reihe hohler Zellen 3 cm tiefer).
 Nachgestellt in `integration/corridor-band.snapshots.spec.ts` auf Ausschnitten der
 Snapshots (`integration/fixtures/band/README.md`) und in `corridor-band.spec.ts`
-(Grünstreifen hinter einer Hecke, Objekt zwischen den Seiten, Seitenwechsel an
-einer langen Objektreihe). Die Klemme am Rückgrat in `taperEdges` bleibt: Sie
-greift auch zwischen überlappenden Nachbarn, wo das Rückgrat nahe einer Kante
-liegt, und hält jedes Band nicht leer. Wo die Kette die Seite wechseln muss,
-schneidet sie die Bänder dort weiterhin auf das Rückgrat zu.
+(Grünstreifen hinter einer Hecke, Objekt zwischen den Seiten, eine Station ohne
+Weg quer dazwischen, Seitenwechsel an einer langen Objektreihe). Die Klemme am
+Rückgrat in `taperEdges` bleibt: Sie greift auch zwischen überlappenden Nachbarn,
+wo das Rückgrat nahe einer Kante liegt, und hält jedes Band nicht leer. Wo die
+Kette die Seite wechseln muss, schneidet sie die Bänder dort weiterhin auf das
+Rückgrat zu.
 
 **Bandkanten** je Station und Seite: vom Rückgrat quer nach außen, Zelle für
 Zelle, mit den Stufen-, Abfall- und Querneigungsregeln des Laufwegs (oben), nur
