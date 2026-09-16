@@ -207,6 +207,10 @@ Details: [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md).
 | **LosDebugService** | Zustand des LOS-Debug-Fensters: aktiver Tower, Cubemap-Faces, Pixel-zu-Cell-Lookup |
 | **DebugStateDumpService** | JSON-Snapshot des Engine-Zustands als Download für Bug-Hunts |
 
+Im Release-Build bleibt das alles erreichbar (Entscheidung des Users, 2026-09-16): das Dev-Menü mit den Cheats, die
+Konsolen-Globals (`__corridor`, `__rg`, `__perf`, `__raycastStats` usw.) und die Dauer-Messungen (Raycast-Zeitmessung,
+`[Camera]`-Log). Kein Build-Schalter nimmt sie heraus.
+
 ### Facade Services
 
 Fünf Facade Services orchestrieren die spezialisierten Services und bilden die Schnittstelle zur Komponente.

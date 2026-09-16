@@ -79,7 +79,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
-| [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
+| [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept (nicht geplant) | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
 | [RUN_DUMP_PLAN.md](RUN_DUMP_PLAN.md) | Plan | Ein ganzer Lauf als Datei fürs Balancing: Inhalt, Bestand im Code, Anforderungen des Users, Balance-Fragen, die darauf warten |
 | [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Plan | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei durchentworfene Zielmodi. Kein Code |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Plan | Windows-Desktop-Build via Electron. PoC abgeschlossen und zurückgebaut |

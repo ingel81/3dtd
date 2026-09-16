@@ -856,7 +856,7 @@ Weg quer dazwischen, Seitenwechsel an einer langen Objektreihe). Die Klemme am
 Rückgrat in `taperEdges` bleibt: Sie greift auch zwischen überlappenden Nachbarn,
 wo das Rückgrat nahe einer Kante liegt, und hält jedes Band nicht leer. Wo die
 Kette die Seite wechseln muss, schneidet sie die Bänder dort weiterhin auf das
-Rückgrat zu.
+Rückgrat zu. Kette und Knick-Rahmen bleiben (Entscheidung des Users, 2026-09-16).
 
 **Bandkanten** je Station und Seite: vom Rückgrat quer nach außen, Zelle für
 Zelle, mit den Stufen-, Abfall- und Querneigungsregeln des Laufwegs (oben), nur
@@ -2053,7 +2053,8 @@ archive/REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
     Way (sie liegen neben seiner Kante).
   - Die Ringe des Wurms stehen quer im Korridor und folgen dessen Breite;
     wo das Band neben einem Transporter von 7 auf 1,5 m schrumpft, gieren
-    benachbarte Ringe bis 16,6 Grad gegeneinander (`worm-detour.spec.ts`).
+    benachbarte Ringe bis 16,6 Grad gegeneinander (`worm-detour.spec.ts`). Das
+    stört laut User nicht (2026-09-16).
 - Ein Auto oder eine Hecke am Rand nimmt den Korridor dahinter mit, den
   Gehweg hinter einer Autoreihe eingeschlossen: Der Korridor ist je Seite
   ein Band. Genau dieses Einengen hatte der Playtest vom 2026-09-12 bei den

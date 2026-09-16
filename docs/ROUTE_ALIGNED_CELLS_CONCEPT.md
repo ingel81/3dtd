@@ -1,7 +1,7 @@
 # Konzept: Zellen parallel zur Route
 
-Stand 2026-09-12, Stellen nachgezogen 2026-09-15. Nur Konzept, kein Code. Die
-Entscheidung liegt beim Nutzer (TODO.md, B3). Geschrieben nach dem
+Stand 2026-09-12, Stellen nachgezogen 2026-09-15. Nur Konzept, kein Code. Der
+Nutzer hat es am 2026-09-16 aus TODO.md gestrichen: nicht geplant. Geschrieben nach dem
 Korridor nach Freiraum (`331c7a3`).
 
 ## Ausgangslage

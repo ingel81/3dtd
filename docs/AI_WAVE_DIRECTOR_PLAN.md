@@ -408,7 +408,8 @@ Flieger" oder „Mercy-Welle"; beides tut der Regel-Director nicht.
 
 ## 7. Was vom RL-Aufbau bleibt
 
-Nichts davon ist tot, das meiste ist weiterhin der gemeinsame Unterbau:
+Nichts davon ist tot, das meiste ist weiterhin der gemeinsame Unterbau. ONNX-Pfad und Training bleiben im Repo
+(Entscheidung des Users, 2026-09-16).
 
 | Teil | Status |
 |------|--------|

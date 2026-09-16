@@ -42,7 +42,7 @@ neue Eichung. Je Ort: laden, "Route Grid Overlay" an, am Ende "Snapshot" (der Le
   `?l=52.51630,13.37759&s=52.51861,13.37529` und Paris `?l=48.85889,2.29320&s=48.86239,2.29190` nur laden, Snapshot,
   Fingerprint.
 
-Fällt K1 schlecht aus, lässt sich 748 getrennt zurücknehmen (Entscheidung in TODO.md, B).
+748 bleibt (Entscheidung des Users, 2026-09-16); ein Befund aus K1 wird ein Bug in TODO.md.
 
 ## K2: Laden, Eichung, Rückfall (744, 746)
 
@@ -67,8 +67,7 @@ Beliebiger Ort, Ton an, Cheat "Credits".
 - **K3.1** Custom Wave "Skarnax", Count 1, Kamera an den Kopf: knurrt er ab und zu unregelmäßig statt in gleichmäßiger
   Schleife?
 - **K3.2** Gleiche Welle, nah heran: Chitin-Textur, Beine bewegen sich mit dem Boden, Kiefer am Kopf, Schwanzstück am
-  letzten Ring? Ein Archer an die Wurmmitte: trägt nach dem Zerfall jedes Teil Kopf und Schwanz? An einer engen Stelle
-  neben einem Transporter: stehen Ringe schräg im Korridor, und stört das (Entscheidung in TODO.md, B)?
+  letzten Ring? Ein Archer an die Wurmmitte: trägt nach dem Zerfall jedes Teil Kopf und Schwanz?
 - **K3.3** Enemy Debug, Tank setzen und starten: Tarnanstrich, abgewetzte Kanten, Staub? Vorschau in der Sidebar ganz
   im Bild?
 - **K3.4** Archer wählen, die Bauvorschau so an eine Hochhauskante, dass sie übersteht: gestufte Kragsteine statt
