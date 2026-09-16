@@ -18,10 +18,12 @@ export interface CellSample {
    * `unsampled`: terrain raycast hasn't returned a hit yet, `terrainHeight`
    *   is still a fallback (route-anchor Y). Viz call sites skip these cells.
    * `filled`: no usable hit of its own, but the cell lies between stable
-   *   cells of its surface (a seam between two tile meshes) and
-   *   `terrainHeight` is interpolated between them (GlobalRouteGrid
-   *   fillGaps). Counts as having a height; sampling keeps trying it like an
-   *   unsampled cell.
+   *   cells of its surface (a seam between two tile meshes) or touches at
+   *   least three of them (eaves over the edge of the corridor), and
+   *   `terrainHeight` is taken from them (GlobalRouteGrid fillGaps); or a
+   *   tunnel cell whose portal without a hit stands on the street of the
+   *   band (RouteCellSampler.tunnelColumn). Counts as having a height;
+   *   sampling keeps trying it like an unsampled cell.
    * `stable`: terrain raycast returned a hit; `terrainHeight` is real.
    */
   state: 'unsampled' | 'filled' | 'stable';
