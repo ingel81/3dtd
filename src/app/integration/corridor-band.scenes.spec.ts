@@ -10,6 +10,9 @@
  * line, bandPath turns it into route waypoints, the route grid claims and
  * samples their cells. Every scene runs twice with the same input and must
  * report the same. Expectations: tmp/fix1/reports/phase2-design.md, section 3.
+ * The Weisser Turm, the Pont d'Iéna and the A6 run on every lattice of
+ * LATTICE_SHIFTS as well (playtest 747); the other scenes give their ground
+ * per cell of the fixture's lattice or count cells of it.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -69,6 +72,27 @@ interface Fixture {
 
 const load = (name: string): Fixture =>
   JSON.parse(readFileSync(join('src', 'app', 'integration', 'fixtures', 'osm', `${name}.json`), 'utf-8')) as Fixture;
+
+/** Metres east and north the HQ of a fixture is moved by. */
+type Shift = readonly [east: number, north: number];
+
+/**
+ * Where the 2 m cell lattice lies against the world: every quarter cell over
+ * one cell both ways, and the two loads of playtest 747, the HQ 0.120 m east
+ * and 0.148 m north of the other. The local frame is laid round the HQ and
+ * the lattice on the frame, so moving the HQ moves every local coordinate of
+ * the world by (east, -north) and leaves the lattice where it is.
+ */
+const LATTICE_SHIFTS: readonly Shift[] = [
+  ...Array.from({ length: 64 }, (_, i): Shift => [Math.floor(i / 8) * 0.25, (i % 8) * 0.25]),
+  [0.12, 0.148],
+];
+
+/** `fixture` with its HQ moved by `shift`, see LATTICE_SHIFTS. */
+function shifted(fixture: Fixture, [east, north]: Shift): Fixture {
+  const kx = METERS_PER_DEGREE_LAT * Math.cos(fixture.hq.lat * DEG_TO_RAD);
+  return { ...fixture, hq: { lat: fixture.hq.lat + north / METERS_PER_DEGREE_LAT, lon: fixture.hq.lon + east / kx } };
+}
 
 interface Local {
   x: number;
@@ -264,6 +288,19 @@ function twice(make: () => Run): Run {
   return first;
 }
 
+/** The stretches of `r` run as a tunnel, runs of stations in a passage or on a segment under cover. */
+function coverRuns(r: Run): BandStation[][] {
+  const runs: BandStation[][] = [];
+  let open = false;
+  for (const st of r.band.stations) {
+    const cover = st.kind === 'passage' || r.cut.inTunnel[st.segment];
+    if (cover && open) runs[runs.length - 1].push(st);
+    else if (cover) runs.push([st]);
+    open = cover;
+  }
+  return runs;
+}
+
 /** Offset of (x, z) right of travel at `st`, and how far ahead of it along the route. */
 const across = (st: BandStation, x: number, z: number) => (x - st.x) * st.rx + (z - st.z) * st.rz;
 const ahead = (st: BandStation, x: number, z: number) => (x - st.x) * st.rz - (z - st.z) * st.rx;
@@ -304,11 +341,17 @@ function expectGentle(band: CorridorBand): void {
 function structureScene(fixture: Fixture, streetY: number, spill: number, noHit: (x: number, z: number) => boolean = () => false) {
   const frame = frameOf(fixture.hq);
   const line = fixture.routePoints.map(([lat, lon]) => frame.toLocal({ lat, lon }));
-  const rings = fixture.structures!.map((s) => ({
-    wayId: s.wayId, top: streetY + s.heightM, ring: s.points.map(([lat, lon]) => frame.toLocal({ lat, lon })),
-  }));
+  const rings = fixture.structures!.map((s) => {
+    const ring = s.points.map(([lat, lon]) => frame.toLocal({ lat, lon }));
+    const box = {
+      xMin: Math.min(...ring.map((p) => p.x)) - spill, xMax: Math.max(...ring.map((p) => p.x)) + spill,
+      zMin: Math.min(...ring.map((p) => p.z)) - spill, zMax: Math.max(...ring.map((p) => p.z)) + spill,
+    };
+    return { wayId: s.wayId, top: streetY + s.heightM, ring, box };
+  });
   const solidAt = (x: number, z: number) =>
-    rings.find((s) => insidePolygon(s.ring, x, z) || distanceToLine(s.ring, x, z) <= spill) ?? null;
+    rings.find((s) => x >= s.box.xMin && x <= s.box.xMax && z >= s.box.zMin && z <= s.box.zMax
+      && (insidePolygon(s.ring, x, z) || distanceToLine(s.ring, x, z) <= spill)) ?? null;
   const columns = (x: number, z: number): BandColumn | null => {
     if (noHit(x, z)) return null;
     const solid = solidAt(centreOf(x), centreOf(z));
@@ -468,55 +511,87 @@ describe('the walkable band on the OSM fixtures', () => {
     const TOWER = 139711833;
     const STREET_Y = 485.2;
     const fixture = load('rothenburg-galgengasse');
-    const tower = structureScene(fixture, STREET_Y, 0).rings.find((s) => s.wayId === TOWER)!;
 
-    /** Distance from (x, z) to the gate tower, 0 inside its footprint. */
-    const toTower = (x: number, z: number) => (insidePolygon(tower.ring, x, z) ? 0 : distanceToLine(tower.ring, x, z));
+    /**
+     * The scene with the lattice at `shift`: columns and rays where the mesh
+     * of every structure reaches `spill` metres past its footprint, and the
+     * distance from (x, z) to the gate tower, 0 inside its footprint.
+     */
+    const scene = (spill: number, shift: Shift = [0, 0]) => {
+      const moved = shifted(fixture, shift);
+      const built = structureScene(moved, STREET_Y, spill);
+      const tower = built.rings.find((s) => s.wayId === TOWER)!.ring;
+      const toTower = (x: number, z: number) => (insidePolygon(tower, x, z) ? 0 : distanceToLine(tower, x, z));
+      return { ...built, fixture: moved, toTower };
+    };
 
-    /** Columns and rays where the mesh of every structure reaches `spill` metres past its footprint. */
-    const scene = (spill: number) => structureScene(fixture, STREET_Y, spill);
-
+    /*
+     * Playtest 747: the same tower loaded twice, the HQ 19 cm apart, gave two
+     * passages and one, and in the second the cells between the passage and
+     * the archway stood on the tower. So every lattice the scene can lie on.
+     */
     for (const spill of [1, 2]) {
-      it(`keeps every cell round the gate on the street, mesh ${spill} m past the footprints`, () => {
-        const { columns, walls } = scene(spill);
-        const r = twice(() => run(fixture, columns, walls));
-        // No station inside the footprint has a band: they run as the archway's tunnel or as a passage.
-        const gate = r.band.stations.filter((st) => toTower(st.x, st.z) === 0);
-        expect(gate.length).toBeGreaterThan(2);
-        for (const st of gate) {
-          expect(['passage', 'fixed'], `${st.segment}:${st.k} is ${st.kind}`).toContain(st.kind);
-          expect(st.backbone, `${st.segment}:${st.k}`).toBeNull();
-        }
-        // No band round the gate lies on the tower or on an overhang, and no cell of one does.
-        for (const st of r.band.stations.filter((s) => toTower(s.x, s.z) < 15 && s.backbone !== null)) {
-          expect(st.backbone!.y, `${st.segment}:${st.k}`).toBeLessThanOrEqual(STREET_Y + corridorConfig.stepRise);
-        }
-        const round = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => toTower(c.x, c.z) < 15);
-        expect(round.length).toBeGreaterThan(20);
-        const raised = round.filter((c) => c.terrainHeight > STREET_Y + corridorConfig.stepRise);
-        expect(raised.map((c) => `${c.x},${c.z} ${c.surface} ${c.terrainHeight.toFixed(2)}`)).toEqual([]);
-        expect(round.filter((c) => !c.heightSampled).map((c) => `${c.x},${c.z}`)).toEqual([]);
-        // No expectGentle here: the rays of this scene are modelled as the
-        // first structure within maxHalfWidth, without the fitting and the
-        // smoothing the clearance measurement puts on them, so the widths
-        // jump from station to station and the line's bend is the model's,
-        // not the band's. The five scenes above measure it on their own.
+      it(`runs one passage under the gate and keeps every cell round it on the street wherever the cell lattice lies, mesh ${spill} m past the footprints`, () => {
+        LATTICE_SHIFTS.forEach((shift, i) => {
+          const at = `lattice ${shift.join(', ')}`;
+          const { fixture: moved, columns, walls, toTower } = scene(spill, shift);
+          const r = i === 0 ? twice(() => run(moved, columns, walls)) : run(moved, columns, walls);
+          // No station inside the footprint has a band: they run as the archway's tunnel or as a passage.
+          const gate = r.band.stations.filter((st) => toTower(st.x, st.z) === 0);
+          expect(gate.length, at).toBeGreaterThan(2);
+          for (const st of gate) {
+            expect(['passage', 'fixed'], `${at} ${st.segment}:${st.k} is ${st.kind}`).toContain(st.kind);
+            expect(st.backbone, `${at} ${st.segment}:${st.k}`).toBeNull();
+          }
+          // One stretch run as a tunnel reaches the mesh of the gate: the archway and what the band adds to it
+          // either side. It lengthens the archway, so the band lists no passage there.
+          const reach = spill + corridorConfig.stationSpacing;
+          const nearGate = (st: BandStation) => toTower(st.x, st.z) <= reach;
+          const stretches = coverRuns(r).filter((stretch) => stretch.some(nearGate));
+          expect(stretches.map((stretch) => stretch.map((st) => `${st.segment}:${st.k}`).join(' ')), at).toHaveLength(1);
+          expect(stretches[0].some((st) => r.cut.ways[st.segment]?.id === ARCHWAY), at).toBe(true);
+          const listed = r.band.passages.filter((p) => r.band.stations.some((st) => st.s >= p.from && st.s <= p.to && nearGate(st)));
+          expect(listed, at).toEqual([]);
+          // No band round the gate lies on the tower or on an overhang, and no cell of one does.
+          for (const st of r.band.stations.filter((s) => toTower(s.x, s.z) < 15 && s.backbone !== null)) {
+            expect(st.backbone!.y, `${at} ${st.segment}:${st.k}`).toBeLessThanOrEqual(STREET_Y + corridorConfig.stepRise);
+          }
+          const round = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => toTower(c.x, c.z) < 15);
+          expect(round.length, at).toBeGreaterThan(20);
+          const raised = round.filter((c) => c.terrainHeight > STREET_Y + corridorConfig.stepRise);
+          expect(raised.map((c) => `${c.x},${c.z} ${c.surface} ${c.terrainHeight.toFixed(2)}`), at).toEqual([]);
+          expect(round.filter((c) => !c.heightSampled).map((c) => `${c.x},${c.z}`), at).toEqual([]);
+          // The cells of the passage and the archway take the street between their portals.
+          const tunnel = round.filter((c) => c.surface === 'tunnel');
+          expect(tunnel.length, at).toBeGreaterThan(4);
+          for (const c of tunnel) expect(c.terrainHeight, `${at} ${c.x},${c.z}`).toBeCloseTo(STREET_Y, 1);
+          // No expectGentle here: the rays of this scene are modelled as the
+          // first structure within maxHalfWidth, without the fitting and the
+          // smoothing the clearance measurement puts on them, so the widths
+          // jump from station to station and the line's bend is the model's,
+          // not the band's. The five scenes above measure it on their own.
+        });
       });
     }
 
-    it('takes the street between the portals of the passage, whatever the mesh spills over the gate', () => {
-      for (const spill of [1, 2, 3]) {
-        const { columns, walls } = scene(spill);
-        const r = run(fixture, columns, walls);
-        const arch = r.band.stations.filter((st) => r.cut.ways[st.segment]?.id === ARCHWAY);
-        expect(arch.length, `spill ${spill}`).toBeGreaterThan(0);
-        for (const st of arch) expect(st, `spill ${spill} ${st.segment}:${st.k}`).toMatchObject({ kind: 'fixed', centre: 0 });
-        const tunnel = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => c.surface === 'tunnel' && toTower(c.x, c.z) < 15);
-        expect(tunnel.length, `spill ${spill}`).toBeGreaterThan(4);
-        for (const c of tunnel) expect(c.terrainHeight, `spill ${spill} ${c.x},${c.z}`).toBeCloseTo(STREET_Y, 1);
-        for (const st of r.band.stations.filter((s) => toTower(s.x, s.z) < 15 && s.backbone !== null)) {
-          expect(st.backbone!.y, `spill ${spill} ${st.segment}:${st.k}`).toBeLessThanOrEqual(STREET_Y + corridorConfig.stepRise);
-        }
+    /*
+     * With 3 m of mesh past every footprint the houses either side cover
+     * Georgengasse for more than PASSAGE_SPAN_M on some lattices; the street
+     * under the stations there reads their roofs (a limit, ROUTE_CORRIDOR.md).
+     * So this one runs on the fixture's own lattice only: a portal on a
+     * house's mesh takes the street.
+     */
+    it('takes the street between the portals of the passage, the mesh 3 m past the footprints', () => {
+      const { columns, walls, toTower } = scene(3);
+      const r = run(fixture, columns, walls);
+      const arch = r.band.stations.filter((st) => r.cut.ways[st.segment]?.id === ARCHWAY);
+      expect(arch.length).toBeGreaterThan(0);
+      for (const st of arch) expect(st, `${st.segment}:${st.k}`).toMatchObject({ kind: 'fixed', centre: 0 });
+      const tunnel = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => c.surface === 'tunnel' && toTower(c.x, c.z) < 15);
+      expect(tunnel.length).toBeGreaterThan(4);
+      for (const c of tunnel) expect(c.terrainHeight, `${c.x},${c.z}`).toBeCloseTo(STREET_Y, 1);
+      for (const st of r.band.stations.filter((s) => toTower(s.x, s.z) < 15 && s.backbone !== null)) {
+        expect(st.backbone!.y, `${st.segment}:${st.k}`).toBeLessThanOrEqual(STREET_Y + corridorConfig.stepRise);
       }
     });
   });
@@ -630,75 +705,88 @@ describe('the walkable band on the OSM fixtures', () => {
     expectGentle(r.band);
   });
 
-  it("Pont d'Iéna: keeps the stretch off the bridge end on the OSM line, its cells at deck height", () => {
-    const fixture = load('paris-pont-d-iena');
-    const frame = frameOf(fixture.hq);
+  it("Pont d'Iéna: keeps the stretch off the bridge end on the OSM line, its cells at deck height, wherever the cell lattice lies", () => {
     // Synthetic heights on the real line: the street and the deck at 79.9; under the road for 35 m off the
     // bridge end the second surface of picks A to C (75.99 at 12 m, 77.99 at 16 m, 69.38 at 27 m); the river
     // 20 m under the deck.
     const DECK_Y = 79.9;
-    const probe = cutRoute(fixture, frame, () => OPEN_WALL_M);
-    const end = probe.route.points[probe.onBridge.indexOf(true)];
-    const decks = streetsOf(fixture).filter((s) => s.bridge !== undefined).map((s) => s.nodes.map(frame.toLocal));
-    const columns = (x: number, z: number): BandColumn => {
-      const cx = centreOf(x);
-      const cz = centreOf(z);
-      if (decks.some((deck) => distanceToLine(deck, cx, cz) <= 6)) return { ground: DECK_Y - 20, top: DECK_Y };
-      const d = Math.hypot(cx - end.x, cz - end.z);
-      if (d < 14) return { ground: 75.99, top: DECK_Y };
-      if (d < 20) return { ground: 77.99, top: DECK_Y };
-      if (d < 35) return { ground: 69.38, top: DECK_Y };
-      return { ground: DECK_Y, top: DECK_Y };
-    };
-    const r = twice(() => run(fixture, columns));
+    LATTICE_SHIFTS.forEach((shift, i) => {
+      const at = `lattice ${shift.join(', ')}`;
+      const fixture = shifted(load('paris-pont-d-iena'), shift);
+      const frame = frameOf(fixture.hq);
+      const probe = cutRoute(fixture, frame, () => OPEN_WALL_M);
+      const end = probe.route.points[probe.onBridge.indexOf(true)];
+      const decks = streetsOf(fixture).filter((s) => s.bridge !== undefined).map((s) => s.nodes.map(frame.toLocal));
+      const columns = (x: number, z: number): BandColumn => {
+        const cx = centreOf(x);
+        const cz = centreOf(z);
+        if (decks.some((deck) => distanceToLine(deck, cx, cz) <= 6)) return { ground: DECK_Y - 20, top: DECK_Y };
+        const d = Math.hypot(cx - end.x, cz - end.z);
+        if (d < 14) return { ground: 75.99, top: DECK_Y };
+        if (d < 20) return { ground: 77.99, top: DECK_Y };
+        if (d < 35) return { ground: 69.38, top: DECK_Y };
+        return { ground: DECK_Y, top: DECK_Y };
+      };
+      const r = i === 0 ? twice(() => run(fixture, columns)) : run(fixture, columns);
+      // The cell at a bridge end is the one of the segment that reaches it along its length: deck or approach by
+      // where the lattice lies, at deck height either way.
+      const bridgeEnds = probe.route.points.filter((_, p) => p > 0 && p < probe.onBridge.length && probe.onBridge[p] !== probe.onBridge[p - 1]);
+      const atBridgeEnd = (st: BandStation) => bridgeEnds.some((e) => Math.hypot(st.x - e.x, st.z - e.z) <= CELL * Math.SQRT2);
 
-    const approach = r.band.stations.filter((st) => r.cut.approach[st.segment]);
-    expect(approach.length).toBeGreaterThan(0);
-    for (const st of approach) expect(st).toMatchObject({ kind: 'fixed', centre: 0 });
-    const offEnd = approach.filter((st) => Math.hypot(st.x - end.x, st.z - end.z) < 35);
-    expect(offEnd.length).toBeGreaterThan(0);
-    for (const st of offEnd) {
-      const cell = r.grid.getCellAt(st.x, st.z)!;
-      expect(cell.surface).toBe('approach');
-      expect(cell.terrainHeight).toBeCloseTo(DECK_Y, 1);
-    }
-    const bridge = r.band.stations.filter((st) => r.cut.onBridge[st.segment]);
-    expect(bridge.length).toBeGreaterThan(0);
-    for (const st of bridge) {
-      expect(st.kind).toBe('fixed');
-      expect(r.grid.getCellAt(st.x, st.z)).toMatchObject({ surface: 'deck', terrainHeight: DECK_Y });
-    }
-    // No cell on the road under the approach or the river under the deck.
-    const low = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => c.terrainHeight < DECK_Y - 0.5);
-    expect(low.map((c) => `${c.x},${c.z} ${c.surface} ${c.terrainHeight}`)).toEqual([]);
-    expectGentle(r.band);
+      const approach = r.band.stations.filter((st) => r.cut.approach[st.segment]);
+      expect(approach.length, at).toBeGreaterThan(0);
+      for (const st of approach) expect(st, at).toMatchObject({ kind: 'fixed', centre: 0 });
+      const offEnd = approach.filter((st) => Math.hypot(st.x - end.x, st.z - end.z) < 35);
+      expect(offEnd.length, at).toBeGreaterThan(0);
+      for (const st of offEnd) {
+        const cell = r.grid.getCellAt(st.x, st.z)!;
+        if (!atBridgeEnd(st)) expect(cell.surface, at).toBe('approach');
+        expect(cell.terrainHeight, at).toBeCloseTo(DECK_Y, 1);
+      }
+      const bridge = r.band.stations.filter((st) => r.cut.onBridge[st.segment]);
+      expect(bridge.length, at).toBeGreaterThan(0);
+      for (const st of bridge) {
+        expect(st.kind, at).toBe('fixed');
+        const cell = r.grid.getCellAt(st.x, st.z)!;
+        if (!atBridgeEnd(st)) expect(cell.surface, at).toBe('deck');
+        expect(cell.terrainHeight, at).toBe(DECK_Y);
+      }
+      // No cell on the road under the approach or the river under the deck.
+      const low = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => c.terrainHeight < DECK_Y - 0.5);
+      expect(low.map((c) => `${c.x},${c.z} ${c.surface} ${c.terrainHeight}`), at).toEqual([]);
+      expect(r.band.passages, at).toEqual([]);
+      expectGentle(r.band);
+    });
   });
 
-  it('A6: runs the route under the motorway decks as a tunnel at street height', () => {
-    const fixture = load('erlenbach-weinsberger-a6');
-    const frame = frameOf(fixture.hq);
+  it('A6: runs the route under the motorway decks as a tunnel at street height, wherever the cell lattice lies', () => {
     // Synthetic heights on the real line: the street at 215 (214.72 and 215.05 under the decks in D2), under the
     // two decks the mesh shows the deck alone at 220.7, the single hit of D2.
     const STREET_Y = 215;
     const DECK_Y = 220.7;
-    const decks = streetsOf(fixture).filter((s) => fixture.route.underWayIds.includes(s.id)).map((s) => s.nodes.map(frame.toLocal));
-    const columns = (x: number, z: number): BandColumn => {
-      const y = decks.some((deck) => distanceToLine(deck, centreOf(x), centreOf(z)) <= 6) ? DECK_Y : STREET_Y;
-      return { ground: y, top: y };
-    };
-    const r = twice(() => run(fixture, columns));
+    LATTICE_SHIFTS.forEach((shift, i) => {
+      const at = `lattice ${shift.join(', ')}`;
+      const fixture = shifted(load('erlenbach-weinsberger-a6'), shift);
+      const frame = frameOf(fixture.hq);
+      const decks = streetsOf(fixture).filter((s) => fixture.route.underWayIds.includes(s.id)).map((s) => s.nodes.map(frame.toLocal));
+      const columns = (x: number, z: number): BandColumn => {
+        const y = decks.some((deck) => distanceToLine(deck, centreOf(x), centreOf(z)) <= 6) ? DECK_Y : STREET_Y;
+        return { ground: y, top: y };
+      };
+      const r = i === 0 ? twice(() => run(fixture, columns)) : run(fixture, columns);
 
-    const under = r.band.stations.filter((st) => r.cut.inTunnel[st.segment]);
-    expect(under.length).toBeGreaterThan(0);
-    for (const st of under) {
-      expect(st).toMatchObject({ kind: 'fixed', centre: 0 });
-      const cell = r.grid.getCellAt(st.x, st.z)!;
-      expect(cell.surface).toBe('tunnel');
-      expect(cell.terrainHeight).toBeCloseTo(STREET_Y, 1);
-    }
-    expect(r.band.passages).toEqual([]);
-    const raised = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => c.terrainHeight > STREET_Y + 0.5);
-    expect(raised.map((c) => `${c.x},${c.z} ${c.surface} ${c.terrainHeight}`)).toEqual([]);
-    expectGentle(r.band);
+      const under = r.band.stations.filter((st) => r.cut.inTunnel[st.segment]);
+      expect(under.length, at).toBeGreaterThan(0);
+      for (const st of under) {
+        expect(st, at).toMatchObject({ kind: 'fixed', centre: 0 });
+        const cell = r.grid.getCellAt(st.x, st.z)!;
+        expect(cell.surface, at).toBe('tunnel');
+        expect(cell.terrainHeight, at).toBeCloseTo(STREET_Y, 1);
+      }
+      expect(r.band.passages, at).toEqual([]);
+      const raised = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => c.terrainHeight > STREET_Y + 0.5);
+      expect(raised.map((c) => `${c.x},${c.z} ${c.surface} ${c.terrainHeight}`), at).toEqual([]);
+      expectGentle(r.band);
+    });
   });
 });
