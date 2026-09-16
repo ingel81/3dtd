@@ -121,6 +121,7 @@ describe('TowerPlacementService', () => {
   let blockerGroup: object | null;
   let devTerrain: ReturnType<typeof devWorld> | null;
   let terrain: { raycastColumnSample: ReturnType<typeof vi.fn> };
+  let terrainHeight: ReturnType<typeof vi.fn>;
   let mapper: {
     invalidate: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
@@ -228,6 +229,7 @@ describe('TowerPlacementService', () => {
     // The tiles show flat ground at the cursor unless a test gives them something else.
     cursorY = 0;
     terrain = { raycastColumnSample: vi.fn(() => column(cursorY)) };
+    terrainHeight = vi.fn((): number | null => 0);
     const referencePos = new Vector3(1, 2, 3);
     mapper = {
       invalidate: vi.fn(),
@@ -243,6 +245,7 @@ describe('TowerPlacementService', () => {
       getOverlayGroup: () => overlay,
       getScene: () => scene,
       getDevTerrainProvider: () => devTerrain,
+      getTerrainHeightAtGeo: terrainHeight,
       getLosBlockerGroup: () => blockerGroup,
       getTowerShadowMapper: () => mapper,
       towers: { showPreviewRange: vi.fn(), hidePreviewRange: vi.fn() },
@@ -890,20 +893,36 @@ describe('TowerPlacementService', () => {
     });
   });
 
-  describe('surface height', () => {
-    it('returns the fallback without an engine or DevWorld terrain', () => {
-      expect(service.getSurfaceHeightAt(FREE.lat, FREE.lon, 7)).toBe(7);
+  describe('placement for the bot (placementAt)', () => {
+    it('answers nothing without an engine or without a terrain height there', () => {
+      expect(service.placementAt(FREE.lat, FREE.lon, 'archer')).toBeNull();
       init();
-      expect(service.getSurfaceHeightAt(FREE.lat, FREE.lon, 7)).toBe(7);
+      terrainHeight.mockReturnValue(null);
+      expect(service.placementAt(FREE.lat, FREE.lon, 'archer')).toBeNull();
     });
 
-    it('returns the DevWorld hit, or the fallback where the ray hits nothing', () => {
+    it('stands the tower on the DevWorld roof and checks the rules there', () => {
       devTerrain = devWorld(() => 42);
       init();
-      expect(service.getSurfaceHeightAt(FREE.lat, FREE.lon, 7)).toBe(42);
+      expect(service.placementAt(FREE.lat, FREE.lon, 'archer')).toEqual({
+        footprint: { footY: 42, plinthHeight: 0 },
+        result: { valid: true },
+      });
+      expect(service.placementAt(NEAR_HQ.lat, NEAR_HQ.lon, 'archer')?.result).toEqual({
+        valid: false, reason: 'Too close to HQ',
+      });
+    });
 
-      devTerrain.raycastDown.mockReturnValue(null);
-      expect(service.getSurfaceHeightAt(FREE.lat, FREE.lon, 7)).toBe(7);
+    it('on the tiles, stands it on the terrain height and refuses a spot its footprint rules out', () => {
+      const local = sync.geoToLocalSimple(FREE.lat, FREE.lon, 0);
+      // A building 20 m high from 1 m east of the tower: the inner ring in its wall
+      terrain.raycastColumnSample.mockImplementation((x: number) => column(x - local.x > 1 ? 23 : 3));
+      terrainHeight.mockReturnValue(3);
+      init();
+      expect(service.placementAt(FREE.lat, FREE.lon, 'archer')).toEqual({
+        footprint: { footY: 3, plinthHeight: 0, refusal: 'wall' },
+        result: { valid: false, reason: 'Not enough room' },
+      });
     });
   });
 

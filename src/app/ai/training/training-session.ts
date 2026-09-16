@@ -26,7 +26,6 @@ import { GameStateManager } from '../../managers/game-state.manager';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { EventSubscription } from '../../game-engine';
 import { TowerPlacementService } from '../../services/tower-placement.service';
-import { ThreeTilesEngine } from '../../three-engine';
 import type {
   TrainingComponentCallbacks,
   TrainingDeps,
@@ -95,7 +94,6 @@ export class TrainingSession {
   private readonly gameState: GameStateManager;
   private readonly towerPlacement: TowerPlacementService;
   private readonly callbacks: TrainingComponentCallbacks;
-  private engine: ThreeTilesEngine | null = null;
 
   // === EVENT SUBSCRIPTIONS (cleanup on disconnect/re-connect) ===
   private eventSubscriptions: EventSubscription[] = [];
@@ -118,13 +116,6 @@ export class TrainingSession {
       deps.gameState,
       deps.osmService
     );
-  }
-
-  /**
-   * Set the engine reference (may be set after initialize, once engine is ready)
-   */
-  setEngine(engine: ThreeTilesEngine | null): void {
-    this.engine = engine;
   }
 
   // === BOT API ===
@@ -200,47 +191,25 @@ export class TrainingSession {
     switch (action.type) {
       case 'place':
         if (action.position && action.towerType) {
-          // Convert grid coordinates (x, z) back to GeoPosition (lon, lat)
-          // CRITICAL: Get terrain height for accurate placement!
-          if (!this.engine) {
-            console.warn(`[Bot] ⛔ Engine not initialized - ${action.reason}`);
-            break;
-          }
+          // Convert grid coordinates (x, z) back to GeoPosition (lon, lat).
+          // The tower stands on the surface there (in DevWorld the roof),
+          // on the highest point of its footprint with a plinth below, and
+          // the same rules as the mouse preview and the click decide,
+          // with the ground under the footprint: rooftops are valid spots,
+          // a wall or a drop under its inner half is not.
+          const placement = this.towerPlacement.placementAt(action.position.z, action.position.x, action.towerType);
 
-          const terrainHeight = this.engine.getTerrainHeightAtGeo(action.position.z, action.position.x);
-
-          if (terrainHeight === null) {
+          if (!placement) {
             console.warn(`[Bot] ⛔ Cannot get terrain height at position - ${action.reason}`);
             break;
           }
 
-          // Use surface height (terrain or building rooftop, whichever is higher)
-          // so towers land on roofs in DevWorld instead of being hidden inside buildings.
-          const surfaceHeight = this.towerPlacement.getSurfaceHeightAt(
-            action.position.z,
-            action.position.x,
-            terrainHeight,
-          );
-
-          // On uneven ground the tower stands on the highest point of its
-          // footprint with a plinth below, as when the player places it.
-          const footprint = this.towerPlacement.resolveFootprint(
-            action.position.z,
-            action.position.x,
-            action.towerType,
-            surfaceHeight,
-          );
-
+          const { footprint, result: validation } = placement;
           const geoPos: GeoPosition = {
             lat: action.position.z,
             lon: action.position.x,
             height: footprint.footY
           };
-
-          // Same rules as the mouse preview and the click, with the ground
-          // under the footprint: rooftops are valid spots, a wall or a drop
-          // under its inner half is not.
-          const validation = this.towerPlacement.validateTowerPosition(geoPos.lat, geoPos.lon, footprint);
 
           if (!validation.valid) {
             console.warn(`[Bot] ⛔ Position invalid: ${validation.reason} - ${action.reason}`);

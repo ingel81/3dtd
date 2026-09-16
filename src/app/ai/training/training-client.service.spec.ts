@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 import { TrainingClientService, type TrainingDeps } from './training-client.service';
 // Durch vi.mock unten ist das der Fake, nicht die echte Session.
 import * as mockedSessionModule from './training-session';
-import type { ThreeTilesEngine } from '../../three-engine';
 
 // Die echte Session braucht Engine, Store und WebSocket. Hier zählt nur, wann
 // der Service sie anlegt und was er an sie weiterreicht.
@@ -14,7 +13,6 @@ const sessions = vi.hoisted(() => [] as FakeSession[]);
 
 interface FakeSession {
   enableBot: ReturnType<typeof vi.fn>;
-  setEngine: ReturnType<typeof vi.fn>;
   connect: ReturnType<typeof vi.fn>;
   connectToBackend: ReturnType<typeof vi.fn>;
 }
@@ -23,7 +21,6 @@ vi.mock('./training-session', () => ({
   TrainingSession: class {
     readonly enableBot = vi.fn();
     readonly disableBot = vi.fn();
-    readonly setEngine = vi.fn();
     readonly connect = vi.fn(async () => true);
     readonly disconnect = vi.fn();
     readonly connectToBackend = vi.fn(async () => undefined);
@@ -82,16 +79,6 @@ describe('TrainingClientService', () => {
     for (const session of sessions) {
       expect(session.enableBot).not.toHaveBeenCalled();
     }
-  });
-
-  it('hands an engine set earlier to the session created later', async () => {
-    const engine = {} as ThreeTilesEngine;
-    client.initialize(deps);
-    client.setEngine(engine);
-    client.enableBot('strategist');
-
-    await vi.waitFor(() => expect(sessions).toHaveLength(1));
-    expect(sessions[0].setEngine).toHaveBeenCalledWith(engine);
   });
 
   it('rejects wave requests without a session', async () => {

@@ -150,11 +150,7 @@ export class CoverageFillStrategy extends BaseStrategy {
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
     // Candidates already obey the placement rules; take the best one.
-    const [best] = this.strategicPlacement.findStrategicPositions(
-      spawnPoints,
-      paths,
-      TOWER_TYPES[chosen].range,
-    );
+    const [best] = this.strategicPlacement.findStrategicPositions(spawnPoints, paths, chosen);
     if (!best) return null;
 
     // Clear saving goal on successful placement

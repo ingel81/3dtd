@@ -20,7 +20,6 @@
 import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
-import { TOWER_TYPES } from '../../../../configs/tower-types.config';
 import { isAntiEtherealTower } from '../../../core/defense-analyzer';
 import { StrategicPlacementService } from '../../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../../managers/game-state.manager';
@@ -62,11 +61,7 @@ export class AntiEtherealPlacementStrategy extends BaseStrategy {
 
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
-    const [best] = this.strategicPlacement.findStrategicPositions(
-      spawnPoints,
-      paths,
-      TOWER_TYPES[bestTower].range,
-    );
+    const [best] = this.strategicPlacement.findStrategicPositions(spawnPoints, paths, bestTower);
     if (!best) return null;
 
     return {

@@ -20,7 +20,6 @@ import { GameStateManager } from '../../managers/game-state.manager';
 import { TowerPlacementService } from '../../services/tower-placement.service';
 import { StrategicPlacementService } from '../../services/world/strategic-placement.service';
 import { OsmStreetService } from '../../services/location/osm-street.service';
-import { ThreeTilesEngine } from '../../three-engine';
 import { Tower } from '../../entities/tower.entity';
 import type { BotSkillLevel } from './bots/tower-bot.interface';
 import type { TrainingSession } from './training-session';
@@ -93,7 +92,6 @@ export class TrainingClientService implements TrainingSignals {
 
   // === LAZY SESSION ===
   private deps: TrainingDeps | null = null;
-  private engine: ThreeTilesEngine | null = null;
   private session: TrainingSession | null = null;
   private sessionModule: Promise<SessionModule | null> | null = null;
   /** Bot-Wunsch, solange die Session nicht steht; der letzte Aufruf gewinnt. */
@@ -115,14 +113,6 @@ export class TrainingClientService implements TrainingSignals {
     if (this.pendingBotSkill) {
       void this.loadSession();
     }
-  }
-
-  /**
-   * Set the engine reference (may be set after initialize, once engine is ready)
-   */
-  setEngine(engine: ThreeTilesEngine | null): void {
-    this.engine = engine;
-    this.session?.setEngine(engine);
   }
 
   // === BOT API ===
@@ -221,7 +211,6 @@ export class TrainingClientService implements TrainingSignals {
     if (!this.session && this.deps) {
       const deps = this.deps;
       this.session = runInInjectionContext(this.injector, () => new module.TrainingSession(this, deps));
-      this.session.setEngine(this.engine);
       const skill = this.pendingBotSkill;
       this.pendingBotSkill = null;
       if (skill) {

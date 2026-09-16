@@ -261,8 +261,9 @@ Strategist ist damit der Build, gegen den das Wave-Design gemessen wird; bei
 Baut das Research-Center, solange `state.research.centerLevel === 0`. Wartet, bis
 Center **plus** ein Archer bezahlbar sind (75 + 45), damit der Bot sich nicht
 in die Forschung leerkauft und ohne Verteidigung dasteht. Position über
-`findStrategicPositions`: das Center braucht keine Reichweite, aber der Service
-liefert bereits validierte straßennahe Punkte.
+`findStrategicPositions` mit dem Typ `research-center`: das Center braucht keine
+Reichweite (der Service bewertet die Abdeckung dann in 60 m), aber er liefert
+bereits validierte straßennahe Punkte.
 
 Höchste Priorität, weil ohne Center kein Tower-Unlock passiert und damit fast
 das gesamte Spiel verschlossen bleibt.
@@ -631,7 +632,7 @@ updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean  // 
 
 `updateBot` läuft nur in Phase `setup` oder `wave`. `TrainingSession.executeBotAction`
 prüft noch einmal gegen den echten Spielstand (Platzierungsregeln über
-`TowerPlacementService.validateTowerPosition`, Kosten, Existenz des Turms,
+`TowerPlacementService.placementAt`, mit Grundfläche und Sockel wie beim Klick; Kosten, Existenz des Turms,
 Max-Level des Upgrades) und führt dann aus: Platzieren und Verkaufen direkt am
 `GameStateManager`, Upgrade und Wellenstart (nur in `setup`) über die
 Facade-Callbacks, Forschung über `command:start-research` bzw.
@@ -715,7 +716,9 @@ Erzeugungszeitpunkt gelesen; eine spätere Änderung wirkt erst beim nächsten
 2. Genug Credits? → Konsole, „Not enough credits"
 3. Valide Positionen? → `StrategicPlacementService` gibt nur Kandidaten zurück,
    die `TowerPlacementService.placementChecker()` besteht (dieselben Regeln wie
-   Vorschau und Klick). Keine Kandidaten, keine Platzierung
+   Vorschau und Klick). Vom besten an prüft er die Grundfläche für den Tower-Typ
+   (`placementAt`), bis einer steht; davor liegende Kandidaten mit Wand oder
+   Abbruch unter dem inneren Ring fallen weg. Keine Kandidaten, keine Platzierung
 4. `canExecute()` der Strategie: Turm-Cap (`maxTowers`, gejittert!) erreicht?
 5. Reaktions-Cooldown abgelaufen? → `reactionTimeMs`, ebenfalls gejittert
 
@@ -744,6 +747,19 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 ---
 
 ## Changelog
+
+### 2026-09-16: Kandidaten mit Grundfläche
+- `findStrategicPositions` und `findDistributedPositions` nehmen den Tower-Typ
+  statt der Reichweite (Reichweite aus `TOWER_TYPES`, 60 m ohne Reichweite).
+  Die sortierten Kandidaten beginnen beim ersten, auf dem der Tower stehen darf
+  (`TowerPlacementService.placementAt`: Grundfläche und Platzierungsregeln);
+  bessere, deren Mitte oder innerer Ring in einer Wand steht oder über einem
+  Abbruch hängt, fallen weg (TOWER_CREATION.md, Platzierungsregeln). Geprobt
+  wird nur bis zu diesem ersten, die übrigen nicht. Ohne das wählte die
+  Strategie nach der neuen Regel immer wieder denselben abgelehnten Kandidaten.
+- `TrainingSession.executeBotAction` platziert über `placementAt`;
+  `getSurfaceHeightAt` und die Engine-Referenz von `TrainingClientService` und
+  `TrainingSession` (`setEngine`) entfallen.
 
 ### 2026-09-15: Orbitallaser mit dem echten Strahl
 - OrbitalLaser bewertet Kandidaten mit dem Strahl der Fähigkeit (Weg, Radius,

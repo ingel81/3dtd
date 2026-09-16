@@ -43,11 +43,7 @@ export class ResearchCenterPlacementStrategy extends BaseStrategy {
     // combat range, but the placement service already picks valid street-adjacent positions.
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
-    const [best] = this.strategicPlacement.findStrategicPositions(
-      spawnPoints,
-      paths,
-      TOWER_TYPES['research-center'].range || 60,  // range 0 → default search radius
-    );
+    const [best] = this.strategicPlacement.findStrategicPositions(spawnPoints, paths, 'research-center');
     if (!best) return null;
 
     return {

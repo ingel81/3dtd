@@ -131,6 +131,8 @@ describe('Towers at roof edges and walls (playtest 12 to 17, C10)', () => {
       getOverlayGroup: () => overlay,
       getScene: () => ({}),
       getDevTerrainProvider: () => null,
+      // The surface the bot stands a tower on, here the roof
+      getTerrainHeightAtGeo: () => ROOF,
       getLosBlockerGroup: () => ({}),
       getTowerShadowMapper: () => ({
         invalidate: vi.fn(), update: vi.fn(), getRenderTarget: () => ({}),
@@ -223,11 +225,8 @@ describe('Towers at roof edges and walls (playtest 12 to 17, C10)', () => {
     expect(emit).not.toHaveBeenCalled();
   });
 
-  it('the bot gets the answers the preview gives: resolveFootprint, then the rules with it', async () => {
-    const botSays = (p: { lat: number; lon: number }) => {
-      const footprint = service.resolveFootprint(p.lat, p.lon, 'archer', ROOF);
-      return { footprint, result: service.validateTowerPosition(p.lat, p.lon, footprint) };
-    };
+  it('the bot gets the answers the preview gives (placementAt)', async () => {
+    const botSays = (p: { lat: number; lon: number }) => service.placementAt(p.lat, p.lon, 'archer')!;
 
     const reasons: (string | null)[] = [];
     for (const spot of [INNER_PAST_EDGE, INNER_IN_WALL, OUTER_PAST_EDGE]) {

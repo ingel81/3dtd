@@ -158,12 +158,7 @@ export class DistributedPlacementStrategy extends BaseStrategy {
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
     // Candidates already obey the placement rules; take the best one.
-    const [best] = this.strategicPlacement.findDistributedPositions(
-      spawnPoints,
-      paths,
-      TOWER_TYPES[chosen].range,
-      existingTowers
-    );
+    const [best] = this.strategicPlacement.findDistributedPositions(spawnPoints, paths, chosen, existingTowers);
     if (!best) return null;
 
     return {
