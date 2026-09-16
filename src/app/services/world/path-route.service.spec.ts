@@ -92,7 +92,7 @@ type Hits = number | number[];
 type Clearance = number | { left: Hits; right: Hits; shiftM?: number; lowRise?: { left: number; right: number } } | null | 'no tile';
 let clearanceAt: (x: number, z: number, max: number) => Clearance = (_x, _z, max) => max;
 
-/** Jede Messstation, die der Engine-Ersatz beantwortet hat: Ort, Richtung, Strahlhöhen, Länge, Deck, Brückenende. */
+/** Jede Messstation, die der Engine-Ersatz beantwortet hat: Ort, Richtung, Strahlhöhen, Länge, Deck, Zufahrt, gegangene Höhen. */
 const probeCalls: unknown[][] = [];
 
 /** Minimaler Engine-Ersatz: flaches Gelände, Geo→Lokal als Plattkarte um ORIGIN. */
@@ -107,8 +107,9 @@ function makeEngine(): ThreeTilesEngine {
       measureStreetClearance: (
         x: number, z: number, ax: number, az: number, heights: readonly number[], max: number, onDeck = false,
         onApproach: { path: readonly { x: number; z: number }[]; m: number } | null = null,
+        walked: number[] = [],
       ): StationProbe => {
-        probeCalls.push([x, z, ax, az, [...heights], max, onDeck, onApproach]);
+        probeCalls.push([x, z, ax, az, [...heights], max, onDeck, onApproach, walked]);
         const free = clearanceAt(x, z, max);
         if (free === null) return { unmeasured: 'coarse tile', tileError: 20, left: [], right: [] };
         if (free === 'no tile') return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };
@@ -275,6 +276,16 @@ describe('PathAndRouteService route geometry', () => {
       expect(point.path[0].z).toBeCloseTo(-start.z, 3);
     }
     expect(onLeg.length).toBeLessThan(probeCalls.length);
+    // One walk along the leg for its stations in a slice, and one in each slice of a run cut into slices.
+    expect(new Set(onLeg.map((call) => call[8])).size).toBe(1);
+    const sliced = buildRouteService(network, { lat: 47.9995, lon: 9.0 }, hq);
+    probeCalls.length = 0;
+    const run = sliced.beginClearanceMeasurement();
+    for (let done = false; !done;) done = run.step(0);
+    run.commit();
+    const slicedLeg = probeCalls.filter((call) => call[7] !== null);
+    expect(slicedLeg).toHaveLength(onLeg.length);
+    expect(new Set(slicedLeg.map((call) => call[8])).size).toBe(slicedLeg.length);
   });
 
   it('flags no leg in DevWorld, whose columns see no building on its steep terrain', () => {

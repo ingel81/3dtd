@@ -384,6 +384,24 @@ describe('TerrainQueries', () => {
       expect(queries.measureStreetClearance(0, 10, 1, 0, [1], 10)!.right.map((d) => +d.toFixed(6))).toEqual([10]);
     });
 
+    it('geht mit `walked` die Säulen eines Endstücks für seine Stationen nur einmal ab, mit denselben Ergebnissen', () => {
+      const { queries, addTile, rays } = setup();
+      addTile(floor(0, 10), 3, FINE);
+      addTile(floor(8, 10, 0, 10), 3, FINE);
+      addTile(wall(3, 6), 3, FINE);
+      const at = (z: number) => ({ path: [{ x: 0, z: 0 }, { x: 0, z: 10 }], m: z, start: 'street' as const });
+      const stations = [6, 7, 8, 9];
+      const alone = stations.map((z) => queries.measureStreetClearance(0, z, 1, 0, [1], 10, false, at(z)));
+      const own = rays.mock.calls.length;
+      rays.mockClear();
+      const walked: number[] = [];
+      expect(stations.map((z) => queries.measureStreetClearance(0, z, 1, 0, [1], 10, false, at(z), walked))).toEqual(alone);
+      // Je Station ihre Säule, zwei Seitenstrahlen und die Säule hinter der Wand; die Säulen am Anfang und bei 2, 4, 6
+      // und 8 m einmal, statt je Station bis zu ihr.
+      expect(rays.mock.calls.length).toBe(stations.length * 4 + 5);
+      expect(own).toBe(stations.length * 4 + 4 + 4 + 5 + 5);
+    });
+
     it('kostet für ein Hindernis nur am unteren Strahl eine Säule mehr', () => {
       const { queries, addTile, group } = street();
       addTile(wall(2, 2), 3, FINE);

@@ -92,7 +92,13 @@ Je Station (`TerrainQueries.measureStreetClearance`):
    daneben, etwa auf dem Bordstein oder einem Auto. Eine Station kostet so
    bei jeder Messung ihre Säulen neu. Mehr Strahlen als mit Cache sind das
    nur, wo sie eine Säule vorher aus dem Cache bekam, etwa die Säule eines
-   Brückenendes für jede Station dahinter; nicht gemessen.
+   Brückenendes für jede Station dahinter; nicht gemessen. Die Säulen
+   entlang einer Strecke hinter einem Brückenende oder eines Endstücks zum
+   HQ (`carriedY`) gehen die Stationen einer Scheibe (siehe "In Scheiben")
+   gemeinsam einmal ab (`walked`, seit 2026-09-16): Ohne das ginge jede
+   Station eines Endstücks von 150 m (`MAX_HQ_STREET_DISTANCE`) es von
+   seinem Anfang neu ab, zusammen 2850 Strahlen statt höchstens 75 je Scheibe.
+   Innerhalb einer Scheibe ändert sich kein Tile, die Höhen sind dieselben.
 2. Je Strahlhöhe ein waagrechter Strahl nach links und einer nach rechts, in
    1 m und 3,5 m über der Fläche, auf der die Zellen dort stehen (`surfaceY`,
    siehe Zellhöhe), jeder `maxHalfWidth` lang. Das ist der Boden der Säule,
@@ -2230,7 +2236,8 @@ archive/REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
     tieferen Straße), nimmt die Zelle den näheren der beiden.
   - Kosten nicht gemessen: je Zelle und Overlay-Knoten der Strecke bis zu
     30 Säulen entlang der Route, für alle einer Strecke dieselben, im
-    0,5-m-Cache der Engine; je Station dieselben Säulen als eigene Strahlen.
+    0,5-m-Cache der Engine; die Stationen einer Scheibe dieselben Säulen
+    einmal als eigene Strahlen.
 - Endstück zum HQ (seit 2026-09-16, nicht im Spiel geprüft):
   - Die getragene Höhe beginnt mit dem untersten Treffer dort, wo das
     Endstück die Straße verlässt. Steht dort ein Transporter ohne Straße
@@ -2247,9 +2254,9 @@ archive/REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
     laufen hinein. Das gilt auch für einen Weinberg mit Trockenmauern über
     1,5 m, die das Endstück hinaufsteigt, und für Gelände steiler als 75 %.
   - Kosten nicht gemessen: je Zelle eine Säule aus dem Cache je 2 m vom
-    Anfang des Endstücks bis zu ihrem Routenpunkt, je Station ebenso viele
-    Strahlen. Auf den Endstücken der beiden Snapshots (16 und 12 m) sind das
-    bis zu 9 Säulen, auf einem Endstück von 100 m bis zu 51.
+    Anfang des Endstücks bis zu ihrem Routenpunkt (auf den Endstücken der
+    beiden Snapshots, 16 und 12 m, bis zu 9, auf einem von 150 m bis zu 76),
+    für die Stationen einer Scheibe zusammen ebenso viele Strahlen.
 - Der synchrone Neuaufbau im laufenden Spiel, der Hänger beim Setzen eines
   Towers während der Messung und der Flush vor einer Welle sind mit
   `CorridorBuild` entfallen: Der Korridor wird je Routensatz einmal gebaut

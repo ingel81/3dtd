@@ -104,13 +104,24 @@ export function approachY(column: ColumnSample, y: number): number {
  * up a ramp, but neither down through a gap in the mesh onto the road under
  * a deck nor up onto a crown, a car or the roof of a building. Null without
  * a column at the start. `column` is the caller's column probe, cached by
- * the engine per 0.5 m.
+ * the engine per 0.5 m. `walked`, for a caller that asks for many points of
+ * one path with one probe (the clearance stations, whose columns are rays
+ * of their own): the height carried after each step so far, the start
+ * first; the walk goes on from where it ends and fills it, so each step
+ * costs its column once. The same heights as without it.
  */
-export function carriedY(point: ApproachPoint, column: (x: number, z: number) => ColumnSample | null): number | null {
+export function carriedY(
+  point: ApproachPoint,
+  column: (x: number, z: number) => ColumnSample | null,
+  walked: number[] = [],
+): number | null {
   const { path, m } = point;
-  const first = column(path[0].x, path[0].z);
-  if (first === null) return null;
-  let y = point.start === 'bridge' ? first.topY : first.groundY;
+  if (walked.length === 0) {
+    const first = column(path[0].x, path[0].z);
+    if (first === null) return null;
+    walked.push(point.start === 'bridge' ? first.topY : first.groundY);
+  }
+  let step = 0;
   let next = CARRY_STEP_M;
   let start = 0;
   for (let k = 1; k < path.length && next <= m; k++) {
@@ -118,15 +129,20 @@ export function carriedY(point: ApproachPoint, column: (x: number, z: number) =>
     const b = path[k];
     const length = Math.hypot(b.x - a.x, b.z - a.z);
     for (; next <= m && next <= start + length; next += CARRY_STEP_M) {
+      step++;
+      if (step < walked.length) continue;
+      let y = walked[step - 1];
       const f = (next - start) / length;
       const here = column(a.x + (b.x - a.x) * f, a.z + (b.z - a.z) * f);
-      if (here === null) continue;
-      const hit = approachY(here, y);
-      if (Math.abs(hit - y) <= CARRY_STEP_RISE_M) y = hit;
+      if (here !== null) {
+        const hit = approachY(here, y);
+        if (Math.abs(hit - y) <= CARRY_STEP_RISE_M) y = hit;
+      }
+      walked.push(y);
     }
     start += length;
   }
-  return y;
+  return walked[step];
 }
 
 /**
