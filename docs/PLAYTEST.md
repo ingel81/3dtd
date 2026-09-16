@@ -58,6 +58,11 @@ zoomen und mit G springen.
 - **743 Turm in Rothenburg: Befund.** Am Turm mit Durchgang steigt der Korridor über den Turm, statt unten
   durchzugehen. Die Zellen sind gelb, also als Durchgang erkannt, nehmen aber die falsche Höhe; dazu
   `cellsWithoutHeight=7` (sonst überall 0). Worker corrpassage.
+- **745 Ortswechsel im Spiel ändert den Korridor.** Erlenbach laden, dann im Spiel nach Tokyo navigieren: Fingerprint
+  `fa4461be` statt `e51f7114` beim frischen Laden. Abweichend sind `band` (`23291918` statt `40f24cbd`) und `heights`
+  (`813a9c6f` statt `8ae65891`); `stations`, `cells` und `tiles` sind gleich, alle Anzahlen identisch. Also weichen
+  nur Säulenhöhen ab, und das Rückgrat verschiebt das Band mit. Nach einem vollständigen Neuladen stimmt der Hash
+  wieder. Worker corrpassage.
 - **744 Rückfall kostet eine Sekunde umsonst.** Rothenburg 1036 ms ohne Fund, Berlin 1070 ms für eine Station,
   Paris 1087 ms für vier. Mit corrpassage.
 
