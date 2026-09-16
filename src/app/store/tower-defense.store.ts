@@ -167,12 +167,6 @@ export class TowerDefenseStore {
   /** Spatial grid debug */
   readonly spatialGridDebugVisible = this.uiStore.spatialGridDebugVisible;
 
-  /** DPS bins visualization */
-  readonly dpsBinsVisible = this.uiStore.dpsBinsVisible;
-
-  /** Debug log output */
-  readonly debugLog = this.uiStore.debugLog;
-
   // ════════════════════════════════════════════════════════════
   // BUILD MODE
   // ════════════════════════════════════════════════════════════
@@ -215,17 +209,8 @@ export class TowerDefenseStore {
   /** Map attribution text */
   readonly mapAttribution = this.engineStore.mapAttribution;
 
-  /** Camera compass heading (0=N, 90=E, 180=S, 270=W) */
-  readonly cameraHeading = this.engineStore.cameraHeading;
-
   /** Accumulated compass rotation (avoids 0°/360° flip) */
   readonly compassRotation = this.engineStore.compassRotation;
-
-  /** Camera debug overlay enabled */
-  readonly cameraDebugEnabled = this.engineStore.cameraDebugEnabled;
-
-  /** Camera debug info */
-  readonly cameraDebugInfo = this.engineStore.cameraDebugInfo;
 
   /** Camera framing debug visualization */
   readonly cameraFramingDebug = this.engineStore.cameraFramingDebug;
@@ -263,32 +248,14 @@ export class TowerDefenseStore {
   // RESEARCH STATE
   // ════════════════════════════════════════════════════════════
 
-  /** Completed research IDs */
-  readonly completedResearches = this.researchStore.completedResearches;
-
   /** Active researches with progress */
   readonly activeResearches = this.researchStore.activeResearches;
-
-  /** Research Center building level (0 = not placed) */
-  readonly researchCenterLevel = this.researchStore.centerLevel;
-
-  /** Whether Research Center has been placed */
-  readonly researchCenterPlaced = this.researchStore.centerPlaced;
 
   /** Maximum concurrent research slots */
   readonly researchSlots = this.researchStore.researchSlots;
 
   /** Available (free) research slots */
   readonly availableResearchSlots = this.researchStore.availableSlots;
-
-  /** Highest unlocked upgrade tier */
-  readonly maxUpgradeTier = this.researchStore.maxUpgradeTier;
-
-  /** Set of unlocked global perk IDs */
-  readonly unlockedPerks = this.researchStore.unlockedPerks;
-
-  /** Whether air targeting perk is unlocked */
-  readonly airTargetingUnlocked = this.researchStore.airTargetingUnlocked;
 
   // ════════════════════════════════════════════════════════════
   // COMPUTED VALUES — derived from signals above
