@@ -124,7 +124,7 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround): WalkJudgement {
  * (RouteCellSampler.tunnelColumn).
  *
  * Without a hit: a portal whose column meets nothing, a hole in the mesh
- * or the underside of the eaves over a mouth, left every cell of the
+ * at the mouth, left every cell of the
  * stretch without a height, and the fallback level only helped where its
  * coarser mesh happened to have one. The street there is measured, from the
  * backbones of the stations around it.

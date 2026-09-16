@@ -377,10 +377,10 @@ und `tiles` und anderen `band` und `heights` (PLAYTEST 745). Nachgestellt in
     Zelle, die mindestens drei stabile Zellen derselben Fläche berühren,
     deren Median (`medianOfStableNeighbourY`, derselbe wie im
     Ausreißer-Test) und ist ebenfalls `filled`. Das ist die Zelle am Rand
-    des Korridors, deren Säulen nichts treffen: Unter einer Traufe, einem
-    Laubengang oder einer Auskragung trifft eine Säule von oben nur die
-    Unterseite des Meshes, und die zählt ein Strahl nicht. Hinter ihr
-    liegt keine Zelle, also gibt es kein Paar. Anlass: Playtest 2026-09-16,
+    des Korridors, deren Säulen nichts treffen, etwa ein Loch im Mesh am
+    Fuß einer Fassade (ob die Tile-Materialien einseitig sind, sodass eine
+    Säule unter einer Traufe nur deren Rückseite sähe, ist nicht geprüft).
+    Hinter ihr liegt keine Zelle, also gibt es kein Paar. Anlass: Playtest 2026-09-16,
     Rothenburg, `build.fallback what=cells missing=7 found=0`: sieben rosa
     Zellen in einer Reihe am Rand des Bands vor dem Laubengang des
     Rathauses am Marktplatz (Way 1311003086, Screenshot 082242), die
@@ -509,8 +509,7 @@ Ausnahmen:
     steht auf der Straße vor der Mündung; ohne Band (erster Bau, DevWorld)
     behält das Portal seinen Treffer.
   - **Portal ohne Treffer** (seit 2026-09-16): Trifft die Säule an einem
-    Portal nichts (ein Loch im Mesh, die Unterseite der Traufe über einer
-    Mündung), nimmt das Portal ebenso die Straße unter der Bandstation dort
+    Portal nichts (ein Loch im Mesh an der Mündung), nimmt das Portal ebenso die Straße unter der Bandstation dort
     (`portalGround`). Die Zellen des Stücks sind dann `filled`, nicht
     `stable`: Die Höhe ist die des Bands, nicht die einer Säule, und die
     Rückfallstufe ersetzt sie, wo das Portal dort eine Säule hat. Vorher
