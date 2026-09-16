@@ -798,7 +798,7 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 - Begründung und Messwerte: [Warum die Platzierung so
   aussieht](#warum-die-platzierung-so-aussieht).
 
-### 2026-08: Training-Refresh (P3 im [Handover](HANDOVER_TRAINING_REFRESH.md))
+### 2026-08: Training-Refresh (P3 im [Handover](archive/HANDOVER_TRAINING_REFRESH.md))
 - `lightning` in `ALL_COMBAT_TOWERS`, `storm-mastery` in den Research-Listen.
 - Neue **AntiEtherealPlacementStrategy** (88) + `etherealGap` im Snapshot.
 - Tower-Bewertung über `computeTowerDPSFromLevels`; Anti-Air und Splash nach
@@ -831,7 +831,7 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 
 - [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md): die Wellenseite,
   Regel-Director und Fairness-Gate, gegen die der Bot spielt
-- [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md): Trainings- und
+- [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md): Trainings- und
   Messhistorie, inklusive der Befunde, die zu dieser Platzierung geführt haben
 - [WAVE_SYSTEM.md](WAVE_SYSTEM.md): Wave-Management und Spawn-Pipeline
 - [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md): Damage-Matrix und

@@ -98,6 +98,9 @@ Punkte und Entscheidungen in `docs/archive/`:
   Director-Welle), Freischaltzeitpunkte der Fähigkeiten nur geschätzt.
 - Bot-Läufe mit den neuen Inhalten (Chaos Tower, `skeleton_swarm`, Split, Nuklearschlag, Frost, EMP, Laser): keine
   Baseline, strategist und meta sind mit Läufen vor `77f3f2d` nicht direkt vergleichbar.
+- HANDOVER_TRAINING_REFRESH, "Offene Punkte" (2026-09-07): Die Design-Fragen aus den Abschnitten M und N betreffen
+  die Regelkurve des Directors: maximale Wellengröße, erlaubter Schaden je Welle, Ziel-Rundenlänge. In Bot-Läufen
+  starben die meisten Runs in Welle 1; der Gate-Controller steuert erst ab `GATE_ADAPT_WINDOW` (4) Wellen.
 - Playtest-Eindruck des Users 2026-09-14: Ooze eher zu schwach, Skarnax eher zu stark (erst in einem vollständigen
   Durchlauf bewerten).
 - PLAYTEST_2026-09 E3: Wie stark Herbert, Skarnax und Ooze je Welle sein sollen (HP, Tempo, Gold gegen typische

@@ -10,7 +10,7 @@
 > ist die einzige Umgebung im Projekt, in der das geht.
 >
 > Einstieg in den Wave Director: [AI_WAVE_DIRECTOR_PLAN.md](../../docs/AI_WAVE_DIRECTOR_PLAN.md).
-> Die Messreihe hinter dem Wechsel: [HANDOVER_RULE_DIRECTOR.md](../../docs/HANDOVER_RULE_DIRECTOR.md).
+> Die Messreihe hinter dem Wechsel: [HANDOVER_RULE_DIRECTOR.md](../../docs/archive/HANDOVER_RULE_DIRECTOR.md).
 
 ## Überblick
 
@@ -316,7 +316,7 @@ Auswertung ist selbst zu schreiben.
 statistisch nicht von `random` zu unterscheiden (mittlere Runlänge 45,6 [42,49]
 gegen 44,7 [41,48]), `rules` und `maxgate` erzeugten mehr Spannung (near-miss
 0,067–0,069 gegen 0,045). Details und Konsequenzen:
-[HANDOVER_RULE_DIRECTOR.md](../../docs/HANDOVER_RULE_DIRECTOR.md).
+[HANDOVER_RULE_DIRECTOR.md](../../docs/archive/HANDOVER_RULE_DIRECTOR.md).
 
 ---
 
@@ -763,11 +763,11 @@ Kurz-Timeline:
 - **Phase 5.11** Range-Based-Templates, 4 Continuous-Params, Wave-Duration-Cap
 - **Phase 5.16** Wave-Curriculum-Override
 - **Training-Refresh (2026-08)** Schema v2 → v3 (162 → 203 Features), Reward v4,
-  Wave-Context-Block (`docs/HANDOVER_TRAINING_REFRESH.md`)
+  Wave-Context-Block (`docs/archive/HANDOVER_TRAINING_REFRESH.md`)
 - **Regel-Director (2026-09-07, aktuell)** Fairness-Gate als Regelkreis,
   A/B-Roster, Advantage-Clipping, dazu das Ergebnis der Messung: das Spiel
   läuft auf Regeln, das Backend ist ein Messinstrument
-  (`docs/HANDOVER_RULE_DIRECTOR.md`)
+  (`docs/archive/HANDOVER_RULE_DIRECTOR.md`)
 - **Chaos Tower (2026-09-12)** Schema v3 → v4 (203 → 207 Features): `chaos`
   als Tower und als Schadenstyp
 - **Skeleton (2026-09-12)** Schema v4 → v5 (207 → 208 Features): `skeleton`

@@ -1,7 +1,10 @@
 # Handover: Training-Backend Refresh (From-Scratch-Retraining)
 
+> **Archiviert (2026-09-16).** Nur noch Historie. Den laufenden Stand beschreibt
+> [AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md), offene Arbeit steht in [TODO.md](../../TODO.md).
+
 **Branch:** `feat/training-backend-refresh`
-**Stand:** 2026-09-07, abgeschlossen (historisch). Ergebnis: kein Modell im Produkt; den aktuellen Stand beschreibt [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md).
+**Stand:** 2026-09-07, abgeschlossen (historisch). Ergebnis: kein Modell im Produkt; den aktuellen Stand beschreibt [AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md).
 
 Ziel: Das Training-Backend auf den aktuellen Spielstand bringen, damit ein
 From-Scratch-Trainingslauf überhaupt sinnvolle Gradienten bekommt. Ausgangslage
@@ -740,7 +743,7 @@ Platzierungsgewicht auf Spawn-Nähe **plus** eine Upgrade-Strategie, die nur den
 spawn-nächsten Turm fütterte und wegen ihrer Priorität fast jeden Zug bekam.
 Beides zusammen konzentrierte Bau *und* Gold auf denselben Punkt.
 
-**Änderung** (Details und Begründung: [BOT_SYSTEM.md](BOT_SYSTEM.md#warum-die-platzierung-so-aussieht)):
+**Änderung** (Details und Begründung: [BOT_SYSTEM.md](../BOT_SYSTEM.md#warum-die-platzierung-so-aussieht)):
 
 - `strategic-placement.service.ts`: U-förmiges Gewicht `endZoneProximity(t)`
   statt linearer Spawn-Nähe — beide Pfadenden schlagen die Mitte, der Spawn

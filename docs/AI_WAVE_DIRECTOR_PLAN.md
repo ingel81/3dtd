@@ -456,7 +456,7 @@ sich das Ergebnis. Ein Training auf demselben Raum wäre verlorene Rechenzeit.
 
 Das Backend wurde parallel repariert, Details in
 [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) und
-[HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md):
+[HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md):
 
 - Gate-Multiplikator wurde nie zwischen Episoden zurückgesetzt (Ratsche; mediane
   Runlänge 6 statt 80; behoben, danach 62).
@@ -570,8 +570,8 @@ sichtbaren Tabs, die Läufe stehen dann still und melden trotzdem „gesund".
 |----------|--------|
 | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | WaveManager, Spawn-Pipeline, Boss-Varianten, Blutmond, Jump to Wave |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy-Pattern-Bots, die als Gegenspieler im Training laufen |
-| [HANDOVER_RULE_DIRECTOR.md](HANDOVER_RULE_DIRECTOR.md) | _Bericht 2026-09-07:_ die Messreihe hinter dem Wechsel auf Regeln, Einstieg für ein späteres Training |
-| [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md) | _Bericht, abgeschlossen 2026-09-07:_ Refresh des Trainings-Backends, Befunde und Grundsatzentscheidungen |
+| [HANDOVER_RULE_DIRECTOR.md](archive/HANDOVER_RULE_DIRECTOR.md) | _Bericht 2026-09-07:_ die Messreihe hinter dem Wechsel auf Regeln, Einstieg für ein späteres Training |
+| [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md) | _Bericht, abgeschlossen 2026-09-07:_ Refresh des Trainings-Backends, Befunde und Grundsatzentscheidungen |
 | [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md) | _Historisch:_ Range-Templates, Decoder, Reward-Tuning; die Mechanik unterhalb der Entscheidung gilt weiter |
 | [HANDOVER_PLAYTEST_PHASE5.16.md](archive/HANDOVER_PLAYTEST_PHASE5.16.md) | _Historisch:_ Balance-Pass Mai 2026 (Curriculum, Endgame-Knobs, Gold-Budget); die Gold-Zahlen dort sind überholt |
 | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) | Debug-Pfad ohne Director: `STATIC_WAVE_PROFILES` |
