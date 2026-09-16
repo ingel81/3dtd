@@ -55,6 +55,8 @@ export interface CorridorBuildResult {
   fallbackStations: number;
   fallbackCells: number;
   cells: number;
+  /** Cells that still have no height of their own at the freeze, the fallback level included. */
+  cellsWithoutHeight: number;
   /** From the call to the freeze, ms. */
   ms: number;
 }
@@ -143,6 +145,8 @@ export class CorridorBuild {
   private running: number | null = null;
   /** The camera's error target while a build has it muted, see mute(). */
   private muted: { tiles: TilesLodDebug; camera: number } | null = null;
+  /** The last build froze without measuring anything, see frozeBlind(). */
+  private blind = false;
 
   private readonly nextFrame: () => Promise<void>;
   private readonly now: () => number;
@@ -169,6 +173,19 @@ export class CorridorBuild {
   expect(): number {
     this.active = ++this.generation;
     return this.active;
+  }
+
+  /**
+   * The corridor in use came out of a build that measured on nothing: no
+   * station had a tile, or no cell got a height. It then holds the street
+   * widths from OSM, and since nothing re-measures after a freeze, only
+   * another build gets it out of that. VisualizationFacadeService runs one
+   * when the page becomes visible again: a location that loads in a hidden
+   * tab loads no tiles at all, because the browser stops rAF and the
+   * renderer never traverses.
+   */
+  frozeBlind(): boolean {
+    return this.blind;
   }
 
   /** Why the corridor must not be built again now, null if it may: `__corridor.set()`. */
@@ -362,6 +379,7 @@ export class CorridorBuild {
         fallbackStations,
         fallbackCells,
         cells: grid.getStats().totalCells,
+        cellsWithoutHeight: grid.cellsWithoutHeight(),
         ms: this.now() - start,
       };
       const f = (value: number) => value.toFixed(1);
@@ -370,14 +388,25 @@ export class CorridorBuild {
         `passes=${passes} (${f(ms.passes)}) lines=${f(ms.lines)} wall=${f(result.ms)}ms stations=${measured} ` +
         `unmeasured=${result.unmeasured} cells=${result.cells}${timedOut ? ' tiles timed out' : ''}`,
       );
-      // Not a note: the corridor is frozen like this until the next build,
-      // so every route keeps the width its OSM tags gave it.
-      if (measured > 0 && result.unmeasured === measured) {
+      // Built on nothing: no station had a tile, or no cell got a height.
+      // Not a note, the corridor freezes like this until the next build, so
+      // every route keeps the width its OSM tags gave it.
+      const blindStations = measured > 0 && result.unmeasured === measured;
+      const blindCells = result.cells > 0 && result.cellsWithoutHeight === result.cells;
+      this.blind = blindStations || blindCells;
+      if (this.blind) {
+        const settled = timedOut ? ', and the tiles never settled' : '';
+        const what = blindStations
+          ? `no station found a tile (${measured} stations${settled})`
+          : `no cell got a height (${result.cells} cells${settled})`;
         console.warn(
-          `[Corridor] build: no station found a tile (${measured} stations${timedOut ? ', and the tiles never settled' : ''}). ` +
-          'The corridor keeps the street widths from OSM until the next build; reload the location or move the HQ to build it again.',
+          `[Corridor] build: ${what}. The corridor keeps the street widths from OSM until the next build; ` +
+          'it builds again by itself when the page becomes visible, and a reload or a move of the HQ builds it too.',
         );
-        traced(() => corridorTrace.log('build.notiles', { stations: measured, timedOut }));
+        traced(() => corridorTrace.log('build.notiles', {
+          stations: measured, unmeasured: result.unmeasured, cells: result.cells,
+          bare: result.cellsWithoutHeight, timedOut,
+        }));
       }
       traced(() => {
         if (before) corridorTrace.rebuilt(before, this.snapshot(), { passes, spawns: spawns.length }, ms.passes + ms.lines);
