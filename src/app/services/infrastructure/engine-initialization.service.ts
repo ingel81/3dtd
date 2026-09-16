@@ -348,12 +348,12 @@ export class EngineInitializationService {
       // OSM loading done (streets + routes calculated)
       this.osmLoading.set(false);
 
-      // Step 6: Finalize 3D view (waits for tiles + height sync)
-      // Camera correction and saveInitialCameraPosition are now handled by
-      // HeightUpdateService callback (runs BEFORE overlay hides)
+      // Step 6: Finalize 3D view. The height update marks this step done
+      // itself, with its meta; then the corridor is built under its own
+      // step, and the overview framed on the frozen cells
+      // (VisualizationFacadeService.scheduleOverlayHeightUpdate).
       await this.setStepCurrent('view');
       await callbacks.onScheduleHeightUpdate();
-      await this.setStepDone('view');
 
       // Final check (heights should trigger hiding overlay)
       callbacks.onCheckAllLoaded();
