@@ -287,8 +287,6 @@ export class TowerDefenseFacadeService {
         onInitializeGameState: () => this.initializeGameStateInternal(),
         onScheduleHeightUpdate: () => this.vizFacade.scheduleOverlayHeightUpdate(),
         onSetupClickHandler: () => this.vizFacade.setupClickHandlerWithGameState(),
-        onCreateBuildPreview: () => { /* no-op: TowerPlacementService handles this */ },
-        onSaveInitialCameraPosition: () => this.vizFacade.saveInitialCameraPosition(),
         onCheckAllLoaded: () => this.vizFacade.checkAllLoaded(),
       });
 
