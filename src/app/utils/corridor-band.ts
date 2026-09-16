@@ -10,16 +10,20 @@ import { segmentTouchesCell } from './route-grid-builder';
  * (lowest and highest hit) at the grid cells around it. Nothing here reads
  * the engine, the grid or the camera, so the same input gives the same band.
  *
- * 1. **Backbone:** at each station, the lowest plausible cell across the
- *    line within the OSM half width plus BACKBONE_SLACK_M: off a car, a
- *    hedge or the roof of a jetty the OSM line runs over, onto the street
- *    beside it, within the rays' walls. Plausible: not a hollow object, a
- *    neighbour across within `stepRise`, so a single pit does not count (a
- *    lane one cell wide between the walls does), and street: at most
- *    `stepDrop` under the cell of the OSM line, or within `stepRise` of the
- *    line's cell a few stations along (not the river beside a quay, the
- *    slope of a dam, a ditch). A start more than `stepDrop` under the
- *    backbones around it along the route is picked again.
+ * 1. **Backbone:** at each station, the plausible cells across the line
+ *    within the OSM half width plus BACKBONE_SLACK_M and the rays' walls.
+ *    Plausible: not a hollow object, a neighbour across within `stepRise`,
+ *    so a single pit does not count (a lane one cell wide between the walls
+ *    does), and street: at most `stepDrop` under the cell of the OSM line, or
+ *    within `stepRise` of the line's cell a few stations along (not the river
+ *    beside a quay, the slope of a dam, a ditch). Cells more than `stepDrop`
+ *    under the lowest cells of the stations around (their median: a drain, a
+ *    hole in the mesh) drop out, unless none is left. The band walked from
+ *    the lowest, then from the lowest it does not reach, and so on, are the
+ *    ways across; the route takes one per station as a chain
+ *    (chainSections): off a car, a hedge or the roof of a jetty the OSM line
+ *    runs over, onto the street beside it, and on one side of what stands
+ *    between two ways.
  * 2. **Band:** from the backbone out to each side, cell by cell across, with
  *    the walk of corridor-walk.ts (a step at most `stepRise` up and `stepDrop`
  *    down from the ground reached before, the cross slope allowed for). The
@@ -139,7 +143,7 @@ export interface CorridorBand {
 /** How far past the OSM half width the backbone is looked for, metres: the OSM line of 732 ran 1 to 2 m off the middle of the street. */
 export const BACKBONE_SLACK_M = 1.5;
 
-/** Stations either way whose backbones the along filter takes the median of. */
+/** Stations either way whose lowest backbone candidates the along filter takes the median of (withoutPits). */
 const ALONG_FILTER_STATIONS = 2;
 
 /**
@@ -207,9 +211,23 @@ interface CrossCell {
   column: BandColumn | null;
 }
 
+/**
+ * A way across a station: a backbone and the band walked out from it. Two
+ * ways of a station lie beside each other, parted by what ended the walk of
+ * each (a hollow object, a step, a drop).
+ */
+interface Section {
+  /** Index of the backbone in the station's cells. */
+  b: number;
+  left: number;
+  right: number;
+}
+
 /** One station while the band is built. */
 interface Work extends BandStation {
   cells: CrossCell[];
+  /** The ways across, lowest backbone first (sectionsOf). */
+  sections: Section[];
   /** Index of the backbone in `cells`, -1 without one. */
   b: number;
   wallL: number;
@@ -263,15 +281,16 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
     return false;
   };
 
+  const candidates = withoutPits(stations, stations.map((st, k) => (st.kind === 'fixed' ? [] : backboneCandidates(st, (g) => onStreet(k, g)))));
   stations.forEach((st, k) => {
-    if (st.kind !== 'fixed') pickBackbone(st, (g) => onStreet(k, g));
+    st.sections = sectionsOf(st, candidates[k]);
+    if (st.sections.length === 0) st.kind = 'fixed';
   });
-  filterBackbones(stations, onStreet);
+  chainSections(stations);
   const street = streetLevel(stations);
   stations.forEach((st, k) => {
     st.street = street[k];
   });
-  for (const st of stations) walkBand(st);
   // Passages, band and line, until the line runs through no cell on a cover
   // outside a passage (coveredOnLine). Each round starts from the walk and
   // only adds stations, so it ends.
@@ -307,7 +326,7 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
   }
   const { maxSlope, maxCurvature } = shapeOf(stations);
   return {
-    stations: stations.map(({ cells: _cells, b: _b, wallL: _l, wallR: _r, window: _w, ...st }) => st),
+    stations: stations.map(({ cells: _cells, sections: _sections, b: _b, wallL: _l, wallR: _r, window: _w, ...st }) => st),
     passages,
     maxSlope,
     maxCurvature,
@@ -354,7 +373,7 @@ function stationsOf(
         segment: i, k, n, s: start + length * t, x, z, rx, rz,
         kind: route.open[i] ? 'band' : 'fixed',
         backbone: null, street: null, left: -wallL, right: wallR, centre: 0,
-        cells: route.open[i] ? across(x, z, rx, rz) : [], b: -1, wallL, wallR, window: street + BACKBONE_SLACK_M,
+        cells: route.open[i] ? across(x, z, rx, rz) : [], sections: [], b: -1, wallL, wallR, window: street + BACKBONE_SLACK_M,
       });
     }
     start += length;
@@ -406,56 +425,153 @@ function backboneCandidates(st: Work, onStreet: (ground: number) => boolean): nu
   return found;
 }
 
-/** The lowest of `candidates` in `st` at least `floor` high; ties to the one nearest the line. -1 without one. */
-function lowest(st: Work, candidates: readonly number[], floor = -Infinity): number {
+/** The lowest of `candidates` in `st`; ties to the one nearest the line. -1 without one. */
+function lowest(st: Work, candidates: readonly number[]): number {
   let best = -1;
   for (const j of candidates) {
-    const g = st.cells[j].column!.ground;
-    if (g < floor) continue;
     if (best < 0) {
       best = j;
       continue;
     }
+    const g = st.cells[j].column!.ground;
     const bg = st.cells[best].column!.ground;
     if (g < bg - 0.01 || (Math.abs(g - bg) <= 0.01 && Math.abs(st.cells[j].u) < Math.abs(st.cells[best].u))) best = j;
   }
   return best;
 }
 
-/** The backbone of `st`, see the file comment; `fixed` where no cell across has a plausible column. */
-function pickBackbone(st: Work, onStreet: (ground: number) => boolean): void {
-  st.b = lowest(st, backboneCandidates(st, onStreet));
-  if (st.b < 0) {
-    st.kind = 'fixed';
-    return;
-  }
-  const cell = st.cells[st.b];
-  st.backbone = { offset: cell.u, y: cell.column!.ground };
-}
-
-/** Median of the backbone heights of the stations within `reach` of `k` that have one, `k` itself included. */
-function backboneMedian(stations: readonly Work[], k: number, reach: number): number | null {
-  const heights: number[] = [];
-  for (let j = Math.max(0, k - reach); j <= Math.min(stations.length - 1, k + reach); j++) {
-    const y = stations[j].backbone?.y;
-    if (y !== undefined) heights.push(y);
-  }
-  if (heights.length === 0) return null;
-  heights.sort((a, b) => a - b);
-  return heights[Math.floor((heights.length - 1) / 2)];
-}
-
-/** A backbone more than `stepDrop` under the median of those around it (a drain, a hole in the mesh) is picked again above that. */
-function filterBackbones(stations: Work[], onStreet: (k: number, ground: number) => boolean): void {
-  const medians = stations.map((_, k) => backboneMedian(stations, k, ALONG_FILTER_STATIONS));
-  stations.forEach((st, k) => {
-    const median = medians[k];
-    if (!st.backbone || median === null || st.backbone.y >= median - corridorConfig.stepDrop) return;
-    const j = lowest(st, backboneCandidates(st, (g) => onStreet(k, g)), median - corridorConfig.stepDrop);
-    if (j < 0) return;
-    st.b = j;
-    st.backbone = { offset: st.cells[j].u, y: st.cells[j].column!.ground };
+/**
+ * The backbone candidates of every station without those more than
+ * `stepDrop` under the median of the lowest candidates within
+ * ALONG_FILTER_STATIONS of it (a drain, a hole in the mesh), unless that
+ * leaves none.
+ */
+function withoutPits(stations: readonly Work[], candidates: readonly (readonly number[])[]): (readonly number[])[] {
+  const lows = stations.map((st, k) => {
+    const j = lowest(st, candidates[k]);
+    return j < 0 ? null : st.cells[j].column!.ground;
   });
+  return candidates.map((list, k) => {
+    if (lows[k] === null) return list;
+    const heights: number[] = [];
+    for (let j = Math.max(0, k - ALONG_FILTER_STATIONS); j <= Math.min(stations.length - 1, k + ALONG_FILTER_STATIONS); j++) {
+      if (lows[j] !== null) heights.push(lows[j]!);
+    }
+    heights.sort((a, b) => a - b);
+    const floor = heights[Math.floor((heights.length - 1) / 2)] - corridorConfig.stepDrop;
+    if (lows[k]! >= floor) return list;
+    const kept = list.filter((j) => stations[k].cells[j].column!.ground >= floor);
+    return kept.length > 0 ? kept : list;
+  });
+}
+
+/**
+ * The ways across `st` (Section): the band walked from the lowest of
+ * `candidates`, then from the lowest candidate no band so far reaches, until
+ * every candidate lies in one. Lowest backbone first.
+ */
+function sectionsOf(st: Work, candidates: readonly number[]): Section[] {
+  const sections: Section[] = [];
+  let open = candidates;
+  while (open.length > 0) {
+    const b = lowest(st, open);
+    const section = { b, ...walkBand(st, b) };
+    sections.push(section);
+    open = open.filter((j) => j !== b && (st.cells[j].u < section.left || st.cells[j].u > section.right));
+  }
+  return sections;
+}
+
+/** What a chain of ways across costs so far (chainSections), compared in this order. */
+interface ChainCost {
+  /** Changes between ways that do not overlap: the line crosses what ended their walks. */
+  crossings: number;
+  /** Metres the backbones stand more than `stepRise` over the lowest backbone across their station, summed. */
+  raised: number;
+  /** Metres the ways lie off the OSM line, summed. */
+  off: number;
+}
+
+const cheaper = (a: ChainCost, b: ChainCost) =>
+  a.crossings !== b.crossings ? a.crossings < b.crossings : a.raised !== b.raised ? a.raised < b.raised : a.off < b.off;
+
+/**
+ * The way across every station (sectionsOf), chosen along the route as one
+ * chain: the fewest changes to a way that does not overlap the way at the
+ * station before, then the least standing on something higher than a step
+ * over the lowest way across, then the ways nearest the OSM line. A shortest
+ * path over stations and ways (Viterbi), over each run of stations with a
+ * way across; ties to the lower way. Sets backbone and band.
+ *
+ * Each station used to take the lowest cell on its own. Where a cell beside
+ * the street lay a little lower (a verge under a hedge 0.46 m down, a strip
+ * 3 cm down behind a row of posts) or an object stood between the two sides,
+ * neighbouring stations laid their bands on different sides of it, and the
+ * taper along the route (taperEdges) cut each down to its backbone: 0 to
+ * 1.5 m where the walks alone were 4 to 14 m wide (playtest 748, Stuttgart,
+ * Berlin, Paris; tmp/fix1/reports/cornerband.md).
+ *
+ * - Off a car, a hedge or a roof the OSM line runs over: that way stands
+ *   more than a step over the street beside it, which overlaps the stations
+ *   around it as well.
+ * - A car filling a lane: the only way across, the band lies on it (E6).
+ * - Across a long row of objects: the chain crosses it where no way goes
+ *   round it, once.
+ * - Within a step of each other (a verge, a gutter), the way the OSM line
+ *   runs in.
+ */
+function chainSections(stations: Work[]): void {
+  const { stepRise } = corridorConfig;
+  for (let start = 0; start < stations.length; start++) {
+    if (stations[start].sections.length === 0) continue;
+    let end = start;
+    while (end + 1 < stations.length && stations[end + 1].sections.length > 0) end++;
+    const own = (st: Work, i: number): ChainCost => {
+      const section = st.sections[i];
+      const base = st.cells[st.sections[0].b].column!.ground;
+      return {
+        crossings: 0,
+        raised: Math.max(0, st.cells[section.b].column!.ground - base - stepRise),
+        off: Math.max(0, section.left, -section.right),
+      };
+    };
+    let cost = stations[start].sections.map((_, i) => own(stations[start], i));
+    // from[k - start - 1][i]: the way at station k - 1 of the cheapest chain to way i at station k.
+    const from: number[][] = [];
+    for (let k = start + 1; k <= end; k++) {
+      const prior = stations[k - 1].sections;
+      const priorCost = cost;
+      const step: number[] = [];
+      cost = stations[k].sections.map((section, i) => {
+        const here = own(stations[k], i);
+        let best = -1;
+        let bestCost = here;
+        for (let p = 0; p < prior.length; p++) {
+          const apart = Math.min(prior[p].right, section.right) <= Math.max(prior[p].left, section.left);
+          const total = { crossings: priorCost[p].crossings + (apart ? 1 : 0), raised: priorCost[p].raised + here.raised, off: priorCost[p].off + here.off };
+          if (best < 0 || cheaper(total, bestCost)) {
+            best = p;
+            bestCost = total;
+          }
+        }
+        step.push(best);
+        return bestCost;
+      });
+      from.push(step);
+    }
+    let i = cost.reduce((b, c, j) => (cheaper(c, cost[b]) ? j : b), 0);
+    for (let k = end; k >= start; k--) {
+      const st = stations[k];
+      const section = st.sections[i];
+      const cell = st.cells[section.b];
+      st.b = section.b;
+      st.backbone = { offset: cell.u, y: cell.column!.ground };
+      st.left = section.left;
+      st.right = section.right;
+      if (k > start) i = from[k - start - 1][i];
+    }
+    start = end;
+  }
 }
 
 /**
@@ -613,32 +729,33 @@ function coveredOnLine(
   return [...found].sort((p, q) => p - q);
 }
 
-/** The edges of the band of `st` (band and climb), see the file comment. */
-function walkBand(st: Work): void {
-  if (st.b < 0) return;
-  const toRight = st.cells[st.b + 1]?.column ?? null;
-  const toLeft = st.cells[st.b - 1]?.column ?? null;
-  st.right = walkSide(st, 1, crossSlope(st, 1, toRight, toLeft));
-  st.left = walkSide(st, -1, crossSlope(st, -1, toLeft, toRight));
+/** The edges of the band of `st` walked from its cell `b`, see the file comment. */
+function walkBand(st: Work, b: number): { left: number; right: number } {
+  const toRight = st.cells[b + 1]?.column ?? null;
+  const toLeft = st.cells[b - 1]?.column ?? null;
+  return {
+    left: walkSide(st, b, -1, crossSlope(st, b, -1, toLeft, toRight)),
+    right: walkSide(st, b, 1, crossSlope(st, b, 1, toRight, toLeft)),
+  };
 }
 
 /**
  * Rise per metre of the ground across `st` towards side `dir`, from the
- * backbone's neighbour on that side (`toward`) and on the other (`away`):
+ * neighbour of its cell `b` on that side (`toward`) and on the other (`away`):
  * where it rises towards the side about as much as it falls on the other,
  * or falls about as much as it rises there (the two within `stepRise` over a
  * cell), the smaller of the two, negative where it falls; else 0. As
- * crossSlope in corridor-walk.ts, from the backbone.
+ * crossSlope in corridor-walk.ts, from cell `b`.
  */
-function crossSlope(st: Work, dir: number, toward: BandColumn | null, away: BandColumn | null): number {
-  const b = st.cells[st.b];
-  const t = st.cells[st.b + dir];
-  const a = st.cells[st.b - dir];
+function crossSlope(st: Work, b: number, dir: number, toward: BandColumn | null, away: BandColumn | null): number {
+  const from = st.cells[b];
+  const t = st.cells[b + dir];
+  const a = st.cells[b - dir];
   if (!toward || !away || !t || !a) return 0;
-  const y = b.column!.ground;
-  const out = (toward.ground - y) / Math.max(1e-6, Math.abs(t.u - b.u));
-  const back = (y - away.ground) / Math.max(1e-6, Math.abs(b.u - a.u));
-  const cell = Math.hypot(t.x - b.x, t.z - b.z);
+  const y = from.column!.ground;
+  const out = (toward.ground - y) / Math.max(1e-6, Math.abs(t.u - from.u));
+  const back = (y - away.ground) / Math.max(1e-6, Math.abs(from.u - a.u));
+  const cell = Math.hypot(t.x - from.x, t.z - from.z);
   if (out * back <= 0 || Math.abs(out - back) * cell > corridorConfig.stepRise) return 0;
   return Math.sign(out) * Math.min(Math.abs(out), Math.abs(back));
 }
@@ -655,10 +772,10 @@ function crossSlope(st: Work, dir: number, toward: BandColumn | null, away: Band
  * backbone ends the band midway to the last one reached; the rays' wall ends
  * it at the wall.
  */
-function walkSide(st: Work, dir: number, slope: number): number {
+function walkSide(st: Work, b: number, dir: number, slope: number): number {
   const { stepRise, stepDrop, roofRise } = corridorConfig;
   const wall = dir > 0 ? st.wallR : -st.wallL;
-  const start = st.cells[st.b];
+  const start = st.cells[b];
   const y0 = start.column!.ground;
   const rise = Math.max(0, slope);
   const fall = Math.min(0, slope);
@@ -667,7 +784,7 @@ function walkSide(st: Work, dir: number, slope: number): number {
   let last = y0;
   let lastD = 0;
   let lastU = start.u;
-  for (let j = st.b + dir; j >= 0 && j < st.cells.length; j += dir) {
+  for (let j = b + dir; j >= 0 && j < st.cells.length; j += dir) {
     const cell = st.cells[j];
     if (dir * (cell.u - wall) > 0) return wall;
     const d = Math.abs(cell.u - start.u);
