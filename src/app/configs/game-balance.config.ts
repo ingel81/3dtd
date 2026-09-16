@@ -15,9 +15,6 @@ export const GAME_BALANCE = {
 
   /** Combat values */
   combat: {
-    /** Damage dealt to base when enemy reaches HQ */
-    enemyBaseDamage: 1,
-
     /**
      * Most HP a single wave may cost, however many enemies get through.
      *
