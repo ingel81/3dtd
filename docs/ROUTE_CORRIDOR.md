@@ -982,6 +982,16 @@ Ein Bau (`build`) läuft in dieser Reihenfolge:
 Danach ändert nichts mehr Routen, Waypoints, Zellen oder Höhen: kein
 Tile-Schub, keine Kamerafahrt, kein Tower. Erst der nächste Bau tut es.
 
+Nach dem Bau einer Ortsladung rahmt `VisualizationFacadeService` den
+Überblick neu, auf den eingefrorenen Zellen, stellt die Kamera dorthin und
+speichert ihn als Startansicht (`CameraControlService.saveInitialPosition`,
+Log `[Camera] corridor.cameraCorrection`). Bis 2026-09-16 standen Kamera und
+Startansicht auf den Zellen des Schritts "Generating Route Grid", die der Bau
+verwirft; Intro-Landung und Reset Camera rechneten ihn schon vorher frisch.
+Der Rahmen nach den Höhen bleibt, er stellt nur die Karte hinter dem
+Ladescreen während des Baus. Beim Umsetzen von HQ oder Spawn bleibt die
+Kamera, wo der Spieler sie hat.
+
 **Grenzfall Hintergrund-Tab:** Lädt ein Ort in einem Tab, den der Browser
 nicht zeichnet, steht `requestAnimationFrame`. Der Renderer traversiert dann
 nicht und fragt keine Tiles an, auch nicht die der Region. Der Bau wartet

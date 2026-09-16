@@ -622,11 +622,12 @@ export class VisualizationFacadeService {
       (detail: string) => this.engineInit.updateStepMeta('view', detail),
       () => this.checkAllLoaded(),
       () => {
-        // Heights are known now: frame the overview on the real ground and
-        // store it as the view the intro lands in and Reset Camera returns to.
+        // Heights are known now: frame the overview on the real ground, for
+        // the map behind the loading screen while the corridor is built. The
+        // view the intro lands in waits for the frozen cells
+        // (buildCorridorBehindLoadingScreen).
         cameraTimeline.record('heights.cameraCorrection', { introRunning: this.introFlight.isRunning() });
         this.reframeCameraWithRoutes();
-        this.saveInitialCameraPosition();
       }
     );
 
@@ -636,9 +637,9 @@ export class VisualizationFacadeService {
 
   /**
    * The corridor build of a location load, as the loading step "corridor":
-   * its steps as the step's meta, then the next check whether loading is
-   * done. A build another load or move superseded ends without a word; that
-   * one asks again.
+   * its steps as the step's meta, then the overview on the frozen cells and
+   * the next check whether loading is done. A build another load or move
+   * superseded ends without a word; that one asks again.
    */
   private async buildCorridorBehindLoadingScreen(ticket: number): Promise<void> {
     void this.engineInit.setStepCurrent('corridor');
@@ -649,6 +650,16 @@ export class VisualizationFacadeService {
     );
     if (!result) return;
     void this.engineInit.setStepDone('corridor', `${result.stations} stations, ${result.cells} cells${result.timedOut ? ', tiles timed out' : ''}`);
+    // The overview so far stood on the cells from before the build, which the
+    // build replaced. Frame it on the frozen cells and store it as the view
+    // the intro lands in and Reset Camera returns to. The build is over, so
+    // this move cannot touch what it measured, and the camera refines as
+    // usual again (CorridorBuild.unmute). The loading screen still stands and
+    // takes the pointer; the intro flight takes the camera right after it. A
+    // build under the hint of a move (buildCorridor) leaves the camera alone.
+    cameraTimeline.record('corridor.cameraCorrection', { introRunning: this.introFlight.isRunning() });
+    this.reframeCameraWithRoutes();
+    this.saveInitialCameraPosition();
     this.checkAllLoaded();
   }
 

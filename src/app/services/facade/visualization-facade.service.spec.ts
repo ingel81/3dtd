@@ -822,10 +822,51 @@ describe('VisualizationFacadeService', () => {
       onCheck();
       expect(engineInit.checkAllLoaded).toHaveBeenCalled();
 
+      // The camera behind the loading screen; the view the intro lands in waits for the frozen cells
       cameraFraming.getLastFrame.mockReturnValue(FRAME);
       onCamera();
       expect(cameraFraming.applyFrame).toHaveBeenCalledWith(FRAME);
+      expect(cameraControl.saveInitialPosition).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The overview used to stand on the cells the grid step made before the
+     * build, which the build throws away and makes again (bootsteps.md).
+     */
+    it('frames the overview on the frozen cells once the build is over, and stores it as the initial view', async () => {
+      // The cells before the build stand on 10 m, the frozen ones on 12 m
+      let groundY = 10;
+      gameState.rebuildRouteCells.mockImplementationOnce(() => { groundY = 12; });
+      grid.isInitialized.mockReturnValue(true);
+      grid.getGrid.mockReturnValue({ getGroundSampleAt: () => ({ y: groundY, tileError: 2.5 }) });
+      const grounds: unknown[] = [];
+      cameraFraming.computeFrameWithEngine.mockImplementationOnce((_hq, _spawns, options) => {
+        grounds.push((options as { groundAt: (x: number, z: number) => unknown }).groundAt(0, 0));
+        return FRAME;
+      });
+      const pending = gameState.setCorridorPending.mock.calls[0][0] as () => boolean;
+      let buildingWhenFramed: boolean | null = null;
+      cameraFraming.applyFrame.mockImplementationOnce(() => { buildingWhenFramed = pending(); });
+      cameraFraming.getLastFrame.mockReturnValue(FRAME);
+
+      await untilDone(facade.scheduleOverlayHeightUpdate());
+
+      expect(grounds).toEqual([{ y: 12, reliable: true }]);
+      expect(cameraFraming.applyFrame).toHaveBeenCalledWith(FRAME);
+      expect(buildingWhenFramed).toBe(false);
       expect(cameraControl.saveInitialPosition).toHaveBeenCalledWith(VIEW);
+    });
+
+    it('leaves the camera where it is when the build stops before the freeze', async () => {
+      corridor.slices = 3;
+      const loading = facade.scheduleOverlayHeightUpdate();
+      await untilDone(Promise.resolve());
+      routesEpoch = 2;
+      await untilDone(loading);
+
+      expect(corridor.runs[0].cancel).toHaveBeenCalledWith('routes replaced');
+      expect(cameraFraming.applyFrame).not.toHaveBeenCalled();
+      expect(cameraControl.saveInitialPosition).not.toHaveBeenCalled();
     });
 
     it('builds the corridor once the heights stop: measures, band, routes and cells, then the line', async () => {
@@ -885,6 +926,9 @@ describe('VisualizationFacadeService', () => {
       expect(result).toMatchObject({ bandStations: 30, passages: 0, cells: 42 });
       expect(report).toHaveBeenCalledWith({ step: 'Building the corridor', percent: null });
       expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
+      // The player has the camera during a move
+      expect(cameraFraming.applyFrame).not.toHaveBeenCalled();
+      expect(cameraControl.saveInitialPosition).not.toHaveBeenCalled();
     });
   });
 
