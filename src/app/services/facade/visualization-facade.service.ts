@@ -227,7 +227,8 @@ export class VisualizationFacadeService {
     gameState.setCorridorPending(() => this.corridor.pending());
     // A location that loads in a hidden tab gets no tiles at all, and the
     // corridor freezes on nothing; build again when the page is shown.
-    // Adding the same listener twice (a location change) does nothing.
+    // Off first: initialize() runs again on a location change.
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.corridorConsole.install();
     this.corridorSnapshot.connect(this.snapshotReader);
